@@ -1,128 +1,329 @@
 {
-  "titulo": "Los que no se fueron",
-  "resumen": "Entre Valdeluz y el lago de Puenteroto quedan cuentas pendientes de la guerra: un sepulturero que guarda el libro de los difuntos, unos desertores del Imperio que no quieren volver y un barquero que lleva cien años esperando su pago.",
+  "titulo": "Los ahogados de Fondovalle",
+  "resumen": "Hace treinta años el Marqués de Alcázar Hondo mandó volar la presa de Puenteroto y culpó a los muertos de Valdeluz; en la orilla del lago que dejó, la escribana ahogada de Fondovalle espera un papel con sello para escribir la causa de sus trescientos doce vecinos, y ese papel lo lleva cosido un penitente descalzo.",
+  "base": {
+    "alcaide": "necropolis-guardian-viejo",
+    "encargado-armory": "necropolis-forjador-esqueleto"
+  },
   "marcas": {
-    "acta-de-defuncion": {
-      "falta": "nadie ha sacado aún del libro de Valdeluz un papel que dé por muertos a esos hombres",
-      "ya": "el acta que da por muertos a los desertores ya salió del libro de Tobías"
+    "nombre-del-zapador": {
+      "falta": "nadie ha dicho aún en voz alta un nombre que se calla desde la noche de la presa",
+      "ya": "el nombre del capitán de zapadores de Puenteroto, Gaspar Mendaña, ya se ha dicho en voz alta"
     },
-    "libro-leido": {
-      "falta": "nadie ha buscado aún a Remedios en el libro de difuntos",
-      "ya": "el libro de difuntos ya dijo dónde yace Remedios"
+    "lo-que-vio-el-molinero": {
+      "falta": "nadie ha oído aún lo que vio el molinero de Fondovalle la noche de la presa",
+      "ya": "lo que vio el molinero de Fondovalle la noche de la presa ya se ha contado"
     },
-    "cepillo-vaciado": {
-      "falta": "el cepillo de las ánimas sigue lleno",
-      "ya": "el cepillo de las ánimas ya está vacío"
+    "el-fuego-del-robledal": {
+      "falta": "nadie ha contado aún quién prendió el Robledal",
+      "ya": "ya se sabe quién prendió el Robledal"
     },
-    "carros-saqueados": {
-      "falta": "nadie ha tocado los carros de intendencia",
-      "ya": "los carros de intendencia ya están registrados"
+    "libro-de-fondovalle": {
+      "falta": "nadie ha visto aún el libro que se escribe en la orilla de Valle Hondo",
+      "ya": "el libro que se escribe en la orilla de Valle Hondo ya se ha abierto ante un forastero"
     },
-    "derrota-en-el-lago": {
-      "falta": "los ahogados del lago aún no han vencido a nadie",
-      "ya": "los ahogados del lago ya vencieron a alguien"
+    "encargo-del-marques": {
+      "falta": "el Marqués de Alcázar Hondo aún no ha encargado a nadie que busque su papel",
+      "ya": "el Marqués de Alcázar Hondo ya ha encargado a alguien que busque su papel"
+    },
+    "orden-fuera-de-la-ermita": {
+      "falta": "nadie ha sacado aún a la luz el papel sellado de la noche de la presa",
+      "ya": "el papel sellado de la noche de la presa ya ha salido de la ermita de las Brasas"
+    },
+    "badajo-fuera-de-la-balsa": {
+      "falta": "el badajo de la campana de San Roque sigue en la balsa de la trapera",
+      "ya": "el badajo de la campana de San Roque ya ha salido de la balsa de la trapera"
+    },
+    "causa-escrita": {
+      "falta": "la columna de la causa sigue en blanco en el libro de Fondovalle",
+      "ya": "la causa de los ahogados de Fondovalle ya está escrita en su libro"
+    },
+    "orden-quemada": {
+      "falta": "la orden sellada del Marqués aún no ha ardido",
+      "ya": "la orden sellada del Marqués ya es ceniza en la chimenea de su quinta"
+    },
+    "cepillo-robado": {
+      "falta": "el cepillo de San Roque sigue cerrado en la torre",
+      "ya": "el cepillo de San Roque ya está vacío"
+    },
+    "ahogados-en-marcha": {
+      "falta": "los ahogados de Fondovalle que quieren pelear aún no han salido del lago",
+      "ya": "los ahogados de Fondovalle que querían pelear ya han salido del lago con alguien"
+    },
+    "rodela-de-la-milicia": {
+      "falta": "la rodela de la milicia de Fondovalle sigue en la balsa de la trapera",
+      "ya": "la rodela de la milicia de Fondovalle ya no está en la balsa"
+    },
+    "plata-del-robledal": {
+      "falta": "la plata fundida del Robledal sigue entre los tocones",
+      "ya": "la plata fundida del Robledal ya no está entre los tocones"
+    },
+    "maza-de-murg": {
+      "falta": "la maza de Murg sigue clavada en el tocón",
+      "ya": "la maza de Murg ya no está clavada en el tocón"
+    },
+    "espada-del-zapador": {
+      "falta": "la espada del zapador sigue bajo el hábito doblado",
+      "ya": "la espada del zapador ya no está bajo el hábito"
     }
   },
   "lugares": [
     {
-      "id": "capilla-de-valdeluz",
-      "nombre": "La capilla del camposanto de Valdeluz",
-      "at": { "x": 7, "y": 3 },
-      "fondo": { "plaza": "no-muertos" },
-      "estados": {
-        "cerrada": "con la cripta cerrada",
-        "despoblada": "con la cripta vacía"
+      "id": "horca-de-la-raya",
+      "nombre": "La horca de la Raya",
+      "at": {
+        "x": 2,
+        "y": 9
       },
-      "estadoInicial": "cerrada",
+      "fondo": {
+        "plaza": "imperio"
+      },
+      "estados": {
+        "colgados": "con sus ahorcados",
+        "descolgados": "con los ahorcados en el suelo",
+        "enterrados": "con dos tumbas a sus pies",
+        "vacia": "vacía"
+      },
+      "estadoInicial": "colgados",
       "puntos": [
         {
-          "id": "tobias",
-          "x": 0.35,
-          "persona": {
-            "nombre": "Tobías",
-            "papel": "sepulturero del camposanto",
-            "figura": "necropolis-forjador-esqueleto"
+          "id": "ahorcados",
+          "x": 0.4,
+          "si": [
+            {
+              "estado": "colgados"
+            }
+          ],
+          "cosa": {
+            "nombre": "Los ahorcados"
           },
-          "dialogo": "tobias"
+          "dialogo": "ahorcados"
         },
         {
-          "id": "cepillo",
+          "id": "gines",
+          "x": 0.4,
+          "si": [
+            {
+              "estado": "descolgados"
+            }
+          ],
+          "persona": {
+            "nombre": "Ginés Pardo",
+            "papel": "molinero ahorcado",
+            "figura": "esqueleto-molinero-ahorcado"
+          },
+          "dialogo": "gines"
+        },
+        {
+          "id": "tumbas",
+          "x": 0.4,
+          "si": [
+            {
+              "no": {
+                "estado": "colgados"
+              }
+            },
+            {
+              "no": {
+                "estado": "descolgados"
+              }
+            }
+          ],
+          "cosa": {
+            "nombre": "La arena removida"
+          },
+          "dialogo": "tumbas"
+        },
+        {
+          "id": "tablilla",
           "x": 0.75,
-          "cosa": { "nombre": "El cepillo de las ánimas" },
-          "dialogo": "cepillo"
+          "cosa": {
+            "nombre": "La tablilla del Marqués"
+          },
+          "dialogo": "tablilla"
         }
       ],
       "dialogos": {
-        "tobias": {
-          "inicio": "saludo",
+        "ahorcados": {
+          "inicio": "viga",
           "nodos": {
-            "saludo": {
-              "texto": "Tobías se inclina tanto que le cruje el espinazo. «¡Amo! Ya pensaba que tendría que morirme otra vez de aburrimiento. ¿En qué puede servirle este pobre hueso?»",
+            "viga": {
+              "texto": "De la viga cuelgan dos cuerpos, uno grande y uno chico, ya solo hueso y jirones. Los cuervos se apartan sin prisa. La soga es vieja y el viento de la hoya la hace crujir.",
               "opciones": [
-                { "texto": "¿Qué guardas aquí, Tobías?", "ir": "libro" },
                 {
-                  "texto": "Despierta a los de la cripta (100 de oro)",
-                  "si": [{ "estado": "cerrada" }],
+                  "texto": "Cortar la soga",
                   "hace": [
-                    { "oro": -100 },
-                    { "tropa": { "unidad": "esqueleto-guerrero", "n": 2 } },
-                    { "estado": "despoblada" }
-                  ],
-                  "ir": "cripta"
-                },
-                { "texto": "Nada, sigue cavando" }
-              ]
-            },
-            "libro": {
-              "texto": "«El libro de difuntos, amo. Todo el que entra aquí queda apuntado, con letra bonita. Hasta los que se apuntan solos, que los hay.»",
-              "opciones": [
-                {
-                  "texto": "Buscar a los soldados del Imperio",
-                  "si": [{ "no": { "marca": "acta-de-defuncion" } }],
-                  "hace": [{ "marca": "acta-de-defuncion" }],
-                  "ir": "acta"
+                    {
+                      "estado": "descolgados"
+                    }
+                  ]
                 },
                 {
-                  "texto": "Buscar a una tal Remedios",
-                  "si": [{ "no": { "marca": "libro-leido" } }],
-                  "hace": [{ "marca": "libro-leido" }],
-                  "ir": "remedios"
-                },
-                { "texto": "Cerrar el libro", "ir": "saludo" }
+                  "texto": "Dejarlos colgados"
+                }
               ]
-            },
-            "acta": {
-              "texto": "«Pelotón del sargento Aldama, caídos en los Llanos del Cierzo hace un invierno.» Tobías arranca la hoja y la sella. «Que conste, amo: están muertos. Lo dice el libro.»",
-              "opciones": [{ "texto": "Guardar el acta", "ir": "libro" }]
-            },
-            "remedios": {
-              "texto": "«Remedios, mujer de Anselmo el barquero. Tercera fila, bajo el ciprés torcido. Muy tranquila, de las que no se levantan.»",
-              "opciones": [{ "texto": "Apuntarlo", "ir": "libro" }]
-            },
-            "cripta": {
-              "texto": "Tobías baja la escalera dando palmadas. Al rato suben dos esqueletos sacudiéndose la tierra. «Están algo oxidados, amo, pero tienen muchas ganas.»",
-              "opciones": [{ "texto": "En marcha" }]
             }
           }
         },
-        "cepillo": {
-          "inicio": "caja",
+        "gines": {
+          "inicio": "sentado",
           "nodos": {
-            "caja": {
-              "texto": "Una caja de roble clavada a la pared, con una ranura gastada. Dentro suenan monedas: limosnas por las almas del camposanto.",
+            "sentado": {
+              "texto": "Los huesos han caído en la arena roja. El grande se sienta, se encaja la mandíbula con dos dedos y busca al chico con la cabeza. «Treinta años mirando el camino de Valdeluz, y el primero que se para a bajarme... Ginés Pardo, molinero. Ese es mi Andrés. No le hables, que se asusta.»",
               "opciones": [
                 {
-                  "texto": "Vaciar el cepillo",
-                  "si": [{ "no": { "marca": "cepillo-vaciado" } }],
-                  "hace": [{ "oro": 150 }, { "marca": "cepillo-vaciado" }],
-                  "ir": "vacio"
+                  "texto": "¿Por qué os ahorcaron?",
+                  "hace": [
+                    {
+                      "marca": "lo-que-vio-el-molinero"
+                    }
+                  ],
+                  "ir": "porque"
                 },
-                { "texto": "Dejarlo estar" }
+                {
+                  "texto": "¿Quién es el testigo que firma la tablilla?",
+                  "si": [
+                    {
+                      "marca": "nombre-del-zapador"
+                    }
+                  ],
+                  "ir": "testigo"
+                },
+                {
+                  "texto": "¿Qué quieres que haga contigo?",
+                  "ir": "quiere"
+                },
+                {
+                  "texto": "Dejarle en paz"
+                }
               ]
             },
-            "vacio": {
-              "texto": "Ciento cincuenta monedas. Las almas no protestan; Tobías, desde lejos, aplaude.",
-              "opciones": [{ "texto": "Seguir" }]
+            "porque": {
+              "texto": "«Por decir lo que vi. La noche de la presa subí a cerrar las compuertas del molino y vi casacas amarillas, las de los zapadores del Emperador, bajando barriles a la presa de Puenteroto. Lo conté en la plaza de Villarrasa. A la semana vino el Marqués con la tablilla ya escrita.»",
+              "opciones": [
+                {
+                  "texto": "Dicen que la presa la rompieron los muertos de Valdeluz",
+                  "ir": "mentira"
+                },
+                {
+                  "texto": "¿Y quién subió los barriles hasta allí?",
+                  "ir": "orkos"
+                },
+                {
+                  "texto": "Volver",
+                  "ir": "sentado"
+                }
+              ]
+            },
+            "mentira": {
+              "texto": "Ginés se ríe, y le suena el pecho como un cedazo. «¿Has visto alguna vez a un esqueleto encender una mecha? Se le quema la mano y no se entera. Abrir una mina bajo una presa es oficio de zapadores, y los zapadores eran del Marqués.»",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "porque"
+                }
+              ]
+            },
+            "orkos": {
+              "texto": "«Orkos. Una recua de orkos del Robledal, cargados como mulas, y delante un capitán con un farol que les mandaba callar. Lo que es la cara no se la vi hasta el juicio. A los orkos no los volví a ver: esa misma semana ardió el Robledal.»",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "porque"
+                }
+              ]
+            },
+            "testigo": {
+              "texto": "Ginés se queda quieto. «Mendaña. El capitán del farol. Juró ante el Marqués que yo mentía, con las dos manos vendadas, y mientras lo juraba me miraba los zuecos. Si vive, que me mire ahora a la cara, que ya no tengo.»",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "sentado"
+                }
+              ]
+            },
+            "quiere": {
+              "texto": "«Tierra encima, y que se sepa. La tierra puedes ponerla tú: en el zueco llevo la maquila de mi última molienda, para quien nos entierre. Lo de que se sepa está en Valle Hondo, donde doña Inés, la escribana, sigue apuntando a los muertos en la orilla. Y si mandas sobre huesos, entierra al chico, que no tiene edad de guerras, y llévame a mí: aún sé dar golpes.»",
+              "opciones": [
+                {
+                  "texto": "Enterrarlos a los dos",
+                  "hace": [
+                    {
+                      "oro": 150
+                    },
+                    {
+                      "estado": "enterrados"
+                    }
+                  ]
+                },
+                {
+                  "texto": "Enterrar al chico y llevarte a Ginés en tu tropa",
+                  "si": [
+                    {
+                      "faccion": "no-muertos"
+                    }
+                  ],
+                  "hace": [
+                    {
+                      "tropa": {
+                        "unidad": "esqueleto-guerrero",
+                        "n": 1
+                      }
+                    },
+                    {
+                      "estado": "vacia"
+                    }
+                  ]
+                },
+                {
+                  "texto": "Volver",
+                  "ir": "sentado"
+                }
+              ]
+            }
+          }
+        },
+        "tumbas": {
+          "inicio": "arena",
+          "nodos": {
+            "arena": {
+              "texto": "Bajo la horca vacía la arena roja está removida, y alguien ha marcado la tierra con media piedra de molino. Los cuervos ya no bajan.",
+              "opciones": [
+                {
+                  "texto": "Seguir"
+                }
+              ]
+            }
+          }
+        },
+        "tablilla": {
+          "inicio": "poste",
+          "nodos": {
+            "poste": {
+              "texto": "Una tablilla de roble, negra de sol, clavada al poste con clavos de herrar. Lleva el sello de los Osorio, un castillo metido en un hoyo, y las letras aún se leen.",
+              "opciones": [
+                {
+                  "texto": "Leerla",
+                  "hace": [
+                    {
+                      "marca": "nombre-del-zapador"
+                    }
+                  ],
+                  "ir": "letras"
+                },
+                {
+                  "texto": "Dejarla"
+                }
+              ]
+            },
+            "letras": {
+              "texto": "«Ginés Pardo, molinero de Fondovalle, y su hijo Andrés, por propalar mentiras en favor de los muertos sobre la presa de Puenteroto. Fadrique Osorio, Marqués de Alcázar Hondo, en nombre del Emperador.» Debajo, en letra más pequeña: «Testigo: G. Mendaña, capitán de zapadores.»",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "poste"
+                }
+              ]
             }
           }
         }
@@ -130,208 +331,1027 @@
       "encuentros": {}
     },
     {
-      "id": "campamento-del-cierzo",
-      "nombre": "El campamento de los desertores del Cierzo",
-      "at": { "x": 15, "y": 14 },
-      "fondo": { "plaza": "imperio" },
-      "estados": {
-        "acampados": "con los desertores acampados",
-        "en-paz": "en paz",
-        "dispersos": "abandonado"
+      "id": "campamento-de-diente-negro",
+      "nombre": "El campamento de Diente Negro",
+      "at": {
+        "x": 25,
+        "y": 3
       },
-      "estadoInicial": "acampados",
+      "fondo": {
+        "plaza": "orkos"
+      },
+      "estados": {
+        "acampada": "con la banda acampada",
+        "vencida": "con la banda vencida"
+      },
+      "estadoInicial": "acampada",
       "puntos": [
         {
-          "id": "aldama",
-          "x": 0.4,
-          "si": [{ "estado": "acampados" }],
-          "persona": {
-            "nombre": "Prudencio Aldama",
-            "papel": "sargento desertor del Imperio",
-            "figura": "imperio-armero"
+          "id": "tocones",
+          "x": 0.2,
+          "cosa": {
+            "nombre": "Los tocones del Robledal"
           },
-          "dialogo": "aldama"
+          "dialogo": "tocones"
         },
         {
-          "id": "carros",
-          "x": 0.8,
-          "cosa": { "nombre": "Los carros de intendencia" },
-          "dialogo": "carros"
+          "id": "murg",
+          "x": 0.55,
+          "persona": {
+            "nombre": "Murg Diente Negro",
+            "papel": "caudillo de la banda del Robledal",
+            "figura": "orko-caudillo-viejo"
+          },
+          "dialogo": "murg"
+        },
+        {
+          "id": "maza",
+          "x": 0.85,
+          "si": [
+            {
+              "marca": "causa-escrita"
+            }
+          ],
+          "cosa": {
+            "nombre": "La maza en el tocón"
+          },
+          "dialogo": "maza"
+        },
+        {
+          "id": "huellas",
+          "x": 0.85,
+          "si": [
+            {
+              "marca": "orden-quemada"
+            }
+          ],
+          "cosa": {
+            "nombre": "Las huellas de los coraceros"
+          },
+          "dialogo": "huellas"
         }
       ],
       "dialogos": {
-        "aldama": {
-          "inicio": "alto",
+        "tocones": {
+          "inicio": "ceniza",
           "nodos": {
-            "alto": {
-              "texto": "«Alto. Este campamento es zona de intendencia imperial. Presente salvoconducto sellado por triplicado o dé media vuelta.» Detrás de él, nadie lleva el uniforme abrochado.",
-              "opciones": [
-                { "texto": "Vosotros no sois del Imperio, sois desertores", "ir": "desertores" },
-                {
-                  "texto": "Contratar sus ballestas (300 de oro)",
-                  "si": [{ "estado": "acampados" }],
-                  "hace": [
-                    { "oro": -300 },
-                    { "tropa": { "unidad": "imperio-ballestero", "n": 1 } },
-                    { "estado": "en-paz" }
-                  ],
-                  "ir": "contrato"
-                },
-                {
-                  "texto": "Desenvainar",
-                  "si": [{ "estado": "acampados" }],
-                  "hace": [{ "batalla": "desertores" }]
-                },
-                { "texto": "Dar media vuelta" }
-              ]
-            },
-            "desertores": {
-              "texto": "Aldama se pone rojo. «Somos personal en tránsito pendiente de destino. Si volvemos a Cripta Gris sin papeles nos ahorcan por el reglamento, artículo cuarto.»",
+            "ceniza": {
+              "texto": "Entre los tocones el suelo quema a través de las botas. Bajo la ceniza asoman huesos de orko, muchos, y entre ellos un terrón gris y brillante: plata fundida, con media cara del Emperador todavía en una moneda. Los orkos no lo tocan; dicen que es la paga del fuego.",
               "opciones": [
                 {
-                  "texto": "Enseñarle el acta de Valdeluz que os da por muertos",
-                  "si": [{ "marca": "acta-de-defuncion" }, { "estado": "acampados" }],
-                  "hace": [
-                    { "tropa": { "unidad": "imperio-alabardero", "n": 2 } },
-                    { "estado": "en-paz" }
+                  "texto": "Coger la plata",
+                  "si": [
+                    {
+                      "no": {
+                        "marca": "plata-del-robledal"
+                      }
+                    }
                   ],
-                  "ir": "muertos"
+                  "hace": [
+                    {
+                      "oro": 150
+                    },
+                    {
+                      "marca": "plata-del-robledal"
+                    }
+                  ]
                 },
-                { "texto": "Volver", "ir": "alto" }
+                {
+                  "texto": "Dejarla con los huesos"
+                }
               ]
-            },
-            "muertos": {
-              "texto": "Aldama lee el acta, la huele y la vuelve a leer. «Sellada y con fecha. Entonces estamos muertos y nadie puede ahorcarnos.» Dos alabarderos se ponen a tu paso.",
-              "opciones": [{ "texto": "Bienvenidos al otro lado" }]
-            },
-            "contrato": {
-              "texto": "Aldama cuenta las monedas dos veces y te firma un recibo. «Le cedo al cabo Ruperto. Dispara recto y no hace preguntas.»",
-              "opciones": [{ "texto": "Trato hecho" }]
             }
           }
         },
-        "carros": {
-          "inicio": "lonas",
+        "murg": {
+          "inicio": "lumbre",
           "nodos": {
-            "lonas": {
-              "texto": "Tres carros con el águila imperial raspada a cuchillo. Bajo las lonas, cajas con el sello de la intendencia.",
+            "lumbre": {
+              "texto": "Entre los tocones negros sale lumbre del suelo, sin leña. Un orko enorme se levanta junto al fuego, con la piel cosida de quemaduras viejas y los dientes negros; detrás, una docena de orkos y goblins le miran a él, no a ti. «Esto es el Robledal. Aquí ardieron mis hermanos. Murg Diente Negro manda en lo que queda. Habla claro o vete.»",
               "opciones": [
                 {
-                  "texto": "Registrar los carros",
-                  "si": [{ "estado": "dispersos" }, { "no": { "marca": "carros-saqueados" } }],
-                  "hace": [{ "pieza": "brigantina" }, { "marca": "carros-saqueados" }],
-                  "ir": "brigantina"
+                  "texto": "¿Qué ardió aquí?",
+                  "hace": [
+                    {
+                      "marca": "el-fuego-del-robledal"
+                    }
+                  ],
+                  "ir": "robledal"
                 },
                 {
-                  "texto": "Pedir permiso para registrarlos",
-                  "si": [{ "no": { "estado": "dispersos" } }],
-                  "ir": "permiso"
+                  "texto": "Busco al capitán de zapadores de la presa",
+                  "si": [
+                    {
+                      "marca": "nombre-del-zapador"
+                    }
+                  ],
+                  "ir": "manos-negras"
                 },
-                { "texto": "Dejarlos" }
+                {
+                  "texto": "Vengo a por lo que tengáis",
+                  "ir": "reto"
+                },
+                {
+                  "texto": "Irse"
+                }
               ]
             },
-            "brigantina": {
-              "texto": "Entre mantas apolilladas, una brigantina nueva con su recibo de entrega. Nadie va a reclamarla.",
-              "opciones": [{ "texto": "Llevársela" }]
+            "robledal": {
+              "texto": "«Hace treinta inviernos el viejo de la cadena de oro, el Marqués, nos pagó en plata por subir barriles a la presa de Puenteroto. Subimos. La presa reventó y el valle se llenó de agua. Volvimos aquí a gastar la plata, y esa noche vinieron sus coraceros con antorchas y nos cercaron entre los robles. El bosque ardió con nosotros dentro. Todavía arde por debajo.»",
+              "opciones": [
+                {
+                  "texto": "¿Por qué os quemó?",
+                  "ir": "porque"
+                },
+                {
+                  "texto": "¿Quién salió del fuego?",
+                  "ir": "quien-salio"
+                },
+                {
+                  "texto": "Volver",
+                  "ir": "lumbre"
+                }
+              ]
             },
-            "permiso": {
-              "texto": "Un desertor se sienta encima de la caja. «Material inventariado. Solicitud por escrito al sargento.»",
-              "opciones": [{ "texto": "Volver", "ir": "lonas" }]
+            "porque": {
+              "texto": "«Porque los orkos hablan. Los ahogados no hablan, los ahorcados no hablan y los orkos quemados tampoco: eso pensó el viejo.» Murg se golpea el pecho. «Murg salió del fuego para hablar, y en treinta inviernos nadie ha querido oírlo. Tú eres el primero que pregunta. No lo olvides tú tampoco.»",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "robledal"
+                }
+              ]
+            },
+            "quien-salio": {
+              "texto": "«Murg. Tres de la banda, que ya se han muerto de viejos. Y una cría de goblin que salió por debajo de un tocón con el pelo ardiendo: Chirria. Creció torcida. Ahora bucea en el lago y vende lo que les quita a los ahogados. Murg la echó: quien roba a los muertos, roba a los suyos.»",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "robledal"
+                }
+              ]
+            },
+            "manos-negras": {
+              "texto": "Murg escupe en la lumbre y la lumbre chisporrotea. «Manos Negras. El capitán de los barriles. La noche del fuego vino corriendo, sin casaca, gritando que nos fuéramos. Pocos le creyeron. Sacó a tres de entre los robles con las manos, y por eso las tiene negras.» Señala al sur con la barbilla. «Ahora anda descalzo por el Páramo Gris, rezando a un dios que no es el suyo. Murg lo ha visto de lejos.»",
+              "opciones": [
+                {
+                  "texto": "¿Por qué no te has acercado?",
+                  "ir": "acercarse"
+                },
+                {
+                  "texto": "Volver",
+                  "ir": "lumbre"
+                }
+              ]
+            },
+            "acercarse": {
+              "texto": "«Porque avisó. Y porque subió los barriles.» Murg se mira las quemaduras de los brazos. «Murg no sabe si matarlo o darle de beber. Treinta inviernos sin saberlo. Decídelo tú, que eres de fuera y no te quemaste.»",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "manos-negras"
+                }
+              ]
+            },
+            "reto": {
+              "texto": "«¿Lo que tengamos?» Murg se ríe, y la banda se ríe con él, sin ganas. «Tenemos ceniza, hierro y ganas. Si nos ganas, lo que haya es tuyo. Si no, te quedas aquí de ceniza, con los otros.»",
+              "opciones": [
+                {
+                  "texto": "Pelear con la banda",
+                  "si": [
+                    {
+                      "estado": "acampada"
+                    }
+                  ],
+                  "hace": [
+                    {
+                      "batalla": "quemados"
+                    }
+                  ]
+                },
+                {
+                  "texto": "Mejor no",
+                  "ir": "lumbre"
+                }
+              ]
+            }
+          }
+        },
+        "maza": {
+          "inicio": "tocon",
+          "nodos": {
+            "tocon": {
+              "texto": "Murg ha clavado su maza de hierro negro en el tocón más alto, junto a la lumbre. «Para quien vaya a Alcázar Hondo», le dice a la banda. «Si el viejo de la cadena aún respira, que sea lo último que vea.»",
+              "opciones": [
+                {
+                  "texto": "Coger la maza",
+                  "si": [
+                    {
+                      "no": {
+                        "marca": "maza-de-murg"
+                      }
+                    }
+                  ],
+                  "hace": [
+                    {
+                      "pieza": "maza"
+                    },
+                    {
+                      "marca": "maza-de-murg"
+                    }
+                  ]
+                },
+                {
+                  "texto": "Dejarla clavada"
+                }
+              ]
+            }
+          }
+        },
+        "huellas": {
+          "inicio": "sur",
+          "nodos": {
+            "sur": {
+              "texto": "Por el borde del Robledal han pasado de noche coraceros con las armas de los Osorio, hacia el Páramo Gris. La banda los ha visto irse sin moverse. Murg ha apagado su lumbre con ceniza y dice que el humo de la chimenea del viejo olía a lacre.",
+              "opciones": [
+                {
+                  "texto": "Seguir"
+                }
+              ]
             }
           }
         }
       },
       "encuentros": {
-        "desertores": {
-          "nombre": "Los desertores del sargento Aldama",
+        "quemados": {
+          "nombre": "Los quemados de Diente Negro",
           "tropa": [
-            { "creature": "imperio-ballestero", "count": 2 },
-            { "creature": "imperio-coracero", "count": 2 }
+            {
+              "creature": "orko-dos-armas",
+              "count": 1
+            },
+            {
+              "creature": "orko-hacha-escudo",
+              "count": 1
+            },
+            {
+              "creature": "goblin-lancero",
+              "count": 2
+            }
           ],
-          "alGanar": [{ "estado": "dispersos" }, { "oro": 250 }],
+          "alGanar": [
+            {
+              "estado": "vencida"
+            },
+            {
+              "oro": 200
+            }
+          ],
           "alPerder": []
         }
       }
     },
     {
-      "id": "orilla-de-puenteroto",
-      "nombre": "La barca de Puenteroto",
-      "at": { "x": 24, "y": 21 },
-      "fondo": { "plaza": "no-muertos" },
-      "estados": {
-        "esperando": "con el barquero esperando",
-        "en-paz": "con el barquero en paz",
-        "limpia": "con el lago limpio"
+      "id": "balsa-de-chirria",
+      "nombre": "La balsa de Chirria",
+      "at": {
+        "x": 19,
+        "y": 18
       },
-      "estadoInicial": "esperando",
+      "fondo": {
+        "plaza": "orkos"
+      },
+      "estados": {
+        "amarrada": "amarrada en la orilla",
+        "asaltada": "asaltada"
+      },
+      "estadoInicial": "amarrada",
       "puntos": [
         {
-          "id": "anselmo",
-          "x": 0.3,
-          "si": [{ "no": { "estado": "limpia" } }],
+          "id": "chirria",
+          "x": 0.5,
+          "si": [
+            {
+              "estado": "amarrada"
+            }
+          ],
           "persona": {
-            "nombre": "Anselmo",
-            "papel": "barquero del lago",
-            "figura": "necropolis-guardian-viejo"
+            "nombre": "Chirria",
+            "papel": "trapera del lago",
+            "figura": "goblina-trapera"
           },
-          "dialogo": "anselmo"
+          "dialogo": "chirria"
         },
         {
-          "id": "aguas",
-          "x": 0.75,
-          "cosa": { "nombre": "Las aguas del lago" },
-          "dialogo": "aguas"
+          "id": "barriles",
+          "x": 0.5,
+          "si": [
+            {
+              "estado": "asaltada"
+            }
+          ],
+          "cosa": {
+            "nombre": "Los barriles de la balsa"
+          },
+          "dialogo": "barriles"
         }
       ],
       "dialogos": {
-        "anselmo": {
-          "inicio": "barca",
+        "chirria": {
+          "inicio": "trastos",
           "nodos": {
-            "barca": {
-              "texto": "Un espectro con una pértiga podrida flota junto a la barca. «Cien años esperando a que alguien me pague el último viaje. Y llega uno que ya va muerto por dentro. Qué suerte la mía.»",
+            "trastos": {
+              "texto": "Una goblina flaca salta de una balsa de barriles atados y se planta delante de un montón de cálices abollados, cascos llenos de barro y candeleros verdes. «Chirria no roba: Chirria encuentra. Todo esto salió del agua, y lo que sale del agua es de quien lo saca. ¿Compras o miras?»",
               "opciones": [
                 {
-                  "texto": "Pagarle el viaje (100 de oro)",
-                  "si": [{ "estado": "esperando" }],
-                  "hace": [{ "oro": -100 }, { "estado": "en-paz" }],
-                  "ir": "pagado"
+                  "texto": "¿De dónde sale todo esto?",
+                  "ir": "fondovalle"
                 },
                 {
-                  "texto": "Remedios te espera bajo el ciprés de Valdeluz",
-                  "si": [{ "marca": "libro-leido" }, { "estado": "esperando" }],
-                  "hace": [{ "oro": 200 }, { "estado": "en-paz" }],
-                  "ir": "remedios"
+                  "texto": "¿Qué es esa pieza de bronce tan grande?",
+                  "si": [
+                    {
+                      "no": {
+                        "marca": "badajo-fuera-de-la-balsa"
+                      }
+                    }
+                  ],
+                  "ir": "badajo"
                 },
-                { "texto": "¿Por qué no te vas?", "ir": "por-que" },
-                { "texto": "Dejarle flotando" }
+                {
+                  "texto": "Ver lo que vendes",
+                  "ir": "tienda"
+                },
+                {
+                  "texto": "Irse"
+                }
               ]
             },
-            "por-que": {
-              "texto": "«Porque el puente se hundió con la mitad del pueblo encima, y ahí abajo siguen, de mal humor. Y porque mi Remedios se fue a enterrar a otro sitio y nadie me dijo dónde.»",
-              "opciones": [{ "texto": "Volver", "ir": "barca" }]
+            "fondovalle": {
+              "texto": "«De abajo. Ahí debajo hay un pueblo entero, con su iglesia y su plaza y su molino. Chirria baja con una cuerda y una piedra. Los de abajo no dicen nada... casi nunca. Por la noche tiran de la cuerda.» Se rasca la oreja de los aros. «La señora de niebla de la otra orilla me apunta en su libro. Dice que debo tres cálices y un badajo. Chirria no firma.»",
+              "opciones": [
+                {
+                  "texto": "Esta noche los ahogados suben a por ti",
+                  "si": [
+                    {
+                      "faccion": "no-muertos"
+                    },
+                    {
+                      "no": {
+                        "marca": "badajo-fuera-de-la-balsa"
+                      }
+                    }
+                  ],
+                  "hace": [
+                    {
+                      "marca": "badajo-fuera-de-la-balsa"
+                    }
+                  ],
+                  "ir": "miedo"
+                },
+                {
+                  "texto": "¿Conoces a Murg Diente Negro?",
+                  "hace": [
+                    {
+                      "marca": "el-fuego-del-robledal"
+                    }
+                  ],
+                  "ir": "murg"
+                },
+                {
+                  "texto": "Volver",
+                  "ir": "trastos"
+                }
+              ]
             },
-            "pagado": {
-              "texto": "Anselmo muerde una moneda por costumbre; los dientes le atraviesan el oro. «Cobrado. Ahora sí puedo decírtelo: los del fondo guardan lo que llevaban al cruzar.»",
-              "opciones": [{ "texto": "Mirar el agua" }]
+            "murg": {
+              "texto": "Chirria escupe por el colmillo. «Murg me sacó de debajo de un roble ardiendo y luego me echó de la banda por coger lo que nadie quería.» Se toca una quemadura vieja del brazo. «Chirria tenía un año y se acuerda igual: las antorchas, y la bandera de los que las traían, un castillo metido en un hoyo. La bandera del Marqués.»",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "fondovalle"
+                }
+              ]
             },
-            "remedios": {
-              "texto": "El espectro se queda quieto mucho rato. Luego suelta la pértiga y te tiende una bolsa mojada. «Mi paga de cien años. Ya no me hace falta: tengo a dónde ir.»",
-              "opciones": [{ "texto": "Que tengas buen viaje, Anselmo" }]
+            "badajo": {
+              "texto": "«El badajo de la campana de San Roque, la de Fondovalle. Cuarenta libras de bronce bueno.» Lo abraza como a un hijo. «La campana sigue en la torre que asoma por la otra orilla. Sin esto no suena. Ciento cincuenta y es tuyo. Chirria no regatea... mucho.»",
+              "opciones": [
+                {
+                  "texto": "Comprarlo (150 de oro)",
+                  "si": [
+                    {
+                      "no": {
+                        "marca": "badajo-fuera-de-la-balsa"
+                      }
+                    }
+                  ],
+                  "hace": [
+                    {
+                      "oro": -150
+                    },
+                    {
+                      "marca": "badajo-fuera-de-la-balsa"
+                    }
+                  ],
+                  "ir": "vendido"
+                },
+                {
+                  "texto": "Quitárselo a la fuerza",
+                  "si": [
+                    {
+                      "no": {
+                        "marca": "badajo-fuera-de-la-balsa"
+                      }
+                    }
+                  ],
+                  "hace": [
+                    {
+                      "batalla": "balsa"
+                    }
+                  ]
+                },
+                {
+                  "texto": "¿Para qué quiere nadie una campana bajo el agua?",
+                  "ir": "campana"
+                },
+                {
+                  "texto": "Volver",
+                  "ir": "trastos"
+                }
+              ]
+            },
+            "campana": {
+              "texto": "«Para llamar. Eso dice la señora de niebla: que la campana llama al concejo.» Chirria baja la voz. «Una noche Chirria la tocó con una piedra, por ver. Subieron muchos, con el agua por la cintura, mirando a todas partes. Chirria se metió en un barril hasta el alba.»",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "badajo"
+                }
+              ]
+            },
+            "vendido": {
+              "texto": "Chirria cuenta las monedas dos veces, las muerde y te pone el badajo en los brazos. «Si lo cuelgas, que sea cuando tengas algo que decirles. Lo que llama esa campana sube, y sube con ganas de oír.»",
+              "opciones": [
+                {
+                  "texto": "Volver al montón",
+                  "ir": "trastos"
+                },
+                {
+                  "texto": "Irse"
+                }
+              ]
+            },
+            "miedo": {
+              "texto": "Chirria te mira de arriba abajo: el olor, los huesos, lo que llevas detrás. Se le caen las orejas. «Tú hablas con ellos. Tú sabes.» Empuja el badajo hacia ti con los dos pies. «Llévatelo. Diles que Chirria lo devolvió. Chirria no firma, pero devuelve.»",
+              "opciones": [
+                {
+                  "texto": "Irse"
+                }
+              ]
+            },
+            "tienda": {
+              "texto": "Entre los cálices hay una rodela casi entera, con un molino pintado y medio borrado: la de la milicia de Fondovalle. «Cien. Es buena: paraba flechas cuando había quien la llevara.»",
+              "opciones": [
+                {
+                  "texto": "Comprar la rodela (100 de oro)",
+                  "si": [
+                    {
+                      "no": {
+                        "marca": "rodela-de-la-milicia"
+                      }
+                    }
+                  ],
+                  "hace": [
+                    {
+                      "oro": -100
+                    },
+                    {
+                      "pieza": "rodela"
+                    },
+                    {
+                      "marca": "rodela-de-la-milicia"
+                    }
+                  ]
+                },
+                {
+                  "texto": "Volver",
+                  "ir": "trastos"
+                }
+              ]
             }
           }
         },
-        "aguas": {
+        "barriles": {
+          "inicio": "vacia",
+          "nodos": {
+            "vacia": {
+              "texto": "Chirria se tiró al agua con lo que pudo cargar y ya no se la ve. Quedan los barriles de la balsa, atados con cuerda, y en uno, grabado a cuchillo: CHIRRIA NO ROBA. Entre ellos queda lo que no le cupo.",
+              "opciones": [
+                {
+                  "texto": "Rebuscar entre lo que dejó",
+                  "si": [
+                    {
+                      "no": {
+                        "marca": "rodela-de-la-milicia"
+                      }
+                    }
+                  ],
+                  "hace": [
+                    {
+                      "pieza": "rodela"
+                    },
+                    {
+                      "marca": "rodela-de-la-milicia"
+                    }
+                  ]
+                },
+                {
+                  "texto": "Irse"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "encuentros": {
+        "balsa": {
+          "nombre": "Los primos de Chirria",
+          "tropa": [
+            {
+              "creature": "goblin-lancero",
+              "count": 2
+            },
+            {
+              "creature": "goblin-arquero",
+              "count": 2
+            }
+          ],
+          "alGanar": [
+            {
+              "estado": "asaltada"
+            },
+            {
+              "marca": "badajo-fuera-de-la-balsa"
+            },
+            {
+              "oro": 100
+            }
+          ],
+          "alPerder": []
+        }
+      }
+    },
+    {
+      "id": "torre-de-fondovalle",
+      "nombre": "La torre de Fondovalle",
+      "at": {
+        "x": 24,
+        "y": 22
+      },
+      "fondo": {
+        "plaza": "no-muertos"
+      },
+      "estados": {
+        "abierto": "con el libro abierto",
+        "en-paz": "en paz",
+        "vencidos": "con los ahogados vencidos"
+      },
+      "estadoInicial": "abierto",
+      "puntos": [
+        {
+          "id": "ines",
+          "x": 0.4,
+          "si": [
+            {
+              "no": {
+                "marca": "orden-quemada"
+              }
+            }
+          ],
+          "persona": {
+            "nombre": "Inés de Carvajal",
+            "papel": "escribana del concejo de Fondovalle",
+            "figura": "necropolis-escribana-espectral"
+          },
+          "dialogo": "ines"
+        },
+        {
+          "id": "ines-sin-causa",
+          "x": 0.4,
+          "si": [
+            {
+              "marca": "orden-quemada"
+            },
+            {
+              "estado": "abierto"
+            }
+          ],
+          "persona": {
+            "nombre": "Inés de Carvajal",
+            "papel": "escribana del concejo de Fondovalle",
+            "figura": "necropolis-escribana-espectral"
+          },
+          "dialogo": "ines-sin-causa"
+        },
+        {
+          "id": "libro",
+          "x": 0.4,
+          "si": [
+            {
+              "estado": "vencidos"
+            }
+          ],
+          "cosa": {
+            "nombre": "El libro de Fondovalle"
+          },
+          "dialogo": "libro"
+        },
+        {
+          "id": "ahogados",
+          "x": 0.15,
+          "si": [
+            {
+              "marca": "causa-escrita"
+            }
+          ],
+          "cosa": {
+            "nombre": "Los ahogados de la orilla"
+          },
+          "dialogo": "ahogados"
+        },
+        {
+          "id": "torre",
+          "x": 0.75,
+          "cosa": {
+            "nombre": "La torre de San Roque"
+          },
+          "dialogo": "torre"
+        }
+      ],
+      "dialogos": {
+        "ines": {
           "inicio": "orilla",
           "nodos": {
             "orilla": {
-              "texto": "El agua es negra junto a los pilares del puente roto. Algo se mueve debajo, despacio, como quien no tiene prisa.",
+              "texto": "Sobre el agua, junto a la torre que asoma del lago, una mujer de niebla escribe en un libro que no se moja. No levanta la vista. «Nombre, vecindad y asunto. Si es usted muerto, dígalo, que se apunta en otra columna.»",
               "opciones": [
                 {
-                  "texto": "Meterse en el agua",
-                  "si": [{ "no": { "estado": "limpia" } }],
-                  "hace": [{ "batalla": "ahogados" }]
+                  "texto": "¿Quién es usted?",
+                  "ir": "quien"
                 },
-                { "texto": "Apartarse de la orilla" }
+                {
+                  "texto": "¿Qué escribe?",
+                  "hace": [
+                    {
+                      "marca": "libro-de-fondovalle"
+                    }
+                  ],
+                  "ir": "columna"
+                },
+                {
+                  "texto": "Contarle lo que vio el molinero de los Pardo",
+                  "si": [
+                    {
+                      "marca": "lo-que-vio-el-molinero"
+                    }
+                  ],
+                  "ir": "casacas"
+                },
+                {
+                  "texto": "Preguntarle qué consta de ti",
+                  "si": [
+                    {
+                      "marca": "cepillo-robado"
+                    }
+                  ],
+                  "ir": "deudor"
+                },
+                {
+                  "texto": "Darle un papel con sello",
+                  "si": [
+                    {
+                      "marca": "orden-fuera-de-la-ermita"
+                    },
+                    {
+                      "no": {
+                        "marca": "causa-escrita"
+                      }
+                    },
+                    {
+                      "no": {
+                        "marca": "orden-quemada"
+                      }
+                    }
+                  ],
+                  "ir": "la-orden"
+                },
+                {
+                  "texto": "Irse"
+                }
+              ]
+            },
+            "quien": {
+              "texto": "«Inés de Carvajal, escribana del concejo de Fondovalle por nombramiento del Marqués de Alcázar Hondo, que Dios guarde.» Moja la pluma en el lago. «Fondovalle está ahí abajo: trescientos doce vecinos, la iglesia de San Roque y el molino de los Pardo. Yo me quedé a salvar los libros. Los libros se salvaron.»",
+              "opciones": [
+                {
+                  "texto": "¿Se quedó usted sola?",
+                  "hace": [
+                    {
+                      "marca": "nombre-del-zapador"
+                    }
+                  ],
+                  "ir": "prometido"
+                },
+                {
+                  "texto": "Volver",
+                  "ir": "orilla"
+                }
+              ]
+            },
+            "prometido": {
+              "texto": "Por primera vez levanta la vista. «Tenía un prometido, Gaspar Mendaña, capitán de zapadores en la presa de Puenteroto. La víspera me mandó recado de que me fuera del valle esa noche y no preguntara. Creí que quería fugarse conmigo y le dije que no: una escribana no deja sus libros.» Vuelve a escribir. «Lo he buscado entre los míos y no consta. Si vive, sabrá qué pasó en la presa.»",
+              "opciones": [
+                {
+                  "texto": "Si sabía que iba a pasar, es que lo hizo él",
+                  "ir": "sospecha"
+                },
+                {
+                  "texto": "Volver",
+                  "ir": "quien"
+                }
+              ]
+            },
+            "sospecha": {
+              "texto": "La pluma se para. «Gaspar levantaba puentes, no los tiraba.» Una gota de lago le cae del pelo al libro y no lo moja. «Tráigame un papel con sello y lo apunto. Las sospechas no se apuntan: se rezan.»",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "prometido"
+                }
+              ]
+            },
+            "columna": {
+              "texto": "Gira el libro hacia ti. Trescientos doce nombres en buena letra, con su edad y su oficio. La última columna, la de la causa, está en blanco de arriba abajo. «Sin causa no hay asiento, y sin asiento no hay descanso: así era la ley del concejo y así sigue. Dicen que fueron los muertos de Valdeluz. Yo no apunto un dicen.»",
+              "opciones": [
+                {
+                  "texto": "¿Qué haría falta para escribirla?",
+                  "ir": "requisitos"
+                },
+                {
+                  "texto": "Volver",
+                  "ir": "orilla"
+                }
+              ]
+            },
+            "requisitos": {
+              "texto": "«Un documento con sello, leído en voz alta ante el concejo reunido. El concejo se llama con la campana de San Roque, y la campana no suena: una trapera de la otra orilla se llevó el badajo para venderlo al peso. Consta como deudora.» Señala la torre con la pluma. «Papel, sello y campana. Lo demás lo pongo yo.»",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "columna"
+                }
+              ]
+            },
+            "casacas": {
+              "texto": "«¿Ginés Pardo? Debía dos fanegas de maquila al concejo.» La pluma le tiembla. «Casacas amarillas son las de los zapadores. Los zapadores eran de Gaspar.» Se queda mirando el agua mucho rato. «Eso tampoco es un papel con sello.»",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "orilla"
+                }
+              ]
+            },
+            "deudor": {
+              "texto": "«Consta usted en el libro: ciento veinte del cepillo de San Roque, a deber.» Ni levanta la vista. «No se apure. Aquí nadie cobra: solo se apunta.»",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "orilla"
+                }
+              ]
+            },
+            "la-orden": {
+              "texto": "Le das el papel. El sello de los Osorio está entero y la letra es la del Marqués. Inés lo lee una vez sin mover los labios, y otra. «“Vuélese la presa de Puenteroto antes del alba, aunque el valle no esté desalojado. Que se diga que fueron los muertos. Ejecute el capitán Mendaña.”» Cierra los ojos. «Me mandó irme. Lo sabía.»",
+              "opciones": [
+                {
+                  "texto": "Colgar el badajo y tocar a concejo",
+                  "si": [
+                    {
+                      "no": {
+                        "marca": "causa-escrita"
+                      }
+                    },
+                    {
+                      "no": {
+                        "marca": "orden-quemada"
+                      }
+                    },
+                    {
+                      "marca": "badajo-fuera-de-la-balsa"
+                    }
+                  ],
+                  "hace": [
+                    {
+                      "marca": "causa-escrita"
+                    },
+                    {
+                      "estado": "en-paz"
+                    },
+                    {
+                      "oro": 200
+                    }
+                  ],
+                  "ir": "concejo"
+                },
+                {
+                  "texto": "Decirle que el sello es falso",
+                  "ir": "falso"
+                },
+                {
+                  "texto": "Guardar el papel y volver",
+                  "ir": "orilla"
+                }
+              ]
+            },
+            "falso": {
+              "texto": "«El sello de los Osorio lo tengo en mi nombramiento, aquí, en la primera hoja.» No te mira. «El sello no es falso. Usted, no lo sé. Consta que lo ha dicho.»",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "la-orden"
+                }
+              ]
+            },
+            "concejo": {
+              "texto": "Cuelgas el badajo y tiras de la cuerda. La campana de San Roque suena encima del agua y debajo, y el lago se llena de cabezas. Inés lee la orden en voz alta, despacio, con voz de bando. Luego moja la pluma y escribe trescientas doce veces la misma causa. Abre el arca del concejo y te cuenta doscientas monedas verdes de lama. «Por los gastos de la diligencia. Firme el recibí.»",
+              "opciones": [
+                {
+                  "texto": "¿Y ahora qué harán?",
+                  "ir": "ahora"
+                }
+              ]
+            },
+            "ahora": {
+              "texto": "«Descansar, los que quieran.» En la orilla esperan ahogados con el agua por la cintura y la cara vuelta al este. «Los otros quieren ir a Alcázar Hondo a hacerle una pregunta al Marqués; alguno iría con usted, si va hacia allí.» Cierra el libro. «Gaspar habrá oído la campana. Vendrá. Consta.»",
+              "opciones": [
+                {
+                  "texto": "Dejarla con su libro"
+                }
+              ]
+            }
+          }
+        },
+        "ines-sin-causa": {
+          "inicio": "furia",
+          "nodos": {
+            "furia": {
+              "texto": "Inés tiene el libro cerrado contra el pecho y ya no escribe. «La orden del Marqués ardió en su chimenea. Lo sé porque abajo se ha oído, y abajo no perdonan.» El lago se riza sin viento. «Ya no hay nada que apuntar. Van a subir a buscar a quien la llevó, y a quien no la llevó también: desde abajo no se distingue.»",
+              "opciones": [
+                {
+                  "texto": "¿No puede pararlos?",
+                  "ir": "parar"
+                },
+                {
+                  "texto": "Que suban, entonces",
+                  "hace": [
+                    {
+                      "batalla": "ahogados"
+                    }
+                  ]
+                },
+                {
+                  "texto": "Irse"
+                }
+              ]
+            },
+            "parar": {
+              "texto": "«Yo apuntaba; no mandaba. Manda el concejo, y el concejo está abajo, mojado y con trescientas doce razones.» Abre el libro por la columna en blanco y te la enseña como una acusación. «Esto lo dejó usted así. O alguien como usted. Consta.»",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "furia"
+                }
+              ]
+            }
+          }
+        },
+        "libro": {
+          "inicio": "flota",
+          "nodos": {
+            "flota": {
+              "texto": "En la orilla flota el libro de Fondovalle, abierto por la columna de la causa, en blanco de arriba abajo. Inés no está. El agua ya no se riza.",
+              "opciones": [
+                {
+                  "texto": "Dejarlo en la orilla"
+                }
+              ]
+            }
+          }
+        },
+        "ahogados": {
+          "inicio": "fila",
+          "nodos": {
+            "fila": {
+              "texto": "Con el agua por la cintura, una fila de ahogados mira hacia el este, hacia Alcázar Hondo. Esperan a alguien que vaya hacia allí. En la orilla hay huellas descalzas que entran en el agua y no salen.",
+              "opciones": [
+                {
+                  "texto": "Llevarte a los que quieran seguirte",
+                  "si": [
+                    {
+                      "no": {
+                        "marca": "ahogados-en-marcha"
+                      }
+                    }
+                  ],
+                  "hace": [
+                    {
+                      "tropa": {
+                        "unidad": "espectro",
+                        "n": 2
+                      }
+                    },
+                    {
+                      "marca": "ahogados-en-marcha"
+                    }
+                  ]
+                },
+                {
+                  "texto": "Dejarlos esperar"
+                }
+              ]
+            }
+          }
+        },
+        "torre": {
+          "inicio": "campanario",
+          "nodos": {
+            "campanario": {
+              "texto": "La torre de San Roque asoma del lago hasta el campanario, y la campana sigue colgada, verde de lama. En una repisa del arco está el cepillo de la iglesia, cerrado con un candado podrido. Abajo, en el agua turbia, se adivinan tejados.",
+              "opciones": [
+                {
+                  "texto": "Mirar la campana",
+                  "si": [
+                    {
+                      "no": {
+                        "marca": "badajo-fuera-de-la-balsa"
+                      }
+                    }
+                  ],
+                  "ir": "sin-badajo"
+                },
+                {
+                  "texto": "Forzar el cepillo",
+                  "si": [
+                    {
+                      "no": {
+                        "marca": "cepillo-robado"
+                      }
+                    }
+                  ],
+                  "hace": [
+                    {
+                      "oro": 120
+                    },
+                    {
+                      "marca": "cepillo-robado"
+                    }
+                  ],
+                  "ir": "cepillo"
+                },
+                {
+                  "texto": "Mirar hacia abajo",
+                  "ir": "abajo"
+                },
+                {
+                  "texto": "Irse"
+                }
+              ]
+            },
+            "sin-badajo": {
+              "texto": "La campana es grande, de bronce verde, con un molino y una cruz fundidos en el borde. Le falta el badajo: la cuerda baja hasta el agua y dentro no hay nada que golpee.",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "campanario"
+                }
+              ]
+            },
+            "cepillo": {
+              "texto": "El candado se deshace en la mano. Dentro hay ciento veinte monedas pegadas por la lama. En la orilla, la escribana no levanta la vista, pero se oye rascar la pluma.",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "campanario"
+                }
+              ]
+            },
+            "abajo": {
+              "texto": "Bajo el agua, en la plaza de Fondovalle, hay gente de pie. No se mueve nadie. Todos miran hacia la torre, como quien espera a que toquen a concejo.",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "campanario"
+                }
               ]
             }
           }
@@ -339,15 +1359,859 @@
       },
       "encuentros": {
         "ahogados": {
-          "nombre": "Los ahogados del puente",
+          "nombre": "Los ahogados de Fondovalle",
           "tropa": [
-            { "creature": "zombi", "count": 3 },
-            { "creature": "esqueleto-arquero", "count": 2 }
+            {
+              "creature": "zombi",
+              "count": 3
+            },
+            {
+              "creature": "esqueleto-guerrero",
+              "count": 2
+            }
           ],
-          "alGanar": [{ "estado": "limpia" }, { "oro": 300 }, { "pieza": "escudo" }],
-          "alPerder": [{ "marca": "derrota-en-el-lago" }]
+          "alGanar": [
+            {
+              "estado": "vencidos"
+            },
+            {
+              "pieza": "paves"
+            }
+          ],
+          "alPerder": []
         }
       }
+    },
+    {
+      "id": "ermita-de-las-brasas",
+      "nombre": "La ermita de las Brasas",
+      "at": {
+        "x": 19,
+        "y": 29
+      },
+      "fondo": {
+        "plaza": "templarios"
+      },
+      "estados": {
+        "penitencia": "con su penitente",
+        "liberada": "con la cruz vacía"
+      },
+      "estadoInicial": "penitencia",
+      "puntos": [
+        {
+          "id": "gaspar",
+          "x": 0.55,
+          "si": [
+            {
+              "no": {
+                "marca": "causa-escrita"
+              }
+            },
+            {
+              "no": {
+                "marca": "orden-quemada"
+              }
+            }
+          ],
+          "persona": {
+            "nombre": "Hermano Blas",
+            "papel": "penitente de la Orden",
+            "figura": "templario-penitente-viejo"
+          },
+          "dialogo": "gaspar"
+        },
+        {
+          "id": "coraceros",
+          "x": 0.55,
+          "si": [
+            {
+              "marca": "orden-quemada"
+            },
+            {
+              "estado": "penitencia"
+            }
+          ],
+          "cosa": {
+            "nombre": "Los coraceros del Marqués"
+          },
+          "dialogo": "coraceros"
+        },
+        {
+          "id": "cruz",
+          "x": 0.55,
+          "si": [
+            {
+              "estado": "liberada"
+            }
+          ],
+          "cosa": {
+            "nombre": "La cruz de la ermita"
+          },
+          "dialogo": "cruz"
+        },
+        {
+          "id": "habito",
+          "x": 0.35,
+          "si": [
+            {
+              "marca": "causa-escrita"
+            }
+          ],
+          "cosa": {
+            "nombre": "El hábito doblado"
+          },
+          "dialogo": "habito"
+        }
+      ],
+      "dialogos": {
+        "gaspar": {
+          "inicio": "brasas",
+          "nodos": {
+            "brasas": {
+              "texto": "Delante de una ermita de piedra negra, un viejo descalzo camina despacio sobre la tierra que humea, ida y vuelta, ida y vuelta. Lleva un hábito de saco y una cruz roja medio descosida. Se para al verte. «Hermano Blas, para servir a Dios. Aquí no hay nada que llevarse, salvo calor.»",
+              "opciones": [
+                {
+                  "texto": "¿Por qué caminas sobre las brasas?",
+                  "ir": "penitencia"
+                },
+                {
+                  "texto": "Llamarle por su nombre de antes",
+                  "si": [
+                    {
+                      "marca": "nombre-del-zapador"
+                    }
+                  ],
+                  "ir": "nombre"
+                },
+                {
+                  "texto": "Decirle que te manda el Marqués",
+                  "si": [
+                    {
+                      "marca": "encargo-del-marques"
+                    }
+                  ],
+                  "ir": "marques"
+                },
+                {
+                  "texto": "Irse"
+                }
+              ]
+            },
+            "penitencia": {
+              "texto": "«Por mis culpas. Cada brasa es un vecino. Llevo treinta años y aún no las he pisado todas.» Sonríe sin dientes. «A la orden... digo: que Dios lo quiera. Perdona, es una costumbre vieja.»",
+              "opciones": [
+                {
+                  "texto": "¿A la orden de quién?",
+                  "ir": "costumbre"
+                },
+                {
+                  "texto": "Volver",
+                  "ir": "brasas"
+                }
+              ]
+            },
+            "costumbre": {
+              "texto": "Se mira las manos. Las tiene negras hasta la muñeca, como si las hubiera metido en una fragua. «Serví al Emperador de joven: pólvora, minas, puentes. Lo dejé. Dios no pregunta el oficio de antes, y yo no se lo cuento.»",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "penitencia"
+                }
+              ]
+            },
+            "nombre": {
+              "texto": "El viejo se queda quieto sobre una brasa y no se aparta aunque le humea el pie. «Gaspar Mendaña. Hace treinta años que nadie dice ese nombre en voz alta.» Se sienta en el suelo caliente. «Sí. Yo encendí la mecha de Puenteroto. ¿Quién te lo ha dicho?»",
+              "opciones": [
+                {
+                  "texto": "Ginés, el molinero que ahorcaron con tu firma",
+                  "si": [
+                    {
+                      "marca": "lo-que-vio-el-molinero"
+                    }
+                  ],
+                  "ir": "gines"
+                },
+                {
+                  "texto": "Hablarle de la escribana del lago",
+                  "si": [
+                    {
+                      "marca": "libro-de-fondovalle"
+                    }
+                  ],
+                  "ir": "ines"
+                },
+                {
+                  "texto": "Hablarle del fuego del Robledal",
+                  "si": [
+                    {
+                      "marca": "el-fuego-del-robledal"
+                    }
+                  ],
+                  "ir": "robles"
+                },
+                {
+                  "texto": "¿Por qué lo hiciste?",
+                  "ir": "porque"
+                },
+                {
+                  "texto": "Volver",
+                  "ir": "brasas"
+                }
+              ]
+            },
+            "gines": {
+              "texto": "Gaspar baja la cabeza hasta el suelo caliente. «Juré que mentía. El Marqués me miraba a mí y yo le miraba los zuecos a Ginés: los tenía llenos de harina.» No llora; le tiembla la espalda. «Eso no lo manda ninguna orden. Eso es solo mío.»",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "nombre"
+                }
+              ]
+            },
+            "ines": {
+              "texto": "«¿Inés?» Se pone en pie tan deprisa que se le abre la llaga del pie. «Le mandé recado. Le mandé recado y no se fue.» Mira al norte, hacia el lago que desde aquí no se ve. «Treinta años y sigue apuntando. Claro que sigue: nunca dejó un asiento a medias.»",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "nombre"
+                }
+              ]
+            },
+            "robles": {
+              "texto": "«Los orkos de los barriles. Corrí al Robledal a decirles que el Marqués iba a por ellos y llegué con las antorchas ya encendidas.» Levanta las manos negras. «Estas no son de la presa: son de los robles. Saqué a tres. Los demás me miraban desde el fuego.»",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "nombre"
+                }
+              ]
+            },
+            "porque": {
+              "texto": "«Porque me lo mandaron por escrito. Un zapador no vuela una presa de palabra.» Se toca el pecho, donde el hábito lleva un remiendo cosido con hilo negro. «Aquí está la orden, con su sello. La guardé para que no me colgaran a mí. Treinta años sin atreverme a enseñarla y sin atreverme a quemarla.»",
+              "opciones": [
+                {
+                  "texto": "Dámela",
+                  "ir": "pedir"
+                },
+                {
+                  "texto": "Volver",
+                  "ir": "nombre"
+                }
+              ]
+            },
+            "pedir": {
+              "texto": "«¿Para qué la quieres? Dímelo, y no me mientas, que yo ya he mentido bastante por los dos.»",
+              "opciones": [
+                {
+                  "texto": "Para que la escribana del lago escriba su causa",
+                  "si": [
+                    {
+                      "no": {
+                        "marca": "orden-fuera-de-la-ermita"
+                      }
+                    },
+                    {
+                      "marca": "libro-de-fondovalle"
+                    }
+                  ],
+                  "hace": [
+                    {
+                      "marca": "orden-fuera-de-la-ermita"
+                    }
+                  ],
+                  "ir": "para-ines"
+                },
+                {
+                  "texto": "Para devolvérsela al Marqués, que la pide",
+                  "si": [
+                    {
+                      "no": {
+                        "marca": "orden-fuera-de-la-ermita"
+                      }
+                    },
+                    {
+                      "marca": "encargo-del-marques"
+                    }
+                  ],
+                  "hace": [
+                    {
+                      "marca": "orden-fuera-de-la-ermita"
+                    }
+                  ],
+                  "ir": "para-marques"
+                },
+                {
+                  "texto": "No te importa. Dámela o te la quito",
+                  "si": [
+                    {
+                      "no": {
+                        "marca": "orden-fuera-de-la-ermita"
+                      }
+                    }
+                  ],
+                  "hace": [
+                    {
+                      "marca": "orden-fuera-de-la-ermita"
+                    }
+                  ],
+                  "ir": "quitar"
+                },
+                {
+                  "texto": "Volver",
+                  "ir": "porque"
+                }
+              ]
+            },
+            "para-ines": {
+              "texto": "Gaspar descose el remiendo con los dientes y te da un papel doblado en ocho, amarillo, con el sello de los Osorio entero. «Ella me dijo que no: que una escribana no deja sus libros.» Se levanta. «Si la campana de San Roque vuelve a sonar, bajaré al lago. Díselo. Dile que bajaré.»",
+              "opciones": [
+                {
+                  "texto": "Irse"
+                }
+              ]
+            },
+            "para-marques": {
+              "texto": "«Así que el viejo vive.» Gaspar se ríe y la risa le acaba en tos. Descose el remiendo y te da el papel. «Llévasela. Que la queme delante de ti, y mírale las manos mientras la quema: le temblarán como a mí. Luego mandará a sus coraceros a por mí. Que vengan: aquí los espero.»",
+              "opciones": [
+                {
+                  "texto": "Irse"
+                }
+              ]
+            },
+            "quitar": {
+              "texto": "«Quítamela, sí. Por fin alguien.» No se defiende. Te deja meter la mano en el remiendo y sacar el papel, y luego vuelve a caminar sobre las brasas, más deprisa que antes.",
+              "opciones": [
+                {
+                  "texto": "Irse"
+                }
+              ]
+            },
+            "marques": {
+              "texto": "El hermano Blas se endereza como un soldado. «Entonces el viejo sabe que vivo, y sabe dónde. Treinta años esperando a sus coraceros, y me manda a uno de fuera.» Se encoge de hombros. «Pregunta lo que te haya mandado preguntar. Ya sé lo que es.»",
+              "opciones": [
+                {
+                  "texto": "Dice que llevas encima un papel suyo",
+                  "ir": "porque"
+                },
+                {
+                  "texto": "Volver",
+                  "ir": "brasas"
+                }
+              ]
+            }
+          }
+        },
+        "coraceros": {
+          "inicio": "sarmientos",
+          "nodos": {
+            "sarmientos": {
+              "texto": "Tres coraceros con las armas de los Osorio han atado al hermano Blas a la cruz de la ermita y apilan sarmientos a sus pies. Él reza en voz baja, con los ojos abiertos. El sargento te mira sin soltar la antorcha. «Orden del Marqués. Siga su camino.»",
+              "opciones": [
+                {
+                  "texto": "Soltar al penitente",
+                  "hace": [
+                    {
+                      "batalla": "coraceros"
+                    }
+                  ]
+                },
+                {
+                  "texto": "Seguir tu camino"
+                }
+              ]
+            }
+          }
+        },
+        "cruz": {
+          "inicio": "soga",
+          "nodos": {
+            "soga": {
+              "texto": "La soga cortada cuelga todavía de la cruz y los sarmientos están desparramados. Gaspar se ha ido hacia el norte, hacia el lago, descalzo. En la piedra de la ermita ha escrito con carbón: «Por mis culpas. G. M.»",
+              "opciones": [
+                {
+                  "texto": "Seguir"
+                }
+              ]
+            }
+          }
+        },
+        "habito": {
+          "inicio": "piedra",
+          "nodos": {
+            "piedra": {
+              "texto": "Sobre la piedra de la ermita, el hábito de saco está doblado y la cruz descosida encima. Las huellas descalzas bajan hacia el lago. Debajo del hábito hay una espada de zapador con la empuñadura negra de pólvora.",
+              "opciones": [
+                {
+                  "texto": "Coger la espada",
+                  "si": [
+                    {
+                      "no": {
+                        "marca": "espada-del-zapador"
+                      }
+                    }
+                  ],
+                  "hace": [
+                    {
+                      "pieza": "espada_de_herreria"
+                    },
+                    {
+                      "marca": "espada-del-zapador"
+                    }
+                  ]
+                },
+                {
+                  "texto": "Dejarlo todo como está"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "encuentros": {
+        "coraceros": {
+          "nombre": "Los coraceros del Marqués",
+          "tropa": [
+            {
+              "creature": "imperio-coracero",
+              "count": 3
+            },
+            {
+              "creature": "imperio-ballestero",
+              "count": 1
+            }
+          ],
+          "alGanar": [
+            {
+              "estado": "liberada"
+            },
+            {
+              "pieza": "brigantina"
+            }
+          ],
+          "alPerder": []
+        }
+      }
+    },
+    {
+      "id": "quinta-de-los-osorio",
+      "nombre": "La quinta de los Osorio",
+      "at": {
+        "x": 40,
+        "y": 18
+      },
+      "fondo": {
+        "plaza": "imperio"
+      },
+      "estados": {
+        "habitada": "con el Marqués en casa",
+        "tranquila": "con el Marqués tranquilo"
+      },
+      "estadoInicial": "habitada",
+      "puntos": [
+        {
+          "id": "chimenea",
+          "x": 0.25,
+          "si": [
+            {
+              "no": {
+                "marca": "causa-escrita"
+              }
+            }
+          ],
+          "cosa": {
+            "nombre": "La chimenea del salón"
+          },
+          "dialogo": "chimenea"
+        },
+        {
+          "id": "marques",
+          "x": 0.6,
+          "si": [
+            {
+              "no": {
+                "marca": "causa-escrita"
+              }
+            },
+            {
+              "no": {
+                "marca": "orden-quemada"
+              }
+            }
+          ],
+          "persona": {
+            "nombre": "Don Fadrique Osorio",
+            "papel": "Marqués de Alcázar Hondo",
+            "figura": "imperio-burgomaestre-anciano"
+          },
+          "dialogo": "marques"
+        },
+        {
+          "id": "marques-tranquilo",
+          "x": 0.6,
+          "si": [
+            {
+              "marca": "orden-quemada"
+            }
+          ],
+          "persona": {
+            "nombre": "Don Fadrique Osorio",
+            "papel": "Marqués de Alcázar Hondo",
+            "figura": "imperio-burgomaestre-anciano"
+          },
+          "dialogo": "marques-tranquilo"
+        },
+        {
+          "id": "sillon",
+          "x": 0.6,
+          "si": [
+            {
+              "marca": "causa-escrita"
+            }
+          ],
+          "cosa": {
+            "nombre": "El sillón del Marqués"
+          },
+          "dialogo": "sillon"
+        }
+      ],
+      "dialogos": {
+        "chimenea": {
+          "inicio": "legajos",
+          "nodos": {
+            "legajos": {
+              "texto": "En la chimenea del salón arden legajos atados con cinta roja; el Marqués lleva días quemando papeles. Algunos han caído fuera del fuego, a medio arder.",
+              "opciones": [
+                {
+                  "texto": "Rebuscar entre los legajos caídos",
+                  "hace": [
+                    {
+                      "marca": "el-fuego-del-robledal"
+                    }
+                  ],
+                  "ir": "nomina"
+                },
+                {
+                  "texto": "Dejarlos arder"
+                }
+              ]
+            },
+            "nomina": {
+              "texto": "Es una nómina de coraceros del verano de la presa, chamuscada por un lado. Al margen, con la letra del Marqués: «Por el servicio del Robledal, paga doble y silencio.»",
+              "opciones": [
+                {
+                  "texto": "Volver a dejarla entre los legajos",
+                  "ir": "legajos"
+                },
+                {
+                  "texto": "Irse"
+                }
+              ]
+            }
+          }
+        },
+        "marques": {
+          "inicio": "salon",
+          "nodos": {
+            "salon": {
+              "texto": "Un anciano con gorguera y cadena de oro te recibe sin levantarse, con el bastón cruzado sobre las rodillas y una copa al alcance de la mano. «Fadrique Osorio, Marqués de Alcázar Hondo, consejero del Emperador. Mi mayordomo dice que trae usted un asunto. Los asuntos se traen por escrito.»",
+              "opciones": [
+                {
+                  "texto": "¿Qué pasó en la presa de Puenteroto?",
+                  "ir": "presa"
+                },
+                {
+                  "texto": "Preguntarle por su capitán de zapadores",
+                  "si": [
+                    {
+                      "marca": "nombre-del-zapador"
+                    }
+                  ],
+                  "ir": "mendana"
+                },
+                {
+                  "texto": "¿No le asusta tener a un muerto en su salón?",
+                  "si": [
+                    {
+                      "faccion": "no-muertos"
+                    }
+                  ],
+                  "ir": "muerto"
+                },
+                {
+                  "texto": "Enseñarle el papel con su sello",
+                  "si": [
+                    {
+                      "marca": "orden-fuera-de-la-ermita"
+                    },
+                    {
+                      "no": {
+                        "marca": "orden-quemada"
+                      }
+                    },
+                    {
+                      "no": {
+                        "marca": "causa-escrita"
+                      }
+                    }
+                  ],
+                  "ir": "la-orden"
+                },
+                {
+                  "texto": "Irse"
+                }
+              ]
+            },
+            "presa": {
+              "texto": "«Los muertos de Valdeluz la rompieron para anegar el valle y pasar por encima de los ahogados. Consta en todos los partes.» Se sirve vino sin ofrecerte. «Gracias a aquella desgracia el Emperador tuvo razón para tomar Cripta Gris, que era un nido de muertos. Hoy es una ciudad imperial con buenas murallas. Hay desgracias que se pagan solas.»",
+              "opciones": [
+                {
+                  "texto": "¿Ninguno de sus hombres estaba en la presa?",
+                  "hace": [
+                    {
+                      "marca": "nombre-del-zapador"
+                    }
+                  ],
+                  "ir": "mendana"
+                },
+                {
+                  "texto": "Hablarle del molinero que vio la presa",
+                  "si": [
+                    {
+                      "marca": "lo-que-vio-el-molinero"
+                    }
+                  ],
+                  "ir": "molinero"
+                },
+                {
+                  "texto": "Preguntarle por el fuego del Robledal",
+                  "si": [
+                    {
+                      "marca": "el-fuego-del-robledal"
+                    }
+                  ],
+                  "ir": "robledal"
+                },
+                {
+                  "texto": "Volver",
+                  "ir": "salon"
+                }
+              ]
+            },
+            "molinero": {
+              "texto": "«Un molinero deslenguado. Se le ahorcó con todas las de la ley, con testigo y tablilla.» Deja la copa. «Si ha pasado usted por la Hoya de los Cuervos habrá visto que en esta tierra la ley es de madera y dura mucho.»",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "presa"
+                }
+              ]
+            },
+            "robledal": {
+              "texto": "Al Marqués se le queda la copa a medio camino. «Los orkos ardieron en un incendio de verano, que Dios los tenga donde tenga a los orkos.» Te mira por fin, de arriba abajo, como quien tasa un caballo. «Habla usted mucho para ser de fuera. Eso se paga, en un sentido o en otro.»",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "presa"
+                }
+              ]
+            },
+            "mendana": {
+              "texto": "«Gaspar Mendaña, mi zapador. Murió en la presa, como un valiente.» Lo dice deprisa, como una lección aprendida. Luego baja la voz. «Pero dicen los arrieros que por el Páramo Gris anda un penitente con las manos negras. Si fuera él, llevaría encima un papel que es mío.»",
+              "opciones": [
+                {
+                  "texto": "¿Qué papel?",
+                  "ir": "encargo"
+                },
+                {
+                  "texto": "Volver",
+                  "ir": "salon"
+                }
+              ]
+            },
+            "encargo": {
+              "texto": "«Uno con mi sello. Viejo, y sin valor para nadie más que para mí.» Golpea el suelo con el bastón. «Tráigamelo y le pagaré como se paga en Alcázar Hondo: bien y sin preguntas. Lo de Mendaña no me lo cuente. No quiero saberlo.»",
+              "opciones": [
+                {
+                  "texto": "Aceptar el encargo (100 de oro de adelanto)",
+                  "si": [
+                    {
+                      "no": {
+                        "marca": "encargo-del-marques"
+                      }
+                    }
+                  ],
+                  "hace": [
+                    {
+                      "oro": 100
+                    },
+                    {
+                      "marca": "encargo-del-marques"
+                    }
+                  ],
+                  "ir": "adelanto"
+                },
+                {
+                  "texto": "Ni hablar",
+                  "ir": "salon"
+                }
+              ]
+            },
+            "adelanto": {
+              "texto": "El Marqués te tira una bolsa sin mirarte. «Cien de adelanto. El resto, con el papel. Y límpiese las botas antes de volver: me trae usted barro de Valle Hondo.»",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "salon"
+                },
+                {
+                  "texto": "Irse"
+                }
+              ]
+            },
+            "muerto": {
+              "texto": "«¿Asustarme?» El Marqués ni parpadea. «Me asustan los vivos que hablan. Los muertos de Valdeluz llevan treinta años callados, cargando con lo que se les cargó, y así me gustan.» Bebe. «No se siente en las sillas buenas.»",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "salon"
+                }
+              ]
+            },
+            "la-orden": {
+              "texto": "Le enseñas el papel sin soltarlo. El Marqués no se mueve, pero la cadena de oro le sube y le baja con el pecho. «Eso es mío.» Alarga la mano, que le tiembla. «Démelo y aquí no ha pasado nada: ni en la presa ni en esta sala.»",
+              "opciones": [
+                {
+                  "texto": "Dárselo para que lo queme (300 de oro y un arnés de placas)",
+                  "si": [
+                    {
+                      "no": {
+                        "marca": "orden-quemada"
+                      }
+                    },
+                    {
+                      "no": {
+                        "marca": "causa-escrita"
+                      }
+                    }
+                  ],
+                  "hace": [
+                    {
+                      "marca": "orden-quemada"
+                    },
+                    {
+                      "estado": "tranquila"
+                    },
+                    {
+                      "oro": 300
+                    },
+                    {
+                      "pieza": "arnes_de_placas"
+                    }
+                  ],
+                  "ir": "quema"
+                },
+                {
+                  "texto": "Dárselo y callar también lo del Robledal (500 de oro y un arnés de placas)",
+                  "si": [
+                    {
+                      "no": {
+                        "marca": "orden-quemada"
+                      }
+                    },
+                    {
+                      "no": {
+                        "marca": "causa-escrita"
+                      }
+                    },
+                    {
+                      "marca": "el-fuego-del-robledal"
+                    }
+                  ],
+                  "hace": [
+                    {
+                      "marca": "orden-quemada"
+                    },
+                    {
+                      "estado": "tranquila"
+                    },
+                    {
+                      "oro": 500
+                    },
+                    {
+                      "pieza": "arnes_de_placas"
+                    }
+                  ],
+                  "ir": "quema"
+                },
+                {
+                  "texto": "Leérselo en voz alta",
+                  "ir": "leida"
+                },
+                {
+                  "texto": "Me lo quedo",
+                  "ir": "rechazo"
+                }
+              ]
+            },
+            "quema": {
+              "texto": "El Marqués echa el papel al fuego y lo mira arder hasta que el lacre se derrite. Le tiemblan las manos. Luego cuenta el oro delante de ti y manda al mayordomo a por el arnés de su hijo, que murió en las murallas de Cripta Gris. «Mis coraceros irán al Páramo esta noche. Usted no ha estado aquí.»",
+              "opciones": [
+                {
+                  "texto": "Irse"
+                }
+              ]
+            },
+            "leida": {
+              "texto": "Lees en voz alta: «Vuélese la presa de Puenteroto antes del alba, aunque el valle no esté desalojado.» El Marqués cierra los ojos y te deja acabar. «Trescientos doce», dice. «Los conté yo. Cada año los vuelvo a contar.» Abre los ojos. «Y cada año me salen las mismas murallas en Cripta Gris. Decida usted cuál de las dos cuentas pesa más.»",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "la-orden"
+                }
+              ]
+            },
+            "rechazo": {
+              "texto": "«Entonces es usted un ladrón con mi papel en el bolsillo.» El Marqués se levanta por primera vez, apoyado en el bastón. «Llévelo al lago, si quiere. Los ahogados no saben leer.»",
+              "opciones": [
+                {
+                  "texto": "Volver",
+                  "ir": "salon"
+                },
+                {
+                  "texto": "Irse"
+                }
+              ]
+            }
+          }
+        },
+        "marques-tranquilo": {
+          "inicio": "buen-humor",
+          "nodos": {
+            "buen-humor": {
+              "texto": "El Marqués está de buen humor y huele a vino. «Usted otra vez. Aquí ya no hay nada de qué hablar, y en Valle Hondo tampoco.» Se ríe solo. «Treinta años sin dormir, y ahora duermo como un niño. Como un niño de Fondovalle.»",
+              "opciones": [
+                {
+                  "texto": "Irse"
+                }
+              ]
+            }
+          }
+        },
+        "sillon": {
+          "inicio": "charco",
+          "nodos": {
+            "charco": {
+              "texto": "El Marqués está sentado en su sillón, con la gorguera puesta y la cadena de oro sobre el pecho, los ojos abiertos. Está empapado. El suelo de alrededor es un charco con lama y algas, a muchas leguas del lago. En la chimenea apagada no queda ni ceniza, y en la mesa hay una cuenta a medias con su letra: trescientos once.",
+              "opciones": [
+                {
+                  "texto": "Cerrarle los ojos"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "encuentros": {}
     }
   ]
 }

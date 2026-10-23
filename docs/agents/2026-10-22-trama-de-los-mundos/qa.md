@@ -345,3 +345,241 @@ Cómo se probó:
   - M5 es un guardia estrecho.
 - Conviene arreglar **M1** y **M5** antes de la fase B. M5, porque la fase B regenera `ejemplo` y
   el guardia es lo que vigilaría su `ya`.
+
+---
+
+# Fase B — los tres mundos reales (commits ae858435 y 8e339945)
+
+Alcance: los criterios 3, 4, 5 y 9 sobre las tres generaciones reales, más lo que tocan (1, 2, 7, 8
+y 10). No se lanzó el motor ni ningún `POST /__mundos`. No se tocó el `pnpm npcs trabajar` del taller,
+que seguía pintando en segundo plano.
+
+Cómo se probó:
+
+- **CLI**: `pnpm mundo validar` y `pnpm mundo medir` sobre los tres mundos y `prueba`. La referencia
+  `gen-20261022-596849` se copió a `assets/mundos/` con sus tres `cuerpo` cambiados por figuras del
+  banco (ya no valida con el formato nuevo), solo para medirla. Se borró después.
+- **Lectura**:
+  - entera, la biblia y la historia de `ejemplo` (la historia, pasada a texto con un script);
+  - entera, la biblia de `gen-20261023-172041`;
+  - de `gen-20261023-830000`, la biblia por encima («Desenlaces» entera);
+  - las marcas de los tres;
+  - el stream del motor de la tercera generación (`.cache/mundos/gen-20261023-172041/motor.jsonl`).
+- **Núcleo**, con un script propio (`scratchpad/qab/desenlaces.mts`): los dos desenlaces de `ejemplo`,
+  lo que se ve después en otros lugares y lo que pasa con las marcas entre los dos jugadores. Para
+  llegar a cada lugar, el héroe se planta en él (`hero.at`, `state.current`), como en
+  `test/mundo.test.ts`.
+- **Navegador**:
+  - Playwright sin pantalla (el Chromium de Playwright por CDP, sin pantalla) contra
+    `vite --port 3471`. Los dos se arrancaron con `set -m` y se mataron por su grupo; después, `ss`
+    dio 3471 y 9333 libres y los grupos, vacíos.
+  - Dos partidas de `?mundo=ejemplo` desde el arranque: base → mapa → clic en el rombo → escena →
+    conversación. Sin errores en consola.
+  - Capturas en `/tmp/claude-1000/-home-al-code-heroes--claude-worktrees-affectionate-gould-410d85/8fee6c7d-388c-4b5b-807d-0fc1b55b3101/scratchpad/qab/cap/`.
+- **`pnpm verify`**, una vez, con el árbol de trabajo tal cual (`ejemplo` regenerado sin commitear):
+  salida 0, «Test Files 166 passed | 1 skipped · Tests 4016 passed | 12 skipped», carga 2.
+- `npx tsx tools/qa/lugares-ia.ts ejemplo gen-20261023-830000 gen-20261023-172041 prueba`.
+
+## Medida contra la referencia (`pnpm mundo medir`)
+
+| | referencia 596849 | 830000 (orkos, mediano) | `ejemplo` (no muertos, mediano) | 172041 (elfos, grande) |
+|---|---|---|---|---|
+| Lugares / regiones | 3 / 3 | 6 / 6 (pide 5-6) | 6 / 6 (5-6) | 7 / 7 (6-8) |
+| Marcas / que cruzan | 2 / 1 | 22 / 11 | 15 / 9 | 12 / 10 |
+| Lugares encadenados | 2 | 6 | 6 | 7 |
+| Desenlaces que se excluyen | — | 3, a tres bandas (cuerno tocado, enterrado o vendido) | 2 (`causa-escrita` / `orden-quemada`) | 3, a tres bandas (libro leído, quemado o vendido) |
+| Gente principal, nodos · niveles | 2-3 · 2-3 | 6-20 · 3-5 | 6-13 · 3-5 | 9-14 · 4-5 |
+| Nodos en total · palabras por nodo · nodos de < 12 palabras | 11 · 24 · 0 | 99 · 42 · 0 | 81 · 46 · 0 | 130 · 42 · 0 |
+| Palabras de la biblia | — | 3 997 | 3 830 | 3 931 |
+| Oro que dan (todas las ramas) / piezas / tropa | 400 / 3 / 1 | 2 500 / 6 / 3 | 1 820 / 8 / 3 | 1 550 / 6 / 1 |
+| Tiempo de generación (`plan.json` → última escritura) | ~1,5 min | 19 min | 24 min | 28 min |
+
+Notas a la tabla:
+
+- Los tiempos los confirman las fechas de los ficheros: 11:07 → 11:26, 11:28 → 11:52 y 11:54 → 12:22.
+- La tercera generación costó el equivalente de 7,48 USD: 184 000 tokens de salida, de ellos 129 000
+  pensando (campo `result` del stream).
+
+## Criterios
+
+| # | Criterio | Estado | Evidencia |
+|---|---|---|---|
+| 1 | Primero la biblia, después la historia; se releen | ✅ | **Stream de la tercera:** `Write biblia.md` → `Write historia.json` → validar (falla) → 3 `Edit` → validar («vale») → 6 `Edit` de la historia y 10 de la biblia tras la relectura («Encontré varias incoherencias entre la biblia y la historia: la llave de Eithne, la reacción de Seanna…») → validar («vale»).<br>Las dos validaciones son la orden tal cual y la espera las cuenta: el arreglo de 8e339945 funciona. |
+| 2 | La biblia se exige en disco | ✅ | Las tres biblias valen, y sin biblia la referencia no medía («no tiene biblia»). No cambió desde la vuelta 2. |
+| 3 | Una trama que encadena ≥ 3 lugares; de 4 a 8 según el tamaño; en regiones distintas | ✅ | **Tabla:** 6, 6 y 7 lugares, todos en el rango de su tamaño, cada uno en su región, y 6, 6 y 7 lugares encadenados.<br>**En `ejemplo`, la orden del Marqués cruza la horca, la torre, la ermita y la quinta.** Leída a mano, la cadena es real y no de relleno:<br>· la tablilla de la horca da el nombre del zapador;<br>· ese nombre abre al hermano Blas en la ermita;<br>· Blas da la orden «para Inés» o «para el Marqués» según lo que se sepa (`libro-de-fondovalle`, `encargo-del-marques`);<br>· la torre necesita además el badajo de la balsa. |
+| 4 | Árboles hondos (≥ 6 nodos y ≥ 3 niveles la gente principal) | ✅ | **Tabla:** ninguna persona principal baja de 6 nodos y 3 niveles; la referencia tenía 2-3.<br>**Leído a mano en `ejemplo`, no es relleno:**<br>· Ginés: pasado → mentira → orkos; el testigo, si se sabe el nombre; lo que quiere.<br>· Inés: quién es → prometido → sospecha, a la que responde «Las sospechas no se apuntan: se rezan»; el libro → requisitos; las casacas; el sello falso.<br>· Blas: tres revelaciones según lo que se sepa y tres maneras de pedir la orden.<br>· El Marqués: la mentira oficial, el molinero y el Robledal, el encargo, leerle la orden en voz alta («Trescientos doce. Los conté yo»).<br>**Cada uno habla como dice la biblia:** el «Consta» de Inés, la tercera persona de Murg y de Chirria, el «Por mis culpas» de Blas.<br>**En la pantalla:** conversación entera con Ginés (`09`–`13`) y con Murg (`23`–`25`). |
+| 5 | ≥ 2 desenlaces excluyentes, por caminos distintos, con premios distintos; se notan en otros lugares | ✅ (con H-B2) | **Núcleo, `ejemplo` (script, salida real):**<br>**A. La causa escrita.** Tablilla → «¿Qué escribe?» → Blas «para la escribana» → Chirria «suben a por ti» (nigromante) → «Colgar el badajo». Oro 25 500 → 25 700. La quinta queda solo con `sillon` (el Marqués ahogado); la ermita, con `habito` (la espada); el campamento, con `maza`.<br>**B. La orden quemada.** «¿Ninguno de sus hombres…?» → aceptar el encargo (+100) → Blas «para el Marqués» → «Dárselo para que lo queme». Oro 25 500 → 25 900 más el arnés. En la torre queda `ines-sin-causa` con la pelea; en la ermita, `coraceros`; en el campamento, `huellas`; en la quinta, `marques-tranquilo`.<br>**Se excluyen:** tras A, el rival en la torre ve «Darle un papel con sello» apagada con «la causa de los ahogados de Fondovalle ya está escrita en su libro», y en la quinta ya no está el Marqués que compra.<br>**En la pantalla:** la marca de otro lugar apaga una opción con su frase («Busco al capitán de zapadores de la presa» → «nadie ha dicho aún en voz alta un nombre…», `23`) y un premio cobrado se apaga («la plata fundida del Robledal ya no está entre los tocones», oro 26 000 → 26 150, `26`). El desenlace entero no se jugó en la pantalla: ver «No probado». |
+| 8 | `ejemplo` regenerado vale y casa con el banco | ✅ (con H-B6) | `pnpm mundo validar ejemplo` → «vale».<br>`pnpm npcs estado`: sus seis figuras están `pintada` (`esqueleto-molinero-ahorcado`, `goblina-trapera`, `templario-penitente-viejo`, `orko-caudillo-viejo`, `necropolis-escribana-espectral`, `imperio-burgomaestre-anciano`) y se ven en la escena (Ginés esqueleto en `12`, Murg en `23`).<br>Las de la tercera generación siguen pintándose: `elfa-guardiana-de-la-fuente` pendiente, `elfa-arquera-desertora` con 1 de 8 direcciones. |
+| 9 | Ejercido de verdad y comparado con la referencia | ✅ (con H-B3) | Tres generaciones reales (dos desde el menú), las tres validan y se miden arriba.<br>Tiempo: 19-28 min. |
+| 10 | `CLAUDE.md` y `pnpm verify` | ✅ | `verify` en verde (arriba). `CLAUDE.md` dice el tope de 60 min y «de 15 a 30 minutos» en el menú, que coincide con 8e339945. |
+
+## Hallazgos
+
+### Importantes
+
+**H-B1. Los mundos se heredan unos a otros por el banco de figuras: el tercero es el segundo con otros
+nombres.**
+
+- **Lo que se ve en la tercera generación (elfos, `172041`), frente a `ejemplo`:**
+  - **Fondo:** una atrocidad tapada por una autoridad (el valle anegado o el bosque quemado), con unos
+    300 muertos (312 o 318).
+  - **Una escribana espectral** con el libro de sus nombres y el tic «Consta» / «Todo consta» (Inés o
+    Maelis).
+  - **Un molinero ahorcado llamado Ginés**, que vio la verdad, con la misma figura,
+    `esqueleto-molinero-ahorcado`.
+  - **Un papel firmado** que es la prueba.
+  - **Un «Osorio»** (marqués en uno, mayordomo en el otro).
+  - **Los desenlaces:** leer en voz alta, quemar o vender.
+- **Lo que se ve en `ejemplo`, frente a la primera (orkos, `830000`):**
+  - el penitente templario en su ermita (Teobaldo o el hermano Blas);
+  - la goblina trapera (Uñanegra o Chirria);
+  - el caudillo orko viejo «Dientenegro» o «Diente Negro»;
+  - las tres con las mismas figuras.
+- **La causa no es copiar el ejemplo.** La tercera no leyó `ejemplo`: lo intentó con un `Bash`
+  (`wc`/`grep` de sus textos) y se le denegó, y solo leyó `prueba` (stream). La causa es el banco:
+  - las figuras que pide un mundo entran en `npcs.figuras` con su descripción de personaje y su
+    `pedidaPor`: «esqueleto de ahorcado… calzas pardas de molinero con manchas viejas de harina»,
+    «penitente templario… cruz roja de tela medio descosida»;
+  - el motor siguiente las ve en su lectura y, con un tope de 4 figuras nuevas, construye a su gente
+    sobre ellas;
+  - el `necropolis-guardian-viejo` de la semilla («túnica negra… ribetes morados… farol apagado»)
+    es, palabra por palabra, el Osorio de la tercera.
+- **Lo agravan dos cosas que no son de esta tarea:**
+  - **Los nombres de las regiones y las ciudades son los mismos en los tres mapas.** Tierras de
+    Valdeluz, Llanos del Cierzo, Valle Hondo, Robledal, Páramo Gris, Vega del Molino, Hoya de los
+    Cuervos…; Valdeluz, Cripta Gris, Torreblanca, Puenteroto, Alcázar Hondo… (`lectura.json` de los
+    tres). Así sale un «Robledal» quemado en dos mundos.
+  - **Opus tiene nombres favoritos** («Ginés», «Osorio»).
+- **Qué esperaba quien juega:** que el tercer mundo no le cuente la historia del segundo. Cada mundo,
+  leído solo, es bueno. Pero la petición era «tramas interesantes y originales», y la herencia crece
+  con cada mundo que se genera, porque cada uno deja figuras de su trama en el banco.
+
+**H-B2. Lo que tiene o sabe un jugador lo usa el otro: las marcas de trama son del mundo, y el
+vocabulario no puede decir «lo lleva este jugador».**
+
+- **Reproducción en el núcleo** (`desenlaces.mts`, caso C, `ejemplo`):
+  1. El rival (j1) lee la tablilla y le quita la orden al hermano Blas.
+  2. Quien juega (j0), que nunca ha tenido el papel, va a la quinta y «Dárselo para que lo queme».
+  3. Resultado: oro 25 500 → 25 800, más el arnés de placas. Los hechos son
+     `world_mark(1) world_mark(1) world_mark(0) place_state(0) gold_gained(0) loot_found(0)`.
+  4. Al rival, con «el papel en el bolsillo», la torre le enseña ya a la Inés furiosa.
+- Lo mismo pasa con el badajo, el cuerno (`830000`) y el libro (`172041`). La biblia de la tercera
+  lo reconoce: «un libro que el rival saca y no vende queda suelto, y quien juega puede llevarlo
+  igual».
+- **Pasa también con lo que se sabe** (caso D): el rival habla con Ginés y fuerza el cepillo, y
+  entonces, a quien juega:
+  - Inés le enciende «Contarle lo que vio el molinero de los Pardo» sin haberlo visto nunca;
+  - y «Preguntarle qué consta de ti» le responde «Consta usted en el libro: ciento veinte del
+    cepillo de San Roque, a deber» (`ines/deudor`), un robo que hizo el otro.
+
+  Es el mismo error que la regla del `ya` evita, pero dentro de un nodo.
+- **Por qué importa:** es el caso concreto que pedía el criterio 6 («solo se amplía si aparece un
+  caso que no se pueda escribir, y se cita»). Hoy, la posesión de un objeto de trama que no es una
+  pieza del catálogo no se puede escribir.
+- **Pide una decisión:** aceptarlo como «el mundo es de los dos», o ampliar (una marca por jugador o
+  un `lleva` de objetos de trama).
+
+**H-B3. Generar tarda de 19 a 28 minutos, y el usuario aceptó de 5 a 10.**
+
+- `requisitos.md`, «Decisiones del usuario»: «se acepta que generar tarde 5-10 minutos».
+- Lo medido es entre 2 y 5 veces eso. 8e339945 sube el tope a 60 min y el menú dice «de 15 a
+  30 minutos».
+- El stream dice que de 12 a 18 minutos se van pensando antes de escribir nada (`motor.ts`), con
+  129 000 tokens de pensamiento en la tercera.
+- No consta en la carpeta que se le haya preguntado al usuario. Pide su visto bueno, o bajar el
+  esfuerzo.
+
+### Menores
+
+**H-B4. Lo que describe un nodo no cambia tras el desenlace, y a veces contradice la biblia** (`ejemplo`).
+
+- **Inés, tras `causa-escrita`:**
+  - sigue abriendo con «Nombre, vecindad y asunto»;
+  - «¿Qué escribe?» dice que la columna de la causa «está en blanco de arriba abajo» (comprobado en
+    el núcleo tras el caso A).
+- **La torre:** «Mirar hacia abajo» sigue con la gente «como quien espera a que toquen a concejo»
+  después de tocar.
+- **Los tocones:** siguen describiendo la plata ya cogida (`26`).
+- **Murg:**
+  - tras `orden-quemada` sigue hablando junto a su lumbre, aunque la biblia dice que «ha apagado la
+    lumbre y no habla con nadie» (solo la cosa `huellas` lo cuenta);
+  - tras vencer a su banda, saluda igual.
+- **Ginés:** llevárselo en la tropa deja «La arena removida» como si se hubiera enterrado a los dos.
+- **Por qué no lo cazó el motor:** su relectura miró que los lugares, las marcas y los desenlaces
+  estén en las dos, no el texto de los nodos que no llevan condición.
+
+**H-B5. Las tres biblias tocan el techo de 4 000 palabras de la skill** (3 997, 3 830 y 3 931). En la
+tercera, el motor gastó varias `Edit` en recortar («la biblia supera las 4 000 palabras»). Es una
+observación: o el techo es justo o el motor escribe hasta él.
+
+**H-B6. `ejemplo`, que se va a commitear, depende de figuras pedidas por un mundo que no va a git.**
+
+- `data/npcs.json` lleva `pedidaPor: gen-20261023-830000` en `orko-caudillo-viejo`, `goblina-trapera`
+  y `templario-penitente-viejo`, que usa `ejemplo`.
+- `ejemplo`, `data/npcs.json` y las siete carpetas de `assets/npcs/` siguen sin commitear
+  (`git status`).
+
+**H-B7. El motor ejecutó `ls -la … && wc -c …` aunque la skill le dice que validar es «la única orden
+que tienes permitida»** (primer `Bash` del stream de la tercera, con resultado). Claude Code deja
+pasar órdenes de solo lectura con `dontAsk`. No hace daño, pero el permiso no es tan cerrado como se
+cree.
+
+### Contexto (fuera del alcance de esta tarea)
+
+**C-B1. Una trama de 6 o 7 lugares por un mapa de 42 o 51 casillas no se recorre antes de que acabe
+la partida.**
+
+- **En el navegador** (`ejemplo`, primera partida): el héroe salió de la base hacia la torre y, el
+  día 3, el héroe imperial tomó Valdeluz. «¡Te atacan! Defiéndete» → «Resolver sola» → «Partida
+  perdida» (`raro-2`, `19-dia4`).
+- **`lugares-ia.ts`:** 0 hechos de lugar en los tres mundos; las partidas acaban los días 7, 6 y 4.
+- Así, «el rival puede cerrar un desenlace» hoy es teórico (H9 de la F1a).
+
+**C-B2. Lo que se ve no es lo que se cuenta (F2):**
+
+- la horca de la Raya, en la arena roja, se pinta como una plaza imperial de noche (`04`);
+- el Robledal que arde por debajo se pinta como un campamento con pinos verdes (`23`).
+
+## Workarounds usados
+
+- **En el núcleo, el héroe se planta en cada lugar** (`hero.at`) y el turno se cambia a mano
+  (`state.current`), para probar los dos desenlaces y los casos entre jugadores sin andar 30
+  casillas. Las acciones van por `applyAdventureAction`, la puerta de siempre. No afecta a quien
+  juega.
+- **«Ver mapa entero» y el minimapa para mover la cámara**, en vez de arrastrar. Es un gesto que
+  quien juega también tiene.
+- **La referencia, con sus `cuerpo` cambiados por figuras del banco**, solo para medirla, porque ya
+  no valida con el formato nuevo.
+- **El Chromium de Playwright arrancado a mano** con `--remote-debugging-port` y conducido por CDP,
+  para no perder la partida entre un script y el siguiente.
+
+## No probado
+
+- **El desenlace entero en la pantalla:** reunir orden y badajo, o encargo y orden, pide recorrer
+  4 lugares por el mapa, y la partida se perdió el día 3 (C-B1). Lo cubre el núcleo, con su salida
+  arriba.
+- **Las conversaciones de Inés, Blas y el Marqués en la pantalla.** Se leyeron enteras en el JSON.
+- **Jugar `830000` y `172041` en el navegador,** y cómo se ve una figura aún sin pintar de la tercera
+  (Eithne).
+- **La espera del menú con el motor real:** son las capturas del ingeniero en `faseb/menu` y
+  `faseb/grande`, que no se miraron.
+- **`pnpm qa`, `capturas`, `banco` y `verify:lento`:** la fase B no toca `src/server/`, el contrato
+  ni el juego.
+
+## Veredicto (fase B)
+
+**Apto con reservas.**
+
+- **Lo que está bien:**
+  - los números de los criterios 3, 4, 5 y 9 se cumplen con holgura en los tres mundos, y no por
+    relleno;
+  - `ejemplo` se lee como una trama de verdad: un secreto con capas, gente con voz, una cadena por
+    cuatro lugares y dos desenlaces que se excluyen y se notan en otros tres sitios;
+  - la validación del motor ya funciona (la tercera validó dos veces y se contó);
+  - `pnpm verify` en verde.
+- **Reservas, las tres para decidir con el usuario antes de dar la tarea por cerrada:**
+  - **H-B1:** los mundos se parecen porque heredan su gente del banco de NPC (y los mapas comparten
+    nombres);
+  - **H-B2:** un jugador usa lo que tiene o sabe el otro, y es el caso concreto del criterio 6;
+  - **H-B3:** generar tarda de 19 a 28 minutos frente a los 5-10 aceptados.
+- **H-B4 a H-B7** son menores.

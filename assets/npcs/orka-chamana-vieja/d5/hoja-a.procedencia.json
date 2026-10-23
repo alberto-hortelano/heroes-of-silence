@@ -1,0 +1,58 @@
+{
+  "encargo": "npc-orka-chamana-vieja-d5-a",
+  "tipo": "atlas",
+  "fecha": "2026-10-23T09:51:19.804Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a1682a-cd3b-7873-bfc7-b9520c97818e",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUna vieja chamana orka: encorvada y huesuda, piel verde grisácea muy arrugada, tres colmillos amarillos, greñas blancas trenzadas con plumas negras, la cara untada de ceniza gris, los brazos llenos de huesecillos atados con cordel, túnica de lana parda raída, una piel de lobo sobre los hombros y los pies descalzos.\nEn la lámina de giro (imagen 2), la figura 6 en orden de lectura es la que mira hacia «espalda-izquierda», como esta hoja: así se ve el personaje desde este lado.\nEs una persona de la villa, no un soldado en guardia: de pie y tranquila. El maniquí va con las manos vacías; si la descripción le pone algo en las manos (un martillo, un libro, un cayado), que sea pequeño y no cambie la pose. Estilo: ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «espalda-izquierda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/gente/civil-8d/d5-a.profundidad.png",
+      "papel": "pose-profundidad",
+      "sha256": "28696ef7f3c7d35a1d1f739a98c59a9778bf8819e3d70645d9596cbbb5a3c808"
+    },
+    {
+      "ruta": "assets/npcs/orka-chamana-vieja/giro.webp",
+      "papel": "identidad",
+      "sha256": "e07edad85add8bd626f36fa0b928f512865f056fe81f3a64cb56db1be0d4331b"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a1682a-cd3b-7873-bfc7-b9520c97818e/exec-776a472f-3eb0-4825-bd9a-bdcf46713a83.png",
+    "sha256": "5d2d5eb17614706cbe47b4aa0d14ebf15a52d7ac13c86413f6facd69ffd4060a",
+    "ancho": 1915,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7042, pies en y=342, reposo a 160 px",
+    "WebP calidad 92, alfa sin pérdida",
+    "dirección completa: assets/npcs/orka-chamana-vieja/d5/atlas.webp"
+  ],
+  "validacion": {
+    "visibles": 0.05018575355489418,
+    "opacos": 0.9539715837430182,
+    "haloSuelto": 0,
+    "ancho": 2688,
+    "alto": 1152
+  },
+  "deLaPose": {
+    "k": 1.0666666666666667,
+    "origen": [
+      192,
+      342
+    ],
+    "apoyoReposo": [
+      192,
+      271
+    ],
+    "posicion": false
+  },
+  "salida": {
+    "ruta": "assets/npcs/orka-chamana-vieja/d5/hoja-a.webp",
+    "sha256": "c179a808239a82fb38fd4b740ced8fef7a8e0a429f959767780598a064fabfa5"
+  }
+}

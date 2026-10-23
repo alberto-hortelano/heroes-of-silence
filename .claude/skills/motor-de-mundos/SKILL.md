@@ -63,8 +63,9 @@ prosa es lo que hace que la historia no salga plana.
 
 ### Primero, la biblia
 
-`biblia.md`, en español, en prosa y **sin JSON**: de 1 500 a 4 000 palabras (el validador
-rechaza una de menos de 400, y una de 400 sigue siendo poca). Con estas secciones, en este
+`biblia.md`, en español, en prosa y **sin JSON**: de 2 000 a 5 000 palabras, las que pida la
+trama (el validador rechaza una de menos de 400, y una de 400 sigue siendo poca); no gastes
+ediciones en recortarla a un número. Con estas secciones, en este
 orden:
 
 - `## Antes de que llegue el héroe`: qué pasó en esta tierra —la guerra, el crimen, la
@@ -217,6 +218,10 @@ un diálogo de un lugar; `enOtroLugar`, un punto y su diálogo en otro):
   protesta («da algo y no se apaga a sí misma»).
 - Lo que se gana y lo que se pierde tiene que ser **distinto** en cada desenlace (aliados
   distintos, una pieza o el oro, un lugar que se abre y otro que se cierra).
+- **Lo que dice la gente cambia con el desenlace.** Quien en la biblia cambia tras uno (apaga
+  su lumbre, deja de hablar, lo celebra) cambia también en la historia: el nodo de inicio de
+  su diálogo lleva opciones o puntos con el `si` de cada marca de desenlace, y lo que se
+  describía antes («la columna está en blanco», «brilla la plata») no sigue igual después.
 
 ## El mundo es de los dos
 
@@ -237,6 +242,11 @@ entero, de pie y andando, que reutilizan todos los mundos. El banco lo trae la l
 `npcs.figuras`, cada una con su `descripcion` y sus `etiquetas` (oficio, sexo, edad,
 especie, facción, clase).
 
+- **La figura es solo el cuerpo.** Primero inventa a la gente de tu trama (en la biblia) y
+  después busca con qué figura pintarla: no saques personajes, oficios ni historias de las
+  descripciones del banco. Una figura del molinero ahorcado de otro mundo puede pintar a un
+  barquero vivo del tuyo; si construyes tu gente sobre el banco, todos los mundos acaban
+  contando la misma historia.
 - **Reutiliza antes de pedir.** Para cada persona, busca en `npcs.figuras` una con su
   facción, especie y sexo, y que su descripción le pegue; nómbrala en
   `"persona": { …, "figura": "<id>" }`. Una figura puede servir a varias personas de

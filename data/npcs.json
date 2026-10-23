@@ -225,6 +225,111 @@
       "talla": 1,
       "acciones": "reposo-y-marcha",
       "pedidaPor": "semilla"
+    },
+    {
+      "id": "orka-chamana-vieja",
+      "descripcion": "Una vieja chamana orka: encorvada y huesuda, piel verde grisácea muy arrugada, tres colmillos amarillos, greñas blancas trenzadas con plumas negras, la cara untada de ceniza gris, los brazos llenos de huesecillos atados con cordel, túnica de lana parda raída, una piel de lobo sobre los hombros y los pies descalzos.",
+      "etiquetas": {
+        "oficio": "sacerdote",
+        "sexo": "mujer",
+        "edad": "anciano",
+        "especie": "orko",
+        "faccion": "orkos",
+        "clase": "baja"
+      },
+      "talla": 1,
+      "acciones": "reposo-y-marcha",
+      "pedidaPor": "gen-20261023-830000"
+    },
+    {
+      "id": "templario-penitente-viejo",
+      "descripcion": "Un viejo penitente templario: flaco y huesudo, la cabeza rapada a trasquilones, barba gris rala, un hábito de saco pardo atado con una cuerda, una cruz roja de tela medio descosida en el pecho, las piernas desnudas manchadas de barro, descalzo y con un rosario de cuentas de madera en la muñeca.",
+      "etiquetas": {
+        "oficio": "vagabundo",
+        "sexo": "hombre",
+        "edad": "anciano",
+        "especie": "humano",
+        "faccion": "templarios",
+        "clase": "baja"
+      },
+      "talla": 1,
+      "acciones": "reposo-y-marcha",
+      "pedidaPor": "gen-20261023-830000"
+    },
+    {
+      "id": "goblina-trapera",
+      "descripcion": "Una goblina trapera: pequeña y flaca, piel verde amarillenta, orejas grandes con aros de hierro, uñas largas pintadas de negro, pelo negro en una cresta sucia, collar de hebillas de cinturón y dientes, chaleco hecho de retales de cuero tachonado, falda de harapos, descalza y con un saco vacío al hombro.",
+      "etiquetas": {
+        "oficio": "mercader",
+        "sexo": "mujer",
+        "edad": "adulto",
+        "especie": "goblin",
+        "faccion": "orkos",
+        "clase": "baja"
+      },
+      "talla": 0.7,
+      "acciones": "reposo-y-marcha",
+      "pedidaPor": "gen-20261023-830000"
+    },
+    {
+      "id": "orko-caudillo-viejo",
+      "descripcion": "Un viejo caudillo orko: enorme y fornido, piel verde oliva con cicatrices, dientes limados y ennegrecidos, la cabeza rapada con una cresta gris, hombreras de hierro tosco con pinchos, capa de piel de oso parda, peto de cuero tachonado, cinturón ancho con hebilla de calavera y pinturas rojas de guerra en el pecho y los brazos.",
+      "etiquetas": {
+        "oficio": "autoridad",
+        "sexo": "hombre",
+        "edad": "anciano",
+        "especie": "orko",
+        "faccion": "orkos",
+        "clase": "media"
+      },
+      "talla": 1.15,
+      "acciones": "reposo-y-marcha",
+      "pedidaPor": "gen-20261023-830000"
+    },
+    {
+      "id": "esqueleto-molinero-ahorcado",
+      "descripcion": "Un esqueleto de ahorcado: huesos grises y picoteados, un cabo de soga deshilachada anudado al cuello, jirones de una camisa de lino blanca, calzas pardas de molinero con manchas viejas de harina, un cinturón de cuerda, un zueco de madera en un pie y el otro descalzo.",
+      "etiquetas": {
+        "oficio": "campesino",
+        "sexo": "hombre",
+        "edad": "adulto",
+        "especie": "esqueleto",
+        "faccion": "no-muertos",
+        "clase": "baja"
+      },
+      "talla": 1,
+      "acciones": "reposo-y-marcha",
+      "pedidaPor": "ejemplo"
+    },
+    {
+      "id": "elfa-guardiana-de-la-fuente",
+      "descripcion": "Una elfa guardiana de una fuente: esbelta, orejas largas, pelo largo color ceniza en una trenza floja, túnica larga gris perla con el bajo manchado de polvo, chal de lana parda sobre los hombros, cinturón de cuero con una llave de hierro enorme colgada a la cadera y sandalias de cuero.",
+      "etiquetas": {
+        "oficio": "sacerdote",
+        "sexo": "mujer",
+        "edad": "adulto",
+        "especie": "elfo",
+        "faccion": "elfos",
+        "clase": "media"
+      },
+      "talla": 1,
+      "acciones": "reposo-y-marcha",
+      "pedidaPor": "gen-20261023-172041"
+    },
+    {
+      "id": "elfa-arquera-desertora",
+      "descripcion": "Una elfa arquera desertora y furtiva: flaca y fibrosa, orejas largas, pelo gris muy corto, cara curtida, jubón de cuero verde gastado y remendado, capa parda con capucha caída, brazal de arquero en el antebrazo izquierdo, calzas pardas, botas blandas atadas con cordel y un cuchillo de monte al cinto.",
+      "etiquetas": {
+        "oficio": "vagabundo",
+        "sexo": "mujer",
+        "edad": "adulto",
+        "especie": "elfo",
+        "faccion": "elfos",
+        "clase": "baja"
+      },
+      "talla": 1,
+      "acciones": "reposo-y-marcha",
+      "pedidaPor": "gen-20261023-172041"
     }
   ]
 }

@@ -1,0 +1,45 @@
+{
+  "encargo": "npc-orka-chamana-vieja-giro",
+  "tipo": "giro",
+  "fecha": "2026-10-23T09:42:44.144Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a16822-d744-7dd2-ba3a-16cd52c1dbb3",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUna vieja chamana orka: encorvada y huesuda, piel verde grisácea muy arrugada, tres colmillos amarillos, greñas blancas trenzadas con plumas negras, la cara untada de ceniza gris, los brazos llenos de huesecillos atados con cordel, túnica de lana parda raída, una piel de lobo sobre los hombros y los pies descalzos.\nEs una persona de la villa, no un soldado en guardia: de pie y tranquila. El maniquí va con las manos vacías; si la descripción le pone algo en las manos (un martillo, un libro, un cayado), que sea pequeño y no cambie la pose. Estilo: ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nLámina de GIRO de EXACTAMENTE 4 columnas por 2 filas: el MISMO personaje ocho veces, de cuerpo entero, en la pose de reposo, separadas con holgura y sin tocarse.\nCada figura copia la orientación y la pose del maniquí de su celda en la referencia de pose. En orden de lectura miran hacia: 1. frente, 2. frente-derecha, 3. derecha, 4. espalda-derecha, 5. espalda, 6. espalda-izquierda, 7. izquierda, 8. frente-izquierda. Las que van de espaldas enseñan la espalda del personaje: invéntala coherente con su equipo (la capa o sobrevesta por detrás, la cara interior del escudo, la vaina).\nCámara ortográfica elevada 25 grados en todas, viendo la coronilla y los hombros; NUNCA de perfil ni a la altura de los ojos, aunque la figura mire de lado. Misma escala en las ocho.\nEs la lámina de identidad por los ocho lados: el equipo, los colores y los materiales son idénticos en todas y se leen con claridad.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/gente/civil-8d/giro.png",
+      "papel": "pose",
+      "sha256": "36b6b21af5b818e42836ec50f2c538687e49b6dcdccdc83ba8dca5ded770f0aa"
+    },
+    {
+      "ruta": "assets/npcs/orka-chamana-vieja/identidad.webp",
+      "papel": "identidad",
+      "sha256": "0b0f88e56861d537c1949e773bd9980ec366b357a8e9dd7da4d039790cbfed2d"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a16822-d744-7dd2-ba3a-16cd52c1dbb3/exec-2fdb47d4-4fd8-4b34-b777-b58b5b28acdf.png",
+    "sha256": "2c8015fdb72bcab9943817e8e9137625ec5569b47220653a7b8e68a7d70444db",
+    "ancho": 1774,
+    "alto": 887
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.2877228396055905,
+    "opacos": 0.9657325677437332,
+    "haloSuelto": 0.0000074635034680412785,
+    "ancho": 1575,
+    "alto": 887
+  },
+  "salida": {
+    "ruta": "assets/npcs/orka-chamana-vieja/giro.webp",
+    "sha256": "e07edad85add8bd626f36fa0b928f512865f056fe81f3a64cb56db1be0d4331b"
+  }
+}

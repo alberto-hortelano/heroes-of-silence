@@ -1,0 +1,58 @@
+{
+  "encargo": "npc-elfa-guardiana-de-la-fuente-d0-a",
+  "tipo": "atlas",
+  "fecha": "2026-10-23T10:40:06.107Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a16857-644f-7af3-92aa-1cd57b79e230",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUna elfa guardiana de una fuente: esbelta, orejas largas, pelo largo color ceniza en una trenza floja, túnica larga gris perla con el bajo manchado de polvo, chal de lana parda sobre los hombros, cinturón de cuero con una llave de hierro enorme colgada a la cadera y sandalias de cuero.\nEn la lámina de giro (imagen 2), la figura 1 en orden de lectura es la que mira hacia «frente», como esta hoja: así se ve el personaje desde este lado.\nEs una persona de la villa, no un soldado en guardia: de pie y tranquila. El maniquí va con las manos vacías; si la descripción le pone algo en las manos (un martillo, un libro, un cayado), que sea pequeño y no cambie la pose. Estilo: ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «frente» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/gente/civil-8d/d0-a.profundidad.png",
+      "papel": "pose-profundidad",
+      "sha256": "bd112f4075df98f9ca380dbf67102f10737a32c375f10f1540b82ecdc0d8f0bf"
+    },
+    {
+      "ruta": "assets/npcs/elfa-guardiana-de-la-fuente/giro.webp",
+      "papel": "identidad",
+      "sha256": "431bf572f052b0b35acd80183e8b7b89f6efae0c1bc572c1f7e2ae5ce09872a4"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a16857-644f-7af3-92aa-1cd57b79e230/exec-ee83687c-e941-44f4-b939-0667d978bfb9.png",
+    "sha256": "bcfa8a88adcbc7a5308c05da321f142b551006beb6394300ddc2c81718b62e44",
+    "ancho": 1915,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.6928, pies en y=342, reposo a 160 px",
+    "WebP calidad 92, alfa sin pérdida",
+    "dirección completa: assets/npcs/elfa-guardiana-de-la-fuente/d0/atlas.webp"
+  ],
+  "validacion": {
+    "visibles": 0.046464546647652115,
+    "opacos": 0.9676955261639827,
+    "haloSuelto": 0,
+    "ancho": 2688,
+    "alto": 1152
+  },
+  "deLaPose": {
+    "k": 1.0666666666666667,
+    "origen": [
+      192,
+      342
+    ],
+    "apoyoReposo": [
+      191,
+      284
+    ],
+    "posicion": false
+  },
+  "salida": {
+    "ruta": "assets/npcs/elfa-guardiana-de-la-fuente/d0/hoja-a.webp",
+    "sha256": "4ccbccd88b06e122c5bba4552d24da383c259f6f5b96a6cdde8b3766e9f3a557"
+  }
+}
