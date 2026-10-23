@@ -1314,7 +1314,7 @@ ocupado por algo ajeno no se libera: se reporta.**
 | Comprobación | Tarda | Cuándo |
 |---|---|---|
 | `pnpm verify` | ~17 s | siempre |
-| `pnpm verify:lento` | ~75 s | al cerrar un ciclo, si tocas el escenógrafo, la generación del mapa o el arte de `assets/`; corre en CI |
+| `pnpm verify:lento` | ~75 s | lo corre CI; a mano, solo al cerrar un ciclo que cambia código del escenógrafo o de la generación del mapa. **El arte de una unidad, no** (23-10-2026, decisión del usuario: «no se pueden lanzar los tests todo el rato sin pensar»): una vez, cuando lo visual está dado por bueno, solo los tests que lo leen: `HEROES_LENTO=1 pnpm vitest run test/taller-8d.test.ts -t <id>` (el atlas de cada dirección sale de sus hojas) y `pnpm vitest run test/clips-por-unidad.test.ts` (su maniquí lleva los clips que declara); con su identidad o su giro, también `test/arte-hojas.test.ts -t <id>` |
 | El navegador / el espectador | minutos | si el cambio se ve, o tocas `html.ts`, `espectador/` o el canal |
 | `pnpm qa` | ~3 s | si tocas `src/server/` o el contrato |
 | `pnpm capturas` | ~245 s | si el cambio se ve; sale 1 con un error en consola |

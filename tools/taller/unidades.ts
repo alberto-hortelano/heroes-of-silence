@@ -226,6 +226,12 @@ const conGolpe = (t: Temperamento, hurt: string): Temperamento => ({
   ...t,
   clipsDelManiqui: { ...t.clipsDelManiqui, acciones: { ...t.clipsDelManiqui.acciones, hurt } },
 });
+/** El mismo temperamento con otro reposo, en el mismo tramo de ida y vuelta. */
+const conReposo = (t: Temperamento, reposo: string): Temperamento => ({
+  ...t,
+  clipsDelManiqui: { ...t.clipsDelManiqui, reposo },
+});
+
 /**
  * El golpe de `impact2` en vez del de su temperamento: así se renderizaron sus
  * maniquíes y se pintaron sus hojas el 10-10-2026 (un fallo del render dejaba
@@ -640,7 +646,10 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'goblin-arquero',
-    ...conImpact2(AGIL),
+    // El reposo de `AGIL` (`idle_look_around`) se gira y se agacha, y en el
+    // goblin se veía así (decisión del usuario, 23-10-2026): el quieto de los
+    // tiradores.
+    ...conReposo(conImpact2(AGIL), 'idle_neutral'),
     maniqui: JUEGOS_DE_ARMAS['arco'].atrezo,
     faccion: 'orkos',
     nombre: 'Goblin arquero',
