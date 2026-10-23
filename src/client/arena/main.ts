@@ -319,7 +319,10 @@ const VUELTA_DE_EQUIPO: Readonly<Record<Exclude<Escena, 'equipo'>, string>> = {
   battle: 'Volver a la pelea',
 };
 
-/** Cambia de escena: la variable, el `data-escena` que lee el CSS y el rótulo de la barra. */
+/**
+ * Cambia de escena: la variable, el `data-escena` que lee el CSS, el rótulo de la
+ * barra y la URL (`vistaALaBarra`).
+ */
 function irA(e: Escena): void {
   if (e === 'equipo' && escena !== 'equipo') escenaDeVuelta = escena;
   escena = e;
@@ -327,6 +330,70 @@ function irA(e: Escena): void {
   elDay.textContent = ROTULO_DE_ESCENA[e];
   elTurn.textContent = '';
   botonVolverDeEquipo.textContent = VUELTA_DE_EQUIPO[escenaDeVuelta];
+  vistaALaBarra();
+}
+
+/**
+ * Las vistas que sobreviven a recargar la página (`?vista=`): la edición y el
+ * equipo, este con su pieza elegida (`?pieza=`). El montaje es la de sin nada, y
+ * la pelea no se recarga (su sesión vive en la página): vuelve al montaje.
+ */
+const VISTAS_EN_LA_URL = ['edicion', 'equipo'] as const;
+type VistaEnLaURL = (typeof VISTAS_EN_LA_URL)[number];
+
+function esVistaEnLaURL(x: string): x is VistaEnLaURL {
+  return (VISTAS_EN_LA_URL as readonly string[]).includes(x);
+}
+
+/** Escribe en la barra la vista de ahora y, en la de equipo, su pieza. */
+function vistaALaBarra(): void {
+  aLaBarraDeLaArena((url) => {
+    if (escena === 'edicion' || escena === 'equipo') url.searchParams.set('vista', escena);
+    else url.searchParams.delete('vista');
+    if (escena === 'equipo' && piezaElegida !== null) url.searchParams.set('pieza', piezaElegida);
+    else url.searchParams.delete('pieza');
+  });
+}
+
+/** Lo que dice la barra al entrar en la edición o en el equipo, con su botón o al recargar. */
+function avisoAlEntrar(v: VistaEnLaURL): string {
+  if (v === 'edicion') {
+    return abiertas.length === 0
+      ? 'Abre las fichas que quieras desde la lista: se añaden debajo. Lo que cambies vale para el montaje.'
+      : 'Lo que cambies aquí vale para el montaje; «Volver al montaje» lo enseña allí.';
+  }
+  return sesion === null
+    ? 'Elige una pieza para cambiarla, o crea una nueva en su hueco: «Guardar» la escribe en data/equipo.json, el catálogo del juego.'
+    : EQUIPO_EN_PLENA_PELEA;
+}
+
+/**
+ * La vista que pide la URL al abrir, con su pieza, o lo que no vale dicho para la
+ * persona: la página abre entonces en el montaje.
+ */
+function vistaDeLaURL(): {
+  readonly vista: VistaEnLaURL | null;
+  readonly pieza: string | null;
+  readonly aviso: string;
+} {
+  try {
+    const vista = unaVezEnLaURL(parametros.getAll('vista'), 'vista');
+    const pieza = unaVezEnLaURL(parametros.getAll('pieza'), 'pieza');
+    if (vista === null || vista === '') return { vista: null, pieza: null, aviso: '' };
+    if (!esVistaEnLaURL(vista)) {
+      throw new Error(
+        `«?vista=${vista}» no es una vista de la arena: valen ${VISTAS_EN_LA_URL.map((v) => `«${v}»`).join(' y ')}`,
+      );
+    }
+    if (pieza === null || vista !== 'equipo') return { vista, pieza: null, aviso: '' };
+    if (!equipo.piezas.has(pieza)) {
+      const aviso = `La pieza «${pieza}» de la dirección no está en el catálogo de equipo. `;
+      return { vista, pieza: null, aviso };
+    }
+    return { vista, pieza, aviso: '' };
+  } catch (err) {
+    return { vista: null, pieza: null, aviso: `${mensaje(err)}. ` };
+  }
 }
 let siguienteClave = 1;
 let sesion: SesionDeArena | null = null;
@@ -1014,6 +1081,7 @@ function repintarEquipo(): void {
         sinGuardar: sinGuardarEnPalabras(piezasSinGuardar().length, unidadesSinGuardar.size),
       }),
     );
+    vistaALaBarra();
   });
 }
 
@@ -2266,10 +2334,7 @@ document.addEventListener('click', (ev) => {
       case 'ir-a-edicion':
         irA('edicion');
         listaPlegada = listaPlegadaTras('entrar', listaPlegada, abiertas.length);
-        aviso =
-          abiertas.length === 0
-            ? 'Abre las fichas que quieras desde la lista: se añaden debajo. Lo que cambies vale para el montaje.'
-            : 'Lo que cambies aquí vale para el montaje; «Volver al montaje» lo enseña allí.';
+        aviso = avisoAlEntrar('edicion');
         break;
       case 'volver-de-edicion':
         irA('montaje');
@@ -2279,10 +2344,7 @@ document.addEventListener('click', (ev) => {
         if (escena === 'equipo') break;
         irA('equipo');
         piezaElegida ??= equipo.piezas.keys().next().value ?? null;
-        aviso =
-          sesion === null
-            ? 'Elige una pieza para cambiarla, o crea una nueva en su hueco: «Guardar» la escribe en data/equipo.json, el catálogo del juego.'
-            : EQUIPO_EN_PLENA_PELEA;
+        aviso = avisoAlEntrar('equipo');
         break;
       case 'volver-de-equipo': {
         const vuelta = escenaDeVuelta === 'battle' && sesion === null ? 'montaje' : escenaDeVuelta;
@@ -2841,10 +2903,22 @@ Promise.all([arrancar(), arrancarMurallas()]).then(
       abiertas.length,
     );
     const deAbiertas = recordadas.aviso === '' ? '' : ` ${recordadas.aviso}`;
+    const pedida = vistaDeLaURL();
+    const queHacer =
+      pedida.vista === null
+        ? 'Añade unidades a los dos bandos y pulsa Luchar.'
+        : avisoAlEntrar(pedida.vista);
     aviso = delEnlace?.montado
       ? `${delEnlace.aviso}${aviso}${avisoDeIncompletas}${avisoDeMurallas}${deAbiertas}`
-      : `${avisoDeSemilla}${delEnlace?.aviso ?? ''}${aviso}${avisoDeIncompletas}${avisoDeMurallas} Añade unidades a los dos bandos y pulsa Luchar.${deAbiertas}`;
-    repintarMontaje();
+      : `${avisoDeSemilla}${delEnlace?.aviso ?? ''}${aviso}${avisoDeIncompletas}${avisoDeMurallas} ${queHacer}${deAbiertas}`;
+    aviso = `${pedida.aviso}${aviso}`;
+    // Recargar deja la vista donde estaba: la edición con sus fichas (recordadas
+    // arriba) o el equipo con su pieza.
+    if (pedida.vista === 'equipo') {
+      piezaElegida = pedida.pieza ?? equipo.piezas.keys().next().value ?? null;
+    }
+    irA(pedida.vista ?? 'montaje');
+    repintar();
   },
   (err: unknown) => {
     console.error('[arena] no ha arrancado', err);

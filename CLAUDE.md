@@ -1194,7 +1194,10 @@ antes del destino (`battle_started` con `faltan`).
   como cambios sin guardar, con la regla de editarlas a mano (`conPiezas`, `cambioDePiezas`), y la
   barra dice cuántas cambia. **Un enlace de otra versión se rechaza** («este enlace es de una
   versión anterior: vuelve a copiarlo»), sin convertir nada; cambiar el formato o las reglas es
-  subir la versión. Abrirlo lo monta sin luchar. **Cuerpo y equipo** (12-10-2026, ciclo 2 del
+  subir la versión. Abrirlo lo monta sin luchar. **Recargar deja la vista** (23-10-2026): la edición y el equipo van en la
+  URL (`?vista=edicion|equipo`, con `?pieza=` en el equipo), que escribe solo `irA` y el repintado
+  del equipo (`vistaALaBarra`) y lee el arranque (`vistaDeLaURL`: una que no vale se dice y abre el
+  montaje); la pelea no sobrevive a recargar. **Cuerpo y equipo** (12-10-2026, ciclo 2 del
   nivel único): una unidad es un cuerpo (`cuerpo: { hoja }`, el arte con que se pinta) más su
   equipo (cinco huecos, `data/equipo.json`), y pelea con las dos cosas (`unidadDeCombate` →
   `conEquipo`); de las dos sale el nivel, y del nivel su coste (la ficha lo lee: «Coste»). Las hojas de un personaje (`Hoja.personaje`) comparten cuerpo y velocidad
