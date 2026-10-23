@@ -66,7 +66,7 @@ npx tsx tools/fuentes/bajar.ts         # las letras de los temas que falten (goo
   en 1); «Jugar sin historia» abre la base ante el ayuntamiento, como sin mundo; «Generar el mundo»
   congela el plan y lanza Claude Code sin pantalla con la skill `motor-de-mundos` (`POST /__mundos`,
   `tools/mundo/motor.ts`, la orden de `HEROES_MOTOR`, `claude` por defecto; **Opus con esfuerzo
-  `xhigh`**, fijos en `argumentosDelMotor`, y un tope de 60 min, el doble de lo medido: 19 y 24 min con 6 lugares y 28 con 7, 23-10-2026; su stream entero queda en `.cache/mundos/<id>/motor.jsonl`), que
+  `high`**, fijos en `argumentosDelMotor` (con `xhigh` tardaba 19 y 24 min con 6 lugares y 28 con 7; decisión del usuario, 23-10-2026), y un tope de 60 min, el doble de eso; su stream entero queda en `.cache/mundos/<id>/motor.jsonl`), que
   escribe **primero la biblia** (`biblia.md`, la trama en prosa: qué pasó, quién es quién, la trama
   que cruza tres lugares o más y dos desenlaces que se excluyen) **y después la historia**
   (`historia.json`), y relee una contra otra (la trama de los mundos, 22-10-2026); con una espera que

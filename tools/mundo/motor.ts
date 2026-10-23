@@ -2,7 +2,7 @@
  * Generar un mundo desde el menú de `pnpm dev` (F1a del mapa vivo, C3): congela el
  * plan procedimental que se pide, lo lee para el motor (con el PNG del taller) y
  * lanza Claude Code sin pantalla (`claude -p`, con la suscripción, Opus con
- * esfuerzo `xhigh`) con la skill `motor-de-mundos`, que escribe primero la trama en
+ * esfuerzo `high`) con la skill `motor-de-mundos`, que escribe primero la trama en
  * prosa (`biblia.md`) y después `historia.json`, y valida las dos con `pnpm mundo
  * validar` hasta que no tengan problemas. Al salir el motor, se valida otra vez con
  * la misma función que la página: sin reintento (el patrón de `map_generate`: el
@@ -55,15 +55,16 @@ export { idDeMundoBlocker } from '../../src/core/mundo/formato.js';
  * fin. Medido con la biblia, Opus a `xhigh` (fase B de la trama de los mundos,
  * 23-10-2026): 19 min (orkos, mediano, 6 lugares), 24 min (`ejemplo`, 6) y 28 min
  * (elfos, grande, 7), de ellos 12-18 pensando la trama antes de escribir nada. El
- * doble de lo más largo, redondeado.
+ * doble de lo más largo, redondeado; con `high` (desde el mismo día) no se ha medido.
  */
 export const TOPE_DEL_MOTOR_MS = 60 * 60_000;
 /**
  * El modelo y el esfuerzo del motor, fijos para que no dependan de los ajustes de quien
- * lo lanza (en esta máquina ya eran estos): que en otra salga lo mismo.
+ * lo lanza: que en otra máquina salga lo mismo. El esfuerzo, `high` (decisión del
+ * usuario, 23-10-2026, tras medir 19-28 min con `xhigh`: «bájalo a high»).
  */
 export const MODELO_DEL_MOTOR = 'opus';
-export const ESFUERZO_DEL_MOTOR = 'xhigh';
+export const ESFUERZO_DEL_MOTOR = 'high';
 /** Cuántas líneas de progreso se guardan (las últimas). */
 const LINEAS = 40;
 
