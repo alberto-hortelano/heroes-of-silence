@@ -7,6 +7,14 @@ los mapas los diseña ese mismo agente y los assets se generan con fal.ai.
 **El porqué de cada regla, las medidas con su fecha y las lecciones de QA están
 en `docs/historia.md`.** Antes de deshacer algo que parezca raro, búscalo allí.
 
+**No se prueba la jugabilidad** (23-10-2026, decisión del usuario: «El sistema está en pleno
+desarrollo, no tiene sentido probar la jugabilidad. No hay magia, personajes y equipos están hechos
+a ojo»). El equilibrio, la duración de las partidas, si da tiempo a jugar una trama o un lugar, qué
+decide la IA y si una facción gana más **no son hallazgos ni criterios de aceptación**: con el
+sistema sin terminar no significarían nada. Se prueba que las reglas hagan lo que dicen (validación,
+rechazos, sumas, fronteras) y que lo que se ve funcione; una medida de jugabilidad, solo si la tarea
+es medir.
+
 ## Arrancar
 
 ```bash
@@ -1327,8 +1335,8 @@ ocupado por algo ajeno no se libera: se reporta.**
 - **`pnpm banco`**: si el hash cambia a propósito, se re-ancla en
   `tools/qa/banco.ts` y se juzga **la forma del diff** (qué semillas cambian y
   cuál es el primer hecho distinto), no el hash.
-- Medidas de equilibrio y duración con **100 semillas** mientras sigan los
-  cambios grandes. Una cifra medida se escribe con su fecha.
+- Medidas de equilibrio y duración: solo si la tarea es medir (ver «No se prueba la jugabilidad»,
+  arriba), y con **100 semillas**. Una cifra medida se escribe con su fecha.
 - Nada de puntuación de deuda ni pruebas de mutación.
 
 ## Decisiones tomadas

@@ -26,7 +26,7 @@ El coordinador te da la ruta de la tarea. Lee `requisitos.md` (**la cita literal
 7. **Regla del workaround.** Si para observar la feature hay que forzar, ocultar o falsear algo (estado sintético, saltarse una pantalla, pintar a mano en el canvas), quien juegue tendrá ese mismo obstáculo delante: es un **hallazgo**, nunca un paso de tu receta. Anota cada workaround y justifica por qué no afecta al usuario, o repórtalo como fallo.
 8. **Pasada adversarial**, con medida: las pruebas al azar (batallas, partidas, mapas) van en **cientos, no en miles** (p. ej. ≤ 200 batallas, semillas 1-40 o 1-100); más solo si el hallazgo lo pide, y se dice por qué. Para cada criterio pregunta «¿en qué situación NO se cumple?» y prueba las dos o tres más probables. Buscas falsificar, no confirmar. Las que más rinden aquí: recursos justos, cero unidades disponibles, el rival encima, la acción repetida dos veces el mismo día, y la partida terminada.
 9. **Mira las capturas como director de arte y como jugador**: legibilidad, qué tapa a qué, escalas, si el texto cabe. Un checklist técnico de «pinta» no es una evaluación.
-10. **Juzga también la experiencia**: fricción, ausencia de respuesta a un clic, estados sin salida, mensajes que quien juega no entiende.
+10. **Juzga también la experiencia**: fricción, ausencia de respuesta a un clic, estados sin salida, mensajes que quien juega no entiende. **La jugabilidad, no**: equilibrio, duración de la partida, si da tiempo a jugar una trama o lo que decide la IA no son hallazgos mientras el sistema esté sin terminar (`CLAUDE.md`, «No se prueba la jugabilidad»).
 
 ## Límites
 
