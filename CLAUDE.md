@@ -66,11 +66,11 @@ npx tsx tools/fuentes/bajar.ts         # las letras de los temas que falten (goo
   en 1); «Jugar sin historia» abre la base ante el ayuntamiento, como sin mundo; «Generar el mundo»
   congela el plan y lanza Claude Code sin pantalla con la skill `motor-de-mundos` (`POST /__mundos`,
   `tools/mundo/motor.ts`, la orden de `HEROES_MOTOR`, `claude` por defecto; **Opus con esfuerzo
-  `xhigh`**, fijos en `argumentosDelMotor`, y un tope de 30 min, provisional hasta medir), que
+  `xhigh`**, fijos en `argumentosDelMotor`, y un tope de 60 min, el doble de lo medido: 19 y 24 min con 6 lugares y 28 con 7, 23-10-2026; su stream entero queda en `.cache/mundos/<id>/motor.jsonl`), que
   escribe **primero la biblia** (`biblia.md`, la trama en prosa: qué pasó, quién es quién, la trama
   que cruza tres lugares o más y dos desenlaces que se excluyen) **y después la historia**
   (`historia.json`), y relee una contra otra (la trama de los mundos, 22-10-2026); con una espera que
-  enseña el progreso («escribe la biblia», «escribe la historia», el tiempo en minutos); si falla,
+  enseña el progreso («escribe la biblia», «escribe la historia», el tiempo en minutos; «tarda de 15 a 30 minutos»); si falla,
   «Jugar el procedimental». Los generados (`gen-*`) no van a git ni ningún mundo al build; `prueba`
   (a mano, para los tests) y `ejemplo` se commitean, los dos con una biblia escrita a mano hasta que
   `ejemplo` se regenere con el motor nuevo (tras fusionar el banco de NPC).

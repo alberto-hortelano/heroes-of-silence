@@ -48,7 +48,7 @@ describe('el motor de mundos', () => {
     expect(a[a.indexOf('--permission-mode') + 1]).toBe('dontAsk');
     expect(a[a.indexOf('--permission-prompts') + 1]).toBe('none');
     expect(a[a.indexOf('--allowedTools') + 1]).toBe(
-      'Read Glob Grep Write(assets/mundos/gen-20261022-7/biblia.md) Edit(assets/mundos/gen-20261022-7/biblia.md) Write(assets/mundos/gen-20261022-7/historia.json) Edit(assets/mundos/gen-20261022-7/historia.json) Bash(pnpm mundo validar gen-20261022-7)',
+      'Read Write(assets/mundos/gen-20261022-7/biblia.md) Edit(assets/mundos/gen-20261022-7/biblia.md) Write(assets/mundos/gen-20261022-7/historia.json) Edit(assets/mundos/gen-20261022-7/historia.json) Bash(pnpm mundo validar gen-20261022-7)',
     );
     expect(a).toContain('--strict-mcp-config');
     expect(a[a.indexOf('--settings') + 1]).toBe('{"disableAllHooks":true}');

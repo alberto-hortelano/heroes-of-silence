@@ -50,6 +50,10 @@ El argumento es el id del mundo (`<id>`). Con él:
    `biblia.md` enseña las secciones de una biblia, no su largo ni su hondura: `prueba` es un
    mundo de dos lugares escrito a mano para los tests. No copies su tamaño.
 
+**No busques en el repositorio**: todo lo que necesitas está en estos ficheros y en esta
+skill, y el código del juego no cambia lo que escribes. Leer código gasta los minutos que
+hacen falta para pensar la trama.
+
 ## Lo que escribes
 
 **Dos ficheros, en este orden**: primero `assets/mundos/<id>/biblia.md` (la trama en prosa)
@@ -262,7 +266,9 @@ especie, facción, clase).
 1. Lee `lectura.json`, mira `mapa.png` y el ejemplo.
 2. Escribe `assets/mundos/<id>/biblia.md` entera, con sus seis secciones.
 3. Escribe `assets/mundos/<id>/historia.json` entero, traduciendo la biblia.
-4. Corre `pnpm mundo validar <id>` (juzga también la biblia). Si da problemas, cada uno dice
+4. Corre `pnpm mundo validar <id>` (juzga también la biblia) **tal cual**, con el id y nada
+   más: ni `cd`, ni `2>&1`, ni tuberías, ni otra orden delante o detrás. Es la única orden que
+   tienes permitida, y cualquier variante se rechaza sin correr. Si da problemas, cada uno dice
    el fichero, la ruta y qué falla: corrígelos (con Edit) y vuelve a validar. Como mucho
    **ocho vueltas**; si a la octava sigue fallando, para y di qué queda.
 5. Cuando diga «el mundo "<id>" vale», **relee la biblia contra la historia**:

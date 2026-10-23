@@ -49,7 +49,7 @@ export const FASES: Readonly<Record<Fase, string>> = {
 function renderMundo(tamaño: number): Html {
   return html`<form class="eleccion-del-mundo" data-mundo="eleccion">
     <h1 class="titulo-de-inicio">El mundo</h1>
-    <p class="quien-de-inicio">El motor de narrativa escribe la trama de tu mapa, con sus lugares, su gente y sus encuentros, y la deja guardada. Tarda de 5 a 15 minutos.</p>
+    <p class="quien-de-inicio">El motor de narrativa escribe la trama de tu mapa, con sus lugares, su gente y sus encuentros, y la deja guardada. Tarda de 15 a 30 minutos.</p>
     <fieldset class="tamanos-del-mundo">
       <legend>Tamaño del mapa</legend>
       ${unir(

@@ -15,7 +15,7 @@
  */
 import { type ChildProcess, spawn } from 'node:child_process';
 import { randomInt } from 'node:crypto';
-import { closeSync, mkdirSync, openSync } from 'node:fs';
+import { appendFileSync, closeSync, mkdirSync, openSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { type Progreso, terminada } from '../../src/client/desarrollo/progreso.js';
 import { tipoDeHeroePorDefecto } from '../../src/core/data.js';
@@ -36,6 +36,7 @@ import {
   FICHEROS_DEL_MOTOR,
   type FicheroDelMotor,
   hayMundo,
+  lecturaDe,
   problemaDeLaLinea,
   RAIZ,
   rutaDelFichero,
@@ -51,11 +52,12 @@ export { idDeMundoBlocker } from '../../src/core/mundo/formato.js';
 
 /**
  * Lo más que se espera al motor: un mundo se genera una vez y despacio, pero no sin
- * fin. **Provisional hasta la primera generación medida** con la biblia y de 4 a 8
- * lugares (la trama de los mundos, 22-10-2026): con 3 lugares y sin biblia tardaba
- * ~1,5 min, y lo de ahora puede pasar de los 15 de antes. Se fija con lo medido.
+ * fin. Medido con la biblia, Opus a `xhigh` (fase B de la trama de los mundos,
+ * 23-10-2026): 19 min (orkos, mediano, 6 lugares), 24 min (`ejemplo`, 6) y 28 min
+ * (elfos, grande, 7), de ellos 12-18 pensando la trama antes de escribir nada. El
+ * doble de lo más largo, redondeado.
  */
-export const TOPE_DEL_MOTOR_MS = 30 * 60_000;
+export const TOPE_DEL_MOTOR_MS = 60 * 60_000;
 /**
  * El modelo y el esfuerzo del motor, fijos para que no dependan de los ajustes de quien
  * lo lanza (en esta máquina ya eran estos): que en otra salga lo mismo.
@@ -363,8 +365,11 @@ export function argumentosDelMotor(id: string): string[] {
     'dontAsk',
     '--permission-prompts',
     'none',
+    // Sin Glob ni Grep: con ellos, el primer mundo del motor nuevo pasó ~5 de sus 19
+    // minutos buscando en el código del juego (fase B de la trama, 23-10-2026); lo que
+    // necesita está en la lectura, el ejemplo y la skill.
     '--allowedTools',
-    ['Read', 'Glob', 'Grep', ...escribe, `Bash(pnpm mundo validar ${id})`].join(' '),
+    ['Read', ...escribe, `Bash(pnpm mundo validar ${id})`].join(' '),
     // Sin el MCP «heroes» de `.mcp.json` (el del agente que juega) y sin el hook
     // `Stop` del repo, que correría `pnpm verify` al acabar.
     '--strict-mcp-config',
@@ -400,9 +405,6 @@ function queHace(
       if (fichero === 'SKILL.md') return 'lee sus instrucciones';
       if (delMotor === undefined) return 'lee un fichero del repositorio';
       return suyo === null ? `lee ${delMotor.motor.una} de ejemplo` : `relee ${suyo.la}`;
-    case 'Glob':
-    case 'Grep':
-      return 'busca en el repositorio';
     case 'Write':
       return suyo === null ? null : `escribe ${suyo.la}`;
     case 'Edit':
@@ -578,6 +580,11 @@ async function lanzarMotor(
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   g.proceso = p;
+  // El stream entero del motor, para mirar después qué hizo (una orden que se le
+  // rechazó no sale en la espera): la primera generación real validó con otra orden
+  // que la permitida y no lo supo nadie (fase B de la trama de los mundos).
+  const registro = join(lecturaDe(id), 'motor.jsonl');
+  writeFileSync(registro, '');
   let porTope = false;
   const tope = setTimeout(() => {
     porTope = true;
@@ -589,6 +596,7 @@ async function lanzarMotor(
   p.stdout?.setEncoding('utf8');
   p.stdout?.on('data', (trozo: string) => {
     resto += trozo;
+    appendFileSync(registro, trozo);
     const lineas = resto.split('\n');
     resto = lineas.pop() ?? '';
     for (const l of lineas) {
