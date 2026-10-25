@@ -21,5 +21,17 @@ export default defineConfig({
     // de tests síncronos que pasa de 60 s pierde la respuesta del RPC de
     // vitest y la orden sale 1 con todo en verde (#194, `test/ceder.ts`).
     setupFiles: ['test/ceder.ts'],
+    // La máquina es compartida (31 GB). Una pasada normal, con 16 procesos, no pasa de 6,3 GB y
+    // ningún proceso de 1 GB (25-10-2026); pero un test desbocado sube cada proceso hasta el
+    // tope de V8 (~4 GB aquí) y varios a la vez llenaron la RAM: earlyoom mató la app de Claude y
+    // Chrome. Con 2 GB por proceso y 8 a la vez, lo peor son 16 GB, y el desbocado muere solo en
+    // su proceso, con «heap out of memory» en el informe.
+    maxWorkers: 8,
+    // La orden lenta no se ha medido con el tope: va con el de V8, como antes.
+    poolOptions: {
+      forks: {
+        execArgv: process.env.HEROES_LENTO === '1' ? [] : ['--max-old-space-size=2048'],
+      },
+    },
   },
 });

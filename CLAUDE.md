@@ -22,7 +22,7 @@ pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas): `/` abre el menú de inicio
 pnpm mirar      # /espectador/: mira la partida del agente contra el servidor
 pnpm arena      # /arena/: edita el catálogo del juego (unidades y equipo) y monta peleas
-pnpm verify     # typecheck + lint + tests, ~17 s: el bucle rápido
+pnpm verify     # typecheck + lint + todos los tests: lo corre CI, no las sesiones (ver «Control de calidad»)
 pnpm verify:lento  # lo mismo con todas las semillas y todo el arte rederivado, ~75 s; corre en CI
 pnpm test | pnpm typecheck | pnpm lint | pnpm format
 pnpm banco      # 20 partidas: tiempo y sha256 del volcado, anclado en el fichero
@@ -88,8 +88,11 @@ npx tsx tools/fuentes/bajar.ts         # las letras de los temas que falten (goo
   #137). Por eso las letras de los temas viven en `assets/letras/`.
 - **CI** (`.github/workflows/ci.yml`): `pnpm verify`, `pnpm test:lento`, `pnpm banco`,
   `vite build` y `pnpm qa`. No gasta un céntimo: nada de `tools/gen/`.
-- Un hook `Stop` (`.claude/hooks/verde.sh`) impide cerrar una tarea con
-  `pnpm verify` en rojo.
+- **Ninguna sesión corre la suite entera** (25-10-2026, decisión del usuario: «Elimina el verify
+  completo. Los tests se hacen por partes y justificando cada parte»). El hook `Stop` que lanzaba
+  `pnpm verify` al acabar cada turno se retiró: con varias sesiones a la vez se juntaban varios de
+  16 procesos y, a las 22:00 de ese día, la memoria se agotó y earlyoom mató la app de Claude y
+  Chrome. La suite entera la corre CI.
 
 ### Jugar con el agente
 
@@ -1328,8 +1331,10 @@ ocupado por algo ajeno no se libera: se reporta.**
 
 | Comprobación | Tarda | Cuándo |
 |---|---|---|
-| `pnpm verify` | ~17 s | siempre |
-| `pnpm verify:lento` | ~75 s | lo corre CI; a mano, solo al cerrar un ciclo que cambia código del escenógrafo o de la generación del mapa. **El arte de una unidad, no** (23-10-2026, decisión del usuario: «no se pueden lanzar los tests todo el rato sin pensar»): una vez, cuando lo visual está dado por bueno, solo los tests que lo leen: `HEROES_LENTO=1 pnpm vitest run test/taller-8d.test.ts -t <id>` (el atlas de cada dirección sale de sus hojas) y `pnpm vitest run test/clips-por-unidad.test.ts` (su maniquí lleva los clips que declara); con su identidad o su giro, también `test/arte-hojas.test.ts -t <id>` |
+| `pnpm typecheck` y `pnpm lint` | segundos | siempre que cambie código |
+| `pnpm vitest run test/<x>.test.ts` | según el fichero | **por partes**: solo los ficheros de lo que se toca, y cada uno con su porqué (qué mira y por qué el cambio puede romperlo) |
+| `pnpm verify` | ~80 s | **no lo corren las sesiones**: lo corre CI |
+| `pnpm verify:lento` | ~75 s | lo corre CI; a mano, entero no: los ficheros lentos de lo que se toca (`HEROES_LENTO=1 pnpm vitest run test/<x>.test.ts`), con su porqué. **El arte de una unidad, no** (23-10-2026, decisión del usuario: «no se pueden lanzar los tests todo el rato sin pensar»): una vez, cuando lo visual está dado por bueno, solo los tests que lo leen: `HEROES_LENTO=1 pnpm vitest run test/taller-8d.test.ts -t <id>` (el atlas de cada dirección sale de sus hojas) y `pnpm vitest run test/clips-por-unidad.test.ts` (su maniquí lleva los clips que declara); con su identidad o su giro, también `test/arte-hojas.test.ts -t <id>` |
 | El navegador / el espectador | minutos | si el cambio se ve, o tocas `html.ts`, `espectador/` o el canal |
 | `pnpm qa` | ~3 s | si tocas `src/server/` o el contrato |
 | `pnpm capturas` | ~245 s | si el cambio se ve; sale 1 con un error en consola |
@@ -1344,8 +1349,8 @@ ocupado por algo ajeno no se libera: se reporta.**
 
 - **Presupuesto de pruebas** (la máquina es compartida: varias sesiones prueban a la vez y
   con carga 30+ vitest falla por timeouts y hay que repetir). Mientras se itera, solo el test de lo
-  que se toca (`pnpm vitest run test/x.test.ts`); `pnpm verify`, una vez por tanda de cambios;
-  `verify:lento`, `capturas` y `banco`, **una vez al cerrar** (y no se repiten si nada cambió
+  que se toca (`pnpm vitest run test/x.test.ts`); la suite entera, nunca (la corre CI);
+  `capturas` y `banco`, **una vez al cerrar** y solo si el cambio toca lo que miran (y no se repiten si nada cambió
   desde el último verde: se citan). Las medidas, en 1-40 o 1-100 semillas; 1-1000 solo si la
   tarea lo pide (rectitud, raros de verdad). Las pruebas al azar del QA, en cientos, no en miles.
   Un `verify:lento` que sale 1 solo por «Timeout calling onTaskUpdate» con todo en verde se dice
