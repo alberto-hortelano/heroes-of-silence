@@ -11,7 +11,7 @@
  * de función (simplify de F1, 18-10-2026). Lo vigila `test/invariantes.test.ts`.
  */
 import { hasTrait } from '../data.js';
-import type { GolpeConArma, TipoDeGolpe, UnitInfo, UsoDeArma } from '../types.js';
+import type { GolpeConArma, NivelesDeLaRueda, TipoDeGolpe, UnitInfo, UsoDeArma } from '../types.js';
 import {
   type CifrasDeLaRueda,
   cifrasDeLosNiveles,
@@ -61,13 +61,23 @@ export function cifrasDelGolpe(
  * inventadas.
  */
 export function ruedaDelGolpe(unit: UnitInfo, uso: UsoDeArma): CifrasDeLaRueda {
+  return cifrasDeLosNiveles(nivelesDelGolpe(unit, uso));
+}
+
+/**
+ * Los niveles de la rueda (0 a 6 por tipo del anillo) del arma con que da `unit`
+ * un golpe de `uso`: los que traduce `ruedaDelGolpe` y los que tiñen los sectores
+ * del diálogo de la rueda (`previsionDeLaRueda().niveles`). Lanza sin arma con
+ * rueda, como `ruedaDelGolpe`.
+ */
+export function nivelesDelGolpe(unit: UnitInfo, uso: UsoDeArma): NivelesDeLaRueda {
   const { rueda } = golpeDe(unit, uso);
   if (rueda === undefined) {
     throw new Error(
       `«${unit.name}» golpea en la rueda sin arma que la lleve: nadie pelea sin arma de cuerpo a cuerpo`,
     );
   }
-  return cifrasDeLosNiveles(rueda);
+  return rueda;
 }
 
 /**

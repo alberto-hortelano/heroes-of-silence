@@ -22,7 +22,7 @@ import type { Rng } from '../rng.js';
 import type { CombatProfile } from '../rpg/stats.js';
 import type { CreatureTrait, FactionId, Hex, Stack, UnitInfo, UsoDeArma } from '../types.js';
 import { SPEED_TO_HEXES } from '../types.js';
-import { disparosDe, golpesDe, ruedaDelGolpe, trasLaArmadura } from './armas.js';
+import { disparosDe, golpesDe, nivelesDelGolpe, ruedaDelGolpe, trasLaArmadura } from './armas.js';
 import {
   alcanceConCostes,
   allHexes,
@@ -114,6 +114,7 @@ import {
   formaDeLaBatalla,
   golpeNeutro,
   type HechoDelCruce,
+  nivelesEnLaForma,
   type PapelEnLaRueda,
   type Punto,
   puntoDelContraataque,
@@ -2294,14 +2295,27 @@ function moveTo(
   state.turno.gastado += paso.steps;
   // Los voladores se buscan sin bloqueos —ignoran lo que hay en medio—, así que
   // su cadena de pasos podría cruzar casillas ocupadas: su camino es el aire.
-  const path = hasTrait(s.unit, 'flying') ? [to] : caminoDe(paso);
+  const camino = caminoDe(paso);
+  const path = hasTrait(s.unit, 'flying') ? [to] : camino;
   state.log.push({
     kind: 'move',
     stack: s.id,
     to,
     path,
-    ...(carga === undefined ? {} : { charge: true }),
+    // La carrera de una carga ya se anima corriendo; si no, corre el tramo largo.
+    ...(carga !== undefined ? { charge: true } : seCorre(s, camino.length) ? { corre: true } : {}),
   });
+}
+
+/**
+ * Si un tramo de `casillas` de `s` se anda corriendo: de más de la mitad de su
+ * movimiento máximo (`stackSpeed`, con lo que le sume o reste un efecto); con la
+ * mitad o menos, caminando (requisito 2 del 25-10-2026). **Solo se ve**: lo lee el
+ * lienzo en el `move` (`corre`), y la regla de la carga no cambia. Las casillas son
+ * las que pisa, también las del volador, que su `path` no lleva.
+ */
+export function seCorre(s: BattleStack, casillas: number): boolean {
+  return 2 * casillas > stackSpeed(s);
 }
 
 /**
@@ -2518,8 +2532,17 @@ function ruedaDelIntercambio(
   contra: BattleStack,
   carga: number,
 ): CifrasDeLaRueda {
-  const o = opcionesDeDanio(state, quien, contra, { chargeHexes: carga });
-  return ruedaDelGolpe(quien.unit, usoDelGolpe(quien.unit, o));
+  return ruedaDelGolpe(quien.unit, usoDelIntercambio(state, quien, contra, carga));
+}
+
+/** El uso del arma del primer golpe del intercambio (`ruedaDelIntercambio`). */
+function usoDelIntercambio(
+  state: BattleState,
+  quien: BattleStack,
+  contra: BattleStack,
+  carga: number,
+): UsoDeArma {
+  return usoDelGolpe(quien.unit, opcionesDeDanio(state, quien, contra, { chargeHexes: carga }));
 }
 
 /**
@@ -3408,6 +3431,13 @@ export function previsionDeLaRueda(
    * ellas se dicen las notas de los sectores (`efectoDeGolpe`).
    */
   readonly rueda: CifrasDeLaRueda;
+  /**
+   * El nivel de cada tipo de la rueda de la batalla con el arma de **quien pega**
+   * (`nivelesEnLaForma`), en las dos fases: al golpear, el tuyo; al responder, el
+   * de tu enemigo (requisito 5 del 25-10-2026). Normal no lleva. Tiñe los sectores
+   * del diálogo, como la ficha del arma.
+   */
+  readonly niveles: Readonly<Partial<Record<TipoDeGolpe, number>>>;
 } {
   const s = activeStack(state);
   if (s === null || state.finished !== null) throw new Error('no le toca a ninguna unidad');
@@ -3420,8 +3450,15 @@ export function previsionDeLaRueda(
   // quien responde, además, no tiene daño que ver.
   const sinContraataque = contraataqueBlocker(state, desdeAhi, target);
   const rueda = ruedaDelIntercambio(state, quien, contra, papel === 'golpe' ? carga : 0);
+  const forma = formaDeLaBatalla(state);
+  // Los niveles son siempre del arma de quien pega, también en la respuesta: lo que
+  // se teme del golpe que viene (el mismo uso que su primer golpe, con su carga).
+  const niveles = nivelesEnLaForma(
+    nivelesDelGolpe(desdeAhi.unit, usoDelIntercambio(state, desdeAhi, target, carga)),
+    forma,
+  );
   if (papel === 'respuesta' && sinContraataque !== null) {
-    return { porTipo: null, sinContraataque, contraataque: null, carga: null, rueda };
+    return { porTipo: null, sinContraataque, contraataque: null, carga: null, rueda, niveles };
   }
   // Las opciones, una vez; cada tipo pone encima su sector.
   const opciones = opcionesDeDanio(state, quien, contra, extra);
@@ -3431,7 +3468,6 @@ export function previsionDeLaRueda(
     previsionDeGolpe(state, desdeAhi, target, 'golpe', { chargeHexes: carga }, golpe).contraataque
       ?.danio ?? null;
   const conContraataque = papel === 'golpe' && sinContraataque === null;
-  const forma = formaDeLaBatalla(state);
   const neutro = golpeNeutro(forma);
   const porTipo: Partial<Record<TipoDeGolpe, SectorDeLaRueda>> = {};
   for (const tipo of forma.golpes) {
@@ -3466,6 +3502,7 @@ export function previsionDeLaRueda(
       : null,
     carga: cobrada > 0 ? dichoDeLaCarga(cobrada, cifras) : null,
     rueda,
+    niveles,
   };
 }
 

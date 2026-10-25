@@ -30,6 +30,7 @@ import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import {
   efectoDeGolpe,
   filasDeLaRueda,
+  nivelesEnLaForma,
   RUEDAS,
   ruedaDelArmaEnPalabras,
 } from '../src/core/battle/rueda.js';
@@ -379,5 +380,72 @@ describe('cada golpe de la rueda va con su arma', () => {
     expect(m).toContain('Daño ×1,83.');
     expect(m).toContain('2 golpes de daño ×0,38 cada uno');
     expect(m).not.toContain('Daño ×1,5.');
+  });
+});
+
+describe('la rueda teñida por el nivel del arma de quien pega (25-10-2026)', () => {
+  // Requisito 5: «los tuyos cuando atacas y los de tu enemigo cuando defiendes». La
+  // maza (Fuerte 5, Rápido 1) contra la espada (todo a 3): los niveles de las dos
+  // fases son los de quien pega, nunca los de quien responde.
+  const golpe = { type: 'attack', target: 'defender-0' } as const;
+  const niveles = (b: BattleState) => ({
+    golpe: previsionDeLaRueda(b, golpe, 'golpe').niveles,
+    respuesta: previsionDeLaRueda(b, golpe, 'respuesta').niveles,
+  });
+
+  it('pega la maza: al golpear y al responder, los niveles de la maza; Normal, sin nivel', () => {
+    const { golpe: alGolpear, respuesta } = niveles(
+      pelea(guerreroCon('maza'), unidadDeArena(TROPA)),
+    );
+    const deLaMaza = { ...MAZA.rueda };
+    expect(alGolpear).toEqual(deLaMaza);
+    expect(respuesta).toEqual(deLaMaza);
+    expect('normal' in alGolpear).toBe(false);
+  });
+
+  it('pega la espada contra la maza: los dos, los de la espada', () => {
+    const { golpe: alGolpear, respuesta } = niveles(
+      pelea(unidadDeArena(TROPA), guerreroCon('maza')),
+    );
+    expect(alGolpear).toEqual(nivelesDeLaEspada());
+    expect(respuesta).toEqual(nivelesDeLaEspada());
+  });
+
+  it('en las ruedas de 5 y de 3, un fusionado lleva la media truncada de sus partes', () => {
+    const maza = MAZA.rueda;
+    if (maza === undefined) throw new Error('la maza no lleva rueda');
+    // Ofensivo 3 y Fuerte 5 → 4; Defensivo 3 y Finta 1 → 2; Rápido 1 y Romper 5 → 3.
+    expect(nivelesEnLaForma(maza, RUEDAS[5])).toEqual({
+      ofensivoFuerte: 4,
+      rapido: 1,
+      romperGuardia: 5,
+      defensivoFinta: 2,
+    });
+    expect(nivelesEnLaForma(maza, RUEDAS[3])).toEqual({
+      ofensivoFuerte: 4,
+      rapidoRomper: 3,
+      defensivoFinta: 2,
+    });
+  });
+
+  it('el diálogo pinta cada sector con su nivel y el centro sin él', () => {
+    const conMaza = {
+      unidad: equiparEnArena(unidadDeArena(TROPA), 'maza', EQUIPO_DEL_JUEGO),
+      ia: false,
+    };
+    // El de enfrente con otro id: en una pelea, un id es una unidad (`catalogoDeLaPelea`).
+    const conEspada = { unidad: unidadDeArena(TROPA, { id: `${TROPA}-9` }), ia: false };
+    const s = sesionDeArena([conMaza], [conEspada], 1);
+    s.empezar();
+    hastaLaRueda(s, true, 'golpe');
+    const p = s.ruedaPendiente;
+    if (p === null) throw new Error('la rueda no pide el golpe');
+    const m = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
+    for (const [tipo, nivel] of Object.entries(p.prevision.niveles)) {
+      expect(m).toMatch(
+        new RegExp(`class="sector" data-sector="${tipo}" data-veta="\\w+" data-nivel="${nivel}"`),
+      );
+    }
+    expect(m).toMatch(/class="sector centro" data-sector="normal" r=/);
   });
 });

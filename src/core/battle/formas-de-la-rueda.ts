@@ -16,6 +16,7 @@
 import {
   enumerar,
   esTipoDeGolpe,
+  type NivelesDeLaRueda,
   TIPOS_DEL_ANILLO,
   type TipoDeGolpe,
   type TipoDelAnillo,
@@ -99,6 +100,29 @@ export const PARTES: Readonly<Record<TipoDeGolpe, readonly TipoDelAnillo[]>> = {
   defensivoFinta: ['defensivo', 'finta'],
   rapidoRomper: ['rapido', 'romperGuardia'],
 };
+
+/**
+ * El nivel de cada tipo de la rueda `forma` con un arma de niveles `niveles`: un
+ * tipo del anillo, el suyo; un fusionado (ruedas de 5 y de 3), la media truncada
+ * de sus partes; Normal, ninguno (siempre ×1, no lleva nivel). Con él se tiñe cada
+ * sector del diálogo de la rueda, en la misma escala que la ficha del arma
+ * (requisito 5 del 25-10-2026: «los tonos de rojo a verde … también en la rueda de
+ * combate»). Es solo lo que se enseña: lo que da un fusionado lo cuenta
+ * `efectoDelTipo` con cada parte a la mitad, no con esta media.
+ */
+export function nivelesEnLaForma(
+  niveles: NivelesDeLaRueda,
+  forma: FormaDeLaRueda,
+): Readonly<Partial<Record<TipoDeGolpe, number>>> {
+  const r: Partial<Record<TipoDeGolpe, number>> = {};
+  for (const tipo of forma.golpes) {
+    const partes = PARTES[tipo];
+    if (partes.length === 0) continue;
+    const suma = partes.reduce((n, p) => n + niveles[p], 0);
+    r[tipo] = Math.floor(suma / partes.length);
+  }
+  return r;
+}
 
 /** Si `tipo` junta dos del anillo (y sus cifras van a la mitad). */
 export function esFusionado(tipo: TipoDeGolpe): boolean {

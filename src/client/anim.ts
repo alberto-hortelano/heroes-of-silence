@@ -136,8 +136,11 @@ type Paso =
        * suelo. Entre dos se interpola, y así se ve subir y bajar de la columna.
        */
       readonly alturas: readonly number[];
-      /** El tramo con el que se carga: el jinete lo anda con la lanza bajada. */
-      readonly carga?: true;
+      /**
+       * El tramo va corriendo, con el clip y el ritmo de la carga: la carrera de una
+       * carga o un tramo largo (`vaCorriendo`); si no, caminando.
+       */
+      readonly corre?: true;
       /** Quién anda y lo alto que se pinta, en pasos: lo que fija su zancada. */
       readonly body: string;
       readonly alto: number;
@@ -342,12 +345,23 @@ function largoDe(camino: readonly Plano[]): number {
 /**
  * Lo que dura un paso a ritmo normal. Un tramo dura lo que tarda su figura en
  * andar sus casillas sin patinar (`msPorCasilla`): con la marcha, o con la carga
- * si es el tramo con el que carga. Antes eran 520 ms para cualquier tramo, de
+ * si va corriendo (`vaCorriendo`). Antes eran 520 ms para cualquier tramo, de
  * una casilla o de seis.
  */
 export function duracionDelPaso(p: Paso): number {
   if (p.tipo !== 'move') return p.dura;
-  return largoDe(p.camino) * msPorCasilla(p.body, p.carga === true ? 'charge' : 'walk', p.alto);
+  return largoDe(p.camino) * msPorCasilla(p.body, p.corre === true ? 'charge' : 'walk', p.alto);
+}
+
+/**
+ * Si un `move` se anima corriendo, con el clip y el ritmo de la carga: la carrera
+ * de una carga (`charge`) o un tramo de más de la mitad del movimiento máximo de
+ * quien anda (`corre`, que escribe el núcleo con `seCorre`, 25-10-2026). Si no,
+ * caminando. La única lectura de las dos marcas: la leen la cola del animador y
+ * lo que tarda una jugada.
+ */
+export function vaCorriendo(e: BattleEvent & { kind: 'move' }): boolean {
+  return e.charge === true || e.corre === true;
 }
 
 function stackDe(battle: BattleState, id: string, que: string): BattleStack {
@@ -415,7 +429,7 @@ function pasoDeAccion(e: BattleEvent, battle: BattleState): Exclude<Paso, { tipo
  * registro de `battle`: la misma cuenta que hace con su cola, para quien tiene
  * que esperar a que acabe de contar —el guion de capturas— sin un reloj propio
  * que se quede atrás. Un tramo son sus casillas (`path`) al paso de quien anda,
- * con la carga si el tramo es una carrera de carga (`charge` de su `move`).
+ * corriendo si el tramo va corriendo (`vaCorriendo`).
  */
 export function duracionDeLaJugada(battle: BattleState, nuevos: readonly BattleEvent[]): number {
   let ms = 0;
@@ -423,9 +437,9 @@ export function duracionDeLaJugada(battle: BattleState, nuevos: readonly BattleE
     if (e.kind === 'move' || e.kind === 'climbed') {
       // Subir es un paso de una casilla, a la marcha.
       const s = stackDe(battle, e.stack, e.kind === 'move' ? 'mueve' : 'hace subir');
-      const carga = e.kind === 'move' && e.charge === true;
+      const corre = e.kind === 'move' && vaCorriendo(e);
       const casillas = e.kind === 'move' ? e.path.length : 1;
-      ms += casillas * msPorCasilla(s.body, carga ? 'charge' : 'walk', ALTO_DE_FIGURA);
+      ms += casillas * msPorCasilla(s.body, corre ? 'charge' : 'walk', ALTO_DE_FIGURA);
     } else {
       const paso = pasoDeAccion(e, battle);
       if (paso !== null) ms += paso.dura;
@@ -594,9 +608,9 @@ export class BattleAnimator {
   private traducir(e: BattleEvent, battle: BattleState): Paso | null {
     switch (e.kind) {
       case 'move': {
-        // La carga la dice el `move`, que la escribe el núcleo: con la rueda, el
-        // golpe que la cobra llega en otra jugada, después de la rueda.
-        return this.andar(battle, e.stack, e.to, e.path, 'mueve', e.charge === true);
+        // La carga y la carrera las dice el `move`, que las escribe el núcleo: con
+        // la rueda, el golpe que cobra la carga llega en otra jugada, después.
+        return this.andar(battle, e.stack, e.to, e.path, 'mueve', vaCorriendo(e));
       }
       // Subir a la muralla se cuenta como un paso del pie a la columna.
       case 'climbed':
@@ -613,7 +627,7 @@ export class BattleAnimator {
     to: Hex,
     path: readonly Hex[],
     que: string,
-    carga = false,
+    corre = false,
   ): Paso {
     const hasta = planoDeHex(to);
     const desde = this.destino.get(stack) ?? hasta;
@@ -633,7 +647,7 @@ export class BattleAnimator {
       alturas,
       body: s.body,
       alto: ALTO_DE_FIGURA,
-      ...(carga ? { carga: true as const } : {}),
+      ...(corre ? { corre: true as const } : {}),
     };
   }
 
@@ -840,7 +854,7 @@ export class BattleAnimator {
         cabeza = porElCamino(paso.camino, t);
         elevacion = alturaEnElCamino(paso.alturas, t);
         mirada = miradaEnElTramo(paso.camino, tramoEn(paso.camino, t), mirada);
-        clip = paso.carga === true ? 'charge' : 'walk';
+        clip = paso.corre === true ? 'charge' : 'walk';
         tiempo = desdeInicio;
         casilla = null;
       } else if ((paso.tipo === 'attack' || paso.tipo === 'shoot') && paso.stack === s.id) {

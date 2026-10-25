@@ -163,6 +163,7 @@
 .pie-de-rueda p { margin: 0.15rem 0; }
 .pie-de-rueda .guia { font: 0.88rem/1.35 var(--letra-titulo); color: var(--ink); }
 .pie-de-rueda .teclas { font: 0.75rem var(--letra-ui); color: var(--ink-dim); }
+.pie-de-rueda .tinte-de-la-rueda { font: 0.75rem/1.3 var(--letra-ui); color: var(--ink-dim); }
 .pie-de-rueda .carga-de-la-rueda { font: 0.82rem/1.3 var(--letra-ui); color: var(--gold); }
 .pie-de-rueda kbd {
   display: inline-block;
@@ -223,6 +224,27 @@
   fill: var(--rueda-pista);
 }
 .disco .sector.centro { fill: var(--rueda-centro); }
+/* La escala de un nivel, la misma en toda arma y en los sitios que lo tiñen: en la
+   ficha del arma de la arena (.rueda-del-arma), el relleno de la barra
+   (--tono-del-nivel), el sector de su rueda (--fondo-del-nivel) y lo que da
+   (--letra-del-nivel); en el diálogo de la rueda del combate (#rueda), el sector,
+   con el arma de quien pega (25-10-2026). Del rojo del 0 al verde del 6, pasando
+   por el neutro del 3. Una regla por nivel, del 0 a NIVEL_MAXIMO
+   (cifras-de-la-rueda.ts): si cambia, cambia esta escala. Los colores son fichas
+   fijas (`--info-nivel-N`, en el `:root` de style.css): es información. */
+:is(.rueda-del-arma, #rueda) [data-nivel="0"] { --tono-del-nivel: var(--info-nivel-0); --fondo-del-nivel: var(--info-nivel-0-fondo); --letra-del-nivel: var(--danger); }
+:is(.rueda-del-arma, #rueda) [data-nivel="1"] { --tono-del-nivel: var(--info-nivel-1); --fondo-del-nivel: var(--info-nivel-1-fondo); --letra-del-nivel: var(--danger); }
+:is(.rueda-del-arma, #rueda) [data-nivel="2"] { --tono-del-nivel: var(--info-nivel-2); --fondo-del-nivel: var(--info-nivel-2-fondo); --letra-del-nivel: var(--danger); }
+:is(.rueda-del-arma, #rueda) [data-nivel="3"] { --tono-del-nivel: var(--info-nivel-3); --fondo-del-nivel: var(--info-nivel-3-fondo); --letra-del-nivel: currentColor; }
+:is(.rueda-del-arma, #rueda) [data-nivel="4"] { --tono-del-nivel: var(--info-nivel-4); --fondo-del-nivel: var(--info-nivel-4-fondo); --letra-del-nivel: var(--accent); }
+:is(.rueda-del-arma, #rueda) [data-nivel="5"] { --tono-del-nivel: var(--info-nivel-5); --fondo-del-nivel: var(--info-nivel-5-fondo); --letra-del-nivel: var(--accent); }
+:is(.rueda-del-arma, #rueda) [data-nivel="6"] { --tono-del-nivel: var(--info-nivel-6); --fondo-del-nivel: var(--info-nivel-6-fondo); --letra-del-nivel: var(--accent); }
+/* Cada sector con su nivel va en su tono en vez de la veta: en el diálogo (lo pone
+   `disco` desde `previsionDeLaRueda().niveles`) y en la ficha del arma
+   (`ruedaDeLaPieza`). Normal no lleva nivel. Encendido (ratón o teclado), manda el
+   realce de abajo. */
+.disco .sector[data-nivel] { fill: var(--fondo-del-nivel); }
+
 /* La rueda de 3 no tiene Normal: el centro es madera, sin botón. */
 .disco .sin-centro { fill: var(--rueda-centro); }
 .disco .radio { stroke: var(--rueda-radio); stroke-width: 1; }

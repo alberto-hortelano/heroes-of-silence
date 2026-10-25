@@ -268,8 +268,19 @@ export type BattleEvent =
    * cobra). Lo escribe el núcleo, que la mide antes de andar (`cargaDesde`): con
    * la rueda, entre la carrera y el golpe va el `cruce`, y el animador ya no
    * puede deducirla mirando el paso de al lado.
+   *
+   * `corre`: sin carga, el tramo es de más de la mitad de su movimiento máximo
+   * (`seCorre`), y el lienzo lo anima corriendo, con el clip y el ritmo de la carga;
+   * si no, caminando (25-10-2026). Solo se ve: ninguna regla lo lee.
    */
-  | { kind: 'move'; stack: string; to: Hex; path: readonly Hex[]; charge?: true }
+  | {
+      kind: 'move';
+      stack: string;
+      to: Hex;
+      path: readonly Hex[];
+      charge?: true;
+      corre?: true;
+    }
   /**
    * La rueda del golpe (`rueda.ts`): lo que eligieron quien pega y
    * quien recibe y dónde cae el golpe. Va DESPUÉS del `move` del golpe y justo

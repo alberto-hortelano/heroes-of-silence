@@ -87,6 +87,7 @@ export {
   golpeNeutro,
   LAS_TRES_RUEDAS,
   lasRuedasQue,
+  nivelesEnLaForma,
   nombreEnLaRueda,
   PARTES,
   RUEDA_DE_REFERENCIA,

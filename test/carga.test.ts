@@ -18,6 +18,7 @@ import {
   previsionDe,
   soltarElGolpe,
   stackById,
+  stackSpeed,
 } from '../src/core/battle/battle.js';
 import {
   CARGA,
@@ -46,10 +47,14 @@ const RIVAL = 'zombi';
  * agilidad 7 (lo que le deje el peso, 6 o 7 casillas), que la de la hoja no es lo
  * que se prueba.
  */
-function enRecta(id: string, recta: number): { readonly b: BattleState; readonly desde: Hex } {
+function enRecta(
+  id: string,
+  recta: number,
+  agilidad = 7,
+): { readonly b: BattleState; readonly desde: Hex } {
   const b = batallaDeArena(
     {
-      izquierda: { unidades: [delBorrador(unidadDeArena(id, { agilidad: 7 }))], heroe: null },
+      izquierda: { unidades: [delBorrador(unidadDeArena(id, { agilidad }))], heroe: null },
       derecha: { unidades: [delBorrador(unidadDeArena(RIVAL))], heroe: null },
       ...MONTAJE,
     },
@@ -315,5 +320,40 @@ describe('el juego carga a pie, como la arena (19-10-2026)', () => {
       expect(golpeDe(b).charge).toBe(3);
       expect(cifrasDeCarga(stackById(b, 'attacker-0').unit) === CARGA.aPie).toBe(aPie);
     }
+  });
+});
+
+describe('correr o caminar (25-10-2026): solo se ve, por el `move`', () => {
+  // Requisito 2: un tramo de más de la mitad del movimiento máximo va corriendo
+  // (`corre`); de la mitad o menos, caminando. La frontera es la mitad justa.
+  // Con un máximo par, para que la mitad justa sea un tramo que se pueda andar: con
+  // el de la agilidad 6 o el de la 7 (lo que le deje el peso), el que salga par.
+  const conMaximoPar = (): BattleState => {
+    for (const agilidad of [6, 7]) {
+      // El zombi lejos (columna 11): nadie en contacto, el camino es la fila.
+      const { b } = enRecta(A_PIE, 10, agilidad);
+      if (stackSpeed(stackById(b, 'attacker-0')) % 2 === 0) return b;
+    }
+    throw new Error('ni con la agilidad 6 ni con la 7 sale un máximo par');
+  };
+  const tramo = (casillas: (maximo: number) => number): Extract<BattleEvent, { kind: 'move' }> => {
+    const b = conMaximoPar();
+    const maximo = stackSpeed(stackById(b, 'attacker-0'));
+    applyAction(b, { type: 'move', to: { col: casillas(maximo), row: 4 } }, createRng(1));
+    const mov = b.log.find((e) => e.kind === 'move');
+    if (mov?.kind !== 'move') throw new Error('no anduvo');
+    expect(mov.path).toHaveLength(casillas(maximo));
+    return mov;
+  };
+
+  it('la mitad o menos camina; una casilla más, corre; y la carrera de una carga es carga', () => {
+    expect(tramo((m) => m / 2).corre).toBeUndefined();
+    expect(tramo((m) => m / 2 + 1).corre).toBe(true);
+    // La carga ya corre por sí: su `move` lleva `charge` y no `corre`.
+    const { b, desde } = enRecta(A_PIE, 4);
+    applyAction(b, { type: 'attack', target: 'defender-0', from: desde, ...NORMAL }, createRng(1));
+    const carrera = b.log.find((e) => e.kind === 'move');
+    expect(carrera).toMatchObject({ charge: true });
+    expect(carrera?.kind === 'move' && carrera.corre).toBeFalsy();
   });
 });

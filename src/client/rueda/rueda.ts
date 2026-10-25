@@ -110,9 +110,15 @@ function formas(forma: FormaDeLaRueda): Html {
 /**
  * El disco de debajo: el fondo, los sectores de `forma`, el centro y el aro; con
  * `elige`, el aro del bando que elige, que late. Sin Normal (la de 3), el centro
- * es solo madera: ni sector ni botón.
+ * es solo madera: ni sector ni botón. Con `niveles` (al elegir: los del arma de
+ * quien pega, `previsionDeLaRueda().niveles`), cada sector lleva su `data-nivel` y
+ * se tiñe de rojo a verde como la ficha del arma (`rueda.css`); Normal, sin tono.
  */
-function disco(elige: Side | null, forma: FormaDeLaRueda): Html {
+function disco(
+  elige: Side | null,
+  forma: FormaDeLaRueda,
+  niveles: Readonly<Partial<Record<TipoDeGolpe, number>>> | null,
+): Html {
   // La veta alterna por el orden del anillo, no por una lista de tipos en el CSS:
   // con la lista, reordenar el anillo (#263) dejaba dos sectores iguales seguidos.
   // Con un número impar de sectores (la de 3), el último y el primero quedarían
@@ -120,10 +126,14 @@ function disco(elige: Side | null, forma: FormaDeLaRueda): Html {
   const n = forma.anillo.length;
   const veta = (i: number): string =>
     n % 2 === 1 && i === n - 1 ? 'tercera' : i % 2 === 0 ? 'mesa' : 'madera';
+  const nivelDe = (t: TipoDeGolpe): Html => {
+    const nivel = niveles?.[t];
+    return nivel === undefined ? NADA : html` data-nivel="${String(nivel)}"`;
+  };
   const sectores = unir(
     forma.anillo.map(
       (t, i) =>
-        html`<path class="sector" data-sector="${t}" data-veta="${veta(i)}" d="${sector(t, forma)}"/>`,
+        html`<path class="sector" data-sector="${t}" data-veta="${veta(i)}"${nivelDe(t)} d="${sector(t, forma)}"/>`,
     ),
   );
   const centro = forma.centro
@@ -364,6 +374,11 @@ export function renderEleccion(
     : p.prevision.sinContraataque === null
       ? `Elige tu respuesta sin ver su golpe; ${dichoDelCruce(forma)} Tu contraataque cae en el punto contrario.`
       : `No devolverá el golpe (${p.prevision.sinContraataque}): la respuesta solo cuenta para el cruce.`;
+  // El tinte de los sectores es el arma de quien pega (`disco`): al golpear, la de
+  // quien elige; al responder, la del rival, que es lo que se teme.
+  const tinte = golpe
+    ? 'El color de cada sector, el nivel de tu arma en ese golpe: rojo, peor; verde, mejor.'
+    : 'El color de cada sector, el nivel del arma de quien te golpea: rojo, flojo; verde, fuerte.';
   // El sector abre su nota también al pasar por él (`[data-abre-nota]`, style.css).
   const sectores = sitios(
     forma,
@@ -379,10 +394,11 @@ export function renderEleccion(
     ${cabecera(battle, titulo, p.atacante, p.objetivo, quienMira, cara, true)}
     <div class="plato">
       ${formas(forma)}
-      <div class="giro">${disco(p.bando, forma)}${sectores}</div>
+      <div class="giro">${disco(p.bando, forma, p.prevision.niveles)}${sectores}</div>
     </div>
     <footer class="pie-de-rueda">
       <p class="guia">${guia}</p>
+      <p class="tinte-de-la-rueda" data-tinte>${tinte}</p>
       ${
         // Tras una carrera, las cifras ya llevan la carga, y Escape la pierde (R6 de QA de #260).
         p.prevision.carga === null
@@ -556,7 +572,7 @@ export function renderDesenlace(
   return html`<div class="rueda" data-fase="desenlace" data-tipos="${String(forma.golpes.length)}">
     ${cabecera(battle, titulo, atacante, objetivo, quienMira, cara, false)}
     <div class="plato">
-      <div class="giro">${disco(null, forma)}${etiquetas}</div>
+      <div class="giro">${disco(null, forma, null)}${etiquetas}</div>
       <svg class="marcas" viewBox="-110 -110 220 220" aria-hidden="true" focusable="false">
         ${tinte(e.golpe, atacante.side, forma)}
         ${tinte(e.respuesta, objetivo.side, forma)}
