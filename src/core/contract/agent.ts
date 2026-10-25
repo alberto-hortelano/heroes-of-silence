@@ -152,6 +152,9 @@ export const adventureActionSchema = z.discriminatedUnion('type', [
     item: z.string(),
     veteran: z.string().optional(),
     creature: z.string().optional(),
+    // En qué hueco, como en `unequip` (texto: lo traduce `accionDelAgente`); sin él,
+    // el de la pieza. Un arma va también en el de la segunda (25-10-2026).
+    slot: z.string().max(32).optional(),
   }),
   z.object({
     type: z.literal('unequip'),
@@ -435,6 +438,7 @@ Acciones válidas (el turno termina solo, no hace falta enviar end_turn):
   { "type": "equip",     "hero": "<id>", "item": "<id de pieza>" }
   { "type": "equip",     "hero": "<id>", "item": "<id de pieza>", "veteran": "<id de veterano>" }
   { "type": "equip",     "hero": "<id>", "item": "<id de pieza>", "creature": "<id de criatura>" }
+  { "type": "equip",     "hero": "<id>", "item": "<id de pieza>", "slot": "${SLOT_DE_HUECO.segunda}" }
   { "type": "unequip",   "hero": "<id>", "slot": "${SLOTS.join('" | "')}" }
   { "type": "unequip",   "hero": "<id>", "slot": "<hueco>", "veteran": "<id de veterano>" }
   { "type": "hire_hero", "town": "<id>" }
@@ -516,12 +520,16 @@ Notas:
   diciéndolo.
 - EQUIPO: todo héroe y todo individuo de la tropa tiene cinco huecos
   (${SLOTS.join(', ')}) y en cada uno lleva una pieza o nada: "${SLOT_DE_HUECO.arma}" es
-  el arma de cuerpo a cuerpo, "${SLOT_DE_HUECO.distancia}" la que dispara (llevarla ya
-  es disparar, sin munición que contar),
-  "${SLOT_DE_HUECO.lanza}" la lanza con que se carga, "${SLOT_DE_HUECO.armadura}" la
-  armadura y "${SLOT_DE_HUECO.escudo}" el escudo, opcional: ${REGLA_DEL_ESCUDO}
-  (ponerle uno a quien lleva un arma a dos manos, o ponerle una a quien lleva
-  escudo, se rechaza diciéndolo). Cada pieza suma sus cifras a quien la lleva
+  el arma de cuerpo a cuerpo y "${SLOT_DE_HUECO.segunda}" una segunda (otra arma de
+  cuerpo a cuerpo de una mano: con dos, cada cifra del golpe es la de la mejor
+  —ataque, fuerza y cada tipo de la rueda— y el peso, la suma; un arma va a
+  "${SLOT_DE_HUECO.arma}" salvo que "equip" diga "slot": "${SLOT_DE_HUECO.segunda}"),
+  "${SLOT_DE_HUECO.distancia}" la que dispara (llevarla ya es disparar, sin munición
+  que contar), "${SLOT_DE_HUECO.armadura}" la armadura y
+  "${SLOT_DE_HUECO.escudo}" el escudo, opcional: ${REGLA_DEL_ESCUDO} (lo que no cabe se rechaza diciéndolo). La
+  LANZA es un arma de cuerpo a cuerpo más: montado (el rasgo "charge") y con una
+  lanza puesta, la carga cobra la del jinete; montado sin lanza, o a pie, la de a
+  pie. Cada pieza suma sus cifras a quien la lleva
   (un arma, ataque y fuerza para el daño de su golpe; un escudo, defensa) y
   pesa (el peso de todo lo puesto que pasa de la fuerza resta agilidad);
   ninguna da PV: la armadura son puntos que se restan del daño de cada golpe que
@@ -538,7 +546,8 @@ Notas:
     "buy_item" compra una de las piezas que se venden para su mochila;
     "towns[].armory" dice qué vende y a qué precio, y solo viene si la tiene.
   Cada fila de "army" con "id" lleva su "equipment" con la misma forma.
-  "equip" pone una pieza de la mochila del héroe: sin más, al propio héroe; con
+  "equip" pone una pieza de la mochila del héroe en su hueco, o en el que diga
+  "slot" (un arma, también en "${SLOT_DE_HUECO.segunda}"): sin más, al propio héroe; con
   "veteran", al individuo de su tropa con ese id (las filas de "army" con "id");
   con "creature", a un individuo de ese tipo que todavía no tenga id (uno de los
   que van agrupados en su fila), que pasa a tenerlo y a ir en su propia fila. Lo que ocupaba ese hueco vuelve a la mochila. "unequip"

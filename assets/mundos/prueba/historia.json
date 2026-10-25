@@ -68,7 +68,7 @@
                 {
                   "texto": "Coger la lanza",
                   "si": [{ "no": { "marca": "lanza-cogida" } }],
-                  "hace": [{ "pieza": "lanza_de_jinete" }, { "marca": "lanza-cogida" }]
+                  "hace": [{ "pieza": "lanza" }, { "marca": "lanza-cogida" }]
                 },
                 { "texto": "Salir" }
               ]

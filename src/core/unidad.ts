@@ -180,12 +180,9 @@ type KitDelPerfil = Pick<Unidad, 'equipo' | 'leadership'> & {
  * los rasgos del perfil y no en la pieza. **Inventado.**
  *
  * **Cada arma para lo suyo** (13-10-2026): el tirador dispara con su arco o su
- * ballesta (hueco `distancia`) y pega con la daga; el jinete carga con la lanza
- * (hueco `lanza`) y pega con la espada, y el jinete élfico (`montado-arco`)
- * dispara además con el arco. El disparo y la carga dan las cifras de antes;
- * **el golpe de cuerpo a cuerpo y el contraataque de tiradores y jinetes son
- * otros** (con la daga o la espada, no con el arco ni la lanza): es el cambio
- * que se pidió.
+ * ballesta (hueco `distancia`) y pega con la daga; el jinete lleva espada y lanza
+ * (25-10-2026: dos armas, y la lanza le da la carga del jinete) y el jinete
+ * élfico (`montado-arco`) dispara además con el arco.
  */
 export const KIT_DEL_PERFIL: Readonly<Record<PerfilDeUnidad, KitDelPerfil>> = {
   'espada-escudo': {
@@ -210,12 +207,12 @@ export const KIT_DEL_PERFIL: Readonly<Record<PerfilDeUnidad, KitDelPerfil>> = {
     traits: [],
   },
   'montado-lanza': {
-    equipo: { arma: 'espada', lanza: 'lanza_de_jinete', armadura: 'barda' },
+    equipo: { arma: 'espada', segunda: 'lanza', armadura: 'barda' },
     leadership: 8,
     traits: ['charge'],
   },
   'montado-arco': {
-    equipo: { arma: 'espada', distancia: 'arco', lanza: 'lanza_de_jinete', armadura: 'barda' },
+    equipo: { arma: 'espada', segunda: 'lanza', distancia: 'arco', armadura: 'barda' },
     leadership: 8,
     traits: ['charge'],
   },

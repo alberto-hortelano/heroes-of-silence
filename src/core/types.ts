@@ -280,24 +280,26 @@ export interface UnitInfo {
 
 /**
  * Para qué se usa un arma, **con el nombre de su hueco** (simplify de F2): `arma`,
- * pegar cuerpo a cuerpo (y devolver el golpe); `distancia`, disparar; `lanza`,
- * el golpe que cobra la carga (sin lanza, va con el `arma`: `golpeDe`). El uso es
- * el hueco: cada golpe va con lo que lleve en el suyo. Con cuál se da cada golpe
- * lo decide `usoDelGolpe` (`battle/damage.ts`). La lanza no se llama `carga` para
- * no confundirla con la regla de la carga (`battle/carga.ts`), que cobra también
- * quien carga sin ella.
+ * pegar cuerpo a cuerpo (y devolver el golpe, y cargar), con las de `arma` y
+ * `segunda`; `distancia`, disparar. Con cuál se da cada golpe lo decide
+ * `usoDelGolpe` (`battle/damage.ts`). La lanza dejó de tener hueco propio
+ * (25-10-2026, «la lanza de carga fuera, será una lanza»): es un arma de cuerpo a
+ * cuerpo más, y montado le da su regla a la carga (`cifrasDeCarga`).
  */
-export type UsoDeArma = 'arma' | 'distancia' | 'lanza';
+export type UsoDeArma = 'arma' | 'distancia';
 
 /**
- * Con qué arma se da un golpe y con qué cifras: la pieza por su id y su nombre, o
- * `null` si va con el cuerpo, y el ataque y el daño del cuerpo con todo su equipo
- * salvo las armas de los otros golpes (`conEquipo`). El nombre va aquí y no en un
- * catálogo que lleve la batalla: así la previsión y la ficha dicen con qué arma
- * pega sin preguntar a nadie (simplify de F2: la batalla no lleva catálogo).
+ * Con qué armas se da un golpe y con qué cifras: las piezas por su id y su nombre
+ * (ninguna si va con el cuerpo; dos, con dos armas de cuerpo a cuerpo, 25-10-2026),
+ * y el ataque y el daño del cuerpo con todo su equipo salvo las armas de los otros
+ * golpes (`conEquipo`). El nombre va aquí y no en un catálogo que lleve la batalla:
+ * así la previsión y la ficha dicen con qué arma pega sin preguntar a nadie
+ * (simplify de F2: la batalla no lleva catálogo).
  */
 export interface GolpeConArma {
-  readonly arma: { readonly id: string; readonly nombre: string } | null;
+  readonly piezas: readonly { readonly id: string; readonly nombre: string }[];
+  /** Si una de sus armas es una lanza (`Pieza.lanza`): montado, la carga cobra la del jinete. */
+  readonly conLanza?: true;
   readonly attack: number;
   readonly damage: readonly [number, number];
   /**
@@ -371,8 +373,8 @@ export type ExtrasDeLaRueda = Readonly<Partial<Record<TipoDelAnillo, number>>>;
 
 /**
  * Las armas de una unidad de la arena (`UnitInfo.armas`), un golpe por uso: el de
- * cuerpo a cuerpo siempre —sus cifras son las de arriba—, y el de distancia y el
- * de carga si lleva su arma.
+ * cuerpo a cuerpo siempre —sus cifras son las de arriba—, y el de distancia si
+ * lleva su arma.
  */
 export type ArmasDeLaUnidad = { readonly arma: GolpeConArma } & Readonly<
   Partial<Record<HuecoDeArmaPorUso, GolpeConArma>>
@@ -450,19 +452,45 @@ export interface Veterania {
 
 /**
  * Los cinco huecos de equipo de un individuo o de un héroe: el arma de cuerpo a
- * cuerpo (`arma`), la que dispara (`distancia`), la lanza con que se carga
- * (`lanza`), la armadura y el escudo (13-10-2026, «cada arma para lo suyo»; el
- * escudo es un hueco propio desde el 12-10-2026, opcional). **Una sola clase de
- * piezas** desde el 18-10-2026: el juego, la arena, el botín, la armería y el
- * agente tienen los mismos cinco, y el accesorio se fue (decisión del usuario:
- * ninguna pieza lo llenaba). Van sin tilde y en minúscula; al agente viajan en
- * inglés, traducidos en un solo sitio (`contract/vocabulario.ts`). Los de arma se
- * llaman como su uso (`UsoDeArma`), y con cuál se da cada golpe lo elige
- * `usoDelGolpe` (`battle/damage.ts`).
+ * cuerpo (`arma`), la segunda (`segunda`, 25-10-2026: «se permiten dos armas»; de
+ * una mano, con la primera de una mano y sin escudo), la que dispara (`distancia`),
+ * la armadura y el escudo (13-10-2026, «cada arma para lo suyo»; el escudo es un
+ * hueco propio desde el 12-10-2026, opcional; la lanza dejó su hueco el 25-10-2026:
+ * es un arma más). **Una sola clase de piezas** desde el 18-10-2026: el juego, la
+ * arena, el botín, la armería y el agente tienen los mismos cinco. Van sin tilde y
+ * en minúscula; al agente viajan en inglés, traducidos en un solo sitio
+ * (`contract/vocabulario.ts`). Con cuál se da cada golpe lo elige `usoDelGolpe`
+ * (`battle/damage.ts`).
  */
-export const HUECOS = ['arma', 'distancia', 'lanza', 'armadura', 'escudo'] as const;
+export const HUECOS = ['arma', 'segunda', 'distancia', 'armadura', 'escudo'] as const;
 
 export type Hueco = (typeof HUECOS)[number];
+
+/**
+ * El hueco que dice una pieza (`Pieza.hueco`): todos menos `segunda`, que no es un
+ * tipo de pieza sino un sitio más para una de `arma` (`huecosDeLaPieza`).
+ */
+export type HuecoDePieza = Exclude<Hueco, 'segunda'>;
+
+/** Los huecos que una pieza escribe como el suyo (`Pieza.hueco`): `HUECOS` sin `segunda`. */
+export const HUECOS_DE_PIEZA: readonly HuecoDePieza[] = HUECOS.filter(
+  (h): h is HuecoDePieza => h !== 'segunda',
+);
+
+/** Si `x` es el hueco de una pieza (`HUECOS_DE_PIEZA`). */
+export function esHuecoDePieza(x: string): x is HuecoDePieza {
+  return (HUECOS_DE_PIEZA as readonly string[]).includes(x);
+}
+
+/**
+ * En qué huecos se puede poner una pieza de `hueco`: el suyo y, un arma de cuerpo a
+ * cuerpo, también la segunda (que sea de una mano lo dice `manosBlocker`). **La
+ * única pregunta** de «¿va aquí?»: la leen `equipoBlocker`, lo que ofrece la ficha
+ * y el `equip` del juego y del agente.
+ */
+export function huecosDeLaPieza(hueco: HuecoDePieza): readonly Hueco[] {
+  return hueco === 'arma' ? ['arma', 'segunda'] : [hueco];
+}
 
 /**
  * El nombre de cada hueco, para pintarlo y para decirlo en un motivo: lo leen el
@@ -472,8 +500,8 @@ export type Hueco = (typeof HUECOS)[number];
  */
 export const NOMBRE_DE_HUECO: Readonly<Record<Hueco, string>> = {
   arma: 'Arma',
+  segunda: 'Segunda arma',
   distancia: 'Arma a distancia',
-  lanza: 'Arma de carga',
   armadura: 'Armadura',
   escudo: 'Escudo',
 };
@@ -487,19 +515,22 @@ export function esHueco(x: string): x is Hueco {
 }
 
 /**
- * Los huecos de un arma por uso: los de un golpe que no es el de cuerpo a cuerpo.
- * Son huecos y usos a la vez (`UsoDeArma`): el uso se llama como su hueco.
+ * Los huecos de un arma por uso: los de un golpe que no es el de cuerpo a cuerpo
+ * (hoy, solo `distancia`). Son huecos y usos a la vez (`UsoDeArma`).
  */
 export type HuecoDeArmaPorUso = Exclude<UsoDeArma, 'arma'> & Hueco;
 
 /**
  * Si `h` es el hueco de un arma por uso, la de un golpe que no es el de cuerpo a
- * cuerpo (`distancia`, `lanza`). **La única pregunta**: su ataque y su daño no
- * suman arriba, que son los de su golpe (`conEquipo`).
+ * cuerpo (`distancia`). **La única pregunta**: su ataque y su fuerza no suman
+ * arriba, que son los de su golpe (`conEquipo`).
  */
 export function esArmaPorUso(h: Hueco): h is HuecoDeArmaPorUso {
-  return h === 'distancia' || h === 'lanza';
+  return h === 'distancia';
 }
+
+/** Los huecos de un arma de cuerpo a cuerpo: el golpe toma lo mejor de las dos (`conEquipo`). */
+export const HUECOS_DE_CUERPO_A_CUERPO = ['arma', 'segunda'] as const satisfies readonly Hueco[];
 
 /**
  * Las cifras de una pieza, por su nombre en `Pieza`, en el orden en que se dicen.
@@ -546,23 +577,22 @@ export interface CamposDelHueco {
 
 /**
  * Qué admite una pieza en cada hueco (decisión del usuario, 18-10-2026:
- * «diferencia por tipo»): las manos, solo el arma de cuerpo a cuerpo (la regla del
- * escudo mira esa); la rueda, el arma de cuerpo a cuerpo y la lanza, que son las
- * que golpean en ella; y sus cifras: las armas, ataque, fuerza y peso; la
- * armadura, armadura y peso; el escudo, defensa y peso (25-10-2026: la armadura ya
- * no da defensa, y nada resta movimiento). **La regla, en un sitio**: la leen la
- * regla de una pieza (`problemasDePieza`), el cambio de hueco de una pieza
- * (`enElHueco`) y su editor. Los disparos se fueron con la munición (13-10-2026):
- * dispara quien lleva algo en `distancia`.
+ * «diferencia por tipo»): las manos y la rueda, solo el arma de cuerpo a cuerpo (la
+ * regla del escudo mira esa; desde el 25-10-2026 la lanza es una de ellas,
+ * `Pieza.lanza`); y sus cifras: las armas, ataque, fuerza y peso; la armadura,
+ * armadura y peso; el escudo, defensa y peso (25-10-2026: la armadura ya no da
+ * defensa, y nada resta movimiento). **La regla, en un sitio**: la leen la regla de
+ * una pieza (`problemasDePieza`), el cambio de hueco de una pieza (`enElHueco`) y
+ * su editor. Los disparos se fueron con la munición (13-10-2026): dispara quien
+ * lleva algo en `distancia`.
  */
-export function camposDelHueco(h: Hueco): CamposDelHueco {
+export function camposDelHueco(h: HuecoDePieza): CamposDelHueco {
   return CAMPOS_DEL_HUECO[h];
 }
 
 const DE_ARMA: readonly CifraDePieza[] = ['ataque', 'fuerza', 'peso'];
-const CAMPOS_DEL_HUECO: Readonly<Record<Hueco, CamposDelHueco>> = {
+const CAMPOS_DEL_HUECO: Readonly<Record<HuecoDePieza, CamposDelHueco>> = {
   arma: { conManos: true, conRueda: true, cifras: DE_ARMA },
-  lanza: { conManos: false, conRueda: true, cifras: DE_ARMA },
   distancia: { conManos: false, conRueda: false, cifras: DE_ARMA },
   armadura: { conManos: false, conRueda: false, cifras: ['armadura', 'peso'] },
   escudo: { conManos: false, conRueda: false, cifras: ['defensa', 'peso'] },

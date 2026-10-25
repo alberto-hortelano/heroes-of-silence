@@ -1194,11 +1194,24 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   `b9dbd8a1…`), el clima (presentación: ni crónica ni banco) y la F1a del mapa
  *   vivo (sin mundo no hay lugares), **el mismo sha**, comprobado tras cada fusión:
  *   ninguno de los tres mueve una partida sin mundo, sin agente y a 7 / 7.
+ * - `eb8a9ac7…` (4 740 líneas, 20 semillas, 25-10-2026): **fuerza, agilidad y peso, y
+ *   la segunda arma** (F1 y F2 de `docs/agents/2026-10-25-fuerza-agilidad-y-disparo/`:
+ *   la defensa, el daño y las casillas salen del cuerpo, las cifras del catálogo
+ *   cambian, la lanza es un arma de la segunda mano). Contra `420d75c9…`, las 20
+ *   distintas, todas desde el día 1, y el primer hecho distinto es lo que la IA hace
+ *   con las cifras nuevas: otra morada (`built`, `orkos_totem` en vez de
+ *   `orkos_pocilga`, 6), otro licenciado (`dismissed`, el alabardero en vez del
+ *   piquero, 5), el resumen de la primera batalla (`battle_ended`: otras rondas y
+ *   bajas, 4) o una marcha que antes no daba (`hero_moved`, 5). Ningún tipo de
+ *   hecho nuevo ni que desaparezca salvo `item_bought` (0 → 5) y `spells_learned`
+ *   (0 → 1). 0 sin terminar; j0 gana 10 de 20 (10 antes); duración 4 / 8 / 12 →
+ *   **3 / 10 / 19**, días 96 → 96; batallas 104 → 112, `hero_defeated` 29 → 47,
+ *   `rank_up` 94 → 136. No es medida de jugabilidad (CLAUDE.md): es la forma del diff.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '420d75c9f5757372fcd463e500bc348f3e9ec1afc4a444ee55d21b48f29791de',
+  sha: 'eb8a9ac7f7f392dfbb01efc4a40ab9c808cde141e7f1cc6dfcd1572bd514fd9c',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

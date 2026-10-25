@@ -95,6 +95,8 @@ import {
   type FactionId,
   HUECOS,
   type Hueco,
+  type HuecoDePieza,
+  huecosDeLaPieza,
   NOMBRE_DE_FACCION,
   NOMBRE_DE_HUECO,
   NOMBRE_DE_RASGO,
@@ -197,12 +199,12 @@ export function unidadNueva(
 
 /**
  * La unidad con la pieza `id` de `eq` (el catálogo que edita la arena,
- * `catalogoDeEquipo`) puesta en su hueco: lo que hubiera ahí se quita. Lanza con el motivo de
- * `ponerPieza` (`manosBlocker`: un arma a dos manos no admite escudo) diciendo a
- * quién.
+ * `catalogoDeEquipo`) puesta en `hueco` (el suyo si no se dice; un arma, también en
+ * `segunda`): lo que hubiera ahí se quita. Lanza con el motivo de `ponerPieza`
+ * (`manosBlocker`: un arma a dos manos va sola) diciendo a quién.
  */
-export function equiparEnArena(u: Unidad, id: string, eq: EquipoAtado): Unidad {
-  return { ...u, equipo: eq.ponerPieza(u.equipo, id, u.name).equipo };
+export function equiparEnArena(u: Unidad, id: string, eq: EquipoAtado, hueco?: Hueco): Unidad {
+  return { ...u, equipo: eq.ponerPieza(u.equipo, id, u.name, hueco).equipo };
 }
 
 /** La unidad sin lo que lleve en `hueco`; si no lleva nada ahí, se dice. */
@@ -270,8 +272,8 @@ function primeraBaseQue(
  * pesa. Lo demás se queda como estaba. Lo leen la pieza nueva en blanco
  * (`piezaNueva`) y el cambio de hueco de la ficha.
  */
-export function enElHueco(p: Pieza, hueco: Hueco): Pieza {
-  const { manos, rueda, fuerza, armadura, ...resto } = p;
+export function enElHueco(p: Pieza, hueco: HuecoDePieza): Pieza {
+  const { manos, rueda, fuerza, armadura, lanza, ...resto } = p;
   const campos = camposDelHueco(hueco);
   const admite = (c: CifraDePieza): boolean => campos.cifras.includes(c);
   return {
@@ -282,6 +284,8 @@ export function enElHueco(p: Pieza, hueco: Hueco): Pieza {
     defensa: admite('defensa') ? p.defensa : 0,
     ...(admite('armadura') && armadura !== undefined ? { armadura } : {}),
     ...(campos.conManos && manos !== undefined ? { manos } : {}),
+    // Ser una lanza va con el arma de cuerpo a cuerpo, como las manos.
+    ...(campos.conManos && lanza !== undefined ? { lanza } : {}),
     // Un arma de cuerpo a cuerpo dice su rueda: la que trae o, si no traía, la de
     // la Espada («todo a 3, como la Espada»).
     ...(campos.conRueda ? { rueda: rueda ?? nivelesDeLaEspada() } : {}),
@@ -295,7 +299,7 @@ export function enElHueco(p: Pieza, hueco: Hueco): Pieza {
  * como está escrita, con su base si la tiene). Sobre otra («Nueva sobre esta»),
  * `piezaSobre`. Su id y su nombre, `idYNombreNuevos`.
  */
-export function piezaNueva(desde: Hueco | Pieza, eq: CatalogoDeEquipo): PiezaEscrita {
+export function piezaNueva(desde: HuecoDePieza | Pieza, eq: CatalogoDeEquipo): PiezaEscrita {
   const { id, nombre } = idYNombreNuevos(desde, eq);
   if (typeof desde === 'string') {
     const enBlanco: Pieza = {
@@ -466,7 +470,7 @@ export function opcionesDelHueco(
   eq: EquipoAtado,
 ): readonly OpcionDelHueco[] {
   return [...eq.piezas.values()]
-    .filter((p) => p.hueco === hueco && p.id !== u.equipo[hueco])
+    .filter((p) => huecosDeLaPieza(p.hueco).includes(hueco) && p.id !== u.equipo[hueco])
     .map((p) => ({
       pieza: p,
       motivo: equipoDeUnidadBlocker(cuerpoDeCombate(u), { ...u.equipo, [hueco]: p.id }, eq),
@@ -1517,9 +1521,10 @@ export function retiradosDeLaURL(
  * otra pelea sin decirlo; la 14 (22-10-2026) trae la complejidad de la pelea
  * (`combate`: el tope por bando y la rueda); la 15 (25-10-2026), la fuerza, la
  * agilidad y el peso: las unidades sin defensa, daño ni casillas y las piezas sin
- * velocidad ni daño.
+ * velocidad ni daño; la 16 (25-10-2026), la segunda arma: el hueco `lanza` se fue,
+ * una pieza dice `lanza: true` y una unidad lleva `segunda`.
  */
-export const VERSION_DEL_ENLACE = 15;
+export const VERSION_DEL_ENLACE = 16;
 
 const CAMPOS_DEL_ENLACE = ['v', 'unidades', 'piezas', 'izquierda', 'derecha', 'muralla', 'combate'];
 const CAMPOS_DEL_COMBATE = ['tope', 'rueda'];

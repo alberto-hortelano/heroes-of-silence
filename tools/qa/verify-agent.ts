@@ -161,7 +161,15 @@ const equipo: { visto: string | null } = { visto: null };
  * escudo, así que lo descarta `unequipBlocker` diciéndolo—. Si el `slot` no se
  * tradujera, el motivo sería «no hay ningún hueco», no este.
  */
-const SLOTS_DEL_CONTRATO = ['melee_weapon', 'ranged_weapon', 'lance', 'armor', 'shield'];
+// Escrita a mano, no leída de `SLOTS`: es lo que se espera ver en el cable. Desde el
+// 25-10-2026 la lanza es un arma más y su hueco `lance` dejó sitio a la segunda arma.
+const SLOTS_DEL_CONTRATO = [
+  'melee_weapon',
+  'second_melee_weapon',
+  'ranged_weapon',
+  'armor',
+  'shield',
+];
 const escudo: { requestId: string | null; heroe: string | null; visto: string | null } = {
   requestId: null,
   heroe: null,

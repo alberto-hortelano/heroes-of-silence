@@ -82,7 +82,14 @@ import {
 } from '@core/hero/equipo.js';
 import { parseSeed } from '@core/rng.js';
 import { type ClimaDelSitio, climaSinRegiones, DESPEJADO } from '@core/state/clima.js';
-import { type CreatureTrait, esHueco, esTipoDelAnillo, type Hex, type Hueco } from '@core/types.js';
+import {
+  type CreatureTrait,
+  esHueco,
+  esHuecoDePieza,
+  esTipoDelAnillo,
+  type Hex,
+  type HuecoDePieza,
+} from '@core/types.js';
 import {
   type Hoja,
   RUTA_DEL_CATALOGO_DE_UNIDADES,
@@ -1157,13 +1164,20 @@ function conCampoDePieza(
     }
     case 'hueco':
     case 'manos':
+    case 'lanza':
       if (esPiezaConBase(p)) {
-        throw new Error(`«${p.nombre}» está sobre otra: su hueco y sus manos son los de su base`);
+        throw new Error(
+          `«${p.nombre}» está sobre otra: su hueco, sus manos y si es una lanza son los de su base`,
+        );
       }
       if (campo === 'manos') return { ...p, manos: n };
+      if (campo === 'lanza') {
+        const { lanza: _antes, ...sin } = p;
+        return valor === 'true' ? { ...sin, lanza: true } : sin;
+      }
       // Lo que el hueco exige va con él (`enElHueco`): una pasada a escudo deja lo
       // que el escudo no suma, y un arma lleva su rueda sin pedirlo aparte.
-      if (!esHueco(valor)) throw new Error(`«${valor}» no es un hueco`);
+      if (!esHuecoDePieza(valor)) throw new Error(`«${valor}» no es el hueco de una pieza`);
       return enElHueco(p, valor);
   }
   if (esPiezaConBase(p)) return { ...p, extras: conCifraDePieza(p.extras, campo, n) };
@@ -2363,9 +2377,9 @@ document.addEventListener('click', (ev) => {
         // o sobre ella («Nueva sobre esta»).
         const hueco = el.getAttribute('data-hueco');
         const sobre = que === 'crear-pieza-sobre';
-        let desde: Hueco | Pieza;
+        let desde: HuecoDePieza | Pieza;
         if (hueco === null) desde = piezaDeLaFicha();
-        else if (esHueco(hueco)) desde = hueco;
+        else if (esHuecoDePieza(hueco)) desde = hueco;
         else throw new Error(`«+ Nueva pieza» trae «${hueco}», que no es un hueco`);
         const p =
           sobre && typeof desde !== 'string'
@@ -2795,10 +2809,12 @@ function cambiarDeLaUnidad(id: string, el: Element): void {
   if (campo !== null) {
     cambiarUnidad(id, (u) => conCampo(u, campo, valorDe(el)));
   } else if (hueco !== null) {
-    // Ponerle una pieza: lo que no se puede (un escudo con un arma a dos manos)
-    // lo dice el núcleo (`manosBlocker`) y sale en la barra.
+    // Ponerle una pieza en ese hueco (un arma va también en la segunda): lo que no
+    // se puede (un escudo con un arma a dos manos) lo dice el núcleo
+    // (`manosBlocker`) y sale en la barra.
+    if (!esHueco(hueco)) throw new Error(`«${hueco}» no es un hueco`);
     const puesta = valorDe(el);
-    if (puesta !== '') cambiarUnidad(id, (u) => equiparEnArena(u, puesta, equipo));
+    if (puesta !== '') cambiarUnidad(id, (u) => equiparEnArena(u, puesta, equipo, hueco));
   } else if (el.getAttribute('data-arena-rasgo') !== null) {
     añadirRasgo({ kind: 'unidad', id }, el);
   } else if (el.getAttribute('data-arena-habilidad') !== null) {

@@ -41,6 +41,7 @@ import type {
   GolpeConArma,
   Hueco,
   HuecoDeArmaPorUso,
+  NivelesDeLaRueda,
   Troop,
   UnitInfo,
   UsoDeArma,
@@ -51,7 +52,9 @@ import {
   esArmaPorUso,
   esHueco,
   HUECOS,
+  HUECOS_DE_CUERPO_A_CUERPO,
   huecoDesconocido,
+  huecosDeLaPieza,
   NOMBRE_DE_CIFRA,
   NOMBRE_DE_HUECO,
   TIPOS_DEL_ANILLO,
@@ -79,12 +82,13 @@ export interface EquipoAtado {
   readonly piezasPuestas: (equipo: Equipo | undefined) => Pieza[];
   readonly sumaDeEquipo: (equipo: Equipo | undefined) => SumaDeEquipo;
   readonly conEquipo: <U extends UnitInfo>(unit: U, equipo: Equipo | undefined) => U;
-  readonly manosBlocker: (equipo: Equipo | undefined, id: string) => string | null;
+  readonly manosBlocker: (equipo: Equipo | undefined, id: string, hueco?: Hueco) => string | null;
   readonly equipoBlocker: (equipo: Equipo) => string | null;
   readonly ponerPieza: (
     equipo: Equipo | undefined,
     id: string,
     portador?: string,
+    hueco?: Hueco,
   ) => { readonly equipo: Equipo; readonly quitada: string | null };
 }
 
@@ -107,10 +111,10 @@ export function equipoCon(piezas: CatalogoDePiezas): EquipoAtado {
     piezasPuestas: (equipo) => puestasDe(piezas, equipo),
     sumaDeEquipo: (equipo) => sumaDe(piezas, equipo),
     conEquipo: (unit, equipo) => vestir(piezas, unit, equipo),
-    manosBlocker: (equipo, id) => manosDe(piezas, equipo, id),
+    manosBlocker: (equipo, id, hueco) => manosDe(piezas, equipo, id, hueco),
     equipoBlocker: (equipo) => equipoBlockerDe(piezas, equipo),
-    ponerPieza: (equipo, id, portador) => {
-      return poner(piezas, equipo, piezaDe(piezas, id), portador);
+    ponerPieza: (equipo, id, portador, hueco) => {
+      return poner(piezas, equipo, piezaDe(piezas, id), portador, hueco);
     },
   };
 }
@@ -196,7 +200,7 @@ export const DICHO_DEL_USO: Readonly<Record<UsoDeArma, DichoDeUnUso>> = {
     rotulo: 'Cuerpo a cuerpo',
     golpe: 'cuerpo a cuerpo',
     cuando:
-      'Se usa al pegar cuerpo a cuerpo y al devolver un golpe; también al cargar, si no lleva arma de carga. Sin arma, pega con el cuerpo.',
+      'Se usa al pegar cuerpo a cuerpo, al devolver un golpe y al cargar. Con dos armas, en cada cifra la mejor de las dos: ataque, fuerza y cada tipo de la rueda. Sin arma, pega con el cuerpo.',
   },
   distancia: {
     rotulo: 'A distancia',
@@ -204,14 +208,21 @@ export const DICHO_DEL_USO: Readonly<Record<UsoDeArma, DichoDeUnUso>> = {
     cuando:
       'Se usa al disparar: llevarla ya es disparar, sin munición (dos tiros por disparo con Dos disparos).',
   },
-  lanza: {
-    rotulo: 'Carga',
-    golpe: 'en la carga',
-    cuando: `Se usa al cargar: el golpe tras correr en línea recta ${CARGA_MINIMA} casillas o más hacia el objetivo. Carga todo el que pega cuerpo a cuerpo, +${CARGA.aPie.porcentaje} % de daño por casilla hasta ${CARGA.aPie.tope}; con el rasgo Carga (el jinete), +${CARGA.jinete.porcentaje} % hasta ${CARGA.jinete.tope}.`,
-  },
 };
 
-/** Con qué se da un golpe sin arma (`GolpeConArma.arma` a `null`), dicho para quien juega. */
+/**
+ * La carga dicha para quien juega, en la forma de un uso (`DICHO_DEL_USO`): la fila
+ * de la carga de «Armas» y la previsión de un golpe que la cobra. Va con el arma de
+ * cuerpo a cuerpo; montado y con una lanza puesta, cobra la del jinete
+ * (`cifrasDeCarga`, 25-10-2026).
+ */
+export const DICHO_DE_LA_CARGA: DichoDeUnUso = {
+  rotulo: 'Carga',
+  golpe: 'en la carga',
+  cuando: `Se usa al cargar: el golpe tras correr en línea recta ${CARGA_MINIMA} casillas o más hacia el objetivo, con el arma de cuerpo a cuerpo. Carga todo el que pega cuerpo a cuerpo, +${CARGA.aPie.porcentaje} % de daño por casilla hasta ${CARGA.aPie.tope}; montado (el rasgo Carga) y con una lanza puesta, +${CARGA.jinete.porcentaje} % hasta ${CARGA.jinete.tope}.`,
+};
+
+/** Con qué se da un golpe sin arma (`GolpeConArma.piezas` vacía), dicho para quien juega. */
 export const SIN_ARMA = 'sin arma, con el cuerpo';
 
 /**
@@ -306,8 +317,9 @@ export function sumaDeEquipo(equipo: Equipo | undefined): SumaDeEquipo {
  * La suma, **clasificada por la clave del hueco en `equipo`**, no por el hueco
  * que dice la pieza: con un equipo válido es lo mismo. El ataque y la fuerza de un
  * arma por uso (`esArmaPorUso`) no suman aquí, que son los de su golpe
- * (`armasPorUso`); lo demás de cualquier pieza —defensa, armadura, peso—,
- * siempre.
+ * (`armasPorUso`); los de las dos de cuerpo a cuerpo tampoco se suman: cuenta la
+ * mejor en cada cifra (25-10-2026, «se usa la característica de la mejor en cada
+ * tipo de ataque»). Lo demás de cualquier pieza —defensa, armadura, peso—, siempre.
  */
 function sumaDe(piezas: CatalogoDePiezas, equipo: Equipo | undefined): SumaDeEquipo {
   let ataque = 0;
@@ -322,11 +334,29 @@ function sumaDe(piezas: CatalogoDePiezas, equipo: Equipo | undefined): SumaDeEqu
     defensa += p.defensa;
     armadura += p.armadura ?? 0;
     peso += p.peso;
-    if (esArmaPorUso(hueco)) continue;
+    if (esArmaPorUso(hueco) || esDeCuerpoACuerpo(hueco)) continue;
     ataque += p.ataque;
     fuerza += p.fuerza ?? 0;
   }
+  const armas = deCuerpoACuerpo(piezas, equipo);
+  for (const p of armas) {
+    ataque = Math.max(ataque, p.ataque);
+    fuerza = Math.max(fuerza, p.fuerza ?? 0);
+  }
   return { ataque, fuerza, defensa, armadura, peso };
+}
+
+/** Si `h` es uno de los dos huecos de cuerpo a cuerpo (`HUECOS_DE_CUERPO_A_CUERPO`). */
+function esDeCuerpoACuerpo(h: Hueco): boolean {
+  return (HUECOS_DE_CUERPO_A_CUERPO as readonly Hueco[]).includes(h);
+}
+
+/** Las armas de cuerpo a cuerpo puestas en `equipo`: ninguna, una o dos, en el orden de sus huecos. */
+function deCuerpoACuerpo(piezas: CatalogoDePiezas, equipo: Equipo | undefined): Pieza[] {
+  return HUECOS_DE_CUERPO_A_CUERPO.flatMap((h) => {
+    const id = equipo?.[h];
+    return id === undefined ? [] : [piezaDe(piezas, id)];
+  });
 }
 
 /**
@@ -363,11 +393,13 @@ function vestir<U extends UnitInfo>(
     );
   }
   const todo: Equipo = { ...unit.equipo, ...equipo };
-  // El ataque y la armadura, lo que suma lo nuevo; lo derivado, de todo lo puesto
-  // (lo que ya llevaba y lo de ahora): las primitivas del cuerpo no cambian.
-  const nuevo = sumaDe(piezas, equipo);
+  // Todo de lo puesto entero (lo que ya llevaba y lo de ahora): con dos armas el
+  // ataque es el de la mejor, y no se suma pieza a pieza. Lo que ya llevaba se
+  // quita del ataque y la armadura que traía para no contarlo dos veces; las
+  // primitivas del cuerpo no cambian.
+  const antes = sumaDe(piezas, unit.equipo);
   const total = sumaDe(piezas, todo);
-  const puntosDeArmadura = (unit.puntosDeArmadura ?? 0) + nuevo.armadura;
+  const puntosDeArmadura = (unit.puntosDeArmadura ?? 0) - antes.armadura + total.armadura;
   const derivadas = cifrasDelCuerpo(unit, {
     peso: total.peso,
     fuerzaDelArma: total.fuerza,
@@ -377,7 +409,7 @@ function vestir<U extends UnitInfo>(
   const { peso: _antes, ...sinPeso } = unit;
   const vestida: U = {
     ...(sinPeso as U),
-    attack: unit.attack + nuevo.ataque,
+    attack: unit.attack - antes.ataque + total.ataque,
     defense: derivadas.defense,
     damage: derivadas.damage,
     speed: derivadas.speed,
@@ -392,13 +424,14 @@ function vestir<U extends UnitInfo>(
 }
 
 /**
- * Con qué arma y qué cifras da `vestida` cada golpe, si lleva un arma por uso
+ * Con qué armas y qué cifras da `vestida` cada golpe, si lleva un arma por uso
  * (`esArmaPorUso`) o un arma de cuerpo a cuerpo, que dice su rueda
- * (`Pieza.rueda`), o `null`. El de cuerpo a cuerpo es el de
- * arriba; el de cada arma por uso, el de arriba con esa arma en lugar de la de
- * cuerpo a cuerpo (su ataque y su daño no suben arriba, `sumaDe`). Cada golpe
- * lleva la rueda de su arma: así el motor no busca la pieza. El único escritor de
- * `UnitInfo.armas`.
+ * (`Pieza.rueda`), o `null`. El de cuerpo a cuerpo es el de arriba, con sus dos
+ * armas si lleva dos: la rueda, tipo a tipo la mejor de las dos (`mejorRueda`), y
+ * si alguna es una lanza, `conLanza`; el de cada arma por uso, el de arriba con
+ * esa arma en lugar de las de cuerpo a cuerpo (su ataque y su fuerza no suben
+ * arriba, `sumaDe`). Cada golpe lleva la rueda de su arma: así el motor no busca la
+ * pieza. El único escritor de `UnitInfo.armas`.
  */
 function armasPorUso(
   piezas: CatalogoDePiezas,
@@ -406,45 +439,55 @@ function armasPorUso(
   todo: Equipo,
   agilidad: number,
 ): ArmasDeLaUnidad | null {
-  const delCuerpo = todo.arma === undefined ? null : piezaDe(piezas, todo.arma);
+  const delCuerpo = deCuerpoACuerpo(piezas, todo);
   const porUso = HUECOS.filter(
     (h): h is HuecoDeArmaPorUso => esArmaPorUso(h) && todo[h] !== undefined,
   );
+  const rueda = mejorRueda(delCuerpo);
   // Sin arma ni arma por uso, sin `armas`: todo golpe va con las cifras de arriba.
   // Antes de reservar nada, que por aquí pasan cada individuo y cada héroe
   // (`cifrasDelIndividuo`, `heroUnit`).
-  if (porUso.length === 0 && delCuerpo?.rueda === undefined) return null;
+  if (porUso.length === 0 && rueda === undefined) return null;
   const armas: { -readonly [U in keyof ArmasDeLaUnidad]: ArmasDeLaUnidad[U] } = {
-    arma: conRuedaDe(
-      { arma: armaDe(delCuerpo), attack: vestida.attack, damage: vestida.damage },
-      delCuerpo,
-    ),
+    arma: {
+      piezas: delCuerpo.map(nombreDeLaPieza),
+      ...(delCuerpo.some(esLanza) ? { conLanza: true as const } : {}),
+      attack: vestida.attack,
+      damage: vestida.damage,
+      ...(rueda === undefined ? {} : { rueda }),
+    },
   };
+  const ataqueDeCuerpo = Math.max(0, ...delCuerpo.map((p) => p.ataque));
   for (const hueco of porUso) {
     const id = todo[hueco] as string;
     const p = piezaDe(piezas, id);
-    armas[hueco] = conRuedaDe(
-      {
-        arma: armaDe(p),
-        attack: vestida.attack - (delCuerpo?.ataque ?? 0) + p.ataque,
-        // La fuerza del cuerpo con la de esta arma, por la agilidad que le deja
-        // el peso: la misma cuenta que el golpe de cuerpo a cuerpo.
-        damage: danioDeLaFuerza(vestida.fuerza + (p.fuerza ?? 0), agilidad),
-      },
-      p,
-    );
+    armas[hueco] = {
+      piezas: [nombreDeLaPieza(p)],
+      attack: vestida.attack - ataqueDeCuerpo + p.ataque,
+      // La fuerza del cuerpo con la de esta arma, por la agilidad que le deja
+      // el peso: la misma cuenta que el golpe de cuerpo a cuerpo.
+      damage: danioDeLaFuerza(vestida.fuerza + (p.fuerza ?? 0), agilidad),
+    };
   }
   return armas;
 }
 
-/** El arma de un golpe (`GolpeConArma.arma`): la pieza por su id y su nombre, o `null`. */
-function armaDe(p: Pieza | null): GolpeConArma['arma'] {
-  return p === null ? null : { id: p.id, nombre: p.nombre };
+/** Una pieza en un golpe (`GolpeConArma.piezas`): su id y su nombre. */
+function nombreDeLaPieza(p: Pieza): GolpeConArma['piezas'][number] {
+  return { id: p.id, nombre: p.nombre };
 }
 
-/** El golpe `g` con la rueda de su arma `p`, solo si la lleva. */
-function conRuedaDe(g: GolpeConArma, p: Pieza | null): GolpeConArma {
-  return p?.rueda === undefined ? g : { ...g, rueda: p.rueda };
+/**
+ * Los niveles de la rueda de un golpe con estas armas: tipo a tipo, el mejor
+ * (25-10-2026); sin ninguna que golpee en la rueda, `undefined`.
+ */
+function mejorRueda(armas: readonly Pieza[]): NivelesDeLaRueda | undefined {
+  const con = armas.flatMap((p) => (p.rueda === undefined ? [] : [p.rueda]));
+  const [primera] = con;
+  if (primera === undefined || con.length === 1) return primera;
+  return Object.fromEntries(
+    TIPOS_DEL_ANILLO.map((t) => [t, Math.max(...con.map((r) => r[t]))]),
+  ) as NivelesDeLaRueda;
 }
 
 /**
@@ -476,8 +519,9 @@ function mismasArmas(a: ArmasDeLaUnidad | undefined, b: ArmasDeLaUnidad | undefi
   const golpe = (x: GolpeConArma | undefined, y: GolpeConArma | undefined): boolean =>
     x === undefined || y === undefined
       ? x === y
-      : x.arma?.id === y.arma?.id &&
-        x.arma?.nombre === y.arma?.nombre &&
+      : x.piezas.length === y.piezas.length &&
+        x.piezas.every((p, i) => p.id === y.piezas[i]?.id && p.nombre === y.piezas[i]?.nombre) &&
+        x.conLanza === y.conLanza &&
         x.attack === y.attack &&
         x.damage[0] === y.damage[0] &&
         x.damage[1] === y.damage[1] &&
@@ -485,14 +529,15 @@ function mismasArmas(a: ArmasDeLaUnidad | undefined, b: ArmasDeLaUnidad | undefi
         // Maza a media pelea no llegaba a quien la lleva.
         TIPOS_DEL_ANILLO.every((t) => x.rueda?.[t] === y.rueda?.[t]);
   if (a === undefined || b === undefined) return a === b;
-  return golpe(a.arma, b.arma) && golpe(a.distancia, b.distancia) && golpe(a.lanza, b.lanza);
+  return golpe(a.arma, b.arma) && golpe(a.distancia, b.distancia);
 }
 
 /**
  * La regla de las manos y del escudo dicha para quien juega: la leen la prosa del
  * agente y la ficha de la arena. Junto a `manosBlocker`, que es quien la aplica.
  */
-export const REGLA_DEL_ESCUDO = 'un arma a dos manos no admite escudo';
+export const REGLA_DEL_ESCUDO =
+  'un arma a dos manos va sola (ni escudo ni segunda arma), y con dos armas de una mano no queda mano para el escudo';
 
 /**
  * Si `p` es un arma a dos manos. Junto a `manosBlocker`, que aplica la regla: es
@@ -503,37 +548,81 @@ export function aDosManos(p: Pick<Pieza, 'manos'>): boolean {
   return p.manos === 2;
 }
 
-/**
- * Por qué no se puede poner la pieza `id` sobre `equipo`, o `null` si sí: **un
- * arma a dos manos no admite escudo** (decisión del usuario, 12-10-2026). Las dos
- * direcciones: un escudo sobre un mandoble y un mandoble sobre un escudo. La pieza
- * que ocupa el hueco de `id` no cuenta, porque se quita al ponerla. **La única
- * lectura de `manos`**: la leen `equipBlocker` (el juego y el agente), la arena
- * y `equipoBlocker`, y `ponerPieza` lanza con ella como última puerta.
- */
-export function manosBlocker(equipo: Equipo | undefined, id: string): string | null {
-  return manosDe(PIEZAS_DEL_CATALOGO, equipo, id);
+/** Si `p` es una lanza (`Pieza.lanza`): la lectura para quien la enseña, como `aDosManos`. */
+export function esLanza(p: Pick<Pieza, 'lanza'>): boolean {
+  return p.lanza === true;
 }
 
-function manosDe(piezas: CatalogoDePiezas, equipo: Equipo | undefined, id: string): string | null {
+/**
+ * Por qué no se puede poner la pieza `id` en `hueco` (el suyo si no se dice) sobre
+ * `equipo`, o `null` si sí. Las manos (decisiones del usuario, 12-10-2026 y
+ * 25-10-2026: «se permiten dos armas»): un arma a dos manos va sola —ni escudo ni
+ * segunda arma—, y con dos armas de una mano no queda mano para el escudo; la
+ * segunda va con una primera, y solo un arma de cuerpo a cuerpo de una mano va de
+ * segunda. Las dos direcciones de cada cosa. La pieza que ocupa `hueco` no cuenta,
+ * porque se quita al ponerla. **La única lectura de `manos`**: la leen `equipBlocker`
+ * (el juego y el agente), la arena y `equipoBlocker`, y `ponerPieza` lanza con ella
+ * como última puerta.
+ */
+export function manosBlocker(equipo: Equipo | undefined, id: string, hueco?: Hueco): string | null {
+  return manosDe(PIEZAS_DEL_CATALOGO, equipo, id, hueco);
+}
+
+function manosDe(
+  piezas: CatalogoDePiezas,
+  equipo: Equipo | undefined,
+  id: string,
+  enHueco?: Hueco,
+): string | null {
   const p = piezaDe(piezas, id);
-  const resto = { ...equipo, [p.hueco]: undefined };
-  const arma = resto.arma === undefined ? null : piezaDe(piezas, resto.arma);
-  const escudo = resto.escudo === undefined ? null : piezaDe(piezas, resto.escudo);
-  if (p.hueco === 'escudo' && arma !== null && aDosManos(arma)) {
-    return `${p.nombre} no se puede llevar con ${arma.nombre}: es un arma a dos manos y no deja mano para el escudo`;
+  const hueco = enHueco ?? p.hueco;
+  if (!huecosDeLaPieza(p.hueco).includes(hueco)) {
+    return `${p.nombre} va en ${NOMBRE_DE_HUECO[p.hueco]}, no en ${NOMBRE_DE_HUECO[hueco]}`;
   }
-  if (aDosManos(p) && escudo !== null) {
-    return `${p.nombre} es un arma a dos manos y no se puede llevar con ${escudo.nombre}: quita antes el escudo`;
+  const resto: Equipo = { ...equipo, [hueco]: undefined };
+  const de = (h: Hueco): Pieza | null => {
+    const x = resto[h];
+    return x === undefined ? null : piezaDe(piezas, x);
+  };
+  const [arma, segunda, escudo] = [de('arma'), de('segunda'), de('escudo')];
+  if (hueco === 'segunda') {
+    if (aDosManos(p)) {
+      return `${p.nombre} es un arma a dos manos: va sola, no de segunda arma`;
+    }
+    if (arma === null)
+      return `${p.nombre} va de segunda arma con una primera: pon antes una en ${NOMBRE_DE_HUECO.arma}`;
+    if (aDosManos(arma)) {
+      return `${arma.nombre} es un arma a dos manos y no deja mano para una segunda arma`;
+    }
+    if (escudo !== null) {
+      return `con ${escudo.nombre} no queda mano para una segunda arma: quita antes el escudo`;
+    }
+  }
+  if (hueco === 'escudo') {
+    if (arma !== null && aDosManos(arma)) {
+      return `${p.nombre} no se puede llevar con ${arma.nombre}: es un arma a dos manos y no deja mano para el escudo`;
+    }
+    if (segunda !== null) {
+      return `${p.nombre} no se puede llevar con dos armas: no queda mano para el escudo; quita antes ${segunda.nombre}`;
+    }
+  }
+  if (hueco === 'arma' && aDosManos(p)) {
+    if (escudo !== null) {
+      return `${p.nombre} es un arma a dos manos y no se puede llevar con ${escudo.nombre}: quita antes el escudo`;
+    }
+    if (segunda !== null) {
+      return `${p.nombre} es un arma a dos manos y va sola: quita antes ${segunda.nombre}`;
+    }
   }
   return null;
 }
 
 /**
  * Por qué un equipo entero no vale, o `null`: que cada pieza exista, que vaya en
- * su hueco y que las manos cuadren (`manosBlocker`). Lo leen la arena al validar
- * una unidad (un equipo escrito a mano en el catálogo no pasa por `ponerPieza`) y
- * el equipo base del héroe (`equipoBaseBlocker`).
+ * un hueco suyo (`huecosDeLaPieza`), que la segunda arma vaya con una primera y
+ * que las manos cuadren (`manosBlocker`). Lo leen la arena al validar una unidad
+ * (un equipo escrito a mano en el catálogo no pasa por `ponerPieza`) y el equipo
+ * base del héroe (`equipoBaseBlocker`).
  */
 export function equipoBlocker(equipo: Equipo): string | null {
   return equipoBlockerDe(PIEZAS_DEL_CATALOGO, equipo);
@@ -545,26 +634,32 @@ function equipoBlockerDe(piezas: CatalogoDePiezas, equipo: Equipo): string | nul
     if (id === undefined) continue;
     const p = piezas.get(id) ?? null;
     if (p === null) return `no existe ninguna pieza "${id}"`;
-    if (p.hueco !== hueco) {
+    if (!huecosDeLaPieza(p.hueco).includes(hueco)) {
       return `${p.nombre} va en ${NOMBRE_DE_HUECO[p.hueco]}, no en ${NOMBRE_DE_HUECO[hueco]}`;
     }
   }
-  if (equipo.arma !== undefined) return manosDe(piezas, equipo, equipo.arma);
+  for (const h of ['arma', 'segunda', 'escudo'] as const) {
+    const id = equipo[h];
+    if (id === undefined) continue;
+    const motivo = manosDe(piezas, equipo, id, h);
+    if (motivo !== null) return motivo;
+  }
   return null;
 }
 
 /**
- * El equipo con `id` puesto en su hueco, y lo que ocupaba ese hueco (o `null`).
- * Lanza si las manos no cuadran (`manosBlocker`), diciendo a quién si se da
- * `portador`. El juego ya lo preguntó (`equipBlocker`) y aquí está la última
- * puerta; la arena no pregunta antes: esta es su pregunta.
+ * El equipo con `id` puesto en `hueco` (el suyo si no se dice), y lo que ocupaba
+ * ese hueco (o `null`). Lanza si las manos no cuadran (`manosBlocker`), diciendo a
+ * quién si se da `portador`. El juego ya lo preguntó (`equipBlocker`) y aquí está
+ * la última puerta; la arena no pregunta antes: esta es su pregunta.
  */
 export function ponerPieza(
   equipo: Equipo | undefined,
   id: string,
   portador?: string,
+  hueco?: Hueco,
 ): { readonly equipo: Equipo; readonly quitada: string | null } {
-  return poner(PIEZAS_DEL_CATALOGO, equipo, pieza(id), portador);
+  return poner(PIEZAS_DEL_CATALOGO, equipo, pieza(id), portador, hueco);
 }
 
 function poner(
@@ -572,14 +667,16 @@ function poner(
   equipo: Equipo | undefined,
   p: Pieza,
   portador?: string,
+  enHueco?: Hueco,
 ): { readonly equipo: Equipo; readonly quitada: string | null } {
-  const motivo = manosDe(piezas, equipo, p.id);
+  const hueco = enHueco ?? p.hueco;
+  const motivo = manosDe(piezas, equipo, p.id, hueco);
   if (motivo !== null) {
     const a = portador === undefined ? '' : ` a ${portador}`;
     throw new Error(`no se puede poner ${p.nombre}${a}: ${motivo}`);
   }
-  const quitada = equipo?.[p.hueco] ?? null;
-  return { equipo: { ...equipo, [p.hueco]: p.id }, quitada };
+  const quitada = equipo?.[hueco] ?? null;
+  return { equipo: { ...equipo, [hueco]: p.id }, quitada };
 }
 
 /** El equipo sin lo que hubiera en `hueco`, y lo que había (o `null`). */
@@ -619,7 +716,7 @@ export function sacarDeLaMochila(mochila: readonly string[], id: string): string
 
 /**
  * Una cosa que suma una pieza: una cifra con su valor (el peso no suma: pesa) o
- * una marca que no es cifra (`dosManos`: no admite escudo).
+ * una marca que no es cifra (`dosManos`: va sola; `lanza`: montado, carga como el jinete).
  */
 export type ModificadorDePieza =
   | {
@@ -627,7 +724,7 @@ export type ModificadorDePieza =
       readonly cifra: CifraDePieza;
       readonly valor: number;
     }
-  | { readonly kind: 'marca'; readonly marca: 'dosManos' };
+  | { readonly kind: 'marca'; readonly marca: 'dosManos' | 'lanza' };
 
 /**
  * Lo que suma una pieza, como lista: las cifras distintas de cero en el orden de
@@ -646,7 +743,11 @@ export function modificadoresDePieza(p: Pieza): ModificadorDePieza[] {
   const cifras: ModificadorDePieza[] = CIFRAS_DE_PIEZA.flatMap((cifra) =>
     valor[cifra] === 0 ? [] : [{ kind: 'cifra' as const, cifra, valor: valor[cifra] }],
   );
-  return aDosManos(p) ? [...cifras, { kind: 'marca', marca: 'dosManos' }] : cifras;
+  const marcas: ModificadorDePieza[] = [
+    ...(aDosManos(p) ? [{ kind: 'marca' as const, marca: 'dosManos' as const }] : []),
+    ...(esLanza(p) ? [{ kind: 'marca' as const, marca: 'lanza' as const }] : []),
+  ];
+  return [...cifras, ...marcas];
 }
 
 /** Un número con su signo siempre: «+2», «−1» (el menos tipográfico), «+0». */
@@ -661,7 +762,7 @@ export function conSigno(n: number): string {
  * ninguna cifra, se compara con la fuerza.
  */
 export function textoDeModificador(m: ModificadorDePieza): string {
-  if (m.kind === 'marca') return 'a dos manos';
+  if (m.kind === 'marca') return m.marca === 'dosManos' ? 'a dos manos' : 'lanza: carga montado';
   if (m.cifra === 'peso') return `${NOMBRE_DE_CIFRA.peso} ${m.valor}`;
   return `${conSigno(m.valor)} ${NOMBRE_DE_CIFRA[m.cifra]}`;
 }

@@ -12,6 +12,7 @@ import cargaJson from '../../../data/carga.json' with { type: 'json' };
 import { hasTrait } from '../data.js';
 import type { UnitInfo } from '../types.js';
 import { entero, objetoCon, porcentaje } from '../validar.js';
+import { golpeDe } from './armas.js';
 
 /** Por debajo de esto no hay carga: hace falta arrancar (decisión del usuario, 02-10-2026). */
 export const CARGA_MINIMA = 3;
@@ -52,14 +53,19 @@ export const CARGA: CargasDeLaBatalla = validarCarga(cargaJson);
 
 /**
  * Con qué cifras carga `unit`. **La única regla de quién carga y cuánto**: con el
- * rasgo `charge`, la del jinete; sin él, la de a pie (#260; desde F4 de la tarea
+ * rasgo `charge` y una lanza puesta (`GolpeConArma.conLanza`, 25-10-2026), la del
+ * jinete; si no, la de a pie (#260; desde F4 de la tarea
  * del combate en el juego, 19-10-2026, en toda batalla: carga todo el que pega
  * cuerpo a cuerpo, y el jinete más). La leen `cargaDelStack` (la batalla: la
  * carga, el daño, el anuncio, la IA y la ayuda del panel), el índice de poder y
  * la ficha (`armasDe`).
  */
 export function cifrasDeCarga(unit: UnitInfo): CifrasDeCarga {
-  return hasTrait(unit, 'charge') ? CARGA.jinete : CARGA.aPie;
+  // Montado y con una lanza puesta (25-10-2026: «una regla especial de la lanza
+  // cuando se carga montado»); el jinete sin lanza carga como uno de a pie.
+  return hasTrait(unit, 'charge') && golpeDe(unit, 'arma').conLanza === true
+    ? CARGA.jinete
+    : CARGA.aPie;
 }
 
 /**

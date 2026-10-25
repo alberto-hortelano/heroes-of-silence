@@ -6,12 +6,12 @@
  *
  * - **Los huecos de equipo** (decisión del usuario, 12-10-2026: «los huecos van en
  *   inglés en el contrato del agente ya»), **simétricos por uso** (simplify de F2):
- *   el arma de cuerpo a cuerpo (`melee_weapon`), la que dispara (`ranged_weapon`),
- *   la lanza (`lance`), la armadura y el escudo. Por dentro —el núcleo, la crónica,
- *   el cable del espectador— siguen en español (`HUECOS`). La lanza es `lance` y no
- *   `charge`, que ya es el rasgo del jinete en el contrato (`traits`), y el de
- *   disparar, `ranged_weapon` y no `ranged`, que es una opción del daño: dos cosas
- *   con el mismo nombre no se distinguirían en el cable. Un hueco del contrato es
+ *   el arma de cuerpo a cuerpo (`melee_weapon`), la segunda (`second_melee_weapon`,
+ *   25-10-2026: la lanza dejó su hueco `lance` y es un arma más), la que dispara
+ *   (`ranged_weapon`), la armadura y el escudo. Por dentro —el núcleo, la crónica,
+ *   el cable del espectador— siguen en español (`HUECOS`). El de disparar es
+ *   `ranged_weapon` y no `ranged`, que es una opción del daño: dos cosas con el
+ *   mismo nombre no se distinguirían en el cable. Un hueco del contrato es
  *   un `Slot`, que **solo produce este módulo**: el tipo lleva una marca que nadie
  *   más puede poner sin un `as Slot`, y eso lo vigila `test/invariantes.test.ts`.
  * - **La rueda del golpe y los poderes** (F6, 19-10-2026): el agente elige su golpe
@@ -48,8 +48,8 @@ export type Slot = string & { readonly [MARCA_DE_SLOT]: true };
 /** Cómo se llama cada hueco en el contrato. */
 export const SLOT_DE_HUECO: Readonly<Record<Hueco, Slot>> = {
   arma: 'melee_weapon' as Slot,
+  segunda: 'second_melee_weapon' as Slot,
   distancia: 'ranged_weapon' as Slot,
-  lanza: 'lance' as Slot,
   armadura: 'armor' as Slot,
   escudo: 'shield' as Slot,
 };
@@ -72,22 +72,31 @@ export function huecoDelSlot(slot: string): Hueco {
 
 /**
  * Una acción de aventura tal como la escribe el agente: la del núcleo, salvo el
- * `slot` de `unequip`, que llega en inglés y como texto. Texto y no un `z.enum`
- * en el esquema: un hueco mal escrito descarta ESA acción con su motivo
- * (`huecoDelSlot`, dentro del `try` del director), no el turno entero.
+ * `slot` de `unequip` y de `equip` (25-10-2026: dónde se pone un arma), que llega
+ * en inglés y como texto. Texto y no un `z.enum` en el esquema: un hueco mal
+ * escrito descarta ESA acción con su motivo (`huecoDelSlot`, dentro del `try` del
+ * director), no el turno entero.
  */
 export type AccionDelAgente =
-  | Exclude<AdventureAction, { readonly type: 'unequip' }>
+  | Exclude<AdventureAction, { readonly type: 'unequip' | 'equip' }>
   | (Omit<Extract<AdventureAction, { readonly type: 'unequip' }>, 'slot'> & {
       readonly slot: string;
+    })
+  | (Omit<Extract<AdventureAction, { readonly type: 'equip' }>, 'hueco'> & {
+      readonly slot?: string;
     });
 
 /**
- * La acción del agente tal como la juega el núcleo: hoy solo cambia el `slot` de
- * `unequip`, del inglés del contrato al hueco de dentro. Lo demás pasa tal cual.
+ * La acción del agente tal como la juega el núcleo: cambia el `slot` de `unequip`
+ * y de `equip`, del inglés del contrato al hueco de dentro. Lo demás pasa tal cual.
  */
 export function accionDelAgente(a: AccionDelAgente): AdventureAction {
-  return a.type === 'unequip' ? { ...a, slot: huecoDelSlot(a.slot) } : a;
+  if (a.type === 'unequip') return { ...a, slot: huecoDelSlot(a.slot) };
+  if (a.type === 'equip') {
+    const { slot, ...resto } = a;
+    return slot === undefined ? resto : { ...resto, hueco: huecoDelSlot(slot) };
+  }
+  return a;
 }
 
 // ---------------------------------------------------------------- la rueda y los poderes

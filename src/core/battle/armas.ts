@@ -23,7 +23,7 @@ import type { BattleStack } from './types.js';
 /**
  * Con qué arma y con qué cifras da `unit` un golpe de `uso`: el de su arma
  * (`UnitInfo.armas`) o, si no la lleva, el de cuerpo a cuerpo, que son las cifras
- * de arriba (la carga sin lanza va con la espada). Sin `armas` —un personaje sin
+ * de arriba (la carga va con la de cuerpo a cuerpo). Sin `armas` —un personaje sin
  * arma, que no golpea en la rueda— todo golpe va con las cifras de arriba. **La única regla del
  * respaldo**: de aquí leen las cifras del golpe (`cifrasDelGolpe`), la previsión
  * y la ficha (`armasDe`).
@@ -33,7 +33,7 @@ export function golpeDe(unit: UnitInfo, uso: UsoDeArma): GolpeConArma {
   if (armas === undefined) {
     // Sin `armas` no lleva arma: toda arma de cuerpo a cuerpo dice su rueda, y
     // con ella `conEquipo` escribe `armas`.
-    return { arma: null, attack: unit.attack, damage: unit.damage };
+    return { piezas: [], attack: unit.attack, damage: unit.damage };
   }
   return armas[uso] ?? armas.arma;
 }

@@ -137,7 +137,8 @@ describe('contrato con el agente', () => {
       { type: 'equip', hero: hero.id, item: 'maza', veteran: 'veterano-1' },
       { type: 'equip', hero: hero.id, item: 'maza', creature: TROPA_BARATA },
       { type: 'unequip', hero: hero.id, slot: 'melee_weapon' },
-      { type: 'unequip', hero: hero.id, slot: 'lance', veteran: 'veterano-1' },
+      { type: 'unequip', hero: hero.id, slot: 'second_melee_weapon', veteran: 'veterano-1' },
+      { type: 'equip', hero: hero.id, item: 'daga', slot: 'second_melee_weapon' },
       { type: 'unequip', hero: hero.id, slot: 'shield' },
     ];
     for (const accion of acciones) {
@@ -168,16 +169,27 @@ describe('contrato con el agente', () => {
     // (`accionDelAgente`, dentro del `try` del director): el nombre de dentro,
     // «arma», ya no es un hueco del contrato, y se dice con los cinco que valen.
     expect(() => accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'arma' })).toThrow(
-      'no hay ningún hueco "arma": son melee_weapon, ranged_weapon, lance, armor, shield',
+      'no hay ningún hueco "arma": son melee_weapon, second_melee_weapon, ranged_weapon, armor, shield',
     );
     expect(
       accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'ranged_weapon' }),
     ).toMatchObject({
       slot: 'distancia',
     });
-    expect(accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'lance' })).toMatchObject({
-      slot: 'lanza',
-    });
+    expect(
+      accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'second_melee_weapon' }),
+    ).toMatchObject({ slot: 'segunda' });
+    // Equipar en la segunda mano lo dice el «slot» (25-10-2026); sin él, el hueco de la pieza.
+    expect(
+      accionDelAgente({ type: 'equip', hero: hero.id, item: 'daga', slot: 'second_melee_weapon' }),
+    ).toMatchObject({ type: 'equip', hueco: 'segunda' });
+    expect(accionDelAgente({ type: 'equip', hero: hero.id, item: 'daga' })).not.toHaveProperty(
+      'hueco',
+    );
+    // La lanza dejó su hueco: el agente que lo pide lo oye.
+    expect(() => accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'lance' })).toThrow(
+      'no hay ningún hueco "lance"',
+    );
     // El accesorio se fue (18-10-2026): el agente que lo pide lo oye.
     expect(() => accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'accessory' })).toThrow(
       'no hay ningún hueco "accessory"',
@@ -188,7 +200,7 @@ describe('contrato con el agente', () => {
       slot: 'escudo',
     });
     expect(() => accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'casco' })).toThrow(
-      'no hay ningún hueco "casco": son melee_weapon, ranged_weapon, lance, armor, shield',
+      'no hay ningún hueco "casco": son melee_weapon, second_melee_weapon, ranged_weapon, armor, shield',
     );
     // Y el motivo del núcleo nombra el hueco para la persona, no por su clave: el
     // agente lo pidió como `shield`, y «escudo» en minúscula no le decía nada.
@@ -197,7 +209,7 @@ describe('contrato con el agente', () => {
     );
     // La prosa ofrece los cinco en inglés y explica el escudo y las dos manos.
     expect(RESPONSE_FORMAT.adventure_turn).toContain(
-      '"slot": "melee_weapon" | "ranged_weapon" | "lance" | "armor" | "shield"',
+      '"slot": "melee_weapon" | "second_melee_weapon" | "ranged_weapon" | "armor" | "shield"',
     );
     expect(RESPONSE_FORMAT.adventure_turn).not.toContain('"slot": "arma"');
     expect(RESPONSE_FORMAT.adventure_turn).toContain('"shield" el escudo, opcional');
@@ -207,9 +219,11 @@ describe('contrato con el agente', () => {
     );
     // Lo que el héroe trae vacío de serie sale del equipo base, no de la prosa.
     expect(RESPONSE_FORMAT.adventure_turn).toContain(
-      '(y nada en "ranged_weapon", "lance", "shield")',
+      '(y nada en "second_melee_weapon", "ranged_weapon", "shield")',
     );
-    expect(RESPONSE_FORMAT.adventure_turn).toContain('un arma a dos manos no admite escudo');
+    expect(RESPONSE_FORMAT.adventure_turn).toContain(
+      'un arma a dos manos va sola (ni escudo ni segunda arma)',
+    );
     for (const tipo of ['buy_item', 'equip', 'unequip']) {
       expect(RESPONSE_FORMAT.adventure_turn).toContain(`"type": "${tipo}"`);
     }
@@ -258,8 +272,8 @@ describe('contrato con el agente', () => {
     // Los cinco huecos, en inglés, y vacíos los que el héroe no trae de serie.
     expect(h.equipment).toEqual({
       melee_weapon: 'espada',
+      second_melee_weapon: null,
       ranged_weapon: null,
-      lance: null,
       armor: 'gambeson',
       shield: null,
     });
@@ -269,8 +283,8 @@ describe('contrato con el agente', () => {
       id: 'veterano-4',
       equipment: {
         melee_weapon: null,
+        second_melee_weapon: null,
         ranged_weapon: null,
-        lance: null,
         armor: 'brigantina',
         shield: null,
       },

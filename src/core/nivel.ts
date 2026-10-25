@@ -112,7 +112,7 @@ function ofensaDe(u: UnitInfo): number {
   }
   const carga = cifrasDeCarga(u);
   const cobra = 100 + Math.floor(porcientoDeLaCarga(carga.tope, carga) / 2);
-  return Math.max(ofensa, ofensaDelAtaque(u, golpeMedido(u, 'lanza'), cuerpo, cobra));
+  return Math.max(ofensa, ofensaDelAtaque(u, cuerpo, cuerpo, cobra));
 }
 
 /** Un golpe de un uso, medido: lo que pega sin multiplicar y lo que le da la rueda de su arma. */
@@ -140,8 +140,8 @@ function golpeMedido(u: UnitInfo, uso: UsoDeArma): GolpeMedido {
  * uno con sus golpes (`golpesDe`: el doble golpe dobla, Rápido da los suyos) y
  * cada golpe con el arma de su uso y lo que esa arma da a ese tipo
  * (`porcientoDelTipo`: Fuerte y Rápido; los demás, ×1). **La carga la cobra solo
- * el primer golpe**, con el arma de carga; los demás van con la de cuerpo a cuerpo
- * y sin carga, como en la pelea (`intercambio`). Ofensivo, Defensivo, Romper
+ * el primer golpe**, con las armas de cuerpo a cuerpo (25-10-2026: la lanza es una
+ * de ellas); los demás, sin carga, como en la pelea (`intercambio`). Ofensivo, Defensivo, Romper
  * guardia y Finta no hacen daño y no pesan. **Sin arma de la arena no hay rueda**
  * (la criatura del catálogo del juego): un tipo solo, sin Rápido, y ×1.
  * **Inventado** (18-10-2026).

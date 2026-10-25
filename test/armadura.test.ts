@@ -319,7 +319,7 @@ describe('la IA cuenta con la armadura (`expectedDamage`)', () => {
         // El mismo jinete sin la barda: el factor no está y sigue mandando la vida.
         [
           unidadDeArena('templario-hermano-de-carga', {
-            equipo: { arma: 'espada', lanza: 'lanza_de_jinete' },
+            equipo: { arma: 'espada', segunda: 'lanza' },
           }),
           sinArmadura,
         ],

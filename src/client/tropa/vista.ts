@@ -28,7 +28,7 @@ import { type Hero, heroUnit } from '@core/hero/hero.js';
 import { hojaDeLaTropa, troopUnit } from '@core/hero/troop.js';
 import { indiceDePoder, nivelDeUnidad } from '@core/nivel.js';
 import { type GameState, ponerseBlocker, unequipBlocker } from '@core/state/game.js';
-import { HUECOS, type Hueco, type PlayerId, type UnitInfo } from '@core/types.js';
+import { HUECOS, type Hueco, huecosDeLaPieza, type PlayerId, type UnitInfo } from '@core/types.js';
 
 /** Una figura del semicírculo, en el orden del ejército: el héroe primero. */
 export interface FiguraDeLaTropa {
@@ -58,6 +58,12 @@ export interface HuecoDeLaFicha {
 export interface PiezaDeLaMochila {
   readonly pieza: Pieza;
   readonly poner: string | null;
+  /**
+   * Un arma de cuerpo a cuerpo va también de segunda (25-10-2026, «se permiten dos
+   * armas»): el motivo del núcleo para no ponérsela ahí, o `null` si se puede; sin
+   * el campo, la pieza no va de segunda.
+   */
+  readonly segunda?: string | null;
 }
 
 /** La ficha del elegido: quién es, cuánto ha vivido, con qué cifras pelea y lo que lleva. */
@@ -182,12 +188,16 @@ function fichaDe(
       quitar,
     };
   });
-  const mochila = hero.mochila.map(
-    (id): PiezaDeLaMochila => ({
-      pieza: pieza(id),
+  const mochila = hero.mochila.map((id): PiezaDeLaMochila => {
+    const p = pieza(id);
+    return {
+      pieza: p,
       poner: bloqueo ?? sinNombre ?? ponerseBlocker(hero, quien, id),
-    }),
-  );
+      ...(huecosDeLaPieza(p.hueco).includes('segunda')
+        ? { segunda: bloqueo ?? sinNombre ?? ponerseBlocker(hero, quien, id, 'segunda') }
+        : {}),
+    };
+  });
   const comun = { huecos, mochila };
   if ('heroe' in quien) {
     const cifras = heroUnit(hero);

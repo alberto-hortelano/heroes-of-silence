@@ -124,7 +124,7 @@ import {
   townSpells,
 } from '../town/town.js';
 import type { Army, Controller, FactionId, PlayerId, Point, Troop, Veterania } from '../types.js';
-import { enumerar, type Hueco } from '../types.js';
+import { enumerar, type Hueco, huecosDeLaPieza, NOMBRE_DE_HUECO } from '../types.js';
 import {
   type AsaltanteRecordado,
   casillasPeligrosas,
@@ -449,8 +449,10 @@ export type AdventureAction =
    * dice a quién; a `veteran`, el individuo de su tropa con esa hoja; o a
    * `creature`, el primer novato sin hoja de ese tipo, que pasa a tenerla; o a
    * `puesto`, el individuo de ese puesto de su tropa (la escena de la tropa, donde
-   * se pulsa a uno: el contrato del agente no lo lleva). Lo que ocupaba el hueco
-   * vuelve a la mochila (`equipBlocker`).
+   * se pulsa a uno: el contrato del agente no lo lleva). En `hueco`, o en el suyo
+   * si no se dice: un arma de cuerpo a cuerpo va también en `segunda` (25-10-2026,
+   * «se permiten dos armas»). Lo que ocupaba el hueco vuelve a la mochila
+   * (`equipBlocker`).
    */
   | {
       readonly type: 'equip';
@@ -459,6 +461,7 @@ export type AdventureAction =
       readonly veteran?: string;
       readonly creature?: string;
       readonly puesto?: number;
+      readonly hueco?: Hueco;
     }
   /**
    * Quitarle a alguien la pieza de `slot` y devolverla a la mochila
@@ -1518,7 +1521,12 @@ function aplicar(
       // cuenta en la crónica. Lo que cuenta es de dónde salió la pieza.
       const quien = destinoDeEquipo(hero, action) as Portador;
       hero.mochila = sacarDeLaMochila(hero.mochila, action.item);
-      const { equipo, quitada } = ponerPieza(equipoDe(hero, quien), action.item);
+      const { equipo, quitada } = ponerPieza(
+        equipoDe(hero, quien),
+        action.item,
+        undefined,
+        action.hueco,
+      );
       vestir(
         hero,
         conEquipoDe(hero, quien, equipo, () => hojaNueva(state)),
@@ -1815,7 +1823,7 @@ export function equipBlocker(
   }
   const quien = destinoDeEquipo(hero, action);
   if ('motivo' in quien) return quien.motivo;
-  return ponerseBlocker(hero, quien, pieza.id);
+  return ponerseBlocker(hero, quien, pieza.id, action.hueco);
 }
 
 /**
@@ -1825,13 +1833,26 @@ export function equipBlocker(
  * no entra con el escudo de serie). La leen `equipBlocker` y la IA, antes de
  * equipar y antes de comprar para alguien.
  */
-export function ponerseBlocker(hero: Hero, quien: Portador, id: string): string | null {
-  const llevaria = equipoPuestoDe(hero, quien, { ...equipoDe(hero, quien), [pieza(id).hueco]: id });
+export function ponerseBlocker(
+  hero: Hero,
+  quien: Portador,
+  id: string,
+  hueco?: Hueco,
+): string | null {
+  const p = pieza(id);
+  const en = hueco ?? p.hueco;
+  // Un hueco que no es de la pieza, dicho antes de mirar las manos: «Escudo va en
+  // Escudo, no en Segunda arma».
+  if (!huecosDeLaPieza(p.hueco).includes(en)) {
+    return `${p.nombre} va en ${NOMBRE_DE_HUECO[p.hueco]}, no en ${NOMBRE_DE_HUECO[en]}`;
+  }
+  const llevaria = equipoPuestoDe(hero, quien, { ...equipoDe(hero, quien), [en]: id });
   return equipoDelPortadorBlocker(
     nombreDelPortador(hero, quien),
     llevaria,
     id,
     equipoDeSerieDe(hero, quien),
+    en,
   );
 }
 

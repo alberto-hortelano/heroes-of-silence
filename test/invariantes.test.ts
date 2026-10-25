@@ -1764,7 +1764,8 @@ describe('invariantes del proyecto', () => {
     //      él, `battle/armas.ts` (`golpeDe`) y `battle/damage.ts` (`armasDe`): un golpe que leyera
     //      `unit.armas` por su cuenta elegiría el arma con otra regla.
     //  (b) el agente los ve todos: cinco `SLOTS`, uno por hueco, y su prosa dice
-    //      para qué es el de disparar y el de la lanza.
+    //      para qué es el de disparar y el de la segunda arma (25-10-2026: la
+    //      lanza dejó su hueco; es un arma más).
     // Rotos a mano: un `{ ...u, armas: {...} }` en `arena.ts`, un
     // `s.unit.armas?.distancia` en `paneles.ts` y un `SLOT_DE_HUECO` sin `carga`
     // salen rojos.
@@ -1792,10 +1793,32 @@ describe('invariantes del proyecto', () => {
     expect(Object.keys(SLOT_DE_HUECO)).toEqual([...HUECOS]);
     expect(new Set(SLOTS).size).toBe(HUECOS.length);
     expect(RESPONSE_FORMAT.adventure_turn).toContain(`"${SLOT_DE_HUECO.distancia}" la que dispara`);
+    expect(SLOTS).toContain('second_melee_weapon');
+    expect(SLOTS).not.toContain('lance');
     expect(RESPONSE_FORMAT.adventure_turn).toContain(
-      `"${SLOT_DE_HUECO.lanza}" la lanza con que se carga`,
+      `"${SLOT_DE_HUECO.segunda}" una segunda (otra arma de`,
     );
     expect(CATALOGO_DE_EQUIPO_EN_PROSA).toMatch(/^ *daga \(melee_weapon\)/m);
+  });
+
+  it('si una pieza es una lanza lo leen solo `hero/equipo.ts` y `data.ts`, como sus manos', () => {
+    // 25-10-2026, «la lanza de carga fuera, será una lanza y una regla especial de
+    // la lanza cuando se carga montado»: `Pieza.lanza` lo valida y lo escribe
+    // `data.ts`, y lo lee `hero/equipo.ts`, que lo lleva al golpe
+    // (`GolpeConArma.conLanza`), de donde lo toma la carga (`cifrasDeCarga`); quien
+    // lo enseña, `esLanza`. Una carga que mirara la pieza por su cuenta tendría su
+    // propia regla. El `lanza` de la cola de la animación es quien lanza un hechizo:
+    // fuera. Roto a mano: un `p.lanza` en `carga.ts` sale rojo.
+    const LEEN = ['src/core/hero/equipo.ts', 'src/core/data.ts'];
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== 'src/client/anim.ts');
+    const lee = /\.lanza\b/;
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => !LEEN.includes(r)),
+        lee,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo(['src/core/hero/equipo.ts'], lee)).not.toEqual([]);
   });
 
   it('ningún fichero que una máquina lee lleva dentro la ruta de esta máquina', () => {

@@ -39,7 +39,7 @@ import type {
   Equipo,
   ExtrasDeLaRueda,
   FactionId,
-  Hueco,
+  HuecoDePieza,
   NivelesDeLaRueda,
   UnitInfo,
 } from './types.js';
@@ -47,9 +47,11 @@ import {
   CIFRAS_DE_PIEZA,
   camposDelHueco,
   esHueco,
+  esHuecoDePieza,
   esTipoDelAnillo,
   FACTION_IDS,
   HUECOS,
+  HUECOS_DE_PIEZA,
   NOMBRE_DE_CIFRA,
   NOMBRE_DE_HUECO,
   TIPOS_DEL_ANILLO,
@@ -861,7 +863,8 @@ export const SOLO_EN_KITS =
 export interface Pieza {
   readonly id: string;
   readonly nombre: string;
-  readonly hueco: Hueco;
+  /** El suyo; una de `arma` va también en `segunda` (`huecosDeLaPieza`). */
+  readonly hueco: HuecoDePieza;
   /** De dónde se consigue en la partida (`DONDE_SE_CONSIGUE`); `[]`, de ningún sitio (`SOLO_EN_KITS`). */
   readonly seConsigue: readonly DondeSeConsigue[];
   readonly ataque: number;
@@ -886,10 +889,18 @@ export interface Pieza {
    */
   readonly peso: number;
   /**
-   * `2` si es un arma a dos manos, que no admite escudo (`manosBlocker`, la única
-   * lectura). Solo en el hueco `arma`; sin el campo, una mano.
+   * `2` si es un arma a dos manos, que no admite escudo ni segunda arma
+   * (`manosBlocker`, la única lectura). Solo en el hueco `arma`; sin el campo, una mano.
    */
   readonly manos?: 1 | 2;
+  /**
+   * Si es una lanza (25-10-2026, «la lanza de carga fuera, será una lanza y una
+   * regla especial de la lanza cuando se carga montado»): un arma de cuerpo a cuerpo
+   * más, y quien carga con el rasgo `charge` y una lanza puesta cobra la carga del
+   * jinete (`cifrasDeCarga`). Solo en el hueco `arma`; sin el campo, no lo es. Lo
+   * leen solo `hero/equipo.ts` y `data.ts` (lo vigila `invariantes.test.ts`).
+   */
+  readonly lanza?: true;
   /**
    * Su nivel en cada tipo del anillo de la rueda del golpe, de 0 a 6 (18-10-2026:
    * «una maza es mejor en ataque fuerte y peor en rápido»; los niveles, absolutos,
@@ -998,6 +1009,7 @@ export const CAMPOS_DE_PIEZA: readonly string[] = [
   'armadura',
   'peso',
   'manos',
+  'lanza',
   'rueda',
   'precio',
 ];
@@ -1049,7 +1061,7 @@ function sumaAlgo(v: unknown): boolean {
  * (`problemasDePieza`).
  */
 export function golpeaEnLaRueda(p: { readonly hueco?: unknown }): boolean {
-  return typeof p.hueco === 'string' && esHueco(p.hueco) && camposDelHueco(p.hueco).conRueda;
+  return typeof p.hueco === 'string' && esHuecoDePieza(p.hueco) && camposDelHueco(p.hueco).conRueda;
 }
 
 /**
@@ -1104,9 +1116,14 @@ export function problemasDePieza(bruta: unknown, quien?: string): string[] {
     );
   }
   problemas.push(...problemasDeIdYNombre(p, q));
-  const campos = typeof p.hueco === 'string' && esHueco(p.hueco) ? camposDelHueco(p.hueco) : null;
+  const campos =
+    typeof p.hueco === 'string' && esHuecoDePieza(p.hueco) ? camposDelHueco(p.hueco) : null;
   if (campos === null) {
-    problemas.push(`${q} va en el hueco "${p.hueco}", que no existe; valen ${HUECOS.join(', ')}`);
+    problemas.push(
+      p.hueco === 'segunda'
+        ? `${q} dice el hueco «segunda»: una segunda arma es una de «arma», que va en los dos`
+        : `${q} va en el hueco "${p.hueco}", que no existe; valen ${HUECOS_DE_PIEZA.join(', ')}`,
+    );
   }
   problemas.push(...problemasDeDondeSeConsigue(p.seConsigue, q));
   for (const campo of ['ataque', 'defensa'] as const) {
@@ -1146,6 +1163,15 @@ export function problemasDePieza(bruta: unknown, quien?: string): string[] {
     } else if (campos?.conManos !== true) {
       problemas.push(
         `${q} va en el hueco ${p.hueco} y dice manos: solo un arma se lleva a dos manos`,
+      );
+    }
+  }
+  if (p.lanza !== undefined) {
+    if (p.lanza !== true) {
+      problemas.push(`${q}: lanza es true o no se escribe, y es ${String(p.lanza)}`);
+    } else if (p.hueco !== 'arma') {
+      problemas.push(
+        `${q} va en el hueco ${p.hueco} y dice que es una lanza: solo un arma de cuerpo a cuerpo lo es`,
       );
     }
   }
@@ -1326,6 +1352,7 @@ export function piezaCanonica(p: Pieza): Pieza {
     ...((p.armadura ?? 0) > 0 ? { armadura: p.armadura } : {}),
     peso: p.peso,
     ...(p.manos === 2 ? { manos: 2 as const } : {}),
+    ...(p.lanza === true ? { lanza: true as const } : {}),
     ...(rueda === undefined ? {} : { rueda }),
     precio: p.precio,
   };
@@ -1386,6 +1413,7 @@ export function conLosExtras(p: Pieza, x: ExtrasDePieza): Pieza {
     armadura: x.armadura ?? 0,
     peso: x.peso ?? 0,
     ...(p.manos === undefined ? {} : { manos: p.manos }),
+    ...(p.lanza === undefined ? {} : { lanza: p.lanza }),
     ...(conRueda ? { rueda: nivelesEnOrden(x.rueda ?? {}) } : {}),
     precio: x.oro ?? 0,
   };
@@ -1450,7 +1478,7 @@ export function baseBlocker(
   quien: { readonly id: string; readonly nombre: string },
   base: string,
   escritas: ReadonlyMap<string, PiezaEscrita>,
-  hueco?: Hueco,
+  hueco?: HuecoDePieza,
 ): string | null {
   const q = `«${quien.nombre}»`;
   if (base === quien.id) return suPropiaBase(q);

@@ -141,7 +141,10 @@ const DOBLE_GOLPE = sinEquipo(PESADA, {
   traits: ['double_attack'],
 });
 
-/** La caballería de las cargas: A 10, D 9, daño 50-100, 300 PV, `charge`, sin lanza. */
+/**
+ * La caballería de las cargas: A 10, D 9, daño 50-100, 300 PV, `charge`, sin lanza: carga
+ * a pie (+5 %/casilla), porque la del jinete pide además una lanza puesta (25-10-2026).
+ */
 const CABALLERIA = sinEquipo(JINETE, {
   name: 'Caballería',
   attack: 10,
@@ -914,10 +917,10 @@ describe('primero se anda, luego la rueda (cambio del 13-10-2026)', () => {
     );
     expect(enDos.b.golpeEnCurso).toBeNull();
     expect(JSON.stringify(enDos.b.log)).toBe(JSON.stringify(unaVez.b.log));
-    // Normal: el medio, 50 + ⌊50 · 2 / 4⌋ = 75; × 2 jinetes × 1,1 (A 10 − D 9) × 1,4
-    // (carga de 4) = 231. Sin la carga guardada serían 165.
+    // Normal: el medio, 50 + ⌊50 · 2 / 4⌋ = 75; × 2 jinetes × 1,1 (A 10 − D 9) × 1,2
+    // (carga a pie de 4) = 198. Sin la carga guardada serían 165.
     const golpe = ataquesDe(enDos.b).find((a) => !a.retaliation);
-    expect(golpe).toMatchObject({ stack: 'attacker-0', damage: 231, charge: 4 });
+    expect(golpe).toMatchObject({ stack: 'attacker-0', damage: 198, charge: 4 });
     // El orden: el tramo con su carga, el cruce y el golpe.
     const deLaJugada = enDos.b.log.filter((e) => ['move', 'cruce', 'attack'].includes(e.kind));
     expect(deLaJugada.slice(0, 3).map((e) => e.kind)).toEqual(['move', 'cruce', 'attack']);
@@ -943,8 +946,8 @@ describe('primero se anda, luego la rueda (cambio del 13-10-2026)', () => {
     expect(
       previsionDeLaRueda(b, { type: 'attack', target: 'defender-0', golpe: 'fuerte' }, 'respuesta'),
     ).toEqual(respuestaAntes);
-    // Normal con la carga: 231, el mismo que da el golpe.
-    expect(antes.porTipo?.normal?.danio).toEqual({ min: 231, max: 231 });
+    // Normal con la carga: 198, el mismo que da el golpe.
+    expect(antes.porTipo?.normal?.danio).toEqual({ min: 198, max: 198 });
   });
 
   it('con un golpe plantado, solo vale ese golpe con sus dos elecciones: lo demás lanza con su motivo', () => {
@@ -1090,11 +1093,11 @@ describe('primero se anda, luego la rueda (cambio del 13-10-2026)', () => {
 });
 
 describe('la carga la cobra solo el primer golpe (decisión del usuario, 14-10-2026)', () => {
-  it('Rápido cargando: el primero con la carga (+40 %) y el segundo sin ella, también en la previsión', () => {
+  it('Rápido cargando: el primero con la carga (+20 %) y el segundo sin ella, también en la previsión', () => {
     // Las dos caballerías de `aLaCarga` (A 10 contra D 9: ×1,1; daño 50-100)
-    // cargan 4 (+40 %) y golpean con Rápido (×0,63, el nivel 3) contra Defensivo:
+    // cargan 4 a pie (+20 %) y golpean con Rápido (×0,63, el nivel 3) contra Defensivo:
     // al lado en el anillo, punto bajo, tirada 50 + ⌊50 / 4⌋ = 62 cada una, 124 las
-    // dos. El primero: 124 × 1,1 × 1,4 × 0,63 = 120,3 → 120; el segundo, sin la
+    // dos. El primero: 124 × 1,1 × 1,2 × 0,63 = 103,1 → 103; el segundo, sin la
     // carga: 124 × 1,1 × 0,63 = 85,93 → 86.
     const { b, rng } = aLaCarga();
     applyAction(b, plantarse, rng);
@@ -1108,11 +1111,11 @@ describe('la carga la cobra solo el primer golpe (decisión del usuario, 14-10-2
     const largo = b.log.length;
     applyAction(b, { ...golpe, respuesta: 'defensivo' }, rng);
     const [primero, segundo] = ataquesDe(b, largo).filter((a) => !a.retaliation);
-    expect(primero).toMatchObject({ charge: 4, damage: 120 });
+    expect(primero).toMatchObject({ charge: 4, damage: 103 });
     expect(segundo?.damage).toBe(86);
     expect(segundo).not.toHaveProperty('charge');
-    expect(p.danio.min).toBeLessThanOrEqual(120);
-    expect(p.danio.max).toBeGreaterThanOrEqual(120);
+    expect(p.danio.min).toBeLessThanOrEqual(103);
+    expect(p.danio.max).toBeGreaterThanOrEqual(103);
     expect(p.siguientes?.min).toBeLessThanOrEqual(86);
     expect(p.siguientes?.max).toBeGreaterThanOrEqual(86);
   });
@@ -2047,8 +2050,9 @@ describe('la rueda pintada', () => {
     if (respuesta === null) throw new Error('la rueda no pide la respuesta');
     const enLaRespuesta = marcadoDe(renderEleccion(s.battle, respuesta, null, caraDeLaArena(s)));
     expect(enLaRespuesta).toContain('En la respuesta no tiene efecto: solo cuenta para el cruce');
-    // Responde el jinete, con la espada (Fuerte en el nivel 3).
-    expect(enLaRespuesta).toContain('tu contraataque hace daño ×1,5');
+    // Responde el jinete, con espada y lanza: de cada tipo, el mejor de las dos (Fuerte,
+    // el nivel 4 de la lanza).
+    expect(enLaRespuesta).toContain('tu contraataque hace daño ×1,67');
     expect(enLaRespuesta).not.toContain('cubre el contraataque de ahora');
   });
 

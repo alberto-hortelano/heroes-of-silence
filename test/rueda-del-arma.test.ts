@@ -68,7 +68,7 @@ function lisa(p: Pieza): Pieza {
 const MAZA = pieza('maza');
 const MAZA_LISA = lisa(MAZA);
 const DAGA = pieza('daga');
-const LANZA = pieza('lanza_de_jinete');
+const LANZA = pieza('lanza');
 const LANZA_LISA = lisa(LANZA);
 const PIEZAS: readonly PiezaEscrita[] = [MAZA_LISA, LANZA_LISA];
 const EQ = catalogoCon(...PIEZAS);
@@ -343,31 +343,24 @@ describe('cada golpe de la rueda va con su arma', () => {
     expect(conMaza?.damage).toBeGreaterThan(conLisa?.damage ?? 0);
   });
 
-  it('en una carga, el primer golpe va con la lanza y el segundo de Rápido con la espada', () => {
-    /** El jinete en (1,4), el guerrero en (6,4): desde (5,4) carga 4 casillas. */
-    const carga = (lanza: string) => {
-      const jinete = equiparEnArena(unidadDeArena(JINETE), lanza, EQ);
+  it('con dos armas, cada tipo de la rueda es el de la mejor de las dos (25-10-2026)', () => {
+    // La lanza lleva Ofensivo 5, Fuerte 4 y Rápido 1; la espada, todo a 3. Con las
+    // dos, el golpe va con Ofensivo 5 y Fuerte 4 de la lanza y Rápido 3 de la espada;
+    // con la lanza lisa (todo a 3), todo a 3.
+    const rueda = (lanza: string) => {
+      const jinete = equiparEnArena(unidadDeArena(JINETE), lanza, EQ, 'segunda');
+      expect(jinete.equipo).toMatchObject({ arma: 'espada', segunda: lanza });
       const b = pelea(jinete, unidadDeArena(TROPA));
-      stackById(b, 'attacker-0').hex = { col: 1, row: 4 };
-      const accion = { type: 'attack', target: 'defender-0', from: { col: 5, row: 4 } } as const;
-      const previsto = previsionDeLaRueda(b, accion, 'golpe');
-      return { previsto, golpes: dar(b, 'rapido', 'normal', { from: accion.from }).golpe };
+      return previsionDeLaRueda(b, { type: 'attack', target: 'defender-0' }, 'golpe').rueda;
     };
-    const con = carga('lanza_de_jinete');
-    const sin = carga(LANZA_LISA.id);
-    expect(con.previsto.carga).not.toBeNull();
-    // La lanza: Rápido nivel 1 → 38 % en el primero; el segundo, sin carga y con
-    // la espada (nivel 3), a 63 % los dos.
-    expect(con.previsto.rueda.rapido.porcentaje).toBe(38);
-    expect(con.previsto.porTipo?.rapido?.danio.max).toBeLessThan(
-      sin.previsto.porTipo?.rapido?.danio.max ?? 0,
-    );
-    expect(con.previsto.porTipo?.rapido?.siguientes).toEqual(
-      sin.previsto.porTipo?.rapido?.siguientes,
-    );
-    expect(con.golpes).toHaveLength(2);
-    expect(con.golpes[0]?.damage).toBeLessThan(sin.golpes[0]?.damage ?? 0);
-    expect(con.golpes[1]?.damage).toBe(sin.golpes[1]?.damage);
+    const dos = rueda('lanza');
+    expect(dos.ofensivo.ataque).toBe(5);
+    expect(dos.fuerte.porcentaje).toBe(167);
+    expect(dos.rapido.porcentaje).toBe(63);
+    const lisas = rueda(LANZA_LISA.id);
+    expect(lisas.ofensivo.ataque).toBe(3);
+    expect(lisas.fuerte.porcentaje).toBe(150);
+    expect(lisas.rapido.porcentaje).toBe(63);
   });
 
   it('la rueda que se abre en la página enseña las cifras del arma de quien elige', () => {

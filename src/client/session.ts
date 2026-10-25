@@ -143,6 +143,7 @@ import {
   type FactionId,
   type Hex,
   HUECOS,
+  type Hueco,
   huecoDesconocido,
   type PlayerId,
   type Point,
@@ -2235,15 +2236,28 @@ export class Session implements ControlDeBatalla {
    * sitio, y por su tipo la pieza iba al primer novato igual, en el otro extremo
    * del arco (QA, H2). El motivo de un rechazo, el del núcleo, en la barra.
    */
-  ponerALaElegida(item: string): void {
+  ponerALaElegida(item: string, enHueco?: string): void {
     const hero = this.heroeDeLaTropa();
     const quien = this.elegidoEnLaTropa;
-    if (this.repiteLaJugada(`poner|${item}`, quien)) return;
+    const clave = `poner|${item}|${enHueco ?? ''}`;
+    if (this.repiteLaJugada(clave, quien)) return;
     let dicho = '';
     const bien = this.run(() => {
+      // El hueco llega del marcado como texto (`data-hueco`): la sesión lo comprueba,
+      // como el de `unequip`.
+      if (enHueco !== undefined && !esHueco(enHueco)) {
+        throw new Error(huecoDesconocido(enHueco, HUECOS));
+      }
+      const hueco = enHueco as Hueco | undefined;
       applyAdventureAction(
         this.state,
-        { type: 'equip', hero: hero.id, item, ...pedidoDelPuesto(quien) },
+        {
+          type: 'equip',
+          hero: hero.id,
+          item,
+          ...pedidoDelPuesto(quien),
+          ...(hueco === undefined ? {} : { hueco }),
+        },
         this.ctx,
         this.viewer,
       );
@@ -2253,7 +2267,7 @@ export class Session implements ControlDeBatalla {
           : troopUnit(hero.army[quien.indice]!, this.state.characters).name;
       dicho = `${unidad} lleva ahora ${pieza(item).nombre}.`;
     });
-    if (bien) this.recordarLaJugada(`poner|${item}`, quien, dicho);
+    if (bien) this.recordarLaJugada(clave, quien, dicho);
   }
 
   /** Quitarle al elegido de la tropa lo suyo del hueco `slot`, a la mochila del héroe, por `unequip`. */

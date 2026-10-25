@@ -147,7 +147,9 @@ describe('una pieza sobre otra', () => {
     });
     // La pelea no lleva catálogo: cada golpe dice el nombre de su arma.
     expect(b).not.toHaveProperty('piezasDeArena');
-    expect(ahora.unit.armas?.arma.arma).toEqual({ id: 'espada_bendita', nombre: 'Espada bendita' });
+    expect(ahora.unit.armas?.arma.piezas).toEqual([
+      { id: 'espada_bendita', nombre: 'Espada bendita' },
+    ]);
   });
 
   it('cambiar de base conserva lo que suma; «ninguna» la deja entera con lo mismo', () => {
@@ -266,7 +268,7 @@ describe('una pieza sobre otra', () => {
   });
 
   it('el enlace lleva todas las piezas de lo que lleva, con sus bases, y se reabre igual', () => {
-    expect(VERSION_DEL_ENLACE).toBe(15);
+    expect(VERSION_DEL_ENLACE).toBe(16);
     const u = conBendita();
     // El guerrero lleva la bendita, la brigantina y el escudo; con sus bases van la
     // de herrería y la Espada, tal como están en el catálogo con que pelea.

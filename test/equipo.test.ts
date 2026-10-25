@@ -16,8 +16,9 @@ import {
   siguienteDeEquipo,
   valorDePieza,
 } from '../src/core/ai/strategy.js';
-import { armaduraDe } from '../src/core/battle/armas.js';
+import { armaduraDe, cifrasDelGolpe } from '../src/core/battle/armas.js';
 import { createBattle, stackById } from '../src/core/battle/battle.js';
+import { armasDe } from '../src/core/battle/damage.js';
 import { cifrasDeUnidad, unidad, unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { RESPONSE_FORMAT } from '../src/core/contract/agent.js';
@@ -188,13 +189,17 @@ describe('el catálogo de equipo, en datos (C2)', () => {
     expect(con((ps) => (id(ps, 'arco').manos = 2))).toThrow(
       /"arco" va en el hueco distancia y dice manos/,
     );
+    // Solo un arma de cuerpo a cuerpo es una lanza (25-10-2026).
+    expect(con((ps) => (id(ps, 'escudo').lanza = true))).toThrow(
+      /"escudo" va en el hueco escudo y dice que es una lanza/,
+    );
     // Nada da PV (18-10-2026): un `pv` tumba la carga diciéndolo, también a 0.
     expect(con((ps) => (id(ps, 'barda').pv = 0))).toThrow(
       /^data\/equipo\.json: "barda" suma PV: ninguna pieza da PV/,
     );
     // Ni accesorio ni calidad: son de antes, y no valen.
     expect(con((ps) => (id(ps, 'rodela').hueco = 'accesorio'))).toThrow(
-      /"rodela" va en el hueco "accesorio", que no existe; valen arma, distancia, lanza, armadura, escudo/,
+      /"rodela" va en el hueco "accesorio", que no existe; valen arma, distancia, armadura, escudo/,
     );
     expect(con((ps) => (id(ps, 'arco').calidad = 'arena'))).toThrow(
       /"arco": «calidad» no es un campo de una pieza/,
@@ -340,30 +345,30 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
     expect(arquero.armas).toEqual({
       // La daga cambia la rueda (18-10-2026): su golpe la lleva.
       arma: {
-        arma: { id: 'daga', nombre: 'Daga' },
+        piezas: [{ id: 'daga', nombre: 'Daga' }],
         attack: arquero.attack,
         damage: arquero.damage,
         rueda: pieza('daga').rueda,
       },
       distancia: {
-        arma: { id: 'arco', nombre: 'Arco' },
+        piezas: [{ id: 'arco', nombre: 'Arco' }],
         attack: c.attack + 2,
         damage: [c.fuerza + 10, (c.fuerza + 10) * c.agilidad],
       },
     });
-    // Sin arma de cuerpo a cuerpo, se pega con el cuerpo. La lanza y la barda pesan
-    // 38 con fuerza 12: −4 de agilidad, que no baja de 1.
-    const jinete = arena.conEquipo(c, { lanza: 'lanza_de_jinete', armadura: 'barda' });
-    expect(jinete.attack).toBe(c.attack);
-    expect(jinete.damage).toEqual([c.fuerza, c.fuerza]);
+    // La lanza es un arma de cuerpo a cuerpo más (25-10-2026), y lo dice
+    // (`conLanza`). Con la barda pesan 38 con fuerza 12: −4 de agilidad, que no baja de 1.
+    const jinete = arena.conEquipo(c, { arma: 'lanza', armadura: 'barda' });
+    expect(jinete.attack).toBe(c.attack + 3);
+    expect(jinete.damage).toEqual([c.fuerza + 12, c.fuerza + 12]);
     expect(jinete.speed).toBe('crawling');
     expect(jinete.armas).toEqual({
-      arma: { arma: null, attack: c.attack, damage: [c.fuerza, c.fuerza] },
-      lanza: {
-        arma: { id: 'lanza_de_jinete', nombre: 'Lanza de jinete' },
+      arma: {
+        piezas: [{ id: 'lanza', nombre: 'Lanza' }],
         attack: c.attack + 3,
         damage: [c.fuerza + 12, c.fuerza + 12],
-        rueda: pieza('lanza_de_jinete').rueda,
+        rueda: pieza('lanza').rueda,
+        conLanza: true,
       },
     });
     // Vestir en dos veces da lo mismo que en una.
@@ -402,7 +407,7 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
       equipo: EQUIPO_BASE,
       armas: {
         arma: {
-          arma: { id: 'espada', nombre: 'Espada' },
+          piezas: [{ id: 'espada', nombre: 'Espada' }],
           attack: piquero.attack + 2,
           damage: danio,
           rueda: espada.rueda,
@@ -504,14 +509,48 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
       /Mandoble es un arma a dos manos/,
     );
     expect(equipoBlocker({ arma: 'espada', escudo: 'paves' })).toBeNull();
-    // Solo mira el arma de cuerpo a cuerpo (13-10-2026): el arco a la espalda y
-    // la lanza de la carga dejan llevar escudo.
+    // Solo mira las armas de cuerpo a cuerpo (13-10-2026): el arco a la espalda deja
+    // llevar escudo, y la lanza, de una mano, también.
     const arena = EQUIPO_DEL_JUEGO;
     expect(arena.manosBlocker({ distancia: 'arco' }, 'paves')).toBeNull();
     expect(arena.manosBlocker({ escudo: 'paves' }, 'ballesta')).toBeNull();
     expect(arena.equipoBlocker({ arma: 'daga', distancia: 'arco', escudo: 'paves' })).toBeNull();
-    expect(arena.equipoBlocker({ lanza: 'lanza_de_jinete', escudo: 'escudo' })).toBeNull();
+    expect(arena.equipoBlocker({ arma: 'lanza', escudo: 'escudo' })).toBeNull();
     expect(arena.equipoBlocker({ arma: 'arco' })).toBe('Arco va en Arma a distancia, no en Arma');
+  });
+
+  it('dos armas de una mano (25-10-2026): de cada cifra, la mejor de las dos, y lo que no cabe en las manos se dice', () => {
+    // Espada (+2, fuerza 10) y maza (+3, fuerza 15): ataque 3 + 3 y fuerza 28 + 15; con
+    // la brigantina pesan 24, menos que su fuerza, y la agilidad se queda en 4.
+    const orko = unidadDelJuego('orko-dos-armas');
+    expect(orko.attack).toBe(6);
+    expect(orko.damage).toEqual([43, 172]);
+    expect(armasDe(orko)[0]?.arma).toBe('Espada y Maza');
+    // Lo que dice la ficha es lo que pega la batalla, golpe a golpe.
+    for (const a of armasDe(orko)) {
+      expect(cifrasDelGolpe(orko, a.uso), a.uso).toMatchObject({
+        attack: a.attack,
+        damage: a.damage,
+      });
+    }
+    const eq = EQUIPO_DEL_JUEGO;
+    expect(eq.equipoBlocker({ segunda: 'daga' })).toBe(
+      'Daga va de segunda arma con una primera: pon antes una en Arma',
+    );
+    expect(eq.equipoBlocker({ arma: 'mandoble', segunda: 'daga' })).toMatch(
+      /Mandoble es un arma a dos manos/,
+    );
+    expect(eq.equipoBlocker({ arma: 'espada', segunda: 'mandoble' })).toMatch(
+      /Mandoble es un arma a dos manos/,
+    );
+    expect(eq.equipoBlocker({ arma: 'espada', segunda: 'daga', escudo: 'escudo' })).toMatch(
+      /no queda mano/,
+    );
+    expect(eq.equipoBlocker({ arma: 'espada', segunda: 'escudo' })).toMatch(/Escudo va en Escudo/);
+    expect(eq.equipoBlocker({ arma: 'espada', segunda: 'lanza', escudo: 'escudo' })).toMatch(
+      /no queda mano/,
+    );
+    expect(eq.equipoBlocker({ arma: 'espada', segunda: 'lanza' })).toBeNull();
   });
 
   it('el juego lo rechaza con su motivo: equipar un mandoble a quien lleva escudo y al revés', () => {
@@ -1124,7 +1163,6 @@ describe('el equipo vive en el individuo (C1)', () => {
 const LO_MEJOR = {
   arma: 'mandoble',
   distancia: 'ballesta',
-  lanza: 'lanza_de_jinete',
   armadura: 'barda',
 } as const;
 
@@ -1298,8 +1336,8 @@ describe('el fichero, por tipos y con bases (18-10-2026)', () => {
     expect(con((ps) => delete id(ps, 'maza').rueda)).toThrow(
       '"maza" es un arma de cuerpo a cuerpo y no dice su rueda: un nivel de 0 a 6 en Ofensivo, Fuerte, Finta, Defensivo, Rápido, Romper guardia',
     );
-    expect(con((ps) => delete id(ps, 'lanza_de_jinete').rueda)).toThrow(
-      '"lanza_de_jinete" es un arma de cuerpo a cuerpo y no dice su rueda',
+    expect(con((ps) => delete id(ps, 'lanza').rueda)).toThrow(
+      '"lanza" es un arma de cuerpo a cuerpo y no dice su rueda',
     );
     expect(con((ps) => (espadaDe(ps).rueda.fuerte = 7))).toThrow(
       '"espada": el nivel de Fuerte es 7: va de 0 a 6',

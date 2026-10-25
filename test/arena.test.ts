@@ -73,6 +73,7 @@ import {
   stackById,
   stackHexes,
 } from '../src/core/battle/battle.js';
+import { CARGA } from '../src/core/battle/carga.js';
 import { armasDe } from '../src/core/battle/damage.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import { allSpells, spell, spellAmount } from '../src/core/battle/spells.js';
@@ -2413,7 +2414,7 @@ describe('cuerpo y equipo: el perfil de arma es equipo, y el nivel lo mide puest
     const h = heroeDeArena(MAGO, EQUIPO_DEL_JUEGO);
     expect(h.cuerpo.equipo?.arma).toBe(ESPADA);
     expect(h.cuerpo.armas?.arma).toMatchObject({
-      arma: { id: ESPADA },
+      piezas: [{ id: ESPADA }],
       rueda: nivelesDeLaEspada(),
     });
     expect(idsLlevados([], true)).toContain(ESPADA);
@@ -2488,7 +2489,7 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
     return { c, porArma: armasDe(c) };
   };
   const delUso = (u: Unidad, uso: string) => {
-    const fila = golpes(u).porArma.find((a) => a.uso === uso);
+    const fila = golpes(u).porArma.find((a) => a.uso === uso && a.carga === null);
     if (fila === undefined) throw new Error(`${u.id} no tiene golpe de ${uso}`);
     return [fila.arma, fila.attack, fila.damage];
   };
@@ -2531,10 +2532,11 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
     expect(golpes(ballestero).c).not.toHaveProperty('shots');
   });
 
-  it('el jinete carga con la lanza como ayer y pega con la espada; el élfico dispara además con el arco', () => {
-    // Ayer: cuerpo + lanza (+7, +40–80) + barda: 10, 50–90 en todo golpe. Desde el
-    // 25-10-2026, la lanza +3 de ataque y +12 de fuerza, y la espada +2 y +10, por la
-    // agilidad que les deja lo que pesa todo.
+  it('el jinete lleva espada y lanza y carga montado con la lanza; el élfico dispara además con el arco', () => {
+    // Desde el 25-10-2026 la lanza es un arma más, en la segunda mano: de cada cifra,
+    // la mejor de las dos (la lanza, +3 de ataque y +12 de fuerza; la espada, +2 y
+    // +10), por la agilidad que les deja lo que pesa todo; y con el rasgo y la lanza,
+    // la carga es la del jinete.
     for (const id of ['templario-hermano-de-carga', 'jinete-de-plaga', 'goblin-jinete-de-hiena']) {
       const u = unidad(id);
       expect(u.traits, id).toContain('charge');
@@ -2543,20 +2545,19 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
         u.fuerza,
         EQUIPO_DEL_JUEGO.sumaDeEquipo(u.equipo).peso,
       );
-      expect(delUso(u, 'lanza'), id).toEqual([
-        'Lanza de jinete',
+      expect(u.equipo, id).toMatchObject({ arma: 'espada', segunda: 'lanza' });
+      expect(delUso(u, 'arma'), id).toEqual([
+        'Espada y Lanza',
         u.attack + 3,
         [u.fuerza + 12, (u.fuerza + 12) * ag],
       ]);
-      expect(delUso(u, 'arma'), id).toEqual([
-        'Espada',
-        u.attack + 2,
-        [u.fuerza + 10, (u.fuerza + 10) * ag],
-      ]);
       expect(
-        golpes(u).porArma.map((a) => a.uso),
+        golpes(u).porArma.map((a) => [a.uso, a.carga]),
         id,
-      ).toEqual(['arma', 'lanza']);
+      ).toEqual([
+        ['arma', null],
+        ['arma', CARGA.jinete],
+      ]);
     }
     // Un solo perfil, coherente: lanza, espada y arco (`perfilDeUnidad`).
     expect(hojaPorId('elfo-jinete').perfil).toBe('montado-arco');
@@ -2564,13 +2565,13 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
     expect(elfico.equipo).toEqual({
       arma: 'espada',
       distancia: 'arco',
-      lanza: 'lanza_de_jinete',
+      segunda: 'lanza',
       armadura: 'barda',
     });
     expect(golpes(elfico).porArma.map((a) => [a.uso, a.arma])).toEqual([
-      ['arma', 'Espada'],
+      ['arma', 'Espada y Lanza'],
       ['distancia', 'Arco'],
-      ['lanza', 'Lanza de jinete'],
+      ['arma', 'Espada y Lanza'],
     ]);
     expect(isShooter(golpes(elfico).c)).toBe(true);
     // Los demás perfiles no tienen armas por uso: pelean como ayer. Llevan

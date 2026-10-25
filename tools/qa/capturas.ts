@@ -6156,11 +6156,13 @@ async function equipoDeLaArena(browser: Browser, url: string, problemas: Problem
  */
 function orcoConLanza(): Unidad {
   const orco = delCatalogo('orko-dos-armas');
-  return { ...orco, equipo: { ...orco.equipo, lanza: 'lanza_de_jinete' } };
+  // Desde el 25-10-2026 la lanza es un arma más: va de segunda, con la espada.
+  return { ...orco, equipo: { ...orco.equipo, segunda: 'lanza' } };
 }
 
 /** Lo que dice la barra del golpe del arquero sobre el contraataque del orco (`orcoConLanza`). */
-const CONTRAATAQUE_DEL_ORCO = /Contraataque con Mandoble \(cuerpo a cuerpo\)(, si sobrevive)?: /;
+const CONTRAATAQUE_DEL_ORCO =
+  /Contraataque con Espada y Lanza \(cuerpo a cuerpo\)(, si sobrevive)?: /;
 
 function espejoDeLasArmas(semilla: number): SesionDeArena {
   const espejo = new SesionDeArena(
@@ -6239,16 +6241,17 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
     log(`armas: semilla ${semilla}, buscada en el espejo`);
     await abrirLaArena(page, url, `?seed=${semilla}`);
 
-    // La ficha del jinete élfico: lanza, espada y arco, cada una con su golpe.
+    // La ficha del jinete élfico: espada y lanza (lo mejor de las dos) y arco, cada
+    // golpe con lo suyo; la carga, con las de cuerpo a cuerpo y la del jinete.
     await page.locator('[data-unidad-catalogo="elfo-jinete"] [data-lado="izquierda"]').click();
     await page.locator('#bando-izquierda button.ver[data-unidad="elfo-jinete"]').click();
     const filas = page.locator('#ficha .armas-de-la-ficha [data-arma-de-la-ficha]');
     await filas.first().waitFor({ timeout: 2000 });
     const dichas = (await filas.allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim());
     const esperadas = [
-      'Cuerpo a cuerpo ⓘ Espada · Ataque 5 · Daño 20–40',
-      'A distancia ⓘ Arco · Ataque 5 · Daño 20–30',
-      'Carga ⓘ Lanza de jinete · Ataque 10 · Daño 50–90 · +10 %/casilla (3 a 5)',
+      'Cuerpo a cuerpo ⓘ Espada y Lanza · Ataque 7 · Daño 44–220',
+      'A distancia ⓘ Arco · Ataque 6 · Daño 42–210',
+      'Carga ⓘ Espada y Lanza · Ataque 7 · Daño 44–220 · +10 %/casilla (3 a 5)',
     ];
     if (JSON.stringify(dichas) !== JSON.stringify(esperadas)) {
       throw new Error(`armas: la ficha del jinete élfico dice ${JSON.stringify(dichas)}`);
@@ -6260,7 +6263,7 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
     log('armas: la ficha del jinete élfico enseña sus tres armas');
 
     // El editor de equipo, por tipos (18-10-2026): el cuerpo a cuerpo con la daga
-    // y la lanza (la de carga golpea en la rueda), y a distancia con el arco.
+    // y la lanza (un arma más desde el 25-10-2026), y a distancia con el arco.
     await page.locator('[data-arena="ir-a-equipo"]').first().click();
     await page.locator('#app[data-escena="equipo"]').waitFor({ timeout: 2000 });
     const cabeceras = await page.locator('.cabecera-hueco > span').allInnerTexts();
@@ -6271,7 +6274,7 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
     }
     for (const [seccion, pieza] of [
       ['distancia', 'Arco'],
-      ['cuerpo', 'Lanza de jinete'],
+      ['cuerpo', 'Lanza'],
       ['cuerpo', 'Daga'],
     ] as const) {
       const ofrecidas = await page
@@ -6291,18 +6294,18 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
     await page.locator('[data-unidad-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
     // La lanza al orco, como en el espejo (`orcoConLanza`), desde su ficha.
     await page.locator('#bando-derecha button.ver[data-unidad="orko-dos-armas"]').click();
-    await page.locator('#ficha select[data-arena-pieza="lanza"]').selectOption('lanza_de_jinete');
+    await page.locator('#ficha select[data-arena-pieza="segunda"]').selectOption('lanza');
     // La fila ya existe antes de elegir (la carga, con el arma de cuerpo a cuerpo):
     // se espera a que la repinte con la lanza. Leída al momento, con la máquina
     // cargada, decía aún «Mandoble» (19-10-2026).
-    const filaDeLaLanza = page.locator('#ficha [data-arma-de-la-ficha="lanza"]', {
-      hasText: 'Lanza de jinete',
+    const filaDeLaLanza = page.locator('#ficha [data-arma-de-la-ficha="carga"]', {
+      hasText: 'Espada y Lanza',
     });
     await filaDeLaLanza.waitFor({ timeout: 5000 });
     const dichaLanza = (await filaDeLaLanza.innerText()).replace(/\s+/g, ' ').trim();
     // A pie también carga (#260): la lanza se usa, con lo que cobra a pie.
     if (
-      !dichaLanza.startsWith('Carga ⓘ Lanza de jinete · Ataque ') ||
+      !dichaLanza.startsWith('Carga ⓘ Espada y Lanza · Ataque ') ||
       !dichaLanza.endsWith(' · +5 %/casilla (3 a 5), a pie')
     ) {
       throw new Error(`armas: la ficha del orco con lanza dice «${dichaLanza}»`);

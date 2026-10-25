@@ -7,7 +7,7 @@
  * −80 %). Las constantes viven aquí y no repartidas por el motor.
  */
 import { hasTrait, isShooter } from '../data.js';
-import { DICHO_DEL_USO, SIN_ARMA } from '../hero/equipo.js';
+import { DICHO_DE_LA_CARGA, DICHO_DEL_USO, SIN_ARMA } from '../hero/equipo.js';
 import { indiceDePoder } from '../nivel.js';
 import type { Rng } from '../rng.js';
 import { conComa, type GolpeConArma, type UnitInfo, type UsoDeArma } from '../types.js';
@@ -53,58 +53,58 @@ const SIN_CARGA = Object.freeze({ charge: 0, cifras: null });
 
 /**
  * Con qué arma se da un golpe (13-10-2026, «cada arma para lo suyo»): el disparo,
- * con la de distancia; el golpe que cobra carga, con la de carga; todo lo demás
- * —el golpe sin carga y el contraataque—, con la de cuerpo a cuerpo. **La única
- * decisión**: se deduce de las opciones que ya trae todo golpe
+ * con la de distancia; todo lo demás —el golpe, la carga y el contraataque—, con
+ * las de cuerpo a cuerpo (25-10-2026: la lanza dejó su hueco y es una de ellas).
+ * **La única decisión**: se deduce de las opciones que ya trae todo golpe
  * (`opcionesDeDanio`), así que el motor no la pasa por ningún sitio.
  */
-export function usoDelGolpe(
-  unit: UnitInfo,
-  opts: Pick<DamageOptions, 'ranged' | 'chargeHexes'>,
-): UsoDeArma {
-  return usoConCarga(opts, cargaCobrada(unit, opts).charge);
-}
-
-/** `usoDelGolpe` con la carga ya cobrada: la cuenta del daño la tiene y no la repite. */
-function usoConCarga(opts: Pick<DamageOptions, 'ranged'>, charge: number): UsoDeArma {
-  if (opts.ranged === true) return 'distancia';
-  return charge > 0 ? 'lanza' : 'arma';
+export function usoDelGolpe(_unit: UnitInfo, opts: Pick<DamageOptions, 'ranged'>): UsoDeArma {
+  return opts.ranged === true ? 'distancia' : 'arma';
 }
 
 /**
- * Con qué arma va un golpe de `uso`, dicho para quien juega: «con Daga (cuerpo a
- * cuerpo)» o «sin arma, con el cuerpo (cuerpo a cuerpo)» (`golpeDe`,
- * `DICHO_DEL_USO`). Lo leen la previsión del golpe y la del contraataque.
+ * Con qué armas va un golpe de `uso`, dicho para quien juega: «con Daga (cuerpo a
+ * cuerpo)», «con Espada y Lanza (en la carga)» o «sin arma, con el cuerpo (cuerpo a
+ * cuerpo)» (`golpeDe`, `DICHO_DEL_USO`, `DICHO_DE_LA_CARGA`). Lo leen la previsión
+ * del golpe y la del contraataque.
  */
-export function dichoDelGolpe(unit: UnitInfo, uso: UsoDeArma): string {
-  const { arma } = golpeDe(unit, uso);
-  const como = DICHO_DEL_USO[uso].golpe;
-  return arma === null ? `${SIN_ARMA} (${como})` : `con ${arma.nombre} (${como})`;
+export function dichoDelGolpe(unit: UnitInfo, uso: UsoDeArma, enLaCarga = false): string {
+  const { piezas } = golpeDe(unit, uso);
+  const como = (enLaCarga ? DICHO_DE_LA_CARGA : DICHO_DEL_USO[uso]).golpe;
+  return piezas.length === 0
+    ? `${SIN_ARMA} (${como})`
+    : `con ${nombresDeLasArmas(piezas)} (${como})`;
 }
 
-/** Una fila de `armasDe`: el golpe de un uso (`golpeDe`) con el nombre del arma. */
-export interface ArmaDeLaUnidad extends Omit<GolpeConArma, 'arma'> {
+/** Los nombres de las armas de un golpe, juntos: «Espada» o «Espada y Lanza». */
+export function nombresDeLasArmas(piezas: GolpeConArma['piezas']): string {
+  return piezas.map((p) => p.nombre).join(' y ');
+}
+
+/** Una fila de `armasDe`: el golpe de un uso (`golpeDe`) con el nombre de sus armas. */
+export interface ArmaDeLaUnidad extends Omit<GolpeConArma, 'piezas' | 'conLanza'> {
   readonly uso: UsoDeArma;
-  /** El nombre del arma, o `null` si ese golpe va con el cuerpo. */
+  /** Los nombres de sus armas («Espada y Lanza»), o `null` si ese golpe va con el cuerpo. */
   readonly arma: string | null;
   /** En la fila de la carga, lo que cobra (`cifrasDeCarga`); en las demás, `null`. */
   readonly carga: CifrasDeCarga | null;
 }
 
 /**
- * Las armas de una unidad, una fila por uso (`golpeDe`), con el nombre de cada
- * arma: lo que enseña la ficha. El cuerpo a cuerpo y la carga, siempre (todo el
- * que pega cuerpo a cuerpo carga: `cifrasDeCarga`); el disparo, si dispara
- * (`isShooter`: lleva arma a distancia).
+ * Las armas de una unidad, una fila por uso (`golpeDe`), con el nombre de sus
+ * armas: lo que enseña la ficha. El cuerpo a cuerpo y la carga, siempre (todo el
+ * que pega cuerpo a cuerpo carga: `cifrasDeCarga`; la carga va con las de cuerpo a
+ * cuerpo); el disparo, si dispara (`isShooter`: lleva arma a distancia).
  */
 export function armasDe(unit: UnitInfo): ArmaDeLaUnidad[] {
   const fila = (uso: UsoDeArma, carga: CifrasDeCarga | null = null): ArmaDeLaUnidad => {
-    const { arma, attack, damage } = golpeDe(unit, uso);
-    return { uso, arma: arma?.nombre ?? null, attack, damage, carga };
+    const { piezas, attack, damage } = golpeDe(unit, uso);
+    const arma = piezas.length === 0 ? null : nombresDeLasArmas(piezas);
+    return { uso, arma, attack, damage, carga };
   };
   const filas = [fila('arma')];
   if (isShooter(unit)) filas.push(fila('distancia'));
-  filas.push(fila('lanza', cifrasDeCarga(unit)));
+  filas.push(fila('arma', cifrasDeCarga(unit)));
   return filas;
 }
 
@@ -309,7 +309,7 @@ interface DeUnGolpe {
 
 function deUnGolpe(attacker: BattleStack, opts: DamageOptions): DeUnGolpe {
   const { charge, cifras } = cargaCobrada(attacker.unit, opts);
-  return { charge, cifrasDeCarga: cifras, uso: usoConCarga(opts, charge) };
+  return { charge, cifrasDeCarga: cifras, uso: usoDelGolpe(attacker.unit, opts) };
 }
 
 /**
@@ -470,7 +470,9 @@ export function horquillaDeDanio(
   // Con armas por uso, lo primero es con cuál pega: la horquilla es
   // la de esa arma, y la previsión y el contraataque lo dicen sin campos nuevos.
   const conArma =
-    attacker.unit.armas === undefined ? null : dichoDelGolpe(attacker.unit, golpe.uso);
+    attacker.unit.armas === undefined
+      ? null
+      : dichoDelGolpe(attacker.unit, golpe.uso, golpe.charge > 0);
   if (conArma !== null) modificadores.push({ causa: conArma, factor: null });
   if (cruce !== undefined) modificadores.push({ causa: cruce.causaDeLaTirada, factor: null });
   const bajo = applyModifiers(

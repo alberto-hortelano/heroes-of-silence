@@ -263,7 +263,7 @@ describe('la validación de un mundo', () => {
     const p = conHistoria((h) => {
       puente(h).dialogos.garita!.nodos.dentro!.opciones[1] = {
         texto: 'Coger la lanza',
-        hace: [{ pieza: 'lanza_de_jinete' }],
+        hace: [{ pieza: 'lanza' }],
       };
     });
     expect(p).toContainEqual(
@@ -414,14 +414,14 @@ describe('elegir en un lugar', () => {
       {
         kind: 'loot_found',
         hero,
-        item: 'lanza_de_jinete',
+        item: 'lanza',
         from: 'lugar',
         lugar: 'puente-de-corvo',
         actor: 0,
       },
       { kind: 'world_mark', marca: 'lanza-cogida', lugar: 'puente-de-corvo', actor: 0 },
     ]);
-    expect(state.heroes.find((h) => h.id === hero)!.mochila).toContain('lanza_de_jinete');
+    expect(state.heroes.find((h) => h.id === hero)!.mochila).toContain('lanza');
     const ref = { lugar: 'puente-de-corvo', punto: 'garita', nodo: 'dentro', opcion: 1 };
     expect(opcionBlocker(state, hero, ref)).toBe('la lanza ya no cuelga en la garita');
     expect(() => elegir(state, hero, 'puente-de-corvo', 'garita', 'dentro', 1)).toThrow(
@@ -699,9 +699,7 @@ describe('elegir en un lugar', () => {
     expect(opcionBlocker(state, rival.id, lanza)).toBe('la lanza ya no cuelga en la garita');
     state.current = 0;
     const faccion = NOMBRE_DE_FACCION[state.players[1]!.faction];
-    expect(opcionBlocker(state, yo.id, lanza)).toBe(
-      `${rival.name} (${faccion}) ya se llevó Lanza de jinete`,
-    );
+    expect(opcionBlocker(state, yo.id, lanza)).toBe(`${rival.name} (${faccion}) ya se llevó Lanza`);
     expect(state.mundo!.cobradas['puente-de-corvo/garita/dentro/1']).toEqual({
       jugador: 1,
       heroe: rival.name,

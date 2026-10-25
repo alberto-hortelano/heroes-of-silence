@@ -77,9 +77,14 @@ function renderMochila(f: FichaDeLaTropa): Html {
     return html`<div class="stack empty"><span>Vacía: lo que le quites a alguien vuelve aquí, y el botín y lo que compres caen aquí</span></div>`;
   }
   return unir(
-    f.mochila.map(
-      ({ pieza, poner }) =>
-        html`<div class="stack" data-item="${pieza.id}"><span>${pieza.nombre}<span class="veterania">${NOMBRE_DE_HUECO[pieza.hueco]} · ${modificadoresEnPantalla(pieza)}</span>${motivoApagado(poner)}</span><span class="count"><button data-action="tropa-poner" data-item="${pieza.id}" ${poner === null ? NADA : DESHABILITADO}>Poner</button></span></div>`,
-    ),
+    f.mochila.map(({ pieza, poner, segunda }) => {
+      // Un arma va también de segunda (25-10-2026): su botón, apagado con el
+      // motivo del núcleo si no cabe (un arma a dos manos, el escudo).
+      const deSegunda =
+        segunda === undefined
+          ? NADA
+          : html` <button data-action="tropa-poner" data-item="${pieza.id}" data-hueco="segunda" ${segunda === null ? NADA : DESHABILITADO} title="${segunda ?? 'Ponérsela de segunda arma'}">A la segunda mano</button>`;
+      return html`<div class="stack" data-item="${pieza.id}"><span>${pieza.nombre}<span class="veterania">${NOMBRE_DE_HUECO[pieza.hueco]} · ${modificadoresEnPantalla(pieza)}</span>${motivoApagado(poner)}</span><span class="count"><button data-action="tropa-poner" data-item="${pieza.id}" ${poner === null ? NADA : DESHABILITADO}>Poner</button>${deSegunda}</span></div>`;
+    }),
   );
 }

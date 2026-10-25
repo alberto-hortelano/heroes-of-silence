@@ -43,14 +43,14 @@ const TABLA_DEL_CATALOGO: Readonly<Record<string, readonly [number, number]>> = 
   'templario-mandoble': [335, 3],
   'templario-monje': [214, 2],
   'templario-escudero': [323, 3],
-  'templario-hermano-de-carga': [466, 4],
+  'templario-hermano-de-carga': [470, 4],
   'templario-penitente': [315, 3],
   'esqueleto-guerrero': [215, 2],
   'esqueleto-arquero': [202, 2],
   zombi: [324, 3],
   espectro: [307, 3],
   'caballero-de-la-muerte': [327, 3],
-  'jinete-de-plaga': [435, 4],
+  'jinete-de-plaga': [437, 4],
   'imperio-alabardero': [306, 3],
   'imperio-piquero': [306, 3],
   'imperio-ballestero': [271, 2],
@@ -58,20 +58,20 @@ const TABLA_DEL_CATALOGO: Readonly<Record<string, readonly [number, number]>> = 
   'imperio-arcabucero': [271, 2],
   'imperio-rodelero': [323, 3],
   'imperio-artillero-culebrina': [275, 2],
-  'imperio-pistolero-montado': [432, 4],
+  'imperio-pistolero-montado': [434, 4],
   'imperio-granadero': [309, 3],
   'elfo-arquero': [284, 2],
   'elfo-explorador': [311, 3],
   'elfo-guardia-del-bosque': [339, 3],
-  'elfo-jinete': [435, 4],
+  'elfo-jinete': [438, 4],
   'elfo-sacerdotisa': [219, 2],
-  'elfo-asesino': [304, 3],
+  'elfo-asesino': [309, 3],
   'orko-hacha-escudo': [343, 3],
-  'orko-dos-armas': [323, 3],
-  'goblin-lancero': [224, 2],
+  'orko-dos-armas': [327, 3],
+  'goblin-lancero': [232, 2],
   'goblin-arquero': [221, 2],
   'troll-maza': [293, 2],
-  'goblin-jinete-de-hiena': [319, 3],
+  'goblin-jinete-de-hiena': [322, 3],
   'orko-armadura-pesada': [313, 3],
 };
 
@@ -196,15 +196,15 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
     }
   });
 
-  it('la carga compone con la rueda: lo que da la lanza al Fuerte y al Rápido pesa en el primer golpe de la carga', () => {
-    // Simplify de F1: se mide como pelearán (rueda × carga, `intercambio`), no la carga sola.
+  it('la rueda de la segunda arma pesa en el índice: de cada tipo, la mejor de las dos (25-10-2026)', () => {
+    // Se mide como pelearán (rueda × carga, `intercambio`), no la carga sola.
     const jinete = unidad('templario-hermano-de-carga');
-    // Una copia de la lanza de jinete, que no cuelga de nadie.
-    const lanza = piezaNueva(EQUIPO_DEL_JUEGO.pieza('lanza_de_jinete'), EQUIPO_DEL_JUEGO) as Pieza;
+    // Una copia de la lanza, que no cuelga de nadie, en la segunda mano.
+    const lanza = piezaNueva(EQUIPO_DEL_JUEGO.pieza('lanza'), EQUIPO_DEL_JUEGO) as Pieza;
     const conLaLanza = (rueda: NivelesDeLaRueda) =>
       indiceDePoder(
         unidadDeCombate(
-          { ...jinete, equipo: { ...jinete.equipo, lanza: lanza.id } },
+          { ...jinete, equipo: { ...jinete.equipo, segunda: lanza.id } },
           catalogoCon({ ...lanza, rueda }),
         ),
       );
@@ -212,6 +212,8 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
     expect(conLaLanza({ ...todoA(3), fuerte: 6 })).toBeGreaterThan(base);
     expect(conLaLanza({ ...todoA(3), rapido: 6 })).toBeGreaterThan(base);
     expect(conLaLanza({ ...todoA(3), finta: 6 })).toBe(base);
+    // Por debajo de la espada (todo a 3), lo de la lanza no cuenta: manda la espada.
+    expect(conLaLanza({ ...todoA(3), fuerte: 0, rapido: 0 })).toBe(base);
   });
 
   it('quien carga se mide también por la carga: el jinete sin el caballo vale menos', () => {

@@ -170,7 +170,7 @@ describe('carga todo el que pega cuerpo a cuerpo, y el jinete cobra más', () =>
 
   it('con la misma recta, el jinete pega más que el de a pie con las mismas cifras de golpe', () => {
     // El mismo cuerpo y la misma lanza: solo cambia el rasgo.
-    const conLanza = { agilidad: 7, equipo: { arma: 'espada', lanza: 'lanza_de_jinete' } } as const;
+    const conLanza = { agilidad: 7, equipo: { arma: 'espada', segunda: 'lanza' } } as const;
     const danio = (traits: readonly 'charge'[]): number => {
       const b = batallaDeArena(
         {

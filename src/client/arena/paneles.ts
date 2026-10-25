@@ -82,9 +82,11 @@ import {
   caeComoBotin,
   cifrasDePieza,
   conSigno,
+  DICHO_DE_LA_CARGA,
   DICHO_DEL_USO,
   EQUIPO_BASE,
   type EquipoAtado,
+  esLanza,
   idsPuestos,
   REGLA_DEL_ESCUDO,
   SIN_ARMA,
@@ -101,6 +103,7 @@ import {
   FACTION_IDS,
   HUECOS,
   type Hueco,
+  type HuecoDePieza,
   NOMBRE_DE_CIFRA,
   NOMBRE_DE_FACCION,
   NOMBRE_DE_HUECO,
@@ -963,7 +966,7 @@ function equipoDeLaFicha(u: Unidad, piezas: EquipoAtado): Html {
       ];
     }),
   );
-  return html`<h3>Equipo ${nota(`Suma a las cifras del cuerpo y no cambia el nivel. Lo que no es arma suma a todo golpe; cada arma, solo al suyo (abajo, «Armas»): ${NOMBRE_DE_HUECO.arma} al cuerpo a cuerpo, ${NOMBRE_DE_HUECO.distancia} al disparo y ${NOMBRE_DE_HUECO.lanza} a la carga. Regla: ${REGLA_DEL_ESCUDO}; las manos son las del arma de cuerpo a cuerpo.`)}</h3>
+  return html`<h3>Equipo ${nota(`Suma a las cifras del cuerpo y no cambia el nivel. Lo que no es arma suma a todo golpe; cada arma, solo al suyo (abajo, «Armas»): ${NOMBRE_DE_HUECO.arma} y ${NOMBRE_DE_HUECO.segunda} al cuerpo a cuerpo y a la carga (con dos, lo mejor de cada una), ${NOMBRE_DE_HUECO.distancia} al disparo. Una lanza es un arma más: montado, la carga cobra la del jinete. Regla: ${REGLA_DEL_ESCUDO}.`)}</h3>
       <div class="equipo-de-la-ficha">${filas}</div>`;
 }
 
@@ -986,8 +989,8 @@ function filasDeArmas(unidad: UnitInfo, ataqueEnLaPelea?: (uso: UsoDeArma) => nu
         a.carga === null
           ? NADA
           : html` <span class="cifras-del-arma">· ${dichoDeLasCifras(a.carga)}</span>`;
-      const { rotulo, cuando } = DICHO_DEL_USO[a.uso];
-      return html`<div class="row" data-arma-de-la-ficha="${a.uso}"><span class="label">${rotulo} ${nota(cuando)}</span><span class="golpe-del-arma"><span>${con} ·</span> <span class="cifras-del-arma">${cifras}</span>${cobra}</span></div>`;
+      const { rotulo, cuando } = a.carga === null ? DICHO_DEL_USO[a.uso] : DICHO_DE_LA_CARGA;
+      return html`<div class="row" data-arma-de-la-ficha="${a.carga === null ? a.uso : 'carga'}"><span class="label">${rotulo} ${nota(cuando)}</span><span class="golpe-del-arma"><span>${con} ·</span> <span class="cifras-del-arma">${cifras}</span>${cobra}</span></div>`;
     }),
   );
 }
@@ -1323,14 +1326,6 @@ export function guardadoEnPalabras(g: Guardado): string {
 }
 
 /**
- * Los huecos de cuerpo a cuerpo: los que golpean en la rueda (`camposDelHueco`,
- * `conRueda`), el arma y la lanza. Una nueva de cuerpo a cuerpo elige entre ellos.
- */
-const HUECOS_DE_CUERPO_A_CUERPO: readonly Hueco[] = HUECOS.filter(
-  (h) => camposDelHueco(h).conRueda,
-);
-
-/**
  * Las secciones de «Editar equipo», por tipo (decisión del usuario, 18-10-2026:
  * «diferencia por tipo: armas, armadura, arma a distancia»): cada una con sus
  * huecos y aquel en que nace una «+ Nueva pieza». Cuerpo a cuerpo junta los huecos
@@ -1339,16 +1334,16 @@ const HUECOS_DE_CUERPO_A_CUERPO: readonly Hueco[] = HUECOS.filter(
 const SECCIONES_DE_EQUIPO: readonly {
   readonly id: string;
   readonly nombre: string;
-  readonly huecos: readonly Hueco[];
-  readonly nace: Hueco;
+  readonly huecos: readonly HuecoDePieza[];
+  readonly nace: HuecoDePieza;
   readonly nota: string;
 }[] = [
   {
     id: 'cuerpo',
     nombre: 'Cuerpo a cuerpo',
-    huecos: HUECOS_DE_CUERPO_A_CUERPO,
+    huecos: ['arma'],
     nace: 'arma',
-    nota: `${DICHO_DEL_USO.arma.cuando} La lanza (${NOMBRE_DE_HUECO.lanza}) va en su hueco: ${DICHO_DEL_USO.lanza.cuando} Las dos cambian la rueda del golpe.`,
+    nota: `${DICHO_DEL_USO.arma.cuando} ${DICHO_DE_LA_CARGA.cuando} Cada una cambia la rueda del golpe; una lanza es un arma más.`,
   },
   {
     id: 'distancia',
@@ -1447,16 +1442,14 @@ function fichaDePieza(p: Pieza, v: VistaDeEquipo): Html {
   const escrita = escritaDe(eq, p.id);
   const extras = esPiezaConBase(escrita) ? escrita.extras : null;
   const campos = camposDelHueco(p.hueco);
-  const hueco =
-    extras === null && campos.conRueda
-      ? html`<label class="campo"><span class="label">Hueco${notaDelHueco(p.hueco)}</span>
-          <select data-arena-pieza-campo="hueco">${unir(
-            HUECOS_DE_CUERPO_A_CUERPO.map(
-              (h) =>
-                html`<option value="${h}" ${h === p.hueco ? html`selected` : NADA}>${NOMBRE_DE_HUECO[h]}</option>`,
-            ),
-          )}</select></label>`
-      : html`<div class="row"><span class="label">Hueco${notaDelHueco(p.hueco)}</span><span>${NOMBRE_DE_HUECO[p.hueco]}</span></div>`;
+  const hueco = html`<div class="row"><span class="label">Hueco${notaDelHueco(p.hueco)}</span><span>${NOMBRE_DE_HUECO[p.hueco]}</span></div>`;
+  // La lanza (25-10-2026): un arma de cuerpo a cuerpo que, montado, da la carga del
+  // jinete. Una casilla, como «Se consigue»; con base, la de su base.
+  const lanza = !campos.conManos
+    ? NADA
+    : extras === null
+      ? html`<label class="casilla-de-marcar"><input type="checkbox" data-arena-pieza-campo="lanza" ${esLanza(p) ? html`checked` : NADA}> es una lanza ${nota(DICHO_DE_LA_CARGA.cuando)}</label>`
+      : html`<div class="row"><span class="label">Lanza ${nota('La de su base.')}</span><span>${esLanza(p) ? 'Sí' : 'No'}</span></div>`;
   const cadena = cadenaDeBases(eq, p.id);
   const suBase = baseDe(eq, p.id);
   const base = html`<label class="campo"><span class="label">Base ${nota('Otra pieza de su hueco de la que parte: suma lo de la base más sus extras, y si cambia la base, cambia ella. Al cambiar de base se queda con lo que suma ahora.')}</span>
@@ -1505,6 +1498,7 @@ function fichaDePieza(p: Pieza, v: VistaDeEquipo): Html {
         ${hueco}
         ${base}
         ${manos}
+        ${lanza}
         ${tablaDeCifras(
           extras === null
             ? { nombre: 'Suma', nota: 'Lo que suma a quien la lleva.' }

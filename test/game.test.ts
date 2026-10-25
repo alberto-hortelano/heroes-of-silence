@@ -1493,10 +1493,11 @@ describe('el gremio enseña (#2)', () => {
     // pagado (22-10-2026, 2 500 menos el día 1), ninguno en 1-40 y 12 gremios y 16
     // hechizos en 41-200, en 11 semillas: se jugaba la 54 (uno y dos). Con la
     // fuerza y la agilidad (25-10-2026), 11 gremios en 1-120 y hechizos en 7 de
-    // ellos: se juega la 5 (uno y dos).
+    // ellos: se jugaba la 5 (uno y dos). Con dos armas y la lanza en la segunda
+    // mano (25-10-2026), 6 gremios en 1-60 y hechizos en 4: se juega la 29 (uno y dos).
     let gremios = 0;
     let aprendidos = 0;
-    for (const semilla of [5]) {
+    for (const semilla of [29]) {
       const state = newGame({ seed: semilla });
       await playAiGame(state, { rng: createRng(semilla) });
       for (const e of state.log) {

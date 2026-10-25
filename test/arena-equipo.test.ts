@@ -63,7 +63,7 @@ import {
 import { catalogoDeEquipo, EQUIPO_BASE, EQUIPO_DEL_JUEGO, pieza } from '../src/core/hero/equipo.js';
 import { indiceDePoder } from '../src/core/nivel.js';
 import { createRng } from '../src/core/rng.js';
-import { HUECOS, type Hueco } from '../src/core/types.js';
+import { HUECOS, type Hueco, huecosDeLaPieza } from '../src/core/types.js';
 import {
   ESPADA as ID_DE_LA_ESPADA,
   RUTA_DEL_CATALOGO_DE_UNIDADES,
@@ -130,7 +130,6 @@ describe('el catálogo de equipo en la arena', () => {
     const deLaEspada = ESPADA.rueda;
     expect(deLaEspada).toBeDefined();
     expect((piezaNueva('arma', EQUIPO_DEL_JUEGO) as Pieza).rueda).toEqual(deLaEspada);
-    expect((piezaNueva('lanza', EQUIPO_DEL_JUEGO) as Pieza).rueda).toEqual(deLaEspada);
     for (const h of ['distancia', 'armadura', 'escudo'] as const) {
       expect(piezaNueva(h, EQUIPO_DEL_JUEGO), h).not.toHaveProperty('rueda');
     }
@@ -216,7 +215,9 @@ describe('el catálogo de equipo en la arena', () => {
     expect(enElHueco(maza, 'escudo')).toMatchObject({ ataque: 0, peso: maza.peso });
     expect(enElHueco(maza, 'escudo')).not.toHaveProperty('fuerza');
     expect(enElHueco(maza, 'armadura')).not.toHaveProperty('rueda');
-    expect(enElHueco(maza, 'lanza').rueda).toEqual(maza.rueda);
+    // La lanza es un arma marcada (25-10-2026), no un hueco: fuera del arma, deja de serlo.
+    expect(enElHueco(pieza('lanza'), 'arma')).toMatchObject({ lanza: true });
+    expect(enElHueco(pieza('lanza'), 'escudo')).not.toHaveProperty('lanza');
   });
 
   it('«Nueva pieza» y «Duplicar» dan un id libre', () => {
@@ -272,7 +273,7 @@ describe('la arena pelea con sus piezas', () => {
     expect(b.stacks[0]?.unit.attack).toBe(deLaArena.attack);
     // La pelea no guarda el catálogo: el golpe lleva el nombre de su arma.
     expect(b).not.toHaveProperty('piezasDeArena');
-    expect(b.stacks[0]?.unit.armas?.arma.arma).toEqual({ id: 'espada', nombre: 'Espada' });
+    expect(b.stacks[0]?.unit.armas?.arma.piezas).toEqual([{ id: 'espada', nombre: 'Espada' }]);
   });
 
   it('una pieza nueva se pone como cualquier otra, con la misma regla de las manos', () => {
@@ -367,7 +368,7 @@ describe('el enlace de la pelea lleva las piezas de lo montado', () => {
   };
 
   it('va y vuelve con todas las piezas que lleva, y monta con ellas en el catálogo de quien lo abre', () => {
-    expect(VERSION_DEL_ENLACE).toBe(15);
+    expect(VERSION_DEL_ENLACE).toBe(16);
     // Lo que llevan el guerrero (la nueva, la brigantina, el escudo) y el arquero
     // (daga, arco, jubón): todas, no solo las cambiadas.
     expect(ENLACE.piezas.map((p) => p.id).sort()).toEqual(
@@ -746,7 +747,7 @@ describe('la vista «Editar equipo»', () => {
       m.indexOf('data-seccion-de-equipo="cuerpo"'),
       m.indexOf('data-seccion-de-equipo="distancia"'),
     );
-    expect(cuerpo).toContain('data-pieza="lanza_de_jinete"');
+    expect(cuerpo).toContain('data-pieza="lanza"');
     expect(cuerpo).toContain('data-pieza="maza"');
     // De dónde sale: la Espada, de la armería; la maza, del botín; la nueva, de ninguno.
     const tarjeta = (id: string) =>
@@ -792,11 +793,12 @@ describe('la vista «Editar equipo»', () => {
             !c.startsWith('rueda-') &&
             !c.startsWith('se-consigue-'),
         );
-    expect(campos('espada')).toEqual(['ataque', 'fuerza', 'peso', 'precio-gold']);
+    // Un arma de cuerpo a cuerpo dice además si es una lanza (25-10-2026).
+    expect(campos('espada')).toEqual(['lanza', 'ataque', 'fuerza', 'peso', 'precio-gold']);
     expect(campos('arco')).toEqual(['ataque', 'fuerza', 'peso', 'precio-gold']);
     expect(campos('brigantina')).toEqual(['armadura', 'peso', 'precio-gold']);
     expect(campos('escudo')).toEqual(['defensa', 'peso', 'precio-gold']);
-    for (const id of ['espada', 'maza', 'lanza_de_jinete']) {
+    for (const id of ['espada', 'maza', 'lanza']) {
       expect(vista(id), id).toContain('data-rueda-de-la-pieza="si"');
       // Seis tipos: Normal no tiene nivel.
       expect(vista(id).match(/data-arena-pieza-campo="rueda-/g), id).toHaveLength(6);
@@ -886,20 +888,16 @@ describe('la vista «Editar equipo»', () => {
     const deLaEspada = opciones('espada');
     expect(deLaEspada).toContain('');
     expect(deLaEspada).toContain('maza');
-    for (const id of [
-      'espada',
-      'espada_de_herreria',
-      'espada_bendita',
-      'arco',
-      'lanza_de_jinete',
-    ]) {
+    // La lanza es un arma más (25-10-2026): puede ser su base.
+    expect(deLaEspada).toContain('lanza');
+    for (const id of ['espada', 'espada_de_herreria', 'espada_bendita', 'arco']) {
       expect(deLaEspada, id).not.toContain(id);
     }
     // La bendita va sobre la herrería, que sale elegida.
     expect(vista('espada_bendita')).toMatch(/<option value="espada_de_herreria" selected/);
   });
 
-  it('toda pieza se borra; una entera de cuerpo a cuerpo elige entre arma y lanza, las demás no cambian de hueco', () => {
+  it('toda pieza se borra; ninguna cambia de hueco, y una entera de cuerpo a cuerpo dice si es una lanza', () => {
     const espada = vista('espada');
     expect(espada).toMatch(/data-arena="retirar-pieza"[^>]*>Borrar/);
     expect(espada).toContain('data-arena="crear-pieza-sobre"');
@@ -907,17 +905,15 @@ describe('la vista «Editar equipo»', () => {
     expect(espada).toContain('Guerrero con escudo');
     // Un enlace abierto ya no pelea con otra pieza que la del catálogo: no hay aviso.
     expect(espada).not.toContain('data-aviso-del-enlace');
-    const hueco = (m: string): string[] => {
-      const h = m.slice(m.indexOf('data-arena-pieza-campo="hueco"'));
-      return [...h.slice(0, h.indexOf('</select>')).matchAll(/value="([^"]+)"/g)].map(
-        (x) => x[1] as string,
-      );
-    };
-    expect(hueco(espada)).toEqual(['arma', 'lanza']);
-    expect(hueco(vista(nueva.id))).toEqual(['arma', 'lanza']);
-    // Una de otro tipo, o con base, no cambia de hueco.
-    expect(vista('arco')).not.toContain('data-arena-pieza-campo="hueco"');
-    expect(vista('espada_bendita')).not.toContain('data-arena-pieza-campo="hueco"');
+    // La lanza dejó de ser un hueco (25-10-2026): ninguna cambia de hueco, y la
+    // casilla «es una lanza» va en las enteras de cuerpo a cuerpo, marcada en la lanza.
+    for (const id of ['espada', nueva.id, 'arco', 'espada_bendita']) {
+      expect(vista(id), id).not.toContain('data-arena-pieza-campo="hueco"');
+    }
+    expect(espada).toMatch(/<input type="checkbox" data-arena-pieza-campo="lanza" >/);
+    expect(vista('lanza')).toMatch(/data-arena-pieza-campo="lanza" checked/);
+    expect(vista('arco')).not.toContain('data-arena-pieza-campo="lanza"');
+    expect(vista('espada_bendita')).not.toContain('data-arena-pieza-campo="lanza"');
     // Las manos, solo en un arma.
     expect(vista('brigantina')).not.toContain('data-arena-pieza-campo="manos"');
     expect(vista('espada', 'No se cambia: X.')).toContain('class="aviso-de-pieza rechazo"');
@@ -956,7 +952,9 @@ describe('la ficha de una unidad ofrece solo lo que el núcleo admite (H3 de la 
     for (const hueco of HUECOS) {
       const ids = ofrecidas(m, hueco).map((o) => o.id);
       expect(ids.length, hueco).toBeGreaterThan(0);
-      for (const id of ids) expect(EQUIPO_DEL_JUEGO.pieza(id), id).toMatchObject({ hueco });
+      for (const id of ids) {
+        expect(huecosDeLaPieza(EQUIPO_DEL_JUEGO.pieza(id).hueco), id).toContain(hueco);
+      }
     }
     // Un hueco que no existe no se monta.
     expect(() =>
@@ -971,7 +969,7 @@ describe('la ficha de una unidad ofrece solo lo que el núcleo admite (H3 de la 
       for (const hueco of HUECOS) {
         for (const o of ofrecidas(m, hueco)) {
           const poner = (): Unidad =>
-            validarUnidad(equiparEnArena(u, o.id, EQUIPO_DEL_JUEGO), EQUIPO_DEL_JUEGO);
+            validarUnidad(equiparEnArena(u, o.id, EQUIPO_DEL_JUEGO, hueco), EQUIPO_DEL_JUEGO);
           if (o.desactivada) expect(poner, `${h.id} ${o.id}`).toThrow();
           else expect(poner, `${h.id} ${o.id}`).not.toThrow();
         }

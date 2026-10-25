@@ -644,17 +644,19 @@ describe('la previsión de daño cae en el daño real', () => {
     expect(pegado.contraataque?.modificadores[0]?.causa).toBe('con Daga (cuerpo a cuerpo)');
     const carga = previsto('jinete de la arena');
     const { yo, el } = losDosDe('jinete de la arena');
-    const lanza = golpeDe(yo, 'lanza');
+    // Con espada y lanza (25-10-2026), las dos nombradas; la carga, con las dos.
+    const armas = golpeDe(yo, 'arma');
+    expect(armas.piezas.map((p) => p.nombre)).toEqual(['Espada', 'Lanza']);
     expect(carga.modificadores.map((m) => m.causa)).toEqual([
-      `con ${lanza.arma?.nombre} (en la carga)`,
-      `ataque ${lanza.attack} contra defensa ${el.defense}`,
+      'con Espada y Lanza (en la carga)',
+      `ataque ${armas.attack} contra defensa ${el.defense}`,
       'carga de 3 casillas',
       `−${armaduraDe(el)} armadura`,
     ]);
     // La tropa del catálogo también pega con su arma (desde F3 lleva equipo): su
     // contraataque lo dice.
     expect(carga.contraataque?.modificadores[0]?.causa).toBe(
-      `con ${golpeDe(el, 'arma').arma?.nombre} (cuerpo a cuerpo)`,
+      `con ${golpeDe(el, 'arma').piezas[0]?.nombre} (cuerpo a cuerpo)`,
     );
   });
 

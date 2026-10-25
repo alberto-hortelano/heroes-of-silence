@@ -444,10 +444,10 @@ describe('enlace con el agente', () => {
     );
     expect(informe.problems[1]).toMatch(/no lleva Maza en la mochila/);
     expect(informe.problems[2]).toMatch(
-      /unequip casco de .*: no hay ningún hueco "casco": son melee_weapon, ranged_weapon, lance, armor, shield/,
+      /unequip casco de .*: no hay ningún hueco "casco": son melee_weapon, second_melee_weapon, ranged_weapon, armor, shield/,
     );
     expect(informe.problems[3]).toMatch(
-      /unequip arma de .*: no hay ningún hueco "arma": son melee_weapon, ranged_weapon, lance, armor, shield/,
+      /unequip arma de .*: no hay ningún hueco "arma": son melee_weapon, second_melee_weapon, ranged_weapon, armor, shield/,
     );
     const equipado = hero.army.find((t) => t.veterania?.equipo !== undefined);
     expect(equipado?.veterania?.equipo).toEqual({ armadura: 'brigantina' });
