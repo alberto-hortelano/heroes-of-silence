@@ -45,15 +45,17 @@ import type {
 } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
+import { cuerpoConSusCifras } from '../src/core/cuerpo.js';
 import { MURALLA } from '../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../src/core/rng.js';
-import type { CreatureTrait, Equipo, Hex, SpeedTier, UnitInfo } from '../src/core/types.js';
+import type { CreatureTrait, Equipo, Hex, UnitInfo } from '../src/core/types.js';
 import { CUERPO_COMUN, KIT_DEL_PERFIL } from '../src/core/unidad.js';
 import { bando, bandoDe, mando as mandoDePrueba } from './batalla-de-prueba.js';
 import {
   aMano,
   catalogoCon,
+  conLasCifrasDe,
   conManosDePrueba,
   dadoCargado,
   JINETE,
@@ -167,20 +169,20 @@ function bendecirYMaldecir(b: BattleState): void {
 function deLaArena(
   nombre: string,
   equipo: Equipo,
-  speed: SpeedTier = 'average',
+  agilidad = 4,
   traits: UnitInfo['traits'] = [],
 ): BattleSide {
-  const { attack, defense, damage, hp } = CUERPO_COMUN;
-  const cuerpo: UnitInfo = {
+  const { attack, fuerza, hp } = CUERPO_COMUN;
+  const cuerpo: UnitInfo = cuerpoConSusCifras({
     name: nombre,
     faction: null,
     attack,
-    defense,
-    damage,
+    fuerza,
+    agilidad,
+    defensaPropia: 0,
     hp,
-    speed,
     traits,
-  };
+  });
   return bandoDe([{ id: nombre, unit: EQUIPO_DEL_JUEGO.conEquipo(cuerpo, equipo) }]);
 }
 const ARQUERO_DE_LA_ARENA = KIT_DEL_PERFIL.arco.equipo;
@@ -200,7 +202,11 @@ function aManoSolo(nombre: string, unit: UnitInfo, suerte = 0): BattleSide {
  */
 function conManos(unit: UnitInfo): UnitInfo {
   const { armas: _armas, equipo: _equipo, puntosDeArmadura: _armadura, ...cuerpo } = unit;
-  return catalogoCon(MANOS_DE_PRUEBA).conEquipo(cuerpo, { arma: MANOS_DE_PRUEBA.id });
+  // Vestir deriva otra vez el daño de la fuerza: las cifras de arriba, las que traía.
+  return conLasCifrasDe(
+    catalogoCon(MANOS_DE_PRUEBA).conEquipo(cuerpo, { arma: MANOS_DE_PRUEBA.id }),
+    unit,
+  );
 }
 
 /** Los rasgos de `base` más `rasgo`. */
@@ -349,7 +355,7 @@ const ESCENARIOS: readonly Escenario[] = [
   },
   {
     nombre: 'jinete de la arena: carga con la lanza y le devuelven el golpe',
-    izquierda: () => deLaArena('jinete', JINETE_DE_LA_ARENA, 'very_fast', ['charge']),
+    izquierda: () => deLaArena('jinete', JINETE_DE_LA_ARENA, 6, ['charge']),
     derecha: () => bando([{ creature: TROPA, count: 30 }]),
     en: { col: 3, row: 4 },
     contra: { col: 7, row: 4 },
@@ -366,9 +372,9 @@ const ESCENARIOS: readonly Escenario[] = [
     accion: disparo,
   },
   {
-    nombre: 'armadura: la daga contra la barda del jinete, que la para entera',
+    nombre: 'armadura: la daga contra la barda del jinete, que para casi todo el mínimo',
     izquierda: () => deLaArena('arquero', ARQUERO_DE_LA_ARENA),
-    derecha: () => deLaArena('jinete', JINETE_DE_LA_ARENA, 'very_fast', ['charge']),
+    derecha: () => deLaArena('jinete', JINETE_DE_LA_ARENA, 6, ['charge']),
     en: { col: 5, row: 4 },
     contra: { col: 6, row: 4 },
     accion: golpe(),
@@ -658,15 +664,15 @@ describe('la previsión de daño cae en el daño real', () => {
       const { b, accion } = montar(e, createRng(1));
       return previsionDe(b, accion)!;
     };
-    // El arco (5 contra 7: ×0,95) da 20–30 → 19–29, menos los 7 de la brigantina.
+    // El arco (5 contra 7: ×0,95) da 30–120 → 29–114, menos los 7 de la brigantina.
     const arco = prevista('armadura: el arco') as PrevisionDeGolpe;
-    expect(arco.danio).toEqual({ min: 12, max: 22 });
+    expect(arco.danio).toEqual({ min: 22, max: 107 });
     expect(arco.modificadores.at(-1)).toEqual({ causa: '−7 armadura', factor: null });
     expect(textoDePrevision(arco, (id) => id)).toContain('; −7 armadura.');
-    // La daga (4 contra 8: ×0,9) da 10–20 → 9–18: la barda (22) lo para todo, y
-    // el contraataque del jinete (espada, 20–40) contra el jubón (2) sí llega.
+    // La daga (4 contra 4: ×1) da 24–96: la barda (22) se queda casi todo el mínimo,
+    // y el contraataque del jinete (espada) contra el jubón (2) también llega.
     const daga = prevista('armadura: la daga') as PrevisionDeGolpe;
-    expect(daga.danio).toEqual({ min: 0, max: 0 });
+    expect(daga.danio).toEqual({ min: 2, max: 74 });
     expect(daga.modificadores.at(-1)?.causa).toBe('−22 armadura');
     expect(daga.contraataque?.modificadores.at(-1)?.causa).toBe('−2 armadura');
     // El hechizo, con la misma resta: lo que llega, sin la cuenta.

@@ -22,8 +22,9 @@
  * de `Math.pow`, que es lo que vigila `test/invariantes.test.ts` para que el
  * banco valga fuera de esta máquina.
  */
+import { cuerpoConSusCifras } from '../cuerpo.js';
 import { EXPERIENCIA } from '../data.js';
-import type { UnitInfo, Veterania } from '../types.js';
+import type { Equipo, UnitInfo, Veterania } from '../types.js';
 import { conEquipo } from './equipo.js';
 
 /**
@@ -159,12 +160,22 @@ export function siguienteUmbral(experiencia: number, tope = UMBRALES.length): nu
  */
 export function cifrasVeteranas<U extends UnitInfo>(unit: U, rango: number): U {
   if (rango <= 1) return unit;
+  // El rango sube las primitivas del cuerpo y lo derivado se vuelve a sacar de
+  // ellas (`cifrasDelCuerpo`); con el equipo ya puesto, lo que sumó el equipo se
+  // perdería sin decirlo. Por eso el rango va antes que el equipo, siempre.
+  if (unit.equipo !== undefined && Object.keys(unit.equipo).length > 0) {
+    throw new Error(
+      `${unit.name}: las cifras del rango se suman al cuerpo antes que el equipo, y ya lleva puesto algo`,
+    );
+  }
   const subidas = rango - 1;
-  return {
+  const por = EXPERIENCIA.porRango;
+  return cuerpoConSusCifras({
     ...unit,
-    attack: unit.attack + EXPERIENCIA.porRango.ataque * subidas,
-    defense: unit.defense + EXPERIENCIA.porRango.defensa * subidas,
-  };
+    attack: unit.attack + por.ataque * subidas,
+    fuerza: unit.fuerza + por.fuerza * subidas,
+    agilidad: unit.agilidad + por.agilidad * subidas,
+  });
 }
 
 /**
@@ -178,6 +189,8 @@ export function cifrasVeteranas<U extends UnitInfo>(unit: U, rango: number): U {
 export function cifrasDelIndividuo<U extends UnitInfo>(
   unit: U,
   hoja: Pick<Veterania, 'experiencia' | 'equipo'> | null | undefined,
+  deSerie?: Equipo,
 ): U {
-  return conEquipo(cifrasVeteranas(unit, rangoDeTropa(hoja)), hoja?.equipo);
+  const equipo = deSerie === undefined ? hoja?.equipo : { ...deSerie, ...hoja?.equipo };
+  return conEquipo(cifrasVeteranas(unit, rangoDeTropa(hoja)), equipo);
 }

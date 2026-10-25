@@ -13,8 +13,7 @@
  *
  * - **mezcla**: de 3 a `LIDERAZGO.maxPorBando` hojas de tropa por bando.
  * - **armadura**: tres contra tres de todas las hojas (mezcla) y un jinete contra
- *   tres de arco, ballesta o bastón, con la barda, sin ella y como antes de #262
- *   (sin barda y con lo que sumaba, +5 de defensa y +220 PV, en el cuerpo);
+ *   tres de arco, ballesta o bastón, con la barda y sin ella
  *   cuenta los golpes que la armadura paró enteros.
  * - **con héroes**: tres contra tres de todas las hojas, con un héroe por bando
  *   sin libro (que pega con la Espada).
@@ -80,16 +79,9 @@ const TANDAS: readonly Tanda[] = (() => {
   const igual = (u: Unidad): Unidad => u;
   const sinBarda = (u: Unidad): Unidad =>
     u.equipo.armadura === 'barda' ? quitarEnArena(u, 'armadura') : u;
-  // Para comparar, no para jugar: sin barda y lo que sumaba la barda en el cuerpo.
-  const comoAntes = (u: Unidad): Unidad => {
-    if (u.equipo.armadura !== 'barda') return u;
-    const sin = quitarEnArena(u, 'armadura');
-    return { ...sin, defense: sin.defense + 5, hp: sin.hp + 220 };
-  };
   const conArmadura: readonly Variante[] = [
     { nombre: 'con barda', cambia: igual },
     { nombre: 'sin barda', cambia: sinBarda },
-    { nombre: 'como antes', cambia: comoAntes },
   ];
   const elJuego: readonly Variante[] = [{ nombre: 'el juego', cambia: igual }];
   return [

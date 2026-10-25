@@ -735,6 +735,10 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     // Y otra con salir del contacto en toda batalla (19-10-2026): en (9,3) el
     // atacante toca al defensor de (10,3), salir le cuesta uno más y solo le
     // llega para las casillas de al lado; el orden de las que quedan no cambia.
+    //
+    // Y otra con la fuerza y la agilidad (25-10-2026): el zombi atacante anda 3
+    // (el escudo ya no resta: pesa) y llega a más casillas; la regla del orden, la
+    // misma.
     expect(legalActions(batallaDeCuatroEnemigos())).toEqual([
       { type: 'defend' },
       { type: 'wait' },
@@ -743,14 +747,20 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
       { type: 'move', to: { col: 8, row: 3 } },
       { type: 'move', to: { col: 9, row: 2 } },
       { type: 'move', to: { col: 10, row: 2 } },
+      { type: 'move', to: { col: 8, row: 5 } },
+      { type: 'move', to: { col: 9, row: 5 } },
+      { type: 'move', to: { col: 8, row: 4 } },
+      { type: 'move', to: { col: 7, row: 3 } },
+      { type: 'move', to: { col: 8, row: 2 } },
+      { type: 'move', to: { col: 8, row: 1 } },
+      { type: 'move', to: { col: 9, row: 1 } },
       { type: 'attack', target: 'defender-0', from: { col: 10, row: 4 } },
       { type: 'attack', target: 'defender-1' },
       { type: 'attack', target: 'defender-1', from: { col: 10, row: 4 } },
       { type: 'attack', target: 'defender-1', from: { col: 10, row: 2 } },
       { type: 'attack', target: 'defender-2', from: { col: 10, row: 4 } },
+      { type: 'attack', target: 'defender-2', from: { col: 9, row: 5 } },
       { type: 'attack', target: 'defender-3', from: { col: 10, row: 2 } },
-      // Al final, siempre: con el turno en tramos (2026-10-02) cerrar a mano es
-      // una acción más, y al final no mueve lo que encuentra un `find` de la IA.
       { type: 'end_turn' },
     ]);
   });
@@ -831,10 +841,12 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     stackById(state, 'attacker-0').hex = { col: 0, row: 4 };
 
     aCero();
-    aplicar(state, { type: 'move', to: { col: 2, row: 4 } }, createRng(1));
+    // Las tres casillas del zombi: si le quedara alguna, el turno seguiría abierto
+    // y se volvería a mirar a dónde llega.
+    aplicar(state, { type: 'move', to: { col: 3, row: 4 } }, createRng(1));
 
     expect(recorridos()).toBe(1);
-    expect(stackById(state, 'attacker-0').hex).toEqual({ col: 2, row: 4 });
+    expect(stackById(state, 'attacker-0').hex).toEqual({ col: 3, row: 4 });
   });
 
   it('la carga cobra los mismos hexes con recorrido traído que sin él (#78)', () => {
@@ -1071,7 +1083,7 @@ describe('efectos temporales (#9)', () => {
         COMBATE_COMPLETO,
       ),
       'attacker-0',
-      con(PESADA, 'fear', { hp: 2000 }),
+      con(PESADA, 'fear', { hp: 20000 }),
     );
     const asusta = stackById(state, 'attacker-0');
     const esqueleto = stackById(state, 'defender-0');
@@ -1231,6 +1243,8 @@ describe('rasgos de criatura (#8)', () => {
       maldice,
     );
     enfrentar(stackById(contraVivos, 'attacker-0'), stackById(contraVivos, 'defender-0'));
+    // El piquero es más ágil y abriría la ronda: el turno, del que maldice.
+    forzarTurno(contraVivos, 'attacker-0');
     aplicar(contraVivos, { type: 'attack', target: 'defender-0' }, rng);
 
     const piquero = stackById(contraVivos, 'defender-0');
@@ -1253,6 +1267,7 @@ describe('rasgos de criatura (#8)', () => {
       maldice,
     );
     enfrentar(stackById(contraMuertos, 'attacker-0'), stackById(contraMuertos, 'defender-0'));
+    forzarTurno(contraMuertos, 'attacker-0');
     aplicar(contraMuertos, { type: 'attack', target: 'defender-0' }, rng2);
 
     const esqueleto = stackById(contraMuertos, 'defender-0');
@@ -1286,6 +1301,8 @@ describe('rasgos de criatura (#8)', () => {
     liche.hex = { col: 0, row: 4 };
     aliado.hex = { col: 5, row: 4 };
     objetivo.hex = { col: 6, row: 4 };
+    // El piquero es más ágil que el esqueleto y abriría la ronda.
+    forzarTurno(state, 'attacker-0');
 
     const aliadoAntes = aliado.count;
     expect(state.turno?.stack).toBe('attacker-0');
@@ -1450,6 +1467,17 @@ describe('el libro de hechizos del jugador (#4)', () => {
  * vez el tope de carga (+50 % a los 5 hexes) y una casilla barata que no carga
  * nada, que es exactamente la disyuntiva que #50 decide.
  */
+/**
+ * El jinete de `state` con las 7 casillas que tenía antes de pesar su barda
+ * (25-10-2026: con fuerza y agilidad anda 6): la geometría de estas escenas es de
+ * ellas.
+ */
+function conSieteCasillas(state: BattleState, id = 'attacker-0'): BattleState {
+  const s = stackById(state, id) as { unit: UnitInfo };
+  s.unit = { ...s.unit, speed: 'ultra_fast' };
+  return state;
+}
+
 function escenaDeCarga(atacante: string): BattleState {
   const state = createBattle(
     side([{ creature: atacante, count: 10 }]),
@@ -1457,6 +1485,7 @@ function escenaDeCarga(atacante: string): BattleState {
     createRng(7),
     COMBATE_COMPLETO,
   );
+  if (atacante === JINETE) conSieteCasillas(state);
   stackById(state, 'attacker-0').hex = { col: 0, row: 4 };
   stackById(state, 'defender-0').hex = { col: 3, row: 4 };
   return state;
@@ -1835,6 +1864,7 @@ function escenaDeEspera(piqueroEn: Hex, piqueroYaActuo = false): BattleState {
     createRng(74),
     COMBATE_COMPLETO,
   );
+  conSieteCasillas(state);
   stackById(state, 'attacker-0').hex = { col: 0, row: 4 };
   stackById(state, 'defender-0').hex = piqueroEn;
   stackById(state, 'defender-0').acted = piqueroYaActuo;
@@ -2276,10 +2306,12 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
   it('una casilla a la que solo se llega con rodeo no carga, por muchos pasos que cueste', () => {
     // (5,5) está a 6 casillas —con la regla vieja, el tope—, cuesta 7 con el
     // contacto, y no está en recta.
-    const state = duelo(JINETE, { col: 0, row: 4 }, TROPA, {
-      col: 5,
-      row: 4,
-    });
+    const state = conSieteCasillas(
+      duelo(JINETE, { col: 0, row: 4 }, TROPA, {
+        col: 5,
+        row: 4,
+      }),
+    );
     expect(movableFrom(state, stackById(state, 'attacker-0')).get('5,5')?.steps).toBe(7);
     aplicar(
       state,

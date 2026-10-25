@@ -26,7 +26,7 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dwellings } from '../src/core/town/town.js';
-import type { Hex } from '../src/core/types.js';
+import type { Hex, UnitInfo } from '../src/core/types.js';
 import { sesionContraMonstruo, sesionContraMonstruoCon } from './batalla-de-cliente.js';
 import {
   anteLaBase,
@@ -660,7 +660,8 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
     s.elegirEnLaRueda('fuerte');
     const cruce = s.battle!.log.find((e) => e.kind === 'cruce' && e.stack === p.atacante.id);
     expect(cruce).toMatchObject({ kind: 'cruce', golpe: 'fuerte', target: p.objetivo.id });
-    expect(s.battle!.golpeEnCurso).toBeNull();
+    // El suyo ya no está plantado; el de un monstruo que le pegue después, puede.
+    expect(s.battle!.golpeEnCurso?.stack).not.toBe(p.atacante.id);
     // Dado el golpe, los botones vuelven, salvo que la rueda ya pida otra respuesta.
     if (s.ruedaPendiente === null) {
       expect(marcadoDe(renderActions(s))).not.toContain(APAGADOS_POR_LA_RUEDA);
@@ -694,7 +695,7 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
     expect(s.status).toBe('');
     const cruce = s.battle!.log.find((e) => e.kind === 'cruce' && e.stack === p.atacante.id);
     expect(cruce).toMatchObject({ kind: 'cruce', golpe: 'rapidoRomper', target: p.objetivo.id });
-    expect(s.battle!.golpeEnCurso).toBeNull();
+    expect(s.battle!.golpeEnCurso?.stack).not.toBe(p.atacante.id);
   });
 
   it('un tipo que no existe se dice en la barra y la rueda sigue esperando', () => {
@@ -955,10 +956,21 @@ describe('«Solo la rueda del héroe» (complejidad del combate, 22-10-2026)', (
     // Justo el golpe del héroe era el que se atascaba con la rueda de 3.
     const s = sesionContraMonstruo({ combate: combateCon(7, 3), soloRuedaDelHeroe: true });
     const mio = s.miBando;
+    // Monstruos que aguanten: con la fuerza y la agilidad (25-10-2026) el héroe los
+    // tumbaba antes de que su tropa llegara a cruzarse con ninguno.
+    for (const st of s.battle!.stacks) {
+      if (st.side === mio) continue;
+      const w = st as { unit: UnitInfo; topHp: number };
+      w.unit = { ...w.unit, hp: w.unit.hp * 10 };
+      w.topHp = w.unit.hp;
+    }
     const fases: string[] = [];
     jugarConRueda(s, (p) => {
       expect(suyo(p).origen.kind, `${p.fase} de ${suyo(p).id}`).toBe('heroe');
-      expect(Object.keys(p.prevision.porTipo ?? {})).toHaveLength(3);
+      // Los tres sectores; al responder sin contraataque (ya devolvió uno esta
+      // ronda), ninguno da daño y la previsión no trae ninguno.
+      expect([0, 3]).toContain(Object.keys(p.prevision.porTipo ?? {}).length);
+      if (p.fase === 'golpe') expect(Object.keys(p.prevision.porTipo ?? {})).toHaveLength(3);
       fases.push(p.fase);
     });
     expect(fases).toContain('golpe');

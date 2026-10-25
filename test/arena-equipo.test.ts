@@ -175,16 +175,18 @@ describe('el catálogo de equipo en la arena', () => {
     );
   });
 
-  it('muerde con la regla de una pieza del catálogo: el escudo no suma, las manos son de un arma, el daño en orden', () => {
-    expect(() => validarPieza({ ...pieza('escudo'), velocidad: 1 })).toThrow(
-      '«Escudo» es un escudo y no puede sumar velocidad (0 o un número negativo), y es 1',
+  it('muerde con la regla de una pieza del catálogo: sin velocidad ni daño de antes, las manos son de un arma, todo pesa', () => {
+    expect(() => validarPieza({ ...pieza('escudo'), velocidad: -1 })).toThrow(
+      '«Escudo» dice velocidad: ninguna pieza resta movimiento, lo hace su peso («peso»)',
     );
     expect(() => validarPieza({ ...pieza('brigantina'), manos: 2 })).toThrow(
       'solo un arma se lleva a dos manos',
     );
     expect(() => validarPieza({ ...ESPADA, danio: [30, 10] })).toThrow(
-      'el daño mínimo que suma (30) pasa del máximo (10)',
+      '«Espada» dice daño: un arma suma fuerza («fuerza»)',
     );
+    const { peso: _peso, ...sinPeso } = ESPADA as Pieza;
+    expect(() => validarPieza(sinPeso)).toThrow('«Espada» no dice su peso: toda pieza pesa');
     // Para la persona: qué hacer, el recurso en español y un campo vacío sin «NaN».
     expect(() => validarPieza({ ...ESPADA, nombre: ' ' })).toThrow('no tiene nombre: escribe uno');
     expect(() => validarPieza({ ...ESPADA, precio: -5 })).toThrow(
@@ -201,23 +203,18 @@ describe('el catálogo de equipo en la arena', () => {
     );
   });
 
-  it('cambiar el hueco rehace lo que el hueco exige: el escudo no suma y las manos son de un arma', () => {
+  it('cambiar el hueco rehace lo que el hueco exige: lo que no suma, a 0; las manos son de un arma; el peso se queda', () => {
     const arma = { ...(piezaNueva('arma', EQUIPO_DEL_JUEGO) as Pieza), manos: 2 as const };
     const escudo = validarPieza(enElHueco(arma, 'escudo')) as Pieza;
-    expect(escudo).toMatchObject({ hueco: 'escudo', velocidad: 0 });
+    expect(escudo).toMatchObject({ hueco: 'escudo', peso: 0 });
     expect(escudo.manos).toBeUndefined();
-    // Lo que sumaba se queda en 0 al pasar a escudo (23-10-2026: 0 vale).
-    expect(enElHueco({ ...arma, velocidad: 2 }, 'escudo').velocidad).toBe(0);
-    // Lo que ya restaba se queda; lo que restaba el escudo se va con él: de vuelta
-    // al arma no resta. Un arma que ya restaba sin ser escudo, sigue restando.
-    expect(enElHueco({ ...escudo, velocidad: -2 }, 'escudo').velocidad).toBe(-2);
-    expect((validarPieza(enElHueco(escudo, 'arma')) as Pieza).velocidad).toBe(0);
-    expect(enElHueco({ ...arma, velocidad: -1 }, 'armadura').velocidad).toBe(-1);
+    // Toda pieza pesa, en cualquier hueco: el peso va con ella.
+    expect(enElHueco({ ...arma, peso: 7 }, 'escudo').peso).toBe(7);
     // Lo que el hueco nuevo no suma se queda en 0 (18-10-2026): un arma que pasa a
-    // escudo deja su ataque y su daño, y a armadura, también su rueda.
+    // escudo deja su ataque y su fuerza, y a armadura, también su rueda.
     const maza = pieza('maza');
-    expect(enElHueco(maza, 'escudo')).toMatchObject({ ataque: 0, velocidad: 0 });
-    expect(enElHueco(maza, 'escudo')).not.toHaveProperty('danio');
+    expect(enElHueco(maza, 'escudo')).toMatchObject({ ataque: 0, peso: maza.peso });
+    expect(enElHueco(maza, 'escudo')).not.toHaveProperty('fuerza');
     expect(enElHueco(maza, 'armadura')).not.toHaveProperty('rueda');
     expect(enElHueco(maza, 'lanza').rueda).toEqual(maza.rueda);
   });
@@ -225,8 +222,8 @@ describe('el catálogo de equipo en la arena', () => {
   it('«Nueva pieza» y «Duplicar» dan un id libre', () => {
     const escudo = piezaNueva('escudo', EQUIPO_DEL_JUEGO) as Pieza;
     expect(escudo).toMatchObject({ id: 'escudo-2', nombre: 'Escudo 2' });
-    // En blanco no frena: un escudo no suma, y 0 vale (23-10-2026).
-    expect(escudo.velocidad).toBe(0);
+    // En blanco no pesa nada.
+    expect(escudo.peso).toBe(0);
     const eq = catalogoCon(escudo);
     expect(piezaNueva('escudo', eq).id).toBe('escudo-3');
     // La copia lo es todo, también de dónde se consigue.
@@ -320,8 +317,8 @@ describe('cambiar una pieza no deja sin valer a nadie del catálogo', () => {
     );
     expect(motivoDelCambio(catalogoCon(nueva), sin, [arquero()])).toBeNull();
     expect(
-      motivoDelCambio(EQUIPO_DEL_JUEGO, conMala({ ...pieza('escudo'), velocidad: 1 }), []),
-    ).toMatch(/es un escudo y no puede sumar velocidad/);
+      motivoDelCambio(EQUIPO_DEL_JUEGO, conMala({ ...pieza('escudo'), velocidad: -1 }), []),
+    ).toMatch(/dice velocidad: ninguna pieza resta movimiento/);
     // Ni deja el catálogo sin nada que caiga como botín, que el juego no cargaría.
     expect(
       motivoDelCambio(
@@ -370,7 +367,7 @@ describe('el enlace de la pelea lleva las piezas de lo montado', () => {
   };
 
   it('va y vuelve con todas las piezas que lleva, y monta con ellas en el catálogo de quien lo abre', () => {
-    expect(VERSION_DEL_ENLACE).toBe(14);
+    expect(VERSION_DEL_ENLACE).toBe(15);
     // Lo que llevan el guerrero (la nueva, la brigantina, el escudo) y el arquero
     // (daga, arco, jubón): todas, no solo las cambiadas.
     expect(ENLACE.piezas.map((p) => p.id).sort()).toEqual(
@@ -795,10 +792,10 @@ describe('la vista «Editar equipo»', () => {
             !c.startsWith('rueda-') &&
             !c.startsWith('se-consigue-'),
         );
-    expect(campos('espada')).toEqual(['ataque', 'danio-min', 'danio-max', 'precio-gold']);
-    expect(campos('arco')).toEqual(['ataque', 'danio-min', 'danio-max', 'precio-gold']);
-    expect(campos('brigantina')).toEqual(['defensa', 'armadura', 'velocidad', 'precio-gold']);
-    expect(campos('escudo')).toEqual(['defensa', 'velocidad', 'precio-gold']);
+    expect(campos('espada')).toEqual(['ataque', 'fuerza', 'peso', 'precio-gold']);
+    expect(campos('arco')).toEqual(['ataque', 'fuerza', 'peso', 'precio-gold']);
+    expect(campos('brigantina')).toEqual(['armadura', 'peso', 'precio-gold']);
+    expect(campos('escudo')).toEqual(['defensa', 'peso', 'precio-gold']);
     for (const id of ['espada', 'maza', 'lanza_de_jinete']) {
       expect(vista(id), id).toContain('data-rueda-de-la-pieza="si"');
       // Seis tipos: Normal no tiene nivel.
@@ -981,7 +978,7 @@ describe('la ficha de una unidad ofrece solo lo que el núcleo admite (H3 de la 
       }
     }
     // El escudo con el mandoble a dos manos: va, desactivado y con su motivo.
-    const orco = unidadDeArena('orko-dos-armas');
+    const orco = unidadDeArena('templario-mandoble');
     const escudos = opcionesDelHueco(orco, 'escudo', EQUIPO_DEL_JUEGO);
     expect(escudos.length).toBeGreaterThan(0);
     for (const e of escudos) expect(e.motivo, e.pieza.id).toMatch(/arma a dos manos/);

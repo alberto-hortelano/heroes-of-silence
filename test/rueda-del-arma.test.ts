@@ -316,10 +316,12 @@ describe('cada golpe de la rueda va con su arma', () => {
   });
 
   it('la Finta de la daga (nivel 5) resta menos casillas que la de la espada (nivel 3)', () => {
-    // El jinete (7 casillas): tras golpear le queda por andar, y el turno sigue.
+    // El jinete (6 o 7 casillas, lo que le deje el peso): tras golpear le queda por
+    // andar, y el turno sigue. Contra uno que aguanta el golpe: con la fuerza y la
+    // agilidad (25-10-2026), el guerrero con escudo caía de uno y la pelea acababa.
     const tras = (arma: string): number | undefined => {
       const jinete = equiparEnArena(unidadDeArena(JINETE), arma, EQ);
-      const b = pelea(jinete, unidadDeArena(TROPA));
+      const b = pelea(jinete, unidadDeArena(TROPA, { hp: 2000 }));
       // Contra Romper guardia, su opuesto: el éxito máximo.
       dar(b, 'finta', 'romperGuardia');
       expect(b.turno?.stack).toBe('attacker-0');

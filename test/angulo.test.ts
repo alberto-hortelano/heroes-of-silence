@@ -177,7 +177,7 @@ describe('el clic sobre un enemigo elige el ángulo', () => {
 describe('el clic sobre un enemigo al que no se llega', () => {
   it('pinta el motivo del núcleo y no una frase del cliente (H2)', () => {
     // Al otro extremo del tablero, donde no llega en un turno ninguna velocidad.
-    const { s, objetivo } = sesionConEnemigoALaVista({ col: 10, row: 2 });
+    const { s, objetivo } = sesionConEnemigoALaVista({ col: 11, row: 0 });
     const [ancho, alto] = [1086, 778];
     const rival = s.battle!.stacks.find((x) => x.id === objetivo)!;
     const escena = new EscenaBatalla(() => s);
@@ -190,7 +190,7 @@ describe('el clic sobre un enemigo al que no se llega', () => {
   });
 
   it('al pasar el ratón ya lo dice, con la misma frase que el clic, y se quita al salir (N3)', () => {
-    const { s, objetivo } = sesionConEnemigoALaVista({ col: 10, row: 2 });
+    const { s, objetivo } = sesionConEnemigoALaVista({ col: 11, row: 0 });
     const [ancho, alto] = [1086, 778];
     const rival = s.battle!.stacks.find((x) => x.id === objetivo)!;
     const escena = new EscenaBatalla(() => s);

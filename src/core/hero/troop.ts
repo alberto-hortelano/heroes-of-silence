@@ -66,7 +66,7 @@ export function troopUnit(t: Troop, characters: Personajes): UnitInfo {
   // test exige que las dos puertas den lo mismo para un veterano.
   if (t.member === undefined) return cifrasDeUnidad(t.creature, t.veterania);
   const perfil = combatProfile(characterOf(characters, t.member, 'el ejército lleva'));
-  return cifrasDelIndividuo(perfil.unit, t.veterania);
+  return cifrasDelIndividuo(perfil.unit, t.veterania, perfil.equipo);
 }
 
 /**

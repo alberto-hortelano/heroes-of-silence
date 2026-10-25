@@ -63,8 +63,13 @@ export function conComa(n: number, decimales: number): string {
  * Escalones de velocidad. Fijan dos cosas distintas:
  * el orden de iniciativa en batalla y los puntos de movimiento del héroe en
  * el mapa (que los marca la criatura MÁS LENTA del ejército).
+ *
+ * Salen de la agilidad efectiva (`cifrasDelCuerpo`, `core/cuerpo.ts`), que el peso
+ * puede bajar hasta 1: por eso `crawling` (1 casilla), **regla nuestra**
+ * (25-10-2026), que fheroes2 no tiene; en el mapa anda como `very_slow`.
  */
 export const SPEED_TIERS = [
+  'crawling',
   'very_slow',
   'slow',
   'average',
@@ -77,6 +82,7 @@ export type SpeedTier = (typeof SPEED_TIERS)[number];
 
 /** Hexes que recorre una unidad de esa velocidad en un turno de batalla. */
 export const SPEED_TO_HEXES: Readonly<Record<SpeedTier, number>> = {
+  crawling: 1,
   very_slow: 2,
   slow: 3,
   average: 4,
@@ -92,6 +98,8 @@ export const SPEED_TO_HEXES: Readonly<Record<SpeedTier, number>> = {
  * del mapa (`marchaALaEscala`, `core/escala.ts`, #226).
  */
 export const SPEED_TO_MOVE_POINTS: Readonly<Record<SpeedTier, number>> = {
+  // Regla nuestra: fheroes2 no baja de `very_slow`.
+  crawling: 1000,
   very_slow: 1000,
   slow: 1100,
   average: 1200,
@@ -203,11 +211,34 @@ export interface UnitInfo {
   readonly name: string;
   readonly faction: FactionId | null;
   readonly attack: number;
+  /**
+   * La fuerza del cuerpo (25-10-2026, «aparecen las características fuerza y
+   * agilidad»): el daño mínimo, con la del arma encima, y lo que aguanta el peso
+   * sin restar agilidad (`core/cuerpo.ts`).
+   */
+  readonly fuerza: number;
+  /** La agilidad del cuerpo, sin lo que le reste el peso: de ella salen la defensa, el daño máximo y las casillas. */
+  readonly agilidad: number;
+  /**
+   * La defensa que no es agilidad ni escudo: la Defensa del héroe con lo que le da
+   * su rango, y la del personaje; 0 la tropa. Se suma a la defensa (`cifrasDelCuerpo`).
+   */
+  readonly defensaPropia: number;
+  /**
+   * **Derivadas**: `defense`, `damage` y `speed` salen de las de arriba y del
+   * equipo, y las escribe solo `cifrasDelCuerpo` (`core/cuerpo.ts`; lo vigila
+   * `test/invariantes.test.ts`). El motor, la IA y el contrato las leen tal cual.
+   */
   readonly defense: number;
-  /** [mínimo, máximo] de daño por efectivo. */
+  /** [mínimo, máximo] de daño por efectivo: [fuerza, fuerza × agilidad efectiva], con la del arma. */
   readonly damage: readonly [number, number];
   readonly hp: number;
   readonly speed: SpeedTier;
+  /**
+   * Lo que pesa todo lo que lleva puesto (`Pieza.peso`), si pesa algo: lo escribe
+   * solo `conEquipo`. Por encima de la fuerza resta agilidad (`restaDelPeso`).
+   */
+  readonly peso?: number;
   /**
    * **No hay `nivel` en las cifras**: se deriva de ellas, con el equipo puesto
    * (`nivelDeUnidad`). Tampoco las cifras sin equipo: lo que suma el equipo se
@@ -471,15 +502,21 @@ export function esArmaPorUso(h: Hueco): h is HuecoDeArmaPorUso {
 }
 
 /**
- * Las cifras que una pieza puede sumar, por su nombre en `Pieza`, en el orden en
- * que se dicen. **Ninguna da PV** (18-10-2026: la armadura protege restando de
- * cada golpe, `trasLaArmadura`): `pv` no es una cifra de pieza.
+ * Las cifras de una pieza, por su nombre en `Pieza`, en el orden en que se dicen.
+ * **Ninguna da PV** (18-10-2026: la armadura protege restando de cada golpe,
+ * `trasLaArmadura`): `pv` no es una cifra de pieza. **Ninguna resta movimiento**
+ * (25-10-2026): todo pesa (`peso`), y el peso que pasa de la fuerza resta agilidad
+ * (`restaDelPeso`, `core/cuerpo.ts`). Un arma suma `fuerza` al daño en vez de una
+ * horquilla.
  */
-export const CIFRAS_DE_PIEZA = ['ataque', 'defensa', 'armadura', 'danio', 'velocidad'] as const;
+export const CIFRAS_DE_PIEZA = ['ataque', 'fuerza', 'defensa', 'armadura', 'peso'] as const;
 export type CifraDePieza = (typeof CIFRAS_DE_PIEZA)[number];
 
-/** Las cifras con rótulo en la ficha: las de una pieza y la vida, que no da ninguna pieza. */
-export type CifraDeLaFicha = CifraDePieza | 'pv';
+/**
+ * Las cifras con rótulo en la ficha: las de una pieza, las del cuerpo que no da
+ * ninguna pieza (la vida y la agilidad) y las que se derivan (el daño y las casillas).
+ */
+export type CifraDeLaFicha = CifraDePieza | 'pv' | 'agilidad' | 'danio' | 'casillas';
 
 /**
  * El nombre de cada cifra, el mismo en la tabla de la ficha de la arena (sus
@@ -490,11 +527,14 @@ export type CifraDeLaFicha = CifraDePieza | 'pv';
  */
 export const NOMBRE_DE_CIFRA: Readonly<Record<CifraDeLaFicha, string>> = {
   ataque: 'Ataque',
+  fuerza: 'Fuerza',
+  agilidad: 'Agilidad',
   defensa: 'Defensa',
   armadura: 'Armadura',
+  peso: 'Peso',
   danio: 'Daño',
   pv: 'PV',
-  velocidad: 'Velocidad',
+  casillas: 'Casillas',
 };
 
 /** Qué admite una pieza en su hueco (`camposDelHueco`). */
@@ -508,23 +548,24 @@ export interface CamposDelHueco {
  * Qué admite una pieza en cada hueco (decisión del usuario, 18-10-2026:
  * «diferencia por tipo»): las manos, solo el arma de cuerpo a cuerpo (la regla del
  * escudo mira esa); la rueda, el arma de cuerpo a cuerpo y la lanza, que son las
- * que golpean en ella; y sus cifras: las armas, ataque y daño; la armadura,
- * defensa, armadura y velocidad; el escudo, defensa y velocidad. **La regla, en un
- * sitio**: la leen la regla de una pieza (`problemasDePieza`), el cambio de hueco
- * de una pieza (`enElHueco`) y su editor. Los disparos se fueron con la munición
- * (13-10-2026): dispara quien lleva algo en `distancia`.
+ * que golpean en ella; y sus cifras: las armas, ataque, fuerza y peso; la
+ * armadura, armadura y peso; el escudo, defensa y peso (25-10-2026: la armadura ya
+ * no da defensa, y nada resta movimiento). **La regla, en un sitio**: la leen la
+ * regla de una pieza (`problemasDePieza`), el cambio de hueco de una pieza
+ * (`enElHueco`) y su editor. Los disparos se fueron con la munición (13-10-2026):
+ * dispara quien lleva algo en `distancia`.
  */
 export function camposDelHueco(h: Hueco): CamposDelHueco {
   return CAMPOS_DEL_HUECO[h];
 }
 
-const DE_ARMA: readonly CifraDePieza[] = ['ataque', 'danio'];
+const DE_ARMA: readonly CifraDePieza[] = ['ataque', 'fuerza', 'peso'];
 const CAMPOS_DEL_HUECO: Readonly<Record<Hueco, CamposDelHueco>> = {
   arma: { conManos: true, conRueda: true, cifras: DE_ARMA },
   lanza: { conManos: false, conRueda: true, cifras: DE_ARMA },
   distancia: { conManos: false, conRueda: false, cifras: DE_ARMA },
-  armadura: { conManos: false, conRueda: false, cifras: ['defensa', 'armadura', 'velocidad'] },
-  escudo: { conManos: false, conRueda: false, cifras: ['defensa', 'velocidad'] },
+  armadura: { conManos: false, conRueda: false, cifras: ['armadura', 'peso'] },
+  escudo: { conManos: false, conRueda: false, cifras: ['defensa', 'peso'] },
 };
 
 /**

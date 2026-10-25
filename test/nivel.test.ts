@@ -12,10 +12,17 @@
  */
 import { describe, expect, it } from 'vitest';
 import { equiparEnArena, piezaNueva } from '../src/core/arena.js';
-import { UNIDADES, unidad, unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
+import {
+  cifrasDeUnidad,
+  UNIDADES,
+  unidad,
+  unidadDelJuego,
+  unidadesDelJuego,
+} from '../src/core/catalogo.js';
+import { restaDelPeso } from '../src/core/cuerpo.js';
 import { EQUIPO, type Pieza, validarPoder } from '../src/core/data.js';
 import { conEquipo, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
-import { cifrasVeteranas, umbral } from '../src/core/hero/experiencia.js';
+import { umbral } from '../src/core/hero/experiencia.js';
 import { heroUnit } from '../src/core/hero/hero.js';
 import { indiceDePoder, medidaBlocker, nivelDeUnidad, poderBruto } from '../src/core/nivel.js';
 import { type NivelesDeLaRueda, SPEED_TIERS, type UnitInfo } from '../src/core/types.js';
@@ -32,40 +39,40 @@ import { catalogoCon, JINETE, PESADA, TROPA, todoA } from './helpers.js';
  * `unidad.ts` apuntan aquí.
  */
 const TABLA_DEL_CATALOGO: Readonly<Record<string, readonly [number, number]>> = {
-  'templario-escudo': [295, 2],
-  'templario-mandoble': [349, 3],
-  'templario-monje': [220, 2],
-  'templario-escudero': [311, 3],
-  'templario-hermano-de-carga': [499, 4],
-  'templario-penitente': [349, 3],
-  'esqueleto-guerrero': [259, 2],
-  'esqueleto-arquero': [254, 2],
+  'templario-escudo': [307, 3],
+  'templario-mandoble': [335, 3],
+  'templario-monje': [214, 2],
+  'templario-escudero': [323, 3],
+  'templario-hermano-de-carga': [466, 4],
+  'templario-penitente': [315, 3],
+  'esqueleto-guerrero': [215, 2],
+  'esqueleto-arquero': [202, 2],
   zombi: [324, 3],
-  espectro: [311, 3],
-  'caballero-de-la-muerte': [338, 3],
-  'jinete-de-plaga': [476, 4],
-  'imperio-alabardero': [347, 3],
-  'imperio-piquero': [338, 3],
-  'imperio-ballestero': [308, 3],
-  'imperio-coracero': [293, 2],
-  'imperio-arcabucero': [308, 3],
-  'imperio-rodelero': [311, 3],
-  'imperio-artillero-culebrina': [308, 3],
-  'imperio-pistolero-montado': [476, 4],
-  'imperio-granadero': [317, 3],
-  'elfo-arquero': [291, 2],
-  'elfo-explorador': [306, 3],
-  'elfo-guardia-del-bosque': [311, 3],
-  'elfo-jinete': [476, 4],
-  'elfo-sacerdotisa': [228, 2],
-  'elfo-asesino': [311, 3],
-  'orko-hacha-escudo': [324, 3],
-  'orko-dos-armas': [349, 3],
-  'goblin-lancero': [249, 2],
-  'goblin-arquero': [266, 2],
-  'troll-maza': [338, 3],
-  'goblin-jinete-de-hiena': [476, 4],
-  'orko-armadura-pesada': [349, 3],
+  espectro: [307, 3],
+  'caballero-de-la-muerte': [327, 3],
+  'jinete-de-plaga': [435, 4],
+  'imperio-alabardero': [306, 3],
+  'imperio-piquero': [306, 3],
+  'imperio-ballestero': [271, 2],
+  'imperio-coracero': [318, 3],
+  'imperio-arcabucero': [271, 2],
+  'imperio-rodelero': [323, 3],
+  'imperio-artillero-culebrina': [275, 2],
+  'imperio-pistolero-montado': [432, 4],
+  'imperio-granadero': [309, 3],
+  'elfo-arquero': [284, 2],
+  'elfo-explorador': [311, 3],
+  'elfo-guardia-del-bosque': [339, 3],
+  'elfo-jinete': [435, 4],
+  'elfo-sacerdotisa': [219, 2],
+  'elfo-asesino': [304, 3],
+  'orko-hacha-escudo': [343, 3],
+  'orko-dos-armas': [323, 3],
+  'goblin-lancero': [224, 2],
+  'goblin-arquero': [221, 2],
+  'troll-maza': [293, 2],
+  'goblin-jinete-de-hiena': [319, 3],
+  'orko-armadura-pesada': [313, 3],
 };
 
 describe('el índice de poder y el nivel (core/nivel.ts)', () => {
@@ -74,6 +81,9 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
       name: 'nada',
       faction: null,
       attack: 0,
+      fuerza: 1,
+      agilidad: 1,
+      defensaPropia: 0,
       defense: 0,
       damage: [1, 1],
       hp: 1,
@@ -110,17 +120,19 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
   });
 
   it('un veterano tiene más índice que un novato de su unidad', () => {
+    // El rango se suma al cuerpo, antes que su equipo (`cifrasDeUnidad`).
     for (const c of unidadesDelJuego()) {
-      expect(indiceDePoder(cifrasVeteranas(c, 5)), c.id).toBeGreaterThan(indiceDePoder(c));
+      const veterano = cifrasDeUnidad(c.id, { experiencia: umbral(5) });
+      expect(indiceDePoder(veterano), c.id).toBeGreaterThan(indiceDePoder(c));
     }
   });
 
-  it('el equipo cuenta: ponerse una pieza que no frena no baja el índice, y el arma de más ataque lo sube', () => {
+  it('el equipo cuenta: ponerse una pieza que no le pesa de más no baja el índice, y el arma de más ataque lo sube', () => {
     // El cuerpo desnudo de la pesada: vestida ya lleva algo en cada hueco.
     const espadachin = cuerpoDeCombate(unidad(PESADA));
     const desnudo = indiceDePoder(espadachin);
     for (const p of EQUIPO) {
-      if ((p.velocidad ?? 0) < 0) continue;
+      if (restaDelPeso(espadachin.fuerza, p.peso) > 0) continue;
       const puesto = conEquipo(espadachin, { [p.hueco]: p.id });
       expect(indiceDePoder(puesto), p.id).toBeGreaterThanOrEqual(desnudo);
     }
@@ -132,6 +144,9 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
       name: 'cuerpo',
       faction: null,
       attack: 3,
+      fuerza: 20,
+      agilidad: 4,
+      defensaPropia: 0,
       defense: 3,
       damage: [20, 40],
       hp: 80,
@@ -220,7 +235,7 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
   it('el héroe: su cuerpo crece por rango y su nivel se lee de él, con el equipo', () => {
     const conRango = (r: number) =>
       heroUnit({ name: 'X', attack: 2, defense: 2, experience: umbral(r), equipo: {} });
-    expect(indiceDePoder(conRango(5))).toBe(363);
+    expect(indiceDePoder(conRango(5))).toBe(354);
     expect(nivelDeUnidad(conRango(5))).toBe(3);
     expect(indiceDePoder(conRango(10))).toBeGreaterThan(indiceDePoder(conRango(5)));
     // Con la Espada, más: las piezas cuentan.
@@ -232,7 +247,7 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
       equipo: { arma: 'espada' },
     });
     expect(equipado.attack).toBeGreaterThan(conRango(5).attack);
-    expect(indiceDePoder(equipado)).toBe(419);
+    expect(indiceDePoder(equipado)).toBe(407);
   });
 
   it('unas cifras que no caben en un entero lanzan diciéndolo, no redondean', () => {

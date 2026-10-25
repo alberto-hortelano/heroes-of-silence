@@ -42,13 +42,14 @@ const RIVAL = 'zombi';
 
 /**
  * Una pelea de la arena con `id` en (0,4) y un zombi en (`recta` + 1, 4): desde
- * (`recta`, 4) la recta mide `recta` casillas y el zombi es la que sigue. Con 7
- * casillas de velocidad, que la de la hoja no es lo que se prueba.
+ * (`recta`, 4) la recta mide `recta` casillas y el zombi es la que sigue. Con
+ * agilidad 7 (lo que le deje el peso, 6 o 7 casillas), que la de la hoja no es lo
+ * que se prueba.
  */
 function enRecta(id: string, recta: number): { readonly b: BattleState; readonly desde: Hex } {
   const b = batallaDeArena(
     {
-      izquierda: { unidades: [delBorrador(unidadDeArena(id, { casillas: 7 }))], heroe: null },
+      izquierda: { unidades: [delBorrador(unidadDeArena(id, { agilidad: 7 }))], heroe: null },
       derecha: { unidades: [delBorrador(unidadDeArena(RIVAL))], heroe: null },
       ...MONTAJE,
     },
@@ -169,7 +170,7 @@ describe('carga todo el que pega cuerpo a cuerpo, y el jinete cobra más', () =>
 
   it('con la misma recta, el jinete pega más que el de a pie con las mismas cifras de golpe', () => {
     // El mismo cuerpo y la misma lanza: solo cambia el rasgo.
-    const conLanza = { casillas: 7, equipo: { arma: 'espada', lanza: 'lanza_de_jinete' } } as const;
+    const conLanza = { agilidad: 7, equipo: { arma: 'espada', lanza: 'lanza_de_jinete' } } as const;
     const danio = (traits: readonly 'charge'[]): number => {
       const b = batallaDeArena(
         {

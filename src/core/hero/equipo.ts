@@ -22,6 +22,7 @@
  */
 
 import { CARGA, CARGA_MINIMA } from '../battle/carga.js';
+import { cifrasDelCuerpo, danioDeLaFuerza } from '../cuerpo.js';
 import {
   DICHO_DE_DONDE,
   EQUIPO,
@@ -53,7 +54,6 @@ import {
   huecoDesconocido,
   NOMBRE_DE_CIFRA,
   NOMBRE_DE_HUECO,
-  SPEED_TIERS,
   TIPOS_DEL_ANILLO,
 } from '../types.js';
 import type { Hero } from './hero.js';
@@ -279,16 +279,17 @@ function puestasDe(piezas: CatalogoDePiezas, equipo: Equipo | undefined): Pieza[
 /** Lo que suman las piezas de un equipo, hueco a hueco. */
 export interface SumaDeEquipo {
   /**
-   * Ataque y daño, los del golpe de cuerpo a cuerpo: lo que no es arma y el arma.
-   * Los de un arma por uso (`esArmaPorUso`) no están: son de su golpe
-   * (`UnitInfo.armas`).
+   * Ataque y fuerza, los del golpe de cuerpo a cuerpo: los del arma. Los de un
+   * arma por uso (`esArmaPorUso`) no están: son de su golpe (`UnitInfo.armas`).
    */
   readonly ataque: number;
+  readonly fuerza: number;
+  /** La del escudo, que suma encima de la agilidad (`cifrasDelCuerpo`). */
   readonly defensa: number;
   /** Los puntos de armadura (`Pieza.armadura`). Ninguna pieza da PV. */
   readonly armadura: number;
-  readonly velocidad: number;
-  readonly danio: readonly [number, number];
+  /** Lo que pesa todo, también las armas por uso: el peso es de lo que se lleva. */
+  readonly peso: number;
 }
 
 /**
@@ -303,31 +304,29 @@ export function sumaDeEquipo(equipo: Equipo | undefined): SumaDeEquipo {
 
 /**
  * La suma, **clasificada por la clave del hueco en `equipo`**, no por el hueco
- * que dice la pieza: con un equipo válido es lo mismo. El ataque y el daño de un
+ * que dice la pieza: con un equipo válido es lo mismo. El ataque y la fuerza de un
  * arma por uso (`esArmaPorUso`) no suman aquí, que son los de su golpe
- * (`armasPorUso`); lo demás de cualquier pieza —defensa, armadura, velocidad—,
+ * (`armasPorUso`); lo demás de cualquier pieza —defensa, armadura, peso—,
  * siempre.
  */
 function sumaDe(piezas: CatalogoDePiezas, equipo: Equipo | undefined): SumaDeEquipo {
   let ataque = 0;
+  let fuerza = 0;
   let defensa = 0;
   let armadura = 0;
-  let velocidad = 0;
-  let min = 0;
-  let max = 0;
+  let peso = 0;
   for (const hueco of HUECOS) {
     const id = equipo?.[hueco];
     if (id === undefined) continue;
     const p = piezaDe(piezas, id);
     defensa += p.defensa;
     armadura += p.armadura ?? 0;
-    velocidad += p.velocidad;
+    peso += p.peso;
     if (esArmaPorUso(hueco)) continue;
     ataque += p.ataque;
-    min += p.danio?.[0] ?? 0;
-    max += p.danio?.[1] ?? 0;
+    fuerza += p.fuerza ?? 0;
   }
-  return { ataque, defensa, armadura, velocidad, danio: [min, max] };
+  return { ataque, fuerza, defensa, armadura, peso };
 }
 
 /**
@@ -335,10 +334,11 @@ function sumaDe(piezas: CatalogoDePiezas, equipo: Equipo | undefined): SumaDeEqu
  * `cifrasDelIndividuo` y `heroUnit`, y un test exige que las puertas de la tropa
  * den lo mismo.
  *
- * Sin piezas devuelve **la misma referencia**, no una copia. La velocidad sube
- * o baja escalones de `SPEED_TIERS` y se queda entre el primero y el último. El
- * daño suma `[+mín, +máx]`. Un arma en `distancia` hace tirador a quien la lleva
- * (`isShooter`, que mira `equipo`), sin munición que contar.
+ * Sin piezas devuelve **la misma referencia**, no una copia. El ataque y la
+ * armadura suman; la defensa, el daño y la velocidad se derivan otra vez del
+ * cuerpo con todo lo puesto (`cifrasDelCuerpo`: el peso resta agilidad, el arma
+ * suma fuerza al daño y el escudo, defensa). Un arma en `distancia` hace tirador
+ * a quien la lleva (`isShooter`, que mira `equipo`), sin munición que contar.
  *
  * Deja en `equipo` lo puesto: es de donde se deriva qué suma el equipo
  * (`modificadoresDePieza`). Las cifras sin él no se guardan (19-10-2026: fuera
@@ -363,28 +363,31 @@ function vestir<U extends UnitInfo>(
     );
   }
   const todo: Equipo = { ...unit.equipo, ...equipo };
-  const { ataque, defensa, armadura, velocidad, danio } = sumaDe(piezas, equipo);
-  const puntosDeArmadura = (unit.puntosDeArmadura ?? 0) + armadura;
-  const escalon = Math.max(
-    0,
-    Math.min(SPEED_TIERS.length - 1, SPEED_TIERS.indexOf(unit.speed) + velocidad),
-  );
-  // El daño, solo si alguna pieza lo suma: sin él el objeto sale con los mismos
-  // campos que antes de que las piezas pudieran sumarlo (el banco).
+  // El ataque y la armadura, lo que suma lo nuevo; lo derivado, de todo lo puesto
+  // (lo que ya llevaba y lo de ahora): las primitivas del cuerpo no cambian.
+  const nuevo = sumaDe(piezas, equipo);
+  const total = sumaDe(piezas, todo);
+  const puntosDeArmadura = (unit.puntosDeArmadura ?? 0) + nuevo.armadura;
+  const derivadas = cifrasDelCuerpo(unit, {
+    peso: total.peso,
+    fuerzaDelArma: total.fuerza,
+    defensaDelEscudo: total.defensa,
+  });
+  // El peso, siempre el de todo lo puesto: el de `unit` (si lo traía) ya va en él.
+  const { peso: _antes, ...sinPeso } = unit;
   const vestida: U = {
-    ...unit,
-    attack: unit.attack + ataque,
-    defense: unit.defense + defensa,
-    ...(danio[1] > 0
-      ? { damage: [unit.damage[0] + danio[0], unit.damage[1] + danio[1]] as const }
-      : {}),
-    // La armadura, solo si la hay: como el daño, sin piezas que la den la unidad
+    ...(sinPeso as U),
+    attack: unit.attack + nuevo.ataque,
+    defense: derivadas.defense,
+    damage: derivadas.damage,
+    speed: derivadas.speed,
+    // La armadura y el peso, solo si los hay: sin piezas que los den la unidad
     // sale con los mismos campos.
     ...(puntosDeArmadura > 0 ? { puntosDeArmadura } : {}),
-    speed: SPEED_TIERS[escalon] as UnitInfo['speed'],
+    ...(total.peso > 0 ? { peso: total.peso } : {}),
     equipo: todo,
   };
-  const armas = armasPorUso(piezas, vestida, todo);
+  const armas = armasPorUso(piezas, vestida, todo, derivadas.agilidadEfectiva);
   return armas === null ? vestida : { ...vestida, armas };
 }
 
@@ -401,6 +404,7 @@ function armasPorUso(
   piezas: CatalogoDePiezas,
   vestida: UnitInfo,
   todo: Equipo,
+  agilidad: number,
 ): ArmasDeLaUnidad | null {
   const delCuerpo = todo.arma === undefined ? null : piezaDe(piezas, todo.arma);
   const porUso = HUECOS.filter(
@@ -423,10 +427,9 @@ function armasPorUso(
       {
         arma: armaDe(p),
         attack: vestida.attack - (delCuerpo?.ataque ?? 0) + p.ataque,
-        damage: [
-          vestida.damage[0] - (delCuerpo?.danio?.[0] ?? 0) + (p.danio?.[0] ?? 0),
-          vestida.damage[1] - (delCuerpo?.danio?.[1] ?? 0) + (p.danio?.[1] ?? 0),
-        ],
+        // La fuerza del cuerpo con la de esta arma, por la agilidad que le deja
+        // el peso: la misma cuenta que el golpe de cuerpo a cuerpo.
+        damage: danioDeLaFuerza(vestida.fuerza + (p.fuerza ?? 0), agilidad),
       },
       p,
     );
@@ -446,7 +449,8 @@ function conRuedaDe(g: GolpeConArma, p: Pieza | null): GolpeConArma {
 
 /**
  * Si `a` y `b` tienen las mismas cifras en todo lo que el equipo suma y la vida:
- * ataque, defensa, daño, PV, armadura y velocidad, y las de cada arma (`armas`). Junto a `conEquipo` porque es quien
+ * ataque, fuerza, agilidad, defensa, daño, PV, armadura, peso y velocidad, y las
+ * de cada arma (`armas`). Junto a `conEquipo` porque es quien
  * sabe qué campos toca: si mañana suma otro, esta comparación tiene que verlo.
  * La lee el cambio de una pieza a media pelea de la arena (`retocarEnBatalla`):
  * solo cambia las cifras, y lo escribe en el parte, de quien de verdad cambia.
@@ -454,6 +458,10 @@ function conRuedaDe(g: GolpeConArma, p: Pieza | null): GolpeConArma {
 export function mismasCifras(a: UnitInfo, b: UnitInfo): boolean {
   return (
     a.attack === b.attack &&
+    a.fuerza === b.fuerza &&
+    a.agilidad === b.agilidad &&
+    a.defensaPropia === b.defensaPropia &&
+    (a.peso ?? 0) === (b.peso ?? 0) &&
     a.defense === b.defense &&
     a.damage[0] === b.damage[0] &&
     a.damage[1] === b.damage[1] &&
@@ -482,10 +490,9 @@ function mismasArmas(a: ArmasDeLaUnidad | undefined, b: ArmasDeLaUnidad | undefi
 
 /**
  * La regla de las manos y del escudo dicha para quien juega: la leen la prosa del
- * agente y la ficha de la arena. Junto a `manosBlocker`, que es quien la aplica
- * (el escudo que no resta lo rechaza el cargador del catálogo, `leerEquipo`).
+ * agente y la ficha de la arena. Junto a `manosBlocker`, que es quien la aplica.
  */
-export const REGLA_DEL_ESCUDO = 'un arma a dos manos no admite escudo, y el escudo resta velocidad';
+export const REGLA_DEL_ESCUDO = 'un arma a dos manos no admite escudo';
 
 /**
  * Si `p` es un arma a dos manos. Junto a `manosBlocker`, que aplica la regla: es
@@ -611,15 +618,14 @@ export function sacarDeLaMochila(mochila: readonly string[], id: string): string
 }
 
 /**
- * Una cosa que suma una pieza: una cifra con su valor (el daño, con su máximo en
- * `hasta`) o una marca que no es cifra (`dosManos`: no admite escudo).
+ * Una cosa que suma una pieza: una cifra con su valor (el peso no suma: pesa) o
+ * una marca que no es cifra (`dosManos`: no admite escudo).
  */
 export type ModificadorDePieza =
   | {
       readonly kind: 'cifra';
       readonly cifra: CifraDePieza;
       readonly valor: number;
-      readonly hasta?: number;
     }
   | { readonly kind: 'marca'; readonly marca: 'dosManos' };
 
@@ -632,18 +638,14 @@ export type ModificadorDePieza =
 export function modificadoresDePieza(p: Pieza): ModificadorDePieza[] {
   const valor: Readonly<Record<CifraDePieza, number>> = {
     ataque: p.ataque,
+    fuerza: p.fuerza ?? 0,
     defensa: p.defensa,
     armadura: p.armadura ?? 0,
-    danio: p.danio?.[1] ?? 0,
-    velocidad: p.velocidad,
+    peso: p.peso,
   };
-  const cifras: ModificadorDePieza[] = CIFRAS_DE_PIEZA.flatMap((cifra) => {
-    if (valor[cifra] === 0) return [];
-    if (cifra === 'danio' && p.danio !== undefined) {
-      return [{ kind: 'cifra' as const, cifra, valor: p.danio[0], hasta: p.danio[1] }];
-    }
-    return [{ kind: 'cifra' as const, cifra, valor: valor[cifra] }];
-  });
+  const cifras: ModificadorDePieza[] = CIFRAS_DE_PIEZA.flatMap((cifra) =>
+    valor[cifra] === 0 ? [] : [{ kind: 'cifra' as const, cifra, valor: valor[cifra] }],
+  );
   return aDosManos(p) ? [...cifras, { kind: 'marca', marca: 'dosManos' }] : cifras;
 }
 
@@ -653,22 +655,20 @@ export function conSigno(n: number): string {
 }
 
 /**
- * Un modificador en texto: «+2 Ataque», «−1 Velocidad», «+30–60 Daño», «a dos
- * manos». **El único sitio que formatea** lo que suma una pieza: el marcado lo
- * envuelve, un `<option>` y el agente lo leen tal cual.
+ * Un modificador en texto: «+2 Ataque», «+10 Fuerza», «Peso 4», «a dos manos».
+ * **El único sitio que formatea** lo que suma una pieza: el marcado lo envuelve,
+ * un `<option>` y el agente lo leen tal cual. El peso va sin signo: no se suma a
+ * ninguna cifra, se compara con la fuerza.
  */
 export function textoDeModificador(m: ModificadorDePieza): string {
   if (m.kind === 'marca') return 'a dos manos';
-  const cuanto =
-    m.hasta === undefined || m.hasta === m.valor
-      ? conSigno(m.valor)
-      : `${conSigno(m.valor)}–${m.hasta}`;
-  return `${cuanto} ${NOMBRE_DE_CIFRA[m.cifra]}`;
+  if (m.cifra === 'peso') return `${NOMBRE_DE_CIFRA.peso} ${m.valor}`;
+  return `${conSigno(m.valor)} ${NOMBRE_DE_CIFRA[m.cifra]}`;
 }
 
 /**
  * Lo que suma una pieza, en texto plano: los modificadores separados por comas
- * («+5 Ataque, +30–60 Daño, a dos manos»), o vacío si no suma nada. Para donde no
+ * («+4 Ataque, +20 Fuerza, Peso 12, a dos manos»), o vacío si no suma nada. Para donde no
  * cabe marcado (un `<option>`, la prosa del agente).
  */
 export function cifrasDePieza(p: Pieza): string {

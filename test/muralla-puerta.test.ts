@@ -278,7 +278,7 @@ describe('abrir y cerrar, al principio del turno de quien defiende (C21)', () =>
   it('se cierra con alguien en una de sus casillas (C28)', () => {
     // Toda unidad ocupa una casilla (13-10-2026): nadie se planta en las dos.
     const state = peleaDelMotor(
-      [{ unidad: unidadDeArena('troll-maza', { casillas: 7 }) }],
+      [{ unidad: unidadDeArena('troll-maza', { agilidad: 7 }) }],
       [{ unidad: unidadDeArena('imperio-piquero') }],
       createRng(1),
       CON_PUERTA,

@@ -1161,8 +1161,8 @@ function conCampoDePieza(
         throw new Error(`«${p.nombre}» está sobre otra: su hueco y sus manos son los de su base`);
       }
       if (campo === 'manos') return { ...p, manos: n };
-      // Lo que el hueco exige va con él (`enElHueco`): una nueva pasada a escudo
-      // resta velocidad sin pedirlo aparte, y deja lo que el escudo no suma.
+      // Lo que el hueco exige va con él (`enElHueco`): una pasada a escudo deja lo
+      // que el escudo no suma, y un arma lleva su rueda sin pedirlo aparte.
       if (!esHueco(valor)) throw new Error(`«${valor}» no es un hueco`);
       return enElHueco(p, valor);
   }
@@ -1172,7 +1172,7 @@ function conCampoDePieza(
 
 /**
  * Unos extras con la cifra `campo` de la ficha de una pieza a `n`: el precio en
- * oro, una punta del daño, una cifra o el nivel de un tipo de la rueda
+ * oro, una cifra o el nivel de un tipo de la rueda
  * (`rueda-<tipo>`; con base, lo que sube el de la base).
  */
 function conCifraDePieza(x: ExtrasDePieza, campo: string, n: number): ExtrasDePieza {
@@ -1186,14 +1186,11 @@ function conCifraDePieza(x: ExtrasDePieza, campo: string, n: number): ExtrasDePi
   switch (campo) {
     case 'precio-gold':
       return { ...x, oro: n };
-    case 'danio-min':
-      return { ...x, danio: [n, x.danio?.[1] ?? 0] };
-    case 'danio-max':
-      return { ...x, danio: [x.danio?.[0] ?? 0, n] };
     case 'ataque':
+    case 'fuerza':
     case 'defensa':
     case 'armadura':
-    case 'velocidad':
+    case 'peso':
       return { ...x, [campo]: n };
     default:
       throw new Error(`la ficha de la pieza no tiene un campo «${campo}»`);
@@ -1571,13 +1568,9 @@ function conCampo(u: Unidad, campo: string, valor: string): unknown {
     case 'name':
       return { ...u, name: valor };
 
-    case 'damage-min':
-      return { ...u, damage: [n, u.damage[1]] };
-    case 'damage-max':
-      return { ...u, damage: [u.damage[0], n] };
-    case 'casillas':
     case 'attack':
-    case 'defense':
+    case 'fuerza':
+    case 'agilidad':
     case 'hp':
     case 'leadership':
       return { ...u, [campo]: n };

@@ -164,14 +164,15 @@ const casillaVecinaLibre = (state: GameState, desde: Point): Point => {
 
 describe('puntos de movimiento', () => {
   it('los marca la criatura más lenta del ejército', () => {
-    const lento = ejercito({ creature: 'zombi', count: 5 }, { creature: JINETE, count: 5 });
+    // El troll anda 2 (agilidad 2); el hermano de carga, 6 (7, menos 1 por su barda).
+    const lento = ejercito({ creature: 'troll-maza', count: 1 }, { creature: JINETE, count: 5 });
     expect(slowestSpeed(lento, undefined)).toBe('very_slow');
-    // La tabla de fheroes2 (1000 y 1500) a la escala del mapa de #226: ×√1,5.
+    // La tabla de fheroes2 (1000 y 1400) a la escala del mapa de #226: ×√1,5.
     expect(maxMovePoints({ army: lento, skills: {} }, undefined)).toBe(1224);
 
     const rapido = ejercito({ creature: JINETE, count: 5 });
-    expect(slowestSpeed(rapido, undefined)).toBe('ultra_fast');
-    expect(maxMovePoints({ army: rapido, skills: {} }, undefined)).toBe(1837);
+    expect(slowestSpeed(rapido, undefined)).toBe('very_fast');
+    expect(maxMovePoints({ army: rapido, skills: {} }, undefined)).toBe(1714);
   });
 
   it('Logística los aumenta un 10 % por nivel', () => {
@@ -1490,10 +1491,12 @@ describe('el gremio enseña (#2)', () => {
     // Sin minas y con todo en oro (21-10-2026, «solo oro»), 2 gremios y 2
     // hechizos en 1-40, los dos en la 35: se juega la 35. Con el héroe de salida
     // pagado (22-10-2026, 2 500 menos el día 1), ninguno en 1-40 y 12 gremios y 16
-    // hechizos en 41-200, en 11 semillas: se juega la 54 (uno y dos).
+    // hechizos en 41-200, en 11 semillas: se jugaba la 54 (uno y dos). Con la
+    // fuerza y la agilidad (25-10-2026), 11 gremios en 1-120 y hechizos en 7 de
+    // ellos: se juega la 5 (uno y dos).
     let gremios = 0;
     let aprendidos = 0;
-    for (const semilla of [54]) {
+    for (const semilla of [5]) {
       const state = newGame({ seed: semilla });
       await playAiGame(state, { rng: createRng(semilla) });
       for (const e of state.log) {
@@ -1748,9 +1751,10 @@ describe('los personajes y sus heridas', () => {
     // maná). Seis ballesteros contra el personaje y cinco caballeros de la
     // muerte: el defensor gana, y los ballesteros disparan, así que el personaje
     // sale herido.
-    // La semilla, una en la que la hieren (19-10-2026: con la rueda, en la 41 salía sana).
-    const state = newGame({ seed: 57 });
-    const c = ctx(57);
+    // La semilla, una en la que la hieren y no la matan (19-10-2026: con la rueda,
+    // en la 41 salía sana; 25-10-2026: con la fuerza y la agilidad, en la 57 moría).
+    const state = newGame({ seed: 41 });
+    const c = ctx(41);
     const atacante = heroesOf(state, 0)[0]!;
     const defensor = heroesOf(state, 1)[0]!;
     alistar(state, defensor, 'bera');

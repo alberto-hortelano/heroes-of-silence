@@ -34,12 +34,9 @@ function pelea(rng: Rng, heroe: HeroeDeArena | null = null): BattleState {
     {
       combate: COMBATE_COMPLETO,
       izquierda: {
-        // El escudero con las cifras del cuerpo común (3 / 3, daño 10–10): los
-        // casos de la IA hacen la cuenta con ellas.
-        unidades: [
-          unidad('templario-monje'),
-          unidad('templario-escudo', { defense: 3, damage: [10, 10] }),
-        ].map((u) => delBorrador(u)),
+        unidades: [unidad('templario-monje'), unidad('templario-escudo')].map((u) =>
+          delBorrador(u),
+        ),
         heroe,
       },
       derecha: { unidades: [delBorrador(unidad('orko-dos-armas'))], heroe: null },
@@ -252,20 +249,19 @@ describe('la IA de batalla usa los poderes (A4)', () => {
 
   it('cura a quien puede caer si la pelea se gana; si no corre peligro, no gasta el turno en él', () => {
     // Sin héroe: con él, la IA lanza antes su hechizo, que no gasta el turno.
-    // 30 de herida sobre los 80 del escudero (la brigantina da armadura, no PV:
-    // #262), y le quedan 50.
-    const { b, escudero, orco } = enElTurnoDelMonje(30, null);
+    // 90 de herida sobre los 160 del escudero (la brigantina da armadura, no PV:
+    // #262), y le quedan 70.
+    const { b, escudero, orco } = enElTurnoDelMonje(90, null);
     orco.topHp = 30; // el bando del monje va ganando la carrera
-    // Lejos del orco, 50 PV no corren peligro: el monje no se queda curando.
+    // Lejos del orco, 70 PV no corren peligro: el monje no se queda curando.
     expect(chooseBattleAction(b)).not.toMatchObject({ type: 'power' });
-    // Con el orco pegado (dos golpes de 40-70, menos los 7 de la brigantina),
-    // 50 PV caen: lo cura.
+    // Con el orco pegado (la maza, 43–172, menos los 7 de la brigantina), 70 PV
+    // caen: lo cura.
     orcoJuntoAlEscudero(b, escudero, orco);
     expect(chooseBattleAction(b)).toEqual({ type: 'power', poder: 'curar', target: escudero.id });
-    // Y si la pelea se pierde, curar solo la alarga: pega o se mueve. Con los 80
-    // PV del orco entero y sus 10 de armadura la pelea aún se gana: con la vida
-    // que tenía cuando el arnés daba 100 PV (180), se pierde.
-    Object.assign(orco, { unit: { ...orco.unit, hp: 180 } });
+    // Y si la pelea se pierde, curar solo la alarga: pega o se mueve. Con un orco
+    // de 2 000 PV entero, se pierde.
+    Object.assign(orco, { unit: { ...orco.unit, hp: 2000 } });
     orco.topHp = orco.unit.hp;
     expect(chooseBattleAction(b)).not.toMatchObject({ type: 'power' });
   });
@@ -283,10 +279,9 @@ describe('la IA de batalla usa los poderes (A4)', () => {
       {
         combate: COMBATE_COMPLETO,
         izquierda: {
-          unidades: [
-            unidad('templario-monje'),
-            unidad('templario-escudo', { damage: [400, 600] }),
-          ].map((u) => delBorrador(u)),
+          unidades: [unidad('templario-monje'), unidad('templario-escudo', { fuerza: 400 })].map(
+            (u) => delBorrador(u),
+          ),
           heroe: null,
         },
         derecha: { unidades: [delBorrador(unidad('orko-dos-armas', { hp: 4000 }))], heroe: null },

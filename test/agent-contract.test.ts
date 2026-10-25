@@ -1677,12 +1677,12 @@ describe('el nivel en el contrato: derivado de las cifras (12-10-2026)', () => {
       // Las cifras van tal cual: el agente no recibe otra criatura que la del motor.
       expect(ficha).toMatchObject({ attack: c.attack, damage: c.damage, hp: c.hp });
     }
-    // La morada y el nivel son dos datos: el pueblo de los templarios suelta
-    // guerreros con escudo y escuderos, y las cifras de cada uno dan su nivel.
-    const escudo = fichaDeCriatura(unidadDelJuego(TROPA));
-    const escudero = fichaDeCriatura(unidadDelJuego('templario-escudero'));
-    expect(escudero.dwelling).toBe(escudo.dwelling);
-    expect(escudero.level).not.toBe(escudo.level);
+    // La morada y el nivel son dos datos: los cadáveres de los no muertos sueltan
+    // esqueletos y zombis, y las cifras de cada uno dan su nivel.
+    const esqueleto = fichaDeCriatura(unidadDelJuego('esqueleto-guerrero'));
+    const zombi = fichaDeCriatura(unidadDelJuego('zombi'));
+    expect(zombi.dwelling).toBe(esqueleto.dwelling);
+    expect(zombi.level).not.toBe(esqueleto.level);
   });
 
   it('la prosa nombra rango y nivel con las claves que viajan', () => {

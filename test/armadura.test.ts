@@ -36,6 +36,7 @@ import { expectedDamage, herir } from '../src/core/battle/damage.js';
 import { delHeroe, spell } from '../src/core/battle/spells.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
+import { cuerpoConSusCifras } from '../src/core/cuerpo.js';
 import { type Pieza, problemasDePieza, validarPieza } from '../src/core/data.js';
 import { cifrasDePieza, EQUIPO_DEL_JUEGO, pieza, sumaDeEquipo } from '../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../src/core/rng.js';
@@ -52,19 +53,30 @@ import {
   unidadDeArena,
 } from './helpers.js';
 
-/** El cuerpo común de la arena con lo que se cambie. */
+/** El cuerpo común de la arena (fuerza 20, agilidad 4) con lo que se cambie. */
 function cuerpo(name: string, over: Partial<UnitInfo> = {}): UnitInfo {
-  const { attack, defense, damage, hp } = CUERPO_COMUN;
-  return { name, faction: null, attack, defense, damage, hp, speed: 'average', ...over };
+  const { attack, fuerza, hp } = CUERPO_COMUN;
+  return {
+    ...cuerpoConSusCifras({
+      name,
+      faction: null,
+      attack,
+      fuerza,
+      agilidad: 4,
+      defensaPropia: 0,
+      hp,
+    }),
+    ...over,
+  };
 }
 
 const vestido = (c: UnitInfo, equipo: Equipo): UnitInfo => EQUIPO_DEL_JUEGO.conEquipo(c, equipo);
 
-/** Pega 50 justos (ataque 3): contra defensa 3, ×1. */
-const GOLPEADOR = cuerpo('Golpeador', { damage: [50, 50] });
-/** Con brigantina: defensa 3, 7 de armadura, 80 PV (ninguno de la brigantina). */
+/** Pega 50 justos (ataque 4): contra defensa 4, ×1. */
+const GOLPEADOR = cuerpo('Golpeador', { attack: 4, damage: [50, 50] });
+/** Con brigantina (pesa 12, no le resta): defensa 4, 7 de armadura, 160 PV (ninguno de la brigantina). */
 const TEMPLARIO = vestido(cuerpo('Templario'), { armadura: 'brigantina' });
-/** Con barda: defensa 3 + 5, 22 de armadura. */
+/** Con barda: pesa 30 con fuerza 20, −1 de agilidad: defensa 3, 22 de armadura. */
 const JINETE = vestido(cuerpo('Jinete'), { armadura: 'barda' });
 /** El de siempre, sin armadura. */
 const DESNUDO = cuerpo('Desnudo');
@@ -112,27 +124,27 @@ function jugar(b: BattleState, accion: Parameters<typeof applyAction>[1], rng: R
 }
 
 describe('las piezas dan armadura, no PV', () => {
-  it('las cinco armaduras: PV / 10 de antes en armadura y ningún PV; la defensa se queda', () => {
+  it('las cinco armaduras: PV / 10 de antes en armadura y ningún PV, y ya no dan defensa (pesan)', () => {
     const cifras = (id: string) => {
       const p = pieza(id);
       return ['pv' in p, p.armadura ?? 0, p.defensa];
     };
     expect(cifras('brigantina')).toEqual([false, 7, 0]);
-    expect(cifras('arnes_de_placas')).toEqual([false, 10, 1]);
-    expect(cifras('gambeson')).toEqual([false, 4, 1]);
+    expect(cifras('arnes_de_placas')).toEqual([false, 10, 0]);
+    expect(cifras('gambeson')).toEqual([false, 4, 0]);
     expect(cifras('jubon_de_arquero')).toEqual([false, 2, 0]);
-    expect(cifras('barda')).toEqual([false, 22, 5]);
+    expect(cifras('barda')).toEqual([false, 22, 0]);
     // Se suma como las demás cifras, y se dice como una más.
     expect(sumaDeEquipo({ armadura: 'barda' })).toEqual({
       ataque: 0,
-      defensa: 5,
+      fuerza: 0,
+      defensa: 0,
       armadura: 22,
-      velocidad: 0,
-      danio: [0, 0],
+      peso: 30,
     });
-    expect(cifrasDePieza(pieza('barda'))).toBe('+5 Defensa, +22 Armadura');
+    expect(cifrasDePieza(pieza('barda'))).toBe('+22 Armadura, Peso 30');
     expect(armaduraDe(JINETE)).toBe(22);
-    expect(JINETE.hp).toBe(80);
+    expect(JINETE.hp).toBe(160);
   });
 
   it('una pieza con PV no vale; una armadura en negativo, tampoco; sin armadura, la unidad no gana el campo', () => {
@@ -153,14 +165,14 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
   it('un golpe de 50 sobre la brigantina quita 43, y el parte dice los 7 que paró', () => {
     const b = frente(GOLPEADOR, [TEMPLARIO], PEGADOS[0], PEGADOS[1]);
     const desde = jugar(b, { type: 'attack', target: 'defender-0', ...NORMAL }, createRng(1));
-    // 50 × 1 (3 contra 3) = 50; 50 − 7 = 43; quedan 80 − 43 = 37.
+    // 50 × 1 (4 contra 4) = 50; 50 − 7 = 43; quedan 160 − 43 = 117.
     expect(hechos(b, 'attack', desde)[0]).toMatchObject({
       stack: 'attacker-0',
       damage: 43,
       killed: 0,
       parado: 7,
     });
-    expect(stackById(b, 'defender-0').topHp).toBe(37);
+    expect(stackById(b, 'defender-0').topHp).toBe(117);
     // Sin armadura, los 50 enteros y el hecho de siempre, sin el campo.
     const sin = frente(GOLPEADOR, [DESNUDO], PEGADOS[0], PEGADOS[1]);
     const d2 = jugar(sin, { type: 'attack', target: 'defender-0', ...NORMAL }, createRng(1));
@@ -178,23 +190,23 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
   });
 
   it('un golpe flojo contra la barda se queda en 0: no quita nada, no lanza y se cuenta parado', () => {
-    // 20 con ataque 3 contra defensa 8: ×(1 − 5 × 0,025) = ×0,875 → 17,5 → 18; 18 − 22 → 0.
+    // 20 con ataque 3 contra defensa 3 (la barda le quita 1 de agilidad): ×1; 20 − 22 → 0.
     const flojo = cuerpo('Flojo', { damage: [20, 20] });
     const b = frente(flojo, [JINETE], PEGADOS[0], PEGADOS[1]);
     const desde = jugar(b, { type: 'attack', target: 'defender-0', ...NORMAL }, createRng(1));
-    expect(hechos(b, 'attack', desde)[0]).toMatchObject({ damage: 0, killed: 0, parado: 18 });
+    expect(hechos(b, 'attack', desde)[0]).toMatchObject({ damage: 0, killed: 0, parado: 20 });
     const jinete = stackById(b, 'defender-0');
-    expect([jinete.count, jinete.topHp]).toEqual([1, 80]);
+    expect([jinete.count, jinete.topHp]).toEqual([1, 160]);
     // Ni experiencia: no quitó nada.
     expect(stackById(b, 'attacker-0').ganado.experiencia).toBe(0);
-    expect(marcadoDe(renderBattleLog(b, null))).toContain('0 de daño: la armadura para los 18');
+    expect(marcadoDe(renderBattleLog(b, null))).toContain('0 de daño: la armadura para los 20');
   });
 
   it('`herir` resta lo último: lo que llega, lo que para y los muertos', () => {
     const b = frente(GOLPEADOR, [TEMPLARIO], PEGADOS[0], PEGADOS[1]);
     const t = stackById(b, 'defender-0');
     expect(herir(t, 5, null)).toEqual({ muertos: 0, danio: 0, parado: 5 });
-    expect(herir(t, 90, null)).toEqual({ muertos: 1, danio: 83, parado: 7 });
+    expect(herir(t, 170, null)).toEqual({ muertos: 1, danio: 163, parado: 7 });
     expect(trasLaArmadura(12, { unit: DESNUDO })).toEqual({ danio: 12, parado: 0 });
   });
 
@@ -210,33 +222,33 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
       [25, 7],
       [25, 7],
     ]);
-    expect(stackById(b, 'defender-0').topHp).toBe(80 - 50);
+    expect(stackById(b, 'defender-0').topHp).toBe(160 - 50);
   });
 
-  it('el disparo doble resta en cada tiro: con el arco, 30 × 1,2 = 36 → 29 y 29', () => {
-    // Cuerpo + arco: ataque 5, 20–30 al disparar; contra defensa 3, ×1,2. Al máximo.
+  it('el disparo doble resta en cada tiro: con el arco, 30 × 1,1 = 33 → 26 y 26', () => {
+    // Cuerpo + arco: ataque 5, 30–120 al disparar; contra defensa 4, ×1,1. Al mínimo.
     const tirador = vestido(cuerpo('Tirador', { traits: ['double_shot'] }), { distancia: 'arco' });
     const b = frente(tirador, [TEMPLARIO], { col: 1, row: 4 }, [{ col: 4, row: 4 }]);
-    const desde = jugar(b, { type: 'shoot', target: 'defender-0' }, dadoCargado('maximo'));
+    const desde = jugar(b, { type: 'shoot', target: 'defender-0' }, dadoCargado('minimo'));
     expect(hechos(b, 'shoot', desde).map((s) => [s.damage, s.parado])).toEqual([
-      [29, 7],
-      [29, 7],
+      [26, 7],
+      [26, 7],
     ]);
-    expect(stackById(b, 'defender-0').topHp).toBe(80 - 58);
+    expect(stackById(b, 'defender-0').topHp).toBe(160 - 52);
   });
 
   it('la salpicadura reparte el disparo y cada salpicado resta su propia armadura', () => {
-    // El disparo al templario: 36 → 29. El jinete pegado a él recibe los 36 del
-    // disparo (la salpicadura no vuelve a tirar) menos su barda: 14.
+    // El disparo al templario, al mínimo: 33 → 26. El jinete pegado a él recibe los
+    // 33 del disparo (la salpicadura no vuelve a tirar) menos su barda: 11.
     const liche = vestido(cuerpo('Liche', { traits: ['splash_shot'] }), { distancia: 'arco' });
     const b = frente(liche, [TEMPLARIO, JINETE], { col: 1, row: 4 }, [
       { col: 4, row: 4 },
       { col: 5, row: 4 },
     ]);
-    const desde = jugar(b, { type: 'shoot', target: 'defender-0' }, dadoCargado('maximo'));
+    const desde = jugar(b, { type: 'shoot', target: 'defender-0' }, dadoCargado('minimo'));
     expect(hechos(b, 'shoot', desde).map((s) => [s.target, s.damage, s.parado, s.splash])).toEqual([
-      ['defender-0', 29, 7, undefined],
-      ['defender-1', 14, 22, true],
+      ['defender-0', 26, 7, undefined],
+      ['defender-1', 11, 22, true],
     ]);
   });
 
@@ -268,16 +280,17 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
   });
 
   it('el drenaje de vida cura lo que quitó tras la armadura: 43, no 50', () => {
-    // El vampiro, con 30 de sus 80: drena 43 → 73, y el contraataque del templario
-    // (10 × 1) lo deja en 63. Con los 50 de antes habría llegado a 80 y quedado en 70.
-    const vampiro = cuerpo('Vampiro', { damage: [50, 50], traits: ['life_drain'] });
+    // El vampiro (ataque 4), con 30 de sus 160: drena 43 → 73, y el contraataque del
+    // templario (Normal, el medio de 20–80: 50, ataque 3 contra defensa 4, ×0,975 →
+    // 49) lo deja en 24. Con los 50 de antes habría llegado a 80 y quedado en 31.
+    const vampiro = cuerpo('Vampiro', { attack: 4, damage: [50, 50], traits: ['life_drain'] });
     const b = frente(vampiro, [TEMPLARIO], PEGADOS[0], PEGADOS[1]);
     stackById(b, 'attacker-0').topHp = 30;
     const desde = jugar(b, { type: 'attack', target: 'defender-0', ...NORMAL }, createRng(1));
     const [golpe, devuelto] = hechos(b, 'attack', desde);
     expect(golpe).toMatchObject({ damage: 43, parado: 7 });
-    expect(devuelto).toMatchObject({ retaliation: true, damage: 10 });
-    expect(stackById(b, 'attacker-0').topHp).toBe(63);
+    expect(devuelto).toMatchObject({ retaliation: true, damage: 49 });
+    expect(stackById(b, 'attacker-0').topHp).toBe(24);
   });
 });
 
@@ -291,7 +304,7 @@ describe('la IA cuenta con la armadura (`expectedDamage`)', () => {
     };
     expect(daño(GOLPEADOR, DESNUDO)).toBe(50);
     expect(daño(GOLPEADOR, TEMPLARIO)).toBe(43);
-    // 20 × 0,875 = 17,5, y la barda para 22: 0, no −4,5.
+    // 20 × 1, y la barda para 22: 0, no −2.
     expect(daño(cuerpo('Flojo', { damage: [20, 20] }), JINETE)).toBe(0);
   });
 

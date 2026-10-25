@@ -43,17 +43,17 @@ import {
 import { type AEscribir, comentarioDe, escribirAtomico, jsonDe } from '../json.js';
 import { direccionesDe } from '../taller/arte-en-disco.js';
 import { HEROES, juegoDelYBot, perfilDeUnidad, UNIDADES } from '../taller/unidades.js';
-import { VELOCIDAD_DEL_CUERPO } from './velocidades.js';
+import { AGILIDAD_DEL_CUERPO } from './velocidades.js';
 
 /**
- * Las casillas del cuerpo de un personaje: uno sin las suyas es un olvido, y se
- * dice. Las del cuerpo, sin el equipo: con el escudo de su perfil pelea con una menos.
+ * La agilidad del cuerpo de un personaje: uno sin la suya es un olvido, y se
+ * dice. La del cuerpo, sin el equipo: con el peso de su perfil puede pelear con menos.
  */
-function velocidadDelCuerpo(personaje: string): number {
-  const fila = VELOCIDAD_DEL_CUERPO[personaje];
+function agilidadDelCuerpo(personaje: string): number {
+  const fila = AGILIDAD_DEL_CUERPO[personaje];
   if (fila === undefined) {
     throw new Error(
-      `el personaje ${personaje} no tiene la velocidad de su cuerpo en tools/arena/velocidades.ts`,
+      `el personaje ${personaje} no tiene la agilidad de su cuerpo en tools/arena/velocidades.ts`,
     );
   }
   return fila[0];
@@ -80,7 +80,7 @@ export function hojasDelTaller(raiz: string): readonly Hoja[] {
       perfil: perfilDeUnidad(u),
       personaje: u.personaje ?? u.id,
       heroe,
-      casillas: velocidadDelCuerpo(u.personaje ?? u.id),
+      agilidad: agilidadDelCuerpo(u.personaje ?? u.id),
       juego: juegoDelYBot(u),
       ...direccionesDe(raiz, u.id),
     })),

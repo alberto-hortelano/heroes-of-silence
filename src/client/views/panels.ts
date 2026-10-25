@@ -53,6 +53,7 @@ import {
 import { unidadDelJuego } from '@core/catalogo.js';
 import { ECONOMIA, isShooter, nombreDeTipoDeHeroe, type Pieza } from '@core/data.js';
 import {
+  conSigno,
   destinoDeEquipo,
   modificadoresDePieza,
   PIEZAS_DE_ARMERIA,
@@ -350,8 +351,9 @@ export function filaLiderazgo({ ocupado, tope }: { ocupado: number; tope: number
 }
 
 /**
- * «3 (+3) / 3 (+3)»: con lo que el héroe pelea sin nada puesto —sus atributos más
- * lo que le da el rango— y, entre paréntesis, lo que le suma el equipo. `puesto`
+ * «3 (+3) / 6»: con lo que el héroe pelea sin nada puesto —sus atributos más lo
+ * que le da el rango y, en la defensa, su agilidad— y, entre paréntesis, lo que le
+ * cambia el equipo (25-10-2026: el peso puede restar defensa, y se dice). `puesto`
  * es su `heroUnit`, la misma puerta con la que entra en batalla, y lo de sin nada
  * puesto, `desnudo`, su `cuerpoDelHeroe`: sumar aquí `hero.attack + sumaDeEquipo`
  * se saltaba el rango, y a un héroe de rango 6 la ficha le enseñaba uno menos de
@@ -359,7 +361,7 @@ export function filaLiderazgo({ ocupado, tope }: { ocupado: number; tope: number
  */
 function ataqueYDefensa(desnudo: UnitInfo, puesto: UnitInfo): string {
   const cifra = (base: number, total: number) =>
-    total > base ? `${base} (+${total - base})` : `${base}`;
+    total === base ? `${base}` : `${base} (${conSigno(total - base)})`;
   return `${cifra(desnudo.attack, puesto.attack)} / ${cifra(desnudo.defense, puesto.defense)}`;
 }
 

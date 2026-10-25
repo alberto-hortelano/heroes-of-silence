@@ -1,4 +1,5 @@
 /** Héroes: atributos, ejército y movimiento diario. */
+import { cuerpoConSusCifras } from '../cuerpo.js';
 import { HEROE } from '../data.js';
 import { marchaALaEscala } from '../escala.js';
 import type { Army, Equipo, FactionId, PlayerId, Point, SpeedTier, UnitInfo } from '../types.js';
@@ -172,15 +173,17 @@ function cuerpoDesnudo(
   c: (typeof HEROE)['combate'],
   subidas: number,
 ): UnitInfo {
-  return {
+  // Su Defensa suma a la defensa, no a la agilidad (decisión del usuario,
+  // 25-10-2026): la defensa sale de las tres juntas (`cifrasDelCuerpo`).
+  return cuerpoConSusCifras({
     name: hero.name,
     faction: null,
     attack: hero.attack + c.ataquePorRango * subidas,
-    defense: hero.defense + c.defensaPorRango * subidas,
-    damage: [c.danio.min, c.danio.max + c.danio.maxPorRango * subidas],
+    fuerza: c.fuerza.base + c.fuerza.porRango * subidas,
+    agilidad: c.agilidad,
+    defensaPropia: hero.defense + c.defensaPorRango * subidas,
     hp: c.pv.base + c.pv.porRango * subidas,
-    speed: c.velocidad,
-  };
+  });
 }
 
 /** Puntos de maná máximos: 10 × Conocimiento (`heroes.cpp` de fheroes2). */

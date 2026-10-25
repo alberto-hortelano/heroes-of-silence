@@ -62,7 +62,7 @@ export interface Unidad {
   /**
    * El personaje del que es esta hoja, si el taller pinta el mismo con varios
    * equipos («Guerrero con escudo» y «Guerrero con arma a dos manos»): todas sus
-   * hojas comparten cuerpo y velocidad en la arena (`VELOCIDAD_DEL_CUERPO`,
+   * hojas comparten cuerpo y agilidad en la arena (`AGILIDAD_DEL_CUERPO`,
    * `tools/arena/velocidades.ts`), y lo distinto lo pone el equipo (decisión del
    * usuario, 12-10-2026). Sin él, el personaje es la propia hoja. Los jinetes no
    * entran: el caballo o la hiena son otro cuerpo.

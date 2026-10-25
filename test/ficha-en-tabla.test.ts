@@ -35,7 +35,7 @@ import { unidadDeArena } from './helpers.js';
 const MONTAJE = enElMontaje(EQUIPO_DEL_JUEGO);
 const COMBATE: ComoDeLaFicha = { ...MONTAJE, enCombate: true };
 
-/** Un templario con escudo: la defensa sube y la velocidad baja; el ataque no cambia. */
+/** Un templario con escudo y sin arma: la defensa sube; el ataque y las casillas no cambian. */
 const CON_ESCUDO = unidadDeArena('templario-escudo', { equipo: { escudo: 'escudo' } });
 
 /**
@@ -118,14 +118,20 @@ describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
     const combate = unidadDeCombate(CON_ESCUDO, EQUIPO_DEL_JUEGO);
     const m = marcadoDe(renderFicha(CON_ESCUDO, false, MONTAJE));
     expect(finalDe(m, 'attack')).toEqual({ valor: combate.attack, cambiada: false });
-    expect(finalDe(m, 'defense')).toEqual({ valor: combate.defense, cambiada: true });
-    expect(combate.defense).toBe(CON_ESCUDO.defense + pieza('escudo').defensa);
+    // La fuerza y la agilidad se escriben; la defensa, el daño y las casillas se
+    // derivan (25-10-2026): el escudo pesa 8, menos que su fuerza, y solo suma defensa.
+    expect(finalDe(m, 'fuerza')).toEqual({ valor: combate.damage[0], cambiada: false });
+    expect(finalDe(m, 'agilidad')).toEqual({ valor: CON_ESCUDO.agilidad, cambiada: false });
+    expect(finalDe(m, 'defensa')).toEqual({ valor: combate.defense, cambiada: true });
+    expect(combate.defense).toBe(CON_ESCUDO.agilidad + pieza('escudo').defensa);
     expect(finalDe(m, 'casillas')).toEqual({
       valor: SPEED_TO_HEXES[combate.speed],
-      cambiada: true,
+      cambiada: false,
     });
-    expect(finalDe(m, 'damage-min').valor).toBe(combate.damage[0]);
-    expect(finalDe(m, 'damage-max').valor).toBe(combate.damage[1]);
+    expect(m).toMatch(
+      new RegExp(`data-final="danio"[^>]*>${combate.damage[0]}–${combate.damage[1]}</output>`),
+    );
+    expect(m).toMatch(/data-final="peso"[^>]*>8 de 22<\/output>/);
     expect(finalDe(m, 'hp').valor).toBe(combate.hp);
     expect(finalDe(m, 'leadership')).toEqual({ valor: CON_ESCUDO.leadership, cambiada: false });
     // El coste no se escribe: sale del índice de lo que pelea (19-10-2026).
@@ -133,9 +139,9 @@ describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
       valor: oroDelIndice(indiceDePoder(combate)),
       cambiada: false,
     });
-    // Sin el escudo, la defensa vuelve a la del cuerpo y deja de resaltarse.
+    // Sin el escudo, la defensa vuelve a la del cuerpo (su agilidad) y deja de resaltarse.
     const sin = marcadoDe(renderFicha({ ...CON_ESCUDO, equipo: {} }, false, MONTAJE));
-    expect(finalDe(sin, 'defense')).toEqual({ valor: CON_ESCUDO.defense, cambiada: false });
+    expect(finalDe(sin, 'defensa')).toEqual({ valor: CON_ESCUDO.agilidad, cambiada: false });
     // La armadura no tiene casilla y toda es del equipo: con la brigantina, en el
     // otro tono; sin nada, en el de siempre (A5 de QA de #262).
     const conKit = marcadoDe(renderFicha(unidadDeArena('templario-escudo'), false, MONTAJE));
@@ -160,7 +166,7 @@ describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
     const escudo = pieza('escudo');
     const pastillas = marcadoDe(modificadoresEnPantalla(escudo));
     expect(pastillas).toBe(
-      '<span class="modificadores"><span class="modificador" data-cifra="defensa">+4 Defensa</span><span class="modificador" data-cifra="velocidad">−1 Velocidad</span></span>',
+      '<span class="modificadores"><span class="modificador" data-cifra="defensa">+3 Defensa</span><span class="modificador" data-cifra="peso">Peso 8</span></span>',
     );
     expect(marcadoDe(renderFicha(CON_ESCUDO, false, MONTAJE))).toContain(pastillas);
     const editor = marcadoDe(
@@ -181,7 +187,7 @@ describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
       marcadoDe(renderFicha({ ...CON_ESCUDO, equipo: { arma: 'espada' } }, false, MONTAJE)),
     ).toContain(`<option value="escudo">${escudo.nombre} · ${texto}</option>`);
     expect(
-      marcadoDe(modificadoresEnPantalla({ ...pieza('rodela'), defensa: 0, velocidad: 0 })),
+      marcadoDe(modificadoresEnPantalla({ ...pieza('rodela'), defensa: 0, peso: 0 })),
     ).toContain('no suma nada');
   });
 
@@ -228,7 +234,7 @@ describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
         ...m.matchAll(/<span class="label">([^<]*)/g),
         ...m.matchAll(/<th scope="row">([^<]*)/g),
       ].map((r) => (r[1] ?? '').trim());
-      expect(rotulos, quien).toContain(elegida === 'escudo' ? 'Velocidad' : 'Daño mínimo');
+      expect(rotulos, quien).toContain(elegida === 'escudo' ? 'Peso' : 'Fuerza');
       expect(rotulos, quien).toContain('Precio en oro');
       expect(
         rotulos.filter((r) => r.includes('(')),

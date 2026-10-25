@@ -21,6 +21,7 @@ import { createBattle, stackById } from '../src/core/battle/battle.js';
 import { cifrasDeUnidad, unidad, unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { RESPONSE_FORMAT } from '../src/core/contract/agent.js';
+import { cifrasDelCuerpo } from '../src/core/cuerpo.js';
 import {
   EQUIPO,
   EQUIPO_ESCRITO,
@@ -153,7 +154,7 @@ describe('el catálogo de equipo, en datos (C2)', () => {
     expect(CIFRAS_DE_PIEZA).not.toContain('pv');
   });
 
-  it('el cargador muerde con las cifras nuevas: daño al revés, manos fuera del arma, escudo que no resta, PV, sin botín', () => {
+  it('el cargador muerde con las cifras nuevas: velocidad o daño de antes, sin peso, manos fuera del arma, PV, sin botín', () => {
     const bueno = { piezas: EQUIPO.map((p) => ({ ...p })) };
     const con = (cambiar: (ps: Record<string, unknown>[]) => void) => {
       const roto = structuredClone(bueno) as { piezas: Record<string, unknown>[] };
@@ -162,17 +163,28 @@ describe('el catálogo de equipo, en datos (C2)', () => {
     };
     const id = (ps: Record<string, unknown>[], x: string) =>
       ps.find((p) => p.id === x) as Record<string, unknown>;
+    // Fuerza, agilidad y peso (25-10-2026): el daño y la velocidad de antes no valen,
+    // y se dice qué escribir; toda pieza dice su peso.
     expect(con((ps) => (id(ps, 'espada').danio = [3, 1]))).toThrow(
-      /"espada": el daño mínimo que suma \(3\) pasa del máximo \(1\)/,
+      /"espada" dice daño: un arma suma fuerza \(«fuerza»\)/,
     );
-    expect(con((ps) => (id(ps, 'espada').danio = [-1, 4]))).toThrow(/danio tiene que ser/);
+    expect(con((ps) => (id(ps, 'escudo').velocidad = -1))).toThrow(
+      /"escudo" dice velocidad: ninguna pieza resta movimiento, lo hace su peso/,
+    );
+    expect(con((ps) => delete id(ps, 'barda').peso)).toThrow(
+      /"barda" no dice su peso: toda pieza pesa, un entero ≥ 0/,
+    );
+    expect(con((ps) => (id(ps, 'barda').peso = -1))).toThrow(/peso tiene que ser un entero ≥ 0/);
+    expect(con((ps) => (id(ps, 'espada').fuerza = 1.5))).toThrow(
+      /fuerza tiene que ser un entero ≥ 0/,
+    );
+    expect(con((ps) => (id(ps, 'escudo').fuerza = 3))).toThrow(
+      /"escudo" va en el hueco escudo, que no suma fuerza/,
+    );
     expect(con((ps) => (id(ps, 'brigantina').manos = 2))).toThrow(
       /"brigantina" va en el hueco armadura y dice manos/,
     );
     expect(con((ps) => (id(ps, 'mandoble').manos = 3))).toThrow(/manos es 1 o 2, y es 3/);
-    expect(con((ps) => (id(ps, 'escudo').velocidad = 1))).toThrow(
-      /"escudo" es un escudo y no puede sumar velocidad/,
-    );
     expect(con((ps) => (id(ps, 'arco').manos = 2))).toThrow(
       /"arco" va en el hueco distancia y dice manos/,
     );
@@ -210,11 +222,6 @@ describe('el catálogo de equipo, en datos (C2)', () => {
     expect(con((ps) => (id(ps, 'maza').danyo = [1, 2]))).toThrow(
       /"maza": «danyo» no es un campo de una pieza/,
     );
-    // Una velocidad negativa fuera del escudo es legal (y entera).
-    expect(con((ps) => (id(ps, 'barda').velocidad = -1))).not.toThrow();
-    expect(con((ps) => (id(ps, 'barda').velocidad = -0.5))).toThrow(
-      /velocidad tiene que ser un entero/,
-    );
   });
 
   it('la regla de una pieza vive en un sitio: `problemasDePieza`, que lee el cargador y la arena', () => {
@@ -223,18 +230,18 @@ describe('el catálogo de equipo, en datos (C2)', () => {
     const escudo = { ...pieza('escudo') };
     expect(problemasDePieza(escudo)).toEqual([]);
     expect(piezaBlocker(escudo)).toBeNull();
-    expect(piezaBlocker({ ...escudo, velocidad: 1 })).toBe(
-      '"escudo" es un escudo y no puede sumar velocidad (0 o un número negativo), y es 1',
+    expect(piezaBlocker({ ...escudo, velocidad: 0 })).toBe(
+      '"escudo" dice velocidad: ninguna pieza resta movimiento, lo hace su peso («peso»)',
     );
-    // Un escudo que no frena vale (23-10-2026): no suma, pero no tiene por qué restar.
-    expect(piezaBlocker({ ...escudo, velocidad: 0 })).toBeNull();
+    // Un escudo que no pesa vale: el peso es 0 o más.
+    expect(piezaBlocker({ ...escudo, peso: 0 })).toBeNull();
     expect(problemasDePieza({ ...pieza('brigantina'), manos: 2, ataque: -1 })).toEqual([
       '"brigantina": ataque tiene que ser un entero ≥ 0 y es -1',
-      '"brigantina" va en el hueco armadura, que no suma ataque: en él una pieza suma defensa, armadura, velocidad',
+      '"brigantina" va en el hueco armadura, que no suma ataque: en él una pieza suma armadura, peso',
       '"brigantina" va en el hueco armadura y dice manos: solo un arma se lleva a dos manos',
     ]);
     expect(piezaBlocker({ ...pieza('espada'), danio: [30, 10] })).toBe(
-      '"espada": el daño mínimo que suma (30) pasa del máximo (10)',
+      '"espada" dice daño: un arma suma fuerza («fuerza») y el daño sale de la fuerza y la agilidad',
     );
     expect(piezaBlocker(7)).toBe('la pieza no es un objeto');
     // Repetida es del catálogo entero: la dice el cargador, no la pieza.
@@ -291,15 +298,19 @@ describe('el catálogo de equipo, en datos (C2)', () => {
 // ---------------------------------------------------------------- cifras
 
 describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos manos no lo admiten (12-10-2026)', () => {
-  it('`conEquipo` suma daño y tiros, y sin ellos no toca esos campos', () => {
+  it('`conEquipo` suma la fuerza del arma al daño, y el peso que no pasa de la fuerza no resta', () => {
     const campesino = desnudo(TROPA_BARATA);
     const conEspada = conEquipo(campesino, { arma: 'espada' });
-    expect(conEspada.damage).toEqual([campesino.damage[0] + 10, campesino.damage[1] + 30]);
+    // Daño = [F, F × agilidad], con F = la fuerza más la del arma (25-10-2026).
+    const f = campesino.fuerza + 10;
+    expect(conEspada.damage).toEqual([f, f * campesino.agilidad]);
     expect(conEspada.attack).toBe(campesino.attack + 2);
+    expect(conEspada.peso).toBe(4);
+    expect(conEspada.speed).toBe(campesino.speed);
     expect(conEspada).not.toHaveProperty('shots');
-    // Sin daño ni tiros que sumar, el objeto no gana esos campos.
+    // Sin arma, el daño es el del cuerpo.
     const conGambeson = conEquipo(campesino, { armadura: 'gambeson' });
-    expect(conGambeson.damage).toBe(campesino.damage);
+    expect(conGambeson.damage).toEqual(campesino.damage);
     expect(conGambeson).not.toHaveProperty('shots');
     // Ni el de armas: sin arma ni arma por uso, todo golpe va con las de arriba.
     expect(conGambeson).not.toHaveProperty('armas');
@@ -316,10 +327,10 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
       distancia: 'arco',
       armadura: 'jubon_de_arquero',
     });
-    // Arriba, cuerpo + daga + jubón: lo que no es arma suma a todo golpe. El
-    // jubón, de la arena, da 2 de armadura y ningún PV (#262).
+    // Arriba, cuerpo + daga + jubón (pesan 7, menos que su fuerza 12): la fuerza de
+    // la daga, 4, al daño. El jubón, de la arena, da 2 de armadura y ningún PV (#262).
     expect(arquero.attack).toBe(c.attack + 1);
-    expect(arquero.damage).toEqual([c.damage[0] + 0, c.damage[1] + 10]);
+    expect(arquero.damage).toEqual([c.fuerza + 4, (c.fuerza + 4) * c.agilidad]);
     expect(arquero.hp).toBe(c.hp);
     expect(armaduraDe(arquero)).toBe(2);
     // Sin munición (13-10-2026): el arco no da tiros; llevarlo ya es disparar.
@@ -337,19 +348,21 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
       distancia: {
         arma: { id: 'arco', nombre: 'Arco' },
         attack: c.attack + 2,
-        damage: [c.damage[0] + 10, c.damage[1] + 20],
+        damage: [c.fuerza + 10, (c.fuerza + 10) * c.agilidad],
       },
     });
-    // Sin arma de cuerpo a cuerpo, se pega con el cuerpo.
+    // Sin arma de cuerpo a cuerpo, se pega con el cuerpo. La lanza y la barda pesan
+    // 38 con fuerza 12: −4 de agilidad, que no baja de 1.
     const jinete = arena.conEquipo(c, { lanza: 'lanza_de_jinete', armadura: 'barda' });
     expect(jinete.attack).toBe(c.attack);
-    expect(jinete.damage).toEqual(c.damage);
+    expect(jinete.damage).toEqual([c.fuerza, c.fuerza]);
+    expect(jinete.speed).toBe('crawling');
     expect(jinete.armas).toEqual({
-      arma: { arma: null, attack: c.attack, damage: c.damage },
+      arma: { arma: null, attack: c.attack, damage: [c.fuerza, c.fuerza] },
       lanza: {
         arma: { id: 'lanza_de_jinete', nombre: 'Lanza de jinete' },
-        attack: c.attack + 7,
-        damage: [c.damage[0] + 40, c.damage[1] + 80],
+        attack: c.attack + 3,
+        damage: [c.fuerza + 12, c.fuerza + 12],
         rueda: pieza('lanza_de_jinete').rueda,
       },
     });
@@ -364,31 +377,34 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
       arena.sumaDeEquipo({ arma: 'daga', distancia: 'ballesta', armadura: 'gambeson' }),
     ).toEqual({
       ataque: 1,
-      defensa: 1,
+      fuerza: 4,
+      defensa: 0,
       armadura: 4,
-      velocidad: 0,
-      danio: [0, 10],
+      peso: 17,
     });
   });
 
-  it('el equipo base del héroe suma la Espada y el gambesón: ataque, daño, defensa y armadura, sin PV', () => {
+  it('el equipo base del héroe suma la Espada y el gambesón: ataque, fuerza, armadura y peso, sin PV', () => {
     const piquero = desnudo(TROPA);
     const espada = pieza('espada');
     const conBase = conEquipo(piquero, EQUIPO_BASE);
+    // Pesan 10, menos que su fuerza 22: la defensa y la velocidad no cambian.
+    const danio = [piquero.fuerza + 10, (piquero.fuerza + 10) * piquero.agilidad];
     expect(conBase).toStrictEqual({
       ...piquero,
       attack: piquero.attack + 2,
-      defense: piquero.defense + 1,
-      damage: [piquero.damage[0] + 10, piquero.damage[1] + 30],
+      defense: piquero.defense,
+      damage: danio,
       hp: piquero.hp,
       puntosDeArmadura: 4,
+      peso: 10,
       speed: piquero.speed,
       equipo: EQUIPO_BASE,
       armas: {
         arma: {
           arma: { id: 'espada', nombre: 'Espada' },
           attack: piquero.attack + 2,
-          damage: [piquero.damage[0] + 10, piquero.damage[1] + 30],
+          damage: danio,
           rueda: espada.rueda,
         },
       },
@@ -411,17 +427,22 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
     }
   });
 
-  it('el escudo baja un escalón y no pasa del primero', () => {
+  it('el escudo suma defensa y pesa; el peso que pasa de la fuerza resta agilidad, y con ella casillas, defensa y daño', () => {
+    // Fuerza 22, agilidad 4 (25-10-2026: nada resta movimiento salvo el peso).
     const piquero = desnudo(TROPA);
-    const i = SPEED_TIERS.indexOf(piquero.speed);
-    expect(i).toBeGreaterThan(1);
-    expect(conEquipo(piquero, { escudo: 'escudo' }).speed).toBe(SPEED_TIERS[i - 1]);
-    expect(conEquipo(piquero, { escudo: 'paves' }).speed).toBe(SPEED_TIERS[Math.max(0, i - 2)]);
-    const lento = { ...piquero, speed: SPEED_TIERS[0] };
-    expect(conEquipo(lento, { escudo: 'paves' }).speed).toBe(SPEED_TIERS[0]);
-    expect(conEquipo(piquero, { escudo: 'escudo' }).defense).toBe(piquero.defense + 4);
-    expect(cifrasDePieza(pieza('escudo'))).toBe('+4 Defensa, −1 Velocidad');
-    expect(cifrasDePieza(pieza('mandoble'))).toBe('+5 Ataque, +30–60 Daño, a dos manos');
+    const conEscudo = conEquipo(piquero, { escudo: 'escudo' });
+    expect(conEscudo.defense).toBe(piquero.defense + 3);
+    expect(conEscudo.speed).toBe(piquero.speed);
+    // El arnés y el pavés pesan 40: pasan 18 de su fuerza 22, −1 de agilidad (de 4 a 3).
+    const cargado = conEquipo(piquero, { armadura: 'arnes_de_placas', escudo: 'paves' });
+    expect(cargado.speed).toBe('slow');
+    expect(cargado.defense).toBe(3 + 6);
+    expect(cargado.damage).toEqual([22, 66]);
+    // Un cuerpo flojo con todo encima no baja de 1 de agilidad.
+    const flojo = conEquipo(desnudo(TROPA_BARATA), { armadura: 'barda', escudo: 'paves' });
+    expect(flojo.speed).toBe('crawling');
+    expect(cifrasDePieza(pieza('escudo'))).toBe('+3 Defensa, Peso 8');
+    expect(cifrasDePieza(pieza('mandoble'))).toBe('+4 Ataque, +20 Fuerza, Peso 12, a dos manos');
   });
 
   // 13-10-2026, el usuario: «estandariza la forma de mostrar los modificadores del
@@ -429,16 +450,18 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
   it('`modificadoresDePieza`: lista estructurada, en el orden de las cifras, sin ceros y con la marca detrás', () => {
     expect(modificadoresDePieza(pieza('arco'))).toEqual([
       { kind: 'cifra', cifra: 'ataque', valor: 2 },
-      { kind: 'cifra', cifra: 'danio', valor: 10, hasta: 20 },
+      { kind: 'cifra', cifra: 'fuerza', valor: 10 },
+      { kind: 'cifra', cifra: 'peso', valor: 3 },
     ]);
     expect(modificadoresDePieza(pieza('mandoble'))).toEqual([
-      { kind: 'cifra', cifra: 'ataque', valor: 5 },
-      { kind: 'cifra', cifra: 'danio', valor: 30, hasta: 60 },
+      { kind: 'cifra', cifra: 'ataque', valor: 4 },
+      { kind: 'cifra', cifra: 'fuerza', valor: 20 },
+      { kind: 'cifra', cifra: 'peso', valor: 12 },
       { kind: 'marca', marca: 'dosManos' },
     ]);
     expect(modificadoresDePieza(pieza('escudo'))).toEqual([
-      { kind: 'cifra', cifra: 'defensa', valor: 4 },
-      { kind: 'cifra', cifra: 'velocidad', valor: -1 },
+      { kind: 'cifra', cifra: 'defensa', valor: 3 },
+      { kind: 'cifra', cifra: 'peso', valor: 8 },
     ]);
     // El orden de toda pieza del catálogo es el de `CIFRAS_DE_PIEZA`, sin repetir ni ceros.
     for (const p of PIEZAS_DEL_CATALOGO.values()) {
@@ -446,24 +469,18 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
       const orden = cifras.map((m) => CIFRAS_DE_PIEZA.indexOf(m.cifra));
       expect(orden, p.id).toEqual([...orden].sort((a, b) => a - b));
       expect(new Set(orden).size, p.id).toBe(orden.length);
-      for (const m of cifras) expect(m.hasta ?? m.valor, p.id).not.toBe(0);
+      for (const m of cifras) expect(m.valor, p.id).not.toBe(0);
     }
-    const nada = { ...pieza('rodela'), defensa: 0, velocidad: 0 };
+    const nada = { ...pieza('rodela'), defensa: 0, peso: 0 };
     expect(modificadoresDePieza(nada)).toEqual([]);
     expect(cifrasDePieza(nada)).toBe('');
   });
 
-  it('`textoDeModificador`: signo siempre (el menos tipográfico) y el daño como horquilla', () => {
+  it('`textoDeModificador`: signo siempre (el menos tipográfico), y el peso sin signo', () => {
     expect(textoDeModificador({ kind: 'cifra', cifra: 'ataque', valor: 2 })).toBe('+2 Ataque');
-    expect(textoDeModificador({ kind: 'cifra', cifra: 'velocidad', valor: -2 })).toBe(
-      '−2 Velocidad',
-    );
-    expect(textoDeModificador({ kind: 'cifra', cifra: 'danio', valor: 0, hasta: 20 })).toBe(
-      '+0–20 Daño',
-    );
-    expect(textoDeModificador({ kind: 'cifra', cifra: 'danio', valor: 5, hasta: 5 })).toBe(
-      '+5 Daño',
-    );
+    expect(textoDeModificador({ kind: 'cifra', cifra: 'defensa', valor: -2 })).toBe('−2 Defensa');
+    expect(textoDeModificador({ kind: 'cifra', cifra: 'fuerza', valor: 10 })).toBe('+10 Fuerza');
+    expect(textoDeModificador({ kind: 'cifra', cifra: 'peso', valor: 4 })).toBe('Peso 4');
     expect(textoDeModificador({ kind: 'marca', marca: 'dosManos' })).toBe('a dos manos');
   });
 
@@ -528,7 +545,7 @@ describe('las cifras se suman en las puertas de siempre (C1)', () => {
     expect(conEquipo(unidadDelJuego(TROPA), undefined)).toBe(unidadDelJuego(TROPA));
   });
 
-  it('una pieza suma sus cifras, y la velocidad sube escalones sin pasarse del último', () => {
+  it('una pieza suma sus cifras, y lo que pesa todo lo puesto resta agilidad', () => {
     // Lo propio sustituye a lo de serie en su hueco (la maza a la espada, el arnés
     // a la brigantina) y lo de serie que no se toca (el escudo) sigue puesto.
     const serie = unidadDelJuego(TROPA).equipo!;
@@ -539,21 +556,21 @@ describe('las cifras se suman en las puertas de siempre (C1)', () => {
     );
     const cuerpo = desnudo(TROPA);
     const escudo = pieza(serie.escudo!);
-    expect(piquero.attack).toBe(cuerpo.attack + pieza('maza').ataque + escudo.ataque);
-    expect(piquero.defense).toBe(
-      cuerpo.defense + pieza('arnes_de_placas').defensa + escudo.defensa,
-    );
-    expect(armaduraDe(piquero)).toBe(pieza('arnes_de_placas').armadura);
+    const maza = pieza('maza');
+    const arnes = pieza('arnes_de_placas');
+    expect(piquero.attack).toBe(cuerpo.attack + maza.ataque + escudo.ataque);
+    // Lo que pesan las tres, con la fuerza de la maza y la defensa del escudo.
+    expect(piquero.peso).toBe(maza.peso + arnes.peso + escudo.peso);
+    const { defense, damage, speed } = cifrasDelCuerpo(cuerpo, {
+      peso: maza.peso + arnes.peso + escudo.peso,
+      fuerzaDelArma: maza.fuerza ?? 0,
+      defensaDelEscudo: escudo.defensa,
+    });
+    expect([piquero.defense, piquero.damage, piquero.speed]).toEqual([defense, damage, speed]);
+    // Pesan 38 con fuerza 22: −1 de agilidad, una casilla menos.
+    expect(speed).toBe('slow');
+    expect(armaduraDe(piquero)).toBe(arnes.armadura);
     expect(piquero.hp).toBe(cuerpo.hp);
-    // Ninguna pieza del fichero suma velocidad: unas botas de prueba, en su
-    // catálogo atado. El jinete ya va en el último escalón y no pasa de ahí.
-    const botas = { ...pieza('gambeson'), id: 'botas', nombre: 'Botas', velocidad: 1 };
-    const conBotas = equipoCon(new Map([...PIEZAS_DEL_CATALOGO, ['botas', botas]]));
-    const i = SPEED_TIERS.indexOf(cuerpo.speed);
-    expect(conBotas.conEquipo(cuerpo, { armadura: 'botas' }).speed).toBe(SPEED_TIERS[i + 1]);
-    const jinete = desnudo(JINETE);
-    expect(jinete.speed).toBe(SPEED_TIERS.at(-1));
-    expect(conBotas.conEquipo(jinete, { armadura: 'botas' }).speed).toBe(SPEED_TIERS.at(-1));
   });
 
   it('`troopUnit` y lo que pisa el tablero dan lo mismo para un equipado', () => {
@@ -577,9 +594,11 @@ describe('las cifras se suman en las puertas de siempre (C1)', () => {
     const datos = { name: 'X', attack: 2, defense: 2, experience: umbral(5) };
     const desnudo = heroUnit({ ...datos, equipo: {} });
     const vestido = heroUnit({ ...datos, equipo: EQUIPO_BASE });
-    // Espada +2 de ataque; gambesón +1 de defensa y 4 de armadura.
+    // Espada +2 de ataque y +10 de fuerza al daño; gambesón 4 de armadura. Pesan 10,
+    // menos que su fuerza: la defensa no cambia.
     expect(vestido.attack).toBe(desnudo.attack + 2);
-    expect(vestido.defense).toBe(desnudo.defense + 1);
+    expect(vestido.defense).toBe(desnudo.defense);
+    expect(vestido.damage).toEqual([desnudo.fuerza + 10, (desnudo.fuerza + 10) * 4]);
     expect(armaduraDe(vestido)).toBe(4);
     expect(vestido.hp).toBe(desnudo.hp);
   });
@@ -1172,12 +1191,15 @@ describe('la IA compra y equipa (C5)', () => {
     // «para el veterano» y ponérsela al novato sería el mismo derroche por otra
     // puerta.
     hero.mochila = [];
-    const veterano = { creature: TROPA_BARATA, veterania: hoja('veterano-2', umbral(2)) };
-    expect(unidadDelJuego(TROPA_BARATA).equipo!).toEqual(unidadDelJuego(TROPA).equipo!);
-    expect(indiceDePoder(cifrasDeUnidad(TROPA, undefined))).toBeGreaterThan(
+    // El guardia del bosque lleva lo mismo de serie que el guerrero con escudo, y de
+    // novato tiene más índice que un guerrero veterano de rango 2.
+    const MEJOR = 'elfo-guardia-del-bosque';
+    const veterano = { creature: TROPA, veterania: hoja('veterano-2', umbral(2)) };
+    expect(unidadDelJuego(MEJOR).equipo!).toEqual(unidadDelJuego(TROPA).equipo!);
+    expect(indiceDePoder(cifrasDeUnidad(MEJOR, undefined))).toBeGreaterThan(
       indiceDePoder(cifrasDeUnidad(veterano.creature, veterano.veterania)),
     );
-    hero.army = [{ creature: TROPA }, veterano];
+    hero.army = [{ creature: MEJOR }, veterano];
     expect(siguienteDeEquipo(state, 0)).toBeNull();
   });
 
@@ -1257,12 +1279,12 @@ describe('el fichero, por tipos y con bases (18-10-2026)', () => {
       '"espada": el precio es lo que cuesta en oro, un entero ≥ 0, y es un objeto: escribe solo el número',
     );
     expect(con((ps) => (id(ps, 'espada').defensa = 1))).toThrow(
-      '"espada" va en el hueco arma, que no suma defensa: en él una pieza suma ataque, daño',
+      '"espada" va en el hueco arma, que no suma defensa: en él una pieza suma ataque, fuerza, peso',
     );
     expect(con((ps) => (id(ps, 'paves').ataque = 1))).toThrow(
       '"paves" va en el hueco escudo, que no suma ataque',
     );
-    expect(con((ps) => (id(ps, 'arco').danio = [0, 0]))).not.toThrow();
+    expect(con((ps) => (id(ps, 'arco').fuerza = 0))).not.toThrow();
     // La rueda (vuelta 2): toda arma de cuerpo a cuerpo de la arena dice sus seis
     // niveles, de 0 a 6, y ninguna otra pieza lleva rueda.
     const espadaDe = (ps: Record<string, unknown>[]) =>
@@ -1315,7 +1337,7 @@ describe('el fichero, por tipos y con bases (18-10-2026)', () => {
       // De dónde se consigue es suyo, no de la base: la Espada se vende, esta cae.
       seConsigue: ['botin'],
       ataque: espada.ataque + 1,
-      danio: [(espada.danio?.[0] ?? 0) + 5, (espada.danio?.[1] ?? 0) + 5],
+      fuerza: (espada.fuerza ?? 0) + 3,
       // Los extras de la rueda, en niveles: Fuerte y Rápido, uno más que la Espada.
       rueda: { ofensivo: 3, fuerte: 4, finta: 3, defensivo: 3, rapido: 4, romperGuardia: 3 },
       precio: oro + 150,
@@ -1324,7 +1346,7 @@ describe('el fichero, por tipos y con bases (18-10-2026)', () => {
       hueco: 'arma',
       seConsigue: ['botin'],
       ataque: espada.ataque + 2,
-      danio: herreria.danio,
+      fuerza: herreria.fuerza,
       rueda: { ofensivo: 4, fuerte: 4, finta: 3, defensivo: 4, rapido: 4, romperGuardia: 3 },
       precio: oro + 450,
     });
@@ -1348,7 +1370,7 @@ describe('el fichero, por tipos y con bases (18-10-2026)', () => {
     expect(con((ps) => (id(ps, 'espada_de_herreria').base = 'sable'))).toThrow(
       '«Espada de herrería» toma de base «sable», que no existe',
     );
-    // Sobre un escudo, la resuelta es un escudo con daño: lo dice su regla.
+    // Sobre un escudo, la resuelta es un escudo con ataque: lo dice su regla.
     expect(con((ps) => (id(ps, 'espada_de_herreria').base = 'paves'))).toThrow(
       '«Espada de herrería» (sobre «Pavés») va en el hueco escudo, que no suma ataque',
     );
@@ -1364,11 +1386,9 @@ describe('el fichero, por tipos y con bases (18-10-2026)', () => {
     expect(con((ps) => (id(ps, 'espada_de_herreria').hueco = 'arma'))).toThrow(
       'tiene base y escribe «hueco»',
     );
-    // La resuelta tiene que valer: un extra que deja el daño en negativo.
+    // La resuelta tiene que valer: un extra que deja la fuerza en negativo.
     expect(
-      con((ps) => ((id(ps, 'espada_de_herreria').extras as { danio: number[] }).danio = [-20, 0])),
-    ).toThrow(
-      '«Espada de herrería» (sobre «Espada»): danio tiene que ser [+mínimo, +máximo], dos enteros ≥ 0',
-    );
+      con((ps) => ((id(ps, 'espada_de_herreria').extras as { fuerza: number }).fuerza = -20)),
+    ).toThrow('«Espada de herrería» (sobre «Espada»): fuerza tiene que ser un entero ≥ 0 y es -10');
   });
 });

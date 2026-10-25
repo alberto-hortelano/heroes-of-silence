@@ -27,6 +27,7 @@ import type { BattleState, Side } from '../src/core/battle/types.js';
 import { HERO_BODY, queEs } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
+import { escalonDeCasillas } from '../src/core/cuerpo.js';
 import { figuraDelHeroe, HEROE } from '../src/core/data.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import { cuerposDelHeroe, type Hero, heroUnit } from '../src/core/hero/hero.js';
@@ -208,9 +209,12 @@ describe('el héroe pisa el tablero (criterio 4)', () => {
     });
     expect(nivel7.hp).toBe(c.pv.base + 2 * c.pv.porRango);
     expect(nivel7.attack).toBe(2 + 2 * c.ataquePorRango);
-    expect(nivel7.defense).toBe(3 + 2 * c.defensaPorRango);
-    expect(nivel7.damage).toEqual([c.danio.min, c.danio.max + 2 * c.danio.maxPorRango]);
-    expect(nivel7.speed).toBe(c.velocidad);
+    // Su Defensa, con lo del rango, encima de su agilidad (25-10-2026).
+    expect(nivel7.defense).toBe(3 + 2 * c.defensaPorRango + c.agilidad);
+    const fuerza = c.fuerza.base + 2 * c.fuerza.porRango;
+    expect(nivel7.fuerza).toBe(fuerza);
+    expect(nivel7.damage).toEqual([fuerza, fuerza * c.agilidad]);
+    expect(nivel7.speed).toBe(escalonDeCasillas(c.agilidad));
     // Sin facción: no altera la moral por diversidad del ejército.
     expect(nivel7.faction).toBeNull();
   });
@@ -756,8 +760,9 @@ describe('la IA no se rinde por quien no es ella (H-1)', () => {
     // #116 (F5) la defensa la juega la persona: aquí la delega con «Resolver
     // sola», que es la IA peleando por ella, y por ella no se rinde.
     // La 3 y no la 2: desde el recinto de las ciudades (vuelta 3), en la 2 el
-    // rival asalta además la base el día 2, y el turno espera esa otra defensa.
-    for (const semilla of [3, 5, 9]) {
+    // rival asalta además la base el día 2, y el turno espera esa otra defensa. La
+    // 7 y no la 5, por lo mismo, desde la fuerza y la agilidad (25-10-2026).
+    for (const semilla of [3, 7, 9]) {
       const ses = new Session(semilla);
       const st = ses.state;
       const mio = heroesOf(st, 0)[0]!;

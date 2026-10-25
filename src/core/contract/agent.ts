@@ -463,14 +463,24 @@ Notas:
 - NIVEL y RANGO son dos cosas. El NIVEL de una unidad es la primera cifra de
   su ÍNDICE DE PODER ("powerIndex": 340 es el nivel 3), que sale de sus cifras
   CON SU EQUIPO PUESTO (ataque, defensa, PV, daño de cada arma, armadura,
-  velocidad, tiro y doble golpe): nadie lo escribe. "creature_stats" da de cada
+  velocidad, tiro y doble golpe): nadie lo escribe.
+- FUERZA y AGILIDAD: toda unidad y todo héroe tienen fuerza ("strength") y
+  agilidad ("agility"), y de ellas salen las demás cifras: la DEFENSA es la
+  agilidad más la del escudo (y la Defensa del héroe); el DAÑO va de F a F ×
+  agilidad, con F = fuerza + la que suma su arma (lo torpe y fuerte pega
+  parejo; lo ágil, con mucha variación); las CASILLAS que anda son la agilidad.
+  Toda pieza tiene un PESO ("weight" en "creature_stats" es lo que pesa lo de
+  serie): hasta la fuerza no resta nada, y por cada mitad de la fuerza que lo
+  pase, −1 de agilidad (fuerza 20: peso 30 → −1, 40 → −2), como poco 1. Ninguna
+  pieza resta movimiento: lo hace el peso. "defense", "damage" y "speed" ya
+  vienen con todo eso hecho. "creature_stats" da de cada
   unidad su "level", su "powerIndex", su "dwelling" (el edificio de su facción
   que la produce; uno produce varias, y el edificio no implica nivel), su equipo
   de serie ("equipment") y su "armor"; lo que cuesta y crece sale de su índice.
   El RANGO es la experiencia: la
   TROPA va del 1 al 5, y todo HÉROE empieza en el 5 —el inicial y el
   contratado— y sube sin tope (6, 7, 8…). Cada rango suma cifras (a la tropa,
-  ataque y defensa; al héroe, cuerpo y LIDERAZGO, el tope de su ejército), así
+  ataque y fuerza; al héroe, cuerpo y LIDERAZGO, el tope de su ejército), así
   que su nivel sube cuando esas cifras lo suben.
 - La EXPERIENCIA se gana por daño: quien quita PV a un enemigo —criatura o
   héroe, con golpes, disparos o hechizos— gana "PV quitados × powerIndex del
@@ -511,7 +521,9 @@ Notas:
   "${SLOT_DE_HUECO.lanza}" la lanza con que se carga, "${SLOT_DE_HUECO.armadura}" la
   armadura y "${SLOT_DE_HUECO.escudo}" el escudo, opcional: ${REGLA_DEL_ESCUDO}
   (ponerle uno a quien lleva un arma a dos manos, o ponerle una a quien lleva
-  escudo, se rechaza diciéndolo). Cada pieza suma sus cifras a quien la lleva;
+  escudo, se rechaza diciéndolo). Cada pieza suma sus cifras a quien la lleva
+  (un arma, ataque y fuerza para el daño de su golpe; un escudo, defensa) y
+  pesa (el peso de todo lo puesto que pasa de la fuerza resta agilidad);
   ninguna da PV: la armadura son puntos que se restan del daño de cada golpe que
   recibe, y "stacks[].armor" de la batalla dice cuántos.
   "heroes[].equipment" es lo que lleva puesto el héroe (por hueco, el id o null) y

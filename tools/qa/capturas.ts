@@ -4573,16 +4573,16 @@ async function poderesEnLaArena(
       .locator('[data-clave-de-ficha="unidad:orko-dos-armas"]')
       .waitFor({ timeout: 2000 });
     await cifrasSinCortar(page, '#editor-en-combate', 'poderes: la ficha en combate');
-    // Un daño mínimo por encima del máximo no entra y se dice en el diálogo.
-    const minimo = dialogo.locator('[data-campo="damage-min"]');
-    await minimo.fill('99');
-    await minimo.press('Tab');
+    // Una agilidad fuera de 2 a 7 no entra y se dice en el diálogo.
+    const agilidad = dialogo.locator('[data-campo="agilidad"]');
+    await agilidad.fill('99');
+    await agilidad.press('Tab');
     await dialogo
       .locator('#aviso-del-editor', { hasText: 'No se cambia:' })
       .waitFor({ timeout: 2000 })
       .catch(async () => {
         throw new Error(
-          `poderes: el daño imposible no se dice: «${await dialogo.locator('#aviso-del-editor').innerText()}»`,
+          `poderes: la agilidad imposible no se dice: «${await dialogo.locator('#aviso-del-editor').innerText()}»`,
         );
       });
     await captura(page, 'poderes-04-editor-rechaza');

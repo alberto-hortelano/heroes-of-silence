@@ -36,6 +36,7 @@ import {
   unidadDelJuego,
   unidadesDeFaccion,
 } from '../catalogo.js';
+import { agilidadEfectiva } from '../cuerpo.js';
 import {
   ASALTANTES,
   EQUIPO,
@@ -924,6 +925,10 @@ function stackView(s: BattleStack) {
     occupies: stackHexes(s),
     speed: stackSpeed(s),
     attack: info.attack,
+    // La fuerza del cuerpo y la agilidad que le deja el peso: de ellas salen la
+    // defensa, el daño y la velocidad de al lado (`cifrasDelCuerpo`).
+    strength: info.fuerza,
+    agility: agilidadEfectiva(info.agilidad, info.fuerza, info.peso ?? 0),
     defense: info.defense,
     damage: info.damage,
     // Lo que se resta de cada golpe que recibe (`armaduraDe`), 0 sin armadura.
@@ -1083,6 +1088,11 @@ export function fichaDeCriatura(c: UnidadDelJuego) {
     name: c.name,
     faction: c.faction,
     attack: c.attack,
+    // La fuerza y la agilidad del cuerpo (25-10-2026); defensa, daño y velocidad,
+    // derivadas de ellas y del equipo de serie (`cifrasDelCuerpo`), y lo que pesa.
+    strength: c.fuerza,
+    agility: c.agilidad,
+    weight: c.peso ?? 0,
     defense: c.defense,
     damage: c.damage,
     hp: c.hp,

@@ -28,8 +28,13 @@ import type { Army, UnitInfo } from '../types.js';
  * que medir otra vez `fuerzaMax` de los asaltantes, `MARGEN_CONTRA_NEUTRALES` ni
  * los `VALOR_DE_*` de la estrategia: es la mediana de poder² / (daño medio × PV /
  * `ESCALA_DE_CIFRAS`²) de las 21 criaturas de `data/creatures.json`, medida antes
- * de retirarlas (19-10-2026: 143 465). No es el nivel (`nivelDeUnidad`): es la
- * vara de la IA para comparar ejércitos.
+ * de retirarlas (19-10-2026: 143 465). Con la fuerza y la agilidad (25-10-2026)
+ * el poder bruto del catálogo subió (la mediana de poder², de 4 410 000 a
+ * 21 977 344), y el divisor sube igual para que la mediana de la fuerza del
+ * catálogo se quede donde estaba: 143 465 × 21 977 344 / 4 410 000 = 714 961. Sin
+ * eso, las composiciones de los asaltantes pasaban de `fuerzaMax` y el juego no
+ * cargaba. No es el nivel (`nivelDeUnidad`): es la vara de la IA para comparar
+ * ejércitos.
  */
 export function unitPower(info: UnitInfo): number {
   const p = poderBruto(info);
@@ -37,7 +42,7 @@ export function unitPower(info: UnitInfo): number {
 }
 
 /** Lo que divide al poder bruto² en `unitPower`: ver allí. Medido, no inventado. */
-export const DIVISOR_DEL_PODER = 143_465;
+export const DIVISOR_DEL_PODER = 714_961;
 
 /**
  * Fuerza bruta de un ejército. Pide los personajes porque un individuo puede

@@ -11,6 +11,7 @@ import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { isShooter } from '../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
+import { cifrasDelIndividuo } from '../src/core/hero/experiencia.js';
 
 import { createRng } from '../src/core/rng.js';
 import {
@@ -136,14 +137,16 @@ describe('del personaje a las cifras de combate', () => {
    * Calculada a mano desde la tabla del plan, sobre el reparto por defecto
    * (F10 D12 R11 I10 P12 V11) más el bono de cada profesión, a nivel 1. Si la
    * implementación cambia una fórmula, esto se pone rojo: no se deriva de ella.
-   * PV y daño, a la escala del catálogo (`ESCALA_DE_CIFRAS`).
+   * PV y fuerza, a la escala del catálogo (`ESCALA_DE_CIFRAS`). Desde el
+   * 25-10-2026 la defensa es la agilidad (de la destreza) más la propia
+   * (resistencia, intelecto y nivel), y el daño, [fuerza, fuerza × agilidad].
    */
   const esperado = {
     // D14 P13
     Guardabosques: {
       attack: 6,
-      defense: 5,
-      damage: [30, 70],
+      defense: 10,
+      damage: [30, 150],
       hp: 320,
       speed: 'fast',
       tira: true,
@@ -153,8 +156,8 @@ describe('del personaje a las cifras de combate', () => {
     // F12 R12
     Guerrero: {
       attack: 6,
-      defense: 6,
-      damage: [40, 80],
+      defense: 10,
+      damage: [40, 160],
       hp: 340,
       speed: 'average',
       tira: false,
@@ -164,8 +167,8 @@ describe('del personaje a las cifras de combate', () => {
     // I12 V12
     Mago: {
       attack: 6,
-      defense: 6,
-      damage: [30, 70],
+      defense: 10,
+      damage: [30, 120],
       hp: 320,
       speed: 'average',
       tira: false,
@@ -175,8 +178,8 @@ describe('del personaje a las cifras de combate', () => {
     // V13 P13
     Sanador: {
       attack: 6,
-      defense: 5,
-      damage: [30, 70],
+      defense: 9,
+      damage: [30, 120],
       hp: 320,
       speed: 'average',
       tira: false,
@@ -190,13 +193,15 @@ describe('del personaje a las cifras de combate', () => {
       const c = personaje(profession);
       const p = combatProfile(c);
       const e = esperado[profession];
+      // Con lo que lleva de serie su profesión (el arco del Guardabosques).
+      const u = cifrasDelIndividuo(p.unit, null, p.equipo);
       expect({
-        attack: p.unit.attack,
-        defense: p.unit.defense,
-        damage: p.unit.damage,
-        hp: p.unit.hp,
-        speed: p.unit.speed,
-        tira: isShooter(p.unit),
+        attack: u.attack,
+        defense: u.defense,
+        damage: u.damage,
+        hp: u.hp,
+        speed: u.speed,
+        tira: isShooter(u),
         morale: p.morale,
         luck: p.luck,
       }).toEqual(e);

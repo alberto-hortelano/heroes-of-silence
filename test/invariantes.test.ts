@@ -1545,6 +1545,32 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo([PUERTA], cuenta)).not.toEqual([]);
   });
 
+  it('la defensa, el daño y las casillas de un cuerpo las saca de su fuerza, su agilidad y su peso solo `core/cuerpo.ts`', () => {
+    // 25-10-2026, «aparecen las características fuerza y agilidad»: lo que resta el
+    // peso (`restaDelPeso`) y las cifras derivadas (`cifrasDelCuerpo`) se declaran en
+    // un sitio, y el escalón de velocidad de unas casillas (`escalonDeCasillas`) solo
+    // lo pide él: si otro lo pidiera, unas casillas escritas a mano se saltarían el
+    // peso. Roto a mano: un `escalonDeCasillas(` en `unidad.ts` sale rojo.
+    const CUERPO = 'src/core/cuerpo.ts';
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
+    const declara = /\bfunction\s+(restaDelPeso|cifrasDelCuerpo|escalonDeCasillas)\b/;
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => r !== CUERPO),
+        declara,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([CUERPO], declara)).toHaveLength(3);
+    const escalon = /\bescalonDeCasillas\(/;
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => r !== CUERPO),
+        escalon,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([CUERPO], escalon)).not.toEqual([]);
+  });
+
   it('el recinto de una ciudad lo declara solo `core/map/recinto.ts`: su lado, su separación y sus puertas', () => {
     // La ciudad amurallada, vuelta 3 (21-10-2026): el 3 × 3 era de la escena
     // (`rectanguloDelRecinto`), que lo corría contra el borde, y el núcleo ponía

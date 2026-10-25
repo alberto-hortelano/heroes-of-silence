@@ -86,7 +86,7 @@ describe('una pieza sobre otra', () => {
       piezaNueva(EQUIPO_DEL_JUEGO.pieza('espada_de_herreria'), EQUIPO_DEL_JUEGO),
     ).toMatchObject({
       base: 'espada',
-      extras: { ataque: 1, danio: [5, 5], oro: 150 },
+      extras: { ataque: 1, fuerza: 3, oro: 150 },
     });
   });
 
@@ -162,7 +162,7 @@ describe('una pieza sobre otra', () => {
       // La rueda, en niveles: la bendita (4/4/3/4/4/3) sobre la Espada (todo a 3).
       extras: {
         ataque: 2,
-        danio: [5, 5],
+        fuerza: 3,
         rueda: { ofensivo: 1, fuerte: 1, defensivo: 1, rapido: 1 },
         oro: 450,
       },
@@ -266,7 +266,7 @@ describe('una pieza sobre otra', () => {
   });
 
   it('el enlace lleva todas las piezas de lo que lleva, con sus bases, y se reabre igual', () => {
-    expect(VERSION_DEL_ENLACE).toBe(14);
+    expect(VERSION_DEL_ENLACE).toBe(15);
     const u = conBendita();
     // El guerrero lleva la bendita, la brigantina y el escudo; con sus bases van la
     // de herrería y la Espada, tal como están en el catálogo con que pelea.
@@ -321,8 +321,9 @@ describe('una pieza sobre otra', () => {
       ),
     ).toThrow(`«Arma 3» toma de base «${nueva.id}», que no existe`);
     // Un enlace de la versión de antes se rechaza: hay que volver a copiarlo.
-    expect(() => montajeDeLaURL(JSON.stringify({ ...o, v: 13 }))).toThrow(
-      'este enlace es de una versión anterior de la arena (la 13; la de hoy es la 14): vuelve a copiarlo',
+    const antes = VERSION_DEL_ENLACE - 1;
+    expect(() => montajeDeLaURL(JSON.stringify({ ...o, v: antes }))).toThrow(
+      `este enlace es de una versión anterior de la arena (la ${antes}; la de hoy es la ${VERSION_DEL_ENLACE}): vuelve a copiarlo`,
     );
   });
 });

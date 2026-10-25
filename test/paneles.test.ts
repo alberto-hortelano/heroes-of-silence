@@ -25,14 +25,19 @@ import { marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
 import { renderSide, renderTopbar } from '../src/client/views/panels.js';
 import { tiposDeHeroe } from '../src/core/data.js';
+import { conSigno } from '../src/core/hero/equipo.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import { type Hero, heroUnit, maxMana } from '../src/core/hero/hero.js';
+import { nivelDeUnidad } from '../src/core/nivel.js';
 import { ascenderVeterano } from '../src/core/state/game.js';
 import { conMiles } from '../src/core/types.js';
 import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
 import { meAtacan, volcado } from './escenas-paneles.js';
 
 const ANCLA = fileURLToPath(new URL('fixtures/paneles.txt', import.meta.url));
+
+/** «(+2)» o «(−1)»: lo que cambia el equipo una cifra del héroe, como lo dice la ficha. */
+const conCambio = (base: number, total: number): string => `(${conSigno(total - base)})`;
 
 describe('el marcado de los paneles', () => {
   it('sale byte a byte igual que su ancla', async () => {
@@ -103,8 +108,8 @@ describe('el héroe nacido de la tropa en el panel del cliente', () => {
     session.selectedHeroId = heroe.id;
     const salida = marcadoDe(renderSide(session));
     const tipo = tiposDeHeroe(heroe.faction)[2]!.nombre;
-    // Rango 5, el de la tropa que acaba; nivel 3, el de su cuerpo de héroe.
-    expect(salida).toContain(`HÉROE · RANGO 5 · NIVEL 4 · ${tipo}`);
+    // Rango 5, el de la tropa que acaba; el nivel, el de su cuerpo de héroe.
+    expect(salida).toContain(`HÉROE · RANGO 5 · NIVEL ${nivelDeUnidad(heroUnit(heroe))} · ${tipo}`);
     expect(salida).toContain('Vio caer &lt;i&gt;tres&lt;/i&gt; murallas &amp; siguió.');
     expect(salida).not.toContain('<i>tres');
   });
@@ -118,15 +123,17 @@ describe('la ficha del héroe cuenta lo que lleva puesto (I4)', () => {
     const session = new Session(12);
     const heroe = session.myHeroes()[0]!;
     session.selectedHeroId = heroe.id;
-    const extraA = heroUnit(heroe).attack - heroUnit({ ...heroe, equipo: {} }).attack;
-    const extraD = heroUnit(heroe).defense - heroUnit({ ...heroe, equipo: {} }).defense;
-    expect(extraA).toBeGreaterThan(0);
-    const ficha = `${heroe.attack} (+${extraA}) / ${heroe.defense} (+${extraD})`;
+    const desnudo = heroUnit({ ...heroe, equipo: {} });
+    const puesto = heroUnit(heroe);
+    expect(puesto.attack).toBeGreaterThan(desnudo.attack);
+    // Desnudo, la defensa es su Defensa más su agilidad (25-10-2026).
+    expect(desnudo.defense).toBe(heroe.defense + desnudo.agilidad);
+    const ficha = `${desnudo.attack} ${conCambio(desnudo.attack, puesto.attack)} / ${desnudo.defense}${puesto.defense === desnudo.defense ? '' : ` ${conCambio(desnudo.defense, puesto.defense)}`}`;
     expect(marcadoDe(renderSide(session))).toContain(`<span>${ficha}</span>`);
 
     heroe.equipo = {};
     expect(marcadoDe(renderSide(session))).toContain(
-      `<span>${heroe.attack} / ${heroe.defense}</span>`,
+      `<span>${desnudo.attack} / ${desnudo.defense}</span>`,
     );
   });
 
@@ -140,7 +147,7 @@ describe('la ficha del héroe cuenta lo que lleva puesto (I4)', () => {
     const desnudo = heroUnit({ ...heroe, equipo: {} });
     const puesto = heroUnit(heroe);
     expect(desnudo.attack).toBeGreaterThan(heroe.attack);
-    const ficha = `${desnudo.attack} (+${puesto.attack - desnudo.attack}) / ${desnudo.defense} (+${puesto.defense - desnudo.defense})`;
+    const ficha = `${desnudo.attack} ${conCambio(desnudo.attack, puesto.attack)} / ${desnudo.defense}${puesto.defense === desnudo.defense ? '' : ` ${conCambio(desnudo.defense, puesto.defense)}`}`;
     expect(marcadoDe(renderSide(session))).toContain(`<span>${ficha}</span>`);
   });
 });

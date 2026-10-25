@@ -1,6 +1,8 @@
 /**
- * Cuántas casillas mueve el CUERPO de cada personaje de la arena, sin su equipo,
- * con el porqué. **Inventadas y provisionales**, como el resto de cifras por
+ * La agilidad del CUERPO de cada personaje de la arena, sin su equipo, con el
+ * porqué: son las casillas que movía cada cuerpo hasta el 25-10-2026, cuando la
+ * agilidad las sustituyó (las casillas son ahora la agilidad que le deja el peso
+ * de lo que lleva, `cifrasDelCuerpo`), salvo el troll, fuerte y torpe (3 → 2). **Inventadas y provisionales**, como el resto de cifras por
  * defecto de la arena: las pidió el usuario el 02-10-2026 al ver que con la
  * velocidad por perfil casi todas empataban y el empate lo gana siempre el
  * atacante —jugaba un ejército entero y luego el otro—.
@@ -15,17 +17,16 @@
  * de la unidad su descripción en `tools/taller/unidades.ts`.
  *
  * **Por personaje, no por hoja**: las hojas de un mismo personaje
- * (`Unidad.personaje`) comparten cuerpo, y pelean con la velocidad del cuerpo más
- * la de su equipo (el escudo resta una). La clave es el personaje, o la hoja si no
- * declara ninguno. Lo que no se escribe aquí es con cuántas pelea cada hoja: lo
- * deriva `unidadDeCombate` y lo comprueba `test/arena.test.ts` hoja a hoja
- * (`CASILLAS_DE_ANTES`). Por qué esta tabla va por cuerpo, en la entrada «Nueva
+ * (`Unidad.personaje`) comparten cuerpo y agilidad, y pelean con lo que les deje el
+ * peso de su equipo. La clave es el personaje, o la hoja si no declara ninguno.
+ * Lo que no se escribe aquí es con cuántas casillas pelea cada hoja: lo deriva
+ * `unidadDeCombate`. Por qué esta tabla va por cuerpo, en la entrada «Nueva
  * unidad» de `docs/historia.md`.
  *
  * Un test exige que estén todos los personajes del taller y ninguno más.
  */
-export const VELOCIDAD_DEL_CUERPO: Readonly<
-  Record<string, readonly [casillas: number, motivo: string]>
+export const AGILIDAD_DEL_CUERPO: Readonly<
+  Record<string, readonly [agilidad: number, motivo: string]>
 > = {
   // Templarios
   'templario-guerrero': [4, 'el humano de referencia'],
@@ -62,7 +63,7 @@ export const VELOCIDAD_DEL_CUERPO: Readonly<
   // Orkos
   orko: [4, 'el orko de línea, como un humano'],
   goblin: [4, 'goblin de línea, como un humano'],
-  'troll-maza': [3, 'gigante con maza a dos manos'],
+  'troll-maza': [2, 'gigante con maza: fuerte y torpe (era 3)'],
   // 5 y no 7, como el jinete elfo (docs/art/peticiones.md §12).
   'goblin-jinete-de-hiena': [5, 'a lomos de una hiena: el orko más rápido, en lugar del berserker'],
   // Héroes

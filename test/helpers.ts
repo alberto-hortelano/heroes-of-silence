@@ -230,7 +230,7 @@ export function bandoDePersonajes(
   const members = new Map<string, BattleMember>();
   const army: Stack[] = units.map((unit, i) => {
     const member = `a-mano-${i}`;
-    members.set(member, { profile: { unit, morale: 0, luck: 0 }, hp: unit.hp });
+    members.set(member, { profile: { unit, equipo: {}, morale: 0, luck: 0 }, hp: unit.hp });
     return { creature: TROPA, member, count: 1 };
   });
   return { army, hero, members };
@@ -1380,7 +1380,7 @@ export const MANOS_DE_PRUEBA: Pieza = {
   seConsigue: [],
   ataque: 0,
   defensa: 0,
-  velocidad: 0,
+  peso: 0,
   rueda: nivelesDeLaEspada(),
   precio: 0,
 };
@@ -1400,9 +1400,11 @@ export function conManosDePrueba(
   const manos: Pieza = { ...MANOS_DE_PRUEBA, rueda: niveles };
   const eq = catalogoCon(manos);
   for (const s of b.stacks) {
+    // Sin arma, con las cifras que traía (las de una unidad hecha a mano): vestirla
+    // vuelve a derivar defensa, daño y velocidad de su fuerza y su agilidad.
     const unit =
       s.unit.equipo?.arma === undefined
-        ? eq.conEquipo(s.unit, { arma: manos.id })
+        ? conLasCifrasDe(eq.conEquipo(s.unit, { arma: manos.id }), s.unit)
         : s.origen.kind === 'catalogo'
           ? eq.conEquipo(cuerpoDeCombate(unidad(s.body)), {
               ...unidad(s.body).equipo,
@@ -1413,6 +1415,24 @@ export function conManosDePrueba(
     (s as { topHp: number }).topHp = unit.hp;
   }
   return b;
+}
+
+/**
+ * `vestida` con la defensa, el daño y la velocidad de `antes`, también en su golpe
+ * de cuerpo a cuerpo: vestir vuelve a derivarlas de la fuerza y la agilidad
+ * (`cifrasDelCuerpo`), y una unidad con las cifras puestas a mano las perdería.
+ */
+export function conLasCifrasDe(vestida: UnitInfo, antes: UnitInfo): UnitInfo {
+  const arma = vestida.armas?.arma;
+  return {
+    ...vestida,
+    defense: antes.defense,
+    damage: antes.damage,
+    speed: antes.speed,
+    ...(arma === undefined || vestida.armas === undefined
+      ? {}
+      : { armas: { ...vestida.armas, arma: { ...arma, damage: antes.damage } } }),
+  };
 }
 
 /** Lo común de un montaje de prueba: el catálogo de equipo del juego. */
@@ -1524,7 +1544,7 @@ export function peleaDelMotor(
     const army: StackDeBatalla[] = puestos.map(({ unidad, escalera }, i) => {
       const unit = unidadDeCombate(unidad, EQUIPO_DEL_JUEGO);
       const member = `motor-${i}`;
-      members.set(member, { profile: { unit, morale: 0, luck: 0 }, hp: unit.hp });
+      members.set(member, { profile: { unit, equipo: {}, morale: 0, luck: 0 }, hp: unit.hp });
       return {
         creature: unidad.cuerpo.hoja,
         member,

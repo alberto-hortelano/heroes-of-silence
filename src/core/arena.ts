@@ -161,7 +161,7 @@ export interface IdsOcupados {
  * no esté en `ocupados`. Su nivel no se escribe: nace donde caiga su índice
  * (`indiceDePoder`, con la Espada puesta), el 2.
  *
- * De su hoja toma la facción, las casillas del cuerpo de su personaje y los
+ * De su hoja toma la facción, la agilidad del cuerpo de su personaje y los
  * rasgos de su perfil (`charge`, el del caballo; los no muertos, `undead`: un
  * esqueleto vivo, con moral, era raro, M7 de QA); ni el equipo, ni los poderes,
  * ni lo que el perfil cobra. **Es la única unidad que no sale del catálogo**
@@ -171,7 +171,7 @@ export interface IdsOcupados {
  * no se monta (una hoja a medias) lo dice la página antes de llamarla.
  */
 export function unidadNueva(
-  hoja: Pick<Hoja, 'id' | 'nombre' | 'faccion' | 'perfil' | 'casillas'>,
+  hoja: Pick<Hoja, 'id' | 'nombre' | 'faccion' | 'perfil' | 'agilidad'>,
   ocupados: IdsOcupados,
   eq: EquipoAtado,
 ): Unidad {
@@ -185,7 +185,7 @@ export function unidadNueva(
       faction: hoja.faccion,
       cuerpo: { hoja: hoja.id },
       ...CUERPO_COMUN,
-      casillas: hoja.casillas,
+      agilidad: hoja.agilidad,
       traits: rasgosDelCuerpo(hoja.faccion, KIT_DEL_PERFIL[hoja.perfil].traits),
       habilidades: [],
       // Sin arma no se combate (18-10-2026): nace con la Espada, la versátil.
@@ -222,10 +222,10 @@ export function piezaEnPalabras(p: Pieza): FichaEnPalabras {
   return {
     nombre: p.nombre,
     ataque: `${p.ataque}`,
+    fuerza: `${p.fuerza ?? 0}`,
     defensa: `${p.defensa}`,
     armadura: `${p.armadura ?? 0}`,
-    daño: `${p.danio?.[0] ?? 0}-${p.danio?.[1] ?? 0}`,
-    velocidad: `${p.velocidad}`,
+    peso: `${p.peso}`,
     manos: aDosManos(p) ? '2' : '1',
     rueda: p.rueda === undefined ? 'nada' : ruedaDelArmaEnPalabras(p.rueda),
     precio: describirCoste(p.precio),
@@ -263,34 +263,24 @@ function primeraBaseQue(
 
 /**
  * `p` en el hueco `hueco`, con lo que el hueco exige y nada de lo que no admite
- * (`camposDelHueco`): un escudo no suma velocidad (como mucho 0), solo un arma de
- * cuerpo a cuerpo se lleva a dos manos, solo ella y la lanza llevan rueda (y la
- * llevan: si no la traía, la de la Espada, `nivelesDeLaEspada`), y las
- * cifras que el hueco no suma se quedan en 0 —un arma que pasa a escudo deja su
- * ataque y su daño—. Lo que restaba el escudo se va con él: un escudo que pasa a
- * otro hueco deja de restar (velocidad 0), que si no un arma recién cambiada
- * restaba sin que nadie lo hubiera pedido. Lo demás se queda como estaba. Lo leen
- * la pieza nueva en blanco (`piezaNueva`) y el cambio de hueco de la ficha.
+ * (`camposDelHueco`): solo un arma de cuerpo a cuerpo se lleva a dos manos, solo
+ * ella y la lanza llevan rueda (y la llevan: si no la traía, la de la Espada,
+ * `nivelesDeLaEspada`), y las cifras que el hueco no suma se quedan en 0 —un arma
+ * que pasa a escudo deja su ataque y su fuerza—. El peso se queda: toda pieza
+ * pesa. Lo demás se queda como estaba. Lo leen la pieza nueva en blanco
+ * (`piezaNueva`) y el cambio de hueco de la ficha.
  */
 export function enElHueco(p: Pieza, hueco: Hueco): Pieza {
-  const { manos, rueda, danio, armadura, ...resto } = p;
+  const { manos, rueda, fuerza, armadura, ...resto } = p;
   const campos = camposDelHueco(hueco);
   const admite = (c: CifraDePieza): boolean => campos.cifras.includes(c);
-  const velocidad = !admite('velocidad')
-    ? 0
-    : hueco === 'escudo'
-      ? Math.min(p.velocidad, 0)
-      : p.hueco === 'escudo'
-        ? Math.max(p.velocidad, 0)
-        : p.velocidad;
   return {
     ...resto,
     hueco,
     ataque: admite('ataque') ? p.ataque : 0,
+    ...(admite('fuerza') && fuerza !== undefined ? { fuerza } : {}),
     defensa: admite('defensa') ? p.defensa : 0,
     ...(admite('armadura') && armadura !== undefined ? { armadura } : {}),
-    velocidad,
-    ...(admite('danio') && danio !== undefined ? { danio } : {}),
     ...(campos.conManos && manos !== undefined ? { manos } : {}),
     // Un arma de cuerpo a cuerpo dice su rueda: la que trae o, si no traía, la de
     // la Espada («todo a 3, como la Espada»).
@@ -314,7 +304,7 @@ export function piezaNueva(desde: Hueco | Pieza, eq: CatalogoDeEquipo): PiezaEsc
       hueco: desde,
       ataque: 0,
       defensa: 0,
-      velocidad: 0,
+      peso: 0,
       seConsigue: [],
       precio: 0,
     };
@@ -1030,10 +1020,9 @@ function fichaEnPalabras(f: FuenteDeArena, eq: EquipoAtado): FichaEnPalabras {
     facción: NOMBRE_DE_FACCION[u.faction],
     liderazgo: `${u.leadership}`,
     ataque: `${u.attack}`,
-    defensa: `${u.defense}`,
-    daño: u.damage.join('-'),
+    fuerza: `${u.fuerza}`,
+    agilidad: `${u.agilidad}`,
     vida: `${u.hp}`,
-    casillas: `${u.casillas}`,
     rasgos: rasgos(u.traits),
     habilidades: u.habilidades.map(nombreDeHabilidad),
     // Un hueco, una lista de cero o una pieza: el parte dice «escudo: − Escudo».
@@ -1526,9 +1515,11 @@ export function retiradosDeLaURL(
  * (19-10-2026) no cambia el formato, cambian las reglas: sin interruptores, con
  * la rueda, el contacto y la carga a pie siempre, el montaje de antes pelearía
  * otra pelea sin decirlo; la 14 (22-10-2026) trae la complejidad de la pelea
- * (`combate`: el tope por bando y la rueda).
+ * (`combate`: el tope por bando y la rueda); la 15 (25-10-2026), la fuerza, la
+ * agilidad y el peso: las unidades sin defensa, daño ni casillas y las piezas sin
+ * velocidad ni daño.
  */
-export const VERSION_DEL_ENLACE = 14;
+export const VERSION_DEL_ENLACE = 15;
 
 const CAMPOS_DEL_ENLACE = ['v', 'unidades', 'piezas', 'izquierda', 'derecha', 'muralla', 'combate'];
 const CAMPOS_DEL_COMBATE = ['tope', 'rueda'];

@@ -606,11 +606,13 @@ describe('la IA juega con muros sin colgarse (C5)', () => {
         .filter((x) => !hueco.has(hexKey(x)))
         .map((x) => [hexKey(x), x]),
     );
+    // El zombi, a 2 casillas, las que tenía con el escudo que restaba (hasta el
+    // 25-10-2026): la geometría del caso es de esa marcha.
     const state = duelo(
       validarMuralla({ muros: [...anillo.values()], puertas: [] }),
       TROPA,
       centro,
-      'zombi',
+      { ...unidadDelJuego('zombi'), speed: 'very_slow' },
       { col: 9, row: 4 },
       'defender-0',
     );
@@ -650,7 +652,7 @@ describe('la IA juega con muros sin colgarse (C5)', () => {
   it('nadie llega a nadie: se acaba por rondas, sin colgarse', () => {
     // Ninguno sube (el atacante no lleva escalera ni sabe escalar; el defensor, a
     // su lado), nadie dispara y la línea no tiene hueco.
-    const troll = { unidad: unidadDeArena('troll-maza', { casillas: 4 }) };
+    const troll = { unidad: unidadDeArena('troll-maza', { agilidad: 4 }) };
     const state = peleaDelMotor([troll], [troll], createRng(7), forma('Línea recta'));
     autoResolve(state, createRng(7));
     expect(state.finished).not.toBeNull();

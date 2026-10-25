@@ -20,7 +20,11 @@ import { COMBATE_COMPLETO, cupoDelHeroe } from '../src/core/combate.js';
 import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
 import { LIDERAZGO } from '../src/core/data.js';
 import { marchaALaEscala } from '../src/core/escala.js';
-import { RANGO_INICIAL_DE_HEROE, umbral } from '../src/core/hero/experiencia.js';
+import {
+  cifrasDelIndividuo,
+  RANGO_INICIAL_DE_HEROE,
+  umbral,
+} from '../src/core/hero/experiencia.js';
 import { maxMovePoints, slowestSpeed } from '../src/core/hero/hero.js';
 import {
   armyLeadership,
@@ -133,8 +137,10 @@ describe('el ejército es una lista de individuos', () => {
       [CHARACTER_BODY, 'aren', 1],
       ['goblin-lancero', undefined, 3],
     ]);
-    // Las cifras del personaje son las de su perfil, no las de ningún catálogo.
-    expect(grupos[1]!.unit).toEqual(combatProfile(aren).unit);
+    // Las cifras del personaje son las de su perfil (con lo que lleva de serie su
+    // profesión), no las de ningún catálogo.
+    const perfil = combatProfile(aren);
+    expect(grupos[1]!.unit).toEqual(cifrasDelIndividuo(perfil.unit, undefined, perfil.equipo));
   });
 });
 

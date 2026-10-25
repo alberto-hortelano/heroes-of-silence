@@ -66,6 +66,7 @@ import {
 import { allSpells } from '@core/battle/spells.js';
 import type { BattleStack, BattleState, TipoDeEscala, TipoDePuerta } from '@core/battle/types.js';
 import { costeDeUnaUnidad } from '@core/catalogo.js';
+import { agilidadEfectiva, CASILLAS_MAX, restaDelPeso } from '@core/cuerpo.js';
 import {
   ARMADURA_MAXIMA_DE_PIEZA,
   type ExtrasDePieza,
@@ -80,15 +81,14 @@ import {
   type CatalogoDeEquipo,
   caeComoBotin,
   cifrasDePieza,
+  conSigno,
   DICHO_DEL_USO,
   EQUIPO_BASE,
   type EquipoAtado,
   idsPuestos,
-  type ModificadorDePieza,
   REGLA_DEL_ESCUDO,
   SIN_ARMA,
   seVende,
-  textoDeModificador,
 } from '@core/hero/equipo.js';
 import {
   type CifraDePieza,
@@ -110,8 +110,9 @@ import {
   type UsoDeArma,
 } from '@core/types.js';
 import {
-  CASILLAS_MAX,
-  CASILLAS_MIN,
+  AGILIDAD_DEL_CUERPO_MAX,
+  AGILIDAD_DEL_CUERPO_MIN,
+  cuerpoDeCombate,
   HABILIDADES,
   type Hoja,
   type Unidad,
@@ -798,19 +799,19 @@ function tablaDeCifras(
 }
 
 /**
- * Las filas de las cifras de una unidad: las de `UnitInfo` que se escriben (la
- * velocidad, en casillas), cada una con lo que pelea (`final`). `atributo`, el
- * nombre del atributo con que la lee `main.ts` (`data-campo`): el valor es el
- * campo (`attack`, `damage-min`…). Sin disparos ni casillas que ocupa: en la
- * arena dispara quien lleva arma a distancia, sin munición, y toda unidad ocupa
- * una (13-10-2026).
+ * Las filas de las cifras de una unidad: las de `UnitInfo` que se escriben
+ * (ataque, fuerza, agilidad y vida), cada una con lo que pelea (`final`), y las
+ * que se derivan de ellas y del equipo (defensa, daño, casillas y peso; 25-10-2026,
+ * `cifrasDelCuerpo`), sin casilla. `atributo`, el nombre del atributo con que la
+ * lee `main.ts` (`data-campo`): el valor es el campo (`attack`, `fuerza`…). Sin
+ * disparos ni casillas que ocupa: en la arena dispara quien lleva arma a
+ * distancia, sin munición, y toda unidad ocupa una (13-10-2026).
  */
 function filasDeUnidad(
-  escrito: Pick<UnitInfo, 'attack' | 'defense' | 'damage' | 'hp'> & {
-    readonly casillas: number;
-  },
+  escrito: Pick<UnitInfo, 'attack' | 'fuerza' | 'agilidad' | 'hp'>,
   final: UnitInfo,
   atributo: (campo: string) => Html,
+  cuerpo: UnitInfo,
 ): FilaDeCifra[] {
   const fila = (
     campo: string,
@@ -833,23 +834,74 @@ function filasDeUnidad(
   });
   return [
     fila('attack', NOMBRE_DE_CIFRA.ataque, escrito.attack, final.attack, 0),
-    fila('defense', NOMBRE_DE_CIFRA.defensa, escrito.defense, final.defense, 0),
-    filaDeArmadura(final),
-    fila('damage-min', `${NOMBRE_DE_CIFRA.danio} mínimo`, escrito.damage[0], final.damage[0], 1, {
-      nota: 'No más que el máximo.',
+    fila('fuerza', NOMBRE_DE_CIFRA.fuerza, escrito.fuerza, final.damage[0], 1, {
+      nota: 'Su daño mínimo; la final, con la que suma su arma de cuerpo a cuerpo.',
     }),
-    fila('damage-max', `${NOMBRE_DE_CIFRA.danio} máximo`, escrito.damage[1], final.damage[1], 1, {
-      nota: 'No menos que el mínimo.',
-    }),
-    fila('hp', NOMBRE_DE_CIFRA.pv, escrito.hp, final.hp, 1, { nota: 'La vida de cada uno.' }),
     fila(
-      'casillas',
-      NOMBRE_DE_CIFRA.velocidad,
-      escrito.casillas,
-      SPEED_TO_HEXES[final.speed],
-      CASILLAS_MIN,
-      { nota: 'En casillas por turno.', maximo: CASILLAS_MAX },
+      'agilidad',
+      NOMBRE_DE_CIFRA.agilidad,
+      escrito.agilidad,
+      agilidadDeLaFicha(final),
+      AGILIDAD_DEL_CUERPO_MIN,
+      {
+        nota: 'De ella salen la defensa, el daño máximo (fuerza × agilidad) y las casillas; la final, con lo que le resta el peso.',
+        maximo: AGILIDAD_DEL_CUERPO_MAX,
+      },
     ),
+    ...filasDerivadas(final, cuerpo),
+    fila('hp', NOMBRE_DE_CIFRA.pv, escrito.hp, final.hp, 1, { nota: 'La vida de cada uno.' }),
+  ];
+}
+
+/** La agilidad con que pelea `u`: la de su cuerpo menos lo que le resta el peso (`agilidadEfectiva`). */
+function agilidadDeLaFicha(u: UnitInfo): number {
+  return agilidadEfectiva(u.agilidad, u.fuerza, u.peso ?? 0);
+}
+
+/**
+ * Las filas de lo que se deriva del cuerpo y el equipo, sin casilla (25-10-2026,
+ * `cifrasDelCuerpo`): la defensa, la armadura, el daño de cuerpo a cuerpo, las
+ * casillas y el peso, con lo que le resta a la agilidad. Las de una unidad y las
+ * de un héroe. Con `cuerpo` (el desnudo), cada final va en el otro tono si el
+ * equipo lo cambia.
+ */
+function filasDerivadas(final: UnitInfo, cuerpo: UnitInfo | null): FilaDeCifra[] {
+  const peso = final.peso ?? 0;
+  const resta = restaDelPeso(final.fuerza, peso);
+  const danio = (u: UnitInfo): string => `${u.damage[0]}–${u.damage[1]}`;
+  return [
+    {
+      clave: 'defensa',
+      rotulo: NOMBRE_DE_CIFRA.defensa,
+      nota: 'La agilidad, más la del escudo (y la Defensa del héroe).',
+      final: final.defense,
+      ...(cuerpo === null ? {} : { sinModificar: cuerpo.defense }),
+    },
+    filaDeArmadura(final),
+    {
+      clave: 'danio',
+      rotulo: NOMBRE_DE_CIFRA.danio,
+      nota: 'De la fuerza (con la del arma) a la fuerza por la agilidad: lo torpe pega parejo y lo ágil, con mucha variación.',
+      final: danio(final),
+      ...(cuerpo === null ? {} : { cambia: danio(final) !== danio(cuerpo) }),
+    },
+    {
+      clave: 'casillas',
+      rotulo: NOMBRE_DE_CIFRA.casillas,
+      nota: `Las que anda por turno: la agilidad, hasta ${CASILLAS_MAX}.`,
+      final: SPEED_TO_HEXES[final.speed],
+      ...(cuerpo === null ? {} : { sinModificar: SPEED_TO_HEXES[cuerpo.speed] }),
+    },
+    {
+      clave: 'peso',
+      rotulo: NOMBRE_DE_CIFRA.peso,
+      nota: 'Lo que pesa lo puesto, de su fuerza: por encima, −1 de agilidad por cada mitad de su fuerza.',
+      final:
+        resta === 0
+          ? `${peso} de ${final.fuerza}`
+          : `${peso} de ${final.fuerza}: −${resta} agilidad`,
+      cambia: resta > 0,
+    },
   ];
 }
 
@@ -1049,7 +1101,7 @@ export function renderFicha(u: Unidad | null, dispara: boolean, como: ComoDeLaFi
         },
         'Con lo que pelea: el cuerpo con el equipo puesto. En otro tono, la que el equipo cambia.',
         [
-          ...filasDeUnidad(u, combate, (c) => html`data-campo="${c}"`),
+          ...filasDeUnidad(u, combate, (c) => html`data-campo="${c}"`, cuerpoDeCombate(u)),
           {
             clave: 'leadership',
             rotulo: 'Liderazgo',
@@ -1157,11 +1209,17 @@ export function renderFichaDeHeroe(
       ${filaDelNivel(lecturaDelNivel(c))}
       ${tablaDeCifras(
         { nombre: 'Héroe', nota: 'Las cifras del héroe, las que se escriben.' },
-        'Con lo que pelea: su cuerpo en el tablero suma a su ataque y su defensa los de su rango y su equipo base; las demás, de su cuerpo, no se escriben.',
+        'Con lo que pelea: su cuerpo en el tablero suma a su ataque y su defensa los de su rango, su agilidad y su equipo base; las demás, de su cuerpo, no se escriben.',
         [
           escrita('ataque', NOMBRE_DE_CIFRA.ataque, h.ataque, 0, c.attack),
-          escrita('defensa', NOMBRE_DE_CIFRA.defensa, h.defensa, 0, c.defense),
-          filaDeArmadura(c),
+          escrita(
+            'defensa',
+            NOMBRE_DE_CIFRA.defensa,
+            h.defensa,
+            0,
+            c.defense,
+            'Su Defensa: suma a la defensa, encima de su agilidad y su escudo.',
+          ),
           escrita(
             'poder',
             'Poder',
@@ -1178,10 +1236,10 @@ export function renderFichaDeHeroe(
             h.conocimiento,
             'Su maná: 10 por punto.',
           ),
-          delCuerpo('damage-min', `${NOMBRE_DE_CIFRA.danio} mínimo`, c.damage[0]),
-          delCuerpo('damage-max', `${NOMBRE_DE_CIFRA.danio} máximo`, c.damage[1]),
+          delCuerpo('fuerza', NOMBRE_DE_CIFRA.fuerza, c.fuerza),
+          delCuerpo('agilidad', NOMBRE_DE_CIFRA.agilidad, agilidadDeLaFicha(c)),
           delCuerpo('hp', NOMBRE_DE_CIFRA.pv, c.hp),
-          delCuerpo('casillas', NOMBRE_DE_CIFRA.velocidad, SPEED_TO_HEXES[c.speed]),
+          ...filasDerivadas(c, null).filter((f) => f.clave !== 'defensa'),
         ],
       )}`,
       })}
@@ -1478,7 +1536,7 @@ interface CasillaDePieza {
   readonly nota?: string;
 }
 
-/** Las casillas de cada cifra que puede sumar una pieza (`camposDelHueco`); la velocidad, según el hueco. */
+/** Las casillas de cada cifra que puede sumar una pieza (`camposDelHueco`). */
 const CASILLAS_DE_LA_CIFRA: Readonly<
   Record<CifraDePieza, (hueco: Hueco) => readonly CasillaDePieza[]>
 > = {
@@ -1488,6 +1546,15 @@ const CASILLAS_DE_LA_CIFRA: Readonly<
       rotulo: NOMBRE_DE_CIFRA.ataque,
       de: (x) => x.ataque ?? 0,
       limites: { minimo: 0 },
+    },
+  ],
+  fuerza: () => [
+    {
+      campo: 'fuerza',
+      rotulo: NOMBRE_DE_CIFRA.fuerza,
+      de: (x) => x.fuerza ?? 0,
+      limites: { minimo: 0 },
+      nota: 'Lo que suma a la fuerza de quien la lleva para el daño de su golpe: de la fuerza al de la fuerza por la agilidad.',
     },
   ],
   defensa: () => [
@@ -1507,30 +1574,13 @@ const CASILLAS_DE_LA_CIFRA: Readonly<
       nota: `Puntos que se restan del daño de cada golpe, disparo o hechizo que recibe quien la lleva, con mínimo 0; hasta ${ARMADURA_MAXIMA_DE_PIEZA}.`,
     },
   ],
-  danio: () => [
+  peso: () => [
     {
-      campo: 'danio-min',
-      rotulo: `${NOMBRE_DE_CIFRA.danio} mínimo`,
-      de: (x) => x.danio?.[0] ?? 0,
+      campo: 'peso',
+      rotulo: NOMBRE_DE_CIFRA.peso,
+      de: (x) => x.peso ?? 0,
       limites: { minimo: 0 },
-      nota: 'Lo que suma al daño mínimo de quien la lleva.',
-    },
-    {
-      campo: 'danio-max',
-      rotulo: `${NOMBRE_DE_CIFRA.danio} máximo`,
-      de: (x) => x.danio?.[1] ?? 0,
-      limites: { minimo: 0 },
-      nota: 'Lo que suma al daño máximo de quien la lleva.',
-    },
-  ],
-  velocidad: (hueco) => [
-    {
-      campo: 'velocidad',
-      rotulo: NOMBRE_DE_CIFRA.velocidad,
-      de: (x) => x.velocidad ?? 0,
-      ...(hueco === 'escudo'
-        ? { limites: { maximo: 0 }, nota: 'Un escudo no suma: 0 o restar escalones.' }
-        : { limites: {}, nota: 'En escalones de velocidad; puede restar.' }),
+      nota: 'Lo que pesa: lo puesto que pase de la fuerza de quien lo lleva le resta 1 de agilidad por cada mitad de su fuerza.',
     },
   ],
 };
@@ -1709,42 +1759,46 @@ function botonDeEditar(x: BattleStack, nombre: string): Html {
   return html`<button class="editar-en-combate" data-arena="editar-en-combate" data-stack="${x.id}" title="Cambiar las cifras de ${nombre}: todo su tipo, ya en esta pelea">Editar</button>`;
 }
 
+/** Las cifras de un stack en la pelea a las que el equipo cambia algo (`delEquipo`). */
+type CifraQueCambiaElEquipo = 'ataque' | 'defensa' | 'danio' | 'casillas';
+
 /**
- * Lo que suma el equipo a una `cifra` de `u`: lo de ahora menos lo de su cuerpo
- * (`cuerpo`, el del stack sin equipo, `SesionDeArena.cuerpoDe`), en la pastilla de toda
- * suma de equipo (`textoDeModificador`, como `modificadoresEnPantalla`), o nada
- * si no suma. La velocidad, en casillas, que es como se lee al lado. La armadura
- * no pasa por aquí: el cuerpo no la lleva, toda es del equipo, y su fila la dice
- * entera (`filasDelStack`).
+ * Lo que cambia el equipo una `cifra` de `u`: lo de ahora menos lo de su cuerpo
+ * (`cuerpo`, el del stack sin equipo, `SesionDeArena.cuerpoDe`), en la pastilla de
+ * toda suma de equipo, o nada si no cambia. Desde la fuerza y la agilidad
+ * (25-10-2026) no es una suma: el peso resta agilidad, y con ella defensa, daño y
+ * casillas, así que se dice la diferencia. La armadura no pasa por aquí: el cuerpo
+ * no la lleva, toda es del equipo, y su fila la dice entera (`filasDelStack`).
  */
-function delEquipo(
-  u: UnitInfo,
-  cuerpo: UnitInfo | null,
-  cifra: Exclude<CifraDePieza, 'armadura'>,
-): Html {
+function delEquipo(u: UnitInfo, cuerpo: UnitInfo | null, cifra: CifraQueCambiaElEquipo): Html {
   if (cuerpo === null || u.equipo === undefined) return NADA;
-  let m: ModificadorDePieza;
+  let dicho: string | null;
   switch (cifra) {
-    case 'ataque':
-      m = { kind: 'cifra', cifra, valor: u.attack - cuerpo.attack };
+    case 'ataque': {
+      const d = u.attack - cuerpo.attack;
+      dicho = d === 0 ? null : `${conSigno(d)} ${NOMBRE_DE_CIFRA.ataque}`;
       break;
-    case 'defensa':
-      m = { kind: 'cifra', cifra, valor: u.defense - cuerpo.defense };
+    }
+    case 'defensa': {
+      const d = u.defense - cuerpo.defense;
+      dicho = d === 0 ? null : `${conSigno(d)} ${NOMBRE_DE_CIFRA.defensa}`;
       break;
-    case 'velocidad':
-      m = { kind: 'cifra', cifra, valor: SPEED_TO_HEXES[u.speed] - SPEED_TO_HEXES[cuerpo.speed] };
+    }
+    case 'casillas': {
+      const d = SPEED_TO_HEXES[u.speed] - SPEED_TO_HEXES[cuerpo.speed];
+      dicho = d === 0 ? null : `${conSigno(d)} ${NOMBRE_DE_CIFRA.casillas}`;
       break;
-    case 'danio':
-      m = {
-        kind: 'cifra',
-        cifra,
-        valor: u.damage[0] - cuerpo.damage[0],
-        hasta: u.damage[1] - cuerpo.damage[1],
-      };
+    }
+    case 'danio': {
+      const a = u.damage[0] - cuerpo.damage[0];
+      const b = u.damage[1] - cuerpo.damage[1];
+      dicho =
+        a === 0 && b === 0 ? null : `${conSigno(a)} / ${conSigno(b)} ${NOMBRE_DE_CIFRA.danio}`;
       break;
+    }
   }
-  if (m.valor === 0 && (m.hasta ?? 0) === 0) return NADA;
-  return html` <span class="modificador" data-cifra="${cifra}">${textoDeModificador(m)}</span>`;
+  if (dicho === null) return NADA;
+  return html` <span class="modificador" data-cifra="${cifra}">${dicho}</span>`;
 }
 
 /**
@@ -1771,7 +1825,7 @@ export function filasDelStack(
         <div class="row"><span class="label">Ataque / Defensa</span><span>${ataqueYDefensa(b, x, s.defensaEnLoAlto(x))}${delEquipo(u, cuerpo, 'ataque')}${delEquipo(u, cuerpo, 'defensa')}</span></div>
         ${armaduraDe(u) === 0 ? NADA : html`<div class="row"><span class="label">${NOMBRE_DE_CIFRA.armadura}</span><span>${armaduraDe(u)}</span></div>`}
         ${danio}
-        <div class="row"><span class="label">Velocidad</span><span>${SPEED_TO_HEXES[u.speed]} casillas${delEquipo(u, cuerpo, 'velocidad')}</span></div>`;
+        <div class="row"><span class="label">Velocidad</span><span>${SPEED_TO_HEXES[u.speed]} casillas${delEquipo(u, cuerpo, 'casillas')}</span></div>`;
 }
 
 /**

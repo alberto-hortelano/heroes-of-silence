@@ -1086,7 +1086,9 @@ function entregado(
 describe('una consulta solo habla de los jugadores que lleva el agente', () => {
   it('game_state del rival ya no devuelve su crónica, y dice por cuál preguntar', async () => {
     const { link } = await montar(() => ({ actions: [] }));
-    const director = new Director(link, { seed: 401, agentPlayers: [1] });
+    // La 417: en la 401, desde la fuerza y la agilidad (25-10-2026), lo de cada uno
+    // en esos turnos lo veían los dos.
+    const director = new Director(link, { seed: 417, agentPlayers: [1] });
     // Un puñado de turnos de la IA para que los dos tengan diario propio.
     for (let i = 0; i < 8; i++) await director.playTurn();
 

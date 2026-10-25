@@ -5,7 +5,9 @@
  * recluta lo que puede y manda a sus héroes al objetivo más rentable que esté
  * a su alcance. Es el listón que el agente tiene que superar.
  */
+
 import { cifrasDeUnidad, equipoPuestoDe, unidadDelJuego } from '../catalogo.js';
+import { cuerpoConSusCifras } from '../cuerpo.js';
 import { ECONOMIA, type Pieza } from '../data.js';
 import {
   conEquipo,
@@ -660,19 +662,22 @@ function portadores(hero: Hero): { readonly quien: Portador; readonly equipo: Eq
   return [{ quien: elHeroe, equipo: equipoDe(hero, elHeroe) }, ...tropa];
 }
 
+/** La agilidad del cuerpo de referencia: la de un humano de a pie (`tools/arena/velocidades.ts`). */
+const AGILIDAD_DE_REFERENCIA = 4;
+
 /**
  * El cuerpo con que la IA mide una pieza: el cuerpo común de las unidades
- * (`CUERPO_COMUN`), sin nada puesto.
+ * (`CUERPO_COMUN`), con la agilidad de un humano de a pie y sin nada puesto.
  */
-const CUERPO_DE_REFERENCIA: UnitInfo = {
+const CUERPO_DE_REFERENCIA: UnitInfo = cuerpoConSusCifras({
   name: 'cuerpo de referencia',
   faction: null,
   attack: CUERPO_COMUN.attack,
-  defense: CUERPO_COMUN.defense,
-  damage: CUERPO_COMUN.damage,
+  fuerza: CUERPO_COMUN.fuerza,
+  agilidad: AGILIDAD_DE_REFERENCIA,
+  defensaPropia: 0,
   hp: CUERPO_COMUN.hp,
-  speed: 'average',
-};
+});
 
 /** Lo que vale cada pieza (`valorDePieza`), calculado una vez por pieza. */
 const VALOR_DE_PIEZA = new WeakMap<Pieza, number>();

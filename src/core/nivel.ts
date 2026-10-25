@@ -86,7 +86,7 @@ function medida(u: UnitInfo): Medida | { readonly motivo: string } {
     return { ofensa, aguante };
   }
   return {
-    motivo: `estas cifras son demasiado grandes para medir su nivel (${u.damage[0]}-${u.damage[1]} de daño, ${u.hp} PV, ataque ${u.attack}, defensa ${u.defense}): baja la vida o el daño`,
+    motivo: `estas cifras son demasiado grandes para medir su nivel (${u.damage[0]}-${u.damage[1]} de daño, ${u.hp} PV, ataque ${u.attack}, defensa ${u.defense}): baja la vida o la fuerza`,
   };
 }
 

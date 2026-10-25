@@ -116,7 +116,8 @@ describe('#258: el botón de cada sector se recorta a lo que se ve', () => {
 
 describe('R3 de QA (#263): R. guardia dice en cuánto deja el contraataque antes de elegir', () => {
   it('su nota, y su etiqueta, llevan el contraataque con cada éxito frente al de Normal', () => {
-    const s = sesion();
+    // La 2: en la 1, desde la fuerza y la agilidad (25-10-2026), pega antes el del mandoble.
+    const s = sesion(2);
     hastaElGolpe(s);
     const p = s.ruedaPendiente;
     if (p === null) throw new Error('la rueda no pide el golpe');
@@ -269,7 +270,7 @@ describe('#261: la vista previa', () => {
     return m.slice(desde, m.indexOf('</div><span class="quien">', desde));
   };
 
-  it('el nombre, la vida y las cifras con lo que suma el equipo (el guerrero con escudo: espada, brigantina y escudo)', () => {
+  it('el nombre, la vida y las cifras con lo que cambia el equipo (el guerrero con escudo: espada, brigantina y escudo)', () => {
     const s = sesion();
     hastaElGolpe(s);
     const p = s.ruedaPendiente;
@@ -278,19 +279,19 @@ describe('#261: la vista previa', () => {
     if (guerrero === undefined) throw new Error('el guerrero no se cruza');
     const v = previa(s, guerrero.id);
     expect(v).toContain('Guerrero con escudo');
-    expect(v).toContain(`${guerrero.topHp} / 80 PV`);
-    // Del catálogo de piezas (data/equipo.json): Espada +2 ataque y +10–30 de
-    // daño; Brigantina 7 de armadura y ningún PV (#262); el escudo, defensa y
-    // una casilla menos.
+    expect(v).toContain(`${guerrero.topHp} / 160 PV`);
+    // Del catálogo de piezas (data/equipo.json): Espada +2 ataque y +10 de fuerza;
+    // Brigantina 7 de armadura y ningún PV (#262); el escudo, defensa. Lo puesto
+    // pesa 24, y con fuerza 22 no le resta agilidad: las casillas no cambian.
     expect(v).toContain('data-cifra="ataque">+2 Ataque');
-    expect(v).toContain('data-cifra="danio">+10–30 Daño');
+    expect(v).toContain('data-cifra="danio">+10 / +40 Daño');
     expect(v).not.toContain('data-cifra="pv"');
     expect(v).toContain('<span class="label">Armadura</span><span>7</span>');
-    expect(v).toContain('data-cifra="velocidad">−1 Velocidad');
-    expect(v).toMatch(/data-cifra="defensa">\+\d+ Defensa/);
-    // El daño de la rueda es el del cuerpo a cuerpo, en una fila y sin notas: el
-    // de su cuerpo del catálogo (8–10) más el de la Espada.
-    expect(v).toContain('<span class="label">Daño</span><span>18–40');
+    expect(v).not.toContain('data-cifra="casillas"');
+    expect(v).toMatch(/data-cifra="defensa">\+3 Defensa/);
+    // El daño de la rueda es el del cuerpo a cuerpo, en una fila y sin notas: su
+    // fuerza (22) con la de la Espada (10), por su agilidad (4).
+    expect(v).toContain('<span class="label">Daño</span><span>32–128');
     expect(v).not.toContain('class="nota"');
   });
 

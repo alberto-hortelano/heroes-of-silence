@@ -606,7 +606,7 @@ function resolveUnit(stack: StackDeBatalla, slot: number, setup: BattleSide): En
   return {
     slot,
     body: hojaDeLaTropa(stack),
-    unit: cifrasDelIndividuo(miembro.profile.unit, stack.veterania),
+    unit: cifrasDelIndividuo(miembro.profile.unit, stack.veterania, miembro.profile.equipo),
     origen: { kind: 'personaje', id, veterania: stack.veterania ?? null },
     count: 1,
     topHp: miembro.hp,

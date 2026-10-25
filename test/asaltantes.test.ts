@@ -242,6 +242,10 @@ describe('la emboscada', () => {
   it('gana el grupo: el héroe vuelve a su base y el grupo sigue con lo que le quede', () => {
     const { state, ctx, hero, grupo, hasta } = enSuRegion(11);
     hero.army = [];
+    // El grupo, fijo y fuerte (siete jinetes): con la fuerza y la agilidad
+    // (25-10-2026) el héroe solo, de 1 000 PV, ganaba al más fuerte de la semilla y
+    // a tres jinetes. Aquí se mide qué pasa si gana el grupo.
+    (grupo as { troops: unknown }).troops = [{ creature: JINETE, count: 7 }];
     applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: hasta }, ctx, 0);
     resolvePendingBattle(state, ctx);
     expect(state.log.find((e) => e.kind === 'hero_returned')).toMatchObject({ hero: hero.id });
@@ -622,7 +626,8 @@ describe('el plan de mapa con asaltantes', () => {
     );
     // Un jinete de plaga y seis caballeros de la muerte pasan del liderazgo sin
     // pasar de la fuerza: solo caen por el primer techo. Tres jinetes de plaga
-    // caben en el liderazgo y pasan de la fuerza: solo por el otro.
+    // caben en el liderazgo y pasan de la fuerza: solo por el otro (con la fuerza
+    // y la agilidad, 25-10-2026, tres hermanos de carga: los de plaga ya no pasan).
     const porLiderazgo = [
       { creature: 'jinete-de-plaga', count: 1 },
       { creature: 'caballero-de-la-muerte', count: 6 },
@@ -634,10 +639,10 @@ describe('el plan de mapa con asaltantes', () => {
     expect(ocupa).toBeGreaterThan(ASALTANTES.liderazgoMax);
     expect(poderDe({ troops: porLiderazgo })).toBeLessThanOrEqual(ASALTANTES.fuerzaMax);
     expect(con({ at: uno.at, troops: porLiderazgo })).toMatch(`ocupa ${ocupa} de liderazgo`);
-    const porFuerza = [{ creature: 'jinete-de-plaga', count: 3 }];
+    const porFuerza = [{ creature: 'templario-hermano-de-carga', count: 3 }];
     const suma = poderDe({ troops: porFuerza });
     expect(suma).toBeGreaterThan(ASALTANTES.fuerzaMax);
-    expect(3 * unidadDelJuego('jinete-de-plaga').leadership).toBeLessThanOrEqual(
+    expect(3 * unidadDelJuego('templario-hermano-de-carga').leadership).toBeLessThanOrEqual(
       ASALTANTES.liderazgoMax,
     );
     expect(con({ at: uno.at, troops: porFuerza })).toMatch(`suma ${suma} de fuerza`);
@@ -832,9 +837,11 @@ describe('qué grupo se ve: basta ver su región (#130)', () => {
   it('la ruta avisa de un grupo cuya casilla no se ve si se ve su región', () => {
     const { state, raider, mirando } = grupoPorSuRegion();
     const hero = heroesOf(state, 0)[0]!;
-    // Lo bastante débil para que cualquiera le saque el margen: aquí se mira
-    // qué se ve, no quién embosca a quién.
+    // Lo bastante débil para que el grupo le saque el margen: aquí se mira qué se
+    // ve, no quién embosca a quién. El grupo, fijo y fuerte, que el héroe solo ya
+    // pega como una tropa entera (25-10-2026).
     hero.army = ejercito({ creature: TROPA_BARATA, count: 1 });
+    (raider as { troops: unknown }).troops = [{ creature: JINETE, count: 3 }];
     const region = regionDeCasilla(state.map, raider.at);
     const { regionDe } = estructura(state.map);
     const i = regionDe.indexOf(region);

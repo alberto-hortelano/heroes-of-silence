@@ -471,6 +471,9 @@ describe('la crónica pasa por la niebla', () => {
     // que sale del mapa: ahí el sello no lo salva y lo salva `actor`.
     (state.players[0] as { base: string | null }).base = null;
     heroById(state, 'hero-0').army = ejercito({ creature: TROPA_BARATA, count: 1 });
+    // Y el rival, con tropa que lo derribe: con la fuerza y la agilidad
+    // (25-10-2026) el héroe solo ganaba al del otro bando.
+    heroById(state, 'hero-1').army = ejercito({ creature: PESADA, count: 5 });
     pasear(state, ctx, 0, [{ x: 20, y: 6 }]);
     pasarTurno(state, ctx, 0);
     pasear(state, ctx, 1, [{ x: 20, y: 6 }]);

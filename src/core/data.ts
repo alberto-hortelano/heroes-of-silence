@@ -41,7 +41,6 @@ import type {
   FactionId,
   Hueco,
   NivelesDeLaRueda,
-  SpeedTier,
   UnitInfo,
 } from './types.js';
 import {
@@ -53,7 +52,6 @@ import {
   HUECOS,
   NOMBRE_DE_CIFRA,
   NOMBRE_DE_HUECO,
-  SPEED_TIERS,
   TIPOS_DEL_ANILLO,
 } from './types.js';
 import { esIdDePieza, esIdDeUnidad, revisarLista } from './validar.js';
@@ -147,10 +145,13 @@ export const LIDERAZGO: ReglasDeLiderazgo = {
 export interface ReglasDelHeroe {
   readonly combate: {
     readonly pv: { readonly base: number; readonly porRango: number };
+    /** La fuerza del héroe recién hecho y lo que sube cada rango (25-10-2026). */
+    readonly fuerza: { readonly base: number; readonly porRango: number };
+    /** La agilidad del cuerpo del héroe: la de un humano de a pie. */
+    readonly agilidad: number;
     readonly ataquePorRango: number;
+    /** Lo que sube su Defensa cada rango: suma a la defensa, no a la agilidad. */
     readonly defensaPorRango: number;
-    readonly danio: { readonly min: number; readonly max: number; readonly maxPorRango: number };
-    readonly velocidad: SpeedTier;
   };
   readonly rendicion: { readonly porcentajeDelOro: number };
   /**
@@ -182,25 +183,46 @@ function equipoBaseDelHeroe(valor: unknown): Equipo {
   return valor as Equipo;
 }
 
-/** Un JSON se edita a mano: una velocidad mal escrita se dice al cargar, no en la batalla. */
-function velocidadDelHeroe(v: string): SpeedTier {
-  const tier = SPEED_TIERS.find((t) => t === v);
-  if (tier === undefined) {
-    throw new Error(
-      `data/heroe.json: la velocidad "${v}" no existe; valen ${SPEED_TIERS.join(', ')}`,
-    );
+/**
+ * El cuerpo del héroe de `data/heroe.json`, comprobado: un JSON se edita a mano, y
+ * una cifra mal escrita se dice al cargar, no en la batalla. Lo de antes (`danio`,
+ * `velocidad`) no vale: la fuerza y la agilidad lo sustituyen (25-10-2026).
+ */
+function combateDelHeroe(c: unknown): ReglasDelHeroe['combate'] {
+  const j = (c ?? {}) as Record<string, unknown>;
+  const problemas: string[] = [];
+  const campos = ['pv', 'fuerza', 'agilidad', 'ataquePorRango', 'defensaPorRango'];
+  for (const k of Object.keys(j).filter((k) => !campos.includes(k))) {
+    problemas.push(`combate.${k} no es un campo del cuerpo del héroe; valen ${campos.join(', ')}`);
   }
-  return tier;
+  const conRango = (k: string, desde: number): { base: number; porRango: number } => {
+    const v = (j[k] ?? {}) as Record<string, unknown>;
+    if (!enteroDesde(v.base, desde) || !enteroDesde(v.porRango, 0)) {
+      problemas.push(
+        `combate.${k} tiene que ser { base: entero ≥ ${desde}, porRango: entero ≥ 0 }`,
+      );
+    }
+    return { base: v.base as number, porRango: v.porRango as number };
+  };
+  const pv = conRango('pv', 1);
+  const fuerza = conRango('fuerza', 1);
+  for (const k of ['agilidad', 'ataquePorRango', 'defensaPorRango'] as const) {
+    if (!enteroDesde(j[k], k === 'agilidad' ? 1 : 0)) {
+      problemas.push(`combate.${k} tiene que ser un entero y es ${String(j[k])}`);
+    }
+  }
+  if (problemas.length > 0) throw new Error(`data/heroe.json: ${problemas.join('; ')}`);
+  return {
+    pv,
+    fuerza,
+    agilidad: j.agilidad as number,
+    ataquePorRango: j.ataquePorRango as number,
+    defensaPorRango: j.defensaPorRango as number,
+  };
 }
 
 export const HEROE: ReglasDelHeroe = {
-  combate: {
-    pv: { ...heroeJson.combate.pv },
-    ataquePorRango: heroeJson.combate.ataquePorRango,
-    defensaPorRango: heroeJson.combate.defensaPorRango,
-    danio: { ...heroeJson.combate.danio },
-    velocidad: velocidadDelHeroe(heroeJson.combate.velocidad),
-  },
+  combate: combateDelHeroe(heroeJson.combate),
   rendicion: { ...heroeJson.rendicion },
   equipoBase: equipoBaseDelHeroe(heroeJson.equipoBase),
 };
@@ -312,8 +334,15 @@ export interface ReglasDeExperiencia {
   readonly incrementos: readonly number[];
   /** El tope de la tropa. El héroe no tiene. */
   readonly rangoMaximoDeTropa: number;
-  /** Lo que suma a ataque y defensa cada rango por encima del 1. */
-  readonly porRango: { readonly ataque: number; readonly defensa: number };
+  /**
+   * Lo que suma cada rango por encima del 1 al ataque, la fuerza y la agilidad del
+   * cuerpo (25-10-2026: la defensa ya no se escribe, sale de la agilidad).
+   */
+  readonly porRango: {
+    readonly ataque: number;
+    readonly fuerza: number;
+    readonly agilidad: number;
+  };
 }
 
 /**
@@ -354,10 +383,18 @@ export function validarExperiencia(
     }
   }
   const por = (j.porRango ?? {}) as Record<string, unknown>;
-  for (const campo of ['ataque', 'defensa'] as const) {
+  const CAMPOS_POR_RANGO = ['ataque', 'fuerza', 'agilidad'] as const;
+  for (const campo of CAMPOS_POR_RANGO) {
     if (!enteroDesde(por[campo], 0)) {
       problemas.push(`porRango.${campo} tiene que ser un entero ≥ 0 y es ${por[campo]}`);
     }
+  }
+  for (const k of Object.keys(por).filter(
+    (k) => !(CAMPOS_POR_RANGO as readonly string[]).includes(k),
+  )) {
+    problemas.push(
+      `porRango.${k} no es una cifra que suba con el rango; valen ${CAMPOS_POR_RANGO.join(', ')}`,
+    );
   }
   const ajeno = Object.keys(j).find(
     (k) => !['_comment', 'base', 'incrementos', 'rangoMaximoDeTropa', 'porRango'].includes(k),
@@ -368,7 +405,11 @@ export function validarExperiencia(
     base: j.base as number,
     incrementos: [...(inc as number[])],
     rangoMaximoDeTropa: rangoMax as number,
-    porRango: { ataque: por.ataque as number, defensa: por.defensa as number },
+    porRango: {
+      ataque: por.ataque as number,
+      fuerza: por.fuerza as number,
+      agilidad: por.agilidad as number,
+    },
   };
 }
 
@@ -832,13 +873,18 @@ export interface Pieza {
    */
   readonly armadura?: number;
   /**
-   * Escalones de velocidad que suma a quien la lleva, sin pasar del último ni
-   * bajar del primero. Puede ser negativa: un escudo la resta, y tiene que
-   * restarla (`leerEquipo`).
+   * Lo que suma un arma a la fuerza de quien la lleva para el daño de su golpe
+   * (25-10-2026: «daño mínimo es fuerza y daño máximo es fuerza × agilidad»,
+   * `cifrasDelCuerpo`); sin el campo, nada. Solo las armas (`camposDelHueco`).
+   * El peso no se compara con ella: con la fuerza del cuerpo.
    */
-  readonly velocidad: number;
-  /** `[+mínimo, +máximo]` de daño que suma; sin el campo, nada. */
-  readonly danio?: readonly [number, number];
+  readonly fuerza?: number;
+  /**
+   * Lo que pesa (25-10-2026: «todo tiene un peso»): la suma de lo puesto que pase
+   * de la fuerza del cuerpo resta agilidad (`restaDelPeso`, `core/cuerpo.ts`).
+   * Toda pieza lo dice, ≥ 0. Ninguna pieza resta movimiento: lo hace el peso.
+   */
+  readonly peso: number;
   /**
    * `2` si es un arma a dos manos, que no admite escudo (`manosBlocker`, la única
    * lectura). Solo en el hueco `arma`; sin el campo, una mano.
@@ -865,32 +911,31 @@ export interface Pieza {
  */
 export interface ExtrasDePieza {
   readonly ataque?: number;
+  readonly fuerza?: number;
   readonly defensa?: number;
   readonly armadura?: number;
-  readonly velocidad?: number;
-  readonly danio?: readonly [number, number];
+  readonly peso?: number;
   /** Niveles de la rueda con signo, por tipo del anillo: el final, el de la base más este. */
   readonly rueda?: ExtrasDeLaRueda;
   readonly oro?: number;
 }
 
 /**
- * Cómo es cada extra (`ExtrasDePieza`), en el orden en que se escriben: un número,
- * dos (el daño, que se suma por componentes) o uno por tipo del anillo (la rueda,
- * en niveles).
+ * Cómo es cada extra (`ExtrasDePieza`), en el orden en que se escriben: un número
+ * o uno por tipo del anillo (la rueda, en niveles).
  * **La tabla de los extras, una vez**: de ella salen sus campos
  * (`CAMPOS_DE_EXTRAS`), su forma (`problemasDePiezaConBase`), cómo se escriben
  * (`piezaConBaseCanonica`) y la suma de una base y su inversa (`sumarExtras`).
  */
 const FORMA_DE_LOS_EXTRAS = {
   ataque: 'numero',
+  fuerza: 'numero',
   defensa: 'numero',
   armadura: 'numero',
-  velocidad: 'numero',
-  danio: 'par',
+  peso: 'numero',
   rueda: 'porTipo',
   oro: 'numero',
-} as const satisfies Readonly<Record<keyof ExtrasDePieza, 'numero' | 'par' | 'porTipo'>>;
+} as const satisfies Readonly<Record<keyof ExtrasDePieza, 'numero' | 'porTipo'>>;
 
 type CampoDeExtra = keyof typeof FORMA_DE_LOS_EXTRAS;
 
@@ -948,10 +993,10 @@ export const CAMPOS_DE_PIEZA: readonly string[] = [
   'hueco',
   'seConsigue',
   'ataque',
+  'fuerza',
   'defensa',
   'armadura',
-  'velocidad',
-  'danio',
+  'peso',
   'manos',
   'rueda',
   'precio',
@@ -1032,8 +1077,8 @@ function problemasDeDondeSeConsigue(v: unknown, q: string): string[] {
  * campos que existen (`CAMPOS_DE_PIEZA`: un `pv` no es uno, ninguna pieza da PV),
  * el id (`esIdDePieza`), el nombre, el hueco que existe, de dónde se consigue, las
  * cifras enteras ≥ 0 y solo las de su hueco (`camposDelHueco`), la armadura con
- * tope (`ARMADURA_MAXIMA_DE_PIEZA`), el escudo que no suma velocidad, el daño
- * `[mín, máx]`, las manos solo en un arma, una rueda con sus seis niveles en
+ * tope (`ARMADURA_MAXIMA_DE_PIEZA`), la fuerza que suma un arma, el peso que
+ * lleva toda pieza, las manos solo en un arma, una rueda con sus seis niveles en
  * cada arma que golpea en ella (`problemasDeNiveles`) y el precio, solo en oro.
  * **La regla de una pieza, en un sitio**: la leen el cargador del catálogo
  * (`leerPiezas`, que añade las reglas de conjunto), la arena, que edita piezas una
@@ -1051,7 +1096,11 @@ export function problemasDePieza(bruta: unknown, quien?: string): string[] {
     problemas.push(
       ajeno === 'pv'
         ? `${q} suma PV: ninguna pieza da PV, se protege con armadura, que se resta de cada golpe`
-        : `${q}: «${ajeno}» no es un campo de una pieza; valen ${CAMPOS_DE_PIEZA.join(', ')}`,
+        : ajeno === 'velocidad'
+          ? `${q} dice velocidad: ninguna pieza resta movimiento, lo hace su peso («peso»)`
+          : ajeno === 'danio'
+            ? `${q} dice daño: un arma suma fuerza («fuerza») y el daño sale de la fuerza y la agilidad`
+            : `${q}: «${ajeno}» no es un campo de una pieza; valen ${CAMPOS_DE_PIEZA.join(', ')}`,
     );
   }
   problemas.push(...problemasDeIdYNombre(p, q));
@@ -1070,22 +1119,16 @@ export function problemasDePieza(bruta: unknown, quien?: string): string[] {
   } else if (typeof p.armadura === 'number' && p.armadura > ARMADURA_MAXIMA_DE_PIEZA) {
     problemas.push(`${q}: la armadura va de 0 a ${ARMADURA_MAXIMA_DE_PIEZA} y es ${p.armadura}`);
   }
-  // La velocidad puede restar: es lo que hace un escudo, que no puede sumarla (0
-  // vale: un escudo ligero que no frena; 23-10-2026, decisión del usuario).
-  if (!enteroDesde(p.velocidad, Number.MIN_SAFE_INTEGER)) {
-    problemas.push(`${q}: velocidad tiene que ser un entero y ${comoSeLee(p.velocidad)}`);
-  } else if (p.hueco === 'escudo' && (p.velocidad as number) > 0) {
-    problemas.push(
-      `${q} es un escudo y no puede sumar velocidad (0 o un número negativo), y es ${p.velocidad}`,
-    );
+  if (p.fuerza !== undefined && !enteroDesde(p.fuerza, 0)) {
+    problemas.push(`${q}: fuerza tiene que ser un entero ≥ 0 y ${comoSeLee(p.fuerza)}`);
   }
-  if (p.danio !== undefined) {
-    const d = p.danio;
-    if (!Array.isArray(d) || d.length !== 2 || !d.every((x) => enteroDesde(x, 0))) {
-      problemas.push(`${q}: danio tiene que ser [+mínimo, +máximo], dos enteros ≥ 0`);
-    } else if ((d[0] as number) > (d[1] as number)) {
-      problemas.push(`${q}: el daño mínimo que suma (${d[0]}) pasa del máximo (${d[1]})`);
-    }
+  // Todo pesa (25-10-2026): el peso se escribe siempre, y nada resta movimiento.
+  if (!enteroDesde(p.peso, 0)) {
+    problemas.push(
+      p.peso === undefined
+        ? `${q} no dice su peso: toda pieza pesa, un entero ≥ 0`
+        : `${q}: peso tiene que ser un entero ≥ 0 y ${comoSeLee(p.peso)}`,
+    );
   }
   // Cada tipo, solo sus cifras (decisión del usuario, 18-10-2026: «diferencia por
   // tipo»).
@@ -1220,11 +1263,6 @@ export function problemasDePiezaConBase(bruta: unknown, quien?: string): string[
           problemas.push(`${q}: el extra de ${campo} tiene que ser un entero y ${comoSeLee(v)}`);
         }
         break;
-      case 'par':
-        if (!Array.isArray(v) || v.length !== 2 || !v.every(conSigno)) {
-          problemas.push(`${q}: el extra de daño tiene que ser [+mínimo, +máximo], dos enteros`);
-        }
-        break;
       case 'porTipo':
         problemas.push(...problemasDeRueda(v, q));
         break;
@@ -1269,14 +1307,13 @@ function enSuOrden(v: readonly DondeSeConsigue[]): readonly DondeSeConsigue[] {
 
 /**
  * Una pieza ya válida escrita siempre igual: los campos en su orden, sin lo que no
- * suma nada (`armadura` 0, `danio` sin máximo, una mano), de dónde se consigue en
+ * suma nada (`armadura` y `fuerza` 0, una mano), de dónde se consigue en
  * su orden y la rueda entera en el orden del anillo (`nivelesEnOrden`: un nivel 0
  * se escribe). Es la forma que compara `mismaPieza`: el catálogo
  * (`leerPiezas`), la arena (`validarPieza`) y la suma de una base
  * (`resolverBases`) escriben así.
  */
 export function piezaCanonica(p: Pieza): Pieza {
-  const danio = p.danio !== undefined && p.danio[1] > 0 ? p.danio : undefined;
   const rueda = p.rueda === undefined ? undefined : nivelesEnOrden(p.rueda);
   return {
     id: p.id,
@@ -1284,10 +1321,10 @@ export function piezaCanonica(p: Pieza): Pieza {
     hueco: p.hueco,
     seConsigue: enSuOrden(p.seConsigue),
     ataque: p.ataque,
+    ...((p.fuerza ?? 0) > 0 ? { fuerza: p.fuerza } : {}),
     defensa: p.defensa,
     ...((p.armadura ?? 0) > 0 ? { armadura: p.armadura } : {}),
-    velocidad: p.velocidad,
-    ...(danio === undefined ? {} : { danio: [danio[0], danio[1]] as const }),
+    peso: p.peso,
     ...(p.manos === 2 ? { manos: 2 as const } : {}),
     ...(rueda === undefined ? {} : { rueda }),
     precio: p.precio,
@@ -1301,7 +1338,6 @@ export function piezaConBaseCanonica(p: PiezaConBase): PiezaConBase {
   for (const campo of EXTRAS) {
     if (!sumaAlgo(x[campo])) continue;
     if (campo === 'rueda') extras.rueda = ruedaSinCeros(x.rueda);
-    else if (campo === 'danio') extras.danio = [x.danio?.[0], x.danio?.[1]];
     else extras[campo] = x[campo];
   }
   return {
@@ -1321,10 +1357,10 @@ export function piezaConBaseCanonica(p: PiezaConBase): PiezaConBase {
 export function extrasDe(p: Pieza): ExtrasEnteros {
   return {
     ataque: p.ataque,
+    fuerza: p.fuerza ?? 0,
     defensa: p.defensa,
     armadura: p.armadura ?? 0,
-    velocidad: p.velocidad,
-    danio: p.danio ?? [0, 0],
+    peso: p.peso,
     rueda: p.rueda ?? {},
     oro: p.precio,
   };
@@ -1345,10 +1381,10 @@ export function conLosExtras(p: Pieza, x: ExtrasDePieza): Pieza {
     hueco: p.hueco,
     seConsigue: p.seConsigue,
     ataque: x.ataque ?? 0,
+    fuerza: x.fuerza ?? 0,
     defensa: x.defensa ?? 0,
     armadura: x.armadura ?? 0,
-    velocidad: x.velocidad ?? 0,
-    danio: x.danio ?? [0, 0],
+    peso: x.peso ?? 0,
     ...(p.manos === undefined ? {} : { manos: p.manos }),
     ...(conRueda ? { rueda: nivelesEnOrden(x.rueda ?? {}) } : {}),
     precio: x.oro ?? 0,
@@ -1356,8 +1392,8 @@ export function conLosExtras(p: Pieza, x: ExtrasDePieza): Pieza {
 }
 
 /**
- * `a` más `b` por `signo`, extra a extra (`FORMA_DE_LOS_EXTRAS`): los números, el
- * daño por componentes y la rueda por tipo. Con `+1` es la suma de una base
+ * `a` más `b` por `signo`, extra a extra (`FORMA_DE_LOS_EXTRAS`): los números y
+ * la rueda por tipo. Con `+1` es la suma de una base
  * (`sumarBase`); con `−1`, su inversa (`diferenciaDe`). Los ceros se quedan: los
  * quita la forma canónica.
  */
@@ -1369,7 +1405,6 @@ function sumarExtras(a: ExtrasDePieza, b: ExtrasDePieza, signo: 1 | -1): ExtrasE
   >;
   return {
     ...numeros,
-    danio: [mas(a.danio?.[0], b.danio?.[0]), mas(a.danio?.[1], b.danio?.[1])],
     rueda: Object.fromEntries(TIPOS_DEL_ANILLO.map((t) => [t, mas(a.rueda?.[t], b.rueda?.[t])])),
   };
 }

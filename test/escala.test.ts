@@ -40,14 +40,17 @@ describe('la marcha sale del área (#226)', () => {
       expect(m * m * AREA_DE_REFERENCIA).toBeLessThanOrEqual(p * p * AREA_POR_REGION);
       expect((m + 1) * (m + 1) * AREA_DE_REFERENCIA).toBeGreaterThan(p * p * AREA_POR_REGION);
     }
-    // Las cifras de hoy, para leerlas: 450 casillas por región sobre 300.
+    // Las cifras de hoy, para leerlas: 450 casillas por región sobre 300. La de
+    // `crawling` (una casilla: el peso baja la agilidad hasta 1; regla nuestra) es
+    // la de `very_slow`.
     expect(SPEED_TIERS.map((v) => marchaALaEscala(SPEED_TO_MOVE_POINTS[v]))).toEqual([
-      1224, 1347, 1469, 1592, 1714, 1837,
+      1224, 1224, 1347, 1469, 1592, 1714, 1837,
     ]);
   });
 
   it('maxMovePoints la aplica: un héroe anda la tabla a escala, no la tabla', () => {
-    const army = [{ creature: 'zombi' }];
+    // El troll, de agilidad 2: dos casillas.
+    const army = [{ creature: 'troll-maza' }];
     expect(maxMovePoints({ army, skills: {} }, undefined)).toBe(
       marchaALaEscala(SPEED_TO_MOVE_POINTS.very_slow),
     );

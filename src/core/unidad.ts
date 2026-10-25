@@ -10,11 +10,14 @@
  * `core/arena.ts`, que vigila `test/invariantes.test.ts`). La arena importa de
  * aquí.
  *
- * Los campos de las cifras se llaman como en `UnitInfo` —`attack`, `defense`,
- * `damage`…— y el tipo los toma de allí, así que una cifra que cambie de forma en
- * el motor deja de compilar aquí.
+ * Los campos de las cifras se llaman como en `UnitInfo` —`attack`, `fuerza`,
+ * `agilidad`, `hp`— y el tipo los toma de allí, así que una cifra que cambie de
+ * forma en el motor deja de compilar aquí. La defensa, el daño y las casillas no
+ * se escriben (25-10-2026): se derivan del cuerpo y su equipo (`cifrasDelCuerpo`,
+ * `core/cuerpo.ts`).
  */
 import { HABILIDADES_CON_PODER, poderDeHabilidad } from './battle/poderes.js';
+import { CASILLAS_MAX, cuerpoConSusCifras } from './cuerpo.js';
 import { CATALOGO_DE_HABILIDADES } from './data.js';
 import { type EquipoAtado, equipoBaseBlocker, PIEZAS_DEL_CATALOGO } from './hero/equipo.js';
 import { medidaBlocker } from './nivel.js';
@@ -29,9 +32,6 @@ import {
   huecoDesconocido,
   type NivelesDeLaRueda,
   NOMBRE_DE_HUECO,
-  SPEED_TIERS,
-  SPEED_TO_HEXES,
-  type SpeedTier,
   type UnitInfo,
 } from './types.js';
 import {
@@ -69,7 +69,7 @@ export type PerfilDeUnidad = (typeof PERFILES_DE_UNIDAD)[number];
  * Las cifras se toman de `UnitInfo` y no se redeclaran: si el motor cambia la
  * forma de una, el catálogo deja de compilar en vez de guardar otra cosa.
  */
-export interface Unidad extends Pick<UnitInfo, 'name' | 'attack' | 'defense' | 'damage' | 'hp'> {
+export interface Unidad extends Pick<UnitInfo, 'name' | 'attack' | 'fuerza' | 'agilidad' | 'hp'> {
   /**
    * Su id en el borrador, único. El de una hoja por defecto es el de la hoja; el
    * de una unidad nueva, `<cuerpo>-<n>` (`unidadNueva`). No dice con qué se
@@ -102,13 +102,6 @@ export interface Unidad extends Pick<UnitInfo, 'name' | 'attack' | 'defense' | '
    * y con esto encima se mide su nivel.
    */
   readonly equipo: Equipo;
-  /**
-   * La velocidad, en **casillas** por turno (decisión del usuario, 02-10-2026:
-   * «la velocidad debería ser el número de casillas que mueve»). El motor sigue
-   * jugando escalones (`SpeedTier`); la traducción es `escalonDeCasillas`, una
-   * sola. Al catálogo pasa como escalón: 2 `very_slow` … 7 `ultra_fast`.
-   */
-  readonly casillas: number;
   /** Rasgos del motor: estos SÍ actúan en la pelea. Siempre presente, aunque vacía. */
   readonly traits: readonly CreatureTrait[];
   /**
@@ -145,10 +138,9 @@ const CAMPOS_DE_UNIDAD: readonly string[] = [
   'cuerpo',
   'leadership',
   'attack',
-  'defense',
-  'damage',
+  'fuerza',
+  'agilidad',
   'hp',
-  'casillas',
   'traits',
   'habilidades',
   'equipo',
@@ -156,22 +148,17 @@ const CAMPOS_DE_UNIDAD: readonly string[] = [
 ];
 
 /**
- * Las cifras del cuerpo común, con las que nació cada unidad del catálogo (con el
- * equipo de su perfil encima, `KIT_DEL_PERFIL`) y nace la nueva (`unidadNueva`,
- * con la Espada). **Inventadas y provisionales**. El daño, 10-10: toda arma suma
- * un mínimo que no pasa de su máximo. Desnudos, los cuerpos de las hojas, de 2 a
- * 7 casillas, quedan en el nivel 1 (el jinete, que carga, hasta el 2:
- * `test/arena.test.ts`); lo que vale cada unidad vestida lo ancla
- * `TABLA_DEL_CATALOGO` en `test/nivel.test.ts`. Las alternativas probadas, en
- * `docs/historia.md`.
+ * Las cifras del cuerpo común, con las que nace una unidad nueva (`unidadNueva`,
+ * con la Espada y la agilidad de su hoja). **Inventadas y provisionales**
+ * (25-10-2026, con la fuerza y la agilidad: las de un humano de a pie, y los PV ×2
+ * de la decisión del usuario). Las alternativas probadas, en `docs/historia.md`.
  */
 export const CUERPO_COMUN = {
   leadership: 3,
   attack: 3,
-  defense: 3,
-  damage: [10, 10],
-  hp: 80,
-} as const satisfies Pick<Unidad, 'leadership' | 'attack' | 'defense' | 'damage' | 'hp'>;
+  fuerza: 20,
+  hp: 160,
+} as const satisfies Pick<Unidad, 'leadership' | 'attack' | 'fuerza' | 'hp'>;
 
 /** Lo que trae un perfil de arma sobre el cuerpo común (`KIT_DEL_PERFIL`). */
 type KitDelPerfil = Pick<Unidad, 'equipo' | 'leadership'> & {
@@ -234,30 +221,22 @@ export const KIT_DEL_PERFIL: Readonly<Record<PerfilDeUnidad, KitDelPerfil>> = {
   },
 };
 
-// ------------------------------------------------------------- velocidad
+// ------------------------------------------------------------- agilidad
 
 /**
- * El escalón del motor que mueve `n` casillas: la inversa de `SPEED_TO_HEXES`,
- * que es una biyección (2 a 7). La ÚNICA traducción de casillas a escalón; lo
- * que no es un escalón se rechaza diciendo cuáles valen.
+ * La agilidad que puede escribir un cuerpo, de 2 a 7: la escala de las casillas
+ * de antes (decisión del usuario, 25-10-2026). Con el peso encima baja hasta 1
+ * (`AGILIDAD_MINIMA`, `core/cuerpo.ts`), pero ningún cuerpo nace así.
  */
-export function escalonDeCasillas(n: number): SpeedTier {
-  const tier = SPEED_TIERS.find((t) => SPEED_TO_HEXES[t] === n);
-  if (tier === undefined) {
-    throw new Error(`la velocidad es de ${CASILLAS_MIN} a ${CASILLAS_MAX} casillas, y es ${n}`);
-  }
-  return tier;
-}
+export const AGILIDAD_DEL_CUERPO_MIN = 2;
+export const AGILIDAD_DEL_CUERPO_MAX = CASILLAS_MAX;
 
-export const CASILLAS_MIN = Math.min(...SPEED_TIERS.map((t) => SPEED_TO_HEXES[t]));
-export const CASILLAS_MAX = Math.max(...SPEED_TIERS.map((t) => SPEED_TO_HEXES[t]));
-
-/** Unas casillas que el motor sabe jugar, o se lanza diciendo de quién. */
-export function casillasValidas(valor: unknown, quien: string): number {
-  const n = entero(valor, 'la velocidad', quien, CASILLAS_MIN);
-  if (n > CASILLAS_MAX) {
+/** Una agilidad de cuerpo que vale (`AGILIDAD_DEL_CUERPO_MIN` a `…_MAX`), o se lanza diciendo de quién. */
+export function agilidadValida(valor: unknown, quien: string): number {
+  const n = entero(valor, 'la agilidad', quien, AGILIDAD_DEL_CUERPO_MIN);
+  if (n > AGILIDAD_DEL_CUERPO_MAX) {
     throw new Error(
-      `${quien}: la velocidad es de ${CASILLAS_MIN} a ${CASILLAS_MAX} casillas, y es ${n}`,
+      `${quien}: la agilidad es de ${AGILIDAD_DEL_CUERPO_MIN} a ${AGILIDAD_DEL_CUERPO_MAX}, y es ${n}`,
     );
   }
   return n;
@@ -272,9 +251,10 @@ export function casillasValidas(valor: unknown, quien: string): number {
  * página al cargar lo guardado y la sesión antes de pelear. Lo desconocido no
  * se cuela en silencio —una velocidad inventada caería a `undefined` en
  * `SPEED_TO_HEXES` y la unidad no se movería sin que nadie supiera por qué—.
- * **Solo lee el formato de hoy**, con `cuerpo` y `equipo`: lo de antes (sin
- * cuerpo, con `level`, `speed`, `shots` o `hexes`) no vale, y se dice por qué
- * (14-10-2026, el usuario: «no queremos mantener compatibilidad hacia atrás»).
+ * **Solo lee el formato de hoy**, con `cuerpo`, `equipo`, `fuerza` y `agilidad`:
+ * lo de antes (sin cuerpo, con `level`, `speed`, `shots`, `hexes`, `defense`,
+ * `damage` o `casillas`) no vale, y se dice por qué (14-10-2026, el usuario: «no
+ * queremos mantener compatibilidad hacia atrás»).
  */
 export function validarUnidad(valor: unknown, eq: EquipoAtado): Unidad {
   if (typeof valor !== 'object' || valor === null || Array.isArray(valor)) {
@@ -286,8 +266,11 @@ export function validarUnidad(valor: unknown, eq: EquipoAtado): Unidad {
   // escrito a mano desaparecería en el siguiente «Guardar» (M14 de QA).
   const ajeno = Object.keys(u).find((k) => !CAMPOS_DE_UNIDAD.includes(k));
   if (ajeno !== undefined) {
+    const porQue = DERIVADAS_DE_ANTES[ajeno];
     throw new Error(
-      `la unidad "${id}": «${ajeno}» no es un campo de la arena; valen ${CAMPOS_DE_UNIDAD.join(', ')}`,
+      porQue === undefined
+        ? `la unidad "${id}": «${ajeno}» no es un campo de la arena; valen ${CAMPOS_DE_UNIDAD.join(', ')}`
+        : `la unidad "${id}": «${ajeno}» ya no se escribe: ${porQue}`,
     );
   }
   const name = texto(u.name, 'el nombre', `la unidad "${id}"`);
@@ -298,10 +281,9 @@ export function validarUnidad(valor: unknown, eq: EquipoAtado): Unidad {
   const cuerpo = cuerpoValido(u.cuerpo, quien);
   const leadership = entero(u.leadership, 'el liderazgo', quien, 1);
   const attack = entero(u.attack, 'el ataque', quien, 0);
-  const defense = entero(u.defense, 'la defensa', quien, 0);
-  const damage = danioValido(u.damage, quien);
+  const fuerza = entero(u.fuerza, 'la fuerza', quien, 1);
+  const agilidad = agilidadValida(u.agilidad, quien);
   const hp = entero(u.hp, 'la vida', quien, 1);
-  const casillas = casillasValidas(u.casillas, quien);
   const traits = lista(u.traits, 'los rasgos', quien).map((t) =>
     deLaLista(t, CREATURE_TRAITS, 'el rasgo', quien),
   );
@@ -319,10 +301,9 @@ export function validarUnidad(valor: unknown, eq: EquipoAtado): Unidad {
     cuerpo,
     leadership,
     attack,
-    defense,
-    damage,
+    fuerza,
+    agilidad,
     hp,
-    casillas,
     traits,
     habilidades,
     equipo,
@@ -332,6 +313,16 @@ export function validarUnidad(valor: unknown, eq: EquipoAtado): Unidad {
   if (motivo !== null) throw new Error(`${quien}: ${motivo}`);
   return unidad;
 }
+
+/**
+ * Lo que se escribía antes en una unidad y hoy se deriva (25-10-2026): por qué ya
+ * no vale, para que quien edita el JSON sepa qué escribir en su lugar.
+ */
+const DERIVADAS_DE_ANTES: Readonly<Record<string, string>> = {
+  defense: 'la defensa sale de la agilidad (y del escudo); escribe «agilidad»',
+  damage: 'el daño sale de la fuerza y la agilidad; escribe «fuerza»',
+  casillas: 'las casillas son la agilidad; escribe «agilidad»',
+};
 
 /** El id de una unidad: minúsculas, cifras y guiones, como el de una hoja. */
 function idValido(valor: unknown): string {
@@ -556,22 +547,6 @@ export function leerCatalogos(eq: EquipoAtado, unidades: unknown): readonly Unid
   return validarCatalogo(unidades, eq);
 }
 
-/**
- * El daño `[mínimo, máximo]` comprobado: dos enteros de 1 o más, el mínimo sin
- * pasar del máximo (`validarUnidad`).
- */
-function danioValido(par: unknown, quien: string): [number, number] {
-  if (!Array.isArray(par) || par.length !== 2) {
-    throw new Error(`${quien}: el daño tiene que ser [mínimo, máximo]`);
-  }
-  const min = entero(par[0], 'el daño mínimo', quien, 1);
-  const max = entero(par[1], 'el daño máximo', quien, 1);
-  if (min > max) {
-    throw new Error(`${quien}: el daño mínimo (${min}) no puede pasar del máximo (${max})`);
-  }
-  return [min, max];
-}
-
 // ---------------------------------------------------------------- la pelea
 
 /**
@@ -595,7 +570,6 @@ export function cuerpoDeCombate(u: Unidad): UnitInfo {
     cuerpo: _cu,
     leadership: _l,
     habilidades,
-    casillas,
     equipo: _e,
     edificio: _ed,
     ...cifras
@@ -606,12 +580,14 @@ export function cuerpoDeCombate(u: Unidad): UnitInfo {
   });
   // Con su facción: desde que las cinco son las del juego, suman y restan a la
   // moral por diversidad como cualquier tropa (`moraleOf`).
-  return {
+  // La defensa, el daño y las casillas, del cuerpo desnudo (`cifrasDelCuerpo`); la
+  // tropa no tiene defensa propia: la suya es su agilidad.
+  return cuerpoConSusCifras({
     ...cifras,
-    speed: escalonDeCasillas(casillas),
+    defensaPropia: 0,
     faction,
     ...(poderes.length === 0 ? {} : { poderes }),
-  };
+  });
 }
 
 // ---------------------------------------------------------------- las hojas
@@ -636,11 +612,11 @@ export interface Hoja {
   readonly personaje: string;
   readonly heroe: boolean;
   /**
-   * Las casillas del CUERPO de su personaje: sin el equipo, que las cambia (el
-   * escudo resta una). Con su perfil por defecto pelea con `casillas` más la
-   * velocidad de su equipo.
+   * La agilidad del CUERPO de su personaje (`AGILIDAD_DEL_CUERPO`,
+   * `tools/arena/velocidades.ts`): con su equipo encima pelea con lo que le deje
+   * el peso.
    */
-  readonly casillas: number;
+  readonly agilidad: number;
   /**
    * El juego de armas de su Y Bot (`espada-escudo`, `baston`…): con él se pinta
    * si no tiene sus ocho direcciones.
@@ -689,7 +665,7 @@ export function validarHojas(valor: unknown): readonly Hoja[] {
       perfil: deLaLista(h.perfil, PERFILES_DE_UNIDAD, 'el perfil', quien),
       personaje: texto(h.personaje, 'el personaje', quien),
       heroe: h.heroe,
-      casillas: casillasValidas(h.casillas, quien),
+      agilidad: agilidadValida(h.agilidad, quien),
       juego: texto(h.juego, 'el juego de armas', quien),
       direcciones: direccionesValidas(h.direcciones, quien),
       incompleta: incompletaValida(h.incompleta, h.direcciones, quien),

@@ -64,7 +64,10 @@ export function bandoDe(
   unidades: readonly { readonly id: string; readonly unit: UnitInfo }[],
 ): BattleSide {
   const members = new Map<string, BattleMember>(
-    unidades.map((u) => [u.id, { profile: { unit: u.unit, morale: 0, luck: 0 }, hp: u.unit.hp }]),
+    unidades.map((u) => [
+      u.id,
+      { profile: { unit: u.unit, equipo: {}, morale: 0, luck: 0 }, hp: u.unit.hp },
+    ]),
   );
   return {
     army: unidades.map((u) => ({ creature: u.id, member: u.id, count: 1 })),
