@@ -9,7 +9,13 @@
  * puerta no está aquí sino en `main.ts`, una sola para el lienzo, los botones y
  * el teclado: con una por sitio, «Resolver sola» y Escape se colaban.
  */
-import { type CasillaDeCarga, isAlive, SIN_CARGAS, stackHexes } from '@core/battle/battle.js';
+import {
+  type CasillaDeCarga,
+  isAlive,
+  type LineaDelDisparo,
+  SIN_CARGAS,
+  stackHexes,
+} from '@core/battle/battle.js';
 import { hexEquals, hexKey, ULTIMA_FILA } from '@core/battle/board.js';
 import { mismaPuerta, nivelDe } from '@core/battle/muralla.js';
 import type {
@@ -104,6 +110,7 @@ export function cargaContra(
 const SIN_OBJETIVO: Readonly<Record<Apuntado['kind'], string>> = {
   hechizo: 'Elige una unidad sobre la que lanzarlo, o pulsa Escape para cancelar.',
   poder: 'Elige un aliado sobre el que usarlo, o pulsa Escape para cancelar.',
+  disparo: 'Elige una casilla a la que apuntar, o pulsa Escape para cancelar.',
 };
 
 export class EscenaBatalla {
@@ -237,7 +244,12 @@ export class EscenaBatalla {
     const apunta = s.apuntado;
     if (turno !== null && apunta === null) {
       for (const a of s.battleLegalActions()) {
-        if (a.type === 'attack' || a.type === 'shoot') atacables.add(a.target);
+        if (a.type === 'attack') atacables.add(a.target);
+        // Al que se puede apuntar, por su casilla: la lista lo trae por ella.
+        if (a.type === 'aim') {
+          const ahi = this.stackEn(a.at);
+          if (ahi !== undefined) atacables.add(ahi.id);
+        }
         if (esEscala(a) && (s.muroPorElegir === null || s.muroPorElegir === a.type)) {
           escalables.add(hexKey(a.muro));
         }
@@ -271,7 +283,24 @@ export class EscenaBatalla {
       sinDueño: s.dueños === null ? NINGUN_BANDO : bandosSinDueño(s.dueños),
       // El de su sitio: la región donde se pelea, o el de la arena.
       clima: { sitio: s.climaDeLaBatalla, ahora: performance.now() },
+      tanteo: quieta ? null : this.tanteoActual(),
     });
+  }
+
+  /**
+   * La recta del disparo que se tantea con el puntero: con «Apuntar» esperando, a
+   * la casilla señalada; sin él, si el clic sobre el enemigo señalado apuntaría a
+   * su casilla. `null` si no se apunta nada (`DisparoDeLaActiva.tanteo`).
+   */
+  private tanteoActual(): LineaDelDisparo | null {
+    const s = this.sesion();
+    if (this.puntero === null || s.turnoPropio === null) return null;
+    if (s.apuntado?.kind === 'disparo') {
+      return this.hoverHex === null ? null : s.disparo.tanteo(this.hoverHex);
+    }
+    if (s.apuntado !== null) return null;
+    const accion = this.accionContraEn(this.puntero.x, this.puntero.y);
+    return accion?.type === 'aim' ? s.disparo.tanteo(accion.at) : null;
   }
 
   /**
@@ -364,8 +393,8 @@ export class EscenaBatalla {
   anguloEn(px: number, py: number): Angulo | null {
     const golpe = this.golpeEn(px, py);
     if (golpe === undefined) return null;
-    const { acciones, objetivo, hexActual } = golpe;
-    const g = golpeEnPixel(acciones, objetivo, hexActual, this.tablero, px, py);
+    const { acciones, objetivo, hexDelObjetivo, hexActual } = golpe;
+    const g = golpeEnPixel(acciones, objetivo, hexDelObjetivo, hexActual, this.tablero, px, py);
     if (g === undefined || 'disparo' in g) return null;
     return { objetivo, candidatas: g.opciones.map((o) => o.desde), elegida: g.elegida.desde };
   }
@@ -379,7 +408,15 @@ export class EscenaBatalla {
   accionContraEn(px: number, py: number): BattleAction | undefined {
     const golpe = this.golpeEn(px, py);
     if (golpe === undefined) return undefined;
-    return accionContra(golpe.acciones, golpe.objetivo, golpe.hexActual, this.tablero, px, py);
+    return accionContra(
+      golpe.acciones,
+      golpe.objetivo,
+      golpe.hexDelObjetivo,
+      golpe.hexActual,
+      this.tablero,
+      px,
+      py,
+    );
   }
 
   /** El ángulo del puntero de ahora, calculado una vez por gesto o por jugada. */
@@ -400,14 +437,26 @@ export class EscenaBatalla {
   private golpeEn(
     px: number,
     py: number,
-  ): { acciones: readonly BattleAction[]; objetivo: string; hexActual: Hex } | undefined {
+  ):
+    | {
+        acciones: readonly BattleAction[];
+        objetivo: string;
+        hexDelObjetivo: Hex;
+        hexActual: Hex;
+      }
+    | undefined {
     const s = this.sesion();
     const turno = s.turnoPropio;
     if (turno === null || s.apuntado !== null) return undefined;
     if (this.movimientoEn(px, py) !== undefined) return undefined;
     const objetivo = this.unidadEn(px, py);
     if (objetivo === undefined || objetivo.side === s.miBando) return undefined;
-    return { acciones: s.battleLegalActions(), objetivo: objetivo.id, hexActual: turno.stack.hex };
+    return {
+      acciones: s.battleLegalActions(),
+      objetivo: objetivo.id,
+      hexDelObjetivo: objetivo.hex,
+      hexActual: turno.stack.hex,
+    };
   }
 
   /** Lo que la barra dice de lo señalado, o `null` si no hay nada que decir. */
@@ -416,6 +465,8 @@ export class EscenaBatalla {
     if (this.animador.busy) return null;
     // Sobre una casilla a la que ir no se promete carga: el clic ahí solo mueve.
     if (movimiento !== undefined) return null;
+    const disparo = this.rotuloDelDisparo();
+    if (disparo !== null) return disparo;
     const apuntada = this.previsionDeLoApuntado();
     if (apuntada !== null) return apuntada;
     const angulo = this.anguloActual();
@@ -455,6 +506,31 @@ export class EscenaBatalla {
     return dicha;
   }
   private readonly previsiones = new WeakMap<BattleAction, string | null>();
+
+  /**
+   * Con «Apuntar» esperando y el puntero sobre una casilla a la que se puede
+   * apuntar: a quién daría el disparo si saliera ahora y cuánto (la previsión del
+   * núcleo), o que no daría a nadie. `null` sin «Apuntar» o fuera del tablero.
+   */
+  private rotuloDelDisparo(): string | null {
+    const s = this.sesion();
+    if (s.apuntado?.kind !== 'disparo' || this.hoverHex === null) return null;
+    const linea = s.disparo.tanteo(this.hoverHex);
+    if (linea === null) return null;
+    const { col, row } = this.hoverHex;
+    const aqui = `Apuntarías a (${col},${row}).`;
+    if (linea.alcanzado === null) {
+      const parada =
+        linea.parada === null
+          ? ''
+          : ` La para ${linea.parada === 'muro' ? 'el muro' : 'la puerta cerrada'}.`;
+      return `${aqui} Hoy no daría a nadie.${parada}`;
+    }
+    const p = s.prevision({ type: 'aim', at: this.hoverHex });
+    const aliado = linea.alcanzado.side === s.miBando ? ' (¡tuyo!)' : '';
+    const dicha = p === null ? '' : ` ${textoDePrevision(p, this.nombre())}`;
+    return `${aqui} Hoy daría a ${this.nombre()(linea.alcanzado.id)}${aliado}.${dicha}`;
+  }
 
   /**
    * Con un hechizo o un poder apuntando y el puntero sobre una unidad sobre la
@@ -515,10 +591,11 @@ export class EscenaBatalla {
     const golpe = this.golpeEn(x, y);
     if (golpe === undefined) return null;
     const accion = this.accionContraEn(x, y);
-    // Si dispararía, lo que dice es lo que daría el disparo.
-    if (accion?.type === 'shoot') {
+    // Si apuntaría, lo que daría el disparo si saliera ahora (sale en su turno siguiente).
+    if (accion?.type === 'aim') {
       const p = this.previsionEn(accion);
-      return p === null ? null : `Dispararías. ${p}`;
+      const sale = 'Apuntarías a su casilla: el disparo sale al empezar su siguiente turno.';
+      return p === null ? sale : `${sale} ${p}`;
     }
     if (accion !== undefined) return null;
     return this.sesion().attackRejection(golpe.objetivo);
@@ -698,6 +775,12 @@ export class EscenaBatalla {
       return;
     }
     const hex = this.hexBajo(px, py);
+    // Con «Apuntar» esperando, el clic elige la casilla, la que sea.
+    if (apunta?.kind === 'disparo') {
+      if (hex === null) session.status = SIN_OBJETIVO.disparo;
+      else session.disparo.apuntarA(hex);
+      return;
+    }
     if (apunta === null && this.pulsarEscala(hex, acciones)) return;
     const objetivo = this.unidadEn(px, py);
 

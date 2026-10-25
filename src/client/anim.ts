@@ -48,6 +48,8 @@ export const DURACION = {
   shoot: 620,
   cast: 520,
   perished: 520,
+  /** El tirador se vuelve hacia la casilla a la que apunta (`aimed`). */
+  apunta: 360,
   /**
    * El desenlace de la rueda del golpe: la rueda gira y se para, caen
    * los marcadores, se enciende el arco y sale el rótulo. Es el reloj de la rueda
@@ -146,7 +148,7 @@ type Paso =
       readonly alto: number;
     }
   | ({
-      readonly tipo: 'attack' | 'shoot';
+      readonly tipo: 'attack';
       readonly stack: string;
       readonly target: string;
       readonly damage: number;
@@ -155,6 +157,22 @@ type Paso =
       /** Es un contraataque: quien pega no es quien actúa (`activo`). */
       readonly devuelto: boolean;
     } & Reloj)
+  /**
+   * El disparo diferido (25-10-2026): vuela de quien tira hacia `at`, la casilla que
+   * apuntó, y cae en `target`, el primero de la recta, o en la casilla si no dio a
+   * nadie (`target` a `null`).
+   */
+  | ({
+      readonly tipo: 'shoot';
+      readonly stack: string;
+      readonly target: string | null;
+      readonly at: Hex;
+      readonly damage: number;
+      readonly parado: number;
+      readonly devuelto: false;
+    } & Reloj)
+  /** El tirador se vuelve hacia la casilla a la que apunta: el disparo sale en su turno siguiente. */
+  | { readonly tipo: 'apunta'; readonly stack: string; readonly at: Hex; readonly dura: number }
   /**
    * Un hechizo. `lanza`, la unidad que lo lanza con su poder (la arena: Curar,
    * Bendecir), que lo hace con su clip de ataque —no hay arte de lanzar—; el del
@@ -235,7 +253,7 @@ function tocadosPor(p: Paso): readonly string[] {
     case 'attack':
       return [p.target, p.stack];
     case 'shoot':
-      return [p.target];
+      return p.target === null ? [] : [p.target];
     case 'cast':
       return p.target === null ? [] : [p.target];
     default:
@@ -254,6 +272,7 @@ function actorDe(p: Paso): string | null {
     case 'attack':
       return p.devuelto ? null : p.stack;
     case 'shoot':
+    case 'apunta':
       return p.stack;
     case 'cast':
       return p.lanza;
@@ -395,6 +414,7 @@ function pasoDeAccion(e: BattleEvent, battle: BattleState): Exclude<Paso, { tipo
         tipo: 'shoot',
         stack: e.stack,
         target: e.target,
+        at: e.at,
         damage: e.damage,
         parado: e.parado ?? 0,
         devuelto: false,
@@ -417,6 +437,8 @@ function pasoDeAccion(e: BattleEvent, battle: BattleState): Exclude<Paso, { tipo
       };
     case 'perished':
       return { tipo: 'perished', stack: e.stack, dura: DURACION.perished };
+    case 'aimed':
+      return { tipo: 'apunta', stack: e.stack, at: e.at, dura: DURACION.apunta };
     case 'cruce':
       return { tipo: 'cruce', evento: e, dura: DURACION.cruce };
     default:
@@ -752,8 +774,11 @@ export class BattleAnimator {
         miradaEnElTramo(p.camino, p.camino.length - 2, this.miradaDe(p.stack)),
       );
     }
-    if (p.tipo === 'attack' || p.tipo === 'shoot') {
+    if (p.tipo === 'attack') {
       this.mirada.set(p.stack, this.miradaAlObjetivo(p.stack, p.target));
+    }
+    if (p.tipo === 'shoot' || p.tipo === 'apunta') {
+      this.mirada.set(p.stack, this.miradaALaCasilla(p.stack, p.at));
     }
     if (p.tipo === 'cast' && p.lanza !== null && p.target !== null && p.target !== p.lanza) {
       this.mirada.set(p.lanza, this.miradaAlObjetivo(p.lanza, p.target));
@@ -829,6 +854,14 @@ export class BattleAnimator {
     return direccionHacia(yo, el, antes);
   }
 
+  /** Hacia dónde mira `id` para apuntar o disparar a la casilla `at`: el disparo va por la recta. */
+  private miradaALaCasilla(id: string, at: Hex): Direccion {
+    const antes = this.miradaDe(id);
+    const yo = this.vista.get(id);
+    if (yo === undefined) return antes;
+    return direccionHacia(yo, planoDeHex(at), antes);
+  }
+
   figura(s: BattleStack): EstadoFigura {
     const paso = this.actual?.paso;
     const t = this.progreso();
@@ -859,10 +892,15 @@ export class BattleAnimator {
         casilla = null;
       } else if ((paso.tipo === 'attack' || paso.tipo === 'shoot') && paso.stack === s.id) {
         // El golpe con su ataque, cuerpo a cuerpo; el disparo con su clip, que
-        // en quien no lo pinta es su ataque (`figuraDe`).
+        // en quien no lo pinta es su ataque (`figuraDe`), hacia la casilla apuntada.
         clip = paso.tipo;
-        mirada = this.miradaAlObjetivo(s.id, paso.target);
+        mirada =
+          paso.tipo === 'shoot'
+            ? this.miradaALaCasilla(s.id, paso.at)
+            : this.miradaAlObjetivo(s.id, paso.target);
         tiempo = desdeInicio;
+      } else if (paso.tipo === 'apunta' && paso.stack === s.id) {
+        mirada = this.miradaALaCasilla(s.id, paso.at);
       } else if (paso.tipo === 'cast' && paso.lanza === s.id) {
         // Quien lanza con su poder, con el ataque: es la acción que hay. Sobre sí
         // misma no se gira.
@@ -925,7 +963,14 @@ export class BattleAnimator {
     const out: Efecto[] = [];
     if (paso.tipo === 'attack' || paso.tipo === 'shoot') {
       const a = donde(paso.stack);
-      const b = donde(paso.target);
+      // El disparo que no dio a nadie cae en la casilla apuntada, a ras de suelo.
+      const b =
+        paso.target === null
+          ? paso.tipo === 'shoot'
+            ? planoDeHex(paso.at)
+            : null
+          : donde(paso.target);
+      const altoDelBlanco = paso.target === null ? 0 : alto(paso.target);
       const { impacto, suelta } = paso;
       if (a !== null && b !== null) {
         // Lo que vuela, vuela de la suelta al impacto.
@@ -936,10 +981,12 @@ export class BattleAnimator {
             hasta: b,
             t: (t - suelta) / (impacto - suelta),
             altoDesde: alto(paso.stack),
-            altoHasta: alto(paso.target),
+            altoHasta: altoDelBlanco,
           });
         }
-        if (t >= impacto) out.push(...cifraDelGolpe(paso, b, alto(paso.target), t, impacto));
+        if (t >= impacto && paso.target !== null) {
+          out.push(...cifraDelGolpe(paso, b, altoDelBlanco, t, impacto));
+        }
       }
     }
     if (paso.tipo === 'cast' && paso.target !== null) {

@@ -538,16 +538,14 @@ export function acabarPorLaBase(
 }
 
 /**
- * Política agresiva para tests: dispara, si no golpea, si no se acerca todo lo
- * que puede, y si no se defiende. Basta para que cualquier batalla converja.
+ * Política agresiva para tests: golpea, si no se acerca todo lo que puede, y si
+ * no se defiende. Basta para que cualquier batalla converja. No apunta: el disparo
+ * diferido (25-10-2026) va sin tests hasta que el usuario lo valide.
  */
 export function agresiva(state: BattleState): BattleAction {
   const acciones = legalActions(state);
   const s = activeStack(state);
   if (s === null) throw new Error('sin stack activo');
-
-  const disparo = acciones.find((a) => a.type === 'shoot');
-  if (disparo !== undefined) return disparo;
 
   const ataque = acciones.find((a) => a.type === 'attack');
   if (ataque !== undefined) return ataque;

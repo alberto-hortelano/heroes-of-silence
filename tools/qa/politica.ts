@@ -119,7 +119,7 @@ export function decidir(kind: string, payload: any, semilla: number): unknown {
       const acciones = payload.legalActions as any[];
       const elegida =
         acciones.find((a) => a.type === 'power') ??
-        acciones.find((a) => a.type === 'shoot') ??
+        acciones.find((a) => a.type === 'aim') ??
         acciones.find((a) => a.type === 'attack') ??
         acciones.find((a) => a.type === 'move') ??
         acciones[0];

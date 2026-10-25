@@ -1207,11 +1207,22 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   (0 → 1). 0 sin terminar; j0 gana 10 de 20 (10 antes); duración 4 / 8 / 12 →
  *   **3 / 10 / 19**, días 96 → 96; batallas 104 → 112, `hero_defeated` 29 → 47,
  *   `rank_up` 94 → 136. No es medida de jugabilidad (CLAUDE.md): es la forma del diff.
+ * - `0bbccba8…` (4 713 líneas, 20 semillas, 25-10-2026): **el disparo diferido** (F5
+ *   de la misma tarea, regla nuestra sin validar por el usuario: el tirador apunta a
+ *   una casilla y el disparo sale al empezar su turno siguiente, al primero de la
+ *   recta). Contra `eb8a9ac7…`, 4 de 20 idénticas (s6, s8, s9, s18) y en las 16 que
+ *   cambian el primer hecho distinto es de la primera batalla con un tirador: su
+ *   resumen (`battle_ended`: otras rondas o bajas, 13, los días 1 a 3 salvo s11, el
+ *   7) o la veteranía que dejó (`troop_rank_up`, 3, el día 1). j0 gana 10 de 20
+ *   (10 antes; s11 y s15 cambian de ganador); duración 3 / 10 / 19 → **4 / 8 /
+ *   21**; batallas 112 → 110, `town_captured` 80 → 93, `troop_rank_up` 336 → 291,
+ *   `item_bought` 5 → 0; ningún tipo de hecho nuevo (el `aimed` y el `shoot` son del
+ *   registro de la batalla, que la crónica no guarda). La forma del diff, no una medida.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'eb8a9ac7f7f392dfbb01efc4a40ab9c808cde141e7f1cc6dfcd1572bd514fd9c',
+  sha: '0bbccba8e0c8faa7e5327d13cfc5b9a107c54dd6bd7575178d1d586f6895daa1',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

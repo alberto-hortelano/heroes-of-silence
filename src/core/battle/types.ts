@@ -222,6 +222,13 @@ export interface BattleStack {
    * `BattleHero.manaGastadoDeMas`.
    */
   readonly gastadoDeMas?: number;
+  /**
+   * La casilla a la que apuntó en su último turno (`aim`, el disparo diferido,
+   * 25-10-2026, regla nuestra sin validar por el usuario), o `null`. El disparo
+   * sale al empezar su siguiente turno (`dispararLoApuntado`) y se borra; si muere
+   * antes o la batalla acaba, se pierde. Viaja al espectador con el stack.
+   */
+  apuntado: Hex | null;
 }
 
 /**
@@ -315,10 +322,19 @@ export type BattleEvent =
        */
       parado?: number;
     }
+  /** El tirador apunta a `at` (`aim`): el disparo sale al empezar su siguiente turno. */
+  | { kind: 'aimed'; stack: string; at: Hex }
+  /**
+   * El disparo diferido sale de `stack` hacia `at` y da a `target`, el primero de
+   * la recta (`primeroEnLaLinea`), sea del bando que sea; `null` si la recta llega
+   * a la casilla sin nadie o la para un muro (entonces `damage` y `killed` son 0).
+   * La salpicadura va en otro `shoot` con `splash`, sobre el mismo `at`.
+   */
   | {
       kind: 'shoot';
       stack: string;
-      target: string;
+      at: Hex;
+      target: string | null;
       damage: number;
       killed: number;
       /** Lo que paró la armadura del objetivo, como en `attack`. */
@@ -547,7 +563,12 @@ export type BattleAction =
    * (`completarCruce`).
    */
   | { type: 'attack'; target: string; from?: Hex; golpe?: TipoDeGolpe; respuesta?: TipoDeGolpe }
-  | { type: 'shoot'; target: string }
+  /**
+   * El tirador apunta a la casilla `at` y cierra su turno (`apuntarBlocker`): el
+   * disparo sale al empezar su siguiente turno, desde donde esté, por la recta, y
+   * da al primero que encuentre (`primeroEnLaLinea`; 25-10-2026, regla nuestra).
+   */
+  | { type: 'aim'; at: Hex }
   | { type: 'wait' }
   | { type: 'defend' }
   | { type: 'cast'; spell: string; target?: string }

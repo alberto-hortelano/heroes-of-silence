@@ -5,18 +5,10 @@
  * El reloj lo pone `tick`, una vez por fotograma; las lecturas no lo tocan.
  */
 
-import { describe, expect, it, vi } from 'vitest';
-import {
-  BattleAnimator,
-  DURACION,
-  duracionDeLaJugada,
-  IMPACTO,
-  relojDelDisparo,
-  VUELO_MS,
-} from '../src/client/anim.js';
+import { describe, expect, it } from 'vitest';
+import { BattleAnimator, DURACION, duracionDeLaJugada, IMPACTO } from '../src/client/anim.js';
 import { msPorCasilla } from '../src/client/marcha.js';
 import { clipQueSePinta } from '../src/client/render/batalla.js';
-import { clipFrame } from '../src/client/render/character.js';
 import {
   arteDe,
   hojaDe,
@@ -208,10 +200,11 @@ describe('el animador de batalla', () => {
 
   /**
    * Una batalla de tiradores con el cuerpo `cuerpo` de atacante, y su primer
-   * stack disparando al primer defensor (o golpeándolo, con `tipo: 'attack'`).
-   * El cuerpo se pone a mano: el animador pinta lo que dice `body`.
+   * stack golpeando cuerpo a cuerpo al primer defensor. El cuerpo se pone a mano:
+   * el animador pinta lo que dice `body`. (Los casos del disparo se borraron con el
+   * disparo diferido, 25-10-2026: va sin tests hasta que el usuario lo valide.)
    */
-  function disparo(cuerpo: string, tipo: 'shoot' | 'attack' = 'shoot') {
+  function golpeDelTirador(cuerpo: string) {
     const a = new BattleAnimator();
     const b = createBattle(
       { army: troopsAsStacks(ejercito({ creature: TIRADOR, count: 2 })), hero: null },
@@ -225,11 +218,7 @@ describe('el animador de batalla', () => {
     const quien = b.stacks.find((s) => s.side === 'attacker')!;
     const victima = b.stacks.find((s) => s.side === 'defender')!;
     const hecho = { stack: quien.id, target: victima.id, damage: 4, killed: 0 };
-    b.log.push(
-      tipo === 'shoot'
-        ? { kind: 'shoot', ...hecho }
-        : { kind: 'attack', ...hecho, retaliation: false },
-    );
+    b.log.push({ kind: 'attack', ...hecho, retaliation: false });
     a.observe(b);
     a.tick(0);
     const proyectil = () => a.efectos(b).find((e) => e.tipo === 'proyectil');
@@ -242,38 +231,6 @@ describe('el animador de batalla', () => {
     };
   }
 
-  it('un arquero dispara con su clip `shoot`, suelta el proyectil en su columna de suelta, y el daño llega con él', () => {
-    const info = hojaDe(arteDe(CON_ARCO), MIRADA_DE_PRESENTACION).clips.shoot;
-    expect(info?.suelta, 'el arco de `atlas-8d.json` sin suelta en el disparo').toBeDefined();
-    if (info === undefined) return;
-    const columna = 1000 / info.fps;
-    const desde = (info.suelta as number) * columna;
-    const { dura, impacto } = relojDelDisparo(CON_ARCO);
-    const { a, quien, victima, proyectil, danio } = disparo(CON_ARCO);
-    const atlas = hojaDe(arteDe(quien.body), a.figura(quien).mira);
-    // Mientras tensa: el tirador dispara, pero la flecha aún no ha salido.
-    a.tick(desde - 1);
-    expect(a.figura(quien).clip).toBe('shoot');
-    expect(proyectil()).toBeUndefined();
-    // Sale con la columna de la suelta en pantalla, desde el tirador…
-    a.tick(desde + 1);
-    expect(clipFrame(atlas, 'shoot', a.figura(quien).tiempo)).toBe(info.suelta);
-    expect(proyectil()?.t).toBeCloseTo(0, 1);
-    // …y justo antes del impacto está llegando; la víctima aún no se duele.
-    a.tick(impacto * dura - 1);
-    expect(proyectil()?.t).toBeCloseTo(1, 1);
-    expect(a.figura(victima).clip).toBe('idle');
-    expect(impacto * dura - desde).toBeCloseTo(VUELO_MS);
-    // En el impacto: sin proyectil, la cifra y el daño con su reloj desde ahí.
-    a.tick(impacto * dura + 30);
-    expect(proyectil()).toBeUndefined();
-    expect(danio()).toBe(true);
-    expect(a.figura(victima).clip).toBe('hurt');
-    expect(a.figura(victima).tiempo).toBeCloseTo(30);
-    a.tick(dura + 1);
-    expect(a.busy).toBe(false);
-  });
-
   it('el mismo arquero, cuerpo a cuerpo, golpea con su ataque: la daga, no el arco', () => {
     // #142 (M4 del #136): antes del 04-10-2026 la fila `attack` del arco ERA el
     // disparo, así que el golpe cuerpo a cuerpo tensaba el arco, el daño caía en
@@ -284,7 +241,7 @@ describe('el animador de batalla', () => {
       hoja.clips.shoot,
     );
     expect(hoja.clips.attack.suelta).toBeUndefined();
-    const { a, quien, victima, proyectil, danio } = disparo(CON_ARCO, 'attack');
+    const { a, quien, victima, proyectil, danio } = golpeDelTirador(CON_ARCO);
     const impacto = 0.55 * DURACION.attack;
     for (let t = 1; t < DURACION.attack; t += 20) {
       a.tick(t);
@@ -295,41 +252,6 @@ describe('el animador de batalla', () => {
     }
     a.tick(DURACION.attack + 1);
     expect(a.busy).toBe(false);
-  });
-
-  it('quien dispara sin clip `shoot` cae al ataque, lo avisa, y el proyectil sale en 0 con el paso de siempre', () => {
-    // Quien lanza con el bastón (el liche de antes): su Y Bot no tiene disparo ni suelta.
-    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    try {
-      for (const tirador of [CON_BASTON, CON_ESPADA, CON_OTRO_BASTON]) {
-        const hoja = hojaDe(arteDe(tirador), MIRADA_DE_PRESENTACION);
-        expect(arteDe(tirador).dispara, tirador).toBe(false);
-        expect(hoja.clips.shoot, tirador).toBe(hoja.clips.attack);
-        expect(relojDelDisparo(tirador)).toEqual({
-          dura: DURACION.shoot,
-          impacto: 0.55,
-          suelta: 0,
-        });
-        const { a, quien, proyectil } = disparo(tirador);
-        a.tick(1);
-        // Pinta el paso tal cual, `shoot`, y en su hoja eso es la fila del ataque.
-        expect(a.figura(quien).clip, tirador).toBe('shoot');
-        expect(hoja.clips[a.figura(quien).clip], tirador).toBe(hoja.clips.attack);
-        expect(proyectil()?.t, tirador).toBeCloseTo(0, 1);
-        a.tick(DURACION.shoot + 1);
-        expect(a.busy, tirador).toBe(false);
-      }
-      // Una vez por arte, aunque dispare muchas veces, y diciendo de qué arte:
-      // el del otro bastón es el mismo Y Bot «baston» que el del primero.
-      const disparoOtraVez = disparo(CON_BASTON);
-      disparoOtraVez.a.tick(1);
-      expect(aviso.mock.calls.map((c) => String(c[0]))).toEqual([
-        `${CON_BASTON} dispara y su arte (el Y Bot «baston») no tiene clip shoot: se pinta con attack`,
-        `${CON_ESPADA} dispara y su arte (el Y Bot «espada-escudo») no tiene clip shoot: se pinta con attack`,
-      ]);
-    } finally {
-      aviso.mockRestore();
-    }
   });
 
   it('un golpe sin daño no hace dolerse', () => {

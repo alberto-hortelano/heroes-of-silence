@@ -2162,6 +2162,12 @@ document.addEventListener('click', (ev) => {
     pedirFotograma();
     return;
   }
+  if (accion === 'battle-apuntar') {
+    if (ev.detail > 1 || sesion === null || jugadaEnCurso()) return;
+    sesion.disparo.alternar();
+    pedirFotograma();
+    return;
+  }
   if (accion === 'battle-poder') {
     if (ev.detail > 1 || sesion === null || jugadaEnCurso()) return;
     const id = (ev.target as Element).closest('[data-poder]')?.getAttribute('data-poder');

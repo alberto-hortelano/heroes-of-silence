@@ -91,7 +91,6 @@ import {
   NORMAL,
   PESADA,
   sesionDeArena,
-  TIRADOR,
   TROPA,
   todoA,
   unidadDeArena,
@@ -408,23 +407,6 @@ describe('el daño fijo por el cruce (piqueros: A 5, D 9 → ×0,9; daño 30-40;
     expect(activeStack(b)?.id).toBe('attacker-0');
     applyAction(b, golpeConLaRueda('rapido', 'normal'), rng);
     expect(ataquesDe(b).filter((a) => !a.retaliation)).toHaveLength(4);
-  });
-
-  it('el disparo no pasa por la rueda: sigue con su tirada', () => {
-    const rng = createRng(4);
-    const b = conManosDePrueba(
-      createBattle(
-        bando([{ creature: TIRADOR, count: 5 }]),
-        bando(piqueros(5)),
-        rng,
-        COMBATE_COMPLETO,
-      ),
-    );
-    const c = contando(rng);
-    b.turno = { n: 50, stack: 'attacker-0', gastado: 0 };
-    applyAction(b, { type: 'shoot', target: 'defender-0' }, c.rng);
-    expect(c.ints()).toBe(1);
-    expect(b.log.some((e) => e.kind === 'cruce')).toBe(false);
   });
 });
 
@@ -747,7 +729,6 @@ describe('la Finta deja andar después de golpear (#263)', () => {
       { type: 'attack', target: 'defender-0', golpe: 'fuerte', respuesta: 'normal' },
       { type: 'defend' },
       { type: 'wait' },
-      { type: 'shoot', target: 'defender-0' },
       { type: 'cast', spell: 'bless', target: 'attacker-0' },
       { type: 'surrender' },
     ] satisfies BattleAction[]) {

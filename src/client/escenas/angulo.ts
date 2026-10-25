@@ -82,20 +82,22 @@ export function masCercana(
   return mejor;
 }
 
-type Disparo = Extract<BattleAction, { type: 'shoot' }>;
+type Disparo = Extract<BattleAction, { type: 'aim' }>;
 
 /**
- * Lo que haría un clic sobre `objetivo` en `(px, py)`: el disparo, o el golpe
+ * Lo que haría un clic sobre `objetivo` (en `hexDelObjetivo`) en `(px, py)`:
+ * apuntar a su casilla (el disparo diferido, 25-10-2026), o el golpe
  * desde la casilla más cercana al puntero junto con todas las candidatas, que
  * son las que se resaltan. `undefined` si no hay ni lo uno ni lo otro.
  *
- * **Si dispara, no hay ángulo**, y esa regla se escribe aquí y en ningún otro
+ * **Si apunta, no hay ángulo**, y esa regla se escribe aquí y en ningún otro
  * sitio: un tirador no se acerca a golpear lo que puede tirar. La leen el clic
  * (`accionContra`) y el resaltado de la escena, que antes la escribían cada uno.
  */
 export function golpeEnPixel(
   acciones: readonly BattleAction[],
   objetivo: string,
+  hexDelObjetivo: Hex,
   hexActual: Hex,
   tablero: Tablero,
   px: number,
@@ -104,7 +106,10 @@ export function golpeEnPixel(
   | { readonly disparo: Disparo }
   | { readonly opciones: readonly OpcionDeGolpe[]; readonly elegida: OpcionDeGolpe }
   | undefined {
-  const disparo = acciones.find((a): a is Disparo => a.type === 'shoot' && a.target === objetivo);
+  const disparo = acciones.find(
+    (a): a is Disparo =>
+      a.type === 'aim' && a.at.col === hexDelObjetivo.col && a.at.row === hexDelObjetivo.row,
+  );
   if (disparo !== undefined) return { disparo };
   const opciones = opcionesDeGolpe(acciones, objetivo, hexActual);
   const elegida = masCercana(opciones, tablero, px, py);
@@ -115,12 +120,13 @@ export function golpeEnPixel(
 export function accionContra(
   acciones: readonly BattleAction[],
   objetivo: string,
+  hexDelObjetivo: Hex,
   hexActual: Hex,
   tablero: Tablero,
   px: number,
   py: number,
 ): BattleAction | undefined {
-  const golpe = golpeEnPixel(acciones, objetivo, hexActual, tablero, px, py);
+  const golpe = golpeEnPixel(acciones, objetivo, hexDelObjetivo, hexActual, tablero, px, py);
   if (golpe === undefined) return undefined;
   return 'disparo' in golpe ? golpe.disparo : golpe.elegida.accion;
 }

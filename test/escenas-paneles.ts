@@ -229,8 +229,6 @@ export async function escenas(): Promise<readonly Escena[]> {
       retaliation: false,
       charge: 3,
     },
-    { kind: 'shoot', stack: mio.id, target: suyo.id, damage: 8, killed: 1 },
-    { kind: 'shoot', stack: mio.id, target: suyo.id, damage: 4, killed: 0, splash: true },
     { kind: 'cast', side: 'defender', spell: 'magic_arrow', target: suyo.id, damage: 10 },
     { kind: 'cast', side: 'defender', spell: 'haste', target: mio.id },
     { kind: 'morale', stack: mio.id, good: true },

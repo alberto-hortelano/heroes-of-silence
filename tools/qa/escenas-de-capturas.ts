@@ -586,7 +586,7 @@ export interface PlanDeAngulo {
 
 export function planDeAngulo(espejo: Session, ancho: number, alto: number): PlanDeAngulo | null {
   const turno = espejo.turnoPropio;
-  if (turno === null || espejo.battleLegalActions().some((a) => a.type === 'shoot')) return null;
+  if (turno === null || espejo.battleLegalActions().some((a) => a.type === 'aim')) return null;
   const t = tableroPara(ancho, alto);
   const copia = (b: BattleState): BattleState => structuredClone(b);
   const moves = (b: BattleState): BattleAction[] =>

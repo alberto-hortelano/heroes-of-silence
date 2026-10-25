@@ -981,9 +981,11 @@ async function turnoDeBatalla(
   } else {
     const ia = chooseBattleAction(battle);
     const objetivo =
-      ia.type === 'attack' || ia.type === 'shoot'
+      ia.type === 'attack'
         ? battle.stacks.find((s) => s.id === ia.target)
-        : undefined;
+        : ia.type === 'aim'
+          ? battle.stacks.find((s) => isAlive(s) && hexEquals(s.hex, ia.at))
+          : undefined;
     if (objetivo !== undefined) {
       // La acción que el cliente emitirá al pulsar ese objetivo EN ESE PÍXEL: el
       // espejo tiene que aplicar ESA, no la que eligió la IA.
@@ -4198,7 +4200,10 @@ function jugadaDeLaPauta(espejo: SesionDeArena, tramos: number, golpes: number):
   const acciones = espejo.battleLegalActions();
   const enemigos = espejo.battle.stacks.filter((x) => isAlive(x) && x.side !== turno.side);
   const contra = enemigos.find((e) =>
-    acciones.some((a) => (a.type === 'attack' || a.type === 'shoot') && a.target === e.id),
+    acciones.some(
+      (a) =>
+        (a.type === 'attack' && a.target === e.id) || (a.type === 'aim' && hexEquals(a.at, e.hex)),
+    ),
   );
   if (golpes === 0 && contra !== undefined) return { tipo: 'golpe', contra };
   if (golpes === 0 && tramos === 0 && acciones.some((a) => a.type === 'move')) {
@@ -5255,8 +5260,8 @@ async function bancoDeCombate(browser: Browser, url: string, problemas: Problema
       const aqui = (espejo.turnoPropio as { stack: BattleStack }).stack.hex;
       const desdeDonde = g.accion.type === 'attack' ? (g.accion.from ?? aqui) : aqui;
       const esperado =
-        g.accion.type === 'shoot'
-          ? `Dispararías. ${texto}`
+        g.accion.type === 'aim'
+          ? `Apuntarías a su casilla: el disparo sale al empezar su siguiente turno. ${texto}`
           : rotuloDeAngulo(
               desdeDonde,
               cargaContra(espejo.battleCharges(), {
@@ -6179,59 +6184,46 @@ function espejoDeLasArmas(semilla: number): SesionDeArena {
 }
 
 /**
- * Lo que hace el arquero en su turno: disparar la primera vez que puede; después,
- * esperar («Terminar turno») hasta que el orco esté pegado y golpearle sin
- * moverse. La juegan la pasada y la búsqueda de su semilla.
+ * Lo que hace el arquero en su turno: esperar («Terminar turno») hasta que el orco
+ * esté pegado y golpearle sin moverse. La juegan la pasada y la búsqueda de su
+ * semilla. (El disparo con el arco se dejó de mirar con el disparo diferido, que
+ * va sin comprobaciones hasta que el usuario lo valide: 25-10-2026.)
  */
 function jugadaDeLasArmas(
   espejo: SesionDeArena,
-  disparos: number,
-):
-  | { readonly tipo: 'disparo' | 'golpe'; readonly contra: BattleStack }
-  | { readonly tipo: 'terminar' } {
+): { readonly tipo: 'golpe'; readonly contra: BattleStack } | { readonly tipo: 'terminar' } {
   const turno = espejo.turnoPropio;
   if (turno === null)
     throw new Error('armas: el espejo devuelve el control sin que le toque a la persona');
   const acciones = espejo.battleLegalActions();
   const contra = espejo.battle.stacks.find((x) => isAlive(x) && x.side !== turno.side);
   if (contra === undefined) return { tipo: 'terminar' };
-  if (disparos === 0 && acciones.some((a) => a.type === 'shoot' && a.target === contra.id)) {
-    return { tipo: 'disparo', contra };
-  }
   const pegado = acciones.some(
     (a) => a.type === 'attack' && a.target === contra.id && a.from === undefined,
   );
-  if (disparos > 0 && pegado) return { tipo: 'golpe', contra };
-  return { tipo: 'terminar' };
+  return pegado ? { tipo: 'golpe', contra } : { tipo: 'terminar' };
 }
 
-/** La semilla en que el arquero dispara y, más tarde, golpea pegado antes de que acabe. */
+/** La semilla en que el arquero golpea pegado antes de que acabe la pelea. */
 function buscarArmas(): number {
   for (let semilla = 1; semilla <= TOPE_DE_SEMILLAS; semilla++) {
     const espejo = espejoDeLasArmas(semilla);
-    let disparos = 0;
     for (let jugadas = 0; jugadas < 200 && espejo.battle.finished === null; jugadas++) {
       contestarEnElEspejo(espejo);
       if (espejo.battle.finished !== null) break;
-      const j = jugadaDeLasArmas(espejo, disparos);
+      const j = jugadaDeLasArmas(espejo);
       if (j.tipo === 'golpe') return semilla;
-      if (j.tipo === 'disparo') {
-        espejo.playBattleAction({ type: 'shoot', target: j.contra.id });
-        disparos++;
-      } else espejo.playBattleAction({ type: 'end_turn' });
+      espejo.playBattleAction({ type: 'end_turn' });
     }
   }
-  throw new Error(
-    `armas: en las semillas 1–${TOPE_DE_SEMILLAS} el arquero nunca dispara y luego golpea pegado`,
-  );
+  throw new Error(`armas: en las semillas 1–${TOPE_DE_SEMILLAS} el arquero nunca golpea pegado`);
 }
 
 /**
  * Cada arma para lo suyo, con clics de verdad: el editor de equipo enseña los
  * huecos nuevos con el arco y la lanza en el suyo; la ficha del jinete élfico, sus
- * tres armas; y en la pelea el arquero dispara con el arco y, con el orco pegado,
- * pega con la daga —la barra dice con cuál antes del clic, y lo que pasa es lo del
- * espejo—.
+ * tres armas; y en la pelea, con el orco pegado, el arquero pega con la daga —la
+ * barra dice con cuál antes del clic, y lo que pasa es lo del espejo—.
  */
 async function armasEnLaArena(browser: Browser, url: string, problemas: Problemas): Promise<void> {
   await conLosCatalogosDevueltos('armas', async () => {
@@ -6315,50 +6307,40 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
     await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 2000 });
     await esperarCola(espejo.battle, espejo.battle.log);
     await mismaPelea(page, espejo, 'armas: empezar la pelea');
-    let disparos = 0;
     let golpeado = false;
     for (let jugadas = 0; !golpeado; jugadas++) {
       if (jugadas > 200 || espejo.battle.finished !== null) {
-        throw new Error('armas: la pelea acaba sin que el arquero dispare y golpee pegado');
+        throw new Error('armas: la pelea acaba sin que el arquero golpee pegado');
       }
       const antes = espejo.battle.log.length;
       // El orco la golpeó al cerrar su turno: primero, su respuesta en la rueda.
       await responderLaRueda(page, espejo);
       if (espejo.battle.finished !== null) {
-        throw new Error('armas: la pelea acaba sin que el arquero dispare y golpee pegado');
+        throw new Error('armas: la pelea acaba sin que el arquero golpee pegado');
       }
-      const j = jugadaDeLasArmas(espejo, disparos);
+      const j = jugadaDeLasArmas(espejo);
       if (j.tipo === 'terminar') {
         await page.getByRole('button', { name: 'Terminar turno' }).click();
         espejo.playBattleAction({ type: 'end_turn' });
       } else {
         // Antes del clic, la barra dice con qué arma: la previsión del núcleo.
         const px = await pixelDeUnidad(page, espejo, j.contra);
-        const esperada = j.tipo === 'disparo' ? 'shoot' : 'attack';
-        if (px.accion?.type !== esperada) {
+        if (px.accion?.type !== 'attack') {
           throw new Error(
-            `armas: el clic sobre el orco haría ${px.accion?.type ?? 'nada'}, no ${esperada}`,
+            `armas: el clic sobre el orco haría ${px.accion?.type ?? 'nada'}, no attack`,
           );
         }
-        const conQue =
-          j.tipo === 'disparo'
-            ? 'Cuenta: con Arco (a distancia)'
-            : 'Cuenta: con Daga (cuerpo a cuerpo)';
+        const conQue = 'Cuenta: con Daga (cuerpo a cuerpo)';
         await page.mouse.move(px.x - 6, px.y);
         await page.mouse.move(px.x, px.y);
         await esperarBarra(page, conQue, `armas: apuntar ${j.tipo}`, { exacta: false });
-        if (j.tipo === 'golpe') {
-          // Y con qué le devuelven el golpe: el arma de cuerpo a cuerpo del orco.
-          const barra = await page.locator('#status').innerText();
-          if (!CONTRAATAQUE_DEL_ORCO.test(barra)) {
-            throw new Error(`armas: la barra no nombra el arma del contraataque: «${barra}»`);
-          }
-          log('armas: la barra nombra el arma del contraataque (Mandoble)');
+        // Y con qué le devuelven el golpe: el arma de cuerpo a cuerpo del orco.
+        const barra = await page.locator('#status').innerText();
+        if (!CONTRAATAQUE_DEL_ORCO.test(barra)) {
+          throw new Error(`armas: la barra no nombra el arma del contraataque: «${barra}»`);
         }
-        await captura(
-          page,
-          j.tipo === 'disparo' ? 'arena-16-dispara-con-el-arco' : 'arena-17-pega-con-la-daga',
-        );
+        log('armas: la barra nombra el arma del contraataque (Mandoble)');
+        await captura(page, 'arena-17-pega-con-la-daga');
         await page.mouse.click(px.x, px.y);
         espejo.playBattleAction(px.accion);
         // El golpe con la daga pasa por la rueda (el juego la lleva siempre).
@@ -6366,21 +6348,17 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
         // Lo que hace, con las cifras del arma: el daño cae en su horquilla.
         const hecho = espejo.battle.log
           .slice(antes)
-          .find((e) => (e.kind === 'shoot' || e.kind === 'attack') && e.stack !== j.contra.id);
+          .find((e) => e.kind === 'attack' && e.stack !== j.contra.id);
         const arquero = espejo.battle.stacks.find((x) => x.side !== j.contra.side) as BattleStack;
-        const fila = armasDe(arquero.unit).find(
-          (a) => a.uso === (j.tipo === 'disparo' ? 'distancia' : 'arma'),
-        );
+        const fila = armasDe(arquero.unit).find((a) => a.uso === 'arma');
         if (hecho === undefined || fila === undefined)
           throw new Error(`armas: el ${j.tipo} no se ve en el parte`);
-        const debia = j.tipo === 'disparo' ? 'Arco' : 'Daga';
-        if (fila.arma !== debia)
-          throw new Error(`armas: el ${j.tipo} va con ${fila.arma}, no con ${debia}`);
+        if (fila.arma !== 'Daga')
+          throw new Error(`armas: el ${j.tipo} va con ${fila.arma}, no con Daga`);
         log(
           `armas: ${j.tipo} con ${fila.arma} (${fila.attack}, ${fila.damage.join('–')}): ${'damage' in hecho ? hecho.damage : '?'} de daño`,
         );
-        if (j.tipo === 'disparo') disparos++;
-        else golpeado = true;
+        golpeado = true;
       }
       await responderLaRueda(page, espejo);
       await esperarCola(espejo.battle, espejo.battle.log.slice(antes));

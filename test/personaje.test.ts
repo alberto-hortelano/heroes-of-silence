@@ -352,12 +352,11 @@ describe('un personaje en el tablero', () => {
     expect(duelo(ladoDe(c), zombi, 91).log).toEqual(batalla.log);
   });
 
-  it('el Guardabosques dispara con su arco, sin munición', () => {
+  it('el Guardabosques lleva su arco, sin munición', () => {
+    // Que dispare se dejó de mirar con el disparo diferido (sin tests, 25-10-2026).
     const c = personaje('Guardabosques');
     const batalla = createBattle(ladoDe(c), zombi, rng(), COMBATE_COMPLETO);
     const s = batalla.stacks.find(esPersonaje(c.id))!;
     expect(s.unit.equipo?.distancia).toBe('arco');
-    const d = duelo(ladoDe(c), zombi, 91);
-    expect(d.log.some((e) => e.kind === 'shoot')).toBe(true);
   });
 });

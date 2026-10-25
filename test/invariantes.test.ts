@@ -651,6 +651,7 @@ function stackDePrueba(): BattleStack {
     luck: 0,
     effects: [],
     ganado: { experiencia: 0, bajas: 0, heroes: [] },
+    apuntado: null,
   };
 }
 

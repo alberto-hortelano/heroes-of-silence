@@ -279,113 +279,73 @@ export function rectaLibre(
 export type PasoPermitido = (desde: number, hasta: number) => boolean;
 
 /**
- * ¿Pasa la línea de tiro de `desde` a `hasta` sin cruzar ninguna casilla de
- * `bloqueadas`? Solo se miran las de EN MEDIO: dónde está cada uno lo decide
- * quien pregunta.
+ * La recta del disparo (`lineaDeTiro`) es la de las casillas que cruza el segmento
+ * entre los dos centros, en cúbicas y con **aritmética entera** (sin coma flotante
+ * en `core`): el punto `i` de `N` es `a·N + (b − a)·i`, en unidades de `1/N`, y se
+ * redondea a la casilla con el redondeo cúbico de siempre —redondear las tres y
+ * corregir la que más se desvió—. Para que un segmento que va justo por el borde de
+ * dos casillas no dependa del orden de las cuentas, los tres ejes llevan un empujón
+ * de `+3, −1, −2` en unidades de `1/(N·EMPUJON)`: suma cero, así que el punto sigue
+ * en el plano, y con él nunca hay empate (un medio exacto pediría que
+ * `N·EMPUJON/2 ≡ 3, 1 o 2` módulo `EMPUJON`, y con 1 000 nunca pasa; y como los tres
+ * son distintos en valor absoluto, tampoco empatan los desvíos al corregir).
  *
- * Con `cortes` (pares de índices `desde · BOARD_SIZE + hasta`, en los dos
- * sentidos: las puertas cerradas, que son el lado entre dos casillas) tampoco
- * pasa de una casilla a la siguiente de la recta por un lado cortado, extremos
- * incluidos: quien tira desde un lado de la puerta cerrada al otro no ve.
- *
- * La recta es la de las casillas que cruza el segmento entre los dos centros,
- * en cúbicas y con **aritmética entera** (sin coma flotante en `core`): el punto
- * `i` de `N` es `a·N + (b − a)·i`, en unidades de `1/N`, y se redondea a la
- * casilla con el redondeo cúbico de siempre —redondear las tres y corregir la
- * que más se desvió—. Para que un segmento que va justo por el borde de dos
- * casillas no dependa del orden de las cuentas, los tres ejes llevan un empujón
- * de `+3, −1, −2` en unidades de `1/(N·EMPUJON)`: suma cero, así que el punto
- * sigue en el plano, y con él nunca hay empate (un medio exacto pediría que
- * `N·EMPUJON/2 ≡ 3, 1 o 2` módulo `EMPUJON`, y con 1 000 nunca pasa; y como los
- * tres son distintos en valor absoluto, tampoco empatan los desvíos al
- * corregir).
- *
- * **Simétrica y generosa** (tablero simétrico, 11-10-2026, decisión del
- * usuario): un empujón cualquiera elige un lado en cada borde, y el espejo del
- * tablero elige el otro, así que el mismo tiro dado la vuelta podía pasar en un
- * lado y no en el otro. Se prueba con el empujón y con su espejo (el espejo
- * cambia `q` por `s`), y pasa si pasa con cualquiera de los dos. Para que eso
- * sea generoso de verdad —que en todo empate de borde un rayo vaya por cada una
- * de las dos casillas— los dos empujones tienen que caer a lados opuestos en
- * los tres: el empate entre dos casillas vecinas lo decide el signo del empujón
- * en el par de ejes en que difieren (`q−s`, `q−r` o `r−s`), y el espejo cambia
- * siempre el de `q−s`, pero los otros dos solo si el eje `r` queda ENTRE `q` y
- * `s`. Con el `+1, +2, −3` de antes (`r` fuera) solo salía generosa la familia
- * de los bordes verticales: en las otras dos los dos rayos pisaban la misma
- * casilla y una sola tapaba el tiro (QA de /simplify, 12-10-2026).
- *
- * **Fuera del tablero cuenta como tapado** (QA I1, decisión del usuario,
- * 12-10-2026): el rayo que roza el borde por la casilla que falta de una fila
- * impar o por la columna −1 no pasa. Solo cae fuera en un empate de borde (el
- * tablero no tiene entrantes: fuera de un empate, el punto más cercano a un
- * segmento entre dos casillas es de dentro), así que el otro rayo va por la
- * casilla de dentro y decide ella. Cuando la de fuera «se saltaba», ese rayo
- * pasaba siempre, y con la de dentro tapada el tiro atravesaba un muro que
- * cerraba contra el marco: el fuerte de la esquina, (11,4)→(11,6) por el hueco
- * (11,5), o una fila impar entera de muro, con 8 y 12 tiros que la cruzaban.
+ * El espejo del tablero cambia `q` por `s`, y con `r` ENTRE los otros dos el empujón
+ * espejado cae al otro lado en todo empate de borde (con el `+1, +2, −3` de antes,
+ * `r` fuera, solo en los bordes verticales: QA de /simplify, 12-10-2026). Por eso el
+ * defensor tira con el espejo: un disparo y su espejo van espejados. Hasta el
+ * disparo diferido (25-10-2026) el tiro pasaba si pasaba con cualquiera de los dos
+ * (`lineaLibre`, generosa); la recta de hoy es una sola, la del bando que tira.
  */
-export function lineaLibre(
-  desde: Hex,
-  hasta: Hex,
-  bloqueadas: ReadonlySet<string>,
-  cortes?: ReadonlySet<number>,
-): boolean {
-  const n = hexDistance(desde, hasta);
-  if (cortes === undefined && n <= 1) return true;
-  const rayo: Rayo = {
-    a: toCube(desde),
-    b: toCube(hasta),
-    n,
-    desde: indiceDe(desde),
-    hasta: indiceDe(hasta),
-  };
-  return (
-    rayoLibre(rayo, EMPUJON_DEL_RAYO, bloqueadas, cortes) ||
-    rayoLibre(rayo, ESPEJO_DEL_EMPUJON, bloqueadas, cortes)
-  );
-}
-
 type Empujon = readonly [number, number, number];
 
-/** El empujón de `lineaLibre`, en `(q, r, s)`: `r` entre los otros dos (ver arriba). */
+/** El empujón de la recta, en `(q, r, s)`: `r` entre los otros dos (ver arriba). */
 const EMPUJON_DEL_RAYO: Empujon = [3, -1, -2];
 /** Su espejo: el espejo del tablero cambia `q` por `s`. */
 const ESPEJO_DEL_EMPUJON: Empujon = [EMPUJON_DEL_RAYO[2], EMPUJON_DEL_RAYO[1], EMPUJON_DEL_RAYO[0]];
 
-/** Lo que comparten los dos rayos de un tiro: los extremos en cúbicas y por índice, y la distancia. */
-interface Rayo {
-  readonly a: Cube;
-  readonly b: Cube;
-  readonly n: number;
-  readonly desde: number;
-  readonly hasta: number;
-}
-
-/** Un rayo de `lineaLibre` con un empujón: ¿pasa? */
-function rayoLibre(
-  { a, b, n, desde, hasta }: Rayo,
-  [eq, er, es]: Empujon,
-  bloqueadas: ReadonlySet<string>,
-  cortes: ReadonlySet<number> | undefined,
-): boolean {
-  const d = n * EMPUJON;
-  let antes = desde;
-  for (let i = 1; i < n; i++) {
-    const q = (a.q * n + (b.q - a.q) * i) * EMPUJON + eq;
-    const r = (a.r * n + (b.r - a.r) * i) * EMPUJON + er;
-    const sx = (a.s * n + (b.s - a.s) * i) * EMPUJON + es;
-    const h = deCubo(redondeoCubico(q, r, sx, d));
-    if (!isInside(h) || bloqueadas.has(hexKey(h))) return false;
-    if (cortes !== undefined) {
-      const ahora = indiceDe(h);
-      if (cortes.has(codigoDeLado(antes, ahora))) return false;
-      antes = ahora;
+/**
+ * Las casillas por las que va el disparo diferido de `desde` a `hasta`, en orden:
+ * sin `desde` y con `hasta`, que es la última (el disparo no sigue más allá). Es
+ * la recta de `lineaLibre`, pero un solo rayo: el del atacante con su empujón y
+ * el del defensor con el espejo, así que un disparo y su espejo van espejados
+ * (25-10-2026). Si en un empate de borde ese rayo cae fuera del tablero, va el
+ * otro: el disparo no sale por el marco. La leen el disparo, la IA y lo que se
+ * pinta (`primeroEnLaLinea`, `battle.ts`).
+ */
+export function lineaDeTiro(desde: Hex, hasta: Hex, side: Side): Hex[] {
+  const n = hexDistance(desde, hasta);
+  if (n === 0) return [];
+  const a = toCube(desde);
+  const b = toCube(hasta);
+  const rayo = ([eq, er, es]: Empujon): Hex[] | null => {
+    const d = n * EMPUJON;
+    const out: Hex[] = [];
+    for (let i = 1; i < n; i++) {
+      const q = (a.q * n + (b.q - a.q) * i) * EMPUJON + eq;
+      const r = (a.r * n + (b.r - a.r) * i) * EMPUJON + er;
+      const sx = (a.s * n + (b.s - a.s) * i) * EMPUJON + es;
+      const h = deCubo(redondeoCubico(q, r, sx, d));
+      if (!isInside(h)) return null;
+      out.push(h);
     }
+    out.push(hasta);
+    return out;
+  };
+  const [primero, segundo] =
+    side === 'attacker'
+      ? [EMPUJON_DEL_RAYO, ESPEJO_DEL_EMPUJON]
+      : [ESPEJO_DEL_EMPUJON, EMPUJON_DEL_RAYO];
+  const linea = rayo(primero) ?? rayo(segundo);
+  if (linea === null) {
+    throw new Error(
+      `la recta de (${desde.col},${desde.row}) a (${hasta.col},${hasta.row}) sale del tablero por los dos lados`,
+    );
   }
-  return cortes === undefined || !cortes.has(codigoDeLado(antes, hasta));
+  return linea;
 }
 
-/** El empujón de `lineaLibre`, en milésimas de casilla por paso. */
+/** El empujón de la recta, en milésimas de casilla por paso. */
 const EMPUJON = 1000;
 
 /** El entero más cercano a `x / d` (d > 0, sin empates: los quita el empujón). */

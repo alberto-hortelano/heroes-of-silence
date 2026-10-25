@@ -1750,12 +1750,12 @@ describe('los personajes y sus heridas', () => {
     // Es otro camino que el del atacante —`applyDefenderSurvivors` y
     // `restoreHeroFromBattle`— y es donde ya se olvidó una línea una vez (el
     // maná). Seis ballesteros contra el personaje y cinco caballeros de la
-    // muerte: el defensor gana, y los ballesteros disparan, así que el personaje
-    // sale herido.
+    // muerte: el defensor gana, y al personaje lo hieren (los ballesteros, que
+    // apuntan, o el cuerpo a cuerpo).
     // La semilla, una en la que la hieren y no la matan (19-10-2026: con la rueda,
-    // en la 41 salía sana; 25-10-2026: con la fuerza y la agilidad, en la 57 moría).
-    const state = newGame({ seed: 41 });
-    const c = ctx(41);
+    // en la 41 salía sana; 25-10-2026: con la fuerza y la agilidad, en la 57 moría; con el disparo diferido, en la 41 salía sana).
+    const state = newGame({ seed: 42 });
+    const c = ctx(42);
     const atacante = heroesOf(state, 0)[0]!;
     const defensor = heroesOf(state, 1)[0]!;
     alistar(state, defensor, 'bera');

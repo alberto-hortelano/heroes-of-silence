@@ -358,8 +358,8 @@ describe('notas para el agente', () => {
   });
 
   it('el acuse de una acción que coló es una línea corta', () => {
-    const nota = notaAccionAceptada('a1', { type: 'shoot', target: 'd2' }, null, null);
-    expect(nota).toBe('a1: disparo a d2, aplicada.');
+    const nota = notaAccionAceptada('a1', { type: 'defend' }, null, null);
+    expect(nota).toBe('a1: defensa, aplicada.');
   });
 
   it('el acuse de un `move` dice si el turno sigue abierto, y con cuántas casillas (02-10-2026)', () => {

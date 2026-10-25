@@ -66,11 +66,8 @@ import { armaduraDe } from '../src/core/battle/armas.js';
 import {
   activeStack,
   applyAction,
-  ataqueBlocker,
   isAlive,
-  legalActions,
   MAX_ROUNDS,
-  stackById,
   stackHexes,
 } from '../src/core/battle/battle.js';
 import { CARGA } from '../src/core/battle/carga.js';
@@ -130,7 +127,6 @@ import {
   catalogoEntero,
   delBorrador,
   elCatalogoCon,
-  forzarTurno,
   hojaDeLaArena,
   hojasDeLaArena,
   MANOS_DE_PRUEBA,
@@ -1407,26 +1403,6 @@ describe('la arena como banco de combate', () => {
     }
     expect(lanzados).toBeGreaterThan(0);
   });
-
-  it('la previsión sale en la sesión para la acción de la persona, y nada para la IA', () => {
-    const s = new SesionDeArena(
-      {
-        combate: COMBATE_COMPLETO,
-        izquierda: yo(unidad('elfo-arquero')),
-        derecha: ia(unidad('zombi')),
-        equipo: EQUIPO_DEL_JUEGO,
-      },
-      1,
-    );
-    expect(s.prevision({ type: 'shoot', target: 'defender-0' })).toBeNull();
-    s.empezar();
-    while (s.turnoPropio === null && s.battle.finished === null)
-      s.playBattleAction({ type: 'end_turn' });
-    const disparo = s.battleLegalActions().find((a) => a.type === 'shoot');
-    if (disparo === undefined) throw new Error('el arquero no puede disparar');
-    const p = s.prevision(disparo);
-    expect(p).toMatchObject({ kind: 'disparo', objetivo: 'defender-0' });
-  });
 });
 
 describe('el montaje del banco de combate', () => {
@@ -2297,8 +2273,6 @@ describe('retocar en plena pelea (B10-B14)', () => {
       }),
     ).toBe('La unidad «Guerrero con escudo»: la agilidad es de 2 a 7, y es 9.');
     expect(s.version).toBe(version);
-    // El escudero no dispara; con un arma a distancia, sí, y ya (sin munición).
-    expect(s.battleLegalActions().some((a) => a.type === 'shoot')).toBe(false);
     // Sin arma no se pelea (vuelta 2): quitársela no entra.
     expect(
       s.retocar({ kind: 'tipo', fuente: delBorrador(unidad('templario-escudo', { equipo: {} })) }),
@@ -2314,7 +2288,6 @@ describe('retocar en plena pelea (B10-B14)', () => {
         ),
       }),
     ).toBeNull();
-    expect(s.battleLegalActions().some((a) => a.type === 'shoot')).toBe(true);
     expect(s.version).not.toBe(version);
     expect(s.battle.turno?.n).toBe(turno);
     expect(s.hechizos.selectedSpell).toBe('magic_arrow');
@@ -2628,59 +2601,6 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
       ]),
     ).toMatch(/la lleva «.*»: Arco va en Arma, no en Arma a distancia/);
     expect(() => validarPieza(honda)).toThrow('«disparos» no es un campo de una pieza');
-  });
-});
-
-describe('sin munición: dispara quien lleva arma a distancia (13-10-2026)', () => {
-  /** Un blanco que no cae ni se mueve: mucha vida, lejos. */
-  // Con su propio id: el catálogo de la pelea no deja dos unidades distintas con uno.
-  const muro = (): Unidad => unidad('troll-maza', { id: 'troll-maza-9', hp: 100_000 });
-  /** El arquero (o lo que sea) a la izquierda contra el muro, cada uno en su punta. */
-  function tiroLibre(tirador: Unidad): BattleState {
-    const b = pelea([tirador], [muro()], createRng(3));
-    stackById(b, 'attacker-0').hex = { col: 0, row: 4 };
-    stackById(b, 'defender-0').hex = { col: 11, row: 4 };
-    return b;
-  }
-  const dispara = (b: BattleState): void => {
-    forzarTurno(b, 'attacker-0');
-    const tiro = legalActions(b).find((a) => a.type === 'shoot');
-    if (tiro === undefined)
-      throw new Error(`no se ofrece el disparo: ${ataqueBlocker(b, 'defender-0')}`);
-    applyAction(b, tiro, createRng(b.log.length));
-  };
-
-  it('el arquero por defecto dispara 15 turnos seguidos: más que los 12 de antes, sin gastar nada', () => {
-    const b = tiroLibre(unidad('elfo-arquero'));
-    for (let i = 0; i < 15; i++) dispara(b);
-    expect(b.log.filter((e) => e.kind === 'shoot')).toHaveLength(15);
-  });
-
-  it('cada disparo es un tiro; con «dos disparos», dos', () => {
-    // Los tiros de un disparo: un `shoot` en el registro por cada uno (`shoot`, `battle.ts`).
-    const tiros = (u: Unidad): number => {
-      const b = tiroLibre(u);
-      const desde = b.log.length;
-      dispara(b);
-      return b.log.slice(desde).filter((e) => e.kind === 'shoot').length;
-    };
-    expect(tiros(unidad('elfo-arquero'))).toBe(1);
-    expect(tiros(unidad('elfo-arquero', { traits: ['double_shot'] }))).toBe(2);
-  });
-
-  it('sin arma a distancia no dispara, y el motivo es «no es tirador», nunca «sin munición»', () => {
-    const b = tiroLibre(unidad('templario-escudo'));
-    forzarTurno(b, 'attacker-0');
-    expect(legalActions(b).some((a) => a.type === 'shoot')).toBe(false);
-    expect(() => applyAction(b, { type: 'shoot', target: 'defender-0' }, createRng(1))).toThrow(
-      'attacker-0 no es tirador',
-    );
-    // Ninguna unidad del catálogo dice «sin munición»: o tira, o no es tirador.
-    for (const u of CATALOGO) {
-      const t = tiroLibre(u);
-      forzarTurno(t, 'attacker-0');
-      expect(ataqueBlocker(t, 'defender-0') ?? '', u.id).not.toContain('munición');
-    }
   });
 });
 

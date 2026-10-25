@@ -178,7 +178,9 @@ export const battleActionSchema = z.discriminatedUnion('type', [
     from: hexSchema.optional(),
     hit: z.string().max(32).optional(),
   }),
-  z.object({ type: z.literal('shoot'), target: z.string() }),
+  // El disparo diferido (25-10-2026): apuntar a una casilla cierra el turno y el
+  // disparo sale al empezar el siguiente (`apuntarBlocker`, `lineaDelDisparo`).
+  z.object({ type: z.literal('aim'), at: hexSchema }),
   z.object({ type: z.literal('wait') }),
   z.object({ type: z.literal('defend') }),
   z.object({ type: z.literal('cast'), spell: z.string(), target: z.string().optional() }),
@@ -659,7 +661,7 @@ que no existe se descarta.
 Acciones válidas para la unidad activa:
   { "type": "move",   "to": { "col": N, "row": N } }
   { "type": "attack", "target": "<id de stack>", "from": { "col": N, "row": N }, "hit": "<golpe>" }
-  { "type": "shoot",  "target": "<id de stack>" }
+  { "type": "aim",    "at": { "col": N, "row": N } }
   { "type": "wait" }
   { "type": "defend" }
   { "type": "cast",   "spell": "<id>", "target": "<id de stack>" }
@@ -671,7 +673,7 @@ Notas:
 - "move" NO acaba el turno de la unidad: gasta casillas de su "stepsLeft" y se
   te vuelve a pedir acción para la misma unidad, así que puedes moverte en
   varios tramos. Tras moverse solo puede moverse más, atacar cuerpo a cuerpo o
-  terminar con "end_turn": ni disparar, ni "defend", ni "wait". Atacar acaba
+  terminar con "end_turn": ni apuntar, ni "defend", ni "wait". Atacar acaba
   el turno. Si tras un "move" ya no le queda ni casilla a la que ir ni enemigo
   al lado, el turno se cierra solo y no se te pregunta por ella.
 - "turnId" numera los turnos de la batalla: mientras sea el mismo, sigues en el
@@ -731,13 +733,30 @@ Notas:
   tuya, se te pide la respuesta con "battle_response". El registro cuenta cada
   cruce con el hecho "cruce" ("hit" de quien pegó, "response" de quien
   respondió). Tras golpear con ${CON_FINTA_EN_PROSA}, el turno de esa
-  unidad sigue solo para andar (o "end_turn"). El disparo no pasa por la rueda: sigue con su tirada.
+  unidad sigue solo para andar (o "end_turn"). El disparo no pasa por la rueda: su tirada la fija la distancia a la casilla apuntada.
+- DISPARO DIFERIDO (regla nuestra, nueva y aún sin validar): un tirador
+  ("shooter": true) sin moverse y sin un enemigo al lado APUNTA con "aim" a una
+  casilla del tablero ("at", cualquiera menos la suya: "legalActions" trae solo
+  las de los enemigos, pero vale cualquier otra). Apuntar CIERRA su turno, y su
+  stack lleva "aimedAt" con la casilla (lo ves también en los del rival). Al
+  EMPEZAR su siguiente turno, antes de que elijas nada, sale el disparo desde
+  donde esté, en línea recta hacia esa casilla, y da al PRIMERO que encuentre en
+  la recta, sea del bando que sea —también a uno tuyo que se haya puesto en
+  medio—; no sigue más allá de la casilla, y si no hay nadie no da a nadie. En
+  el suelo lo para un muro o una puerta cerrada; desde lo alto, no. El daño va
+  por la horquilla de su arma de distancia según lo cerca que esté el alcanzado
+  de la casilla apuntada: en ella, el máximo; cada casilla de distancia baja un
+  cuarto de la horquilla; a 4 o más, el mínimo; luego ataque contra defensa,
+  suerte y armadura. Con "double_shot", dos tiros por la misma recta. Si el
+  tirador muere antes, el disparo se pierde. Tras el disparo, su turno sigue:
+  puede apuntar otra vez o actuar como siempre. El registro lo cuenta con
+  "aimed" ("at") y "shoot" ("at" y "target", null si no dio a nadie).
 - "power" usa un PODER de la unidad activa ("stacks[].powers": ${PODERES_EN_PROSA})
   sobre un aliado, incluida ella misma. Gasta su turno entero y solo sin haberse movido; los que
   puede usar ahora vienen en "legalActions".
 - "cast" NO consume el turno de la unidad activa: lanza el héroe, se cobra el
   maná y una tirada por ronda, y después la unidad sigue pudiendo moverse,
-  disparar o atacar. Se te volverá a pedir acción para el mismo stack.
+  apuntar o atacar. Se te volverá a pedir acción para el mismo stack.
 - "wait" tampoco lo consume: manda a la unidad al FINAL de la cola de esta
   ronda y se te volverá a pedir acción para ella cuando hayan movido los
   demás. Sirve para no meterte en el alcance de quien todavía no ha actuado:

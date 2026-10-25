@@ -39,6 +39,7 @@ import {
   hexKey,
   indiceDe,
   isInside,
+  lineaDeTiro,
   neighbours,
   type Paso,
   type PasoPermitido,
@@ -59,6 +60,7 @@ import {
   ataqueYDefensa,
   CHANCE_PER_POINT,
   computeDamage,
+  cuartoDelDisparo,
   type DamageOptions,
   type Horquilla,
   herir,
@@ -83,10 +85,8 @@ import {
   casillasDeMuro,
   cierreDeLaMuralla,
   claveDeAbiertas,
-  type EstadoDePuerta,
   enLoAlto,
   esMuro,
-  hayLinea,
   hayMuralla,
   ladoDeLaMuralla,
   type MurallaDeBatalla,
@@ -470,6 +470,7 @@ export function createBattle(
         luck: clampMoraleLuck(luckBonus + e.ownLuck),
         effects: [],
         ganado: { experiencia: 0, bajas: 0, heroes: [] },
+        apuntado: null,
       });
     });
   }
@@ -1064,44 +1065,94 @@ export function canReachMelee(state: BattleState, s: BattleStack, target: Battle
 }
 
 /**
- * Por qué `s` no puede disparar ahora, o `null` si puede. ÚNICA redacción de la
- * regla del disparo: la leen `legalActions` para ofrecerlo, `applyAction` para
- * rechazarlo —con el id delante— y `ataqueBlocker` para explicárselo a la
+ * Por qué `s` no puede apuntar ahora, o `null` si puede. ÚNICA redacción de la
+ * regla del tirador: la leen `legalActions` para ofrecer el `aim`, `applyAction`
+ * para rechazarlo —con el id delante— y `ataqueBlocker` para explicárselo a la
  * persona. Antes la lista y el rechazo la escribían cada uno, y el cliente
  * inventaba una tercera frase («no alcanzas a esa unidad») que a un tirador que
- * se acababa de mover le decía algo falso con un arco de alcance ilimitado.
+ * se acababa de mover le decía algo falso.
  */
 function disparoBlocker(state: BattleState, s: BattleStack): string | null {
   if (!isShooter(s.unit)) return 'no es tirador';
-  if (seHaMovido(state, s)) return 'ya se ha movido este turno: no puede disparar';
+  if (seHaMovido(state, s)) return 'ya se ha movido este turno: no puede apuntar';
   if (isEngaged(state, s)) return 'tiene un enemigo encima';
   return null;
 }
 
 /**
- * Por qué `s` no tiene línea de tiro hasta `target`, o `null` si la tiene. En el
- * suelo, nadie dispara a través de un muro ni de una puerta cerrada (la abierta
- * no tapa, decisión del usuario); si
- * uno de los dos está en lo alto, el tiro pasa por encima (decisión del usuario,
- * 09-10-2026). Una unidad de dos casillas tira si alguna de sus casillas ve
- * alguna del blanco. Sin muralla, siempre `null`.
- *
- * La leen `legalActions` para ofrecer el disparo, `applyAction` para rechazarlo
- * y `ataqueBlocker` para decírselo a la persona.
+ * Por qué la unidad activa no puede apuntar a la casilla `at`, o `null`: la regla
+ * del tirador (`disparoBlocker`) y la casilla, que tiene que estar en el tablero y
+ * no ser la suya. Vale cualquier otra, con alguien o vacía: la recta y a quién da
+ * se ven al salir el disparo (`lineaDelDisparo`). Sin `at`, solo si puede apuntar
+ * (el botón). La leen `applyAction`, la previsión y la pantalla (con el sujeto
+ * delante: `${id} …`).
  */
-export function tiroBlocker(
-  state: BattleState,
-  s: BattleStack,
-  target: BattleStack,
-): string | null {
-  const m = state.muralla;
-  if (!hayMuralla(m) || enLoAlto(state, s) || enLoAlto(state, target)) return null;
-  const suyas = stackHexes(target);
-  const ve = (puertas: readonly EstadoDePuerta[]): boolean =>
-    stackHexes(s).some((desde) => suyas.some((h) => hayLinea(m, puertas, desde, h)));
-  if (ve(state.puertas)) return null;
-  const abiertas = state.puertas.map((p) => ({ ...p, abierta: true }));
-  return ve(abiertas) ? 'la puerta cerrada está en medio' : 'el muro está en medio';
+export function apuntarBlocker(state: BattleState, at?: Hex): string | null {
+  const s = activeStack(state);
+  if (s === null || state.finished !== null) return 'no le toca a ninguna unidad';
+  const porLaFase = faseBlocker(state, 'aim');
+  if (porLaFase !== null) return porLaFase;
+  const motivo = disparoBlocker(state, s);
+  if (motivo !== null) return `${s.id} ${motivo}`;
+  // Sin casilla, solo si puede apuntar: el botón «Apuntar».
+  if (at === undefined) return null;
+  if (!isInside(at)) return `(${at.col},${at.row}) no es una casilla del tablero`;
+  if (hexEquals(at, s.hex)) return `${s.id} no puede apuntar a su propia casilla`;
+  return null;
+}
+
+/** La recta de un disparo diferido y a quién da (`lineaDelDisparo`). */
+export interface LineaDelDisparo {
+  /** De dónde sale: la casilla del tirador ahora. */
+  readonly desde: Hex;
+  /** A dónde apunta. */
+  readonly at: Hex;
+  /**
+   * Las casillas de la recta hasta donde llega, en orden y sin la del tirador: hasta
+   * la del alcanzado, hasta antes del muro o la puerta que la para, o hasta `at`.
+   */
+  readonly casillas: readonly Hex[];
+  /** El primero de la recta, de cualquier bando; `null` si no da a nadie. */
+  readonly alcanzado: BattleStack | null;
+  /** Lo que paró la recta antes de `at` sin dar a nadie, o `null`. */
+  readonly parada: 'muro' | 'puerta' | null;
+}
+
+/**
+ * Por dónde va el disparo diferido de `s` a `at` ahora y a quién da: **el primer
+ * vivo de la recta que no es el tirador, sea del bando que sea** (25-10-2026,
+ * decisión del usuario: «da al primero que se encuentre en esa línea, aunque sea de
+ * tu equipo»), sin pasar de `at`. La recta es la de `lineaDeTiro` (un rayo, el del
+ * bando del tirador). En el suelo la para un muro (sin nadie arriba: a quien está
+ * en él le da) o el lado de una puerta cerrada; desde lo alto de la muralla pasa
+ * por encima de todo, como el tiro de antes. La única regla: la leen el disparo
+ * (`dispararLoApuntado`), su previsión, la IA y lo que se pinta.
+ */
+export function lineaDelDisparo(state: BattleState, s: BattleStack, at: Hex): LineaDelDisparo {
+  const recta = lineaDeTiro(s.hex, at, s.side);
+  const libre = enLoAlto(state, s) || !hayMuralla(state.muralla);
+  const cerradas = libre ? [] : state.puertas.filter((p) => !p.abierta);
+  const cruzaPuerta = (a: Hex, b: Hex): boolean =>
+    cerradas.some(
+      (p) => (hexEquals(p.a, a) && hexEquals(p.b, b)) || (hexEquals(p.a, b) && hexEquals(p.b, a)),
+    );
+  const casillas: Hex[] = [];
+  let antes = s.hex;
+  for (const h of recta) {
+    if (cruzaPuerta(antes, h))
+      return { desde: s.hex, at, casillas, alcanzado: null, parada: 'puerta' };
+    const quien = state.stacks.find((x) => isAlive(x) && hexEquals(x.hex, h)) ?? null;
+    if (quien !== null && quien.id !== s.id) {
+      casillas.push(h);
+      return { desde: s.hex, at, casillas, alcanzado: quien, parada: null };
+    }
+    if (!libre && esMuro(state.muralla, h)) {
+      return { desde: s.hex, at, casillas, alcanzado: null, parada: 'muro' };
+    }
+    casillas.push(h);
+    antes = h;
+  }
+  return { desde: s.hex, at, casillas, alcanzado: null, parada: null };
 }
 
 /**
@@ -1119,7 +1170,8 @@ export function ataqueBlocker(state: BattleState, targetId: string): string | nu
   const target = stackById(state, targetId);
   const rival = rivalBlocker(s, target, 'atacar');
   if (rival !== null) return rival;
-  const disparo = disparoBlocker(state, s) ?? tiroBlocker(state, s, target);
+  // Un tirador que puede apuntar, apunta a su casilla: el clic en el enemigo vale.
+  const disparo = disparoBlocker(state, s);
   if (disparo === null) return null;
   const { actions } = legalActionsAndCosts(state);
   if (actions.some((a) => a.type === 'attack' && a.target === targetId)) return null;
@@ -1242,24 +1294,6 @@ function esPlantarse(state: BattleState, accion: BattleAction & { type: 'attack'
   return (
     state.golpeEnCurso === null && accion.golpe === undefined && accion.respuesta === undefined
   );
-}
-
-/**
- * Por qué `s` no puede disparar a `target` ahora, o `null`: la regla del disparo
- * (`disparoBlocker`, con el id delante) y el blanco. La leen `applyAction` y
- * `previsionDe`.
- */
-function disparoContraBlocker(
-  state: BattleState,
-  s: BattleStack,
-  target: BattleStack,
-): string | null {
-  const motivo = disparoBlocker(state, s);
-  if (motivo !== null) return `${s.id} ${motivo}`;
-  const rival = rivalBlocker(s, target, 'disparar');
-  if (rival !== null) return rival;
-  const tiro = tiroBlocker(state, s, target);
-  return tiro === null ? null : `${s.id} no puede disparar a ${target.id}: ${tiro}`;
 }
 
 /**
@@ -1606,9 +1640,19 @@ function advance(state: BattleState, rng: Rng): void {
       // turno» (Defensivo) se va igual (decisión del usuario, 14-10-2026). Sin
       // turno abierto no hay `n` nuevo: vale el siguiente al de ahora.
       quitarLosQueVencen(state, s, 'empezar', (state.turno?.n ?? 0) + 1);
+      // Lo apuntado sale igual: el disparo se soltó al apuntar (25-10-2026).
+      dispararLoApuntado(state, s, rng);
+      if (state.finished !== null) {
+        state.turno = null;
+        return;
+      }
       continue;
     }
     abrirTurno(state, s);
+    // Al empezar su turno, antes de que elija nada, sale lo que apuntó en el
+    // anterior; luego el turno sigue como siempre (puede apuntar otra vez).
+    dispararLoApuntado(state, s, rng);
+    if (state.finished !== null) state.turno = null;
     return;
   }
 
@@ -1900,12 +1944,13 @@ export function applyAction(
       return;
     }
 
-    case 'shoot': {
-      const target = stackById(state, action.target);
-      const motivo = disparoContraBlocker(state, s, target);
+    case 'aim': {
+      const motivo = apuntarBlocker(state, action.at);
       if (motivo !== null) throw new Error(motivo);
-      shoot(state, s, target, rng);
-      endTurn(state, s, rng);
+      s.apuntado = { col: action.at.col, row: action.at.row };
+      state.log.push({ kind: 'aimed', stack: s.id, at: s.apuntado });
+      // Sin el turno extra de la moral: con él, el disparo saldría al instante.
+      endTurn(state, s, rng, false);
       return;
     }
 
@@ -2542,7 +2587,7 @@ function usoDelIntercambio(
   contra: BattleStack,
   carga: number,
 ): UsoDeArma {
-  return usoDelGolpe(quien.unit, opcionesDeDanio(state, quien, contra, { chargeHexes: carga }));
+  return usoDelGolpe(opcionesDeDanio(state, quien, contra, { chargeHexes: carga }));
 }
 
 /**
@@ -2686,7 +2731,7 @@ function conElGolpe(
   golpe: GolpeEnLaRueda,
   papel: PapelEnLaRueda,
   forma: FormaDeLaRueda,
-  c: CifrasDeLaRueda = ruedaDelGolpe(quien, usoDelGolpe(quien, o)),
+  c: CifrasDeLaRueda = ruedaDelGolpe(quien, usoDelGolpe(o)),
 ): DamageOptions {
   return { ...o, cruce: cruceDelGolpe(golpe.tipo, golpe.desde, golpe.hasta, papel, c, forma) };
 }
@@ -2800,48 +2845,57 @@ function healFromDrain(s: BattleStack, damage: number): void {
   s.topHp = healed - (s.count - 1) * maxHp;
 }
 
-function shoot(state: BattleState, shooter: BattleStack, target: BattleStack, rng: Rng): void {
-  const info = shooter.unit;
-  const shots = disparosDe(info);
-
-  for (let i = 0; i < shots && isAlive(target); i++) {
-    const distance = distanciaDeDisparo(shooter, target);
+/**
+ * Sale el disparo diferido de `shooter` (lo que apuntó en su turno anterior,
+ * `BattleStack.apuntado`) y se borra: desde donde está ahora, por la recta, al
+ * primero que encuentre (`lineaDelDisparo`), con la tirada en el cuarto que da su
+ * distancia a la casilla apuntada (`cuartoDelDisparo`); ataque contra defensa,
+ * suerte y armadura como siempre. Con `double_shot`, dos tiros, y cada uno busca
+ * su primero (el segundo, si el primero cayó, sigue la recta). Lo llama solo el
+ * principio de su turno (`empezarTurno`), también el que pierde por la moral
+ * baja. **Regla nuestra sin validar por el usuario** (25-10-2026: sin tests hasta
+ * que la juegue).
+ */
+function dispararLoApuntado(state: BattleState, shooter: BattleStack, rng: Rng): void {
+  const at = shooter.apuntado;
+  if (at === null) return;
+  shooter.apuntado = null;
+  const shots = disparosDe(shooter.unit);
+  for (let i = 0; i < shots && state.finished === null; i++) {
+    const { alcanzado } = lineaDelDisparo(state, shooter, at);
+    if (alcanzado === null) {
+      state.log.push({ kind: 'shoot', stack: shooter.id, at, target: null, damage: 0, killed: 0 });
+      continue;
+    }
+    const cuarto = cuartoDelDisparo(hexDistance(alcanzado.hex, at));
     const result = computeDamage(
       shooter,
-      target,
+      alcanzado,
       rng,
-      opcionesDeDanio(state, shooter, target, { ranged: true, distance }),
+      opcionesDeDanio(state, shooter, alcanzado, { ranged: true, cuarto }),
     );
-    const herida = herir(target, result.damage, shooter);
+    const herida = herir(alcanzado, result.damage, shooter);
 
     // La mala suerte también se anota, como en el golpe: sin ella, quien lee el
-    // registro (la previsión y su test) no sabía qué rama había caído.
+    // registro no sabía qué rama había caído.
     if (result.lucky) state.log.push({ kind: 'luck', stack: shooter.id, good: true });
     if (result.unlucky) state.log.push({ kind: 'luck', stack: shooter.id, good: false });
     state.log.push({
       kind: 'shoot',
       stack: shooter.id,
-      target: target.id,
+      at,
+      target: alcanzado.id,
       damage: herida.danio,
       killed: herida.muertos,
       ...conLoParado(herida),
     });
-    if (!isAlive(target)) state.log.push({ kind: 'perished', stack: target.id });
+    if (!isAlive(alcanzado)) state.log.push({ kind: 'perished', stack: alcanzado.id });
 
     // La salpicadura reparte el daño del disparo, no el que llegó: cada salpicado
     // resta su propia armadura (`herir`).
-    if (hasTrait(info, 'splash_shot')) splash(state, shooter, target, result.damage);
+    if (hasTrait(shooter.unit, 'splash_shot')) splash(state, shooter, alcanzado, at, result.damage);
+    checkFinished(state);
   }
-}
-
-/**
- * Las casillas entre un tirador y su objetivo: lo que mira la regla de la distancia.
- * Exportada para que la IA elija blanco con las mismas opciones del disparo.
- */
-export function distanciaDeDisparo(shooter: BattleStack, target: BattleStack): number {
-  return Math.min(
-    ...stackHexes(shooter).flatMap((sh) => stackHexes(target).map((th) => hexDistance(sh, th))),
-  );
 }
 
 /**
@@ -2866,21 +2920,24 @@ export function splashTargets(state: BattleState, target: BattleStack): BattleSt
  * tirar: una tirada por disparo mantiene los tests legibles y la semilla
  * estable.
  *
- * El tirador nunca se salpica a sí mismo: para estar pegado a su objetivo
- * tendría un enemigo encima, y con un enemigo encima `isEngaged` no le deja
- * disparar.
+ * El tirador nunca se salpica a sí mismo: con el disparo diferido puede acabar
+ * pegado a lo que alcanza (alguien se le puso al lado mientras esperaba), y se
+ * salta.
  */
 function splash(
   state: BattleState,
   shooter: BattleStack,
   target: BattleStack,
+  at: Hex,
   damage: number,
 ): void {
   for (const otro of splashTargets(state, target)) {
+    if (otro.id === shooter.id) continue;
     const herida = herir(otro, damage, shooter);
     state.log.push({
       kind: 'shoot',
       stack: shooter.id,
+      at,
       target: otro.id,
       damage: herida.danio,
       killed: herida.muertos,
@@ -3172,7 +3229,7 @@ export type Prevision = PrevisionDeGolpe | PrevisionDeHechizo | PrevisionDePoder
  * pregunta.
  *
  * **Sale de las mismas funciones que aplican el daño**: `opcionesDeDanio`,
- * `cargaDesde`, `distanciaDeDisparo`, `horquillaDeDanio` (la cuenta de
+ * `cargaDesde`, `lineaDelDisparo`, `horquillaDeDanio` (la cuenta de
  * `computeDamage` con la tirada en sus extremos), `trasElGolpe`,
  * `devolveraElGolpe` y los efectos al golpear. No toca el estado ni el `Rng`.
  * `test/prevision.test.ts` la compara con el daño real de cientos de semillas en
@@ -3196,13 +3253,16 @@ export function previsionDe(state: BattleState, accion: BattleAction): Prevision
         accion.golpe === undefined ? null : delSector(accion.golpe, formaDeLaBatalla(state)),
       );
     }
-    case 'shoot': {
-      const target = stackById(state, accion.target);
-      const motivo = disparoContraBlocker(state, s, target);
+    case 'aim': {
+      // Lo que daría el disparo si saliera ahora, desde aquí: a quien está hoy en
+      // la recta (de su turno al siguiente, el tablero se mueve). Sin nadie, nada.
+      const motivo = apuntarBlocker(state, accion.at);
       if (motivo !== null) throw new Error(motivo);
-      return previsionDeGolpe(state, s, target, 'disparo', {
+      const { alcanzado } = lineaDelDisparo(state, s, accion.at);
+      if (alcanzado === null) return null;
+      return previsionDeGolpe(state, s, alcanzado, 'disparo', {
         ranged: true,
-        distance: distanciaDeDisparo(s, target),
+        cuarto: cuartoDelDisparo(hexDistance(alcanzado.hex, accion.at)),
       });
     }
     case 'cast': {
@@ -3277,7 +3337,9 @@ function previsionDeGolpe(
         : null,
     salpica:
       kind === 'disparo' && hasTrait(a.unit, 'splash_shot')
-        ? splashTargets(state, t).map((x) => x.id)
+        ? splashTargets(state, t)
+            .filter((x) => x.id !== a.id)
+            .map((x) => x.id)
         : [],
   };
 }
@@ -3817,10 +3879,11 @@ export function legalActionsAndCosts(state: BattleState): {
 
   const enemies = enemiesOf(state, s);
 
+  // Apuntar: uno por casilla de enemigo vivo, que es lo que tiene sentido elegir;
+  // vale cualquier otra casilla del tablero (`apuntarBlocker`), y la prosa del
+  // agente lo dice. La recta y a quién da, al salir el disparo.
   if (disparoBlocker(state, s) === null) {
-    for (const e of enemies) {
-      if (tiroBlocker(state, s, e) === null) out.push({ type: 'shoot', target: e.id });
-    }
+    for (const e of enemies) out.push({ type: 'aim', at: e.hex });
   }
 
   // Un solo BFS por llamada. Estaba dentro del bucle de ataques, así que con

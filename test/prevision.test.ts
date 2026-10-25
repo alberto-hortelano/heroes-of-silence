@@ -1,7 +1,7 @@
 /**
  * La previsión de daño (`previsionDe`) contra el daño de verdad.
  *
- * Por cada escenario —golpe, carga, disparo cerca y lejos, defensa, contraataque,
+ * Por cada escenario —golpe, carga, defensa, contraataque,
  * doble golpe, maldecir y asustar al golpear (hechos a mano: el catálogo no trae esos
  * rasgos), Bendición y Maldición, héroes con ataque y
  * defensa, hechizos— se pide la previsión, se juega la acción y se mira el
@@ -19,7 +19,6 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { textoDePrevision } from '../src/client/views/prevision.js';
 import { FORMAS_DE_EJEMPLO } from '../src/core/arena-murallas.js';
 import { armaduraDe, golpeDe } from '../src/core/battle/armas.js';
 import {
@@ -46,7 +45,6 @@ import type {
 import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { cuerpoConSusCifras } from '../src/core/cuerpo.js';
-import { MURALLA } from '../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import type { CreatureTrait, Equipo, Hex, UnitInfo } from '../src/core/types.js';
@@ -147,7 +145,6 @@ const golpe =
     if (a === undefined) throw new Error('el escenario no deja golpear como se pide');
     return a;
   };
-const disparo = (): BattleAction => ({ type: 'shoot', target: 'defender-0' });
 const lanza =
   (hechizo: string, objetivo = 'defender-0') =>
   (): BattleAction => ({ type: 'cast', spell: hechizo, target: objetivo });
@@ -244,22 +241,6 @@ const ESCENARIOS: readonly Escenario[] = [
     accion: golpe({ col: 6, row: 4 }),
   },
   {
-    nombre: 'disparo cerca',
-    izquierda: () => bando([{ creature: TIRADOR, count: 8 }]),
-    derecha: () => bando([{ creature: TROPA, count: 30 }]),
-    en: { col: 1, row: 4 },
-    contra: { col: 4, row: 4 },
-    accion: disparo,
-  },
-  {
-    nombre: 'disparo lejos, doble y con suerte',
-    izquierda: () => aManoSolo('doble disparo', con(TIRADOR, 'double_shot'), 2),
-    derecha: () => bando([{ creature: TROPA, count: 30 }]),
-    en: { col: 1, row: 4 },
-    contra: { col: 9, row: 4 },
-    accion: disparo,
-  },
-  {
     nombre: 'arquero pegado: golpe cuerpo a cuerpo y su contraataque',
     izquierda: () => bando([{ creature: TIRADOR, count: 8 }]),
     derecha: () => bando([{ creature: TIRADOR, count: 20 }]),
@@ -320,15 +301,6 @@ const ESCENARIOS: readonly Escenario[] = [
     accion: golpe(),
   },
   {
-    nombre: 'disparo al tirador en lo alto de la muralla',
-    izquierda: () => bando([{ creature: TIRADOR, count: 8 }]),
-    derecha: () => bando([{ creature: TIRADOR, count: 20 }]),
-    en: { col: 1, row: 4 },
-    contra: LO_ALTO,
-    accion: disparo,
-    muralla: LINEA_RECTA,
-  },
-  {
     nombre: 'golpe en lo alto de la muralla y el contraataque del tirador',
     izquierda: () => bando([{ creature: PESADA, count: 5 }]),
     derecha: () => bando([{ creature: TIRADOR, count: 20 }]),
@@ -336,14 +308,6 @@ const ESCENARIOS: readonly Escenario[] = [
     contra: LO_ALTO,
     accion: golpe(),
     muralla: LINEA_RECTA,
-  },
-  {
-    nombre: 'arquero de la arena: dispara con el arco',
-    izquierda: () => deLaArena('arquero', ARQUERO_DE_LA_ARENA),
-    derecha: () => bando([{ creature: TROPA, count: 30 }]),
-    en: { col: 1, row: 4 },
-    contra: { col: 4, row: 4 },
-    accion: disparo,
   },
   {
     nombre: 'arquero de la arena pegado: golpe con la daga y contraataque con la daga',
@@ -363,14 +327,6 @@ const ESCENARIOS: readonly Escenario[] = [
   },
   // La armadura de la arena (#262): se resta lo último de cada golpe, y la
   // previsión con la misma resta (`trasLaArmadura`).
-  {
-    nombre: 'armadura: el arco contra la brigantina y el escudo del templario',
-    izquierda: () => deLaArena('arquero', ARQUERO_DE_LA_ARENA),
-    derecha: () => deLaArena('templario', KIT_DEL_PERFIL['espada-escudo'].equipo),
-    en: { col: 1, row: 4 },
-    contra: { col: 4, row: 4 },
-    accion: disparo,
-  },
   {
     nombre: 'armadura: la daga contra la barda del jinete, que para casi todo el mínimo',
     izquierda: () => deLaArena('arquero', ARQUERO_DE_LA_ARENA),
@@ -477,7 +433,7 @@ function golpesDe(
   const suerte = new Map<string, boolean>();
   for (const e of log) {
     if (e.kind === 'luck') suerte.set(e.stack, e.good);
-    if (e.kind === 'attack' || (e.kind === 'shoot' && e.splash !== true)) {
+    if (e.kind === 'attack') {
       out.push({
         retaliation: e.kind === 'attack' && e.retaliation,
         damage: e.damage,
@@ -601,7 +557,7 @@ describe('la previsión de daño cae en el daño real', () => {
     ]);
   });
 
-  it('dice qué cambia el daño: carga, distancia y defensa', () => {
+  it('dice qué cambia el daño: carga y defensa', () => {
     const causas = (nombre: string): string[] => {
       const e = ESCENARIOS.find((x) => x.nombre === nombre)!;
       const { b, accion } = montar(e, createRng(1));
@@ -609,21 +565,15 @@ describe('la previsión de daño cae en el daño real', () => {
       return p.modificadores.map((m) => m.causa);
     };
     expect(causas('carga de la caballería')).toContain('carga de 5 casillas');
-    expect(causas('disparo lejos, doble y con suerte')).toContain('disparo a 8 casillas, más de 5');
     // Quien defiende suma el 20 % a su defensa (`DEFEND_BONUS`).
     const defiende = losDosDe('contra quien defiende');
     expect(causas('contra quien defiende, con mala suerte en el contraataque')).toContain(
       `ataque ${golpeDe(defiende.yo, 'arma').attack} contra defensa ${conComa(defiende.el.defense * 1.2)} (defiende)`,
     );
-    // La muralla: en lo alto suma su defensa.
-    const arquero = unidadDelJuego(TIRADOR);
-    expect(causas('disparo al tirador en lo alto de la muralla')).toContain(
-      `ataque ${golpeDe(arquero, 'distancia').attack} contra defensa ${arquero.defense + MURALLA.defensaEnLoAlto}, en lo alto de la muralla`,
-    );
   });
 
-  it('los rasgos hechos a mano se juegan: el doble golpe y el doble disparo dan dos', () => {
-    for (const nombre of ['doble golpe', 'disparo lejos, doble y con suerte']) {
+  it('los rasgos hechos a mano se juegan: el doble golpe da dos', () => {
+    for (const nombre of ['doble golpe']) {
       const e = ESCENARIOS.find((x) => x.nombre === nombre)!;
       const { b, accion } = montar(e, createRng(1));
       expect((previsionDe(b, accion) as PrevisionDeGolpe).golpes, nombre).toBe(2);
@@ -636,9 +586,6 @@ describe('la previsión de daño cae en el daño real', () => {
       const { b, accion } = montar(e, createRng(1));
       return previsionDe(b, accion) as PrevisionDeGolpe;
     };
-    expect(previsto('arquero de la arena: dispara').modificadores[0]?.causa).toBe(
-      'con Arco (a distancia)',
-    );
     const pegado = previsto('arquero de la arena pegado');
     expect(pegado.modificadores[0]?.causa).toBe('con Daga (cuerpo a cuerpo)');
     expect(pegado.contraataque?.modificadores[0]?.causa).toBe('con Daga (cuerpo a cuerpo)');
@@ -666,11 +613,6 @@ describe('la previsión de daño cae en el daño real', () => {
       const { b, accion } = montar(e, createRng(1));
       return previsionDe(b, accion)!;
     };
-    // El arco (5 contra 7: ×0,95) da 30–120 → 29–114, menos los 7 de la brigantina.
-    const arco = prevista('armadura: el arco') as PrevisionDeGolpe;
-    expect(arco.danio).toEqual({ min: 22, max: 107 });
-    expect(arco.modificadores.at(-1)).toEqual({ causa: '−7 armadura', factor: null });
-    expect(textoDePrevision(arco, (id) => id)).toContain('; −7 armadura.');
     // La daga (4 contra 4: ×1) da 24–96: la barda (22) se queda casi todo el mínimo,
     // y el contraataque del jinete (espada) contra el jubón (2) también llega.
     const daga = prevista('armadura: la daga') as PrevisionDeGolpe;
@@ -685,21 +627,9 @@ describe('la previsión de daño cae en el daño real', () => {
     expect(flecha.danio).toBe((sinArmadura.danio ?? 0) - 7);
   });
 
-  it('la muralla tapa el disparo en el suelo, y la previsión lo dice con el motivo del núcleo', () => {
-    const e = ESCENARIOS.find((x) => x.nombre.startsWith('disparo al tirador en lo alto'))!;
-    const { b } = montar(e, createRng(1));
-    stackById(b, 'defender-0').hex = { col: 9, row: 4 };
-    expect(() => previsionDe(b, { type: 'shoot', target: 'defender-0' })).toThrow(
-      'attacker-0 no puede disparar a defender-0: el muro está en medio',
-    );
-  });
-
   it('una acción que no se puede jugar no se prevé: se dice por qué', () => {
     const e = ESCENARIOS[0]!;
     const { b } = montar(e, createRng(1));
-    expect(() => previsionDe(b, { type: 'shoot', target: 'defender-0' })).toThrow(
-      'attacker-0 no es tirador',
-    );
     expect(() => previsionDe(b, { type: 'cast', spell: 'bless', target: 'attacker-0' })).toThrow(
       'no se puede lanzar: este bando no tiene héroe',
     );

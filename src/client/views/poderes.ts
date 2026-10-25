@@ -9,6 +9,7 @@
 import type { Prevision } from '@core/battle/battle.js';
 import { type PoderId, poder, queHaceElPoder } from '@core/battle/poderes.js';
 import type { BattleAction, BattleStack, BattleState } from '@core/battle/types.js';
+import { isShooter } from '@core/data.js';
 import { type Html, html, NADA, unir } from '../html.js';
 import type { Apuntado } from '../session.js';
 import { nombreEnElCampo } from './distintivo.js';
@@ -98,5 +99,31 @@ function previsionDelUnico(s: ControlDePoderes, accion: BattleAction | undefined
   return textoDePrevision(p, (id) => {
     const x = b.stacks.find((st) => st.id === id);
     return x === undefined ? id : nombreEnElCampo(b, x);
+  });
+}
+
+/** Lo que pide el botón «Apuntar» a la sesión: el disparo de la activa (`DisparoDeLaActiva`). */
+export interface ControlDeDisparo {
+  readonly disparo: { readonly esperando: boolean; motivo(): string | null };
+}
+
+/**
+ * El botón «Apuntar» del tirador activo —tuyo— (el disparo diferido, 25-10-2026):
+ * deja el siguiente clic eligiendo la casilla, la que sea, y marcado mientras
+ * espera; apagado con el motivo del núcleo si no puede (se ha movido, tiene a
+ * alguien encima). Quien no dispara no lo lleva. Un clic en un enemigo apunta a su
+ * casilla sin pasar por aquí.
+ */
+export function botonDeApuntar(s: ControlDeDisparo, activa: BattleStack): Html {
+  if (!isShooter(activa.unit)) return NADA;
+  return botonDeElegir({
+    accion: 'battle-apuntar',
+    dato: html`data-tirador="${activa.id}"`,
+    clase: 'apuntar',
+    rotulo: 'Apuntar',
+    motivo: s.disparo.motivo(),
+    esperando: s.disparo.esperando,
+    ayuda:
+      'Apunta a una casilla y cierra el turno: el disparo sale al empezar su siguiente turno, en línea recta, y da al primero que encuentre, también a uno tuyo. Cuanto más cerca de la casilla, más daño.',
   });
 }

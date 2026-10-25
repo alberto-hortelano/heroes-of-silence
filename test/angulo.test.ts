@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  accionContra,
-  golpeEnPixel,
-  masCercana,
-  opcionesDeGolpe,
-} from '../src/client/escenas/angulo.js';
+import { accionContra, masCercana, opcionesDeGolpe } from '../src/client/escenas/angulo.js';
 import { EscenaBatalla, rotuloDeAngulo } from '../src/client/escenas/batalla.js';
 import { marcadoDe } from '../src/client/html.js';
 import { cajaDeFigura } from '../src/client/render/batalla.js';
@@ -57,18 +52,6 @@ describe('el ángulo del golpe', () => {
     expect(masCercana(opciones, tablero, c.x + tablero.paso * 0.3, c.y)?.accion).toBe(este);
   });
 
-  it('si se puede disparar, se dispara: el ángulo no cuenta, ni para el clic ni para el resaltado', () => {
-    const disparo = { type: 'shoot', target: 'e' } as const;
-    const c = centroHex(tablero, enemigo);
-    expect(
-      accionContra([oeste, este, disparo], 'e', { col: 0, row: 0 }, tablero, c.x + 30, c.y),
-    ).toBe(disparo);
-    // La regla está escrita una vez: lo que lee el resaltado tampoco trae casillas.
-    expect(
-      golpeEnPixel([oeste, este, disparo], 'e', { col: 0, row: 0 }, tablero, c.x + 30, c.y),
-    ).toEqual({ disparo });
-  });
-
   it('la barra dice la casilla y, si carga, cuánto, con el tanto por ciento que trae la carga', () => {
     expect(rotuloDeAngulo({ col: 4, row: 4 }, undefined)).toBe('Golpearías desde (4,4).');
     expect(
@@ -81,7 +64,9 @@ describe('el ángulo del golpe', () => {
 
   it('sin golpes contra ese enemigo no hay nada que elegir', () => {
     const otro = { type: 'attack', target: 'x' } as const;
-    expect(accionContra([otro], 'e', { col: 0, row: 0 }, tablero, 0, 0)).toBeUndefined();
+    expect(
+      accionContra([otro], 'e', { col: 9, row: 9 }, { col: 0, row: 0 }, tablero, 0, 0),
+    ).toBeUndefined();
     expect(masCercana([], tablero, 0, 0)).toBeUndefined();
   });
 });
@@ -125,7 +110,7 @@ function sesionConEnemigoALaVista(
 }
 
 function isShooterActivo(s: Session): boolean {
-  return s.battleLegalActions().some((a) => a.type === 'shoot');
+  return s.battleLegalActions().some((a) => a.type === 'aim');
 }
 
 /** Si la activa dispara, sin leer la lista legal (que la sesión guarda por jugada). */

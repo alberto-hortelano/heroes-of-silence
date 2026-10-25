@@ -13,9 +13,7 @@ import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
 import { renderBattleLog } from '../src/client/views/panels.js';
 import { textoDePrevision } from '../src/client/views/prevision.js';
-import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import {
-  batallaDeArena,
   equiparEnArena,
   type MontajeDelEnlace,
   montajeALaURL,
@@ -43,15 +41,7 @@ import { createRng, type Rng } from '../src/core/rng.js';
 import type { Equipo, Hex, UnitInfo } from '../src/core/types.js';
 import { CUERPO_COMUN } from '../src/core/unidad.js';
 import { bando, bandoDe, mando } from './batalla-de-prueba.js';
-import {
-  catalogoCon,
-  conManosDePrueba,
-  dadoCargado,
-  delBorrador,
-  MONTAJE,
-  NORMAL,
-  unidadDeArena,
-} from './helpers.js';
+import { catalogoCon, conManosDePrueba, NORMAL, unidadDeArena } from './helpers.js';
 
 /** El cuerpo común de la arena (fuerza 20, agilidad 4) con lo que se cambie. */
 function cuerpo(name: string, over: Partial<UnitInfo> = {}): UnitInfo {
@@ -225,33 +215,6 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
     expect(stackById(b, 'defender-0').topHp).toBe(160 - 50);
   });
 
-  it('el disparo doble resta en cada tiro: con el arco, 30 × 1,1 = 33 → 26 y 26', () => {
-    // Cuerpo + arco: ataque 5, 30–120 al disparar; contra defensa 4, ×1,1. Al mínimo.
-    const tirador = vestido(cuerpo('Tirador', { traits: ['double_shot'] }), { distancia: 'arco' });
-    const b = frente(tirador, [TEMPLARIO], { col: 1, row: 4 }, [{ col: 4, row: 4 }]);
-    const desde = jugar(b, { type: 'shoot', target: 'defender-0' }, dadoCargado('minimo'));
-    expect(hechos(b, 'shoot', desde).map((s) => [s.damage, s.parado])).toEqual([
-      [26, 7],
-      [26, 7],
-    ]);
-    expect(stackById(b, 'defender-0').topHp).toBe(160 - 52);
-  });
-
-  it('la salpicadura reparte el disparo y cada salpicado resta su propia armadura', () => {
-    // El disparo al templario, al mínimo: 33 → 26. El jinete pegado a él recibe los
-    // 33 del disparo (la salpicadura no vuelve a tirar) menos su barda: 11.
-    const liche = vestido(cuerpo('Liche', { traits: ['splash_shot'] }), { distancia: 'arco' });
-    const b = frente(liche, [TEMPLARIO, JINETE], { col: 1, row: 4 }, [
-      { col: 4, row: 4 },
-      { col: 5, row: 4 },
-    ]);
-    const desde = jugar(b, { type: 'shoot', target: 'defender-0' }, dadoCargado('minimo'));
-    expect(hechos(b, 'shoot', desde).map((s) => [s.target, s.damage, s.parado, s.splash])).toEqual([
-      ['defender-0', 26, 7, undefined],
-      ['defender-1', 11, 22, true],
-    ]);
-  });
-
   it('un hechizo de daño resta la armadura del objetivo: la Flecha mágica, menos 7', () => {
     const muneco = vestido(cuerpo('Muñeco', { hp: 5000 }), { armadura: 'brigantina' });
     const heroe = mando({ spells: ['magic_arrow'] });
@@ -306,43 +269,6 @@ describe('la IA cuenta con la armadura (`expectedDamage`)', () => {
     expect(daño(GOLPEADOR, TEMPLARIO)).toBe(43);
     // 20 × 1, y la barda para 22: 0, no −2.
     expect(daño(cuerpo('Flojo', { damage: [20, 20] }), JINETE)).toBe(0);
-  });
-
-  it('el goblin de la IA dispara al monje, no a la barda que le para la flecha (QA, Q1)', () => {
-    // El hermano de carga con barda (80 PV, 22 de armadura) parecía el blanco más
-    // rentable por amenaza / PV, y el goblin le tiraba en 40 de 40 semillas para 0.
-    const elegidos = new Set<string>();
-    const sinArmadura = new Set<string>();
-    for (let semilla = 1; semilla <= 10; semilla++) {
-      for (const [jinete, anota] of [
-        [unidadDeArena('templario-hermano-de-carga'), elegidos],
-        // El mismo jinete sin la barda: el factor no está y sigue mandando la vida.
-        [
-          unidadDeArena('templario-hermano-de-carga', {
-            equipo: { arma: 'espada', segunda: 'lanza' },
-          }),
-          sinArmadura,
-        ],
-      ] as const) {
-        const b = batallaDeArena(
-          {
-            izquierda: { unidades: [delBorrador(unidadDeArena('goblin-arquero'))], heroe: null },
-            derecha: {
-              unidades: [delBorrador(jinete), delBorrador(unidadDeArena('templario-monje'))],
-              heroe: null,
-            },
-            ...MONTAJE,
-          },
-          createRng(semilla),
-        );
-        b.turno = { n: 1000, stack: 'attacker-0', gastado: 0 };
-        const accion = chooseBattleAction(b);
-        expect(accion.type).toBe('shoot');
-        if (accion.type === 'shoot') anota.add(stackById(b, accion.target).body ?? '');
-      }
-    }
-    expect([...elegidos]).toEqual(['templario-monje']);
-    expect([...sinArmadura]).toEqual(['templario-hermano-de-carga']);
   });
 });
 

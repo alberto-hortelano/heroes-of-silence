@@ -1009,6 +1009,10 @@ document.addEventListener('click', (ev) => {
       session.poderes.usar(id);
       break;
     }
+    case 'battle-apuntar':
+      // El tirador activo deja el siguiente clic eligiendo casilla (`DisparoDeLaActiva`).
+      session.disparo.alternar();
+      break;
     case 'auto-battle':
       session.autoResolveBattle();
       break;

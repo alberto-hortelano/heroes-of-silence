@@ -16,7 +16,6 @@ import {
   hexKey,
   indiceDe,
   isInside,
-  lineaLibre,
   neighbours,
   reachable,
   rectaLibre,
@@ -25,7 +24,6 @@ import {
 } from '../src/core/battle/board.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex } from '../src/core/types.js';
-import { segunPrisa } from './lento.js';
 
 describe('rejilla de batalla: filas de 12 y 11, simétrica (11-10-2026)', () => {
   it('9 filas, las pares de 12 y las impares de 11: 104 hexes', () => {
@@ -422,167 +420,6 @@ describe('espejo: el tablero es su propio espejo izquierda-derecha', () => {
       for (const b of allHexes()) {
         expect(rectaLibre(espejo(a), espejo(b), libre)).toBe(rectaLibre(a, b, libre));
       }
-    }
-  });
-});
-
-/** Empates de borde del tablero con una casilla fuera (ver el test de la generosidad). */
-const EMPATES_EN_EL_BORDE = 80;
-
-describe('lineaLibre: el tiro, simétrico y generoso (11-10-2026)', () => {
-  const todas = allHexes();
-
-  it('un tiro y su espejo pasan o se tapan igual, con una casilla tapando en medio', () => {
-    // Exhaustivo en la orden lenta (104³ tríos); en el bucle rápido, una
-    // muestra sembrada que muerde: con el empujón de antes solo, 2 296 de los
-    // 1 124 864 tríos (1 de cada ~490) salían distintos en el espejo, y 4 000
-    // sacan unos 8 (comprobado rompiéndolo, 12-10-2026).
-    const rng = createRng(2026_10_11);
-    const trios = segunPrisa(
-      () => Array.from({ length: 4000 }, () => [rng.pick(todas), rng.pick(todas), rng.pick(todas)]),
-      () => todas.flatMap((a) => todas.flatMap((b) => todas.map((c) => [a, b, c]))),
-    )();
-    for (const [a, b, c] of trios as [Hex, Hex, Hex][]) {
-      expect(
-        lineaLibre(espejo(a), espejo(b), new Set([hexKey(espejo(c))])),
-        `(${a.col},${a.row}) → (${b.col},${b.row}) tapando (${c.col},${c.row})`,
-      ).toBe(lineaLibre(a, b, new Set([hexKey(c)])));
-    }
-  });
-
-  it('generosa en los tres empates: el rayo que va justo por el borde de dos casillas no lo tapa una sola', () => {
-    // Decisión del usuario (11-10-2026): el tiro pasa si pasa con el empujón o
-    // con su espejo. Eso solo es generoso si en cada empate de borde los dos
-    // rayos van por casillas distintas. Los empates son de tres familias, por
-    // el par de ejes cúbicos en que difieren las dos casillas: `q−s` (el borde
-    // vertical, vecinas de la misma fila), `q−r` y `r−s` (los bordes en
-    // diagonal). En el tablero hay 1 188, 2 132 y 2 132 empates de cada una;
-    // con el `+1, +2, −3` de antes solo la primera salía a lados opuestos, y
-    // 4 264 tiros quedaban tapados por una sola casilla, los de las dos
-    // diagonales (visto morder, 12-10-2026).
-    //
-    // Se buscan los empates sin `board.ts`: el punto `i` de `n` del segmento,
-    // en cúbicas multiplicadas por `n`, y las casillas a la menor distancia
-    // euclídea de él (en el plano `q + r + s = 0` es la suma de los cuadrados).
-    const cubo = (h: Hex) => {
-      const q = h.col - (h.row - (h.row & 1)) / 2;
-      return [q, h.row, -q - h.row] as const;
-    };
-    const deCubo = ([q, r]: readonly number[]) => ({
-      col: (q as number) + ((r as number) - ((r as number) & 1)) / 2,
-      row: r as number,
-    });
-    const porFamilia = { 'q−s': 0, 'q−r': 0, 'r−s': 0 };
-    const tapadas: string[] = [];
-    let enElBorde = 0;
-    for (const a of todas) {
-      for (const b of todas) {
-        const n = hexDistance(a, b);
-        const [ca, cb] = [cubo(a), cubo(b)];
-        for (let i = 1; i < n; i++) {
-          const p = [0, 1, 2].map(
-            (k) => (ca[k] as number) * n + ((cb[k] as number) - (ca[k] as number)) * i,
-          );
-          // Las casillas de alrededor: `q` y `r` a una de su parte entera, y `s` lo que falte.
-          const cerca = (x: number) => [-1, 0, 1, 2].map((d) => Math.floor(x / n) + d);
-          const candidatas = cerca(p[0]!).flatMap((q) => cerca(p[1]!).map((r) => [q, r, -q - r]));
-          const dist = (c: number[]) => c.reduce((t, x, k) => t + (p[k]! - x * n) ** 2, 0);
-          const menor = Math.min(...candidatas.map(dist));
-          const empatadas = [
-            ...new Map(
-              candidatas.filter((c) => dist(c) === menor).map((c) => [c.join(), c]),
-            ).values(),
-          ];
-          if (empatadas.length !== 2) continue; // un vértice (tres) o ningún empate
-          const [x, y] = empatadas as [number[], number[]];
-          const familia = x[1] === y[1] ? 'q−s' : x[2] === y[2] ? 'q−r' : 'r−s';
-          porFamilia[familia]++;
-          for (const c of [x, y]) {
-            const h = deCubo(c);
-            if (!isInside(h)) continue; // la de fuera no se puede tapar
-            // Un empate de borde con la otra casilla fuera del tablero no es
-            // generoso, a propósito: fuera cuenta como tapado (QA I1), así que
-            // decide la de dentro. Se cuentan aparte.
-            if (empatadas.some((e) => !isInside(deCubo(e)))) {
-              enElBorde++;
-              if (familia !== 'q−s')
-                tapadas.push(`empate de borde fuera de la familia vertical: ${familia}`);
-              continue;
-            }
-            if (!lineaLibre(a, b, new Set([hexKey(h)]))) {
-              tapadas.push(
-                `${familia}: (${a.col},${a.row}) → (${b.col},${b.row}) tapado solo por (${h.col},${h.row})`,
-              );
-            }
-          }
-        }
-      }
-    }
-    expect(tapadas.slice(0, 10), `${tapadas.length} tiros tapados por una sola casilla`).toEqual(
-      [],
-    );
-    // Los empates con una casilla fuera son pocos y solo de la familia
-    // vertical (el borde de la (11, impar) y de la columna −1).
-    expect(enElBorde).toBe(EMPATES_EN_EL_BORDE);
-    // Y que mire algo: las tres familias salen en el tablero.
-    for (const [familia, n] of Object.entries(porFamilia)) expect(n, familia).toBeGreaterThan(0);
-  });
-
-  it('con cortes (puertas cerradas) también es simétrica', () => {
-    // Una puerta en cada fila, entre las columnas 5 y 6 (y su espejo, que en
-    // las pares es la misma y en las impares la de 4 y 5).
-    const cortesDe = (pares: [{ col: number; row: number }, { col: number; row: number }][]) => {
-      const out = new Set<number>();
-      for (const [x, y] of pares) {
-        out.add(indiceDe(x) * BOARD_SIZE + indiceDe(y));
-        out.add(indiceDe(y) * BOARD_SIZE + indiceDe(x));
-      }
-      return out;
-    };
-    const puertas = Array.from({ length: BOARD_HEIGHT }, (_, row) => [
-      { col: 5, row },
-      { col: 6, row },
-    ]) as [{ col: number; row: number }, { col: number; row: number }][];
-    const cortes = cortesDe(puertas);
-    const reflejados = cortesDe(puertas.map(([x, y]) => [espejo(y), espejo(x)]));
-    for (const a of todas) {
-      for (const b of todas) {
-        expect(lineaLibre(espejo(a), espejo(b), new Set(), reflejados)).toBe(
-          lineaLibre(a, b, new Set(), cortes),
-        );
-      }
-    }
-  });
-
-  it('fuera del tablero cuenta como tapado: nadie tira a través de un muro rozando el borde', () => {
-    // Decisión del usuario (12-10-2026, QA I1): de (0,0) a (0,2) el segmento va
-    // justo por el borde entre (0,1) y la (-1,1), que no existe; de (11,0) a
-    // (11,2), entre (10,1) y el hueco (11,1). Cuando la casilla de fuera «se
-    // saltaba», el rayo que iba por ella pasaba siempre, y con la de dentro
-    // tapada el tiro atravesaba el muro por el marco. Ahora decide la de dentro.
-    expect(lineaLibre({ col: 0, row: 0 }, { col: 0, row: 2 }, new Set(['0,1']))).toBe(false);
-    expect(lineaLibre({ col: 11, row: 0 }, { col: 11, row: 2 }, new Set(['10,1']))).toBe(false);
-    // Sin nada en medio, pasa (también con cortes vacíos): la casilla de fuera
-    // tapa ese rayo, no el tiro.
-    expect(lineaLibre({ col: 0, row: 0 }, { col: 0, row: 2 }, new Set())).toBe(true);
-    expect(lineaLibre({ col: 0, row: 0 }, { col: 0, row: 2 }, new Set(), new Set())).toBe(true);
-    expect(lineaLibre({ col: 11, row: 0 }, { col: 11, row: 8 }, new Set())).toBe(true);
-    // Tapada de verdad, por las dos: en medio de una fila.
-    expect(lineaLibre({ col: 2, row: 4 }, { col: 6, row: 4 }, new Set(['4,4']))).toBe(false);
-  });
-
-  it('una fila entera de muro no la cruza ningún tiro, tampoco por el borde (QA I1)', () => {
-    // Con la casilla de fuera saltada, 8 tiros cruzaban la fila 1 y 12 la 3
-    // (`0,0→0,2…` por la izquierda y `11,0→11,2…` por la derecha).
-    for (let row = 1; row < BOARD_HEIGHT - 1; row++) {
-      const muro = new Set(todas.filter((h) => h.row === row).map(hexKey));
-      const pasan: string[] = [];
-      for (const a of todas.filter((h) => h.row < row)) {
-        for (const b of todas.filter((h) => h.row > row)) {
-          if (lineaLibre(a, b, muro)) pasan.push(`(${a.col},${a.row}) → (${b.col},${b.row})`);
-        }
-      }
-      expect(pasan.slice(0, 8), `fila ${row}: ${pasan.length} tiros la cruzan`).toEqual([]);
     }
   });
 });

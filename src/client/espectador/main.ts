@@ -357,6 +357,8 @@ function pintarTodo(ahora: number): void {
         efectos: mirada.reproductor.animador.efectos(enCurso),
         sinDueño: bandosSinDueño(mirada.reproductor.dueños),
         clima: { sitio: climaDelTablero(vista), ahora },
+        // Lo apuntado de cada tirador lo pinta el tablero; tantear, nadie.
+        tanteo: null,
       });
       apuntarLoQueSePinta(true);
     } else {

@@ -154,8 +154,6 @@ function golpe(b: BattleState, desde?: Hex): BattleAction {
   return a;
 }
 
-const DISPARO: BattleAction = { type: 'shoot', target: 'defender-0' };
-
 /**
  * El golpe cuerpo a cuerpo pasa por la rueda (siempre, desde el 19-10-2026), y
  * cae en una punta del cruce: Finta contra Finta en el mínimo y contra Romper
@@ -186,17 +184,13 @@ function jugar(
     dadoCargado(punta),
   );
   const nuevo: BattleEvent[] = estado.log.slice(desde);
-  const mio = nuevo.find(
-    (e) => (e.kind === 'attack' && !e.retaliation) || (e.kind === 'shoot' && e.splash !== true),
-  );
-  if (mio === undefined || (mio.kind !== 'attack' && mio.kind !== 'shoot')) {
-    throw new Error('no hubo golpe');
-  }
+  const mio = nuevo.find((e) => e.kind === 'attack' && !e.retaliation);
+  if (mio === undefined || mio.kind !== 'attack') throw new Error('no hubo golpe');
   const devuelto = nuevo.find((e) => e.kind === 'attack' && e.retaliation);
   return {
     golpe: mio.damage,
     devuelto: devuelto?.kind === 'attack' ? devuelto.damage : null,
-    carga: mio.kind === 'attack' ? (mio.charge ?? 0) : 0,
+    carga: mio.charge ?? 0,
   };
 }
 
@@ -216,14 +210,6 @@ function puntas(
 }
 
 describe('cada arma para lo suyo: cada golpe con las cifras de su arma (13-10-2026)', () => {
-  it('el arquero dispara con el arco: ataque 5 contra 4 (×1,1), 30–120 → 33–132', () => {
-    const b = () => frente(ARQUERO, { col: 1, row: 4 }, { col: 4, row: 4 });
-    const { visto, previsto } = puntas(b, () => DISPARO);
-    expect(visto).toEqual([33, 132]);
-    expect([previsto.danio.min, previsto.danio.max]).toEqual([33, 132]);
-    expect(previsto.modificadores[0]?.causa).toBe('con Arco (a distancia)');
-  });
-
   it('pega y devuelve el golpe con la daga: ataque 4 contra 4 (×1), 24–96', () => {
     const b = () => frente(ARQUERO, { col: 5, row: 4 }, { col: 6, row: 4 });
     const { visto, previsto } = puntas(b, (e) => golpe(e));
@@ -316,19 +302,17 @@ describe('cada arma para lo suyo: cada golpe con las cifras de su arma (13-10-20
     expect(horquilla(0)).toEqual({ min: 38, max: 96 });
   });
 
-  it('la IA mide cada golpe con su arma: el disparo medio 82,5 y el golpe medio 60', () => {
+  it('la IA mide el golpe con su arma: el del arquero, con la daga, medio 60', () => {
     const b = frente(ARQUERO, { col: 1, row: 4 }, { col: 4, row: 4 });
     const a = stackById(b, 'attacker-0');
     const d = stackById(b, 'defender-0');
-    expect(expectedDamage(a, d, { ranged: true, distance: 3 })).toBeCloseTo(82.5);
     expect(expectedDamage(a, d, {})).toBe(60);
   });
 
   it('`usoDelGolpe`: el disparo es a distancia y lo demás, también la carga, de cuerpo a cuerpo', () => {
     // 25-10-2026: la lanza dejó su hueco; la carga va con las armas de cuerpo a cuerpo.
-    expect(usoDelGolpe(JINETE, { ranged: true })).toBe('distancia');
-    expect(usoDelGolpe(JINETE, {})).toBe('arma');
-    expect(usoDelGolpe(ARQUERO, {})).toBe('arma');
+    expect(usoDelGolpe({ ranged: true })).toBe('distancia');
+    expect(usoDelGolpe({})).toBe('arma');
   });
 
   it('`armasDe`: una fila por golpe, con el arma y sus cifras', () => {

@@ -28,7 +28,7 @@ import { createRng, type Rng } from '../src/core/rng.js';
 import type { UnitInfo } from '../src/core/types.js';
 import { cuerpoDeCombate } from '../src/core/unidad.js';
 import { bando, mando } from './batalla-de-prueba.js';
-import { conCifrasAMano, PESADA, TIRADOR, TROPA } from './helpers.js';
+import { conCifrasAMano, PESADA, TROPA } from './helpers.js';
 
 function batalla(
   izquierda: BattleSide,
@@ -80,27 +80,6 @@ function contando(rng: Rng): { rng: Rng; ints: () => number } {
     ints: () => n,
   };
 }
-
-describe('el tirador', () => {
-  it('a más de 5 casillas pega la mitad', () => {
-    const { b } = batalla(
-      bando([{ creature: TIRADOR, count: 10 }]),
-      bando([{ creature: TROPA, count: 10 }]),
-    );
-    aManoEn(b, desnudo(TIRADOR), desnudo(TROPA));
-    const arquero = stackById(b, 'attacker-0');
-    const piquero = stackById(b, 'defender-0');
-    arquero.hex = { col: 1, row: 4 };
-    piquero.hex = { col: 9, row: 4 };
-    const a = (distance: number) =>
-      expectedDamage(
-        arquero,
-        piquero,
-        opcionesDeDanio(b, arquero, piquero, { ranged: true, distance }),
-      );
-    expect(a(8) / a(5)).toBeCloseTo(0.5);
-  });
-});
 
 describe('defender', () => {
   it('suma un 20 % de defensa', () => {

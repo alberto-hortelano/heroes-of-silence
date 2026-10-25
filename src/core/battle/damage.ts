@@ -58,7 +58,7 @@ const SIN_CARGA = Object.freeze({ charge: 0, cifras: null });
  * **La única decisión**: se deduce de las opciones que ya trae todo golpe
  * (`opcionesDeDanio`), así que el motor no la pasa por ningún sitio.
  */
-export function usoDelGolpe(_unit: UnitInfo, opts: Pick<DamageOptions, 'ranged'>): UsoDeArma {
+export function usoDelGolpe(opts: Pick<DamageOptions, 'ranged'>): UsoDeArma {
   return opts.ranged === true ? 'distancia' : 'arma';
 }
 
@@ -140,7 +140,7 @@ export function ataqueYDefensa(
   attacker: BattleStack,
   defender: BattleStack,
   opts: DamageOptions,
-  uso: UsoDeArma = usoDelGolpe(attacker.unit, opts),
+  uso: UsoDeArma = usoDelGolpe(opts),
 ): { readonly ataque: number; readonly defensa: number } {
   return {
     ataque: effectiveAttack(attacker, uso) + (opts.cruce === undefined ? 0 : opts.cruce.ataque),
@@ -180,7 +180,13 @@ export interface DamageResult {
 /** Lo que cambia el daño según de dónde y a quién se pega (`opcionesDeDanio`, `battle.ts`). */
 export interface DamageOptions {
   readonly ranged?: boolean;
-  readonly distance?: number;
+  /**
+   * El disparo diferido (25-10-2026, regla nuestra): en qué cuarto de la horquilla
+   * cae su tirada, `max(0, 4 − d)` con `d` la distancia del alcanzado a la casilla
+   * apuntada (`cuartoDelDisparo`): en ella, la máxima; a 4 o más, la mínima. Fija:
+   * no gasta `rng.int`.
+   */
+  readonly cuarto?: number;
   readonly chargeHexes?: number;
   /** Lo que suma a la defensa del que recibe estar en lo alto (`bonoEnLoAlto`). */
   readonly bonoEnLoAlto?: number;
@@ -209,6 +215,24 @@ export interface CruceDelGolpe {
   readonly causa: string;
   /** Cómo anota la previsión dónde cae la tirada («rueda: tirada en el medio»). */
   readonly causaDeLaTirada: string;
+}
+
+/**
+ * En qué cuarto de la horquilla cae el disparo diferido que alcanza a quien está
+ * a `d` casillas de la casilla apuntada: 4 en ella, uno menos por casilla, 0 a 4 o
+ * más (25-10-2026, decisión del usuario: «cuanto más cerca de la casilla elegida
+ * más daño»). La única cuenta: la leen el disparo, la IA y la previsión.
+ */
+export function cuartoDelDisparo(d: number): number {
+  return Math.max(0, 4 - d);
+}
+
+/** Cómo dice la previsión dónde cae la tirada del disparo diferido. */
+function dichoDelCuarto(cuarto: number): string {
+  if (cuarto === 4) return 'en la casilla apuntada: la tirada máxima';
+  if (cuarto === 0) return 'a 4 casillas o más de la casilla apuntada: la tirada mínima';
+  const d = 4 - cuarto;
+  return `a ${d} ${d === 1 ? 'casilla' : 'casillas'} de la casilla apuntada: la tirada en el cuarto ${cuarto} de 4`;
 }
 
 /** La tirada en el cuarto `c` (de 0 a 4) de la horquilla `[min, max]`, en enteros. */
@@ -269,12 +293,6 @@ function applyModifiers(
     anotar?.push({ causa: 'azote de no-muertos', factor: 2 });
   }
 
-  // Penalización de distancia del tirador: a más de media rejilla, mitad de daño.
-  if (opts.ranged === true && (opts.distance ?? 0) > 5) {
-    base *= 0.5;
-    anotar?.push({ causa: `disparo a ${opts.distance} casillas, más de 5`, factor: 0.5 });
-  }
-
   // Carga. El contraataque pasa siempre 0 hexes: se contraataca desde el sitio.
   // `1 + casillas × porcentaje / 100`, la misma cuenta y en el mismo orden que
   // con el 0.1 escrito (10 / 100 es ese mismo double): el jinete del juego cobra
@@ -309,7 +327,7 @@ interface DeUnGolpe {
 
 function deUnGolpe(attacker: BattleStack, opts: DamageOptions): DeUnGolpe {
   const { charge, cifras } = cargaCobrada(attacker.unit, opts);
-  return { charge, cifrasDeCarga: cifras, uso: usoDelGolpe(attacker.unit, opts) };
+  return { charge, cifrasDeCarga: cifras, uso: usoDelGolpe(opts) };
 }
 
 /**
@@ -320,7 +338,12 @@ function deUnGolpe(attacker: BattleStack, opts: DamageOptions): DeUnGolpe {
 function enElCruce(
   [min, max]: readonly [number, number],
   cruce: CruceDelGolpe | undefined,
+  cuarto?: number,
 ): Horquilla {
+  if (cuarto !== undefined) {
+    const t = tiradaEnCuartos(min, max, cuarto);
+    return { min: t, max: t };
+  }
   if (cruce === undefined) return { min, max };
   return {
     min: tiradaEnCuartos(min, max, cruce.desde),
@@ -334,9 +357,9 @@ function enElCruce(
  * igual al máximo, que es lo que mira la condición y no `min === max`—.
  */
 function tiradaDe(attacker: BattleStack, opts: DamageOptions, uso: UsoDeArma, rng: Rng): number {
-  const { cruce } = opts;
-  const t = enElCruce(cifrasDelGolpe(attacker.unit, uso).damage, cruce);
-  const fija = cruce !== undefined && cruce.desde === cruce.hasta;
+  const { cruce, cuarto } = opts;
+  const t = enElCruce(cifrasDelGolpe(attacker.unit, uso).damage, cruce, cuarto);
+  const fija = cuarto !== undefined || (cruce !== undefined && cruce.desde === cruce.hasta);
   return fija ? t.min : rng.int(t.min, t.max);
 }
 
@@ -374,7 +397,9 @@ function medioSinArmadura(
 ): number {
   const golpe = deUnGolpe(attacker, opts);
   const [min, max] = cifrasDelGolpe(attacker.unit, golpe.uso).damage;
-  const medio = ((min + max) / 2) * attacker.count;
+  const medio =
+    (opts.cuarto === undefined ? (min + max) / 2 : tiradaEnCuartos(min, max, opts.cuarto)) *
+    attacker.count;
   return applyModifiers(medio, attacker, defender, opts, golpe);
 }
 
@@ -460,11 +485,12 @@ export function horquillaDeDanio(
    */
   readonly conArma: string | null;
 } {
-  const { cruce } = opts;
+  const { cruce, cuarto } = opts;
   const golpe = deUnGolpe(attacker, opts);
   const { min: tMin, max: tMax } = enElCruce(
     cifrasDelGolpe(attacker.unit, golpe.uso).damage,
     cruce,
+    cuarto,
   );
   const modificadores: Modificador[] = [];
   // Con armas por uso, lo primero es con cuál pega: la horquilla es
@@ -475,6 +501,7 @@ export function horquillaDeDanio(
       : dichoDelGolpe(attacker.unit, golpe.uso, golpe.charge > 0);
   if (conArma !== null) modificadores.push({ causa: conArma, factor: null });
   if (cruce !== undefined) modificadores.push({ causa: cruce.causaDeLaTirada, factor: null });
+  if (cuarto !== undefined) modificadores.push({ causa: dichoDelCuarto(cuarto), factor: null });
   const bajo = applyModifiers(
     tMin * attacker.count,
     attacker,

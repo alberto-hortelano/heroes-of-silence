@@ -419,7 +419,8 @@ describe('el fotograma por acción', () => {
     // Cuántas acciones se aplicaron de verdad, derivado del registro. Las
     // reglas son del motor y no de este test:
     //  - cada acción que no golpea deja UN hecho primario: `move`, `wait`,
-    //    `defend`, `shoot` (sin las salpicaduras), `cast` o `surrender`;
+    //    `defend`, `aimed` (apuntar; el disparo sale solo, al empezar el turno
+    //    siguiente, y no es una acción), `cast` o `surrender`;
     //  - un golpe cuerpo a cuerpo deja UN `cruce` (la rueda, en toda batalla
     //    desde el 19-10-2026), y detrás sus golpes —Rápido o el doble golpe dan
     //    dos— y el contraataque, que son parte de él;
@@ -431,12 +432,11 @@ describe('el fotograma por acción', () => {
     const accionesDe = (trozo: readonly BattleEvent[]): number =>
       trozo.filter((e, i) => {
         if (e.kind === 'cruce') return true;
-        if (e.kind === 'shoot') return e.splash !== true;
         if (e.kind === 'move') {
           const siguiente = trozo[i + 1];
           return !(siguiente?.kind === 'cruce' && siguiente.stack === e.stack);
         }
-        return ['wait', 'defend', 'cast', 'surrender'].includes(e.kind);
+        return ['wait', 'defend', 'aimed', 'cast', 'surrender'].includes(e.kind);
       }).length;
     const acciones = accionesDe(batalla.log);
 

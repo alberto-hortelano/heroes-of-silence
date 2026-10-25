@@ -15,13 +15,13 @@ import {
   cerradasPara,
   distanciaACaminar,
   distanciaAndando,
-  distanciaDeDisparo,
   distanciaHasta,
   enemiesOf,
   escalaDesde,
   firmaDelTurno,
   isEngaged,
   legalActionsAndCosts,
+  lineaDelDisparo,
   MAX_JUGADAS,
   type Movibles,
   medirCargas,
@@ -881,39 +881,32 @@ function decideAccion(
   const conPoder = mejorPoder(state, s, acciones);
   if (conPoder !== null) return conPoder;
 
-  // Un tirador con línea libre dispara al mejor objetivo: a quien la lista deja
-  // disparar, que ya ha mirado munición, trabado, tramo y muro (`tiroBlocker`).
-  // Tras moverse no trae ningún `shoot`, y antes se llegaba aquí igual para no
-  // encontrar el disparo: el resultado es el mismo.
-  const aTiro = new Set(acciones.flatMap((a) => (a.type === 'shoot' ? [a.target] : [])));
-  if (aTiro.size > 0) {
-    // El liche salpica todo lo pegado al objetivo, aliados incluidos. Eso es
+  // Un tirador apunta al mejor objetivo con la recta limpia: el disparo diferido
+  // (25-10-2026) da al primero de la recta, aunque sea suyo, así que solo vale el
+  // enemigo que es ese primero (`aTiroLimpio`). Apunta a su casilla, que es donde
+  // más daño hace si no se mueve. Tras moverse la lista no trae ningún `aim`.
+  const aTiro = aTiroLimpio(state, s, acciones, enemigos);
+  if (aTiro.length > 0) {
+    // El liche salpica todo lo pegado al alcanzado, aliados incluidos. Eso es
     // legal —y `legalActions` lo sigue ofreciendo, porque filtrarlo sería
     // mentirle al agente—, pero suicida: aquí se elige con cabeza.
-    let candidatos = enemigos.filter((e) => aTiro.has(e.id));
+    let candidatos = aTiro;
     if (hasTrait(s.unit, 'splash_shot')) {
       // A quién alcanza la salpicadura lo dice el motor, no una copia de la
       // regla aquí: si mañana cambia el radio, la IA no se queda jugando con la
-      // forma vieja. El propio tirador cuenta como salpicado — hoy no puede
-      // estarlo, porque con un enemigo encima `isEngaged` no le deja disparar.
+      // forma vieja. El propio tirador no se salpica (`splash`).
       const aliadosSalpicados = (objetivo: BattleStack): number =>
-        splashTargets(state, objetivo).filter((o) => o.side === s.side).length;
+        splashTargets(state, objetivo).filter((o) => o.side === s.side && o.id !== s.id).length;
 
-      // Se puntúa una vez por enemigo y se elige el mínimo: sin esto la cuenta
-      // se rehacía dentro de un `reduce` y de dos `filter`. Sin `rng`: esto no
-      // se sortea. Y `enemigos` nunca viene vacío, que ya se ha comprobado.
+      // Se puntúa una vez por enemigo y se elige el mínimo. Sin `rng`: esto no
+      // se sortea.
       const coste = candidatos.map((e) => ({ enemigo: e, aliados: aliadosSalpicados(e) }));
       const minimo = Math.min(...coste.map((c) => c.aliados));
       candidatos = coste.filter((c) => c.aliados === minimo).map((c) => c.enemigo);
     }
 
-    const objetivo = bestTarget(state, s, candidatos, (e) =>
-      opcionesDeDanio(state, s, e, { ranged: true, distance: distanciaDeDisparo(s, e) }),
-    );
-    if (objetivo !== null) {
-      const disparo = acciones.find((a) => a.type === 'shoot' && a.target === objetivo.id);
-      if (disparo !== undefined) return disparo;
-    }
+    const objetivo = bestTarget(state, s, candidatos, () => ({ ranged: true, cuarto: 4 }));
+    if (objetivo !== null) return { type: 'aim', at: objetivo.hex };
   }
 
   // Golpear a quien ya se alcanza, priorizando el objetivo más valioso.
@@ -979,6 +972,22 @@ function decideAccion(
 }
 
 /**
+ * Los enemigos a los que `s` puede apuntar (la lista trae su `aim`) con la recta
+ * limpia: el primero que encontraría hoy el disparo es él (`lineaDelDisparo`, la
+ * regla del núcleo). Sin `aim` en la lista (no es tirador, se ha movido, tiene a
+ * alguien encima), ninguno.
+ */
+function aTiroLimpio(
+  state: BattleState,
+  s: BattleStack,
+  acciones: readonly BattleAction[],
+  enemigos: readonly BattleStack[],
+): BattleStack[] {
+  if (!acciones.some((a) => a.type === 'aim')) return [];
+  return enemigos.filter((e) => lineaDelDisparo(state, s, e.hex).alcanzado?.id === e.id);
+}
+
+/**
  * El `move` de `acciones` que deja más abajo en `medida`, si baja de `tope`: el
  * PRIMERO de los mejores, como siempre, y cada medida una sola vez (el `reduce`
  * de antes recalculaba la del mejor en cada comparación). `null` si ninguno
@@ -1033,7 +1042,7 @@ function tiradorAlMuro(
   // cierra nadie de fuera es «a mano», y el arquero lento se quedaba
   // defendiéndose en su esquina (la batalla del test de la línea recta, entera
   // a `defend` hasta el tope de rondas).
-  if (acciones.some((a) => a.type === 'shoot')) return null;
+  if (aTiroLimpio(state, s, acciones, enemiesOf(state, s)).length > 0) return null;
   const cerradas = cerradasPara(state, s);
   const libres = state.muralla.muros.filter((m) => !cerradas.has(hexKey(m)));
   if (libres.length === 0) return null;

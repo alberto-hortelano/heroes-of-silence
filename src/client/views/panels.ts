@@ -94,7 +94,7 @@ import { renderAbierto } from './base.js';
 import { nombreEnElCampo } from './distintivo.js';
 import { renderPanelDelLugar } from './lugar.js';
 import { renderPanelDeLaMorada } from './morada.js';
-import { botonesDePoder } from './poderes.js';
+import { botonDeApuntar, botonesDePoder } from './poderes.js';
 import { renderPanelDeLaTropa } from './tropa.js';
 
 /** Lo que dice la barra a quien pulsa mientras la jugada se cuenta. */
@@ -876,7 +876,7 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
           // Las batallas del mapa no tienen muralla (decisión 4 de la tarea del
           // combate en el juego).
           muralla: NADA,
-          poderes: botonesDePoder(session, s),
+          poderes: html`${botonDeApuntar(session, s)}${botonesDePoder(session, s)}`,
         }),
       )
     : html`<p>Turno del enemigo…</p>`;
@@ -964,7 +964,12 @@ export function accionesDeLaUnidad(o: {
         ? html`Pasa el ratón por un enemigo a su lado para golpearlo.`
         : html`Haz clic en un hexágono verde para moverte —puedes moverte en varios tramos—,
          o pasa el ratón por un enemigo y elige desde qué casilla golpearlo.
-         ${ayudaDeCarga(o.carga)}`;
+         ${ayudaDeCarga(o.carga)}${
+           o.legales.some((a) => a.type === 'aim')
+             ? html` Para disparar, pulsa un enemigo (o «Apuntar» y cualquier casilla): apuntar
+         termina el turno y el disparo sale al empezar el siguiente, al primero de la recta.`
+             : NADA
+}`;
   return html`<h3>Acciones</h3>
        ${quedan === null ? NADA : html`<div class="row"><span class="label">Le ${quedan[0]}</span><span>${quedan[1]}</span></div>`}${sinSalida}
        <div class="stack-list">
@@ -1337,8 +1342,14 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
           }`;
           return html`<div>${golpe(e.stack, e.target)}${modo}: ${danio(e.damage, e.killed, e.parado)}</div>`;
         }
+        // El disparo diferido (25-10-2026): a qué casilla y a quién dio, o a nadie.
+        case 'aimed':
+          return html`<div>${quienEs(e.stack)} apunta a (${e.at.col},${e.at.row}): dispara al empezar su siguiente turno</div>`;
         case 'shoot':
-          return html`<div>${golpe(e.stack, e.target)} (${e.splash === true ? 'salpicadura' : 'disparo'}): ${danio(e.damage, e.killed, e.parado)}</div>`;
+          if (e.target === null) {
+            return html`<div>${quienEs(e.stack)} dispara a (${e.at.col},${e.at.row}) y no da a nadie</div>`;
+          }
+          return html`<div>${golpe(e.stack, e.target)} (${e.splash === true ? 'salpicadura' : `disparo a (${e.at.col},${e.at.row})`}): ${danio(e.damage, e.killed, e.parado)}</div>`;
         case 'cast': {
           // El nombre, no el id: `spell()` ya lo tiene y quien lee el parte no
           // sabe qué es un "magic_arrow". Quien lanza es siempre el héroe de su

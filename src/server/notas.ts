@@ -890,8 +890,8 @@ export function describeAccion(accion: BattleAction | AccionDelAgente): string {
     case 'attack':
       // Con el golpe de la rueda si lo trae (el del agente, ya traducido): como lo escribió.
       return `ataque a ${accion.target}${'golpe' in accion && accion.golpe !== undefined ? ` con "${HIT_DE_GOLPE[accion.golpe]}"` : ''}`;
-    case 'shoot':
-      return `disparo a ${accion.target}`;
+    case 'aim':
+      return `apuntar a (${accion.at.col},${accion.at.row})`;
     case 'wait':
       return 'espera';
     case 'defend':

@@ -18,7 +18,7 @@ import {
   piezasEnOrden,
 } from '../src/client/render/batalla.js';
 import { altoConAlzado, planoDeHex, tableroPara } from '../src/client/render/proyeccion.js';
-import { autoResolve, chooseBattleAction } from '../src/core/ai/tactics.js';
+import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { FORMAS_DE_EJEMPLO, ladosDeLaForma } from '../src/core/arena-murallas.js';
 import {
   applyAction,
@@ -298,8 +298,6 @@ describe('de lo alto solo se baja hacia dentro (C11)', () => {
     if (accion.type !== 'move') throw new Error(`esperaba un move y es ${accion.type}`);
     const alMuro = distanciaAndando(state, d, LINEA.muros);
     expect(alMuro(accion.to)).toBeLessThan(alMuro(d.hex));
-    autoResolve(state, createRng(2));
-    expect(state.log.some((e) => e.kind === 'shoot' && e.stack === 'defender-0')).toBe(true);
   });
 });
 

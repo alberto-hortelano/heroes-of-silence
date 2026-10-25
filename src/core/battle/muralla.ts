@@ -46,7 +46,6 @@ import {
   hexKey,
   indiceDe,
   isInside,
-  lineaLibre,
   neighbours,
   type PasoPermitido,
 } from './board.js';
@@ -210,30 +209,6 @@ export function casillasDeMuro(m: MurallaDeBatalla): ReadonlySet<string> {
 }
 
 /**
- * ¿Ve `desde` a `hasta` sin un muro en medio ni cruzar una puerta cerrada
- * (`lineaLibre` con sus `cortes`)? La puerta abierta no tapa (decisión del
- * usuario). Cada par se calcula una vez por muralla y combinación de puertas
- * abiertas, y se guarda por índice: el tirador lo pregunta por cada enemigo en
- * cada decisión.
- */
-export function hayLinea(
-  m: MurallaDeBatalla,
-  puertas: readonly EstadoDePuerta[],
-  desde: Hex,
-  hasta: Hex,
-): boolean {
-  const c = conjuntosDe(m);
-  const v = vigenteDe(m, puertas);
-  const i = codigoDeLado(indiceDe(desde), indiceDe(hasta));
-  let l = v.lineas[i] as number;
-  if (l === 0) {
-    l = lineaLibre(desde, hasta, c.muros, v.cortes) ? 1 : 2;
-    v.lineas[i] = l;
-  }
-  return l === 1;
-}
-
-/**
  * Lo que la muralla le cierra a una unidad de `side`, que vuela o no, con las
  * puertas como están (`puertas`). LA regla de por dónde se va, en un sitio:
  *
@@ -379,8 +354,6 @@ interface Vigente {
   readonly cortes: ReadonlySet<number> | undefined;
   /** El paso que corta una puerta cerrada, o `undefined` si no hay ninguna. */
   readonly pasoPorPuertas: PasoPermitido | undefined;
-  /** `hayLinea` por par de índices: 0 sin mirar, 1 libre, 2 tapada. */
-  readonly lineas: Uint8Array;
   /** Los de `cierreDeLaMuralla`, por `bando|vuela`. */
   readonly cierres: Map<string, CierreDeLaMuralla>;
   /** Los de `pasoAlAndar`, por `bando|con lados`. */
@@ -413,7 +386,6 @@ function vigenteDe(m: MurallaDeBatalla, puertas: readonly EstadoDePuerta[]): Vig
     cortes,
     pasoPorPuertas:
       cortes === undefined ? undefined : (desde, hasta) => !cortes.has(codigoDeLado(desde, hasta)),
-    lineas: new Uint8Array(BOARD_SIZE * BOARD_SIZE),
     cierres: new Map(),
     pasos: new Map(),
   };

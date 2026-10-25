@@ -190,6 +190,7 @@ function stackOf(id: string, count: number, unit: UnitInfo = unidadDelJuego(id))
     luck: 0,
     effects: [],
     ganado: { experiencia: 0, bajas: 0, heroes: [] },
+    apuntado: null,
   };
 }
 
@@ -599,26 +600,6 @@ describe('combate cuerpo a cuerpo', () => {
   });
 });
 
-describe('tiradores', () => {
-  it('disparan sin munición que gastar (13-10-2026): llevar el arco ya es disparar', () => {
-    const rng = createRng(21);
-    const state = createBattle(
-      side([{ creature: TIRADOR, count: 1 }]),
-      side([{ creature: NO_MUERTO, count: 1 }]),
-      rng,
-      COMBATE_COMPLETO,
-    );
-    const arquero = stackById(state, 'attacker-0');
-    for (let i = 0; i < 3; i++) {
-      forzarTurno(state, arquero.id);
-      const disparo = legalActions(state).find((a) => a.type === 'shoot');
-      expect(disparo, `disparo ${i + 1}`).toBeDefined();
-      aplicar(state, disparo!, rng);
-    }
-    expect(state.log.filter((e) => e.kind === 'shoot' && e.stack === arquero.id)).toHaveLength(3);
-  });
-});
-
 describe('hechizos', () => {
   it('la flecha mágica gasta maná y daña al enemigo', () => {
     const rng = createRng(31);
@@ -669,9 +650,6 @@ describe('acciones ilegales', () => {
     expect(activeStack(state)!.id).toBe('attacker-0');
     expect(() => aplicar(state, { type: 'move', to: { col: 10, row: 8 } }, rng)).toThrow();
     expect(() => aplicar(state, { type: 'attack', target: 'defender-0' }, rng)).toThrow();
-    expect(() => aplicar(state, { type: 'shoot', target: 'defender-0' }, rng)).toThrow(
-      /no es tirador/,
-    );
   });
 });
 
@@ -940,7 +918,6 @@ describe('batalla completa', () => {
       expect(acciones.length).toBeGreaterThan(0);
       // Preferir agresión para que la batalla converja.
       const eleccion =
-        acciones.find((a) => a.type === 'shoot') ??
         acciones.find((a) => a.type === 'attack') ??
         acciones.find((a) => a.type === 'move') ??
         acciones[0]!;
@@ -1273,76 +1250,6 @@ describe('rasgos de criatura (#8)', () => {
     const esqueleto = stackById(contraMuertos, 'defender-0');
     expect(esqueleto.effects).toEqual([]);
     expect(contraMuertos.log.some((e) => e.kind === 'immune' && e.source === 'curse_on_hit')).toBe(
-      true,
-    );
-  });
-
-  /** El tirador que salpica (el liche de antes), a mano: el catálogo no lo trae. */
-  const salpica = con(TIRADOR_NO_MUERTO, 'splash_shot');
-
-  it('splash_shot: el disparo del que salpica salpica también a los suyos', () => {
-    const rng = createRng(64);
-    const state = conCifrasAMano(
-      createBattle(
-        side([
-          { creature: TIRADOR_NO_MUERTO, count: 5 },
-          { creature: NO_MUERTO, count: 30 },
-        ]),
-        side([{ creature: TROPA, count: 30 }]),
-        rng,
-        COMBATE_COMPLETO,
-      ),
-      'attacker-0',
-      salpica,
-    );
-    const liche = stackById(state, 'attacker-0');
-    const aliado = stackById(state, 'attacker-1');
-    const objetivo = stackById(state, 'defender-0');
-    liche.hex = { col: 0, row: 4 };
-    aliado.hex = { col: 5, row: 4 };
-    objetivo.hex = { col: 6, row: 4 };
-    // El piquero es más ágil que el esqueleto y abriría la ronda.
-    forzarTurno(state, 'attacker-0');
-
-    const aliadoAntes = aliado.count;
-    expect(state.turno?.stack).toBe('attacker-0');
-    aplicar(state, { type: 'shoot', target: 'defender-0' }, rng);
-
-    expect(aliado.count).toBeLessThan(aliadoAntes);
-    expect(
-      state.log.some((e) => e.kind === 'shoot' && e.splash === true && e.target === 'attacker-1'),
-    ).toBe(true);
-  });
-
-  it('splash_shot: la IA no se dispara a los suyos si tiene otro objetivo', () => {
-    const rng = createRng(65);
-    const state = conCifrasAMano(
-      createBattle(
-        side([
-          { creature: TIRADOR_NO_MUERTO, count: 5 },
-          { creature: NO_MUERTO, count: 30 },
-        ]),
-        side([
-          { creature: TROPA, count: 30 },
-          { creature: TIRADOR, count: 10 },
-        ]),
-        rng,
-        COMBATE_COMPLETO,
-      ),
-      'attacker-0',
-      salpica,
-    );
-    stackById(state, 'attacker-0').hex = { col: 0, row: 4 };
-    stackById(state, 'attacker-1').hex = { col: 5, row: 4 };
-    stackById(state, 'defender-0').hex = { col: 6, row: 4 }; // pegado al aliado
-    stackById(state, 'defender-1').hex = { col: 9, row: 1 }; // limpio
-    // El turno, a mano: el arquero de enfrente es más rápido.
-    forzarTurno(state, 'attacker-0');
-    const eleccion = chooseBattleAction(state);
-    // Disparar al piquero era legal —y `legalActions` lo sigue ofreciendo—,
-    // pero se llevaría por delante a su propio esqueleto.
-    expect(eleccion).toEqual({ type: 'shoot', target: 'defender-1' });
-    expect(legalActions(state).some((a) => a.type === 'shoot' && a.target === 'defender-0')).toBe(
       true,
     );
   });
@@ -2081,26 +1988,22 @@ describe('el turno en tramos (2026-10-02)', () => {
     ]);
   });
 
-  it('tras moverse no se dispara, ni se espera, ni se defiende: ni se ofrece ni se acepta', () => {
-    // Arquero: muy lento, 2 casillas; tras una le queda otra y el turno sigue.
-    const state = duelo(TIRADOR, { col: 0, row: 4 }, TROPA, {
+  it('tras moverse no se espera ni se defiende: ni se ofrece ni se acepta', () => {
+    // Tras una casilla le queda más y el turno sigue. (El caso del tirador, que
+    // tampoco apuntaba, se fue con el disparo diferido: va sin tests, 25-10-2026.)
+    const state = duelo(PESADA, { col: 0, row: 4 }, TROPA, {
       col: 10,
       row: 4,
     });
-    expect(legalActions(state)).toContainEqual({ type: 'shoot', target: 'defender-0' });
     aplicar(state, { type: 'move', to: { col: 1, row: 4 } }, createRng(1));
     expect(state.turno?.stack).toBe('attacker-0');
 
     const tipos = new Set(legalActions(state).map((a) => a.type));
-    expect(tipos.has('shoot')).toBe(false);
     expect(tipos.has('wait')).toBe(false);
     expect(tipos.has('defend')).toBe(false);
     expect(tipos.has('end_turn')).toBe(true);
 
     const rng = createRng(1);
-    expect(() => aplicar(state, { type: 'shoot', target: 'defender-0' }, rng)).toThrow(
-      'attacker-0 ya se ha movido este turno: no puede disparar',
-    );
     expect(() => aplicar(state, { type: 'wait' }, rng)).toThrow(
       'attacker-0 ya se ha movido este turno: no puede esperar',
     );
@@ -2109,24 +2012,9 @@ describe('el turno en tramos (2026-10-02)', () => {
     );
   });
 
-  it('por qué no se puede actuar contra un enemigo lo dice el núcleo, y al tirador movido le dice el bueno', () => {
-    // Hallazgo de QA (H2): el cliente escribía «No alcanzas a esa unidad» a un
-    // arquero que se acababa de mover, con un arco de alcance ilimitado.
-    const arquero = duelo(TIRADOR, { col: 0, row: 4 }, TROPA, {
-      col: 10,
-      row: 4,
-    });
-    expect(ataqueBlocker(arquero, 'defender-0')).toBeNull();
-    aplicar(arquero, { type: 'move', to: { col: 1, row: 4 } }, createRng(1));
-    expect(ataqueBlocker(arquero, 'defender-0')).toBe(
-      'ya se ha movido este turno: no puede disparar, y no alcanza a esa unidad cuerpo a cuerpo este turno',
-    );
-    // El rechazo del motor sale de la misma redacción, con el id delante.
-    expect(() => aplicar(arquero, { type: 'shoot', target: 'defender-0' }, createRng(1))).toThrow(
-      'attacker-0 ya se ha movido este turno: no puede disparar',
-    );
-
-    // A quien no tira no se le habla de disparar.
+  it('por qué no se puede actuar contra un enemigo lo dice el núcleo', () => {
+    // A quien no tira no se le habla de disparar. (El caso del tirador movido se
+    // fue con el disparo diferido, que va sin tests: 25-10-2026.)
     const lejos = duelo(PESADA, { col: 0, row: 4 }, TROPA, {
       col: 10,
       row: 4,
@@ -2143,12 +2031,10 @@ describe('el turno en tramos (2026-10-02)', () => {
   });
 
   it('`ataqueBlocker` y la lista legal son las dos caras de la misma regla', () => {
-    // `null` si y solo si la lista trae un golpe o un disparo contra él, en
-    // tableros con y sin tramo, con tiradores y sin ellos.
+    // `null` si y solo si la lista trae un golpe contra él, en tableros con y sin
+    // tramo (sin tiradores: el disparo diferido va sin tests, 25-10-2026).
     const casos: BattleState[] = [];
     for (const [quien, rival] of [
-      [TIRADOR, { col: 10, row: 4 }],
-      [TIRADOR, { col: 1, row: 4 }],
       [PESADA, { col: 10, row: 4 }],
       [PESADA, { col: 5, row: 4 }],
       [JINETE, { col: 7, row: 2 }],
@@ -2160,27 +2046,13 @@ describe('el turno en tramos (2026-10-02)', () => {
     }
     let conMotivo = 0;
     for (const st of casos) {
-      const ofrece = legalActions(st).some(
-        (a) => (a.type === 'attack' || a.type === 'shoot') && a.target === 'defender-0',
-      );
+      const ofrece = legalActions(st).some((a) => a.type === 'attack' && a.target === 'defender-0');
       const motivo = ataqueBlocker(st, 'defender-0');
       expect(motivo === null).toBe(ofrece);
       if (motivo !== null) conMotivo++;
     }
     expect(conMotivo).toBeGreaterThan(0);
     expect(conMotivo).toBeLessThan(casos.length);
-  });
-
-  it('un tirador que no se ha movido dispara como siempre', () => {
-    const state = duelo(TIRADOR, { col: 0, row: 4 }, TROPA, {
-      col: 10,
-      row: 4,
-    });
-    // Sin moral: un turno extra dejaría `acted` en falso y no es lo que se mide.
-    stackById(state, 'attacker-0').morale = 0;
-    aplicar(state, { type: 'shoot', target: 'defender-0' }, createRng(1));
-    expect(state.log.some((e) => e.kind === 'shoot')).toBe(true);
-    expect(stackById(state, 'attacker-0').acted).toBe(true);
   });
 
   it('`end_turn` cierra el turno y tira la moral; la moral extra estrena turno con 0 gastado', () => {
@@ -2591,7 +2463,7 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
     );
   });
 
-  it('ataques, disparos y hechizos dicen quién a quién (#18)', () => {
+  it('ataques y hechizos dicen quién a quién (#18)', () => {
     // «Ataque: 12 de daño, 3 bajas» no decía ni quién ni a quién. Los criterios:
     // nombre del que golpea, flecha, nombre del golpeado, y el modo detrás.
     const golpes = parte([
@@ -2620,15 +2492,6 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
         retaliation: false,
         charge: 3,
       },
-      { kind: 'shoot', stack: 'attacker-0', target: 'defender-0', damage: 8, killed: 1 },
-      {
-        kind: 'shoot',
-        stack: 'attacker-0',
-        target: 'defender-0',
-        damage: 2,
-        killed: 0,
-        splash: true,
-      },
       {
         kind: 'cast',
         side: 'attacker',
@@ -2646,12 +2509,6 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
     );
     expect(golpes).toContain(
       `<div>${NOMBRE_A}\u00a0→ ${NOMBRE_B} (carga de 3 casillas, +30 %): 20 de daño, 0 bajas</div>`,
-    );
-    expect(golpes).toContain(
-      `<div>${NOMBRE_A}\u00a0→ ${NOMBRE_B} (disparo): 8 de daño, 1 baja</div>`,
-    );
-    expect(golpes).toContain(
-      `<div>${NOMBRE_A}\u00a0→ ${NOMBRE_B} (salpicadura): 2 de daño, 0 bajas</div>`,
     );
     expect(golpes).toContain(
       `<div>Lanzas Flecha mágica sobre ${NOMBRE_B}: 10 de daño, 2 bajas</div>`,

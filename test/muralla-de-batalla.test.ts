@@ -626,7 +626,7 @@ describe('la IA juega con muros sin colgarse (C5)', () => {
     expect(d.waited).toBe(false);
   });
 
-  it('cuerpo a cuerpo contra tiradores tras la línea: suben, tiran desde arriba y acaba', () => {
+  it('cuerpo a cuerpo contra tiradores tras la línea: suben y acaba', () => {
     const state = createBattle(
       lado([
         { creature: PESADA, count: 3 },
@@ -639,14 +639,12 @@ describe('la IA juega con muros sin colgarse (C5)', () => {
     );
     autoResolve(state, createRng(7));
     expect(state.finished).not.toBeNull();
-    // Los tiros salen de lo alto de la línea: el arquero subió antes de tirar.
-    const disparos = state.log.filter((e) => e.kind === 'shoot');
-    expect(disparos.length).toBeGreaterThan(0);
+    // El arquero sube a la línea. (Que tire desde arriba se dejó de mirar con el
+    // disparo diferido, que va sin tests hasta que el usuario lo valide: 25-10-2026.)
     const subio = state.log.findIndex(
       (e) => e.kind === 'move' && e.stack === 'defender-0' && e.to.col === 7,
     );
     expect(subio).toBeGreaterThanOrEqual(0);
-    expect(subio).toBeLessThan(state.log.indexOf(disparos[0]!));
   });
 
   it('nadie llega a nadie: se acaba por rondas, sin colgarse', () => {

@@ -659,6 +659,14 @@ function exigeLaRueda(): void {
     );
   }
   log(`golpe: «${golpe.nota}»`);
+  // El disparo diferido (25-10-2026) no se exige: va sin comprobaciones hasta que
+  // el usuario lo valide jugando. Solo se dice si un `aim` del agente cruzó.
+  const apunta = veredictos.find((v) => v.ok && /apuntar a \(/.test(v.nota));
+  log(
+    apunta === undefined
+      ? 'disparo: ningún "aim" del agente en esta partida (no se exige)'
+      : `disparo: «${apunta.nota}»`,
+  );
   if (rueda.mala === null) {
     throw new Error('no se ha pedido ni una respuesta de la rueda ("battle_response")');
   }

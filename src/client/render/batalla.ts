@@ -12,7 +12,13 @@
  * cae el hechizo llegan hechos de `session.ts`; dónde está cada figura en este
  * instante, del animador.
  */
-import { type CasillaDeCarga, isAlive, stackHexes } from '@core/battle/battle.js';
+import {
+  type CasillaDeCarga,
+  isAlive,
+  type LineaDelDisparo,
+  lineaDelDisparo,
+  stackHexes,
+} from '@core/battle/battle.js';
 import { allHexes, hexKey, indiceDe } from '@core/battle/board.js';
 import {
   type EstadoDePuerta,
@@ -169,6 +175,13 @@ export interface VistaBatalla {
    * de las figuras y debajo de las barras.
    */
   readonly clima: { readonly sitio: ClimaDelSitio; readonly ahora: number };
+  /**
+   * La recta que se tantea con el puntero antes de apuntar (la unidad activa, tuya,
+   * que puede apuntar: `lineaDelDisparo` a la casilla señalada), o `null`. Las de los
+   * disparos ya apuntados las saca el tablero de cada stack (`BattleStack.apuntado`),
+   * para los dos bandos y en el espectador.
+   */
+  readonly tanteo: LineaDelDisparo | null;
 }
 
 /**
@@ -317,6 +330,9 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
   }
   // Y el número de la carga en cada casilla que carga: cuántas casillas cobra.
   if (v.cargas.length > 0) pintarCargas(ctx, tablero, v.cargas, v.angulo);
+  // Los disparos apuntados de los dos bandos (se ven para los dos: se puede
+  // apartar o tapar con un aliado) y el que se tantea, en el suelo.
+  pintarDisparos(ctx, v);
   // La puerta, en el suelo: su lado, de madera si está cerrada y de piedra si
   // está abierta, encima de las casillas y debajo de todo lo que pisa.
   if (battle.puertas.length > 0) pintarUmbrales(ctx, tablero, battle.puertas);
@@ -407,6 +423,86 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
 
   // 4 · Lo que vuela por encima: proyectiles, hechizos y cifras.
   for (const e of v.efectos) pintarEfecto(ctx, tablero, e);
+  ctx.restore();
+}
+
+/**
+ * Los disparos diferidos en el suelo (25-10-2026): de cada tirador con algo
+ * apuntado (`BattleStack.apuntado`), la recta de hoy hasta donde llega
+ * (`lineaDelDisparo`, la regla del núcleo), en el color de su bando y a trazos, la
+ * casilla apuntada con su diana y, si da a alguien, su casilla en rojo. El que se
+ * tantea con el puntero (`VistaBatalla.tanteo`), igual y más tenue. Lo que no
+ * llega (tras un muro o tras el alcanzado) va en gris, hasta la casilla apuntada.
+ */
+function pintarDisparos(ctx: CanvasRenderingContext2D, v: VistaBatalla): void {
+  const { battle, tablero } = v;
+  const lineas: { readonly l: LineaDelDisparo; readonly side: Side; readonly tanteo: boolean }[] =
+    [];
+  for (const s of battle.stacks) {
+    if (!isAlive(s) || s.apuntado === null) continue;
+    lineas.push({ l: lineaDelDisparo(battle, s, s.apuntado), side: s.side, tanteo: false });
+  }
+  const activa =
+    battle.turno === null ? undefined : battle.stacks.find((x) => x.id === battle.turno?.stack);
+  if (v.tanteo !== null && activa !== undefined) {
+    lineas.push({ l: v.tanteo, side: activa.side, tanteo: true });
+  }
+  if (lineas.length === 0) return;
+  const casillas = hexesDe(tablero);
+  ctx.save();
+  for (const { l, side, tanteo } of lineas) {
+    const color = colorDelBando(v, side);
+    ctx.globalAlpha = tanteo ? 0.55 : 0.9;
+    // Las casillas por las que pasa, tenues.
+    for (const h of l.casillas) {
+      ctx.fillStyle = `${color}33`;
+      ctx.fill((casillas[indiceDe(h)] as CasillaPintada).camino);
+    }
+    const desde = centroHex(tablero, l.desde);
+    const hasta = centroHex(tablero, l.at);
+    const ultima = l.casillas.at(-1);
+    const corte = ultima === undefined ? desde : centroHex(tablero, ultima);
+    const grueso = Math.max(2.5, tablero.paso * 0.045);
+    ctx.lineCap = 'round';
+    // Hasta donde llega, del color del bando sobre un filo oscuro (sobre el suelo
+    // claro, sola, se perdía); de ahí a la casilla, en gris.
+    ctx.beginPath();
+    ctx.moveTo(desde.x, desde.y);
+    ctx.lineTo(corte.x, corte.y);
+    ctx.lineWidth = grueso + 2;
+    ctx.strokeStyle = '#0000008c';
+    ctx.stroke();
+    ctx.setLineDash([grueso * 3, grueso * 2]);
+    ctx.lineWidth = grueso;
+    ctx.strokeStyle = color;
+    ctx.stroke();
+    if (ultima === undefined || l.alcanzado !== null || l.parada !== null) {
+      ctx.strokeStyle = '#d8d0c088';
+      ctx.lineWidth = grueso * 0.7;
+      ctx.beginPath();
+      ctx.moveTo(corte.x, corte.y);
+      ctx.lineTo(hasta.x, hasta.y);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    // La diana en la casilla apuntada.
+    const r = tablero.paso * 0.28;
+    ctx.lineWidth = grueso;
+    ctx.strokeStyle = color;
+    ctx.beginPath();
+    ctx.ellipse(hasta.x, hasta.y, r, r * tablero.compresion, 0, 0, Math.PI * 2);
+    ctx.moveTo(hasta.x - r * 1.3, hasta.y);
+    ctx.lineTo(hasta.x + r * 1.3, hasta.y);
+    ctx.moveTo(hasta.x, hasta.y - r * 1.3 * tablero.compresion);
+    ctx.lineTo(hasta.x, hasta.y + r * 1.3 * tablero.compresion);
+    ctx.stroke();
+    // A quién da hoy, en rojo.
+    if (l.alcanzado !== null) {
+      ctx.lineWidth = grueso * 1.3;
+      ctx.strokeStyle = '#ff5a3c';
+      ctx.stroke((casillas[indiceDe(l.alcanzado.hex)] as CasillaPintada).camino);
+    }
+  }
   ctx.restore();
 }
 

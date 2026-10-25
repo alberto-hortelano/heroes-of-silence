@@ -20,7 +20,6 @@ import {
   FORMAS_DE_EJEMPLO,
   REGLA_DE_LA_MURALLA,
 } from '../src/core/arena-murallas.js';
-import { trasLaArmadura } from '../src/core/battle/armas.js';
 import {
   applyAction,
   ataqueBlocker,
@@ -29,7 +28,6 @@ import {
   createBattle,
   escalaBlocker,
   escaleraBlocker,
-  isEngaged,
   legalActions,
   MAX_ROUNDS,
   mismoTurno,
@@ -37,17 +35,14 @@ import {
   opcionesDeDanio,
   stackById,
   subirBlocker,
-  tiroBlocker,
 } from '../src/core/battle/battle.js';
-import { hexKey, lineaLibre } from '../src/core/battle/board.js';
-import { computeDamage, effectiveDefense, expectedDamage } from '../src/core/battle/damage.js';
+import { hexKey } from '../src/core/battle/board.js';
+import { effectiveDefense, expectedDamage } from '../src/core/battle/damage.js';
 import {
   bonoEnLoAlto,
   enLoAlto,
   esMuro,
-  hayLinea,
   type MurallaDeBatalla,
-  puertasAlEmpezar,
   validarMuralla,
 } from '../src/core/battle/muralla.js';
 import type { BattleAction, BattleState } from '../src/core/battle/types.js';
@@ -58,7 +53,6 @@ import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex, Stack, UnitInfo } from '../src/core/types.js';
 import {
-  abrirPuertas,
   aMano,
   aPelear,
   bandoDePersonajes,
@@ -129,118 +123,6 @@ function duelo(
 
 const tipos = (acciones: readonly BattleAction[]): string[] => acciones.map((a) => a.type);
 
-describe('la línea de tiro', () => {
-  it('en el suelo nadie dispara a través del muro', () => {
-    const state = duelo(
-      LINEA,
-      PESADA,
-      { col: 5, row: 4 },
-      TIRADOR,
-      { col: 9, row: 4 },
-      'defender-0',
-    );
-    const d = stackById(state, 'defender-0');
-    const a = stackById(state, 'attacker-0');
-    expect(tiroBlocker(state, d, a)).toBe('el muro está en medio');
-    expect(tipos(legalActions(state))).not.toContain('shoot');
-    expect(ataqueBlocker(state, 'attacker-0')).toBe(
-      'el muro está en medio, y no alcanza a esa unidad cuerpo a cuerpo este turno',
-    );
-    expect(() => applyAction(state, { type: 'shoot', target: 'attacker-0' }, createRng(1))).toThrow(
-      'defender-0 no puede disparar a attacker-0: el muro está en medio',
-    );
-  });
-
-  it('desde lo alto sí', () => {
-    const state = duelo(
-      LINEA,
-      PESADA,
-      { col: 3, row: 4 },
-      TIRADOR,
-      { col: 7, row: 2 },
-      'defender-0',
-    );
-    expect(enLoAlto(state, stackById(state, 'defender-0'))).toBe(true);
-    expect(legalActions(state)).toContainEqual({ type: 'shoot', target: 'attacker-0' });
-  });
-
-  it('al de lo alto, también: los de fuera le disparan', () => {
-    const state = duelo(LINEA, TIRADOR, { col: 3, row: 4 }, PESADA, {
-      col: 7,
-      row: 6,
-    });
-    expect(legalActions(state)).toContainEqual({ type: 'shoot', target: 'defender-0' });
-    // Y al que está en el suelo detrás de la columna, no.
-    stackById(state, 'defender-0').hex = { col: 9, row: 4 };
-    expect(legalActions(state)).not.toContainEqual({ type: 'shoot', target: 'defender-0' });
-  });
-
-  it('a través de la puerta cerrada tampoco; de la abierta, sí (C20)', () => {
-    const state = duelo(CON_PUERTA, TIRADOR, { col: 4, row: 4 }, PESADA, {
-      col: 9,
-      row: 4,
-    });
-    const a = stackById(state, 'attacker-0');
-    const d = stackById(state, 'defender-0');
-    expect(tiroBlocker(state, a, d)).toBe('la puerta cerrada está en medio');
-    abrirPuertas(state);
-    expect(tiroBlocker(state, a, d)).toBeNull();
-    expect(legalActions(state)).toContainEqual({ type: 'shoot', target: 'defender-0' });
-    // Abierta, la puerta no le quita al muro lo suyo: por la fila de al lado, muro.
-    d.hex = { col: 9, row: 2 };
-    a.hex = { col: 4, row: 2 };
-    expect(tiroBlocker(state, a, d)).toBe('el muro está en medio');
-  });
-
-  it('la recta es de casillas enteras, sin los extremos', () => {
-    const muro = new Set(['5,4']);
-    expect(lineaLibre({ col: 0, row: 4 }, { col: 10, row: 4 }, muro)).toBe(false);
-    expect(lineaLibre({ col: 0, row: 3 }, { col: 10, row: 3 }, muro)).toBe(true);
-    // Los extremos no cuentan: quien tira o recibe en una casilla cerrada no se tapa a sí mismo.
-    expect(lineaLibre({ col: 5, row: 4 }, { col: 9, row: 4 }, muro)).toBe(true);
-    expect(lineaLibre({ col: 4, row: 4 }, { col: 5, row: 4 }, muro)).toBe(true);
-    // Una diagonal que pasa por (5,4): de (3,0) a (7,8) en odd-r.
-    expect(lineaLibre({ col: 3, row: 0 }, { col: 7, row: 8 }, new Set(['5,4']))).toBe(false);
-  });
-
-  it('un fuerte contra el borde no se dispara por la casilla que falta (QA I1, 12-10-2026)', () => {
-    // El fuerte de la esquina de abajo a la derecha, dibujable en el editor:
-    // fila 5 de la columna 5 a la 10 y la columna 5 abajo. Andando, desde
-    // (11,4) no se entra: sus vecinas de abajo son (10,5), muro, y el hueco
-    // (11,5). Con la casilla de fuera «saltada», el rayo que rozaba el marco
-    // por el hueco pasaba y (11,4)→(11,6) y (11,4)→(11,8) daban tiro; fuera
-    // cuenta como tapado (decisión del usuario), así que decide (10,5).
-    const fuerte = validarMuralla({
-      muros: [
-        ...[5, 6, 7, 8, 9, 10].map((col) => ({ col, row: 5 })),
-        { col: 5, row: 6 },
-        { col: 5, row: 7 },
-        { col: 5, row: 8 },
-      ],
-      puertas: [],
-    });
-    const p = puertasAlEmpezar(fuerte);
-    expect(hayLinea(fuerte, p, { col: 11, row: 4 }, { col: 11, row: 6 })).toBe(false);
-    expect(hayLinea(fuerte, p, { col: 11, row: 4 }, { col: 11, row: 8 })).toBe(false);
-    expect(hayLinea(fuerte, p, { col: 10, row: 4 }, { col: 10, row: 6 })).toBe(false);
-    // Dentro del fuerte, sí: entre dos casillas del suelo sin muro en medio.
-    expect(hayLinea(fuerte, p, { col: 11, row: 6 }, { col: 11, row: 8 })).toBe(true);
-  });
-
-  it('sin muralla, siempre hay tiro', () => {
-    const state = duelo(
-      validarMuralla({ muros: [], puertas: [] }),
-      TIRADOR,
-      { col: 0, row: 4 },
-      PESADA,
-      { col: 10, row: 4 },
-    );
-    expect(tiroBlocker(state, stackById(state, 'attacker-0'), stackById(state, 'defender-0'))).toBe(
-      null,
-    );
-  });
-});
-
 describe('el cuerpo a cuerpo, solo al mismo nivel', () => {
   it('del suelo no se golpea a quien está arriba', () => {
     const state = duelo(LINEA, PESADA, { col: 6, row: 4 }, TROPA, {
@@ -284,23 +166,6 @@ describe('el cuerpo a cuerpo, solo al mismo nivel', () => {
     expect(desdes.length).toBeGreaterThan(0);
     for (const h of desdes) expect(h.col, hexKey(h)).not.toBe(7);
   });
-
-  it('un tirador en lo alto con un enemigo al pie no está trabado; con uno arriba, sí', () => {
-    const state = duelo(
-      LINEA,
-      PESADA,
-      { col: 6, row: 4 },
-      TIRADOR,
-      { col: 7, row: 4 },
-      'defender-0',
-    );
-    const d = stackById(state, 'defender-0');
-    expect(isEngaged(state, d)).toBe(false);
-    expect(legalActions(state)).toContainEqual({ type: 'shoot', target: 'attacker-0' });
-    stackById(state, 'attacker-0').hex = { col: 7, row: 3 };
-    expect(isEngaged(state, d)).toBe(true);
-    expect(tipos(legalActions(state))).not.toContain('shoot');
-  });
 });
 
 describe('la defensa del tirador en lo alto', () => {
@@ -328,32 +193,6 @@ describe('la defensa del tirador en lo alto', () => {
     expect(bonoEnLoAlto(state, espada)).toBe(0);
     arquero.hex = { col: 9, row: 4 };
     expect(bonoEnLoAlto(state, arquero)).toBe(0);
-  });
-
-  it('el disparo que le llega arriba cobra con esa defensa', () => {
-    const muro = validarMuralla({ muros: [{ col: 6, row: 1 }], puertas: [] });
-    const state = duelo(
-      muro,
-      TIRADOR,
-      { col: 2, row: 1 },
-      TIRADOR,
-      { col: 6, row: 1 },
-      'attacker-0',
-      { cuantos: 12 },
-    );
-    const tirador = stackById(state, 'attacker-0');
-    const blanco = stackById(state, 'defender-0');
-    const con = (alto: boolean): number =>
-      computeDamage(tirador, blanco, createRng(9), {
-        ranged: true,
-        distance: 4,
-        bonoEnLoAlto: alto ? MURALLA.defensaEnLoAlto : 0,
-      }).damage;
-    expect(con(true)).toBeLessThan(con(false));
-    applyAction(state, { type: 'shoot', target: 'defender-0' }, createRng(9));
-    const tiro = state.log.find((e) => e.kind === 'shoot');
-    // Y la armadura del arquero, que se resta de todo lo que le llega, al final.
-    expect(tiro?.kind === 'shoot' && tiro.damage).toBe(trasLaArmadura(con(true), blanco).danio);
   });
 });
 
@@ -603,9 +442,6 @@ describe('la IA con la muralla alta', () => {
     stackById(state, 'defender-0').hex = accion.to;
     forzarTurno(state, 'defender-0', 1);
     expect(chooseBattleAction(state)).toEqual({ type: 'end_turn' });
-    // Al turno siguiente, dispara desde arriba.
-    forzarTurno(state, 'defender-0');
-    expect(chooseBattleAction(state)).toEqual({ type: 'shoot', target: 'attacker-0' });
   });
 });
 

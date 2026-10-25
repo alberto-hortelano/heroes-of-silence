@@ -136,7 +136,7 @@ import {
   renderBattleLog,
   renderSpells,
 } from '../views/panels.js';
-import { botonDeElegir, botonesDePoder } from '../views/poderes.js';
+import { botonDeApuntar, botonDeElegir, botonesDePoder } from '../views/poderes.js';
 import { abrirFichaBlocker, claveDeFicha, estaAbierta, type FichaEditable } from './edicion.js';
 
 /**
@@ -1725,6 +1725,7 @@ export type VistaDeArena = Pick<
   | 'muroPorElegir'
   | 'puertaPorElegir'
   | 'motivoDePoder'
+  | 'disparo'
   | 'apuntado'
   | 'prevision'
   | 'ruedaPendiente'
@@ -1969,7 +1970,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
               sinSalida: s.sinSalida(),
               trasLaFinta: s.trasLaFinta(),
               rendicion: NADA,
-              poderes: botonesDePoder(s, activa),
+              poderes: html`${botonDeApuntar(s, activa)}${botonesDePoder(s, activa)}`,
               hechizos:
                 heroe === null ? NADA : renderSpells(s.hechizos.selectedSpell, s.spellOptions()),
               // La puerta, solo a quien defiende: es quien la abre y la cierra. La

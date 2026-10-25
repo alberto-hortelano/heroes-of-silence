@@ -21,6 +21,7 @@ import {
 import {
   activeStack,
   applyAction,
+  apuntarBlocker,
   ataqueBlocker,
   type CasillaDeCarga,
   casillasDeCarga,
@@ -29,7 +30,9 @@ import {
   escalaBlocker,
   faseDelTurno,
   firmaDelTurno,
+  type LineaDelDisparo,
   legalActionsAndCosts,
+  lineaDelDisparo,
   MAX_JUGADAS,
   movimientoBlocker,
   type Prevision,
@@ -346,6 +349,8 @@ export interface ControlDeBatalla {
   readonly apuntado: Apuntado | null;
   /** Por qué lo apuntado no vale sobre ese stack, con la frase del núcleo (`castBlocker`, `poderBlocker`). */
   rechazoDeLoApuntado(targetId: string): string;
+  /** El disparo diferido de la activa (`aim`): el botón «Apuntar», el tanteo y el clic en una casilla. */
+  readonly disparo: DisparoDeLaActiva;
   playBattleAction(action: BattleAction): void;
 }
 
@@ -356,12 +361,20 @@ export interface ControlDeBatalla {
  * (`esDeLoApuntado`) y el rechazo lo escribe el núcleo.
  */
 export interface Apuntado {
-  readonly kind: 'hechizo' | 'poder';
+  /**
+   * `disparo`: el botón «Apuntar» del tirador activo (25-10-2026), que espera el clic
+   * en una casilla y no en una unidad (`DisparoDeLaActiva`); su `id`, el del tirador.
+   */
+  readonly kind: 'hechizo' | 'poder' | 'disparo';
   readonly id: string;
 }
 
-/** ¿Es `a` una jugada de lo apuntado (sobre `objetivo`, si se dice)? */
+/**
+ * ¿Es `a` una jugada de lo apuntado (sobre `objetivo`, si se dice)? El disparo no
+ * va sobre una unidad sino sobre una casilla: con `objetivo`, nunca.
+ */
 export function esDeLoApuntado(apuntado: Apuntado, a: BattleAction, objetivo?: string): boolean {
+  if (apuntado.kind === 'disparo') return a.type === 'aim' && objetivo === undefined;
   const suya =
     apuntado.kind === 'hechizo'
       ? a.type === 'cast' && a.spell === apuntado.id
@@ -530,7 +543,7 @@ function rechazoDeLoApuntado(
   apuntado: Apuntado | null,
   targetId: string,
 ): string {
-  if (apuntado === null) return '';
+  if (apuntado === null || apuntado.kind === 'disparo') return '';
   return apuntado.kind === 'hechizo'
     ? hechizos.castRejection(targetId)
     : poderes.rechazo(apuntado.id, targetId);
@@ -632,6 +645,68 @@ export class PoderesDeLaActiva {
         pide: 'Elige el aliado sobre el que usarlo: pulsa en uno de los marcados, o Escape para cancelar.',
       },
     );
+  }
+}
+
+/**
+ * El disparo diferido de la unidad activa (25-10-2026, sin validar por el usuario)
+ * tal como lo usa la persona, el mismo en la partida y la arena: el botón
+ * «Apuntar» (deja lo apuntado esperando el clic en cualquier casilla, o lo suelta),
+ * la recta que se tantea con el puntero y el clic que apunta. Un clic en un enemigo
+ * apunta a su casilla sin el botón (`golpeEnPixel`). Qué vale lo dice el núcleo
+ * (`apuntarBlocker`) y la recta también (`lineaDelDisparo`); aquí no se decide nada.
+ * Una casilla vacía no está en la lista legal (que trae solo las de los enemigos):
+ * la jugada se escribe aquí y la juzga el núcleo al aplicarla.
+ */
+export class DisparoDeLaActiva {
+  constructor(
+    private readonly dueño: QuienJuega,
+    private readonly apuntados: LoApuntado,
+  ) {}
+
+  /** ¿Espera el botón «Apuntar» el clic en una casilla? */
+  get esperando(): boolean {
+    return this.apuntados.de('disparo') !== null;
+  }
+
+  /** Por qué la activa no puede apuntar ahora, o `null` si puede (el botón apagado). */
+  motivo(): string | null {
+    return motivoDeLaActiva(this.dueño.turnoPropio, (b) => apuntarBlocker(b));
+  }
+
+  /** El botón: lo deja esperando el clic en una casilla, o lo suelta si ya esperaba. */
+  alternar(): void {
+    if (this.apuntados.soltar('disparo')) {
+      this.dueño.status = '';
+      return;
+    }
+    const motivo = this.motivo();
+    const turno = this.dueño.turnoPropio;
+    if (motivo !== null || turno === null) {
+      this.dueño.status = motivo ?? NINGUNA_TUYA;
+      return;
+    }
+    this.apuntados.apuntar({ kind: 'disparo', id: turno.stack.id });
+    this.dueño.status =
+      'Elige la casilla a la que apuntar: el disparo sale al empezar su siguiente turno y da al primero de la recta, también a un aliado. Escape cancela.';
+  }
+
+  /** La recta que se vería al apuntar a `at` ahora, o `null` si no se puede apuntar ahí. */
+  tanteo(at: Hex): LineaDelDisparo | null {
+    const turno = this.dueño.turnoPropio;
+    if (turno === null || apuntarBlocker(turno.battle, at) !== null) return null;
+    return lineaDelDisparo(turno.battle, turno.stack, at);
+  }
+
+  /** Apunta a `at`, o dice en la barra por qué no (la frase del núcleo). */
+  apuntarA(at: Hex): void {
+    const motivo = motivoDeLaActiva(this.dueño.turnoPropio, (b) => apuntarBlocker(b, at));
+    if (motivo !== null) {
+      this.dueño.status = motivo;
+      return;
+    }
+    this.apuntados.soltar('disparo');
+    this.dueño.playBattleAction({ type: 'aim', at: { col: at.col, row: at.row } });
   }
 }
 
@@ -864,6 +939,7 @@ export class Session implements ControlDeBatalla {
   readonly hechizos: LibroDeBatalla = new LibroDeBatalla(this, this.apuntados);
   /** El poder de la activa que espera el clic en un aliado (`PoderesDeLaActiva`, el de la arena). */
   readonly poderes = new PoderesDeLaActiva(this, this.apuntados);
+  readonly disparo = new DisparoDeLaActiva(this, this.apuntados);
 
   get openTownId(): string | null {
     return this.puebloAbierto;
@@ -2711,6 +2787,7 @@ export class SesionDeArena implements ControlDeBatalla {
   readonly hechizos: LibroDeBatalla = new LibroDeBatalla(this, this.apuntados);
   /** El poder de la activa que espera el clic en un aliado (`PoderesDeLaActiva`). */
   readonly poderes = new PoderesDeLaActiva(this, this.apuntados);
+  readonly disparo = new DisparoDeLaActiva(this, this.apuntados);
   /** En la arena los bandos no son de ningún jugador: los dos llevan su color de bando. */
   readonly dueños = null;
   private readonly rng: Rng;
