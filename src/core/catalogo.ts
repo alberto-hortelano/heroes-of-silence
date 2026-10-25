@@ -40,7 +40,7 @@ import { cifrasVeteranas, rangoDeTropa } from './hero/experiencia.js';
 import type { Hero } from './hero/hero.js';
 import { indiceDePoder, nivelDelIndice } from './nivel.js';
 import type { Equipo, FactionId, Hueco, UnitInfo, Veterania } from './types.js';
-import { FACTION_IDS } from './types.js';
+import { FACTION_IDS, huecoBlocker } from './types.js';
 import {
   armaDeCuerpoBlocker,
   cuerpoDeCombate,
@@ -219,8 +219,11 @@ export function equipoDelPortadorBlocker(
   deSerie: Equipo = {},
   hueco?: Hueco,
 ): string | null {
-  if (puesta !== null && deSerie.escudo !== undefined) {
-    const p = pieza(puesta);
+  // Un hueco que no es de la pieza, dicho antes que lo de serie y las manos.
+  const p = puesta === null ? null : pieza(puesta);
+  const fuera = p === null ? null : huecoBlocker(p, hueco ?? p.hueco);
+  if (fuera !== null) return fuera;
+  if (p !== null && deSerie.escudo !== undefined) {
     const escudo = pieza(deSerie.escudo).nombre;
     if (p.hueco === 'arma' && aDosManos(p)) {
       return `${nombre} no admite ${p.nombre}: es un arma a dos manos y su ${escudo} es de serie, que no se quita`;

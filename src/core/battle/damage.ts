@@ -77,7 +77,7 @@ export function dichoDelGolpe(unit: UnitInfo, uso: UsoDeArma, enLaCarga = false)
 }
 
 /** Los nombres de las armas de un golpe, juntos: «Espada» o «Espada y Lanza». */
-export function nombresDeLasArmas(piezas: GolpeConArma['piezas']): string {
+function nombresDeLasArmas(piezas: GolpeConArma['piezas']): string {
   return piezas.map((p) => p.nombre).join(' y ');
 }
 
@@ -218,20 +218,28 @@ export interface CruceDelGolpe {
 }
 
 /**
+ * Las casillas en que el disparo diferido pasa de la tirada máxima a la mínima:
+ * una por cuarto de la horquilla (`tiradaEnCuartos`), así que no se cambia sin ella.
+ */
+const CAIDA_DEL_DISPARO = 4;
+
+/**
  * En qué cuarto de la horquilla cae el disparo diferido que alcanza a quien está
  * a `d` casillas de la casilla apuntada: 4 en ella, uno menos por casilla, 0 a 4 o
- * más (25-10-2026, decisión del usuario: «cuanto más cerca de la casilla elegida
- * más daño»). La única cuenta: la leen el disparo, la IA y la previsión.
+ * más (`CAIDA_DEL_DISPARO`; 25-10-2026, decisión del usuario: «cuanto más cerca de
+ * la casilla elegida más daño»). La única cuenta: la lee `opcionesDelDisparo`.
  */
 export function cuartoDelDisparo(d: number): number {
-  return Math.max(0, 4 - d);
+  return Math.max(0, CAIDA_DEL_DISPARO - d);
 }
 
 /** Cómo dice la previsión dónde cae la tirada del disparo diferido. */
 function dichoDelCuarto(cuarto: number): string {
-  if (cuarto === 4) return 'en la casilla apuntada: la tirada máxima';
-  if (cuarto === 0) return 'a 4 casillas o más de la casilla apuntada: la tirada mínima';
-  const d = 4 - cuarto;
+  if (cuarto === CAIDA_DEL_DISPARO) return 'en la casilla apuntada: la tirada máxima';
+  if (cuarto === 0) {
+    return `a ${CAIDA_DEL_DISPARO} casillas o más de la casilla apuntada: la tirada mínima`;
+  }
+  const d = CAIDA_DEL_DISPARO - cuarto;
   return `a ${d} ${d === 1 ? 'casilla' : 'casillas'} de la casilla apuntada: la tirada en el cuarto ${cuarto} de 4`;
 }
 
@@ -396,10 +404,10 @@ function medioSinArmadura(
   opts: DamageOptions,
 ): number {
   const golpe = deUnGolpe(attacker, opts);
-  const [min, max] = cifrasDelGolpe(attacker.unit, golpe.uso).damage;
-  const medio =
-    (opts.cuarto === undefined ? (min + max) / 2 : tiradaEnCuartos(min, max, opts.cuarto)) *
-    attacker.count;
+  // El centro de lo que puede salir: la horquilla entera, la del cruce o, en el
+  // disparo diferido, su cuarto (`enElCruce`, la misma que la tirada).
+  const t = enElCruce(cifrasDelGolpe(attacker.unit, golpe.uso).damage, opts.cruce, opts.cuarto);
+  const medio = ((t.min + t.max) / 2) * attacker.count;
   return applyModifiers(medio, attacker, defender, opts, golpe);
 }
 

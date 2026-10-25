@@ -485,8 +485,9 @@ export function esHuecoDePieza(x: string): x is HuecoDePieza {
 /**
  * En qué huecos se puede poner una pieza de `hueco`: el suyo y, un arma de cuerpo a
  * cuerpo, también la segunda (que sea de una mano lo dice `manosBlocker`). **La
- * única pregunta** de «¿va aquí?»: la leen `equipoBlocker`, lo que ofrece la ficha
- * y el `equip` del juego y del agente.
+ * única pregunta** de «¿va aquí?»: la leen `huecoBlocker` (el motivo, para
+ * `equipoBlocker`, las manos y el `equip` del juego y del agente) y lo que ofrece
+ * la ficha.
  */
 export function huecosDeLaPieza(hueco: HuecoDePieza): readonly Hueco[] {
   return hueco === 'arma' ? ['arma', 'segunda'] : [hueco];
@@ -505,6 +506,20 @@ export const NOMBRE_DE_HUECO: Readonly<Record<Hueco, string>> = {
   armadura: 'Armadura',
   escudo: 'Escudo',
 };
+
+/**
+ * Por qué la pieza `p` no va en `hueco` (`huecosDeLaPieza`), o `null`: «Escudo va
+ * en Escudo, no en Segunda arma». La frase, una vez: la leen `manosBlocker`,
+ * `equipoBlocker` y `equipoDelPortadorBlocker` (ponerse en el juego).
+ */
+export function huecoBlocker(
+  p: { readonly nombre: string; readonly hueco: HuecoDePieza },
+  hueco: Hueco,
+): string | null {
+  return huecosDeLaPieza(p.hueco).includes(hueco)
+    ? null
+    : `${p.nombre} va en ${NOMBRE_DE_HUECO[p.hueco]}, no en ${NOMBRE_DE_HUECO[hueco]}`;
+}
 
 /**
  * Si el texto `x` nombra un hueco: la pregunta de las puertas por las que un

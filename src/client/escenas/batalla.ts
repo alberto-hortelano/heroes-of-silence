@@ -113,6 +113,14 @@ const SIN_OBJETIVO: Readonly<Record<Apuntado['kind'], string>> = {
   disparo: 'Elige una casilla a la que apuntar, o pulsa Escape para cancelar.',
 };
 
+/** Un disparo tanteado en una casilla (`EscenaBatalla.tanteoEn`). */
+interface Tanteado {
+  readonly acciones: readonly BattleAction[];
+  readonly clave: string;
+  readonly linea: LineaDelDisparo | null;
+  readonly accion: BattleAction & { type: 'aim' };
+}
+
 export class EscenaBatalla {
   private readonly animador = new BattleAnimator();
   private tablero: Tablero = tableroPara(1, 1);
@@ -130,6 +138,13 @@ export class EscenaBatalla {
     readonly acciones: readonly BattleAction[];
     readonly valor: Angulo | null;
   } | null = null;
+  /**
+   * El disparo que se tantea en una casilla, con la lista legal con la que se
+   * calculó y su `aim`, que es el mismo objeto mientras no cambien ni la casilla
+   * ni la jugada: así su previsión entra en `previsiones`. El fotograma y la barra
+   * lo piden en cada pasada (`tanteoEn`).
+   */
+  private tanteado: Tanteado | null = null;
   /**
    * Lo último que esta escena escribió en la barra al señalar. Al dejar de
    * señalar se quita, pero solo si sigue siendo lo que hay: si la sesión ha
@@ -296,11 +311,27 @@ export class EscenaBatalla {
     const s = this.sesion();
     if (this.puntero === null || s.turnoPropio === null) return null;
     if (s.apuntado?.kind === 'disparo') {
-      return this.hoverHex === null ? null : s.disparo.tanteo(this.hoverHex);
+      return this.hoverHex === null ? null : this.tanteoEn(this.hoverHex).linea;
     }
     if (s.apuntado !== null) return null;
     const accion = this.accionContraEn(this.puntero.x, this.puntero.y);
-    return accion?.type === 'aim' ? s.disparo.tanteo(accion.at) : null;
+    return accion?.type === 'aim' ? this.tanteoEn(accion.at).linea : null;
+  }
+
+  /** El tanteo del disparo en `at` (`DisparoDeLaActiva.tanteo`), recordado por casilla y jugada. */
+  private tanteoEn(at: Hex): Tanteado {
+    const acciones = this.sesion().battleLegalActions();
+    const clave = hexKey(at);
+    const t = this.tanteado;
+    if (t !== null && t.acciones === acciones && t.clave === clave) return t;
+    const hecho = {
+      acciones,
+      clave,
+      linea: this.sesion().disparo.tanteo(at),
+      accion: { type: 'aim', at: { col: at.col, row: at.row } } as const,
+    };
+    this.tanteado = hecho;
+    return hecho;
   }
 
   /**
@@ -515,7 +546,7 @@ export class EscenaBatalla {
   private rotuloDelDisparo(): string | null {
     const s = this.sesion();
     if (s.apuntado?.kind !== 'disparo' || this.hoverHex === null) return null;
-    const linea = s.disparo.tanteo(this.hoverHex);
+    const { linea, accion } = this.tanteoEn(this.hoverHex);
     if (linea === null) return null;
     const { col, row } = this.hoverHex;
     const aqui = `Apuntarías a (${col},${row}).`;
@@ -526,9 +557,9 @@ export class EscenaBatalla {
           : ` La para ${linea.parada === 'muro' ? 'el muro' : 'la puerta cerrada'}.`;
       return `${aqui} Hoy no daría a nadie.${parada}`;
     }
-    const p = s.prevision({ type: 'aim', at: this.hoverHex });
+    const prevision = this.previsionDicha(accion);
     const aliado = linea.alcanzado.side === s.miBando ? ' (¡tuyo!)' : '';
-    const dicha = p === null ? '' : ` ${textoDePrevision(p, this.nombre())}`;
+    const dicha = prevision === null ? '' : ` ${prevision}`;
     return `${aqui} Hoy daría a ${this.nombre()(linea.alcanzado.id)}${aliado}.${dicha}`;
   }
 

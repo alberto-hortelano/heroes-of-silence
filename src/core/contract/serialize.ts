@@ -36,7 +36,7 @@ import {
   unidadDelJuego,
   unidadesDeFaccion,
 } from '../catalogo.js';
-import { agilidadEfectiva } from '../cuerpo.js';
+import { agilidadDe } from '../cuerpo.js';
 import {
   ASALTANTES,
   EQUIPO,
@@ -928,7 +928,7 @@ function stackView(s: BattleStack) {
     // La fuerza del cuerpo y la agilidad que le deja el peso: de ellas salen la
     // defensa, el daño y la velocidad de al lado (`cifrasDelCuerpo`).
     strength: info.fuerza,
-    agility: agilidadEfectiva(info.agilidad, info.fuerza, info.peso ?? 0),
+    agility: agilidadDe(info),
     defense: info.defense,
     damage: info.damage,
     // Lo que se resta de cada golpe que recibe (`armaduraDe`), 0 sin armadura.

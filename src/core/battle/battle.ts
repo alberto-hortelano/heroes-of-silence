@@ -69,7 +69,6 @@ import {
   type RamaDeSuerte,
   stackHp,
   trasElGolpe,
-  usoDelGolpe,
 } from './damage.js';
 import {
   applyEffect,
@@ -1131,15 +1130,12 @@ export interface LineaDelDisparo {
 export function lineaDelDisparo(state: BattleState, s: BattleStack, at: Hex): LineaDelDisparo {
   const recta = lineaDeTiro(s.hex, at, s.side);
   const libre = enLoAlto(state, s) || !hayMuralla(state.muralla);
-  const cerradas = libre ? [] : state.puertas.filter((p) => !p.abierta);
-  const cruzaPuerta = (a: Hex, b: Hex): boolean =>
-    cerradas.some(
-      (p) => (hexEquals(p.a, a) && hexEquals(p.b, b)) || (hexEquals(p.a, b) && hexEquals(p.b, a)),
-    );
+  // El lado de una puerta cerrada, con la misma regla que el paso al andar.
+  const porPuertas = libre ? undefined : pasoPorPuertas(state.muralla, state.puertas);
   const casillas: Hex[] = [];
   let antes = s.hex;
   for (const h of recta) {
-    if (cruzaPuerta(antes, h))
+    if (porPuertas?.(indiceDe(antes), indiceDe(h)) === false)
       return { desde: s.hex, at, casillas, alcanzado: null, parada: 'puerta' };
     const quien = state.stacks.find((x) => isAlive(x) && hexEquals(x.hex, h)) ?? null;
     if (quien !== null && quien.id !== s.id) {
@@ -1633,27 +1629,23 @@ function advance(state: BattleState, rng: Rng): void {
     // full-fledged action», y la de `MORALE_BAD` va antes.
     // https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/battle/battle_arena.cpp#L496-L501
     const moral = s.morale;
-    if (moral < 0 && rng.chance(-moral * CHANCE_PER_POINT)) {
+    const loPierde = moral < 0 && rng.chance(-moral * CHANCE_PER_POINT);
+    if (loPierde) {
       s.acted = true;
       state.log.push({ kind: 'morale', stack: s.id, good: false });
       // Su turno empieza y se pierde: lo que dura «hasta que empiece su próximo
       // turno» (Defensivo) se va igual (decisión del usuario, 14-10-2026). Sin
       // turno abierto no hay `n` nuevo: vale el siguiente al de ahora.
       quitarLosQueVencen(state, s, 'empezar', (state.turno?.n ?? 0) + 1);
-      // Lo apuntado sale igual: el disparo se soltó al apuntar (25-10-2026).
-      dispararLoApuntado(state, s, rng);
-      if (state.finished !== null) {
-        state.turno = null;
-        return;
-      }
-      continue;
+    } else {
+      abrirTurno(state, s);
     }
-    abrirTurno(state, s);
     // Al empezar su turno, antes de que elija nada, sale lo que apuntó en el
-    // anterior; luego el turno sigue como siempre (puede apuntar otra vez).
+    // anterior, también si lo pierde por la moral: el disparo se soltó al apuntar
+    // (25-10-2026). Luego el turno sigue como siempre (puede apuntar otra vez). Si
+    // el disparo cierra la batalla, `checkFinished` ya cerró el turno.
     dispararLoApuntado(state, s, rng);
-    if (state.finished !== null) state.turno = null;
-    return;
+    if (!loPierde || state.finished !== null) return;
   }
 
   beginRound(state, rng);
@@ -2359,7 +2351,7 @@ function moveTo(
  * lienzo en el `move` (`corre`), y la regla de la carga no cambia. Las casillas son
  * las que pisa, también las del volador, que su `path` no lleva.
  */
-export function seCorre(s: BattleStack, casillas: number): boolean {
+function seCorre(s: BattleStack, casillas: number): boolean {
   return 2 * casillas > stackSpeed(s);
 }
 
@@ -2518,11 +2510,11 @@ function melee(
   carga: number,
   cruce: HechoDelCruce,
 ): void {
-  // Lo que el golpe deja va con el arma de su primer golpe
+  // Lo que el golpe deja va con su arma de cuerpo a cuerpo
   // (`ruedaDelIntercambio`), contada una vez y antes de pegar: Defensivo, a quien
   // pega antes de sus golpes, que cubre ya lo que venga; Romper guardia y la
   // Finta, después. La respuesta no deja nada.
-  const rueda = { ...cruce, cifras: ruedaDelIntercambio(state, attacker, target, carga) };
+  const rueda = { ...cruce, cifras: ruedaDelIntercambio(attacker) };
   colgarDeLaRueda(state, attacker, rueda.golpe, rueda.punto, 'propio', rueda.cifras);
   intercambio(state, attacker, target, rng, false, carga, enElPunto(rueda.golpe, rueda.punto));
 
@@ -2563,31 +2555,15 @@ function melee(
 }
 
 /**
- * Las cifras de la rueda del intercambio de `quien` a `contra` con `carga`
- * casillas de carrera: las del arma de su **primer** golpe (`usoDelGolpe` sobre
- * las mismas opciones que el golpe: la lanza si cobra la carga, si no la de cuerpo
- * a cuerpo). Lo que no es daño —Defensivo antes de golpear, Romper guardia y la
- * Finta después— se cuelga una vez por intercambio y va con ella; el daño de cada
- * golpe, con la suya (`conElGolpe`). Lo leen el golpe (`melee`, una vez) y las dos
- * previsiones.
+ * Las cifras de la rueda del intercambio de `quien`: las de su arma de cuerpo a
+ * cuerpo (`arma`), la única que golpea en la rueda (la lanza solo suma su ataque y
+ * su fuerza en la carga). Lo que no es daño —Defensivo antes de golpear, Romper
+ * guardia y la Finta después— se cuelga una vez por intercambio y va con ella. Lo
+ * leen el golpe (`melee`, una vez), las dos previsiones y el daño de cada golpe
+ * (`conElGolpe`).
  */
-function ruedaDelIntercambio(
-  state: BattleState,
-  quien: BattleStack,
-  contra: BattleStack,
-  carga: number,
-): CifrasDeLaRueda {
-  return ruedaDelGolpe(quien.unit, usoDelIntercambio(state, quien, contra, carga));
-}
-
-/** El uso del arma del primer golpe del intercambio (`ruedaDelIntercambio`). */
-function usoDelIntercambio(
-  state: BattleState,
-  quien: BattleStack,
-  contra: BattleStack,
-  carga: number,
-): UsoDeArma {
-  return usoDelGolpe(opcionesDeDanio(state, quien, contra, { chargeHexes: carga }));
+function ruedaDelIntercambio(quien: BattleStack): CifrasDeLaRueda {
+  return ruedaDelGolpe(quien.unit, 'arma');
 }
 
 /**
@@ -2718,12 +2694,10 @@ export function opcionesDeDanio(
 
 /**
  * Las opciones con la rueda: la única traducción del golpe a los números del
- * daño (`cruceDelGolpe`), con las cifras del arma de ese golpe de `quien`
- * (`usoDelGolpe` sobre las mismas opciones: la lanza en el golpe que cobra la
- * carga, la de cuerpo a cuerpo en lo demás y en el contraataque, que no carga).
- * La previsión de la rueda la pide sobre las mismas opciones para cada tipo, con
- * el papel de quien elige y las cifras que ya contó (`c`, las de esas opciones);
- * el golpe, con el que le da `papelDe`.
+ * daño (`cruceDelGolpe`), con las cifras del arma de cuerpo a cuerpo de `quien`
+ * (`ruedaDelIntercambio`: la rueda es solo del cuerpo a cuerpo). La previsión de
+ * la rueda la pide sobre las mismas opciones para cada tipo, con el papel de quien
+ * elige y las cifras que ya contó (`c`); el golpe, con el que le da `papelDe`.
  */
 function conElGolpe(
   o: DamageOptions,
@@ -2731,9 +2705,30 @@ function conElGolpe(
   golpe: GolpeEnLaRueda,
   papel: PapelEnLaRueda,
   forma: FormaDeLaRueda,
-  c: CifrasDeLaRueda = ruedaDelGolpe(quien, usoDelGolpe(o)),
+  c: CifrasDeLaRueda = ruedaDelGolpe(quien, 'arma'),
 ): DamageOptions {
   return { ...o, cruce: cruceDelGolpe(golpe.tipo, golpe.desde, golpe.hasta, papel, c, forma) };
+}
+
+/**
+ * Las opciones del daño del disparo diferido de `shooter` que alcanza a
+ * `alcanzado` habiendo apuntado a `at`: a distancia y con la tirada en el cuarto
+ * de su distancia a la casilla apuntada (`cuartoDelDisparo`), con lo alto de un
+ * muro como todo golpe (`opcionesDeDanio`). La leen el disparo, su previsión y la
+ * IA.
+ */
+export function opcionesDelDisparo(
+  state: BattleState,
+  shooter: BattleStack,
+  alcanzado: BattleStack,
+  at: Hex,
+): DamageOptions {
+  return opcionesDeDanio(state, shooter, alcanzado, extraDelDisparo(alcanzado, at));
+}
+
+/** Lo que trae el disparo diferido a sus opciones (`opcionesDelDisparo`). */
+function extraDelDisparo(alcanzado: BattleStack, at: Hex): Omit<DamageOptions, ExtraDelEstado> {
+  return { ranged: true, cuarto: cuartoDelDisparo(hexDistance(alcanzado.hex, at)) };
 }
 
 function opcionesDelEstado(
@@ -2852,7 +2847,7 @@ function healFromDrain(s: BattleStack, damage: number): void {
  * distancia a la casilla apuntada (`cuartoDelDisparo`); ataque contra defensa,
  * suerte y armadura como siempre. Con `double_shot`, dos tiros, y cada uno busca
  * su primero (el segundo, si el primero cayó, sigue la recta). Lo llama solo el
- * principio de su turno (`empezarTurno`), también el que pierde por la moral
+ * principio de su turno (`advance`), también el que pierde por la moral
  * baja. **Regla nuestra sin validar por el usuario** (25-10-2026: sin tests hasta
  * que la juegue).
  */
@@ -2867,12 +2862,11 @@ function dispararLoApuntado(state: BattleState, shooter: BattleStack, rng: Rng):
       state.log.push({ kind: 'shoot', stack: shooter.id, at, target: null, damage: 0, killed: 0 });
       continue;
     }
-    const cuarto = cuartoDelDisparo(hexDistance(alcanzado.hex, at));
     const result = computeDamage(
       shooter,
       alcanzado,
       rng,
-      opcionesDeDanio(state, shooter, alcanzado, { ranged: true, cuarto }),
+      opcionesDelDisparo(state, shooter, alcanzado, at),
     );
     const herida = herir(alcanzado, result.damage, shooter);
 
@@ -2899,19 +2893,29 @@ function dispararLoApuntado(state: BattleState, shooter: BattleStack, rng: Rng):
 }
 
 /**
- * A quién alcanza la salpicadura de un disparo sobre `target`: todo lo vivo
- * pegado a él, **de cualquier bando**, como en el original.
+ * A quién alcanza la salpicadura de un disparo de `shooter` sobre `target`: todo
+ * lo vivo pegado a él, **de cualquier bando**, como en el original, salvo el
+ * propio tirador: con el disparo diferido puede acabar pegado a lo que alcanza
+ * (alguien se le puso al lado mientras esperaba), y no se salpica.
  *
  * Está exportada porque la IA necesita la MISMA respuesta para no dispararse a
  * los suyos (`tactics.ts`). Cuando la deducía por su cuenta, el día que
  * cambiara el radio la IA habría seguido jugando con la forma vieja sin que
  * nadie se enterase.
  */
-export function splashTargets(state: BattleState, target: BattleStack): BattleStack[] {
+export function splashTargets(
+  state: BattleState,
+  shooter: BattleStack,
+  target: BattleStack,
+): BattleStack[] {
   // "Pegado al objetivo" y "alcanza al objetivo cuerpo a cuerpo" son la misma
   // pregunta, así que se hace con la misma función.
   return state.stacks.filter(
-    (otro) => otro.id !== target.id && isAlive(otro) && canReachMelee(state, otro, target),
+    (otro) =>
+      otro.id !== target.id &&
+      otro.id !== shooter.id &&
+      isAlive(otro) &&
+      canReachMelee(state, otro, target),
   );
 }
 
@@ -2919,10 +2923,6 @@ export function splashTargets(state: BattleState, target: BattleStack): BattleSt
  * La salpicadura del liche. Se reparte el daño YA calculado, sin volver a
  * tirar: una tirada por disparo mantiene los tests legibles y la semilla
  * estable.
- *
- * El tirador nunca se salpica a sí mismo: con el disparo diferido puede acabar
- * pegado a lo que alcanza (alguien se le puso al lado mientras esperaba), y se
- * salta.
  */
 function splash(
   state: BattleState,
@@ -2931,8 +2931,7 @@ function splash(
   at: Hex,
   damage: number,
 ): void {
-  for (const otro of splashTargets(state, target)) {
-    if (otro.id === shooter.id) continue;
+  for (const otro of splashTargets(state, shooter, target)) {
     const herida = herir(otro, damage, shooter);
     state.log.push({
       kind: 'shoot',
@@ -3260,10 +3259,13 @@ export function previsionDe(state: BattleState, accion: BattleAction): Prevision
       if (motivo !== null) throw new Error(motivo);
       const { alcanzado } = lineaDelDisparo(state, s, accion.at);
       if (alcanzado === null) return null;
-      return previsionDeGolpe(state, s, alcanzado, 'disparo', {
-        ranged: true,
-        cuarto: cuartoDelDisparo(hexDistance(alcanzado.hex, accion.at)),
-      });
+      return previsionDeGolpe(
+        state,
+        s,
+        alcanzado,
+        'disparo',
+        extraDelDisparo(alcanzado, accion.at),
+      );
     }
     case 'cast': {
       if (accion.target === undefined) throw new Error('el hechizo necesita un objetivo');
@@ -3331,15 +3333,10 @@ function previsionDeGolpe(
     bajas: { min: t.count - conMenos.count, max: t.count - conMas.count },
     leQuedan: { min: vida(conMas), max: vida(conMenos) },
     modificadores: h.modificadores,
-    contraataque:
-      kind === 'golpe'
-        ? previsionDelContraataque(state, a, t, h, tras, golpe, extra.chargeHexes ?? 0)
-        : null,
+    contraataque: kind === 'golpe' ? previsionDelContraataque(state, a, t, h, tras, golpe) : null,
     salpica:
       kind === 'disparo' && hasTrait(a.unit, 'splash_shot')
-        ? splashTargets(state, t)
-            .filter((x) => x.id !== a.id)
-            .map((x) => x.id)
+        ? splashTargets(state, a, t).map((x) => x.id)
         : [],
   };
 }
@@ -3387,7 +3384,6 @@ function previsionDelContraataque(
   h: ReturnType<typeof horquillaDeDanio>,
   tras: (d: number) => { count: number; topHp: number },
   golpe: GolpeEnLaRueda | null,
-  carga: number,
 ): PrevisionDeContraataque | null {
   if (!devolveraElGolpe(state, a, t)) return null;
   // Con suerte el golpe puede quitar más, o menos, que sin ella.
@@ -3403,9 +3399,8 @@ function previsionDelContraataque(
     if (hasTrait(a.unit, trait)) colgarEfecto(conLoDelGolpe, effect);
   }
   // Lo de la rueda que el golpe deja a `a` (quien pega o el atacado), en el punto
-  // `p` del cruce, con el arma de su primer golpe, sobre una copia.
-  const rueda =
-    golpe === null ? null : { ...golpe, cifras: ruedaDelIntercambio(state, a, t, carga) };
+  // `p` del cruce, con su arma de cuerpo a cuerpo, sobre una copia.
+  const rueda = golpe === null ? null : { ...golpe, cifras: ruedaDelIntercambio(a) };
   const conLaRueda = (x: BattleStack, p: Punto, para: EfectoDeLaRueda['a']): BattleStack => {
     const suyos =
       rueda === null
@@ -3488,9 +3483,9 @@ export function previsionDeLaRueda(
    */
   readonly carga: string | null;
   /**
-   * Las cifras de la rueda con el arma de quien elige (`ruedaDelIntercambio`: al
-   * golpear, la de su primer golpe; al responder, la de cuerpo a cuerpo): con
-   * ellas se dicen las notas de los sectores (`efectoDeGolpe`).
+   * Las cifras de la rueda con el arma de cuerpo a cuerpo de quien elige
+   * (`ruedaDelIntercambio`): con ellas se dicen las notas de los sectores
+   * (`efectoDeGolpe`).
    */
   readonly rueda: CifrasDeLaRueda;
   /**
@@ -3511,14 +3506,11 @@ export function previsionDeLaRueda(
   // Si el objetivo no devolverá el golpe, lo dicen las notas de las dos fases;
   // quien responde, además, no tiene daño que ver.
   const sinContraataque = contraataqueBlocker(state, desdeAhi, target);
-  const rueda = ruedaDelIntercambio(state, quien, contra, papel === 'golpe' ? carga : 0);
+  const rueda = ruedaDelIntercambio(quien);
   const forma = formaDeLaBatalla(state);
   // Los niveles son siempre del arma de quien pega, también en la respuesta: lo que
-  // se teme del golpe que viene (el mismo uso que su primer golpe, con su carga).
-  const niveles = nivelesEnLaForma(
-    nivelesDelGolpe(desdeAhi.unit, usoDelIntercambio(state, desdeAhi, target, carga)),
-    forma,
-  );
+  // se teme del golpe que viene.
+  const niveles = nivelesEnLaForma(nivelesDelGolpe(desdeAhi.unit, 'arma'), forma);
   if (papel === 'respuesta' && sinContraataque !== null) {
     return { porTipo: null, sinContraataque, contraataque: null, carga: null, rueda, niveles };
   }
@@ -3537,7 +3529,6 @@ export function previsionDeLaRueda(
     const h = horquillaDeDanio(
       quien,
       contra,
-      // Las mismas opciones que contó `rueda`: el arma del primer golpe.
       conElGolpe(opciones, quien.unit, sector, papel, forma, rueda),
     );
     const golpes = golpesDe(quien.unit, tipo, devuelve);

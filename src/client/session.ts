@@ -370,6 +370,21 @@ export interface Apuntado {
 }
 
 /**
+ * Cómo se nombra lo apuntado en una frase: el hechizo, el poder o el disparo. Sin
+ * él, el disparo se buscaba entre los poderes con el id de su tirador.
+ */
+function nombreDeLoApuntado(a: Apuntado): string {
+  switch (a.kind) {
+    case 'hechizo':
+      return spell(a.id).name;
+    case 'poder':
+      return poder(a.id).nombre;
+    case 'disparo':
+      return 'el disparo';
+  }
+}
+
+/**
  * ¿Es `a` una jugada de lo apuntado (sobre `objetivo`, si se dice)? El disparo no
  * va sobre una unidad sino sobre una casilla: con `objetivo`, nunca.
  */
@@ -3084,7 +3099,7 @@ export class SesionDeArena implements ControlDeBatalla {
     const a = this.apuntado;
     if (a === null || this.battleLegalActions().some((x) => esDeLoApuntado(a, x))) return null;
     this.apuntados.soltar();
-    return a.kind === 'hechizo' ? spell(a.id).name : poder(a.id).nombre;
+    return nombreDeLoApuntado(a);
   }
 
   /**

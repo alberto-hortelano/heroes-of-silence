@@ -26,6 +26,7 @@ import {
   type Movibles,
   medirCargas,
   opcionesDeDanio,
+  opcionesDelDisparo,
   pasosQueQuedan,
   seHaMovido,
   splashTargets,
@@ -873,8 +874,12 @@ function decideAccion(
   const puerta = puertaDelDefensor(state, s, acciones);
   if (puerta !== null) return puerta;
 
+  // A quién tira limpio hoy (`aTiroLimpio`), una vez: lo leen el tirador de la
+  // muralla y el disparo de abajo.
+  const aTiro = aTiroLimpio(state, s, acciones, enemigos);
+
   // Con muralla, el tirador que defiende sube a ella antes que nada.
-  const alMuro = tiradorAlMuro(state, s, acciones, costes);
+  const alMuro = tiradorAlMuro(state, s, acciones, costes, aTiro);
   if (alMuro !== null) return alMuro;
 
   // Un poder (arena: curar, bendecir), si rinde más que el golpe que tiene a mano.
@@ -885,7 +890,6 @@ function decideAccion(
   // (25-10-2026) da al primero de la recta, aunque sea suyo, así que solo vale el
   // enemigo que es ese primero (`aTiroLimpio`). Apunta a su casilla, que es donde
   // más daño hace si no se mueve. Tras moverse la lista no trae ningún `aim`.
-  const aTiro = aTiroLimpio(state, s, acciones, enemigos);
   if (aTiro.length > 0) {
     // El liche salpica todo lo pegado al alcanzado, aliados incluidos. Eso es
     // legal —y `legalActions` lo sigue ofreciendo, porque filtrarlo sería
@@ -894,9 +898,9 @@ function decideAccion(
     if (hasTrait(s.unit, 'splash_shot')) {
       // A quién alcanza la salpicadura lo dice el motor, no una copia de la
       // regla aquí: si mañana cambia el radio, la IA no se queda jugando con la
-      // forma vieja. El propio tirador no se salpica (`splash`).
+      // forma vieja.
       const aliadosSalpicados = (objetivo: BattleStack): number =>
-        splashTargets(state, objetivo).filter((o) => o.side === s.side && o.id !== s.id).length;
+        splashTargets(state, s, objetivo).filter((o) => o.side === s.side).length;
 
       // Se puntúa una vez por enemigo y se elige el mínimo. Sin `rng`: esto no
       // se sortea.
@@ -905,7 +909,9 @@ function decideAccion(
       candidatos = coste.filter((c) => c.aliados === minimo).map((c) => c.enemigo);
     }
 
-    const objetivo = bestTarget(state, s, candidatos, () => ({ ranged: true, cuarto: 4 }));
+    const objetivo = bestTarget(state, s, candidatos, (e) =>
+      opcionesDelDisparo(state, s, e, e.hex),
+    );
     if (objetivo !== null) return { type: 'aim', at: objetivo.hex };
   }
 
@@ -1019,13 +1025,15 @@ function mejorMovimiento(
  * que tiene al pie. Arriba y sin moverse, dispara por la rama de siempre.
  *
  * `null` si no es un tirador con flechas del defensor, o si no hay muro al que
- * llegar (sin muralla, nunca lo hay): entonces juega como siempre.
+ * llegar (sin muralla, nunca lo hay): entonces juega como siempre. `aTiro`, a
+ * quién tira limpio hoy (`aTiroLimpio`).
  */
 function tiradorAlMuro(
   state: BattleState,
   s: BattleStack,
   acciones: readonly BattleAction[],
   costes: ReadonlyMap<string, Paso>,
+  aTiro: readonly BattleStack[],
 ): BattleAction | null {
   if (s.side !== 'defender' || !isShooter(s.unit)) return null;
   if (enLoAlto(state, s)) {
@@ -1042,7 +1050,7 @@ function tiradorAlMuro(
   // cierra nadie de fuera es «a mano», y el arquero lento se quedaba
   // defendiéndose en su esquina (la batalla del test de la línea recta, entera
   // a `defend` hasta el tope de rondas).
-  if (aTiroLimpio(state, s, acciones, enemiesOf(state, s)).length > 0) return null;
+  if (aTiro.length > 0) return null;
   const cerradas = cerradasPara(state, s);
   const libres = state.muralla.muros.filter((m) => !cerradas.has(hexKey(m)));
   if (libres.length === 0) return null;

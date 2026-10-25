@@ -20,9 +20,9 @@
 import { SPEED_TIERS, SPEED_TO_HEXES, type SpeedTier, type UnitInfo } from './types.js';
 
 /** La agilidad efectiva no baja de aquí, pese lo que pese. */
-export const AGILIDAD_MINIMA = 1;
+const AGILIDAD_MINIMA = 1;
 
-export const CASILLAS_MIN = Math.min(...SPEED_TIERS.map((t) => SPEED_TO_HEXES[t]));
+const CASILLAS_MIN = Math.min(...SPEED_TIERS.map((t) => SPEED_TO_HEXES[t]));
 export const CASILLAS_MAX = Math.max(...SPEED_TIERS.map((t) => SPEED_TO_HEXES[t]));
 
 /**
@@ -43,6 +43,20 @@ export function agilidadEfectiva(agilidad: number, fuerza: number, peso: number)
 }
 
 /**
+ * La agilidad con que pelea `u`, ya vestida: la de su cuerpo menos lo que le resta
+ * lo que pesa todo lo puesto (`UnitInfo.peso`, que escribe `conEquipo`). La leen
+ * el contrato del agente y la ficha de la arena.
+ */
+export function agilidadDe(u: Pick<UnitInfo, 'agilidad' | 'fuerza' | 'peso'>): number {
+  return agilidadEfectiva(u.agilidad, u.fuerza, u.peso ?? 0);
+}
+
+/** Lo que le resta a la agilidad de `u`, ya vestida, lo que pesa todo lo puesto (`restaDelPeso`). */
+export function restaDelPesoDe(u: Pick<UnitInfo, 'fuerza' | 'peso'>): number {
+  return restaDelPeso(u.fuerza, u.peso ?? 0);
+}
+
+/**
  * El escalón del motor que mueve `n` casillas: la inversa de `SPEED_TO_HEXES`,
  * que es una biyección (1 a 7). La ÚNICA traducción de casillas a escalón; lo que
  * no es un escalón se rechaza diciendo cuáles valen.
@@ -56,34 +70,33 @@ export function escalonDeCasillas(n: number): SpeedTier {
 }
 
 /** El daño de un golpe con la fuerza `fuerza` (la del cuerpo y la del arma) y la agilidad efectiva `agilidad`. */
-export function danioDeLaFuerza(fuerza: number, agilidad: number): readonly [number, number] {
+function danioDeLaFuerza(fuerza: number, agilidad: number): readonly [number, number] {
   return [fuerza, fuerza * agilidad];
 }
 
 /** Las cifras primitivas de un cuerpo: de ellas y del equipo sale lo demás. */
-export type Primitivas = Pick<UnitInfo, 'fuerza' | 'agilidad' | 'defensaPropia'>;
+type Primitivas = Pick<UnitInfo, 'fuerza' | 'agilidad' | 'defensaPropia'>;
 
 /** Lo que el equipo pone en la cuenta: lo que pesa todo, la fuerza del arma del golpe y la defensa del escudo. */
-export interface LoQuePoneElEquipo {
+interface LoQuePoneElEquipo {
   readonly peso: number;
   readonly fuerzaDelArma: number;
   readonly defensaDelEscudo: number;
 }
 
 /** Sin equipo. */
-export const SIN_EQUIPO: LoQuePoneElEquipo = { peso: 0, fuerzaDelArma: 0, defensaDelEscudo: 0 };
+const SIN_EQUIPO: LoQuePoneElEquipo = { peso: 0, fuerzaDelArma: 0, defensaDelEscudo: 0 };
 
-/** Las derivadas de un cuerpo y su agilidad efectiva (la que lee el golpe a distancia). */
-export interface CifrasDerivadas {
+/** Las derivadas de un cuerpo. */
+interface CifrasDerivadas {
   readonly defense: number;
   readonly damage: readonly [number, number];
   readonly speed: SpeedTier;
-  readonly agilidadEfectiva: number;
 }
 
 /**
- * **Las cifras derivadas de un cuerpo con su equipo**: la defensa, el daño de
- * cuerpo a cuerpo, el escalón de velocidad y la agilidad efectiva. La única
+ * **Las cifras derivadas de un cuerpo con su equipo**: la defensa, el daño (con la
+ * fuerza del arma de ese golpe) y el escalón de velocidad. La única
  * cuenta; la leen el cuerpo desnudo (la unidad, el héroe, el personaje, el rango)
  * y el vestido (`conEquipo`).
  */
@@ -96,7 +109,6 @@ export function cifrasDelCuerpo(
     defense: ag + eq.defensaDelEscudo + c.defensaPropia,
     damage: danioDeLaFuerza(c.fuerza + eq.fuerzaDelArma, ag),
     speed: escalonDeCasillas(Math.min(ag, CASILLAS_MAX)),
-    agilidadEfectiva: ag,
   };
 }
 

@@ -13,6 +13,7 @@
  * instante, del animador.
  */
 import {
+  activeStack,
   type CasillaDeCarga,
   isAlive,
   type LineaDelDisparo,
@@ -426,6 +427,35 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
   ctx.restore();
 }
 
+/** Una recta del disparo diferido que se pinta, de qué bando y si se tantea. */
+interface LineaPintada {
+  readonly l: LineaDelDisparo;
+  readonly side: Side;
+  readonly tanteo: boolean;
+}
+
+/**
+ * Las rectas de lo apuntado (`BattleStack.apuntado`) en `battle`, recordadas por la
+ * batalla y lo largo de su registro: solo cambian con una jugada, y se pintan en
+ * cada fotograma.
+ */
+function lineasApuntadas(battle: BattleState): readonly LineaPintada[] {
+  const r = rectasApuntadas;
+  if (r !== null && r.battle === battle && r.largo === battle.log.length) return r.lineas;
+  const lineas = battle.stacks.flatMap((s): LineaPintada[] =>
+    !isAlive(s) || s.apuntado === null
+      ? []
+      : [{ l: lineaDelDisparo(battle, s, s.apuntado), side: s.side, tanteo: false }],
+  );
+  rectasApuntadas = { battle, largo: battle.log.length, lineas };
+  return lineas;
+}
+let rectasApuntadas: {
+  readonly battle: BattleState;
+  readonly largo: number;
+  readonly lineas: readonly LineaPintada[];
+} | null = null;
+
 /**
  * Los disparos diferidos en el suelo (25-10-2026): de cada tirador con algo
  * apuntado (`BattleStack.apuntado`), la recta de hoy hasta donde llega
@@ -436,15 +466,9 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
  */
 function pintarDisparos(ctx: CanvasRenderingContext2D, v: VistaBatalla): void {
   const { battle, tablero } = v;
-  const lineas: { readonly l: LineaDelDisparo; readonly side: Side; readonly tanteo: boolean }[] =
-    [];
-  for (const s of battle.stacks) {
-    if (!isAlive(s) || s.apuntado === null) continue;
-    lineas.push({ l: lineaDelDisparo(battle, s, s.apuntado), side: s.side, tanteo: false });
-  }
-  const activa =
-    battle.turno === null ? undefined : battle.stacks.find((x) => x.id === battle.turno?.stack);
-  if (v.tanteo !== null && activa !== undefined) {
+  const lineas: LineaPintada[] = [...lineasApuntadas(battle)];
+  const activa = activeStack(battle);
+  if (v.tanteo !== null && activa !== null) {
     lineas.push({ l: v.tanteo, side: activa.side, tanteo: true });
   }
   if (lineas.length === 0) return;

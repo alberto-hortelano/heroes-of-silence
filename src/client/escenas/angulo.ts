@@ -107,8 +107,7 @@ export function golpeEnPixel(
   | { readonly opciones: readonly OpcionDeGolpe[]; readonly elegida: OpcionDeGolpe }
   | undefined {
   const disparo = acciones.find(
-    (a): a is Disparo =>
-      a.type === 'aim' && a.at.col === hexDelObjetivo.col && a.at.row === hexDelObjetivo.row,
+    (a): a is Disparo => a.type === 'aim' && hexEquals(a.at, hexDelObjetivo),
   );
   if (disparo !== undefined) return { disparo };
   const opciones = opcionesDeGolpe(acciones, objetivo, hexActual);

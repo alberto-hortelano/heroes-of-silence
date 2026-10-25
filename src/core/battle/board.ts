@@ -311,9 +311,28 @@ const ESPEJO_DEL_EMPUJON: Empujon = [EMPUJON_DEL_RAYO[2], EMPUJON_DEL_RAYO[1], E
  * el del defensor con el espejo, así que un disparo y su espejo van espejados
  * (25-10-2026). Si en un empate de borde ese rayo cae fuera del tablero, va el
  * otro: el disparo no sale por el marco. La leen el disparo, la IA y lo que se
- * pinta (`primeroEnLaLinea`, `battle.ts`).
+ * pinta (`lineaDelDisparo`, `battle.ts`).
  */
-export function lineaDeTiro(desde: Hex, hasta: Hex, side: Side): Hex[] {
+export function lineaDeTiro(desde: Hex, hasta: Hex, side: Side): readonly Hex[] {
+  // Geometría pura de las dos casillas y el bando: se recuerda por el par
+  // (`codigoDeLado`), que el pintado y la IA la piden muchas veces por jugada.
+  if (!isInside(desde) || !isInside(hasta)) return trazarLaRecta(desde, hasta, side);
+  const memo = RECTAS_DE_TIRO[side];
+  const clave = codigoDeLado(indiceDe(desde), indiceDe(hasta));
+  const hecha = memo.get(clave);
+  if (hecha !== undefined) return hecha;
+  const recta = Object.freeze(trazarLaRecta(desde, hasta, side));
+  memo.set(clave, recta);
+  return recta;
+}
+
+/** Las rectas ya trazadas de `lineaDeTiro`, por bando y par de casillas. */
+const RECTAS_DE_TIRO: Readonly<Record<Side, Map<number, readonly Hex[]>>> = {
+  attacker: new Map(),
+  defender: new Map(),
+};
+
+function trazarLaRecta(desde: Hex, hasta: Hex, side: Side): Hex[] {
   const n = hexDistance(desde, hasta);
   if (n === 0) return [];
   const a = toCube(desde);
@@ -329,7 +348,8 @@ export function lineaDeTiro(desde: Hex, hasta: Hex, side: Side): Hex[] {
       if (!isInside(h)) return null;
       out.push(h);
     }
-    out.push(hasta);
+    // Una copia: la recta se recuerda y la casilla pedida es de quien la pidió.
+    out.push({ col: hasta.col, row: hasta.row });
     return out;
   };
   const [primero, segundo] =

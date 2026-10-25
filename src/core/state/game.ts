@@ -124,7 +124,7 @@ import {
   townSpells,
 } from '../town/town.js';
 import type { Army, Controller, FactionId, PlayerId, Point, Troop, Veterania } from '../types.js';
-import { enumerar, type Hueco, huecosDeLaPieza, NOMBRE_DE_HUECO } from '../types.js';
+import { enumerar, type Hueco } from '../types.js';
 import {
   type AsaltanteRecordado,
   casillasPeligrosas,
@@ -1839,13 +1839,7 @@ export function ponerseBlocker(
   id: string,
   hueco?: Hueco,
 ): string | null {
-  const p = pieza(id);
-  const en = hueco ?? p.hueco;
-  // Un hueco que no es de la pieza, dicho antes de mirar las manos: «Escudo va en
-  // Escudo, no en Segunda arma».
-  if (!huecosDeLaPieza(p.hueco).includes(en)) {
-    return `${p.nombre} va en ${NOMBRE_DE_HUECO[p.hueco]}, no en ${NOMBRE_DE_HUECO[en]}`;
-  }
+  const en = hueco ?? pieza(id).hueco;
   const llevaria = equipoPuestoDe(hero, quien, { ...equipoDe(hero, quien), [en]: id });
   return equipoDelPortadorBlocker(
     nombreDelPortador(hero, quien),

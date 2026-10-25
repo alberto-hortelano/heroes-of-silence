@@ -22,7 +22,7 @@
  */
 
 import { CARGA, CARGA_MINIMA } from '../battle/carga.js';
-import { cifrasDelCuerpo, danioDeLaFuerza } from '../cuerpo.js';
+import { cifrasDelCuerpo } from '../cuerpo.js';
 import {
   DICHO_DE_DONDE,
   EQUIPO,
@@ -53,8 +53,8 @@ import {
   esHueco,
   HUECOS,
   HUECOS_DE_CUERPO_A_CUERPO,
+  huecoBlocker,
   huecoDesconocido,
-  huecosDeLaPieza,
   NOMBRE_DE_CIFRA,
   NOMBRE_DE_HUECO,
   TIPOS_DEL_ANILLO,
@@ -315,40 +315,26 @@ export function sumaDeEquipo(equipo: Equipo | undefined): SumaDeEquipo {
 
 /**
  * La suma, **clasificada por la clave del hueco en `equipo`**, no por el hueco
- * que dice la pieza: con un equipo válido es lo mismo. El ataque y la fuerza de un
- * arma por uso (`esArmaPorUso`) no suman aquí, que son los de su golpe
- * (`armasPorUso`); los de las dos de cuerpo a cuerpo tampoco se suman: cuenta la
- * mejor en cada cifra (25-10-2026, «se usa la característica de la mejor en cada
- * tipo de ataque»). Lo demás de cualquier pieza —defensa, armadura, peso—, siempre.
+ * que dice la pieza: con un equipo válido es lo mismo. El ataque y la fuerza son
+ * solo de las armas de cuerpo a cuerpo (las demás piezas no los llevan,
+ * `camposDelHueco`; los de un arma por uso, `esArmaPorUso`, son de su golpe,
+ * `armasPorUso`), y de las dos no se suman: cuenta la mejor en cada cifra
+ * (25-10-2026, «se usa la característica de la mejor en cada tipo de ataque»). Lo
+ * demás de cualquier pieza —defensa, armadura, peso—, siempre.
  */
 function sumaDe(piezas: CatalogoDePiezas, equipo: Equipo | undefined): SumaDeEquipo {
-  let ataque = 0;
-  let fuerza = 0;
   let defensa = 0;
   let armadura = 0;
   let peso = 0;
-  for (const hueco of HUECOS) {
-    const id = equipo?.[hueco];
-    if (id === undefined) continue;
-    const p = piezaDe(piezas, id);
+  for (const p of puestasDe(piezas, equipo)) {
     defensa += p.defensa;
     armadura += p.armadura ?? 0;
     peso += p.peso;
-    if (esArmaPorUso(hueco) || esDeCuerpoACuerpo(hueco)) continue;
-    ataque += p.ataque;
-    fuerza += p.fuerza ?? 0;
   }
   const armas = deCuerpoACuerpo(piezas, equipo);
-  for (const p of armas) {
-    ataque = Math.max(ataque, p.ataque);
-    fuerza = Math.max(fuerza, p.fuerza ?? 0);
-  }
+  const ataque = Math.max(0, ...armas.map((p) => p.ataque));
+  const fuerza = Math.max(0, ...armas.map((p) => p.fuerza ?? 0));
   return { ataque, fuerza, defensa, armadura, peso };
-}
-
-/** Si `h` es uno de los dos huecos de cuerpo a cuerpo (`HUECOS_DE_CUERPO_A_CUERPO`). */
-function esDeCuerpoACuerpo(h: Hueco): boolean {
-  return (HUECOS_DE_CUERPO_A_CUERPO as readonly Hueco[]).includes(h);
 }
 
 /** Las armas de cuerpo a cuerpo puestas en `equipo`: ninguna, una o dos, en el orden de sus huecos. */
@@ -419,7 +405,7 @@ function vestir<U extends UnitInfo>(
     ...(total.peso > 0 ? { peso: total.peso } : {}),
     equipo: todo,
   };
-  const armas = armasPorUso(piezas, vestida, todo, derivadas.agilidadEfectiva);
+  const armas = armasPorUso(piezas, vestida, todo, total);
   return armas === null ? vestida : { ...vestida, armas };
 }
 
@@ -437,7 +423,7 @@ function armasPorUso(
   piezas: CatalogoDePiezas,
   vestida: UnitInfo,
   todo: Equipo,
-  agilidad: number,
+  total: SumaDeEquipo,
 ): ArmasDeLaUnidad | null {
   const delCuerpo = deCuerpoACuerpo(piezas, todo);
   const porUso = HUECOS.filter(
@@ -457,16 +443,20 @@ function armasPorUso(
       ...(rueda === undefined ? {} : { rueda }),
     },
   };
-  const ataqueDeCuerpo = Math.max(0, ...delCuerpo.map((p) => p.ataque));
   for (const hueco of porUso) {
     const id = todo[hueco] as string;
     const p = piezaDe(piezas, id);
     armas[hueco] = {
       piezas: [nombreDeLaPieza(p)],
-      attack: vestida.attack - ataqueDeCuerpo + p.ataque,
-      // La fuerza del cuerpo con la de esta arma, por la agilidad que le deja
-      // el peso: la misma cuenta que el golpe de cuerpo a cuerpo.
-      damage: danioDeLaFuerza(vestida.fuerza + (p.fuerza ?? 0), agilidad),
+      attack: vestida.attack - total.ataque + p.ataque,
+      // El cuerpo con todo lo puesto y la fuerza de esta arma en lugar de la de
+      // cuerpo a cuerpo: la misma cuenta que el golpe de arriba (las primitivas de
+      // `vestida` son las del cuerpo).
+      damage: cifrasDelCuerpo(vestida, {
+        peso: total.peso,
+        fuerzaDelArma: p.fuerza ?? 0,
+        defensaDelEscudo: total.defensa,
+      }).damage,
     };
   }
   return armas;
@@ -576,9 +566,8 @@ function manosDe(
 ): string | null {
   const p = piezaDe(piezas, id);
   const hueco = enHueco ?? p.hueco;
-  if (!huecosDeLaPieza(p.hueco).includes(hueco)) {
-    return `${p.nombre} va en ${NOMBRE_DE_HUECO[p.hueco]}, no en ${NOMBRE_DE_HUECO[hueco]}`;
-  }
+  const fuera = huecoBlocker(p, hueco);
+  if (fuera !== null) return fuera;
   const resto: Equipo = { ...equipo, [hueco]: undefined };
   const de = (h: Hueco): Pieza | null => {
     const x = resto[h];
@@ -634,9 +623,8 @@ function equipoBlockerDe(piezas: CatalogoDePiezas, equipo: Equipo): string | nul
     if (id === undefined) continue;
     const p = piezas.get(id) ?? null;
     if (p === null) return `no existe ninguna pieza "${id}"`;
-    if (!huecosDeLaPieza(p.hueco).includes(hueco)) {
-      return `${p.nombre} va en ${NOMBRE_DE_HUECO[p.hueco]}, no en ${NOMBRE_DE_HUECO[hueco]}`;
-    }
+    const fuera = huecoBlocker(p, hueco);
+    if (fuera !== null) return fuera;
   }
   for (const h of ['arma', 'segunda', 'escudo'] as const) {
     const id = equipo[h];

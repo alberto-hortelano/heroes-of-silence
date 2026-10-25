@@ -56,7 +56,13 @@ import {
   NOMBRE_DE_HUECO,
   TIPOS_DEL_ANILLO,
 } from './types.js';
-import { esIdDePieza, esIdDeUnidad, revisarLista } from './validar.js';
+import {
+  enteroBlocker,
+  esIdDePieza,
+  esIdDeUnidad,
+  problemasDeObjeto,
+  revisarLista,
+} from './validar.js';
 
 /**
  * Un entero que se puede sumar sin perder bits, y ≥ `desde`. Es la única forma
@@ -191,28 +197,27 @@ function equipoBaseDelHeroe(valor: unknown): Equipo {
  * `velocidad`) no vale: la fuerza y la agilidad lo sustituyen (25-10-2026).
  */
 function combateDelHeroe(c: unknown): ReglasDelHeroe['combate'] {
-  const j = (c ?? {}) as Record<string, unknown>;
-  const problemas: string[] = [];
   const campos = ['pv', 'fuerza', 'agilidad', 'ataquePorRango', 'defensaPorRango'];
-  for (const k of Object.keys(j).filter((k) => !campos.includes(k))) {
-    problemas.push(`combate.${k} no es un campo del cuerpo del héroe; valen ${campos.join(', ')}`);
-  }
+  const problemas = problemasDeObjeto(c, campos).map((p) => `combate: ${p}`);
+  const j = (c ?? {}) as Record<string, unknown>;
+  const entero = (ruta: string, v: unknown, desde: number): void => {
+    const motivo = enteroBlocker(v, desde);
+    if (motivo !== null) problemas.push(`combate.${ruta} ${motivo}`);
+  };
   const conRango = (k: string, desde: number): { base: number; porRango: number } => {
+    problemas.push(
+      ...problemasDeObjeto(j[k], ['base', 'porRango']).map((p) => `combate.${k}: ${p}`),
+    );
     const v = (j[k] ?? {}) as Record<string, unknown>;
-    if (!enteroDesde(v.base, desde) || !enteroDesde(v.porRango, 0)) {
-      problemas.push(
-        `combate.${k} tiene que ser { base: entero ≥ ${desde}, porRango: entero ≥ 0 }`,
-      );
-    }
+    entero(`${k}.base`, v.base, desde);
+    entero(`${k}.porRango`, v.porRango, 0);
     return { base: v.base as number, porRango: v.porRango as number };
   };
   const pv = conRango('pv', 1);
   const fuerza = conRango('fuerza', 1);
-  for (const k of ['agilidad', 'ataquePorRango', 'defensaPorRango'] as const) {
-    if (!enteroDesde(j[k], k === 'agilidad' ? 1 : 0)) {
-      problemas.push(`combate.${k} tiene que ser un entero y es ${String(j[k])}`);
-    }
-  }
+  entero('agilidad', j.agilidad, 1);
+  entero('ataquePorRango', j.ataquePorRango, 0);
+  entero('defensaPorRango', j.defensaPorRango, 0);
   if (problemas.length > 0) throw new Error(`data/heroe.json: ${problemas.join('; ')}`);
   return {
     pv,
@@ -384,19 +389,12 @@ export function validarExperiencia(
       }
     }
   }
-  const por = (j.porRango ?? {}) as Record<string, unknown>;
   const CAMPOS_POR_RANGO = ['ataque', 'fuerza', 'agilidad'] as const;
+  problemas.push(...problemasDeObjeto(j.porRango, CAMPOS_POR_RANGO).map((p) => `porRango: ${p}`));
+  const por = (j.porRango ?? {}) as Record<string, unknown>;
   for (const campo of CAMPOS_POR_RANGO) {
-    if (!enteroDesde(por[campo], 0)) {
-      problemas.push(`porRango.${campo} tiene que ser un entero ≥ 0 y es ${por[campo]}`);
-    }
-  }
-  for (const k of Object.keys(por).filter(
-    (k) => !(CAMPOS_POR_RANGO as readonly string[]).includes(k),
-  )) {
-    problemas.push(
-      `porRango.${k} no es una cifra que suba con el rango; valen ${CAMPOS_POR_RANGO.join(', ')}`,
-    );
+    const motivo = enteroBlocker(por[campo], 0);
+    if (motivo !== null) problemas.push(`porRango.${campo} ${motivo}`);
   }
   const ajeno = Object.keys(j).find(
     (k) => !['_comment', 'base', 'incrementos', 'rangoMaximoDeTropa', 'porRango'].includes(k),

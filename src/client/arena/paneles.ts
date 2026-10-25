@@ -66,7 +66,7 @@ import {
 import { allSpells } from '@core/battle/spells.js';
 import type { BattleStack, BattleState, TipoDeEscala, TipoDePuerta } from '@core/battle/types.js';
 import { costeDeUnaUnidad } from '@core/catalogo.js';
-import { agilidadEfectiva, CASILLAS_MAX, restaDelPeso } from '@core/cuerpo.js';
+import { agilidadDe, CASILLAS_MAX, restaDelPesoDe } from '@core/cuerpo.js';
 import {
   ARMADURA_MAXIMA_DE_PIEZA,
   type ExtrasDePieza,
@@ -91,6 +91,7 @@ import {
   REGLA_DEL_ESCUDO,
   SIN_ARMA,
   seVende,
+  textoDeModificador,
 } from '@core/hero/equipo.js';
 import {
   type CifraDePieza,
@@ -844,7 +845,7 @@ function filasDeUnidad(
       'agilidad',
       NOMBRE_DE_CIFRA.agilidad,
       escrito.agilidad,
-      agilidadDeLaFicha(final),
+      agilidadDe(final),
       AGILIDAD_DEL_CUERPO_MIN,
       {
         nota: 'De ella salen la defensa, el daño máximo (fuerza × agilidad) y las casillas; la final, con lo que le resta el peso.',
@@ -856,11 +857,6 @@ function filasDeUnidad(
   ];
 }
 
-/** La agilidad con que pelea `u`: la de su cuerpo menos lo que le resta el peso (`agilidadEfectiva`). */
-function agilidadDeLaFicha(u: UnitInfo): number {
-  return agilidadEfectiva(u.agilidad, u.fuerza, u.peso ?? 0);
-}
-
 /**
  * Las filas de lo que se deriva del cuerpo y el equipo, sin casilla (25-10-2026,
  * `cifrasDelCuerpo`): la defensa, la armadura, el daño de cuerpo a cuerpo, las
@@ -870,7 +866,7 @@ function agilidadDeLaFicha(u: UnitInfo): number {
  */
 function filasDerivadas(final: UnitInfo, cuerpo: UnitInfo | null): FilaDeCifra[] {
   const peso = final.peso ?? 0;
-  const resta = restaDelPeso(final.fuerza, peso);
+  const resta = restaDelPesoDe(final);
   const danio = (u: UnitInfo): string => `${u.damage[0]}–${u.damage[1]}`;
   return [
     {
@@ -1240,7 +1236,7 @@ export function renderFichaDeHeroe(
             'Su maná: 10 por punto.',
           ),
           delCuerpo('fuerza', NOMBRE_DE_CIFRA.fuerza, c.fuerza),
-          delCuerpo('agilidad', NOMBRE_DE_CIFRA.agilidad, agilidadDeLaFicha(c)),
+          delCuerpo('agilidad', NOMBRE_DE_CIFRA.agilidad, agilidadDe(c)),
           delCuerpo('hp', NOMBRE_DE_CIFRA.pv, c.hp),
           ...filasDerivadas(c, null).filter((f) => f.clave !== 'defensa'),
         ],
@@ -1769,14 +1765,11 @@ function delEquipo(u: UnitInfo, cuerpo: UnitInfo | null, cifra: CifraQueCambiaEl
   if (cuerpo === null || u.equipo === undefined) return NADA;
   let dicho: string | null;
   switch (cifra) {
-    case 'ataque': {
-      const d = u.attack - cuerpo.attack;
-      dicho = d === 0 ? null : `${conSigno(d)} ${NOMBRE_DE_CIFRA.ataque}`;
-      break;
-    }
+    case 'ataque':
     case 'defensa': {
-      const d = u.defense - cuerpo.defense;
-      dicho = d === 0 ? null : `${conSigno(d)} ${NOMBRE_DE_CIFRA.defensa}`;
+      // Las dos son cifras de pieza: dichas como su modificador (`textoDeModificador`).
+      const d = cifra === 'ataque' ? u.attack - cuerpo.attack : u.defense - cuerpo.defense;
+      dicho = d === 0 ? null : textoDeModificador({ kind: 'cifra', cifra, valor: d });
       break;
     }
     case 'casillas': {

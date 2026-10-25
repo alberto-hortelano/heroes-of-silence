@@ -326,7 +326,7 @@ export type BattleEvent =
   | { kind: 'aimed'; stack: string; at: Hex }
   /**
    * El disparo diferido sale de `stack` hacia `at` y da a `target`, el primero de
-   * la recta (`primeroEnLaLinea`), sea del bando que sea; `null` si la recta llega
+   * la recta (`lineaDelDisparo`), sea del bando que sea; `null` si la recta llega
    * a la casilla sin nadie o la para un muro (entonces `damage` y `killed` son 0).
    * La salpicadura va en otro `shoot` con `splash`, sobre el mismo `at`.
    */
@@ -566,7 +566,7 @@ export type BattleAction =
   /**
    * El tirador apunta a la casilla `at` y cierra su turno (`apuntarBlocker`): el
    * disparo sale al empezar su siguiente turno, desde donde esté, por la recta, y
-   * da al primero que encuentre (`primeroEnLaLinea`; 25-10-2026, regla nuestra).
+   * da al primero que encuentre (`lineaDelDisparo`; 25-10-2026, regla nuestra).
    */
   | { type: 'aim'; at: Hex }
   | { type: 'wait' }
