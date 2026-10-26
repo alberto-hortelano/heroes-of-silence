@@ -25,6 +25,7 @@ import {
   problemasDeNiveles,
 } from './battle/cifras-de-la-rueda.js';
 import { type GolpeDeReferencia, RUEDA_DE_REFERENCIA } from './battle/formas-de-la-rueda.js';
+import { AGILIDAD_DEL_CUERPO_MAX, AGILIDAD_DEL_CUERPO_MIN } from './cuerpo.js';
 import {
   BARRERAS,
   type Barrera,
@@ -876,10 +877,19 @@ export interface Pieza {
   /**
    * Lo que suma un arma a la fuerza de quien la lleva para el daño de su golpe
    * (25-10-2026: «daño mínimo es fuerza y daño máximo es fuerza × agilidad»,
-   * `cifrasDelCuerpo`); sin el campo, nada. Solo las armas (`camposDelHueco`).
-   * El peso no se compara con ella: con la fuerza del cuerpo.
+   * `cifrasDelCuerpo`); sin el campo, nada. Solo las armas y la montura
+   * (`camposDelHueco`). El peso no se compara con la de un arma: con la fuerza del
+   * cuerpo. **En una montura es otra cosa** (26-10-2026): lo que carga encima del
+   * jinete y lo que pone en la carga con lanza; no se suma a ningún daño.
    */
   readonly fuerza?: number;
+  /**
+   * La agilidad de una montura, de 2 a 7, como la de un cuerpo (26-10-2026): de ella,
+   * tras el peso, salen sus casillas (`cifrasDelCuerpo`, `marchaDe`). Solo en el
+   * hueco `montura`, y en él siempre. Lo leen solo `hero/equipo.ts` y `data.ts`
+   * (lo vigila `invariantes.test.ts`).
+   */
+  readonly agilidad?: number;
   /**
    * Lo que pesa (25-10-2026: «todo tiene un peso»): la suma de lo puesto que pase
    * de la fuerza del cuerpo resta agilidad (`restaDelPeso`, `core/cuerpo.ts`).
@@ -894,11 +904,19 @@ export interface Pieza {
   /**
    * Si es una lanza (25-10-2026, «la lanza de carga fuera, será una lanza y una
    * regla especial de la lanza cuando se carga montado»): un arma de cuerpo a cuerpo
-   * más, y quien carga con el rasgo `charge` y una lanza puesta cobra la carga del
-   * jinete (`cifrasDeCarga`). Solo en el hueco `arma`; sin el campo, no lo es. Lo
+   * más, y con una montura de guerra puesta su carga va con la fuerza de la montura
+   * más la de la lanza (`GolpeConArma.carga`, 26-10-2026). Solo en el hueco `arma`;
+   * sin el campo, no lo es. Lo
    * leen solo `hero/equipo.ts` y `data.ts` (lo vigila `invariantes.test.ts`).
    */
   readonly lanza?: true;
+  /**
+   * Si es una montura de guerra (26-10-2026): se monta en batalla, carga el peso y
+   * da las casillas; sin el campo, de silla, que solo sirve en el mapa. Solo en el
+   * hueco `montura`. Lo leen solo `hero/equipo.ts` y `data.ts` (lo vigila
+   * `invariantes.test.ts`).
+   */
+  readonly guerra?: true;
   /**
    * Su nivel en cada tipo del anillo de la rueda del golpe, de 0 a 6 (18-10-2026:
    * «una maza es mejor en ataque fuerte y peor en rápido»; los niveles, absolutos,
@@ -921,6 +939,7 @@ export interface Pieza {
 export interface ExtrasDePieza {
   readonly ataque?: number;
   readonly fuerza?: number;
+  readonly agilidad?: number;
   readonly defensa?: number;
   readonly armadura?: number;
   readonly peso?: number;
@@ -939,6 +958,7 @@ export interface ExtrasDePieza {
 const FORMA_DE_LOS_EXTRAS = {
   ataque: 'numero',
   fuerza: 'numero',
+  agilidad: 'numero',
   defensa: 'numero',
   armadura: 'numero',
   peso: 'numero',
@@ -1003,11 +1023,13 @@ export const CAMPOS_DE_PIEZA: readonly string[] = [
   'seConsigue',
   'ataque',
   'fuerza',
+  'agilidad',
   'defensa',
   'armadura',
   'peso',
   'manos',
   'lanza',
+  'guerra',
   'rueda',
   'precio',
 ];
@@ -1137,6 +1159,7 @@ export function problemasDePieza(bruta: unknown, quien?: string): string[] {
   if (p.fuerza !== undefined && !enteroDesde(p.fuerza, 0)) {
     problemas.push(`${q}: fuerza tiene que ser un entero ≥ 0 y ${comoSeLee(p.fuerza)}`);
   }
+  problemas.push(...problemasDeMontura(p, q));
   // Todo pesa (25-10-2026): el peso se escribe siempre, y nada resta movimiento.
   if (!enteroDesde(p.peso, 0)) {
     problemas.push(
@@ -1161,6 +1184,15 @@ export function problemasDePieza(bruta: unknown, quien?: string): string[] {
     } else if (campos?.conManos !== true) {
       problemas.push(
         `${q} va en el hueco ${p.hueco} y dice manos: solo un arma se lleva a dos manos`,
+      );
+    }
+  }
+  if (p.guerra !== undefined) {
+    if (p.guerra !== true) {
+      problemas.push(`${q}: guerra es true o no se escribe, y es ${String(p.guerra)}`);
+    } else if (p.hueco !== 'montura') {
+      problemas.push(
+        `${q} va en el hueco ${p.hueco} y dice que es de guerra: solo una montura lo es`,
       );
     }
   }
@@ -1196,6 +1228,43 @@ export function problemasDePieza(bruta: unknown, quien?: string): string[] {
         ? `${q} cuesta ${p.precio} de oro: tiene que ser un entero ≥ 0`
         : `${q}: el precio es lo que cuesta en oro, un entero ≥ 0, y ${typeof p.precio === 'object' && p.precio !== null ? 'es un objeto: escribe solo el número' : comoSeLee(p.precio)}`,
     );
+  }
+  return problemas;
+}
+
+/**
+ * Lo que no vale de la fuerza y la agilidad según sea o no una montura
+ * (26-10-2026): una montura dice su agilidad, de 2 a 7 como la de un cuerpo, y una
+ * fuerza de 1 o más (lo que carga: `restaDelPeso` no sabe de fuerza 0); ninguna
+ * otra pieza lleva agilidad (lo que no sea 0 lo dice la regla de las cifras del
+ * hueco, en `problemasDePieza`).
+ */
+function problemasDeMontura(p: Record<string, unknown>, q: string): string[] {
+  if (p.hueco !== 'montura') {
+    return p.agilidad === undefined || enteroDesde(p.agilidad, 0)
+      ? []
+      : [`${q}: agilidad tiene que ser un entero ≥ 0 y ${comoSeLee(p.agilidad)}`];
+  }
+  const problemas: string[] = [];
+  const { agilidad, fuerza } = p;
+  if (agilidad === undefined) {
+    problemas.push(
+      `${q} es una montura y no dice su agilidad: un entero de ${AGILIDAD_DEL_CUERPO_MIN} a ${AGILIDAD_DEL_CUERPO_MAX}, de la que salen sus casillas`,
+    );
+  } else if (
+    !enteroDesde(agilidad, AGILIDAD_DEL_CUERPO_MIN) ||
+    agilidad > AGILIDAD_DEL_CUERPO_MAX
+  ) {
+    problemas.push(
+      `${q}: la agilidad de una montura va de ${AGILIDAD_DEL_CUERPO_MIN} a ${AGILIDAD_DEL_CUERPO_MAX} y ${comoSeLee(agilidad)}`,
+    );
+  }
+  if (fuerza === undefined) {
+    problemas.push(
+      `${q} es una montura y no dice su fuerza: un entero de 1 o más, lo que carga encima del jinete`,
+    );
+  } else if (fuerza === 0) {
+    problemas.push(`${q} es una montura de fuerza 0: tiene que cargar algo, un entero de 1 o más`);
   }
   return problemas;
 }
@@ -1346,11 +1415,13 @@ export function piezaCanonica(p: Pieza): Pieza {
     seConsigue: enSuOrden(p.seConsigue),
     ataque: p.ataque,
     ...((p.fuerza ?? 0) > 0 ? { fuerza: p.fuerza } : {}),
+    ...((p.agilidad ?? 0) > 0 ? { agilidad: p.agilidad } : {}),
     defensa: p.defensa,
     ...((p.armadura ?? 0) > 0 ? { armadura: p.armadura } : {}),
     peso: p.peso,
     ...(p.manos === 2 ? { manos: 2 as const } : {}),
     ...(p.lanza === true ? { lanza: true as const } : {}),
+    ...(p.guerra === true ? { guerra: true as const } : {}),
     ...(rueda === undefined ? {} : { rueda }),
     precio: p.precio,
   };
@@ -1383,6 +1454,7 @@ export function extrasDe(p: Pieza): ExtrasEnteros {
   return {
     ataque: p.ataque,
     fuerza: p.fuerza ?? 0,
+    agilidad: p.agilidad ?? 0,
     defensa: p.defensa,
     armadura: p.armadura ?? 0,
     peso: p.peso,
@@ -1393,7 +1465,8 @@ export function extrasDe(p: Pieza): ExtrasEnteros {
 
 /**
  * La pieza `p` sumando `x` (lo que no trae, 0) en lugar de lo suyo, **sin
- * juzgar**: su id, su nombre, su hueco, de dónde se consigue y sus manos se quedan.
+ * juzgar**: su id, su nombre, su hueco, de dónde se consigue, sus manos y sus
+ * marcas (lanza, de guerra) se quedan.
  * La inversa de `extrasDe`. La rueda, los seis niveles si `p` la lleva o `x` sube
  * alguno: así un extra de rueda sobre un arco llega a la pieza resuelta y lo
  * rechaza su regla, en lugar de perderse.
@@ -1407,11 +1480,14 @@ export function conLosExtras(p: Pieza, x: ExtrasDePieza): Pieza {
     seConsigue: p.seConsigue,
     ataque: x.ataque ?? 0,
     fuerza: x.fuerza ?? 0,
+    // La agilidad, solo si suma algo: un arma con `agilidad: 0` no la lleva.
+    ...((x.agilidad ?? 0) === 0 ? {} : { agilidad: x.agilidad }),
     defensa: x.defensa ?? 0,
     armadura: x.armadura ?? 0,
     peso: x.peso ?? 0,
     ...(p.manos === undefined ? {} : { manos: p.manos }),
     ...(p.lanza === undefined ? {} : { lanza: p.lanza }),
+    ...(p.guerra === undefined ? {} : { guerra: p.guerra }),
     ...(conRueda ? { rueda: nivelesEnOrden(x.rueda ?? {}) } : {}),
     precio: x.oro ?? 0,
   };

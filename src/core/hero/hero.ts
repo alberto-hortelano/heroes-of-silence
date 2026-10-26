@@ -1,5 +1,5 @@
 /** Héroes: atributos, ejército y movimiento diario. */
-import { cuerpoConSusCifras } from '../cuerpo.js';
+import { cuerpoConSusCifras, marchaDe } from '../cuerpo.js';
 import { HEROE } from '../data.js';
 import { marchaALaEscala } from '../escala.js';
 import type { Army, Equipo, FactionId, PlayerId, Point, SpeedTier, UnitInfo } from '../types.js';
@@ -191,25 +191,29 @@ export function maxMana(hero: Pick<Hero, 'knowledge'>): number {
   return hero.knowledge * 10;
 }
 
+/** Lo que hace falta de un héroe para saber cuánto anda: su ejército y su cuerpo vestido (`heroUnit`). */
+export type GrupoQueMarcha = Pick<
+  Hero,
+  'army' | 'name' | 'attack' | 'defense' | 'experience' | 'equipo'
+>;
+
 /**
- * El individuo más lento del ejército; sin ejército, el héroe va a pie ligero.
+ * El más lento del grupo: el héroe y cada individuo de su ejército, cada uno por
+ * las casillas de su montura (de guerra o de silla) o las suyas a pie (`marchaDe`).
+ * **El héroe cuenta** (decisión del usuario, 26-10-2026: un héroe a pie frena; a
+ * caballo, no), así que un caballo de silla solo sube la marcha si lo llevan todos.
  *
  * Pide los personajes porque un individuo puede serlo, y su velocidad sale de
  * su destreza y no del catálogo: sin ellos, un héroe que llevara uno lanzaba
  * al pasar de día.
  */
-export function slowestSpeed(army: Army, characters: Personajes): SpeedTier {
-  let slowest: SpeedTier | null = null;
-  let slowestPoints = Infinity;
-  for (const t of army) {
-    const speed = troopUnit(t, characters).speed;
-    const points = SPEED_TO_MOVE_POINTS[speed];
-    if (points < slowestPoints) {
-      slowestPoints = points;
-      slowest = speed;
-    }
+export function slowestSpeed(grupo: GrupoQueMarcha, characters: Personajes): SpeedTier {
+  let slowest = marchaDe(heroUnit(grupo));
+  for (const t of grupo.army) {
+    const speed = marchaDe(troopUnit(t, characters));
+    if (SPEED_TO_MOVE_POINTS[speed] < SPEED_TO_MOVE_POINTS[slowest]) slowest = speed;
   }
-  return slowest ?? 'ultra_fast';
+  return slowest;
 }
 
 /** Bonus porcentual de Logística: +10 %, +20 % o +30 %. */
@@ -219,12 +223,15 @@ export function logisticsBonus(hero: Pick<Hero, 'skills'>): number {
 }
 
 /**
- * Puntos de movimiento del día: los marca la criatura más lenta, con la tabla
- * de fheroes2 llevada a la escala del mapa (`marchaALaEscala`, #226: con 450
- * casillas por región, ×1,22) y luego la Logística.
+ * Puntos de movimiento del día: los marca el más lento del grupo (`slowestSpeed`,
+ * con el héroe), con la tabla de fheroes2 llevada a la escala del mapa
+ * (`marchaALaEscala`, #226: con 450 casillas por región, ×1,22) y luego la Logística.
  */
-export function maxMovePoints(hero: Pick<Hero, 'army' | 'skills'>, characters: Personajes): number {
-  const base = marchaALaEscala(SPEED_TO_MOVE_POINTS[slowestSpeed(hero.army, characters)]);
+export function maxMovePoints(
+  hero: GrupoQueMarcha & Pick<Hero, 'skills'>,
+  characters: Personajes,
+): number {
+  const base = marchaALaEscala(SPEED_TO_MOVE_POINTS[slowestSpeed(hero, characters)]);
   return Math.round(base * (1 + logisticsBonus(hero)));
 }
 

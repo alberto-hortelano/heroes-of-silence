@@ -17,9 +17,10 @@
 import { activeStack, stackById } from '@core/battle/battle.js';
 import { quedanCasillas } from '@core/battle/board.js';
 import {
+  CARGA,
   CARGA_MINIMA,
   type CifrasDeCarga,
-  cifrasDeCarga,
+  cargaMontada,
   dichoDeLaCarga,
 } from '@core/battle/carga.js';
 import {
@@ -862,7 +863,7 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
         motivoParaApagar(session, contandoAun),
         accionesDeLaUnidad({
           activa: s,
-          carga: cifrasDeCarga(s.unit),
+          carga: CARGA,
           legales: session.battleLegalActions(),
           pasos: session.battleStepsLeft(),
           rendicion: renderRendicion(session),
@@ -924,7 +925,7 @@ function filaManaDeBatalla(session: Session): Html {
  */
 export function accionesDeLaUnidad(o: {
   readonly activa: BattleStack;
-  /** Con qué cifras carga la activa (`cifrasDeCarga`): todo el que pega cuerpo a cuerpo. */
+  /** Con qué cifras carga la activa (`CARGA`): todo el que pega cuerpo a cuerpo. */
   readonly carga: CifrasDeCarga;
   readonly legales: readonly BattleAction[];
   readonly pasos: number | null;
@@ -1188,8 +1189,9 @@ function clase(bueno: boolean, malo: boolean): Html {
 }
 
 /**
- * La línea de ayuda de la carga, con las cifras de la activa (`cifrasDeCarga`:
- * desde #260 carga todo el que pega cuerpo a cuerpo, y el jinete más). Se dice
+ * La línea de ayuda de la carga, con las cifras de la carga (`CARGA`: desde #260
+ * carga todo el que pega cuerpo a cuerpo, y desde el 26-10-2026 todos cobran lo
+ * mismo). Se dice
  * siempre y no solo si hay casillas de carga ahora: el texto explica cómo se ve,
  * también el turno en que no sale ninguna.
  */
@@ -1336,7 +1338,7 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
           const modo = `${e.retaliation ? ' (contraataque)' : ''}${
             e.charge === undefined
               ? ''
-              : ` (${dichoDeLaCarga(e.charge, cifrasDeCarga(stackById(battle, e.stack).unit))})`
+              : ` (${dichoDeLaCarga(e.charge, cargaMontada(stackById(battle, e.stack).unit))})`
           }`;
           return html`<div>${golpe(e.stack, e.target)}${modo}: ${danio(e.damage, e.killed, e.parado)}</div>`;
         }

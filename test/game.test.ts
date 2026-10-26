@@ -10,6 +10,7 @@ import {
   stepTowards,
 } from '../src/core/ai/strategy.js';
 import { playAiGame, playAiTurn } from '../src/core/ai/turn.js';
+import { createBattle } from '../src/core/battle/battle.js';
 import { stackHp } from '../src/core/battle/damage.js';
 import { allSpells } from '../src/core/battle/spells.js';
 import { queEs } from '../src/core/battle/types.js';
@@ -24,6 +25,7 @@ import {
 } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { crecimientoDelNivel, ECONOMIA, LIDERAZGO, oroDelIndice } from '../src/core/data.js';
+import { EQUIPO_BASE } from '../src/core/hero/equipo.js';
 import {
   type Hero,
   learnable,
@@ -104,6 +106,7 @@ import { FACTION_IDS, type FactionId, type Point } from '../src/core/types.js';
 import {
   acabarPorLaBase,
   conCaminos,
+  conSuEquipo,
   copiaDePartida,
   costesDelAlcance,
   ejercito,
@@ -112,6 +115,7 @@ import {
   FACCION_B,
   forzarBatalla,
   fueraDeSuBase,
+  grupoQueMarcha,
   hastaSuSiguienteTurno,
   JINETE,
   monstruoVivo,
@@ -163,26 +167,56 @@ const casillaVecinaLibre = (state: GameState, desde: Point): Point => {
 };
 
 describe('puntos de movimiento', () => {
-  it('los marca la criatura más lenta del ejército', () => {
-    // El troll anda 2 (agilidad 2); el hermano de carga, 6 (7, menos 1 por su barda).
+  it('los marca el más lento del grupo, el héroe incluido (26-10-2026)', () => {
+    // El troll anda 2 (agilidad 2); el hermano de carga, 6 (las de su caballo de guerra).
     const lento = ejercito({ creature: 'troll-maza', count: 1 }, { creature: JINETE, count: 5 });
-    expect(slowestSpeed(lento, undefined)).toBe('very_slow');
-    // La tabla de fheroes2 (1000 y 1400) a la escala del mapa de #226: ×√1,5.
-    expect(maxMovePoints({ army: lento, skills: {} }, undefined)).toBe(1224);
+    expect(slowestSpeed(grupoQueMarcha(lento), undefined)).toBe('very_slow');
+    // La tabla de fheroes2 (1000, 1200 y 1400) a la escala del mapa de #226: ×√1,5.
+    expect(maxMovePoints(grupoQueMarcha(lento), undefined)).toBe(1224);
 
+    // Los jinetes van a 6, pero el héroe a pie (agilidad 4) frena al grupo.
     const rapido = ejercito({ creature: JINETE, count: 5 });
-    expect(slowestSpeed(rapido, undefined)).toBe('very_fast');
-    expect(maxMovePoints({ army: rapido, skills: {} }, undefined)).toBe(1714);
+    expect(slowestSpeed(grupoQueMarcha(rapido), undefined)).toBe('average');
+    expect(maxMovePoints(grupoQueMarcha(rapido), undefined)).toBe(1469);
+    // A caballo de silla, ya no: manda el jinete.
+    const aCaballo = grupoQueMarcha(rapido, {
+      equipo: { ...EQUIPO_BASE, montura: 'caballo_de_silla' },
+    });
+    expect(slowestSpeed(aCaballo, undefined)).toBe('very_fast');
+    expect(maxMovePoints(aCaballo, undefined)).toBe(1714);
+  });
+
+  it('un caballo de silla sube la marcha solo si lo llevan todos, y no cambia la batalla', () => {
+    // El piquero templario anda 4; con su caballo de silla (peso 24 + 6 frente a 30), 7.
+    const SILLA = { montura: 'caballo_de_silla' } as const;
+    const todos = [0, 1, 2].map((i) => conSuEquipo('templario-escudo', SILLA, `v-${i}`));
+    const heroe = { equipo: { ...EQUIPO_BASE, ...SILLA } };
+    expect(slowestSpeed(grupoQueMarcha(todos, heroe), undefined)).toBe('ultra_fast');
+    // Si uno va a pie, manda él; y si el héroe va a pie, el héroe.
+    const unoAPie = [...todos.slice(0, 2), { creature: 'templario-escudo' }];
+    expect(slowestSpeed(grupoQueMarcha(unoAPie, heroe), undefined)).toBe('average');
+    expect(slowestSpeed(grupoQueMarcha(todos), undefined)).toBe('average');
+    // En batalla pelea a pie: las mismas casillas y la misma defensa que sin él.
+    const b = createBattle(
+      { army: [{ ...todos[0]!, count: 1 }], hero: null },
+      { army: [{ creature: 'templario-escudo', count: 1 }], hero: null },
+      createRng(1),
+      COMBATE_COMPLETO,
+    );
+    const [conSilla, sinSilla] = b.stacks;
+    expect(conSilla?.unit.speed).toBe(sinSilla?.unit.speed);
+    expect(conSilla?.unit.defense).toBe(sinSilla?.unit.defense);
+    expect(conSilla?.unit.damage).toEqual(sinSilla?.unit.damage);
   });
 
   it('Logística los aumenta un 10 % por nivel', () => {
-    // La pesada va a paso medio (`average`).
+    // La pesada va a paso medio (`average`), como el héroe a pie.
     expect(unidadDelJuego(PESADA).speed).toBe('average');
     const army = ejercito({ creature: PESADA, count: 5 });
     // 1200 de fheroes2 → 1469 a la escala (#226); la Logística va encima.
-    expect(maxMovePoints({ army, skills: {} }, undefined)).toBe(1469);
-    expect(maxMovePoints({ army, skills: { logistics: 1 } }, undefined)).toBe(1616);
-    expect(maxMovePoints({ army, skills: { logistics: 3 } }, undefined)).toBe(1910);
+    expect(maxMovePoints(grupoQueMarcha(army), undefined)).toBe(1469);
+    expect(maxMovePoints(grupoQueMarcha(army, { skills: { logistics: 1 } }), undefined)).toBe(1616);
+    expect(maxMovePoints(grupoQueMarcha(army, { skills: { logistics: 3 } }), undefined)).toBe(1910);
   });
 });
 
@@ -1496,10 +1530,12 @@ describe('el gremio enseña (#2)', () => {
     // ellos: se jugaba la 5 (uno y dos). Con dos armas y la lanza en la segunda
     // mano (25-10-2026), 6 gremios en 1-60 y hechizos en 4: se jugaba la 29 (uno y
     // dos). Sin defender ni esperar (26-10-2026), 9 gremios en 1-80 y hechizos en 5
-    // de ellos: se juega la 15 (uno y dos).
+    // de ellos: se jugaba la 15 (uno y dos). Con la montura y el héroe en la marcha
+    // del grupo (26-10-2026), 7 gremios en 1-80 y hechizos en 5 de ellos: se juega
+    // la 21 (uno y dos).
     let gremios = 0;
     let aprendidos = 0;
-    for (const semilla of [15]) {
+    for (const semilla of [21]) {
       const state = newGame({ seed: semilla });
       await playAiGame(state, { rng: createRng(semilla) });
       for (const e of state.log) {

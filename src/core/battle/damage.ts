@@ -12,7 +12,7 @@ import { indiceDePoder } from '../nivel.js';
 import type { Rng } from '../rng.js';
 import { conComa, type GolpeConArma, type UnitInfo, type UsoDeArma } from '../types.js';
 import { armaduraDe, cifrasDelGolpe, golpeDe, trasLaArmadura } from './armas.js';
-import { type CifrasDeCarga, cargaEfectiva, cifrasDeCarga, dichoDeLaCarga } from './carga.js';
+import { CARGA, type CifrasDeCarga, cargaEfectiva, dichoDeLaCarga } from './carga.js';
 import { effectiveLuck, effectTotal, type StackEffect } from './effects.js';
 import type { BattleStack } from './types.js';
 
@@ -32,24 +32,6 @@ export const UNLUCKY_MULTIPLIER = 0.5;
 export const CHANCE_PER_POINT = 1 / 24;
 
 /**
- * Las casillas de carga que cobra un golpe y con qué cifras: las de su recta
- * (`chargeHexes`) con el tope y las cifras de quien pega (`cifrasDeCarga`: el
- * jinete o a pie); 0 y `null` sin recta. El contraataque pasa 0: se contraataca
- * desde el sitio. Se cuenta una vez por golpe (`deUnGolpe`), y de ella sale
- * también con qué arma va (`usoDelGolpe`).
- */
-function cargaCobrada(
-  unit: UnitInfo,
-  opts: Pick<DamageOptions, 'chargeHexes'>,
-): { readonly charge: number; readonly cifras: CifrasDeCarga | null } {
-  const cifras = cifrasDeCarga(unit);
-  const charge = cargaEfectiva(opts.chargeHexes ?? 0, cifras);
-  return charge > 0 ? { charge, cifras } : SIN_CARGA;
-}
-
-const SIN_CARGA = Object.freeze({ charge: 0, cifras: null });
-
-/**
  * Con qué arma se da un golpe (13-10-2026, «cada arma para lo suyo»): el disparo,
  * con la de distancia; todo lo demás —el golpe, la carga y el contraataque—, con
  * las de cuerpo a cuerpo (25-10-2026: la lanza dejó su hueco y es una de ellas).
@@ -62,16 +44,21 @@ export function usoDelGolpe(opts: Pick<DamageOptions, 'ranged'>): UsoDeArma {
 
 /**
  * Con qué armas va un golpe de `uso`, dicho para quien juega: «con Daga (cuerpo a
- * cuerpo)», «con Espada y Lanza (en la carga)» o «sin arma, con el cuerpo (cuerpo a
+ * cuerpo)», «con Espada y Lanza, montado en Caballo de guerra (en la carga)» o «sin arma, con el cuerpo (cuerpo a
  * cuerpo)» (`golpeDe`, `DICHO_DEL_USO`, `DICHO_DE_LA_CARGA`). Lo leen la previsión
  * del golpe y la del contraataque.
  */
 export function dichoDelGolpe(unit: UnitInfo, uso: UsoDeArma, enLaCarga = false): string {
-  const { piezas } = golpeDe(unit, uso);
+  const { piezas, carga } = golpeDe(unit, uso);
   const como = (enLaCarga ? DICHO_DE_LA_CARGA : DICHO_DEL_USO[uso]).golpe;
+  // La carga montada pega con la fuerza de la montura: se nombra (26-10-2026).
+  const montado =
+    enLaCarga && carga !== undefined && unit.montura !== undefined
+      ? `, montado en ${unit.montura.nombre}`
+      : '';
   return piezas.length === 0
     ? `${SIN_ARMA} (${como})`
-    : `con ${nombresDeLasArmas(piezas)} (${como})`;
+    : `con ${nombresDeLasArmas(piezas)}${montado} (${como})`;
 }
 
 /** Los nombres de las armas de un golpe, juntos: «Espada» o «Espada y Lanza». */
@@ -80,29 +67,43 @@ function nombresDeLasArmas(piezas: GolpeConArma['piezas']): string {
 }
 
 /** Una fila de `armasDe`: el golpe de un uso (`golpeDe`) con el nombre de sus armas. */
-export interface ArmaDeLaUnidad extends Omit<GolpeConArma, 'piezas' | 'conLanza'> {
+export interface ArmaDeLaUnidad extends Omit<GolpeConArma, 'piezas' | 'carga'> {
   readonly uso: UsoDeArma;
   /** Los nombres de sus armas («Espada y Lanza»), o `null` si ese golpe va con el cuerpo. */
   readonly arma: string | null;
-  /** En la fila de la carga, lo que cobra (`cifrasDeCarga`); en las demás, `null`. */
+  /** En la fila de la carga, lo que cobra (`CARGA`); en las demás, `null`. */
   readonly carga: CifrasDeCarga | null;
+  /**
+   * En la fila de la carga, si va montada (`cargaMontada`): su `damage` es entonces
+   * el de la fuerza de la montura más la de la lanza. En las demás, `false`.
+   */
+  readonly montada: boolean;
 }
 
 /**
  * Las armas de una unidad, una fila por uso (`golpeDe`), con el nombre de sus
  * armas: lo que enseña la ficha. El cuerpo a cuerpo y la carga, siempre (todo el
- * que pega cuerpo a cuerpo carga: `cifrasDeCarga`; la carga va con las de cuerpo a
- * cuerpo); el disparo, si dispara (`isShooter`: lleva arma a distancia).
+ * que pega cuerpo a cuerpo carga, con las de cuerpo a cuerpo; montado de guerra y
+ * con lanza, con la horquilla de la carga montada, `GolpeConArma.carga`); el
+ * disparo, si dispara (`isShooter`: lleva arma a distancia).
  */
 export function armasDe(unit: UnitInfo): ArmaDeLaUnidad[] {
-  const fila = (uso: UsoDeArma, carga: CifrasDeCarga | null = null): ArmaDeLaUnidad => {
-    const { piezas, attack, damage } = golpeDe(unit, uso);
+  const fila = (uso: UsoDeArma, enLaCarga = false): ArmaDeLaUnidad => {
+    const { piezas, attack, damage, carga } = golpeDe(unit, uso);
     const arma = piezas.length === 0 ? null : nombresDeLasArmas(piezas);
-    return { uso, arma, attack, damage, carga };
+    const montada = enLaCarga && carga !== undefined;
+    return {
+      uso,
+      arma,
+      attack,
+      damage: montada ? carga : damage,
+      carga: enLaCarga ? CARGA : null,
+      montada,
+    };
   };
   const filas = [fila('arma')];
   if (isShooter(unit)) filas.push(fila('distancia'));
-  filas.push(fila('arma', cifrasDeCarga(unit)));
+  filas.push(fila('arma', true));
   return filas;
 }
 
@@ -169,8 +170,8 @@ export interface DamageResult {
    * había quedado en los 5 que caben en +50 %.
    */
   readonly charge: number;
-  /** Con qué cifras se cobró esa carga (`cifrasDeCarga`); `null` sin carga. */
-  readonly cifrasDeCarga: CifrasDeCarga | null;
+  /** Si esa carga fue montada (`cargaMontada`: con la fuerza de la montura); `false` sin carga. */
+  readonly montada: boolean;
 }
 
 /** Lo que cambia el daño según de dónde y a quién se pega (`opcionesDeDanio`, `battle.ts`). */
@@ -297,14 +298,13 @@ function applyModifiers(
   }
 
   // Carga. El contraataque pasa siempre 0 hexes: se contraataca desde el sitio.
-  // `1 + casillas × porcentaje / 100`, la misma cuenta y en el mismo orden que
-  // con el 0.1 escrito (10 / 100 es ese mismo double): el jinete del juego cobra
-  // lo mismo hasta el último decimal.
-  const { charge, cifrasDeCarga: cifras } = golpe;
-  if (cifras !== null) {
-    const f = 1 + charge * (cifras.porcentaje / 100);
+  // `1 + casillas × porcentaje / 100`, la de todos (26-10-2026: montado, lo que
+  // cambia es la horquilla del golpe, `DeUnGolpe.danio`).
+  const { charge, montada } = golpe;
+  if (charge > 0) {
+    const f = 1 + charge * (CARGA.porcentaje / 100);
     base *= f;
-    anotar?.push({ causa: dichoDeLaCarga(charge, cifras, false), factor: f });
+    anotar?.push({ causa: dichoDeLaCarga(charge, montada, false), factor: f });
   }
 
   // La rueda, al final de todo: Fuerte y Rápido multiplican el golpe ya hecho.
@@ -319,18 +319,38 @@ function applyModifiers(
 
 /**
  * Lo que un golpe decide una vez (`deUnGolpe`) y leen su tirada y sus
- * modificadores: las casillas de carga que cobra y con qué arma va.
+ * modificadores: las casillas de carga que cobra, si va montada, con qué arma va y
+ * **la horquilla de su daño**.
  */
 interface DeUnGolpe {
+  /** Las casillas de carga que cobra, ya con el tope (`cargaEfectiva`); 0 sin carga. */
   readonly charge: number;
-  /** Con qué cifras cobra la carga; `null` si no carga (y `charge` es 0). */
-  readonly cifrasDeCarga: CifrasDeCarga | null;
+  readonly montada: boolean;
   readonly uso: UsoDeArma;
+  /**
+   * El daño [mín, máx] por efectivo con que se tira: el del arma de su uso
+   * (`cifrasDelGolpe`) o, en una carga montada, el de la carga (`GolpeConArma.carga`:
+   * la fuerza de la montura más la de la lanza). **El único sitio que la decide**:
+   * la leen la tirada, el daño medio y la previsión.
+   */
+  readonly danio: readonly [number, number];
 }
 
+/**
+ * Lo que decide un golpe, una vez. Solo el que corre la recta (el primero del
+ * intercambio, que es quien pasa `chargeHexes`) cobra la carga, y montada si lleva
+ * su horquilla; el contraataque pasa 0, se contraataca desde el sitio.
+ */
 function deUnGolpe(attacker: BattleStack, opts: DamageOptions): DeUnGolpe {
-  const { charge, cifras } = cargaCobrada(attacker.unit, opts);
-  return { charge, cifrasDeCarga: cifras, uso: usoDelGolpe(opts) };
+  const uso = usoDelGolpe(opts);
+  const charge = cargaEfectiva(opts.chargeHexes ?? 0, CARGA);
+  const deLaCarga = charge > 0 ? golpeDe(attacker.unit, 'arma').carga : undefined;
+  return {
+    charge,
+    montada: deLaCarga !== undefined,
+    uso,
+    danio: deLaCarga ?? cifrasDelGolpe(attacker.unit, uso).damage,
+  };
 }
 
 /**
@@ -359,9 +379,9 @@ function enElCruce(
  * se da) no hay dado; si no, una tirada de `rng.int` —también con el mínimo
  * igual al máximo, que es lo que mira la condición y no `min === max`—.
  */
-function tiradaDe(attacker: BattleStack, opts: DamageOptions, uso: UsoDeArma, rng: Rng): number {
+function tiradaDe(opts: DamageOptions, golpe: DeUnGolpe, rng: Rng): number {
   const { cruce, cuarto } = opts;
-  const t = enElCruce(cifrasDelGolpe(attacker.unit, uso).damage, cruce, cuarto);
+  const t = enElCruce(golpe.danio, cruce, cuarto);
   const fija = cuarto !== undefined || (cruce !== undefined && cruce.desde === cruce.hasta);
   return fija ? t.min : rng.int(t.min, t.max);
 }
@@ -401,7 +421,7 @@ function medioSinArmadura(
   const golpe = deUnGolpe(attacker, opts);
   // El centro de lo que puede salir: la horquilla entera, la del cruce o, en el
   // disparo diferido, su cuarto (`enElCruce`, la misma que la tirada).
-  const t = enElCruce(cifrasDelGolpe(attacker.unit, golpe.uso).damage, opts.cruce, opts.cuarto);
+  const t = enElCruce(golpe.danio, opts.cruce, opts.cuarto);
   const medio = ((t.min + t.max) / 2) * attacker.count;
   return applyModifiers(medio, attacker, defender, opts, golpe);
 }
@@ -432,9 +452,9 @@ export function computeDamage(
   opts: DamageOptions,
 ): DamageResult {
   const golpe = deUnGolpe(attacker, opts);
-  const roll = tiradaDe(attacker, opts, golpe.uso, rng);
+  const roll = tiradaDe(opts, golpe, rng);
   let base = applyModifiers(roll * attacker.count, attacker, defender, opts, golpe);
-  const { charge, cifrasDeCarga } = golpe;
+  const { charge, montada } = golpe;
 
   const luck = effectiveLuck(attacker);
   let lucky = false;
@@ -447,7 +467,7 @@ export function computeDamage(
     base *= UNLUCKY_MULTIPLIER;
   }
 
-  return { damage: danioFinal(base), lucky, unlucky, charge, cifrasDeCarga };
+  return { damage: danioFinal(base), lucky, unlucky, charge, montada };
 }
 
 /** Una horquilla de daño: lo menos y lo más que puede quitar un golpe. */
@@ -490,11 +510,7 @@ export function horquillaDeDanio(
 } {
   const { cruce, cuarto } = opts;
   const golpe = deUnGolpe(attacker, opts);
-  const { min: tMin, max: tMax } = enElCruce(
-    cifrasDelGolpe(attacker.unit, golpe.uso).damage,
-    cruce,
-    cuarto,
-  );
+  const { min: tMin, max: tMax } = enElCruce(golpe.danio, cruce, cuarto);
   const modificadores: Modificador[] = [];
   // Con armas por uso, lo primero es con cuál pega: la horquilla es
   // la de esa arma, y la previsión y el contraataque lo dicen sin campos nuevos.

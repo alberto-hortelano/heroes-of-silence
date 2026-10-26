@@ -166,7 +166,6 @@ export const CREATURE_TRAITS = [
   'double_shot',
   'life_drain',
   'splash_shot',
-  'charge',
   'curse_on_hit',
   'bane_undead',
   'fear',
@@ -189,7 +188,6 @@ export const NOMBRE_DE_RASGO: Readonly<Record<CreatureTrait, string>> = {
   double_shot: 'disparo doble',
   life_drain: 'drena vida',
   splash_shot: 'disparo con salpicadura',
-  charge: 'carga',
   curse_on_hit: 'maldice al golpear',
   bane_undead: 'azote de no-muertos',
   fear: 'terror',
@@ -240,6 +238,14 @@ export interface UnitInfo {
    */
   readonly peso?: number;
   /**
+   * La montura puesta (26-10-2026, «vamos a separar la montura del personaje»): sus
+   * cifras, que no se suman a las del jinete. La de guerra carga el peso de lo que
+   * lleva el jinete y da las casillas en batalla; la de silla, solo la marcha del
+   * mapa (`marchaDe`). La escribe solo `conEquipo` y no viaja al espectador (lo
+   * vigila `test/invariantes.test.ts`); el peso de arriba no la lleva.
+   */
+  readonly montura?: MonturaPuesta;
+  /**
    * **No hay `nivel` en las cifras**: se deriva de ellas, con el equipo puesto
    * (`nivelDeUnidad`). Tampoco las cifras sin equipo: lo que suma el equipo se
    * deriva de lo que lleva (`equipo`, con `modificadoresDePieza`), y el cuerpo
@@ -279,12 +285,28 @@ export interface UnitInfo {
 }
 
 /**
+ * Las cifras de la montura que lleva una unidad (`UnitInfo.montura`): su fuerza
+ * (lo que carga encima del jinete), su agilidad (sus casillas, tras ese peso), lo
+ * que pesa ella y si es de guerra (`Pieza.guerra`: se monta en batalla) o de silla
+ * (solo en el mapa).
+ */
+export interface MonturaPuesta {
+  readonly id: string;
+  readonly nombre: string;
+  readonly fuerza: number;
+  readonly agilidad: number;
+  readonly peso: number;
+  readonly guerra: boolean;
+}
+
+/**
  * Para qué se usa un arma, **con el nombre de su hueco** (simplify de F2): `arma`,
  * pegar cuerpo a cuerpo (y devolver el golpe, y cargar), con las de `arma` y
  * `segunda`; `distancia`, disparar. Con cuál se da cada golpe lo decide
  * `usoDelGolpe` (`battle/damage.ts`). La lanza dejó de tener hueco propio
  * (25-10-2026, «la lanza de carga fuera, será una lanza»): es un arma de cuerpo a
- * cuerpo más, y montado le da su regla a la carga (`cifrasDeCarga`).
+ * cuerpo más, y con una montura de guerra pone la fuerza de ella en la carga
+ * (`GolpeConArma.carga`, 26-10-2026).
  */
 export type UsoDeArma = 'arma' | 'distancia';
 
@@ -298,8 +320,14 @@ export type UsoDeArma = 'arma' | 'distancia';
  */
 export interface GolpeConArma {
   readonly piezas: readonly { readonly id: string; readonly nombre: string }[];
-  /** Si una de sus armas es una lanza (`Pieza.lanza`): montado, la carga cobra la del jinete. */
-  readonly conLanza?: true;
+  /**
+   * La horquilla del golpe de carga montada (26-10-2026, «la lanza lo único que
+   * hará es usar la fuerza de la montura en la carga»): con una montura de guerra y
+   * una lanza puesta, [F, F × agilidad del jinete] con F = la fuerza de la montura
+   * más la de la lanza. La calcula solo `cifrasDelCuerpo` y la escribe solo
+   * `conEquipo`; sin el campo, la carga pega con `damage`.
+   */
+  readonly carga?: readonly [number, number];
   readonly attack: number;
   readonly damage: readonly [number, number];
   /**
@@ -451,18 +479,20 @@ export interface Veterania {
 // ---------------------------------------------------------------- equipo
 
 /**
- * Los cinco huecos de equipo de un individuo o de un héroe: el arma de cuerpo a
+ * Los seis huecos de equipo de un individuo o de un héroe: el arma de cuerpo a
  * cuerpo (`arma`), la segunda (`segunda`, 25-10-2026: «se permiten dos armas»; de
  * una mano, con la primera de una mano y sin escudo), la que dispara (`distancia`),
  * la armadura y el escudo (13-10-2026, «cada arma para lo suyo»; el escudo es un
  * hueco propio desde el 12-10-2026, opcional; la lanza dejó su hueco el 25-10-2026:
- * es un arma más). **Una sola clase de piezas** desde el 18-10-2026: el juego, la
- * arena, el botín, la armería y el agente tienen los mismos cinco. Van sin tilde y
+ * es un arma más) y la montura (`montura`, 26-10-2026: «vamos a separar la montura
+ * del personaje»; la de guerra se monta en batalla, la de silla solo en el mapa).
+ * **Una sola clase de piezas** desde el 18-10-2026: el juego, la
+ * arena, el botín, la armería y el agente tienen los mismos seis. Van sin tilde y
  * en minúscula; al agente viajan en inglés, traducidos en un solo sitio
  * (`contract/vocabulario.ts`). Con cuál se da cada golpe lo elige `usoDelGolpe`
  * (`battle/damage.ts`).
  */
-export const HUECOS = ['arma', 'segunda', 'distancia', 'armadura', 'escudo'] as const;
+export const HUECOS = ['arma', 'segunda', 'distancia', 'armadura', 'escudo', 'montura'] as const;
 
 export type Hueco = (typeof HUECOS)[number];
 
@@ -505,6 +535,7 @@ export const NOMBRE_DE_HUECO: Readonly<Record<Hueco, string>> = {
   distancia: 'Arma a distancia',
   armadura: 'Armadura',
   escudo: 'Escudo',
+  montura: 'Montura',
 };
 
 /**
@@ -553,16 +584,25 @@ export const HUECOS_DE_CUERPO_A_CUERPO = ['arma', 'segunda'] as const satisfies 
  * `trasLaArmadura`): `pv` no es una cifra de pieza. **Ninguna resta movimiento**
  * (25-10-2026): todo pesa (`peso`), y el peso que pasa de la fuerza resta agilidad
  * (`restaDelPeso`, `core/cuerpo.ts`). Un arma suma `fuerza` al daño en vez de una
- * horquilla.
+ * horquilla. La montura escribe `fuerza` y `agilidad`, que son suyas y no se suman
+ * a las del jinete (`camposDelHueco`, `cifrasDelCuerpo`).
  */
-export const CIFRAS_DE_PIEZA = ['ataque', 'fuerza', 'defensa', 'armadura', 'peso'] as const;
+export const CIFRAS_DE_PIEZA = [
+  'ataque',
+  'fuerza',
+  'agilidad',
+  'defensa',
+  'armadura',
+  'peso',
+] as const;
 export type CifraDePieza = (typeof CIFRAS_DE_PIEZA)[number];
 
 /**
- * Las cifras con rótulo en la ficha: las de una pieza, las del cuerpo que no da
- * ninguna pieza (la vida y la agilidad) y las que se derivan (el daño y las casillas).
+ * Las cifras con rótulo en la ficha: las de una pieza (también la agilidad, que
+ * escribe la montura), la del cuerpo que no da ninguna pieza (la vida) y las que se
+ * derivan (el daño y las casillas).
  */
-export type CifraDeLaFicha = CifraDePieza | 'pv' | 'agilidad' | 'danio' | 'casillas';
+export type CifraDeLaFicha = CifraDePieza | 'pv' | 'danio' | 'casillas';
 
 /**
  * El nombre de cada cifra, el mismo en la tabla de la ficha de la arena (sus
@@ -596,7 +636,8 @@ export interface CamposDelHueco {
  * regla del escudo mira esa; desde el 25-10-2026 la lanza es una de ellas,
  * `Pieza.lanza`); y sus cifras: las armas, ataque, fuerza y peso; la armadura,
  * armadura y peso; el escudo, defensa y peso (25-10-2026: la armadura ya no da
- * defensa, y nada resta movimiento). **La regla, en un sitio**: la leen la regla de
+ * defensa, y nada resta movimiento); la montura, su fuerza, su agilidad y su peso
+ * (26-10-2026). **La regla, en un sitio**: la leen la regla de
  * una pieza (`problemasDePieza`), el cambio de hueco de una pieza (`enElHueco`) y
  * su editor. Los disparos se fueron con la munición (13-10-2026): dispara quien
  * lleva algo en `distancia`.
@@ -611,6 +652,9 @@ const CAMPOS_DEL_HUECO: Readonly<Record<HuecoDePieza, CamposDelHueco>> = {
   distancia: { conManos: false, conRueda: false, cifras: DE_ARMA },
   armadura: { conManos: false, conRueda: false, cifras: ['armadura', 'peso'] },
   escudo: { conManos: false, conRueda: false, cifras: ['defensa', 'peso'] },
+  // En una montura, `fuerza` es la que pone para cargar peso y para la carga, no
+  // la que suma al daño: no se suma a nada (`cifrasDelCuerpo`).
+  montura: { conManos: false, conRueda: false, cifras: ['fuerza', 'agilidad', 'peso'] },
 };
 
 /**

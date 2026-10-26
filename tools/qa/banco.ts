@@ -1240,11 +1240,26 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   batallas 108 → 90, `town_captured` 89 → 72, `troop_rank_up` 315 → 248,
  *   `hero_defeated` 41 → 26; ningún tipo de hecho nuevo (el `morale` era del registro
  *   de la batalla, que la crónica no guarda). La forma del diff, no una medida.
+ * - `b94ea4b1…` (5 511 líneas, 20 semillas, 26-10-2026): **la montura aparte del
+ *   jinete** (`docs/agents/2026-10-26-montura/`, decisiones del usuario: la montura
+ *   es un hueco con su fuerza y su agilidad, la carga con lanza va con la fuerza de
+ *   la de guerra y sin el +10 % del jinete, y el héroe cuenta en el más lento del
+ *   grupo del mapa). Contra `1334b9e2…`, las 20 cambian, y el primer hecho distinto
+ *   es siempre de jinetes o de la marcha: en 17, lo primero que pelea un jinete (la
+ *   IA los recluta el día 1, y los asaltantes de jinetes de plaga): el resumen de
+ *   su primera batalla (`battle_ended`, otras rondas o bajas, 13) o la veteranía que
+ *   dejó (`troop_rank_up`, 4); en 3 (s10, s12, s15), una marcha del día 1 que acaba
+ *   antes (`hero_moved` → `turn_start`/`day_start`): el héroe a pie, agilidad 4,
+ *   frena ahora a su ejército. j0 gana 11 de 20 (9 antes; cambian de ganador s3,
+ *   s5, s17 y s18); duración 3 / 5 / 15 → **4 / 14 / 19**, días 79 → 113; batallas
+ *   90 → 132, `town_captured` 72 → 89, `troop_rank_up` 248 → 380, `hero_defeated`
+ *   26 → 61, `hero_moved` 2 086 → 3 045, `item_bought` 1 → 0; ningún tipo de hecho
+ *   nuevo. La forma del diff, no una medida.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '1334b9e2d05e5f79642b4dfeebfecde4bc32c7a7104175cdbf53aa861e2943a1',
+  sha: 'b94ea4b1eb64d9c4b274979b973287ace22a8fab7e452c197a457fe8db60976a',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

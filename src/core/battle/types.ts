@@ -307,7 +307,7 @@ export type BattleEvent =
       damage: number;
       killed: number;
       retaliation: boolean;
-      /** Las casillas de carga que cobró; con qué cifras, las de quien pegó (`cifrasDeCarga`). */
+      /** Las casillas de carga que cobró (`CARGA`); montada o no, lo dice quien pegó (`cargaMontada`). */
       charge?: number;
       /** El punto del cruce de la rueda en que cayó: todo golpe cuerpo a cuerpo lo lleva. */
       punto?: Punto;

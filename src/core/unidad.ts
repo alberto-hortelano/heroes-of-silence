@@ -17,7 +17,7 @@
  * `core/cuerpo.ts`).
  */
 import { HABILIDADES_CON_PODER, poderDeHabilidad } from './battle/poderes.js';
-import { CASILLAS_MAX, cuerpoConSusCifras } from './cuerpo.js';
+import { AGILIDAD_DEL_CUERPO_MAX, AGILIDAD_DEL_CUERPO_MIN, cuerpoConSusCifras } from './cuerpo.js';
 import { CATALOGO_DE_HABILIDADES } from './data.js';
 import { type EquipoAtado, equipoBaseBlocker, PIEZAS_DEL_CATALOGO } from './hero/equipo.js';
 import { medidaBlocker } from './nivel.js';
@@ -181,8 +181,9 @@ type KitDelPerfil = Pick<Unidad, 'equipo' | 'leadership'> & {
  *
  * **Cada arma para lo suyo** (13-10-2026): el tirador dispara con su arco o su
  * ballesta (hueco `distancia`) y pega con la daga; el jinete lleva espada y lanza
- * (25-10-2026: dos armas, y la lanza le da la carga del jinete) y el jinete
- * élfico (`montado-arco`) dispara además con el arco.
+ * (25-10-2026: dos armas) y un caballo de guerra (26-10-2026: con él y la lanza,
+ * la carga va con la fuerza del caballo), y el jinete élfico (`montado-arco`)
+ * dispara además con el arco.
  */
 export const KIT_DEL_PERFIL: Readonly<Record<PerfilDeUnidad, KitDelPerfil>> = {
   'espada-escudo': {
@@ -207,26 +208,28 @@ export const KIT_DEL_PERFIL: Readonly<Record<PerfilDeUnidad, KitDelPerfil>> = {
     traits: [],
   },
   'montado-lanza': {
-    equipo: { arma: 'espada', segunda: 'lanza', armadura: 'barda' },
+    equipo: { arma: 'espada', segunda: 'lanza', armadura: 'barda', montura: 'caballo_de_guerra' },
     leadership: 8,
-    traits: ['charge'],
+    traits: [],
   },
   'montado-arco': {
-    equipo: { arma: 'espada', segunda: 'lanza', distancia: 'arco', armadura: 'barda' },
+    equipo: {
+      arma: 'espada',
+      segunda: 'lanza',
+      distancia: 'arco',
+      armadura: 'barda',
+      montura: 'caballo_de_guerra',
+    },
     leadership: 8,
-    traits: ['charge'],
+    traits: [],
   },
 };
 
 // ------------------------------------------------------------- agilidad
 
-/**
- * La agilidad que puede escribir un cuerpo, de 2 a 7: la escala de las casillas
- * de antes (decisión del usuario, 25-10-2026). Con el peso encima baja hasta 1
- * (`AGILIDAD_MINIMA`, `core/cuerpo.ts`), pero ningún cuerpo nace así.
- */
-export const AGILIDAD_DEL_CUERPO_MIN = 2;
-export const AGILIDAD_DEL_CUERPO_MAX = CASILLAS_MAX;
+// La agilidad que puede escribir un cuerpo, de 2 a 7, vive en `cuerpo.ts`: la
+// juzga también la pieza de montura (`problemasDePieza`).
+export { AGILIDAD_DEL_CUERPO_MAX, AGILIDAD_DEL_CUERPO_MIN } from './cuerpo.js';
 
 /** Una agilidad de cuerpo que vale (`AGILIDAD_DEL_CUERPO_MIN` a `…_MAX`), o se lanza diciendo de quién. */
 export function agilidadValida(valor: unknown, quien: string): number {
@@ -281,9 +284,16 @@ export function validarUnidad(valor: unknown, eq: EquipoAtado): Unidad {
   const fuerza = entero(u.fuerza, 'la fuerza', quien, 1);
   const agilidad = agilidadValida(u.agilidad, quien);
   const hp = entero(u.hp, 'la vida', quien, 1);
-  const traits = lista(u.traits, 'los rasgos', quien).map((t) =>
-    deLaLista(t, CREATURE_TRAITS, 'el rasgo', quien),
-  );
+  const traits = lista(u.traits, 'los rasgos', quien).map((t) => {
+    // Montar es llevar una montura de guerra (26-10-2026): el rasgo que lo decía se
+    // fue, y quien lo escribe se entera de dónde va ahora.
+    if (t === 'charge') {
+      throw new Error(
+        `${quien}: «charge» ya no es un rasgo: montar es llevar una montura de guerra (equipo.montura)`,
+      );
+    }
+    return deLaLista(t, CREATURE_TRAITS, 'el rasgo', quien);
+  });
   const habilidades = lista(u.habilidades, 'las habilidades', quien).map((h) =>
     deLaLista(h, HABILIDADES, 'la habilidad', quien),
   );

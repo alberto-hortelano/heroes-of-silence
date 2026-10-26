@@ -5996,14 +5996,17 @@ async function equipoDeLaArena(browser: Browser, url: string, problemas: Problem
   const secciones = await page
     .locator('[data-seccion-de-equipo]')
     .evaluateAll((els) => els.map((e) => e.getAttribute('data-seccion-de-equipo')));
-  if (JSON.stringify(secciones) !== JSON.stringify(['cuerpo', 'distancia', 'armadura', 'escudo']))
+  if (
+    JSON.stringify(secciones) !==
+    JSON.stringify(['cuerpo', 'distancia', 'armadura', 'escudo', 'montura'])
+  )
     throw new Error(`equipo: las secciones son ${JSON.stringify(secciones)}`);
   const enLaLista = await page.locator('#equipo [data-arena="elegir-pieza"]').count();
   if (enLaLista !== EQUIPO_DEL_JUEGO.piezas.size)
     throw new Error(
       `equipo: el editor enseña ${enLaLista} piezas y el catálogo tiene ${EQUIPO_DEL_JUEGO.piezas.size}`,
     );
-  log('equipo: cuatro secciones por tipo, con el catálogo entero');
+  log('equipo: cinco secciones por tipo, con el catálogo entero');
   // La Espada: sin PV y con un precio, en oro.
   await page.locator('#equipo [data-arena="elegir-pieza"][data-pieza="espada"]').click();
   const fichaDeLaEspada = page.locator('#equipo [data-pieza-elegida="espada"]');
@@ -6228,16 +6231,17 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
     await abrirLaArena(page, url, `?seed=${semilla}`);
 
     // La ficha del jinete élfico: espada y lanza (lo mejor de las dos) y arco, cada
-    // golpe con lo suyo; la carga, con las de cuerpo a cuerpo y la del jinete.
+    // golpe con lo suyo y su agilidad entera sobre el caballo de guerra; la carga,
+    // con la fuerza del caballo más la de la lanza (26-10-2026).
     await page.locator('[data-unidad-catalogo="elfo-jinete"] [data-lado="izquierda"]').click();
     await page.locator('#bando-izquierda button.ver[data-unidad="elfo-jinete"]').click();
     const filas = page.locator('#ficha .armas-de-la-ficha [data-arma-de-la-ficha]');
     await filas.first().waitFor({ timeout: 2000 });
     const dichas = (await filas.allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim());
     const esperadas = [
-      'Cuerpo a cuerpo ⓘ Espada y Lanza · Ataque 7 · Daño 44–220',
-      'A distancia ⓘ Arco · Ataque 6 · Daño 42–210',
-      'Carga ⓘ Espada y Lanza · Ataque 7 · Daño 44–220 · +10 %/casilla (3 a 5)',
+      'Cuerpo a cuerpo ⓘ Espada y Lanza · Ataque 7 · Daño 28–140',
+      'A distancia ⓘ Arco · Ataque 6 · Daño 26–130',
+      'Carga ⓘ Espada y Lanza · Ataque 7 · Daño 62–310 · +5 %/casilla (3 a 5), montada',
     ];
     if (JSON.stringify(dichas) !== JSON.stringify(esperadas)) {
       throw new Error(`armas: la ficha del jinete élfico dice ${JSON.stringify(dichas)}`);

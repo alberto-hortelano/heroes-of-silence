@@ -1166,15 +1166,20 @@ function conCampoDePieza(
     case 'hueco':
     case 'manos':
     case 'lanza':
+    case 'guerra':
       if (esPiezaConBase(p)) {
         throw new Error(
-          `«${p.nombre}» está sobre otra: su hueco, sus manos y si es una lanza son los de su base`,
+          `«${p.nombre}» está sobre otra: su hueco, sus manos y si es una lanza o de guerra son los de su base`,
         );
       }
       if (campo === 'manos') return { ...p, manos: n };
       if (campo === 'lanza') {
         const { lanza: _antes, ...sin } = p;
         return valor === 'true' ? { ...sin, lanza: true } : sin;
+      }
+      if (campo === 'guerra') {
+        const { guerra: _antes, ...sin } = p;
+        return valor === 'true' ? { ...sin, guerra: true } : sin;
       }
       // Lo que el hueco exige va con él (`enElHueco`): una pasada a escudo deja lo
       // que el escudo no suma, y un arma lleva su rueda sin pedirlo aparte.

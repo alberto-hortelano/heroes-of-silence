@@ -27,7 +27,7 @@ import {
   ruedaDelGolpe,
   trasLaArmadura,
 } from './battle/armas.js';
-import { cifrasDeCarga, porcientoDeLaCarga } from './battle/carga.js';
+import { CARGA, porcientoDeLaCarga } from './battle/carga.js';
 import type { CifrasDeLaRueda } from './battle/cifras-de-la-rueda.js';
 import { RUEDA_DE_REFERENCIA } from './battle/formas-de-la-rueda.js';
 import { isShooter, PODER } from './data.js';
@@ -100,8 +100,9 @@ function medida(u: UnitInfo): Medida | { readonly motivo: string } {
  * 12-10-2026).
  *
  * **Con la regla de la carga** (simplify de F1, 18-10-2026): carga todo el que
- * pega cuerpo a cuerpo, a pie si no tiene el rasgo (`cifrasDeCarga`), como pelea
- * toda batalla. Se mide a media recta: la mitad de lo que cobra la recta entera.
+ * pega cuerpo a cuerpo, como pelea toda batalla, y montado de guerra y con lanza
+ * con la horquilla de la carga (`GolpeConArma.carga`, 26-10-2026) en el primer
+ * golpe. Se mide a media recta: la mitad de lo que cobra la recta entera.
  */
 function ofensaDe(u: UnitInfo): number {
   const cuerpo = golpeMedido(u, 'arma');
@@ -110,9 +111,20 @@ function ofensaDe(u: UnitInfo): number {
     const disparo = golpeMedido(u, 'distancia').ofensa * disparosDe(u);
     ofensa = Math.max(ofensa, Math.floor((disparo * 3) / 2));
   }
-  const carga = cifrasDeCarga(u);
-  const cobra = 100 + Math.floor(porcientoDeLaCarga(carga.tope, carga) / 2);
-  return Math.max(ofensa, ofensaDelAtaque(u, cuerpo, cuerpo, cobra));
+  const cobra = 100 + Math.floor(porcientoDeLaCarga(CARGA.tope, CARGA) / 2);
+  return Math.max(ofensa, ofensaDelAtaque(u, primeroDeLaCarga(u, cuerpo), cuerpo, cobra));
+}
+
+/**
+ * El primer golpe de una carga, medido: el de cuerpo a cuerpo o, montado de guerra
+ * y con lanza, el mismo con la horquilla de la carga (la fuerza de la montura y la
+ * de la lanza), que es con lo que tira la batalla (`deUnGolpe`, `damage.ts`).
+ */
+function primeroDeLaCarga(u: UnitInfo, cuerpo: GolpeMedido): GolpeMedido {
+  const { carga } = golpeDe(u, 'arma');
+  if (carga === undefined) return cuerpo;
+  const { attack } = cifrasDelGolpe(u, 'arma');
+  return { ...cuerpo, ofensa: (carga[0] + carga[1]) * (10 + attack) };
 }
 
 /** Un golpe de un uso, medido: lo que pega sin multiplicar y lo que le da la rueda de su arma. */

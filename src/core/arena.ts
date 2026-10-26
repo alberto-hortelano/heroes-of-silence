@@ -103,6 +103,7 @@ import {
   type UnitInfo,
 } from './types.js';
 import {
+  AGILIDAD_DEL_CUERPO_MIN,
   CUERPO_COMUN,
   cuerpoDeCombate,
   ESPADA,
@@ -269,23 +270,34 @@ function primeraBaseQue(
  * ella y la lanza llevan rueda (y la llevan: si no la traía, la de la Espada,
  * `nivelesDeLaEspada`), y las cifras que el hueco no suma se quedan en 0 —un arma
  * que pasa a escudo deja su ataque y su fuerza—. El peso se queda: toda pieza
- * pesa. Lo demás se queda como estaba. Lo leen la pieza nueva en blanco
- * (`piezaNueva`) y el cambio de hueco de la ficha.
+ * pesa. Una montura dice su fuerza y su agilidad (26-10-2026): la que trae, o la
+ * fuerza del cuerpo común y la agilidad más baja de un cuerpo, lo mínimo que la
+ * deja valer; ser de guerra va con ella. Lo demás se queda como estaba. Lo leen la
+ * pieza nueva en blanco (`piezaNueva`) y el cambio de hueco de la ficha.
  */
 export function enElHueco(p: Pieza, hueco: HuecoDePieza): Pieza {
-  const { manos, rueda, fuerza, armadura, lanza, ...resto } = p;
+  const { manos, rueda, fuerza, agilidad, armadura, lanza, guerra, ...resto } = p;
+  const montura = hueco === 'montura';
   const campos = camposDelHueco(hueco);
   const admite = (c: CifraDePieza): boolean => campos.cifras.includes(c);
   return {
     ...resto,
     hueco,
     ataque: admite('ataque') ? p.ataque : 0,
-    ...(admite('fuerza') && fuerza !== undefined ? { fuerza } : {}),
+    ...(montura
+      ? {
+          fuerza: fuerza !== undefined && fuerza >= 1 ? fuerza : CUERPO_COMUN.fuerza,
+          agilidad: agilidad ?? AGILIDAD_DEL_CUERPO_MIN,
+        }
+      : admite('fuerza') && fuerza !== undefined
+        ? { fuerza }
+        : {}),
     defensa: admite('defensa') ? p.defensa : 0,
     ...(admite('armadura') && armadura !== undefined ? { armadura } : {}),
     ...(campos.conManos && manos !== undefined ? { manos } : {}),
     // Ser una lanza va con el arma de cuerpo a cuerpo, como las manos.
     ...(campos.conManos && lanza !== undefined ? { lanza } : {}),
+    ...(montura && guerra !== undefined ? { guerra } : {}),
     // Un arma de cuerpo a cuerpo dice su rueda: la que trae o, si no traía, la de
     // la Espada («todo a 3, como la Espada»).
     ...(campos.conRueda ? { rueda: rueda ?? nivelesDeLaEspada() } : {}),
@@ -1529,9 +1541,11 @@ export function retiradosDeLaURL(
  * (`combate`: el tope por bando y la rueda); la 15 (25-10-2026), la fuerza, la
  * agilidad y el peso: las unidades sin defensa, daño ni casillas y las piezas sin
  * velocidad ni daño; la 16 (25-10-2026), la segunda arma: el hueco `lanza` se fue,
- * una pieza dice `lanza: true` y una unidad lleva `segunda`.
+ * una pieza dice `lanza: true` y una unidad lleva `segunda`; la 17 (26-10-2026), la
+ * montura: el hueco `montura`, piezas con `agilidad` y `guerra`, y el rasgo
+ * `charge` fuera.
  */
-export const VERSION_DEL_ENLACE = 16;
+export const VERSION_DEL_ENLACE = 17;
 
 const CAMPOS_DEL_ENLACE = ['v', 'unidades', 'piezas', 'izquierda', 'derecha', 'muralla', 'combate'];
 const CAMPOS_DEL_COMBATE = ['tope', 'rueda'];

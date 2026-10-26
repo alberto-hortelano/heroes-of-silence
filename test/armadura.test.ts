@@ -130,6 +130,8 @@ describe('las piezas dan armadura, no PV', () => {
       defensa: 0,
       armadura: 22,
       peso: 30,
+      montura: null,
+      fuerzaDeLaLanza: null,
     });
     expect(cifrasDePieza(pieza('barda'))).toBe('+22 Armadura, Peso 30');
     expect(armaduraDe(JINETE)).toBe(22);

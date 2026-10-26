@@ -1102,13 +1102,14 @@ describe('rasgos de criatura (#8)', () => {
     expect(cinco.charge).toBe(5);
     expect(siete.charge).toBe(5);
 
-    // Y quien no tiene el rasgo carga a pie (#260; en toda batalla desde el
-    // 19-10-2026), con sus cifras y el mismo tope.
+    // Y quien no va montado de guerra con lanza carga como todos (#260; en toda
+    // batalla desde el 19-10-2026), con el mismo tope; el jinete, montada.
     const aPie = computeDamage(piqueros, jinetes, createRng(52), {
       chargeHexes: 7,
     });
     expect(aPie.charge).toBe(5);
-    expect(aPie.cifrasDeCarga).toBe(CARGA.aPie);
+    expect(aPie.montada).toBe(false);
+    expect(cinco.montada).toBe(true);
   });
 
   it('fear: quien asusta (el dragón óseo de antes) asusta a los no-muertos, que es donde la moral no llega', () => {
@@ -1453,11 +1454,15 @@ describe('la IA busca la carga: un tramo de lado y la recta en el siguiente', ()
     expect(cobrada).toBe(4);
   });
 
-  it('sin el rasgo, la misma unidad no da el paso de lado', () => {
+  it('sin la carga montada, la misma unidad no da el paso de lado', () => {
+    // La regla se coloca solo con `cargaMontada` (montura de guerra y lanza): sin la
+    // horquilla de la carga en su golpe, la misma unidad golpea donde está.
     const state = escenaDePasoDeLado();
     const s = stackById(state, 'attacker-0');
     const jinete = unidadDelJuego(JINETE);
-    (s as { unit: UnitInfo }).unit = { ...jinete, traits: [] };
+    const armas = jinete.armas!;
+    const { carga: _carga, ...arma } = armas.arma;
+    (s as { unit: UnitInfo }).unit = { ...jinete, armas: { ...armas, arma } };
     const a = chooseBattleAction(state);
     expect(a.type).toBe('attack');
   });
@@ -2038,9 +2043,9 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
     // viene recortado, para que un «»6» pintado no acabe cobrando 5.
     const jinete = stackById(seis, 'attacker-0');
     expect(cargaDesde(seis, jinete, { col: 6, row: 4 }, stackById(seis, 'defender-0'))).toBe(6);
-    expect(cargaEfectiva(6, CARGA.jinete)).toBe(CARGA.jinete.tope);
+    expect(cargaEfectiva(6, CARGA)).toBe(CARGA.tope);
     expect(casillasDeCarga(seis, jinete)).toEqual([
-      { target: 'defender-0', at: { col: 6, row: 4 }, hexes: CARGA.jinete.tope, porciento: 50 },
+      { target: 'defender-0', at: { col: 6, row: 4 }, hexes: CARGA.tope, porciento: 25 },
     ]);
     aplicar(seis, { type: 'attack', target: 'defender-0', from: { col: 6, row: 4 } }, createRng(1));
     expect(cargaCobrada(seis)).toBe(5);
@@ -2162,7 +2167,7 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
         target: 'defender-0',
         at: { col: 3, row: 4 },
         hexes: 3,
-        porciento: 3 * CARGA.aPie.porcentaje,
+        porciento: 3 * CARGA.porcentaje,
       },
     ]);
     expect(cargaDesde(state, s, { col: 3, row: 4 }, stackById(state, 'defender-0'))).toBe(3);
@@ -2205,7 +2210,7 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
       row: 4,
     });
     expect(casillasDeCarga(state, stackById(state, 'attacker-0'))).toEqual([
-      { target: 'defender-0', at: { col: 4, row: 4 }, hexes: 4, porciento: 40 },
+      { target: 'defender-0', at: { col: 4, row: 4 }, hexes: 4, porciento: 20 },
     ]);
   });
 });
@@ -2368,7 +2373,7 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
       `<div>${NOMBRE_B}\u00a0→ ${NOMBRE_A} (contraataque): 4 de daño, 1 baja</div>`,
     );
     expect(golpes).toContain(
-      `<div>${NOMBRE_A}\u00a0→ ${NOMBRE_B} (carga de 3 casillas, +30 %): 20 de daño, 0 bajas</div>`,
+      `<div>${NOMBRE_A}\u00a0→ ${NOMBRE_B} (carga de 3 casillas montada, +15 %): 20 de daño, 0 bajas</div>`,
     );
     expect(golpes).toContain(
       `<div>Lanzas Flecha mágica sobre ${NOMBRE_B}: 10 de daño, 2 bajas</div>`,

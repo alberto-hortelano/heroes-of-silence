@@ -16,13 +16,13 @@ import {
   siguienteDeEquipo,
   valorDePieza,
 } from '../src/core/ai/strategy.js';
-import { armaduraDe, cifrasDelGolpe } from '../src/core/battle/armas.js';
+import { armaduraDe, cifrasDelGolpe, golpeDe } from '../src/core/battle/armas.js';
 import { createBattle, stackById } from '../src/core/battle/battle.js';
 import { armasDe } from '../src/core/battle/damage.js';
 import { cifrasDeUnidad, equipoPuestoDe, unidad, unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { RESPONSE_FORMAT } from '../src/core/contract/agent.js';
-import { cifrasDelCuerpo } from '../src/core/cuerpo.js';
+import { agilidadDe, cifrasDelCuerpo, marchaDe } from '../src/core/cuerpo.js';
 import {
   EQUIPO,
   EQUIPO_ESCRITO,
@@ -81,12 +81,14 @@ import {
 import { newGame } from '../src/core/state/setup.js';
 import {
   CIFRAS_DE_PIEZA,
+  type Equipo,
   type Point,
   SPEED_TIERS,
+  SPEED_TO_HEXES,
   type Troop,
   type Veterania,
 } from '../src/core/types.js';
-import { cuerpoDeCombate } from '../src/core/unidad.js';
+import { cuerpoDeCombate, unidadDeCombate, validarUnidad } from '../src/core/unidad.js';
 import {
   ejercito,
   forzarBatalla,
@@ -97,6 +99,7 @@ import {
   SANADOR,
   TROPA,
   TROPA_BARATA,
+  unidadDeArena,
 } from './helpers.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
@@ -142,13 +145,18 @@ describe('el catálogo de equipo, en datos (C2)', () => {
     const conBase = new Set(EQUIPO_ESCRITO.filter((p) => 'base' in p).map((p) => p.id));
     expect(PIEZAS_DE_BOTIN.map((p) => p.id).sort()).toEqual([...conBase, 'maza', 'paves'].sort());
     expect(PIEZAS_DE_ARMERIA.map((p) => p.id).sort()).toEqual(
-      EQUIPO.filter((p) => !conBase.has(p.id) && p.id !== 'maza' && p.id !== 'paves')
+      EQUIPO.filter(
+        (p) =>
+          !conBase.has(p.id) && p.id !== 'maza' && p.id !== 'paves' && p.id !== 'hiena_de_guerra',
+      )
         .map((p) => p.id)
         .sort(),
     );
-    // Toda pieza se vende o cae como botín, y todas tienen precio en oro.
-    expect(EQUIPO.every((p) => p.seConsigue.length > 0)).toBe(true);
-    expect(EQUIPO.every((p) => p.precio > 0)).toBe(true);
+    // Toda pieza se vende o cae como botín, y todas tienen precio en oro, salvo la
+    // que solo llevan los jinetes de hiena (26-10-2026).
+    const enKits = EQUIPO.filter((p) => p.seConsigue.length === 0).map((p) => p.id);
+    expect(enKits).toEqual(['hiena_de_guerra']);
+    expect(EQUIPO.every((p) => enKits.includes(p.id) || p.precio > 0)).toBe(true);
     // El equipo base es el de `data/heroe.json`: la Espada y el gambesón, sin nada más.
     expect(EQUIPO_BASE).toEqual({ arma: 'espada', armadura: 'gambeson' });
     // Ninguna da PV: no es un campo de una pieza (lo dice el tipo, y el cargador).
@@ -200,7 +208,7 @@ describe('el catálogo de equipo, en datos (C2)', () => {
     );
     // Ni accesorio ni calidad: son de antes, y no valen.
     expect(con((ps) => (id(ps, 'rodela').hueco = 'accesorio'))).toThrow(
-      /"rodela" va en el hueco "accesorio", que no existe; valen arma, distancia, armadura, escudo/,
+      /"rodela" va en el hueco "accesorio", que no existe; valen arma, distancia, armadura, escudo, montura/,
     );
     expect(con((ps) => (id(ps, 'arco').calidad = 'arena'))).toThrow(
       /"arco": «calidad» no es un campo de una pieza/,
@@ -357,8 +365,9 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
         damage: [c.fuerza + 10, (c.fuerza + 10) * c.agilidad],
       },
     });
-    // La lanza es un arma de cuerpo a cuerpo más (25-10-2026), y lo dice
-    // (`conLanza`). Con la barda pesan 38 con fuerza 12: −4 de agilidad, que no baja de 1.
+    // La lanza es un arma de cuerpo a cuerpo más (25-10-2026); sin montura de guerra
+    // no lleva horquilla de carga. Con la barda pesan 38 con fuerza 12: −4 de
+    // agilidad, que no baja de 1.
     const jinete = arena.conEquipo(c, { arma: 'lanza', armadura: 'barda' });
     expect(jinete.attack).toBe(c.attack + 3);
     expect(jinete.damage).toEqual([c.fuerza + 12, c.fuerza + 12]);
@@ -369,7 +378,6 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
         attack: c.attack + 3,
         damage: [c.fuerza + 12, c.fuerza + 12],
         rueda: pieza('lanza').rueda,
-        conLanza: true,
       },
     });
     // Vestir en dos veces da lo mismo que en una.
@@ -387,6 +395,8 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
       defensa: 0,
       armadura: 4,
       peso: 17,
+      montura: null,
+      fuerzaDeLaLanza: null,
     });
   });
 
@@ -1503,5 +1513,95 @@ describe('el fichero, por tipos y con bases (18-10-2026)', () => {
     expect(
       con((ps) => ((id(ps, 'espada_de_herreria').extras as { fuerza: number }).fuerza = -20)),
     ).toThrow('«Espada de herrería» (sobre «Espada»): fuerza tiene que ser un entero ≥ 0 y es -10');
+  });
+});
+
+describe('la montura, aparte del jinete (26-10-2026)', () => {
+  const vestidoCon = (equipo: Equipo) =>
+    unidadDeCombate(unidadDeArena(JINETE, { equipo }), EQUIPO_DEL_JUEGO);
+  const { montura: _caballo, ...aPie } = unidad(JINETE).equipo;
+
+  it('las tres monturas del catálogo: dos se venden en la armería; la hiena, solo en su kit', () => {
+    expect(EQUIPO.filter((p) => p.hueco === 'montura').map((p) => p.id)).toEqual([
+      'caballo_de_guerra',
+      'caballo_de_silla',
+      'hiena_de_guerra',
+    ]);
+    const armeria = PIEZAS_DE_ARMERIA.map((p) => p.id);
+    expect(armeria).toContain('caballo_de_guerra');
+    expect(armeria).toContain('caballo_de_silla');
+    expect(armeria).not.toContain('hiena_de_guerra');
+    expect(pieza('caballo_de_guerra')).toMatchObject({ fuerza: 50, agilidad: 6, guerra: true });
+    expect(pieza('caballo_de_silla')).not.toHaveProperty('guerra');
+  });
+
+  it('`problemasDePieza` dice lo que no vale de una montura y de lo que no lo es', () => {
+    const silla = pieza('caballo_de_silla');
+    expect(problemasDePieza(silla)).toEqual([]);
+    expect(problemasDePieza({ ...pieza('espada'), agilidad: 3 })).toEqual([
+      '"espada" va en el hueco arma, que no suma agilidad: en él una pieza suma ataque, fuerza, peso',
+    ]);
+    expect(problemasDePieza({ ...pieza('escudo'), guerra: true })).toEqual([
+      '"escudo" va en el hueco escudo y dice que es de guerra: solo una montura lo es',
+    ]);
+    expect(problemasDePieza({ ...silla, guerra: false })).toEqual([
+      '"caballo_de_silla": guerra es true o no se escribe, y es false',
+    ]);
+    const { agilidad: _ag, ...sinAgilidad } = silla;
+    expect(problemasDePieza(sinAgilidad)).toEqual([
+      '"caballo_de_silla" es una montura y no dice su agilidad: un entero de 2 a 7, de la que salen sus casillas',
+    ]);
+    expect(problemasDePieza({ ...silla, agilidad: 8 })).toEqual([
+      '"caballo_de_silla": la agilidad de una montura va de 2 a 7 y es 8',
+    ]);
+    expect(problemasDePieza({ ...silla, fuerza: 0 })).toEqual([
+      '"caballo_de_silla" es una montura de fuerza 0: tiene que cargar algo, un entero de 1 o más',
+    ]);
+    // Una montura no da ataque, defensa ni armadura: la regla de las cifras del hueco.
+    expect(problemasDePieza({ ...silla, ataque: 2 })).toEqual([
+      '"caballo_de_silla" va en el hueco montura, que no suma ataque: en él una pieza suma fuerza, agilidad, peso',
+    ]);
+  });
+
+  it('el hermano de carga montado: las casillas del caballo, su agilidad entera y el daño sin la fuerza del caballo', () => {
+    const montado = unidadDelJuego(JINETE);
+    // Lo suyo (espada, lanza y barda: 42) y el caballo (10), 52 frente a 50: no resta.
+    expect(montado.peso).toBe(42);
+    expect(montado.montura).toMatchObject({ id: 'caballo_de_guerra', fuerza: 50, guerra: true });
+    expect(SPEED_TO_HEXES[montado.speed]).toBe(6);
+    expect(agilidadDe(montado)).toBe(4);
+    expect(montado.defense).toBe(4);
+    // El daño normal, (22 + 12) × [1, 4]: la fuerza del caballo no entra (riesgo del plan).
+    expect(montado.damage).toEqual([34, 136]);
+    expect(cifrasDelGolpe(montado, 'arma').damage).toEqual([34, 136]);
+    // La carga, (50 + 12) × [1, 4].
+    expect(golpeDe(montado, 'arma').carga).toEqual([62, 248]);
+    // Sin el caballo, a pie con lo mismo: 42 frente a 22, −1 de agilidad, 3 casillas.
+    const desmontado = vestidoCon(aPie);
+    expect(desmontado.montura).toBeUndefined();
+    expect(SPEED_TO_HEXES[desmontado.speed]).toBe(3);
+    expect(agilidadDe(desmontado)).toBe(3);
+    expect(desmontado.defense).toBe(3);
+    expect(golpeDe(desmontado, 'arma').carga).toBeUndefined();
+  });
+
+  it('un caballo de silla no cambia la batalla: solo la marcha del mapa', () => {
+    const desmontado = vestidoCon(aPie);
+    const deSilla = vestidoCon({ ...aPie, montura: 'caballo_de_silla' });
+    expect(deSilla.speed).toBe(desmontado.speed);
+    expect(deSilla.defense).toBe(desmontado.defense);
+    expect(deSilla.damage).toEqual(desmontado.damage);
+    expect(golpeDe(deSilla, 'arma').carga).toBeUndefined();
+    // En el mapa, las casillas del caballo con lo que carga: 42 + 6 frente a 30, −1.
+    expect(SPEED_TO_HEXES[marchaDe(desmontado)]).toBe(3);
+    expect(SPEED_TO_HEXES[marchaDe(deSilla)]).toBe(6);
+  });
+
+  it('una unidad que escribe el rasgo «charge» tumba la carga del catálogo diciendo dónde va ahora', () => {
+    expect(() =>
+      validarUnidad({ ...unidad(JINETE), traits: ['charge'] } as never, EQUIPO_DEL_JUEGO),
+    ).toThrow(
+      'la unidad «Hermano de carga»: «charge» ya no es un rasgo: montar es llevar una montura de guerra (equipo.montura)',
+    );
   });
 });

@@ -473,7 +473,7 @@ describe('el hueco que llega del marcado pasa por la sesión', () => {
     const antes = { ...aldo.equipo };
     session.unequip(aldo.id, 'casco');
     expect(session.status).toBe(
-      'no hay ningún hueco "casco": son arma, segunda, distancia, armadura, escudo',
+      'no hay ningún hueco "casco": son arma, segunda, distancia, armadura, escudo, montura',
     );
     expect(aldo.equipo).toEqual(antes);
     // Y el vacío, por su nombre: «Escudo», no la clave.

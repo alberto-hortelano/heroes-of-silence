@@ -1,6 +1,6 @@
 /**
- * El equipo: cinco huecos por individuo, unidad y héroe —el arma de cuerpo a
- * cuerpo, la de disparar, la de carga, la armadura y el escudo (`HUECOS`)— con una
+ * El equipo: seis huecos por individuo, unidad y héroe —las dos armas de cuerpo a
+ * cuerpo, la de disparar, la armadura, el escudo y la montura (`HUECOS`)— con una
  * pieza de `data/equipo.json` en cada uno, o nada: cada arma para lo suyo, y cada
  * golpe con las cifras de la suya (`UnitInfo.armas`). **Una sola clase de piezas**
  * (18-10-2026): las mismas en el juego y en la arena, que las edita y las guarda.
@@ -41,6 +41,7 @@ import type {
   GolpeConArma,
   Hueco,
   HuecoDeArmaPorUso,
+  MonturaPuesta,
   NivelesDeLaRueda,
   Troop,
   UnitInfo,
@@ -214,14 +215,22 @@ export const DICHO_DEL_USO: Readonly<Record<UsoDeArma, DichoDeUnUso>> = {
 /**
  * La carga dicha para quien juega, en la forma de un uso (`DICHO_DEL_USO`): la fila
  * de la carga de «Armas» y la previsión de un golpe que la cobra. Va con el arma de
- * cuerpo a cuerpo; montado y con una lanza puesta, cobra la del jinete
- * (`cifrasDeCarga`, 25-10-2026).
+ * cuerpo a cuerpo; con una montura de guerra y una lanza puestas, con la fuerza de
+ * la montura (`GolpeConArma.carga`, 26-10-2026).
  */
 export const DICHO_DE_LA_CARGA: DichoDeUnUso = {
   rotulo: 'Carga',
   golpe: 'en la carga',
-  cuando: `Se usa al cargar: el golpe tras correr en línea recta ${CARGA_MINIMA} casillas o más hacia el objetivo, con el arma de cuerpo a cuerpo. Carga todo el que pega cuerpo a cuerpo, +${CARGA.aPie.porcentaje} % de daño por casilla hasta ${CARGA.aPie.tope}; montado (el rasgo Carga) y con una lanza puesta, +${CARGA.jinete.porcentaje} % hasta ${CARGA.jinete.tope}.`,
+  cuando: `Se usa al cargar: el golpe tras correr en línea recta ${CARGA_MINIMA} casillas o más hacia el objetivo, con el arma de cuerpo a cuerpo. Carga todo el que pega cuerpo a cuerpo, +${CARGA.porcentaje} % de daño por casilla hasta ${CARGA.tope}. Con una montura de guerra y una lanza puestas, el daño de ese golpe es el de la fuerza de la montura más la de la lanza, por la agilidad del jinete.`,
 };
+
+/**
+ * La montura dicha para quien juega (26-10-2026): la nota de su hueco y de su
+ * sección en el editor de equipo y la de la ficha. La regla la aplican
+ * `cifrasDelCuerpo` y `marchaDe` (`core/cuerpo.ts`); esto la cuenta.
+ */
+export const DICHO_DE_LA_MONTURA =
+  'La montura tiene su fuerza, su agilidad y su peso, que no se suman a las de quien monta. De guerra, se monta en batalla: lo que pesa el equipo del jinete y ella se mide contra su fuerza, las casillas son las suyas tras ese peso y el jinete pelea con su agilidad entera; con una lanza, la carga pega con la fuerza de la montura más la de la lanza. De silla, no entra en batalla: allí se pelea a pie. En el mapa cada uno anda lo de su montura, de guerra o de silla, o lo suyo a pie, y manda el más lento del grupo, el héroe incluido.';
 
 /** Con qué se da un golpe sin arma (`GolpeConArma.piezas` vacía), dicho para quien juega. */
 export const SIN_ARMA = 'sin arma, con el cuerpo';
@@ -300,8 +309,16 @@ export interface SumaDeEquipo {
   readonly defensa: number;
   /** Los puntos de armadura (`Pieza.armadura`). Ninguna pieza da PV. */
   readonly armadura: number;
-  /** Lo que pesa todo, también las armas por uso: el peso es de lo que se lleva. */
+  /**
+   * Lo que pesa todo, también las armas por uso: el peso es de lo que se lleva.
+   * La montura no: carga ese peso, y el suyo cuenta solo contra su fuerza (D3 de
+   * `docs/agents/2026-10-26-montura/plan.md`).
+   */
   readonly peso: number;
+  /** La montura puesta, o `null`: sus cifras son suyas y no se suman a nada de arriba. */
+  readonly montura: Pieza | null;
+  /** La fuerza de la mejor lanza de cuerpo a cuerpo puesta (`Pieza.lanza`), o `null` sin ninguna. */
+  readonly fuerzaDeLaLanza: number | null;
 }
 
 /**
@@ -321,13 +338,16 @@ export function sumaDeEquipo(equipo: Equipo | undefined): SumaDeEquipo {
  * `camposDelHueco`; los de un arma por uso, `esArmaPorUso`, son de su golpe,
  * `armasPorUso`), y de las dos no se suman: cuenta la mejor en cada cifra
  * (25-10-2026, «se usa la característica de la mejor en cada tipo de ataque»). Lo
- * demás de cualquier pieza —defensa, armadura, peso—, siempre.
+ * demás de cualquier pieza —defensa, armadura, peso—, siempre, salvo la montura
+ * (26-10-2026): su fuerza no es la de un arma y su peso no lo lleva el jinete; va
+ * aparte, entera (`montura`).
  */
 function sumaDe(piezas: CatalogoDePiezas, equipo: Equipo | undefined): SumaDeEquipo {
   let defensa = 0;
   let armadura = 0;
   let peso = 0;
-  for (const p of puestasDe(piezas, equipo)) {
+  const { montura: idDeLaMontura, ...sinMontura } = equipo ?? {};
+  for (const p of puestasDe(piezas, sinMontura)) {
     defensa += p.defensa;
     armadura += p.armadura ?? 0;
     peso += p.peso;
@@ -335,7 +355,41 @@ function sumaDe(piezas: CatalogoDePiezas, equipo: Equipo | undefined): SumaDeEqu
   const armas = deCuerpoACuerpo(piezas, equipo);
   const ataque = Math.max(0, ...armas.map((p) => p.ataque));
   const fuerza = Math.max(0, ...armas.map((p) => p.fuerza ?? 0));
-  return { ataque, fuerza, defensa, armadura, peso };
+  // Con dos lanzas, la que más fuerza pone en la carga (D5 del plan).
+  const lanzas = armas.filter(esLanza);
+  const fuerzaDeLaLanza =
+    lanzas.length === 0 ? null : Math.max(...lanzas.map((p) => p.fuerza ?? 0));
+  const montura = idDeLaMontura === undefined ? null : piezaDe(piezas, idDeLaMontura);
+  return { ataque, fuerza, defensa, armadura, peso, montura, fuerzaDeLaLanza };
+}
+
+/**
+ * Las cifras de la montura `p` como las lleva la unidad (`UnitInfo.montura`): la
+ * única lectura de `Pieza.agilidad` y `Pieza.guerra` fuera de la regla de una pieza.
+ */
+function monturaPuesta(p: Pieza): MonturaPuesta {
+  return {
+    id: p.id,
+    nombre: p.nombre,
+    fuerza: p.fuerza ?? 0,
+    agilidad: p.agilidad ?? 0,
+    peso: p.peso,
+    guerra: esDeGuerra(p),
+  };
+}
+
+/** Lo que el equipo pone en la cuenta del cuerpo (`cifrasDelCuerpo`) con la fuerza de arma `fuerzaDelArma`. */
+function loQuePone(
+  total: SumaDeEquipo,
+  fuerzaDelArma: number,
+): Parameters<typeof cifrasDelCuerpo>[1] {
+  return {
+    peso: total.peso,
+    fuerzaDelArma,
+    defensaDelEscudo: total.defensa,
+    ...(total.montura === null ? {} : { montura: monturaPuesta(total.montura) }),
+    ...(total.fuerzaDeLaLanza === null ? {} : { fuerzaDeLaLanza: total.fuerzaDeLaLanza }),
+  };
 }
 
 /** Las armas de cuerpo a cuerpo puestas en `equipo`: ninguna, una o dos, en el orden de sus huecos. */
@@ -387,13 +441,10 @@ function vestir<U extends UnitInfo>(
   const antes = sumaDe(piezas, unit.equipo);
   const total = sumaDe(piezas, todo);
   const puntosDeArmadura = (unit.puntosDeArmadura ?? 0) - antes.armadura + total.armadura;
-  const derivadas = cifrasDelCuerpo(unit, {
-    peso: total.peso,
-    fuerzaDelArma: total.fuerza,
-    defensaDelEscudo: total.defensa,
-  });
-  // El peso, siempre el de todo lo puesto: el de `unit` (si lo traía) ya va en él.
-  const { peso: _antes, ...sinPeso } = unit;
+  const derivadas = cifrasDelCuerpo(unit, loQuePone(total, total.fuerza));
+  // El peso y la montura, siempre los de todo lo puesto: los de `unit` (si los
+  // traía) ya van en ellos.
+  const { peso: _antes, montura: _montura, ...sinPeso } = unit;
   const vestida: U = {
     ...(sinPeso as U),
     attack: unit.attack - antes.ataque + total.ataque,
@@ -404,9 +455,10 @@ function vestir<U extends UnitInfo>(
     // sale con los mismos campos.
     ...(puntosDeArmadura > 0 ? { puntosDeArmadura } : {}),
     ...(total.peso > 0 ? { peso: total.peso } : {}),
+    ...(total.montura === null ? {} : { montura: monturaPuesta(total.montura) }),
     equipo: todo,
   };
-  const armas = armasPorUso(piezas, vestida, todo, total);
+  const armas = armasPorUso(piezas, vestida, todo, total, derivadas.carga);
   return armas === null ? vestida : { ...vestida, armas };
 }
 
@@ -415,7 +467,8 @@ function vestir<U extends UnitInfo>(
  * (`esArmaPorUso`) o un arma de cuerpo a cuerpo, que dice su rueda
  * (`Pieza.rueda`), o `null`. El de cuerpo a cuerpo es el de arriba, con sus dos
  * armas si lleva dos: la rueda, tipo a tipo la mejor de las dos (`mejorRueda`), y
- * si alguna es una lanza, `conLanza`; el de cada arma por uso, el de arriba con
+ * montado de guerra y con lanza, la horquilla de la carga (`carga`, la de
+ * `cifrasDelCuerpo`); el de cada arma por uso, el de arriba con
  * esa arma en lugar de las de cuerpo a cuerpo (su ataque y su fuerza no suben
  * arriba, `sumaDe`). Cada golpe lleva la rueda de su arma: así el motor no busca la
  * pieza. El único escritor de `UnitInfo.armas`.
@@ -425,6 +478,7 @@ function armasPorUso(
   vestida: UnitInfo,
   todo: Equipo,
   total: SumaDeEquipo,
+  carga: readonly [number, number] | undefined,
 ): ArmasDeLaUnidad | null {
   const delCuerpo = deCuerpoACuerpo(piezas, todo);
   const porUso = HUECOS.filter(
@@ -438,7 +492,7 @@ function armasPorUso(
   const armas: { -readonly [U in keyof ArmasDeLaUnidad]: ArmasDeLaUnidad[U] } = {
     arma: {
       piezas: delCuerpo.map(nombreDeLaPieza),
-      ...(delCuerpo.some(esLanza) ? { conLanza: true as const } : {}),
+      ...(carga === undefined ? {} : { carga }),
       attack: vestida.attack,
       damage: vestida.damage,
       ...(rueda === undefined ? {} : { rueda }),
@@ -453,11 +507,7 @@ function armasPorUso(
       // El cuerpo con todo lo puesto y la fuerza de esta arma en lugar de la de
       // cuerpo a cuerpo: la misma cuenta que el golpe de arriba (las primitivas de
       // `vestida` son las del cuerpo).
-      damage: cifrasDelCuerpo(vestida, {
-        peso: total.peso,
-        fuerzaDelArma: p.fuerza ?? 0,
-        defensaDelEscudo: total.defensa,
-      }).damage,
+      damage: cifrasDelCuerpo(vestida, loQuePone(total, p.fuerza ?? 0)).damage,
     };
   }
   return armas;
@@ -502,7 +552,20 @@ export function mismasCifras(a: UnitInfo, b: UnitInfo): boolean {
     a.hp === b.hp &&
     (a.puntosDeArmadura ?? 0) === (b.puntosDeArmadura ?? 0) &&
     a.speed === b.speed &&
+    mismaMontura(a.montura, b.montura) &&
     mismasArmas(a.armas, b.armas)
+  );
+}
+
+function mismaMontura(a: MonturaPuesta | undefined, b: MonturaPuesta | undefined): boolean {
+  if (a === undefined || b === undefined) return a === b;
+  return (
+    a.id === b.id &&
+    a.nombre === b.nombre &&
+    a.fuerza === b.fuerza &&
+    a.agilidad === b.agilidad &&
+    a.peso === b.peso &&
+    a.guerra === b.guerra
   );
 }
 
@@ -512,7 +575,8 @@ function mismasArmas(a: ArmasDeLaUnidad | undefined, b: ArmasDeLaUnidad | undefi
       ? x === y
       : x.piezas.length === y.piezas.length &&
         x.piezas.every((p, i) => p.id === y.piezas[i]?.id && p.nombre === y.piezas[i]?.nombre) &&
-        x.conLanza === y.conLanza &&
+        x.carga?.[0] === y.carga?.[0] &&
+        x.carga?.[1] === y.carga?.[1] &&
         x.attack === y.attack &&
         x.damage[0] === y.damage[0] &&
         x.damage[1] === y.damage[1] &&
@@ -542,6 +606,11 @@ export function aDosManos(p: Pick<Pieza, 'manos'>): boolean {
 /** Si `p` es una lanza (`Pieza.lanza`): la lectura para quien la enseña, como `aDosManos`. */
 export function esLanza(p: Pick<Pieza, 'lanza'>): boolean {
   return p.lanza === true;
+}
+
+/** Si `p` es una montura de guerra (`Pieza.guerra`): la lectura para quien la enseña, como `esLanza`. */
+export function esDeGuerra(p: Pick<Pieza, 'guerra'>): boolean {
+  return p.guerra === true;
 }
 
 /**
@@ -712,16 +781,21 @@ export function sacarDeLaMochila(mochila: readonly string[], id: string): string
 }
 
 /**
- * Una cosa que suma una pieza: una cifra con su valor (el peso no suma: pesa) o
- * una marca que no es cifra (`dosManos`: va sola; `lanza`: montado, carga como el jinete).
+ * Una cosa que suma una pieza: una cifra con su valor (el peso no suma: pesa; la
+ * fuerza y la agilidad de una montura tampoco: son suyas, `propia`) o una marca que
+ * no es cifra (`dosManos`: va sola; `lanza`: con montura de guerra, carga con la
+ * fuerza de ella; `guerra` y `silla`: si la montura se monta en batalla o solo en
+ * el mapa).
  */
 export type ModificadorDePieza =
   | {
       readonly kind: 'cifra';
       readonly cifra: CifraDePieza;
       readonly valor: number;
+      /** La cifra es de la pieza y no se suma a nadie (la de una montura): se dice sin signo. */
+      readonly propia?: true;
     }
-  | { readonly kind: 'marca'; readonly marca: 'dosManos' | 'lanza' };
+  | { readonly kind: 'marca'; readonly marca: 'dosManos' | 'lanza' | 'guerra' | 'silla' };
 
 /**
  * Lo que suma una pieza, como lista: las cifras distintas de cero en el orden de
@@ -733,19 +807,48 @@ export function modificadoresDePieza(p: Pieza): ModificadorDePieza[] {
   const valor: Readonly<Record<CifraDePieza, number>> = {
     ataque: p.ataque,
     fuerza: p.fuerza ?? 0,
+    agilidad: p.agilidad ?? 0,
     defensa: p.defensa,
     armadura: p.armadura ?? 0,
     peso: p.peso,
   };
+  const montura = p.hueco === 'montura';
   const cifras: ModificadorDePieza[] = CIFRAS_DE_PIEZA.flatMap((cifra) =>
-    valor[cifra] === 0 ? [] : [{ kind: 'cifra' as const, cifra, valor: valor[cifra] }],
+    valor[cifra] === 0
+      ? []
+      : [
+          {
+            kind: 'cifra' as const,
+            cifra,
+            valor: valor[cifra],
+            ...(montura && cifra !== 'peso' ? { propia: true as const } : {}),
+          },
+        ],
   );
   const marcas: ModificadorDePieza[] = [
     ...(aDosManos(p) ? [{ kind: 'marca' as const, marca: 'dosManos' as const }] : []),
     ...(esLanza(p) ? [{ kind: 'marca' as const, marca: 'lanza' as const }] : []),
+    ...(montura
+      ? [
+          {
+            kind: 'marca' as const,
+            marca: esDeGuerra(p) ? ('guerra' as const) : ('silla' as const),
+          },
+        ]
+      : []),
   ];
   return [...cifras, ...marcas];
 }
+
+/** Cada marca de una pieza dicha para quien juega (`textoDeModificador`). */
+const DICHO_DE_LA_MARCA: Readonly<
+  Record<Extract<ModificadorDePieza, { kind: 'marca' }>['marca'], string>
+> = {
+  dosManos: 'a dos manos',
+  lanza: 'lanza: carga con la fuerza de la montura de guerra',
+  guerra: 'de guerra: se monta en batalla',
+  silla: 'de silla: solo en el mapa',
+};
 
 /** Un número con su signo siempre: «+2», «−1» (el menos tipográfico), «+0». */
 export function conSigno(n: number): string {
@@ -759,8 +862,8 @@ export function conSigno(n: number): string {
  * ninguna cifra, se compara con la fuerza.
  */
 export function textoDeModificador(m: ModificadorDePieza): string {
-  if (m.kind === 'marca') return m.marca === 'dosManos' ? 'a dos manos' : 'lanza: carga montado';
-  if (m.cifra === 'peso') return `${NOMBRE_DE_CIFRA.peso} ${m.valor}`;
+  if (m.kind === 'marca') return DICHO_DE_LA_MARCA[m.marca];
+  if (m.cifra === 'peso' || m.propia === true) return `${NOMBRE_DE_CIFRA[m.cifra]} ${m.valor}`;
   return `${conSigno(m.valor)} ${NOMBRE_DE_CIFRA[m.cifra]}`;
 }
 

@@ -147,6 +147,18 @@ describe('el catálogo de equipo en la arena', () => {
     expect(validarPieza(JSON.parse(JSON.stringify(enCero)))).toEqual(enCero);
   });
 
+  it('una montura nueva nace con lo que la deja valer, y pasar a otro hueco le quita lo suyo (26-10-2026)', () => {
+    // La fuerza del cuerpo común y la agilidad más baja: sin ellas no valdría.
+    const nueva = piezaNueva('montura', EQUIPO_DEL_JUEGO) as Pieza;
+    expect(nueva).toMatchObject({ hueco: 'montura', fuerza: 20, agilidad: 2 });
+    expect(nueva).not.toHaveProperty('guerra');
+    const caballo = pieza('caballo_de_guerra');
+    expect(enElHueco(caballo, 'montura')).toEqual(caballo);
+    const comoArma = enElHueco(caballo, 'arma');
+    expect(comoArma).not.toHaveProperty('agilidad');
+    expect(comoArma).not.toHaveProperty('guerra');
+  });
+
   it('un arma a distancia nueva, sin disparos, ya hace tirador a quien la lleva (13-10-2026)', () => {
     // Sin munición: llevarla es disparar. Antes nacía con los 12 del arco (H1 del QA
     // de las armas por uso), que con 0 no se usaba nunca.
@@ -368,7 +380,7 @@ describe('el enlace de la pelea lleva las piezas de lo montado', () => {
   };
 
   it('va y vuelve con todas las piezas que lleva, y monta con ellas en el catálogo de quien lo abre', () => {
-    expect(VERSION_DEL_ENLACE).toBe(16);
+    expect(VERSION_DEL_ENLACE).toBe(17);
     // Lo que llevan el guerrero (la nueva, la brigantina, el escudo) y el arquero
     // (daga, arco, jubón): todas, no solo las cambiadas.
     expect(ENLACE.piezas.map((p) => p.id).sort()).toEqual(
@@ -730,15 +742,16 @@ describe('la vista «Editar equipo»', () => {
       }),
     );
 
-  it('lista el catálogo entero en cuatro secciones, con de dónde sale cada una, y cuenta lo que no se ha guardado', () => {
+  it('lista el catálogo entero en cinco secciones, con de dónde sale cada una, y cuenta lo que no se ha guardado', () => {
     const m = vista('espada');
     expect([...m.matchAll(/data-seccion-de-equipo="([^"]+)"/g)].map((x) => x[1])).toEqual([
       'cuerpo',
       'distancia',
       'armadura',
       'escudo',
+      'montura',
     ]);
-    for (const h of ['arma', 'distancia', 'armadura', 'escudo']) {
+    for (const h of ['arma', 'distancia', 'armadura', 'escudo', 'montura']) {
       expect(m).toContain(`data-arena="crear-pieza" data-hueco="${h}"`);
     }
     expect(m.match(/data-arena="elegir-pieza"/g)).toHaveLength(piezas.piezas.size);

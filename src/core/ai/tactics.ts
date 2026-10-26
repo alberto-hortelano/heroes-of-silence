@@ -35,7 +35,7 @@ import {
   sumaDelBando,
 } from '../battle/battle.js';
 import { hexDistance, hexKey, neighbours, type Paso } from '../battle/board.js';
-import { CARGA_MINIMA, cargaEfectiva, cifrasDeCarga } from '../battle/carga.js';
+import { CARGA, CARGA_MINIMA, cargaEfectiva, cargaMontada } from '../battle/carga.js';
 import {
   type DamageOptions,
   expectedDamage,
@@ -556,11 +556,9 @@ type CargaContra = Extract<BattleAction, { type: 'attack' }> & { from: Hex };
  *    ordenar por la carga cobrada es ordenar por daño esperado sin calcularlo.
  *    La dicen `cargaDesde` y `cargaEfectiva`, las mismas que la cobran: en
  *    línea recta, a 3 casillas o más, con el objetivo en la recta y con el
- *    tope de 5 (02-10-2026). Quien no carga (`cifrasDeCarga`: sin el rasgo, en
- *    el juego) da 0 en todas y no se calcula nada más; en la arena carga todo
- *    el que pega cuerpo a cuerpo (#260) y se mide la recta de cada casilla.
- * 2. **Coste mínimo**, que es lo que queda cuando la carga empata: sin `charge`
- *    empatan todas.
+ *    tope de 5 (02-10-2026). Carga todo el que pega cuerpo a cuerpo (#260) y se
+ *    mide la recta de cada casilla.
+ * 2. **Coste mínimo**, que es lo que queda cuando la carga empata.
  * 3. **El primero en el orden de enumeración**, que hoy es el que decide de
  *    verdad: 722 de 1194 decisiones con varias casillas empatan también a
  *    coste mínimo. Sale solo de comparar con `>` y `<` estrictos.
@@ -586,7 +584,6 @@ function mejorCarga(
   // Lo que no cambia de una casilla candidata a otra (las ocupadas, lo que cuesta
   // salir de cada casilla) se cuenta una vez: `medirCargas`.
   const medir = medirCargas(state, s);
-  const cifras = cifrasDeCarga(s.unit);
 
   let mejor = cargas[0] as CargaContra;
   let cargaMejor = -1;
@@ -603,7 +600,7 @@ function mejorCarga(
     // Lo que pagará: la carrera por la recta, que puede costar más que el camino
     // barato del recorrido.
     const coste = medida?.carrera.steps ?? paso.steps;
-    const carga = medida === null ? 0 : cargaEfectiva(medida.recta, cifras);
+    const carga = medida === null ? 0 : cargaEfectiva(medida.recta, CARGA);
     if (carga > cargaMejor || (carga === cargaMejor && coste < mejorCoste)) {
       mejor = a;
       cargaMejor = carga;
@@ -657,11 +654,10 @@ function pasoParaCargar(
   acciones: readonly BattleAction[],
   costes: ReadonlyMap<string, Paso>,
 ): Hex | null {
-  // Solo el jinete se coloca para cargar: que la IA busque la recta también a pie
-  // (#260) queda para después de medir cuántas cargas hace sin ello. A pie carga
-  // si la recta le sale de camino.
-  if (!hasTrait(s.unit, 'charge')) return null;
-  const cifras = cifrasDeCarga(s.unit);
+  // Solo quien carga montado (montura de guerra y lanza, `cargaMontada`) se coloca
+  // para cargar: que la IA busque la recta también a pie (#260) queda para después
+  // de medir cuántas cargas hace sin ello. A pie carga si la recta le sale de camino.
+  if (!cargaMontada(s.unit)) return null;
   const bloqueadas = cerradasPara(state, s);
   if (golpes.some((a) => cargaDesde(state, s, a.from, objetivo, bloqueadas) > 0)) return null;
 
@@ -688,7 +684,7 @@ function pasoParaCargar(
     const puesta = { ...s, hex: a.to };
     for (const desde of desdes) {
       if (hexDistance(a.to, desde) > resto) continue;
-      const carga = cargaEfectiva(cargaDesde(state, puesta, desde, objetivo, bloqueadas), cifras);
+      const carga = cargaEfectiva(cargaDesde(state, puesta, desde, objetivo, bloqueadas), CARGA);
       if (carga > cargaMejor) {
         mejor = a.to;
         cargaMejor = carga;

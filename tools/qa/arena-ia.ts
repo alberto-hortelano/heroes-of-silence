@@ -18,7 +18,7 @@
  * - **con héroes**: tres contra tres de todas las hojas, con un héroe por bando
  *   sin libro (que pega con la Espada).
  *
- * Cuenta en todas las cargas a pie y del jinete, los golpes parados y los cruces
+ * Cuenta en todas las cargas a pie y las montadas (`cargaMontada`), los golpes parados y los cruces
  * de la rueda. Las variantes de reglas (contacto libre, sin carga a pie, golpe al
  * azar) se fueron con los interruptores. Las variantes se alternan por semilla,
  * para que la carga de la máquina (compartida) caiga igual en todas.
@@ -28,10 +28,11 @@ import { resolve } from 'node:path';
 import { autoResolve } from '../../src/core/ai/tactics.js';
 import { batallaDeArena, heroePorDefecto, type Lado, quitarEnArena } from '../../src/core/arena.js';
 import { causaDelFinal, MAX_ROUNDS } from '../../src/core/battle/battle.js';
+import { cargaMontada } from '../../src/core/battle/carga.js';
 import { SIN_MURALLA } from '../../src/core/battle/muralla.js';
 import { unidad } from '../../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../../src/core/combate.js';
-import { hasTrait, LIDERAZGO } from '../../src/core/data.js';
+import { LIDERAZGO } from '../../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../../src/core/rng.js';
 import type { Hoja, Unidad } from '../../src/core/unidad.js';
@@ -163,7 +164,7 @@ function medir(t: Tanda, semillas: number): Cuenta[] {
         if (e.damage === 0 && (e.parado ?? 0) > 0) c.parados++;
         if (e.kind !== 'attack' || e.retaliation || (e.charge ?? 0) === 0) continue;
         const quien = b.stacks.find((x) => x.id === e.stack);
-        if (quien !== undefined && hasTrait(quien.unit, 'charge')) c.cargasDeJinete++;
+        if (quien !== undefined && cargaMontada(quien.unit)) c.cargasDeJinete++;
         else c.cargasAPie++;
       }
     }
@@ -187,7 +188,7 @@ for (const t of TANDAS) {
       `  ${(t.variantes[i] as Variante).nombre.padEnd(16)} sin terminar ${sinTerminar}` +
         `; rondas ${rondas[Math.floor(rondas.length / 2)]} / ${rondas.at(-1)} (mediana / máx.)` +
         `; gana la izquierda ${c.ganaIzquierda}; ${(c.ms / semillas).toFixed(1)} ms/pelea` +
-        `; cargas a pie ${c.cargasAPie}, de jinete ${c.cargasDeJinete}` +
+        `; cargas a pie ${c.cargasAPie}, montadas ${c.cargasDeJinete}` +
         `; golpes parados del todo ${c.parados} de ${c.golpes}; cruces de la rueda ${c.cruces}`,
     );
   }

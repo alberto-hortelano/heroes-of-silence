@@ -689,13 +689,20 @@ const VALOR_DE_PIEZA = new WeakMap<Pieza, number>();
  * **Heurística de la IA**, no una regla del juego: la persona y el agente eligen
  * ellos. Con el cuerpo de referencia y no con el de quien la recibiría, para que
  * cada pieza se mida una vez: se compra y se reparte decenas de veces por turno.
+ *
+ * **Una montura vale 0** (26-10-2026, D6 del plan de la montura: «la IA no se toca
+ * para comprar»): el índice ve las casillas, y el caballo de guerra subía el del
+ * cuerpo de referencia 17, así que la IA lo compraba en la armería. Que compre
+ * caballos para la batalla o de silla para marchar es otra tarea (backlog).
  */
 export function valorDePieza(p: Pieza): number {
   const ya = VALOR_DE_PIEZA.get(p);
   if (ya !== undefined) return ya;
   const valor =
-    indiceDePoder(conEquipo(CUERPO_DE_REFERENCIA, { [p.hueco]: p.id })) -
-    indiceDePoder(CUERPO_DE_REFERENCIA);
+    p.hueco === 'montura'
+      ? 0
+      : indiceDePoder(conEquipo(CUERPO_DE_REFERENCIA, { [p.hueco]: p.id })) -
+        indiceDePoder(CUERPO_DE_REFERENCIA);
   VALOR_DE_PIEZA.set(p, valor);
   return valor;
 }

@@ -7,7 +7,7 @@
  */
 
 import { fuerzaDe, MARGEN_CONTRA_NEUTRALES, poderDe } from '../ai/fuerza.js';
-import { armaduraDe, ruedaDelGolpe } from '../battle/armas.js';
+import { armaduraDe, golpeDe, ruedaDelGolpe } from '../battle/armas.js';
 import {
   activeStack,
   casillasDeCarga,
@@ -36,7 +36,7 @@ import {
   unidadDelJuego,
   unidadesDeFaccion,
 } from '../catalogo.js';
-import { agilidadDe } from '../cuerpo.js';
+import { agilidadDe, marchaDe } from '../cuerpo.js';
 import {
   ASALTANTES,
   EQUIPO,
@@ -153,7 +153,7 @@ function armyView(
     //
     // Con su `id`, que es lo que el agente escribe en `equip.veteran` y
     // `unequip.veteran`, y su `equipment` con la misma forma que el del héroe
-    // —los cinco huecos, en inglés, `null` el vacío—: un novato equipado tiene hoja
+    // —los seis huecos, en inglés, `null` el vacío—: un novato equipado tiene hoja
     // (experiencia 0) y por eso va en su fila con las dos cosas.
     ...(g.veterania === undefined
       ? {}
@@ -169,7 +169,7 @@ function armyView(
 }
 
 /**
- * Lo que lleva puesto alguien, por hueco, con `null` en el vacío: los cinco
+ * Lo que lleva puesto alguien, por hueco, con `null` en el vacío: los seis
  * huecos siempre, con su nombre del contrato (`SLOT_DE_HUECO`). **Una sola
  * forma** para el héroe y para la fila de un individuo.
  */
@@ -849,8 +849,8 @@ export function serializeBattleTurn(
     // manda cuando ese stack es tuyo.
     // Y las cargas que tiene a mano, si hay alguna —a qué enemigo y desde qué
     // casilla—: la carga se ENSEÑA con el movimiento posible, y sale de
-    // `casillasDeCarga`, la misma regla que la cobra —sin el rasgo `charge` sale
-    // vacía, así que aquí no se pregunta—.
+    // `casillasDeCarga`, la misma regla que la cobra —sin recta sale vacía, así que
+    // aquí no se pregunta—.
     //
     // Cuando no va, va el MOTIVO que se decidió aquí, como código (#107): quien
     // lo explica —`consultas.ts`— lo lee y no vuelve a derivarlo. Re-derivarlo
@@ -1098,6 +1098,11 @@ export function fichaDeCriatura(c: UnidadDelJuego) {
     damage: c.damage,
     hp: c.hp,
     speed: c.speed,
+    // Lo que cuenta en la marcha del mapa (26-10-2026): con montura, la de ella.
+    mapSpeed: marchaDe(c),
+    // Montado de guerra y con lanza, la horquilla del golpe de carga (la fuerza de
+    // la montura más la de la lanza, por la agilidad del jinete).
+    ...chargeDamageDe(c),
     ...(c.traits === undefined ? {} : { traits: c.traits }),
     leadership: c.leadership,
     cost: c.oro,
@@ -1108,6 +1113,12 @@ export function fichaDeCriatura(c: UnidadDelJuego) {
     level: nivelDeUnidad(c),
     powerIndex: indiceDePoder(c),
   };
+}
+
+/** `chargeDamage` de la ficha, solo si carga montada (`GolpeConArma.carga`). */
+function chargeDamageDe(c: UnidadDelJuego): { chargeDamage?: readonly [number, number] } {
+  const { carga } = golpeDe(c, 'arma');
+  return carga === undefined ? {} : { chargeDamage: carga };
 }
 
 /**

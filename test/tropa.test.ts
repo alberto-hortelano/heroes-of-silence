@@ -385,7 +385,7 @@ describe('todos los lectores del ejército saben de personajes', () => {
     // Y el movimiento lo marca el más lento: el personaje, por su destreza, y
     // no el campeón ultrarrápido.
     const speed = combatProfile(aren).unit.speed;
-    expect(slowestSpeed(hero.army, state.characters)).toBe(speed);
+    expect(slowestSpeed(hero, state.characters)).toBe(speed);
     expect(hero.movePoints).toBe(maxMovePoints(hero, state.characters));
     expect(hero.movePoints).toBeLessThan(marchaALaEscala(SPEED_TO_MOVE_POINTS.ultra_fast));
   });

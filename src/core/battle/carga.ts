@@ -1,6 +1,7 @@
 /**
- * Quién carga y cuánto cobra (#260, 14-10-2026): las cifras de `data/carga.json`
- * y la regla que las reparte. Cuándo hay recta lo dice `cargaDesde` (`battle.ts`);
+ * Cuánto cobra una carga (#260, 14-10-2026): las cifras de `data/carga.json`, las
+ * mismas para todos desde el 26-10-2026 (la montura pone su fuerza en el golpe, no
+ * en lo que cobra). Cuándo hay recta lo dice `cargaDesde` (`battle.ts`);
  * esto es lo que vale una vez que la hay.
  *
  * Aparte de `damage.ts` porque la leen también la ficha de la arena
@@ -9,7 +10,6 @@
  * por debajo de la recta más corta no se notaría en ningún golpe.
  */
 import cargaJson from '../../../data/carga.json' with { type: 'json' };
-import { hasTrait } from '../data.js';
 import type { UnitInfo } from '../types.js';
 import { entero, objetoCon, porcentaje } from '../validar.js';
 import { golpeDe } from './armas.js';
@@ -21,51 +21,39 @@ export const CARGA_MINIMA = 3;
 export interface CifrasDeCarga {
   /**
    * El tanto por ciento por casilla, entero, como va en el JSON y se dice. En el
-   * daño multiplica `porcentaje / 100`: 10 / 100 es el mismo double que el 0.1 de
-   * antes, y el banco no se mueve.
+   * daño multiplica `porcentaje / 100`.
    */
   readonly porcentaje: number;
   /** Las casillas que se cobran como mucho (`cargaEfectiva`). */
   readonly tope: number;
 }
 
-/** Las dos cargas: la del jinete (el rasgo `charge`) y la de a pie (todos los demás). */
-export interface CargasDeLaBatalla {
-  readonly jinete: CifrasDeCarga;
-  readonly aPie: CifrasDeCarga;
-}
-
 /**
  * Valida `data/carga.json` y lo devuelve tipado; lanza diciendo el fichero y el
- * campo. Exportada con el JSON de argumento para que un test la vea morder.
+ * campo. Exportada con el JSON de argumento para que un test la vea morder. Una
+ * sola carga desde el 26-10-2026: el +10 % del jinete se fue, y montado con lanza
+ * lo que cambia es la fuerza del golpe (`GolpeConArma.carga`), no lo que cobra.
  */
-export function validarCarga(json: unknown, fichero = 'data/carga.json'): CargasDeLaBatalla {
-  const j = objetoCon(json, ['_comment', 'jinete', 'aPie'], fichero);
-  const cifras = (campo: 'jinete' | 'aPie'): CifrasDeCarga => {
-    const quien = `${fichero}: ${campo}`;
-    const o = objetoCon(j[campo], ['porcentaje', 'tope'], quien);
-    return { porcentaje: porcentaje(o, quien), tope: entero(o.tope, 'tope', quien, CARGA_MINIMA) };
+export function validarCarga(json: unknown, fichero = 'data/carga.json'): CifrasDeCarga {
+  const o = objetoCon(json, ['_comment', 'porcentaje', 'tope'], fichero);
+  return {
+    porcentaje: porcentaje(o, fichero),
+    tope: entero(o.tope, 'tope', fichero, CARGA_MINIMA),
   };
-  return { jinete: cifras('jinete'), aPie: cifras('aPie') };
 }
 
-export const CARGA: CargasDeLaBatalla = validarCarga(cargaJson);
+/** Lo que cobra toda carga, de quien sea (`data/carga.json`). */
+export const CARGA: CifrasDeCarga = validarCarga(cargaJson);
 
 /**
- * Con qué cifras carga `unit`. **La única regla de quién carga y cuánto**: con el
- * rasgo `charge` y una lanza puesta (`GolpeConArma.conLanza`, 25-10-2026), la del
- * jinete; si no, la de a pie (#260; desde F4 de la tarea
- * del combate en el juego, 19-10-2026, en toda batalla: carga todo el que pega
- * cuerpo a cuerpo, y el jinete más). La leen `cargaDelStack` (la batalla: la
- * carga, el daño, el anuncio, la IA y la ayuda del panel), el índice de poder y
- * la ficha (`armasDe`).
+ * Si `unit` carga montada: con una montura de guerra y una lanza puestas, que es
+ * cuando su golpe de carga lleva su propia horquilla (`GolpeConArma.carga`, que
+ * escribe `conEquipo`; 26-10-2026). **La única pregunta** de «carga montado con
+ * lanza»: la leen la IA (a quién coloca para cargar), la ficha y el dicho de la
+ * carga.
  */
-export function cifrasDeCarga(unit: UnitInfo): CifrasDeCarga {
-  // Montado y con una lanza puesta (25-10-2026: «una regla especial de la lanza
-  // cuando se carga montado»); el jinete sin lanza carga como uno de a pie.
-  return hasTrait(unit, 'charge') && golpeDe(unit, 'arma').conLanza === true
-    ? CARGA.jinete
-    : CARGA.aPie;
+export function cargaMontada(unit: UnitInfo): boolean {
+  return golpeDe(unit, 'arma').carga !== undefined;
 }
 
 /**
@@ -86,30 +74,22 @@ export function porcientoDeLaCarga(casillas: number, cifras: CifrasDeCarga): num
   return casillas * cifras.porcentaje;
 }
 
-/** ¿Son las de a pie? Derivado: son las de `CARGA.aPie`, no un campo que pueda discrepar. */
-function aPie(cifras: CifrasDeCarga): boolean {
-  return cifras === CARGA.aPie;
+/**
+ * Una carga cobrada, dicha: «carga de 3 casillas», montada (`cargaMontada`) «carga
+ * de 3 casillas montada», y con lo que suma (`conLoQueSuma`) «…, +15 %». **La única
+ * frase de una carga cobrada**: sin lo que suma la lee la previsión, que pone el
+ * factor detrás; con él, el parte de guerra.
+ */
+export function dichoDeLaCarga(casillas: number, montada: boolean, conLoQueSuma = true): string {
+  const causa = `carga de ${casillas} ${casillas === 1 ? 'casilla' : 'casillas'}${montada ? ' montada' : ''}`;
+  return conLoQueSuma ? `${causa}, +${porcientoDeLaCarga(casillas, CARGA)} %` : causa;
 }
 
 /**
- * Una carga cobrada, dicha: «carga de 3 casillas a pie», y con lo que suma
- * (`conLoQueSuma`) «carga de 3 casillas a pie, +15 %». **La única frase de una
- * carga cobrada**: sin lo que suma la lee la previsión, que pone el factor detrás;
- * con él, el parte de guerra.
+ * Las cifras de la carga dichas para la ficha, cortas (van en la fila de «Armas»
+ * del panel de la pelea, de 274 px): «+5 %/casilla (3 a 5)», y montada (con la
+ * fuerza de la montura) «…, montada».
  */
-export function dichoDeLaCarga(
-  casillas: number,
-  cifras: CifrasDeCarga,
-  conLoQueSuma = true,
-): string {
-  const causa = `carga de ${casillas} ${casillas === 1 ? 'casilla' : 'casillas'}${aPie(cifras) ? ' a pie' : ''}`;
-  return conLoQueSuma ? `${causa}, +${porcientoDeLaCarga(casillas, cifras)} %` : causa;
-}
-
-/**
- * Las cifras de una carga dichas para la ficha, cortas (van en la fila de «Armas»
- * del panel de la pelea, de 274 px): «+5 %/casilla (3 a 5), a pie».
- */
-export function dichoDeLasCifras(cifras: CifrasDeCarga): string {
-  return `+${cifras.porcentaje} %/casilla (${CARGA_MINIMA} a ${cifras.tope})${aPie(cifras) ? ', a pie' : ''}`;
+export function dichoDeLasCifras(montada: boolean): string {
+  return `+${CARGA.porcentaje} %/casilla (${CARGA_MINIMA} a ${CARGA.tope})${montada ? ', montada' : ''}`;
 }

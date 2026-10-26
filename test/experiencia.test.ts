@@ -304,8 +304,10 @@ describe('la experiencia se gana por daño × índice de poder del que lo recibe
   });
 
   it('en una batalla jugada de verdad, cada superviviente vuelve con lo que apuntó el motor', () => {
-    const state = newGame({ seed: 31 });
-    const c = ctx(31);
+    // Una semilla en que la tropa pega algo (con la de 31, desde la montura, 26-10-2026,
+    // el héroe se llevaba toda la experiencia y no quedaba nada que comprobar).
+    const state = newGame({ seed: 1 });
+    const c = ctx(1);
     const hero = heroesOf(state, 0)[0]!;
     hero.army = ejercito({ creature: PESADA, count: 3 });
     ponerMonstruo(state, TROPA_BARATA, 7);

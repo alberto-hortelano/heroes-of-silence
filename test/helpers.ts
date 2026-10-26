@@ -56,9 +56,11 @@ import {
 import {
   type CatalogoDeEquipo,
   catalogoDeEquipo,
+  EQUIPO_BASE,
   EQUIPO_DEL_JUEGO,
 } from '../src/core/hero/equipo.js';
-import type { Hero } from '../src/core/hero/hero.js';
+import { EXPERIENCIA_INICIAL_DE_HEROE } from '../src/core/hero/experiencia.js';
+import type { GrupoQueMarcha, Hero } from '../src/core/hero/hero.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import { basesDelPlan, type MapPlan, type PlanConCasillas } from '../src/core/map/generate.js';
 import {
@@ -96,6 +98,7 @@ import {
 import { newGame } from '../src/core/state/setup.js';
 import {
   type Army,
+  type Equipo,
   type FactionId,
   type Hex,
   type NivelesDeLaRueda,
@@ -252,6 +255,34 @@ export function ejercito(...grupos: Stack[]): Army {
     for (let i = 0; i < count; i++) out.push(troop);
   }
   return out;
+}
+
+/**
+ * Un héroe recién hecho con `army`, lo que pide la marcha (`slowestSpeed`,
+ * `maxMovePoints`): desde el 26-10-2026 el héroe cuenta en el más lento del grupo.
+ * A pie con el equipo base, salvo que se diga otro.
+ */
+export function grupoQueMarcha(
+  army: Army,
+  cambios: { readonly equipo?: Equipo; readonly skills?: Hero['skills'] } = {},
+): GrupoQueMarcha & Pick<Hero, 'skills'> {
+  return {
+    name: 'Prueba',
+    attack: 1,
+    defense: 1,
+    experience: EXPERIENCIA_INICIAL_DE_HEROE,
+    equipo: cambios.equipo ?? EQUIPO_BASE,
+    army,
+    skills: cambios.skills ?? {},
+  };
+}
+
+/** Un individuo de `creature` con su propia hoja y `equipo` encima de lo de serie. */
+export function conSuEquipo(creature: string, equipo: Equipo, id = `v-${creature}`): Troop {
+  return {
+    creature,
+    veterania: { id, experiencia: 0, batallas: 0, bajas: 0, heroes: [], equipo },
+  };
 }
 
 export type Monstruo = Extract<MapObject, { kind: 'monster' }>;

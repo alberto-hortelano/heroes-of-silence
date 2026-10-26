@@ -15,6 +15,7 @@ import {
 import { maxMovePoints } from '../src/core/hero/hero.js';
 import { HERO_SCOUT_RADIUS, TOWN_SCOUT_RADIUS } from '../src/core/state/game.js';
 import { SPEED_TIERS, SPEED_TO_MOVE_POINTS } from '../src/core/types.js';
+import { grupoQueMarcha } from './helpers.js';
 
 describe('la raíz entera', () => {
   it('es ⌊√n⌋ en todo un rango, y en los cuadrados y sus vecinos', () => {
@@ -49,9 +50,9 @@ describe('la marcha sale del área (#226)', () => {
   });
 
   it('maxMovePoints la aplica: un héroe anda la tabla a escala, no la tabla', () => {
-    // El troll, de agilidad 2: dos casillas.
+    // El troll, de agilidad 2: dos casillas, más lento que el héroe que lo lleva.
     const army = [{ creature: 'troll-maza' }];
-    expect(maxMovePoints({ army, skills: {} }, undefined)).toBe(
+    expect(maxMovePoints(grupoQueMarcha(army), undefined)).toBe(
       marchaALaEscala(SPEED_TO_MOVE_POINTS.very_slow),
     );
   });

@@ -38,7 +38,7 @@ import {
   MAX_ROUNDS,
 } from '@core/battle/battle.js';
 import { FORMA_DEL_TABLERO, filasDelTablero } from '@core/battle/board.js';
-import { cifrasDeCarga, dichoDeLasCifras } from '@core/battle/carga.js';
+import { CARGA, dichoDeLasCifras } from '@core/battle/carga.js';
 import { armasDe } from '@core/battle/damage.js';
 import { cifraDeEfecto, enRondas } from '@core/battle/effects.js';
 import {
@@ -66,7 +66,14 @@ import {
 import { allSpells } from '@core/battle/spells.js';
 import type { BattleStack, BattleState, TipoDeEscala, TipoDePuerta } from '@core/battle/types.js';
 import { costeDeUnaUnidad } from '@core/catalogo.js';
-import { agilidadDe, CASILLAS_MAX, restaDelPesoDe } from '@core/cuerpo.js';
+import {
+  agilidadDe,
+  CASILLAS_MAX,
+  marchaDe,
+  montadoDeGuerra,
+  restaALaMontura,
+  restaDelPesoDe,
+} from '@core/cuerpo.js';
 import {
   ARMADURA_MAXIMA_DE_PIEZA,
   type ExtrasDePieza,
@@ -83,9 +90,11 @@ import {
   cifrasDePieza,
   conSigno,
   DICHO_DE_LA_CARGA,
+  DICHO_DE_LA_MONTURA,
   DICHO_DEL_USO,
   EQUIPO_BASE,
   type EquipoAtado,
+  esDeGuerra,
   esLanza,
   idsPuestos,
   REGLA_DEL_ESCUDO,
@@ -868,6 +877,30 @@ function filasDerivadas(final: UnitInfo, cuerpo: UnitInfo | null): FilaDeCifra[]
   const peso = final.peso ?? 0;
   const resta = restaDelPesoDe(final);
   const danio = (u: UnitInfo): string => `${u.damage[0]}–${u.damage[1]}`;
+  // Montado de guerra (26-10-2026), el peso lo carga la montura: se mide contra su
+  // fuerza, con lo que pesa ella, y le resta casillas a ella, no agilidad al jinete.
+  const montura = final.montura;
+  const deGuerra = montura !== undefined && montadoDeGuerra(final) ? montura : null;
+  const aLaMontura = restaALaMontura(final) ?? 0;
+  const filaDelPeso: FilaDeCifra =
+    deGuerra === null
+      ? {
+          clave: 'peso',
+          rotulo: NOMBRE_DE_CIFRA.peso,
+          nota: 'Lo que pesa lo puesto, de su fuerza: por encima, −1 de agilidad por cada mitad de su fuerza.',
+          final:
+            resta === 0
+              ? `${peso} de ${final.fuerza}`
+              : `${peso} de ${final.fuerza}: −${resta} agilidad`,
+          cambia: resta > 0,
+        }
+      : {
+          clave: 'peso',
+          rotulo: NOMBRE_DE_CIFRA.peso,
+          nota: 'Montado de guerra, lo carga la montura: lo que pesa lo del jinete y ella, de la fuerza de ella; por encima, −1 casilla por cada mitad de esa fuerza. El jinete no pierde agilidad.',
+          final: `${peso + deGuerra.peso} de ${deGuerra.fuerza} (${deGuerra.nombre})${aLaMontura === 0 ? '' : `: −${aLaMontura} casillas`}`,
+          cambia: aLaMontura > 0,
+        };
   return [
     {
       clave: 'defensa',
@@ -887,20 +920,26 @@ function filasDerivadas(final: UnitInfo, cuerpo: UnitInfo | null): FilaDeCifra[]
     {
       clave: 'casillas',
       rotulo: NOMBRE_DE_CIFRA.casillas,
-      nota: `Las que anda por turno: la agilidad, hasta ${CASILLAS_MAX}.`,
+      nota:
+        deGuerra === null
+          ? `Las que anda por turno: la agilidad, hasta ${CASILLAS_MAX}.`
+          : `Las que anda por turno: las de la montura (${deGuerra.nombre}), su agilidad tras el peso que carga, hasta ${CASILLAS_MAX}.`,
       final: SPEED_TO_HEXES[final.speed],
       ...(cuerpo === null ? {} : { sinModificar: SPEED_TO_HEXES[cuerpo.speed] }),
     },
-    {
-      clave: 'peso',
-      rotulo: NOMBRE_DE_CIFRA.peso,
-      nota: 'Lo que pesa lo puesto, de su fuerza: por encima, −1 de agilidad por cada mitad de su fuerza.',
-      final:
-        resta === 0
-          ? `${peso} de ${final.fuerza}`
-          : `${peso} de ${final.fuerza}: −${resta} agilidad`,
-      cambia: resta > 0,
-    },
+    filaDelPeso,
+    // Con montura, lo que cuenta en el mapa: la de silla no cambia la batalla.
+    ...(montura === undefined
+      ? []
+      : [
+          {
+            clave: 'marcha',
+            rotulo: 'Marcha',
+            nota: `Las casillas con que cuenta en la marcha del mapa: las de su montura (${montura.nombre}), tras el peso que carga. La marcha del héroe la marca el más lento del grupo, el héroe incluido.`,
+            final: SPEED_TO_HEXES[marchaDe(final)],
+            ...(cuerpo === null ? {} : { sinModificar: SPEED_TO_HEXES[marchaDe(cuerpo)] }),
+          },
+        ]),
   ];
 }
 
@@ -962,7 +1001,7 @@ function equipoDeLaFicha(u: Unidad, piezas: EquipoAtado): Html {
       ];
     }),
   );
-  return html`<h3>Equipo ${nota(`Suma a las cifras del cuerpo y no cambia el nivel. Lo que no es arma suma a todo golpe; cada arma, solo al suyo (abajo, «Armas»): ${NOMBRE_DE_HUECO.arma} y ${NOMBRE_DE_HUECO.segunda} al cuerpo a cuerpo y a la carga (con dos, lo mejor de cada una), ${NOMBRE_DE_HUECO.distancia} al disparo. Una lanza es un arma más: montado, la carga cobra la del jinete. Regla: ${REGLA_DEL_ESCUDO}.`)}</h3>
+  return html`<h3>Equipo ${nota(`Suma a las cifras del cuerpo y no cambia el nivel. Lo que no es arma suma a todo golpe; cada arma, solo al suyo (abajo, «Armas»): ${NOMBRE_DE_HUECO.arma} y ${NOMBRE_DE_HUECO.segunda} al cuerpo a cuerpo y a la carga (con dos, lo mejor de cada una), ${NOMBRE_DE_HUECO.distancia} al disparo. Una lanza es un arma más: con una montura de guerra, la carga va con la fuerza de la montura. ${NOMBRE_DE_HUECO.montura}: ${DICHO_DE_LA_MONTURA} Regla: ${REGLA_DEL_ESCUDO}.`)}</h3>
       <div class="equipo-de-la-ficha">${filas}</div>`;
 }
 
@@ -984,7 +1023,7 @@ function filasDeArmas(unidad: UnitInfo, ataqueEnLaPelea?: (uso: UsoDeArma) => nu
       const cobra =
         a.carga === null
           ? NADA
-          : html` <span class="cifras-del-arma">· ${dichoDeLasCifras(a.carga)}</span>`;
+          : html` <span class="cifras-del-arma">· ${dichoDeLasCifras(a.montada)}</span>`;
       const { rotulo, cuando } = a.carga === null ? DICHO_DEL_USO[a.uso] : DICHO_DE_LA_CARGA;
       return html`<div class="row" data-arma-de-la-ficha="${a.carga === null ? a.uso : 'carga'}"><span class="label">${rotulo} ${nota(cuando)}</span><span class="golpe-del-arma"><span>${con} ·</span> <span class="cifras-del-arma">${cifras}</span>${cobra}</span></div>`;
     }),
@@ -1325,7 +1364,7 @@ export function guardadoEnPalabras(g: Guardado): string {
  * Las secciones de «Editar equipo», por tipo (decisión del usuario, 18-10-2026:
  * «diferencia por tipo: armas, armadura, arma a distancia»): cada una con sus
  * huecos y aquel en que nace una «+ Nueva pieza». Cuerpo a cuerpo junta los huecos
- * que golpean en la rueda (`HUECOS_DE_CUERPO_A_CUERPO`). Entre todas, los cinco.
+ * que golpean en la rueda (`HUECOS_DE_CUERPO_A_CUERPO`). Entre todas, los seis.
  */
 const SECCIONES_DE_EQUIPO: readonly {
   readonly id: string;
@@ -1361,6 +1400,13 @@ const SECCIONES_DE_EQUIPO: readonly {
     huecos: ['escudo'],
     nace: 'escudo',
     nota: `Regla: ${REGLA_DEL_ESCUDO}.`,
+  },
+  {
+    id: 'montura',
+    nombre: 'Montura',
+    huecos: ['montura'],
+    nace: 'montura',
+    nota: DICHO_DE_LA_MONTURA,
   },
 ];
 
@@ -1446,6 +1492,13 @@ function fichaDePieza(p: Pieza, v: VistaDeEquipo): Html {
     : extras === null
       ? html`<label class="casilla-de-marcar"><input type="checkbox" data-arena-pieza-campo="lanza" ${esLanza(p) ? html`checked` : NADA}> es una lanza ${nota(DICHO_DE_LA_CARGA.cuando)}</label>`
       : html`<div class="row"><span class="label">Lanza ${nota('La de su base.')}</span><span>${esLanza(p) ? 'Sí' : 'No'}</span></div>`;
+  // De guerra o de silla (26-10-2026): una casilla, como la lanza; con base, la de su base.
+  const guerra =
+    p.hueco !== 'montura'
+      ? NADA
+      : extras === null
+        ? html`<label class="casilla-de-marcar"><input type="checkbox" data-arena-pieza-campo="guerra" ${esDeGuerra(p) ? html`checked` : NADA}> de guerra ${nota(DICHO_DE_LA_MONTURA)}</label>`
+        : html`<div class="row"><span class="label">De guerra ${nota('La de su base.')}</span><span>${esDeGuerra(p) ? 'Sí' : 'No'}</span></div>`;
   const cadena = cadenaDeBases(eq, p.id);
   const suBase = baseDe(eq, p.id);
   const base = html`<label class="campo"><span class="label">Base ${nota('Otra pieza de su hueco de la que parte: suma lo de la base más sus extras, y si cambia la base, cambia ella. Al cambiar de base se queda con lo que suma ahora.')}</span>
@@ -1495,6 +1548,7 @@ function fichaDePieza(p: Pieza, v: VistaDeEquipo): Html {
         ${base}
         ${manos}
         ${lanza}
+        ${guerra}
         ${tablaDeCifras(
           extras === null
             ? { nombre: 'Suma', nota: 'Lo que suma a quien la lleva.' }
@@ -1538,13 +1592,30 @@ const CASILLAS_DE_LA_CIFRA: Readonly<
       limites: { minimo: 0 },
     },
   ],
-  fuerza: () => [
+  fuerza: (hueco) => [
+    hueco === 'montura'
+      ? {
+          campo: 'fuerza',
+          rotulo: NOMBRE_DE_CIFRA.fuerza,
+          de: (x) => x.fuerza ?? 0,
+          limites: { minimo: 1 },
+          nota: 'La de la montura, que no se suma a la de quien monta: lo que carga sin perder casillas (el equipo del jinete y ella) y, con una lanza, la que pone en la carga.',
+        }
+      : {
+          campo: 'fuerza',
+          rotulo: NOMBRE_DE_CIFRA.fuerza,
+          de: (x) => x.fuerza ?? 0,
+          limites: { minimo: 0 },
+          nota: 'Lo que suma a la fuerza de quien la lleva para el daño de su golpe: de la fuerza al de la fuerza por la agilidad.',
+        },
+  ],
+  agilidad: () => [
     {
-      campo: 'fuerza',
-      rotulo: NOMBRE_DE_CIFRA.fuerza,
-      de: (x) => x.fuerza ?? 0,
-      limites: { minimo: 0 },
-      nota: 'Lo que suma a la fuerza de quien la lleva para el daño de su golpe: de la fuerza al de la fuerza por la agilidad.',
+      campo: 'agilidad',
+      rotulo: NOMBRE_DE_CIFRA.agilidad,
+      de: (x) => x.agilidad ?? 0,
+      limites: { minimo: AGILIDAD_DEL_CUERPO_MIN, maximo: AGILIDAD_DEL_CUERPO_MAX },
+      nota: `La de la montura, de ${AGILIDAD_DEL_CUERPO_MIN} a ${AGILIDAD_DEL_CUERPO_MAX}: sus casillas, menos lo que le reste el peso que carga.`,
     },
   ],
   defensa: () => [
@@ -1694,6 +1765,7 @@ function tablaDeLaRueda(p: Pieza, extras: ExtrasDePieza | null): Html {
  */
 function notaDelHueco(hueco: Hueco): Html {
   if (hueco === 'escudo') return html` ${nota(`Regla: ${REGLA_DEL_ESCUDO}.`)}`;
+  if (hueco === 'montura') return html` ${nota(DICHO_DE_LA_MONTURA)}`;
   if (hueco !== 'arma' && !esArmaPorUso(hueco)) return NADA;
   return html` ${nota(DICHO_DEL_USO[hueco].cuando)}`;
 }
@@ -1957,7 +2029,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
             s.motivoDeLaRueda,
             accionesDeLaUnidad({
               activa,
-              carga: cifrasDeCarga(activa.unit),
+              carga: CARGA,
               legales: s.battleLegalActions(),
               pasos: s.battleStepsLeft(),
               sinSalida: s.sinSalida(),

@@ -52,9 +52,10 @@ export const SLOT_DE_HUECO: Readonly<Record<Hueco, Slot>> = {
   distancia: 'ranged_weapon' as Slot,
   armadura: 'armor' as Slot,
   escudo: 'shield' as Slot,
+  montura: 'mount' as Slot,
 };
 
-/** Los cinco, en el orden de `HUECOS`: lo que se le ofrece al agente. */
+/** Los seis, en el orden de `HUECOS`: lo que se le ofrece al agente. */
 export const SLOTS: readonly Slot[] = HUECOS.map((h) => SLOT_DE_HUECO[h]);
 
 /**

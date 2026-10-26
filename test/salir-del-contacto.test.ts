@@ -32,7 +32,7 @@ import {
   stackById,
 } from '../src/core/battle/battle.js';
 import { caminoDe, hexDistance, hexKey } from '../src/core/battle/board.js';
-import { CARGA, type CifrasDeCarga, cifrasDeCarga } from '../src/core/battle/carga.js';
+import { CARGA, type CifrasDeCarga } from '../src/core/battle/carga.js';
 import { applyEffect } from '../src/core/battle/effects.js';
 import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from '../src/core/battle/muralla.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
@@ -360,7 +360,7 @@ describe('el panel', () => {
     const b = pelea(PIQUERO, h(5, 4), [h(6, 4), h(4, 3), h(5, 5), h(4, 4)]);
     const base = {
       activa: yo(b),
-      carga: cifrasDeCarga(yo(b).unit),
+      carga: CARGA,
       legales: legalActions(b),
       pasos: 4,
       rendicion: NADA,
@@ -384,7 +384,7 @@ describe('el panel', () => {
     const tras = marcadoDe(
       accionesDeLaUnidad({
         activa: yo(b),
-        carga: CARGA.aPie,
+        carga: CARGA,
         legales: legalActions(b),
         pasos: 4,
         rendicion: NADA,
@@ -399,7 +399,7 @@ describe('el panel', () => {
     expect(tras).not.toContain('se le puede cargar');
   });
 
-  it('la ayuda de la carga dice las cifras de quien carga, sin un «»3» fijo (C3 de QA)', () => {
+  it('la ayuda de la carga dice las cifras de la carga, sin un «»3» fijo (C3 de QA)', () => {
     const b = pelea(PIQUERO, h(5, 4), [h(7, 4)]);
     const ayuda = (carga: CifrasDeCarga): string =>
       marcadoDe(
@@ -414,9 +414,8 @@ describe('el panel', () => {
           muralla: NADA,
         }),
       );
-    expect(ayuda(CARGA.aPie)).toContain('(de 3 a 5, +5 % cada una)');
-    expect(ayuda(CARGA.jinete)).toContain('(de 3 a 5, +10 % cada una)');
-    expect(ayuda(CARGA.jinete)).not.toContain('»3');
+    expect(ayuda(CARGA)).toContain('(de 3 a 5, +5 % cada una)');
+    expect(ayuda(CARGA)).not.toContain('»3');
   });
 });
 

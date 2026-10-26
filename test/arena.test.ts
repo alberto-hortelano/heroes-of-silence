@@ -78,7 +78,7 @@ import type { BattleStack, BattleState } from '../src/core/battle/types.js';
 import { HERO_BODY } from '../src/core/battle/types.js';
 import { UNIDADES as CATALOGO, cuerpoDe } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { agilidadEfectiva, escalonDeCasillas } from '../src/core/cuerpo.js';
+import { escalonDeCasillas } from '../src/core/cuerpo.js';
 import {
   CATALOGO_DE_HABILIDADES,
   EQUIPO_ESCRITO,
@@ -263,7 +263,9 @@ describe('la arena pelea con las cifras del borrador', () => {
     const jinete = unidad('templario-hermano-de-carga', { habilidades: ['Salto'] });
     const b = pelea([jinete], [unidad('zombi', { traits: ['undead'] })], createRng(1));
     const [a, d] = [b.stacks[0], b.stacks[1]];
-    expect(a?.unit.traits).toEqual(['charge']);
+    // El rasgo de montar se fue (26-10-2026): monta su caballo de guerra.
+    expect(a?.unit.traits).toEqual([]);
+    expect(a?.unit.montura?.id).toBe('caballo_de_guerra');
     expect(d?.unit.traits).toEqual(['undead']);
     // El no-muerto, a moral 0 como en el juego: el rasgo es el del motor.
     expect(d?.morale).toBe(0);
@@ -457,8 +459,12 @@ describe('el borrador se valida antes de escribirse', () => {
       'la unidad «Monje»: el ataque no tiene valor, el campo está vacío',
     );
     expect(() =>
-      validarUnidad({ ...base(), traits: ['charge', 'charge'] }, EQUIPO_DEL_JUEGO),
-    ).toThrow('el rasgo "charge" está dos veces');
+      validarUnidad({ ...base(), traits: ['flying', 'flying'] }, EQUIPO_DEL_JUEGO),
+    ).toThrow('el rasgo "flying" está dos veces');
+    // El de montar se fue (26-10-2026), y se dice dónde va ahora.
+    expect(() =>
+      validarUnidad({ ...base(), traits: ['charge'] } as never, EQUIPO_DEL_JUEGO),
+    ).toThrow('«charge» ya no es un rasgo: montar es llevar una montura de guerra');
     // Toda unidad ocupa una casilla (13-10-2026): el tamaño ya no es un campo.
     expect(() => validarUnidad({ ...base(), hexes: 2 }, EQUIPO_DEL_JUEGO)).toThrow(
       '«hexes» no es un campo de la arena',
@@ -747,11 +753,11 @@ describe('el marcado de la arena', () => {
   });
 
   it('los rasgos del motor van como las habilidades: etiquetas con × y el resto en «Añadir»', () => {
-    const u = unidad('zombi', { traits: ['undead', 'charge'] });
+    const u = unidad('zombi', { traits: ['undead', 'flying'] });
     const m = marcadoDe(renderFicha(u, false, enElMontaje(EQUIPO_DEL_JUEGO)));
     expect(m).not.toContain('type="checkbox"');
     expect(m).toContain('data-arena="quitar-rasgo" data-rasgo="undead"');
-    expect(m).toContain('data-arena="quitar-rasgo" data-rasgo="charge"');
+    expect(m).toContain('data-arena="quitar-rasgo" data-rasgo="flying"');
     const select = m.slice(m.indexOf('<select data-arena-rasgo="si">'));
     const opciones = select.slice(0, select.indexOf('</select>'));
     for (const t of CREATURE_TRAITS) {
@@ -1102,13 +1108,13 @@ describe('la velocidad son casillas: las de la agilidad', () => {
     const v = (id: string): number =>
       SPEED_TO_HEXES[unidadDeCombate(unidad(id), EQUIPO_DEL_JUEGO).speed];
     expect(v('goblin-jinete-de-hiena')).toBeGreaterThan(v('orko-hacha-escudo'));
-    // El hermano de carga, 7 menos 1 por su barda.
+    // El hermano de carga, las de su caballo de guerra (6, que su carga no le resta).
     expect(v('templario-hermano-de-carga')).toBe(6);
     // A pie, ninguna llega al Danzante (un héroe, 7 con su espada y su escudo, que
     // con la fuerza del cuerpo común no le pesan de más).
     const danzante = conSuKit(hojaPorId('heroe-elfo-danzante-de-espadas'));
     expect(SPEED_TO_HEXES[unidadDeCombate(danzante, EQUIPO_DEL_JUEGO).speed]).toBe(7);
-    const aPie = CATALOGO.filter((u) => !u.traits.includes('charge'));
+    const aPie = CATALOGO.filter((u) => u.equipo.montura === undefined);
     expect(Math.max(...aPie.map((u) => v(u.id)))).toBeLessThan(7);
     // Y no hay un empate masivo: ninguna velocidad lleva a más de la mitad.
     const cuenta = new Map<number, number>();
@@ -2504,28 +2510,24 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
   it('el jinete lleva espada y lanza y carga montado con la lanza; el élfico dispara además con el arco', () => {
     // Desde el 25-10-2026 la lanza es un arma más, en la segunda mano: de cada cifra,
     // la mejor de las dos (la lanza, +3 de ataque y +12 de fuerza; la espada, +2 y
-    // +10), por la agilidad que les deja lo que pesa todo; y con el rasgo y la lanza,
-    // la carga es la del jinete.
+    // +10). Montado de guerra (26-10-2026), con la agilidad entera del jinete, y la
+    // carga con la fuerza de su montura más la de la lanza.
     for (const id of ['templario-hermano-de-carga', 'jinete-de-plaga', 'goblin-jinete-de-hiena']) {
       const u = unidad(id);
-      expect(u.traits, id).toContain('charge');
-      const ag = agilidadEfectiva(
-        u.agilidad,
-        u.fuerza,
-        EQUIPO_DEL_JUEGO.sumaDeEquipo(u.equipo).peso,
-      );
+      const ag = u.agilidad;
       expect(u.equipo, id).toMatchObject({ arma: 'espada', segunda: 'lanza' });
+      expect(u.equipo.montura, id).toMatch(/_de_guerra$/);
       expect(delUso(u, 'arma'), id).toEqual([
         'Espada y Lanza',
         u.attack + 3,
         [u.fuerza + 12, (u.fuerza + 12) * ag],
       ]);
       expect(
-        golpes(u).porArma.map((a) => [a.uso, a.carga]),
+        golpes(u).porArma.map((a) => [a.uso, a.carga, a.montada]),
         id,
       ).toEqual([
-        ['arma', null],
-        ['arma', CARGA.jinete],
+        ['arma', null, false],
+        ['arma', CARGA, true],
       ]);
     }
     // Un solo perfil, coherente: lanza, espada y arco (`perfilDeUnidad`).
@@ -2536,6 +2538,7 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
       distancia: 'arco',
       segunda: 'lanza',
       armadura: 'barda',
+      montura: 'caballo_de_guerra',
     });
     expect(golpes(elfico).porArma.map((a) => [a.uso, a.arma])).toEqual([
       ['arma', 'Espada y Lanza'],

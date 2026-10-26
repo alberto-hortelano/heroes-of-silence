@@ -43,14 +43,14 @@ const TABLA_DEL_CATALOGO: Readonly<Record<string, readonly [number, number]>> = 
   'templario-mandoble': [335, 3],
   'templario-monje': [214, 2],
   'templario-escudero': [323, 3],
-  'templario-hermano-de-carga': [470, 4],
+  'templario-hermano-de-carga': [456, 4],
   'templario-penitente': [315, 3],
   'esqueleto-guerrero': [215, 2],
   'esqueleto-arquero': [202, 2],
   zombi: [324, 3],
   espectro: [307, 3],
   'caballero-de-la-muerte': [327, 3],
-  'jinete-de-plaga': [437, 4],
+  'jinete-de-plaga': [444, 4],
   'imperio-alabardero': [306, 3],
   'imperio-piquero': [306, 3],
   'imperio-ballestero': [271, 2],
@@ -58,12 +58,12 @@ const TABLA_DEL_CATALOGO: Readonly<Record<string, readonly [number, number]>> = 
   'imperio-arcabucero': [271, 2],
   'imperio-rodelero': [323, 3],
   'imperio-artillero-culebrina': [275, 2],
-  'imperio-pistolero-montado': [434, 4],
+  'imperio-pistolero-montado': [443, 4],
   'imperio-granadero': [309, 3],
   'elfo-arquero': [284, 2],
   'elfo-explorador': [311, 3],
   'elfo-guardia-del-bosque': [339, 3],
-  'elfo-jinete': [438, 4],
+  'elfo-jinete': [462, 4],
   'elfo-sacerdotisa': [219, 2],
   'elfo-asesino': [309, 3],
   'orko-hacha-escudo': [343, 3],
@@ -71,7 +71,7 @@ const TABLA_DEL_CATALOGO: Readonly<Record<string, readonly [number, number]>> = 
   'goblin-lancero': [232, 2],
   'goblin-arquero': [221, 2],
   'troll-maza': [293, 2],
-  'goblin-jinete-de-hiena': [322, 3],
+  'goblin-jinete-de-hiena': [331, 3],
   'orko-armadura-pesada': [313, 3],
 };
 
@@ -216,12 +216,15 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
     expect(conLaLanza({ ...todoA(3), fuerte: 0, rapido: 0 })).toBe(base);
   });
 
-  it('quien carga se mide también por la carga: el jinete sin el caballo vale menos', () => {
+  it('quien carga montado se mide también por la carga: el jinete sin el caballo vale menos', () => {
     const jinete = unidad('templario-hermano-de-carga');
-    expect(jinete.traits).toContain('charge');
+    expect(jinete.equipo.montura).toBe('caballo_de_guerra');
     const conCaballo = indiceDePoder(unidadDeCombate(jinete, EQUIPO_DEL_JUEGO));
-    const aPie = indiceDePoder(unidadDeCombate({ ...jinete, traits: [] }, EQUIPO_DEL_JUEGO));
-    expect(conCaballo).toBeGreaterThan(aPie);
+    const { montura: _caballo, ...aPie } = jinete.equipo;
+    const sinCaballo = indiceDePoder(
+      unidadDeCombate({ ...jinete, equipo: aPie }, EQUIPO_DEL_JUEGO),
+    );
+    expect(conCaballo).toBeGreaterThan(sinCaballo);
   });
 
   it('las unidades del catálogo, vestidas, tienen el índice y el nivel de su tabla', () => {

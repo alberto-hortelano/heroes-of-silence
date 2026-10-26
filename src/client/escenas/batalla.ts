@@ -67,8 +67,8 @@ const NINGUN_BANDO: ReadonlySet<Side> = new Set();
 
 /**
  * La carga dicha para la barra: cuántas casillas y cuánto daño suma, con el
- * tanto por ciento que trae la carga (`CasillaDeCarga.porciento`: el del jinete o,
- * en la arena, el de a pie). Solo se dice sobre el ENEMIGO: una
+ * tanto por ciento que trae la carga (`CasillaDeCarga.porciento`, el de todos desde
+ * el 26-10-2026). Solo se dice sobre el ENEMIGO: una
  * casilla vacía de la recta no promete nada, porque el clic ahí solo mueve
  * (decisión del usuario, 02-10-2026).
  */

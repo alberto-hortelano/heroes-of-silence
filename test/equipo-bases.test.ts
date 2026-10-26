@@ -268,7 +268,7 @@ describe('una pieza sobre otra', () => {
   });
 
   it('el enlace lleva todas las piezas de lo que lleva, con sus bases, y se reabre igual', () => {
-    expect(VERSION_DEL_ENLACE).toBe(16);
+    expect(VERSION_DEL_ENLACE).toBe(17);
     const u = conBendita();
     // El guerrero lleva la bendita, la brigantina y el escudo; con sus bases van la
     // de herrería y la Espada, tal como están en el catálogo con que pelea.

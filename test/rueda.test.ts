@@ -141,8 +141,8 @@ const DOBLE_GOLPE = sinEquipo(PESADA, {
 });
 
 /**
- * La caballería de las cargas: A 10, D 9, daño 50-100, 300 PV, `charge`, sin lanza: carga
- * a pie (+5 %/casilla), porque la del jinete pide además una lanza puesta (25-10-2026).
+ * La caballería de las cargas: A 10, D 9, daño 50-100, 300 PV, sin montura ni lanza:
+ * carga como todos (+5 %/casilla), con la horquilla de su golpe (26-10-2026).
  */
 const CABALLERIA = sinEquipo(JINETE, {
   name: 'Caballería',
@@ -151,7 +151,7 @@ const CABALLERIA = sinEquipo(JINETE, {
   damage: [50, 100],
   hp: 300,
   speed: 'very_fast',
-  traits: ['charge'],
+  traits: [],
 });
 
 /** Lo que se pone a mano en lugar de cada unidad del catálogo, por su id. */
@@ -1411,7 +1411,7 @@ function jineteALaCarga(): { s: SesionDeArena; ataque: BattleAction & { type: 'a
     target: 'defender-0',
     at: DESDE,
     hexes: 5,
-    porciento: 50,
+    porciento: 25,
   });
   return { s, ataque };
 }
@@ -1422,9 +1422,9 @@ describe('la sesión de la arena con la rueda', () => {
     s.playBattleAction(ataque);
     const p = s.ruedaPendiente;
     if (p === null) throw new Error('la rueda no se abre tras la carrera');
-    expect(p.prevision.carga).toBe('carga de 5 casillas, +50 %');
+    expect(p.prevision.carga).toBe('carga de 5 casillas montada, +25 %');
     const m = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
-    expect(m).toContain('Las cifras llevan la carga de 5 casillas, +50 %');
+    expect(m).toContain('Las cifras llevan la carga de 5 casillas montada, +25 %');
     // Rápido: el primer golpe, con la carga, y el siguiente, sin ella, cada uno en su línea.
     const desde = m.indexOf('data-golpe="rapido"');
     const rapido = m.slice(desde, m.indexOf('</button>', desde));

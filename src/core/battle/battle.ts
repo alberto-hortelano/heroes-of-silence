@@ -51,9 +51,10 @@ import {
   siguienteEnRecta,
 } from './board.js';
 import {
+  CARGA,
   CARGA_MINIMA,
   cargaEfectiva,
-  cifrasDeCarga,
+  cargaMontada,
   dichoDeLaCarga,
   porcientoDeLaCarga,
 } from './carga.js';
@@ -2068,8 +2069,8 @@ export function plantarse(
 /**
  * La longitud de la recta de carga si `s` golpeara a `target` desde `from`; 0 si
  * no carga. ÚNICA regla de CUÁNDO hay carga (decisiones del usuario,
- * 02-10-2026): carga todo el que pega cuerpo a cuerpo (`cifrasDeCarga`: el
- * jinete con el rasgo `charge` y los demás a pie, #260), solo si `from` está **en línea
+ * 02-10-2026): carga todo el que pega cuerpo a cuerpo (#260; montado de guerra y
+ * con lanza, con la fuerza de la montura: `GolpeConArma.carga`), solo si `from` está **en línea
  * recta** desde donde está ahora —una de las 6 rectas del hexágono, sin giros—,
  * con la recta libre de unidades, a **`CARGA_MINIMA` casillas o más**, y con
  * **el enemigo en esa misma recta**: la casilla que sigue a `from` tiene que ser
@@ -2160,7 +2161,6 @@ export function casillasDeCarga(
   s: BattleStack,
   costes?: ReadonlyMap<string, Paso>,
 ): readonly CasillaDeCarga[] {
-  const cifras = cifrasDeCarga(s.unit);
   // Tras la Finta no hay golpe que cobrarla: solo se anda.
   if (state.turno?.stack === s.id && faseDelTurno(state) === 'trasLaFinta') return SIN_CARGAS;
   const medir = medirCargas(state, s);
@@ -2175,8 +2175,8 @@ export function casillasDeCarga(
     if (e === undefined) continue;
     const medida = medir(paso.at, e);
     if (medida === null) continue;
-    const hexes = cargaEfectiva(medida.recta, cifras);
-    out.push({ target: e.id, at: paso.at, hexes, porciento: porcientoDeLaCarga(hexes, cifras) });
+    const hexes = cargaEfectiva(medida.recta, CARGA);
+    out.push({ target: e.id, at: paso.at, hexes, porciento: porcientoDeLaCarga(hexes, CARGA) });
   }
   return out;
 }
@@ -3392,7 +3392,7 @@ export function previsionDeLaRueda(
   readonly contraataque: Horquilla | null;
   /**
    * Al golpear tras una carrera, la carga que ya llevan las cifras, dicha
-   * (`dichoDeLaCarga`: «carga de 3 casillas a pie, +15 %»; R6 de QA de #260); si
+   * (`dichoDeLaCarga`: «carga de 3 casillas, +15 %»; R6 de QA de #260); si
    * no hay carga o en la respuesta, `null`.
    */
   readonly carga: string | null;
@@ -3459,15 +3459,14 @@ export function previsionDeLaRueda(
     porTipo[tipo] = { danio: h.danio, golpes, siguientes, contraataquePorExito };
   }
   // La carga es de quien golpea: la respuesta no la cobra.
-  const cifras = cifrasDeCarga(desdeAhi.unit);
-  const cobrada = papel === 'golpe' ? cargaEfectiva(carga, cifras) : 0;
+  const cobrada = papel === 'golpe' ? cargaEfectiva(carga, CARGA) : 0;
   return {
     porTipo,
     sinContraataque,
     contraataque: conContraataque
       ? contraataqueCon(neutro === null ? null : delSector(neutro, forma))
       : null,
-    carga: cobrada > 0 ? dichoDeLaCarga(cobrada, cifras) : null,
+    carga: cobrada > 0 ? dichoDeLaCarga(cobrada, cargaMontada(desdeAhi.unit)) : null,
     rueda,
     niveles,
   };

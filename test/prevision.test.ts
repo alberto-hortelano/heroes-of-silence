@@ -316,7 +316,7 @@ const ESCENARIOS: readonly Escenario[] = [
   },
   {
     nombre: 'jinete de la arena: carga con la lanza y le devuelven el golpe',
-    izquierda: () => deLaArena('jinete', JINETE_DE_LA_ARENA, 6, ['charge']),
+    izquierda: () => deLaArena('jinete', JINETE_DE_LA_ARENA),
     derecha: () => bando([{ creature: TROPA, count: 30 }]),
     en: { col: 3, row: 4 },
     contra: { col: 7, row: 4 },
@@ -327,7 +327,7 @@ const ESCENARIOS: readonly Escenario[] = [
   {
     nombre: 'armadura: la daga contra la barda del jinete, que para casi todo el mínimo',
     izquierda: () => deLaArena('arquero', ARQUERO_DE_LA_ARENA),
-    derecha: () => deLaArena('jinete', JINETE_DE_LA_ARENA, 6, ['charge']),
+    derecha: () => deLaArena('jinete', JINETE_DE_LA_ARENA),
     en: { col: 5, row: 4 },
     contra: { col: 6, row: 4 },
     accion: golpe(),
@@ -558,7 +558,7 @@ describe('la previsión de daño cae en el daño real', () => {
       const p = previsionDe(b, accion) as PrevisionDeGolpe;
       return p.modificadores.map((m) => m.causa);
     };
-    expect(causas('carga de la caballería')).toContain('carga de 5 casillas');
+    expect(causas('carga de la caballería')).toContain('carga de 5 casillas montada');
     // Defenderse (+20 %, «(defiende)») se retiró el 26-10-2026.
   });
 
@@ -581,13 +581,14 @@ describe('la previsión de daño cae en el daño real', () => {
     expect(pegado.contraataque?.modificadores[0]?.causa).toBe('con Daga (cuerpo a cuerpo)');
     const carga = previsto('jinete de la arena');
     const { yo, el } = losDosDe('jinete de la arena');
-    // Con espada y lanza (25-10-2026), las dos nombradas; la carga, con las dos.
+    // Con espada y lanza (25-10-2026), las dos nombradas; la carga, con las dos y,
+    // montado de guerra, con la fuerza del caballo (26-10-2026).
     const armas = golpeDe(yo, 'arma');
     expect(armas.piezas.map((p) => p.nombre)).toEqual(['Espada', 'Lanza']);
     expect(carga.modificadores.map((m) => m.causa)).toEqual([
-      'con Espada y Lanza (en la carga)',
+      'con Espada y Lanza, montado en Caballo de guerra (en la carga)',
       `ataque ${armas.attack} contra defensa ${el.defense}`,
-      'carga de 3 casillas',
+      'carga de 3 casillas montada',
       `−${armaduraDe(el)} armadura`,
     ]);
     // La tropa del catálogo también pega con su arma (desde F3 lleva equipo): su

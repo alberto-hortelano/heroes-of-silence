@@ -202,17 +202,28 @@ describe('contrato con el agente', () => {
       slot: 'escudo',
     });
     expect(() => accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'casco' })).toThrow(
-      'no hay ningún hueco "casco": son melee_weapon, second_melee_weapon, ranged_weapon, armor, shield',
+      'no hay ningún hueco "casco": son melee_weapon, second_melee_weapon, ranged_weapon, armor, shield, mount',
     );
+    // La montura (26-10-2026): su slot es `mount`, y un caballo va a ella.
+    expect(accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'mount' })).toEqual({
+      type: 'unequip',
+      hero: hero.id,
+      slot: 'montura',
+    });
+    expect(
+      accionDelAgente({ type: 'equip', hero: hero.id, item: 'caballo_de_silla', slot: 'mount' }),
+    ).toEqual({ type: 'equip', hero: hero.id, item: 'caballo_de_silla', hueco: 'montura' });
     // Y el motivo del núcleo nombra el hueco para la persona, no por su clave: el
     // agente lo pidió como `shield`, y «escudo» en minúscula no le decía nada.
     expect(unequipBlocker(state, 0, { type: 'unequip', hero: hero.id, slot: 'escudo' })).toBe(
       `${hero.name} no lleva nada en Escudo`,
     );
-    // La prosa ofrece los cinco en inglés y explica el escudo y las dos manos.
+    // La prosa ofrece los seis en inglés y explica el escudo, las dos manos y la montura.
     expect(RESPONSE_FORMAT.adventure_turn).toContain(
-      '"slot": "melee_weapon" | "second_melee_weapon" | "ranged_weapon" | "armor" | "shield"',
+      '"slot": "melee_weapon" | "second_melee_weapon" | "ranged_weapon" | "armor" | "shield" | "mount"',
     );
+    expect(RESPONSE_FORMAT.adventure_turn).toContain('"mount" la MONTURA');
+    expect(RESPONSE_FORMAT.adventure_turn).toContain('la marcha del héroe la marca el más lento');
     expect(RESPONSE_FORMAT.adventure_turn).not.toContain('"slot": "arma"');
     expect(RESPONSE_FORMAT.adventure_turn).toContain('"shield" el escudo, opcional');
     // El equipo base, por sus piezas (decisión del usuario: la Espada y el gambesón).
@@ -221,7 +232,7 @@ describe('contrato con el agente', () => {
     );
     // Lo que el héroe trae vacío de serie sale del equipo base, no de la prosa.
     expect(RESPONSE_FORMAT.adventure_turn).toContain(
-      '(y nada en "second_melee_weapon", "ranged_weapon", "shield")',
+      '(y nada en "second_melee_weapon", "ranged_weapon", "shield", "mount")',
     );
     expect(RESPONSE_FORMAT.adventure_turn).toContain(
       'un arma a dos manos va sola (ni escudo ni segunda arma)',
@@ -271,13 +282,14 @@ describe('contrato con el agente', () => {
     ];
     const turno = (): any => serializeAdventureTurn(state, 0);
     const h = turno().heroes[0];
-    // Los cinco huecos, en inglés, y vacíos los que el héroe no trae de serie.
+    // Los seis huecos, en inglés, y vacíos los que el héroe no trae de serie.
     expect(h.equipment).toEqual({
       melee_weapon: 'espada',
       second_melee_weapon: null,
       ranged_weapon: null,
       armor: 'gambeson',
       shield: null,
+      mount: null,
     });
     expect(h.backpack).toEqual(['maza']);
     // La fila de un individuo lleva el equipo con la misma forma que el héroe.
@@ -289,6 +301,7 @@ describe('contrato con el agente', () => {
         ranged_weapon: null,
         armor: 'brigantina',
         shield: null,
+        mount: null,
       },
     });
     expect(h.army[1]).not.toHaveProperty('id');
@@ -1248,11 +1261,12 @@ describe('lo que ve el agente', () => {
     const prosa = RESPONSE_FORMAT.battle_turn;
     expect(prosa).toContain(`a ${CARGA_MINIMA} casillas o más`);
     // Todo el que pega cuerpo a cuerpo carga (#260; en toda batalla desde el
-    // 19-10-2026): las cifras de a pie y las del jinete.
-    expect(prosa).toContain(
-      `suma un ${CARGA.aPie.porcentaje} % de daño a pie, y un ${CARGA.jinete.porcentaje} % con el rasgo\n  "charge" (el jinete), hasta ${CARGA.jinete.tope}`,
-    );
-    expect(prosa).toContain('suma un 5 % de daño a pie, y un 10 %');
+    // 19-10-2026), con las mismas cifras desde el 26-10-2026; montado de guerra y con
+    // lanza, con la fuerza de la montura.
+    expect(prosa).toContain(`suma un ${CARGA.porcentaje} % de daño, hasta ${CARGA.tope}`);
+    expect(prosa).toContain('suma un 5 % de daño, hasta 5');
+    expect(prosa).toContain('la fuerza de la montura más la de la lanza');
+    expect(prosa).not.toContain('"charge"');
     expect(prosa).toContain('"turnId"');
   });
 
@@ -1728,6 +1742,21 @@ describe('el nivel en el contrato: derivado de las cifras (12-10-2026)', () => {
     const zombi = fichaDeCriatura(unidadDelJuego('zombi'));
     expect(zombi.dwelling).toBe(esqueleto.dwelling);
     expect(zombi.level).not.toBe(esqueleto.level);
+  });
+
+  it('`creature_stats` dice la montura del jinete, su marcha y su carga montada (26-10-2026)', () => {
+    const jinete = fichaDeCriatura(unidadDelJuego('templario-hermano-de-carga'));
+    expect(jinete.equipment[SLOT_DE_HUECO.montura]).toBe('caballo_de_guerra');
+    // Las casillas del caballo, en batalla y en el mapa; la carga, (50 + 12) × [1, 4].
+    expect(jinete).toMatchObject({ speed: 'very_fast', mapSpeed: 'very_fast' });
+    expect(jinete.chargeDamage).toEqual([62, 248]);
+    // A pie no hay carga montada, y la marcha es la de batalla.
+    const piquero = fichaDeCriatura(unidadDelJuego('templario-escudo'));
+    expect(piquero.equipment[SLOT_DE_HUECO.montura]).toBeNull();
+    expect(piquero.mapSpeed).toBe(piquero.speed);
+    expect(piquero).not.toHaveProperty('chargeDamage');
+    expect(RESPONSE_FORMAT.adventure_turn).toContain('"mapSpeed"');
+    expect(RESPONSE_FORMAT.battle_turn).toContain('"chargeDamage" en "creature_stats"');
   });
 
   it('la prosa nombra rango y nivel con las claves que viajan', () => {

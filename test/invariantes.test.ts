@@ -88,7 +88,7 @@ import {
 } from '../src/core/battle/effects.js';
 import { formaDeLaBatalla } from '../src/core/battle/formas-de-la-rueda.js';
 import type { BattleStack } from '../src/core/battle/types.js';
-import { unidadDelJuego } from '../src/core/catalogo.js';
+import { UNIDADES, unidadDelJuego } from '../src/core/catalogo.js';
 import { battleActionSchema, RESPONSE_FORMAT } from '../src/core/contract/agent.js';
 import {
   CATALOGO_DE_EQUIPO_EN_PROSA,
@@ -1802,9 +1802,9 @@ describe('invariantes del proyecto', () => {
   it('si una pieza es una lanza lo leen solo `hero/equipo.ts` y `data.ts`, como sus manos', () => {
     // 25-10-2026, «la lanza de carga fuera, será una lanza y una regla especial de
     // la lanza cuando se carga montado»: `Pieza.lanza` lo valida y lo escribe
-    // `data.ts`, y lo lee `hero/equipo.ts`, que lo lleva al golpe
-    // (`GolpeConArma.conLanza`), de donde lo toma la carga (`cifrasDeCarga`); quien
-    // lo enseña, `esLanza`. Una carga que mirara la pieza por su cuenta tendría su
+    // `data.ts`, y lo lee `hero/equipo.ts`, que lleva la fuerza de la mejor lanza a
+    // la cuenta del cuerpo (`fuerzaDeLaLanza`, de donde sale `GolpeConArma.carga`
+    // con una montura de guerra, 26-10-2026); quien lo enseña, `esLanza`. Una carga que mirara la pieza por su cuenta tendría su
     // propia regla. El `lanza` de la cola de la animación es quien lanza un hechizo:
     // fuera. Roto a mano: un `p.lanza` en `carga.ts` sale rojo.
     const LEEN = ['src/core/hero/equipo.ts', 'src/core/data.ts'];
@@ -1817,6 +1817,63 @@ describe('invariantes del proyecto', () => {
       ),
     ).toEqual([]);
     expect(infractoresDeCodigo(['src/core/hero/equipo.ts'], lee)).not.toEqual([]);
+  });
+
+  it('la montura: la pone solo `conEquipo`, la carga montada la cuenta solo `cifrasDelCuerpo` y «charge» ya no es un rasgo', () => {
+    // 26-10-2026, «vamos a separar la montura del personaje». Cuatro partes, cada
+    // una rota a mano y vista en rojo:
+    //  (a) `UnitInfo.montura` (las cifras de la montura puesta, `MonturaPuesta`) la
+    //      escribe solo `conEquipo` (`hero/equipo.ts`, `monturaPuesta`): quien
+    //      escribiera `{ ...u, montura: { fuerza: 80, … } }` daría casillas y carga
+    //      sin pieza. Roto: un `montura: { id: 'x', … }` en `arena.ts`, rojo.
+    //  (b) la horquilla de la carga montada la calcula solo `cifrasDelCuerpo`
+    //      (`cuerpo.ts`), con la fuerza de la mejor lanza que le da `conEquipo`: el
+    //      nombre `fuerzaDeLaLanza` solo vive en esos dos. Una pantalla o una IA
+    //      que sumara la fuerza de la montura por su cuenta tendría otra regla (y la
+    //      señal temprana del plan: el daño normal con la fuerza del caballo).
+    //      Roto: un `fuerzaDeLaLanza` en `damage.ts`, rojo.
+    //  (c) si una montura es de guerra (`.guerra`) lo leen solo `data.ts` (la
+    //      pieza), `hero/equipo.ts` (`esDeGuerra`, que lo lleva a la unidad) y
+    //      `cuerpo.ts` (`montadoDeGuerra`, la regla). La agilidad de una pieza no
+    //      se puede vigilar por su nombre: `.agilidad` es también la del cuerpo.
+    //      Roto: un `p.guerra` en `paneles.ts`, rojo.
+    //  (d) «charge» no es un rasgo: ni en `CREATURE_TRAITS` ni en ninguna unidad
+    //      del catálogo; montar es llevar una montura de guerra. El «charge» de los
+    //      clips de la animación (correr) es otra cosa y no se mira.
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
+    const ESCRITOR = 'src/core/hero/equipo.ts';
+    const escribe =
+      /\bmontura\s*:\s*(\{\s*(id|nombre|fuerza|agilidad|peso|guerra)\b|monturaPuesta\s*\()/;
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => r !== ESCRITOR),
+        escribe,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([ESCRITOR], escribe)).not.toEqual([]);
+
+    const CUENTA = ['src/core/cuerpo.ts', ESCRITOR];
+    const lanza = /\bfuerzaDeLaLanza\b/;
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => !CUENTA.includes(r)),
+        lanza,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo(['src/core/cuerpo.ts'], lanza)).not.toEqual([]);
+
+    const LEEN = ['src/core/data.ts', ESCRITOR, 'src/core/cuerpo.ts'];
+    const guerra = /\.guerra\b/;
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => !LEEN.includes(r)),
+        guerra,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo(['src/core/cuerpo.ts'], guerra)).not.toEqual([]);
+
+    expect(CREATURE_TRAITS as readonly string[]).not.toContain('charge');
+    expect(UNIDADES.filter((u) => (u.traits as readonly string[]).includes('charge'))).toEqual([]);
   });
 
   it('ningún fichero que una máquina lee lleva dentro la ruta de esta máquina', () => {

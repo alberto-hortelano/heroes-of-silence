@@ -219,17 +219,17 @@ describe('el panel dice lo que le queda al tramo', () => {
   });
 });
 
-describe('la ayuda de la carga, con las cifras de quien carga (QA, N2)', () => {
-  it('a pie (desde el 19-10-2026, toda unidad carga) con las suyas; el jinete, con las suyas', () => {
+describe('la ayuda de la carga, con las cifras de la carga (QA, N2)', () => {
+  it('a pie y montado, las mismas (26-10-2026: montado cambia la horquilla, no lo que cobra)', () => {
     const AYUDA = 'Al enemigo en naranja se le puede cargar';
     const aPie = marcadoDe(renderSide(sesionConEnemigoALaVista(undefined, 'templario-escudo').s));
     expect(aPie).toContain(AYUDA);
-    expect(aPie).toContain(`+${CARGA.aPie.porcentaje} % cada una`);
+    expect(aPie).toContain(`+${CARGA.porcentaje} % cada una`);
     const jinete = marcadoDe(
       renderSide(sesionConEnemigoALaVista(undefined, 'templario-hermano-de-carga').s),
     );
     expect(jinete).toContain(AYUDA);
-    expect(jinete).toContain(`+${CARGA.jinete.porcentaje} % cada una`);
+    expect(jinete).toContain(`+${CARGA.porcentaje} % cada una`);
   });
 });
 
@@ -243,7 +243,7 @@ describe('la carga en el cliente: el enemigo en la recta (QA, H1)', () => {
   it('se anuncia contra el enemigo y desde la casilla de su recta, y nada más', () => {
     const { s, objetivo } = montar();
     expect(s.battleCharges()).toEqual([
-      { target: objetivo, at: { col: 8, row: 6 }, hexes: 3, porciento: 30 },
+      { target: objetivo, at: { col: 8, row: 6 }, hexes: 3, porciento: 15 },
     ]);
   });
 
@@ -286,12 +286,12 @@ describe('la carga en el cliente: el enemigo en la recta (QA, H1)', () => {
     expect(s.status).toBe(
       rotuloDeAngulo(
         { col: 8, row: 6 },
-        { target: objetivo, at: { col: 8, row: 6 }, hexes: 3, porciento: 30 },
+        { target: objetivo, at: { col: 8, row: 6 }, hexes: 3, porciento: 15 },
         textoDePrevision(prevision, (id) => id),
       ),
     );
-    expect(s.status).toContain('carga de 3 casillas ×1,3');
-    expect(s.status).toContain('(+30 % de daño)');
+    expect(s.status).toContain('carga de 3 casillas montada ×1,15');
+    expect(s.status).toContain('(+15 % de daño)');
     const antes = s.battle!.log.length;
     escena.pulsar(px, py);
     // Primero anda (la carrera de la carga) y luego elige en la rueda (F5).

@@ -138,11 +138,11 @@ import {
   MAX_ROUNDS,
   seHaMovido,
 } from '../../src/core/battle/battle.js';
+import { cargaMontada } from '../../src/core/battle/carga.js';
 import { allSpells } from '../../src/core/battle/spells.js';
 import type { BattleAction, BattleState, Side } from '../../src/core/battle/types.js';
 import { HERO_BODY, otroBando } from '../../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../../src/core/combate.js';
-import { hasTrait } from '../../src/core/data.js';
 import { EQUIPO_BASE } from '../../src/core/hero/equipo.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../../src/core/hero/experiencia.js';
 import { cuerposDelHeroe } from '../../src/core/hero/hero.js';
@@ -194,13 +194,13 @@ const sinSegundoTramo: Tactica = (state) => {
  * La heurística de hoy sin el paso de lado para cargar (02-10-2026), que es la
  * IA de `c72bcd9`.
  *
- * Esa regla solo puede elegir un `move` de una unidad con `charge`, así que
- * ahí, y solo ahí, se le vuelve a preguntar con el rasgo quitado un instante:
- * sin él `pasoParaCargar` no hace nada, y lo demás que decide un `move` no lo
- * mira. Lo que SÍ mira el rasgo —`mejorCarga`, al golpear— no sale nunca de
- * esta segunda pregunta con otra respuesta: si la regla no se dispara, la
- * primera ya era la de antes y se devuelve tal cual. Se restaura antes de
- * devolver, porque el rasgo es del motor y no de este banco.
+ * Esa regla solo puede elegir un `move` de una unidad que carga montada
+ * (`cargaMontada`: montura de guerra y lanza; hasta el 26-10-2026, el rasgo
+ * `charge`), así que ahí, y solo ahí, se le vuelve a preguntar con la horquilla de
+ * su carga quitada un instante: sin ella `pasoParaCargar` no hace nada, y lo demás
+ * que decide un `move` no la mira. Si la regla no se dispara, la primera ya era la
+ * de antes y se devuelve tal cual. Se restaura antes de devolver, porque la unidad
+ * es del motor y no de este banco.
  *
  * Que esto ES la IA de `c72bcd9` se comprobó jugándolo contra una copia
  * congelada de aquel `tactics.ts`: 0 · 5 000 · 0, las 5 000 parejas iguales.
@@ -208,16 +208,16 @@ const sinSegundoTramo: Tactica = (state) => {
 const sinPasoParaCargar: Tactica = (state) => {
   const accion = chooseBattleAction(state);
   const s = activeStack(state);
-  if (accion.type !== 'move' || s === null || !hasTrait(s.unit, 'charge')) return accion;
-  const conRasgo = s.unit;
-  (s as { unit: UnitInfo }).unit = {
-    ...conRasgo,
-    traits: (conRasgo.traits ?? []).filter((t) => t !== 'charge'),
-  };
+  if (accion.type !== 'move' || s === null || !cargaMontada(s.unit)) return accion;
+  const montada = s.unit;
+  const armas = montada.armas;
+  if (armas === undefined) throw new Error(`${s.id} carga montada sin armas: no puede ser`);
+  const { carga: _carga, ...arma } = armas.arma;
+  (s as { unit: UnitInfo }).unit = { ...montada, armas: { ...armas, arma } };
   try {
     return chooseBattleAction(state);
   } finally {
-    (s as { unit: UnitInfo }).unit = conRasgo;
+    (s as { unit: UnitInfo }).unit = montada;
   }
 };
 

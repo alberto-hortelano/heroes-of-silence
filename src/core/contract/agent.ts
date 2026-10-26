@@ -494,7 +494,8 @@ Notas:
   vienen con todo eso hecho. "creature_stats" da de cada
   unidad su "level", su "powerIndex", su "dwelling" (el edificio de su facción
   que la produce; uno produce varias, y el edificio no implica nivel), su equipo
-  de serie ("equipment") y su "armor"; lo que cuesta y crece sale de su índice.
+  de serie ("equipment") y su "armor", y "mapSpeed", lo que cuenta en la marcha
+  del mapa; lo que cuesta y crece sale de su índice.
   El RANGO es la experiencia: la
   TROPA va del 1 al 5, y todo HÉROE empieza en el 5 —el inicial y el
   contratado— y sube sin tope (6, 7, 8…). Cada rango suma cifras (a la tropa,
@@ -532,7 +533,7 @@ Notas:
   los de MENOS experiencia: el veterano no se va mientras quede un novato de su
   tipo. Un personaje no se licencia, y fuera de un castillo tuyo se rechaza
   diciéndolo.
-- EQUIPO: todo héroe y todo individuo de la tropa tiene cinco huecos
+- EQUIPO: todo héroe y todo individuo de la tropa tiene seis huecos
   (${SLOTS.join(', ')}) y en cada uno lleva una pieza o nada: "${SLOT_DE_HUECO.arma}" es
   el arma de cuerpo a cuerpo y "${SLOT_DE_HUECO.segunda}" una segunda (otra arma de
   cuerpo a cuerpo de una mano: con dos, cada cifra del golpe es la de la mejor
@@ -540,10 +541,19 @@ Notas:
   "${SLOT_DE_HUECO.arma}" salvo que "equip" diga "slot": "${SLOT_DE_HUECO.segunda}"),
   "${SLOT_DE_HUECO.distancia}" la que dispara (llevarla ya es disparar, sin munición
   que contar), "${SLOT_DE_HUECO.armadura}" la armadura y
-  "${SLOT_DE_HUECO.escudo}" el escudo, opcional: ${REGLA_DEL_ESCUDO} (lo que no cabe se rechaza diciéndolo). La
-  LANZA es un arma de cuerpo a cuerpo más: montado (el rasgo "charge") y con una
-  lanza puesta, la carga cobra la del jinete; montado sin lanza, o a pie, la de a
-  pie. Cada pieza suma sus cifras a quien la lleva
+  "${SLOT_DE_HUECO.escudo}" el escudo, opcional: ${REGLA_DEL_ESCUDO} (lo que no cabe se rechaza diciéndolo),
+  y "${SLOT_DE_HUECO.montura}" la MONTURA. Una montura tiene su propia fuerza, agilidad y
+  peso, que no se suman a las de quien monta. La DE GUERRA se monta en batalla:
+  lo que pesa el equipo del jinete más ella se mide contra la fuerza de ella, sus
+  casillas son las de la montura (su agilidad menos lo que le reste ese peso) y el
+  jinete pelea con su agilidad entera (defensa y daño sin restar peso). La DE
+  SILLA no entra en batalla: allí pelea a pie, con sus casillas y su peso. En el
+  MAPA, cada uno anda lo de su montura (de guerra o de silla) o lo suyo a pie, y
+  la marcha del héroe la marca el más lento del grupo, el héroe incluido: un
+  caballo de silla solo sirve si lo llevan todos ("creature_stats" dice
+  "mapSpeed"). La LANZA es un arma de cuerpo a cuerpo más; lo único que hace es
+  poner la fuerza de la montura de guerra en la carga (abajo, CARGA en batalla).
+  Cada pieza suma sus cifras a quien la lleva
   (un arma, ataque y fuerza para el daño de su golpe; un escudo, defensa) y
   pesa (el peso de todo lo puesto que pasa de la fuerza resta agilidad);
   ninguna da PV: la armadura son puntos que se restan del daño de cada golpe que
@@ -719,8 +729,10 @@ Notas:
   rectas del hexágono, sin giros ni unidades en medio), a ${CARGA_MINIMA} casillas o más, y
   el "target" está EN ESA RECTA: la casilla que sigue a "from" es suya. Llegar a
   la recta y girar para pegar al de al lado no carga, ni pegar al que ya tienes
-  pegado. Cada casilla suma un ${CARGA.aPie.porcentaje} % de daño a pie, y un ${CARGA.jinete.porcentaje} % con el rasgo
-  "charge" (el jinete), hasta ${CARGA.jinete.tope}; solo el primer golpe la cobra. Lo andado en
+  pegado. Cada casilla suma un ${CARGA.porcentaje} % de daño, hasta ${CARGA.tope}; solo el
+  primer golpe la cobra. Con una montura de guerra y una lanza puestas, la
+  horquilla de ese golpe es la de la fuerza de la montura más la de la lanza, por
+  la agilidad del jinete ("chargeDamage" en "creature_stats"). Lo andado en
   tramos anteriores no cuenta: cada tramo se vuelve a medir. "chargeFrom" te
   lista las cargas que tienes ahora mismo: contra qué "target", desde qué
   casilla ("col", "row") y con cuántas casillas cobrarías ("hexes"); solo viene
