@@ -183,6 +183,12 @@ export interface VistaBatalla {
    * para los dos bandos y en el espectador.
    */
   readonly tanteo: LineaDelDisparo | null;
+  /**
+   * Lo apuntado de cada tirador que se pinta, al ritmo de lo que se cuenta
+   * (`BattleAnimator.apuntados`): la marca se queda hasta el impacto de su disparo,
+   * aunque el estado ya lo haya disparado.
+   */
+  readonly apuntados: ReadonlyMap<string, Hex>;
 }
 
 /**
@@ -439,20 +445,28 @@ interface LineaPintada {
  * batalla y lo largo de su registro: solo cambian con una jugada, y se pintan en
  * cada fotograma.
  */
-function lineasApuntadas(battle: BattleState): readonly LineaPintada[] {
+function lineasApuntadas(
+  battle: BattleState,
+  apuntados: ReadonlyMap<string, Hex>,
+): readonly LineaPintada[] {
+  const clave = [...apuntados].map(([id, h]) => `${id}@${h.col},${h.row}`).join('|');
   const r = rectasApuntadas;
-  if (r !== null && r.battle === battle && r.largo === battle.log.length) return r.lineas;
-  const lineas = battle.stacks.flatMap((s): LineaPintada[] =>
-    !isAlive(s) || s.apuntado === null
+  if (r !== null && r.battle === battle && r.largo === battle.log.length && r.clave === clave) {
+    return r.lineas;
+  }
+  const lineas = battle.stacks.flatMap((s): LineaPintada[] => {
+    const at = apuntados.get(s.id);
+    return !isAlive(s) || at === undefined
       ? []
-      : [{ l: lineaDelDisparo(battle, s, s.apuntado), side: s.side, tanteo: false }],
-  );
-  rectasApuntadas = { battle, largo: battle.log.length, lineas };
+      : [{ l: lineaDelDisparo(battle, s, at), side: s.side, tanteo: false }];
+  });
+  rectasApuntadas = { battle, largo: battle.log.length, clave, lineas };
   return lineas;
 }
 let rectasApuntadas: {
   readonly battle: BattleState;
   readonly largo: number;
+  readonly clave: string;
   readonly lineas: readonly LineaPintada[];
 } | null = null;
 
@@ -466,7 +480,7 @@ let rectasApuntadas: {
  */
 function pintarDisparos(ctx: CanvasRenderingContext2D, v: VistaBatalla): void {
   const { battle, tablero } = v;
-  const lineas: LineaPintada[] = [...lineasApuntadas(battle)];
+  const lineas: LineaPintada[] = [...lineasApuntadas(battle, v.apuntados)];
   const activa = activeStack(battle);
   if (v.tanteo !== null && activa !== null) {
     lineas.push({ l: v.tanteo, side: activa.side, tanteo: true });

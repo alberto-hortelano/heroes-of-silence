@@ -301,6 +301,7 @@ export class EscenaBatalla {
       // El de su sitio: la región donde se pelea, o el de la arena.
       clima: { sitio: s.climaDeLaBatalla, ahora: performance.now() },
       tanteo: quieta ? null : this.tanteoActual(),
+      apuntados: this.animador.apuntados(battle),
     });
   }
 

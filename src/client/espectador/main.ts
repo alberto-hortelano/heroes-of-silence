@@ -359,6 +359,7 @@ function pintarTodo(ahora: number): void {
         clima: { sitio: climaDelTablero(vista), ahora },
         // Lo apuntado de cada tirador lo pinta el tablero; tantear, nadie.
         tanteo: null,
+        apuntados: mirada.reproductor.animador.apuntados(enCurso),
       });
       apuntarLoQueSePinta(true);
     } else {

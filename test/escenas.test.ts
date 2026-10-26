@@ -637,6 +637,7 @@ describe('el comandante se distingue en el tablero (H-4)', () => {
       sinDueño: new Set<Side>(),
       clima: { sitio: DESPEJADO, ahora: 0 },
       tanteo: null,
+      apuntados: new Map(),
     };
     const coronas = (x: BattleStack): number => {
       const { ctx, textos } = contextoQueApunta();

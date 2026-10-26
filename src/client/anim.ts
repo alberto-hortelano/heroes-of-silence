@@ -818,6 +818,40 @@ export class BattleAnimator {
     return cruce === null ? null : { atacante: cruce.evento.stack, objetivo: cruce.evento.target };
   }
 
+  /**
+   * Lo apuntado de cada tirador (`BattleStack.apuntado`) **al ritmo de la cola**: el
+   * estado ya trae el final de lo que se cuenta, y el tirador que abre su turno ya
+   * disparó en él y no apunta a nada, mientras la cola aún cuenta lo que jugaron
+   * antes los contrarios (26-10-2026: «se quita la marca del disparo demasiado
+   * pronto, debería quitarse justo antes de disparar»). Por stack, manda su primer
+   * paso que falta por contar: un disparo que aún no impactó deja ver su casilla
+   * hasta el impacto, y un «apunta» que aún no empezó la esconde hasta entonces.
+   * Lo lee el tablero (`VistaBatalla.apuntados`) en la partida, la arena y el
+   * espectador.
+   */
+  apuntados(battle: BattleState): ReadonlyMap<string, Hex> {
+    const r = new Map<string, Hex>();
+    for (const s of battle.stacks) {
+      if (isAlive(s) && s.apuntado !== null) r.set(s.id, s.apuntado);
+    }
+    if (!this.busy) return r;
+    const vistos = new Set<string>();
+    const ver = (paso: Paso, enCurso: boolean, impactado: boolean): void => {
+      if (paso.tipo !== 'shoot' && paso.tipo !== 'apunta') return;
+      if (vistos.has(paso.stack)) return;
+      vistos.add(paso.stack);
+      if (paso.tipo === 'shoot') {
+        if (impactado) r.delete(paso.stack);
+        else r.set(paso.stack, paso.at);
+      } else if (!enCurso) {
+        r.delete(paso.stack);
+      }
+    };
+    if (this.actual !== null) ver(this.actual.paso, true, this.actual.impactado);
+    for (const paso of this.cola) ver(paso, false, false);
+    return r;
+  }
+
   /** ¿Queda algo por enseñar? Mientras sí, se repinta y no se aceptan clics. */
   get busy(): boolean {
     return this.actual !== null || this.cola.length > 0;
