@@ -689,9 +689,10 @@ Notas:
   casilla a la que ir ni enemigo al lado, el turno se cierra solo y no se te
   pregunta por ella.
 - "turnId" numera los turnos de la batalla: mientras sea el mismo, sigues en el
-  mismo turno de la misma unidad, y un "move" no lo cambia. La moral alta
-  puede regalarle a una unidad un turno NUEVO: llega con otro "turnId" y su
-  "stepsLeft" entero.
+  mismo turno de la misma unidad, y un "move" no lo cambia. La misma unidad
+  puede tener otro turno justo después (la última de una ronda abre a veces
+  la siguiente): llega con otro "turnId" y su "stepsLeft" entero. La moral
+  ("morale") no da ni quita turnos: hoy no tiene efecto en la batalla.
 - El stack con "commander": true es tu HÉROE, en el tablero: pelea como una
   unidad más y, si cae, PIERDES la batalla aunque te quede tropa. Lo mismo vale
   para el del rival: matarlo gana la batalla. Su magia ("cast") funciona

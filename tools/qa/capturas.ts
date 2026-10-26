@@ -800,7 +800,7 @@ async function moverDosTramosYAtacar(
     await esperarCola(battle, battle.log.slice(antes));
     await sleep(150);
     // El mismo turno, por su ordinal: la misma unidad activa en un turno nuevo
-    // (la moral extra) no es el tramo siguiente.
+    // (la de la ronda siguiente) no es el tramo siguiente.
     if (!mismoTurno(turnoDelPlan, battle.turno)) {
       throw new Error(`tras el tramo ${i + 1} el turno de ${activo} debía seguir abierto`);
     }

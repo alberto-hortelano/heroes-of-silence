@@ -597,7 +597,7 @@ export function planDeAngulo(espejo: Session, ancho: number, alto: number): Plan
     const b1 = copia(turno.battle);
     applyAction(b1, m1, createRng(1));
     // Abierto de verdad: el MISMO turno, por su ordinal. Que la unidad siga
-    // activa no basta —la moral extra le abre otro turno—, y con solo eso el
+    // activa no basta —puede cerrar una ronda y abrir la siguiente—, y con solo eso el
     // plan se colaba con un turno nuevo. Y por identidad no se puede: `b1` es
     // una copia.
     if (!mismoTurno(ahora, b1.turno)) continue;

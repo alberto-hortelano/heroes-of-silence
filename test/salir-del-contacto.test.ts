@@ -69,8 +69,8 @@ const VAMPIRO = aMano(NO_MUERTO, {
 const ESQUELETO = unidadDelJuego(NO_MUERTO).name;
 
 /**
- * Una pelea con `quien` en `en` (el atacante, `attacker-0`, con su turno y sin
- * moral; cifras hechas a mano) contra esqueletos en `enemigos` (`defender-0`,
+ * Una pelea con `quien` en `en` (el atacante, `attacker-0`, con su turno; cifras
+ * hechas a mano) contra esqueletos en `enemigos` (`defender-0`,
  * `defender-1`…). Lo que no está en el tablero no vale: cada stack va donde dice
  * el test.
  */
@@ -97,7 +97,6 @@ function pelea(
   enemigos.forEach((e, i) => {
     stackById(b, `defender-${i}`).hex = e;
   });
-  for (const s of b.stacks) s.morale = 0;
   forzarTurno(b, 'attacker-0');
   return b;
 }

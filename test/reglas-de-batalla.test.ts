@@ -1,9 +1,9 @@
 /**
  * Las reglas nuestras que la arena comparaba con las de fheroes2 hasta el
  * 19-10-2026, cuando se fueron los interruptores (`battle/reglas.ts`): el
- * tirador pierde la mitad a más de 5 casillas, defender suma un 20 % de defensa
- * sin quitar el turno extra de la moral, la Bendición es suerte +1 y el ataque
- * del héroe no cuenta en su tropa. Se ejercen por el motor.
+ * tirador pierde la mitad a más de 5 casillas, la Bendición es suerte +1 y el
+ * ataque del héroe no cuenta en su tropa. Se ejercen por el motor. (Defender y
+ * el turno extra de la moral se fueron el 26-10-2026, con sus pruebas.)
  */
 
 import { describe, expect, it } from 'vitest';
@@ -23,7 +23,7 @@ import { createRng, type Rng } from '../src/core/rng.js';
 import type { UnitInfo } from '../src/core/types.js';
 import { cuerpoDeCombate } from '../src/core/unidad.js';
 import { bando, mando } from './batalla-de-prueba.js';
-import { conCifrasAMano, PESADA, TROPA } from './helpers.js';
+import { conCifrasAMano, PESADA } from './helpers.js';
 
 function batalla(
   izquierda: BattleSide,
@@ -75,26 +75,6 @@ function contando(rng: Rng): { rng: Rng; ints: () => number } {
     ints: () => n,
   };
 }
-
-describe('cerrar el turno', () => {
-  // Defenderse (+20 %) se retiró el 26-10-2026: su prueba de la cifra se fue con
-  // él, y la de la moral sigue con `end_turn`, que cierra el turno igual.
-  it('tras cerrar el turno, la moral alta puede dar otro', () => {
-    let extras = 0;
-    for (let semilla = 1; semilla <= 400; semilla++) {
-      const { b, rng } = batalla(
-        bando([{ creature: TROPA, count: 1 }], { moral: 2 }),
-        bando([{ creature: TROPA, count: 1 }]),
-        semilla,
-      );
-      if (activeStack(b)?.id !== 'attacker-0') continue;
-      applyAction(b, { type: 'end_turn' }, rng);
-      if (b.log.some((e) => e.kind === 'morale' && e.good)) extras++;
-    }
-    // Moral +3 (una facción +1, y +2): 1/8 de turno extra.
-    expect(extras).toBeGreaterThan(20);
-  });
-});
 
 describe('la Bendición', () => {
   it('es suerte +1, y la tirada se tira', () => {

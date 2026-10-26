@@ -611,8 +611,8 @@ function exigeElEscudo(): void {
  * que le quedan en la segunda petición.
  *
  * Las dos mitades hacen falta y miden cosas distintas. El `turnId` es el hecho:
- * dos `move` seguidos de la misma unidad pueden ser dos turnos (la moral extra,
- * o el último que queda en pie), y es lo que coló dos veces a quien miraba solo
+ * dos `move` seguidos de la misma unidad pueden ser dos turnos (la moral extra
+ * hasta el 26-10-2026, o el último que queda en pie), y es lo que coló dos veces a quien miraba solo
  * quién actúa. La nota es lo que mide el director: sin ella, la sonda que
  * invierte su medida —anunciar «cerrado» cuando sigue abierto— saldría verde.
  */

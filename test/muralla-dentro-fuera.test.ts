@@ -92,7 +92,6 @@ function duelo(
   );
   stackById(state, 'attacker-0').hex = en;
   stackById(state, 'defender-0').hex = enDefensor;
-  for (const s of state.stacks) s.morale = 0;
   forzarTurno(state, turnoDe);
   return state;
 }

@@ -644,7 +644,6 @@ function stackDePrueba(): BattleStack {
     escalera: false,
     retaliated: false,
     acted: false,
-    gotMoraleBonus: false,
     morale: 0,
     luck: 0,
     effects: [],

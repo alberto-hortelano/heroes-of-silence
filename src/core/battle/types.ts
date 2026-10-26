@@ -196,11 +196,11 @@ export interface BattleStack {
   retaliated: boolean;
   /** Ya consumió su turno en esta ronda. */
   acted: boolean;
-  /** Ya recibió un turno extra por moral alta en esta ronda. */
-  gotMoraleBonus: boolean;
   /** Moral (héroe, diversidad de facción, edificios), ya recortada a [−3,+3]
-   * al montar la batalla: quien la lee para tirar el dado no tiene que volver
-   * a recortarla. Hoy nada la altera temporalmente; si algo lo hiciera, iría
+   * al montar la batalla. **Sin efecto en la batalla** (26-10-2026, decisión del
+   * usuario: «La moral solo debe servir para la huida, nunca dar un turno
+   * extra»): se enseña en la ficha y espera a la huida, que aún no existe. Hoy
+   * nada la altera temporalmente; si algo lo hiciera, iría
    * en `effects` y se sumaría al leer, como la suerte — nunca escribiendo
    * aquí, que es el bug que cerró #9. */
   morale: number;
@@ -364,7 +364,6 @@ export type BattleEvent =
    * como estaba no escribe ninguno.
    */
   | { kind: 'retoque'; nombre: string; stacks: readonly string[]; cambios: readonly string[] }
-  | { kind: 'morale'; stack: string; good: boolean }
   | { kind: 'luck'; stack: string; good: boolean }
   | {
       kind: 'effect';
@@ -415,17 +414,17 @@ export interface BattleFinish {
  * comentario de los recorridos de la carga: un `hexesMoved` en el stack había
  * que resetearlo en `beginRound` y en `endTurn`, y el día que se olvidara uno
  * la unidad empezaría su turno con el presupuesto de otro. Aquí no hay nada que
- * resetear: el turno siguiente es otro objeto. La moral extra y `wait` vuelven a
- * pasar por `abrirTurno`, así que también estrenan turno con 0.
+ * resetear: el turno siguiente es otro objeto.
  */
 export interface TurnoDeUnidad {
   /**
    * El ordinal del turno en la batalla: 1, 2, 3… Lo pone `abrirTurno` y nadie más.
    * Es lo que responde «¿sigue siendo el MISMO turno?» (`mismoTurno`), y la
-   * respuesta no se puede sacar de quién actúa: la moral extra le abre a la
-   * misma unidad un turno nuevo, y los cuatro sitios que lo deducían cada uno a
-   * su manera —por identidad del objeto, por lo gastado que crece, por la nota—
-   * se dejaron engañar por ella dos veces. Y no se puede sacar de la identidad
+   * respuesta no se puede sacar de quién actúa: la misma unidad puede tener dos
+   * turnos seguidos (la última de una ronda que abre la siguiente; hasta el 26-10-2026 también
+   * la moral extra, que engañó dos veces a los cuatro sitios que lo deducían cada
+   * uno a su manera —por identidad del objeto, por lo gastado que crece, por la
+   * nota—). Y no se puede sacar de la identidad
    * del objeto en cuanto el estado cruza un `structuredClone` o el cable.
    */
   readonly n: number;
@@ -486,8 +485,7 @@ export interface BattleState {
    */
   iniciativa: Record<string, number>;
   /**
-   * El bando del último stack que de verdad tuvo turno —el que la moral baja
-   * deja paralizado no cuenta—, de una ronda a la siguiente. Es el
+   * El bando del último stack que tuvo turno, de una ronda a la siguiente. Es el
    * `_lastActiveUnitArmyColor` de fheroes2: en un empate de velocidad mueve el
    * otro bando. `null` antes del primer turno, y entonces mueve el atacante.
    */

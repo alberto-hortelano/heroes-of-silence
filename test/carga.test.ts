@@ -64,12 +64,10 @@ function enRecta(
   return { b, desde: { col: recta, row: 4 } };
 }
 
-/** Pone a `quien` en (0,4) y al zombi en (`recta` + 1, 4), sin moral, y le da el turno. */
+/** Pone a `quien` en (0,4) y al zombi en (`recta` + 1, 4), y le da el turno. */
 function colocar(b: BattleState, quien: string, recta: number): void {
   stackById(b, quien).hex = { col: 0, row: 4 };
   stackById(b, 'defender-0').hex = { col: recta + 1, row: 4 };
-  // Sin moral: un turno de más o de menos no es lo que se mide.
-  for (const s of b.stacks) s.morale = 0;
   forzarTurno(b, quien);
 }
 

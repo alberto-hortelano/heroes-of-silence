@@ -115,8 +115,6 @@ function duelo(
   if (escalera) conEscalera(state, 0);
   stackById(state, 'attacker-0').hex = en;
   stackById(state, 'defender-0').hex = enDefensor;
-  // Sin moral: un turno extra por la buena hace que «cierra el turno» no se vea.
-  for (const s of state.stacks) s.morale = 0;
   forzarTurno(state, turnoDe);
   return state;
 }
@@ -639,12 +637,12 @@ describe('tras QA', () => {
     expect(escalaBlocker(state, 'subir')).toBe(motivo);
   });
 
-  it('subir y poner la escalera cierran el turno aunque la moral regale otro (M3)', () => {
-    // Con moral +3, una de cada ocho tiradas da el turno extra (54 de 400 en la
-    // sonda de QA): en 100 semillas, ninguna lo da tras escalar.
-    let extrasConOtraAccion = 0;
-    for (let semilla = 1; semilla <= 100; semilla++) {
-      for (const accion of ['poner_escalera', 'subir', 'end_turn'] as const) {
+  it('subir y poner la escalera cierran el turno, también con la moral alta (M3)', () => {
+    // Con el turno extra de la moral (hasta el 26-10-2026) se escalaba y se
+    // golpeaba en el acto. Ya no hay turno extra para nadie; lo que queda es que
+    // escalar cierra el turno.
+    for (let semilla = 1; semilla <= 20; semilla++) {
+      for (const accion of ['poner_escalera', 'subir'] as const) {
         // El arquero, más lento: el turno forzado es el de la ronda del espadachín.
         const state = duelo(
           LINEA,
@@ -660,23 +658,11 @@ describe('tras QA', () => {
         const muro = { col: 7, row: 4 };
         if (accion === 'subir') state.escaleras.push({ pie: a.hex, muro });
         const turno = state.turno;
-        applyAction(
-          state,
-          accion === 'end_turn' ? { type: 'end_turn' } : { type: accion, muro },
-          createRng(semilla),
-        );
-        const otraVez = state.turno?.stack === 'attacker-0';
-        if (accion === 'end_turn') {
-          if (otraVez) extrasConOtraAccion++;
-          continue;
-        }
-        expect(otraVez, `${accion}, semilla ${semilla}`).toBe(false);
+        applyAction(state, { type: accion, muro }, createRng(semilla));
+        expect(state.turno?.stack === 'attacker-0', `${accion}, semilla ${semilla}`).toBe(false);
         expect(mismoTurno(turno, state.turno)).toBe(false);
-        expect(state.log.some((e) => e.kind === 'morale')).toBe(false);
       }
     }
-    // La misma moral, con otra acción, sí lo da: lo de arriba no es suerte.
-    expect(extrasConOtraAccion).toBeGreaterThan(0);
   });
 
   it('«Lleva escalera» sale deshabilitada, con su motivo, a quien no la usaría (M1)', () => {

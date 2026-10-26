@@ -564,8 +564,8 @@ export function agresiva(state: BattleState): BattleAction {
 }
 
 /**
- * Un dado cargado: cada `int` sale en su mínimo o en su máximo, y la suerte y la
- * moral no saltan nunca (`chance` es siempre `false`). Es para ver una punta de
+ * Un dado cargado: cada `int` sale en su mínimo o en su máximo, y la suerte no
+ * salta nunca (`chance` es siempre `false`). Es para ver una punta de
  * una horquilla sin buscarla entre semillas: con PV y daño a la escala de las
  * cifras, una tirada tiene decenas o cientos de valores y cuarenta semillas no
  * ven sus puntas. Lo demás (`next`, `pick`) lanza: un test que lo necesite no

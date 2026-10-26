@@ -761,8 +761,9 @@ describe('la IA no se rinde por quien no es ella (H-1)', () => {
     // sola», que es la IA peleando por ella, y por ella no se rinde.
     // La 3 y no la 2: desde el recinto de las ciudades (vuelta 3), en la 2 el
     // rival asalta además la base el día 2, y el turno espera esa otra defensa. La
-    // 7 y no la 5, por lo mismo, desde la fuerza y la agilidad (25-10-2026).
-    for (const semilla of [3, 7, 9]) {
+    // 7 y no la 5, por lo mismo, desde la fuerza y la agilidad (25-10-2026), y la
+    // 10 y no la 9, por lo mismo, desde que la moral no da turnos (26-10-2026).
+    for (const semilla of [3, 7, 10]) {
       const ses = new Session(semilla);
       const st = ses.state;
       const mio = heroesOf(st, 0)[0]!;

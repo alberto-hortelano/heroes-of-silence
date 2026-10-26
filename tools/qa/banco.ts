@@ -1228,11 +1228,23 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   de ganador); duración 4 / 8 / 21 → **4 / 11 / 19**, días 96 → 94; batallas
  *   110 → 108, `town_captured` 93 → 89, `troop_rank_up` 291 → 315, `hero_defeated`
  *   44 → 41; ningún tipo de hecho nuevo. La forma del diff, no una medida.
+ * - `1334b9e2…` (3 821 líneas, 20 semillas, 26-10-2026): **la moral, sin turno**
+ *   (decisión del usuario: «La moral solo debe servir para la huida, nunca dar un
+ *   turno extra»: fuera el turno extra de la moral alta y el perdido de la baja; ya
+ *   no se tira ni se escribe el hecho `morale`). Contra `24ece74b…`, las 20 cambian,
+ *   y en todas lo de antes de la primera batalla es idéntico: el primer hecho
+ *   distinto es su resumen (`battle_ended`: otras rondas o bajas, 16), la ciudad que
+ *   se tomó tras ella (`town_captured` → `troop_rank_up`, 3) o la veteranía que dejó
+ *   (`troop_rank_up`, 1, s6); los días 1 (15) y 2 (5). j0 gana 9 de 20 (10 antes;
+ *   cambian de ganador s1, s5, s8, s11 y s20); duración 4 / 11 / 19 → **3 / 5 / 15**;
+ *   batallas 108 → 90, `town_captured` 89 → 72, `troop_rank_up` 315 → 248,
+ *   `hero_defeated` 41 → 26; ningún tipo de hecho nuevo (el `morale` era del registro
+ *   de la batalla, que la crónica no guarda). La forma del diff, no una medida.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '24ece74b9f26a669e7c7ce140e16193dd34e3cfc887fa46b14695cd457732be9',
+  sha: '1334b9e2d05e5f79642b4dfeebfecde4bc32c7a7104175cdbf53aa861e2943a1',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

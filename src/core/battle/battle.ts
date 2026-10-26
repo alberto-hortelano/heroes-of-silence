@@ -3,8 +3,10 @@
  *
  * Reglas de HoMM2 que se respetan aquí: orden de turno por velocidad con el
  * atacante ganando los empates, contraataque único por ronda, tiradores que no
- * pueden disparar con un enemigo encima, moral que da o quita turnos, suerte
- * que dobla o parte el daño, y un hechizo de héroe por ronda.
+ * pueden disparar con un enemigo encima, suerte que dobla o parte el daño, y un
+ * hechizo de héroe por ronda. La moral no da ni quita turnos (regla nuestra,
+ * 26-10-2026, decisión del usuario: «La moral solo debe servir para la huida,
+ * nunca dar un turno extra»): es una cifra sin efecto hasta que haya huida.
  */
 
 import {
@@ -58,7 +60,6 @@ import {
 import { fraseDelContacto, salirCuesta } from './contacto.js';
 import {
   ataqueYDefensa,
-  CHANCE_PER_POINT,
   computeDamage,
   cuartoDelDisparo,
   type DamageOptions,
@@ -460,7 +461,6 @@ export function createBattle(
         escalera: e.escalera && quienNoEscala(side, e.unit) === null,
         retaliated: false,
         acted: false,
-        gotMoraleBonus: false,
         // Una regla para todos: la moral y la suerte propias —0 en una criatura
         // y en el héroe— más las del bando, recortadas una vez. Los no-muertos, a 0.
         morale: hasTrait(e.unit, 'undead') ? 0 : clampMoraleLuck(baseMorale + e.ownMorale),
@@ -746,7 +746,8 @@ export function firmaDelTurno(turno: TurnoDeUnidad): string {
 
 /**
  * ¿Son `a` y `b` el MISMO turno? Por el ordinal, que es lo único que no se deja
- * engañar por la moral extra (la misma unidad, otro turno) ni por una copia del
+ * engañar por la misma unidad en dos turnos seguidos (la última de una ronda que
+ * abre la siguiente) ni por una copia del
  * estado (el mismo turno, otro objeto). `null` no es el mismo turno que nada.
  */
 export function mismoTurno(
@@ -1579,7 +1580,6 @@ function beginRound(state: BattleState, rng: Rng): void {
   for (const s of state.stacks) {
     s.acted = false;
     s.retaliated = false;
-    s.gotMoraleBonus = false;
     // Caducar es filtrar: el stack nunca guardó el bono, así que quitarlo de
     // la lista lo devuelve solo a su valor base. No hay nada que revertir.
     for (const caducado of tickEffects(s)) {
@@ -1610,40 +1610,24 @@ function finishByExhaustion(state: BattleState): void {
   state.log.push({ kind: 'finished', winner });
 }
 
-/** Pasa al siguiente stack con turno, saltando muertos y desmoralizados. */
+/** Pasa al siguiente stack con turno, saltando muertos; sin nadie, ronda nueva. */
 function advance(state: BattleState, rng: Rng): void {
   if (state.finished !== null) {
     state.turno = null;
     return;
   }
 
-  for (let s = siguienteEnLaCola(state); s !== null; s = siguienteEnLaCola(state)) {
-    // Moral baja: el stack se queda paralizado y pierde el turno. No cuenta
-    // como el último que actuó: en fheroes2, `_lastActiveUnitArmyColor` solo se
-    // apunta en la rama de quien «will certainly perform at least one
-    // full-fledged action», y la de `MORALE_BAD` va antes.
-    // https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/battle/battle_arena.cpp#L496-L501
-    const moral = s.morale;
-    const loPierde = moral < 0 && rng.chance(-moral * CHANCE_PER_POINT);
-    if (loPierde) {
-      s.acted = true;
-      state.log.push({ kind: 'morale', stack: s.id, good: false });
-      // Su turno empieza y se pierde: lo que dura «hasta que empiece su próximo
-      // turno» (Defensivo) se va igual (decisión del usuario, 14-10-2026). Sin
-      // turno abierto no hay `n` nuevo: vale el siguiente al de ahora.
-      quitarLosQueVencen(state, s, 'empezar', (state.turno?.n ?? 0) + 1);
-    } else {
-      abrirTurno(state, s);
-    }
-    // Al empezar su turno, antes de que elija nada, sale lo que apuntó en el
-    // anterior, también si lo pierde por la moral: el disparo se soltó al apuntar
-    // (25-10-2026). Luego el turno sigue como siempre (puede apuntar otra vez). Si
-    // el disparo cierra la batalla, `checkFinished` ya cerró el turno.
-    dispararLoApuntado(state, s, rng);
-    if (!loPierde || state.finished !== null) return;
+  const s = siguienteEnLaCola(state);
+  if (s === null) {
+    beginRound(state, rng);
+    return;
   }
-
-  beginRound(state, rng);
+  abrirTurno(state, s);
+  // Al empezar su turno, antes de que elija nada, sale lo que apuntó en el
+  // anterior: el disparo se soltó al apuntar (25-10-2026). Luego el turno sigue
+  // como siempre (puede apuntar otra vez). Si el disparo cierra la batalla,
+  // `checkFinished` ya cerró el turno.
+  dispararLoApuntado(state, s, rng);
 }
 
 /**
@@ -1651,8 +1635,7 @@ function advance(state: BattleState, rng: Rng): void {
  *
  * Los que no han tenido turno van delante y se reordenan antes de cada salida:
  * su desempate depende de quién actuó el último, y eso no se sabe al montar la
- * ronda —un muerto o un paralizado por la moral cambian a quién le toca el
- * siguiente empate—. fheroes2 también elige así, uno a uno (`GetCurrentUnit`).
+ * ronda —un muerto cambia a quién le toca el siguiente empate—. fheroes2 también elige así, uno a uno (`GetCurrentUnit`).
  */
 function siguienteEnLaCola(state: BattleState): BattleStack | null {
   const vivos = state.queue.map((id) => stackById(state, id)).filter(isAlive);
@@ -1674,14 +1657,11 @@ function abrirTurno(state: BattleState, s: BattleStack): void {
 }
 
 /**
- * Cierra el turno del stack activo y decide si la moral le regala otro.
- *
- * Con `conMoral = false` tampoco lo decide: lo piden las escaladas, que son el
- * turno entero («al subir se quedan arriba y no pueden atacar ni hacer nada más
- * ese turno», el usuario). Con el turno extra, la buena moral dejaba golpear
- * justo después de subir, o subir justo después de poner la escalera (QA, M3).
+ * Cierra el turno del stack activo y pasa al siguiente. La moral no regala otro
+ * (26-10-2026): un escudero de 6 casillas cruzaba el tablero en la ronda 1 con
+ * el segundo turno de la moral alta de una sola facción.
  */
-function endTurn(state: BattleState, s: BattleStack, rng: Rng, conMoral = true): void {
+function endTurn(state: BattleState, s: BattleStack, rng: Rng): void {
   checkFinished(state);
   if (state.finished !== null) {
     state.turno = null;
@@ -1689,23 +1669,6 @@ function endTurn(state: BattleState, s: BattleStack, rng: Rng, conMoral = true):
   }
   const n = state.turno?.n;
   if (n !== undefined) quitarLosQueVencen(state, s, 'terminar', n);
-
-  const moral = s.morale;
-  if (
-    conMoral &&
-    isAlive(s) &&
-    moral > 0 &&
-    !s.gotMoraleBonus &&
-    rng.chance(moral * CHANCE_PER_POINT)
-  ) {
-    s.gotMoraleBonus = true;
-    s.acted = false;
-    state.log.push({ kind: 'morale', stack: s.id, good: true });
-    // Vuelve a actuar ya, sin pasar por la cola: allí competiría en el
-    // desempate con los que aún no han tenido turno.
-    abrirTurno(state, s);
-    return;
-  }
   s.acted = true;
   advance(state, rng);
 }
@@ -1713,11 +1676,9 @@ function endTurn(state: BattleState, s: BattleStack, rng: Rng, conMoral = true):
 /**
  * Quita a `s` lo que duraba hasta que `al` (empiece o termine) su próximo turno
  * (la rueda del golpe): lo colgado en un turno anterior al `n`. Al **terminar**
- * lo llama `endTurn`, antes de la moral: el turno extra es otro turno, y lo de
- * este ya se ha ido; si la moral baja se lo salta, lo quita el tope de
- * `roundsLeft`. Al **empezar**, `abrirTurno` (también el turno extra de la moral)
- * y la moral baja, cuyo
- * turno empieza y se pierde. Sin ninguno que venza, no se escribe nada.
+ * lo llama `endTurn`; al **empezar**, `abrirTurno`. Si su turno no llega (muere
+ * o acaba la batalla), lo quita el tope de `roundsLeft`. Sin ninguno que venza,
+ * no se escribe nada.
  */
 function quitarLosQueVencen(state: BattleState, s: BattleStack, al: CuandoVence, n: number): void {
   const vencido = (e: StackEffect): boolean =>
@@ -1900,8 +1861,7 @@ export function applyAction(
       if (motivo !== null) throw new Error(motivo);
       s.apuntado = { col: action.at.col, row: action.at.row };
       state.log.push({ kind: 'aimed', stack: s.id, at: s.apuntado });
-      // Sin el turno extra de la moral: con él, el disparo saldría al instante.
-      endTurn(state, s, rng, false);
+      endTurn(state, s, rng);
       return;
     }
 
@@ -1913,7 +1873,7 @@ export function applyAction(
       state.escaleras.push({ pie: s.hex, muro: action.muro });
       s.escalera = false;
       state.log.push({ kind: 'ladder_placed', stack: s.id, pie: s.hex, muro: action.muro });
-      endTurn(state, s, rng, false);
+      endTurn(state, s, rng);
       return;
     }
 
@@ -1923,8 +1883,8 @@ export function applyAction(
       const desde = s.hex;
       s.hex = action.muro;
       state.log.push({ kind: 'climbed', stack: s.id, from: desde, to: action.muro });
-      // Al subir se queda arriba y no hace nada más ese turno: ni con la moral.
-      endTurn(state, s, rng, false);
+      // Al subir se queda arriba y no hace nada más ese turno.
+      endTurn(state, s, rng);
       return;
     }
 
@@ -2806,8 +2766,7 @@ function healFromDrain(s: BattleStack, damage: number): void {
  * distancia a la casilla apuntada (`cuartoDelDisparo`); ataque contra defensa,
  * suerte y armadura como siempre. Con `double_shot`, dos tiros, y cada uno busca
  * su primero (el segundo, si el primero cayó, sigue la recta). Lo llama solo el
- * principio de su turno (`advance`), también el que pierde por la moral
- * baja. **Regla nuestra sin validar por el usuario** (25-10-2026: sin tests hasta
+ * principio de su turno (`advance`). **Regla nuestra sin validar por el usuario** (25-10-2026: sin tests hasta
  * que la juegue).
  */
 function dispararLoApuntado(state: BattleState, shooter: BattleStack, rng: Rng): void {

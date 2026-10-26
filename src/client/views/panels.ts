@@ -1256,8 +1256,9 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
 
   /**
    * El color de un hecho que es bueno o malo para la unidad que lo vive, dicho
-   * desde quien lee: la moral alta del enemigo es mala noticia para ti. Se
-   * pintaba por el signo, y su «Moral alta: turno extra» salía en verde (#198).
+   * desde quien lee: la buena suerte del enemigo es mala noticia para ti. Se
+   * pintaba por el signo, y la «Moral alta: turno extra» del enemigo (la moral
+   * ya no da turnos, 26-10-2026) salía en verde (#198).
    *
    * Sin bando —espectador y arena— no se pinta: verde y rojo dicen «bien para
    * ti» y «mal para ti» en todo el parte (el final, la rendición, la unidad
@@ -1376,11 +1377,9 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
         // puntos y sus comas («habilidades: + Salto, − Bendecir»).
         case 'retoque':
           return html`<div>Cambian las cifras de ${e.nombre} a media pelea${e.cambios.length === 0 ? '' : ` (${e.cambios.join('; ')})`}</div>`;
-        // La moral, la suerte y los efectos dicen de quién: con el color puesto
-        // desde quien lee, una línea verde sin nombre no deja saber si es la
-        // moral de los tuyos o la mala suerte del rival.
-        case 'morale':
-          return html`<div${paraQuienLee(e.stack, e.good)}>${e.good ? 'Moral alta' : 'Moral baja'} de ${quienEs(e.stack)}: ${e.good ? 'turno extra' : 'turno perdido'}</div>`;
+        // La suerte y los efectos dicen de quién: con el color puesto desde
+        // quien lee, una línea verde sin nombre no deja saber si es la buena
+        // suerte de los tuyos o la mala del rival.
         case 'luck':
           return html`<div${paraQuienLee(e.stack, e.good)}>${e.good ? 'Golpe afortunado' : 'Golpe desafortunado'} de ${quienEs(e.stack)}</div>`;
         case 'effect':

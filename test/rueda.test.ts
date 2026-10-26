@@ -192,9 +192,6 @@ function enRueda(
   );
   stackById(b, 'attacker-0').hex = { col: 5, row: 4 };
   stackById(b, 'defender-0').hex = { col: 6, row: 4 };
-  // Sin moral: la de una sola facción (+1) regala a veces un turno, y los turnos
-  // de estos tests se cuentan.
-  for (const s of b.stacks) s.morale = 0;
   return { b, rng };
 }
 
@@ -439,56 +436,6 @@ describe('los efectos del golpe (#263): Defensivo hasta que empiece su turno, Ro
     });
   });
 
-  it('Defensivo se va al empezar el turno extra de la moral alta', () => {
-    // La primera semilla en que la moral (+3) le regala otro turno tras el golpe.
-    for (let semilla = 1; semilla <= 200; semilla++) {
-      const { b, rng } = enRueda(piqueros(10), piqueros(10), { semilla });
-      const yo = stackById(b, 'attacker-0');
-      yo.morale = 3;
-      const largo = b.log.length;
-      applyAction(b, golpeConLaRueda('defensivo', 'normal'), rng);
-      const extra = b.log
-        .slice(largo)
-        .findIndex((e) => e.kind === 'morale' && e.stack === 'attacker-0' && e.good);
-      if (extra < 0) continue;
-      expect(activeStack(b)?.id).toBe('attacker-0');
-      expect(yo.effects).toEqual([]);
-      // Se dice detrás de la moral: al abrirse el turno extra.
-      expect(b.log.slice(largo + extra)).toContainEqual({
-        kind: 'effect_end',
-        stack: 'attacker-0',
-        source: 'defensivo',
-      });
-      return;
-    }
-    throw new Error('en 200 semillas la moral alta no regala nunca un turno');
-  });
-
-  it('Defensivo se va también si la moral baja le quita el turno: el turno empieza y se pierde', () => {
-    for (let semilla = 1; semilla <= 200; semilla++) {
-      const { b, rng } = enRueda(piqueros(10), piqueros(10), {
-        semilla,
-      });
-      applyAction(b, golpeConLaRueda('defensivo', 'normal'), rng);
-      const yo = stackById(b, 'attacker-0');
-      yo.morale = -3;
-      const largo = b.log.length;
-      applyAction(b, { type: 'end_turn' }, rng);
-      const paralizado = b.log
-        .slice(largo)
-        .findIndex((e) => e.kind === 'morale' && e.stack === 'attacker-0' && !e.good);
-      if (paralizado < 0) continue;
-      expect(yo.effects).toEqual([]);
-      expect(b.log[largo + paralizado + 1]).toEqual({
-        kind: 'effect_end',
-        stack: 'attacker-0',
-        source: 'defensivo',
-      });
-      return;
-    }
-    throw new Error('en 200 semillas la moral baja no salta nunca el turno del atacante');
-  });
-
   /**
    * Romper guardia en los cinco éxitos (piqueros: A 5, D 9; daño 30-40; 150 PV).
    * El golpe en el punto p: 30/32/35/37/40 × 10 × 0,9 = 270/288/315/333/360. Le quita
@@ -602,35 +549,6 @@ describe('los efectos del golpe (#263): Defensivo hasta que empiece su turno, Ro
     applyAction(b, golpeConLaRueda('romperGuardia', 'finta'), rng);
     expect(ataquesDe(b).filter((a) => a.retaliation)).toEqual([]);
     expect(effectiveAttack(stackById(b, 'defender-0'))).toBe(2);
-  });
-
-  it('si su turno no llega (la moral baja lo salta), lo quita el tope de dos rondas', () => {
-    // La primera semilla en la que el defensor, con moral −3 (3/24), pierde sus
-    // dos turnos: deterministas, cada una con su `Rng`.
-    for (let semilla = 1; semilla <= 2000; semilla++) {
-      const { b, rng } = enRueda(piqueros(10), piqueros(10), {
-        semilla,
-      });
-      const el = stackById(b, 'defender-0');
-      el.morale = -3;
-      applyAction(b, golpeConLaRueda('romperGuardia', 'finta'), rng);
-      // Hasta la ronda 3 juega solo el atacante (se defiende): el defensor pierde
-      // por la moral todos sus turnos. Si alguno le llega, otra semilla.
-      let saltados = true;
-      while (b.finished === null && b.round < 3) {
-        if (activeStack(b)?.id !== 'attacker-0') {
-          saltados = false;
-          break;
-        }
-        expect(el.effects.map((e) => e.source)).toEqual(['romperGuardia']);
-        applyAction(b, { type: 'end_turn' }, rng);
-      }
-      if (!saltados || b.round !== 3) continue;
-      // Ronda 3: caduca al empezar, aunque su turno no haya llegado.
-      expect(el.effects).toEqual([]);
-      return;
-    }
-    throw new Error('en 2000 semillas la moral baja no salta nunca dos turnos del defensor');
   });
 });
 
@@ -827,7 +745,6 @@ function aLaCarga(): { b: BattleState; rng: Rng } {
   const jinetes = stackById(b, 'attacker-0');
   jinetes.hex = { col: 1, row: 4 };
   stackById(b, 'defender-0').hex = { col: 6, row: 4 };
-  for (const x of b.stacks) x.morale = 0;
   expect(activeStack(b)?.id).toBe('attacker-0');
   const turno = b.turno;
   if (turno === null) throw new Error('nadie tiene el turno');
@@ -2007,9 +1924,17 @@ describe('la rueda pintada', () => {
     expect(otras.tabla.romperGuardia[3]).toBe(-4);
     // Y la rueda pinta la de su fase: en la respuesta, la de la respuesta.
     const s = sesion({ ids: [JINETE], ia: false }, { ids: [PIQUERO], ia: false });
+    // El golpe es del piquero: pegado al jinete, que cierra su turno sin golpear.
+    // Hasta el 26-10-2026 la moral alta de una sola facción le daba al piquero un
+    // segundo turno en la ronda 1 y golpeaba él primero; sin ella llega antes el
+    // jinete, y lo mata de un golpe.
+    stackById(s.battle, 'defender-0').hex = { col: 1, row: 4 };
+    expect(s.turnoPropio?.stack.id).toBe('attacker-0');
+    s.playBattleAction({ type: 'end_turn' });
     hastaLaRueda(s, true);
     const golpe = s.ruedaPendiente;
     if (golpe === null) throw new Error('la rueda no pide el golpe');
+    expect(golpe.atacante.id).toBe('defender-0');
     const enElGolpe = marcadoDe(renderEleccion(s.battle, golpe, null, caraDeLaArena(s)));
     expect(enElGolpe).toContain('cubre el contraataque de ahora');
     // Con las cifras del arma de quien pega (18-10-2026): el piquero lleva el

@@ -848,11 +848,7 @@ describe('corrección de hallazgos de QA', () => {
     const s = sesion(ia(unidad('templario-escudo')), ia(unidad('orko-dos-armas')), 5);
     // Recién montada, la batalla está en su salida: nadie ha movido ni pegado.
     expect(s.battle.finished).toBeNull();
-    expect(
-      s.battle.log.every(
-        (e) => e.kind === 'round_start' || e.kind === 'morale' || e.kind === 'luck',
-      ),
-    ).toBe(true);
+    expect(s.battle.log.every((e) => e.kind === 'round_start' || e.kind === 'luck')).toBe(true);
     const antes = s.version;
     s.empezar();
     expect(s.battle.finished).not.toBeNull();

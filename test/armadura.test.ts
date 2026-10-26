@@ -73,7 +73,7 @@ const DESNUDO = cuerpo('Desnudo');
 
 /**
  * `quien` en `en` contra `contra` en `donde` (y los demás defensores detrás), con
- * el turno de `quien`. Sin moral, que regala turnos.
+ * el turno de `quien`.
  */
 function frente(
   quien: UnitInfo,
@@ -94,7 +94,6 @@ function frente(
   donde.forEach((h, i) => {
     stackById(b, `defender-${i}`).hex = h;
   });
-  for (const s of b.stacks) s.morale = 0;
   b.turno = { n: 1000, stack: 'attacker-0', gastado: 0 };
   return b;
 }

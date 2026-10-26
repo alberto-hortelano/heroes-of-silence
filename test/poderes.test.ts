@@ -77,10 +77,6 @@ function enElTurnoDelMonje(
 describe('Curar (A1)', () => {
   it('repone lo que dice el poder, sin pasar del máximo, cierra el turno y lo cuenta', () => {
     const { b, rng, monje, escudero } = enElTurnoDelMonje(6);
-    // Sin el turno extra de la moral alta, que es otra regla: con las cinco
-    // facciones en el juego, el bando de una sola (monje y escudero, templarios)
-    // lleva +1 y, con esta semilla, el monje volvería a actuar.
-    monje.morale = 0;
     const cura = { cura: poder('curar').lanzador.cantidad };
     const accion = { type: 'power', poder: 'curar', target: escudero.id } as const;
     const p = previsionDe(b, accion);

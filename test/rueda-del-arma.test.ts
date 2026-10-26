@@ -82,7 +82,7 @@ function guerreroCon(arma: string): Unidad {
 }
 
 /**
- * Una pelea con la rueda, sin moral: `izq` en (5,4) y `der` pegado en (6,4). Los
+ * Una pelea con la rueda: `izq` en (5,4) y `der` pegado en (6,4). Los
  * dos guerreros son iguales de rápidos: empieza el atacante.
  */
 function pelea(izq: Unidad, der: Unidad): BattleState {
@@ -92,7 +92,6 @@ function pelea(izq: Unidad, der: Unidad): BattleState {
   );
   stackById(b, 'attacker-0').hex = { col: 5, row: 4 };
   stackById(b, 'defender-0').hex = { col: 6, row: 4 };
-  for (const s of b.stacks) s.morale = 0;
   expect(activeStack(b)?.id).toBe('attacker-0');
   return b;
 }

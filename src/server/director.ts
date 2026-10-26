@@ -754,8 +754,9 @@ export class Director {
 
 /**
  * Si el turno de la unidad sigue abierto tras la acción, con lo que le queda; o
- * `null` si se cerró. Se mide con el ordinal (`mismoTurno`): la moral extra abre
- * uno NUEVO para la misma unidad, y eso es otro turno, no el mismo.
+ * `null` si se cerró. Se mide con el ordinal (`mismoTurno`): la misma unidad
+ * puede tener uno NUEVO justo después (la última de una ronda abre la
+ * siguiente), y eso es otro turno, no el mismo.
  */
 function turnoAbierto(battle: BattleState, antes: TurnoDeUnidad | null): TurnoAbierto | null {
   if (!mismoTurno(antes, battle.turno)) return null;

@@ -61,7 +61,7 @@ const CON_PUERTA = forma('Línea con puerta');
 const PUERTA: PuertaDeMuralla = { a: h(7, 4), b: h(8, 4) };
 const lado = (army: readonly Stack[]): BattleSide => ({ army, hero: null });
 
-/** Uno contra uno (o contra dos), con la moral a 0 y el turno de `turnoDe`. */
+/** Uno contra uno (o contra dos), con el turno de `turnoDe`. */
 function duelo(
   muralla: MurallaDeBatalla,
   atacante: [string, Hex],
@@ -79,7 +79,6 @@ function duelo(
   defensores.forEach(([, en], i) => {
     stackById(state, `defender-${i}`).hex = en;
   });
-  for (const s of state.stacks) s.morale = 0;
   forzarTurno(state, turnoDe);
   return state;
 }

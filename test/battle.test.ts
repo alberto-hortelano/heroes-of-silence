@@ -185,7 +185,6 @@ function stackOf(id: string, count: number, unit: UnitInfo = unidadDelJuego(id))
     escalera: false,
     retaliated: false,
     acted: false,
-    gotMoraleBonus: false,
     morale: 0,
     luck: 0,
     effects: [],
@@ -438,29 +437,27 @@ describe('iniciativa', () => {
     expect(activeStack(state)!.id).toBe('defender-1');
   });
 
-  it('el paralizado por la moral no cuenta como el último que actuó (#199)', () => {
-    // En fheroes2, `_lastActiveUnitArmyColor` solo se apunta cuando la unidad
-    // va a actuar de verdad; la moral baja va antes. El atacante 0 actuó, el
-    // defensor 0 se queda quieto, y el empate siguiente sigue siendo del
-    // defensor.
+  it('la moral no da ni quita turnos, aunque salga toda tirada (26-10-2026)', () => {
+    // «La moral solo debe servir para la huida, nunca dar un turno extra» (el
+    // usuario): con +1 de una sola facción, un escudero de 6 casillas andaba
+    // 6 + 6 en la ronda 1 y cruzaba el tablero. Con `chance` siempre verdadero,
+    // la regla de antes daba el turno extra a la moral +3 y quitaba el suyo a la
+    // −3 en el primer turno de cada uno.
     const state = empatados(2, 2);
-    stackById(state, 'defender-0').morale = -1;
+    stackById(state, 'attacker-0').morale = 3;
+    stackById(state, 'defender-0').morale = -3;
     const rng: Rng = { ...createRng(1), chance: () => true };
-    aplicar(state, { type: 'end_turn' }, rng);
-    expect(state.log.at(-1)).toEqual({ kind: 'morale', stack: 'defender-0', good: false });
-    expect(activeStack(state)!.id).toBe('defender-1');
-  });
-
-  it('la moral alta repite turno en el acto, sin pasar por el desempate (#199)', () => {
-    const state = empatados(2, 2);
-    stackById(state, 'attacker-0').morale = 1;
-    const rng: Rng = { ...createRng(1), chance: () => true };
-    aplicar(state, { type: 'end_turn' }, rng);
-    expect(state.log.at(-1)).toEqual({ kind: 'morale', stack: 'attacker-0', good: true });
-    expect(activeStack(state)!.id).toBe('attacker-0');
-    // Y después, el empate es del defensor: el último que actuó fue un atacante.
-    aplicar(state, { type: 'end_turn' }, rng);
-    expect(activeStack(state)!.id).toBe('defender-0');
+    expect(turnos(state, rng, 2)).toEqual([
+      'attacker-0',
+      'defender-0',
+      'attacker-1',
+      'defender-1',
+      // La ronda 1 la cerró un defensor: el empate de la 2 es del atacante.
+      'attacker-0',
+      'defender-0',
+      'attacker-1',
+      'defender-1',
+    ]);
   });
 
   it('una Prisa a media ronda no adelanta en la cola: la velocidad es la de empezar (fheroes2 sí lo haría; pendiente)', () => {
@@ -1944,11 +1941,9 @@ describe('el turno en tramos (2026-10-02)', () => {
     expect(conMotivo).toBeLessThan(casos.length);
   });
 
-  it('`end_turn` cierra el turno y tira la moral; la moral extra estrena turno con 0 gastado', () => {
-    // Moral +3: un turno extra 1 de cada 8 veces. Se buscan semillas hasta ver
-    // las dos ramas, y las dos tienen que salir.
-    let extra = 0;
-    let normal = 0;
+  it('`end_turn` cierra el turno tras moverse, también con la moral alta: el siguiente es OTRO turno, de otro', () => {
+    // Moral +3 en 80 semillas: con el turno extra de antes, 1 de cada 8 volvía a
+    // ser suyo. Ya no lo es nunca (26-10-2026).
     for (let semilla = 1; semilla <= 80; semilla++) {
       const state = duelo(PESADA, { col: 0, row: 4 }, TROPA, {
         col: 10,
@@ -1959,24 +1954,11 @@ describe('el turno en tramos (2026-10-02)', () => {
       aplicar(state, { type: 'move', to: { col: 1, row: 4 } }, createRng(semilla));
       const antes = { ...(state.turno as TurnoDeUnidad) };
       aplicar(state, { type: 'end_turn' }, createRng(semilla));
-      const buena = state.log.some((e) => e.kind === 'morale' && e.good);
-      // Haya extra o no, lo que viene es OTRO turno: el ordinal siguiente.
       expect(state.turno?.n).toBe(antes.n + 1);
       expect(mismoTurno(antes, state.turno)).toBe(false);
-      if (buena) {
-        extra++;
-        // La misma unidad, y aun así otro turno, no el de antes reabierto: es
-        // el caso que engañó dos veces a quien miraba solo quién actúa.
-        expect(state.turno).toEqual({ n: antes.n + 1, stack: 'attacker-0', gastado: 0 });
-        expect(pasosQueQuedan(state, s)).toBe(stackSpeed(s));
-      } else {
-        normal++;
-        expect(s.acted).toBe(true);
-        expect(state.turno?.stack).not.toBe('attacker-0');
-      }
+      expect(s.acted).toBe(true);
+      expect(state.turno?.stack).not.toBe('attacker-0');
     }
-    expect(extra).toBeGreaterThan(0);
-    expect(normal).toBeGreaterThan(0);
   });
 
   it('una Lentitud a mitad de turno recorta lo que queda, sin bajar de 0', () => {
@@ -2263,21 +2245,10 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
     return marcadoDe(renderSide(session));
   }
 
-  it('la moral y la suerte se pintan por lo que son para quien lee, no por su signo (#198)', () => {
-    // La moral alta del ENEMIGO salía en verde: se pintaba por `good`. Aquí la
-    // persona es el atacante (el jinete); el defensor, el no-muerto.
-    expect(parte([{ kind: 'morale', stack: 'attacker-0', good: true }])).toContain(
-      `<div class="win">Moral alta de ${NOMBRE_A}, de tu bando: turno extra</div>`,
-    );
-    expect(parte([{ kind: 'morale', stack: 'attacker-0', good: false }])).toContain(
-      `<div class="lose">Moral baja de ${NOMBRE_A}, de tu bando: turno perdido</div>`,
-    );
-    expect(parte([{ kind: 'morale', stack: 'defender-0', good: true }])).toContain(
-      `<div class="lose">Moral alta de ${NOMBRE_B}, del enemigo: turno extra</div>`,
-    );
-    expect(parte([{ kind: 'morale', stack: 'defender-0', good: false }])).toContain(
-      `<div class="win">Moral baja de ${NOMBRE_B}, del enemigo: turno perdido</div>`,
-    );
+  it('la suerte se pinta por lo que es para quien lee, no por su signo (#198)', () => {
+    // La moral alta del ENEMIGO salía en verde: se pintaba por `good` (la moral
+    // ya no da turnos ni sale en el parte, 26-10-2026). Aquí la persona es el
+    // atacante (el jinete); el defensor, el no-muerto.
     expect(parte([{ kind: 'luck', stack: 'attacker-0', good: true }])).toContain(
       `<div class="win">Golpe afortunado de ${NOMBRE_A}, de tu bando</div>`,
     );
@@ -2292,15 +2263,15 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
     );
   });
 
-  it('en una batalla ajena la moral y la suerte no llevan color: no hay «ti» para el que sean buenas', () => {
+  it('en una batalla ajena la suerte no lleva color: no hay «ti» para el que sea buena', () => {
     const ajena = parte(
       [
-        { kind: 'morale', stack: 'attacker-0', good: true },
+        { kind: 'luck', stack: 'attacker-0', good: true },
         { kind: 'luck', stack: 'defender-0', good: false },
       ],
       'ajena',
     );
-    expect(ajena).toContain(`<div>Moral alta de ${NOMBRE_A}, del atacante: turno extra</div>`);
+    expect(ajena).toContain(`<div>Golpe afortunado de ${NOMBRE_A}, del atacante</div>`);
     expect(ajena).toContain(`<div>Golpe desafortunado de ${NOMBRE_B}, del defensor</div>`);
   });
 

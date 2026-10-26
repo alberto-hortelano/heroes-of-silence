@@ -6,7 +6,7 @@
  * rondas en las 300 batallas del banco, y cada hecho se sella contra la
  * niebla—, así que se queda lo que quien jugó recordaría: cuántas rondas duró,
  * qué hechizos se lanzaron y contra quién, y qué perdió cada bando. Cada golpe,
- * cada paso y cada tirada de moral no.
+ * cada paso y cada tirada de suerte no.
  *
  * Va DENTRO de `battle_ended` y no como hechos sueltos: es el mismo hecho
  * —la batalla terminó así—, pasa la niebla con el mismo sello y no puede

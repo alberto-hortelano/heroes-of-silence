@@ -58,8 +58,7 @@ export interface HastaElTurno {
 
 /**
  * Cuándo vence un efecto de la rueda: al **empezar** el siguiente turno del
- * afectado (Defensivo: `abrirTurno`, y el turno que la moral baja le quita, que
- * también empieza) o al **terminarlo** (Romper guardia: `endTurn`). Decisión del
+ * afectado (Defensivo: `abrirTurno`) o al **terminarlo** (Romper guardia: `endTurn`). Decisión del
  * usuario, 14-10-2026. El único nombre de esto: lo leen el efecto, el evento, la
  * rueda y su nota.
  */

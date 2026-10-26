@@ -822,7 +822,7 @@ export function serializeBattleTurn(
     ...(propia ? { yourGold: oro } : {}),
     activeStack: battle.turno?.stack ?? null,
     // El ordinal del turno: lo que dice si la siguiente petición sigue siendo el
-    // MISMO turno de la misma unidad o uno nuevo (la moral extra), que mirando
+    // MISMO turno de la misma unidad o uno nuevo (el de la ronda siguiente), que mirando
     // solo `activeStack` no se distingue.
     turnId: battle.turno?.n ?? null,
     // La rueda de esta batalla (la de la partida): sus tipos y cómo se cruzan.
