@@ -31,6 +31,7 @@ import {
   conEquipo,
   EQUIPO_DEL_JUEGO,
   type EquipoAtado,
+  equipoBlocker,
   equipoDe,
   manosBlocker,
   type Portador,
@@ -232,8 +233,13 @@ export function equipoDelPortadorBlocker(
       return `${nombre} no admite una segunda arma: con dos armas no queda mano para el escudo, y su ${escudo} es de serie, que no se quita`;
     }
   }
-  const manos = puesta === null ? null : manosBlocker(equipo, puesta, hueco);
-  if (manos !== null) return manos;
+  // Al ponerse, las manos con la pieza que entra; al quitarse, las de lo que queda:
+  // quitar el arma propia puede dejar la de serie a dos manos con una segunda o un
+  // escudo propios encima (QA, vuelta 2, H5).
+  const manos = puesta === null ? equipoBlocker(equipo) : manosBlocker(equipo, puesta, hueco);
+  if (manos !== null) {
+    return puesta === null ? `${nombre} no puede quitársela así: ${manos}` : manos;
+  }
   return armaDeCuerpoBlocker(equipo) === null
     ? null
     : `${nombre} se quedaría sin arma de cuerpo a cuerpo, y nadie pelea sin ella: cámbiala por otra en vez de quitarla`;

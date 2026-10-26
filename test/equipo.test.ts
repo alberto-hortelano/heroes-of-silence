@@ -76,6 +76,7 @@ import {
   heroesOf,
   resolvePendingBattle,
   settleBattle,
+  unequipBlocker,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import {
@@ -1010,6 +1011,26 @@ describe('la segunda mano de la tropa: la acción hace lo que dice la pregunta (
     expect(
       JSON.stringify({ army: hero.army, mochila: hero.mochila, n: state.siguienteVeterano }),
     ).toBe(antes);
+  });
+
+  it('quitar el arma propia no deja el mandoble de serie con una segunda encima (QA, vuelta 2, H5)', () => {
+    // Un alabardero (mandoble de serie) con una Espada suya encima y otra de segunda:
+    // quitar la del arma dejaría Mandoble + Espada de segunda, que la regla prohíbe.
+    const { state, c, hero } = enLaArmeria();
+    const ALABARDERO = 'imperio-alabardero';
+    expect(unidadDelJuego(ALABARDERO).equipo!.arma).toBe('mandoble');
+    hero.army = [{ creature: ALABARDERO }];
+    hero.mochila = ['espada', 'espada'];
+    accion(state, { type: 'equip', hero: hero.id, item: 'espada', creature: ALABARDERO }, c);
+    const veteran = hero.army[0]!.veterania!.id;
+    accion(state, { type: 'equip', hero: hero.id, item: 'espada', veteran, hueco: 'segunda' }, c);
+    const quitar: AdventureAction = { type: 'unequip', hero: hero.id, slot: 'arma', veteran };
+    expect(unequipBlocker(state, 0, quitar)).toBe(
+      'esa unidad de Alabardero no puede quitársela así: Mandoble es un arma a dos manos y va sola: quita antes Espada',
+    );
+    // La segunda sí se quita, y después el arma también.
+    accion(state, { type: 'unequip', hero: hero.id, slot: 'segunda', veteran }, c);
+    expect(unequipBlocker(state, 0, quitar)).toBeNull();
   });
 });
 
