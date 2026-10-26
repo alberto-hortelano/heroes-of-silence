@@ -136,8 +136,8 @@ describe('lo que pnpm qa necesita ver (#131)', () => {
     // Sin `hit` (lo elegiría la IA), no vale.
     p[3] = batalla(5, 'attack');
     expect(faltaParaElArnes(p, 3)).toEqual([falta]);
-    // Ni un `defend`, ni un golpe que sea la última petición.
-    p[3] = batalla(5, 'defend');
+    // Ni un `end_turn`, ni un golpe que sea la última petición.
+    p[3] = batalla(5, 'end_turn');
     expect(faltaParaElArnes(p, 3)).toEqual([falta]);
     expect(faltaParaElArnes([turno(['dismiss']), batalla(5, 'attack', 'strong')], 3)).toContain(
       falta,

@@ -1857,13 +1857,6 @@ function pintarUnidad(
     ctx.ellipse(x, suelo, rx * ARO_DE_LA_RUEDA, ry * ARO_DE_LA_RUEDA, 0, 0, Math.PI * 2);
     ctx.stroke();
   }
-  if (s.defending) {
-    ctx.strokeStyle = '#9fc49a';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.ellipse(x, suelo, rx * 1.25, ry * 1.25, 0, Math.PI * 0.9, Math.PI * 2.1);
-    ctx.stroke();
-  }
   if (v.objetivosHechizo.has(s.id)) {
     ctx.strokeStyle = '#7fd4d8';
     ctx.lineWidth = 2.5;

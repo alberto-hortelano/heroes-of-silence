@@ -950,8 +950,6 @@ function stackView(s: BattleStack) {
       source: e.source,
       roundsLeft: e.roundsLeft,
     })),
-    defending: s.defending,
-    waited: s.waited,
     // La casilla a la que apuntó (el disparo diferido): sale al empezar su
     // siguiente turno. Solo si apuntó; se ve en los dos bandos.
     ...(s.apuntado === null ? {} : { aimedAt: s.apuntado }),

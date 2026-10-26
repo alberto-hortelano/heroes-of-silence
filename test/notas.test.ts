@@ -294,37 +294,6 @@ describe('notas para el agente', () => {
     expect(nota).toContain('Eso NO ha consumido el turno de a1');
   });
 
-  it('una sustituta que fue espera tampoco consume el turno, y NO habla de maná', () => {
-    // Esta es la mentira que #52 destapa: mientras la heurística no esperaba
-    // nunca, un `wait` sustituto caía en la cola por defecto y el agente leía
-    // «Eso ha consumido el turno», que con una espera es falso — el stack
-    // vuelve al final de la MISMA ronda.
-    const sustituta: BattleAction = { type: 'wait' };
-    const nota = notaAccionSustituida('a1', 'no alcanza', sustituta, 0, 'Aldo', false, null);
-
-    expect(nota).toContain('espera');
-    expect(nota).toContain('Eso NO ha consumido el turno de a1');
-    expect(nota).not.toContain('Eso ha consumido el turno de a1');
-    // Y dice CUÁNDO le volverán a preguntar, que es lo único que la distingue
-    // de un `cast`: el precio no fue maná, fue el sitio en la cola.
-    expect(nota).toContain('al final de la ronda');
-    expect(nota).not.toMatch(/maná/);
-  });
-
-  it('y la promesa de esa petición va CONDICIONADA, porque falla 1 de cada 5', () => {
-    // De las 476 esperas de 200 partidas, 375 vuelven a actuar, 67 mueren antes
-    // y en 34 se acaba la batalla: 101, el 21,2 %, no reciben la petición. El
-    // guardia de `batallaTerminada` no puede cubrirlo —se mide justo después de
-    // aplicar la sustituta, y una espera no cierra una batalla—, así que lo
-    // único honesto es no prometerla a secas.
-    const nota = notaAccionSustituida('a1', 'no alcanza', { type: 'wait' }, 0, 'Aldo', false, null);
-
-    expect(nota).toMatch(/SI llega viva/);
-    expect(nota).toContain('la batalla no ha terminado antes');
-    // Sin condición sería la misma mentira una casilla más allá.
-    expect(nota).not.toMatch(/volverá a pedir acción para ella al final de la ronda\./);
-  });
-
   it('si la sustituta TERMINÓ la batalla, no promete otra petición', () => {
     // La promesa del `cast` —«se te volverá a pedir acción para ella»— es falsa
     // si el hechizo remata: `spellValue` valora explícitamente el golpe que mata,
@@ -358,8 +327,8 @@ describe('notas para el agente', () => {
   });
 
   it('el acuse de una acción que coló es una línea corta', () => {
-    const nota = notaAccionAceptada('a1', { type: 'defend' }, null, null);
-    expect(nota).toBe('a1: defensa, aplicada.');
+    const nota = notaAccionAceptada('a1', { type: 'end_turn' }, null, null);
+    expect(nota).toBe('a1: end_turn, aplicada.');
   });
 
   it('el acuse de un `move` dice si el turno sigue abierto, y con cuántas casillas (02-10-2026)', () => {

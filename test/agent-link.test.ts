@@ -1177,7 +1177,7 @@ describe('una consulta solo habla de los jugadores que lleva el agente', () => {
         expect(vista.note).toMatch(/llevas el defender/);
         expect(vista.note).toMatch(/battle_turn/);
       }
-      applyAction(batalla, { type: 'defend' }, rng);
+      applyAction(batalla, { type: 'end_turn' }, rng);
     }
     expect(conElMio, 'la batalla tiene que enseñar un turno tuyo').toBeGreaterThan(0);
     expect(conElSuyo, 'y uno del rival, o esto no prueba nada').toBeGreaterThan(0);
@@ -1217,15 +1217,16 @@ describe('una consulta solo habla de los jugadores que lleva el agente', () => {
         expect(vista.note).toMatch(/bando defender —que también es tuyo—/);
       }
       vistos.add(activo.side);
-      applyAction(batalla, { type: 'defend' }, rng);
+      applyAction(batalla, { type: 'end_turn' }, rng);
     }
     expect([...vistos].sort()).toEqual(['attacker', 'defender']);
     rival.owner = 0;
 
     // Y acabada la batalla, nadie tiene el turno: ni «no te toca» ni un bando
     // inventado.
+    // Cerrando turnos hasta el tope de rondas (era `defend`, la primera de la lista).
     for (let i = 0; i < 2000 && batalla.finished === null; i++) {
-      const [accion] = legalActions(batalla);
+      const accion = legalActions(batalla).find((a) => a.type === 'end_turn');
       if (accion === undefined) break;
       applyAction(batalla, accion, rng);
     }
@@ -1826,7 +1827,9 @@ describe('el agente sabe cómo le fue', () => {
   it('una acción de batalla que cuela también se acusa, en una línea', async () => {
     const { link, agent } = await montar((kind, payload) => {
       if (kind !== 'battle_turn') return { actions: [] };
-      return { action: payload.legalActions[0] };
+      // Cierra el turno: la jugada que siempre está (era `defend`, la primera de la
+      // lista; un `move` acusa además lo que le queda).
+      return { action: payload.legalActions.find((a: any) => a.type === 'end_turn') };
     });
 
     // La primera desde la 309 en que el rival ataca, buscada con el ejército ya
@@ -1834,11 +1837,8 @@ describe('el agente sabe cómo le fue', () => {
     const seed = await semillaEnQueElRivalAtaca(309, rapidos);
     const director = new Director(link, { seed, agentPlayers: [1] });
     const mio = rivalAlAtaque(director.state);
-    // Cinco exploradores (5 casillas) contra los pesados del rival (alcance 4+1):
-    // en la ronda 1 mueven primero, no llegan a nadie, y avanzar los dejaría a
-    // tiro de quien todavía no ha actuado. Eso es exactamente la regla de #52,
-    // así que la sustituta de la heurística es un `wait`. Montado a mano y no
-    // buscado por semilla: el ejército de salida no da esa escena nunca.
+    // Cinco exploradores (5 casillas) contra los pesados del rival: la escena de
+    // la regla de #52 (esperar), que se retiró con `wait`; se queda la semilla.
     rapidos(mio);
     await director.playTurn();
     await respira();
@@ -1975,55 +1975,6 @@ describe('el agente sabe cómo le fue', () => {
     expect(veredicto.note).toContain('ha TERMINADO la batalla');
     expect(veredicto.note).not.toContain('se te volverá a pedir acción');
     expect(director.state.pendingBattle).toBeNull();
-  });
-
-  it('una espera sustituta se explica como espera, y no promete la petición a secas', async () => {
-    // La cuarta rama de `notaAccionSustituida`, la que abrió #52, y la única que
-    // `pnpm qa` no puede ejercitar: su partida no descarta ni una acción, así
-    // que nunca llega a haber sustituta. Aquí sí, y por el camino de verdad —
-    // director, heurística y canal—, no llamando a la función a mano.
-    //
-    // La escena está MONTADA, no buscada por semilla: con el ejército de salida
-    // el defensor nunca es el más rápido del tablero, y la regla de #52 solo
-    // compra algo a quien tiene enemigos pendientes detrás en la cola.
-    const { link, agent } = await montar((kind) => {
-      if (kind !== 'battle_turn') return { actions: [] };
-      // Legal en el esquema, imposible en el tablero: la juega la heurística.
-      return { action: { type: 'attack', target: 'no-existe' } };
-    });
-
-    // La semilla se busca con los exploradores ya puestos: que el rival los
-    // ataque depende de su fuerza. Era la 310 escrita, que con las fronteras
-    // onduladas de #229 ya no daba la batalla.
-    const seed = await semillaEnQueElRivalAtaca(310, rapidos);
-    const director = new Director(link, { seed, agentPlayers: [1] });
-    const mio = rivalAlAtaque(director.state);
-    // Un explorador (5 casillas) contra los pesados del rival (alcance 4+1). Es
-    // el más rápido, así que abre la ronda: no llega a nadie desde su borde, y
-    // el paso adelante lo dejaría a tiro de quien todavía no ha actuado. Esa es
-    // exactamente la regla de #52, así que la sustituta de la heurística es un
-    // `wait`. Con el ejército de salida no pasa: nadie en él es más rápido que
-    // el pesado.
-    rapidos(mio);
-
-    await director.playTurn();
-    await respira();
-    const esperas = agent.results.filter((r) => r.note?.includes('en tu lugar: espera.') === true);
-    expect(esperas.length).toBeGreaterThan(0);
-    for (const r of esperas) {
-      expect(r.ok).toBe(false);
-      // No consume el turno: eso era la mentira original.
-      expect(r.note).toContain('Eso NO ha consumido el turno de');
-      expect(r.note).not.toContain('Eso ha consumido el turno de');
-      // Y la petición prometida va CONDICIONADA: de 476 esperas medidas, 101
-      // —el 21,2 %— no la reciben porque el stack muere o la batalla acaba
-      // mientras espera. Prometerla a secas era la misma mentira una casilla
-      // más allá.
-      expect(r.note).toContain('actuará al final de la ronda');
-      expect(r.note).toMatch(/SI llega viva/);
-      // Y no se le cobra un maná que no ha perdido.
-      expect(r.note).not.toMatch(/de maná/);
-    }
   });
 
   it('dos veredictos entre dos peticiones llegan los dos, en orden', async () => {
@@ -2625,8 +2576,8 @@ describe('la rueda del golpe por el contrato (F6)', () => {
       (kind, payload) => {
         if (kind === 'battle_turn') {
           const acciones = payload.legalActions as any[];
-          // Ni golpea ni se mueve: espera y se defiende, para que le peguen.
-          return { action: acciones.find((a) => a.type === 'defend') ?? acciones[0] };
+          // Ni golpea ni se mueve: cierra el turno, para que le peguen.
+          return { action: acciones.find((a) => a.type === 'end_turn') ?? acciones[0] };
         }
         if (kind === 'battle_response') {
           pedidas++;

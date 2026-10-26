@@ -15,7 +15,6 @@ import {
   cerradasPara,
   distanciaACaminar,
   distanciaAndando,
-  distanciaHasta,
   enemiesOf,
   escalaDesde,
   firmaDelTurno,
@@ -247,8 +246,7 @@ function escalar(r: Rinde, k: number): Rinde {
  * El mejor golpe que `a` puede dar con `pasos` de movimiento: el que más
  * amenaza quita entre los enemigos a su alcance.
  *
- * El alcance es el de `convieneEsperar` —`hexDistance` hasta la casilla de al
- * lado, sin BFS; con muralla, la distancia andando (`distanceTo`)—: en recta se
+ * El alcance es `hexDistance` hasta la casilla de al lado, sin BFS (y con muralla, la distancia andando, `distanceTo`): en recta se
  * llega antes que rodeando, así que sobreestima un poco, y al comparar dos velocidades de la misma unidad el error se va casi
  * entero en la resta. Un tirador con flechas y sin nadie pegado alcanza a
  * todos: la velocidad no le cambia el golpe, que es lo que tiene que salir de
@@ -701,50 +699,6 @@ function pasoParaCargar(
 }
 
 /**
- * ¿Conviene ceder la iniciativa en vez de dar el paso adelante?
- *
- * Sí cuando hay un enemigo que **todavía no ha actuado** y cuyo alcance cubre
- * mi casilla actual o aquella a la que iba a avanzar: si avanzo, meto el morro
- * en su radio y me pega él primero; si espero, actúo al final de la ronda,
- * cuando ya se ha comprometido, y le pego yo.
- *
- * Los requisitos decían «típicamente con tiradores y unidades lentas», copiando
- * al original, y medido es al revés: ceder la iniciativa solo compra algo a
- * quien tiene enemigos PENDIENTES detrás en la cola —o sea al rápido—, porque
- * `wait` empuja el stack al final de `state.queue` y `advance` saca por
- * `shift`. El más lento no tiene a quién cederle nada.
- *
- * El alcance se aproxima con `hexDistance` y `stackSpeed(e) + 1` —los pasos que
- * da más el hex desde el que golpea— en vez de un BFS por enemigo: en línea
- * recta se llega antes que rodeando, así que sobreestima y la IA espera de más,
- * nunca de menos, sin costar un recorrido de tablero. Con muralla sí se recorre
- * (`distanciaHasta`, guardado por muralla): el que está tras un muro cerrado no
- * alcanza a nadie aunque esté a dos hexes.
- *
- * De las tres reglas que se midieron es la del medio, y la única cuyo intervalo
- * de confianza entero queda por encima del 50 %. Mirar solo mi hex actual apenas
- * se dispara (1,2 % de las decisiones) y no se distingue de cero; esperar en
- * cuanto haya cualquier enemigo pendiente (24 %) es la tautología por el otro
- * lado y juega peor.
- */
-function convieneEsperar(
-  state: BattleState,
-  s: BattleStack,
-  enemigos: readonly BattleStack[],
-  destino: Hex,
-): boolean {
-  if (s.waited) return false;
-  return enemigos.some((e) => {
-    if (e.acted) return false;
-    const alcance = stackSpeed(e) + 1;
-    return (
-      distanciaHasta(state, e, [s.hex])(e.hex) <= alcance ||
-      distanciaHasta(state, e, [destino])(e.hex) <= alcance
-    );
-  });
-}
-
-/**
  * Lo que pesa un bando en la batalla: Σ amenaza × PV de lo que tiene en pie.
  *
  * El producto y no la suma, porque es lo que decide un desgaste: un bando que
@@ -845,8 +799,8 @@ function decideAccion(
   // Tras un tramo se vuelve a decidir con lo que queda, en vez de cerrar el
   // turno sin mirar: si el paso adelante ha dejado a alguien al alcance, se le
   // pega. Medido con `enfrentamiento.ts` contra la IA que cerraba siempre: 51,08 %
-  // ± 0,25 en 5 000 parejas. Lo que tras moverse no es legal —disparar, esperar,
-  // defender— no sale de aquí porque se elige de la lista legal, que ya no lo
+  // ± 0,25 en 5 000 parejas. Lo que tras moverse no es legal —apuntar, puertas,
+  // escaleras— no sale de aquí porque se elige de la lista legal, que ya no lo
   // trae: aquí no se vuelve a escribir qué se puede hacer tras un tramo.
   const enemigos = enemiesOf(state, s);
   if (enemigos.length === 0) return colaTerminal(acciones);
@@ -958,22 +912,12 @@ function decideAccion(
     // mismo que acaba de filtrar `aMano`: se guarda por muralla.
     const distancia = distanciaACaminar(state, s, objetivo);
     const mejor = mejorMovimiento(acciones, distancia, distancia(s.hex));
-    if (mejor !== null) {
-      // El paso adelante es lo último que se decide, porque es justo el que
-      // puede salir caro: si al darlo quedo dentro del alcance de alguien que
-      // aún no ha movido, sale más a cuenta esperar y pegarle yo.
-      if (acciones.some((a) => a.type === 'wait') && convieneEsperar(state, s, enemigos, mejor)) {
-        return { type: 'wait' };
-      }
-      return { type: 'move', to: mejor };
-    }
+    // Esperar al final de la ronda antes de dar el paso (#81) se retiró con la
+    // jugada el 26-10-2026: el paso se da.
+    if (mejor !== null) return { type: 'move', to: mejor };
   }
 
-  // Aquí el stack no alcanza a nadie ni puede acercarse. Esperar no compra
-  // nada —quien no puede llegarme hoy tampoco llegará al final de la ronda—, y
-  // el +20 % de defensa sí. `defend` es la única cola terminal: el `wait` que
-  // había aquí era una tautología defensiva que además no se alcanzaba nunca,
-  // 0 de 10 440 decisiones.
+  // Aquí el stack no alcanza a nadie ni puede acercarse: cierra el turno.
   return colaTerminal(acciones);
 }
 
@@ -1048,8 +992,8 @@ function tiradorAlMuro(
   // Ningún muro a mano este turno: hacia el más cercano, si desde aquí no tira a
   // nadie. Desde que de lo alto solo se baja hacia dentro, con una muralla que
   // cierra nadie de fuera es «a mano», y el arquero lento se quedaba
-  // defendiéndose en su esquina (la batalla del test de la línea recta, entera
-  // a `defend` hasta el tope de rondas).
+  // quieto en su esquina (la batalla del test de la línea recta, entera
+  // cerrando el turno hasta el tope de rondas).
   if (aTiro.length > 0) return null;
   const cerradas = cerradasPara(state, s);
   const libres = state.muralla.muros.filter((m) => !cerradas.has(hexKey(m)));
@@ -1159,13 +1103,12 @@ function piesDeSubida(state: BattleState, s: BattleStack): Hex[] {
 }
 
 /**
- * Lo que se hace cuando no hay nada mejor: defenderse si la lista lo trae y, si
- * no —tras un tramo ya no—, cerrar el turno. `end_turn` va siempre en la lista.
+ * Lo que se hace cuando no hay nada mejor: cerrar el turno, que va siempre en la
+ * lista (defenderse, que iba antes, se retiró el 26-10-2026).
  */
 function colaTerminal(acciones: readonly BattleAction[]): BattleAction {
-  const cola =
-    acciones.find((a) => a.type === 'defend') ?? acciones.find((a) => a.type === 'end_turn');
-  if (cola === undefined) throw new Error('la lista legal no trae ni "defend" ni "end_turn"');
+  const cola = acciones.find((a) => a.type === 'end_turn');
+  if (cola === undefined) throw new Error('la lista legal no trae "end_turn"');
   return cola;
 }
 

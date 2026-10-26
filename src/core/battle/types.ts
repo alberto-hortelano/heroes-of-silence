@@ -194,9 +194,6 @@ export interface BattleStack {
   escalera: boolean;
   /** Ya contraatacó en esta ronda. */
   retaliated: boolean;
-  defending: boolean;
-  /** Pasó el turno con "esperar" y actuará al final de la ronda. */
-  waited: boolean;
   /** Ya consumió su turno en esta ronda. */
   acted: boolean;
   /** Ya recibió un turno extra por moral alta en esta ronda. */
@@ -341,8 +338,6 @@ export type BattleEvent =
       parado?: number;
       splash?: boolean;
     }
-  | { kind: 'wait'; stack: string }
-  | { kind: 'defend'; stack: string }
   | {
       kind: 'cast';
       side: Side;
@@ -569,8 +564,6 @@ export type BattleAction =
    * da al primero que encuentre (`lineaDelDisparo`; 25-10-2026, regla nuestra).
    */
   | { type: 'aim'; at: Hex }
-  | { type: 'wait' }
-  | { type: 'defend' }
   | { type: 'cast'; spell: string; target?: string }
   /**
    * La unidad activa usa uno de sus poderes (`UnitInfo.poderes`) sobre el aliado

@@ -1,13 +1,8 @@
 /**
- * El parte de guerra cuenta la espera y la defensa (#82), y se deja leer (#198):
- * sigue al final, y los homónimos llevan su letra. El color de la moral y la
- * suerte desde quien lee está con los demás colores, en `battle.test.ts`.
- *
- * Se callaban desde que el parte existe, cuando la IA no las jugaba nunca. Desde
- * #52 la IA espera en 49 de cada 100 batallas espejo, y quien mira veía a una
- * unidad quedarse quieta sin una línea que dijera que había cedido la
- * iniciativa. Los hechos de aquí los escribe el motor (`applyAction`), no se
- * fabrican a mano: lo que se comprueba es lo que de verdad llega al parte.
+ * El parte de guerra se deja leer (#198): sigue al final, y los homónimos llevan
+ * su letra. El color de la moral y la suerte desde quien lee está con los demás
+ * colores, en `battle.test.ts`. (La espera y la defensa, #82, se fueron con sus
+ * jugadas el 26-10-2026.)
  */
 
 import { describe, expect, it } from 'vitest';
@@ -15,9 +10,7 @@ import { type Html, html, marcadoDe, unir } from '../src/client/html.js';
 import { desplazamientoTrasPintar, pintarSiguiendoElFinal } from '../src/client/views/al-final.js';
 import { nombreEnElCampo } from '../src/client/views/distintivo.js';
 import { renderBattleLog } from '../src/client/views/panels.js';
-import { autoResolve } from '../src/core/ai/tactics.js';
-import { activeStack, applyAction, createBattle } from '../src/core/battle/battle.js';
-import { effectiveDefense } from '../src/core/battle/damage.js';
+import { activeStack, createBattle } from '../src/core/battle/battle.js';
 import type { BattleState, Side } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
@@ -38,64 +31,12 @@ function espejo(semilla: number): { battle: BattleState; rng: ReturnType<typeof 
 const parte = (battle: BattleState, mio: Side | null): string =>
   marcadoDe(renderBattleLog(battle, mio));
 
-const otro = (s: Side): Side => (s === 'attacker' ? 'defender' : 'attacker');
-
-describe('el parte de guerra cuenta la espera y la defensa (#82)', () => {
-  it('la espera nombra a la unidad y su bando desde quien lee, y dice que cede la iniciativa', () => {
-    const { battle, rng } = espejo(1);
-    const quien = activeStack(battle);
-    if (quien === null) throw new Error('la batalla espejo no tiene unidad activa');
-    applyAction(battle, { type: 'wait' }, rng);
-    const linea = 'cede la iniciativa y pasa al final de la ronda';
-
-    // Con la letra de los homónimos (#198): el ejército de salida trae varios iguales.
-    const nombre = nombreEnElCampo(battle, quien);
-    expect(parte(battle, quien.side)).toContain(
-      `<div>Espera ${nombre}, de tu bando: ${linea}</div>`,
-    );
-    expect(parte(battle, otro(quien.side))).toContain(
-      `<div>Espera ${nombre}, del enemigo: ${linea}</div>`,
-    );
-    // El espectador y la arena leen sin bando: atacante o defensor, como la rendición.
-    const rol = quien.side === 'attacker' ? 'atacante' : 'defensor';
-    expect(parte(battle, null)).toContain(`<div>Espera ${nombre}, del ${rol}: ${linea}</div>`);
-  });
-
-  it('la defensa dice la cifra que de verdad aplica el motor y hasta cuándo', () => {
-    const { battle, rng } = espejo(1);
-    const quien = activeStack(battle);
-    if (quien === null) throw new Error('la batalla espejo no tiene unidad activa');
-    applyAction(battle, { type: 'defend' }, rng);
-
-    // La cifra no se copia en el test: sale de lo que `effectiveDefense` hace
-    // con el stack defendiéndose, así que si cambia la regla y no el texto,
-    // esto se pone rojo.
-    const pct = Math.round((effectiveDefense(quien) / quien.unit.defense - 1) * 100);
-    expect(pct).toBeGreaterThan(0);
-    expect(parte(battle, quien.side)).toContain(
-      `<div>Se defiende ${nombreEnElCampo(battle, quien)}, de tu bando: +${pct}\u00a0% de defensa hasta el final de la ronda</div>`,
-    );
-  });
-
-  it('cada espera que juega la IA en una batalla entera sale en el parte, una línea por espera', () => {
-    // La primera semilla espejo en la que la IA espera: la regla de #52 se
-    // dispara en la mitad de las batallas, así que no hay que ir lejos.
-    let resuelta: BattleState | null = null;
-    for (let s = 1; s <= 50 && resuelta === null; s++) {
-      const { battle, rng } = espejo(s);
-      const { state } = autoResolve(battle, rng);
-      if (state.log.slice(-40).some((e) => e.kind === 'wait')) resuelta = state;
-    }
-    if (resuelta === null)
-      throw new Error('ninguna de 50 batallas espejo espera en sus 40 últimos hechos');
-    const esperas = resuelta.log.slice(-40).filter((e) => e.kind === 'wait').length;
-    const lineas = parte(resuelta, null).match(/<div>Espera /g) ?? [];
-    expect(lineas.length).toBe(esperas);
-  });
-
-  it('una espera de una unidad que no está en el campo lanza, no se pinta como «alguien»', () => {
+describe('el parte de guerra nombra a quien está en el campo', () => {
+  // La espera y la defensa (#82) se fueron con sus jugadas el 26-10-2026; lo que
+  // probaban de paso —que una unidad que no está lanza— sigue, con otro hecho.
+  it('un hecho de una unidad que no está en el campo lanza, no se pinta como «alguien»', () => {
     const { battle } = espejo(1);
-    battle.log.push({ kind: 'wait', stack: 'fantasma' });
+    battle.log.push({ kind: 'perished', stack: 'fantasma' });
     expect(() => parte(battle, null)).toThrow(
       'el parte habla de una unidad que no está en el campo: fantasma',
     );
@@ -142,13 +83,15 @@ describe('las unidades homónimas llevan una letra estable (#198)', () => {
   });
 
   it('la letra que dice el parte es la del tablero, también con una copia del stack', () => {
-    const { battle, rng } = espejo(1);
+    const { battle } = espejo(1);
     const quien = activeStack(battle);
     if (quien === null) throw new Error('la batalla espejo no tiene unidad activa');
     // El tablero puede pintar una copia (la jugada que aún se cuenta): va por id.
     expect(nombreEnElCampo(battle, { ...quien })).toBe(nombreEnElCampo(battle, quien));
-    applyAction(battle, { type: 'wait' }, rng);
-    expect(parte(battle, null)).toContain(`Espera ${nombreEnElCampo(battle, quien)}, del`);
+    battle.log.push({ kind: 'perished', stack: quien.id });
+    expect(parte(battle, null)).toContain(
+      `Aniquilada la unidad ${nombreEnElCampo(battle, quien)}, del`,
+    );
   });
 
   it('una unidad que no está en esta batalla lanza en vez de llevarse una letra cualquiera', () => {

@@ -898,7 +898,7 @@ async function turnoDeBatalla(
   const antes = battle.log.length;
   const acciones = espejo.battleLegalActions();
 
-  // Las cuatro primeras, a propósito: esperar, defender, un hechizo y lo que toque.
+  // Las cuatro primeras, a propósito: terminar sin moverse, lo que toque, un hechizo y lo que toque.
   // La quinta, rendirse si se ofrece y la pasada lo pide (fase 1b): es la única
   // acción que cierra la batalla y manda al héroe a casa, y la cuarta ya mira el
   // aviso de espera. Solo la pide la de escritorio: la del móvil juega la suya.
@@ -926,12 +926,11 @@ async function turnoDeBatalla(
     await esperarCola(battle, nuevos);
     return true;
   }
-  if (n === 0 && acciones.some((a) => a.type === 'wait')) {
-    await page.getByRole('button', { name: 'Esperar' }).click();
-    espejo.playBattleAction({ type: 'wait' });
-  } else if (n === 1 && acciones.some((a) => a.type === 'defend')) {
-    await page.getByRole('button', { name: 'Defender' }).click();
-    espejo.playBattleAction({ type: 'defend' });
+  if (n === 0) {
+    // La primera jugada cierra el turno sin moverse: «Terminar turno» es lo que
+    // queda desde que se retiraron «Esperar» y «Defender» (26-10-2026).
+    await page.getByRole('button', { name: 'Terminar turno' }).click();
+    espejo.playBattleAction({ type: 'end_turn' });
   } else if (n === 2 && hechizo !== undefined) {
     const objetivoId = hechizo.targets[0] as string;
     await page.getByRole('button', { name: new RegExp(hechizo.name) }).click();
@@ -999,27 +998,18 @@ async function turnoDeBatalla(
       const b = await alcanzar(page, c.x);
       await page.mouse.click(b.x + c.x, b.y + c.y);
       espejo.playBattleAction(ia);
-    } else if (ia.type === 'cast') {
-      // La IA también lanza, y aquí no se le sigue: se defiende, en la página Y
-      // en el espejo. Antes caía al «Defender» de abajo con el espejo lanzando,
-      // y las dos partidas se separaban sin que nada lo dijera hasta el aviso de
-      // espera —no salió hasta que el mapa de nodos trajo otra batalla al
-      // móvil—. Lanzar a clics ya lo ejerce la jugada 2 en el escritorio; en el
-      // marco estrecho del móvil el objetivo puede quedar fuera.
-      await page.getByRole('button', { name: 'Defender' }).click();
-      espejo.playBattleAction({ type: 'defend' });
-    } else if (ia.type === 'end_turn') {
-      // Tras un tramo la IA cierra el turno de la unidad: su botón, no «Defender».
-      await page.getByRole('button', { name: 'Terminar turno' }).click();
-      espejo.playBattleAction(ia);
     } else if (ia.type === 'surrender') {
-      // La IA puede elegir rendirse (fase 1b): se pulsa SU botón, no «Defender».
+      // La IA puede elegir rendirse (fase 1b): se pulsa SU botón.
       await page.getByRole('button', { name: /Rendirse/ }).click();
       espejo.playBattleAction(ia);
     } else {
-      const boton = ia.type === 'wait' ? 'Esperar' : 'Defender';
-      await page.getByRole('button', { name: boton }).click();
-      espejo.playBattleAction(ia);
+      // Lo demás —cerrar el turno, y el hechizo, que aquí no se le sigue: lanzar
+      // a clics ya lo ejerce la jugada 2 en el escritorio, y en el marco estrecho
+      // del móvil el objetivo puede quedar fuera— se juega con «Terminar turno»,
+      // en la página Y en el espejo: si no, las dos partidas se separan sin que
+      // nada lo diga hasta el aviso de espera.
+      await page.getByRole('button', { name: 'Terminar turno' }).click();
+      espejo.playBattleAction({ type: 'end_turn' });
     }
   }
   await responderLaRueda(page, espejo);
@@ -2303,7 +2293,7 @@ async function veteranoEnElCampo(page: Page, espejo: Session): Promise<void> {
  * batalla del día siguiente pisa el tablero con galones y «· rango N».
  *
  * Pasada propia y no dentro de la de escritorio: allí la primera batalla se
- * juega a clics esperando y defendiendo para enseñar la rendición, y nadie de la
+ * juega a clics cerrando turnos para enseñar la rendición, y nadie de la
  * tropa llega a pegar. La semilla la busca el espejo antes de abrir la página
  * (`buscarVeteranos`): la batalla más cercana a la vista —guardia, o el grupo
  * que embosca por el camino— deja un veterano y al día siguiente hay otra.

@@ -367,7 +367,7 @@ describe('sesión del cliente: la versión y lo que se guarda entre fotogramas',
     expect(s.battleMovable()).toEqual(acciones.flatMap((a) => (a.type === 'move' ? [a.to] : [])));
 
     const v = s.version;
-    s.playBattleAction({ type: 'defend' });
+    s.playBattleAction({ type: 'end_turn' });
     expect(s.version).toBeGreaterThan(v);
     expect(s.battleLegalActions()).not.toBe(acciones);
   });
@@ -550,7 +550,7 @@ describe('los poderes de la tropa en la batalla del mapa (F6)', () => {
     const conPoderes = () => (s.turnoPropio?.stack.unit.poderes?.length ?? 0) > 0;
     for (let i = 0; i < 40 && !conPoderes(); i++) {
       if (s.ruedaPendiente !== null) s.elegirEnLaRueda('normal');
-      else if (s.turnoPropio !== null) s.playBattleAction({ type: 'defend' });
+      else if (s.turnoPropio !== null) s.playBattleAction({ type: 'end_turn' });
       else throw new Error('ni le toca a la persona ni espera la rueda');
     }
     expect(conPoderes()).toBe(true);
@@ -671,7 +671,7 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
   it('con la rueda de 3, el golpe de la persona abre sus tres sectores y se da (QA de la complejidad, vuelta 1)', () => {
     // Antes, la previsión del golpe suponía Normal: la rueda no se abría, la barra
     // decía «"normal" no es un golpe de la rueda de 3» y la unidad se quedaba
-    // plantada sin salida (ni Escape, ni «Terminar turno», ni «Defender»).
+    // plantada sin salida (ni Escape, ni «Terminar turno»).
     const s = sesionContraMonstruo({ combate: combateCon(7, 3) });
     jugarHasta(s, () => s.ruedaPendiente === null && golpeLegal(s) !== undefined);
     s.playBattleAction(golpeLegal(s)!);

@@ -643,8 +643,6 @@ function stackDePrueba(): BattleStack {
     hex: { col: 0, row: 0 },
     escalera: false,
     retaliated: false,
-    defending: false,
-    waited: false,
     acted: false,
     gotMoraleBonus: false,
     morale: 0,

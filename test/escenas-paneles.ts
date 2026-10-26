@@ -21,7 +21,6 @@ import { type Html, marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
 import { renderActions, renderLog, renderSide, renderTopbar } from '../src/client/views/panels.js';
 import { playAiGame } from '../src/core/ai/turn.js';
-import { activeStack } from '../src/core/battle/battle.js';
 import { isShooter } from '../src/core/data.js';
 import { isEnterable, objectAt } from '../src/core/map/map.js';
 import type { GameEvent } from '../src/core/state/events.js';
@@ -177,19 +176,15 @@ export async function escenas(): Promise<readonly Escena[]> {
   //     y «Turno del enemigo…» en vez de ofrecer acciones.
   out.push({ nombre: 'batalla · turno del enemigo', session: meAtacan(7) });
 
-  // 10 · Una unidad que YA esperó y un héroe sin maná: «Esperar» deshabilitado
-  //      y el hechizo apagado con su motivo dentro del `title`.
+  // 10 · Un héroe sin maná: el hechizo apagado con su motivo dentro del `title`.
+  //      (Hasta el 26-10-2026, con una unidad que ya esperó: «Esperar» se retiró.)
   const sinManá = meAtacan(7);
   sinManá.advanceEnemyTurns();
-  const enEspera = sinManá.battle;
-  if (enEspera === null) throw new Error('la batalla no se montó');
-  const activo = activeStack(enEspera);
-  if (activo === null) throw new Error('la batalla se quedó sin stack activo');
-  activo.waited = true;
+  if (sinManá.battle === null) throw new Error('la batalla no se montó');
   const heroeSinManá = sinManá.battleHero;
   if (heroeSinManá === null) throw new Error('la batalla no tiene héroe propio');
   heroeSinManá.mana = 0;
-  out.push({ nombre: 'batalla · en espera y sin maná', session: sinManá });
+  out.push({ nombre: 'batalla · sin maná', session: sinManá });
 
   // 11 · Con un tirador activo: el panel de quien dispara. Sin fila de
   //      munición: ninguna unidad del catálogo la cuenta desde que es el de la
@@ -203,9 +198,9 @@ export async function escenas(): Promise<readonly Escena[]> {
   avanzarHasta(campoTirador, tirador.ctx.rng, arquero.id);
   out.push({ nombre: 'batalla · tirador activo', session: tirador });
 
-  // 12 · El parte de guerra con TODOS sus hechos. Los quince tipos no salen
+  // 12 · El parte de guerra con TODOS sus hechos. Los tipos no salen todos
   //      jugando —una inmunidad o una salpicadura dependen de con quién te
-  //      toque—, y son quince líneas de marcado que el ancla no defendería.
+  //      toque—, y son líneas de marcado que el ancla no defendería.
   const parte = meAtacan(7);
   const campo = parte.battle;
   if (campo === null) throw new Error('la batalla no se montó');
@@ -216,8 +211,6 @@ export async function escenas(): Promise<readonly Escena[]> {
   campo.log.push(
     { kind: 'round_start', round: 3 },
     { kind: 'move', stack: mio.id, to: mio.hex, path: [mio.hex] },
-    { kind: 'wait', stack: mio.id },
-    { kind: 'defend', stack: mio.id },
     { kind: 'attack', stack: mio.id, target: suyo.id, damage: 12, killed: 2, retaliation: false },
     { kind: 'attack', stack: suyo.id, target: mio.id, damage: 3, killed: 0, retaliation: true },
     {

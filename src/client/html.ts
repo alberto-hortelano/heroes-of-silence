@@ -458,7 +458,7 @@ interface FocoApuntado {
  *
  * Un botón pulsado con el ratón no se apunta (`:focus-visible` dice que no): el
  * navegador lo enfoca al pulsarlo, y conservárselo haría que el Espacio, que en
- * batalla cierra el turno, volviera a pulsar «Esperar». Antes del foco
+ * batalla cierra el turno, volviera a pulsar «Rendirse». Antes del foco
  * conservado ese botón lo perdía al repintar, y quien juega con ratón cuenta con
  * ello. Con el teclado (`:focus-visible`) sí: es quien navega por los botones.
  */

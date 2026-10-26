@@ -444,7 +444,7 @@ describe('la batalla en el lienzo', () => {
     expect(titulo).toBe(AVISO_DE_ESPERA);
     // Todos los botones del lado están dentro: ninguno queda encendido fuera.
     expect(dentro.match(/<button/g)?.length).toBe(marcado.match(/<button/g)?.length);
-    for (const accion of ['battle-end-turn', 'battle-defend', 'battle-wait', 'battle-surrender']) {
+    for (const accion of ['battle-end-turn', 'battle-surrender']) {
       expect(dentro).toContain(`data-action="${accion}"`);
     }
     expect(marcadoDe(renderActions(s, escena.ocupada))).toMatch(

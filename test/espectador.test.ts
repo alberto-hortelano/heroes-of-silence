@@ -436,7 +436,7 @@ describe('el fotograma por acción', () => {
           const siguiente = trozo[i + 1];
           return !(siguiente?.kind === 'cruce' && siguiente.stack === e.stack);
         }
-        return ['wait', 'defend', 'aimed', 'cast', 'surrender'].includes(e.kind);
+        return ['aimed', 'cast', 'surrender'].includes(e.kind);
       }).length;
     const acciones = accionesDe(batalla.log);
 

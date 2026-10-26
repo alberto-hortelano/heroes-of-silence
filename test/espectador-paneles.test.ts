@@ -12,7 +12,6 @@
  * Ahora el panel es puro y esto es lo que lo guarda.
  */
 import { describe, expect, it } from 'vitest';
-import { adaptarBatalla } from '../src/client/espectador/adaptar.js';
 import { batalla, panelDelEspectador, vocesDeLasBases } from '../src/client/espectador/paneles.js';
 import { Reproductor } from '../src/client/espectador/reproductor.js';
 import {
@@ -25,7 +24,6 @@ import {
   TelonDeBatalla,
 } from '../src/client/espectador/telon.js';
 import { marcadoDe } from '../src/client/html.js';
-import { nombreEnElCampo } from '../src/client/views/distintivo.js';
 import { autoResolve, chooseBattleAction } from '../src/core/ai/tactics.js';
 import { activeStack, applyAction, legalActions } from '../src/core/battle/battle.js';
 import type { BattleState } from '../src/core/battle/types.js';
@@ -128,27 +126,6 @@ describe('el panel de batalla del espectador', () => {
     // Sin bando propio: «del atacante», no «tuya» ni «enemiga».
     expect(salida).toMatch(/<div>Aniquilada la unidad [^<]+, del atacante<\/div>/);
     expect(salida).toContain('<div>Fin: gana el atacante</div>');
-  });
-
-  it('el parte del espectador cuenta la espera y la defensa, con el bando dicho desde fuera (#82)', () => {
-    // Es el mismo `renderBattleLog` que el del cliente, con `mio: null`: lo que
-    // se mira aquí es que el espectador no tiene un parte propio que se calle.
-    const { vista } = contraUnNeutral(1);
-    const estado = vista.battle?.estado as BattleState;
-    const s = estado.stacks[0]!;
-    estado.log.push({ kind: 'wait', stack: s.id }, { kind: 'defend', stack: s.id });
-    const salida = marcadoDe(batalla(vista));
-    // El nombre, del estado ya adaptado: por el cable viaja la criatura, no su ficha.
-    // Con la letra de los homónimos, si los hay (#198), sacada del mismo estado.
-    const adaptada = adaptarBatalla(vista.battle!);
-    const nombre = nombreEnElCampo(adaptada, adaptada.stacks.find((x) => x.id === s.id)!);
-    const quien = `${nombre}, del ${s.side === 'attacker' ? 'atacante' : 'defensor'}`;
-    expect(salida).toContain(
-      `<div>Espera ${quien}: cede la iniciativa y pasa al final de la ronda</div>`,
-    );
-    expect(salida).toContain(
-      `<div>Se defiende ${quien}: +20\u00a0% de defensa hasta el final de la ronda</div>`,
-    );
   });
 
   it('la etiqueta `suerte` también se pinta — el hueco M-7 del ancla', () => {

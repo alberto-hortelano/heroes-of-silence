@@ -459,8 +459,6 @@ export function createBattle(
         // escalan, y el héroe no trae (`entradaDelHeroe`).
         escalera: e.escalera && quienNoEscala(side, e.unit) === null,
         retaliated: false,
-        defending: false,
-        waited: false,
         acted: false,
         gotMoraleBonus: false,
         // Una regla para todos: la moral y la suerte propias —0 en una criatura
@@ -690,9 +688,8 @@ function fintaEn(state: BattleState, s: BattleStack): number {
 
 /**
  * En qué fase está el turno abierto: `libre` (no ha hecho nada que lo limite),
- * `movido` (ha andado un tramo: ya no dispara, ni defiende, ni espera; decisión
- * del usuario), `plantado` (con la rueda, ha andado hasta su objetivo y espera
- * la rueda, `golpeEnCurso`) o `trasLaFinta` (ha golpeado con Finta y le queda un
+ * `movido` (ha andado un tramo: ya no apunta; decisión del usuario),
+ * `plantado` (con la rueda, ha andado hasta su objetivo y espera la rueda, `golpeEnCurso`) o `trasLaFinta` (ha golpeado con Finta y le queda un
  * tramo solo de andar, `TurnoDeUnidad.finta`). `null` sin turno abierto. Las
  * fases que limitan qué jugada vale las dice `faseBlocker`.
  */
@@ -712,7 +709,7 @@ export function faseDelTurno(state: BattleState): FaseDelTurno | null {
  * con qué elecciones, lo dice `golpeEnCursoBlocker`); tras la Finta, el resto del
  * turno es un tramo **solo de andar**: andar o terminar (decisión del usuario,
  * 14-10-2026), ni volver a golpear, ni disparar, ni un poder, ni el hechizo del
- * héroe, ni rendirse, ni esperar, defender, puertas o escaleras. Lo de después
+ * héroe, ni rendirse, ni puertas o escaleras. Lo de después
  * de un tramo (`movido`) lo dice cada jugada con su frase, en su sitio entre sus
  * otros motivos. La leen `applyAction`, la lista legal (que ofrece lo de su
  * fase) y el principio de cada `*Blocker` que pinta la pantalla.
@@ -760,9 +757,8 @@ export function mismoTurno(
 }
 
 /**
- * ¿Ha movido ya `s` en este turno? Tras moverse no se dispara, ni se defiende,
- * ni se espera (decisión del usuario): solo queda moverse más, golpear o
- * terminar. Cada `move` cuesta al menos una casilla, así que «ha movido» es
+ * ¿Ha movido ya `s` en este turno? Tras moverse no se apunta (decisión del
+ * usuario): solo queda moverse más, golpear o terminar. Cada `move` cuesta al menos una casilla, así que «ha movido» es
  * «lleva algo gastado».
  */
 export function seHaMovido(state: BattleState, s: BattleStack): boolean {
@@ -1582,8 +1578,6 @@ function beginRound(state: BattleState, rng: Rng): void {
 
   for (const s of state.stacks) {
     s.acted = false;
-    s.waited = false;
-    s.defending = false;
     s.retaliated = false;
     s.gotMoraleBonus = false;
     // Caducar es filtrar: el stack nunca guardó el bono, así que quitarlo de
@@ -1659,16 +1653,10 @@ function advance(state: BattleState, rng: Rng): void {
  * su desempate depende de quién actuó el último, y eso no se sabe al montar la
  * ronda —un muerto o un paralizado por la moral cambian a quién le toca el
  * siguiente empate—. fheroes2 también elige así, uno a uno (`GetCurrentUnit`).
- * Detrás, los que esperaron salen tal cual llegaron (#81).
  */
 function siguienteEnLaCola(state: BattleState): BattleStack | null {
   const vivos = state.queue.map((id) => stackById(state, id)).filter(isAlive);
-  const sinTurno = vivos.filter((s) => !s.waited);
-  const esperan = vivos.filter((s) => s.waited);
-  state.queue = [
-    ...intercalar(state, sinTurno, preferidoEnElEmpate(state)),
-    ...esperan.map((s) => s.id),
-  ];
+  state.queue = intercalar(state, vivos, preferidoEnElEmpate(state));
   const id = state.queue.shift();
   return id === undefined ? null : stackById(state, id);
 }
@@ -1726,9 +1714,9 @@ function endTurn(state: BattleState, s: BattleStack, rng: Rng, conMoral = true):
  * Quita a `s` lo que duraba hasta que `al` (empiece o termine) su próximo turno
  * (la rueda del golpe): lo colgado en un turno anterior al `n`. Al **terminar**
  * lo llama `endTurn`, antes de la moral: el turno extra es otro turno, y lo de
- * este ya se ha ido; `wait` no cierra el turno y no pasa por ahí, y si la moral
- * baja se lo salta, lo quita el tope de `roundsLeft`. Al **empezar**, `abrirTurno`
- * (también el turno extra de la moral, y tras esperar) y la moral baja, cuyo
+ * este ya se ha ido; si la moral baja se lo salta, lo quita el tope de
+ * `roundsLeft`. Al **empezar**, `abrirTurno` (también el turno extra de la moral)
+ * y la moral baja, cuyo
  * turno empieza y se pierde. Sin ninguno que venza, no se escribe nada.
  */
 function quitarLosQueVencen(state: BattleState, s: BattleStack, al: CuandoVence, n: number): void {
@@ -1855,36 +1843,6 @@ export function applyAction(
   if (porLaFase !== null) throw new Error(`${s.id}: ${porLaFase}`);
 
   switch (action.type) {
-    case 'wait': {
-      if (s.waited) throw new Error(`${s.id} ya esperó en esta ronda`);
-      if (seHaMovido(state, s))
-        throw new Error(`${s.id} ya se ha movido este turno: no puede esperar`);
-      s.waited = true;
-      state.log.push({ kind: 'wait', stack: s.id });
-      // REGLA NUESTRA (#81): vuelve al final de la cola, y los que esperan salen
-      // por orden de llegada, no por velocidad. No hay original que copiar:
-      // fheroes2 no tiene espera. Sus órdenes son `MOVE, ATTACK, SPELLCAST,
-      // MORALE, CATAPULT, TOWER, RETREAT, SURRENDER, SKIP, TOGGLE_AUTO_COMBAT,
-      // QUICK_COMBAT` (`battle_command.h`), y `SKIP` cierra el turno: «Skips the
-      // current creature. The current creature ends its turn and does not get to
-      // go again until the next round.» (`battle_interface.cpp`).
-      // https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/battle/battle_command.h#L38-L51
-      // https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/battle/battle_interface.cpp#L3314-L3315
-      state.queue.push(s.id);
-      advance(state, rng);
-      return;
-    }
-
-    case 'defend': {
-      if (seHaMovido(state, s)) {
-        throw new Error(`${s.id} ya se ha movido este turno: no puede defenderse`);
-      }
-      s.defending = true;
-      state.log.push({ kind: 'defend', stack: s.id });
-      endTurn(state, s, rng);
-      return;
-    }
-
     case 'move': {
       // Moverse no cierra el turno: gasta casillas y deja a la unidad activa
       // para que siga, golpee o termine. Solo se cierra solo cuando ya no le
@@ -3285,8 +3243,6 @@ export function previsionDe(state: BattleState, accion: BattleAction): Prevision
       };
     }
     case 'move':
-    case 'wait':
-    case 'defend':
     case 'surrender':
     case 'end_turn':
     case 'poner_escalera':
@@ -3759,7 +3715,7 @@ const TIPOS_DE_ESCALA: readonly TipoDeEscala[] = ['poner_escalera', 'subir'];
  * Decide quien defiende, al principio del turno de cualquier unidad suya, esté
  * donde esté: sin haberse movido, y cada puerta una vez por turno de unidad (si
  * no, abrir y cerrar sería gratis y sin fin). Lo demás que hace una unidad
- * —golpear, disparar, defender, esperar, escalar— cierra el turno, así que «sin
+ * —golpear, apuntar, terminar, escalar— cierra el turno, así que «sin
  * haberse movido» es «sin haber actuado». El hechizo es del héroe y no cuenta.
  * No se cierra con una unidad de dos casillas plantada en ella, la cabeza a un
  * lado y la cola al otro: la puerta no aplasta. Quien está en una de sus dos
@@ -3857,17 +3813,11 @@ export function legalActionsAndCosts(state: BattleState): {
     return { actions: [...andar, { type: 'end_turn' }], costs };
   }
 
-  // Tras moverse solo queda moverse más, golpear o terminar: ni defender, ni
-  // esperar, ni disparar (decisión del usuario). Sin moverse, la lista es la de
-  // siempre y en el mismo orden: `end_turn` va al final para no cambiar lo que
-  // encuentra un `find` de la IA.
+  // Tras moverse solo queda moverse más, golpear o terminar: ni puertas, ni
+  // escaleras, ni apuntar (decisión del usuario). `end_turn` va al final para no
+  // cambiar lo que encuentra un `find` de la IA.
   const movido = fase === 'movido';
-  // La puerta, la escalera y la subida van delante de `defend`: sin muralla no
-  // sale ninguna, y el orden de siempre no cambia.
-  const out: BattleAction[] = movido
-    ? []
-    : [...puertasA(state), ...escalasA(state, s), { type: 'defend' }];
-  if (!s.waited && !movido) out.push({ type: 'wait' });
+  const out: BattleAction[] = movido ? [] : [...puertasA(state), ...escalasA(state, s)];
 
   const enemies = enemiesOf(state, s);
 

@@ -539,7 +539,7 @@ export function acabarPorLaBase(
 
 /**
  * Política agresiva para tests: golpea, si no se acerca todo lo que puede, y si
- * no se defiende. Basta para que cualquier batalla converja. No apunta: el disparo
+ * no cierra el turno. Basta para que cualquier batalla converja. No apunta: el disparo
  * diferido (25-10-2026) va sin tests hasta que el usuario lo valide.
  */
 export function agresiva(state: BattleState): BattleAction {
@@ -560,7 +560,7 @@ export function agresiva(state: BattleState): BattleAction {
     return movimientos.reduce((mejor, m) => (distancia(m.to) < distancia(mejor.to) ? m : mejor));
   }
 
-  return acciones.find((a) => a.type === 'defend') ?? acciones[0]!;
+  return acciones.find((a) => a.type === 'end_turn') ?? acciones[0]!;
 }
 
 /**
@@ -1636,10 +1636,7 @@ export function hastaLaRueda(
     if (golpea && ataque !== undefined) s.playBattleAction(ataque);
     else if (golpea && acercarse !== undefined && turno.battle.turno?.gastado === 0)
       s.playBattleAction(acercarse);
-    else
-      s.playBattleAction(
-        legales.some((a) => a.type === 'defend') ? { type: 'defend' } : { type: 'end_turn' },
-      );
+    else s.playBattleAction({ type: 'end_turn' });
   }
   throw new Error('la rueda no pide nada');
 }

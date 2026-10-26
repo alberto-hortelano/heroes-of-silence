@@ -35,6 +35,7 @@ import {
   mismoTurno,
   stackHexes,
 } from '../../src/core/battle/battle.js';
+import { hexEquals } from '../../src/core/battle/board.js';
 import type { BattleAction, BattleStack, BattleState } from '../../src/core/battle/types.js';
 import { unidadesDeMorada } from '../../src/core/catalogo.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
@@ -627,8 +628,8 @@ export function planDeAngulo(espejo: Session, ancho: number, alto: number): Plan
 
 /**
  * Si la batalla del escritorio, jugada en el espejo como la juega
- * `turnoDeBatalla` —esperar, defender, el primer hechizo y después lo que elija
- * la IA—, da ocasión de mover dos tramos y atacar desde un ángulo
+ * `turnoDeBatalla` —terminar sin moverse, lo que elija la IA, el primer hechizo
+ * y después lo que elija la IA, con «Terminar turno» por lo que no se pulsa—, da ocasión de mover dos tramos y atacar desde un ángulo
  * (`planDeAngulo`) en sus 40 jugadas. Es una aproximación: el clic sobre un
  * enemigo puede golpear desde otra casilla que la IA, y entonces la batalla de
  * la página se separa de esta; si no da ocasión, la pasada lo dice igual.
@@ -646,10 +647,8 @@ export function hayAnguloEnLaBatalla(espejo: Session, b: Caja): boolean {
     const acciones = espejo.battleLegalActions();
     if (acciones.length === 0) return false;
     const hechizo = espejo.spellOptions().find((o) => o.castable);
-    if (n === 0 && acciones.some((a) => a.type === 'wait')) {
-      espejo.playBattleAction({ type: 'wait' });
-    } else if (n === 1 && acciones.some((a) => a.type === 'defend')) {
-      espejo.playBattleAction({ type: 'defend' });
+    if (n === 0) {
+      espejo.playBattleAction({ type: 'end_turn' });
     } else if (n === 2 && hechizo !== undefined) {
       const cast = acciones.find(
         (a) => a.type === 'cast' && a.spell === hechizo.id && a.target === hechizo.targets[0],
@@ -657,8 +656,15 @@ export function hayAnguloEnLaBatalla(espejo: Session, b: Caja): boolean {
       if (cast === undefined) return false;
       espejo.playBattleAction(cast);
     } else {
+      // Lo que `turnoDeBatalla` pulsa tal cual; lo demás (el hechizo, un poder),
+      // «Terminar turno».
       const ia = chooseBattleAction(battle);
-      espejo.playBattleAction(ia.type === 'cast' ? { type: 'defend' } : ia);
+      const sePulsa =
+        ia.type === 'attack' ||
+        ia.type === 'move' ||
+        ia.type === 'surrender' ||
+        (ia.type === 'aim' && battle.stacks.some((x) => isAlive(x) && hexEquals(x.hex, ia.at)));
+      espejo.playBattleAction(sePulsa ? ia : { type: 'end_turn' });
     }
     while (espejo.ruedaPendiente !== null) espejo.elegirEnLaRueda('normal');
   }

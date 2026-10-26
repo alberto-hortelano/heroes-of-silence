@@ -249,14 +249,11 @@ const ESCENARIOS: readonly Escenario[] = [
     accion: golpe(),
   },
   {
-    nombre: 'contra quien defiende, con mala suerte en el contraataque',
+    nombre: 'con mala suerte en el contraataque',
     izquierda: () => bando([{ creature: PESADA, count: 5 }], { suerte: 1 }),
     derecha: () => bando([{ creature: TROPA, count: 30 }], { suerte: -2 }),
     en: { col: 5, row: 4 },
     contra: { col: 6, row: 4 },
-    antes: (b) => {
-      stackById(b, 'defender-0').defending = true;
-    },
     accion: golpe(),
   },
   {
@@ -457,9 +454,6 @@ function losDosDe(nombre: string): { yo: UnitInfo; el: UnitInfo } {
   return losDos(montar(e, createRng(1)).b);
 }
 
-/** Un número como lo escribe la previsión: con coma y, como mucho, un decimal. */
-const conComa = (n: number): string => String(Math.round(n * 10) / 10).replace('.', ',');
-
 describe('la previsión de daño cae en el daño real', () => {
   for (const e of ESCENARIOS) {
     it(e.nombre, () => {
@@ -557,7 +551,7 @@ describe('la previsión de daño cae en el daño real', () => {
     ]);
   });
 
-  it('dice qué cambia el daño: carga y defensa', () => {
+  it('dice qué cambia el daño: la carga', () => {
     const causas = (nombre: string): string[] => {
       const e = ESCENARIOS.find((x) => x.nombre === nombre)!;
       const { b, accion } = montar(e, createRng(1));
@@ -565,11 +559,7 @@ describe('la previsión de daño cae en el daño real', () => {
       return p.modificadores.map((m) => m.causa);
     };
     expect(causas('carga de la caballería')).toContain('carga de 5 casillas');
-    // Quien defiende suma el 20 % a su defensa (`DEFEND_BONUS`).
-    const defiende = losDosDe('contra quien defiende');
-    expect(causas('contra quien defiende, con mala suerte en el contraataque')).toContain(
-      `ataque ${golpeDe(defiende.yo, 'arma').attack} contra defensa ${conComa(defiende.el.defense * 1.2)} (defiende)`,
-    );
+    // Defenderse (+20 %, «(defiende)») se retiró el 26-10-2026.
   });
 
   it('los rasgos hechos a mano se juegan: el doble golpe da dos', () => {
@@ -633,7 +623,7 @@ describe('la previsión de daño cae en el daño real', () => {
     expect(() => previsionDe(b, { type: 'cast', spell: 'bless', target: 'attacker-0' })).toThrow(
       'no se puede lanzar: este bando no tiene héroe',
     );
-    expect(previsionDe(b, { type: 'defend' })).toBeNull();
+    expect(previsionDe(b, { type: 'end_turn' })).toBeNull();
   });
 });
 

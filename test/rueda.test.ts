@@ -425,11 +425,11 @@ describe('los efectos del golpe (#263): Defensivo hasta que empiece su turno, Ro
       expect.objectContaining({ kind: 'effect', source: 'defensivo', vence: 'empezar' }),
     );
     // Sigue en el turno del rival (le cubre si le golpea), y se va al empezar el
-    // suyo: antes de que juegue, y aunque luego espere.
+    // suyo: antes de que juegue.
     expect(activeStack(b)?.id).toBe('defender-0');
     expect(effectiveDefense(yo)).toBe(12);
     const largo = b.log.length;
-    applyAction(b, { type: 'defend' }, rng);
+    applyAction(b, { type: 'end_turn' }, rng);
     expect(activeStack(b)?.id).toBe('attacker-0');
     expect(yo.effects).toEqual([]);
     expect(b.log.slice(largo)).toContainEqual({
@@ -437,8 +437,6 @@ describe('los efectos del golpe (#263): Defensivo hasta que empiece su turno, Ro
       stack: 'attacker-0',
       source: 'defensivo',
     });
-    applyAction(b, { type: 'wait' }, rng);
-    expect(yo.effects).toEqual([]);
   });
 
   it('Defensivo se va al empezar el turno extra de la moral alta', () => {
@@ -475,7 +473,7 @@ describe('los efectos del golpe (#263): Defensivo hasta que empiece su turno, Ro
       const yo = stackById(b, 'attacker-0');
       yo.morale = -3;
       const largo = b.log.length;
-      applyAction(b, { type: 'defend' }, rng);
+      applyAction(b, { type: 'end_turn' }, rng);
       const paralizado = b.log
         .slice(largo)
         .findIndex((e) => e.kind === 'morale' && e.stack === 'attacker-0' && !e.good);
@@ -567,11 +565,7 @@ describe('los efectos del golpe (#263): Defensivo hasta que empiece su turno, Ro
     // Su turno: con −2 (ataca con 3).
     expect(activeStack(b)?.id).toBe('defender-0');
     expect(effectiveAttack(el)).toBe(3);
-    // Esperar no lo quita (no cierra el turno).
-    applyAction(b, { type: 'wait' }, rng);
-    expect(effectiveAttack(el)).toBe(3);
-    // Esperó el último: vuelve a él, y al cerrar ese turno se va, y lo dice.
-    expect(activeStack(b)?.id).toBe('defender-0');
+    // Al cerrar ese turno se va, y lo dice.
     const largo = b.log.length;
     applyAction(b, { type: 'end_turn' }, rng);
     expect(el.effects).toEqual([]);
@@ -629,7 +623,7 @@ describe('los efectos del golpe (#263): Defensivo hasta que empiece su turno, Ro
           break;
         }
         expect(el.effects.map((e) => e.source)).toEqual(['romperGuardia']);
-        applyAction(b, { type: 'defend' }, rng);
+        applyAction(b, { type: 'end_turn' }, rng);
       }
       if (!saltados || b.round !== 3) continue;
       // Ronda 3: caduca al empezar, aunque su turno no haya llegado.
@@ -727,8 +721,6 @@ describe('la Finta deja andar después de golpear (#263)', () => {
     for (const otra of [
       { type: 'attack', target: 'defender-0' },
       { type: 'attack', target: 'defender-0', golpe: 'fuerte', respuesta: 'normal' },
-      { type: 'defend' },
-      { type: 'wait' },
       { type: 'cast', spell: 'bless', target: 'attacker-0' },
       { type: 'surrender' },
     ] satisfies BattleAction[]) {
@@ -939,8 +931,6 @@ describe('primero se anda, luego la rueda (cambio del 13-10-2026)', () => {
     const motivo = 'attacker-0 está plantado ante defender-0: elige en la rueda o cancela el golpe';
     for (const otra of [
       { type: 'end_turn' },
-      { type: 'defend' },
-      { type: 'wait' },
       { type: 'move', to: { col: 4, row: 4 } },
       { type: 'attack', target: 'defender-0' },
       { type: 'attack', target: 'defender-0', golpe: 'fuerte' },
@@ -988,11 +978,11 @@ describe('primero se anda, luego la rueda (cambio del 13-10-2026)', () => {
     expect(activeStack(b)?.id).toBe('attacker-0');
     expect(b.turno?.n).toBe(turno.n);
     expect(stackById(b, 'attacker-0').hex).toEqual(DESDE);
-    // Ya se movió: puede andar más o golpear, no defenderse ni esperar.
+    // Ya se movió: puede andar más, golpear o terminar.
     const legales = legalActions(b);
     expect(legales.some((a) => a.type === 'move')).toBe(true);
     expect(legales).toContainEqual({ type: 'attack', target: 'defender-0' });
-    expect(legales.some((a) => a.type === 'defend' || a.type === 'wait')).toBe(false);
+    expect(legales).toContainEqual({ type: 'end_turn' });
     // El golpe de después, desde donde está, ya no carga: 165, no 231.
     applyAction(b, { type: 'attack', target: 'defender-0' }, rng);
     applyAction(
@@ -1331,7 +1321,7 @@ describe('la IA elige a ciegas', () => {
     const rng = createRng(1);
     const b = createBattle(bando(piqueros(1)), bando(piqueros(1)), rng, COMBATE_COMPLETO);
     const c = contando(createRng(3));
-    const accion: BattleAction = { type: 'defend' };
+    const accion: BattleAction = { type: 'end_turn' };
     expect(completarCruce(b, accion, c.rng)).toEqual({ falta: null, accion });
     expect(completarCruce(b, accion, c.rng).accion).toBe(accion);
     expect(c.ints()).toBe(0);
@@ -1679,12 +1669,12 @@ describe('la sesión de la arena con la rueda', () => {
     // Nada nuevo en el registro: ni vuelve atrás ni golpea.
     expect(s.battle.log.length).toBe(largo);
     expect(stackById(s.battle, 'attacker-0').hex).toEqual(ataque.from);
-    // Su turno sigue: puede golpear desde ahí (ya sin carrera), no defenderse ni esperar.
+    // Su turno sigue: puede golpear desde ahí (ya sin carrera) o terminar.
     expect(s.turnoPropio?.stack.id).toBe('attacker-0');
     expect(s.battle.turno?.n).toBe(n);
     const legales = s.battleLegalActions();
     expect(legales).toContainEqual({ type: 'attack', target: ataque.target });
-    expect(legales.some((a) => a.type === 'defend' || a.type === 'wait')).toBe(false);
+    expect(legales).toContainEqual({ type: 'end_turn' });
     // Volver a golpear abre la rueda sin andar; el golpe, sin carga.
     s.playBattleAction({ type: 'attack', target: ataque.target });
     expect(s.battle.log.length).toBe(largo);
@@ -1709,7 +1699,7 @@ describe('la sesión de la arena con la rueda', () => {
     expect(JSON.stringify(p)).not.toMatch(/"golpe":/);
     // Con la rueda a medias no se juega otra cosa, ni se retocan cifras, ni se cancela.
     const largo = s.battle.log.length;
-    s.playBattleAction({ type: 'defend' });
+    s.playBattleAction({ type: 'end_turn' });
     expect(s.status).toBe('Elige antes en la rueda del golpe.');
     expect(s.retocar({ kind: 'piezas', equipo: EQUIPO_DEL_JUEGO })).toBe(
       'Elige antes en la rueda del golpe.',
@@ -1916,7 +1906,7 @@ describe('la sesión de la arena con la rueda', () => {
     for (let t = 0; a.busy; t += 16) a.tick(t);
     expect(a.activo(s.battle)).toBe('attacker-0');
     // Otra cosa no vale, y la barra lo dice.
-    s.playBattleAction({ type: 'defend' });
+    s.playBattleAction({ type: 'surrender' });
     expect(s.status).toContain('tras golpear con Finta solo puede andar o terminar el turno');
     // Clic en una casilla: anda y el turno pasa.
     const n = s.battle.turno?.n;

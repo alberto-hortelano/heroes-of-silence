@@ -8,9 +8,10 @@
  *
  * **Mide UNA regla a la vez**, la que se elige con la bandera: por defecto la
  * del turno en tramos (02-10-2026) —tras moverse, la IA vuelve a decidir y pega
- * si alcanza, en vez de cerrar el turno—, con `--espera` la regla de espera
- * (#52) y con `--carga` el paso de lado para cargar (02-10-2026). Cualquier otro cambio táctico que salga byte a byte idéntico —#50, sin
- * caballería en el tablero— devolvería aquí un 50,0 % por construcción, y ese
+ * si alcanza, en vez de cerrar el turno— y con `--carga` el paso de lado para
+ * cargar (02-10-2026). La regla de espera (#52, `--espera`) se fue con la jugada
+ * `wait` el 26-10-2026. Cualquier otro cambio táctico que salga byte a byte
+ * idéntico —#50, sin caballería en el tablero— devolvería aquí un 50,0 % por construcción, y ese
  * 50 % no significaría «no mejora»: significaría «no hay nada que medir». Hay
  * que decirlo al leer la cifra.
  *
@@ -66,9 +67,8 @@
  * No es una copia congelada de `tactics.ts` ni un flag en producción: es la
  * MISMA `chooseBattleAction` con la regla medida desactivada desde fuera. Para
  * los tramos, si la unidad ya se ha movido se cierra el turno sin preguntarle
- * —la primera decisión de un turno es idéntica en las dos, así que eso basta—;
- * para la espera, si devuelve `wait` se marca `waited` un instante y se le
- * vuelve a preguntar. Así el contrincante no envejece cuando la heurística
+ * —la primera decisión de un turno es idéntica en las dos, así que eso basta—.
+ * Así el contrincante no envejece cuando la heurística
  * mejore por otro lado, y `core` no se entera de que este banco existe.
  *
  * Medido al entrar los tramos: **51,08 % ± 0,25** en 5 000 parejas (135 ganadas ·
@@ -119,7 +119,7 @@
  * individuo, que nunca llega a los 12 PV del umbral ni a los 20 de la Flecha.
  * Lanzados por la IA nueva: 22 027 Flechas y ningún otro hechizo.
  *
- * Uso: npx tsx tools/qa/enfrentamiento.ts [parejas=1000] [--espera] [--carga] [--contra <ref>] [--magia] [--espejo]
+ * Uso: npx tsx tools/qa/enfrentamiento.ts [parejas=1000] [--carga] [--contra <ref>] [--magia] [--espejo]
  */
 
 import { execFileSync } from 'node:child_process';
@@ -152,7 +152,6 @@ import { ejercitoDe, tropaDe } from './ejercitos.js';
 
 const args = process.argv.slice(2);
 const ESPEJO = args.includes('--espejo');
-const ESPERA = args.includes('--espera');
 const CARGA = args.includes('--carga');
 const MAGIA = args.includes('--magia');
 const iContra = args.indexOf('--contra');
@@ -192,25 +191,6 @@ const sinSegundoTramo: Tactica = (state) => {
 };
 
 /**
- * La heurística de hoy con la rama de espera apagada, que es la IA de antes.
- *
- * `waited` es justo la condición que la regla lee, así que marcarlo un instante
- * la desactiva sin tocar nada más — y se restaura antes de devolver, porque el
- * motor lo usa para decidir si `wait` sigue siendo legal esta ronda.
- */
-const sinEspera: Tactica = (state) => {
-  const accion = chooseBattleAction(state);
-  if (accion.type !== 'wait') return accion;
-
-  const s = activeStack(state);
-  if (s === null) throw new Error('la heurística ha elegido esperar sin stack activo');
-  s.waited = true;
-  const alternativa = chooseBattleAction(state);
-  s.waited = false;
-  return alternativa;
-};
-
-/**
  * La heurística de hoy sin el paso de lado para cargar (02-10-2026), que es la
  * IA de `c72bcd9`.
  *
@@ -244,13 +224,8 @@ const sinPasoParaCargar: Tactica = (state) => {
 interface Resultado {
   readonly winner: Side;
   readonly rounds: number;
-  /**
-   * Cuántas veces jugó cada bando `wait` y `defend`, la cola de la heurística.
-   * Por bando, porque la represalia (#79, #80) se mide justo por cuántas
-   * defensas juega la IA nueva frente a la de antes, no por la suma.
-   */
-  readonly esperas: Record<Side, number>;
-  readonly defensas: Record<Side, number>;
+  /** Cuántas veces cerró cada bando el turno sin más (`end_turn`), la cola de la heurística. */
+  readonly cierres: Record<Side, number>;
   /** Los hechizos que lanzó cada bando, por id: lo que mide `--magia`. */
   readonly hechizos: Record<Side, string[]>;
 }
@@ -266,18 +241,16 @@ interface Resultado {
  * ganador inventado.
  */
 function jugar(state: BattleState, rng: Rng, tacticas: Record<Side, Tactica>): Resultado {
-  const esperas: Record<Side, number> = { attacker: 0, defender: 0 };
-  const defensas: Record<Side, number> = { attacker: 0, defender: 0 };
+  const cierres: Record<Side, number> = { attacker: 0, defender: 0 };
   const hechizos: Record<Side, string[]> = { attacker: [], defender: [] };
   for (let turno = 0; turno < MAX_JUGADAS; turno++) {
     if (state.finished !== null) {
-      return { winner: state.finished.winner, rounds: state.round, esperas, defensas, hechizos };
+      return { winner: state.finished.winner, rounds: state.round, cierres, hechizos };
     }
     const s = activeStack(state);
     if (s === null) throw new Error('no hay stack activo y la batalla no ha terminado');
     const accion = tacticas[s.side](state);
-    if (accion.type === 'wait') esperas[s.side]++;
-    if (accion.type === 'defend') defensas[s.side]++;
+    if (accion.type === 'end_turn') cierres[s.side]++;
     if (accion.type === 'cast') hechizos[s.side].push(accion.spell);
     // La rueda del golpe, a ciegas por los dos bandos, como `autoResolve`.
     applyAction(state, completarCruce(state, accion, rng).accion, rng);
@@ -347,8 +320,8 @@ function batalla(
 /**
  * La heurística ENTERA de otro commit, jugando sobre el motor de hoy.
  *
- * Existe para las reglas que no se apagan desde fuera. Las tres de arriba se
- * desactivan tocando un estado que la regla lee (`waited`, el rasgo, el tramo);
+ * Existe para las reglas que no se apagan desde fuera. Las de arriba se
+ * desactivan tocando un estado que la regla lee (el rasgo, el tramo);
  * la represalia (#79) cambia A QUIÉN se pega y cuándo se defiende, y no hay
  * estado que tocar para que la IA vuelva a valorar un golpe sin ella. La copia
  * congelada que se descartaba arriba envejece; esta no, porque se saca de git
@@ -383,24 +356,19 @@ const rival: Tactica = ESPEJO
   ? deHoy
   : CONTRA !== null
     ? await tacticaDe(CONTRA)
-    : ESPERA
-      ? sinEspera
-      : CARGA
-        ? sinPasoParaCargar
-        : sinSegundoTramo;
+    : CARGA
+      ? sinPasoParaCargar
+      : sinSegundoTramo;
 const REGLA =
   CONTRA !== null
     ? `todo lo que cambió desde ${CONTRA}`
-    : ESPERA
-      ? 'la espera'
-      : CARGA
-        ? 'el paso de lado para cargar'
-        : 'el segundo tramo';
+    : CARGA
+      ? 'el paso de lado para cargar'
+      : 'el segundo tramo';
 
 let victorias = 0;
 /** La cola jugada, de la IA de hoy y de su rival por separado. */
-const esperas = { hoy: 0, rival: 0 };
-const defensas = { hoy: 0, rival: 0 };
+const cierres = { hoy: 0, rival: 0 };
 const hechizos = { hoy: new Map<string, number>(), rival: new Map<string, number>() };
 const contar = (en: Map<string, number>, ids: readonly string[]): void => {
   for (const id of ids) en.set(id, (en.get(id) ?? 0) + 1);
@@ -425,10 +393,8 @@ for (let semilla = 1; semilla <= PAREJAS; semilla++) {
     } as Record<Side, Tactica>);
 
     if (r.winner === asiento) ganadasAqui++;
-    esperas.hoy += r.esperas[asiento];
-    esperas.rival += r.esperas[otro];
-    defensas.hoy += r.defensas[asiento];
-    defensas.rival += r.defensas[otro];
+    cierres.hoy += r.cierres[asiento];
+    cierres.rival += r.cierres[otro];
     contar(hechizos.hoy, r.hechizos[asiento]);
     contar(hechizos.rival, r.hechizos[otro]);
     totalRondas += r.rounds;
@@ -480,10 +446,7 @@ console.log(
 console.log(
   `rondas:        peor ${peorRonda}, media ${(totalRondas / batallas).toFixed(2)}, ${enElTope}/${batallas} en el tope de ${MAX_ROUNDS}`,
 );
-console.log(
-  `cola jugada:   hoy ${esperas.hoy} esperas, ${defensas.hoy} defensas · ` +
-    `rival ${esperas.rival} esperas, ${defensas.rival} defensas`,
-);
+console.log(`cola jugada:   hoy ${cierres.hoy} turnos cerrados sin más · rival ${cierres.rival}`);
 
 if (MAGIA) {
   const lista = (en: Map<string, number>): string =>

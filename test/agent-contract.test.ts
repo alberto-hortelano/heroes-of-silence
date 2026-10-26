@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { MARGEN_CONTRA_NEUTRALES } from '../src/core/ai/fuerza.js';
 import {
   planBuildings,
@@ -17,6 +18,7 @@ import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import {
   adventureActionSchema,
   battleActionSchema,
+  battleTurnResponseSchema,
   mapPlanSchema,
   REQUEST_KINDS,
   RESPONSE_FORMAT,
@@ -1053,8 +1055,13 @@ describe('lo que ve el agente', () => {
     // `surrender` en el esquema y no en la prosa es una acción que nadie pide;
     // al revés, una que se le promete y se le rechaza.
     const prosa = RESPONSE_FORMAT.battle_turn;
-    const tipos = battleActionSchema.options.map((o) => o.shape.type.value);
+    // Las retiradas (`wait`, `defend`) van envueltas en su rechazo: no se anuncian.
+    const tipos = battleActionSchema.options.flatMap((o) =>
+      o.shape.type instanceof z.ZodLiteral ? [o.shape.type.value as string] : [],
+    );
     expect(tipos).toContain('surrender');
+    expect(tipos).not.toContain('wait');
+    expect(tipos).not.toContain('defend');
     for (const t of tipos) expect(prosa, t).toContain(`"type": "${t}"`);
     const anunciados = [...prosa.matchAll(/"type": "([a-z_]+)"/g)].map((m) => m[1]);
     for (const t of anunciados) expect(tipos, t).toContain(t);
@@ -1063,6 +1070,29 @@ describe('lo que ve el agente', () => {
     expect(prosa).toMatch(/"commander": true/);
     expect(prosa).toMatch(/oro/);
     expect(prosa).toMatch(/defend/i);
+  });
+
+  it('"wait" y "defend" se rechazan diciendo que se retiraron y que se mande "end_turn" (26-10-2026)', () => {
+    // Sin compatibilidad hacia atrás, pero sin un «discriminador inválido» mudo:
+    // el agente que aún las mande lee qué pasó y qué escribir en su lugar.
+    for (const [type, verbo] of [
+      ['wait', 'esperar'],
+      ['defend', 'defenderse'],
+    ] as const) {
+      const r = battleTurnResponseSchema.safeParse({ action: { type } });
+      expect(r.success, type).toBe(false);
+      if (r.success) continue;
+      const [problema] = r.error.issues;
+      expect(problema?.path).toEqual(['action', 'type']);
+      expect(problema?.message).toContain(`ya no hay "${type}"`);
+      expect(problema?.message).toContain(`${verbo} se retiró de la batalla`);
+      expect(problema?.message).toContain('{ "type": "end_turn" }');
+    }
+    expect(battleTurnResponseSchema.safeParse({ action: { type: 'end_turn' } }).success).toBe(true);
+    // Y la prosa no las ofrece: dice que se retiraron.
+    expect(RESPONSE_FORMAT.battle_turn).not.toContain('{ "type": "wait" }');
+    expect(RESPONSE_FORMAT.battle_turn).not.toContain('{ "type": "defend" }');
+    expect(RESPONSE_FORMAT.battle_turn).toMatch(/no hay\s+"wait" ni "defend": se retiraron/);
   });
 
   it('el precio de rendirse viaja en el esquema y en la prosa (H-2)', () => {
@@ -1123,9 +1153,10 @@ describe('lo que ve el agente', () => {
     exactamenteUno(ajena);
     expect('legalActionsOmitted' in ajena && ajena.legalActionsOmitted).toBe('not_your_battle');
 
+    // Cerrando turnos hasta el tope de rondas (era `defend`, la primera de la lista).
     const rng = createRng(3);
     for (let i = 0; i < 2000 && battle.finished === null; i++) {
-      const [accion] = legalActions(battle);
+      const accion = legalActions(battle).find((a) => a.type === 'end_turn');
       if (accion === undefined) break;
       applyAction(battle, accion, rng);
     }

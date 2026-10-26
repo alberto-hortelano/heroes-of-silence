@@ -24,15 +24,8 @@ import {
   movableHexes,
   movimientoBlocker,
   stackById,
-  stackSpeed,
 } from '../src/core/battle/battle.js';
-import {
-  allHexes,
-  FORMA_DEL_TABLERO,
-  hexDistance,
-  hexKey,
-  neighbours,
-} from '../src/core/battle/board.js';
+import { allHexes, FORMA_DEL_TABLERO, hexKey } from '../src/core/battle/board.js';
 import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from '../src/core/battle/muralla.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
@@ -566,12 +559,12 @@ describe('las formas de ejemplo cierran lo que dicen', () => {
 });
 
 describe('la IA juega con muros sin colgarse (C5)', () => {
-  it('sin camino a nadie, el atacante se defiende', () => {
+  it('sin camino a nadie, el atacante cierra el turno', () => {
     const state = duelo(LINEA, PESADA, { col: 5, row: 4 }, TROPA, {
       col: 9,
       row: 4,
     });
-    expect(chooseBattleAction(state)).toEqual({ type: 'defend' });
+    expect(chooseBattleAction(state)).toEqual({ type: 'end_turn' });
   });
 
   it('el atacante rodea la L en vez de quedarse pegado al muro', () => {
@@ -590,40 +583,6 @@ describe('la IA juega con muros sin colgarse (C5)', () => {
     expect(distancia(accion.to)).toBeLessThan(distancia(a.hex));
     // En recta habría ido a pegarse al muro, a la columna 6.
     expect(accion.to.col).toBeLessThan(6);
-  });
-
-  it('no cede la iniciativa por un alcance que andando no hay (convieneEsperar)', () => {
-    // El zombi defensor sube al anillo hacia el piquero encerrado en su hueco,
-    // que no ha actuado: en recta el piquero llega a donde va; andando no sube
-    // al muro, y no hay por qué esperarle. Era la L, por encima de su palo; con
-    // la ampliación 2 de su palo no se baja delante y el zombi la rodea por el
-    // suelo, donde el piquero sí le llega. El hueco del anillo es dentro (C15).
-    const centro = { col: 5, row: 4 };
-    const hueco = new Set([centro, ...neighbours(centro)].map(hexKey));
-    const anillo = new Map(
-      neighbours(centro)
-        .flatMap((n) => neighbours(n))
-        .filter((x) => !hueco.has(hexKey(x)))
-        .map((x) => [hexKey(x), x]),
-    );
-    // El zombi, a 2 casillas, las que tenía con el escudo que restaba (hasta el
-    // 25-10-2026): la geometría del caso es de esa marcha.
-    const state = duelo(
-      validarMuralla({ muros: [...anillo.values()], puertas: [] }),
-      TROPA,
-      centro,
-      { ...unidadDelJuego('zombi'), speed: 'very_slow' },
-      { col: 9, row: 4 },
-      'defender-0',
-    );
-    const a = stackById(state, 'attacker-0');
-    const d = stackById(state, 'defender-0');
-    const accion = chooseBattleAction(state);
-    if (accion.type !== 'move') throw new Error(`esperaba un move y es ${accion.type}`);
-    expect(accion.to.col).toBe(7);
-    expect(hexDistance(a.hex, accion.to)).toBeLessThanOrEqual(stackSpeed(a) + 1);
-    expect(distanciaHasta(state, a, [accion.to])(a.hex)).toBe(Number.POSITIVE_INFINITY);
-    expect(d.waited).toBe(false);
   });
 
   it('cuerpo a cuerpo contra tiradores tras la línea: suben y acaba', () => {

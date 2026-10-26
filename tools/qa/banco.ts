@@ -1218,11 +1218,21 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   21**; batallas 112 → 110, `town_captured` 80 → 93, `troop_rank_up` 336 → 291,
  *   `item_bought` 5 → 0; ningún tipo de hecho nuevo (el `aimed` y el `shoot` son del
  *   registro de la batalla, que la crónica no guarda). La forma del diff, no una medida.
+ * - `24ece74b…` (4 729 líneas, 20 semillas, 26-10-2026): **sin defender ni esperar**
+ *   (decisión del usuario: «Quita las acciones de defender y de esperar»; la IA de
+ *   batalla cierra con `end_turn` donde se defendía y da el paso donde esperaba).
+ *   Contra `0bbccba8…`, las 20 cambian, y en todas lo de antes de la primera batalla
+ *   es idéntico: el primer hecho distinto es su resumen (`battle_ended`: otras rondas
+ *   o bajas, 16), la veteranía que dejó (`troop_rank_up`, 3) o la ciudad que se tomó
+ *   tras ella (`town_captured`, 1, s5). j0 gana 10 de 20 (10 antes; s8 y s15 cambian
+ *   de ganador); duración 4 / 8 / 21 → **4 / 11 / 19**, días 96 → 94; batallas
+ *   110 → 108, `town_captured` 93 → 89, `troop_rank_up` 291 → 315, `hero_defeated`
+ *   44 → 41; ningún tipo de hecho nuevo. La forma del diff, no una medida.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '0bbccba8e0c8faa7e5327d13cfc5b9a107c54dd6bd7575178d1d586f6895daa1',
+  sha: '24ece74b9f26a669e7c7ce140e16193dd34e3cfc887fa46b14695cd457732be9',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

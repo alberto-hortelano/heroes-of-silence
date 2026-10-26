@@ -15,14 +15,9 @@ import {
   opcionesDeDanio,
   stackById,
 } from '../src/core/battle/battle.js';
-import {
-  computeDamage,
-  damageMultiplier,
-  effectiveDefense,
-  expectedDamage,
-} from '../src/core/battle/damage.js';
+import { computeDamage, damageMultiplier, expectedDamage } from '../src/core/battle/damage.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
-import { unidad, unidadDelJuego } from '../src/core/catalogo.js';
+import { unidad } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import type { UnitInfo } from '../src/core/types.js';
@@ -81,20 +76,10 @@ function contando(rng: Rng): { rng: Rng; ints: () => number } {
   };
 }
 
-describe('defender', () => {
-  it('suma un 20 % de defensa', () => {
-    const { b } = batalla(
-      bando([{ creature: TROPA, count: 1 }]),
-      bando([{ creature: TROPA, count: 1 }]),
-    );
-    const p = stackById(b, 'defender-0');
-    const defensa = unidadDelJuego(TROPA).defense;
-    expect(effectiveDefense(p)).toBe(defensa);
-    p.defending = true;
-    expect(effectiveDefense(p)).toBeCloseTo(defensa * 1.2);
-  });
-
-  it('tras defender, la moral alta puede dar otro turno', () => {
+describe('cerrar el turno', () => {
+  // Defenderse (+20 %) se retiró el 26-10-2026: su prueba de la cifra se fue con
+  // él, y la de la moral sigue con `end_turn`, que cierra el turno igual.
+  it('tras cerrar el turno, la moral alta puede dar otro', () => {
     let extras = 0;
     for (let semilla = 1; semilla <= 400; semilla++) {
       const { b, rng } = batalla(
@@ -103,7 +88,7 @@ describe('defender', () => {
         semilla,
       );
       if (activeStack(b)?.id !== 'attacker-0') continue;
-      applyAction(b, { type: 'defend' }, rng);
+      applyAction(b, { type: 'end_turn' }, rng);
       if (b.log.some((e) => e.kind === 'morale' && e.good)) extras++;
     }
     // Moral +3 (una facción +1, y +2): 1/8 de turno extra.

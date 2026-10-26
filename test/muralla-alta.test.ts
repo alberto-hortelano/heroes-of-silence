@@ -644,7 +644,7 @@ describe('tras QA', () => {
     // sonda de QA): en 100 semillas, ninguna lo da tras escalar.
     let extrasConOtraAccion = 0;
     for (let semilla = 1; semilla <= 100; semilla++) {
-      for (const accion of ['poner_escalera', 'subir', 'defend'] as const) {
+      for (const accion of ['poner_escalera', 'subir', 'end_turn'] as const) {
         // El arquero, más lento: el turno forzado es el de la ronda del espadachín.
         const state = duelo(
           LINEA,
@@ -662,11 +662,11 @@ describe('tras QA', () => {
         const turno = state.turno;
         applyAction(
           state,
-          accion === 'defend' ? { type: 'defend' } : { type: accion, muro },
+          accion === 'end_turn' ? { type: 'end_turn' } : { type: accion, muro },
           createRng(semilla),
         );
         const otraVez = state.turno?.stack === 'attacker-0';
-        if (accion === 'defend') {
+        if (accion === 'end_turn') {
           if (otraVez) extrasConOtraAccion++;
           continue;
         }

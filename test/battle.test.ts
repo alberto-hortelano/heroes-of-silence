@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
 import { renderBattleLog, renderSide } from '../src/client/views/panels.js';
+import { completarCruce } from '../src/core/ai/rueda.js';
 import { chooseBattleAction, chooseBattleActionAndCosts } from '../src/core/ai/tactics.js';
 import { armaduraDe } from '../src/core/battle/armas.js';
 import {
@@ -61,6 +62,7 @@ import type { Rng } from '../src/core/rng.js';
 import { createRng } from '../src/core/rng.js';
 import type { CreatureTrait, Hex, Stack, UnitInfo } from '../src/core/types.js';
 import {
+  agresiva,
   aMano,
   conCifrasAMano,
   FACCION_B,
@@ -182,8 +184,6 @@ function stackOf(id: string, count: number, unit: UnitInfo = unidadDelJuego(id))
     hex: { col: 0, row: 0 },
     escalera: false,
     retaliated: false,
-    defending: false,
-    waited: false,
     acted: false,
     gotMoraleBonus: false,
     morale: 0,
@@ -318,73 +318,12 @@ describe('moral por composición del ejército', () => {
     // Dos facciones y un no-muerto: 0 por la mezcla y −1 por él (#199).
     expect(campesino.morale).toBe(-1);
     herir(stackById(state, 'attacker-1'), 9999, null);
-    // Una ronda entera a la defensiva, para pasar por el final de ronda y por
+    // Una ronda entera cerrando turnos, para pasar por el final de ronda y por
     // cada `advance`, que es donde se colaría un recálculo.
     const rng = createRng(1);
-    while (state.round < 2) aplicar(state, { type: 'defend' }, rng);
+    while (state.round < 2) aplicar(state, { type: 'end_turn' }, rng);
     expect(state.finished).toBeNull();
     expect(campesino.morale).toBe(-1);
-  });
-});
-
-describe('los que esperan vuelven por orden de llegada (#81, regla nuestra)', () => {
-  /** Que espere todo el que tenga turno hasta que vuelva uno que ya esperó. */
-  function esperanTodos(state: BattleState, rng: Rng): string[] {
-    const orden: string[] = [];
-    for (let s = activeStack(state); s !== null && !s.waited; s = activeStack(state)) {
-      orden.push(s.id);
-      aplicar(state, { type: 'wait' }, rng);
-    }
-    return orden;
-  }
-
-  /** Quién vuelve, en orden, cerrando cada turno a la defensiva. */
-  function vuelven(state: BattleState, rng: Rng): string[] {
-    const orden: string[] = [];
-    const ronda = state.round;
-    while (state.round === ronda && state.finished === null) {
-      orden.push((activeStack(state) as BattleStack).id);
-      aplicar(state, { type: 'defend' }, rng);
-    }
-    return orden;
-  }
-
-  function batalla(): BattleState {
-    const state = createBattle(
-      side([
-        { creature: TROPA_BARATA, count: 5 },
-        { creature: PESADA, count: 5 },
-      ]),
-      side([{ creature: NO_MUERTO, count: 5 }]),
-      createRng(1),
-      COMBATE_COMPLETO,
-    );
-    // Sin moral: un turno extra al defenderse metería a alguien dos veces.
-    for (const s of state.stacks) s.morale = 0;
-    return state;
-  }
-
-  it('no del más lento al más rápido: en el orden en que esperaron', () => {
-    const state = batalla();
-    const rng = createRng(1);
-    const esperaron = esperanTodos(state, rng);
-    expect(esperaron).toHaveLength(3);
-    // Solo dice algo si de verdad son velocidades distintas.
-    const v = esperaron.map((id) => stackSpeed(stackById(state, id)));
-    expect(v[0]).toBeGreaterThan(v[2] as number);
-    expect(vuelven(state, rng)).toEqual(esperaron);
-  });
-
-  it('ni del más rápido al más lento: una Prisa recibida mientras espera no lo adelanta', () => {
-    const state = batalla();
-    const rng = createRng(1);
-    const esperaron = esperanTodos(state, rng);
-    const ultimo = stackById(state, esperaron[2] as string);
-    applyEffect(ultimo, { kind: 'speed', amount: 10, source: 'haste', roundsLeft: 3 });
-    expect(stackSpeed(ultimo)).toBeGreaterThan(
-      stackSpeed(stackById(state, esperaron[0] as string)),
-    );
-    expect(vuelven(state, rng)).toEqual(esperaron);
   });
 });
 
@@ -433,12 +372,12 @@ describe('iniciativa', () => {
     expect(activeStack(state)!.id).toBe('attacker-0');
   });
 
-  /** Quién tiene turno, en orden, hasta `rondas` rondas, cerrando cada uno a la defensiva. */
+  /** Quién tiene turno, en orden, hasta `rondas` rondas, cerrando cada uno sin más. */
   function turnos(state: BattleState, rng: Rng, rondas: number): string[] {
     const orden: string[] = [];
     while (state.round <= rondas && state.finished === null) {
       orden.push((activeStack(state) as BattleStack).id);
-      aplicar(state, { type: 'defend' }, rng);
+      aplicar(state, { type: 'end_turn' }, rng);
     }
     return orden;
   }
@@ -495,7 +434,7 @@ describe('iniciativa', () => {
     const rng = createRng(1);
     expect(activeStack(state)!.id).toBe('attacker-0');
     herir(stackById(state, 'defender-0'), 9999, null);
-    aplicar(state, { type: 'defend' }, rng);
+    aplicar(state, { type: 'end_turn' }, rng);
     expect(activeStack(state)!.id).toBe('defender-1');
   });
 
@@ -507,7 +446,7 @@ describe('iniciativa', () => {
     const state = empatados(2, 2);
     stackById(state, 'defender-0').morale = -1;
     const rng: Rng = { ...createRng(1), chance: () => true };
-    aplicar(state, { type: 'defend' }, rng);
+    aplicar(state, { type: 'end_turn' }, rng);
     expect(state.log.at(-1)).toEqual({ kind: 'morale', stack: 'defender-0', good: false });
     expect(activeStack(state)!.id).toBe('defender-1');
   });
@@ -516,11 +455,11 @@ describe('iniciativa', () => {
     const state = empatados(2, 2);
     stackById(state, 'attacker-0').morale = 1;
     const rng: Rng = { ...createRng(1), chance: () => true };
-    aplicar(state, { type: 'defend' }, rng);
+    aplicar(state, { type: 'end_turn' }, rng);
     expect(state.log.at(-1)).toEqual({ kind: 'morale', stack: 'attacker-0', good: true });
     expect(activeStack(state)!.id).toBe('attacker-0');
     // Y después, el empate es del defensor: el último que actuó fue un atacante.
-    aplicar(state, { type: 'defend' }, rng);
+    aplicar(state, { type: 'end_turn' }, rng);
     expect(activeStack(state)!.id).toBe('defender-0');
   });
 
@@ -532,7 +471,7 @@ describe('iniciativa', () => {
       source: 'haste',
       roundsLeft: 3,
     });
-    aplicar(state, { type: 'defend' }, createRng(1));
+    aplicar(state, { type: 'end_turn' }, createRng(1));
     expect(activeStack(state)!.id).toBe('defender-0');
   });
 
@@ -717,9 +656,9 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     // Y otra con la fuerza y la agilidad (25-10-2026): el zombi atacante anda 3
     // (el escudo ya no resta: pesa) y llega a más casillas; la regla del orden, la
     // misma.
+    //
+    // Y sin `defend` ni `wait` delante (26-10-2026): el orden de lo demás, el mismo.
     expect(legalActions(batallaDeCuatroEnemigos())).toEqual([
-      { type: 'defend' },
-      { type: 'wait' },
       { type: 'move', to: { col: 9, row: 4 } },
       { type: 'move', to: { col: 10, row: 4 } },
       { type: 'move', to: { col: 8, row: 3 } },
@@ -880,11 +819,11 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     const s = activeStack(state) as BattleStack;
     const turno = state.turno as TurnoDeUnidad;
     const suyo = { firma: firmaDelTurno(turno), puertas: '', costs: movableFrom(state, s) };
-    aplicar(state, { type: 'defend' }, createRng(1));
+    aplicar(state, { type: 'end_turn' }, createRng(1));
     const otro = activeStack(state) as BattleStack;
     expect(otro.id).not.toBe(s.id);
 
-    expect(() => aplicar(state, { type: 'defend' }, createRng(1), suyo)).toThrow(
+    expect(() => aplicar(state, { type: 'end_turn' }, createRng(1), suyo)).toThrow(
       `el recorrido que traes es del turno ${turno.n} con 0 casillas gastadas, y ahora le toca a ${otro.id} en el turno ${turno.n + 1} con 0 casillas gastadas`,
     );
   });
@@ -945,8 +884,10 @@ describe('batalla completa', () => {
       );
       let n = 0;
       while (state.finished === null && n < 1000) {
-        const acciones = legalActions(state);
-        aplicar(state, acciones.find((a) => a.type === 'attack') ?? acciones[0]!, rng);
+        // Agresiva y con la rueda a ciegas, que tira del `rng`: con `acciones[0]`,
+        // que era `defend`, no se movía nadie y la semilla la daban la moral y la
+        // suerte; con la rueda fija, dos semillas daban la misma batalla.
+        aplicar(state, completarCruce(state, agresiva(state), rng).accion, rng);
         n++;
       }
       return JSON.stringify(state.log);
@@ -956,12 +897,12 @@ describe('batalla completa', () => {
   });
 });
 
-/** Pasa a la ronda siguiente haciendo que todo el mundo se defienda. */
+/** Pasa a la ronda siguiente cerrando el turno de todo el mundo. */
 function pasarRonda(state: BattleState, rng: Rng): void {
   const ronda = state.round;
   let n = 0;
   while (state.round === ronda && state.finished === null && n < 60) {
-    aplicar(state, { type: 'defend' }, rng);
+    aplicar(state, { type: 'end_turn' }, rng);
     n++;
   }
 }
@@ -1073,7 +1014,7 @@ describe('efectos temporales (#9)', () => {
 
     // El esqueleto cierra la ronda y quien asusta vuelve a morder con el miedo
     // anterior todavía vivo (le quedaba 1 ronda de las 2).
-    aplicar(state, { type: 'defend' }, rng);
+    aplicar(state, { type: 'end_turn' }, rng);
     expect(state.round).toBe(2);
     expect(esqueleto.effects.filter((e) => e.source === 'fear')).toHaveLength(1);
     aplicar(state, { type: 'attack', target: 'defender-0' }, rng);
@@ -1725,8 +1666,8 @@ describe('la IA valora los hechizos por lo que compran en esta batalla (#92)', (
   });
 });
 
-describe('la IA espera en vez de plantarse (#24)', () => {
-  it('se defiende cuando no alcanza a nadie ni puede moverse', () => {
+describe('la IA cierra el turno en vez de plantarse (#24)', () => {
+  it('cierra el turno cuando no alcanza a nadie ni puede moverse', () => {
     const rng = createRng(74);
     const state = createBattle(
       side([
@@ -1748,10 +1689,9 @@ describe('la IA espera en vez de plantarse (#24)', () => {
     expect(state.turno?.stack).toBe('attacker-0');
     expect(movableHexes(state, stackById(state, 'attacker-0'))).toEqual([]);
 
-    // Antes esto era un `wait`, y era una tautología: quien no puede llegarme
-    // hoy tampoco llegará al final de la ronda, así que ceder la iniciativa no
-    // compra nada y el +20 % de defensa sí. `defend` es la única cola terminal.
-    expect(chooseBattleAction(state)).toEqual({ type: 'defend' });
+    // Antes esto era un `defend` (y antes un `wait`): sin las dos jugadas,
+    // retiradas el 26-10-2026, la cola terminal es `end_turn`.
+    expect(chooseBattleAction(state)).toEqual({ type: 'end_turn' });
   });
 });
 
@@ -1761,10 +1701,10 @@ describe('la IA espera en vez de plantarse (#24)', () => {
  *
  * El jinete corre 7 hexes y la pesada 4, así que el jinete mueve primero y la
  * pesada le alcanza a 5 (sus pasos más el hex desde el que golpea). Con ella
- * al otro extremo, avanzar deja al jinete dentro de ese radio y esperar lo deja
- * pegando al final de la ronda.
+ * al otro extremo, avanzar deja al jinete dentro de ese radio: hasta el
+ * 26-10-2026 esperaba para pegar al final de la ronda.
  */
-function escenaDeEspera(piqueroEn: Hex, piqueroYaActuo = false): BattleState {
+function escenaDeEspera(piqueroEn: Hex): BattleState {
   const state = createBattle(
     side([{ creature: JINETE, count: 5 }]),
     side([{ creature: PESADA, count: 5 }]),
@@ -1774,7 +1714,6 @@ function escenaDeEspera(piqueroEn: Hex, piqueroYaActuo = false): BattleState {
   conSieteCasillas(state);
   stackById(state, 'attacker-0').hex = { col: 0, row: 4 };
   stackById(state, 'defender-0').hex = piqueroEn;
-  stackById(state, 'defender-0').acted = piqueroYaActuo;
   return state;
 }
 
@@ -1789,9 +1728,8 @@ describe('la IA aprovecha el segundo tramo (02-10-2026)', () => {
     expect(chooseBattleAction(state)).toEqual({ type: 'attack', target: 'defender-0' });
   });
 
-  it('tras moverse sin nadie a mano y sin poder acercarse más, cierra: ni espera ni se defiende', () => {
-    // Le queda una casilla y la única que le acerca la tapa un aliado: antes de
-    // los tramos la cola era `wait` o `defend`, que tras moverse ya no son legales.
+  it('tras moverse sin nadie a mano y sin poder acercarse más, cierra el turno', () => {
+    // Le queda una casilla y la única que le acerca la tapa un aliado: cierra.
     const state = createBattle(
       side([
         { creature: PESADA, count: 5 },
@@ -1810,8 +1748,7 @@ describe('la IA aprovecha el segundo tramo (02-10-2026)', () => {
   });
 
   it('lo que elige la IA está SIEMPRE en la lista legal, también tras un tramo', () => {
-    // La lista legal cambia tras moverse —sin `wait`, `defend` ni `shoot`—, y la
-    // IA tiene dos colas que los devolvían. Treinta batallas enteras, decisión a
+    // La lista legal cambia tras moverse —sin puertas, escaleras ni `aim`—. Treinta batallas enteras, decisión a
     // decisión: una sola fuera de la lista se dice con su batalla.
     let tramos = 0;
     for (let semilla = 1; semilla <= 30; semilla++) {
@@ -1843,41 +1780,17 @@ describe('la IA aprovecha el segundo tramo (02-10-2026)', () => {
   });
 });
 
-describe('la IA cede la iniciativa en vez de meter el morro (#52)', () => {
-  it('espera si al avanzar quedaría dentro del alcance de quien aún no ha movido', () => {
+describe('la IA ya no cede la iniciativa (#52 retirado, 26-10-2026)', () => {
+  it('avanza aunque al avanzar quede al alcance de quien aún no ha movido', () => {
+    // La escena de #52, en la que antes esperaba: sin `wait`, da el paso.
     const state = escenaDeEspera({ col: 10, row: 4 });
     expect(state.turno?.stack).toBe('attacker-0');
-    expect(stackSpeed(stackById(state, 'attacker-0'))).toBe(7);
-    expect(stackSpeed(stackById(state, 'defender-0'))).toBe(4);
-
-    // Avanzar lo dejaría en (7,4), a 3 hexes del piquero: dentro de sus 4+1.
-    expect(chooseBattleAction(state)).toEqual({ type: 'wait' });
-  });
-
-  it('y no es otra tautología: si el enemigo ya actuó, avanza', () => {
-    // Misma escena, mismo alcance, misma distancia. Lo único que cambia es que
-    // el piquero ya gastó su turno, así que no hay iniciativa que cederle: si
-    // la regla se disparase igual, sería «esperar por esperar» con otro
-    // disfraz, que es justo lo que se acaba de borrar.
-    const state = escenaDeEspera({ col: 10, row: 4 }, true);
     expect(chooseBattleAction(state)).toEqual({ type: 'move', to: { col: 7, row: 4 } });
   });
 
-  it('golpear gana a esperar: la espera es la alternativa a avanzar, no al ataque', () => {
-    // Con el piquero a tiro de carga, la rama de acercarse y golpear resuelve
-    // antes: ceder la iniciativa para pegar al final de la ronda no vale nada
-    // cuando ya se puede pegar ahora.
+  it('y con el enemigo a tiro, golpea', () => {
     const state = escenaDeEspera({ col: 7, row: 4 });
     expect(chooseBattleAction(state).type).toBe('attack');
-  });
-
-  it('quien ya esperó esta ronda no vuelve a esperar', () => {
-    // El motor lo rechazaría (`legalActions` deja de ofrecer `wait`), así que
-    // sin esta condición la heurística devolvería una acción ilegal. Es también
-    // lo que impide que dos stacks se pasen la ronda cediéndose el turno.
-    const state = escenaDeEspera({ col: 10, row: 4 });
-    stackById(state, 'attacker-0').waited = true;
-    expect(chooseBattleAction(state)).toEqual({ type: 'move', to: { col: 7, row: 4 } });
   });
 });
 
@@ -1986,30 +1899,6 @@ describe('el turno en tramos (2026-10-02)', () => {
       { type: 'attack', target: 'defender-0' },
       { type: 'end_turn' },
     ]);
-  });
-
-  it('tras moverse no se espera ni se defiende: ni se ofrece ni se acepta', () => {
-    // Tras una casilla le queda más y el turno sigue. (El caso del tirador, que
-    // tampoco apuntaba, se fue con el disparo diferido: va sin tests, 25-10-2026.)
-    const state = duelo(PESADA, { col: 0, row: 4 }, TROPA, {
-      col: 10,
-      row: 4,
-    });
-    aplicar(state, { type: 'move', to: { col: 1, row: 4 } }, createRng(1));
-    expect(state.turno?.stack).toBe('attacker-0');
-
-    const tipos = new Set(legalActions(state).map((a) => a.type));
-    expect(tipos.has('wait')).toBe(false);
-    expect(tipos.has('defend')).toBe(false);
-    expect(tipos.has('end_turn')).toBe(true);
-
-    const rng = createRng(1);
-    expect(() => aplicar(state, { type: 'wait' }, rng)).toThrow(
-      'attacker-0 ya se ha movido este turno: no puede esperar',
-    );
-    expect(() => aplicar(state, { type: 'defend' }, rng)).toThrow(
-      'attacker-0 ya se ha movido este turno: no puede defenderse',
-    );
   });
 
   it('por qué no se puede actuar contra un enemigo lo dice el núcleo', () => {

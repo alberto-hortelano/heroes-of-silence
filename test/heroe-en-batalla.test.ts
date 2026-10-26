@@ -490,7 +490,7 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const cuerpo = stackById(batalla, 'attacker-heroe');
     cuerpo.count = 0;
     cuerpo.topHp = 0;
-    applyAction(batalla, { type: 'defend' }, c.rng);
+    applyAction(batalla, { type: 'end_turn' }, c.rng);
     expect(batalla.finished?.winner).toBe('defender');
     expect(batalla.stacks.filter((s) => s.side === 'attacker' && s.count > 0)).toHaveLength(3);
     settleBattle(state, c);

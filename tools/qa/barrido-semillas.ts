@@ -81,8 +81,8 @@ console.log(`sin terminar: ${resumenSinTerminar(sinTerminar, SEMILLAS)}`);
 console.log(`duración (días, mediana / p90 / máximo): ${duracion(dias)}`);
 
 /**
- * Segunda medida, la que vigila que `wait` no estanque nada: batallas de la IA
- * contra sí misma, contando en qué ronda acaban.
+ * Segunda medida, la que vigila que ninguna batalla se estanque (nació para
+ * `wait`, retirado el 26-10-2026): batallas de la IA contra sí misma, contando en qué ronda acaban.
  *
  * No se puede leer del barrido de arriba porque una batalla resuelta ya no está
  * en el `GameState`, y `finishByExhaustion` deja el mismo `finished` que una

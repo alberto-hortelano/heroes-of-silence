@@ -413,14 +413,14 @@ describe('pintar conserva el foco', () => {
   });
 
   it('un botón pulsado con el ratón no lo conserva; con el teclado, sí', () => {
-    // Conservárselo haría que el Espacio volviera a pulsar «Esperar» en vez de cerrar el turno.
-    const conRaton = new Nodo('BUTTON', { 'data-action': 'wait' });
+    // Conservárselo haría que el Espacio volviera a pulsar «Rendirse» en vez de cerrar el turno.
+    const conRaton = new Nodo('BUTTON', { 'data-action': 'battle-surrender' });
     conRaton.visible = false;
     expect(pintarConFoco(new Nodo('DIV', {}, [conRaton]), conRaton, {})).toEqual([]);
-    const conTeclado = new Nodo('BUTTON', { 'data-action': 'wait' });
-    const nuevo = new Nodo('BUTTON', { 'data-action': 'wait' });
+    const conTeclado = new Nodo('BUTTON', { 'data-action': 'battle-surrender' });
+    const nuevo = new Nodo('BUTTON', { 'data-action': 'battle-surrender' });
     pintarConFoco(new Nodo('DIV', {}, [conTeclado]), conTeclado, {
-      'button[data-action="wait"]': [nuevo],
+      'button[data-action="battle-surrender"]': [nuevo],
     });
     expect(nuevo.enfocado).not.toBeNull();
   });

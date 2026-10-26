@@ -2143,8 +2143,6 @@ function puerta(s: SesionDeArena, tipo: TipoDePuerta): void {
 /** Los botones de la batalla, los mismos de la partida (`accionesDeLaUnidad`). */
 const JUGADA_DE_BOTON = {
   'battle-end-turn': 'end_turn',
-  'battle-defend': 'defend',
-  'battle-wait': 'wait',
 } as const;
 
 document.addEventListener('click', (ev) => {

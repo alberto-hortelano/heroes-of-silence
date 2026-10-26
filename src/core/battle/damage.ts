@@ -20,8 +20,6 @@ export const ATTACK_BONUS_PER_POINT = 0.1;
 export const MAX_ATTACK_BONUS = 3.0;
 export const DEFENSE_REDUCTION_PER_POINT = 0.025;
 export const MAX_DEFENSE_REDUCTION = 0.7;
-/** "Defender" sube la defensa efectiva del stack un 20 %. */
-export const DEFEND_BONUS = 0.2;
 
 /**
  * Multiplicadores de suerte. En HoMM2 un golpe afortunado dobla el daño; uno
@@ -120,14 +118,12 @@ export function effectiveAttack(stack: BattleStack, uso: UsoDeArma = 'arma'): nu
 
 /**
  * La defensa con la que se recibe un golpe: la suya, más lo que se le suma
- * (`extra`: lo de estar en lo alto de un muro, `bonoEnLoAlto`), y el bono de
- * defender encima de todo.
+ * (`extra`: lo de estar en lo alto de un muro, `bonoEnLoAlto`) y sus efectos
+ * (Defensivo y Romper guardia de la rueda). La acción de defenderse (+20 %) se
+ * retiró el 26-10-2026 con la de esperar: el turno se cierra con `end_turn`.
  */
 export function effectiveDefense(stack: BattleStack, extra = 0): number {
-  // Los efectos de defensa (Defensivo y Romper guardia de la rueda) van en la
-  // base, antes del bono de defender.
-  const base = stack.unit.defense + extra + effectTotal(stack, 'defense');
-  return stack.defending ? base * (1 + DEFEND_BONUS) : base;
+  return stack.unit.defense + extra + effectTotal(stack, 'defense');
 }
 
 /**
@@ -287,10 +283,9 @@ function applyModifiers(
   const mult = damageMultiplier(ataque, defensa);
   base *= mult;
   if (anotar !== undefined) {
-    const defiende = defender.defending ? ' (defiende)' : '';
     const enLoAlto = (opts.bonoEnLoAlto ?? 0) > 0 ? ', en lo alto de la muralla' : '';
     anotar.push({
-      causa: `ataque ${conComa(ataque, 1)} contra defensa ${conComa(defensa, 1)}${defiende}${enLoAlto}`,
+      causa: `ataque ${conComa(ataque, 1)} contra defensa ${conComa(defensa, 1)}${enLoAlto}`,
       factor: mult,
     });
   }

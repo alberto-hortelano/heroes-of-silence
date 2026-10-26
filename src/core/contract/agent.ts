@@ -167,6 +167,15 @@ export const adventureActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('end_turn') }),
 ]);
 
+/** Una jugada que ya no existe: su `type` no vale nunca, con la frase que dice qué mandar. */
+function retirada<T extends string>(type: T, verbo: string) {
+  return z.object({
+    type: z.literal(type).refine(() => false, {
+      message: `ya no hay "${type}": ${verbo} se retiró de la batalla; para cerrar el turno de la unidad sin hacer nada, manda { "type": "end_turn" }`,
+    }),
+  });
+}
+
 export const battleActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('move'), to: hexSchema }),
   // `hit`, el golpe de la rueda, va como texto y no como `z.enum`: uno mal
@@ -181,8 +190,11 @@ export const battleActionSchema = z.discriminatedUnion('type', [
   // El disparo diferido (25-10-2026): apuntar a una casilla cierra el turno y el
   // disparo sale al empezar el siguiente (`apuntarBlocker`, `lineaDelDisparo`).
   z.object({ type: z.literal('aim'), at: hexSchema }),
-  z.object({ type: z.literal('wait') }),
-  z.object({ type: z.literal('defend') }),
+  // Retiradas el 26-10-2026 (decisión del usuario): se rechazan diciéndolo y
+  // diciendo qué mandar, en vez de un «discriminador inválido» que no explica
+  // nada. La batalla sigue: se descarta esa jugada, como cualquier otra mala.
+  retirada('wait', 'esperar'),
+  retirada('defend', 'defenderse'),
   z.object({ type: z.literal('cast'), spell: z.string(), target: z.string().optional() }),
   // El poder de la unidad activa (`UnitInfo.poderes`) sobre un aliado: el turno entero.
   z.object({ type: z.literal('power'), power: z.string(), target: z.string() }),
@@ -662,8 +674,6 @@ Acciones válidas para la unidad activa:
   { "type": "move",   "to": { "col": N, "row": N } }
   { "type": "attack", "target": "<id de stack>", "from": { "col": N, "row": N }, "hit": "<golpe>" }
   { "type": "aim",    "at": { "col": N, "row": N } }
-  { "type": "wait" }
-  { "type": "defend" }
   { "type": "cast",   "spell": "<id>", "target": "<id de stack>" }
   { "type": "power",  "power": "<id de poder>", "target": "<id de stack aliado>" }
   { "type": "surrender", "gold": N }
@@ -673,9 +683,11 @@ Notas:
 - "move" NO acaba el turno de la unidad: gasta casillas de su "stepsLeft" y se
   te vuelve a pedir acción para la misma unidad, así que puedes moverte en
   varios tramos. Tras moverse solo puede moverse más, atacar cuerpo a cuerpo o
-  terminar con "end_turn": ni apuntar, ni "defend", ni "wait". Atacar acaba
-  el turno. Si tras un "move" ya no le queda ni casilla a la que ir ni enemigo
-  al lado, el turno se cierra solo y no se te pregunta por ella.
+  terminar con "end_turn": ni apuntar. Atacar acaba el turno. "end_turn" cierra
+  el turno también sin moverse: es lo que se manda para no hacer nada (no hay
+  "wait" ni "defend": se retiraron). Si tras un "move" ya no le queda ni
+  casilla a la que ir ni enemigo al lado, el turno se cierra solo y no se te
+  pregunta por ella.
 - "turnId" numera los turnos de la batalla: mientras sea el mismo, sigues en el
   mismo turno de la misma unidad, y un "move" no lo cambia. La moral alta
   puede regalarle a una unidad un turno NUEVO: llega con otro "turnId" y su
@@ -715,7 +727,7 @@ Notas:
 - SALIR DEL CONTACTO cuesta: dejar una casilla con N enemigos al lado que te
   puedan golpear cuerpo a cuerpo cuesta 1 + N de "stepsLeft". Las casillas de
   "legalActions" ya lo descuentan; si no te llega para salir, no te mueves
-  (golpea, defiende o espera). La carga se paga por la recta.
+  (golpea o termina el turno). La carga se paga por la recta.
 - Cada golpe cuerpo a cuerpo pasa por la RUEDA DEL GOLPE: quien pega elige su
   golpe ("hit" en el "attack") y quien recibe su respuesta, a la vez y sin ver
   el otro. La partida juega con una de tres ruedas, la misma en toda batalla
@@ -757,11 +769,6 @@ Notas:
 - "cast" NO consume el turno de la unidad activa: lanza el héroe, se cobra el
   maná y una tirada por ronda, y después la unidad sigue pudiendo moverse,
   apuntar o atacar. Se te volverá a pedir acción para el mismo stack.
-- "wait" tampoco lo consume: manda a la unidad al FINAL de la cola de esta
-  ronda y se te volverá a pedir acción para ella cuando hayan movido los
-  demás. Sirve para no meterte en el alcance de quien todavía no ha actuado:
-  déjale comprometerse y pégale tú después. Solo se puede una vez por ronda
-  y por unidad, y por eso desaparece de "legalActions" en cuanto la usas.
 - La lista "legalActions" de la petición ya trae TODAS las acciones legales;
   elegir una de ellas nunca falla.
 - Si tu acción NO es legal se descarta y juega la IA de reglas en su lugar, que

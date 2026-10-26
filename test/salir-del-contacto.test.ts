@@ -164,15 +164,13 @@ describe('quien no puede pagar salir de su casilla', () => {
     expect(() => applyAction(b, { type: 'move', to: h(5, 3) }, createRng(1))).toThrow(motivo);
   });
 
-  it('puede golpear a quien tiene al lado, defender o esperar', () => {
+  it('puede golpear a quien tiene al lado o terminar el turno', () => {
     const b = rodeado();
     const acciones = legalActions(b);
     expect(acciones.some((a) => a.type === 'move')).toBe(false);
     expect(acciones.filter((a) => a.type === 'attack' && a.from === undefined)).toHaveLength(4);
     expect(acciones.some((a) => a.type === 'attack' && a.from !== undefined)).toBe(false);
-    expect(acciones.map((a) => a.type)).toEqual(
-      expect.arrayContaining(['defend', 'wait', 'end_turn']),
-    );
+    expect(acciones.map((a) => a.type)).toContain('end_turn');
   });
 
   it('con 3 al lado sí sale: le cuesta 4 y anda 4, y se queda en la primera casilla', () => {

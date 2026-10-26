@@ -22,7 +22,6 @@ import {
   cifrasDeCarga,
   dichoDeLaCarga,
 } from '@core/battle/carga.js';
-import { DEFEND_BONUS } from '@core/battle/damage.js';
 import {
   type CuandoVence,
   cifraDeEfecto,
@@ -951,7 +950,6 @@ export function accionesDeLaUnidad(o: {
    */
   readonly trasLaFinta?: boolean;
 }): Html {
-  const puede = (tipo: BattleAction['type']): boolean => o.legales.some((a) => a.type === tipo);
   const quedan = o.pasos === null ? null : quedanCasillas(o.pasos);
   const sinSalida =
     o.sinSalida == null ? NADA : html`<p class="cost" data-sin-salida>${o.sinSalida}</p>`;
@@ -974,8 +972,6 @@ export function accionesDeLaUnidad(o: {
        ${quedan === null ? NADA : html`<div class="row"><span class="label">Le ${quedan[0]}</span><span>${quedan[1]}</span></div>`}${sinSalida}
        <div class="stack-list">
          <button data-action="battle-end-turn">Terminar turno</button>
-         <button data-action="battle-defend" ${puede('defend') ? NADA : DESHABILITADO}>Defender</button>
-         <button data-action="battle-wait" ${puede('wait') ? NADA : DESHABILITADO}>Esperar</button>
          ${o.rendicion}${o.muralla}${o.poderes}
        </div>
        ${o.hechizos}
@@ -1426,18 +1422,6 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
         }
         case 'finished':
           return html`<div${clase(e.winner === mio, mio !== null && e.winner !== mio)}>Fin: gana el ${e.winner === 'attacker' ? 'atacante' : 'defensor'}</div>`;
-
-        case 'wait':
-          // Lo que hace `applyAction`: la manda al final de `state.queue` de
-          // esta ronda. No se promete que vuelva a actuar: 1 de cada 5 veces la
-          // destruyen o se acaba la batalla antes (#52).
-          return html`<div>Espera ${quienEs(e.stack)}: cede la iniciativa y pasa al final de la ronda</div>`;
-        case 'defend':
-          // La cifra sale de la constante que la aplica (`effectiveDefense`), y
-          // dura lo que dura `defending`: `beginRound` la apaga. El espacio antes
-          // del % es duro: en la caja estrecha del parte el «%» bajaba solo a la
-          // línea siguiente (visto en la captura).
-          return html`<div>Se defiende ${quienEs(e.stack)}: +${Math.round(DEFEND_BONUS * 100)}\u00a0% de defensa hasta el final de la ronda</div>`;
 
         case 'ladder_placed':
           return html`<div>${quienEs(e.stack)} apoya su escalera en el muro de (${e.muro.col},${e.muro.row}): se queda puesta</div>`;

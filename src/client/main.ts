@@ -988,10 +988,6 @@ document.addEventListener('click', (ev) => {
     case 'buy-item':
       session.buyItem(target.getAttribute('data-item') as string);
       break;
-    case 'battle-defend':
-    case 'battle-wait':
-      session.playBattleAction({ type: action === 'battle-wait' ? 'wait' : 'defend' });
-      break;
     case 'battle-end-turn':
       session.playBattleAction({ type: 'end_turn' });
       break;
