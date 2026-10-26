@@ -463,6 +463,11 @@ export interface OpcionDelHueco {
  * dos manos, una que el índice no sabe medir): `null` si entra. **La pregunta
  * «¿qué le pongo?»**: la lee la ficha de la unidad, que no ofrece lo que el núcleo
  * rechazaría.
+ *
+ * Las manos se preguntan antes, desde la pieza que se pone (`manosBlocker` con su
+ * hueco): el equipo entero ya puesto las miraba desde lo que estaba, y el remedio
+ * salía al revés («quita antes Espada» con la Espada que se quería poner de segunda
+ * junto a un mandoble; H2 del QA de fuerza y agilidad, 26-10-2026).
  */
 export function opcionesDelHueco(
   u: Unidad,
@@ -473,7 +478,9 @@ export function opcionesDelHueco(
     .filter((p) => huecosDeLaPieza(p.hueco).includes(hueco) && p.id !== u.equipo[hueco])
     .map((p) => ({
       pieza: p,
-      motivo: equipoDeUnidadBlocker(cuerpoDeCombate(u), { ...u.equipo, [hueco]: p.id }, eq),
+      motivo:
+        eq.manosBlocker(u.equipo, p.id, hueco) ??
+        equipoDeUnidadBlocker(cuerpoDeCombate(u), { ...u.equipo, [hueco]: p.id }, eq),
     }));
 }
 

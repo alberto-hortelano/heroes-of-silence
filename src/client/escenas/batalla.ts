@@ -546,10 +546,22 @@ export class EscenaBatalla {
   private rotuloDelDisparo(): string | null {
     const s = this.sesion();
     if (s.apuntado?.kind !== 'disparo' || this.hoverHex === null) return null;
-    const { linea, accion } = this.tanteoEn(this.hoverHex);
-    if (linea === null) return null;
     const { col, row } = this.hoverHex;
-    const aqui = `Apuntarías a (${col},${row}).`;
+    return this.dichoDelTanteo(this.hoverHex, `Apuntarías a (${col},${row}).`);
+  }
+
+  /**
+   * El tanteo del disparo a `at` dicho tras `aqui`: a quién daría hoy, con «¡tuyo!»
+   * si es propio, y cuánto; o que no daría a nadie y qué la para. `null` si ahí no
+   * se puede apuntar. Lo dicen «Apuntar» con una casilla y el puntero sobre un
+   * enemigo, que apunta a su casilla: con su previsión sola, el puntero sobre un
+   * enemigo con un aliado delante daba el daño y los PV del aliado sin nombrarlo
+   * (H3 del QA de fuerza y agilidad, 26-10-2026).
+   */
+  private dichoDelTanteo(at: Hex, aqui: string): string | null {
+    const s = this.sesion();
+    const { linea, accion } = this.tanteoEn(at);
+    if (linea === null) return null;
     if (linea.alcanzado === null) {
       const parada =
         linea.parada === null
@@ -624,9 +636,8 @@ export class EscenaBatalla {
     const accion = this.accionContraEn(x, y);
     // Si apuntaría, lo que daría el disparo si saliera ahora (sale en su turno siguiente).
     if (accion?.type === 'aim') {
-      const p = this.previsionEn(accion);
       const sale = 'Apuntarías a su casilla: el disparo sale al empezar su siguiente turno.';
-      return p === null ? sale : `${sale} ${p}`;
+      return this.dichoDelTanteo(accion.at, sale) ?? sale;
     }
     if (accion !== undefined) return null;
     return this.sesion().attackRejection(golpe.objetivo);

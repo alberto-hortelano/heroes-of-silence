@@ -981,6 +981,21 @@ describe('la ficha de una unidad ofrece solo lo que el núcleo admite (H3 de la 
     expect(escudos.length).toBeGreaterThan(0);
     for (const e of escudos) expect(e.motivo, e.pieza.id).toMatch(/arma a dos manos/);
     expect(ficha(orco)).toMatch(/<option value="escudo" disabled>Escudo · no: .*a dos manos/);
+    // El motivo se dice desde la pieza que se pone, con el remedio de lo que ya
+    // lleva: no «quita antes Espada» con la Espada que se intenta poner (QA de
+    // fuerza y agilidad, H2).
+    const motivoDe = (u: Unidad, hueco: Hueco, id: string) =>
+      opcionesDelHueco(u, hueco, EQUIPO_DEL_JUEGO).find((o) => o.pieza.id === id)?.motivo;
+    expect(motivoDe(orco, 'segunda', 'espada')).toBe(
+      'Mandoble es un arma a dos manos y no deja mano para una segunda arma',
+    );
+    expect(motivoDe(orco, 'segunda', 'mandoble')).toBe(
+      'Mandoble es un arma a dos manos: va sola, no de segunda arma',
+    );
+    const jinete = unidadDeArena('elfo-jinete');
+    expect(motivoDe(jinete, 'escudo', 'rodela')).toBe(
+      'Rodela no se puede llevar con dos armas: no queda mano para el escudo; quita antes Lanza',
+    );
   });
 
   it('el arma de cuerpo a cuerpo no se quita: sin ella no se monta, y la ficha lo dice en vez de la ×', () => {

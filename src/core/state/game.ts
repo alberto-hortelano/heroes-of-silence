@@ -1520,17 +1520,21 @@ function aplicar(
       // Equipar es estado y no un hecho, como la patrulla de un asaltante: no se
       // cuenta en la crónica. Lo que cuenta es de dónde salió la pieza.
       const quien = destinoDeEquipo(hero, action) as Portador;
-      hero.mochila = sacarDeLaMochila(hero.mochila, action.item);
+      // Todo o nada: lo que puede lanzar va antes de tocar al héroe. Sacaba la
+      // pieza de la mochila antes de `ponerPieza`, y cuando esa lanzaba la pieza
+      // se perdía (H1 del QA de fuerza y agilidad, 26-10-2026). Y con lo de serie
+      // debajo, que es lo que mira `equipBlocker`: la daga de un arquero es su
+      // primera arma.
       const { equipo, quitada } = ponerPieza(
         equipoDe(hero, quien),
         action.item,
         undefined,
         action.hueco,
+        equipoDeSerieDe(hero, quien),
       );
-      vestir(
-        hero,
-        conEquipoDe(hero, quien, equipo, () => hojaNueva(state)),
-      );
+      const vestido = conEquipoDe(hero, quien, equipo, () => hojaNueva(state));
+      hero.mochila = sacarDeLaMochila(hero.mochila, action.item);
+      vestir(hero, vestido);
       aLaMochila(hero, quitada);
       return;
     }

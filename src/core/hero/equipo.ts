@@ -89,6 +89,7 @@ export interface EquipoAtado {
     id: string,
     portador?: string,
     hueco?: Hueco,
+    deSerie?: Equipo,
   ) => { readonly equipo: Equipo; readonly quitada: string | null };
 }
 
@@ -113,8 +114,8 @@ export function equipoCon(piezas: CatalogoDePiezas): EquipoAtado {
     conEquipo: (unit, equipo) => vestir(piezas, unit, equipo),
     manosBlocker: (equipo, id, hueco) => manosDe(piezas, equipo, id, hueco),
     equipoBlocker: (equipo) => equipoBlockerDe(piezas, equipo),
-    ponerPieza: (equipo, id, portador, hueco) => {
-      return poner(piezas, equipo, piezaDe(piezas, id), portador, hueco);
+    ponerPieza: (equipo, id, portador, hueco, deSerie) => {
+      return poner(piezas, equipo, piezaDe(piezas, id), portador, hueco, deSerie);
     },
   };
 }
@@ -640,14 +641,21 @@ function equipoBlockerDe(piezas: CatalogoDePiezas, equipo: Equipo): string | nul
  * ese hueco (o `null`). Lanza si las manos no cuadran (`manosBlocker`), diciendo a
  * quién si se da `portador`. El juego ya lo preguntó (`equipBlocker`) y aquí está
  * la última puerta; la arena no pregunta antes: esta es su pregunta.
+ *
+ * `deSerie` es lo de serie que el portador lleva debajo (`equipoDeSerieDe`): cuenta
+ * para las manos, como en la pregunta del juego, pero no se devuelve ni sale como
+ * `quitada`, que lo de serie no va a la mochila. Sin él, la daga de serie de un
+ * arquero no contaba de primera arma y «A la segunda mano», que la pregunta veía,
+ * lanzaba aquí (H1 del QA de fuerza y agilidad, 26-10-2026).
  */
 export function ponerPieza(
   equipo: Equipo | undefined,
   id: string,
   portador?: string,
   hueco?: Hueco,
+  deSerie?: Equipo,
 ): { readonly equipo: Equipo; readonly quitada: string | null } {
-  return poner(PIEZAS_DEL_CATALOGO, equipo, pieza(id), portador, hueco);
+  return poner(PIEZAS_DEL_CATALOGO, equipo, pieza(id), portador, hueco, deSerie);
 }
 
 function poner(
@@ -656,9 +664,10 @@ function poner(
   p: Pieza,
   portador?: string,
   enHueco?: Hueco,
+  deSerie: Equipo = {},
 ): { readonly equipo: Equipo; readonly quitada: string | null } {
   const hueco = enHueco ?? p.hueco;
-  const motivo = manosDe(piezas, equipo, p.id, hueco);
+  const motivo = manosDe(piezas, { ...deSerie, ...equipo }, p.id, hueco);
   if (motivo !== null) {
     const a = portador === undefined ? '' : ` a ${portador}`;
     throw new Error(`no se puede poner ${p.nombre}${a}: ${motivo}`);

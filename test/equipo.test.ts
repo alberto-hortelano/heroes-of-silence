@@ -19,7 +19,7 @@ import {
 import { armaduraDe, cifrasDelGolpe } from '../src/core/battle/armas.js';
 import { createBattle, stackById } from '../src/core/battle/battle.js';
 import { armasDe } from '../src/core/battle/damage.js';
-import { cifrasDeUnidad, unidad, unidadDelJuego } from '../src/core/catalogo.js';
+import { cifrasDeUnidad, equipoPuestoDe, unidad, unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { RESPONSE_FORMAT } from '../src/core/contract/agent.js';
 import { cifrasDelCuerpo } from '../src/core/cuerpo.js';
@@ -956,6 +956,60 @@ describe('un arma a dos manos sobre un escudo de serie (QA de la tropa, H4)', ()
     expect(equipBlocker(state, 0, { type: 'equip', hero: hero.id, item: 'mandoble' })).toBe(
       'Mandoble es un arma a dos manos y no se puede llevar con Escudo: quita antes el escudo',
     );
+  });
+});
+
+describe('la segunda mano de la tropa: la acción hace lo que dice la pregunta (QA de fuerza y agilidad, H1)', () => {
+  // El botón «A la segunda mano» pregunta `ponerseBlocker` (lo que llevaría puesto,
+  // con lo de serie), y la acción sacaba la pieza de la mochila y luego lanzaba,
+  // porque ponía sobre lo suyo sin la daga de serie: la Espada se perdía.
+  it('un arquero con su daga de serie se pone la Espada de segunda: la pregunta dice sí y la acción la pone', () => {
+    const { state, c, hero } = enLaArmeria();
+    const ARQUERO = 'elfo-arquero';
+    const serie = unidadDelJuego(ARQUERO).equipo!;
+    expect(serie.arma).toBe('daga');
+    expect(serie.segunda).toBeUndefined();
+    hero.army = [{ creature: ARQUERO }];
+    hero.mochila = ['espada'];
+    const segunda: AdventureAction = {
+      type: 'equip',
+      hero: hero.id,
+      item: 'espada',
+      creature: ARQUERO,
+      hueco: 'segunda',
+    };
+    expect(equipBlocker(state, 0, segunda)).toBeNull();
+    accion(state, segunda, c);
+    expect(hero.mochila).toEqual([]);
+    // Lo suyo es solo la segunda; la daga sigue de serie debajo y no va a la mochila.
+    expect(hero.army[0]!.veterania?.equipo).toEqual({ segunda: 'espada' });
+    expect(equipoPuestoDe(hero, { indice: 0 })).toMatchObject({ arma: 'daga', segunda: 'espada' });
+  });
+
+  it('la que se rechaza no toca nada: ni la mochila, ni la tropa, ni el contador de hojas', () => {
+    const { state, c, hero } = enLaArmeria();
+    const PIQUERO = 'imperio-piquero';
+    expect(unidadDelJuego(PIQUERO).equipo!.arma).toBe('mandoble');
+    hero.army = [{ creature: PIQUERO }];
+    hero.mochila = ['espada'];
+    const segunda: AdventureAction = {
+      type: 'equip',
+      hero: hero.id,
+      item: 'espada',
+      creature: PIQUERO,
+      hueco: 'segunda',
+    };
+    const motivo = equipBlocker(state, 0, segunda);
+    expect(motivo).toBe('Mandoble es un arma a dos manos y no deja mano para una segunda arma');
+    const antes = JSON.stringify({
+      army: hero.army,
+      mochila: hero.mochila,
+      n: state.siguienteVeterano,
+    });
+    expect(() => accion(state, segunda, c)).toThrow(`no se puede equipar: ${motivo}`);
+    expect(
+      JSON.stringify({ army: hero.army, mochila: hero.mochila, n: state.siguienteVeterano }),
+    ).toBe(antes);
   });
 });
 

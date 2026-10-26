@@ -1083,8 +1083,9 @@ function disparoBlocker(state: BattleState, s: BattleStack): string | null {
  * del tirador (`disparoBlocker`) y la casilla, que tiene que estar en el tablero y
  * no ser la suya. Vale cualquier otra, con alguien o vacía: la recta y a quién da
  * se ven al salir el disparo (`lineaDelDisparo`). Sin `at`, solo si puede apuntar
- * (el botón). La leen `applyAction`, la previsión y la pantalla (con el sujeto
- * delante: `${id} …`).
+ * (el botón). La leen `applyAction`, la previsión y la pantalla, con el nombre de
+ * la unidad delante, como los demás `*Blocker` (el id, «attacker-0», no le dice
+ * nada a quien juega; H4 del QA de fuerza y agilidad, 26-10-2026).
  */
 export function apuntarBlocker(state: BattleState, at?: Hex): string | null {
   const s = activeStack(state);
@@ -1092,11 +1093,11 @@ export function apuntarBlocker(state: BattleState, at?: Hex): string | null {
   const porLaFase = faseBlocker(state, 'aim');
   if (porLaFase !== null) return porLaFase;
   const motivo = disparoBlocker(state, s);
-  if (motivo !== null) return `${s.id} ${motivo}`;
+  if (motivo !== null) return `${s.unit.name} ${motivo}`;
   // Sin casilla, solo si puede apuntar: el botón «Apuntar».
   if (at === undefined) return null;
   if (!isInside(at)) return `(${at.col},${at.row}) no es una casilla del tablero`;
-  if (hexEquals(at, s.hex)) return `${s.id} no puede apuntar a su propia casilla`;
+  if (hexEquals(at, s.hex)) return `${s.unit.name} no puede apuntar a su propia casilla`;
   return null;
 }
 
