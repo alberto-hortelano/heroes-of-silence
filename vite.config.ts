@@ -211,8 +211,13 @@ function arena(): Plugin {
         servirBorrador({
           ruta: RUTA_DEL_CATALOGO_DE_UNIDADES,
           leer: async () => {
-            const leido = (await borrador()).leerCatalogo(raiz);
+            const b = await borrador();
+            // La versión, antes que lo leído: si otro guarda en medio, la página
+            // tendrá la vieja y su «Guardar» se rechazará en vez de pisarlo.
+            const version = b.versionDelCatalogo(raiz);
+            const leido = b.leerCatalogo(raiz);
             return {
+              version,
               unidades: leido.unidades,
               // Y el catálogo de equipo (vista «Editar equipo»): va con las unidades
               // porque se guarda con ellas, en una operación.
@@ -221,7 +226,7 @@ function arena(): Plugin {
           },
           vacio: { unidades: [], piezas: [] },
           escribir: async (cuerpo) => {
-            const hecho = (await borrador()).escribirCatalogo(raiz, cuerpo);
+            const hecho = (await borrador()).guardarCatalogo(raiz, cuerpo);
             for (const ruta of [RUTA_DEL_CATALOGO_DE_EQUIPO, RUTA_DEL_CATALOGO_DE_UNIDADES]) {
               const donde = resolve(raiz, ruta);
               escritoAlGuardar.set(donde, readFileSync(donde, 'utf8'));

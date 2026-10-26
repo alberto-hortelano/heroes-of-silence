@@ -83,6 +83,7 @@ import {
 import { parseSeed } from '@core/rng.js';
 import { type ClimaDelSitio, climaSinRegiones, DESPEJADO } from '@core/state/clima.js';
 import {
+  CIFRAS_DE_PIEZA,
   type CreatureTrait,
   esHueco,
   esHuecoDePieza,
@@ -415,6 +416,12 @@ let avisoDeIncompletas = '';
 /** Por qué no se puede guardar, o `null` si se puede. */
 let sinGuardado: string | null = null;
 /**
+ * La versión en disco del catálogo que leyó esta página (`versionDelCatalogo`), que
+ * «Guardar» devuelve: el servidor rechaza el guardado si otra pestaña escribió
+ * entre medias. Tras guardar, la que dejó escrita esta.
+ */
+let versionLeida: unknown = null;
+/**
  * Lo que no se ha guardado, por id: unidades y piezas. Cerrar la página avisa, y
  * la vista de equipo lo cuenta (`sinGuardarEnPalabras`).
  */
@@ -717,6 +724,8 @@ interface RespuestaDeBorrador {
   readonly ilegible?: string;
   /** El catálogo de equipo, que va con las unidades (`leerCatalogo`). */
   readonly piezas?: unknown;
+  /** La versión en disco de lo leído (`versionDelCatalogo`): se devuelve al guardar. */
+  readonly version?: unknown;
 }
 
 /**
@@ -802,6 +811,7 @@ async function arrancar(): Promise<void> {
     aviso = `No se puede leer ${RUTA_DEL_CATALOGO_DE_UNIDADES}: ${cuerpo.ilegible}. No hay unidades que montar ni se guarda hasta que se arregle; «Nueva unidad» sí crea.`;
     return;
   }
+  versionLeida = cuerpo.version ?? null;
   // Las piezas antes que las unidades: una unidad puede llevar una nueva.
   cargarPiezas(cuerpo);
   const unidades = Array.isArray(cuerpo.unidades) ? cuerpo.unidades : [];
@@ -1203,18 +1213,11 @@ function conCifraDePieza(x: ExtrasDePieza, campo: string, n: number): ExtrasDePi
     }
     return { ...x, rueda: { ...x.rueda, [tipo]: n } };
   }
-  switch (campo) {
-    case 'precio-gold':
-      return { ...x, oro: n };
-    case 'ataque':
-    case 'fuerza':
-    case 'defensa':
-    case 'armadura':
-    case 'peso':
-      return { ...x, [campo]: n };
-    default:
-      throw new Error(`la ficha de la pieza no tiene un campo «${campo}»`);
-  }
+  if (campo === 'precio-gold') return { ...x, oro: n };
+  // Las cifras, las de la lista (`CIFRAS_DE_PIEZA`): escritas a mano aquí se quedó
+  // fuera la agilidad de la montura (26-10-2026).
+  if ((CIFRAS_DE_PIEZA as readonly string[]).includes(campo)) return { ...x, [campo]: n };
+  throw new Error(`la ficha de la pieza no tiene un campo «${campo}»`);
 }
 
 /** Un campo de la ficha de la pieza: la pieza cambiada, si vale y no rompe a nadie. */
@@ -1625,11 +1628,16 @@ async function guardar(): Promise<void> {
   const unidades = [...unidadesDelCatalogo.values()].sort((a, b) => puesto(a.id) - puesto(b.id));
   const guardado = equipo;
   const piezas = [...guardado.escritas.values()];
-  const hecho = await mandarAlServidor('/__arena/unidades', { unidades, piezas }, sinGuardado, {
-    noSePuede: 'No se puede guardar',
-    noSeHa: 'No se ha guardado',
-  });
+  // Con la versión que se leyó: si otra pestaña guardó entre medias, el servidor
+  // lo rechaza en vez de pisarlo (`guardarCatalogo`).
+  const hecho = await mandarAlServidor(
+    '/__arena/unidades',
+    { unidades, piezas, version: versionLeida },
+    sinGuardado,
+    { noSePuede: 'No se puede guardar', noSeHa: 'No se ha guardado' },
+  );
   if (hecho === null) return;
+  versionLeida = hecho.version ?? null;
   unidadesSinGuardar.clear();
   equipoGuardado = guardado;
   aviso = guardadoEnPalabras(hecho as Guardado);

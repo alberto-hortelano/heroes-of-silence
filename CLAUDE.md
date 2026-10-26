@@ -1231,7 +1231,10 @@ antes del destino (`battle_started` con `faltan`).
   `data/equipo.json`: «Guardar» escribe los dos en una operación (`escribirCatalogo`,
   `tools/arena/borrador.ts`), validados con la regla de la carga del juego (`leerCatalogos`,
   `moradasBlocker`), conservando su `_comment` y sin recargar la página (`handleHotUpdate` por
-  contenido, `vite.config.ts`); si algo no vale no escribe ninguno, y uno ilegible no se pisa.
+  contenido, `vite.config.ts`); si algo no vale no escribe ninguno, y uno ilegible no se pisa. **Ni lo guardado desde otra pestaña** (26-10-2026): la página lee la versión en disco de los dos
+  ficheros (`versionDelCatalogo`, un hash de su texto) y la devuelve al guardar; si cambió, no se escribe
+  ninguno y lo dice, «recárgala» (`guardarCatalogo`, `tools/arena/borrador.ts`). Tras guardar, la página
+  adopta la versión que dejó escrita.
   Guardar cambia lo que se recluta y se compra en `pnpm dev`. La arena construida (sin servidor) lee
   el catálogo del núcleo y no guarda. **Solo las cinco facciones**, toda
   unidad de una casilla y sin munición. **Sin compatibilidad hacia atrás** (14-10-2026: «estamos en

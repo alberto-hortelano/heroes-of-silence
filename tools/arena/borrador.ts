@@ -8,6 +8,8 @@
  * Aparte de `vite.config.ts` para que los tests lo ejerzan contra una carpeta
  * temporal sin arrancar vite.
  */
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -300,6 +302,59 @@ export function escribirCatalogo(
     conservadas: deUnidadesListo.conservadas,
     piezas: escritas.length,
   };
+}
+
+/**
+ * La versión en disco de los dos ficheros que escribe «Guardar»: un hash de su
+ * texto, o `"falta"` si no está. La página la recibe al leer el catálogo y la
+ * devuelve al guardar (`guardarCatalogo`).
+ */
+export type VersionDelCatalogo = Readonly<Record<string, string>>;
+
+/** Los dos ficheros del catálogo, en el orden en que se dice cuál cambió. */
+const FICHEROS_DEL_CATALOGO = [RUTA_DEL_CATALOGO_DE_EQUIPO, RUTA_DEL_CATALOGO_DE_UNIDADES];
+
+export function versionDelCatalogo(raiz: string): VersionDelCatalogo {
+  return Object.fromEntries(
+    FICHEROS_DEL_CATALOGO.map((ruta) => {
+      const donde = join(raiz, ruta);
+      if (!existsSync(donde)) return [ruta, 'falta'];
+      return [ruta, createHash('sha256').update(readFileSync(donde)).digest('hex')];
+    }),
+  );
+}
+
+/**
+ * «Guardar» desde la página: `escribirCatalogo`, pero solo si el disco sigue como
+ * la página lo leyó (`cuerpo.version`, la de `versionDelCatalogo` al abrirla o al
+ * guardar la última vez). Otra pestaña con el catálogo viejo pisaba en silencio lo
+ * que esta acababa de guardar (26-10-2026: el peso del mandoble volvió a 12): si un
+ * fichero cambió, no se escribe ninguno y se dice cuál. Devuelve lo que dice
+ * `escribirCatalogo` y la versión nueva, que la página adopta.
+ */
+export function guardarCatalogo(
+  raiz: string,
+  cuerpo: unknown,
+): ReturnType<typeof escribirCatalogo> & { readonly version: VersionDelCatalogo } {
+  if (typeof cuerpo !== 'object' || cuerpo === null || Array.isArray(cuerpo)) {
+    throw new Error('el catálogo llega como un objeto con unidades, piezas y versión');
+  }
+  const { version: leida, ...catalogo } = cuerpo as Record<string, unknown>;
+  if (typeof leida !== 'object' || leida === null) {
+    throw new Error('falta la versión que leyó la página: recárgala');
+  }
+  const ahora = versionDelCatalogo(raiz);
+  const cambiados = FICHEROS_DEL_CATALOGO.filter(
+    (ruta) => (leida as Record<string, unknown>)[ruta] !== ahora[ruta],
+  );
+  if (cambiados.length > 0) {
+    const cuales = cambiados.join(' y ');
+    throw new Error(
+      `${cuales} ${cambiados.length > 1 ? 'han' : 'ha'} cambiado desde que abriste esta página (otra pestaña guardó, o se editó a mano): recárgala; lo que no has guardado aquí se pierde`,
+    );
+  }
+  const hecho = escribirCatalogo(raiz, catalogo);
+  return { ...hecho, version: versionDelCatalogo(raiz) };
 }
 
 // ---------------------------------------------------------------- murallas

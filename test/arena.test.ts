@@ -109,7 +109,13 @@ import {
 } from '../src/core/unidad.js';
 import { unaVezEnLaURL } from '../src/core/validar.js';
 import { NOMBRES_DE_DIRECCION } from '../src/shared/arte.js';
-import { escribirCatalogo, hojasDelTaller, leerCatalogo } from '../tools/arena/borrador.js';
+import {
+  escribirCatalogo,
+  guardarCatalogo,
+  hojasDelTaller,
+  leerCatalogo,
+  versionDelCatalogo,
+} from '../tools/arena/borrador.js';
 import { AGILIDAD_DEL_CUERPO } from '../tools/arena/velocidades.js';
 import { arteEnOchoDirecciones } from '../tools/taller/arte-en-disco.js';
 import {
@@ -533,6 +539,32 @@ describe('el borrador se valida antes de escribirse', () => {
         }),
       ).toThrow();
       expect(leerCatalogo(dir).unidades).toEqual(catalogoEntero(monje));
+    });
+
+    it('«Guardar» con la versión vieja no pisa lo que guardó otra pestaña (26-10-2026)', () => {
+      dir = carpetaDeLaArena();
+      const leida = versionDelCatalogo(dir);
+      const monje = { ...base(), attack: 9 };
+      // La otra pestaña guarda primero, con la misma versión: entra y da la nueva.
+      const otra = guardarCatalogo(dir, {
+        unidades: catalogoEntero(monje),
+        piezas: EQUIPO_ESCRITO,
+        version: leida,
+      });
+      expect(otra.version).toEqual(versionDelCatalogo(dir));
+      // Esta, con la de antes: se rechaza sin escribir nada.
+      expect(() =>
+        guardarCatalogo(dir as string, {
+          unidades: catalogoEntero({ ...monje, attack: 2 }),
+          piezas: EQUIPO_ESCRITO,
+          version: leida,
+        }),
+      ).toThrow(/data\/unidades\.json han? cambiado desde que abriste esta página/);
+      expect(leerCatalogo(dir).unidades).toEqual(catalogoEntero(monje));
+      // Sin versión, tampoco.
+      expect(() =>
+        guardarCatalogo(dir as string, { unidades: catalogoEntero(monje), piezas: EQUIPO_ESCRITO }),
+      ).toThrow('falta la versión');
     });
   });
 
