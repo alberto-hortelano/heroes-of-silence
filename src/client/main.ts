@@ -38,6 +38,7 @@ import { pintarSiguiendoElFinal } from './views/al-final.js';
 import { renderConversacion } from './views/base.js';
 import { renderConversacionDelLugar } from './views/lugar.js';
 import { renderActions, renderSide, renderTopbar } from './views/panels.js';
+import { modoDelBoton } from './views/poderes.js';
 
 /**
  * `true` en `pnpm dev` y `false` en `vite build` (`define` de `vite.config.ts`):
@@ -1005,9 +1006,9 @@ document.addEventListener('click', (ev) => {
       session.poderes.usar(id);
       break;
     }
-    case 'battle-apuntar':
-      // El tirador activo deja el siguiente clic eligiendo casilla (`DisparoDeLaActiva`).
-      session.disparo.alternar();
+    case 'battle-arma':
+      // El selector de arma del tirador activo (`ArmaDeLaActiva`, el de la arena).
+      session.arma.elegir(modoDelBoton(target));
       break;
     case 'auto-battle':
       session.autoResolveBattle();
@@ -1084,6 +1085,16 @@ document.addEventListener('keydown', (ev) => {
   // Escape suelta el hechizo elegido o el poder que espera aliado.
   if (ev.key === 'Escape' && session.scene === 'battle' && !jugadaEnCurso()) {
     session.soltarLoApuntado();
+  }
+  // Q alterna el arma del tirador activo (`ArmaDeLaActiva`): cuerpo a cuerpo o a distancia.
+  if (
+    (ev.key === 'q' || ev.key === 'Q') &&
+    !(ev.ctrlKey || ev.metaKey || ev.altKey) &&
+    session.scene === 'battle' &&
+    !jugadaEnCurso() &&
+    session.arma.conSelector
+  ) {
+    session.arma.alternar();
   }
   // En batalla, Espacio cierra el turno de la unidad tuya que está actuando: con
   // el movimiento en tramos es lo que más se pulsa. Pasa por la misma puerta que

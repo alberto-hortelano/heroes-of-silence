@@ -64,9 +64,7 @@ describe('el ángulo del golpe', () => {
 
   it('sin golpes contra ese enemigo no hay nada que elegir', () => {
     const otro = { type: 'attack', target: 'x' } as const;
-    expect(
-      accionContra([otro], 'e', { col: 9, row: 9 }, { col: 0, row: 0 }, tablero, 0, 0),
-    ).toBeUndefined();
+    expect(accionContra([otro], 'e', { col: 0, row: 0 }, tablero, 0, 0)).toBeUndefined();
     expect(masCercana([], tablero, 0, 0)).toBeUndefined();
   });
 });

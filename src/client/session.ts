@@ -47,6 +47,7 @@ import {
   stackById,
   surrenderBlocker,
 } from '@core/battle/battle.js';
+import { armasDe } from '@core/battle/damage.js';
 import { bonoEnLoAlto, type MurallaDeBatalla, SIN_MURALLA } from '@core/battle/muralla.js';
 import { type PoderId, poder } from '@core/battle/poderes.js';
 import {
@@ -67,7 +68,7 @@ import type {
 } from '@core/battle/types.js';
 import { cuerpoDe } from '@core/catalogo.js';
 import type { ReglasDelCombate } from '@core/combate.js';
-import { figuraDelHeroe } from '@core/data.js';
+import { figuraDelHeroe, isShooter } from '@core/data.js';
 import { type CatalogoDeEquipo, type Portador, pedidoDelPuesto, pieza } from '@core/hero/equipo.js';
 import { type Hero, maxMana } from '@core/hero/hero.js';
 import {
@@ -349,8 +350,11 @@ export interface ControlDeBatalla {
   readonly apuntado: Apuntado | null;
   /** Por qué lo apuntado no vale sobre ese stack, con la frase del núcleo (`castBlocker`, `poderBlocker`). */
   rechazoDeLoApuntado(targetId: string): string;
-  /** El disparo diferido de la activa (`aim`): el botón «Apuntar», el tanteo y el clic en una casilla. */
-  readonly disparo: DisparoDeLaActiva;
+  /**
+   * El selector de arma de la activa (`ArmaDeLaActiva`): «Cuerpo a cuerpo» o «A
+   * distancia», qué ofrece la lista de cada modo, y el tanteo y el clic del disparo.
+   */
+  readonly arma: ArmaDeLaActiva;
   playBattleAction(action: BattleAction): void;
 }
 
@@ -362,34 +366,20 @@ export interface ControlDeBatalla {
  */
 export interface Apuntado {
   /**
-   * `disparo`: el botón «Apuntar» del tirador activo (25-10-2026), que espera el clic
-   * en una casilla y no en una unidad (`DisparoDeLaActiva`); su `id`, el del tirador.
+   * El disparo no es de aquí: es el modo «A distancia» del selector de arma
+   * (`ArmaDeLaActiva`), que no se suelta con un hechizo ni con Escape.
    */
-  readonly kind: 'hechizo' | 'poder' | 'disparo';
+  readonly kind: 'hechizo' | 'poder';
   readonly id: string;
 }
 
-/**
- * Cómo se nombra lo apuntado en una frase: el hechizo, el poder o el disparo. Sin
- * él, el disparo se buscaba entre los poderes con el id de su tirador.
- */
+/** Cómo se nombra lo apuntado en una frase: el hechizo o el poder. */
 function nombreDeLoApuntado(a: Apuntado): string {
-  switch (a.kind) {
-    case 'hechizo':
-      return spell(a.id).name;
-    case 'poder':
-      return poder(a.id).nombre;
-    case 'disparo':
-      return 'el disparo';
-  }
+  return a.kind === 'hechizo' ? spell(a.id).name : poder(a.id).nombre;
 }
 
-/**
- * ¿Es `a` una jugada de lo apuntado (sobre `objetivo`, si se dice)? El disparo no
- * va sobre una unidad sino sobre una casilla: con `objetivo`, nunca.
- */
+/** ¿Es `a` una jugada de lo apuntado (sobre `objetivo`, si se dice)? */
 export function esDeLoApuntado(apuntado: Apuntado, a: BattleAction, objetivo?: string): boolean {
-  if (apuntado.kind === 'disparo') return a.type === 'aim' && objetivo === undefined;
   const suya =
     apuntado.kind === 'hechizo'
       ? a.type === 'cast' && a.spell === apuntado.id
@@ -415,9 +405,16 @@ interface AccionesDeBatalla {
  * leer el clic y el núcleo rechaza lo que no toca—; lo que se pinta (a dónde ir,
  * a quién cargar), solo si la unidad activa es tuya.
  */
-function accionesDeBatalla(battle: BattleState, turno: TurnoPropio | null): AccionesDeBatalla {
-  const { actions: acciones, costs } =
+function accionesDeBatalla(
+  battle: BattleState,
+  turno: TurnoPropio | null,
+  modo: ModoDelArma,
+): AccionesDeBatalla {
+  const { actions: todas, costs } =
     battle.finished === null ? legalActionsAndCosts(battle) : { actions: [], costs: new Map() };
+  // Lo que ofrece el modo del selector de arma, solo en tu turno: lo del rival se
+  // pide para leer el clic y no tiene selector.
+  const acciones = turno === null ? todas : delModo(todas, modo);
   return {
     acciones,
     // Los hexes a los que ir son las entradas `move` de la misma lista: antes se
@@ -427,8 +424,9 @@ function accionesDeBatalla(battle: BattleState, turno: TurnoPropio | null): Acci
     // Las cargas se enseñan con el movimiento posible (decisión del usuario):
     // salen de `casillasDeCarga`, la misma regla que las cobra.
     // Con el recorrido que ya hizo la lista, si es el de la misma unidad.
+    // «A distancia» no anda: sin cargas que enseñar.
     cargas:
-      turno === null
+      turno === null || modo === 'distancia'
         ? SIN_CARGAS
         : casillasDeCarga(
             turno.battle,
@@ -558,7 +556,7 @@ function rechazoDeLoApuntado(
   apuntado: Apuntado | null,
   targetId: string,
 ): string {
-  if (apuntado === null || apuntado.kind === 'disparo') return '';
+  if (apuntado === null) return '';
   return apuntado.kind === 'hechizo'
     ? hechizos.castRejection(targetId)
     : poderes.rechazo(apuntado.id, targetId);
@@ -664,46 +662,115 @@ export class PoderesDeLaActiva {
 }
 
 /**
- * El disparo diferido de la unidad activa (25-10-2026, sin validar por el usuario)
- * tal como lo usa la persona, el mismo en la partida y la arena: el botón
- * «Apuntar» (deja lo apuntado esperando el clic en cualquier casilla, o lo suelta),
- * la recta que se tantea con el puntero y el clic que apunta. Un clic en un enemigo
- * apunta a su casilla sin el botón (`golpeEnPixel`). Qué vale lo dice el núcleo
- * (`apuntarBlocker`) y la recta también (`lineaDelDisparo`); aquí no se decide nada.
- * Una casilla vacía no está en la lista legal (que trae solo las de los enemigos):
- * la jugada se escribe aquí y la juzga el núcleo al aplicarla.
+ * Con qué arma juega la activa: el selector de arma (26-10-2026, petición del
+ * usuario: «Un arquero no puede cargar, le sale la casilla de cargar pero solo
+ * puede disparar. En lugar de apuntar como accion, que haya un selector de arma
+ * para usar»). Solo lo lleva quien dispara (`isShooter`); quien no, pelea siempre
+ * cuerpo a cuerpo. Con dos armas de cuerpo a cuerpo no se elige entre ellas: el
+ * golpe ya va con lo mejor de cada una.
  */
-export class DisparoDeLaActiva {
+export type ModoDelArma = 'cuerpo' | 'distancia';
+
+/**
+ * El selector de arma de la activa y el disparo diferido (25-10-2026, sin validar
+ * por el usuario) tal como los usa la persona, el mismo en la partida y la arena.
+ * **El modo es del cliente**, como lo apuntado: el núcleo no lo sabe, y el contrato
+ * del agente tampoco (`attack` es cuerpo a cuerpo y `aim` a distancia: la jugada
+ * ya lo dice). Lo que cambia es qué de la lista legal se ofrece (`delModo`): en
+ * «A distancia», apuntar y nada de andar ni golpear; en «Cuerpo a cuerpo», andar,
+ * cargar y golpear y nada de apuntar. Lo que marca el tablero y lo que hace el clic
+ * salen de esa misma lista: antes el tablero marcaba andar y cargar a un arquero y
+ * el clic en un enemigo solo apuntaba (`golpeEnPixel` prefería el `aim`).
+ *
+ * El tirador empieza su turno en «A distancia» si puede apuntar
+ * (`apuntarBlocker`); si no (se ha movido, tiene a alguien encima), en «Cuerpo a
+ * cuerpo». Lo elegido vale para ese turno de esa unidad: con otra activa, o con
+ * otro turno de la misma, vuelve al de por defecto.
+ *
+ * En «A distancia» el clic en cualquier casilla apunta (lo juzga el núcleo al
+ * aplicarlo: la lista legal trae solo las de los enemigos), con la recta que se
+ * tantea al pasar el puntero (`lineaDelDisparo`). Aquí no se decide nada.
+ */
+export class ArmaDeLaActiva {
+  /** Lo elegido con el botón o la Q, atado al turno en que se eligió. */
+  private elegido: {
+    readonly battle: BattleState;
+    readonly n: number;
+    readonly stack: string;
+    readonly modo: ModoDelArma;
+  } | null = null;
+
+  /** `alCambiar`: la partida sube su versión; la arena la deriva de `modo`. */
   constructor(
     private readonly dueño: QuienJuega,
-    private readonly apuntados: LoApuntado,
+    private readonly alCambiar: () => void = () => {},
   ) {}
 
-  /** ¿Espera el botón «Apuntar» el clic en una casilla? */
-  get esperando(): boolean {
-    return this.apuntados.de('disparo') !== null;
+  /** ¿Lleva selector la activa? Solo si es tuya y dispara. */
+  get conSelector(): boolean {
+    const turno = this.dueño.turnoPropio;
+    return turno !== null && isShooter(turno.stack.unit);
   }
 
-  /** Por qué la activa no puede apuntar ahora, o `null` si puede (el botón apagado). */
-  motivo(): string | null {
+  /** El modo de la activa ahora: el elegido en este turno o el de por defecto. */
+  get modo(): ModoDelArma {
+    const turno = this.dueño.turnoPropio;
+    if (turno === null || !isShooter(turno.stack.unit)) return 'cuerpo';
+    // Sin poder apuntar, «A distancia» no deja hacer nada: manda el cuerpo a cuerpo.
+    if (apuntarBlocker(turno.battle) !== null) return 'cuerpo';
+    const e = this.elegido;
+    const n = turno.battle.turno?.n;
+    if (e !== null && e.battle === turno.battle && e.n === n && e.stack === turno.stack.id) {
+      return e.modo;
+    }
+    return 'distancia';
+  }
+
+  /** Por qué la activa no puede pelear en `modo` ahora, o `null` si puede (el botón apagado). */
+  motivo(modo: ModoDelArma): string | null {
+    if (modo === 'cuerpo') return motivoDeLaActiva(this.dueño.turnoPropio, () => null);
     return motivoDeLaActiva(this.dueño.turnoPropio, (b) => apuntarBlocker(b));
   }
 
-  /** El botón: lo deja esperando el clic en una casilla, o lo suelta si ya esperaba. */
-  alternar(): void {
-    if (this.apuntados.soltar('disparo')) {
-      this.dueño.status = '';
-      return;
-    }
-    const motivo = this.motivo();
+  /** El rótulo del botón: el modo y con qué armas («Cuerpo a cuerpo (Espada y Daga)»). */
+  rotulo(modo: ModoDelArma): string {
     const turno = this.dueño.turnoPropio;
-    if (motivo !== null || turno === null) {
-      this.dueño.status = motivo ?? NINGUNA_TUYA;
+    const nombre = modo === 'cuerpo' ? 'Cuerpo a cuerpo' : 'A distancia';
+    if (turno === null) return nombre;
+    const uso = modo === 'cuerpo' ? 'arma' : 'distancia';
+    const fila = armasDe(turno.stack.unit).find((f) => f.uso === uso && f.carga === null);
+    return fila?.arma == null ? nombre : `${nombre} (${fila.arma})`;
+  }
+
+  /** Pasa a `modo`, o dice en la barra por qué no. */
+  elegir(modo: ModoDelArma): void {
+    const turno = this.dueño.turnoPropio;
+    if (turno === null) {
+      this.dueño.status = NINGUNA_TUYA;
       return;
     }
-    this.apuntados.apuntar({ kind: 'disparo', id: turno.stack.id });
+    if (!isShooter(turno.stack.unit)) {
+      this.dueño.status = comoFrase(`${turno.stack.unit.name} no lleva arma a distancia`);
+      return;
+    }
+    const motivo = this.motivo(modo);
+    if (motivo !== null) {
+      this.dueño.status = motivo;
+      return;
+    }
+    if (this.modo === modo) return;
+    const n = turno.battle.turno?.n ?? 0;
+    this.elegido = { battle: turno.battle, n, stack: turno.stack.id, modo };
     this.dueño.status =
-      'Elige la casilla a la que apuntar: el disparo sale al empezar su siguiente turno y da al primero de la recta, también a un aliado. Escape cancela.';
+      modo === 'distancia'
+        ? 'A distancia: pulsa la casilla a la que apuntar; el disparo sale al empezar su siguiente turno y da al primero de la recta, también a un aliado.'
+        : 'Cuerpo a cuerpo: pulsa un hexágono verde para andar, o un enemigo para golpearlo.';
+    this.alCambiar();
+  }
+
+  /** La Q: el otro modo. */
+  alternar(): void {
+    this.elegir(this.modo === 'cuerpo' ? 'distancia' : 'cuerpo');
   }
 
   /** La recta que se vería al apuntar a `at` ahora, o `null` si no se puede apuntar ahí. */
@@ -720,9 +787,19 @@ export class DisparoDeLaActiva {
       this.dueño.status = motivo;
       return;
     }
-    this.apuntados.soltar('disparo');
     this.dueño.playBattleAction({ type: 'aim', at: { col: at.col, row: at.row } });
   }
+}
+
+/**
+ * Lo de la lista legal que se ofrece en `modo` (`ArmaDeLaActiva`): «A distancia»
+ * no anda ni golpea; «Cuerpo a cuerpo» no apunta. Lo demás (terminar, hechizos,
+ * poderes, puertas, escalas, rendirse) va en los dos.
+ */
+function delModo(acciones: BattleAction[], modo: ModoDelArma): BattleAction[] {
+  return modo === 'distancia'
+    ? acciones.filter((a) => a.type !== 'move' && a.type !== 'attack')
+    : acciones.filter((a) => a.type !== 'aim');
 }
 
 /**
@@ -954,7 +1031,8 @@ export class Session implements ControlDeBatalla {
   readonly hechizos: LibroDeBatalla = new LibroDeBatalla(this, this.apuntados);
   /** El poder de la activa que espera el clic en un aliado (`PoderesDeLaActiva`, el de la arena). */
   readonly poderes = new PoderesDeLaActiva(this, this.apuntados);
-  readonly disparo = new DisparoDeLaActiva(this, this.apuntados);
+  /** El selector de arma de la activa (`ArmaDeLaActiva`, el de la arena): cambiarlo sube la versión. */
+  readonly arma = new ArmaDeLaActiva(this, () => this.tocar());
 
   get openTownId(): string | null {
     return this.puebloAbierto;
@@ -2504,10 +2582,11 @@ export class Session implements ControlDeBatalla {
   private calculoDeBatalla(): CalculoDeBatalla {
     const battle = this.battle;
     if (battle === null) return { acciones: [], movibles: [], opciones: [], cargas: SIN_CARGAS };
-    const clave = `${claveConMagia(battle)}|${claveDeLoApuntado(this.apuntados.actual)}`;
+    const modo = this.arma.modo;
+    const clave = `${claveConMagia(battle)}|${claveDeLoApuntado(this.apuntados.actual)}|${modo}`;
     const c = this.cacheBatalla;
     if (c !== null && c.battle === battle && c.clave === clave) return c.valor;
-    const comunes = accionesDeBatalla(battle, this.turnoPropio);
+    const comunes = accionesDeBatalla(battle, this.turnoPropio, modo);
     const valor = { ...comunes, opciones: opcionesDeHechizo(this.turnoPropio, comunes.acciones) };
     this.cacheBatalla = { battle, clave, valor };
     return valor;
@@ -2802,7 +2881,8 @@ export class SesionDeArena implements ControlDeBatalla {
   readonly hechizos: LibroDeBatalla = new LibroDeBatalla(this, this.apuntados);
   /** El poder de la activa que espera el clic en un aliado (`PoderesDeLaActiva`). */
   readonly poderes = new PoderesDeLaActiva(this, this.apuntados);
-  readonly disparo = new DisparoDeLaActiva(this, this.apuntados);
+  /** El selector de arma de la activa (`ArmaDeLaActiva`): la versión lo lee de aquí. */
+  readonly arma = new ArmaDeLaActiva(this);
   /** En la arena los bandos no son de ningún jugador: los dos llevan su color de bando. */
   readonly dueños = null;
   private readonly rng: Rng;
@@ -2818,7 +2898,7 @@ export class SesionDeArena implements ControlDeBatalla {
    * pueda desacompasar.
    */
   get version(): string {
-    return `${claveDeBatalla(this.battle)}|${claveDeLoApuntado(this.apuntados.actual)}|${this.rueda.pendiente?.fase ?? ''}`;
+    return `${claveDeBatalla(this.battle)}|${claveDeLoApuntado(this.apuntados.actual)}|${this.arma.modo}|${this.rueda.pendiente?.fase ?? ''}`;
   }
 
   /**
@@ -2940,10 +3020,11 @@ export class SesionDeArena implements ControlDeBatalla {
 
   /** Como en `Session`, guardado por jugada: la escena lo pide en cada fotograma. */
   private calculo(): CalculoDeBatalla {
-    const clave = `${claveConMagia(this.battle)}|${this.empezada}`;
+    const modo = this.arma.modo;
+    const clave = `${claveConMagia(this.battle)}|${this.empezada}|${modo}`;
     if (this.cache !== null && this.cache.clave === clave) return this.cache.valor;
     const turno = this.turnoPropio;
-    const comunes = accionesDeBatalla(this.battle, turno);
+    const comunes = accionesDeBatalla(this.battle, turno, modo);
     const valor = { ...comunes, opciones: opcionesDeHechizo(turno, comunes.acciones) };
     this.cache = { clave, valor };
     return valor;

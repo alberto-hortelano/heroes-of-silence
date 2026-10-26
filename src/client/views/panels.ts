@@ -93,7 +93,7 @@ import { renderAbierto } from './base.js';
 import { nombreEnElCampo } from './distintivo.js';
 import { renderPanelDelLugar } from './lugar.js';
 import { renderPanelDeLaMorada } from './morada.js';
-import { botonDeApuntar, botonesDePoder } from './poderes.js';
+import { botonesDeArma, botonesDePoder } from './poderes.js';
 import { renderPanelDeLaTropa } from './tropa.js';
 
 /** Lo que dice la barra a quien pulsa mientras la jugada se cuenta. */
@@ -875,7 +875,7 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
           // Las batallas del mapa no tienen muralla (decisión 4 de la tarea del
           // combate en el juego).
           muralla: NADA,
-          poderes: html`${botonDeApuntar(session, s)}${botonesDePoder(session, s)}`,
+          poderes: html`${botonesDeArma(session, s)}${botonesDePoder(session, s)}`,
         }),
       )
     : html`<p>Turno del enemigo…</p>`;
@@ -955,19 +955,20 @@ export function accionesDeLaUnidad(o: {
     o.sinSalida == null ? NADA : html`<p class="cost" data-sin-salida>${o.sinSalida}</p>`;
   // La ayuda dice lo que se puede hacer: tras la Finta, solo andar un tramo; rodeada,
   // solo golpear a quien tiene al lado (C2 de QA de #259: no hay hexágonos verdes).
+  // Con el selector de arma en «A distancia» la lista trae el `aim` y ni andar ni
+  // golpear (`ArmaDeLaActiva`): la ayuda es la del disparo.
+  const tirador = isShooter(o.activa.unit);
   const ayuda =
     o.trasLaFinta === true
       ? html`Finta: puede andar ${quedan === null ? 'lo que le queda' : quedan[1]}; andar termina el turno.`
-      : o.sinSalida != null
-        ? html`Pasa el ratón por un enemigo a su lado para golpearlo.`
-        : html`Haz clic en un hexágono verde para moverte —puedes moverte en varios tramos—,
+      : o.legales.some((a) => a.type === 'aim')
+        ? html`A distancia: pulsa cualquier casilla para apuntar. Apuntar termina el turno y el
+         disparo sale al empezar el siguiente, al primero de la recta. Q cambia de arma.`
+        : o.sinSalida != null
+          ? html`Pasa el ratón por un enemigo a su lado para golpearlo.`
+          : html`Haz clic en un hexágono verde para moverte —puedes moverte en varios tramos—,
          o pasa el ratón por un enemigo y elige desde qué casilla golpearlo.
-         ${ayudaDeCarga(o.carga)}${
-           o.legales.some((a) => a.type === 'aim')
-             ? html` Para disparar, pulsa un enemigo (o «Apuntar» y cualquier casilla): apuntar
-         termina el turno y el disparo sale al empezar el siguiente, al primero de la recta.`
-             : NADA
-}`;
+         ${ayudaDeCarga(o.carga)}${tirador ? html` Q cambia de arma.` : NADA}`;
   return html`<h3>Acciones</h3>
        ${quedan === null ? NADA : html`<div class="row"><span class="label">Le ${quedan[0]}</span><span>${quedan[1]}</span></div>`}${sinSalida}
        <div class="stack-list">

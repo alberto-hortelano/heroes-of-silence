@@ -1062,8 +1062,8 @@ export function canReachMelee(state: BattleState, s: BattleStack, target: Battle
 
 /**
  * Por qué `s` no puede apuntar ahora, o `null` si puede. ÚNICA redacción de la
- * regla del tirador: la leen `legalActions` para ofrecer el `aim`, `applyAction`
- * para rechazarlo —con el id delante— y `ataqueBlocker` para explicárselo a la
+ * regla del tirador: la leen `legalActions` para ofrecer el `aim` y `applyAction`
+ * para rechazarlo —con el id delante—, y `apuntarBlocker` para explicárselo a la
  * persona. Antes la lista y el rechazo la escribían cada uno, y el cliente
  * inventaba una tercera frase («no alcanzas a esa unidad») que a un tirador que
  * se acababa de mover le decía algo falso.
@@ -1150,11 +1150,13 @@ export function lineaDelDisparo(state: BattleState, s: BattleStack, at: Hex): Li
 }
 
 /**
- * Por qué la unidad activa no puede actuar contra `targetId` —ni dispararle ni
- * golpearla, moviéndose o no—, o `null` si puede. Es a `attack`/`shoot` lo que
- * `castBlocker` a un hechizo: la frase la escribe el núcleo, sin sujeto, y la
- * pantalla la pinta tal cual. Al tirador se le dice primero por qué no dispara,
- * que es lo que esperaba hacer.
+ * Por qué la unidad activa no puede golpear cuerpo a cuerpo a `targetId`
+ * —moviéndose o no—, o `null` si puede. Es a `attack` lo que `castBlocker` a un
+ * hechizo: la frase la escribe el núcleo, sin sujeto, y la pantalla la pinta tal
+ * cual. **Solo el golpe** (26-10-2026): el tirador que podía apuntar daba `null`
+ * aunque no alcanzara, porque el clic en el enemigo apuntaba; con el selector de
+ * arma del cliente el clic de «Cuerpo a cuerpo» no apunta, y el de «A distancia»
+ * lo juzga `apuntarBlocker`.
  */
 export function ataqueBlocker(state: BattleState, targetId: string): string | null {
   const s = activeStack(state);
@@ -1164,13 +1166,9 @@ export function ataqueBlocker(state: BattleState, targetId: string): string | nu
   const target = stackById(state, targetId);
   const rival = rivalBlocker(s, target, 'atacar');
   if (rival !== null) return rival;
-  // Un tirador que puede apuntar, apunta a su casilla: el clic en el enemigo vale.
-  const disparo = disparoBlocker(state, s);
-  if (disparo === null) return null;
   const { actions } = legalActionsAndCosts(state);
   if (actions.some((a) => a.type === 'attack' && a.target === targetId)) return null;
-  const golpe = 'no alcanza a esa unidad cuerpo a cuerpo este turno';
-  return isShooter(s.unit) ? `${disparo}, y ${golpe}` : golpe;
+  return 'no alcanza a esa unidad cuerpo a cuerpo este turno';
 }
 
 /**

@@ -5249,9 +5249,11 @@ async function bancoDeCombate(browser: Browser, url: string, problemas: Problema
       const texto = textoDePrevision(p, nombre);
       const aqui = (espejo.turnoPropio as { stack: BattleStack }).stack.hex;
       const desdeDonde = g.accion.type === 'attack' ? (g.accion.from ?? aqui) : aqui;
+      // «A distancia» (el selector de arma, 26-10-2026): la barra dice la casilla y a
+      // quién daría hoy, que puede ser otro que el señalado.
       const esperado =
         g.accion.type === 'aim'
-          ? `Apuntarías a su casilla: el disparo sale al empezar su siguiente turno. ${texto}`
+          ? `Apuntarías a (${g.accion.at.col},${g.accion.at.row}).`
           : rotuloDeAngulo(
               desdeDonde,
               cargaContra(espejo.battleCharges(), {
@@ -5260,7 +5262,9 @@ async function bancoDeCombate(browser: Browser, url: string, problemas: Problema
               }),
               texto,
             );
-      await esperarBarra(page, esperado, 'banco: la previsión del golpe', { exacta: true });
+      await esperarBarra(page, esperado, 'banco: la previsión del golpe', {
+        exacta: g.accion.type !== 'aim',
+      });
       await captura(page, 'arena-07-prevision-golpe');
       log(`banco: previsión del golpe — «${esperado}»`);
       await page.mouse.click(g.x, g.y);

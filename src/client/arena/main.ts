@@ -130,6 +130,7 @@ import { pintarSiguiendoElFinal } from '../views/al-final.js';
 import { leerElCombate, selectoresDelCombate } from '../views/combate.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
 import { AVISO_DE_ESPERA } from '../views/panels.js';
+import { modoDelBoton } from '../views/poderes.js';
 import {
   abiertasATexto,
   abrirFicha,
@@ -2160,9 +2161,9 @@ document.addEventListener('click', (ev) => {
     pedirFotograma();
     return;
   }
-  if (accion === 'battle-apuntar') {
+  if (accion === 'battle-arma' && conAccion !== null && conAccion !== undefined) {
     if (ev.detail > 1 || sesion === null || jugadaEnCurso()) return;
-    sesion.disparo.alternar();
+    sesion.arma.elegir(modoDelBoton(conAccion));
     pedirFotograma();
     return;
   }
@@ -2872,6 +2873,18 @@ document.addEventListener('keydown', (ev) => {
   // Escape suelta el hechizo elegido, como en la partida, o el poder que espera.
   if (ev.key === 'Escape' && sesion !== null && !jugadaEnCurso()) {
     sesion.soltarLoApuntado();
+    pedirFotograma();
+    return;
+  }
+  // Q alterna el arma del tirador activo, como en la partida (`ArmaDeLaActiva`).
+  if (
+    (ev.key === 'q' || ev.key === 'Q') &&
+    !(ev.ctrlKey || ev.metaKey || ev.altKey) &&
+    sesion !== null &&
+    !jugadaEnCurso() &&
+    sesion.arma.conSelector
+  ) {
+    sesion.arma.alternar();
     pedirFotograma();
     return;
   }

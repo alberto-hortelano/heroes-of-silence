@@ -473,7 +473,7 @@
        <div class="row"><span class="label">Le quedan</span><span>5 casillas</span></div>
        <div class="stack-list">
          <button data-action="battle-end-turn">Terminar turno</button>
-         <button data-action="battle-surrender">Rendirse (175 oro)</button><button data-action="battle-apuntar" data-tirador="defender-0" class="apuntar" title="Apunta a una casilla y cierra el turno: el disparo sale al empezar su siguiente turno, en línea recta, y da al primero que encuentre, también a uno tuyo. Cuanto más cerca de la casilla, más daño.">Apuntar</button>
+         <button data-action="battle-surrender">Rendirse (175 oro)</button><button data-action="battle-arma" data-arma="cuerpo" aria-pressed="false" class="arma" title="Anda, carga y golpea cuerpo a cuerpo: pulsa un hexágono verde para andar o un enemigo para golpearlo. Q cambia de arma.">Cuerpo a cuerpo (Daga)</button><button data-action="battle-arma" data-arma="distancia" aria-pressed="true" class="arma primary" title="Apunta a una casilla y cierra el turno: el disparo sale al empezar su siguiente turno, en línea recta, y da al primero que encuentre, también a uno tuyo. Cuanto más cerca de la casilla, más daño. A distancia no se anda. Q cambia de arma.">A distancia (Arco)</button>
        </div>
        <h3>Hechizos</h3><div class="stack-list"><button data-action="battle-spell" data-spell="magic_arrow"
         class="stack"
@@ -483,11 +483,8 @@
       </button></div>
     
        <p class="cost" style="margin-top:.5rem">
-         Haz clic en un hexágono verde para moverte —puedes moverte en varios tramos—,
-         o pasa el ratón por un enemigo y elige desde qué casilla golpearlo.
-         Al enemigo en naranja se le puede cargar: pasa por él y elige la casilla con
-         «»» y las casillas que corre (de 3 a 5, +5 % cada una). Para disparar, pulsa un enemigo (o «Apuntar» y cualquier casilla): apuntar
-         termina el turno y el disparo sale al empezar el siguiente, al primero de la recta.
+         A distancia: pulsa cualquier casilla para apuntar. Apuntar termina el turno y el
+         disparo sale al empezar el siguiente, al primero de la recta. Q cambia de arma.
          Espacio termina el turno de la unidad.
        </p>
     <h3>En el campo</h3><div class="stack-list"><div class="stack empty">

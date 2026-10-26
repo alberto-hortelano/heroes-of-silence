@@ -11,7 +11,7 @@ import { type PoderId, poder, queHaceElPoder } from '@core/battle/poderes.js';
 import type { BattleAction, BattleStack, BattleState } from '@core/battle/types.js';
 import { isShooter } from '@core/data.js';
 import { type Html, html, NADA, unir } from '../html.js';
-import type { Apuntado } from '../session.js';
+import type { Apuntado, ModoDelArma } from '../session.js';
 import { nombreEnElCampo } from './distintivo.js';
 import { textoDePrevision } from './prevision.js';
 
@@ -102,28 +102,52 @@ function previsionDelUnico(s: ControlDePoderes, accion: BattleAction | undefined
   });
 }
 
-/** Lo que pide el botón «Apuntar» a la sesión: el disparo de la activa (`DisparoDeLaActiva`). */
-export interface ControlDeDisparo {
-  readonly disparo: { readonly esperando: boolean; motivo(): string | null };
+/** Lo que pide el selector de arma a la sesión: el de la activa (`ArmaDeLaActiva`). */
+export interface ControlDeArma {
+  readonly arma: {
+    readonly modo: ModoDelArma;
+    motivo(modo: ModoDelArma): string | null;
+    rotulo(modo: ModoDelArma): string;
+  };
+}
+
+/** Lo que dice cada botón del selector al pasar el ratón, con la tecla. */
+const AYUDA_DEL_MODO: Readonly<Record<ModoDelArma, string>> = {
+  cuerpo:
+    'Anda, carga y golpea cuerpo a cuerpo: pulsa un hexágono verde para andar o un enemigo para golpearlo. Q cambia de arma.',
+  distancia:
+    'Apunta a una casilla y cierra el turno: el disparo sale al empezar su siguiente turno, en línea recta, y da al primero que encuentre, también a uno tuyo. Cuanto más cerca de la casilla, más daño. A distancia no se anda. Q cambia de arma.',
+};
+
+/**
+ * El selector de arma del tirador activo —tuyo— (26-10-2026; sustituye al botón
+ * «Apuntar» del disparo diferido): «Cuerpo a cuerpo (Espada)» y «A distancia
+ * (Arco)», marcado el modo en que está, y el otro apagado con el motivo del núcleo
+ * si no puede (tras moverse no apunta). Quien no dispara no lo lleva: siempre pelea
+ * cuerpo a cuerpo. La Q alterna los dos.
+ */
+export function botonesDeArma(s: ControlDeArma, activa: BattleStack): Html {
+  if (!isShooter(activa.unit)) return NADA;
+  const modo = s.arma.modo;
+  return unir(
+    (['cuerpo', 'distancia'] as const).map((m) => {
+      const motivo = s.arma.motivo(m);
+      const clase = m === modo ? 'arma primary' : 'arma';
+      const estado =
+        motivo !== null ? html`disabled title="${motivo}"` : html`title="${AYUDA_DEL_MODO[m]}"`;
+      return html`<button data-action="battle-arma" data-arma="${m}" aria-pressed="${m === modo ? 'true' : 'false'}" class="${clase}" ${estado}>${s.arma.rotulo(m)}</button>`;
+    }),
+  );
 }
 
 /**
- * El botón «Apuntar» del tirador activo —tuyo— (el disparo diferido, 25-10-2026):
- * deja el siguiente clic eligiendo la casilla, la que sea, y marcado mientras
- * espera; apagado con el motivo del núcleo si no puede (se ha movido, tiene a
- * alguien encima). Quien no dispara no lo lleva. Un clic en un enemigo apunta a su
- * casilla sin pasar por aquí.
+ * El modo que pide un botón del selector (`data-arma`), o lanza: un botón sin él,
+ * o con otro, es un fallo del marcado, no un gesto que callar.
  */
-export function botonDeApuntar(s: ControlDeDisparo, activa: BattleStack): Html {
-  if (!isShooter(activa.unit)) return NADA;
-  return botonDeElegir({
-    accion: 'battle-apuntar',
-    dato: html`data-tirador="${activa.id}"`,
-    clase: 'apuntar',
-    rotulo: 'Apuntar',
-    motivo: s.disparo.motivo(),
-    esperando: s.disparo.esperando,
-    ayuda:
-      'Apunta a una casilla y cierra el turno: el disparo sale al empezar su siguiente turno, en línea recta, y da al primero que encuentre, también a uno tuyo. Cuanto más cerca de la casilla, más daño.',
-  });
+export function modoDelBoton(boton: Element): ModoDelArma {
+  const modo = boton.getAttribute('data-arma');
+  if (modo !== 'cuerpo' && modo !== 'distancia') {
+    throw new Error(`el botón del selector de arma no dice un modo: «${modo ?? ''}»`);
+  }
+  return modo;
 }

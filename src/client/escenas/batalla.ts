@@ -110,8 +110,10 @@ export function cargaContra(
 const SIN_OBJETIVO: Readonly<Record<Apuntado['kind'], string>> = {
   hechizo: 'Elige una unidad sobre la que lanzarlo, o pulsa Escape para cancelar.',
   poder: 'Elige un aliado sobre el que usarlo, o pulsa Escape para cancelar.',
-  disparo: 'Elige una casilla a la que apuntar, o pulsa Escape para cancelar.',
 };
+
+/** Lo que dice la barra con un clic fuera del tablero en «A distancia» (`ArmaDeLaActiva`). */
+const SIN_CASILLA = 'Pulsa una casilla del tablero para apuntar, o Q para pelear cuerpo a cuerpo.';
 
 /** Un disparo tanteado en una casilla (`EscenaBatalla.tanteoEn`). */
 interface Tanteado {
@@ -260,7 +262,7 @@ export class EscenaBatalla {
     if (turno !== null && apunta === null) {
       for (const a of s.battleLegalActions()) {
         if (a.type === 'attack') atacables.add(a.target);
-        // Al que se puede apuntar, por su casilla: la lista lo trae por ella.
+        // Al que se puede apuntar («A distancia»), por su casilla: la lista lo trae por ella.
         if (a.type === 'aim') {
           const ahi = this.stackEn(a.at);
           if (ahi !== undefined) atacables.add(ahi.id);
@@ -303,22 +305,38 @@ export class EscenaBatalla {
   }
 
   /**
-   * La recta del disparo que se tantea con el puntero: con «Apuntar» esperando, a
-   * la casilla señalada; sin él, si el clic sobre el enemigo señalado apuntaría a
-   * su casilla. `null` si no se apunta nada (`DisparoDeLaActiva.tanteo`).
+   * La recta del disparo que se tantea con el puntero: en «A distancia» y sin nada
+   * apuntado, a la casilla señalada. `null` si no (`ArmaDeLaActiva.tanteo`).
    */
   private tanteoActual(): LineaDelDisparo | null {
-    const s = this.sesion();
-    if (this.puntero === null || s.turnoPropio === null) return null;
-    if (s.apuntado?.kind === 'disparo') {
-      return this.hoverHex === null ? null : this.tanteoEn(this.hoverHex).linea;
-    }
-    if (s.apuntado !== null) return null;
-    const accion = this.accionContraEn(this.puntero.x, this.puntero.y);
-    return accion?.type === 'aim' ? this.tanteoEn(accion.at).linea : null;
+    if (this.puntero === null || !this.aDistancia()) return null;
+    const at = this.casillaDelDisparoEn(this.puntero.x, this.puntero.y);
+    return at === null ? null : this.tanteoEn(at).linea;
   }
 
-  /** El tanteo del disparo en `at` (`DisparoDeLaActiva.tanteo`), recordado por casilla y jugada. */
+  /**
+   * A qué casilla apunta el clic de «A distancia» en ese punto: la de la unidad
+   * que se pulsa —su figura sube sobre la fila de detrás, y apuntar a esa fila al
+   * pulsarle el cuerpo no es lo que se quería— o, si no hay ninguna (o es quien
+   * dispara), la del suelo bajo el puntero. La leen el clic, el tanteo y la barra.
+   */
+  private casillaDelDisparoEn(px: number, py: number): Hex | null {
+    const unidad = this.unidadEn(px, py);
+    const activa = this.sesion().turnoPropio?.stack;
+    if (unidad !== undefined && unidad !== activa) return unidad.hex;
+    return this.hexBajo(px, py);
+  }
+
+  /**
+   * ¿Juega el clic a distancia? La activa es tuya, su selector está en «A
+   * distancia» y no hay hechizo ni poder apuntado, que va antes.
+   */
+  private aDistancia(): boolean {
+    const s = this.sesion();
+    return s.turnoPropio !== null && s.apuntado === null && s.arma.modo === 'distancia';
+  }
+
+  /** El tanteo del disparo en `at` (`ArmaDeLaActiva.tanteo`), recordado por casilla y jugada. */
   private tanteoEn(at: Hex): Tanteado {
     const acciones = this.sesion().battleLegalActions();
     const clave = hexKey(at);
@@ -327,7 +345,7 @@ export class EscenaBatalla {
     const hecho = {
       acciones,
       clave,
-      linea: this.sesion().disparo.tanteo(at),
+      linea: this.sesion().arma.tanteo(at),
       accion: { type: 'aim', at: { col: at.col, row: at.row } } as const,
     };
     this.tanteado = hecho;
@@ -417,37 +435,35 @@ export class EscenaBatalla {
   /**
    * El ángulo del golpe si el puntero está sobre un enemigo al que la unidad
    * activa —tuya— puede golpear cuerpo a cuerpo: todas las casillas desde las
-   * que lo alcanza y la más cercana al puntero. `null` si dispararía (un tirador
-   * no se acerca a golpear lo que puede tirar), si hay un hechizo elegido o si
-   * no hay a quién.
+   * que lo alcanza y la más cercana al puntero. `null` en «A distancia» (la lista
+   * de ese modo no trae golpes), si hay un hechizo elegido o si no hay a quién.
    */
   anguloEn(px: number, py: number): Angulo | null {
     const golpe = this.golpeEn(px, py);
     if (golpe === undefined) return null;
-    const { acciones, objetivo, hexDelObjetivo, hexActual } = golpe;
-    const g = golpeEnPixel(acciones, objetivo, hexDelObjetivo, hexActual, this.tablero, px, py);
-    if (g === undefined || 'disparo' in g) return null;
+    const { acciones, objetivo, hexActual } = golpe;
+    const g = golpeEnPixel(acciones, objetivo, hexActual, this.tablero, px, py);
+    if (g === undefined) return null;
     return { objetivo, candidatas: g.opciones.map((o) => o.desde), elegida: g.elegida.desde };
   }
 
   /**
-   * Lo que manda un clic en ese punto si cae sobre un enemigo: el disparo o el
-   * golpe desde la casilla resaltada. `undefined` si ahí no hay enemigo o no se
+   * Lo que manda un clic en ese punto si cae sobre un enemigo: en «A distancia»,
+   * apuntar a su casilla; si no, el golpe desde la casilla resaltada. `undefined` si ahí no hay enemigo o no se
    * le alcanza. La usan `pulsar` y el espejo de `pnpm capturas`, que tiene que
    * aplicar la MISMA acción que manda la página.
    */
   accionContraEn(px: number, py: number): BattleAction | undefined {
+    // «A distancia», lo que manda `pulsar`: apuntar a su casilla, si se puede.
+    if (this.aDistancia()) {
+      const objetivo = this.unidadEn(px, py);
+      if (objetivo === undefined || objetivo.side === this.sesion().miBando) return undefined;
+      const t = this.tanteoEn(objetivo.hex);
+      return t.linea === null ? undefined : t.accion;
+    }
     const golpe = this.golpeEn(px, py);
     if (golpe === undefined) return undefined;
-    return accionContra(
-      golpe.acciones,
-      golpe.objetivo,
-      golpe.hexDelObjetivo,
-      golpe.hexActual,
-      this.tablero,
-      px,
-      py,
-    );
+    return accionContra(golpe.acciones, golpe.objetivo, golpe.hexActual, this.tablero, px, py);
   }
 
   /** El ángulo del puntero de ahora, calculado una vez por gesto o por jugada. */
@@ -472,7 +488,6 @@ export class EscenaBatalla {
     | {
         acciones: readonly BattleAction[];
         objetivo: string;
-        hexDelObjetivo: Hex;
         hexActual: Hex;
       }
     | undefined {
@@ -485,7 +500,6 @@ export class EscenaBatalla {
     return {
       acciones: s.battleLegalActions(),
       objetivo: objetivo.id,
-      hexDelObjetivo: objetivo.hex,
       hexActual: turno.stack.hex,
     };
   }
@@ -539,22 +553,21 @@ export class EscenaBatalla {
   private readonly previsiones = new WeakMap<BattleAction, string | null>();
 
   /**
-   * Con «Apuntar» esperando y el puntero sobre una casilla a la que se puede
-   * apuntar: a quién daría el disparo si saliera ahora y cuánto (la previsión del
-   * núcleo), o que no daría a nadie. `null` sin «Apuntar» o fuera del tablero.
+   * En «A distancia» y con el puntero sobre una casilla a la que se puede apuntar:
+   * a quién daría el disparo si saliera ahora y cuánto (la previsión del núcleo), o
+   * que no daría a nadie. `null` en «Cuerpo a cuerpo» o fuera del tablero.
    */
   private rotuloDelDisparo(): string | null {
-    const s = this.sesion();
-    if (s.apuntado?.kind !== 'disparo' || this.hoverHex === null) return null;
-    const { col, row } = this.hoverHex;
-    return this.dichoDelTanteo(this.hoverHex, `Apuntarías a (${col},${row}).`);
+    if (this.puntero === null || !this.aDistancia()) return null;
+    const at = this.casillaDelDisparoEn(this.puntero.x, this.puntero.y);
+    if (at === null) return null;
+    return this.dichoDelTanteo(at, `Apuntarías a (${at.col},${at.row}).`);
   }
 
   /**
    * El tanteo del disparo a `at` dicho tras `aqui`: a quién daría hoy, con «¡tuyo!»
    * si es propio, y cuánto; o que no daría a nadie y qué la para. `null` si ahí no
-   * se puede apuntar. Lo dicen «Apuntar» con una casilla y el puntero sobre un
-   * enemigo, que apunta a su casilla: con su previsión sola, el puntero sobre un
+   * se puede apuntar. Con la previsión sola, el puntero sobre un
    * enemigo con un aliado delante daba el daño y los PV del aliado sin nombrarlo
    * (H3 del QA de fuerza y agilidad, 26-10-2026).
    */
@@ -623,23 +636,17 @@ export class EscenaBatalla {
   }
 
   /**
-   * Sobre un enemigo al que la unidad activa no puede ni disparar ni golpear, el
-   * motivo del núcleo: el MISMO que escribe el clic (`attackRejection`), para que
-   * quien explora con el ratón no tenga que pulsar para enterarse (N3 de QA,
-   * 02-10-2026). Si dispararía, lo que daría el disparo (la previsión).
+   * Sobre un enemigo al que la unidad activa no puede golpear, el motivo del
+   * núcleo: el MISMO que escribe el clic (`attackRejection`), para que quien
+   * explora con el ratón no tenga que pulsar para enterarse (N3 de QA,
+   * 02-10-2026). En «A distancia» no se llega aquí: lo dice `rotuloDelDisparo`.
    */
   private motivoSinGolpe(): string | null {
     if (this.puntero === null) return null;
     const { x, y } = this.puntero;
     const golpe = this.golpeEn(x, y);
     if (golpe === undefined) return null;
-    const accion = this.accionContraEn(x, y);
-    // Si apuntaría, lo que daría el disparo si saliera ahora (sale en su turno siguiente).
-    if (accion?.type === 'aim') {
-      const sale = 'Apuntarías a su casilla: el disparo sale al empezar su siguiente turno.';
-      return this.dichoDelTanteo(accion.at, sale) ?? sale;
-    }
-    if (accion !== undefined) return null;
+    if (this.accionContraEn(x, y) !== undefined) return null;
     return this.sesion().attackRejection(golpe.objetivo);
   }
 
@@ -817,10 +824,13 @@ export class EscenaBatalla {
       return;
     }
     const hex = this.hexBajo(px, py);
-    // Con «Apuntar» esperando, el clic elige la casilla, la que sea.
-    if (apunta?.kind === 'disparo') {
-      if (hex === null) session.status = SIN_OBJETIVO.disparo;
-      else session.disparo.apuntarA(hex);
+    // «A distancia»: el clic elige la casilla, la que sea, salvo con el botón de
+    // la escala esperando un muro. Ni anda ni golpea: la lista de ese modo no lo trae.
+    if (this.aDistancia()) {
+      if (session.muroPorElegir !== null && this.pulsarEscala(hex, acciones)) return;
+      const at = this.casillaDelDisparoEn(px, py);
+      if (at === null) session.status = SIN_CASILLA;
+      else session.arma.apuntarA(at);
       return;
     }
     if (apunta === null && this.pulsarEscala(hex, acciones)) return;
@@ -843,8 +853,8 @@ export class EscenaBatalla {
       return;
     }
 
-    // Clic sobre un enemigo: disparar si se puede; si no, golpear desde la
-    // casilla resaltada, la más cercana al puntero.
+    // Clic sobre un enemigo: golpear desde la casilla resaltada, la más cercana
+    // al puntero.
     if (objetivo !== undefined && objetivo.side !== session.miBando) {
       const accion = this.accionContraEn(px, py);
       if (accion !== undefined) {
