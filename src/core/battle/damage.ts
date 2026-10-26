@@ -44,7 +44,7 @@ export function usoDelGolpe(opts: Pick<DamageOptions, 'ranged'>): UsoDeArma {
 
 /**
  * Con qué armas va un golpe de `uso`, dicho para quien juega: «con Daga (cuerpo a
- * cuerpo)», «con Espada y Lanza, montado en Caballo de guerra (en la carga)» o «sin arma, con el cuerpo (cuerpo a
+ * cuerpo)», «con Espada y Lanza de jinete, montado en Caballo de guerra (en la carga)» o «sin arma, con el cuerpo (cuerpo a
  * cuerpo)» (`golpeDe`, `DICHO_DEL_USO`, `DICHO_DE_LA_CARGA`). Lo leen la previsión
  * del golpe y la del contraataque.
  */
@@ -61,7 +61,7 @@ export function dichoDelGolpe(unit: UnitInfo, uso: UsoDeArma, enLaCarga = false)
     : `con ${nombresDeLasArmas(piezas)}${montado} (${como})`;
 }
 
-/** Los nombres de las armas de un golpe, juntos: «Espada» o «Espada y Lanza». */
+/** Los nombres de las armas de un golpe, juntos: «Espada» o «Espada y Lanza de jinete». */
 function nombresDeLasArmas(piezas: GolpeConArma['piezas']): string {
   return piezas.map((p) => p.nombre).join(' y ');
 }
@@ -69,7 +69,7 @@ function nombresDeLasArmas(piezas: GolpeConArma['piezas']): string {
 /** Una fila de `armasDe`: el golpe de un uso (`golpeDe`) con el nombre de sus armas. */
 export interface ArmaDeLaUnidad extends Omit<GolpeConArma, 'piezas' | 'carga'> {
   readonly uso: UsoDeArma;
-  /** Los nombres de sus armas («Espada y Lanza»), o `null` si ese golpe va con el cuerpo. */
+  /** Los nombres de sus armas («Espada y Lanza de jinete»), o `null` si ese golpe va con el cuerpo. */
   readonly arma: string | null;
   /** En la fila de la carga, lo que cobra (`CARGA`); en las demás, `null`. */
   readonly carga: CifrasDeCarga | null;

@@ -232,7 +232,8 @@ describe('la emboscada', () => {
 
   it('un héroe que no da el margen al grupo pasa sin batalla', () => {
     const { state, ctx, hero, grupo, hasta } = enSuRegion(11);
-    hero.army = ejercito({ creature: PESADA, count: 6 });
+    // Seis jinetes: con la escala baja (26-10-2026), seis pesadas ya no daban el margen.
+    hero.army = ejercito({ creature: JINETE, count: 6 });
     expect(poderDe(grupo)).toBeLessThanOrEqual(MARGEN_CONTRA_NEUTRALES * fuerzaDe(hero, undefined));
     applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: hasta }, ctx, 0);
     expect(state.pendingBattle).toBeNull();
@@ -793,7 +794,7 @@ describe('la ruta que pisa una emboscada (H2)', () => {
       emboscadaEnLaRuta(state, hero, camino, asaltantesALaVista(state, Casillas.vacias(state.map))),
     ).toBeNull();
     // Y un héroe al que el grupo no le saca el margen, tampoco.
-    hero.army = ejercito({ creature: PESADA, count: 7 });
+    hero.army = ejercito({ creature: JINETE, count: 7 });
     expect(emboscadaEnLaRuta(state, hero, camino, vistos)).toBeNull();
   });
 });

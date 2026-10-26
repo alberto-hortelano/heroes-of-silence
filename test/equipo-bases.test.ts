@@ -86,7 +86,7 @@ describe('una pieza sobre otra', () => {
       piezaNueva(EQUIPO_DEL_JUEGO.pieza('espada_de_herreria'), EQUIPO_DEL_JUEGO),
     ).toMatchObject({
       base: 'espada',
-      extras: { ataque: 1, fuerza: 3, oro: 150 },
+      extras: { ataque: 1, fuerza: 1, oro: 150 },
     });
   });
 
@@ -164,7 +164,7 @@ describe('una pieza sobre otra', () => {
       // La rueda, en niveles: la bendita (4/4/3/4/4/3) sobre la Espada (todo a 3).
       extras: {
         ataque: 2,
-        fuerza: 3,
+        fuerza: 1,
         rueda: { ofensivo: 1, fuerte: 1, defensivo: 1, rapido: 1 },
         oro: 450,
       },

@@ -36,43 +36,44 @@ import { catalogoCon, JINETE, PESADA, TROPA, todoA } from './helpers.js';
  * mueve, y se mira a propósito. Tras simplify (carga a pie y rueda × carga), las
  * unidades sin `charge` suben de +5 a +10 y los jinetes +3. **Es el único sitio del
  * rango de índices y niveles del catálogo**: `data/poder.json`, `nivel.ts` y
- * `unidad.ts` apuntan aquí.
+ * `unidad.ts` apuntan aquí. Re-anclada sin juzgar el 26-10-2026 con la escala baja
+ * (fuerza, PV y armadura ×0,3, `docs/agents/2026-10-26-escala-baja/`).
  */
 const TABLA_DEL_CATALOGO: Readonly<Record<string, readonly [number, number]>> = {
-  'templario-escudo': [307, 3],
-  'templario-mandoble': [335, 3],
-  'templario-monje': [214, 2],
-  'templario-escudero': [323, 3],
-  'templario-hermano-de-carga': [456, 4],
-  'templario-penitente': [315, 3],
-  'esqueleto-guerrero': [215, 2],
-  'esqueleto-arquero': [202, 2],
-  zombi: [324, 3],
-  espectro: [307, 3],
-  'caballero-de-la-muerte': [327, 3],
-  'jinete-de-plaga': [444, 4],
-  'imperio-alabardero': [306, 3],
-  'imperio-piquero': [306, 3],
+  'templario-escudo': [316, 3],
+  'templario-mandoble': [303, 3],
+  'templario-monje': [227, 2],
+  'templario-escudero': [285, 2],
+  'templario-hermano-de-carga': [479, 4],
+  'templario-penitente': [312, 3],
+  'esqueleto-guerrero': [225, 2],
+  'esqueleto-arquero': [209, 2],
+  zombi: [329, 3],
+  espectro: [341, 3],
+  'caballero-de-la-muerte': [321, 3],
+  'jinete-de-plaga': [466, 4],
+  'imperio-alabardero': [250, 2],
+  'imperio-piquero': [252, 2],
   'imperio-ballestero': [271, 2],
-  'imperio-coracero': [318, 3],
+  'imperio-coracero': [322, 3],
   'imperio-arcabucero': [271, 2],
-  'imperio-rodelero': [323, 3],
-  'imperio-artillero-culebrina': [275, 2],
-  'imperio-pistolero-montado': [443, 4],
-  'imperio-granadero': [309, 3],
-  'elfo-arquero': [284, 2],
-  'elfo-explorador': [311, 3],
-  'elfo-guardia-del-bosque': [339, 3],
-  'elfo-jinete': [462, 4],
-  'elfo-sacerdotisa': [219, 2],
-  'elfo-asesino': [309, 3],
-  'orko-hacha-escudo': [343, 3],
-  'orko-dos-armas': [327, 3],
-  'goblin-lancero': [232, 2],
-  'goblin-arquero': [221, 2],
-  'troll-maza': [293, 2],
-  'goblin-jinete-de-hiena': [331, 3],
-  'orko-armadura-pesada': [313, 3],
+  'imperio-rodelero': [328, 3],
+  'imperio-artillero-culebrina': [271, 2],
+  'imperio-pistolero-montado': [466, 4],
+  'imperio-granadero': [306, 3],
+  'elfo-arquero': [305, 3],
+  'elfo-explorador': [323, 3],
+  'elfo-guardia-del-bosque': [345, 3],
+  'elfo-jinete': [485, 4],
+  'elfo-sacerdotisa': [225, 2],
+  'elfo-asesino': [325, 3],
+  'orko-hacha-escudo': [334, 3],
+  'orko-dos-armas': [329, 3],
+  'goblin-lancero': [238, 2],
+  'goblin-arquero': [232, 2],
+  'troll-maza': [285, 2],
+  'goblin-jinete-de-hiena': [334, 3],
+  'orko-armadura-pesada': [309, 3],
 };
 
 describe('el índice de poder y el nivel (core/nivel.ts)', () => {
@@ -139,7 +140,7 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
     expect(indiceDePoder(conEquipo(espadachin, { arma: 'espada' }))).toBeGreaterThan(desnudo);
   });
 
-  it('la armadura cuenta en lo que aguanta, contra un golpe de 30, y como mucho ×4', () => {
+  it('la armadura cuenta en lo que aguanta, contra un golpe de 9, y como mucho ×4', () => {
     const cuerpo: UnitInfo = {
       name: 'cuerpo',
       faction: null,
@@ -153,11 +154,11 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
       speed: 'average',
     };
     const con = (armadura: number) => indiceDePoder({ ...cuerpo, puntosDeArmadura: armadura });
-    expect(con(7)).toBeGreaterThan(indiceDePoder(cuerpo));
-    expect(con(22)).toBeGreaterThan(con(7));
-    // De 23 en adelante (30 − ⌊30 / 4⌋), el tope: no hace a nadie inmortal en la cuenta.
-    expect(con(40)).toBe(con(23));
-    expect(con(22)).toBeLessThan(con(23));
+    expect(con(2)).toBeGreaterThan(indiceDePoder(cuerpo));
+    expect(con(6)).toBeGreaterThan(con(2));
+    // De 7 en adelante (9 − ⌊9 / 4⌋), el tope: no hace a nadie inmortal en la cuenta.
+    expect(con(20)).toBe(con(7));
+    expect(con(6)).toBeLessThan(con(7));
   });
 
   it('lo que pega es el mejor de sus golpes, cada uno con su arma: el disparo cuenta si tira', () => {
@@ -240,7 +241,7 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
   it('el héroe: su cuerpo crece por rango y su nivel se lee de él, con el equipo', () => {
     const conRango = (r: number) =>
       heroUnit({ name: 'X', attack: 2, defense: 2, experience: umbral(r), equipo: {} });
-    expect(indiceDePoder(conRango(5))).toBe(354);
+    expect(indiceDePoder(conRango(5))).toBe(356);
     expect(nivelDeUnidad(conRango(5))).toBe(3);
     expect(indiceDePoder(conRango(10))).toBeGreaterThan(indiceDePoder(conRango(5)));
     // Con la Espada, más: las piezas cuentan.
@@ -252,7 +253,7 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
       equipo: { arma: 'espada' },
     });
     expect(equipado.attack).toBeGreaterThan(conRango(5).attack);
-    expect(indiceDePoder(equipado)).toBe(407);
+    expect(indiceDePoder(equipado)).toBe(412);
   });
 
   it('unas cifras que no caben en un entero lanzan diciéndolo, no redondean', () => {

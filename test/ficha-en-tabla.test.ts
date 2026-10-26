@@ -119,7 +119,7 @@ describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
     const m = marcadoDe(renderFicha(CON_ESCUDO, false, MONTAJE));
     expect(finalDe(m, 'attack')).toEqual({ valor: combate.attack, cambiada: false });
     // La fuerza y la agilidad se escriben; la defensa, el daño y las casillas se
-    // derivan (25-10-2026): el escudo pesa 8, menos que su fuerza, y solo suma defensa.
+    // derivan (25-10-2026): el escudo pesa 2, menos que su fuerza, y solo suma defensa.
     expect(finalDe(m, 'fuerza')).toEqual({ valor: combate.damage[0], cambiada: false });
     expect(finalDe(m, 'agilidad')).toEqual({ valor: CON_ESCUDO.agilidad, cambiada: false });
     expect(finalDe(m, 'defensa')).toEqual({ valor: combate.defense, cambiada: true });
@@ -131,7 +131,7 @@ describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
     expect(m).toMatch(
       new RegExp(`data-final="danio"[^>]*>${combate.damage[0]}–${combate.damage[1]}</output>`),
     );
-    expect(m).toMatch(/data-final="peso"[^>]*>8 de 22<\/output>/);
+    expect(m).toMatch(/data-final="peso"[^>]*>2 de 7<\/output>/);
     expect(finalDe(m, 'hp').valor).toBe(combate.hp);
     expect(finalDe(m, 'leadership')).toEqual({ valor: CON_ESCUDO.leadership, cambiada: false });
     // El coste no se escribe: sale del índice de lo que pelea (19-10-2026).
@@ -145,7 +145,7 @@ describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
     // La armadura no tiene casilla y toda es del equipo: con la brigantina, en el
     // otro tono; sin nada, en el de siempre (A5 de QA de #262).
     const conKit = marcadoDe(renderFicha(unidadDeArena('templario-escudo'), false, MONTAJE));
-    expect(finalDe(conKit, 'armadura')).toEqual({ valor: 7, cambiada: true });
+    expect(finalDe(conKit, 'armadura')).toEqual({ valor: 2, cambiada: true });
     expect(finalDe(sin, 'armadura')).toEqual({ valor: 0, cambiada: false });
   });
 
@@ -166,7 +166,7 @@ describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
     const escudo = pieza('escudo');
     const pastillas = marcadoDe(modificadoresEnPantalla(escudo));
     expect(pastillas).toBe(
-      '<span class="modificadores"><span class="modificador" data-cifra="defensa">+3 Defensa</span><span class="modificador" data-cifra="peso">Peso 8</span></span>',
+      '<span class="modificadores"><span class="modificador" data-cifra="defensa">+3 Defensa</span><span class="modificador" data-cifra="peso">Peso 2</span></span>',
     );
     expect(marcadoDe(renderFicha(CON_ESCUDO, false, MONTAJE))).toContain(pastillas);
     const editor = marcadoDe(

@@ -150,7 +150,7 @@ describe('el catálogo de equipo en la arena', () => {
   it('una montura nueva nace con lo que la deja valer, y pasar a otro hueco le quita lo suyo (26-10-2026)', () => {
     // La fuerza del cuerpo común y la agilidad más baja: sin ellas no valdría.
     const nueva = piezaNueva('montura', EQUIPO_DEL_JUEGO) as Pieza;
-    expect(nueva).toMatchObject({ hueco: 'montura', fuerza: 20, agilidad: 2 });
+    expect(nueva).toMatchObject({ hueco: 'montura', fuerza: 7, agilidad: 2 });
     expect(nueva).not.toHaveProperty('guerra');
     const caballo = pieza('caballo_de_guerra');
     expect(enElHueco(caballo, 'montura')).toEqual(caballo);
@@ -762,11 +762,13 @@ describe('la vista «Editar equipo»', () => {
     );
     expect(cuerpo).toContain('data-pieza="lanza"');
     expect(cuerpo).toContain('data-pieza="maza"');
-    // De dónde sale: la Espada, de la armería; la maza, del botín; la nueva, de ninguno.
+    // De dónde sale: la Espada, de la armería; la de herrería, del botín; la nueva, de
+    // ninguno (la maza, de la armería desde el 26-10-2026).
     const tarjeta = (id: string) =>
       m.slice(m.indexOf(`data-pieza="${id}"`)).split('</button>')[0] as string;
     expect(tarjeta('espada')).toContain('data-se-consigue="armeria"');
-    expect(tarjeta('maza')).toContain('data-se-consigue="botin"');
+    expect(tarjeta('maza')).toContain('data-se-consigue="armeria"');
+    expect(tarjeta('espada_de_herreria')).toContain('data-se-consigue="botin"');
     expect(tarjeta(nueva.id)).toContain('data-se-consigue="ninguno"');
     expect(m).not.toContain('de serie');
     // La de herrería dice sobre qué va.
@@ -781,7 +783,7 @@ describe('la vista «Editar equipo»', () => {
         ...vista(id).matchAll(/data-arena-pieza-campo="se-consigue-(armeria|botin)"( checked)?/g),
       ].map((x) => `${x[1]}${x[2] === undefined ? '' : ' ✓'}`);
     expect(casillas('espada')).toEqual(['armeria ✓', 'botin']);
-    expect(casillas('maza')).toEqual(['armeria', 'botin ✓']);
+    expect(casillas('espada_de_herreria')).toEqual(['armeria', 'botin ✓']);
     expect(casillas(nueva.id)).toEqual(['armeria', 'botin']);
   });
 
@@ -1007,7 +1009,7 @@ describe('la ficha de una unidad ofrece solo lo que el núcleo admite (H3 de la 
     );
     const jinete = unidadDeArena('elfo-jinete');
     expect(motivoDe(jinete, 'escudo', 'rodela')).toBe(
-      'Rodela no se puede llevar con dos armas: no queda mano para el escudo; quita antes Lanza',
+      'Rodela no se puede llevar con dos armas: no queda mano para el escudo; quita antes Lanza de jinete',
     );
   });
 

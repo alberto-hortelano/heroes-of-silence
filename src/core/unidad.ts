@@ -151,13 +151,15 @@ const CAMPOS_DE_UNIDAD: readonly string[] = [
  * Las cifras del cuerpo común, con las que nace una unidad nueva (`unidadNueva`,
  * con la Espada y la agilidad de su hoja). **Inventadas y provisionales**
  * (25-10-2026, con la fuerza y la agilidad: las de un humano de a pie, y los PV ×2
- * de la decisión del usuario). Las alternativas probadas, en `docs/historia.md`.
+ * de la decisión del usuario; con la escala baja, 26-10-2026, fuerza 20 → 7 y PV
+ * 160 → 50, las del guerrero con escudo). Las alternativas probadas, en
+ * `docs/historia.md`.
  */
 export const CUERPO_COMUN = {
   leadership: 3,
   attack: 3,
-  fuerza: 20,
-  hp: 160,
+  fuerza: 7,
+  hp: 50,
 } as const satisfies Pick<Unidad, 'leadership' | 'attack' | 'fuerza' | 'hp'>;
 
 /** Lo que trae un perfil de arma sobre el cuerpo común (`KIT_DEL_PERFIL`). */

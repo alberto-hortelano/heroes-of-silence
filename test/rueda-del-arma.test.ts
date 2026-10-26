@@ -159,7 +159,7 @@ describe('las cifras de la rueda por niveles', () => {
       ofensivo: 3,
       fuerte: 5,
       finta: 1,
-      defensivo: 3,
+      defensivo: 2,
       rapido: 1,
       romperGuardia: 5,
     });
@@ -198,7 +198,7 @@ describe('las cifras de la rueda por niveles', () => {
       porExito: '7, 6, 5, 4, 3',
     });
     expect(ruedaDelArmaEnPalabras(MAZA.rueda)).toBe(
-      'Ofensivo 3, Fuerte 5, Finta 1, Defensivo 3, Rápido 1, Romper guardia 5',
+      'Ofensivo 3, Fuerte 5, Finta 1, Defensivo 2, Rápido 1, Romper guardia 5',
     );
     // Con las dos puntas iguales, una sola cifra.
     const peor = filasDeLaRueda({ ...todoA(3), finta: 0, romperGuardia: 0 });
@@ -413,17 +413,17 @@ describe('la rueda teñida por el nivel del arma de quien pega (25-10-2026)', ()
   it('en las ruedas de 5 y de 3, un fusionado lleva la media truncada de sus partes', () => {
     const maza = MAZA.rueda;
     if (maza === undefined) throw new Error('la maza no lleva rueda');
-    // Ofensivo 3 y Fuerte 5 → 4; Defensivo 3 y Finta 1 → 2; Rápido 1 y Romper 5 → 3.
+    // Ofensivo 3 y Fuerte 5 → 4; Defensivo 2 y Finta 1 → 1; Rápido 1 y Romper 5 → 3.
     expect(nivelesEnLaForma(maza, RUEDAS[5])).toEqual({
       ofensivoFuerte: 4,
       rapido: 1,
       romperGuardia: 5,
-      defensivoFinta: 2,
+      defensivoFinta: 1,
     });
     expect(nivelesEnLaForma(maza, RUEDAS[3])).toEqual({
       ofensivoFuerte: 4,
       rapidoRomper: 3,
-      defensivoFinta: 2,
+      defensivoFinta: 1,
     });
   });
 

@@ -325,7 +325,7 @@ const ESCENARIOS: readonly Escenario[] = [
   // La armadura de la arena (#262): se resta lo último de cada golpe, y la
   // previsión con la misma resta (`trasLaArmadura`).
   {
-    nombre: 'armadura: la daga contra la barda del jinete, que para casi todo el mínimo',
+    nombre: 'armadura: la daga contra la coraza del jinete, que para casi todo el mínimo',
     izquierda: () => deLaArena('arquero', ARQUERO_DE_LA_ARENA),
     derecha: () => deLaArena('jinete', JINETE_DE_LA_ARENA),
     en: { col: 5, row: 4 },
@@ -584,9 +584,9 @@ describe('la previsión de daño cae en el daño real', () => {
     // Con espada y lanza (25-10-2026), las dos nombradas; la carga, con las dos y,
     // montado de guerra, con la fuerza del caballo (26-10-2026).
     const armas = golpeDe(yo, 'arma');
-    expect(armas.piezas.map((p) => p.nombre)).toEqual(['Espada', 'Lanza']);
+    expect(armas.piezas.map((p) => p.nombre)).toEqual(['Espada', 'Lanza de jinete']);
     expect(carga.modificadores.map((m) => m.causa)).toEqual([
-      'con Espada y Lanza, montado en Caballo de guerra (en la carga)',
+      'con Espada y Lanza de jinete, montado en Caballo de guerra (en la carga)',
       `ataque ${armas.attack} contra defensa ${el.defense}`,
       'carga de 3 casillas montada',
       `−${armaduraDe(el)} armadura`,
@@ -598,24 +598,24 @@ describe('la previsión de daño cae en el daño real', () => {
     );
   });
 
-  it('con armadura (la arena), la cuenta lo dice lo último: «−7 armadura»', () => {
+  it('con armadura (la arena), la cuenta lo dice lo último: «−2 armadura»', () => {
     const prevista = (nombre: string): Prevision => {
       const e = ESCENARIOS.find((x) => x.nombre.startsWith(nombre))!;
       const { b, accion } = montar(e, createRng(1));
       return previsionDe(b, accion)!;
     };
-    // La daga (4 contra 4: ×1) da 24–96: la barda (22) se queda casi todo el mínimo,
-    // y el contraataque del jinete (espada) contra el jubón (2) también llega.
+    // La daga (3 contra 4: ×0,975) da 9–35: la coraza (7) se queda casi todo el
+    // mínimo, y el contraataque del jinete (espada) contra el jubón (1) también llega.
     const daga = prevista('armadura: la daga') as PrevisionDeGolpe;
-    expect(daga.danio).toEqual({ min: 2, max: 74 });
-    expect(daga.modificadores.at(-1)?.causa).toBe('−22 armadura');
-    expect(daga.contraataque?.modificadores.at(-1)?.causa).toBe('−2 armadura');
+    expect(daga.danio).toEqual({ min: 2, max: 28 });
+    expect(daga.modificadores.at(-1)?.causa).toBe('−7 armadura');
+    expect(daga.contraataque?.modificadores.at(-1)?.causa).toBe('−1 armadura');
     // El hechizo, con la misma resta: lo que llega, sin la cuenta.
     const flecha = prevista('armadura: Flecha mágica');
     if (flecha.kind !== 'hechizo') throw new Error('sin previsión de hechizo');
     const sinArmadura = prevista('Flecha mágica');
     if (sinArmadura.kind !== 'hechizo') throw new Error('sin previsión de hechizo');
-    expect(flecha.danio).toBe((sinArmadura.danio ?? 0) - 7);
+    expect(flecha.danio).toBe((sinArmadura.danio ?? 0) - 2);
   });
 
   it('una acción que no se puede jugar no se prevé: se dice por qué', () => {

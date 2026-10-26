@@ -1255,11 +1255,28 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   90 → 132, `town_captured` 72 → 89, `troop_rank_up` 248 → 380, `hero_defeated`
  *   26 → 61, `hero_moved` 2 086 → 3 045, `item_bought` 1 → 0; ningún tipo de hecho
  *   nuevo. La forma del diff, no una medida.
+ * - `bf739e51…` (4 056 líneas, 20 semillas, 26-10-2026): **la escala baja**
+ *   (`docs/agents/2026-10-26-escala-baja/`, petición del usuario: «la idea es bajar
+ *   los números»; fuerza, PV y armadura ×0,3, pesos nuevos, la maza y el pavés a la
+ *   armería, la alabarda y la lanza de infantería, y lo que depende de la escala
+ *   re-escalado: umbral del nivel, divisor de la IA, experiencia, hechizos, techo de
+ *   los asaltantes). Contra `b94ea4b1…`, las 20 cambian, todas el día 1, y el primer
+ *   hecho distinto es de las cifras nuevas: el grupo de jinetes de plaga que brota
+ *   (`raider_spawned`, 2 + 5 → 2 + 3 esqueletos, 8: s4, s5, s11, s12, s14, s15, s16,
+ *   s18), la IA licencia o recluta otra cosa (`dismissed`/`recruited`, 5: s2, s3,
+ *   s7, s13, s19), el resumen de la primera batalla (`battle_ended`, otras rondas, 4:
+ *   s1, s8, s9, s10), el botín de una ciudad sin la maza (`loot_found`, 2: s6, s17) o
+ *   la ciudad que se toma antes que la veteranía (`troop_rank_up` → `town_captured`,
+ *   1: s20). j0 gana 8 de 20 (11 antes; cambian de ganador s2, s3, s5, s6, s11, s17 y
+ *   s18); duración 4 / 14 / 19 → **4 / 8 / 9**, días 113 → 87; batallas 132 → 96,
+ *   `town_captured` 89 → 87, `troop_rank_up` 380 → 260, `hero_defeated` 61 → 26,
+ *   `hero_moved` 3 045 → 2 181; ningún tipo de hecho nuevo ni perdido. La forma del
+ *   diff, no una medida.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'b94ea4b1eb64d9c4b274979b973287ace22a8fab7e452c197a457fe8db60976a',
+  sha: 'bf739e519803daa5f6f4b9a947d0963ea48bee71a486b0e6716f71243b4f121c',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

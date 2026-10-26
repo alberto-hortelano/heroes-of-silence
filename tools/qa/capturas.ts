@@ -6164,7 +6164,7 @@ function orcoConLanza(): Unidad {
 
 /** Lo que dice la barra del golpe del arquero sobre el contraataque del orco (`orcoConLanza`). */
 const CONTRAATAQUE_DEL_ORCO =
-  /Contraataque con Espada y Lanza \(cuerpo a cuerpo\)(, si sobrevive)?: /;
+  /Contraataque con Espada y Lanza de jinete \(cuerpo a cuerpo\)(, si sobrevive)?: /;
 
 function espejoDeLasArmas(semilla: number): SesionDeArena {
   const espejo = new SesionDeArena(
@@ -6239,9 +6239,9 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
     await filas.first().waitFor({ timeout: 2000 });
     const dichas = (await filas.allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim());
     const esperadas = [
-      'Cuerpo a cuerpo ⓘ Espada y Lanza · Ataque 7 · Daño 28–140',
-      'A distancia ⓘ Arco · Ataque 6 · Daño 26–130',
-      'Carga ⓘ Espada y Lanza · Ataque 7 · Daño 62–310 · +5 %/casilla (3 a 5), montada',
+      'Cuerpo a cuerpo ⓘ Espada y Lanza de jinete · Ataque 7 · Daño 10–50',
+      'A distancia ⓘ Arco · Ataque 6 · Daño 9–45',
+      'Carga ⓘ Espada y Lanza de jinete · Ataque 7 · Daño 20–100 · +5 %/casilla (3 a 5), montada',
     ];
     if (JSON.stringify(dichas) !== JSON.stringify(esperadas)) {
       throw new Error(`armas: la ficha del jinete élfico dice ${JSON.stringify(dichas)}`);
@@ -6295,7 +6295,7 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
     const dichaLanza = (await filaDeLaLanza.innerText()).replace(/\s+/g, ' ').trim();
     // A pie también carga (#260): la lanza se usa, con lo que cobra a pie.
     if (
-      !dichaLanza.startsWith('Carga ⓘ Espada y Lanza · Ataque ') ||
+      !dichaLanza.startsWith('Carga ⓘ Espada y Lanza de jinete · Ataque ') ||
       !dichaLanza.endsWith(' · +5 %/casilla (3 a 5), a pie')
     ) {
       throw new Error(`armas: la ficha del orco con lanza dice «${dichaLanza}»`);

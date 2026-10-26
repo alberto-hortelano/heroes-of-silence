@@ -57,6 +57,7 @@ import {
   costesDelAlcance,
   ejercito,
   forzarBatalla,
+  JINETE,
   NO_MUERTO,
   NORMAL,
   PESADA,
@@ -234,7 +235,7 @@ describe('el héroe pisa el tablero (criterio 4)', () => {
   it('matar al héroe da la batalla al rival aunque a su bando le quede tropa', () => {
     const rng = createRng(4);
     const b = createBattle(
-      lado(ejercito({ creature: PESADA, count: 2 }), heroeDeBatalla()),
+      lado(ejercito({ creature: TROPA, count: 2 }), heroeDeBatalla()),
       lado(ejercito({ creature: NO_MUERTO, count: 5 }), heroeDeBatalla()),
       rng,
       COMBATE_COMPLETO,
@@ -587,7 +588,7 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
       state,
       c,
       [{ creature: TROPA_BARATA, count: 1 }],
-      [{ creature: PESADA, count: 6 }],
+      [{ creature: JINETE, count: 6 }],
     );
     const batalla = state.pendingBattle!.battle;
     // Uno de sus paladines cae antes de empezar, y su héroe ha gastado maná.
@@ -639,7 +640,7 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const { atacante, defensor } = batallaDeHeroes(
       state,
       c,
-      [{ creature: PESADA, count: 6 }],
+      [{ creature: JINETE, count: 6 }],
       [{ creature: TROPA_BARATA, count: 1 }],
       otro.at,
     );
@@ -675,7 +676,7 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const { atacante, defensor } = batallaDeHeroes(
       state,
       c,
-      [{ creature: PESADA, count: 6 }],
+      [{ creature: JINETE, count: 6 }],
       [{ creature: TROPA_BARATA, count: 1 }],
       base.at,
     );

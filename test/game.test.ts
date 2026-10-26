@@ -1531,11 +1531,12 @@ describe('el gremio enseña (#2)', () => {
     // mano (25-10-2026), 6 gremios en 1-60 y hechizos en 4: se jugaba la 29 (uno y
     // dos). Sin defender ni esperar (26-10-2026), 9 gremios en 1-80 y hechizos en 5
     // de ellos: se jugaba la 15 (uno y dos). Con la montura y el héroe en la marcha
-    // del grupo (26-10-2026), 7 gremios en 1-80 y hechizos en 5 de ellos: se juega
-    // la 21 (uno y dos).
+    // del grupo (26-10-2026), 7 gremios en 1-80 y hechizos en 5 de ellos: se jugaba
+    // la 21 (uno y dos). Con la escala baja (26-10-2026), 8 gremios en 1-80 y
+    // hechizos en 6 de ellos: se juega la 5 (uno y dos).
     let gremios = 0;
     let aprendidos = 0;
-    for (const semilla of [21]) {
+    for (const semilla of [5]) {
       const state = newGame({ seed: semilla });
       await playAiGame(state, { rng: createRng(semilla) });
       for (const e of state.log) {
@@ -2605,7 +2606,8 @@ describe('la marcha se para al descubrir un grupo que la emboscaría (#130)', ()
     const { seed, destino, antes } = primeraParada();
     const state = copiaDePartida(antes);
     const hero = heroesOf(state, 0)[0]!;
-    hero.army = ejercito({ creature: PESADA, count: 7 });
+    // Siete jinetes: con la escala baja (26-10-2026), siete pesadas ya no daban el margen.
+    hero.army = ejercito({ creature: JINETE, count: 7 });
     hero.movePoints = 100_000;
     applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: destino }, ctx(seed), 0);
     expect(state.log.some((e) => e.kind === 'march_halted')).toBe(false);

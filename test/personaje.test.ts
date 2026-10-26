@@ -84,8 +84,8 @@ describe('crear un personaje', () => {
   it('el reparto por defecto crea un personaje sano de nivel 1', () => {
     const c = createCharacter('aren', defaultBuild);
     expect(c).toMatchObject({ id: 'aren', name: 'Aren', level: 1 });
-    // Guardabosques: resistencia 11 sin bono → 10 · (10 + 2·11), a la escala de las cifras.
-    expect(c.hp).toBe(320);
+    // Guardabosques: resistencia 11 sin bono → 3 · (10 + 2·11), a la escala de las cifras.
+    expect(c.hp).toBe(96);
   });
 
   it('un reparto que no suma 18 lanza diciendo cuántos lleva', () => {
@@ -146,8 +146,8 @@ describe('del personaje a las cifras de combate', () => {
     Guardabosques: {
       attack: 6,
       defense: 10,
-      damage: [30, 150],
-      hp: 320,
+      damage: [9, 45],
+      hp: 96,
       speed: 'fast',
       tira: true,
       morale: 0,
@@ -157,8 +157,8 @@ describe('del personaje a las cifras de combate', () => {
     Guerrero: {
       attack: 6,
       defense: 10,
-      damage: [40, 160],
-      hp: 340,
+      damage: [12, 48],
+      hp: 102,
       speed: 'average',
       tira: false,
       morale: 0,
@@ -168,8 +168,8 @@ describe('del personaje a las cifras de combate', () => {
     Mago: {
       attack: 6,
       defense: 10,
-      damage: [30, 120],
-      hp: 320,
+      damage: [9, 36],
+      hp: 96,
       speed: 'average',
       tira: false,
       morale: 1,
@@ -179,8 +179,8 @@ describe('del personaje a las cifras de combate', () => {
     Sanador: {
       attack: 6,
       defense: 9,
-      damage: [30, 120],
-      hp: 320,
+      damage: [9, 36],
+      hp: 96,
       speed: 'average',
       tira: false,
       morale: 1,
@@ -254,7 +254,7 @@ describe('un personaje en el tablero', () => {
 
   it('un personaje en un stack de 2 lanza', () => {
     expect(() =>
-      createBattle(ladoDe(personaje('Guerrero'), 340, 2), zombi, rng(), COMBATE_COMPLETO),
+      createBattle(ladoDe(personaje('Guerrero'), 102, 2), zombi, rng(), COMBATE_COMPLETO),
     ).toThrow(/un personaje es uno solo: "Guerrero" viene en un stack de 2/);
   });
 
@@ -271,12 +271,12 @@ describe('un personaje en el tablero', () => {
     ).toThrow(/Aren no puede entrar en batalla: tiene 0 PV/);
     expect(() =>
       createBattle(ladoDe(personaje('Guerrero'), 999), zombi, rng(), COMBATE_COMPLETO),
-    ).toThrow(/Aren llega con 999 PV y su máximo es 340/);
+    ).toThrow(/Aren llega con 999 PV y su máximo es 102/);
   });
 
   it('unos PV que no son un entero no entran: ni NaN ni 2,5', () => {
     // `NaN` pasaba por delante de las dos comprobaciones de arriba —`NaN <= 0` y
-    // `NaN > 340` son los dos falsos— y la batalla empezaba con `topHp: NaN`.
+    // `NaN > 102` son los dos falsos— y la batalla empezaba con `topHp: NaN`.
     expect(() =>
       createBattle(ladoDe(personaje('Guerrero'), Number.NaN), zombi, rng(), COMBATE_COMPLETO),
     ).toThrow(/Aren llega con NaN PV: los PV son un número entero/);
@@ -302,13 +302,13 @@ describe('un personaje en el tablero', () => {
     );
   });
 
-  it('entra herido: 12 de 340 PV es un topHp de 12', () => {
+  it('entra herido: 12 de 102 PV es un topHp de 12', () => {
     const batalla = createBattle(ladoDe(personaje('Guerrero'), 12), zombi, rng(), COMBATE_COMPLETO);
     const s = batalla.stacks.find(esPersonaje('Guerrero'))!;
     expect(s.topHp).toBe(12);
     expect(s.count).toBe(1);
     expect(s.body).toBe(CHARACTER_BODY);
-    expect(s.unit.hp).toBe(340);
+    expect(s.unit.hp).toBe(102);
     expect(s.unit.name).toBe('Aren');
   });
 

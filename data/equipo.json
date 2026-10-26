@@ -1,5 +1,5 @@
 {
-  "_comment": "CATÁLOGO de equipo: las piezas que lleva un individuo de la tropa, una unidad o un héroe, una por hueco: arma (la de cuerpo a cuerpo) y segunda (otra de cuerpo a cuerpo, de una mano, sin escudo: 25-10-2026), distancia (la que dispara: llevarla ya es disparar, sin munición), armadura, escudo y montura (26-10-2026). La lanza (lanza: true) es un arma de cuerpo a cuerpo más; lo único que hace es poner la fuerza de una montura de guerra en la carga. LA MONTURA (26-10-2026, petición del usuario: «vamos a separar la montura del personaje»; cifras INVENTADAS y a ojo en docs/agents/2026-10-26-montura/plan.md): su fuerza (lo que carga encima del jinete) y su agilidad (2 a 7: sus casillas) son suyas y no se suman a las del jinete. De guerra (guerra: true), se monta en batalla: el peso del equipo del jinete más el de ella se mide contra su fuerza, las casillas son las de ella y el jinete pelea con su agilidad entera; con una lanza, la carga tira [F, F × agilidad del jinete] con F = la fuerza de la montura más la de la lanza. De silla (sin guerra), solo en el mapa: allí cada uno anda lo de su montura o lo suyo, y manda el más lento del grupo, el héroe incluido. La hiena de guerra solo la llevan los jinetes de hiena. TODO INVENTADO y PROVISIONAL: lo pide NuevaJugabilidad.md («Las tropas también ganan experiencia y equipo»; «En las ciudades puedes construir armería y comprar equipo mejorado para la tropa») y HoMM2 no tiene equipo de tropa, así que no hay fila que copiar; que nadie cite estas cifras como del original. Lo carga src/core/data.ts (leerEquipo), que lo valida entero (una pieza que no vale tumba la carga diciendo cuál y por qué), y lo escribe la arena (/arena/, pnpm arena, vista «Editar equipo») al pulsar «Guardar», con la misma regla: lo que se guarda allí es lo que se compra, cae como botín y lleva el juego. UNA SOLA CLASE DE PIEZAS (18-10-2026): cada hueco suma solo sus cifras (camposDelHueco): las armas, ataque y fuerza; la armadura, armadura; el escudo, defensa. FUERZA, AGILIDAD Y PESO (25-10-2026, petición del usuario, cifras INVENTADAS y a ojo en docs/agents/2026-10-25-fuerza-agilidad-y-disparo/cifras.md): toda pieza dice su peso, y ninguna resta movimiento: la suma de lo puesto que pase de la fuerza del cuerpo resta 1 de agilidad por cada 50 % de la fuerza (src/core/cuerpo.ts); un arma suma su fuerza al daño, que es [fuerza, fuerza × agilidad]; el escudo suma su defensa encima de la agilidad; la armadura ya no da defensa. NINGUNA PIEZA DA PV: la armadura son puntos que se restan del daño de cada golpe, disparo, hechizo o poder, con mínimo 0 (#262), hasta 99. Un arma de cuerpo a cuerpo (arma) puede decir manos: 2, que va sola: ni escudo ni segunda arma; el arco a la espalda sí admite escudo. Con dos armas, cada cifra del golpe es la de la mejor (ataque, fuerza y cada tipo de la rueda) y el peso, la suma. LA RUEDA DEL ARMA («una maza es mejor en ataque fuerte y peor en rápido, una espada es la más versátil»): toda pieza de arma lleva rueda, su nivel de 0 (lo peor) a 6 (lo mejor) en cada uno de los seis tipos del anillo (ofensivo, fuerte, finta, defensivo, rapido, romperGuardia); lo que da cada nivel está en data/rueda.json. DE DÓNDE SE CONSIGUE (seConsigue): armeria, la vende la armería al precio dicho (precio, en oro); botin, cae como botín de asaltantes y ciudades neutrales; [] (se escribe siempre), solo la llevan las unidades que nacen con ella (data/unidades.json). Decisión del usuario (18-10-2026): la armería vende las piezas que no van sobre otra y el botín da las que van sobre otra más la maza y el pavés; los precios, inventados. El equipo con que nace todo héroe está en data/heroe.json (equipoBase). LAS BASES («una espada de herrería debería poder ser una espada normal con extras»): una pieza puede escribirse sobre otra, {id, nombre, base, seConsigue, extras}; su hueco y sus manos son los de su base, y sus cifras, las de la base más sus extras (ataque, fuerza, defensa, armadura, peso, rueda y oro, enteros con signo), en cadena; si cambia la base, cambia ella.",
+  "_comment": "CATÁLOGO de equipo: las piezas que lleva un individuo de la tropa, una unidad o un héroe, una por hueco: arma (la de cuerpo a cuerpo) y segunda (otra de cuerpo a cuerpo, de una mano, sin escudo: 25-10-2026), distancia (la que dispara: llevarla ya es disparar, sin munición), armadura, escudo y montura (26-10-2026). La lanza de jinete (id lanza, lanza: true) es un arma de cuerpo a cuerpo más; lo único que hace es poner la fuerza de una montura de guerra en la carga. LA ESCALA BAJA (26-10-2026, petición del usuario: «la idea es bajar los números. La fuerza es excesiva [...] Baja todos los pesos. La daga 0, la espada 1, el mandoble 2. Lo más pesado son las armaduras»; cifras A OJO en docs/agents/2026-10-26-escala-baja/requisitos.md, sin medir el equilibrio): la fuerza de las armas y los pesos bajan, la armadura ×0,3 (el daño medio bajó ~3,2×), la barda se llama Coraza, la maza y el pavés pasan a la armería, y entran dos armas a dos manos de la armería, la Alabarda y la Lanza de infantería (que se llama «Lanza», sin la marca de la carga). LA MONTURA (26-10-2026, petición del usuario: «vamos a separar la montura del personaje»; cifras INVENTADAS y a ojo en docs/agents/2026-10-26-montura/plan.md): su fuerza (lo que carga encima del jinete) y su agilidad (2 a 7: sus casillas) son suyas y no se suman a las del jinete. De guerra (guerra: true), se monta en batalla: el peso del equipo del jinete más el de ella se mide contra su fuerza, las casillas son las de ella y el jinete pelea con su agilidad entera; con una lanza, la carga tira [F, F × agilidad del jinete] con F = la fuerza de la montura más la de la lanza. De silla (sin guerra), solo en el mapa: allí cada uno anda lo de su montura o lo suyo, y manda el más lento del grupo, el héroe incluido. La hiena de guerra solo la llevan los jinetes de hiena. TODO INVENTADO y PROVISIONAL: lo pide NuevaJugabilidad.md («Las tropas también ganan experiencia y equipo»; «En las ciudades puedes construir armería y comprar equipo mejorado para la tropa») y HoMM2 no tiene equipo de tropa, así que no hay fila que copiar; que nadie cite estas cifras como del original. Lo carga src/core/data.ts (leerEquipo), que lo valida entero (una pieza que no vale tumba la carga diciendo cuál y por qué), y lo escribe la arena (/arena/, pnpm arena, vista «Editar equipo») al pulsar «Guardar», con la misma regla: lo que se guarda allí es lo que se compra, cae como botín y lleva el juego. UNA SOLA CLASE DE PIEZAS (18-10-2026): cada hueco suma solo sus cifras (camposDelHueco): las armas, ataque y fuerza; la armadura, armadura; el escudo, defensa. FUERZA, AGILIDAD Y PESO (25-10-2026, petición del usuario, cifras INVENTADAS y a ojo en docs/agents/2026-10-25-fuerza-agilidad-y-disparo/cifras.md): toda pieza dice su peso, y ninguna resta movimiento: la suma de lo puesto que pase de la fuerza del cuerpo resta 1 de agilidad por cada 50 % de la fuerza (src/core/cuerpo.ts); un arma suma su fuerza al daño, que es [fuerza, fuerza × agilidad]; el escudo suma su defensa encima de la agilidad; la armadura ya no da defensa. NINGUNA PIEZA DA PV: la armadura son puntos que se restan del daño de cada golpe, disparo, hechizo o poder, con mínimo 0 (#262), hasta 99. Un arma de cuerpo a cuerpo (arma) puede decir manos: 2, que va sola: ni escudo ni segunda arma; el arco a la espalda sí admite escudo. Con dos armas, cada cifra del golpe es la de la mejor (ataque, fuerza y cada tipo de la rueda) y el peso, la suma. LA RUEDA DEL ARMA («una maza es mejor en ataque fuerte y peor en rápido, una espada es la más versátil»): toda pieza de arma lleva rueda, su nivel de 0 (lo peor) a 6 (lo mejor) en cada uno de los seis tipos del anillo (ofensivo, fuerte, finta, defensivo, rapido, romperGuardia); lo que da cada nivel está en data/rueda.json. DE DÓNDE SE CONSIGUE (seConsigue): armeria, la vende la armería al precio dicho (precio, en oro); botin, cae como botín de asaltantes y ciudades neutrales; [] (se escribe siempre), solo la llevan las unidades que nacen con ella (data/unidades.json). Decisión del usuario (18-10-2026): la armería vende las piezas que no van sobre otra y el botín da las que van sobre otra (y la maza y el pavés hasta el 26-10-2026, que pasan a la armería); los precios, inventados. El equipo con que nace todo héroe está en data/heroe.json (equipoBase). LAS BASES («una espada de herrería debería poder ser una espada normal con extras»): una pieza puede escribirse sobre otra, {id, nombre, base, seConsigue, extras}; su hueco y sus manos son los de su base, y sus cifras, las de la base más sus extras (ataque, fuerza, defensa, armadura, peso, rueda y oro, enteros con signo), en cadena; si cambia la base, cambia ella.",
   "piezas": [
     {
       "id": "espada",
@@ -8,10 +8,10 @@
       "seConsigue": [
         "armeria"
       ],
-      "ataque": 2,
-      "fuerza": 10,
+      "ataque": 3,
+      "fuerza": 3,
       "defensa": 0,
-      "peso": 4,
+      "peso": 1,
       "rueda": {
         "ofensivo": 3,
         "fuerte": 3,
@@ -29,10 +29,10 @@
       "seConsigue": [
         "armeria"
       ],
-      "ataque": 4,
-      "fuerza": 20,
+      "ataque": 2,
+      "fuerza": 6,
       "defensa": 0,
-      "peso": 12,
+      "peso": 2,
       "manos": 2,
       "rueda": {
         "ofensivo": 4,
@@ -52,9 +52,9 @@
         "armeria"
       ],
       "ataque": 0,
-      "fuerza": 6,
+      "fuerza": 2,
       "defensa": 0,
-      "peso": 4,
+      "peso": 1,
       "manos": 2,
       "rueda": {
         "ofensivo": 2,
@@ -74,9 +74,9 @@
         "armeria"
       ],
       "ataque": 2,
-      "fuerza": 10,
+      "fuerza": 3,
       "defensa": 0,
-      "peso": 3,
+      "peso": 1,
       "precio": 500
     },
     {
@@ -87,22 +87,22 @@
         "armeria"
       ],
       "ataque": 3,
-      "fuerza": 20,
+      "fuerza": 6,
       "defensa": 0,
-      "peso": 10,
+      "peso": 2,
       "precio": 800
     },
     {
       "id": "lanza",
-      "nombre": "Lanza",
+      "nombre": "Lanza de jinete",
       "hueco": "arma",
       "seConsigue": [
         "armeria"
       ],
       "ataque": 3,
-      "fuerza": 12,
+      "fuerza": 4,
       "defensa": 0,
-      "peso": 8,
+      "peso": 2,
       "lanza": true,
       "rueda": {
         "ofensivo": 5,
@@ -115,6 +115,50 @@
       "precio": 700
     },
     {
+      "id": "alabarda",
+      "nombre": "Alabarda",
+      "hueco": "arma",
+      "seConsigue": [
+        "armeria"
+      ],
+      "ataque": 3,
+      "fuerza": 3,
+      "defensa": 0,
+      "peso": 2,
+      "manos": 2,
+      "rueda": {
+        "ofensivo": 4,
+        "fuerte": 4,
+        "finta": 4,
+        "defensivo": 4,
+        "rapido": 4,
+        "romperGuardia": 4
+      },
+      "precio": 400
+    },
+    {
+      "id": "lanza_de_infanteria",
+      "nombre": "Lanza",
+      "hueco": "arma",
+      "seConsigue": [
+        "armeria"
+      ],
+      "ataque": 4,
+      "fuerza": 3,
+      "defensa": 0,
+      "peso": 2,
+      "manos": 2,
+      "rueda": {
+        "ofensivo": 3,
+        "fuerte": 2,
+        "finta": 3,
+        "defensivo": 4,
+        "rapido": 4,
+        "romperGuardia": 4
+      },
+      "precio": 100
+    },
+    {
       "id": "brigantina",
       "nombre": "Brigantina",
       "hueco": "armadura",
@@ -123,8 +167,8 @@
       ],
       "ataque": 0,
       "defensa": 0,
-      "armadura": 7,
-      "peso": 12,
+      "armadura": 2,
+      "peso": 5,
       "precio": 700
     },
     {
@@ -136,8 +180,8 @@
       ],
       "ataque": 0,
       "defensa": 0,
-      "armadura": 10,
-      "peso": 22,
+      "armadura": 3,
+      "peso": 10,
       "precio": 1200
     },
     {
@@ -149,8 +193,8 @@
       ],
       "ataque": 0,
       "defensa": 0,
-      "armadura": 2,
-      "peso": 3,
+      "armadura": 1,
+      "peso": 1,
       "precio": 200
     },
     {
@@ -162,21 +206,21 @@
       ],
       "ataque": 0,
       "defensa": 0,
-      "armadura": 4,
-      "peso": 6,
+      "armadura": 1,
+      "peso": 2,
       "precio": 350
     },
     {
       "id": "barda",
-      "nombre": "Barda",
+      "nombre": "Coraza",
       "hueco": "armadura",
       "seConsigue": [
         "armeria"
       ],
       "ataque": 0,
       "defensa": 0,
-      "armadura": 22,
-      "peso": 30,
+      "armadura": 7,
+      "peso": 12,
       "precio": 2000
     },
     {
@@ -188,7 +232,7 @@
       ],
       "ataque": 0,
       "defensa": 2,
-      "peso": 3,
+      "peso": 1,
       "precio": 250
     },
     {
@@ -200,7 +244,7 @@
       ],
       "ataque": 0,
       "defensa": 3,
-      "peso": 8,
+      "peso": 2,
       "precio": 500
     },
     {
@@ -208,11 +252,11 @@
       "nombre": "Pavés",
       "hueco": "escudo",
       "seConsigue": [
-        "botin"
+        "armeria"
       ],
       "ataque": 0,
       "defensa": 6,
-      "peso": 18,
+      "peso": 3,
       "precio": 900
     },
     {
@@ -222,12 +266,12 @@
       "seConsigue": [
         "armeria"
       ],
-      "ataque": 1,
-      "fuerza": 4,
+      "ataque": 0,
+      "fuerza": 2,
       "defensa": 0,
-      "peso": 1,
+      "peso": 0,
       "rueda": {
-        "ofensivo": 3,
+        "ofensivo": 1,
         "fuerte": 1,
         "finta": 5,
         "defensivo": 2,
@@ -244,10 +288,10 @@
         "armeria"
       ],
       "ataque": 0,
-      "fuerza": 50,
+      "fuerza": 16,
       "agilidad": 6,
       "defensa": 0,
-      "peso": 10,
+      "peso": 3,
       "guerra": true,
       "precio": 1500
     },
@@ -259,10 +303,10 @@
         "armeria"
       ],
       "ataque": 0,
-      "fuerza": 30,
+      "fuerza": 10,
       "agilidad": 7,
       "defensa": 0,
-      "peso": 6,
+      "peso": 2,
       "precio": 500
     },
     {
@@ -271,10 +315,10 @@
       "hueco": "montura",
       "seConsigue": [],
       "ataque": 0,
-      "fuerza": 30,
+      "fuerza": 10,
       "agilidad": 6,
       "defensa": 0,
-      "peso": 6,
+      "peso": 2,
       "guerra": true,
       "precio": 0
     },
@@ -283,17 +327,17 @@
       "nombre": "Maza",
       "hueco": "arma",
       "seConsigue": [
-        "botin"
+        "armeria"
       ],
-      "ataque": 3,
-      "fuerza": 15,
+      "ataque": 1,
+      "fuerza": 5,
       "defensa": 0,
-      "peso": 8,
+      "peso": 1,
       "rueda": {
         "ofensivo": 3,
         "fuerte": 5,
         "finta": 1,
-        "defensivo": 3,
+        "defensivo": 2,
         "rapido": 1,
         "romperGuardia": 5
       },
@@ -308,7 +352,7 @@
       ],
       "extras": {
         "ataque": 1,
-        "fuerza": 3,
+        "fuerza": 1,
         "rueda": {
           "fuerte": 1,
           "rapido": 1

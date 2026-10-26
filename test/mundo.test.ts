@@ -699,7 +699,9 @@ describe('elegir en un lugar', () => {
     expect(opcionBlocker(state, rival.id, lanza)).toBe('la lanza ya no cuelga en la garita');
     state.current = 0;
     const faccion = NOMBRE_DE_FACCION[state.players[1]!.faction];
-    expect(opcionBlocker(state, yo.id, lanza)).toBe(`${rival.name} (${faccion}) ya se llevó Lanza`);
+    expect(opcionBlocker(state, yo.id, lanza)).toBe(
+      `${rival.name} (${faccion}) ya se llevó Lanza de jinete`,
+    );
     expect(state.mundo!.cobradas['puente-de-corvo/garita/dentro/1']).toEqual({
       jugador: 1,
       heroe: rival.name,

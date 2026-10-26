@@ -34,14 +34,17 @@ export const AREA_POR_REGION = 450;
 export const AREA_DE_REFERENCIA = 300;
 
 /**
- * La escala de las cifras de combate: **PV y daño van ×10** respecto a las de
- * fheroes2 (decisión del usuario con el nivel derivado, 12-10-2026), para que el
- * índice de poder tenga cifras con las que distinguir; ataque, defensa y la
- * fórmula de daño no cambian. Todo lo que mide en PV o en daño y se calibró en la
- * escala de fheroes2 —la fuerza de la IA, el precio del maná, el valor de una
- * pieza, el personaje, los borradores viejos de la arena— la lee de aquí.
+ * La escala de las cifras de combate: **PV y daño van ×3** respecto a las de
+ * fheroes2. Fueron ×10 desde el 12-10-2026 (decisión del usuario con el nivel
+ * derivado, para que el índice de poder tuviera cifras con las que distinguir) y
+ * bajan ×0,3 con la escala baja (26-10-2026, petición del usuario: «la idea es bajar
+ * los números»; a ojo, `docs/agents/2026-10-26-escala-baja/`), lo mismo que los PV,
+ * la fuerza y la armadura del catálogo. Ataque, defensa y la fórmula de daño no
+ * cambian. Todo lo que mide en PV o en daño y se calibró en la escala de fheroes2
+ * —el precio del maná para la IA, el personaje, la vida del monje de
+ * `pnpm capturas`— la lee de aquí.
  */
-export const ESCALA_DE_CIFRAS = 10;
+export const ESCALA_DE_CIFRAS = 3;
 
 /** ⌊√n⌋ de un entero ≥ 0, por bisección: `core` no usa `Math.sqrt` (`CLAUDE.md`, coma flotante). */
 export function raizEntera(n: number): number {

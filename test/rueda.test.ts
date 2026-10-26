@@ -1290,9 +1290,11 @@ describe('la IA elige a ciegas', () => {
       autoResolve(b, rng);
       return b;
     };
-    // Con la Finta la IA anda tras golpear (#263): sigue terminando, sin bucles.
+    // Con la Finta la IA anda tras golpear (#263): sigue terminando, sin bucles. En
+    // 1-50 hasta la escala baja (26-10-2026); con ella, de 336 Fintas en 1-300 solo
+    // tres dejan andar (las semillas 146, 149 y 282), así que se miran 1-150.
     let tramos = 0;
-    for (let semilla = 1; semilla <= 50; semilla++) {
+    for (let semilla = 1; semilla <= 150; semilla++) {
       const a = pelea(semilla);
       expect(a.finished, `semilla ${semilla}`).not.toBeNull();
       expect(a.log.filter((e) => e.kind === 'cruce').length).toBeGreaterThan(0);

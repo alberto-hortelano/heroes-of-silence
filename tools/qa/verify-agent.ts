@@ -890,7 +890,8 @@ async function main(): Promise<void> {
     typeof ficha.powerIndex !== 'number' ||
     ficha.level !== Math.floor(ficha.powerIndex / 100) ||
     ficha.equipment?.melee_weapon !== 'espada' ||
-    ficha.armor !== 7 ||
+    // La brigantina: 2 de armadura desde la escala baja (26-10-2026; 7 antes).
+    ficha.armor !== 2 ||
     'morada' in ficha ||
     'equipoDeSerie' in ficha
   ) {

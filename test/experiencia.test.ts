@@ -340,25 +340,25 @@ describe('la experiencia se gana por daño × índice de poder del que lo recibe
 // ---------------------------------------------------------------- C2
 
 describe('una sola tabla en Fibonacci (C2)', () => {
-  it('los umbrales salen del JSON: 9 000, 27 000, 54 000 y 99 000 para los rangos 2-5 (en PV × índice)', () => {
-    expect(EXPERIENCIA.base).toBe(9_000);
-    expect([1, 2, 3, 4, 5].map(umbral)).toEqual([0, 9_000, 27_000, 54_000, 99_000]);
+  it('los umbrales salen del JSON: 2 700, 8 100, 16 200 y 29 700 para los rangos 2-5 (en PV × índice)', () => {
+    expect(EXPERIENCIA.base).toBe(2_700);
+    expect([1, 2, 3, 4, 5].map(umbral)).toEqual([0, 2_700, 8_100, 16_200, 29_700]);
     expect(rangoDe(0)).toBe(1);
-    expect(rangoDe(8_999)).toBe(1);
-    expect(rangoDe(9_000)).toBe(2);
-    expect(rangoDe(98_999)).toBe(4);
-    expect(rangoDe(99_000)).toBe(5);
+    expect(rangoDe(2_699)).toBe(1);
+    expect(rangoDe(2_700)).toBe(2);
+    expect(rangoDe(29_699)).toBe(4);
+    expect(rangoDe(29_700)).toBe(5);
   });
 
   it('la tropa se para en el 5 y el héroe no: sigue la misma recurrencia', () => {
     expect(RANGO_MAXIMO_DE_TROPA).toBe(5);
     // Más allá de [1, 2, 3, 5] vienen 8, 13… por la recurrencia, no por el JSON.
-    expect(umbral(6)).toBe(99_000 + 9_000 * 8);
-    expect(umbral(7)).toBe(171_000 + 9_000 * 13);
+    expect(umbral(6)).toBe(29_700 + 2_700 * 8);
+    expect(umbral(7)).toBe(51_300 + 2_700 * 13);
     expect(rangoDeTropa(hoja('v', 8_000_000))).toBe(5);
     expect(rangoDe(8_000_000)).toBeGreaterThan(5);
-    expect(siguienteUmbral(60_000, RANGO_MAXIMO_DE_TROPA)).toBe(99_000);
-    expect(siguienteUmbral(99_000, RANGO_MAXIMO_DE_TROPA)).toBeNull();
+    expect(siguienteUmbral(20_000, RANGO_MAXIMO_DE_TROPA)).toBe(29_700);
+    expect(siguienteUmbral(29_700, RANGO_MAXIMO_DE_TROPA)).toBeNull();
     // La tabla se acaba donde deja de caber en un entero, y entonces lanza en
     // vez de redondear.
     expect(() => umbral(500)).toThrow('pide más experiencia de la que cabe en un entero');
@@ -566,14 +566,14 @@ describe('cifras por rango, en una sola puerta (C4)', () => {
     const h = hoja('v-c', umbral(4));
     const piquero = unidadDelJuego(TROPA);
     const a = cifrasDeUnidad(TROPA, h);
-    // Rango 4: ataque +3 y fuerza +6 (y con ella el daño), y su nivel es el de esas
+    // Rango 4: ataque +3 y fuerza +3 (y con ella el daño), y su nivel es el de esas
     // cifras, no uno sumado aparte. La defensa es la de su agilidad, que no sube.
     expect(a).toMatchObject({
       attack: piquero.attack + 3,
-      fuerza: piquero.fuerza + 6,
+      fuerza: piquero.fuerza + 3,
       defense: piquero.defense,
     });
-    expect(a.damage[0]).toBe(piquero.damage[0] + 6);
+    expect(a.damage[0]).toBe(piquero.damage[0] + 3);
     expect(a).not.toHaveProperty('nivel');
     // La misma hoja da el MISMO objeto: `armyPower` ya no fabrica uno por pregunta.
     expect(cifrasDeUnidad(TROPA, h)).toBe(a);
@@ -589,7 +589,7 @@ describe('cifras por rango, en una sola puerta (C4)', () => {
     expect(cifrasDeUnidad(TROPA, undefined)).toBe(piquero);
   });
 
-  it('un piquero de rango 3 entra con ataque +2 y fuerza +4, y rendirse lo cobra a su precio', () => {
+  it('un piquero de rango 3 entra con ataque +2 y fuerza +2, y rendirse lo cobra a su precio', () => {
     const v = veterano(TROPA, 'v-1', umbral(3));
     expect(rangoDeTropa(v.veterania)).toBe(3);
     const b = createBattle(
@@ -774,15 +774,17 @@ describe('la IA no tira a la tropa veterana (C8)', () => {
     const base = baseOf(state, 0)!;
     hero.at = base.at;
     base.garrison = [];
-    // Uno de lo más barato de rango 3 y cinco tiradores novatos, más caros: con
+    // Uno de lo más barato de rango 3 y cuatro tiradores novatos, más caros: con
     // la regla de antes el barato era el primero en irse. Ahora se van antes los
-    // tiradores, que son novatos.
+    // tiradores, que son novatos. Cuatro y no cinco desde la escala baja
+    // (26-10-2026): con cinco, entrar el más fuerte pedía licenciar a dos, que
+    // pegan más que él, y la IA (con razón) no cambiaba.
     const barato = unidadDelJuego(TROPA_BARATA);
     const tirador = unidadDelJuego(TIRADOR);
     expect(barato.oro).toBeLessThan(tirador.oro);
     hero.army = [
       veterano(TROPA_BARATA, 'v-1', umbral(3)),
-      ...ejercito({ creature: TIRADOR, count: 5 }),
+      ...ejercito({ creature: TIRADOR, count: 4 }),
     ];
     // Lo que más pega de la facción de la base, con su morada levantada y uno
     // solo disponible: para meterlo hay que liberar sitio, que son tiradores. Con
@@ -794,9 +796,9 @@ describe('la IA no tira a la tropa veterana (C8)', () => {
     if (!base.buildings.includes(fuerte.edificio!)) base.buildings.push(fuerte.edificio!);
     base.available = { [fuerte.id]: 1 };
     state.players[0]!.oro = 50_000;
-    const libre = heroLeadership(hero) - (barato.leadership + 5 * tirador.leadership);
-    // Lo que pide su liderazgo, y como poco uno: con el veterano y los cinco
-    // tiradores el ejército ya lleva 6 de 6 individuos.
+    const libre = heroLeadership(hero) - (barato.leadership + 4 * tirador.leadership);
+    // Lo que pide su liderazgo, y como poco uno (con el veterano y cinco tiradores
+    // el ejército llevaría 6 de 6 individuos).
     const fuera = Math.max(1, Math.ceil((fuerte.leadership - libre) / tirador.leadership));
     expect(fuera).toBeGreaterThan(0);
     const acciones = planRecruits(state, 0);

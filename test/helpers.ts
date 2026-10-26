@@ -179,8 +179,13 @@ export const FACCION_B = 'no-muertos' satisfies FactionId;
 
 /** La tropa de a pie de la facción A, la de su pueblo (espada, brigantina y escudo). */
 export const TROPA = 'templario-escudo';
-/** La tropa pesada de la facción A, a dos manos (mandoble y arnés). */
-export const PESADA = 'templario-mandoble';
+/**
+ * La tropa pesada de la facción A, a dos manos (mandoble y gambesón), con 4 casillas.
+ * Era el del mandoble y el arnés hasta la escala baja (26-10-2026), cuando el arnés
+ * empezó a quitarle una de agilidad y los tests que la usan como «la que anda 4 y
+ * pega fuerte» dejaron de valer.
+ */
+export const PESADA = 'templario-penitente';
 /** Jinete con `charge` de la facción A (lanza, espada y barda). */
 export const JINETE = 'templario-hermano-de-carga';
 /** Unidad con poderes (Curar y Bendecir) de la facción A. */

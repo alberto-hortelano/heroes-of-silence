@@ -1054,7 +1054,8 @@ function quienEsLaPieza(p: Record<string, unknown>, otro: string): string {
 /**
  * Lo más que da de armadura una pieza (A4 de QA de #262: sin tope,
  * `1e3` entraba como 1000 y la pelea se agotaba en la ronda 100). **Inventado**:
- * la barda, la que más, da 22; 99 deja probar de sobra sin que nada sea inmune.
+ * la coraza (`barda`), la que más, da 7 (22 hasta la escala baja del 26-10-2026); 99
+ * deja probar de sobra sin que nada sea inmune.
  * Lo juzga la regla de una pieza (`problemasDePieza`).
  */
 export const ARMADURA_MAXIMA_DE_PIEZA = 99;

@@ -242,26 +242,26 @@ describe('la arena pelea con las cifras del borrador', () => {
   });
 
   it('con equipo pelea con el cuerpo más las piezas, entra con los puntos de su armadura y se pinta con su cuerpo', () => {
-    // El escudo da 3 de defensa, la brigantina 7 de armadura y ningún PV (#262) y
-    // la espada 2 de ataque y 10 de fuerza (`data/equipo.json`). Pesan 24 con su
-    // fuerza 22: no le restan agilidad.
+    // El escudo da 3 de defensa, la brigantina 2 de armadura y ningún PV (#262) y
+    // la espada 3 de ataque y 3 de fuerza (`data/equipo.json`). Pesan 8 con su
+    // fuerza 7: no le restan agilidad.
     const u = unidad('templario-escudo');
     expect(u.equipo).toEqual({ arma: 'espada', armadura: 'brigantina', escudo: 'escudo' });
     const b = pelea([u], [unidad('zombi')], createRng(1));
     const s = b.stacks.find((x) => x.side === 'attacker') as BattleStack;
     expect(s.body).toBe('templario-escudo');
-    // Su cuerpo, el del catálogo: ataque 3, fuerza 22, agilidad 4 y 160 PV.
-    expect(u).toMatchObject({ attack: 3, fuerza: 22, agilidad: 4, hp: 160 });
-    expect(s.unit).toMatchObject({ attack: 5, defense: 7, damage: [32, 128], hp: 160 });
-    expect(armaduraDe(s.unit)).toBe(7);
+    // Su cuerpo, el del catálogo: ataque 3, fuerza 7, agilidad 4 y 50 PV.
+    expect(u).toMatchObject({ attack: 3, fuerza: 7, agilidad: 4, hp: 50 });
+    expect(s.unit).toMatchObject({ attack: 6, defense: 7, damage: [10, 40], hp: 50 });
+    expect(armaduraDe(s.unit)).toBe(2);
     expect(SPEED_TO_HEXES[s.unit.speed]).toBe(4);
-    expect(s.topHp).toBe(160);
+    expect(s.topHp).toBe(50);
     // El cuerpo sin equipo, para la ficha y el retoque (el nivel lo mide vestido).
     expect(cuerpoDe(s, catalogoDe(b, EQUIPO_DEL_JUEGO))).toMatchObject({
       attack: 3,
       defense: 4,
-      damage: [22, 88],
-      hp: 160,
+      damage: [7, 28],
+      hp: 50,
     });
   });
 
@@ -1353,7 +1353,7 @@ describe('la arena como banco de combate', () => {
     // como el de un héroe recién hecho en la partida.
     expect(ficha.cuerpo).toEqual(heroeDeArena(MAGO, EQUIPO_DEL_JUEGO).cuerpo);
     expect(ficha.cuerpo.attack).toBeGreaterThanOrEqual(MAGO.ataque);
-    expect(ficha.hechizos.find((h) => h.id === 'magic_arrow')?.rinde).toBe(100 + 100 * 3);
+    expect(ficha.hechizos.find((h) => h.id === 'magic_arrow')?.rinde).toBe(30 + 30 * 3);
     expect(ficha.hechizos.find((h) => h.id === 'bless')?.efecto).toMatchObject({
       kind: 'luck',
       roundsLeft: 3,
@@ -1488,7 +1488,7 @@ describe('el montaje del banco de combate', () => {
     expect(m).toContain('<span>40</span>');
     expect(m).toContain('aria-label="10 × Conocimiento."');
     expect(m).toContain('<span>3 rondas</span>');
-    expect(m).toContain('Flecha mágica (3)</span><span>400 de daño');
+    expect(m).toContain('Flecha mágica (3)</span><span>120 de daño');
     // Con nuestra regla el héroe no suma a su tropa: ni la fila ni su aclaración.
     expect(m).not.toContain('A la tropa');
     expect(m).not.toContain('nada: su ataque');
@@ -1792,10 +1792,10 @@ describe('los poderes del monje en la arena (A3)', () => {
     });
     const m = marcadoDe(renderFicha(u, false, enElMontaje(EQUIPO_DEL_JUEGO)));
     expect(m).toContain('Poderes · actúan en la pelea');
-    expect(m).toContain('cura 40 PV a un aliado herido, incluida la propia unidad');
+    expect(m).toContain('cura 12 PV a un aliado herido, incluida la propia unidad');
     // El chip dice lo que cura, no la X del cuaderno; el valor sigue siendo el nombre (M3).
     expect(m).toContain(
-      'Curar (40 PV) <button data-arena="quitar-habilidad" data-habilidad="Curar (X)"',
+      'Curar (12 PV) <button data-arena="quitar-habilidad" data-habilidad="Curar (X)"',
     );
     expect(m).not.toContain('sí misma');
     expect(m).toContain(
@@ -2355,14 +2355,14 @@ describe('cuerpo y equipo: el perfil de arma es equipo, y el nivel lo mide puest
     const indice = (u: Unidad) => indiceDePoder(unidadDeCombate(u, EQUIPO_DEL_JUEGO));
     expect(indice(conMandoble)).toBeGreaterThan(indice(a));
     expect(indice(a)).toBeGreaterThan(indice(conDaga));
-    expect(nivelDeLaHoja(conMandoble)).toBe('Índice 298 · nivel 2');
-    expect(nivelDeLaHoja(conDaga)).toBe('Índice 246 · nivel 2');
+    expect(nivelDeLaHoja(conMandoble)).toBe('Índice 299 · nivel 2');
+    expect(nivelDeLaHoja(conDaga)).toBe('Índice 263 · nivel 2');
   });
 
   it('el escudo suma defensa y un arma a dos manos no lo admite, en las dos direcciones', () => {
     const u = unidadNueva(hojaPorId('templario-escudo'), ocupados(), EQUIPO_DEL_JUEGO);
     const conEscudo = equiparEnArena(u, 'escudo', EQUIPO_DEL_JUEGO);
-    // Ya no resta casillas (25-10-2026): pesa, y con 12 de peso no pasa de la fuerza 20.
+    // Ya no resta casillas (25-10-2026): pesa, y con 3 de peso no pasa de la fuerza 7.
     expect(unidadDeCombate(conEscudo, EQUIPO_DEL_JUEGO).defense).toBe(
       unidadDeCombate(u, EQUIPO_DEL_JUEGO).defense + 3,
     );
@@ -2441,7 +2441,7 @@ describe('cuerpo y equipo: el perfil de arma es equipo, y el nivel lo mide puest
     // Sin arma no se combate (vuelta 2): nace con la Espada de la arena.
     expect(a.equipo).toEqual({ arma: ESPADA });
     // Con la Espada, del nivel 2: desnuda sería del 1.
-    expect(nivelDeLaHoja(a)).toBe('Índice 266 · nivel 2');
+    expect(nivelDeLaHoja(a)).toBe('Índice 286 · nivel 2');
     expect(validarUnidad(a, EQUIPO_DEL_JUEGO)).toEqual(a);
     const b = unidadNueva(h, ocupados(h.id, a.id), EQUIPO_DEL_JUEGO);
     expect(b.id).toBe('templario-escudo-3');
@@ -2454,8 +2454,8 @@ describe('cuerpo y equipo: el perfil de arma es equipo, y el nivel lo mide puest
     const batalla = pelea([fuerte, b], [unidad('zombi')], createRng(3));
     const izq = batalla.stacks.filter((x) => x.side === 'attacker');
     expect(izq.map((x) => x.body)).toEqual(['templario-escudo', 'templario-escudo']);
-    // 9 + 4 del mandoble; 3 + 2 de la Espada.
-    expect(izq.map((x) => x.unit.attack)).toEqual([13, 5]);
+    // 9 + 2 del mandoble; 3 + 3 de la Espada.
+    expect(izq.map((x) => x.unit.attack)).toEqual([11, 6]);
     expect(izq.map((x) => tipoDelStack(x))).toEqual([
       { kind: 'unidad', id: 'templario-escudo-2' },
       { kind: 'unidad', id: 'templario-escudo-3' },
@@ -2465,16 +2465,16 @@ describe('cuerpo y equipo: el perfil de arma es equipo, y el nivel lo mide puest
   it('R1/R2: una nueva nace donde cae su índice, y un rasgo de tiro pesa solo con algo con que tirar', () => {
     const nueva = unidadNueva(hojaPorId('templario-escudo'), ocupados(), EQUIPO_DEL_JUEGO);
     // El doble ataque dobla su golpe de cuerpo a cuerpo: del 2 al 3.
-    expect(nivelDeLaHoja({ ...nueva, traits: ['double_attack'] })).toBe('Índice 314 · nivel 3');
+    expect(nivelDeLaHoja({ ...nueva, traits: ['double_attack'] })).toBe('Índice 328 · nivel 3');
     // El disparo doble solo pesa si tira, y en la arena tira quien lleva arma a
     // distancia: sin el arco mide lo mismo con el rasgo que sin él (R2 de QA, 12-10-2026).
     const conElRasgo = { ...nueva, traits: ['double_shot' as const] };
     expect(nivelDeLaHoja(conElRasgo)).toBe(nivelDeLaHoja(nueva));
     // Con el arco puesto el disparo es su mejor golpe, y con el rasgo, el doble.
     const conArco = equiparEnArena(nueva, 'arco', EQUIPO_DEL_JUEGO);
-    expect(nivelDeLaHoja(conArco)).toBe('Índice 283 · nivel 2');
+    expect(nivelDeLaHoja(conArco)).toBe('Índice 299 · nivel 2');
     expect(nivelDeLaHoja(equiparEnArena(conElRasgo, 'arco', EQUIPO_DEL_JUEGO))).toBe(
-      'Índice 329 · nivel 3',
+      'Índice 340 · nivel 3',
     );
   });
 
@@ -2512,17 +2512,17 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
         distancia: 'arco',
         armadura: 'jubon_de_arquero',
       });
-      // El arco suma +2 de ataque y +10 de fuerza; la daga, +1 y +4.
+      // El arco suma +2 de ataque y +3 de fuerza; la daga, +0 y +2.
       const ag = u.agilidad;
       expect(delUso(u, 'distancia'), id).toEqual([
         'Arco',
         u.attack + 2,
-        [u.fuerza + 10, (u.fuerza + 10) * ag],
+        [u.fuerza + 3, (u.fuerza + 3) * ag],
       ]);
       expect(delUso(u, 'arma'), id).toEqual([
         'Daga',
-        u.attack + 1,
-        [u.fuerza + 4, (u.fuerza + 4) * ag],
+        u.attack,
+        [u.fuerza + 2, (u.fuerza + 2) * ag],
       ]);
       // Dispara por su arco, sin munición (13-10-2026).
       expect(golpes(u).c, id).not.toHaveProperty('shots');
@@ -2534,15 +2534,15 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
       distancia: 'ballesta',
       armadura: 'gambeson',
     });
-    // Fuerza 18 y agilidad 3; la ballesta, +3 de ataque y +20 de fuerza.
-    expect(delUso(ballestero, 'distancia')).toEqual(['Ballesta', 6, [38, 114]]);
+    // Fuerza 6 y agilidad 3; la ballesta, +3 de ataque y +6 de fuerza.
+    expect(delUso(ballestero, 'distancia')).toEqual(['Ballesta', 6, [12, 36]]);
     expect(golpes(ballestero).c).not.toHaveProperty('shots');
   });
 
   it('el jinete lleva espada y lanza y carga montado con la lanza; el élfico dispara además con el arco', () => {
     // Desde el 25-10-2026 la lanza es un arma más, en la segunda mano: de cada cifra,
-    // la mejor de las dos (la lanza, +3 de ataque y +12 de fuerza; la espada, +2 y
-    // +10). Montado de guerra (26-10-2026), con la agilidad entera del jinete, y la
+    // la mejor de las dos (la lanza de jinete, +3 de ataque y +4 de fuerza; la
+    // espada, +3 y +3). Montado de guerra (26-10-2026), con la agilidad entera del jinete, y la
     // carga con la fuerza de su montura más la de la lanza.
     for (const id of ['templario-hermano-de-carga', 'jinete-de-plaga', 'goblin-jinete-de-hiena']) {
       const u = unidad(id);
@@ -2550,9 +2550,9 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
       expect(u.equipo, id).toMatchObject({ arma: 'espada', segunda: 'lanza' });
       expect(u.equipo.montura, id).toMatch(/_de_guerra$/);
       expect(delUso(u, 'arma'), id).toEqual([
-        'Espada y Lanza',
+        'Espada y Lanza de jinete',
         u.attack + 3,
-        [u.fuerza + 12, (u.fuerza + 12) * ag],
+        [u.fuerza + 4, (u.fuerza + 4) * ag],
       ]);
       expect(
         golpes(u).porArma.map((a) => [a.uso, a.carga, a.montada]),
@@ -2573,9 +2573,9 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
       montura: 'caballo_de_guerra',
     });
     expect(golpes(elfico).porArma.map((a) => [a.uso, a.arma])).toEqual([
-      ['arma', 'Espada y Lanza'],
+      ['arma', 'Espada y Lanza de jinete'],
       ['distancia', 'Arco'],
-      ['arma', 'Espada y Lanza'],
+      ['arma', 'Espada y Lanza de jinete'],
     ]);
     expect(isShooter(golpes(elfico).c)).toBe(true);
     // Los demás perfiles no tienen armas por uso: pelean como ayer. Llevan

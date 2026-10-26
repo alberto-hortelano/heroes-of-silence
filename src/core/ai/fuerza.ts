@@ -33,7 +33,10 @@ import type { Army, UnitInfo } from '../types.js';
  * 21 977 344), y el divisor sube igual para que la mediana de la fuerza del
  * catálogo se quede donde estaba: 143 465 × 21 977 344 / 4 410 000 = 714 961. Sin
  * eso, las composiciones de los asaltantes pasaban de `fuerzaMax` y el juego no
- * cargaba. No es el nivel (`nivelDeUnidad`): es la vara de la IA para comparar
+ * cargaba. Con la escala baja (26-10-2026: fuerza, PV y armadura ×0,3, a ojo) la
+ * mediana de poder² bajó de 21 619 332 a 1 904 689 y el divisor baja igual:
+ * 714 961 × 1 904 689 / 21 619 332 = 62 989 (la mediana de la fuerza del catálogo,
+ * 30,2 antes y después; la mide `npx tsx tools/qa/cifras-del-catalogo.ts --medianas`). No es el nivel (`nivelDeUnidad`): es la vara de la IA para comparar
  * ejércitos.
  */
 export function unitPower(info: UnitInfo): number {
@@ -42,7 +45,7 @@ export function unitPower(info: UnitInfo): number {
 }
 
 /** Lo que divide al poder bruto² en `unitPower`: ver allí. Medido, no inventado. */
-export const DIVISOR_DEL_PODER = 714_961;
+export const DIVISOR_DEL_PODER = 62_989;
 
 /**
  * Fuerza bruta de un ejército. Pide los personajes porque un individuo puede
