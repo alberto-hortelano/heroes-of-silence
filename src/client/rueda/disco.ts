@@ -168,7 +168,7 @@ export type TipoEnLaFicha = Pick<FilaDeLaRueda, 'tipo' | 'nivel' | 'final' | 'co
  * usuario: se edita en barras y la rueda va al lado): el mismo disco que la del
  * combate (`sector`, `anguloDe`), cada sector teñido por su nivel —el mismo tono
  * para el mismo nivel en toda arma: del rojo del 0 al verde del 6, pasando por el
- * neutro del 3 (`data-nivel`, en `arena.css`)—, con su icono y lo que da. Normal,
+ * ocre del 3 (`data-nivel`, en `rueda.css`)—, con su icono y lo que da. Normal,
  * en el centro, sin nivel ni tinte.
  */
 export function ruedaDeLaPieza(filas: readonly TipoEnLaFicha[]): Html {

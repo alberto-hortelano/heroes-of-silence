@@ -229,7 +229,7 @@
    (--tono-del-nivel), el sector de su rueda (--fondo-del-nivel) y lo que da
    (--letra-del-nivel); en el diálogo de la rueda del combate (#rueda), el sector,
    con el arma de quien pega (25-10-2026). Del rojo del 0 al verde del 6, pasando
-   por el neutro del 3. Una regla por nivel, del 0 a NIVEL_MAXIMO
+   por el ocre del 3, que no se confunde con la madera sin teñir. Una regla por nivel, del 0 a NIVEL_MAXIMO
    (cifras-de-la-rueda.ts): si cambia, cambia esta escala. Los colores son fichas
    fijas (`--info-nivel-N`, en el `:root` de style.css): es información. */
 :is(.rueda-del-arma, #rueda) [data-nivel="0"] { --tono-del-nivel: var(--info-nivel-0); --fondo-del-nivel: var(--info-nivel-0-fondo); --letra-del-nivel: var(--danger); }

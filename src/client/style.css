@@ -161,7 +161,9 @@
   --info-resplandor-3: color-mix(in srgb, var(--info-calor-3) 55%, transparent);
   --info-resplandor-4: color-mix(in srgb, var(--info-calor-4) 55%, transparent);
   /* El nivel de cada tipo de la rueda de un arma (el editor de equipo de la
-     arena), del rojo del 0 al verde del 6: el relleno de su barra y el sector. */
+     arena y el diálogo de la rueda del combate), del rojo del 0 al verde del 6: el relleno
+     de su barra y el sector. El 3 es un ocre que se ve: con el pardo de la madera, la
+     rueda contra una Espada (todo a 3) parecía sin teñir (26-10-2026). */
   --info-nivel-0: #bd4f3f;
   --info-nivel-0-fondo: #8f4a37;
   --info-nivel-1: #b0614b;
@@ -169,7 +171,7 @@
   --info-nivel-2: #a3784f;
   --info-nivel-2-fondo: #5e3328;
   --info-nivel-3: #9a8a5e;
-  --info-nivel-3-fondo: #3a3222;
+  --info-nivel-3-fondo: #6b5a26;
   --info-nivel-4: #87955a;
   --info-nivel-4-fondo: #3d5a34;
   --info-nivel-5: #73a055;
