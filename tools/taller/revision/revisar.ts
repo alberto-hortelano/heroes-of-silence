@@ -23,7 +23,8 @@ import { juzgarConCodex } from '../codex.js';
 import { DIR_DEL_MANIQUI_CIVIL } from '../npcs.js';
 import { sha256 } from '../poses-8d.js';
 import { juicioSchema, leerCon } from './esquemas.js';
-import { hojasSobreOtroManiqui } from './maniqui.js';
+import { hojasSobreOtroManiqui, leerHuesos } from './maniqui.js';
+import { avisosDelSalto, type Salto, saltosDeLaHoja, UMBRAL_DEL_SALTO } from './salto.js';
 import { paneles } from './vision.js';
 
 export const RAIZ = resolve(import.meta.dirname, '../../..');
@@ -99,8 +100,12 @@ export function imagenesDe(dir: string): string[] {
   return leerCon(panelesSchema, join(dir, 'paneles.json')).map((p) => join(dir, p.imagen));
 }
 
-/** El id con que el juez llama a un clip: el que va en el campo `clip` del juicio. */
-export const idDelClip = (f: Figura, d: number, clip: string): string => `${f.id}-d${d}-${clip}`;
+/**
+ * El id con que el juez llama a un clip: el que va en el campo `clip` del juicio.
+ * Sin el id de la unidad: lo leen los modelos, y un id que no casa con la figura
+ * (`elfo-arquero` es una elfa, 30-10-2026) los confunde; quién es lo dice el giro.
+ */
+export const idDelClip = (_f: Figura, d: number, clip: string): string => `d${d}-${clip}`;
 
 /**
  * El prompt del jurado para un clip ya montado: `juez.md` con lo de ese clip y la
@@ -236,11 +241,24 @@ export async function revisar(
       salida: join(f.revision, `d${d}`),
     });
     const base = join(RAIZ, f.revision, `d${d}`);
+    // El encuadre medido (`salto.ts`): cuánto salta el cuerpo de un fotograma a otro
+    // más de lo que se mueve el maniquí. Se dice y queda en `salto.json` de cada clip.
+    const saltos: Record<string, Salto | null> = {};
+    for (const h of Object.keys(HOJAS_DE_FIGURA)) {
+      const hoja = join(RAIZ, f.arte, `d${d}`, `hoja-${h}.webp`);
+      const huesos = leerHuesos(join(RAIZ, f.maniqui), d, h);
+      if (huesos !== null && existsSync(hoja))
+        Object.assign(saltos, await saltosDeLaHoja(hoja, huesos));
+    }
+    for (const a of avisosDelSalto(saltos))
+      console.log(`⚠ d${d} ${a} (más de ${UMBRAL_DEL_SALTO}: mira el encuadre)`);
     for (const clip of Object.values(HOJAS_DE_FIGURA).flat()) {
       const dir = join(base, clip);
       if (!existsSync(join(dir, 'paneles.json'))) continue;
       if (opciones.clips !== undefined && !opciones.clips.includes(clip)) continue;
       await promptDelJuez(dir, idDelClip(f, d, clip), sobreOtro.has(`d${d}-${cifrasDe(dir).hoja}`));
+      if (clip in saltos)
+        await writeFile(join(dir, 'salto.json'), `${JSON.stringify(saltos[clip])}\n`);
       dirs.push(dir);
     }
   }

@@ -14,6 +14,7 @@ import { leerEventos } from '../tools/taller/codex.js';
 import { Cola, NoEstaEn, trabajadorDe, YaEnLaCola } from '../tools/taller/cola.js';
 import { derivarAtlas } from '../tools/taller/derivar.js';
 import {
+  apoyoEn,
   componentes,
   empaquetar,
   enFilas,
@@ -22,6 +23,7 @@ import {
   porRejilla,
 } from '../tools/taller/empaquetar.js';
 import { encargoSchema, promptDe } from '../tools/taller/encargo.js';
+import { cuerpoDeLaCelda } from '../tools/taller/encuadre.js';
 import { quitarHalo, type Raster } from '../tools/taller/recorte.js';
 import {
   EN_OCHO_DIRECCIONES,
@@ -402,6 +404,48 @@ describe('el empaquetado y la derivación', () => {
         );
       expect(figuras(componentes(c), 0), `celda 1·${col + 1}`).toHaveLength(1);
     }
+  });
+
+  // El piquero imperial (repintado del 30-10-2026): la punta de la pica, por debajo del
+  // pie, se tomaba por el suelo, y la figura quedaba alta y saltaba de un fotograma a otro.
+  it('el apoyo es del cuerpo: un asta fina por debajo del pie no es el suelo', async () => {
+    const r = lienzo(120, 200);
+    rect(r, 40, 20, 30, 90, 255); // el cuerpo, de 20 a 109
+    rect(r, 36, 102, 38, 8, 255); // los pies
+    rect(r, 54, 60, 3, 70, 255); // el asta, hasta 129: 20 px por debajo del pie
+    const caja = [36, 20, 73, 129] as const;
+    const alfa = (x: number, y: number) => r.data[(y * r.width + x) * 4 + 3]!;
+    // El pie, con lo de la silueta a menos del radio de la apertura (2 px aquí: las
+    // puntas del pie vuelven, y con ellas un trocito del asta), no la punta (129).
+    const [, y] = apoyoEn(alfa, caja);
+    expect(y).toBeGreaterThanOrEqual(109);
+    expect(y).toBeLessThanOrEqual(111);
+    // Lo que es todo fino (una vara sola) se mide entero: no hay cuerpo que quitarle.
+    const vara = lienzo(40, 100);
+    rect(vara, 18, 10, 3, 80, 255);
+    expect(apoyoEn((x, y) => vara.data[(y * vara.width + x) * 4 + 3]!, [18, 10, 20, 89])[1]).toBe(
+      89,
+    );
+    // Empaquetada, esa figura pisa la línea de los pies como las demás, y el asta cuelga.
+    const hoja = hojaIrregular();
+    const x = 20 + 2 * 122 + ((2 * 7) % 11);
+    rect(hoja, x + 14, 60, 3, 72, 255); // de la tercera del reposo, 12 px por debajo de sus pies
+    const p = await empaquetar(hoja, 3, 160);
+    const { data, info } = await sharp(p.png).raw().toBuffer({ resolveWithObject: true });
+    const { celda } = FIGURA;
+    const c = { lado: celda, data: new Uint8Array(celda * celda * 4) };
+    for (let y = 0; y < celda; y++)
+      data.copy(
+        c.data,
+        y * celda * 4,
+        (y * info.width + 2 * celda) * 4,
+        (y * info.width + 3 * celda) * 4,
+      );
+    expect(Math.abs(cuerpoDeLaCelda(c)!.caja[3] - FIGURA.base)).toBeLessThanOrEqual(1);
+    let fondo = 0;
+    for (let y = 0; y < celda; y++)
+      for (let xx = 0; xx < celda; xx++) if (c.data[(y * celda + xx) * 4 + 3]! >= 64) fondo = y;
+    expect(fondo).toBeGreaterThan(FIGURA.base + 5);
   });
 
   it('cortada por su rejilla, una fila de 6 sigue fallando, con los dos motivos', async () => {

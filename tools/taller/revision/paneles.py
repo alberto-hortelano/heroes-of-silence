@@ -73,7 +73,7 @@ def tira(clip, escala=2):
     alto_m = int(h * 0.8) if cm else 0
     out = Image.new("RGBA", (n * w, 30 + alto_m + h + 30), FONDO)
     d = ImageDraw.Draw(out)
-    rotular(d, (6, 6), f"{clip.unidad} d{clip.direccion} «{clip.nombre}»: arriba el maniquí, abajo lo pintado")
+    rotular(d, (6, 6), f"d{clip.direccion} «{clip.nombre}»: arriba el maniquí, abajo lo pintado")
     for i in range(n):
         if cm and man[i] is not None:
             m = man[i].crop(cm)
@@ -93,7 +93,7 @@ def superposicion(clip, estimados=None, escala=2):
     n = len(pint)
     out = Image.new("RGBA", (n * w, 30 + h + 26), FONDO)
     d = ImageDraw.Draw(out)
-    rotular(d, (6, 6), f"{clip.unidad} d{clip.direccion} «{clip.nombre}»: fino = maniquí (izq. azul, der. rojo, arma amarillo); grueso = lo pintado (izq. cian, der. naranja)", 14)
+    rotular(d, (6, 6), f"d{clip.direccion} «{clip.nombre}»: fino = maniquí (izq. azul, der. rojo, arma amarillo); grueso = lo pintado (izq. cian, der. naranja)", 14)
     for i, f in enumerate(clip.fotogramas):
         p = sobre_fondo(f.pintada.crop(caja).resize((w, h), Image.LANCZOS))
         dp = ImageDraw.Draw(p)
@@ -118,7 +118,7 @@ def encuadre(clip, escala=2):
     n = len(pint)
     out = Image.new("RGBA", ((n + 1) * w + 20, 30 + h + 26), FONDO)
     d = ImageDraw.Draw(out)
-    rotular(d, (6, 6), f"{clip.unidad} d{clip.direccion} «{clip.nombre}»: verde = ancla y suelo; cruz = cadera del maniquí; a la derecha, todos superpuestos", 14)
+    rotular(d, (6, 6), f"d{clip.direccion} «{clip.nombre}»: verde = ancla y suelo; cruz = cadera del maniquí; a la derecha, todos superpuestos", 14)
     ax, ay = (clip.ancla[0] - caja[0]) * escala, (clip.ancla[1] - caja[1]) * escala
     cebolla = Image.new("RGBA", (w, h), FONDO)
     for i, f in enumerate(clip.fotogramas):
@@ -154,7 +154,7 @@ def coherencia(clip, giro, escala=2):
     n = len(pint)
     out = Image.new("RGBA", (g.width + 20 + n * w, 30 + h + 26), FONDO)
     d = ImageDraw.Draw(out)
-    rotular(d, (6, 6), f"{clip.unidad} d{clip.direccion} «{clip.nombre}»: a la izquierda el giro (la identidad); a la derecha cada fotograma", 14)
+    rotular(d, (6, 6), f"d{clip.direccion} «{clip.nombre}»: a la izquierda el giro (la identidad); a la derecha cada fotograma", 14)
     out.alpha_composite(sobre_fondo(g), (0, 30))
     for i, p in enumerate(pint):
         out.alpha_composite(sobre_fondo(p.crop(caja).resize((w, h), Image.LANCZOS)), (g.width + 20 + i * w, 30))

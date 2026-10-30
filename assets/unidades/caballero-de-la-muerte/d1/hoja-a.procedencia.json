@@ -1,7 +1,7 @@
 {
   "encargo": "caballero-de-la-muerte-v-tirada-d1-a",
   "tipo": "atlas",
-  "fecha": "2026-10-30T15:10:55.461Z",
+  "fecha": "2026-10-30T21:29:58.595Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
@@ -33,13 +33,13 @@
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7850, pies en y=342, reposo a 160 px",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7680, pies en y=342, reposo a 160 px",
     "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
     "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.04619618572255291,
-    "opacos": 0.9438937434463475,
+    "visibles": 0.04411388578869048,
+    "opacos": 0.9424532583710341,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -52,7 +52,7 @@
     ],
     "apoyoReposo": [
       192,
-      285
+      284
     ],
     "posicion": false
   },
@@ -63,14 +63,6 @@
         0
       ],
       [
-        0,
-        0
-      ],
-      [
-        0,
-        0
-      ],
-      [
         1,
         0
       ],
@@ -83,26 +75,34 @@
         0
       ],
       [
-        1,
+        0,
         0
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        -1
       ]
     ],
     [
       [
+        -1,
+        1
+      ],
+      [
+        2,
+        -14
+      ],
+      [
         0,
         0
       ],
       [
-        1,
-        -10
-      ],
-      [
         -1,
         0
-      ],
-      [
-        -1,
-        1
       ],
       [
         1,
@@ -110,47 +110,47 @@
       ],
       [
         0,
-        1
+        5
       ],
       [
         0,
-        0
+        8
       ]
     ],
     [
       [
         2,
-        -6
+        -13
       ],
       [
-        0,
-        -8
+        1,
+        -14
       ],
       [
         -6,
-        0
+        1
       ],
       [
         1,
-        0
+        -3
       ],
       [
-        -1,
-        -1
+        0,
+        -7
       ],
       [
-        3,
-        -6
+        5,
+        -11
       ],
       [
-        1,
-        0
+        -2,
+        8
       ]
     ]
   ],
   "salida": {
     "ruta": "assets/unidades/caballero-de-la-muerte/d1/hoja-a.webp",
-    "sha256": "561ca61e3594c7462df20d8ced5e2f3f28d27e2614bc3f6cb61b0d477f89ab47"
+    "sha256": "7819d3094031e047bcf567c138421d68f760b923de4226ba613d781020a0b595"
   },
   "eleccion": {
     "version": "tirada",

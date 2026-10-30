@@ -139,7 +139,11 @@ pnpm taller jurado cruzar <id> [dN…]
 ### 5. Las correcciones
 
 - **El encuadre** (la figura que baila o resbala) se corrige sin el modelo: C1 va en el
-  empaquetado, con los pies en el suelo. `pnpm taller reprocesar <id>-d<n>-<h>` rehace el
+  empaquetado, con los pies en el suelo, y el apoyo se mide sobre el cuerpo sin lo fino
+  (una pica por debajo del pie no es el suelo). `revisar` y el vistazo final dicen cuánto
+  salta el cuerpo («el cuerpo salta N px en el F→F+1», a partir de 6). Lo ya adoptado de
+  versiones se reempaqueta desde su crudo con `pnpm taller reprocesar <id> --adoptadas`
+  (dice cuánto saltaba y cuánto salta ahora). `pnpm taller reprocesar <id>-d<n>-<h>` rehace el
   post-proceso desde el crudo de Codex **solo si ese encargo sigue en la cola** (`hecho/` o
   `fallido/`) y su crudo en `~/.codex`, y su maniquí no ha cambiado desde que se pintó; para
   casi todo el catálogo no es así, y lo pintado antes se arregla repintándolo (`versiones`).
@@ -165,20 +169,37 @@ pnpm taller elegir <id> d<n> <h>        # cada versión contra la de ahora (o en
   persona, con el motivo. Si hay ganadora, vuelve al visor (paso 4): enseña la ganadora
   frente a la de ahora a ciegas.
 - **Torneo** (si la de ahora se pintó sobre otro maniquí, y entonces quedarse con ella no
-  es una opción): las versiones se comparan entre sí, todas contra todas. Gana la que gana
-  todos sus duelos; si no hay una clara, lo dice y propone las dos mejores. En los dos
-  casos el visor enseña las dos finalistas y decide la persona.
+  es una opción; así se repinta el catálogo): las versiones se comparan entre sí, todas
+  contra todas. **Solo las dudosas van a la persona** (decisión del usuario del
+  30-10-2026): con una ganadora clara (gana todos sus duelos) se adopta sola; sin ella, el
+  visor enseña las dos mejores y decide la persona.
 
 Las comparaciones guardadas llevan la huella de lo que compararon: si una versión se
-repinta, `elegir` la compara otra vez. Solo si la persona prefiere la ganadora (o, en un
-torneo sin ganadora clara, elige una de las dos):
+repinta, `elegir` la compara otra vez. Para adoptar:
 
 ```bash
-pnpm taller adoptar <id> d<n> <h>       # a assets/, con la elección en su procedencia, y junta la dirección
+pnpm taller adoptar <id> --todas        # todas las que se pueden: las claras de un torneo, solas, y las que eligió la persona
+pnpm taller adoptar <id> d<n> <h>       # una hoja; a assets/, con la elección en su procedencia, y junta la dirección
 ```
 
-`adoptar` lanza si no hay ganadora (contra la de ahora) o si la persona no la eligió: no lo
-fuerces.
+`adoptar` lanza si no hay ganadora (contra la de ahora) o si la persona no eligió lo que
+tocaba: no lo fuerces. `--todas` dice qué queda para el visor. Una hoja adoptada sola lleva
+en su procedencia `persona: null` y `auto: true`.
+
+**El vistazo final.** El visor (`pnpm taller visor <id>`) trae, por cada dirección con
+alguna hoja adoptada sola, un caso con sus seis clips a la velocidad del juego junto al
+maniquí: «bien», «rehacer la hoja A», «rehacer la hoja B» o «rehacer las dos». Lo
+rechazado ahí, y las dudosas a las que la persona respondió «ninguna vale», se vuelven a
+pedir con
+
+```bash
+pnpm taller versiones <id> --rechazadas  # otra vez sus tres versiones (olvidando las de antes) y sin su elección vieja
+```
+
+y vuelve a pasar por `elegir` y `adoptar`. El orden no importa: puedes adoptar lo elegido
+antes o después de pedir lo rechazado (el vistazo apunta qué hojas enseñaba), y lo ya
+pedido no se pide dos veces (`visor/rechazadas.json`). Pásale a la persona el visor con las dudosas y
+los vistazos de una unidad juntos, cuando la unidad entera tenga sus elecciones.
 
 Lo adoptado se vuelve a revisar (paso 2, solo esa dirección). **Como mucho dos rondas por
 hoja**: si tras la segunda sigue mal, déjalo dicho para la persona.

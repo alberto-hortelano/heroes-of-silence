@@ -1,18 +1,18 @@
 {
-  "encargo": "templario-escudo-d5-b",
+  "encargo": "templario-escudo-v-tirada-d5-b",
   "tipo": "atlas",
-  "fecha": "2026-10-10T21:24:47.318Z",
+  "fecha": "2026-10-30T21:33:02.417Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a127b3-2448-7fe2-bcf4-64e49573216d",
+  "hilo": "01a18dcd-c77d-7580-8971-a82a84055683",
   "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn templario de infantería: armadura de placas sobre cota de malla, sobrevesta blanca con cruz roja, yelmo cerrado de cubo, escudo de cometa con cruz roja en el brazo izquierdo y espada de una mano en la derecha.\nEn la lámina de giro (imagen 2), la figura 6 en orden de lectura es la que mira hacia «espalda-izquierda», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de ATAQUE de la fila 1 de la referencia de pose, atacando con el arma del personaje. Fila 2: las siete poses de RECIBIR DAÑO de la fila 2: encaja un golpe y retrocede. Fila 3: las siete poses de la MUERTE de la fila 3: la primera es EXACTAMENTE la última de la fila 2, luego se desploma, y la última es el cadáver tendido e inmóvil en el suelo, con sus armas en el suelo donde las tiene el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «espalda-izquierda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
       "ruta": "assets/unidades/_poses/unidades/templario-escudo-8d/d5-b.profundidad.png",
       "papel": "pose-profundidad",
-      "sha256": "6a7d4d16546b8cfccfef3d17252af27e11cdd30d7fb4866a64830e4f9231f493"
+      "sha256": "a12b185c5fba7fd45a35e6c363cec6ed13ffbf348a309238e42f62990850d860"
     },
     {
       "ruta": "assets/unidades/templario-escudo/giro.webp",
@@ -26,20 +26,20 @@
     }
   ],
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a127b3-2448-7fe2-bcf4-64e49573216d/exec-19196478-968f-4a96-9c95-f39fb30b1859.png",
-    "sha256": "49e586ae0e2612daeab48b1d8a3eb7d2212ec561e8ff3c31b9d9a1323c30b751",
+    "fichero": "~/.codex/generated_images/01a18dcd-c77d-7580-8971-a82a84055683/exec-2f117b5c-0e1f-45fb-969c-bfdd2e953b69.png",
+    "sha256": "e89560f5854e2bd6997820427932467bfcc8123411581e83b138063706ed4a64",
     "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 1.0094, pies en y=342, reposo a 160 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "dirección completa: assets/unidades/templario-escudo/d5/atlas.webp"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.9327, pies en y=342, reposo a 160 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.05756551752645503,
-    "opacos": 0.9441533524818239,
+    "visibles": 0.052918772218088626,
+    "opacos": 0.9418674900986775,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -51,8 +51,8 @@
       342
     ],
     "apoyoReposo": [
-      186,
-      276
+      193,
+      283
     ],
     "posicion": true,
     "elevaciones": [
@@ -61,8 +61,106 @@
       64
     ]
   },
+  "encuadre": [
+    [
+      [
+        3,
+        -9
+      ],
+      [
+        -3,
+        6
+      ],
+      [
+        2,
+        6
+      ],
+      [
+        -2,
+        -6
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ]
+    ],
+    [
+      [
+        4,
+        2
+      ],
+      [
+        2,
+        2
+      ],
+      [
+        0,
+        3
+      ],
+      [
+        0,
+        -2
+      ],
+      [
+        -3,
+        -2
+      ],
+      [
+        -3,
+        0
+      ],
+      [
+        0,
+        -2
+      ]
+    ],
+    [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        1,
+        -11
+      ],
+      [
+        -2,
+        5
+      ],
+      [
+        0,
+        5
+      ],
+      [
+        1,
+        1
+      ]
+    ]
+  ],
   "salida": {
     "ruta": "assets/unidades/templario-escudo/d5/hoja-b.webp",
-    "sha256": "47e91fb78b823e40e6e811550fba9aaea022745e1d0d4582556e3a5d1993ba57"
+    "sha256": "8564738767d87fd0fd6fdf52b6ac042b9425ec929b5999a39ce5f650fafb1094"
+  },
+  "eleccion": {
+    "version": "tirada",
+    "modo": "torneo",
+    "motivo": "torneo: ninguna gana todos sus duelos (tirada 0 de 1 duelos, esqueleto 0 de 1 duelos); la de ahora no vale (es de otro maniquí): decide la persona entre tirada y esqueleto en el visor",
+    "persona": "iguales"
   }
 }

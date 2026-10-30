@@ -21,7 +21,7 @@
  * espera la cadera cada una. Lo llama `empaquetar`.
  */
 // El ciclo con `empaquetar` es solo de valores que se leen al llamar: no muerde.
-import { ALFA_FIGURA } from './empaquetar.js';
+import { ALFA_FIGURA, type Cuerpo, cuerpoDe } from './empaquetar.js';
 
 /** Una celda RGBA de `lado`×`lado`. */
 export interface CeldaRgba {
@@ -69,24 +69,17 @@ export interface Recolocacion {
  * `null` si la celda está vacía.
  */
 export function ventanaDelTronco(c: CeldaRgba): readonly [number, number, number, number] | null {
-  const { data, lado } = c;
-  let y0 = lado;
-  let y1 = -1;
-  for (let y = 0; y < lado; y++)
-    for (let x = 0; x < lado; x++)
-      if ((data[(y * lado + x) * 4 + 3] as number) >= ALFA_FIGURA) {
-        if (y < y0) y0 = y;
-        y1 = y;
-        break;
-      }
-  if (y1 < 0) return null;
+  const cuerpo = cuerpoDeLaCelda(c);
+  if (cuerpo === null) return null;
+  const { lado } = c;
+  const [, y0, , y1] = cuerpo.caja;
   const h = y1 - y0 + 1;
   const b0 = y0 + Math.floor(h * BANDA_DEL_TRONCO[0]);
   const b1 = y0 + Math.floor(h * BANDA_DEL_TRONCO[1]);
   const xs: number[] = [];
   for (let y = b0; y <= b1; y++)
-    for (let x = 0; x < lado; x++)
-      if ((data[(y * lado + x) * 4 + 3] as number) >= ALFA_FIGURA) xs.push(x);
+    for (let x = 0; x < cuerpo.w; x++)
+      if (cuerpo.mascara[(y - cuerpo.y0) * cuerpo.w + x]) xs.push(cuerpo.x0 + x);
   if (xs.length === 0) return null;
   xs.sort((a, b) => a - b);
   const p = (q: number) => xs[Math.min(xs.length - 1, Math.floor(xs.length * q))] as number;
@@ -96,6 +89,28 @@ export function ventanaDelTronco(c: CeldaRgba): readonly [number, number, number
     Math.min(lado, p(0.8) + MARGEN_DE_LA_VENTANA + 1),
     Math.min(lado, b1 + MARGEN_DE_LA_VENTANA + 1),
   ];
+}
+
+/**
+ * El cuerpo de una celda (la silueta sin lo fino, `cuerpoDe`), o `null` si está
+ * vacía: la ventana del tronco y el pie de C1 se miden sobre él, no sobre la pica.
+ */
+export function cuerpoDeLaCelda(c: CeldaRgba): Cuerpo | null {
+  const { data, lado } = c;
+  let x0 = lado;
+  let y0 = lado;
+  let x1 = -1;
+  let y1 = -1;
+  for (let y = 0; y < lado; y++)
+    for (let x = 0; x < lado; x++)
+      if ((data[(y * lado + x) * 4 + 3] as number) >= ALFA_FIGURA) {
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        y1 = y;
+      }
+  if (y1 < 0) return null;
+  return cuerpoDe((x, y) => data[(y * lado + x) * 4 + 3] as number, [x0, y0, x1, y1]);
 }
 
 /** La luz con el alfa: lo que se correlaciona (el contorno pesa, el interior también). */
@@ -207,15 +222,109 @@ function resolver(A: number[][], b: number[]): number[] {
   });
 }
 
+/** Lo que se pide a la recolocación, además de los pares del tronco. */
+export interface OpcionesDeRecolocar {
+  /**
+   * Por fotograma, cuánto habría que moverlo según una medida ABSOLUTA del tronco (el
+   * estimador de pose: caderas y hombros pintados frente a los del maniquí, con la media
+   * quitada), o `null` si no se midió. Es lo que el usuario prefirió en los
+   * experimentos (6 de 8, la versión de `encuadre.py`).
+   */
+  readonly absolutos?: readonly (readonly [number, number] | null)[];
+  /** Cuánto pesa cada medida absoluta frente a un par de NCC (que pesa su NCC, ≤ 1). */
+  readonly pesoAbsoluto?: number;
+  /** Por fotograma, lo más que puede bajar (y > 0): el límite de los pies. */
+  readonly bajaComoMucho?: readonly number[];
+  /** Por fotograma, lo más que puede subir (en px, positivo): el margen de su celda. */
+  readonly subeComoMucho?: readonly number[];
+}
+
+/** Lo que pesa una medida del estimador por defecto: la señal principal cuando la hay. */
+export const PESO_DEL_ESTIMADOR = 1;
+
 /**
- * Cuánto hay que mover cada fotograma de un clip para que el tronco pintado siga a
- * la cadera del maniquí. `caderas[i]` es dónde espera el maniquí la cadera en el
- * fotograma `i`, en píxeles de la celda pintada (solo cuentan sus diferencias).
+ * Los desplazamientos de un eje por mínimos cuadrados: cada par pide `s[a] − s[de] =
+ * objetivo` con su peso, cada medida absoluta `s[i] = objetivo` con el suyo; los
+ * fotogramas de `fijos` no se mueven de lo dado. Un grupo de fotogramas sin nada que
+ * lo ancle (ni absoluto ni fijo) lleva su media a 0. Un fotograma sin nada, 0.
+ */
+function resolverEje(
+  n: number,
+  pares: readonly { de: number; a: number; objetivo: number; peso: number }[],
+  absolutos: readonly { i: number; objetivo: number; peso: number }[],
+  fijos: ReadonlyMap<number, number>,
+): number[] {
+  const grupo = Array.from({ length: n }, (_, i) => i);
+  const raiz = (i: number): number => {
+    let r = i;
+    while (grupo[r] !== r) r = grupo[r] as number;
+    return r;
+  };
+  for (const p of pares) grupo[raiz(p.de)] = raiz(p.a);
+  const usados = new Set<number>([
+    ...pares.flatMap((p) => [p.de, p.a]),
+    ...absolutos.map((a) => a.i),
+  ]);
+  const libres = [...usados].filter((i) => !fijos.has(i)).sort((a, b) => a - b);
+  const pos = new Map(libres.map((f, k) => [f, k]));
+  const m = libres.length;
+  const s = Array.from({ length: n }, (_, i) => fijos.get(i) ?? 0);
+  if (m === 0) return s;
+  const A = Array.from({ length: m }, () => Array<number>(m).fill(0));
+  const b = Array<number>(m).fill(0);
+  const sumar = (i: number, j: number, v: number) => {
+    (A[i] as number[])[j] = ((A[i] as number[])[j] as number) + v;
+  };
+  for (const p of pares) {
+    const i = pos.get(p.de);
+    const j = pos.get(p.a);
+    const w = p.peso;
+    // w · (s[a] − s[de] − objetivo)²
+    if (j !== undefined) {
+      sumar(j, j, w);
+      b[j] = (b[j] as number) + w * (p.objetivo + (i === undefined ? (fijos.get(p.de) ?? 0) : 0));
+    }
+    if (i !== undefined) {
+      sumar(i, i, w);
+      b[i] = (b[i] as number) - w * (p.objetivo - (j === undefined ? (fijos.get(p.a) ?? 0) : 0));
+    }
+    if (i !== undefined && j !== undefined) {
+      sumar(i, j, -w);
+      sumar(j, i, -w);
+    }
+  }
+  for (const a of absolutos) {
+    const i = pos.get(a.i);
+    if (i === undefined) continue;
+    sumar(i, i, a.peso);
+    b[i] = (b[i] as number) + a.peso * a.objetivo;
+  }
+  // Los grupos sin ancla, con su media a 0.
+  const anclados = new Set([...absolutos.map((a) => raiz(a.i)), ...[...fijos.keys()].map(raiz)]);
+  const porGrupo = new Map<number, number[]>();
+  for (const f of libres) {
+    const r = raiz(f);
+    if (anclados.has(r)) continue;
+    porGrupo.set(r, [...(porGrupo.get(r) ?? []), pos.get(f) as number]);
+  }
+  for (const miembros of porGrupo.values())
+    for (const i of miembros) for (const j of miembros) sumar(i, j, 10);
+  const x = resolver(A, b);
+  for (const [f, k] of pos) s[f] = x[k] as number;
+  return s;
+}
+
+/**
+ * Cuánto hay que mover cada fotograma de un clip para que el tronco pintado siga al
+ * del maniquí. `caderas[i]` es dónde espera el maniquí el tronco en el fotograma `i`,
+ * en píxeles de la celda pintada (solo cuentan sus diferencias). Con `opciones`, las
+ * medidas absolutas del estimador y el límite de los pies (`recolocarConLosPies`).
  */
 export function desplazamientosDelTronco(
   celdas: readonly CeldaRgba[],
   caderas: readonly (readonly [number, number])[],
   bucle: boolean,
+  opciones: OpcionesDeRecolocar = {},
 ): Recolocacion {
   const n = celdas.length;
   if (caderas.length !== n)
@@ -241,78 +350,207 @@ export function desplazamientosDelTronco(
     pares.push({ de: i, a: j, pintado: [dx, dy], maniqui: [cj[0] - ci[0], cj[1] - ci[1]], ncc });
   }
   const validos = pares.filter((p) => p.ncc >= NCC_MINIMO);
-  // Los fotogramas unidos por pares válidos, en componentes: cada una lleva su
-  // media a 0, y el que no tiene pares se queda donde está.
-  const grupo = Array.from({ length: n }, (_, i) => i);
-  const raiz = (i: number): number => {
-    let r = i;
-    while (grupo[r] !== r) r = grupo[r] as number;
-    return r;
+  const peso = opciones.pesoAbsoluto ?? PESO_DEL_ESTIMADOR;
+  const ejes = ([0, 1] as const).map((eje) => {
+    // Cada fotograma se mueve al revés de lo que se aparta: s[a] − s[de] = −sobra.
+    const deLosPares = validos.map((p) => ({
+      de: p.de,
+      a: p.a,
+      objetivo: -((p.pintado[eje] as number) - (p.maniqui[eje] as number)),
+      peso: p.ncc,
+    }));
+    const absolutos = (opciones.absolutos ?? []).flatMap((v, i) =>
+      v === null ? [] : [{ i, objetivo: v[eje] as number, peso }],
+    );
+    let fijos = new Map<number, number>();
+    let s = resolverEje(n, deLosPares, absolutos, fijos);
+    // Los pies (solo en y): lo que bajaría más de su límite se fija en él, y el resto
+    // se vuelve a repartir; hasta que nada pase (C1 con los pies, QA del 30-10-2026).
+    // Y el margen de la celda: lo que subiría más de lo que cabe, igual.
+    const baja = eje === 1 ? opciones.bajaComoMucho : undefined;
+    const sube = eje === 1 ? opciones.subeComoMucho : undefined;
+    for (let vuelta = 0; (baja !== undefined || sube !== undefined) && vuelta < n; vuelta++) {
+      const pasan = s.flatMap((v, i): (readonly [number, number])[] => {
+        if (fijos.has(i)) return [];
+        const max = baja?.[i] ?? Number.POSITIVE_INFINITY;
+        const min = -(sube?.[i] ?? Number.POSITIVE_INFINITY);
+        return v > max + 0.5 ? [[i, max]] : v < min - 0.5 ? [[i, min]] : [];
+      });
+      if (pasan.length === 0) break;
+      fijos = new Map([...fijos, ...pasan]);
+      s = resolverEje(n, deLosPares, absolutos, fijos);
+    }
+    return s.map((v) => Math.max(-TOPE, Math.min(TOPE, Math.round(v))));
+  });
+  return {
+    desplazamientos: Array.from(
+      { length: n },
+      (_, i) => [ejes[0]?.[i] ?? 0, ejes[1]?.[i] ?? 0] as const,
+    ),
+    pares,
   };
-  for (const p of validos) grupo[raiz(p.de)] = raiz(p.a);
-  const desplazamientos: [number, number][] = Array.from({ length: n }, () => [0, 0]);
-  const componentes = new Map<number, number[]>();
-  for (const p of validos)
-    for (const i of [p.de, p.a]) {
-      const r = raiz(i);
-      const m = componentes.get(r) ?? [];
-      if (!m.includes(i)) m.push(i);
-      componentes.set(r, m);
-    }
-  for (const miembros of componentes.values()) {
-    const m = miembros.length;
-    const pos = new Map(miembros.map((f, k) => [f, k]));
-    for (const eje of [0, 1] as const) {
-      // Mínimos cuadrados con peso NCC: o[a] − o[de] = sobra; y Σ o = 0, con peso fuerte.
-      const A = Array.from({ length: m }, () => Array<number>(m).fill(0));
-      const b = Array<number>(m).fill(0);
-      for (const p of validos) {
-        const i = pos.get(p.de);
-        const j = pos.get(p.a);
-        if (i === undefined || j === undefined || i === j) continue;
-        const w = p.ncc;
-        const sobra = (p.pintado[eje] as number) - (p.maniqui[eje] as number);
-        (A[i] as number[])[i] = ((A[i] as number[])[i] as number) + w;
-        (A[j] as number[])[j] = ((A[j] as number[])[j] as number) + w;
-        (A[i] as number[])[j] = ((A[i] as number[])[j] as number) - w;
-        (A[j] as number[])[i] = ((A[j] as number[])[i] as number) - w;
-        b[i] = (b[i] as number) - w * sobra;
-        b[j] = (b[j] as number) + w * sobra;
-      }
-      for (let i = 0; i < m; i++)
-        for (let j = 0; j < m; j++) (A[i] as number[])[j] = ((A[i] as number[])[j] as number) + 10;
-      const o = resolver(A, b);
-      const media = o.reduce((s, v) => s + v, 0) / m;
-      for (const [f, k] of pos) {
-        // Cada fotograma se mueve al revés de lo que se aparta.
-        const v = -((o[k] as number) - media);
-        (desplazamientos[f] as [number, number])[eje] = Math.max(
-          -TOPE,
-          Math.min(TOPE, Math.round(v)),
-        );
-      }
-    }
-  }
-  return { desplazamientos, pares };
 }
 
-/** La fila del píxel opaco más bajo de una celda, o `null` si está vacía. */
+/** La fila del píxel más bajo del cuerpo de una celda (sin lo fino), o `null` si está vacía. */
 export function fondoDe(c: CeldaRgba): number | null {
-  for (let y = c.lado - 1; y >= 0; y--)
-    for (let x = 0; x < c.lado; x++)
-      if ((c.data[(y * c.lado + x) * 4 + 3] as number) >= ALFA_FIGURA) return y;
-  return null;
+  // La fila más baja del cuerpo: la punta de una pica no es el pie.
+  return cuerpoDeLaCelda(c)?.caja[3] ?? null;
+}
+
+/** Lo que se tolera que un pie pintado baje del punto más bajo del maniquí, en px de la celda. */
+export const HUNDIMIENTO_TOLERADO = 6;
+
+/**
+ * C1 con los pies en su sitio: el tronco manda en x y en y, pero en cada fotograma el
+ * cuerpo pintado no baja más de `HUNDIMIENTO_TOLERADO` del punto más bajo del maniquí
+ * en ese fotograma (`pies[i]`, en la celda pintada). Con la cámara a 25° el pie que
+ * avanza hacia la cámara cae más abajo en la pantalla, así que el suelo es el del
+ * maniquí, fotograma a fotograma, no una línea fija (con la línea fija, QA del
+ * 30-10-2026, el cuerpo no podía bajar cuando el maniquí bajaba y el piquero saltaba
+ * 7-21 px). Subir no se limita: es el tronco el que manda. Lo que pasaría del límite se
+ * fija en él y el resto se reparte otra vez (`desplazamientosDelTronco`). Nunca deja un
+ * fotograma más hundido que antes de C1.
+ */
+export function recolocarConLosPies(
+  celdas: readonly CeldaRgba[],
+  troncos: readonly (readonly [number, number])[],
+  bucle: boolean,
+  pies: readonly number[],
+  opciones: Omit<OpcionesDeRecolocar, 'bajaComoMucho' | 'subeComoMucho'> & {
+    /** Por fotograma, cuánto cabe subir en su celda antes de cortarse (el margen). */
+    readonly subeComoMucho?: readonly number[];
+  } = {},
+): Recolocacion {
+  // Hasta `VUELTAS_DE_C1` vueltas: al mover, pares que no se parecían (la muerte, el
+  // ataque) pasan a parecerse y dicen lo que quedaba por mover.
+  let movidas = [...celdas];
+  const total: [number, number][] = celdas.map(() => [0, 0]);
+  let ultima: Recolocacion = { desplazamientos: total, pares: [] };
+  for (let vuelta = 0; vuelta < VUELTAS_DE_C1; vuelta++) {
+    const bajaComoMucho = movidas.map((c, i) => {
+      const fondo = fondoDe(c);
+      return fondo === null
+        ? Number.POSITIVE_INFINITY
+        : Math.max(0, (pies[i] ?? fondo) + HUNDIMIENTO_TOLERADO - fondo);
+    });
+    const absolutos = opciones.absolutos?.map((a, i) =>
+      a === null
+        ? null
+        : ([
+            a[0] - (total[i] as [number, number])[0],
+            a[1] - (total[i] as [number, number])[1],
+          ] as const),
+    );
+    const subeComoMucho = opciones.subeComoMucho?.map(
+      (v, i) => v + (total[i] as [number, number])[1],
+    );
+    ultima = desplazamientosDelTronco(movidas, troncos, bucle, {
+      ...opciones,
+      ...(absolutos === undefined ? {} : { absolutos }),
+      ...(subeComoMucho === undefined ? {} : { subeComoMucho }),
+      bajaComoMucho,
+    });
+    if (ultima.desplazamientos.every(([dx, dy]) => dx === 0 && dy === 0)) break;
+    movidas = movidas.map((c, i) => {
+      const [dx, dy] = ultima.desplazamientos[i] as readonly [number, number];
+      (total[i] as [number, number])[0] += dx;
+      (total[i] as [number, number])[1] += dy;
+      return moverCelda(c, dx, dy);
+    });
+  }
+  return {
+    desplazamientos: total.map(
+      ([dx, dy]) =>
+        [Math.max(-TOPE, Math.min(TOPE, dx)), Math.max(-TOPE, Math.min(TOPE, dy))] as const,
+    ),
+    pares: ultima.pares,
+  };
+}
+
+/** Cuántas veces se mide y se recoloca un clip, como mucho. */
+export const VUELTAS_DE_C1 = 3;
+
+/** Una celda movida (dx, dy) dentro de su lado (lo que sale, se pierde). */
+export function moverCelda(c: CeldaRgba, dx: number, dy: number): CeldaRgba {
+  const { lado } = c;
+  if (dx === 0 && dy === 0) return c;
+  const data = new Uint8Array(lado * lado * 4);
+  for (let y = 0; y < lado; y++) {
+    const sy = y - dy;
+    if (sy < 0 || sy >= lado) continue;
+    const x0 = Math.max(0, dx);
+    const x1 = Math.min(lado, lado + dx);
+    if (x1 <= x0) continue;
+    data.set(
+      c.data.subarray((sy * lado + x0 - dx) * 4, (sy * lado + x1 - dx) * 4),
+      (y * lado + x0) * 4,
+    );
+  }
+  return { data, lado };
+}
+
+/** Quien mide el tronco pintado de cada celda (el estimador de pose), o `null` si no lo ve. */
+export type EstimarTroncos = (
+  celdas: readonly CeldaRgba[],
+) => Promise<readonly (readonly [number, number] | null)[]>;
+
+/**
+ * De lo que ve el estimador a cuánto mover cada fotograma: el tronco pintado frente al
+ * del maniquí (`troncos`), con la media quitada (la posición del clip no cambia), y al
+ * revés (se mueve para cancelar lo que se aparta). `null` donde no vio nada.
+ */
+export function absolutosDe(
+  estimados: readonly (readonly [number, number] | null)[],
+  troncos: readonly (readonly [number, number])[],
+): (readonly [number, number] | null)[] {
+  const d = estimados.map((e, i) => {
+    const t = troncos[i];
+    return e === null || t === undefined ? null : ([e[0] - t[0], e[1] - t[1]] as const);
+  });
+  const vistos = d.filter((v): v is readonly [number, number] => v !== null);
+  if (vistos.length === 0) return d;
+  const media = [0, 1].map(
+    (q) => vistos.reduce((s2, v) => s2 + (v[q] as number), 0) / vistos.length,
+  );
+  return d.map((v) =>
+    v === null ? null : ([-(v[0] - (media[0] as number)), -(v[1] - (media[1] as number))] as const),
+  );
+}
+
+/** El mayor salto de un clip: cuánto, y entre qué fotogramas (desde 1). */
+export interface Salto {
+  readonly px: number;
+  readonly de: number;
+  readonly a: number;
 }
 
 /**
- * C1 con los pies en su sitio (QA del 30-10-2026, H3): el tronco manda en x y en y,
- * pero en cada fotograma el píxel opaco más bajo no baja de la línea del suelo de
- * su celda (`suelo`), ni sube más de lo que el pie del maniquí se separa del suelo
- * en ese fotograma (`alzas[i]`). Con la media de los desplazamientos a 0, C1
- * anclaba la media al suelo y hundía hasta 15 px los fotogramas con el pie apoyado.
- * Nunca deja un fotograma peor que antes de C1: si ya estaba fuera, solo lo acerca.
+ * El mayor salto del tronco de un clip (lo que se mueve el tronco pintado de un
+ * fotograma al siguiente más de lo que se mueve el del maniquí), o `null` si ningún par
+ * se parece lo bastante para medirlo. Es la cifra que coincidió con lo que vio el
+ * usuario en el piquero (30-10-2026); la enseñan `revisar` y el visor (`salto.ts`).
  */
-export function recolocarConLosPies(
+export function saltoDelClip(
+  celdas: readonly CeldaRgba[],
+  troncos: readonly (readonly [number, number])[],
+  bucle: boolean,
+): Salto | null {
+  const { pares } = desplazamientosDelTronco(celdas, troncos, bucle);
+  let mayor: Salto | null = null;
+  for (const p of pares) {
+    if (p.ncc < NCC_MINIMO) continue;
+    const px = Math.round(Math.hypot(p.pintado[0] - p.maniqui[0], p.pintado[1] - p.maniqui[1]));
+    if (mayor === null || px > mayor.px) mayor = { px, de: p.de + 1, a: p.a + 1 };
+  }
+  return mayor;
+}
+
+/**
+ * C1 con la línea fija del suelo (la regla anterior, QA del 30-10-2026, H3): el pie
+ * no baja de `suelo` ni sube más que el del maniquí (`alzas`). Se queda como una de
+ * las recolocaciones entre las que elige `mejorRecolocacion`.
+ */
+export function recolocarConElSuelo(
   celdas: readonly CeldaRgba[],
   troncos: readonly (readonly [number, number])[],
   bucle: boolean,
@@ -330,4 +568,33 @@ export function recolocarConLosPies(
       return [dx, Math.min(abajo, Math.max(arriba, dy))] as const;
     }),
   };
+}
+
+/**
+ * De varias recolocaciones de un clip, la que deja el tronco pintado más pegado al del
+ * maniquí (el menor `saltoDelClip` de las celdas movidas); a igualdad, la primera. Así
+ * ninguna sale peor que la que había: si la regla nueva pierde en un clip (la muerte,
+ * con pocos pares que se parezcan), gana la de antes o ninguna.
+ */
+export function mejorRecolocacion(
+  celdas: readonly CeldaRgba[],
+  troncos: readonly (readonly [number, number])[],
+  bucle: boolean,
+  candidatas: readonly (readonly (readonly [number, number])[])[],
+): {
+  readonly desplazamientos: readonly (readonly [number, number])[];
+  readonly salto: number;
+  readonly cual: number;
+} {
+  let mejor = {
+    desplazamientos: candidatas[0] ?? celdas.map(() => [0, 0] as const),
+    salto: Number.POSITIVE_INFINITY,
+    cual: 0,
+  };
+  for (const [cual, ds] of candidatas.entries()) {
+    const movidas = celdas.map((c, i) => moverCelda(c, ds[i]?.[0] ?? 0, ds[i]?.[1] ?? 0));
+    const salto = saltoDelClip(movidas, troncos, bucle)?.px ?? 0;
+    if (salto < mejor.salto) mejor = { desplazamientos: ds, salto, cual };
+  }
+  return mejor;
 }

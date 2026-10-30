@@ -103,3 +103,7 @@ Lo medido está en `experimentos.md`, en esta misma carpeta.
   distinta.
 - **Se retiran** `experimento.ts`, `evaluar.ts` (con el borde rojo de `vista-8d`) y las
   `.mezcla.png` («Sí, retirar»).
+- **Solo las dudosas** (30-10-2026, para repintar el catálogo): si el torneo de `elegir`
+  tiene ganadora clara, se adopta sola; la persona elige solo las dudosas (sin ganadora
+  clara) y da un vistazo final por unidad a sus 8 direcciones animadas, donde puede
+  rechazar una hoja, que se repite.

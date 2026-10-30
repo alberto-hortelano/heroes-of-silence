@@ -1,7 +1,7 @@
 {
   "encargo": "caballero-de-la-muerte-v-esqueleto-d0-b",
   "tipo": "atlas",
-  "fecha": "2026-10-30T15:07:07.555Z",
+  "fecha": "2026-10-30T21:29:44.469Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
@@ -35,13 +35,13 @@
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7193, pies en y=342, reposo a 160 px",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7104, pies en y=342, reposo a 160 px",
     "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
     "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.0396993324239418,
-    "opacos": 0.9433996030325709,
+    "visibles": 0.03864365027695106,
+    "opacos": 0.9421291460184017,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -53,7 +53,7 @@
       342
     ],
     "apoyoReposo": [
-      186,
+      187,
       292
     ],
     "posicion": true,
@@ -66,61 +66,31 @@
   "encuadre": [
     [
       [
-        7,
-        0
+        -1,
+        -4
       ],
       [
-        8,
-        0
+        1,
+        4
       ],
       [
-        -5,
-        0
-      ],
-      [
-        -10,
-        0
+        2,
+        2
       ],
       [
         -2,
-        0
+        -2
       ],
       [
         0,
         0
       ],
       [
-        2,
-        0
-      ]
-    ],
-    [
-      [
-        -7,
+        -1,
         0
       ],
       [
         1,
-        0
-      ],
-      [
-        3,
-        0
-      ],
-      [
-        2,
-        0
-      ],
-      [
-        0,
-        0
-      ],
-      [
-        1,
-        3
-      ],
-      [
-        0,
         0
       ]
     ],
@@ -131,34 +101,64 @@
       ],
       [
         0,
-        0
+        -1
       ],
       [
-        2,
+        1,
+        -3
+      ],
+      [
+        0,
+        -2
+      ],
+      [
+        -2,
+        -1
+      ],
+      [
+        1,
         6
       ],
       [
-        -1,
+        0,
         0
+      ]
+    ],
+    [
+      [
+        3,
+        -21
       ],
       [
-        -1,
-        0
+        5,
+        -8
       ],
       [
-        6,
+        5,
+        -7
+      ],
+      [
+        2,
         -6
       ],
       [
+        3,
+        1
+      ],
+      [
+        -13,
+        7
+      ],
+      [
         -6,
-        0
+        12
       ]
     ]
   ],
   "porRejilla": "contadas cortando el crudo por su rejilla: la fila 2 tiene 6 figuras y la hoja pide 7 (en total se encontraron 19 de 21)",
   "salida": {
     "ruta": "assets/unidades/caballero-de-la-muerte/d0/hoja-b.webp",
-    "sha256": "7f98e46f3e97908f4d05994e12b063cec73b8c6d0293d617460212d6b9d41ee5"
+    "sha256": "10b0789fb82409f21e1ca19dc3992eabc96023bf53158ab127bcdad7e8da9330"
   },
   "eleccion": {
     "version": "esqueleto",

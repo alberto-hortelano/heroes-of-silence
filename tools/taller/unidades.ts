@@ -520,7 +520,10 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'elfo-arquero',
-    ...conImpact2(AGIL),
+    // El quieto de los tiradores, como el goblin arquero: con `idle4` la mano del
+    // arco quedaba delante de la entrepierna y ningún repintado lo quitaba (visor
+    // del repintado, 30-10-2026).
+    ...conReposo(conImpact2(AGIL), 'idle_neutral'),
     maniqui: JUEGOS_DE_ARMAS['arco'].atrezo,
     faccion: 'elfos',
     nombre: 'Arquero',

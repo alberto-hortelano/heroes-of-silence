@@ -19,7 +19,13 @@
  */
 import sharp, { type OverlayOptions } from 'sharp';
 import { FIGURA } from '../../src/shared/arte.js';
-import { recolocarConLosPies } from './encuadre.js';
+import {
+  absolutosDe,
+  type EstimarTroncos,
+  mejorRecolocacion,
+  recolocarConElSuelo,
+  recolocarConLosPies,
+} from './encuadre.js';
 import { quitarHalo, type Raster } from './recorte.js';
 
 /** Umbral de alfa para decir «aquí hay figura». */
@@ -303,10 +309,118 @@ function borrarMotasDelCorte(
 }
 
 /**
+ * Lo fino de una figura no es su cuerpo (QA del repintado, 30-10-2026, el piquero
+ * imperial: «se mueve mucho el personaje… por la pica tan larga»): un asta, una
+ * pica, una lanza, un arco o una espada de pocos píxeles de grueso. El radio de la
+ * apertura que lo quita, en parte del lado mayor de la caja de la figura: con 0,02,
+ * una figura de 160 px quita lo de menos de 7 px de grueso y deja brazos y piernas.
+ */
+export const GROSOR_DE_LO_FINO = 0.02;
+
+/** La silueta de un cuerpo: su máscara en la caja (1 = cuerpo) y la caja de lo que queda. */
+export interface Cuerpo {
+  readonly mascara: Uint8Array;
+  readonly x0: number;
+  readonly y0: number;
+  readonly w: number;
+  readonly h: number;
+  /** La caja de lo que queda, en coordenadas absolutas e inclusiva. */
+  readonly caja: readonly [number, number, number, number];
+}
+
+/** Las sumas de una máscara, para contar los unos de una ventana de un vistazo. */
+function sumasDe(m: Uint8Array, w: number, h: number): Int32Array {
+  const s = new Int32Array((w + 1) * (h + 1));
+  for (let y = 0; y < h; y++) {
+    let fila = 0;
+    for (let x = 0; x < w; x++) {
+      fila += m[y * w + x] as number;
+      s[(y + 1) * (w + 1) + x + 1] = (s[y * (w + 1) + x + 1] as number) + fila;
+    }
+  }
+  return s;
+}
+
+/** Cuántos unos hay en la ventana de radio `r` alrededor de (x, y), recortada a la máscara. */
+function enLaVentana(s: Int32Array, w: number, h: number, x: number, y: number, r: number): number {
+  const a = Math.max(0, x - r);
+  const b = Math.max(0, y - r);
+  const c = Math.min(w, x + r + 1);
+  const d = Math.min(h, y + r + 1);
+  const W = w + 1;
+  return (
+    (s[d * W + c] as number) -
+    (s[b * W + c] as number) -
+    (s[d * W + a] as number) +
+    (s[b * W + a] as number)
+  );
+}
+
+/**
+ * El cuerpo de una figura en su caja `[x0, y0, x1, y1]`: la silueta (alfa ≥ `umbral`)
+ * abierta (erosión y dilatación con un cuadrado de radio `GROSOR_DE_LO_FINO` del lado
+ * mayor), que quita lo fino, y con lo de la silueta que queda a menos de ese radio de
+ * lo abierto (las puntas del pie). Si la apertura se lo come todo, la silueta entera.
+ */
+export function cuerpoDe(
+  alfa: (x: number, y: number) => number,
+  [x0, y0, x1, y1]: readonly [number, number, number, number],
+  umbral = ALFA_FIGURA,
+): Cuerpo {
+  const w = x1 - x0 + 1;
+  const h = y1 - y0 + 1;
+  const silueta = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) silueta[y * w + x] = alfa(x0 + x, y0 + y) >= umbral ? 1 : 0;
+  const r = Math.max(1, Math.round(GROSOR_DE_LO_FINO * Math.max(w, h)));
+  const lleno = (2 * r + 1) * (2 * r + 1);
+  const s = sumasDe(silueta, w, h);
+  const erosion = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++)
+      if (silueta[y * w + x] && enLaVentana(s, w, h, x, y, r) === lleno) erosion[y * w + x] = 1;
+  const se = sumasDe(erosion, w, h);
+  const abierta = new Uint8Array(w * h);
+  let hay = false;
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++)
+      if (silueta[y * w + x] && enLaVentana(se, w, h, x, y, r) > 0) {
+        abierta[y * w + x] = 1;
+        hay = true;
+      }
+  // La apertura redondea las puntas del cuerpo (los dedos del pie, a 2 px del suelo en
+  // el Y Bot): se le devuelve lo de la silueta que queda a menos de `r` de lo abierto.
+  // Lo fino que sale más lejos (la pica) sigue fuera.
+  let mascara = silueta;
+  if (hay) {
+    const sa = sumasDe(abierta, w, h);
+    mascara = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++)
+        if (silueta[y * w + x] && enLaVentana(sa, w, h, x, y, r) > 0) mascara[y * w + x] = 1;
+  }
+  let cx0 = w;
+  let cy0 = h;
+  let cx1 = -1;
+  let cy1 = -1;
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++)
+      if (mascara[y * w + x]) {
+        if (x < cx0) cx0 = x;
+        if (x > cx1) cx1 = x;
+        if (y < cy0) cy0 = y;
+        cy1 = y;
+      }
+  if (cx1 < 0) throw new Error('una figura sin cuerpo: la silueta está vacía');
+  return { mascara, x0, y0, w, h, caja: [x0 + cx0, y0 + cy0, x0 + cx1, y0 + cy1] };
+}
+
+/**
  * El punto de apoyo de una figura dentro de su caja `[x0, y0, x1, y1]`
- * (inclusiva), leyendo el alfa con `alfa(x, y)`: la fila más baja, y en
- * horizontal la mediana de los píxeles del TRONCO (entre el 25 % y el 75 % de
- * la altura).
+ * (inclusiva), leyendo el alfa con `alfa(x, y)`: la fila más baja del CUERPO, y en
+ * horizontal la mediana de los píxeles del tronco (entre el 25 % y el 75 % de la
+ * altura del cuerpo). El cuerpo es la silueta sin lo fino (`cuerpoDe`): la punta de
+ * una pica por debajo del pie no es el suelo, ni el asta cruzada mueve la mediana.
  *
  * Del tronco y no de los pies: en la guardia abierta del reposo la franja más
  * baja es solo el pie adelantado, y anclar ahí dejaba al templario medio cuerpo
@@ -314,21 +428,24 @@ function borrarMotasDelCorte(
  * espada extendida mueve la caja y no el cuerpo.
  *
  * La comparten el empaquetado, que coloca, y `derivar`, que mide: una sola regla
- * para los dos, o el ancla escrita y la medida divergen.
+ * para los dos, o el ancla escrita y la medida divergen. Y el maniquí, al medir su
+ * hoja de pose (`escalaDePose`): los dos lados se miden igual.
  */
 export function apoyoEn(
   alfa: (x: number, y: number) => number,
-  [x0, y0, x1, y1]: readonly [number, number, number, number],
+  caja: readonly [number, number, number, number],
   umbral = ALFA_FIGURA,
 ): [number, number] {
-  const h = y1 - y0 + 1;
+  const c = cuerpoDe(alfa, caja, umbral);
+  const [, by0, , by1] = c.caja;
+  const h = by1 - by0 + 1;
   const xs: number[] = [];
-  for (let y = y0 + Math.floor(h * 0.25); y <= y0 + Math.floor(h * 0.75); y++) {
-    for (let x = x0; x <= x1; x++) if (alfa(x, y) >= umbral) xs.push(x);
+  for (let y = by0 + Math.floor(h * 0.25); y <= by0 + Math.floor(h * 0.75); y++) {
+    for (let x = 0; x < c.w; x++) if (c.mascara[(y - c.y0) * c.w + x]) xs.push(c.x0 + x);
   }
   if (xs.length === 0) throw new Error('una figura sin tronco: no hay píxeles a media altura');
   xs.sort((a, b) => a - b);
-  return [xs[Math.floor(xs.length / 2)] as number, y1];
+  return [xs[Math.floor(xs.length / 2)] as number, by1];
 }
 
 /** El apoyo de una figura de `r`, en coordenadas de su caja. */
@@ -543,6 +660,12 @@ export async function empaquetar(
   alturaObjetivo: number,
   celda: number = FIGURA.celda,
   pose?: EscalaDePose,
+  /**
+   * El estimador de pose (el entorno de visión, `revision/vision.ts`): el tronco que ve
+   * en cada celda pintada (media de caderas y hombros), o `null`. Sin él (CI, o sin el
+   * entorno), C1 se queda con la correlación entre vecinos.
+   */
+  estimarTroncos?: EstimarTroncos,
 ): Promise<Empaquetado> {
   const { columnas } = FIGURA;
   const base = baseEnCelda(celda);
@@ -645,42 +768,84 @@ export async function empaquetar(
       const minimo = Math.max(...piezas.map((p) => p.ax)) + MARGEN;
       const maximo = Math.min(...piezas.map((p) => celda - (p.w - p.ax))) - MARGEN;
       const x = Math.min(maximo, Math.max(minimo, Math.round(celda / 2)));
-      colocadas = piezas.map((p) => ({ ...p, izquierda: x - p.ax, arriba: base - p.ay }));
+      // Lo que cuelga por debajo del pie (la punta de una pica: el apoyo es del cuerpo,
+      // `cuerpoDe`) no se sale de la celda: si no cabe, la figura sube lo justo.
+      colocadas = piezas.map((p) => ({
+        ...p,
+        izquierda: x - p.ax,
+        arriba: Math.min(base - p.ay, celda - MARGEN - p.h),
+      }));
       apoyoPorFila.push([x, base]);
     }
     // C1: el tronco pintado sigue al del maniquí, dentro del margen.
     const caderas = pose?.caderas?.[f];
     if (caderas !== undefined && caderas.length === colocadas.length) {
+      // Cada celda como quedará en la hoja: con la pasada del halo que lleva la hoja
+      // entera al final. Sin ella, en la muerte (pares de NCC cerca de 0,5) C1 medía un
+      // par que en la hoja hecha pasaba el umbral, y el salto que no veía se quedaba.
       const celdas = await Promise.all(
-        colocadas.map(async (p) => ({
-          lado: celda,
-          data: new Uint8Array(
-            await sharp({
-              create: {
-                width: celda,
-                height: celda,
-                channels: 4,
-                background: { r: 0, g: 0, b: 0, alpha: 0 },
-              },
-            })
-              .composite([{ input: p.img, left: p.izquierda, top: p.arriba }])
-              .raw()
-              .toBuffer(),
-          ),
-        })),
+        colocadas.map(async (p) => {
+          const crudoDeLaCelda = await sharp({
+            create: {
+              width: celda,
+              height: celda,
+              channels: 4,
+              background: { r: 0, g: 0, b: 0, alpha: 0 },
+            },
+          })
+            .composite([{ input: p.img, left: p.izquierda, top: p.arriba }])
+            .raw()
+            .toBuffer();
+          const limpia = quitarHalo({ data: crudoDeLaCelda, width: celda, height: celda });
+          return { lado: celda, data: new Uint8Array(limpia.data) };
+        }),
       );
-      // Lo que el pie del maniquí se separa del suelo en cada fotograma (el reposo
-      // está apoyado): C1 no sube la figura más que eso, ni la baja del suelo.
+      // Dónde cae el punto más bajo del maniquí en cada fotograma, en la celda: el
+      // suelo de ese fotograma (con la cámara a 25°, el pie que avanza baja en pantalla).
       const reposo = pose?.apoyoReposo[1] ?? 0;
+      const suelo = base - (pose?.elevaciones?.[f] ?? 0);
+      const pies = colocadas.map((_, col) =>
+        Math.round(suelo + k * ((pose?.apoyos[f]?.[col]?.[1] ?? reposo) - reposo)),
+      );
+      const troncos = caderas.map(([x, y]) => [k * x, k * y] as const);
+      // El estimador de pose, si lo hay: la medida absoluta del tronco (`absolutosDe`).
+      const estimados = estimarTroncos === undefined ? undefined : await estimarTroncos(celdas);
+      const bucle = pose?.enBucle?.[f] === true;
+      // Lo que cabe subir cada figura sin salirse del margen de su celda.
+      const subeComoMucho = colocadas.map((p) => Math.max(0, p.arriba - MARGEN));
+      // Con el estimador (la señal absoluta, primero si la hay) y sin él.
+      const conEstimador =
+        estimados === undefined
+          ? []
+          : [
+              recolocarConLosPies(celdas, troncos, bucle, pies, {
+                absolutos: absolutosDe(estimados, troncos),
+                subeComoMucho,
+              }).desplazamientos,
+            ];
+      const nueva = recolocarConLosPies(celdas, troncos, bucle, pies, {
+        subeComoMucho,
+      }).desplazamientos;
+      // La regla de antes (la línea fija del suelo) y ninguna, por si la nueva pierde
+      // en un clip: se queda la que menos salta (`mejorRecolocacion`).
       const alzas = colocadas.map((_, col) =>
         Math.max(0, Math.round(k * (reposo - (pose?.apoyos[f]?.[col]?.[1] ?? reposo)))),
       );
-      const { desplazamientos } = recolocarConLosPies(
+      const antes = recolocarConElSuelo(celdas, troncos, bucle, suelo, alzas).desplazamientos;
+      // Cada una, con lo que de verdad cabe en la celda (`dentro`): así se mide lo que queda.
+      const enLaCelda = (ds: readonly (readonly [number, number])[]) =>
+        colocadas.map((p, col) => {
+          const [dx, dy] = ds[col] ?? [0, 0];
+          return [
+            dentro(p.izquierda + dx, p.w) - p.izquierda,
+            dentro(p.arriba + dy, p.h) - p.arriba,
+          ] as const;
+        });
+      const { desplazamientos } = mejorRecolocacion(
         celdas,
-        caderas.map(([x, y]) => [k * x, k * y] as const),
-        pose?.enBucle?.[f] === true,
-        base - (pose?.elevaciones?.[f] ?? 0),
-        alzas,
+        troncos,
+        bucle,
+        [...conEstimador, nueva, antes, celdas.map(() => [0, 0] as const)].map(enLaCelda),
       );
       const movidas = colocadas.map((p, col) => {
         const [dx, dy] = desplazamientos[col] ?? [0, 0];

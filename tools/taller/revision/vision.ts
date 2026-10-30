@@ -10,9 +10,10 @@
  */
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
+import sharp from 'sharp';
 
 const RAIZ = resolve(import.meta.dirname, '../../..');
 export const ENTORNO = join(RAIZ, '.cache/vision/.venv');
@@ -123,4 +124,39 @@ export function instalar(): void {
     cwd: RAIZ,
     stdio: 'inherit',
   });
+}
+
+/** Si el entorno de visión está: sin él (CI) nada lo usa y todo sigue sin el estimador. */
+export const hayVision = (): boolean => existsSync(PYTHON);
+
+/**
+ * El tronco que ve el estimador de pose en cada celda (la media de caderas y hombros,
+ * o `null`): la señal absoluta de C1 al empaquetar (`EstimarTroncos`, `encuadre.ts`).
+ */
+export async function estimarTroncos(
+  celdas: readonly { readonly data: Uint8Array; readonly lado: number }[],
+): Promise<(readonly [number, number] | null)[]> {
+  comprobarEntorno();
+  const dir = await mkdtemp(join(tmpdir(), 'taller-troncos-'));
+  try {
+    const rutas = await Promise.all(
+      celdas.map(async (c, i) => {
+        const ruta = join(dir, `celda-${i}.png`);
+        await sharp(Buffer.from(c.data), { raw: { width: c.lado, height: c.lado, channels: 4 } })
+          .png()
+          .toFile(ruta);
+        return ruta;
+      }),
+    );
+    const trabajo = join(dir, 'trabajo.json');
+    const salida = join(dir, 'troncos.json');
+    await writeFile(trabajo, JSON.stringify({ celdas: rutas }));
+    execFileSync(PYTHON, ['-I', VISION, 'troncos', trabajo, salida], {
+      cwd: RAIZ,
+      stdio: 'ignore',
+    });
+    return JSON.parse(await readFile(salida, 'utf8')) as (readonly [number, number] | null)[];
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 }

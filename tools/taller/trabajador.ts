@@ -14,6 +14,7 @@
  *   pnpm taller devolver <id>            de en-curso/ o fallido/ a pendiente/
  *   pnpm taller retirar <id>…            borra pendientes que ya no valen
  *   pnpm taller reprocesar <id>          rehace el post-proceso sobre el crudo ya generado
+ *   pnpm taller reprocesar <unidad> --adoptadas  reempaqueta desde su crudo las hojas adoptadas de versiones y las vuelve a adoptar
  *   pnpm taller derivar <hoja.webp>…     reescribe el JSON de una hoja
  *   pnpm taller derivar-poses            reescribe `_poses/atlas-8d.json`, las anclas del Y Bot
  *   pnpm taller maniqui <unidad>…        el maniquí propio de una unidad, con su profundidad, en `_poses/unidades/<id>-8d/`
@@ -29,7 +30,9 @@
  *   pnpm taller visor-maniqui <unidad>   su maniquí animado de tres cuartos, de lado y de espaldas, con sus avisos
  *   pnpm taller versiones <unidad> <dN> <h>  encola otra tirada, «esqueleto» y «todo» de una hoja
  *   pnpm taller elegir <unidad> <dN> <h>     las compara a ciegas con la de ahora, en los dos órdenes
- *   pnpm taller adoptar <unidad> <dN> <h>    la ganadora, si la persona la prefirió, a `assets/`
+ *   pnpm taller adoptar <unidad> <dN> <h>    la ganadora, si la persona la prefirió (o ganó claro su torneo), a `assets/`
+ *   pnpm taller adoptar <unidad> --todas     todas las que se pueden; dice cuáles quedan para el visor
+ *   pnpm taller versiones <unidad> --rechazadas  otra vez las hojas rechazadas en el vistazo final
  *   pnpm taller encolar --hitos          los hitos de los nodos sin pieza de paso (#176, `mapa.ts`)
  *   pnpm taller encolar --cofre          el cofre del mapa, pieza suelta (#147, `mapa.ts`)
  *   pnpm taller encolar --tablillas | --muralla-ns [--solo=…]
@@ -92,12 +95,7 @@ import type { Escena } from '../../src/client/render/escenario/colocar.js';
 import { HOJA_DEL_RECINTO } from '../../src/client/render/escenario/recinto.js';
 import { figuraDelBanco } from '../../src/core/npcs.js';
 import { FACTION_IDS, type FactionId } from '../../src/core/types.js';
-import {
-  type ClipDeFigura,
-  FIGURA,
-  HOJAS_DE_FIGURA,
-  NOMBRES_DE_DIRECCION,
-} from '../../src/shared/arte.js';
+import { FIGURA, NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
 import { disposicionDe } from '../../src/shared/base.js';
 import { bandera } from '../argumentos.js';
 import {
@@ -122,9 +120,8 @@ import {
 import { ARTE_DE_LA_BASE, encargosDeLaBase, escribirFuentesDeLaBase } from './base.js';
 import { escribirCasas, vistaDeLasCasas } from './casas.js';
 import { CODEX, FalloDeCodex, type Generacion, generar } from './codex.js';
-import { colaDelTaller } from './cola.js';
+import { colaDelTaller, YaEnLaCola } from './cola.js';
 import {
-  ELEVACION_DEL_CADAVER,
   escribirDerivado,
   escribirEfectoDerivado,
   escribirPiezaDerivada,
@@ -146,13 +143,7 @@ import {
   partirIconos,
   recorteSuave,
 } from './efectos-proceso.js';
-import {
-  apoyoEn,
-  baseEnCelda,
-  type EscalaDePose,
-  empaquetar,
-  recortarAlContenido,
-} from './empaquetar.js';
+import { baseEnCelda, empaquetar, recortarAlContenido } from './empaquetar.js';
 import {
   alturaDelReposo,
   type Encargo,
@@ -191,7 +182,8 @@ import {
   escribirPuenteDerivado,
   MATERIALES,
 } from './paredes-puentes.js';
-import { escribirAtlasDePoses, hojaDelReposo, RUTA_DEL_ATLAS_8D } from './poses-8d.js';
+import { escalaDePose } from './pose-del-encargo.js';
+import { escribirAtlasDePoses, RUTA_DEL_ATLAS_8D } from './poses-8d.js';
 import { encargosDeRampas, escribirGuiasDeRampas, escribirRampasDerivadas } from './rampas.js';
 import { encargoDelRecinto, escribirGuiaDelRecinto, escribirRecintoDerivado } from './recinto.js';
 import { aRaster, dePng, recortar, UMBRALES } from './recorte.js';
@@ -199,23 +191,25 @@ import { medirLaBase, recortarLaBase } from './recorte-base.js';
 import { arbitrar, cruzar, unir } from './revision/jurado.js';
 import {
   casosDelManiqui,
-  hojaDePose,
   hojasSobreOtroManiqui,
-  huesosVigentes,
-  poseDelEncargo,
+  leerHuesos,
   rechazarSiElManiquiFalla,
   revisarElManiqui,
-  troncoDe,
 } from './revision/maniqui.js';
 import { comprobarClips, direccionesDe, figura, revisar } from './revision/revisar.js';
+import { mayorSalto, saltosDeLaHoja } from './revision/salto.js';
 import {
   adoptar,
+  adoptarTodas,
   casosDelVisor,
   elegir,
   escribirClave,
   prepararVersiones,
+  readoptar,
+  rechazadas,
+  versionesAdoptadas,
 } from './revision/versiones.js';
-import { instalar, visor } from './revision/vision.js';
+import { estimarTroncos, hayVision, instalar, visor } from './revision/vision.js';
 import { costura, hacerTeselable, LADO_DE_TEXTURA, UMBRAL_DE_COSTURA } from './textura.js';
 import {
   encargoDeGiro,
@@ -406,7 +400,16 @@ async function postprocesar(
         const celda = encargo.celda ?? FIGURA.celda;
         const pose = await escalaDePose(encargo);
         const filas = filasDeAtlas(encargo);
-        const p = await empaquetar(r, filas, altura, celda, pose);
+        // C1 con el estimador de pose si el entorno de visión está (la señal absoluta
+        // que el usuario prefirió); sin él, con la correlación entre vecinos.
+        const p = await empaquetar(
+          r,
+          filas,
+          altura,
+          celda,
+          pose,
+          hayVision() ? estimarTroncos : undefined,
+        );
         final = p.png;
         pasos.push(
           `figuras localizadas y empaquetadas en ${FIGURA.columnas}×${filas} celdas de ${celda}, ` +
@@ -574,93 +577,6 @@ async function postprocesar(
     }
     return { hilo: gen.hilo, salida: relative(RAIZ, rutaSalida) };
   }
-}
-
-/**
- * Las siluetas del maniquí en cada celda de la hoja de pose de un encargo de 8
- * direcciones, y la de su reposo (la primera celda de la hoja A de su
- * dirección): con ellas se escalan igual todas las hojas de una figura.
- */
-async function escalaDePose(e: Encargo): Promise<EscalaDePose> {
-  const celda: number = e.celda ?? FIGURA.celda;
-  const medir = async (ruta: string) => {
-    const { data, info } = await sharp(join(RAIZ, ruta))
-      .ensureAlpha()
-      .raw()
-      .toBuffer({ resolveWithObject: true });
-    const filas = info.height / celda;
-    const columnas = info.width / celda;
-    const alfa = (f: number, c: number) => (x: number, y: number) =>
-      data[((f * celda + y) * info.width + c * celda + x) * 4 + 3] as number;
-    const celdas = Array.from({ length: filas }, (_, f) =>
-      Array.from({ length: columnas }, (_, c) => {
-        let x0 = celda;
-        let y0 = celda;
-        let x1 = -1;
-        let y1 = -1;
-        for (let y = 0; y < celda; y++)
-          for (let x = 0; x < celda; x++)
-            if (alfa(f, c)(x, y) >= 40) {
-              if (x < x0) x0 = x;
-              if (x > x1) x1 = x;
-              if (y < y0) y0 = y;
-              y1 = y;
-            }
-        const silueta = new Uint8Array(celda * celda);
-        for (let y = 0; y < celda; y++)
-          for (let x = 0; x < celda; x++) silueta[y * celda + x] = alfa(f, c)(x, y) >= 40 ? 1 : 0;
-        return {
-          silueta,
-          apoyo: apoyoEn(alfa(f, c), [x0, y0, x1, y1]),
-        };
-      }),
-    );
-    return celdas;
-  };
-  const clips: readonly ClipDeFigura[] | undefined =
-    e.ocho === undefined ? undefined : HOJAS_DE_FIGURA[e.ocho.hoja];
-  // La del maniquí: la que apunta `ocho.pose` (con `pose-esqueleto`), o su referencia de pose.
-  const ruta = poseDelEncargo(e);
-  if (ruta === undefined) throw new Error(`${e.id} no tiene referencia de pose`);
-  const reposo = (await medir(hojaDelReposo(ruta)))[0]?.[0];
-  if (reposo === undefined) throw new Error(`la pose ${ruta} no tiene reposo`);
-  const celdas = await medir(ruta);
-  // El tronco del maniquí en cada celda, de su esqueleto: con él C1 recoloca cada
-  // fotograma (`encuadre.ts`). Sin esqueleto vigente, no hay C1, y se dice por qué.
-  const hoja = hojaDePose(ruta);
-  const vigentes =
-    hoja === null
-      ? { motivo: `${ruta} no es una hoja del maniquí` }
-      : huesosVigentes(join(RAIZ, hoja.carpeta), hoja.d, hoja.h);
-  const sinTronco =
-    'motivo' in vigentes
-      ? vigentes.motivo
-      : vigentes.huesos.filas.map((f) => f.clip).join() !== clips?.join()
-        ? 'las filas del esqueleto no son las de la hoja'
-        : undefined;
-  const caderas =
-    sinTronco === undefined && 'huesos' in vigentes
-      ? vigentes.huesos.filas.map((f) => f.celdas.map(troncoDe))
-      : undefined;
-  return {
-    lado: celda,
-    siluetas: celdas.map((f) => f.map((c) => c.silueta)),
-    reposo: OCHO_DIRECCIONES.altoDelManiqui,
-    apoyos: celdas.map((f) => f.map((c) => c.apoyo)),
-    apoyoReposo: reposo.apoyo,
-    // Fuera de la locomoción (los clips en bucle) la posición la manda el
-    // maniquí: el ataque, el daño, la muerte y el disparo se pintan parados.
-    posicion: clips !== undefined && !clips.some((c) => OCHO_DIRECCIONES.enBucle.includes(c)),
-    // La muerte sube en su celda (ELEVACION_DEL_CADAVER), en la hoja que la lleve.
-    ...(clips?.includes('death')
-      ? { elevaciones: clips.map((c) => (c === 'death' ? ELEVACION_DEL_CADAVER : 0)) }
-      : {}),
-    ...(caderas === undefined ? {} : { caderas }),
-    ...(sinTronco === undefined ? {} : { sinTronco }),
-    ...(clips === undefined
-      ? {}
-      : { enBucle: clips.map((c) => OCHO_DIRECCIONES.enBucle.includes(c)) }),
-  };
 }
 
 /**
@@ -1239,7 +1155,43 @@ switch (orden) {
       console.log(`${id}: ${(await COLA.retirar(id)) ? 'retirado' : 'no estaba pendiente'}`);
     break;
   case 'reprocesar':
-    if (resto.length === 0) throw new Error('uso: pnpm taller reprocesar <encargo>…');
+    if (resto.length === 0)
+      throw new Error('uso: pnpm taller reprocesar <encargo>… | <unidad> --adoptadas');
+    // Con `--adoptadas`, las hojas de una unidad que vinieron de una versión: cada una
+    // se reempaqueta desde su crudo (sin repintar) y se vuelve a llevar a `assets/`,
+    // diciendo cuánto cambió su encuadre (repintado del 30-10-2026, el piquero).
+    if (resto.includes('--adoptadas')) {
+      const [id] = resto.filter((r) => !r.startsWith('--'));
+      if (id === undefined) throw new Error('uso: pnpm taller reprocesar <unidad> --adoptadas');
+      const f = figura(id);
+      const hojas = versionesAdoptadas(f);
+      if (hojas.length === 0) {
+        console.log(`${id}: ninguna hoja de assets/ viene de una versión`);
+        process.exitCode = 1;
+        break;
+      }
+      for (const { d, h, encargo } of hojas) {
+        const huesos = leerHuesos(join(RAIZ, f.maniqui), d, h);
+        const hoja = join(RAIZ, f.arte, `d${d}`, `hoja-${h}.webp`);
+        const medir = async () =>
+          huesos === null ? 0 : mayorSalto(await saltosDeLaHoja(hoja, huesos));
+        const antes = await medir();
+        const fallidoAntes = (await COLA.estado()).fallido.includes(encargo);
+        try {
+          await reprocesar(encargo);
+        } catch (err) {
+          console.log(
+            `  ✘ d${d}-${h} (${encargo}): ${err instanceof Error ? err.message : String(err)}`,
+          );
+          process.exitCode = 1;
+          continue;
+        }
+        if (!fallidoAntes && (await COLA.estado()).fallido.includes(encargo)) continue;
+        console.log(`  · d${d}-${h}: ${await readoptar(f, d, h)}`);
+        console.log(`    el cuerpo saltaba ${antes} px y ahora ${await medir()} px`);
+      }
+      break;
+    }
     for (const id of resto) await reprocesar(id);
     break;
   case 'vista-ejercitos':
@@ -1496,7 +1448,7 @@ switch (orden) {
     const [id] = resto;
     if (id === undefined) throw new Error('uso: pnpm taller visor <unidad>');
     const f = figura(id);
-    const { casos, clave } = casosDelVisor(f);
+    const { casos, clave } = await casosDelVisor(f);
     if (casos.length === 0) {
       console.log(
         `${id}: nada que enseñar (ni disputas sin mirar ni versiones que elegir); el maniquí, con «pnpm taller visor-maniqui ${id}»`,
@@ -1522,7 +1474,37 @@ switch (orden) {
     break;
   }
   case 'versiones': {
-    const { id, d, h } = hojaDeLosArgumentos(resto, 'pnpm taller versiones <unidad> <dN> <h>');
+    // Con `--rechazadas`, las hojas que la persona rechazó en el vistazo final,
+    // otra vez y olvidando las de antes (decisión del usuario del 30-10-2026).
+    if (resto.includes('--rechazadas')) {
+      const [id] = resto.filter((r) => !r.startsWith('--'));
+      if (id === undefined) throw new Error('uso: pnpm taller versiones <unidad> --rechazadas');
+      const f = figura(id);
+      const hojas = await rechazadas(f);
+      if (hojas.length === 0) {
+        console.log(
+          `${id}: ninguna hoja rechazada en el vistazo final (o aún no se ha mirado: «pnpm taller visor ${id}»)`,
+        );
+        process.exitCode = 1;
+        break;
+      }
+      for (const { d, h } of hojas)
+        for (const e of await prepararVersiones(f, d, h)) {
+          await COLA.olvidar(e.id);
+          try {
+            console.log(`encolado ${(await COLA.encolar(e)).id}`);
+          } catch (err) {
+            // Ya pedida (a mano, o por otra pasada) y aún sin pintar: no se pide dos veces.
+            if (!(err instanceof YaEnLaCola)) throw err;
+            console.log(`  · ${e.id} ya estaba en la cola (${err.message})`);
+          }
+        }
+      break;
+    }
+    const { id, d, h } = hojaDeLosArgumentos(
+      resto,
+      'pnpm taller versiones <unidad> <dN> <h> | <unidad> --rechazadas',
+    );
     for (const e of await prepararVersiones(figura(id), d, h)) {
       if (resto.includes('--rehacer')) await COLA.olvidar(e.id);
       console.log(`encolado ${(await COLA.encolar(e)).id}`);
@@ -1536,7 +1518,26 @@ switch (orden) {
     break;
   }
   case 'adoptar': {
-    const { id, d, h } = hojaDeLosArgumentos(resto, 'pnpm taller adoptar <unidad> <dN> <h>');
+    // Con `--todas`, lo que se puede de la unidad: las ganadoras claras de un torneo
+    // solas, y lo que eligió la persona (decisión del usuario del 30-10-2026).
+    if (resto.includes('--todas')) {
+      const [id] = resto.filter((r) => !r.startsWith('--'));
+      if (id === undefined) throw new Error('uso: pnpm taller adoptar <unidad> --todas');
+      const { adoptadas, quedan } = await adoptarTodas(figura(id));
+      console.log(
+        `${id}: ${adoptadas.length} adoptadas${adoptadas.length > 0 ? ` (${adoptadas.join(', ')})` : ''}`,
+      );
+      for (const q of quedan) console.log(`  · queda ${q.hoja}: ${q.motivo}`);
+      if (adoptadas.length === 0 && quedan.length === 0) {
+        console.log('  nada que adoptar: ninguna elección pendiente («pnpm taller elegir»)');
+        process.exitCode = 1;
+      }
+      break;
+    }
+    const { id, d, h } = hojaDeLosArgumentos(
+      resto,
+      'pnpm taller adoptar <unidad> <dN> <h> | <unidad> --todas',
+    );
     console.log(`d${d}-${h}: ${await adoptar(figura(id), d, h)}`);
     break;
   }

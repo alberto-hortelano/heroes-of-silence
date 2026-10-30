@@ -74,10 +74,12 @@ textarea {{ width: 100%; box-sizing: border-box; margin-top: 8px; min-height: 34
 <script>
 const total = {len(casos)};
 const resp = {{}};
+// solo los casos de esta página: respuestas.json guarda también las de rondas anteriores
+const cuenta = () => `${{[...document.querySelectorAll('.hecho')].length}} de ${{total}} respondidos (se guardan solos)`;
 async function guardar(caso) {{
   await fetch('respuesta', {{method: 'POST', headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify({{caso, ...resp[caso]}})}});
   document.getElementById(caso).classList.toggle('hecho', !!resp[caso].valor);
-  document.getElementById('cuenta').textContent = `${{Object.values(resp).filter(r => r.valor).length}} de ${{total}} respondidos (se guardan solos)`;
+  document.getElementById('cuenta').textContent = cuenta();
 }}
 fetch('respuestas.json').then(r => r.ok ? r.json() : {{}}).then(previas => {{
   for (const [caso, r] of Object.entries(previas)) {{
@@ -86,7 +88,7 @@ fetch('respuestas.json').then(r => r.ok ? r.json() : {{}}).then(previas => {{
     const t = document.querySelector(`textarea[data-caso="${{caso}}"]`); if (t && r.nota) t.value = r.nota;
     document.getElementById(caso)?.classList.toggle('hecho', !!r.valor);
   }}
-  document.getElementById('cuenta').textContent = `${{Object.values(resp).filter(r => r.valor).length}} de ${{total}} respondidos (se guardan solos)`;
+  document.getElementById('cuenta').textContent = cuenta();
 }}).catch(() => {{}});
 document.querySelectorAll('button[data-caso]').forEach(b => b.addEventListener('click', () => {{
   const c = b.dataset.caso; resp[c] = {{...(resp[c] || {{}}), valor: b.dataset.valor}};

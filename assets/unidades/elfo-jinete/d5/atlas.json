@@ -5,10 +5,10 @@
   "columns": 7,
   "altura": 273,
   "cajaDeClic": [
-    -81,
-    -273,
-    99,
-    0
+    -85,
+    -240,
+    95,
+    33
   ],
   "clips": {
     "idle": {
@@ -17,8 +17,8 @@
       "fps": 8,
       "loop": true,
       "anchor": [
-        193,
-        342
+        197,
+        309
       ]
     },
     "walk": {
@@ -27,8 +27,8 @@
       "fps": 8,
       "loop": true,
       "anchor": [
-        193,
-        342
+        197,
+        309
       ]
     },
     "charge": {
@@ -37,8 +37,8 @@
       "fps": 8,
       "loop": true,
       "anchor": [
-        193,
-        342
+        197,
+        309
       ]
     },
     "attack": {
@@ -47,8 +47,8 @@
       "fps": 10,
       "loop": false,
       "anchor": [
-        193,
-        342
+        197,
+        309
       ]
     },
     "hurt": {
@@ -57,8 +57,8 @@
       "fps": 10,
       "loop": false,
       "anchor": [
-        193,
-        342
+        197,
+        309
       ]
     },
     "death": {
@@ -67,8 +67,8 @@
       "fps": 8,
       "loop": false,
       "anchor": [
-        193,
-        278
+        197,
+        245
       ]
     },
     "shoot": {
@@ -77,8 +77,8 @@
       "fps": 10,
       "loop": false,
       "anchor": [
-        193,
-        342
+        197,
+        309
       ],
       "suelta": 4
     }

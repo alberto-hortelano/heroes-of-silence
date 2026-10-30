@@ -5,6 +5,7 @@ lo que decide, rechaza o escribe en `assets/` es del taller, en TypeScript.
 vision.py paneles <trabajo.json>      los paneles de cada clip y lo que es (cifras.json)
 vision.py comparacion <trabajo.json>  el panel a ciegas de dos versiones, por clip
 vision.py visor <carpeta>             anima los casos de <carpeta>/casos.json y los sirve
+vision.py troncos <trabajo.json> <salida.json>  el tronco que ve el estimador en cada celda
 
 Cada trabajo es un JSON que escribe el taller (ver `vision.ts`). Todo lo que se
 escribe va en la carpeta `salida` del trabajo, en `.cache/taller/revision/`.
@@ -179,12 +180,32 @@ def orden_visor(carpeta, puerto=0):
     servidor.serve_forever()
 
 
+TRONCO = ("LeftUpLeg", "RightUpLeg", "LeftArm", "RightArm")
+CONFIANZA_DEL_TRONCO = 0.45
+
+
+def orden_troncos(trabajo, salida):
+    """El tronco que ve el estimador en cada celda (`trabajo["celdas"]`, PNG): la media
+    de caderas y hombros si los cuatro tienen confianza, o null. Lo pide C1 al
+    empaquetar (`encuadre.ts`, `absolutosDe`): la medida absoluta del tronco."""
+    fuera = []
+    for ruta in trabajo["celdas"]:
+        e = pose.estimar(Image.open(ruta).convert("RGBA"))
+        if e and all(e[n][2] >= CONFIANZA_DEL_TRONCO for n in TRONCO):
+            fuera.append([sum(e[n][0] for n in TRONCO) / 4, sum(e[n][1] for n in TRONCO) / 4])
+        else:
+            fuera.append(None)
+    json.dump(fuera, open(salida, "w"))
+
+
 if __name__ == "__main__":
     orden = sys.argv[1] if len(sys.argv) > 1 else ""
     if orden == "paneles":
         orden_paneles(json.load(open(sys.argv[2])))
     elif orden == "comparacion":
         orden_comparacion(json.load(open(sys.argv[2])))
+    elif orden == "troncos":
+        orden_troncos(json.load(open(sys.argv[2])), sys.argv[3])
     elif orden == "visor":
         orden_visor(sys.argv[2], int(sys.argv[3]) if len(sys.argv) > 3 else 0)
     else:

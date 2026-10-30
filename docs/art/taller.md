@@ -330,18 +330,54 @@ medido que la justifica, en `docs/agents/2026-10-30-evaluar-animaciones/experime
   la hoja cambió, se rehace. Una hoja pintada sobre otro render del maniquí se avisa y va
   directa a `versiones`.
 - **El encuadre se corrige sin modelo (C1, `encuadre.ts`)**: al empaquetar, cada fotograma
-  se mueve para que el tronco pintado siga al tronco del maniquí (la media de sus caderas y
-  sus hombros: correlación del tronco entre fotogramas seguidos menos lo que se mueve el del
-  maniquí, por mínimos cuadrados, media 0, tope 24 px), con los pies en su sitio: el píxel
-  más bajo no baja del suelo de su celda ni sube más de lo que el pie del maniquí se separa
-  de él (`recolocarConLosPies`). La procedencia apunta cuánto (`encuadre`) o por qué no
-  (`sin recolocar…`). `pnpm taller reprocesar` solo rehace lo que se pintó con esta cola y
-  cuyo crudo sigue en `~/.codex`; lo pintado antes se arregla repintándolo.
+  se mueve para que el tronco pintado siga al del maniquí (caderas y hombros), en x y en y:
+  mínimos cuadrados con la correlación del tronco entre vecinos y, si está el entorno de
+  visión, la medida absoluta del estimador de pose (`estimarTroncos`), en hasta tres
+  vueltas. Los pies, contra el maniquí fotograma a fotograma (con la cámara a 25° el pie
+  que avanza baja en la pantalla): el cuerpo no baja más de `HUNDIMIENTO_TOLERADO` (6 px)
+  de su punto más bajo, y lo que pasaría se fija ahí y el resto se reparte otra vez; subir
+  no se limita más que el margen de la celda. De la recolocación nueva, la de antes (la
+  línea fija del suelo) y ninguna, se queda la que menos salta (`mejorRecolocacion`,
+  medido sobre las celdas como quedan en la hoja). La procedencia apunta cuánto
+  (`encuadre`) o por qué no. `pnpm taller reprocesar` solo rehace lo que se pintó con esta
+  cola y cuyo crudo sigue en `~/.codex`; lo adoptado de versiones, con `--adoptadas`.
+- **Lo que C1 no deja bien, a mano** (`ajustes.ts`, 30-10-2026, el piquero: «siguen
+  fallando, ajústalos a mano»). Junto a la hoja va `hoja-b.ajustes.json`, con un `[dx, dy]`
+  por fotograma de cada clip, encima de lo que dejó el empaquetado.
+  - **Dónde se aplica:** al juntar la dirección (`apilarHojas`, `juntarDireccion`). La hoja
+    no se toca y reprocesar no pierde el ajuste.
+  - **Atado al sha256 de su hoja:** si la hoja cambia, juntar lanza y pide mirarla otra vez.
+  - **Cómo se ajusta:** se mira cada par de fotogramas seguidos superpuestos, uno en rojo y
+    el siguiente en cian (lo que coincide sale blanco), con la línea del suelo. El pie
+    apoyado no se mueve.
+  - **Medido en el piquero:** en el ataque y el daño el maniquí no mueve los pies, y lo
+    pintado subía, bajaba o se corría 20-45 px. La hoja B de seis direcciones la ajustaron
+    seis agentes, uno por dirección, y la persona la dio por buena en el visor (antes y
+    ahora).
+  - **Lo que no se arregla moviendo:** los fotogramas pintados con los pies juntos donde el
+    maniquí los tiene abiertos. Eso se repinta.
+  - **El vistazo final no lo ve:** enseña la hoja, no el atlas.
 - **La pose y la coherencia, por selección**: `pnpm taller versiones <id> <dN> <h>` pide la
   otra tirada, `esqueleto` (la pose con el muñeco encima, `pose-esqueleto`) y `todo`;
   `pnpm taller elegir` las compara a ciegas con la de ahora en los dos órdenes (o, si la de
   ahora es de otro maniquí, entre sí: un torneo), y
   `pnpm taller adoptar` lleva a `assets/` la ganadora si la persona la prefirió en el visor.
+  En un torneo, «solo las dudosas» (decisión del usuario del 30-10-2026): la ganadora clara
+  se adopta sola (`adoptar <id> --todas`, procedencia con `auto: true`), la persona elige
+  las dudosas y da un vistazo final por dirección en el visor, donde puede rechazar una
+  hoja (`pnpm taller versiones <id> --rechazadas` la vuelve a pedir).
+- **El apoyo es del cuerpo** (repintado del 30-10-2026, el piquero imperial): el apoyo,
+  la ventana del tronco y el pie de C1 se miden sobre la silueta sin lo fino
+  (`cuerpoDe`: una apertura de radio `GROSOR_DE_LO_FINO` del lado mayor de la caja, con
+  las puntas que quedan a menos de ese radio devueltas): la punta de una pica, un asta o
+  una espada por debajo del pie no es el suelo. Igual en lo pintado y en el maniquí, y en
+  `derivar`. Lo que cuelga por debajo del pie no se sale de la celda (la figura sube lo
+  justo).
+- **El encuadre, medido** (`revision/salto.ts`): por clip, el mayor salto del tronco
+  pintado de un fotograma a otro más de lo que se mueve el del maniquí. `revisar` avisa de
+  lo que pasa de `UMBRAL_DEL_SALTO` (6 px) y lo deja en `salto.json`; el vistazo final lo
+  dice; `elegir` desempata con él y avisa si la ganadora salta. Lo adoptado se puede
+  reempaquetar desde su crudo, sin repintar: `pnpm taller reprocesar <id> --adoptadas`.
 - **El empaquetado no tira una hoja buena**: si cuenta mal las figuras (un arma alta que
   junta dos filas), corta el crudo por su rejilla antes de fallar (`porRejilla`), y la
   procedencia lo dice.

@@ -13,7 +13,7 @@
  *   pnpm taller adoptar <id> <dN> <h>     la ganadora, si la persona la prefirió en el visor, a `assets/`
  */
 import { existsSync, readFileSync, statSync } from 'node:fs';
-import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import sharp from 'sharp';
 import { z } from 'zod';
@@ -39,6 +39,7 @@ import {
   seMiraElArma,
 } from './maniqui.js';
 import { apuntarHuella, type Figura, juicioVigente, RAIZ } from './revisar.js';
+import { avisosDelSalto, mayorSalto, saltosDeLaHoja, UMBRAL_DEL_SALTO } from './salto.js';
 import { type CasoDelVisor, comparacion } from './vision.js';
 
 /** Las versiones que se piden de cada hoja, en el orden en que desempatan. */
@@ -282,6 +283,8 @@ export interface Eleccion {
 export function elegirVersion(
   porVersion: Readonly<Record<string, readonly ResultadoDeClip[]>>,
   orden: readonly string[] = Object.keys(porVersion),
+  /** El mayor salto del cuerpo de cada versión (`salto.ts`): desempata, menos es mejor. */
+  saltos: Readonly<Record<string, number>> = {},
 ): Eleccion {
   const cuentas: Record<
     string,
@@ -312,7 +315,12 @@ export function elegirVersion(
   const ganadora = [...validas].sort((a, b) => {
     const ca = cuentas[a] as { gana: number; confianza: number };
     const cb = cuentas[b] as { gana: number; confianza: number };
-    return cb.gana - ca.gana || cb.confianza - ca.confianza || orden.indexOf(a) - orden.indexOf(b);
+    return (
+      cb.gana - ca.gana ||
+      cb.confianza - ca.confianza ||
+      (saltos[a] ?? 0) - (saltos[b] ?? 0) ||
+      orden.indexOf(a) - orden.indexOf(b)
+    );
   })[0] as string;
   return { ganadora, motivo: `gana ${ganadora} (gana/pierde/no coincide: ${todas})`, cuentas };
 }
@@ -332,6 +340,8 @@ export const duelo = (x: string, y: string): string => `${x}|${y}`;
 export function elegirEnTorneo(
   duelos: Readonly<Record<string, readonly ResultadoDeClip[]>>,
   orden: readonly string[],
+  /** El mayor salto del cuerpo de cada versión (`salto.ts`): desempata, menos es mejor. */
+  saltos: Readonly<Record<string, number>> = {},
 ): Eleccion {
   const resultados = (x: string, y: string): readonly ResultadoDeClip[] => {
     const directo = duelos[duelo(x, y)];
@@ -371,6 +381,7 @@ export function elegirEnTorneo(
       (duelosGanados[b] ?? 0) - (duelosGanados[a] ?? 0) ||
       cb.gana - cb.pierde - (ca.gana - ca.pierde) ||
       cb.confianza - ca.confianza ||
+      (saltos[a] ?? 0) - (saltos[b] ?? 0) ||
       orden.indexOf(a) - orden.indexOf(b)
     );
   });
@@ -491,7 +502,8 @@ export async function elegir(f: Figura, d: number, h: string): Promise<Eleccion>
             const prompt = promptDeComparacion(
               clip,
               bucle,
-              `${f.id}-d${d}-${clip}-${x}-${y}-${n + 1}`,
+              // Sin el id de la unidad, que el juez leería (`idDelClip`).
+              `d${d}-${clip}-${x}-${y}-${n + 1}`,
             );
             const imagenes = [join(RAIZ, dir, `${clip}.png`), join(RAIZ, dir, 'giro.png')];
             const huella = sha256(
@@ -517,6 +529,12 @@ export async function elegir(f: Figura, d: number, h: string): Promise<Eleccion>
   };
   // La de ahora pintada sobre otro maniquí no es una referencia: torneo.
   const torneo = hojasSobreOtroManiqui(RAIZ, f.arte).some((r) => r.hoja === `d${d}-${h}`);
+  // El encuadre de cada versión, medido (`salto.ts`): desempata y, si la ganadora salta, avisa.
+  const huesos = leerHuesos(join(RAIZ, f.maniqui), d, h);
+  const saltos: Record<string, number> = {};
+  if (huesos !== null)
+    for (const v of hechas)
+      saltos[v] = mayorSalto(await saltosDeLaHoja(join(RAIZ, rutaDe(v)), huesos));
   let eleccion: Eleccion;
   let detalle: Record<string, ResultadoDeClip[]>;
   if (torneo) {
@@ -531,7 +549,7 @@ export async function elegir(f: Figura, d: number, h: string): Promise<Eleccion>
         detalle[duelo(x, y)] = await enfrentar(x, y);
       }),
     );
-    eleccion = elegirEnTorneo(detalle, hechas);
+    eleccion = elegirEnTorneo(detalle, hechas, saltos);
   } else {
     detalle = {};
     await Promise.all(
@@ -539,11 +557,17 @@ export async function elegir(f: Figura, d: number, h: string): Promise<Eleccion>
         detalle[v] = await enfrentar(v, 'ahora');
       }),
     );
-    eleccion = { ...elegirVersion(detalle, hechas), modo: 'contra-la-de-ahora' };
+    eleccion = { ...elegirVersion(detalle, hechas, saltos), modo: 'contra-la-de-ahora' };
   }
+  const ganadora = eleccion.ganadora;
+  if (ganadora !== null && (saltos[ganadora] ?? 0) > UMBRAL_DEL_SALTO)
+    eleccion = {
+      ...eleccion,
+      motivo: `${eleccion.motivo}; ojo: ${ganadora} salta ${saltos[ganadora]} px de un fotograma a otro (más de ${UMBRAL_DEL_SALTO}): ¿reprocesarla?`,
+    };
   await writeFile(
     rutaDeLaEleccion(f, d, h),
-    `${JSON.stringify({ ...eleccion, detalle }, null, 1)}\n`,
+    `${JSON.stringify({ ...eleccion, saltos, detalle }, null, 1)}\n`,
   );
   return eleccion;
 }
@@ -585,6 +609,15 @@ export function adoptarBlocker(
       ? null
       : `la persona no eligió ninguna de las finalistas de d${d}-${h} (${(eleccion.finalistas ?? []).join(', ')}): eligió «${elegida}»`;
   }
+  // En un torneo con ganadora clara se adopta sola (decisión del usuario del
+  // 30-10-2026, «solo las dudosas»); si la persona respondió, manda ella: otra
+  // finalista o «iguales» valen, lo demás no.
+  if (eleccion.modo === 'torneo' && eleccion.ganadora !== null) {
+    if (elegida === undefined || elegida === eleccion.ganadora || elegida === IGUALES) return null;
+    return (eleccion.finalistas ?? []).includes(elegida)
+      ? null
+      : `la persona no eligió ninguna de las finalistas de d${d}-${h} (${(eleccion.finalistas ?? []).join(', ')}): eligió «${elegida}»`;
+  }
   if (eleccion.ganadora === null)
     return `ninguna versión gana a la de ahora en d${d}-${h}: se queda la de ahora (${eleccion.motivo})`;
   if (elegida === undefined)
@@ -602,25 +635,47 @@ export const IGUALES = 'iguales';
  * persona, y si dijo «iguales», la primera finalista (la que más duelos ganó).
  */
 export function versionAdoptada(
-  eleccion: { readonly ganadora: string | null; readonly finalistas?: readonly string[] | undefined },
+  eleccion: {
+    readonly ganadora: string | null;
+    readonly finalistas?: readonly string[] | undefined;
+  },
   elegida: string | undefined,
 ): string | undefined {
+  // Si la persona eligió otra finalista, manda ella (en un torneo con ganadora clara).
+  if (elegida !== undefined && elegida !== IGUALES && (eleccion.finalistas ?? []).includes(elegida))
+    return elegida;
   if (eleccion.ganadora !== null) return eleccion.ganadora;
   return elegida === IGUALES ? eleccion.finalistas?.[0] : elegida;
 }
 
-/** `adoptar`: copia la ganadora y su procedencia (con la elección) a `assets/` y junta la dirección. */
-export async function adoptar(f: Figura, d: number, h: string): Promise<string> {
-  const ruta = rutaDeLaEleccion(f, d, h);
-  if (!existsSync(ruta))
-    throw new Error(`d${d}-${h} no se ha elegido aún: «pnpm taller elegir ${f.id} d${d} ${h}»`);
-  const eleccion = validarCon(eleccionSchema, readFileSync(ruta, 'utf8'), ruta);
+/** Lo que eligió la persona en el visor para una hoja (la versión, por la clave), y lo que pulsó. */
+function loElegido(f: Figura, d: number, h: string): { valor?: string; elegida?: string } {
   const caso = casoDeEleccion(d, h);
   const valor = respuestasDe(f)[caso]?.valor;
+  if (valor === undefined) return {};
   const clave = existsSync(rutaDeLaClave(f))
     ? validarCon(claveSchema, readFileSync(rutaDeLaClave(f), 'utf8'), rutaDeLaClave(f))
     : {};
-  const elegida = valor === undefined ? undefined : (clave[caso]?.[valor] ?? valor);
+  return { valor, elegida: clave[caso]?.[valor] ?? valor };
+}
+
+/** La elección de una hoja, o `null` si no se ha elegido. */
+function eleccionDe(f: Figura, d: number, h: string) {
+  const ruta = rutaDeLaEleccion(f, d, h);
+  return existsSync(ruta) ? validarCon(eleccionSchema, readFileSync(ruta, 'utf8'), ruta) : null;
+}
+
+/**
+ * `adoptar`: copia la versión que toca (`versionAdoptada`) y su procedencia, con la
+ * elección, a `assets/`, y junta la dirección. La procedencia dice si la eligió la
+ * persona (`persona`, lo que pulsó) o se adoptó sola (`persona: null`, `auto: true`:
+ * un torneo con ganadora clara que nadie miró).
+ */
+export async function adoptar(f: Figura, d: number, h: string): Promise<string> {
+  const eleccion = eleccionDe(f, d, h);
+  if (eleccion === null)
+    throw new Error(`d${d}-${h} no se ha elegido aún: «pnpm taller elegir ${f.id} d${d} ${h}»`);
+  const { valor, elegida } = loElegido(f, d, h);
   const motivo = adoptarBlocker(eleccion, elegida, d, h);
   if (motivo !== null) throw new Error(motivo);
   const v = versionAdoptada(eleccion, elegida) as Variante;
@@ -642,13 +697,159 @@ export async function adoptar(f: Figura, d: number, h: string): Promise<string> 
           ruta: `${f.arte}/d${d}/hoja-${h}.webp`,
           sha256: sha256(webp),
         },
-        eleccion: { version: v, modo: eleccion.modo, motivo: eleccion.motivo, persona: valor },
+        eleccion: {
+          version: v,
+          modo: eleccion.modo,
+          motivo: eleccion.motivo,
+          persona: valor ?? null,
+          ...(valor === undefined ? { auto: true } : {}),
+        },
       },
       null,
       2,
     )}\n`,
   );
   return alAcabarUnaHoja(dir);
+}
+
+/** Si la hoja de `assets/` ya es la versión que se adoptaría (mismos bytes). */
+function yaAdoptada(f: Figura, d: number, h: string, v: string): boolean {
+  const hoja = join(RAIZ, f.arte, `d${d}`, `hoja-${h}.webp`);
+  const version = join(RAIZ, `${rutaDeVersion(f, d, h, v as Variante)}.webp`);
+  return (
+    existsSync(hoja) &&
+    existsSync(version) &&
+    sha256(readFileSync(hoja)) === sha256(readFileSync(version))
+  );
+}
+
+/**
+ * `adoptar <id> --todas`: recorre las elecciones de la unidad y adopta las que se
+ * pueden (un torneo con ganadora clara, o lo que eligió la persona); de las demás
+ * dice por qué quedan (casi siempre, para el visor). Junta cada dirección al adoptar.
+ */
+export async function adoptarTodas(
+  f: Figura,
+): Promise<{ adoptadas: string[]; quedan: { hoja: string; motivo: string }[] }> {
+  const adoptadas: string[] = [];
+  const quedan: { hoja: string; motivo: string }[] = [];
+  for (let d = 0; d < NOMBRES_DE_DIRECCION.length; d++)
+    for (const h of Object.keys(HOJAS_DE_FIGURA)) {
+      const eleccion = eleccionDe(f, d, h);
+      if (eleccion === null) continue;
+      const { elegida } = loElegido(f, d, h);
+      const motivo = adoptarBlocker(eleccion, elegida, d, h);
+      if (motivo !== null) {
+        quedan.push({ hoja: `d${d}-${h}`, motivo });
+        continue;
+      }
+      if (yaAdoptada(f, d, h, versionAdoptada(eleccion, elegida) as string)) continue;
+      await adoptar(f, d, h);
+      adoptadas.push(`d${d}-${h}`);
+    }
+  return { adoptadas, quedan };
+}
+
+/** Lo que se puede contestar en el vistazo final de una dirección, y qué hojas rechaza cada respuesta. */
+export const OPCIONES_DEL_VISTAZO = {
+  bien: [],
+  'rehacer la hoja A': ['a'],
+  'rehacer la hoja B': ['b'],
+  'rehacer las dos': ['a', 'b'],
+} as const satisfies Record<string, readonly string[]>;
+
+/** El sha256 de la hoja de `assets/` de una dirección, o `-` si no está. */
+function shaDeLaHoja(f: Figura, d: number, h: string): string {
+  const r = join(RAIZ, f.arte, `d${d}`, `hoja-${h}.webp`);
+  return existsSync(r) ? sha256(readFileSync(r)) : '-';
+}
+
+/** Las hojas A y B de una dirección que se adoptaron solas (sin que la persona eligiera). */
+function hojasAutomaticas(f: Figura, d: number): string[] {
+  return ['a', 'b'].filter((h) => {
+    const r = join(RAIZ, f.arte, `d${d}`, `hoja-${h}.procedencia.json`);
+    if (!existsSync(r)) return false;
+    const proc = JSON.parse(readFileSync(r, 'utf8')) as { eleccion?: { auto?: boolean } };
+    return proc.eleccion?.auto === true;
+  });
+}
+
+/**
+ * El id del vistazo final de una dirección: lleva la huella de las hojas que se
+ * adoptaron solas (las que el vistazo viene a confirmar). Así una hoja repintada y
+ * adoptada sola otra vez pide otro vistazo, y adoptar la otra hoja por elección de la
+ * persona no lo cambia (el fallo del repintado del elfo arquero, 30-10-2026: con la
+ * huella de las dos, adoptar d1-b dejó «vieja» la respuesta que rechazaba d1-a). Qué
+ * hojas enseñaba y con qué sha lo apunta la clave (`casosDelVisor`), y lo lee
+ * `rechazadas`.
+ */
+export function casoDelVistazo(f: Figura, d: number): string {
+  const huella = sha256(
+    Buffer.from(
+      hojasAutomaticas(f, d)
+        .map((h) => `${h}:${shaDeLaHoja(f, d, h)}`)
+        .join('|'),
+    ),
+  );
+  return `vistazo-d${d}-${huella.slice(0, 12)}`;
+}
+
+/** Las hojas que rechaza una respuesta del vistazo final (ninguna si es «bien» o no se entiende). */
+export const hojasRechazadas = (valor: string | undefined): readonly string[] =>
+  valor !== undefined && valor in OPCIONES_DEL_VISTAZO
+    ? OPCIONES_DEL_VISTAZO[valor as keyof typeof OPCIONES_DEL_VISTAZO]
+    : [];
+
+/** La respuesta de una elección dudosa con que la persona dice que no vale ninguna. */
+export const NINGUNA_VALE = 'ninguna vale';
+
+const rutaDeLasRechazadas = (f: Figura) => join(RAIZ, f.revision, 'visor', 'rechazadas.json');
+
+/**
+ * `versiones <id> --rechazadas`: las hojas que hay que volver a pedir, sea cual sea el
+ * orden en que se adoptó y se respondió:
+ * - las que la persona rechazó en un vistazo final, si la hoja de `assets/` sigue
+ *   siendo la que el vistazo enseñaba (su sha en la clave; sin él, se da por la misma);
+ * - las elecciones dudosas a las que respondió «ninguna vale».
+ * Su elección vieja se borra (se elige otra vez sobre lo que se pinte). Lo ya devuelto
+ * se apunta en `visor/rechazadas.json`, para no pedirlo dos veces.
+ */
+export async function rechazadas(f: Figura): Promise<{ d: number; h: string }[]> {
+  const respuestas = respuestasDe(f);
+  const clave = existsSync(rutaDeLaClave(f))
+    ? validarCon(claveSchema, readFileSync(rutaDeLaClave(f), 'utf8'), rutaDeLaClave(f))
+    : {};
+  const hechas = new Set<string>(
+    existsSync(rutaDeLasRechazadas(f))
+      ? (JSON.parse(readFileSync(rutaDeLasRechazadas(f), 'utf8')) as string[])
+      : [],
+  );
+  const fuera: { d: number; h: string }[] = [];
+  const pedir = (marca: string, d: number, h: string) => {
+    hechas.add(marca);
+    if (!fuera.some((x) => x.d === d && x.h === h)) fuera.push({ d, h });
+  };
+  for (const [caso, r] of Object.entries(respuestas)) {
+    const vistazo = /^vistazo-d([0-7])-/.exec(caso);
+    if (vistazo !== null) {
+      const d = Number(vistazo[1]);
+      for (const h of hojasRechazadas(r.valor)) {
+        const marca = `${caso}:${h}`;
+        const enseñada = clave[caso]?.[h];
+        if (hechas.has(marca) || (enseñada !== undefined && enseñada !== shaDeLaHoja(f, d, h)))
+          continue;
+        pedir(marca, d, h);
+      }
+      continue;
+    }
+    const eleccion = /^eleccion-d([0-7])-([a-c])$/.exec(caso);
+    if (eleccion !== null && r.valor === NINGUNA_VALE && !hechas.has(caso))
+      pedir(caso, Number(eleccion[1]), eleccion[2] as string);
+  }
+  for (const { d, h } of fuera) await rm(rutaDeLaEleccion(f, d, h), { force: true });
+  await mkdir(dirname(rutaDeLasRechazadas(f)), { recursive: true });
+  await writeFile(rutaDeLasRechazadas(f), `${JSON.stringify([...hechas], null, 1)}\n`);
+  return fuera;
 }
 
 /** Un número entre 0 y 1 de un texto: el orden a ciegas de un caso no cambia de una vez a otra. */
@@ -661,10 +862,10 @@ function azarDe(texto: string): number {
  * la persona no ha mirado, y cada hoja con una ganadora frente a la de ahora, a
  * ciegas. La clave (qué versión es cada número) la lee `adoptar`.
  */
-export function casosDelVisor(f: Figura): {
+export async function casosDelVisor(f: Figura): Promise<{
   casos: CasoDelVisor[];
   clave: Record<string, Record<string, string>>;
-} {
+}> {
   const respuestas = respuestasDe(f);
   const casos: CasoDelVisor[] = [];
   const clave: Record<string, Record<string, string>> = {};
@@ -701,10 +902,13 @@ export function casosDelVisor(f: Figura): {
       if (!existsSync(re)) continue;
       const e = validarCon(eleccionSchema, readFileSync(re, 'utf8'), re);
       const id = casoDeEleccion(d, h);
-      // Contra la de ahora, la ganadora y la de ahora; en un torneo, sus dos finalistas.
+      // Contra la de ahora, la ganadora y la de ahora; en un torneo, sus dos finalistas,
+      // solo si es dudoso: con ganadora clara se adopta sola y se ve en el vistazo final.
       const pareja =
         e.modo === 'torneo'
-          ? (e.finalistas ?? [])
+          ? e.ganadora === null
+            ? (e.finalistas ?? [])
+            : []
           : e.ganadora === null
             ? []
             : ['ahora', e.ganadora];
@@ -720,7 +924,7 @@ export function casosDelVisor(f: Figura): {
         titulo: `¿Cuál se queda? · ${f.id} d${d}, hoja ${h.toUpperCase()}`,
         texto:
           'La misma hoja pintada dos veces, clip a clip junto a su maniquí. ¿Cuál es mejor animación para el juego: copia al maniquí, el personaje no cambia, se mueve suave?',
-        opciones: ['versión 1', 'versión 2', 'iguales', 'ninguna vale'],
+        opciones: ['versión 1', 'versión 2', IGUALES, NINGUNA_VALE],
         animaciones: (HOJAS_DE_FIGURA[h as HojaDeFigura] as readonly string[]).flatMap((clip) => [
           {
             ...comun,
@@ -742,6 +946,42 @@ export function casosDelVisor(f: Figura): {
         ]),
       });
     }
+    // El vistazo final de la dirección, si alguna de sus hojas se adoptó sola: sus
+    // seis clips a la velocidad del juego, cada uno junto a su maniquí.
+    const vistazo = casoDelVistazo(f, d);
+    if (hojasAutomaticas(f, d).length > 0 && respuestas[vistazo] === undefined) {
+      // Qué enseña y con qué sha: `rechazadas` solo rechaza una hoja que siga siendo esa.
+      clave[vistazo] = { a: shaDeLaHoja(f, d, 'a'), b: shaDeLaHoja(f, d, 'b') };
+      const fps = fpsDe(f, d);
+      // El encuadre medido de cada hoja (`salto.ts`), para que la persona mire ahí.
+      const saltos: string[] = [];
+      for (const h of ['a', 'b']) {
+        const huesos = leerHuesos(join(RAIZ, f.maniqui), d, h);
+        const hoja = join(RAIZ, f.arte, `d${d}`, `hoja-${h}.webp`);
+        if (huesos !== null && existsSync(hoja))
+          saltos.push(
+            ...avisosDelSalto(await saltosDeLaHoja(hoja, huesos)).map(
+              (a) => `hoja ${h.toUpperCase()} ${a}`,
+            ),
+          );
+      }
+      casos.push({
+        id: vistazo,
+        titulo: `Vistazo final · ${f.id} d${d} (${NOMBRES_DE_DIRECCION[d]})`,
+        texto: `Las hojas de esta dirección, adoptadas solas (ganaron su torneo). ¿Están bien para el juego, o hay que rehacer alguna?${saltos.length > 0 ? ` Medido: ${saltos.join('; ')}.` : ''}`,
+        opciones: Object.keys(OPCIONES_DEL_VISTAZO),
+        animaciones: (['a', 'b'] as const).flatMap((h) =>
+          (HOJAS_DE_FIGURA[h] as readonly string[]).flatMap((clip) => {
+            const hoja = `${f.arte}/d${d}/hoja-${h}.webp`;
+            const base = { ...comun, direccion: d, clip, letra: h, hoja, fps: fps[clip] ?? 8 };
+            return [
+              { ...base, de: 'maniqui' as const, rotulo: `«${clip}» · maniquí` },
+              { ...base, rotulo: `«${clip}» · hoja ${h.toUpperCase()}` },
+            ];
+          }),
+        ),
+      });
+    }
   }
   return { casos, clave };
 }
@@ -755,4 +995,57 @@ export async function escribirClave(
   const antes = existsSync(ruta) ? validarCon(claveSchema, readFileSync(ruta, 'utf8'), ruta) : {};
   await mkdir(dirname(ruta), { recursive: true });
   await writeFile(ruta, `${JSON.stringify({ ...antes, ...clave }, null, 1)}\n`);
+}
+
+/**
+ * Vuelve a llevar a `assets/` una versión ya adoptada después de reprocesarla desde su
+ * crudo (`pnpm taller reprocesar <id> --adoptadas`): la hoja y su procedencia nuevas,
+ * con la elección de antes, y junta la dirección. Devuelve el encargo de la versión de
+ * cada hoja adoptada, para que el trabajador la reprocese antes.
+ */
+export function versionesAdoptadas(f: Figura): { d: number; h: string; encargo: string }[] {
+  const fuera: { d: number; h: string; encargo: string }[] = [];
+  for (let d = 0; d < NOMBRES_DE_DIRECCION.length; d++)
+    for (const h of Object.keys(HOJAS_DE_FIGURA)) {
+      const r = join(RAIZ, f.arte, `d${d}`, `hoja-${h}.procedencia.json`);
+      if (!existsSync(r)) continue;
+      const proc = JSON.parse(readFileSync(r, 'utf8')) as {
+        encargo?: string;
+        eleccion?: { version?: string };
+      };
+      if (proc.eleccion?.version !== undefined && proc.encargo !== undefined)
+        fuera.push({ d, h, encargo: proc.encargo });
+    }
+  return fuera;
+}
+
+/** `readoptar`: la versión reprocesada a `assets/`, con la elección que ya tenía. */
+export async function readoptar(f: Figura, d: number, h: string): Promise<string> {
+  const dir = join(RAIZ, f.arte, `d${d}`);
+  const destino = join(dir, `hoja-${h}`);
+  const antes = JSON.parse(await readFile(`${destino}.procedencia.json`, 'utf8')) as {
+    eleccion: { version: Variante };
+  };
+  const origen = join(RAIZ, rutaDeVersion(f, d, h, antes.eleccion.version));
+  await copyFile(`${origen}.webp`, `${destino}.webp`);
+  const proc = JSON.parse(await readFile(`${origen}.procedencia.json`, 'utf8')) as Record<
+    string,
+    unknown
+  >;
+  await writeFile(
+    `${destino}.procedencia.json`,
+    `${JSON.stringify(
+      {
+        ...proc,
+        salida: {
+          ruta: `${f.arte}/d${d}/hoja-${h}.webp`,
+          sha256: sha256(await readFile(`${destino}.webp`)),
+        },
+        eleccion: antes.eleccion,
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  return alAcabarUnaHoja(dir);
 }

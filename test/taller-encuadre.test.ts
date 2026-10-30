@@ -13,9 +13,13 @@ import {
   type CeldaRgba,
   desplazamientosDelTronco,
   fondoDe,
+  HUNDIMIENTO_TOLERADO,
+  mejorRecolocacion,
+  recolocarConElSuelo,
   recolocarConLosPies,
   TOPE,
 } from '../tools/taller/encuadre.js';
+import { saltoDelClip, UMBRAL_DEL_SALTO } from '../tools/taller/revision/salto.js';
 
 const RAIZ = join(import.meta.dirname, '..');
 const LADO = 384;
@@ -111,28 +115,57 @@ describe('C1: el tronco sigue a la cadera del maniquí', () => {
 
   // QA del 30-10-2026, H3: con la media a 0, C1 hundía los pies de los fotogramas
   // apoyados (hasta 15 px bajo el suelo en la carga del caballero d1).
-  it('no hunde los pies bajo el suelo ni los sube más que el maniquí', () => {
-    // Lo pintado quieto con los pies en el suelo; el maniquí agacha el tronco en el 4.
+  // El piquero, revisado por el usuario (30-10-2026): con la línea fija del suelo el
+  // cuerpo no podía bajar cuando el maniquí bajaba, y saltaba 7-21 px en el centrado.
+  it('el cuerpo baja cuando baja el maniquí, y no se hunde bajo su pie', () => {
     const celdas = CADERA.map(() => movida(0, 0));
-    const suelo = fondoDe(celdas[0]!)!;
-    const agacha = CADERA.map((_, i) => [0, i === 3 ? 12 : 0] as const);
-    // Así, sin los pies, el 4 baja del suelo: el fallo de antes.
-    const sinPies = desplazamientosDelTronco(celdas, agacha, true).desplazamientos;
-    expect(sinPies[3]![1]).toBeGreaterThan(0);
-    const alzas = CADERA.map(() => 0);
-    const { desplazamientos } = recolocarConLosPies(celdas, agacha, true, suelo, alzas);
-    for (const [i, [, dy]] of desplazamientos.entries()) {
-      expect(suelo + dy, `fotograma ${i + 1}`).toBeLessThanOrEqual(suelo);
-      expect(suelo + dy, `fotograma ${i + 1}`).toBeGreaterThanOrEqual(suelo - alzas[i]!);
-    }
-    // Si el maniquí levanta el pie 5 px en el 2, C1 puede subirlo hasta ahí, no más.
-    const salta = CADERA.map((_, i) => [0, i === 1 ? -20 : 0] as const);
-    const conAlza = CADERA.map((_, i) => (i === 1 ? 5 : 0));
-    const r = recolocarConLosPies(celdas, salta, true, suelo, conAlza).desplazamientos;
-    expect(r[1]![1]).toBe(-5);
+    const fondo = fondoDe(celdas[0]!)!;
+    // El maniquí baja el tronco 12 px en el 4 y su pie más bajo baja lo mismo (cae,
+    // o el pie avanza hacia la cámara): el pintado tiene que bajar con él.
+    const baja = CADERA.map((_, i) => [0, i === 3 ? 12 : 0] as const);
+    const piesQueBajan = CADERA.map((_, i) => fondo + (i === 3 ? 12 : 0));
+    const r = recolocarConLosPies(celdas, baja, true, piesQueBajan).desplazamientos;
+    // Lo que se mueve el 4 frente a los demás: lo que bajó el maniquí; y baja él, no
+    // suben los otros (que flotarían sobre su pie).
+    expect(r[3]![1] - r[0]![1]).toBeGreaterThanOrEqual(11);
+    expect(r[3]![1]).toBeGreaterThanOrEqual(8);
+    // Con la línea fija (la regla de antes), no bajaba: el salto que vio el usuario.
+    const antes = recolocarConElSuelo(
+      celdas,
+      baja,
+      true,
+      fondo,
+      CADERA.map(() => 0),
+    ).desplazamientos;
+    expect(antes[3]![1] - antes[0]![1]).toBeLessThan(2);
+    // Si el pie del maniquí NO baja (solo se agacha), el pintado no se hunde más de lo tolerado.
+    const piesQuietos = CADERA.map(() => fondo);
+    const q = recolocarConLosPies(celdas, baja, true, piesQuietos).desplazamientos;
+    for (const [i, [, dy]] of q.entries())
+      expect(fondo + dy, `fotograma ${i + 1}`).toBeLessThanOrEqual(fondo + HUNDIMIENTO_TOLERADO);
     // En x, lo de siempre.
-    expect(r.map(([dx]) => dx)).toEqual(
-      desplazamientosDelTronco(celdas, salta, true).desplazamientos.map(([dx]) => dx),
+    expect(q.map(([dx]) => dx)).toEqual(
+      desplazamientosDelTronco(celdas, baja, true).desplazamientos.map(([dx]) => dx),
     );
+  });
+
+  it('de varias recolocaciones se queda la que menos salta: nunca peor que la de antes', () => {
+    const salta = CADERA.map(([x, y], i) => movida(x + (i === 3 ? 9 : 0), y));
+    const buena = desplazamientosDelTronco(salta, CADERA, true).desplazamientos;
+    const mala = CADERA.map((_, i) => [i === 2 ? 14 : 0, 0] as const);
+    const m = mejorRecolocacion(salta, CADERA, true, [mala, buena]);
+    expect(m.cual).toBe(1);
+    expect(m.salto).toBeLessThanOrEqual(1);
+  });
+
+  // La detección automática del encuadre (el piquero, 30-10-2026): lo que salta el
+  // cuerpo más de lo que se mueve el maniquí, con el par donde salta.
+  it('mide el salto del cuerpo y dice dónde', () => {
+    const quieto = CADERA.map(([x, y]) => movida(x, y));
+    expect(saltoDelClip(quieto, CADERA, true)?.px ?? 0).toBeLessThanOrEqual(1);
+    const salta = CADERA.map(([x, y], i) => movida(x + (i === 3 ? 9 : 0), y));
+    const s = saltoDelClip(salta, CADERA, true);
+    expect(s?.px).toBeGreaterThan(UMBRAL_DEL_SALTO);
+    expect([s?.de, s?.a]).toEqual(expect.arrayContaining([4]));
   });
 });
