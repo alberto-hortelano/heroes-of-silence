@@ -50,21 +50,16 @@
     "a": [
       {
         "clip": "idle",
-        "anim": "idle_look_around",
+        "anim": "idle4",
         "enBucle": true,
-        "tramo": [
-          0,
-          1.5
-        ],
-        "vaiven": true,
         "indices": [
           0,
-          6,
+          4,
+          8,
           12,
-          18,
-          18,
-          12,
-          6
+          17,
+          21,
+          25
         ]
       },
       {
@@ -148,14 +143,14 @@
   "sourceMetadata": {
     "idle": {
       "angle": "tactical_25",
-      "anim": "idle_look_around",
+      "anim": "idle4",
       "directions": 8,
-      "duration": 6.466666666666667,
+      "duration": 2.533333333333333,
       "fps": 12,
-      "frame_count": 78,
+      "frame_count": 30,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-10T17:00:43",
+      "generated_at": "2026-10-30T12:45:48",
       "model": "y_bot"
     },
     "walk": {
@@ -167,7 +162,7 @@
       "frame_count": 13,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-10T17:00:47",
+      "generated_at": "2026-10-30T12:45:51",
       "model": "y_bot"
     },
     "charge": {
@@ -179,7 +174,7 @@
       "frame_count": 8,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-10T17:00:49",
+      "generated_at": "2026-10-30T12:45:53",
       "model": "y_bot"
     },
     "attack": {
@@ -191,7 +186,7 @@
       "frame_count": 20,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-10T17:00:54",
+      "generated_at": "2026-10-30T12:45:57",
       "model": "y_bot"
     },
     "hurt": {
@@ -203,7 +198,7 @@
       "frame_count": 12,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-10T17:00:58",
+      "generated_at": "2026-10-30T12:46:00",
       "model": "y_bot"
     },
     "death": {
@@ -215,59 +210,43 @@
       "frame_count": 28,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-10T17:01:06",
+      "generated_at": "2026-10-30T12:46:06",
       "model": "y_bot"
     }
   },
   "sha256": {
-    "d0-a.png": "bdc8461edbe11ee389e0b673172c976c5af51392c4534e2cab3bb4a545942baf",
-    "d0-a.profundidad.png": "a4dcad6b984f4846b0990e506a18e54931eddce07eb6bdf219f7a6f2d531f9d2",
-    "d0-a.mezcla.png": "82c77263eba3e18cb51c3b955c317c8ff00dec5a7ea27c13c7f69fd5115ae9be",
+    "d0-a.png": "aed4ea0744ec60689a0bfc8d40ddfefbf75cfe26529f38cebb3eeb73f8d4c21a",
+    "d0-a.profundidad.png": "71ef8dcbc7e619257dae90852fab6479417458145cb19ed4e23b2f301a398fb0",
     "d0-b.png": "f724585086cd778c143ea937a57b0a5eb1d218614ef611d5c4a77b050ba10ae3",
     "d0-b.profundidad.png": "cdc8359aa1ebb95df3638fed071c6702a107aad95dcbf3923068844ccf36069d",
-    "d0-b.mezcla.png": "96532125a5f3ec5fa9e978c7521036a9d64ccaea62b18d04f331586d3615be12",
-    "d1-a.png": "e281ac5b57a9b5d3e5a2c68e7854a1bc5c2beb7a1d260c259d2278775da9c279",
-    "d1-a.profundidad.png": "03306ad2808cc488935e8912aaa16b8621e8164e6e22589a110755e7f14f12ea",
-    "d1-a.mezcla.png": "b50903360b0b926b8ad94bbee7469b9cc94712ea69aeeae426912c1b7d7b4e94",
+    "d1-a.png": "69483940ee1f265b398794fbd1bc55823c9b8527b78333055a04842fd0cc141b",
+    "d1-a.profundidad.png": "3639510282ba86c461d0ca1f3b5b43ea0bb4e28c98a697a2bb5694c79088b4f1",
     "d1-b.png": "1922e3f5ad7601c5c6bae0214f437fdddcc97829e00f7b267327a7e7420ec301",
     "d1-b.profundidad.png": "93ef2e22b2f59f980305f67f86a02a0dd4b4000cdb5daf806dc69559bded92fa",
-    "d1-b.mezcla.png": "364cb69c3669f57396c04b89598aaec8873e4fede846c1b353b4b21709398489",
-    "d2-a.png": "113bdd2933d697eb8b50196b03475bf068463a4243a6c88abfd31b3b58801569",
-    "d2-a.profundidad.png": "9312950cf47f803e93fbf8ddc3324da8c0ed95b865490066c66adefa9d7a9f2e",
-    "d2-a.mezcla.png": "31dfccc6815d19d4da7f9b222769768d1d03d58fd4d33d97069fcca42dc84e3b",
+    "d2-a.png": "646ab779913153107c2bc6774bb9cde54fc8d61bde7f02e7480361aa900ea964",
+    "d2-a.profundidad.png": "569e869b8f15056c336568834f4885ec30d300f522fdfcfd24f551dcaa6a7f88",
     "d2-b.png": "012d712da3c83a045975a34232565182aecce88bac2b990a4eaed538b6515d80",
     "d2-b.profundidad.png": "6b4a97064cd3e094d6367b0678e288879f4930f2c4d62134dc0303f9a93bf393",
-    "d2-b.mezcla.png": "69e0e3e4ea18f1af7d63c5f5466e3b8d8153cc94a7bb33890f0893720bd190c3",
-    "d3-a.png": "44268428cff40b3ae60a033fe3b52daaf67fe2d2e4e6f6d4ebe4f0fc001f5d81",
-    "d3-a.profundidad.png": "e6d58498319ad19a2ae7a1c49ee9da0ad79f5bba9c6b731749696923b00bb691",
-    "d3-a.mezcla.png": "95c430d6d023f5ad1edb758e1e0d74924325aff0e44751c49c56240237199bf4",
+    "d3-a.png": "1213771b0fca912e3f390369255bbf537f7c37939e63ed4d53e61098f542c251",
+    "d3-a.profundidad.png": "fe7177ee8edf0ddfd71d03e9c05eb2736e99fbd9d31590c9e53677240f559898",
     "d3-b.png": "a4dc41e4370940ae45e734a37c82fc5578d8d34b2e14fca66d47b46fc2e89827",
     "d3-b.profundidad.png": "618a15648a3f38dbfa2daca3542688cb43db31fecdb205c96de5324edef2cccf",
-    "d3-b.mezcla.png": "17cbb2de80fa5dcb77ac892ce5481d5dee67af32fa8058bcc703e44fe39b6b9d",
-    "d4-a.png": "7466b312b757d8fab2c59843adbed8c6523e775d98abe9b06ebdec6760fba647",
-    "d4-a.profundidad.png": "076a01aa9f93708edb11e01d8a74e0612b4966064133ddfc51cb29638dd878d3",
-    "d4-a.mezcla.png": "35b5bf7cd8a1a698e35d5a430a02cd32e3fa0163daaf1ea60342cb0c180a3445",
+    "d4-a.png": "0099a7821f0e75323d2c55beaec8b2632c5e796bfbf8cd2c8b1f40a2b933d8b6",
+    "d4-a.profundidad.png": "acedd5bbd831dda2e4a41f375dde9ea9f1b47d155166356eacdb5c14379fbb26",
     "d4-b.png": "6725e0109ec7899d8d36f327b4c41f8d6a898c40adf66e9708e7a6411c4daa98",
     "d4-b.profundidad.png": "91e18228542a60d83e336e4bc590a2139aa8931f60c12142499976bc59b99b44",
-    "d4-b.mezcla.png": "4a2c428a52b923f4735e2e708336bfbbc695b5561c74594ee0c56aac41e95ef6",
-    "d5-a.png": "e5ce768eec263c938baa78e60c4ab74b4bffb6053cb2106181f642cab2cb86ad",
-    "d5-a.profundidad.png": "c03c3b9d7cd487a9d16d3de30d88897f7ae2db8bb6b5e928f8c510f10c63ce1b",
-    "d5-a.mezcla.png": "38d22811ac48073478c14aea960ee322695941d8265c2c54286821c27369d880",
+    "d5-a.png": "9bae0d0acd74a194ac65a047d47c53b513e97ce56c6d94b9a5019808b8f9fd84",
+    "d5-a.profundidad.png": "aa817039ffae80729e14ef78e71fc94a364a0a8a40e46f0c148feb0dc2639de4",
     "d5-b.png": "01a3a741ec40dde221d35a32c1a0ac8468542efdfec95299e454eefc2b32ffaf",
     "d5-b.profundidad.png": "17d0f473f9125b77025722371fae4ec3f2889849c3aa3bec7633fbc99535c640",
-    "d5-b.mezcla.png": "b904aecd2d1c4c130886f6754750e1f5cdce5925ac62952c7af7b92fcb77ca38",
-    "d6-a.png": "514d348d19713593a2c0447715565f97ae2ee55325dbe94a78bd966d90d79ed4",
-    "d6-a.profundidad.png": "bb8d3dbf1444f06ce36e20bb9e1ef45afda174e2e1abc920d7382dd11a9d2590",
-    "d6-a.mezcla.png": "eab3d19d16627c492beeb34f16c98111caf5165113ec47a29bd8321cfba4bd3b",
+    "d6-a.png": "3a91d9f65ab746a1cfb71e081179e11dbca7987bfd053027fb7283ceab2835bc",
+    "d6-a.profundidad.png": "7ba24c1122d87a883dc36400573f518a6878f3fa90c27e9decb75f96c45041f2",
     "d6-b.png": "df993c4d3860645267006f55481b77ccbb3339d07ae97168449efddcab38d517",
     "d6-b.profundidad.png": "ad7fd3d9dfbb9fce037d82b67a901dddd77c5cc65cadbfaed5c49a1ea4de2d56",
-    "d6-b.mezcla.png": "e28d0c7e6565300cb48194e1da3411933981d6018382ce621068d2930ad94448",
-    "d7-a.png": "af30f11732275fa05504afd817ae78ce08cd00580e531d386764f5844e791892",
-    "d7-a.profundidad.png": "5b70f4680d66e804897d1e1c82299c0c23e9d8fb35a20f994b400d11c4d6b052",
-    "d7-a.mezcla.png": "1a40357c3af00704df2ca37adffc75516a975aeed7d6a646efd8b3a3250c101b",
+    "d7-a.png": "3697798b93413cb6975676104a8aec5db595abc2fd7e6fad962180bd07f74510",
+    "d7-a.profundidad.png": "8458bb1eff22548ae0149f32fe1bf77dfce2d803dfa822b2a1182dd8eee12bb5",
     "d7-b.png": "241a03be9bd723b2958455621b0312d50b3dfe163101d6afeb25f27348956296",
     "d7-b.profundidad.png": "8d7f5e9a984cd9369b3f61aa2d8cc348dae2ec10874cd2a980d792cda73309c5",
-    "d7-b.mezcla.png": "8794509bf1dee4b6839f37f3d3b4f7575a427ed82c4533d4fa22c7b545be6c6c",
-    "giro.png": "550e044bf769e86205387efcebca3110c819213766130744dacd5f8ec9950071"
+    "giro.png": "ea562b0c73eff7278631e6af091af3984e68ad8a90fa86c7e538cdaa130ebebb"
   }
 }

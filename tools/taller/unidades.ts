@@ -171,48 +171,57 @@ const temperamento = (
   },
   ritmo: { tiempoReal: true, ...(tramoDelReposo === undefined ? {} : { fps: { idle: 5 } }) },
 });
-/** Infantería de espada y escudo en guardia: el arranque de la guardia de `idle`. */
-const EN_GUARDIA = temperamento(
-  'idle',
-  { walk: 'walk', charge: 'run', hurt: 'impact3', death: 'death' },
-  [0, 1.5],
-);
-/** Lanzas y alabardas en formación: la guardia quieta y la carrera erguida. */
-const EN_FORMACION = temperamento('idle4', {
+/**
+ * Infantería de espada y escudo en guardia: la guardia quieta tras el escudo
+ * (`block_idle`). La de `idle` giraba tanto la cabeza que confundía al pintor
+ * (visor del maniquí, 30-10-2026).
+ */
+const EN_GUARDIA = temperamento('block_idle', {
   walk: 'walk',
-  charge: 'run2',
+  charge: 'run',
   hurt: 'impact3',
   death: 'death',
 });
-/** Armaduras pesadas y brutos: guardia quieta, paso firme, el golpe le dobla y cae de rodillas. */
+/** Lanzas y alabardas en formación: la guardia quieta. */
+const EN_FORMACION = temperamento('idle4', {
+  walk: 'walk',
+  charge: 'run',
+  hurt: 'impact3',
+  death: 'death',
+});
+/** Armaduras pesadas y brutos: guardia quieta, el golpe le dobla y cae de rodillas. */
 const PESADO = temperamento('idle4', {
-  walk: 'walk2',
-  charge: 'run2',
+  walk: 'walk',
+  charge: 'run',
   hurt: 'impact2',
   death: 'death2',
 });
-/** Ligeros y vigilantes: mira a los lados, corre agachado. */
-const AGIL = temperamento(
-  'idle_look_around',
-  { walk: 'walk', charge: 'run', hurt: 'impact3', death: 'death' },
-  [0, 1.5],
-);
+/**
+ * Ligeros y vigilantes: la guardia quieta de `idle4`. El reposo de mirar a los
+ * lados (`idle_look_around`) se movía demasiado (visor del maniquí, 30-10-2026).
+ */
+const AGIL = temperamento('idle4', {
+  walk: 'walk',
+  charge: 'run',
+  hurt: 'impact3',
+  death: 'death',
+});
 /** Magos, sanadores, tiradores y gente sin guardia: de pie y relajado, el paso de calle. */
 const SOSEGADO = temperamento(
   'idle_neutral',
-  { walk: 'walking', charge: 'run2', hurt: 'impact2', death: 'death2' },
+  { walk: 'walking', charge: 'run', hurt: 'impact2', death: 'death2' },
   [0, 1.5],
 );
 /** Como `SOSEGADO`, pero respirando hondo: sacerdotes y druidas. */
 const EN_CALMA = temperamento(
   'idle_breathing',
-  { walk: 'walking', charge: 'run2', hurt: 'impact2', death: 'death2' },
+  { walk: 'walking', charge: 'run', hurt: 'impact2', death: 'death2' },
   [0, 1.5],
 );
 /** Encorvados y renqueantes: zombis, penitentes, el chamán goblin. */
 const RENQUEANTE = temperamento(
   'wounded_idle',
-  { walk: 'walk2', charge: 'run2', hurt: 'impact2', death: 'death2' },
+  { walk: 'walk', charge: 'run', hurt: 'impact2', death: 'death2' },
   [0, 1.5],
 );
 /** El mismo temperamento con otro ataque. */
@@ -611,7 +620,7 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'orko-dos-armas',
-    ...conImpact2(conAtaque(AGIL, 'slash4')),
+    ...conImpact2(conAtaque(AGIL, 'precise')),
     faccion: 'orkos',
     nombre: 'Orko con dos armas',
     perfil: 'dos-manos',
@@ -646,9 +655,8 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'goblin-arquero',
-    // El reposo de `AGIL` (`idle_look_around`) se gira y se agacha, y en el
-    // goblin se veía así (decisión del usuario, 23-10-2026): el quieto de los
-    // tiradores.
+    // El quieto de los tiradores (decisión del usuario, 23-10-2026: el de mirar a
+    // los lados de entonces se giraba y se agachaba en el goblin).
     ...conReposo(conImpact2(AGIL), 'idle_neutral'),
     maniqui: JUEGOS_DE_ARMAS['arco'].atrezo,
     faccion: 'orkos',
@@ -863,7 +871,7 @@ export const HEROES: readonly Unidad[] = [
   },
   {
     id: 'heroe-elfo-danzante-de-espadas',
-    ...conImpact2(conAtaque(AGIL, 'slash4')),
+    ...conImpact2(conAtaque(AGIL, 'precise')),
     faccion: 'elfos',
     nombre: 'Danzante de espadas (héroe)',
     perfil: 'espada-escudo',

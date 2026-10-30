@@ -1,18 +1,18 @@
 {
-  "encargo": "caballero-de-la-muerte-d0-a",
+  "encargo": "caballero-de-la-muerte-v-todo-d0-a",
   "tipo": "atlas",
-  "fecha": "2026-10-20T09:09:07.400Z",
+  "fecha": "2026-10-30T15:07:23.204Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a15890-f63c-75a1-9476-136d79259b72",
-  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn caballero de la muerte, contrapunto oscuro del templario: armadura de placas negra y abollada con remaches de hierro, sobrevesta negra hecha jirones con una cruz rota desteñida, yelmo cerrado con cuernos cortos y un brillo verde frío tras la visera, gran espadón mellado empuñado a dos manos.\nEn la lámina de giro (imagen 2), la figura 1 en orden de lectura es la que mira hacia «frente», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «frente» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "hilo": "01a18d3b-ed53-7ac2-8dc4-b246e7bc0072",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el MAPA DE PROFUNDIDAD del maniquí Y Bot (cámara ortográfica elevada 25 grados; más claro, más cerca; el negro es fondo) con su ESQUELETO dibujado encima: los huesos del lado IZQUIERDO del personaje en AZUL, los del DERECHO en ROJO, el tronco y la cabeza en BLANCO y el eje del arma en AMARILLO. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación siguiendo el esqueleto (dónde está cada codo, cada mano, cada rodilla y cada pie, y hacia dónde apunta el arma). El arma que se pinta es la del PERSONAJE (la de su identidad), por el eje amarillo. NO pintes el esqueleto, sus colores, el gris ni el fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn caballero de la muerte, contrapunto oscuro del templario: armadura de placas negra y abollada con remaches de hierro, sobrevesta negra hecha jirones con una cruz rota desteñida, yelmo cerrado con cuernos cortos y un brillo verde frío tras la visera, gran espadón mellado empuñado a dos manos.\nEn la lámina de giro (imagen 2), la figura 1 en orden de lectura es la que mira hacia «frente», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\nLa lámina de giro (imagen 2) enseña al personaje en guardia, con las piernas abiertas y el arma en alto: esa POSTURA NO CUENTA, es solo para ver su aspecto desde cada lado. En cada celda el cuerpo adopta la postura del maniquí (imagen 1): si el maniquí está de pie con los pies juntos, el personaje también; si adelanta una pierna, la misma.\nCORRECCIONES QUE PIDE LA REVISIÓN de la versión anterior de esta hoja (numeradas por fila y por columna, de 1 a 7). Cúmplelas sin romper lo demás:\n- Fila 1 (idle), columna(s) 1, 2, 3, 4, 5, 6, 7: En los fotogramas 1 a 7, conserva la espada del personaje, pero coloca el agarre y ambos brazos sobre los del maniquí; orienta la hoja casi vertical delante del cuerpo siguiendo la guía.\n- Fila 1 (idle), columna(s) 4, 5, 6, 7: Fotogramas 4 a 7: devuelve cabeza, torso, pelvis y pies a la orientación del maniquí de cada fotograma, manteniendo su pierna adelantada y su pierna posterior flexionada. Elimina el giro lateral.\n- Fila 1 (idle), columna(s) 1, 7: Repinta el 7 con la orientación y los apoyos de su maniquí; comprueba después la transición 7→1 para que solo quede la pequeña variación de reposo que muestran las referencias.\n- Fila 2 (walk), columna(s) 2, 3, 4, 6, 7: Fotogramas 2–4: adelanta la pierna izquierda y retrasa la derecha siguiendo las rodillas y tobillos de cada maniquí. Fotogramas 6–7: adelanta la derecha y retrasa la izquierda. Conserva las diferencias de flexión entre fotogramas.\n- Fila 2 (walk), columna(s) 1, 5: Fotograma 1: baja el pie izquierdo retrasado y reduce la flexión de esa rodilla hasta copiar el maniquí. Fotograma 5: extiende más la pierna derecha y baja su pie; reproduce la posición de paso con ambos pies a alturas próximas.\n- Fila 2 (walk), columna(s) 7, 1: Rehaz las piernas del 7 con la derecha adelantada y la izquierda atrás, siguiendo su maniquí, y ajusta la flexión del 1 para que rodillas y pies continúen sus trayectorias al cerrar el bucle.\n- Fila 3 (charge), columna(s) 1, 2, 3, 4, 5, 6, 7: Fotogramas 1 a 7: conserva el diseño de la espada, pero coloca la empuñadura, las muñecas y los codos sobre sus posiciones en cada maniquí; orienta la hoja hacia arriba a la derecha de la imagen siguiendo la guía.\n- Fila 3 (charge), columna(s) 3, 4, 6, 7: Fotogramas 3 y 4: extiende la pierna izquierda anatómica y recoge atrás la derecha. Fotogramas 6 y 7: extiende la derecha anatómica y recoge la izquierda. Copia las posiciones de caderas, rodillas y tobillos del maniquí correspondiente, dejando legible la alternancia de las piernas.\n- Fila 3 (charge), columna(s) 1, 2, 3, 4, 6, 7: Fotogramas 1, 2, 3, 4, 6 y 7: enseña las dos piernas con la zancada del maniquí: la rodilla que sube, alta y por delante del faldón, y la otra estirada atrás o apoyada, alternando el lado como el maniquí.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «frente» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
-      "ruta": "assets/unidades/_poses/unidades/caballero-de-la-muerte-8d/d0-a.profundidad.png",
-      "papel": "pose-profundidad",
-      "sha256": "491e16f706dda79c1310342e1f3aeb9830d95561066efea6878e4298496f1578"
+      "ruta": ".cache/taller/revision/caballero-de-la-muerte/d0/versiones/pose-esqueleto-a.png",
+      "papel": "pose-esqueleto",
+      "sha256": "1bb74d2db1fa960638f989188aebe3f3271fa79cbc93f9c0c948ff4a708a30b5"
     },
     {
       "ruta": "assets/unidades/caballero-de-la-muerte/giro.webp",
@@ -25,21 +25,23 @@
       "sha256": "0536b0fa1b912f03729958c9b1fc0a9fc88fb9589a82a11013db678c49e9b881"
     }
   ],
+  "pose": "assets/unidades/_poses/unidades/caballero-de-la-muerte-8d/d0-a.profundidad.png",
+  "shaDeLaPose": "675586686518b63b68705e05f0e062cda28e6188a37bf92330256a8ae268e7c0",
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a15890-f63c-75a1-9476-136d79259b72/call_4e4fb9a5e0064ed996f46647bbd6adf0.png",
-    "sha256": "8f80265a92311512d84662e2cd0a64c8c84d4eaae874ea4dfa55a393b0ebbae5",
+    "fichero": "~/.codex/generated_images/01a18d3b-ed53-7ac2-8dc4-b246e7bc0072/exec-432c5a77-d1ee-4ecc-b3a1-67b578262c08.png",
+    "sha256": "13b18d9b88c5b781b61ba0862948466d9ae055de2d9af62f7abb975016fdefab",
     "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7604, pies en y=342, reposo a 160 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "dirección completa: assets/unidades/caballero-de-la-muerte/d0/atlas.webp"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7363, pies en y=342, reposo a 160 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.04627692005621693,
-    "opacos": 0.9464619678995115,
+    "visibles": 0.0426981285135582,
+    "opacos": 0.9469209941157785,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -56,8 +58,107 @@
     ],
     "posicion": false
   },
+  "encuadre": [
+    [
+      [
+        0,
+        0
+      ],
+      [
+        -1,
+        0
+      ],
+      [
+        -2,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        -1,
+        0
+      ],
+      [
+        -1,
+        0
+      ],
+      [
+        4,
+        0
+      ]
+    ],
+    [
+      [
+        1,
+        -1
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        -1,
+        0
+      ],
+      [
+        -1,
+        -2
+      ],
+      [
+        -2,
+        -3
+      ],
+      [
+        1,
+        0
+      ]
+    ],
+    [
+      [
+        0,
+        0
+      ],
+      [
+        2,
+        -11
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        -2,
+        -5
+      ],
+      [
+        -1,
+        0
+      ],
+      [
+        -1,
+        -3
+      ]
+    ]
+  ],
+  "porRejilla": "contadas cortando el crudo por su rejilla: la fila 2 tiene 3 figuras y la hoja pide 7 (en total se encontraron 14 de 21)",
   "salida": {
     "ruta": "assets/unidades/caballero-de-la-muerte/d0/hoja-a.webp",
-    "sha256": "59e88ac534a58644ce03ef0a8a15c03ca28620580f7179e74b94ce0e7e7d99a1"
+    "sha256": "db4330c4fb33000a69e3fb3e12c97e8b636df45b1cbecea71a2a941f45e7a864"
+  },
+  "eleccion": {
+    "version": "todo",
+    "modo": "torneo",
+    "motivo": "torneo: ninguna gana todos sus duelos (tirada 0 de 2 duelos, esqueleto 0 de 2 duelos, todo 0 de 2 duelos); la de ahora no vale (es de otro maniquí): decide la persona entre esqueleto y todo en el visor",
+    "persona": "versión 1"
   }
 }

@@ -74,9 +74,10 @@ const ANIMS_EXTRA = [
   { id: 'idle_breathing', file: 'mixamo/ambient_anims/idle_breathing.fbx' },
   { id: 'idle_look_around', file: 'mixamo/ambient_anims/idle_look_around.fbx' },
   { id: 'block_idle', file: 'anims/sword_and_shield/sword and shield block idle.fbx' },
-  { id: 'walk2', file: 'anims/sword_and_shield/sword and shield walk (2).fbx', locomotion: true },
+  // Sin `walk (2)` ni `run (2)` del pack: andan y corren HACIA ATRÁS (el pie de apoyo
+  // va hacia donde mira el cuerpo; lo midió la revisión de animaciones con el
+  // esqueleto del maniquí, 30-10-2026). Diez unidades andaban y 26 cargaban de espaldas.
   { id: 'walking', file: 'mixamo/ambient_anims/walking.fbx', locomotion: true },
-  { id: 'run2', file: 'anims/sword_and_shield/sword and shield run (2).fbx', locomotion: true },
   { id: 'slash4', file: 'anims/sword_and_shield/sword and shield slash (4).fbx' },
   { id: 'kick', file: 'anims/sword_and_shield/sword and shield kick.fbx' },
   { id: 'casting2', file: 'anims/sword_and_shield/sword and shield casting (2).fbx' },
@@ -660,6 +661,84 @@ function colorearPiernas(model) {
 }
 `;
 
+/**
+ * Los huesos de Mixamo que se apuntan por fotograma: el muñeco de palos del
+ * maniquí. `HeadTop_End` da la coronilla; los pies, el tobillo y la punta.
+ */
+export const HUESOS_DEL_MANIQUI = [
+  'Hips',
+  'Spine',
+  'Spine2',
+  'Neck',
+  'Head',
+  'HeadTop_End',
+  'LeftArm',
+  'LeftForeArm',
+  'LeftHand',
+  'RightArm',
+  'RightForeArm',
+  'RightHand',
+  'LeftUpLeg',
+  'LeftLeg',
+  'LeftFoot',
+  'LeftToeBase',
+  'RightUpLeg',
+  'RightLeg',
+  'RightFoot',
+  'RightToeBase',
+] as const;
+
+/**
+ * En la página, antes de pintar el fotograma `f`: cada hueso proyectado por la
+ * cámara a píxeles de la celda, `[x, y, z]` con `z` la profundidad de la cámara
+ * (menos, más cerca); el mismo hueso en el MUNDO de la figura (`mundo`, en metros:
+ * y hacia arriba con el suelo en 0, +z hacia donde mira y la rotación de la
+ * dirección deshecha, para medir el sentido de la marcha igual en las ocho), y cada
+ * pieza visible del atrezo por los dos extremos de su eje más largo. Lo recoge
+ * `render.mjs` por dirección (`window.__huesos`).
+ */
+const HUESOS = `
+function apuntarHuesos(f) {
+  const { scene, camera, renderer, model, prefijo, atrezo, pivot, suelo } = state;
+  scene.updateMatrixWorld(true);
+  const W = renderer.domElement.width, H = renderer.domElement.height;
+  const px = (v) => { const q = v.clone().project(camera); return [Math.round((q.x + 1) / 2 * W), Math.round((1 - q.y) / 2 * H), +q.z.toFixed(4)]; };
+  // El pivote solo gira en y (la dirección) y sube o baja para apoyar los pies: x y
+  // z salen de su marco; la altura, del suelo del reposo. Los píxeles, enteros, y el
+  // mundo, en centímetros: con más cifras los ~800 esqueletos pasaban de 20 MB en git.
+  const enElMundo = (v) => { const l = pivot.worldToLocal(v.clone()); return [+l.x.toFixed(2), +(v.y - suelo).toFixed(2), +l.z.toFixed(2)]; };
+  const huesos = {};
+  const mundo = {};
+  for (const nombre of ${JSON.stringify(HUESOS_DEL_MANIQUI)}) {
+    const h = model.getObjectByName(prefijo + nombre);
+    if (!h) continue;
+    const v = h.getWorldPosition(new THREE.Vector3());
+    huesos[nombre] = px(v);
+    mundo[nombre] = enElMundo(v);
+  }
+  const piezas = [];
+  for (const pieza of atrezo?.piezas ?? []) {
+    if (!pieza.visible) continue;
+    const caja = new THREE.Box3();
+    pieza.updateMatrixWorld(true);
+    const inversa = pieza.matrixWorld.clone().invert();
+    pieza.traverse((n) => {
+      if (!n.isMesh || !n.visible) return;
+      n.geometry.computeBoundingBox();
+      caja.union(n.geometry.boundingBox.clone().applyMatrix4(n.matrixWorld.clone().premultiply(inversa)));
+    });
+    if (caja.isEmpty()) continue;
+    const t = caja.getSize(new THREE.Vector3()), c = caja.getCenter(new THREE.Vector3());
+    const eje = t.x >= t.y && t.x >= t.z ? 'x' : t.y >= t.z ? 'y' : 'z';
+    const a = c.clone(), b = c.clone();
+    a[eje] = caja.min[eje]; b[eje] = caja.max[eje];
+    piezas.push([px(a.applyMatrix4(pieza.matrixWorld)), px(b.applyMatrix4(pieza.matrixWorld))]);
+  }
+  window.__huesos = window.__huesos ?? {};
+  window.__huesos[f] = { huesos, mundo, atrezo: piezas };
+}
+`;
+
 async function prepararForge(
   temporal: string,
   encuadre: Encuadre = ENCUADRE_DE_FIGURA,
@@ -680,6 +759,12 @@ async function prepararForge(
   profundidad = false,
   /** Los FBX del daño y de la muerte (`archivosDeDañoYMuerte`). */
   archivos: ArchivosDeDañoYMuerte = archivosDeDañoYMuerte(),
+  /**
+   * Además de cada fotograma, dónde cae en él cada hueso y cada pieza del atrezo
+   * (`HUESOS_DEL_MANIQUI`): el esqueleto de verdad con que se juzga lo pintado.
+   * Solo lee: la imagen sale igual.
+   */
+  huesos = false,
 ): Promise<void> {
   for (const item of ['src', 'bin', 'sets', 'package.json']) {
     await cp(join(FORGE, item), join(temporal, item), { recursive: true });
@@ -762,6 +847,7 @@ async function prepararForge(
       camera.updateProjectionMatrix();
       scene.overrideMaterial = new THREE.MeshDepthMaterial();
     }
+    if (${huesos}) apuntarHuesos(f);
     renderer.render(scene, camera);
     out.push(`,
     ],
@@ -786,7 +872,7 @@ async function prepararForge(
   if (${piernasDeColor}) colorearPiernas(model);
   scene.updateMatrixWorld(true);
   const suelo = puntoMasBajo(model);
-  Object.assign(state, { renderer, scene, camera, pivot, mixer, clip, model, animId, golpe, suelo, atrezo, clipDeDisparo: ${JSON.stringify(clipDeDisparo)} });`,
+  Object.assign(state, { renderer, scene, camera, pivot, mixer, clip, model, animId, golpe, suelo, atrezo, prefijo: bonePrefix, clipDeDisparo: ${JSON.stringify(clipDeDisparo)} });`,
     ],
     [
       '    mixer.setTime(Math.min(clip.duration, frameStep * f));',
@@ -824,7 +910,29 @@ async function prepararForge(
       throw new Error(`sprite-forge cambió: falta «${antes}» en page.mjs`);
     pagina = pagina.replace(antes, despues);
   }
-  await writeFile(rutaPagina, pagina + POSE_A_DISTANCIA + PUNTO_MAS_BAJO + ATREZO + PIERNAS);
+  await writeFile(
+    rutaPagina,
+    pagina + POSE_A_DISTANCIA + PUNTO_MAS_BAJO + ATREZO + PIERNAS + (huesos ? HUESOS : ''),
+  );
+  if (huesos) {
+    const rutaRender = join(temporal, 'src/render.mjs');
+    const render = await readFile(rutaRender, 'utf8');
+    const antes = `        return writeFile(join(destino, nombreFrame(d, f)), Buffer.from(b64, "base64"));
+      }),
+    );
+`;
+    if (!render.includes(antes))
+      throw new Error('sprite-forge cambió: falta la escritura de los fotogramas en render.mjs');
+    await writeFile(
+      rutaRender,
+      render.replace(
+        antes,
+        `${antes}    const huesos = await page.evaluate(() => { const h = window.__huesos ?? {}; window.__huesos = {}; return h; });
+    await writeFile(join(destino, \`dir_\${d}_huesos.json\`), JSON.stringify(huesos));
+`,
+      ),
+    );
+  }
 }
 
 interface MetaDeClip {
@@ -1117,7 +1225,7 @@ export const SABLE: CuerpoACuerpo = {
 export const JUEGOS_DE_ARMAS = {
   'espada-escudo': {
     describe: 'espada de una mano y escudo de cometa',
-    ataque: 'quick',
+    ataque: 'precise',
     reposo: 'idle',
     // El templario con escudo se aprobó con el maniquí gris (su procedencia
     // apunta aquel render); el caballero, que lo reutiliza, ya va con color.
@@ -1136,11 +1244,13 @@ export const JUEGOS_DE_ARMAS = {
     },
   },
   // Los clips son de espada y escudo: la mano izquierda se lleva al puño con IK
-  // en cada fotograma. El ataque es el tajo amplio, que es el que ya usaba el
-  // perfil `dos-manos` de una dirección.
+  // en cada fotograma. El ataque es el golpe limpio de `precise`: el tajo amplio
+  // (`heavy`) clavaba la espada hacia abajo y la hacía bailar (visor del maniquí,
+  // 30-10-2026); y como todos los que daban el golpe corto (`quick`), que solo lo
+  // amagaba.
   'dos-manos': {
     describe: 'espada larga empuñada con las dos manos',
-    ataque: 'heavy',
+    ataque: 'precise',
     // La guardia de `idle` gira torso y cabeza a media animación y, de frente, el
     // modelo de imagen lo exageraba hasta enseñar la espalda. `idle (4)` es una
     // guardia quieta con la espada vertical (elegida entre las cuatro del pack).
@@ -1175,7 +1285,7 @@ export const JUEGOS_DE_ARMAS = {
   // Lanza de infantería en la derecha, sin escudo: el escudero.
   lanza: {
     describe: 'lanza en la mano derecha, sin escudo',
-    ataque: 'quick',
+    ataque: 'precise',
     reposo: 'idle4',
     piernasDeColor: true,
     atrezo: {
@@ -1187,7 +1297,7 @@ export const JUEGOS_DE_ARMAS = {
   // Maza de una mano en la derecha y un libro en la izquierda: el inquisidor.
   maza: {
     describe: 'maza de una mano en la derecha y un libro en la izquierda',
-    ataque: 'quick',
+    ataque: 'precise',
     reposo: 'idle4',
     piernasDeColor: true,
     atrezo: {
@@ -1215,7 +1325,7 @@ export const JUEGOS_DE_ARMAS = {
   // juego sin escudo.
   arco: {
     describe: 'arco en la mano izquierda y aljaba a la espalda',
-    ataque: 'quick',
+    ataque: 'precise',
     disparo: 'bow',
     reposo: 'idle4',
     piernasDeColor: true,
@@ -1233,7 +1343,7 @@ export const JUEGOS_DE_ARMAS = {
   // rifle) lleva su propio maniquí sin arco (`maniqui` en `tools/taller/unidades.ts`).
   ballesta: {
     describe: 'ballesta en la mano derecha',
-    ataque: 'quick',
+    ataque: 'precise',
     disparo: 'crossbow',
     reposo: 'idle4',
     piernasDeColor: true,
@@ -1249,7 +1359,7 @@ export const JUEGOS_DE_ARMAS = {
   // cerca, el sable.
   granada: {
     describe: 'granada de mano en la derecha, lanzada por encima del hombro',
-    ataque: 'quick',
+    ataque: 'precise',
     disparo: 'grenade',
     reposo: 'idle4',
     piernasDeColor: true,
@@ -1711,6 +1821,13 @@ export async function renderizarOchoDirecciones(
      * modelos de transferencia de movimiento (`tools/taller/video.ts`).
      */
     readonly fotogramas?: string;
+    /**
+     * Además, por hoja, `d<n>-<h>.huesos.json`: el esqueleto de cada celda en sus
+     * píxeles y en el mundo (`HUESOS_DEL_MANIQUI`), con el sha256 de la hoja de la
+     * que sale: el que mide lo pintado contra el maniquí y la compuerta del
+     * trabajador (`tools/taller/revision/maniqui.ts`). Apuntarlo no cambia la imagen.
+     */
+    readonly huesos?: boolean;
   },
 ): Promise<string> {
   const { celda, encuadre } = OCHO_DIRECCIONES;
@@ -1748,6 +1865,7 @@ export async function renderizarOchoDirecciones(
         inicioDeLaMuerte,
         profundidad,
         archivosDeDañoYMuerte(maniqui?.clips),
+        maniqui?.huesos === true && !profundidad,
       );
       const salida = join(forge, 'out');
       execFileSync(
@@ -1840,13 +1958,45 @@ export async function renderizarOchoDirecciones(
         const nombre = `d${d}-${hoja}.png`;
         await writeFile(join(carpeta, nombre), png);
         shas[nombre] = sha256(png);
+        let profundidadDeLaHoja: Buffer | null = null;
         if (maniqui?.profundidad) {
-          const hechas = await hojasDeProfundidad(png, await componer(profundidadDe));
-          for (const [sufijo, buffer] of Object.entries(hechas)) {
-            const otra = `d${d}-${hoja}.${sufijo}.png`;
-            await writeFile(join(carpeta, otra), buffer);
-            shas[otra] = sha256(buffer);
+          // La hoja en profundidad, la pose que se pinta. La mezcla (el color
+          // sombreado por ella) era de las pruebas de `experimento.ts`, retiradas el
+          // 30-10-2026: ya no se escribe.
+          profundidadDeLaHoja = await hojaDeProfundidad(png, await componer(profundidadDe));
+          const otra = `d${d}-${hoja}.profundidad.png`;
+          await writeFile(join(carpeta, otra), profundidadDeLaHoja);
+          shas[otra] = sha256(profundidadDeLaHoja);
+        }
+        if (maniqui?.huesos) {
+          const filasDeHuesos = [];
+          for (const c of filas) {
+            const deLaDireccion = JSON.parse(
+              await readFile(join(framesDe[c.anim] as string, `dir_${d}_huesos.json`), 'utf8'),
+            ) as Record<string, unknown>;
+            filasDeHuesos.push({
+              clip: c.clip,
+              celdas: (indicesPorClip[c.clip] ?? []).map((i) => {
+                const h = deLaDireccion[String(i)];
+                if (h === undefined)
+                  throw new Error(
+                    `${perfil} d${d} «${c.clip}»: el render no apuntó el esqueleto del fotograma ${i}`,
+                  );
+                return { fotograma: i, ...(h as object) };
+              }),
+            });
           }
+          await writeFile(
+            join(carpeta, `d${d}-${hoja}.huesos.json`),
+            `${JSON.stringify({
+              hoja: {
+                png: sha256(png),
+                profundidad: profundidadDeLaHoja === null ? null : sha256(profundidadDeLaHoja),
+              },
+              celda,
+              filas: filasDeHuesos,
+            })}\n`,
+          );
         }
       }
     }
@@ -1899,18 +2049,14 @@ export async function renderizarOchoDirecciones(
 }
 
 /**
- * De una hoja del maniquí en color y la misma en profundidad, las dos que se le
- * enseñan al pintor en las pruebas: `profundidad`, los grises de cada celda
- * estirados entre sus percentiles `recorte` y `1 − recorte` hasta
- * `PROFUNDIDAD_DEL_MANIQUI.de`-255 (claro cerca: por celda, porque estirada la
- * hoja entera la espada y la carga se comían el rango y la figura quieta salía
- * plana), y `mezcla`, el color sombreado por ellos. Las dos con la alfa de la de
- * color: su silueta es la que leen `escalaDePose` y el evaluador.
+ * De una hoja del maniquí en color y la misma en profundidad, la que se le enseña
+ * al pintor: los grises de cada celda estirados entre sus percentiles `recorte` y
+ * `1 − recorte` hasta `PROFUNDIDAD_DEL_MANIQUI.de`-255 (claro cerca: por celda,
+ * porque estirada la hoja entera la espada y la carga se comían el rango y la
+ * figura quieta salía plana), con la alfa de la de color: su silueta es la que lee
+ * `escalaDePose`.
  */
-export async function hojasDeProfundidad(
-  color: Buffer,
-  profundidad: Buffer,
-): Promise<{ readonly profundidad: Buffer; readonly mezcla: Buffer }> {
+export async function hojaDeProfundidad(color: Buffer, profundidad: Buffer): Promise<Buffer> {
   const c = await sharp(color).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const p = await sharp(profundidad).ensureAlpha().raw().toBuffer();
   const { width, height } = c.info;
@@ -1919,7 +2065,6 @@ export async function hojasDeProfundidad(
   const { de, recorte } = PROFUNDIDAD_DEL_MANIQUI;
   const lado = width / FIGURA.columnas;
   const gris = Buffer.alloc(c.data.length);
-  const mezcla = Buffer.alloc(c.data.length);
   const pixeles = (cx: number, cy: number) =>
     Array.from({ length: lado * lado }, (_, k) => {
       const x = cx * lado + (k % lado);
@@ -1944,17 +2089,12 @@ export async function hojasDeProfundidad(
         const v = de + Math.round(t * (255 - de));
         gris.fill(v, i, i + 3);
         gris[i + 3] = alfa;
-        const luz = 0.35 + (0.65 * v) / 255;
-        for (let k = 0; k < 3; k++) mezcla[i + k] = Math.round((c.data[i + k] as number) * luz);
-        mezcla[i + 3] = alfa;
       }
     }
   }
-  const png = (b: Buffer) =>
-    sharp(b, { raw: { width, height, channels: 4 } })
-      .png()
-      .toBuffer();
-  return { profundidad: await png(gris), mezcla: await png(mezcla) };
+  return sharp(gris, { raw: { width, height, channels: 4 } })
+    .png()
+    .toBuffer();
 }
 
 const esScript = process.argv[1] !== undefined && resolve(process.argv[1]) === import.meta.filename;
@@ -1995,6 +2135,8 @@ export async function renderizarMuestrario(
   atrezo: Atrezo | null,
   destino: string,
   lado = 160,
+  /** Además, los fotogramas enteros de cada clip, en `<fotogramas>/<clip>/` (el visor del maniquí). */
+  fotogramas?: string,
 ): Promise<string> {
   for (const a of anims) archivoDeClip(a);
   const { encuadre, celda } = OCHO_DIRECCIONES;
@@ -2032,6 +2174,11 @@ export async function renderizarMuestrario(
     );
     const columnas = FIGURA.columnas;
     const capas: { input: Buffer; left: number; top: number }[] = [];
+    if (fotogramas !== undefined)
+      for (const a of anims)
+        await cp(join(salida, 'frames/y_bot', a, 'tactical_25'), join(fotogramas, a), {
+          recursive: true,
+        });
     for (const [fila, a] of anims.entries()) {
       const dir = join(salida, 'frames/y_bot', a, 'tactical_25');
       const m = JSON.parse(await readFile(join(dir, 'meta.json'), 'utf8')) as MetaDeClip;
@@ -2092,10 +2239,8 @@ export const CANDIDATOS_DEL_MUESTRARIO: readonly string[] = [
   'wounded_idle',
   // marcha y carrera
   'walk',
-  'walk2',
   'walking',
   'run',
-  'run2',
   // ataque
   'quick',
   'heavy',

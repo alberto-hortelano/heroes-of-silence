@@ -19,6 +19,7 @@
  */
 import sharp, { type OverlayOptions } from 'sharp';
 import { FIGURA } from '../../src/shared/arte.js';
+import { recolocarConLosPies } from './encuadre.js';
 import { quitarHalo, type Raster } from './recorte.js';
 
 /** Umbral de alfa para decir «aquí hay figura». */
@@ -189,6 +190,118 @@ export function enFilas(
   return resultado;
 }
 
+/** Cuánto se busca el hueco entre dos filas alrededor de su corte nominal, en parte de una fila. */
+const BUSQUEDA_DEL_CORTE = 0.15;
+
+/**
+ * Las figuras en filas cuando `enFilas` no las cuenta bien: el crudo se corta en
+ * `filas` bandas por su rejilla —cada corte, en la fila de píxeles con menos alfa
+ * a ±`BUSQUEDA_DEL_CORTE` de una fila del corte nominal— y en cada banda se buscan
+ * y se funden las figuras como siempre. Hace falta cuando un arma alta junta dos
+ * filas: la espada vertical que piden unas instrucciones toca la figura de abajo y
+ * el detector las funde en una (3 de unas 20 hojas de la revisión del 30-10-2026,
+ * con las 21 figuras en el crudo). Si tampoco así cuadra, lanza. Borra del crudo
+ * los trozos que el corte deja sueltos (`borrarMotasDelCorte`).
+ */
+export function porRejilla(r: Raster, filas: number, porFila: number): Caja[][] {
+  const { data, width, height } = r;
+  const alfaDeLaFila = (y: number) => {
+    let s = 0;
+    for (let x = 0; x < width; x++) s += data[(y * width + x) * 4 + 3] as number;
+    return s;
+  };
+  const cortes = [0];
+  const altoDeFila = height / filas;
+  for (let f = 1; f < filas; f++) {
+    const nominal = Math.round(f * altoDeFila);
+    const radio = Math.round(BUSQUEDA_DEL_CORTE * altoDeFila);
+    let mejor = nominal;
+    let menor = Number.POSITIVE_INFINITY;
+    for (let y = Math.max(1, nominal - radio); y <= Math.min(height - 2, nominal + radio); y++) {
+      const a = alfaDeLaFila(y);
+      if (a < menor) {
+        menor = a;
+        mejor = y;
+      }
+    }
+    cortes.push(mejor);
+  }
+  cortes.push(height);
+  const resultado: Caja[][] = [];
+  for (let f = 0; f < filas; f++) {
+    const y0 = cortes[f] as number;
+    const y1 = cortes[f + 1] as number;
+    borrarMotasDelCorte(r, y0, y1, f > 0, f < filas - 1);
+    const banda: Raster = {
+      data: data.subarray(y0 * width * 4, y1 * width * 4),
+      width,
+      height: y1 - y0,
+    };
+    const fila = fundirSobrantes(
+      figuras(componentes(banda), HOLGURA).map((c) => ({ ...c, y0: c.y0 + y0, y1: c.y1 + y0 })),
+      porFila,
+    ).sort((a, b) => a.x0 + a.x1 - (b.x0 + b.x1));
+    if (fila.length !== porFila)
+      throw new Error(
+        `cortada por su rejilla (entre las filas, en y = ${cortes.slice(1, -1).join(', ')}), la banda ${f + 1} tiene ${fila.length} figuras y la hoja pide ${porFila}`,
+      );
+    resultado.push(fila);
+  }
+  return resultado;
+}
+
+/**
+ * Lo que el corte deja suelto en una banda (QA del 30-10-2026, H8): un trozo que
+ * toca la línea de corte y es pequeño (menos de `FIGURA_DE_MAS` de la mayor pieza de
+ * la banda) es la punta de un arma de la fila de al lado, cortada; si se queda, se
+ * funde con la figura más cercana y viaja a su celda como una mota junto a los pies.
+ * Se borra del crudo (el alfa a 0), que es de donde se recortan las figuras.
+ */
+function borrarMotasDelCorte(
+  r: Raster,
+  y0: number,
+  y1: number,
+  arriba: boolean,
+  abajo: boolean,
+): void {
+  const { data, width } = r;
+  const opaco = (i: number) => (data[i * 4 + 3] as number) >= ALFA_FIGURA;
+  const visto = new Uint8Array(width * (y1 - y0));
+  const piezas: { pixeles: number[]; toca: boolean }[] = [];
+  for (let y = y0; y < y1; y++)
+    for (let x = 0; x < width; x++) {
+      const inicio = y * width + x;
+      if (visto[inicio - y0 * width] || !opaco(inicio)) continue;
+      const pixeles: number[] = [];
+      let toca = false;
+      const pila = [inicio];
+      visto[inicio - y0 * width] = 1;
+      while (pila.length > 0) {
+        const i = pila.pop() as number;
+        pixeles.push(i);
+        const px = i % width;
+        const py = (i - px) / width;
+        if ((arriba && py === y0) || (abajo && py === y1 - 1)) toca = true;
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = px + dx;
+            const ny = py + dy;
+            if (nx < 0 || nx >= width || ny < y0 || ny >= y1) continue;
+            const j = ny * width + nx;
+            if (!visto[j - y0 * width] && opaco(j)) {
+              visto[j - y0 * width] = 1;
+              pila.push(j);
+            }
+          }
+      }
+      piezas.push({ pixeles, toca });
+    }
+  const mayor = Math.max(0, ...piezas.map((p) => p.pixeles.length));
+  for (const p of piezas)
+    if (p.toca && p.pixeles.length < FIGURA_DE_MAS * mayor)
+      for (const i of p.pixeles) data[i * 4 + 3] = 0;
+}
+
 /**
  * El punto de apoyo de una figura dentro de su caja `[x0, y0, x1, y1]`
  * (inclusiva), leyendo el alfa con `alfa(x, y)`: la fila más baja, y en
@@ -242,8 +355,18 @@ export interface Empaquetado {
   /** Dónde quedó el apoyo de cada clip en su celda: lo verifica después `derivar`. */
   readonly apoyoPorFila: readonly (readonly [number, number])[];
   /**
+   * Si las figuras se contaron cortando el crudo por su rejilla (`porRejilla`)
+   * porque `enFilas` no las contaba: su motivo.
+   */
+  readonly porRejilla?: string;
+  /**
+   * C1 (`encuadre.ts`): cuánto se movió cada fotograma de cada fila para que el
+   * tronco siga a la cadera del maniquí; `null` en una fila que no se tocó.
+   */
+  readonly encuadre?: readonly (readonly (readonly [number, number])[] | null)[];
+  /**
    * Con la pose mandando en la posición: cómo se pasa de la hoja del maniquí al
-   * atlas, `atlas = origen + k · (pose − apoyoReposo)`. Lo usa el evaluador.
+   * atlas, `atlas = origen + k · (pose − apoyoReposo)`. Lo usa la revisión.
    */
   readonly deLaPose?: {
     readonly k: number;
@@ -293,6 +416,17 @@ export interface EscalaDePose {
    * la muerte); su ancla sube lo mismo. Sin él, ninguna.
    */
   readonly elevaciones?: readonly number[];
+  /**
+   * El tronco del maniquí en cada celda, [fila][columna], en píxeles de su hoja:
+   * la media de sus dos caderas y sus dos hombros (`*.huesos.json`). Con él, cada
+   * fotograma se mueve para que el tronco pintado lo siga (C1, `encuadre.ts`); sin
+   * él, no.
+   */
+  readonly caderas?: readonly (readonly (readonly [number, number])[])[];
+  /** Qué filas son un bucle: entonces del último fotograma se vuelve al primero. */
+  readonly enBucle?: readonly boolean[];
+  /** Sin `caderas`, por qué: lo apunta la procedencia. */
+  readonly sinTronco?: string;
 }
 
 /** Cuánto se busca alrededor de la escala que dan las cajas, por arriba y por abajo. */
@@ -370,6 +504,15 @@ function escalaPorSilueta(
   return mediana(escalas);
 }
 
+/** Una figura ya escalada: su imagen, su tamaño y su apoyo dentro de ella. */
+interface Pieza {
+  readonly img: Buffer;
+  readonly w: number;
+  readonly h: number;
+  readonly ax: number;
+  readonly ay: number;
+}
+
 /** Margen libre dentro de cada celda: una figura que toca el borde se cortaría. */
 export const MARGEN = 4;
 /** Cuánto se acepta encoger la hoja para que quepa un fotograma ancho. Más, es rehacerla. */
@@ -404,7 +547,21 @@ export async function empaquetar(
   const { columnas } = FIGURA;
   const base = baseEnCelda(celda);
   const figs = figuras(componentes(r), HOLGURA);
-  const rejilla = enFilas(figs, filas, columnas);
+  let rejilla: Caja[][];
+  let motivoDeLaRejilla: string | undefined;
+  try {
+    rejilla = enFilas(figs, filas, columnas);
+  } catch (e) {
+    // Una hoja buena no se tira porque un arma junte dos filas: se corta por su rejilla.
+    const motivo = (e as Error).message;
+    try {
+      rejilla = porRejilla(r, filas, columnas);
+    } catch (e2) {
+      throw new Error(`${motivo}; ${(e2 as Error).message}`);
+    }
+    motivoDeLaRejilla = `contadas cortando el crudo por su rejilla: ${motivo}`;
+    console.log(`  · ${motivoDeLaRejilla}`);
+  }
   const medidas = rejilla.map((fila) =>
     fila.map((c) => {
       const [ax, ay] = apoyo(r, c);
@@ -444,9 +601,11 @@ export async function empaquetar(
     .toBuffer();
   const capas: OverlayOptions[] = [];
   const apoyoPorFila: [number, number][] = [];
+  const encuadre: ((readonly [number, number])[] | null)[] = [];
+  const k = (alturaObjetivo / (pose?.reposo ?? 1)) * (escala / pedida);
   for (const [f, fila] of medidas.entries()) {
     const piezas = await Promise.all(
-      fila.map(async ({ c, ax, ay }) => {
+      fila.map(async ({ c, ax, ay }): Promise<Pieza> => {
         const w = Math.max(1, Math.round(ancho(c) * escala));
         const h = Math.max(1, Math.round(alto(c) * escala));
         // Mitchell y no Lanczos: el anillo de Lanczos deja un fleco de alfa
@@ -459,33 +618,91 @@ export async function empaquetar(
         return { img, w, h, ax: Math.round(ax * escala), ay: Math.round(ay * escala) };
       }),
     );
+    // Lo que deja el margen para el sitio de una pieza de `tam` en su celda.
+    const dentro = (v: number, tam: number) => Math.min(celda - tam - MARGEN, Math.max(MARGEN, v));
+    // Dónde va cada figura en su celda, antes de C1.
+    let colocadas: (Pieza & { readonly izquierda: number; readonly arriba: number })[];
     if (pose?.posicion === true) {
       // Cada figura donde el maniquí respecto a su reposo, a la escala de la hoja;
       // si así se saliera de su celda, se mete dentro (lo que entra en la celda manda).
-      const k = (alturaObjetivo / pose.reposo) * (escala / pedida);
       const x0 = Math.round(celda / 2);
       const suelo = base - (pose.elevaciones?.[f] ?? 0);
-      for (const [col, p] of piezas.entries()) {
+      colocadas = piezas.map((p, col) => {
         const a = pose.apoyos[f]?.[col];
         if (a === undefined)
           throw new Error(`la pose no tiene apoyo en la celda ${f + 1}·${col + 1}`);
         const dx = Math.round(k * (a[0] - pose.apoyoReposo[0]));
         const dy = Math.round(k * (a[1] - pose.apoyoReposo[1]));
-        const izquierda = Math.min(celda - p.w - MARGEN, Math.max(MARGEN, x0 + dx - p.ax));
-        const arriba = Math.min(celda - p.h - MARGEN, Math.max(MARGEN, suelo + dy - p.ay));
-        capas.push({ input: p.img, left: col * celda + izquierda, top: f * celda + arriba });
-      }
+        return {
+          ...p,
+          izquierda: dentro(x0 + dx - p.ax, p.w),
+          arriba: dentro(suelo + dy - p.ay, p.h),
+        };
+      });
       apoyoPorFila.push([x0, suelo]);
-      continue;
+    } else {
+      // La x de apoyo del clip: la más cercana al centro en la que caben todos.
+      const minimo = Math.max(...piezas.map((p) => p.ax)) + MARGEN;
+      const maximo = Math.min(...piezas.map((p) => celda - (p.w - p.ax))) - MARGEN;
+      const x = Math.min(maximo, Math.max(minimo, Math.round(celda / 2)));
+      colocadas = piezas.map((p) => ({ ...p, izquierda: x - p.ax, arriba: base - p.ay }));
+      apoyoPorFila.push([x, base]);
     }
-    // La x de apoyo del clip: la más cercana al centro en la que caben todos.
-    const minimo = Math.max(...piezas.map((p) => p.ax)) + MARGEN;
-    const maximo = Math.min(...piezas.map((p) => celda - (p.w - p.ax))) - MARGEN;
-    const x = Math.min(maximo, Math.max(minimo, Math.round(celda / 2)));
-    for (const [col, p] of piezas.entries()) {
-      capas.push({ input: p.img, left: col * celda + x - p.ax, top: f * celda + base - p.ay });
-    }
-    apoyoPorFila.push([x, base]);
+    // C1: el tronco pintado sigue al del maniquí, dentro del margen.
+    const caderas = pose?.caderas?.[f];
+    if (caderas !== undefined && caderas.length === colocadas.length) {
+      const celdas = await Promise.all(
+        colocadas.map(async (p) => ({
+          lado: celda,
+          data: new Uint8Array(
+            await sharp({
+              create: {
+                width: celda,
+                height: celda,
+                channels: 4,
+                background: { r: 0, g: 0, b: 0, alpha: 0 },
+              },
+            })
+              .composite([{ input: p.img, left: p.izquierda, top: p.arriba }])
+              .raw()
+              .toBuffer(),
+          ),
+        })),
+      );
+      // Lo que el pie del maniquí se separa del suelo en cada fotograma (el reposo
+      // está apoyado): C1 no sube la figura más que eso, ni la baja del suelo.
+      const reposo = pose?.apoyoReposo[1] ?? 0;
+      const alzas = colocadas.map((_, col) =>
+        Math.max(0, Math.round(k * (reposo - (pose?.apoyos[f]?.[col]?.[1] ?? reposo)))),
+      );
+      const { desplazamientos } = recolocarConLosPies(
+        celdas,
+        caderas.map(([x, y]) => [k * x, k * y] as const),
+        pose?.enBucle?.[f] === true,
+        base - (pose?.elevaciones?.[f] ?? 0),
+        alzas,
+      );
+      const movidas = colocadas.map((p, col) => {
+        const [dx, dy] = desplazamientos[col] ?? [0, 0];
+        return {
+          ...p,
+          izquierda: dentro(p.izquierda + dx, p.w),
+          arriba: dentro(p.arriba + dy, p.h),
+        };
+      });
+      encuadre.push(
+        movidas.map(
+          (m, col) =>
+            [
+              m.izquierda - (colocadas[col]?.izquierda ?? m.izquierda),
+              m.arriba - (colocadas[col]?.arriba ?? m.arriba),
+            ] as const,
+        ),
+      );
+      colocadas = movidas;
+    } else encuadre.push(null);
+    for (const [col, p] of colocadas.entries())
+      capas.push({ input: p.img, left: col * celda + p.izquierda, top: f * celda + p.arriba });
   }
 
   const crudo = await sharp({
@@ -512,11 +729,13 @@ export async function empaquetar(
     alturaPedida: alturaObjetivo,
     alturaFinal: Math.round(alturaObjetivo * (escala / pedida)),
     apoyoPorFila,
+    ...(motivoDeLaRejilla === undefined ? {} : { porRejilla: motivoDeLaRejilla }),
+    ...(encuadre.some((e) => e !== null) ? { encuadre } : {}),
     ...(pose === undefined
       ? {}
       : {
           deLaPose: {
-            k: (alturaObjetivo / pose.reposo) * (escala / pedida),
+            k,
             origen: [Math.round(celda / 2), base] as const,
             apoyoReposo: pose.apoyoReposo,
             posicion: pose.posicion,

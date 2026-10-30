@@ -7,7 +7,7 @@
  * `atlas.webp` que pinta la figura, las hojas de las que se juntó
  * (`hoja-a.webp`, `hoja-b.webp`), sus procedencias y los JSON del corte: ~100 MB
  * que el juego no pide nunca. No se borran del repo —son la procedencia que lee
- * `tools/taller/evaluar.ts`—: se quedan fuera del build.
+ * la revisión de animaciones (`tools/taller/revision/`)—: se quedan fuera del build.
  *
  * Aparte de `vite.config.ts` para que los tests lo ejerzan sin arrancar vite.
  */
@@ -15,7 +15,7 @@ import { cpSync } from 'node:fs';
 import { relative, sep } from 'node:path';
 
 /**
- * Lo que solo lee el taller, en tres reglas:
+ * Lo que solo lee el taller, en estas reglas:
  * - En una carpeta de dirección de una unidad o de una figura del banco de NPC
  *   (`npcs/<id>/dN/`, cuyos `atlas.json` llegan en `/__npcs`), todo menos su atlas. La página
  *   lee `unidades/<id>/dN/atlas.webp` (`registrarUnidad`,
@@ -31,6 +31,8 @@ import { relative, sep } from 'node:path';
  *   pinta y se mide (la paleta de los temas sale de `art/temas/`). Ni el
  *   cliente ni el build lo leen (comprobado con grep y con `vite build`,
  *   13-10-2026).
+ * - El esqueleto de cada hoja del maniquí (`*.huesos.json`, en `_poses/`): lo leen
+ *   la revisión de animaciones y la compuerta del trabajador, no el juego (~11 MB).
  * - `mundos/` entero: los mundos de la F1a (`core/mundo/`) se juegan solo en
  *   `pnpm dev`, que es quien los genera (decisión P6 del 22-10-2026); llevarlos
  *   al build es del backlog.
@@ -39,7 +41,7 @@ import { relative, sep } from 'node:path';
  * vacía.
  */
 const SOLO_DEL_TALLER =
-  /^(?:unidades|npcs)\/[^/]+\/d[0-7]\/(?!atlas\.webp$)[^/]+$|(?:^|\/)(?:fuentes|_guias)(?:\/|$)|^(?:art|mundos)(?:\/|$)/;
+  /^(?:unidades|npcs)\/[^/]+\/d[0-7]\/(?!atlas\.webp$)[^/]+$|(?:^|\/)(?:fuentes|_guias)(?:\/|$)|^(?:art|mundos)(?:\/|$)|\.huesos\.json$/;
 
 /** ¿Va a `dist/` este fichero, con su ruta relativa a `assets/`? */
 export function seCopiaAlBuild(relativa: string): boolean {

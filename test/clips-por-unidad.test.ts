@@ -30,7 +30,7 @@ describe('los clips de cada unidad', () => {
       reposo: 'idle_neutral',
       acciones: {
         walk: 'walking',
-        charge: 'run2',
+        charge: 'run',
         attack: 'heavy',
         hurt: 'impact2',
         death: 'death2',
@@ -44,7 +44,7 @@ describe('los clips de cada unidad', () => {
     expect(anims).toMatchObject({
       idle: 'idle_neutral',
       walk: 'walking',
-      charge: 'run2',
+      charge: 'run',
       attack: 'heavy',
       hurt: 'impact3',
       death: 'death',
@@ -109,7 +109,6 @@ describe('las hojas se pintan sobre la profundidad', () => {
   it('las B y C se escalan contra la A de su mismo tipo', () => {
     expect(hojaDelReposo('x/d3-b.png')).toBe('x/d3-a.png');
     expect(hojaDelReposo('x/d3-c.profundidad.png')).toBe('x/d3-a.profundidad.png');
-    expect(hojaDelReposo('x/d3-b.mezcla.png')).toBe('x/d3-a.mezcla.png');
     expect(hojaDelReposo('x/d3-a.profundidad.png')).toBe('x/d3-a.profundidad.png');
   });
 

@@ -299,28 +299,49 @@ Ninguna se espeja, porque la luz vendría del otro lado.
   se pierden el atrezo negro (escudo, asta) y el lado en sombra del maniquí; el
   gris claro se confunde con el propio maniquí.
 
-### El evaluador
+### La revisión (30-10-2026)
 
-`pnpm taller evaluar <id>` compara cada figura pintada con su maniquí, llevado
-al atlas con la misma transformación: la silueta del maniquí menos lo que cubre
-la figura. Por fila da el **nivel** (la mediana: la figura entera desviada,
-girada) y el **pico** (el peor fotograma menos la mediana: uno que se encoge o
-pierde el arma). Escribe `.cache/taller/evaluacion/<id>.json` y la vista 8d pone
-un borde rojo en lo que avisa.
+El evaluador de siluetas (`pnpm taller evaluar`, con el borde rojo de la vista 8d) y las
+pruebas de `experimento.ts` se retiraron: los sustituye la revisión de animaciones, que
+conduce la skill `/revisar-animaciones <id>` (`.claude/skills/revisar-animaciones/`). Lo
+medido que la justifica, en `docs/agents/2026-10-30-evaluar-animaciones/experimentos.md`.
 
-Calibrado el 03-10-2026 contra la revisión del usuario del templario del
-mandoble:
-
-- **Lo que ve:** «se gira hacia atrás», «se encoge en un fotograma» y una espada
-  que desaparece en una carga.
-- **Lo que no ve:** una espada fina que falta, una pierna levantada o pasos
-  repetidos.
-- **Falsas alarmas:** en el templario con escudo, ya aprobado, avisa de 9 filas
-  de 48.
-
-Es un aviso de revisión, no una aceptación.
-
-Además avisa, sin ambigüedad, de las celdas con el **azul guía** del maniquí
-copiado en una pierna (`esAzulGuia`, más de `UMBRAL_AZUL` píxeles): ningún
-templario lleva azul. El rojo de la otra pierna no se busca, porque se confunde
-con las cruces.
+- **El esqueleto del maniquí es un dato del taller.** `pnpm taller maniqui <id> --huesos`
+  (o `--civil --huesos`) renderiza aparte apuntando cada hueso y escribe, junto a cada
+  hoja, `d<n>-<h>.huesos.json`: el esqueleto de cada celda en píxeles y en el mundo
+  (metros, el suelo en 0, +z hacia donde mira), y el sha256 de la hoja. Si las hojas no
+  salen idénticas byte a byte a las de `assets/`, lanza. No va al build.
+- **El maniquí, primero** (`pnpm taller revisar-maniqui <id>`): si una marcha o una carga
+  anda hacia atrás (en el mundo), si el reposo se mueve más de 0,08 del alto y en qué
+  fotogramas el arma no se lee (de punta o detrás del pecho, solo en unos), y qué hojas se
+  pintaron sobre otro render. **La compuerta**: el trabajador no pinta un atlas con marcha o
+  carga cuyo maniquí no tiene esqueleto, lo tiene de otro render o anda hacia atrás
+  (`maniquiBlocker`); va a `fallido/` con el motivo. Los montados quedan fuera.
+- **Lo pintado** (`pnpm taller revisar <id> [dN…]`): por clip, los paneles (tira,
+  superposición de muñecos, encuadre con piel de cebolla, coherencia con el giro, bucle) y
+  sus cifras, que pinta el entorno de visión (`revision/vision.py`, la única puerta,
+  `revision/vision.ts`; `pnpm taller vision-instalar` lo crea en `.cache/vision/.venv`), y
+  el juicio de ChatGPT (`juzgarConCodex`, `codex exec --output-schema` con el esquema de
+  `revision/esquemas.ts`). El de Claude lo escriben subagentes con el mismo prompt.
+  `pnpm taller jurado unir|arbitrar|cruzar` une los dos, los arbitra y escribe el
+  veredicto y las instrucciones; `pnpm taller visor <id>` enseña a la persona lo que está
+  en disputa, y `pnpm taller visor-maniqui <id>` el maniquí animado con sus avisos. Cada
+  juicio, arbitraje y comparación guardado lleva la huella de lo que juzgó (`.huella`): si
+  la hoja cambió, se rehace. Una hoja pintada sobre otro render del maniquí se avisa y va
+  directa a `versiones`.
+- **El encuadre se corrige sin modelo (C1, `encuadre.ts`)**: al empaquetar, cada fotograma
+  se mueve para que el tronco pintado siga al tronco del maniquí (la media de sus caderas y
+  sus hombros: correlación del tronco entre fotogramas seguidos menos lo que se mueve el del
+  maniquí, por mínimos cuadrados, media 0, tope 24 px), con los pies en su sitio: el píxel
+  más bajo no baja del suelo de su celda ni sube más de lo que el pie del maniquí se separa
+  de él (`recolocarConLosPies`). La procedencia apunta cuánto (`encuadre`) o por qué no
+  (`sin recolocar…`). `pnpm taller reprocesar` solo rehace lo que se pintó con esta cola y
+  cuyo crudo sigue en `~/.codex`; lo pintado antes se arregla repintándolo.
+- **La pose y la coherencia, por selección**: `pnpm taller versiones <id> <dN> <h>` pide la
+  otra tirada, `esqueleto` (la pose con el muñeco encima, `pose-esqueleto`) y `todo`;
+  `pnpm taller elegir` las compara a ciegas con la de ahora en los dos órdenes (o, si la de
+  ahora es de otro maniquí, entre sí: un torneo), y
+  `pnpm taller adoptar` lleva a `assets/` la ganadora si la persona la prefirió en el visor.
+- **El empaquetado no tira una hoja buena**: si cuenta mal las figuras (un arma alta que
+  junta dos filas), corta el crudo por su rejilla antes de fallar (`porRejilla`), y la
+  procedencia lo dice.
