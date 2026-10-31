@@ -1272,11 +1272,20 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   `town_captured` 89 → 87, `troop_rank_up` 380 → 260, `hero_defeated` 61 → 26,
  *   `hero_moved` 3 045 → 2 181; ningún tipo de hecho nuevo ni perdido. La forma del
  *   diff, no una medida.
+ * - `d9649d99…` (3 743 líneas, 20 semillas, 31-10-2026): **el peso resta 1 por cada
+ *   fuerza entera, o parte, que pasa** (decisión del usuario; antes, 1 por cada mitad,
+ *   truncado). Contra `bf739e51…`, las 20 cambian, todas el día 1, y el primer hecho
+ *   distinto es de las casillas y los costes nuevos: una marcha (`hero_moved`, 8: el
+ *   grupo anda otra cosa), la IA licencia otra tropa (`dismissed`, 8), la primera
+ *   batalla (`battle_ended`, 3) o su veteranía (`troop_rank_up`, 1). El mismo mapa;
+ *   0 sin terminar; j0 gana 10 de 20 (8 antes); duración 4 / 8 / 9 → **4 / 6 / 8**,
+ *   días 87 → 79; batallas 96 → 89, `troop_rank_up` 260 → 280, `dismissed` 92 → 111;
+ *   ningún tipo de hecho nuevo ni perdido. La forma del diff, no una medida.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'bf739e519803daa5f6f4b9a947d0963ea48bee71a486b0e6716f71243b4f121c',
+  sha: 'd9649d99af7f8590ce0dcf07f85f9cd0560a344c88f0275c008b1ded2a8b0f17',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

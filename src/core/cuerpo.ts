@@ -6,9 +6,11 @@
  * derivadas de `UnitInfo` (`defense`, `damage`, `speed`) las escribe solo
  * `cifrasDelCuerpo`, y lo vigila `test/invariantes.test.ts`.
  *
- * - El peso hasta la fuerza no resta; por encima, −1 de agilidad por cada 50 % de
- *   la fuerza que lo pase, truncado (fuerza 20: peso 30 → −1, 40 → −2, 25 → 0;
- *   decisión del usuario). Con todo, la agilidad efectiva no baja de 1.
+ * - El peso hasta la fuerza no resta; por encima, −1 de agilidad por cada fuerza
+ *   entera, o parte de ella, que lo pase (31-10-2026, decisión del usuario: «resta
+ *   1 por cada vez que se pase de la fuerza»; fuerza 6: peso 6 → 0, 7 → −1,
+ *   12 → −1, 13 → −2; hasta entonces, −1 por cada mitad, truncado). Con todo, la
+ *   agilidad efectiva no baja de 1.
  * - Defensa = agilidad efectiva + la del escudo + la propia (la Defensa del héroe).
  * - Daño = [F, F × agilidad efectiva], con F = la fuerza más la que suma el arma:
  *   lo torpe y fuerte pega parejo (troll 55-110) y lo ágil, con mucha variación.
@@ -50,14 +52,14 @@ export const AGILIDAD_DEL_CUERPO_MAX = CASILLAS_MAX;
 
 /**
  * Lo que resta a la agilidad llevar `peso` con `fuerza`: nada hasta la fuerza, y
- * uno por cada mitad de la fuerza que la pase, truncado.
+ * uno por cada fuerza entera, o parte de ella, que la pase.
  */
 export function restaDelPeso(fuerza: number, peso: number): number {
   if (!Number.isInteger(fuerza) || fuerza < 1) {
     throw new Error(`la fuerza es un entero de 1 o más, y es ${fuerza}`);
   }
   if (peso <= fuerza) return 0;
-  return Math.floor((2 * (peso - fuerza)) / fuerza);
+  return Math.ceil((peso - fuerza) / fuerza);
 }
 
 /** La agilidad que queda con `peso` encima: la del cuerpo menos lo que resta el peso, como poco 1. */

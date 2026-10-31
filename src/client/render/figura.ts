@@ -144,15 +144,17 @@ export interface LuzSobreLaFigura {
 }
 
 /**
- * Las celdas ya teñidas, por imagen, celda, tamaño y color. Teñir es componer
+ * Las celdas a su tamaño en pantalla, por imagen, celda, tamaño, color y luz:
+ * toda figura con arte se pinta de aquí (`celdaEnPantalla`). Teñir es componer
  * tres veces sobre un lienzo de paso, y se hacía en cada fotograma por figura:
  * con 14 figuras y sin GPU eran 18 ms por fotograma, 1,1 ms con la caché (el
- * banco de la vuelta de simplify). Un tablero lleno de dos bandos en reposo son
- * 2 colores × 7 fotogramas × los cuerpos que haya; el tope (20 MB, ~130 celdas
- * de 200 px) cabe eso con holgura y no deja crecer la caché al hacer zoom, que
- * cambia el tamaño de todas.
+ * banco de la vuelta de simplify). Desde que el arte propio también pasa por
+ * aquí (31-10-2026), un 6 contra 6 de la arena gasta ~8 MB a densidad 1 y ~39 a
+ * densidad 2; con 20 MB, a densidad 2 se rehacían 60 celdas por segundo. El tope
+ * cabe eso con holgura y no deja crecer la caché al hacer zoom, que cambia el
+ * tamaño de todas.
  */
-const teñidas = new CacheDeLienzos<string, HTMLCanvasElement>(20_000_000);
+const celdas = new CacheDeLienzos<string, HTMLCanvasElement>(64_000_000);
 
 /**
  * Las siluetas de la sombra, por imagen, celda y tamaño: no dependen del color.
@@ -327,7 +329,8 @@ export function pintarSombraDeFigura(ctx: CanvasRenderingContext2D, c: FiguraCol
 }
 
 /**
- * La celda del Y Bot teñida del color del bando, de la caché o compuesta ahora.
+ * La celda a su tamaño en pantalla, de la caché o copiada ahora: la del Y Bot,
+ * teñida del color del bando, y con la luz del clima si le cae.
  *
  * El modo `color` se queda con la luminancia del Y Bot y el tono del bando: el
  * cian toma el color sin perder el sombreado. `multiply` lo dejaba pardo, porque
@@ -335,17 +338,21 @@ export function pintarSombraDeFigura(ctx: CanvasRenderingContext2D, c: FiguraCol
  * relleno había tapado entera. Sobre UNA celda, no sobre la hoja: teñir la hoja
  * entera por color eran ~200 MB más por color.
  */
-function celdaTeñida(
+function celdaEnPantalla(
   p: Colocada,
   color: string | null,
   w: number,
   luz: LuzSobreLaFigura | undefined,
 ): HTMLCanvasElement {
   const clave = `${claveDeCelda(p, w)}|${color ?? ''}|${luz?.por ?? ''}|${luz?.mas ?? ''}`;
-  const guardada = teñidas.get(clave);
+  const guardada = celdas.get(clave);
   if (guardada !== undefined) return guardada;
   const c = lienzoNuevo(w);
   copiarCelda(c, p.celda, w);
+  if (color === null && luz === undefined) {
+    celdas.set(clave, c.canvas);
+    return c.canvas;
+  }
   if (color !== null) {
     c.globalCompositeOperation = 'color';
     c.fillStyle = color;
@@ -365,7 +372,7 @@ function celdaTeñida(
   }
   c.globalCompositeOperation = 'destination-in';
   copiarCelda(c, p.celda, w);
-  teñidas.set(clave, c.canvas);
+  celdas.set(clave, c.canvas);
   return c.canvas;
 }
 
@@ -386,28 +393,17 @@ export function pintarFigura(ctx: CanvasRenderingContext2D, c: FiguraColocada): 
   if (p === null) {
     pintar = () => pintarMarcador(ctx, f);
   } else {
-    let fuente: CanvasImageSource = p.celda.image;
-    let origen = { x: p.celda.x, y: p.celda.y, lado: p.celda.size };
-    // El Y Bot, teñido del color de su bando; con arte propio, solo si le cae
-    // la luz del clima.
-    if (!p.arte.propio || f.luz !== undefined) {
-      const w = Math.max(1, Math.ceil(p.lado * Math.max(1, densidadDe(ctx))));
-      fuente = celdaTeñida(p, p.arte.propio ? null : f.color, w, f.luz);
-      origen = { x: 0, y: 0, lado: w };
-    }
+    // Siempre de la celda guardada, nunca del atlas (31-10-2026, «el juego va
+    // lento, sobre todo al sacar la rueda»): copiar a cada fotograma de hojas de
+    // 2688 × 2688, en el tablero y en los lienzos de la cabecera de la rueda,
+    // dejaba un 6 contra 6 de la arena con la rueda abierta a 1,9 fps con GPU
+    // (~480 ms por fotograma; 60 fps desde la celda) y costaba ~5,5 ms por
+    // fotograma sin ella. El Y Bot, teñido del color de su bando; con arte
+    // propio, tal cual.
+    const w = Math.max(1, Math.ceil(p.lado * Math.max(1, densidadDe(ctx))));
+    const fuente = celdaEnPantalla(p, p.arte.propio ? null : f.color, w, f.luz);
     const { lado, dx, dy } = p;
-    pintar = () =>
-      ctx.drawImage(
-        fuente,
-        origen.x,
-        origen.y,
-        origen.lado,
-        origen.lado,
-        f.x + dx,
-        f.suelo + dy,
-        lado,
-        lado,
-      );
+    pintar = () => ctx.drawImage(fuente, 0, 0, w, w, f.x + dx, f.suelo + dy, lado, lado);
   }
   ctx.save();
   ctx.globalAlpha = alfa;

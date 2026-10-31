@@ -274,8 +274,12 @@ describe('la crónica pasa por la niebla', () => {
     heroById(state, 'hero-0').army = ejercito({ creature: TROPA_BARATA, count: 1 });
     pasear(state, ctx, 0, [{ x: 8, y: 6 }]);
     pasarTurno(state, ctx, 0);
+    // Con fuerza de sobra también aquí: con el peso que resta 1 por cada fuerza, o
+    // parte, que pasa (31-10-2026), mi héroe y su goblin paraban a la tropa de
+    // salida del rival.
+    heroById(state, 'hero-1').army = ejercito({ creature: PESADA, count: 5 });
     pasear(state, ctx, 1, [{ x: 8, y: 6 }]);
-    resolvePendingBattle(state, ctx);
+    expect(resolvePendingBattle(state, ctx).winner).toBe('attacker');
     expect(heroById(state, 'hero-0').at).toEqual(MI_CASTILLO);
     // Cruzar el día es lo que pone un `day_start` del rival en la ventana. En
     // serpiente (`ordenDelDia`) el 1 cierra el día 1 y abre el 2.

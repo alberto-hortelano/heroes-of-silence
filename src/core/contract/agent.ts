@@ -488,8 +488,9 @@ Notas:
   agilidad, con F = fuerza + la que suma su arma (lo torpe y fuerte pega
   parejo; lo ágil, con mucha variación); las CASILLAS que anda son la agilidad.
   Toda pieza tiene un PESO ("weight" en "creature_stats" es lo que pesa lo de
-  serie): hasta la fuerza no resta nada, y por cada mitad de la fuerza que lo
-  pase, −1 de agilidad (fuerza 20: peso 30 → −1, 40 → −2), como poco 1. Ninguna
+  serie): hasta la fuerza no resta nada, y por cada fuerza entera, o parte de
+  ella, que lo pase, −1 de agilidad (fuerza 6: peso 7 → −1, 12 → −1, 13 → −2),
+  como poco 1. Ninguna
   pieza resta movimiento: lo hace el peso. "defense", "damage" y "speed" ya
   vienen con todo eso hecho. "creature_stats" da de cada
   unidad su "level", su "powerIndex", su "dwelling" (el edificio de su facción

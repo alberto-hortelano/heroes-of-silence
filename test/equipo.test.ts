@@ -1315,9 +1315,9 @@ describe('la IA compra y equipa (C5)', () => {
     // «para el veterano» y ponérsela al novato sería el mismo derroche por otra
     // puerta.
     hero.mochila = [];
-    // El guardia del bosque lleva lo mismo de serie que el guerrero con escudo, y de
-    // novato tiene más índice que un guerrero veterano de rango 2.
-    const MEJOR = 'elfo-guardia-del-bosque';
+    // El zombi lleva lo mismo de serie que el guerrero con escudo, y de novato tiene
+    // más índice que un guerrero veterano de rango 2.
+    const MEJOR = 'zombi';
     const veterano = { creature: TROPA, veterania: hoja('veterano-2', umbral(2)) };
     expect(unidadDelJuego(MEJOR).equipo!).toEqual(unidadDelJuego(TROPA).equipo!);
     expect(indiceDePoder(cifrasDeUnidad(MEJOR, undefined))).toBeGreaterThan(
@@ -1566,10 +1566,11 @@ describe('la montura, aparte del jinete (26-10-2026)', () => {
 
   it('el hermano de carga montado: las casillas del caballo, su agilidad entera y el daño sin la fuerza del caballo', () => {
     const montado = unidadDelJuego(JINETE);
-    // Lo suyo (espada, lanza y coraza: 15) y el caballo (3), 18 frente a 16: no resta.
+    // Lo suyo (espada, lanza y coraza: 15) y el caballo (3), 18 frente a 16: −1, de
+    // las 6 casillas del caballo a 5.
     expect(montado.peso).toBe(15);
     expect(montado.montura).toMatchObject({ id: 'caballo_de_guerra', fuerza: 16, guerra: true });
-    expect(SPEED_TO_HEXES[montado.speed]).toBe(6);
+    expect(SPEED_TO_HEXES[montado.speed]).toBe(5);
     expect(agilidadDe(montado)).toBe(4);
     expect(montado.defense).toBe(4);
     // El daño normal, (7 + 4) × [1, 4]: la fuerza del caballo no entra (riesgo del plan).
