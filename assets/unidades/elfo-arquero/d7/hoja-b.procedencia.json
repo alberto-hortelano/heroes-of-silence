@@ -1,18 +1,18 @@
 {
-  "encargo": "elfo-arquero-d7-b",
+  "encargo": "elfo-arquero-v-tirada-d7-b",
   "tipo": "atlas",
-  "fecha": "2026-10-10T17:19:39.302Z",
+  "fecha": "2026-10-30T21:40:58.067Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a126d2-c04d-7de2-b5b0-c3b83a2e0359",
+  "hilo": "01a18da8-e7da-7653-9ee1-e0f880bb48d0",
   "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUna arquera elfa: pelo plateado trenzado, armadura ligera de cuero con escamas de hoja, capa verde musgo hecha jirones, carcaj a la espalda y arco largo élfico de madera clara.\nEn la lámina de giro (imagen 2), la figura 8 en orden de lectura es la que mira hacia «frente-izquierda», como esta hoja: así se ve el personaje desde este lado.\nEl ATAQUE de esta hoja es cuerpo a cuerpo con una daga corta en la mano derecha: no dispara, y el arma de tiro no se ve mientras golpea.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de ATAQUE de la fila 1 de la referencia de pose, atacando con el arma del personaje. Fila 2: las siete poses de RECIBIR DAÑO de la fila 2: encaja un golpe y retrocede. Fila 3: las siete poses de la MUERTE de la fila 3: la primera es EXACTAMENTE la última de la fila 2, luego se desploma, y la última es el cadáver tendido e inmóvil en el suelo, con sus armas en el suelo donde las tiene el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «frente-izquierda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
       "ruta": "assets/unidades/_poses/unidades/elfo-arquero-8d/d7-b.profundidad.png",
       "papel": "pose-profundidad",
-      "sha256": "f8fa292ce155ca346ea2c46e6e43c2b69599c9e9bb3c9bb83b5522f94274693b"
+      "sha256": "061e3f23b739b1152761c63816584f528f5ca97bd1c5775214d0c5890f4407cd"
     },
     {
       "ruta": "assets/unidades/elfo-arquero/giro.webp",
@@ -26,20 +26,20 @@
     }
   ],
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a126d2-c04d-7de2-b5b0-c3b83a2e0359/exec-2ec9b8ea-fe62-4c6a-8feb-e1ed12e2ad8e.png",
-    "sha256": "7b966f1b8363d01f09e49efeea1920b8a7780af32e51d08d2b59ec7b2d2ce224",
-    "ancho": 1915,
+    "fichero": "~/.codex/generated_images/01a18da8-e7da-7653-9ee1-e0f880bb48d0/exec-0001e8c3-1c0e-49c1-a322-223da6e01977.png",
+    "sha256": "cb1668655251be70c96d159c43dde73258ce0b7f31503ef1f9729efa431fdd2b",
+    "ancho": 1916,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7714, pies en y=342, reposo a 160 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "dirección completa: assets/unidades/elfo-arquero/d7/atlas.webp"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.8458, pies en y=342, reposo a 160 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.05171583064649471,
-    "opacos": 0.9426446528705774,
+    "visibles": 0.0457947746155754,
+    "opacos": 0.9335082189172608,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -51,8 +51,8 @@
       342
     ],
     "apoyoReposo": [
-      188,
-      285
+      192,
+      286
     ],
     "posicion": true,
     "elevaciones": [
@@ -61,8 +61,107 @@
       64
     ]
   },
+  "encuadre": [
+    [
+      [
+        5,
+        -8
+      ],
+      [
+        3,
+        -1
+      ],
+      [
+        -9,
+        6
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        1,
+        -4
+      ],
+      [
+        -1,
+        4
+      ]
+    ],
+    [
+      [
+        0,
+        0
+      ],
+      [
+        -2,
+        -1
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        -2,
+        -4
+      ],
+      [
+        1,
+        1
+      ],
+      [
+        3,
+        0
+      ],
+      [
+        1,
+        4
+      ]
+    ],
+    [
+      [
+        5,
+        -2
+      ],
+      [
+        -5,
+        2
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        -3,
+        -2
+      ],
+      [
+        -1,
+        3
+      ],
+      [
+        4,
+        -1
+      ]
+    ]
+  ],
   "salida": {
     "ruta": "assets/unidades/elfo-arquero/d7/hoja-b.webp",
-    "sha256": "9344a47aba85ad7856315d58635f795ce639f9bac247ee2e9a9e9b065ec4e397"
+    "sha256": "e1fba4a42316052c314804f5bfd2af740be5a2e64dc9fe90c40435fb0df102a9"
+  },
+  "eleccion": {
+    "version": "tirada",
+    "modo": "torneo",
+    "motivo": "torneo: gana tirada todos sus duelos (tirada 2 de 2 duelos, esqueleto 0 de 2 duelos, todo 0 de 2 duelos)",
+    "persona": null,
+    "auto": true
   }
 }

@@ -1,14 +1,14 @@
 {
   "imagen": "atlas.webp",
-  "sha256": "352f85e2caaa787823281705dd3939ecb356bd44cdbb00d03c95285bcced4002",
+  "sha256": "0ad3b4fef88d03b8538acb7521505ff1003deed42123a0d10e5069e5e1c2b4ba",
   "cell": 384,
   "columns": 7,
-  "altura": 173,
+  "altura": 177,
   "cajaDeClic": [
-    -32,
-    -176,
-    70,
-    0
+    -35,
+    -178,
+    75,
+    1
   ],
   "clips": {
     "idle": {
@@ -17,7 +17,7 @@
       "fps": 5,
       "loop": true,
       "anchor": [
-        191,
+        192,
         342
       ]
     },
@@ -27,17 +27,17 @@
       "fps": 7,
       "loop": true,
       "anchor": [
-        191,
+        192,
         342
       ]
     },
     "charge": {
       "row": 2,
       "frames": 7,
-      "fps": 14,
+      "fps": 10.5,
       "loop": true,
       "anchor": [
-        191,
+        192,
         342
       ]
     },
@@ -47,7 +47,7 @@
       "fps": 2.1,
       "loop": false,
       "anchor": [
-        191,
+        192,
         342
       ]
     },
@@ -57,7 +57,7 @@
       "fps": 6.5,
       "loop": false,
       "anchor": [
-        191,
+        192,
         342
       ]
     },
@@ -67,7 +67,7 @@
       "fps": 2.5,
       "loop": false,
       "anchor": [
-        191,
+        192,
         278
       ]
     }

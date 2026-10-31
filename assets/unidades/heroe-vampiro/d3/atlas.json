@@ -5,9 +5,9 @@
   "columns": 7,
   "altura": 155,
   "cajaDeClic": [
-    -51,
+    -50,
     -154,
-    103,
+    104,
     0
   ],
   "clips": {
@@ -17,7 +17,7 @@
       "fps": 5,
       "loop": true,
       "anchor": [
-        192,
+        191,
         342
       ]
     },
@@ -27,7 +27,7 @@
       "fps": 6.5,
       "loop": true,
       "anchor": [
-        192,
+        191,
         342
       ]
     },
@@ -37,17 +37,17 @@
       "fps": 10.5,
       "loop": true,
       "anchor": [
-        192,
+        191,
         342
       ]
     },
     "attack": {
       "row": 3,
       "frames": 7,
-      "fps": 6.5,
+      "fps": 3.8,
       "loop": false,
       "anchor": [
-        192,
+        191,
         342
       ]
     },
@@ -57,7 +57,7 @@
       "fps": 6.5,
       "loop": false,
       "anchor": [
-        192,
+        191,
         342
       ]
     },
@@ -67,7 +67,7 @@
       "fps": 6,
       "loop": false,
       "anchor": [
-        192,
+        191,
         278
       ]
     }

@@ -32,6 +32,7 @@ import {
   clipDeDisparoDe,
   cuerpoACuerpoDe,
   ESPADA_CORTA,
+  golpeaConLaGranada,
   JUEGOS_DE_ARMAS,
   type JuegoEn8d,
   type Perfil,
@@ -53,6 +54,15 @@ export interface Unidad {
    * `montado-lanza`, la del jinete que renderiza `tools/art/montura.ts`.
    */
   readonly perfil: Perfil | 'montado-lanza';
+  /**
+   * La referencia de pose de su lámina de identidad, si no es la de su `perfil`
+   * (`rutaPoses`): una hoja de su propio maniquí cuando la del perfil no lleva lo
+   * que él. El granadero (31-10-2026) posaba con la de la ballesta, que dispara
+   * sin sable ni granada, y su identidad salía sin sable y con la granada en la
+   * otra mano; ahora posa con su maniquí mirando al frente y a la derecha.
+   * Solo la pose de la identidad: la arena sigue leyendo el `perfil`.
+   */
+  readonly poseDeIdentidad?: string;
   /**
    * Con qué pelea en la arena (`KIT_DEL_PERFIL`), si no es el perfil de su hoja de
    * pose: el jinete élfico posa con la lanza y lleva además arco y espada
@@ -171,48 +181,57 @@ const temperamento = (
   },
   ritmo: { tiempoReal: true, ...(tramoDelReposo === undefined ? {} : { fps: { idle: 5 } }) },
 });
-/** Infantería de espada y escudo en guardia: el arranque de la guardia de `idle`. */
-const EN_GUARDIA = temperamento(
-  'idle',
-  { walk: 'walk', charge: 'run', hurt: 'impact3', death: 'death' },
-  [0, 1.5],
-);
-/** Lanzas y alabardas en formación: la guardia quieta y la carrera erguida. */
-const EN_FORMACION = temperamento('idle4', {
+/**
+ * Infantería de espada y escudo en guardia: la guardia quieta tras el escudo
+ * (`block_idle`). La de `idle` giraba tanto la cabeza que confundía al pintor
+ * (visor del maniquí, 30-10-2026).
+ */
+const EN_GUARDIA = temperamento('block_idle', {
   walk: 'walk',
-  charge: 'run2',
+  charge: 'run',
   hurt: 'impact3',
   death: 'death',
 });
-/** Armaduras pesadas y brutos: guardia quieta, paso firme, el golpe le dobla y cae de rodillas. */
+/** Lanzas y alabardas en formación: la guardia quieta. */
+const EN_FORMACION = temperamento('idle4', {
+  walk: 'walk',
+  charge: 'run',
+  hurt: 'impact3',
+  death: 'death',
+});
+/** Armaduras pesadas y brutos: guardia quieta, el golpe le dobla y cae de rodillas. */
 const PESADO = temperamento('idle4', {
-  walk: 'walk2',
-  charge: 'run2',
+  walk: 'walk',
+  charge: 'run',
   hurt: 'impact2',
   death: 'death2',
 });
-/** Ligeros y vigilantes: mira a los lados, corre agachado. */
-const AGIL = temperamento(
-  'idle_look_around',
-  { walk: 'walk', charge: 'run', hurt: 'impact3', death: 'death' },
-  [0, 1.5],
-);
+/**
+ * Ligeros y vigilantes: la guardia quieta de `idle4`. El reposo de mirar a los
+ * lados (`idle_look_around`) se movía demasiado (visor del maniquí, 30-10-2026).
+ */
+const AGIL = temperamento('idle4', {
+  walk: 'walk',
+  charge: 'run',
+  hurt: 'impact3',
+  death: 'death',
+});
 /** Magos, sanadores, tiradores y gente sin guardia: de pie y relajado, el paso de calle. */
 const SOSEGADO = temperamento(
   'idle_neutral',
-  { walk: 'walking', charge: 'run2', hurt: 'impact2', death: 'death2' },
+  { walk: 'walking', charge: 'run', hurt: 'impact2', death: 'death2' },
   [0, 1.5],
 );
 /** Como `SOSEGADO`, pero respirando hondo: sacerdotes y druidas. */
 const EN_CALMA = temperamento(
   'idle_breathing',
-  { walk: 'walking', charge: 'run2', hurt: 'impact2', death: 'death2' },
+  { walk: 'walking', charge: 'run', hurt: 'impact2', death: 'death2' },
   [0, 1.5],
 );
 /** Encorvados y renqueantes: zombis, penitentes, el chamán goblin. */
 const RENQUEANTE = temperamento(
   'wounded_idle',
-  { walk: 'walk2', charge: 'run2', hurt: 'impact2', death: 'death2' },
+  { walk: 'walk', charge: 'run', hurt: 'impact2', death: 'death2' },
   [0, 1.5],
 );
 /** El mismo temperamento con otro ataque. */
@@ -505,13 +524,18 @@ export const UNIDADES: readonly Unidad[] = [
     faccion: 'imperio',
     nombre: 'Granadero',
     perfil: 'ballesta',
+    // El reposo de su maniquí hacia «frente-derecha», con el sable y la bola.
+    poseDeIdentidad: 'assets/unidades/_poses/unidades/imperio-granadero-8d/d1-a.png',
     concepto: 'assets/art/imperio/granadero.png',
     aspecto:
-      'Un granadero: gorro alto de tela a franjas amarillas y negras con cinta roja, coleto de cuero sobre ropa acuchillada amarilla y negra, banda roja a la cintura, bandolera y bolsa de granadas de hierro, una granada redonda con la mecha encendida en la mano derecha, mecha lenta enrollada en la muñeca izquierda y un sable al cinto, con el que pelea cuerpo a cuerpo.',
+      'Un granadero: gorro alto de tela a franjas amarillas y negras con cinta roja, coleto de cuero sobre ropa acuchillada amarilla y negra, banda roja a la cintura, bandolera y bolsa de granadas de hierro. Lleva un SABLE desenvainado en su mano DERECHA, con el que pelea cuerpo a cuerpo, y una granada redonda de hierro con la mecha encendida en su mano IZQUIERDA, como el maniquí de la referencia de pose, que lleva el palo del sable y la bola en esas mismas manos. Derecha e izquierda son las del propio personaje, no las de quien mira: visto de frente, el sable queda a la izquierda de la imagen y la granada a la derecha; de espaldas, al revés. La lámina de concepto (la de frente, a la altura de los ojos) vale SOLO para la ropa, los colores y los materiales: en ella la granada va en alto en la otra mano, la izquierda lleva una mecha de cuerda y el sable va al cinto; NO copies de ella la pose ni qué mano lleva qué.',
   },
   {
     id: 'elfo-arquero',
-    ...conImpact2(AGIL),
+    // El quieto de los tiradores, como el goblin arquero: con `idle4` la mano del
+    // arco quedaba delante de la entrepierna y ningún repintado lo quitaba (visor
+    // del repintado, 30-10-2026).
+    ...conReposo(conImpact2(AGIL), 'idle_neutral'),
     maniqui: JUEGOS_DE_ARMAS['arco'].atrezo,
     faccion: 'elfos',
     nombre: 'Arquero',
@@ -611,7 +635,7 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'orko-dos-armas',
-    ...conImpact2(conAtaque(AGIL, 'slash4')),
+    ...conImpact2(conAtaque(AGIL, 'precise')),
     faccion: 'orkos',
     nombre: 'Orko con dos armas',
     perfil: 'dos-manos',
@@ -646,9 +670,8 @@ export const UNIDADES: readonly Unidad[] = [
   },
   {
     id: 'goblin-arquero',
-    // El reposo de `AGIL` (`idle_look_around`) se gira y se agacha, y en el
-    // goblin se veía así (decisión del usuario, 23-10-2026): el quieto de los
-    // tiradores.
+    // El quieto de los tiradores (decisión del usuario, 23-10-2026: el de mirar a
+    // los lados de entonces se giraba y se agachaba en el goblin).
     ...conReposo(conImpact2(AGIL), 'idle_neutral'),
     maniqui: JUEGOS_DE_ARMAS['arco'].atrezo,
     faccion: 'orkos',
@@ -863,7 +886,7 @@ export const HEROES: readonly Unidad[] = [
   },
   {
     id: 'heroe-elfo-danzante-de-espadas',
-    ...conImpact2(conAtaque(AGIL, 'slash4')),
+    ...conImpact2(conAtaque(AGIL, 'precise')),
     faccion: 'elfos',
     nombre: 'Danzante de espadas (héroe)',
     perfil: 'espada-escudo',
@@ -977,7 +1000,8 @@ export function unidad(id: string): Unidad {
 }
 
 export const rutaIdentidad = (u: Unidad): string => `assets/unidades/${u.id}/identidad`;
-export const rutaPoses = (u: Unidad): string => `assets/unidades/_poses/${u.perfil}.png`;
+export const rutaPoses = (u: Unidad): string =>
+  u.poseDeIdentidad ?? `assets/unidades/_poses/${u.perfil}.png`;
 
 export function encargoDeIdentidad(u: Unidad): Encargo {
   return {
@@ -1271,7 +1295,12 @@ export function encargosDeOchoDirecciones(u: Unidad): Encargo[] {
           ...((HOJAS_DE_FIGURA[hoja] as readonly ClipDeFigura[]).includes('attack') &&
           cuerpoACuerpo !== null
             ? [
-                `El ATAQUE de esta hoja es cuerpo a cuerpo con ${cuerpoACuerpo}: no dispara, y el arma de tiro no se ve mientras golpea.`,
+                `El ATAQUE de esta hoja es cuerpo a cuerpo con ${cuerpoACuerpo}: no dispara, ${
+                  // El granadero lleva la granada en la izquierda también al golpear.
+                  golpeaConLaGranada(juego, u.maniqui)
+                    ? 'y la granada sigue en la mano izquierda, sin lanzarla.'
+                    : 'y el arma de tiro no se ve mientras golpea.'
+                }`,
               ]
             : []),
           PINTURA,

@@ -1,18 +1,18 @@
 {
-  "encargo": "templario-penitente-d6-a",
+  "encargo": "templario-penitente-v-tirada-d6-a",
   "tipo": "atlas",
-  "fecha": "2026-10-10T21:44:20.610Z",
+  "fecha": "2026-10-31T00:16:32.755Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a127c5-108b-7043-8033-ccacb3eeaf50",
+  "hilo": "01a18f4f-785d-7a22-9038-6f0b76a03ad0",
   "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn penitente flagelante sin armadura: capirote de tela áspera que le tapa la cara, torso desnudo y marcado, faldón de arpillera con tiras rojas, pies descalzos, mayal de bola de pinchos.\nEn la lámina de giro (imagen 2), la figura 7 en orden de lectura es la que mira hacia «izquierda», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «izquierda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
       "ruta": "assets/unidades/_poses/unidades/templario-penitente-8d/d6-a.profundidad.png",
       "papel": "pose-profundidad",
-      "sha256": "1a96dd52b0c756b6deab25ec5cc1807edf03246b1b327e1df44e170fcc576dad"
+      "sha256": "fe8328d4d8e59cfe77e8b9d806f33a9c0fe71bea857f9a91138f3ad61a6c9c41"
     },
     {
       "ruta": "assets/unidades/templario-penitente/giro.webp",
@@ -26,20 +26,20 @@
     }
   ],
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a127c5-108b-7043-8033-ccacb3eeaf50/exec-835ece10-85ab-4e99-a563-d7b350388f12.png",
-    "sha256": "3c0d6462cbacf8936cd1ecb5c3fbec535be28800146ebcfdc4c473278aa91b38",
+    "fichero": "~/.codex/generated_images/01a18f4f-785d-7a22-9038-6f0b76a03ad0/exec-2379b732-916b-40a0-899d-5de4bc378655.png",
+    "sha256": "a89ef2924795ba715b7cd4f7a69ea49eb19c1718d44c877d0bc43b281395735d",
     "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7521, pies en y=342, reposo a 160 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "dirección completa: assets/unidades/templario-penitente/d6/atlas.webp"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.8146, pies en y=342, reposo a 160 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.050657242063492064,
-    "opacos": 0.9312143002855977,
+    "visibles": 0.04898733310598545,
+    "opacos": 0.938276650867212,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -52,12 +52,111 @@
     ],
     "apoyoReposo": [
       181,
-      280
+      279
     ],
     "posicion": false
   },
+  "encuadre": [
+    [
+      [
+        -7,
+        0
+      ],
+      [
+        2,
+        1
+      ],
+      [
+        2,
+        1
+      ],
+      [
+        0,
+        -2
+      ],
+      [
+        0,
+        -2
+      ],
+      [
+        1,
+        1
+      ],
+      [
+        1,
+        0
+      ]
+    ],
+    [
+      [
+        -2,
+        -10
+      ],
+      [
+        0,
+        -8
+      ],
+      [
+        1,
+        -6
+      ],
+      [
+        0,
+        -7
+      ],
+      [
+        2,
+        -6
+      ],
+      [
+        -1,
+        0
+      ],
+      [
+        0,
+        -7
+      ]
+    ],
+    [
+      [
+        5,
+        -2
+      ],
+      [
+        11,
+        -4
+      ],
+      [
+        8,
+        2
+      ],
+      [
+        9,
+        0
+      ],
+      [
+        -19,
+        2
+      ],
+      [
+        -7,
+        0
+      ],
+      [
+        -8,
+        -3
+      ]
+    ]
+  ],
   "salida": {
     "ruta": "assets/unidades/templario-penitente/d6/hoja-a.webp",
-    "sha256": "084b26021c0cb033e0759e5aa3a244611490b55e05781fa540cf2803cf095573"
+    "sha256": "2c352df09060c2a49a169caafc8acba20243a8c14122bd524c406a4c4d81a125"
+  },
+  "eleccion": {
+    "version": "tirada",
+    "modo": "torneo",
+    "motivo": "torneo: gana tirada todos sus duelos (tirada 2 de 2 duelos, esqueleto 0 de 2 duelos, todo 1 de 2 duelos)",
+    "persona": null,
+    "auto": true
   }
 }

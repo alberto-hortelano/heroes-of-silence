@@ -5,7 +5,7 @@
  */
 import { existsSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { CARPETA_DE_LAS_FIGURAS, figuraDelBanco } from '../../src/core/npcs.js';
 import {
   HOJAS_DE_FIGURA,
@@ -92,4 +92,17 @@ export async function juntarDireccion(dir: string): Promise<string | null> {
     )}\n`,
   );
   return atlas;
+}
+
+/**
+ * Lo que se hace al acabar una hoja de 8 direcciones en su carpeta de `assets/`:
+ * juntar la dirección si ya están todas sus hojas. Lo llaman el trabajador, tras
+ * pintarla, y `pnpm taller adoptar`, tras elegir una versión. Devuelve lo que
+ * apunta la procedencia.
+ */
+export async function alAcabarUnaHoja(dir: string): Promise<string> {
+  const junta = await juntarDireccion(dir);
+  return junta === null
+    ? 'media dirección: se junta con la otra hoja cuando esté'
+    : `dirección completa: ${relative(resolve(import.meta.dirname, '../..'), junta)}`;
 }

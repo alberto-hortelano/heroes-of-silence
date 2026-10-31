@@ -1,23 +1,23 @@
 {
   "encargo": "imperio-granadero-d4-b",
   "tipo": "atlas",
-  "fecha": "2026-10-10T20:52:07.096Z",
+  "fecha": "2026-10-31T12:30:38.649Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a12795-3040-7a61-9e24-16ac89e13c56",
-  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn granadero: gorro alto de tela a franjas amarillas y negras con cinta roja, coleto de cuero sobre ropa acuchillada amarilla y negra, banda roja a la cintura, bandolera y bolsa de granadas de hierro, una granada redonda con la mecha encendida en la mano derecha, mecha lenta enrollada en la muñeca izquierda y un sable al cinto, con el que pelea cuerpo a cuerpo.\nEn la lámina de giro (imagen 2), la figura 5 en orden de lectura es la que mira hacia «espalda», como esta hoja: así se ve el personaje desde este lado.\nEl ATAQUE de esta hoja es cuerpo a cuerpo con un sable de una mano en la derecha: no dispara, y el arma de tiro no se ve mientras golpea.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de ATAQUE de la fila 1 de la referencia de pose, atacando con el arma del personaje. Fila 2: las siete poses de RECIBIR DAÑO de la fila 2: encaja un golpe y retrocede. Fila 3: las siete poses de la MUERTE de la fila 3: la primera es EXACTAMENTE la última de la fila 2, luego se desploma, y la última es el cadáver tendido e inmóvil en el suelo, con sus armas en el suelo donde las tiene el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «espalda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "hilo": "01a191ef-4dc6-73f3-9f48-2c064de8548f",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn granadero: gorro alto de tela a franjas amarillas y negras con cinta roja, coleto de cuero sobre ropa acuchillada amarilla y negra, banda roja a la cintura, bandolera y bolsa de granadas de hierro. Lleva un SABLE desenvainado en su mano DERECHA, con el que pelea cuerpo a cuerpo, y una granada redonda de hierro con la mecha encendida en su mano IZQUIERDA, como el maniquí de la referencia de pose, que lleva el palo del sable y la bola en esas mismas manos. Derecha e izquierda son las del propio personaje, no las de quien mira: visto de frente, el sable queda a la izquierda de la imagen y la granada a la derecha; de espaldas, al revés. La lámina de concepto (la de frente, a la altura de los ojos) vale SOLO para la ropa, los colores y los materiales: en ella la granada va en alto en la otra mano, la izquierda lleva una mecha de cuerda y el sable va al cinto; NO copies de ella la pose ni qué mano lleva qué.\nEn la lámina de giro (imagen 2), la figura 5 en orden de lectura es la que mira hacia «espalda», como esta hoja: así se ve el personaje desde este lado.\nEl ATAQUE de esta hoja es cuerpo a cuerpo con un sable de una mano en la derecha: no dispara, y la granada sigue en la mano izquierda, sin lanzarla.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de ATAQUE de la fila 1 de la referencia de pose, atacando con el arma del personaje. Fila 2: las siete poses de RECIBIR DAÑO de la fila 2: encaja un golpe y retrocede. Fila 3: las siete poses de la MUERTE de la fila 3: la primera es EXACTAMENTE la última de la fila 2, luego se desploma, y la última es el cadáver tendido e inmóvil en el suelo, con sus armas en el suelo donde las tiene el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «espalda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
       "ruta": "assets/unidades/_poses/unidades/imperio-granadero-8d/d4-b.profundidad.png",
       "papel": "pose-profundidad",
-      "sha256": "9e79e18cb781cb921f9018cb313521f2fe3704e19e7b6abeb94cca41584fdbe6"
+      "sha256": "d9ea30c4c93496699e725ebb0ce8f4a10299fcb901c556048db3d6db515c9d7a"
     },
     {
       "ruta": "assets/unidades/imperio-granadero/giro.webp",
       "papel": "identidad",
-      "sha256": "77b102fcbd24616ef19cb5cdb98bf743dd5ad2bdb4424f1a041bbcae94c7ed09"
+      "sha256": "36c3e7610fa44b4437a0523dfe9a98812fc28672ab0d64193c1a0de4f33d0852"
     },
     {
       "ruta": "assets/art/imperio/granadero.png",
@@ -26,20 +26,21 @@
     }
   ],
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a12795-3040-7a61-9e24-16ac89e13c56/exec-3643de33-918c-437c-9aa8-ef47181168b8.png",
-    "sha256": "fa2cecefdabf433c35dc5c855ec8c2702e1af7c9824911d48c5e3a8d350222e9",
+    "fichero": "~/.codex/generated_images/01a191ef-4dc6-73f3-9f48-2c064de8548f/exec-74abb7bb-571b-42ff-9e74-cf74572de15e.png",
+    "sha256": "9a6bdbbe6dbc369c28a9aa565f9fc9dd95563c4dce17d7a8ed7d650041813b78",
     "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.8457, pies en y=342, reposo a 160 px",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.8202, pies en y=342, reposo a 160 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
     "WebP calidad 92, alfa sin pérdida",
     "dirección completa: assets/unidades/imperio-granadero/d4/atlas.webp"
   ],
   "validacion": {
-    "visibles": 0.048459007626488096,
-    "opacos": 0.9449675789866517,
+    "visibles": 0.04484372416501323,
+    "opacos": 0.9423960478748685,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -51,8 +52,8 @@
       342
     ],
     "apoyoReposo": [
-      194,
-      277
+      199,
+      287
     ],
     "posicion": true,
     "elevaciones": [
@@ -61,8 +62,100 @@
       64
     ]
   },
+  "encuadre": [
+    [
+      [
+        -1,
+        -16
+      ],
+      [
+        1,
+        -1
+      ],
+      [
+        -1,
+        6
+      ],
+      [
+        -2,
+        6
+      ],
+      [
+        -1,
+        2
+      ],
+      [
+        3,
+        -12
+      ],
+      [
+        0,
+        -12
+      ]
+    ],
+    [
+      [
+        6,
+        -2
+      ],
+      [
+        2,
+        -8
+      ],
+      [
+        1,
+        -2
+      ],
+      [
+        -2,
+        4
+      ],
+      [
+        -2,
+        3
+      ],
+      [
+        -2,
+        3
+      ],
+      [
+        -1,
+        3
+      ]
+    ],
+    [
+      [
+        -1,
+        1
+      ],
+      [
+        1,
+        -1
+      ],
+      [
+        -1,
+        -9
+      ],
+      [
+        -7,
+        -10
+      ],
+      [
+        0,
+        6
+      ],
+      [
+        4,
+        -2
+      ],
+      [
+        4,
+        -1
+      ]
+    ]
+  ],
   "salida": {
     "ruta": "assets/unidades/imperio-granadero/d4/hoja-b.webp",
-    "sha256": "0b160bd13e00ac298239d0aa847f837be37440d064f0164cc832794a1a4c0a46"
+    "sha256": "257d9c772b269692f48530e1a1bc8cc21708486c7481c559f1de288b51323558"
   }
 }

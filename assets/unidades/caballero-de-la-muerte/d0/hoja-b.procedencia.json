@@ -1,18 +1,18 @@
 {
-  "encargo": "caballero-de-la-muerte-d0-b",
+  "encargo": "caballero-de-la-muerte-v-esqueleto-d0-b",
   "tipo": "atlas",
-  "fecha": "2026-10-10T17:04:53.524Z",
+  "fecha": "2026-10-30T21:29:44.469Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a126c5-3073-7e02-bf69-6023aa5d68ca",
-  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn caballero de la muerte, contrapunto oscuro del templario: armadura de placas negra y abollada con remaches de hierro, sobrevesta negra hecha jirones con una cruz rota desteñida, yelmo cerrado con cuernos cortos y un brillo verde frío tras la visera, gran espadón mellado empuñado a dos manos.\nEn la lámina de giro (imagen 2), la figura 1 en orden de lectura es la que mira hacia «frente», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de ATAQUE de la fila 1 de la referencia de pose, atacando con el arma del personaje. Fila 2: las siete poses de RECIBIR DAÑO de la fila 2: encaja un golpe y retrocede. Fila 3: las siete poses de la MUERTE de la fila 3: la primera es EXACTAMENTE la última de la fila 2, luego se desploma, y la última es el cadáver tendido e inmóvil en el suelo, con sus armas en el suelo donde las tiene el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «frente» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "hilo": "01a18d3a-af9a-78a3-af4b-722594848a9c",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el MAPA DE PROFUNDIDAD del maniquí Y Bot (cámara ortográfica elevada 25 grados; más claro, más cerca; el negro es fondo) con su ESQUELETO dibujado encima: los huesos del lado IZQUIERDO del personaje en AZUL, los del DERECHO en ROJO, el tronco y la cabeza en BLANCO y el eje del arma en AMARILLO. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación siguiendo el esqueleto (dónde está cada codo, cada mano, cada rodilla y cada pie, y hacia dónde apunta el arma). El arma que se pinta es la del PERSONAJE (la de su identidad), por el eje amarillo. NO pintes el esqueleto, sus colores, el gris ni el fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn caballero de la muerte, contrapunto oscuro del templario: armadura de placas negra y abollada con remaches de hierro, sobrevesta negra hecha jirones con una cruz rota desteñida, yelmo cerrado con cuernos cortos y un brillo verde frío tras la visera, gran espadón mellado empuñado a dos manos.\nEn la lámina de giro (imagen 2), la figura 1 en orden de lectura es la que mira hacia «frente», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de ATAQUE de la fila 1 de la referencia de pose, atacando con el arma del personaje. Fila 2: las siete poses de RECIBIR DAÑO de la fila 2: encaja un golpe y retrocede. Fila 3: las siete poses de la MUERTE de la fila 3: la primera es EXACTAMENTE la última de la fila 2, luego se desploma, y la última es el cadáver tendido e inmóvil en el suelo, con sus armas en el suelo donde las tiene el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «frente» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
-      "ruta": "assets/unidades/_poses/unidades/caballero-de-la-muerte-8d/d0-b.profundidad.png",
-      "papel": "pose-profundidad",
-      "sha256": "45768a789735a86e39d487ca2b3b373a5b8736987fa48af7a15ef3931b9c5e41"
+      "ruta": ".cache/taller/revision/caballero-de-la-muerte/d0/versiones/pose-esqueleto-b.png",
+      "papel": "pose-esqueleto",
+      "sha256": "723e4051e023564d6508e7292865937fbabf0861e9c250858aab86c662a2a3fc"
     },
     {
       "ruta": "assets/unidades/caballero-de-la-muerte/giro.webp",
@@ -25,21 +25,23 @@
       "sha256": "0536b0fa1b912f03729958c9b1fc0a9fc88fb9589a82a11013db678c49e9b881"
     }
   ],
+  "pose": "assets/unidades/_poses/unidades/caballero-de-la-muerte-8d/d0-b.profundidad.png",
+  "shaDeLaPose": "d86ac8767e17e3e6ea55865fa606ad3c9d4538e7ec37ec56968f53f5940c5c3a",
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a126c5-3073-7e02-bf69-6023aa5d68ca/exec-f9431d19-abe7-40c4-abd4-e2a903406d82.png",
-    "sha256": "90522be977c2535374576bea4c5e425906a8e0851d53c8d0458fbc993214cb1a",
+    "fichero": "~/.codex/generated_images/01a18d3a-af9a-78a3-af4b-722594848a9c/exec-a41b4c0c-7fdb-4394-a0e8-b3b2eaa1890f.png",
+    "sha256": "058f7669aac571063bfc2bfd1ce3cbd2a0230513b32e5b08ac6203be44977a67",
     "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7727, pies en y=342, reposo a 160 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "dirección completa: assets/unidades/caballero-de-la-muerte/d0/atlas.webp"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7104, pies en y=342, reposo a 160 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.036313334470072754,
-    "opacos": 0.9448362339591097,
+    "visibles": 0.03864365027695106,
+    "opacos": 0.9421291460184017,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -51,7 +53,7 @@
       342
     ],
     "apoyoReposo": [
-      186,
+      187,
       292
     ],
     "posicion": true,
@@ -61,8 +63,107 @@
       64
     ]
   },
+  "encuadre": [
+    [
+      [
+        -1,
+        -4
+      ],
+      [
+        1,
+        4
+      ],
+      [
+        2,
+        2
+      ],
+      [
+        -2,
+        -2
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        -1,
+        0
+      ],
+      [
+        1,
+        0
+      ]
+    ],
+    [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        -1
+      ],
+      [
+        1,
+        -3
+      ],
+      [
+        0,
+        -2
+      ],
+      [
+        -2,
+        -1
+      ],
+      [
+        1,
+        6
+      ],
+      [
+        0,
+        0
+      ]
+    ],
+    [
+      [
+        3,
+        -21
+      ],
+      [
+        5,
+        -8
+      ],
+      [
+        5,
+        -7
+      ],
+      [
+        2,
+        -6
+      ],
+      [
+        3,
+        1
+      ],
+      [
+        -13,
+        7
+      ],
+      [
+        -6,
+        12
+      ]
+    ]
+  ],
+  "porRejilla": "contadas cortando el crudo por su rejilla: la fila 2 tiene 6 figuras y la hoja pide 7 (en total se encontraron 19 de 21)",
   "salida": {
     "ruta": "assets/unidades/caballero-de-la-muerte/d0/hoja-b.webp",
-    "sha256": "c15a72096d169ac648443edd48dc0321316e7152196473d7402f205670ca5cbd"
+    "sha256": "10b0789fb82409f21e1ca19dc3992eabc96023bf53158ab127bcdad7e8da9330"
+  },
+  "eleccion": {
+    "version": "esqueleto",
+    "modo": "torneo",
+    "motivo": "torneo: ninguna gana todos sus duelos (tirada 0 de 2 duelos, esqueleto 1 de 2 duelos, todo 1 de 2 duelos); la de ahora no vale (es de otro maniquí): decide la persona entre esqueleto y todo en el visor",
+    "persona": "versión 2"
   }
 }

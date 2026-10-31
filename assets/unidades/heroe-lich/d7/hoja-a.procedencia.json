@@ -1,18 +1,18 @@
 {
-  "encargo": "heroe-lich-d7-a",
+  "encargo": "heroe-lich-v-esqueleto-d7-a",
   "tipo": "atlas",
-  "fecha": "2026-10-10T19:23:27.622Z",
+  "fecha": "2026-10-30T21:47:06.269Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a12744-1c74-7c41-a7d7-54b8f0c31760",
-  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn lich: esqueleto de mago con corona de hierro oxidada, túnica ceremonial negra y verde podrida con hilos de oro deshilachados, manos huesudas con anillos, filacteria colgada al cuello, bastón alto de hueso rematado en una gema verde.\nEn la lámina de giro (imagen 2), la figura 8 en orden de lectura es la que mira hacia «frente-izquierda», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «frente-izquierda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "hilo": "01a18db0-76f2-7751-915b-ea126bc4375e",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el MAPA DE PROFUNDIDAD del maniquí Y Bot (cámara ortográfica elevada 25 grados; más claro, más cerca; el negro es fondo) con su ESQUELETO dibujado encima: los huesos del lado IZQUIERDO del personaje en AZUL, los del DERECHO en ROJO, el tronco y la cabeza en BLANCO y el eje del arma en AMARILLO. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación siguiendo el esqueleto (dónde está cada codo, cada mano, cada rodilla y cada pie, y hacia dónde apunta el arma). El arma que se pinta es la del PERSONAJE (la de su identidad), por el eje amarillo. NO pintes el esqueleto, sus colores, el gris ni el fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn lich: esqueleto de mago con corona de hierro oxidada, túnica ceremonial negra y verde podrida con hilos de oro deshilachados, manos huesudas con anillos, filacteria colgada al cuello, bastón alto de hueso rematado en una gema verde.\nEn la lámina de giro (imagen 2), la figura 8 en orden de lectura es la que mira hacia «frente-izquierda», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «frente-izquierda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
-      "ruta": "assets/unidades/_poses/unidades/heroe-lich-8d/d7-a.profundidad.png",
-      "papel": "pose-profundidad",
-      "sha256": "d351b4b560c121d0b6c7ca01d2c4782717e20a707ac677a26e35e8d0ebc3e88e"
+      "ruta": ".cache/taller/revision/heroe-lich/d7/versiones/pose-esqueleto-a.png",
+      "papel": "pose-esqueleto",
+      "sha256": "d0bae0a12ccd481692f249dce0494cf92181b9b9a4c84016e99e699a786b6568"
     },
     {
       "ruta": "assets/unidades/heroe-lich/giro.webp",
@@ -25,22 +25,24 @@
       "sha256": "17d08632eda11e43b5fc4e6e15171582447c6d320d45b03bb6d712e8ad7d07cb"
     }
   ],
+  "pose": "assets/unidades/_poses/unidades/heroe-lich-8d/d7-a.profundidad.png",
+  "shaDeLaPose": "52364bf4aea9d5280d459e9b2383891fe764223d06900a6621fae0b1c5d05ff1",
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a12744-1c74-7c41-a7d7-54b8f0c31760/exec-d64b6e1c-a631-4719-a754-b4a479a08a8b.png",
-    "sha256": "b52b8ad2c2ae3cb7125a29896a5fd73cb920432c30c29be6bd58f9b0e8c9e9f3",
+    "fichero": "~/.codex/generated_images/01a18db0-76f2-7751-915b-ea126bc4375e/exec-a52697d1-f27c-4be1-8886-5131588d0c70.png",
+    "sha256": "b22177a761b1d10056b569bbcdcca36b77b0c611d2a9a7dfdfb4806ec1d2d78e",
     "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7737, pies en y=342, reposo a 160 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "dirección completa: assets/unidades/heroe-lich/d7/atlas.webp"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7384, pies en y=342, reposo a 160 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.055961487785218256,
-    "opacos": 0.9309477231676564,
-    "haloSuelto": 0,
+    "visibles": 0.050990513392857144,
+    "opacos": 0.9118470385570249,
+    "haloSuelto": 0.000006333282667071997,
     "ancho": 2688,
     "alto": 1152
   },
@@ -51,13 +53,111 @@
       342
     ],
     "apoyoReposo": [
-      191,
+      192,
       286
     ],
     "posicion": false
   },
+  "encuadre": [
+    [
+      [
+        1,
+        1
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        -1,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        -1,
+        -1
+      ],
+      [
+        1,
+        0
+      ]
+    ],
+    [
+      [
+        0,
+        -6
+      ],
+      [
+        1,
+        -5
+      ],
+      [
+        -3,
+        -1
+      ],
+      [
+        -2,
+        -2
+      ],
+      [
+        2,
+        -9
+      ],
+      [
+        2,
+        -8
+      ],
+      [
+        -1,
+        0
+      ]
+    ],
+    [
+      [
+        -4,
+        -16
+      ],
+      [
+        1,
+        -14
+      ],
+      [
+        4,
+        7
+      ],
+      [
+        4,
+        1
+      ],
+      [
+        -1,
+        -9
+      ],
+      [
+        -2,
+        -19
+      ],
+      [
+        -1,
+        0
+      ]
+    ]
+  ],
   "salida": {
     "ruta": "assets/unidades/heroe-lich/d7/hoja-a.webp",
-    "sha256": "2389071ea9481648cf9bfb4f1e43c1d0f5248d6b29d5d70337efc20440a3e137"
+    "sha256": "92f6108489aba2b4db0533239e8fd19ca03208becd767db5068ecd037837dd04"
+  },
+  "eleccion": {
+    "version": "esqueleto",
+    "modo": "torneo",
+    "motivo": "torneo: ninguna gana todos sus duelos (tirada 0 de 2 duelos, esqueleto 1 de 2 duelos, todo 0 de 2 duelos); la de ahora no vale (es de otro maniquí): decide la persona entre esqueleto y todo en el visor",
+    "persona": "versión 2"
   }
 }

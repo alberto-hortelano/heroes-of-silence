@@ -50,21 +50,16 @@
     "a": [
       {
         "clip": "idle",
-        "anim": "idle_look_around",
+        "anim": "idle4",
         "enBucle": true,
-        "tramo": [
-          0,
-          1.5
-        ],
-        "vaiven": true,
         "indices": [
           0,
-          6,
+          4,
+          8,
           12,
-          18,
-          18,
-          12,
-          6
+          17,
+          21,
+          25
         ]
       },
       {
@@ -148,14 +143,14 @@
   "sourceMetadata": {
     "idle": {
       "angle": "tactical_25",
-      "anim": "idle_look_around",
+      "anim": "idle4",
       "directions": 8,
-      "duration": 6.466666666666667,
+      "duration": 2.533333333333333,
       "fps": 12,
-      "frame_count": 78,
+      "frame_count": 30,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-10T16:51:54",
+      "generated_at": "2026-10-30T12:28:13",
       "model": "y_bot"
     },
     "walk": {
@@ -167,7 +162,7 @@
       "frame_count": 13,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-10T16:51:59",
+      "generated_at": "2026-10-30T12:28:16",
       "model": "y_bot"
     },
     "charge": {
@@ -179,7 +174,7 @@
       "frame_count": 8,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-10T16:52:02",
+      "generated_at": "2026-10-30T12:28:18",
       "model": "y_bot"
     },
     "attack": {
@@ -191,7 +186,7 @@
       "frame_count": 16,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-10T16:52:06",
+      "generated_at": "2026-10-30T12:28:21",
       "model": "y_bot"
     },
     "hurt": {
@@ -203,7 +198,7 @@
       "frame_count": 12,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-10T16:52:10",
+      "generated_at": "2026-10-30T12:28:24",
       "model": "y_bot"
     },
     "death": {
@@ -215,59 +210,43 @@
       "frame_count": 28,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-10T16:52:18",
+      "generated_at": "2026-10-30T12:28:29",
       "model": "y_bot"
     }
   },
   "sha256": {
-    "d0-a.png": "6a688d150a320adaf4d4186ba1e190f5a2a80d8c09f2034f165c3f2507b49338",
-    "d0-a.profundidad.png": "555c64e7726e091dffa4ac034d3ff5f68065cf1a188b455b0ad0b30f06cf6a69",
-    "d0-a.mezcla.png": "50e3038f4915d46027164e3dc4d651b282dce5a0cf6d0d663452b5d3be7ea2f4",
+    "d0-a.png": "bb1c9d520c60ff43f34531b7d3947f8980ff018ee0df461462ae9af9362038c6",
+    "d0-a.profundidad.png": "59d606cda18722aba85c5f54385898f7f8a431b93306f7392f141504d7ed2dac",
     "d0-b.png": "fabdaecfe3adc8dd962992c76ae9bc7aa9da0fc28d0d7aef79478083ae4c92d9",
     "d0-b.profundidad.png": "782cdf89cb9c1ea70bacb3ca9e09868fa8be5d9dbdbae9147c66af8ff7fd7e17",
-    "d0-b.mezcla.png": "0ed3af1a2b4d9f65a1b5380529b0ef09e4b9d6c31c5bd6141be30c7d0be6d174",
-    "d1-a.png": "9623ca9874fdd13295f256ba0dbe7d716898d2a5d88b5d80d4a7b9dd52cab701",
-    "d1-a.profundidad.png": "aeee5b81f892f1d323cc02bb2453f3ee9cd3f59df94cd160f657d3df410f386d",
-    "d1-a.mezcla.png": "e9e68e8341dde70d43bb1196008439a181a1b1714efac2b1c03aa34fd319cf37",
+    "d1-a.png": "e15fdecacb259d370d87ccef3713f6a76f6173c5e74a58fe30f9a92763293924",
+    "d1-a.profundidad.png": "5baf63b13fece6c7a73256298dd757f994b1e7f787e9f675607719bfb2777e3c",
     "d1-b.png": "d191d608e5162a0e76178c93330f31a51829c1f99e6cf0727e4ad9d2f22aea0c",
     "d1-b.profundidad.png": "9ae8236e9923e72a950fe572f72f7734722d3d2fead90a7ecd853fcc5085b1e0",
-    "d1-b.mezcla.png": "f8b9f395e0c566828bb9b6e2e23f9150df0be676f1acb61e65a2ccd09a2aa21e",
-    "d2-a.png": "a6d3bdb5c9274d4eeb19073183c45a2a83a878e37bdcf0432f89a46f18a1d3df",
-    "d2-a.profundidad.png": "2febaf5b9e28e1f14bd67d1e02c8abb2b45e1a32f3e942a4c4fe57e764e5c090",
-    "d2-a.mezcla.png": "d8b0371d4e2a243d36c372f49ca59dbf47b1d97b1173433da93c2b427e42cccb",
+    "d2-a.png": "4763c89585f067d20dc7b584016876549229c0b0673d8de7f41ee26d6cd28e16",
+    "d2-a.profundidad.png": "0fbd98e3f471c119439f708318a28f73f995193df5ab0a41bcb719bfce83bb52",
     "d2-b.png": "ad17583c4f5c01c6d34baee52a62cad0818d31748afb6b31f26a085bc613cdd7",
     "d2-b.profundidad.png": "6f5ee534abf3dff409be14a05474614150d4fd97b9b062c9e15cf478a2c90a0a",
-    "d2-b.mezcla.png": "3d92d5a54bd3828a8732a8b0aa2c3e3b47357fa9fe32cde61a78b9e8f6275de6",
-    "d3-a.png": "e02708d5dd9e8344b0cbc48a206b69e34dda35271cc98eada749eb1346798978",
-    "d3-a.profundidad.png": "3e27479eb62c8e94787a367ba4f7c8b6f77cd8fe0f3e068ddbfcb98ca5827db1",
-    "d3-a.mezcla.png": "88233b48ed4c9b4cd2ef30451c15e1fab2d5b425f39574f819961223cfe86ac7",
+    "d3-a.png": "2b4f8801e0619ecfa69bd8bd42789b8a9136885cbfc1fdca3001dbfea820154d",
+    "d3-a.profundidad.png": "10a65c2bc8eb041c41b6575cf96b8ab8eaadbc6a26b2724ddf2a060c53081a97",
     "d3-b.png": "4c88c9d31ae4e7eee1479b29ebce606f8658c4f59cb2619061abe9ac8965a1dd",
     "d3-b.profundidad.png": "7dd9298b8d9b6edcac606030251edb6fbed574588e7d46b893924f51f9a90af7",
-    "d3-b.mezcla.png": "b0b3910b197683f3ae40ccd402dc2e1615adf11b30c650fe7eb604d546ab636a",
-    "d4-a.png": "1629bc9abc27d4a6b8c070c7a3d9af9bc3a17583fd837c7496c2f93b1826847a",
-    "d4-a.profundidad.png": "882654146acebfb25de1558ed51f0e6935210eaa90c49c01f11c2cccb16bf658",
-    "d4-a.mezcla.png": "8e2e9653e497676fcf46c01c15013c3094d77411845b7b106dd3095529ccec72",
+    "d4-a.png": "1631018bebb2f4424481ff6e2955deb0ab1616335c518f5cc82ff2074da7ecc1",
+    "d4-a.profundidad.png": "3e9757ca83446f90902ee01a5b95f4d26f49ecba837d9587780e6a6114ec4400",
     "d4-b.png": "5866f20967ae866b346802ae0c5373cfd2b4320321307e2d175e193aa39ff8f1",
     "d4-b.profundidad.png": "45154e1dd3a42ec9ff4a566e904437d1f71c97ebc8c658c37f8d36406d5a1023",
-    "d4-b.mezcla.png": "046535a29a4bd9b17226c76b4965faba37632faf32e4cc3f7d5685d13b9edb75",
-    "d5-a.png": "b7b6710fd29d39611f55c14fc2f652889a96696de819c4398ae3316dcb8fe46c",
-    "d5-a.profundidad.png": "484942e64776aee874270c07bfb180f72c2f4f3fd3b879e0c1f1e0cee72ce1de",
-    "d5-a.mezcla.png": "8f860764f6f1c03cc7b96edc70631fd414c36d6b793a5c8e683f8e13736ab44f",
+    "d5-a.png": "a50dcaa0b8d00dee294087d71acdc216e06f603c6d9965db50482307ae498ea5",
+    "d5-a.profundidad.png": "f97793dc99aa196ff8de3317971efbd3e48c0fad7def127bd1893d9920fecf3f",
     "d5-b.png": "3e8141a93014e5232e7b73eb80c121f5fd0f56e42ab23c248146e9bd07d7f25d",
     "d5-b.profundidad.png": "d164fb4b235a44df0ec38ceac8e142f1ffb5286ffd3b16019fa5fb8eb339ded1",
-    "d5-b.mezcla.png": "cdedf1600ca9c6ddc2c76ff31cedd4a4a8cff00b32751f12fe6ef2b8a12f39fe",
-    "d6-a.png": "9177b0e4fd7ea0130f2d91ae6c9dada57b49ce035a3dd564046fd0d8e42075cb",
-    "d6-a.profundidad.png": "544fdec5a3b1aabfd78df0e6b7cbc3ed4e6f076695124a876ddcdc51d7d39439",
-    "d6-a.mezcla.png": "3e42eb5ced6ef5ee0ffe18efc91fde848c4898adfc12461b44edea0108a50bba",
+    "d6-a.png": "11a72c81bda80498907dec267d33498004ec5be5b08a117acce8c22631286c8f",
+    "d6-a.profundidad.png": "18fee26a5d435938c2b9d8a26746b71b68551dcaaa0ff81b6676532fa6dec508",
     "d6-b.png": "b94d67d7b35380ee56518f44473bd8ca1ab86a2637d7c63561a1a3891dcb1dce",
     "d6-b.profundidad.png": "f65807e6d06241b4244835968e646cf00950b9202cd9001d8fc88175170fd900",
-    "d6-b.mezcla.png": "c2b8a654036a00974d4b20c8b6f2574308cd8002456e262e5d4d990a72ca5840",
-    "d7-a.png": "c31c2de464974a09ec0a4d7fc9f78497a2592374a21a046c396352913ba5fabb",
-    "d7-a.profundidad.png": "f2c47c12f74111b5a29faeb8b42ae59e7d18e0a348a1dba56af65e92b6b04113",
-    "d7-a.mezcla.png": "acefe2cb8b96d945154a93513053365b08446f7e178407c3bc0b89370319928c",
+    "d7-a.png": "8e468c89ec2acc75b7414efd08f7abadd8fd4ff7dc5b488b8e5f38f53dd48b2e",
+    "d7-a.profundidad.png": "8ff6f104cf9b41024ddd5f2dcb8981fb84d983210c130b137c8d6f18f51a2116",
     "d7-b.png": "6ad6a3d18669d775a223f46c3c322362839cfb1937cb81c326209b1c833b4876",
     "d7-b.profundidad.png": "534b949be85c32090eca1a9591bdd22254927b1fc94756b8b3e9a64d17d78886",
-    "d7-b.mezcla.png": "eeae5a01deb91bcc52561f180971c01e8f68893585f57c2776428ddbb01ff114",
-    "giro.png": "102ff7d0ff074457a747a01c4237133d2f5be74ba5c14a68ea3afd55d06258ef"
+    "giro.png": "1e8be8a557b4fd4262cf5bac21f4990f1262bcbbb8d4fd544108fe38ba26be28"
   }
 }

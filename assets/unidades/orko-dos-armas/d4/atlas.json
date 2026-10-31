@@ -14,7 +14,7 @@
     "idle": {
       "row": 0,
       "frames": 7,
-      "fps": 5,
+      "fps": 2.8,
       "loop": true,
       "anchor": [
         192,
@@ -44,7 +44,7 @@
     "attack": {
       "row": 3,
       "frames": 7,
-      "fps": 2.6,
+      "fps": 3.8,
       "loop": false,
       "anchor": [
         192,

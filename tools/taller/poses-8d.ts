@@ -45,6 +45,7 @@ import {
   type JuegoEn8d,
   OCHO_DIRECCIONES,
 } from '../art/poses.js';
+import { ajustesDe, aplicarAjustes } from './ajustes.js';
 import { type AtlasDerivado, derivarAtlas, type Ritmo, type RitmoDeUnidad } from './derivar.js';
 import { EN_OCHO_DIRECCIONES, JUEGOS_EN_8D, unidad } from './unidades.js';
 
@@ -92,9 +93,16 @@ export interface HojaLeida {
  * las filas que le da `HOJAS_DE_FIGURA`. La celda sale del ancho (las columnas
  * de FIGURA). Comprueba que cada hoja tiene las filas de la suya: una C de tres
  * filas, o una B de una, se juntaría en un atlas con las filas corridas. Lo
- * comparten el Y Bot y el trabajador (`juntar.ts`), con el mismo mensaje.
+ * comparten el Y Bot y el trabajador (`juntar.ts`), con el mismo mensaje. Una hoja con
+ * su encuadre a mano (`hoja-b.ajustes.json`, `ajustes.ts`) entra con él puesto.
  */
-export async function apilarHojas(hojas: readonly HojaLeida[]): Promise<Sharp> {
+export async function apilarHojas(leidas: readonly HojaLeida[]): Promise<Sharp> {
+  const hojas = await Promise.all(
+    leidas.map(async (h) => {
+      const ajustes = ajustesDe(h.ruta, h.hoja, sha256(h.png));
+      return ajustes === null ? h : { ...h, png: await aplicarAjustes(h.png, h.hoja, ajustes) };
+    }),
+  );
   const medidas = await Promise.all(hojas.map(({ png }) => sharp(png).metadata()));
   const ancho = medidas[0]?.width as number;
   const celda = ancho / FIGURA.columnas;

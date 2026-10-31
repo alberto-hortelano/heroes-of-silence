@@ -1,6 +1,6 @@
 /**
  * El taller pintando con un modelo de fal.ai en vez de ChatGPT por la
- * suscripción (las pruebas del 10-10-2026, `MOTORES` en `experimento.ts`): el
+ * suscripción (las pruebas del 10-10-2026, `MOTORES` en `experimento.ts`, retirado el 30-10-2026): el
  * encargo lleva `motor`, y esto arma la llamada de su endpoint, la hace con el
  * `FalClient` de `tools/gen/fal.ts` (caché por payload, gasto acumulado, tope
  * que para antes de pagar) y devuelve lo mismo que `generar` de codex, para que
@@ -10,7 +10,7 @@ import { join, resolve } from 'node:path';
 import sharp from 'sharp';
 import { FalClient } from '../gen/fal.js';
 import type { Generacion } from './codex.js';
-import type { Encargo } from './encargo.js';
+import { type Encargo, esDePose } from './encargo.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
 
@@ -52,7 +52,7 @@ export async function aDataUri(
   png: string,
   papel: ReferenciaDeFal['papel'],
 ): Promise<ReferenciaDeFal> {
-  const dePose = papel === 'pose' || papel === 'pose-profundidad' || papel === 'profundidad';
+  const dePose = esDePose(papel);
   const bytes = dePose
     ? await sharp(png).png().toBuffer()
     : await sharp(png)

@@ -1357,6 +1357,16 @@ Atlas de poses: ≤ 10 celdas, rejilla cuadrada, segunda referencia = identidad;
 y los montones del mapa, están en `assets/art/retirado/` (21-10-2026), que no va al build. Las criaturas y sus poses de
 `tools/gen/animate.ts` se retiraron (#139): las figuras son del taller.
 
+## Revisar las animaciones
+
+Skill **`/revisar-animaciones <id>`** (30-10-2026, `docs/agents/2026-10-30-evaluar-animaciones/`):
+el maniquí primero (`pnpm taller maniqui <id> --huesos`, `pnpm taller revisar-maniqui`), los
+dos jurados (subagentes de Claude y ChatGPT por Codex, la unión de sus hallazgos), los
+árbitros, el visor para la persona, el encuadre sin modelo (C1, al empaquetar) y, para la
+pose, versiones de cada hoja de las que entra la que gana a ciegas. El trabajador no pinta
+sobre un maniquí sin esqueleto o que anda hacia atrás. El detalle, en `docs/art/taller.md`
+(«La revisión»).
+
 ## El equipo de agentes
 
 Trabajo sustancial: skill **`/feature`**, ciclo **crítico → arquitecto →

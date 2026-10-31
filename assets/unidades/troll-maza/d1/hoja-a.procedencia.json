@@ -1,19 +1,18 @@
 {
-  "encargo": "troll-maza-d1-a-c1",
+  "encargo": "troll-maza-v-esqueleto-d1-a",
   "tipo": "atlas",
-  "fecha": "2026-10-20T09:26:16.749Z",
+  "fecha": "2026-10-30T21:41:34.502Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a1589f-0147-7c90-b6ed-a165a74d69aa",
-  "reanuda": "01a1589f-0147-7c90-b6ed-a165a74d69aa",
-  "prompt": "Corrige la última imagen que has generado en esta conversación, con la herramienta de imágenes, conservando la identidad del personaje y todo lo que no se menciona.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nLas figuras son demasiado grandes y se meten unas en otras: la maza del fotograma 7 de la fila 2 sube hasta los pies del fotograma 7 de la fila 1 y el recorte las junta. Repite la hoja con las mismas poses y las figuras al 80 % de su tamaño: cada figura, con su maza, cabe entera en su propia celda, y nada de una figura entra en la columna ni en la fila de otra, con una franja de fondo vacío entre celdas. Lo demás de la hoja está bien: no lo cambies.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «frente-derecha» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 232 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "hilo": "01a18dd4-916a-7692-80ff-23c706f99576",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el MAPA DE PROFUNDIDAD del maniquí Y Bot (cámara ortográfica elevada 25 grados; más claro, más cerca; el negro es fondo) con su ESQUELETO dibujado encima: los huesos del lado IZQUIERDO del personaje en AZUL, los del DERECHO en ROJO, el tronco y la cabeza en BLANCO y el eje del arma en AMARILLO. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación siguiendo el esqueleto (dónde está cada codo, cada mano, cada rodilla y cada pie, y hacia dónde apunta el arma). El arma que se pinta es la del PERSONAJE (la de su identidad), por el eje amarillo. NO pintes el esqueleto, sus colores, el gris ni el fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn troll: gigante de piel gris azulada con musgo, cabeza pequeña, colmillos, grilletes rotos con cadenas en las muñecas, taparrabos, maza de madera con clavos de hierro empuñada a dos manos.\nEn la lámina de giro (imagen 2), la figura 2 en orden de lectura es la que mira hacia «frente-derecha», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «frente-derecha» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 232 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
-      "ruta": "assets/unidades/_poses/unidades/troll-maza-8d/d1-a.profundidad.png",
-      "papel": "pose-profundidad",
-      "sha256": "27689de859933feeaff650d2b082cdb5129215ffb7ee087062db093405750263"
+      "ruta": ".cache/taller/revision/troll-maza/d1/versiones/pose-esqueleto-a.png",
+      "papel": "pose-esqueleto",
+      "sha256": "13aefc5c0d2dc7af434b102d94f1e519ec700a83e0c090f93082354ce9dd2117"
     },
     {
       "ruta": "assets/unidades/troll-maza/giro.webp",
@@ -26,22 +25,24 @@
       "sha256": "426cb3253ba8e36ebe642ea824d2ba62585c7d537ea3f4b57755f8f76e5beedf"
     }
   ],
+  "pose": "assets/unidades/_poses/unidades/troll-maza-8d/d1-a.profundidad.png",
+  "shaDeLaPose": "e6de31fc9ce576aba5df01c91bef11b7d117a31b0d8dc7c8e0cac6040cc7baff",
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a1589f-0147-7c90-b6ed-a165a74d69aa/call_13f97615d2dd45abafe32ea8bd853711.png",
-    "sha256": "b6c8ef3becde692c19fc310ed3872df4b9692d47f5152711c9a06dd6909d49a1",
-    "ancho": 1916,
+    "fichero": "~/.codex/generated_images/01a18dd4-916a-7692-80ff-23c706f99576/exec-f6675766-d8ba-4de4-acfe-283184dced54.png",
+    "sha256": "ca80b1e3085edf56d7ae03d83ca1d5396bc90a14a343906b93e515c1818d5edc",
+    "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 1.1550, pies en y=342, reposo a 232 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "dirección completa: assets/unidades/troll-maza/d1/atlas.webp"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 1.0085, pies en y=342, reposo a 232 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.13495131396742724,
-    "opacos": 0.970219221942774,
-    "haloSuelto": 0.0000023929914067678584,
+    "visibles": 0.1134879298941799,
+    "opacos": 0.9652641822983064,
+    "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
   },
@@ -53,12 +54,110 @@
     ],
     "apoyoReposo": [
       193,
-      285
+      284
     ],
     "posicion": false
   },
+  "encuadre": [
+    [
+      [
+        0,
+        3
+      ],
+      [
+        1,
+        1
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        -1,
+        -1
+      ],
+      [
+        0,
+        -2
+      ],
+      [
+        0,
+        -2
+      ]
+    ],
+    [
+      [
+        4,
+        -7
+      ],
+      [
+        4,
+        -17
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        -1,
+        -9
+      ],
+      [
+        1,
+        -12
+      ],
+      [
+        -6,
+        0
+      ],
+      [
+        -2,
+        7
+      ]
+    ],
+    [
+      [
+        5,
+        -17
+      ],
+      [
+        3,
+        -24
+      ],
+      [
+        -4,
+        0
+      ],
+      [
+        -3,
+        -12
+      ],
+      [
+        2,
+        -15
+      ],
+      [
+        -3,
+        -13
+      ],
+      [
+        -3,
+        8
+      ]
+    ]
+  ],
   "salida": {
     "ruta": "assets/unidades/troll-maza/d1/hoja-a.webp",
-    "sha256": "054c3bc4f9dbb3dd71b2ce9f5a50bc55f8a8bca7a5d7c96baa2b3a927bbd1ddc"
+    "sha256": "818784c04615eaeee691f7ee7e557b9b5273b97f6a9d5ec5442d6735ddcefede"
+  },
+  "eleccion": {
+    "version": "esqueleto",
+    "modo": "torneo",
+    "motivo": "torneo: ninguna gana todos sus duelos (tirada 0 de 2 duelos, esqueleto 1 de 2 duelos, todo 0 de 2 duelos); la de ahora no vale (es de otro maniquí): decide la persona entre esqueleto y tirada en el visor",
+    "persona": "versión 2"
   }
 }

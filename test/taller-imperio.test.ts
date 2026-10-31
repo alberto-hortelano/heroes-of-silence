@@ -32,7 +32,7 @@ const atlas = JSON.parse(
 describe('los juegos de armas nuevos del Imperio', () => {
   it('la granada y la pistola disparan con su propia curva; la lanza montada no dispara', () => {
     // El ataque del granadero es el sable; la granada es su disparo.
-    expect(JUEGOS_DE_ARMAS.granada.ataque).toBe('quick');
+    expect(JUEGOS_DE_ARMAS.granada.ataque).toBe('precise');
     expect(JUEGOS_DE_ARMAS.granada.disparo).toBe('grenade');
     expect(clipDeDisparoDe('granada')).toBe('grenade');
     expect(clipDeDisparoDe('montado-pistola')).toBe('pistol');

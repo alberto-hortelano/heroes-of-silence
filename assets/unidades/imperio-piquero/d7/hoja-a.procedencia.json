@@ -1,18 +1,18 @@
 {
-  "encargo": "imperio-piquero-d7-a",
+  "encargo": "imperio-piquero-v-tirada-d7-a",
   "tipo": "atlas",
-  "fecha": "2026-10-10T21:01:23.250Z",
+  "fecha": "2026-10-30T21:37:12.475Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a1279d-c6f7-7ac2-b6cc-1c90828814df",
+  "hilo": "01a18dbf-bad9-70d1-bdb4-edaf74a4c444",
   "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn piquero lansquenete: morrión, peto de acero, ropa acuchillada a franjas amarillas y negras, pica larga (una vez y media su altura) empuñada a dos manos, inclinada y nunca más larga que eso.\nEn la lámina de giro (imagen 2), la figura 8 en orden de lectura es la que mira hacia «frente-izquierda», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «frente-izquierda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
       "ruta": "assets/unidades/_poses/unidades/imperio-piquero-8d/d7-a.profundidad.png",
       "papel": "pose-profundidad",
-      "sha256": "47a1a11c1f7d9a3dc726a0fb9fc69febabef5f35d92a76651bd7e664dc6351a2"
+      "sha256": "95b7e17bf7e3e295217f3323c4564d4452fdbf0bb2f11357dbc0810932b22a8a"
     },
     {
       "ruta": "assets/unidades/imperio-piquero/giro.webp",
@@ -26,20 +26,20 @@
     }
   ],
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a1279d-c6f7-7ac2-b6cc-1c90828814df/exec-62ae2f4c-5994-44fc-aa27-665e5cf09428.png",
-    "sha256": "7d3c20393ae3c54d51c583146d09a3f9696e627fbd4eef474f2ac05b171a8268",
-    "ancho": 1915,
+    "fichero": "~/.codex/generated_images/01a18dbf-bad9-70d1-bdb4-edaf74a4c444/exec-f66f2be8-5d74-40fd-82dc-a6f5efe70a38.png",
+    "sha256": "69f5abafdbadc9378518cf9578253e946a3b86d17db63f7515de71685932f9d1",
+    "ancho": 1916,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.9304, pies en y=342, reposo a 160 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "dirección completa: assets/unidades/imperio-piquero/d7/atlas.webp"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.8715, pies en y=342, reposo a 160 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.043289426773313495,
-    "opacos": 0.9377466448835874,
+    "visibles": 0.041758380869709,
+    "opacos": 0.934574813623287,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -51,13 +51,112 @@
       342
     ],
     "apoyoReposo": [
-      183,
-      287
+      186,
+      285
     ],
     "posicion": false
   },
+  "encuadre": [
+    [
+      [
+        0,
+        -1
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        1,
+        1
+      ],
+      [
+        -1,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ]
+    ],
+    [
+      [
+        -1,
+        -13
+      ],
+      [
+        -2,
+        -5
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        1,
+        -2
+      ],
+      [
+        -1,
+        -14
+      ],
+      [
+        1,
+        -6
+      ],
+      [
+        2,
+        -1
+      ]
+    ],
+    [
+      [
+        -4,
+        -15
+      ],
+      [
+        0,
+        -11
+      ],
+      [
+        4,
+        6
+      ],
+      [
+        3,
+        0
+      ],
+      [
+        0,
+        -6
+      ],
+      [
+        -4,
+        -24
+      ],
+      [
+        1,
+        0
+      ]
+    ]
+  ],
   "salida": {
     "ruta": "assets/unidades/imperio-piquero/d7/hoja-a.webp",
-    "sha256": "e0b938a39743de03117a4c0f6a490db8d9e9795c586ab3bd79717fceb3d6f6c7"
+    "sha256": "20c7a4e252a7bce1ed3b29b1a47acd10137f7e54656b0259b6277a81a2c9c175"
+  },
+  "eleccion": {
+    "version": "tirada",
+    "modo": "torneo",
+    "motivo": "torneo: gana tirada todos sus duelos (tirada 2 de 2 duelos, esqueleto 1 de 2 duelos, todo 0 de 2 duelos)",
+    "persona": null,
+    "auto": true
   }
 }

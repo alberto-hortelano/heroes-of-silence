@@ -1,19 +1,18 @@
 {
-  "encargo": "goblin-arquero-d7-a-c1",
+  "encargo": "goblin-arquero-v-tirada-d7-a",
   "tipo": "atlas",
-  "fecha": "2026-10-23T17:10:04.175Z",
+  "fecha": "2026-10-30T23:11:07.810Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a169ba-4a4b-7263-a636-91062dd15597",
-  "reanuda": "01a169ba-4a4b-7263-a636-91062dd15597",
-  "prompt": "Corrige la última imagen que has generado en esta conversación, con la herramienta de imágenes, conservando la identidad del personaje y todo lo que no se menciona.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nEn la fila 1 (reposo), las figuras 4, 5 y 6 se han girado y enseñan la espalda y el carcaj. El maniquí NO se gira: en las siete figuras del reposo el goblin mira hacia el frente-izquierda, igual que en las figuras 1, 2, 3 y 7 de esa fila, con la cara y el pañuelo rojo a la vista. Vuelve a pintar la hoja entera con las siete figuras del reposo mirando así, copiando la pose del maniquí, y deja las filas 2 y 3 (marcha y carga) exactamente como están. Mismo personaje, misma escala, mismo estilo, 7 columnas por 3 filas, fondo transparente, sin que ninguna figura toque otra ni entre en la columna o la fila de otra.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «frente-izquierda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 112 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "hilo": "01a18f13-c053-75c0-ba02-9f8e55f07602",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn goblin arquero: pequeño, piel verde amarillenta, capucha y pañuelo rojos tapándole la boca, harapos de cuero, carcaj de flechas a la espalda, arco corto tosco.\nEn la lámina de giro (imagen 2), la figura 8 en orden de lectura es la que mira hacia «frente-izquierda», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «frente-izquierda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 112 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
       "ruta": "assets/unidades/_poses/unidades/goblin-arquero-8d/d7-a.profundidad.png",
       "papel": "pose-profundidad",
-      "sha256": "11c08c513d93646b86fa29707be8245a5ce5404ad5ae242b940d2cf4fac79726"
+      "sha256": "559dfa24e6c2a4fa68192e78bde4b9bf14c9f4ce2b260ff56e2cbe91d4bd9cee"
     },
     {
       "ruta": "assets/unidades/goblin-arquero/giro.webp",
@@ -27,21 +26,21 @@
     }
   ],
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a169ba-4a4b-7263-a636-91062dd15597/exec-cf1ec63b-828c-4dad-94d0-17ccfdb2c141.png",
-    "sha256": "40c52a6fed7a35e4c9b7c1cca9db701cd48913a2c39a940ece8f12faa96cfce4",
-    "ancho": 1916,
+    "fichero": "~/.codex/generated_images/01a18f13-c053-75c0-ba02-9f8e55f07602/exec-c3691b0e-28d5-46e2-b7c1-3702159166a8.png",
+    "sha256": "0ef98c774cf8b3bc16b46688b0283041b3d8c64a993638e5e95329b25c24512c",
+    "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.4307, pies en y=342, reposo a 112 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "dirección completa: assets/unidades/goblin-arquero/d7/atlas.webp"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.5060, pies en y=342, reposo a 112 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.02646858982308201,
-    "opacos": 0.9372758107415632,
-    "haloSuelto": 0.00001220077596935165,
+    "visibles": 0.02199558480076058,
+    "opacos": 0.9308628562199939,
+    "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
   },
@@ -52,13 +51,111 @@
       342
     ],
     "apoyoReposo": [
-      194,
+      192,
       286
     ],
     "posicion": false
   },
+  "encuadre": [
+    [
+      [
+        -1,
+        1
+      ],
+      [
+        -2,
+        1
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        -1,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        1,
+        -1
+      ],
+      [
+        2,
+        -1
+      ]
+    ],
+    [
+      [
+        1,
+        -7
+      ],
+      [
+        2,
+        -2
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        -2
+      ],
+      [
+        -2,
+        -1
+      ],
+      [
+        -1,
+        -1
+      ],
+      [
+        1,
+        0
+      ]
+    ],
+    [
+      [
+        0,
+        -9
+      ],
+      [
+        1,
+        -10
+      ],
+      [
+        0,
+        3
+      ],
+      [
+        1,
+        -1
+      ],
+      [
+        -1,
+        -3
+      ],
+      [
+        -1,
+        -16
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  ],
   "salida": {
     "ruta": "assets/unidades/goblin-arquero/d7/hoja-a.webp",
-    "sha256": "5c13a038d68d4e734815615a8b3a964253cb1a9d65226a03c635549d0e995133"
+    "sha256": "caefc7c09c9ecf3e263e449f2488fa3d116c8d14a27c30ae952b7b9a15745f49"
+  },
+  "eleccion": {
+    "version": "tirada",
+    "modo": "torneo",
+    "motivo": "torneo: ninguna gana todos sus duelos (tirada 1 de 2 duelos, esqueleto 0 de 2 duelos, todo 1 de 2 duelos); la de ahora no vale (es de otro maniquí): decide la persona entre tirada y todo en el visor",
+    "persona": "versión 2"
   }
 }

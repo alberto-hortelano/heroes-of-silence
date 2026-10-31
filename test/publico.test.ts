@@ -119,6 +119,18 @@ describe('la carpeta pública en el build', () => {
     }
   });
 
+  // El esqueleto del maniquí (la revisión de animaciones, 30-10-2026): ~11 MB que
+  // solo leen la revisión y la compuerta del trabajador.
+  it('el esqueleto de cada hoja del maniquí no va, y su hoja sí', () => {
+    expect(
+      seCopiaAlBuild('unidades/_poses/unidades/caballero-de-la-muerte-8d/d0-a.huesos.json'),
+    ).toBe(false);
+    expect(seCopiaAlBuild('unidades/_poses/gente/civil-8d/d3-a.huesos.json')).toBe(false);
+    expect(
+      seCopiaAlBuild('unidades/_poses/unidades/caballero-de-la-muerte-8d/d0-a.profundidad.png'),
+    ).toBe(true);
+  });
+
   it('lo demás va entero: la identidad y el giro de la unidad, las poses del Y Bot, el resto del arte', () => {
     for (const r of [
       'unidades/templario-escudo/identidad.webp',

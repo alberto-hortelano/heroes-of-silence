@@ -1,18 +1,18 @@
 {
-  "encargo": "imperio-ballestero-d5-a",
+  "encargo": "imperio-ballestero-v-todo-d5-a",
   "tipo": "atlas",
-  "fecha": "2026-10-10T20:37:33.031Z",
+  "fecha": "2026-10-30T23:30:50.757Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a12787-ea14-7202-8dd4-0a63c403688d",
-  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn ballestero: capacete, jubón acolchado amarillo y negro con mangas rojas, gran pavés con el águila imperial a la espalda, ballesta de acero empuñada con las dos manos y carcaj de virotes al cinto.\nEn la lámina de giro (imagen 2), la figura 6 en orden de lectura es la que mira hacia «espalda-izquierda», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «espalda-izquierda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "hilo": "01a18f25-a922-7303-a914-b56777eac0a0",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el MAPA DE PROFUNDIDAD del maniquí Y Bot (cámara ortográfica elevada 25 grados; más claro, más cerca; el negro es fondo) con su ESQUELETO dibujado encima: los huesos del lado IZQUIERDO del personaje en AZUL, los del DERECHO en ROJO, el tronco y la cabeza en BLANCO y el eje del arma en AMARILLO. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación siguiendo el esqueleto (dónde está cada codo, cada mano, cada rodilla y cada pie, y hacia dónde apunta el arma). El arma que se pinta es la del PERSONAJE (la de su identidad), por el eje amarillo. NO pintes el esqueleto, sus colores, el gris ni el fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn ballestero: capacete, jubón acolchado amarillo y negro con mangas rojas, gran pavés con el águila imperial a la espalda, ballesta de acero empuñada con las dos manos y carcaj de virotes al cinto.\nEn la lámina de giro (imagen 2), la figura 6 en orden de lectura es la que mira hacia «espalda-izquierda», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\nLa lámina de giro (imagen 2) enseña al personaje en guardia, con las piernas abiertas y el arma en alto: esa POSTURA NO CUENTA, es solo para ver su aspecto desde cada lado. En cada celda el cuerpo adopta la postura del maniquí (imagen 1): si el maniquí está de pie con los pies juntos, el personaje también; si adelanta una pierna, la misma.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «espalda-izquierda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
-      "ruta": "assets/unidades/_poses/unidades/imperio-ballestero-8d/d5-a.profundidad.png",
-      "papel": "pose-profundidad",
-      "sha256": "5c0fc7686f48c66442bf8c60d35cc609f848bd4eede7b3755fc621aabb214556"
+      "ruta": ".cache/taller/revision/imperio-ballestero/d5/versiones/pose-esqueleto-a.png",
+      "papel": "pose-esqueleto",
+      "sha256": "ef55518fe66b152a338ce2f569ebb86881c8656327dcdc5ee861dae311f81c1f"
     },
     {
       "ruta": "assets/unidades/imperio-ballestero/giro.webp",
@@ -25,21 +25,23 @@
       "sha256": "fb309b446d9032681cdaf8f569478be45bdce0318b2b952887520e69283e7415"
     }
   ],
+  "pose": "assets/unidades/_poses/unidades/imperio-ballestero-8d/d5-a.profundidad.png",
+  "shaDeLaPose": "4f9e6dd34a2293c982e9cd5712298726c48b3c6fe964aa133207930310204c3b",
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a12787-ea14-7202-8dd4-0a63c403688d/exec-0ba27587-2e2e-48ef-aa6f-64652bab44e9.png",
-    "sha256": "81bb09c50849b96156fff73459cc93930ce0dcca51e6f6e9e760a028fbb4ac6d",
+    "fichero": "~/.codex/generated_images/01a18f25-a922-7303-a914-b56777eac0a0/exec-2898ebe3-8be5-4d35-85f1-5ffc1707c944.png",
+    "sha256": "4a4d6b9273b95ac26635198b937acd1d8b619adbf6e4ddc55ce76dd697bbdda8",
     "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7426, pies en y=342, reposo a 160 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "dirección completa: assets/unidades/imperio-ballestero/d5/atlas.webp"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.8097, pies en y=342, reposo a 160 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.054238940042162696,
-    "opacos": 0.9492959423655146,
+    "visibles": 0.049060962818287035,
+    "opacos": 0.948051948051948,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -56,8 +58,106 @@
     ],
     "posicion": false
   },
+  "encuadre": [
+    [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        1
+      ],
+      [
+        0,
+        -1
+      ],
+      [
+        0,
+        -1
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        -2,
+        1
+      ],
+      [
+        -1,
+        1
+      ]
+    ],
+    [
+      [
+        -1,
+        -9
+      ],
+      [
+        -1,
+        -3
+      ],
+      [
+        -1,
+        4
+      ],
+      [
+        1,
+        1
+      ],
+      [
+        0,
+        -3
+      ],
+      [
+        0,
+        2
+      ],
+      [
+        0,
+        8
+      ]
+    ],
+    [
+      [
+        -3,
+        -2
+      ],
+      [
+        -1,
+        3
+      ],
+      [
+        -1,
+        5
+      ],
+      [
+        2,
+        -4
+      ],
+      [
+        -1,
+        3
+      ],
+      [
+        3,
+        6
+      ],
+      [
+        1,
+        -11
+      ]
+    ]
+  ],
   "salida": {
     "ruta": "assets/unidades/imperio-ballestero/d5/hoja-a.webp",
-    "sha256": "23c2283e4bcc2ffce8db6ca89b7a509790c8c5d0e38018f6c7ff498c08e3bd37"
+    "sha256": "4d337c2eba1a82b42ddedccf15ce0bf8b68bd9563b93c168acf379060b650b80"
+  },
+  "eleccion": {
+    "version": "todo",
+    "modo": "torneo",
+    "motivo": "torneo: ninguna gana todos sus duelos (tirada 0 de 2 duelos, esqueleto 1 de 2 duelos, todo 1 de 2 duelos); la de ahora no vale (es de otro maniquí): decide la persona entre esqueleto y todo en el visor",
+    "persona": "versión 2"
   }
 }
