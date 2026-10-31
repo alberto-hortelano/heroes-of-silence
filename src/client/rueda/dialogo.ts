@@ -11,7 +11,9 @@
  * cola, la elección espera a que acabe: el tablero no puede ir por detrás. Así la
  * rueda se abre cuando quien pega ya ha llegado: la sesión lo planta ante su
  * objetivo (su `move`) antes de pedir la elección, y esta espera a la marcha
- * (decisión del usuario, 13-10-2026: primero se anda, luego se elige).
+ * (decisión del usuario, 13-10-2026: primero se anda, luego se elige). Con carga
+ * no hay marcha que esperar: se elige antes de correr (31-10-2026), y la carrera
+ * llega en el registro tras el cruce.
  */
 import { contraataqueDelCruce, formaDeLaBatalla, type HechoDelCruce } from '@core/battle/rueda.js';
 import type { BattleState, Side } from '@core/battle/types.js';

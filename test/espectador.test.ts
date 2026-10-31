@@ -425,7 +425,9 @@ describe('el fotograma por acción', () => {
     //    desde el 19-10-2026), y detrás sus golpes —Rápido o el doble golpe dan
     //    dos— y el contraataque, que son parte de él;
     //  - un golpe con `from` **se mueve y luego pega**: deja un `move` pegado
-    //    delante de su `cruce`, del mismo stack. Eso es UNA acción, no dos.
+    //    delante de su `cruce`, del mismo stack. Eso es UNA acción, no dos. Con
+    //    carga, **elige y luego corre** (31-10-2026): el `move` con `charge` va
+    //    pegado detrás de su `cruce`. También UNA.
     //
     // «Pegado» es en el registro CRUDO y del MISMO stack: un `move` de un stack
     // seguido del golpe de otro no es una carga.
@@ -434,7 +436,9 @@ describe('el fotograma por acción', () => {
         if (e.kind === 'cruce') return true;
         if (e.kind === 'move') {
           const siguiente = trozo[i + 1];
-          return !(siguiente?.kind === 'cruce' && siguiente.stack === e.stack);
+          const anterior = trozo[i - 1];
+          if (siguiente?.kind === 'cruce' && siguiente.stack === e.stack) return false;
+          return !(e.charge === true && anterior?.kind === 'cruce' && anterior.stack === e.stack);
         }
         return ['aimed', 'cast', 'surrender'].includes(e.kind);
       }).length;

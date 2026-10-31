@@ -630,8 +630,9 @@ export class BattleAnimator {
   private traducir(e: BattleEvent, battle: BattleState): Paso | null {
     switch (e.kind) {
       case 'move': {
-        // La carga y la carrera las dice el `move`, que las escribe el núcleo: con
-        // la rueda, el golpe que cobra la carga llega en otra jugada, después.
+        // La carga y la carrera las dice el `move`, que las escribe el núcleo. Con
+        // carga, el `move` va tras el `cruce` (la rueda antes de correr, 31-10-2026):
+        // se cuenta el desenlace, la carrera y el golpe, en ese orden.
         return this.andar(battle, e.stack, e.to, e.path, 'mueve', vaCorriendo(e));
       }
       // Subir a la muralla se cuenta como un paso del pie a la columna.

@@ -400,10 +400,10 @@ export function renderEleccion(
       <p class="guia">${guia}</p>
       <p class="tinte-de-la-rueda" data-tinte>${tinte}</p>
       ${
-        // Tras una carrera, las cifras ya llevan la carga, y Escape la pierde (R6 de QA de #260).
+        // Con carga, las cifras llevan la de la carrera que se correrá tras elegir.
         p.prevision.carga === null
           ? NADA
-          : html`<p class="carga-de-la-rueda" data-carga>Las cifras llevan la ${p.prevision.carga}; con <kbd>Esc</kbd> se pierde.</p>`
+          : html`<p class="carga-de-la-rueda" data-carga>Las cifras llevan la ${p.prevision.carga}.</p>`
       }
       <p class="teclas"><kbd>1</kbd>–<kbd>${ultima}</kbd> o <kbd>←</kbd><kbd>→</kbd> e <kbd>Intro</kbd>${golpe ? html` · <kbd>Esc</kbd> cancela` : NADA}</p>
     </footer>

@@ -306,42 +306,48 @@ describe('carga todo el que pega cuerpo a cuerpo, y lo mismo cobra el jinete', (
 });
 
 describe('la rueda del golpe con una carga a pie', () => {
-  it('anda, se planta con la carga, elige y la cobra', () => {
+  it('se planta en su salida con la carga por correr, elige, corre y la cobra', () => {
     const { b, desde } = enRecta(A_PIE, 4);
+    const salida = { ...stackById(b, 'attacker-0').hex };
     applyAction(b, { type: 'attack', target: 'defender-0', from: desde }, createRng(2));
-    expect(b.golpeEnCurso).toMatchObject({
+    expect(b.golpeEnCurso).toEqual({
       stack: 'attacker-0',
       target: 'defender-0',
-      carga: 4,
-      carrera: { at: desde, steps: 4 },
+      carga: { recta: 4, carrera: expect.objectContaining({ at: desde, steps: 4 }) },
     });
+    // La carga se elige antes de correr (31-10-2026).
+    expect(stackById(b, 'attacker-0').hex).toEqual(salida);
     const largo = b.log.length;
     applyAction(
       b,
       { type: 'attack', target: 'defender-0', golpe: 'normal', respuesta: 'normal' },
       createRng(3),
     );
+    expect(b.log.slice(largo, largo + 2).map((e) => e.kind)).toEqual(['cruce', 'move']);
+    expect(stackById(b, 'attacker-0').hex).toEqual(desde);
     expect(golpeDe(b, largo)).toMatchObject({ charge: 4 });
     expect(cargaMontada(stackById(b, 'attacker-0').unit)).toBe(false);
   });
 
-  it('con Escape se pierde: el golpe desde el sitio no carga', () => {
+  it('con Escape no corrió: sigue en su salida y vuelve a cargar', () => {
     const { b, desde } = enRecta(A_PIE, 4);
+    const salida = { ...stackById(b, 'attacker-0').hex };
+    const gastado = b.turno?.gastado;
     applyAction(b, { type: 'attack', target: 'defender-0', from: desde }, createRng(2));
     soltarElGolpe(b, createRng(3));
     expect(b.golpeEnCurso).toBeNull();
-    expect(stackById(b, 'attacker-0').hex).toEqual(desde);
+    expect(stackById(b, 'attacker-0').hex).toEqual(salida);
+    expect(b.turno?.gastado).toBe(gastado);
     const largo = b.log.length;
-    // Plantarse otra vez, ya pegado, y golpear: sin recta, sin carga.
-    applyAction(b, { type: 'attack', target: 'defender-0' }, createRng(4));
-    expect(b.golpeEnCurso?.carga).toBe(0);
+    // Plantarse otra vez desde la misma recta: la misma carga.
+    applyAction(b, { type: 'attack', target: 'defender-0', from: desde }, createRng(4));
+    expect(b.golpeEnCurso?.carga?.recta).toBe(4);
     applyAction(
       b,
       { type: 'attack', target: 'defender-0', golpe: 'normal', respuesta: 'normal' },
       createRng(5),
     );
-    const golpe = golpeDe(b, largo);
-    expect(golpe.charge).toBeUndefined();
+    expect(golpeDe(b, largo)).toMatchObject({ charge: 4 });
   });
 });
 

@@ -651,9 +651,11 @@ export class Director {
    *
    * El golpe lo elige siempre la IA si no viene en la acción: un golpe del agente
    * sin `hit` lo completa ella por él (el contrato lo dice), y los de los demás
-   * son suyos. Para pedir la respuesta, quien pega ya se ha plantado ante su
-   * objetivo (`golpeEnCurso`, como la persona en la partida): la petición enseña
-   * lo de después de andar, el espectador lo ve llegar, y un golpe que no se puede
+   * son suyos. Para pedir la respuesta, quien pega ya se ha plantado
+   * (`golpeEnCurso`, como la persona en la partida): ante su objetivo, y la
+   * petición enseña lo de después de andar y el espectador lo ve llegar; o, si
+   * carga, en su salida, que la carga se elige antes de correr (31-10-2026) y la
+   * petición dice desde dónde golpeará (`chargeFrom`). Un golpe que no se puede
    * dar lanza aquí, antes de preguntar nada. Lanza con la frase del núcleo.
    */
   private async conLaRueda(

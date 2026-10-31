@@ -377,9 +377,10 @@ describe('el animador de batalla', () => {
     expect(() => msPorCasilla(TROPA_BARATA, 'attack', 1)).toThrow(/no anda/);
   });
 
-  it('la carga la marca el `move`: con el cruce en medio (la rueda) y sin él', () => {
-    // Lo que escribe el motor: el tramo con que carga (con `charge`), el cruce de la
-    // rueda si lo hay, y el golpe. Primero se anda, luego la rueda, luego el golpe.
+  it('la carga la marca el `move`: con el cruce delante (la rueda) y sin él', () => {
+    // Lo que escribe el motor: el cruce de la rueda si lo hay, el tramo con que
+    // carga (con `charge`) y el golpe. Con carga, primero la rueda, luego la carrera
+    // y luego el golpe (31-10-2026).
     for (const conCruce of [true, false]) {
       const a = new BattleAnimator();
       const b = batalla();
@@ -397,8 +398,8 @@ describe('el animador de batalla', () => {
         punto: 1,
       } as const satisfies BattleEvent;
       const nuevos: BattleEvent[] = [
-        { kind: 'move', stack: s1.id, to: destino, path: [destino], charge: true },
         ...(conCruce ? [cruce] : []),
+        { kind: 'move', stack: s1.id, to: destino, path: [destino], charge: true },
         {
           kind: 'attack',
           stack: s1.id,
@@ -416,16 +417,17 @@ describe('el animador de batalla', () => {
       );
       a.observe(b);
       a.tick(0);
-      // Primero el tramo, de una casilla, cargando.
-      a.tick(casilla / 2);
-      expect(a.figura(s1).clip).toBe('charge');
-      expect(a.cruceEnCurso()).toBeNull();
+      const tras = conCruce ? DURACION.cruce : 0;
       if (conCruce) {
-        // Llegado, la rueda lo cuenta y nadie se mueve.
-        a.tick(casilla + DURACION.cruce / 2);
+        // Primero la rueda lo cuenta y nadie se mueve: aún no ha corrido.
+        a.tick(DURACION.cruce / 2);
         expect(a.cruceEnCurso()).toEqual({ evento: cruce, t: 0.5 });
         expect(a.figura(s1).clip).toBe('idle');
       }
+      // Después el tramo, de una casilla, cargando, ya sin la rueda.
+      a.tick(tras + casilla / 2);
+      expect(a.figura(s1).clip).toBe('charge');
+      expect(a.cruceEnCurso()).toBeNull();
     }
   });
 

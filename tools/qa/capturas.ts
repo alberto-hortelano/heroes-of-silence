@@ -6545,7 +6545,7 @@ async function jugarLaRueda(
       await sleep(300);
       if (j.fase === 'golpe' && !cancelado) {
         // Escape antes de elegir: el golpe no se da, y quien pega se queda donde
-        // llegó con su turno; se vuelve a pulsar desde ahí.
+        // llegó (o en su salida, si cargaba) con su turno; se vuelve a pulsar desde ahí.
         const plantado = espejo.battle.golpeEnCurso;
         if (plantado === null)
           throw new Error(`rueda${sufijo}: la rueda se abre sin nadie plantado`);
@@ -6558,7 +6558,7 @@ async function jugarLaRueda(
           });
         espejo.cancelarGolpe();
         cancelado = true;
-        // «Golpe cancelado.», o con la carga que se pierde si venía cargando (R6).
+        // «Golpe cancelado.».
         await esperarBarra(page, espejo.status, `rueda${sufijo}, Escape`, { exacta: true });
         log(
           `rueda${sufijo}: ${await sigueTrasSoltar(page, espejo, plantado.stack, `rueda${sufijo}`)}`,
@@ -6696,8 +6696,9 @@ async function barraQueDebe(page: Page, s: BattleStack): Promise<number> {
 /**
  * Con la rueda recién abierta, quien pega está plantado (`golpeEnCurso` del
  * espejo) y ya quieto en su casilla: su barra de vida mide ahí lo que debe, y en
- * la casilla de la que salió (`salidas`), si anduvo, no hay barra. Primero se
- * anda, luego la rueda (decisión del usuario, 13-10-2026). Devuelve qué se vio.
+ * la casilla de la que salió (`salidas`), si anduvo, no hay barra. Sin carga,
+ * primero se anda y luego la rueda (decisión del usuario, 13-10-2026); con carga,
+ * la rueda antes de correr (31-10-2026): quieto en su salida. Devuelve qué se vio.
  */
 async function plantadoAlAbrir(
   page: Page,
@@ -6717,6 +6718,15 @@ async function plantadoAlAbrir(
     );
   }
   const salida = salidas.get(s.id);
+  if (g.carga !== null) {
+    if (salida !== undefined && !hexEquals(salida, s.hex)) {
+      throw new Error(
+        `${quien}: al abrirse la rueda de una carga, ${s.id} ya corrió de (${salida.col},${salida.row}) a ${donde}`,
+      );
+    }
+    const llegada = g.carga.carrera.at;
+    return `${s.id} carga ${g.carga.recta} desde ${donde} hasta (${llegada.col},${llegada.row}) y la rueda se abrió antes de correr`;
+  }
   if (salida === undefined || hexEquals(salida, s.hex))
     return `${s.id} golpea desde ${donde}, sin andar`;
   const alli = await vidaPintada(page, { ...s, hex: salida });
@@ -6725,11 +6735,12 @@ async function plantadoAlAbrir(
       `${quien}: al abrirse la rueda, ${s.id} se ve aún en su salida (${salida.col},${salida.row}): ${alli.toFixed(1)} px de barra`,
     );
   }
-  return `${s.id} anduvo de (${salida.col},${salida.row}) a ${donde} y la rueda se abrió con él ya allí${g.carga > 0 ? `, cargando ${g.carga}` : ''}`;
+  return `${s.id} anduvo de (${salida.col},${salida.row}) a ${donde} y la rueda se abrió con él ya allí`;
 }
 
 /**
- * Tras Escape con la unidad ya plantada: sigue donde llegó y con su turno —la
+ * Tras Escape con la unidad ya plantada: sigue donde llegó (en su salida, si
+ * cargaba) y con su turno —la
  * barra de arriba dice «Te toca» y la página y el espejo, la misma activa—, y no
  * vuelve atrás (su barra, ahí, un rato después). Devuelve qué se vio.
  */
