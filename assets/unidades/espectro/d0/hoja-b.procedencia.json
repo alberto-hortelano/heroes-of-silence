@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/espectro/d0/hoja-b.webp",
     "sha256": "5256f2e5e2dfc01df62af7646479dd1cedee394faf2c3c2069234d71c89b94f2"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }

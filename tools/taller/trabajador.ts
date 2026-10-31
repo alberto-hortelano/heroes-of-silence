@@ -183,7 +183,7 @@ import {
   MATERIALES,
 } from './paredes-puentes.js';
 import { escalaDePose } from './pose-del-encargo.js';
-import { escribirAtlasDePoses, RUTA_DEL_ATLAS_8D } from './poses-8d.js';
+import { escribirAtlasDePoses, RUTA_DEL_ATLAS_8D, ritmoDelEncargo } from './poses-8d.js';
 import { encargosDeRampas, escribirGuiasDeRampas, escribirRampasDerivadas } from './rampas.js';
 import { encargoDelRecinto, escribirGuiaDelRecinto, escribirRecintoDerivado } from './recinto.js';
 import { aRaster, dePng, recortar, UMBRALES } from './recorte.js';
@@ -524,6 +524,7 @@ async function postprocesar(
     } catch {
       // La versión es informativa; no se para un encargo por ella.
     }
+    const ritmo = ritmoDelEncargo(encargo);
     const procedencia = {
       encargo: encargo.id,
       tipo: encargo.tipo,
@@ -554,6 +555,9 @@ async function postprocesar(
       postproceso: pasos,
       validacion: informe.medidas,
       ...(extra.deLaPose === undefined ? {} : { deLaPose: extra.deLaPose }),
+      // El ritmo de sus clips en el maniquí sobre el que se pinta: con él se deriva su
+      // atlas aunque el maniquí cambie después (`conElRitmoDeSusHojas`).
+      ...(ritmo === null ? {} : { ritmo }),
       ...(extra.encuadre === undefined ? {} : { encuadre: extra.encuadre }),
       ...(extra.porRejilla === undefined ? {} : { porRejilla: extra.porRejilla }),
       salida: { ruta: relative(RAIZ, rutaSalida), sha256: sha256(webp) },

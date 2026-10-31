@@ -34,7 +34,7 @@
     "charge": {
       "row": 2,
       "frames": 7,
-      "fps": 10.5,
+      "fps": 14,
       "loop": true,
       "anchor": [
         193,

@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-goblin-chaman/d0/hoja-b.webp",
     "sha256": "f59caee389612ab0dfa25bf4188f9b7452f2bc65f466ca5f26689e88ef817487"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }

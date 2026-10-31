@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-lich/d5/hoja-b.webp",
     "sha256": "803550248d1f728516d6f5f740233314aaabdf1ae4b9e3c8073acf6146d2e4f1"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }

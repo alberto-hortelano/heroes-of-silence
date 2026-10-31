@@ -157,5 +157,10 @@
   "salida": {
     "ruta": "assets/unidades/imperio-granadero/d5/hoja-b.webp",
     "sha256": "61aad76b315c705f7c08069c3584cf43b807b578c6fe22713695c932ffd867d9"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 6
   }
 }

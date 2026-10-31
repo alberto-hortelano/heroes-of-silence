@@ -40,7 +40,7 @@
   "validacion": {
     "visibles": 0.04505266462053571,
     "opacos": 0.9483474184461218,
-    "haloSuelto": 0.000021503988989957638,
+    "haloSuelto": 2.1503988989957638e-05,
     "ancho": 2688,
     "alto": 1152
   },
@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/imperio-artillero-culebrina/d3/hoja-b.webp",
     "sha256": "363f8a5464e5e7d4df7bb21aa5a441b74eb938e804357e8a980c1ef1570e2e15"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }

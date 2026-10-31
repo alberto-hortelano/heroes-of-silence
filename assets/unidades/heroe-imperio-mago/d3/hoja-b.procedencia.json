@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-imperio-mago/d3/hoja-b.webp",
     "sha256": "132bf47ec00b98661d847749a24036f960ab048c57a1c52d4dd3bd96dd31a777"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }

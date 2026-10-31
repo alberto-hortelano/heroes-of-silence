@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/elfo-sacerdotisa/d3/hoja-a.webp",
     "sha256": "0583c77990af7c73bada09efca9ceeb3d0ef626800e392f5b212c714a1436957"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 7,
+    "charge": 14
   }
 }

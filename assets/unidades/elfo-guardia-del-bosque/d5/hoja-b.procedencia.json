@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/elfo-guardia-del-bosque/d5/hoja-b.webp",
     "sha256": "35e1df9a3bdd754e47a2c5e3196ba1e04801216a182411d24fc150f4ed098c65"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 6
   }
 }

@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/orko-armadura-pesada/d5/hoja-a.webp",
     "sha256": "09f4438e1e534ea89bc68a1b50211d63a4e356c7d3cbef85e6118cd51a56fa15"
+  },
+  "ritmo": {
+    "idle": 2.8,
+    "walk": 5.6,
+    "charge": 14
   }
 }

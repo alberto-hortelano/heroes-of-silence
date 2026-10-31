@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-elfo-cantora/d2/hoja-a.webp",
     "sha256": "0c83a1c4c4613830531681e5d7574c1cc49b2e1330d938e2a39c49e6e70fb9b9"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 7,
+    "charge": 14
   }
 }

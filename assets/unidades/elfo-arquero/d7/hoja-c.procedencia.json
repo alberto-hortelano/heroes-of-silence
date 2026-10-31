@@ -59,5 +59,8 @@
   "salida": {
     "ruta": "assets/unidades/elfo-arquero/d7/hoja-c.webp",
     "sha256": "1f0e3095ad3bf77633d4466dee827a133c5766f0c51b64429151e836de96efab"
+  },
+  "ritmo": {
+    "shoot": 6.5
   }
 }

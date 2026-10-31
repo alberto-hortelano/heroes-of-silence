@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/elfo-guardia-del-bosque/d4/hoja-a.webp",
     "sha256": "273ded02efc604b0c38ab1a56028a5686f1f0535ecc72bf608564c2e47dafffa"
+  },
+  "ritmo": {
+    "idle": 2.8,
+    "walk": 6.5,
+    "charge": 14
   }
 }

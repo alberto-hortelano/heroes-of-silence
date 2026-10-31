@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-elfo-danzante-de-espadas/d0/hoja-a.webp",
     "sha256": "fb2daf8dca1622defb616a73582e99009ec5736641fca7a01af0052f4fc3e0d0"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 6.5,
+    "charge": 10.5
   }
 }

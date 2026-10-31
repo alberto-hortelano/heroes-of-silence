@@ -162,5 +162,10 @@
     "modo": "torneo",
     "motivo": "torneo: ninguna gana todos sus duelos (tirada 0 de 1 duelos, esqueleto 0 de 1 duelos); la de ahora no vale (es de otro maniquí): decide la persona entre tirada y esqueleto en el visor",
     "persona": "iguales"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 10.3,
+    "death": 6
   }
 }

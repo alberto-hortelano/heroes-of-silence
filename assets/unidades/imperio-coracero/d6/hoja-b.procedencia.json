@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/imperio-coracero/d6/hoja-b.webp",
     "sha256": "04057abc5a7c18c46ca1d447167ac2043b3a6e811f96984bfe2da0abe7cc73f9"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }

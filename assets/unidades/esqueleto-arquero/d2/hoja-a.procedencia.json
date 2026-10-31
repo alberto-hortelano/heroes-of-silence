@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/esqueleto-arquero/d2/hoja-a.webp",
     "sha256": "d269ac6b0520065e6ac46c11b3f063981d5d98fcca62e934d2dabf6f5c3eceaf"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 6.5,
+    "charge": 10.5
   }
 }

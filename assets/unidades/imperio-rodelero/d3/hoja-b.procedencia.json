@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/imperio-rodelero/d3/hoja-b.webp",
     "sha256": "88c9e8f521fad44e9ac82176da3e0f56887760471ea61e2ef15bdf492af33e42"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 6
   }
 }

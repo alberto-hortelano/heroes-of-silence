@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-imperio-duelista/d6/hoja-b.webp",
     "sha256": "b2e30945613b04ed5ed3f526f74837971ca34b0898f3d28bfdf8fd9cf7b9ddad"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 6
   }
 }

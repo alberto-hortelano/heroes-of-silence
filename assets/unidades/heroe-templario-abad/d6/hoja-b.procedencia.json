@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-templario-abad/d6/hoja-b.webp",
     "sha256": "b1708ba74bd87fe3dfdf12a7b0b90d8609132ae990e8ca7dddc995c1f14da615"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }

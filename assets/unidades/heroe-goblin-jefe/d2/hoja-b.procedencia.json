@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-goblin-jefe/d2/hoja-b.webp",
     "sha256": "1640046c7977a9f20d64f708e5ec535cdf794188f92aad7823cf9762ff4c80c4"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 6
   }
 }

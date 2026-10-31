@@ -59,5 +59,8 @@
   "salida": {
     "ruta": "assets/unidades/imperio-artillero-culebrina/d7/hoja-c.webp",
     "sha256": "d60a106ae34ac4e02c32f026b0cd8662c7bd16ce531458877ada6a63b30215e9"
+  },
+  "ritmo": {
+    "shoot": 6.5
   }
 }

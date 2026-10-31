@@ -100,5 +100,8 @@
     "modo": "contra-la-de-ahora",
     "motivo": "gana todo (gana/pierde/no coincide: tirada 1/0/0, esqueleto 0/0/1, todo 1/0/0)",
     "persona": "versión 1"
+  },
+  "ritmo": {
+    "shoot": 6.5
   }
 }

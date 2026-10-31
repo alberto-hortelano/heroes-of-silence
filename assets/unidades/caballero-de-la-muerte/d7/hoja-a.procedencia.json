@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/caballero-de-la-muerte/d7/hoja-a.webp",
     "sha256": "4974235cc8a9e95b3bd273367e370f6a8a69ea3673f6bc9cd67523e54b99c2b4"
+  },
+  "ritmo": {
+    "idle": 2.8,
+    "walk": 5.6,
+    "charge": 14
   }
 }

@@ -97,5 +97,8 @@
     "modo": "persona-sin-jurado",
     "motivo": "ChatGPT sin cuota (hasta el 06-11-2026); la persona eligió la otra en el visor y se cambió tras la revisión de orientación y manos: la de esqueleto cambia de manos en el 4-5 y pierde el sable en el 6; la tirada no tiene fallos graves",
     "persona": null
+  },
+  "ritmo": {
+    "shoot": 6.5
   }
 }

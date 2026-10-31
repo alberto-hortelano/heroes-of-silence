@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/imperio-rodelero/d3/hoja-a.webp",
     "sha256": "a9f97756bd5b746305c4ee5685cc5921cc98161e84aeabf2929c9cb69490f6a6"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 6.5,
+    "charge": 10.5
   }
 }

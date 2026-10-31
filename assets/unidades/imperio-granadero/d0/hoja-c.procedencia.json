@@ -100,5 +100,8 @@
     "modo": "persona-sin-jurado",
     "motivo": "ChatGPT sin cuota (hasta el 06-11-2026): sin torneo, la eligió la persona en el visor entre tirada y esqueleto",
     "persona": "versión 2"
+  },
+  "ritmo": {
+    "shoot": 6.5
   }
 }

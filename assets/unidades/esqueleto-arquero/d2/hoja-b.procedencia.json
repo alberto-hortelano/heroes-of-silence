@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/esqueleto-arquero/d2/hoja-b.webp",
     "sha256": "5196109081a5b8ff9fd1ce5f4fc80bba46881ac7c3f17eb4d65cc35d5321b7a1"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 10.3,
+    "death": 6
   }
 }

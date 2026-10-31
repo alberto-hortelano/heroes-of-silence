@@ -1,0 +1,36 @@
+{
+ "hoja": "39f375eccb7b49c880944c165cfaf194330faf02720abc333663c1642bf08808",
+ "nota": "encuadre a mano de «attack» (31-10-2026, «descentrado»): el maniquí no mueve el pie plantado; se casan las botas plantadas entre fotogramas y con el reposo (hoja A celda 0), y donde la hoja las pinta en otro sitio (zancada, talón alzado), a medias con el tronco Y la mitad del avance de la estocada quitada (decisión del usuario, 31-10-2026: de espaldas en diagonal, el paso del maniquí se leía como que la figura se descentraba).",
+ "fotogramas": {
+  "attack": [
+   [
+    0,
+    0
+   ],
+   [
+    -4,
+    10
+   ],
+   [
+    -2,
+    14
+   ],
+   [
+    -17,
+    15
+   ],
+   [
+    -6,
+    31
+   ],
+   [
+    -5,
+    11
+   ],
+   [
+    -1,
+    -2
+   ]
+  ]
+ }
+}

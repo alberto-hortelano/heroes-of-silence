@@ -164,5 +164,10 @@
     "modo": "contra-la-de-ahora",
     "motivo": "elegida por la persona en el visor (30-10-2026), tras ninguna ganar a la de ahora: ninguna gana sin perder (gana/pierde/no coincide: tirada 1/2/0, esqueleto 1/2/0, todo 1/1/1): se queda la de ahora",
     "persona": "esqueleto"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 6
   }
 }

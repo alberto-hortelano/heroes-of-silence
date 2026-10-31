@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/orko-dos-armas/d5/hoja-b.webp",
     "sha256": "2d1240fcef64029eaccce7fdd0415609db6fd15ca7a8c11c60421fa6b68abfcc"
+  },
+  "ritmo": {
+    "attack": 2.6,
+    "hurt": 6.5,
+    "death": 6
   }
 }

@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-imperio-capitan-mercenario/d5/hoja-b.webp",
     "sha256": "0bf48e0368de320fbff02af93734ceb10bfc1cd01cd426110383a588d521f0e8"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 6
   }
 }

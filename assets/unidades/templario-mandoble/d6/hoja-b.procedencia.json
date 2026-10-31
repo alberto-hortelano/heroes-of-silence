@@ -163,5 +163,10 @@
     "motivo": "torneo: gana tirada todos sus duelos (tirada 2 de 2 duelos, esqueleto 1 de 2 duelos, todo 0 de 2 duelos); ojo: tirada salta 7 px de un fotograma a otro (más de 6): ¿reprocesarla?",
     "persona": null,
     "auto": true
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }

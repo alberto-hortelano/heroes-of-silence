@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/imperio-alabardero/d0/hoja-a.webp",
     "sha256": "410faa0698686fd8bf27a810784454cf74fbca933623ca77a5f602daf9ddbc26"
+  },
+  "ritmo": {
+    "idle": 2.8,
+    "walk": 6.5,
+    "charge": 14
   }
 }

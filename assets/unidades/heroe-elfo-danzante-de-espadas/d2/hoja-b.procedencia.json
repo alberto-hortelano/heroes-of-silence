@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-elfo-danzante-de-espadas/d2/hoja-b.webp",
     "sha256": "cf7b110659dd7a248ba7120c2dff01c57b473c6bf6bdc9f5dde8374d1585b5b3"
+  },
+  "ritmo": {
+    "attack": 2.6,
+    "hurt": 6.5,
+    "death": 6
   }
 }

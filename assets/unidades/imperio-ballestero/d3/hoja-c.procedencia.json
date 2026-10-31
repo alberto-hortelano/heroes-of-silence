@@ -59,5 +59,8 @@
   "salida": {
     "ruta": "assets/unidades/imperio-ballestero/d3/hoja-c.webp",
     "sha256": "b003436793dc8493b030a034e6dcd18805cb4832d0025eae6747982c79c66a1d"
+  },
+  "ritmo": {
+    "shoot": 6.5
   }
 }

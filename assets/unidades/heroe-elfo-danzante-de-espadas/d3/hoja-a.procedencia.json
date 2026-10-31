@@ -40,7 +40,7 @@
   "validacion": {
     "visibles": 0.05021255735367063,
     "opacos": 0.9266755420067273,
-    "haloSuelto": 0.0000064314058410027845,
+    "haloSuelto": 6.4314058410027845e-06,
     "ancho": 2688,
     "alto": 1152
   },
@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-elfo-danzante-de-espadas/d3/hoja-a.webp",
     "sha256": "7aec67cafbd5bf14e5dd02add28678b480bdf59078734ce3acd440afbd8a8cbe"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 6.5,
+    "charge": 10.5
   }
 }

@@ -59,5 +59,8 @@
   "salida": {
     "ruta": "assets/unidades/goblin-arquero/d1/hoja-c.webp",
     "sha256": "948da3973260db45e6b1af1398809cc99bcb7efe2f11de93f3862efd4bd21698"
+  },
+  "ritmo": {
+    "shoot": 6.5
   }
 }

@@ -40,7 +40,7 @@
   "validacion": {
     "visibles": 0.059826401806382275,
     "opacos": 0.9417619847023324,
-    "haloSuelto": 0.000005397906691784926,
+    "haloSuelto": 5.397906691784926e-06,
     "ancho": 2688,
     "alto": 1152
   },
@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/elfo-guardia-del-bosque/d3/hoja-b.webp",
     "sha256": "3a6e2c472ec25cc59045c05316ca7fd28ac39d11657025658b03275ba3226838"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 6
   }
 }

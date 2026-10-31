@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/orko-hacha-escudo/d5/hoja-b.webp",
     "sha256": "75875bcb988d27d4852bc72719886de3556a583255808f7ba6f36becc6d4374e"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }

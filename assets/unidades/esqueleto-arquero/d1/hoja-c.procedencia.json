@@ -59,5 +59,8 @@
   "salida": {
     "ruta": "assets/unidades/esqueleto-arquero/d1/hoja-c.webp",
     "sha256": "d7c1cd29c9da89c54208f602644af3a8db079360cb650bd32acd65a840d63e4d"
+  },
+  "ritmo": {
+    "shoot": 6.5
   }
 }

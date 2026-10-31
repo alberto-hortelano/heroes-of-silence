@@ -54,5 +54,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-templario-caballero/d3/hoja-a.webp",
     "sha256": "a3d83b759706be2043f45324763747523427b99a7f5061e90e50a45500aceddf"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 6.5,
+    "charge": 10.5
   }
 }

@@ -152,5 +152,10 @@
   "salida": {
     "ruta": "assets/unidades/imperio-granadero/d1/hoja-a.webp",
     "sha256": "eaecfabbadda920c18dc4f7e1c1f0fc9fd92a806fcd665e00b5c58323272a6cc"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 6.5,
+    "charge": 10.5
   }
 }

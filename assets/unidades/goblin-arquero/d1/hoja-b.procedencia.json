@@ -165,5 +165,10 @@
     "motivo": "torneo: gana todo todos sus duelos (esqueleto 0 de 1 duelos, todo 1 de 1 duelos)",
     "persona": null,
     "auto": true
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 6
   }
 }

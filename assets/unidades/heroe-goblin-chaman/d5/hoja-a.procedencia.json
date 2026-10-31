@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-goblin-chaman/d5/hoja-a.webp",
     "sha256": "8c40c27dc958cf53b815555848499b4f77344b684c0d6d46723f249093f14e7f"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 5.6,
+    "charge": 14
   }
 }

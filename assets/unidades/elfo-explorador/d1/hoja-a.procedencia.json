@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/elfo-explorador/d1/hoja-a.webp",
     "sha256": "1311a5702a4a8c9c39fc1a7bdae9471bd3b9713546448a126945a52e44de0bf4"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 6.5,
+    "charge": 10.5
   }
 }

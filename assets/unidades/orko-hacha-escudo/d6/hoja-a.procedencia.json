@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/orko-hacha-escudo/d6/hoja-a.webp",
     "sha256": "59a87dcc81101e8229da12bbc90f048bbf37604a6f67dcb3caaa1c53b7d9302f"
+  },
+  "ritmo": {
+    "idle": 2.8,
+    "walk": 5.6,
+    "charge": 14
   }
 }

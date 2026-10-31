@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/goblin-lancero/d5/hoja-a.webp",
     "sha256": "53152af875ce72bd3dce2f4aae957f84ac8cdec6acfcdd277ce8455192bf2fdf"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 6.5,
+    "charge": 10.5
   }
 }

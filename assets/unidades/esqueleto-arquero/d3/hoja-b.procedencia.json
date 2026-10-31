@@ -40,7 +40,7 @@
   "validacion": {
     "visibles": 0.03994024367559524,
     "opacos": 0.9238829864648522,
-    "haloSuelto": 0.000008085512378919452,
+    "haloSuelto": 8.085512378919452e-06,
     "ancho": 2688,
     "alto": 1152
   },
@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/esqueleto-arquero/d3/hoja-b.webp",
     "sha256": "3041f426eb64fb64db4943a700797b2257220bed3fdd3c33696853362b66fc26"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 10.3,
+    "death": 6
   }
 }

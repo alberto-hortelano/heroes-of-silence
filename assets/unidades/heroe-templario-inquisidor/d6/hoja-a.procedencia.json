@@ -54,5 +54,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-templario-inquisidor/d6/hoja-a.webp",
     "sha256": "eaf74dce6381325ea681c5b0231f45475e7955fc09b5e0d5827783ee27acfae1"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 6.5,
+    "charge": 10.5
   }
 }

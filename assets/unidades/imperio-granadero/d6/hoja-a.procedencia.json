@@ -160,5 +160,10 @@
     "modo": "contra-la-de-ahora",
     "motivo": "gana esqueleto (gana/pierde/no coincide: tirada 1/1/1, esqueleto 2/0/1, todo 1/2/0)",
     "persona": "versión 1"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 6.5,
+    "charge": 10.5
   }
 }

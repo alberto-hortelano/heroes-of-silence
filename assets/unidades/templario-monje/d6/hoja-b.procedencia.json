@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/templario-monje/d6/hoja-b.webp",
     "sha256": "5f69f8259c076161a7570123d65fb913f1c9f6247a4f86e4f971cd79e57df664"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }

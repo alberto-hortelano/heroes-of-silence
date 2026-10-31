@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/zombi/d5/hoja-b.webp",
     "sha256": "96734d25529b7d5807e8872bc898adec47990bb03fa8fdb55f47cc4a3423b20c"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }

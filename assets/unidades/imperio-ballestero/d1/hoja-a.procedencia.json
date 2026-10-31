@@ -160,5 +160,10 @@
     "motivo": "torneo: gana todo todos sus duelos (tirada 1 de 2 duelos, esqueleto 0 de 2 duelos, todo 2 de 2 duelos)",
     "persona": null,
     "auto": true
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 7,
+    "charge": 10.5
   }
 }

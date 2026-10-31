@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-elfo-cantora/d5/hoja-b.webp",
     "sha256": "1d305bacda53c26a55edd880083c42bd8daae0a2d6c57706e156eaa4578337e5"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }

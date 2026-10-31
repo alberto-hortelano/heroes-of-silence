@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/caballero-de-la-muerte/d6/hoja-b.webp",
     "sha256": "3fb6c76fc8ab03027b257c651c2a120a6f0b4206331636548ee3cd44a79cb8ac"
+  },
+  "ritmo": {
+    "attack": 4.2,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }

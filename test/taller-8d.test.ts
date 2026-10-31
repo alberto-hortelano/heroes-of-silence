@@ -34,6 +34,7 @@ import { type Encargo, encargoSchema, PAPELES_DE_POSE, promptDe } from '../tools
 import { juntarDireccion } from '../tools/taller/juntar.js';
 import {
   type AtlasDePoses,
+  conElRitmoDeSusHojas,
   derivacionDeUnidad,
   derivarDireccionDePoses,
   ritmoDeUnidad,
@@ -174,8 +175,8 @@ describe('una dirección de 6 filas', () => {
       idle: 5,
       walk: 6.5,
       charge: 10.5,
-      // `precise` (30-10-2026, el golpe completo): dura más que el `quick` de antes.
-      attack: 3.8,
+      // `precise` (30-10-2026, el golpe completo) iría a 3,8: no baja de `RITMO_MINIMO`.
+      attack: 6.5,
       hurt: 6.5,
       death: 6,
     });
@@ -458,10 +459,15 @@ describe('las direcciones del arte', () => {
     const json = leer(join(dir, 'atlas.json'));
     expect(json.sha256, 'el atlas cambió sin volver a derivar su JSON').toBe(sha(atlas));
     if (derivadas.has(dir)) {
-      // La suelta de su maniquí y el ritmo de su unidad: la misma cuenta que al juntarlo.
+      // La suelta de su maniquí y el ritmo de su unidad con el de sus hojas: la misma cuenta que al juntarlo.
       expect(json).toEqual(
         JSON.parse(
-          JSON.stringify(await derivarAtlas(atlas, await derivacionDe(basename(dirname(dir))))),
+          JSON.stringify(
+            await derivarAtlas(
+              atlas,
+              conElRitmoDeSusHojas(dir, await derivacionDe(basename(dirname(dir)))),
+            ),
+          ),
         ),
       );
     }
