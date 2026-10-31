@@ -1747,8 +1747,9 @@ describe('el nivel en el contrato: derivado de las cifras (12-10-2026)', () => {
   it('`creature_stats` dice la montura del jinete, su marcha y su carga montada (26-10-2026)', () => {
     const jinete = fichaDeCriatura(unidadDelJuego('templario-hermano-de-carga'));
     expect(jinete.equipment[SLOT_DE_HUECO.montura]).toBe('caballo_de_guerra');
-    // Las casillas del caballo, en batalla y en el mapa; la carga, (16 + 4) × [1, 4].
-    expect(jinete).toMatchObject({ speed: 'very_fast', mapSpeed: 'very_fast' });
+    // Las casillas del caballo, en batalla y en el mapa (6, −1 por lo que carga: 18
+    // frente a su fuerza 16); la carga, (16 + 4) × [1, 4].
+    expect(jinete).toMatchObject({ speed: 'fast', mapSpeed: 'fast' });
     expect(jinete.chargeDamage).toEqual([20, 80]);
     // A pie no hay carga montada, y la marcha es la de batalla.
     const piquero = fichaDeCriatura(unidadDelJuego('templario-escudo'));

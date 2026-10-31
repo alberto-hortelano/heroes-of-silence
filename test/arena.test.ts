@@ -244,7 +244,7 @@ describe('la arena pelea con las cifras del borrador', () => {
   it('con equipo pelea con el cuerpo más las piezas, entra con los puntos de su armadura y se pinta con su cuerpo', () => {
     // El escudo da 3 de defensa, la brigantina 2 de armadura y ningún PV (#262) y
     // la espada 3 de ataque y 3 de fuerza (`data/equipo.json`). Pesan 8 con su
-    // fuerza 7: no le restan agilidad.
+    // fuerza 7: −1 de agilidad (31-10-2026: 1 por cada fuerza, o parte, que pasa).
     const u = unidad('templario-escudo');
     expect(u.equipo).toEqual({ arma: 'espada', armadura: 'brigantina', escudo: 'escudo' });
     const b = pelea([u], [unidad('zombi')], createRng(1));
@@ -252,9 +252,9 @@ describe('la arena pelea con las cifras del borrador', () => {
     expect(s.body).toBe('templario-escudo');
     // Su cuerpo, el del catálogo: ataque 3, fuerza 7, agilidad 4 y 50 PV.
     expect(u).toMatchObject({ attack: 3, fuerza: 7, agilidad: 4, hp: 50 });
-    expect(s.unit).toMatchObject({ attack: 6, defense: 7, damage: [10, 40], hp: 50 });
+    expect(s.unit).toMatchObject({ attack: 6, defense: 6, damage: [10, 30], hp: 50 });
     expect(armaduraDe(s.unit)).toBe(2);
-    expect(SPEED_TO_HEXES[s.unit.speed]).toBe(4);
+    expect(SPEED_TO_HEXES[s.unit.speed]).toBe(3);
     expect(s.topHp).toBe(50);
     // El cuerpo sin equipo, para la ficha y el retoque (el nivel lo mide vestido).
     expect(cuerpoDe(s, catalogoDe(b, EQUIPO_DEL_JUEGO))).toMatchObject({
@@ -1140,14 +1140,17 @@ describe('la velocidad son casillas: las de la agilidad', () => {
     const v = (id: string): number =>
       SPEED_TO_HEXES[unidadDeCombate(unidad(id), EQUIPO_DEL_JUEGO).speed];
     expect(v('goblin-jinete-de-hiena')).toBeGreaterThan(v('orko-hacha-escudo'));
-    // El hermano de carga, las de su caballo de guerra (6, que su carga no le resta).
-    expect(v('templario-hermano-de-carga')).toBe(6);
-    // A pie, ninguna llega al Danzante (un héroe, 7 con su espada y su escudo, que
-    // con la fuerza del cuerpo común no le pesan de más).
+    // El hermano de carga, las de su caballo de guerra (6, −1 por su carga: 18
+    // frente a la fuerza 16 del caballo, 31-10-2026).
+    expect(v('templario-hermano-de-carga')).toBe(5);
+    // A pie, ninguna pasa al Danzante (un héroe, 6: 7 con −1 por su espada y su
+    // escudo, que pasan de la fuerza del cuerpo común). Hasta el 31-10-2026 ninguna
+    // le llegaba; con el peso que resta por cada fuerza, o parte, que pasa, el
+    // rodelero, el explorador y el asesino lo igualan.
     const danzante = conSuKit(hojaPorId('heroe-elfo-danzante-de-espadas'));
-    expect(SPEED_TO_HEXES[unidadDeCombate(danzante, EQUIPO_DEL_JUEGO).speed]).toBe(7);
+    expect(SPEED_TO_HEXES[unidadDeCombate(danzante, EQUIPO_DEL_JUEGO).speed]).toBe(6);
     const aPie = CATALOGO.filter((u) => u.equipo.montura === undefined);
-    expect(Math.max(...aPie.map((u) => v(u.id)))).toBeLessThan(7);
+    expect(Math.max(...aPie.map((u) => v(u.id)))).toBeLessThanOrEqual(6);
     // Y no hay un empate masivo: ninguna velocidad lleva a más de la mitad.
     const cuenta = new Map<number, number>();
     for (const u of CATALOGO) cuenta.set(v(u.id), (cuenta.get(v(u.id)) ?? 0) + 1);
@@ -1165,7 +1168,7 @@ describe('la velocidad son casillas: las de la agilidad', () => {
     );
     const danzante = conSuKit(hojaPorId('heroe-elfo-danzante-de-espadas'));
     const b = pelea([danzante], [unidad('zombi')], createRng(1));
-    expect(b.stacks.map((s) => s.unit.speed)).toEqual(['ultra_fast', 'slow']);
+    expect(b.stacks.map((s) => s.unit.speed)).toEqual(['very_fast', 'slow']);
   });
 
   it('con las velocidades de salida ya no juega un ejército entero y luego el otro', () => {
@@ -1940,9 +1943,10 @@ describe('retocar en plena pelea (B10-B14)', () => {
       createRng(1),
     );
     const suyo = () => b.stacks.find((x) => x.side === 'attacker') as BattleStack;
-    // Su agilidad, 4, y el escudo, 3: el escudo pesa, pero no tanto como su fuerza.
-    expect(suyo().unit.defense).toBe(conEscudo.agilidad + 3);
-    expect(SPEED_TO_HEXES[suyo().unit.speed]).toBe(4);
+    // Su agilidad, 4, y el escudo, 3; con él pesa 8 frente a su fuerza 7, −1 de
+    // agilidad (31-10-2026), y sin él, 6: la recupera.
+    expect(suyo().unit.defense).toBe(conEscudo.agilidad - 1 + 3);
+    expect(SPEED_TO_HEXES[suyo().unit.speed]).toBe(3);
     const sinEscudo = quitarEnArena(conEscudo, 'escudo');
     expect(
       retocarEnBatalla(

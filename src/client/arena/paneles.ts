@@ -887,7 +887,7 @@ function filasDerivadas(final: UnitInfo, cuerpo: UnitInfo | null): FilaDeCifra[]
       ? {
           clave: 'peso',
           rotulo: NOMBRE_DE_CIFRA.peso,
-          nota: 'Lo que pesa lo puesto, de su fuerza: por encima, −1 de agilidad por cada mitad de su fuerza.',
+          nota: 'Lo que pesa lo puesto, de su fuerza: por encima, −1 de agilidad por cada fuerza entera, o parte, que lo pase.',
           final:
             resta === 0
               ? `${peso} de ${final.fuerza}`
@@ -897,7 +897,7 @@ function filasDerivadas(final: UnitInfo, cuerpo: UnitInfo | null): FilaDeCifra[]
       : {
           clave: 'peso',
           rotulo: NOMBRE_DE_CIFRA.peso,
-          nota: 'Montado de guerra, lo carga la montura: lo que pesa lo del jinete y ella, de la fuerza de ella; por encima, −1 casilla por cada mitad de esa fuerza. El jinete no pierde agilidad.',
+          nota: 'Montado de guerra, lo carga la montura: lo que pesa lo del jinete y ella, de la fuerza de ella; por encima, −1 casilla por cada fuerza entera, o parte, que lo pase. El jinete no pierde agilidad.',
           final: `${peso + deGuerra.peso} de ${deGuerra.fuerza} (${deGuerra.nombre})${aLaMontura === 0 ? '' : `: −${aLaMontura} casillas`}`,
           cambia: aLaMontura > 0,
         };
@@ -1641,7 +1641,7 @@ const CASILLAS_DE_LA_CIFRA: Readonly<
       rotulo: NOMBRE_DE_CIFRA.peso,
       de: (x) => x.peso ?? 0,
       limites: { minimo: 0 },
-      nota: 'Lo que pesa: lo puesto que pase de la fuerza de quien lo lleva le resta 1 de agilidad por cada mitad de su fuerza.',
+      nota: 'Lo que pesa: lo puesto que pase de la fuerza de quien lo lleva le resta 1 de agilidad por cada fuerza entera, o parte, que la pase.',
     },
   ],
 };

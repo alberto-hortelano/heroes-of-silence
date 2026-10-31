@@ -168,13 +168,14 @@ const casillaVecinaLibre = (state: GameState, desde: Point): Point => {
 
 describe('puntos de movimiento', () => {
   it('los marca el más lento del grupo, el héroe incluido (26-10-2026)', () => {
-    // El troll anda 2 (agilidad 2); el hermano de carga, 6 (las de su caballo de guerra).
+    // El troll anda 2 (agilidad 2); el hermano de carga, 5 (las 6 de su caballo de
+    // guerra, −1 por lo que carga: 18 frente a su fuerza 16, 31-10-2026).
     const lento = ejercito({ creature: 'troll-maza', count: 1 }, { creature: JINETE, count: 5 });
     expect(slowestSpeed(grupoQueMarcha(lento), undefined)).toBe('very_slow');
     // La tabla de fheroes2 (1000, 1200 y 1400) a la escala del mapa de #226: ×√1,5.
     expect(maxMovePoints(grupoQueMarcha(lento), undefined)).toBe(1224);
 
-    // Los jinetes van a 6, pero el héroe a pie (agilidad 4) frena al grupo.
+    // Los jinetes van a 5, pero el héroe a pie (agilidad 4) frena al grupo.
     const rapido = ejercito({ creature: JINETE, count: 5 });
     expect(slowestSpeed(grupoQueMarcha(rapido), undefined)).toBe('average');
     expect(maxMovePoints(grupoQueMarcha(rapido), undefined)).toBe(1469);
@@ -182,19 +183,20 @@ describe('puntos de movimiento', () => {
     const aCaballo = grupoQueMarcha(rapido, {
       equipo: { ...EQUIPO_BASE, montura: 'caballo_de_silla' },
     });
-    expect(slowestSpeed(aCaballo, undefined)).toBe('very_fast');
-    expect(maxMovePoints(aCaballo, undefined)).toBe(1714);
+    expect(slowestSpeed(aCaballo, undefined)).toBe('fast');
+    expect(maxMovePoints(aCaballo, undefined)).toBe(1592);
   });
 
   it('un caballo de silla sube la marcha solo si lo llevan todos, y no cambia la batalla', () => {
-    // El piquero templario anda 4; con su caballo de silla (peso 24 + 6 frente a 30), 7.
+    // El piquero templario anda 3 (su peso 8 pasa de su fuerza 7, −1 desde el
+    // 31-10-2026); con su caballo de silla (8 + 2 frente a 10), 7.
     const SILLA = { montura: 'caballo_de_silla' } as const;
     const todos = [0, 1, 2].map((i) => conSuEquipo('templario-escudo', SILLA, `v-${i}`));
     const heroe = { equipo: { ...EQUIPO_BASE, ...SILLA } };
     expect(slowestSpeed(grupoQueMarcha(todos, heroe), undefined)).toBe('ultra_fast');
     // Si uno va a pie, manda él; y si el héroe va a pie, el héroe.
     const unoAPie = [...todos.slice(0, 2), { creature: 'templario-escudo' }];
-    expect(slowestSpeed(grupoQueMarcha(unoAPie, heroe), undefined)).toBe('average');
+    expect(slowestSpeed(grupoQueMarcha(unoAPie, heroe), undefined)).toBe('slow');
     expect(slowestSpeed(grupoQueMarcha(todos), undefined)).toBe('average');
     // En batalla pelea a pie: las mismas casillas y la misma defensa que sin él.
     const b = createBattle(
@@ -1533,10 +1535,12 @@ describe('el gremio enseña (#2)', () => {
     // de ellos: se jugaba la 15 (uno y dos). Con la montura y el héroe en la marcha
     // del grupo (26-10-2026), 7 gremios en 1-80 y hechizos en 5 de ellos: se jugaba
     // la 21 (uno y dos). Con la escala baja (26-10-2026), 8 gremios en 1-80 y
-    // hechizos en 6 de ellos: se juega la 5 (uno y dos).
+    // hechizos en 6 de ellos: se jugaba la 5 (uno y dos). Con el peso que resta 1
+    // por cada fuerza, o parte, que pasa (31-10-2026), 2 gremios en 1-80 y hechizos
+    // en uno: se juega la 28 (uno y dos).
     let gremios = 0;
     let aprendidos = 0;
-    for (const semilla of [5]) {
+    for (const semilla of [28]) {
       const state = newGame({ seed: semilla });
       await playAiGame(state, { rng: createRng(semilla) });
       for (const e of state.log) {

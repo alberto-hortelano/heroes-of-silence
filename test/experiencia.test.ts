@@ -567,11 +567,13 @@ describe('cifras por rango, en una sola puerta (C4)', () => {
     const piquero = unidadDelJuego(TROPA);
     const a = cifrasDeUnidad(TROPA, h);
     // Rango 4: ataque +3 y fuerza +3 (y con ella el daño), y su nivel es el de esas
-    // cifras, no uno sumado aparte. La defensa es la de su agilidad, que no sube.
+    // cifras, no uno sumado aparte. La agilidad no sube, pero con fuerza 10 lo que
+    // lleva (8) ya no le pesa: recupera el punto que el novato pierde con fuerza 7
+    // (31-10-2026), y con él uno de defensa.
     expect(a).toMatchObject({
       attack: piquero.attack + 3,
       fuerza: piquero.fuerza + 3,
-      defense: piquero.defense,
+      defense: piquero.defense + 1,
     });
     expect(a.damage[0]).toBe(piquero.damage[0] + 3);
     expect(a).not.toHaveProperty('nivel');
@@ -606,7 +608,8 @@ describe('cifras por rango, en una sola puerta (C4)', () => {
     expect(s.unit.attack).toBe(base.attack + 2 * EXPERIENCIA.porRango.ataque);
     expect(s.unit.fuerza).toBe(base.fuerza + 2 * EXPERIENCIA.porRango.fuerza);
     expect(s.unit.damage[0]).toBe(base.damage[0] + 2 * EXPERIENCIA.porRango.fuerza);
-    expect(s.unit.defense).toBe(base.defense);
+    // Con fuerza 9, su peso 8 ya no le resta el punto de agilidad del novato.
+    expect(s.unit.defense).toBe(base.defense + 1);
     expect(s.unit.hp).toBe(base.hp);
     // Antes el precio salía de la referencia del catálogo, que un veterano ya
     // no lleva: el oro viaja en el origen.

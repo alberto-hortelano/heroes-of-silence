@@ -917,9 +917,11 @@ describe('efectos temporales (#9)', () => {
   it('la lentitud caduca de verdad y se anuncia en el parte', () => {
     const rng = createRng(7);
     const lanzador = hero({ spells: ['slow'], mana: 30, spellPower: 2 });
+    // Zombis, de 3 casillas: a uno de 2 (el esqueleto guerrero desde el 31-10-2026)
+    // la lentitud no le quita las dos, que no baja de 1.
     const state = createBattle(
-      side([{ creature: NO_MUERTO, count: 5 }], lanzador),
-      side([{ creature: NO_MUERTO, count: 5 }]),
+      side([{ creature: 'zombi', count: 5 }], lanzador),
+      side([{ creature: 'zombi', count: 5 }]),
       rng,
       COMBATE_COMPLETO,
     );
@@ -1751,13 +1753,15 @@ describe('la IA aprovecha el segundo tramo (02-10-2026)', () => {
 
   it('lo que elige la IA está SIEMPRE en la lista legal, también tras un tramo', () => {
     // La lista legal cambia tras moverse —sin puertas, escaleras ni `aim`—. Treinta batallas enteras, decisión a
-    // decisión: una sola fuera de la lista se dice con su batalla.
+    // decisión: una sola fuera de la lista se dice con su batalla. Los tramos los da
+    // quien carga montado (`pasoParaCargar`): el jinete de hiena, de 6 casillas; el
+    // hermano de carga, con 5 desde el peso del 31-10-2026, no daba ninguno en 150.
     let tramos = 0;
     for (let semilla = 1; semilla <= 30; semilla++) {
       const rng = createRng(semilla);
       const state = createBattle(
         side([
-          { creature: JINETE, count: 3 },
+          { creature: 'goblin-jinete-de-hiena', count: 3 },
           { creature: TIRADOR, count: 4 },
           { creature: PESADA, count: 3 },
         ]),
@@ -2035,10 +2039,13 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
     expect(cargaCobrada(dos)).toBe(0);
     expect(CARGA_MINIMA).toBe(3);
 
-    const seis = duelo(JINETE, { col: 0, row: 4 }, TROPA, {
-      col: 7,
-      row: 4,
-    });
+    // Con 7 casillas: con las 5 de su caballo (31-10-2026) la recta de 6 no le cabe.
+    const seis = conSieteCasillas(
+      duelo(JINETE, { col: 0, row: 4 }, TROPA, {
+        col: 7,
+        row: 4,
+      }),
+    );
     // La recta se mide entera y el tope lo pone el daño: lo que se ANUNCIA ya
     // viene recortado, para que un «»6» pintado no acabe cobrando 5.
     const jinete = stackById(seis, 'attacker-0');
@@ -2082,6 +2089,8 @@ describe('la carga en línea recta (decisión del usuario, 02-10-2026)', () => {
     stackById(state, 'attacker-0').hex = { col: 0, row: 4 };
     stackById(state, 'defender-0').hex = { col: 5, row: 4 };
     stackById(state, 'defender-1').hex = { col: 2, row: 4 };
+    // El rodeo cuesta 6 con el contacto: con las 5 del caballo (31-10-2026) no llega.
+    conSieteCasillas(state);
     forzarTurno(state, 'attacker-0');
     const s = stackById(state, 'attacker-0');
     // (4,4) se alcanza rodeando al campesino, pero la recta pasa por él.

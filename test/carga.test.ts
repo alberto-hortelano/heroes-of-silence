@@ -34,7 +34,7 @@ import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
-import type { Hex } from '../src/core/types.js';
+import type { Hex, UnitInfo } from '../src/core/types.js';
 import { unidadDeCombate } from '../src/core/unidad.js';
 import { delBorrador, forzarTurno, MONTAJE, NORMAL, unidadDeArena } from './helpers.js';
 
@@ -216,6 +216,9 @@ describe('carga todo el que pega cuerpo a cuerpo, y lo mismo cobra el jinete', (
       ] as const) {
         const { b, desde } = enRecta(id, recta);
         const s = stackById(b, 'attacker-0');
+        // Montado, las casillas son las del caballo: 5 con lo que carga desde el
+        // 31-10-2026, y la recta de 6 no le cabe. La geometría es del test.
+        if (!esAPie) (s as { unit: UnitInfo }).unit = { ...s.unit, speed: 'ultra_fast' };
         // La recta se mide entera; el tope lo pone la carga.
         expect(cargaDesde(b, s, desde, stackById(b, 'defender-0'))).toBe(recta);
         // Lo que se enseña: el enemigo, su casilla y lo que suma.

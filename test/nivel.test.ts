@@ -37,39 +37,41 @@ import { catalogoCon, JINETE, PESADA, TROPA, todoA } from './helpers.js';
  * unidades sin `charge` suben de +5 a +10 y los jinetes +3. **Es el único sitio del
  * rango de índices y niveles del catálogo**: `data/poder.json`, `nivel.ts` y
  * `unidad.ts` apuntan aquí. Re-anclada sin juzgar el 26-10-2026 con la escala baja
- * (fuerza, PV y armadura ×0,3, `docs/agents/2026-10-26-escala-baja/`).
+ * (fuerza, PV y armadura ×0,3, `docs/agents/2026-10-26-escala-baja/`), y el
+ * 31-10-2026 con el peso que resta 1 por cada fuerza entera, o parte, que pasa
+ * (once unidades bajan; el esqueleto guerrero, al nivel 1).
  */
 const TABLA_DEL_CATALOGO: Readonly<Record<string, readonly [number, number]>> = {
-  'templario-escudo': [316, 3],
+  'templario-escudo': [287, 2],
   'templario-mandoble': [303, 3],
   'templario-monje': [227, 2],
   'templario-escudero': [285, 2],
-  'templario-hermano-de-carga': [479, 4],
+  'templario-hermano-de-carga': [468, 4],
   'templario-penitente': [312, 3],
-  'esqueleto-guerrero': [225, 2],
+  'esqueleto-guerrero': [196, 1],
   'esqueleto-arquero': [209, 2],
   zombi: [329, 3],
-  espectro: [341, 3],
-  'caballero-de-la-muerte': [321, 3],
-  'jinete-de-plaga': [466, 4],
+  espectro: [319, 3],
+  'caballero-de-la-muerte': [286, 2],
+  'jinete-de-plaga': [456, 4],
   'imperio-alabardero': [250, 2],
   'imperio-piquero': [252, 2],
   'imperio-ballestero': [271, 2],
-  'imperio-coracero': [322, 3],
+  'imperio-coracero': [296, 2],
   'imperio-arcabucero': [271, 2],
   'imperio-rodelero': [328, 3],
   'imperio-artillero-culebrina': [271, 2],
-  'imperio-pistolero-montado': [466, 4],
+  'imperio-pistolero-montado': [456, 4],
   'imperio-granadero': [306, 3],
   'elfo-arquero': [305, 3],
   'elfo-explorador': [323, 3],
-  'elfo-guardia-del-bosque': [345, 3],
-  'elfo-jinete': [485, 4],
+  'elfo-guardia-del-bosque': [322, 3],
+  'elfo-jinete': [473, 4],
   'elfo-sacerdotisa': [225, 2],
   'elfo-asesino': [325, 3],
   'orko-hacha-escudo': [334, 3],
   'orko-dos-armas': [329, 3],
-  'goblin-lancero': [238, 2],
+  'goblin-lancero': [211, 2],
   'goblin-arquero': [232, 2],
   'troll-maza': [285, 2],
   'goblin-jinete-de-hiena': [334, 3],

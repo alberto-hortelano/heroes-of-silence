@@ -242,8 +242,16 @@ describe('el héroe pisa el tablero (criterio 4)', () => {
     );
     const comandante = stackById(b, 'defender-heroe');
     comandante.topHp = 1;
-    // El atacante que actúa se pone pegado al héroe rival y le pega.
-    hastaQueLeToque(b, 'attacker');
+    // La tropa del atacante que actúa se pone pegada al héroe rival y le pega (su
+    // héroe, sin arma, no pega: con 3 casillas desde el 31-10-2026, el templario
+    // de escudo ya no va antes que él).
+    const tocaASuTropa = (x: BattleState): boolean => {
+      const a = activeStack(x);
+      return a?.side === 'attacker' && a.origen.kind !== 'heroe';
+    };
+    if (!avanzarHasta(b, createRng(77), tocaASuTropa, chooseBattleAction)) {
+      throw new Error('no le tocó a la tropa del atacante antes de acabar la batalla');
+    }
     const activo = activeStack(b)!;
     activo.hex = { col: comandante.hex.col - 1, row: comandante.hex.row };
     applyAction(b, { type: 'attack', target: comandante.id, ...NORMAL }, rng);
