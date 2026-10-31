@@ -202,7 +202,6 @@ function crearAtrezo(model, prefijo, conf) {
   const p = huesoEn(model, prefijo);
   if (conf.arco) return crearArco(p, conf, material);
   if (conf.ballesta) return crearBallesta(model, p, conf, material);
-  if (conf.granada) return crearGranada(p, conf, material);
   return crearArmaDeMano(model, prefijo, p, conf, material);
 }
 function crearArmaDeMano(model, prefijo, p, conf, material) {
@@ -268,6 +267,16 @@ function crearArmaDeMano(model, prefijo, p, conf, material) {
     guardaDaga.position.y = 0.05;
     daga.add(hojaDaga, guardaDaga);
   }
+  // Una granada en la mano izquierda: una bola de hierro con la mecha asomando,
+  // hasta que la suelta en el disparo; después del tiro la mano va vacía.
+  let granada = null;
+  if (conf.granada) {
+    granada = new THREE.Group();
+    const bola = new THREE.Mesh(new THREE.SphereGeometry(conf.granada.radio, 14, 10), material);
+    const mecha = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, conf.granada.mecha, 5), material);
+    mecha.position.y = conf.granada.radio + conf.granada.mecha / 2;
+    granada.add(bola, mecha);
+  }
   let escudo = null;
   if (conf.rodela) {
     // La rodela: un disco redondo en vez de la cometa.
@@ -283,12 +292,12 @@ function crearArmaDeMano(model, prefijo, p, conf, material) {
     forma.closePath();
     escudo = new THREE.Mesh(new THREE.ExtrudeGeometry(forma, { depth: 0.03, bevelEnabled: false }), material);
   }
-  const atrezo = { espada, escudo, libro, daga };
+  const atrezo = { espada, escudo, libro, daga, granada };
   return {
     // El orden de las piezas en la escena es el orden en que se pintan: con
     // otro, donde dos piezas se tocan podría ganar la otra y cambiar un píxel.
-    piezas: [espada, escudo, libro, daga].filter(Boolean),
-    colocar: (suelo, aplanar, frente) => colocarArmaDeMano(model, prefijo, p, atrezo, conf, suelo, aplanar, frente),
+    piezas: [espada, escudo, libro, daga, granada].filter(Boolean),
+    colocar: (suelo, aplanar, frente, disparo) => colocarArmaDeMano(model, prefijo, p, atrezo, conf, suelo, aplanar, frente, disparo),
   };
 }
 // Un tramo recto de radio r y largo 1 en y: se coloca y se estira entre dos
@@ -377,26 +386,6 @@ function crearBallesta(model, p, conf, material) {
     colocar: (suelo, aplanar, frente, disparo, anim) => colocarBallesta(model, p, atrezo, conf, suelo, aplanar, frente, disparo, anim),
   };
 }
-// La granada: una bola de hierro con la mecha asomando, en el puño derecho
-// hasta que la suelta; después del tiro la mano va vacía.
-function crearGranada(p, conf, material) {
-  const g = conf.granada;
-  const granada = new THREE.Group();
-  const bola = new THREE.Mesh(new THREE.SphereGeometry(g.radio, 14, 10), material);
-  const mecha = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, g.mecha, 5), material);
-  mecha.position.y = g.radio + g.mecha / 2;
-  granada.add(bola, mecha);
-  return {
-    piezas: [granada],
-    colocar: (suelo, aplanar, frente, disparo) => {
-      const { centro } = ejeDeNudillos(p, 'Right');
-      granada.position.copy(centro);
-      granada.visible = disparo === null || disparo.tensa;
-      // Al morir la suelta: rueda hasta el suelo junto a la mano.
-      if (aplanar > 0) granada.position.lerp(new THREE.Vector3(centro.x, suelo + g.radio, centro.z), aplanar);
-    },
-  };
-}
 function huesoEn(model, prefijo) {
   return (nombre) => {
     const h = model.getObjectByName(prefijo + nombre);
@@ -441,7 +430,7 @@ function tumbar(objeto, eje, centro, suelo, w, alto) {
   objeto.quaternion.slerp(plano, w);
   objeto.position.lerp(enSuelo, w);
 }
-function colocarArmaDeMano(model, prefijo, p, atrezo, conf, suelo, aplanar, frente) {
+function colocarArmaDeMano(model, prefijo, p, atrezo, conf, suelo, aplanar, frente, disparo) {
   // La espada: el puño en el hueco de los dedos, la hoja hacia el índice.
   const { eje, centro } = ejeDeNudillos(p, 'Right');
   // La hoja (o el asta) no puede cruzar el cuerpo: los clips son de espada y
@@ -450,6 +439,10 @@ function colocarArmaDeMano(model, prefijo, p, atrezo, conf, suelo, aplanar, fren
   // lanza) o hacia arriba (bastón, que va de pie junto al cuerpo).
   inclinar(eje, frente, conf.adelanteMinimo);
   inclinar(eje, new THREE.Vector3(0, 1, 0), conf.arribaMinimo ?? 0);
+  // Mientras la izquierda lanza la granada, el sable va bajo, junto a la pierna y
+  // algo adelantado: de punta arriba subía por delante de la cara y tapaba el
+  // tiro, y hacia delante se salía de la celda.
+  if (disparo && atrezo.granada) inclinar(eje, frente.clone().multiplyScalar(0.4).setY(-1).normalize(), 0.95);
   atrezo.espada.position.copy(centro);
   atrezo.espada.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), eje);
   // A dos manos las dos manos cogen el puño delante del cuerpo, en el centro:
@@ -491,6 +484,15 @@ function colocarArmaDeMano(model, prefijo, p, atrezo, conf, suelo, aplanar, fren
     inclinar(izq.eje, frente, conf.adelanteMinimo);
     atrezo.daga.position.copy(izq.centro);
     atrezo.daga.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), izq.eje);
+  }
+  if (atrezo.granada) {
+    // En el hueco de los dedos de la izquierda, hasta que la suelta en el disparo.
+    const { centro: enLaMano } = ejeDeNudillos(p, 'Left');
+    const g = conf.granada;
+    atrezo.granada.position.copy(enLaMano);
+    atrezo.granada.visible = !disparo || disparo.tensa;
+    // Al morir la suelta: rueda hasta el suelo junto a la mano.
+    if (aplanar > 0) atrezo.granada.position.lerp(new THREE.Vector3(enLaMano.x, suelo + g.radio, enLaMano.z), aplanar);
   }
   if (atrezo.libro) {
     const mano = model.getObjectByName(prefijo + 'LeftHand');
@@ -1101,6 +1103,15 @@ export interface AtrezoDeMano {
   readonly daga?: { readonly largo: number };
   /** Un libro en la mano izquierda. */
   readonly libro?: boolean;
+  /**
+   * Una granada de mano en la izquierda: una bola con la mecha asomando por
+   * arriba, en metros. Desaparece al soltarla en el disparo y rueda al suelo al morir.
+   */
+  readonly granada?: {
+    readonly radio: number;
+    /** Lo que asoma la mecha por arriba. */
+    readonly mecha: number;
+  };
   /** La mano izquierda también en el puño de la espada. */
   readonly dosManos: boolean;
   /** Cuánto apunta la hoja, como mínimo, hacia donde mira (coseno). */
@@ -1164,13 +1175,15 @@ export interface AtrezoDeBallesta {
   readonly cuerpoACuerpo: CuerpoACuerpo;
 }
 
-/** Una granada de mano en la DERECHA, que desaparece al soltarla. */
-export interface AtrezoDeGranada {
-  readonly granada: {
-    readonly radio: number;
-    /** Lo que asoma la mecha por arriba. */
-    readonly mecha: number;
-  };
+/**
+ * El granadero (decisión del usuario, 31-10-2026: «usa la de espada para todo
+ * menos para lanzar la bomba»): el sable en la DERECHA y la granada en la
+ * IZQUIERDA en todas sus hojas, también en el ataque; en el disparo la izquierda
+ * la lanza y desaparece al soltarla. Su arma de cuerpo a cuerpo es él mismo: con
+ * ella en la mano desde el reposo, el ataque no cambia de atrezo.
+ */
+export interface AtrezoDeGranada extends AtrezoDeMano {
+  readonly granada: NonNullable<AtrezoDeMano['granada']>;
   readonly cuerpoACuerpo: CuerpoACuerpo;
 }
 
@@ -1221,6 +1234,9 @@ export const SABLE: CuerpoACuerpo = {
     ...UNA_MANO,
   },
 };
+
+/** El sable con la granada en la izquierda: el granadero lo lleva en todas sus hojas. */
+const SABLE_Y_GRANADA = { ...SABLE.atrezo, granada: { radio: 0.08, mecha: 0.07 } } as const;
 
 export const JUEGOS_DE_ARMAS = {
   'espada-escudo': {
@@ -1354,16 +1370,22 @@ export const JUEGOS_DE_ARMAS = {
       cuerpoACuerpo: ESPADA_CORTA,
     },
   },
-  // Granada de mano en la derecha: el granadero (04-10-2026). El disparo arma
-  // el brazo por encima del hombro y lanza (`grenade` en `POSE_A_DISTANCIA`); de
-  // cerca, el sable.
+  // El granadero (04-10-2026): el sable en la derecha y la granada en la
+  // izquierda en todas las hojas (31-10-2026: con la granada sola en la
+  // derecha, el sable era solo texto y el pintor ponía una u otro). El disparo
+  // arma la izquierda por encima del hombro y lanza (`grenade` en
+  // `POSE_A_DISTANCIA`); de cerca, el sable, con la granada aún en la izquierda.
   granada: {
-    describe: 'granada de mano en la derecha, lanzada por encima del hombro',
+    describe:
+      'sable de una mano en la derecha y granada de mano en la izquierda, que lanza por encima del hombro',
     ataque: 'precise',
     disparo: 'grenade',
     reposo: 'idle4',
     piernasDeColor: true,
-    atrezo: { granada: { radio: 0.08, mecha: 0.07 }, cuerpoACuerpo: SABLE },
+    atrezo: {
+      ...SABLE_Y_GRANADA,
+      cuerpoACuerpo: { describe: SABLE.describe, atrezo: SABLE_Y_GRANADA },
+    },
   },
   // Sin armas: la gente de la base (ajuste tras la vuelta 2 de la base caminable,
   // 09-10-2026). Todos los demás reposos son guardias con el arma en la mano, y
@@ -1685,6 +1707,16 @@ export function cuerpoACuerpoDe(j: JuegoEn8d, maniqui?: Atrezo): string | null {
   if (clipDeDisparoDe(j) === null) return null;
   if (esMontado(j)) return JUEGOS_MONTADOS[j].cuerpoACuerpo;
   return armaDeManoDe(j, maniqui ?? JUEGOS_DE_ARMAS[j].atrezo).describe;
+}
+
+/**
+ * Si quien dispara sigue llevando su arma de tiro mientras golpea cuerpo a
+ * cuerpo: el granadero, con la granada en la izquierda y el sable en la derecha.
+ * Lo que lleva su maniquí en el ataque, para que el pintor no la quite.
+ */
+export function golpeaConLaGranada(j: JuegoEn8d, maniqui?: Atrezo): boolean {
+  if (clipDeDisparoDe(j) === null || esMontado(j)) return false;
+  return armaDeManoDe(j, maniqui ?? JUEGOS_DE_ARMAS[j].atrezo).atrezo.granada !== undefined;
 }
 
 /** El arma de mano del atrezo de un tirador; lanza si no la lleva. */

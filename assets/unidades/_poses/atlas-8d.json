@@ -5831,22 +5831,22 @@
         "hojas": {
           "a": {
             "imagen": "d0-a.png",
-            "sha256": "3f1ce8502b080f8a6f87b9d1e2377c754acd2bf2462a4697ad0255e3088cbbed"
+            "sha256": "8684c24a84e55b7fad80d7da4a0a6a0cf679156dc7eb1dae6590905c2b620edb"
           },
           "b": {
             "imagen": "d0-b.png",
-            "sha256": "d00056c9fec5e8c72a7aaae7ba642b7598f1bc7dd0d8d8a6fa623bc709ec7acf"
+            "sha256": "9c0dba89835c79614a44931794a0ea4ff6a8a9d09003f3b7417f22d25791cfe4"
           },
           "c": {
             "imagen": "d0-c.png",
-            "sha256": "3d0459157b2fe2895b6a65dc946598e78a6d6aabe23870016fa8773279edba3b"
+            "sha256": "2c663b88d8917ab9e4fe96d6e40347e02bb0723ade56b905e5ac22ba19defe9a"
           }
         },
         "cell": 384,
         "columns": 7,
         "altura": 158,
         "cajaDeClic": [
-          -44,
+          -43,
           -157,
           24,
           0
@@ -5933,15 +5933,15 @@
         "hojas": {
           "a": {
             "imagen": "d1-a.png",
-            "sha256": "aed77aef9996763383ded3959a7cacf827731b4b1f542672475a6c066d3cd519"
+            "sha256": "d440542067ec106ffdabd42c9687f3cd7180cfff52e7b5d5bba0361fa74c4156"
           },
           "b": {
             "imagen": "d1-b.png",
-            "sha256": "832f2edddf68d557cdb9743b8b3cf7883101eb1f54f2a6656973277165bd468d"
+            "sha256": "3f41c04d5891b29f1250c320fff01c7a6e24da1387b3c0bf7dbe8f7b14a29db7"
           },
           "c": {
             "imagen": "d1-c.png",
-            "sha256": "4accaf335dfa0cf31c1ad1323e30ea8630b63a72c68a565ff901dc88fd02f18b"
+            "sha256": "48ec91aeba69a7333a5226bfc43bc37b6151f7dd1546eb9ca60197b94754032e"
           }
         },
         "cell": 384,
@@ -6035,24 +6035,24 @@
         "hojas": {
           "a": {
             "imagen": "d2-a.png",
-            "sha256": "9a7fade36260d0e4cf3f9b0dd8088a436aa338209b2c1e64fae2474f52dd3765"
+            "sha256": "d622f208a8882af2fe12d7a302c1106c338018661d5463378465e5c4e4ff6a90"
           },
           "b": {
             "imagen": "d2-b.png",
-            "sha256": "911aa63183bbfe0832f67f51ffcac7ed773aa94808d91708c4d652a00d740b58"
+            "sha256": "2d9e0e8c5b956cda7eb9cfc5411b621d2e7169387e214e585c157facf99ce9b7"
           },
           "c": {
             "imagen": "d2-c.png",
-            "sha256": "647acca57f943d6b38c56f24bdd1492650dc7c781957c62fd119512fb3562c87"
+            "sha256": "bb9d6a59b949ec5b228d0778236137b090129a2c9bd58de2d4136957789b56a4"
           }
         },
         "cell": 384,
         "columns": 7,
         "altura": 148,
         "cajaDeClic": [
-          -47,
+          -48,
           -147,
-          51,
+          50,
           0
         ],
         "clips": {
@@ -6062,7 +6062,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              195,
+              196,
               282
             ]
           },
@@ -6072,7 +6072,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              195,
+              196,
               282
             ]
           },
@@ -6082,7 +6082,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              195,
+              196,
               282
             ]
           },
@@ -6092,7 +6092,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              195,
+              196,
               282
             ]
           },
@@ -6102,7 +6102,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              195,
+              196,
               282
             ]
           },
@@ -6112,7 +6112,7 @@
             "fps": 8,
             "loop": false,
             "anchor": [
-              195,
+              196,
               282
             ]
           },
@@ -6122,7 +6122,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              195,
+              196,
               282
             ],
             "suelta": 4
@@ -6137,24 +6137,24 @@
         "hojas": {
           "a": {
             "imagen": "d3-a.png",
-            "sha256": "33e7dbc49111475295c132a96e626e0202b507c90381efe0d837c3e04681eb31"
+            "sha256": "2546a7a711218ec0439a74d5bc21d499829a0f31f612124f32094f19b9ff386c"
           },
           "b": {
             "imagen": "d3-b.png",
-            "sha256": "619851e82f8024254e4d67d0c8d052701e44e384b359b42bab20f7788e982bb2"
+            "sha256": "ca621fda338e6e18cf42680ee5a3c8103ce4a6ca5c5cf2614f9b15ccde8c5187"
           },
           "c": {
             "imagen": "d3-c.png",
-            "sha256": "77c0fe9260f85abd9f75c8dae9072ad017107f1f17c9c9c818a75fbfed8fbee9"
+            "sha256": "ea260ad2442f6514fee950052879702a0d53a30639c3c1593fa0ef598652257c"
           }
         },
         "cell": 384,
         "columns": 7,
         "altura": 160,
         "cajaDeClic": [
-          -30,
+          -31,
           -159,
-          38,
+          42,
           0
         ],
         "clips": {
@@ -6164,7 +6164,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              198,
+              199,
               290
             ]
           },
@@ -6174,7 +6174,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              198,
+              199,
               290
             ]
           },
@@ -6184,7 +6184,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              198,
+              199,
               290
             ]
           },
@@ -6194,7 +6194,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              198,
+              199,
               290
             ]
           },
@@ -6204,7 +6204,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              198,
+              199,
               290
             ]
           },
@@ -6214,7 +6214,7 @@
             "fps": 8,
             "loop": false,
             "anchor": [
-              198,
+              199,
               290
             ]
           },
@@ -6224,7 +6224,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              198,
+              199,
               290
             ],
             "suelta": 4
@@ -6239,24 +6239,24 @@
         "hojas": {
           "a": {
             "imagen": "d4-a.png",
-            "sha256": "dc5962735e0481b5669ec0d46543c79e91cb6c5fd37b2542015dad363c4f0add"
+            "sha256": "8508514e9200ae0c5b9e53388d8b100a9635b2e60d918e962cd680355570b23b"
           },
           "b": {
             "imagen": "d4-b.png",
-            "sha256": "0660c9c76ea41a15199f4ea8c9a298599c3d979c9c441dfe2b7a58d1590b0165"
+            "sha256": "83582c31f27aa1657d10cc787c5c9a0fc834faa3851fae04312f9c7713b5e6e8"
           },
           "c": {
             "imagen": "d4-c.png",
-            "sha256": "22a510cfe65fb1babd5277b436a4f95c9d3c3d53187f79d201690fd722656acf"
+            "sha256": "21b8edf6e7e88082ef56a57161a02052f676da7fd3779634414fa8b248856551"
           }
         },
         "cell": 384,
         "columns": 7,
-        "altura": 161,
+        "altura": 169,
         "cajaDeClic": [
           -26,
-          -160,
-          42,
+          -168,
+          41,
           0
         ],
         "clips": {
@@ -6341,24 +6341,24 @@
         "hojas": {
           "a": {
             "imagen": "d5-a.png",
-            "sha256": "dc763230364c0a5a2c76feb1272129ec0291a56f87596c356f28f92c69501734"
+            "sha256": "adde2f9841d5d94bf339d23f6f6f028c0ca5597855f050bf2d9a71a3de5b0d73"
           },
           "b": {
             "imagen": "d5-b.png",
-            "sha256": "152ff831b29d7e2ed3a5707a86d22cb9f292b4c59104a82f624ac2bd6a169bac"
+            "sha256": "bc6fdfa8be8e335175051089f5688a9a00ea1a0a7b5b6eb1626c53f4ce756c05"
           },
           "c": {
             "imagen": "d5-c.png",
-            "sha256": "cc761b7528b0521901e3e6531fe929db5d590c11804ca6a83e5b50b9748ad4c2"
+            "sha256": "6fec3788cfaa32cec736983cea89e49d8c5b9cd98c93ceec8a5ed93a22c62e28"
           }
         },
         "cell": 384,
         "columns": 7,
-        "altura": 152,
+        "altura": 166,
         "cajaDeClic": [
-          -46,
-          -151,
-          48,
+          -45,
+          -165,
+          49,
           0
         ],
         "clips": {
@@ -6368,7 +6368,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              194,
+              193,
               276
             ]
           },
@@ -6378,7 +6378,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              194,
+              193,
               276
             ]
           },
@@ -6388,7 +6388,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              194,
+              193,
               276
             ]
           },
@@ -6398,7 +6398,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              194,
+              193,
               276
             ]
           },
@@ -6408,7 +6408,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              194,
+              193,
               276
             ]
           },
@@ -6418,7 +6418,7 @@
             "fps": 8,
             "loop": false,
             "anchor": [
-              194,
+              193,
               276
             ]
           },
@@ -6428,7 +6428,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              194,
+              193,
               276
             ],
             "suelta": 4
@@ -6443,24 +6443,24 @@
         "hojas": {
           "a": {
             "imagen": "d6-a.png",
-            "sha256": "75cff21d543758dfac294407c3c28a23402a05b88c78e35539369fac27afa41e"
+            "sha256": "58a6542a9ee7f9c6cd261eb6b275f743a496acac4b9afd66eacfed7e9ac7dc49"
           },
           "b": {
             "imagen": "d6-b.png",
-            "sha256": "9a7e5ff3020c3c916dcb16a9a29f04c0c6d521649de9b21831bac2288661900e"
+            "sha256": "bfb4319cb12547a1241dab3ba22bde821739c861d893f1ed5ec2d63a98335a8e"
           },
           "c": {
             "imagen": "d6-c.png",
-            "sha256": "65e532747b03bbdf78ede604c53a6382a541dbe7d0cef5cf6b3822fa346d2957"
+            "sha256": "235c9e6a3d22f7c01b6579d30eb02d58103a781d8eaffec77b30a7e80db825a9"
           }
         },
         "cell": 384,
         "columns": 7,
-        "altura": 148,
+        "altura": 160,
         "cajaDeClic": [
-          -49,
-          -147,
-          49,
+          -48,
+          -159,
+          50,
           0
         ],
         "clips": {
@@ -6470,7 +6470,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              186,
+              185,
               274
             ]
           },
@@ -6480,7 +6480,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              186,
+              185,
               274
             ]
           },
@@ -6490,7 +6490,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              186,
+              185,
               274
             ]
           },
@@ -6500,7 +6500,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              186,
+              185,
               274
             ]
           },
@@ -6510,7 +6510,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              186,
+              185,
               274
             ]
           },
@@ -6520,7 +6520,7 @@
             "fps": 8,
             "loop": false,
             "anchor": [
-              186,
+              185,
               274
             ]
           },
@@ -6530,7 +6530,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              186,
+              185,
               274
             ],
             "suelta": 4
@@ -6545,23 +6545,23 @@
         "hojas": {
           "a": {
             "imagen": "d7-a.png",
-            "sha256": "d6a5d3b138e1bd08dcc8ebc97bfa3b1c893ddd977cbf7829f449942274fe5eb4"
+            "sha256": "c35d6d1067461a5160f8f7496c7946b51e9249bd6c3f38943ad3d00061f3b72b"
           },
           "b": {
             "imagen": "d7-b.png",
-            "sha256": "37a46e36262ddddee2450c9c6d04711bca3b607c6e9c6f5b6ed1dbb60037d524"
+            "sha256": "91911272b9420ce22100a312ed71d935d69741857039a5d8f2cf960a608303c6"
           },
           "c": {
             "imagen": "d7-c.png",
-            "sha256": "0fffdfe6e51a0b567f828aa46c7b4068422f566e0189cac031e7776e8fa1b078"
+            "sha256": "80635e3a8bd78f6e12f7f144773bd4fc3f5b96949a67ff63527ca3f02eb5eabd"
           }
         },
         "cell": 384,
         "columns": 7,
-        "altura": 157,
+        "altura": 159,
         "cajaDeClic": [
-          -37,
-          -156,
+          -42,
+          -158,
           31,
           0
         ],

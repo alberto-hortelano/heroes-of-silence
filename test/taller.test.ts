@@ -377,7 +377,7 @@ describe('el empaquetado y la derivación', () => {
     // La espada de la cuarta figura de la fila 2, alzada hasta tocar la de la fila 1.
     rect(r, 20 + 3 * 122 + 12, 100, 4, 60, 255);
     expect(() => enFilas(figurasDe(r), 3, 7)).toThrow(/figuras/);
-    const rejilla = porRejilla(r, 3, 7);
+    const { rejilla } = porRejilla(r, 3, 7);
     expect(rejilla.map((f) => f.length)).toEqual([7, 7, 7]);
     const p = await empaquetar(r, 3, 160);
     expect(p.porRejilla).toMatch(/cortando el crudo por su rejilla/);
@@ -446,6 +446,49 @@ describe('el empaquetado y la derivación', () => {
     for (let y = 0; y < celda; y++)
       for (let xx = 0; xx < celda; xx++) if (c.data[(y * celda + xx) * 4 + 3]! >= 64) fondo = y;
     expect(fondo).toBeGreaterThan(FIGURA.base + 5);
+  });
+
+  // El lanzamiento del granadero (31-10-2026): en la hoja C, de una fila de 7, el sable
+  // de cada figura llega hasta la de al lado y el detector fundía las dos; dentro de la
+  // banda no se cortaba nada y la hoja, con sus 7 figuras en el crudo, se tiraba.
+  it('si un arma junta dos figuras de una fila, se corta la banda en columnas y salen las 7', async () => {
+    const r = hojaIrregular(7, 1);
+    // El sable de la tercera, hasta 2 px de la cuarta: sus cajas se tocan y se funden.
+    rect(r, 297, 60, 97, 3, 255);
+    // Y el de la sexta, hacia atrás, hasta 2 px de la quinta, más bajo.
+    rect(r, 549, 80, 83, 3, 255);
+    expect(() => enFilas(figurasDe(r), 1, 7)).toThrow(/la fila 1 tiene 5 figuras/);
+    // `porRejilla` borra del crudo lo que el corte deja suelto: se empaqueta una copia sin tocar.
+    const crudo = { ...r, data: Buffer.from(r.data) };
+    const [fila] = porRejilla(r, 1, 7).rejilla;
+    expect(fila).toHaveLength(7);
+    // Cada una con su sable entero: la costura pasa entre la punta y la vecina.
+    expect(fila!.map((c) => c.x1 - c.x0 + 1).slice(2, 6)).toEqual([131, 38, 38, 117]);
+    const p = await empaquetar(crudo, 1, 120); // con los sables enteros, a 160 no caben
+    expect(p.porRejilla).toMatch(/cortando el crudo por su rejilla/);
+    const { data, info } = await sharp(p.png).raw().toBuffer({ resolveWithObject: true });
+    const { celda, columnas } = FIGURA;
+    for (let col = 0; col < columnas; col++) {
+      const c = lienzo(celda, celda);
+      for (let y = 0; y < celda; y++)
+        data.copy(
+          c.data,
+          y * celda * 4,
+          (y * info.width + col * celda) * 4,
+          (y * info.width + (col + 1) * celda) * 4,
+        );
+      // Una figura entera por celda: ni la punta del sable de la vecina suelta.
+      expect(figuras(componentes(c), 0), `celda 1·${col + 1}`).toHaveLength(1);
+    }
+  });
+
+  it('cortada en columnas, una fila con una figura de menos sigue fallando', () => {
+    const r = hojaIrregular(7, 1);
+    rect(r, 297, 60, 97, 3, 255);
+    rect(r, 20 + 6 * 122 - 10, 15, 60, 110, 0); // borra la séptima
+    expect(() => porRejilla(r, 1, 7)).toThrow(
+      /la banda 1 tiene 5 figuras y la hoja pide 7; cortada en 7 columnas/,
+    );
   });
 
   it('cortada por su rejilla, una fila de 6 sigue fallando, con los dos motivos', async () => {

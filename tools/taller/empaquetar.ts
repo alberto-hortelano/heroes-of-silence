@@ -199,6 +199,17 @@ export function enFilas(
 /** Cuánto se busca el hueco entre dos filas alrededor de su corte nominal, en parte de una fila. */
 const BUSQUEDA_DEL_CORTE = 0.15;
 
+/** Lo que devuelve `porRejilla`: las figuras y el crudo del que se recortan. */
+export interface CortadoPorRejilla {
+  readonly rejilla: Caja[][];
+  /**
+   * El crudo de donde se recortan: el mismo (sin lo que el corte deja suelto) o, si
+   * alguna banda se cortó en columnas, uno nuevo con sus figuras apartadas
+   * (`porColumnas`).
+   */
+  readonly crudo: Raster;
+}
+
 /**
  * Las figuras en filas cuando `enFilas` no las cuenta bien: el crudo se corta en
  * `filas` bandas por su rejilla —cada corte, en la fila de píxeles con menos alfa
@@ -206,10 +217,11 @@ const BUSQUEDA_DEL_CORTE = 0.15;
  * y se funden las figuras como siempre. Hace falta cuando un arma alta junta dos
  * filas: la espada vertical que piden unas instrucciones toca la figura de abajo y
  * el detector las funde en una (3 de unas 20 hojas de la revisión del 30-10-2026,
- * con las 21 figuras en el crudo). Si tampoco así cuadra, lanza. Borra del crudo
+ * con las 21 figuras en el crudo). Una banda a la que le siguen faltando figuras se
+ * corta en columnas (`porColumnas`). Si tampoco así cuadra, lanza. Borra del crudo
  * los trozos que el corte deja sueltos (`borrarMotasDelCorte`).
  */
-export function porRejilla(r: Raster, filas: number, porFila: number): Caja[][] {
+export function porRejilla(r: Raster, filas: number, porFila: number): CortadoPorRejilla {
   const { data, width, height } = r;
   const alfaDeLaFila = (y: number) => {
     let s = 0;
@@ -233,75 +245,310 @@ export function porRejilla(r: Raster, filas: number, porFila: number): Caja[][] 
     cortes.push(mejor);
   }
   cortes.push(height);
-  const resultado: Caja[][] = [];
+  const bandas: (Caja[] | FiguraApartada[])[] = [];
   for (let f = 0; f < filas; f++) {
     const y0 = cortes[f] as number;
     const y1 = cortes[f + 1] as number;
-    borrarMotasDelCorte(r, y0, y1, f > 0, f < filas - 1);
-    const banda: Raster = {
-      data: data.subarray(y0 * width * 4, y1 * width * 4),
-      width,
-      height: y1 - y0,
-    };
+    borrarMotasDelCorte(r, y0, y1, () => [0, width], {
+      arriba: f > 0,
+      abajo: f < filas - 1,
+    });
     const fila = fundirSobrantes(
-      figuras(componentes(banda), HOLGURA).map((c) => ({ ...c, y0: c.y0 + y0, y1: c.y1 + y0 })),
+      figuras(
+        componentes({
+          data: data.subarray(y0 * width * 4, y1 * width * 4),
+          width,
+          height: y1 - y0,
+        }),
+        HOLGURA,
+      ).map((c) => ({ ...c, y0: c.y0 + y0, y1: c.y1 + y0 })),
       porFila,
     ).sort((a, b) => a.x0 + a.x1 - (b.x0 + b.x1));
-    if (fila.length !== porFila)
+    if (fila.length === porFila) {
+      bandas.push(fila);
+      continue;
+    }
+    try {
+      bandas.push(porColumnas(r, y0, y1, fila, porFila));
+    } catch (e) {
       throw new Error(
-        `cortada por su rejilla (entre las filas, en y = ${cortes.slice(1, -1).join(', ')}), la banda ${f + 1} tiene ${fila.length} figuras y la hoja pide ${porFila}`,
+        `cortada por su rejilla (entre las filas, en y = ${cortes.slice(1, -1).join(', ')}), la banda ${f + 1} tiene ${fila.length} figuras y la hoja pide ${porFila}; ${(e as Error).message}`,
       );
-    resultado.push(fila);
+    }
   }
-  return resultado;
+  return apartarLasFiguras(r, cortes, bandas);
+}
+
+/** Una figura sacada de su columna: su caja en el crudo y solo sus píxeles. */
+interface FiguraApartada {
+  readonly caja: Caja;
+  readonly img: Raster;
+}
+
+/** Lo que queda entre dos figuras apartadas, y a la izquierda de la primera: más que `HOLGURA`. */
+const ENTRE_APARTADAS = 8;
+
+/**
+ * El crudo con las figuras de las bandas cortadas en columnas una tras otra, a
+ * `ENTRE_APARTADAS` px, a la altura en que se pintaron: sus cajas se solapaban en x (el
+ * sable de una bajo el codo de la siguiente) y, recortadas por su caja del crudo de
+ * Codex, cada celda se llevaba un trozo de la vecina. Las bandas sin cortar van tal cual.
+ */
+function apartarLasFiguras(
+  r: Raster,
+  cortes: readonly number[],
+  bandas: readonly (Caja[] | FiguraApartada[])[],
+): CortadoPorRejilla {
+  const apartadas = (b: Caja[] | FiguraApartada[]): b is FiguraApartada[] =>
+    b.length > 0 && 'img' in (b[0] as object);
+  if (!bandas.some(apartadas)) return { rejilla: bandas as Caja[][], crudo: r };
+  const anchoDe = (b: FiguraApartada[]) =>
+    b.reduce((s, f) => s + f.img.width + ENTRE_APARTADAS, ENTRE_APARTADAS);
+  const width = Math.max(r.width, ...bandas.map((b) => (apartadas(b) ? anchoDe(b) : 0)));
+  const crudo: Raster = { data: Buffer.alloc(width * r.height * 4), width, height: r.height };
+  const rejilla = bandas.map((b, f) => {
+    if (!apartadas(b)) {
+      for (let y = cortes[f] as number; y < (cortes[f + 1] as number); y++)
+        r.data.copy(crudo.data, y * width * 4, y * r.width * 4, (y + 1) * r.width * 4);
+      return b;
+    }
+    let x = ENTRE_APARTADAS;
+    return b.map(({ caja, img }) => {
+      for (let y = 0; y < img.height; y++)
+        img.data.copy(
+          crudo.data,
+          ((caja.y0 + y) * width + x) * 4,
+          y * img.width * 4,
+          (y + 1) * img.width * 4,
+        );
+      const puesta = { ...caja, x0: x, x1: x + img.width - 1 };
+      x += img.width + ENTRE_APARTADAS;
+      return puesta;
+    });
+  });
+  return { rejilla, crudo };
 }
 
 /**
- * Lo que el corte deja suelto en una banda (QA del 30-10-2026, H8): un trozo que
- * toca la línea de corte y es pequeño (menos de `FIGURA_DE_MAS` de la mayor pieza de
- * la banda) es la punta de un arma de la fila de al lado, cortada; si se queda, se
- * funde con la figura más cercana y viaja a su celda como una mota junto a los pies.
- * Se borra del crudo (el alfa a 0), que es de donde se recortan las figuras.
+ * Cuánto se busca el hueco entre dos columnas alrededor de su corte nominal, en parte de
+ * una columna: casi hasta el medio de cada una, porque la punta de un sable llega a
+ * media columna de la vecina, y sin que dos costuras se toquen.
+ */
+const BUSQUEDA_ENTRE_COLUMNAS = 0.45;
+
+/**
+ * Lo que puede pasar por un corte entre dos columnas, en píxeles opacos y en parte del
+ * alto de la mayor figura de la banda: un arma que cruza de una celda a otra (la
+ * punta de un sable son unas decenas de píxeles), no un cuerpo.
+ */
+export const GROSOR_DEL_CORTE = 0.15;
+
+/**
+ * Una banda con figuras de menos, cortada en `columnas` columnas (el lanzamiento del
+ * granadero, 31-10-2026: en la hoja C, de una fila de 7, el sable de cada figura llega
+ * hasta la de al lado y el detector funde las dos; 9 de las 24 hojas C de sus
+ * versiones, con las 7 figuras bien pintadas en el crudo). Lo que se reparte es lo que
+ * ocupa lo opaco de la banda (de la primera figura a la última: Codex deja márgenes
+ * desiguales). Cada corte es una costura, no una recta: el camino de arriba abajo de
+ * la banda, de un píxel de lado por fila como mucho, con menos alfa a
+ * ±`BUSQUEDA_ENTRE_COLUMNAS` del corte nominal. Con una recta, el sable y la bota de
+ * una figura pasaban bajo el codo alzado de la siguiente y cualquier recta cortaba a
+ * una de las dos (en 2 de las 9, la punta del sable y la puntera de la bota, y una
+ * punta que tocaba la bota de la vecina viajaba a su celda); con la costura, en 8 de
+ * las 9 no se pierde ni un píxel. Lo que no separa: la punta de un sable clavada en la
+ * pierna de la vecina (1 de las 9) se corta por lo fino del sable y viaja con ella.
+ * Si por la costura pasan más de `GROSOR_DEL_CORTE` píxeles opacos, parte un cuerpo
+ * —la banda tiene de verdad una figura de menos— y lanza. Lo que la costura deja
+ * suelto se borra del crudo (`borrarMotasDelCorte`); la figura de cada columna son sus
+ * píxeles, en su caja. Una columna vacía, con dos figuras o solo con un trozo, lanza.
+ * Como las cajas de dos columnas se solapan, cada figura sale con sus píxeles
+ * (`FiguraApartada`) y `apartarLasFiguras` las aparta.
+ */
+function porColumnas(
+  r: Raster,
+  y0: number,
+  y1: number,
+  fila: readonly Caja[],
+  columnas: number,
+): FiguraApartada[] {
+  const { data, width } = r;
+  const alfa = (x: number, y: number) => data[(y * width + x) * 4 + 3] as number;
+  if (fila.length === 0) throw new Error('la banda no tiene ninguna figura que cortar en columnas');
+  const desde = Math.min(...fila.map((c) => c.x0));
+  const hasta = Math.max(...fila.map((c) => c.x1)) + 1;
+  const anchoDeColumna = (hasta - desde) / columnas;
+  const grosor = GROSOR_DEL_CORTE * Math.max(...fila.map(alto));
+  const radio = Math.round(BUSQUEDA_ENTRE_COLUMNAS * anchoDeColumna);
+  const altoDeLaBanda = y1 - y0;
+  // Las costuras: la x de cada fila de la banda; la primera y la última, los bordes.
+  const costuras: Int32Array[] = [new Int32Array(altoDeLaBanda)];
+  for (let k = 1; k < columnas; k++) {
+    const nominal = Math.round(desde + k * anchoDeColumna);
+    const lo = Math.max(1, nominal - radio);
+    const hi = Math.min(width - 2, nominal + radio);
+    const n = hi - lo + 1;
+    // Lo que cuesta llegar a cada píxel (su alfa, un poco por apartarse del nominal al
+    // empezar y por cada paso de lado) y de dónde se llega.
+    let coste = new Float64Array(n);
+    for (let i = 0; i < n; i++) coste[i] = alfa(lo + i, y0) + 0.1 * Math.abs(lo + i - nominal);
+    const desdeDonde = new Int8Array(n * altoDeLaBanda);
+    for (let y = 1; y < altoDeLaBanda; y++) {
+      const nuevo = new Float64Array(n);
+      for (let i = 0; i < n; i++) {
+        let mejor = coste[i] as number;
+        let d = 0;
+        for (const dx of [-1, 1]) {
+          const j = i + dx;
+          if (j < 0 || j >= n) continue;
+          if ((coste[j] as number) + 1 < mejor) {
+            mejor = (coste[j] as number) + 1;
+            d = dx;
+          }
+        }
+        nuevo[i] = mejor + alfa(lo + i, y0 + y);
+        desdeDonde[y * n + i] = d;
+      }
+      coste = nuevo;
+    }
+    let i = 0;
+    for (let j = 1; j < n; j++) if ((coste[j] as number) < (coste[i] as number)) i = j;
+    const costura = new Int32Array(altoDeLaBanda);
+    let opacos = 0;
+    for (let y = altoDeLaBanda - 1; y >= 0; y--) {
+      costura[y] = lo + i;
+      if (alfa(lo + i, y0 + y) >= ALFA_FIGURA) opacos++;
+      i += desdeDonde[y * n + i] as number;
+    }
+    if (opacos > grosor)
+      throw new Error(
+        `cortada en ${columnas} columnas, el corte ${k} (hacia x = ${nominal}) parte una figura: pasa por ${opacos} píxeles opacos, y un arma no pasa de ${Math.round(grosor)}`,
+      );
+    costuras.push(costura);
+  }
+  costuras.push(new Int32Array(altoDeLaBanda).fill(width));
+  // Todos los cortes antes de borrar nada: un corte malo no deja el crudo tocado.
+  const figs = costuras.slice(0, -1).map((izquierda, k) => {
+    const derecha = costuras[k + 1] as Int32Array;
+    const entre = (y: number): readonly [number, number] => [
+      izquierda[y - y0] as number,
+      derecha[y - y0] as number,
+    ];
+    borrarMotasDelCorte(r, y0, y1, entre, { izquierda: k > 0, derecha: k < columnas - 1 });
+    // La columna sola, en la caja que la contiene: lo de fuera de sus costuras, a 0.
+    const cx0 = Math.min(...izquierda);
+    const cx1 = Math.max(...derecha);
+    const w = cx1 - cx0;
+    const sola = Buffer.alloc(w * altoDeLaBanda * 4);
+    for (let y = 0; y < altoDeLaBanda; y++) {
+      const a = izquierda[y] as number;
+      const b = derecha[y] as number;
+      data.copy(
+        sola,
+        (y * w + a - cx0) * 4,
+        ((y0 + y) * width + a) * 4,
+        ((y0 + y) * width + b) * 4,
+      );
+    }
+    const columna: Raster = { data: sola, width: w, height: altoDeLaBanda };
+    const piezas = fundirSobrantes(figuras(componentes(columna), HOLGURA), 1);
+    if (piezas.length !== 1)
+      throw new Error(
+        `cortada en ${columnas} columnas, la columna ${k + 1} tiene ${piezas.length} figuras`,
+      );
+    const c = piezas[0] as Caja;
+    const img: Raster = {
+      data: Buffer.alloc(ancho(c) * alto(c) * 4),
+      width: ancho(c),
+      height: alto(c),
+    };
+    for (let y = c.y0; y <= c.y1; y++)
+      sola.copy(img.data, (y - c.y0) * img.width * 4, (y * w + c.x0) * 4, (y * w + c.x1 + 1) * 4);
+    return {
+      caja: { ...c, x0: c.x0 + cx0, x1: c.x1 + cx0, y0: c.y0 + y0, y1: c.y1 + y0 },
+      img,
+    };
+  });
+  // Una columna con solo un trozo (el tramo de un arma entre dos cortes, en una banda
+  // con una figura de menos) no es una figura.
+  const mayor = Math.max(...figs.map((f) => f.caja.area));
+  const trozo = figs.findIndex((f) => f.caja.area < FIGURA_DE_MAS * mayor);
+  if (trozo !== -1)
+    throw new Error(
+      `cortada en ${columnas} columnas, en la columna ${trozo + 1} no hay una figura: solo un trozo de ${(figs[trozo] as FiguraApartada).caja.area} píxeles`,
+    );
+  return figs;
+}
+
+/**
+ * Lo que el corte deja suelto en una banda o una columna (QA del 30-10-2026, H8; en
+ * columnas, el granadero del 31-10-2026): un trozo que toca un corte de su zona (un
+ * píxel con un vecino al otro lado de uno de sus `lados`) y es pequeño (menos de
+ * `FIGURA_DE_MAS` de la mayor pieza de la zona) es la punta de un
+ * arma de la fila o la columna de al lado, cortada; si se queda, se funde con la
+ * figura más cercana y viaja a su celda como una mota junto a los pies. Se borra del
+ * crudo (el alfa a 0), que es de donde se recortan las figuras. La zona son las filas
+ * de `y0` a `y1` y, en cada una, las x de `entre(y)` (de la primera a la última sin ella).
  */
 function borrarMotasDelCorte(
   r: Raster,
   y0: number,
   y1: number,
-  arriba: boolean,
-  abajo: boolean,
+  entre: (y: number) => readonly [number, number],
+  lados: {
+    readonly arriba?: boolean;
+    readonly abajo?: boolean;
+    readonly izquierda?: boolean;
+    readonly derecha?: boolean;
+  },
 ): void {
-  const { data, width } = r;
-  const opaco = (i: number) => (data[i * 4 + 3] as number) >= ALFA_FIGURA;
-  const visto = new Uint8Array(width * (y1 - y0));
+  const { data, width, height } = r;
+  const opaco = (x: number, y: number) => (data[(y * width + x) * 4 + 3] as number) >= ALFA_FIGURA;
+  const limites = Array.from({ length: y1 - y0 }, (_, i) => entre(y0 + i));
+  const dentro = (x: number, y: number) => {
+    if (y < y0 || y >= y1) return false;
+    const [a, b] = limites[y - y0] as readonly [number, number];
+    return x >= a && x < b;
+  };
+  // Si el vecino de fuera (x, y) está al otro lado de un corte, y no del borde del crudo.
+  const alOtroLado = (x: number, y: number) => {
+    if (y < y0) return lados.arriba === true;
+    if (y >= y1) return lados.abajo === true;
+    const [a] = limites[y - y0] as readonly [number, number];
+    return x < a ? lados.izquierda === true : lados.derecha === true;
+  };
+  const visto = new Set<number>();
   const piezas: { pixeles: number[]; toca: boolean }[] = [];
-  for (let y = y0; y < y1; y++)
-    for (let x = 0; x < width; x++) {
+  for (let y = y0; y < y1; y++) {
+    const [a, b] = limites[y - y0] as readonly [number, number];
+    for (let x = a; x < b; x++) {
       const inicio = y * width + x;
-      if (visto[inicio - y0 * width] || !opaco(inicio)) continue;
+      if (visto.has(inicio) || !opaco(x, y)) continue;
       const pixeles: number[] = [];
       let toca = false;
       const pila = [inicio];
-      visto[inicio - y0 * width] = 1;
+      visto.add(inicio);
       while (pila.length > 0) {
         const i = pila.pop() as number;
         pixeles.push(i);
         const px = i % width;
         const py = (i - px) / width;
-        if ((arriba && py === y0) || (abajo && py === y1 - 1)) toca = true;
         for (let dy = -1; dy <= 1; dy++)
           for (let dx = -1; dx <= 1; dx++) {
             const nx = px + dx;
             const ny = py + dy;
-            if (nx < 0 || nx >= width || ny < y0 || ny >= y1) continue;
+            if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
             const j = ny * width + nx;
-            if (!visto[j - y0 * width] && opaco(j)) {
-              visto[j - y0 * width] = 1;
+            if (!dentro(nx, ny)) {
+              if (alOtroLado(nx, ny)) toca = true;
+            } else if (opaco(nx, ny) && !visto.has(j)) {
+              visto.add(j);
               pila.push(j);
             }
           }
       }
       piezas.push({ pixeles, toca });
     }
+  }
   const mayor = Math.max(0, ...piezas.map((p) => p.pixeles.length));
   for (const p of piezas)
     if (p.toca && p.pixeles.length < FIGURA_DE_MAS * mayor)
@@ -672,13 +919,15 @@ export async function empaquetar(
   const figs = figuras(componentes(r), HOLGURA);
   let rejilla: Caja[][];
   let motivoDeLaRejilla: string | undefined;
+  // De donde se recortan las figuras: el crudo, o el de `porRejilla` si las aparta.
+  let deDonde = r;
   try {
     rejilla = enFilas(figs, filas, columnas);
   } catch (e) {
     // Una hoja buena no se tira porque un arma junte dos filas: se corta por su rejilla.
     const motivo = (e as Error).message;
     try {
-      rejilla = porRejilla(r, filas, columnas);
+      ({ rejilla, crudo: deDonde } = porRejilla(r, filas, columnas));
     } catch (e2) {
       throw new Error(`${motivo}; ${(e2 as Error).message}`);
     }
@@ -687,7 +936,7 @@ export async function empaquetar(
   }
   const medidas = rejilla.map((fila) =>
     fila.map((c) => {
-      const [ax, ay] = apoyo(r, c);
+      const [ax, ay] = apoyo(deDonde, c);
       return { c, ax, ay, w: ancho(c) };
     }),
   );
@@ -698,7 +947,7 @@ export async function empaquetar(
   const pedida =
     pose === undefined
       ? alturaObjetivo / mediana((rejilla[0] as Caja[]).map(alto))
-      : (escalaPorSilueta(r, rejilla, pose) * alturaObjetivo) / pose.reposo;
+      : (escalaPorSilueta(deDonde, rejilla, pose) * alturaObjetivo) / pose.reposo;
   const cabe = Math.min(
     ...medidas.map((fila) => {
       const izquierda = Math.max(...fila.map((m) => m.ax));
@@ -719,7 +968,9 @@ export async function empaquetar(
   }
   const escala = Math.min(pedida, cabe);
 
-  const fuente = await sharp(r.data, { raw: { width: r.width, height: r.height, channels: 4 } })
+  const fuente = await sharp(deDonde.data, {
+    raw: { width: deDonde.width, height: deDonde.height, channels: 4 },
+  })
     .png()
     .toBuffer();
   const capas: OverlayOptions[] = [];

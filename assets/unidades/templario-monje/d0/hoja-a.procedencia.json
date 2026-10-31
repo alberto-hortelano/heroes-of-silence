@@ -1,18 +1,18 @@
 {
-  "encargo": "templario-monje-d0-a",
+  "encargo": "templario-monje-v-tirada-d0-a",
   "tipo": "atlas",
-  "fecha": "2026-10-10T21:32:44.414Z",
+  "fecha": "2026-10-31T00:06:49.669Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a127ba-83cf-7990-b28c-0b4c74a9c90d",
+  "hilo": "01a18f46-99f8-7531-a018-1d51640e6797",
   "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn monje sanador: hábito de lana cruda con escapulario y cruz roja, tonsura, bolsa de vendas y hierbas al cinto, bastón alto de madera rematado en cruz en la mano derecha.\nEn la lámina de giro (imagen 2), la figura 1 en orden de lectura es la que mira hacia «frente», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «frente» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
       "ruta": "assets/unidades/_poses/unidades/templario-monje-8d/d0-a.profundidad.png",
       "papel": "pose-profundidad",
-      "sha256": "57527680197dc8251420174d3f8798de5edf88074d909136af65b3aaea64476b"
+      "sha256": "9b19140c54f0716ba94e03aa626e56f598333230b41d1f5177a3d15aab4446c0"
     },
     {
       "ruta": "assets/unidades/templario-monje/giro.webp",
@@ -26,20 +26,20 @@
     }
   ],
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a127ba-83cf-7990-b28c-0b4c74a9c90d/exec-363e4eff-951e-47c7-945a-4e91502aa787.png",
-    "sha256": "883fdcbe831875404b753158625fea316da759598bf157f52e27cdc4a464c70c",
+    "fichero": "~/.codex/generated_images/01a18f46-99f8-7531-a018-1d51640e6797/exec-4d901da3-cac9-4ac0-9720-8a041d9c95d5.png",
+    "sha256": "7e30188de941c684e9ec1d18a9bbc62d85f8fef8a02853c6e32c87c5b571fae4",
     "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7277, pies en y=342, reposo a 160 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "dirección completa: assets/unidades/templario-monje/d0/atlas.webp"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.6802, pies en y=342, reposo a 160 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.0546926669973545,
-    "opacos": 0.9446504487482287,
+    "visibles": 0.04959445529513889,
+    "opacos": 0.9530581547537653,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -51,13 +51,112 @@
       342
     ],
     "apoyoReposo": [
-      189,
+      190,
       284
     ],
     "posicion": false
   },
+  "encuadre": [
+    [
+      [
+        0,
+        -3
+      ],
+      [
+        -1,
+        1
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        2
+      ],
+      [
+        -1,
+        -4
+      ],
+      [
+        0,
+        2
+      ]
+    ],
+    [
+      [
+        -2,
+        -8
+      ],
+      [
+        -1,
+        -1
+      ],
+      [
+        -1,
+        -1
+      ],
+      [
+        1,
+        3
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        -9
+      ],
+      [
+        3,
+        -3
+      ]
+    ],
+    [
+      [
+        -4,
+        0
+      ],
+      [
+        -1,
+        -9
+      ],
+      [
+        -2,
+        4
+      ],
+      [
+        0,
+        -9
+      ],
+      [
+        5,
+        -6
+      ],
+      [
+        1,
+        -6
+      ],
+      [
+        1,
+        2
+      ]
+    ]
+  ],
   "salida": {
     "ruta": "assets/unidades/templario-monje/d0/hoja-a.webp",
-    "sha256": "a1f43722c8098c3264cd9fe4e07c7e93ec41862e89c9a72252c33f3553335bde"
+    "sha256": "db7e1bb56b92327c9e479b1c43f69a822e170be2c9b8f4e1556532dd92dcf920"
+  },
+  "eleccion": {
+    "version": "tirada",
+    "modo": "torneo",
+    "motivo": "torneo: gana tirada todos sus duelos (tirada 2 de 2 duelos, esqueleto 1 de 2 duelos, todo 0 de 2 duelos)",
+    "persona": null,
+    "auto": true
   }
 }

@@ -32,6 +32,7 @@ import {
   clipDeDisparoDe,
   cuerpoACuerpoDe,
   ESPADA_CORTA,
+  golpeaConLaGranada,
   JUEGOS_DE_ARMAS,
   type JuegoEn8d,
   type Perfil,
@@ -53,6 +54,15 @@ export interface Unidad {
    * `montado-lanza`, la del jinete que renderiza `tools/art/montura.ts`.
    */
   readonly perfil: Perfil | 'montado-lanza';
+  /**
+   * La referencia de pose de su lámina de identidad, si no es la de su `perfil`
+   * (`rutaPoses`): una hoja de su propio maniquí cuando la del perfil no lleva lo
+   * que él. El granadero (31-10-2026) posaba con la de la ballesta, que dispara
+   * sin sable ni granada, y su identidad salía sin sable y con la granada en la
+   * otra mano; ahora posa con su maniquí mirando al frente y a la derecha.
+   * Solo la pose de la identidad: la arena sigue leyendo el `perfil`.
+   */
+  readonly poseDeIdentidad?: string;
   /**
    * Con qué pelea en la arena (`KIT_DEL_PERFIL`), si no es el perfil de su hoja de
    * pose: el jinete élfico posa con la lanza y lleva además arco y espada
@@ -514,9 +524,11 @@ export const UNIDADES: readonly Unidad[] = [
     faccion: 'imperio',
     nombre: 'Granadero',
     perfil: 'ballesta',
+    // El reposo de su maniquí hacia «frente-derecha», con el sable y la bola.
+    poseDeIdentidad: 'assets/unidades/_poses/unidades/imperio-granadero-8d/d1-a.png',
     concepto: 'assets/art/imperio/granadero.png',
     aspecto:
-      'Un granadero: gorro alto de tela a franjas amarillas y negras con cinta roja, coleto de cuero sobre ropa acuchillada amarilla y negra, banda roja a la cintura, bandolera y bolsa de granadas de hierro, una granada redonda con la mecha encendida en la mano derecha, mecha lenta enrollada en la muñeca izquierda y un sable al cinto, con el que pelea cuerpo a cuerpo.',
+      'Un granadero: gorro alto de tela a franjas amarillas y negras con cinta roja, coleto de cuero sobre ropa acuchillada amarilla y negra, banda roja a la cintura, bandolera y bolsa de granadas de hierro. Lleva un SABLE desenvainado en su mano DERECHA, con el que pelea cuerpo a cuerpo, y una granada redonda de hierro con la mecha encendida en su mano IZQUIERDA, como el maniquí de la referencia de pose, que lleva el palo del sable y la bola en esas mismas manos. Derecha e izquierda son las del propio personaje, no las de quien mira: visto de frente, el sable queda a la izquierda de la imagen y la granada a la derecha; de espaldas, al revés. La lámina de concepto (la de frente, a la altura de los ojos) vale SOLO para la ropa, los colores y los materiales: en ella la granada va en alto en la otra mano, la izquierda lleva una mecha de cuerda y el sable va al cinto; NO copies de ella la pose ni qué mano lleva qué.',
   },
   {
     id: 'elfo-arquero',
@@ -988,7 +1000,8 @@ export function unidad(id: string): Unidad {
 }
 
 export const rutaIdentidad = (u: Unidad): string => `assets/unidades/${u.id}/identidad`;
-export const rutaPoses = (u: Unidad): string => `assets/unidades/_poses/${u.perfil}.png`;
+export const rutaPoses = (u: Unidad): string =>
+  u.poseDeIdentidad ?? `assets/unidades/_poses/${u.perfil}.png`;
 
 export function encargoDeIdentidad(u: Unidad): Encargo {
   return {
@@ -1282,7 +1295,12 @@ export function encargosDeOchoDirecciones(u: Unidad): Encargo[] {
           ...((HOJAS_DE_FIGURA[hoja] as readonly ClipDeFigura[]).includes('attack') &&
           cuerpoACuerpo !== null
             ? [
-                `El ATAQUE de esta hoja es cuerpo a cuerpo con ${cuerpoACuerpo}: no dispara, y el arma de tiro no se ve mientras golpea.`,
+                `El ATAQUE de esta hoja es cuerpo a cuerpo con ${cuerpoACuerpo}: no dispara, ${
+                  // El granadero lleva la granada en la izquierda también al golpear.
+                  golpeaConLaGranada(juego, u.maniqui)
+                    ? 'y la granada sigue en la mano izquierda, sin lanzarla.'
+                    : 'y el arma de tiro no se ve mientras golpea.'
+                }`,
               ]
             : []),
           PINTURA,
