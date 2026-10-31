@@ -1,34 +1,34 @@
 {
- "hoja": "cdf67873e5da89af2e21087f1a7d2cd22bac2de327a38b37a464243aff3bc329",
- "nota": "encuadre a mano de «shoot» (31-10-2026): el maniquí no mueve pies ni cadera; se casan las botas plantadas y, donde la hoja las pinta en otro sitio, a medias con el tronco",
+ "hoja": "818cabfbdb3e3a242d452abc872bcfc02b8a3fcc6938905ab4a69527f21e5d0a",
+ "nota": "encuadre a mano de «shoot» (31-10-2026, hoja repintada): el maniquí no mueve pies ni cadera; se casan las botas plantadas y, donde la hoja las pinta en otro sitio, a medias con el tronco; primero y último, cerca del reposo",
  "fotogramas": {
   "shoot": [
    [
-    7,
-    0
-   ],
-   [
-    4,
-    0
+    2,
+    -1
    ],
    [
     0,
-    0
-   ],
-   [
-    0,
-    0
+    -1
    ],
    [
     -1,
-    0
+    -2
    ],
    [
     0,
+    -1
+   ],
+   [
+    1,
     0
    ],
    [
-    2,
+    1,
+    1
+   ],
+   [
+    -1,
     0
    ]
   ]
