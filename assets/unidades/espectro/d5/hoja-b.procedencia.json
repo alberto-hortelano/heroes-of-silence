@@ -40,7 +40,7 @@
   "validacion": {
     "visibles": 0.054651976893187834,
     "opacos": 0.9164234137348287,
-    "haloSuelto": 0.00001772693430398147,
+    "haloSuelto": 1.772693430398147e-05,
     "ancho": 2688,
     "alto": 1152
   },
@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/espectro/d5/hoja-b.webp",
     "sha256": "3401895733b29cfecd106ec46f447ce160c62fa3c3cc9489a73491435b17dc86"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }

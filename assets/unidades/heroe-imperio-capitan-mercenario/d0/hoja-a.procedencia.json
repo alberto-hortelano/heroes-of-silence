@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-imperio-capitan-mercenario/d0/hoja-a.webp",
     "sha256": "fbc13de498703d26fa146baebd9791d4722f767be3b8128d594034f2c26287d4"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 6.5,
+    "charge": 10.5
   }
 }

@@ -41,3 +41,6 @@ docs/revision/
 # vivo): se juegan con ?mundo=<id> en esta máquina. Solo «prueba» y «ejemplo» se
 # commitean.
 assets/mundos/gen-*/
+
+# El entorno de visión de la revisión de animaciones (tools/taller/revision/*.py)
+__pycache__/

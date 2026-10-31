@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/elfo-explorador/d6/hoja-b.webp",
     "sha256": "34e89fd3dcd4193e4d3430b8b635dd5edbd551d6a00a145564c92df0bf2d76b3"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 6
   }
 }

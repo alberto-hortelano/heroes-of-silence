@@ -1,18 +1,18 @@
 {
-  "encargo": "zombi-d2-a",
+  "encargo": "zombi-v-tirada-d2-a",
   "tipo": "atlas",
-  "fecha": "2026-10-20T09:37:59.963Z",
+  "fecha": "2026-10-30T21:44:05.084Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a158ab-6276-7041-bf0e-79d856e45efc",
+  "hilo": "01a18dde-3d1d-7031-89d3-aa1c8f6e66ed",
   "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn zombi: cadáver demacrado de piel gris cenicienta con la carne podrida, pelo ralo y largo, boca abierta, túnica oscura y harapos hechos jirones manchados de sangre, cuerda por cinturón, encorvado y arrastrando los pies, espada larga oxidada y manchada de sangre en la mano derecha, la izquierda en garra.\nEn la lámina de giro (imagen 2), la figura 3 en orden de lectura es la que mira hacia «derecha», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «derecha» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
       "ruta": "assets/unidades/_poses/unidades/zombi-8d/d2-a.profundidad.png",
       "papel": "pose-profundidad",
-      "sha256": "20769097d3b99c7391648eb25255ea86e41d668b815306f8e733155dce3173ed"
+      "sha256": "603b65488c6e4096ce33b31d85e1d12376292f9e0ad02bf176306d209195e368"
     },
     {
       "ruta": "assets/unidades/zombi/giro.webp",
@@ -26,21 +26,21 @@
     }
   ],
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a158ab-6276-7041-bf0e-79d856e45efc/call_a86f594a6965401e9f8717b838f8263b.png",
-    "sha256": "9c5e8b131f2b353a796ec65e59e2fabb68016bb025e08b235924a4b7354a0283",
+    "fichero": "~/.codex/generated_images/01a18dde-3d1d-7031-89d3-aa1c8f6e66ed/exec-867ac90a-b610-4405-8e52-95cb23eca984.png",
+    "sha256": "a19ea369e52bb6d14ad28610a19e3a11b65bb733bc2a4b87dbdfcac9f6ef0ba3",
     "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7425, pies en y=342, reposo a 160 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "dirección completa: assets/unidades/zombi/d2/atlas.webp"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7403, pies en y=342, reposo a 160 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.048905629960317464,
-    "opacos": 0.9136885895404121,
-    "haloSuelto": 0.000013206550449022716,
+    "visibles": 0.05241531291335979,
+    "opacos": 0.9205769278162506,
+    "haloSuelto": 0.000012322251521798062,
     "ancho": 2688,
     "alto": 1152
   },
@@ -51,13 +51,116 @@
       342
     ],
     "apoyoReposo": [
-      203,
+      201,
       275
     ],
     "posicion": false
   },
+  "encuadre": [
+    [
+      [
+        4,
+        -1
+      ],
+      [
+        -2,
+        -1
+      ],
+      [
+        -1,
+        1
+      ],
+      [
+        -1,
+        0
+      ],
+      [
+        1,
+        -1
+      ],
+      [
+        0,
+        2
+      ],
+      [
+        -2,
+        0
+      ]
+    ],
+    [
+      [
+        -5,
+        -1
+      ],
+      [
+        -3,
+        2
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        0,
+        -2
+      ],
+      [
+        3,
+        -3
+      ],
+      [
+        1,
+        1
+      ],
+      [
+        1,
+        2
+      ]
+    ],
+    [
+      [
+        -8,
+        7
+      ],
+      [
+        -3,
+        -13
+      ],
+      [
+        -3,
+        -12
+      ],
+      [
+        -3,
+        -21
+      ],
+      [
+        4,
+        -18
+      ],
+      [
+        6,
+        -22
+      ],
+      [
+        5,
+        -15
+      ]
+    ]
+  ],
   "salida": {
     "ruta": "assets/unidades/zombi/d2/hoja-a.webp",
-    "sha256": "63966cd36f8419b35714b15ed9b7cb2cd6586e473f4eb7a49a875619dbc52ef1"
+    "sha256": "cafc577e8d5a2fc0736c35fc9d3d9deb87bebe8d09ef1c793cd36120453b97c5"
+  },
+  "eleccion": {
+    "version": "tirada",
+    "modo": "torneo",
+    "motivo": "torneo: ninguna gana todos sus duelos (tirada 1 de 2 duelos, esqueleto 0 de 2 duelos, todo 1 de 2 duelos); la de ahora no vale (es de otro maniquí): decide la persona entre tirada y todo en el visor",
+    "persona": "versión 2"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 6.5,
+    "charge": 10.5
   }
 }

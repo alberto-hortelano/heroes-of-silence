@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/esqueleto-guerrero/d6/hoja-b.webp",
     "sha256": "b373c3516ddc8c4c15e479cdd04674d6cbbd48cac682ed4ea747ed8dcca840d3"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 6
   }
 }

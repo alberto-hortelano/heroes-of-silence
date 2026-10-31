@@ -40,7 +40,7 @@
   "validacion": {
     "visibles": 0.05491226438492063,
     "opacos": 0.9410432839331921,
-    "haloSuelto": 0.000005880969183721477,
+    "haloSuelto": 5.880969183721477e-06,
     "ancho": 2688,
     "alto": 1152
   },
@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-vampiro/d3/hoja-b.webp",
     "sha256": "95786673942cf03cd3f8d2dc0387733de4295c5da0aeaf693f9ad44d4e14d871"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 6
   }
 }

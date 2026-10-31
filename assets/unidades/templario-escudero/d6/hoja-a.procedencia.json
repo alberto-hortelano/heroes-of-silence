@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/templario-escudero/d6/hoja-a.webp",
     "sha256": "ac7f4363cb349b50a5e6ce2d75a395acada77563a6071baf4986ae81aa56a3aa"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 6.5,
+    "charge": 10.5
   }
 }

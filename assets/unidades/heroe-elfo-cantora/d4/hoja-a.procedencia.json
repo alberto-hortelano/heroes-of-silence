@@ -40,7 +40,7 @@
   "validacion": {
     "visibles": 0.055243275152943125,
     "opacos": 0.9506328003975097,
-    "haloSuelto": 0.00003507438692894514,
+    "haloSuelto": 3.507438692894514e-05,
     "ancho": 2688,
     "alto": 1152
   },
@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-elfo-cantora/d4/hoja-a.webp",
     "sha256": "70bcea63432b821e13acc2e0feb9e1eb3ba6332b7189f0f0a656da205fc8b945"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 7,
+    "charge": 14
   }
 }

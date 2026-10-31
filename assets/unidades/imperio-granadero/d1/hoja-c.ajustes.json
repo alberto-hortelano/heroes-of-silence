@@ -1,0 +1,36 @@
+{
+ "hoja": "0feca8e916125bbd1b954f99a80de59ca24bcfb6cb1b19aa746aabe32461cb6d",
+ "nota": "encuadre a mano de «shoot» (31-10-2026): el maniquí no mueve pies ni cadera; se casan las botas plantadas y, donde la hoja las pinta en otro sitio, a medias con el tronco",
+ "fotogramas": {
+  "shoot": [
+   [
+    5,
+    0
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    -1,
+    0
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    1,
+    -1
+   ],
+   [
+    2,
+    1
+   ],
+   [
+    1,
+    -1
+   ]
+  ]
+ }
+}

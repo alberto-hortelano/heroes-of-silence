@@ -45,7 +45,15 @@ import {
   type JuegoEn8d,
   OCHO_DIRECCIONES,
 } from '../art/poses.js';
-import { type AtlasDerivado, derivarAtlas, type Ritmo, type RitmoDeUnidad } from './derivar.js';
+import { ajustesDe, aplicarAjustes } from './ajustes.js';
+import {
+  type AtlasDerivado,
+  derivarAtlas,
+  RITMO_MINIMO,
+  type Ritmo,
+  type RitmoDeUnidad,
+} from './derivar.js';
+import type { Encargo } from './encargo.js';
 import { EN_OCHO_DIRECCIONES, JUEGOS_EN_8D, unidad } from './unidades.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
@@ -92,9 +100,16 @@ export interface HojaLeida {
  * las filas que le da `HOJAS_DE_FIGURA`. La celda sale del ancho (las columnas
  * de FIGURA). Comprueba que cada hoja tiene las filas de la suya: una C de tres
  * filas, o una B de una, se juntaría en un atlas con las filas corridas. Lo
- * comparten el Y Bot y el trabajador (`juntar.ts`), con el mismo mensaje.
+ * comparten el Y Bot y el trabajador (`juntar.ts`), con el mismo mensaje. Una hoja con
+ * su encuadre a mano (`hoja-b.ajustes.json`, `ajustes.ts`) entra con él puesto.
  */
-export async function apilarHojas(hojas: readonly HojaLeida[]): Promise<Sharp> {
+export async function apilarHojas(leidas: readonly HojaLeida[]): Promise<Sharp> {
+  const hojas = await Promise.all(
+    leidas.map(async (h) => {
+      const ajustes = ajustesDe(h.ruta, h.hoja, sha256(h.png));
+      return ajustes === null ? h : { ...h, png: await aplicarAjustes(h.png, h.hoja, ajustes) };
+    }),
+  );
   const medidas = await Promise.all(hojas.map(({ png }) => sharp(png).metadata()));
   const ancho = medidas[0]?.width as number;
   const celda = ancho / FIGURA.columnas;
@@ -222,7 +237,7 @@ export async function sueltaDeUnidad(id: string): Promise<number | null> {
  * Los fps de los clips de una unidad que no van al reloj de todos, o `null`.
  * Con `tiempoReal`, los de cada fila de las poses sobre las que se pinta (su
  * maniquí o las de su juego: `poses.json`), a la velocidad de su clip
- * (`fpsATiempoReal`), y los de `fps` por encima.
+ * (`fpsATiempoReal`) sin bajar de `RITMO_MINIMO`, y los de `fps` por encima.
  */
 export function ritmoDeUnidad(id: string): Ritmo | null {
   const { maniqui, clipsDelManiqui } = unidad(id);
@@ -241,9 +256,59 @@ export function ritmoDeUnidad(id: string): Ritmo | null {
     const meta = poses.sourceMetadata[f.clip];
     if (meta === undefined)
       throw new Error(`${carpeta}/poses.json: «${f.clip}» sin sourceMetadata`);
-    deMixamo[f.clip] = fpsATiempoReal(f, meta.frame_count, OCHO_DIRECCIONES.fps);
+    deMixamo[f.clip] = Math.max(
+      fpsATiempoReal(f, meta.frame_count, OCHO_DIRECCIONES.fps),
+      RITMO_MINIMO[f.clip] ?? 0,
+    );
   }
   return { ...deMixamo, ...ritmo.fps };
+}
+
+/**
+ * El ritmo de los clips de una hoja de una unidad (`ritmoDeUnidad`, solo los de
+ * la hoja), o `null`. Lo guarda la procedencia de la hoja al pintarla: es el del
+ * maniquí sobre el que se pinta.
+ */
+export function ritmoDeLaHoja(id: string, h: HojaDeFigura): Ritmo | null {
+  const ritmo = ritmoDeUnidad(id);
+  if (ritmo === null) return null;
+  const clips: readonly ClipDeFigura[] = HOJAS_DE_FIGURA[h];
+  return Object.fromEntries(
+    Object.entries(ritmo).filter(([c]) => clips.includes(c as ClipDeFigura)),
+  );
+}
+
+/**
+ * El ritmo de la hoja de un encargo de atlas de una unidad (`ritmoDeLaHoja`), o
+ * `null`: la unidad es la de su identidad (`assets/unidades/<id>/giro.webp`), que
+ * llevan también sus versiones; una figura del banco de NPC va al reloj de todos.
+ */
+export function ritmoDelEncargo(e: Encargo): Ritmo | null {
+  if (e.ocho === undefined) return null;
+  const giro = e.referencias
+    .filter((r) => r.papel === 'identidad')
+    .map((r) => /^assets\/unidades\/([^/]+)\/giro\.webp$/.exec(r.ruta)?.[1])
+    .find((id) => id !== undefined);
+  return giro === undefined ? null : ritmoDeLaHoja(giro, e.ocho.hoja);
+}
+
+/**
+ * La derivación de una dirección (`…/<id>/dN/`) con el ritmo de cada hoja pintada
+ * encima del de su unidad: el de su procedencia (`ritmo`), el del maniquí sobre el
+ * que se pintó. Las siete columnas de una hoja son los fotogramas de ESE clip, y
+ * con el maniquí de hoy se cronometraban los de otro (31-10-2026: el esqueleto
+ * guerrero, pintado sobre el golpe corto, `quick`, iba al ritmo del largo,
+ * `precise`, a tirones). Lo leen el juntado y el test que vuelve a derivar cada atlas.
+ */
+export function conElRitmoDeSusHojas<D extends { readonly ritmo?: Ritmo }>(dirN: string, d: D): D {
+  let ritmo = d.ritmo;
+  for (const h of Object.keys(HOJAS_DE_FIGURA) as HojaDeFigura[]) {
+    const ruta = join(dirN, `hoja-${h}.procedencia.json`);
+    if (!existsSync(ruta)) continue;
+    const deLaHoja = (JSON.parse(readFileSync(ruta, 'utf8')) as { ritmo?: Ritmo }).ritmo;
+    if (deLaHoja !== undefined) ritmo = { ...ritmo, ...deLaHoja };
+  }
+  return ritmo === undefined ? d : { ...d, ritmo };
 }
 
 const conRitmo = (ritmo: Ritmo | null): { readonly ritmo?: Ritmo } =>

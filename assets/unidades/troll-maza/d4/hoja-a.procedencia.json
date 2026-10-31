@@ -1,19 +1,18 @@
 {
-  "encargo": "troll-maza-d4-a-c1",
+  "encargo": "troll-maza-v-tirada-d4-a",
   "tipo": "atlas",
-  "fecha": "2026-10-20T09:32:05.347Z",
+  "fecha": "2026-10-30T21:42:27.208Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a158a3-e660-7d11-8ebb-ce43922e771e",
-  "reanuda": "01a158a3-e660-7d11-8ebb-ce43922e771e",
-  "prompt": "Corrige la última imagen que has generado en esta conversación, con la herramienta de imágenes, conservando la identidad del personaje y todo lo que no se menciona.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nLas figuras son demasiado grandes y quedan casi pegadas: las mazas levantadas de la fila 3 llegan a los pies de la fila 2 y el recorte junta dos figuras. Repite la hoja con las mismas poses y las figuras al 80 % de su tamaño: cada figura, con su maza, cabe entera en su propia celda, y nada de una figura entra en la columna ni en la fila de otra, con una franja de fondo vacío entre celdas. Lo demás de la hoja está bien: no lo cambies.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «espalda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 232 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "hilo": "01a18dd7-8b32-7c61-a86b-b8ad335f88b7",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn troll: gigante de piel gris azulada con musgo, cabeza pequeña, colmillos, grilletes rotos con cadenas en las muñecas, taparrabos, maza de madera con clavos de hierro empuñada a dos manos.\nEn la lámina de giro (imagen 2), la figura 5 en orden de lectura es la que mira hacia «espalda», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «espalda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 232 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
       "ruta": "assets/unidades/_poses/unidades/troll-maza-8d/d4-a.profundidad.png",
       "papel": "pose-profundidad",
-      "sha256": "ae22bd00453b826e01a4ea7949261339581d4897dc933fba525c1ed1e0a5462f"
+      "sha256": "402a72a259a16998596bf69832bbac63e4a172c766f0b1827844def9e334f02c"
     },
     {
       "ruta": "assets/unidades/troll-maza/giro.webp",
@@ -27,21 +26,21 @@
     }
   ],
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a158a3-e660-7d11-8ebb-ce43922e771e/call_1fef60b982e24e49925b842fcab8d4cc.png",
-    "sha256": "692135a17902027f0ec08804bbc571cf37f68972c7e4dbb9d2c5fae981a15250",
-    "ancho": 1916,
+    "fichero": "~/.codex/generated_images/01a18dd7-8b32-7c61-a86b-b8ad335f88b7/exec-2d75aca8-0421-4444-9b45-b8cf841553fe.png",
+    "sha256": "99d0ddaf95a6ec8687c74df6d9b08083ca49f9fc53bc9ea8a4c666086e1ca22f",
+    "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 1.3087, pies en y=342, reposo a 232 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "dirección completa: assets/unidades/troll-maza/d4/atlas.webp"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 1.0922, pies en y=342, reposo a 232 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.12752859933035715,
-    "opacos": 0.9679439455865,
-    "haloSuelto": 0,
+    "visibles": 0.09226190476190477,
+    "opacos": 0.9546860999103942,
+    "haloSuelto": 0.00001400089605734767,
     "ancho": 2688,
     "alto": 1152
   },
@@ -57,8 +56,112 @@
     ],
     "posicion": false
   },
+  "encuadre": [
+    [
+      [
+        15,
+        1
+      ],
+      [
+        -4,
+        -7
+      ],
+      [
+        -5,
+        -3
+      ],
+      [
+        -1,
+        -1
+      ],
+      [
+        1,
+        3
+      ],
+      [
+        0,
+        3
+      ],
+      [
+        -4,
+        4
+      ]
+    ],
+    [
+      [
+        -3,
+        -16
+      ],
+      [
+        0,
+        -5
+      ],
+      [
+        3,
+        -2
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        0,
+        -4
+      ],
+      [
+        2,
+        -3
+      ],
+      [
+        -3,
+        0
+      ]
+    ],
+    [
+      [
+        -2,
+        0
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        5,
+        0
+      ],
+      [
+        0,
+        -24
+      ],
+      [
+        0,
+        -3
+      ],
+      [
+        -2,
+        0
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  ],
   "salida": {
     "ruta": "assets/unidades/troll-maza/d4/hoja-a.webp",
-    "sha256": "40a4e17ea122557c8e6c04cb48d4fc736c4cafcde35c393fcff1dd9cf5281910"
+    "sha256": "276a5ead8c77915b94d69c7a757c95c3560761faacd4d72456dd5cd861802629"
+  },
+  "eleccion": {
+    "version": "tirada",
+    "modo": "torneo",
+    "motivo": "torneo: gana tirada todos sus duelos (tirada 2 de 2 duelos, esqueleto 0 de 2 duelos, todo 0 de 2 duelos)",
+    "persona": null,
+    "auto": true
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 6.5,
+    "charge": 10.5
   }
 }

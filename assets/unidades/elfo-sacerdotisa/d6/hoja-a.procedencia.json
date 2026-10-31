@@ -40,7 +40,7 @@
   "validacion": {
     "visibles": 0.059724030671296294,
     "opacos": 0.9344544176489672,
-    "haloSuelto": 0.00001622147723586028,
+    "haloSuelto": 1.622147723586028e-05,
     "ancho": 2688,
     "alto": 1152
   },
@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/elfo-sacerdotisa/d6/hoja-a.webp",
     "sha256": "c302716e5103f1d4a7882ec984d1921faa07e39666d9c3323c9680517de2d138"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 7,
+    "charge": 14
   }
 }

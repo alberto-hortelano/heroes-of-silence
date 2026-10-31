@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-orko-kaudillo/d2/hoja-b.webp",
     "sha256": "5beba52843abcca67e05606c47add57224fc3b5fdadd6738eace9f3264fc6a33"
+  },
+  "ritmo": {
+    "attack": 4.2,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }

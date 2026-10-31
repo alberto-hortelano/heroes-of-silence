@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-nigromante/d4/hoja-a.webp",
     "sha256": "1122f1586c70d14ca22802fcd3078ffff9b17ecc2c315ff630aa2bb51d981b52"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 7,
+    "charge": 14
   }
 }

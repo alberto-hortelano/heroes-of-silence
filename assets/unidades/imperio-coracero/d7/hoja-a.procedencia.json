@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/imperio-coracero/d7/hoja-a.webp",
     "sha256": "240fde2a370fefb8b26e4ce0298ecad95ec1dfcc9f05e630df54ab6acce4e1f0"
+  },
+  "ritmo": {
+    "idle": 2.8,
+    "walk": 5.6,
+    "charge": 14
   }
 }

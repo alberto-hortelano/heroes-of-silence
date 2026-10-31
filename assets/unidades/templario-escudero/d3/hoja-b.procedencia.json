@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/templario-escudero/d3/hoja-b.webp",
     "sha256": "27192a41752e0209f3676fd663a0669b5a0acc78184d5c5a8fbed2b42343dec3"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 10.3,
+    "death": 6
   }
 }

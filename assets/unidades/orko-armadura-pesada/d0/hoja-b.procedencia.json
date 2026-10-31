@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/orko-armadura-pesada/d0/hoja-b.webp",
     "sha256": "a16b11dfc85439b029403c91ade4f325a5d94a309de53c4162ccfb63a030f378"
+  },
+  "ritmo": {
+    "attack": 4.2,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }

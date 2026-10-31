@@ -1,18 +1,18 @@
 {
-  "encargo": "templario-mandoble-d3-b",
+  "encargo": "templario-mandoble-v-tirada-d3-b",
   "tipo": "atlas",
-  "fecha": "2026-10-10T21:29:19.985Z",
+  "fecha": "2026-10-30T23:56:06.754Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a127b7-5bad-7e00-a7d8-364df597d2e5",
+  "hilo": "01a18f3c-d285-7d90-9c9d-9b249e8f978b",
   "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn templario pesado: armadura de placas, sobrevesta blanca con cruz roja, capa corta roja, yelmo abierto de casquete y mandoble largo empuñado con las dos manos. Sin escudo.\nEn la lámina de giro (imagen 2), la figura 4 en orden de lectura es la que mira hacia «espalda-derecha», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de ATAQUE de la fila 1 de la referencia de pose, atacando con el arma del personaje. Fila 2: las siete poses de RECIBIR DAÑO de la fila 2: encaja un golpe y retrocede. Fila 3: las siete poses de la MUERTE de la fila 3: la primera es EXACTAMENTE la última de la fila 2, luego se desploma, y la última es el cadáver tendido e inmóvil en el suelo, con sus armas en el suelo donde las tiene el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «espalda-derecha» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
       "ruta": "assets/unidades/_poses/unidades/templario-mandoble-8d/d3-b.profundidad.png",
       "papel": "pose-profundidad",
-      "sha256": "ffec89459b2261a657d51ec9d007eaf8f9c6dbb5566946b2a62440a8411cc046"
+      "sha256": "bf8ab47aec12892b73ba34bfb92961d694ce60108bf331e9da984fab818797bd"
     },
     {
       "ruta": "assets/unidades/templario-mandoble/giro.webp",
@@ -26,20 +26,20 @@
     }
   ],
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a127b7-5bad-7e00-a7d8-364df597d2e5/exec-36aad57e-afaa-4f47-b38f-193b315b01ae.png",
-    "sha256": "5e2064ad9756662bbc3d54e4b48115545529196baa0daf715d96f625c6bdc97b",
+    "fichero": "~/.codex/generated_images/01a18f3c-d285-7d90-9c9d-9b249e8f978b/exec-3e63bda4-9983-454e-a926-b0c2acae7be8.png",
+    "sha256": "0111c0fe13d57c2c88525d9992a7683efee3d263e69cd5ce4395934fb7a5f98b",
     "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.9728, pies en y=342, reposo a 160 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "dirección completa: assets/unidades/templario-mandoble/d3/atlas.webp"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.9042, pies en y=342, reposo a 160 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.04464802414021164,
-    "opacos": 0.9425124406897349,
+    "visibles": 0.039637005518353176,
+    "opacos": 0.9368171485835798,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -51,8 +51,8 @@
       342
     ],
     "apoyoReposo": [
-      201,
-      290
+      198,
+      285
     ],
     "posicion": true,
     "elevaciones": [
@@ -61,8 +61,111 @@
       64
     ]
   },
+  "encuadre": [
+    [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        5,
+        -2
+      ],
+      [
+        -5,
+        2
+      ],
+      [
+        0,
+        0
+      ]
+    ],
+    [
+      [
+        0,
+        5
+      ],
+      [
+        0,
+        5
+      ],
+      [
+        3,
+        -5
+      ],
+      [
+        0,
+        -3
+      ],
+      [
+        -1,
+        -4
+      ],
+      [
+        -2,
+        -2
+      ],
+      [
+        0,
+        1
+      ]
+    ],
+    [
+      [
+        0,
+        -4
+      ],
+      [
+        0,
+        4
+      ],
+      [
+        13,
+        -9
+      ],
+      [
+        6,
+        -10
+      ],
+      [
+        -2,
+        -6
+      ],
+      [
+        -8,
+        -7
+      ],
+      [
+        -8,
+        14
+      ]
+    ]
+  ],
   "salida": {
     "ruta": "assets/unidades/templario-mandoble/d3/hoja-b.webp",
-    "sha256": "d553fd1ef58f466877a65882f6a7d7c19b2c2ab2bf9ec1ba78c079011d388a36"
+    "sha256": "850d9ce2bda12321f3e71ecb1a65b633aee7cd955cca2c69ef799363c61382e2"
+  },
+  "eleccion": {
+    "version": "tirada",
+    "modo": "torneo",
+    "motivo": "torneo: ninguna gana todos sus duelos (tirada 0 de 1 duelos, todo 0 de 1 duelos); la de ahora no vale (es de otro maniquí): decide la persona entre tirada y todo en el visor",
+    "persona": "iguales"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }

@@ -13,8 +13,17 @@ import { FIGURA } from '../src/shared/arte.js';
 import { leerEventos } from '../tools/taller/codex.js';
 import { Cola, NoEstaEn, trabajadorDe, YaEnLaCola } from '../tools/taller/cola.js';
 import { derivarAtlas } from '../tools/taller/derivar.js';
-import { empaquetar, enFilas, fundirSobrantes } from '../tools/taller/empaquetar.js';
+import {
+  apoyoEn,
+  componentes,
+  empaquetar,
+  enFilas,
+  figuras,
+  fundirSobrantes,
+  porRejilla,
+} from '../tools/taller/empaquetar.js';
 import { encargoSchema, promptDe } from '../tools/taller/encargo.js';
+import { cuerpoDeLaCelda } from '../tools/taller/encuadre.js';
 import { quitarHalo, type Raster } from '../tools/taller/recorte.js';
 import {
   EN_OCHO_DIRECCIONES,
@@ -201,6 +210,24 @@ describe('el encargo', () => {
     expect(() => encargoSchema.parse(sinDireccion)).toThrow(/lleva `ocho`/);
   });
 
+  it('`ocho.pose` va si y solo si la primera referencia es la pose con el esqueleto', () => {
+    const bueno = encargosDeOchoDirecciones(unidad('templario-escudo'))[0]!;
+    const pose = bueno.referencias[0]!.ruta;
+    const conPoseDeMas = { ...bueno, ocho: { ...bueno.ocho!, pose } };
+    expect(() => encargoSchema.parse(conPoseDeMas)).toThrow(/`ocho.pose`/);
+    const esqueleto = {
+      ...bueno,
+      referencias: [
+        { ruta: 'x/pose-esqueleto-a.png', papel: 'pose-esqueleto' },
+        ...bueno.referencias.slice(1),
+      ],
+    };
+    expect(() => encargoSchema.parse(esqueleto)).toThrow(/`ocho.pose`/);
+    expect(() =>
+      encargoSchema.parse({ ...esqueleto, ocho: { ...bueno.ocho!, pose } }),
+    ).not.toThrow();
+  });
+
   it('una ruta absoluta o con «..» no entra', () => {
     expect(() => encargoSchema.parse({ ...UNO, salida: '/tmp/x' })).toThrow(/relativa/);
     expect(() => encargoSchema.parse({ ...UNO, salida: 'assets/../x' })).toThrow(/relativa/);
@@ -262,6 +289,11 @@ describe('el recorte del halo', () => {
  * Una «hoja de Codex» de mentira: 3 filas de 7 figuras con tamaños y huecos
  * irregulares, pies (un pie más ancho abajo) y un arma suelta en una de ellas.
  */
+/** Las figuras de un raster como las cuenta el empaquetado. */
+function figurasDe(r: Raster) {
+  return figuras(componentes(r), 2);
+}
+
 function hojaIrregular(columnas = 7, filas = 3): Raster {
   const r = lienzo(900, 140 * filas);
   for (let f = 0; f < filas; f++) {
@@ -335,6 +367,138 @@ describe('el empaquetado y la derivación', () => {
     const r = hojaIrregular();
     rect(r, 20 + 6 * 122 - 10, 20, 60, 110, 0); // borra la séptima del reposo
     await expect(empaquetar(r, 3, 160)).rejects.toThrow(/la fila 1 tiene 6 figuras/);
+  });
+
+  // C7 de la revisión de animaciones (30-10-2026): con la espada vertical que pedían
+  // unas instrucciones las filas se tocaban, el detector fundía dos figuras y la hoja,
+  // con sus 21 figuras en el crudo, se tiraba.
+  it('si un arma alta junta dos filas, se cortan por su rejilla y salen las 21', async () => {
+    const r = hojaIrregular();
+    // La espada de la cuarta figura de la fila 2, alzada hasta tocar la de la fila 1.
+    rect(r, 20 + 3 * 122 + 12, 100, 4, 60, 255);
+    expect(() => enFilas(figurasDe(r), 3, 7)).toThrow(/figuras/);
+    const { rejilla } = porRejilla(r, 3, 7);
+    expect(rejilla.map((f) => f.length)).toEqual([7, 7, 7]);
+    const p = await empaquetar(r, 3, 160);
+    expect(p.porRejilla).toMatch(/cortando el crudo por su rejilla/);
+  });
+
+  // QA del 30-10-2026, H8: lo que el corte deja suelto (la punta de un arma de la fila
+  // de al lado) viajaba a la celda de la figura más cercana como una mota.
+  it('cortada por su rejilla, ninguna celda lleva motas sueltas del corte', async () => {
+    const r = hojaIrregular();
+    rect(r, 20 + 3 * 122 + 12, 100, 4, 60, 255); // la espada que junta las filas 1 y 2
+    rect(r, 20 + 3 * 122 + 60, 105, 4, 40, 255); // un trozo suelto que cruza el corte
+    const p = await empaquetar(r, 3, 160);
+    expect(p.porRejilla).toBeDefined();
+    const { data, info } = await sharp(p.png).raw().toBuffer({ resolveWithObject: true });
+    const { celda, columnas } = FIGURA;
+    for (let col = 0; col < columnas; col++) {
+      const c = lienzo(celda, celda);
+      for (let y = 0; y < celda; y++)
+        data.copy(
+          c.data,
+          y * celda * 4,
+          (y * info.width + col * celda) * 4,
+          (y * info.width + (col + 1) * celda) * 4,
+        );
+      expect(figuras(componentes(c), 0), `celda 1·${col + 1}`).toHaveLength(1);
+    }
+  });
+
+  // El piquero imperial (repintado del 30-10-2026): la punta de la pica, por debajo del
+  // pie, se tomaba por el suelo, y la figura quedaba alta y saltaba de un fotograma a otro.
+  it('el apoyo es del cuerpo: un asta fina por debajo del pie no es el suelo', async () => {
+    const r = lienzo(120, 200);
+    rect(r, 40, 20, 30, 90, 255); // el cuerpo, de 20 a 109
+    rect(r, 36, 102, 38, 8, 255); // los pies
+    rect(r, 54, 60, 3, 70, 255); // el asta, hasta 129: 20 px por debajo del pie
+    const caja = [36, 20, 73, 129] as const;
+    const alfa = (x: number, y: number) => r.data[(y * r.width + x) * 4 + 3]!;
+    // El pie, con lo de la silueta a menos del radio de la apertura (2 px aquí: las
+    // puntas del pie vuelven, y con ellas un trocito del asta), no la punta (129).
+    const [, y] = apoyoEn(alfa, caja);
+    expect(y).toBeGreaterThanOrEqual(109);
+    expect(y).toBeLessThanOrEqual(111);
+    // Lo que es todo fino (una vara sola) se mide entero: no hay cuerpo que quitarle.
+    const vara = lienzo(40, 100);
+    rect(vara, 18, 10, 3, 80, 255);
+    expect(apoyoEn((x, y) => vara.data[(y * vara.width + x) * 4 + 3]!, [18, 10, 20, 89])[1]).toBe(
+      89,
+    );
+    // Empaquetada, esa figura pisa la línea de los pies como las demás, y el asta cuelga.
+    const hoja = hojaIrregular();
+    const x = 20 + 2 * 122 + ((2 * 7) % 11);
+    rect(hoja, x + 14, 60, 3, 72, 255); // de la tercera del reposo, 12 px por debajo de sus pies
+    const p = await empaquetar(hoja, 3, 160);
+    const { data, info } = await sharp(p.png).raw().toBuffer({ resolveWithObject: true });
+    const { celda } = FIGURA;
+    const c = { lado: celda, data: new Uint8Array(celda * celda * 4) };
+    for (let y = 0; y < celda; y++)
+      data.copy(
+        c.data,
+        y * celda * 4,
+        (y * info.width + 2 * celda) * 4,
+        (y * info.width + 3 * celda) * 4,
+      );
+    expect(Math.abs(cuerpoDeLaCelda(c)!.caja[3] - FIGURA.base)).toBeLessThanOrEqual(1);
+    let fondo = 0;
+    for (let y = 0; y < celda; y++)
+      for (let xx = 0; xx < celda; xx++) if (c.data[(y * celda + xx) * 4 + 3]! >= 64) fondo = y;
+    expect(fondo).toBeGreaterThan(FIGURA.base + 5);
+  });
+
+  // El lanzamiento del granadero (31-10-2026): en la hoja C, de una fila de 7, el sable
+  // de cada figura llega hasta la de al lado y el detector fundía las dos; dentro de la
+  // banda no se cortaba nada y la hoja, con sus 7 figuras en el crudo, se tiraba.
+  it('si un arma junta dos figuras de una fila, se corta la banda en columnas y salen las 7', async () => {
+    const r = hojaIrregular(7, 1);
+    // El sable de la tercera, hasta 2 px de la cuarta: sus cajas se tocan y se funden.
+    rect(r, 297, 60, 97, 3, 255);
+    // Y el de la sexta, hacia atrás, hasta 2 px de la quinta, más bajo.
+    rect(r, 549, 80, 83, 3, 255);
+    expect(() => enFilas(figurasDe(r), 1, 7)).toThrow(/la fila 1 tiene 5 figuras/);
+    // `porRejilla` borra del crudo lo que el corte deja suelto: se empaqueta una copia sin tocar.
+    const crudo = { ...r, data: Buffer.from(r.data) };
+    const [fila] = porRejilla(r, 1, 7).rejilla;
+    expect(fila).toHaveLength(7);
+    // Cada una con su sable entero: la costura pasa entre la punta y la vecina.
+    expect(fila!.map((c) => c.x1 - c.x0 + 1).slice(2, 6)).toEqual([131, 38, 38, 117]);
+    const p = await empaquetar(crudo, 1, 120); // con los sables enteros, a 160 no caben
+    expect(p.porRejilla).toMatch(/cortando el crudo por su rejilla/);
+    const { data, info } = await sharp(p.png).raw().toBuffer({ resolveWithObject: true });
+    const { celda, columnas } = FIGURA;
+    for (let col = 0; col < columnas; col++) {
+      const c = lienzo(celda, celda);
+      for (let y = 0; y < celda; y++)
+        data.copy(
+          c.data,
+          y * celda * 4,
+          (y * info.width + col * celda) * 4,
+          (y * info.width + (col + 1) * celda) * 4,
+        );
+      // Una figura entera por celda: ni la punta del sable de la vecina suelta.
+      expect(figuras(componentes(c), 0), `celda 1·${col + 1}`).toHaveLength(1);
+    }
+  });
+
+  it('cortada en columnas, una fila con una figura de menos sigue fallando', () => {
+    const r = hojaIrregular(7, 1);
+    rect(r, 297, 60, 97, 3, 255);
+    rect(r, 20 + 6 * 122 - 10, 15, 60, 110, 0); // borra la séptima
+    expect(() => porRejilla(r, 1, 7)).toThrow(
+      /la banda 1 tiene 5 figuras y la hoja pide 7; cortada en 7 columnas/,
+    );
+  });
+
+  it('cortada por su rejilla, una fila de 6 sigue fallando, con los dos motivos', async () => {
+    const r = hojaIrregular();
+    rect(r, 20 + 3 * 122 + 12, 100, 4, 60, 255);
+    rect(r, 20 + 6 * 122 - 10, 20 + 135, 60, 110, 0); // borra la séptima de la fila 2
+    expect(() => porRejilla(r, 3, 7)).toThrow(/la banda 2 tiene 6 figuras/);
+    await expect(empaquetar(r, 3, 160)).rejects.toThrow(
+      /figuras y la hoja pide 7.*; cortada por su rejilla/,
+    );
   });
 
   it('el último fotograma que repite al anterior no cuenta, y el JSON lleva el sha256', async () => {

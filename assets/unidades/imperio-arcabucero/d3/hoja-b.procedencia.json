@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/imperio-arcabucero/d3/hoja-b.webp",
     "sha256": "019136a264ba0f992ef0025ebd14350d583c31d10b35cc3a76e38bee8ec82a19"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }

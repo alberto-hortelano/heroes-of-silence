@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-nigromante/d4/hoja-b.webp",
     "sha256": "eac7a235149d87afe1e63f326d60ff786337313a7a94bc2c456ad3204a664d6c"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }

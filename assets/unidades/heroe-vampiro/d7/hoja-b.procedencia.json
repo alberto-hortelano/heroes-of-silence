@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-vampiro/d7/hoja-b.webp",
     "sha256": "002d4e37a5073bf72053dbe858b9578790c21d42fcfea866c8bd8fe58661e7e2"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 6
   }
 }

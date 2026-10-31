@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/imperio-alabardero/d1/hoja-b.webp",
     "sha256": "1e4b6ceaed302ffec4f40dfe853298b17e854f7d44471b71798301a89f5cf899"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 6
   }
 }

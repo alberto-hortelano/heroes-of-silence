@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-goblin-jefe/d3/hoja-a.webp",
     "sha256": "5d0618b9ce0ea93aedf13ff0b0c37c0901b6464db37799d3d70213e5547f4b7b"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 6.5,
+    "charge": 10.5
   }
 }

@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-templario-inquisidor/d5/hoja-b.webp",
     "sha256": "3a5ca17592a5da12b8624bfeeba8b7cc8aa0fb0452d144886a4950863e6062b3"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 6
   }
 }

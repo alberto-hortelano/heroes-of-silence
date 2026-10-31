@@ -66,6 +66,17 @@ export type ClipDeHoja = keyof typeof RELOJ;
 export type Ritmo = Readonly<Partial<Record<ClipDeFigura, number>>>;
 
 /**
+ * Lo más despacio que va un clip a tiempo real (31-10-2026, el usuario: «el
+ * ataque del guerrero con escudo va a tirones»). Las siete columnas de un clip
+ * largo de Mixamo, a su velocidad, se quedan cada una demasiado en pantalla: el
+ * golpe de `precise` dura 1,6 s y a 3,8 fps cada fotograma duraba 260 ms; el
+ * reposo entero de `idle_neutral`, 8,8 s, iba a 0,8. Más lento que esto, el
+ * clip se acelera hasta aquí. El ataque, el daño y el disparo, al del golpe
+ * corto de antes (`quick`, 6,5); el reposo, al de su vaivén (5).
+ */
+export const RITMO_MINIMO: Ritmo = { idle: 5, attack: 6.5, hurt: 6.5, shoot: 6.5 };
+
+/**
  * Cómo declara una unidad su ritmo: los fps de cada clip, o `tiempoReal`, que
  * los saca de lo que dura cada clip en su maniquí (`fpsATiempoReal`), con los
  * de `fps` por encima (el vampiro, 10-10-2026: todo a tiempo real menos el

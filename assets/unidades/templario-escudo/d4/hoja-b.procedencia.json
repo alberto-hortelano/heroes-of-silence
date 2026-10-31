@@ -1,18 +1,18 @@
 {
-  "encargo": "templario-escudo-d4-b",
+  "encargo": "templario-escudo-v-esqueleto-d4-b",
   "tipo": "atlas",
-  "fecha": "2026-10-10T21:24:25.771Z",
+  "fecha": "2026-10-30T21:32:33.833Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a127b2-e391-7923-88fc-be8c168c5b4b",
-  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn templario de infantería: armadura de placas sobre cota de malla, sobrevesta blanca con cruz roja, yelmo cerrado de cubo, escudo de cometa con cruz roja en el brazo izquierdo y espada de una mano en la derecha.\nEn la lámina de giro (imagen 2), la figura 5 en orden de lectura es la que mira hacia «espalda», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de ATAQUE de la fila 1 de la referencia de pose, atacando con el arma del personaje. Fila 2: las siete poses de RECIBIR DAÑO de la fila 2: encaja un golpe y retrocede. Fila 3: las siete poses de la MUERTE de la fila 3: la primera es EXACTAMENTE la última de la fila 2, luego se desploma, y la última es el cadáver tendido e inmóvil en el suelo, con sus armas en el suelo donde las tiene el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «espalda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "hilo": "01a18dc8-3052-7a93-99f3-4b5f6b39e750",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el MAPA DE PROFUNDIDAD del maniquí Y Bot (cámara ortográfica elevada 25 grados; más claro, más cerca; el negro es fondo) con su ESQUELETO dibujado encima: los huesos del lado IZQUIERDO del personaje en AZUL, los del DERECHO en ROJO, el tronco y la cabeza en BLANCO y el eje del arma en AMARILLO. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación siguiendo el esqueleto (dónde está cada codo, cada mano, cada rodilla y cada pie, y hacia dónde apunta el arma). El arma que se pinta es la del PERSONAJE (la de su identidad), por el eje amarillo. NO pintes el esqueleto, sus colores, el gris ni el fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn templario de infantería: armadura de placas sobre cota de malla, sobrevesta blanca con cruz roja, yelmo cerrado de cubo, escudo de cometa con cruz roja en el brazo izquierdo y espada de una mano en la derecha.\nEn la lámina de giro (imagen 2), la figura 5 en orden de lectura es la que mira hacia «espalda», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de ATAQUE de la fila 1 de la referencia de pose, atacando con el arma del personaje. Fila 2: las siete poses de RECIBIR DAÑO de la fila 2: encaja un golpe y retrocede. Fila 3: las siete poses de la MUERTE de la fila 3: la primera es EXACTAMENTE la última de la fila 2, luego se desploma, y la última es el cadáver tendido e inmóvil en el suelo, con sus armas en el suelo donde las tiene el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «espalda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
-      "ruta": "assets/unidades/_poses/unidades/templario-escudo-8d/d4-b.profundidad.png",
-      "papel": "pose-profundidad",
-      "sha256": "959dcea27be4549bee881035999584605105b7c203dbc7e49457364dff2cf5e0"
+      "ruta": ".cache/taller/revision/templario-escudo/d4/versiones/pose-esqueleto-b.png",
+      "papel": "pose-esqueleto",
+      "sha256": "a71930a5893484229a8c6b0d47cfdb7e582b471e5d0f280099ffa203f8f8dd86"
     },
     {
       "ruta": "assets/unidades/templario-escudo/giro.webp",
@@ -25,21 +25,23 @@
       "sha256": "be91381e9343b31c50ffa617668920c4d950c59351dbe5e0b71534cffb8e5f28"
     }
   ],
+  "pose": "assets/unidades/_poses/unidades/templario-escudo-8d/d4-b.profundidad.png",
+  "shaDeLaPose": "4c9b853cd4d8c53e5b8145060b16c5858e24272b05581772b87f615cd2ce8bfe",
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a127b2-e391-7923-88fc-be8c168c5b4b/exec-4a74bf76-2b6e-463c-85a2-508fab5d5c9e.png",
-    "sha256": "052898f88044f5953f1bfc37839a919f02f200f154f1a6d9bc0f79e9e3b53b58",
+    "fichero": "~/.codex/generated_images/01a18dc8-3052-7a93-99f3-4b5f6b39e750/exec-bc820fc9-359e-4c55-a2f5-e919573fdf1b.png",
+    "sha256": "419e53fe836cc59e2ee3767d487c627d462dd57c19400735e9e0d5fd52490d61",
     "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 1.0191, pies en y=342, reposo a 160 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "dirección completa: assets/unidades/templario-escudo/d4/atlas.webp"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.9014, pies en y=342, reposo a 160 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.05058910228587963,
-    "opacos": 0.942573713877168,
+    "visibles": 0.05265977647569445,
+    "opacos": 0.941906601661914,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -51,8 +53,8 @@
       342
     ],
     "apoyoReposo": [
-      197,
-      287
+      199,
+      296
     ],
     "posicion": true,
     "elevaciones": [
@@ -61,8 +63,111 @@
       64
     ]
   },
+  "encuadre": [
+    [
+      [
+        1,
+        -6
+      ],
+      [
+        -1,
+        6
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        -8,
+        -6
+      ],
+      [
+        4,
+        3
+      ],
+      [
+        4,
+        3
+      ]
+    ],
+    [
+      [
+        -2,
+        1
+      ],
+      [
+        1,
+        -4
+      ],
+      [
+        1,
+        -6
+      ],
+      [
+        3,
+        -3
+      ],
+      [
+        0,
+        -2
+      ],
+      [
+        -1,
+        3
+      ],
+      [
+        -3,
+        6
+      ]
+    ],
+    [
+      [
+        -2,
+        1
+      ],
+      [
+        3,
+        -1
+      ],
+      [
+        5,
+        -9
+      ],
+      [
+        -1,
+        -1
+      ],
+      [
+        -12,
+        7
+      ],
+      [
+        1,
+        5
+      ],
+      [
+        7,
+        -3
+      ]
+    ]
+  ],
   "salida": {
     "ruta": "assets/unidades/templario-escudo/d4/hoja-b.webp",
-    "sha256": "4ee88a141c8e2dd6a3fa8fd78483e1fe62bc177cfbed27ed514718724e5e47d8"
+    "sha256": "d97bef44310013ef8951b364aa562ea40db5ac958a648dedee59ba426b585bfe"
+  },
+  "eleccion": {
+    "version": "esqueleto",
+    "modo": "torneo",
+    "motivo": "torneo: ninguna gana todos sus duelos (tirada 1 de 2 duelos, esqueleto 1 de 2 duelos, todo 0 de 2 duelos); la de ahora no vale (es de otro maniquí): decide la persona entre esqueleto y tirada en el visor",
+    "persona": "iguales"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 10.3,
+    "death": 6
   }
 }

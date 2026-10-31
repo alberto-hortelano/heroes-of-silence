@@ -40,7 +40,7 @@
   "validacion": {
     "visibles": 0.053173246837797616,
     "opacos": 0.9242780358932313,
-    "haloSuelto": 0.00001821991436640248,
+    "haloSuelto": 1.821991436640248e-05,
     "ancho": 2688,
     "alto": 1152
   },
@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-nigromante/d5/hoja-a.webp",
     "sha256": "14be7170b2657427762ebf053748941a3a542614c6a968d0fec6815974faab40"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 7,
+    "charge": 14
   }
 }

@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-elfo-druida/d2/hoja-a.webp",
     "sha256": "6afcb328229962bcf6a31db5d20cda320b6b634d8d653cb1358191e402efd71b"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 7,
+    "charge": 14
   }
 }

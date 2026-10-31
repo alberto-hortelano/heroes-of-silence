@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/esqueleto-guerrero/d0/hoja-a.webp",
     "sha256": "d003cb5fcbbefb0d4e33c9c6172d1069b96a1ac1e30a221f8c481e363b615e47"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 6.5,
+    "charge": 10.5
   }
 }

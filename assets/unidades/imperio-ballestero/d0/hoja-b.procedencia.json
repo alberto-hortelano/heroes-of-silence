@@ -1,18 +1,18 @@
 {
-  "encargo": "imperio-ballestero-d0-b",
+  "encargo": "imperio-ballestero-v-tirada-d0-b",
   "tipo": "atlas",
-  "fecha": "2026-10-10T20:32:21.926Z",
+  "fecha": "2026-10-30T23:23:04.905Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a12783-23d7-7a10-9713-27627db1c471",
+  "hilo": "01a18f1e-7814-7850-b11a-41dee83b2b15",
   "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn ballestero: capacete, jubón acolchado amarillo y negro con mangas rojas, gran pavés con el águila imperial a la espalda, ballesta de acero empuñada con las dos manos y carcaj de virotes al cinto.\nEn la lámina de giro (imagen 2), la figura 1 en orden de lectura es la que mira hacia «frente», como esta hoja: así se ve el personaje desde este lado.\nEl ATAQUE de esta hoja es cuerpo a cuerpo con una espada corta de una mano en la derecha: no dispara, y el arma de tiro no se ve mientras golpea.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de ATAQUE de la fila 1 de la referencia de pose, atacando con el arma del personaje. Fila 2: las siete poses de RECIBIR DAÑO de la fila 2: encaja un golpe y retrocede. Fila 3: las siete poses de la MUERTE de la fila 3: la primera es EXACTAMENTE la última de la fila 2, luego se desploma, y la última es el cadáver tendido e inmóvil en el suelo, con sus armas en el suelo donde las tiene el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «frente» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
       "ruta": "assets/unidades/_poses/unidades/imperio-ballestero-8d/d0-b.profundidad.png",
       "papel": "pose-profundidad",
-      "sha256": "16261c97e52223da578522cc2ae0c13c83914e756728e2992db9779e74d51903"
+      "sha256": "72254f5c775cecd2f8ee8b2c599d1d9fb5d5a9323bf9a01495977d938fab64d1"
     },
     {
       "ruta": "assets/unidades/imperio-ballestero/giro.webp",
@@ -26,21 +26,21 @@
     }
   ],
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a12783-23d7-7a10-9713-27627db1c471/exec-f9c5ee10-bf0a-4698-8d82-2d89bd57864e.png",
-    "sha256": "b504d6bbd25558e9a416bb1a5f0c111e689153896076bcf765ad6b14f623dd59",
+    "fichero": "~/.codex/generated_images/01a18f1e-7814-7850-b11a-41dee83b2b15/exec-79fd3906-ece4-49fe-acf7-2a37980d192f.png",
+    "sha256": "5937f92aacb1ad24d6da9cc8ce592f0731a20427bbcf387adc34cc737a339f6e",
     "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7281, pies en y=342, reposo a 160 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "dirección completa: assets/unidades/imperio-ballestero/d0/atlas.webp"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7113, pies en y=342, reposo a 160 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.03989697007275132,
-    "opacos": 0.9507543871009518,
-    "haloSuelto": 0.000008094282199054588,
+    "visibles": 0.03820865368716931,
+    "opacos": 0.9473951113965989,
+    "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
   },
@@ -51,7 +51,7 @@
       342
     ],
     "apoyoReposo": [
-      191,
+      190,
       284
     ],
     "posicion": true,
@@ -61,8 +61,112 @@
       64
     ]
   },
+  "encuadre": [
+    [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        3,
+        3
+      ],
+      [
+        -3,
+        -3
+      ],
+      [
+        0,
+        7
+      ],
+      [
+        0,
+        -13
+      ],
+      [
+        0,
+        -14
+      ]
+    ],
+    [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        3
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        -4
+      ],
+      [
+        -1,
+        -3
+      ],
+      [
+        2,
+        4
+      ],
+      [
+        0,
+        0
+      ]
+    ],
+    [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        5
+      ],
+      [
+        0,
+        -5
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  ],
   "salida": {
     "ruta": "assets/unidades/imperio-ballestero/d0/hoja-b.webp",
-    "sha256": "5b8a8b80489937875051132bc05ed7f52217ee145b0bc0038f6a72eb3fa2be07"
+    "sha256": "b33c6155ef1542f7d5027bb3c43a5f360124d76b259ed5c4c71721a0b70138d0"
+  },
+  "eleccion": {
+    "version": "tirada",
+    "modo": "torneo",
+    "motivo": "torneo: gana tirada todos sus duelos (tirada 2 de 2 duelos, esqueleto 0 de 2 duelos, todo 1 de 2 duelos)",
+    "persona": null,
+    "auto": true
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }

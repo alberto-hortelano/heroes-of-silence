@@ -59,5 +59,8 @@
   "salida": {
     "ruta": "assets/unidades/imperio-arcabucero/d5/hoja-c.webp",
     "sha256": "3b3c05bc488ea1e20918b8259b581ee5d0e733755563bef69351129221310171"
+  },
+  "ritmo": {
+    "shoot": 6.5
   }
 }

@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-elfo-druida/d4/hoja-b.webp",
     "sha256": "9037d82860bca99cef96997046026ada03cf6976a7acc6af68ad5850ed70b5e1"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }

@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-imperio-duelista/d1/hoja-a.webp",
     "sha256": "f33d76f3ba00701256d15f631ba687b1b28dbbbd0e438c7ca4483f4ef6d68da0"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 6.5,
+    "charge": 10.5
   }
 }

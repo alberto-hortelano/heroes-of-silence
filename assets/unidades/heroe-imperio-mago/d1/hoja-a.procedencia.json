@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-imperio-mago/d1/hoja-a.webp",
     "sha256": "8750684f582f67932dc0ad3981255005f2b0c1cb60637d58205e5eae4742d1e0"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 7,
+    "charge": 14
   }
 }

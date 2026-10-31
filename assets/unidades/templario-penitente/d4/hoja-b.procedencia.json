@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/templario-penitente/d4/hoja-b.webp",
     "sha256": "cacb0825f9b4acbcb2a152b3ea41c7720019c18c76e2f0bd366059b48b334c52"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }

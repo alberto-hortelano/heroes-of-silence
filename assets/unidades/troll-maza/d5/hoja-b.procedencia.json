@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/troll-maza/d5/hoja-b.webp",
     "sha256": "45c7d54a863f0d38fca88000d8a349b5239c8264a151ffd7be80be8d5bace8b9"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }

@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/elfo-sacerdotisa/d4/hoja-b.webp",
     "sha256": "ef84d6e4cfd5db346c9a7db44c74c77a1a58c6623e36957794c6f78c442984f8"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }

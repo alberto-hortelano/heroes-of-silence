@@ -1,18 +1,18 @@
 {
-  "encargo": "goblin-arquero-d0-b",
+  "encargo": "goblin-arquero-v-tirada-d0-b",
   "tipo": "atlas",
-  "fecha": "2026-10-10T18:02:58.650Z",
+  "fecha": "2026-10-30T23:07:30.237Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a126fa-69ec-7231-b7e8-2f01c25adac6",
+  "hilo": "01a18f10-49cb-7682-a4db-fdee1dd761a9",
   "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn goblin arquero: pequeño, piel verde amarillenta, capucha y pañuelo rojos tapándole la boca, harapos de cuero, carcaj de flechas a la espalda, arco corto tosco.\nEn la lámina de giro (imagen 2), la figura 1 en orden de lectura es la que mira hacia «frente», como esta hoja: así se ve el personaje desde este lado.\nEl ATAQUE de esta hoja es cuerpo a cuerpo con una daga corta en la mano derecha: no dispara, y el arma de tiro no se ve mientras golpea.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de ATAQUE de la fila 1 de la referencia de pose, atacando con el arma del personaje. Fila 2: las siete poses de RECIBIR DAÑO de la fila 2: encaja un golpe y retrocede. Fila 3: las siete poses de la MUERTE de la fila 3: la primera es EXACTAMENTE la última de la fila 2, luego se desploma, y la última es el cadáver tendido e inmóvil en el suelo, con sus armas en el suelo donde las tiene el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «frente» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 112 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
       "ruta": "assets/unidades/_poses/unidades/goblin-arquero-8d/d0-b.profundidad.png",
       "papel": "pose-profundidad",
-      "sha256": "e3e3ce108f6f6771bb516a6517fe54f7f985741a75bcbab1ba3f008f77084497"
+      "sha256": "b21a3c62d306df31c5e6c877dc8bd3a8fb41d93bb0cf0b046fd0b1be22cd166f"
     },
     {
       "ruta": "assets/unidades/goblin-arquero/giro.webp",
@@ -26,20 +26,20 @@
     }
   ],
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a126fa-69ec-7231-b7e8-2f01c25adac6/exec-a0c46a1f-cd30-481c-9775-3ce1293b7ba7.png",
-    "sha256": "5c58cb471a850606398bc6d15531019efccc483f581f89841172b940ae5d8993",
-    "ancho": 1916,
+    "fichero": "~/.codex/generated_images/01a18f10-49cb-7682-a4db-fdee1dd761a9/exec-9a6cf221-de45-4aa4-abce-689fa18ce4d3.png",
+    "sha256": "219e737b0b4061c5eb09a805ea29b319d9be76de16770c6b2b1f2321cf32d23d",
+    "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.5960, pies en y=342, reposo a 112 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "dirección completa: assets/unidades/goblin-arquero/d0/atlas.webp"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.5008, pies en y=342, reposo a 112 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.02216577277612434,
-    "opacos": 0.927999067571899,
+    "visibles": 0.023230174231150792,
+    "opacos": 0.928768037367587,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -51,8 +51,8 @@
       342
     ],
     "apoyoReposo": [
-      194,
-      287
+      193,
+      284
     ],
     "posicion": true,
     "elevaciones": [
@@ -61,8 +61,111 @@
       64
     ]
   },
+  "encuadre": [
+    [
+      [
+        -1,
+        -2
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        0,
+        4
+      ],
+      [
+        0,
+        -4
+      ],
+      [
+        -1,
+        5
+      ],
+      [
+        1,
+        -5
+      ],
+      [
+        0,
+        0
+      ]
+    ],
+    [
+      [
+        -2,
+        1
+      ],
+      [
+        -1,
+        3
+      ],
+      [
+        2,
+        -2
+      ],
+      [
+        1,
+        -4
+      ],
+      [
+        0,
+        -5
+      ],
+      [
+        1,
+        -5
+      ],
+      [
+        -1,
+        7
+      ]
+    ],
+    [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        3,
+        1
+      ],
+      [
+        0,
+        3
+      ],
+      [
+        -3,
+        -4
+      ]
+    ]
+  ],
   "salida": {
     "ruta": "assets/unidades/goblin-arquero/d0/hoja-b.webp",
-    "sha256": "b0cb2fd5b27184cbb5e3574452b34ea5752eff2e704fa79f51bbb3b1ee5a79b9"
+    "sha256": "1966c725b267a38c75a6a07de6db9e823fd5e43dd9dd0b7f5e308c8ca7eda628"
+  },
+  "eleccion": {
+    "version": "tirada",
+    "modo": "torneo",
+    "motivo": "torneo: ninguna gana todos sus duelos (tirada 1 de 2 duelos, esqueleto 0 de 2 duelos, todo 0 de 2 duelos); la de ahora no vale (es de otro maniquí): decide la persona entre tirada y todo en el visor",
+    "persona": "versión 2"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 6
   }
 }

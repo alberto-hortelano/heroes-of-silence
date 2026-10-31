@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/elfo-asesino/d0/hoja-b.webp",
     "sha256": "21f0f4dbe7983cf2a34f56b79c862b6623d34dcddc84bab362187e68f8771ebe"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 6
   }
 }

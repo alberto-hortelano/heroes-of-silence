@@ -30,10 +30,11 @@ import {
   OCHO_DIRECCIONES,
 } from '../tools/art/poses.js';
 import { derivarAtlas, ELEVACION_DEL_CADAVER } from '../tools/taller/derivar.js';
-import { type Encargo, encargoSchema, promptDe } from '../tools/taller/encargo.js';
+import { type Encargo, encargoSchema, PAPELES_DE_POSE, promptDe } from '../tools/taller/encargo.js';
 import { juntarDireccion } from '../tools/taller/juntar.js';
 import {
   type AtlasDePoses,
+  conElRitmoDeSusHojas,
   derivacionDeUnidad,
   derivarDireccionDePoses,
   ritmoDeUnidad,
@@ -174,6 +175,7 @@ describe('una dirección de 6 filas', () => {
       idle: 5,
       walk: 6.5,
       charge: 10.5,
+      // `precise` (30-10-2026, el golpe completo) iría a 3,8: no baja de `RITMO_MINIMO`.
       attack: 6.5,
       hurt: 6.5,
       death: 6,
@@ -321,7 +323,7 @@ describe('el maniquí de quien dispara', () => {
     (j) => clipDeDisparoDe(j) !== null,
   );
 
-  it('dispara en la hoja C con su curva y ataca en la B con el golpe corto; quien no dispara no tiene C', () => {
+  it('dispara en la hoja C con su curva y ataca en la B con el golpe limpio (precise); quien no dispara no tiene C', () => {
     expect(TIRADORES.sort()).toEqual(['arco', 'ballesta', 'granada']);
     for (const j of Object.keys(JUEGOS_DE_ARMAS) as JuegoDeArmas[]) {
       const hojas = hojasDe(j);
@@ -331,7 +333,7 @@ describe('el maniquí de quien dispara', () => {
         continue;
       }
       expect(hojas.c, j).toEqual([{ clip: 'shoot', anim: disparo, enBucle: false }]);
-      expect(hojas.b?.[0], j).toEqual({ clip: 'attack', anim: 'quick', enBucle: false });
+      expect(hojas.b?.[0], j).toEqual({ clip: 'attack', anim: 'precise', enBucle: false });
     }
   });
 
@@ -457,10 +459,15 @@ describe('las direcciones del arte', () => {
     const json = leer(join(dir, 'atlas.json'));
     expect(json.sha256, 'el atlas cambió sin volver a derivar su JSON').toBe(sha(atlas));
     if (derivadas.has(dir)) {
-      // La suelta de su maniquí y el ritmo de su unidad: la misma cuenta que al juntarlo.
+      // La suelta de su maniquí y el ritmo de su unidad con el de sus hojas: la misma cuenta que al juntarlo.
       expect(json).toEqual(
         JSON.parse(
-          JSON.stringify(await derivarAtlas(atlas, await derivacionDe(basename(dirname(dir))))),
+          JSON.stringify(
+            await derivarAtlas(
+              atlas,
+              conElRitmoDeSusHojas(dir, await derivacionDe(basename(dirname(dir)))),
+            ),
+          ),
         ),
       );
     }
@@ -473,8 +480,9 @@ describe('las direcciones del arte', () => {
       expect(p.salida.sha256, `${h.imagen} cambió sin registrar de dónde sale`).toBe(sha(ruta));
       expect(p.hilo).toMatch(/^[0-9a-f-]{36}$/);
       if (p.reanuda === undefined) {
-        // La pose del maniquí, en color o (desde el 10-10-2026) en profundidad.
-        expect(['pose', 'pose-profundidad']).toContain(p.referencias[0]?.papel);
+        // La pose del maniquí: en color, en profundidad (10-10-2026) o con su
+        // esqueleto encima (las versiones de la revisión, 30-10-2026).
+        expect(PAPELES_DE_POSE).toContain(p.referencias[0]?.papel);
         expect(p.referencias[1]?.papel).toBe('identidad');
       }
     }

@@ -6,9 +6,9 @@
   "altura": 294,
   "cajaDeClic": [
     -77,
-    -294,
+    -254,
     87,
-    0
+    40
   ],
   "clips": {
     "idle": {
@@ -18,7 +18,7 @@
       "loop": true,
       "anchor": [
         193,
-        342
+        302
       ]
     },
     "walk": {
@@ -28,7 +28,7 @@
       "loop": true,
       "anchor": [
         193,
-        342
+        302
       ]
     },
     "charge": {
@@ -38,7 +38,7 @@
       "loop": true,
       "anchor": [
         193,
-        342
+        302
       ]
     },
     "attack": {
@@ -48,7 +48,7 @@
       "loop": false,
       "anchor": [
         193,
-        342
+        302
       ]
     },
     "hurt": {
@@ -58,7 +58,7 @@
       "loop": false,
       "anchor": [
         193,
-        342
+        302
       ]
     },
     "death": {
@@ -68,7 +68,7 @@
       "loop": false,
       "anchor": [
         193,
-        278
+        238
       ]
     }
   },

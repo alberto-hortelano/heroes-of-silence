@@ -5,7 +5,7 @@
  */
 import { existsSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { CARPETA_DE_LAS_FIGURAS, figuraDelBanco } from '../../src/core/npcs.js';
 import {
   HOJAS_DE_FIGURA,
@@ -16,12 +16,19 @@ import {
 import { clipDeDisparoDe } from '../art/poses.js';
 import { leerBancoDeDisco } from '../npcs/banco.js';
 import { escribirDerivado, type OpcionesDeDerivar } from './derivar.js';
-import { apilarHojas, derivacionDeUnidad, juegoEn8dDe, sha256 } from './poses-8d.js';
+import {
+  apilarHojas,
+  conElRitmoDeSusHojas,
+  derivacionDeUnidad,
+  juegoEn8dDe,
+  sha256,
+} from './poses-8d.js';
 
 /**
  * Qué hojas se juntan en la carpeta de una dirección (`…/<id>/dN/`) y con qué se
  * deriva su atlas: de una unidad de `assets/unidades/`, las de su juego de armas
- * (con la C si dispara) y su suelta y su ritmo (`derivacionDeUnidad`); de una figura
+ * (con la C si dispara) y su suelta y su ritmo (`derivacionDeUnidad`, con el de
+ * cada hoja encima: `conElRitmoDeSusHojas`); de una figura
  * del banco de NPC (`assets/npcs/`), las de sus acciones (`hojasDeLasAcciones`,
  * `data/npcs.json` de la raíz de la carpeta: la de los tests es temporal). Lo leen
  * el juntado (`juntarDireccion`) y `pnpm taller derivar`. Lanza con una carpeta de
@@ -40,7 +47,7 @@ export function derivacionDeLaCarpeta(dirN: string): {
   if (resolve(raiz, CARPETA_DE_LAS_FIGURAS) !== dirname(figura)) {
     return {
       hojas: hojasDeFigura(clipDeDisparoDe(juegoEn8dDe(id)) !== null),
-      derivar: () => derivacionDeUnidad(id),
+      derivar: async () => conElRitmoDeSusHojas(dirN, await derivacionDeUnidad(id)),
     };
   }
   const npc = figuraDelBanco(leerBancoDeDisco(raiz), id);
@@ -92,4 +99,17 @@ export async function juntarDireccion(dir: string): Promise<string | null> {
     )}\n`,
   );
   return atlas;
+}
+
+/**
+ * Lo que se hace al acabar una hoja de 8 direcciones en su carpeta de `assets/`:
+ * juntar la dirección si ya están todas sus hojas. Lo llaman el trabajador, tras
+ * pintarla, y `pnpm taller adoptar`, tras elegir una versión. Devuelve lo que
+ * apunta la procedencia.
+ */
+export async function alAcabarUnaHoja(dir: string): Promise<string> {
+  const junta = await juntarDireccion(dir);
+  return junta === null
+    ? 'media dirección: se junta con la otra hoja cuando esté'
+    : `dirección completa: ${relative(resolve(import.meta.dirname, '../..'), junta)}`;
 }

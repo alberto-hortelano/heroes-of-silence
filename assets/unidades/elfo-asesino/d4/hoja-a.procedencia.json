@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/elfo-asesino/d4/hoja-a.webp",
     "sha256": "2af312bb6ef98010a244144d2889cec9db9673a3e4de956d03a6cc3685f7db5f"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 6.5,
+    "charge": 10.5
   }
 }

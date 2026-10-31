@@ -59,5 +59,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-vampiro/d0/hoja-a.webp",
     "sha256": "cd37dd0245ceb96568316af70436790695b7158b6346e50c069ac3907182bd99"
+  },
+  "ritmo": {
+    "idle": 5,
+    "walk": 6.5,
+    "charge": 10.5
   }
 }

@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/goblin-lancero/d7/hoja-b.webp",
     "sha256": "10c12bb87a76b2e2cd3cd51d1c3d1850cff04e7ef4abb5cfb60330c68eaceaff"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 6
   }
 }

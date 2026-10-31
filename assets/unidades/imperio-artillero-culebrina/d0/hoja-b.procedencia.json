@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/imperio-artillero-culebrina/d0/hoja-b.webp",
     "sha256": "16e307a0eba1c7cb95354acc763d3d946f9121154cd07f07120ff81370e1d478"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }

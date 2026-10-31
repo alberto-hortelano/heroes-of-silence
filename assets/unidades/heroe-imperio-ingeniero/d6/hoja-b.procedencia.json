@@ -64,5 +64,10 @@
   "salida": {
     "ruta": "assets/unidades/heroe-imperio-ingeniero/d6/hoja-b.webp",
     "sha256": "912149814032d103e61450202cd6ff76a5d6b44842b1eb98812f127615c9273f"
+  },
+  "ritmo": {
+    "attack": 6.5,
+    "hurt": 6.5,
+    "death": 2.5
   }
 }
