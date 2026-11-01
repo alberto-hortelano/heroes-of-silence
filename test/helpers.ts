@@ -3,6 +3,8 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { onTestFinished } from 'vitest';
+import { type FotoDeEfectos, fotoDeEfectos } from '../src/client/anim.js';
+import { marcadoDe } from '../src/client/html.js';
 import {
   type Catalogo,
   type CatalogoEnBruto,
@@ -12,6 +14,7 @@ import {
 import { componer, type Escena } from '../src/client/render/escenario/colocar.js';
 import type { Puente } from '../src/client/render/escenario/puentes.js';
 import type { Senda } from '../src/client/render/escenario/sendas.js';
+import { type CaraDeLosContrincantes, renderDesenlace } from '../src/client/rueda/rueda.js';
 import { SesionDeArena } from '../src/client/session.js';
 import { completarCruce } from '../src/core/ai/rueda.js';
 import {
@@ -35,7 +38,7 @@ import {
 } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
 import { type MurallaDeBatalla, SIN_MURALLA } from '../src/core/battle/muralla.js';
-import { formaDeLaBatalla, golpeNeutro } from '../src/core/battle/rueda.js';
+import { formaDeLaBatalla, golpeNeutro, type HechoDelCruce } from '../src/core/battle/rueda.js';
 import type {
   BattleAction,
   BattleEvent,
@@ -1516,6 +1519,31 @@ export type Ataque = Extract<BattleEvent, { kind: 'attack' }>;
 /** Los golpes del registro de `b`, desde el hecho `desde`: los de quien pega y los del contraataque. */
 export function ataquesDe(b: BattleState, desde = 0): Ataque[] {
   return b.log.slice(desde).filter((e): e is Ataque => e.kind === 'attack');
+}
+
+/** El primer cruce de la rueda del registro de `b`; lanza si no hay ninguno. */
+export function primerCruce(b: BattleState): HechoDelCruce {
+  const e = b.log.find((x) => x.kind === 'cruce');
+  if (e?.kind !== 'cruce') throw new Error('sin cruce en el registro');
+  return e;
+}
+
+/**
+ * El desenlace del primer cruce de `b`, pintado sin animador (`renderDesenlace`):
+ * con `cara` y con lo que llevaba colgado cada uno antes del cruce, `efectos`
+ * (por defecto, lo de ahora: `fotoDeEfectos`, la del animador).
+ */
+export function desenlaceDe(
+  b: BattleState,
+  cara: CaraDeLosContrincantes | null = null,
+  efectos: FotoDeEfectos = fotoDeEfectos(b),
+): string {
+  return marcadoDe(renderDesenlace(b, { evento: primerCruce(b), efectos }, null, cara));
+}
+
+/** Lo que pone «En el campo» en el marcado de un lateral (de su título al del parte). */
+export function enElCampo(m: string): string {
+  return m.slice(m.indexOf('<h3>En el campo</h3>'), m.indexOf('<h3>Parte de guerra</h3>'));
 }
 
 /**

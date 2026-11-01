@@ -90,10 +90,11 @@ function quienesEligen(
 }
 
 /**
- * Un paso del cruce: la acción lista (`lista`), o quien pega ya plantado ante su
- * objetivo (`plantarse`, si no lo estaba) y lo que falta —el papel y el bando que
- * lo elige—, con lo que lleva la IA ya elegido (`completarCruce`). `accion` es el
- * golpe que espera, sin `from`: ya anduvo. **El paso de los dos que esperan a
+ * Un paso del cruce: la acción lista (`lista`), o quien pega ya plantado
+ * (`plantarse`, si no lo estaba: ante su objetivo, o en su salida si carga, que la
+ * carga se elige antes de correr) y lo que falta —el papel y el bando que lo
+ * elige—, con lo que lleva la IA ya elegido (`completarCruce`). `accion` es el
+ * golpe que espera, sin `from`. **El paso de los dos que esperan a
  * alguien**, la sesión de la persona (`CruceDeLaRueda`) y el director del agente
  * (`Director.conLaRueda`): cada uno, con lo que falta, pregunta a quien le toca y
  * vuelve con lo elegido.

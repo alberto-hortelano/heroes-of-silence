@@ -959,8 +959,11 @@ function stackView(s: BattleStack) {
 
 /**
  * La petición de la respuesta de la rueda (`battle_response`): `atacante` golpea
- * cuerpo a cuerpo a `objetivo`, del bando del agente, y ya está plantado ante él
- * (`golpeEnCurso`): lo que se enseña es lo de después de andar.
+ * cuerpo a cuerpo a `objetivo`, del bando del agente, y ya está plantado
+ * (`golpeEnCurso`): ante él, si anduvo, y lo que se enseña es lo de después de
+ * andar; o en su salida si carga, que la carga se elige antes de correr
+ * (31-10-2026): `chargeFrom` dice desde qué casilla golpeará y lo que cobra, y
+ * `responses` ya lo cuenta desde allí.
  *
  * **Sin el golpe del atacante**, y por construcción: esta función recibe los dos
  * ids y nada más, así que no lo puede filtrar aunque quien la llame ya lo sepa
@@ -989,6 +992,8 @@ export function serializeBattleResponse(
     target: objetivo.id,
     wheel: ruedaAlAgente(formaDeLaBatalla(battle)),
     ...(contraataca ? {} : { noCounterattack: p.sinContraataque }),
+    // La carga plantada, por correr (`casillasDeCarga` en la fase `plantado`).
+    ...chargeFrom(battle, atacante),
     responses: formaDeLaBatalla(battle).golpes.map((t) => {
       const response = HIT_DE_GOLPE[t];
       const effect = efectoDeGolpe(t, 'respuesta', contraataca, p.rueda, formaDeLaBatalla(battle));
@@ -1007,7 +1012,7 @@ export function serializeBattleResponse(
 function chargeFrom(
   battle: BattleState,
   activo: BattleStack,
-  costes: ReadonlyMap<string, Paso>,
+  costes?: ReadonlyMap<string, Paso>,
 ): { chargeFrom?: { target: string; col: number; row: number; hexes: number }[] } {
   const cargas = casillasDeCarga(battle, activo, costes);
   if (cargas.length === 0) return {};

@@ -795,7 +795,7 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     const s = activeStack(conPista) as BattleStack;
     const turno = conPista.turno as TurnoDeUnidad;
     const conRecorrido = {
-      firma: firmaDelTurno(turno),
+      firma: firmaDelTurno(turno, conPista.golpeEnCurso),
       puertas: '',
       costs: movableFrom(conPista, s),
     };
@@ -815,7 +815,11 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     const state = batallaDeCuatroEnemigos();
     const s = activeStack(state) as BattleStack;
     const turno = state.turno as TurnoDeUnidad;
-    const suyo = { firma: firmaDelTurno(turno), puertas: '', costs: movableFrom(state, s) };
+    const suyo = {
+      firma: firmaDelTurno(turno, state.golpeEnCurso),
+      puertas: '',
+      costs: movableFrom(state, s),
+    };
     aplicar(state, { type: 'end_turn' }, createRng(1));
     const otro = activeStack(state) as BattleStack;
     expect(otro.id).not.toBe(s.id);
@@ -1994,7 +1998,11 @@ describe('el turno en tramos (2026-10-02)', () => {
     const s = stackById(state, 'attacker-0');
     const turno = state.turno as TurnoDeUnidad;
     const n = turno.n;
-    const viejo = { firma: firmaDelTurno(turno), puertas: '', costs: movableFrom(state, s) };
+    const viejo = {
+      firma: firmaDelTurno(turno, state.golpeEnCurso),
+      puertas: '',
+      costs: movableFrom(state, s),
+    };
     aplicar(state, { type: 'move', to: { col: 1, row: 4 } }, createRng(1));
     expect(() =>
       aplicar(state, { type: 'move', to: { col: 5, row: 4 } }, createRng(1), viejo),

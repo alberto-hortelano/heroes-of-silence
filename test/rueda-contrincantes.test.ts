@@ -19,24 +19,29 @@ import {
   haciaDe,
   idDeLaForma,
   medidasDeLaRueda,
-  renderDesenlace,
   renderEleccion,
   sitioEnLaRueda,
 } from '../src/client/rueda/rueda.js';
 import type { SesionDeArena } from '../src/client/session.js';
-import { efectoEnCurso } from '../src/client/views/panels.js';
+import { efectoEnCurso, modificadoresEnCurso } from '../src/client/views/panels.js';
 import { stackById } from '../src/core/battle/battle.js';
+import type { StackEffect } from '../src/core/battle/effects.js';
 import {
-  contraataqueDelCruce,
-  duracion,
   formaDeLaBatalla,
   LAS_TRES_RUEDAS,
   RUEDA_DE_REFERENCIA,
   type TipoDeGolpe,
 } from '../src/core/battle/rueda.js';
-import { spell } from '../src/core/battle/spells.js';
 import { TIPOS_DEL_ANILLO } from '../src/core/types.js';
-import { hastaLaRueda, PESADA, sesionDeArena, TROPA, unidadDeArena } from './helpers.js';
+import {
+  desenlaceDe,
+  hastaLaRueda,
+  PESADA,
+  primerCruce,
+  sesionDeArena,
+  TROPA,
+  unidadDeArena,
+} from './helpers.js';
 
 /** Las peleas de estos tests, con la rueda de siempre (7). */
 const RUEDA = RUEDA_DE_REFERENCIA;
@@ -102,13 +107,7 @@ describe('#258: el botón de cada sector se recorta a lo que se ve', () => {
     hastaElGolpe(otra);
     otra.elegirEnLaRueda('fuerte');
     otra.elegirEnLaRueda('normal');
-    const b = otra.battle;
-    const i = b.log.findIndex((e) => e.kind === 'cruce');
-    const e = b.log[i];
-    if (e?.kind !== 'cruce') throw new Error('sin cruce');
-    const d = marcadoDe(
-      renderDesenlace(b, e, contraataqueDelCruce(b.log, i), null, caraDeLaArena(otra)),
-    );
+    const d = desenlaceDe(otra.battle, caraDeLaArena(otra));
     expect(d).not.toContain('<clipPath');
     expect(d).not.toContain('data-golpe=');
   });
@@ -232,13 +231,7 @@ describe('#261: los dos contrincantes en la cabecera', () => {
     hastaElGolpe(s);
     s.elegirEnLaRueda('fuerte');
     s.elegirEnLaRueda('normal');
-    const b = s.battle;
-    const i = b.log.findIndex((e) => e.kind === 'cruce');
-    const e = b.log[i];
-    if (e?.kind !== 'cruce') throw new Error('sin cruce');
-    const m = marcadoDe(
-      renderDesenlace(b, e, contraataqueDelCruce(b.log, i), null, caraDeLaArena(s)),
-    );
+    const m = desenlaceDe(s.battle, caraDeLaArena(s));
     expect(m.match(/<canvas class="figura"/g)).toHaveLength(2);
     expect(m).not.toContain('ficha-en-la-rueda');
     expect(m).not.toContain('vista-previa');
@@ -260,6 +253,222 @@ describe('#261: los dos contrincantes en la cabecera', () => {
   });
 });
 
+/** Defensivo colgado, hasta que empiece su próximo turno (lo que deja la rueda). */
+const DEFENSIVO: StackEffect = {
+  kind: 'defense',
+  amount: 1,
+  source: 'defensivo',
+  roundsLeft: 2,
+  hasta: { turno: 1, al: 'empezar' },
+};
+/** Lo que deja Bendecir: suerte +1 tres rondas. */
+const BENDICION: StackEffect = { kind: 'luck', amount: 1, source: 'bless', roundsLeft: 3 };
+/** Lo que deja Lentitud: velocidad −2 tres rondas. */
+const LENTITUD: StackEffect = { kind: 'speed', amount: -2, source: 'slow', roundsLeft: 3 };
+
+/** Lo que hay entre `data-contrincante="id"` y el siguiente contrincante (o el final de la cabecera). */
+function delContrincante(m: string, id: string): string {
+  const desde = m.indexOf(`data-contrincante="${id}"`);
+  if (desde < 0) throw new Error(`${id} no está en la cabecera`);
+  const fin = [m.indexOf('data-contrincante="', desde + 1), m.indexOf('</header>', desde)]
+    .filter((i) => i > 0)
+    .reduce((a, b) => Math.min(a, b));
+  return m.slice(desde, fin);
+}
+
+describe('31-10-2026: al responder, la rueda dice el daño del atacante', () => {
+  /** La rueda de la respuesta de una sesión con los dos bandos «Yo», tras un Fuerte. */
+  const respuesta = (antes: (s: SesionDeArena) => void = () => {}): string => {
+    const s = sesion();
+    hastaElGolpe(s);
+    antes(s);
+    s.elegirEnLaRueda('fuerte');
+    const p = s.ruedaPendiente;
+    if (p?.fase !== 'respuesta') throw new Error('la rueda no pide la respuesta');
+    return marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
+  };
+
+  it('cada sector, arriba lo que te haría su golpe y debajo tu contraataque', () => {
+    const m = respuesta();
+    expect(m.match(/class="da del-atacante"/g)).toHaveLength(TIPOS_DE_GOLPE.length);
+    expect(m.match(/class="da tuyo"/g)).toHaveLength(TIPOS_DE_GOLPE.length);
+    for (const t of TIPOS_DE_GOLPE) {
+      const desde = m.indexOf(`data-golpe="${t}"`);
+      const boton = m.slice(desde, m.indexOf('</button>', desde));
+      // El del atacante, antes que el tuyo.
+      expect(boton.indexOf('del-atacante'), t).toBeLessThan(boton.indexOf('da tuyo'));
+      // La etiqueta dice los dos, y la nota, golpe a golpe.
+      expect(boton, t).toMatch(
+        /aria-label="[^"]*: te haría \d+(–\d+)? de daño( y puede tumbarte)?; tú, /,
+      );
+    }
+    expect(m).toContain('Su golpe te haría: con Ofensivo (');
+  });
+
+  it('sin contraataque, solo lo del atacante', () => {
+    const m = respuesta((s) => {
+      const p = s.ruedaPendiente;
+      if (p === null) throw new Error('sin rueda');
+      stackById(s.battle, p.objetivo.id).retaliated = true;
+    });
+    expect(m.match(/class="da del-atacante"/g)).toHaveLength(TIPOS_DE_GOLPE.length);
+    expect(m).not.toContain('da tuyo');
+    expect(m).not.toContain('<span class="da">—</span>');
+  });
+
+  it('al golpear, ninguno: la rueda del golpe no cambia', () => {
+    const s = sesion();
+    hastaElGolpe(s);
+    const p = s.ruedaPendiente;
+    if (p === null) throw new Error('sin rueda');
+    const m = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
+    expect(m).not.toContain('del-atacante');
+    expect(m).not.toContain('da tuyo');
+    expect(m).not.toContain('Su golpe te haría');
+  });
+
+  it('te tumba (H2 de QA, 01-11-2026): el sector se marca y la nota dice «te tumba» en vez del daño en bruto, como dice el núcleo', () => {
+    /** La respuesta tras un Fuerte con el objetivo a `vida`. */
+    const conVida = (vida: number) => {
+      const s = sesion();
+      hastaElGolpe(s);
+      const antes = s.ruedaPendiente;
+      if (antes === null) throw new Error('sin rueda');
+      const t = stackById(s.battle, antes.objetivo.id);
+      t.count = Math.floor((vida - 1) / t.unit.hp) + 1;
+      t.topHp = vida - (t.count - 1) * t.unit.hp;
+      s.elegirEnLaRueda('fuerte');
+      const p = s.ruedaPendiente;
+      if (p?.fase !== 'respuesta' || p.golpeQueViene === null)
+        throw new Error('la rueda no pide la respuesta');
+      return {
+        m: marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s))),
+        viene: p.golpeQueViene,
+      };
+    };
+    /** El sector de `t`: su `div`, con el botón y su nota. */
+    const sector = (m: string, t: TipoDeGolpe): string => {
+      const desde = m.lastIndexOf('<div class="sector-de-rueda', m.indexOf(`data-golpe="${t}"`));
+      return m.slice(desde, m.indexOf('</div>', m.indexOf('class="nota"', desde)));
+    };
+    // Con mucha vida no tumba nada: ni la marca ni la línea del pie. (Con la suya,
+    // 50, ya tumban algunos: el 47 % de las parejas de QA.)
+    const entera = conVida(1000);
+    expect(entera.m).not.toContain('te-tumba');
+    expect(entera.m).not.toContain('tumba');
+    // Una vida entre lo menos y lo más que quitan las parejas: de los dos.
+    const quitan = [
+      ...new Set(Object.values(entera.viene).flatMap((r) => r.porGolpe.map((g) => g.quita.max))),
+    ].sort((x, y) => x - y);
+    const { m, viene } = conVida(quitan[Math.floor(quitan.length / 2)] as number);
+    const marcados = TIPOS_DE_GOLPE.filter((t) => viene[t]?.puedeTumbarte === true);
+    expect(marcados.length).toBeGreaterThan(0);
+    for (const t of TIPOS_DE_GOLPE) {
+      const r = viene[t];
+      if (r === undefined) throw new Error(`sin el golpe que viene contra ${t}`);
+      const suyo = sector(m, t);
+      expect(suyo.startsWith('<div class="sector-de-rueda te-tumba"'), t).toBe(r.puedeTumbarte);
+      expect(suyo.includes('class="marca-de-tumba"'), t).toBe(r.puedeTumbarte);
+      expect(/aria-label="[^"]*de daño y puede tumbarte/.test(suyo), t).toBe(r.puedeTumbarte);
+      // La nota, golpe a golpe: el que tumba no da su daño en bruto.
+      const nota = /class="nota"[^>]*aria-label="([^"]*)"/.exec(suyo)?.[1] ?? '';
+      expect(nota, t).toContain(
+        r.puedeTumbarte ? 'Su golpe puede tumbarte: ' : 'Su golpe te haría: ',
+      );
+      const desglose = nota
+        .slice(nota.indexOf(': ', nota.indexOf('Su golpe')) + 2)
+        .replace(/\.$/, '')
+        .split('; ');
+      expect(desglose, t).toHaveLength(r.porGolpe.length);
+      for (const [i, g] of r.porGolpe.entries()) {
+        const uno = desglose[i] ?? '';
+        const deEse = uno.slice(uno.indexOf('), ') + 3);
+        expect(deEse, `${g.tipo} contra ${t}`).toEqual(
+          g.tumba === 'siempre'
+            ? 'te tumba'
+            : g.tumba === 'puede'
+              ? `de ${g.quita.min} a tumbarte`
+              : expect.stringMatching(/^\d/),
+        );
+      }
+    }
+    // El pie explica la marca, una vez.
+    expect(m.match(/data-tumba>/g)).toHaveLength(1);
+  });
+});
+
+describe('31-10-2026: los modificadores de los dos, en la cabecera de la rueda', () => {
+  it('lo que lleva colgado cada uno, en pastillas con su signo y una sola nota; sin nada, nada', () => {
+    const s = sesion();
+    hastaElGolpe(s);
+    const p = s.ruedaPendiente;
+    if (p === null) throw new Error('sin rueda');
+    const sin = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
+    expect(sin).not.toContain('modificadores en-curso');
+    stackById(s.battle, p.atacante.id).effects.push({ ...BENDICION }, { ...LENTITUD });
+    stackById(s.battle, p.objetivo.id).effects.push({ ...DEFENSIVO });
+    const m = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
+    const forma = formaDeLaBatalla(s.battle);
+    const suyo = delContrincante(m, p.atacante.id);
+    expect(suyo).toContain('data-efecto="luck" data-signo="+">suerte +1</span>');
+    expect(suyo).toContain('data-efecto="speed" data-signo="−">velocidad -2</span>');
+    // Una nota con los dos enteros, con la frase de `efectoEnCurso`.
+    const notas = [...suyo.matchAll(/class="nota"[^>]*aria-label="([^"]*)"/g)].map((x) => x[1]);
+    expect(notas).toEqual([
+      `${efectoEnCurso(BENDICION, forma)}; ${efectoEnCurso(LENTITUD, forma)}`,
+    ]);
+    const otro = delContrincante(m, p.objetivo.id);
+    expect(otro).toContain('data-efecto="defense" data-signo="+">defensa +1</span>');
+    expect(otro).not.toContain('suerte');
+    // Debajo del nombre: dentro de sus datos, tras `.quien`.
+    expect(suyo.indexOf('class="quien"')).toBeLessThan(suyo.indexOf('modificadores en-curso'));
+  });
+
+  it('una sola forma: la de «En el campo» y la de la rueda salen de la misma función', () => {
+    const forma = RUEDA;
+    const m = marcadoDe(modificadoresEnCurso([BENDICION, DEFENSIVO], forma));
+    expect(m.match(/class="modificador"/g)).toHaveLength(2);
+    expect(m.match(/class="nota"/g)).toHaveLength(1);
+    expect(marcadoDe(modificadoresEnCurso([], forma))).toBe('');
+    // La carga: «carga +25 %» y, en la nota, la frase entera.
+    const conCarga = marcadoDe(modificadoresEnCurso([], forma, { casillas: 5, montada: true }));
+    expect(conCarga).toContain('data-carga data-signo="+">carga +25 %</span>');
+    expect(conCarga).toContain('aria-label="carga de 5 casillas montada, +25 %"');
+  });
+
+  it('el desenlace pinta lo que llevaban antes del cruce (la foto del animador), no lo que trae el estado', () => {
+    const s = sesion();
+    hastaElGolpe(s);
+    s.elegirEnLaRueda('defensivo');
+    s.elegirEnLaRueda('normal');
+    const b = s.battle;
+    const e = primerCruce(b);
+    // El Defensivo que el cruce acaba de dejar está en el estado…
+    expect(stackById(b, e.stack).effects.some((x) => x.source === 'defensivo')).toBe(true);
+    // …pero antes del cruce no lo llevaba: no sale.
+    const antes = new Map(b.stacks.map((x) => [x.id, [] as StackEffect[]]));
+    expect(desenlaceDe(b, caraDeLaArena(s), antes)).not.toContain('modificadores en-curso');
+    // Con una foto que lleva Lentitud en el objetivo, sale esa; y sin carrera, ninguna carga.
+    antes.set(e.target, [LENTITUD]);
+    const conLentitud = desenlaceDe(b, caraDeLaArena(s), antes);
+    expect(delContrincante(conLentitud, e.target)).toContain('velocidad -2');
+    expect(delContrincante(conLentitud, e.stack)).not.toContain('modificadores en-curso');
+    // La carga es la que cobró su golpe en el registro (`cargaDelCruce`): con 3
+    // casillas cobradas, la pastilla va en quien pega.
+    const cobrada = {
+      ...b,
+      log: b.log.map((x) =>
+        x.kind === 'attack' && !x.retaliation && x.stack === e.stack ? { ...x, charge: 3 } : x,
+      ),
+    };
+    const conCarga = desenlaceDe(cobrada, caraDeLaArena(s), antes);
+    expect(delContrincante(conCarga, e.stack)).toContain('carga +15 %');
+    expect(delContrincante(conCarga, e.target)).not.toContain('carga +');
+    // Una foto sin uno de los dos es un fallo, no «nada».
+    expect(() => desenlaceDe(b, null, new Map())).toThrow(/no sabe qué llevaba/);
+  });
+});
+
 describe('#261: la vista previa', () => {
   /** La vista previa de `id` en la rueda del golpe de la sesión. */
   const previa = (s: SesionDeArena, id: string): string => {
@@ -267,7 +476,7 @@ describe('#261: la vista previa', () => {
     if (p === null) throw new Error('sin rueda');
     const m = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
     const desde = m.indexOf(`id="previa-${id}"`);
-    return m.slice(desde, m.indexOf('</div><span class="quien">', desde));
+    return m.slice(desde, m.indexOf('</div><span class="datos-del-contrincante">', desde));
   };
 
   it('el nombre, la vida y las cifras con lo que cambia el equipo (el guerrero con escudo: espada, brigantina y escudo)', () => {
@@ -293,31 +502,6 @@ describe('#261: la vista previa', () => {
     // fuerza (7) con la de la Espada (3), por su agilidad (4).
     expect(v).toContain('<span class="label">Daño</span><span>10–40');
     expect(v).not.toContain('class="nota"');
-  });
-
-  it('los efectos que lleva, con lo que le queda; sin ninguno, «ninguno»', () => {
-    const s = sesion();
-    hastaElGolpe(s);
-    const p = s.ruedaPendiente;
-    if (p === null) throw new Error('sin rueda');
-    const x = stackById(s.battle, p.objetivo.id);
-    expect(previa(s, x.id)).toContain('<span class="sin-efectos">ninguno</span>');
-    x.effects.push(
-      {
-        kind: 'defense',
-        amount: 1,
-        source: 'defensivo',
-        roundsLeft: 2,
-        hasta: { turno: 1, al: 'empezar' },
-      },
-      { kind: 'speed', amount: -2, source: 'slow', roundsLeft: 3 },
-    );
-    const v = previa(s, x.id);
-    expect(v).toContain(`Defensivo: defensa +1 ${duracion('empezar', 'su')}`);
-    expect(v).toContain(`${spell('slow').name}: velocidad -2 durante 3 rondas`);
-    expect(v).not.toContain('ninguno');
-    // La frase es la de `efectoEnCurso`, la única.
-    for (const e of x.effects) expect(v).toContain(efectoEnCurso(e, formaDeLaBatalla(s.battle)));
   });
 
   it('si ya devolvió un golpe esta ronda', () => {

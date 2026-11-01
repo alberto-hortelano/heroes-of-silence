@@ -724,6 +724,49 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
     expect(quien.hex).toEqual(donde);
   });
 
+  it('una carga de la persona no corre hasta elegir: la rueda se abre con ella en su salida, y Escape no gasta nada (31-10-2026)', () => {
+    const s = sesionContraMonstruo();
+    jugarHasta(s, () => s.ruedaPendiente === null && s.battleCharges().length > 0);
+    const carga = s.battleCharges()[0]!;
+    const golpe = { type: 'attack', target: carga.target, from: carga.at } as const;
+    expect(s.battleLegalActions()).toContainEqual(golpe);
+    const quien = s.turnoPropio!.stack;
+    const salida = { ...quien.hex };
+    const gastado = s.battle!.turno?.gastado;
+    const largo = s.battle!.log.length;
+
+    s.playBattleAction(golpe);
+
+    // Plantado en su salida, sin nada escrito ni gastado, con la carga por correr.
+    expect(s.ruedaPendiente?.fase).toBe('golpe');
+    expect(quien.hex).toEqual(salida);
+    expect(s.battle!.log.length).toBe(largo);
+    expect(s.battle!.turno?.gastado).toBe(gastado);
+    expect(s.battle!.golpeEnCurso?.carga?.carrera.at).toEqual(carga.at);
+    // Lo que se enseña bajo la rueda es lo de ahora: ni casillas de andar, ni más
+    // carga que la plantada (sin el golpe plantado en la clave, las de antes).
+    expect(s.battleMovable()).toEqual([]);
+    expect(s.battleCharges()).toEqual([carga]);
+
+    // Escape: no corrió, nada que devolver, y la carga vuelve a estar a mano.
+    expect(s.cancelarGolpe()).toBe(true);
+    expect(s.status).toBe('Golpe cancelado.');
+    expect(quien.hex).toEqual(salida);
+    expect(s.battle!.turno?.gastado).toBe(gastado);
+    expect(s.battleCharges()).toContainEqual(carga);
+
+    // Y otra vez, eligiendo: el cruce, la carrera y el golpe que la cobra.
+    s.playBattleAction(golpe);
+    s.elegirEnLaRueda('fuerte');
+    const nuevos = s.battle!.log.slice(largo);
+    expect(nuevos[0]).toMatchObject({ kind: 'cruce', stack: quien.id, golpe: 'fuerte' });
+    expect(nuevos[1]).toMatchObject({ kind: 'move', stack: quien.id, to: carga.at, charge: true });
+    expect(nuevos.find((e) => e.kind === 'attack' && !e.retaliation)).toMatchObject({
+      stack: quien.id,
+      charge: carga.hexes,
+    });
+  });
+
   it('cuando golpean a la persona, elige su respuesta sin ver el golpe; esa no se cancela', () => {
     const s = sesionContraMonstruo();
     jugarHasta(s, () => s.ruedaPendiente?.fase === 'respuesta');

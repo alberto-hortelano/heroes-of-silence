@@ -53,9 +53,9 @@ import {
 import {
   CARGA,
   CARGA_MINIMA,
+  type CargaDeLaRueda,
+  cargaDeLaRueda,
   cargaEfectiva,
-  cargaMontada,
-  dichoDeLaCarga,
   porcientoDeLaCarga,
 } from './carga.js';
 import { fraseDelContacto, salirCuesta } from './contacto.js';
@@ -139,6 +139,7 @@ import type {
   BattleHero,
   BattleStack,
   BattleState,
+  CargaMedida,
   GolpeEnCurso,
   OrigenDelStack,
   Side,
@@ -690,7 +691,8 @@ function fintaEn(state: BattleState, s: BattleStack): number {
 /**
  * En qué fase está el turno abierto: `libre` (no ha hecho nada que lo limite),
  * `movido` (ha andado un tramo: ya no apunta; decisión del usuario),
- * `plantado` (con la rueda, ha andado hasta su objetivo y espera la rueda, `golpeEnCurso`) o `trasLaFinta` (ha golpeado con Finta y le queda un
+ * `plantado` (espera la rueda, `golpeEnCurso`: ante su objetivo, o en su salida
+ * si carga, que la carga se elige antes de correr) o `trasLaFinta` (ha golpeado con Finta y le queda un
  * tramo solo de andar, `TurnoDeUnidad.finta`). `null` sin turno abierto. Las
  * fases que limitan qué jugada vale las dice `faseBlocker`.
  */
@@ -733,16 +735,19 @@ const PLANTADO = (g: GolpeEnCurso): string =>
   `${g.stack} está plantado ante ${g.target}: elige en la rueda o cancela el golpe`;
 
 /**
- * La firma del turno abierto: el ordinal, lo gastado y lo que le quitó la Finta.
- * Dos estados con la misma firma tienen el mismo recorrido por andar (con las
- * mismas puertas, que van aparte). La leen `applyAction`, que rechaza un
- * `Movibles` de otra firma, y la clave de las cachés de la sesión. Sin la Finta,
- * un recorrido de antes de golpear con ella valía después y andaba de más.
+ * La firma del turno abierto: el ordinal, lo gastado, lo que le quitó la Finta y
+ * el golpe plantado que espera la rueda. Dos estados con la misma firma tienen el
+ * mismo recorrido por andar (con las mismas puertas, que van aparte). La leen
+ * `applyAction`, que rechaza un `Movibles` de otra firma, y la clave de las
+ * cachés de la sesión. Sin la Finta, un recorrido de antes de golpear con ella
+ * valía después y andaba de más; sin el golpe plantado, la carga, que se planta
+ * sin andar ni gastar (31-10-2026), dejaba la misma firma antes y después.
  */
-export function firmaDelTurno(turno: TurnoDeUnidad): string {
+export function firmaDelTurno(turno: TurnoDeUnidad, plantado: GolpeEnCurso | null): string {
   const finta = turno.finta === undefined ? '' : ` y ${turno.finta} menos por la Finta`;
   const gastadas = turno.gastado === 1 ? '1 casilla gastada' : `${turno.gastado} casillas gastadas`;
-  return `turno ${turno.n} con ${gastadas}${finta}`;
+  const golpe = plantado === null ? '' : `, plantado ante ${plantado.target}`;
+  return `turno ${turno.n} con ${gastadas}${finta}${golpe}`;
 }
 
 /**
@@ -1210,7 +1215,7 @@ function golpeBlocker(
 /**
  * Un golpe cuerpo a cuerpo de `s` listo para darse o preverse: el objetivo,
  * `s` donde golpeará (una copia en `from`, que nadie mueve aquí) y la carga, con
- * la carrera que se anda para cobrarla (`CargaMedida`). Lanza
+ * la carrera que se anda para cobrarla (`medida`, `CargaMedida`). Lanza
  * con el motivo si no se puede (`golpeBlocker`, y lo de la rueda con
  * `cruceBlocker`; `completa` para darlo, no para preverlo). La preparación de
  * `applyAction`, `previsionDe` y `previsionDeLaRueda`, escrita una vez.
@@ -1225,32 +1230,39 @@ function golpePreparado(
   readonly target: BattleStack;
   readonly desdeAhi: BattleStack;
   readonly carga: number;
-  readonly carrera: Paso | null;
+  readonly medida: CargaMedida | null;
 } {
   const enCurso = golpeEnCursoBlocker(state, accion, completa);
   if (enCurso !== null) throw new Error(enCurso);
   const target = stackById(state, accion.target);
-  const motivo = golpeBlocker(state, s, target, accion.from, costes);
+  const plantado = state.golpeEnCurso;
+  // Plantado con carga, no ha corrido: golpeará desde la llegada de su carrera, y
+  // esa casilla se mira en el recorrido como cualquier `from`.
+  const from = plantado?.carga?.carrera.at ?? accion.from;
+  const motivo = golpeBlocker(state, s, target, from, costes);
   if (motivo !== null) throw new Error(motivo);
   const sinCruce = cruceBlocker(accion, completa, formaDeLaBatalla(state));
   if (sinCruce !== null) throw new Error(sinCruce);
-  const { from } = accion;
   // La carga se mide ANTES de mover, desde donde empieza este tramo: es la regla
   // del usuario, «se puede mover un tramo y se vuelve a calcular». Lo recorrido
   // en tramos anteriores no cuenta, y por eso no hace falta guardarlo en ningún
   // sitio: viaja hasta el golpe como argumento. Y se mide contra ESTE objetivo:
-  // carga solo si está en la recta. Con la rueda, quien se plantó ya anduvo y
-  // desde donde está no hay recta que medir: la carrera la guardó `golpeEnCurso`
-  // al plantarse.
+  // carga solo si está en la recta. Con un golpe plantado, la medida es la que
+  // guardó al plantarse (`golpeEnCurso.carga`): sin carga, ya anduvo y desde donde
+  // está no hay recta; con ella, aún no corrió y se mide lo que guardó.
   const medida =
-    state.golpeEnCurso !== null || from === undefined ? null : medirCargas(state, s)(from, target);
+    plantado !== null
+      ? plantado.carga
+      : from === undefined
+        ? null
+        : medirCargas(state, s)(from, target);
   return {
     target,
     // Golpea desde `from`: desde ahí se mira si el objetivo le alcanza para
     // devolverlo.
     desdeAhi: from === undefined ? s : { ...s, hex: from },
-    carga: state.golpeEnCurso !== null ? state.golpeEnCurso.carga : (medida?.recta ?? 0),
-    carrera: medida?.carrera ?? null,
+    carga: medida?.recta ?? 0,
+    medida,
   };
 }
 
@@ -1279,9 +1291,11 @@ function golpeEnCursoBlocker(
 
 /**
  * ¿Es este `attack` un «plantarse»? El golpe que llega sin ninguna
- * de las dos elecciones y sin otro plantado: anda hasta `from` y espera la rueda
- * (`golpeEnCurso`), sin cerrar el turno. Primero se anda, luego se elige (decisión
- * del usuario, 13-10-2026).
+ * de las dos elecciones y sin otro plantado: espera la rueda (`golpeEnCurso`), sin
+ * cerrar el turno. Sin carga, primero se anda hasta `from` y luego se elige
+ * (decisión del usuario, 13-10-2026); **con carga, primero se elige y luego se
+ * corre**, que la rueda tras la carrera era anticlimática (decisión del usuario,
+ * 31-10-2026): se planta en su salida, sin andar ni gastar nada.
  */
 function esPlantarse(state: BattleState, accion: BattleAction & { type: 'attack' }): boolean {
   return (
@@ -1782,9 +1796,10 @@ export function applyAction(
   const s = activeStack(state);
   const turno = state.turno;
   if (s === null || turno === null) throw new Error('no hay stack activo');
-  if (movibles !== undefined && movibles.firma !== firmaDelTurno(turno)) {
+  const firma = firmaDelTurno(turno, state.golpeEnCurso);
+  if (movibles !== undefined && movibles.firma !== firma) {
     throw new Error(
-      `el recorrido que traes es del ${movibles.firma}, y ahora le toca a ${s.id} en el ${firmaDelTurno(turno)}`,
+      `el recorrido que traes es del ${movibles.firma}, y ahora le toca a ${s.id} en el ${firma}`,
     );
   }
   if (movibles !== undefined && movibles.puertas !== claveDeAbiertas(state.puertas)) {
@@ -1820,30 +1835,35 @@ export function applyAction(
     }
 
     case 'attack': {
-      // El recorrido, una vez: lo leen la comprobación y el movimiento.
-      let costes: ReadonlyMap<string, Paso> | undefined = movibles?.costs;
+      // El recorrido, una vez: lo leen la comprobación y el movimiento. Con un golpe
+      // plantado, el que trae quien juega viene vacío (la lista legal de la fase
+      // `plantado` no da casillas) y se calcula aquí: la carrera de la carga se
+      // valida al golpear, contra él.
+      let costes: ReadonlyMap<string, Paso> | undefined =
+        state.golpeEnCurso === null ? movibles?.costs : undefined;
       const recorrido = (): ReadonlyMap<string, Paso> => {
         costes ??= movableFrom(state, s);
         return costes;
       };
       const plantarse = esPlantarse(state, action);
-      const { target, carga, carrera } = golpePreparado(state, s, action, !plantarse, recorrido);
-      // Primero se anda (con la carga en su `move`), luego el cruce y el golpe:
-      // de una vez o en dos jugadas, el registro dice lo mismo en el mismo orden.
-      // Lo que costaba el camino más barato, para devolverlo si se suelta el golpe.
-      const barato =
-        action.from === undefined ? 0 : pasoHasta(state, s, recorrido(), action.from).steps;
-      if (action.from !== undefined) {
-        moveTo(state, s, action.from, recorrido(), carga > 0 ? { carrera } : undefined);
+      const { target, carga, medida } = golpePreparado(state, s, action, !plantarse, recorrido);
+      // Sin carga, primero se anda y luego el cruce y el golpe; **la carga se elige
+      // antes de correr** (decisión del usuario, 31-10-2026): el cruce, la carrera
+      // (con la carga en su `move`) y el golpe. De una vez o en dos jugadas, el
+      // registro dice lo mismo en el mismo orden. El `Rng` gasta igual en los dos
+      // órdenes: ni andar ni el cruce tiran.
+      if (medida === null && action.from !== undefined) {
+        moveTo(state, s, action.from, recorrido());
       }
       if (plantarse) {
         // Ni cierra el turno aunque haya gastado sus casillas, ni escribe aún
         // ningún cruce: espera la rueda. Soltarlo es `soltarElGolpe`.
-        state.golpeEnCurso = { stack: s.id, target: target.id, carga, carrera, barato };
+        state.golpeEnCurso = { stack: s.id, target: target.id, carga: medida };
         return;
       }
       state.golpeEnCurso = null;
       const cruce = cruceDeLaRueda(state, s, target, action);
+      if (medida !== null) moveTo(state, s, medida.carrera.at, recorrido(), medida.carrera);
       melee(state, s, target, rng, carga, cruce);
       // Con la Finta el turno sigue, solo para andar, si le queda a dónde y la
       // pelea no ha acabado con este golpe. Si no, se cierra como siempre.
@@ -2026,31 +2046,29 @@ function quedaAlgoQueHacer(state: BattleState): boolean {
 }
 
 /**
- * Suelta el golpe plantado (`golpeEnCurso`): Escape en la rueda después de andar
- * (decisión del usuario, 13-10-2026). La unidad se queda donde llegó, como tras
- * un tramo, y sigue su turno con lo que le quede; la carga de esa carrera se
- * pierde. Si la carrera por la recta costó más que el camino barato (salir del
- * contacto, #259), lo gastado vuelve a lo que costaba el barato: sin la carga no
- * hay recta que pagar (decisión del /simplify, 14-10-2026). Si ya no le queda
- * nada que hacer, el turno se cierra, como el `move` que agota. Solo la llama la
- * sesión (`CruceDeLaRueda`); sin golpe plantado lanza.
+ * Suelta el golpe plantado (`golpeEnCurso`): Escape en la rueda antes de elegir
+ * (decisión del usuario, 13-10-2026). Sin carga, la unidad se queda donde llegó,
+ * como tras un tramo, y sigue su turno con lo que le quede; con carga no corrió
+ * (la carga se elige antes de correr, 31-10-2026): sigue en su salida, sin nada
+ * gastado, y puede volver a cargar. Si ya no le queda nada que hacer, el turno se
+ * cierra, como el `move` que agota. Solo la llama la sesión (`CruceDeLaRueda`);
+ * sin golpe plantado lanza.
  */
 export function soltarElGolpe(state: BattleState, rng: Rng): void {
   const g = state.golpeEnCurso;
   if (g === null) throw new Error('no hay ningún golpe plantado que soltar');
   const s = activeStack(state);
-  const turno = state.turno;
-  if (s === null || turno === null || s.id !== g.stack) {
+  if (s === null || state.turno === null || s.id !== g.stack) {
     throw new Error(`el golpe plantado es de ${g.stack}, y no le toca`);
   }
   state.golpeEnCurso = null;
-  if (g.carrera !== null) turno.gastado -= g.carrera.steps - g.barato;
   if (!quedaAlgoQueHacer(state)) endTurn(state, s, rng);
 }
 
 /**
- * Quien pega anda hasta su objetivo y se planta (`golpeEnCurso`) sin golpear:
- * el `attack` sin elecciones, con su `from` si lo trae. Es lo que se hace cuando
+ * Quien pega se planta (`golpeEnCurso`) sin golpear: anda hasta su objetivo, o,
+ * si carga, se queda en su salida con la carrera por correr (`esPlantarse`); el
+ * `attack` sin elecciones, con su `from` si lo trae. Es lo que se hace cuando
  * la rueda espera a alguien que no es la IA —la persona en la sesión, el agente
  * en el director (`pasoDelCruce`)—: el golpe que espera, de verdad plantado. No
  * tira dados: el `Rng` gasta lo mismo y en el mismo orden que el golpe de una
@@ -2097,20 +2115,6 @@ export function cargaDesde(
   bloqueadas?: ReadonlySet<string>,
 ): number {
   return medirCargas(state, s, bloqueadas)(from, target)?.recta ?? 0;
-}
-
-/**
- * Una carga medida: las casillas de su recta y, si se paga el contacto, la
- * carrera que se anda para cobrarla.
- */
-export interface CargaMedida {
-  /** Las casillas de la recta (`CARGA_MINIMA` o más), sin el tope: lo que da `cargaDesde`. */
-  readonly recta: number;
-  /**
-   * Lo que se anda para cobrarla: la recta, pagando lo que cuesta salir de cada
-   * casilla (`carreraConCostes`), que puede costar más que el camino más barato.
-   */
-  readonly carrera: Paso;
 }
 
 /**
@@ -2161,8 +2165,18 @@ export function casillasDeCarga(
   s: BattleStack,
   costes?: ReadonlyMap<string, Paso>,
 ): readonly CasillaDeCarga[] {
-  // Tras la Finta no hay golpe que cobrarla: solo se anda.
-  if (state.turno?.stack === s.id && faseDelTurno(state) === 'trasLaFinta') return SIN_CARGAS;
+  if (state.turno?.stack === s.id) {
+    // Tras la Finta no hay golpe que cobrarla: solo se anda.
+    if (faseDelTurno(state) === 'trasLaFinta') return SIN_CARGAS;
+    // Plantado, la única carga es la que espera la rueda (si carga): el tablero la
+    // marca y el agente la lee en `chargeFrom` como al apuntarla.
+    const g = state.golpeEnCurso;
+    if (g !== null) {
+      return g.carga === null
+        ? SIN_CARGAS
+        : [casillaDeCarga(g.target, g.carga.carrera.at, g.carga.recta)];
+    }
+  }
   const medir = medirCargas(state, s);
   const enemigos = enemiesOf(state, s);
   const out: CasillaDeCarga[] = [];
@@ -2175,10 +2189,15 @@ export function casillasDeCarga(
     if (e === undefined) continue;
     const medida = medir(paso.at, e);
     if (medida === null) continue;
-    const hexes = cargaEfectiva(medida.recta, CARGA);
-    out.push({ target: e.id, at: paso.at, hexes, porciento: porcientoDeLaCarga(hexes, CARGA) });
+    out.push(casillaDeCarga(e.id, paso.at, medida.recta));
   }
   return out;
+}
+
+/** La carga contra `target` desde `at` con una recta de `recta` casillas, como se enseña. */
+function casillaDeCarga(target: string, at: Hex, recta: number): CasillaDeCarga {
+  const hexes = cargaEfectiva(recta, CARGA);
+  return { target, at, hexes, porciento: porcientoDeLaCarga(hexes, CARGA) };
 }
 
 /** Una carga posible: contra quién, desde qué casilla y con cuántas casillas. */
@@ -2202,8 +2221,7 @@ export const SIN_CARGAS: readonly CasillaDeCarga[] = Object.freeze([]);
 
 /**
  * El paso del recorrido `costes` de `s` hasta `to`, o lanza diciendo por qué no
- * llega (`movimientoBlocker`): el que anda `moveTo` y lo que costaba el camino
- * barato que guarda el golpe plantado.
+ * llega (`movimientoBlocker`): el que anda `moveTo`.
  */
 function pasoHasta(
   state: BattleState,
@@ -2220,15 +2238,15 @@ function pasoHasta(
 }
 
 /**
- * Mueve el stack y le apunta al turno lo que cuesta el camino. Con `carga`, la
- * carrera de un golpe que carga (el `move` lo dice, y el lienzo la anima así).
+ * Mueve el stack y le apunta al turno lo que cuesta el camino. Con `carrera`, la
+ * de un golpe que carga (el `move` lo dice, y el lienzo la anima así).
  */
 function moveTo(
   state: BattleState,
   s: BattleStack,
   to: Hex,
   costes?: ReadonlyMap<string, Paso>,
-  carga?: { readonly carrera: Paso | null },
+  carrera?: Paso,
 ): void {
   // El coste real del camino, no la distancia en línea recta: rodear a un
   // enemigo cuesta más casillas del presupuesto. Sale del mismo recorrido que
@@ -2238,7 +2256,7 @@ function moveTo(
   // y se paga la recta (`CargaMedida.carrera`, que `medirCargas` ya vio que
   // cabe), que puede costar más que el camino más barato.
   const legal = pasoHasta(state, s, costes ?? movableFrom(state, s), to);
-  const paso = carga?.carrera ?? legal;
+  const paso = carrera ?? legal;
 
   s.hex = to;
   // `moveTo` solo lo llama `applyAction` sobre el stack activo, así que el turno
@@ -2257,7 +2275,11 @@ function moveTo(
     to,
     path,
     // La carrera de una carga ya se anima corriendo; si no, corre el tramo largo.
-    ...(carga !== undefined ? { charge: true } : seCorre(s, camino.length) ? { corre: true } : {}),
+    ...(carrera !== undefined
+      ? { charge: true }
+      : seCorre(s, camino.length)
+        ? { corre: true }
+        : {}),
   });
 }
 
@@ -3218,19 +3240,11 @@ function previsionDeGolpe(
   extra: Omit<DamageOptions, ExtraDelEstado>,
   golpe: GolpeEnLaRueda | null = null,
 ): PrevisionDeGolpe {
-  const h = horquillaDeDanio(a, t, opcionesDeDanio(state, a, t, extra, golpe));
   const golpes =
     kind === 'golpe' ? golpesDe(a.unit, golpe?.tipo ?? null, false) : disparosDe(a.unit);
-  const siguientes = golpes > 1 ? danioSinLaCarga(h.danio, a, t, extra, golpe, state) : null;
-  // Cómo queda el objetivo con `golpes` golpes: el primero de `d`, los demás de
-  // `luego`, y cada uno solo si el anterior no lo tumba, como en `melee` y `shoot`.
-  const tras = (d: number, luego = d): { count: number; topHp: number } => {
-    let quedan: { count: number; topHp: number } = { count: t.count, topHp: t.topHp };
-    for (let i = 0; i < golpes && quedan.count > 0; i++) {
-      quedan = trasElGolpe({ ...quedan, unit: t.unit }, i === 0 ? d : luego);
-    }
-    return quedan;
-  };
+  const { h, siguientes } = unGolpe(a, t, opcionesDeDanio(state, a, t, extra, golpe), golpes);
+  const tras = (d: number, luego = d): { count: number; topHp: number } =>
+    trasLosGolpes(t, golpes, d, luego);
   const conMenos = tras(h.danio.min, siguientes?.min);
   const conMas = tras(h.danio.max, siguientes?.max);
   const vida = (q: { count: number; topHp: number }): number =>
@@ -3256,24 +3270,83 @@ function previsionDeGolpe(
 }
 
 /**
+ * Cómo queda `t` con `golpes` golpes: el primero de `d`, los demás de `luego`, y
+ * cada uno solo si el anterior no lo tumba, como en `melee` y `shoot`. Lo leen la
+ * previsión del golpe y lo que quita el golpe que viene (`loQueQuitan`).
+ */
+function trasLosGolpes(
+  t: BattleStack,
+  golpes: number,
+  d: number,
+  luego = d,
+): { count: number; topHp: number } {
+  let quedan: { count: number; topHp: number } = { count: t.count, topHp: t.topHp };
+  for (let i = 0; i < golpes && quedan.count > 0; i++) {
+    quedan = trasElGolpe({ ...quedan, unit: t.unit }, i === 0 ? d : luego);
+  }
+  return quedan;
+}
+
+/**
+ * La vida que le quitan de verdad a `t` esos golpes (`trasLosGolpes`): la de antes
+ * menos la que le queda, así que nunca más de la que tiene (lo que se cobra).
+ */
+function loQueQuitan(t: BattleStack, golpes: number, d: number, luego = d): number {
+  return stackHp(t) - stackHp({ ...t, ...trasLosGolpes(t, golpes, d, luego) });
+}
+
+/**
+ * Lo que dan los golpes de un intercambio que se prevé: el daño del primero,
+ * cuántos da y el de los que siguen, que no cobran la carga. Lo enseñan el sector
+ * de la rueda (`SectorDeLaRueda`), cada golpe del que viene (`GolpeEnSuPunto`) y
+ * su cuenta (`unGolpe`).
+ */
+export interface DanioDeLosGolpes {
+  /** El daño de un golpe; con más de uno, el del primero (con carga, la lleva). */
+  readonly danio: Horquilla;
+  readonly golpes: number;
+  /** Con más de un golpe y carga, el de cada uno tras el primero, que no la cobra; si no, `null`. */
+  readonly siguientes: Horquilla | null;
+}
+
+/** Lo que cuenta `unGolpe`: los golpes (`DanioDeLosGolpes`) con la horquilla entera del primero. */
+interface GolpeContado extends DanioDeLosGolpes {
+  readonly h: ReturnType<typeof horquillaDeDanio>;
+}
+
+/**
+ * El golpe (o el disparo) de `a` a `t` que se prevé, con sus `opciones` ya hechas
+ * (`opcionesDeDanio`, y la rueda encima con `conElGolpe`) y `golpes` golpes: su
+ * horquilla y el daño de los que siguen al primero, que no cobran la carga
+ * (`danioSinLaCarga`). **La cuenta de un golpe que no se ha dado**, una vez: la
+ * leen la previsión del golpe (`previsionDeGolpe`), los sectores de la rueda
+ * (`previsionDeLaRueda`) y el golpe que viene en la respuesta
+ * (`previsionDelGolpeQueViene`).
+ */
+function unGolpe(
+  a: BattleStack,
+  t: BattleStack,
+  opciones: DamageOptions,
+  golpes: number,
+): GolpeContado {
+  const h = horquillaDeDanio(a, t, opciones);
+  const siguientes = golpes > 1 ? danioSinLaCarga(h.danio, a, t, opciones) : null;
+  return { h, danio: h.danio, golpes, siguientes };
+}
+
+/**
  * El daño de cada golpe tras el primero, que no cobra la carga (`intercambio`), o
  * `null` si sale el mismo que el del primero (`danio`): sin carga, o quien no
- * carga. Lo leen la previsión del golpe y la de la rueda.
+ * carga. Las mismas `opciones` sin la carrera: la carga es lo único que cambia.
  */
 function danioSinLaCarga(
   danio: Horquilla,
   a: BattleStack,
   t: BattleStack,
-  extra: Omit<DamageOptions, ExtraDelEstado>,
-  golpe: GolpeEnLaRueda | null,
-  state: BattleState,
+  opciones: DamageOptions,
 ): Horquilla | null {
-  if ((extra.chargeHexes ?? 0) === 0) return null;
-  const sin = horquillaDeDanio(
-    a,
-    t,
-    opcionesDeDanio(state, a, t, { ...extra, chargeHexes: 0 }, golpe),
-  ).danio;
+  if ((opciones.chargeHexes ?? 0) === 0) return null;
+  const sin = horquillaDeDanio(a, t, { ...opciones, chargeHexes: 0 }).danio;
   return sin.min === danio.min && sin.max === danio.max ? null : sin;
 }
 
@@ -3346,13 +3419,8 @@ function previsionDelContraataque(
   };
 }
 
-/** Lo que daría un tipo de la rueda: el daño de un golpe y cuántos golpes. */
-export interface SectorDeLaRueda {
-  /** El daño de un golpe; con más de uno, el del primero. */
-  readonly danio: Horquilla;
-  readonly golpes: number;
-  /** Con más de un golpe y carga, el de cada uno tras el primero, que no la cobra; si no, `null`. */
-  readonly siguientes: Horquilla | null;
+/** Lo que daría un tipo de la rueda: el daño de un golpe y cuántos golpes (`DanioDeLosGolpes`). */
+export interface SectorDeLaRueda extends DanioDeLosGolpes {
   /**
    * Al golpear con un tipo que deja algo al rival antes de su contraataque (Romper
    * guardia), su contraataque de ahora con cada éxito que lo cambia, del mayor al
@@ -3360,6 +3428,45 @@ export interface SectorDeLaRueda {
    * (`puntosDeLaForma`); si no, o en la respuesta, o sin contraataque, `[]`.
    */
   readonly contraataquePorExito: readonly { readonly punto: Punto; readonly danio: Horquilla }[];
+}
+
+/**
+ * Lo que te haría el golpe que viene si respondes con un tipo de la rueda: quien
+ * pega elige a ciegas, así que por cada golpe suyo (`porGolpe`, en el orden de la
+ * rueda) el punto en que caería contra tu respuesta y lo que darían sus golpes
+ * (`GolpeEnSuPunto`); y, de todos, lo menos y lo más que te quitaría el
+ * intercambio entero (`total`: el primero y los siguientes, cada uno solo si sigues
+ * en pie, `loQueQuitan`; nunca más de la vida que tienes). Las mismas cuentas que
+ * el golpe que se cobra (`unGolpe`, `opcionesDeDanio` con el golpe en su punto).
+ */
+export interface GolpeQueViene {
+  readonly total: Horquilla;
+  readonly porGolpe: readonly GolpeEnSuPunto[];
+  /**
+   * Si alguno de sus golpes te tumba (`GolpeEnSuPunto.tumba` no es `no`): entonces
+   * `total.max` es tu vida, y el sector lo dice («puede tumbarte», H2 de QA,
+   * 01-11-2026) para que no se lea como el techo de su golpe.
+   */
+  readonly puedeTumbarte: boolean;
+}
+
+/**
+ * Si un golpe te tumba, con lo que se cobra (`loQueQuitan`): `siempre`, también lo
+ * menos que quita llega a tu vida; `puede`, solo lo más; `no`, ni lo más.
+ */
+export type Tumba = 'no' | 'puede' | 'siempre';
+
+/** Un golpe del que viene (`GolpeQueViene`): su tipo, el punto del cruce y lo que dan sus golpes. */
+export interface GolpeEnSuPunto extends DanioDeLosGolpes {
+  readonly tipo: TipoDeGolpe;
+  readonly punto: Punto;
+  /**
+   * Lo que te quitaría de verdad el intercambio con ese golpe: sus golpes, cada
+   * uno solo si sigues en pie, y nunca más de tu vida (`loQueQuitan`). `danio` y
+   * `siguientes` son cada golpe en bruto, que pueden pasar de ella.
+   */
+  readonly quita: Horquilla;
+  readonly tumba: Tumba;
 }
 
 /**
@@ -3391,11 +3498,11 @@ export function previsionDeLaRueda(
    */
   readonly contraataque: Horquilla | null;
   /**
-   * Al golpear tras una carrera, la carga que ya llevan las cifras, dicha
-   * (`dichoDeLaCarga`: «carga de 3 casillas, +15 %»; R6 de QA de #260); si
-   * no hay carga o en la respuesta, `null`.
+   * La carga que cobra quien pega (R6 de QA de #260), en las dos fases: al golpear
+   * ya la llevan las cifras de los sectores; al responder, las del golpe que viene
+   * (`previsionDelGolpeQueViene`). Sin carga, `null`. Se dice con `dichoDeLaCarga`.
    */
-  readonly carga: string | null;
+  readonly carga: CargaDeLaRueda | null;
   /**
    * Las cifras de la rueda con el arma de cuerpo a cuerpo de quien elige
    * (`ruedaDelIntercambio`): con ellas se dicen las notas de los sectores
@@ -3425,8 +3532,10 @@ export function previsionDeLaRueda(
   // Los niveles son siempre del arma de quien pega, también en la respuesta: lo que
   // se teme del golpe que viene.
   const niveles = nivelesEnLaForma(nivelesDelGolpe(desdeAhi.unit, 'arma'), forma);
+  // La carga es de quien golpea: la cobra su primer golpe, en las dos fases.
+  const cobrada = cargaDeLaRueda(cargaEfectiva(carga, CARGA), desdeAhi.unit);
   if (papel === 'respuesta' && sinContraataque !== null) {
-    return { porTipo: null, sinContraataque, contraataque: null, carga: null, rueda, niveles };
+    return { porTipo: null, sinContraataque, contraataque: null, carga: cobrada, rueda, niveles };
   }
   // Las opciones, una vez; cada tipo pone encima su sector.
   const opciones = opcionesDeDanio(state, quien, contra, extra);
@@ -3440,14 +3549,12 @@ export function previsionDeLaRueda(
   const porTipo: Partial<Record<TipoDeGolpe, SectorDeLaRueda>> = {};
   for (const tipo of forma.golpes) {
     const sector = delSector(tipo, forma);
-    const h = horquillaDeDanio(
+    const { danio, golpes, siguientes } = unGolpe(
       quien,
       contra,
       conElGolpe(opciones, quien.unit, sector, papel, forma, rueda),
+      golpesDe(quien.unit, tipo, devuelve),
     );
-    const golpes = golpesDe(quien.unit, tipo, devuelve);
-    const siguientes =
-      golpes > 1 ? danioSinLaCarga(h.danio, quien, contra, extra, sector, state) : null;
     const contraataquePorExito = conContraataque
       ? [...puntosDeLaForma(forma)].reverse().flatMap((punto) => {
           if (punto < sector.desde || punto > sector.hasta) return [];
@@ -3456,20 +3563,77 @@ export function previsionDeLaRueda(
           return danio === null ? [] : [{ punto, danio }];
         })
       : [];
-    porTipo[tipo] = { danio: h.danio, golpes, siguientes, contraataquePorExito };
+    porTipo[tipo] = { danio, golpes, siguientes, contraataquePorExito };
   }
-  // La carga es de quien golpea: la respuesta no la cobra.
-  const cobrada = papel === 'golpe' ? cargaEfectiva(carga, CARGA) : 0;
   return {
     porTipo,
     sinContraataque,
     contraataque: conContraataque
       ? contraataqueCon(neutro === null ? null : delSector(neutro, forma))
       : null,
-    carga: cobrada > 0 ? dichoDeLaCarga(cobrada, cargaMontada(desdeAhi.unit)) : null,
+    carga: cobrada,
     rueda,
     niveles,
   };
+}
+
+/**
+ * Al responder en la rueda, lo que te haría el golpe que viene con cada respuesta
+ * (`GolpeQueViene`), una por tipo de la rueda de la batalla; también sin
+ * contraataque. Desde donde golpeará quien pega (`golpePreparado`, con la carga de
+ * su recta), como `previsionDeLaRueda`, aparte de ella: solo lo pide quien lo
+ * pinta (la sesión), y el agente (`serializeBattleResponse`) no lo paga. No toca
+ * el estado ni el `Rng`. Lanza si el golpe no se puede dar.
+ */
+export function previsionDelGolpeQueViene(
+  state: BattleState,
+  accion: BattleAction & { type: 'attack' },
+): Readonly<Partial<Record<TipoDeGolpe, GolpeQueViene>>> {
+  const s = activeStack(state);
+  if (s === null || state.finished !== null) throw new Error('no le toca a ninguna unidad');
+  const { target, desdeAhi, carga } = golpePreparado(state, s, accion, false);
+  const forma = formaDeLaBatalla(state);
+  // Las opciones, las cifras de su arma y cuántos golpes da cada tipo, una vez;
+  // cada golpe pone encima su punto.
+  const opciones = opcionesDeDanio(state, desdeAhi, target, { chargeHexes: carga });
+  const cifras = ruedaDelIntercambio(desdeAhi);
+  // Lo más que se le puede quitar: tumbarlo es quitarle esto (`loQueQuitan`).
+  const vida = stackHp(target);
+  const suyos = forma.golpes.map((tipo) => ({
+    tipo,
+    golpes: golpesDe(desdeAhi.unit, tipo, false),
+  }));
+  const porRespuesta: Partial<Record<TipoDeGolpe, GolpeQueViene>> = {};
+  for (const respuesta of forma.golpes) {
+    const porGolpe = suyos.map(({ tipo, golpes }): GolpeEnSuPunto => {
+      const punto = puntoDelCruce(tipo, respuesta, forma);
+      const enSuPunto = conElGolpe(
+        opciones,
+        desdeAhi.unit,
+        enElPunto(tipo, punto),
+        'golpe',
+        forma,
+        cifras,
+      );
+      const { danio, siguientes } = unGolpe(desdeAhi, target, enSuPunto, golpes);
+      // El intercambio entero, como se cobra: cada golpe solo si sigue en pie.
+      const quita = {
+        min: loQueQuitan(target, golpes, danio.min, siguientes?.min),
+        max: loQueQuitan(target, golpes, danio.max, siguientes?.max),
+      };
+      const tumba: Tumba = quita.min === vida ? 'siempre' : quita.max === vida ? 'puede' : 'no';
+      return { tipo, punto, danio, golpes, siguientes, quita, tumba };
+    });
+    porRespuesta[respuesta] = {
+      total: {
+        min: Math.min(...porGolpe.map((g) => g.quita.min)),
+        max: Math.max(...porGolpe.map((g) => g.quita.max)),
+      },
+      porGolpe,
+      puedeTumbarte: porGolpe.some((g) => g.tumba !== 'no'),
+    };
+  }
+  return porRespuesta;
 }
 
 function previsionDeHechizo(

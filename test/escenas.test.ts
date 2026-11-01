@@ -82,7 +82,7 @@ import {
   sesionContraMonstruo,
   sesionesContraMonstruo,
 } from './batalla-de-cliente.js';
-import { agresiva, anteLaBase, fueraDeSuBase, primeraSemillaCon } from './helpers.js';
+import { agresiva, anteLaBase, enElCampo, fueraDeSuBase, primeraSemillaCon } from './helpers.js';
 
 /**
  * Una batalla en la que la persona ATACA a un monstruo: la busca
@@ -672,6 +672,28 @@ describe('el comandante se distingue en el tablero (H-4)', () => {
       nombre.y < corona.y + corona.alto;
     expect(seTocan, JSON.stringify({ corona, nombre })).toBe(false);
     expect(corona.alto).toBeGreaterThanOrEqual(22);
+  });
+});
+
+describe('«En el campo» de la partida lleva lo que tiene colgado cada unidad (31-10-2026)', () => {
+  it('la fila con efectos, sus pastillas y una nota; sin efectos, como siempre', () => {
+    const s = sesionEnBatalla();
+    const campo = (): string => enElCampo(marcadoDe(renderSide(s)));
+    expect(campo()).not.toContain('modificadores en-curso');
+    const batalla = s.battle!;
+    const x = batalla.stacks.find((y) => y.count > 0 && y.side === 'defender');
+    if (x === undefined) throw new Error('nadie en el bando defensor');
+    x.effects.push({
+      kind: 'defense',
+      amount: 1,
+      source: 'defensivo',
+      roundsLeft: 2,
+      hasta: { turno: 1, al: 'empezar' },
+    });
+    const m = campo();
+    expect(m.match(/modificadores en-curso/g)).toHaveLength(1);
+    expect(m).toContain('data-efecto="defense" data-signo="+">defensa +1</span>');
+    expect(m).toContain('aria-label="Defensivo: defensa +1 hasta que empiece su próximo turno"');
   });
 });
 

@@ -807,6 +807,8 @@ trae "responses".
   "normal" en cualquiera de los dos, el medio. ${CRUCES_EN_PROSA}
 - Tu respuesta es también el tipo de tu contraataque, que cae en el punto
   contrario: si aciertas, recibes el mínimo y devuelves el máximo.
+- Si te CARGA, aún no ha corrido: "chargeFrom" dice desde qué casilla golpeará
+  y cuántas casillas cobra; "responses" ya lo cuenta desde allí.
 - "responses" trae, por cada tipo ("response"), el daño de cada golpe de tu
   contraataque ("counterDamage", de "min" a "max", y "strikes", cuántos golpes)
   y lo que hace ("effect"). Si

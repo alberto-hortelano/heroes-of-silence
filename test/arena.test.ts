@@ -133,6 +133,7 @@ import {
   catalogoEntero,
   delBorrador,
   elCatalogoCon,
+  enElCampo,
   hojaDeLaArena,
   hojasDeLaArena,
   MANOS_DE_PRUEBA,
@@ -2727,5 +2728,44 @@ describe('sin compatibilidad hacia atrás (14-10-2026)', () => {
     expect(enDisco).toContain('sin munición');
     expect(enDisco).toContain('no hay shots ni hexes');
     expect(COMENTARIO_DEL_CATALOGO_DE_UNIDADES).toContain('cuerpo: { hoja }');
+  });
+});
+
+describe('«En el campo» lleva lo que tiene colgado cada unidad (31-10-2026)', () => {
+  it('la fila con efectos lleva sus pastillas y una nota; las demás, como siempre', () => {
+    const s = new SesionDeArena(
+      {
+        combate: COMBATE_COMPLETO,
+        izquierda: yo(unidad('templario-escudo'), unidad('templario-monje')),
+        derecha: ia(unidad('orko-dos-armas')),
+        equipo: EQUIPO_DEL_JUEGO,
+      },
+      1,
+    );
+    s.empezar();
+    const campo = (): string => enElCampo(marcadoDe(renderPanelDeBatalla(s, false)));
+    expect(campo()).not.toContain('modificadores en-curso');
+    const orko = s.battle.stacks.find((x) => x.body === 'orko-dos-armas');
+    if (orko === undefined) throw new Error('sin el orko');
+    orko.effects.push(
+      { kind: 'speed', amount: -2, source: 'slow', roundsLeft: 3 },
+      {
+        kind: 'attack',
+        amount: -3,
+        source: 'romperGuardia',
+        roundsLeft: 2,
+        hasta: { turno: 1, al: 'terminar' },
+      },
+    );
+    const m = campo();
+    expect(m.match(/modificadores en-curso/g)).toHaveLength(1);
+    // En su fila: tras su nombre, antes de la fila siguiente.
+    const fila = m.slice(m.indexOf(nombreEnElCampo(s.battle, orko)));
+    const fin = fila.indexOf('<div class="stack');
+    const suya = fin < 0 ? fila : fila.slice(0, fin);
+    expect(suya).toContain('data-efecto="speed" data-signo="−">velocidad -2</span>');
+    expect(suya).toContain('data-efecto="attack" data-signo="−">ataque -3</span>');
+    expect(suya.match(/class="nota"/g)).toHaveLength(1);
+    expect(suya).toContain('Romper guardia: ataque -3 hasta que termine su próximo turno');
   });
 });

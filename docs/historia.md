@@ -5521,3 +5521,28 @@ ciudades y pueblos que se controlan, la base produce tambien oro». Ciclo en
   recurso de antes, ni `'mine'`, ni un `kind` `'resource'` en `src/`, `data/` ni `tools/`. Roto a
   mano con un `'wood'` en `town/town.ts` y un `kind: 'mine'` en `map/map.ts`: rojo; y mordió de
   verdad a un comentario del propio banco.
+
+## En la carga, la rueda antes que la carrera (31-10-2026)
+
+Petición del usuario: «Mientras que en el movimiento normal queda bien primero el movimiento y
+luego la rueda de combate, en la carga es anticlimático, debería ser primero la rueda y luego el
+movimiento y el ataque de la carga». Tarea: `docs/agents/2026-10-31-rueda-antes-de-la-carga/`.
+
+- **El núcleo no corre la carga hasta el golpe, y la escribe tras el cruce.** Plantarse con carga
+  guarda la carga por correr (`GolpeEnCurso.carga`, una `CargaMedida`: la recta y la carrera hasta
+  la llegada) y no mueve ni gasta; el golpe escribe `cruce`, `move` con `charge` y `attack`. Sin
+  carga, como desde el 13-10-2026: `move`, `cruce`, `attack`. Se eligió que el registro contara lo
+  que pasa en el orden en que pasa, en vez de que el animador reordenara (la partida, la arena, el
+  espectador, el parte y el agente lo leen igual sin cambiar de lector). El `Rng` no se mueve: ni
+  andar ni el cruce tiran.
+- **Soltar una carga no devuelve nada**: no corrió. Se fueron `GolpeEnCurso.barato` y la
+  devolución de lo que la recta costaba de más que el camino barato (/simplify, 14-10-2026), y la
+  frase «Golpe cancelado: se pierde la carga.» (R6 de QA de #260): ya no se pierde, se puede volver
+  a cargar. La barra dice «Golpe cancelado.» en los dos casos (decisión del usuario al aprobar el
+  plan).
+- **El golpe plantado entra en la clave de las cachés de las sesiones** (`claveDeBatalla`):
+  plantarse sin andar no deja línea ni cambia la firma del turno, y bajo la rueda se veían la lista
+  legal y las cargas de antes de pulsar. Pasaba ya con el golpe pegado, sin `from`.
+- **El agente**: `battle_response` lleva `chargeFrom` cuando le cargan (la llegada y lo que cobra,
+  de `casillasDeCarga`, que plantado da la carga plantada), y su prosa lo dice. La respuesta no
+  cambia de esquema.

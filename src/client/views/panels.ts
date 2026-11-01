@@ -19,9 +19,12 @@ import { quedanCasillas } from '@core/battle/board.js';
 import {
   CARGA,
   CARGA_MINIMA,
+  type CargaDeLaRueda,
   type CifrasDeCarga,
   cargaMontada,
+  dichoCortoDeLaCarga,
   dichoDeLaCarga,
+  porcientoDeLaCarga,
 } from '@core/battle/carga.js';
 import {
   type CuandoVence,
@@ -998,14 +1001,19 @@ export function listaDelCampo(
     readonly boton?: Html;
   },
 ): Html {
+  const forma = formaDeLaBatalla(battle);
   return unir(
     battle.stacks
       .filter((x) => x.count > 0)
       .map((x) => {
         const f = fila(x);
-        return html`<div class="stack${x.id === battle.turno?.stack ? '' : ' empty'}">
+        // Lo que lleva colgado, en su propia línea debajo (`modificadoresEnCurso`,
+        // `.con-efectos`): la misma forma en la partida y en la arena, y una fila
+        // sin nada, como siempre.
+        const conEfectos = x.effects.length > 0;
+        return html`<div class="stack${x.id === battle.turno?.stack ? '' : ' empty'}${conEfectos ? ' con-efectos' : ''}">
           <span>${f.flecha} ${f.nombre}</span>
-          <span class="count">${f.cuenta}</span>${f.boton ?? NADA}
+          <span class="count">${f.cuenta}</span>${f.boton ?? NADA}${modificadoresEnCurso(x.effects, forma)}
         </div>`;
       }),
   );
@@ -1143,11 +1151,52 @@ export function modificadoresEnPantalla(p: Pieza, vacio = 'no suma nada'): Html 
   if (mods.length === 0) return html`<span class="modificadores sin-modificadores">${vacio}</span>`;
   return html`<span class="modificadores">${unir(
     mods.map((m) =>
-      m.kind === 'cifra'
-        ? html`<span class="modificador" data-cifra="${m.cifra}">${textoDeModificador(m)}</span>`
-        : html`<span class="modificador" data-marca="${m.marca}">${textoDeModificador(m)}</span>`,
+      pastilla(
+        textoDeModificador(m),
+        m.kind === 'cifra' ? html` data-cifra="${m.cifra}"` : html` data-marca="${m.marca}"`,
+      ),
     ),
   )}</span>`;
+}
+
+/**
+ * Una pastilla de modificador (`.modificador`): la única forma de una, la de lo
+ * que suma una pieza (`modificadoresEnPantalla`) y la de lo que lleva colgado un
+ * stack (`modificadoresEnCurso`). `atributos`, lo que dice de qué es, con su
+ * espacio delante.
+ */
+function pastilla(texto: string, atributos: Html): Html {
+  return html`<span class="modificador"${atributos}>${texto}</span>`;
+}
+
+/**
+ * Lo que lleva colgado un stack ahora (`BattleStack.effects`: lo que deja la
+ * rueda, los hechizos y los poderes), en pastillas cortas: una por efecto con lo
+ * que hace (`cifraDeEfecto`: «ataque +3») y, con `carga`, la que cobra quien
+ * golpea (`dichoCortoDeLaCarga`). Detrás, **una sola** nota con cada uno entero
+ * —quién lo puso y cuánto le queda (`efectoEnCurso`), y la carga
+ * (`dichoDeLaCarga`)—. `data-signo` dice si le suma o le resta, del signo de la
+ * cifra que enseña (la del efecto; la de la carga, lo que suma); el equipo y el
+ * rango no van: ya están en sus cifras. Sin nada, nada (ni el hueco). Lo pintan
+ * «En el campo» (`listaDelCampo`) y los dos que se cruzan en la rueda.
+ */
+export function modificadoresEnCurso(
+  efectos: readonly StackEffect[],
+  forma: FormaDeLaRueda,
+  carga: CargaDeLaRueda | null = null,
+): Html {
+  if (efectos.length === 0 && carga === null) return NADA;
+  const signo = (n: number): Html => html` data-signo="${n < 0 ? '−' : '+'}"`;
+  const pastillas = efectos.map((e) =>
+    pastilla(cifraDeEfecto(e.kind, e.amount), html` data-efecto="${e.kind}"${signo(e.amount)}`),
+  );
+  const enteros = efectos.map((e) => efectoEnCurso(e, forma));
+  if (carga !== null) {
+    const suma = porcientoDeLaCarga(carga.casillas, CARGA);
+    pastillas.push(pastilla(dichoCortoDeLaCarga(carga.casillas), html` data-carga${signo(suma)}`));
+    enteros.push(dichoDeLaCarga(carga.casillas, carga.montada));
+  }
+  return html`<span class="modificadores en-curso">${unir(pastillas)}${nota(enteros.join('; '))}</span>`;
 }
 
 /**

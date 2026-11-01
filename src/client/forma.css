@@ -130,6 +130,12 @@
   background: var(--lateral);
   border-color: var(--lateral-rotulo);
 }
+/* Lo que lleva colgado una unidad («En el campo», `modificadoresEnCurso`): su verde y
+   su rojo son los del lateral (`--lateral-acento`, `--lateral-peligro`), hechos para
+   leerse sobre `--lateral`, así que la pastilla lleva ese fondo y no el de la fila.
+   Sobre la fila de los elfos (`--lateral-alt`, verde azulado) el verde oscuro daba
+   1,02 : 1 (H1 de QA, 01-11-2026). Lo vigila `temas.test.ts`. */
+:root[data-tema] #lateral .modificador[data-signo] { background: var(--lateral); }
 /* El final de la partida, sobre la fila y no sobre un degradado oscuro. */
 :root[data-tema] #lateral .fin {
   --titulo: var(--lateral-alt-tinta);

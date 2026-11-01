@@ -26,7 +26,7 @@ import type {
   TipoDePuerta,
 } from '@core/battle/types.js';
 import type { Hex } from '@core/types.js';
-import { BattleAnimator } from '../anim.js';
+import { BattleAnimator, type CruceEnCurso } from '../anim.js';
 import {
   type Angulo,
   alzadoDeLaMuralla,
@@ -229,7 +229,7 @@ export class EscenaBatalla {
   }
 
   /** El cruce de la rueda que se cuenta ahora, si lo hay (`BattleAnimator.cruceEnCurso`). */
-  cruceEnCurso(): ReturnType<BattleAnimator['cruceEnCurso']> {
+  cruceEnCurso(): CruceEnCurso | null {
     return this.animador.cruceEnCurso();
   }
 

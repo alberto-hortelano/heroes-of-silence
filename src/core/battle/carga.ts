@@ -82,7 +82,37 @@ export function porcientoDeLaCarga(casillas: number, cifras: CifrasDeCarga): num
  */
 export function dichoDeLaCarga(casillas: number, montada: boolean, conLoQueSuma = true): string {
   const causa = `carga de ${casillas} ${casillas === 1 ? 'casilla' : 'casillas'}${montada ? ' montada' : ''}`;
-  return conLoQueSuma ? `${causa}, +${porcientoDeLaCarga(casillas, CARGA)} %` : causa;
+  return conLoQueSuma ? `${causa}, ${loQueSuma(casillas)}` : causa;
+}
+
+/**
+ * Una carga cobrada en pocas palabras, para una pastilla: «carga +15 %». La frase
+ * entera, con las casillas y si va montada, es `dichoDeLaCarga`, que va en la nota
+ * de al lado (los modificadores en curso de la rueda, `modificadoresEnCurso`).
+ */
+export function dichoCortoDeLaCarga(casillas: number): string {
+  return `carga ${loQueSuma(casillas)}`;
+}
+
+/** Lo que suma una carga cobrada, dicho: «+15 %». Lo dicen las dos frases de arriba. */
+function loQueSuma(casillas: number): string {
+  return `+${porcientoDeLaCarga(casillas, CARGA)} %`;
+}
+
+/** La carga que cobra quien pega en la rueda: las casillas que cuentan y si va montada. */
+export interface CargaDeLaRueda {
+  readonly casillas: number;
+  readonly montada: boolean;
+}
+
+/**
+ * La carga de `casillas` ya cobradas (topadas: `cargaEfectiva`, o el `charge` del
+ * registro) de quien pega con `unit`, o `null` si no cobra ninguna. **La única que
+ * la monta**: la previsión de la rueda (lo que cobrará) y el desenlace
+ * (`cargaDelCruce`, lo que cobró).
+ */
+export function cargaDeLaRueda(casillas: number, unit: UnitInfo): CargaDeLaRueda | null {
+  return casillas > 0 ? { casillas, montada: cargaMontada(unit) } : null;
 }
 
 /**

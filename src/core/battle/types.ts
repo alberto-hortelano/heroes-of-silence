@@ -448,23 +448,35 @@ export interface TurnoDeUnidad {
  */
 export type FichaEnPalabras = Readonly<Record<string, string | readonly string[]>>;
 
-/** El golpe plantado que espera la rueda (`BattleState.golpeEnCurso`). */
+/**
+ * Una carga medida: las casillas de su recta y la carrera que se anda para
+ * cobrarla (`medirCargas`). Vive aquí porque la guarda el golpe plantado.
+ */
+export interface CargaMedida {
+  /** Las casillas de la recta (`CARGA_MINIMA` o más), sin el tope: lo que da `cargaDesde`. */
+  readonly recta: number;
+  /**
+   * Lo que se anda para cobrarla: la recta, pagando lo que cuesta salir de cada
+   * casilla (`carreraConCostes`), que puede costar más que el camino más barato.
+   * Su `at` es la casilla de llegada, desde la que se golpea.
+   */
+  readonly carrera: Paso;
+}
+
+/**
+ * El golpe plantado que espera la rueda (`BattleState.golpeEnCurso`). Sin carga,
+ * quien pega ya anduvo y está ante su objetivo; **con carga, no ha corrido**: la
+ * carga se elige antes de correr (decisión del usuario, 31-10-2026), y la carrera
+ * que correrá al golpear va en `carga`.
+ */
 export interface GolpeEnCurso {
   readonly stack: string;
   readonly target: string;
-  /** Las casillas de la recta de carga con que llegó (`cargaDesde`); 0 si no carga. */
-  readonly carga: number;
   /**
-   * La carrera que anduvo por la recta para cobrar la carga cuando salir del
-   * contacto cuesta (`CargaMedida.carrera`); `null` si anduvo el camino del
-   * recorrido.
+   * La carga por correr: la recta y la carrera hasta la casilla desde la que
+   * golpeará (`carga.carrera.at`); `null` si no carga.
    */
-  readonly carrera: Paso | null;
-  /**
-   * Lo que costaba el camino más barato hasta donde llegó: si se suelta el golpe
-   * (`soltarElGolpe`), sin carga, lo gastado vuelve a esto.
-   */
-  readonly barato: number;
+  readonly carga: CargaMedida | null;
 }
 
 export interface BattleState {

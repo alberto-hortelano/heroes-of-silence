@@ -197,7 +197,7 @@ describe('abrir y cerrar, al principio del turno de quien defiende (C21)', () =>
     const turno = state.turno;
     if (turno === null) throw new Error('sin turno');
     const viejo = {
-      firma: firmaDelTurno(turno),
+      firma: firmaDelTurno(turno, state.golpeEnCurso),
       puertas: claveDeAbiertas(state.puertas),
       costs: movableFrom(state, stackById(state, 'defender-0')),
     };

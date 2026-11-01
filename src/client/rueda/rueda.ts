@@ -25,8 +25,12 @@
  * cruzan (su figura, su vista previa, su ficha) llega en `CaraDeLosContrincantes`.
  */
 
-import type { SectorDeLaRueda } from '@core/battle/battle.js';
+import type { DanioDeLosGolpes, GolpeEnSuPunto, GolpeQueViene } from '@core/battle/battle.js';
+import { dichoDeLaCarga } from '@core/battle/carga.js';
+import type { StackEffect } from '@core/battle/effects.js';
 import {
+  cargaDelCruce,
+  contraataqueDelCruce,
   dichoDelCiclo,
   dichoDelCruce,
   efectoDeGolpe,
@@ -42,12 +46,12 @@ import {
   type TipoDeGolpe,
 } from '@core/battle/rueda.js';
 import type { BattleStack, BattleState, Side } from '@core/battle/types.js';
-import { DURACION } from '../anim.js';
+import { type CruceEnCurso, DURACION } from '../anim.js';
 import { type Html, html, NADA, unir } from '../html.js';
 import { COLOR_BANDO } from '../render/batalla.js';
 import type { RuedaPendiente } from '../session.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
-import { nota } from '../views/panels.js';
+import { modificadoresEnCurso, nota } from '../views/panels.js';
 import { horquilla } from '../views/prevision.js';
 import {
   anchoDelSector,
@@ -151,9 +155,10 @@ function disco(
 
 /**
  * «7–12» (`horquilla`, la de la previsión), o «2 × 7–12» con más de un golpe; con
- * carga, el primero aparte, que es el único que la cobra: «9–15 + 7–12».
+ * carga, el primero aparte, que es el único que la cobra: «9–15 + 7–12». Lo mismo
+ * para un sector de quien elige y para un golpe del que viene (`GolpeQueViene`).
  */
-function conSusGolpes(s: SectorDeLaRueda): string {
+function conSusGolpes(s: DanioDeLosGolpes): string {
   if (s.siguientes !== null) {
     const resto = s.golpes - 1;
     return `${horquilla(s.danio)} + ${resto > 1 ? `${resto} × ` : ''}${horquilla(s.siguientes)}`;
@@ -182,25 +187,90 @@ export function tipoDeLaTecla(tecla: string, forma: FormaDeLaRueda): TipoDeGolpe
 }
 
 /**
- * Lo que dice cada sector: el daño o, sin contraataque, «—». Con carga y más de un
- * golpe, el primero y los siguientes en dos líneas («48–91» y «+ 4–16»): en una
- * sola, el de Rápido se salía del sector y se comía un dígito (R5 de QA de #260).
+ * La marca del sector cuyo golpe que viene puede tumbarte (`te-tumba`), tras el
+ * número grande, y la misma delante de la línea del pie que la explica. Para el
+ * lector de pantalla lo dicen la etiqueta y el pie.
+ */
+const MARCA_DE_TUMBA = html`<span class="marca-de-tumba" aria-hidden="true">†</span>`;
+
+/**
+ * Lo que dice cada sector. Al golpear, tu daño o, sin contraataque, «—»; con carga
+ * y más de un golpe, el primero y los siguientes en dos líneas («48–91» y «+ 4–16»):
+ * en una sola, el de Rápido se salía del sector y se comía un dígito (R5 de QA de
+ * #260). Al responder (31-10-2026, el usuario: «que la rueda muestre los numeros de
+ * daño del atacante»), arriba y más grande lo que te haría su golpe con esa
+ * respuesta, de lo menos a lo más de todo lo que puede elegir (`GolpeQueViene`), y
+ * debajo, más pequeño, tu contraataque si lo hay.
  */
 function loQueDa(p: RuedaPendiente, tipo: TipoDeGolpe): Html {
   const s = p.prevision.porTipo?.[tipo];
+  const viene = p.golpeQueViene?.[tipo];
+  if (viene !== undefined) {
+    const tuyo = s === undefined ? NADA : html`<span class="da tuyo">${conSusGolpes(s)}</span>`;
+    return html`<span class="da del-atacante">${horquilla(viene.total)}${viene.puedeTumbarte ? MARCA_DE_TUMBA : NADA}</span>${tuyo}`;
+  }
   if (s === undefined) return html`<span class="da">—</span>`;
   if (s.siguientes === null) return html`<span class="da">${conSusGolpes(s)}</span>`;
   const resto = s.golpes - 1;
   return html`<span class="da">${horquilla(s.danio)}</span><span class="da">+ ${resto > 1 ? `${resto} × ` : ''}${horquilla(s.siguientes)}</span>`;
 }
 
-function etiquetaDe(p: RuedaPendiente, tipo: TipoDeGolpe, forma: FormaDeLaRueda): string {
+/**
+ * La etiqueta del botón de un sector: su nombre y su tecla, el daño que se dice
+ * y su nota (`notaDe`, ya hecha). Al golpear, tu daño; al responder, lo que te
+ * haría su golpe y, si devuelves el golpe, el tuyo. Sin contraataque no hay daño
+ * tuyo que decir: la nota ya lo cuenta.
+ */
+function etiquetaDe(
+  p: RuedaPendiente,
+  tipo: TipoDeGolpe,
+  forma: FormaDeLaRueda,
+  nota: string,
+): string {
   const s = p.prevision.porTipo?.[tipo];
+  const viene = p.golpeQueViene?.[tipo];
   const nombre = `${nombreEnLaRueda(tipo, forma)} (tecla ${teclaDe(tipo, forma)})`;
-  // Sin contraataque no hay daño que decir: la nota ya lo cuenta.
-  if (s === undefined) return `${nombre}. ${notaDe(p, tipo, forma)}`;
-  const dano = `${conSusGolpes(s)} de daño${p.fase === 'respuesta' ? ' al devolver el golpe' : ''}`;
-  return `${nombre}: ${dano}. ${notaDe(p, tipo, forma)}`;
+  if (viene !== undefined) {
+    const teHaria = `te haría ${horquilla(viene.total)} de daño${viene.puedeTumbarte ? ' y puede tumbarte' : ''}`;
+    return s === undefined
+      ? `${nombre}: ${teHaria}. ${nota}`
+      : `${nombre}: ${teHaria}; tú, ${conSusGolpes(s)} de daño al devolver el golpe. ${nota}`;
+  }
+  if (s === undefined) return `${nombre}. ${nota}`;
+  return `${nombre}: ${conSusGolpes(s)} de daño${p.fase === 'respuesta' ? ' al devolver el golpe' : ''}. ${nota}`;
+}
+
+/**
+ * Lo que te haría cada golpe del que viene con esta respuesta, golpe a golpe: «Su
+ * golpe te haría: con Fuerte (alto), 504; con Rápido (medio), 2 × 199; …». Así se
+ * lee de dónde sale la horquilla grande del sector (`GolpeQueViene.total`); va en
+ * la nota del sector, que no deja ver el golpe: es el mismo elija lo que elija.
+ *
+ * El golpe que te tumba no dice su daño en bruto, que pasa de tu vida y del número
+ * grande del sector, topado en ella (H2 de QA, 01-11-2026: «con Fuerte (medio),
+ * 43» bajo un «…–28» se leía como una contradicción): «te tumba», y si solo lo
+ * más que quita llega, «de 18 a tumbarte» (`GolpeEnSuPunto.tumba`, del núcleo).
+ */
+function desgloseDelGolpe(viene: GolpeQueViene, forma: FormaDeLaRueda): string {
+  const golpes = viene.porGolpe
+    .map(
+      (g) =>
+        `con ${nombreEnLaRueda(g.tipo, forma)} (${NOMBRE_DEL_PUNTO[g.punto]}), ${loQueTeHaria(g)}`,
+    )
+    .join('; ');
+  return ` Su golpe ${viene.puedeTumbarte ? 'puede tumbarte' : 'te haría'}: ${golpes}.`;
+}
+
+/** Lo que te haría un golpe del que viene, en la nota (`desgloseDelGolpe`). */
+function loQueTeHaria(g: GolpeEnSuPunto): string {
+  switch (g.tumba) {
+    case 'siempre':
+      return 'te tumba';
+    case 'puede':
+      return `de ${g.quita.min} a tumbarte`;
+    case 'no':
+      return conSusGolpes(g);
+  }
 }
 
 /**
@@ -212,7 +282,9 @@ function etiquetaDe(p: RuedaPendiente, tipo: TipoDeGolpe, forma: FormaDeLaRueda)
 function notaDe(p: RuedaPendiente, tipo: TipoDeGolpe, forma: FormaDeLaRueda): string {
   // En un ciclo, primero a quién gana y con quién pierde: es lo que decide el cruce.
   const ciclo = dichoDelCiclo(tipo, forma);
-  return `${ciclo === '' ? '' : `${ciclo} `}${efectoDeGolpe(tipo, p.fase, p.prevision.sinContraataque === null, p.prevision.rueda, forma)}${contraataqueRebajado(p, tipo, forma)}`;
+  const viene = p.golpeQueViene?.[tipo];
+  const desglose = viene === undefined ? '' : desgloseDelGolpe(viene, forma);
+  return `${ciclo === '' ? '' : `${ciclo} `}${efectoDeGolpe(tipo, p.fase, p.prevision.sinContraataque === null, p.prevision.rueda, forma)}${contraataqueRebajado(p, tipo, forma)}${desglose}`;
 }
 
 /**
@@ -258,12 +330,15 @@ export interface CaraDeLosContrincantes {
 
 /**
  * Uno de los dos: su figura (con lo que ponga la página alrededor, `cara`), la
- * chapa de su bando y su nombre en el campo. Con `quienMira`, el bando de quien
- * mira (la sesión, `SesionConRueda.quienMira`), cada uno se marca «tú» o «rival».
+ * chapa de su bando y su nombre en el campo y, debajo, sus `modificadores`, ya
+ * pintados (`modificadoresEnCurso`, lo mismo que «En el campo», 31-10-2026). Con
+ * `quienMira`, el bando de quien mira (la sesión, `SesionConRueda.quienMira`),
+ * cada uno se marca «tú» o «rival».
  */
 function contrincante(
   battle: BattleState,
   x: BattleStack,
+  modificadores: Html,
   quienMira: Side | null,
   cara: CaraDeLosContrincantes | null,
   paraElegir: boolean,
@@ -277,7 +352,7 @@ function contrincante(
     quienMira === null
       ? NADA
       : html` <span class="de-quien">(${x.side === quienMira ? 'tú' : 'rival'})</span>`;
-  return html`<span class="contrincante" data-contrincante="${x.id}">${icono}<span class="quien">${chapa(x.side)}<span class="nombre-del-contrincante">${nombre}</span>${deQuien}</span></span>`;
+  return html`<span class="contrincante" data-contrincante="${x.id}">${icono}<span class="datos-del-contrincante"><span class="quien">${chapa(x.side)}<span class="nombre-del-contrincante">${nombre}</span>${deQuien}</span>${modificadores}</span></span>`;
 }
 
 const LADO: Readonly<Record<Side, string>> = { attacker: 'izquierdo', defender: 'derecho' };
@@ -285,22 +360,27 @@ const LADO: Readonly<Record<Side, string>> = { attacker: 'izquierdo', defender: 
 /**
  * La cabecera de las dos caras: el título y quién pega a quién, siempre en ese
  * orden («Orco ataca a Templario»), también cuando elige quien recibe, cada uno
- * con su figura (`contrincante`). «ataca a» va pegado al objetivo: al partirse la
- * línea en un móvil no queda suelto. Un `<div>` y no un `<p>`: la vista previa
- * lleva filas en bloque, y dentro de un `<p>` el analizador lo cerraba antes.
+ * con su figura y sus modificadores (`contrincante`): `delAtacante` y
+ * `delObjetivo`. Al elegir, lo que llevan ahora; en el desenlace, lo que el
+ * animador vio antes de contar el cruce (`CruceEnCurso.efectos`): el estado ya trae
+ * lo que el cruce dejó. «ataca a» va pegado al objetivo: al partirse la línea en
+ * un móvil no queda suelto. Un `<div>` y no un `<p>`: la vista previa lleva filas
+ * en bloque, y dentro de un `<p>` el analizador lo cerraba antes.
  */
 function cabecera(
   battle: BattleState,
   titulo: Html,
-  atacante: BattleStack,
-  objetivo: BattleStack,
+  [atacante, delAtacante]: readonly [BattleStack, Html],
+  [objetivo, delObjetivo]: readonly [BattleStack, Html],
   quienMira: Side | null,
   cara: CaraDeLosContrincantes | null,
   paraElegir: boolean,
 ): Html {
+  const uno = contrincante(battle, atacante, delAtacante, quienMira, cara, paraElegir);
+  const otro = contrincante(battle, objetivo, delObjetivo, quienMira, cara, paraElegir);
   return html`<header class="cabecera-de-rueda">
       <h2 id="titulo-de-la-rueda">${titulo}</h2>
-      <div class="quienes">${contrincante(battle, atacante, quienMira, cara, paraElegir)}<span class="hacia"><span class="ataca">ataca a</span>${contrincante(battle, objetivo, quienMira, cara, paraElegir)}</span></div>
+      <div class="quienes">${uno}<span class="hacia"><span class="ataca">ataca a</span>${otro}</span></div>
     </header>`;
 }
 
@@ -331,11 +411,13 @@ function sitios(
   forma: FormaDeLaRueda,
   dentro: (t: TipoDeGolpe) => Html,
   atributos: (t: TipoDeGolpe) => Html,
+  /** Lo que se le añade a la clase del sector: `te-tumba` en la respuesta (`renderEleccion`). */
+  clase: (t: TipoDeGolpe) => string = () => '',
 ): Html {
   return unir(
     forma.golpes.map(
       (t) =>
-        html`<div class="sector-de-rueda" data-sector="${t}"${atributos(t)} data-hacia="${t === 'normal' ? 'abajo' : haciaDe(anguloDe(t, forma))}">${dentro(t)}</div>`,
+        html`<div class="sector-de-rueda${clase(t)}" data-sector="${t}"${atributos(t)} data-hacia="${t === 'normal' ? 'abajo' : haciaDe(anguloDe(t, forma))}">${dentro(t)}</div>`,
     ),
   );
 }
@@ -382,16 +464,29 @@ export function renderEleccion(
   // El sector abre su nota también al pasar por él (`[data-abre-nota]`, style.css).
   const sectores = sitios(
     forma,
-    (
-      t,
-    ) => html`<button type="button" data-golpe="${t}" aria-label="${etiquetaDe(p, t, forma)}" aria-keyshortcuts="${teclaDe(t, forma)}">
+    (t) => {
+      const suNota = notaDe(p, t, forma);
+      return html`<button type="button" data-golpe="${t}" aria-label="${etiquetaDe(p, t, forma, suNota)}" aria-keyshortcuts="${teclaDe(t, forma)}">
           <span class="rotulo-del-sector">${rotuloDe(t, forma)}${loQueDa(p, t)}</span>
-        </button>${nota(notaDe(p, t, forma))}`,
+        </button>${nota(suNota)}`;
+    },
     () => html` data-abre-nota`,
+    // El máximo del sector es tu vida: se marca, para que no se lea como el techo
+    // de su golpe (H2 de QA, 01-11-2026).
+    (t) => (p.golpeQueViene?.[t]?.puedeTumbarte === true ? ' te-tumba' : ''),
   );
+  const tumba = forma.golpes.some((t) => p.golpeQueViene?.[t]?.puedeTumbarte === true);
   const ultima = String(forma.golpes.length);
   return html`<div class="rueda" data-fase="${p.fase}" data-bando="${p.bando}" data-tipos="${String(forma.golpes.length)}">
-    ${cabecera(battle, titulo, p.atacante, p.objetivo, quienMira, cara, true)}
+    ${cabecera(
+      battle,
+      titulo,
+      [p.atacante, modificadoresEnCurso(p.atacante.effects, forma, p.prevision.carga)],
+      [p.objetivo, modificadoresEnCurso(p.objetivo.effects, forma)],
+      quienMira,
+      cara,
+      true,
+    )}
     <div class="plato">
       ${formas(forma)}
       <div class="giro">${disco(p.bando, forma, p.prevision.niveles)}${sectores}</div>
@@ -399,11 +494,13 @@ export function renderEleccion(
     <footer class="pie-de-rueda">
       <p class="guia">${guia}</p>
       <p class="tinte-de-la-rueda" data-tinte>${tinte}</p>
+      ${tumba ? html`<p class="tumba-de-la-rueda" data-tumba>${MARCA_DE_TUMBA} Puede tumbarte: el número grande llega a la vida que te queda.</p>` : NADA}
       ${
-        // Tras una carrera, las cifras ya llevan la carga, y Escape la pierde (R6 de QA de #260).
+        // Con carga, las cifras llevan la de la carrera que se correrá tras elegir: al
+        // golpear, las tuyas; al responder, las de su golpe.
         p.prevision.carga === null
           ? NADA
-          : html`<p class="carga-de-la-rueda" data-carga>Las cifras llevan la ${p.prevision.carga}; con <kbd>Esc</kbd> se pierde.</p>`
+          : html`<p class="carga-de-la-rueda" data-carga>${golpe ? 'Las cifras llevan' : 'Su golpe lleva'} la ${dichoDeLaCarga(p.prevision.carga.casillas, p.prevision.carga.montada)}.</p>`
       }
       <p class="teclas"><kbd>1</kbd>–<kbd>${ultima}</kbd> o <kbd>←</kbd><kbd>→</kbd> e <kbd>Intro</kbd>${golpe ? html` · <kbd>Esc</kbd> cancela` : NADA}</p>
     </footer>
@@ -536,17 +633,22 @@ function medidor(
 }
 
 /**
- * El desenlace de un cruce: los dos tipos ya a la vista, los marcadores, el arco,
- * el medidor y el rótulo. `contraataque`, el punto del contraataque que de verdad
- * hubo (`contraataqueDelCruce`), o `null`.
+ * El desenlace de un cruce (`cruce.evento`, que está en el registro de `battle`):
+ * los dos tipos ya a la vista, los marcadores, el arco, el medidor y el rótulo.
+ * Del registro, lo que de verdad hubo tras él: el punto del contraataque
+ * (`contraataqueDelCruce`) y la carga que cobró quien pega (`cargaDelCruce`). En
+ * la cabecera, lo que llevaba colgado cada uno antes del cruce
+ * (`cruce.efectos`, la foto del animador: `battle` ya trae lo que el cruce dejó).
  */
 export function renderDesenlace(
   battle: BattleState,
-  e: HechoDelCruce,
-  contraataque: Punto | null,
+  cruce: Pick<CruceEnCurso, 'evento' | 'efectos'>,
   quienMira: Side | null,
   cara: CaraDeLosContrincantes | null,
 ): Html {
+  const e = cruce.evento;
+  const i = battle.log.indexOf(e);
+  if (i < 0) throw new Error('la rueda cuenta un cruce que no está en el registro');
   const atacante = battle.stacks.find((s) => s.id === e.stack);
   const objetivo = battle.stacks.find((s) => s.id === e.target);
   if (atacante === undefined || objetivo === undefined) {
@@ -556,6 +658,7 @@ export function renderDesenlace(
   }
   // Qué sector eligió cada papel: lo leen los tests y `pnpm capturas`, que
   // comprueban que la respuesta se elige sin verlo.
+  const contraataque = contraataqueDelCruce(battle.log, i);
   const elegido: Partial<Record<TipoDeGolpe, string>> = { [e.golpe]: 'golpe' };
   elegido[e.respuesta] = e.respuesta === e.golpe ? 'los-dos' : 'respuesta';
   const forma = formaDeLaBatalla(battle);
@@ -568,9 +671,25 @@ export function renderDesenlace(
     contraataque === null
       ? 'sin contraataque'
       : html`contraataque <strong data-punto="${String(contraataque)}">${NOMBRE_DEL_PUNTO[contraataque]}</strong>`;
+  const antes = (x: BattleStack): readonly StackEffect[] => {
+    const suyos = cruce.efectos.get(x.id);
+    if (suyos === undefined) {
+      throw new Error(`la rueda no sabe qué llevaba ${x.id} antes del cruce`);
+    }
+    return suyos;
+  };
+  const carga = cargaDelCruce(battle.log, i, atacante.unit);
   const titulo = html`<span class="mientras-gira">La rueda gira…</span><span class="cuando-para">${nombreEnLaRueda(e.golpe, forma)} contra ${nombreEnLaRueda(e.respuesta, forma)}</span>`;
   return html`<div class="rueda" data-fase="desenlace" data-tipos="${String(forma.golpes.length)}">
-    ${cabecera(battle, titulo, atacante, objetivo, quienMira, cara, false)}
+    ${cabecera(
+      battle,
+      titulo,
+      [atacante, modificadoresEnCurso(antes(atacante), forma, carga)],
+      [objetivo, modificadoresEnCurso(antes(objetivo), forma)],
+      quienMira,
+      cara,
+      false,
+    )}
     <div class="plato">
       <div class="giro">${disco(null, forma, null)}${etiquetas}</div>
       <svg class="marcas" viewBox="-110 -110 220 220" aria-hidden="true" focusable="false">

@@ -36,8 +36,10 @@ import {
   TIPOS_DEL_ANILLO,
   type TipoDeGolpe,
   type TipoDelAnillo,
+  type UnitInfo,
 } from '../types.js';
 import { porcientoDelTipo } from './armas.js';
+import { type CargaDeLaRueda, cargaDeLaRueda } from './carga.js';
 import {
   type CifrasDeLaRueda,
   cifrasDeLosNiveles,
@@ -659,21 +661,54 @@ const NO_DEVUELVES = 'Esta vez no devuelves el golpe';
 export type HechoDelCruce = Extract<BattleEvent, { kind: 'cruce' }>;
 
 /**
- * El punto en que cayó el contraataque del cruce `i` del registro: el del golpe
- * devuelto por el objetivo detrás de él, antes del siguiente cruce o de la ronda
- * siguiente; `null` si no lo devolvió (cayó, o no podía). El registro dice lo que
- * pasó, no lo que habría caído. Lo leen el parte y la rueda.
+ * Lo que pasó tras el cruce `i` del registro, hasta el siguiente cruce o la ronda
+ * siguiente: el punto en que cayó el contraataque (el del golpe devuelto por el
+ * objetivo; `null` si no lo devolvió: cayó, o no podía) y las casillas de carga
+ * que cobró quien pega (las de su primer golpe que no es un contraataque,
+ * `charge`, ya topadas; 0 si no cargó). El registro dice lo que pasó, no lo que
+ * habría pasado. Un solo recorrido para los dos: lo leen `contraataqueDelCruce` y
+ * `cargaDelCruce`. Lanza si el hecho `i` no es un cruce.
  */
-export function contraataqueDelCruce(log: readonly BattleEvent[], i: number): Punto | null {
+function trasElCruce(
+  log: readonly BattleEvent[],
+  i: number,
+): { readonly contraataque: Punto | null; readonly carga: number } {
   const cruce = log[i];
   if (cruce?.kind !== 'cruce') throw new Error(`el hecho ${i} del registro no es un cruce`);
+  let contraataque: Punto | undefined;
+  let carga: number | undefined;
   for (let k = i + 1; k < log.length; k++) {
     const e = log[k] as BattleEvent;
-    if (e.kind === 'cruce' || e.kind === 'round_start') return null;
-    if (e.kind === 'attack' && e.retaliation && e.stack === cruce.target) {
+    if (e.kind === 'cruce' || e.kind === 'round_start') break;
+    if (e.kind !== 'attack') continue;
+    if (e.retaliation && e.stack === cruce.target && contraataque === undefined) {
       if (e.punto === undefined) throw new Error(`el contraataque del cruce ${i} no dice su punto`);
-      return e.punto;
+      contraataque = e.punto;
     }
+    if (!e.retaliation && e.stack === cruce.stack && carga === undefined) carga = e.charge ?? 0;
+    if (contraataque !== undefined && carga !== undefined) break;
   }
-  return null;
+  return { contraataque: contraataque ?? null, carga: carga ?? 0 };
+}
+
+/**
+ * El punto en que cayó el contraataque del cruce `i` del registro (`trasElCruce`),
+ * o `null` si no lo devolvió. Lo leen el parte y la rueda.
+ */
+export function contraataqueDelCruce(log: readonly BattleEvent[], i: number): Punto | null {
+  return trasElCruce(log, i).contraataque;
+}
+
+/**
+ * La carga que cobró quien pega, con `unit`, tras el cruce `i` del registro
+ * (`trasElCruce`, `cargaDeLaRueda`), o `null` si no cargó. Es lo cobrado, no lo
+ * previsto: el desenlace de la rueda lo pinta también en el espectador, que no
+ * tiene previsión.
+ */
+export function cargaDelCruce(
+  log: readonly BattleEvent[],
+  i: number,
+  unit: UnitInfo,
+): CargaDeLaRueda | null {
+  return cargaDeLaRueda(trasElCruce(log, i).carga, unit);
 }

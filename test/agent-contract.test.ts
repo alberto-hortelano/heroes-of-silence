@@ -9,7 +9,14 @@ import {
 } from '../src/core/ai/strategy.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { playAiTurn } from '../src/core/ai/turn.js';
-import { activeStack, applyAction, createBattle, legalActions } from '../src/core/battle/battle.js';
+import {
+  activeStack,
+  applyAction,
+  casillasDeCarga,
+  createBattle,
+  legalActions,
+  stackById,
+} from '../src/core/battle/battle.js';
 import { FORMA_DEL_TABLERO, tableroDelContrato } from '../src/core/battle/board.js';
 import { CARGA, CARGA_MINIMA } from '../src/core/battle/carga.js';
 import { LAS_TRES_RUEDAS, RUEDAS } from '../src/core/battle/formas-de-la-rueda.js';
@@ -1990,6 +1997,32 @@ describe('la rueda y los poderes en el contrato (F6)', () => {
     const normal = p.responses.find((r: any) => r.response === 'normal');
     expect(normal.counterDamage.min).toBe(normal.counterDamage.max);
     expect(RESPONSE_FORMAT.battle_response).toContain('"response"');
+  });
+
+  it('la respuesta a una carga dice desde dónde golpeará quien aún no corrió («chargeFrom»), y sin carga no', () => {
+    // Sin carga: pegados, se planta sin `from` y no hay carga que decir.
+    const pegados = batallaConDos(createRng(12));
+    applyAction(pegados, { type: 'attack', target: 'defender-0' }, createRng(1));
+    const sin = serializeBattleResponse(pegados, {
+      atacante: 'attacker-0',
+      objetivo: 'defender-0',
+    }) as any;
+    expect(sin.chargeFrom).toBeUndefined();
+    // Con carga: lejos y en recta, se planta en su salida (la carga se elige antes
+    // de correr, 31-10-2026) y la petición dice la llegada y lo que cobra.
+    const b = batallaConDos(createRng(12));
+    stackById(b, 'attacker-0').hex = { col: 2, row: 4 };
+    const carga = casillasDeCarga(b, stackById(b, 'attacker-0')).find(
+      (c) => c.target === 'defender-0',
+    );
+    if (carga === undefined) throw new Error('desde (2,4) debía cargar al de (6,4)');
+    applyAction(b, { type: 'attack', target: 'defender-0', from: carga.at }, createRng(1));
+    expect(stackById(b, 'attacker-0').hex).toEqual({ col: 2, row: 4 });
+    const p = serializeBattleResponse(b, { atacante: 'attacker-0', objetivo: 'defender-0' }) as any;
+    expect(p.chargeFrom).toEqual([
+      { target: 'defender-0', col: carga.at.col, row: carga.at.row, hexes: carga.hexes },
+    ]);
+    expect(RESPONSE_FORMAT.battle_response).toContain('"chargeFrom"');
   });
 
   it('con la rueda de 3: «wheel» dice cuál y cómo se cruza, y «hits» y «responses» traen solo los suyos', () => {

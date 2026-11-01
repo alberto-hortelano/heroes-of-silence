@@ -295,7 +295,12 @@ describe('la carga', () => {
     // Andar a (4,4) es más barato por la fila 3 (5), pero la carga va por la
     // recta: se anda la recta y se paga la recta.
     expect(costes(b, h(4, 4))).toEqual([5]);
-    applyAction(b, { type: 'attack', target: 'defender-0', from: h(4, 4) }, createRng(1));
+    // De una vez: con la rueda, la carga corre tras elegir (31-10-2026).
+    applyAction(
+      b,
+      { type: 'attack', target: 'defender-0', from: h(4, 4), golpe: 'normal', respuesta: 'normal' },
+      createRng(1),
+    );
     const mov = movimientos(b).at(-1);
     expect(mov?.charge).toBe(true);
     expect(enTexto(mov?.path ?? [])).toEqual(['1,4', '2,4', '3,4', '4,4']);
@@ -318,23 +323,28 @@ describe('la carga', () => {
     expect(cargaDesde(prisa, yo(prisa), h(4, 4), stackById(prisa, 'defender-0'))).toBe(4);
   });
 
-  it('con la rueda, soltar el golpe devuelve lo gastado al camino barato: sin carga no hay recta que pagar', () => {
-    // La recta a (4,4) cuesta 6 y el camino barato, por la fila 3, 5. Plantarse
-    // anda la recta y la paga entera; Escape suelta la carga, y con ella la recta:
-    // le queda 1, como si hubiera ido por el barato (/simplify, C).
+  it('con la rueda, plantarse con la carga que paga el contacto no gasta nada; soltarla tampoco', () => {
+    // La recta a (4,4) cuesta 6 y el camino barato, por la fila 3, 5. La carga se
+    // elige antes de correr (31-10-2026): plantarse no anda ni paga, y Escape no
+    // tiene nada que devolver. Al golpear corre la recta y la paga entera.
     const b = pelea(CABALLERIA, h(0, 4), [h(5, 4), h(2, 5)]);
     applyAction(b, { type: 'attack', target: 'defender-0', from: h(4, 4) }, createRng(1));
-    expect(b.golpeEnCurso).toMatchObject({ carga: 4, barato: 5, carrera: { steps: 6 } });
-    expect(b.turno?.gastado).toBe(6);
-    expect(enTexto(movimientos(b).at(-1)?.path ?? [])).toEqual(['1,4', '2,4', '3,4', '4,4']);
+    expect(b.golpeEnCurso?.carga).toMatchObject({ recta: 4, carrera: { steps: 6 } });
+    expect(b.turno?.gastado).toBe(0);
+    expect(yo(b).hex).toEqual(h(0, 4));
     soltarElGolpe(b, createRng(1));
-    expect(b.turno?.gastado).toBe(5);
-    expect(pasosQueQuedan(b, yo(b))).toBe(1);
-    // Con 1 no paga salir del lado del esqueleto, pero lo tiene a mano: el turno sigue.
+    expect(b.turno?.gastado).toBe(0);
     expect(activeStack(b)?.id).toBe('attacker-0');
-    expect(contactoBlocker(b, yo(b))).toBe(
-      'rodeado: con 1 enemigo al lado, salir de su casilla le cuesta 2 y le queda 1 casilla',
+    // Y de nuevo, hasta el golpe: corre la recta y paga sus 6.
+    applyAction(b, { type: 'attack', target: 'defender-0', from: h(4, 4) }, createRng(1));
+    applyAction(
+      b,
+      { type: 'attack', target: 'defender-0', golpe: 'normal', respuesta: 'normal' },
+      createRng(2),
     );
+    const mov = movimientos(b).at(-1);
+    expect(mov?.charge).toBe(true);
+    expect(enTexto(mov?.path ?? [])).toEqual(['1,4', '2,4', '3,4', '4,4']);
   });
 });
 

@@ -40,6 +40,7 @@ import {
   poderBlocker,
   previsionDe,
   previsionDeLaRueda,
+  previsionDelGolpeQueViene,
   puertasBlocker,
   quienNoEscala,
   SIN_CARGAS,
@@ -440,10 +441,12 @@ function accionesDeBatalla(
  * «¿Se ha movido la batalla?»: toda acción aplicada deja una línea en el
  * registro y mueve el turno (`firmaDelTurno`: su ordinal, lo gastado en él o lo
  * que le quitó la Finta). Es la clave de las
- * cachés de las dos sesiones y la versión de la arena.
+ * cachés de las dos sesiones y la versión de la arena. Plantarse sin andar (la
+ * carga, que se elige antes de correr, o el golpe ya pegado) no deja línea ni
+ * gasta, pero cambia la firma: lleva el golpe plantado.
  */
 function claveDeBatalla(b: BattleState): string {
-  return `${b.log.length}|${b.turno === null ? '' : firmaDelTurno(b.turno)}`;
+  return `${b.log.length}|${b.turno === null ? '' : firmaDelTurno(b.turno, b.golpeEnCurso)}`;
 }
 
 /**
@@ -3238,10 +3241,12 @@ function motivoDeLaRueda(pendiente: RuedaPendiente | null): string | null {
  * dice quién lleva cada bando (`laLlevaLaIA`): lo de la IA lo sortea
  * `completarCruce` a ciegas, y lo de la persona espera aquí.
  *
- * Primero se anda y luego se elige (decisión del usuario, 13-10-2026): un golpe
- * al que le falta lo de una persona planta a quien pega ante su objetivo (el
- * `attack` sin elecciones, `BattleState.golpeEnCurso`) y abre la fase; la vista
- * abre el diálogo cuando el animador acaba la marcha. En la fase `golpe` elige
+ * Sin carga, primero se anda y luego se elige (decisión del usuario, 13-10-2026);
+ * con carga, primero se elige y luego se corre (31-10-2026). Un golpe al que le
+ * falta lo de una persona planta a quien pega (el `attack` sin elecciones,
+ * `BattleState.golpeEnCurso`: ante su objetivo, o en su salida si carga) y abre la
+ * fase; la vista abre el diálogo cuando el animador acaba lo que hubiera que
+ * contar. La carrera de la carga, el núcleo la escribe tras el cruce. En la fase `golpe` elige
  * quien pega, y la acción va sin golpe; en `respuesta`, quien recibe, y la acción
  * lleva ya el golpe elegido, que **no sale de aquí**: `pendiente` enseña la fase,
  * no la elección del otro.
@@ -3264,7 +3269,8 @@ export class CruceDeLaRueda {
   /**
    * La jugada de la persona (`playBattleAction` de las dos sesiones): con la rueda
    * abierta o sin turno propio no se acepta, y la barra dice por qué. Un golpe
-   * cuerpo a cuerpo sin elegir anda y abre la fase del golpe (`completar`):
+   * cuerpo a cuerpo sin elegir anda (si carga, no: corre tras elegir) y abre la
+   * fase del golpe (`completar`):
    * plantarse hace las comprobaciones del golpe antes de andar, así que uno que no
    * se puede dar no mueve a nadie ni abre la rueda. Lo demás, se aplica.
    */
@@ -3366,6 +3372,8 @@ export class CruceDeLaRueda {
         objetivo: stackById(battle, paso.accion.target),
         bando: paso.bando,
         prevision: previsionDeLaRueda(battle, paso.accion, paso.falta),
+        golpeQueViene:
+          paso.falta === 'respuesta' ? previsionDelGolpeQueViene(battle, paso.accion) : null,
       },
     };
     return null;
@@ -3393,11 +3401,12 @@ export class CruceDeLaRueda {
   }
 
   /**
-   * Escape en la rueda: deja el golpe sin dar, solo antes de elegirlo. Quien pega
-   * ya anduvo: se queda donde llegó y sigue su turno, sin la carga de esa carrera
-   * (`soltarElGolpe`); si no le queda nada, el turno se cierra y juega quien siga
-   * (eso lo hace la sesión). La respuesta no se cancela: el golpe ya viene, y lanza
-   * diciéndolo. Devuelve la frase de la barra.
+   * Escape en la rueda: deja el golpe sin dar, solo antes de elegirlo. Sin carga,
+   * quien pega ya anduvo: se queda donde llegó y sigue su turno; con carga no
+   * corrió, y sigue en su salida sin nada gastado (`soltarElGolpe`). Si no le
+   * queda nada, el turno se cierra y juega quien siga (eso lo hace la sesión). La
+   * respuesta no se cancela: el golpe ya viene, y lanza diciéndolo. Devuelve la
+   * frase de la barra.
    */
   cancelar(battle: BattleState): string {
     if (this.cruce?.pendiente.fase !== 'golpe') {
@@ -3407,11 +3416,9 @@ export class CruceDeLaRueda {
           : 'El golpe ya viene: elige la respuesta en la rueda.',
       );
     }
-    // La carga de la carrera se pierde al soltar: se dice (R6 de QA de #260).
-    const conCarga = this.cruce.pendiente.prevision.carga !== null;
     this.cruce = null;
     soltarElGolpe(battle, this.rng);
-    return conCarga ? 'Golpe cancelado: se pierde la carga.' : 'Golpe cancelado.';
+    return 'Golpe cancelado.';
   }
 }
 
@@ -3439,6 +3446,12 @@ export interface RuedaPendiente {
   /** El bando que elige ahora. */
   readonly bando: Side;
   readonly prevision: ReturnType<typeof previsionDeLaRueda>;
+  /**
+   * Al responder, lo que te haría el golpe que viene con cada respuesta
+   * (`previsionDelGolpeQueViene`); al golpear, `null`: quien pega ya ve su golpe en
+   * `prevision.porTipo`.
+   */
+  readonly golpeQueViene: ReturnType<typeof previsionDelGolpeQueViene> | null;
 }
 
 function sameTile(a: Point, b: Point): boolean {

@@ -778,7 +778,7 @@ export function chooseBattleActionAndCosts(
   return {
     action: decideAccion(state, s, actions, costs, noSeRinden),
     movibles: {
-      firma: firmaDelTurno(turno),
+      firma: firmaDelTurno(turno, state.golpeEnCurso),
       puertas: claveDeAbiertas(state.puertas),
       costs,
     },
