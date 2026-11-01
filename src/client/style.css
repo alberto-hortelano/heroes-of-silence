@@ -591,6 +591,13 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
   font-variant-numeric: tabular-nums;
 }
 .modificador[data-marca] { font-style: italic; }
+/* Lo que lleva colgado un stack (`modificadoresEnCurso`): verde lo que le suma,
+   rojo lo que le resta, como el parte. En «En el campo», en su propia línea. */
+.modificador[data-signo="+"] { color: var(--accent); }
+.modificador[data-signo="−"] { color: var(--danger); }
+.modificadores.en-curso { align-items: center; }
+.stack.con-efectos { flex-wrap: wrap; }
+.stack > .en-curso { flex-basis: 100%; }
 .sin-modificadores { color: var(--ink-dim); font-style: italic; }
 
 /*

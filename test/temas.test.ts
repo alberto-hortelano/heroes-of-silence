@@ -15,6 +15,7 @@ import { FICHAS_DEL_LIENZO, LIENZO_NEUTRO, temaDelLienzo } from '../src/client/t
 import { contraste, PAREJAS, sobre } from '../tools/taller/temas/paleta.js';
 import {
   bloquesCss,
+  type Declaracion,
   hojasDelCliente,
   leerHoja as leer,
   neutro,
@@ -162,6 +163,108 @@ describe('los temas de la interfaz', () => {
     }
     expect(flojos).toEqual([]);
     expect(medidas).toBeGreaterThan(5 * PAREJAS.length);
+  });
+
+  it('la pastilla de lo que lleva colgado una unidad se lee en la fila de «En el campo», en el neutro y en los cinco (H1 de QA, 01-11-2026)', () => {
+    // Con las reglas de verdad: el color de la pastilla (`style.css`), su fondo
+    // (`forma.css`; sin él, el de la fila) y el de la fila (`.stack`, la de cada
+    // unidad en `listaDelCampo`), con las fichas que el lateral reasigna
+    // (`--accent` → `--lateral-acento`…). Roto a mano: sin la regla del fondo de
+    // `forma.css`, «elfos +» = 1,02 y «elfos −» = 1,29 (verde y rojo oscuros sobre su
+    // fila verde azulada). La fila que no es la activa va además a `opacity: 0.45`
+    // (`.empty`), que apaga igual su nombre: eso no es de la pastilla y no se mide.
+    const reglas = (hoja: string, selector: string): readonly Declaracion[] =>
+      bloquesCss(leer(hoja))
+        .filter((b) => b.selector === selector && b.padres.length === 0)
+        .flatMap((b) => b.declaraciones);
+    const fichasDeLaRegla = (hoja: string, selector: string): Map<string, string> =>
+      new Map(
+        reglas(hoja, selector)
+          .filter((d) => d.propiedad.startsWith('--'))
+          .map((d) => [d.propiedad, d.valor]),
+      );
+    /** De las reglas que se le aplican (de menos a más peso), la que gana en `propiedad`. */
+    const gana = (
+      aplican: readonly (readonly [string, string])[],
+      propiedad: string,
+    ): string | null =>
+      aplican
+        .flatMap(([hoja, selector]) => reglas(hoja, selector))
+        .filter((d) => d.propiedad === propiedad)
+        .at(-1)?.valor ?? null;
+    // Un `var()` se resuelve donde se declara, con lo heredado de más arriba: el
+    // `--accent: var(--lateral-acento)` del lateral lee la `--lateral-acento` de la raíz.
+    const enLasCapas = (
+      capas: readonly ReadonlyMap<string, string>[],
+      valor: string,
+      hasta = capas.length - 1,
+      vistas: readonly string[] = [],
+    ): string =>
+      valor.replace(/var\((--[a-z0-9-]+)\)/g, (_, ficha: string) => {
+        for (let i = hasta; i >= 0; i--) {
+          const suyo = capas[i]?.get(ficha);
+          if (suyo === undefined) continue;
+          const clave = `${i}:${ficha}`;
+          if (vistas.includes(clave))
+            throw new Error(`fichas en círculo: ${[...vistas, clave].join(' → ')}`);
+          return enLasCapas(capas, suyo, i, [...vistas, clave]);
+        }
+        throw new Error(`${ficha} no la define nadie`);
+      });
+
+    const LATERAL = ':root[data-tema] #lateral';
+    type Reglas = readonly (readonly [string, string])[];
+    const casos: readonly {
+      readonly tema: string;
+      /** Las fichas de la raíz al lateral y a la fila. */
+      readonly capas: readonly ReadonlyMap<string, string>[];
+      /** Lo que hay detrás de la fila: el panel lateral. */
+      readonly detras: string;
+      readonly fila: Reglas;
+      readonly pastilla: Reglas;
+    }[] = [
+      {
+        tema: 'neutro',
+        capas: [neutro()],
+        detras: 'var(--panel)',
+        fila: [['style.css', '.stack']],
+        pastilla: [['style.css', '.modificador']],
+      },
+      ...[...temas().bloques].map(([tema, bloque]) => ({
+        tema,
+        capas: [
+          bloque,
+          fichasDeLaRegla('forma.css', LATERAL),
+          fichasDeLaRegla('forma.css', `${LATERAL} .stack`),
+        ],
+        detras: 'var(--lateral)',
+        fila: [
+          ['style.css', '.stack'],
+          ['forma.css', `${LATERAL} .stack`],
+        ] as const,
+        pastilla: [
+          ['style.css', '.modificador'],
+          ['forma.css', `${LATERAL} .modificador[data-signo]`],
+        ] as const,
+      })),
+    ];
+    expect(casos.length).toBe(6);
+    const medidas: string[] = [];
+    for (const { tema, capas, detras, fila, pastilla } of casos) {
+      const fondoDeLaFila = gana(fila, 'background');
+      if (fondoDeLaFila === null) throw new Error(`${tema}: la fila sin fondo`);
+      const bajo = sobre(enLasCapas(capas, fondoDeLaFila), enLasCapas(capas.slice(0, 2), detras));
+      const suFondo = gana(pastilla, 'background');
+      const fondo = suFondo === null ? bajo : sobre(enLasCapas(capas, suFondo), bajo);
+      for (const signo of ['+', '−']) {
+        const tinta = gana([['style.css', `.modificador[data-signo="${signo}"]`]], 'color');
+        if (tinta === null) throw new Error(`la pastilla «${signo}» sin color`);
+        const c = contraste(sobre(enLasCapas(capas, tinta), fondo), fondo);
+        medidas.push(`${tema} ${signo} ${c >= 4.5 ? 'se lee' : `= ${c.toFixed(2)}`}`);
+      }
+    }
+    expect(medidas.filter((m) => !m.endsWith('se lee'))).toEqual([]);
+    expect(medidas.length).toBe(12);
   });
 
   it('los cinco se distinguen: panel, marco y letra de títulos, distintos en cada uno', () => {

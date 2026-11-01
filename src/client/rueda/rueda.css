@@ -83,6 +83,15 @@
   font: 0.9rem var(--letra-ui);
 }
 .rueda .quien { display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; min-width: 0; }
+/* El nombre y, debajo, lo que lleva colgado (`modificadoresEnCurso`), que se parte
+   en líneas si no cabe. */
+.rueda .datos-del-contrincante {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  min-width: 0;
+}
 .rueda .chapa { width: 0.8rem; height: 0.8rem; flex: none; }
 .rueda .hacia { display: inline-flex; align-items: center; gap: 0.5rem; min-width: 0; max-width: 100%; }
 .rueda .ataca { color: var(--ink-dim); font-style: italic; white-space: nowrap; }
@@ -150,8 +159,6 @@
   color: var(--gold);
 }
 .vista-previa .row { gap: 0.8rem; }
-.vista-previa .efectos-en-curso { display: grid; justify-items: end; text-align: right; }
-.vista-previa .sin-efectos { color: var(--ink-dim); font-style: italic; }
 .rueda .contrincante:has(> button:focus-visible) > .vista-previa { display: block; }
 @media (hover: hover) {
   .rueda .contrincante:has(> button:hover) > .vista-previa { display: block; }
@@ -165,6 +172,9 @@
 .pie-de-rueda .teclas { font: 0.75rem var(--letra-ui); color: var(--ink-dim); }
 .pie-de-rueda .tinte-de-la-rueda { font: 0.75rem/1.3 var(--letra-ui); color: var(--ink-dim); }
 .pie-de-rueda .carga-de-la-rueda { font: 0.82rem/1.3 var(--letra-ui); color: var(--gold); }
+/* El golpe que viene puede tumbarte (`te-tumba`): la línea del pie explica la
+   marca que llevan esos sectores tras el número grande (H2 de QA, 01-11-2026). */
+.pie-de-rueda .tumba-de-la-rueda { font: 0.82rem/1.3 var(--letra-ui); color: var(--ink); }
 .pie-de-rueda kbd {
   display: inline-block;
   min-width: 1.3em;
@@ -327,6 +337,15 @@
   color: var(--ink-dim);
   white-space: nowrap;
 }
+/* Al responder, lo que te haría su golpe va arriba, más grande y del color del
+   rótulo (se enciende con él), y tu contraataque debajo, como el daño de siempre
+   (31-10-2026). */
+.sector-de-rueda .da.del-atacante {
+  font-size: calc(var(--plato) * 0.036);
+  font-weight: 600;
+  color: inherit;
+}
+.sector-de-rueda .marca-de-tumba { margin-left: 0.08em; }
 .sector-de-rueda .nota {
   position: absolute;
   left: var(--nx);

@@ -27,6 +27,7 @@
  */
 import { isAlive, stackHexes } from '@core/battle/battle.js';
 import { stackHp, trasElGolpe } from '@core/battle/damage.js';
+import type { StackEffect } from '@core/battle/effects.js';
 import { nivelDe } from '@core/battle/muralla.js';
 import type { HechoDelCruce } from '@core/battle/rueda.js';
 import type { BattleEvent, BattleStack, BattleState } from '@core/battle/types.js';
@@ -189,8 +190,48 @@ type Paso =
       readonly cura: number;
     } & Reloj)
   | { readonly tipo: 'perished'; readonly stack: string; readonly dura: number }
-  /** El cruce de la rueda del golpe: nadie se mueve; lo cuenta el diálogo de la rueda. */
-  | { readonly tipo: 'cruce'; readonly evento: HechoDelCruce; readonly dura: number };
+  /**
+   * El cruce de la rueda del golpe: nadie se mueve; lo cuenta el diálogo de la
+   * rueda. `efectos`, lo que llevaba colgado cada stack antes de leer la jugada del
+   * cruce (`FotoDeEfectos`): la cabecera del desenlace los pinta.
+   */
+  | {
+      readonly tipo: 'cruce';
+      readonly evento: HechoDelCruce;
+      readonly dura: number;
+      readonly efectos: FotoDeEfectos;
+    };
+
+/**
+ * Lo que lleva colgado cada stack (`BattleStack.effects`), por su id, como estaba
+ * en una lectura del animador: copias, que `tickEffects` baja el `roundsLeft` en el
+ * sitio.
+ */
+export type FotoDeEfectos = ReadonlyMap<string, readonly StackEffect[]>;
+
+/** La foto de los efectos de `battle` ahora (`FotoDeEfectos`). */
+export function fotoDeEfectos(battle: BattleState): FotoDeEfectos {
+  return new Map(battle.stacks.map((s) => [s.id, s.effects.map((e) => ({ ...e }))]));
+}
+
+/**
+ * El cruce de la rueda que cuenta el animador (`BattleAnimator.cruceEnCurso`):
+ * su hecho, cuánto lleva de 0 a 1 y lo que llevaba colgado cada stack antes de
+ * él. Lo leen el diálogo de la rueda y la escena de batalla.
+ */
+export interface CruceEnCurso {
+  readonly evento: HechoDelCruce;
+  readonly t: number;
+  readonly efectos: FotoDeEfectos;
+}
+
+/**
+ * El paso de un hecho que no anda (`pasoDeAccion`): el del cruce, aún sin la foto
+ * de los efectos, que pone quien la tiene (`BattleAnimator.traducir`).
+ */
+type PasoDeAccion =
+  | Exclude<Paso, { tipo: 'move' | 'cruce' }>
+  | Omit<Extract<Paso, { tipo: 'cruce' }>, 'efectos'>;
 
 /** Lo que el lienzo necesita de una figura en este instante. */
 export interface EstadoFigura {
@@ -393,7 +434,7 @@ function stackDe(battle: BattleState, id: string, que: string): BattleStack {
  * El paso de un hecho que no anda, con su reloj ya resuelto: el de un disparo
  * depende de quién dispara. `null` si el hecho no se cuenta.
  */
-function pasoDeAccion(e: BattleEvent, battle: BattleState): Exclude<Paso, { tipo: 'move' }> | null {
+function pasoDeAccion(e: BattleEvent, battle: BattleState): PasoDeAccion | null {
   switch (e.kind) {
     case 'attack':
       return {
@@ -548,6 +589,14 @@ export class BattleAnimator {
   /** Cuántos pasos de la cola, o el de ahora antes de su impacto, cambian la vida de cada una. */
   private readonly porContar = new Map<string, number>();
   /**
+   * Lo que llevaba colgado cada stack en la lectura anterior (`fotoDeEfectos`): lo
+   * de antes de la jugada que se lee ahora. El paso de un cruce se lo lleva, porque
+   * el estado ya trae lo que el cruce dejó (el Defensivo de quien pega) y lo de las
+   * jugadas de después. Si una sola lectura trae dos cruces, el segundo lleva lo de
+   * antes de los dos (riesgo aceptado en el plan del 31-10-2026).
+   */
+  private efectosLeidos: FotoDeEfectos = new Map();
+  /**
    * La última batalla observada: al contarse el último impacto de una unidad,
    * su vida es la de aquí —lo que el registro no dice, como el drenaje, también—.
    */
@@ -597,6 +646,7 @@ export class BattleAnimator {
         this.casillaVista.set(s.id, s.hex);
       }
       this.leidos = battle.log.length;
+      this.efectosLeidos = fotoDeEfectos(battle);
       this.alDiaCon(battle);
       return;
     }
@@ -609,6 +659,9 @@ export class BattleAnimator {
           this.porContar.set(id, (this.porContar.get(id) ?? 0) + 1);
       }
     }
+    // La foto se rehace solo si el registro creció: los efectos no cambian sin un
+    // hecho (y así no se copian en cada fotograma).
+    if (battle.log.length > this.leidos) this.efectosLeidos = fotoDeEfectos(battle);
     this.leidos = battle.log.length;
     this.alDiaCon(battle);
   }
@@ -638,8 +691,11 @@ export class BattleAnimator {
       // Subir a la muralla se cuenta como un paso del pie a la columna.
       case 'climbed':
         return this.andar(battle, e.stack, e.to, [e.to], 'hace subir');
-      default:
-        return pasoDeAccion(e, battle);
+      default: {
+        const paso = pasoDeAccion(e, battle);
+        // El cruce se lleva la foto de antes de leer su jugada, que es del animador.
+        return paso?.tipo === 'cruce' ? { ...paso, efectos: this.efectosLeidos } : paso;
+      }
     }
   }
 
@@ -804,9 +860,11 @@ export class BattleAnimator {
    * si el paso de ahora es otro: lo lee el diálogo de la rueda para pintar el
    * desenlace al ritmo de la cola.
    */
-  cruceEnCurso(): { readonly evento: HechoDelCruce; readonly t: number } | null {
+  cruceEnCurso(): CruceEnCurso | null {
     const paso = this.actual?.paso;
-    return paso?.tipo === 'cruce' ? { evento: paso.evento, t: this.progreso() } : null;
+    return paso?.tipo === 'cruce'
+      ? { evento: paso.evento, t: this.progreso(), efectos: paso.efectos }
+      : null;
   }
 
   /**

@@ -15,8 +15,9 @@
  * no hay marcha que esperar: se elige antes de correr (31-10-2026), y la carrera
  * llega en el registro tras el cruce.
  */
-import { contraataqueDelCruce, formaDeLaBatalla, type HechoDelCruce } from '@core/battle/rueda.js';
+import { formaDeLaBatalla, type HechoDelCruce } from '@core/battle/rueda.js';
 import type { BattleState, Side } from '@core/battle/types.js';
+import type { CruceEnCurso } from '../anim.js';
 import { pintar } from '../html.js';
 import type { RuedaPendiente } from '../session.js';
 import { FigurasDeLaRueda } from './figuras.js';
@@ -47,7 +48,7 @@ export interface SesionConRueda {
 /** Lo que la rueda pide de la escena de batalla (`EscenaBatalla`): si cuenta, y qué cruce. */
 export interface QuienCuentaElCruce {
   readonly ocupada: boolean;
-  cruceEnCurso(): { readonly evento: HechoDelCruce; readonly t: number } | null;
+  cruceEnCurso(): CruceEnCurso | null;
 }
 
 export interface OpcionesDeLaRueda {
@@ -181,19 +182,8 @@ export class DialogoDeLaRueda {
     let enfocar = false;
     if (cruce !== null) {
       if (this.pintada !== cruce.evento) {
-        // El índice, solo al cambiar de cruce: el parte lo busca por él.
-        const i = battle.log.indexOf(cruce.evento);
-        if (i < 0) throw new Error('la rueda cuenta un cruce que no está en el registro');
-        pintar(
-          this.el,
-          renderDesenlace(
-            battle,
-            cruce.evento,
-            contraataqueDelCruce(battle.log, i),
-            s.quienMira,
-            this.o.cara(),
-          ),
-        );
+        // Solo al cambiar de cruce: el desenlace busca el suyo en el registro.
+        pintar(this.el, renderDesenlace(battle, cruce, s.quienMira, this.o.cara()));
         this.ajustar(battle);
         this.pintada = cruce.evento;
       }

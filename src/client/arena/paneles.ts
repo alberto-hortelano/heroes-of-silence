@@ -56,7 +56,6 @@ import {
 } from '@core/battle/poderes.js';
 import {
   filasDeLaRueda,
-  formaDeLaBatalla,
   NIVEL_MAXIMO,
   NOMBRE_DE_GOLPE,
   NORMAL_SIN_NIVEL,
@@ -139,7 +138,6 @@ import { nombreEnElCampo } from '../views/distintivo.js';
 import {
   accionesDeLaUnidad,
   apagadosPor,
-  efectoEnCurso,
   listaDelCampo,
   modificadoresEnPantalla,
   nota,
@@ -1890,23 +1888,14 @@ export function filasDelStack(
 
 /**
  * La vista previa de uno de los dos de la rueda (#261): su nombre, sus cifras
- * (`filasDelStack`), lo que lleva colgado con lo que le queda (`efectoEnCurso`)
- * y si ya devolvió un golpe esta ronda. Todo del estado de la batalla: lo que
- * eligió el otro en la rueda no está ahí, va a ciegas en la sesión.
+ * (`filasDelStack`) y si ya devolvió un golpe esta ronda. Todo del estado de la
+ * batalla: lo que eligió el otro en la rueda no está ahí, va a ciegas en la
+ * sesión. Lo que lleva colgado no va aquí: lo dice la cabecera de la rueda justo
+ * al lado de su figura (`modificadoresEnCurso`, con lo que le queda en su nota).
  */
 export function vistaPrevia(s: VistaDeArena, x: BattleStack): Html {
-  const efectos =
-    x.effects.length === 0
-      ? html`<span class="sin-efectos">ninguno</span>`
-      : unir(
-          x.effects.map(
-            (e) =>
-              html`<span class="efecto-en-curso">${efectoEnCurso(e, formaDeLaBatalla(s.battle))}</span>`,
-          ),
-        );
   return html`<strong class="nombre-de-la-previa">${nombreEnElCampo(s.battle, x)}</strong>
     ${filasDelStack(s, x, false)}
-    <div class="row"><span class="label">Efectos</span><span class="efectos-en-curso">${efectos}</span></div>
     <div class="row"><span class="label">Contraataque</span><span data-contraataco="${x.retaliated ? 'si' : 'no'}">${x.retaliated ? 'ya devolvió un golpe esta ronda' : 'aún puede devolver uno esta ronda'}</span></div>`;
 }
 

@@ -53,9 +53,9 @@ import {
 import {
   CARGA,
   CARGA_MINIMA,
+  type CargaDeLaRueda,
+  cargaDeLaRueda,
   cargaEfectiva,
-  cargaMontada,
-  dichoDeLaCarga,
   porcientoDeLaCarga,
 } from './carga.js';
 import { fraseDelContacto, salirCuesta } from './contacto.js';
@@ -3240,19 +3240,11 @@ function previsionDeGolpe(
   extra: Omit<DamageOptions, ExtraDelEstado>,
   golpe: GolpeEnLaRueda | null = null,
 ): PrevisionDeGolpe {
-  const h = horquillaDeDanio(a, t, opcionesDeDanio(state, a, t, extra, golpe));
   const golpes =
     kind === 'golpe' ? golpesDe(a.unit, golpe?.tipo ?? null, false) : disparosDe(a.unit);
-  const siguientes = golpes > 1 ? danioSinLaCarga(h.danio, a, t, extra, golpe, state) : null;
-  // Cómo queda el objetivo con `golpes` golpes: el primero de `d`, los demás de
-  // `luego`, y cada uno solo si el anterior no lo tumba, como en `melee` y `shoot`.
-  const tras = (d: number, luego = d): { count: number; topHp: number } => {
-    let quedan: { count: number; topHp: number } = { count: t.count, topHp: t.topHp };
-    for (let i = 0; i < golpes && quedan.count > 0; i++) {
-      quedan = trasElGolpe({ ...quedan, unit: t.unit }, i === 0 ? d : luego);
-    }
-    return quedan;
-  };
+  const { h, siguientes } = unGolpe(a, t, opcionesDeDanio(state, a, t, extra, golpe), golpes);
+  const tras = (d: number, luego = d): { count: number; topHp: number } =>
+    trasLosGolpes(t, golpes, d, luego);
   const conMenos = tras(h.danio.min, siguientes?.min);
   const conMas = tras(h.danio.max, siguientes?.max);
   const vida = (q: { count: number; topHp: number }): number =>
@@ -3278,24 +3270,83 @@ function previsionDeGolpe(
 }
 
 /**
+ * Cómo queda `t` con `golpes` golpes: el primero de `d`, los demás de `luego`, y
+ * cada uno solo si el anterior no lo tumba, como en `melee` y `shoot`. Lo leen la
+ * previsión del golpe y lo que quita el golpe que viene (`loQueQuitan`).
+ */
+function trasLosGolpes(
+  t: BattleStack,
+  golpes: number,
+  d: number,
+  luego = d,
+): { count: number; topHp: number } {
+  let quedan: { count: number; topHp: number } = { count: t.count, topHp: t.topHp };
+  for (let i = 0; i < golpes && quedan.count > 0; i++) {
+    quedan = trasElGolpe({ ...quedan, unit: t.unit }, i === 0 ? d : luego);
+  }
+  return quedan;
+}
+
+/**
+ * La vida que le quitan de verdad a `t` esos golpes (`trasLosGolpes`): la de antes
+ * menos la que le queda, así que nunca más de la que tiene (lo que se cobra).
+ */
+function loQueQuitan(t: BattleStack, golpes: number, d: number, luego = d): number {
+  return stackHp(t) - stackHp({ ...t, ...trasLosGolpes(t, golpes, d, luego) });
+}
+
+/**
+ * Lo que dan los golpes de un intercambio que se prevé: el daño del primero,
+ * cuántos da y el de los que siguen, que no cobran la carga. Lo enseñan el sector
+ * de la rueda (`SectorDeLaRueda`), cada golpe del que viene (`GolpeEnSuPunto`) y
+ * su cuenta (`unGolpe`).
+ */
+export interface DanioDeLosGolpes {
+  /** El daño de un golpe; con más de uno, el del primero (con carga, la lleva). */
+  readonly danio: Horquilla;
+  readonly golpes: number;
+  /** Con más de un golpe y carga, el de cada uno tras el primero, que no la cobra; si no, `null`. */
+  readonly siguientes: Horquilla | null;
+}
+
+/** Lo que cuenta `unGolpe`: los golpes (`DanioDeLosGolpes`) con la horquilla entera del primero. */
+interface GolpeContado extends DanioDeLosGolpes {
+  readonly h: ReturnType<typeof horquillaDeDanio>;
+}
+
+/**
+ * El golpe (o el disparo) de `a` a `t` que se prevé, con sus `opciones` ya hechas
+ * (`opcionesDeDanio`, y la rueda encima con `conElGolpe`) y `golpes` golpes: su
+ * horquilla y el daño de los que siguen al primero, que no cobran la carga
+ * (`danioSinLaCarga`). **La cuenta de un golpe que no se ha dado**, una vez: la
+ * leen la previsión del golpe (`previsionDeGolpe`), los sectores de la rueda
+ * (`previsionDeLaRueda`) y el golpe que viene en la respuesta
+ * (`previsionDelGolpeQueViene`).
+ */
+function unGolpe(
+  a: BattleStack,
+  t: BattleStack,
+  opciones: DamageOptions,
+  golpes: number,
+): GolpeContado {
+  const h = horquillaDeDanio(a, t, opciones);
+  const siguientes = golpes > 1 ? danioSinLaCarga(h.danio, a, t, opciones) : null;
+  return { h, danio: h.danio, golpes, siguientes };
+}
+
+/**
  * El daño de cada golpe tras el primero, que no cobra la carga (`intercambio`), o
  * `null` si sale el mismo que el del primero (`danio`): sin carga, o quien no
- * carga. Lo leen la previsión del golpe y la de la rueda.
+ * carga. Las mismas `opciones` sin la carrera: la carga es lo único que cambia.
  */
 function danioSinLaCarga(
   danio: Horquilla,
   a: BattleStack,
   t: BattleStack,
-  extra: Omit<DamageOptions, ExtraDelEstado>,
-  golpe: GolpeEnLaRueda | null,
-  state: BattleState,
+  opciones: DamageOptions,
 ): Horquilla | null {
-  if ((extra.chargeHexes ?? 0) === 0) return null;
-  const sin = horquillaDeDanio(
-    a,
-    t,
-    opcionesDeDanio(state, a, t, { ...extra, chargeHexes: 0 }, golpe),
-  ).danio;
+  if ((opciones.chargeHexes ?? 0) === 0) return null;
+  const sin = horquillaDeDanio(a, t, { ...opciones, chargeHexes: 0 }).danio;
   return sin.min === danio.min && sin.max === danio.max ? null : sin;
 }
 
@@ -3368,13 +3419,8 @@ function previsionDelContraataque(
   };
 }
 
-/** Lo que daría un tipo de la rueda: el daño de un golpe y cuántos golpes. */
-export interface SectorDeLaRueda {
-  /** El daño de un golpe; con más de uno, el del primero. */
-  readonly danio: Horquilla;
-  readonly golpes: number;
-  /** Con más de un golpe y carga, el de cada uno tras el primero, que no la cobra; si no, `null`. */
-  readonly siguientes: Horquilla | null;
+/** Lo que daría un tipo de la rueda: el daño de un golpe y cuántos golpes (`DanioDeLosGolpes`). */
+export interface SectorDeLaRueda extends DanioDeLosGolpes {
   /**
    * Al golpear con un tipo que deja algo al rival antes de su contraataque (Romper
    * guardia), su contraataque de ahora con cada éxito que lo cambia, del mayor al
@@ -3382,6 +3428,45 @@ export interface SectorDeLaRueda {
    * (`puntosDeLaForma`); si no, o en la respuesta, o sin contraataque, `[]`.
    */
   readonly contraataquePorExito: readonly { readonly punto: Punto; readonly danio: Horquilla }[];
+}
+
+/**
+ * Lo que te haría el golpe que viene si respondes con un tipo de la rueda: quien
+ * pega elige a ciegas, así que por cada golpe suyo (`porGolpe`, en el orden de la
+ * rueda) el punto en que caería contra tu respuesta y lo que darían sus golpes
+ * (`GolpeEnSuPunto`); y, de todos, lo menos y lo más que te quitaría el
+ * intercambio entero (`total`: el primero y los siguientes, cada uno solo si sigues
+ * en pie, `loQueQuitan`; nunca más de la vida que tienes). Las mismas cuentas que
+ * el golpe que se cobra (`unGolpe`, `opcionesDeDanio` con el golpe en su punto).
+ */
+export interface GolpeQueViene {
+  readonly total: Horquilla;
+  readonly porGolpe: readonly GolpeEnSuPunto[];
+  /**
+   * Si alguno de sus golpes te tumba (`GolpeEnSuPunto.tumba` no es `no`): entonces
+   * `total.max` es tu vida, y el sector lo dice («puede tumbarte», H2 de QA,
+   * 01-11-2026) para que no se lea como el techo de su golpe.
+   */
+  readonly puedeTumbarte: boolean;
+}
+
+/**
+ * Si un golpe te tumba, con lo que se cobra (`loQueQuitan`): `siempre`, también lo
+ * menos que quita llega a tu vida; `puede`, solo lo más; `no`, ni lo más.
+ */
+export type Tumba = 'no' | 'puede' | 'siempre';
+
+/** Un golpe del que viene (`GolpeQueViene`): su tipo, el punto del cruce y lo que dan sus golpes. */
+export interface GolpeEnSuPunto extends DanioDeLosGolpes {
+  readonly tipo: TipoDeGolpe;
+  readonly punto: Punto;
+  /**
+   * Lo que te quitaría de verdad el intercambio con ese golpe: sus golpes, cada
+   * uno solo si sigues en pie, y nunca más de tu vida (`loQueQuitan`). `danio` y
+   * `siguientes` son cada golpe en bruto, que pueden pasar de ella.
+   */
+  readonly quita: Horquilla;
+  readonly tumba: Tumba;
 }
 
 /**
@@ -3413,11 +3498,11 @@ export function previsionDeLaRueda(
    */
   readonly contraataque: Horquilla | null;
   /**
-   * Al golpear tras una carrera, la carga que ya llevan las cifras, dicha
-   * (`dichoDeLaCarga`: «carga de 3 casillas, +15 %»; R6 de QA de #260); si
-   * no hay carga o en la respuesta, `null`.
+   * La carga que cobra quien pega (R6 de QA de #260), en las dos fases: al golpear
+   * ya la llevan las cifras de los sectores; al responder, las del golpe que viene
+   * (`previsionDelGolpeQueViene`). Sin carga, `null`. Se dice con `dichoDeLaCarga`.
    */
-  readonly carga: string | null;
+  readonly carga: CargaDeLaRueda | null;
   /**
    * Las cifras de la rueda con el arma de cuerpo a cuerpo de quien elige
    * (`ruedaDelIntercambio`): con ellas se dicen las notas de los sectores
@@ -3447,8 +3532,10 @@ export function previsionDeLaRueda(
   // Los niveles son siempre del arma de quien pega, también en la respuesta: lo que
   // se teme del golpe que viene.
   const niveles = nivelesEnLaForma(nivelesDelGolpe(desdeAhi.unit, 'arma'), forma);
+  // La carga es de quien golpea: la cobra su primer golpe, en las dos fases.
+  const cobrada = cargaDeLaRueda(cargaEfectiva(carga, CARGA), desdeAhi.unit);
   if (papel === 'respuesta' && sinContraataque !== null) {
-    return { porTipo: null, sinContraataque, contraataque: null, carga: null, rueda, niveles };
+    return { porTipo: null, sinContraataque, contraataque: null, carga: cobrada, rueda, niveles };
   }
   // Las opciones, una vez; cada tipo pone encima su sector.
   const opciones = opcionesDeDanio(state, quien, contra, extra);
@@ -3462,14 +3549,12 @@ export function previsionDeLaRueda(
   const porTipo: Partial<Record<TipoDeGolpe, SectorDeLaRueda>> = {};
   for (const tipo of forma.golpes) {
     const sector = delSector(tipo, forma);
-    const h = horquillaDeDanio(
+    const { danio, golpes, siguientes } = unGolpe(
       quien,
       contra,
       conElGolpe(opciones, quien.unit, sector, papel, forma, rueda),
+      golpesDe(quien.unit, tipo, devuelve),
     );
-    const golpes = golpesDe(quien.unit, tipo, devuelve);
-    const siguientes =
-      golpes > 1 ? danioSinLaCarga(h.danio, quien, contra, extra, sector, state) : null;
     const contraataquePorExito = conContraataque
       ? [...puntosDeLaForma(forma)].reverse().flatMap((punto) => {
           if (punto < sector.desde || punto > sector.hasta) return [];
@@ -3478,20 +3563,77 @@ export function previsionDeLaRueda(
           return danio === null ? [] : [{ punto, danio }];
         })
       : [];
-    porTipo[tipo] = { danio: h.danio, golpes, siguientes, contraataquePorExito };
+    porTipo[tipo] = { danio, golpes, siguientes, contraataquePorExito };
   }
-  // La carga es de quien golpea: la respuesta no la cobra.
-  const cobrada = papel === 'golpe' ? cargaEfectiva(carga, CARGA) : 0;
   return {
     porTipo,
     sinContraataque,
     contraataque: conContraataque
       ? contraataqueCon(neutro === null ? null : delSector(neutro, forma))
       : null,
-    carga: cobrada > 0 ? dichoDeLaCarga(cobrada, cargaMontada(desdeAhi.unit)) : null,
+    carga: cobrada,
     rueda,
     niveles,
   };
+}
+
+/**
+ * Al responder en la rueda, lo que te haría el golpe que viene con cada respuesta
+ * (`GolpeQueViene`), una por tipo de la rueda de la batalla; también sin
+ * contraataque. Desde donde golpeará quien pega (`golpePreparado`, con la carga de
+ * su recta), como `previsionDeLaRueda`, aparte de ella: solo lo pide quien lo
+ * pinta (la sesión), y el agente (`serializeBattleResponse`) no lo paga. No toca
+ * el estado ni el `Rng`. Lanza si el golpe no se puede dar.
+ */
+export function previsionDelGolpeQueViene(
+  state: BattleState,
+  accion: BattleAction & { type: 'attack' },
+): Readonly<Partial<Record<TipoDeGolpe, GolpeQueViene>>> {
+  const s = activeStack(state);
+  if (s === null || state.finished !== null) throw new Error('no le toca a ninguna unidad');
+  const { target, desdeAhi, carga } = golpePreparado(state, s, accion, false);
+  const forma = formaDeLaBatalla(state);
+  // Las opciones, las cifras de su arma y cuántos golpes da cada tipo, una vez;
+  // cada golpe pone encima su punto.
+  const opciones = opcionesDeDanio(state, desdeAhi, target, { chargeHexes: carga });
+  const cifras = ruedaDelIntercambio(desdeAhi);
+  // Lo más que se le puede quitar: tumbarlo es quitarle esto (`loQueQuitan`).
+  const vida = stackHp(target);
+  const suyos = forma.golpes.map((tipo) => ({
+    tipo,
+    golpes: golpesDe(desdeAhi.unit, tipo, false),
+  }));
+  const porRespuesta: Partial<Record<TipoDeGolpe, GolpeQueViene>> = {};
+  for (const respuesta of forma.golpes) {
+    const porGolpe = suyos.map(({ tipo, golpes }): GolpeEnSuPunto => {
+      const punto = puntoDelCruce(tipo, respuesta, forma);
+      const enSuPunto = conElGolpe(
+        opciones,
+        desdeAhi.unit,
+        enElPunto(tipo, punto),
+        'golpe',
+        forma,
+        cifras,
+      );
+      const { danio, siguientes } = unGolpe(desdeAhi, target, enSuPunto, golpes);
+      // El intercambio entero, como se cobra: cada golpe solo si sigue en pie.
+      const quita = {
+        min: loQueQuitan(target, golpes, danio.min, siguientes?.min),
+        max: loQueQuitan(target, golpes, danio.max, siguientes?.max),
+      };
+      const tumba: Tumba = quita.min === vida ? 'siempre' : quita.max === vida ? 'puede' : 'no';
+      return { tipo, punto, danio, golpes, siguientes, quita, tumba };
+    });
+    porRespuesta[respuesta] = {
+      total: {
+        min: Math.min(...porGolpe.map((g) => g.quita.min)),
+        max: Math.max(...porGolpe.map((g) => g.quita.max)),
+      },
+      porGolpe,
+      puedeTumbarte: porGolpe.some((g) => g.tumba !== 'no'),
+    };
+  }
+  return porRespuesta;
 }
 
 function previsionDeHechizo(

@@ -6,7 +6,13 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { BattleAnimator, DURACION, duracionDeLaJugada, IMPACTO } from '../src/client/anim.js';
+import {
+  BattleAnimator,
+  DURACION,
+  duracionDeLaJugada,
+  fotoDeEfectos,
+  IMPACTO,
+} from '../src/client/anim.js';
 import { msPorCasilla } from '../src/client/marcha.js';
 import { clipQueSePinta } from '../src/client/render/batalla.js';
 import {
@@ -421,7 +427,7 @@ describe('el animador de batalla', () => {
       if (conCruce) {
         // Primero la rueda lo cuenta y nadie se mueve: aún no ha corrido.
         a.tick(DURACION.cruce / 2);
-        expect(a.cruceEnCurso()).toEqual({ evento: cruce, t: 0.5 });
+        expect(a.cruceEnCurso()).toMatchObject({ evento: cruce, t: 0.5 });
         expect(a.figura(s1).clip).toBe('idle');
       }
       // Después el tramo, de una casilla, cargando, ya sin la rueda.
@@ -429,6 +435,56 @@ describe('el animador de batalla', () => {
       expect(a.figura(s1).clip).toBe('charge');
       expect(a.cruceEnCurso()).toBeNull();
     }
+  });
+
+  it('el cruce lleva lo que cada uno tenía colgado antes de leer su jugada, no lo que deja el cruce (31-10-2026)', () => {
+    const a = new BattleAnimator();
+    const b = batalla();
+    const [s1, s2] = b.stacks as [BattleState['stacks'][number], BattleState['stacks'][number]];
+    // Antes: una Lentitud en el objetivo, que llega con su hecho.
+    s2.effects.push({ kind: 'speed', amount: -2, source: 'slow', roundsLeft: 3 });
+    b.log.push({
+      kind: 'effect',
+      stack: s2.id,
+      effect: 'speed',
+      amount: -2,
+      source: 'slow',
+      rounds: 3,
+    });
+    a.observe(b);
+    const antes = fotoDeEfectos(b);
+    // La jugada del cruce: Defensivo deja +1 a quien pega, y la Lentitud baja una ronda.
+    s1.effects.push({
+      kind: 'defense',
+      amount: 1,
+      source: 'defensivo',
+      roundsLeft: 2,
+      hasta: { turno: 1, al: 'empezar' },
+    });
+    const lentitud = s2.effects[0];
+    if (lentitud === undefined) throw new Error('sin la Lentitud');
+    lentitud.roundsLeft = 2;
+    b.log.push({
+      kind: 'cruce',
+      stack: s1.id,
+      target: s2.id,
+      golpe: 'defensivo',
+      respuesta: 'normal',
+      punto: 2,
+    });
+    a.observe(b);
+    a.tick(0);
+    a.tick(DURACION.cruce / 2);
+    const cruce = a.cruceEnCurso();
+    if (cruce === null) throw new Error('no cuenta el cruce');
+    // El Defensivo está en el estado, pero no en lo que se veía antes del cruce.
+    expect(cruce.efectos.get(s1.id)).toEqual([]);
+    // La Lentitud, como estaba al leerla: una copia, con sus tres rondas.
+    expect(cruce.efectos.get(s2.id)).toEqual([
+      { kind: 'speed', amount: -2, source: 'slow', roundsLeft: 3 },
+    ]);
+    // Es la foto de la lectura de antes, entera.
+    expect(cruce.efectos).toEqual(antes);
   });
 
   it('la carga se marca al leer el `move`, aunque el golpe llegue después, y solo desde él', () => {

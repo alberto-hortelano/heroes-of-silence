@@ -40,6 +40,7 @@ import {
   poderBlocker,
   previsionDe,
   previsionDeLaRueda,
+  previsionDelGolpeQueViene,
   puertasBlocker,
   quienNoEscala,
   SIN_CARGAS,
@@ -3371,6 +3372,8 @@ export class CruceDeLaRueda {
         objetivo: stackById(battle, paso.accion.target),
         bando: paso.bando,
         prevision: previsionDeLaRueda(battle, paso.accion, paso.falta),
+        golpeQueViene:
+          paso.falta === 'respuesta' ? previsionDelGolpeQueViene(battle, paso.accion) : null,
       },
     };
     return null;
@@ -3443,6 +3446,12 @@ export interface RuedaPendiente {
   /** El bando que elige ahora. */
   readonly bando: Side;
   readonly prevision: ReturnType<typeof previsionDeLaRueda>;
+  /**
+   * Al responder, lo que te haría el golpe que viene con cada respuesta
+   * (`previsionDelGolpeQueViene`); al golpear, `null`: quien pega ya ve su golpe en
+   * `prevision.porTipo`.
+   */
+  readonly golpeQueViene: ReturnType<typeof previsionDelGolpeQueViene> | null;
 }
 
 function sameTile(a: Point, b: Point): boolean {
