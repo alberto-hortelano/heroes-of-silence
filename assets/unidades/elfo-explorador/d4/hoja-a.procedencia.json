@@ -1,18 +1,18 @@
 {
-  "encargo": "elfo-explorador-d4-a",
+  "encargo": "elfo-explorador-v-esqueleto-d4-a",
   "tipo": "atlas",
-  "fecha": "2026-10-10T17:29:57.960Z",
+  "fecha": "2026-11-01T10:16:41.489Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a126dc-4dd0-7ac1-907e-5ce719023110",
-  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn explorador elfo: capucha y capa de camuflaje hecha de hojas secas, máscara de tela, ropa de cuero oscuro, dos cuchillos curvos, uno en cada mano, arco corto a la espalda. Agazapado.\nEn la lámina de giro (imagen 2), la figura 5 en orden de lectura es la que mira hacia «espalda», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «espalda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "hilo": "01a1969b-3ac2-7e13-b29e-16a2d8aac729",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el MAPA DE PROFUNDIDAD del maniquí Y Bot (cámara ortográfica elevada 25 grados; más claro, más cerca; el negro es fondo) con su ESQUELETO dibujado encima: los huesos del lado IZQUIERDO del personaje en AZUL, los del DERECHO en ROJO, el tronco y la cabeza en BLANCO y el eje del arma en AMARILLO. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación siguiendo el esqueleto (dónde está cada codo, cada mano, cada rodilla y cada pie, y hacia dónde apunta el arma). El arma que se pinta es la del PERSONAJE (la de su identidad), por el eje amarillo. NO pintes el esqueleto, sus colores, el gris ni el fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn explorador elfo: capucha y capa de camuflaje hecha de hojas secas, máscara de tela, ropa de cuero oscuro, dos cuchillos curvos, uno en cada mano, arco corto a la espalda. Agazapado.\nEn la lámina de giro (imagen 2), la figura 5 en orden de lectura es la que mira hacia «espalda», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «espalda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
-      "ruta": "assets/unidades/_poses/unidades/elfo-explorador-8d/d4-a.profundidad.png",
-      "papel": "pose-profundidad",
-      "sha256": "dc1815d81834fa025beb151885cd57e05c750413dab95dec2e4804092c0d1b5a"
+      "ruta": ".cache/taller/revision/elfo-explorador/d4/versiones/pose-esqueleto-a.png",
+      "papel": "pose-esqueleto",
+      "sha256": "94154ece99fa939d0f15f968aba0f3a36be245f9e97459159d26321130e6269c"
     },
     {
       "ruta": "assets/unidades/elfo-explorador/giro.webp",
@@ -25,21 +25,23 @@
       "sha256": "2e6e82d6ab195eed08824f3eb71d71fcfc04b5699c7542fcf6a239e13f5cab3b"
     }
   ],
+  "pose": "assets/unidades/_poses/unidades/elfo-explorador-8d/d4-a.profundidad.png",
+  "shaDeLaPose": "cc80085083bec79451312ed6f6aab1efd47bc6770cea3edd2870caf1adb2a0ce",
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a126dc-4dd0-7ac1-907e-5ce719023110/exec-94f6ecda-1b6a-41dd-8925-46fde255ef2a.png",
-    "sha256": "77e12d6eb804afe358b7a067bdc40b15b05524b8c3ce9f2e7907e8cdf681aadc",
-    "ancho": 1916,
+    "fichero": "~/.codex/generated_images/01a1969b-3ac2-7e13-b29e-16a2d8aac729/exec-fee93ae2-b2ab-44dc-bd17-97c052de6849.png",
+    "sha256": "d9b4d864d3afb1a62995d8b8003e77d2a6eab4bb51027f3e64ea3f80bb719f7a",
+    "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7847, pies en y=342, reposo a 160 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "dirección completa: assets/unidades/elfo-explorador/d4/atlas.webp"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7580, pies en y=342, reposo a 160 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.04646486958498677,
-    "opacos": 0.9451703479239932,
+    "visibles": 0.047999467799272486,
+    "opacos": 0.9393342034796883,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -51,18 +53,117 @@
       342
     ],
     "apoyoReposo": [
-      193,
-      277
+      199,
+      287
     ],
     "posicion": false
-  },
-  "salida": {
-    "ruta": "assets/unidades/elfo-explorador/d4/hoja-a.webp",
-    "sha256": "176389d810a448175e87e9d5378aba2bd2284e2480ef64dc7da4704d499cc010"
   },
   "ritmo": {
     "idle": 5,
     "walk": 6.5,
     "charge": 10.5
+  },
+  "encuadre": [
+    [
+      [
+        -1,
+        0
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        -1,
+        0
+      ],
+      [
+        -1,
+        2
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        1,
+        -1
+      ],
+      [
+        0,
+        -1
+      ]
+    ],
+    [
+      [
+        -1,
+        -16
+      ],
+      [
+        1,
+        -8
+      ],
+      [
+        1,
+        -4
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        -1,
+        -12
+      ],
+      [
+        -2,
+        -1
+      ],
+      [
+        0,
+        -3
+      ]
+    ],
+    [
+      [
+        -1,
+        -10
+      ],
+      [
+        -2,
+        -5
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        -1,
+        -18
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        1,
+        -1
+      ],
+      [
+        0,
+        -9
+      ]
+    ]
+  ],
+  "salida": {
+    "ruta": "assets/unidades/elfo-explorador/d4/hoja-a.webp",
+    "sha256": "abfb8c8c851c444989c11079e49223f6ed2575e7f5b1f1f80ca3e44d41599842"
+  },
+  "eleccion": {
+    "version": "esqueleto",
+    "modo": "torneo",
+    "motivo": "torneo: gana esqueleto todos sus duelos (tirada 0 de 2 duelos, esqueleto 2 de 2 duelos, todo 1 de 2 duelos)",
+    "persona": null,
+    "auto": true
   }
 }
