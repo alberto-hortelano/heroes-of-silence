@@ -1,40 +1,43 @@
 {
-  "encargo": "heroe-templario-inquisidor-d4-a",
+  "encargo": "heroe-templario-inquisidor-v-todo-d4-a-reposo",
   "tipo": "atlas",
-  "fecha": "2026-10-10T19:57:37.746Z",
+  "fecha": "2026-11-01T12:44:08.143Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a12763-6f20-7333-9ac3-1ac41e362ea0",
-  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn inquisidor, cazador de magos y no muertos: sombrero de ala ancha negro, abrigo largo de cuero negro sobre coraza ligera, sobrevesta corta blanca con cruz roja, sello y rosario al cinto, maza de pinchos de una mano en la derecha y un pequeño libro sagrado encadenado en la izquierda. Sin escudo.\nEn la lámina de giro (imagen 2), la figura 5 en orden de lectura es la que mira hacia «espalda», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «espalda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "hilo": "01a19722-48c4-7b00-bcc4-1545086b6f5e",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el MAPA DE PROFUNDIDAD del maniquí Y Bot (cámara ortográfica elevada 25 grados; más claro, más cerca; el negro es fondo) con su ESQUELETO dibujado encima: los huesos del lado IZQUIERDO del personaje en AZUL, los del DERECHO en ROJO, el tronco y la cabeza en BLANCO y el eje del arma en AMARILLO. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación siguiendo el esqueleto (dónde está cada codo, cada mano, cada rodilla y cada pie, y hacia dónde apunta el arma). El arma que se pinta es la del PERSONAJE (la de su identidad), por el eje amarillo. NO pintes el esqueleto, sus colores, el gris ni el fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía, la pose ni hacia dónde mira.\n\nUn inquisidor, cazador de magos y no muertos: sombrero de ala ancha negro, abrigo largo de cuero negro sobre coraza ligera, sobrevesta corta blanca con cruz roja, sello y rosario al cinto, maza de pinchos de una mano en la derecha y un pequeño libro sagrado encadenado en la izquierda. Sin escudo.\nLa imagen 2 es el personaje visto desde el lado «espalda» (su figura de la lámina de giro): mírala para saber qué se ve de él desde ese lado (la cara, el equipo, la capa, lo que lleva a la espalda), pero NO copies su postura ni hacia dónde mira, que está más vuelta hacia la cámara de la cuenta. La postura la da el maniquí, y hacia dónde mira, el maniquí y la ORIENTACIÓN escrita.\nEstilo: el de las imágenes del personaje —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\nLa imagen 2 puede enseñar al personaje en otra postura que la del maniquí (en guardia, con las piernas abiertas): esa POSTURA NO CUENTA, es solo para ver su aspecto desde ese lado. En cada celda el cuerpo adopta la postura del maniquí (imagen 1): si el maniquí está de pie con los pies juntos, el personaje también; si adelanta una pierna, la misma.\nNOTAS DEL ARMA:\n- Fila 1 (idle), columna(s) 7: en la referencia el arma se ve poco o detrás del cuerpo. El personaje la sigue llevando en la misma mano: píntala donde la llevaría en ese gesto, entre como va en la columna de antes y en la de después; no la quites ni pintes otra.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. El reposo es estar QUIETO: las siete figuras de la fila 1 son casi iguales, con el cuerpo, la cabeza y los pies mirando siempre hacia el mismo sitio y los pies plantados donde los tiene el maniquí; solo cambia lo poco que cambia el maniquí de una columna a otra (la respiración, un leve balanceo). Nunca gira el cuerpo ni la cabeza hacia otro lado ni cambia de postura a media fila. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo desde arriba la coronilla y los dos hombros, nunca a la altura de los ojos. La cámara no cambia hacia dónde mira el personaje: si mira de lado, se le ve de perfil, desde arriba.\nORIENTACIÓN, la misma en TODAS las celdas: DE ESPALDAS: girado 180 grados; el pecho y la cara miran al fondo (hacia arriba en la imagen); la cámara ve la espalda, la nuca y los talones, y la cara no se ve. Es la del maniquí de la imagen 1; el personaje no se vuelve hacia la cámara en ninguna celda.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
-      "ruta": "assets/unidades/_poses/unidades/heroe-templario-inquisidor-8d/d4-a.profundidad.png",
-      "papel": "pose-profundidad",
-      "sha256": "11bb29b81deee96f6f22aaf170759dda9cba1ff4119b0eb8d00f0953818ee9ad"
+      "ruta": ".cache/taller/revision/heroe-templario-inquisidor/d4/versiones/pose-esqueleto-a.png",
+      "papel": "pose-esqueleto",
+      "sha256": "b7bc7c471b4f4ef9d05213e0804929a1bc982dacfa1d5e114687d6c297ba5a2b"
     },
     {
       "ruta": "assets/unidades/heroe-templario-inquisidor/giro.webp",
       "papel": "identidad",
+      "figura": 4,
       "sha256": "db7c0219fd565f5b7f7c6d3fab2830f788edb4a672349e6ae9ab10ae09f67fb6"
     }
   ],
+  "pose": "assets/unidades/_poses/unidades/heroe-templario-inquisidor-8d/d4-a.profundidad.png",
+  "shaDeLaPose": "a3e64b6fc58043f93e14c6e5830a7db27c94638b277b28c0ed41774fdfb91426",
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a12763-6f20-7333-9ac3-1ac41e362ea0/exec-ee79ad56-daae-47e9-a1ed-6653bbcda598.png",
-    "sha256": "026408b39ea3e43cf3da1f21f458776e7787b3723334f68a122c14a30fe04571",
+    "fichero": "~/.codex/generated_images/01a19722-48c4-7b00-bcc4-1545086b6f5e/exec-2c46729b-a497-4868-9c38-c8cd8fbeb785.png",
+    "sha256": "ee193c21235e5190353664a91ff637461353485730d4bd3666b1a9e96b72c8dc",
     "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.8143, pies en y=342, reposo a 160 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "dirección completa: assets/unidades/heroe-templario-inquisidor/d4/atlas.webp"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.8186, pies en y=342, reposo a 160 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.051131314070767195,
-    "opacos": 0.9506353737715686,
+    "visibles": 0.05457899305555555,
+    "opacos": 0.9478959575878065,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -46,18 +49,116 @@
       342
     ],
     "apoyoReposo": [
-      193,
-      277
+      199,
+      287
     ],
     "posicion": false
-  },
-  "salida": {
-    "ruta": "assets/unidades/heroe-templario-inquisidor/d4/hoja-a.webp",
-    "sha256": "1f27ddeb72b4e2107bd04e456d9e8db5b70d98c57917de78792459bbf443df72"
   },
   "ritmo": {
     "idle": 5,
     "walk": 6.5,
     "charge": 10.5
+  },
+  "encuadre": [
+    [
+      [
+        0,
+        -1
+      ],
+      [
+        1,
+        3
+      ],
+      [
+        0,
+        3
+      ],
+      [
+        0,
+        -1
+      ],
+      [
+        1,
+        1
+      ],
+      [
+        0,
+        -2
+      ],
+      [
+        -2,
+        -3
+      ]
+    ],
+    [
+      [
+        0,
+        -10
+      ],
+      [
+        -2,
+        0
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        -1,
+        -2
+      ],
+      [
+        0,
+        -5
+      ],
+      [
+        1,
+        -4
+      ],
+      [
+        2,
+        2
+      ]
+    ],
+    [
+      [
+        3,
+        -11
+      ],
+      [
+        0,
+        -8
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        1,
+        -21
+      ],
+      [
+        -4,
+        -11
+      ],
+      [
+        0,
+        -9
+      ],
+      [
+        2,
+        -4
+      ]
+    ]
+  ],
+  "salida": {
+    "ruta": "assets/unidades/heroe-templario-inquisidor/d4/hoja-a.webp",
+    "sha256": "af74ac335c6c2847da7cae1d95b30138d526a14189ec417b55d3a3cb3584047d"
+  },
+  "eleccion": {
+    "version": "reposo",
+    "modo": "persona",
+    "motivo": "reposo repintado con la orientación por escrito (01-11-2026)",
+    "persona": "adoptar todas"
   }
 }

@@ -25,7 +25,7 @@ const LETRAS_DE_HOJA = Object.keys(HOJAS_DE_FIGURA) as [HojaDeFigura, ...HojaDeF
 export const PAPELES = {
   pose: 'es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente',
   identidad:
-    'es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose',
+    'es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía, la pose ni hacia dónde mira',
   // Sin hablar de su cámara: unas referencias de estilo están de frente (las
   // láminas de `assets/art/`) y otras a 25° (la muestra del mapa). La cámara la
   // dice cada encargo; aquí decirla mentía a la mitad de ellos.
@@ -117,6 +117,13 @@ const ruta = z
 const referencia = z.object({
   ruta,
   papel: z.enum(Object.keys(PAPELES) as [Papel, ...Papel[]]),
+  /**
+   * De una lámina de giro (4 × 2, en el orden de `NOMBRES_DE_DIRECCION`), solo
+   * la figura de esta dirección: el taller la recorta antes de mandarla
+   * (`figuraDeLaLamina`). Con la lámina entera, una tira de siete se pintaba
+   * como otro giro y la figura daba la vuelta a media fila (01-11-2026).
+   */
+  figura: z.number().int().min(0).max(7).optional(),
 });
 
 export const encargoSchema = z
@@ -289,9 +296,43 @@ function conFondo(e: Encargo, texto: string): string {
   return e.motor?.fondo === 'liso' ? texto.replace(SIN_FONDO, FONDO_LISO) : texto;
 }
 
+/**
+ * Hacia dónde mira el personaje en cada una de las 8 direcciones, dicho con
+ * palabras (01-11-2026, el usuario: «que le llegue la orientación por escrito
+ * porque tiende a rotarlos»). Con solo «mira hacia «derecha»» y la lámina de
+ * giro, el pintor ponía de tres cuartos y hacia la cámara lo que el maniquí
+ * tiene de perfil: el arquero elfo en d2 y d6 y casi todos los reposos
+ * repasados ese día.
+ */
+const ORIENTACIONES = [
+  'DE FRENTE: el pecho, la cara y las puntas de los pies miran a la cámara (hacia abajo en la imagen); se le ven los dos ojos y el pecho entero.',
+  'DE TRES CUARTOS hacia la DERECHA de la imagen: girado 45 grados desde la cámara hacia el borde derecho; la nariz, el pecho y las puntas de los pies apuntan abajo a la derecha; se le ve el pecho y la cara de tres cuartos.',
+  'DE PERFIL hacia la DERECHA de la imagen: girado 90 grados desde la cámara; la nariz, el pecho y las puntas de los pies apuntan al borde derecho; la cámara le ve el costado, con un solo ojo y sin el pecho de frente. Ni de tres cuartos ni de frente.',
+  'DE TRES CUARTOS DE ESPALDAS hacia la DERECHA de la imagen: girado 135 grados desde la cámara; el pecho y la nariz apuntan arriba a la derecha, hacia el fondo; la cámara ve más espalda que pecho, y de la cara apenas la mejilla y la oreja.',
+  'DE ESPALDAS: girado 180 grados; el pecho y la cara miran al fondo (hacia arriba en la imagen); la cámara ve la espalda, la nuca y los talones, y la cara no se ve.',
+  'DE TRES CUARTOS DE ESPALDAS hacia la IZQUIERDA de la imagen: girado 135 grados desde la cámara; el pecho y la nariz apuntan arriba a la izquierda, hacia el fondo; la cámara ve más espalda que pecho, y de la cara apenas la mejilla y la oreja.',
+  'DE PERFIL hacia la IZQUIERDA de la imagen: girado 90 grados desde la cámara; la nariz, el pecho y las puntas de los pies apuntan al borde izquierdo; la cámara le ve el costado, con un solo ojo y sin el pecho de frente. Ni de tres cuartos ni de frente.',
+  'DE TRES CUARTOS hacia la IZQUIERDA de la imagen: girado 45 grados desde la cámara hacia el borde izquierdo; la nariz, el pecho y las puntas de los pies apuntan abajo a la izquierda; se le ve el pecho y la cara de tres cuartos.',
+] as const satisfies readonly string[] & { length: typeof NOMBRES_DE_DIRECCION.length };
+
+/** La orientación de una hoja, por escrito: la del maniquí, en todas las celdas. */
+export function orientacionEscrita(d: number): string {
+  return `ORIENTACIÓN, la misma en TODAS las celdas: ${ORIENTACIONES[d]} Es la del maniquí de la imagen 1; el personaje no se vuelve hacia la cámara en ninguna celda.`;
+}
+
+/**
+ * Lo que es la imagen 2 de una hoja: la figura del giro de su lado, recortada
+ * (`Referencia.figura`). El giro se pintó con «nunca de perfil» y sus figuras de
+ * lado están vueltas hacia la cámara: vale para el aspecto desde ese lado, no
+ * para la orientación ni la postura.
+ */
+export function figuraDelGiro(d: number): string {
+  return `La imagen 2 es el personaje visto desde el lado «${NOMBRES_DE_DIRECCION[d]}» (su figura de la lámina de giro): mírala para saber qué se ve de él desde ese lado (la cara, el equipo, la capa, lo que lleva a la espalda), pero NO copies su postura ni hacia dónde mira, que está más vuelta hacia la cámara de la cuenta. La postura la da el maniquí, y hacia dónde mira, el maniquí y la ORIENTACIÓN escrita.`;
+}
+
 /** Lo que pinta cada fila de una hoja de 8 direcciones. */
 const FILAS_OCHO = {
-  a: 'Fila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.',
+  a: 'Fila 1: las siete poses de reposo de la fila 1 de la referencia de pose. El reposo es estar QUIETO: las siete figuras de la fila 1 son casi iguales, con el cuerpo, la cabeza y los pies mirando siempre hacia el mismo sitio y los pies plantados donde los tiene el maniquí; solo cambia lo poco que cambia el maniquí de una columna a otra (la respiración, un leve balanceo). Nunca gira el cuerpo ni la cabeza hacia otro lado ni cambia de postura a media fila. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.',
   b: 'Fila 1: las siete poses de ATAQUE de la fila 1 de la referencia de pose, atacando con el arma del personaje. Fila 2: las siete poses de RECIBIR DAÑO de la fila 2: encaja un golpe y retrocede. Fila 3: las siete poses de la MUERTE de la fila 3: la primera es EXACTAMENTE la última de la fila 2, luego se desploma, y la última es el cadáver tendido e inmóvil en el suelo, con sus armas en el suelo donde las tiene el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.',
   // Una sola fila (`HOJAS_DE_FIGURA.c`): el pintor no ha visto nunca una tira de
   // siete, así que se le dice que es una y que no la reparta en más.
@@ -323,11 +364,11 @@ function reglasDeAtlas(e: Encargo): string {
   // La hoja del disparo es de una sola fila: el prompt la nombra en singular.
   const una = filas === 1;
   const altura = alturaDelReposo(e);
-  const mira = `El personaje mira hacia donde mira el maniquí (dirección «${NOMBRES_DE_DIRECCION[ocho.direccion]}» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.`;
   return [
     `Hoja de sprites de EXACTAMENTE ${columnas} columnas por ${filas} ${una ? 'fila' : 'filas'}, ${columnas * filas} figuras del MISMO personaje, separadas con holgura y sin tocarse.`,
     FILAS_OCHO[ocho.hoja],
-    `Misma cámara ortográfica elevada 25 grados en ${una ? 'toda la fila' : 'todas las filas'}, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. ${mira}`,
+    `Misma cámara ortográfica elevada 25 grados en ${una ? 'toda la fila' : 'todas las filas'}, viendo desde arriba la coronilla y los dos hombros, nunca a la altura de los ojos. La cámara no cambia hacia dónde mira el personaje: si mira de lado, se le ve de perfil, desde arriba.`,
+    orientacionEscrita(ocho.direccion),
     `Misma escala en todas las celdas: la figura de pie ocupa unos ${altura} de cada ${e.celda ?? FIGURA.celda} píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.`,
     // Once de los primeros 52 atlas fallaron por lo mismo: en el ataque, la
     // lanza o la espada de una figura tocaba a la de al lado, y el taller no
@@ -358,7 +399,7 @@ function reglasDeGiro(): string {
   return [
     'Lámina de GIRO de EXACTAMENTE 4 columnas por 2 filas: el MISMO personaje ocho veces, de cuerpo entero, en la pose de reposo, separadas con holgura y sin tocarse.',
     `Cada figura copia la orientación y la pose del maniquí de su celda en la referencia de pose. En orden de lectura miran hacia: ${orden}. Las que van de espaldas enseñan la espalda del personaje: invéntala coherente con su equipo (la capa o sobrevesta por detrás, la cara interior del escudo, la vaina).`,
-    'Cámara ortográfica elevada 25 grados en todas, viendo la coronilla y los hombros; NUNCA de perfil ni a la altura de los ojos, aunque la figura mire de lado. Misma escala en las ocho.',
+    'Cámara ortográfica elevada 25 grados en todas, viendo la coronilla y los hombros, nunca a la altura de los ojos. Cada figura mira exactamente hacia donde su maniquí: la de «derecha» y la de «izquierda», de perfil (vistas desde arriba), no vueltas hacia la cámara. Misma escala en las ocho.',
     'Es la lámina de identidad por los ocho lados: el equipo, los colores y los materiales son idénticos en todas y se leen con claridad.',
     SIN_FONDO,
   ].join('\n');

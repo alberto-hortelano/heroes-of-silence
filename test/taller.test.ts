@@ -247,7 +247,11 @@ describe('el encargo', () => {
             pose,
           );
         }
-        expect(p, e.id).toMatch(/NUNCA de perfil/);
+        // La identidad, nunca de perfil; las hojas, con su orientación por escrito
+        // (01-11-2026: «NUNCA de perfil» giraba hacia la cámara las de lado).
+        expect(p, e.id).toMatch(
+          e.tipo === 'atlas' ? /ORIENTACIÓN, la misma en TODAS/ : /NUNCA de perfil/,
+        );
       }
     }
   });

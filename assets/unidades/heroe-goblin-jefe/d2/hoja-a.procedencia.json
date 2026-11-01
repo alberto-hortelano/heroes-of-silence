@@ -1,22 +1,23 @@
 {
-  "encargo": "heroe-goblin-jefe-d2-a",
+  "encargo": "heroe-goblin-jefe-v-todo-d2-a-reposo",
   "tipo": "atlas",
-  "fecha": "2026-10-10T18:45:17.493Z",
+  "fecha": "2026-11-01T12:35:30.431Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a12721-33fc-72f1-8964-8980283b9071",
-  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn jefe goblin: pequeño y astuto, corona torcida de latón, capa roja raída demasiado grande, muchos amuletos, daga envenenada en la derecha y una trampa de cepo colgando del cinto.\nEn la lámina de giro (imagen 2), la figura 3 en orden de lectura es la que mira hacia «derecha», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «derecha» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 112 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "hilo": "01a1971a-69e4-7151-91af-6d0f9b50fce1",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el MAPA DE PROFUNDIDAD del maniquí Y Bot (cámara ortográfica elevada 25 grados; más claro, más cerca; el negro es fondo) con su ESQUELETO dibujado encima: los huesos del lado IZQUIERDO del personaje en AZUL, los del DERECHO en ROJO, el tronco y la cabeza en BLANCO y el eje del arma en AMARILLO. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación siguiendo el esqueleto (dónde está cada codo, cada mano, cada rodilla y cada pie, y hacia dónde apunta el arma). El arma que se pinta es la del PERSONAJE (la de su identidad), por el eje amarillo. NO pintes el esqueleto, sus colores, el gris ni el fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía, la pose ni hacia dónde mira.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn jefe goblin: pequeño y astuto, corona torcida de latón, capa roja raída demasiado grande, muchos amuletos, daga envenenada en la derecha y una trampa de cepo colgando del cinto.\nLa imagen 2 es el personaje visto desde el lado «derecha» (su figura de la lámina de giro): mírala para saber qué se ve de él desde ese lado (la cara, el equipo, la capa, lo que lleva a la espalda), pero NO copies su postura ni hacia dónde mira, que está más vuelta hacia la cámara de la cuenta. La postura la da el maniquí, y hacia dónde mira, el maniquí y la ORIENTACIÓN escrita.\nEstilo: el de las imágenes del personaje —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\nLa imagen 2 puede enseñar al personaje en otra postura que la del maniquí (en guardia, con las piernas abiertas): esa POSTURA NO CUENTA, es solo para ver su aspecto desde ese lado. En cada celda el cuerpo adopta la postura del maniquí (imagen 1): si el maniquí está de pie con los pies juntos, el personaje también; si adelanta una pierna, la misma.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. El reposo es estar QUIETO: las siete figuras de la fila 1 son casi iguales, con el cuerpo, la cabeza y los pies mirando siempre hacia el mismo sitio y los pies plantados donde los tiene el maniquí; solo cambia lo poco que cambia el maniquí de una columna a otra (la respiración, un leve balanceo). Nunca gira el cuerpo ni la cabeza hacia otro lado ni cambia de postura a media fila. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo desde arriba la coronilla y los dos hombros, nunca a la altura de los ojos. La cámara no cambia hacia dónde mira el personaje: si mira de lado, se le ve de perfil, desde arriba.\nORIENTACIÓN, la misma en TODAS las celdas: DE PERFIL hacia la DERECHA de la imagen: girado 90 grados desde la cámara; la nariz, el pecho y las puntas de los pies apuntan al borde derecho; la cámara le ve el costado, con un solo ojo y sin el pecho de frente. Ni de tres cuartos ni de frente. Es la del maniquí de la imagen 1; el personaje no se vuelve hacia la cámara en ninguna celda.\nMisma escala en todas las celdas: la figura de pie ocupa unos 112 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
-      "ruta": "assets/unidades/_poses/unidades/heroe-goblin-jefe-8d/d2-a.profundidad.png",
-      "papel": "pose-profundidad",
-      "sha256": "4c7e0f5031b43350e34cf4af91a7b5e32815a9aae5f2569665c8537600c05c00"
+      "ruta": ".cache/taller/revision/heroe-goblin-jefe/d2/versiones/pose-esqueleto-a.png",
+      "papel": "pose-esqueleto",
+      "sha256": "2aaeca7ddd908094edcaeef1ad9e0f015b49032ed04850ded4393729760fe513"
     },
     {
       "ruta": "assets/unidades/heroe-goblin-jefe/giro.webp",
       "papel": "identidad",
+      "figura": 2,
       "sha256": "8a5f19255a6533af094915f6f37a510cb61c719f81837b72d469c7cf3c3875f5"
     },
     {
@@ -25,21 +26,23 @@
       "sha256": "13ef647d48bdd7763d313bcfb09ec5ab14cea6edef6f7151d23147622f87bd2d"
     }
   ],
+  "pose": "assets/unidades/_poses/unidades/heroe-goblin-jefe-8d/d2-a.profundidad.png",
+  "shaDeLaPose": "0c0d2822cc03dfd04ea971c9411fba1a96fa068800c2a32bb5c504a67423139e",
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a12721-33fc-72f1-8964-8980283b9071/exec-2d27cdb0-1d4e-4fb0-a2bd-89565cf8a910.png",
-    "sha256": "63afcf9366036f94e8edcbceaf13de352b8fb48a7e8b67ea2432726c7509106e",
+    "fichero": "~/.codex/generated_images/01a1971a-69e4-7151-91af-6d0f9b50fce1/exec-253cd362-0192-4e80-b030-d272bebd70e4.png",
+    "sha256": "c83bf5f698a2572b5192b617d88ced0eccdcf7be7ee21d1bc1f75d08fe063f7b",
     "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.5107, pies en y=342, reposo a 112 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "dirección completa: assets/unidades/heroe-goblin-jefe/d2/atlas.webp"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.4801, pies en y=342, reposo a 112 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.029826815166170636,
-    "opacos": 0.9345286430419766,
+    "visibles": 0.029504846643518517,
+    "opacos": 0.9323913138654174,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -51,18 +54,116 @@
       342
     ],
     "apoyoReposo": [
-      197,
-      281
+      195,
+      282
     ],
     "posicion": false
-  },
-  "salida": {
-    "ruta": "assets/unidades/heroe-goblin-jefe/d2/hoja-a.webp",
-    "sha256": "9608d5b5d7528a1d9de6193693f5fcc9ffb2bfcd82ec66ab3206e9669ed15dd6"
   },
   "ritmo": {
     "idle": 5,
     "walk": 6.5,
     "charge": 10.5
+  },
+  "encuadre": [
+    [
+      [
+        -1,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        -1
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ]
+    ],
+    [
+      [
+        1,
+        -3
+      ],
+      [
+        -1,
+        -3
+      ],
+      [
+        -1,
+        1
+      ],
+      [
+        0,
+        -3
+      ],
+      [
+        -1,
+        -2
+      ],
+      [
+        1,
+        -5
+      ],
+      [
+        1,
+        -5
+      ]
+    ],
+    [
+      [
+        3,
+        -5
+      ],
+      [
+        10,
+        -8
+      ],
+      [
+        -3,
+        -3
+      ],
+      [
+        -5,
+        -7
+      ],
+      [
+        -4,
+        0
+      ],
+      [
+        -1,
+        -5
+      ],
+      [
+        0,
+        -3
+      ]
+    ]
+  ],
+  "salida": {
+    "ruta": "assets/unidades/heroe-goblin-jefe/d2/hoja-a.webp",
+    "sha256": "4206a0ea4bc1355e3ffd5ee24c35dc9434ec2fbf901503f56f85fb156d459d20"
+  },
+  "eleccion": {
+    "version": "reposo",
+    "modo": "persona",
+    "motivo": "reposo repintado con la orientación por escrito (01-11-2026)",
+    "persona": "adoptar todas"
   }
 }

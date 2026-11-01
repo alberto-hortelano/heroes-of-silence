@@ -1,13 +1,13 @@
 {
-  "encargo": "elfo-jinete-d7-a",
+  "encargo": "elfo-jinete-v-todo-d7-a-reposo",
   "tipo": "atlas",
-  "fecha": "2026-10-05T10:57:17.649Z",
+  "fecha": "2026-11-01T12:20:31.707Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a10bb4-b1f6-7bc1-af06-b478c3603b6f",
-  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn jinete elfo A CABALLO, como el del concepto: caballo gris moteado esbelto con brida de hojas y gualdrapa verde musgo; el jinete con armadura ligera de escamas de hoja, capa verde al viento, lanza larga de hoja élfica para la carga, arco curvo y carcaj a la espalda y espada curva al cinto. Sin escudo. Jinete y caballo son UNA sola figura.\nEn la lámina de giro (imagen 2), la figura 8 en orden de lectura es la que mira hacia «frente-izquierda», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «frente-izquierda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "hilo": "01a1970c-c380-7471-a49d-5014604b4b08",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía, la pose ni hacia dónde mira.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn jinete elfo A CABALLO, como el del concepto: caballo gris moteado esbelto con brida de hojas y gualdrapa verde musgo; el jinete con armadura ligera de escamas de hoja, capa verde al viento, lanza larga de hoja élfica para la carga, arco curvo y carcaj a la espalda y espada curva al cinto. Sin escudo. Jinete y caballo son UNA sola figura.\nLa imagen 2 es el personaje visto desde el lado «frente-izquierda» (su figura de la lámina de giro): mírala para saber qué se ve de él desde ese lado (la cara, el equipo, la capa, lo que lleva a la espalda), pero NO copies su postura ni hacia dónde mira, que está más vuelta hacia la cámara de la cuenta. La postura la da el maniquí, y hacia dónde mira, el maniquí y la ORIENTACIÓN escrita.\nEstilo: el de las imágenes del personaje —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. El reposo es estar QUIETO: las siete figuras de la fila 1 son casi iguales, con el cuerpo, la cabeza y los pies mirando siempre hacia el mismo sitio y los pies plantados donde los tiene el maniquí; solo cambia lo poco que cambia el maniquí de una columna a otra (la respiración, un leve balanceo). Nunca gira el cuerpo ni la cabeza hacia otro lado ni cambia de postura a media fila. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo desde arriba la coronilla y los dos hombros, nunca a la altura de los ojos. La cámara no cambia hacia dónde mira el personaje: si mira de lado, se le ve de perfil, desde arriba.\nORIENTACIÓN, la misma en TODAS las celdas: DE TRES CUARTOS hacia la IZQUIERDA de la imagen: girado 45 grados desde la cámara hacia el borde izquierdo; la nariz, el pecho y las puntas de los pies apuntan abajo a la izquierda; se le ve el pecho y la cara de tres cuartos. Es la del maniquí de la imagen 1; el personaje no se vuelve hacia la cámara en ninguna celda.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
       "ruta": "assets/unidades/_poses/montado-arco-8d/d7-a.png",
@@ -17,6 +17,7 @@
     {
       "ruta": "assets/unidades/elfo-jinete/giro.webp",
       "papel": "identidad",
+      "figura": 7,
       "sha256": "79ab1a43750516d7364670c201a6b42872e176375d504d210641d34ca2393d11"
     },
     {
@@ -26,21 +27,21 @@
     }
   ],
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a10bb4-b1f6-7bc1-af06-b478c3603b6f/exec-dfbb2911-e345-4366-985e-e6d1154174b4.png",
-    "sha256": "5e094cbb69d6e3a41520fcde9b3d682bb59daa079700fa2acb784d12b5da7d97",
+    "fichero": "~/.codex/generated_images/01a1970c-c380-7471-a49d-5014604b4b08/exec-62d63f75-6606-44ee-b610-09b862567eb8.png",
+    "sha256": "b84bd45825d1409a9840757f312bcb487853876ad724f55b892e1bc9d4317cdf",
     "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 1.0145, pies en y=342, reposo a 160 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "media dirección: se junta con la otra hoja cuando esté"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.9183, pies en y=342, reposo a 160 px",
+    "sin recolocar el tronco (C1): no hay esqueleto (d7-a.huesos.json)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.09192055999917328,
-    "opacos": 0.9408513942221551,
-    "haloSuelto": 0.000014052888044154174,
+    "visibles": 0.08541950851521164,
+    "opacos": 0.9428750737217778,
+    "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
   },
@@ -51,13 +52,19 @@
       342
     ],
     "apoyoReposo": [
-      182,
-      315
+      187,
+      268
     ],
     "posicion": false
   },
   "salida": {
     "ruta": "assets/unidades/elfo-jinete/d7/hoja-a.webp",
-    "sha256": "da8df145c0cc5da33031bc2890ae9c3d57ddeb0b53a1ef26dd0259a797eabc64"
+    "sha256": "8b22fe578089146075bc0e6dfecf5e1a7560f12bed60e9730a1409d9a0b916f6"
+  },
+  "eleccion": {
+    "version": "reposo",
+    "modo": "persona",
+    "motivo": "reposo repintado con la orientación por escrito (01-11-2026)",
+    "persona": "adoptar todas"
   }
 }

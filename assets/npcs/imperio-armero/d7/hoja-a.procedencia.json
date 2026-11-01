@@ -1,40 +1,43 @@
 {
-  "encargo": "npc-imperio-armero-d7-a",
+  "encargo": "imperio-armero-v-todo-d7-a-reposo",
   "tipo": "atlas",
-  "fecha": "2026-10-22T19:27:47.224Z",
+  "fecha": "2026-11-01T12:46:43.177Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a16514-59d7-7993-baf1-c0334d3c4faa",
-  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn armero de una ciudad imperial: hombre de mediana edad, bigote espeso y castaño, gorro de fieltro rojo, camisa blanca con las mangas acuchilladas arremangadas, jubón de cuero sin mangas, mandil de cuero oscuro, calzas a rayas amarillas y negras, botas altas y una lima al cinto.\nEn la lámina de giro (imagen 2), la figura 8 en orden de lectura es la que mira hacia «frente-izquierda», como esta hoja: así se ve el personaje desde este lado.\nEs una persona de la villa, no un soldado en guardia: de pie y tranquila. El maniquí va con las manos vacías; si la descripción le pone algo en las manos (un martillo, un libro, un cayado), que sea pequeño y no cambie la pose. Estilo: ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «frente-izquierda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "hilo": "01a19724-a408-7003-a3a6-bcc00c7f71c7",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el MAPA DE PROFUNDIDAD del maniquí Y Bot (cámara ortográfica elevada 25 grados; más claro, más cerca; el negro es fondo) con su ESQUELETO dibujado encima: los huesos del lado IZQUIERDO del personaje en AZUL, los del DERECHO en ROJO, el tronco y la cabeza en BLANCO y el eje del arma en AMARILLO. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación siguiendo el esqueleto (dónde está cada codo, cada mano, cada rodilla y cada pie, y hacia dónde apunta el arma). El arma que se pinta es la del PERSONAJE (la de su identidad), por el eje amarillo. NO pintes el esqueleto, sus colores, el gris ni el fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía, la pose ni hacia dónde mira.\n\nUn armero de una ciudad imperial: hombre de mediana edad, bigote espeso y castaño, gorro de fieltro rojo, camisa blanca con las mangas acuchilladas arremangadas, jubón de cuero sin mangas, mandil de cuero oscuro, calzas a rayas amarillas y negras, botas altas y una lima al cinto.\nLa imagen 2 es el personaje visto desde el lado «frente-izquierda» (su figura de la lámina de giro): mírala para saber qué se ve de él desde ese lado (la cara, el equipo, la capa, lo que lleva a la espalda), pero NO copies su postura ni hacia dónde mira, que está más vuelta hacia la cámara de la cuenta. La postura la da el maniquí, y hacia dónde mira, el maniquí y la ORIENTACIÓN escrita.\nEs una persona de la villa, no un soldado en guardia: de pie y tranquila. El maniquí va con las manos vacías; si la descripción le pone algo en las manos (un martillo, un libro, un cayado), que sea pequeño y no cambie la pose. Estilo: ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara; nada de acabado de juguete, de dibujo animado ni de render 3D.\nLa imagen 2 puede enseñar al personaje en otra postura que la del maniquí (en guardia, con las piernas abiertas): esa POSTURA NO CUENTA, es solo para ver su aspecto desde ese lado. En cada celda el cuerpo adopta la postura del maniquí (imagen 1): si el maniquí está de pie con los pies juntos, el personaje también; si adelanta una pierna, la misma.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. El reposo es estar QUIETO: las siete figuras de la fila 1 son casi iguales, con el cuerpo, la cabeza y los pies mirando siempre hacia el mismo sitio y los pies plantados donde los tiene el maniquí; solo cambia lo poco que cambia el maniquí de una columna a otra (la respiración, un leve balanceo). Nunca gira el cuerpo ni la cabeza hacia otro lado ni cambia de postura a media fila. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo desde arriba la coronilla y los dos hombros, nunca a la altura de los ojos. La cámara no cambia hacia dónde mira el personaje: si mira de lado, se le ve de perfil, desde arriba.\nORIENTACIÓN, la misma en TODAS las celdas: DE TRES CUARTOS hacia la IZQUIERDA de la imagen: girado 45 grados desde la cámara hacia el borde izquierdo; la nariz, el pecho y las puntas de los pies apuntan abajo a la izquierda; se le ve el pecho y la cara de tres cuartos. Es la del maniquí de la imagen 1; el personaje no se vuelve hacia la cámara en ninguna celda.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
-      "ruta": "assets/unidades/_poses/gente/civil-8d/d7-a.profundidad.png",
-      "papel": "pose-profundidad",
-      "sha256": "c4b6b31db9fcac459099a1cc567e4d029054c5e1b9020dbd1811440a44e3799f"
+      "ruta": ".cache/taller/revision/imperio-armero/d7/versiones/pose-esqueleto-a.png",
+      "papel": "pose-esqueleto",
+      "sha256": "00f339ec581f2b4c225dc38630666519641f923a5f6aca90fdc7daf713cf9e8a"
     },
     {
       "ruta": "assets/npcs/imperio-armero/giro.webp",
       "papel": "identidad",
+      "figura": 7,
       "sha256": "64f4e9ff81e1fed621db0722882b1e52f793648c959a7343aa68bcce21a5262e"
     }
   ],
+  "pose": "assets/unidades/_poses/gente/civil-8d/d7-a.profundidad.png",
+  "shaDeLaPose": "c4b6b31db9fcac459099a1cc567e4d029054c5e1b9020dbd1811440a44e3799f",
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a16514-59d7-7993-baf1-c0334d3c4faa/exec-46e96655-1380-4b7a-a10b-e3b4ea750176.png",
-    "sha256": "02e2281fc1a4ddf2102a83ed87807ff257492851ec1351429ab6db89a0918be5",
+    "fichero": "~/.codex/generated_images/01a19724-a408-7003-a3a6-bcc00c7f71c7/exec-222fc662-212a-4b77-a56c-9d613867c7a9.png",
+    "sha256": "5454d79c174abe0da0573c4fc911aaf82a898e721be95fcb9bf63ba72f67f960",
     "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7234, pies en y=342, reposo a 160 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "dirección completa: assets/npcs/imperio-armero/d7/atlas.webp"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7506, pies en y=342, reposo a 160 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.04002614500661376,
-    "opacos": 0.9571177305880075,
+    "visibles": 0.04069527116402116,
+    "opacos": 0.9552675850685627,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -51,8 +54,106 @@
     ],
     "posicion": false
   },
+  "encuadre": [
+    [
+      [
+        1,
+        0
+      ],
+      [
+        -2,
+        0
+      ],
+      [
+        -1,
+        1
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        -1,
+        0
+      ],
+      [
+        -1,
+        1
+      ],
+      [
+        2,
+        -1
+      ]
+    ],
+    [
+      [
+        -2,
+        -4
+      ],
+      [
+        -1,
+        -3
+      ],
+      [
+        -1,
+        0
+      ],
+      [
+        -1,
+        1
+      ],
+      [
+        -2,
+        -7
+      ],
+      [
+        3,
+        -13
+      ],
+      [
+        3,
+        -4
+      ]
+    ],
+    [
+      [
+        2,
+        -7
+      ],
+      [
+        -1,
+        -1
+      ],
+      [
+        1,
+        1
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        -4,
+        -19
+      ],
+      [
+        0,
+        -8
+      ],
+      [
+        2,
+        0
+      ]
+    ]
+  ],
   "salida": {
     "ruta": "assets/npcs/imperio-armero/d7/hoja-a.webp",
-    "sha256": "a0c4163afd6c2fa9733a9cccdce1a80ad11403c2ccdf28fe7073bc9555b93aef"
+    "sha256": "45f06c6a4d500b090559e4e1358036cf1e1f89ff96fb8578a85cbebfdf6d896f"
+  },
+  "eleccion": {
+    "version": "reposo",
+    "modo": "persona",
+    "motivo": "reposo repintado con la orientación por escrito (01-11-2026)",
+    "persona": "adoptar todas"
   }
 }

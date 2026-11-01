@@ -1,22 +1,23 @@
 {
-  "encargo": "elfo-asesino-d3-a",
+  "encargo": "elfo-asesino-v-todo-d3-a-reposo",
   "tipo": "atlas",
-  "fecha": "2026-10-10T17:22:40.437Z",
+  "fecha": "2026-11-01T12:19:08.652Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a126d5-7475-7bd1-aa77-84f16c68495c",
-  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn asesino elfo: armadura de cuero oscuro ceñida y capa de jirones de hoja, capucha y máscara de tela sobre la cara, solo los ojos ámbar a la vista, una daga curva con brillo verde de veneno en cada mano, frascos al cinto, botas blandas. Agazapado.\nEn la lámina de giro (imagen 2), la figura 4 en orden de lectura es la que mira hacia «espalda-derecha», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «espalda-derecha» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "hilo": "01a1970b-5f30-7201-9615-ee83a11a59bf",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el MAPA DE PROFUNDIDAD del maniquí Y Bot (cámara ortográfica elevada 25 grados; más claro, más cerca; el negro es fondo) con su ESQUELETO dibujado encima: los huesos del lado IZQUIERDO del personaje en AZUL, los del DERECHO en ROJO, el tronco y la cabeza en BLANCO y el eje del arma en AMARILLO. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación siguiendo el esqueleto (dónde está cada codo, cada mano, cada rodilla y cada pie, y hacia dónde apunta el arma). El arma que se pinta es la del PERSONAJE (la de su identidad), por el eje amarillo. NO pintes el esqueleto, sus colores, el gris ni el fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía, la pose ni hacia dónde mira.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn asesino elfo: armadura de cuero oscuro ceñida y capa de jirones de hoja, capucha y máscara de tela sobre la cara, solo los ojos ámbar a la vista, una daga curva con brillo verde de veneno en cada mano, frascos al cinto, botas blandas. Agazapado.\nLa imagen 2 es el personaje visto desde el lado «espalda-derecha» (su figura de la lámina de giro): mírala para saber qué se ve de él desde ese lado (la cara, el equipo, la capa, lo que lleva a la espalda), pero NO copies su postura ni hacia dónde mira, que está más vuelta hacia la cámara de la cuenta. La postura la da el maniquí, y hacia dónde mira, el maniquí y la ORIENTACIÓN escrita.\nEstilo: el de las imágenes del personaje —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\nLa imagen 2 puede enseñar al personaje en otra postura que la del maniquí (en guardia, con las piernas abiertas): esa POSTURA NO CUENTA, es solo para ver su aspecto desde ese lado. En cada celda el cuerpo adopta la postura del maniquí (imagen 1): si el maniquí está de pie con los pies juntos, el personaje también; si adelanta una pierna, la misma.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. El reposo es estar QUIETO: las siete figuras de la fila 1 son casi iguales, con el cuerpo, la cabeza y los pies mirando siempre hacia el mismo sitio y los pies plantados donde los tiene el maniquí; solo cambia lo poco que cambia el maniquí de una columna a otra (la respiración, un leve balanceo). Nunca gira el cuerpo ni la cabeza hacia otro lado ni cambia de postura a media fila. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo desde arriba la coronilla y los dos hombros, nunca a la altura de los ojos. La cámara no cambia hacia dónde mira el personaje: si mira de lado, se le ve de perfil, desde arriba.\nORIENTACIÓN, la misma en TODAS las celdas: DE TRES CUARTOS DE ESPALDAS hacia la DERECHA de la imagen: girado 135 grados desde la cámara; el pecho y la nariz apuntan arriba a la derecha, hacia el fondo; la cámara ve más espalda que pecho, y de la cara apenas la mejilla y la oreja. Es la del maniquí de la imagen 1; el personaje no se vuelve hacia la cámara en ninguna celda.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
-      "ruta": "assets/unidades/_poses/unidades/elfo-asesino-8d/d3-a.profundidad.png",
-      "papel": "pose-profundidad",
-      "sha256": "3e27479eb62c8e94787a367ba4f7c8b6f77cd8fe0f3e068ddbfcb98ca5827db1"
+      "ruta": ".cache/taller/revision/elfo-asesino/d3/versiones/pose-esqueleto-a.png",
+      "papel": "pose-esqueleto",
+      "sha256": "fb42f27ca9bb0805436408811321d4fb53d9c5ede764fbf37866d3669935dbc3"
     },
     {
       "ruta": "assets/unidades/elfo-asesino/giro.webp",
       "papel": "identidad",
+      "figura": 3,
       "sha256": "6ce13c0e01a39da4206d9dae43faef775f7543d22d18104fd5b71714535ad833"
     },
     {
@@ -25,21 +26,23 @@
       "sha256": "70877379e0847f46ad199a838ae0ce3adc44e282e7767f1771f668891e558fa2"
     }
   ],
+  "pose": "assets/unidades/_poses/unidades/elfo-asesino-8d/d3-a.profundidad.png",
+  "shaDeLaPose": "10a65c2bc8eb041c41b6575cf96b8ab8eaadbc6a26b2724ddf2a060c53081a97",
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a126d5-7475-7bd1-aa77-84f16c68495c/exec-ac3fb49f-3a21-4c6e-b07e-2d702723d983.png",
-    "sha256": "e1225fa57a19c2cb24560ea1a8fae0d837d10219b32bf792715afab299e387b9",
+    "fichero": "~/.codex/generated_images/01a1970b-5f30-7201-9615-ee83a11a59bf/exec-7a92f2da-99a8-4b37-a4ee-8353b15a411b.png",
+    "sha256": "244c58d89b8cb3777260b68cdf2f7fc659ba68e1391233ef7fa0c4926b9afcc0",
     "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.8556, pies en y=342, reposo a 160 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "dirección completa: assets/unidades/elfo-asesino/d3/atlas.webp"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.9361, pies en y=342, reposo a 160 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.04695185908564815,
-    "opacos": 0.9376779695990095,
+    "visibles": 0.0529836826223545,
+    "opacos": 0.9394763146987835,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -52,17 +55,115 @@
     ],
     "apoyoReposo": [
       198,
-      280
+      290
     ],
     "posicion": false
-  },
-  "salida": {
-    "ruta": "assets/unidades/elfo-asesino/d3/hoja-a.webp",
-    "sha256": "ab7d55032f14923b256d9d5f4018177feeaa0d6ca2680dcac75e83c33cd19d46"
   },
   "ritmo": {
     "idle": 5,
     "walk": 6.5,
     "charge": 10.5
+  },
+  "encuadre": [
+    [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        -1,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        -1
+      ],
+      [
+        0,
+        -1
+      ]
+    ],
+    [
+      [
+        0,
+        -14
+      ],
+      [
+        -1,
+        -9
+      ],
+      [
+        -1,
+        -1
+      ],
+      [
+        -1,
+        -2
+      ],
+      [
+        -1,
+        -8
+      ],
+      [
+        2,
+        -8
+      ],
+      [
+        0,
+        0
+      ]
+    ],
+    [
+      [
+        3,
+        -17
+      ],
+      [
+        -2,
+        -5
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        -1,
+        -23
+      ],
+      [
+        -2,
+        -12
+      ],
+      [
+        -2,
+        -9
+      ],
+      [
+        4,
+        -20
+      ]
+    ]
+  ],
+  "salida": {
+    "ruta": "assets/unidades/elfo-asesino/d3/hoja-a.webp",
+    "sha256": "a8fa68fc34e5b235b9bf9eef0d576569036497c48b5ceed33f1510e429bb3c72"
+  },
+  "eleccion": {
+    "version": "reposo",
+    "modo": "persona",
+    "motivo": "reposo repintado con la orientación por escrito (01-11-2026)",
+    "persona": "adoptar todas"
   }
 }

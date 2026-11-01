@@ -143,7 +143,7 @@ import {
   partirIconos,
   recorteSuave,
 } from './efectos-proceso.js';
-import { baseEnCelda, empaquetar, recortarAlContenido } from './empaquetar.js';
+import { baseEnCelda, empaquetar, figuraDeLaLamina, recortarAlContenido } from './empaquetar.js';
 import {
   alturaDelReposo,
   type Encargo,
@@ -267,7 +267,8 @@ async function procesar(
         const png = join(temporal, `ref-${i + 1}-${r.papel}.png`);
         // La pose en color sobre verde y la profundidad sobre negro (`fondoDeReferencia`).
         const fondo = fondoDeReferencia(r.papel);
-        await (fondo === null ? sharp(bytes) : sharp(bytes).flatten({ background: fondo }))
+        const imagen = r.figura === undefined ? bytes : await figuraDeLaLamina(bytes, r.figura);
+        await (fondo === null ? sharp(imagen) : sharp(imagen).flatten({ background: fondo }))
           .png()
           .toFile(png);
         return { ...r, sha256: sha256(bytes), png };
@@ -537,7 +538,12 @@ async function postprocesar(
       hilo: gen.hilo,
       ...(encargo.reanudar ? { reanuda: encargo.reanudar.hilo } : {}),
       prompt,
-      referencias: referencias.map((r) => ({ ruta: r.ruta, papel: r.papel, sha256: r.sha256 })),
+      referencias: referencias.map((r) => ({
+        ruta: r.ruta,
+        papel: r.papel,
+        ...(r.figura === undefined ? {} : { figura: r.figura }),
+        sha256: r.sha256,
+      })),
       // La hoja del maniquí de una edición, que no es su primera referencia (`poseDeLaProcedencia`).
       // Con su sha: así se sabe si su maniquí cambió (`hojasSobreOtroManiqui`).
       ...(encargo.ocho?.pose === undefined

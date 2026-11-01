@@ -1,22 +1,23 @@
 {
-  "encargo": "imperio-rodelero-d2-a",
+  "encargo": "imperio-rodelero-v-todo-d2-a-reposo",
   "tipo": "atlas",
-  "fecha": "2026-10-10T21:03:48.894Z",
+  "fecha": "2026-11-01T12:48:14.950Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a1279f-f76e-7253-888d-766e8960b921",
-  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn rodelero: morrión con pluma roja, peto de acero, ropa acuchillada roja y negra, rodela de acero redonda en el brazo izquierdo y espada ropera en la derecha.\nEn la lámina de giro (imagen 2), la figura 3 en orden de lectura es la que mira hacia «derecha», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «derecha» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "hilo": "01a19725-fe00-7432-93cf-cf37716b0846",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el MAPA DE PROFUNDIDAD del maniquí Y Bot (cámara ortográfica elevada 25 grados; más claro, más cerca; el negro es fondo) con su ESQUELETO dibujado encima: los huesos del lado IZQUIERDO del personaje en AZUL, los del DERECHO en ROJO, el tronco y la cabeza en BLANCO y el eje del arma en AMARILLO. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación siguiendo el esqueleto (dónde está cada codo, cada mano, cada rodilla y cada pie, y hacia dónde apunta el arma). El arma que se pinta es la del PERSONAJE (la de su identidad), por el eje amarillo. NO pintes el esqueleto, sus colores, el gris ni el fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía, la pose ni hacia dónde mira.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn rodelero: morrión con pluma roja, peto de acero, ropa acuchillada roja y negra, rodela de acero redonda en el brazo izquierdo y espada ropera en la derecha.\nLa imagen 2 es el personaje visto desde el lado «derecha» (su figura de la lámina de giro): mírala para saber qué se ve de él desde ese lado (la cara, el equipo, la capa, lo que lleva a la espalda), pero NO copies su postura ni hacia dónde mira, que está más vuelta hacia la cámara de la cuenta. La postura la da el maniquí, y hacia dónde mira, el maniquí y la ORIENTACIÓN escrita.\nEstilo: el de las imágenes del personaje —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\nLa imagen 2 puede enseñar al personaje en otra postura que la del maniquí (en guardia, con las piernas abiertas): esa POSTURA NO CUENTA, es solo para ver su aspecto desde ese lado. En cada celda el cuerpo adopta la postura del maniquí (imagen 1): si el maniquí está de pie con los pies juntos, el personaje también; si adelanta una pierna, la misma.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. El reposo es estar QUIETO: las siete figuras de la fila 1 son casi iguales, con el cuerpo, la cabeza y los pies mirando siempre hacia el mismo sitio y los pies plantados donde los tiene el maniquí; solo cambia lo poco que cambia el maniquí de una columna a otra (la respiración, un leve balanceo). Nunca gira el cuerpo ni la cabeza hacia otro lado ni cambia de postura a media fila. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo desde arriba la coronilla y los dos hombros, nunca a la altura de los ojos. La cámara no cambia hacia dónde mira el personaje: si mira de lado, se le ve de perfil, desde arriba.\nORIENTACIÓN, la misma en TODAS las celdas: DE PERFIL hacia la DERECHA de la imagen: girado 90 grados desde la cámara; la nariz, el pecho y las puntas de los pies apuntan al borde derecho; la cámara le ve el costado, con un solo ojo y sin el pecho de frente. Ni de tres cuartos ni de frente. Es la del maniquí de la imagen 1; el personaje no se vuelve hacia la cámara en ninguna celda.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
-      "ruta": "assets/unidades/_poses/unidades/imperio-rodelero-8d/d2-a.profundidad.png",
-      "papel": "pose-profundidad",
-      "sha256": "ca90d01535b7beac0b3115fce1dfebfcd4eef5ced962fd27da3ad580b869794b"
+      "ruta": ".cache/taller/revision/imperio-rodelero/d2/versiones/pose-esqueleto-a.png",
+      "papel": "pose-esqueleto",
+      "sha256": "a5b4235ba6bde9c2646081988b11887f6660077add234e345b5cb09c179b1497"
     },
     {
       "ruta": "assets/unidades/imperio-rodelero/giro.webp",
       "papel": "identidad",
+      "figura": 2,
       "sha256": "cee4a229550cfed8e1514d4d2e5dc90cb4e4be6deb7b6864ad1b44b4998a731a"
     },
     {
@@ -25,21 +26,23 @@
       "sha256": "2f0053280ce460ed9f4d2b8a0eee758be0bfb1d359d5038a88f3a500aa45a3f5"
     }
   ],
+  "pose": "assets/unidades/_poses/unidades/imperio-rodelero-8d/d2-a.profundidad.png",
+  "shaDeLaPose": "feaa57c3c16997406eb6008f9670a9e5c7f25e422b29b7c85ec525b349be5643",
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a1279f-f76e-7253-888d-766e8960b921/exec-45b98ed5-f935-4225-8dba-f55487f08c6d.png",
-    "sha256": "6c715979c1ce4a2e06ad931b1cd6671b401a684c44e31d91d315443aa71bdfbe",
+    "fichero": "~/.codex/generated_images/01a19725-fe00-7432-93cf-cf37716b0846/exec-31462cda-a346-4341-9658-bf4911888d8a.png",
+    "sha256": "e7e17a43851c7756204d41f5c6ef5f7fbf22994c61e1bb333ba00995da516462",
     "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.8584, pies en y=342, reposo a 160 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "dirección completa: assets/unidades/imperio-rodelero/d2/atlas.webp"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7922, pies en y=342, reposo a 160 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.05031492848875661,
-    "opacos": 0.9470809478575646,
+    "visibles": 0.051685474537037035,
+    "opacos": 0.9434607117864641,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -51,18 +54,116 @@
       342
     ],
     "apoyoReposo": [
-      201,
-      282
+      192,
+      280
     ],
     "posicion": false
-  },
-  "salida": {
-    "ruta": "assets/unidades/imperio-rodelero/d2/hoja-a.webp",
-    "sha256": "8bb697c5b6c2b91287517fb87b861fbea8334d9c3dbf18ea47215b0a11c8579c"
   },
   "ritmo": {
     "idle": 5,
     "walk": 6.5,
     "charge": 10.5
+  },
+  "encuadre": [
+    [
+      [
+        0,
+        -1
+      ],
+      [
+        -1,
+        0
+      ],
+      [
+        1,
+        1
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ]
+    ],
+    [
+      [
+        -1,
+        -7
+      ],
+      [
+        1,
+        -6
+      ],
+      [
+        -1,
+        0
+      ],
+      [
+        -1,
+        -2
+      ],
+      [
+        2,
+        -5
+      ],
+      [
+        2,
+        -3
+      ],
+      [
+        1,
+        -4
+      ]
+    ],
+    [
+      [
+        -2,
+        -5
+      ],
+      [
+        -4,
+        -1
+      ],
+      [
+        3,
+        0
+      ],
+      [
+        -4,
+        -2
+      ],
+      [
+        0,
+        -5
+      ],
+      [
+        1,
+        -9
+      ],
+      [
+        6,
+        -1
+      ]
+    ]
+  ],
+  "salida": {
+    "ruta": "assets/unidades/imperio-rodelero/d2/hoja-a.webp",
+    "sha256": "c4aff0c55c3ed39c711a73362dc6b83af746fa4a96970710b214da3ac66e196d"
+  },
+  "eleccion": {
+    "version": "reposo",
+    "modo": "persona",
+    "motivo": "reposo repintado con la orientación por escrito (01-11-2026)",
+    "persona": "adoptar todas"
   }
 }

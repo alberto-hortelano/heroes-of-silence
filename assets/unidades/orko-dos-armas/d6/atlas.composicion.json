@@ -1,10 +1,10 @@
 {
   "atlas": "atlas.webp",
-  "sha256": "2b2847575edee8b8fb3b48326f7ad587d9dd330aa516e14cda6e36819820edcb",
+  "sha256": "a7e888889841d41443f69b65f0757494a943d4287710006ed498c088c48f8ad0",
   "hojas": [
     {
       "imagen": "hoja-a.webp",
-      "sha256": "44835758d39f085330702bf476f6e321d5abdf02c5898babc47305c3418dc156",
+      "sha256": "ddbf1e25a3f9922228250d00c487a54b5110e22e0d0d858eaea6ecbeeb76245b",
       "filas": [
         "idle",
         "walk",
