@@ -279,39 +279,48 @@ export function rectaLibre(
 export type PasoPermitido = (desde: number, hasta: number) => boolean;
 
 /**
- * La recta del disparo (`lineaDeTiro`) es la de las casillas que cruza el segmento
- * entre los dos centros, en cúbicas y con **aritmética entera** (sin coma flotante
- * en `core`): el punto `i` de `N` es `a·N + (b − a)·i`, en unidades de `1/N`, y se
- * redondea a la casilla con el redondeo cúbico de siempre —redondear las tres y
- * corregir la que más se desvió—. Para que un segmento que va justo por el borde de
- * dos casillas no dependa del orden de las cuentas, los tres ejes llevan un empujón
- * de `+3, −1, −2` en unidades de `1/(N·EMPUJON)`: suma cero, así que el punto sigue
- * en el plano, y con él nunca hay empate (un medio exacto pediría que
- * `N·EMPUJON/2 ≡ 3, 1 o 2` módulo `EMPUJON`, y con 1 000 nunca pasa; y como los tres
- * son distintos en valor absoluto, tampoco empatan los desvíos al corregir).
+ * La recta del disparo (`lineaDeTiro`) es la **recta geométrica** que pasa por el
+ * centro de la casilla del tirador y por el centro exacto de la apuntada, y sigue
+ * hasta el borde del tablero (01-11-2026, decisión del usuario: «la línea de tiro
+ * tiene que pasar exactamente por el centro de la casilla seleccionada»). Da en
+ * toda casilla cuyo hexágono atraviesa, también las que roza por una esquina, y en
+ * el orden en que entra en ellas. Todo en **enteros** (sin coma flotante en `core`):
+ * en axiales `(q, r)`, el producto vectorial del plano es `u.q·v.r − u.r·v.q` por
+ * √3/2 y el escalar, `(2·u.q·v.q + u.q·v.r + u.r·v.q + 2·u.r·v.r) / 2`, y los
+ * vértices de un hexágono, su centro por 3 más `VERTICES` (las esquinas, en
+ * tercios). Lo que solo toca un vértice no cuenta: la recta no entra.
  *
- * El espejo del tablero cambia `q` por `s`, y con `r` ENTRE los otros dos el empujón
- * espejado cae al otro lado en todo empate de borde (con el `+1, +2, −3` de antes,
- * `r` fuera, solo en los bordes verticales: QA de /simplify, 12-10-2026). Por eso el
- * defensor tira con el espejo: un disparo y su espejo van espejados. Hasta el
- * disparo diferido (25-10-2026) el tiro pasaba si pasaba con cualquiera de los dos
- * (`lineaLibre`, generosa); la recta de hoy es una sola, la del bando que tira.
+ * Un empate: la recta que va justo por el lado entre dos casillas (las direcciones
+ * de esquina, como `(2, −1, −1)`) no entra en ninguna de las dos, y se decide con un
+ * empujón infinitesimal de la recta, `+3, −1, −2` en cúbicas, en la que queda a ese
+ * lado (si la otra cae fuera del tablero, esa). El espejo del tablero cambia `q` por
+ * `s`: el defensor empuja con el espejo, así que un disparo y su espejo van
+ * espejados. Si la recta va justo por el empujón, el otro de los dos.
  */
 type Empujon = readonly [number, number, number];
 
-/** El empujón de la recta, en `(q, r, s)`: `r` entre los otros dos (ver arriba). */
+/** El empujón de la recta, en `(q, r, s)` (ver arriba). */
 const EMPUJON_DEL_RAYO: Empujon = [3, -1, -2];
 /** Su espejo: el espejo del tablero cambia `q` por `s`. */
 const ESPEJO_DEL_EMPUJON: Empujon = [EMPUJON_DEL_RAYO[2], EMPUJON_DEL_RAYO[1], EMPUJON_DEL_RAYO[0]];
 
+/** Las seis esquinas de un hexágono desde su centro, en axiales y en tercios, en orden. */
+const VERTICES: readonly (readonly [number, number])[] = [
+  [2, -1],
+  [1, 1],
+  [-1, 2],
+  [-2, 1],
+  [-1, -1],
+  [1, -2],
+];
+
 /**
- * Las casillas por las que va el disparo diferido de `desde` a `hasta`, en orden:
- * sin `desde` y con `hasta`, que es la última (el disparo no sigue más allá). Es
- * la recta de `lineaLibre`, pero un solo rayo: el del atacante con su empujón y
- * el del defensor con el espejo, así que un disparo y su espejo van espejados
- * (25-10-2026). Si en un empate de borde ese rayo cae fuera del tablero, va el
- * otro: el disparo no sale por el marco. La leen el disparo, la IA y lo que se
- * pinta (`lineaDelDisparo`, `battle.ts`).
+ * Las casillas por las que va el disparo diferido de `desde` hacia `hasta`, en
+ * orden: sin `desde`, con `hasta` y, tras ella, las que siguen por la misma recta
+ * hasta el borde del tablero (01-11-2026, decisión del usuario: «no debe acabar en
+ * la casilla apuntada, en las siguientes también da»). La recta es la de los dos
+ * centros (ver arriba) y el empate, del bando que tira. La leen el disparo, la IA y
+ * lo que se pinta (`lineaDelDisparo`, `battle.ts`).
  */
 export function lineaDeTiro(desde: Hex, hasta: Hex, side: Side): readonly Hex[] {
   // Geometría pura de las dos casillas y el bando: se recuerda por el par
@@ -332,59 +341,101 @@ const RECTAS_DE_TIRO: Readonly<Record<Side, Map<number, readonly Hex[]>>> = {
   defender: new Map(),
 };
 
+/** Una fracción `n / d` con `d > 0`. */
+interface Fraccion {
+  readonly n: number;
+  readonly d: number;
+}
+
 function trazarLaRecta(desde: Hex, hasta: Hex, side: Side): Hex[] {
-  const n = hexDistance(desde, hasta);
-  if (n === 0) return [];
   const a = toCube(desde);
   const b = toCube(hasta);
-  const rayo = ([eq, er, es]: Empujon): Hex[] | null => {
-    const d = n * EMPUJON;
-    const out: Hex[] = [];
-    for (let i = 1; i < n; i++) {
-      const q = (a.q * n + (b.q - a.q) * i) * EMPUJON + eq;
-      const r = (a.r * n + (b.r - a.r) * i) * EMPUJON + er;
-      const sx = (a.s * n + (b.s - a.s) * i) * EMPUJON + es;
-      const h = deCubo(redondeoCubico(q, r, sx, d));
-      if (!isInside(h)) return null;
-      out.push(h);
-    }
-    // Una copia: la recta se recuerda y la casilla pedida es de quien la pidió.
-    out.push({ col: hasta.col, row: hasta.row });
-    return out;
-  };
+  const dq = b.q - a.q;
+  const dr = b.r - a.r;
+  if (dq === 0 && dr === 0) return [];
+  const cruz = (uq: number, ur: number): number => dq * ur - dr * uq;
+  const escalar = (uq: number, ur: number): number => 2 * dq * uq + dq * ur + dr * uq + 2 * dr * ur;
+  // Hacia qué lado se empuja la recta en un empate: el signo de su producto vectorial.
   const [primero, segundo] =
     side === 'attacker'
       ? [EMPUJON_DEL_RAYO, ESPEJO_DEL_EMPUJON]
       : [ESPEJO_DEL_EMPUJON, EMPUJON_DEL_RAYO];
-  const linea = rayo(primero) ?? rayo(segundo);
-  if (linea === null) {
-    throw new Error(
-      `la recta de (${desde.col},${desde.row}) a (${hasta.col},${hasta.row}) sale del tablero por los dos lados`,
-    );
+  const lado = Math.sign(cruz(primero[0], primero[1])) || Math.sign(cruz(segundo[0], segundo[1]));
+  const cruzadas: { readonly h: Hex; readonly entra: Fraccion }[] = [];
+  for (const h of TODAS_LAS_CASILLAS) {
+    const c = toCube(h);
+    if (c.q === a.q && c.r === a.r) continue;
+    // Las esquinas desde el centro del tirador, en tercios: a qué lado de la recta
+    // (`s`) y cuánto a lo largo (`t`, proporcional).
+    const s: number[] = [];
+    const t: number[] = [];
+    for (const [vq, vr] of VERTICES) {
+      const uq = 3 * (c.q - a.q) + vq;
+      const ur = 3 * (c.r - a.r) + vr;
+      s.push(cruz(uq, ur));
+      t.push(escalar(uq, ur));
+    }
+    const mas = s.some((x) => x > 0);
+    const menos = s.some((x) => x < 0);
+    const ceros = s.filter((x) => x === 0).length;
+    if (!(mas && menos)) {
+      // Solo la toca: por una esquina, nunca; por un lado entero, la del empate.
+      if (ceros !== 2) continue;
+      const suyo = mas ? 1 : -1;
+      if (suyo !== lado) {
+        const [o1, o2] = VERTICES.filter((_, i) => s[i] === 0) as [
+          readonly [number, number],
+          readonly [number, number],
+        ];
+        // La del otro lado de ese lado: la vecina hacia el medio de sus dos esquinas.
+        const q = c.q + (o1[0] + o2[0]) / 3;
+        const r = c.r + (o1[1] + o2[1]) / 3;
+        if (isInside(deCubo({ q, r, s: -q - r }))) continue;
+      }
+    }
+    // Dónde entra: el menor `t` de los puntos en que la recta corta su contorno.
+    let entra: Fraccion | null = null;
+    for (let i = 0; i < VERTICES.length; i++) {
+      const j = (i + 1) % VERTICES.length;
+      const si = s[i] as number;
+      const sj = s[j] as number;
+      let corte: Fraccion | null = null;
+      if (si === 0) corte = { n: t[i] as number, d: 1 };
+      else if (si * sj < 0) {
+        const n = si * (t[j] as number) - sj * (t[i] as number);
+        const d = si - sj;
+        corte = d > 0 ? { n, d } : { n: -n, d: -d };
+      }
+      if (corte !== null && (entra === null || corte.n * entra.d < entra.n * corte.d))
+        entra = corte;
+    }
+    if (entra === null || entra.n <= 0) continue;
+    cruzadas.push({ h, entra });
   }
-  return linea;
+  cruzadas.sort((x, y) => x.entra.n * y.entra.d - y.entra.n * x.entra.d);
+  // Copias: la recta se recuerda y la casilla pedida es de quien la pidió.
+  return cruzadas.map(({ h }) => ({ col: h.col, row: h.row }));
 }
 
-/** El empujón de la recta, en milésimas de casilla por paso. */
-const EMPUJON = 1000;
-
-/** El entero más cercano a `x / d` (d > 0, sin empates: los quita el empujón). */
-function divRedondeo(x: number, d: number): number {
-  return Math.floor((2 * x + d) / (2 * d));
-}
-
-/** El redondeo cúbico de `(q, r, s) / d`: se corrige el eje que más se desvió. */
-function redondeoCubico(q: number, r: number, s: number, d: number): Cube {
-  let rq = divRedondeo(q, d);
-  let rr = divRedondeo(r, d);
-  let rs = divRedondeo(s, d);
-  const dq = Math.abs(rq * d - q);
-  const dr = Math.abs(rr * d - r);
-  const ds = Math.abs(rs * d - s);
-  if (dq > dr && dq > ds) rq = -rr - rs;
-  else if (dr > ds) rr = -rq - rs;
-  else rs = -rq - rr;
-  return { q: rq, r: rr, s: rs };
+/**
+ * A cuántos octavos de casilla (la distancia entre dos centros) pasa la recta de
+ * `desde` a `hasta` del centro de `h`, truncado: 0 si pasa a menos de 1/8, 1 a
+ * menos de 2/8… Con la distancia al cuadrado, `(3/4)·c² / L` (`c` el producto
+ * vectorial en axiales y `L` el largo al cuadrado), en enteros: pasa a menos de
+ * `k/8` si `48·c² < k²·L`. Lo lee la tirada del disparo (`cuartoDelDisparo`).
+ */
+export function octavosHastaLaRecta(desde: Hex, hasta: Hex, h: Hex): number {
+  const a = toCube(desde);
+  const b = toCube(hasta);
+  const p = toCube(h);
+  const dq = b.q - a.q;
+  const dr = b.r - a.r;
+  const largo = dq * dq + dq * dr + dr * dr;
+  if (largo === 0) throw new Error('la recta de una casilla a sí misma no tiene dirección');
+  const c = dq * (p.r - a.r) - dr * (p.q - a.q);
+  let k = 0;
+  while (48 * c * c >= (k + 1) * (k + 1) * largo) k++;
+  return k;
 }
 
 /** La inversa de `toCube`: de cúbicas a odd-r. */

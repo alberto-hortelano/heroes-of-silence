@@ -1281,11 +1281,19 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   0 sin terminar; j0 gana 10 de 20 (8 antes); duración 4 / 8 / 9 → **4 / 6 / 8**,
  *   días 87 → 79; batallas 96 → 89, `troop_rank_up` 260 → 280, `dismissed` 92 → 111;
  *   ningún tipo de hecho nuevo ni perdido. La forma del diff, no una medida.
+ * - `e48a2f0f…` (3 635 líneas, 20 semillas, 01-11-2026): **el disparo diferido va por
+ *   la recta geométrica de los dos centros, sigue tras la casilla y su tirada es por
+ *   lo lejos que pasa la recta del centro de la casilla del alcanzado** (decisión del
+ *   usuario). Contra `d9649d99…`, cambian 8 (s4, s10, s11, s12, s14, s15, s16, s20),
+ *   todas en una batalla con tiradores: el primer hecho distinto es su resumen
+ *   (`battle_ended`, otras bajas, 6) o lo que sigue a ella (`troop_rank_up`, s11;
+ *   `town_captured`, s16). Nadie cambia de ganador; duración 4 / 6 / 8 → **4 / 6 / 7**
+ *   (s11, 8 → 7 días). La forma del diff, no una medida.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'd9649d99af7f8590ce0dcf07f85f9cd0560a344c88f0275c008b1ded2a8b0f17',
+  sha: 'e48a2f0f868d90e534eebf79aeff9fa8c196a0379323ed5c7ae99634deb648e0',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

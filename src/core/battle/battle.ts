@@ -43,6 +43,7 @@ import {
   isInside,
   lineaDeTiro,
   neighbours,
+  octavosHastaLaRecta,
   type Paso,
   type PasoPermitido,
   quedanCasillas,
@@ -1112,20 +1113,37 @@ export interface LineaDelDisparo {
   readonly at: Hex;
   /**
    * Las casillas de la recta hasta donde llega, en orden y sin la del tirador: hasta
-   * la del alcanzado, hasta antes del muro o la puerta que la para, o hasta `at`.
+   * la del alcanzado, hasta antes del muro o la puerta que la para, o hasta el borde
+   * del tablero (la recta sigue tras `at`).
    */
   readonly casillas: readonly Hex[];
   /** El primero de la recta, de cualquier bando; `null` si no da a nadie. */
   readonly alcanzado: BattleStack | null;
-  /** Lo que paró la recta antes de `at` sin dar a nadie, o `null`. */
+  /** Lo que paró la recta antes del borde sin dar a nadie, o `null`. */
   readonly parada: 'muro' | 'puerta' | null;
+  /**
+   * Las casillas en que el disparo daría a quien estuviera en ella, en orden y sin
+   * mirar quién hay: la recta hasta el borde, o hasta lo que la para (el muro, el suyo
+   * incluido, que a quien está en él le da; la puerta cerrada, antes de ella). Cada
+   * una con el cuarto de la horquilla en que caería su tirada (`cuartoDelDisparo`):
+   * lo que pinta el tablero al apuntar, porque al salir el disparo ya se habrán
+   * movido todos.
+   */
+  readonly alcance: readonly CasillaDelAlcance[];
+}
+
+/** Una casilla del alcance de un disparo diferido y el cuarto de su tirada (0 a 4). */
+export interface CasillaDelAlcance {
+  readonly hex: Hex;
+  readonly cuarto: number;
 }
 
 /**
  * Por dónde va el disparo diferido de `s` a `at` ahora y a quién da: **el primer
  * vivo de la recta que no es el tirador, sea del bando que sea** (25-10-2026,
  * decisión del usuario: «da al primero que se encuentre en esa línea, aunque sea de
- * tu equipo»), sin pasar de `at`. La recta es la de `lineaDeTiro` (un rayo, el del
+ * tu equipo»), también tras `at` (01-11-2026: la recta sigue hasta el borde). La
+ * recta es la de `lineaDeTiro` (un rayo, el del
  * bando del tirador). En el suelo la para un muro (sin nadie arriba: a quien está
  * en él le da) o el lado de una puerta cerrada; desde lo alto de la muralla pasa
  * por encima de todo, como el tiro de antes. La única regla: la leen el disparo
@@ -1136,23 +1154,31 @@ export function lineaDelDisparo(state: BattleState, s: BattleStack, at: Hex): Li
   const libre = enLoAlto(state, s) || !hayMuralla(state.muralla);
   // El lado de una puerta cerrada, con la misma regla que el paso al andar.
   const porPuertas = libre ? undefined : pasoPorPuertas(state.muralla, state.puertas);
-  const casillas: Hex[] = [];
+  // Se anda la recta entera para el alcance; lo de hoy (`casillas`, `alcanzado`,
+  // `parada`) se decide en la primera casilla que la corta.
+  const alcance: CasillaDelAlcance[] = [];
+  let alcanzado: BattleStack | null = null;
+  let parada: LineaDelDisparo['parada'] = null;
+  let hasta = 0;
   let antes = s.hex;
   for (const h of recta) {
-    if (porPuertas?.(indiceDe(antes), indiceDe(h)) === false)
-      return { desde: s.hex, at, casillas, alcanzado: null, parada: 'puerta' };
-    const quien = state.stacks.find((x) => isAlive(x) && hexEquals(x.hex, h)) ?? null;
-    if (quien !== null && quien.id !== s.id) {
-      casillas.push(h);
-      return { desde: s.hex, at, casillas, alcanzado: quien, parada: null };
+    if (porPuertas?.(indiceDe(antes), indiceDe(h)) === false) {
+      if (alcanzado === null && parada === null) parada = 'puerta';
+      break;
     }
-    if (!libre && esMuro(state.muralla, h)) {
-      return { desde: s.hex, at, casillas, alcanzado: null, parada: 'muro' };
+    alcance.push({ hex: h, cuarto: cuartoDelDisparo(octavosHastaLaRecta(s.hex, at, h)) });
+    const muro = !libre && esMuro(state.muralla, h);
+    if (alcanzado === null && parada === null) {
+      const quien = state.stacks.find((x) => isAlive(x) && hexEquals(x.hex, h)) ?? null;
+      if (quien !== null && quien.id !== s.id) alcanzado = quien;
+      else if (muro) parada = 'muro';
+      if (parada === null) hasta = alcance.length;
     }
-    casillas.push(h);
+    if (muro) break;
     antes = h;
   }
-  return { desde: s.hex, at, casillas, alcanzado: null, parada: null };
+  const casillas = alcance.slice(0, hasta).map((c) => c.hex);
+  return { desde: s.hex, at, casillas, alcanzado, parada, alcance };
 }
 
 /**
@@ -2652,7 +2678,8 @@ function conElGolpe(
 /**
  * Las opciones del daño del disparo diferido de `shooter` que alcanza a
  * `alcanzado` habiendo apuntado a `at`: a distancia y con la tirada en el cuarto
- * de su distancia a la casilla apuntada (`cuartoDelDisparo`), con lo alto de un
+ * de lo lejos que pasa la recta del centro de su casilla (`cuartoDelDisparo`,
+ * `octavosHastaLaRecta`), con lo alto de un
  * muro como todo golpe (`opcionesDeDanio`). La leen el disparo, su previsión y la
  * IA.
  */
@@ -2662,12 +2689,19 @@ export function opcionesDelDisparo(
   alcanzado: BattleStack,
   at: Hex,
 ): DamageOptions {
-  return opcionesDeDanio(state, shooter, alcanzado, extraDelDisparo(alcanzado, at));
+  return opcionesDeDanio(state, shooter, alcanzado, extraDelDisparo(shooter, alcanzado, at));
 }
 
 /** Lo que trae el disparo diferido a sus opciones (`opcionesDelDisparo`). */
-function extraDelDisparo(alcanzado: BattleStack, at: Hex): Omit<DamageOptions, ExtraDelEstado> {
-  return { ranged: true, cuarto: cuartoDelDisparo(hexDistance(alcanzado.hex, at)) };
+function extraDelDisparo(
+  shooter: BattleStack,
+  alcanzado: BattleStack,
+  at: Hex,
+): Omit<DamageOptions, ExtraDelEstado> {
+  return {
+    ranged: true,
+    cuarto: cuartoDelDisparo(octavosHastaLaRecta(shooter.hex, at, alcanzado.hex)),
+  };
 }
 
 function opcionesDelEstado(
@@ -2782,8 +2816,8 @@ function healFromDrain(s: BattleStack, damage: number): void {
 /**
  * Sale el disparo diferido de `shooter` (lo que apuntó en su turno anterior,
  * `BattleStack.apuntado`) y se borra: desde donde está ahora, por la recta, al
- * primero que encuentre (`lineaDelDisparo`), con la tirada en el cuarto que da su
- * distancia a la casilla apuntada (`cuartoDelDisparo`); ataque contra defensa,
+ * primero que encuentre (`lineaDelDisparo`), con la tirada en el cuarto que da lo
+ * lejos que pasa la recta del centro de su casilla (`cuartoDelDisparo`); ataque contra defensa,
  * suerte y armadura como siempre. Con `double_shot`, dos tiros, y cada uno busca
  * su primero (el segundo, si el primero cayó, sigue la recta). Lo llama solo el
  * principio de su turno (`advance`). **Regla nuestra sin validar por el usuario** (25-10-2026: sin tests hasta
@@ -3202,7 +3236,7 @@ export function previsionDe(state: BattleState, accion: BattleAction): Prevision
         s,
         alcanzado,
         'disparo',
-        extraDelDisparo(alcanzado, accion.at),
+        extraDelDisparo(s, alcanzado, accion.at),
       );
     }
     case 'cast': {

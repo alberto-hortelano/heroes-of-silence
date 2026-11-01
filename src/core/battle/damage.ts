@@ -179,9 +179,9 @@ export interface DamageOptions {
   readonly ranged?: boolean;
   /**
    * El disparo diferido (25-10-2026, regla nuestra): en qué cuarto de la horquilla
-   * cae su tirada, `max(0, 4 − d)` con `d` la distancia del alcanzado a la casilla
-   * apuntada (`cuartoDelDisparo`): en ella, la máxima; a 4 o más, la mínima. Fija:
-   * no gasta `rng.int`.
+   * cae su tirada, `max(0, 4 − o)` con `o` los octavos de casilla a que pasa la
+   * recta del centro de la casilla del alcanzado (`cuartoDelDisparo`): por el
+   * centro, la máxima; a media casilla o más, la mínima. Fija: no gasta `rng.int`.
    */
   readonly cuarto?: number;
   readonly chargeHexes?: number;
@@ -215,29 +215,33 @@ export interface CruceDelGolpe {
 }
 
 /**
- * Las casillas en que el disparo diferido pasa de la tirada máxima a la mínima:
- * una por cuarto de la horquilla (`tiradaEnCuartos`), así que no se cambia sin ella.
+ * Los octavos de casilla en que el disparo diferido pasa de la tirada máxima a la
+ * mínima: uno por cuarto de la horquilla (`tiradaEnCuartos`), así que no se cambia
+ * sin ella. Con 4, a media casilla del centro (el radio del círculo inscrito) ya es
+ * la mínima: inventado, 01-11-2026.
  */
 const CAIDA_DEL_DISPARO = 4;
 
 /**
- * En qué cuarto de la horquilla cae el disparo diferido que alcanza a quien está
- * a `d` casillas de la casilla apuntada: 4 en ella, uno menos por casilla, 0 a 4 o
- * más (`CAIDA_DEL_DISPARO`; 25-10-2026, decisión del usuario: «cuanto más cerca de
- * la casilla elegida más daño»). La única cuenta: la lee `opcionesDelDisparo`.
+ * En qué cuarto de la horquilla cae el disparo diferido que alcanza a quien está en
+ * una casilla cuyo centro deja la recta a `octavos` octavos de casilla
+ * (`octavosHastaLaRecta`, `board.ts`): 4 por el centro, uno menos por octavo, 0 a
+ * media casilla o más (`CAIDA_DEL_DISPARO`; 01-11-2026, decisión del usuario: «que
+ * sea por la distancia de la línea de tiro al centro de la primera casilla donde hay
+ * alguien»; antes, por la distancia a la casilla apuntada). La única cuenta: la leen
+ * `opcionesDelDisparo` y el alcance que se pinta.
  */
-export function cuartoDelDisparo(d: number): number {
-  return Math.max(0, CAIDA_DEL_DISPARO - d);
+export function cuartoDelDisparo(octavos: number): number {
+  return Math.max(0, CAIDA_DEL_DISPARO - octavos);
 }
 
 /** Cómo dice la previsión dónde cae la tirada del disparo diferido. */
 function dichoDelCuarto(cuarto: number): string {
-  if (cuarto === CAIDA_DEL_DISPARO) return 'en la casilla apuntada: la tirada máxima';
-  if (cuarto === 0) {
-    return `a ${CAIDA_DEL_DISPARO} casillas o más de la casilla apuntada: la tirada mínima`;
-  }
-  const d = CAIDA_DEL_DISPARO - cuarto;
-  return `a ${d} ${d === 1 ? 'casilla' : 'casillas'} de la casilla apuntada: la tirada en el cuarto ${cuarto} de 4`;
+  if (cuarto === CAIDA_DEL_DISPARO)
+    return 'la recta pasa por el centro de su casilla: la tirada máxima';
+  if (cuarto === 0) return 'la recta pasa a media casilla o más de su centro: la tirada mínima';
+  const o = CAIDA_DEL_DISPARO - cuarto;
+  return `la recta pasa a ${o}/8 de casilla de su centro: la tirada en el cuarto ${cuarto} de 4`;
 }
 
 /** La tirada en el cuarto `c` (de 0 a 4) de la horquilla `[min, max]`, en enteros. */

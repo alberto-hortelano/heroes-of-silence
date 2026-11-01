@@ -20,7 +20,7 @@ import {
   lineaDelDisparo,
   stackHexes,
 } from '@core/battle/battle.js';
-import { allHexes, hexKey, indiceDe } from '@core/battle/board.js';
+import { allHexes, hexEquals, hexKey, indiceDe } from '@core/battle/board.js';
 import {
   type EstadoDePuerta,
   hayMuralla,
@@ -434,6 +434,19 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
 }
 
 /** Una recta del disparo diferido que se pinta, de qué bando y si se tantea. */
+/**
+ * El color de cada cuarto de la tirada del disparo diferido (`cuartoDelDisparo`),
+ * del 0, la mínima, al 4, la máxima: el calor del cruce de la rueda
+ * (`--info-calor-*` de `style.css`), que el lienzo no lee de la hoja.
+ */
+const CALOR_DEL_DISPARO: readonly string[] = [
+  '#86aed0',
+  '#9fc49a',
+  '#cbb780',
+  '#e8975f',
+  '#f2593a',
+];
+
 interface LineaPintada {
   readonly l: LineaDelDisparo;
   readonly side: Side;
@@ -472,11 +485,14 @@ let rectasApuntadas: {
 
 /**
  * Los disparos diferidos en el suelo (25-10-2026): de cada tirador con algo
- * apuntado (`BattleStack.apuntado`), la recta de hoy hasta donde llega
+ * apuntado (`BattleStack.apuntado`), cada casilla en que daría teñida por el daño
+ * que haría ahí (01-11-2026, petición del usuario: «un gradiente de color de más a
+ * menos daño»), la recta de hoy hasta donde llega
  * (`lineaDelDisparo`, la regla del núcleo), en el color de su bando y a trazos, la
  * casilla apuntada con su diana y, si da a alguien, su casilla en rojo. El que se
  * tantea con el puntero (`VistaBatalla.tanteo`), igual y más tenue. Lo que no
- * llega (tras un muro o tras el alcanzado) va en gris, hasta la casilla apuntada.
+ * llega va en gris: tras el alcanzado, hasta el borde (la recta sigue tras la
+ * casilla apuntada, 01-11-2026); tras un muro o una puerta, hasta la casilla.
  */
 function pintarDisparos(ctx: CanvasRenderingContext2D, v: VistaBatalla): void {
   const { battle, tablero } = v;
@@ -491,19 +507,33 @@ function pintarDisparos(ctx: CanvasRenderingContext2D, v: VistaBatalla): void {
   for (const { l, side, tanteo } of lineas) {
     const color = colorDelBando(v, side);
     ctx.globalAlpha = tanteo ? 0.55 : 0.9;
-    // Las casillas por las que pasa, tenues.
-    for (const h of l.casillas) {
-      ctx.fillStyle = `${color}33`;
-      ctx.fill((casillas[indiceDe(h)] as CasillaPintada).camino);
+    // Todas las casillas en que daría, del frío de la tirada mínima al rojo de la
+    // máxima (`LineaDelDisparo.alcance`): al salir el disparo ya se habrán movido.
+    for (const { hex, cuarto } of l.alcance) {
+      ctx.fillStyle = `${CALOR_DEL_DISPARO[cuarto] as string}${tanteo ? '55' : '80'}`;
+      ctx.fill((casillas[indiceDe(hex)] as CasillaPintada).camino);
     }
     const desde = centroHex(tablero, l.desde);
     const hasta = centroHex(tablero, l.at);
+    // Todo va por la recta exacta de los dos centros (la del núcleo): una casilla se
+    // marca en ella por el pie de su centro, no por su centro, que puede quedar a un lado.
+    const ux = hasta.x - desde.x;
+    const uy = hasta.y - desde.y;
+    const sobreLaRecta = (h: Hex): { x: number; y: number } => {
+      const c = centroHex(tablero, h);
+      const t = ((c.x - desde.x) * ux + (c.y - desde.y) * uy) / (ux * ux + uy * uy);
+      return { x: desde.x + t * ux, y: desde.y + t * uy };
+    };
     const ultima = l.casillas.at(-1);
-    const corte = ultima === undefined ? desde : centroHex(tablero, ultima);
+    const corte = ultima === undefined ? desde : sobreLaRecta(ultima);
+    // Hasta dónde seguiría sin nadie: el borde, o la casilla si algo para la recta antes.
+    const final = l.alcance.at(-1)?.hex;
+    const pasaLaCasilla = l.alcance.some((c) => hexEquals(c.hex, l.at));
+    const fin = final !== undefined && pasaLaCasilla ? sobreLaRecta(final) : hasta;
     const grueso = Math.max(2.5, tablero.paso * 0.045);
     ctx.lineCap = 'round';
     // Hasta donde llega, del color del bando sobre un filo oscuro (sobre el suelo
-    // claro, sola, se perdía); de ahí a la casilla, en gris.
+    // claro, sola, se perdía); de ahí a donde acabaría, en gris.
     ctx.beginPath();
     ctx.moveTo(desde.x, desde.y);
     ctx.lineTo(corte.x, corte.y);
@@ -519,7 +549,7 @@ function pintarDisparos(ctx: CanvasRenderingContext2D, v: VistaBatalla): void {
       ctx.lineWidth = grueso * 0.7;
       ctx.beginPath();
       ctx.moveTo(corte.x, corte.y);
-      ctx.lineTo(hasta.x, hasta.y);
+      ctx.lineTo(fin.x, fin.y);
       ctx.stroke();
     }
     ctx.setLineDash([]);

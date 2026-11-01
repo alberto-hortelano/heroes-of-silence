@@ -766,13 +766,16 @@ Notas:
   las de los enemigos, pero vale cualquier otra). Apuntar CIERRA su turno, y su
   stack lleva "aimedAt" con la casilla (lo ves también en los del rival). Al
   EMPEZAR su siguiente turno, antes de que elijas nada, sale el disparo desde
-  donde esté, en línea recta hacia esa casilla, y da al PRIMERO que encuentre en
-  la recta, sea del bando que sea —también a uno tuyo que se haya puesto en
-  medio—; no sigue más allá de la casilla, y si no hay nadie no da a nadie. En
-  el suelo lo para un muro o una puerta cerrada; desde lo alto, no. El daño va
-  por la horquilla de su arma de distancia según lo cerca que esté el alcanzado
-  de la casilla apuntada: en ella, el máximo; cada casilla de distancia baja un
-  cuarto de la horquilla; a 4 o más, el mínimo; luego ataque contra defensa,
+  donde esté, por la recta exacta que une el centro de su casilla con el de la
+  apuntada, y da al PRIMERO que encuentre en una casilla que la recta atraviese
+  (aunque solo le roce una esquina), sea del bando que sea —también a uno tuyo
+  que se haya puesto en medio—; la recta no acaba en la casilla: sigue tras ella
+  hasta el borde del tablero, y si no hay nadie no da a nadie. En el suelo lo
+  para un muro o una puerta cerrada; desde lo alto, no. El daño va por la
+  horquilla de su arma de distancia según lo cerca que pase la recta del centro
+  de la casilla del alcanzado: por el centro, el máximo; cada octavo de casilla
+  de separación baja un cuarto de la horquilla; a media casilla o más, el
+  mínimo (apuntar justo a su casilla es el máximo); luego ataque contra defensa,
   suerte y armadura. Con "double_shot", dos tiros por la misma recta. Si el
   tirador muere antes, el disparo se pierde. Tras el disparo, su turno sigue:
   puede apuntar otra vez o actuar como siempre. El registro lo cuenta con
