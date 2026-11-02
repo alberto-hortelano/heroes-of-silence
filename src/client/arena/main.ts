@@ -1177,11 +1177,24 @@ function conCampoDePieza(
     case 'manos':
     case 'lanza':
     case 'guerra':
+    case 'tiro':
+    case 'recarga':
+    case 'cargas':
       if (esPiezaConBase(p)) {
         throw new Error(
-          `«${p.nombre}» está sobre otra: su hueco, sus manos y si es una lanza o de guerra son los de su base`,
+          `«${p.nombre}» está sobre otra: su hueco, sus manos, si es una lanza o de guerra y lo que tira son los de su base`,
         );
       }
+      // Lo que tira (02-11-2026): con él, lo que exige (`enElHueco` pone su agilidad,
+      // su recarga o sus cargas); sin él, un arco o una ballesta, sin nada de eso.
+      if (campo === 'tiro') {
+        const { tiro: _t, recarga: _r, cargas: _c, agilidad: _a, ...sin } = p;
+        return valor === 'fuego' || valor === 'granada'
+          ? enElHueco({ ...sin, tiro: valor }, p.hueco)
+          : sin;
+      }
+      if (campo === 'recarga') return { ...p, recarga: n };
+      if (campo === 'cargas') return { ...p, cargas: n };
       if (campo === 'manos') return { ...p, manos: n };
       if (campo === 'lanza') {
         const { lanza: _antes, ...sin } = p;

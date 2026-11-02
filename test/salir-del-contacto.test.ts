@@ -377,6 +377,7 @@ describe('el panel', () => {
       hechizos: NADA,
       poderes: NADA,
       muralla: NADA,
+      modo: 'cuerpo' as const,
     };
     const con = marcadoDe(accionesDeLaUnidad({ ...base, sinSalida: 'Rodeado: no sale.' }));
     expect(con).toContain('<p class="cost" data-sin-salida>Rodeado: no sale.</p>');
@@ -401,6 +402,7 @@ describe('el panel', () => {
         hechizos: NADA,
         poderes: NADA,
         muralla: NADA,
+        modo: 'cuerpo',
         trasLaFinta: true,
       }),
     );
@@ -422,6 +424,7 @@ describe('el panel', () => {
           hechizos: NADA,
           poderes: NADA,
           muralla: NADA,
+          modo: 'cuerpo',
         }),
       );
     expect(ayuda(CARGA)).toContain('(de 3 a 5, +5 % cada una)');

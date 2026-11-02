@@ -5570,3 +5570,33 @@ mitad, con 1/24 por punto).
 - `pnpm capturas`, en su pasada de poderes, ya no apunta Bendecir sobre un aliado: mira que Curar
   sale apagado en el primer turno del monje y lo usa luego sobre el único herido. El gesto de apuntar
   un poder con varios aliados posibles lo cubre `session.test.ts` con Curar y dos heridos.
+
+## Armas de fuego y granadas (02-11-2026)
+
+Petición del usuario: «Como podrian funcionar las armas de fuego? Y las granadas? Me gustaria
+evitar meter un factor aleatorio». Ningún dado nuevo: la incertidumbre la pone lo que hace el rival
+al verlo venir (el disparo diferido ya caía en un cuarto fijo de la horquilla). Ciclo en
+`docs/agents/2026-11-02-armas-de-fuego-y-granadas/`.
+
+- **Las armas de fuego** (pistola, arcabuz, culebrina) son el disparo diferido con dos reglas
+  más: perforan la armadura entera («Nada, fija») y recargan unos turnos tras disparar, contando el
+  del disparo («Cuenta ese turno»). Su horquilla es la de su propia agilidad («Agilidad del arma»),
+  dentro de `cifrasDelCuerpo`, que sigue siendo la única cuenta.
+- **La granada** no se dispara: se lanza por encima a una casilla a la fuerza del cuerpo («Fuerza.
+  Mira las caracteristicas de los humanos en general»; el plan proponía la mitad), explota al empezar
+  el siguiente turno de quien la lanzó en la casilla (cuarto 4) y en sus vecinas (cuarto 2), a los
+  dos bandos, y se gasta: vuelve la munición, solo para ella. Es su propia jugada (`throw`) y no un
+  `aim` con otra forma: lo que lee `aim` es el disparo diferido, que no tiene tests (decisión del
+  usuario), y así no se toca.
+- **`isShooter` se mudó a `battle/armas.ts`**: con la granada, «dispara» ya no es «algo en
+  distancia», y saber si es granada es leer `UnitInfo.armas`, que solo leen `hero/equipo.ts`,
+  `battle/armas.ts` y `battle/damage.ts` (el guardia de «cada arma para lo suyo»). En `data.ts` el
+  guardia salía rojo; la respuesta no era ensanchar el guardia sino llevar la pregunta a donde se
+  leen las armas.
+- **Las cifras**, a ojo y ya en la escala que baja a los humanos a fuerza 3 y agilidad 3 (otro
+  checkout, sin fusionar): fuerza de pieza 1 a 3, peso 0 a 1. Con las cifras de hoy (humanos a
+  fuerza 6) el disparo del arcabuz y la culebrina pesa menos que su daga en el índice de poder: el
+  arcabucero y el artillero bajan de 271 a 216 y el granadero de 306 a 258 (nivel 3 → 2). Se
+  reancló `TABLA_DEL_CATALOGO` sin recalibrar.
+- **El banco** (`421344c3…`): cambian las 6 semillas con el imperio en juego, y en las seis el
+  primer hecho distinto es el resumen de la batalla contra una guarnición imperial.

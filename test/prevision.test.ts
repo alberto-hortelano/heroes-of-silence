@@ -424,6 +424,7 @@ describe('la previsión de daño cae en el daño real', () => {
             continue;
           }
           if (p.kind === 'poder') throw new Error(`${que}: este barrido no monta poderes`);
+          if (p.kind === 'granada') throw new Error(`${que}: este barrido no lanza granadas`);
           const golpes = golpesDe(nuevo);
           const mios = golpes.filter((g) => !g.retaliation);
           expect(mios.length, que).toBeGreaterThan(0);

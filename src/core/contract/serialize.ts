@@ -7,10 +7,19 @@
  */
 
 import { fuerzaDe, MARGEN_CONTRA_NEUTRALES, poderDe } from '../ai/fuerza.js';
-import { armaduraDe, golpeDe, ruedaDelGolpe } from '../battle/armas.js';
+import {
+  armaduraDe,
+  cargasDe,
+  golpeDe,
+  isShooter,
+  lanzaGranadas,
+  recargaDe,
+  ruedaDelGolpe,
+} from '../battle/armas.js';
 import {
   activeStack,
   casillasDeCarga,
+  granadasQueQuedan,
   legalActionsAndCosts,
   pasosQueQuedan,
   previsionDeLaRueda,
@@ -20,6 +29,7 @@ import {
 } from '../battle/battle.js';
 import { type Paso, tableroDelContrato } from '../battle/board.js';
 import { stackHp } from '../battle/damage.js';
+import { alcanceDeLaGranada } from '../battle/granada.js';
 import { type CifrasDeLaRueda, efectoDeGolpe, formaDeLaBatalla } from '../battle/rueda.js';
 import {
   type BattleStack,
@@ -36,14 +46,7 @@ import {
   unidadesDeFaccion,
 } from '../catalogo.js';
 import { agilidadDe, marchaDe } from '../cuerpo.js';
-import {
-  ASALTANTES,
-  EQUIPO,
-  isShooter,
-  LIDERAZGO,
-  NIVEL_POR_SUELO,
-  tiposDeHeroe,
-} from '../data.js';
+import { ASALTANTES, EQUIPO, LIDERAZGO, NIVEL_POR_SUELO, tiposDeHeroe } from '../data.js';
 import type { VeteranoEnBase } from '../hero/ascenso.js';
 import { cifrasDePieza, deDondeSale, PIEZAS_DE_ARMERIA, seVende } from '../hero/equipo.js';
 import {
@@ -949,6 +952,14 @@ function stackView(s: BattleStack) {
     // La casilla a la que apuntó (el disparo diferido): sale al empezar su
     // siguiente turno. Solo si apuntó; se ve en los dos bandos.
     ...(s.apuntado === null ? {} : { aimedAt: s.apuntado }),
+    // El arma de fuego que recarga: los turnos que le faltan para volver a apuntar.
+    ...(s.recargando > 0 ? { reloading: s.recargando } : {}),
+    // Quien lleva granada: las que le quedan y su alcance; la que está en el aire,
+    // en los dos bandos, como `aimedAt`.
+    ...(lanzaGranadas(info)
+      ? { grenades: granadasQueQuedan(s), grenadeRange: alcanceDeLaGranada(info) }
+      : {}),
+    ...(s.granada === null ? {} : { grenadeAt: s.granada }),
     ...marcaDelOrigen(s.origen),
   };
 }
@@ -1104,6 +1115,8 @@ export function fichaDeCriatura(c: UnidadDelJuego) {
     // Montado de guerra y con lanza, la horquilla del golpe de carga (la fuerza de
     // la montura más la de la lanza, por la agilidad del jinete).
     ...chargeDamageDe(c),
+    // Lo que tira su arma a distancia si no es un arco ni una ballesta (02-11-2026).
+    ...tiroDe(c),
     ...(c.traits === undefined ? {} : { traits: c.traits }),
     leadership: c.leadership,
     cost: c.oro,
@@ -1114,6 +1127,22 @@ export function fichaDeCriatura(c: UnidadDelJuego) {
     level: nivelDeUnidad(c),
     powerIndex: indiceDePoder(c),
   };
+}
+
+/**
+ * De la ficha, lo que tira a distancia: un arma de fuego con su recarga
+ * (`reload`: solo la lleva un arma de fuego, y lo dice) o una granada con sus cargas
+ * por batalla y su alcance (`grenadeCharges`, `grenadeRange`); nada con un arco, una
+ * ballesta o sin arma a distancia.
+ */
+function tiroDe(c: UnidadDelJuego): {
+  reload?: number;
+  grenadeCharges?: number;
+  grenadeRange?: number;
+} {
+  if (recargaDe(c) > 0) return { reload: recargaDe(c) };
+  if (cargasDe(c) > 0) return { grenadeCharges: cargasDe(c), grenadeRange: alcanceDeLaGranada(c) };
+  return {};
 }
 
 /** `chargeDamage` de la ficha, solo si carga montada (`GolpeConArma.carga`). */

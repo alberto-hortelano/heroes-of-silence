@@ -35,6 +35,7 @@ import {
   createBattle,
   despliegueBlocker,
   type HeroeDelBando,
+  loADistanciaTrasElRetoque,
   mandoDe,
   quienNoEscala,
   type StackDeBatalla,
@@ -276,8 +277,23 @@ function primeraBaseQue(
  * pieza nueva en blanco (`piezaNueva`) y el cambio de hueco de la ficha.
  */
 export function enElHueco(p: Pieza, hueco: HuecoDePieza): Pieza {
-  const { manos, rueda, fuerza, agilidad, armadura, lanza, guerra, ...resto } = p;
+  const {
+    manos,
+    rueda,
+    fuerza,
+    agilidad,
+    armadura,
+    lanza,
+    guerra,
+    tiro,
+    recarga,
+    cargas,
+    ...resto
+  } = p;
   const montura = hueco === 'montura';
+  // Lo que tira va con la pieza a distancia; la agilidad de un arma de fuego, con su tiro.
+  const aDistancia = hueco === 'distancia';
+  const fuego = aDistancia && tiro === 'fuego';
   const campos = camposDelHueco(hueco);
   const admite = (c: CifraDePieza): boolean => campos.cifras.includes(c);
   return {
@@ -298,6 +314,9 @@ export function enElHueco(p: Pieza, hueco: HuecoDePieza): Pieza {
     // Ser una lanza va con el arma de cuerpo a cuerpo, como las manos.
     ...(campos.conManos && lanza !== undefined ? { lanza } : {}),
     ...(montura && guerra !== undefined ? { guerra } : {}),
+    ...(aDistancia && tiro !== undefined ? { tiro } : {}),
+    ...(fuego ? { agilidad: agilidad ?? 1, recarga: recarga ?? 1 } : {}),
+    ...(aDistancia && tiro === 'granada' ? { cargas: cargas ?? 1 } : {}),
     // Un arma de cuerpo a cuerpo dice su rueda: la que trae o, si no traía, la de
     // la Espada («todo a 3, como la Espada»).
     ...(campos.conRueda ? { rueda: rueda ?? nivelesDeLaEspada() } : {}),
@@ -1383,8 +1402,10 @@ function conCifrasNuevas(
   const i = state.stacks.indexOf(s);
   if (i < 0) throw new Error(`${s.id} no está en esta batalla`);
   const { gastadoDeMas: debe, ...resto } = s;
+  // Con otra clase de tiro, lo pendiente a distancia no vale (`loADistanciaTrasElRetoque`).
+  const aDistancia = loADistanciaTrasElRetoque(s, unit);
   if (s.count === 0) {
-    state.stacks[i] = { ...s, unit, origen };
+    state.stacks[i] = { ...s, ...aDistancia, unit, origen };
     return;
   }
   const herida = s.unit.hp - s.topHp + (debe ?? 0);
@@ -1392,6 +1413,7 @@ function conCifrasNuevas(
   const deMas = herida - (unit.hp - topHp);
   state.stacks[i] = {
     ...resto,
+    ...aDistancia,
     unit,
     origen,
     topHp,

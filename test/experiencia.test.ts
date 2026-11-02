@@ -169,7 +169,7 @@ describe('la experiencia se gana por daño × índice de poder del que lo recibe
     const recibe = stackById(b, 'defender-0');
     const indice = indiceDePoder(recibe.unit);
     recibe.topHp = 50;
-    expect(herir(recibe, 70, autor).muertos).toBe(1);
+    expect(herir(recibe, { damage: 70, perfora: false }, autor).muertos).toBe(1);
     // Lo quitado, no lo tirado: el sobrante no existe para nadie. Y por el
     // índice entero, no por su primera cifra (el nivel).
     expect(autor.ganado.experiencia).toBe(50 * indice);
@@ -198,7 +198,7 @@ describe('la experiencia se gana por daño × índice de poder del que lo recibe
     const autor = stackById(b, 'attacker-0');
     // Lo que quita de verdad, tras su armadura (`herir` la resta).
     const antes = stackHp(stackById(b, 'defender-1'));
-    herir(stackById(b, 'defender-1'), 30, autor);
+    herir(stackById(b, 'defender-1'), { damage: 30, perfora: false }, autor);
     const quitado = antes - stackHp(stackById(b, 'defender-1'));
     expect(quitado).toBeGreaterThan(0);
     expect(autor.ganado.experiencia).toBe(quitado * indiceDePoder(veterano4));
@@ -226,7 +226,7 @@ describe('la experiencia se gana por daño × índice de poder del que lo recibe
     const aliado = stackById(b, 'attacker-1');
     const antes = stackHp(aliado);
     // Lo que hace `splash` con cada vecino del objetivo, también los suyos.
-    herir(aliado, 30, tirador);
+    herir(aliado, { damage: 30, perfora: false }, tirador);
     expect(stackHp(aliado)).toBeLessThan(antes);
     expect(tirador.ganado).toEqual({ experiencia: 0, bajas: 0, heroes: [] });
   });

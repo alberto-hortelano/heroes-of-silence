@@ -223,6 +223,25 @@ export interface BattleStack {
    * antes o la batalla acaba, se pierde. Viaja al espectador con el stack.
    */
   apuntado: Hex | null;
+  /**
+   * Los turnos que le faltan para volver a apuntar con su arma de fuego (02-11-2026,
+   * `recargaDe`): lo pone el disparo, contando el turno en que sale, y lo baja el
+   * cierre de cada turno suyo (`endTurn`). 0, puede apuntar. Lo escribe solo
+   * `battle.ts` (lo vigila `invariantes.test.ts`); viaja al espectador.
+   */
+  recargando: number;
+  /**
+   * La casilla a la que lanzó una granada en su último turno (`throw`), o `null`:
+   * explota al empezar su siguiente turno (`explotarLaGranada`) y se borra; si muere
+   * antes o la batalla acaba, no explota. Lo escribe solo `battle.ts`.
+   */
+  granada: Hex | null;
+  /**
+   * Las granadas lanzadas en esta batalla: lo que le queda se deriva de lo que lleva
+   * su pieza (`granadasQueQuedan`), así que un retoque de la arena a media pelea no
+   * descuadra la cuenta. Lo escribe solo `battle.ts`.
+   */
+  granadasLanzadas: number;
 }
 
 /**
@@ -318,6 +337,24 @@ export type BattleEvent =
     }
   /** El tirador apunta a `at` (`aim`): el disparo sale al empezar su siguiente turno. */
   | { kind: 'aimed'; stack: string; at: Hex }
+  /** `stack` lanza una granada a `at` (`throw`): explota al empezar su siguiente turno. */
+  | { kind: 'thrown'; stack: string; at: Hex }
+  /**
+   * La granada de `stack` explota en `at` y da a `target` con la tirada en el cuarto
+   * `cuarto` (4 en la casilla, 2 en las vecinas, `explosionDe`); uno por alcanzado,
+   * o uno con `target` a `null` si no había nadie (entonces `damage` y `killed` son 0).
+   */
+  | {
+      kind: 'blast';
+      stack: string;
+      at: Hex;
+      target: string | null;
+      damage: number;
+      killed: number;
+      cuarto: number;
+      /** Lo que paró la armadura del objetivo, como en `attack`. */
+      parado?: number;
+    }
   /**
    * El disparo diferido sale de `stack` hacia `at` y da a `target`, el primero de
    * la recta (`lineaDelDisparo`), sea del bando que sea; `null` si la recta llega
@@ -569,6 +606,12 @@ export type BattleAction =
    * da al primero que encuentre (`lineaDelDisparo`; 25-10-2026, regla nuestra).
    */
   | { type: 'aim'; at: Hex }
+  /**
+   * Quien lleva granada la lanza por encima a la casilla `at`, a su alcance, y
+   * cierra su turno (`lanzarBlocker`): explota al empezar su siguiente turno en esa
+   * casilla y sus seis vecinas (`explosionDe`; 02-11-2026, regla nuestra).
+   */
+  | { type: 'throw'; at: Hex }
   | { type: 'cast'; spell: string; target?: string }
   /**
    * La unidad activa usa uno de sus poderes (`UnitInfo.poderes`) sobre el aliado

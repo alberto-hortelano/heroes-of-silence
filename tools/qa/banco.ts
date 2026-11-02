@@ -1289,11 +1289,21 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   (`battle_ended`, otras bajas, 6) o lo que sigue a ella (`troop_rank_up`, s11;
  *   `town_captured`, s16). Nadie cambia de ganador; duración 4 / 6 / 8 → **4 / 6 / 7**
  *   (s11, 8 → 7 días). La forma del diff, no una medida.
+ * - `421344c3…` (3 456 líneas, 20 semillas, 02-11-2026): **armas de fuego y granadas**
+ *   (`docs/agents/2026-11-02-armas-de-fuego-y-granadas/`: el arcabucero, el artillero y
+ *   el pistolero montado disparan con arcabuz, culebrina y pistola, que perforan la
+ *   armadura y recargan, y el granadero lanza granadas). Contra `e48a2f0f…`, cambian 6
+ *   (s1, s6, s8, s9, s11, s17), las seis con el imperio en juego (las 14 que no cambian
+ *   no lo llevan), y en las seis el primer hecho distinto es el resumen de la batalla
+ *   contra la guarnición imperial de una ciudad neutral (`battle_ended`, otras rondas o
+ *   bajas). Cambian de ganador s1 y s11 (j0 gana 8 de 20, 10 antes); duración 4 / 6 / 7
+ *   → **4 / 5 / 6**, días 78 → 75; ningún tipo de hecho nuevo ni perdido (las granadas y
+ *   los disparos no salen del resumen de la batalla). La forma del diff, no una medida.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'e48a2f0f868d90e534eebf79aeff9fa8c196a0379323ed5c7ae99634deb648e0',
+  sha: '421344c30c804b19eb3ee69402d85189e9347896343d7f62d2cc1505756a97f2',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

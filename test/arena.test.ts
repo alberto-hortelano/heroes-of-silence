@@ -62,7 +62,7 @@ import {
   validarHeroeDeArena,
 } from '../src/core/arena.js';
 import { FORMAS_DE_EJEMPLO, validarFormaDeMuralla } from '../src/core/arena-murallas.js';
-import { armaduraDe } from '../src/core/battle/armas.js';
+import { armaduraDe, isShooter } from '../src/core/battle/armas.js';
 import {
   activeStack,
   applyAction,
@@ -82,7 +82,6 @@ import { escalonDeCasillas } from '../src/core/cuerpo.js';
 import {
   CATALOGO_DE_HABILIDADES,
   EQUIPO_ESCRITO,
-  isShooter,
   LIDERAZGO,
   type Pieza,
   validarPieza,

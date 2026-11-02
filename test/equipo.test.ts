@@ -16,7 +16,7 @@ import {
   siguienteDeEquipo,
   valorDePieza,
 } from '../src/core/ai/strategy.js';
-import { armaduraDe, cifrasDelGolpe, golpeDe } from '../src/core/battle/armas.js';
+import { armaduraDe, cifrasDelGolpe, golpeDe, isShooter } from '../src/core/battle/armas.js';
 import { createBattle, stackById } from '../src/core/battle/battle.js';
 import { armasDe } from '../src/core/battle/damage.js';
 import { cifrasDeUnidad, equipoPuestoDe, unidad, unidadDelJuego } from '../src/core/catalogo.js';
@@ -26,7 +26,6 @@ import { agilidadDe, cifrasDelCuerpo, marchaDe } from '../src/core/cuerpo.js';
 import {
   EQUIPO,
   EQUIPO_ESCRITO,
-  isShooter,
   leerEquipo,
   piezaBlocker,
   problemasDePieza,
@@ -145,15 +144,18 @@ describe('el catálogo de equipo, en datos (C2)', () => {
     expect(PIEZAS_DE_BOTIN).toEqual(EQUIPO.filter((p) => p.seConsigue?.includes('botin')));
     const conBase = new Set(EQUIPO_ESCRITO.filter((p) => 'base' in p).map((p) => p.id));
     expect(PIEZAS_DE_BOTIN.map((p) => p.id).sort()).toEqual([...conBase].sort());
+    // Solo en kits: la hiena de los jinetes de hiena (26-10-2026) y la culebrina del
+    // artillero (02-11-2026, decisión del usuario).
+    const SOLO_EN_KITS = ['hiena_de_guerra', 'culebrina'];
     expect(PIEZAS_DE_ARMERIA.map((p) => p.id).sort()).toEqual(
-      EQUIPO.filter((p) => !conBase.has(p.id) && p.id !== 'hiena_de_guerra')
+      EQUIPO.filter((p) => !conBase.has(p.id) && !SOLO_EN_KITS.includes(p.id))
         .map((p) => p.id)
         .sort(),
     );
-    // Toda pieza se vende o cae como botín, y todas tienen precio en oro, salvo la
-    // que solo llevan los jinetes de hiena (26-10-2026).
+    // Toda pieza se vende o cae como botín, y todas tienen precio en oro, salvo las
+    // que solo van en los kits.
     const enKits = EQUIPO.filter((p) => p.seConsigue.length === 0).map((p) => p.id);
-    expect(enKits).toEqual(['hiena_de_guerra']);
+    expect(enKits.sort()).toEqual([...SOLO_EN_KITS].sort());
     expect(EQUIPO.every((p) => enKits.includes(p.id) || p.precio > 0)).toBe(true);
     // El equipo base es el de `data/heroe.json`: la Espada y el gambesón, sin nada más.
     expect(EQUIPO_BASE).toEqual({ arma: 'espada', armadura: 'gambeson' });
@@ -234,6 +236,69 @@ describe('el catálogo de equipo, en datos (C2)', () => {
     expect(con((ps) => (id(ps, 'maza').danyo = [1, 2]))).toThrow(
       /"maza": «danyo» no es un campo de una pieza/,
     );
+  });
+
+  it('lo que tira una pieza (02-11-2026): el tiro solo a distancia, la recarga y la agilidad con el fuego, las cargas con la granada', () => {
+    // Las cuatro piezas nuevas valen tal cual.
+    for (const id of ['pistola', 'arcabuz', 'culebrina', 'granada']) {
+      expect(problemasDePieza({ ...pieza(id) }), id).toEqual([]);
+    }
+    const arcabuz = { ...pieza('arcabuz') };
+    const granada = { ...pieza('granada') };
+    // Fuera de distancia, ni tiro.
+    expect(problemasDePieza({ ...pieza('espada'), tiro: 'fuego' })).toContain(
+      '"espada" va en el hueco arma y dice tiro: solo una pieza a distancia tira',
+    );
+    expect(piezaBlocker({ ...arcabuz, tiro: 'rayo' })).toBe(
+      '"arcabuz": tiro es fuego o granada, o no se escribe (un arco o una ballesta), y es rayo',
+    );
+    // El arma de fuego dice su recarga y su agilidad, dentro de sus rangos.
+    const { recarga: _r, ...sinRecarga } = arcabuz;
+    expect(piezaBlocker(sinRecarga)).toBe(
+      '"arcabuz" es un arma de fuego y no dice su recarga: los turnos de 1 a 9 que pasa sin apuntar tras disparar',
+    );
+    expect(piezaBlocker({ ...arcabuz, recarga: 0 })).toBe(
+      '"arcabuz": la recarga va de 1 a 9 turnos y es 0',
+    );
+    expect(piezaBlocker({ ...arcabuz, agilidad: 0 })).toBe(
+      '"arcabuz": la agilidad de un arma de fuego va de 1 a 7 y es 0',
+    );
+    const { agilidad: _a, ...sinAgilidad } = arcabuz;
+    expect(piezaBlocker(sinAgilidad)).toBe(
+      '"arcabuz" es un arma de fuego y no dice su agilidad: un entero de 1 a 7, el de su horquilla [F, F × agilidad]',
+    );
+    // Un arco no lleva agilidad ni recarga; la granada, ni recarga, y dice sus cargas.
+    expect(piezaBlocker({ ...pieza('arco'), agilidad: 3 })).toBe(
+      '"arco" dice agilidad: a distancia solo la lleva un arma de fuego (tiro: fuego)',
+    );
+    expect(piezaBlocker({ ...pieza('arco'), recarga: 1 })).toBe(
+      '"arco" dice recarga: solo un arma de fuego recarga',
+    );
+    expect(piezaBlocker({ ...granada, recarga: 1 })).toBe(
+      '"granada" dice recarga: solo un arma de fuego recarga',
+    );
+    const { cargas: _c, ...sinCargas } = granada;
+    expect(piezaBlocker(sinCargas)).toBe(
+      '"granada" es una granada y no dice sus cargas: las que lleva a cada batalla, de 1 a 9',
+    );
+    expect(piezaBlocker({ ...arcabuz, cargas: 2 })).toBe(
+      '"arcabuz" dice cargas: solo una granada se gasta',
+    );
+  });
+
+  it('el arma de fuego tira con su agilidad y la granada no dispara (02-11-2026)', () => {
+    // La horquilla del disparo, [F, F × agilidad del arma]: la pistola, de agilidad
+    // 1, pega siempre lo mismo; la ballesta sigue con la del cuerpo.
+    const pistolero = unidadDelJuego('imperio-pistolero-montado');
+    const [min, max] = cifrasDelGolpe(pistolero, 'distancia').damage;
+    expect(min).toBe(max);
+    expect(min).toBe(pistolero.fuerza + (pieza('pistola').fuerza ?? 0));
+    const ballestero = unidadDelJuego('imperio-ballestero');
+    const f = ballestero.fuerza + (pieza('ballesta').fuerza ?? 0);
+    expect(cifrasDelGolpe(ballestero, 'distancia').damage).toEqual([f, f * agilidadDe(ballestero)]);
+    // El granadero lleva algo a distancia y no es tirador: lanza.
+    expect(isShooter(unidadDelJuego('imperio-granadero'))).toBe(false);
+    expect(isShooter(unidadDelJuego('imperio-arcabucero'))).toBe(true);
   });
 
   it('la regla de una pieza vive en un sitio: `problemasDePieza`, que lee el cargador y la arena', () => {

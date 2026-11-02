@@ -43,6 +43,7 @@ import {
   serializeTownVoices,
 } from '../src/core/contract/serialize.js';
 import {
+  type AccionDeBatallaDelAgente,
   accionAlAgente,
   accionDeBatallaDelAgente,
   accionDelAgente,
@@ -1090,6 +1091,35 @@ describe('lo que ve el agente', () => {
     expect(prosa).toMatch(/"commander": true/);
     expect(prosa).toMatch(/oro/);
     expect(prosa).toMatch(/defend/i);
+  });
+
+  it('la granada cruza el contrato: "throw" en la lista, el esquema lo acepta y el stack dice lo que le queda y dónde caerá (02-11-2026)', () => {
+    const rng = createRng(4);
+    const b = createBattle(
+      { army: [{ creature: 'imperio-granadero', count: 1 }], hero: null },
+      { army: [{ creature: 'imperio-coracero', count: 1 }], hero: null },
+      rng,
+      COMBATE_COMPLETO,
+    );
+    stackById(b, 'attacker-0').hex = { col: 1, row: 4 };
+    stackById(b, 'defender-0').hex = { col: 5, row: 4 };
+    b.turno = { n: 500, stack: 'attacker-0', gastado: 0 };
+    type Vista = {
+      legalActions: unknown[];
+      stacks: { id: string; grenades?: number; grenadeRange?: number; grenadeAt?: unknown }[];
+    };
+    const antes = serializeBattleTurn(b, 'attacker', 'propia', 0) as unknown as Vista;
+    const lanzar = { type: 'throw', at: { col: 5, row: 4 } };
+    expect(antes.legalActions).toContainEqual(lanzar);
+    const suyo = (v: Vista, id: string) => v.stacks.find((x) => x.id === id);
+    expect(suyo(antes, 'attacker-0')).toMatchObject({ grenades: 2, grenadeRange: 6 });
+    const leida = battleActionSchema.parse(lanzar);
+    applyAction(b, accionDeBatallaDelAgente(leida as AccionDeBatallaDelAgente, RUEDAS[7]), rng);
+    // La que está en el aire se ve desde los dos bandos, como "aimedAt".
+    const ajena = serializeBattleTurn(b, 'defender', 'ajena', null) as unknown as Vista;
+    expect(suyo(ajena, 'attacker-0')).toMatchObject({ grenades: 1, grenadeAt: { col: 5, row: 4 } });
+    expect(RESPONSE_FORMAT.battle_turn).toContain('"grenadeAt"');
+    expect(RESPONSE_FORMAT.battle_turn).toContain('"reloading"');
   });
 
   it('"wait" y "defend" se rechazan diciendo que se retiraron y que se mande "end_turn" (26-10-2026)', () => {

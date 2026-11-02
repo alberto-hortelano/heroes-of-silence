@@ -164,6 +164,13 @@ interface LoQuePoneElEquipo {
   readonly defensaDelEscudo: number;
   readonly montura?: CifrasDeMontura;
   readonly fuerzaDeLaLanza?: number;
+  /**
+   * La agilidad de un arma de fuego (`Pieza.agilidad` con `tiro: 'fuego'`,
+   * 02-11-2026, decisión del usuario: «agilidad del arma»): con ella, y no con la
+   * del cuerpo, sale lo ancho de su horquilla, [F, F × agilidad del arma]. Solo en la
+   * cuenta de ese golpe: la defensa y las casillas siguen siendo del cuerpo.
+   */
+  readonly agilidadDelArma?: number;
 }
 
 /** Sin equipo. */
@@ -184,6 +191,9 @@ interface CifrasDerivadas {
  * lanza, la carga. La única cuenta; la leen el cuerpo desnudo (la unidad, el héroe,
  * el personaje, el rango) y el vestido (`conEquipo`).
  *
+ * Con un arma de fuego (02-11-2026), el daño de ese golpe es [F, F × agilidad del
+ * arma] (`agilidadDelArma`): la pistola de agilidad 1 pega siempre lo mismo.
+ *
  * Con una montura de guerra (26-10-2026), el jinete pelea con su agilidad entera,
  * las casillas son las de la montura con el peso encima y la carga con lanza es
  * [F, F × agilidad del jinete] con F = la fuerza de la montura más la de la lanza:
@@ -200,7 +210,7 @@ export function cifrasDelCuerpo(
     deGuerra === null ? Math.min(ag, CASILLAS_MAX) : casillasDeLaMontura(deGuerra, eq.peso);
   const derivadas = {
     defense: ag + eq.defensaDelEscudo + c.defensaPropia,
-    damage: danioDeLaFuerza(c.fuerza + eq.fuerzaDelArma, ag),
+    damage: danioDeLaFuerza(c.fuerza + eq.fuerzaDelArma, eq.agilidadDelArma ?? ag),
     speed: escalonDeCasillas(casillas),
   };
   if (deGuerra === null || eq.fuerzaDeLaLanza === undefined) return derivadas;

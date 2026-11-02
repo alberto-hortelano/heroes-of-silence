@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
+import { isShooter } from '../src/core/battle/armas.js';
 import {
   type BattleMember,
   type BattleSide,
@@ -9,7 +10,7 @@ import {
 import type { BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { isShooter } from '../src/core/data.js';
+
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { cifrasDelIndividuo } from '../src/core/hero/experiencia.js';
 
