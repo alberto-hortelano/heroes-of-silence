@@ -1299,11 +1299,30 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   bajas). Cambian de ganador s1 y s11 (j0 gana 8 de 20, 10 antes); duración 4 / 6 / 7
  *   → **4 / 5 / 6**, días 78 → 75; ningún tipo de hecho nuevo ni perdido (las granadas y
  *   los disparos no salen del resumen de la batalla). La forma del diff, no una medida.
+ * - `732e11ca…` (3 635 líneas, **las mismas**, 20 semillas, 02-11-2026): **la niebla por
+ *   regiones y la niebla de eventos** (`docs/agents/2026-11-02-niebla-por-regiones/`,
+ *   petición del usuario: lo explorado se descubre por regiones enteras; lo que se ve
+ *   ahora es el radio de 5 de los héroes y de 6 de castillos y nodos propios, sobre lo
+ *   explorado; un grupo de asaltantes, por su casilla y no por su región). Contra
+ *   `e48a2f0f…`, **ninguna partida se juega distinta**: quitado el sello `seen`, los
+ *   dos volcados son idénticos línea a línea. Cambian solo los sellos en 16 de 20 (s4,
+ *   s7, s10 y s14, idénticas): 165 hechos, 123 con más observadores (los nodos propios
+ *   miran y las regiones se ven enteras) y 42 con menos. El primer hecho distinto es un
+ *   `raider_spawned` de la creación que nadie ve ya (antes lo veía quien miraba su
+ *   región; 13 de 16), un `hero_moved` (s3, s18), un `battle_started` (s5) o un
+ *   `raider_dispersed` (s17). Con 100 semillas (`pnpm banco 100`) se juegan distinto 2
+ *   (s33, el día 1: la marcha del héroe del j0 va por otra casilla; s40, el día 2:
+ *   tras un botín, el héroe del j0 sigue andando donde antes cerraba el turno), 0 sin
+ *   terminar en las dos. La forma del diff, no una medida.
+ * - `333ae89b…` (3 456 líneas, **las mismas**, 20 semillas, 02-11-2026): la niebla por
+ *   regiones fusionada con las armas de fuego (`421344c3…`). Contra él, lo mismo que
+ *   arriba: quitado el sello `seen`, los volcados son idénticos; cambian solo los sellos,
+ *   en 16 de 20 (todas menos s4, s7, s10 y s14). La forma del diff, no una medida.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '421344c30c804b19eb3ee69402d85189e9347896343d7f62d2cc1505756a97f2',
+  sha: '333ae89bd1029d3fe3ce6cda4d477cfb19ec503855695b5bc06e10dd67b8d1c6',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

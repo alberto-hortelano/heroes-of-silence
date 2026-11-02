@@ -287,14 +287,12 @@ describe('sesión del cliente: reclutar lo que cabe y ver la ruta entera', () =>
     });
   });
 
-  it('lo que ve el héroe ahora está explorado, y lo visible se rehace al moverse', () => {
-    // Decía «lo visible es un subconjunto de lo explorado», y era verdad por
-    // casualidad: con el castillo en (3,3) y el héroe en (4,4), el cuadrado de
-    // 5 del castillo y el de 4 del héroe llegaban a la misma columna. El
-    // castillo **no despeja niebla** —`TOWN_SCOUT_RADIUS` alimenta
-    // `visibleNow` y no `fog`, y está escrito allí—, así que en cuanto el mapa
-    // de nodos movió la base, su borde quedó visible sin explorar. Lo que sí
-    // tiene que estar explorado es lo que ve el héroe.
+  it('lo que ve el héroe ahora es su cuadrado sobre lo explorado, y lo visible se rehace al moverse', () => {
+    // Decía «lo visible es un subconjunto de lo explorado» y comprobaba que todo
+    // el cuadrado del héroe estuviera explorado. Desde la niebla por regiones
+    // (02-11-2026) el radio ya no explora: lo explorado son regiones enteras y lo
+    // que se mira es el radio sobre ellas, así que de su cuadrado se ve justo lo
+    // explorado, y nada fuera de lo explorado se ve.
     const s = new Session(7);
     const fog = s.state.players[0]!.fog;
     const antes = s.visibles();
@@ -302,10 +300,8 @@ describe('sesión del cliente: reclutar lo que cabe y ver la ruta entera', () =>
     const delHeroe = Casillas.vacias(s.state.map);
     delHeroe.marcarCuadrado(heroe0.at, HERO_SCOUT_RADIUS);
     expect(delHeroe.size).toBeGreaterThan(0);
-    for (const k of delHeroe) {
-      expect(antes.has(k)).toBe(true);
-      expect(fog.has(k)).toBe(true);
-    }
+    for (const k of delHeroe) expect(antes.has(k), `(${k.x},${k.y})`).toBe(fog.has(k));
+    for (const k of antes) expect(fog.has(k)).toBe(true);
     expect(s.visibles()).toBe(antes); // la caché: el mismo objeto sin cambios
     const heroe = s.selectedHero!;
     // Un destino a dos pasos que de verdad se pise: a dos casillas a la derecha

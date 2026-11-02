@@ -5,6 +5,7 @@
  * `?clima=` se lee o se rechaza diciéndolo.
  */
 import { describe, expect, it } from 'vitest';
+import { regionMasCercana } from '../src/core/map/regiones.js';
 import {
   CLIMA,
   climaDeLaPartida,
@@ -17,7 +18,6 @@ import {
   PEDIDOS_QUE_SE_MIRAN,
   parseClima,
   pedirClima,
-  regionDelClima,
   TIEMPOS,
   type Tiempo,
   tiempoDeLaSemilla,
@@ -90,7 +90,7 @@ describe('la noche de la semilla', () => {
 describe('las regiones del clima', () => {
   it('toda casilla tiene región, también las ciudades y las barreras', () => {
     const s = newGame({ seed: 11 });
-    const r = regionDelClima(s.map);
+    const r = regionMasCercana(s.map);
     expect(r.length).toBe(s.map.width * s.map.height);
     expect([...r].every((k) => k >= 0 && k < s.map.regions.length)).toBe(true);
     const clima = climaDeLaPartida(s);

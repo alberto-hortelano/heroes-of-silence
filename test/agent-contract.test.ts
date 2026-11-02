@@ -72,7 +72,9 @@ import { createRng } from '../src/core/rng.js';
 import { cronicaPara } from '../src/core/state/events.js';
 import {
   applyAdventureAction,
+  HERO_SCOUT_RADIUS,
   heroesOf,
+  NODE_SCOUT_RADIUS,
   resolvePendingBattle,
   revealEverything,
   townsOf,
@@ -925,9 +927,16 @@ describe('lo que ve el agente', () => {
     // El margen sale de la regla y no de un número escrito a mano.
     expect(COMO_SE_LEE_EL_MAPA).toContain(String(MARGEN_CONTRA_NEUTRALES).replace('.', ','));
     expect(RESPONSE_FORMAT.adventure_turn).toMatch(/EMBOSCADA/);
-    // Qué grupo se ve y la marcha que se para (#130): si la regla cambia sin la
-    // prosa, el agente creerá que «no aparece» es «no está cerca».
-    expect(COMO_SE_LEE_EL_MAPA).toMatch(/cualquier casilla de su región/);
+    // Qué grupo se ve y la marcha que se para (#130; por su casilla desde la
+    // niebla de eventos, 02-11-2026): si la regla cambia sin la prosa, el agente
+    // creerá que «no aparece» es «no está cerca».
+    expect(COMO_SE_LEE_EL_MAPA).toMatch(/Un grupo se ve solo si su casilla está cerca/);
+    expect(COMO_SE_LEE_EL_MAPA).not.toMatch(/cualquier casilla de su región/);
+    // Y la niebla entera: se explora por regiones y se ve en el radio, con las
+    // cifras del núcleo y no escritas a mano.
+    expect(COMO_SE_LEE_EL_MAPA).toMatch(/EXPLORA POR REGIONES/);
+    expect(COMO_SE_LEE_EL_MAPA).toContain(`en ${HERO_SCOUT_RADIUS} casillas`);
+    expect(COMO_SE_LEE_EL_MAPA).toContain(`en ${NODE_SCOUT_RADIUS} alrededor`);
     expect(RESPONSE_FORMAT.adventure_turn).toMatch(/march_halted/);
     expect(RESPONSE_FORMAT.battle_turn).toMatch(/ASALTANTES emboscan/);
     expect(RESPONSE_FORMAT.map_generate).toMatch(/raiders\?/);

@@ -10,7 +10,9 @@
  * que los dos jugadores empiezan a 31 casillas y el radio de visión es 4: nadie
  * ve nada del otro salvo cuando el test lo lleva a propósito. Desde el mapa de
  * nodos la franja lleva tres cordilleras de arriba abajo —los castillos y un
- * nodo son los pasos—, que no tapan la vista: la visión es un cuadrado.
+ * nodo son los pasos—, que no tapan la vista: la visión es un cuadrado. Desde la
+ * niebla por regiones (02-11-2026), un cuadrado sobre lo explorado: para ver lo
+ * que pasa en una región hay que haberla pisado (`explorarLaVega`).
  */
 import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
@@ -29,6 +31,7 @@ import {
   type GameState,
   HERO_SCOUT_RADIUS,
   heroById,
+  objetosConocidos,
   resolvePendingBattle,
   visibleNow,
   visibleNowAt,
@@ -131,6 +134,17 @@ function nodoDelMedio(state: GameState): Extract<MapObject, { kind: 'node' }> {
   return nodo;
 }
 
+/**
+ * Mi héroe pisa el nodo del medio, que le descubre la vega (la región del otro
+ * lado de la cordillera de la columna 30), y se planta en (28,6), en el llano. El
+ * nodo vuelve a ser de nadie: aquí se mide lo que ve el héroe, y un nodo mío
+ * miraría a 6 (`NODE_SCOUT_RADIUS`).
+ */
+function explorarLaVega(state: GameState, ctx: GameContext): void {
+  pasear(state, ctx, 0, [MI_NODO, { x: 28, y: 6 }]);
+  nodoDelMedio(state).owner = null;
+}
+
 function partida(semilla: number): { state: GameState; ctx: GameContext } {
   return { state: newGame({ seed: semilla, plan: PLANO }), ctx: { rng: createRng(semilla) } };
 }
@@ -211,8 +225,9 @@ describe('la crónica pasa por la niebla', () => {
   it('lo que el rival hace a la vista llega, y paso a paso', () => {
     const { state, ctx } = partida(102);
 
-    // Mi héroe se planta en (28,6): ve de 28 − r a 28 + r (r = 5 en el 42×42, #229).
-    pasear(state, ctx, 0, [{ x: 28, y: 6 }]);
+    // Mi héroe se planta en (28,6), con la vega ya pisada: ve de 28 − r a 28 + r
+    // (r = 5 en el 42×42, #229), y de la vega, lo que cae en ese cuadrado.
+    explorarLaVega(state, ctx);
     pasarTurno(state, ctx, 0);
     // El rival viene hacia mí desde su castillo (37). Entra en mi vista en la 28 + r.
     pasear(state, ctx, 1, [{ x: 31, y: 6 }]);
@@ -232,10 +247,24 @@ describe('la crónica pasa por la niebla', () => {
     );
   });
 
+  it('lo que el rival hace en el radio pero en una región sin pisar no llega (02-11-2026)', () => {
+    const { state, ctx } = partida(102);
+    // El mismo paseo que arriba sin pisar el nodo: la vega sigue en negro para mí.
+    pasear(state, ctx, 0, [{ x: 28, y: 6 }]);
+    pasarTurno(state, ctx, 0);
+    pasear(state, ctx, 1, [{ x: 31, y: 6 }]);
+    pasarTurno(state, ctx, 1);
+    // A tres casillas de mi héroe, y no lo veo: nada se ve sobre lo no explorado.
+    expect(visibleNow(state, 0).has({ x: 31, y: 6 })).toBe(false);
+    expect(leer(state, 0).recentEvents.some((e) => e.kind === 'hero_moved' && e.actor === 1)).toBe(
+      false,
+    );
+  });
+
   it('lo que vi el día 3 me sigue constando el día 4: la crónica es memoria', () => {
     const { state, ctx } = partida(103);
 
-    pasear(state, ctx, 0, [{ x: 28, y: 6 }]);
+    explorarLaVega(state, ctx);
     pasarTurno(state, ctx, 0);
     pasear(state, ctx, 1, [{ x: 31, y: 6 }]);
     pasarTurno(state, ctx, 1);
@@ -326,7 +355,11 @@ describe('la crónica pasa por la niebla', () => {
     for (const e of leer(state, 0).recentEvents) expect(e).not.toHaveProperty('seen');
   });
 
-  it('un nodo mío tomado lejos no me consta: como no constaba la mina', () => {
+  it('un nodo mío tomado lejos me consta, y veo su bandera nueva (vuelta 1 de QA, H1)', () => {
+    // Era «no me consta: como no constaba la mina». Desde la niebla de eventos
+    // (02-11-2026) un nodo propio mira a 6: su toma pasa a la vista de su dueño,
+    // que la ve hasta el instante en que cambia de bandera. Lo dice `from`, como
+    // con un castillo, y el recuerdo del nodo es ya el del dueño nuevo.
     const { state, ctx } = partida(106);
     nodoDelMedio(state).owner = 0;
 
@@ -335,7 +368,11 @@ describe('la crónica pasa por la niebla', () => {
     pasear(state, ctx, 1, [MI_NODO]);
 
     expect(state.log.some((e) => e.kind === 'node_captured' && e.from === 0)).toBe(true);
-    expect(leer(state, 0).recentEvents.some((e) => e.kind === 'node_captured')).toBe(false);
+    expect(leer(state, 0).recentEvents.some((e) => e.kind === 'node_captured')).toBe(true);
+    const sabido = objetosConocidos(state, 0, visibleNow(state, 0)).find(
+      (r) => r.object.id === nodoDelMedio(state).id,
+    );
+    expect(sabido?.object).toMatchObject({ owner: 1 });
   });
 
   it('en una partida entera, ningún evento ocultable nace anónimo', async () => {
@@ -454,14 +491,15 @@ describe('la crónica pasa por la niebla', () => {
     // alguna vez»—, así que filtrar solo la crónica dejaría a la persona
     // viendo al rival moverse por el mapa sin una línea que lo contara. Las dos
     // mitades se quedan coherentes hasta que el mapa del cliente se arregle.
+    // Un paso neutral que toma el rival lejos de todo lo mío: perder uno propio
+    // me consta desde la vuelta 1 de QA de la niebla por regiones (`from`).
     const { state, ctx } = partida(108);
-    nodoDelMedio(state).owner = 0;
     pasear(state, ctx, 0, [{ x: 4, y: 1 }]);
     pasarTurno(state, ctx, 0);
     pasear(state, ctx, 1, [MI_NODO]);
 
     const pintado = marcadoDe(renderLog(state.log, 0));
-    expect(pintado).toMatch(/te ha quitado un paso/i);
+    expect(pintado).toMatch(/toma un paso/i);
     expect(leer(state, 0).recentEvents.some((e) => e.kind === 'node_captured')).toBe(false);
   });
 

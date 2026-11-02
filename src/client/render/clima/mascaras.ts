@@ -12,9 +12,9 @@
  * (`adaptarEscena`), pero el terreno es el mismo (`terrenoEstable`).
  */
 
-import type { MapaDeRed } from '@core/map/regiones.js';
+import { type MapaDeRed, regionMasCercana } from '@core/map/regiones.js';
 import { hashDeTexto } from '@core/rng.js';
-import { type ClimaDeLaPartida, regionDelClima } from '@core/state/clima.js';
+import type { ClimaDeLaPartida } from '@core/state/clima.js';
 import { desenfocar } from '../escenario/escalon.js';
 import { fbm, ruidoDe } from '../escenario/fronteras.js';
 import { type Lienzo, lienzoCon } from '../escenario/pintar.js';
@@ -50,7 +50,7 @@ export function regionEnElFrente(mapa: MapaDeRed, semilla: number): RegionEnElFr
   const hecho = frentes.get(mapa.terrain);
   if (hecho !== undefined && hecho.semilla === semilla) return hecho.f;
   const { width: W, height: H } = mapa;
-  const region = regionDelClima(mapa);
+  const region = regionMasCercana(mapa);
   const ruidoX = ruidoDe(hashDeTexto(`clima|frente|x|${semilla}`), ONDAS_DEL_FRENTE, W, H);
   const ruidoY = ruidoDe(hashDeTexto(`clima|frente|y|${semilla}`), ONDAS_DEL_FRENTE, W, H);
   const f: RegionEnElFrente = (x, y) => {
