@@ -172,8 +172,17 @@ type Paso =
       readonly parado: number;
       readonly devuelto: false;
     } & Reloj)
-  /** El tirador se vuelve hacia la casilla a la que apunta: el disparo sale en su turno siguiente. */
-  | { readonly tipo: 'apunta'; readonly stack: string; readonly at: Hex; readonly dura: number }
+  /**
+   * El tirador se vuelve hacia la casilla a la que apunta: el disparo sale en su turno
+   * siguiente. Con `granada`, la lanza (`thrown`): explota en su turno siguiente.
+   */
+  | {
+      readonly tipo: 'apunta';
+      readonly stack: string;
+      readonly at: Hex;
+      readonly dura: number;
+      readonly granada?: true;
+    }
   /**
    * Un hechizo. `lanza`, la unidad que lo lanza con su poder (Curar), que lo hace con su clip de ataque —no hay arte de lanzar—; el del
    * héroe, `null`: su libro no mueve la figura.
@@ -187,6 +196,8 @@ type Paso =
       readonly parado: number;
       /** Los PV que repuso, si cura: el poder lo dice (`power.cura`); el hechizo del héroe, no. */
       readonly cura: number;
+      /** Si es la explosión de una granada (`blast`): de quién y dónde. Sin arte propio, la del hechizo. */
+      readonly granada?: { readonly de: string; readonly at: Hex };
     } & Reloj)
   | { readonly tipo: 'perished'; readonly stack: string; readonly dura: number }
   /**
@@ -430,6 +441,36 @@ function stackDe(battle: BattleState, id: string, que: string): BattleStack {
 }
 
 /**
+ * Lo que un paso hace con lo pendiente a distancia de un stack (`BattleAnimator.aDistancia`):
+ * el disparo y la explosión lo sueltan (`sale`: se ve hasta su impacto); el «apunta» y
+ * el lanzamiento lo ponen (se esconde hasta que empiezan). `null`, lo demás.
+ */
+function pendienteDelPaso(paso: Paso): {
+  readonly que: 'apuntado' | 'granada';
+  readonly de: string;
+  readonly at: Hex;
+  readonly sale: boolean;
+} | null {
+  switch (paso.tipo) {
+    case 'shoot':
+      return { que: 'apuntado', de: paso.stack, at: paso.at, sale: true };
+    case 'apunta':
+      return {
+        que: paso.granada === true ? 'granada' : 'apuntado',
+        de: paso.stack,
+        at: paso.at,
+        sale: false,
+      };
+    case 'cast':
+      return paso.granada === undefined
+        ? null
+        : { que: 'granada', de: paso.granada.de, at: paso.granada.at, sale: true };
+    default:
+      return null;
+  }
+}
+
+/**
  * El paso de un hecho que no anda, con su reloj ya resuelto: el de un disparo
  * depende de quién dispara. `null` si el hecho no se cuenta.
  */
@@ -479,6 +520,22 @@ function pasoDeAccion(e: BattleEvent, battle: BattleState): PasoDeAccion | null 
       return { tipo: 'perished', stack: e.stack, dura: DURACION.perished };
     case 'aimed':
       return { tipo: 'apunta', stack: e.stack, at: e.at, dura: DURACION.apunta };
+    case 'thrown':
+      return { tipo: 'apunta', stack: e.stack, at: e.at, dura: DURACION.apunta, granada: true };
+    case 'blast':
+      // La explosión, como un hechizo sobre cada alcanzado: no hay arte de explosión.
+      return {
+        tipo: 'cast',
+        lanza: null,
+        target: e.target,
+        damage: e.damage,
+        parado: e.parado ?? 0,
+        cura: 0,
+        granada: { de: e.stack, at: e.at },
+        dura: DURACION.cast,
+        impacto: IMPACTO,
+        suelta: null,
+      };
     case 'cruce':
       return { tipo: 'cruce', evento: e, dura: DURACION.cruce };
     default:
@@ -889,37 +946,46 @@ export class BattleAnimator {
   }
 
   /**
-   * Lo apuntado de cada tirador (`BattleStack.apuntado`) **al ritmo de la cola**: el
-   * estado ya trae el final de lo que se cuenta, y el tirador que abre su turno ya
-   * disparó en él y no apunta a nada, mientras la cola aún cuenta lo que jugaron
-   * antes los contrarios (26-10-2026: «se quita la marca del disparo demasiado
-   * pronto, debería quitarse justo antes de disparar»). Por stack, manda su primer
-   * paso que falta por contar: un disparo que aún no impactó deja ver su casilla
-   * hasta el impacto, y un «apunta» que aún no empezó la esconde hasta entonces.
-   * Lo lee el tablero (`VistaBatalla.apuntados`) en la partida, la arena y el
-   * espectador.
+   * Lo pendiente a distancia de cada uno **al ritmo de la cola**: lo apuntado de cada
+   * tirador (`BattleStack.apuntado`) y la granada en el aire de cada granadero
+   * (`BattleStack.granada`). El estado ya trae el final de lo que se cuenta, y el
+   * tirador que abre su turno ya disparó en él y no apunta a nada, mientras la cola
+   * aún cuenta lo que jugaron antes los contrarios (26-10-2026: «se quita la marca del
+   * disparo demasiado pronto, debería quitarse justo antes de disparar»). Por stack y
+   * por cosa, manda su primer paso que falta por contar (`pendienteDelPaso`): un
+   * disparo o una explosión que aún no impactó deja ver su casilla hasta el impacto,
+   * y un «apunta» o un lanzamiento que aún no empezó la esconde hasta entonces. Una
+   * pasada por la cola para los dos (hallazgo S9 de /simplify, 02-11-2026: la granada
+   * era una copia). Lo lee el tablero (`VistaBatalla.apuntados`, `granadas`) en la
+   * partida, la arena y el espectador.
    */
-  apuntados(battle: BattleState): ReadonlyMap<string, Hex> {
-    const r = new Map<string, Hex>();
+  aDistancia(battle: BattleState): {
+    readonly apuntados: ReadonlyMap<string, Hex>;
+    readonly granadas: ReadonlyMap<string, Hex>;
+  } {
+    const r = { apuntado: new Map<string, Hex>(), granada: new Map<string, Hex>() };
     for (const s of battle.stacks) {
-      if (isAlive(s) && s.apuntado !== null) r.set(s.id, s.apuntado);
+      if (!isAlive(s)) continue;
+      if (s.apuntado !== null) r.apuntado.set(s.id, s.apuntado);
+      if (s.granada !== null) r.granada.set(s.id, s.granada);
     }
-    if (!this.busy) return r;
-    const vistos = new Set<string>();
-    const ver = (paso: Paso, enCurso: boolean, impactado: boolean): void => {
-      if (paso.tipo !== 'shoot' && paso.tipo !== 'apunta') return;
-      if (vistos.has(paso.stack)) return;
-      vistos.add(paso.stack);
-      if (paso.tipo === 'shoot') {
-        if (impactado) r.delete(paso.stack);
-        else r.set(paso.stack, paso.at);
-      } else if (!enCurso) {
-        r.delete(paso.stack);
-      }
-    };
-    if (this.actual !== null) ver(this.actual.paso, true, this.actual.impactado);
-    for (const paso of this.cola) ver(paso, false, false);
-    return r;
+    if (this.busy) {
+      const vistos = { apuntado: new Set<string>(), granada: new Set<string>() };
+      const ver = (paso: Paso, enCurso: boolean, impactado: boolean): void => {
+        const p = pendienteDelPaso(paso);
+        if (p === null || vistos[p.que].has(p.de)) return;
+        vistos[p.que].add(p.de);
+        if (p.sale) {
+          if (impactado) r[p.que].delete(p.de);
+          else r[p.que].set(p.de, p.at);
+        } else if (!enCurso) {
+          r[p.que].delete(p.de);
+        }
+      };
+      if (this.actual !== null) ver(this.actual.paso, true, this.actual.impactado);
+      for (const paso of this.cola) ver(paso, false, false);
+    }
+    return { apuntados: r.apuntado, granadas: r.granada };
   }
 
   /** ¿Queda algo por enseñar? Mientras sí, se repinta y no se aceptan clics. */

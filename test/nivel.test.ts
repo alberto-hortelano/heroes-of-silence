@@ -21,7 +21,7 @@ import {
 } from '../src/core/catalogo.js';
 import { restaDelPeso } from '../src/core/cuerpo.js';
 import { EQUIPO, type Pieza, validarPoder } from '../src/core/data.js';
-import { conEquipo, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
+import { conEquipo, EQUIPO_DEL_JUEGO, pieza } from '../src/core/hero/equipo.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import { heroUnit } from '../src/core/hero/hero.js';
 import { indiceDePoder, medidaBlocker, nivelDeUnidad, poderBruto } from '../src/core/nivel.js';
@@ -39,7 +39,10 @@ import { catalogoCon, JINETE, PESADA, TROPA, todoA } from './helpers.js';
  * `unidad.ts` apuntan aquí. Re-anclada sin juzgar el 26-10-2026 con la escala baja
  * (fuerza, PV y armadura ×0,3, `docs/agents/2026-10-26-escala-baja/`), y el
  * 31-10-2026 con el peso que resta 1 por cada fuerza entera, o parte, que pasa
- * (once unidades bajan; el esqueleto guerrero, al nivel 1).
+ * (once unidades bajan; el esqueleto guerrero, al nivel 1), y el 02-11-2026 con las
+ * armas de fuego y la granada del imperio (`docs/agents/2026-11-02-armas-de-fuego-y-granadas/`:
+ * el arcabucero y el artillero, de 271 a 216, los mide su daga; el granadero, de 306 a
+ * 258, nivel 3 → 2; el pistolero montado no se mueve, lo mide su carga).
  */
 const TABLA_DEL_CATALOGO: Readonly<Record<string, readonly [number, number]>> = {
   'templario-escudo': [287, 2],
@@ -58,11 +61,11 @@ const TABLA_DEL_CATALOGO: Readonly<Record<string, readonly [number, number]>> = 
   'imperio-piquero': [252, 2],
   'imperio-ballestero': [271, 2],
   'imperio-coracero': [296, 2],
-  'imperio-arcabucero': [271, 2],
+  'imperio-arcabucero': [216, 2],
   'imperio-rodelero': [328, 3],
-  'imperio-artillero-culebrina': [271, 2],
+  'imperio-artillero-culebrina': [216, 2],
   'imperio-pistolero-montado': [456, 4],
-  'imperio-granadero': [306, 3],
+  'imperio-granadero': [258, 2],
   'elfo-arquero': [305, 3],
   'elfo-explorador': [323, 3],
   'elfo-guardia-del-bosque': [322, 3],
@@ -178,6 +181,31 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
     expect(indiceDePoder(unidadDeCombate(conBallesta, EQUIPO_DEL_JUEGO))).toBeGreaterThan(conArco);
   });
 
+  it('el arma de fuego y la granada se miden (02-11-2026): la recarga baja el disparo y la granada cuenta como un disparo', () => {
+    // El arquero, cuyo índice lo da su arco (con la daga, 271), con su arco hecho
+    // arma de fuego de su misma horquilla (la agilidad del arma, la suya): ×2/3 por
+    // recargar 1 y ×5/4 por perforar, y con recarga 2, ×1/2 × 5/4, por debajo de la
+    // daga. Hecho granada, como el arco: su área paga sus cargas.
+    const arquero = unidad('elfo-arquero');
+    const arco = pieza('arco');
+    const con = (p: Pieza): number => indiceDePoder(unidadDeCombate(arquero, catalogoCon(p)));
+    const conArco = con(arco);
+    const fuego = (recarga: number): Pieza => ({
+      ...arco,
+      tiro: 'fuego',
+      agilidad: arquero.agilidad,
+      recarga,
+    });
+    const { distancia: _arco, ...sinElArco } = arquero.equipo;
+    const sinArco = indiceDePoder(
+      unidadDeCombate({ ...arquero, equipo: sinElArco }, EQUIPO_DEL_JUEGO),
+    );
+    expect(con(fuego(1))).toBeLessThan(conArco);
+    expect(con(fuego(1))).toBeGreaterThan(con(fuego(2)));
+    expect(con(fuego(2))).toBe(sinArco);
+    expect(con({ ...arco, tiro: 'granada', cargas: 2 })).toBe(conArco);
+  });
+
   it('la rueda del arma pesa por su daño: Fuerte y Rápido suben el índice; Ofensivo, Defensivo, Romper guardia y Finta, no', () => {
     const guerrero = unidad('templario-escudo');
     // Un arma nueva, que nace como la Espada, y de la que no cuelga ninguna otra.
@@ -282,7 +310,12 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
       rapido: 1,
       romperGuardia: 1,
     };
-    const R = { armaduraDeReferencia: 30, pesosDeLaRueda: PESOS };
+    const R = {
+      armaduraDeReferencia: 30,
+      pesosDeLaRueda: PESOS,
+      pesoDeLaRecarga: 2,
+      perforacion: [5, 4],
+    };
     expect(() => validarPoder({ umbralDelNivel2: 940, razon: [1, 1], ...R })).toThrow(
       'razon 1/1 no pasa de 1',
     );
@@ -321,5 +354,17 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
       validarPoder({ ...R, umbralDelNivel2: 940, razon: [2, 1], pesosDeLaRueda: ceros }),
     ).toThrow('pesosDeLaRueda son todos 0');
     expect(validarPoder({ umbralDelNivel2: 940, razon: [8, 5], ...R }).razon).toEqual([8, 5]);
+    // Las armas de fuego (02-11-2026): un peso de la recarga ≥ 1 y una perforación que no baje de 1.
+    const base = { umbralDelNivel2: 940, razon: [2, 1], ...R };
+    expect(() => validarPoder({ ...base, pesoDeLaRecarga: 0 })).toThrow(
+      'pesoDeLaRecarga tiene que ser un entero ≥ 1 y es 0',
+    );
+    expect(() => validarPoder({ ...base, perforacion: [4, 5] })).toThrow(
+      'perforacion 4/5 baja de 1',
+    );
+    // La forma, la misma que la de la razón (`fraccionDelPoder`).
+    expect(() => validarPoder({ ...base, perforacion: [5] })).toThrow(
+      'perforacion tiene que ser [numerador, denominador]',
+    );
   });
 });

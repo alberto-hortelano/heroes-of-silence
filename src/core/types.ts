@@ -361,7 +361,20 @@ export interface GolpeConArma {
    * `ruedaDelGolpe`.
    */
   readonly rueda?: NivelesDeLaRueda;
+  /**
+   * Lo que tira el golpe a distancia si no es un arco ni una ballesta (02-11-2026,
+   * `Pieza.tiro`): un arma de fuego, con los turnos de su recarga, o una granada,
+   * con las que lleva a cada batalla. Lo escribe solo `conEquipo`; lo leen
+   * `battle/armas.ts` (`tiroADistanciaDe`, `perforaLaArmadura`, `recargaDe`,
+   * `cargasDe`).
+   */
+  readonly tiro?: TiroDelGolpe;
 }
+
+/** Lo que tira un golpe a distancia que no es un arco ni una ballesta (`GolpeConArma.tiro`). */
+export type TiroDelGolpe =
+  | { readonly kind: 'fuego'; readonly recarga: number }
+  | { readonly kind: 'granada'; readonly cargas: number };
 
 /**
  * Los seis tipos del anillo de la rueda del golpe (`battle/rueda.ts`), en el
@@ -682,7 +695,9 @@ export function camposDelHueco(h: HuecoDePieza): CamposDelHueco {
 const DE_ARMA: readonly CifraDePieza[] = ['ataque', 'fuerza', 'peso'];
 const CAMPOS_DEL_HUECO: Readonly<Record<HuecoDePieza, CamposDelHueco>> = {
   arma: { conManos: true, conRueda: true, cifras: DE_ARMA },
-  distancia: { conManos: false, conRueda: false, cifras: DE_ARMA },
+  // La agilidad, solo la de un arma de fuego (`Pieza.tiro`, `problemasDePieza`): la
+  // de su horquilla, que no se suma a la del cuerpo (02-11-2026).
+  distancia: { conManos: false, conRueda: false, cifras: ['ataque', 'fuerza', 'agilidad', 'peso'] },
   armadura: { conManos: false, conRueda: false, cifras: ['armadura', 'peso'] },
   escudo: { conManos: false, conRueda: false, cifras: ['defensa', 'peso'] },
   // En una montura, `fuerza` es la que pone para cargar peso y para la carga, no

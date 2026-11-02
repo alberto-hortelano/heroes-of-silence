@@ -6,12 +6,19 @@
  * -70 %. Es la nuestra, no la de HoMM2 ni la de fheroes2 (que resta un 5 % hasta
  * −80 %). Las constantes viven aquí y no repartidas por el motor.
  */
-import { hasTrait, isShooter } from '../data.js';
+import { hasTrait } from '../data.js';
 import { DICHO_DE_LA_CARGA, DICHO_DEL_USO, SIN_ARMA } from '../hero/equipo.js';
 import { indiceDePoder } from '../nivel.js';
 import type { Rng } from '../rng.js';
 import { conComa, type GolpeConArma, type UnitInfo, type UsoDeArma } from '../types.js';
-import { armaduraDe, cifrasDelGolpe, golpeDe, trasLaArmadura } from './armas.js';
+import {
+  armaduraDe,
+  cifrasDelGolpe,
+  golpeDe,
+  perforaLaArmadura,
+  tiroADistanciaDe,
+  trasLaArmadura,
+} from './armas.js';
 import { CARGA, type CifrasDeCarga, cargaEfectiva, dichoDeLaCarga } from './carga.js';
 import { effectTotal } from './effects.js';
 import type { BattleStack } from './types.js';
@@ -75,7 +82,7 @@ export interface ArmaDeLaUnidad extends Omit<GolpeConArma, 'piezas' | 'carga'> {
  * armas: lo que enseña la ficha. El cuerpo a cuerpo y la carga, siempre (todo el
  * que pega cuerpo a cuerpo carga, con las de cuerpo a cuerpo; montado de guerra y
  * con lanza, con la horquilla de la carga montada, `GolpeConArma.carga`); el
- * disparo, si dispara (`isShooter`: lleva arma a distancia).
+ * disparo, si juega a distancia (`tiroADistanciaDe`: dispara o lanza granadas).
  */
 export function armasDe(unit: UnitInfo): ArmaDeLaUnidad[] {
   const fila = (uso: UsoDeArma, enLaCarga = false): ArmaDeLaUnidad => {
@@ -92,7 +99,7 @@ export function armasDe(unit: UnitInfo): ArmaDeLaUnidad[] {
     };
   };
   const filas = [fila('arma')];
-  if (isShooter(unit)) filas.push(fila('distancia'));
+  if (tiroADistanciaDe(unit) !== null) filas.push(fila('distancia'));
   filas.push(fila('arma', true));
   return filas;
 }
@@ -160,6 +167,11 @@ export interface DamageResult {
   readonly charge: number;
   /** Si esa carga fue montada (`cargaMontada`: con la fuerza de la montura); `false` sin carga. */
   readonly montada: boolean;
+  /**
+   * Si el golpe perfora la armadura (`perforaLaArmadura`: el disparo de un arma de
+   * fuego). Quien hiere lo pasa a `herir`, que entonces no resta armadura.
+   */
+  readonly perfora: boolean;
 }
 
 /** Lo que cambia el daño según de dónde y a quién se pega (`opcionesDeDanio`, `battle.ts`). */
@@ -203,12 +215,18 @@ export interface CruceDelGolpe {
 }
 
 /**
+ * El cuarto más alto de la horquilla (`tiradaEnCuartos`): la tirada máxima. Lo leen
+ * el disparo diferido y la granada (`validarGranada`).
+ */
+export const CUARTO_MAXIMO = 4;
+
+/**
  * Los octavos de casilla en que el disparo diferido pasa de la tirada máxima a la
  * mínima: uno por cuarto de la horquilla (`tiradaEnCuartos`), así que no se cambia
  * sin ella. Con 4, a media casilla del centro (el radio del círculo inscrito) ya es
  * la mínima: inventado, 01-11-2026.
  */
-const CAIDA_DEL_DISPARO = 4;
+const CAIDA_DEL_DISPARO = CUARTO_MAXIMO;
 
 /**
  * En qué cuarto de la horquilla cae el disparo diferido que alcanza a quien está en
@@ -223,8 +241,11 @@ export function cuartoDelDisparo(octavos: number): number {
   return Math.max(0, CAIDA_DEL_DISPARO - octavos);
 }
 
-/** Cómo dice la previsión dónde cae la tirada del disparo diferido. */
-function dichoDelCuarto(cuarto: number): string {
+/**
+ * Cómo dice la previsión dónde cae la tirada del disparo diferido. La pone la
+ * previsión (`previsionDeGolpe`, por su `kind`), no `horquillaDeDanio`.
+ */
+export function dichoDelCuarto(cuarto: number): string {
   if (cuarto === CAIDA_DEL_DISPARO)
     return 'la recta pasa por el centro de su casilla: la tirada máxima';
   if (cuarto === 0) return 'la recta pasa a media casilla o más de su centro: la tirada mínima';
@@ -232,9 +253,9 @@ function dichoDelCuarto(cuarto: number): string {
   return `la recta pasa a ${o}/8 de casilla de su centro: la tirada en el cuarto ${cuarto} de 4`;
 }
 
-/** La tirada en el cuarto `c` (de 0 a 4) de la horquilla `[min, max]`, en enteros. */
+/** La tirada en el cuarto `c` (de 0 a `CUARTO_MAXIMO`) de la horquilla `[min, max]`, en enteros. */
 export function tiradaEnCuartos(min: number, max: number, c: number): number {
-  return min + Math.floor(((max - min) * c) / 4);
+  return min + Math.floor(((max - min) * c) / CUARTO_MAXIMO);
 }
 
 /**
@@ -401,7 +422,11 @@ export function expectedDamage(
   opts: DamageOptions,
 ): number {
   // La armadura, lo último y con la misma resta que el golpe.
-  return trasLaArmadura(medioSinArmadura(attacker, defender, opts), defender).danio;
+  return trasLaArmadura(
+    medioSinArmadura(attacker, defender, opts),
+    defender,
+    perforaLaArmadura(attacker.unit, usoDelGolpe(opts)),
+  ).danio;
 }
 
 /** El daño medio de `expectedDamage` antes de la armadura: lo que se tira contra ella. */
@@ -433,7 +458,8 @@ export function fraccionQueLlega(
   if (armaduraDe(defender.unit) === 0) return 1;
   const bruto = medioSinArmadura(attacker, defender, opts);
   if (bruto <= 0) return 0;
-  return trasLaArmadura(bruto, defender).danio / bruto;
+  const perfora = perforaLaArmadura(attacker.unit, usoDelGolpe(opts));
+  return trasLaArmadura(bruto, defender, perfora).danio / bruto;
 }
 
 /** Daño que inflige `attacker` a `defender`. Sin suerte desde el 02-11-2026. */
@@ -447,7 +473,12 @@ export function computeDamage(
   const roll = tiradaDe(opts, golpe, rng);
   const base = applyModifiers(roll * attacker.count, attacker, defender, opts, golpe);
   const { charge, montada } = golpe;
-  return { damage: danioFinal(base), charge, montada };
+  return {
+    damage: danioFinal(base),
+    charge,
+    montada,
+    perfora: perforaLaArmadura(attacker.unit, golpe.uso),
+  };
 }
 
 /** Una horquilla de daño: lo menos y lo más que puede quitar un golpe. */
@@ -492,7 +523,6 @@ export function horquillaDeDanio(
       : dichoDelGolpe(attacker.unit, golpe.uso, golpe.charge > 0);
   if (conArma !== null) modificadores.push({ causa: conArma, factor: null });
   if (cruce !== undefined) modificadores.push({ causa: cruce.causaDeLaTirada, factor: null });
-  if (cuarto !== undefined) modificadores.push({ causa: dichoDelCuarto(cuarto), factor: null });
   const bajo = applyModifiers(
     tMin * attacker.count,
     attacker,
@@ -502,11 +532,17 @@ export function horquillaDeDanio(
     modificadores,
   );
   const alto = applyModifiers(tMax * attacker.count, attacker, defender, opts, golpe);
-  const llega = (d: number): number => trasLaArmadura(d, defender).danio;
+  const perfora = perforaLaArmadura(attacker.unit, golpe.uso);
+  const llega = (d: number): number => trasLaArmadura(d, defender, perfora).danio;
   // La armadura, lo último y con la misma resta que el golpe (`herir`): es
-  // monótona, así que los extremos siguen siéndolo.
+  // monótona, así que los extremos siguen siéndolo. El arma de fuego la perfora.
   const a = armaduraDe(defender.unit);
-  if (a > 0) modificadores.push({ causa: `−${a} armadura`, factor: null });
+  if (a > 0) {
+    modificadores.push({
+      causa: perfora ? 'perfora la armadura' : `−${a} armadura`,
+      factor: null,
+    });
+  }
   return {
     danio: { min: llega(danioFinal(bajo)), max: llega(danioFinal(alto)) },
     modificadores,
@@ -559,7 +595,15 @@ export interface Herida {
 }
 
 /**
- * Hiere a `objetivo` con `damage` y le apunta la experiencia a `autor`:
+ * Lo que un golpe lleva a `herir`: su daño y si perfora la armadura, tal como lo dio
+ * (`DamageResult`). Va junto para que nadie pase el daño y se olvide de la
+ * perforación (la salpicadura de un arma de fuego la perdía; F2 de /simplify,
+ * 02-11-2026); un hechizo o un poder, `{ damage, perfora: false }`.
+ */
+export type GolpeQueHiere = Pick<DamageResult, 'damage' | 'perfora'>;
+
+/**
+ * Hiere a `objetivo` con `golpe` y le apunta la experiencia a `autor`:
  * **los PV quitados de verdad × el índice de poder del que los recibe**
  * (`indiceDePoder`: el de sus cifras con su equipo, no su rango; el índice entero y
  * no su primera cifra, para que un veterano o un héroe que sube cifras pague más
@@ -567,8 +611,9 @@ export interface Herida {
  * escala: nada se divide entre 100. Devuelve los
  * muertos, como `applyDamage`, y el daño que llegó.
  *
- * `damage` es el del golpe; **la armadura se resta aquí** (`trasLaArmadura`,
- * #262), así que no hay manera de quitar vida saltándosela. Lo que dependa de lo
+ * `golpe.damage` es el del golpe; **la armadura se resta aquí** (`trasLaArmadura`,
+ * #262), así que no hay manera de quitar vida saltándosela; solo el disparo de un
+ * arma de fuego llega entero (`golpe.perfora`). Lo que dependa de lo
  * quitado —el parte, el drenaje, la experiencia— lee `danio`, no `damage`.
  *
  * Es la ÚNICA forma en que el motor quita vida —golpe, contraataque, disparo,
@@ -579,8 +624,12 @@ export interface Herida {
  * - **Solo contra el bando de enfrente**: la salpicadura del liche sobre los
  *   suyos no enseña nada. `autor` es `null` cuando no hay quien cobre.
  */
-export function herir(objetivo: BattleStack, damage: number, autor: BattleStack | null): Herida {
-  const { danio, parado } = trasLaArmadura(damage, objetivo);
+export function herir(
+  objetivo: BattleStack,
+  golpe: GolpeQueHiere,
+  autor: BattleStack | null,
+): Herida {
+  const { danio, parado } = trasLaArmadura(golpe.damage, objetivo, golpe.perfora);
   const antes = stackHp(objetivo);
   const muertos = applyDamage(objetivo, danio);
   if (autor !== null && autor.side !== objetivo.side) {

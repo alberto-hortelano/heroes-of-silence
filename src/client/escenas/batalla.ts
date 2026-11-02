@@ -11,9 +11,11 @@
  */
 import {
   type CasillaDeCarga,
+  type ExplosionDeLaGranada,
   isAlive,
   type LineaDelDisparo,
   SIN_CARGAS,
+  type TanteoADistancia,
 } from '@core/battle/battle.js';
 import { hexEquals, hexKey, ULTIMA_FILA } from '@core/battle/board.js';
 import { mismaPuerta } from '@core/battle/muralla.js';
@@ -44,7 +46,12 @@ import {
   tableroPara,
   verticesHex,
 } from '../render/proyeccion.js';
-import { type Apuntado, type ControlDeBatalla, esDeLoApuntado } from '../session.js';
+import {
+  type Apuntado,
+  type ControlDeBatalla,
+  esDeLoApuntado,
+  rechazoDelTanteo,
+} from '../session.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
 import { AVISO_DE_ESPERA } from '../views/panels.js';
 import { textoDePrevision } from '../views/prevision.js';
@@ -123,14 +130,25 @@ const SIN_OBJETIVO: Readonly<Record<Apuntado['kind'], string>> = {
 };
 
 /** Lo que dice la barra con un clic fuera del tablero en «A distancia» (`ArmaDeLaActiva`). */
-const SIN_CASILLA = 'Pulsa una casilla del tablero para apuntar, o Q para pelear cuerpo a cuerpo.';
+const SIN_CASILLA =
+  'Pulsa una casilla del tablero para apuntar o lanzar, o Q para pelear cuerpo a cuerpo.';
 
-/** Un disparo tanteado en una casilla (`EscenaBatalla.tanteoEn`). */
+/** Un disparo o una granada tanteados en una casilla (`EscenaBatalla.tanteoEn`). */
 interface Tanteado {
   readonly acciones: readonly BattleAction[];
   readonly clave: string;
-  readonly linea: LineaDelDisparo | null;
-  readonly accion: BattleAction & { type: 'aim' };
+  /** Lo del núcleo (`tanteoADistancia`): la recta, la explosión o por qué no; `null` sin turno tuyo. */
+  readonly tanteo: TanteoADistancia | null;
+}
+
+/** La recta del disparo de un tanteo, o `null` si no es un disparo que se pueda hacer. */
+function rectaDe(t: Tanteado | null): LineaDelDisparo | null {
+  return t?.tanteo?.kind === 'disparo' ? t.tanteo.linea : null;
+}
+
+/** La explosión de un tanteo, o `null` si no es una granada que se pueda lanzar. */
+function explosionDe(t: Tanteado | null): ExplosionDeLaGranada | null {
+  return t?.tanteo?.kind === 'granada' ? t.tanteo.explosion : null;
 }
 
 export class EscenaBatalla {
@@ -283,6 +301,8 @@ export class EscenaBatalla {
     }
     const quieta = this.animador.busy;
     const turno = quieta ? null : s.turnoPropio;
+    // Una vez por fotograma: la recta y la explosión salen del mismo tanteo.
+    const tanteado = quieta ? null : this.tanteadoActual();
     const atacables = new Set<string>();
     const escalables = new Set<string>();
     const puertasPorElegir = new Set<string>();
@@ -291,7 +311,7 @@ export class EscenaBatalla {
       for (const a of s.battleLegalActions()) {
         if (a.type === 'attack') atacables.add(a.target);
         // Al que se puede apuntar («A distancia»), por su casilla: la lista lo trae por ella.
-        if (a.type === 'aim') {
+        if (a.type === 'aim' || a.type === 'throw') {
           const ahi = this.stackEn(a.at);
           if (ahi !== undefined) atacables.add(ahi.id);
         }
@@ -328,8 +348,9 @@ export class EscenaBatalla {
       sinDueño: s.dueños === null ? NINGUN_BANDO : bandosSinDueño(s.dueños),
       // El de su sitio: la región donde se pelea, o el de la arena.
       clima: { sitio: s.climaDeLaBatalla, ahora: performance.now() },
-      tanteo: quieta ? null : this.tanteoActual(),
-      apuntados: this.animador.apuntados(battle),
+      tanteo: rectaDe(tanteado),
+      ...this.animador.aDistancia(battle),
+      granadaTanteada: explosionDe(tanteado),
     });
   }
 
@@ -365,7 +386,7 @@ export class EscenaBatalla {
         puntero: this.puntero,
         figura: (st) => this.animador.figura(st),
         efectos: this.animador.efectos(battle),
-        apuntados: this.animador.apuntados(battle),
+        ...this.animador.aDistancia(battle),
         sinDueño: s.dueños === null ? NINGUN_BANDO : bandosSinDueño(s.dueños),
         clima: { sitio: s.climaDeLaBatalla, ahora: performance.now() },
       }),
@@ -385,13 +406,13 @@ export class EscenaBatalla {
   }
 
   /**
-   * La recta del disparo que se tantea con el puntero: en «A distancia» y sin nada
+   * El disparo o la granada que se tantea con el puntero: en «A distancia» y sin nada
    * apuntado, a la casilla señalada. `null` si no (`ArmaDeLaActiva.tanteo`).
    */
-  private tanteoActual(): LineaDelDisparo | null {
+  private tanteadoActual(): Tanteado | null {
     if (this.puntero === null || !this.aDistancia()) return null;
     const at = this.casillaDelDisparoEn(this.puntero.x, this.puntero.y);
-    return at === null ? null : this.tanteoEn(at).linea;
+    return at === null ? null : this.tanteoEn(at);
   }
 
   /**
@@ -416,18 +437,13 @@ export class EscenaBatalla {
     return s.turnoPropio !== null && s.apuntado === null && s.arma.modo === 'distancia';
   }
 
-  /** El tanteo del disparo en `at` (`ArmaDeLaActiva.tanteo`), recordado por casilla y jugada. */
+  /** El tanteo a distancia en `at` (`ArmaDeLaActiva.tanteo`), recordado por casilla y jugada. */
   private tanteoEn(at: Hex): Tanteado {
     const acciones = this.sesion().battleLegalActions();
     const clave = hexKey(at);
     const t = this.tanteado;
     if (t !== null && t.acciones === acciones && t.clave === clave) return t;
-    const hecho = {
-      acciones,
-      clave,
-      linea: this.sesion().arma.tanteo(at),
-      accion: { type: 'aim', at: { col: at.col, row: at.row } } as const,
-    };
+    const hecho: Tanteado = { acciones, clave, tanteo: this.sesion().arma.tanteo(at) };
     this.tanteado = hecho;
     return hecho;
   }
@@ -552,8 +568,8 @@ export class EscenaBatalla {
     if (this.aDistancia()) {
       const objetivo = this.unidadEn(px, py);
       if (objetivo === undefined || objetivo.side === this.sesion().miBando) return undefined;
-      const t = this.tanteoEn(objetivo.hex);
-      return t.linea === null ? undefined : t.accion;
+      const { tanteo } = this.tanteoEn(objetivo.hex);
+      return tanteo === null || tanteo.kind === 'no' ? undefined : tanteo.jugada;
     }
     const golpe = this.golpeEn(px, py);
     if (golpe === undefined) return undefined;
@@ -647,28 +663,39 @@ export class EscenaBatalla {
   private readonly previsiones = new WeakMap<BattleAction, string | null>();
 
   /**
-   * En «A distancia» y con el puntero sobre una casilla a la que se puede apuntar:
-   * a quién daría el disparo si saliera ahora y cuánto (la previsión del núcleo), o
-   * que no daría a nadie. `null` en «Cuerpo a cuerpo» o fuera del tablero.
+   * En «A distancia» y con el puntero sobre una casilla del tablero: a quién daría
+   * el disparo o la granada si saliera ahora y cuánto (la previsión del núcleo), que
+   * no daría a nadie o por qué ahí no se puede. `null` en «Cuerpo a cuerpo» o fuera
+   * del tablero.
    */
   private rotuloDelDisparo(): string | null {
     if (this.puntero === null || !this.aDistancia()) return null;
     const at = this.casillaDelDisparoEn(this.puntero.x, this.puntero.y);
     if (at === null) return null;
-    return this.dichoDelTanteo(at, `Apuntarías a (${at.col},${at.row}).`);
+    const verbo = this.tanteoEn(at).tanteo?.kind === 'granada' ? 'Lanzarías' : 'Apuntarías';
+    return this.dichoDelTanteo(at, `${verbo} a (${at.col},${at.row}).`);
   }
 
   /**
    * El tanteo del disparo a `at` dicho tras `aqui`: a quién daría hoy, con «¡tuyo!»
-   * si es propio, y cuánto; o que no daría a nadie y qué la para. `null` si ahí no
-   * se puede apuntar. Con la previsión sola, el puntero sobre un
-   * enemigo con un aliado delante daba el daño y los PV del aliado sin nombrarlo
-   * (H3 del QA de fuerza y agilidad, 26-10-2026).
+   * si es propio, y cuánto; o que no daría a nadie y qué la para. Si ahí no se
+   * puede, por qué, con la frase del clic (`rechazoDelTanteo`): sin ella, la
+   * granada fuera de alcance decía el motivo del cuerpo a cuerpo sobre un enemigo y
+   * nada sobre una casilla vacía (H1 del QA de las granadas, 02-11-2026). Con la
+   * previsión sola, el puntero sobre un enemigo con un aliado delante daba el daño
+   * y los PV del aliado sin nombrarlo (H3 del QA de fuerza y agilidad, 26-10-2026).
    */
   private dichoDelTanteo(at: Hex, aqui: string): string | null {
     const s = this.sesion();
-    const { linea, accion } = this.tanteoEn(at);
-    if (linea === null) return null;
+    const { tanteo } = this.tanteoEn(at);
+    if (tanteo === null) return null;
+    if (tanteo.kind === 'no') return rechazoDelTanteo(tanteo);
+    if (tanteo.kind === 'granada') {
+      // La granada: a todos los de la casilla y sus vecinas, «¡tuyo!» los propios.
+      const prevision = this.previsionDicha(tanteo.jugada);
+      return prevision === null ? aqui : `${aqui} ${prevision}`;
+    }
+    const { linea, jugada } = tanteo;
     if (linea.alcanzado === null) {
       const parada =
         linea.parada === null
@@ -676,7 +703,7 @@ export class EscenaBatalla {
           : ` La para ${linea.parada === 'muro' ? 'el muro' : 'la puerta cerrada'}.`;
       return `${aqui} Hoy no daría a nadie.${parada}`;
     }
-    const prevision = this.previsionDicha(accion);
+    const prevision = this.previsionDicha(jugada);
     const aliado = linea.alcanzado.side === s.miBando ? ' (¡tuyo!)' : '';
     const dicha = prevision === null ? '' : ` ${prevision}`;
     return `${aqui} Hoy daría a ${this.nombre()(linea.alcanzado.id)}${aliado}.${dicha}`;

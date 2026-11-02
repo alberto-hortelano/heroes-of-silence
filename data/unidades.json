@@ -362,7 +362,7 @@
       "habilidades": [],
       "equipo": {
         "arma": "daga",
-        "distancia": "ballesta",
+        "distancia": "arcabuz",
         "armadura": "gambeson"
       },
       "edificio": "imperio_taller"
@@ -404,7 +404,7 @@
       "habilidades": [],
       "equipo": {
         "arma": "daga",
-        "distancia": "ballesta",
+        "distancia": "culebrina",
         "armadura": "gambeson"
       },
       "edificio": "imperio_fundicion"
@@ -426,6 +426,7 @@
       "equipo": {
         "arma": "espada",
         "segunda": "lanza",
+        "distancia": "pistola",
         "armadura": "barda",
         "montura": "caballo_de_guerra"
       },
@@ -447,7 +448,7 @@
       "habilidades": [],
       "equipo": {
         "arma": "daga",
-        "distancia": "ballesta",
+        "distancia": "granada",
         "armadura": "gambeson"
       },
       "edificio": "imperio_fundicion"

@@ -97,6 +97,12 @@ import {
   reachableFrom,
   sePasa,
 } from '../map/map.js';
+import {
+  objetosDeLaZona,
+  regionDescubierta,
+  regionesQueDescubre,
+  zonaDeNiebla,
+} from '../map/niebla.js';
 import { muroBlocker } from '../map/recinto.js';
 import {
   batallaDe,
@@ -147,7 +153,6 @@ import {
   dispersados,
   dondeBrotan,
   emboscador,
-  grupoALaVistaDesde,
   mascaraDeOcupacion,
   pasoDePatrulla,
   type Raider,
@@ -189,7 +194,7 @@ export interface Player {
   /**
    * Lo último OBSERVADO de cada grupo de asaltantes, por id de grupo: lo que la
    * IA de reglas teme (`casillasPeligrosas`, #164). Se escribe junto a `memory`
-   * (`explorar`, con `recordarAsaltantes`) y no viaja a nadie: el agente y la
+   * (`mirarDesde`, con `recordarAsaltantes`) y no viaja a nadie: el agente y la
    * pantalla ven los grupos de ahora (`asaltantesALaVista`).
    */
   asaltantesVistos: Map<string, AsaltanteRecordado>;
@@ -226,35 +231,33 @@ export interface RememberedObject {
 }
 
 /**
- * Radio de visión de un héroe: el 4 de fheroes2 a la escala del mapa
+ * Radio de lo que un héroe mira AHORA: el 4 de fheroes2 a la escala del mapa
  * (`radioALaEscala`, #229: 5 en el 42×42).
+ *
+ * **Ya no explora** (regla nuestra, 02-11-2026, petición del usuario: «Añada una
+ * niebla de eventos en torno a héroes y nodos controlados por el jugador. Lo que
+ * pase cerca en un radio x se ve. Si no, no»): lo explorado se descubre por
+ * regiones al pisarlas (`descubrir`, `core/map/niebla.ts`) y este radio es solo lo
+ * que se ve pasar —héroes rivales, el estado vivo de los objetos, los grupos de
+ * asaltantes y la crónica—, y solo sobre lo ya explorado (`visibleNow`). Es el
+ * cuadrado y no el disco del original: 121 casillas.
  */
 export const HERO_SCOUT_RADIUS = radioALaEscala(4);
 
 /**
- * Radio de visión de un pueblo o castillo (#72).
+ * Radio de lo que un castillo **o un nodo propio** mira AHORA (regla nuestra,
+ * 02-11-2026: el usuario quiere la niebla de eventos «en torno a héroes y nodos
+ * controlados por el jugador», 5 para el héroe y 6 para castillos y nodos).
  *
- * Era su propia casilla y nada más, así que un héroe enemigo acampado pegado a
- * tu capital no producía un solo `hero_moved` que te llegara: 0 de 60 escenarios
- * medidos; con este radio, 60 de 60.
- *
- * **El número es del original y la forma no.** `GameStatic::getFogDiscoveryDistance`
- * (`game/game_static.cpp`) da `CASTLE: 5` y `HEROES: 4` —nuestro
- * `HERO_SCOUT_RADIUS` ya coincidía—, y `Castle::Scout()` la llama **sin
- * ramificar por el fuerte**: no depende de la fortificación, y el enum no tiene
- * un valor `TOWN` aparte. Lo que allí es un disco chapucero aquí es el cuadrado
- * de `marcarCuadrado`, así que el héroe **ya diverge** —81 casillas contra 69— e
- * igualar la forma es otra tarea. Se copia el número, y desde #229 se lleva a la
- * escala del mapa como la marcha (`radioALaEscala`: 5 → 6 en el 42×42).
- *
- * Y alimenta las DOS mitades de la niebla: `visibleNow` y también `fog` y
- * `memory` (`revealAroundTown`). Durante un tiempo solo alimentó la primera, y
- * con los asaltantes eso dejó de ser un dato de más para el agente y pasó a ser
- * una emboscada a ciegas: el agente veía el grupo de la región de casa sobre una
- * casilla `terrain: null` y la persona, que pinta con `fog`, no lo veía en 96 de
- * 200 semillas el día 1 — y lo pisaba.
+ * El número es el 5 del castillo de fheroes2 (`GameStatic::getFogDiscoveryDistance`,
+ * `CASTLE: 5`, sin ramificar por el fuerte) a la escala del mapa (#229: 6 en el
+ * 42×42). Lo llevaba solo el castillo (#72: un héroe enemigo acampado pegado a tu
+ * capital no producía un solo `hero_moved` que te llegara, 0 de 60 escenarios; con
+ * este radio, 60 de 60); desde la niebla por regiones lo lleva también cada nodo
+ * tuyo, que es donde se ve llegar al rival a tu territorio. Como el del héroe, no
+ * explora: mira lo explorado (`visibleNow`).
  */
-export const TOWN_SCOUT_RADIUS = radioALaEscala(5);
+export const NODE_SCOUT_RADIUS = radioALaEscala(5);
 
 /**
  * Cómo terminó una partida: quién ganó, o `null` si **no ganó nadie**.
@@ -835,7 +838,7 @@ export function createGame(config: GameConfig): GameState {
 }
 
 /**
- * El héroe mira alrededor: explora Y apunta lo que ve.
+ * El héroe mira alrededor: descubre la región que pisa Y apunta lo que ve.
  *
  * Las dos cosas van juntas a propósito. Separarlas es exactamente el bug que
  * había: la casilla quedaba explorada para siempre y el objeto se leía del
@@ -845,36 +848,90 @@ export function createGame(config: GameConfig): GameState {
 function revealAround(state: GameState, hero: Hero): void {
   const player = state.players.find((p) => p.id === hero.owner);
   if (player === undefined) return;
-  explorar(state, player, hero.at, HERO_SCOUT_RADIUS);
+  descubrir(state, player, hero.at);
+  mirarDesde(state, player, hero.at, HERO_SCOUT_RADIUS);
 }
 
 /**
- * El castillo mira alrededor, igual que un héroe: explora Y apunta.
+ * El castillo mira alrededor, igual que un héroe: descubre sus regiones Y apunta.
  *
  * Se llama donde un castillo puede empezar a mirar o mirar algo nuevo: al crear
  * la partida (para TODOS los jugadores, porque solo el primero pasa por
- * `startTurn`), al empezar el turno de su dueño y al capturarlo. Con eso, toda
- * casilla de `visibleNow` que venga de un castillo está ya en `fog`: el lienzo y
- * el agente miran el mismo cuadrado.
+ * `startTurn`: así cada uno empieza con las regiones de su base descubiertas), al
+ * empezar el turno de su dueño y al capturarlo.
  */
 function revealAroundTown(state: GameState, town: Town): void {
   if (town.owner === null) return;
-  explorar(state, playerById(state, town.owner), town.at, TOWN_SCOUT_RADIUS);
+  const player = playerById(state, town.owner);
+  descubrir(state, player, town.at);
+  mirarDesde(state, player, town.at, NODE_SCOUT_RADIUS);
 }
 
-function explorar(state: GameState, player: Player, centro: Point, radio: number): void {
-  player.fog.marcarCuadrado(centro, radio);
-  // El cuadrado se pregunta con dos restas y no con el `Set` de sus claves: era
-  // el 10 % del banco (#95) levantar 81 cadenas por paso para mirar en ellas
-  // la casilla de cada objeto del mapa. Los objetos están todos dentro del
-  // mapa, así que el recorte de `marcarCuadrado` no cambia a quién se apunta, y
-  // el orden de `memory` sigue siendo el de `state.map.objects`.
-  for (const obj of state.map.objects) {
-    if (Math.abs(obj.at.x - centro.x) <= radio && Math.abs(obj.at.y - centro.y) <= radio) {
+/**
+ * Un nodo propio mira alrededor, como un castillo (02-11-2026: la niebla de
+ * eventos va «en torno a héroes y nodos controlados por el jugador»). Al empezar
+ * el turno de su dueño y al tomarlo, antes de contarlo: quien lo toma ya está
+ * mirando desde él.
+ */
+function revealAroundNode(state: GameState, nodo: Extract<MapObject, { kind: 'node' }>): void {
+  if (nodo.owner === null) return;
+  const player = playerById(state, nodo.owner);
+  descubrir(state, player, nodo.at);
+  mirarDesde(state, player, nodo.at, NODE_SCOUT_RADIUS);
+}
+
+/**
+ * Descubre lo que se ve al llegar a `sitio`: **las regiones enteras** que ese
+ * sitio pisa (`regionesQueDescubre`: la suya, o todas las que une un nodo, una
+ * ciudad o el puente de una ciudad-puente), con su zona (`zonaDeNiebla`), y apunta
+ * en `memory` cada objeto de ellas como está ahora: entrar en una región es verla
+ * entera (petición del usuario, 02-11-2026). Una región ya descubierta no se toca:
+ * si se volviera a apuntar, el recuerdo de sus objetos se refrescaría desde lejos.
+ *
+ * **El único escritor de `fog`** con `revealEverything` (lo vigila
+ * `invariantes.test.ts`). Un mapa sin regiones (los de los tests de pathfinding)
+ * no tiene por dónde partirse: es una sola zona, y se descubre entero.
+ */
+function descubrir(state: GameState, player: Player, sitio: Point): void {
+  const { map } = state;
+  if (map.regions.length === 0) {
+    if (player.fog.size === map.width * map.height) return;
+    player.fog.marcarCuadrado({ x: 0, y: 0 }, Math.max(map.width, map.height));
+    for (const obj of map.objects) {
+      player.memory.set(obj.id, { day: state.day, object: { ...obj } });
+    }
+    return;
+  }
+  for (const k of regionesQueDescubre(map, sitio)) {
+    if (regionDescubierta(map, player.fog, k)) continue;
+    player.fog.marcarIndices(zonaDeNiebla(map, k));
+    for (const obj of objetosDeLaZona(map, k)) {
       player.memory.set(obj.id, { day: state.day, object: { ...obj } });
     }
   }
-  recordarAsaltantes(state, player.asaltantesVistos, casillasDelCuadrado(state.map, centro, radio));
+}
+
+/**
+ * Lo que se mira AHORA desde `centro`: el cuadrado de `radio` sobre lo ya
+ * explorado. Refresca el recuerdo de los objetos que caen ahí y el de los grupos
+ * de asaltantes (`recordarAsaltantes`). No explora: eso es `descubrir`.
+ */
+function mirarDesde(state: GameState, player: Player, centro: Point, radio: number): void {
+  // El cuadrado se pregunta con dos restas y no con el `Set` de sus claves: era
+  // el 10 % del banco (#95) levantar 81 cadenas por paso para mirar en ellas
+  // la casilla de cada objeto del mapa. El orden de `memory` sigue siendo el de
+  // `state.map.objects`.
+  for (const obj of state.map.objects) {
+    if (
+      Math.abs(obj.at.x - centro.x) <= radio &&
+      Math.abs(obj.at.y - centro.y) <= radio &&
+      player.fog.has(obj.at)
+    ) {
+      player.memory.set(obj.id, { day: state.day, object: { ...obj } });
+    }
+  }
+  const mirando = casillasDelCuadrado(state.map, centro, radio).filter((q) => player.fog.has(q));
+  recordarAsaltantes(state, player.asaltantesVistos, mirando);
 }
 
 /**
@@ -896,30 +953,38 @@ export function revealEverything(state: GameState, playerId: PlayerId): void {
 }
 
 /**
- * Las casillas que un jugador está viendo AHORA MISMO: el entorno de cada uno
- * de sus héroes y el de cada uno de sus pueblos, que siempre tienen a alguien.
+ * Las casillas que un jugador está viendo AHORA MISMO: el radio de cada uno de
+ * sus héroes, castillos y nodos (`miradasDe`), **solo sobre lo explorado**
+ * (02-11-2026, decisión del usuario: nada se ve sobre el negro; un héroe rival
+ * tras una cordillera de una región sin pisar no se ve aunque esté a tres
+ * casillas).
  *
  * Es la otra mitad de `fog`. `fog` dice «esto lo conozco»; esto dice «esto lo
  * estoy mirando», y solo de lo que se mira se puede afirmar el presente.
  */
 export function visibleNow(state: GameState, playerId: PlayerId): Casillas {
   const casillas = Casillas.vacias(state.map);
+  const { fog } = playerById(state, playerId);
   for (const { centro, radio } of miradasDe(state, playerId))
-    casillas.marcarCuadrado(centro, radio);
+    casillas.marcarCuadradoDentroDe(centro, radio, fog);
   return casillas;
 }
 
 /**
- * Desde dónde mira AHORA un jugador: cada héroe y cada pueblo suyo, con su
- * radio. Es `visibleNow` sin levantar las claves, para quien pregunta por una
- * región y no por todo (`grupoALaVistaDesde`).
+ * Desde dónde mira AHORA un jugador: cada héroe (`HERO_SCOUT_RADIUS`) y cada
+ * castillo y nodo suyo (`NODE_SCOUT_RADIUS`). Es `visibleNow` sin el recorte de lo
+ * explorado y sin levantar las claves.
  */
 export function miradasDe(state: GameState, playerId: PlayerId): Mirada[] {
   const out: Mirada[] = [];
   for (const hero of heroesOf(state, playerId))
     out.push({ centro: hero.at, radio: HERO_SCOUT_RADIUS });
   for (const town of townsOf(state, playerId))
-    out.push({ centro: town.at, radio: TOWN_SCOUT_RADIUS });
+    out.push({ centro: town.at, radio: NODE_SCOUT_RADIUS });
+  for (const obj of state.map.objects) {
+    if (obj.kind === 'node' && obj.owner === playerId)
+      out.push({ centro: obj.at, radio: NODE_SCOUT_RADIUS });
+  }
   return out;
 }
 
@@ -946,7 +1011,8 @@ export function heroesALaVista(
 /**
  * Lo que un jugador sabe de cada objeto del mapa: el objeto VIVO si está
  * mirando su casilla ahora, y si no, el RECUERDO de `memory` con el día en que
- * se vio. Solo trae lo explorado: `memory` se llena junto con `fog` (`explorar`).
+ * se vio. Solo trae lo explorado: `memory` se llena al descubrir una región
+ * (`descubrir`) y al mirar desde cerca (`mirarDesde`).
  *
  * **La única regla de qué estado de un objeto se enseña**: la leen `knownObjects`
  * del agente —que pone el día como `lastSeen`— y el lienzo, el minimapa y la
@@ -995,6 +1061,8 @@ export function objetosConocidos(
  */
 export function visibleNowAt(state: GameState, playerId: PlayerId, q: Point): boolean {
   if (!inBounds(state.map, q)) return false;
+  // Lo que no se ha explorado no se mira, aunque caiga en el radio.
+  if (!playerById(state, playerId).fog.has(q)) return false;
   // Se recorre `state.heroes` y no `heroesOf`, que filtra a un array nuevo: en
   // este camino la asignación es justo lo que se venía a quitar.
   for (const hero of state.heroes) {
@@ -1007,7 +1075,13 @@ export function visibleNowAt(state: GameState, playerId: PlayerId, q: Point): bo
     if (town.owner !== playerId) continue;
     const dx = Math.abs(town.at.x - q.x);
     const dy = Math.abs(town.at.y - q.y);
-    if (dx <= TOWN_SCOUT_RADIUS && dy <= TOWN_SCOUT_RADIUS) return true;
+    if (dx <= NODE_SCOUT_RADIUS && dy <= NODE_SCOUT_RADIUS) return true;
+  }
+  for (const obj of state.map.objects) {
+    if (obj.kind !== 'node' || obj.owner !== playerId) continue;
+    const dx = Math.abs(obj.at.x - q.x);
+    const dy = Math.abs(obj.at.y - q.y);
+    if (dx <= NODE_SCOUT_RADIUS && dy <= NODE_SCOUT_RADIUS) return true;
   }
   return false;
 }
@@ -1063,17 +1137,13 @@ function emit(state: GameState, draft: GameEventDraft): void {
 
 /**
  * Si `p` observa un hecho ocurrido en `sitio`, con la vara que dice `SE_VE_POR`:
- * lo de un grupo de asaltantes —que brota o se dispersa— con la regla de qué
- * grupo se ve (basta mirar su región, #130); la marcha que se para por un grupo,
- * por la casilla del héroe **y** el grupo; lo demás, por su casilla. Si no, la
- * crónica diría «nadie lo vio» de un grupo que el mapa y el agente sí enseñan, o
- * le contaría al rival que mira al héroe un grupo y su tropa que su niebla le
- * tapa (H4 de QA).
+ * por su casilla (`visibleNowAt`: el radio de sus héroes, castillos y nodos sobre
+ * lo explorado), y la marcha que se para por un grupo, por la casilla del héroe
+ * **y** la del grupo: si no, la crónica le contaría al rival que mira al héroe un
+ * grupo y su tropa que su niebla le tapa (H4 de QA).
  */
 function observa(state: GameState, p: PlayerId, draft: GameEventDraft, sitio: Point): boolean {
   switch (SE_VE_POR[draft.kind]) {
-    case 'region':
-      return grupoALaVistaDesde(state.map, miradasDe(state, p), sitio);
     case 'casilla':
       return visibleNowAt(state, p, sitio);
     case 'casilla y grupo': {
@@ -1084,10 +1154,7 @@ function observa(state: GameState, p: PlayerId, draft: GameEventDraft, sitio: Po
       if (grupo === undefined) {
         throw new Error(`la marcha se para por el grupo ${draft.raider}, que no está en el mapa`);
       }
-      return (
-        visibleNowAt(state, p, sitio) &&
-        grupoALaVistaDesde(state.map, miradasDe(state, p), grupo.at)
-      );
+      return visibleNowAt(state, p, sitio) && visibleNowAt(state, p, grupo.at);
     }
   }
 }
@@ -1105,6 +1172,10 @@ function startTurn(state: GameState): void {
     // Su recuerdo de lo que tiene alrededor es de hoy, igual que el de un héroe
     // quieto: un grupo que patrulla junto a casa se ve donde está.
     revealAroundTown(state, town);
+  }
+  // Y cada nodo suyo, que también mira (la niebla de eventos, 02-11-2026).
+  for (const obj of state.map.objects) {
+    if (obj.kind === 'node' && obj.owner === player.id) revealAroundNode(state, obj);
   }
   player.oro += renta.total;
 
@@ -2629,8 +2700,8 @@ function moveHero(
   // nada. De un solo paso no hay «más adelante», y mirarlo mediría la fuerza
   // del héroe antes que la batalla, que es quien tiene que lanzar si su
   // ejército no vale.
-  const miradas = (): readonly Mirada[] => miradasDe(state, player.id);
-  const vigia = camino.length > 1 ? vigiaDeLaMarcha(state, hero, camino, miradas) : null;
+  const seVe = (at: Point): boolean => visibleNowAt(state, player.id, at);
+  const vigia = camino.length > 1 ? vigiaDeLaMarcha(state, hero, camino, seVe) : null;
 
   for (let i = 0; i < hoy; i++) {
     const paso = camino[i] as (typeof camino)[number];
@@ -2805,8 +2876,23 @@ function captureNode(
 ): void {
   const anterior = nodo.owner;
   nodo.owner = player;
+  revealAroundNode(state, nodo);
+  vioCaerlo(state, anterior, nodo);
   emit(state, { kind: 'node_captured', node: nodo.id, from: anterior, actor: player, at: nodo.at });
   dispersarAsaltantes(state);
+}
+
+/**
+ * El dueño de ayer de un nodo o un castillo **vio caerlo**: lo miraba desde él
+ * mismo (un nodo y un castillo propios miran a 6) hasta el instante en que cambió
+ * de bandera, así que su recuerdo es ya la bandera nueva, de hoy. Sin esto, el mapa
+ * le seguía pintando el nodo como suyo hasta que alguien suyo volviera a mirarlo
+ * (H1 de la vuelta 1 de QA de la niebla por regiones, 02-11-2026: en 63 de 87
+ * nodos quitados). Lo de alrededor no: deja de mirarlo con la bandera.
+ */
+function vioCaerlo(state: GameState, anterior: PlayerId | null, obj: MapObject): void {
+  if (anterior === null) return;
+  playerById(state, anterior).memory.set(obj.id, { day: state.day, object: { ...obj } });
 }
 
 /**
@@ -2837,6 +2923,7 @@ function captureTown(state: GameState, town: Town, player: PlayerId): void {
   }
   bandera.owner = player;
   revealAroundTown(state, town);
+  vioCaerlo(state, anterior, bandera);
   emit(state, {
     kind: 'town_captured',
     town: town.id,

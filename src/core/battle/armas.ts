@@ -20,6 +20,46 @@ import {
 } from './cifras-de-la-rueda.js';
 import type { BattleStack } from './types.js';
 
+/** Cómo juega a distancia una unidad (`tiroADistanciaDe`): dispara o lanza granadas. */
+export type TiroADistancia = 'disparo' | 'granada';
+
+/**
+ * Cómo juega `c` a distancia, o `null` si no lleva nada en el hueco `distancia`:
+ * **la única pregunta** (hallazgo S1 de /simplify, 02-11-2026: «¿juega a distancia?» se
+ * escribía como `isShooter || lanzaGranadas` en seis sitios, y las dos leían fuentes
+ * distintas, `equipo` y `armas`, que podían contradecirse). Se lee solo de su golpe a
+ * distancia (`UnitInfo.armas.distancia`, que escribe `conEquipo` con lo que lleva en
+ * ese hueco): la granada se lanza; lo demás —arco, ballesta, arma de fuego— se
+ * dispara, sin munición que contar (13-10-2026: llevarla ya es disparar). Vive aquí,
+ * con las lecturas de `armas`.
+ */
+export function tiroADistanciaDe(c: UnitInfo): TiroADistancia | null {
+  const golpe = c.armas?.distancia;
+  if (golpe === undefined) return null;
+  return golpe.tiro?.kind === 'granada' ? 'granada' : 'disparo';
+}
+
+/** Tira (apunta y dispara, `aim`) quien lleva en `distancia` algo que no es una granada. */
+export function isShooter(c: UnitInfo): boolean {
+  return tiroADistanciaDe(c) === 'disparo';
+}
+
+/** Lanza granadas (`throw`, `lanzarBlocker`) quien lleva una en `distancia` (02-11-2026). */
+export function lanzaGranadas(c: UnitInfo): boolean {
+  return tiroADistanciaDe(c) === 'granada';
+}
+
+/**
+ * Si `a` y `b` tiran a distancia de la misma clase: nada, arco o ballesta, arma de
+ * fuego o granada. Lo pregunta un retoque de la arena a media pelea
+ * (`loADistanciaTrasElRetoque`, `battle.ts`): con otra clase, lo pendiente no vale.
+ */
+export function mismoTiro(a: UnitInfo, b: UnitInfo): boolean {
+  const clase = (u: UnitInfo): string | null =>
+    u.armas?.distancia === undefined ? null : (u.armas.distancia.tiro?.kind ?? 'arco');
+  return clase(a) === clase(b);
+}
+
 /**
  * Con qué arma y con qué cifras da `unit` un golpe de `uso`: el de su arma
  * (`UnitInfo.armas`) o, si no la lleva, el de cuerpo a cuerpo, que son las cifras
@@ -138,10 +178,49 @@ export interface TrasLaArmadura {
  * `herir` (todo lo que quita vida pasa por ella: golpe, contraataque, cada golpe
  * de Rápido o del doble golpe, cada disparo, la salpicadura, el hechizo y el
  * poder) y la previsión (`horquillaDeDanio`, la del hechizo), y la IA (`expectedDamage`).
- * Sin armadura devuelve `danio` tal cual.
+ * Sin armadura devuelve `danio` tal cual, y con `perfora` (el disparo de un arma de
+ * fuego, `perforaLaArmadura`), también. `perfora` no tiene valor por defecto: quien
+ * se olvidaba de pasarlo restaba la armadura en silencio (la salpicadura de un arma
+ * de fuego; hallazgo F2 de /simplify, 02-11-2026).
  */
-export function trasLaArmadura(danio: number, objetivo: Pick<BattleStack, 'unit'>): TrasLaArmadura {
+export function trasLaArmadura(
+  danio: number,
+  objetivo: Pick<BattleStack, 'unit'>,
+  perfora: boolean,
+): TrasLaArmadura {
   const a = armaduraDe(objetivo.unit);
-  if (a === 0) return { danio, parado: 0 };
+  // Lo de un arma de fuego llega entero (02-11-2026, decisión del usuario: «Nada, fija»).
+  if (a === 0 || perfora) return { danio, parado: 0 };
   return { danio: Math.max(0, danio - a), parado: Math.min(danio, a) };
+}
+
+/**
+ * Si el golpe de `uso` de `unit` perfora la armadura: el disparo de un arma de fuego
+ * (`GolpeConArma.tiro`, 02-11-2026, decisión del usuario: toda arma de fuego ignora la
+ * armadura entera). **La única pregunta**: la hacen el daño (`computeDamage`, que lo
+ * pasa a `herir`), la previsión, la IA (`expectedDamage`) y la medida del nivel.
+ */
+export function perforaLaArmadura(unit: UnitInfo, uso: UsoDeArma): boolean {
+  return uso === 'distancia' && unit.armas?.distancia?.tiro?.kind === 'fuego';
+}
+
+/**
+ * Los turnos que pasa `unit` sin apuntar tras disparar, contando aquel en que sale el
+ * disparo (decisión del usuario, 02-11-2026: «cuenta ese turno»): la recarga de su
+ * arma de fuego, o 0 con un arco, una ballesta o sin arma a distancia. La leen el
+ * disparo (`dispararLoApuntado`) y la medida del nivel.
+ */
+export function recargaDe(unit: UnitInfo): number {
+  const tiro = unit.armas?.distancia?.tiro;
+  return tiro?.kind === 'fuego' ? tiro.recarga : 0;
+}
+
+/**
+ * Las granadas que lleva `unit` a cada batalla (`Pieza.cargas`), o 0 si no lleva
+ * granada. Lo gastado lo cuenta el stack (`BattleStack.granadasLanzadas`), y lo que
+ * queda se deriva (`granadasQueQuedan`, `battle.ts`).
+ */
+export function cargasDe(unit: UnitInfo): number {
+  const tiro = unit.armas?.distancia?.tiro;
+  return tiro?.kind === 'granada' ? tiro.cargas : 0;
 }

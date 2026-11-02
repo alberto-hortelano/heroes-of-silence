@@ -43,6 +43,7 @@ import type {
   HuecoDeArmaPorUso,
   MonturaPuesta,
   NivelesDeLaRueda,
+  TiroDelGolpe,
   Troop,
   UnitInfo,
   UsoDeArma,
@@ -208,7 +209,7 @@ export const DICHO_DEL_USO: Readonly<Record<UsoDeArma, DichoDeUnUso>> = {
     rotulo: 'A distancia',
     golpe: 'a distancia',
     cuando:
-      'Se usa al disparar: llevarla ya es disparar, sin munición (dos tiros por disparo con Dos disparos).',
+      'Se usa al disparar: llevarla ya es disparar, sin munición (dos tiros por disparo con Dos disparos). Un arma de fuego perfora la armadura y recarga unos turnos tras disparar; una granada no se dispara: se lanza a una casilla, explota al empezar su siguiente turno y se gasta.',
   },
 };
 
@@ -382,7 +383,7 @@ function monturaPuesta(p: Pieza): MonturaPuesta {
 function loQuePone(
   total: SumaDeEquipo,
   fuerzaDelArma: number,
-): Parameters<typeof cifrasDelCuerpo>[1] {
+): NonNullable<Parameters<typeof cifrasDelCuerpo>[1]> {
   return {
     peso: total.peso,
     fuerzaDelArma,
@@ -501,16 +502,43 @@ function armasPorUso(
   for (const hueco of porUso) {
     const id = todo[hueco] as string;
     const p = piezaDe(piezas, id);
+    const tiro = tiroDelGolpe(p);
+    // Un arma de fuego tira con su propia agilidad (02-11-2026): lo estrecho de su
+    // horquilla. Solo en este golpe; la agilidad no sube arriba (`sumaDe`).
+    const pone = loQuePone(total, p.fuerza ?? 0);
     armas[hueco] = {
       piezas: [nombreDeLaPieza(p)],
       attack: vestida.attack - total.ataque + p.ataque,
       // El cuerpo con todo lo puesto y la fuerza de esta arma en lugar de la de
       // cuerpo a cuerpo: la misma cuenta que el golpe de arriba (las primitivas de
       // `vestida` son las del cuerpo).
-      damage: cifrasDelCuerpo(vestida, loQuePone(total, p.fuerza ?? 0)).damage,
+      damage: cifrasDelCuerpo(
+        vestida,
+        tiro?.kind === 'fuego' ? { ...pone, agilidadDelArma: p.agilidad ?? 1 } : pone,
+      ).damage,
+      ...(tiro === undefined ? {} : { tiro }),
     };
   }
   return armas;
+}
+
+/**
+ * Lo que tira la pieza `p` en su golpe (`GolpeConArma.tiro`): un arma de fuego con
+ * su recarga o una granada con sus cargas; `undefined`, un arco o una ballesta. La
+ * única lectura de `Pieza.tiro`, `Pieza.recarga` y `Pieza.cargas` fuera de la regla
+ * de una pieza: la escribe en la unidad `conEquipo`, y la ficha la enseña.
+ */
+export function tiroDelGolpe(p: Pieza): TiroDelGolpe | undefined {
+  switch (p.tiro) {
+    // Con `fuego`, la recarga, y con `granada`, las cargas: las exige `problemasDelTiro`
+    // al leer la pieza, y la arena las pone al cambiar el tiro (`enElHueco`).
+    case 'fuego':
+      return { kind: 'fuego', recarga: p.recarga as number };
+    case 'granada':
+      return { kind: 'granada', cargas: p.cargas as number };
+    case undefined:
+      return undefined;
+  }
 }
 
 /** Una pieza en un golpe (`GolpeConArma.piezas`): su id y su nombre. */
@@ -582,9 +610,18 @@ function mismasArmas(a: ArmasDeLaUnidad | undefined, b: ArmasDeLaUnidad | undefi
         x.damage[1] === y.damage[1] &&
         // La rueda también, tipo a tipo: sin ella, el retoque de la rueda de la
         // Maza a media pelea no llegaba a quien la lleva.
-        TIPOS_DEL_ANILLO.every((t) => x.rueda?.[t] === y.rueda?.[t]);
+        TIPOS_DEL_ANILLO.every((t) => x.rueda?.[t] === y.rueda?.[t]) &&
+        // Lo que tira: retocar la recarga o las cargas a media pelea llega a quien la lleva.
+        mismoTiroDelGolpe(x.tiro, y.tiro);
   if (a === undefined || b === undefined) return a === b;
   return golpe(a.arma, b.arma) && golpe(a.distancia, b.distancia);
+}
+
+/** Si dos golpes tiran lo mismo (`GolpeConArma.tiro`): la clase, y su recarga o sus cargas. */
+function mismoTiroDelGolpe(a: TiroDelGolpe | undefined, b: TiroDelGolpe | undefined): boolean {
+  if (a === undefined || b === undefined) return a === b;
+  if (a.kind === 'fuego') return b.kind === 'fuego' && a.recarga === b.recarga;
+  return b.kind === 'granada' && a.cargas === b.cargas;
 }
 
 /**
@@ -795,7 +832,9 @@ export type ModificadorDePieza =
       /** La cifra es de la pieza y no se suma a nadie (la de una montura): se dice sin signo. */
       readonly propia?: true;
     }
-  | { readonly kind: 'marca'; readonly marca: 'dosManos' | 'lanza' | 'guerra' | 'silla' };
+  | { readonly kind: 'marca'; readonly marca: 'dosManos' | 'lanza' | 'guerra' | 'silla' }
+  /** Lo que tira (02-11-2026): un arma de fuego con su recarga, o una granada con sus cargas. */
+  | { readonly kind: 'tiro'; readonly cual: TiroDelGolpe };
 
 /**
  * Lo que suma una pieza, como lista: las cifras distintas de cero en el orden de
@@ -813,6 +852,9 @@ export function modificadoresDePieza(p: Pieza): ModificadorDePieza[] {
     peso: p.peso,
   };
   const montura = p.hueco === 'montura';
+  // La agilidad de un arma de fuego es suya, como la de una montura: la de su horquilla.
+  const propia = (cifra: CifraDePieza): boolean =>
+    (montura && cifra !== 'peso') || (p.hueco === 'distancia' && cifra === 'agilidad');
   const cifras: ModificadorDePieza[] = CIFRAS_DE_PIEZA.flatMap((cifra) =>
     valor[cifra] === 0
       ? []
@@ -821,10 +863,11 @@ export function modificadoresDePieza(p: Pieza): ModificadorDePieza[] {
             kind: 'cifra' as const,
             cifra,
             valor: valor[cifra],
-            ...(montura && cifra !== 'peso' ? { propia: true as const } : {}),
+            ...(propia(cifra) ? { propia: true as const } : {}),
           },
         ],
   );
+  const tiro = tiroDelGolpe(p);
   const marcas: ModificadorDePieza[] = [
     ...(aDosManos(p) ? [{ kind: 'marca' as const, marca: 'dosManos' as const }] : []),
     ...(esLanza(p) ? [{ kind: 'marca' as const, marca: 'lanza' as const }] : []),
@@ -836,6 +879,7 @@ export function modificadoresDePieza(p: Pieza): ModificadorDePieza[] {
           },
         ]
       : []),
+    ...(tiro === undefined ? [] : [{ kind: 'tiro' as const, cual: tiro }]),
   ];
   return [...cifras, ...marcas];
 }
@@ -850,6 +894,17 @@ const DICHO_DE_LA_MARCA: Readonly<
   silla: 'de silla: solo en el mapa',
 };
 
+/**
+ * Lo que tira una pieza dicho para quien juega: «arma de fuego: perfora la armadura,
+ * recarga 2 turnos» o «granada: 2 por batalla». Lo leen sus modificadores, la ficha
+ * y la prosa del agente.
+ */
+export function dichoDelTiro(t: TiroDelGolpe): string {
+  return t.kind === 'fuego'
+    ? `arma de fuego: perfora la armadura, recarga ${t.recarga} ${t.recarga === 1 ? 'turno' : 'turnos'}`
+    : `granada: ${t.cargas} por batalla`;
+}
+
 /** Un número con su signo siempre: «+2», «−1» (el menos tipográfico), «+0». */
 export function conSigno(n: number): string {
   return n < 0 ? `−${-n}` : `+${n}`;
@@ -863,6 +918,7 @@ export function conSigno(n: number): string {
  */
 export function textoDeModificador(m: ModificadorDePieza): string {
   if (m.kind === 'marca') return DICHO_DE_LA_MARCA[m.marca];
+  if (m.kind === 'tiro') return dichoDelTiro(m.cual);
   if (m.cifra === 'peso' || m.propia === true) return `${NOMBRE_DE_CIFRA[m.cifra]} ${m.valor}`;
   return `${conSigno(m.valor)} ${NOMBRE_DE_CIFRA[m.cifra]}`;
 }

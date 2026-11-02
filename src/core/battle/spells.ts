@@ -155,7 +155,7 @@ export function castSpell(
 ): SpellResult {
   switch (s.kind) {
     case 'damage': {
-      const h = herir(target, l.cantidad, autor);
+      const h = herir(target, { damage: l.cantidad, perfora: false }, autor);
       return { damage: h.danio, killed: h.muertos, cura: 0, parado: h.parado };
     }
     case 'speed':

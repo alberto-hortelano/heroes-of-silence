@@ -131,6 +131,34 @@ export class Casillas implements CasillasLeidas {
     }
   }
 
+  /**
+   * Marca el cuadrado de `marcarCuadrado`, pero solo las casillas que están en
+   * `dentro`: lo que se mira AHORA es el radio de un héroe, un castillo o un nodo
+   * sobre lo ya explorado (`visibleNow`, 02-11-2026), y nada se ve sobre el negro.
+   */
+  marcarCuadradoDentroDe(centro: Point, radio: number, dentro: CasillasLeidas): void {
+    const { x0, x1, y0, y1 } = limitesDelCuadrado(this, centro, radio);
+    for (let y = y0; y <= y1; y++) {
+      for (let i = y * this.width + x0, fin = y * this.width + x1; i <= fin; i++) {
+        if (dentro.hasIndex(i)) this.marcar(i);
+      }
+    }
+  }
+
+  /**
+   * Marca unas casillas por su índice `y·W + x`: la zona entera de una región que
+   * se descubre (`zonaDeNiebla`). Lanza con un índice que no es del mapa, como
+   * `deIndices`.
+   */
+  marcarIndices(indices: Iterable<number>): void {
+    for (const i of indices) {
+      if (!Number.isInteger(i) || i < 0 || i >= this.marcas.length) {
+        throw new Error(`la casilla ${i} no es de un mapa de ${this.width}×${this.height}`);
+      }
+      this.marcar(i);
+    }
+  }
+
   /** Los índices marcados, de menor a mayor: fila a fila, como se lee el mapa. */
   indices(): number[] {
     const out: number[] = [];

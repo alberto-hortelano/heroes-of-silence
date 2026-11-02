@@ -26,6 +26,7 @@ import {
   lasRuedasQue,
   PARTES,
 } from '../battle/formas-de-la-rueda.js';
+import { GRANADA } from '../battle/granada.js';
 import { PODERES, queHaceElPoder } from '../battle/poderes.js';
 import { HERO_BODY } from '../battle/types.js';
 import { TOPES_DE_TROPA } from '../combate.js';
@@ -190,6 +191,9 @@ export const battleActionSchema = z.discriminatedUnion('type', [
   // El disparo diferido (25-10-2026): apuntar a una casilla cierra el turno y el
   // disparo sale al empezar el siguiente (`apuntarBlocker`, `lineaDelDisparo`).
   z.object({ type: z.literal('aim'), at: hexSchema }),
+  // La granada (02-11-2026): lanzarla a una casilla a su alcance cierra el turno y
+  // explota al empezar el siguiente (`lanzarBlocker`, `explosionDe`).
+  z.object({ type: z.literal('throw'), at: hexSchema }),
   // Retiradas el 26-10-2026 (decisión del usuario): se rechazan diciéndolo y
   // diciendo qué mandar, en vez de un «discriminador inválido» que no explica
   // nada. La batalla sigue: se descarta esa jugada, como cualquier otra mala.
@@ -468,7 +472,8 @@ Notas:
   que te saca el margen de fuerza es una EMBOSCADA. El héroe se para en esa
   casilla aunque le queden puntos, y la batalla la juegas defendiendo. Si va
   directo a por la base rival por regiones sin conquistar, puede llegar con
-  menos gente de la que salió —o no llegar—.
+  menos gente de la que salió —o no llegar—. Un grupo solo se ve cerca de lo
+  tuyo: el que patrulla una región fuera de tu vista también te embosca.
 - Si al andar ves un grupo que te emboscaría más adelante en la ruta y que no
   era el que ya veías emboscarte al salir —uno que no veías, o el siguiente
   cuando por el camino ganas fuerza (la guarnición de tu base se recoge al
@@ -648,11 +653,12 @@ ${COMO_SE_LEE_EL_MAPA}
 - Un objeto "lugar" del mapa (con su "name") es un sitio de la historia del
   mundo, con su gente y sus diálogos. Tú todavía NO entras en ellos: no hay
   jugada para eso. Se puede pisar y cruzar como cualquier casilla.
-- "enemyHeroes" son los que ves AHORA: si no aparece ninguno, no significa que
-  no haya, solo que nadie tuyo los tiene a la vista.
+- "enemyHeroes" son los que ves AHORA, cerca de un héroe, una ciudad o un nodo
+  tuyos (el radio de "knownMap"): si no aparece ninguno, no significa que no
+  haya, solo que nadie tuyo los tiene a la vista.
 - "recentEvents" es lo que OBSERVABAS cuando ocurrió, no todo lo que pasó. Lo
-  tuyo entra siempre, y también perder un castillo o un héroe aunque te los
-  quiten lejos; del rival solo llega lo que alguien tuyo tenía a la vista en ese
+  tuyo entra siempre, y también perder un castillo, un nodo o un héroe aunque
+  te los quiten lejos; del rival solo llega lo que alguien tuyo tenía a la vista en ese
   momento —y sigue llegando aunque hoy ya no lo mires: la crónica es memoria—.
   Un silencio NO significa que el rival esté quieto: significa que no lo has
   visto. Si quieres saber qué hace, ponle a alguien delante.
@@ -685,6 +691,7 @@ Acciones válidas para la unidad activa:
   { "type": "move",   "to": { "col": N, "row": N } }
   { "type": "attack", "target": "<id de stack>", "from": { "col": N, "row": N }, "hit": "<golpe>" }
   { "type": "aim",    "at": { "col": N, "row": N } }
+  { "type": "throw",  "at": { "col": N, "row": N } }
   { "type": "cast",   "spell": "<id>", "target": "<id de stack>" }
   { "type": "power",  "power": "<id de poder>", "target": "<id de stack aliado>" }
   { "type": "surrender", "gold": N }
@@ -780,6 +787,32 @@ Notas:
   tirador muere antes, el disparo se pierde. Tras el disparo, su turno sigue:
   puede apuntar otra vez o actuar como siempre. El registro lo cuenta con
   "aimed" ("at") y "shoot" ("at" y "target", null si no dio a nadie).
+- ARMAS DE FUEGO (regla nuestra, nueva): la pistola, el arcabuz y la culebrina
+  disparan como cualquier tirador (DISPARO DIFERIDO), con dos diferencias. Su
+  disparo PERFORA la armadura: llega entero, sin restar la del alcanzado. Y
+  RECARGAN: tras salir el disparo, la unidad pasa los turnos de su recarga sin
+  poder apuntar, contando el turno en que sale (con recarga 1, apunta un turno sí y
+  otro no). Mientras recarga, su stack lleva "reloading" con los turnos que le
+  faltan y "legalActions" no trae ningún "aim" suyo. La horquilla de un arma de
+  fuego es estrecha: la de su propia agilidad, no la del cuerpo. En
+  "creature_stats", quien lleva un arma de fuego trae "reload" (su recarga). Nada de
+  esto tira dado.
+- GRANADAS (regla nuestra, nueva): quien lleva granada ("grenades" en su stack:
+  las que le quedan en esta batalla; "grenadeRange", hasta cuántas casillas la
+  lanza, que es la fuerza de su cuerpo) no apunta: LANZA con "throw" a una casilla
+  a su alcance ("at", cualquiera menos la suya: "legalActions" trae solo las de los
+  enemigos a su alcance, pero vale cualquier otra que lo esté), sin moverse antes y
+  sin un enemigo al lado. Va por encima: no la para nadie en medio, ni un muro ni
+  una puerta. Lanzar CIERRA su turno y gasta una granada; con 0 no se lanza, y no
+  se reponen hasta la batalla siguiente. Su stack lleva "grenadeAt" con la casilla
+  (también en los del rival). Al EMPEZAR su siguiente turno, antes de que elijas
+  nada, EXPLOTA: da a todo el que esté entonces en esa casilla (la tirada en el
+  cuarto ${GRANADA.cuartoDelCentro} de 4 de la horquilla de la granada: 0 el mínimo, 4 el máximo) y
+  en sus seis vecinas (en el cuarto ${GRANADA.cuartoDelAnillo} de 4), SEA DEL
+  BANDO QUE SEA, también a quien la lanzó si sigue cerca; la armadura se resta como
+  siempre. Sin dado. Si quien la lanzó muere antes, no explota. El registro lo
+  cuenta con "thrown" ("at") y un "blast" por alcanzado ("at", "target", "damage",
+  "cuarto"; "target" null si no dio a nadie).
 - "power" usa un PODER de la unidad activa ("stacks[].powers": ${PODERES_EN_PROSA})
   sobre un aliado, incluida ella misma. Gasta su turno entero y solo sin haberse movido; los que
   puede usar ahora vienen en "legalActions".

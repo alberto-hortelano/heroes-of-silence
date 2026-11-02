@@ -85,7 +85,7 @@ export class EscenaTropa {
         puntero: this.puntero,
         figura: (st) => this.animador.figura(st),
         efectos: this.animador.efectos(b),
-        apuntados: this.animador.apuntados(b),
+        ...this.animador.aDistancia(b),
         // La tropa es de quien juega: nada en gris.
         sinDueño: NINGUN_BANDO,
         clima: { sitio: vista.clima, ahora },

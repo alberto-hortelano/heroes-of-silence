@@ -144,7 +144,9 @@ export interface TableroAlColocar {
   readonly puntero: Punto | null;
   readonly figura: (s: BattleStack) => EstadoFigura;
   readonly efectos: readonly Efecto[];
+  /** Lo apuntado y las granadas en el aire (`BattleAnimator.aDistancia`). */
   readonly apuntados: ReadonlyMap<string, Hex>;
+  readonly granadas: ReadonlyMap<string, Hex>;
   readonly sinDueño: ReadonlySet<Side>;
   readonly clima: { readonly sitio: ClimaDelSitio; readonly ahora: number };
 }
@@ -171,6 +173,7 @@ export function tableroAlColocar(c: ColocacionEnPantalla, t: TableroAlColocar): 
     activo,
     enLaRueda: null,
     tanteo: null,
+    granadaTanteada: null,
   };
 }
 

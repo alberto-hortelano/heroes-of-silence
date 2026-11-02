@@ -75,10 +75,12 @@ import {
 } from '@core/cuerpo.js';
 import {
   ARMADURA_MAXIMA_DE_PIEZA,
+  CARGAS_MAXIMAS,
   type ExtrasDePieza,
   esPiezaConBase,
   extrasDe,
   type Pieza,
+  RECARGA_MAXIMA,
   RUTA_DEL_CATALOGO_DE_EQUIPO,
   SOLO_EN_KITS,
 } from '@core/data.js';
@@ -100,6 +102,7 @@ import {
   SIN_ARMA,
   seVende,
   textoDeModificador,
+  tiroDelGolpe,
 } from '@core/hero/equipo.js';
 import {
   type CifraDePieza,
@@ -1498,6 +1501,7 @@ function fichaDePieza(p: Pieza, v: VistaDeEquipo): Html {
       : extras === null
         ? html`<label class="casilla-de-marcar"><input type="checkbox" data-arena-pieza-campo="guerra" ${esDeGuerra(p) ? html`checked` : NADA}> de guerra ${nota(DICHO_DE_LA_MONTURA)}</label>`
         : html`<div class="row"><span class="label">De guerra ${nota('La de su base.')}</span><span>${esDeGuerra(p) ? 'Sí' : 'No'}</span></div>`;
+  const tiro = tiroDelPanel(p, extras !== null);
   const cadena = cadenaDeBases(eq, p.id);
   const suBase = baseDe(eq, p.id);
   const base = html`<label class="campo"><span class="label">Base ${nota('Otra pieza de su hueco de la que parte: suma lo de la base más sus extras, y si cambia la base, cambia ella. Al cambiar de base se queda con lo que suma ahora.')}</span>
@@ -1548,6 +1552,7 @@ function fichaDePieza(p: Pieza, v: VistaDeEquipo): Html {
         ${manos}
         ${lanza}
         ${guerra}
+        ${tiro}
         ${tablaDeCifras(
           extras === null
             ? { nombre: 'Suma', nota: 'Lo que suma a quien la lleva.' }
@@ -1608,15 +1613,22 @@ const CASILLAS_DE_LA_CIFRA: Readonly<
           nota: 'Lo que suma a la fuerza de quien la lleva para el daño de su golpe: de la fuerza al de la fuerza por la agilidad.',
         },
   ],
-  agilidad: () => [
-    {
-      campo: 'agilidad',
-      rotulo: NOMBRE_DE_CIFRA.agilidad,
-      de: (x) => x.agilidad ?? 0,
-      limites: { minimo: AGILIDAD_DEL_CUERPO_MIN, maximo: AGILIDAD_DEL_CUERPO_MAX },
-      nota: `La de la montura, de ${AGILIDAD_DEL_CUERPO_MIN} a ${AGILIDAD_DEL_CUERPO_MAX}: sus casillas, menos lo que le reste el peso que carga.`,
-    },
-  ],
+  agilidad: (hueco) => {
+    // La lleva una montura (sus casillas) o un arma de fuego (su horquilla).
+    const minimo = hueco === 'distancia' ? 1 : AGILIDAD_DEL_CUERPO_MIN;
+    return [
+      {
+        campo: 'agilidad',
+        rotulo: NOMBRE_DE_CIFRA.agilidad,
+        de: (x) => x.agilidad ?? 0,
+        limites: { minimo, maximo: AGILIDAD_DEL_CUERPO_MAX },
+        nota:
+          hueco === 'distancia'
+            ? `La de un arma de fuego, de 1 a ${AGILIDAD_DEL_CUERPO_MAX}, que no se suma a la de quien la lleva: su disparo tira [F, F × esta agilidad], estrecho si es baja (con 1, siempre lo mismo).`
+            : `La de la montura, de ${AGILIDAD_DEL_CUERPO_MIN} a ${AGILIDAD_DEL_CUERPO_MAX}: sus casillas, menos lo que le reste el peso que carga.`,
+      },
+    ];
+  },
   defensa: () => [
     {
       campo: 'defensa',
@@ -1645,6 +1657,49 @@ const CASILLAS_DE_LA_CIFRA: Readonly<
   ],
 };
 
+/**
+ * Lo que tira una pieza a distancia en su ficha (02-11-2026): el desplegable «Tiro»
+ * (arco o ballesta, arma de fuego o granada) y, según él, su recarga o sus cargas,
+ * cada una con su nota. Con base, lo de su base, sin casillas: no son extras. Nada
+ * fuera de `distancia`.
+ */
+function tiroDelPanel(p: Pieza, conBase: boolean): Html {
+  if (p.hueco !== 'distancia') return NADA;
+  const t = tiroDelGolpe(p);
+  const notaDelTiro = nota(
+    'Un arco o una ballesta dispara como siempre. Un arma de fuego dispara igual, pero perfora la armadura (llega entero), tira con su propia agilidad y recarga unos turnos tras disparar. Una granada no se dispara: se lanza a una casilla a la fuerza de quien la lleva y explota al empezar su siguiente turno en ella y sus vecinas, a quien esté; se gasta.',
+  );
+  const notaDeLaRecarga = nota(
+    `Los turnos, de 1 a ${RECARGA_MAXIMA}, que pasa sin poder apuntar tras disparar, contando aquel en que sale el disparo: con 1, apunta un turno sí y otro no.`,
+  );
+  const notaDeLasCargas = nota(
+    `Las que lleva a cada batalla, de 1 a ${CARGAS_MAXIMAS}: lanzar gasta una, y con 0 no se lanza. Fuera de batalla no se gastan.`,
+  );
+  if (conBase) {
+    const dicho =
+      t === undefined ? 'Arco o ballesta' : textoDeModificador({ kind: 'tiro', cual: t });
+    return html`<div class="row"><span class="label">Tiro ${nota('El de su base, con su recarga o sus cargas.')}</span><span>${dicho}</span></div>`;
+  }
+  const opcion = (valor: string, rotulo: string, si: boolean): Html =>
+    html`<option value="${valor}" ${si ? html`selected` : NADA}>${rotulo}</option>`;
+  const desplegable = html`<label class="campo"><span class="label">Tiro ${notaDelTiro}</span>
+      <select data-arena-pieza-campo="tiro">
+        ${opcion('', 'Arco o ballesta', t === undefined)}
+        ${opcion('fuego', 'Arma de fuego', t?.kind === 'fuego')}
+        ${opcion('granada', 'Granada', t?.kind === 'granada')}
+      </select></label>`;
+  const numero = (campo: string, rotulo: string, valor: number, maximo: number, n: Html): Html =>
+    html`<label class="campo"><span class="label">${rotulo} ${n}</span>
+      <input type="number" data-arena-pieza-campo="${campo}" value="${String(valor)}" min="1" max="${String(maximo)}"></label>`;
+  return html`${desplegable}${
+    t?.kind === 'fuego'
+      ? numero('recarga', 'Recarga', t.recarga, RECARGA_MAXIMA, notaDeLaRecarga)
+      : t?.kind === 'granada'
+        ? numero('cargas', 'Cargas', t.cargas, CARGAS_MAXIMAS, notaDeLasCargas)
+        : NADA
+  }`;
+}
+
 /** La casilla del precio, la última de toda pieza: solo en oro. */
 const PRECIO_EN_ORO: CasillaDePieza = {
   campo: 'precio-gold',
@@ -1663,8 +1718,12 @@ const PRECIO_EN_ORO: CasillaDePieza = {
 function filasDePieza(p: Pieza, extras: ExtrasDePieza | null): FilaDeCifra[] {
   const final = extrasDe(p);
   const escrito = extras ?? final;
+  // A distancia, la agilidad solo la lleva un arma de fuego (`problemasDePieza`).
+  const sinAgilidad = p.hueco === 'distancia' && tiroDelGolpe(p)?.kind !== 'fuego';
   const casillas = [
-    ...camposDelHueco(p.hueco).cifras.flatMap((c) => CASILLAS_DE_LA_CIFRA[c](p.hueco)),
+    ...camposDelHueco(p.hueco)
+      .cifras.filter((c) => !(sinAgilidad && c === 'agilidad'))
+      .flatMap((c) => CASILLAS_DE_LA_CIFRA[c](p.hueco)),
     PRECIO_EN_ORO,
   ];
   return casillas.map((c) => ({
@@ -2046,6 +2105,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
               pasos: s.battleStepsLeft(),
               sinSalida: s.sinSalida(),
               trasLaFinta: s.trasLaFinta(),
+              modo: s.arma.modo,
               rendicion: NADA,
               poderes: html`${botonesDeArma(s, activa)}${botonesDePoder(s, activa)}`,
               hechizos:

@@ -7,11 +7,11 @@ import { centroDeStack, centroHex, tableroPara } from '../src/client/render/proy
 import type { Session } from '../src/client/session.js';
 import { renderSide } from '../src/client/views/panels.js';
 import { textoDePrevision } from '../src/client/views/prevision.js';
+import { isShooter } from '../src/core/battle/armas.js';
 import { isAlive, stackHexes } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
 import { CARGA } from '../src/core/battle/carga.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
-import { isShooter } from '../src/core/data.js';
 
 import type { Hex, UnitInfo } from '../src/core/types.js';
 import { sesionContraMonstruo } from './batalla-de-cliente.js';

@@ -13,7 +13,7 @@ import {
   raizEntera,
 } from '../src/core/escala.js';
 import { maxMovePoints } from '../src/core/hero/hero.js';
-import { HERO_SCOUT_RADIUS, TOWN_SCOUT_RADIUS } from '../src/core/state/game.js';
+import { HERO_SCOUT_RADIUS, NODE_SCOUT_RADIUS } from '../src/core/state/game.js';
 import { SPEED_TIERS, SPEED_TO_MOVE_POINTS } from '../src/core/types.js';
 import { grupoQueMarcha } from './helpers.js';
 
@@ -69,10 +69,10 @@ describe('la vista sale del área (#229)', () => {
     }
   });
 
-  it('los radios del héroe y del castillo son los de fheroes2 a escala, no la cita', () => {
+  it('los radios del héroe y del castillo (y del nodo, 02-11-2026) son los de fheroes2 a escala, no la cita', () => {
     // fheroes2: héroe 4, castillo 5 (`getFogDiscoveryDistance`); con 450 sobre 300, 5 y 6.
-    expect([HERO_SCOUT_RADIUS, TOWN_SCOUT_RADIUS]).toEqual([radioALaEscala(4), radioALaEscala(5)]);
-    expect([HERO_SCOUT_RADIUS, TOWN_SCOUT_RADIUS]).toEqual([5, 6]);
+    expect([HERO_SCOUT_RADIUS, NODE_SCOUT_RADIUS]).toEqual([radioALaEscala(4), radioALaEscala(5)]);
+    expect([HERO_SCOUT_RADIUS, NODE_SCOUT_RADIUS]).toEqual([5, 6]);
   });
 
   it('lanza con lo que no es un entero ≥ 0', () => {
