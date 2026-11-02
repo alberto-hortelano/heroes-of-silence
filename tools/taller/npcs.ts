@@ -27,7 +27,7 @@ import {
 } from '../../src/shared/arte.js';
 import { prefijoDeLaFigura, quedanReintentos } from '../npcs/en-el-taller.js';
 import { type Cola, colaDelTaller, NoEstaEn, YaEnLaCola } from './cola.js';
-import type { Encargo } from './encargo.js';
+import { type Encargo, figuraDelGiro } from './encargo.js';
 import { ESTILO_DE_FACCION } from './unidades.js';
 
 /**
@@ -91,13 +91,13 @@ function encargoDeGiro(f: FiguraDeNpc): Encargo {
 }
 
 /** Una hoja de una dirección, sobre la profundidad del maniquí civil y con el giro como identidad. */
-function encargoDeHoja(f: FiguraDeNpc, d: number, hoja: HojaDeFigura): Encargo {
+export function encargoDeHoja(f: FiguraDeNpc, d: number, hoja: HojaDeFigura): Encargo {
   return {
     id: `${prefijoDeLaFigura(f.id)}d${d}-${hoja}`,
     tipo: 'atlas',
     descripcion: [
       f.descripcion,
-      `En la lámina de giro (imagen 2), la figura ${d + 1} en orden de lectura es la que mira hacia «${NOMBRES_DE_DIRECCION[d]}», como esta hoja: así se ve el personaje desde este lado.`,
+      figuraDelGiro(d),
       ...(hoja === 'b'
         ? [
             'El ATAQUE de esta hoja es un empujón o un manotazo con las manos vacías: no lleva arma.',
@@ -107,7 +107,7 @@ function encargoDeHoja(f: FiguraDeNpc, d: number, hoja: HojaDeFigura): Encargo {
     ].join('\n'),
     referencias: [
       { ruta: `${DIR_DEL_MANIQUI_CIVIL}/d${d}-${hoja}.profundidad.png`, papel: 'pose-profundidad' },
-      { ruta: `${carpetaDeNpc(f.id)}/giro.webp`, papel: 'identidad' },
+      { ruta: `${carpetaDeNpc(f.id)}/giro.webp`, papel: 'identidad', figura: d },
     ],
     salida: `${carpetaDeNpc(f.id)}/d${d}/hoja-${hoja}`,
     fondo: 'transparente',

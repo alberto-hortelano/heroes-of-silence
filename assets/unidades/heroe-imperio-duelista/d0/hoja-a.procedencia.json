@@ -1,22 +1,23 @@
 {
-  "encargo": "heroe-imperio-duelista-d0-a",
+  "encargo": "heroe-imperio-duelista-v-todo-d0-a-reposo",
   "tipo": "atlas",
-  "fecha": "2026-10-10T18:56:14.393Z",
+  "fecha": "2026-11-01T12:39:29.300Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a1272b-3ba5-7b60-97c0-428703e39f1f",
-  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn duelista imperial, maestro de esgrima delgado y rápido: sombrero de ala con plumas roja y amarilla, gola de acero, jubón negro acuchillado de amarillo y rojo, media capa al hombro con el águila, botas altas, ropera de lazo en la mano derecha y daga de parada en la izquierda. Sin escudo.\nEn la lámina de giro (imagen 2), la figura 1 en orden de lectura es la que mira hacia «frente», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «frente» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "hilo": "01a1971d-f634-77f2-bfb0-3a75ed75afee",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el MAPA DE PROFUNDIDAD del maniquí Y Bot (cámara ortográfica elevada 25 grados; más claro, más cerca; el negro es fondo) con su ESQUELETO dibujado encima: los huesos del lado IZQUIERDO del personaje en AZUL, los del DERECHO en ROJO, el tronco y la cabeza en BLANCO y el eje del arma en AMARILLO. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación siguiendo el esqueleto (dónde está cada codo, cada mano, cada rodilla y cada pie, y hacia dónde apunta el arma). El arma que se pinta es la del PERSONAJE (la de su identidad), por el eje amarillo. NO pintes el esqueleto, sus colores, el gris ni el fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía, la pose ni hacia dónde mira.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn duelista imperial, maestro de esgrima delgado y rápido: sombrero de ala con plumas roja y amarilla, gola de acero, jubón negro acuchillado de amarillo y rojo, media capa al hombro con el águila, botas altas, ropera de lazo en la mano derecha y daga de parada en la izquierda. Sin escudo.\nLa imagen 2 es el personaje visto desde el lado «frente» (su figura de la lámina de giro): mírala para saber qué se ve de él desde ese lado (la cara, el equipo, la capa, lo que lleva a la espalda), pero NO copies su postura ni hacia dónde mira, que está más vuelta hacia la cámara de la cuenta. La postura la da el maniquí, y hacia dónde mira, el maniquí y la ORIENTACIÓN escrita.\nEstilo: el de las imágenes del personaje —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\nLa imagen 2 puede enseñar al personaje en otra postura que la del maniquí (en guardia, con las piernas abiertas): esa POSTURA NO CUENTA, es solo para ver su aspecto desde ese lado. En cada celda el cuerpo adopta la postura del maniquí (imagen 1): si el maniquí está de pie con los pies juntos, el personaje también; si adelanta una pierna, la misma.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. El reposo es estar QUIETO: las siete figuras de la fila 1 son casi iguales, con el cuerpo, la cabeza y los pies mirando siempre hacia el mismo sitio y los pies plantados donde los tiene el maniquí; solo cambia lo poco que cambia el maniquí de una columna a otra (la respiración, un leve balanceo). Nunca gira el cuerpo ni la cabeza hacia otro lado ni cambia de postura a media fila. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo desde arriba la coronilla y los dos hombros, nunca a la altura de los ojos. La cámara no cambia hacia dónde mira el personaje: si mira de lado, se le ve de perfil, desde arriba.\nORIENTACIÓN, la misma en TODAS las celdas: DE FRENTE: el pecho, la cara y las puntas de los pies miran a la cámara (hacia abajo en la imagen); se le ven los dos ojos y el pecho entero. Es la del maniquí de la imagen 1; el personaje no se vuelve hacia la cámara en ninguna celda.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
-      "ruta": "assets/unidades/_poses/unidades/heroe-imperio-duelista-8d/d0-a.profundidad.png",
-      "papel": "pose-profundidad",
-      "sha256": "a4dcad6b984f4846b0990e506a18e54931eddce07eb6bdf219f7a6f2d531f9d2"
+      "ruta": ".cache/taller/revision/heroe-imperio-duelista/d0/versiones/pose-esqueleto-a.png",
+      "papel": "pose-esqueleto",
+      "sha256": "5a18efbeeccf28852f43315246c805bfabf44336c0498bfca82f064954634e8a"
     },
     {
       "ruta": "assets/unidades/heroe-imperio-duelista/giro.webp",
       "papel": "identidad",
+      "figura": 0,
       "sha256": "d235c574c9b08fd858527455dfc2ce75f1e60fefaac2386f2e6aee3373df089b"
     },
     {
@@ -25,21 +26,23 @@
       "sha256": "3ba1656e04119a00a9724eedcb3ea745373803f56b57043c7e1bf1e5fbd7b3d1"
     }
   ],
+  "pose": "assets/unidades/_poses/unidades/heroe-imperio-duelista-8d/d0-a.profundidad.png",
+  "shaDeLaPose": "71ef8dcbc7e619257dae90852fab6479417458145cb19ed4e23b2f301a398fb0",
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a1272b-3ba5-7b60-97c0-428703e39f1f/exec-0a9ec297-99a5-4e35-b31a-7adaea51d703.png",
-    "sha256": "7901393b1683a564046c4de2c49313955d9b70268f6d5b1767e4cf076e6074ff",
-    "ancho": 1916,
+    "fichero": "~/.codex/generated_images/01a1971d-f634-77f2-bfb0-3a75ed75afee/exec-699441a2-c9a5-4322-94b5-c1296a1ed2cf.png",
+    "sha256": "859e79bd8afae8067f6404f8188b563be3a9dda99088a26d2524e0a8e6f3921b",
+    "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.6502, pies en y=342, reposo a 160 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "dirección completa: assets/unidades/heroe-imperio-duelista/d0/atlas.webp"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.6907, pies en y=342, reposo a 160 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.040923587859623016,
-    "opacos": 0.9477521838971615,
+    "visibles": 0.04129658048115079,
+    "opacos": 0.9439387541250254,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -51,18 +54,116 @@
       342
     ],
     "apoyoReposo": [
-      191,
-      287
+      186,
+      292
     ],
     "posicion": false
-  },
-  "salida": {
-    "ruta": "assets/unidades/heroe-imperio-duelista/d0/hoja-a.webp",
-    "sha256": "b51712d1b63e1ae2217bea67cc122d0fb57cc2d183ec5aca830a835e1bca82e3"
   },
   "ritmo": {
     "idle": 5,
     "walk": 6.5,
     "charge": 10.5
+  },
+  "encuadre": [
+    [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        -1
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        -1
+      ]
+    ],
+    [
+      [
+        -1,
+        -7
+      ],
+      [
+        2,
+        -5
+      ],
+      [
+        0,
+        2
+      ],
+      [
+        2,
+        -6
+      ],
+      [
+        2,
+        -9
+      ],
+      [
+        0,
+        -3
+      ],
+      [
+        -2,
+        4
+      ]
+    ],
+    [
+      [
+        -1,
+        -7
+      ],
+      [
+        3,
+        -3
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        -2
+      ],
+      [
+        -1,
+        -2
+      ],
+      [
+        -4,
+        0
+      ],
+      [
+        2,
+        1
+      ]
+    ]
+  ],
+  "salida": {
+    "ruta": "assets/unidades/heroe-imperio-duelista/d0/hoja-a.webp",
+    "sha256": "a36b418fd7e72490e6b225e09480f3121916c0e142466e9123e822aa7cb6449c"
+  },
+  "eleccion": {
+    "version": "reposo",
+    "modo": "persona",
+    "motivo": "reposo repintado con la orientación por escrito (01-11-2026)",
+    "persona": "adoptar todas"
   }
 }

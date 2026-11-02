@@ -245,30 +245,34 @@ describe('los encargos de 8 direcciones', () => {
       );
       expect(existsSync(join(RAIZ, e.referencias[0]?.ruta ?? ''))).toBe(true);
       expect(e.referencias[1]?.ruta).toBe('assets/unidades/templario-escudo/giro.webp');
+      // Del giro, solo la figura de su dirección (01-11-2026).
+      expect(e.referencias[1]?.figura).toBe(e.ocho?.direccion);
       expect(e.celda).toBe(OCHO_DIRECCIONES.celda);
     }
     const b = lista.find((e) => e.ocho?.hoja === 'b');
     expect(promptDe(b as Encargo)).toMatch(/la primera es EXACTAMENTE la última de la fila 2/);
-    expect(promptDe(b as Encargo)).toMatch(/NUNCA de perfil/);
+    expect(promptDe(b as Encargo)).toMatch(/ORIENTACIÓN, la misma en TODAS las celdas/);
+    expect(promptDe(b as Encargo)).not.toMatch(/NUNCA de perfil/);
   });
 
   it('quien no dispara encarga exactamente lo mismo que antes de la hoja C', () => {
     // La huella de [encargo, prompt] de sus 16 hojas, tomada el 04-10-2026 antes
     // de añadir el disparo: ni un byte de lo que se pide cambia. Re-anclada el
     // 10-10-2026 al pintar a pie sobre la profundidad del maniquí propio; el
-    // montado no cambia.
+    // montado no cambia. Re-anclada el 01-11-2026: la orientación por escrito,
+    // el reposo quieto y, del giro, solo la figura de su dirección.
     const huella = (id: string): string =>
       createHash('sha256')
         .update(JSON.stringify(encargosDeOchoDirecciones(unidad(id)).map((e) => [e, promptDe(e)])))
         .digest('hex');
     expect(huella('templario-escudo')).toBe(
-      '228f3d5f99a3085ab9689b54f0506e9185a0f9756f102bb28eb0404968b77063',
+      '50eeff3a428793020bb86cd208e652b2460ccac7ae5517d3675378c04a104e59',
     );
     expect(huella('templario-hermano-de-carga')).toBe(
-      '9b4ca4ec10ef8f626a942f8cb27f1bede9f3513007f9a722059714f58206a1ca',
+      '786f1a5b55f155c828069cd788bdc7e9dbcc5a4f4e380069187c9dd1c8f3a393',
     );
     expect(huella('imperio-coracero')).toBe(
-      '216d89521c43ae4d5071baca2da508dc25484daf49fad842c1135505469af506',
+      'dabc76b01284763525c9163d77d1f92c481fb06bdc82091ed34201fe67a1c85e',
     );
   });
 

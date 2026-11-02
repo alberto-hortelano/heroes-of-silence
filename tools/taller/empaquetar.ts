@@ -26,7 +26,7 @@ import {
   recolocarConElSuelo,
   recolocarConLosPies,
 } from './encuadre.js';
-import { quitarHalo, type Raster } from './recorte.js';
+import { aRaster, quitarHalo, type Raster } from './recorte.js';
 
 /** Umbral de alfa para decir «aquí hay figura». */
 export const ALFA_FIGURA = 64;
@@ -1171,6 +1171,52 @@ export async function recortarAlContenido(r: Raster, margen: number): Promise<Bu
   const y1 = Math.min(r.height - 1, Math.max(...figs.map((c) => c.y1)) + margen);
   return sharp(r.data, { raw: { width: r.width, height: r.height, channels: 4 } })
     .extract({ left: x0, top: y0, width: x1 - x0 + 1, height: y1 - y0 + 1 })
+    .png()
+    .toBuffer();
+}
+
+/**
+ * Una figura de una lámina de giro (dos filas de cuatro, en el orden de
+ * `NOMBRES_DE_DIRECCION`), recortada a su contenido con aire alrededor
+ * (`Referencia.figura`). Se buscan como las de cualquier hoja, porque el giro no
+ * va en una rejilla exacta; si dos se tocan (la espada de una sobre el escudo de
+ * la de al lado), por su casilla de la rejilla de 4 × 2.
+ */
+export async function figuraDeLaLamina(lamina: Buffer, d: number): Promise<Buffer> {
+  const r = await aRaster(lamina);
+  const fila = Math.floor(d / 4);
+  const col = d % 4;
+  let c: Caja | undefined;
+  try {
+    c = enFilas(figuras(componentes(r), 2), 2, 4)[fila]?.[col];
+  } catch {
+    const ancho = Math.floor(r.width / 4);
+    const alto = Math.floor(r.height / 2);
+    const casilla = await sharp(lamina)
+      .extract({ left: col * ancho, top: fila * alto, width: ancho, height: alto })
+      .png()
+      .toBuffer();
+    const t = figuras(componentes(await aRaster(casilla)), 2).sort((a, b) => b.area - a.area)[0];
+    if (t !== undefined)
+      c = {
+        ...t,
+        x0: col * ancho + t.x0,
+        y0: fila * alto + t.y0,
+        x1: col * ancho + t.x1,
+        y1: fila * alto + t.y1,
+      };
+  }
+  if (c === undefined) throw new Error(`la lámina de giro no tiene la figura ${d + 1}`);
+  const aire = 40;
+  return sharp(lamina)
+    .extract({ left: c.x0, top: c.y0, width: c.x1 - c.x0 + 1, height: c.y1 - c.y0 + 1 })
+    .extend({
+      top: aire,
+      bottom: aire,
+      left: aire,
+      right: aire,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
     .png()
     .toBuffer();
 }

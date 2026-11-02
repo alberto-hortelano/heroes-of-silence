@@ -41,7 +41,7 @@ import {
 } from '../art/poses.js';
 import { arteEnOchoDirecciones } from './arte-en-disco.js';
 import type { RitmoDeUnidad } from './derivar.js';
-import type { Encargo } from './encargo.js';
+import { type Encargo, figuraDelGiro } from './encargo.js';
 
 export interface Unidad {
   readonly id: string;
@@ -259,7 +259,7 @@ const conReposo = (t: Temperamento, reposo: string): Temperamento => ({
 const conImpact2 = (t: Temperamento): Temperamento => conGolpe(t, 'impact2');
 
 export const PINTURA =
-  'Estilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.';
+  'Estilo: el de las imágenes del personaje —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.';
 
 export const UNIDADES: readonly Unidad[] = [
   {
@@ -1289,7 +1289,7 @@ export function encargosDeOchoDirecciones(u: Unidad): Encargo[] {
         tipo: 'atlas',
         descripcion: [
           u.aspecto,
-          `En la lámina de giro (imagen 2), la figura ${d + 1} en orden de lectura es la que mira hacia «${NOMBRES_DE_DIRECCION[d]}», como esta hoja: así se ve el personaje desde este lado.`,
+          figuraDelGiro(d),
           // Quien dispara lleva su arma de tiro en todas sus hojas menos en el
           // ataque: ahí pelea de cerca y el pintor tiene que saber con qué.
           ...((HOJAS_DE_FIGURA[hoja] as readonly ClipDeFigura[]).includes('attack') &&
@@ -1313,7 +1313,7 @@ export function encargosDeOchoDirecciones(u: Unidad): Encargo[] {
           u.maniqui === undefined
             ? { ruta: `${dirPoses8d(u)}/d${d}-${hoja}.png`, papel: 'pose' }
             : { ruta: `${dirPoses8d(u)}/d${d}-${hoja}.profundidad.png`, papel: 'pose-profundidad' },
-          { ruta: `${rutaGiro(u)}.webp`, papel: 'identidad' },
+          { ruta: `${rutaGiro(u)}.webp`, papel: 'identidad', figura: d },
           ...(u.concepto === undefined ? [] : [{ ruta: u.concepto, papel: 'estilo' as const }]),
         ],
         salida: `assets/unidades/${u.id}/d${d}/hoja-${hoja}`,

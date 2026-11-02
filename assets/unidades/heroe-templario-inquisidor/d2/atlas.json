@@ -1,14 +1,14 @@
 {
   "imagen": "atlas.webp",
-  "sha256": "ff7637c464a38164e3dba09417c64fdf9d2fa4dc33b7839b2d0c6e0519e34864",
+  "sha256": "b19a773d39a0da6b6d61a0103809271ed5b6819f1a453f16ee398f5a5ea057e1",
   "cell": 384,
   "columns": 7,
-  "altura": 175,
+  "altura": 169,
   "cajaDeClic": [
-    -46,
-    -174,
-    47,
-    0
+    -57,
+    -169,
+    43,
+    1
   ],
   "clips": {
     "idle": {

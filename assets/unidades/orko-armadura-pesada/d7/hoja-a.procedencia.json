@@ -1,22 +1,23 @@
 {
-  "encargo": "orko-armadura-pesada-d7-a",
+  "encargo": "orko-armadura-pesada-v-todo-d7-a-reposo",
   "tipo": "atlas",
-  "fecha": "2026-10-10T16:56:06.295Z",
+  "fecha": "2026-11-01T12:52:27.213Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a126bd-1e63-72a2-8248-d8af9b390609",
-  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE, dada como MAPA DE PROFUNDIDAD del maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados: cuanto más claro, más cerca de la cámara; el negro es fondo. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación, y lee en los grises qué brazo, qué pierna y qué arma van delante. Si el maniquí lleva un palo por espada o un plano por escudo, es solo un PUNTO DE PARTIDA: el arma que se pinta es la del PERSONAJE (la de su identidad), sin cambiar la pose del cuerpo. NO copies su gris ni su fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn orko con armadura pesada: piel verde oliva, yelmo cerrado de hierro con mirilla y cuernos cortos, placas de hierro ennegrecido remachadas sobre malla y cuero, hombreras enormes con pinchos, botas de hierro, gran hacha de doble filo empuñada a dos manos. Sin escudo. Pesado e inamovible.\nEn la lámina de giro (imagen 2), la figura 8 en orden de lectura es la que mira hacia «frente-izquierda», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «frente-izquierda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "hilo": "01a19729-e529-7831-84af-b374aa79db44",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el MAPA DE PROFUNDIDAD del maniquí Y Bot (cámara ortográfica elevada 25 grados; más claro, más cerca; el negro es fondo) con su ESQUELETO dibujado encima: los huesos del lado IZQUIERDO del personaje en AZUL, los del DERECHO en ROJO, el tronco y la cabeza en BLANCO y el eje del arma en AMARILLO. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación siguiendo el esqueleto (dónde está cada codo, cada mano, cada rodilla y cada pie, y hacia dónde apunta el arma). El arma que se pinta es la del PERSONAJE (la de su identidad), por el eje amarillo. NO pintes el esqueleto, sus colores, el gris ni el fondo negro: el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía, la pose ni hacia dónde mira.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn orko con armadura pesada: piel verde oliva, yelmo cerrado de hierro con mirilla y cuernos cortos, placas de hierro ennegrecido remachadas sobre malla y cuero, hombreras enormes con pinchos, botas de hierro, gran hacha de doble filo empuñada a dos manos. Sin escudo. Pesado e inamovible.\nLa imagen 2 es el personaje visto desde el lado «frente-izquierda» (su figura de la lámina de giro): mírala para saber qué se ve de él desde ese lado (la cara, el equipo, la capa, lo que lleva a la espalda), pero NO copies su postura ni hacia dónde mira, que está más vuelta hacia la cámara de la cuenta. La postura la da el maniquí, y hacia dónde mira, el maniquí y la ORIENTACIÓN escrita.\nEstilo: el de las imágenes del personaje —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\nLa imagen 2 puede enseñar al personaje en otra postura que la del maniquí (en guardia, con las piernas abiertas): esa POSTURA NO CUENTA, es solo para ver su aspecto desde ese lado. En cada celda el cuerpo adopta la postura del maniquí (imagen 1): si el maniquí está de pie con los pies juntos, el personaje también; si adelanta una pierna, la misma.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. El reposo es estar QUIETO: las siete figuras de la fila 1 son casi iguales, con el cuerpo, la cabeza y los pies mirando siempre hacia el mismo sitio y los pies plantados donde los tiene el maniquí; solo cambia lo poco que cambia el maniquí de una columna a otra (la respiración, un leve balanceo). Nunca gira el cuerpo ni la cabeza hacia otro lado ni cambia de postura a media fila. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo desde arriba la coronilla y los dos hombros, nunca a la altura de los ojos. La cámara no cambia hacia dónde mira el personaje: si mira de lado, se le ve de perfil, desde arriba.\nORIENTACIÓN, la misma en TODAS las celdas: DE TRES CUARTOS hacia la IZQUIERDA de la imagen: girado 45 grados desde la cámara hacia el borde izquierdo; la nariz, el pecho y las puntas de los pies apuntan abajo a la izquierda; se le ve el pecho y la cara de tres cuartos. Es la del maniquí de la imagen 1; el personaje no se vuelve hacia la cámara en ninguna celda.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
-      "ruta": "assets/unidades/_poses/unidades/orko-armadura-pesada-8d/d7-a.profundidad.png",
-      "papel": "pose-profundidad",
-      "sha256": "427afd7a3120d640680c9bb62dced1f30ece975e658c603d05d98cca472d2001"
+      "ruta": ".cache/taller/revision/orko-armadura-pesada/d7/versiones/pose-esqueleto-a.png",
+      "papel": "pose-esqueleto",
+      "sha256": "721e70a8cfce7289b60a646251e7517142a755ae060f25c2dc85f864e96635a9"
     },
     {
       "ruta": "assets/unidades/orko-armadura-pesada/giro.webp",
       "papel": "identidad",
+      "figura": 7,
       "sha256": "1b69128b684ac91328fa479b6f384fe8caccee486b2b9cb8d4e17ab03e59a7a4"
     },
     {
@@ -25,21 +26,23 @@
       "sha256": "f86f5f9325f15adfcc41d5cdf62657786c870a2abb987cf22dcf0b77997a79fe"
     }
   ],
+  "pose": "assets/unidades/_poses/unidades/orko-armadura-pesada-8d/d7-a.profundidad.png",
+  "shaDeLaPose": "23b0e9330d1496227d99f0f8441d215b926c5e5457968b2da6ee4225235ac28f",
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a126bd-1e63-72a2-8248-d8af9b390609/exec-9125703d-a0da-4b63-8395-0fdc5b5bb129.png",
-    "sha256": "efefbaea30f717d80f48ddcbebf15a0a2b4368ac3ad14aa30fff83885b5ca841",
-    "ancho": 1915,
+    "fichero": "~/.codex/generated_images/01a19729-e529-7831-84af-b374aa79db44/exec-9f910909-59b7-4333-a92f-5a2532d796ac.png",
+    "sha256": "eb44d83e21a7d45274e7fb5b0b243e6b13e4b02e60ceb5d423952c4f60b8be72",
+    "ancho": 1916,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.8458, pies en y=342, reposo a 160 px",
-    "WebP calidad 92, alfa sin pérdida",
-    "dirección completa: assets/unidades/orko-armadura-pesada/d7/atlas.webp"
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7682, pies en y=342, reposo a 160 px",
+    "cada fotograma recolocado para que el tronco siga al del maniquí (C1, `encuadre.ts`)",
+    "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.05257193752066799,
-    "opacos": 0.9488675803013643,
+    "visibles": 0.04825523416832011,
+    "opacos": 0.9511798482191854,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -56,13 +59,111 @@
     ],
     "posicion": false
   },
+  "ritmo": {
+    "idle": 5,
+    "walk": 6.5,
+    "charge": 10.5
+  },
+  "encuadre": [
+    [
+      [
+        0,
+        6
+      ],
+      [
+        -1,
+        1
+      ],
+      [
+        0,
+        -1
+      ],
+      [
+        3,
+        -2
+      ],
+      [
+        1,
+        -2
+      ],
+      [
+        -2,
+        -5
+      ],
+      [
+        -2,
+        -9
+      ]
+    ],
+    [
+      [
+        -1,
+        -11
+      ],
+      [
+        0,
+        -4
+      ],
+      [
+        -1,
+        4
+      ],
+      [
+        0,
+        -1
+      ],
+      [
+        -2,
+        -8
+      ],
+      [
+        1,
+        -4
+      ],
+      [
+        3,
+        -5
+      ]
+    ],
+    [
+      [
+        -3,
+        -3
+      ],
+      [
+        -3,
+        -17
+      ],
+      [
+        2,
+        1
+      ],
+      [
+        2,
+        2
+      ],
+      [
+        -1,
+        -9
+      ],
+      [
+        -2,
+        -18
+      ],
+      [
+        4,
+        -5
+      ]
+    ]
+  ],
   "salida": {
     "ruta": "assets/unidades/orko-armadura-pesada/d7/hoja-a.webp",
-    "sha256": "bfcb8d6bd28cf0596325e4bc6d8ca54d238fa8cc344434210975b2c0507c5f87"
+    "sha256": "ff2dab31507ebadf30daa5e548fb84965f78f178b006aac5548c9bd4bf80ee2a"
   },
-  "ritmo": {
-    "idle": 2.8,
-    "walk": 5.6,
-    "charge": 14
+  "eleccion": {
+    "version": "reposo",
+    "modo": "persona",
+    "motivo": "reposo repintado con la orientación por escrito (01-11-2026)",
+    "persona": "adoptar todas"
   }
 }

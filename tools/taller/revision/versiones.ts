@@ -17,16 +17,19 @@ import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import sharp from 'sharp';
 import { z } from 'zod';
+import { CARPETA_DE_LAS_FIGURAS, figuraDelBanco } from '../../../src/core/npcs.js';
 import {
   FIGURA,
   HOJAS_DE_FIGURA,
   type HojaDeFigura,
   NOMBRES_DE_DIRECCION,
 } from '../../../src/shared/arte.js';
+import { leerBancoDeDisco } from '../../npcs/banco.js';
 import { juzgarConCodex } from '../codex.js';
 import { RELOJ } from '../derivar.js';
 import type { Encargo } from '../encargo.js';
 import { alAcabarUnaHoja } from '../juntar.js';
+import { encargoDeHoja } from '../npcs.js';
 import { sha256 } from '../poses-8d.js';
 import { encargosDeOchoDirecciones, unidad } from '../unidades.js';
 import { type Comparacion, comparacionSchema, validarCon } from './esquemas.js';
@@ -52,7 +55,7 @@ export type Variante = (typeof VARIANTES)[number];
  * abierta (experimentos §7).
  */
 export const SIN_POSE_DEL_GIRO =
-  'La lámina de giro (imagen 2) enseña al personaje en guardia, con las piernas abiertas y el arma en alto: esa POSTURA NO CUENTA, es solo para ver su aspecto desde cada lado. En cada celda el cuerpo adopta la postura del maniquí (imagen 1): si el maniquí está de pie con los pies juntos, el personaje también; si adelanta una pierna, la misma.';
+  'La imagen 2 puede enseñar al personaje en otra postura que la del maniquí (en guardia, con las piernas abiertas): esa POSTURA NO CUENTA, es solo para ver su aspecto desde ese lado. En cada celda el cuerpo adopta la postura del maniquí (imagen 1): si el maniquí está de pie con los pies juntos, el personaje también; si adelanta una pierna, la misma.';
 
 /**
  * Los colores del muñeco de la referencia `pose-esqueleto`: los que dice su papel
@@ -206,8 +209,17 @@ export function encargosDeVersiones(
   ];
 }
 
-/** El encargo de siempre de una hoja de una unidad. */
+/**
+ * El encargo de siempre de una hoja: el de la unidad o, de una figura del banco
+ * de NPC, el suyo sin `despues` (una versión no encadena lo que sigue).
+ */
 export function encargoDeLaHoja(f: Figura, d: number, h: string): Encargo {
+  if (f.arte.startsWith(`${CARPETA_DE_LAS_FIGURAS}/`)) {
+    const npc = figuraDelBanco(leerBancoDeDisco(RAIZ), f.id);
+    if (npc === undefined) throw new Error(`«${f.id}» no es una figura del banco de NPC`);
+    const { despues: _, ...e } = encargoDeHoja(npc, d, h as HojaDeFigura);
+    return e;
+  }
   const e = encargosDeOchoDirecciones(unidad(f.id)).find((x) => x.id === `${f.id}-d${d}-${h}`);
   if (e === undefined) throw new Error(`no hay encargo ${f.id}-d${d}-${h}`);
   return e;
