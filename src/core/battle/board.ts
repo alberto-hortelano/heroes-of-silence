@@ -355,12 +355,14 @@ function trazarLaRecta(desde: Hex, hasta: Hex, side: Side): Hex[] {
   if (dq === 0 && dr === 0) return [];
   const cruz = (uq: number, ur: number): number => dq * ur - dr * uq;
   const escalar = (uq: number, ur: number): number => 2 * dq * uq + dq * ur + dr * uq + 2 * dr * ur;
-  // Hacia qué lado se empuja la recta en un empate: el signo de su producto vectorial.
+  // Hacia qué lado se empuja la recta en un empate: el signo de su producto
+  // vectorial (a mano: `core` no admite `Math.sign`, `invariantes.test.ts`).
   const [primero, segundo] =
     side === 'attacker'
       ? [EMPUJON_DEL_RAYO, ESPEJO_DEL_EMPUJON]
       : [ESPEJO_DEL_EMPUJON, EMPUJON_DEL_RAYO];
-  const lado = Math.sign(cruz(primero[0], primero[1])) || Math.sign(cruz(segundo[0], segundo[1]));
+  const signo = (n: number): number => (n > 0 ? 1 : n < 0 ? -1 : 0);
+  const lado = signo(cruz(primero[0], primero[1])) || signo(cruz(segundo[0], segundo[1]));
   const cruzadas: { readonly h: Hex; readonly entra: Fraccion }[] = [];
   for (const h of TODAS_LAS_CASILLAS) {
     const c = toCube(h);

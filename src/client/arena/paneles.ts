@@ -1159,7 +1159,7 @@ export function renderFicha(u: Unidad | null, dispara: boolean, como: ComoDeLaFi
       ${rasgosDeLaFicha(u.traits)}
       <h3>Poderes · actúan en la pelea ${nota('Se usan en su turno en vez de golpear, al principio, sin haberse movido: el turno entero. Lo que hace cada uno, en la nota de su etiqueta.')}</h3>
       <div class="etiquetas poderes">${poderes}</div>
-      <h3>Habilidades · sin efecto todavía ${nota('Se guardan con la unidad, pero solo Curar y Bendecir tienen motor: en la pelea, de lo demás, solo cuentan los rasgos.')}</h3>
+      <h3>Habilidades · sin efecto todavía ${nota('Se guardan con la unidad, pero solo Curar tiene motor: en la pelea, de lo demás, solo cuentan los rasgos.')}</h3>
       <div class="etiquetas">${puestas}</div>
       <label class="campo"><span class="label">Añadir</span>
         <select data-arena-habilidad="si"><option value="">— elige —</option>${libres}</select></label>

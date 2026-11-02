@@ -775,8 +775,8 @@ Notas:
   horquilla de su arma de distancia según lo cerca que pase la recta del centro
   de la casilla del alcanzado: por el centro, el máximo; cada octavo de casilla
   de separación baja un cuarto de la horquilla; a media casilla o más, el
-  mínimo (apuntar justo a su casilla es el máximo); luego ataque contra defensa,
-  suerte y armadura. Con "double_shot", dos tiros por la misma recta. Si el
+  mínimo (apuntar justo a su casilla es el máximo); luego ataque contra defensa
+  y armadura. Con "double_shot", dos tiros por la misma recta. Si el
   tirador muere antes, el disparo se pierde. Tras el disparo, su turno sigue:
   puede apuntar otra vez o actuar como siempre. El registro lo cuenta con
   "aimed" ("at") y "shoot" ("at" y "target", null si no dio a nadie).

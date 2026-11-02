@@ -1933,9 +1933,9 @@ describe('la rueda y los poderes en el contrato (F6)', () => {
     expect(() =>
       accionDeBatallaDelAgente({ type: 'attack', target: 'd-0', hit: 'Strong' }, RUEDAS[7]),
     ).toThrow(/«Strong» no es un golpe de la rueda/);
-    expect(accionAlAgente({ type: 'power', poder: 'bendecir', target: 'a-1' })).toEqual({
+    expect(accionAlAgente({ type: 'power', poder: 'curar', target: 'a-1' })).toEqual({
       type: 'power',
-      power: 'bendecir',
+      power: 'curar',
       target: 'a-1',
     });
     // Lo que el núcleo elige en la rueda no sale en la lista: es del agente.

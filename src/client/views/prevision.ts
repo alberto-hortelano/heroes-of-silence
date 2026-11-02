@@ -10,7 +10,7 @@ import type {
   PrevisionDeGolpe,
   PrevisionDeLanzar,
 } from '@core/battle/battle.js';
-import type { Horquilla, Modificador, RamaDeSuerte } from '@core/battle/damage.js';
+import type { Horquilla, Modificador } from '@core/battle/damage.js';
 import { curaOEfecto } from '@core/battle/effects.js';
 import { poder } from '@core/battle/poderes.js';
 import { spell } from '@core/battle/spells.js';
@@ -24,20 +24,6 @@ function decimal(n: number): string {
 /** «7–12», o «9» si las dos puntas son la misma: la horquilla de la previsión y de la rueda. */
 export function horquilla(h: Horquilla): string {
   return h.min === h.max ? `${h.min}` : `${h.min}–${h.max}`;
-}
-
-function porciento(p: number): string {
-  return `${decimal(p * 100)} %`;
-}
-
-function suerte(buena: RamaDeSuerte | null, mala: RamaDeSuerte | null): string {
-  const partes: string[] = [];
-  if (buena !== null)
-    partes.push(`con suerte (${porciento(buena.probabilidad)}) ${horquilla(buena)}`);
-  if (mala !== null) {
-    partes.push(`con mala suerte (${porciento(mala.probabilidad)}) ${horquilla(mala)}`);
-  }
-  return partes.length === 0 ? '' : `, ${partes.join(', ')}`;
 }
 
 function modificadores(ms: readonly Modificador[]): string {
@@ -55,7 +41,7 @@ function contraataque(c: PrevisionDeContraataque | null): string {
   if (c === null) return ' Sin contraataque.';
   const con = c.conArma === null ? '' : ` ${c.conArma}`;
   const si = c.seguro ? '' : `${con === '' ? '' : ','} si sobrevive`;
-  return ` Contraataque${con}${si}: ${horquilla(c.danio)}${suerte(c.buena, c.mala)}.`;
+  return ` Contraataque${con}${si}: ${horquilla(c.danio)}.`;
 }
 
 function deGolpe(p: PrevisionDeGolpe, nombre: (id: string) => string): string {
@@ -76,14 +62,14 @@ function deGolpe(p: PrevisionDeGolpe, nombre: (id: string) => string): string {
     p.leQuedan.max === 0 ? 'no le quedaría nada' : `le quedarían ${horquilla(p.leQuedan)} PV`;
   const salpica = p.salpica.length === 0 ? '' : ` Salpica a ${p.salpica.map(nombre).join(', ')}.`;
   return (
-    `Daño ${horquilla(p.danio)}${golpes}${suerte(p.buena, p.mala)}: ${bajas} y ${leQuedan}.` +
+    `Daño ${horquilla(p.danio)}${golpes}: ${bajas} y ${leQuedan}.` +
     `${p.kind === 'golpe' ? contraataque(p.contraataque) : ''}${salpica}` +
     `${modificadores(p.modificadores)}`
   );
 }
 
 /**
- * Un hechizo (del héroe o de un poder) en una frase: «Bendición: suerte +1
+ * Un hechizo (del héroe o de un poder) en una frase: «Prisa: velocidad +2
  * durante 3 rondas.», «Curar a Escudero: cura 4 PV.». `quien` es lo que va
  * delante de los dos puntos.
  */

@@ -201,13 +201,10 @@ export interface BattleStack {
    * usuario: «La moral solo debe servir para la huida, nunca dar un turno
    * extra»): se enseña en la ficha y espera a la huida, que aún no existe. Hoy
    * nada la altera temporalmente; si algo lo hiciera, iría
-   * en `effects` y se sumaría al leer, como la suerte — nunca escribiendo
-   * aquí, que es el bug que cerró #9. */
+   * en `effects` y se sumaría al leer — nunca escribiendo aquí, que es el bug
+   * que cerró #9. Sin suerte desde el 02-11-2026 (decisión del usuario). */
   morale: number;
-  /** Suerte BASE. Los hechizos y los rasgos no la tocan: lo suyo va en
-   * `effects` y se suma al leer con `effectiveLuck`. */
-  luck: number;
-  /** Lo temporal: prisa, lentitud, maldición, miedo. Caduca en `beginRound`. */
+  /** Lo temporal: prisa, lentitud, miedo, la rueda. Caduca en `beginRound`. */
   effects: StackEffect[];
   ganado: Ganado;
   /**
@@ -364,7 +361,6 @@ export type BattleEvent =
    * como estaba no escribe ninguno.
    */
   | { kind: 'retoque'; nombre: string; stacks: readonly string[]; cambios: readonly string[] }
-  | { kind: 'luck'; stack: string; good: boolean }
   | {
       kind: 'effect';
       stack: string;
@@ -379,7 +375,6 @@ export type BattleEvent =
       vence?: CuandoVence;
     }
   | { kind: 'effect_end'; stack: string; source: string }
-  | { kind: 'immune'; stack: string; source: string }
   | { kind: 'perished'; stack: string }
   /** Un atacante apoya su escalera en `muro` desde `pie`: se queda puesta. */
   | { kind: 'ladder_placed'; stack: string; pie: Hex; muro: Hex }

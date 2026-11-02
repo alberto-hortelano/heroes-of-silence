@@ -642,7 +642,7 @@ describe('la Finta deja andar después de golpear (#263)', () => {
     for (const otra of [
       { type: 'attack', target: 'defender-0' },
       { type: 'attack', target: 'defender-0', golpe: 'fuerte', respuesta: 'normal' },
-      { type: 'cast', spell: 'bless', target: 'attacker-0' },
+      { type: 'cast', spell: 'haste', target: 'attacker-0' },
       { type: 'surrender' },
     ] satisfies BattleAction[]) {
       expect(() => applyAction(b, otra, rng), JSON.stringify(otra)).toThrow(
@@ -922,7 +922,7 @@ describe('sin carga, primero se anda y luego la rueda (13-10-2026); con carga, p
         respuesta: 'finta',
       },
       { type: 'attack', target: 'defender-1', golpe: 'fuerte', respuesta: 'finta' },
-      { type: 'cast', spell: 'bless', target: 'attacker-0' },
+      { type: 'cast', spell: 'haste', target: 'attacker-0' },
       { type: 'surrender' },
     ] satisfies BattleAction[]) {
       expect(() => applyAction(b, otra, rng), JSON.stringify(otra)).toThrow(motivo);
@@ -1570,7 +1570,7 @@ describe('la IA elige a ciegas', () => {
         if (e.kind !== 'cruce' || e.golpe !== 'finta') continue;
         const despues = a.log
           .slice(i + 1)
-          .find((x) => !['attack', 'perished', 'luck', 'effect', 'immune'].includes(x.kind));
+          .find((x) => !['attack', 'perished', 'effect'].includes(x.kind));
         if (despues?.kind === 'move' && despues.stack === e.stack) tramos++;
       }
     }

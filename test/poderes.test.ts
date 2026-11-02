@@ -1,10 +1,9 @@
 /**
  * Los poderes de unidad de la arena (docs/agents/2026-10-11-poderes-y-edicion-en-combate/):
- * el monje cura y bendice a un aliado en su turno, con la regla escrita una vez
- * en el núcleo (`poderBlocker`) y las cifras de `data/poderes.json`.
+ * el monje cura a un aliado en su turno, con la regla escrita una vez en el
+ * núcleo (`poderBlocker`) y las cifras de `data/poderes.json`.
  *
- * Escritos desde los criterios del plan: A1 (Curar), A2 (Bendecir y el mismo
- * origen), A5 (cada motivo del rechazo), la lista legal, la previsión, el
+ * Escritos desde los criterios del plan: A1 (Curar), A5 (cada motivo del rechazo), la lista legal, la previsión, el
  * cargador y A4 (la IA los usa).
  */
 
@@ -105,35 +104,13 @@ describe('Curar (A1)', () => {
   });
 });
 
-describe('Bendecir (A2)', () => {
-  it('cuelga la suerte de la Bendición con sus rondas, y repetida refresca', () => {
-    const { b, rng, monje, escudero } = enElTurnoDelMonje(0);
-    const bendecir = { rondas: poder('bendecir').lanzador.rondas };
-    applyAction(b, { type: 'power', poder: 'bendecir', target: escudero.id }, rng);
-    expect(escudero.effects).toEqual([
-      { kind: 'luck', amount: 1, source: 'bless', roundsLeft: bendecir.rondas },
-    ]);
-    expect(b.log.some((e) => e.kind === 'power' && e.cura === undefined)).toBe(true);
-    hastaSuTurno(b, monje.id, rng);
-    applyAction(b, { type: 'power', poder: 'bendecir', target: escudero.id }, rng);
-    expect(escudero.effects.filter((e) => e.source === 'bless')).toHaveLength(1);
-  });
-
-  it('es la misma que la del héroe: tras su Bendición no se suma', () => {
-    const { b, rng, escudero } = enElTurnoDelMonje(0);
-    applyAction(b, { type: 'cast', spell: 'bless', target: escudero.id }, rng);
-    applyAction(b, { type: 'power', poder: 'bendecir', target: escudero.id }, rng);
-    expect(escudero.effects.filter((e) => e.source === 'bless')).toHaveLength(1);
-  });
-});
-
 describe('los rechazos los escribe poderBlocker (A5)', () => {
   it('cada motivo, y applyAction lanza con él', () => {
     const { b, rng, monje, escudero, orco } = enElTurnoDelMonje(0);
     const motivos: [string, string | undefined, string][] = [
       ['curar', escudero.id, 'Escudero no tiene ninguna herida'],
       ['curar', undefined, 'nadie de su bando tiene ninguna herida'],
-      ['bendecir', orco.id, '«Bendecir» va dirigido a un aliado'],
+      ['curar', orco.id, '«Curar» va dirigido a un aliado'],
       ['curar', 'nadie', 'no hay ninguna unidad "nadie"'],
       ['volar', escudero.id, 'no hay ningún poder «volar»'],
     ];
@@ -147,14 +124,14 @@ describe('los rechazos los escribe poderBlocker (A5)', () => {
     }
     // Muerto.
     escudero.count = 0;
-    expect(poderBlocker(b, 'bendecir', escudero.id)).toBe('el objetivo ya está destruido');
+    expect(poderBlocker(b, 'curar', escudero.id)).toBe('el objetivo ya está destruido');
     escudero.count = 1;
     // Tras moverse, ninguno: es al principio del turno.
     const paso = legalActions(b).find((a) => a.type === 'move');
     if (paso === undefined) throw new Error('el monje no se puede mover');
     applyAction(b, paso, rng);
-    expect(poderBlocker(b, 'bendecir', escudero.id)).toBe(
-      'ya se ha movido este turno: «Bendecir» se usa al principio del turno',
+    expect(poderBlocker(b, 'curar', escudero.id)).toBe(
+      'ya se ha movido este turno: «Curar» se usa al principio del turno',
     );
     expect(legalActions(b).some((a) => a.type === 'power')).toBe(false);
   });
@@ -169,19 +146,18 @@ describe('los rechazos los escribe poderBlocker (A5)', () => {
   });
 
   it('la lista legal ofrece exactamente los pares que deja pasar el bloqueador', () => {
-    const { b, escudero, monje } = enElTurnoDelMonje(3);
+    const { b, escudero } = enElTurnoDelMonje(3);
     const ofrecidos = legalActions(b)
       .flatMap((a) => (a.type === 'power' ? [`${a.poder}>${a.target}`] : []))
       .sort();
-    const validos = ['curar', 'bendecir']
+    const validos = ['curar']
       .flatMap((p) =>
         b.stacks.filter((t) => poderBlocker(b, p, t.id) === null).map((t) => `${p}>${t.id}`),
       )
       .sort();
     expect(ofrecidos).toEqual(validos);
-    // Curar, al herido; Bendecir, a todo aliado vivo, también a sí mismo y al héroe.
+    // Curar, al herido.
     expect(ofrecidos).toContain(`curar>${escudero.id}`);
-    expect(ofrecidos).toContain(`bendecir>${monje.id}`);
     expect(ofrecidos.filter((x) => x.startsWith('curar>'))).toEqual([`curar>${escudero.id}`]);
     // El poder va detrás del hechizo y antes de terminar el turno.
     const tipos = legalActions(b).map((a) => a.type);
@@ -194,12 +170,12 @@ describe('el catálogo de poderes (data/poderes.json)', () => {
   const bueno = {
     poderes: [
       { id: 'curar', nombre: 'Curar', habilidad: 'Curar (X)', hechizo: 'cure', cura: 4 },
-      { id: 'bendecir', nombre: 'Bendecir', habilidad: 'Bendecir', hechizo: 'bless', rondas: 3 },
+      { id: 'apresurar', nombre: 'Apresurar', habilidad: 'Apresurar', hechizo: 'haste', rondas: 3 },
     ],
   };
 
   it('el bueno se lee', () => {
-    expect(validarPoderes(bueno).poderes.map((p) => p.id)).toEqual(['curar', 'bendecir']);
+    expect(validarPoderes(bueno).poderes.map((p) => p.id)).toEqual(['curar', 'apresurar']);
   });
 
   it('lanza con la cura que falta, un hechizo de daño o uno al enemigo', () => {
@@ -216,13 +192,11 @@ describe('el catálogo de poderes (data/poderes.json)', () => {
       validarPoderes({ ...bueno, poderes: [bueno.poderes[0], bueno.poderes[0]] }),
     ).toThrow('el poder «curar» está dos veces');
     expect(() => validarPoderes(con({ hechizo: 'lightning_bolt' }))).toThrow('es de daño');
-    expect(() => validarPoderes(con({ hechizo: 'curse', rondas: 3 }, 1))).toThrow(
-      'va a un enemigo',
-    );
+    expect(() => validarPoderes(con({ hechizo: 'slow', rondas: 3 }, 1))).toThrow('va a un enemigo');
     expect(() => validarPoderes(con({ rondas: 2 }))).toThrow('no lleva «rondas»');
   });
 
-  it('cada unidad del juego trae los poderes de sus habilidades, y nada más: el monje, los dos', () => {
+  it('cada unidad del juego trae los poderes de sus habilidades, y nada más: el monje, Curar', () => {
     for (const u of unidadesDelJuego()) {
       const suyos = unidad(u.id).habilidades.flatMap((h) => {
         const p = poderDeHabilidad(h);
@@ -230,7 +204,7 @@ describe('el catálogo de poderes (data/poderes.json)', () => {
       });
       expect(u.poderes ?? [], u.id).toEqual(suyos);
     }
-    expect(unidadDelJuego(SANADOR).poderes).toEqual(['curar', 'bendecir']);
+    expect(unidadDelJuego(SANADOR).poderes).toEqual(['curar']);
   });
 });
 
@@ -260,43 +234,5 @@ describe('la IA de batalla usa los poderes (A4)', () => {
     Object.assign(orco, { unit: { ...orco.unit, hp: 600 } });
     orco.topHp = orco.unit.hp;
     expect(chooseBattleAction(b)).not.toMatchObject({ type: 'power' });
-  });
-
-  it('bendice cuando compensa: a un aliado que pega mucho más que él, y no a quien ya está bendecido', () => {
-    // Con las cifras del escudero, suerte +1 (1/24 de golpe doble) no vale lo que
-    // el golpe del monje o acercarse: no bendice.
-    expect(chooseBattleAction(enElTurnoDelMonje(0, null).b)).not.toMatchObject({
-      type: 'power',
-    });
-    // Con un escudero que pega diez veces más, y un orco que aguanta para que esas
-    // rondas lleguen a jugarse, tres rondas de suerte sí.
-    const rng = createRng(7);
-    const b = batallaDeArena(
-      {
-        combate: COMBATE_COMPLETO,
-        izquierda: {
-          unidades: [unidad('templario-monje'), unidad('templario-escudo', { fuerza: 400 })].map(
-            (u) => delBorrador(u),
-          ),
-          heroe: null,
-        },
-        derecha: { unidades: [delBorrador(unidad('orko-dos-armas', { hp: 4000 }))], heroe: null },
-        equipo: EQUIPO_DEL_JUEGO,
-      },
-      rng,
-    );
-    const monje = stack(b, 0);
-    const escudero = stack(b, 1);
-    hastaSuTurno(b, monje.id, rng);
-    expect(chooseBattleAction(b)).toEqual({
-      type: 'power',
-      poder: 'bendecir',
-      target: escudero.id,
-    });
-    // Ya bendecido (por el héroe o por el monje), refrescarlo no le gana al turno.
-    applyAction(b, { type: 'power', poder: 'bendecir', target: escudero.id }, rng);
-    hastaSuTurno(b, monje.id, rng);
-    expect(escudero.effects.some((x) => x.source === 'bless')).toBe(true);
-    expect(chooseBattleAction(b)).not.toMatchObject({ type: 'power', poder: 'bendecir' });
   });
 });

@@ -29,7 +29,6 @@ import {
 import {
   type CuandoVence,
   cifraDeEfecto,
-  effectiveLuck,
   enRondas,
   type StackEffect,
 } from '@core/battle/effects.js';
@@ -858,7 +857,7 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
       : html`<h2>${nombreEnElCampo(battle, s)}</h2>
         <div class="row"><span class="label">Bando</span><span>${s.side === mio ? 'Tú' : 'Enemigo'}</span></div>
         <div class="row"><span class="label">Efectivos</span><span>${s.count}</span></div>
-        <div class="row"><span class="label">Moral / Suerte</span><span>${s.morale} / ${effectiveLuck(s)}</span></div>`;
+        <div class="row"><span class="label">Moral</span><span>${s.morale}</span></div>`;
 
   const suTurno = s !== null && s.side === mio;
   const acciones = suTurno
@@ -934,7 +933,7 @@ export function accionesDeLaUnidad(o: {
   readonly pasos: number | null;
   readonly rendicion: Html;
   readonly hechizos: Html;
-  /** Los botones de los poderes de la unidad (Curar, Bendecir: `botonesDePoder`); sin ellos, `NADA`. */
+  /** Los botones de los poderes de la unidad (Curar: `botonesDePoder`); sin ellos, `NADA`. */
   readonly poderes: Html;
   /**
    * Los botones de la muralla —«Abrir puerta» y «Cerrar puerta», «Poner
@@ -1098,7 +1097,6 @@ export function renderSpells(elegido: string | null, opciones: readonly SpellOpt
  */
 const FUENTE_RASGO: Readonly<Record<string, string>> = {
   fear: 'Terror',
-  curse_on_hit: 'Maldición al golpear',
 };
 
 /**
@@ -1308,7 +1306,7 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
 
   /**
    * El color de un hecho que es bueno o malo para la unidad que lo vive, dicho
-   * desde quien lee: la buena suerte del enemigo es mala noticia para ti. Se
+   * desde quien lee: lo bueno para el enemigo es mala noticia para ti. Se
    * pintaba por el signo, y la «Moral alta: turno extra» del enemigo (la moral
    * ya no da turnos, 26-10-2026) salía en verde (#198).
    *
@@ -1417,7 +1415,7 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
           return html`<div>${lanza} ${spell(e.spell).name}${sobre}${efecto}</div>`;
         }
         case 'power': {
-          // Lo que deja Bendecir va detrás en su propia línea (`effect`); aquí,
+          // Lo que deje un poder va detrás en su propia línea (`effect`); aquí,
           // quién a quién y, si cura, cuánto.
           const p = poder(e.poder);
           const cura = e.cura === undefined ? '' : `: cura ${e.cura} PV`;
@@ -1426,14 +1424,12 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
         // La arena cambió unas cifras a media pelea (el editor): no es una
         // jugada, pero desde aquí la pelea se juega con las nuevas. Entre
         // paréntesis y con «;», porque un cambio de lista ya lleva sus dos
-        // puntos y sus comas («habilidades: + Salto, − Bendecir»).
+        // puntos y sus comas («habilidades: + Salto, − Curar (12 PV)»).
         case 'retoque':
           return html`<div>Cambian las cifras de ${e.nombre} a media pelea${e.cambios.length === 0 ? '' : ` (${e.cambios.join('; ')})`}</div>`;
-        // La suerte y los efectos dicen de quién: con el color puesto desde
-        // quien lee, una línea verde sin nombre no deja saber si es la buena
-        // suerte de los tuyos o la mala del rival.
-        case 'luck':
-          return html`<div${paraQuienLee(e.stack, e.good)}>${e.good ? 'Golpe afortunado' : 'Golpe desafortunado'} de ${quienEs(e.stack)}</div>`;
+        // Los efectos dicen de quién: con el color puesto desde quien lee, una
+        // línea verde sin nombre no deja saber si es bueno para los tuyos o para
+        // el rival.
         case 'effect':
           return html`<div${paraQuienLee(e.stack, e.amount >= 0)}>${nombreFuente(e.source, forma)} sobre ${quienEs(e.stack)}: ${cifraDeEfecto(e.effect, e.amount)} ${duracionDeEfecto(e)}</div>`;
         // La rueda del golpe: qué eligió cada uno y dónde cayó,
@@ -1445,8 +1441,6 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
         }
         case 'effect_end':
           return html`<div>Se disipa ${nombreFuente(e.source, forma)} de ${quienEs(e.stack)}</div>`;
-        case 'immune':
-          return html`<div>${quienEs(e.stack)}, inmune a ${nombreFuente(e.source, forma)}: los no-muertos no tienen ánimo que quebrar</div>`;
         case 'perished': {
           // Quién cae decide el color, igual que en `hero_defeated` un piso más
           // arriba: lo tuyo es la derrota y lo suyo la victoria. Sin bando —el

@@ -132,8 +132,8 @@ export interface TrasLaArmadura {
 
 /**
  * El daño de UN golpe tras la armadura de `objetivo` (#262): se
- * resta lo último —después de ataque contra defensa, los multiplicadores, la
- * suerte y el redondeo— y nunca baja de 0 (decisión del usuario: «una armadura
+ * resta lo último —después de ataque contra defensa, los multiplicadores y el
+ * redondeo— y nunca baja de 0 (decisión del usuario: «una armadura
  * gruesa puede parar del todo un golpe flojo»). **La única resta**: la aplican
  * `herir` (todo lo que quita vida pasa por ella: golpe, contraataque, cada golpe
  * de Rápido o del doble golpe, cada disparo, la salpicadura, el hechizo y el

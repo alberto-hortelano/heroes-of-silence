@@ -175,8 +175,7 @@ type Paso =
   /** El tirador se vuelve hacia la casilla a la que apunta: el disparo sale en su turno siguiente. */
   | { readonly tipo: 'apunta'; readonly stack: string; readonly at: Hex; readonly dura: number }
   /**
-   * Un hechizo. `lanza`, la unidad que lo lanza con su poder (la arena: Curar,
-   * Bendecir), que lo hace con su clip de ataque —no hay arte de lanzar—; el del
+   * Un hechizo. `lanza`, la unidad que lo lanza con su poder (Curar), que lo hace con su clip de ataque —no hay arte de lanzar—; el del
    * héroe, `null`: su libro no mueve la figura.
    */
   | ({
@@ -1097,7 +1096,7 @@ export class BattleAnimator {
 /**
  * La cifra que sale sobre quien recibe en el impacto: «−N» con daño, «parado» si
  * la armadura se lo comió entero (#262) y nada si no hubo golpe que contar (una
- * Bendición, una cura).
+ * Prisa, una cura).
  */
 function cifraDelGolpe(
   paso: { readonly damage: number; readonly parado: number },

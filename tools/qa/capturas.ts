@@ -4342,7 +4342,7 @@ async function conLosCatalogosDevueltos(
 const VIDA_DEL_MONJE = 30 * ESCALA_DE_CIFRAS;
 
 /**
- * La pelea de los poderes en el espejo: el monje templario (Curar y Bendecir),
+ * La pelea de los poderes en el espejo: el monje templario (Curar),
  * el guerrero con escudo y el héroe por defecto a la izquierda, de la persona;
  * el orco a la derecha, de la IA. Ya empezada, como la página.
  */
@@ -4373,56 +4373,54 @@ function espejoDeLosPoderes(semilla: number): SesionDeArena {
 
 /**
  * Lo que la persona hace en su turno de la pelea de los poderes: con el monje,
- * la primera vez Bendecir sobre el guerrero (con más de un aliado posible, se
- * apunta), y después Curar en cuanto se pueda; con lo demás, «Terminar turno».
+ * el primer turno mirar que Curar sale apagado (nadie tiene herida) y terminar, y
+ * después Curar en cuanto haya un solo herido; con lo demás, «Terminar turno».
+ * (Bendecir, que se apuntaba con varios aliados posibles, se fue con la suerte,
+ * 02-11-2026.)
  */
 type PasoDeLosPoderes =
-  | { readonly tipo: 'bendecir'; readonly sobre: BattleStack }
+  | { readonly tipo: 'primero' }
   | { readonly tipo: 'curar'; readonly accion: BattleAction }
   | { readonly tipo: 'terminar' };
 
-function pasoDeLosPoderes(espejo: SesionDeArena, bendecido: boolean): PasoDeLosPoderes {
+function pasoDeLosPoderes(espejo: SesionDeArena, visto: boolean): PasoDeLosPoderes {
   const turno = espejo.turnoPropio;
   if (turno === null) throw new Error('poderes: el espejo devuelve el control sin turno propio');
   if (turno.stack.body !== 'templario-monje') return { tipo: 'terminar' };
-  const legales = espejo.battleLegalActions();
-  if (!bendecido) {
-    const escudo = espejo.battle.stacks.find((x) => x.body === 'templario-escudo' && isAlive(x));
-    if (escudo !== undefined) return { tipo: 'bendecir', sobre: escudo };
-  }
-  const curas = legales.filter((a) => a.type === 'power' && a.poder === 'curar');
+  if (!visto) return { tipo: 'primero' };
+  const curas = espejo
+    .battleLegalActions()
+    .filter((a) => a.type === 'power' && a.poder === 'curar');
   // Con un solo herido el botón cura ya; con dos habría que apuntar.
-  if (bendecido && curas.length === 1) return { tipo: 'curar', accion: curas[0] as BattleAction };
+  if (curas.length === 1) return { tipo: 'curar', accion: curas[0] as BattleAction };
   return { tipo: 'terminar' };
 }
 
 /**
  * La semilla de la pelea de los poderes: la primera en la que, jugando la pauta,
- * el monje bendice al guerrero, cura luego a un solo herido y la pelea sigue con
- * un turno de la persona después, para editar en plena pelea.
+ * el monje cura a un solo herido tras su primer turno y la pelea sigue con un
+ * turno de la persona después, para editar en plena pelea.
  */
 function buscarPoderes(): number {
   for (let semilla = 1; semilla <= TOPE_DE_SEMILLAS; semilla++) {
     const espejo = espejoDeLosPoderes(semilla);
-    let bendecido = false;
+    let visto = false;
     for (let jugadas = 0; jugadas < 300 && espejo.battle.finished === null; jugadas++) {
       contestarEnElEspejo(espejo);
       if (espejo.battle.finished !== null) break;
-      const paso = pasoDeLosPoderes(espejo, bendecido);
+      const paso = pasoDeLosPoderes(espejo, visto);
       if (paso.tipo === 'curar') {
         espejo.playBattleAction(paso.accion);
         contestarEnElEspejo(espejo);
         if (espejo.turnoPropio !== null) return semilla;
         break;
       }
-      if (paso.tipo === 'bendecir') {
-        espejo.playBattleAction({ type: 'power', poder: 'bendecir', target: paso.sobre.id });
-        bendecido = true;
-      } else espejo.playBattleAction({ type: 'end_turn' });
+      if (paso.tipo === 'primero') visto = true;
+      espejo.playBattleAction({ type: 'end_turn' });
     }
   }
   throw new Error(
-    `poderes: en las semillas 1–${TOPE_DE_SEMILLAS} el monje no bendice y cura antes de que acabe la pelea`,
+    `poderes: en las semillas 1–${TOPE_DE_SEMILLAS} el monje no cura antes de que acabe la pelea`,
   );
 }
 
@@ -4441,8 +4439,7 @@ async function parteDice(page: Page, linea: string): Promise<void> {
 /**
  * Los poderes del monje y la edición en plena pelea, con clics de verdad
  * (docs/agents/2026-10-11-poderes-y-edicion-en-combate/): Curar sale apagado
- * mientras nadie tiene herida; Bendecir se apunta sobre el guerrero, con su
- * previsión en la barra; Curar cura al herido; «Editar» en la fila del orco abre
+ * mientras nadie tiene herida; Curar cura al herido; «Editar» en la fila del orco abre
  * su ficha en un diálogo, un daño imposible no entra y lo dice, un ataque +5 sí
  * entra; el héroe, con más Conocimiento, tiene más maná; cerrar devuelve la
  * misma ronda y la misma activa, y lo que se juega después es lo del espejo, que
@@ -4488,20 +4485,20 @@ async function poderesEnLaArena(
     await esperarCola(espejo.battle, espejo.battle.log);
     await mismaPelea(page, espejo, 'empezar la pelea de los poderes');
 
-    let bendecido = false;
+    let visto = false;
     let curado = false;
     for (let jugadas = 0; !curado; jugadas++) {
       if (jugadas > 300 || espejo.battle.finished !== null) {
-        throw new Error('poderes: la pelea se acaba sin que el monje bendiga y cure');
+        throw new Error('poderes: la pelea se acaba sin que el monje cure');
       }
       const antes = espejo.battle.log.length;
       // La golpearon al cerrar su turno: primero, su respuesta en la rueda.
       await responderLaRueda(page, espejo);
       if (espejo.battle.finished !== null) {
-        throw new Error('poderes: la pelea se acaba sin que el monje bendiga y cure');
+        throw new Error('poderes: la pelea se acaba sin que el monje cure');
       }
-      const paso = pasoDeLosPoderes(espejo, bendecido);
-      if (paso.tipo === 'bendecir') {
+      const paso = pasoDeLosPoderes(espejo, visto);
+      if (paso.tipo === 'primero') {
         // Curar, apagado y diciendo por qué: aún no hay heridos.
         const curar = page.locator('#side [data-action="battle-poder"][data-poder="curar"]');
         const motivo = espejo.motivoDePoder('curar');
@@ -4511,32 +4508,9 @@ async function poderesEnLaArena(
           );
         }
         await captura(page, 'poderes-01-turno-del-monje');
-        await page.locator('#side [data-action="battle-poder"][data-poder="bendecir"]').click();
-        await esperarBarra(
-          page,
-          'Elige el aliado sobre el que usarlo: pulsa en uno de los marcados, o Escape para cancelar.',
-          'poderes: Bendecir espera un aliado',
-          { exacta: true },
-        );
-        espejo.poderes.apuntar('bendecir');
-        const accion: BattleAction = { type: 'power', poder: 'bendecir', target: paso.sobre.id };
-        const prevista = espejo.prevision(accion);
-        if (prevista === null) throw new Error('poderes: Bendecir sin previsión en el espejo');
-        const px = await pixelDeUnidad(page, espejo, paso.sobre);
-        await page.mouse.move(px.x - 6, px.y);
-        await page.mouse.move(px.x, px.y);
-        await esperarBarra(
-          page,
-          textoDePrevision(prevista, nombre),
-          'poderes: la previsión de Bendecir',
-          { exacta: true },
-        );
-        await captura(page, 'poderes-02-bendecir-apuntando');
-        await page.mouse.click(px.x, px.y);
-        espejo.playBattleAction(accion);
-        bendecido = true;
-        await esperarCola(espejo.battle, espejo.battle.log.slice(antes));
-        await parteDice(page, `usa Bendecir sobre ${nombre(paso.sobre.id)}`);
+        await page.getByRole('button', { name: 'Terminar turno' }).click();
+        espejo.playBattleAction({ type: 'end_turn' });
+        visto = true;
       } else if (paso.tipo === 'curar') {
         await page.locator('#side [data-action="battle-poder"][data-poder="curar"]').click();
         espejo.playBattleAction(paso.accion);
@@ -4553,7 +4527,7 @@ async function poderesEnLaArena(
     if (cura?.kind !== 'power') throw new Error('poderes: el espejo no cuenta la cura');
     await parteDice(page, `usa Curar sobre ${nombre(cura.target)}: cura ${cura.cura} PV`);
     await captura(page, 'poderes-03-curado');
-    log(`poderes: bendice y cura ${cura.cura} PV a ${nombre(cura.target)}`);
+    log(`poderes: cura ${cura.cura} PV a ${nombre(cura.target)}`);
 
     // «Editar» en la fila del orco: su ficha, en el diálogo.
     const ronda = espejo.battle.round;
@@ -5345,7 +5319,7 @@ async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problem
     await page.locator(`[data-arena="manda"][data-lado="${lado}"][data-ia="si"]`).click();
   }
   const montado = await bandosDichos(page);
-  if (!/6 hechizos/.test(montado)) {
+  if (!montado.includes(`${allSpells().length - 1} hechizos`)) {
     throw new Error(`enlace: los héroes no llevan el libro sin el Rayo: «${montado}»`);
   }
   if (!/IA/.test(montado) || /catálogo/i.test(montado)) {
@@ -5729,7 +5703,7 @@ async function edicionDeLaArena(
     const a = document.activeElement;
     return `${a?.closest('[data-clave-de-ficha]')?.getAttribute('data-clave-de-ficha')} ${a?.getAttribute('data-campo')}`;
   });
-  if (foco !== 'unidad:templario-escudo defense')
+  if (foco !== 'unidad:templario-escudo fuerza')
     throw new Error(`edición: tras cambiar el ataque, el foco está en «${foco}»`);
   const trasElCambio = await lista.evaluate((e) => e.scrollTop);
   if (trasElCambio !== bajada)

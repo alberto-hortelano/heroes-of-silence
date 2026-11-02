@@ -1,5 +1,5 @@
 /**
- * Los botones de los poderes de la unidad activa (Curar, Bendecir), los mismos en
+ * Los botones de los poderes de la unidad activa (Curar), los mismos en
  * la partida y la arena (F6 de la tarea del combate en el juego, 19-10-2026: hasta
  * entonces solo la arena los pintaba, y la partida decía «su tropa no tiene
  * poderes» aunque el monje los trajera). Qué se puede y por qué no lo dice el

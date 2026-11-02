@@ -9,7 +9,7 @@ import { rangoDeHeroe, subidasDeRango } from './experiencia.js';
 import { type Personajes, troopUnit } from './troop.js';
 
 /** Habilidades secundarias del slice. Cada una en básico/avanzado/experto. */
-export type SkillId = 'logistics' | 'pathfinding' | 'wisdom' | 'leadership' | 'luck';
+export type SkillId = 'logistics' | 'pathfinding' | 'wisdom' | 'leadership';
 export type SkillLevel = 1 | 2 | 3;
 
 export interface Hero {
@@ -238,10 +238,6 @@ export function maxMovePoints(
 /** Bonus de moral que el héroe da a su ejército (Liderazgo). */
 export function moraleBonus(hero: Pick<Hero, 'skills'>): number {
   return hero.skills.leadership ?? 0;
-}
-
-export function luckBonus(hero: Pick<Hero, 'skills'>): number {
-  return hero.skills.luck ?? 0;
 }
 
 /** Nivel máximo de hechizo que puede aprender, según Sabiduría. */

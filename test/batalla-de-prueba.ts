@@ -11,7 +11,7 @@ import { EXPERIENCIA_INICIAL_DE_HEROE } from '../src/core/hero/experiencia.js';
 import { cuerposDelHeroe } from '../src/core/hero/hero.js';
 import type { Stack, UnitInfo } from '../src/core/types.js';
 
-/** El mando de un héroe de prueba: poder 3, Bendición y Maldición. */
+/** El mando de un héroe de prueba: poder 3, Prisa y Lentitud. */
 export function mando(over: Partial<BattleHero> = {}): BattleHero {
   return {
     name: 'Prueba',
@@ -20,18 +20,18 @@ export function mando(over: Partial<BattleHero> = {}): BattleHero {
     knowledge: 5,
     mana: 50,
     castThisRound: false,
-    spells: ['bless', 'curse'],
+    spells: ['haste', 'slow'],
     ...over,
   };
 }
 
 /**
  * Un bando: su tropa y, si se pide, su héroe —con el cuerpo de un héroe recién
- * hecho, sin ataque ni defensa—, su moral y su suerte.
+ * hecho, sin ataque ni defensa— y su moral.
  */
 export function bando(
   army: readonly Stack[],
-  o: { readonly heroe?: BattleHero; readonly moral?: number; readonly suerte?: number } = {},
+  o: { readonly heroe?: BattleHero; readonly moral?: number } = {},
 ): BattleSide {
   const h = o.heroe;
   return {
@@ -51,7 +51,6 @@ export function bando(
             }),
           },
     moraleBonus: o.moral ?? 0,
-    luckBonus: o.suerte ?? 0,
   };
 }
 
@@ -66,7 +65,7 @@ export function bandoDe(
   const members = new Map<string, BattleMember>(
     unidades.map((u) => [
       u.id,
-      { profile: { unit: u.unit, equipo: {}, morale: 0, luck: 0 }, hp: u.unit.hp },
+      { profile: { unit: u.unit, equipo: {}, morale: 0 }, hp: u.unit.hp },
     ]),
   );
   return {

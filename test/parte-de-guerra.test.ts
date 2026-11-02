@@ -1,6 +1,6 @@
 /**
  * El parte de guerra se deja leer (#198): sigue al final, y los homónimos llevan
- * su letra. El color de la moral y la suerte desde quien lee está con los demás
+ * su letra. El color desde quien lee está con los demás
  * colores, en `battle.test.ts`. (La espera y la defensa, #82, se fueron con sus
  * jugadas el 26-10-2026.)
  */

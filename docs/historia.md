@@ -5546,3 +5546,27 @@ movimiento y el ataque de la carga». Tarea: `docs/agents/2026-10-31-rueda-antes
 - **El agente**: `battle_response` lleva `chargeFrom` cuando le cargan (la llegada y lo que cobra,
   de `casillasDeCarga`, que plantado da la carga plantada), y su prosa lo dice. La respuesta no
   cambia de esquema.
+
+## Sin suerte (02-11-2026)
+
+Decisión del usuario: «Elimina la suerte completamente del juego». Salió de mirar el disparo
+diferido: la suerte era lo único al azar que quedaba después de la tirada de la horquilla (doble o
+mitad, con 1/24 por punto).
+
+- **Qué se fue**: la tirada de la suerte (`LUCKY_MULTIPLIER`, `UNLUCKY_MULTIPLIER`,
+  `CHANCE_PER_POINT`), `BattleStack.luck`, `effectiveLuck`, el efecto `luck`, el hecho `luck`
+  («Golpe afortunado»), las ramas de la previsión (`RamaDeSuerte`, `buena` y `mala`), la habilidad
+  `luck` del héroe (`luckBonus`), la suerte del personaje (la percepción ya no mueve ninguna cifra:
+  `personaje.test.ts` la excluye de «cada atributo mueve algo») y `luck` en el contrato del agente.
+- **Lo que solo vivía de la suerte, también** (decisión del usuario al preguntárselo, «borrarlos»):
+  Bendición y Maldición (`data/spells.json`: el gremio de nivel 2 se quedó sin hechizos y enseña lo
+  mismo que el 1), el poder Bendecir (`data/poderes.json`, y la habilidad del monje templario), el
+  rasgo `curse_on_hit` (ninguna unidad lo llevaba) y la inmunidad de los no-muertos, que era solo a
+  la mala suerte (`isImmuneTo`, el hecho `immune`). Lo que llegue con esos nombres se rechaza
+  diciendo qué vale, sin compatibilidad hacia atrás.
+- **El banco no se mueve** (`e48a2f0f…`): en sus 20 semillas nadie tiraba suerte ni lanzaba
+  Bendición o Maldición. Sí cambian las partidas del ancla de paneles (`test/fixtures/paneles.txt`),
+  donde la IA las aprendía y las lanzaba.
+- `pnpm capturas`, en su pasada de poderes, ya no apunta Bendecir sobre un aliado: mira que Curar
+  sale apagado en el primer turno del monje y lo usa luego sobre el único herido. El gesto de apuntar
+  un poder con varios aliados posibles lo cubre `session.test.ts` con Curar y dos heridos.

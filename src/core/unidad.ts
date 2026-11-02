@@ -107,7 +107,7 @@ export interface Unidad extends Pick<UnitInfo, 'name' | 'attack' | 'fuerza' | 'a
   /**
    * Nombres de `HABILIDADES`: las de `data/habilidades.json` y las que
    * dan un poder (`data/poderes.json`). Solo las de poder actúan en la pelea
-   * («Curar (X)», «Bendecir»: `unidadDeCombate` las pasa a `UnitInfo.poderes`);
+   * («Curar (X)»: `unidadDeCombate` las pasa a `UnitInfo.poderes`);
    * las demás son **inertes**, se guardan y la ficha dice «sin efecto todavía».
    */
   readonly habilidades: readonly string[];
@@ -122,8 +122,8 @@ export type CuerpoDeUnidad = { readonly hoja: string };
 /**
  * Las habilidades que puede llevar una unidad de la arena: las del catálogo
  * (`data/habilidades.json`, sacado del cuaderno) y las que dan un poder
- * (`data/poderes.json`), sin repetir. «Bendecir» no está en el cuaderno: es de
- * los poderes, y por eso no se escribe en el catálogo generado.
+ * (`data/poderes.json`), sin repetir: un poder que no esté en el cuaderno no se
+ * escribe en el catálogo generado.
  */
 export const HABILIDADES: readonly string[] = [
   ...CATALOGO_DE_HABILIDADES,

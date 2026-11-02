@@ -2,11 +2,10 @@
  * La previsión de daño (`previsionDe`) contra el daño de verdad.
  *
  * Por cada escenario —golpe, carga, defensa, contraataque,
- * doble golpe, maldecir y asustar al golpear (hechos a mano: el catálogo no trae esos
- * rasgos), Bendición y Maldición, héroes con ataque y
- * defensa, hechizos— se pide la previsión, se juega la acción y se mira el
- * registro: cada golpe cae en la horquilla de la rama de suerte que le tocó y
- * las bajas en las suyas, semilla a semilla; y con el dado cargado en cada punta
+ * doble golpe y asustar al golpear (hechos a mano: el catálogo no trae esos
+ * rasgos), héroes con ataque y defensa, hechizos— se pide la previsión, se juega
+ * la acción y se mira el registro: cada golpe cae en su horquilla y las bajas en
+ * las suyas, semilla a semilla; y con el dado cargado en cada punta
  * (`dadoCargado`) el primer golpe da justo el mínimo y el máximo que la previsión
  * dice (la horquilla no es más ancha de lo que pasa).
  *
@@ -32,10 +31,8 @@ import {
   stackById,
 } from '../src/core/battle/battle.js';
 import { hexEquals } from '../src/core/battle/board.js';
-import type { Horquilla, RamaDeSuerte } from '../src/core/battle/damage.js';
-import { applyEffect } from '../src/core/battle/effects.js';
+import type { Horquilla } from '../src/core/battle/damage.js';
 import { type MurallaDeBatalla, SIN_MURALLA } from '../src/core/battle/muralla.js';
-import { delHeroe, efectoDe, spell } from '../src/core/battle/spells.js';
 import type {
   BattleAction,
   BattleEvent,
@@ -99,7 +96,7 @@ const EN_LA_PUNTA = {
 function mando(over: Partial<BattleHero> = {}): BattleHero {
   return mandoDePrueba({
     spellPower: 2,
-    spells: ['magic_arrow', 'lightning_bolt', 'bless', 'curse', 'haste', 'cure'],
+    spells: ['magic_arrow', 'lightning_bolt', 'haste', 'slow', 'cure'],
     ...over,
   });
 }
@@ -125,7 +122,7 @@ interface Escenario {
   /** La muralla del tablero, si la hay (la de la arena). */
   readonly muralla?: MurallaDeBatalla;
   /**
-   * Un hechizo que no tira dado ni toca la suerte: da lo mismo en todas las
+   * Un hechizo que no tira dado: da lo mismo en todas las
    * semillas, así que se mira en una sola por combinación de reglas.
    */
   readonly sinDado?: true;
@@ -148,16 +145,6 @@ const golpe =
 const lanza =
   (hechizo: string, objetivo = 'defender-0') =>
   (): BattleAction => ({ type: 'cast', spell: hechizo, target: objetivo });
-
-/** Cuelga Bendición del primero y Maldición del segundo, con las reglas de la batalla. */
-function bendecirYMaldecir(b: BattleState): void {
-  const h = mando();
-  const a = stackById(b, 'attacker-0');
-  const d = stackById(b, 'defender-0');
-  const efecto = (id: string) => efectoDe(spell(id), delHeroe(spell(id), h))!;
-  applyEffect(a, efecto('bless'));
-  applyEffect(d, efecto('curse'));
-}
 
 /**
  * Una unidad de la arena con armas por uso (13-10-2026): el cuerpo común con su
@@ -186,11 +173,11 @@ const ARQUERO_DE_LA_ARENA = KIT_DEL_PERFIL.arco.equipo;
 
 /**
  * Un bando de un individuo hecho a mano (`aMano`): para los rasgos del motor que
- * ninguna unidad del catálogo lleva (doble golpe, doble disparo, maldecir al
- * golpear, miedo) o un daño exacto. Entra como personaje (`bandoDe`).
+ * ninguna unidad del catálogo lleva (doble golpe, doble disparo, miedo) o un daño
+ * exacto. Entra como personaje (`bandoDe`).
  */
-function aManoSolo(nombre: string, unit: UnitInfo, suerte = 0): BattleSide {
-  return { ...bandoDe([{ id: nombre, unit }]), luckBonus: suerte };
+function aManoSolo(nombre: string, unit: UnitInfo): BattleSide {
+  return bandoDe([{ id: nombre, unit }]);
 }
 
 /**
@@ -249,25 +236,9 @@ const ESCENARIOS: readonly Escenario[] = [
     accion: golpe(),
   },
   {
-    nombre: 'con mala suerte en el contraataque',
-    izquierda: () => bando([{ creature: PESADA, count: 5 }], { suerte: 1 }),
-    derecha: () => bando([{ creature: TROPA, count: 30 }], { suerte: -2 }),
-    en: { col: 5, row: 4 },
-    contra: { col: 6, row: 4 },
-    accion: golpe(),
-  },
-  {
     nombre: 'doble golpe',
     izquierda: () => aManoSolo('doble golpe', con(PESADA, 'double_attack')),
     derecha: () => bando([{ creature: TROPA, count: 30 }]),
-    en: { col: 5, row: 4 },
-    contra: { col: 6, row: 4 },
-    accion: golpe(),
-  },
-  {
-    nombre: 'quien maldice al golpear lo hace antes del contraataque',
-    izquierda: () => aManoSolo('maldice', con(NO_MUERTO, 'curse_on_hit')),
-    derecha: () => bando([{ creature: PESADA, count: 20 }]),
     en: { col: 5, row: 4 },
     contra: { col: 6, row: 4 },
     accion: golpe(),
@@ -278,15 +249,6 @@ const ESCENARIOS: readonly Escenario[] = [
     derecha: () => bando([{ creature: TROPA, count: 40 }]),
     en: { col: 5, row: 4 },
     contra: { col: 6, row: 4 },
-    accion: golpe(),
-  },
-  {
-    nombre: 'Bendición del que pega y Maldición del que contraataca',
-    izquierda: () => bando([{ creature: PESADA, count: 5 }]),
-    derecha: () => bando([{ creature: TROPA, count: 30 }]),
-    en: { col: 5, row: 4 },
-    contra: { col: 6, row: 4 },
-    antes: bendecirYMaldecir,
     accion: golpe(),
   },
   {
@@ -361,12 +323,12 @@ const ESCENARIOS: readonly Escenario[] = [
     sinDado: true,
   },
   {
-    nombre: 'Maldición',
+    nombre: 'Lentitud',
     izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mando() }),
     derecha: () => bando([{ creature: TROPA, count: 3 }]),
     en: { col: 5, row: 4 },
     contra: { col: 8, row: 4 },
-    accion: lanza('curse'),
+    accion: lanza('slow'),
     sinDado: true,
   },
 ];
@@ -402,42 +364,14 @@ function dentro(d: number, h: Horquilla, que: string): void {
   expect(d, `${que}: ${d} fuera de [${h.min}, ${h.max}]`).toBeLessThanOrEqual(h.max);
 }
 
-/** La horquilla de la rama que cayó: la suerte buena, la mala o ninguna. */
-function rama(
-  p: { danio: Horquilla; buena: RamaDeSuerte | null; mala: RamaDeSuerte | null },
-  suerte: boolean | undefined,
-  que: string,
-): Horquilla {
-  if (suerte === undefined) return p.danio;
-  const r = suerte ? p.buena : p.mala;
-  if (r === null)
-    throw new Error(
-      `${que}: hubo suerte ${suerte ? 'buena' : 'mala'} y la previsión no la esperaba`,
-    );
-  return r;
-}
-
-/** Los golpes del registro nuevo, con la suerte que llevó cada uno. */
+/** Los golpes del registro nuevo. */
 function golpesDe(
   log: readonly BattleEvent[],
-): { retaliation: boolean; damage: number; killed: number; suerte: boolean | undefined }[] {
-  const out: {
-    retaliation: boolean;
-    damage: number;
-    killed: number;
-    suerte: boolean | undefined;
-  }[] = [];
-  const suerte = new Map<string, boolean>();
+): { retaliation: boolean; damage: number; killed: number }[] {
+  const out: { retaliation: boolean; damage: number; killed: number }[] = [];
   for (const e of log) {
-    if (e.kind === 'luck') suerte.set(e.stack, e.good);
     if (e.kind === 'attack') {
-      out.push({
-        retaliation: e.kind === 'attack' && e.retaliation,
-        damage: e.damage,
-        killed: e.killed,
-        suerte: suerte.get(e.stack),
-      });
-      suerte.delete(e.stack);
+      out.push({ retaliation: e.retaliation, damage: e.damage, killed: e.killed });
     }
   }
   return out;
@@ -494,27 +428,21 @@ describe('la previsión de daño cae en el daño real', () => {
           const mios = golpes.filter((g) => !g.retaliation);
           expect(mios.length, que).toBeGreaterThan(0);
           expect(mios.length, que).toBeLessThanOrEqual(p.golpes);
-          for (const g of mios) dentro(g.damage, rama(p, g.suerte, que), que);
-          if (mios.every((g) => g.suerte === undefined)) {
-            const muertos = mios.reduce((n, g) => n + g.killed, 0);
-            dentro(muertos, p.bajas, `${que}, bajas`);
-          }
+          for (const g of mios) dentro(g.damage, p.danio, que);
+          const muertos = mios.reduce((n, g) => n + g.killed, 0);
+          dentro(muertos, p.bajas, `${que}, bajas`);
           const devuelto = golpes.find((g) => g.retaliation);
           if (devuelto !== undefined) {
             if (p.contraataque === null) throw new Error(`${que}: contraatacó sin preverlo`);
-            dentro(
-              devuelto.damage,
-              rama(p.contraataque, devuelto.suerte, que),
-              `${que}, contraataque`,
-            );
+            dentro(devuelto.damage, p.contraataque.danio, `${que}, contraataque`);
           } else if (p.contraataque?.seguro === true) {
             throw new Error(`${que}: el contraataque era seguro y no llegó`);
           }
           vistos++;
         }
         // La horquilla no es más ancha de lo que pasa: con el dado cargado en
-        // cada punta (el golpe, en esa punta de la rueda), el primer golpe (sin
-        // suerte) cae justo en ella.
+        // cada punta (el golpe, en esa punta de la rueda), el primer golpe cae
+        // justo en ella.
         if (previsto !== null && previsto.kind !== 'hechizo') {
           const p = previsto as PrevisionDeGolpe;
           const enLaPunta = (punta: 'minimo' | 'maximo'): number => {
@@ -621,7 +549,7 @@ describe('la previsión de daño cae en el daño real', () => {
   it('una acción que no se puede jugar no se prevé: se dice por qué', () => {
     const e = ESCENARIOS[0]!;
     const { b } = montar(e, createRng(1));
-    expect(() => previsionDe(b, { type: 'cast', spell: 'bless', target: 'attacker-0' })).toThrow(
+    expect(() => previsionDe(b, { type: 'cast', spell: 'haste', target: 'attacker-0' })).toThrow(
       'no se puede lanzar: este bando no tiene héroe',
     );
     expect(previsionDe(b, { type: 'end_turn' })).toBeNull();
@@ -629,9 +557,9 @@ describe('la previsión de daño cae en el daño real', () => {
 });
 
 describe('con la rueda del golpe, cada sector prevé el daño que cae', () => {
-  // Las parejas: dos de a pie, uno de doble golpe con suerte contra no-muertos,
-  // y uno que deja miedo al golpear, con suerte en contra, contra pesadas. Los
-  // dos rasgos, a mano: el catálogo no los trae.
+  // Las parejas: dos de a pie, uno de doble golpe contra no-muertos y uno que
+  // deja miedo al golpear contra pesadas. Los dos rasgos, a mano: el catálogo no
+  // los trae.
   const PAREJAS: readonly (readonly [string, () => BattleSide, () => BattleSide])[] = [
     [
       'de a pie contra de a pie',
@@ -640,12 +568,12 @@ describe('con la rueda del golpe, cada sector prevé el daño que cae', () => {
     ],
     [
       'doble golpe contra no-muertos',
-      () => aManoSolo('doble golpe', con(PESADA, 'double_attack'), 2),
+      () => aManoSolo('doble golpe', con(PESADA, 'double_attack')),
       () => bando([{ creature: NO_MUERTO, count: 40 }]),
     ],
     [
       'miedo contra pesadas',
-      () => aManoSolo('asusta', con(NO_MUERTO, 'fear'), -1),
+      () => aManoSolo('asusta', con(NO_MUERTO, 'fear')),
       () => bando([{ creature: PESADA, count: 6 }]),
     ],
   ];
@@ -678,11 +606,11 @@ describe('con la rueda del golpe, cada sector prevé el daño que cae', () => {
             const mios = golpesDe(b.log.slice(desde)).filter((g) => !g.retaliation);
             expect(mios.length, que).toBeGreaterThan(0);
             expect(mios.length, que).toBeLessThanOrEqual(p.golpes);
-            for (const g of mios) dentro(g.damage, rama(p, g.suerte, que), que);
-            // Sin suerte, el primero cae justo en la punta que dice el cruce.
+            for (const g of mios) dentro(g.damage, p.danio, que);
+            // El primero cae justo en la punta que dice el cruce.
             const cruce = b.log.find((e) => e.kind === 'cruce');
             const primero = mios[0];
-            if (cruce?.kind === 'cruce' && primero !== undefined && primero.suerte === undefined) {
+            if (cruce?.kind === 'cruce' && primero !== undefined) {
               if (cruce.punto === 0 && golpe !== 'normal')
                 expect(primero.damage, que).toBe(p.danio.min);
               if (cruce.punto === 4) expect(primero.damage, que).toBe(p.danio.max);

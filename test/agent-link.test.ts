@@ -2448,7 +2448,7 @@ describe('identidad de la partida (#118)', () => {
 describe('la rueda del golpe por el contrato (F6)', () => {
   /**
    * El héroe del agente (jugador 0) con tres templarios de escudo y un monje
-   * (Curar y Bendecir), contra cuatro templarios de mandoble que le pegan cuerpo a
+   * (Curar), contra cuatro templarios de mandoble que le pegan cuerpo a
    * cuerpo: la batalla trae golpes del agente, respuestas que se le piden y
    * poderes. `responder` contesta lo de batalla; el mapa, ir al monstruo una vez.
    */
@@ -2523,12 +2523,12 @@ describe('la rueda del golpe por el contrato (F6)', () => {
     expect(poderes.length).toBeGreaterThan(0);
     expect(nota(poderes[0]!.requestId)).toMatchObject({ ok: true });
     expect(nota(poderes[0]!.requestId)?.note).toMatch(
-      /^attacker-\d+: power (curar|bendecir) sobre attacker-\d+, aplicada\.$/,
+      /^attacker-\d+: power curar sobre attacker-\d+, aplicada\.$/,
     );
     const monje = poderes[0]!.payload.stacks.find(
       (x: any) => x.id === poderes[0]!.payload.activeStack,
     );
-    expect(monje.powers).toEqual(['curar', 'bendecir']);
+    expect(monje.powers).toEqual(['curar']);
 
     // La respuesta: se pide para una unidad suya, sin el golpe del otro, con los siete tipos.
     const respuestas = agent.seen.filter((p) => p.kind === 'battle_response');

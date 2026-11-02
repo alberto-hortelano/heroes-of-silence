@@ -224,12 +224,9 @@ export async function escenas(): Promise<readonly Escena[]> {
     },
     { kind: 'cast', side: 'defender', spell: 'magic_arrow', target: suyo.id, damage: 10 },
     { kind: 'cast', side: 'defender', spell: 'haste', target: mio.id },
-    { kind: 'luck', stack: mio.id, good: true },
-    { kind: 'luck', stack: mio.id, good: false },
     { kind: 'effect', stack: mio.id, effect: 'speed', amount: 2, source: 'haste', rounds: 3 },
     { kind: 'effect', stack: suyo.id, effect: 'attack', amount: -2, source: 'fear', rounds: 1 },
     { kind: 'effect_end', stack: mio.id, source: 'slow' },
-    { kind: 'immune', stack: suyo.id, source: 'curse_on_hit' },
     { kind: 'perished', stack: suyo.id },
     { kind: 'perished', stack: mio.id },
     // Las dos, para ver los dos colores; el precio es uno, el de `finished`.

@@ -20,7 +20,6 @@ import {
 } from '../battle/battle.js';
 import { type Paso, tableroDelContrato } from '../battle/board.js';
 import { stackHp } from '../battle/damage.js';
-import { effectiveLuck } from '../battle/effects.js';
 import { type CifrasDeLaRueda, efectoDeGolpe, formaDeLaBatalla } from '../battle/rueda.js';
 import {
   type BattleStack,
@@ -776,7 +775,7 @@ function marcaDelOrigen(origen: OrigenDelStack): { commander?: true; veteranRank
  *
  * **Público**, porque es lo que se ve pasar en el tablero: la ronda, quién es
  * el bando mirado, qué stack tiene el turno, el tablero, los stacks enteros
- * —efectos, disparos, moral y suerte— y el registro, que cuenta hechizos ya
+ * —efectos, disparos y moral— y el registro, que cuenta hechizos ya
  * lanzados: eso lo has visto ocurrir.
  *
  * **Del bando**: `hero.mana` y `hero.spells`, que son lo que *podría* lanzar y
@@ -937,11 +936,8 @@ function stackView(s: BattleStack) {
     traits: info.traits ?? [],
     // Sus poderes (`power`), solo si tiene alguno: como `chargeFrom`, lo que no hay no viaja.
     ...((info.poderes?.length ?? 0) > 0 ? { powers: info.poderes } : {}),
-    // La suerte va ya con los efectos aplicados: el contrato promete el
-    // valor con el que se va a tirar, no el de la ficha. La moral no tiene
-    // efectos temporales que aplicar, así que es la suya y ya.
+    // La moral no tiene efectos temporales que aplicar, así que es la suya y ya.
     morale: s.morale,
-    luck: effectiveLuck(s),
     // Y aparte, cuánto le queda a cada cosa: sin esto el agente ve el número
     // cambiar de una ronda a otra sin saber por qué ni hasta cuándo.
     effects: s.effects.map((e) => ({

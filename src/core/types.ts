@@ -166,7 +166,6 @@ export const CREATURE_TRAITS = [
   'double_shot',
   'life_drain',
   'splash_shot',
-  'curse_on_hit',
   'bane_undead',
   'fear',
   'escalar',
@@ -188,7 +187,6 @@ export const NOMBRE_DE_RASGO: Readonly<Record<CreatureTrait, string>> = {
   double_shot: 'disparo doble',
   life_drain: 'drena vida',
   splash_shot: 'disparo con salpicadura',
-  curse_on_hit: 'maldice al golpear',
   bane_undead: 'azote de no-muertos',
   fear: 'terror',
   escalar: 'escala murallas',
@@ -277,7 +275,7 @@ export interface UnitInfo {
   readonly puntosDeArmadura?: number;
   readonly traits?: readonly CreatureTrait[];
   /**
-   * Los poderes que usa en su turno (`battle/poderes.ts`): Curar, Bendecir. Los pone
+   * Los poderes que usa en su turno (`battle/poderes.ts`): Curar. Los pone
    * solo `unidadDeCombate`, por sus habilidades; los usan la persona, la IA y el
    * agente, con la jugada `power` (`contract/vocabulario.ts`).
    */
@@ -409,7 +407,7 @@ export type ArmasDeLaUnidad = { readonly arma: GolpeConArma } & Readonly<
 >;
 
 /**
- * El id de un poder de unidad de `data/poderes.json` (`curar`, `bendecir`). Vive
+ * El id de un poder de unidad de `data/poderes.json` (`curar`). Vive
  * aquí y no en `battle/poderes.ts` porque lo nombran `UnitInfo` y la jugada
  * `poder`, y este fichero no importa de nadie.
  */

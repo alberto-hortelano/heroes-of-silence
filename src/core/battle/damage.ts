@@ -13,23 +13,13 @@ import type { Rng } from '../rng.js';
 import { conComa, type GolpeConArma, type UnitInfo, type UsoDeArma } from '../types.js';
 import { armaduraDe, cifrasDelGolpe, golpeDe, trasLaArmadura } from './armas.js';
 import { CARGA, type CifrasDeCarga, cargaEfectiva, dichoDeLaCarga } from './carga.js';
-import { effectiveLuck, effectTotal, type StackEffect } from './effects.js';
+import { effectTotal } from './effects.js';
 import type { BattleStack } from './types.js';
 
 export const ATTACK_BONUS_PER_POINT = 0.1;
 export const MAX_ATTACK_BONUS = 3.0;
 export const DEFENSE_REDUCTION_PER_POINT = 0.025;
 export const MAX_DEFENSE_REDUCTION = 0.7;
-
-/**
- * Multiplicadores de suerte. En HoMM2 un golpe afortunado dobla el daño; uno
- * desafortunado lo parte por la mitad. Están aquí sueltos porque son justo el
- * número que se querrá tocar al balancear.
- */
-export const LUCKY_MULTIPLIER = 2.0;
-export const UNLUCKY_MULTIPLIER = 0.5;
-/** Probabilidad por punto de moral o suerte (≈1/24, como la serie). */
-export const CHANCE_PER_POINT = 1 / 24;
 
 /**
  * Con qué arma se da un golpe (13-10-2026, «cada arma para lo suyo»): el disparo,
@@ -161,8 +151,6 @@ export function damageMultiplier(attack: number, defense: number): number {
 
 export interface DamageResult {
   readonly damage: number;
-  readonly lucky: boolean;
-  readonly unlucky: boolean;
   /**
    * Hexes de carga que se han COBRADO de verdad, ya con el tope aplicado; 0 si
    * no hubo carga. El parte de guerra lo copia en vez de volver a deducirlo:
@@ -399,8 +387,8 @@ function danioFinal(base: number): number {
 }
 
 /**
- * Daño MEDIO de un golpe, sin tirada y sin suerte: la tirada se sustituye por
- * el centro del intervalo de la criatura y el dado de la suerte no se lanza.
+ * Daño MEDIO de un golpe, sin tirada: la tirada se sustituye por el centro del
+ * intervalo de la criatura.
  *
  * Es para COMPARAR, no para enseñar: no redondea ni fuerza el mínimo de 1,
  * porque redondear inventaría empates entre casillas que se distinguen por
@@ -448,7 +436,7 @@ export function fraccionQueLlega(
   return trasLaArmadura(bruto, defender).danio / bruto;
 }
 
-/** Daño que inflige `attacker` a `defender`, ya con suerte aplicada. */
+/** Daño que inflige `attacker` a `defender`. Sin suerte desde el 02-11-2026. */
 export function computeDamage(
   attacker: BattleStack,
   defender: BattleStack,
@@ -457,21 +445,9 @@ export function computeDamage(
 ): DamageResult {
   const golpe = deUnGolpe(attacker, opts);
   const roll = tiradaDe(opts, golpe, rng);
-  let base = applyModifiers(roll * attacker.count, attacker, defender, opts, golpe);
+  const base = applyModifiers(roll * attacker.count, attacker, defender, opts, golpe);
   const { charge, montada } = golpe;
-
-  const luck = effectiveLuck(attacker);
-  let lucky = false;
-  let unlucky = false;
-  if (luck > 0 && rng.chance(luck * CHANCE_PER_POINT)) {
-    lucky = true;
-    base *= LUCKY_MULTIPLIER;
-  } else if (luck < 0 && rng.chance(-luck * CHANCE_PER_POINT)) {
-    unlucky = true;
-    base *= UNLUCKY_MULTIPLIER;
-  }
-
-  return { damage: danioFinal(base), lucky, unlucky, charge, montada };
+  return { damage: danioFinal(base), charge, montada };
 }
 
 /** Una horquilla de daño: lo menos y lo más que puede quitar un golpe. */
@@ -480,15 +456,9 @@ export interface Horquilla {
   readonly max: number;
 }
 
-/** Una rama de la suerte: cuánto pasa y qué horquilla da si pasa. */
-export interface RamaDeSuerte extends Horquilla {
-  readonly probabilidad: number;
-}
-
 /**
  * Lo que puede quitar un golpe de `attacker` a `defender` ANTES de tirar: la
- * horquilla sin suerte, la de la suerte buena o mala si puede pasar (con su
- * probabilidad) y los modificadores con su causa.
+ * horquilla y los modificadores con su causa.
  *
  * Sale de la misma cuenta que el golpe —`applyModifiers` y `danioFinal`, con la
  * tirada mínima y la máxima del arma (`enElCruce`)—, no de una copia: todo lo que
@@ -502,8 +472,6 @@ export function horquillaDeDanio(
   opts: DamageOptions,
 ): {
   readonly danio: Horquilla;
-  readonly buena: RamaDeSuerte | null;
-  readonly mala: RamaDeSuerte | null;
   readonly modificadores: readonly Modificador[];
   /**
    * Con qué arma va el golpe (`dichoDelGolpe`), o `null` sin armas por uso (el
@@ -535,40 +503,15 @@ export function horquillaDeDanio(
   );
   const alto = applyModifiers(tMax * attacker.count, attacker, defender, opts, golpe);
   const llega = (d: number): number => trasLaArmadura(d, defender).danio;
-  const rama = (f: number, p: number): RamaDeSuerte => ({
-    probabilidad: p,
-    min: llega(danioFinal(bajo * f)),
-    max: llega(danioFinal(alto * f)),
-  });
-  const luck = effectiveLuck(attacker);
   // La armadura, lo último y con la misma resta que el golpe (`herir`): es
   // monótona, así que los extremos siguen siéndolo.
   const a = armaduraDe(defender.unit);
   if (a > 0) modificadores.push({ causa: `−${a} armadura`, factor: null });
   return {
     danio: { min: llega(danioFinal(bajo)), max: llega(danioFinal(alto)) },
-    buena: luck > 0 ? rama(LUCKY_MULTIPLIER, luck * CHANCE_PER_POINT) : null,
-    mala: luck < 0 ? rama(UNLUCKY_MULTIPLIER, -luck * CHANCE_PER_POINT) : null,
     modificadores,
     conArma,
   };
-}
-
-/**
- * Qué fracción del golpe compra o quita un efecto de daño, para la IA: la
- * suerte, su `CHANCE_PER_POINT` por punto de golpe doble o mitad. Es al efecto lo
- * que `CHANCE_PER_POINT` a la suerte en `rindeTemporal` (`tactics.ts`): la IA lo
- * pregunta aquí en vez de ramificar por la clase del efecto.
- */
-export function valorDeEfectoDeDanio(efecto: StackEffect): number {
-  switch (efecto.kind) {
-    case 'luck':
-      return Math.abs(efecto.amount) * CHANCE_PER_POINT;
-    case 'speed':
-    case 'attack':
-    case 'defense':
-      throw new Error(`un efecto de ${efecto.kind} no cambia la tirada de daño`);
-  }
 }
 
 /**

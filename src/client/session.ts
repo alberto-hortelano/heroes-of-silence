@@ -606,7 +606,7 @@ export function unaOElegir(
 }
 
 /**
- * Los poderes de la unidad activa (Curar, Bendecir) tal como los usa la persona:
+ * Los poderes de la unidad activa (Curar) tal como los usa la persona:
  * el que espera el clic en un aliado (lo apunta su botón cuando hay más de uno) y
  * qué hace el botón. Común a la partida y la arena (F6 de la tarea del combate en
  * el juego, 19-10-2026: la partida no los usaba). Con el hechizo elegido del libro,
@@ -936,7 +936,7 @@ export class LibroDeBatalla implements HechizosDeBatalla {
   /**
    * Por qué el hechizo elegido no se puede lanzar sobre ese stack.
    *
-   * Apuntar mal es una regla del juego —a un aliado, a un inmune, a un muerto—,
+   * Apuntar mal es una regla del juego —a un aliado, a un muerto—,
    * así que la frase la escribe el núcleo y la pantalla solo la enseña. Si el
    * par no está entre las acciones legales, el bloqueador TIENE motivo: son las
    * dos caras de la misma función.

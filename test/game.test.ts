@@ -1587,7 +1587,7 @@ describe('el gremio enseña (#2)', () => {
     // Sabiduría quedan fuera, con Sabiduría entran.
     const oferta = allSpells();
     const sinSabiduria = learnable({ spells: [], skills: {} }, oferta);
-    expect(sinSabiduria).toContain('bless');
+    expect(sinSabiduria).toContain('haste');
     expect(sinSabiduria).not.toContain('lightning_bolt');
     expect(sinSabiduria).not.toContain('cure');
 
@@ -1611,9 +1611,10 @@ describe('el gremio enseña (#2)', () => {
     ).toEqual(['haste', 'magic_arrow', 'slow']);
 
     castillo.buildings = [...castillo.buildings, 'mage_guild_2'];
+    // El nivel 2 se quedó sin hechizos al irse Bendición y Maldición con la
+    // suerte (02-11-2026): enseña lo mismo que el 1.
     const nivel2 = townSpells(castillo).map((s) => s.id);
-    expect(nivel2).toContain('bless');
-    expect(nivel2).toContain('curse');
+    expect([...nivel2].sort()).toEqual(['haste', 'magic_arrow', 'slow']);
     // No hay `mage_guild_3`, así que los de nivel 3 no los ofrece nadie.
     expect(nivel2).not.toContain('lightning_bolt');
   });

@@ -36,13 +36,7 @@ import {
 } from '../battle/battle.js';
 import { hexDistance, hexKey, neighbours, type Paso } from '../battle/board.js';
 import { CARGA, CARGA_MINIMA, cargaEfectiva, cargaMontada } from '../battle/carga.js';
-import {
-  type DamageOptions,
-  expectedDamage,
-  fraccionQueLlega,
-  stackHp,
-  valorDeEfectoDeDanio,
-} from '../battle/damage.js';
+import { type DamageOptions, expectedDamage, fraccionQueLlega, stackHp } from '../battle/damage.js';
 import { roundsLeftOf, type StackEffect } from '../battle/effects.js';
 import {
   claveDeAbiertas,
@@ -292,7 +286,7 @@ function rondasQueQuedan(state: BattleState, side: Side): number {
 }
 
 /**
- * Lo que rinde un temporal (Prisa, Lentitud, Bendición, Maldición) sobre este
+ * Lo que rinde un temporal (Prisa, Lentitud) sobre este
  * objetivo, contado ronda a ronda por las que de verdad compra: la en curso si
  * el objetivo aún tiene que actuar, y las siguientes hasta su duración o hasta
  * el final estimado de la batalla, lo que llegue antes, sin las que ya cubre
@@ -300,9 +294,8 @@ function rondasQueQuedan(state: BattleState, side: Side): number {
  *
  * En la ronda en curso se sabe dónde está cada uno, así que se cuenta el golpe
  * que el efecto da o quita: la Prisa vale el mejor golpe con dos pasos más
- * menos el de ahora, la Lentitud el del enemigo con dos menos —en PV y
- * amenaza NUESTROS, que es lo que ahorra—, y la suerte su `CHANCE_PER_POINT`
- * de golpe doble (o mitad) sobre el mejor golpe que se alcanza.
+ * menos el de ahora, y la Lentitud el del enemigo con dos menos —en PV y
+ * amenaza NUESTROS, que es lo que ahorra—.
  */
 function rindeTemporal(
   state: BattleState,
@@ -315,22 +308,18 @@ function rindeTemporal(
   const amount = sp.amount ?? 0;
   const yaCubre = roundsLeftOf(objetivo, efecto);
   // Quien se lo echa con su turno (un poder sobre sí mismo) ya no golpea hoy: el
-  // efecto no le compra la ronda en curso. Contarla daba al monje que se bendecía
-  // el golpe que la propia Bendición le quitaba.
+  // efecto no le compra la ronda en curso. Contarla daba a quien se lo echaba
+  // el golpe que su propio turno le quitaba.
   const pasos = objetivo === gastaSuTurno ? null : pasosDeEstaRonda(state, objetivo);
 
   let hoy = NADA;
   if (pasos !== null && yaCubre === 0) {
-    if (sp.kind === 'speed') {
-      const antes = mejorGolpe(state, objetivo, pasos);
-      const despues = mejorGolpe(state, objetivo, Math.max(1, pasos + amount));
-      hoy = {
-        pv: Math.abs(despues.pv - antes.pv),
-        amenaza: Math.abs(despues.amenaza - antes.amenaza),
-      };
-    } else {
-      hoy = escalar(mejorGolpe(state, objetivo, pasos), valorDeEfectoDeDanio(efecto));
-    }
+    const antes = mejorGolpe(state, objetivo, pasos);
+    const despues = mejorGolpe(state, objetivo, Math.max(1, pasos + amount));
+    hoy = {
+      pv: Math.abs(despues.pv - antes.pv),
+      amenaza: Math.abs(despues.amenaza - antes.amenaza),
+    };
   }
 
   // Las siguientes: un efecto de N rondas cubre la en curso y N − 1 más, y la
@@ -343,10 +332,7 @@ function rindeTemporal(
   // tirador la velocidad no le compra nada, igual que en la ronda en curso.
   const golpe = mejorGolpe(state, objetivo, Number.POSITIVE_INFINITY);
   const tira = isShooter(objetivo.unit);
-  const porRonda =
-    sp.kind === 'speed'
-      ? escalar(golpe, tira ? 0 : FRACCION_TEMPO)
-      : escalar(golpe, valorDeEfectoDeDanio(efecto));
+  const porRonda = escalar(golpe, tira ? 0 : FRACCION_TEMPO);
   return { pv: hoy.pv + despues * porRonda.pv, amenaza: hoy.amenaza + despues * porRonda.amenaza };
 }
 
@@ -378,11 +364,10 @@ function rindeDe(
       // puntuaba como si matara a cincuenta.
       // Lo que llega tras la armadura (la arena; en el juego, `cantidad` tal cual).
       return rindeContra(state, objetivo, trasLaArmadura(l.cantidad, objetivo).danio);
-    case 'speed':
-    case 'luck': {
+    case 'speed': {
       // `efectoDe` es la misma función que el motor consulta para saber qué
       // colgaría, así que la duración no se recalcula aquí. Solo devuelve
-      // `null` fuera de estas dos ramas: no rinde y no lanza, porque esto es
+      // `null` fuera de esta rama: no rinde y no lanza, porque esto es
       // una heurística, no una regla.
       const efecto = efectoDe(sp, l);
       return efecto === null
@@ -417,8 +402,8 @@ function spellRinde(
  *
  * Un temporal que el objetivo aún lleva no se refresca con el turno (H1 de QA,
  * vuelta 1): `rindeTemporal` le da las rondas que alarga, y eso es justo para el
- * hechizo, que no cuesta el turno, pero con el poder era bendecirse cada turno
- * en vez de andar —monje contra monje llegaba al tope de 100 rondas en 40 de 40—.
+ * hechizo, que no cuesta el turno, pero con el poder (Bendecir, que se fue con
+ * la suerte) era bendecirse cada turno en vez de andar —monje contra monje llegaba al tope de 100 rondas en 40 de 40—.
  */
 function mejorPoder(
   state: BattleState,
@@ -832,7 +817,7 @@ function decideAccion(
   const alMuro = tiradorAlMuro(state, s, acciones, costes, aTiro);
   if (alMuro !== null) return alMuro;
 
-  // Un poder (arena: curar, bendecir), si rinde más que el golpe que tiene a mano.
+  // Un poder (curar), si rinde más que el golpe que tiene a mano.
   const conPoder = mejorPoder(state, s, acciones);
   if (conPoder !== null) return conPoder;
 

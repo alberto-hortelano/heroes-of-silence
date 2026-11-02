@@ -537,7 +537,7 @@ describe('los asaltantes que se ven y la marcha que se para (#130)', () => {
  * atacan (#116). Antes, la IA elegía por ella a ciegas y resolvía sus defensas.
  */
 describe('los poderes de la tropa en la batalla del mapa (F6)', () => {
-  it('el monje de la persona usa Bendecir: el botón, el aliado que se elige y la jugada', () => {
+  it('el monje de la persona usa Curar: el botón, el aliado que se elige y la jugada', () => {
     // Hasta F6 el panel de la partida decía «su tropa no tiene poderes» aunque el
     // monje los trajera (`poderes: NADA`). Ahora son los botones de la arena
     // (`botonesDePoder`) y el gesto, el mismo (`PoderesDeLaActiva`).
@@ -547,6 +547,13 @@ describe('los poderes de la tropa en la batalla del mapa (F6)', () => {
     const s = sesionContraMonstruoCon(
       ejercito({ creature: SANADOR, count: 1 }, { creature: PESADA, count: 2 }),
     );
+    // Los dos pesados, heridos de salida: con más de un aliado que curar, el botón
+    // espera el clic (Bendecir, que iba a todo aliado, se fue con la suerte).
+    for (const x of s.battle!.stacks) {
+      if (x.side === s.miBando && x.unit.poderes === undefined && x.origen.kind !== 'heroe') {
+        x.topHp -= 3;
+      }
+    }
     const conPoderes = () => (s.turnoPropio?.stack.unit.poderes?.length ?? 0) > 0;
     for (let i = 0; i < 40 && !conPoderes(); i++) {
       if (s.ruedaPendiente !== null) s.elegirEnLaRueda('normal');
@@ -556,29 +563,26 @@ describe('los poderes de la tropa en la batalla del mapa (F6)', () => {
     expect(conPoderes()).toBe(true);
     const panel = marcadoDe(renderSide(s));
     expect(panel).toContain('data-action="battle-poder" data-poder="curar"');
-    expect(panel).toContain('data-action="battle-poder" data-poder="bendecir"');
-    // Cada uno con su ayuda o su motivo: Curar, sobre el único herido, con su previsión.
+    // Con su ayuda o su motivo.
     expect(panel).toMatch(/data-poder="curar" class="poder"(?: disabled)? title="[^"]+"/);
 
-    // Con varios aliados posibles, el botón deja Bendecir esperando el clic.
-    const aliados = s
-      .battleLegalActions()
-      .filter((a) => a.type === 'power' && a.poder === 'bendecir');
+    // Con varios aliados posibles, el botón deja Curar esperando el clic.
+    const aliados = s.battleLegalActions().filter((a) => a.type === 'power' && a.poder === 'curar');
     expect(aliados.length).toBeGreaterThan(1);
     const version = s.version;
-    s.poderes.usar('bendecir');
-    expect(s.apuntado).toEqual({ kind: 'poder', id: 'bendecir' });
+    s.poderes.usar('curar');
+    expect(s.apuntado).toEqual({ kind: 'poder', id: 'curar' });
     expect(s.status).toContain('Elige el aliado');
     expect(s.version).toBeGreaterThan(version);
-    expect(marcadoDe(renderSide(s))).toContain('data-poder="bendecir" class="poder primary"');
+    expect(marcadoDe(renderSide(s))).toContain('data-poder="curar" class="poder primary"');
     // Un enemigo no vale, y lo dice el núcleo.
     const enemigo = s.battle!.stacks.find((x) => x.side !== s.miBando && x.count > 0)!;
-    expect(s.rechazoDeLoApuntado(enemigo.id)).toBe('«Bendecir» va dirigido a un aliado.');
+    expect(s.rechazoDeLoApuntado(enemigo.id)).toBe('«Curar» va dirigido a un aliado.');
     // Y sobre un aliado se juega: el registro lo cuenta y lo apuntado se suelta.
     const monje = s.turnoPropio!.stack.id;
     s.playBattleAction(aliados[0]!);
     const hecho = s.battle!.log.find((e) => e.kind === 'power');
-    expect(hecho).toMatchObject({ kind: 'power', stack: monje, poder: 'bendecir' });
+    expect(hecho).toMatchObject({ kind: 'power', stack: monje, poder: 'curar' });
     expect(s.apuntado).toBeNull();
   });
 });

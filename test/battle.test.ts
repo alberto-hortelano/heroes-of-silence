@@ -37,12 +37,7 @@ import {
   herir,
   stackHp,
 } from '../src/core/battle/damage.js';
-import {
-  applyEffect,
-  effectiveLuck,
-  effectTotal,
-  tickEffects,
-} from '../src/core/battle/effects.js';
+import { applyEffect, effectTotal, tickEffects } from '../src/core/battle/effects.js';
 import { validarMuralla } from '../src/core/battle/muralla.js';
 import type {
   BattleAction,
@@ -186,7 +181,6 @@ function stackOf(id: string, count: number, unit: UnitInfo = unidadDelJuego(id))
     retaliated: false,
     acted: false,
     morale: 0,
-    luck: 0,
     effects: [],
     ganado: { experiencia: 0, bajas: 0, heroes: [] },
     apuntado: null,
@@ -949,48 +943,6 @@ describe('efectos temporales (#9)', () => {
     expect(state.log.some((e) => e.kind === 'effect_end' && e.source === 'slow')).toBe(true);
   });
 
-  it('un no-muerto es inmune a la maldición: ni se ofrece ni se acepta', () => {
-    const rng = createRng(8);
-    const lanzador = hero({ spells: ['curse'], mana: 30, spellPower: 3 });
-    const state = createBattle(
-      // El campeón es lo más rápido del tablero: así el turno activo es el del
-      // bando que tiene héroe y se le puede pedir el lanzamiento.
-      side([{ creature: JINETE, count: 5 }], lanzador),
-      side([{ creature: NO_MUERTO, count: 5 }]),
-      rng,
-      COMBATE_COMPLETO,
-    );
-    const esqueleto = stackById(state, 'defender-0');
-    const suerteAntes = effectiveLuck(esqueleto);
-
-    // El esqueleto es el único enemigo, así que no queda ni un `cast` legal.
-    expect(legalActions(state).some((a) => a.type === 'cast')).toBe(false);
-
-    // Y pedirlo a mano tampoco cuela: lo rechaza la MISMA función que decidió
-    // no ofrecerlo, con el motivo escrito para la persona. Antes se aceptaba,
-    // rebotaba y cobraba igual el maná y la tirada de la ronda; ahora ni eso.
-    expect(() =>
-      aplicar(state, { type: 'cast', spell: 'curse', target: 'defender-0' }, rng),
-    ).toThrow(/inmune a "Maldición"/);
-    expect(esqueleto.effects).toEqual([]);
-    expect(effectiveLuck(esqueleto)).toBe(suerteAntes);
-    expect(lanzador.mana).toBe(30);
-    expect(lanzador.castThisRound).toBe(false);
-  });
-
-  it('la maldición sí muerde a un vivo, y el recorte a −3 se hace al leer', () => {
-    const s = stackOf(TROPA, 10);
-    s.luck = -2; // ya venía con la suerte en contra
-    applyEffect(s, { kind: 'luck', amount: -1, source: 'curse', roundsLeft: 3 });
-    applyEffect(s, { kind: 'luck', amount: -1, source: 'curse_on_hit', roundsLeft: 3 });
-
-    // Orígenes distintos SÍ se suman, y la lista los guarda enteros: −4. El
-    // recorte se hace AL LEER, no al escribir, así que caducar uno devuelve el
-    // valor exacto sin descuadrar nada.
-    expect(s.effects).toHaveLength(2);
-    expect(effectiveLuck(s)).toBe(-3);
-  });
-
   it('el mismo origen refresca en vez de acumularse: dos miedos no dan −4', () => {
     const rng = createRng(66);
     const state = conCifrasAMano(
@@ -1150,54 +1102,6 @@ describe('rasgos de criatura (#8)', () => {
     const sinMiedo = computeDamage({ ...esqueleto, effects: [] }, asusta, createRng(5), {});
     expect(conMiedo.damage).toBeLessThan(sinMiedo.damage);
   });
-
-  it('curse_on_hit: quien maldice al golpear (la momia de antes) maldice a un vivo y rebota en un no-muerto', () => {
-    const maldice = con(NO_MUERTO, 'curse_on_hit');
-    const rng = createRng(62);
-    const contraVivos = conCifrasAMano(
-      createBattle(
-        side([{ creature: NO_MUERTO, count: 5 }]),
-        side([{ creature: TROPA, count: 30 }]),
-        rng,
-        COMBATE_COMPLETO,
-      ),
-      'attacker-0',
-      maldice,
-    );
-    enfrentar(stackById(contraVivos, 'attacker-0'), stackById(contraVivos, 'defender-0'));
-    // El piquero es más ágil y abriría la ronda: el turno, del que maldice.
-    forzarTurno(contraVivos, 'attacker-0');
-    aplicar(contraVivos, { type: 'attack', target: 'defender-0' }, rng);
-
-    const piquero = stackById(contraVivos, 'defender-0');
-    expect(piquero.effects.some((e) => e.source === 'curse_on_hit' && e.amount === -1)).toBe(true);
-    expect(effectiveLuck(piquero)).toBe(-1);
-    expect(contraVivos.log.some((e) => e.kind === 'effect' && e.source === 'curse_on_hit')).toBe(
-      true,
-    );
-
-    // Espejo no-muerto: quien maldice no desmoraliza a un esqueleto.
-    const rng2 = createRng(63);
-    const contraMuertos = conCifrasAMano(
-      createBattle(
-        side([{ creature: NO_MUERTO, count: 5 }]),
-        side([{ creature: NO_MUERTO, count: 30 }]),
-        rng2,
-        COMBATE_COMPLETO,
-      ),
-      'attacker-0',
-      maldice,
-    );
-    enfrentar(stackById(contraMuertos, 'attacker-0'), stackById(contraMuertos, 'defender-0'));
-    forzarTurno(contraMuertos, 'attacker-0');
-    aplicar(contraMuertos, { type: 'attack', target: 'defender-0' }, rng2);
-
-    const esqueleto = stackById(contraMuertos, 'defender-0');
-    expect(esqueleto.effects).toEqual([]);
-    expect(contraMuertos.log.some((e) => e.kind === 'immune' && e.source === 'curse_on_hit')).toBe(
-      true,
-    );
-  });
 });
 
 describe('el libro de hechizos del jugador (#4)', () => {
@@ -1228,23 +1132,16 @@ describe('el libro de hechizos del jugador (#4)', () => {
     return { session, heroe, battle };
   }
 
-  it('lo lanzable se ancla en el hecho: con maná sí, sin maná no, y nunca sobre quien es inmune', () => {
-    const { session, heroe } = sesionEnBatalla(61, { spells: ['magic_arrow', 'curse'], mana: 30 });
+  it('lo lanzable se ancla en el hecho: con maná sí, sin maná no', () => {
+    const { session, heroe } = sesionEnBatalla(61, { spells: ['magic_arrow'], mana: 30 });
     const opciones = session.spellOptions();
-    expect(opciones.map((o) => o.id)).toEqual(['magic_arrow', 'curse']);
+    expect(opciones.map((o) => o.id)).toEqual(['magic_arrow']);
 
     // La Flecha mágica se puede lanzar sobre el único enemigo que hay.
     const flecha = opciones.find((o) => o.id === 'magic_arrow')!;
     expect(flecha.castable).toBe(true);
     expect(flecha.targets).toEqual(['defender-0']);
     expect(flecha.motivo).toBe('');
-
-    // La Maldición rebota en un no-muerto, así que no le queda a quién: el
-    // motivo lo escribe el núcleo y el panel lo enseña tal cual.
-    const maldicion = opciones.find((o) => o.id === 'curse')!;
-    expect(maldicion.castable).toBe(false);
-    expect(maldicion.targets).toEqual([]);
-    expect(maldicion.motivo).toBe('no hay ningún objetivo válido');
 
     // Y sin maná deja de ser lanzable: `castable` sigue al estado, no es un sí
     // fijo por estar en el libro.
@@ -1254,7 +1151,7 @@ describe('el libro de hechizos del jugador (#4)', () => {
 
   it('apuntar mal se explica con la frase del núcleo, no con una de la pantalla', () => {
     // El clic sobre un objetivo imposible es una regla del juego —un aliado, un
-    // inmune, un muerto—, así que la explicación tiene que salir de `core`.
+    // muerto—, así que la explicación tiene que salir de `core`.
     // Antes la pantalla redactaba la suya y perdía el motivo concreto.
     const { session } = sesionEnBatalla(63, { spells: ['haste'], mana: 30 });
     session.hechizos.selectSpell('haste');
@@ -1808,8 +1705,8 @@ describe('la IA ya no cede la iniciativa (#52 retirado, 26-10-2026)', () => {
  * El parte de guerra, que es lo que lee la persona durante la batalla.
  *
  * Con los eventos puestos a mano, igual que la crónica del mapa en
- * `cronica.test.ts`: lo que se afirma aquí es el COLOR, y hacen falta los seis
- * casos —moral alta y baja, suerte buena y mala, el efecto que suma y el que
+ * `cronica.test.ts`: lo que se afirma aquí es el COLOR, y hacen falta los
+ * casos —moral alta y baja, el efecto que suma y el que
  * resta, y el final ganado y perdido— que ninguna semilla da juntos.
  *
  * Y hacía falta: `renderBattleLog` no tenía ni una línea de test, y sus cuatro
@@ -2266,36 +2163,6 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
     session.scene = 'battle';
     return marcadoDe(renderSide(session));
   }
-
-  it('la suerte se pinta por lo que es para quien lee, no por su signo (#198)', () => {
-    // La moral alta del ENEMIGO salía en verde: se pintaba por `good` (la moral
-    // ya no da turnos ni sale en el parte, 26-10-2026). Aquí la persona es el
-    // atacante (el jinete); el defensor, el no-muerto.
-    expect(parte([{ kind: 'luck', stack: 'attacker-0', good: true }])).toContain(
-      `<div class="win">Golpe afortunado de ${NOMBRE_A}, de tu bando</div>`,
-    );
-    expect(parte([{ kind: 'luck', stack: 'attacker-0', good: false }])).toContain(
-      `<div class="lose">Golpe desafortunado de ${NOMBRE_A}, de tu bando</div>`,
-    );
-    expect(parte([{ kind: 'luck', stack: 'defender-0', good: true }])).toContain(
-      `<div class="lose">Golpe afortunado de ${NOMBRE_B}, del enemigo</div>`,
-    );
-    expect(parte([{ kind: 'luck', stack: 'defender-0', good: false }])).toContain(
-      `<div class="win">Golpe desafortunado de ${NOMBRE_B}, del enemigo</div>`,
-    );
-  });
-
-  it('en una batalla ajena la suerte no lleva color: no hay «ti» para el que sea buena', () => {
-    const ajena = parte(
-      [
-        { kind: 'luck', stack: 'attacker-0', good: true },
-        { kind: 'luck', stack: 'defender-0', good: false },
-      ],
-      'ajena',
-    );
-    expect(ajena).toContain(`<div>Golpe afortunado de ${NOMBRE_A}, del atacante</div>`);
-    expect(ajena).toContain(`<div>Golpe desafortunado de ${NOMBRE_B}, del defensor</div>`);
-  });
 
   it('un efecto se pinta por lo que suma o resta a la unidad, dicho desde quien lee (#198)', () => {
     const efecto = (stack: string, amount: number): BattleEvent => ({

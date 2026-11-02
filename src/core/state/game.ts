@@ -53,7 +53,6 @@ import {
   type Hero,
   heroeRecienHecho,
   learnable,
-  luckBonus,
   maxMana,
   maxMovePoints,
   moraleBonus,
@@ -2773,7 +2772,6 @@ function battleSideForHero(state: GameState, hero: Hero, side: Side): BattleSide
       figura: figuraDelHeroe(hero),
     },
     moraleBonus: moraleBonus(hero) + (pueblo === undefined ? 0 : moraleFromBuildings(pueblo)),
-    luckBonus: luckBonus(hero),
   };
 }
 

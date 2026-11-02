@@ -4,7 +4,7 @@ import { herir } from './damage.js';
 import type { StackEffect } from './effects.js';
 import type { BattleHero, BattleStack } from './types.js';
 
-export type SpellKind = 'damage' | 'speed' | 'luck' | 'heal';
+export type SpellKind = 'damage' | 'speed' | 'heal';
 export type SpellTarget = 'enemy' | 'ally';
 
 export interface Spell {
@@ -92,8 +92,7 @@ export function spellAmount(s: Spell, caster: Pick<BattleHero, 'spellPower'>): n
  * cura (`cantidad`) y cuántas rondas dura lo que deja (`rondas`). El héroe es un
  * caso (`delHeroe`: su poder mágico); el poder de una unidad de la arena, otro
  * (`battle/poderes.ts`: las cifras de `data/poderes.json`). Así la Curación del
- * héroe y el «Curar» del monje son la misma cura, con el mismo tope, y las dos
- * Bendiciones el mismo efecto, del mismo origen.
+ * héroe y el «Curar» del monje son la misma cura, con el mismo tope.
  */
 export interface Lanzador {
   readonly cantidad: number;
@@ -119,16 +118,15 @@ export function duracionDeLoQueLanza(caster: Pick<BattleHero, 'spellPower'>): nu
  * lanzador.
  *
  * Se calcula aparte de aplicarlo porque `legalActions` necesita saber si el
- * objetivo sería inmune ANTES de ofrecer el lanzamiento: así no se le propone
- * al agente una Maldición sobre un esqueleto que después va a rebotar.
+ * efecto ANTES de lanzar: la previsión, el poder y la IA lo leen.
  */
 export function efectoDe(s: Spell, l: Lanzador): StackEffect | null {
-  if (s.kind !== 'speed' && s.kind !== 'luck') return null;
+  if (s.kind !== 'speed') return null;
   return temporal(s.kind, s, l);
 }
 
 /** `efectoDe` con el tipo ya acotado: dentro del `case` de `castSpell`, sin rama `null`. */
-function temporal(kind: 'speed' | 'luck', s: Spell, l: Lanzador): StackEffect {
+function temporal(kind: 'speed', s: Spell, l: Lanzador): StackEffect {
   return { kind, amount: s.amount ?? 0, source: s.id, roundsLeft: l.rondas };
 }
 
@@ -161,7 +159,6 @@ export function castSpell(
       return { damage: h.danio, killed: h.muertos, cura: 0, parado: h.parado };
     }
     case 'speed':
-    case 'luck':
       return { damage: 0, killed: 0, cura: 0, parado: 0, effect: temporal(s.kind, s, l) };
     case 'heal': {
       const cura = curaDe(s, l, target);

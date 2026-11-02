@@ -999,7 +999,7 @@ document.addEventListener('click', (ev) => {
       session.hechizos.selectSpell(target.getAttribute('data-spell') as string);
       break;
     case 'battle-poder': {
-      // Curar o Bendecir de la unidad activa (`PoderesDeLaActiva`, el de la arena):
+      // Un poder de la unidad activa (`PoderesDeLaActiva`, el de la arena):
       // con un aliado posible, ya; con varios, el clic en el tablero elige.
       const id = target.getAttribute('data-poder');
       if (id === null) throw new Error('el botón del poder no dice cuál es');

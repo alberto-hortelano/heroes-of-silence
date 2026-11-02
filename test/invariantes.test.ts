@@ -80,12 +80,7 @@ import { describe, expect, it } from 'vitest';
 import { playAiGame } from '../src/core/ai/turn.js';
 import { stackSpeed } from '../src/core/battle/battle.js';
 import { effectiveAttack, effectiveDefense } from '../src/core/battle/damage.js';
-import {
-  applyEffect,
-  EFFECT_KINDS,
-  type EffectKind,
-  effectiveLuck,
-} from '../src/core/battle/effects.js';
+import { applyEffect, EFFECT_KINDS, type EffectKind } from '../src/core/battle/effects.js';
 import { formaDeLaBatalla } from '../src/core/battle/formas-de-la-rueda.js';
 import type { BattleStack } from '../src/core/battle/types.js';
 import { UNIDADES, unidadDelJuego } from '../src/core/catalogo.js';
@@ -622,7 +617,6 @@ const MATH_PERMITIDO = ['min', 'max', 'floor', 'ceil', 'abs', 'round', 'imul'] a
  */
 const LECTORES_DE_EFECTO: Readonly<Record<string, (s: BattleStack) => number>> = {
   speed: stackSpeed,
-  luck: effectiveLuck,
   attack: (s) => effectiveAttack(s),
   // La rueda del golpe (Defensivo y Romper guardia).
   defense: (s) => effectiveDefense(s),
@@ -645,7 +639,6 @@ function stackDePrueba(): BattleStack {
     retaliated: false,
     acted: false,
     morale: 0,
-    luck: 0,
     effects: [],
     ganado: { experiencia: 0, bajas: 0, heroes: [] },
     apuntado: null,
@@ -1347,7 +1340,7 @@ describe('invariantes del proyecto', () => {
     // y quien busca uno lo busca por id). Y los poderes
     // (`UnitInfo.poderes`) solo los escribe el formato de la unidad
     // (`core/unidad.ts`, de sus habilidades): desde F3 (19-10-2026) también en el
-    // juego, cuyo catálogo es el de la arena (el monje trae Curar y Bendecir).
+    // juego, cuyo catálogo es el de la arena (el monje trae Curar).
     // Ni el catálogo en partida (`catalogo.ts`) ni la ficha del agente los
     // escriben aparte. Roto a mano: un `state.stacks[0] = s` en `battle.ts`, un
     // `fichasDeArena: {}` en `state/game.ts`, un `{ ...c, poderes }` en `data.ts` y
