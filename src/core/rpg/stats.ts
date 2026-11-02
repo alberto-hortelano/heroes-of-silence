@@ -14,17 +14,19 @@
  * | destreza    | ataque, agilidad            | ⌊a/3⌋ + n + 1; agilidad <10 3, <13 4, <16 5, si no 6 |
  * | resistencia | PV, defensa                 | 10 × (10 + 2a) (`maxHpFrom`); ⌊a/4⌋ en la defensa |
  * | intelecto   | defensa                     | ⌊a/4⌋ en la defensa, más n       |
- * | percepción  | suerte                      | ⌊(a − 8)/4⌋                      |
+ * | percepción  | nada                        |                                  |
  * | voluntad    | moral                       | ⌊(a − 8)/4⌋                      |
  *
  * **Cada atributo mueve al menos una cifra que se juega**, y el test lo exige
  * atributo por atributo: uno que no moviera nada sería decorativo, que es lo
- * que la rama de archivo tenía con intelecto y percepción.
+ * que la rama de archivo tenía con intelecto y percepción. **Salvo la
+ * percepción**, que movía la suerte y se quedó sin nada al quitarla del juego
+ * (02-11-2026, decisión del usuario).
  *
  * El Guardabosques tira con un arco (`arco`, en `distancia`), como cualquier
  * tirador: llevarlo ya es disparar, sin munición (13-10-2026).
  *
- * Moral y suerte salen 0 con 8..11, así que un personaje es neutro por defecto.
+ * La moral sale 0 con 8..11, así que un personaje es neutro por defecto.
  * Desde el 25-10-2026 el personaje tiene fuerza y agilidad como la tropa, y su
  * daño, su defensa y sus casillas salen de ellas (`cifrasDelCuerpo`): la fuerza
  * con la escala del daño (`ESCALA_DE_CIFRAS`, el 10 de la tabla), la agilidad con
@@ -52,8 +54,6 @@ export interface CombatProfile {
   readonly equipo: Equipo;
   /** Moral PROPIA, antes de sumar la del bando y de recortar a [−3, +3]. */
   readonly morale: number;
-  /** Suerte propia, igual. */
-  readonly luck: number;
 }
 
 function agilidadDe(destreza: number): number {
@@ -81,6 +81,5 @@ export function combatProfile(c: Character): CombatProfile {
     // Mago y Sanador no tienen rasgo propio: la magia sigue siendo del héroe.
     equipo: c.profession === 'Guardabosques' ? ARCO_DEL_GUARDABOSQUES : {},
     morale: Math.floor((a.voluntad - 8) / 4),
-    luck: Math.floor((a.percepcion - 8) / 4),
   };
 }

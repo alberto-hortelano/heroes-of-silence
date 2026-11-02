@@ -261,8 +261,8 @@ const DEFENSIVO: StackEffect = {
   roundsLeft: 2,
   hasta: { turno: 1, al: 'empezar' },
 };
-/** Lo que deja Bendecir: suerte +1 tres rondas. */
-const BENDICION: StackEffect = { kind: 'luck', amount: 1, source: 'bless', roundsLeft: 3 };
+/** Lo que deja el miedo: ataque −2 dos rondas. */
+const MIEDO: StackEffect = { kind: 'attack', amount: -2, source: 'fear', roundsLeft: 2 };
 /** Lo que deja Lentitud: velocidad −2 tres rondas. */
 const LENTITUD: StackEffect = { kind: 'speed', amount: -2, source: 'slow', roundsLeft: 3 };
 
@@ -405,28 +405,26 @@ describe('31-10-2026: los modificadores de los dos, en la cabecera de la rueda',
     if (p === null) throw new Error('sin rueda');
     const sin = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
     expect(sin).not.toContain('modificadores en-curso');
-    stackById(s.battle, p.atacante.id).effects.push({ ...BENDICION }, { ...LENTITUD });
+    stackById(s.battle, p.atacante.id).effects.push({ ...MIEDO }, { ...LENTITUD });
     stackById(s.battle, p.objetivo.id).effects.push({ ...DEFENSIVO });
     const m = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
     const forma = formaDeLaBatalla(s.battle);
     const suyo = delContrincante(m, p.atacante.id);
-    expect(suyo).toContain('data-efecto="luck" data-signo="+">suerte +1</span>');
+    expect(suyo).toContain('data-efecto="attack" data-signo="−">ataque -2</span>');
     expect(suyo).toContain('data-efecto="speed" data-signo="−">velocidad -2</span>');
     // Una nota con los dos enteros, con la frase de `efectoEnCurso`.
     const notas = [...suyo.matchAll(/class="nota"[^>]*aria-label="([^"]*)"/g)].map((x) => x[1]);
-    expect(notas).toEqual([
-      `${efectoEnCurso(BENDICION, forma)}; ${efectoEnCurso(LENTITUD, forma)}`,
-    ]);
+    expect(notas).toEqual([`${efectoEnCurso(MIEDO, forma)}; ${efectoEnCurso(LENTITUD, forma)}`]);
     const otro = delContrincante(m, p.objetivo.id);
     expect(otro).toContain('data-efecto="defense" data-signo="+">defensa +1</span>');
-    expect(otro).not.toContain('suerte');
+    expect(otro).not.toContain('data-efecto="attack"');
     // Debajo del nombre: dentro de sus datos, tras `.quien`.
     expect(suyo.indexOf('class="quien"')).toBeLessThan(suyo.indexOf('modificadores en-curso'));
   });
 
   it('una sola forma: la de «En el campo» y la de la rueda salen de la misma función', () => {
     const forma = RUEDA;
-    const m = marcadoDe(modificadoresEnCurso([BENDICION, DEFENSIVO], forma));
+    const m = marcadoDe(modificadoresEnCurso([MIEDO, DEFENSIVO], forma));
     expect(m.match(/class="modificador"/g)).toHaveLength(2);
     expect(m.match(/class="nota"/g)).toHaveLength(1);
     expect(marcadoDe(modificadoresEnCurso([], forma))).toBe('');

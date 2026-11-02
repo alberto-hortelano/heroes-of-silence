@@ -105,7 +105,7 @@ export function mageGuildLevel(town: Town): number {
  * Los hechizos que enseña el gremio de este pueblo, ordenados por nivel.
  *
  * Se DERIVAN del nivel del gremio, no se guardan: con tres hechizos de nivel 1
- * y dos de nivel 2 para los huecos que hay no queda nada que sortear, así que
+ * y ninguno de nivel 2 para los huecos que hay no queda nada que sortear, así que
  * un `Town.spellBook` sería estado nuevo, serialización nueva y una segunda
  * fuente de verdad para una decisión que no existe. El día que #26 traiga
  * contenido de sobra, el sorteo se rellena DENTRO de esta función: la firma es

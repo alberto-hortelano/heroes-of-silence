@@ -81,16 +81,6 @@ export function hasTrait(c: UnitInfo, trait: CreatureTrait): boolean {
 }
 
 /**
- * Tira quien lleva un arma en el hueco `distancia`: llevarla ya es disparar, sin
- * munición que contar (13-10-2026; el guardabosques también, con su arco). Lee
- * `equipo` y no `armas`: la lista de armas por uso la escribe `conEquipo` para el
- * daño, y el hueco puesto es el hecho.
- */
-export function isShooter(c: UnitInfo): boolean {
-  return c.equipo?.distancia !== undefined;
-}
-
-/**
  * Las reglas del liderazgo, de `data/liderazgo.json`. **Provisionales**: las
  * cifras las define el usuario cuando cierre la economía, y por eso viven en
  * datos y no en el código.
@@ -551,6 +541,13 @@ export interface ReglasDelPoder {
    * la IA (`PESOS_DE_LA_RUEDA`): retocar cómo elige la IA no mueve índices.
    */
   readonly pesosDeLaRueda: Readonly<Record<GolpeDeReferencia, number>>;
+  /**
+   * Cuánto baja la recarga lo que pega un arma de fuego (02-11-2026): el disparo se
+   * mide × `pesoDeLaRecarga / (pesoDeLaRecarga + recarga)`. Entero ≥ 1.
+   */
+  readonly pesoDeLaRecarga: number;
+  /** Lo que sube perforar la armadura lo que pega un arma de fuego: × `[0] / [1]`, ≥ 1. */
+  readonly perforacion: readonly [number, number];
 }
 
 /**
@@ -559,6 +556,25 @@ export interface ReglasDelPoder {
  * 22-10-2026: lo que vale un arma no depende del nivel que se juegue).
  */
 const GOLPES_DE_LA_MEDIDA = RUEDA_DE_REFERENCIA.golpes;
+
+/**
+ * Una razón de `data/poder.json`, `[numerador, denominador]` con dos enteros ≥ 1, o
+ * `null` con su problema apuntado en `problemas`: la forma de `razon` y de
+ * `perforacion` (hallazgo S11 de /simplify, 02-11-2026: la segunda copiaba la primera).
+ */
+function fraccionDelPoder(
+  v: unknown,
+  campo: string,
+  problemas: string[],
+): readonly [number, number] | null {
+  if (!Array.isArray(v) || v.length !== 2 || !v.every((x) => enteroDesde(x, 1))) {
+    problemas.push(
+      `${campo} tiene que ser [numerador, denominador], dos enteros ≥ 1, y es ${JSON.stringify(v)}`,
+    );
+    return null;
+  }
+  return [v[0] as number, v[1] as number];
+}
 
 /**
  * Valida las reglas del índice de poder y las devuelve tipadas; lanza con todos
@@ -572,19 +588,15 @@ export function validarPoder(json: unknown, fichero = 'data/poder.json'): Reglas
   if (!enteroDesde(j.umbralDelNivel2, 1)) {
     problemas.push(`umbralDelNivel2 tiene que ser un entero ≥ 1 y es ${j.umbralDelNivel2}`);
   }
-  const r = j.razon;
-  if (!Array.isArray(r) || r.length !== 2 || !r.every((x) => enteroDesde(x, 1))) {
-    problemas.push(
-      `razon tiene que ser [numerador, denominador], dos enteros ≥ 1, y es ${JSON.stringify(r)}`,
-    );
-  } else if ((r[0] as number) <= (r[1] as number)) {
+  const r = fraccionDelPoder(j.razon, 'razon', problemas);
+  if (r !== null && r[0] <= r[1]) {
     problemas.push(
       `razon ${r[0]}/${r[1]} no pasa de 1: los umbrales de nivel tienen que crecer, o dos niveles empezarían en el mismo poder`,
     );
   } else if (
+    r !== null &&
     enteroDesde(j.umbralDelNivel2, 1) &&
-    Math.floor(((j.umbralDelNivel2 as number) * (r[0] as number)) / (r[1] as number)) <=
-      (j.umbralDelNivel2 as number)
+    Math.floor((j.umbralDelNivel2 * r[0]) / r[1]) <= j.umbralDelNivel2
   ) {
     // En enteros, ⌊u · n / d⌋ puede quedarse en u con un umbral pequeño y una
     // razón cerca de 1; si el primer paso crece, crecen todos (n/d > 1).
@@ -611,10 +623,23 @@ export function validarPoder(json: unknown, fichero = 'data/poder.json'): Reglas
   } else if (GOLPES_DE_LA_MEDIDA.every((t) => (pesos as Record<string, number>)[t] === 0)) {
     problemas.push('pesosDeLaRueda son todos 0: alguno tiene que pesar');
   }
-  if (problemas.length > 0) throw new Error(`${fichero}: ${problemas.join('; ')}`);
+  if (!enteroDesde(j.pesoDeLaRecarga, 1)) {
+    problemas.push(`pesoDeLaRecarga tiene que ser un entero ≥ 1 y es ${j.pesoDeLaRecarga}`);
+  }
+  const f = fraccionDelPoder(j.perforacion, 'perforacion', problemas);
+  if (f !== null && f[0] < f[1]) {
+    problemas.push(
+      `perforacion ${f[0]}/${f[1]} baja de 1: perforar la armadura no puede restar a lo que pega`,
+    );
+  }
+  if (problemas.length > 0 || r === null || f === null) {
+    throw new Error(`${fichero}: ${problemas.join('; ')}`);
+  }
   return {
+    pesoDeLaRecarga: j.pesoDeLaRecarga as number,
+    perforacion: f,
     umbralDelNivel2: j.umbralDelNivel2 as number,
-    razon: [(r as number[])[0] as number, (r as number[])[1] as number],
+    razon: r,
     armaduraDeReferencia: j.armaduraDeReferencia as number,
     pesosDeLaRueda: pesos as Record<GolpeDeReferencia, number>,
   };
@@ -858,6 +883,20 @@ export const DICHO_DE_DONDE: Readonly<Record<DondeSeConsigue, string>> = {
 export const SOLO_EN_KITS =
   'no se vende ni cae como botín: solo la llevan las unidades que nacen con ella';
 
+/**
+ * Lo que tira una pieza de `distancia` que no es un arco ni una ballesta
+ * (`Pieza.tiro`): un arma de fuego o una granada.
+ */
+export const TIPOS_DE_TIRO = ['fuego', 'granada'] as const;
+
+export type TipoDeTiro = (typeof TIPOS_DE_TIRO)[number];
+
+/** Lo más que recarga un arma de fuego, en turnos (`Pieza.recarga`). **Inventado**: deja probar de sobra. */
+export const RECARGA_MAXIMA = 9;
+
+/** Las más granadas que lleva una pieza a cada batalla (`Pieza.cargas`). **Inventado**, como `RECARGA_MAXIMA`. */
+export const CARGAS_MAXIMAS = 9;
+
 /** Una pieza de `data/equipo.json`. **Inventada y provisional**, como dice su `_comment`. */
 export interface Pieza {
   readonly id: string;
@@ -917,6 +956,27 @@ export interface Pieza {
    * `invariantes.test.ts`).
    */
   readonly guerra?: true;
+  /**
+   * Qué tira una pieza de `distancia` (02-11-2026, «armas de fuego y granadas», sin
+   * azar): `fuego`, un arma de fuego (el disparo diferido de siempre, con su
+   * `recarga` y su propia `agilidad`, y la armadura no lo para); `granada`, se lanza
+   * por encima a una casilla y explota al empezar su siguiente turno (con sus
+   * `cargas`). Sin el campo, arco o ballesta. Solo en `distancia`. Lo leen solo
+   * `hero/equipo.ts` y `data.ts` (lo vigila `invariantes.test.ts`).
+   */
+  readonly tiro?: TipoDeTiro;
+  /**
+   * Los turnos que pasa un arma de fuego sin poder apuntar tras disparar, contando
+   * aquel en que sale el disparo (decisión del usuario: con 1, dispara un turno sí y
+   * otro no), de 1 a `RECARGA_MAXIMA`. Solo y siempre con `tiro: 'fuego'`.
+   */
+  readonly recarga?: number;
+  /**
+   * Las granadas que lleva a cada batalla, de 1 a `CARGAS_MAXIMAS`: lanzar gasta
+   * una, y con 0 no se lanza. Fuera de batalla no se gastan ni se compran. Solo y
+   * siempre con `tiro: 'granada'`.
+   */
+  readonly cargas?: number;
   /**
    * Su nivel en cada tipo del anillo de la rueda del golpe, de 0 a 6 (18-10-2026:
    * «una maza es mejor en ataque fuerte y peor en rápido»; los niveles, absolutos,
@@ -1030,6 +1090,9 @@ export const CAMPOS_DE_PIEZA: readonly string[] = [
   'manos',
   'lanza',
   'guerra',
+  'tiro',
+  'recarga',
+  'cargas',
   'rueda',
   'precio',
 ];
@@ -1157,10 +1220,14 @@ export function problemasDePieza(bruta: unknown, quien?: string): string[] {
   } else if (typeof p.armadura === 'number' && p.armadura > ARMADURA_MAXIMA_DE_PIEZA) {
     problemas.push(`${q}: la armadura va de 0 a ${ARMADURA_MAXIMA_DE_PIEZA} y es ${p.armadura}`);
   }
-  if (p.fuerza !== undefined && !enteroDesde(p.fuerza, 0)) {
-    problemas.push(`${q}: fuerza tiene que ser un entero ≥ 0 y ${comoSeLee(p.fuerza)}`);
+  for (const campo of ['fuerza', 'agilidad'] as const) {
+    if (p[campo] !== undefined && !enteroDesde(p[campo], 0)) {
+      problemas.push(`${q}: ${campo} tiene que ser un entero ≥ 0 y ${comoSeLee(p[campo])}`);
+    }
   }
-  problemas.push(...problemasDeMontura(p, q));
+  // Los topes de la agilidad, cada uno en su sitio: la de una montura y la de un arma
+  // de fuego (hallazgo S11 de /simplify, 02-11-2026: se citaban entre ellas).
+  problemas.push(...problemasDeMontura(p, q), ...problemasDelTiro(p, q));
   // Todo pesa (25-10-2026): el peso se escribe siempre, y nada resta movimiento.
   if (!enteroDesde(p.peso, 0)) {
     problemas.push(
@@ -1234,18 +1301,14 @@ export function problemasDePieza(bruta: unknown, quien?: string): string[] {
 }
 
 /**
- * Lo que no vale de la fuerza y la agilidad según sea o no una montura
- * (26-10-2026): una montura dice su agilidad, de 2 a 7 como la de un cuerpo, y una
- * fuerza de 1 o más (lo que carga: `restaDelPeso` no sabe de fuerza 0); ninguna
- * otra pieza lleva agilidad (lo que no sea 0 lo dice la regla de las cifras del
- * hueco, en `problemasDePieza`).
+ * Lo que no vale de la fuerza y la agilidad de una montura (26-10-2026): dice su
+ * agilidad, de 2 a 7 como la de un cuerpo, y una fuerza de 1 o más (lo que carga:
+ * `restaDelPeso` no sabe de fuerza 0). Que las dos sean enteros ≥ 0 lo dice
+ * `problemasDePieza`, para toda pieza; que otra pieza no lleve agilidad, la regla de
+ * las cifras del hueco y, a distancia, `problemasDelTiro`.
  */
 function problemasDeMontura(p: Record<string, unknown>, q: string): string[] {
-  if (p.hueco !== 'montura') {
-    return p.agilidad === undefined || enteroDesde(p.agilidad, 0)
-      ? []
-      : [`${q}: agilidad tiene que ser un entero ≥ 0 y ${comoSeLee(p.agilidad)}`];
-  }
+  if (p.hueco !== 'montura') return [];
   const problemas: string[] = [];
   const { agilidad, fuerza } = p;
   if (agilidad === undefined) {
@@ -1253,8 +1316,8 @@ function problemasDeMontura(p: Record<string, unknown>, q: string): string[] {
       `${q} es una montura y no dice su agilidad: un entero de ${AGILIDAD_DEL_CUERPO_MIN} a ${AGILIDAD_DEL_CUERPO_MAX}, de la que salen sus casillas`,
     );
   } else if (
-    !enteroDesde(agilidad, AGILIDAD_DEL_CUERPO_MIN) ||
-    agilidad > AGILIDAD_DEL_CUERPO_MAX
+    enteroDesde(agilidad, 0) &&
+    enteroBlocker(agilidad, AGILIDAD_DEL_CUERPO_MIN, AGILIDAD_DEL_CUERPO_MAX) !== null
   ) {
     problemas.push(
       `${q}: la agilidad de una montura va de ${AGILIDAD_DEL_CUERPO_MIN} a ${AGILIDAD_DEL_CUERPO_MAX} y ${comoSeLee(agilidad)}`,
@@ -1266,6 +1329,72 @@ function problemasDeMontura(p: Record<string, unknown>, q: string): string[] {
     );
   } else if (fuerza === 0) {
     problemas.push(`${q} es una montura de fuerza 0: tiene que cargar algo, un entero de 1 o más`);
+  }
+  return problemas;
+}
+
+/**
+ * Lo que no vale de lo que tira una pieza (02-11-2026, armas de fuego y granadas):
+ * `tiro` solo en `distancia`, y es `fuego` o `granada`; un arma de fuego dice su
+ * `recarga` (1 a `RECARGA_MAXIMA`) y su `agilidad` (de 1 a la de un cuerpo: de ella
+ * sale lo estrecho de su horquilla, `cifrasDelCuerpo`), y nada más la lleva en
+ * `distancia`; una granada dice sus `cargas` (1 a `CARGAS_MAXIMAS`), y nada más las
+ * lleva.
+ */
+function problemasDelTiro(p: Record<string, unknown>, q: string): string[] {
+  const problemas: string[] = [];
+  const { tiro, recarga, cargas, agilidad } = p;
+  if (tiro !== undefined) {
+    if (!(TIPOS_DE_TIRO as readonly unknown[]).includes(tiro)) {
+      problemas.push(
+        `${q}: tiro es ${TIPOS_DE_TIRO.join(' o ')}, o no se escribe (un arco o una ballesta), y es ${String(tiro)}`,
+      );
+    } else if (p.hueco !== 'distancia') {
+      problemas.push(
+        `${q} va en el hueco ${String(p.hueco)} y dice tiro: solo una pieza a distancia tira`,
+      );
+    }
+  }
+  const fuego = tiro === 'fuego' && p.hueco === 'distancia';
+  const granada = tiro === 'granada' && p.hueco === 'distancia';
+  if (recarga === undefined) {
+    if (fuego) {
+      problemas.push(
+        `${q} es un arma de fuego y no dice su recarga: los turnos de 1 a ${RECARGA_MAXIMA} que pasa sin apuntar tras disparar`,
+      );
+    }
+  } else if (!fuego) {
+    problemas.push(`${q} dice recarga: solo un arma de fuego recarga`);
+  } else if (enteroBlocker(recarga, 1, RECARGA_MAXIMA) !== null) {
+    problemas.push(`${q}: la recarga va de 1 a ${RECARGA_MAXIMA} turnos y ${comoSeLee(recarga)}`);
+  }
+  if (cargas === undefined) {
+    if (granada) {
+      problemas.push(
+        `${q} es una granada y no dice sus cargas: las que lleva a cada batalla, de 1 a ${CARGAS_MAXIMAS}`,
+      );
+    }
+  } else if (!granada) {
+    problemas.push(`${q} dice cargas: solo una granada se gasta`);
+  } else if (enteroBlocker(cargas, 1, CARGAS_MAXIMAS) !== null) {
+    problemas.push(`${q}: las cargas van de 1 a ${CARGAS_MAXIMAS} y ${comoSeLee(cargas)}`);
+  }
+  if (fuego) {
+    if (agilidad === undefined) {
+      problemas.push(
+        `${q} es un arma de fuego y no dice su agilidad: un entero de 1 a ${AGILIDAD_DEL_CUERPO_MAX}, el de su horquilla [F, F × agilidad]`,
+      );
+    } else if (
+      enteroDesde(agilidad, 0) &&
+      enteroBlocker(agilidad, 1, AGILIDAD_DEL_CUERPO_MAX) !== null
+    ) {
+      // Que no sea un entero ≥ 0 ya lo dice `problemasDePieza`.
+      problemas.push(
+        `${q}: la agilidad de un arma de fuego va de 1 a ${AGILIDAD_DEL_CUERPO_MAX} y ${comoSeLee(agilidad)}`,
+      );
+    }
+  } else if (p.hueco === 'distancia' && sumaAlgo(agilidad)) {
+    problemas.push(`${q} dice agilidad: a distancia solo la lleva un arma de fuego (tiro: fuego)`);
   }
   return problemas;
 }
@@ -1423,6 +1552,9 @@ export function piezaCanonica(p: Pieza): Pieza {
     ...(p.manos === 2 ? { manos: 2 as const } : {}),
     ...(p.lanza === true ? { lanza: true as const } : {}),
     ...(p.guerra === true ? { guerra: true as const } : {}),
+    ...(p.tiro === undefined ? {} : { tiro: p.tiro }),
+    ...(p.recarga === undefined ? {} : { recarga: p.recarga }),
+    ...(p.cargas === undefined ? {} : { cargas: p.cargas }),
     ...(rueda === undefined ? {} : { rueda }),
     precio: p.precio,
   };
@@ -1489,6 +1621,10 @@ export function conLosExtras(p: Pieza, x: ExtrasDePieza): Pieza {
     ...(p.manos === undefined ? {} : { manos: p.manos }),
     ...(p.lanza === undefined ? {} : { lanza: p.lanza }),
     ...(p.guerra === undefined ? {} : { guerra: p.guerra }),
+    // Lo que tira, su recarga y sus cargas son de la pieza, como las manos: no son extras.
+    ...(p.tiro === undefined ? {} : { tiro: p.tiro }),
+    ...(p.recarga === undefined ? {} : { recarga: p.recarga }),
+    ...(p.cargas === undefined ? {} : { cargas: p.cargas }),
     ...(conRueda ? { rueda: nivelesEnOrden(x.rueda ?? {}) } : {}),
     precio: x.oro ?? 0,
   };

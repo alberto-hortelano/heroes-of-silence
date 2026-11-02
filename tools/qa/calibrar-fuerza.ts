@@ -39,13 +39,7 @@ import { HERO_BODY } from '../../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../../src/core/combate.js';
 import type { GrupoDeTropa } from '../../src/core/data.js';
 import { rangoDeHeroe } from '../../src/core/hero/experiencia.js';
-import {
-  cuerposDelHeroe,
-  type Hero,
-  heroUnit,
-  luckBonus,
-  moraleBonus,
-} from '../../src/core/hero/hero.js';
+import { cuerposDelHeroe, type Hero, heroUnit, moraleBonus } from '../../src/core/hero/hero.js';
 import {
   characterOf,
   ejercitoDe,
@@ -126,7 +120,6 @@ function bando(f: Foto): BattleSide {
       },
     },
     moraleBonus: moraleBonus(f.hero),
-    luckBonus: luckBonus(f.hero),
   };
 }
 

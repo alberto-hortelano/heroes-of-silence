@@ -505,8 +505,10 @@ export function buscarMovil(b: Caja, desde = 1): number {
 export const RUEDA_DE_LA_PATRULLA = -4;
 
 /**
- * Los grupos de asaltantes que la patrulla puede mirar: en lo explorado y
- * tocables en el lienzo. La misma pregunta que hace `patrullaALaVista`.
+ * Los grupos de asaltantes que la patrulla puede mirar: a la vista de la persona
+ * (`asaltantesALaVista`: desde la niebla de eventos, 02-11-2026, su casilla en el
+ * radio sobre lo explorado) y tocables en el lienzo. La misma pregunta que hace
+ * `patrullaALaVista`.
  */
 export function asaltantesEnElMarco(
   b: Caja,
@@ -515,7 +517,8 @@ export function asaltantesEnElMarco(
   espejo: Session,
 ): readonly Point[] {
   const explorada = (p: Point) => espejo.explorado?.has(p) ?? true;
-  return espejo.state.raiders
+  return espejo
+    .asaltantesALaVista()
     .map((r) => r.at)
     .filter((at) => explorada(at) && tocable(b, pixelDeCasilla(b, e, tile, espejo, at)));
 }

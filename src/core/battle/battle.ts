@@ -3,8 +3,9 @@
  *
  * Reglas de HoMM2 que se respetan aquí: orden de turno por velocidad con el
  * atacante ganando los empates, contraataque único por ronda, tiradores que no
- * pueden disparar con un enemigo encima, suerte que dobla o parte el daño, y un
- * hechizo de héroe por ronda. La moral no da ni quita turnos (regla nuestra,
+ * pueden disparar con un enemigo encima y un hechizo de héroe por ronda. Sin
+ * suerte (02-11-2026, decisión del usuario: «Elimina la suerte completamente del
+ * juego»). La moral no da ni quita turnos (regla nuestra,
  * 26-10-2026, decisión del usuario: «La moral solo debe servir para la huida,
  * nunca dar un turno extra»): es una cifra sin efecto hasta que haya huida.
  */
@@ -16,7 +17,7 @@ import {
   oroDeUnidad,
 } from '../catalogo.js';
 import { combateBlocker, type ReglasDelCombate } from '../combate.js';
-import { HEROE, hasTrait, isShooter } from '../data.js';
+import { HEROE, hasTrait } from '../data.js';
 import { cifrasDelIndividuo } from '../hero/experiencia.js';
 import type { Hero } from '../hero/hero.js';
 import { hojaDeLaTropa } from '../hero/troop.js';
@@ -24,7 +25,18 @@ import type { Rng } from '../rng.js';
 import type { CombatProfile } from '../rpg/stats.js';
 import type { CreatureTrait, FactionId, Hex, Stack, UnitInfo, UsoDeArma } from '../types.js';
 import { SPEED_TO_HEXES } from '../types.js';
-import { disparosDe, golpesDe, nivelesDelGolpe, ruedaDelGolpe, trasLaArmadura } from './armas.js';
+import {
+  cargasDe,
+  disparosDe,
+  golpesDe,
+  isShooter,
+  lanzaGranadas,
+  mismoTiro,
+  nivelesDelGolpe,
+  recargaDe,
+  ruedaDelGolpe,
+  trasLaArmadura,
+} from './armas.js';
 import {
   alcanceConCostes,
   allHexes,
@@ -65,22 +77,25 @@ import {
   computeDamage,
   cuartoDelDisparo,
   type DamageOptions,
+  dichoDelCuarto,
+  type GolpeQueHiere,
+  type Herida,
   type Horquilla,
   herir,
   horquillaDeDanio,
   type Modificador,
-  type RamaDeSuerte,
   stackHp,
   trasElGolpe,
 } from './damage.js';
 import {
   applyEffect,
   type CuandoVence,
-  clampMoraleLuck,
+  clampMorale,
   effectTotal,
   type StackEffect,
   tickEffects,
 } from './effects.js';
+import { alcanceDeLaGranada, casillasDeLaExplosion } from './granada.js';
 import {
   bonoEnLoAlto,
   type CierreDeLaMuralla,
@@ -137,6 +152,7 @@ import {
 } from './spells.js';
 import type {
   BattleAction,
+  BattleEvent,
   BattleHero,
   BattleStack,
   BattleState,
@@ -158,9 +174,8 @@ export interface BattleSide {
    */
   readonly army: readonly StackDeBatalla[];
   readonly hero: HeroeDelBando | null;
-  /** Bonus de moral/suerte del héroe (habilidades, artefactos, edificios). */
+  /** Bonus de moral del héroe (habilidades, artefactos, edificios). */
   readonly moraleBonus?: number;
-  readonly luckBonus?: number;
   /**
    * Los personajes del ejército (`Stack.member`), con su perfil y los PV con
    * los que llegan. Lo monta quien conoce `GameState.characters`
@@ -445,7 +460,6 @@ export function createBattle(
     // https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/army/army.cpp#L1226-L1236
     // https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/battle/battle_main.cpp#L456-L457
     const baseMorale = armyMorale(units) + (setup.moraleBonus ?? 0);
-    const luckBonus = setup.luckBonus ?? 0;
 
     entradas.forEach((e, i) => {
       stacks.push({
@@ -464,13 +478,15 @@ export function createBattle(
         escalera: e.escalera && quienNoEscala(side, e.unit) === null,
         retaliated: false,
         acted: false,
-        // Una regla para todos: la moral y la suerte propias —0 en una criatura
-        // y en el héroe— más las del bando, recortadas una vez. Los no-muertos, a 0.
-        morale: hasTrait(e.unit, 'undead') ? 0 : clampMoraleLuck(baseMorale + e.ownMorale),
-        luck: clampMoraleLuck(luckBonus + e.ownLuck),
+        // Una regla para todos: la moral propia —0 en una criatura y en el
+        // héroe— más la del bando, recortada una vez. Los no-muertos, a 0.
+        morale: hasTrait(e.unit, 'undead') ? 0 : clampMorale(baseMorale + e.ownMorale),
         effects: [],
         ganado: { experiencia: 0, bajas: 0, heroes: [] },
         apuntado: null,
+        recargando: 0,
+        granada: null,
+        granadasLanzadas: 0,
       });
     });
   }
@@ -526,7 +542,6 @@ interface Entrada {
   readonly count: number;
   readonly topHp: number;
   readonly ownMorale: number;
-  readonly ownLuck: number;
   /** Si lleva escalera (`StackDeBatalla.escalera`). */
   readonly escalera: boolean;
 }
@@ -537,8 +552,8 @@ interface Entrada {
  * decide una vez: después todo el motor lee `BattleStack.unit` y no vuelve a
  * preguntar.
  *
- * Devuelve la moral y la suerte PROPIAS —0 y 0 en una criatura— y no las
- * finales: las del bando las suma `createBattle` para todos igual. La rama de la
+ * Devuelve la moral PROPIA —0 en una criatura— y no la
+ * final: la del bando la suma `createBattle` para todos igual. La rama de la
  * criatura devuelve la misma referencia del catálogo, así que el volcado del
  * banco no se mueve.
  */
@@ -572,7 +587,6 @@ function resolveUnit(stack: StackDeBatalla, slot: number, setup: BattleSide): En
       count: stack.count,
       topHp: unit.hp,
       ownMorale: 0,
-      ownLuck: 0,
       escalera,
     };
   }
@@ -601,7 +615,7 @@ function resolveUnit(stack: StackDeBatalla, slot: number, setup: BattleSide): En
     );
   }
   // Un personaje no tiene rasgos, así que tampoco la inmunidad del no-muerto:
-  // entra herido si lo está, con su moral y su suerte. La veteranía se le suma
+  // entra herido si lo está, con su moral. La veteranía se le suma
   // con la misma regla que a una criatura (`cifrasDelIndividuo`, que suma también
   // lo que lleva puesto), y no cambia sus
   // PV: entra con los que trae.
@@ -613,7 +627,6 @@ function resolveUnit(stack: StackDeBatalla, slot: number, setup: BattleSide): En
     count: 1,
     topHp: miembro.hp,
     ownMorale: miembro.profile.morale,
-    ownLuck: miembro.profile.luck,
     escalera,
   };
 }
@@ -628,7 +641,6 @@ function entradaDelHeroe(heroe: HeroeDelBando, slot: number): Entrada {
     count: 1,
     topHp: heroe.cuerpo.hp,
     ownMorale: 0,
-    ownLuck: 0,
     escalera: false,
   };
 }
@@ -1077,9 +1089,189 @@ export function canReachMelee(state: BattleState, s: BattleStack, target: Battle
  */
 function disparoBlocker(state: BattleState, s: BattleStack): string | null {
   if (!isShooter(s.unit)) return 'no es tirador';
+  // La recarga del arma de fuego (02-11-2026): el turno en que sale el disparo cuenta.
+  if (s.recargando > 0) return `está recargando: ${recargaQueFalta(s.recargando)}`;
   if (seHaMovido(state, s)) return 'ya se ha movido este turno: no puede apuntar';
   if (isEngaged(state, s)) return 'tiene un enemigo encima';
   return null;
+}
+
+/**
+ * Lo que le falta de recarga a quien le quedan `n` turnos: «le falta 1 turno», «le
+ * faltan 2 turnos». Lo dicen la regla de apuntar (`disparoBlocker`) y el panel.
+ */
+export function recargaQueFalta(n: number): string {
+  return n === 1 ? 'le falta 1 turno' : `le faltan ${n} turnos`;
+}
+
+/**
+ * Lo pendiente a distancia de `s` si pasa a pelear con las cifras `unit` (un retoque
+ * de la arena a media pelea, `conCifrasNuevas`): lo de siempre si tira igual
+ * (`mismoTiro`); si no, sin lo apuntado, sin la granada en el aire y sin recarga
+ * (hallazgo E4 de /simplify, 02-11-2026: la granada explotaba con las cifras del arma
+ * nueva y la recarga bloqueaba un arco recién puesto). Lo que lleva lanzado se queda:
+ * lo que queda se deriva de la pieza (`granadasQueQuedan`).
+ */
+export function loADistanciaTrasElRetoque(
+  s: BattleStack,
+  unit: UnitInfo,
+): Pick<BattleStack, 'apuntado' | 'granada' | 'recargando'> {
+  return mismoTiro(s.unit, unit)
+    ? { apuntado: s.apuntado, granada: s.granada, recargando: s.recargando }
+    : { apuntado: null, granada: null, recargando: 0 };
+}
+
+/**
+ * Las granadas que le quedan a `s` en esta batalla: las que lleva su pieza
+ * (`cargasDe`) menos las que ha lanzado, sin bajar de 0. Derivado, y no guardado: un
+ * retoque de la arena a media pelea no descuadra la cuenta. Lo leen la regla de
+ * lanzar, el panel, el contrato y la IA.
+ */
+export function granadasQueQuedan(s: BattleStack): number {
+  return Math.max(0, cargasDe(s.unit) - s.granadasLanzadas);
+}
+
+/**
+ * Por qué `s` no puede lanzar una granada ahora, sin mirar la casilla, o `null`:
+ * que la lleve, que le queden, sin moverse y sin un enemigo al lado (como el
+ * tirador). La leen `lanzarBlocker` y la lista legal.
+ */
+function granadaBlocker(state: BattleState, s: BattleStack): string | null {
+  if (!lanzaGranadas(s.unit)) return 'no lleva granadas';
+  if (granadasQueQuedan(s) === 0) return 'se ha quedado sin granadas: lanzó las que llevaba';
+  if (seHaMovido(state, s)) return 'ya se ha movido este turno: no puede lanzar';
+  if (isEngaged(state, s)) return 'tiene un enemigo encima';
+  return null;
+}
+
+/**
+ * Por qué la unidad activa no puede lanzar una granada a `at`, o `null` (02-11-2026,
+ * regla nuestra): la regla de quien la lanza (`granadaBlocker`) y la casilla, en el
+ * tablero, no la suya y a su alcance (`alcanceDeLaGranada`, por la distancia en
+ * casillas). **La recta no se mira**: va por encima, y no la paran unidades, muros
+ * ni puertas. Sin `at`, solo si puede lanzar (el botón). La leen `applyAction`, la
+ * previsión y la pantalla, con el nombre de la unidad delante.
+ */
+export function lanzarBlocker(state: BattleState, at?: Hex): string | null {
+  const s = activeStack(state);
+  if (s === null || state.finished !== null) return 'no le toca a ninguna unidad';
+  const porLaFase = faseBlocker(state, 'throw');
+  if (porLaFase !== null) return porLaFase;
+  const motivo = granadaBlocker(state, s);
+  if (motivo !== null) return `${s.unit.name} ${motivo}`;
+  if (at === undefined) return null;
+  if (!isInside(at)) return `(${at.col},${at.row}) no es una casilla del tablero`;
+  if (hexEquals(at, s.hex)) return `${s.unit.name} no puede lanzar a su propia casilla`;
+  const alcance = alcanceDeLaGranada(s.unit);
+  const d = hexDistance(s.hex, at);
+  if (d > alcance) {
+    return `${s.unit.name} lanza hasta ${alcance} ${alcance === 1 ? 'casilla' : 'casillas'} (su fuerza), y (${at.col},${at.row}) está a ${d}`;
+  }
+  return null;
+}
+
+/**
+ * Por qué la activa no puede jugar a distancia (el botón «A distancia»), o `null`:
+ * apuntar si dispara, lanzar si lleva granada (`tiroADistanciaDe`). Con casilla, lo
+ * dice `tanteoADistancia`.
+ */
+export function aDistanciaBlocker(state: BattleState): string | null {
+  const s = activeStack(state);
+  if (s !== null && lanzaGranadas(s.unit)) return lanzarBlocker(state);
+  return apuntarBlocker(state);
+}
+
+/**
+ * La jugada a distancia de la activa en `at` y lo que se vería con ella ahora, o por
+ * qué no se puede: apuntar y la recta del disparo (`lineaDelDisparo`) si dispara;
+ * lanzar y su explosión (`explosionDe`) si lleva granada. **El único sitio que elige
+ * entre las dos** (hallazgo S3 de /simplify, 02-11-2026: lo elegían a la vez el
+ * blocker, la jugada y el tanteo de la sesión): la pantalla pinta según la forma.
+ */
+export type TanteoADistancia =
+  | {
+      readonly kind: 'disparo';
+      readonly jugada: BattleAction & { type: 'aim' };
+      readonly linea: LineaDelDisparo;
+    }
+  | {
+      readonly kind: 'granada';
+      readonly jugada: BattleAction & { type: 'throw' };
+      readonly explosion: ExplosionDeLaGranada;
+    }
+  | { readonly kind: 'no'; readonly motivo: string };
+
+export function tanteoADistancia(state: BattleState, at: Hex): TanteoADistancia {
+  const s = activeStack(state);
+  if (s === null || state.finished !== null) {
+    return { kind: 'no', motivo: 'no le toca a ninguna unidad' };
+  }
+  const casilla = { col: at.col, row: at.row };
+  if (lanzaGranadas(s.unit)) {
+    const motivo = lanzarBlocker(state, casilla);
+    if (motivo !== null) return { kind: 'no', motivo };
+    return {
+      kind: 'granada',
+      jugada: { type: 'throw', at: casilla },
+      explosion: explosionDe(state, casilla),
+    };
+  }
+  const motivo = apuntarBlocker(state, casilla);
+  if (motivo !== null) return { kind: 'no', motivo };
+  return {
+    kind: 'disparo',
+    jugada: { type: 'aim', at: casilla },
+    linea: lineaDelDisparo(state, s, casilla),
+  };
+}
+
+/** A quién da una granada y cuánto (`explosionDe`). */
+export interface ExplosionDeLaGranada {
+  /** Dónde explota. */
+  readonly at: Hex;
+  /** Las casillas que alcanza, cada una con el cuarto de su tirada (`casillasDeLaExplosion`). */
+  readonly casillas: readonly CasillaDelAlcance[];
+  /** Los vivos que hay hoy en ellas, de cualquier bando (también quien la lanza), con su cuarto. */
+  readonly alcanzados: readonly { readonly stack: BattleStack; readonly cuarto: number }[];
+}
+
+/**
+ * A quién da hoy la granada de `s` que explota en `at`: todo vivo en la casilla
+ * (el cuarto del centro) y en sus seis vecinas (el del anillo), **de cualquier
+ * bando**, quien la lanzó incluido. La única regla: la leen la explosión
+ * (`explotarLaGranada`), su previsión, la IA y lo que se pinta.
+ */
+export function explosionDe(state: BattleState, at: Hex): ExplosionDeLaGranada {
+  const casillas = casillasDeLaExplosion(at);
+  const alcanzados = casillas.flatMap((c) => {
+    const quien = vivoEn(state, c.hex);
+    return quien === null ? [] : [{ stack: quien, cuarto: c.cuarto }];
+  });
+  return { at, casillas, alcanzados };
+}
+
+/** El vivo que está en `hex`, o `null`: lo que buscan la recta del disparo y la explosión. */
+function vivoEn(state: BattleState, hex: Hex): BattleStack | null {
+  return state.stacks.find((x) => isAlive(x) && hexEquals(x.hex, hex)) ?? null;
+}
+
+/**
+ * Las opciones del daño de la granada de `s` sobre `t`, con la tirada en el cuarto
+ * `cuarto`: a distancia (el arma de su hueco `distancia`, la granada) y con lo alto
+ * de un muro como todo golpe. La leen la explosión, su previsión y la IA.
+ */
+export function opcionesDeLaGranada(
+  state: BattleState,
+  s: BattleStack,
+  t: BattleStack,
+  cuarto: number,
+): DamageOptions {
+  return opcionesDeDanio(state, s, t, extraDeLaGranada(cuarto));
+}
+
+/** Lo que trae la granada a sus opciones (`opcionesDeLaGranada`): a distancia, en su cuarto. */
+function extraDeLaGranada(cuarto: number): Omit<DamageOptions, ExtraDelEstado> {
+  return { ranged: true, cuarto };
 }
 
 /**
@@ -1169,7 +1361,7 @@ export function lineaDelDisparo(state: BattleState, s: BattleStack, at: Hex): Li
     alcance.push({ hex: h, cuarto: cuartoDelDisparo(octavosHastaLaRecta(s.hex, at, h)) });
     const muro = !libre && esMuro(state.muralla, h);
     if (alcanzado === null && parada === null) {
-      const quien = state.stacks.find((x) => isAlive(x) && hexEquals(x.hex, h)) ?? null;
+      const quien = vivoEn(state, h);
       if (quien !== null && quien.id !== s.id) alcanzado = quien;
       else if (muro) parada = 'muro';
       if (parada === null) hasta = alcance.length;
@@ -1662,11 +1854,22 @@ function advance(state: BattleState, rng: Rng): void {
     return;
   }
   abrirTurno(state, s);
-  // Al empezar su turno, antes de que elija nada, sale lo que apuntó en el
-  // anterior: el disparo se soltó al apuntar (25-10-2026). Luego el turno sigue
-  // como siempre (puede apuntar otra vez). Si el disparo cierra la batalla,
-  // `checkFinished` ya cerró el turno.
+  alEmpezarSuTurno(state, s, rng);
+  // Lo que sale al empezar puede matar a quien empieza (su propia granada le da si
+  // sigue cerca; hallazgo F1 de /simplify, 02-11-2026): un muerto no juega su turno,
+  // pasa al siguiente. Si cerró la batalla, la primera línea de aquí lo dice.
+  if (!isAlive(s)) advance(state, rng);
+}
+
+/**
+ * Lo que sale al empezar el turno de `s`, antes de que elija nada: lo que apuntó en
+ * el anterior (el disparo se soltó al apuntar, 25-10-2026) y la granada que lanzó
+ * (02-11-2026). Luego el turno sigue como siempre. Si algo cierra la batalla,
+ * `checkFinished` ya cerró el turno.
+ */
+function alEmpezarSuTurno(state: BattleState, s: BattleStack, rng: Rng): void {
   dispararLoApuntado(state, s, rng);
+  explotarLaGranada(state, s, rng);
 }
 
 /**
@@ -1708,6 +1911,8 @@ function endTurn(state: BattleState, s: BattleStack, rng: Rng): void {
   }
   const n = state.turno?.n;
   if (n !== undefined) quitarLosQueVencen(state, s, 'terminar', n);
+  // Un turno menos de recarga: el del disparo cuenta (decisión del usuario, 02-11-2026).
+  if (s.recargando > 0) s.recargando -= 1;
   s.acted = true;
   advance(state, rng);
 }
@@ -1910,6 +2115,16 @@ export function applyAction(
       return;
     }
 
+    case 'throw': {
+      const motivo = lanzarBlocker(state, action.at);
+      if (motivo !== null) throw new Error(motivo);
+      s.granada = { col: action.at.col, row: action.at.row };
+      s.granadasLanzadas += 1;
+      state.log.push({ kind: 'thrown', stack: s.id, at: s.granada });
+      endTurn(state, s, rng);
+      return;
+    }
+
     case 'poner_escalera': {
       const motivo = escaleraBlocker(state, action.muro);
       if (motivo !== null) throw new Error(`${s.id} no puede poner la escalera: ${motivo}`);
@@ -1966,7 +2181,7 @@ export function applyAction(
       }
       const p = poder(action.poder);
       // El hechizo del poder con la unidad de lanzador: la misma aplicación que
-      // la del héroe, así que la Bendición del monje refresca la suya.
+      // la del héroe, así que un efecto suyo refrescaría el del héroe.
       lanzarSobre(state, p.hechizo, p.lanzador, stackById(state, action.target), null, (r) =>
         state.log.push({
           kind: 'power',
@@ -2320,34 +2535,12 @@ function seCorre(s: BattleStack, casillas: number): boolean {
   return 2 * casillas > stackSpeed(s);
 }
 
-/**
- * ¿Rebota este efecto contra el objetivo?
- *
- * Los no-muertos no tienen ánimo que quebrar: son inmunes a la mala suerte
- * venga de donde venga — Maldición del héroe o el golpe de una momia. Vive
- * aquí y no en `effects.ts` porque es una regla del juego que mira los rasgos
- * de la criatura, no aritmética de una lista. La consultan `applyStackEffect`
- * —para el efecto que deja un golpe— y `targetBlocker` —para que ni se ofrezca
- * ni se acepte un hechizo que va a rebotar.
- */
-function isImmuneTo(stack: BattleStack, effect: StackEffect): boolean {
-  return effect.kind === 'luck' && effect.amount < 0 && hasTrait(stack.unit, 'undead');
-}
-
-/**
- * Cuelga un efecto del stack y lo cuenta en el registro.
- * Si el objetivo es inmune no se acumula nada y se anota el rebote: sin esto
- * una momia dejaría tres maldiciones sobre un esqueleto que no las siente.
- */
+/** Cuelga un efecto del stack y lo cuenta en el registro. */
 function applyStackEffect(state: BattleState, target: BattleStack, effect: StackEffect): void {
   // Lo que se anota es el efecto YA colgado, no el que se pidió: si refrescó a
   // uno del mismo origen, las rondas que se leen en el parte son las que de
   // verdad le quedan.
-  const vivo = colgarEfecto(target, effect);
-  if (vivo === null) {
-    state.log.push({ kind: 'immune', stack: target.id, source: effect.source });
-    return;
-  }
+  const vivo = applyEffect(target, effect);
   state.log.push({
     kind: 'effect',
     stack: target.id,
@@ -2364,7 +2557,7 @@ function applyStackEffect(state: BattleState, target: BattleStack, effect: Stack
  * unidad que usa un poder (`Poder.lanzador`)—: el daño o la cura los pone
  * `castSpell`, `anotar` escribe la línea de quien lanza y el efecto que dura lo
  * cuelga el motor detrás (refresca el del mismo origen y lo anota). Una sola
- * aplicación para los dos: la Bendición del monje y la del héroe son una.
+ * aplicación para los dos.
  */
 function lanzarSobre(
   state: BattleState,
@@ -2377,16 +2570,6 @@ function lanzarSobre(
   const r = castSpell(s, l, target, autor);
   anotar(r);
   if (r.effect !== undefined) applyStackEffect(state, target, r.effect);
-}
-
-/**
- * Cuelga `effect` de `target` sin anotar nada y devuelve el que queda colgado
- * (`applyEffect`: refresca o añade), o `null` si rebota en el inmune. La parte
- * pura de `applyStackEffect`, que anota lo que pasó; la previsión del
- * contraataque la usa sobre su copia del objetivo, así que las dos cuelgan igual.
- */
-function colgarEfecto(target: BattleStack, effect: StackEffect): StackEffect | null {
-  return isImmuneTo(target, effect) ? null : applyEffect(target, effect);
 }
 
 /**
@@ -2597,17 +2780,14 @@ function deLaRueda(state: BattleState, efecto: EfectoDeLaRueda): StackEffect {
 /** El dragón óseo: ataque −2 durante 2 rondas. Ver la nota de la tabla. */
 const FEAR_ATTACK_PENALTY = -2;
 const FEAR_ROUNDS = 2;
-/** La momia deja maldición al golpear: suerte −1 durante 3 rondas. */
-const CURSE_ON_HIT_LUCK = -1;
-const CURSE_ON_HIT_ROUNDS = 3;
 
 /**
  * Lo que un golpe deja pegado al objetivo, según el rasgo de quien pega. El
- * quinto rasgo de este tipo es una fila más, no otro bloque igual al de al
- * lado.
+ * segundo rasgo de este tipo es una fila más, no otro bloque igual al de al
+ * lado (la maldición de la momia se fue con la suerte, 02-11-2026).
  *
  * Está aquí y no en `effects.ts` a propósito: el libro mayor de efectos no
- * tiene por qué saber que existen un dragón y una momia. Y se puede compartir
+ * tiene por qué saber que existe un dragón. Y se puede compartir
  * entre golpes porque `applyEffect` guarda una copia; si guardara este objeto,
  * `tickEffects` le iría bajando el `roundsLeft` hasta que el miedo no durase
  * nada.
@@ -2626,15 +2806,6 @@ const ON_HIT_EFFECTS: readonly { trait: CreatureTrait; effect: StackEffect }[] =
       amount: FEAR_ATTACK_PENALTY,
       roundsLeft: FEAR_ROUNDS,
       source: 'fear',
-    },
-  },
-  {
-    trait: 'curse_on_hit',
-    effect: {
-      kind: 'luck',
-      amount: CURSE_ON_HIT_LUCK,
-      roundsLeft: CURSE_ON_HIT_ROUNDS,
-      source: 'curse_on_hit',
     },
   },
 ];
@@ -2756,10 +2927,7 @@ function strike(
     rng,
     opcionesDeDanio(state, attacker, target, { chargeHexes: carga }, golpe, papelDe(retaliation)),
   );
-  const herida = herir(target, result.damage, attacker);
-
-  if (result.lucky) state.log.push({ kind: 'luck', stack: attacker.id, good: true });
-  if (result.unlucky) state.log.push({ kind: 'luck', stack: attacker.id, good: false });
+  const herida = herir(target, result, attacker);
 
   state.log.push({
     kind: 'attack',
@@ -2818,7 +2986,7 @@ function healFromDrain(s: BattleStack, damage: number): void {
  * `BattleStack.apuntado`) y se borra: desde donde está ahora, por la recta, al
  * primero que encuentre (`lineaDelDisparo`), con la tirada en el cuarto que da lo
  * lejos que pasa la recta del centro de su casilla (`cuartoDelDisparo`); ataque contra defensa,
- * suerte y armadura como siempre. Con `double_shot`, dos tiros, y cada uno busca
+ * y armadura como siempre. Con `double_shot`, dos tiros, y cada uno busca
  * su primero (el segundo, si el primero cayó, sigue la recta). Lo llama solo el
  * principio de su turno (`advance`). **Regla nuestra sin validar por el usuario** (25-10-2026: sin tests hasta
  * que la juegue).
@@ -2827,6 +2995,9 @@ function dispararLoApuntado(state: BattleState, shooter: BattleStack, rng: Rng):
   const at = shooter.apuntado;
   if (at === null) return;
   shooter.apuntado = null;
+  // El arma de fuego recarga desde este turno, que cuenta (`endTurn` lo baja al
+  // cerrarlo): con recarga 1, no apunta en este y sí en el siguiente.
+  shooter.recargando = recargaDe(shooter.unit);
   const shots = disparosDe(shooter.unit);
   for (let i = 0; i < shots && state.finished === null; i++) {
     const { alcanzado } = lineaDelDisparo(state, shooter, at);
@@ -2840,28 +3011,68 @@ function dispararLoApuntado(state: BattleState, shooter: BattleStack, rng: Rng):
       rng,
       opcionesDelDisparo(state, shooter, alcanzado, at),
     );
-    const herida = herir(alcanzado, result.damage, shooter);
-
-    // La mala suerte también se anota, como en el golpe: sin ella, quien lee el
-    // registro no sabía qué rama había caído.
-    if (result.lucky) state.log.push({ kind: 'luck', stack: shooter.id, good: true });
-    if (result.unlucky) state.log.push({ kind: 'luck', stack: shooter.id, good: false });
-    state.log.push({
+    // El arma de fuego perfora la armadura (`DamageResult.perfora`).
+    herirYContar(state, alcanzado, result, shooter, (h) => ({
       kind: 'shoot',
       stack: shooter.id,
       at,
       target: alcanzado.id,
-      damage: herida.danio,
-      killed: herida.muertos,
-      ...conLoParado(herida),
-    });
-    if (!isAlive(alcanzado)) state.log.push({ kind: 'perished', stack: alcanzado.id });
+      damage: h.danio,
+      killed: h.muertos,
+      ...conLoParado(h),
+    }));
 
-    // La salpicadura reparte el daño del disparo, no el que llegó: cada salpicado
-    // resta su propia armadura (`herir`).
-    if (hasTrait(shooter.unit, 'splash_shot')) splash(state, shooter, alcanzado, at, result.damage);
+    // La salpicadura reparte el golpe del disparo, no lo que llegó: cada salpicado
+    // resta su propia armadura (`herir`), salvo si el disparo perfora.
+    if (hasTrait(shooter.unit, 'splash_shot')) splash(state, shooter, alcanzado, at, result);
     checkFinished(state);
   }
+}
+
+/**
+ * Explota la granada que lanzó `s` en su turno anterior (`BattleStack.granada`) y se
+ * borra: a todo vivo de la casilla y de sus seis vecinas, de cualquier bando
+ * (`explosionDe`), cada uno con la tirada en su cuarto, sin dado, y su armadura
+ * restada (`herir`). Un hecho `blast` por alcanzado, o uno sin nadie. Lo llama solo
+ * el principio de su turno (`alEmpezarSuTurno`). **Regla nuestra** (02-11-2026).
+ */
+function explotarLaGranada(state: BattleState, s: BattleStack, rng: Rng): void {
+  const at = s.granada;
+  if (at === null || state.finished !== null) return;
+  s.granada = null;
+  const { alcanzados } = explosionDe(state, at);
+  if (alcanzados.length === 0) {
+    state.log.push({
+      kind: 'blast',
+      stack: s.id,
+      at,
+      target: null,
+      damage: 0,
+      killed: 0,
+      cuarto: 0,
+    });
+    return;
+  }
+  // Todos con el tablero de antes de la explosión: el daño de cada uno no depende de
+  // a quién le tocó antes.
+  const golpes = alcanzados.map(({ stack, cuarto }) => ({
+    stack,
+    cuarto,
+    result: computeDamage(s, stack, rng, opcionesDeLaGranada(state, s, stack, cuarto)),
+  }));
+  for (const { stack, cuarto, result } of golpes) {
+    herirYContar(state, stack, result, s, (h) => ({
+      kind: 'blast',
+      stack: s.id,
+      at,
+      target: stack.id,
+      damage: h.danio,
+      killed: h.muertos,
+      cuarto,
+      ...conLoParado(h),
+    }));
+  }
+  checkFinished(state);
 }
 
 /**
@@ -2901,22 +3112,37 @@ function splash(
   shooter: BattleStack,
   target: BattleStack,
   at: Hex,
-  damage: number,
+  golpe: GolpeQueHiere,
 ): void {
   for (const otro of splashTargets(state, shooter, target)) {
-    const herida = herir(otro, damage, shooter);
-    state.log.push({
+    herirYContar(state, otro, golpe, shooter, (h) => ({
       kind: 'shoot',
       stack: shooter.id,
       at,
       target: otro.id,
-      damage: herida.danio,
-      killed: herida.muertos,
-      ...conLoParado(herida),
+      damage: h.danio,
+      killed: h.muertos,
+      ...conLoParado(h),
       splash: true,
-    });
-    if (!isAlive(otro)) state.log.push({ kind: 'perished', stack: otro.id });
+    }));
   }
+}
+
+/**
+ * Hiere a `objetivo` con `golpe` de `autor` (`herir`), escribe el hecho que da
+ * `hecho` con lo que llegó y, si cae, `perished`: lo de cada disparo, salpicado y
+ * alcanzado por una granada (hallazgo S8 de /simplify, 02-11-2026: eran tres copias).
+ */
+function herirYContar(
+  state: BattleState,
+  objetivo: BattleStack,
+  golpe: GolpeQueHiere,
+  autor: BattleStack,
+  hecho: (herida: Herida) => BattleEvent,
+): void {
+  const herida = herir(objetivo, golpe, autor);
+  state.log.push(hecho(herida));
+  if (!isAlive(objetivo)) state.log.push({ kind: 'perished', stack: objetivo.id });
 }
 
 /** Se escribe una vez y se lee en dos: el bloqueador y el estrechamiento. */
@@ -2957,40 +3183,28 @@ export function castBlocker(
   if (targetId !== undefined) {
     const target = state.stacks.find((t) => t.id === targetId);
     if (target === undefined) return `no hay ninguna unidad "${targetId}"`;
-    return targetBlocker(hero, s, side, target);
+    return targetBlocker(s, side, target);
   }
-  return state.stacks.some((t) => targetBlocker(hero, s, side, t) === null)
+  return state.stacks.some((t) => targetBlocker(s, side, t) === null)
     ? null
     : 'no hay ningún objetivo válido';
 }
 
 /** Por qué este stack no vale como objetivo de este hechizo. */
-function targetBlocker(hero: BattleHero, s: Spell, side: Side, target: BattleStack): string | null {
-  return objetivoBlocker(target, side, s, efectoDe(s, delHeroe(s, hero)), `"${s.name}"`);
+function targetBlocker(s: Spell, side: Side, target: BattleStack): string | null {
+  return objetivoBlocker(target, side, s, `"${s.name}"`);
 }
 
 /**
- * Por qué `target` no vale para el hechizo `s` lanzado desde el bando `side`,
- * dejando `efecto`: lo común al héroe (`targetBlocker`) y al poder de una unidad
+ * Por qué `target` no vale para el hechizo `s` lanzado desde el bando `side`:
+ * lo común al héroe (`targetBlocker`) y al poder de una unidad
  * (`objetivoDelPoderBlocker`). `citado` es el nombre tal como lo dice cada uno.
  */
-function objetivoBlocker(
-  target: BattleStack,
-  side: Side,
-  s: Spell,
-  efecto: StackEffect | null,
-  citado: string,
-): string | null {
+function objetivoBlocker(target: BattleStack, side: Side, s: Spell, citado: string): string | null {
   if (!isAlive(target)) return 'el objetivo ya está destruido';
   const wantsEnemy = s.target === 'enemy';
   if (wantsEnemy === (target.side === side)) {
     return `${citado} va dirigido a ${wantsEnemy ? 'un enemigo' : 'un aliado'}`;
-  }
-  // La inmunidad se pregunta a la misma función que decide al aplicar el efecto,
-  // no a una copia de la regla: nada de ofrecer una Maldición sobre un no-muerto
-  // para que después rebote.
-  if (efecto !== null && isImmuneTo(target, efecto)) {
-    return `${target.unit.name} es inmune a ${citado}`;
   }
   return null;
 }
@@ -3018,9 +3232,6 @@ function castHeroSpell(
   // El cuerpo del héroe es quien cobra la experiencia del hechizo. Está vivo
   // seguro: si cae, su bando pierde (`checkFinished`) y aquí no se llega.
   const cuerpo = state.stacks.find((x) => x.side === side && x.origen.kind === 'heroe') ?? null;
-  // El efecto no puede rebotar aquí —`castBlocker` rechaza al objetivo inmune
-  // antes de cobrar el maná—, pero `applyStackEffect` sigue comprobándolo porque
-  // el mismo camino lo usan los golpes con rasgo.
   lanzarSobre(state, s, delHeroe(s, hero), target, cuerpo, (r) =>
     state.log.push({
       kind: 'cast',
@@ -3057,13 +3268,13 @@ export function poderBlocker(
 ): string | null {
   const previo = previoDelPoder(state, poderId);
   if ('motivo' in previo) return previo.motivo;
-  const { s, p, efecto } = previo;
+  const { s, p } = previo;
   if (targetId !== undefined) {
     const target = state.stacks.find((t) => t.id === targetId);
     if (target === undefined) return `no hay ninguna unidad "${targetId}"`;
-    return objetivoDelPoderBlocker(s, p, efecto, target);
+    return objetivoDelPoderBlocker(s, p, target);
   }
-  if (state.stacks.some((t) => objetivoDelPoderBlocker(s, p, efecto, t) === null)) return null;
+  if (state.stacks.some((t) => objetivoDelPoderBlocker(s, p, t) === null)) return null;
   // Lo que dice el botón deshabilitado: si nadie de su bando tiene una herida,
   // eso, que es lo que se le pregunta a «Curar»; si no, lo general.
   return esDeCura(p)
@@ -3073,15 +3284,12 @@ export function poderBlocker(
 
 /**
  * Lo que no depende del objetivo, una vez: que le toque a alguien, que el poder
- * exista, que la activa lo sepa y que no se haya movido; y el efecto que dejaría,
- * que tampoco depende de a quién. Lo leen `poderBlocker` y `legalActions`.
+ * exista, que la activa lo sepa y que no se haya movido. Lo leen `poderBlocker` y `legalActions`.
  */
 function previoDelPoder(
   state: BattleState,
   poderId: PoderId,
-):
-  | { readonly motivo: string }
-  | { readonly s: BattleStack; readonly p: Poder; readonly efecto: StackEffect | null } {
+): { readonly motivo: string } | { readonly s: BattleStack; readonly p: Poder } {
   const s = activeStack(state);
   if (s === null || state.finished !== null) return { motivo: 'no le toca a ninguna unidad' };
   const porLaFase = faseBlocker(state, 'power');
@@ -3095,17 +3303,12 @@ function previoDelPoder(
   if (seHaMovido(state, s)) {
     return { motivo: `ya se ha movido este turno: «${p.nombre}» se usa al principio del turno` };
   }
-  return { s, p, efecto: efectoDe(p.hechizo, p.lanzador) };
+  return { s, p };
 }
 
-/** Por qué este stack no vale como objetivo de este poder de `s`, que deja `efecto`. */
-function objetivoDelPoderBlocker(
-  s: BattleStack,
-  p: Poder,
-  efecto: StackEffect | null,
-  target: BattleStack,
-): string | null {
-  const comun = objetivoBlocker(target, s.side, p.hechizo, efecto, `«${p.nombre}»`);
+/** Por qué este stack no vale como objetivo de este poder de `s`. */
+function objetivoDelPoderBlocker(s: BattleStack, p: Poder, target: BattleStack): string | null {
+  const comun = objetivoBlocker(target, s.side, p.hechizo, `«${p.nombre}»`);
   if (comun !== null) return comun;
   if (esDeCura(p) && curaDe(p.hechizo, p.lanzador, target) <= 0) {
     return `${target.unit.name} no tiene ninguna herida`;
@@ -3116,12 +3319,12 @@ function objetivoDelPoderBlocker(
 // ---------------------------------------------------------------- previsión
 
 /**
- * Lo que daría un golpe o un disparo, ANTES de darlo: la horquilla por golpe sin
- * suerte, las dos ramas de la suerte, lo que se lleva por delante, por qué sale
- * esa cifra y si habrá contraataque.
+ * Lo que daría un golpe o un disparo, ANTES de darlo: la horquilla por golpe, lo
+ * que se lleva por delante, por qué sale esa cifra y si habrá contraataque.
  */
 export interface PrevisionDeGolpe {
-  readonly kind: 'golpe' | 'disparo';
+  /** Un golpe cuerpo a cuerpo, un disparo o lo que da una granada a uno (`PrevisionDeGranada`). */
+  readonly kind: 'golpe' | 'disparo' | 'explosion';
   readonly atacante: string;
   readonly objetivo: string;
   /** 2 con `double_attack` o `double_shot`; el segundo, si el objetivo sigue en pie. */
@@ -3133,11 +3336,9 @@ export interface PrevisionDeGolpe {
    * cobra (`intercambio`); `null` si todos dan lo mismo.
    */
   readonly siguientes: Horquilla | null;
-  readonly buena: RamaDeSuerte | null;
-  readonly mala: RamaDeSuerte | null;
-  /** Individuos que caerían, sin suerte, con todos los golpes. */
+  /** Individuos que caerían con todos los golpes. */
   readonly bajas: Horquilla;
-  /** PV que le quedarían, sin suerte, con todos los golpes. */
+  /** PV que le quedarían con todos los golpes. */
   readonly leQuedan: Horquilla;
   readonly modificadores: readonly Modificador[];
   readonly contraataque: PrevisionDeContraataque | null;
@@ -3150,8 +3351,6 @@ export interface PrevisionDeContraataque {
   /** `true`: sobrevive siempre, así que contraataca seguro; `false`: solo si sobrevive. */
   readonly seguro: boolean;
   readonly danio: Horquilla;
-  readonly buena: RamaDeSuerte | null;
-  readonly mala: RamaDeSuerte | null;
   readonly modificadores: readonly Modificador[];
   /** Con qué arma lo devuelve (`dichoDelGolpe`), o `null` sin armas por uso (el juego). */
   readonly conArma: string | null;
@@ -3172,7 +3371,7 @@ export interface PrevisionDeLanzar {
   readonly parado: number;
   readonly bajas: number | null;
   readonly leQuedan: number | null;
-  /** Lo que dejaría colgado: Prisa, Lentitud, Bendición, Maldición. */
+  /** Lo que dejaría colgado: Prisa, Lentitud. */
   readonly efecto: StackEffect | null;
   /** PV que repondría una Curación. */
   readonly cura: number | null;
@@ -3190,7 +3389,26 @@ export interface PrevisionDePoder extends PrevisionDeLanzar {
   readonly poder: PoderId;
 }
 
-export type Prevision = PrevisionDeGolpe | PrevisionDeHechizo | PrevisionDePoder;
+/**
+ * Lo que daría una granada lanzada a `at` si explotara ahora: un impacto por cada
+ * vivo que hay hoy en la casilla y sus vecinas (`explosionDe`), de cualquier bando.
+ */
+export interface PrevisionDeGranada {
+  readonly kind: 'granada';
+  readonly at: Hex;
+  readonly impactos: readonly ImpactoDeGranada[];
+}
+
+/** Lo que daría una granada a uno, y si es del bando de quien la lanza (el «¡tuyo!»). */
+export interface ImpactoDeGranada extends PrevisionDeGolpe {
+  readonly aliado: boolean;
+}
+
+export type Prevision =
+  | PrevisionDeGolpe
+  | PrevisionDeHechizo
+  | PrevisionDePoder
+  | PrevisionDeGranada;
 
 /**
  * La previsión de una acción del stack activo: un golpe (`attack`, con su carga
@@ -3239,6 +3457,21 @@ export function previsionDe(state: BattleState, accion: BattleAction): Prevision
         extraDelDisparo(s, alcanzado, accion.at),
       );
     }
+    case 'throw': {
+      // Lo que daría la granada si explotara ahora: a quien está hoy en la casilla y
+      // sus vecinas (de su turno al siguiente, el tablero se mueve).
+      const motivo = lanzarBlocker(state, accion.at);
+      if (motivo !== null) throw new Error(motivo);
+      const { alcanzados } = explosionDe(state, accion.at);
+      return {
+        kind: 'granada',
+        at: accion.at,
+        impactos: alcanzados.map(({ stack, cuarto }) => ({
+          ...previsionDeGolpe(state, s, stack, 'explosion', extraDeLaGranada(cuarto)),
+          aliado: stack.side === s.side,
+        })),
+      };
+    }
     case 'cast': {
       if (accion.target === undefined) throw new Error('el hechizo necesita un objetivo');
       const motivo = castBlocker(state, s.side, accion.spell, accion.target);
@@ -3270,13 +3503,18 @@ function previsionDeGolpe(
   state: BattleState,
   a: BattleStack,
   t: BattleStack,
-  kind: 'golpe' | 'disparo',
+  kind: PrevisionDeGolpe['kind'],
   extra: Omit<DamageOptions, ExtraDelEstado>,
   golpe: GolpeEnLaRueda | null = null,
 ): PrevisionDeGolpe {
   const golpes =
-    kind === 'golpe' ? golpesDe(a.unit, golpe?.tipo ?? null, false) : disparosDe(a.unit);
+    kind === 'golpe'
+      ? golpesDe(a.unit, golpe?.tipo ?? null, false)
+      : kind === 'disparo'
+        ? disparosDe(a.unit)
+        : 1;
   const { h, siguientes } = unGolpe(a, t, opcionesDeDanio(state, a, t, extra, golpe), golpes);
+  const modificadores = conElCuarto(h, kind, extra.cuarto);
   const tras = (d: number, luego = d): { count: number; topHp: number } =>
     trasLosGolpes(t, golpes, d, luego);
   const conMenos = tras(h.danio.min, siguientes?.min);
@@ -3290,17 +3528,39 @@ function previsionDeGolpe(
     golpes,
     danio: h.danio,
     siguientes,
-    buena: h.buena,
-    mala: h.mala,
     bajas: { min: t.count - conMenos.count, max: t.count - conMas.count },
     leQuedan: { min: vida(conMas), max: vida(conMenos) },
-    modificadores: h.modificadores,
+    modificadores,
     contraataque: kind === 'golpe' ? previsionDelContraataque(state, a, t, h, tras, golpe) : null,
     salpica:
       kind === 'disparo' && hasTrait(a.unit, 'splash_shot')
         ? splashTargets(state, a, t).map((x) => x.id)
         : [],
   };
+}
+
+/**
+ * Los modificadores de `h` con dónde cae la tirada fija de un disparo o una granada
+ * (`cuarto`), dicho tras el arma, que es el primero (`horquillaDeDanio.conArma`). La
+ * frase la elige la previsión por su `kind` (hallazgo S5 de /simplify, 02-11-2026:
+ * antes la elegía un interruptor de `DamageOptions` que no cambiaba el daño).
+ */
+function conElCuarto(
+  h: { readonly modificadores: readonly Modificador[]; readonly conArma: string | null },
+  kind: PrevisionDeGolpe['kind'],
+  cuarto: number | undefined,
+): readonly Modificador[] {
+  if (cuarto === undefined) return h.modificadores;
+  const causa =
+    kind === 'explosion'
+      ? `la granada: la tirada en el cuarto ${cuarto} de 4`
+      : dichoDelCuarto(cuarto);
+  const tras = h.conArma === null ? 0 : 1;
+  return [
+    ...h.modificadores.slice(0, tras),
+    { causa, factor: null },
+    ...h.modificadores.slice(tras),
+  ];
 }
 
 /**
@@ -3388,7 +3648,7 @@ function danioSinLaCarga(
  * El contraataque de `t` si `a` le golpea: si lo devuelve (`devolveraElGolpe`) y
  * sobrevive. Lo que puede quitar depende de cuántos le queden —el peor golpe
  * deja menos, el mejor más— y de lo que el golpe le haya dejado pegado (el miedo
- * del dragón, la Maldición de la momia), así que se cuenta sobre una copia del
+ * del dragón), así que se cuenta sobre una copia del
  * objetivo con eso puesto, como lo tendría al devolverlo.
  *
  * Con la rueda y un golpe elegido (`golpe`), también lo que ese golpe deja antes
@@ -3407,17 +3667,14 @@ function previsionDelContraataque(
   golpe: GolpeEnLaRueda | null,
 ): PrevisionDeContraataque | null {
   if (!devolveraElGolpe(state, a, t)) return null;
-  // Con suerte el golpe puede quitar más, o menos, que sin ella.
-  const peor = h.mala?.min ?? h.danio.min;
-  const mejor = h.buena?.max ?? h.danio.max;
-  const conPeor = tras(peor);
+  const conPeor = tras(h.danio.min);
   if (conPeor.count === 0) return null;
-  const conMejor = tras(mejor);
+  const conMejor = tras(h.danio.max);
   // Lo que el golpe le deja, colgado sobre una copia con la misma función que
-  // `applyStackEffect`: refrescar o rebotar en el inmune.
+  // `applyStackEffect`: refrescar o añadir.
   const conLoDelGolpe: BattleStack = { ...t, effects: [...t.effects] };
   for (const { trait, effect } of ON_HIT_EFFECTS) {
-    if (hasTrait(a.unit, trait)) colgarEfecto(conLoDelGolpe, effect);
+    if (hasTrait(a.unit, trait)) applyEffect(conLoDelGolpe, effect);
   }
   // Lo de la rueda que el golpe deja a `a` (quien pega o el atacado), en el punto
   // `p` del cruce, con su arma de cuerpo a cuerpo, sobre una copia.
@@ -3429,7 +3686,7 @@ function previsionDelContraataque(
         : efectosDeLaRueda(rueda.tipo, p, rueda.cifras).filter((e) => e.a === para);
     if (suyos.length === 0) return x;
     const y: BattleStack = { ...x, effects: [...x.effects] };
-    for (const efecto of suyos) colgarEfecto(y, deLaRueda(state, efecto));
+    for (const efecto of suyos) applyEffect(y, deLaRueda(state, efecto));
     return y;
   };
   const copia = (count: number, p: Punto): BattleStack =>
@@ -3441,13 +3698,9 @@ function previsionDelContraataque(
   const quienPega = golpe === null ? a : conLaRueda(a, golpe.desde, 'propio');
   const bajo = horquillaDeDanio(pocos, quienPega, opcionesDeDanio(state, pocos, quienPega));
   const alto = horquillaDeDanio(muchos, quienPega, opcionesDeDanio(state, muchos, quienPega));
-  const une = (x: RamaDeSuerte | null, y: RamaDeSuerte | null): RamaDeSuerte | null =>
-    x === null || y === null ? null : { probabilidad: x.probabilidad, min: x.min, max: y.max };
   return {
     seguro: conMejor.count > 0,
     danio: { min: bajo.danio.min, max: alto.danio.max },
-    buena: une(bajo.buena, alto.buena),
-    mala: une(bajo.mala, alto.mala),
     modificadores: alto.modificadores,
     conArma: alto.conArma,
   };
@@ -3700,7 +3953,7 @@ function previsionDeLanzar(s: Spell, l: Lanzador, t: BattleStack): PrevisionDeLa
   switch (s.kind) {
     case 'damage': {
       // Con la resta del hechizo de verdad (`castSpell` → `herir`).
-      const { danio, parado } = trasLaArmadura(l.cantidad, t);
+      const { danio, parado } = trasLaArmadura(l.cantidad, t, false);
       const quedan = trasElGolpe(t, danio);
       return {
         ...base,
@@ -3711,7 +3964,6 @@ function previsionDeLanzar(s: Spell, l: Lanzador, t: BattleStack): PrevisionDeLa
       };
     }
     case 'speed':
-    case 'luck':
       return { ...base, efecto: efectoDe(s, l) };
     case 'heal':
       return { ...base, cura: curaDe(s, l, t) };
@@ -3981,6 +4233,14 @@ export function legalActionsAndCosts(state: BattleState): {
   if (disparoBlocker(state, s) === null) {
     for (const e of enemies) out.push({ type: 'aim', at: e.hex });
   }
+  // Lanzar: uno por casilla de enemigo vivo a su alcance, con la regla de lanzar
+  // (`lanzarBlocker`) y no una copia; vale cualquier otra casilla a su alcance, y la
+  // prosa del agente lo dice.
+  if (granadaBlocker(state, s) === null) {
+    for (const e of enemies) {
+      if (lanzarBlocker(state, e.hex) === null) out.push({ type: 'throw', at: e.hex });
+    }
+  }
 
   // Un solo BFS por llamada. Estaba dentro del bucle de ataques, así que con
   // cuatro enemigos el tablero se recorría cinco veces para dar la misma
@@ -4033,13 +4293,13 @@ export function legalActionsAndCosts(state: BattleState): {
 
   // Los poderes, solo con alguno: sin ellos ni se mira, y la lista
   // del juego no cambia ni de contenido ni de orden. Los pares que deja pasar
-  // `poderBlocker` —sus mismas dos piezas—: lo que no depende del objetivo (y el
-  // efecto) una vez por poder, y luego cada objetivo.
+  // `poderBlocker` —sus mismas dos piezas—: lo que no depende del objetivo una
+  // vez por poder, y luego cada objetivo.
   for (const id of s.unit.poderes ?? []) {
     const previo = previoDelPoder(state, id);
     if ('motivo' in previo) continue;
     for (const t of state.stacks) {
-      if (objetivoDelPoderBlocker(previo.s, previo.p, previo.efecto, t) === null) {
+      if (objetivoDelPoderBlocker(previo.s, previo.p, t) === null) {
         out.push({ type: 'power', poder: id, target: t.id });
       }
     }

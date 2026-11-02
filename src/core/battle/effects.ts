@@ -7,16 +7,15 @@
  *
  * La regla que lo sostiene todo: **un efecto no se revierte, se filtra**. El
  * stack nunca guarda un bono ya sumado; la lista es la única verdad y el total
- * se calcula al leer (`stackSpeed`, `effectiveLuck`, `effectiveAttack`).
+ * se calcula al leer (`stackSpeed`, `effectiveAttack`, `effectiveDefense`).
  * Caducar es entonces quitar de una lista, y quitar de una lista no puede
  * descuadrar nada — que es justo lo que pasaba antes, cuando `spells.ts` sumaba
  * a `speedBonus` y nadie restaba nunca: una Lentitud de la ronda 1 duraba toda
  * la batalla.
  *
  * Y la segunda regla, la de acumulación: **el mismo origen refresca, no
- * apila** (ver `applyEffect`). De orígenes distintos sí se suman, y el recorte
- * a [−3,+3] se hace al leer, así que tres Maldiciones y una Bendición componen
- * sin depender del orden en que se aplicaron.
+ * apila** (ver `applyEffect`). De orígenes distintos sí se suman, sin depender
+ * del orden en que se aplicaron.
  */
 import type { BattleStack } from './types.js';
 
@@ -28,7 +27,7 @@ import type { BattleStack } from './types.js';
  * Defensivo y Romper guardia de la rueda del golpe. Mismo patrón que
  * `CREATURE_TRAITS` en `types.ts`.
  */
-export const EFFECT_KINDS = ['speed', 'luck', 'attack', 'defense'] as const;
+export const EFFECT_KINDS = ['speed', 'attack', 'defense'] as const;
 
 export type EffectKind = (typeof EFFECT_KINDS)[number];
 
@@ -64,17 +63,16 @@ export interface HastaElTurno {
  */
 export type CuandoVence = 'empezar' | 'terminar';
 
-/** Moral y suerte se mueven entre −3 y +3 (`CLAUDE.md`, tabla de reglas). */
-const MIN_MORALE_LUCK = -3;
-const MAX_MORALE_LUCK = 3;
+/** La moral se mueve entre −3 y +3 (`CLAUDE.md`, tabla de reglas). */
+const MIN_MORALE = -3;
+const MAX_MORALE = 3;
 
 /**
- * Recorta a la horquilla de moral y suerte. La regla vive aquí y no repartida
- * en pares de números sueltos por el motor: quien la lea al montar la batalla
- * y quien la lea al tirar el dado tienen que decir lo mismo.
+ * Recorta a la horquilla de la moral. La regla vive aquí y no repartida en pares
+ * de números sueltos por el motor.
  */
-export function clampMoraleLuck(n: number): number {
-  return Math.max(MIN_MORALE_LUCK, Math.min(MAX_MORALE_LUCK, n));
+export function clampMorale(n: number): number {
+  return Math.max(MIN_MORALE, Math.min(MAX_MORALE, n));
 }
 
 /**
@@ -82,9 +80,8 @@ export function clampMoraleLuck(n: number): number {
  *
  * **Política de acumulación: el mismo origen refresca, no apila.** Sin ella,
  * dos mordiscos seguidos del dragón óseo dejaban −4 de ataque sostenido y una
- * Lentitud lanzada cada ronda iba a −2, −4, −6. La suerte y la moral lo
- * disimulaban porque se recortan al leer; la velocidad y el ataque no, así que
- * cada consumidor estaba tomando esta decisión por accidente. Se conserva la
+ * Lentitud lanzada cada ronda iba a −2, −4, −6, y cada consumidor estaba
+ * tomando esta decisión por accidente. Se conserva la
  * duración mayor: refrescar alarga, nunca acorta, que es lo del original.
  *
  * Guarda una **copia**: `roundsLeft` es mutable y `tickEffects` lo baja cada
@@ -132,10 +129,6 @@ export function effectTotal(stack: BattleStack, kind: EffectKind): number {
   return total;
 }
 
-export function effectiveLuck(stack: BattleStack): number {
-  return clampMoraleLuck(stack.luck + effectTotal(stack, 'luck'));
-}
-
 /**
  * Descuenta una ronda a cada efecto y devuelve los que acaban de caducar.
  * Un efecto de N rondas lanzado en la ronda R vive de la R a la R+N−1.
@@ -160,13 +153,12 @@ export function tickEffects(stack: BattleStack): StackEffect[] {
  */
 export const NOMBRE_DEL_EFECTO: Readonly<Record<EffectKind, string>> = {
   speed: 'velocidad',
-  luck: 'suerte',
   attack: 'ataque',
   defense: 'defensa',
 };
 
 /**
- * Lo que hace un efecto, dicho: «suerte −1». El único texto de un efecto: lo leen
+ * Lo que hace un efecto, dicho: «ataque −2». El único texto de un efecto: lo leen
  * el parte, la previsión de un hechizo, la ficha del héroe de la arena y lo que
  * hace un poder (`queHaceElPoder`).
  */
@@ -183,8 +175,8 @@ export function enRondas(n: number): string {
 }
 
 /**
- * Lo que hace un hechizo que no hiere, en pocas palabras: «cura 4 PV», «suerte +1
- * durante 3 rondas»; `null` si no cura ni deja nada. Una sola redacción para la
+ * Lo que hace un hechizo que no hiere, en pocas palabras: «cura 4 PV», «velocidad
+ * +2 durante 3 rondas»; `null` si no cura ni deja nada. Una sola redacción para la
  * previsión del hechizo, la del poder y lo que hace un poder (`queHaceElPoder`).
  */
 export function curaOEfecto(cura: number | null, efecto: StackEffect | null): string | null {

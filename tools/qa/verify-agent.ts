@@ -670,6 +670,13 @@ function exigeLaRueda(): void {
       ? 'disparo: ningún "aim" del agente en esta partida (no se exige)'
       : `disparo: «${apunta.nota}»`,
   );
+  // La granada (02-11-2026), igual: solo se dice si un `throw` del agente cruzó.
+  const lanza = veredictos.find((v) => v.ok && /lanzar una granada a \(/.test(v.nota));
+  log(
+    lanza === undefined
+      ? 'granada: ningún "throw" del agente en esta partida (no se exige)'
+      : `granada: «${lanza.nota}»`,
+  );
   if (rueda.mala === null) {
     throw new Error('no se ha pedido ni una respuesta de la rueda ("battle_response")');
   }

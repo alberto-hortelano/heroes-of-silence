@@ -6,7 +6,7 @@
  * trabajo es que el juego sea jugable sin IA externa, no ser brillante.
  */
 
-import { armaduraDe, trasLaArmadura } from '../battle/armas.js';
+import { armaduraDe, isShooter, trasLaArmadura } from '../battle/armas.js';
 import {
   activeStack,
   applyAction,
@@ -17,6 +17,7 @@ import {
   distanciaAndando,
   enemiesOf,
   escalaDesde,
+  explosionDe,
   firmaDelTurno,
   isEngaged,
   legalActionsAndCosts,
@@ -25,6 +26,7 @@ import {
   type Movibles,
   medirCargas,
   opcionesDeDanio,
+  opcionesDeLaGranada,
   opcionesDelDisparo,
   pasosQueQuedan,
   seHaMovido,
@@ -34,16 +36,18 @@ import {
   stackSpeed,
   sumaDelBando,
 } from '../battle/battle.js';
-import { hexDistance, hexKey, neighbours, type Paso } from '../battle/board.js';
-import { CARGA, CARGA_MINIMA, cargaEfectiva, cargaMontada } from '../battle/carga.js';
 import {
-  type DamageOptions,
-  expectedDamage,
-  fraccionQueLlega,
-  stackHp,
-  valorDeEfectoDeDanio,
-} from '../battle/damage.js';
+  hexDistance,
+  hexEquals,
+  hexKey,
+  indiceDe,
+  neighbours,
+  type Paso,
+} from '../battle/board.js';
+import { CARGA, CARGA_MINIMA, cargaEfectiva, cargaMontada } from '../battle/carga.js';
+import { type DamageOptions, expectedDamage, fraccionQueLlega, stackHp } from '../battle/damage.js';
 import { roundsLeftOf, type StackEffect } from '../battle/effects.js';
+import { alcanceDeLaGranada } from '../battle/granada.js';
 import {
   claveDeAbiertas,
   enLoAlto,
@@ -55,7 +59,7 @@ import { esDeCura, poder } from '../battle/poderes.js';
 import { curaDe, delHeroe, efectoDe, type Lanzador, type Spell, spell } from '../battle/spells.js';
 import type { BattleAction, BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
 import { otroBando } from '../battle/types.js';
-import { hasTrait, isShooter } from '../data.js';
+import { hasTrait } from '../data.js';
 import { ESCALA_DE_CIFRAS } from '../escala.js';
 import type { Rng } from '../rng.js';
 import type { Hex } from '../types.js';
@@ -292,7 +296,7 @@ function rondasQueQuedan(state: BattleState, side: Side): number {
 }
 
 /**
- * Lo que rinde un temporal (Prisa, Lentitud, Bendición, Maldición) sobre este
+ * Lo que rinde un temporal (Prisa, Lentitud) sobre este
  * objetivo, contado ronda a ronda por las que de verdad compra: la en curso si
  * el objetivo aún tiene que actuar, y las siguientes hasta su duración o hasta
  * el final estimado de la batalla, lo que llegue antes, sin las que ya cubre
@@ -300,9 +304,8 @@ function rondasQueQuedan(state: BattleState, side: Side): number {
  *
  * En la ronda en curso se sabe dónde está cada uno, así que se cuenta el golpe
  * que el efecto da o quita: la Prisa vale el mejor golpe con dos pasos más
- * menos el de ahora, la Lentitud el del enemigo con dos menos —en PV y
- * amenaza NUESTROS, que es lo que ahorra—, y la suerte su `CHANCE_PER_POINT`
- * de golpe doble (o mitad) sobre el mejor golpe que se alcanza.
+ * menos el de ahora, y la Lentitud el del enemigo con dos menos —en PV y
+ * amenaza NUESTROS, que es lo que ahorra—.
  */
 function rindeTemporal(
   state: BattleState,
@@ -315,22 +318,18 @@ function rindeTemporal(
   const amount = sp.amount ?? 0;
   const yaCubre = roundsLeftOf(objetivo, efecto);
   // Quien se lo echa con su turno (un poder sobre sí mismo) ya no golpea hoy: el
-  // efecto no le compra la ronda en curso. Contarla daba al monje que se bendecía
-  // el golpe que la propia Bendición le quitaba.
+  // efecto no le compra la ronda en curso. Contarla daba a quien se lo echaba
+  // el golpe que su propio turno le quitaba.
   const pasos = objetivo === gastaSuTurno ? null : pasosDeEstaRonda(state, objetivo);
 
   let hoy = NADA;
   if (pasos !== null && yaCubre === 0) {
-    if (sp.kind === 'speed') {
-      const antes = mejorGolpe(state, objetivo, pasos);
-      const despues = mejorGolpe(state, objetivo, Math.max(1, pasos + amount));
-      hoy = {
-        pv: Math.abs(despues.pv - antes.pv),
-        amenaza: Math.abs(despues.amenaza - antes.amenaza),
-      };
-    } else {
-      hoy = escalar(mejorGolpe(state, objetivo, pasos), valorDeEfectoDeDanio(efecto));
-    }
+    const antes = mejorGolpe(state, objetivo, pasos);
+    const despues = mejorGolpe(state, objetivo, Math.max(1, pasos + amount));
+    hoy = {
+      pv: Math.abs(despues.pv - antes.pv),
+      amenaza: Math.abs(despues.amenaza - antes.amenaza),
+    };
   }
 
   // Las siguientes: un efecto de N rondas cubre la en curso y N − 1 más, y la
@@ -343,10 +342,7 @@ function rindeTemporal(
   // tirador la velocidad no le compra nada, igual que en la ronda en curso.
   const golpe = mejorGolpe(state, objetivo, Number.POSITIVE_INFINITY);
   const tira = isShooter(objetivo.unit);
-  const porRonda =
-    sp.kind === 'speed'
-      ? escalar(golpe, tira ? 0 : FRACCION_TEMPO)
-      : escalar(golpe, valorDeEfectoDeDanio(efecto));
+  const porRonda = escalar(golpe, tira ? 0 : FRACCION_TEMPO);
   return { pv: hoy.pv + despues * porRonda.pv, amenaza: hoy.amenaza + despues * porRonda.amenaza };
 }
 
@@ -377,12 +373,11 @@ function rindeDe(
       // El tope es la vida que queda: sin él, un Rayo sobre tres campesinos
       // puntuaba como si matara a cincuenta.
       // Lo que llega tras la armadura (la arena; en el juego, `cantidad` tal cual).
-      return rindeContra(state, objetivo, trasLaArmadura(l.cantidad, objetivo).danio);
-    case 'speed':
-    case 'luck': {
+      return rindeContra(state, objetivo, trasLaArmadura(l.cantidad, objetivo, false).danio);
+    case 'speed': {
       // `efectoDe` es la misma función que el motor consulta para saber qué
       // colgaría, así que la duración no se recalcula aquí. Solo devuelve
-      // `null` fuera de estas dos ramas: no rinde y no lanza, porque esto es
+      // `null` fuera de esta rama: no rinde y no lanza, porque esto es
       // una heurística, no una regla.
       const efecto = efectoDe(sp, l);
       return efecto === null
@@ -417,8 +412,8 @@ function spellRinde(
  *
  * Un temporal que el objetivo aún lleva no se refresca con el turno (H1 de QA,
  * vuelta 1): `rindeTemporal` le da las rondas que alarga, y eso es justo para el
- * hechizo, que no cuesta el turno, pero con el poder era bendecirse cada turno
- * en vez de andar —monje contra monje llegaba al tope de 100 rondas en 40 de 40—.
+ * hechizo, que no cuesta el turno, pero con el poder (Bendecir, que se fue con
+ * la suerte) era bendecirse cada turno en vez de andar —monje contra monje llegaba al tope de 100 rondas en 40 de 40—.
  */
 function mejorPoder(
   state: BattleState,
@@ -832,9 +827,13 @@ function decideAccion(
   const alMuro = tiradorAlMuro(state, s, acciones, costes, aTiro);
   if (alMuro !== null) return alMuro;
 
-  // Un poder (arena: curar, bendecir), si rinde más que el golpe que tiene a mano.
+  // Un poder (curar), si rinde más que el golpe que tiene a mano.
   const conPoder = mejorPoder(state, s, acciones);
   if (conPoder !== null) return conPoder;
+
+  // Una granada, donde más daño haga a los enemigos de hoy sin dar sobre todo a los suyos.
+  const granada = mejorGranada(state, s, acciones);
+  if (granada !== null) return granada;
 
   // Un tirador apunta al mejor objetivo con la recta limpia: el disparo diferido
   // (25-10-2026) da al primero de la recta, aunque sea suyo, así que solo vale el
@@ -915,6 +914,55 @@ function decideAccion(
 
   // Aquí el stack no alcanza a nadie ni puede acercarse: cierra el turno.
   return colaTerminal(acciones);
+}
+
+/**
+ * Dónde lanza `s` su granada (02-11-2026), o `null` si no lanza: de cada casilla a
+ * la que puede, lo que daría hoy su explosión (`explosionDe`, la misma regla que la
+ * explosión): el daño medio a cada enemigo, sin pasar de su vida (`rindeContra`),
+ * menos el doble del de los suyos, él incluido. La de más valor si pasa de 0; en un
+ * empate, la primera del tablero. Sin `rng`: el tablero se mueve hasta que explote, y
+ * esto no se sortea.
+ *
+ * Solo se miran las casillas que alcanzan a algún enemigo, la suya y sus vecinas (una
+ * sin ninguno vale 0 o menos), en el orden del tablero (`indiceDe`), y cada una con la
+ * cuenta de `lanzarBlocker` hecha a mano: con un `throw` en la lista, la regla de
+ * quien lanza ya pasa, y queda la casilla (hallazgo E2 de /simplify, 02-11-2026: eran
+ * las 104 casillas con la regla entera). Lo que da a cada uno en cada cuarto, una vez.
+ */
+function mejorGranada(
+  state: BattleState,
+  s: BattleStack,
+  acciones: readonly BattleAction[],
+): BattleAction | null {
+  if (!acciones.some((a) => a.type === 'throw')) return null;
+  const alcance = alcanceDeLaGranada(s.unit);
+  const candidatas = new Map<number, Hex>();
+  for (const e of enemiesOf(state, s)) {
+    for (const at of [e.hex, ...neighbours(e.hex)]) {
+      if (hexEquals(at, s.hex) || hexDistance(s.hex, at) > alcance) continue;
+      candidatas.set(indiceDe(at), at);
+    }
+  }
+  const danio = new Map<string, number>();
+  const daA = (t: BattleStack, cuarto: number): number => {
+    const clave = `${t.id}:${cuarto}`;
+    const hecho = danio.get(clave);
+    if (hecho !== undefined) return hecho;
+    const pv = expectedDamage(s, t, opcionesDeLaGranada(state, s, t, cuarto));
+    const d = rindeContra(state, t, pv).pv;
+    danio.set(clave, d);
+    return d;
+  };
+  let mejor: { at: Hex; valor: number } | null = null;
+  for (const [, at] of [...candidatas].sort(([a], [b]) => a - b)) {
+    let valor = 0;
+    for (const { stack: t, cuarto } of explosionDe(state, at).alcanzados) {
+      valor += t.side === s.side ? -2 * daA(t, cuarto) : daA(t, cuarto);
+    }
+    if (valor > 0 && (mejor === null || valor > mejor.valor)) mejor = { at, valor };
+  }
+  return mejor === null ? null : { type: 'throw', at: mejor.at };
 }
 
 /**

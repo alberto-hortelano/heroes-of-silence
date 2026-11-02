@@ -46,7 +46,7 @@ import {
   unidadNueva,
   VERSION_DEL_ENLACE,
 } from '../src/core/arena.js';
-import { armaduraDe } from '../src/core/battle/armas.js';
+import { armaduraDe, isShooter } from '../src/core/battle/armas.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
 import { UNIDADES } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
@@ -54,7 +54,6 @@ import {
   COMENTARIO_DEL_CATALOGO_DE_EQUIPO,
   EQUIPO,
   EQUIPO_ESCRITO,
-  isShooter,
   type Pieza,
   type PiezaEscrita,
   RUTA_DEL_CATALOGO_DE_EQUIPO,
@@ -810,7 +809,26 @@ describe('la vista «Editar equipo»', () => {
         );
     // Un arma de cuerpo a cuerpo dice además si es una lanza (25-10-2026).
     expect(campos('espada')).toEqual(['lanza', 'ataque', 'fuerza', 'peso', 'precio-gold']);
-    expect(campos('arco')).toEqual(['ataque', 'fuerza', 'peso', 'precio-gold']);
+    // Una de distancia dice qué tira (02-11-2026): el arma de fuego, su recarga y su
+    // agilidad; la granada, sus cargas; el arco, nada más.
+    expect(campos('arco')).toEqual(['tiro', 'ataque', 'fuerza', 'peso', 'precio-gold']);
+    expect(campos('arcabuz')).toEqual([
+      'tiro',
+      'recarga',
+      'ataque',
+      'fuerza',
+      'agilidad',
+      'peso',
+      'precio-gold',
+    ]);
+    expect(campos('granada')).toEqual([
+      'tiro',
+      'cargas',
+      'ataque',
+      'fuerza',
+      'peso',
+      'precio-gold',
+    ]);
     expect(campos('brigantina')).toEqual(['armadura', 'peso', 'precio-gold']);
     expect(campos('escudo')).toEqual(['defensa', 'peso', 'precio-gold']);
     for (const id of ['espada', 'maza', 'lanza']) {

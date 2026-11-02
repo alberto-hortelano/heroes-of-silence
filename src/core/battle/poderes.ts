@@ -1,13 +1,12 @@
 /**
- * Los poderes de unidad: lo que una unidad de la ARENA usa ella misma en su turno
- * —curar a un aliado, bendecirlo— en vez de golpear (decisión del usuario,
- * 11-10-2026: «Curar y Bendecir», solo en la arena).
+ * Los poderes de unidad: lo que una unidad usa ella misma en su turno —curar a un
+ * aliado— en vez de golpear (decisión del usuario, 11-10-2026: «Curar y
+ * Bendecir»; Bendecir se fue con la suerte, 02-11-2026).
  *
  * Un poder no es una regla nueva: es un hechizo del héroe (`data/spells.json`)
  * con otro lanzador (`Lanzador`, `spells.ts`), así que la cura tiene el mismo tope
- * (`curaDe`) y la Bendición es la MISMA que la del héroe —el mismo origen,
- * `bless`—: dos seguidas, o una del héroe y otra del monje, se refrescan y no se
- * suman (`applyEffect`).
+ * (`curaDe`), y un efecto que dure sería el MISMO que el del héroe —el mismo
+ * origen—: se refrescan y no se suman (`applyEffect`).
  * Lo que es del poder son sus cifras: cuánto cura y cuántas rondas dura, en
  * `data/poderes.json`, inventadas y dichas así en su `_comment`.
  *
@@ -30,7 +29,7 @@ export type { PoderId };
  */
 export interface Poder {
   readonly id: PoderId;
-  /** Como se dice en un botón y en el parte: «Curar», «Bendecir». */
+  /** Como se dice en un botón y en el parte: «Curar». */
   readonly nombre: string;
   /** El nombre de la habilidad que lo da, en `Unidad.habilidades`. */
   readonly habilidad: string;
@@ -45,7 +44,7 @@ const CAMPOS_DEL_PODER = ['id', 'nombre', 'habilidad', 'hechizo', 'cura', 'ronda
  * Valida el catálogo de poderes y lo devuelve tipado; lanza diciendo qué no
  * cuadra y de quién. Exportada con el JSON de argumento para que un test la vea
  * morder: el hechizo tiene que ir a un aliado; uno de curar lleva `cura` y uno de
- * suerte o velocidad lleva `rondas`, y nada más; uno de daño no es un poder.
+ * velocidad lleva `rondas`, y nada más; uno de daño no es un poder.
  */
 export function validarPoderes(
   json: unknown,
@@ -81,7 +80,7 @@ export function validarPoderes(
       }
       return { ...base, lanzador: { cantidad: entero(p.cura, 'la cura', quien, 1), rondas: 0 } };
     }
-    // Suerte o velocidad: dura unas rondas.
+    // Velocidad: dura unas rondas.
     if (p.cura !== undefined) {
       throw new Error(`${quien}: «${hechizo.name}» no cura, así que no lleva «cura»`);
     }
@@ -111,7 +110,7 @@ export function poderSiExiste(id: string): Poder | null {
   return CATALOGO.poderes.find((x) => x.id === id) ?? null;
 }
 
-/** ¿Cura este poder? (Curar sí; Bendecir deja un efecto.) */
+/** ¿Cura este poder? (Curar sí; uno de velocidad deja un efecto.) */
 export function esDeCura(p: Poder): boolean {
   return p.hechizo.kind === 'heal';
 }

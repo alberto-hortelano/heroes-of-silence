@@ -23,14 +23,17 @@ import {
   disparosDe,
   golpeDe,
   golpesDe,
+  perforaLaArmadura,
   porcientoDelTipo,
+  recargaDe,
   ruedaDelGolpe,
+  tiroADistanciaDe,
   trasLaArmadura,
 } from './battle/armas.js';
 import { CARGA, porcientoDeLaCarga } from './battle/carga.js';
 import type { CifrasDeLaRueda } from './battle/cifras-de-la-rueda.js';
 import { RUEDA_DE_REFERENCIA } from './battle/formas-de-la-rueda.js';
-import { isShooter, PODER } from './data.js';
+import { PODER } from './data.js';
 import { raizEntera } from './escala.js';
 import { SPEED_TO_HEXES, type TipoDeGolpe, type UnitInfo, type UsoDeArma } from './types.js';
 
@@ -107,12 +110,34 @@ function medida(u: UnitInfo): Medida | { readonly motivo: string } {
 function ofensaDe(u: UnitInfo): number {
   const cuerpo = golpeMedido(u, 'arma');
   let ofensa = ofensaDelAtaque(u, cuerpo, cuerpo, null);
-  if (isShooter(u)) {
-    const disparo = golpeMedido(u, 'distancia').ofensa * disparosDe(u);
-    ofensa = Math.max(ofensa, Math.floor((disparo * 3) / 2));
+  if (tiroADistanciaDe(u) !== null) {
+    ofensa = Math.max(ofensa, ofensaDelDisparo(u));
   }
   const cobra = 100 + Math.floor(porcientoDeLaCarga(CARGA.tope, CARGA) / 2);
   return Math.max(ofensa, ofensaDelAtaque(u, primeroDeLaCarga(u, cuerpo), cuerpo, cobra));
+}
+
+/**
+ * Lo que pega el disparo de `u` (o su granada), medido: ×3/2 por sus tiros
+ * (`disparosDe`) y, con un arma de fuego (02-11-2026, a ojo, `data/poder.json`),
+ * × `pesoDeLaRecarga / (pesoDeLaRecarga + recarga)` por lo que no dispara mientras
+ * recarga y × `perforacion` por lo que no le para la armadura. La granada, como un
+ * disparo: su área paga sus cargas.
+ */
+function ofensaDelDisparo(u: UnitInfo): number {
+  const disparo = golpeMedido(u, 'distancia').ofensa * disparosDe(u);
+  let num = disparo * 3;
+  let den = 2;
+  const recarga = recargaDe(u);
+  if (recarga > 0) {
+    num *= PODER.pesoDeLaRecarga;
+    den *= PODER.pesoDeLaRecarga + recarga;
+  }
+  if (perforaLaArmadura(u, 'distancia')) {
+    num *= PODER.perforacion[0];
+    den *= PODER.perforacion[1];
+  }
+  return Math.floor(num / den);
 }
 
 /**
@@ -196,7 +221,7 @@ function ofensaDelAtaque(
  */
 function aguanteDe(u: UnitInfo): number {
   const R = PODER.armaduraDeReferencia;
-  const llega = Math.max(trasLaArmadura(R, { unit: u }).danio, Math.floor(R / 4), 1);
+  const llega = Math.max(trasLaArmadura(R, { unit: u }, false).danio, Math.floor(R / 4), 1);
   return Math.floor((u.hp * (10 + u.defense) * R) / llega);
 }
 

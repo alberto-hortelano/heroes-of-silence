@@ -120,6 +120,7 @@ export function decidir(kind: string, payload: any, semilla: number): unknown {
       const elegida =
         acciones.find((a) => a.type === 'power') ??
         acciones.find((a) => a.type === 'aim') ??
+        acciones.find((a) => a.type === 'throw') ??
         acciones.find((a) => a.type === 'attack') ??
         acciones.find((a) => a.type === 'move') ??
         acciones[0];

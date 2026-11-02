@@ -133,9 +133,8 @@ export function vecindad(width: number, height: number): Vecindad {
  * demás, la de la primera que llega en una búsqueda en anchura desde todas a la
  * vez, 8-conexa y en el orden de `VECINAS` (así, un empate lo gana siempre la
  * misma). Devuelve una copia; −1 solo donde no llega ninguna. La usan el relieve
- * (lo encerrado entre barreras, `nivelesDelRelieve`) y el clima, que da a las
- * barreras, los nodos y las ciudades el tiempo de la región de al lado
- * (`regionDelClima`).
+ * (lo encerrado entre barreras, `nivelesDelRelieve`) y, sobre las regiones de un
+ * mapa en juego, `regionMasCercana`.
  */
 export function laMasCercana(region: Int32Array, width: number, height: number): Int32Array {
   const { desde, vecinas } = vecindad(width, height);
@@ -152,6 +151,28 @@ export function laMasCercana(region: Int32Array, width: number, height: number):
     }
   }
   return c;
+}
+
+const regionesMasCercanas = new WeakMap<MapaDeRed, Int32Array>();
+
+/**
+ * La región de cada casilla de un mapa (índice `y*width+x`, en `map.regions`): la
+ * de `estructura` y, en las barreras, los nodos y los recintos, la de la región
+ * más cercana (`laMasCercana`). −1 solo en un mapa sin regiones. Memorizada por
+ * mapa, como `estructura`.
+ *
+ * Es un hecho con dos lectores, y por eso vive aquí y no en ninguno de ellos: el
+ * clima (cada frente cae en una cordillera o un río, y una ciudad tiene el tiempo
+ * de alrededor) y la niebla (`zonaDeNiebla`: la cordillera de una región se
+ * descubre con ella). Vivía en `state/clima.ts` hasta que la niebla por regiones
+ * (02-11-2026) la necesitó desde `game.ts`, que el clima importa.
+ */
+export function regionMasCercana(map: MapaDeRed): Int32Array {
+  const hecha = regionesMasCercanas.get(map);
+  if (hecha !== undefined) return hecha;
+  const region = laMasCercana(estructura(map).regionDe, map.width, map.height);
+  regionesMasCercanas.set(map, region);
+  return region;
 }
 
 /**

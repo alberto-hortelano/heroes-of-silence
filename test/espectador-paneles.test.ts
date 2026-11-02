@@ -127,23 +127,6 @@ describe('el panel de batalla del espectador', () => {
     expect(salida).toMatch(/<div>Aniquilada la unidad [^<]+, del atacante<\/div>/);
     expect(salida).toContain('<div>Fin: gana el atacante</div>');
   });
-
-  it('la etiqueta `suerte` también se pinta — el hueco M-7 del ancla', () => {
-    // `ETIQUETA_EFECTO` tiene tres entradas y el ancla solo pinta dos: una
-    // partida normal no reparte efectos de suerte. Se cubre aquí en vez de
-    // mover el ancla, que ancla otra cosa.
-    const { vista } = contraUnNeutral(1);
-    const estado = vista.battle?.estado as BattleState;
-    estado.log.push({
-      kind: 'effect',
-      stack: estado.stacks[0]!.id,
-      effect: 'luck',
-      amount: 1,
-      source: 'haste',
-      rounds: 2,
-    });
-    expect(marcadoDe(batalla(vista))).toContain('suerte +1 durante 2 rondas');
-  });
 });
 
 describe('el fin de la partida en el panel', () => {

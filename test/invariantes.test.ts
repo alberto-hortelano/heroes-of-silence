@@ -80,12 +80,7 @@ import { describe, expect, it } from 'vitest';
 import { playAiGame } from '../src/core/ai/turn.js';
 import { stackSpeed } from '../src/core/battle/battle.js';
 import { effectiveAttack, effectiveDefense } from '../src/core/battle/damage.js';
-import {
-  applyEffect,
-  EFFECT_KINDS,
-  type EffectKind,
-  effectiveLuck,
-} from '../src/core/battle/effects.js';
+import { applyEffect, EFFECT_KINDS, type EffectKind } from '../src/core/battle/effects.js';
 import { formaDeLaBatalla } from '../src/core/battle/formas-de-la-rueda.js';
 import type { BattleStack } from '../src/core/battle/types.js';
 import { UNIDADES, unidadDelJuego } from '../src/core/catalogo.js';
@@ -622,7 +617,6 @@ const MATH_PERMITIDO = ['min', 'max', 'floor', 'ceil', 'abs', 'round', 'imul'] a
  */
 const LECTORES_DE_EFECTO: Readonly<Record<string, (s: BattleStack) => number>> = {
   speed: stackSpeed,
-  luck: effectiveLuck,
   attack: (s) => effectiveAttack(s),
   // La rueda del golpe (Defensivo y Romper guardia).
   defense: (s) => effectiveDefense(s),
@@ -645,10 +639,12 @@ function stackDePrueba(): BattleStack {
     retaliated: false,
     acted: false,
     morale: 0,
-    luck: 0,
     effects: [],
     ganado: { experiencia: 0, bajas: 0, heroes: [] },
     apuntado: null,
+    recargando: 0,
+    granada: null,
+    granadasLanzadas: 0,
   };
 }
 
@@ -1347,7 +1343,7 @@ describe('invariantes del proyecto', () => {
     // y quien busca uno lo busca por id). Y los poderes
     // (`UnitInfo.poderes`) solo los escribe el formato de la unidad
     // (`core/unidad.ts`, de sus habilidades): desde F3 (19-10-2026) también en el
-    // juego, cuyo catálogo es el de la arena (el monje trae Curar y Bendecir).
+    // juego, cuyo catálogo es el de la arena (el monje trae Curar).
     // Ni el catálogo en partida (`catalogo.ts`) ni la ficha del agente los
     // escriben aparte. Roto a mano: un `state.stacks[0] = s` en `battle.ts`, un
     // `fichasDeArena: {}` en `state/game.ts`, un `{ ...c, poderes }` en `data.ts` y
@@ -1819,6 +1815,43 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo(['src/core/hero/equipo.ts'], lee)).not.toEqual([]);
   });
 
+  it('las armas de fuego y las granadas: lo que tira lo leen tres módulos y la recarga y las granadas de un stack las escribe la batalla', () => {
+    // 02-11-2026, «armas de fuego y granadas». Dos partes, cada una rota a mano y
+    // vista en rojo:
+    //  (a) lo que tira una pieza o un golpe (`.tiro`: `Pieza.tiro` y
+    //      `GolpeConArma.tiro`) lo leen solo `data.ts` (la regla de la pieza y
+    //      `lanzaGranadas`), `hero/equipo.ts` (`tiroDelGolpe`, que lo lleva a la
+    //      unidad) y `battle/armas.ts` (`perforaLaArmadura`, `recargaDe`,
+    //      `cargasDe`). Una pantalla o una IA que mirara la pieza tendría su propia
+    //      regla de quién perfora o cuánto recarga. Roto: un `p.tiro` en
+    //      `damage.ts`, rojo.
+    //  (b) la recarga que le falta a un stack (`recargando`), su granada en el aire
+    //      (`granada`) y las que ha lanzado (`granadasLanzadas`) los escribe solo
+    //      `battle.ts`: el disparo, el lanzamiento, la explosión y el cierre del
+    //      turno. Quien los escribiera por su cuenta daría disparos o granadas sin
+    //      regla. Roto: un `s.recargando = 0` en `tactics.ts`, rojo.
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
+    const LEEN = ['src/core/data.ts', 'src/core/hero/equipo.ts', 'src/core/battle/armas.ts'];
+    const lee = /\.tiro\b/;
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => !LEEN.includes(r)),
+        lee,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo(['src/core/battle/armas.ts'], lee)).not.toEqual([]);
+
+    const ESCRIBE = 'src/core/battle/battle.ts';
+    const escribe = /\.(recargando|granada|granadasLanzadas)\s*(\+|-)?=(?!=)/;
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => r !== ESCRIBE),
+        escribe,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([ESCRIBE], escribe)).not.toEqual([]);
+  });
+
   it('la montura: la pone solo `conEquipo`, la carga montada la cuenta solo `cifrasDelCuerpo` y «charge» ya no es un rasgo', () => {
     // 26-10-2026, «vamos a separar la montura del personaje». Cuatro partes, cada
     // una rota a mano y vista en rojo:
@@ -2253,14 +2286,37 @@ describe('invariantes del proyecto', () => {
     // lee el estado. Sin esto, un patrón que no casara nada pasaría por vacío.
     // Lo que NO ve: un filtro sobre la lista con otro nombre (`vistos.filter`)
     // o un `continue` dentro de un bucle. Lo primero lo para el tipo, que el
-    // `.filter` pierde; lo segundo, en el lienzo, decide dónde se pinta un
-    // grupo —entre los volúmenes o sobre la niebla—, no si se ve.
+    // `.filter` pierde; lo segundo, en el lienzo, recorta a la cámara, no decide
+    // si se ve.
     expect(
       infractoresDeCodigo(['src/core/state/asaltantes.ts'], /\braiders\s*\.\s*filter\s*\(/),
     ).not.toEqual([]);
     expect(
       infractoresDeCodigo(['src/server/vista-espectador.ts'], /\bstate\.raiders\b/),
     ).not.toEqual([]);
+  });
+
+  it('lo explorado lo escriben solo `descubrir` y `revealEverything`', () => {
+    // La niebla por regiones (02-11-2026): una región se descubre ENTERA o no se
+    // descubre, y si está descubierta se lee de una casilla suya (`regionDescubierta`).
+    // Quien marcara `fog` a trozos —el cuadrado de un héroe, como antes— dejaría
+    // regiones a medias que la niebla daría por enteras o por vírgenes, y
+    // refrescaría `memory` desde lejos. Escribir es marcar o borrar en un `fog`.
+    const escritura =
+      /\bfog\s*\.\s*(?:add|delete|marcarCuadrado|marcarCuadradoDentroDe|marcarIndices)\s*\(/;
+    const conPermiso = lineasDeLasDeclaraciones('src/core/state/game.ts', [
+      'descubrir',
+      'revealEverything',
+    ]);
+    const fuera = infractoresDeCodigo([...CORE, ...CLIENTE, ...SERVIDOR], escritura).filter((l) => {
+      const [ruta, linea] = l.split(' → ')[0]!.split(':');
+      return !(ruta === 'src/core/state/game.ts' && conPermiso.has(Number(linea)));
+    });
+    expect(fuera).toEqual([]);
+    // Y que mire algo: los dos escriben.
+    expect(
+      infractoresDeCodigo(['src/core/state/game.ts'], escritura).length,
+    ).toBeGreaterThanOrEqual(3);
   });
 
   it('qué héroe se ve y qué se sabe de un objeto lo deciden `heroesALaVista` y `objetosConocidos`', () => {

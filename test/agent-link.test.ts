@@ -2448,7 +2448,7 @@ describe('identidad de la partida (#118)', () => {
 describe('la rueda del golpe por el contrato (F6)', () => {
   /**
    * El héroe del agente (jugador 0) con tres templarios de escudo y un monje
-   * (Curar y Bendecir), contra cuatro templarios de mandoble que le pegan cuerpo a
+   * (Curar), contra cuatro templarios de mandoble que le pegan cuerpo a
    * cuerpo: la batalla trae golpes del agente, respuestas que se le piden y
    * poderes. `responder` contesta lo de batalla; el mapa, ir al monstruo una vez.
    */
@@ -2458,13 +2458,15 @@ describe('la rueda del golpe por el contrato (F6)', () => {
     plazoMs = 4000,
   ) {
     let ido = false;
+    // El monstruo que se pone abajo, por su id: el primero de `knownMap.objects`
+    // es el primero que su dueño vio, y desde la niebla por regiones (02-11-2026)
+    // eso ya no es el primero del mapa.
+    let objetivo = '';
     const { link, agent } = await montar((kind, payload) => {
       if (kind === 'adventure_turn') {
         if (ido) return { actions: [] };
         ido = true;
-        const monstruo = payload.knownMap.objects.find(
-          (o: any) => o.kind === 'monster' && !o.defeated,
-        );
+        const monstruo = payload.knownMap.objects.find((o: any) => o.id === objetivo);
         return { actions: [{ type: 'move_hero', hero: payload.heroes[0].id, to: monstruo.at }] };
       }
       return batalla(kind, payload);
@@ -2474,7 +2476,7 @@ describe('la rueda del golpe por el contrato (F6)', () => {
     sinGuarnicionDeSalida(director.state);
     sinAsaltantes(director.state);
     sinRecogidas(director.state);
-    ponerMonstruo(director.state, PESADA, 4);
+    objetivo = ponerMonstruo(director.state, PESADA, 4).id;
     const heroe = director.state.heroes[0]!;
     heroe.army = ejercito({ creature: TROPA, count: 3 }, { creature: SANADOR, count: 1 });
     heroe.movePoints = 20000;
@@ -2523,12 +2525,12 @@ describe('la rueda del golpe por el contrato (F6)', () => {
     expect(poderes.length).toBeGreaterThan(0);
     expect(nota(poderes[0]!.requestId)).toMatchObject({ ok: true });
     expect(nota(poderes[0]!.requestId)?.note).toMatch(
-      /^attacker-\d+: power (curar|bendecir) sobre attacker-\d+, aplicada\.$/,
+      /^attacker-\d+: power curar sobre attacker-\d+, aplicada\.$/,
     );
     const monje = poderes[0]!.payload.stacks.find(
       (x: any) => x.id === poderes[0]!.payload.activeStack,
     );
-    expect(monje.powers).toEqual(['curar', 'bendecir']);
+    expect(monje.powers).toEqual(['curar']);
 
     // La respuesta: se pide para una unidad suya, sin el golpe del otro, con los siete tipos.
     const respuestas = agent.seen.filter((p) => p.kind === 'battle_response');

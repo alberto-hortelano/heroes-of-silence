@@ -287,14 +287,12 @@ describe('sesión del cliente: reclutar lo que cabe y ver la ruta entera', () =>
     });
   });
 
-  it('lo que ve el héroe ahora está explorado, y lo visible se rehace al moverse', () => {
-    // Decía «lo visible es un subconjunto de lo explorado», y era verdad por
-    // casualidad: con el castillo en (3,3) y el héroe en (4,4), el cuadrado de
-    // 5 del castillo y el de 4 del héroe llegaban a la misma columna. El
-    // castillo **no despeja niebla** —`TOWN_SCOUT_RADIUS` alimenta
-    // `visibleNow` y no `fog`, y está escrito allí—, así que en cuanto el mapa
-    // de nodos movió la base, su borde quedó visible sin explorar. Lo que sí
-    // tiene que estar explorado es lo que ve el héroe.
+  it('lo que ve el héroe ahora es su cuadrado sobre lo explorado, y lo visible se rehace al moverse', () => {
+    // Decía «lo visible es un subconjunto de lo explorado» y comprobaba que todo
+    // el cuadrado del héroe estuviera explorado. Desde la niebla por regiones
+    // (02-11-2026) el radio ya no explora: lo explorado son regiones enteras y lo
+    // que se mira es el radio sobre ellas, así que de su cuadrado se ve justo lo
+    // explorado, y nada fuera de lo explorado se ve.
     const s = new Session(7);
     const fog = s.state.players[0]!.fog;
     const antes = s.visibles();
@@ -302,10 +300,8 @@ describe('sesión del cliente: reclutar lo que cabe y ver la ruta entera', () =>
     const delHeroe = Casillas.vacias(s.state.map);
     delHeroe.marcarCuadrado(heroe0.at, HERO_SCOUT_RADIUS);
     expect(delHeroe.size).toBeGreaterThan(0);
-    for (const k of delHeroe) {
-      expect(antes.has(k)).toBe(true);
-      expect(fog.has(k)).toBe(true);
-    }
+    for (const k of delHeroe) expect(antes.has(k), `(${k.x},${k.y})`).toBe(fog.has(k));
+    for (const k of antes) expect(fog.has(k)).toBe(true);
     expect(s.visibles()).toBe(antes); // la caché: el mismo objeto sin cambios
     const heroe = s.selectedHero!;
     // Un destino a dos pasos que de verdad se pise: a dos casillas a la derecha
@@ -537,7 +533,7 @@ describe('los asaltantes que se ven y la marcha que se para (#130)', () => {
  * atacan (#116). Antes, la IA elegía por ella a ciegas y resolvía sus defensas.
  */
 describe('los poderes de la tropa en la batalla del mapa (F6)', () => {
-  it('el monje de la persona usa Bendecir: el botón, el aliado que se elige y la jugada', () => {
+  it('el monje de la persona usa Curar: el botón, el aliado que se elige y la jugada', () => {
     // Hasta F6 el panel de la partida decía «su tropa no tiene poderes» aunque el
     // monje los trajera (`poderes: NADA`). Ahora son los botones de la arena
     // (`botonesDePoder`) y el gesto, el mismo (`PoderesDeLaActiva`).
@@ -547,6 +543,13 @@ describe('los poderes de la tropa en la batalla del mapa (F6)', () => {
     const s = sesionContraMonstruoCon(
       ejercito({ creature: SANADOR, count: 1 }, { creature: PESADA, count: 2 }),
     );
+    // Los dos pesados, heridos de salida: con más de un aliado que curar, el botón
+    // espera el clic (Bendecir, que iba a todo aliado, se fue con la suerte).
+    for (const x of s.battle!.stacks) {
+      if (x.side === s.miBando && x.unit.poderes === undefined && x.origen.kind !== 'heroe') {
+        x.topHp -= 3;
+      }
+    }
     const conPoderes = () => (s.turnoPropio?.stack.unit.poderes?.length ?? 0) > 0;
     for (let i = 0; i < 40 && !conPoderes(); i++) {
       if (s.ruedaPendiente !== null) s.elegirEnLaRueda('normal');
@@ -556,29 +559,26 @@ describe('los poderes de la tropa en la batalla del mapa (F6)', () => {
     expect(conPoderes()).toBe(true);
     const panel = marcadoDe(renderSide(s));
     expect(panel).toContain('data-action="battle-poder" data-poder="curar"');
-    expect(panel).toContain('data-action="battle-poder" data-poder="bendecir"');
-    // Cada uno con su ayuda o su motivo: Curar, sobre el único herido, con su previsión.
+    // Con su ayuda o su motivo.
     expect(panel).toMatch(/data-poder="curar" class="poder"(?: disabled)? title="[^"]+"/);
 
-    // Con varios aliados posibles, el botón deja Bendecir esperando el clic.
-    const aliados = s
-      .battleLegalActions()
-      .filter((a) => a.type === 'power' && a.poder === 'bendecir');
+    // Con varios aliados posibles, el botón deja Curar esperando el clic.
+    const aliados = s.battleLegalActions().filter((a) => a.type === 'power' && a.poder === 'curar');
     expect(aliados.length).toBeGreaterThan(1);
     const version = s.version;
-    s.poderes.usar('bendecir');
-    expect(s.apuntado).toEqual({ kind: 'poder', id: 'bendecir' });
+    s.poderes.usar('curar');
+    expect(s.apuntado).toEqual({ kind: 'poder', id: 'curar' });
     expect(s.status).toContain('Elige el aliado');
     expect(s.version).toBeGreaterThan(version);
-    expect(marcadoDe(renderSide(s))).toContain('data-poder="bendecir" class="poder primary"');
+    expect(marcadoDe(renderSide(s))).toContain('data-poder="curar" class="poder primary"');
     // Un enemigo no vale, y lo dice el núcleo.
     const enemigo = s.battle!.stacks.find((x) => x.side !== s.miBando && x.count > 0)!;
-    expect(s.rechazoDeLoApuntado(enemigo.id)).toBe('«Bendecir» va dirigido a un aliado.');
+    expect(s.rechazoDeLoApuntado(enemigo.id)).toBe('«Curar» va dirigido a un aliado.');
     // Y sobre un aliado se juega: el registro lo cuenta y lo apuntado se suelta.
     const monje = s.turnoPropio!.stack.id;
     s.playBattleAction(aliados[0]!);
     const hecho = s.battle!.log.find((e) => e.kind === 'power');
-    expect(hecho).toMatchObject({ kind: 'power', stack: monje, poder: 'bendecir' });
+    expect(hecho).toMatchObject({ kind: 'power', stack: monje, poder: 'curar' });
     expect(s.apuntado).toBeNull();
   });
 });

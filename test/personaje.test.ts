@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
+import { isShooter } from '../src/core/battle/armas.js';
 import {
   type BattleMember,
   type BattleSide,
@@ -9,7 +10,7 @@ import {
 import type { BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { isShooter } from '../src/core/data.js';
+
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { cifrasDelIndividuo } from '../src/core/hero/experiencia.js';
 
@@ -151,7 +152,6 @@ describe('del personaje a las cifras de combate', () => {
       speed: 'fast',
       tira: true,
       morale: 0,
-      luck: 1,
     },
     // F12 R12
     Guerrero: {
@@ -162,7 +162,6 @@ describe('del personaje a las cifras de combate', () => {
       speed: 'average',
       tira: false,
       morale: 0,
-      luck: 1,
     },
     // I12 V12
     Mago: {
@@ -173,7 +172,6 @@ describe('del personaje a las cifras de combate', () => {
       speed: 'average',
       tira: false,
       morale: 1,
-      luck: 1,
     },
     // V13 P13
     Sanador: {
@@ -184,7 +182,6 @@ describe('del personaje a las cifras de combate', () => {
       speed: 'average',
       tira: false,
       morale: 1,
-      luck: 1,
     },
   } as const;
 
@@ -203,7 +200,6 @@ describe('del personaje a las cifras de combate', () => {
         speed: u.speed,
         tira: isShooter(u),
         morale: p.morale,
-        luck: p.luck,
       }).toEqual(e);
       expect(p.unit).toMatchObject({ name: 'Aren', faction: null });
       expect(p.unit.traits ?? []).toEqual([]);
@@ -212,7 +208,8 @@ describe('del personaje a las cifras de combate', () => {
     });
   }
 
-  for (const atributo of ATTRIBUTES) {
+  // La percepción movía la suerte y se quedó sin nada al quitarla (02-11-2026).
+  for (const atributo of ATTRIBUTES.filter((a) => a !== 'percepcion')) {
     it(`subir ${atributo} cambia alguna cifra que se juega`, () => {
       // Guerrero: ningún atributo pasa de 16 al subirle 4 al reparto por defecto.
       const base = personaje('Guerrero');
@@ -312,13 +309,12 @@ describe('un personaje en el tablero', () => {
     expect(s.unit.name).toBe('Aren');
   });
 
-  it('su moral y su suerte son las suyas más las del bando, recortadas', () => {
-    const mago = personaje('Mago'); // moral 1, suerte 1
-    const lado: BattleSide = { ...ladoDe(mago), moraleBonus: 3, luckBonus: -1 };
+  it('su moral es la suya más la del bando, recortada', () => {
+    const mago = personaje('Mago'); // moral 1
+    const lado: BattleSide = { ...ladoDe(mago), moraleBonus: 3 };
     const s = createBattle(lado, zombi, rng(), COMBATE_COMPLETO).stacks.find(esPersonaje('Mago'))!;
     // Ejército solo de personajes: ninguna facción, sin el +1 de unidad.
     expect(s.morale).toBe(3); // 0 + 3 + 1 → recortado a 3
-    expect(s.luck).toBe(0); // −1 + 1
   });
 
   it('un personaje no suma ni rompe la unidad de facción del ejército', () => {

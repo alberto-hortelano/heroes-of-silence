@@ -32,8 +32,6 @@ import {
   casillasPeligrosas,
   dondeBrotan,
   emboscadaEnLaRuta,
-  grupoALaVista,
-  grupoALaVistaDesde,
   mascaraDeOcupacion,
   pasoDePatrulla,
   pasosDeLaPatrulla,
@@ -52,11 +50,11 @@ import {
   currentPlayer,
   type GameState,
   heroesOf,
-  miradasDe,
   resolvePendingBattle,
   revealEverything,
   sidesOwnedBy,
   visibleNow,
+  visibleNowAt,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { Point } from '../src/core/types.js';
@@ -391,37 +389,35 @@ describe('dispersarse y brotar', () => {
 });
 
 describe('la IA teme lo que vio (#164)', () => {
-  /** Todas las casillas de la región de `at`: mirarla entera. */
-  const laRegion = (state: GameState, at: Point): Casillas => {
-    const { regionDe } = estructura(state.map);
-    const r = regionDeCasilla(state.map, at);
-    const indices: number[] = [];
-    for (let i = 0; i < regionDe.length; i++) if (regionDe[i] === r) indices.push(i);
-    return Casillas.deIndices(state.map, indices);
+  /** Solo la casilla `at`: mirarla a ella (un grupo se ve por su casilla, 02-11-2026). */
+  const laCasilla = (state: GameState, at: Point): Casillas => {
+    const sola = Casillas.vacias(state.map);
+    sola.add(at);
+    return sola;
   };
 
-  it('se apunta al ver su región, se recuerda sin mirarla y se olvida al mirarla sin él', () => {
+  it('se apunta al ver su casilla, se recuerda sin mirarla y se olvida al mirarla sin él', () => {
     const state = newGame({ seed: 5 });
     const grupo = state.raiders[0]!;
     const recuerdo = new Map<string, AsaltanteRecordado>();
-    // Mirar otra región no apunta nada de este grupo.
+    // Mirar la casilla de otro grupo no apunta nada de este.
     const otro = state.raiders.find(
       (r) => regionDeCasilla(state.map, r.at) !== regionDeCasilla(state.map, grupo.at),
     )!;
-    recordarAsaltantes(state, recuerdo, laRegion(state, otro.at));
+    recordarAsaltantes(state, recuerdo, laCasilla(state, otro.at));
     expect(recuerdo.has(grupo.id)).toBe(false);
 
-    recordarAsaltantes(state, recuerdo, laRegion(state, grupo.at));
+    recordarAsaltantes(state, recuerdo, laCasilla(state, grupo.at));
     expect(recuerdo.get(grupo.id)).toEqual({
       day: state.day,
       grupo: { id: grupo.id, at: grupo.at, troops: grupo.troops },
     });
     // Sin mirarla: aunque se vaya, se sigue recordando.
     state.raiders = state.raiders.filter((r) => r !== grupo);
-    recordarAsaltantes(state, recuerdo, laRegion(state, otro.at));
+    recordarAsaltantes(state, recuerdo, laCasilla(state, otro.at));
     expect(recuerdo.has(grupo.id)).toBe(true);
     // Mirándola y sin él: se olvida.
-    recordarAsaltantes(state, recuerdo, laRegion(state, grupo.at));
+    recordarAsaltantes(state, recuerdo, laCasilla(state, grupo.at));
     expect(recuerdo.has(grupo.id)).toBe(false);
   });
 
@@ -434,7 +430,7 @@ describe('la IA teme lo que vio (#164)', () => {
     recuerdo.clear();
     expect(casillasPeligrosas(state, hero, recuerdo)?.[i]).toBeUndefined();
     const sinSaber = alcanceDelHeroe(state, hero, { evitarEmboscadas: true });
-    recordarAsaltantes(state, recuerdo, laRegion(state, grupo.at));
+    recordarAsaltantes(state, recuerdo, laCasilla(state, grupo.at));
     expect(casillasPeligrosas(state, hero, recuerdo)?.[i]).toBe(1);
     const sabiendo = alcanceDelHeroe(state, hero, { evitarEmboscadas: true });
     expect(sabiendo.descubiertas.length).toBeLessThan(sinSaber.descubiertas.length);
@@ -710,8 +706,8 @@ describe('lo que el castillo ve se pinta (H1)', () => {
           `semilla ${semilla}: (${cosa.at.x},${cosa.at.y}) se ve sobre lo no explorado`,
         ).not.toBeNull();
       }
-      // Un grupo sí puede: se ve porque se ve su región (#130), y su casilla
-      // puede seguir en la niebla. El terreno no se regala por eso.
+      // Tampoco un grupo: se ve por su casilla, y solo sobre lo explorado
+      // (02-11-2026; desde #130 hasta entonces, por su región y sobre el negro).
       for (const r of km.raiders) {
         if (km.terrain[r.at.y * km.width + r.at.x] === null) sobreLaNiebla++;
       }
@@ -720,7 +716,7 @@ describe('lo que el castillo ve se pinta (H1)', () => {
     // entre ellos, alguno que embosca, que es el que la persona pisaba a ciegas.
     expect(vistos).toBeGreaterThan(20);
     expect(emboscadores).toBeGreaterThan(0);
-    expect(sobreLaNiebla).toBeGreaterThan(0);
+    expect(sobreLaNiebla).toBe(0);
   });
 
   it('jugando, lo que se ve ahora está siempre explorado: también tras capturar un castillo', async () => {
@@ -747,6 +743,8 @@ describe('lo que el castillo ve se pinta (H1)', () => {
           for (const obj of state.map.objects) {
             if (Math.max(Math.abs(obj.at.x - town.at.x), Math.abs(obj.at.y - town.at.y)) > 5)
               continue;
+            // Lo que no se ha explorado no se mira, aunque caiga en el radio.
+            if (!actual.fog.has(obj.at)) continue;
             recuerdos++;
             expect(actual.memory.get(obj.id), `${obj.id} junto a ${town.id}`).toEqual({
               day: state.day,
@@ -799,10 +797,11 @@ describe('la ruta que pisa una emboscada (H2)', () => {
   });
 });
 
-describe('qué grupo se ve: basta ver su región (#130)', () => {
+describe('qué grupo se ve: si se mira su casilla (02-11-2026)', () => {
   /**
    * La primera semilla con un grupo cuya región se ve el día 1 y cuya casilla
-   * no: el caso que la regla nueva cambia. Buscado, no escrito a mano.
+   * no: el caso que separa la regla de hoy (la casilla, el radio de quien mira)
+   * de la de #130 (la región). Buscado, no escrito a mano.
    */
   function grupoPorSuRegion() {
     for (let seed = 1; seed <= 60; seed++) {
@@ -815,19 +814,20 @@ describe('qué grupo se ve: basta ver su región (#130)', () => {
         if (casilla !== undefined) return { state, raider, mirando, casilla };
       }
     }
-    throw new Error('ningún grupo se ve por su región y no por su casilla en 60 semillas');
+    throw new Error('ningún grupo tiene su región a la vista y su casilla no en 60 semillas');
   }
 
-  it('una casilla de su región a la vista basta, aunque la suya no se vea', () => {
+  it('su casilla a la vista basta; una casilla de su región, no', () => {
     const { state, raider, mirando, casilla } = grupoPorSuRegion();
-    expect(asaltantesALaVista(state, mirando).map((r) => r.id)).toContain(raider.id);
-    // Solo esa casilla: se ve él y los de su región, nadie más.
-    const region = regionDeCasilla(state.map, raider.at);
-    const sola = Casillas.vacias(state.map);
-    sola.add(casilla);
-    const vistos = asaltantesALaVista(state, sola);
-    expect(vistos.map((r) => r.id)).toContain(raider.id);
-    for (const r of vistos) expect(regionDeCasilla(state.map, r.at)).toBe(region);
+    expect(asaltantesALaVista(state, mirando).map((r) => r.id)).not.toContain(raider.id);
+    // Otra casilla de su región: no se ve.
+    const otra = Casillas.vacias(state.map);
+    otra.add(casilla);
+    expect(asaltantesALaVista(state, otra).map((r) => r.id)).not.toContain(raider.id);
+    // La suya: se ve él, y solo los que están en ella.
+    const suya = Casillas.vacias(state.map);
+    suya.add(raider.at);
+    expect(asaltantesALaVista(state, suya).map((r) => r.id)).toEqual([raider.id]);
     // Sin mirar nada, ninguno; con «Ver mapa entero», todos.
     expect(asaltantesALaVista(state, Casillas.vacias(state.map))).toEqual([]);
     expect(asaltantesALaVista(state, null).map((r) => r.id)).toEqual(
@@ -835,7 +835,7 @@ describe('qué grupo se ve: basta ver su región (#130)', () => {
     );
   });
 
-  it('la ruta avisa de un grupo cuya casilla no se ve si se ve su región', () => {
+  it('la ruta no avisa de un grupo cuya casilla no se ve, aunque se vea su región', () => {
     const { state, raider, mirando } = grupoPorSuRegion();
     const hero = heroesOf(state, 0)[0]!;
     // Lo bastante débil para que el grupo le saque el margen: aquí se mira qué se
@@ -849,11 +849,9 @@ describe('qué grupo se ve: basta ver su región (#130)', () => {
     const destino = { x: i % state.map.width, y: Math.floor(i / state.map.width) };
     const camino = caminoHasta(state, hero, destino);
     if (camino === null) throw new Error('no hay camino a la región del grupo');
-    const aviso = emboscadaEnLaRuta(state, hero, camino, asaltantesALaVista(state, mirando));
-    expect(aviso).not.toBeNull();
-    expect(regionDeCasilla(state.map, aviso!.raider.at)).toBe(
-      regionDeCasilla(state.map, camino[aviso!.paso]!.at),
-    );
+    expect(emboscadaEnLaRuta(state, hero, camino, asaltantesALaVista(state, mirando))).toBeNull();
+    // Con todo a la vista, avisa: el grupo sí la emboscaría.
+    expect(emboscadaEnLaRuta(state, hero, camino, asaltantesALaVista(state, null))).not.toBeNull();
   });
 
   it('el agente lee la misma regla: `knownMap.raiders` es `asaltantesALaVista`', () => {
@@ -868,33 +866,33 @@ describe('qué grupo se ve: basta ver su región (#130)', () => {
     }
   });
 
-  it('sin el `Set`, desde las miradas del jugador, es la misma regla grupo a grupo', async () => {
-    // `grupoALaVistaDesde` (la crónica y la parada de la marcha) recorre los
-    // cuadrados de visión en vez de levantar las claves: dos escrituras de la
-    // misma regla, atadas aquí. Con la partida avanzada unos días, para que
-    // haya héroes lejos de casa y grupos que se ven solo por su región.
-    let porSuRegion = 0;
+  it('casilla a casilla (`visibleNowAt`, la crónica, la marcha y la IA) es la misma regla grupo a grupo', async () => {
+    // `visibleNowAt` recorre las miradas en vez de levantar las casillas: dos
+    // escrituras de la misma regla, atadas aquí. Con la partida avanzada unos
+    // días, para que haya héroes lejos de casa y grupos a la vista y fuera de ella.
+    let vistos = 0;
+    let noVistos = 0;
     for (let seed = 1; seed <= 20; seed++) {
       const state = newGame({ seed });
       for (let turno = 0; turno < 6 && state.finished === null; turno++) {
         await playAiTurn(state, { rng: createRng(seed * 100 + turno) });
       }
       for (const p of [0, 1] as const) {
-        const mirando = visibleNow(state, p);
-        const seVe = grupoALaVista(state.map, mirando);
-        const miradas = miradasDe(state, p);
+        const seVen = asaltantesALaVista(state, visibleNow(state, p));
         for (const r of state.raiders) {
-          const desde = grupoALaVistaDesde(state.map, miradas, r.at);
-          expect(desde, `semilla ${seed}, ${r.id}, jugador ${p}`).toBe(seVe(r.at));
-          if (desde && !mirando.has(r.at)) porSuRegion++;
+          const desde = visibleNowAt(state, p, r.at);
+          expect(desde, `semilla ${seed}, ${r.id}, jugador ${p}`).toBe(seVen.includes(r));
+          if (desde) vistos++;
+          else noVistos++;
         }
       }
     }
-    expect(porSuRegion).toBeGreaterThan(0);
+    expect(vistos).toBeGreaterThan(0);
+    expect(noVistos).toBeGreaterThan(0);
   });
 
-  it('la crónica sella el brote con la misma regla: se entera quien ve su región', () => {
-    let deLejos = 0;
+  it('la crónica sella el brote con la misma regla: se entera quien mira su casilla', () => {
+    let sellados = 0;
     for (let seed = 1; seed <= 20; seed++) {
       const state = newGame({ seed });
       for (const e of state.log) {
@@ -903,12 +901,10 @@ describe('qué grupo se ve: basta ver su región (#130)', () => {
         for (const p of [0, 1] as const) {
           const loVe = asaltantesALaVista(state, visibleNow(state, p)).includes(grupo);
           expect(e.seen.includes(p), `semilla ${seed}, ${e.raider}, jugador ${p}`).toBe(loVe);
-          if (loVe && !visibleNow(state, p).has(grupo.at)) deLejos++;
+          sellados++;
         }
       }
     }
-    // Que alguno se vea por su región y no por su casilla, o esto no probaría
-    // la regla nueva.
-    expect(deLejos).toBeGreaterThan(0);
+    expect(sellados).toBeGreaterThan(0);
   });
 });

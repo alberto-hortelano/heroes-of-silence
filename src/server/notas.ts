@@ -855,6 +855,8 @@ export function describeAccion(accion: BattleAction | AccionDelAgente): string {
       return `ataque a ${accion.target}${'golpe' in accion && accion.golpe !== undefined ? ` con "${HIT_DE_GOLPE[accion.golpe]}"` : ''}`;
     case 'aim':
       return `apuntar a (${accion.at.col},${accion.at.row})`;
+    case 'throw':
+      return `lanzar una granada a (${accion.at.col},${accion.at.row})`;
     case 'cast':
       return `hechizo ${accion.spell}${accion.target === undefined ? '' : ` sobre ${accion.target}`}`;
     case 'surrender':

@@ -62,7 +62,7 @@ import {
   validarHeroeDeArena,
 } from '../src/core/arena.js';
 import { FORMAS_DE_EJEMPLO, validarFormaDeMuralla } from '../src/core/arena-murallas.js';
-import { armaduraDe } from '../src/core/battle/armas.js';
+import { armaduraDe, isShooter } from '../src/core/battle/armas.js';
 import {
   activeStack,
   applyAction,
@@ -82,7 +82,6 @@ import { escalonDeCasillas } from '../src/core/cuerpo.js';
 import {
   CATALOGO_DE_HABILIDADES,
   EQUIPO_ESCRITO,
-  isShooter,
   LIDERAZGO,
   type Pieza,
   validarPieza,
@@ -887,7 +886,7 @@ describe('corrección de hallazgos de QA', () => {
     const s = sesion(ia(unidad('templario-escudo')), ia(unidad('orko-dos-armas')), 5);
     // Recién montada, la batalla está en su salida: nadie ha movido ni pegado.
     expect(s.battle.finished).toBeNull();
-    expect(s.battle.log.every((e) => e.kind === 'round_start' || e.kind === 'luck')).toBe(true);
+    expect(s.battle.log.every((e) => e.kind === 'round_start')).toBe(true);
     const antes = s.version;
     s.empezar();
     expect(s.battle.finished).not.toBeNull();
@@ -1358,8 +1357,8 @@ describe('la arena como banco de combate', () => {
     expect(ficha.cuerpo).toEqual(heroeDeArena(MAGO, EQUIPO_DEL_JUEGO).cuerpo);
     expect(ficha.cuerpo.attack).toBeGreaterThanOrEqual(MAGO.ataque);
     expect(ficha.hechizos.find((h) => h.id === 'magic_arrow')?.rinde).toBe(30 + 30 * 3);
-    expect(ficha.hechizos.find((h) => h.id === 'bless')?.efecto).toMatchObject({
-      kind: 'luck',
+    expect(ficha.hechizos.find((h) => h.id === 'haste')?.efecto).toMatchObject({
+      kind: 'speed',
       roundsLeft: 3,
     });
     const llenos = Array.from({ length: LIDERAZGO.maxPorBando }, () =>
@@ -1507,7 +1506,7 @@ describe('el montaje del banco de combate', () => {
       ),
     );
     expect(poder1).toContain('<span>1 ronda</span>');
-    expect(poder1).toContain('Bendición (3)</span><span>suerte +1, 1 ronda<');
+    expect(poder1).toContain('Prisa (3)</span><span>velocidad +2, 1 ronda<');
     expect(poder1).not.toContain('1 rondas');
   });
 
@@ -1761,8 +1760,8 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
 // ------------------------------------------------------------------ poderes y edición en combate
 
 describe('los poderes del monje en la arena (A3)', () => {
-  it('el monje templario sale con Curar y Bendecir; otro bastón, con ninguno', () => {
-    expect(unidad('templario-monje').habilidades).toEqual(['Curar (X)', 'Bendecir']);
+  it('el monje templario sale con Curar; otro bastón, con ninguno', () => {
+    expect(unidad('templario-monje').habilidades).toEqual(['Curar (X)']);
     const otroBaston = CATALOGO.find(
       (u) => hojaPorId(u.cuerpo.hoja).perfil === 'baston' && u.id !== 'templario-monje',
     );
@@ -1770,29 +1769,26 @@ describe('los poderes del monje en la arena (A3)', () => {
     expect(otroBaston.habilidades).toEqual([]);
     // Y en la pelea son poderes del motor; las demás habilidades no pelean.
     const b = pelea(
-      [unidad('templario-monje', { habilidades: ['Bendecir', 'Salto', 'Curar (X)'] })],
+      [unidad('templario-monje', { habilidades: ['Salto', 'Curar (X)'] })],
       [unidad('zombi')],
       createRng(1),
     );
-    expect(b.stacks[0]?.unit.poderes).toEqual(['bendecir', 'curar']);
+    expect(b.stacks[0]?.unit.poderes).toEqual(['curar']);
     expect(b.stacks[1]?.unit.poderes).toBeUndefined();
   });
 
-  it('«Bendecir» se valida aunque no esté en el cuaderno, y lo que no existe no', () => {
+  it('«Bendecir» se fue con la suerte (02-11-2026): ya no es una habilidad, y lo que no existe no vale', () => {
     expect(CATALOGO_DE_HABILIDADES).toContain('Curar (X)');
-    expect(CATALOGO_DE_HABILIDADES).not.toContain('Bendecir');
-    expect(HABILIDADES).toContain('Bendecir');
-    expect(
-      validarUnidad(unidad('zombi', { habilidades: ['Bendecir'] }), EQUIPO_DEL_JUEGO).habilidades,
-    ).toEqual(['Bendecir']);
+    expect(HABILIDADES).toContain('Curar (X)');
+    expect(HABILIDADES).not.toContain('Bendecir');
     expect(() =>
-      validarUnidad(unidad('zombi', { habilidades: ['Bendecirr'] }), EQUIPO_DEL_JUEGO),
-    ).toThrow('la habilidad "Bendecirr" no existe');
+      validarUnidad(unidad('zombi', { habilidades: ['Bendecir'] }), EQUIPO_DEL_JUEGO),
+    ).toThrow('la habilidad "Bendecir" no existe');
   });
 
   it('la ficha separa los poderes, que actúan, de las habilidades sin efecto', () => {
     const u = unidad('templario-monje', {
-      habilidades: ['Curar (X)', 'Bendecir', 'Salto'],
+      habilidades: ['Curar (X)', 'Salto'],
     });
     const m = marcadoDe(renderFicha(u, false, enElMontaje(EQUIPO_DEL_JUEGO)));
     expect(m).toContain('Poderes · actúan en la pelea');
@@ -1802,15 +1798,12 @@ describe('los poderes del monje en la arena (A3)', () => {
       'Curar (12 PV) <button data-arena="quitar-habilidad" data-habilidad="Curar (X)"',
     );
     expect(m).not.toContain('sí misma');
-    expect(m).toContain(
-      'suerte +1 durante 3 rondas a un aliado; es la Bendición del héroe: las dos no se suman',
-    );
     expect(m).toContain('data-poder-de-la-ficha="curar"');
     expect(m).toContain('sin efecto todavía');
     // «Salto» va con las inertes; los poderes, no.
     const inertes = m.slice(m.indexOf('sin efecto todavía'));
     expect(inertes).toContain('data-habilidad="Salto"');
-    expect(inertes).not.toContain('data-habilidad="Bendecir"');
+    expect(inertes).not.toContain('data-habilidad="Curar (X)"');
     // En el editor de la batalla: sin figura animada y diciendo que vale ya.
     const enCombate = marcadoDe(
       renderFicha(u, false, {
@@ -1843,9 +1836,6 @@ describe('los poderes del monje en la arena (A3)', () => {
     const m = marcadoDe(renderPanelDeBatalla(s, false));
     expect(m).toContain(
       'data-action="battle-poder" data-poder="curar" class="poder" disabled title="Nadie de su bando tiene ninguna herida."',
-    );
-    expect(m).toMatch(
-      /data-action="battle-poder" data-poder="bendecir" class="poder" title="suerte \+1/,
     );
     // Con un solo herido, el clic ya juega: el botón dice a quién y cuánto de
     // verdad, con el tope de la herida (M1 de QA: decía «cura 4 PV» con 2 de herida).
@@ -2180,7 +2170,7 @@ describe('retocar en plena pelea (B10-B14)', () => {
     expect(b.log.slice(desde).map((e) => (e.kind === 'retoque' ? e.cambios : e.kind))).toEqual([
       [`ataque ${MAGO.ataque} → 9`],
       ['hechizos: − Prisa'],
-      ['hechizos: + Prisa, − Lentitud, − Bendición, − Maldición, − Curación, − Rayo'],
+      ['hechizos: + Prisa, − Lentitud, − Curación, − Rayo'],
     ]);
   });
 
@@ -2260,32 +2250,36 @@ describe('retocar en plena pelea (B10-B14)', () => {
     s.empezar();
     while (s.turnoPropio?.stack.body !== 'templario-monje' && s.battle.finished === null)
       s.playBattleAction({ type: 'end_turn' });
-    s.hechizos.selectSpell('bless');
-    expect(s.apuntado).toEqual({ kind: 'hechizo', id: 'bless' });
+    // Un herido, para que Curar tenga a quién: así se puede usar antes del retoque.
+    const escudero = s.battle.stacks.find((x) => x.body === 'templario-escudo');
+    if (escudero === undefined) throw new Error('sin escudero');
+    escudero.topHp -= 5;
+    s.hechizos.selectSpell('haste');
+    expect(s.apuntado).toEqual({ kind: 'hechizo', id: 'haste' });
     // Apuntar el poder suelta el hechizo, y elegir el hechizo suelta el poder.
-    s.poderes.apuntar('bendecir');
-    expect(s.apuntado).toEqual({ kind: 'poder', id: 'bendecir' });
+    s.poderes.apuntar('curar');
+    expect(s.apuntado).toEqual({ kind: 'poder', id: 'curar' });
     expect(s.hechizos.selectedSpell).toBeNull();
-    s.hechizos.selectSpell('bless');
-    expect(s.apuntado).toEqual({ kind: 'hechizo', id: 'bless' });
-    // El rechazo de lo apuntado es el del núcleo: el de Bendecir sobre el orco.
-    s.poderes.apuntar('bendecir');
+    s.hechizos.selectSpell('haste');
+    expect(s.apuntado).toEqual({ kind: 'hechizo', id: 'haste' });
+    // El rechazo de lo apuntado es el del núcleo: el de Curar sobre el orco.
+    s.poderes.apuntar('curar');
     const orco = s.battle.stacks.find((x) => x.side === 'defender')?.id as string;
-    expect(s.rechazoDeLoApuntado(orco)).toBe('«Bendecir» va dirigido a un aliado.');
-    // Sin Bendecir en sus habilidades, el poder apuntado ya no vale: se suelta y se dice.
+    expect(s.rechazoDeLoApuntado(orco)).toBe('«Curar» va dirigido a un aliado.');
+    // Sin Curar en sus habilidades, el poder apuntado ya no vale: se suelta y se dice.
     expect(
       s.retocar({
         kind: 'tipo',
-        fuente: delBorrador(unidad('templario-monje', { habilidades: ['Curar (X)'] })),
+        fuente: delBorrador(unidad('templario-monje', { habilidades: [] })),
       }),
     ).toBeNull();
     expect(s.apuntado).toBeNull();
     expect(s.status).toBe(
-      'Cambiado: vale ya en esta pelea. Con las cifras nuevas no se puede usar Bendecir: suelto.',
+      'Cambiado: vale ya en esta pelea. Con las cifras nuevas no se puede usar Curar: suelto.',
     );
     // El parte cuenta el retoque.
     expect(marcadoDe(renderBattleLog(s.battle, null))).toContain(
-      `Cambian las cifras de ${unidad('templario-monje').name} a media pelea (habilidades: − Bendecir)`,
+      `Cambian las cifras de ${unidad('templario-monje').name} a media pelea (habilidades: − Curar`,
     );
   });
 

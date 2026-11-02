@@ -48,6 +48,7 @@ import {
   reachableFrom,
   stepCost,
 } from '../src/core/map/map.js';
+import { regionDescubierta, regionesQueDescubre, zonaDeNiebla } from '../src/core/map/niebla.js';
 import {
   conectadoABase,
   estructura,
@@ -82,10 +83,13 @@ import {
   dayOfWeek,
   type GameContext,
   type GameState,
+  HERO_SCOUT_RADIUS,
   heroById,
   heroesOf,
+  NODE_SCOUT_RADIUS,
   ordenDelDia,
   resolvePendingBattle,
+  revealEverything,
   townsOf,
   visibleNow,
   week,
@@ -719,7 +723,7 @@ describe('movimiento de héroes', () => {
     expect(minimo).toBe(ROAD_COST);
   });
 
-  it('gasta puntos de movimiento y descubre el mapa', () => {
+  it('gasta puntos de movimiento y descubre el mapa por regiones (02-11-2026)', () => {
     const state = newGame({ seed: 21 });
     const c = ctx(21);
     const hero = heroesOf(state, 0)[0]!;
@@ -751,7 +755,29 @@ describe('movimiento de héroes', () => {
 
     expect(pointKey(hero.at)).toBe(pointKey(destino));
     expect(hero.movePoints).toBeLessThan(puntosAntes);
-    expect(state.players[0]!.fog.size).toBeGreaterThan(nieblaAntes);
+    // Andar por casa no descubre nada: la región ya estaba entera desde el principio.
+    expect(state.players[0]!.fog.size).toBe(nieblaAntes);
+
+    // Pisar un paso de casa a una región sin descubrir la descubre entera. Sin
+    // grupos que paren la marcha: aquí se mira la niebla, no la emboscada.
+    state.raiders = [];
+    const fog = state.players[0]!.fog;
+    const red = estructura(state.map);
+    const paso = red.nodos.find(
+      (n) =>
+        !n.ciudad &&
+        n.regiones.includes(casa) &&
+        n.regiones.some((k) => !regionDescubierta(state.map, fog, k)),
+    )!;
+    const nuevas = paso.regiones.filter((k) => !regionDescubierta(state.map, fog, k));
+    hero.movePoints = 99_999;
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: paso.at }, c, 0);
+    expect(pointKey(hero.at)).toBe(pointKey(paso.at));
+    for (const k of nuevas) {
+      expect(regionDescubierta(state.map, fog, k)).toBe(true);
+      for (const i of zonaDeNiebla(state.map, k)) expect(fog.hasIndex(i)).toBe(true);
+    }
+    expect(fog.size).toBeGreaterThan(nieblaAntes);
   });
 
   it('capturar un castillo cambia el libro de cuentas Y la bandera del mapa', () => {
@@ -1587,7 +1613,7 @@ describe('el gremio enseña (#2)', () => {
     // Sabiduría quedan fuera, con Sabiduría entran.
     const oferta = allSpells();
     const sinSabiduria = learnable({ spells: [], skills: {} }, oferta);
-    expect(sinSabiduria).toContain('bless');
+    expect(sinSabiduria).toContain('haste');
     expect(sinSabiduria).not.toContain('lightning_bolt');
     expect(sinSabiduria).not.toContain('cure');
 
@@ -1611,9 +1637,10 @@ describe('el gremio enseña (#2)', () => {
     ).toEqual(['haste', 'magic_arrow', 'slow']);
 
     castillo.buildings = [...castillo.buildings, 'mage_guild_2'];
+    // El nivel 2 se quedó sin hechizos al irse Bendición y Maldición con la
+    // suerte (02-11-2026): enseña lo mismo que el 1.
     const nivel2 = townSpells(castillo).map((s) => s.id);
-    expect(nivel2).toContain('bless');
-    expect(nivel2).toContain('curse');
+    expect([...nivel2].sort()).toEqual(['haste', 'magic_arrow', 'slow']);
     // No hay `mage_guild_3`, así que los de nivel 3 no los ofrece nadie.
     expect(nivel2).not.toContain('lightning_bolt');
   });
@@ -2549,10 +2576,11 @@ describe('la marcha se para al descubrir un grupo que la emboscaría (#130)', ()
     expect(state.pendingBattle).not.toBeNull();
   });
 
-  it('el rival que mira al héroe parado sin ver la región del grupo no se entera (H4 de QA)', () => {
-    // Se planta al héroe del rival a unas casillas de donde se para el nuestro:
-    // ve la casilla del héroe y, si la región del grupo le queda fuera, la
-    // crónica no le puede contar ni el grupo ni su tropa.
+  it('el rival que mira al héroe parado sin ver al grupo no se entera (H4 de QA)', () => {
+    // Se planta al héroe del rival a unas casillas de donde se para el nuestro,
+    // con el mapa explorado (02-11-2026: sin eso no mira nada de una región que
+    // no ha pisado): ve la casilla del héroe y, si la del grupo le queda fuera de
+    // su radio, la crónica no le puede contar ni el grupo ni su tropa.
     const casos = { tapado: 0, aLaVista: 0 };
     for (let seed = 1; seed <= 40 && (casos.tapado === 0 || casos.aLaVista === 0); seed++) {
       const antes = newGame({ seed });
@@ -2582,6 +2610,7 @@ describe('la marcha se para al descubrir un grupo que la emboscaría (#130)', ()
         if (!isEnterable(antes.map, donde) || objectAt(antes.map, donde) !== undefined) continue;
         const state = copiaDePartida(antes);
         heroesOf(state, 1)[0]!.at = donde;
+        revealEverything(state, 1);
         applyAdventureAction(
           state,
           { type: 'move_hero', hero: nuestro.id, to: destino },
@@ -2621,15 +2650,51 @@ describe('la marcha se para al descubrir un grupo que la emboscaría (#130)', ()
 
 // ------------------------------------- la fuerza cambia a mitad de marcha (H1 y H2 de QA de #130)
 
-/** Las regiones que el jugador 0 está mirando ahora. */
-function regionesMiradas(state: GameState): Set<number> {
-  const out = new Set<number>();
-  for (const p of visibleNow(state, 0)) out.add(regionDeCasilla(state.map, p));
-  return out;
+/**
+ * Lo que mira el jugador 0 con su héroe en el paso `hasta` de `ruta`, contando lo
+ * que habría descubierto al pisar cada paso (las regiones de `regionesQueDescubre`)
+ * y los nodos que habría tomado por el camino, que miran a 6: la regla de
+ * `visibleNowAt` (radio sobre lo explorado, 02-11-2026) sin andar la marcha.
+ */
+function seVeEnLaRuta(
+  state: GameState,
+  ruta: readonly Point[],
+  hasta: number,
+): (q: Point) => boolean {
+  const { map } = state;
+  const fog = state.players[0]!.fog;
+  const descubiertas = new Set<number>();
+  const miradas: { centro: Point; radio: number }[] = [
+    { centro: ruta[hasta]!, radio: HERO_SCOUT_RADIUS },
+    ...state.towns
+      .filter((t) => t.owner === 0)
+      .map((t) => ({ centro: t.at, radio: NODE_SCOUT_RADIUS })),
+  ];
+  for (const o of map.objects) {
+    if (o.kind === 'node' && o.owner === 0)
+      miradas.push({ centro: o.at, radio: NODE_SCOUT_RADIUS });
+  }
+  for (const p of ruta.slice(0, hasta + 1)) {
+    for (const k of regionesQueDescubre(map, p))
+      for (const i of zonaDeNiebla(map, k)) descubiertas.add(i);
+    const o = objectAt(map, p);
+    if (o?.kind === 'node') miradas.push({ centro: o.at, radio: NODE_SCOUT_RADIUS });
+  }
+  const explorada = (q: Point) => fog.has(q) || descubiertas.has(q.y * map.width + q.x);
+  return (q) =>
+    explorada(q) &&
+    miradas.some(
+      ({ centro, radio }) => Math.max(Math.abs(centro.x - q.x), Math.abs(centro.y - q.y)) <= radio,
+    );
 }
 
-/** Una casilla libre de `region` que no pisa `ruta`, donde plantar un grupo. */
-function casillaLibre(state: GameState, region: number, ruta: readonly Point[]): Point | null {
+/** Una casilla libre de `region` que no pisa `ruta` y cumple `vale`, donde plantar un grupo. */
+function casillaLibre(
+  state: GameState,
+  region: number,
+  ruta: readonly Point[],
+  vale: (p: Point) => boolean = () => true,
+): Point | null {
   const { regionDe } = estructura(state.map);
   const W = state.map.width;
   const pisadas = new Set(ruta.map(pointKey));
@@ -2639,6 +2704,7 @@ function casillaLibre(state: GameState, region: number, ruta: readonly Point[]):
     if (pisadas.has(pointKey(p)) || !isEnterable(state.map, p)) continue;
     if (objectAt(state.map, p) !== undefined) continue;
     if (state.heroes.some((h) => pointKey(h.at) === pointKey(p))) continue;
+    if (!vale(p)) continue;
     return p;
   }
   return null;
@@ -2647,11 +2713,11 @@ function casillaLibre(state: GameState, region: number, ruta: readonly Point[]):
 /**
  * La marcha de QA en `?seed=198`, montada a mano para que no dependa del mapa:
  * el héroe del día 1 sale junto a su base y la ruta pisa primero la base —donde
- * recoge la guarnición y gana fuerza—, después la región `a`, que se ve al
- * salir, y más adelante la región `g`, que no se ve al salir y sí desde algún
- * paso anterior a ella. Devuelve la partida sin grupos, el destino, la casilla
- * de cada región donde plantarlos (fuera de la ruta) y la fuerza del héroe antes
- * y después de recoger.
+ * recoge la guarnición y gana fuerza—, después la región `a`, con una casilla
+ * que se ve al salir, y más adelante la región `g`, con una casilla que no se ve
+ * al salir y sí desde algún paso anterior a ella. Devuelve la partida sin grupos,
+ * el destino, esas dos casillas (fuera de la ruta) y la fuerza del héroe antes y
+ * después de recoger. Un grupo se ve por su casilla desde el 02-11-2026.
  */
 function marchaQueGanaFuerza(): {
   seed: number;
@@ -2686,30 +2752,31 @@ function marchaQueGanaFuerza(): {
     applyAdventureAction(recogida, { type: 'move_hero', hero: hero.id, to: base.at }, ctx(seed), 0);
     const despues = fuerzaDe(heroById(recogida, hero.id), recogida.characters);
     if (despues < antes * 1.1) throw new Error(`recoger la guarnición da ${antes} → ${despues}`);
-    const alSalir = regionesMiradas(state);
+    const alSalir = visibleNow(state, 0);
     for (const [clave, coste] of costesDelAlcance(alcanceDelHeroe(state, hero))) {
       if (coste === 0 || coste > hero.movePoints) continue;
       const destino = pointFromKey(clave);
       const camino = caminoHasta(state, hero, destino);
       if (camino === null || pointKey(camino[0]!.at) !== pointKey(base.at)) continue;
-      const regiones = camino.map((p) => regionDeCasilla(state.map, p.at));
-      const iA = regiones.findIndex((r, i) => i > 0 && r >= 0 && alSalir.has(r));
+      const ruta = camino.map((p) => p.at);
+      const regiones = ruta.map((p) => regionDeCasilla(state.map, p));
+      const iA = regiones.findIndex((r, i) => i > 0 && r >= 0);
       if (iA < 0) continue;
       const a = regiones[iA]!;
-      const iG = regiones.findIndex((r, i) => i > iA && r >= 0 && r !== a && !alSalir.has(r));
+      const enA = casillaLibre(state, a, ruta, (p) => alSalir.has(p));
+      if (enA === null) continue;
+      const iG = regiones.findIndex((r, i) => i > iA && r >= 0 && r !== a);
       if (iG < 0) continue;
       const g = regiones[iG]!;
       // Que se vea desde algún paso de antes de pisarla: si no, no hay parada posible.
-      const seVeAntes = camino.slice(0, iG - 1).some((p) => {
-        const alli = copiaDePartida(state);
-        heroById(alli, hero.id).at = p.at;
-        return regionesMiradas(alli).has(g);
-      });
-      if (!seVeAntes) continue;
-      const ruta = camino.map((p) => p.at);
-      const enA = casillaLibre(state, a, ruta);
-      const enG = casillaLibre(state, g, ruta);
-      if (enA === null || enG === null) continue;
+      const desdeAntes = Array.from({ length: iG }, (_, j) => seVeEnLaRuta(state, ruta, j));
+      const enG = casillaLibre(
+        state,
+        g,
+        ruta,
+        (p) => !alSalir.has(p) && desdeAntes.some((seVe) => seVe(p)),
+      );
+      if (enG === null) continue;
       // Con los dos grupos plantados la ruta tiene que ser la misma: son casillas hostiles.
       const conGrupos = copiaDePartida(state);
       conGrupos.raiders = [

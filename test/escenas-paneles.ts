@@ -21,7 +21,8 @@ import { type Html, marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
 import { renderActions, renderLog, renderSide, renderTopbar } from '../src/client/views/panels.js';
 import { playAiGame } from '../src/core/ai/turn.js';
-import { isShooter } from '../src/core/data.js';
+import { isShooter } from '../src/core/battle/armas.js';
+
 import { isEnterable, objectAt } from '../src/core/map/map.js';
 import type { GameEvent } from '../src/core/state/events.js';
 import { applyAdventureAction, heroesOf } from '../src/core/state/game.js';
@@ -224,12 +225,9 @@ export async function escenas(): Promise<readonly Escena[]> {
     },
     { kind: 'cast', side: 'defender', spell: 'magic_arrow', target: suyo.id, damage: 10 },
     { kind: 'cast', side: 'defender', spell: 'haste', target: mio.id },
-    { kind: 'luck', stack: mio.id, good: true },
-    { kind: 'luck', stack: mio.id, good: false },
     { kind: 'effect', stack: mio.id, effect: 'speed', amount: 2, source: 'haste', rounds: 3 },
     { kind: 'effect', stack: suyo.id, effect: 'attack', amount: -2, source: 'fear', rounds: 1 },
     { kind: 'effect_end', stack: mio.id, source: 'slow' },
-    { kind: 'immune', stack: suyo.id, source: 'curse_on_hit' },
     { kind: 'perished', stack: suyo.id },
     { kind: 'perished', stack: mio.id },
     // Las dos, para ver los dos colores; el precio es uno, el de `finished`.

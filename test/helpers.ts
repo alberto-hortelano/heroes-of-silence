@@ -191,7 +191,7 @@ export const TROPA = 'templario-escudo';
 export const PESADA = 'templario-penitente';
 /** Jinete con `charge` de la facción A (lanza, espada y barda). */
 export const JINETE = 'templario-hermano-de-carga';
-/** Unidad con poderes (Curar y Bendecir) de la facción A. */
+/** Unidad con poderes (Curar) de la facción A. */
 export const SANADOR = 'templario-monje';
 /** El no-muerto más barato (1 de liderazgo), de la facción B. */
 export const NO_MUERTO = 'esqueleto-guerrero';
@@ -241,7 +241,7 @@ export function bandoDePersonajes(
   const members = new Map<string, BattleMember>();
   const army: Stack[] = units.map((unit, i) => {
     const member = `a-mano-${i}`;
-    members.set(member, { profile: { unit, equipo: {}, morale: 0, luck: 0 }, hp: unit.hp });
+    members.set(member, { profile: { unit, equipo: {}, morale: 0 }, hp: unit.hp });
     return { creature: TROPA, member, count: 1 };
   });
   return { army, hero, members };
@@ -603,8 +603,8 @@ export function agresiva(state: BattleState): BattleAction {
 }
 
 /**
- * Un dado cargado: cada `int` sale en su mínimo o en su máximo, y la suerte no
- * salta nunca (`chance` es siempre `false`). Es para ver una punta de
+ * Un dado cargado: cada `int` sale en su mínimo o en su máximo (`chance`, siempre
+ * `false`: la batalla ya no lo tira desde que se fue la suerte, 02-11-2026). Es para ver una punta de
  * una horquilla sin buscarla entre semillas: con PV y daño a la escala de las
  * cifras, una tirada tiene decenas o cientos de valores y cuarenta semillas no
  * ven sus puntas. Lo demás (`next`, `pick`) lanza: un test que lo necesite no
@@ -612,7 +612,7 @@ export function agresiva(state: BattleState): BattleAction {
  */
 export function dadoCargado(punta: 'minimo' | 'maximo'): Rng {
   const noVale = (que: string) => (): never => {
-    throw new Error(`el dado cargado solo tira enteros y suerte; se le ha pedido ${que}`);
+    throw new Error(`el dado cargado solo tira enteros; se le ha pedido ${que}`);
   };
   return {
     next: noVale('next()'),
@@ -1606,7 +1606,7 @@ export function peleaDelMotor(
     const army: StackDeBatalla[] = puestos.map(({ unidad, escalera }, i) => {
       const unit = unidadDeCombate(unidad, EQUIPO_DEL_JUEGO);
       const member = `motor-${i}`;
-      members.set(member, { profile: { unit, equipo: {}, morale: 0, luck: 0 }, hp: unit.hp });
+      members.set(member, { profile: { unit, equipo: {}, morale: 0 }, hp: unit.hp });
       return {
         creature: unidad.cuerpo.hoja,
         member,

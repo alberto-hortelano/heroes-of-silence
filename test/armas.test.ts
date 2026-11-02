@@ -15,7 +15,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { textoDePrevision } from '../src/client/views/prevision.js';
-import { golpeDe } from '../src/core/battle/armas.js';
+import { golpeDe, isShooter } from '../src/core/battle/armas.js';
 import {
   applyAction,
   createBattle,
@@ -39,7 +39,7 @@ import { cruceDelGolpe } from '../src/core/battle/rueda.js';
 import type { BattleAction, BattleEvent, BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { cuerpoConSusCifras } from '../src/core/cuerpo.js';
-import { isShooter, type Pieza } from '../src/core/data.js';
+import type { Pieza } from '../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
 import type { Equipo, Hex, UnitInfo } from '../src/core/types.js';

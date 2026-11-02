@@ -1,15 +1,15 @@
 /**
- * Los botones de los poderes de la unidad activa (Curar, Bendecir), los mismos en
+ * Los botones de los poderes de la unidad activa (Curar), los mismos en
  * la partida y la arena (F6 de la tarea del combate en el juego, 19-10-2026: hasta
  * entonces solo la arena los pintaba, y la partida decía «su tropa no tiene
  * poderes» aunque el monje los trajera). Qué se puede y por qué no lo dice el
  * núcleo (`poderBlocker`, por la lista legal y `motivoDePoder`); aquí solo se
  * pinta. El gesto lo lleva la sesión (`PoderesDeLaActiva.usar`).
  */
+import { tiroADistanciaDe } from '@core/battle/armas.js';
 import type { Prevision } from '@core/battle/battle.js';
 import { type PoderId, poder, queHaceElPoder } from '@core/battle/poderes.js';
 import type { BattleAction, BattleStack, BattleState } from '@core/battle/types.js';
-import { isShooter } from '@core/data.js';
 import { type Html, html, NADA, unir } from '../html.js';
 import type { Apuntado, ModoDelArma } from '../session.js';
 import { nombreEnElCampo } from './distintivo.js';
@@ -119,22 +119,31 @@ const AYUDA_DEL_MODO: Readonly<Record<ModoDelArma, string>> = {
     'Apunta a una casilla y cierra el turno: el disparo sale al empezar su siguiente turno, en línea recta, y da al primero que encuentre, también a uno tuyo. Cuanto más cerca de la casilla, más daño. A distancia no se anda. Q cambia de arma.',
 };
 
+/** Lo que dice «A distancia» de quien lleva granada (02-11-2026): no apunta, la lanza. */
+const AYUDA_DE_LA_GRANADA =
+  'Lanza la granada por encima a una casilla a su alcance (su fuerza) y cierra el turno: explota al empezar su siguiente turno en ella y en sus seis vecinas, a quien esté, también a los tuyos. Se gasta. Q cambia de arma.';
+
 /**
  * El selector de arma del tirador activo —tuyo— (26-10-2026; sustituye al botón
  * «Apuntar» del disparo diferido): «Cuerpo a cuerpo (Espada)» y «A distancia
  * (Arco)», marcado el modo en que está, y el otro apagado con el motivo del núcleo
- * si no puede (tras moverse no apunta). Quien no dispara no lo lleva: siempre pelea
+ * si no puede (tras moverse no apunta). Quien lleva granada, igual: «A distancia
+ * (Granada)» la lanza (02-11-2026). Quien no dispara ni lanza no lo lleva: siempre pelea
  * cuerpo a cuerpo. La Q alterna los dos.
  */
 export function botonesDeArma(s: ControlDeArma, activa: BattleStack): Html {
-  if (!isShooter(activa.unit)) return NADA;
+  const tiro = tiroADistanciaDe(activa.unit);
+  if (tiro === null) return NADA;
+  const granada = tiro === 'granada';
   const modo = s.arma.modo;
   return unir(
     (['cuerpo', 'distancia'] as const).map((m) => {
       const motivo = s.arma.motivo(m);
       const clase = m === modo ? 'arma primary' : 'arma';
       const estado =
-        motivo !== null ? html`disabled title="${motivo}"` : html`title="${AYUDA_DEL_MODO[m]}"`;
+        motivo !== null
+          ? html`disabled title="${motivo}"`
+          : html`title="${m === 'distancia' && granada ? AYUDA_DE_LA_GRANADA : AYUDA_DEL_MODO[m]}"`;
       return html`<button data-action="battle-arma" data-arma="${m}" aria-pressed="${m === modo ? 'true' : 'false'}" class="${clase}" ${estado}>${s.arma.rotulo(m)}</button>`;
     }),
   );

@@ -43,6 +43,7 @@ import {
   serializeTownVoices,
 } from '../src/core/contract/serialize.js';
 import {
+  type AccionDeBatallaDelAgente,
   accionAlAgente,
   accionDeBatallaDelAgente,
   accionDelAgente,
@@ -71,7 +72,9 @@ import { createRng } from '../src/core/rng.js';
 import { cronicaPara } from '../src/core/state/events.js';
 import {
   applyAdventureAction,
+  HERO_SCOUT_RADIUS,
   heroesOf,
+  NODE_SCOUT_RADIUS,
   resolvePendingBattle,
   revealEverything,
   townsOf,
@@ -924,9 +927,16 @@ describe('lo que ve el agente', () => {
     // El margen sale de la regla y no de un número escrito a mano.
     expect(COMO_SE_LEE_EL_MAPA).toContain(String(MARGEN_CONTRA_NEUTRALES).replace('.', ','));
     expect(RESPONSE_FORMAT.adventure_turn).toMatch(/EMBOSCADA/);
-    // Qué grupo se ve y la marcha que se para (#130): si la regla cambia sin la
-    // prosa, el agente creerá que «no aparece» es «no está cerca».
-    expect(COMO_SE_LEE_EL_MAPA).toMatch(/cualquier casilla de su región/);
+    // Qué grupo se ve y la marcha que se para (#130; por su casilla desde la
+    // niebla de eventos, 02-11-2026): si la regla cambia sin la prosa, el agente
+    // creerá que «no aparece» es «no está cerca».
+    expect(COMO_SE_LEE_EL_MAPA).toMatch(/Un grupo se ve solo si su casilla está cerca/);
+    expect(COMO_SE_LEE_EL_MAPA).not.toMatch(/cualquier casilla de su región/);
+    // Y la niebla entera: se explora por regiones y se ve en el radio, con las
+    // cifras del núcleo y no escritas a mano.
+    expect(COMO_SE_LEE_EL_MAPA).toMatch(/EXPLORA POR REGIONES/);
+    expect(COMO_SE_LEE_EL_MAPA).toContain(`en ${HERO_SCOUT_RADIUS} casillas`);
+    expect(COMO_SE_LEE_EL_MAPA).toContain(`en ${NODE_SCOUT_RADIUS} alrededor`);
     expect(RESPONSE_FORMAT.adventure_turn).toMatch(/march_halted/);
     expect(RESPONSE_FORMAT.battle_turn).toMatch(/ASALTANTES emboscan/);
     expect(RESPONSE_FORMAT.map_generate).toMatch(/raiders\?/);
@@ -1090,6 +1100,35 @@ describe('lo que ve el agente', () => {
     expect(prosa).toMatch(/"commander": true/);
     expect(prosa).toMatch(/oro/);
     expect(prosa).toMatch(/defend/i);
+  });
+
+  it('la granada cruza el contrato: "throw" en la lista, el esquema lo acepta y el stack dice lo que le queda y dónde caerá (02-11-2026)', () => {
+    const rng = createRng(4);
+    const b = createBattle(
+      { army: [{ creature: 'imperio-granadero', count: 1 }], hero: null },
+      { army: [{ creature: 'imperio-coracero', count: 1 }], hero: null },
+      rng,
+      COMBATE_COMPLETO,
+    );
+    stackById(b, 'attacker-0').hex = { col: 1, row: 4 };
+    stackById(b, 'defender-0').hex = { col: 5, row: 4 };
+    b.turno = { n: 500, stack: 'attacker-0', gastado: 0 };
+    type Vista = {
+      legalActions: unknown[];
+      stacks: { id: string; grenades?: number; grenadeRange?: number; grenadeAt?: unknown }[];
+    };
+    const antes = serializeBattleTurn(b, 'attacker', 'propia', 0) as unknown as Vista;
+    const lanzar = { type: 'throw', at: { col: 5, row: 4 } };
+    expect(antes.legalActions).toContainEqual(lanzar);
+    const suyo = (v: Vista, id: string) => v.stacks.find((x) => x.id === id);
+    expect(suyo(antes, 'attacker-0')).toMatchObject({ grenades: 2, grenadeRange: 6 });
+    const leida = battleActionSchema.parse(lanzar);
+    applyAction(b, accionDeBatallaDelAgente(leida as AccionDeBatallaDelAgente, RUEDAS[7]), rng);
+    // La que está en el aire se ve desde los dos bandos, como "aimedAt".
+    const ajena = serializeBattleTurn(b, 'defender', 'ajena', null) as unknown as Vista;
+    expect(suyo(ajena, 'attacker-0')).toMatchObject({ grenades: 1, grenadeAt: { col: 5, row: 4 } });
+    expect(RESPONSE_FORMAT.battle_turn).toContain('"grenadeAt"');
+    expect(RESPONSE_FORMAT.battle_turn).toContain('"reloading"');
   });
 
   it('"wait" y "defend" se rechazan diciendo que se retiraron y que se mande "end_turn" (26-10-2026)', () => {
@@ -1933,9 +1972,9 @@ describe('la rueda y los poderes en el contrato (F6)', () => {
     expect(() =>
       accionDeBatallaDelAgente({ type: 'attack', target: 'd-0', hit: 'Strong' }, RUEDAS[7]),
     ).toThrow(/«Strong» no es un golpe de la rueda/);
-    expect(accionAlAgente({ type: 'power', poder: 'bendecir', target: 'a-1' })).toEqual({
+    expect(accionAlAgente({ type: 'power', poder: 'curar', target: 'a-1' })).toEqual({
       type: 'power',
-      power: 'bendecir',
+      power: 'curar',
       target: 'a-1',
     });
     // Lo que el núcleo elige en la rueda no sale en la lista: es del agente.
