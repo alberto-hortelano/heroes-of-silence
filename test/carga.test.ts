@@ -137,8 +137,9 @@ describe('las cifras de la carga (`data/carga.json`)', () => {
 
 describe('la carga montada pega con la fuerza de la montura (26-10-2026)', () => {
   /**
-   * El hermano de carga de verdad (fuerza 7, agilidad 4, Caballo de guerra de
-   * fuerza 16 y Lanza de jinete de 4) contra un rival sin armadura con la defensa de su
+   * El hermano de carga de verdad (el «Caballero templario» desde el 02-11-2026:
+   * fuerza 3, agilidad 3, Caballo de guerra de fuerza 7 y Lanza de jinete de 2; eran
+   * 7, 4, 16 y 4) contra un rival sin armadura con la defensa de su
    * ataque: ataque contra defensa no multiplica, y lo que se ve es la horquilla.
    */
   const contra = (equipo?: object) => {
@@ -163,11 +164,11 @@ describe('la carga montada pega con la fuerza de la montura (26-10-2026)', () =>
     return { a, d };
   };
 
-  it('con una recta de 5, tira en [20, 80] ×1,25, y el golpe cae en su previsión', () => {
+  it('con una recta de 5, tira en [9, 27] ×1,25, y el golpe cae en su previsión', () => {
     const { a, d } = contra();
     const h = horquillaDeDanio(a, d, { chargeHexes: 6 });
-    // [16 + 4, (16 + 4) × 4] × 1,25.
-    expect(h.danio).toEqual({ min: 25, max: 100 });
+    // [7 + 2, (7 + 2) × 3] × 1,25 = [11,25, 33,75], redondeado.
+    expect(h.danio).toEqual({ min: 11, max: 34 });
     expect(h.modificadores.map((m) => m.causa)).toContain('carga de 5 casillas montada');
     expect(h.conArma).toBe(
       'con Espada y Lanza de jinete, montado en Caballo de guerra (en la carga)',
@@ -175,8 +176,8 @@ describe('la carga montada pega con la fuerza de la montura (26-10-2026)', () =>
     for (let semilla = 1; semilla <= 40; semilla++) {
       const { damage, montada } = computeDamage(a, d, createRng(semilla), { chargeHexes: 6 });
       expect(montada).toBe(true);
-      expect(damage).toBeGreaterThanOrEqual(25);
-      expect(damage).toBeLessThanOrEqual(100);
+      expect(damage).toBeGreaterThanOrEqual(11);
+      expect(damage).toBeLessThanOrEqual(34);
     }
   });
 
@@ -194,9 +195,10 @@ describe('la carga montada pega con la fuerza de la montura (26-10-2026)', () =>
 
   it('sin carga, el golpe del jinete montado no lleva la fuerza de la montura', () => {
     const { a, d } = contra();
-    // (7 + 4) × [1, 4]: la fuerza del jinete y la de su mejor arma.
-    expect(a.unit.damage).toEqual([11, 44]);
-    expect(horquillaDeDanio(a, d, {}).danio).toEqual({ min: 11, max: 44 });
+    // (3 + 2) × [1, 3]: la fuerza del jinete y la de su mejor arma (con la del
+    // caballo, 7 + 2, serían 9–27).
+    expect(a.unit.damage).toEqual([5, 15]);
+    expect(horquillaDeDanio(a, d, {}).danio).toEqual({ min: 5, max: 15 });
   });
 });
 

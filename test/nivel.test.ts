@@ -42,43 +42,48 @@ import { catalogoCon, JINETE, PESADA, TROPA, todoA } from './helpers.js';
  * (once unidades bajan; el esqueleto guerrero, al nivel 1), y el 02-11-2026 con las
  * armas de fuego y la granada del imperio (`docs/agents/2026-11-02-armas-de-fuego-y-granadas/`:
  * el arcabucero y el artillero, de 271 a 216, los mide su daga; el granadero, de 306 a
- * 258, nivel 3 → 2; el pistolero montado no se mueve, lo mide su carga).
+ * 258, nivel 3 → 2; el pistolero montado no se mueve, lo mide su carga), y el 02-11-2026
+ * con el catálogo retocado a mano en la arena (commit `0f715185`, «equipo y unidades»:
+ * menos fuerza en casi todas las unidades y en las armas, menos peso en las armaduras,
+ * otro equipo de serie en varias; la daga y el bastón sin fuerza): casi todas bajan,
+ * suben el espectro y el caballero de la muerte (la coraza, que ahora pesa 3), y el
+ * catálogo va del 167 (esqueleto guerrero) al 425 (jinete elfo), del nivel 1 al 4.
  */
 const TABLA_DEL_CATALOGO: Readonly<Record<string, readonly [number, number]>> = {
-  'templario-escudo': [287, 2],
-  'templario-mandoble': [303, 3],
-  'templario-monje': [227, 2],
-  'templario-escudero': [285, 2],
-  'templario-hermano-de-carga': [468, 4],
-  'templario-penitente': [312, 3],
-  'esqueleto-guerrero': [196, 1],
-  'esqueleto-arquero': [209, 2],
-  zombi: [329, 3],
-  espectro: [319, 3],
-  'caballero-de-la-muerte': [286, 2],
-  'jinete-de-plaga': [456, 4],
-  'imperio-alabardero': [250, 2],
-  'imperio-piquero': [252, 2],
-  'imperio-ballestero': [271, 2],
-  'imperio-coracero': [296, 2],
-  'imperio-arcabucero': [216, 2],
-  'imperio-rodelero': [328, 3],
-  'imperio-artillero-culebrina': [216, 2],
-  'imperio-pistolero-montado': [456, 4],
-  'imperio-granadero': [258, 2],
-  'elfo-arquero': [305, 3],
-  'elfo-explorador': [323, 3],
-  'elfo-guardia-del-bosque': [322, 3],
-  'elfo-jinete': [473, 4],
-  'elfo-sacerdotisa': [225, 2],
-  'elfo-asesino': [325, 3],
-  'orko-hacha-escudo': [334, 3],
-  'orko-dos-armas': [329, 3],
-  'goblin-lancero': [211, 2],
-  'goblin-arquero': [232, 2],
-  'troll-maza': [285, 2],
-  'goblin-jinete-de-hiena': [334, 3],
-  'orko-armadura-pesada': [309, 3],
+  'templario-escudo': [218, 2],
+  'templario-mandoble': [223, 2],
+  'templario-monje': [210, 2],
+  'templario-escudero': [206, 2],
+  'templario-hermano-de-carga': [394, 3],
+  'templario-penitente': [289, 2],
+  'esqueleto-guerrero': [167, 1],
+  'esqueleto-arquero': [189, 1],
+  zombi: [202, 2],
+  espectro: [357, 3],
+  'caballero-de-la-muerte': [343, 3],
+  'jinete-de-plaga': [311, 3],
+  'imperio-alabardero': [221, 2],
+  'imperio-piquero': [219, 2],
+  'imperio-ballestero': [239, 2],
+  'imperio-coracero': [268, 2],
+  'imperio-arcabucero': [187, 1],
+  'imperio-rodelero': [214, 2],
+  'imperio-artillero-culebrina': [192, 1],
+  'imperio-pistolero-montado': [329, 3],
+  'imperio-granadero': [219, 2],
+  'elfo-arquero': [228, 2],
+  'elfo-explorador': [199, 1],
+  'elfo-guardia-del-bosque': [208, 2],
+  'elfo-jinete': [425, 4],
+  'elfo-sacerdotisa': [202, 2],
+  'elfo-asesino': [310, 3],
+  'orko-hacha-escudo': [247, 2],
+  'orko-dos-armas': [240, 2],
+  'goblin-lancero': [171, 1],
+  'goblin-arquero': [192, 1],
+  'troll-maza': [268, 2],
+  'goblin-jinete-de-hiena': [292, 2],
+  'orko-armadura-pesada': [248, 2],
 };
 
 describe('el índice de poder y el nivel (core/nivel.ts)', () => {
@@ -167,7 +172,7 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
   });
 
   it('lo que pega es el mejor de sus golpes, cada uno con su arma: el disparo cuenta si tira', () => {
-    // El arquero de las hojas pega con la daga y dispara con el arco.
+    // El arquero de las hojas pega con la espada y dispara con el arco.
     const arquero = unidad('elfo-arquero');
     const conArco = indiceDePoder(unidadDeCombate(arquero, EQUIPO_DEL_JUEGO));
     const { distancia: _arco, ...sinElArco } = arquero.equipo;
@@ -182,10 +187,12 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
   });
 
   it('el arma de fuego y la granada se miden (02-11-2026): la recarga baja el disparo y la granada cuenta como un disparo', () => {
-    // El arquero, cuyo índice lo da su arco (con la daga, 271), con su arco hecho
-    // arma de fuego de su misma horquilla (la agilidad del arma, la suya): ×2/3 por
-    // recargar 1 y ×5/4 por perforar, y con recarga 2, ×1/2 × 5/4, por debajo de la
-    // daga. Hecho granada, como el arco: su área paga sus cargas.
+    // El arquero, cuyo índice lo da su arco (con la espada sola, 193), con su arco
+    // hecho arma de fuego de su misma horquilla (la agilidad del arma, la suya): ×2/3
+    // por recargar 1 y ×5/4 por perforar; con recarga 2, ×1/2 × 5/4, aún por encima
+    // de la espada (02-11-2026: la espada del catálogo retocado pega menos que la
+    // daga de antes), y con recarga 3, ×2/5 × 5/4, por debajo. Hecho granada, como el
+    // arco: su área paga sus cargas.
     const arquero = unidad('elfo-arquero');
     const arco = pieza('arco');
     const con = (p: Pieza): number => indiceDePoder(unidadDeCombate(arquero, catalogoCon(p)));
@@ -202,7 +209,8 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
     );
     expect(con(fuego(1))).toBeLessThan(conArco);
     expect(con(fuego(1))).toBeGreaterThan(con(fuego(2)));
-    expect(con(fuego(2))).toBe(sinArco);
+    expect(con(fuego(2))).toBeGreaterThan(con(fuego(3)));
+    expect(con(fuego(3))).toBe(sinArco);
     expect(con({ ...arco, tiro: 'granada', cargas: 2 })).toBe(conArco);
   });
 
@@ -283,7 +291,7 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
       equipo: { arma: 'espada' },
     });
     expect(equipado.attack).toBeGreaterThan(conRango(5).attack);
-    expect(indiceDePoder(equipado)).toBe(412);
+    expect(indiceDePoder(equipado)).toBe(397);
   });
 
   it('unas cifras que no caben en un entero lanzan diciéndolo, no redondean', () => {

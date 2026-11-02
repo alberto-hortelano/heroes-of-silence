@@ -26,8 +26,10 @@ import { createRng, type Rng } from '../src/core/rng.js';
 import { avanzarHasta, forzarTurno } from './helpers.js';
 
 /**
- * El granadero (fuerza 6: alcance 6) en (1,4) con un piquero suyo en (4,4), contra dos
- * coraceros (brigantina: 2 de armadura) en (5,4) y (6,4), con el turno del granadero.
+ * El granadero (fuerza 3: alcance 3) en (3,4) con un piquero suyo en (4,4), contra dos
+ * coraceros (coraza: 7 de armadura) en (5,4) y (6,4), con el turno del granadero.
+ * Hasta el catálogo retocado del 02-11-2026 el granadero tenía fuerza 6 y estaba en
+ * (1,4), y los coraceros llevaban la brigantina (2).
  */
 function conGranadero(): BattleState {
   const b = createBattle(
@@ -48,7 +50,7 @@ function conGranadero(): BattleState {
     createRng(1),
     COMBATE_COMPLETO,
   );
-  stackById(b, 'attacker-0').hex = { col: 1, row: 4 };
+  stackById(b, 'attacker-0').hex = { col: 3, row: 4 };
   stackById(b, 'attacker-1').hex = { col: 4, row: 4 };
   stackById(b, 'defender-0').hex = { col: 5, row: 4 };
   stackById(b, 'defender-1').hex = { col: 6, row: 4 };
@@ -89,10 +91,10 @@ describe('la granada', () => {
     const b = conGranadero();
     // A (5,4), con su piquero en medio: va por encima.
     expect(lanzarBlocker(b, { col: 5, row: 4 })).toBeNull();
-    expect(lanzarBlocker(b, { col: 8, row: 4 })).toBe(
-      'Granadero lanza hasta 6 casillas (su fuerza), y (8,4) está a 7',
+    expect(lanzarBlocker(b, { col: 7, row: 4 })).toBe(
+      'Granadero lanza hasta 3 casillas (su fuerza), y (7,4) está a 4',
     );
-    expect(lanzarBlocker(b, { col: 1, row: 4 })).toBe(
+    expect(lanzarBlocker(b, { col: 3, row: 4 })).toBe(
       'Granadero no puede lanzar a su propia casilla',
     );
     // La lista ofrece la casilla de cada enemigo a su alcance.
@@ -132,10 +134,10 @@ describe('la granada', () => {
       ['defender-1', 2],
       ['attacker-1', 2],
     ]);
-    // Los coraceros restan su brigantina; el piquero, su arnés (3).
+    // Los coraceros restan su coraza (7); el piquero, su arnés (3).
     expect(dados.map(([t, , , parado]) => [t, parado])).toEqual([
-      ['defender-0', 2],
-      ['defender-1', 2],
+      ['defender-0', 7],
+      ['defender-1', 7],
       ['attacker-1', 3],
     ]);
     // El centro pega más que el anillo, a dos coraceros iguales.

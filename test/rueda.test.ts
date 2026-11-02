@@ -1688,6 +1688,9 @@ function jineteALaCarga(): { s: SesionDeArena; ataque: BattleAction & { type: 'a
 describe('la sesión de la arena con la rueda', () => {
   it('con carga, la rueda dice la carga de sus cifras y Rápido va en dos líneas (R5, R6)', () => {
     const { s, ataque } = jineteALaCarga();
+    // Herido, para que el golpe de la carga lo tumbe siempre (abajo): entero ya no,
+    // desde el catálogo del 02-11-2026 (el caballo de guerra, de fuerza 7; era 16).
+    stackById(s.battle, 'defender-0').topHp = 5;
     s.playBattleAction(ataque);
     const p = s.ruedaPendiente;
     if (p === null) throw new Error('la rueda no se abre al pulsar la carga');
@@ -1699,8 +1702,8 @@ describe('la sesión de la arena con la rueda', () => {
     const rapido = m.slice(desde, m.indexOf('</button>', desde));
     expect(rapido.match(/class="da"/g)).toHaveLength(2);
     expect(rapido).toMatch(/<span class="da">\+ \d+/);
-    // El piquero no aguanta el golpe de la carga: no hay contraataque que rebajar,
-    // y R. guardia no lo promete.
+    // El piquero, con 5 PV, no aguanta el golpe de la carga: no hay contraataque que
+    // rebajar, y R. guardia no lo promete.
     expect(p.prevision.contraataque).toBeNull();
     expect(m).not.toContain('Su contraataque (con Normal');
   });

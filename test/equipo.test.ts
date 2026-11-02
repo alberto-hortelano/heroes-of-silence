@@ -152,16 +152,23 @@ describe('el catálogo de equipo, en datos (C2)', () => {
         .map((p) => p.id)
         .sort(),
     );
-    // Toda pieza se vende o cae como botín, y todas tienen precio en oro, salvo las
-    // que solo van en los kits.
+    // Toda pieza se vende o cae como botín, salvo las que solo van en los kits (el
+    // precio, en su propia prueba, abajo).
     const enKits = EQUIPO.filter((p) => p.seConsigue.length === 0).map((p) => p.id);
     expect(enKits.sort()).toEqual([...SOLO_EN_KITS].sort());
-    expect(EQUIPO.every((p) => enKits.includes(p.id) || p.precio > 0)).toBe(true);
     // El equipo base es el de `data/heroe.json`: la Espada y el gambesón, sin nada más.
     expect(EQUIPO_BASE).toEqual({ arma: 'espada', armadura: 'gambeson' });
     // Ninguna da PV: no es un campo de una pieza (lo dice el tipo, y el cargador).
     expect(EQUIPO.some((p) => 'pv' in p)).toBe(false);
     expect(CIFRAS_DE_PIEZA).not.toContain('pv');
+  });
+
+  // Aparte desde el 02-11-2026: la «Lanza corta» (`arma-2`) del catálogo retocado a
+  // mano en la arena se vende en la armería a 0 de oro, y esto lo dice sin tapar lo
+  // demás de arriba.
+  it('toda pieza que se vende o cae como botín tiene precio en oro; solo las de los kits van sin él', () => {
+    const gratis = EQUIPO.filter((p) => p.seConsigue.length > 0 && p.precio <= 0).map((p) => p.id);
+    expect(gratis).toEqual([]);
   });
 
   it('el cargador muerde con las cifras nuevas: velocidad o daño de antes, sin peso, manos fuera del arma, PV, sin botín', () => {
@@ -378,8 +385,9 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
   it('`conEquipo` suma la fuerza del arma al daño, y el peso que no pasa de la fuerza no resta', () => {
     const campesino = desnudo(TROPA_BARATA);
     const conEspada = conEquipo(campesino, { arma: 'espada' });
-    // Daño = [F, F × agilidad], con F = la fuerza más la del arma (25-10-2026).
-    const f = campesino.fuerza + 3;
+    // Daño = [F, F × agilidad], con F = la fuerza más la del arma (25-10-2026): la
+    // Espada, 1 (02-11-2026). Pesa 1, menos que la fuerza 2 del goblin.
+    const f = campesino.fuerza + 1;
     expect(conEspada.damage).toEqual([f, f * campesino.agilidad]);
     expect(conEspada.attack).toBe(campesino.attack + 3);
     expect(conEspada.peso).toBe(1);
@@ -404,10 +412,11 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
       distancia: 'arco',
       armadura: 'jubon_de_arquero',
     });
-    // Arriba, cuerpo + daga + jubón (pesan 2, menos que su fuerza 4): la fuerza de
-    // la daga, 2, al daño. El jubón, de la arena, da 1 de armadura y ningún PV (#262).
+    // Arriba, cuerpo + daga + jubón (con el arco pesan 1, menos que su fuerza 2): la
+    // daga no suma fuerza desde el 02-11-2026, así que el daño es el del cuerpo. El
+    // jubón, de la arena, da 1 de armadura y ningún PV (#262).
     expect(arquero.attack).toBe(c.attack);
-    expect(arquero.damage).toEqual([c.fuerza + 2, (c.fuerza + 2) * c.agilidad]);
+    expect(arquero.damage).toEqual([c.fuerza, c.fuerza * c.agilidad]);
     expect(arquero.hp).toBe(c.hp);
     expect(armaduraDe(arquero)).toBe(1);
     // Sin munición (13-10-2026): el arco no da tiros; llevarlo ya es disparar.
@@ -429,17 +438,17 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
       },
     });
     // La lanza es un arma de cuerpo a cuerpo más (25-10-2026); sin montura de guerra
-    // no lleva horquilla de carga. Con la coraza pesan 14 con fuerza 4: −5 de
-    // agilidad, que no baja de 1.
+    // no lleva horquilla de carga. Con la coraza pesan 5 con fuerza 2: −2 de
+    // agilidad, de 3 a 1 (lo de que no baja de 1, con el cuerpo flojo de abajo).
     const jinete = arena.conEquipo(c, { arma: 'lanza', armadura: 'barda' });
     expect(jinete.attack).toBe(c.attack + 3);
-    expect(jinete.damage).toEqual([c.fuerza + 4, c.fuerza + 4]);
+    expect(jinete.damage).toEqual([c.fuerza + 2, c.fuerza + 2]);
     expect(jinete.speed).toBe('crawling');
     expect(jinete.armas).toEqual({
       arma: {
         piezas: [{ id: 'lanza', nombre: 'Lanza de jinete' }],
         attack: c.attack + 3,
-        damage: [c.fuerza + 4, c.fuerza + 4],
+        damage: [c.fuerza + 2, c.fuerza + 2],
         rueda: pieza('lanza').rueda,
       },
     });
@@ -449,15 +458,17 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
     });
     expect(mismasCifras(enDos, arquero)).toBe(true);
     expect(enDos.equipo).toEqual(arquero.equipo);
-    // Con la ballesta en su hueco, su ataque y su daño son del disparo, no de arriba.
+    // Con la ballesta en su hueco, su ataque y su daño son del disparo, no de arriba:
+    // arriba, los de la daga, 0 y 0 desde el 02-11-2026 (la ballesta, 3 y 6). El peso,
+    // de todo: 0 + 2 + 0.
     expect(
       arena.sumaDeEquipo({ arma: 'daga', distancia: 'ballesta', armadura: 'gambeson' }),
     ).toEqual({
       ataque: 0,
-      fuerza: 2,
+      fuerza: 0,
       defensa: 0,
       armadura: 1,
-      peso: 4,
+      peso: 2,
       montura: null,
       fuerzaDeLaLanza: null,
     });
@@ -467,8 +478,9 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
     const piquero = desnudo(TROPA);
     const espada = pieza('espada');
     const conBase = conEquipo(piquero, EQUIPO_BASE);
-    // Pesan 3, menos que su fuerza 7: la defensa y la velocidad no cambian.
-    const danio = [piquero.fuerza + 3, (piquero.fuerza + 3) * piquero.agilidad];
+    // Pesan 1, menos que su fuerza 3: la defensa y la velocidad no cambian. La
+    // Espada suma 1 de fuerza (02-11-2026).
+    const danio = [piquero.fuerza + 1, (piquero.fuerza + 1) * piquero.agilidad];
     expect(conBase).toStrictEqual({
       ...piquero,
       attack: piquero.attack + 3,
@@ -476,7 +488,7 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
       damage: danio,
       hp: piquero.hp,
       puntosDeArmadura: 1,
-      peso: 3,
+      peso: 1,
       speed: piquero.speed,
       equipo: EQUIPO_BASE,
       armas: {
@@ -507,21 +519,36 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
   });
 
   it('el escudo suma defensa y pesa; el peso que pasa de la fuerza resta agilidad, y con ella casillas, defensa y daño', () => {
-    // Fuerza 7, agilidad 4 (25-10-2026: nada resta movimiento salvo el peso).
+    // Fuerza 3, agilidad 3 (25-10-2026: nada resta movimiento salvo el peso; las
+    // cifras, las del catálogo retocado del 02-11-2026).
     const piquero = desnudo(TROPA);
+    expect([piquero.fuerza, piquero.agilidad]).toEqual([3, 3]);
     const conEscudo = conEquipo(piquero, { escudo: 'escudo' });
     expect(conEscudo.defense).toBe(piquero.defense + 3);
     expect(conEscudo.speed).toBe(piquero.speed);
-    // El arnés y el pavés pesan 13: pasan 6 de su fuerza 7, −1 de agilidad (de 4 a 3).
-    const cargado = conEquipo(piquero, { armadura: 'arnes_de_placas', escudo: 'paves' });
-    expect(cargado.speed).toBe('slow');
-    expect(cargado.defense).toBe(3 + 6);
-    expect(cargado.damage).toEqual([7, 21]);
-    // Un cuerpo flojo con todo encima no baja de 1 de agilidad.
-    const flojo = conEquipo(desnudo(TROPA_BARATA), { armadura: 'barda', escudo: 'paves' });
+    // La coraza y el pavés pesan 5: pasan 2 de su fuerza 3, −1 de agilidad (de 3 a
+    // 2). El arnés y el pavés, que eran el ejemplo, pesan 3 desde el 02-11-2026: no
+    // pasan de su fuerza y ya no restan.
+    expect(conEquipo(piquero, { armadura: 'arnes_de_placas', escudo: 'paves' }).speed).toBe(
+      piquero.speed,
+    );
+    const cargado = conEquipo(piquero, { armadura: 'barda', escudo: 'paves' });
+    expect(cargado.speed).not.toBe(piquero.speed);
+    expect(SPEED_TO_HEXES[cargado.speed]).toBe(2);
+    expect(cargado.defense).toBe(2 + 6);
+    expect(cargado.damage).toEqual([3, 6]);
+    // Un cuerpo flojo con todo encima no baja de 1 de agilidad: la coraza, el pavés y
+    // la ballesta pesan 7 sobre su fuerza 2, −3 de su agilidad 3.
+    const flojo = conEquipo(desnudo(TROPA_BARATA), {
+      armadura: 'barda',
+      escudo: 'paves',
+      distancia: 'ballesta',
+    });
+    expect([desnudo(TROPA_BARATA).fuerza, desnudo(TROPA_BARATA).agilidad]).toEqual([2, 3]);
+    expect(agilidadDe(flojo)).toBe(1);
     expect(flojo.speed).toBe('crawling');
-    expect(cifrasDePieza(pieza('escudo'))).toBe('+3 Defensa, Peso 2');
-    expect(cifrasDePieza(pieza('mandoble'))).toBe('+2 Ataque, +6 Fuerza, Peso 2, a dos manos');
+    expect(cifrasDePieza(pieza('escudo'))).toBe('+3 Defensa, Peso 1');
+    expect(cifrasDePieza(pieza('mandoble'))).toBe('+2 Ataque, +2 Fuerza, Peso 2, a dos manos');
   });
 
   // 13-10-2026, el usuario: «estandariza la forma de mostrar los modificadores del
@@ -534,13 +561,13 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
     ]);
     expect(modificadoresDePieza(pieza('mandoble'))).toEqual([
       { kind: 'cifra', cifra: 'ataque', valor: 2 },
-      { kind: 'cifra', cifra: 'fuerza', valor: 6 },
+      { kind: 'cifra', cifra: 'fuerza', valor: 2 },
       { kind: 'cifra', cifra: 'peso', valor: 2 },
       { kind: 'marca', marca: 'dosManos' },
     ]);
     expect(modificadoresDePieza(pieza('escudo'))).toEqual([
       { kind: 'cifra', cifra: 'defensa', valor: 3 },
-      { kind: 'cifra', cifra: 'peso', valor: 2 },
+      { kind: 'cifra', cifra: 'peso', valor: 1 },
     ]);
     // El orden de toda pieza del catálogo es el de `CIFRAS_DE_PIEZA`, sin repetir ni ceros.
     for (const p of PIEZAS_DEL_CATALOGO.values()) {
@@ -594,11 +621,12 @@ describe('las piezas suman daño y tiros, el escudo resta velocidad y las dos ma
   });
 
   it('dos armas de una mano (25-10-2026): de cada cifra, la mejor de las dos, y lo que no cabe en las manos se dice', () => {
-    // Espada (+3, fuerza 3) y maza (+1, fuerza 5): ataque 3 + 3 y fuerza 8 + 5; con
-    // la brigantina pesan 7, menos que su fuerza, y la agilidad se queda en 4.
+    // Espada (+3, fuerza 1) y maza (+1, fuerza 2): el ataque, de la Espada, 3 + 3, y
+    // la fuerza, de la maza, 4 + 2; con la brigantina pesan 3, menos que su fuerza 4,
+    // y la agilidad se queda en 3 (02-11-2026).
     const orko = unidadDelJuego('orko-dos-armas');
     expect(orko.attack).toBe(6);
-    expect(orko.damage).toEqual([13, 52]);
+    expect(orko.damage).toEqual([6, 18]);
     expect(armasDe(orko)[0]?.arma).toBe('Espada y Maza');
     // Lo que dice la ficha es lo que pega la batalla, golpe a golpe.
     for (const a of armasDe(orko)) {
@@ -707,11 +735,11 @@ describe('las cifras se suman en las puertas de siempre (C1)', () => {
     const datos = { name: 'X', attack: 2, defense: 2, experience: umbral(5) };
     const desnudo = heroUnit({ ...datos, equipo: {} });
     const vestido = heroUnit({ ...datos, equipo: EQUIPO_BASE });
-    // Espada +3 de ataque y +3 de fuerza al daño; gambesón 1 de armadura. Pesan 3,
-    // menos que su fuerza: la defensa no cambia.
+    // Espada +3 de ataque y +1 de fuerza al daño (02-11-2026); gambesón 1 de
+    // armadura. Pesan 1, menos que su fuerza: la defensa no cambia.
     expect(vestido.attack).toBe(desnudo.attack + 3);
     expect(vestido.defense).toBe(desnudo.defense);
-    expect(vestido.damage).toEqual([desnudo.fuerza + 3, (desnudo.fuerza + 3) * 4]);
+    expect(vestido.damage).toEqual([desnudo.fuerza + 1, (desnudo.fuerza + 1) * 4]);
     expect(armaduraDe(vestido)).toBe(1);
     expect(vestido.hp).toBe(desnudo.hp);
   });
@@ -1039,7 +1067,8 @@ describe('la segunda mano de la tropa: la acción hace lo que dice la pregunta (
   // porque ponía sobre lo suyo sin la daga de serie: la Espada se perdía.
   it('un arquero con su daga de serie se pone la Espada de segunda: la pregunta dice sí y la acción la pone', () => {
     const { state, c, hero } = enLaArmeria();
-    const ARQUERO = 'elfo-arquero';
+    // El goblin: el arquero elfo lleva la Espada de serie desde el 02-11-2026.
+    const ARQUERO = 'goblin-arquero';
     const serie = unidadDelJuego(ARQUERO).equipo!;
     expect(serie.arma).toBe('daga');
     expect(serie.segunda).toBeUndefined();
@@ -1179,7 +1208,10 @@ function enRegionDeAsaltantes(seed: number) {
 
 describe('el botín (C3)', () => {
   it('repeler una emboscada deja una pieza en la mochila y un `loot_found` de asaltantes', () => {
-    const { state, c, hero, hasta } = enRegionDeAsaltantes(11);
+    // La semilla 1: su grupo más numeroso le saca la ventaja clara a un héroe solo y
+    // desnudo y lo embosca. La 11, que era el ejemplo, ya no (02-11-2026: con el
+    // catálogo retocado su grupo pesa 69 frente a los 60 del héroe).
+    const { state, c, hero, hasta } = enRegionDeAsaltantes(1);
     hero.army = [];
     hero.equipo = {};
     accion(state, { type: 'move_hero', hero: hero.id, to: hasta }, c);
@@ -1308,12 +1340,15 @@ describe('el equipo vive en el individuo (C1)', () => {
 
 /**
  * Lo mejor de cada hueco para la IA (`valorDePieza`): con ello puesto, el héroe no
- * mejora con nada que se venda (el escudo no entra con el mandoble).
+ * mejora con nada que se venda. Desde el catálogo del 02-11-2026 el arma que más vale
+ * de la armería es la Lanza de jinete, de una mano, así que lleva también el pavés
+ * (con el mandoble de antes, el escudo no entraba).
  */
 const LO_MEJOR = {
-  arma: 'mandoble',
+  arma: 'lanza',
   distancia: 'ballesta',
   armadura: 'barda',
+  escudo: 'paves',
 } as const;
 
 describe('la IA compra y equipa (C5)', () => {
@@ -1380,14 +1415,20 @@ describe('la IA compra y equipa (C5)', () => {
     // «para el veterano» y ponérsela al novato sería el mismo derroche por otra
     // puerta.
     hero.mochila = [];
-    // El zombi lleva lo mismo de serie que el guerrero con escudo, y de novato tiene
-    // más índice que un guerrero veterano de rango 2.
-    const MEJOR = 'zombi';
-    const veterano = { creature: TROPA, veterania: hoja('veterano-2', umbral(2)) };
-    expect(unidadDelJuego(MEJOR).equipo!).toEqual(unidadDelJuego(TROPA).equipo!);
+    // El orko con armadura pesada lleva lo mismo de serie que el templario del
+    // mandoble (mandoble y arnés), y de novato tiene más índice que ese templario
+    // veterano de rango 2. Eran el zombi y el guerrero con escudo hasta el catálogo
+    // retocado del 02-11-2026, en que el zombi se quedó con la Espada sola.
+    const MEJOR = 'orko-armadura-pesada';
+    const IGUAL = 'templario-mandoble';
+    const veterano = { creature: IGUAL, veterania: hoja('veterano-2', umbral(2)) };
+    expect(unidadDelJuego(MEJOR).equipo!).toEqual(unidadDelJuego(IGUAL).equipo!);
     expect(indiceDePoder(cifrasDeUnidad(MEJOR, undefined))).toBeGreaterThan(
       indiceDePoder(cifrasDeUnidad(veterano.creature, veterano.veterania)),
     );
+    // Solo, ese veterano sí se lleva la compra: lo que la frena es el novato.
+    hero.army = [veterano];
+    expect(siguienteDeEquipo(state, 0)?.type).toBe('buy_item');
     hero.army = [{ creature: MEJOR }, veterano];
     expect(siguienteDeEquipo(state, 0)).toBeNull();
   });
@@ -1414,9 +1455,14 @@ describe('la IA compra y equipa (C5)', () => {
     expect(valorDePieza(pieza(unidadDelJuego(SANADOR).equipo!.arma!))).toBeLessThan(
       valorDePieza(pieza('espada')),
     );
-    hero.mochila = ['maza'];
+    // La Espada de herrería, de botín, vale más que la Espada (la maza, que era el
+    // ejemplo, vale menos desde el 02-11-2026, y ya no es de botín).
+    expect(valorDePieza(pieza('espada_de_herreria'))).toBeGreaterThan(
+      valorDePieza(pieza('espada')),
+    );
+    hero.mochila = ['espada_de_herreria'];
     accion(state, siguienteDeEquipo(state, 0)!, c);
-    expect(hero.equipo.arma).toBe('maza');
+    expect(hero.equipo.arma).toBe('espada_de_herreria');
     expect(siguienteDeEquipo(state, 0)).toMatchObject({
       item: 'espada',
       creature: SANADOR,
@@ -1548,10 +1594,12 @@ describe('el fichero, por tipos y con bases (18-10-2026)', () => {
       extras: { ataque: 1, rueda: { ofensivo: 1, defensivo: 1 }, oro: 300 },
     });
     // El orden del fichero, el del botín: lo nuevo, al final.
-    expect(EQUIPO.slice(-3).map((p) => p.id)).toEqual([
+    expect(EQUIPO.slice(-4).map((p) => p.id)).toEqual([
       'maza',
       'espada_de_herreria',
       'espada_bendita',
+      // La Lanza corta, que se hizo en la arena el 02-11-2026 con «+ Nueva pieza».
+      'arma-2',
     ]);
   });
 
@@ -1578,7 +1626,7 @@ describe('el fichero, por tipos y con bases (18-10-2026)', () => {
     // La resuelta tiene que valer: un extra que deja la fuerza en negativo.
     expect(
       con((ps) => ((id(ps, 'espada_de_herreria').extras as { fuerza: number }).fuerza = -20)),
-    ).toThrow('«Espada de herrería» (sobre «Espada»): fuerza tiene que ser un entero ≥ 0 y es -17');
+    ).toThrow('«Espada de herrería» (sobre «Espada»): fuerza tiene que ser un entero ≥ 0 y es -19');
   });
 });
 
@@ -1597,7 +1645,7 @@ describe('la montura, aparte del jinete (26-10-2026)', () => {
     expect(armeria).toContain('caballo_de_guerra');
     expect(armeria).toContain('caballo_de_silla');
     expect(armeria).not.toContain('hiena_de_guerra');
-    expect(pieza('caballo_de_guerra')).toMatchObject({ fuerza: 16, agilidad: 6, guerra: true });
+    expect(pieza('caballo_de_guerra')).toMatchObject({ fuerza: 7, agilidad: 6, guerra: true });
     expect(pieza('caballo_de_silla')).not.toHaveProperty('guerra');
   });
 
@@ -1631,19 +1679,20 @@ describe('la montura, aparte del jinete (26-10-2026)', () => {
 
   it('el hermano de carga montado: las casillas del caballo, su agilidad entera y el daño sin la fuerza del caballo', () => {
     const montado = unidadDelJuego(JINETE);
-    // Lo suyo (espada, lanza y coraza: 15) y el caballo (3), 18 frente a 16: −1, de
-    // las 6 casillas del caballo a 5.
-    expect(montado.peso).toBe(15);
-    expect(montado.montura).toMatchObject({ id: 'caballo_de_guerra', fuerza: 16, guerra: true });
+    // Lo suyo (espada, lanza y coraza: 1 + 2 + 3 = 6) y el caballo (3), 9 frente a 7:
+    // −1, de las 6 casillas del caballo a 5 (cifras del 02-11-2026).
+    expect(montado.peso).toBe(6);
+    expect(montado.montura).toMatchObject({ id: 'caballo_de_guerra', fuerza: 7, guerra: true });
     expect(SPEED_TO_HEXES[montado.speed]).toBe(5);
-    expect(agilidadDe(montado)).toBe(4);
-    expect(montado.defense).toBe(4);
-    // El daño normal, (7 + 4) × [1, 4]: la fuerza del caballo no entra (riesgo del plan).
-    expect(montado.damage).toEqual([11, 44]);
-    expect(cifrasDelGolpe(montado, 'arma').damage).toEqual([11, 44]);
-    // La carga, (16 + 4) × [1, 4].
-    expect(golpeDe(montado, 'arma').carga).toEqual([20, 80]);
-    // Sin el caballo, a pie con lo mismo: 15 frente a 7, −2 de agilidad, 2 casillas.
+    expect(agilidadDe(montado)).toBe(3);
+    expect(montado.defense).toBe(3);
+    // El daño normal, (3 + 2, la fuerza de la lanza, la mejor de las dos armas) ×
+    // [1, 3]: la fuerza del caballo no entra (riesgo del plan).
+    expect(montado.damage).toEqual([5, 15]);
+    expect(cifrasDelGolpe(montado, 'arma').damage).toEqual([5, 15]);
+    // La carga, (7 + 2) × [1, 3].
+    expect(golpeDe(montado, 'arma').carga).toEqual([9, 27]);
+    // Sin el caballo, a pie con lo mismo: 6 frente a 3, −1 de agilidad, 2 casillas.
     const desmontado = vestidoCon(aPie);
     expect(desmontado.montura).toBeUndefined();
     expect(SPEED_TO_HEXES[desmontado.speed]).toBe(2);
@@ -1659,7 +1708,7 @@ describe('la montura, aparte del jinete (26-10-2026)', () => {
     expect(deSilla.defense).toBe(desmontado.defense);
     expect(deSilla.damage).toEqual(desmontado.damage);
     expect(golpeDe(deSilla, 'arma').carga).toBeUndefined();
-    // En el mapa, las casillas del caballo con lo que carga: 15 + 2 frente a 10, −1.
+    // En el mapa, las casillas del caballo con lo que carga: 6 + 2 frente a 5, −1.
     expect(SPEED_TO_HEXES[marchaDe(desmontado)]).toBe(2);
     expect(SPEED_TO_HEXES[marchaDe(deSilla)]).toBe(6);
   });
@@ -1668,7 +1717,7 @@ describe('la montura, aparte del jinete (26-10-2026)', () => {
     expect(() =>
       validarUnidad({ ...unidad(JINETE), traits: ['charge'] } as never, EQUIPO_DEL_JUEGO),
     ).toThrow(
-      'la unidad «Hermano de carga»: «charge» ya no es un rasgo: montar es llevar una montura de guerra (equipo.montura)',
+      'la unidad «Caballero templario»: «charge» ya no es un rasgo: montar es llevar una montura de guerra (equipo.montura)',
     );
   });
 });

@@ -407,21 +407,22 @@ describe('la barra al crear y al leer el borrador (segunda vuelta de QA)', () =>
 
   it('R1: el nivel de una nueva se lee de su índice, el mismo de su ficha', () => {
     // Desde una hoja (las criaturas del catálogo ya no entran, 13-10-2026), con el
-    // doble golpe que la sube al 3: la barra no lo escribe a mano.
+    // doble golpe que la sube al 3: la barra no lo escribe a mano. Con la Espada del
+    // 02-11-2026 (1 de fuerza; era 3), 266 y 314 (eran 286 y 328).
     const nueva = unidadNueva(hojaDeLaArena('templario-escudo'), ocupados, EQUIPO_DEL_JUEGO);
     const doble = { ...nueva, traits: ['double_attack' as const] };
     expect(avisoDeNuevaUnidad(doble, 'edicion', EQUIPO_DEL_JUEGO)).toBe(
-      'Nueva unidad «Guerrero con escudo 2», con Espada (Índice 328 · nivel 3): su ficha está abierta.',
+      'Nueva unidad «Guerrero con escudo 2», con Espada (Índice 314 · nivel 3): su ficha está abierta.',
     );
     expect(avisoDeNuevaUnidad(doble, 'montaje', EQUIPO_DEL_JUEGO)).toBe(
-      'Nueva unidad «Guerrero con escudo 2», con Espada (Índice 328 · nivel 3): añádela a un bando o cambia su ficha.',
+      'Nueva unidad «Guerrero con escudo 2», con Espada (Índice 314 · nivel 3): añádela a un bando o cambia su ficha.',
     );
     // Lo mismo que dice su ficha, sin el nivel escrito a mano.
     expect(marcadoDe(renderFicha(doble, false, enElMontaje(EQUIPO_DEL_JUEGO)))).toContain(
-      'Índice 328 · nivel 3',
+      'Índice 314 · nivel 3',
     );
     expect(avisoDeNuevaUnidad(nueva, 'edicion', EQUIPO_DEL_JUEGO)).toMatch(
-      / \(Índice 286 · nivel 2\): /,
+      / \(Índice 266 · nivel 2\): /,
     );
   });
 

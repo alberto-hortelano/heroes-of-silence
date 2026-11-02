@@ -345,8 +345,11 @@ describe('la lectura para el motor', () => {
     expect(t.individuos).toBe(hero.army.length);
     expect(t.lleva.reduce((n, x) => n + x.n, 0)).toBe(hero.army.length);
     expect(t.cupo).toBe(cupoDelHeroe(COMBATE_COMPLETO.tope));
-    // En `prueba` le cabe uno más (5 de 6, 17 de 20), y el motor lo lee.
-    expect(t.nota).toContain('le caben 1 más y 3 de liderazgo');
+    // En `prueba` le cabe uno más (5 de 6, 8 de 20: tres alabarderos de 2 y dos
+    // piqueros de 1 desde el catálogo retocado del 02-11-2026; eran 3 y 4, 17 de 20),
+    // y el motor lo lee.
+    expect(t.nota).toContain('lleva 5 de 6 individuos y 8 de 20 de liderazgo');
+    expect(t.nota).toContain('le caben 1 más y 12 de liderazgo');
   });
 
   it('cada casilla de muestra admite un lugar', () => {

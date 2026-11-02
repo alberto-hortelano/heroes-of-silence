@@ -1110,23 +1110,25 @@ describe('lo que ve el agente', () => {
       rng,
       COMBATE_COMPLETO,
     );
+    // El granadero lanza a su fuerza, 3 desde el catálogo retocado del 02-11-2026
+    // (era 6, y el coracero estaba en (5,4)): el coracero, a 3.
     stackById(b, 'attacker-0').hex = { col: 1, row: 4 };
-    stackById(b, 'defender-0').hex = { col: 5, row: 4 };
+    stackById(b, 'defender-0').hex = { col: 4, row: 4 };
     b.turno = { n: 500, stack: 'attacker-0', gastado: 0 };
     type Vista = {
       legalActions: unknown[];
       stacks: { id: string; grenades?: number; grenadeRange?: number; grenadeAt?: unknown }[];
     };
     const antes = serializeBattleTurn(b, 'attacker', 'propia', 0) as unknown as Vista;
-    const lanzar = { type: 'throw', at: { col: 5, row: 4 } };
+    const lanzar = { type: 'throw', at: { col: 4, row: 4 } };
     expect(antes.legalActions).toContainEqual(lanzar);
     const suyo = (v: Vista, id: string) => v.stacks.find((x) => x.id === id);
-    expect(suyo(antes, 'attacker-0')).toMatchObject({ grenades: 2, grenadeRange: 6 });
+    expect(suyo(antes, 'attacker-0')).toMatchObject({ grenades: 2, grenadeRange: 3 });
     const leida = battleActionSchema.parse(lanzar);
     applyAction(b, accionDeBatallaDelAgente(leida as AccionDeBatallaDelAgente, RUEDAS[7]), rng);
     // La que está en el aire se ve desde los dos bandos, como "aimedAt".
     const ajena = serializeBattleTurn(b, 'defender', 'ajena', null) as unknown as Vista;
-    expect(suyo(ajena, 'attacker-0')).toMatchObject({ grenades: 1, grenadeAt: { col: 5, row: 4 } });
+    expect(suyo(ajena, 'attacker-0')).toMatchObject({ grenades: 1, grenadeAt: { col: 4, row: 4 } });
     expect(RESPONSE_FORMAT.battle_turn).toContain('"grenadeAt"');
     expect(RESPONSE_FORMAT.battle_turn).toContain('"reloading"');
   });
@@ -1611,9 +1613,11 @@ describe('lo que ve el agente', () => {
       expect(palette.creaturesForGuards.some((id) => unidadDelJuego(id).faction === f)).toBe(true);
     }
     // El jinete de nivel 4 se queda fuera: la sugerencia no le pone al agente
-    // lo más fuerte de cada facción en el primer recodo.
-    expect(nivelDeUnidad(unidadDelJuego(JINETE))).toBeGreaterThan(3);
-    expect(guardias.has(JINETE)).toBe(false);
+    // lo más fuerte de cada facción en el primer recodo. Es el jinete élfico desde el
+    // catálogo retocado del 02-11-2026, en que el templario (`JINETE`) bajó al 3.
+    const DE_NIVEL_4 = 'elfo-jinete';
+    expect(nivelDeUnidad(unidadDelJuego(DE_NIVEL_4))).toBeGreaterThan(3);
+    expect(guardias.has(DE_NIVEL_4)).toBe(false);
   });
 
   it('la petición de mapa sigue pidiendo ancho y alto, y aconseja las regiones y pueblos del procedimental (#195)', () => {
@@ -1793,10 +1797,10 @@ describe('el nivel en el contrato: derivado de las cifras (12-10-2026)', () => {
   it('`creature_stats` dice la montura del jinete, su marcha y su carga montada (26-10-2026)', () => {
     const jinete = fichaDeCriatura(unidadDelJuego('templario-hermano-de-carga'));
     expect(jinete.equipment[SLOT_DE_HUECO.montura]).toBe('caballo_de_guerra');
-    // Las casillas del caballo, en batalla y en el mapa (6, −1 por lo que carga: 18
-    // frente a su fuerza 16); la carga, (16 + 4) × [1, 4].
+    // Las casillas del caballo, en batalla y en el mapa (6, −1 por lo que carga: 9
+    // frente a su fuerza 7); la carga, (7 + 2) × [1, 3] (cifras del 02-11-2026).
     expect(jinete).toMatchObject({ speed: 'fast', mapSpeed: 'fast' });
-    expect(jinete.chargeDamage).toEqual([20, 80]);
+    expect(jinete.chargeDamage).toEqual([9, 27]);
     // A pie no hay carga montada, y la marcha es la de batalla.
     const piquero = fichaDeCriatura(unidadDelJuego('templario-escudo'));
     expect(piquero.equipment[SLOT_DE_HUECO.montura]).toBeNull();

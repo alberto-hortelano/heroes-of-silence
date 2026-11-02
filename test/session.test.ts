@@ -204,6 +204,12 @@ describe('sesión del cliente: el bando de la persona', () => {
         // Lo contrario de lo que hacía: se paraba al ver un atacante —creyéndolo
         // suyo— y devolvía el mando con el turno del rival a medias.
         expect(activo.side).toBe('defender');
+        // Desde el catálogo retocado (02-11-2026) quien abre por la persona en la
+        // primera semilla es un arquero elfo, y un tirador empieza su turno «A
+        // distancia», donde no se marca andar (el selector de arma, 26-10-2026): la
+        // lista legal es suya, y en «Cuerpo a cuerpo» anda.
+        expect(s.battleLegalActions().some((a) => a.type !== 'end_turn')).toBe(true);
+        if (s.arma.modo === 'distancia') s.arma.elegir('cuerpo');
         expect(s.battleMovable().length).toBeGreaterThan(0);
       }
     }

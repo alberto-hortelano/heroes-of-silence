@@ -214,7 +214,9 @@ const ESCENARIOS: readonly Escenario[] = [
   {
     nombre: 'daño fijo: exacta',
     izquierda: () => aManoSolo('exacta', conManos(aMano(TROPA_BARATA, { damage: [10, 10] }))),
-    derecha: () => bando([{ creature: NO_MUERTO, count: 6 }]),
+    // Contra quien lleva armadura (la brigantina, 2), para que la previsión la diga:
+    // el esqueleto guerrero, que era el blanco, va sin ella desde el 02-11-2026.
+    derecha: () => bando([{ creature: TROPA, count: 6 }]),
     en: { col: 5, row: 4 },
     contra: { col: 6, row: 4 },
     accion: golpe(),
@@ -287,7 +289,7 @@ const ESCENARIOS: readonly Escenario[] = [
   // La armadura de la arena (#262): se resta lo último de cada golpe, y la
   // previsión con la misma resta (`trasLaArmadura`).
   {
-    nombre: 'armadura: la daga contra la coraza del jinete, que para casi todo el mínimo',
+    nombre: 'armadura: la daga contra la coraza del jinete, que para el mínimo entero',
     izquierda: () => deLaArena('arquero', ARQUERO_DE_LA_ARENA),
     derecha: () => deLaArena('jinete', JINETE_DE_LA_ARENA),
     en: { col: 5, row: 4 },
@@ -533,10 +535,11 @@ describe('la previsión de daño cae en el daño real', () => {
       const { b, accion } = montar(e, createRng(1));
       return previsionDe(b, accion)!;
     };
-    // La daga (3 contra 4: ×0,975) da 9–35: la coraza (7) se queda casi todo el
-    // mínimo, y el contraataque del jinete (espada) contra el jubón (1) también llega.
+    // La daga (3 contra 4: ×0,975) da 7–27 (sin fuerza desde el 02-11-2026; daba
+    // 9–35): la coraza (7) se queda el mínimo entero, y el contraataque del jinete
+    // (espada) contra el jubón (1) también llega.
     const daga = prevista('armadura: la daga') as PrevisionDeGolpe;
-    expect(daga.danio).toEqual({ min: 2, max: 28 });
+    expect(daga.danio).toEqual({ min: 0, max: 20 });
     expect(daga.modificadores.at(-1)?.causa).toBe('−7 armadura');
     expect(daga.contraataque?.modificadores.at(-1)?.causa).toBe('−1 armadura');
     // El hechizo, con la misma resta: lo que llega, sin la cuenta.

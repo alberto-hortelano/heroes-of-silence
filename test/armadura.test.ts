@@ -129,11 +129,12 @@ describe('las piezas dan armadura, no PV', () => {
       fuerza: 0,
       defensa: 0,
       armadura: 7,
-      peso: 12,
+      // La coraza pesa 3 desde el 02-11-2026 (eran 12).
+      peso: 3,
       montura: null,
       fuerzaDeLaLanza: null,
     });
-    expect(cifrasDePieza(pieza('barda'))).toBe('+7 Armadura, Peso 12');
+    expect(cifrasDePieza(pieza('barda'))).toBe('+7 Armadura, Peso 3');
     expect(armaduraDe(JINETE)).toBe(7);
     expect(JINETE.hp).toBe(50);
   });

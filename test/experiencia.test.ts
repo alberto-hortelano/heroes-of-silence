@@ -562,37 +562,44 @@ describe('la veteranía vive en el individuo y lo acompaña (C3)', () => {
 // ---------------------------------------------------------------- C4
 
 describe('cifras por rango, en una sola puerta (C4)', () => {
+  /**
+   * El coracero (fuerza 3, agilidad 3; espada, daga y coraza, que pesan 4): de novato
+   * el peso le quita un punto de agilidad, y con la fuerza que da el rango lo
+   * recupera. Era el guerrero con escudo (`TROPA`) hasta el catálogo retocado del
+   * 02-11-2026, en que lo que lleva pesa 3, su fuerza, y ya no le resta nada.
+   */
+  const CARGADO = 'imperio-coracero';
   it('las cifras de un veterano se guardan por su hoja, y otra hoja u otra criatura se recalculan', () => {
     const h = hoja('v-c', umbral(4));
-    const piquero = unidadDelJuego(TROPA);
-    const a = cifrasDeUnidad(TROPA, h);
+    const novato = unidadDelJuego(CARGADO);
+    const a = cifrasDeUnidad(CARGADO, h);
     // Rango 4: ataque +3 y fuerza +3 (y con ella el daño), y su nivel es el de esas
-    // cifras, no uno sumado aparte. La agilidad no sube, pero con fuerza 10 lo que
-    // lleva (8) ya no le pesa: recupera el punto que el novato pierde con fuerza 7
+    // cifras, no uno sumado aparte. La agilidad no sube, pero con fuerza 6 lo que
+    // lleva (4) ya no le pesa: recupera el punto que el novato pierde con fuerza 3
     // (31-10-2026), y con él uno de defensa.
     expect(a).toMatchObject({
-      attack: piquero.attack + 3,
-      fuerza: piquero.fuerza + 3,
-      defense: piquero.defense + 1,
+      attack: novato.attack + 3,
+      fuerza: novato.fuerza + 3,
+      defense: novato.defense + 1,
     });
-    expect(a.damage[0]).toBe(piquero.damage[0] + 3);
+    expect(a.damage[0]).toBe(novato.damage[0] + 3);
     expect(a).not.toHaveProperty('nivel');
     // La misma hoja da el MISMO objeto: `armyPower` ya no fabrica uno por pregunta.
-    expect(cifrasDeUnidad(TROPA, h)).toBe(a);
+    expect(cifrasDeUnidad(CARGADO, h)).toBe(a);
     // Más experiencia es otra hoja —`settleBattle` escribe una nueva—: otras cifras.
-    expect(cifrasDeUnidad(TROPA, hoja('v-c', umbral(5))).attack).toBe(piquero.attack + 4);
+    expect(cifrasDeUnidad(CARGADO, hoja('v-c', umbral(5))).attack).toBe(novato.attack + 4);
     // La misma hoja en otra unidad no presta las de la primera.
     expect(cifrasDeUnidad(TIRADOR, h)).toMatchObject({
       name: unidadDelJuego(TIRADOR).name,
       attack: unidadDelJuego(TIRADOR).attack + 3,
     });
-    expect(cifrasDeUnidad(TROPA, h)).toMatchObject({ name: piquero.name });
+    expect(cifrasDeUnidad(CARGADO, h)).toMatchObject({ name: novato.name });
     // Y un novato es la referencia del catálogo.
-    expect(cifrasDeUnidad(TROPA, undefined)).toBe(piquero);
+    expect(cifrasDeUnidad(CARGADO, undefined)).toBe(novato);
   });
 
-  it('un piquero de rango 3 entra con ataque +2 y fuerza +2, y rendirse lo cobra a su precio', () => {
-    const v = veterano(TROPA, 'v-1', umbral(3));
+  it('un coracero de rango 3 entra con ataque +2 y fuerza +2, y rendirse lo cobra a su precio', () => {
+    const v = veterano(CARGADO, 'v-1', umbral(3));
     expect(rangoDeTropa(v.veterania)).toBe(3);
     const b = createBattle(
       {
@@ -604,11 +611,11 @@ describe('cifras por rango, en una sola puerta (C4)', () => {
       COMBATE_COMPLETO,
     );
     const s = stackById(b, 'attacker-0');
-    const base = unidadDelJuego(TROPA);
+    const base = unidadDelJuego(CARGADO);
     expect(s.unit.attack).toBe(base.attack + 2 * EXPERIENCIA.porRango.ataque);
     expect(s.unit.fuerza).toBe(base.fuerza + 2 * EXPERIENCIA.porRango.fuerza);
     expect(s.unit.damage[0]).toBe(base.damage[0] + 2 * EXPERIENCIA.porRango.fuerza);
-    // Con fuerza 9, su peso 8 ya no le resta el punto de agilidad del novato.
+    // Con fuerza 5, su peso 4 ya no le resta el punto de agilidad del novato.
     expect(s.unit.defense).toBe(base.defense + 1);
     expect(s.unit.hp).toBe(base.hp);
     // Antes el precio salía de la referencia del catálogo, que un veterano ya

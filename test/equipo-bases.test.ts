@@ -221,10 +221,19 @@ describe('una pieza sobre otra', () => {
   });
 
   it('no se borra la base de otra pieza', () => {
+    // La que va sobre la nueva no lleva un id `arma-<n>`: el de la nueva depende de
+    // cuántas hay en el catálogo (con la Lanza corta, `arma-2`, del 02-11-2026, la
+    // nueva es `arma-3`, y una `arma-3` escrita a mano era su propia base).
     const a = piezaNueva('arma', EQUIPO_DEL_JUEGO);
-    const b = { id: 'arma-3', nombre: 'Arma 3', base: a.id, seConsigue: [], extras: { ataque: 1 } };
+    const b = {
+      id: 'sobre-la-nueva',
+      nombre: 'Sobre la nueva',
+      base: a.id,
+      seConsigue: [],
+      extras: { ataque: 1 },
+    };
     expect(motivoDelCambio(catalogoCon(a, b), elCatalogoCon(b), [])).toBe(
-      `«${a.nombre}» es la base de «Arma 3»: cámbiale la base o bórrala antes`,
+      `«${a.nombre}» es la base de «Sobre la nueva»: cámbiale la base o bórrala antes`,
     );
     expect(motivoDelCambio(catalogoCon(a, b), elCatalogoCon(a), [])).toBeNull();
     // Ni la Espada, de la que cuelga la de herrería del catálogo.
@@ -241,8 +250,8 @@ describe('una pieza sobre otra', () => {
     const nueva = piezaNueva('arma', EQUIPO_DEL_JUEGO) as Pieza;
     const rota = { ...nueva, rueda: { ...nueva.rueda, fuerte: 7 } } as Pieza;
     const sobreLaRota = {
-      id: 'arma-3',
-      nombre: 'Arma 3',
+      id: 'sobre-la-rota',
+      nombre: 'Sobre la rota',
       base: rota.id,
       seConsigue: [],
       extras: {},
@@ -305,9 +314,15 @@ describe('una pieza sobre otra', () => {
     );
     // Una del enlace sobre otra nueva que no trae, no.
     const nueva = piezaNueva('arma', EQUIPO_DEL_JUEGO) as Pieza;
-    const sobre = { id: 'arma-3', nombre: 'Arma 3', base: nueva.id, seConsigue: [], extras: {} };
+    const sobre = {
+      id: 'sobre-la-nueva',
+      nombre: 'Sobre la nueva',
+      base: nueva.id,
+      seConsigue: [],
+      extras: {},
+    };
     const eqDos = catalogoCon(nueva, sobre);
-    const lleva = equiparEnArena(quitarEnArena(u, 'arma'), 'arma-3', eqDos);
+    const lleva = equiparEnArena(quitarEnArena(u, 'arma'), 'sobre-la-nueva', eqDos);
     const o = JSON.parse(
       montajeALaURL({
         ...ENLACE,
@@ -321,7 +336,7 @@ describe('una pieza sobre otra', () => {
       montajeDeLaURL(
         JSON.stringify({ ...o, piezas: o.piezas.filter((p: { id: string }) => p.id !== nueva.id) }),
       ),
-    ).toThrow(`«Arma 3» toma de base «${nueva.id}», que no existe`);
+    ).toThrow(`«Sobre la nueva» toma de base «${nueva.id}», que no existe`);
     // Un enlace de la versión de antes se rechaza: hay que volver a copiarlo.
     const antes = VERSION_DEL_ENLACE - 1;
     expect(() => montajeDeLaURL(JSON.stringify({ ...o, v: antes }))).toThrow(

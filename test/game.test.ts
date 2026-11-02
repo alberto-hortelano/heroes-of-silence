@@ -883,12 +883,14 @@ describe('batallas del mapa', () => {
     base.garrison = [];
     // Sin oro no hay rendición: tiene que caer peleando.
     state.players[0]!.oro = 0;
-    // Se sustituye por un monstruo imbatible en la misma casilla.
+    // Se sustituye por un monstruo imbatible en la misma casilla: siete jinetes
+    // elfos, lo más fuerte del catálogo retocado del 02-11-2026 (los siete jinetes
+    // de plaga de antes ya caen ante el héroe).
     state.map.objects.splice(state.map.objects.indexOf(monstruo), 1, {
       kind: 'monster',
       id: monstruo.id,
       at: monstruo.at,
-      creature: 'jinete-de-plaga',
+      creature: 'elfo-jinete',
       count: 7,
       defeated: false,
     });
@@ -963,7 +965,10 @@ describe('IA de respaldo', () => {
     const montar = (conHeroe: boolean) => {
       const state = sinGuarnicionDeSalida(newGame({ seed: 41 }));
       const player = state.players.find((p) => p.id === 0)!;
-      player.oro = ECONOMIA.precioDelHeroe + 100;
+      // Lo que sobra tras la reserva no llega a una unidad: con el catálogo
+      // retocado del 02-11-2026 el guardia del temple cuesta 100 y el escudero 80,
+      // y con los 100 de antes el que reserva también reclutaba uno.
+      player.oro = ECONOMIA.precioDelHeroe + 50;
       const town = townsOf(state, 0)[0]!;
       for (const id of Object.keys(town.available)) town.available[id] = 500;
       if (!conHeroe) state.heroes = state.heroes.filter((h) => h.owner !== 0);
@@ -1563,10 +1568,12 @@ describe('el gremio enseña (#2)', () => {
     // la 21 (uno y dos). Con la escala baja (26-10-2026), 8 gremios en 1-80 y
     // hechizos en 6 de ellos: se jugaba la 5 (uno y dos). Con el peso que resta 1
     // por cada fuerza, o parte, que pasa (31-10-2026), 2 gremios en 1-80 y hechizos
-    // en uno: se juega la 28 (uno y dos).
+    // en uno: se jugaba la 28 (uno y dos). Con el catálogo retocado (02-11-2026), 5
+    // gremios en 1-120, cada uno con sus dos hechizos (la 45, 69, 78, 98 y 99): se
+    // juega la 45 (uno y dos).
     let gremios = 0;
     let aprendidos = 0;
-    for (const semilla of [28]) {
+    for (const semilla of [45]) {
       const state = newGame({ seed: semilla });
       await playAiGame(state, { rng: createRng(semilla) });
       for (const e of state.log) {

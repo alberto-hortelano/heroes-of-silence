@@ -46,7 +46,7 @@ describe('el catálogo de unidades (data/unidades.json)', () => {
     expect(() =>
       validarCatalogo({ unidades: [{ ...guerrero, equipo: {} }] }, EQUIPO_DEL_JUEGO),
     ).toThrow(
-      'data/unidades.json: la unidad «Guerrero con escudo»: no lleva arma de cuerpo a cuerpo',
+      'data/unidades.json: la unidad «Guardia del temple»: no lleva arma de cuerpo a cuerpo',
     );
     expect(() =>
       validarCatalogo({ unidades: [guerrero, { ...guerrero }] }, EQUIPO_DEL_JUEGO),
@@ -56,7 +56,7 @@ describe('el catálogo de unidades (data/unidades.json)', () => {
         { unidades: [{ ...guerrero, equipo: { ...guerrero.equipo, arma: 'espada-9' } }] },
         EQUIPO_DEL_JUEGO,
       ),
-    ).toThrow('data/unidades.json: la unidad «Guerrero con escudo»: no existe ninguna pieza');
+    ).toThrow('data/unidades.json: la unidad «Guardia del temple»: no existe ninguna pieza');
     expect(() => validarCatalogo({ otra: [] }, EQUIPO_DEL_JUEGO)).toThrow(
       'data/unidades.json tiene que ser { unidades: [...] }',
     );

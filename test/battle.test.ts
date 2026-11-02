@@ -191,10 +191,17 @@ function stackOf(id: string, count: number, unit: UnitInfo = unidadDelJuego(id))
 }
 
 /**
- * El no-muerto lento y duro del catálogo (3 casillas, el doble de PV que la
- * tropa): un alcance que cabe en la vista y un blanco que aguanta un hechizo.
+ * El no-muerto lento y duro del catálogo (2 casillas desde el 02-11-2026, y el
+ * doble de PV que la tropa): un blanco que aguanta un hechizo.
  */
 const ZOMBI = 'zombi';
+
+/**
+ * Uno de 3 casillas (fuerza 2, agilidad 3, con la Espada y la rodela, que pesan 1):
+ * un alcance que cabe en la vista. Era el zombi hasta el catálogo retocado del
+ * 02-11-2026, en que el zombi pasó a agilidad 2.
+ */
+const DE_TRES = 'esqueleto-guerrero';
 
 /** Las cifras de `base` con el rasgo `rasgo` además de los suyos: el catálogo no lo trae. */
 function con(base: string, rasgo: CreatureTrait, cambios: Partial<UnitInfo> = {}): UnitInfo {
@@ -587,8 +594,9 @@ describe('acciones ilegales', () => {
 });
 
 /**
- * Batalla fija para mirar `legalActions` con lupa: un zombi —lento, así que su
- * alcance cabe en la vista— pegado al arquero, con CUATRO enemigos delante.
+ * Batalla fija para mirar `legalActions` con lupa: uno de 3 casillas (`DE_TRES`)
+ * —lento, así que su alcance cabe en la vista— pegado al arquero, con CUATRO
+ * enemigos delante.
  *
  * El activo se fija a mano porque `turno` es un campo y no una tirada: si la
  * lista dependiera de quién gana la iniciativa, el día que cambie un desempate
@@ -596,7 +604,7 @@ describe('acciones ilegales', () => {
  */
 function batallaDeCuatroEnemigos(): BattleState {
   const state = createBattle(
-    side([{ creature: ZOMBI, count: 5 }]),
+    side([{ creature: DE_TRES, count: 5 }]),
     side([
       { creature: TROPA_BARATA, count: 6 },
       { creature: TIRADOR, count: 4 },
@@ -652,6 +660,9 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     // misma.
     //
     // Y sin `defend` ni `wait` delante (26-10-2026): el orden de lo demás, el mismo.
+    //
+    // Con el catálogo retocado (02-11-2026) el zombi anda 2; el atacante es otro de
+    // 3 casillas, el esqueleto guerrero, y la lista sale igual sin re-anclarla.
     expect(legalActions(batallaDeCuatroEnemigos())).toEqual([
       { type: 'move', to: { col: 9, row: 4 } },
       { type: 'move', to: { col: 10, row: 4 } },
@@ -752,7 +763,7 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     stackById(state, 'attacker-0').hex = { col: 0, row: 4 };
 
     aCero();
-    // Las tres casillas del zombi: si le quedara alguna, el turno seguiría abierto
+    // Sus tres casillas: si le quedara alguna, el turno seguiría abierto
     // y se volvería a mirar a dónde llega.
     aplicar(state, { type: 'move', to: { col: 3, row: 4 } }, createRng(1));
 
@@ -918,11 +929,11 @@ describe('efectos temporales (#9)', () => {
   it('la lentitud caduca de verdad y se anuncia en el parte', () => {
     const rng = createRng(7);
     const lanzador = hero({ spells: ['slow'], mana: 30, spellPower: 2 });
-    // Zombis, de 3 casillas: a uno de 2 (el esqueleto guerrero desde el 31-10-2026)
-    // la lentitud no le quita las dos, que no baja de 1.
+    // De 3 casillas: a uno de 2 (el zombi desde el 02-11-2026; el esqueleto
+    // guerrero del 31-10 al 02-11) la lentitud no le quita las dos, que no baja de 1.
     const state = createBattle(
-      side([{ creature: 'zombi', count: 5 }], lanzador),
-      side([{ creature: 'zombi', count: 5 }]),
+      side([{ creature: DE_TRES, count: 5 }], lanzador),
+      side([{ creature: DE_TRES, count: 5 }]),
       rng,
       COMBATE_COMPLETO,
     );

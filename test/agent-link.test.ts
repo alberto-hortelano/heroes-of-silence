@@ -258,12 +258,14 @@ function plantarRival(state: GameState, objetivo: Point, lejosDe?: Point): Hero 
  */
 /**
  * Un ejército más rápido que el del rival plantado y más flojo: tres
- * exploradores elfos (6 casillas) contra los pesados (4). El rival lo ataca y
+ * asesinos elfos (6 casillas) contra los pesados (4). El rival lo ataca y
  * él abre la ronda sin llegar a nadie, que es la escena de la espera de #52.
  * Eran cinco hasta la escala baja (26-10-2026): con cinco, el rival ya no atacaba
- * en ninguna semilla de 309 a 348.
+ * en ninguna semilla de 309 a 348. Y eran exploradores elfos hasta el catálogo
+ * retocado del 02-11-2026, en que el explorador pasó a agilidad 4: tan lento como
+ * los pesados.
  */
-const RAPIDO = 'elfo-explorador';
+const RAPIDO = 'elfo-asesino';
 function rapidos(h: Hero): void {
   expect(SPEED_TO_HEXES[unidadDelJuego(RAPIDO).speed]).toBeGreaterThan(
     SPEED_TO_HEXES[unidadDelJuego(PESADA).speed],
@@ -1839,7 +1841,7 @@ describe('el agente sabe cómo le fue', () => {
     const seed = await semillaEnQueElRivalAtaca(309, rapidos);
     const director = new Director(link, { seed, agentPlayers: [1] });
     const mio = rivalAlAtaque(director.state);
-    // Tres exploradores (6 casillas) contra los pesados del rival: la escena de
+    // Tres asesinos elfos (6 casillas) contra los pesados del rival: la escena de
     // la regla de #52 (esperar), que se retiró con `wait`; se queda la semilla.
     rapidos(mio);
     await director.playTurn();

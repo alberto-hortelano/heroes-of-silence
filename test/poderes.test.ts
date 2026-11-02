@@ -219,13 +219,14 @@ describe('la IA de batalla usa los poderes (A4)', () => {
 
   it('cura a quien puede caer si la pelea se gana; si no corre peligro, no gasta el turno en él', () => {
     // Sin héroe: con él, la IA lanza antes su hechizo, que no gasta el turno.
-    // 28 de herida sobre los 50 del escudero (la brigantina da armadura, no PV:
-    // #262), y le quedan 22.
-    const { b, escudero, orco } = enElTurnoDelMonje(28, null);
+    // 40 de herida sobre los 50 del escudero (la brigantina da armadura, no PV:
+    // #262), y le quedan 10. Eran 28 (le quedaban 22) hasta el catálogo retocado del
+    // 02-11-2026, en que el orco de dos armas pasó a pegar 6–18.
+    const { b, escudero, orco } = enElTurnoDelMonje(40, null);
     orco.topHp = 9; // el bando del monje va ganando la carrera
-    // Lejos del orco, 22 PV no corren peligro: el monje no se queda curando.
+    // Lejos del orco, 10 PV no corren peligro: el monje no se queda curando.
     expect(chooseBattleAction(b)).not.toMatchObject({ type: 'power' });
-    // Con el orco pegado (la maza, 13–52, menos los 2 de la brigantina), 22 PV
+    // Con el orco pegado (espada y maza, 6–18, menos los 2 de la brigantina), 10 PV
     // caen: lo cura.
     orcoJuntoAlEscudero(b, escudero, orco);
     expect(chooseBattleAction(b)).toEqual({ type: 'power', poder: 'curar', target: escudero.id });

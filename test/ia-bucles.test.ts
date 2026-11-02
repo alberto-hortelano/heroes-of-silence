@@ -228,12 +228,14 @@ describe('el encierro con el rival libre', () => {
   }
 
   it('espera mientras esperar puede arreglarlo, y a los 10 turnos vuelve a casa', () => {
-    // Entra el día 1, así que el día 10 empieza ahí su noveno turno.
-    const pronto = encerrado(5, 9);
+    // Entra el día 1, así que el día 10 empieza ahí su noveno turno. La semilla 1:
+    // en la 5, que era el ejemplo, su grupo más fuerte ya no le saca el margen al
+    // héroe sin tropa desde el catálogo retocado (02-11-2026) y no hay encierro.
+    const pronto = encerrado(1, 9);
     expect(turnosEnLaMismaCasilla(pronto.state, pronto.hero, 10)).toBe(9);
     expect(marchaDeHoy(pronto.state, pronto.hero)).toBeNull();
 
-    const tarde = encerrado(5, 10);
+    const tarde = encerrado(1, 10);
     expect(turnosEnLaMismaCasilla(tarde.state, tarde.hero, 10)).toBe(10);
     const marcha = marchaDeHoy(tarde.state, tarde.hero);
     expect(marcha).not.toBeNull();

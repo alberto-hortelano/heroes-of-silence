@@ -187,9 +187,12 @@ describe('notas para el agente', () => {
     // días: salen las cuatro cosas —llegar, cortarse, pararse y
     // emboscado antes— y cuesta medio segundo. Todas en 6 semillas eran 3,5 s
     // de clonar y andar, y filtrar por las rutas que pisan una región peligrosa
-    // no ahorraba nada: lo son nueve de cada diez.
+    // no ahorraba nada: lo son nueve de cada diez. Con el catálogo retocado
+    // (02-11-2026) ninguna de 1-80 tiene a la vez parada y emboscada (en una semilla
+    // el héroe de salida o ve el grupo que lo emboscaría o no lo ve): la 11 da
+    // emboscadas y cortes y la 12 paradas y cortes, las dos con marchas que llegan.
     const vistas = { halted: 0, emboscada: 0, enteras: 0 };
-    for (const seed of [42]) {
+    for (const seed of [11, 12]) {
       const inicio = newGame({ seed });
       const heroe = heroesOf(inicio, 0)[0]!;
       let n = 0;
@@ -226,7 +229,7 @@ describe('notas para el agente', () => {
         }
       }
     }
-    // Que mire algo: en esta semilla hay de las tres.
+    // Que mire algo: entre las dos semillas hay de las tres.
     expect(vistas.halted).toBeGreaterThan(0);
     expect(vistas.emboscada).toBeGreaterThan(0);
     expect(vistas.enteras).toBeGreaterThan(0);

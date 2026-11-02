@@ -1212,20 +1212,22 @@ describe('«A distancia» con el puntero: lo que no se puede, dicho como al puls
     expect(pelea.s.arma.modo).toBe('distancia');
     // Sobre el coracero, a 9: antes, el motivo del cuerpo a cuerpo («No alcanza a esa unidad…»).
     expect(señalarYPulsar(pelea, { col: 10, row: 4 })).toEqual({
-      señalada: 'Granadero lanza hasta 6 casillas (su fuerza), y (10,4) está a 9.',
-      pulsada: 'Granadero lanza hasta 6 casillas (su fuerza), y (10,4) está a 9.',
+      señalada: 'Granadero lanza hasta 3 casillas (su fuerza), y (10,4) está a 9.',
+      pulsada: 'Granadero lanza hasta 3 casillas (su fuerza), y (10,4) está a 9.',
     });
-    // Sobre una casilla vacía, a 7: antes, nada.
+    // Sobre una casilla vacía, a 8: antes, nada. (Su fuerza es 3 desde el
+    // catálogo del 02-11-2026; era 6.)
     expect(señalarYPulsar(pelea, { col: 8, row: 6 })).toEqual({
-      señalada: 'Granadero lanza hasta 6 casillas (su fuerza), y (8,6) está a 8.',
-      pulsada: 'Granadero lanza hasta 6 casillas (su fuerza), y (8,6) está a 8.',
+      señalada: 'Granadero lanza hasta 3 casillas (su fuerza), y (8,6) está a 8.',
+      pulsada: 'Granadero lanza hasta 3 casillas (su fuerza), y (8,6) está a 8.',
     });
     // Nada de eso se ha jugado.
     expect(pelea.s.battle.stacks.every((x) => x.granada === null)).toBe(true);
-    // Y a su alcance, lo de siempre: a dónde y a quién daría.
-    const cerca = pelea.en({ col: 5, row: 4 });
+    // Y a su alcance, lo de siempre: a dónde y a quién daría. (4,4), a 3; la
+    // (5,4) de antes, a 4, ya no le llega.
+    const cerca = pelea.en({ col: 4, row: 4 });
     pelea.escena.mover(cerca.x, cerca.y);
-    expect(pelea.s.status).toMatch(/^Lanzarías a \(5,4\)\./);
+    expect(pelea.s.status).toMatch(/^Lanzarías a \(4,4\)\./);
   });
 
   it('el arco sigue igual sobre un enemigo, y sobre su propia casilla dice por qué', () => {

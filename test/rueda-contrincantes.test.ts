@@ -486,20 +486,21 @@ describe('#261: la vista previa', () => {
     const guerrero = [p.atacante, p.objetivo].find((x) => x.body === TROPA);
     if (guerrero === undefined) throw new Error('el guerrero no se cruza');
     const v = previa(s, guerrero.id);
-    expect(v).toContain('Guerrero con escudo');
+    expect(v).toContain('Guardia del temple');
     expect(v).toContain(`${guerrero.topHp} / 50 PV`);
-    // Del catálogo de piezas (data/equipo.json): Espada +3 ataque y +3 de fuerza;
-    // Brigantina 2 de armadura y ningún PV (#262); el escudo, defensa. Lo puesto
-    // pesa 8, y con fuerza 7 no le resta agilidad: las casillas no cambian.
+    // Del catálogo de piezas (data/equipo.json, retocado el 02-11-2026): Espada +3
+    // ataque y +1 de fuerza; Brigantina 2 de armadura y ningún PV (#262); el escudo,
+    // defensa. Lo puesto pesa 3, y con fuerza 3 no le resta agilidad: las casillas
+    // no cambian.
     expect(v).toContain('data-cifra="ataque">+3 Ataque');
-    expect(v).toContain('data-cifra="danio">+3 / +12 Daño');
+    expect(v).toContain('data-cifra="danio">+1 / +3 Daño');
     expect(v).not.toContain('data-cifra="pv"');
     expect(v).toContain('<span class="label">Armadura</span><span>2</span>');
     expect(v).not.toContain('data-cifra="casillas"');
     expect(v).toMatch(/data-cifra="defensa">\+3 Defensa/);
     // El daño de la rueda es el del cuerpo a cuerpo, en una fila y sin notas: su
-    // fuerza (7) con la de la Espada (3), por su agilidad (4).
-    expect(v).toContain('<span class="label">Daño</span><span>10–40');
+    // fuerza (3) con la de la Espada (1), por su agilidad (3).
+    expect(v).toContain('<span class="label">Daño</span><span>4–12');
     expect(v).not.toContain('class="nota"');
   });
 

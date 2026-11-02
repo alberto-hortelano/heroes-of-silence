@@ -21,11 +21,15 @@ import { createRng, type Rng } from '../src/core/rng.js';
 import type { UnitInfo } from '../src/core/types.js';
 import { avanzarHasta, forzarTurno } from './helpers.js';
 
-/** `tirador` en (2,4) contra un coracero (brigantina: 2 de armadura) en (8,4), con el turno del tirador. */
+/**
+ * `tirador` en (2,4) contra el orko de dos armas (brigantina: 2 de armadura) en (8,4),
+ * con el turno del tirador. Era el coracero hasta el catálogo retocado del
+ * 02-11-2026, en que el coracero pasó a llevar la coraza (7).
+ */
 function aTiro(tirador: string): BattleState {
   const b = createBattle(
     { army: [{ creature: tirador, count: 1 }], hero: null },
-    { army: [{ creature: 'imperio-coracero', count: 1 }], hero: null },
+    { army: [{ creature: 'orko-dos-armas', count: 1 }], hero: null },
     createRng(1),
     COMBATE_COMPLETO,
   );
