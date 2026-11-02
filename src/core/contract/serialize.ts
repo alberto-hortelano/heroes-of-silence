@@ -77,11 +77,13 @@ import { cronicaPara } from '../state/events.js';
 import {
   baseOf,
   type GameState,
+  HERO_SCOUT_RADIUS,
   hayHuecoDeHeroe,
   heroeEnLaBase,
   heroesALaVista,
   heroesOf,
   MAX_HEROES_PER_PLAYER,
+  NODE_SCOUT_RADIUS,
   objetosConocidos,
   ordenDelDia,
   playerById,
@@ -319,8 +321,7 @@ export function serializeKnownMap(state: GameState, playerId: PlayerId) {
   // Los asaltantes se ven AHORA o no se ven, como un héroe enemigo: se mueven
   // cada día, y un recuerdo de dónde estaban sería ruido con fecha. Por eso no
   // van en `objects`, que es memoria. Qué grupo se ve lo dice
-  // `asaltantesALaVista` —basta ver su región (#130)—, la misma que pinta el
-  // cliente: un grupo puede venir sobre una casilla con `terrain: null`.
+  // `asaltantesALaVista` —si se mira su casilla—, la misma que pinta el cliente.
   const vistos = asaltantesALaVista(state, visibleNow(state, playerId));
 
   return {
@@ -424,6 +425,13 @@ export const COMO_SE_LEE_EL_MAPA = `  Trae width, height, terrain[], roads[], ob
     casilla {x,y} está en terrain[y*width+x]. Un null NO es un tipo de terreno, es
     una casilla que no has explorado: ahí no sabes nada —ni el suelo, ni si hay
     camino, ni qué hay encima— y no vale suponer que es hierba.
+  - El terreno se EXPLORA POR REGIONES: en cuanto un héroe tuyo entra en una
+    región la descubres entera, con su borde y sus pasos, y sobre un nodo o una
+    ciudad descubres todas las regiones que une. Empiezas con las de tu base.
+  - Lo que pasa, en cambio, solo lo ves CERCA: en ${HERO_SCOUT_RADIUS} casillas
+    alrededor de cada héroe tuyo y en ${NODE_SCOUT_RADIUS} alrededor de cada ciudad y cada
+    nodo tuyos (un cuadrado), y solo sobre lo explorado. Fuera de eso no ves
+    héroes, ni grupos, ni quién toma qué: lo sabes como lo viste por última vez.
   - "roads" son las casillas con camino que has explorado, como puntos {x,y},
     igual que los escribes tú en un plan de mapa. Que falte una NO significa que
     no haya camino: si el terreno de esa casilla es null, es que no lo has visto.
@@ -456,9 +464,10 @@ export const COMO_SE_LEE_EL_MAPA = `  Trae width, height, terrain[], roads[], ob
   - "raiders" son los grupos de ASALTANTES que ves AHORA, con su tropa
     ("troops") y su fuerza ("strength"). No son de nadie: viven en una región
     sin dueño y la patrullan, moviéndose cada día sin salir de ella ni pegarse a
-    un nodo. Un grupo se ve en cuanto ves cualquier casilla de su región, aunque
-    su casilla siga sin explorar ("terrain" null). Si uno no aparece no significa
-    que no esté: puede estar en una región que no ves. Se dispersan en cuanto su región tiene dueño, y cada lunes puede
+    un nodo. Un grupo se ve solo si su casilla está cerca de un héroe, una ciudad
+    o un nodo tuyos, como un héroe enemigo. Si uno no aparece no significa que no
+    esté: puede patrullar fuera de tu vista la misma región que vas a pisar, y
+    entonces te emboscará sin aviso. Se dispersan en cuanto su región tiene dueño, y cada lunes puede
     brotar uno nuevo en cualquier región sin dueño donde no haya nadie.
   - Un grupo de asaltantes EMBOSCA al héroe que pisa una casilla de su región
     si su fuerza pasa de ${String(MARGEN_CONTRA_NEUTRALES).replace('.', ',')} veces la del héroe

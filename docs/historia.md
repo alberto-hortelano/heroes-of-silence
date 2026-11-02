@@ -5570,3 +5570,52 @@ mitad, con 1/24 por punto).
 - `pnpm capturas`, en su pasada de poderes, ya no apunta Bendecir sobre un aliado: mira que Curar
   sale apagado en el primer turno del monje y lo usa luego sobre el único herido. El gesto de apuntar
   un poder con varios aliados posibles lo cubre `session.test.ts` con Curar y dos heridos.
+
+## La niebla por regiones y la niebla de eventos (02-11-2026)
+
+Petición del usuario: «Haz que la niebla del mapa no visto vaya por regiones. Al entrar en una
+región se muestra entera. Añada una niebla de eventos en torno a héroes y nodos controlados por el
+jugador. Lo que pase cerca en un radio x se ve. Si no, no». Plan y decisiones en
+`docs/agents/2026-11-02-niebla-por-regiones/`.
+
+- **Antes**: lo explorado (`fog`) y lo que se mira (`visibleNow`) eran los mismos cuadrados, de 5
+  alrededor de cada héroe y 6 de cada castillo. El mapa se descubría a manchas cuadradas que no
+  seguían ni una cordillera ni un río, y los nodos propios no miraban nada.
+- **Lo explorado, por regiones** (`core/map/niebla.ts`): una región se descubre **entera** al
+  pisarla, con las barreras que tiene más cerca (la misma `laMasCercana` del clima, que por eso pasó
+  de `state/clima.ts` a `map/regiones.ts` como `regionMasCercana`: la niebla la lee desde `game.ts`,
+  que el clima importa) y sus pasos —cada nodo, el recinto entero de cada ciudad, el puente de una
+  ciudad-puente—, que son de todas las regiones que unen: sin eso, el nodo de enfrente quedaba en
+  negro desde la región que se acaba de explorar. Sobre un paso se descubren todas las regiones que
+  une; al empezar, las de la base. Si una región está descubierta no se guarda: lo dice una casilla
+  suya que no es de ningún paso (`regionDescubierta`). La única escritura de `fog` es `descubrir`
+  (y `revealEverything`), y lo vigila un guardia de `invariantes.test.ts`, visto morder.
+- **Lo que se mira, el radio sobre lo explorado** (decisiones del usuario: héroe 5, castillos y
+  nodos propios 6, en cuadrado; dentro del radio y en negro no se ve): `visibleNow` y `visibleNowAt`
+  siguen siendo la única regla de qué héroe rival, qué estado vivo de un objeto y qué hecho de la
+  crónica se ve; ahora cuentan los nodos propios (`NODE_SCOUT_RADIUS`, el antiguo
+  `TOWN_SCOUT_RADIUS`) y cortan por `fog`. Un héroe rival tras la cordillera de una región sin pisar
+  no se ve aunque esté a tres casillas.
+- **Los asaltantes, por su casilla** (decisión del usuario; se retira la regla de la región de
+  #130): un grupo se ve si se mira su casilla. Con #130 bastaba una casilla de su región, y el lienzo
+  lo pintaba encima del negro (`sobreLaNiebla`, que se fue); ahora un grupo fuera del radio puede
+  emboscar sin haberse visto, y la prosa del agente lo dice. El recuerdo de la IA
+  (`recordarAsaltantes`) olvida un grupo al mirar la casilla donde se vio y no verlo; sigue temiendo
+  su región entera (`casillasPeligrosas`). El sello de `raider_spawned` y `raider_dispersed` es ya por
+  casilla, y `grupoALaVistaDesde` se fue: la crónica, la marcha y la IA preguntan `visibleNowAt`.
+- **El banco** (`732e11ca…`): ninguna de las 20 partidas se juega distinta; cambian solo los sellos
+  en 16 (165 hechos: 123 con más observadores, 42 con menos), el primero casi siempre un
+  `raider_spawned` de la creación que ya no ve nadie. En 1-100 se juegan distinto 2 (s33 y s40),
+  0 sin terminar. El barrido, 0 de 4 sin terminar.
+- `test/agent-link.test.ts` elegía el monstruo de la pelea por ser el primero de
+  `knownMap.objects`, que es el orden en que su dueño los vio: con la niebla por regiones dejó de
+  ser el primero del mapa, y ahora lo busca por su id.
+- **Vuelta 1 de QA**: perder un nodo propio no se veía, aunque el nodo mira a 6 (H1: en 1-30, 87
+  nodos quitados, el dueño vio llegar al rival en los 87 y no el `node_captured` en 53, y el mapa le
+  seguía pintando el nodo como suyo en 63). Ahora `node_captured` llega a `from`, como
+  `town_captured`, y el dueño de ayer recuerda la bandera nueva de un nodo o un castillo
+  (`vioCaerlo`). Y en una puerta o cualquier casilla del recinto de una ciudad se descubren todas
+  las regiones de la ciudad, no solo la más cercana (H4). La pasada de escritorio de `pnpm capturas`
+  miraba los grupos de lo explorado de la pantalla, que ya no se pintan si no están en el radio:
+  ahora mira solo los que ve la persona y, tras un día sin que se mueva ninguno, lleva la cámara a
+  uno que patrulle una región sin héroe (H2). El banco no se mueve.

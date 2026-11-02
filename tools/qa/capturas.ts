@@ -119,7 +119,7 @@ import { EQUIPO_DEL_JUEGO } from '../../src/core/hero/equipo.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
 import { nivelDeUnidad } from '../../src/core/nivel.js';
 import { parseSeed } from '../../src/core/rng.js';
-import { pasosDeLaPatrulla } from '../../src/core/state/asaltantes.js';
+import { pasosDeLaPatrulla, regionDeCasilla } from '../../src/core/state/asaltantes.js';
 import { baseOf, heroesOf, visibleNow } from '../../src/core/state/game.js';
 import { faccionesDeLaSemilla } from '../../src/core/state/setup.js';
 import type { SitioId } from '../../src/core/town/sitios.js';
@@ -2750,6 +2750,18 @@ async function mirarGuardia(mapa: Mapa, guardia: Point): Promise<Point> {
  * Lo que se compara es el lienzo de antes de pasar el día con el de después,
  * casilla a casilla alrededor de cada grupo visible: la casilla de destino no
  * se sabe hasta que el espejo juega el día.
+ *
+ * **Desde la niebla de eventos** (02-11-2026) un grupo se ve solo en el radio de
+ * los héroes, castillos y nodos de quien juega y sobre lo explorado, no por su
+ * región (#130). Los que caen ahí suelen patrullar la región donde está el héroe,
+ * y un grupo con un héroe en su región que no se cree capaz con él se aparta a su
+ * casilla más lejana y se queda en ella día tras día (`pasoDePatrulla`): en la s22
+ * de la pasada de escritorio, ninguno a la vista se movía en cuatro días. Por eso,
+ * tras un día sin que se mueva ninguno, de los que la persona ve (descubierto el
+ * mapa, todos), si ninguno de los que patrullan una región sin héroe cae en la
+ * pantalla, la cámara va a uno (`Mapa.mirar`), como la arrastraría quien juega
+ * para mirarlo. El primer día no se mueve: la pasada sin arte busca su semilla
+ * con la cámara en el héroe (`buscarSinArte`).
  */
 async function patrullaALaVista(
   page: Page,
@@ -2778,17 +2790,41 @@ async function patrullaALaVista(
       ...(await pixelesDelLienzo(page, px.x - b.x + t * 0.3, px.y - b.y + t * 0.32)),
     ];
   };
+  let quieto = false;
   for (let intento = 0; intento < 4 && espejo.state.finished === null; intento++) {
     // Lo que se ve de cada grupo hoy, y el lienzo alrededor: lo más que anda
     // mañana (`pasosDeLaPatrulla`: 2 o 3 en el 42×42, #229).
     const alcance = pasosDeLaPatrulla(espejo.state.day + 1);
+    const libres = espejo
+      .asaltantesALaVista()
+      .filter(
+        (r) =>
+          !espejo.state.heroes.some(
+            (h) =>
+              regionDeCasilla(espejo.state.map, h.at) === regionDeCasilla(espejo.state.map, r.at),
+          ),
+      );
+    if (quieto && libres.length > 0) {
+      const enPantalla = await Promise.all(libres.map(async (r) => dentro(await mapa.pixel(r.at))));
+      if (!enPantalla.some(Boolean)) {
+        const r = libres[0]!;
+        await mapa.mirar(r.at);
+        await sleep(600);
+        log(
+          `${prefijo}: la cámara va a ${r.id} en (${r.at.x},${r.at.y}), que patrulla una región sin héroe`,
+        );
+      }
+    }
     const antes = new Map<string, number[]>();
     const posiciones = new Map(espejo.state.raiders.map((r) => [r.id, { ...r.at }]));
     // Solo cuenta un grupo que se ve hoy y mañana: uno en lo explorado pero
     // fuera de la vista no se pinta (s2 con los mapas de #224, raider-5).
     const vistosAyer = new Set(espejo.asaltantesALaVista().map((r) => r.id));
+    // Solo los que la persona ve: con la niebla de eventos (02-11-2026) uno de lo
+    // explorado fuera del radio no se pinta, y mirarlo gastaba un día en balde
+    // (s22: el día 2 había 49 muestras y ninguno a la vista).
     for (const r of espejo.state.raiders) {
-      if (!explorada(r.at) || !dentro(await mapa.pixel(r.at))) continue;
+      if (!vistosAyer.has(r.id) || !explorada(r.at) || !dentro(await mapa.pixel(r.at))) continue;
       for (let dy = -alcance; dy <= alcance; dy++) {
         for (let dx = -alcance; dx <= alcance; dx++) {
           const p = { x: r.at.x + dx, y: r.at.y + dy };
@@ -2799,7 +2835,7 @@ async function patrullaALaVista(
       }
     }
     if (antes.size === 0) {
-      // Ninguno en lo explorado de la pantalla: se descubre el mapa con el botón
+      // Ninguno a la vista en la pantalla: se descubre el mapa con el botón
       // de siempre —el de depurar— en vez de buscar otra semilla. Una vez, y se
       // dice; si ni así hay ninguno, es rojo.
       //
@@ -2819,13 +2855,14 @@ async function patrullaALaVista(
           `${prefijo}: ${tapado.id} en (${tapado.at.x},${tapado.at.y}) está a la vista y la niebla lo tapa (H1)`,
         );
       }
-      // Los que ve la persona, con la regla del núcleo (basta su región, #130).
+      // Los que ve la persona, con la regla del núcleo (su casilla en el radio
+      // sobre lo explorado, 02-11-2026).
       const aLaVista = espejo.asaltantesALaVista();
       await page.getByRole('button', { name: 'Ver mapa entero' }).click();
       espejo.revealAll = true;
       await sleep(200);
       log(
-        `${prefijo}: ningún asaltante en lo explorado de la pantalla (${aLaVista.length} a la vista de la persona, ` +
+        `${prefijo}: ningún asaltante a la vista en la pantalla (${aLaVista.length} a la vista de la persona, ` +
           `ninguno tapado por la niebla); se descubre el mapa`,
       );
       intento--;
@@ -2845,6 +2882,7 @@ async function patrullaALaVista(
       );
     });
     if (movido === undefined) {
+      quieto = true;
       // Los de lo explorado pueden quedarse quietos un día (s99, con el mapa de
       // #215: el único a la vista no se mueve y los demás andan en la niebla):
       // se descubre el mapa, una vez, como cuando no se ve ninguno.

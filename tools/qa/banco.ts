@@ -1289,11 +1289,26 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   (`battle_ended`, otras bajas, 6) o lo que sigue a ella (`troop_rank_up`, s11;
  *   `town_captured`, s16). Nadie cambia de ganador; duración 4 / 6 / 8 → **4 / 6 / 7**
  *   (s11, 8 → 7 días). La forma del diff, no una medida.
+ * - `732e11ca…` (3 635 líneas, **las mismas**, 20 semillas, 02-11-2026): **la niebla por
+ *   regiones y la niebla de eventos** (`docs/agents/2026-11-02-niebla-por-regiones/`,
+ *   petición del usuario: lo explorado se descubre por regiones enteras; lo que se ve
+ *   ahora es el radio de 5 de los héroes y de 6 de castillos y nodos propios, sobre lo
+ *   explorado; un grupo de asaltantes, por su casilla y no por su región). Contra
+ *   `e48a2f0f…`, **ninguna partida se juega distinta**: quitado el sello `seen`, los
+ *   dos volcados son idénticos línea a línea. Cambian solo los sellos en 16 de 20 (s4,
+ *   s7, s10 y s14, idénticas): 165 hechos, 123 con más observadores (los nodos propios
+ *   miran y las regiones se ven enteras) y 42 con menos. El primer hecho distinto es un
+ *   `raider_spawned` de la creación que nadie ve ya (antes lo veía quien miraba su
+ *   región; 13 de 16), un `hero_moved` (s3, s18), un `battle_started` (s5) o un
+ *   `raider_dispersed` (s17). Con 100 semillas (`pnpm banco 100`) se juegan distinto 2
+ *   (s33, el día 1: la marcha del héroe del j0 va por otra casilla; s40, el día 2:
+ *   tras un botín, el héroe del j0 sigue andando donde antes cerraba el turno), 0 sin
+ *   terminar en las dos. La forma del diff, no una medida.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'e48a2f0f868d90e534eebf79aeff9fa8c196a0379323ed5c7ae99634deb648e0',
+  sha: '732e11ca734cf9d978b33ecccef8c3cb0dd35422f02f87f595918e3c9d43fe0c',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

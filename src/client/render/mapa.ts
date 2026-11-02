@@ -247,8 +247,9 @@ function posicionDeAsaltante(
  * Olvida dónde se pintó cada grupo que este fotograma no pinta —salió de la
  * vista de quien juega o de la cámara—: el que vuelve aparece en su casilla, sin
  * deslizarse desde la última en la que se le vio, que puede ser de hace días.
- * Desde #130 los grupos entran y salen de la vista con su región, y uno que
- * reaparecía cruzaba media pantalla andando desde un recuerdo (H3 de QA: el
+ * Los grupos entran y salen de la vista (con su región desde #130; con el radio
+ * de quien mira desde el 02-11-2026), y uno que reaparecía cruzaba media
+ * pantalla andando desde un recuerdo (H3 de QA: el
  * grupo de la semilla 50 de `pnpm capturas` estaba a mitad de ese paseo cuando
  * se tomó la foto de «antes» de su patrulla).
  */
@@ -429,7 +430,7 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
 
   // 2 · Lo que tiene altura —los volúmenes de la escena y las figuras del juego—,
   //     en un solo orden de profundidad: una figura puede quedar detrás de un árbol.
-  const { cosas, sobreLaNiebla } = cosasDe(v, esc);
+  const cosas = cosasDe(v, esc);
   pintarLoQueTieneAltura(ctx, v, volumenesALaVista(v, esc), cosas);
 
   // 2b · El clima de cada región, encima de lo que tiene altura y DEBAJO de los
@@ -452,18 +453,13 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
   }
 
   // 3 · Lo que dice quién está en cada casilla, encima de todo lo que tiene altura.
-  const cuerpos = cuerposDe([...cosas, ...sobreLaNiebla]);
+  const cuerpos = cuerposDe(cosas);
   for (const cosa of cosas) pintarIdentificador(ctx, v, cosa, cuerpos);
 
   // 4 · La niebla: negra sobre lo desconocido, tenue sobre lo que no se mira.
+  //     Nada va encima: lo que se ve está siempre explorado (`visibleNow`), también
+  //     los grupos de asaltantes desde la niebla de eventos (02-11-2026).
   pintarNiebla(ctx, v);
-  //     Y encima, los grupos que se ven sin haber explorado su casilla: se ven
-  //     porque se ve su región (#130), y bajo la niebla negra no se verían. Es
-  //     la excepción a «lo que dice quién está en una casilla va bajo la niebla».
-  for (const cosa of sobreLaNiebla) {
-    pintarCosa(ctx, v, cosa);
-    pintarIdentificador(ctx, v, cosa, cuerpos);
-  }
 
   // 5 · Encima de todo, lo que es de quien juega: la ruta y la casilla señalada.
   pintarRuta(ctx, camara, esc, pasosAPintar(v.ruta, v.explorado));
@@ -538,22 +534,15 @@ type Cosa =
 /**
  * Las figuras del juego que caen en la vista, de atrás adelante. Se rehace a cada
  * fotograma —son unas decenas— porque los asaltantes andan y su clave con ellos.
- *
- * Los grupos llegan ya filtrados por la regla del núcleo (`asaltantesALaVista`)
- * y aquí solo se reparten, en la misma pasada: los de casilla explorada, entre
- * los volúmenes; los de casilla sin explorar, en `sobreLaNiebla`, que se pinta
- * encima de ella y sin volúmenes que los tapen —su terreno no se conoce—.
  */
-function cosasDe(v: VistaMapa, esc: Escenario): { cosas: Cosa[]; sobreLaNiebla: Cosa[] } {
-  const { escena, camara, explorado } = v;
-  const explorada = (p: Point): boolean => explorado === null || explorado.has(p);
+function cosasDe(v: VistaMapa, esc: Escenario): Cosa[] {
+  const { escena, camara } = v;
   const { x0, y0, x1, y1 } = ventanaDeCasillas(camara, v.ancho, v.alto, MARGEN_DE_COSA);
   const enVista = (p: Point) => p.x >= x0 && p.y >= y0 && p.x < x1 && p.y < y1;
   const lista: Cosa[] = [];
-  const sobreLaNiebla: Cosa[] = [];
-  // Objetos y héroes llegan ya filtrados por la niebla (`objetosConocidos`,
-  // `heroesALaVista`): lo que se ve está siempre explorado, así que aquí solo se
-  // recortan a la cámara.
+  // Objetos, héroes y grupos llegan ya filtrados por la niebla
+  // (`objetosConocidos`, `heroesALaVista`, `asaltantesALaVista`): lo que se ve
+  // está siempre explorado, así que aquí solo se recortan a la cámara.
   for (const o of v.objetos) {
     if (!enVista(o.at) || !presente(o)) continue;
     if (seHornea(o.kind)) {
@@ -584,11 +573,10 @@ function cosasDe(v: VistaMapa, esc: Escenario): { cosas: Cosa[]; sobreLaNiebla: 
     pintados.add(r.id);
     const en = posicionDeAsaltante(escena, r, v.tiempo);
     const clave = claveDeFigura(esc, en.x, en.y + PIES.grupo);
-    (explorada(r.at) ? lista : sobreLaNiebla).push({ tipo: 'asaltante', clave, asaltante: r, en });
+    lista.push({ tipo: 'asaltante', clave, asaltante: r, en });
   }
   olvidarLosQueNoSePintan(escena, pintados);
-  const porClave = (a: Cosa, b: Cosa): number => a.clave - b.clave;
-  return { cosas: lista.sort(porClave), sobreLaNiebla: sobreLaNiebla.sort(porClave) };
+  return lista.sort((a, b) => a.clave - b.clave);
 }
 
 /**

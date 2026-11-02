@@ -468,7 +468,8 @@ Notas:
   que te saca el margen de fuerza es una EMBOSCADA. El héroe se para en esa
   casilla aunque le queden puntos, y la batalla la juegas defendiendo. Si va
   directo a por la base rival por regiones sin conquistar, puede llegar con
-  menos gente de la que salió —o no llegar—.
+  menos gente de la que salió —o no llegar—. Un grupo solo se ve cerca de lo
+  tuyo: el que patrulla una región fuera de tu vista también te embosca.
 - Si al andar ves un grupo que te emboscaría más adelante en la ruta y que no
   era el que ya veías emboscarte al salir —uno que no veías, o el siguiente
   cuando por el camino ganas fuerza (la guarnición de tu base se recoge al
@@ -648,11 +649,12 @@ ${COMO_SE_LEE_EL_MAPA}
 - Un objeto "lugar" del mapa (con su "name") es un sitio de la historia del
   mundo, con su gente y sus diálogos. Tú todavía NO entras en ellos: no hay
   jugada para eso. Se puede pisar y cruzar como cualquier casilla.
-- "enemyHeroes" son los que ves AHORA: si no aparece ninguno, no significa que
-  no haya, solo que nadie tuyo los tiene a la vista.
+- "enemyHeroes" son los que ves AHORA, cerca de un héroe, una ciudad o un nodo
+  tuyos (el radio de "knownMap"): si no aparece ninguno, no significa que no
+  haya, solo que nadie tuyo los tiene a la vista.
 - "recentEvents" es lo que OBSERVABAS cuando ocurrió, no todo lo que pasó. Lo
-  tuyo entra siempre, y también perder un castillo o un héroe aunque te los
-  quiten lejos; del rival solo llega lo que alguien tuyo tenía a la vista en ese
+  tuyo entra siempre, y también perder un castillo, un nodo o un héroe aunque
+  te los quiten lejos; del rival solo llega lo que alguien tuyo tenía a la vista en ese
   momento —y sigue llegando aunque hoy ya no lo mires: la crónica es memoria—.
   Un silencio NO significa que el rival esté quieto: significa que no lo has
   visto. Si quieres saber qué hace, ponle a alguien delante.

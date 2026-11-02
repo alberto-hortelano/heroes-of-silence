@@ -2458,13 +2458,15 @@ describe('la rueda del golpe por el contrato (F6)', () => {
     plazoMs = 4000,
   ) {
     let ido = false;
+    // El monstruo que se pone abajo, por su id: el primero de `knownMap.objects`
+    // es el primero que su dueño vio, y desde la niebla por regiones (02-11-2026)
+    // eso ya no es el primero del mapa.
+    let objetivo = '';
     const { link, agent } = await montar((kind, payload) => {
       if (kind === 'adventure_turn') {
         if (ido) return { actions: [] };
         ido = true;
-        const monstruo = payload.knownMap.objects.find(
-          (o: any) => o.kind === 'monster' && !o.defeated,
-        );
+        const monstruo = payload.knownMap.objects.find((o: any) => o.id === objetivo);
         return { actions: [{ type: 'move_hero', hero: payload.heroes[0].id, to: monstruo.at }] };
       }
       return batalla(kind, payload);
@@ -2474,7 +2476,7 @@ describe('la rueda del golpe por el contrato (F6)', () => {
     sinGuarnicionDeSalida(director.state);
     sinAsaltantes(director.state);
     sinRecogidas(director.state);
-    ponerMonstruo(director.state, PESADA, 4);
+    objetivo = ponerMonstruo(director.state, PESADA, 4).id;
     const heroe = director.state.heroes[0]!;
     heroe.army = ejercito({ creature: TROPA, count: 3 }, { creature: SANADOR, count: 1 });
     heroe.movePoints = 20000;

@@ -1406,7 +1406,7 @@ export class Session implements ControlDeBatalla {
   /**
    * Las casillas que la persona está mirando AHORA, para la niebla de dos tonos.
    *
-   * `visibleNow` recorre héroes y castillos; se pide en cada fotograma, así que se
+   * `visibleNow` recorre héroes, castillos y nodos; se pide en cada fotograma, así que se
    * guarda mientras no cambie nada que la mueva: la crónica crece con cada
    * movimiento y captura, y el turno cambia al pasar de día.
    */
@@ -1422,7 +1422,7 @@ export class Session implements ControlDeBatalla {
   /**
    * Los grupos de asaltantes que la persona ve: los que pinta el lienzo, lee la
    * barra y avisan en la ruta. La regla es del núcleo (`asaltantesALaVista`:
-   * basta ver su región). Con «Ver mapa entero», todos y sin caché.
+   * si se mira su casilla). Con «Ver mapa entero», todos y sin caché.
    */
   asaltantesALaVista(): AsaltantesALaVista {
     if (this.revealAll) return asaltantesALaVista(this.state, null);

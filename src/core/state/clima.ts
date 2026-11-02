@@ -35,9 +35,8 @@ import { inBounds } from '../map/map.js';
 import {
   dueñoDeLaRegion,
   dueñosDeLasRegiones,
-  estructura,
-  laMasCercana,
   type MapaDeRed,
+  regionMasCercana,
 } from '../map/regiones.js';
 import { createRng, hashDeTexto, sortearPorPesos } from '../rng.js';
 import { FACTION_IDS, type FactionId, type PlayerId, type Point } from '../types.js';
@@ -275,27 +274,10 @@ export function nocheDeLaSemilla(
 
 // ----------------------------------------------------------- las regiones
 
-const regionesDelClima = new WeakMap<MapaDeRed, Int32Array>();
-
-/**
- * La región del clima de cada casilla (índice `y*width+x`, en `map.regions`): la
- * de `estructura` y, en las barreras, los nodos y los recintos, la de la región
- * más cercana (`laMasCercana`). Así cada frente cae en una cordillera o un río y
- * una ciudad, que es un nodo, tiene el tiempo de alrededor. −1 solo en un mapa
- * sin regiones.
- */
-export function regionDelClima(map: MapaDeRed): Int32Array {
-  const hecha = regionesDelClima.get(map);
-  if (hecha !== undefined) return hecha;
-  const region = laMasCercana(estructura(map).regionDe, map.width, map.height);
-  regionesDelClima.set(map, region);
-  return region;
-}
-
 /** La región del clima de la casilla `p`, por su índice en `map.regions` (−1 en un mapa sin regiones). Lanza fuera del mapa. */
 export function regionDelSitio(map: MapaDeRed, p: Point): number {
   if (!inBounds(map, p)) throw new Error(`(${p.x},${p.y}) está fuera del mapa: no tiene clima`);
-  return regionDelClima(map)[p.y * map.width + p.x] as number;
+  return regionMasCercana(map)[p.y * map.width + p.x] as number;
 }
 
 /** El clima de la región `k` del clima de la partida, o el despejado sin región (−1). */
