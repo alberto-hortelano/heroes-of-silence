@@ -9,7 +9,7 @@
         "armeria"
       ],
       "ataque": 3,
-      "fuerza": 3,
+      "fuerza": 1,
       "defensa": 0,
       "peso": 1,
       "rueda": {
@@ -30,7 +30,7 @@
         "armeria"
       ],
       "ataque": 2,
-      "fuerza": 6,
+      "fuerza": 2,
       "defensa": 0,
       "peso": 2,
       "manos": 2,
@@ -52,7 +52,6 @@
         "armeria"
       ],
       "ataque": 0,
-      "fuerza": 2,
       "defensa": 0,
       "peso": 1,
       "manos": 2,
@@ -100,7 +99,7 @@
         "armeria"
       ],
       "ataque": 3,
-      "fuerza": 4,
+      "fuerza": 2,
       "defensa": 0,
       "peso": 2,
       "lanza": true,
@@ -122,7 +121,7 @@
         "armeria"
       ],
       "ataque": 3,
-      "fuerza": 3,
+      "fuerza": 1,
       "defensa": 0,
       "peso": 2,
       "manos": 2,
@@ -144,9 +143,9 @@
         "armeria"
       ],
       "ataque": 4,
-      "fuerza": 3,
+      "fuerza": 1,
       "defensa": 0,
-      "peso": 2,
+      "peso": 1,
       "manos": 2,
       "rueda": {
         "ofensivo": 3,
@@ -168,7 +167,7 @@
       "ataque": 0,
       "defensa": 0,
       "armadura": 2,
-      "peso": 5,
+      "peso": 1,
       "precio": 700
     },
     {
@@ -181,7 +180,7 @@
       "ataque": 0,
       "defensa": 0,
       "armadura": 3,
-      "peso": 10,
+      "peso": 1,
       "precio": 1200
     },
     {
@@ -194,7 +193,7 @@
       "ataque": 0,
       "defensa": 0,
       "armadura": 1,
-      "peso": 1,
+      "peso": 0,
       "precio": 200
     },
     {
@@ -207,7 +206,7 @@
       "ataque": 0,
       "defensa": 0,
       "armadura": 1,
-      "peso": 2,
+      "peso": 0,
       "precio": 350
     },
     {
@@ -220,7 +219,7 @@
       "ataque": 0,
       "defensa": 0,
       "armadura": 7,
-      "peso": 12,
+      "peso": 3,
       "precio": 2000
     },
     {
@@ -232,7 +231,7 @@
       ],
       "ataque": 0,
       "defensa": 2,
-      "peso": 1,
+      "peso": 0,
       "precio": 250
     },
     {
@@ -244,7 +243,7 @@
       ],
       "ataque": 0,
       "defensa": 3,
-      "peso": 2,
+      "peso": 1,
       "precio": 500
     },
     {
@@ -256,7 +255,7 @@
       ],
       "ataque": 0,
       "defensa": 6,
-      "peso": 3,
+      "peso": 2,
       "precio": 900
     },
     {
@@ -267,7 +266,6 @@
         "armeria"
       ],
       "ataque": 0,
-      "fuerza": 2,
       "defensa": 0,
       "peso": 0,
       "rueda": {
@@ -288,7 +286,7 @@
         "armeria"
       ],
       "ataque": 0,
-      "fuerza": 16,
+      "fuerza": 7,
       "agilidad": 6,
       "defensa": 0,
       "peso": 3,
@@ -303,7 +301,7 @@
         "armeria"
       ],
       "ataque": 0,
-      "fuerza": 10,
+      "fuerza": 5,
       "agilidad": 7,
       "defensa": 0,
       "peso": 2,
@@ -315,7 +313,7 @@
       "hueco": "montura",
       "seConsigue": [],
       "ataque": 0,
-      "fuerza": 10,
+      "fuerza": 5,
       "agilidad": 6,
       "defensa": 0,
       "peso": 2,
@@ -330,7 +328,7 @@
         "armeria"
       ],
       "ataque": 1,
-      "fuerza": 5,
+      "fuerza": 2,
       "defensa": 0,
       "peso": 1,
       "rueda": {
@@ -375,6 +373,27 @@
         },
         "oro": 300
       }
+    },
+    {
+      "id": "arma-2",
+      "nombre": "Lanza corta",
+      "hueco": "arma",
+      "seConsigue": [
+        "armeria"
+      ],
+      "ataque": 3,
+      "fuerza": 1,
+      "defensa": 0,
+      "peso": 1,
+      "rueda": {
+        "ofensivo": 2,
+        "fuerte": 1,
+        "finta": 3,
+        "defensivo": 4,
+        "rapido": 4,
+        "romperGuardia": 3
+      },
+      "precio": 0
     }
   ]
 }

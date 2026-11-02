@@ -3,15 +3,15 @@
   "unidades": [
     {
       "id": "templario-escudo",
-      "name": "Guerrero con escudo",
+      "name": "Guardia del temple",
       "faction": "templarios",
       "cuerpo": {
         "hoja": "templario-escudo"
       },
       "leadership": 3,
       "attack": 3,
-      "fuerza": 7,
-      "agilidad": 4,
+      "fuerza": 3,
+      "agilidad": 3,
       "hp": 50,
       "traits": [],
       "habilidades": [],
@@ -24,15 +24,15 @@
     },
     {
       "id": "templario-mandoble",
-      "name": "Guerrero con arma a dos manos",
+      "name": "Tamplario",
       "faction": "templarios",
       "cuerpo": {
         "hoja": "templario-mandoble"
       },
       "leadership": 4,
       "attack": 3,
-      "fuerza": 8,
-      "agilidad": 4,
+      "fuerza": 3,
+      "agilidad": 3,
       "hp": 50,
       "traits": [],
       "habilidades": [],
@@ -73,29 +73,28 @@
       },
       "leadership": 3,
       "attack": 3,
-      "fuerza": 6,
-      "agilidad": 4,
+      "fuerza": 3,
+      "agilidad": 3,
       "hp": 40,
       "traits": [],
       "habilidades": [],
       "equipo": {
-        "arma": "lanza",
-        "armadura": "gambeson",
-        "escudo": "rodela"
+        "arma": "lanza_de_infanteria",
+        "armadura": "arnes_de_placas"
       },
       "edificio": "templarios_pueblo"
     },
     {
       "id": "templario-hermano-de-carga",
-      "name": "Hermano de carga",
+      "name": "Caballero templario",
       "faction": "templarios",
       "cuerpo": {
         "hoja": "templario-hermano-de-carga"
       },
       "leadership": 8,
       "attack": 4,
-      "fuerza": 7,
-      "agilidad": 4,
+      "fuerza": 3,
+      "agilidad": 3,
       "hp": 60,
       "traits": [],
       "habilidades": [],
@@ -136,7 +135,7 @@
       },
       "leadership": 1,
       "attack": 3,
-      "fuerza": 5,
+      "fuerza": 2,
       "agilidad": 3,
       "hp": 30,
       "traits": [
@@ -145,7 +144,6 @@
       "habilidades": [],
       "equipo": {
         "arma": "espada",
-        "armadura": "brigantina",
         "escudo": "rodela"
       },
       "edificio": "no-muertos_cadaveres"
@@ -157,9 +155,9 @@
       "cuerpo": {
         "hoja": "esqueleto-arquero"
       },
-      "leadership": 3,
-      "attack": 3,
-      "fuerza": 4,
+      "leadership": 1,
+      "attack": 2,
+      "fuerza": 2,
       "agilidad": 3,
       "hp": 30,
       "traits": [
@@ -182,17 +180,15 @@
       },
       "leadership": 3,
       "attack": 2,
-      "fuerza": 9,
-      "agilidad": 3,
+      "fuerza": 4,
+      "agilidad": 2,
       "hp": 85,
       "traits": [
         "undead"
       ],
       "habilidades": [],
       "equipo": {
-        "arma": "espada",
-        "armadura": "brigantina",
-        "escudo": "escudo"
+        "arma": "espada"
       },
       "edificio": "no-muertos_cadaveres"
     },
@@ -203,19 +199,18 @@
       "cuerpo": {
         "hoja": "espectro"
       },
-      "leadership": 3,
-      "attack": 3,
-      "fuerza": 6,
-      "agilidad": 6,
-      "hp": 40,
+      "leadership": 7,
+      "attack": 4,
+      "fuerza": 4,
+      "agilidad": 4,
+      "hp": 60,
       "traits": [
         "undead"
       ],
       "habilidades": [],
       "equipo": {
         "arma": "espada",
-        "armadura": "brigantina",
-        "escudo": "escudo"
+        "armadura": "barda"
       },
       "edificio": "no-muertos_mausoleo"
     },
@@ -228,7 +223,7 @@
       },
       "leadership": 4,
       "attack": 4,
-      "fuerza": 9,
+      "fuerza": 5,
       "agilidad": 3,
       "hp": 60,
       "traits": [
@@ -237,7 +232,7 @@
       "habilidades": [],
       "equipo": {
         "arma": "mandoble",
-        "armadura": "arnes_de_placas"
+        "armadura": "barda"
       },
       "edificio": "no-muertos_cripta"
     },
@@ -250,8 +245,8 @@
       },
       "leadership": 8,
       "attack": 3,
-      "fuerza": 7,
-      "agilidad": 4,
+      "fuerza": 3,
+      "agilidad": 3,
       "hp": 55,
       "traits": [
         "undead"
@@ -260,7 +255,7 @@
       "equipo": {
         "arma": "espada",
         "segunda": "lanza",
-        "armadura": "barda",
+        "armadura": "arnes_de_placas",
         "montura": "caballo_de_guerra"
       },
       "edificio": "no-muertos_cripta"
@@ -272,9 +267,9 @@
       "cuerpo": {
         "hoja": "imperio-alabardero"
       },
-      "leadership": 3,
-      "attack": 3,
-      "fuerza": 8,
+      "leadership": 2,
+      "attack": 4,
+      "fuerza": 3,
       "agilidad": 3,
       "hp": 50,
       "traits": [],
@@ -292,9 +287,9 @@
       "cuerpo": {
         "hoja": "imperio-piquero"
       },
-      "leadership": 4,
+      "leadership": 1,
       "attack": 3,
-      "fuerza": 8,
+      "fuerza": 3,
       "agilidad": 3,
       "hp": 50,
       "traits": [],
@@ -312,17 +307,18 @@
       "cuerpo": {
         "hoja": "imperio-ballestero"
       },
-      "leadership": 4,
+      "leadership": 2,
       "attack": 3,
-      "fuerza": 6,
+      "fuerza": 3,
       "agilidad": 3,
       "hp": 40,
       "traits": [],
       "habilidades": [],
       "equipo": {
-        "arma": "daga",
+        "arma": "espada",
         "distancia": "ballesta",
-        "armadura": "gambeson"
+        "armadura": "gambeson",
+        "escudo": "paves"
       },
       "edificio": "imperio_taller"
     },
@@ -335,15 +331,15 @@
       },
       "leadership": 3,
       "attack": 3,
-      "fuerza": 7,
-      "agilidad": 4,
+      "fuerza": 3,
+      "agilidad": 3,
       "hp": 55,
       "traits": [],
       "habilidades": [],
       "equipo": {
         "arma": "espada",
-        "armadura": "brigantina",
-        "escudo": "escudo"
+        "segunda": "daga",
+        "armadura": "barda"
       },
       "edificio": "imperio_armeria"
     },
@@ -356,7 +352,7 @@
       },
       "leadership": 4,
       "attack": 3,
-      "fuerza": 6,
+      "fuerza": 3,
       "agilidad": 3,
       "hp": 40,
       "traits": [],
@@ -376,15 +372,15 @@
         "hoja": "imperio-rodelero"
       },
       "leadership": 3,
-      "attack": 3,
-      "fuerza": 6,
-      "agilidad": 6,
+      "attack": 4,
+      "fuerza": 3,
+      "agilidad": 3,
       "hp": 40,
       "traits": [],
       "habilidades": [],
       "equipo": {
         "arma": "espada",
-        "armadura": "gambeson",
+        "armadura": "arnes_de_placas",
         "escudo": "rodela"
       },
       "edificio": "imperio_armeria"
@@ -398,13 +394,13 @@
       },
       "leadership": 4,
       "attack": 3,
-      "fuerza": 6,
+      "fuerza": 3,
       "agilidad": 3,
       "hp": 40,
       "traits": [],
       "habilidades": [],
       "equipo": {
-        "arma": "daga",
+        "arma": "maza",
         "distancia": "ballesta",
         "armadura": "gambeson"
       },
@@ -419,14 +415,14 @@
       },
       "leadership": 8,
       "attack": 3,
-      "fuerza": 6,
-      "agilidad": 4,
+      "fuerza": 3,
+      "agilidad": 3,
       "hp": 55,
       "traits": [],
       "habilidades": [],
       "equipo": {
         "arma": "espada",
-        "segunda": "lanza",
+        "distancia": "ballesta",
         "armadura": "barda",
         "montura": "caballo_de_guerra"
       },
@@ -441,7 +437,7 @@
       },
       "leadership": 4,
       "attack": 3,
-      "fuerza": 6,
+      "fuerza": 3,
       "agilidad": 4,
       "hp": 40,
       "traits": [],
@@ -462,13 +458,13 @@
       },
       "leadership": 3,
       "attack": 4,
-      "fuerza": 6,
-      "agilidad": 5,
+      "fuerza": 2,
+      "agilidad": 4,
       "hp": 35,
       "traits": [],
       "habilidades": [],
       "equipo": {
-        "arma": "daga",
+        "arma": "espada",
         "distancia": "arco",
         "armadura": "jubon_de_arquero"
       },
@@ -483,8 +479,8 @@
       },
       "leadership": 3,
       "attack": 4,
-      "fuerza": 6,
-      "agilidad": 6,
+      "fuerza": 2,
+      "agilidad": 4,
       "hp": 35,
       "traits": [],
       "habilidades": [],
@@ -504,13 +500,13 @@
       },
       "leadership": 3,
       "attack": 4,
-      "fuerza": 6,
-      "agilidad": 6,
+      "fuerza": 3,
+      "agilidad": 3,
       "hp": 40,
       "traits": [],
       "habilidades": [],
       "equipo": {
-        "arma": "espada",
+        "arma": "arma-2",
         "armadura": "brigantina",
         "escudo": "escudo"
       },
@@ -588,8 +584,8 @@
       },
       "leadership": 4,
       "attack": 3,
-      "fuerza": 8,
-      "agilidad": 4,
+      "fuerza": 4,
+      "agilidad": 3,
       "hp": 60,
       "traits": [],
       "habilidades": [],
@@ -609,8 +605,8 @@
       },
       "leadership": 4,
       "attack": 3,
-      "fuerza": 8,
-      "agilidad": 4,
+      "fuerza": 4,
+      "agilidad": 3,
       "hp": 55,
       "traits": [],
       "habilidades": [],
@@ -629,14 +625,14 @@
         "hoja": "goblin-lancero"
       },
       "leadership": 1,
-      "attack": 2,
-      "fuerza": 4,
-      "agilidad": 4,
+      "attack": 3,
+      "fuerza": 2,
+      "agilidad": 3,
       "hp": 30,
       "traits": [],
       "habilidades": [],
       "equipo": {
-        "arma": "lanza",
+        "arma": "arma-2",
         "armadura": "gambeson",
         "escudo": "rodela"
       },
@@ -650,9 +646,9 @@
         "hoja": "goblin-arquero"
       },
       "leadership": 3,
-      "attack": 2,
-      "fuerza": 4,
-      "agilidad": 4,
+      "attack": 3,
+      "fuerza": 2,
+      "agilidad": 3,
       "hp": 30,
       "traits": [],
       "habilidades": [],
@@ -713,8 +709,8 @@
       },
       "leadership": 4,
       "attack": 3,
-      "fuerza": 7,
-      "agilidad": 4,
+      "fuerza": 4,
+      "agilidad": 3,
       "hp": 60,
       "traits": [],
       "habilidades": [],
