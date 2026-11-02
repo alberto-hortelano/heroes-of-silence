@@ -16,9 +16,7 @@ import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import {
   activeStack,
   applyAction,
-  type BattleSide,
   createBattle,
-  type HeroeDelBando,
   legalActions,
   stackById,
   surrenderBlocker,
@@ -30,8 +28,7 @@ import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { escalonDeCasillas } from '../src/core/cuerpo.js';
 import { figuraDelHeroe, HEROE } from '../src/core/data.js';
 import { umbral } from '../src/core/hero/experiencia.js';
-import { cuerposDelHeroe, type Hero, heroUnit } from '../src/core/hero/hero.js';
-import { troopsAsStacks } from '../src/core/hero/troop.js';
+import { type Hero, heroUnit } from '../src/core/hero/hero.js';
 import {
   isEnterable,
   objectAt,
@@ -51,13 +48,17 @@ import {
   townsOf,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import type { Army, Point, Stack } from '../src/core/types.js';
+import type { Point, Stack } from '../src/core/types.js';
 import {
   avanzarHasta,
+  casillaADosPasos,
   costesDelAlcance,
   ejercito,
   forzarBatalla,
+  hastaQue,
+  heroeDeBatalla,
   JINETE,
+  ladoDeBatalla,
   NO_MUERTO,
   NORMAL,
   PESADA,
@@ -69,35 +70,6 @@ import {
 } from './helpers.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
-
-/** Un héroe de batalla con su cuerpo y, si se pide, con monedero para rendirse. */
-function heroeDeBatalla(purse: number | null = null): HeroeDelBando {
-  return {
-    figura: HERO_BODY,
-    ...cuerposDelHeroe({
-      name: 'Prueba',
-      attack: 2,
-      defense: 2,
-      experience: umbral(5),
-      equipo: {},
-    }),
-    mando: {
-      name: 'Prueba',
-      retreat: purse === null ? { blocked: 'no tienes base a la que volver' } : { purse },
-      spellPower: 1,
-      knowledge: 1,
-      mana: 0,
-      castThisRound: false,
-      spells: [],
-    },
-  };
-}
-
-/** Un bando de individuos, uno por stack, como los manda la partida. */
-const lado = (army: Army, hero: HeroeDelBando | null): BattleSide => ({
-  army: troopsAsStacks(army),
-  hero,
-});
 
 /** Juega con la IA de reglas hasta que le toque a `side`, sin terminar la batalla. */
 function hastaQueLeToque(state: BattleState, side: Side): void {
@@ -222,8 +194,8 @@ describe('el héroe pisa el tablero (criterio 4)', () => {
 
   it('un monstruo o una guarnición no tienen comandante', () => {
     const b = createBattle(
-      lado(ejercito({ creature: TROPA_BARATA, count: 3 }), heroeDeBatalla()),
-      lado(ejercito({ creature: NO_MUERTO, count: 3 }), null),
+      ladoDeBatalla(ejercito({ creature: TROPA_BARATA, count: 3 }), heroeDeBatalla()),
+      ladoDeBatalla(ejercito({ creature: NO_MUERTO, count: 3 }), null),
       createRng(1),
       COMBATE_COMPLETO,
     );
@@ -235,8 +207,8 @@ describe('el héroe pisa el tablero (criterio 4)', () => {
   it('matar al héroe da la batalla al rival aunque a su bando le quede tropa', () => {
     const rng = createRng(4);
     const b = createBattle(
-      lado(ejercito({ creature: TROPA, count: 2 }), heroeDeBatalla()),
-      lado(ejercito({ creature: NO_MUERTO, count: 5 }), heroeDeBatalla()),
+      ladoDeBatalla(ejercito({ creature: TROPA, count: 2 }), heroeDeBatalla()),
+      ladoDeBatalla(ejercito({ creature: NO_MUERTO, count: 5 }), heroeDeBatalla()),
       rng,
       COMBATE_COMPLETO,
     );
@@ -265,16 +237,16 @@ describe('el héroe pisa el tablero (criterio 4)', () => {
 
   it('el héroe ocupa el séptimo puesto: seis de tropa caben y siete no', () => {
     const seis = createBattle(
-      lado(ejercito({ creature: TROPA_BARATA, count: 6 }), heroeDeBatalla()),
-      lado(ejercito({ creature: NO_MUERTO, count: 7 }), null),
+      ladoDeBatalla(ejercito({ creature: TROPA_BARATA, count: 6 }), heroeDeBatalla()),
+      ladoDeBatalla(ejercito({ creature: NO_MUERTO, count: 7 }), null),
       createRng(1),
       COMBATE_COMPLETO,
     );
     expect(seis.stacks.filter((s) => s.side === 'attacker')).toHaveLength(7);
     expect(() =>
       createBattle(
-        lado(ejercito({ creature: TROPA_BARATA, count: 7 }), heroeDeBatalla()),
-        lado(ejercito({ creature: NO_MUERTO, count: 3 }), null),
+        ladoDeBatalla(ejercito({ creature: TROPA_BARATA, count: 7 }), heroeDeBatalla()),
+        ladoDeBatalla(ejercito({ creature: NO_MUERTO, count: 3 }), null),
         createRng(1),
         COMBATE_COMPLETO,
       ),
@@ -297,8 +269,8 @@ function precioDeDos(): number {
  */
 function perdidaDeLargo(): BattleState {
   const b = createBattle(
-    lado(ejercito({ creature: TROPA_BARATA, count: 3 }), heroeDeBatalla(1000)),
-    lado(ejercito({ creature: PESADA, count: 6 }), heroeDeBatalla()),
+    ladoDeBatalla(ejercito({ creature: TROPA_BARATA, count: 3 }), heroeDeBatalla(1000)),
+    ladoDeBatalla(ejercito({ creature: PESADA, count: 6 }), heroeDeBatalla()),
     createRng(6),
     COMBATE_COMPLETO,
   );
@@ -310,11 +282,11 @@ function perdidaDeLargo(): BattleState {
 describe('la rendición (criterio 5)', () => {
   it('cuesta el ⌈50 %⌉ del oro de catálogo de la tropa viva, sin contar al héroe', () => {
     const b = createBattle(
-      lado(
+      ladoDeBatalla(
         ejercito({ creature: NO_MUERTO, count: 1 }, { creature: TIRADOR_NO_MUERTO, count: 2 }),
         heroeDeBatalla(10_000),
       ),
-      lado(ejercito({ creature: TROPA_BARATA, count: 3 }), null),
+      ladoDeBatalla(ejercito({ creature: TROPA_BARATA, count: 3 }), null),
       createRng(2),
       COMBATE_COMPLETO,
     );
@@ -330,8 +302,8 @@ describe('la rendición (criterio 5)', () => {
   it('se ofrece cuando se puede, y lo que dice la lista es lo que acepta el motor', () => {
     const precio = precioDeDos();
     const b = createBattle(
-      lado(ejercito({ creature: NO_MUERTO, count: 2 }), heroeDeBatalla(500)),
-      lado(ejercito({ creature: TROPA_BARATA, count: 3 }), null),
+      ladoDeBatalla(ejercito({ creature: NO_MUERTO, count: 2 }), heroeDeBatalla(500)),
+      ladoDeBatalla(ejercito({ creature: TROPA_BARATA, count: 3 }), null),
       createRng(3),
       COMBATE_COMPLETO,
     );
@@ -356,16 +328,16 @@ describe('la rendición (criterio 5)', () => {
     const precio = precioDeDos();
     expect(precio).toBeGreaterThan(10);
     const sinOro = createBattle(
-      lado(ejercito({ creature: NO_MUERTO, count: 2 }), heroeDeBatalla(10)),
-      lado(ejercito({ creature: TROPA_BARATA, count: 3 }), null),
+      ladoDeBatalla(ejercito({ creature: NO_MUERTO, count: 2 }), heroeDeBatalla(10)),
+      ladoDeBatalla(ejercito({ creature: TROPA_BARATA, count: 3 }), null),
       createRng(3),
       COMBATE_COMPLETO,
     );
     expect(surrenderBlocker(sinOro, 'attacker').motivo).toBe(`cuesta ${precio} de oro y tienes 10`);
     expect(surrenderBlocker(sinOro, 'defender').motivo).toBe('este bando no tiene héroe');
     const sinBase = createBattle(
-      lado(ejercito({ creature: NO_MUERTO, count: 2 }), heroeDeBatalla()),
-      lado(ejercito({ creature: TROPA_BARATA, count: 3 }), null),
+      ladoDeBatalla(ejercito({ creature: NO_MUERTO, count: 2 }), heroeDeBatalla()),
+      ladoDeBatalla(ejercito({ creature: TROPA_BARATA, count: 3 }), null),
       createRng(3),
       COMBATE_COMPLETO,
     );
@@ -402,8 +374,8 @@ describe('la rendición (criterio 5)', () => {
 
   it('y no se rinde si no le queda tropa: rendirse solo con el héroe es pagar por nada', () => {
     const b = createBattle(
-      lado([], heroeDeBatalla(1000)),
-      lado(ejercito({ creature: PESADA, count: 6 }), heroeDeBatalla()),
+      ladoDeBatalla([], heroeDeBatalla(1000)),
+      ladoDeBatalla(ejercito({ creature: PESADA, count: 6 }), heroeDeBatalla()),
       createRng(6),
       COMBATE_COMPLETO,
     );
@@ -796,23 +768,3 @@ describe('la IA no se rinde por quien no es ella (H-1)', () => {
     }
   });
 });
-
-/**
- * Deja correr el turno del rival hasta que se cumpla `cond` (una defensa que se
- * abre a media jugada suya), o lanza: el turno es asíncrono y no avisa.
- */
-async function hastaQue(cond: () => boolean): Promise<void> {
-  for (let i = 0; i < 100 && !cond(); i++) await new Promise((r) => setTimeout(r, 0));
-  if (!cond()) throw new Error('el turno del rival no llegó a lo que se esperaba');
-}
-
-/** Una casilla libre y pisable a dos pasos de `desde`, la primera que salga. */
-function casillaADosPasos(state: GameState, desde: Point): Point {
-  const alcance = reachableFrom(state.map, desde);
-  for (const [clave, coste] of costesDelAlcance(alcance)) {
-    const p = pointFromKey(clave);
-    const lejos = Math.max(Math.abs(p.x - desde.x), Math.abs(p.y - desde.y));
-    if (coste > 0 && lejos === 2 && objectAt(state.map, p) === undefined) return p;
-  }
-  throw new Error(`no hay casilla libre a dos pasos de (${desde.x},${desde.y})`);
-}

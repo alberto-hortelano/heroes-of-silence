@@ -22,6 +22,7 @@ import { tiroADistanciaDe } from '@core/battle/armas.js';
 import {
   activeStack,
   aDistanciaBlocker,
+  aplicarDespliegue,
   applyAction,
   ataqueBlocker,
   type CasillaDeCarga,
@@ -50,6 +51,17 @@ import {
   tanteoADistancia,
 } from '@core/battle/battle.js';
 import { armasDe } from '@core/battle/damage.js';
+import {
+  batallaALaVista,
+  colocarBlocker,
+  type DespliegueAhora,
+  despliegueDe,
+  enCasilla,
+  firmaDelDespliegue,
+  suyoEn,
+  TANDAS,
+  zonaDe,
+} from '@core/battle/despliegue.js';
 import { bonoEnLoAlto, type MurallaDeBatalla, SIN_MURALLA } from '@core/battle/muralla.js';
 import { type PoderId, poder } from '@core/battle/poderes.js';
 import {
@@ -109,6 +121,7 @@ import { cronicaPara, type DefeatReason, type GameEventDraft } from '@core/state
 import {
   type AdventureAction,
   applyAdventureAction,
+  batallaDeLaFormacion,
   battleOwners,
   caminoHasta,
   candidatosAHeroe,
@@ -123,6 +136,7 @@ import {
   type PendingBattle,
   type Player,
   pasosDeHoy,
+  portadorDelStack,
   puedeAndarHoy,
   type RecruitCapacity,
   reclutarBlocker,
@@ -131,6 +145,7 @@ import {
   salidaPendienteBlocker,
   settleBattle,
   sidesOwnedBy,
+  stackDelPortador,
   townById,
   townsOf,
   turnBlocker,
@@ -157,6 +172,7 @@ import {
 } from '@core/types.js';
 import { componerVistaDelAyuntamiento, type VistaDelAyuntamiento } from './ayuntamiento/vista.js';
 import { quienesDe } from './desenlace.js';
+import { COMO_SE_COLOCA, type ColocacionEnPantalla } from './escenas/despliegue.js';
 import { EnElLugar, type TrasElegir } from './lugar/sesion.js';
 import { componerVistaDeLaMorada, type VistaDeLaMorada } from './morada/vista.js';
 import type { VistaDeLaBase } from './render/base/escena.js';
@@ -179,9 +195,11 @@ export const AYUDA_DEL_MAPA =
 export const AYUDA_DE_LA_BASE =
   'Pulsa el suelo para andar, un edificio para entrar o a alguien para hablar. «Volver al mapa» (o Escape) sale.';
 
-/** Lo que dice la barra en la escena de la tropa cuando el ratón no señala a nadie. */
-export const AYUDA_DE_LA_TROPA =
-  'Pulsa a alguien de la tropa para ver su ficha y repartirle equipo. «Volver al mapa» (o Escape) sale.';
+/**
+ * Lo que dice la barra en la escena de la tropa cuando el ratón no señala a nadie:
+ * la tropa es el despliegue (02-11-2026), y se coloca como en él (`COMO_SE_COLOCA`).
+ */
+export const AYUDA_DE_LA_TROPA = `Tu formación, donde sale cada uno en cada batalla: ${COMO_SE_COLOCA} Su ficha y su equipo, en el panel. «Volver al mapa» (o Escape) sale.`;
 
 /** Lo que dice la barra en la escena de una morada cuando el ratón no señala a nadie. */
 export const AYUDA_DE_LA_MORADA =
@@ -298,9 +316,30 @@ export interface HechizosDeBatalla {
  * le toca a la persona, las listas legales y mandar una acción. Lo implementan la
  * partida (`Session`) y la arena (`SesionDeArena`), así que el ratón, el ángulo,
  * la carga y los tramos son el mismo código en las dos pantallas y no una copia.
+ *
+ * **La batalla se lee por aquí ya ocultada** (`batallaALaVista`): la escena no ve
+ * la batalla entera de la sesión (`Session.battle`, `SesionDeArena.battle`), así
+ * que no puede pintar, señalar ni pulsar a quien aún no se ve. La única
+ * excepción, `batallaEntera`, es del animador.
  */
 export interface ControlDeBatalla {
-  readonly battle: BattleState | null;
+  /**
+   * Lo que de la batalla ve la persona (`batallaALaVista`): en el despliegue, sin
+   * el rival que aún no ha desplegado (el defensor despliega sin ver a nadie). Es
+   * lo que la escena pinta, señala y pulsa, y lo que dicen los paneles; lo que
+   * cambia la batalla lo hace la sesión sobre la entera. Fuera del despliegue, el
+   * mismo objeto que la entera.
+   */
+  readonly batallaALaVista: BattleState | null;
+  /**
+   * La batalla entera, también lo que la persona aún no ve. **Solo para el
+   * animador** (`EscenaBatalla.sincronizar`): al cerrar el despliegue, el rival que
+   * aparece tiene que estar ya en su casilla para que su primera jugada se cuente
+   * andando desde ella, y con la vista no lo estaría. Lo vigila `invariantes.test.ts`.
+   */
+  readonly batallaEntera: BattleState | null;
+  /** El despliegue de la persona en pantalla: a quién se coloca, dónde, y «Listo». */
+  readonly despliegue: DespliegueEnPantalla;
   /** La barra de estado: la escena escribe en ella lo que señala el puntero. */
   status: string;
   /** La batalla y la unidad activa, solo si esa unidad la mueve la persona. */
@@ -444,10 +483,12 @@ function accionesDeBatalla(
  * que le quitó la Finta). Es la clave de las
  * cachés de las dos sesiones y la versión de la arena. Plantarse sin andar (la
  * carga, que se elige antes de correr, o el golpe ya pegado) no deja línea ni
- * gasta, pero cambia la firma: lleva el golpe plantado.
+ * gasta, pero cambia la firma: lleva el golpe plantado. Y colocar en el despliegue
+ * tampoco deja línea: sin `firmaDelDespliegue`, la figura colocada no se movía
+ * en pantalla.
  */
 function claveDeBatalla(b: BattleState): string {
-  return `${b.log.length}|${b.turno === null ? '' : firmaDelTurno(b.turno, b.golpeEnCurso)}`;
+  return `${b.log.length}|${b.turno === null ? '' : firmaDelTurno(b.turno, b.golpeEnCurso)}|${firmaDelDespliegue(b)}`;
 }
 
 /**
@@ -805,6 +846,326 @@ export class ArmaDeLaActiva {
 }
 
 /**
+ * Lo que la pieza del despliegue necesita de quien la lleva: la batalla en que se
+ * coloca, la barra, cómo se coloca y, si se cierra, cómo. La llevan la partida y
+ * la arena (`enLaBatalla`: colocar y cerrar son `aplicarDespliegue`) y la tropa
+ * (`Session.formacion`: colocar es `formar` por `run`, y no se cierra).
+ */
+interface DueñoDelDespliegue {
+  /** La batalla en que se coloca, o `null` si no hay. */
+  batalla(): BattleState | null;
+  /**
+   * ¿Se despliega ya? La arena, desde que empieza la pelea (`empezar`); sin él,
+   * siempre. Quién despliega no lo decide el cliente: el núcleo solo se para en las
+   * tandas de la persona (`BattleSide.despliegaAMano`), así que una tanda abierta
+   * es suya.
+   */
+  enMarcha?(): boolean;
+  barra(texto: string): void;
+  /** Por qué no se coloca nada ahora aunque haya despliegue, ya como frase: en la tropa, el turno. */
+  bloqueo?(): string | null;
+  /** Pone a `stack` en `at`, ya juzgado por `colocarBlocker`; verdadero si se hizo (si no, ya lo dijo). */
+  colocar(stack: BattleStack, at: Hex): boolean;
+  /** Cierra la tanda abierta («Listo»); sin él no se cierra (la tropa: se guarda al colocar). */
+  cerrar?(): void;
+  /** Tras cerrar una tanda: si la batalla ya empezó, la IA juega lo suyo. */
+  trasCerrar?(): void;
+  /** Lo que se ve cambió (la partida sube su versión; la arena la deriva de `clave`). */
+  alCambiar(): void;
+  /**
+   * Quién está elegido, si lo guarda quien lleva la pieza: la tropa, el de su
+   * ficha (`elegidoEnLaTropa`), que eligen también los botones del panel. Sin él,
+   * lo guarda la pieza, atado a la batalla en que se eligió.
+   */
+  readonly elegido?: {
+    leer(b: BattleState): string;
+    poner(id: string): void;
+  };
+  /** Lo que dice la barra al elegir a `nombre`. */
+  dichoAlElegir?(nombre: string): string;
+}
+
+/** Lo que la pieza sabe del despliegue de ahora, calculado una vez por batalla, tanda y elegido. */
+interface FotoDelDespliegue {
+  readonly enCurso: DespliegueAhora | null;
+  readonly elegido: BattleStack | null;
+  readonly zona: readonly Hex[];
+}
+
+const SIN_FOTO: FotoDelDespliegue = { enCurso: null, elegido: null, zona: [] };
+
+/**
+ * El despliegue de la persona en pantalla (fase de despliegue, 02-11-2026), una
+ * pieza para la partida, la arena y la tropa, como `ArmaDeLaActiva`: quién está
+ * elegido, su zona, colocarlo en una casilla (o cambiarlo con quien la ocupe) y
+ * «Listo». Las reglas son del núcleo (`colocarBlocker`, `aplicarDespliegue`,
+ * `formar`): aquí solo se elige a quién, se escribe la barra y se pide lo que se ve
+ * (`batallaALaVista`). Lo pintan y lo pulsan las escenas por
+ * `escenas/despliegue.ts`.
+ */
+export class DespliegueEnPantalla implements ColocacionEnPantalla {
+  /** El elegido con el clic o su botón, atado a la batalla en que se eligió (sin `dueño.elegido`). */
+  private elegidoId: { readonly battle: BattleState; readonly id: string } | null = null;
+  /** La foto de ahora (`FotoDelDespliegue`), con lo que la decide. */
+  private foto: {
+    readonly battle: BattleState;
+    readonly despliegue: BattleState['despliegue'];
+    readonly enMarcha: boolean;
+    readonly pedido: string | null;
+    readonly valor: FotoDelDespliegue;
+  } | null = null;
+  /** Lo que se ve, guardado por batalla y tanda: colocar mueve stacks que la vista comparte. */
+  private vista: {
+    readonly battle: BattleState;
+    readonly despliegue: BattleState['despliegue'];
+    readonly valor: BattleState;
+  } | null = null;
+
+  constructor(private readonly dueño: DueñoDelDespliegue) {}
+
+  /** El despliegue que hace la persona ahora, o `null` si no hay (o aún no ha empezado). */
+  get enCurso(): DespliegueAhora | null {
+    return this.ahora().enCurso;
+  }
+
+  /** A quién se coloca: el elegido, si sigue siendo colocable; si no, el primero de la tanda. */
+  get elegido(): BattleStack | null {
+    return this.ahora().elegido;
+  }
+
+  /** La zona de salida del elegido (`zonaDe`), en el marco del tablero; vacía sin despliegue. */
+  get zona(): readonly Hex[] {
+    return this.ahora().zona;
+  }
+
+  /** Lo que la arena mete en su versión: la tanda y el elegido (las casillas ya van en la firma). */
+  get clave(): string {
+    const { enCurso, elegido } = this.ahora();
+    return enCurso === null ? '' : `${enCurso.tanda}:${elegido?.id ?? ''}`;
+  }
+
+  /** ¿Se coloca `id` en esta tanda? */
+  esColocable(id: string): boolean {
+    return this.enCurso?.colocables.includes(id) ?? false;
+  }
+
+  /**
+   * Lo que de la batalla ve la persona (`batallaALaVista`): en el despliegue, desde
+   * el bando de la tanda abierta, sin el rival que aún no ha desplegado; si no, la
+   * batalla tal cual. Guardada por batalla y tanda: la escena la pide en cada
+   * fotograma y en cada movimiento del ratón, y la del núcleo es una copia nueva
+   * cada vez.
+   */
+  aLaVista(): BattleState | null {
+    const b = this.dueño.batalla();
+    if (b === null) return null;
+    const d = b.despliegue;
+    if (d === null || !this.enMarcha()) return b;
+    const v = this.vista;
+    if (v !== null && v.battle === b && v.despliegue === d) return v.valor;
+    const valor = batallaALaVista(b, TANDAS[d.tanda]!.side);
+    this.vista = { battle: b, despliegue: d, valor };
+    return valor;
+  }
+
+  /** Elige a `id` para colocarlo, o dice en la barra por qué no (la frase del núcleo). */
+  elegir(id: string): void {
+    const b = this.dueño.batalla();
+    const { enCurso, elegido } = this.ahora();
+    if (b === null || enCurso === null) {
+      this.dueño.barra(SIN_DESPLIEGUE);
+      return;
+    }
+    const s = stackById(b, id);
+    if (!enCurso.colocables.includes(id)) {
+      this.dueño.barra(
+        comoFrase(colocarBlocker(b, id, s.hex) ?? `${s.unit.name} no se coloca ahora`),
+      );
+      return;
+    }
+    if (elegido?.id === id) return;
+    this.ponerElegido(b, id);
+    this.dueño.barra(
+      this.dueño.dichoAlElegir?.(s.unit.name) ??
+        `${s.unit.name}: pulsa la casilla verde donde sale.`,
+    );
+    this.dueño.alCambiar();
+  }
+
+  /** Lo que haría colocar al elegido en `at`, para la barra: dónde saldría, con quién se cambia, o por qué no. */
+  dichoDeColocar(at: Hex): string {
+    const juicio = this.juzgar(at);
+    if ('motivo' in juicio) return juicio.motivo;
+    const { e, otro } = juicio;
+    return otro === undefined
+      ? `${e.unit.name} saldría en ${enCasilla(at)}.`
+      : `${e.unit.name} y ${otro.unit.name} se cambiarían de sitio.`;
+  }
+
+  /** Coloca al elegido en `at` (o lo cambia con quien esté ahí), o dice en la barra por qué no. */
+  colocarEn(at: Hex): void {
+    const juicio = this.juzgar(at);
+    if ('motivo' in juicio) {
+      this.dueño.barra(juicio.motivo);
+      return;
+    }
+    const { b, e, otro } = juicio;
+    if (!this.dueño.colocar(e, { col: at.col, row: at.row })) return;
+    // Sigue elegido el mismo: quien coloca a varios en fila no tiene que volver a elegirlo.
+    if (this.dueño.elegido === undefined) this.elegidoId = { battle: b, id: e.id };
+    this.dueño.barra(
+      otro === undefined
+        ? `${e.unit.name} sale en ${enCasilla(at)}.`
+        : `${e.unit.name} y ${otro.unit.name} se cambian de sitio.`,
+    );
+    this.dueño.alCambiar();
+  }
+
+  /** Las flechas: el elegido a la casilla de al lado (`dc`, `df`); la juzga el núcleo como un clic. */
+  mover(dc: number, df: number): void {
+    const e = this.elegido;
+    if (e === null) {
+      this.dueño.barra(SIN_DESPLIEGUE);
+      return;
+    }
+    this.colocarEn({ col: e.hex.col + dc, row: e.hex.row + df });
+  }
+
+  /** «Listo»: cierra la tanda de la persona; la siguiente, la de la IA o la ronda 1, siguen. */
+  listo(): void {
+    const cerrar = this.dueño.cerrar;
+    if (cerrar === undefined) throw new Error('este despliegue no se cierra: se guarda al colocar');
+    if (this.enCurso === null) {
+      this.dueño.barra(SIN_DESPLIEGUE);
+      return;
+    }
+    cerrar();
+    this.elegidoId = null;
+    // Con los dos bandos de la persona (la arena), el otro despliega ahora, ya
+    // viendo al primero.
+    this.dueño.barra(this.enCurso === null ? '¡A la batalla!' : AYUDA_DEL_DESPLIEGUE);
+    this.dueño.trasCerrar?.();
+    this.dueño.alCambiar();
+  }
+
+  /**
+   * «Listo» en cada tanda que quede de la persona, sin tocar a nadie: la batalla
+   * sale con la formación o la regla de hoy, como si se pulsara «Listo» hasta el
+   * final. La única forma de aceptar el despliegue tal cual: la usan los tests y
+   * `pnpm capturas`, que quieren la batalla ya empezada.
+   */
+  listoTalCual(): void {
+    while (this.enCurso !== null) this.listo();
+  }
+
+  private enMarcha(): boolean {
+    return this.dueño.enMarcha?.() ?? true;
+  }
+
+  /** Lo que se pidió elegir, sin juzgar si vale ahora. */
+  private pedido(b: BattleState): string | null {
+    const guardado = this.dueño.elegido;
+    if (guardado !== undefined) return guardado.leer(b);
+    const e = this.elegidoId;
+    return e !== null && e.battle === b ? e.id : null;
+  }
+
+  private ponerElegido(b: BattleState, id: string): void {
+    if (this.dueño.elegido !== undefined) this.dueño.elegido.poner(id);
+    else this.elegidoId = { battle: b, id };
+  }
+
+  /**
+   * La foto de ahora: se rehace solo si cambian la batalla, su tanda, si se
+   * despliega ya o lo pedido. Colocar no la cambia: mueve el stack elegido, el
+   * mismo objeto, y su zona no depende de dónde esté.
+   */
+  private ahora(): FotoDelDespliegue {
+    const b = this.dueño.batalla();
+    if (b === null) return SIN_FOTO;
+    const enMarcha = this.enMarcha();
+    const pedido = this.pedido(b);
+    const f = this.foto;
+    if (
+      f !== null &&
+      f.battle === b &&
+      f.despliegue === b.despliegue &&
+      f.enMarcha === enMarcha &&
+      f.pedido === pedido
+    ) {
+      return f.valor;
+    }
+    const valor = fotoDelDespliegue(b, enMarcha, pedido);
+    this.foto = { battle: b, despliegue: b.despliegue, enMarcha, pedido, valor };
+    return valor;
+  }
+
+  /** El elegido en `at`: con quién se cambiaría, o el motivo para no poder, ya como frase. */
+  private juzgar(
+    at: Hex,
+  ):
+    | { readonly b: BattleState; readonly e: BattleStack; readonly otro: BattleStack | undefined }
+    | { readonly motivo: string } {
+    const b = this.dueño.batalla();
+    const e = this.elegido;
+    if (b === null || e === null) return { motivo: SIN_DESPLIEGUE };
+    const bloqueo = this.dueño.bloqueo?.() ?? null;
+    if (bloqueo !== null) return { motivo: bloqueo };
+    const motivo = colocarBlocker(b, e.id, at);
+    if (motivo !== null) return { motivo: comoFrase(motivo) };
+    return { b, e, otro: suyoEn(b, e, at) };
+  }
+}
+
+/** La foto de `b` (`DespliegueEnPantalla.ahora`): la tanda abierta, el elegido y su zona. */
+function fotoDelDespliegue(
+  b: BattleState,
+  enMarcha: boolean,
+  pedido: string | null,
+): FotoDelDespliegue {
+  const enCurso = !enMarcha || b.finished !== null ? null : despliegueDe(b);
+  if (enCurso === null) return SIN_FOTO;
+  const id =
+    pedido !== null && enCurso.colocables.includes(pedido) ? pedido : enCurso.colocables[0];
+  const elegido = id === undefined ? null : stackById(b, id);
+  return { enCurso, elegido, zona: elegido === null ? [] : zonaDe(b, elegido.id) };
+}
+
+/**
+ * El despliegue de una batalla en pantalla, la de la partida o la de la arena:
+ * colocar y cerrar son `aplicarDespliegue` con el azar de la batalla (cerrar el
+ * despliegue abre la ronda 1).
+ */
+function enLaBatalla(o: {
+  readonly batalla: () => BattleState | null;
+  readonly enMarcha?: () => boolean;
+  readonly barra: (texto: string) => void;
+  readonly rng: () => Rng;
+  readonly trasCerrar: () => void;
+  readonly alCambiar: () => void;
+}): DespliegueEnPantalla {
+  const laBatalla = (): BattleState => {
+    const b = o.batalla();
+    if (b === null) throw new Error('no hay batalla en la que desplegar');
+    return b;
+  };
+  return new DespliegueEnPantalla({
+    ...o,
+    colocar: (stack, at) => {
+      aplicarDespliegue(laBatalla(), { type: 'colocar', stack: stack.id, at }, o.rng());
+      return true;
+    },
+    cerrar: () => aplicarDespliegue(laBatalla(), { type: 'desplegado' }, o.rng()),
+  });
+}
+
+/** La barra de quien pide colocar sin despliegue en curso. */
+const SIN_DESPLIEGUE = 'Ahora no hay nadie tuyo que desplegar.';
+
+/** Lo que dice la barra al abrirse el despliegue de la persona. */
+export const AYUDA_DEL_DESPLIEGUE = `Despliega a los tuyos: ${COMO_SE_COLOCA} «Listo» empieza la batalla.`;
+
+/**
  * Por qué no se puede jugar a distancia en la casilla de un tanteo, dicho para la
  * barra (la frase del núcleo). La misma al pulsar (`apuntarA`) y al pasar el
  * puntero (`EscenaBatalla`): con el puntero, la granada fuera de alcance caía en el
@@ -1056,6 +1417,59 @@ export class Session implements ControlDeBatalla {
   readonly poderes = new PoderesDeLaActiva(this, this.apuntados);
   /** El selector de arma de la activa (`ArmaDeLaActiva`, el de la arena): cambiarlo sube la versión. */
   readonly arma = new ArmaDeLaActiva(this, () => this.tocar());
+  /**
+   * El despliegue de la persona (`DespliegueEnPantalla`, el de la arena): su bando,
+   * atacante o defensor. Cerrarlo deja jugar a la IA si la iniciativa es suya.
+   */
+  readonly despliegue: DespliegueEnPantalla = enLaBatalla({
+    batalla: () => this.battle,
+    barra: (texto) => {
+      this.status = texto;
+    },
+    // El de la partida: el campo se inicia antes que `ctx`, en el constructor.
+    rng: () => this.ctx.rng,
+    trasCerrar: () => this.advanceEnemyTurns(),
+    alCambiar: () => this.tocar(),
+  });
+  /**
+   * La formación del héroe en la escena de la tropa: la misma pieza que el
+   * despliegue de una batalla (`DespliegueEnPantalla`), sobre la batalla de la
+   * formación (`batallaDeLaFormacion`). El elegido es el de la ficha
+   * (`elegidoEnLaTropa`), colocar juega `formar` por `run` y antes mira el turno
+   * (`bloqueoDeTurno`); no se cierra. Fuera de la escena, sin batalla.
+   */
+  readonly formacion: DespliegueEnPantalla = new DespliegueEnPantalla({
+    batalla: () => this.batallaDeLaTropa(),
+    barra: (texto) => {
+      this.status = texto;
+    },
+    bloqueo: () => this.bloqueoDeTurno(),
+    colocar: (stack, at) =>
+      this.run(() =>
+        applyAdventureAction(
+          this.state,
+          {
+            type: 'formar',
+            hero: this.heroeDeLaTropa().id,
+            quien: portadorDelStack(stack),
+            at,
+          },
+          this.ctx,
+          this.viewer,
+        ),
+      ),
+    alCambiar: () => this.tocar(),
+    elegido: {
+      leer: (b) => stackDelPortador(b, this.elegidoEnLaTropa).id,
+      poner: (id) => {
+        const b = this.batallaDeLaTropa();
+        if (b === null) throw new Error('la formación solo se toca en la escena de la tropa');
+        this.elegirEnLaTropa(portadorDelStack(stackById(b, id)));
+      },
+    },
+    dichoAlElegir: (nombre) =>
+      `${nombre}: su ficha está en el panel; pulsa la casilla verde donde sale.`,
+  });
 
   get openTownId(): string | null {
     return this.puebloAbierto;
@@ -1601,7 +2015,7 @@ export class Session implements ControlDeBatalla {
 
     if (this.state.pendingBattle !== null) {
       this.scene = 'battle';
-      this.status = '¡Batalla!';
+      this.status = this.alEntrarEnLaBatalla('¡Batalla!');
       // Si la iniciativa la tiene el enemigo, mueve él primero: sin esto la
       // batalla se quedaba esperando a una persona que no podía hacer nada.
       this.advanceEnemyTurns();
@@ -1677,7 +2091,7 @@ export class Session implements ControlDeBatalla {
     const tras = this.lugar.elegir(i);
     if (tras === 'batalla') {
       this.scene = 'battle';
-      this.status = '¡Batalla!';
+      this.status = this.alEntrarEnLaBatalla('¡Batalla!');
       this.advanceEnemyTurns();
     } else if (tras !== 'apagada') {
       // La acción deja la barra en blanco (`run`) y en el lugar no se mueve el
@@ -1765,8 +2179,13 @@ export class Session implements ControlDeBatalla {
       this.alCerrarLaDefensa = resolve;
     });
     this.scene = 'battle';
-    this.status = '¡Te atacan! Defiéndete.';
-    // Si la iniciativa la tiene el rival, mueve él primero.
+    // La defensa empieza desplegando, sin ver al rival (decisión del usuario,
+    // 02-11-2026: «el despliegue lo hace primero el atacado, sin los enemigos»).
+    this.status =
+      this.despliegue.enCurso === null
+        ? '¡Te atacan! Defiéndete.'
+        : '¡Te atacan! Despliega a los tuyos: aún no ves al enemigo. «Listo» empieza la batalla.';
+    // Si la iniciativa la tiene el rival, mueve él primero (tras el despliegue, al pulsar «Listo»).
     this.advanceEnemyTurns();
     // Lo que juega el rival llega sin un gesto de la persona: quien pinta no sabría
     // que hay una batalla que enseñar.
@@ -2396,27 +2815,47 @@ export class Session implements ControlDeBatalla {
    * cada fotograma.
    */
   vistaDeLaTropa(): VistaDeLaTropa | null {
-    if (this.scene !== 'tropa') return null;
+    const batalla = this.batallaDeLaTropa();
+    if (batalla === null) return null;
     const hero = this.heroeDeLaTropa();
     const elegido = this.elegidoEnLaTropa;
     const bloqueo = this.bloqueoDeTurno();
     const c = this.cacheDeLaTropa;
     if (
       c !== null &&
-      c.version === this.version &&
-      c.heroId === hero.id &&
+      c.batalla === batalla &&
       c.bloqueo === bloqueo &&
       mismoPortador(c.elegido, elegido)
     ) {
       return c.vista;
     }
-    const vista = componerVistaDeLaTropa(this.state, this.viewer, hero, elegido, bloqueo);
-    this.cacheDeLaTropa = { version: this.version, heroId: hero.id, bloqueo, elegido, vista };
+    const vista = componerVistaDeLaTropa(this.state, this.viewer, hero, elegido, bloqueo, batalla);
+    this.cacheDeLaTropa = { batalla, bloqueo, elegido, vista };
     return vista;
   }
+
+  /**
+   * La batalla de la formación del héroe de la tropa (`batallaDeLaFormacion`), o
+   * `null` fuera de la escena: la que pintan el lienzo y la vista y en la que
+   * coloca `formacion`. Una por versión y héroe, no por elegido: elegir a otro no
+   * cambia dónde sale nadie.
+   */
+  private batallaDeLaTropa(): BattleState | null {
+    if (this.scene !== 'tropa') return null;
+    const hero = this.heroeDeLaTropa();
+    const c = this.formacionGuardada;
+    if (c !== null && c.version === this.version && c.heroId === hero.id) return c.batalla;
+    const batalla = batallaDeLaFormacion(this.state, hero.id);
+    this.formacionGuardada = { version: this.version, heroId: hero.id, batalla };
+    return batalla;
+  }
+  private formacionGuardada: {
+    readonly version: number;
+    readonly heroId: string;
+    readonly batalla: BattleState;
+  } | null = null;
   private cacheDeLaTropa: {
-    version: number;
-    heroId: string;
+    batalla: BattleState;
     bloqueo: string | null;
     elegido: Portador;
     vista: VistaDeLaTropa;
@@ -2545,6 +2984,21 @@ export class Session implements ControlDeBatalla {
 
   get battle(): BattleState | null {
     return this.state.pendingBattle?.battle ?? null;
+  }
+
+  /** Lo que ve la persona de la batalla (`DespliegueEnPantalla.aLaVista`). */
+  get batallaALaVista(): BattleState | null {
+    return this.despliegue.aLaVista();
+  }
+
+  /** La batalla entera, para el animador (`ControlDeBatalla.batallaEntera`). */
+  get batallaEntera(): BattleState | null {
+    return this.battle;
+  }
+
+  /** Lo que dice la barra al entrar en una batalla: el despliegue, si es suyo, o `si no`. */
+  private alEntrarEnLaBatalla(siNo: string): string {
+    return this.despliegue.enCurso === null ? siNo : AYUDA_DEL_DESPLIEGUE;
   }
 
   /**
@@ -2906,6 +3360,23 @@ export class SesionDeArena implements ControlDeBatalla {
   readonly poderes = new PoderesDeLaActiva(this, this.apuntados);
   /** El selector de arma de la activa (`ArmaDeLaActiva`): la versión lo lee de aquí. */
   readonly arma = new ArmaDeLaActiva(this);
+  /**
+   * El despliegue de los bandos «Yo» (`DespliegueEnPantalla`, el de la partida),
+   * como en el juego: primero el derecho, que defiende, y después el izquierdo;
+   * el de la IA, solo. Desde que empieza la pelea (`empezar`).
+   */
+  readonly despliegue: DespliegueEnPantalla = enLaBatalla({
+    batalla: () => this.battle,
+    // Antes de «Luchar» el montaje se ve entero y no se coloca nada.
+    enMarcha: () => this.empezada,
+    barra: (texto) => {
+      this.status = texto;
+    },
+    // Los campos se inician antes que el constructor, que pone `rng`.
+    rng: () => this.rng,
+    trasCerrar: () => this.avanzarIA(),
+    alCambiar: () => {},
+  });
   /** En la arena los bandos no son de ningún jugador: los dos llevan su color de bando. */
   readonly dueños = null;
   private readonly rng: Rng;
@@ -2921,7 +3392,7 @@ export class SesionDeArena implements ControlDeBatalla {
    * pueda desacompasar.
    */
   get version(): string {
-    return `${claveDeBatalla(this.battle)}|${claveDeLoApuntado(this.apuntados.actual)}|${this.arma.modo}|${this.rueda.pendiente?.fase ?? ''}`;
+    return `${claveDeBatalla(this.battle)}|${claveDeLoApuntado(this.apuntados.actual)}|${this.arma.modo}|${this.rueda.pendiente?.fase ?? ''}|${this.despliegue.clave}`;
   }
 
   /**
@@ -2991,11 +3462,13 @@ export class SesionDeArena implements ControlDeBatalla {
       combate: montaje.combate,
     };
     this.catalogo = catalogoDelMontaje(delMontaje);
-    this.battle = batallaDeArena(delMontaje, this.rng);
     this.iaDelBando = {
       [LADOS.izquierda.bando]: montaje.izquierda.ia,
       [LADOS.derecha.bando]: montaje.derecha.ia,
     } as Record<Side, boolean>;
+    // Los lados «Yo» despliegan en pantalla; los de la IA, solos.
+    const aMano = new Set((['izquierda', 'derecha'] as const).filter((l) => !montaje[l].ia));
+    this.battle = batallaDeArena(delMontaje, this.rng, aMano);
     this.rueda = new CruceDeLaRueda(
       { sesion: this, alMoverse: () => {}, seguirLaIA: () => this.avanzarIA() },
       this.rng,
@@ -3011,7 +3484,21 @@ export class SesionDeArena implements ControlDeBatalla {
   empezar(): void {
     if (this.empezada) throw new Error('esta batalla de la arena ya ha empezado');
     this.empezada = true;
+    if (this.despliegue.enCurso !== null) this.status = AYUDA_DEL_DESPLIEGUE;
     this.avanzarIA();
+  }
+
+  /**
+   * Lo que ve la persona: en el despliegue, desde el bando que despliega (con los
+   * dos «Yo», cada tanda sin el rival que aún no desplegó); con todos en la IA, todo.
+   */
+  get batallaALaVista(): BattleState {
+    return this.despliegue.aLaVista() ?? this.battle;
+  }
+
+  /** La batalla entera, para el animador (`ControlDeBatalla.batallaEntera`). */
+  get batallaEntera(): BattleState {
+    return this.battle;
   }
 
   /** ¿Esta unidad la mueve la IA? La de un bando de la IA. */

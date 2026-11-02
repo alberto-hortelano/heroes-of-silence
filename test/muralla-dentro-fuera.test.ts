@@ -47,6 +47,7 @@ import {
   abrirPuertas,
   aMano,
   bandoDePersonajes,
+  empezarTalCual,
   forzarTurno,
   NO_MUERTO,
   PESADA,
@@ -260,7 +261,7 @@ describe('de lo alto solo se baja hacia dentro (C11)', () => {
       );
       // Dónde está cada uno: el `move` del registro trae el camino sin el origen.
       const donde = new Map(s.battle.stacks.map((st) => [st.id, st.hex]));
-      s.empezar();
+      empezarTalCual(s);
       const state = s.battle;
       expect(state.finished, nombre).not.toBeNull();
       for (const e of state.log) {

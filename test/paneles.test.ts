@@ -297,5 +297,10 @@ describe('el panel de la escena de la tropa', () => {
     // Lo de serie: «de serie» y ningún botón de quitar en todo su equipo (es un novato).
     expect(m).toContain('class="de-serie"');
     expect(m).not.toContain('data-action="tropa-quitar"');
+    // La lista dice dónde sale cada uno en su formación (la escena es el tablero de
+    // despliegue), con la corona del héroe, como el panel del despliegue.
+    const [heroe, primero] = vista.figuras;
+    expect(m).toContain(`♛ ${hero.name} (${heroe!.sale.col},${heroe!.sale.row})`);
+    expect(m).toContain(`(${primero!.sale.col},${primero!.sale.row})</span>`);
   });
 });

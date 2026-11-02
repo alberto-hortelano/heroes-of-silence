@@ -87,6 +87,7 @@ import {
   conManosDePrueba,
   delBorrador,
   desenlaceDe,
+  empezarTalCual,
   golpeConLaRueda,
   hastaLaRueda,
   JINETE,
@@ -1659,7 +1660,7 @@ function sesion(
   const lado = (l: typeof izquierda) =>
     l.ids.map((u) => ({ unidad: typeof u === 'string' ? unidadDeArena(u) : u, ia: l.ia }));
   const s = sesionDeArena(lado(izquierda), lado(derecha), semilla, { combate });
-  s.empezar();
+  empezarTalCual(s);
   return s;
 }
 
@@ -2070,7 +2071,7 @@ describe('la sesión de la arena con la rueda', () => {
     a.observe(s.battle);
     a.tick(0);
     const salida = new Map(s.battle.stacks.map((x) => [x.id, stackHp(x)]));
-    s.empezar();
+    empezarTalCual(s);
     expect(s.battle.finished).not.toBeNull();
     a.observe(s.battle);
     a.tick(0);

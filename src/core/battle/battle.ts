@@ -42,12 +42,10 @@ import {
   allHexes,
   areAdjacent,
   BOARD_SIZE,
-  COLUMNAS_DE_SALIDA,
   type CosteDeSalir,
   caminoDe,
   carreraConCostes,
   distanciasDesde,
-  espejo,
   hexDistance,
   hexEquals,
   hexKey,
@@ -87,6 +85,14 @@ import {
   stackHp,
   trasElGolpe,
 } from './damage.js';
+import {
+  asentar,
+  asientoAlAbrir,
+  colocarBlocker,
+  deLaTanda,
+  suyoEn,
+  TANDAS,
+} from './despliegue.js';
 import {
   applyEffect,
   type CuandoVence,
@@ -151,6 +157,7 @@ import {
   spell,
 } from './spells.js';
 import type {
+  AccionDeDespliegue,
   BattleAction,
   BattleEvent,
   BattleHero,
@@ -188,6 +195,13 @@ export interface BattleSide {
    * (`catalogoDelMontaje`), con lo que la página no ha guardado.
    */
   readonly catalogo?: CatalogoDeUnidades;
+  /**
+   * Si lo despliega una persona en pantalla: su tanda se queda abierta hasta
+   * que la cierre (`aplicarDespliegue`). Sin él —la IA, el agente, lo que no
+   * tiene dueño— despliega solo, con su formación o la regla de hoy, y la
+   * batalla no se para en su tanda.
+   */
+  readonly despliegaAMano?: true;
 }
 
 /**
@@ -221,6 +235,11 @@ export interface HeroeDelBando {
    * (`queEs`).
    */
   readonly figura: string;
+  /**
+   * Su casilla en la formación (`Hero.salida`, en el marco del atacante): la
+   * pide al asentar (`asentar`), como la tropa la suya (`Troop.salida`).
+   */
+  readonly salida?: Hex;
 }
 
 /**
@@ -254,107 +273,9 @@ export interface BattleMember {
 }
 
 // La zona de salida vive en `board.ts`: la lee también la muralla, que dice qué
-// es dentro y qué es fuera desde la del defensor.
+// es dentro y qué es fuera desde la del defensor. Dónde sale cada uno, en
+// `despliegue.ts` (`asentar`).
 export { bandoDeSalida } from './board.js';
-
-/** Las filas, del centro hacia fuera: el centro es lo primero que se llena. */
-const DEL_CENTRO_A_FUERA: readonly number[] = [4, 3, 5, 2, 6, 1, 7, 0, 8];
-
-/**
- * La casilla de cada unidad, en el orden en que llegan: las tres columnas del
- * borde, columna a columna desde el borde y cada columna del centro hacia fuera.
- * Se calcula en el marco del atacante y se refleja para el defensor. Toda unidad
- * ocupa una casilla (13-10-2026: «todo el mundo un hexe»).
- *
- * `primera`, si la hay, es la que coge el primer hueco —el centro de la columna
- * del borde— aunque llegue la última: es el sitio del héroe, detrás de su tropa.
- * Se dice aquí y no reordenando la lista fuera, porque el orden de la lista es
- * también el de `stacks`, y de ese orden cuelgan los empates.
- *
- * Es la única regla, para uno o para siete. Hasta la fase 1a convivía con las
- * filas de HoMM2 para cinco o menos (`ROWS_BY_COUNT`), que se habían quedado
- * solo para no mover los tests del motor: el juego no tenía motivo, y un
- * ejército saltaba de formación abierta a compacta al pasar de cinco a seis
- * individuos.
- *
- * Sin muralla no comprueba si caben porque caben siempre: un bando lleva como
- * mucho `LIDERAZGO.maxPorBando` individuos, y un test de datos (`tropa.test.ts`)
- * fija que no pasan de los 27 de un lado.
- *
- * **Con muralla** (la arena deja dibujarla en cualquier columna, también en las
- * de salida) se saltan los hexes de muro y de puerta —nadie empieza en una
- * puerta, tampoco el defensor—; el orden de lo que queda es el mismo. Si así no
- * caben, lanza diciendo cuántos sitios deja la muralla.
- */
-function despliegue(
-  units: readonly UnitInfo[],
-  side: Side,
-  primera: number | null,
-  muralla: MurallaDeBatalla,
-): Hex[] {
-  const { huecos, motivo } = salidaDe(units, side, muralla);
-  if (motivo !== null) throw new Error(motivo);
-  const out: Hex[] = new Array<Hex>(units.length);
-  let siguiente = 0;
-  if (primera !== null) out[primera] = huecos[siguiente++]!;
-  units.forEach((_, i) => {
-    if (i !== primera) out[i] = huecos[siguiente++]!;
-  });
-  return out.map((h) => enElMarco(side, h));
-}
-
-/**
- * Por qué `units` no caben en la salida de `side` con esta muralla, o `null` si
- * caben. Lo lee `despliegue` —que lanza con ello— y el editor de la arena, que
- * lo avisa mientras se dibuja en vez de dejar que «Luchar» lo descubra.
- */
-export function despliegueBlocker(
-  units: readonly UnitInfo[],
-  side: Side,
-  muralla: MurallaDeBatalla,
-): string | null {
-  return salidaDe(units, side, muralla).motivo;
-}
-
-/** Del marco del atacante, en el que se calcula la salida, al del tablero (el del defensor es `espejo`). */
-function enElMarco(side: Side, h: Hex): Hex {
-  return side === 'attacker' ? h : espejo(h);
-}
-
-/**
- * Los huecos de salida, en el marco del atacante: lo que no es muro ni puerta de
- * las columnas de salida; y si no caben, por qué.
- */
-function salidaDe(
-  units: readonly UnitInfo[],
-  side: Side,
-  muralla: MurallaDeBatalla,
-): { readonly huecos: readonly Hex[]; readonly motivo: string | null } {
-  const cerradas = casillasDeMuro(muralla);
-  const cerrada = (h: Hex): boolean => cerradas.has(hexKey(enElMarco(side, h)));
-  const lado = side === 'attacker' ? 'la izquierda' : 'la derecha';
-  const huecos: Hex[] = [];
-  for (let col = 0; col < COLUMNAS_DE_SALIDA; col++) {
-    for (const row of DEL_CENTRO_A_FUERA) {
-      const h = { col, row };
-      if (!cerrada(h)) huecos.push(h);
-    }
-  }
-  const motivo =
-    units.length > huecos.length
-      ? `la muralla deja ${unaOVarias(huecos.length, 'casilla')} de salida a ${lado} y ${haceFalta(units.length)}`
-      : null;
-  return { huecos, motivo };
-}
-
-/** «1 casilla», «0 casillas», «3 casillas»: QA vio «deja 1 filas de salida» (M6). */
-function unaOVarias(n: number, palabra: string): string {
-  return `${n} ${palabra}${n === 1 ? '' : 's'}`;
-}
-
-function haceFalta(n: number): string {
-  return `${n === 1 ? 'hace' : 'hacen'} falta ${n}`;
-}
 
 /**
  * Moral del ejército por su composición, copiada de fheroes2
@@ -415,7 +336,7 @@ export function armyMorale(units: readonly UnitInfo[]): number {
 export function createBattle(
   attacker: BattleSide,
   defender: BattleSide,
-  _rng: Rng,
+  rng: Rng,
   combate: ReglasDelCombate,
   murallaPedida: MurallaDeBatalla = SIN_MURALLA,
 ): BattleState {
@@ -446,12 +367,25 @@ export function createBattle(
     const entradas = setup.army.map((stack, slot) => resolveUnit(stack, slot, setup));
     if (setup.hero !== null) entradas.push(entradaDelHeroe(setup.hero, setup.army.length));
     const units = entradas.map((e) => e.unit);
-    const hexes = despliegue(
-      units,
+    // Dónde sale cada uno: lo que pida su formación (`Troop.salida`,
+    // `Hero.salida`) o la regla de hoy en un hueco libre (`asentar`). El héroe va
+    // el PRIMERO al asentar —su sitio es el centro de la columna del borde,
+    // detrás de su tropa— aunque en `stacks` vaya el último: el orden de `stacks`
+    // es el de los empates y no se toca.
+    const pedidas = setup.army.map((stack) => stack.salida ?? null);
+    const conHeroe = setup.hero !== null;
+    const casillas = asentar(
+      [
+        ...(conHeroe
+          ? [{ unit: units[units.length - 1]!, pedida: setup.hero.salida ?? null }]
+          : []),
+        ...setup.army.map((_, i) => ({ unit: units[i]!, pedida: pedidas[i]! })),
+      ],
       side,
-      setup.hero === null ? null : entradas.length - 1,
       muralla,
     );
+    // De vuelta al orden de `entradas`: la tropa por su puesto y el héroe el último.
+    const hexes = conHeroe ? [...casillas.slice(1), casillas[0]!] : casillas;
     // La mezcla de facciones se cuenta UNA vez, con el ejército que entra, y no
     // se recalcula al morir un stack (#49): igual que fheroes2, que la cuenta
     // sobre el `Army` de fuera de la batalla (`army.cpp`, `GetMoraleModificator`:
@@ -506,10 +440,99 @@ export function createBattle(
     puertas: puertasAlEmpezar(muralla),
     log: [],
     finished: null,
+    despliegue: {
+      tanda: 0,
+      aMano: SIDES.filter((side) => (side === 'attacker' ? attacker : defender).despliegaAMano),
+    },
   };
 
-  beginRound(state, _rng);
+  // Las tandas que no son a mano pasan solas; sin ninguna a mano, la batalla
+  // sale ya con la ronda 1 abierta, como antes del despliegue.
+  seguirElDespliegue(state, rng);
   return state;
+}
+
+// ---------------------------------------------------------------- despliegue
+
+/**
+ * Abre la siguiente tanda del despliegue que tenga a alguien y despliegue una
+ * persona, desde `state.despliegue.tanda`; pasadas todas, cierra el despliegue y
+ * empieza la ronda 1. Las tandas que despliegan solas se quedan con lo que les
+ * dio `asentar` en `createBattle`.
+ *
+ * Al abrir cada tanda, quien tiene su casilla ocupada por alguien que ya
+ * desplegó se reasienta (`asientoAlAbrir`, el mismo `asentar`). No se tira nada:
+ * el despliegue no gasta azar.
+ */
+function seguirElDespliegue(state: BattleState, rng: Rng): void {
+  const d = state.despliegue;
+  if (d === null) throw new Error('no hay despliegue en curso');
+  for (let t = d.tanda; t < TANDAS.length; t++) {
+    const suyos = deLaTanda(state, t);
+    if (suyos.length === 0) continue;
+    const casillas = asientoAlAbrir(state, t);
+    suyos.forEach((s, i) => {
+      s.hex = casillas[i]!;
+    });
+    if (d.aMano.includes(TANDAS[t]!.side)) {
+      state.despliegue = { tanda: t, aMano: d.aMano };
+      return;
+    }
+  }
+  state.despliegue = null;
+  beginRound(state, rng);
+}
+
+/**
+ * Lo que se hace en el despliegue, sobre el bando que despliega ahora: colocar a
+ * uno (o cambiarlo con quien esté en esa casilla, de su misma tanda) o cerrar la
+ * tanda, que abre la siguiente o, si era la última, la ronda 1. Lo ilegal lanza
+ * con la frase de `colocarBlocker`. No escribe en el registro: el despliegue es
+ * estado, como la formación del héroe.
+ */
+export function aplicarDespliegue(state: BattleState, accion: AccionDeDespliegue, rng: Rng): void {
+  if (state.finished !== null) throw new Error('la batalla ya ha terminado');
+  const d = state.despliegue;
+  switch (accion.type) {
+    case 'colocar': {
+      const noSe = colocarBlocker(state, accion.stack, accion.at);
+      if (noSe !== null) throw new Error(`no se puede colocar: ${noSe}`);
+      const s = stackById(state, accion.stack);
+      // Solo uno de su tanda se intercambia: el enemigo que aún no ha desplegado
+      // se queda donde está y se reasienta al abrir su tanda (`asientoAlAbrir`).
+      const ahi = suyoEn(state, s, accion.at);
+      if (ahi !== undefined) ahi.hex = s.hex;
+      s.hex = accion.at;
+      return;
+    }
+    case 'desplegado': {
+      if (d === null) throw new Error('no hay despliegue en curso');
+      state.despliegue = { tanda: d.tanda + 1, aMano: d.aMano };
+      seguirElDespliegue(state, rng);
+      return;
+    }
+  }
+}
+
+/**
+ * Cierra lo que quede del despliegue aceptando lo que hay: la tanda abierta tal
+ * como está y las siguientes, solas. Lo llama quien juega la batalla sin mirar
+ * (`autoResolve`: «Resolver sola», o la batalla de la persona que cierra la IA).
+ * Sin despliegue en curso, nada.
+ */
+export function terminarElDespliegue(state: BattleState, rng: Rng): void {
+  const d = state.despliegue;
+  if (d === null) return;
+  state.despliegue = { tanda: d.tanda + 1, aMano: [] };
+  seguirElDespliegue(state, rng);
+}
+
+/**
+ * Por qué no se juega ningún turno: la batalla aún está en el despliegue. Va
+ * antes que «no hay stack activo» (`applyAction`), que no diría por qué.
+ */
+export function despliegueEnCursoBlocker(state: BattleState): string | null {
+  return state.despliegue === null ? null : 'la batalla está en el despliegue: aún no hay turnos';
 }
 
 /**
@@ -583,6 +606,7 @@ function resolveUnit(stack: StackDeBatalla, slot: number, setup: BattleSide): En
         unidad: stack.creature,
         oro: oroDeUnidad(stack.creature, cat),
         veterania: stack.veterania ?? null,
+        ...salidaDe(stack),
       },
       count: stack.count,
       topHp: unit.hp,
@@ -623,12 +647,20 @@ function resolveUnit(stack: StackDeBatalla, slot: number, setup: BattleSide): En
     slot,
     body: hojaDeLaTropa(stack),
     unit: cifrasDelIndividuo(miembro.profile.unit, stack.veterania, miembro.profile.equipo),
-    origen: { kind: 'personaje', id, veterania: stack.veterania ?? null },
+    origen: { kind: 'personaje', id, veterania: stack.veterania ?? null, ...salidaDe(stack) },
     count: 1,
     topHp: miembro.hp,
     ownMorale: miembro.profile.morale,
     escalera,
   };
+}
+
+/**
+ * La casilla de la formación del individuo, para su origen (`OrigenDelStack.salida`):
+ * la pide al asentar y `settleBattle` se la devuelve. Sin ella, nada.
+ */
+function salidaDe(stack: StackDeBatalla): { readonly salida?: Hex } {
+  return stack.salida === undefined ? {} : { salida: stack.salida };
 }
 
 /** El héroe como una entrada más: uno, sano siempre —no arrastra heridas—. */
@@ -2024,6 +2056,8 @@ export function applyAction(
   movibles?: Movibles,
 ): void {
   if (state.finished !== null) throw new Error('la batalla ya ha terminado');
+  const enElDespliegue = despliegueEnCursoBlocker(state);
+  if (enElDespliegue !== null) throw new Error(enElDespliegue);
   const s = activeStack(state);
   const turno = state.turno;
   if (s === null || turno === null) throw new Error('no hay stack activo');

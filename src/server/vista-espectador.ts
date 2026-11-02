@@ -29,7 +29,7 @@ import { sinSello } from '@core/state/events.js';
 import { battleOwners, type GameState, week } from '@core/state/game.js';
 import type { Town } from '@core/town/town.js';
 import { vecinosDeLaBase, vozDe } from '@core/town/voces.js';
-import type { FactionId, PlayerId, Point, UnitInfo, Veterania } from '@core/types.js';
+import type { FactionId, Hex, PlayerId, Point, UnitInfo, Veterania } from '@core/types.js';
 
 /**
  * El mapa tal como viaja. Los caminos van como **tramos** (#153), los mismos que
@@ -144,15 +144,23 @@ export type VeteraniaEnCable = Pick<Veterania, 'id' | 'experiencia' | 'equipo'>;
 /**
  * El origen tal y como viaja: el del núcleo **sin el precio** —`oro` lo lee la
  * rendición, que el espectador ni calcula ni pinta— y con la veteranía
- * recortada a `VeteraniaEnCable`.
+ * recortada a `VeteraniaEnCable`. La casilla de la formación (`salida`) viaja
+ * tal cual si la trae: es un par de números, y así la vuelta sigue siendo la
+ * inversa exacta.
  */
 export type OrigenEnCable =
   | {
       readonly kind: 'catalogo';
       readonly unidad: string;
       readonly veterania: VeteraniaEnCable | null;
+      readonly salida?: Hex;
     }
-  | { readonly kind: 'personaje'; readonly id: string; readonly veterania: VeteraniaEnCable | null }
+  | {
+      readonly kind: 'personaje';
+      readonly id: string;
+      readonly veterania: VeteraniaEnCable | null;
+      readonly salida?: Hex;
+    }
   | { readonly kind: 'heroe'; readonly desnudo: UnitInfo };
 
 export interface BatallaEnCable extends Omit<BattleState, 'stacks'> {
@@ -328,13 +336,19 @@ function stackAlCable(s: BattleStack): StackEnCable {
           kind: 'catalogo',
           unidad: origen.unidad,
           veterania: hojaAlCable(origen.veterania),
+          ...(origen.salida === undefined ? {} : { salida: origen.salida }),
         },
       };
     case 'personaje':
       return {
         ...resto,
         unit,
-        origen: { kind: 'personaje', id: origen.id, veterania: hojaAlCable(origen.veterania) },
+        origen: {
+          kind: 'personaje',
+          id: origen.id,
+          veterania: hojaAlCable(origen.veterania),
+          ...(origen.salida === undefined ? {} : { salida: origen.salida }),
+        },
       };
     case 'heroe':
       return { ...resto, unit, origen };

@@ -16,7 +16,6 @@ import {
   bandoDeSalida,
   cargaDesde,
   createBattle,
-  despliegueBlocker,
   distanciaACaminar,
   distanciaHasta,
   legalActions,
@@ -26,6 +25,7 @@ import {
   stackById,
 } from '../src/core/battle/battle.js';
 import { allHexes, FORMA_DEL_TABLERO, hexKey } from '../src/core/battle/board.js';
+import { despliegueBlocker } from '../src/core/battle/despliegue.js';
 import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from '../src/core/battle/muralla.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';

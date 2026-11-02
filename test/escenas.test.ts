@@ -87,7 +87,9 @@ import {
 import {
   agresiva,
   anteLaBase,
+  empezarTalCual,
   enElCampo,
+  escenaDeBatalla,
   fueraDeSuBase,
   primeraSemillaCon,
   sesionDeArena,
@@ -101,14 +103,6 @@ import {
  */
 function sesionEnBatalla(): Session {
   return sesionContraMonstruo();
-}
-
-/** La escena de batalla de esa sesión, encuadrada y con su primera lectura hecha, que no anima. */
-function escenaDeBatalla(sesion: () => Session): EscenaBatalla {
-  const escena = new EscenaBatalla(sesion);
-  escena.encuadrar(1086, 778);
-  escena.sincronizar(0);
-  return escena;
 }
 
 /**
@@ -1186,7 +1180,7 @@ describe('«A distancia» con el puntero: lo que no se puede, dicho como al puls
       [{ unidad: unidadDeArena('imperio-coracero'), ia: true, escalera: false }],
       7,
     );
-    s.empezar();
+    empezarTalCual(s);
     const yo = s.turnoPropio?.stack;
     if (yo === undefined) throw new Error('esperaba el turno de la izquierda');
     yo.hex = { col: 1, row: 4 };

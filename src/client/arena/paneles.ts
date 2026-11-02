@@ -145,6 +145,7 @@ import {
   modificadoresEnPantalla,
   nota,
   renderBattleLog,
+  renderDespliegue,
   renderSpells,
 } from '../views/panels.js';
 import { botonDeElegir, botonesDeArma, botonesDePoder } from '../views/poderes.js';
@@ -1832,7 +1833,8 @@ function notaDelHueco(hueco: Hueco): Html {
 /** Lo que el panel de la batalla lee de la sesión: la sesión misma, sin copiar su forma. */
 export type VistaDeArena = Pick<
   SesionDeArena,
-  | 'battle'
+  | 'batallaALaVista'
+  | 'despliegue'
   | 'semilla'
   | 'laLlevaLaIA'
   | 'turnoPropio'
@@ -1866,7 +1868,8 @@ export type VistaDeArena = Pick<
  */
 export function rotuloDelTurno(s: VistaDeArena, contandoAun: boolean): string {
   if (contandoAun) return 'Contando…';
-  if (s.battle.finished !== null) return 'Terminada';
+  if (s.batallaALaVista.finished !== null) return 'Terminada';
+  if (s.despliegue.enCurso !== null) return 'Despliegas';
   if (s.ruedaPendiente?.fase === 'respuesta') return 'Te toca responder';
   return s.turnoPropio === null ? 'Mueve la IA' : 'Te toca';
 }
@@ -1927,11 +1930,11 @@ function delEquipo(u: UnitInfo, cuerpo: UnitInfo | null, cifra: CifraQueCambiaEl
  * la rueda, en una fila y sin notas (el bocadillo no se puede señalar).
  */
 export function filasDelStack(
-  s: Pick<VistaDeArena, 'battle' | 'defensaEnLoAlto' | 'cuerpoDe'>,
+  s: Pick<VistaDeArena, 'batallaALaVista' | 'defensaEnLoAlto' | 'cuerpoDe'>,
   x: BattleStack,
   conArmas: boolean,
 ): Html {
-  const b = s.battle;
+  const b = s.batallaALaVista;
   const u = x.unit;
   const cuerpo = s.cuerpoDe(x);
   const danio =
@@ -1953,7 +1956,7 @@ export function filasDelStack(
  * al lado de su figura (`modificadoresEnCurso`, con lo que le queda en su nota).
  */
 export function vistaPrevia(s: VistaDeArena, x: BattleStack): Html {
-  return html`<strong class="nombre-de-la-previa">${nombreEnElCampo(s.battle, x)}</strong>
+  return html`<strong class="nombre-de-la-previa">${nombreEnElCampo(s.batallaALaVista, x)}</strong>
     ${filasDelStack(s, x, false)}
     <div class="row"><span class="label">Contraataque</span><span data-contraataco="${x.retaliated ? 'si' : 'no'}">${x.retaliated ? 'ya devolvió un golpe esta ronda' : 'aún puede devolver uno esta ronda'}</span></div>`;
 }
@@ -2040,7 +2043,8 @@ function rotuloDelGanador(battle: BattleState): string {
  *   él, como en el espectador.
  */
 export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Html {
-  const b = s.battle;
+  // Lo que se ve (`batallaALaVista`): en el despliegue, sin el rival que aún no desplegó.
+  const b = s.batallaALaVista;
   // Mientras el tablero cuenta, el estado ya va por delante de lo que se ve: el
   // parte, las vidas y la ficha de la activa contarían el final antes de que
   // llegue —con todo en IA, la pelea entera—. Se calla todo hasta que el tablero
@@ -2054,6 +2058,25 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
       <p>Ronda ${b.round}. Semilla ${s.semilla}.</p>
       <div class="stack-list"><button data-arena="otra-vez" class="primary">Otra vez</button></div>
       <h3>Parte de guerra</h3>${renderBattleLog(b, null)}`;
+  }
+  // Cada uno en el campo: en el despliegue, sin «Editar» (aún no se pelea).
+  const fila = (x: BattleStack, conBoton: boolean) => {
+    const nombre = nombreEnElCampo(b, x);
+    return {
+      flecha: x.side === LADOS.izquierda.bando ? '▶' : '◀',
+      nombre,
+      cuenta: `${x.topHp} PV · ${s.laLlevaLaIA(x.id) ? 'IA' : 'tú'}`,
+      ...(conBoton ? { boton: botonDeEditar(x, nombre) } : {}),
+    };
+  };
+  // El despliegue de un bando «Yo»: el panel de la partida (`renderDespliegue`).
+  const desplegando = s.despliegue.enCurso;
+  if (desplegando !== null) {
+    return renderDespliegue(s.despliegue, b, {
+      quien: `bando ${LADOS[ladoDe(desplegando.side)].adjetivo}`,
+      apagado: null,
+      fila: (x) => fila(x, false),
+    });
   }
   const activa = activeStack(b);
   const mia = s.turnoPropio !== null;
@@ -2102,15 +2125,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
     heroe === null
       ? NADA
       : html`<div class="row"><span class="label">Maná de ${heroe.mando.name}</span><span>${heroe.mando.mana} / ${heroe.manaMaximo}</span></div>`;
-  const campo = listaDelCampo(b, (x) => {
-    const nombre = nombreEnElCampo(b, x);
-    return {
-      flecha: x.side === LADOS.izquierda.bando ? '▶' : '◀',
-      nombre,
-      cuenta: `${x.topHp} PV · ${s.laLlevaLaIA(x.id) ? 'IA' : 'tú'}`,
-      boton: botonDeEditar(x, nombre),
-    };
-  });
+  const campo = listaDelCampo(b, (x) => fila(x, true));
   return html`${ficha}
     <div class="row"><span class="label">Ronda</span><span>${b.round}</span></div>
     ${mana}

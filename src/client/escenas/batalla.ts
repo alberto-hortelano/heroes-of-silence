@@ -15,14 +15,14 @@ import {
   isAlive,
   type LineaDelDisparo,
   SIN_CARGAS,
-  stackHexes,
   type TanteoADistancia,
 } from '@core/battle/battle.js';
 import { hexEquals, hexKey, ULTIMA_FILA } from '@core/battle/board.js';
-import { mismaPuerta, nivelDe } from '@core/battle/muralla.js';
+import { mismaPuerta } from '@core/battle/muralla.js';
 import type {
   BattleAction,
   BattleStack,
+  BattleState,
   Side,
   TipoDeEscala,
   TipoDePuerta,
@@ -35,10 +35,8 @@ import {
   bandosSinDueño,
   cajaDeFigura,
   claveDePortada,
-  dentroDeLaFigura,
   drawBatalla,
   portadaBajo,
-  tableroA,
 } from '../render/batalla.js';
 import {
   altoConAlzado,
@@ -58,6 +56,18 @@ import { nombreEnElCampo } from '../views/distintivo.js';
 import { AVISO_DE_ESPERA } from '../views/panels.js';
 import { textoDePrevision } from '../views/prevision.js';
 import { accionContra, golpeEnPixel } from './angulo.js';
+import {
+  casillaBajo,
+  clicAlColocar,
+  muroBajo,
+  pulsarAlColocar,
+  señalarAlColocar,
+  stackEn,
+  type TableroBajoElPuntero,
+  tableroAlColocar,
+  tableroDe,
+  unidadBajo,
+} from './despliegue.js';
 
 const SIN_NADA: ReadonlySet<string> = new Set();
 
@@ -193,9 +203,12 @@ export class EscenaBatalla {
    * gesto; las lecturas de abajo no cambian nada.
    */
   sincronizar(ahora: number): void {
-    const b = this.sesion().battle;
+    const b = this.batallaQueSeCuenta();
     if (this.pendiente !== null && this.pendiente.batalla !== b) this.pendiente = null;
     if (b === null) return;
+    // El animador lleva la batalla entera, también lo que la persona aún no ve:
+    // al cerrar el despliegue, el rival que aparece ya está en su casilla. Lo que
+    // se pinta y se pulsa sale de `batallaALaVista`.
     this.animador.observe(b);
     this.animador.tick(ahora);
     if (this.antesDelAviso !== null && !this.animador.busy) {
@@ -238,7 +251,17 @@ export class EscenaBatalla {
       accion();
       return;
     }
-    this.pendiente = { batalla: this.sesion().battle, accion };
+    this.pendiente = { batalla: this.batallaQueSeCuenta(), accion };
+  }
+
+  /**
+   * La batalla entera (`ControlDeBatalla.batallaEntera`): la única lectura de la
+   * escena que no pasa por lo que se ve, para el animador y para atar a ella un
+   * gesto que espera. Todo lo que se pinta, se señala o se pulsa lee
+   * `batallaALaVista`.
+   */
+  private batallaQueSeCuenta(): BattleState | null {
+    return this.sesion().batallaEntera;
   }
 
   /** ¿Sigue contándose algo? Mientras sí, no se aceptan clics. */
@@ -261,16 +284,21 @@ export class EscenaBatalla {
   enLaRueda(): { readonly atacante: string; readonly objetivo: string } | null {
     const delCruce = this.animador.losDelCruce();
     if (delCruce !== null) return delCruce;
-    const g = this.sesion().battle?.golpeEnCurso ?? null;
+    const g = this.sesion().batallaALaVista?.golpeEnCurso ?? null;
     if (g === null || this.animador.busy) return null;
     return { atacante: g.stack, objetivo: g.target };
   }
 
   dibujar(ctx: CanvasRenderingContext2D, ancho: number, alto: number): void {
     const s = this.sesion();
-    const battle = s.battle;
+    const battle = s.batallaALaVista;
     if (battle === null) return;
     this.encuadrar(ancho, alto);
+    const colocando = this.colocando();
+    if (colocando !== null) {
+      this.dibujarAlColocar(ctx, ancho, alto, colocando);
+      return;
+    }
     const quieta = this.animador.busy;
     const turno = quieta ? null : s.turnoPropio;
     // Una vez por fotograma: la recta y la explosión salen del mismo tanteo.
@@ -324,6 +352,57 @@ export class EscenaBatalla {
       ...this.animador.aDistancia(battle),
       granadaTanteada: explosionDe(tanteado),
     });
+  }
+
+  /**
+   * El despliegue de la persona, si coloca ahora (`DespliegueEnPantalla`); `null`
+   * si no despliega ella o ya empezó la batalla. Mientras, el tablero no juega:
+   * ni golpes, ni movimientos, ni hechizos, solo colocar.
+   */
+  private colocando(): ControlDeBatalla['despliegue'] | null {
+    const d = this.sesion().despliegue;
+    return d.enCurso === null ? null : d;
+  }
+
+  /** El tablero del despliegue: el pintado que comparte con la tropa (`tableroAlColocar`). */
+  private dibujarAlColocar(
+    ctx: CanvasRenderingContext2D,
+    ancho: number,
+    alto: number,
+    colocando: ControlDeBatalla['despliegue'],
+  ): void {
+    const s = this.sesion();
+    const battle = s.batallaALaVista;
+    if (battle === null) return;
+    drawBatalla(
+      ctx,
+      tableroAlColocar(colocando, {
+        battle,
+        tablero: this.tablero,
+        ancho,
+        alto,
+        hoverHex: this.hoverHex,
+        hoverStack: this.hoverStack,
+        puntero: this.puntero,
+        figura: (st) => this.animador.figura(st),
+        efectos: this.animador.efectos(battle),
+        ...this.animador.aDistancia(battle),
+        sinDueño: s.dueños === null ? NINGUN_BANDO : bandosSinDueño(s.dueños),
+        clima: { sitio: s.climaDeLaBatalla, ahora: performance.now() },
+      }),
+    );
+  }
+
+  /**
+   * El tablero bajo el puntero (`escenas/despliegue.ts`, el mismo de la tropa):
+   * lo que se ve, su encuadre y dónde se pinta cada figura.
+   */
+  private bajoElPuntero(): TableroBajoElPuntero {
+    return {
+      battle: this.sesion().batallaALaVista,
+      tablero: this.tablero,
+      figura: (st) => this.animador.figura(st),
+    };
   }
 
   /**
@@ -400,7 +479,7 @@ export class EscenaBatalla {
   }
 
   private alzado(): number {
-    const battle = this.sesion().battle;
+    const battle = this.sesion().batallaALaVista;
     return battle === null ? 0 : alzadoDeLaMuralla(battle.muralla);
   }
 
@@ -412,7 +491,8 @@ export class EscenaBatalla {
    */
   enemigosFuera(desde: number, hasta: number): { izquierda: number; derecha: number } {
     const s = this.sesion();
-    const battle = s.battle;
+    // Lo que se ve: el defensor que despliega no sabe aún cuántos le atacan.
+    const battle = s.batallaALaVista;
     const fuera = { izquierda: 0, derecha: 0 };
     if (battle === null || battle.finished !== null) return fuera;
     for (const st of battle.stacks) {
@@ -432,6 +512,11 @@ export class EscenaBatalla {
    */
   activaPropia(): { id: string; x: number } | null {
     if (this.animador.busy) return null;
+    // En el despliegue, el elegido: el marco va a la zona de quien coloca.
+    const elegido = this.colocando()?.elegido ?? null;
+    if (elegido !== null) {
+      return { id: elegido.id, x: cajaDeFigura(this.tablero, this.animador.figura(elegido).en).x };
+    }
     const turno = this.sesion().turnoPropio;
     if (turno === null) return null;
     const { stack } = turno;
@@ -442,6 +527,14 @@ export class EscenaBatalla {
     this.puntero = { x: px, y: py };
     this.angulo = null;
     this.hoverHex = this.hexBajo(px, py);
+    const colocando = this.colocando();
+    if (colocando !== null) {
+      const señal = señalarAlColocar(colocando, this.bajoElPuntero(), px, py);
+      this.hoverHex = señal.hoverHex;
+      this.hoverStack = señal.hoverStack;
+      this.rotular(this.animador.busy ? null : señal.dicho);
+      return;
+    }
     // Lo que se señala es lo que haría el clic: si el centro de un hex al que se
     // puede ir gana a la figura que lo tapa, la figura no se ilumina.
     const movimiento = this.movimientoEn(px, py);
@@ -656,7 +749,7 @@ export class EscenaBatalla {
 
   /** Cómo se llama cada stack en el campo, para la previsión. */
   private nombre(): (id: string) => string {
-    const battle = this.sesion().battle;
+    const battle = this.sesion().batallaALaVista;
     return (id) => {
       const st = battle?.stacks.find((x) => x.id === id);
       return battle === null || st === undefined ? id : nombreEnElCampo(battle, st);
@@ -715,28 +808,19 @@ export class EscenaBatalla {
     return undefined;
   }
 
-  /**
-   * El hex bajo el puntero, con las columnas de la muralla: primero lo alto de
-   * una columna —que tapa lo que hay detrás—, luego el suelo. Es la regla del
-   * clic y del puntero sobre el tablero.
-   */
+  /** La casilla bajo el puntero, con las columnas de la muralla (`casillaBajo`). */
   private hexBajo(px: number, py: number): Hex | null {
-    return this.muroBajo(px, py) ?? hexEnPixel(this.tablero, px, py);
+    return casillaBajo(this.bajoElPuntero(), px, py);
   }
 
-  /** El muro cuya columna tiene lo alto bajo el puntero, o `null`. */
+  /** El muro cuya columna tiene lo alto bajo el puntero, o `null` (`muroBajo`). */
   private muroBajo(px: number, py: number): Hex | null {
-    const battle = this.sesion().battle;
-    // Sin muros no hay columna que buscar: se pregunta en cada movimiento del ratón.
-    if (battle === null || battle.muralla.muros.length === 0) return null;
-    const h = hexEnPixel(tableroA(this.tablero, 1), px, py);
-    return h !== null && nivelDe(battle.muralla, h) === 1 ? h : null;
+    return muroBajo(this.bajoElPuntero(), px, py);
   }
 
-  /** El tablero en el que está `hex`: el de lo alto si es un muro. */
+  /** El tablero en el que está `hex`: el de lo alto si es un muro (`tableroDe`). */
   private tableroDe(hex: Hex): Tablero {
-    const battle = this.sesion().battle;
-    return battle === null ? this.tablero : tableroA(this.tablero, nivelDe(battle.muralla, hex));
+    return tableroDe(this.bajoElPuntero(), hex);
   }
 
   /**
@@ -748,25 +832,9 @@ export class EscenaBatalla {
     return this.movimientoEn(px, py) === undefined ? this.unidadEn(px, py) : undefined;
   }
 
-  /**
-   * La unidad bajo el puntero: primero por su figura —de delante atrás, que es
-   * la que tapa— y si no, por su hex. Con solo el hex, pulsar el cuerpo de una
-   * figura caía en el hex de la fila de atrás.
-   */
+  /** La unidad bajo el puntero (`unidadBajo`, la de la tropa): solo lo que se ve. */
   private unidadEn(px: number, py: number): BattleStack | undefined {
-    const battle = this.sesion().battle;
-    if (battle === null) return undefined;
-    let mejor: { s: BattleStack; suelo: number } | null = null;
-    for (const s of battle.stacks) {
-      if (!isAlive(s)) continue;
-      const f = this.animador.figura(s);
-      const c = cajaDeFigura(this.tablero, f.en, f.elevacion);
-      if (dentroDeLaFigura(c, px, py) && (mejor === null || c.suelo > mejor.suelo))
-        mejor = { s, suelo: c.suelo };
-    }
-    if (mejor !== null) return mejor.s;
-    const hex = this.hexBajo(px, py);
-    return hex === null ? undefined : this.stackEn(hex);
+    return unidadBajo(this.bajoElPuntero(), px, py);
   }
 
   salir(): void {
@@ -778,9 +846,7 @@ export class EscenaBatalla {
   }
 
   private stackEn(hex: Hex): BattleStack | undefined {
-    const battle = this.sesion().battle;
-    if (battle === null) return undefined;
-    return battle.stacks.find((s) => isAlive(s) && stackHexes(s).some((h) => hexEquals(h, hex)));
+    return stackEn(this.sesion().batallaALaVista, hex);
   }
 
   /**
@@ -814,7 +880,7 @@ export class EscenaBatalla {
   private pulsarPuerta(px: number, py: number, acciones: readonly BattleAction[]): boolean {
     const session = this.sesion();
     const tipo = session.puertaPorElegir;
-    const battle = session.battle;
+    const battle = session.batallaALaVista;
     if (tipo === null || battle === null) return false;
     // Ya no hay puerta que elegir (otra unidad, o se ha movido): el botón deja de esperar.
     if (!acciones.some((a) => a.type === tipo)) {
@@ -838,8 +904,13 @@ export class EscenaBatalla {
   /** Un clic en el tablero. Quien llama ya ha comprobado que no hay nada contándose. */
   pulsar(px: number, py: number): void {
     const session = this.sesion();
-    const battle = session.battle;
+    const battle = session.batallaALaVista;
     if (battle === null || battle.finished !== null) return;
+    const colocando = this.colocando();
+    if (colocando !== null) {
+      pulsarAlColocar(colocando, clicAlColocar(colocando, this.bajoElPuntero(), px, py));
+      return;
+    }
 
     const acciones = session.battleLegalActions();
     // La puerta antes que nada: su portada tapa casillas que también se mueven.

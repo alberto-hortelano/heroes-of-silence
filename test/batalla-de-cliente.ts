@@ -27,6 +27,8 @@ let emboscada: { readonly semilla: number; readonly destino: Point } | null = nu
 function abrir(semilla: number, at: Point, como: ComoSeJuega = {}): Session | null {
   const s = new Session(semilla, undefined, undefined, como.combate, como.soloRuedaDelHeroe);
   s.clickTile(at);
+  // Los tests de la escena miran la batalla ya empezada: «Listo» tal cual.
+  s.despliegue.listoTalCual();
   if (s.battle === null || s.turnoPropio === null) return null;
   return s.state.pendingBattle?.attacker.kind === 'hero' ? s : null;
 }
@@ -54,6 +56,29 @@ export function sesionContraMonstruo(como: ComoSeJuega = {}): Session {
 }
 
 /**
+ * La misma batalla, recién abierta y aún en el despliegue de la persona (fase de
+ * despliegue, 02-11-2026): para los tests que miran el despliegue.
+ */
+export function sesionContraMonstruoAlDesplegar(): Session {
+  sesionContraMonstruo();
+  if (hallada === null) throw new Error('sin batalla hallada');
+  const s = new Session(hallada.semilla);
+  s.clickTile(hallada.at);
+  if (s.battle === null) throw new Error('la batalla hallada no se repite');
+  return s;
+}
+
+/**
+ * La sesión de esa batalla antes de abrirla, en el mapa, con la casilla del
+ * monstruo: para los tests que tocan algo del héroe (su formación) y luego atacan.
+ */
+export function sesionAntesDelMonstruo(): { readonly s: Session; readonly at: Point } {
+  sesionContraMonstruo();
+  if (hallada === null) throw new Error('sin batalla hallada');
+  return { s: new Session(hallada.semilla), at: hallada.at };
+}
+
+/**
  * La misma batalla, con el héroe de la persona llevando `ejercito` en vez del
  * suyo: para los tests que necesitan una tropa concreta (el monje de los poderes).
  * Lanza si con ese ejército no se abre la batalla.
@@ -66,6 +91,8 @@ export function sesionContraMonstruoCon(ejercito: Army): Session {
   if (h === null) throw new Error('la sesión no tiene héroe seleccionado');
   h.army = ejercito;
   s.clickTile(hallada.at);
+  // Los tests de la escena miran la batalla ya empezada: «Listo» tal cual.
+  s.despliegue.listoTalCual();
   if (s.battle === null) throw new Error('con ese ejército no se abre la batalla');
   return s;
 }

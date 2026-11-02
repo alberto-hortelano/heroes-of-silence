@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { onTestFinished } from 'vitest';
 import { type FotoDeEfectos, fotoDeEfectos } from '../src/client/anim.js';
+import { EscenaBatalla } from '../src/client/escenas/batalla.js';
 import { marcadoDe } from '../src/client/html.js';
 import {
   type Catalogo,
@@ -15,7 +16,7 @@ import { componer, type Escena } from '../src/client/render/escenario/colocar.js
 import type { Puente } from '../src/client/render/escenario/puentes.js';
 import type { Senda } from '../src/client/render/escenario/sendas.js';
 import { type CaraDeLosContrincantes, renderDesenlace } from '../src/client/rueda/rueda.js';
-import { SesionDeArena } from '../src/client/session.js';
+import { type ControlDeBatalla, SesionDeArena } from '../src/client/session.js';
 import { completarCruce } from '../src/core/ai/rueda.js';
 import {
   batallaDeArena,
@@ -31,6 +32,7 @@ import {
   type BattleSide,
   createBattle,
   enemiesOf,
+  type HeroeDelBando,
   legalActions,
   type StackDeBatalla,
   stackById,
@@ -45,7 +47,7 @@ import type {
   BattleStack,
   BattleState,
 } from '../src/core/battle/types.js';
-import { personajeDe } from '../src/core/battle/types.js';
+import { HERO_BODY, personajeDe } from '../src/core/battle/types.js';
 import { UNIDADES, unidad, unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO, type ReglasDelCombate } from '../src/core/combate.js';
 import {
@@ -62,8 +64,9 @@ import {
   EQUIPO_BASE,
   EQUIPO_DEL_JUEGO,
 } from '../src/core/hero/equipo.js';
-import { EXPERIENCIA_INICIAL_DE_HEROE } from '../src/core/hero/experiencia.js';
-import type { GrupoQueMarcha, Hero } from '../src/core/hero/hero.js';
+import { EXPERIENCIA_INICIAL_DE_HEROE, umbral } from '../src/core/hero/experiencia.js';
+import { cuerposDelHeroe, type GrupoQueMarcha, type Hero } from '../src/core/hero/hero.js';
+import { troopsAsStacks } from '../src/core/hero/troop.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import { basesDelPlan, type MapPlan, type PlanConCasillas } from '../src/core/map/generate.js';
 import {
@@ -77,6 +80,7 @@ import {
   pointKey,
   type Reachable,
   RedDeCaminos,
+  reachableFrom,
 } from '../src/core/map/map.js';
 import { puertasDeLaCiudad, rioAnteLaCiudad } from '../src/core/map/recinto.js';
 import {
@@ -1623,6 +1627,81 @@ export function peleaDelMotor(
     COMBATE_COMPLETO,
     muralla,
   );
+}
+
+/**
+ * Empieza la pelea de la arena y acepta el despliegue de los bandos «Yo» tal como
+ * sale (la regla de hoy): los tests que miran la pelea la quieren ya empezada,
+ * como antes de la fase de despliegue (02-11-2026). La que mira el despliegue
+ * llama a `empezar` y coloca.
+ */
+export function empezarTalCual(s: SesionDeArena): void {
+  s.empezar();
+  s.despliegue.listoTalCual();
+}
+
+/**
+ * Un héroe de batalla con su cuerpo y, si se pide, con monedero para rendirse
+ * (`heroe-en-batalla.test.ts`); donde solo importa dónde pisa, sin él
+ * (`despliegue.test.ts`).
+ */
+export function heroeDeBatalla(purse: number | null = null): HeroeDelBando {
+  return {
+    figura: HERO_BODY,
+    ...cuerposDelHeroe({
+      name: 'Prueba',
+      attack: 2,
+      defense: 2,
+      experience: umbral(5),
+      equipo: {},
+    }),
+    mando: {
+      name: 'Prueba',
+      retreat: purse === null ? { blocked: 'no tienes base a la que volver' } : { purse },
+      spellPower: 1,
+      knowledge: 1,
+      mana: 0,
+      castThisRound: false,
+      spells: [],
+    },
+  };
+}
+
+/** Un bando de individuos, uno por stack, como los manda la partida; `aMano`, si lo despliega la persona. */
+export function ladoDeBatalla(army: Army, hero: HeroeDelBando | null, aMano = false): BattleSide {
+  return {
+    army: troopsAsStacks(army),
+    hero,
+    ...(aMano ? { despliegaAMano: true as const } : {}),
+  };
+}
+
+/**
+ * Deja correr el turno del rival hasta que se cumpla `cond` (una defensa que se
+ * abre a media jugada suya), o lanza: el turno es asíncrono y no avisa.
+ */
+export async function hastaQue(cond: () => boolean): Promise<void> {
+  for (let i = 0; i < 100 && !cond(); i++) await new Promise((r) => setTimeout(r, 0));
+  if (!cond()) throw new Error('el turno del rival no llegó a lo que se esperaba');
+}
+
+/** Una casilla libre y pisable a dos pasos de `desde`, la primera que salga. */
+export function casillaADosPasos(state: GameState, desde: Point): Point {
+  const alcance = reachableFrom(state.map, desde);
+  for (const [clave, coste] of costesDelAlcance(alcance)) {
+    const p = pointFromKey(clave);
+    const lejos = Math.max(Math.abs(p.x - desde.x), Math.abs(p.y - desde.y));
+    if (coste > 0 && lejos === 2 && objectAt(state.map, p) === undefined) return p;
+  }
+  throw new Error(`no hay casilla libre a dos pasos de (${desde.x},${desde.y})`);
+}
+
+/** La escena de batalla de la sesión, encuadrada y con su primera lectura hecha, que no anima. */
+export function escenaDeBatalla(sesion: () => ControlDeBatalla): EscenaBatalla {
+  const escena = new EscenaBatalla(sesion);
+  escena.encuadrar(1086, 778);
+  escena.sincronizar(0);
+  return escena;
 }
 
 /**

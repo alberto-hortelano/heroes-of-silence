@@ -89,10 +89,11 @@ import { conMiles, describirCoste, HUECOS, NOMBRE_DE_HUECO } from '@core/types.j
 import { disposicionDe } from '../../shared/base.js';
 import { quienesDe } from '../desenlace.js';
 import type { Abierto } from '../escenas/castillo.js';
+import { COMO_SE_COLOCA } from '../escenas/despliegue.js';
 import { DESHABILITADO, fondoDeColor, type Html, html, NADA, srcDeImagen, unir } from '../html.js';
 import { asset } from '../render/assets.js';
 import { COLOR_DEL_ORO, MARCA_DE_COMANDANTE } from '../render/palette.js';
-import type { ModoDelArma, Session, SpellOption } from '../session.js';
+import type { DespliegueEnPantalla, ModoDelArma, Session, SpellOption } from '../session.js';
 import { renderPanelDelAyuntamiento } from './ayuntamiento.js';
 import { renderAbierto } from './base.js';
 import { nombreEnElCampo } from './distintivo.js';
@@ -264,7 +265,7 @@ export function renderActions(session: Session, contandoAun = false): Html {
     case 'lugar':
       return html`<button data-action="salir-del-lugar" title="Escape">Volver al mapa</button>`;
     case 'battle': {
-      const battle = session.battle;
+      const battle = session.batallaALaVista;
       // «Continuar» no se apaga: espera solo a que acabe la jugada (#158 d,
       // `EscenaBatalla.alAcabar`) y cierra una batalla que ya no cambia.
       if (battle !== null && battle.finished !== null) {
@@ -827,7 +828,9 @@ function renderTownSpells(town: Town): Html {
 // ---------------------------------------------------------------- batalla
 
 function renderBattlePanel(session: Session, contandoAun: boolean): Html {
-  const battle = session.battle;
+  // Lo que se ve (`batallaALaVista`): en el despliegue, sin el rival que aún no ha
+  // desplegado; el defensor despliega sin ver la lista del atacante.
+  const battle = session.batallaALaVista;
   if (battle === null) return NADA;
 
   // El bando de la persona lo DERIVA la sesión del dueño de la batalla; aquí no
@@ -850,6 +853,21 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
       <p>${gane ? 'El campo es tuyo.' : derrota}</p>
       ${gane || rendicion !== undefined ? filaManaDeBatalla(session) : NADA}
       <h3>Parte de guerra</h3>${renderBattleLog(battle, mio)}`;
+  }
+
+  const fila = (x: BattleStack) => ({
+    flecha: x.side === mio ? '▶' : '◀',
+    nombre: `${marcaDeComandante(x)}${nombreEnElCampo(battle, x)}${marcaDeVeterano(x)}`,
+    cuenta: x.count,
+  });
+
+  // El despliegue: lo propio y el rival que ya desplegó, nunca el que aún no.
+  if (session.despliegue.enCurso !== null) {
+    return renderDespliegue(session.despliegue, battle, {
+      quien: null,
+      apagado: contandoAun ? AVISO_DE_ESPERA : null,
+      fila,
+    });
   }
 
   const s = activeStack(battle);
@@ -890,11 +908,7 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
   // batalla entera, no del stack, y sin verlo no se decide si lanzar.
   const mana = filaManaDeBatalla(session);
 
-  const orden = listaDelCampo(battle, (x) => ({
-    flecha: x.side === mio ? '▶' : '◀',
-    nombre: `${marcaDeComandante(x)}${nombreEnElCampo(battle, x)}${marcaDeVeterano(x)}`,
-    cuenta: x.count,
-  }));
+  const orden = listaDelCampo(battle, fila);
 
   return html`${activo}
     <div class="row"><span class="label">Ronda</span><span>${battle.round}</span></div>
@@ -902,6 +916,57 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
     ${acciones}
     <h3>En el campo</h3><div class="stack-list">${orden}</div>
     <h3>Parte de guerra</h3>${renderBattleLog(battle, mio)}`;
+}
+
+/** Lo que se dice de cada tanda del despliegue, por su bando y su momento (`TANDAS`). */
+function fraseDeLaTanda(d: NonNullable<DespliegueEnPantalla['enCurso']>): string {
+  if (d.momento === 'tras_el_enemigo') {
+    return 'Despliegan los que salen cuando el enemigo ya está en el campo.';
+  }
+  return d.side === 'defender'
+    ? 'Despliegas primero: el enemigo aún no está en el campo.'
+    : 'El enemigo ya está en el campo: colócate frente a él.';
+}
+
+/**
+ * El panel de la batalla en el despliegue de la persona (fase de despliegue,
+ * 02-11-2026), uno para la partida y la arena: qué tanda es, un botón por cada uno
+ * que se coloca (el elegido marcado; con el teclado se elige aquí y las flechas lo
+ * mueven), cómo se coloca (`COMO_SE_COLOCA`), «Listo», que la cierra, y «En el
+ * campo» con lo que se ve (`battle`, la vista: sin el rival que aún no desplegó).
+ * `quien` es el bando dicho, donde la persona puede llevar los dos (la arena), o
+ * `null`; `apagado`, el motivo para apagar los botones (la jugada que se cuenta);
+ * `fila`, cómo dice cada página a cada uno en el campo.
+ */
+export function renderDespliegue(
+  d: DespliegueEnPantalla,
+  battle: BattleState,
+  o: {
+    readonly quien: string | null;
+    readonly apagado: string | null;
+    readonly fila: Parameters<typeof listaDelCampo>[1];
+  },
+): Html {
+  const ahora = d.enCurso;
+  if (ahora === null) return NADA;
+  const elegido = d.elegido;
+  const botones = unir(
+    ahora.colocables.map((id) => {
+      const x = stackById(battle, id);
+      const es = id === elegido?.id;
+      return html`<button data-action="despliegue-elegir" data-stack="${id}"${es ? html` class="primary" aria-pressed="true"` : html` aria-pressed="false"`}>${marcaDeComandante(x)}${nombreEnElCampo(battle, x)} (${x.hex.col},${x.hex.row})</button>`;
+    }),
+  );
+  return html`${apagadosPor(
+    o.apagado,
+    html`<h2>Despliegue${o.quien === null ? NADA : html` · ${o.quien}`}</h2>
+    <p>${fraseDeLaTanda(ahora)}</p>
+    <h3>Colocar</h3>
+    <div class="stack-list" data-despliegue="${String(ahora.tanda)}">${botones}</div>
+    <p class="cost" style="margin-top:.5rem">Para colocar, ${COMO_SE_COLOCA}</p>
+    <div class="stack-list"><button data-action="desplegado" class="primary">Listo</button></div>`,
+  )}
+    <h3>En el campo</h3><div class="stack-list">${listaDelCampo(battle, o.fila)}</div>`;
 }
 
 /**

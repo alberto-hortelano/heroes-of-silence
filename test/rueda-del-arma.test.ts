@@ -51,6 +51,7 @@ import {
   aPelear,
   ataquesDe,
   catalogoCon,
+  empezarTalCual,
   golpeConLaRueda,
   hastaLaRueda,
   JINETE,
@@ -370,7 +371,7 @@ describe('cada golpe de la rueda va con su arma', () => {
       ia: false,
     };
     const s = sesionDeArena([conMaza], [conMaza], 1);
-    s.empezar();
+    empezarTalCual(s);
     hastaLaRueda(s, true, 'golpe');
     const p = s.ruedaPendiente;
     if (p === null) throw new Error('la rueda no pide el golpe');
@@ -435,7 +436,7 @@ describe('la rueda teñida por el nivel del arma de quien pega (25-10-2026)', ()
     // El de enfrente con otro id: en una pelea, un id es una unidad (`catalogoDeLaPelea`).
     const conEspada = { unidad: unidadDeArena(TROPA, { id: `${TROPA}-9` }), ia: false };
     const s = sesionDeArena([conMaza], [conEspada], 1);
-    s.empezar();
+    empezarTalCual(s);
     hastaLaRueda(s, true, 'golpe');
     const p = s.ruedaPendiente;
     if (p === null) throw new Error('la rueda no pide el golpe');

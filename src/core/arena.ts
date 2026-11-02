@@ -33,13 +33,13 @@ import {
   type CausaDelFinal,
   causaDelFinal,
   createBattle,
-  despliegueBlocker,
   type HeroeDelBando,
   loADistanciaTrasElRetoque,
   mandoDe,
   quienNoEscala,
   type StackDeBatalla,
 } from './battle/battle.js';
+import { despliegueBlocker } from './battle/despliegue.js';
 import type { StackEffect } from './battle/effects.js';
 import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from './battle/muralla.js';
 import { nombreDeHabilidad } from './battle/poderes.js';
@@ -977,21 +977,33 @@ function bandoDeArena(
   return { army, hero: heroe === null ? null : heroeDeArena(heroe, catalogo.equipo), catalogo };
 }
 
+const SIN_LADOS: ReadonlySet<Lado> = new Set();
+
 /**
  * Una batalla de arena: la izquierda ataca y la derecha defiende, con las reglas
  * del juego (`createBattle`, la única puerta: la arena no tiene interruptores
  * desde el 19-10-2026). Los stacks de la tropa salen en el orden de cada lista (`slot` =
  * su puesto) y el héroe, si lo hay, el último (`<bando>-heroe`): es lo que deja a
  * quien llama saber qué puesto del montaje es cada stack. La muralla, si la
- * hay, es del tablero (`battle/muralla.ts`).
+ * hay, es del tablero (`battle/muralla.ts`). Los lados de `aMano` (los que
+ * lleva la persona, «Yo») despliegan en pantalla, como en el juego: la batalla
+ * nace en su despliegue (`BattleSide.despliegaAMano`); sin ninguno, ya en la ronda 1.
  */
-export function batallaDeArena(montaje: MontajeDeArena, rng: Rng): BattleState {
+export function batallaDeArena(
+  montaje: MontajeDeArena,
+  rng: Rng,
+  aMano: ReadonlySet<Lado> = SIN_LADOS,
+): BattleState {
   const eq = montaje.equipo;
   const catalogo = catalogoDelMontaje(montaje);
   const { combate } = montaje;
+  const lado = (l: Lado): BattleSide => {
+    const b = bandoDeArena(montaje[l], LADOS[l].adjetivo, catalogo, combate.tope);
+    return aMano.has(l) ? { ...b, despliegaAMano: true } : b;
+  };
   const batalla = createBattle(
-    bandoDeArena(montaje.izquierda, LADOS.izquierda.adjetivo, catalogo, combate.tope),
-    bandoDeArena(montaje.derecha, LADOS.derecha.adjetivo, catalogo, combate.tope),
+    lado('izquierda'),
+    lado('derecha'),
     rng,
     combate,
     montaje.muralla ?? SIN_MURALLA,

@@ -891,6 +891,9 @@ export function describeAccion(accion: BattleAction | AccionDelAgente): string {
     // unión es la del núcleo y se dice por si un día la ve.
     case 'elegir_en_lugar':
       return `elección ${accion.opcion} del nodo ${accion.nodo} de ${accion.punto} en ${accion.lugar}, con ${accion.hero}`;
+    // Tampoco forma su tropa (02-11-2026, backlog): solo la vista de la tropa.
+    case 'formar':
+      return `formar: ${'heroe' in accion.quien ? 'el héroe' : `puesto ${accion.quien.indice}`} de ${accion.hero} en (${accion.at.col},${accion.at.row})`;
     // Hoy solo en la arena, que no tiene agente; se dicen por si un día los ve.
     case 'poner_escalera':
       return `escalera contra el muro de (${accion.muro.col},${accion.muro.row})`;

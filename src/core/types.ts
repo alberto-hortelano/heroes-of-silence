@@ -280,6 +280,32 @@ export interface UnitInfo {
    * agente, con la jugada `power` (`contract/vocabulario.ts`).
    */
   readonly poderes?: readonly PoderId[];
+  /**
+   * Dónde y cuándo despliega, si no es lo de todos (las `COLUMNAS_DE_SALIDA` de
+   * su borde, con su bando): **el enganche de la infiltración** (02-11-2026,
+   * `docs/agents/2026-11-02-fase-de-despliegue/`), que no escribe nadie todavía.
+   * Lo pondrá `unidadDeCombate` con la habilidad, como `poderes`, y lo lee solo
+   * `alcanceDelDespliegue` (`battle/despliegue.ts`): ni el cliente ni la batalla
+   * preguntan otra cosa, así que la habilidad no los toca.
+   */
+  readonly despliegue?: AlcanceDelDespliegue;
+}
+
+/**
+ * Cuándo despliega una unidad: con su bando (lo de todos) o después de que el
+ * enemigo ya esté en el campo (la infiltración «más tarde»). El orden de las
+ * tandas, `TANDAS` (`battle/despliegue.ts`).
+ */
+export type MomentoDeDespliegue = 'con_su_bando' | 'tras_el_enemigo';
+
+/**
+ * Lo que despliega una unidad: cuántas columnas desde su borde (de 1 a
+ * `COLUMNAS_MAXIMAS_DE_SALIDA`; la infiltración «más adelante» las amplía) y
+ * cuándo. Vive aquí y no en `battle/despliegue.ts` porque lo nombra `UnitInfo`.
+ */
+export interface AlcanceDelDespliegue {
+  readonly columnas: number;
+  readonly momento: MomentoDeDespliegue;
 }
 
 /**
@@ -454,6 +480,15 @@ export interface Troop {
    * (`state.veteranos[id]`) habría sido el segundo sitio del mismo hecho.
    */
   readonly veterania?: Veterania;
+  /**
+   * Su casilla en la formación del héroe que lo lleva, en el marco del atacante
+   * (la vista de la tropa, la acción `formar`; 02-11-2026). Sin ella, la regla de
+   * hoy en un hueco libre (`asentar`, `battle/despliegue.ts`). Viaja con el
+   * individuo como `veterania` —licenciar, equipar, la guarnición, la batalla—
+   * sin que nadie la copie; solo la rehace `settleBattle`, que vuelve a montar a
+   * los supervivientes.
+   */
+  readonly salida?: Hex;
 }
 
 /**
@@ -699,8 +734,9 @@ export interface Stack extends Troop {
 /**
  * El ejército de un héroe o la guarnición de un castillo: una lista DENSA de
  * individuos, sin huecos y sin tope de slots. El tope es el liderazgo
- * (`hero/troop.ts`), y el orden importa: es el de despliegue y el que desempata
- * la iniciativa.
+ * (`hero/troop.ts`), y el orden importa: desempata la iniciativa y, a quien no
+ * tiene casilla guardada (`Troop.salida`), le da su turno para coger hueco
+ * (`asentar`).
  */
 export type Army = readonly Troop[];
 

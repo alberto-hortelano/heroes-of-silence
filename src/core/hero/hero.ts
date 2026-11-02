@@ -2,7 +2,16 @@
 import { cuerpoConSusCifras, marchaDe } from '../cuerpo.js';
 import { HEROE } from '../data.js';
 import { marchaALaEscala } from '../escala.js';
-import type { Army, Equipo, FactionId, PlayerId, Point, SpeedTier, UnitInfo } from '../types.js';
+import type {
+  Army,
+  Equipo,
+  FactionId,
+  Hex,
+  PlayerId,
+  Point,
+  SpeedTier,
+  UnitInfo,
+} from '../types.js';
 import { SPEED_TO_MOVE_POINTS } from '../types.js';
 import { conEquipo, EQUIPO_BASE } from './equipo.js';
 import { rangoDeHeroe, subidasDeRango } from './experiencia.js';
@@ -52,6 +61,12 @@ export interface Hero {
    * entero al equipar o desequipar, nunca se muta.
    */
   equipo: Equipo;
+  /**
+   * Su casilla en su formación, en el marco del atacante (la acción `formar`,
+   * 02-11-2026); sin ella, el centro de la columna del borde o el primer hueco
+   * libre (`asentar`). La de su tropa va en cada individuo (`Troop.salida`).
+   */
+  salida?: Hex;
   /**
    * Las piezas que lleva sin ponérselas, por id, en el orden en que llegaron:
    * el botín, lo comprado, lo que se quita y lo que devuelve la tropa licenciada.
