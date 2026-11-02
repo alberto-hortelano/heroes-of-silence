@@ -17,7 +17,8 @@ import { textoDePrevision } from './prevision.js';
 
 /** Lo que piden los botones de los poderes a la sesión: la de la partida y la de la arena. */
 export interface ControlDePoderes {
-  readonly battle: BattleState | null;
+  /** Lo que se ve de la batalla (`ControlDeBatalla.batallaALaVista`). */
+  readonly batallaALaVista: BattleState | null;
   readonly apuntado: Apuntado | null;
   battleLegalActions(): readonly BattleAction[];
   /** Por qué la activa no puede usar el poder ahora, con la frase del núcleo; `null` si puede. */
@@ -92,7 +93,7 @@ export function botonesDePoder(s: ControlDePoderes, activa: BattleStack): Html {
 function previsionDelUnico(s: ControlDePoderes, accion: BattleAction | undefined): string {
   if (accion === undefined) throw new Error('el poder no tiene jugada que prever');
   const p = s.prevision(accion);
-  const b = s.battle;
+  const b = s.batallaALaVista;
   if (p === null || b === null) {
     throw new Error('la jugada del poder no tiene previsión: no es un turno propio');
   }

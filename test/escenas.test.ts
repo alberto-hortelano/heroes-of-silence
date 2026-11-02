@@ -82,7 +82,14 @@ import {
   sesionContraMonstruo,
   sesionesContraMonstruo,
 } from './batalla-de-cliente.js';
-import { agresiva, anteLaBase, enElCampo, fueraDeSuBase, primeraSemillaCon } from './helpers.js';
+import {
+  agresiva,
+  anteLaBase,
+  enElCampo,
+  escenaDeBatalla,
+  fueraDeSuBase,
+  primeraSemillaCon,
+} from './helpers.js';
 
 /**
  * Una batalla en la que la persona ATACA a un monstruo: la busca
@@ -91,14 +98,6 @@ import { agresiva, anteLaBase, enElCampo, fueraDeSuBase, primeraSemillaCon } fro
  */
 function sesionEnBatalla(): Session {
   return sesionContraMonstruo();
-}
-
-/** La escena de batalla de esa sesión, encuadrada y con su primera lectura hecha, que no anima. */
-function escenaDeBatalla(sesion: () => Session): EscenaBatalla {
-  const escena = new EscenaBatalla(sesion);
-  escena.encuadrar(1086, 778);
-  escena.sincronizar(0);
-  return escena;
 }
 
 /**

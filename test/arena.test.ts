@@ -133,6 +133,7 @@ import {
   catalogoEntero,
   delBorrador,
   elCatalogoCon,
+  empezarTalCual,
   enElCampo,
   hojaDeLaArena,
   hojasDeLaArena,
@@ -208,7 +209,7 @@ const nivelDeLaHoja = (u: Unidad): string => lecturaDelNivel(unidadDeCombate(u, 
 /** Una sesión montada y empezada: lo que hace la página al pulsar «Luchar». */
 function montada(izquierda: LadoDeSesion, derecha: LadoDeSesion, semilla: number): SesionDeArena {
   const s = sesion(izquierda, derecha, semilla);
-  s.empezar();
+  empezarTalCual(s);
   return s;
 }
 /** Un bando de la sesión que mueve la persona. */
@@ -889,7 +890,7 @@ describe('corrección de hallazgos de QA', () => {
     expect(s.battle.finished).toBeNull();
     expect(s.battle.log.every((e) => e.kind === 'round_start')).toBe(true);
     const antes = s.version;
-    s.empezar();
+    empezarTalCual(s);
     expect(s.battle.finished).not.toBeNull();
     expect(s.version).not.toBe(antes);
     expect(() => s.empezar()).toThrow('esta batalla de la arena ya ha empezado');
@@ -900,7 +901,7 @@ describe('corrección de hallazgos de QA', () => {
     const a = new BattleAnimator();
     a.observe(s.battle);
     a.tick(0);
-    s.empezar();
+    empezarTalCual(s);
     a.observe(s.battle);
     a.tick(1);
     expect(a.busy).toBe(true);
@@ -1043,7 +1044,7 @@ describe('corrección de hallazgos de QA', () => {
       },
       11,
     );
-    s.empezar();
+    empezarTalCual(s);
     expect(s.battle.round).toBe(2);
     expect(s.battle.stacks.filter((x) => x.origen.kind !== 'heroe' && isAlive(x))).toHaveLength(2);
     expect(finalDeArena(s.battle)).toMatchObject({ ganador: 'izquierda', causa: 'heroe' });
@@ -1333,7 +1334,7 @@ describe('la arena como banco de combate', () => {
       },
       1,
     );
-    s.empezar();
+    empezarTalCual(s);
     expect(s.battle.heroes.attacker).toMatchObject({ mana: 40, spellPower: 3 });
     const heroe = s.battle.stacks.find((x) => x.origen.kind === 'heroe');
     expect(heroe?.body).toBe('hero');
@@ -1409,7 +1410,7 @@ describe('la arena como banco de combate', () => {
       },
       2,
     );
-    s.empezar();
+    empezarTalCual(s);
     while (s.turnoPropio === null && s.battle.finished === null)
       s.playBattleAction({ type: 'end_turn' });
     s.hechizos.selectSpell('magic_arrow');
@@ -1435,7 +1436,7 @@ describe('la arena como banco de combate', () => {
         },
         semilla,
       );
-      s.empezar();
+      empezarTalCual(s);
       expect(s.battle.finished).not.toBeNull();
       lanzados += s.battle.log.filter((e) => e.kind === 'cast').length;
     }
@@ -1521,7 +1522,7 @@ describe('el montaje del banco de combate', () => {
       },
       1,
     );
-    s.empezar();
+    empezarTalCual(s);
     while (s.turnoPropio === null && s.battle.finished === null)
       s.playBattleAction({ type: 'end_turn' });
     const m = marcadoDe(renderPanelDeBatalla(s, false));
@@ -1828,7 +1829,7 @@ describe('los poderes del monje en la arena (A3)', () => {
         },
         1,
       );
-      s.empezar();
+      empezarTalCual(s);
       while (s.turnoPropio?.stack.body !== 'templario-monje' && s.battle.finished === null)
         s.playBattleAction({ type: 'end_turn' });
       return s;
@@ -2131,7 +2132,7 @@ describe('retocar en plena pelea (B10-B14)', () => {
       },
       1,
     );
-    s.empezar();
+    empezarTalCual(s);
     expect(s.retocar({ kind: 'tipo', fuente: delBorrador(unidad('templario-monje')) })).toBeNull();
     expect(s.status).not.toContain('Cambiado');
     expect(s.retocar({ kind: 'heroe', lado: 'izquierda', datos: MAGO })).toBeNull();
@@ -2248,7 +2249,7 @@ describe('retocar en plena pelea (B10-B14)', () => {
       },
       1,
     );
-    s.empezar();
+    empezarTalCual(s);
     while (s.turnoPropio?.stack.body !== 'templario-monje' && s.battle.finished === null)
       s.playBattleAction({ type: 'end_turn' });
     // Un herido, para que Curar tenga a quién: así se puede usar antes del retoque.
@@ -2294,7 +2295,7 @@ describe('retocar en plena pelea (B10-B14)', () => {
       },
       1,
     );
-    s.empezar();
+    empezarTalCual(s);
     while (s.turnoPropio === null && s.battle.finished === null)
       s.playBattleAction({ type: 'end_turn' });
     s.hechizos.selectSpell('magic_arrow');
@@ -2737,7 +2738,7 @@ describe('«En el campo» lleva lo que tiene colgado cada unidad (31-10-2026)', 
       },
       1,
     );
-    s.empezar();
+    empezarTalCual(s);
     const campo = (): string => enElCampo(marcadoDe(renderPanelDeBatalla(s, false)));
     expect(campo()).not.toContain('modificadores en-curso');
     const orko = s.battle.stacks.find((x) => x.body === 'orko-dos-armas');

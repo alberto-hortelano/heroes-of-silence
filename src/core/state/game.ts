@@ -5,8 +5,15 @@
  * pasar. Cuando todos han pasado, avanza el día; los lunes crecen las moradas.
  */
 import { autoResolve, type BattleOutcome } from '../ai/tactics.js';
-import { type BattleMember, type BattleSide, createBattle, mandoDe } from '../battle/battle.js';
+import {
+  aplicarDespliegue,
+  type BattleMember,
+  type BattleSide,
+  createBattle,
+  mandoDe,
+} from '../battle/battle.js';
 import { stackHp } from '../battle/damage.js';
+import { colocarBlocker } from '../battle/despliegue.js';
 import { resumenDeBatalla } from '../battle/resumen.js';
 import type { BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
 import { personajeDe, SIDES } from '../battle/types.js';
@@ -38,6 +45,7 @@ import {
   pieza,
   piezaSiExiste,
   ponerPieza,
+  puestoBlocker,
   quitarPieza,
   sacarDeLaMochila,
   seVende,
@@ -122,7 +130,16 @@ import {
   tieneArmeria,
   townSpells,
 } from '../town/town.js';
-import type { Army, Controller, FactionId, PlayerId, Point, Troop, Veterania } from '../types.js';
+import type {
+  Army,
+  Controller,
+  FactionId,
+  Hex,
+  PlayerId,
+  Point,
+  Troop,
+  Veterania,
+} from '../types.js';
 import { enumerar, type Hueco } from '../types.js';
 import {
   type AsaltanteRecordado,
@@ -475,6 +492,21 @@ export type AdventureAction =
       readonly veteran?: string;
       /** El individuo de ese puesto de la tropa, como en `equip`. */
       readonly puesto?: number;
+    }
+  /**
+   * Poner a `quien` (el héroe o el individuo de un puesto de su tropa) en la
+   * casilla `at` de la formación de `hero`, en el marco del atacante; si ahí sale
+   * otro de los suyos, se cambian (02-11-2026, «la vista de tropa pasa a ser la de
+   * despliegue»). La formación es de donde arranca el despliegue de cada batalla
+   * (`Troop.salida`, `Hero.salida`, `asentar`). Es estado y no un hecho, como
+   * `equip`: no gasta nada ni va a la crónica (`formarBlocker`). El contrato del
+   * agente no lo lleva (backlog).
+   */
+  | {
+      readonly type: 'formar';
+      readonly hero: string;
+      readonly quien: Portador;
+      readonly at: Hex;
     }
   /**
    * Elegir una opción de la conversación de un punto de un lugar de un mundo
@@ -1558,6 +1590,25 @@ function aplicar(
       return;
     }
 
+    case 'formar': {
+      // La formación entera se calcula una vez: la juzga y la mueve la misma
+      // batalla de la formación, con las reglas del despliegue.
+      const juicio = juzgarFormar(state, currentPlayer(state).id, action);
+      if ('motivo' in juicio) throw new Error(`no se puede formar: ${juicio.motivo}`);
+      const { hero, batalla, stack } = juicio;
+      aplicarDespliegue(batalla, { type: 'colocar', stack: stack.id, at: action.at }, ctx.rng);
+      // Estado y no un hecho, como equipar: nadie lo cuenta en la crónica. Se
+      // guarda la formación ENTERA tal como queda: quien no tenía casilla la tenía
+      // por la regla de hoy en un hueco libre, y al vaciar o llenar uno se
+      // correría solo, sin que nadie lo hubiera movido.
+      hero.salida = stackDelPortador(batalla, { heroe: true }).hex;
+      hero.army = hero.army.map((t, indice) => ({
+        ...t,
+        salida: stackDelPortador(batalla, { indice }).hex,
+      }));
+      return;
+    }
+
     case 'unequip': {
       const hero = heroById(state, action.hero);
       const noSe = unequipBlocker(state, currentPlayer(state).id, action);
@@ -1879,6 +1930,103 @@ export function unequipBlocker(
   // con la del arma; 19-10-2026): lo que quede puesto, con lo de serie de su
   // unidad, tiene que llevar una. Quitar la propia de una tropa deja la de serie.
   return equipoDelPortadorBlocker(nombre, equipoPuestoDe(hero, quien, resto), null);
+}
+
+/**
+ * Por qué no se puede hacer ese `formar`, o `null`. Se forma en cualquier sitio
+ * fuera de batalla y sin gastar nada; el turno y el héroe de salida pendiente
+ * los mira `applyAdventureAction`, como en `equip`. La casilla la juzga la regla
+ * del despliegue (`colocarBlocker`) sobre la batalla de la formación: en el marco
+ * del atacante y sin muralla, que es como se guarda; en un intercambio, también
+ * si el otro cabe en la casilla que deja `quien`.
+ */
+export function formarBlocker(
+  state: GameState,
+  player: PlayerId,
+  action: Extract<AdventureAction, { type: 'formar' }>,
+): string | null {
+  const juicio = juzgarFormar(state, player, action);
+  return 'motivo' in juicio ? juicio.motivo : null;
+}
+
+/** Lo de `formarBlocker`, con la batalla de la formación que lo juzgó para que la acción la mueva. */
+function juzgarFormar(
+  state: GameState,
+  player: PlayerId,
+  action: Extract<AdventureAction, { type: 'formar' }>,
+):
+  | { readonly hero: Hero; readonly batalla: BattleState; readonly stack: BattleStack }
+  | { readonly motivo: string } {
+  const hero = heroeSuyo(state, player, action.hero);
+  if ('motivo' in hero) return hero;
+  const { quien, at } = action;
+  if (!('heroe' in quien)) {
+    const sinNadie = puestoBlocker(hero, quien.indice);
+    if (sinNadie !== null) return { motivo: sinNadie };
+  }
+  const batalla = batallaDeLaFormacion(state, hero.id);
+  const stack = stackDelPortador(batalla, quien);
+  const motivo = colocarBlocker(batalla, stack.id, at);
+  return motivo === null ? { hero, batalla, stack } : { motivo };
+}
+
+/**
+ * La batalla que enseña la formación de `heroId`: su bando de atacante,
+ * desplegando a mano, contra nadie. Lo que la tropa enseña es lo que saldrá,
+ * porque es el mismo `createBattle` con el mismo `asentar` y las mismas cifras de
+ * cada uno (de ellas, su zona); y sobre ella juzga y mueve `formar` con las
+ * reglas del despliegue (`colocarBlocker`, `aplicarDespliegue`). La tanda del
+ * atacante queda abierta y no se tira nada (el `rng`, de la semilla, no se llega
+ * a usar). La leen la vista de la tropa, `formar` y `formacionDe`.
+ */
+export function batallaDeLaFormacion(state: GameState, heroId: string): BattleState {
+  const hero = heroById(state, heroId);
+  return createBattle(
+    { ...battleSideForHero(state, hero, 'attacker'), despliegaAMano: true },
+    { army: [], hero: null },
+    createRng(state.seed),
+    state.combate,
+  );
+}
+
+/**
+ * El stack de `quien` en una batalla de la formación (`batallaDeLaFormacion`):
+ * el héroe por su origen y cada uno de la tropa por su puesto (`slot`). Con
+ * `portadorDelStack`, la única traducción entre el portador y su figura del
+ * tablero; nadie escribe los ids a mano.
+ */
+export function stackDelPortador(batalla: BattleState, quien: Portador): BattleStack {
+  const s = batalla.stacks.find((x) =>
+    'heroe' in quien
+      ? x.origen.kind === 'heroe'
+      : x.origen.kind !== 'heroe' && x.slot === quien.indice,
+  );
+  if (s === undefined) {
+    const dicho = 'heroe' in quien ? 'el héroe' : `el puesto ${quien.indice}`;
+    throw new Error(`la formación no tiene a ${dicho}`);
+  }
+  return s;
+}
+
+/** El portador de un stack de una batalla de la formación: la inversa de `stackDelPortador`. */
+export function portadorDelStack(s: Pick<BattleStack, 'origen' | 'slot'>): Portador {
+  return s.origen.kind === 'heroe' ? { heroe: true } : { indice: s.slot };
+}
+
+/**
+ * Dónde sale cada uno de `hero` en el marco del atacante: lo guardado
+ * (`Hero.salida`, `Troop.salida`) donde valga, y los demás por la regla de hoy en
+ * un hueco libre. La tropa, por su puesto.
+ */
+export function formacionDe(
+  state: GameState,
+  hero: Hero,
+): { readonly heroe: Hex; readonly tropa: readonly Hex[] } {
+  const b = batallaDeLaFormacion(state, hero.id);
+  return {
+    heroe: stackDelPortador(b, { heroe: true }).hex,
+    tropa: hero.army.map((_, indice) => stackDelPortador(b, { indice }).hex),
+  };
 }
 
 /**
@@ -2770,6 +2918,7 @@ function battleSideForHero(state: GameState, hero: Hero, side: Side): BattleSide
       ...cuerposDelHeroe(hero),
       mando: mandoDe(hero, retiradaDe(state, hero, side)),
       figura: figuraDelHeroe(hero),
+      ...(hero.salida === undefined ? {} : { salida: hero.salida }),
     },
     moraleBonus: moraleBonus(hero) + (pueblo === undefined ? 0 : moraleFromBuildings(pueblo)),
   };
@@ -3020,9 +3169,20 @@ function dejarPendiente(
   quienes: Enfrentamiento,
   ctx: GameContext,
 ): { actor: PlayerId; at: Point } {
+  // El bando de la persona despliega a mano, en pantalla (fase de despliegue,
+  // 02-11-2026): su guarnición también. La IA, el agente y lo que no es de nadie
+  // despliegan solos, y sin ningún bando de la persona la batalla nace ya en la
+  // ronda 1, como antes: el banco y el agente no se enteran.
+  const dueños = battleOwners(state, quienes);
+  const aMano = (side: Side, lado: BattleSide): BattleSide => {
+    const dueño = dueños[side];
+    return dueño !== null && playerById(state, dueño).controller === 'human'
+      ? { ...lado, despliegaAMano: true }
+      : lado;
+  };
   const battle = createBattle(
-    attackerSide(state, quienes.attacker),
-    defenderSide(state, quienes.foe),
+    aMano('attacker', attackerSide(state, quienes.attacker)),
+    aMano('defender', defenderSide(state, quienes.foe)),
     ctx.rng,
     state.combate,
   );
@@ -3102,12 +3262,12 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
       let base: Troop;
       switch (s.origen.kind) {
         case 'catalogo':
-          base = { creature: s.origen.unidad };
+          base = { creature: s.origen.unidad, ...salidaDelOrigen(s.origen) };
           break;
         case 'personaje':
           // `member` viaja de vuelta: sin él, el superviviente volvería al mapa
           // convertido en un individuo «character» que nadie sabe leer.
-          base = { creature: s.body, member: s.origen.id };
+          base = { creature: s.body, member: s.origen.id, ...salidaDelOrigen(s.origen) };
           break;
         case 'heroe':
           // El héroe no es tropa: vuelve al mapa como héroe, no como un
@@ -3382,6 +3542,14 @@ interface Cobro {
   readonly dueño: PlayerId | null;
   /** Donde se apuntan los ascensos, que se emiten después. */
   readonly ascensos: Ascenso[];
+}
+
+/**
+ * La casilla de la formación con que entró (`OrigenDelStack.salida`): vuelve con
+ * él, como su veteranía. `settleBattle` es el único que rehace al superviviente.
+ */
+function salidaDelOrigen(o: { readonly salida?: Hex }): { readonly salida?: Hex } {
+  return o.salida === undefined ? {} : { salida: o.salida };
 }
 
 function conVeterania({ state, dueño, ascensos }: Cobro, base: Troop, s: BattleStack): Troop {

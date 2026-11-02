@@ -51,8 +51,19 @@ export type OrigenDelStack =
       readonly oro: number;
       /** La hoja con la que ENTRÓ, o `null` si es un novato. La de salida la escribe `settleBattle`. */
       readonly veterania: Veterania | null;
+      /**
+       * Su casilla en la formación de quien lo lleva (`Troop.salida`), si la
+       * trae: viaja como la veteranía y `settleBattle` se la devuelve al volver.
+       */
+      readonly salida?: Hex;
     }
-  | { readonly kind: 'personaje'; readonly id: string; readonly veterania: Veterania | null }
+  | {
+      readonly kind: 'personaje';
+      readonly id: string;
+      readonly veterania: Veterania | null;
+      /** Su casilla en la formación, como la del catálogo. */
+      readonly salida?: Hex;
+    }
   | {
       readonly kind: 'heroe';
       /**
@@ -474,6 +485,27 @@ export interface GolpeEnCurso {
   readonly carga: CargaMedida | null;
 }
 
+/**
+ * El despliegue en curso (`BattleState.despliegue`): qué tanda está abierta (un
+ * índice en `TANDAS`, `despliegue.ts`) y qué bandos despliega una persona. Las
+ * tandas de los demás pasan solas (`BattleSide.despliegaAMano`).
+ */
+export interface DespliegueEnCurso {
+  readonly tanda: number;
+  readonly aMano: readonly Side[];
+}
+
+/**
+ * Lo que se hace en el despliegue (`aplicarDespliegue`): poner a uno del bando
+ * que despliega en una casilla de su zona (o cambiarlo con quien la ocupe, de su
+ * misma tanda), o dar la tanda por desplegada. No es una `BattleAction`: esa es
+ * el vocabulario del turno, del agente y de la IA, y el despliegue va antes de
+ * cualquier turno.
+ */
+export type AccionDeDespliegue =
+  | { readonly type: 'colocar'; readonly stack: string; readonly at: Hex }
+  | { readonly type: 'desplegado' };
+
 export interface BattleState {
   round: number;
   stacks: BattleStack[];
@@ -497,6 +529,14 @@ export interface BattleState {
    * otro bando. `null` antes del primer turno, y entonces mueve el atacante.
    */
   ultimoBando: Side | null;
+  /**
+   * La fase de despliegue, antes de la primera ronda (02-11-2026, «añade al
+   * combate una fase previa de despliegue»): la tanda abierta, o `null` si ya se
+   * desplegó todo y la batalla va por rondas. Mientras no es `null` no hay turno
+   * ni cola ni iniciativa: solo `aplicarDespliegue`. Sin bandos a mano, toda
+   * batalla sale de `createBattle` ya con `null` y la ronda 1 abierta.
+   */
+  despliegue: DespliegueEnCurso | null;
   /** El turno abierto, o `null` si no actúa nadie (batalla terminada o sin montar). */
   turno: TurnoDeUnidad | null;
   heroes: Record<Side, BattleHero | null>;

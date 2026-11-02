@@ -33,6 +33,7 @@ import {
   stackHexes,
   stackSpeed,
   sumaDelBando,
+  terminarElDespliegue,
 } from '../battle/battle.js';
 import { hexDistance, hexKey, neighbours, type Paso } from '../battle/board.js';
 import { CARGA, CARGA_MINIMA, cargaEfectiva, cargaMontada } from '../battle/carga.js';
@@ -1109,6 +1110,9 @@ export function autoResolve(
   noSeRinden: ReadonlySet<Side> = NINGUNO,
   maxTurnos = MAX_JUGADAS,
 ): BattleOutcome {
+  // Quien la juega sin mirar acepta lo desplegado: la tanda abierta tal cual y
+  // las demás solas («Resolver sola», o la batalla de la persona que cierra la IA).
+  terminarElDespliegue(state, rng);
   let n = 0;
   while (state.finished === null && n < maxTurnos) {
     // El recorrido con el que se decidió viaja hasta el motor: `moveTo` lo

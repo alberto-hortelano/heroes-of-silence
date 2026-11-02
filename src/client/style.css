@@ -496,13 +496,18 @@ progress.liderazgo::-moz-progress-bar { background: var(--barra); }
   #topbar .marca { display: none; }
   #stage { display: block; padding: var(--relleno-del-escenario); overflow-y: auto; }
   .map-wrap { height: 62dvh; }
-  #app[data-escena='battle'] .map-wrap { overflow-x: auto; overflow-y: hidden; }
-  #app[data-escena='battle'] #canvas { width: 860px; }
-  /* La base, la tropa y la morada, al alto del mapa también aquí (QA I2 de la
+  /* La tropa es el tablero de despliegue (02-11-2026): el mismo marco que la batalla. */
+  #app[data-escena='battle'] .map-wrap,
+  #app[data-escena='tropa'] .map-wrap { overflow-x: auto; overflow-y: hidden; }
+  #app[data-escena='battle'] #canvas,
+  #app[data-escena='tropa'] #canvas { width: 860px; }
+  /* La base y la morada, al alto del mapa también aquí (QA I2 de la
      vuelta 2, 20-10-2026: «no debe pasar en la base. Que se ajuste a máxima
      altura»); su marco no se desplaza: el escenario se recorre con su cámara, que
-     sigue a quien camina (`render/base/camara.ts`). La batalla, a su marco de 380. */
-  #app[data-escena='battle'] .map-wrap { height: 380px; }
+     sigue a quien camina (`render/base/camara.ts`). La batalla y la tropa, a su
+     marco de 380. */
+  #app[data-escena='battle'] .map-wrap,
+  #app[data-escena='tropa'] .map-wrap { height: 380px; }
   .map-tools button { min-width: 44px; min-height: 44px; }
   #lateral { border-left: 0; padding: 12px 0 0; }
   .atlas-panel { max-width: 150px; }

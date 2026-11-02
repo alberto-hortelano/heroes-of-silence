@@ -21,6 +21,7 @@ import { type Html, marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
 import { renderActions, renderLog, renderSide, renderTopbar } from '../src/client/views/panels.js';
 import { playAiGame } from '../src/core/ai/turn.js';
+import { terminarElDespliegue } from '../src/core/battle/battle.js';
 import { isShooter } from '../src/core/data.js';
 import { isEnterable, objectAt } from '../src/core/map/map.js';
 import type { GameEvent } from '../src/core/state/events.js';
@@ -73,6 +74,10 @@ export function meAtacan(semilla: number, ejercitoMio?: Army): Session {
   suyo.movePoints = 100000;
   applyAdventureAction(s.state, { type: 'move_hero', hero: suyo.id, to: mio.at }, s.ctx, 1);
   if (s.state.pendingBattle === null) throw new Error('el rival no llegó a atacar');
+  // La defensa nace en el despliegue de la persona (02-11-2026): se acepta tal
+  // cual con la puerta del núcleo, sin que la IA mueva (`listo` la dejaría): las
+  // escenas de aquí son las de la batalla «sin avanzar».
+  terminarElDespliegue(s.state.pendingBattle.battle, s.ctx.rng);
   s.scene = 'battle';
   return s;
 }

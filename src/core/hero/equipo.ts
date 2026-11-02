@@ -903,6 +903,16 @@ const PERSONAJE_SIN_HOJA =
   'a ese personaje aún no se le puede poner nada: no tiene hoja con la que nombrarlo';
 
 /**
+ * Por qué no hay nadie en el puesto `puesto` (0-based) de la tropa de `hero`, o
+ * `null`. La leen `destinoDeEquipo` y `formarBlocker`.
+ */
+export function puestoBlocker(hero: Pick<Hero, 'name' | 'army'>, puesto: number): string | null {
+  return Number.isInteger(puesto) && hero.army[puesto] !== undefined
+    ? null
+    : `${hero.name} no lleva a nadie en el puesto ${puesto} de su tropa`;
+}
+
+/**
  * A quién de `hero` va la pieza que se pide así, o por qué no hay nadie. **La
  * única lectura de `veteran` y `creature`**: la leen las acciones `equip` y
  * `unequip`, sus dos *blockers*, la IA —que comprueba que lo que pide le llega a
@@ -928,10 +938,9 @@ export function destinoDeEquipo(
     if (veteran !== undefined || especieId !== undefined) {
       return { motivo: 'di a quién se la pones por su puesto o por su nombre, no por los dos' };
     }
-    const t = Number.isInteger(puesto) ? hero.army[puesto] : undefined;
-    if (t === undefined) {
-      return { motivo: `${hero.name} no lleva a nadie en el puesto ${puesto} de su tropa` };
-    }
+    const sinNadie = puestoBlocker(hero, puesto);
+    if (sinNadie !== null) return { motivo: sinNadie };
+    const t = hero.army[puesto]!;
     if (t.member !== undefined && t.veterania === undefined) return { motivo: PERSONAJE_SIN_HOJA };
     return { indice: puesto };
   }

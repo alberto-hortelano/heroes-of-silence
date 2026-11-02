@@ -181,6 +181,7 @@ function stackDelCable(s: StackEnCable): BattleStack {
           unidad: s.origen.unidad,
           oro: oroDeUnidad(s.origen.unidad),
           veterania: hojaDelCable(s.origen.veterania),
+          ...(s.origen.salida === undefined ? {} : { salida: s.origen.salida }),
         },
       };
     }
@@ -189,7 +190,12 @@ function stackDelCable(s: StackEnCable): BattleStack {
         ...resto,
         unit: cifrasQueViajan(s),
         ganado,
-        origen: { kind: 'personaje', id: s.origen.id, veterania: hojaDelCable(s.origen.veterania) },
+        origen: {
+          kind: 'personaje',
+          id: s.origen.id,
+          veterania: hojaDelCable(s.origen.veterania),
+          ...(s.origen.salida === undefined ? {} : { salida: s.origen.salida }),
+        },
       };
     case 'heroe':
       return { ...resto, unit: cifrasQueViajan(s), ganado, origen: s.origen };

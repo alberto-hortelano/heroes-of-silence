@@ -51,6 +51,7 @@ import { createRng } from '../src/core/rng.js';
 import type { Hex, Stack } from '../src/core/types.js';
 import {
   abrirPuertas,
+  empezarTalCual,
   forzarTurno,
   peleaDeArena,
   sesionDeArena,
@@ -456,7 +457,7 @@ describe('la columna translúcida y la figura en silueta (C18)', () => {
       4,
       { muralla: LINEA },
     );
-    s.empezar();
+    empezarTalCual(s);
     const yo = s.turnoPropio?.stack;
     if (yo === undefined) throw new Error('esperaba el turno de la derecha');
     yo.hex = h(9, 4);

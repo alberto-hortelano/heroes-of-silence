@@ -6,11 +6,13 @@
  * asíncrono: la reentrada. Antes no había un solo instante en el que pulsar dos
  * veces significara algo; ahora sí, y hay que cerrarlo.
  */
+
 import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
 import { renderEleccion } from '../src/client/rueda/rueda.js';
 import { AYUDA_DEL_MAPA, Session } from '../src/client/session.js';
 import { renderActions, renderSide } from '../src/client/views/panels.js';
+import { terminarElDespliegue } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
 import { combateCon } from '../src/core/combate.js';
 import { armyLeadership, GARRISON_LEADERSHIP } from '../src/core/hero/troop.js';
@@ -33,6 +35,7 @@ import {
   costesDelAlcance,
   ejercito,
   fueraDeSuBase,
+  hastaQue,
   PESADA,
   pegadoA,
   planDeNodos,
@@ -146,6 +149,9 @@ describe('sesión del cliente: el bando de la persona', () => {
     suyo.movePoints = 100000;
     applyAdventureAction(s.state, { type: 'move_hero', hero: suyo.id, to: mio.at }, s.ctx, 1);
     if (s.state.pendingBattle === null) throw new Error('el rival no llegó a atacar');
+    // Nace en el despliegue de la persona (02-11-2026): se acepta tal cual, sin
+    // que la IA mueva, que es lo que estos tests miran después.
+    terminarElDespliegue(s.state.pendingBattle.battle, s.ctx.rng);
     return { s, mio };
   }
 
@@ -358,7 +364,8 @@ describe('sesión del cliente: la versión y lo que se guarda entre fotogramas',
     mio.movePoints = 100000;
     applyAdventureAction(s.state, { type: 'move_hero', hero: mio.id, to: suyo.at }, s.ctx, 0);
     if (s.state.pendingBattle === null) throw new Error('no hubo batalla');
-    s.advanceEnemyTurns();
+    // «Listo» al despliegue: la IA mueve si abre ella (`advanceEnemyTurns`).
+    s.despliegue.listo();
     if (s.turnoPropio === null) throw new Error('a la persona no le toca');
 
     const acciones = s.battleLegalActions();
@@ -806,12 +813,6 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
     return s;
   }
 
-  /** Deja correr el turno del rival hasta que se cumpla `cond`, o lanza. */
-  async function hastaQue(cond: () => boolean): Promise<void> {
-    for (let i = 0; i < 100 && !cond(); i++) await new Promise((r) => setTimeout(r, 0));
-    if (!cond()) throw new Error('el turno del rival no llegó a lo que se esperaba');
-  }
-
   it('la persona juega su defensa (#116): el turno del rival espera a que la cierre', async () => {
     // s3: en la 2, desde el recinto de las ciudades (vuelta 3), tras esa batalla
     // el rival asalta también la base, y el turno espera la segunda defensa.
@@ -828,11 +829,17 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
     expect(s.miBando).toBe('defender');
     expect(s.battle!.finished).toBeNull();
     expect(s.state.log.some((e) => e.kind === 'battle_ended')).toBe(false);
-    expect(s.status).toBe('¡Te atacan! Defiéndete.');
+    // Primero despliega, sin ver al rival; «Listo» empieza la batalla.
+    expect(s.status).toBe(
+      '¡Te atacan! Despliega a los tuyos: aún no ves al enemigo. «Listo» empieza la batalla.',
+    );
+    expect(s.despliegue.enCurso?.side).toBe('defender');
     expect(avisos).toBe(1);
     expect(s.isPlayersTurn).toBe(false);
     await new Promise((r) => setTimeout(r, 0));
     expect(acabado).toBe(false);
+    s.despliegue.listo();
+    expect(s.battle!.despliegue).toBeNull();
 
     // La juega hasta el final —la rueda incluida— y «Continuar» la cierra.
     let respuestas = 0;
@@ -870,6 +877,9 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
     expect(s.scene).toBe('battle');
     const mio = s.miBando!;
     expect(s.battle!.heroes[mio]).toBeNull();
+    // La guarnición también despliega a mano (es de la persona).
+    expect(s.despliegue.enCurso?.side).toBe(mio);
+    s.despliegue.listo();
     for (let i = 0; i < 40 && s.turnoPropio === null; i++) s.elegirEnLaRueda('normal');
     expect(s.turnoPropio).not.toBeNull();
     const panel = marcadoDe(renderSide(s));
@@ -1080,6 +1090,7 @@ describe('«Solo la rueda del héroe» (complejidad del combate, 22-10-2026)', (
     }
     expect(s.scene).toBe('battle');
     expect(s.battle!.heroes[s.miBando!]).toBeNull();
+    s.despliegue.listo();
     const cruces = () => s.battle!.log.filter((e) => e.kind === 'cruce').length;
     for (let i = 0; i < 400 && s.battle!.finished === null; i++) {
       expect(s.ruedaPendiente).toBeNull();

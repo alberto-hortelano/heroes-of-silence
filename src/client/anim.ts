@@ -635,14 +635,8 @@ export class BattleAnimator {
       for (const s of battle.stacks) {
         // Cada uno empieza mirando al otro lado del tablero: el defensor, al oeste.
         this.mirada.set(s.id, miradaDeSalida(s));
-        const p = planoDeHex(s.hex);
-        this.vista.set(s.id, p);
-        this.destino.set(s.id, p);
-        const alto = nivelDe(battle.muralla, s.hex);
-        this.altura.set(s.id, alto);
-        this.alturaDestino.set(s.id, alto);
+        this.enSuCasilla(battle, s);
         if (!isAlive(s)) this.caidas.set(s.id, Number.NEGATIVE_INFINITY);
-        this.casillaVista.set(s.id, s.hex);
       }
       this.leidos = battle.log.length;
       this.efectosLeidos = fotoDeEfectos(battle);
@@ -665,6 +659,17 @@ export class BattleAnimator {
     this.alDiaCon(battle);
   }
 
+  /** `s` quieto en su casilla de ahora, a su alto: al empezar una batalla y en el despliegue. */
+  private enSuCasilla(battle: BattleState, s: BattleStack): void {
+    const p = planoDeHex(s.hex);
+    this.vista.set(s.id, p);
+    this.destino.set(s.id, p);
+    const alto = nivelDe(battle.muralla, s.hex);
+    this.altura.set(s.id, alto);
+    this.alturaDestino.set(s.id, alto);
+    this.casillaVista.set(s.id, s.hex);
+  }
+
   /**
    * Lo que del estado ya se puede enseñar: la vida de quien no tiene nada por
    * contar y, con la cola vacía, quién actúa. Va DESPUÉS de leer lo nuevo: con
@@ -673,6 +678,13 @@ export class BattleAnimator {
    */
   private alDiaCon(battle: BattleState): void {
     this.ultima = battle;
+    // En el despliegue, cada uno en su casilla de ahora: colocar no deja línea en
+    // el registro (es estado, `aplicarDespliegue`), así que lo de arriba no lo ve y
+    // la figura se quedaba donde nació; tampoco al que reasienta abrir una tanda.
+    // Con algo en la cola no se toca: en el despliegue no hay nada que contar.
+    if (battle.despliegue !== null && !this.busy) {
+      for (const s of battle.stacks) this.enSuCasilla(battle, s);
+    }
     for (const s of battle.stacks) {
       if ((this.porContar.get(s.id) ?? 0) === 0) this.vidaVista.set(s.id, vidaDe(s));
     }

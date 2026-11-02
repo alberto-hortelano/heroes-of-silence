@@ -56,6 +56,7 @@ import {
   aMano,
   aPelear,
   bandoDePersonajes,
+  empezarTalCual,
   forzarTurno,
   NO_MUERTO,
   PESADA,
@@ -494,7 +495,7 @@ describe('el cliente', () => {
       4,
       { muralla: LINEA },
     );
-    s.empezar();
+    empezarTalCual(s);
     const yo = s.turnoPropio?.stack;
     if (yo === undefined) throw new Error('esperaba el turno de la izquierda');
     yo.hex = { col: 6, row: 4 };
@@ -528,7 +529,7 @@ describe('el cliente', () => {
       4,
       { muralla: dos },
     );
-    s.empezar();
+    empezarTalCual(s);
     const yo = s.turnoPropio?.stack;
     if (yo === undefined) throw new Error('esperaba el turno de la derecha');
     yo.hex = { col: 10, row: 2 };
@@ -564,7 +565,7 @@ describe('el cliente', () => {
       4,
       { muralla: LINEA },
     );
-    s.empezar();
+    empezarTalCual(s);
     const marcado = marcadoDe(renderPanelDeBatalla(s, false));
     expect(marcado).toContain('Poner escalera');
     expect(marcado).toContain('Subir');
@@ -576,7 +577,7 @@ describe('el cliente', () => {
       [{ unidad: unidadDeArena('zombi'), ia: true, escalera: false }],
       4,
     );
-    sin.empezar();
+    empezarTalCual(sin);
     expect(marcadoDe(renderPanelDeBatalla(sin, false))).not.toContain('Poner escalera');
   });
 });
@@ -715,7 +716,7 @@ describe('tras QA', () => {
       4,
       { muralla: LINEA },
     );
-    s.empezar();
+    empezarTalCual(s);
     expect(s.turnoPropio?.stack.side).toBe('defender');
     const marcado = marcadoDe(renderPanelDeBatalla(s, false));
     expect(marcado).toContain('data-action=');

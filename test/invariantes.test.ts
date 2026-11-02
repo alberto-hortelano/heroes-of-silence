@@ -2363,17 +2363,21 @@ describe('invariantes del proyecto', () => {
     // La de la morada (20-10-2026) y lo que comparten las dos (`de-pie.ts`), igual:
     // lo que lee del núcleo es `vistaDeLaMorada`. Roto a mano: un `import {
     // recruitCost } from '@core/town/town.js'` en `render/morada/fila.ts`, rojo.
+    // Desde el 02-11-2026 la tropa es el tablero de despliegue: su escena pinta la
+    // batalla de la formación que le da la sesión (`vistaDeLaTropa`) y coloca por
+    // ella (`Session.formacion`); el semicírculo de `render/tropa/` se fue. Roto a
+    // mano: un `import { hexEquals } from '@core/battle/board.js'` en
+    // `escenas/tropa.ts`, rojo.
     const base = CLIENTE.filter(
       (r) =>
         r.startsWith('src/client/render/base/') ||
-        r.startsWith('src/client/render/tropa/') ||
         r.startsWith('src/client/render/morada/') ||
         r === 'src/client/render/de-pie.ts' ||
         r === 'src/client/escenas/de-pie.ts' ||
         r === 'src/client/escenas/tropa.ts' ||
         r === 'src/client/escenas/morada.ts',
     );
-    expect(base.filter((r) => r.includes('tropa')).length).toBeGreaterThanOrEqual(3);
+    expect(base.filter((r) => r.includes('tropa'))).toEqual(['src/client/escenas/tropa.ts']);
     expect(base.filter((r) => r.includes('morada') || r.includes('de-pie')).length).toBe(4);
     const colados: string[] = [];
     for (const ruta of base) {
@@ -2394,21 +2398,20 @@ describe('invariantes del proyecto', () => {
     // del tablero son privadas de `proyeccion.ts`; si la escena de la base las
     // nombrara o fijara su propio alto de figura, la escala sería una copia que
     // un día deja de casar (vuelta 2 del ciclo de la base).
-    // La escena de la tropa (19-10-2026) no va a la escala del combate: su
-    // cámara encuadra al grupo (`encuadrarLaTropa`). Pero la figura en pasos es
-    // la de `cajaDeFiguraEn`, y tampoco puede fijar su propio alto de figura.
+    // La escena de la tropa (02-11-2026, el tablero de despliegue) va a la escala
+    // del combate porque es el tablero de la batalla (`tableroPara`), y tampoco
+    // puede fijar su propio alto de figura.
     const base = CLIENTE.filter(
       (r) =>
         r.startsWith('src/client/render/base/') ||
         r === 'src/client/escenas/castillo.ts' ||
-        r.startsWith('src/client/render/tropa/') ||
         r.startsWith('src/client/render/morada/') ||
         r === 'src/client/render/de-pie.ts' ||
         r === 'src/client/escenas/de-pie.ts' ||
         r === 'src/client/escenas/tropa.ts' ||
         r === 'src/client/escenas/morada.ts',
     );
-    expect(base.length).toBeGreaterThan(13);
+    expect(base.length).toBeGreaterThan(11);
     expect(
       infractoresDeCodigo(base, /\bANCHO_TABLERO\b|\bALTO_FIJO\b|\bALTO_DE_FIGURA\s*=/),
     ).toEqual([]);
@@ -2440,6 +2443,60 @@ describe('invariantes del proyecto', () => {
     const ajenas = escrituras.filter((e) => !e.startsWith('src/core/state/clima.ts:'));
     expect(ajenas).toEqual([]);
     expect(escrituras).toHaveLength(1);
+  });
+
+  it('la fase de despliegue la mueve solo `battle.ts` (02-11-2026)', () => {
+    // `BattleState.despliegue` dice qué tanda está abierta y quién despliega a
+    // mano: quien lo escribiera por su cuenta se saltaría las tandas que pasan
+    // solas, el reasiento al abrir cada una y el `beginRound` del final
+    // (`seguirElDespliegue`). Se cambia con `aplicarDespliegue` y
+    // `terminarElDespliegue`. Roto a mano (02-11-2026): un `battle.despliegue =
+    // null` en `server/director.ts` sale rojo con su línea.
+    const escrituras = infractoresDeCodigo(
+      [...CORE, ...CLIENTE, ...SERVIDOR],
+      /\.despliegue\s*=(?!=)|\[\s*['"`]despliegue['"`]\s*\]\s*=(?!=)/,
+    );
+    const ajenas = escrituras.filter((e) => !e.startsWith('src/core/battle/battle.ts:'));
+    expect(ajenas).toEqual([]);
+    // Y que mire algo: las de `battle.ts` tienen que salir.
+    expect(escrituras.length).toBeGreaterThan(0);
+  });
+
+  it('la escena y los paneles leen la batalla ya ocultada; la entera, solo el animador (02-11-2026)', () => {
+    // En el despliegue, el defensor no ve al atacante: lo que pintan, señalan y
+    // pulsan la escena y los paneles sale de `batallaALaVista`, la única puerta
+    // (`ControlDeBatalla` ya no lleva `battle`). La batalla entera la lee solo
+    // `EscenaBatalla.batallaQueSeCuenta`, para el animador. Roto a mano
+    // (02-11-2026): un `this.sesion().batallaEntera` en `unidadEn` sale rojo con su
+    // línea, y `renderBattlePanel` leyendo `session.battle`, también.
+    const ESCENA = 'src/client/escenas/batalla.ts';
+    const lecturas = infractoresDeCodigo(
+      CLIENTE.filter((r) => r !== 'src/client/session.ts'),
+      /\.batallaEntera\b/,
+    );
+    const permitidas = lineasDeLasDeclaraciones(ESCENA, ['EscenaBatalla']);
+    expect(lecturas.map((l) => l.split(' → ')[0])).toEqual([
+      expect.stringMatching(new RegExp(`^${ESCENA}:\\d+$`)),
+    ]);
+    const linea = Number(lecturas[0]!.split(' → ')[0]!.split(':')[1]);
+    expect(permitidas.has(linea)).toBe(true);
+    const quien = codigoDe(ESCENA).split('\n');
+    const metodo = quien
+      .slice(0, linea)
+      .reverse()
+      .find((l) => /^ {2}(private )?\w+\(/.test(l));
+    expect(metodo).toMatch(/batallaQueSeCuenta\(/);
+    // Los paneles de la batalla (partida y arena) no leen la batalla de la sesión.
+    expect(
+      infractoresDeCodigo(
+        [
+          'src/client/views/panels.ts',
+          'src/client/arena/paneles.ts',
+          'src/client/views/poderes.ts',
+        ],
+        /\b(session|s)\.battle\b/,
+      ),
+    ).toEqual([]);
   });
 
   it('`data/clima.json` lo importa solo `core/state/clima.ts`, que lo valida al cargar', () => {

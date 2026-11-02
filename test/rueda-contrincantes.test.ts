@@ -35,6 +35,7 @@ import {
 import { TIPOS_DEL_ANILLO } from '../src/core/types.js';
 import {
   desenlaceDe,
+  empezarTalCual,
   hastaLaRueda,
   PESADA,
   primerCruce,
@@ -52,7 +53,7 @@ const MEDIDAS_DE_LA_RUEDA = medidasDeLaRueda(RUEDA);
 function sesion(semilla = 1): SesionDeArena {
   const tres = (id: string) => [0, 1, 2].map(() => ({ unidad: unidadDeArena(id), ia: false }));
   const s = sesionDeArena(tres(TROPA), tres(PESADA), semilla);
-  s.empezar();
+  empezarTalCual(s);
   return s;
 }
 

@@ -102,6 +102,7 @@ import { FIGURA } from '../../shared/arte.js';
 import { avisoDelClima, climaDeLaURL } from '../clima-de-la-url.js';
 import type { Direccion } from '../direccion.js';
 import { EscenaBatalla } from '../escenas/batalla.js';
+import { FLECHAS_AL_COLOCAR } from '../escenas/despliegue.js';
 import { type Html, html, pintar } from '../html.js';
 import { cargarArte } from '../render/assets.js';
 import { COLOR_BANDO } from '../render/batalla.js';
@@ -2066,7 +2067,11 @@ function dibujarBatalla(ahora: number, s: SesionDeArena): void {
     pintarSiguiendoElFinal(elSide, renderPanelDeBatalla(s, ocupada));
     // La barra de arriba, igual que el panel: mientras se cuenta no adelanta ni
     // la ronda ni el final.
-    elDay.textContent = ocupada ? 'Batalla' : `Batalla · ronda ${s.battle.round}`;
+    elDay.textContent = ocupada
+      ? 'Batalla'
+      : s.battle.despliegue !== null
+        ? 'Batalla · despliegue'
+        : `Batalla · ronda ${s.battle.round}`;
     elTurn.textContent = rotuloDelTurno(s, ocupada);
   }
   // «La batalla ha terminado» espera a que el tablero llegue al final; el aviso de
@@ -2177,6 +2182,23 @@ document.addEventListener('click', (ev) => {
   if (accion === 'battle-arma' && conAccion !== null && conAccion !== undefined) {
     if (ev.detail > 1 || sesion === null || jugadaEnCurso()) return;
     sesion.arma.elegir(modoDelBoton(conAccion));
+    pedirFotograma();
+    return;
+  }
+  // El despliegue de los bandos «Yo», como en la partida (`DespliegueEnPantalla`).
+  if (accion === 'despliegue-elegir' && conAccion !== null && conAccion !== undefined) {
+    if (sesion === null || jugadaEnCurso()) return;
+    const id = conAccion.getAttribute('data-stack');
+    if (id === null) throw new Error('el botón del despliegue no dice a quién');
+    sesion.despliegue.elegir(id);
+    pedirFotograma();
+    return;
+  }
+  if (accion === 'desplegado') {
+    // Un doble clic no cierra dos tandas: con los dos bandos «Yo», el segundo
+    // cerraba la del otro sin que lo viera (como M12 de QA con «Terminar turno»).
+    if (ev.detail > 1 || sesion === null || jugadaEnCurso()) return;
+    sesion.despliegue.listo();
     pedirFotograma();
     return;
   }
@@ -2886,6 +2908,19 @@ document.addEventListener('keydown', (ev) => {
   // Escape suelta el hechizo elegido, como en la partida, o el poder que espera.
   if (ev.key === 'Escape' && sesion !== null && !jugadaEnCurso()) {
     sesion.soltarLoApuntado();
+    pedirFotograma();
+    return;
+  }
+  // En el despliegue, las flechas mueven al elegido, como en la partida.
+  const flecha = FLECHAS_AL_COLOCAR[ev.key];
+  if (
+    flecha !== undefined &&
+    sesion !== null &&
+    sesion.despliegue.enCurso !== null &&
+    !jugadaEnCurso()
+  ) {
+    ev.preventDefault();
+    sesion.despliegue.mover(flecha[0], flecha[1]);
     pedirFotograma();
     return;
   }

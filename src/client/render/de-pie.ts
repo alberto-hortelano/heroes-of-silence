@@ -1,10 +1,10 @@
 /**
  * Figuras de pie mirando a la cámara, con la elegida y la señalada por su aro:
- * lo que comparten la escena de la tropa (`render/tropa/`) y la de la morada
+ * lo que comparten las escenas de la morada y del ayuntamiento
  * (`render/morada/`), con el aire de su encuadre. Cada escena dice dónde cae la
- * caja de cada figura (la tropa encoge lo del fondo del arco; la morada, en fila,
- * no), y de aquí salen el orden de pintar, el clic y el pintado. La escena que
- * las conduce es `escenas/de-pie.ts`.
+ * caja de cada figura, y de aquí salen el orden de pintar, el clic y el pintado.
+ * La escena que las conduce es `escenas/de-pie.ts`. (La tropa fue una escena de
+ * pie, en semicírculo, hasta el 02-11-2026: ahora es el tablero de despliegue.)
  *
  * Las figuras son las de siempre (`pintarFiguraConSombra`): de pie, mirando a la
  * cámara (`S`) y respirando (`idle`), con la hoja que les da su vista; sin arte, su
