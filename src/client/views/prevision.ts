@@ -8,6 +8,7 @@ import type {
   Prevision,
   PrevisionDeContraataque,
   PrevisionDeGolpe,
+  PrevisionDeGranada,
   PrevisionDeLanzar,
 } from '@core/battle/battle.js';
 import type { Horquilla, Modificador } from '@core/battle/damage.js';
@@ -99,6 +100,21 @@ export function textoDePrevision(p: Prevision, nombre: (id: string) => string): 
       return deLanzar(`${poder(p.poder).nombre} a ${nombre(p.objetivo)}`, p);
     case 'golpe':
     case 'disparo':
+    case 'explosion':
       return deGolpe(p, nombre);
+    case 'granada':
+      return deGranada(p, nombre);
   }
+}
+
+/**
+ * Lo que daría una granada, uno a uno: «A Piquero: daño 8: …; a Escudero: …», o que
+ * hoy no daría a nadie. Los del bando de quien la lanza, con «(¡tuyo!)»
+ * (`ImpactoDeGranada.aliado`, del núcleo).
+ */
+function deGranada(p: PrevisionDeGranada, nombre: (id: string) => string): string {
+  if (p.impactos.length === 0) return 'Hoy no daría a nadie.';
+  return p.impactos
+    .map((i) => `A ${nombre(i.objetivo)}${i.aliado ? ' (¡tuyo!)' : ''}: ${deGolpe(i, nombre)}`)
+    .join(' ');
 }

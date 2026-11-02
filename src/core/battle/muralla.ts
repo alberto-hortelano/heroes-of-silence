@@ -35,8 +35,9 @@
  * una o dos puertas son dos o cuatro, y una caché por muralla sola se quedaría
  * vieja al abrir.
  */
-import { isShooter, MURALLA } from '../data.js';
+import { MURALLA } from '../data.js';
 import type { Hex } from '../types.js';
+import { isShooter } from './armas.js';
 import {
   allHexes,
   BOARD_SIZE,

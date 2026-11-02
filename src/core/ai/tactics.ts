@@ -6,7 +6,7 @@
  * trabajo es que el juego sea jugable sin IA externa, no ser brillante.
  */
 
-import { armaduraDe, trasLaArmadura } from '../battle/armas.js';
+import { armaduraDe, isShooter, trasLaArmadura } from '../battle/armas.js';
 import {
   activeStack,
   applyAction,
@@ -17,6 +17,7 @@ import {
   distanciaAndando,
   enemiesOf,
   escalaDesde,
+  explosionDe,
   firmaDelTurno,
   isEngaged,
   legalActionsAndCosts,
@@ -25,6 +26,7 @@ import {
   type Movibles,
   medirCargas,
   opcionesDeDanio,
+  opcionesDeLaGranada,
   opcionesDelDisparo,
   pasosQueQuedan,
   seHaMovido,
@@ -34,10 +36,18 @@ import {
   stackSpeed,
   sumaDelBando,
 } from '../battle/battle.js';
-import { hexDistance, hexKey, neighbours, type Paso } from '../battle/board.js';
+import {
+  hexDistance,
+  hexEquals,
+  hexKey,
+  indiceDe,
+  neighbours,
+  type Paso,
+} from '../battle/board.js';
 import { CARGA, CARGA_MINIMA, cargaEfectiva, cargaMontada } from '../battle/carga.js';
 import { type DamageOptions, expectedDamage, fraccionQueLlega, stackHp } from '../battle/damage.js';
 import { roundsLeftOf, type StackEffect } from '../battle/effects.js';
+import { alcanceDeLaGranada } from '../battle/granada.js';
 import {
   claveDeAbiertas,
   enLoAlto,
@@ -49,7 +59,7 @@ import { esDeCura, poder } from '../battle/poderes.js';
 import { curaDe, delHeroe, efectoDe, type Lanzador, type Spell, spell } from '../battle/spells.js';
 import type { BattleAction, BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
 import { otroBando } from '../battle/types.js';
-import { hasTrait, isShooter } from '../data.js';
+import { hasTrait } from '../data.js';
 import { ESCALA_DE_CIFRAS } from '../escala.js';
 import type { Rng } from '../rng.js';
 import type { Hex } from '../types.js';
@@ -363,7 +373,7 @@ function rindeDe(
       // El tope es la vida que queda: sin él, un Rayo sobre tres campesinos
       // puntuaba como si matara a cincuenta.
       // Lo que llega tras la armadura (la arena; en el juego, `cantidad` tal cual).
-      return rindeContra(state, objetivo, trasLaArmadura(l.cantidad, objetivo).danio);
+      return rindeContra(state, objetivo, trasLaArmadura(l.cantidad, objetivo, false).danio);
     case 'speed': {
       // `efectoDe` es la misma función que el motor consulta para saber qué
       // colgaría, así que la duración no se recalcula aquí. Solo devuelve
@@ -821,6 +831,10 @@ function decideAccion(
   const conPoder = mejorPoder(state, s, acciones);
   if (conPoder !== null) return conPoder;
 
+  // Una granada, donde más daño haga a los enemigos de hoy sin dar sobre todo a los suyos.
+  const granada = mejorGranada(state, s, acciones);
+  if (granada !== null) return granada;
+
   // Un tirador apunta al mejor objetivo con la recta limpia: el disparo diferido
   // (25-10-2026) da al primero de la recta, aunque sea suyo, así que solo vale el
   // enemigo que es ese primero (`aTiroLimpio`). Apunta a su casilla, que es donde
@@ -900,6 +914,55 @@ function decideAccion(
 
   // Aquí el stack no alcanza a nadie ni puede acercarse: cierra el turno.
   return colaTerminal(acciones);
+}
+
+/**
+ * Dónde lanza `s` su granada (02-11-2026), o `null` si no lanza: de cada casilla a
+ * la que puede, lo que daría hoy su explosión (`explosionDe`, la misma regla que la
+ * explosión): el daño medio a cada enemigo, sin pasar de su vida (`rindeContra`),
+ * menos el doble del de los suyos, él incluido. La de más valor si pasa de 0; en un
+ * empate, la primera del tablero. Sin `rng`: el tablero se mueve hasta que explote, y
+ * esto no se sortea.
+ *
+ * Solo se miran las casillas que alcanzan a algún enemigo, la suya y sus vecinas (una
+ * sin ninguno vale 0 o menos), en el orden del tablero (`indiceDe`), y cada una con la
+ * cuenta de `lanzarBlocker` hecha a mano: con un `throw` en la lista, la regla de
+ * quien lanza ya pasa, y queda la casilla (hallazgo E2 de /simplify, 02-11-2026: eran
+ * las 104 casillas con la regla entera). Lo que da a cada uno en cada cuarto, una vez.
+ */
+function mejorGranada(
+  state: BattleState,
+  s: BattleStack,
+  acciones: readonly BattleAction[],
+): BattleAction | null {
+  if (!acciones.some((a) => a.type === 'throw')) return null;
+  const alcance = alcanceDeLaGranada(s.unit);
+  const candidatas = new Map<number, Hex>();
+  for (const e of enemiesOf(state, s)) {
+    for (const at of [e.hex, ...neighbours(e.hex)]) {
+      if (hexEquals(at, s.hex) || hexDistance(s.hex, at) > alcance) continue;
+      candidatas.set(indiceDe(at), at);
+    }
+  }
+  const danio = new Map<string, number>();
+  const daA = (t: BattleStack, cuarto: number): number => {
+    const clave = `${t.id}:${cuarto}`;
+    const hecho = danio.get(clave);
+    if (hecho !== undefined) return hecho;
+    const pv = expectedDamage(s, t, opcionesDeLaGranada(state, s, t, cuarto));
+    const d = rindeContra(state, t, pv).pv;
+    danio.set(clave, d);
+    return d;
+  };
+  let mejor: { at: Hex; valor: number } | null = null;
+  for (const [, at] of [...candidatas].sort(([a], [b]) => a - b)) {
+    let valor = 0;
+    for (const { stack: t, cuarto } of explosionDe(state, at).alcanzados) {
+      valor += t.side === s.side ? -2 * daA(t, cuarto) : daA(t, cuarto);
+    }
+    if (valor > 0 && (mejor === null || valor > mejor.valor)) mejor = { at, valor };
+  }
+  return mejor === null ? null : { type: 'throw', at: mejor.at };
 }
 
 /**

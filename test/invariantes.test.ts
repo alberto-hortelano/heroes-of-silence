@@ -642,6 +642,9 @@ function stackDePrueba(): BattleStack {
     effects: [],
     ganado: { experiencia: 0, bajas: 0, heroes: [] },
     apuntado: null,
+    recargando: 0,
+    granada: null,
+    granadasLanzadas: 0,
   };
 }
 
@@ -1810,6 +1813,43 @@ describe('invariantes del proyecto', () => {
       ),
     ).toEqual([]);
     expect(infractoresDeCodigo(['src/core/hero/equipo.ts'], lee)).not.toEqual([]);
+  });
+
+  it('las armas de fuego y las granadas: lo que tira lo leen tres módulos y la recarga y las granadas de un stack las escribe la batalla', () => {
+    // 02-11-2026, «armas de fuego y granadas». Dos partes, cada una rota a mano y
+    // vista en rojo:
+    //  (a) lo que tira una pieza o un golpe (`.tiro`: `Pieza.tiro` y
+    //      `GolpeConArma.tiro`) lo leen solo `data.ts` (la regla de la pieza y
+    //      `lanzaGranadas`), `hero/equipo.ts` (`tiroDelGolpe`, que lo lleva a la
+    //      unidad) y `battle/armas.ts` (`perforaLaArmadura`, `recargaDe`,
+    //      `cargasDe`). Una pantalla o una IA que mirara la pieza tendría su propia
+    //      regla de quién perfora o cuánto recarga. Roto: un `p.tiro` en
+    //      `damage.ts`, rojo.
+    //  (b) la recarga que le falta a un stack (`recargando`), su granada en el aire
+    //      (`granada`) y las que ha lanzado (`granadasLanzadas`) los escribe solo
+    //      `battle.ts`: el disparo, el lanzamiento, la explosión y el cierre del
+    //      turno. Quien los escribiera por su cuenta daría disparos o granadas sin
+    //      regla. Roto: un `s.recargando = 0` en `tactics.ts`, rojo.
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
+    const LEEN = ['src/core/data.ts', 'src/core/hero/equipo.ts', 'src/core/battle/armas.ts'];
+    const lee = /\.tiro\b/;
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => !LEEN.includes(r)),
+        lee,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo(['src/core/battle/armas.ts'], lee)).not.toEqual([]);
+
+    const ESCRIBE = 'src/core/battle/battle.ts';
+    const escribe = /\.(recargando|granada|granadasLanzadas)\s*(\+|-)?=(?!=)/;
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => r !== ESCRIBE),
+        escribe,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([ESCRIBE], escribe)).not.toEqual([]);
   });
 
   it('la montura: la pone solo `conEquipo`, la carga montada la cuenta solo `cifrasDelCuerpo` y «charge» ya no es un rasgo', () => {

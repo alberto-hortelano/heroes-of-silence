@@ -196,9 +196,17 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
   it('`herir` resta lo último: lo que llega, lo que para y los muertos', () => {
     const b = frente(GOLPEADOR, [TEMPLARIO], PEGADOS[0], PEGADOS[1]);
     const t = stackById(b, 'defender-0');
-    expect(herir(t, 2, null)).toEqual({ muertos: 0, danio: 0, parado: 2 });
-    expect(herir(t, 60, null)).toEqual({ muertos: 1, danio: 58, parado: 2 });
-    expect(trasLaArmadura(12, { unit: DESNUDO })).toEqual({ danio: 12, parado: 0 });
+    expect(herir(t, { damage: 2, perfora: false }, null)).toEqual({
+      muertos: 0,
+      danio: 0,
+      parado: 2,
+    });
+    expect(herir(t, { damage: 60, perfora: false }, null)).toEqual({
+      muertos: 1,
+      danio: 58,
+      parado: 2,
+    });
+    expect(trasLaArmadura(12, { unit: DESNUDO }, false)).toEqual({ danio: 12, parado: 0 });
   });
 
   it('Rápido resta la armadura en cada uno de sus dos golpes: 30 × 0,63 = 18,9 → 19 → 17 y 17', () => {

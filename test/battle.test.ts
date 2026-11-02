@@ -184,6 +184,9 @@ function stackOf(id: string, count: number, unit: UnitInfo = unidadDelJuego(id))
     effects: [],
     ganado: { experiencia: 0, bajas: 0, heroes: [] },
     apuntado: null,
+    recargando: 0,
+    granada: null,
+    granadasLanzadas: 0,
   };
 }
 
@@ -221,7 +224,7 @@ describe('aplicación de daño a un stack', () => {
     const { hp } = s.unit;
     expect(stackHp(s)).toBe(10 * hp);
     const llega = 2 * hp + hp / 2;
-    const killed = herir(s, llega + armaduraDe(s.unit), null).muertos;
+    const killed = herir(s, { damage: llega + armaduraDe(s.unit), perfora: false }, null).muertos;
     expect(killed).toBe(2);
     expect(s.count).toBe(8);
     expect(stackHp(s)).toBe(10 * hp - llega);
@@ -230,14 +233,14 @@ describe('aplicación de daño a un stack', () => {
   it('un daño menor que un efectivo no mata a nadie', () => {
     const s = stackOf(PESADA, 3);
     const llega = Math.floor(s.unit.hp / 2);
-    expect(herir(s, llega + armaduraDe(s.unit), null).muertos).toBe(0);
+    expect(herir(s, { damage: llega + armaduraDe(s.unit), perfora: false }, null).muertos).toBe(0);
     expect(s.count).toBe(3);
     expect(s.topHp).toBe(s.unit.hp - llega);
   });
 
   it('el exceso de daño no resucita ni deja restos', () => {
     const s = stackOf(TROPA_BARATA, 4);
-    expect(herir(s, 9999, null).muertos).toBe(4);
+    expect(herir(s, { damage: 9999, perfora: false }, null).muertos).toBe(4);
     expect(s.count).toBe(0);
     expect(stackHp(s)).toBe(0);
   });
@@ -310,7 +313,7 @@ describe('moral por composición del ejército', () => {
     const campesino = stackById(state, 'attacker-0');
     // Dos facciones y un no-muerto: 0 por la mezcla y −1 por él (#199).
     expect(campesino.morale).toBe(-1);
-    herir(stackById(state, 'attacker-1'), 9999, null);
+    herir(stackById(state, 'attacker-1'), { damage: 9999, perfora: false }, null);
     // Una ronda entera cerrando turnos, para pasar por el final de ronda y por
     // cada `advance`, que es donde se colaría un recálculo.
     const rng = createRng(1);
@@ -426,7 +429,7 @@ describe('iniciativa', () => {
     const state = empatados(2, 2);
     const rng = createRng(1);
     expect(activeStack(state)!.id).toBe('attacker-0');
-    herir(stackById(state, 'defender-0'), 9999, null);
+    herir(stackById(state, 'defender-0'), { damage: 9999, perfora: false }, null);
     aplicar(state, { type: 'end_turn' }, rng);
     expect(activeStack(state)!.id).toBe('defender-1');
   });

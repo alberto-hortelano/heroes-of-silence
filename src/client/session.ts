@@ -18,10 +18,11 @@ import {
   type RetoqueDeArena,
   retocarEnBatalla,
 } from '@core/arena.js';
+import { tiroADistanciaDe } from '@core/battle/armas.js';
 import {
   activeStack,
+  aDistanciaBlocker,
   applyAction,
-  apuntarBlocker,
   ataqueBlocker,
   type CasillaDeCarga,
   casillasDeCarga,
@@ -30,9 +31,7 @@ import {
   escalaBlocker,
   faseDelTurno,
   firmaDelTurno,
-  type LineaDelDisparo,
   legalActionsAndCosts,
-  lineaDelDisparo,
   MAX_JUGADAS,
   movimientoBlocker,
   type Prevision,
@@ -47,6 +46,8 @@ import {
   soltarElGolpe,
   stackById,
   surrenderBlocker,
+  type TanteoADistancia,
+  tanteoADistancia,
 } from '@core/battle/battle.js';
 import { armasDe } from '@core/battle/damage.js';
 import { bonoEnLoAlto, type MurallaDeBatalla, SIN_MURALLA } from '@core/battle/muralla.js';
@@ -69,7 +70,7 @@ import type {
 } from '@core/battle/types.js';
 import { cuerpoDe } from '@core/catalogo.js';
 import type { ReglasDelCombate } from '@core/combate.js';
-import { figuraDelHeroe, isShooter } from '@core/data.js';
+import { figuraDelHeroe } from '@core/data.js';
 import { type CatalogoDeEquipo, type Portador, pedidoDelPuesto, pieza } from '@core/hero/equipo.js';
 import { type Hero, maxMana } from '@core/hero/hero.js';
 import {
@@ -686,13 +687,13 @@ export type ModoDelArma = 'cuerpo' | 'distancia';
  * el clic en un enemigo solo apuntaba (`golpeEnPixel` prefería el `aim`).
  *
  * El tirador empieza su turno en «A distancia» si puede apuntar
- * (`apuntarBlocker`); si no (se ha movido, tiene a alguien encima), en «Cuerpo a
+ * (`aDistanciaBlocker`); si no (se ha movido, tiene a alguien encima), en «Cuerpo a
  * cuerpo». Lo elegido vale para ese turno de esa unidad: con otra activa, o con
  * otro turno de la misma, vuelve al de por defecto.
  *
  * En «A distancia» el clic en cualquier casilla apunta (lo juzga el núcleo al
  * aplicarlo: la lista legal trae solo las de los enemigos), con la recta que se
- * tantea al pasar el puntero (`lineaDelDisparo`). Aquí no se decide nada.
+ * tantea al pasar el puntero (`tanteoADistancia`). Aquí no se decide nada.
  */
 export class ArmaDeLaActiva {
   /** Lo elegido con el botón o la Q, atado al turno en que se eligió. */
@@ -709,18 +710,18 @@ export class ArmaDeLaActiva {
     private readonly alCambiar: () => void = () => {},
   ) {}
 
-  /** ¿Lleva selector la activa? Solo si es tuya y dispara. */
+  /** ¿Lleva selector la activa? Solo si es tuya y dispara o lanza granadas. */
   get conSelector(): boolean {
     const turno = this.dueño.turnoPropio;
-    return turno !== null && isShooter(turno.stack.unit);
+    return turno !== null && tiroADistanciaDe(turno.stack.unit) !== null;
   }
 
   /** El modo de la activa ahora: el elegido en este turno o el de por defecto. */
   get modo(): ModoDelArma {
     const turno = this.dueño.turnoPropio;
-    if (turno === null || !isShooter(turno.stack.unit)) return 'cuerpo';
-    // Sin poder apuntar, «A distancia» no deja hacer nada: manda el cuerpo a cuerpo.
-    if (apuntarBlocker(turno.battle) !== null) return 'cuerpo';
+    if (turno === null || tiroADistanciaDe(turno.stack.unit) === null) return 'cuerpo';
+    // Sin poder apuntar (o lanzar), «A distancia» no deja hacer nada: manda el cuerpo a cuerpo.
+    if (aDistanciaBlocker(turno.battle) !== null) return 'cuerpo';
     const e = this.elegido;
     const n = turno.battle.turno?.n;
     if (e !== null && e.battle === turno.battle && e.n === n && e.stack === turno.stack.id) {
@@ -732,7 +733,7 @@ export class ArmaDeLaActiva {
   /** Por qué la activa no puede pelear en `modo` ahora, o `null` si puede (el botón apagado). */
   motivo(modo: ModoDelArma): string | null {
     if (modo === 'cuerpo') return motivoDeLaActiva(this.dueño.turnoPropio, () => null);
-    return motivoDeLaActiva(this.dueño.turnoPropio, (b) => apuntarBlocker(b));
+    return motivoDeLaActiva(this.dueño.turnoPropio, (b) => aDistanciaBlocker(b));
   }
 
   /** El rótulo del botón: el modo y con qué armas («Cuerpo a cuerpo (Espada y Daga)»). */
@@ -752,7 +753,8 @@ export class ArmaDeLaActiva {
       this.dueño.status = NINGUNA_TUYA;
       return;
     }
-    if (!isShooter(turno.stack.unit)) {
+    const tiro = tiroADistanciaDe(turno.stack.unit);
+    if (tiro === null) {
       this.dueño.status = comoFrase(`${turno.stack.unit.name} no lleva arma a distancia`);
       return;
     }
@@ -765,9 +767,11 @@ export class ArmaDeLaActiva {
     const n = turno.battle.turno?.n ?? 0;
     this.elegido = { battle: turno.battle, n, stack: turno.stack.id, modo };
     this.dueño.status =
-      modo === 'distancia'
-        ? 'A distancia: pulsa la casilla a la que apuntar; el disparo sale al empezar su siguiente turno y da al primero de la recta, también a un aliado.'
-        : 'Cuerpo a cuerpo: pulsa un hexágono verde para andar, o un enemigo para golpearlo.';
+      modo === 'cuerpo'
+        ? 'Cuerpo a cuerpo: pulsa un hexágono verde para andar, o un enemigo para golpearlo.'
+        : tiro === 'granada'
+          ? 'Granada: pulsa la casilla a la que lanzarla, a su alcance; explota al empezar su siguiente turno en ella y en sus vecinas, también sobre los tuyos.'
+          : 'A distancia: pulsa la casilla a la que apuntar; el disparo sale al empezar su siguiente turno y da al primero de la recta, también a un aliado.';
     this.alCambiar();
   }
 
@@ -776,22 +780,38 @@ export class ArmaDeLaActiva {
     this.elegir(this.modo === 'cuerpo' ? 'distancia' : 'cuerpo');
   }
 
-  /** La recta que se vería al apuntar a `at` ahora, o `null` si no se puede apuntar ahí. */
-  tanteo(at: Hex): LineaDelDisparo | null {
+  /**
+   * La jugada a distancia en `at` y lo que se vería con ella ahora, o por qué no
+   * (`tanteoADistancia`: el núcleo elige entre apuntar y lanzar); `null` sin turno tuyo.
+   */
+  tanteo(at: Hex): TanteoADistancia | null {
     const turno = this.dueño.turnoPropio;
-    if (turno === null || apuntarBlocker(turno.battle, at) !== null) return null;
-    return lineaDelDisparo(turno.battle, turno.stack, at);
+    return turno === null ? null : tanteoADistancia(turno.battle, at);
   }
 
-  /** Apunta a `at`, o dice en la barra por qué no (la frase del núcleo). */
+  /** Apunta (o lanza) a `at`, o dice en la barra por qué no (la frase del núcleo). */
   apuntarA(at: Hex): void {
-    const motivo = motivoDeLaActiva(this.dueño.turnoPropio, (b) => apuntarBlocker(b, at));
-    if (motivo !== null) {
-      this.dueño.status = motivo;
+    const t = this.tanteo(at);
+    if (t === null) {
+      this.dueño.status = NINGUNA_TUYA;
       return;
     }
-    this.dueño.playBattleAction({ type: 'aim', at: { col: at.col, row: at.row } });
+    if (t.kind === 'no') {
+      this.dueño.status = rechazoDelTanteo(t);
+      return;
+    }
+    this.dueño.playBattleAction(t.jugada);
   }
+}
+
+/**
+ * Por qué no se puede jugar a distancia en la casilla de un tanteo, dicho para la
+ * barra (la frase del núcleo). La misma al pulsar (`apuntarA`) y al pasar el
+ * puntero (`EscenaBatalla`): con el puntero, la granada fuera de alcance caía en el
+ * motivo del cuerpo a cuerpo o en nada (H1 del QA de las granadas, 02-11-2026).
+ */
+export function rechazoDelTanteo(t: Extract<TanteoADistancia, { kind: 'no' }>): string {
+  return comoFrase(t.motivo);
 }
 
 /**
@@ -802,7 +822,7 @@ export class ArmaDeLaActiva {
 function delModo(acciones: BattleAction[], modo: ModoDelArma): BattleAction[] {
   return modo === 'distancia'
     ? acciones.filter((a) => a.type !== 'move' && a.type !== 'attack')
-    : acciones.filter((a) => a.type !== 'aim');
+    : acciones.filter((a) => a.type !== 'aim' && a.type !== 'throw');
 }
 
 /**
