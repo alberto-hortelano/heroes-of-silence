@@ -1318,11 +1318,19 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   regiones fusionada con las armas de fuego (`421344c3…`). Contra él, lo mismo que
  *   arriba: quitado el sello `seen`, los volcados son idénticos; cambian solo los sellos,
  *   en 16 de 20 (todas menos s4, s7, s10 y s14). La forma del diff, no una medida.
+ * - `b0aadddd…` (3 784 líneas, 20 semillas, 02-11-2026): **el catálogo retocado a mano**
+ *   (`data/equipo.json` y `data/unidades.json`, commit «equipo y unidades» del usuario).
+ *   Contra `333ae89b…` cambian las 20, y en todas el primer hecho distinto es del día 1
+ *   en la base, antes de salir (`recruited` o `dismissed`, hechos 11 a 33): con otras
+ *   cifras y otros precios se recluta y se licencia otra tropa. Cambian de ganador s2,
+ *   s4, s5, s11, s13 y s16 (j0 gana 6 de 20, 8 antes); duración 4 / 5 / 6 → **4 / 6 /
+ *   6**, días 75 → 81; aparece `march_halted`, ningún tipo de hecho perdido. La forma del
+ *   diff, no una medida.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '333ae89bd1029d3fe3ce6cda4d477cfb19ec503855695b5bc06e10dd67b8d1c6',
+  sha: 'b0aaddddf2d099a779e435f723e800f2864a99006e8bdbffa76ef6bf5b62a839',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);
