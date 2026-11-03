@@ -165,6 +165,7 @@ import {
   LA_LLEVA_EL_HEROE,
   type ListaDeUnidades,
   type Puesto,
+  porQueNoSeMonta as porQueNoSeMontaEntre,
   renderBando,
   renderCatalogo,
   renderEnlace,
@@ -177,6 +178,7 @@ import {
   rotuloDelTurno,
   sinGuardarEnPalabras,
   type TarjetaDeUnidad,
+  tarjetasDelCatalogo,
 } from './paneles.js';
 
 const app = document.getElementById('app') as HTMLElement;
@@ -620,7 +622,7 @@ function hojaPorId(id: string): Hoja {
 
 /**
  * La unidad `id`, del catálogo (`data/unidades.json`): **la única fuente de sus
- * cifras**. Lo que la lista ofrece sale de él (`hojasDelCatalogo`), así que pedir
+ * cifras**. Lo que la lista ofrece sale de él (`tarjetasDeLaLista`), así que pedir
  * una que no está es un fallo del gesto, no una unidad con cifras inventadas.
  */
 function unidadDe(id: string): Unidad {
@@ -630,46 +632,26 @@ function unidadDe(id: string): Unidad {
 }
 
 /**
- * Las hojas que la lista enseña como unidad: las que tienen la suya en el
- * catálogo. Una hoja sin ella (un héroe, o una hoja nueva del taller) no se monta
- * con cifras por defecto: se crea con «Nueva unidad», que ofrece todas.
+ * Lo que la lista enseña: las unidades del catálogo, con su nombre
+ * (`tarjetasDelCatalogo`). Una hoja sin la suya (un héroe, o una hoja nueva del
+ * taller) no se monta con cifras por defecto: se crea con «Nueva unidad», que
+ * ofrece todas.
  */
-function hojasDelCatalogo(): readonly Hoja[] {
-  return hojas.filter((h) => unidadesDelCatalogo.has(h.id));
+function tarjetasDeLaLista(): readonly TarjetaDeUnidad[] {
+  return tarjetasDelCatalogo(unidadesDelCatalogo.values(), hojas);
 }
 
-/**
- * Por qué la unidad `u` no se monta, o `null` si se monta: la hoja de su cuerpo
- * no está o está a medias en el taller (#140). Nunca se pinta con el Y Bot en su
- * lugar.
- */
+/** Por qué la unidad `u` no se monta con las hojas de la página (`porQueNoSeMontaEntre`). */
 function porQueNoSeMonta(u: Unidad): string | null {
-  const hoja = u.cuerpo.hoja;
-  const h = hojasPorId.get(hoja);
-  if (h === undefined) return `su hoja «${hoja}» no está en assets/unidades/`;
-  return h.incompleta;
+  return porQueNoSeMontaEntre(u, hojasPorId);
 }
 
 /**
- * Lo que la lista enseña además de las hojas, en el montaje y en la edición: las
- * unidades nuevas del catálogo (las que no son la de una hoja), con el retrato de
- * su hoja, y los cuerpos que ofrece «Nueva unidad» (las hojas con su arte entero).
+ * Lo que la lista enseña además de las unidades, en el montaje y en la edición:
+ * los cuerpos que ofrece «Nueva unidad» (las hojas con su arte entero).
  */
 function listaDeUnidades(): ListaDeUnidades {
-  const nuevas = [...unidadesDelCatalogo.values()]
-    .filter((u) => !hojasPorId.has(u.id))
-    .map(
-      (u): TarjetaDeUnidad => ({
-        id: u.id,
-        nombre: u.name,
-        faccion: u.faction,
-        retrato: u.cuerpo.hoja,
-        sello: 'nueva',
-        incompleta: porQueNoSeMonta(u),
-      }),
-    );
   return {
-    nuevas,
     cuerpos: hojas
       .filter((h) => h.incompleta === null)
       .map((h) => ({ id: h.id, nombre: h.nombre })),
@@ -1047,7 +1029,7 @@ function repintarMontaje(): void {
     pintar(
       elCatalogo,
       html`${renderEnlace(enlaceVigente())}${renderCatalogo(
-        hojasDelCatalogo(),
+        tarjetasDeLaLista(),
         filtro,
         { kind: 'montaje' },
         listaDeUnidades(),
@@ -1077,7 +1059,7 @@ function fichaAbierta(f: FichaEditable): FichaAbierta {
 function repintarEdicion(): void {
   pintarVista(elEdicion, () => {
     const lista = renderCatalogo(
-      hojasDelCatalogo(),
+      tarjetasDeLaLista(),
       filtro,
       { kind: 'edicion', abiertas, plegada: listaPlegada },
       listaDeUnidades(),

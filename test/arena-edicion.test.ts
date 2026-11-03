@@ -26,12 +26,15 @@ import {
   focoTrasQuitar,
   renderCatalogo,
   renderFicha,
+  tarjetasDelCatalogo,
 } from '../src/client/arena/paneles.js';
 import { html, marcadoDe } from '../src/client/html.js';
+import { UNIDADES } from '../src/core/catalogo.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { hojasDeLaArena, unidadDeArena } from './helpers.js';
 
 const HOJAS = hojasDeLaArena();
+const TARJETAS = tarjetasDelCatalogo(UNIDADES, HOJAS);
 const hoja = (id: string): FichaEditable => ({ kind: 'unidad', id });
 const CUATRO = [
   hoja('templario-escudo'),
@@ -251,16 +254,27 @@ describe('el foco al quitar una etiqueta con el teclado (M2 de QA)', () => {
 describe('la lista en la vista de edición', () => {
   const muchas = { kind: 'edicion', abiertas: SEIS, plegada: false } as const;
 
+  it('cada tarjeta lleva el nombre y la facción de su unidad del catálogo, no los de su hoja', () => {
+    const m = marcadoDe(renderCatalogo(TARJETAS, 'todas'));
+    for (const u of UNIDADES) expect(m).toContain(`<span class="nombre">${u.name}</span>`);
+    const [u] = UNIDADES;
+    if (u === undefined) throw new Error('sin unidades');
+    const [t] = tarjetasDelCatalogo([{ ...u, name: 'Nombre recién puesto' }], HOJAS);
+    expect(t?.nombre).toBe('Nombre recién puesto');
+    expect(t?.faccion).toBe(u.faction);
+    expect(t?.sello).toBeUndefined();
+  });
+
   it('cada tarjeta lleva «Abrir» y no «+ izq.»; la abierta, «Abierta» deshabilitada', () => {
     const m = marcadoDe(
-      renderCatalogo(HOJAS, 'todas', {
+      renderCatalogo(TARJETAS, 'todas', {
         kind: 'edicion',
         abiertas: [hoja('templario-escudo')],
         plegada: false,
       }),
     );
     expect(m).not.toContain('data-arena="añadir"');
-    expect(m.match(/data-arena="abrir-ficha"/g)).toHaveLength(HOJAS.length);
+    expect(m.match(/data-arena="abrir-ficha"/g)).toHaveLength(TARJETAS.length);
     expect(m).toContain(
       'data-arena="abrir-ficha" data-unidad="templario-escudo" title="Su ficha ya está abierta." disabled>Abierta<',
     );
@@ -268,12 +282,12 @@ describe('la lista en la vista de edición', () => {
   });
 
   it('con seis abiertas, las demás se siguen abriendo; solo las abiertas van deshabilitadas', () => {
-    const m = marcadoDe(renderCatalogo(HOJAS, 'todas', muchas));
+    const m = marcadoDe(renderCatalogo(TARJETAS, 'todas', muchas));
     // Las seis abiertas: «Abierta»; las demás, «Abrir» sin motivo.
     expect(m.match(/disabled>Abierta</g)).toHaveLength(6);
     expect(m.match(/disabled>/g)).toHaveLength(6);
     expect(m.match(/title="Abre su ficha junto a las demás" >Abrir</g)).toHaveLength(
-      HOJAS.length - 6,
+      TARJETAS.length - 6,
     );
     // Sin el catálogo del juego: ni su filtro ni una criatura (13-10-2026).
     expect(m).not.toContain('data-faccion="catalogo"');
@@ -281,11 +295,11 @@ describe('la lista en la vista de edición', () => {
   });
 
   it('una hoja incompleta no se abre, con su motivo', () => {
-    const [primera, ...resto] = HOJAS;
-    if (primera === undefined) throw new Error('sin hojas');
-    const hojas = [{ ...primera, incompleta: 'le falta d7' }, ...resto];
+    const [primera, ...resto] = TARJETAS;
+    if (primera === undefined) throw new Error('sin tarjetas');
+    const tarjetas = [{ ...primera, incompleta: 'le falta d7' }, ...resto];
     const m = marcadoDe(
-      renderCatalogo(hojas, 'todas', { kind: 'edicion', abiertas: [], plegada: false }),
+      renderCatalogo(tarjetas, 'todas', { kind: 'edicion', abiertas: [], plegada: false }),
     );
     expect(m).toContain(
       `data-arena="abrir-ficha" data-unidad="${primera.id}" title="No se abre: le falta d7." disabled>Abrir<`,
@@ -294,7 +308,7 @@ describe('la lista en la vista de edición', () => {
 
   it('«Nueva unidad» ofrece solo las hojas: el catálogo del juego no está en la arena (13-10-2026)', () => {
     const m = marcadoDe(
-      renderCatalogo(HOJAS, 'todas', undefined, {
+      renderCatalogo(TARJETAS, 'todas', undefined, {
         cuerpos: [{ id: 'esqueleto-guerrero', nombre: 'Esqueleto guerrero' }],
       }),
     );
@@ -304,7 +318,7 @@ describe('la lista en la vista de edición', () => {
   });
 
   it('en el montaje sigue como estaba', () => {
-    const m = marcadoDe(renderCatalogo(HOJAS, 'todas'));
+    const m = marcadoDe(renderCatalogo(TARJETAS, 'todas'));
     expect(m).not.toContain('abrir-ficha');
     expect(m).not.toContain('plegar-lista');
   });
@@ -312,24 +326,24 @@ describe('la lista en la vista de edición', () => {
   it('con alguna abierta se pliega a su cabecera, y su botón la despliega (H1, H2)', () => {
     const una = [hoja('templario-escudo')];
     const plegada = marcadoDe(
-      renderCatalogo(HOJAS, 'todas', { kind: 'edicion', abiertas: una, plegada: true }),
+      renderCatalogo(TARJETAS, 'todas', { kind: 'edicion', abiertas: una, plegada: true }),
     );
     expect(plegada).not.toContain('abrir-ficha');
     expect(plegada).not.toContain('data-arena="filtro"');
     expect(plegada).toContain('data-arena="plegar-lista" aria-expanded="false"');
     expect(plegada).toContain('>Desplegar</button>');
     const abierta = marcadoDe(
-      renderCatalogo(HOJAS, 'todas', { kind: 'edicion', abiertas: una, plegada: false }),
+      renderCatalogo(TARJETAS, 'todas', { kind: 'edicion', abiertas: una, plegada: false }),
     );
     expect(abierta).toContain('data-arena="plegar-lista" aria-expanded="true"');
-    expect(abierta.match(/data-arena="abrir-ficha"/g)).toHaveLength(HOJAS.length);
+    expect(abierta.match(/data-arena="abrir-ficha"/g)).toHaveLength(TARJETAS.length);
     // Sin ninguna abierta no hay nada que plegar: ni botón, ni lista plegada.
     const vacia = marcadoDe(
-      renderCatalogo(HOJAS, 'todas', { kind: 'edicion', abiertas: [], plegada: false }),
+      renderCatalogo(TARJETAS, 'todas', { kind: 'edicion', abiertas: [], plegada: false }),
     );
     expect(vacia).not.toContain('plegar-lista');
     expect(() =>
-      renderCatalogo(HOJAS, 'todas', { kind: 'edicion', abiertas: [], plegada: true }),
+      renderCatalogo(TARJETAS, 'todas', { kind: 'edicion', abiertas: [], plegada: true }),
     ).toThrow('no se pliega sin ninguna ficha abierta');
   });
 });

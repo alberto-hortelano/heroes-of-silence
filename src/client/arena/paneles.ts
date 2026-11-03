@@ -225,10 +225,11 @@ export function resumenDeUnidad(u: UnitInfo): string {
 export type FiltroDeArena = Hoja['faccion'] | 'todas';
 
 /**
- * Una unidad en la lista: la de una hoja o una nueva (`unidadNueva`). Su id, su
- * nombre, su facción y el retrato de identidad de su hoja (`retrato`). `sello`,
- * lo que la distingue en la lista («nueva»); `incompleta`, por qué no se monta
- * (#140).
+ * Una unidad del catálogo en la lista: la de una hoja o una nueva (`unidadNueva`).
+ * Su id, su nombre y su facción (los del catálogo, nunca los de su hoja:
+ * `tarjetasDelCatalogo`) y el retrato de identidad de su hoja (`retrato`).
+ * `sello`, lo que la distingue en la lista («nueva»); `incompleta`, por qué no se
+ * monta (#140).
  */
 export interface TarjetaDeUnidad {
   readonly id: string;
@@ -264,8 +265,50 @@ export interface CuerpoDeLaNueva {
 
 /** Lo que la lista enseña además de las hojas: las unidades nuevas y los cuerpos de «Nueva unidad». */
 export interface ListaDeUnidades {
-  readonly nuevas?: readonly TarjetaDeUnidad[];
   readonly cuerpos?: readonly CuerpoDeLaNueva[];
+}
+
+/**
+ * Por qué la unidad `u` no se monta, o `null` si se monta: la hoja de su cuerpo
+ * no está o está a medias en el taller (#140). Nunca se pinta con el Y Bot en su
+ * lugar.
+ */
+export function porQueNoSeMonta(u: Unidad, hojas: ReadonlyMap<string, Hoja>): string | null {
+  const h = hojas.get(u.cuerpo.hoja);
+  if (h === undefined) return `su hoja «${u.cuerpo.hoja}» no está en assets/unidades/`;
+  return h.incompleta;
+}
+
+/**
+ * Las tarjetas de la lista: cada unidad del catálogo con **su** nombre y **su**
+ * facción (`data/unidades.json`, lo que se edita y se guarda), y el retrato de la
+ * hoja de su cuerpo. El nombre de la hoja es el del taller (`tools/taller/unidades.ts`,
+ * lo que se le pidió pintar) y no se enseña como el de la unidad. Primero las de
+ * una hoja, en el orden del taller, y detrás las nuevas, con su sello. Una cuya
+ * hoja no está o está a medias va con el motivo (#140).
+ */
+export function tarjetasDelCatalogo(
+  unidades: Iterable<Unidad>,
+  hojas: readonly Hoja[],
+): TarjetaDeUnidad[] {
+  const porId = new Map(hojas.map((h) => [h.id, h]));
+  const tarjeta = (u: Unidad, sello?: string): TarjetaDeUnidad => ({
+    id: u.id,
+    nombre: u.name,
+    faccion: u.faction,
+    retrato: u.cuerpo.hoja,
+    ...(sello === undefined ? {} : { sello }),
+    incompleta: porQueNoSeMonta(u, porId),
+  });
+  const todas = [...unidades];
+  const deUnaHoja = new Map(todas.filter((u) => porId.has(u.id)).map((u) => [u.id, u]));
+  return [
+    ...hojas.flatMap((h) => {
+      const u = deUnaHoja.get(h.id);
+      return u === undefined ? [] : [tarjeta(u)];
+    }),
+    ...todas.filter((u) => !porId.has(u.id)).map((u) => tarjeta(u, 'nueva')),
+  ];
 }
 
 /**
@@ -334,12 +377,12 @@ function botonesDeTarjeta(
 }
 
 /**
- * La lista de unidades: las hojas y, detrás, las unidades nuevas (`nuevas`), por
- * facción. Con `cuerpos`, arriba el selector de «Nueva unidad». Sin el catálogo
- * del juego: en la arena solo están las cinco facciones (13-10-2026).
+ * La lista de unidades (`tarjetasDelCatalogo`), por facción. Con `cuerpos`,
+ * arriba el selector de «Nueva unidad». Sin el catálogo del juego: en la arena
+ * solo están las cinco facciones (13-10-2026).
  */
 export function renderCatalogo(
-  hojas: readonly Hoja[],
+  todas: readonly TarjetaDeUnidad[],
   filtro: FiltroDeArena,
   modo: ModoDelCatalogo = { kind: 'montaje' },
   extra: ListaDeUnidades = {},
@@ -353,17 +396,6 @@ export function renderCatalogo(
       return html`<button data-arena="filtro" data-faccion="${f}" class="${f === filtro ? 'primary' : ''}">${nombre}</button>`;
     }),
   );
-  // Las hojas y, detrás, las nuevas.
-  const todas: readonly TarjetaDeUnidad[] = [
-    ...hojas.map((h) => ({
-      id: h.id,
-      nombre: h.nombre,
-      faccion: h.faccion,
-      retrato: h.id,
-      incompleta: h.incompleta,
-    })),
-    ...(extra.nuevas ?? []),
-  ];
   const tarjetas = unir(
     todas
       .filter((t) => filtro === 'todas' || t.faccion === filtro)

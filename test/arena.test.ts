@@ -27,6 +27,7 @@ import {
   renderFichaDeHeroe,
   renderPanelDeBatalla,
   resumenDeCifras,
+  tarjetasDelCatalogo,
 } from '../src/client/arena/paneles.js';
 import { marcadoDe } from '../src/client/html.js';
 import { arteDe, juegosDelYBot, registrarUnidad } from '../src/client/render/personajes.js';
@@ -1037,7 +1038,7 @@ describe('una unidad a medias en el taller (#140)', () => {
 
   it('el catálogo la enseña con su motivo y sin botones que la monten', () => {
     const hojas = hojasDelTaller(zombiASieteDirecciones());
-    const m = marcadoDe(renderCatalogo(hojas, 'todas'));
+    const m = marcadoDe(renderCatalogo(tarjetasDelCatalogo(CATALOGO, hojas), 'todas'));
     const tarjeta = m.slice(m.indexOf('data-unidad-catalogo="zombi"'));
     const delZombi = tarjeta.slice(0, tarjeta.indexOf('</div>'));
     expect(delZombi).toContain('Incompleta: zombi tiene 7 de sus 8 direcciones');
@@ -1155,7 +1156,7 @@ describe('el montaje del banco de combate', () => {
   it('C1: sin el catálogo del juego: ni su filtro, ni una criatura, ni «Nueva unidad» desde una (13-10-2026)', () => {
     const m = marcadoDe(
       renderCatalogo(
-        HOJAS,
+        tarjetasDelCatalogo(CATALOGO, HOJAS),
         'todas',
         { kind: 'montaje' },
         {
@@ -1168,11 +1169,11 @@ describe('el montaje del banco de combate', () => {
     expect(m).not.toContain('data-criatura');
     expect(m).not.toContain('añadir-catalogo');
     expect(m).not.toContain('criatura:');
-    // Las cinco facciones, con sus hojas y sus héroes.
+    // Las cinco facciones, con las unidades de su catálogo.
     for (const f of ['templarios', 'no-muertos', 'imperio', 'elfos', 'orkos']) {
       expect(m).toContain(`data-faccion="${f}"`);
     }
-    expect(m.match(/data-unidad-catalogo="/g)).toHaveLength(HOJAS.length);
+    expect(m.match(/data-unidad-catalogo="/g)).toHaveLength(CATALOGO.length);
   });
 
   it('el panel de la pelea lleva el maná y el libro de la persona, sin reglas que elegir', () => {
