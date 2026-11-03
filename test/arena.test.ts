@@ -1774,6 +1774,36 @@ describe('cada arma para lo suyo (13-10-2026): los kits, y lo de antes convertid
   });
 });
 
+describe('sin el catálogo del juego (13-10-2026)', () => {
+  it('un cuerpo de criatura no vale: no se retira ni se convierte, se queda como cualquiera que no vale', () => {
+    // Una unidad hecha aquí, con las manos de prueba: ninguna cifra del catálogo cuenta.
+    const buena: Unidad = {
+      id: 'prueba-del-cuerpo',
+      name: 'Unidad de prueba',
+      faction: 'templarios',
+      leadership: 1,
+      attack: 1,
+      fuerza: 3,
+      agilidad: 3,
+      hp: 20,
+      cuerpo: { hoja: HOJAS[0]!.id },
+      equipo: { arma: MANOS_DE_PRUEBA.id },
+      traits: [],
+      habilidades: [],
+    };
+    expect(validarUnidad(buena, CON_MANOS)).toEqual(buena);
+    // El mismo con el cuerpo de antes, una criatura del juego.
+    expect(() =>
+      validarUnidad({ ...buena, cuerpo: { criatura: 'cualquiera' } }, CON_MANOS),
+    ).toThrow(`la unidad «${buena.name}»: el cuerpo tiene que ser { hoja }, y trae criatura`);
+    const vieja = { ...buena, id: 'prueba-vieja', cuerpo: { criatura: 'cualquiera' } };
+    const r = revisarCatalogo({ unidades: [buena, vieja] }, CON_MANOS);
+    expect(r.validas.map((u) => u.id)).toEqual([buena.id]);
+    expect(r.invalidas.map((i) => [i.id, i.crudo])).toEqual([[vieja.id, vieja]]);
+    expect(r.invalidas[0]!.motivo).toContain('el cuerpo tiene que ser { hoja }, y trae criatura');
+  });
+});
+
 describe('sin compatibilidad hacia atrás (14-10-2026)', () => {
   it('el comentario del catálogo lo dice: solo hojas, sin munición ni tamaño, y solo lo de hoy', () => {
     // El que se lee es el del fichero: «Guardar» lo conserva (simplify de F2) y la

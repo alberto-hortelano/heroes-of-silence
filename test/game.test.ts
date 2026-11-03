@@ -5,6 +5,7 @@ import {
   stepTowards,
 } from '../src/core/ai/strategy.js';
 import { playAiGame, playAiTurn } from '../src/core/ai/turn.js';
+import { createBattle } from '../src/core/battle/battle.js';
 import { allSpells } from '../src/core/battle/spells.js';
 import { queEs } from '../src/core/battle/types.js';
 import {
@@ -14,8 +15,21 @@ import {
   unidadesDelJuego,
   unidadesDeMorada,
 } from '../src/core/catalogo.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
+import { marchaDe } from '../src/core/cuerpo.js';
 import { crecimientoDelNivel, ECONOMIA, oroDelIndice } from '../src/core/data.js';
-import { type Hero, learnable, maxMana, maxMovePoints } from '../src/core/hero/hero.js';
+import { marchaALaEscala } from '../src/core/escala.js';
+import { EQUIPO_BASE, EQUIPO_DEL_JUEGO, esDeGuerra } from '../src/core/hero/equipo.js';
+import {
+  type GrupoQueMarcha,
+  type Hero,
+  heroUnit,
+  learnable,
+  maxMana,
+  maxMovePoints,
+  slowestSpeed,
+} from '../src/core/hero/hero.js';
+import { troopUnit } from '../src/core/hero/troop.js';
 import { buildMap, generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';
 import {
   blocksMovement,
@@ -76,10 +90,18 @@ import {
   type Town,
   townSpells,
 } from '../src/core/town/town.js';
-import { FACTION_IDS, type FactionId, type Point } from '../src/core/types.js';
+import {
+  type Equipo,
+  FACTION_IDS,
+  type FactionId,
+  type Point,
+  SPEED_TO_MOVE_POINTS,
+  type SpeedTier,
+} from '../src/core/types.js';
 import {
   acabarPorLaBase,
   conCaminos,
+  conSuEquipo,
   costesDelAlcance,
   ejercito,
   esPersonaje,
@@ -105,6 +127,106 @@ describe('maná', () => {
   it('es diez veces el conocimiento', () => {
     expect(maxMana({ knowledge: 2 })).toBe(20);
     expect(maxMana({ knowledge: 7 })).toBe(70);
+  });
+});
+
+// ------------------------------------------------- la marcha del grupo (26-10-2026)
+
+/**
+ * La marcha del grupo se prueba con lo que dicen las piezas y las unidades, no con
+ * cuáles son: un caballo de silla del catálogo (cualquiera) y una unidad sin montura
+ * de serie a la que ese caballo hace más rápida que a pie y que el héroe a pie
+ * (03-11-2026: la versión anterior escribía el piquero, el caballo y los escalones,
+ * y se rompía al retocar una cifra del catálogo). Lo esperado es `marchaDe` de cada
+ * uno, que es lo que la regla compara.
+ */
+function marchaDeSilla(): {
+  readonly silla: string;
+  readonly tropa: string;
+  readonly heroe: GrupoQueMarcha & Pick<Hero, 'skills'>;
+} {
+  const heroe = structuredClone(heroesOf(newGame({ seed: 1 }), 0)[0]!);
+  heroe.army = [];
+  const rapidez = (s: SpeedTier) => SPEED_TO_MOVE_POINTS[s];
+  const aPie = rapidez(marchaDe(heroUnit({ ...heroe, equipo: EQUIPO_BASE })));
+  for (const silla of EQUIPO_DEL_JUEGO.piezas.values()) {
+    if (silla.hueco !== 'montura' || esDeGuerra(silla)) continue;
+    const montado = rapidez(
+      marchaDe(heroUnit({ ...heroe, equipo: { ...EQUIPO_BASE, montura: silla.id } })),
+    );
+    if (montado <= aPie) continue;
+    for (const u of unidadesDelJuego()) {
+      if (u.equipo?.montura !== undefined) continue;
+      const conElla = rapidez(
+        marchaDe(troopUnit(conSuEquipo(u.id, { montura: silla.id }), undefined)),
+      );
+      const sinElla = rapidez(marchaDe(troopUnit({ creature: u.id }, undefined)));
+      if (conElla > sinElla && conElla > aPie) return { silla: silla.id, tropa: u.id, heroe };
+    }
+  }
+  throw new Error('ningún caballo de silla hace más rápida a una unidad y al héroe que a pie');
+}
+
+describe('la marcha del grupo: el más lento, el héroe incluido (26-10-2026)', () => {
+  const marchaDeTropa = (t: Hero['army'][number]) => marchaDe(troopUnit(t, undefined));
+  const marchaDelHeroe = (equipo: Equipo) =>
+    marchaDe(heroUnit({ ...marchaDeSilla().heroe, equipo }));
+
+  it('un caballo de silla sube la marcha solo si lo llevan todos: el héroe a pie frena, y un individuo a pie también', () => {
+    const { silla, tropa, heroe } = marchaDeSilla();
+    const montados = [0, 1, 2].map((i) => conSuEquipo(tropa, { montura: silla }, `v-${i}`));
+    const aPie = EQUIPO_BASE;
+    const aCaballo: Equipo = { ...EQUIPO_BASE, montura: silla };
+    const rapidez = (s: SpeedTier) => SPEED_TO_MOVE_POINTS[s];
+
+    // La tropa a caballo y el héroe a pie: manda el héroe, que es el más lento.
+    const conElHeroeAPie = slowestSpeed({ ...heroe, army: montados, equipo: aPie }, undefined);
+    expect(conElHeroeAPie).toBe(marchaDelHeroe(aPie));
+    expect(rapidez(conElHeroeAPie)).toBeLessThan(rapidez(marchaDeTropa(montados[0]!)));
+
+    // Todos a caballo: el más lento de los montados, más rápido que con el héroe a pie.
+    const todos = slowestSpeed({ ...heroe, army: montados, equipo: aCaballo }, undefined);
+    const delMasLento = [marchaDelHeroe(aCaballo), marchaDeTropa(montados[0]!)].sort(
+      (a, b) => rapidez(a) - rapidez(b),
+    )[0]!;
+    expect(todos).toBe(delMasLento);
+    expect(rapidez(todos)).toBeGreaterThan(rapidez(conElHeroeAPie));
+    expect(
+      maxMovePoints({ ...heroe, army: montados, equipo: aCaballo }, undefined),
+    ).toBeGreaterThan(maxMovePoints({ ...heroe, army: montados, equipo: aPie }, undefined));
+
+    // Uno de la tropa a pie: manda él, aunque el héroe y los demás vayan a caballo.
+    const unoAPie = [...montados.slice(0, 2), { creature: tropa }];
+    const conUnoAPie = slowestSpeed({ ...heroe, army: unoAPie, equipo: aCaballo }, undefined);
+    expect(conUnoAPie).toBe(marchaDeTropa({ creature: tropa }));
+    expect(rapidez(conUnoAPie)).toBeLessThan(rapidez(todos));
+  });
+
+  it('el caballo de silla no cambia la batalla: las mismas casillas, defensa y daño que a pie', () => {
+    const { silla, tropa } = marchaDeSilla();
+    const b = createBattle(
+      { army: [{ ...conSuEquipo(tropa, { montura: silla }), count: 1 }], hero: null },
+      { army: [{ creature: tropa, count: 1 }], hero: null },
+      createRng(1),
+      COMBATE_COMPLETO,
+    );
+    const [conSilla, sinSilla] = b.stacks;
+    expect(conSilla?.unit.speed).toBe(sinSilla?.unit.speed);
+    expect(conSilla?.unit.defense).toBe(sinSilla?.unit.defense);
+    expect(conSilla?.unit.damage).toEqual(sinSilla?.unit.damage);
+  });
+
+  it('Logística sube un 10 % por nivel lo que da el más lento, a la escala del mapa', () => {
+    const { heroe, tropa } = marchaDeSilla();
+    const grupo = { ...heroe, army: [{ creature: tropa }, { creature: tropa }] };
+    const sinLogistica = marchaALaEscala(SPEED_TO_MOVE_POINTS[slowestSpeed(grupo, undefined)]);
+    expect(maxMovePoints({ ...grupo, skills: {} }, undefined)).toBe(Math.round(sinLogistica));
+    for (const nivel of [1, 2, 3] as const) {
+      expect(
+        maxMovePoints({ ...grupo, skills: { logistics: nivel } }, undefined),
+        `nivel ${nivel}`,
+      ).toBe(Math.round(sinLogistica * (1 + nivel / 10)));
+    }
   });
 });
 
@@ -1864,6 +1986,46 @@ describe('el mapa de nodos se juega', () => {
     expect(state.finished).toEqual({ winner: 0 });
     expect(hero.at).toEqual({ x: 22, y: 4 });
     expect(state.log.at(-1)?.kind).toBe('game_over');
+  });
+});
+
+describe('el id de un héroe contratado no se repite (#126)', () => {
+  it('contratar, salir otro héroe del juego y volver a contratar el mismo día da otro id', () => {
+    // Con `hero-<jugador>-<héroes en juego>-<día>` los dos contratados salían
+    // iguales en cuanto un héroe salía de `state.heroes` entre los dos: en la
+    // partida, uno que cae sin base a la que volver (hace falta un tercer jugador
+    // con base, #126). Aquí se le saca a mano: el id solo mira lo que hay en juego.
+    const seed = 41;
+    const state = newGame({ seed });
+    const c = ctx(seed);
+    fueraDeSuBase(state, 0);
+    state.players[0]!.oro = 10 * ECONOMIA.precioDelHeroe;
+    const casa = baseOf(state, 0)!;
+    const dia = state.day;
+    const iniciales = state.heroes.map((h) => h.id);
+    // Casillas libres a las que sacar a cada contratado, para que quepa el siguiente:
+    // las que alcanza el héroe que ya está fuera, sin objeto.
+    const fuera = [...costesDelAlcance(alcanceDelHeroe(state, heroesOf(state, 0)[0]!)).keys()]
+      .map(pointFromKey)
+      .filter((p) => objectAt(state.map, p) === undefined);
+    const contratar = () => {
+      applyAdventureAction(state, { type: 'hire_hero', town: casa.id }, c, 0);
+      const nuevo = state.heroes.at(-1)!;
+      nuevo.at = fuera.find((p) => state.heroes.every((h) => pointKey(h.at) !== pointKey(p)))!;
+      return nuevo;
+    };
+
+    const primero = contratar();
+    const otro = heroesOf(state, 1)[0]!;
+    state.heroes.splice(state.heroes.indexOf(otro), 1);
+    const segundo = contratar();
+
+    expect(state.day).toBe(dia);
+    expect(segundo.id).not.toBe(primero.id);
+    const contratados = state.log.flatMap((e) => (e.kind === 'hero_hired' ? [e.hero] : []));
+    expect(contratados).toEqual([primero.id, segundo.id]);
+    // Ninguno repite el de nadie que haya estado en juego, tampoco el que salió.
+    expect(new Set([...iniciales, ...contratados]).size).toBe(iniciales.length + 2);
   });
 });
 

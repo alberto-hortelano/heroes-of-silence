@@ -12,7 +12,13 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { armaduraDe } from '../src/core/battle/armas.js';
 import { createBattle, stackById } from '../src/core/battle/battle.js';
-import { cifrasDeUnidad, equipoPuestoDe, unidad, unidadDelJuego } from '../src/core/catalogo.js';
+import {
+  cifrasDeUnidad,
+  equipoPuestoDe,
+  UNIDADES,
+  unidad,
+  unidadDelJuego,
+} from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { RESPONSE_FORMAT } from '../src/core/contract/agent.js';
 import {
@@ -24,6 +30,7 @@ import {
   tipoDeHeroePorDefecto,
 } from '../src/core/data.js';
 import {
+  aDosManos,
   catalogoDeEquipo,
   conEquipo,
   destinoDeEquipo,
@@ -620,6 +627,72 @@ describe('la segunda mano de la tropa: la acción hace lo que dice la pregunta (
     // Lo suyo es solo la segunda; la daga sigue de serie debajo y no va a la mochila.
     expect(hero.army[0]!.veterania?.equipo).toEqual({ segunda: 'espada' });
     expect(equipoPuestoDe(hero, { indice: 0 })).toMatchObject({ arma: 'daga', segunda: 'espada' });
+  });
+});
+
+/**
+ * Lo que mira la regla H4, elegido por lo que es y no por su id: la primera unidad
+ * del catálogo que lleva escudo de serie, la primera arma a dos manos y otro escudo
+ * que ponerle encima del suyo. Lanza si el catálogo no tiene alguno de los tres.
+ */
+function conEscudoDeSerie(): {
+  readonly id: string;
+  readonly deSerie: string;
+  readonly dosManos: (typeof EQUIPO)[number];
+  readonly otroEscudo: (typeof EQUIPO)[number];
+} {
+  const u = UNIDADES.find((x) => x.equipo.escudo !== undefined);
+  const dosManos = EQUIPO.find((p) => p.hueco === 'arma' && aDosManos(p));
+  const deSerie = u?.equipo.escudo;
+  const otroEscudo = EQUIPO.find((p) => p.hueco === 'escudo' && p.id !== deSerie);
+  if (
+    u === undefined ||
+    deSerie === undefined ||
+    dosManos === undefined ||
+    otroEscudo === undefined
+  )
+    throw new Error(
+      'el catálogo no tiene unidad con escudo de serie, arma a dos manos y otro escudo',
+    );
+  return { id: u.id, deSerie, dosManos, otroEscudo };
+}
+
+describe('un arma a dos manos sobre un escudo de serie (QA de la tropa, H4)', () => {
+  it('el motivo no pide quitar el escudo, que es de serie: tampoco con otro encima', () => {
+    const { id, deSerie, dosManos, otroEscudo } = conEscudoDeSerie();
+    const { state, c, hero } = enLaArmeria();
+    hero.army = [{ creature: id }];
+    hero.mochila = [dosManos.id, otroEscudo.id];
+    const motivo = `esa unidad de ${unidadDelJuego(id).name} no admite ${dosManos.nombre}: es un arma a dos manos y su ${pieza(deSerie).nombre} es de serie, que no se quita`;
+    const ponerla: AdventureAction = {
+      type: 'equip',
+      hero: hero.id,
+      item: dosManos.id,
+      creature: id,
+    };
+    expect(equipBlocker(state, 0, ponerla)).toBe(motivo);
+    expect(() => accion(state, ponerla, c)).toThrow(`no se puede equipar: ${motivo}`);
+    // Rechazada, no toca nada.
+    expect(hero.mochila).toEqual([dosManos.id, otroEscudo.id]);
+    expect(hero.army).toEqual([{ creature: id }]);
+    // Con otro escudo suyo encima del de serie, igual: quitarlo deja el de serie.
+    accion(state, { type: 'equip', hero: hero.id, item: otroEscudo.id, creature: id }, c);
+    expect(equipoPuestoDe(hero, { indice: 0 }).escudo).toBe(otroEscudo.id);
+    const veterano = hero.army[0]!.veterania!.id;
+    expect(
+      equipBlocker(state, 0, {
+        type: 'equip',
+        hero: hero.id,
+        item: dosManos.id,
+        veteran: veterano,
+      }),
+    ).toBe(motivo);
+    // Al héroe, cuyo escudo es suyo, sí se le pide quitarlo: la regla de las manos de siempre.
+    hero.equipo = { ...hero.equipo, escudo: otroEscudo.id };
+    hero.mochila = [dosManos.id];
+    expect(equipBlocker(state, 0, { type: 'equip', hero: hero.id, item: dosManos.id })).toBe(
+      `${dosManos.nombre} es un arma a dos manos y no se puede llevar con ${otroEscudo.nombre}: quita antes el escudo`,
+    );
   });
 });
 

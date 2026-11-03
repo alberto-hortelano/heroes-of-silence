@@ -20,6 +20,7 @@ import {
 import { marcadoDe } from '../src/client/html.js';
 import { renderEleccion, tramosDelDesenlace } from '../src/client/rueda/rueda.js';
 import { SesionDeArena } from '../src/client/session.js';
+import { renderBattleLog } from '../src/client/views/panels.js';
 import { completarCruce, elegirEnLaRueda, pasoDelCruce } from '../src/core/ai/rueda.js';
 import { autoResolve } from '../src/core/ai/tactics.js';
 import type { FuenteDeArena } from '../src/core/arena.js';
@@ -37,10 +38,20 @@ import {
   soltarElGolpe,
   stackById,
 } from '../src/core/battle/battle.js';
-import { cifrasDeLosNiveles, golpesDelTipo } from '../src/core/battle/cifras-de-la-rueda.js';
-import { effectiveAttack, effectiveDefense, stackHp } from '../src/core/battle/damage.js';
+import {
+  cifrasDeLosNiveles,
+  golpesDelTipo,
+  type Punto,
+} from '../src/core/battle/cifras-de-la-rueda.js';
+import {
+  damageMultiplier,
+  effectiveAttack,
+  effectiveDefense,
+  stackHp,
+} from '../src/core/battle/damage.js';
 import {
   casillasQueQuitaLaFinta,
+  contraataqueDelCruce,
   dichoDelCiclo,
   dichoDelCruce,
   efectoDeGolpe,
@@ -331,6 +342,350 @@ describe('la respuesta no da bonificadores (#263): solo Fuerte y Rápido cambian
       expect(activeStack(b)?.id, respuesta).toBe('defender-0');
       expect(b.turno?.finta, respuesta).toBeUndefined();
     }
+  });
+});
+
+/**
+ * Los niveles del arma de las pruebas de los efectos: de la prueba, no de un arma
+ * del catálogo. Lo que da cada nivel sale de `data/rueda.json` por el núcleo
+ * (`cifrasDeLosNiveles`): lo que se prueba es que el golpe deja eso, con su éxito y
+ * su caducidad, no cuánto es.
+ */
+const NIVELES_DE_PRUEBA: NivelesDeLaRueda = {
+  ofensivo: 2,
+  fuerte: 4,
+  finta: 3,
+  defensivo: 5,
+  rapido: 1,
+  romperGuardia: 6,
+};
+const DE_PRUEBA = cifrasDeLosNiveles(NIVELES_DE_PRUEBA);
+
+/** Diez piqueros contra diez, pegados, con las manos de los niveles de prueba. */
+const conNivelesDePrueba = (o: { readonly combate?: ReglasDelCombate } = {}) =>
+  enRueda(piqueros(10), piqueros(10), { niveles: NIVELES_DE_PRUEBA, ...o });
+
+/** El primer cruce del registro de `b`. */
+function cruceDe(b: BattleState): Extract<BattleEvent, { kind: 'cruce' }> {
+  const e = b.log.find((x) => x.kind === 'cruce');
+  if (e?.kind !== 'cruce') throw new Error('sin cruce en el registro');
+  return e;
+}
+
+/**
+ * El contraataque de un piquero de `PIQUERO_A_MANO` en el punto `p`, con lo que le
+ * quede al que contraataca (`cuantos`) y su ataque y la defensa del otro: la tirada
+ * del punto por los individuos y por ataque contra defensa, redondeada.
+ */
+const contraataqueDePiqueros = (p: Punto, cuantos: number, ataque: number, defensa: number) => {
+  const [min, max] = PIQUERO_A_MANO.damage;
+  return Math.max(
+    1,
+    Math.round(tiradaDelPunto(min, max, p) * cuantos * damageMultiplier(ataque, defensa)),
+  );
+};
+
+describe('los efectos del golpe (#263): Defensivo hasta que empiece su turno, Romper guardia por éxito', () => {
+  it('Defensivo pone la defensa de su nivel ya en el contraataque, y se va al empezar su próximo turno', () => {
+    const { b, rng } = conNivelesDePrueba();
+    const yo = stackById(b, 'attacker-0');
+    const antes = effectiveDefense(yo);
+    const defensa = DE_PRUEBA.defensivo.defensa;
+    expect(defensa).toBeGreaterThan(0);
+    applyAction(b, golpeConLaRueda('defensivo', 'normal'), rng);
+    expect(yo.effects).toEqual([
+      expect.objectContaining({ kind: 'defense', amount: defensa, source: 'defensivo' }),
+    ]);
+    expect(effectiveDefense(yo)).toBe(antes + defensa);
+    expect(b.log).toContainEqual(
+      expect.objectContaining({ kind: 'effect', source: 'defensivo', vence: 'empezar' }),
+    );
+    // El contraataque ya la cuenta: con la defensa de antes más la del Defensivo.
+    const el = stackById(b, 'defender-0');
+    const contra = ataquesDe(b).find((a) => a.retaliation);
+    expect(contra?.damage).toBe(
+      contraataqueDePiqueros(
+        puntoDelContraataque(cruceDe(b).punto),
+        el.count,
+        effectiveAttack(el),
+        antes + defensa,
+      ),
+    );
+    // Sigue en el turno del rival, y se va al empezar el suyo, antes de que juegue.
+    expect(activeStack(b)?.id).toBe('defender-0');
+    expect(effectiveDefense(yo)).toBe(antes + defensa);
+    const largo = b.log.length;
+    applyAction(b, { type: 'end_turn' }, rng);
+    expect(activeStack(b)?.id).toBe('attacker-0');
+    expect(yo.effects).toEqual([]);
+    expect(effectiveDefense(yo)).toBe(antes);
+    expect(b.log.slice(largo)).toContainEqual({
+      kind: 'effect_end',
+      stack: 'attacker-0',
+      source: 'defensivo',
+    });
+  });
+
+  it('Romper guardia quita lo de su nivel según el éxito del cruce, ya en el contraataque', () => {
+    const quitado = new Set<number>();
+    // Las respuestas que no cambian el contraataque (Fuerte y Rápido lo multiplican):
+    // dan los cinco éxitos.
+    const respuestas = TIPOS_DE_GOLPE.filter((r) => r !== 'fuerte' && r !== 'rapido');
+    expect(new Set(respuestas.map((r) => puntoDelCruce('romperGuardia', r))).size).toBe(5);
+    for (const respuesta of respuestas) {
+      const que = `Romper guardia contra ${respuesta}`;
+      const { b, rng } = conNivelesDePrueba();
+      const el = stackById(b, 'defender-0');
+      const antes = effectiveAttack(el);
+      applyAction(b, golpeConLaRueda('romperGuardia', respuesta), rng);
+      const { punto } = cruceDe(b);
+      expect(punto, que).toBe(puntoDelCruce('romperGuardia', respuesta));
+      const quita = DE_PRUEBA.romperGuardia.ataque[punto];
+      quitado.add(quita);
+      expect(effectiveAttack(el), que).toBe(antes + quita);
+      // El contraataque, con el ataque ya rebajado.
+      const yo = stackById(b, 'attacker-0');
+      expect(ataquesDe(b).find((a) => a.retaliation)?.damage, que).toBe(
+        contraataqueDePiqueros(
+          puntoDelContraataque(punto),
+          el.count,
+          antes + quita,
+          effectiveDefense(yo),
+        ),
+      );
+      const efectos = b.log.flatMap((e, i) => (e.kind === 'effect' ? [{ e, i }] : []));
+      if (quita === 0) {
+        // Con 0 no se cuelga nada.
+        expect(efectos, que).toEqual([]);
+        expect(el.effects, que).toEqual([]);
+        continue;
+      }
+      expect(
+        efectos.map((x) => x.e),
+        que,
+      ).toEqual([
+        expect.objectContaining({
+          stack: 'defender-0',
+          effect: 'attack',
+          amount: quita,
+          source: 'romperGuardia',
+          vence: 'terminar',
+        }),
+      ]);
+      // Entre el golpe y el contraataque.
+      const [golpeI, contraI] = b.log.flatMap((e, i) => (e.kind === 'attack' ? [i] : []));
+      const i = efectos[0]?.i ?? -1;
+      expect(golpeI !== undefined && i > golpeI && contraI !== undefined && i < contraI, que).toBe(
+        true,
+      );
+      // Quien pega, nada.
+      expect(yo.effects, que).toEqual([]);
+    }
+    // Que el test mire más de un éxito distinto: con estos niveles no todo quita lo mismo.
+    expect(quitado.size).toBeGreaterThan(1);
+  });
+
+  it('Romper guardia sigue en el próximo turno del atacado y se va al terminarlo', () => {
+    const { b, rng } = conNivelesDePrueba();
+    const el = stackById(b, 'defender-0');
+    const antes = effectiveAttack(el);
+    applyAction(b, golpeConLaRueda('romperGuardia', 'defensivo'), rng);
+    const quita = DE_PRUEBA.romperGuardia.ataque[cruceDe(b).punto];
+    expect(quita).toBeLessThan(0);
+    expect(activeStack(b)?.id).toBe('defender-0');
+    expect(effectiveAttack(el)).toBe(antes + quita);
+    const largo = b.log.length;
+    applyAction(b, { type: 'end_turn' }, rng);
+    expect(el.effects).toEqual([]);
+    expect(effectiveAttack(el)).toBe(antes);
+    expect(b.log.slice(largo)).toContainEqual({
+      kind: 'effect_end',
+      stack: 'defender-0',
+      source: 'romperGuardia',
+    });
+  });
+
+  it('dos Romper guardia seguidos refrescan, no se suman: queda el último', () => {
+    const { b, rng } = conNivelesDePrueba();
+    const el = stackById(b, 'defender-0');
+    const antes = effectiveAttack(el);
+    applyAction(b, golpeConLaRueda('romperGuardia', 'normal'), rng);
+    const primero = DE_PRUEBA.romperGuardia.ataque[cruceDe(b).punto];
+    expect(effectiveAttack(el)).toBe(antes + primero);
+    // Otro turno del atacante (a mano), y otro Romper guardia con otro éxito.
+    b.turno = { n: 50, stack: 'attacker-0', gastado: 0 };
+    const largo = b.log.length;
+    applyAction(b, golpeConLaRueda('romperGuardia', 'finta'), rng);
+    const segundo = b.log.slice(largo).find((e) => e.kind === 'cruce');
+    if (segundo?.kind !== 'cruce') throw new Error('sin segundo cruce');
+    const ultimo = DE_PRUEBA.romperGuardia.ataque[segundo.punto];
+    expect(ultimo).not.toBe(primero);
+    expect(el.effects).toEqual([
+      expect.objectContaining({
+        kind: 'attack',
+        amount: ultimo,
+        source: 'romperGuardia',
+        hasta: { turno: 50, al: 'terminar' },
+      }),
+    ]);
+    expect(effectiveAttack(el)).toBe(antes + ultimo);
+  });
+
+  it('sin contraataque, Romper guardia quita ataque igual: para su próximo turno', () => {
+    const { b, rng } = conNivelesDePrueba();
+    const el = stackById(b, 'defender-0');
+    const antes = effectiveAttack(el);
+    el.retaliated = true;
+    applyAction(b, golpeConLaRueda('romperGuardia', 'finta'), rng);
+    expect(ataquesDe(b).filter((a) => a.retaliation)).toEqual([]);
+    const quita = DE_PRUEBA.romperGuardia.ataque[cruceDe(b).punto];
+    expect(quita).toBeLessThan(0);
+    expect(effectiveAttack(el)).toBe(antes + quita);
+  });
+});
+
+describe('la Finta deja andar después de golpear (#263)', () => {
+  /**
+   * Golpea con Finta contra `respuesta` tras haber andado `andado` casillas (a
+   * mano), con una Prisa de +2 puesta a mano para que le quede de sobra. Devuelve lo
+   * que le quedaba antes de golpear, lo que resta su nivel con el éxito que cayó y el
+   * turno del golpe, que sigue diciendo lo que restó la Finta aunque se haya cerrado.
+   */
+  function conFinta(respuesta: TipoDeGolpe, andado = 0) {
+    const { b, rng } = conNivelesDePrueba();
+    const yo = stackById(b, 'attacker-0');
+    yo.effects = [{ kind: 'speed', amount: 2, source: 'haste', roundsLeft: 5 }];
+    const turno = b.turno;
+    if (turno === null) throw new Error('nadie tiene el turno');
+    turno.gastado = andado;
+    const quedaban = pasosQueQuedan(b, yo);
+    applyAction(b, golpeConLaRueda('finta', respuesta), rng);
+    const resta = DE_PRUEBA.finta.casillas[cruceDe(b).punto];
+    return { b, rng, yo, turno, quedaban, resta };
+  }
+  /** La respuesta que deja la Finta en el éxito máximo: la que menos le resta. */
+  const MEJOR = TIPOS_DE_GOLPE.find((r) => puntoDelCruce('finta', r) === 4) as TipoDeGolpe;
+  /** Y la del mínimo: la que más le resta. */
+  const PEOR = TIPOS_DE_GOLPE.find((r) => puntoDelCruce('finta', r) === 0) as TipoDeGolpe;
+
+  it('sin andar antes: le queda su velocidad menos lo del éxito, y solo puede andar o terminar', () => {
+    const { b, rng, yo, quedaban, resta } = conFinta(MEJOR);
+    expect(quedaban - resta).toBeGreaterThan(0);
+    expect(activeStack(b)?.id).toBe('attacker-0');
+    expect(b.turno?.finta).toBe(resta);
+    expect(b.turno?.gastado).toBe(0);
+    expect(pasosQueQuedan(b, yo)).toBe(quedaban - resta);
+    // La Finta no le quita nada a nadie.
+    expect(b.log.filter((e) => e.kind === 'effect')).toEqual([]);
+    const legales = legalActions(b);
+    expect(new Set(legales.map((a) => a.type))).toEqual(new Set(['move', 'end_turn']));
+    // Lo demás lanza con el motivo, sin tocar nada.
+    const largo = b.log.length;
+    for (const otra of [
+      { type: 'attack', target: 'defender-0' },
+      { type: 'attack', target: 'defender-0', golpe: 'fuerte', respuesta: 'normal' },
+      { type: 'surrender' },
+    ] satisfies BattleAction[]) {
+      expect(() => applyAction(b, otra, rng), JSON.stringify(otra)).toThrow(
+        'attacker-0: tras golpear con Finta solo puede andar o terminar el turno',
+      );
+    }
+    expect(b.log.length).toBe(largo);
+    // Andar cierra el turno, aunque le quede.
+    const paso = legales.find((a) => a.type === 'move');
+    if (paso === undefined) throw new Error('tras la Finta no sale ninguna casilla');
+    applyAction(b, paso, rng);
+    expect(b.log.slice(largo)[0]).toMatchObject({ kind: 'move', stack: 'attacker-0' });
+    expect(activeStack(b)?.id).toBe('defender-0');
+  });
+
+  it('después de andar: lo que le queda menos lo del éxito', () => {
+    const { b, yo, quedaban, resta } = conFinta(MEJOR, 1);
+    expect(quedaban - resta).toBeGreaterThan(0);
+    expect(activeStack(b)?.id).toBe('attacker-0');
+    expect(b.turno?.gastado).toBe(1);
+    expect(pasosQueQuedan(b, yo)).toBe(quedaban - resta);
+  });
+
+  it('cada éxito resta lo de su nivel: el del cruce, no otro', () => {
+    const restas = new Set<number>();
+    for (const respuesta of TIPOS_DE_GOLPE) {
+      const { turno, resta } = conFinta(respuesta);
+      expect(turno.finta, `Finta contra ${respuesta}`).toBe(resta);
+      restas.add(resta);
+    }
+    expect(restas.size).toBeGreaterThan(1);
+  });
+
+  it('sin casillas que andar, el turno se cierra solo y no sale nada', () => {
+    // Lo andado antes deja justo lo que resta la Finta en el éxito mínimo.
+    const { b: sinNada } = conNivelesDePrueba();
+    const yo = stackById(sinNada, 'attacker-0');
+    yo.effects = [{ kind: 'speed', amount: 2, source: 'haste', roundsLeft: 5 }];
+    const todo = pasosQueQuedan(sinNada, yo);
+    const andado = Math.max(0, todo - DE_PRUEBA.finta.casillas[0]);
+    const { b, turno, quedaban, resta } = conFinta(PEOR, andado);
+    expect(quedaban).toBeLessThanOrEqual(resta);
+    expect(turno.finta).toBe(resta);
+    expect(activeStack(b)?.id).toBe('defender-0');
+    expect(b.turno?.n).not.toBe(turno.n);
+    // Y si la pelea acaba con el golpe, se cierra: no hay tramo que andar.
+    const fin = enRueda(piqueros(10), piqueros(1), { niveles: NIVELES_DE_PRUEBA });
+    applyAction(fin.b, golpeConLaRueda('finta', MEJOR), fin.rng);
+    expect(fin.b.finished).toEqual({ winner: 'attacker' });
+    expect(fin.b.turno).toBeNull();
+  });
+});
+
+describe('el parte cuenta el cruce', () => {
+  it('«Romper guardia contra Defensivo: alto; contraataque bajo», con lo que dejó y su duración', () => {
+    const { b, rng } = conNivelesDePrueba();
+    applyAction(b, golpeConLaRueda('romperGuardia', 'defensivo'), rng);
+    const i = b.log.findIndex((e) => e.kind === 'cruce');
+    // Romper guardia contra Defensivo cae en el alto (3) y el contraataque en el bajo (1).
+    expect(cruceDe(b).punto).toBe(3);
+    expect(contraataqueDelCruce(b.log, i)).toBe(1);
+    const parte = marcadoDe(renderBattleLog(b, null));
+    expect(parte).toContain('Romper guardia contra Defensivo: alto; contraataque bajo');
+    expect(parte).toContain(
+      `Romper guardia sobre Piquero, del defensor: ataque ${DE_PRUEBA.romperGuardia.ataque[3]} hasta que termine su próximo turno`,
+    );
+    const d = conNivelesDePrueba();
+    applyAction(d.b, golpeConLaRueda('defensivo', 'normal'), d.rng);
+    expect(marcadoDe(renderBattleLog(d.b, null))).toContain(
+      `Defensivo sobre Piquero, del atacante: defensa +${DE_PRUEBA.defensivo.defensa} hasta que empiece su próximo turno`,
+    );
+  });
+
+  it('sin contraataque, el cruce no lo nombra', () => {
+    const { b, rng } = enRueda(piqueros(10), piqueros(1), { niveles: NIVELES_DE_PRUEBA });
+    applyAction(b, golpeConLaRueda('fuerte', 'rapido'), rng);
+    // El piquero solo cae: no hay contraataque que contar.
+    expect(stackById(b, 'defender-0').count).toBe(0);
+    expect(
+      contraataqueDelCruce(
+        b.log,
+        b.log.findIndex((e) => e.kind === 'cruce'),
+      ),
+    ).toBeNull();
+    expect(marcadoDe(renderBattleLog(b, null))).toContain('Fuerte contra Rápido: máximo</div>');
+  });
+
+  it('nombra el efecto como la rueda de la batalla: en la de 3, el «Rápido» que quita ataque dice «Rápido»', () => {
+    const { b, rng } = conNivelesDePrueba({ combate: { tope: 7, rueda: 3 } });
+    applyAction(b, golpeConLaRueda('rapidoRomper', 'defensivoFinta'), rng);
+    // Rápido gana a Defensivo: máximo, y su parte de Romper guardia quita a la mitad.
+    const quita = efectoDelTipo('rapidoRomper', DE_PRUEBA).quitaAtaque[4];
+    expect(quita).toBeLessThan(0);
+    expect(stackById(b, 'defender-0').effects).toEqual([
+      expect.objectContaining({ kind: 'attack', amount: quita, source: 'rapidoRomper' }),
+    ]);
+    const parte = marcadoDe(renderBattleLog(b, null));
+    expect(parte).toContain('Rápido contra Defensivo: máximo');
+    expect(parte).toContain(
+      `Rápido sobre Piquero, del defensor: ataque ${quita} hasta que termine su próximo turno`,
+    );
+    expect(parte).not.toContain('Romper guardia');
   });
 });
 

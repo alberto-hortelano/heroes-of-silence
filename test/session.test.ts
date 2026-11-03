@@ -12,8 +12,9 @@ import { marcadoDe } from '../src/client/html.js';
 import { renderEleccion } from '../src/client/rueda/rueda.js';
 import { AYUDA_DEL_MAPA, Session } from '../src/client/session.js';
 import { renderActions, renderSide } from '../src/client/views/panels.js';
-import { terminarElDespliegue } from '../src/core/battle/battle.js';
+import { poderBlocker, terminarElDespliegue } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
+import { unidadesDelJuego } from '../src/core/catalogo.js';
 import { combateCon } from '../src/core/combate.js';
 import { armyLeadership, GARRISON_LEADERSHIP } from '../src/core/hero/troop.js';
 import { Casillas } from '../src/core/map/casillas.js';
@@ -23,10 +24,11 @@ import { applyAdventureAction, HERO_SCOUT_RADIUS, heroesOf } from '../src/core/s
 import { newGame } from '../src/core/state/setup.js';
 import { dwellings } from '../src/core/town/town.js';
 import type { Hex, UnitInfo } from '../src/core/types.js';
-import { sesionContraMonstruo } from './batalla-de-cliente.js';
+import { sesionAntesDelMonstruo, sesionContraMonstruo } from './batalla-de-cliente.js';
 import {
   anteLaBase,
   costesDelAlcance,
+  ejercito,
   fueraDeSuBase,
   hastaQue,
   pegadoA,
@@ -465,6 +467,61 @@ describe('la pieza elegida es de la mochila de un héroe (M1)', () => {
     session.selectItem(gambeson);
     aldo.mochila = [];
     expect(session.selectedItem).toBeNull();
+  });
+});
+
+describe('los poderes de la tropa en la batalla del mapa (F6)', () => {
+  it('una unidad con poder de la persona lo usa: el botón, el aliado que se elige y la jugada', () => {
+    // Hasta F6 el panel de la partida decía «su tropa no tiene poderes» aunque la
+    // unidad los trajera. Ahora son los botones de la arena (`botonesDePoder`) y el
+    // gesto, el mismo (`PoderesDeLaActiva`). La unidad, la primera del catálogo con
+    // un poder; el poder, el suyo.
+    const conPoder = unidadesDelJuego().find((u) => (u.poderes?.length ?? 0) > 0);
+    if (conPoder === undefined) throw new Error('ninguna unidad del catálogo tiene un poder');
+    const poder = conPoder.poderes![0]!;
+    const { s, at } = sesionAntesDelMonstruo();
+    s.selectedHero!.army = ejercito({ creature: conPoder.id, count: 3 });
+    s.clickTile(at);
+    s.despliegue.listoTalCual();
+    if (s.battle === null) throw new Error('con ese ejército no se abre la batalla');
+    // Los suyos, heridos de salida: con más de un aliado sobre el que usarlo, el
+    // botón espera el clic.
+    for (const x of s.battle.stacks) {
+      if (x.side === s.miBando && x.origen.kind !== 'heroe') x.topHp -= 1;
+    }
+    const conPoderes = () => (s.turnoPropio?.stack.unit.poderes?.length ?? 0) > 0;
+    for (let i = 0; i < 40 && !conPoderes(); i++) {
+      if (s.ruedaPendiente !== null) s.elegirEnLaRueda(unoDeLaRueda(s.battle));
+      else if (s.turnoPropio !== null) s.playBattleAction({ type: 'end_turn' });
+      else throw new Error('ni le toca a la persona ni espera la rueda');
+    }
+    expect(conPoderes()).toBe(true);
+    const panel = marcadoDe(renderSide(s));
+    expect(panel).toContain(`data-action="battle-poder" data-poder="${poder}"`);
+
+    // Con varios aliados posibles, el botón deja el poder esperando el clic.
+    const aliados = s.battleLegalActions().filter((a) => a.type === 'power' && a.poder === poder);
+    expect(aliados.length).toBeGreaterThan(1);
+    const version = s.version;
+    s.poderes.usar(poder);
+    expect(s.apuntado).toEqual({ kind: 'poder', id: poder });
+    expect(s.status).toContain('Elige el aliado');
+    expect(s.version).toBeGreaterThan(version);
+    expect(marcadoDe(renderSide(s))).toContain(`data-poder="${poder}" class="poder primary"`);
+    // Un enemigo no vale, y lo dice el núcleo.
+    const enemigo = s.battle.stacks.find((x) => x.side !== s.miBando && x.count > 0)!;
+    const motivo = poderBlocker(s.battle, poder, enemigo.id);
+    expect(motivo).not.toBeNull();
+    // Dicho como frase de la barra: con mayúscula y punto.
+    expect(s.rechazoDeLoApuntado(enemigo.id)).toBe(
+      `${motivo!.charAt(0).toUpperCase()}${motivo!.slice(1)}.`,
+    );
+    // Y sobre un aliado se juega: el registro lo cuenta y lo apuntado se suelta.
+    const quien = s.turnoPropio!.stack.id;
+    s.playBattleAction(aliados[0]!);
+    const hecho = s.battle.log.find((e) => e.kind === 'power');
+    expect(hecho).toMatchObject({ kind: 'power', stack: quien, poder });
+    expect(s.apuntado).toBeNull();
   });
 });
 

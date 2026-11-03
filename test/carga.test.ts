@@ -12,17 +12,38 @@ import { batallaDeArena } from '../src/core/arena.js';
 import {
   applyAction,
   casillasDeCarga,
+  createBattle,
   soltarElGolpe,
   stackById,
   stackSpeed,
 } from '../src/core/battle/battle.js';
-import { CARGA_MINIMA, cargaMontada, validarCarga } from '../src/core/battle/carga.js';
+import {
+  CARGA,
+  CARGA_MINIMA,
+  cargaEfectiva,
+  cargaMontada,
+  dichoDeLaCarga,
+  validarCarga,
+} from '../src/core/battle/carga.js';
+import { horquillaDeDanio } from '../src/core/battle/damage.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
+import { cuerpoConSusCifras } from '../src/core/cuerpo.js';
+import type { Pieza } from '../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
-import type { Hex } from '../src/core/types.js';
+import type { Equipo, Hex, UnitInfo } from '../src/core/types.js';
 import { unidadDeCombate } from '../src/core/unidad.js';
-import { delBorrador, forzarTurno, MONTAJE, NORMAL, unidadDeArena } from './helpers.js';
+import { bandoDe } from './batalla-de-prueba.js';
+import {
+  catalogoCon,
+  delBorrador,
+  forzarTurno,
+  MONTAJE,
+  NORMAL,
+  todoA,
+  unidadDeArena,
+} from './helpers.js';
 
 const A_PIE = 'templario-escudo';
 const JINETE = 'templario-hermano-de-carga';
@@ -98,6 +119,141 @@ describe('las cifras de la carga (`data/carga.json`)', () => {
     const { montura: _caballo, ...aPie } = unidadDeArena(JINETE).equipo;
     expect(cargaMontada(conEquipo(JINETE, aPie))).toBe(false);
     expect(cargaMontada(conEquipo(JINETE, { ...aPie, montura: 'caballo_de_silla' }))).toBe(false);
+  });
+});
+
+describe('la carga montada pega con la fuerza de la montura (26-10-2026)', () => {
+  // Todo de la prueba, sin el catálogo: un jinete de fuerza 2 y agilidad 4, una lanza
+  // de fuerza 3, una espada de fuerza 1 y una montura de guerra de fuerza 9. Nada pesa,
+  // así que la agilidad no cambia con lo puesto y la horquilla se lee en las cifras.
+  const pieza = (p: Partial<Pieza> & Pick<Pieza, 'id' | 'hueco'>): Pieza => ({
+    nombre: p.id,
+    seConsigue: [],
+    ataque: 0,
+    defensa: 0,
+    peso: 0,
+    precio: 0,
+    ...p,
+  });
+  const LANZA = pieza({
+    id: 'lanza_de_prueba',
+    hueco: 'arma',
+    lanza: true,
+    fuerza: 3,
+    rueda: todoA(3),
+  });
+  const ESPADA = pieza({ id: 'espada_de_prueba', hueco: 'arma', fuerza: 1, rueda: todoA(3) });
+  const DE_GUERRA = pieza({
+    id: 'montura_de_prueba',
+    hueco: 'montura',
+    guerra: true,
+    fuerza: 9,
+    agilidad: 6,
+  });
+  const EQ = catalogoCon(LANZA, ESPADA, DE_GUERRA);
+  const JINETE_FUERZA = 2;
+  const JINETE_AGILIDAD = 4;
+
+  /** Un cuerpo de la prueba con `fuerza`, vestido con `equipo` del catálogo de la prueba. */
+  const vestido = (fuerza: number, equipo: Equipo): UnitInfo =>
+    EQ.conEquipo(
+      cuerpoConSusCifras({
+        name: 'Jinete de prueba',
+        faction: null,
+        attack: 4,
+        fuerza,
+        agilidad: JINETE_AGILIDAD,
+        defensaPropia: 0,
+        hp: 100,
+      }),
+      equipo,
+    );
+  const RIVAL = EQ.conEquipo(
+    cuerpoConSusCifras({
+      name: 'Rival de prueba',
+      faction: null,
+      attack: 2,
+      fuerza: 3,
+      agilidad: 2,
+      defensaPropia: 0,
+      hp: 5000,
+    }),
+    { arma: ESPADA.id },
+  );
+
+  /** `quien` en (0,4) y el rival en (`recta` + 1, 4), con el turno de `quien`. */
+  const enRectaDe = (quien: UnitInfo, recta: number): { b: BattleState; desde: Hex } => {
+    const b = createBattle(
+      bandoDe([{ id: 'quien', unit: quien }]),
+      bandoDe([{ id: 'rival', unit: RIVAL }]),
+      createRng(1),
+      COMBATE_COMPLETO,
+    );
+    colocar(b, 'attacker-0', recta);
+    return { b, desde: { col: recta, row: 4 } };
+  };
+
+  /** La horquilla de la carga desde `recta` y el golpe que la cobra, con Normal contra Normal. */
+  const cargando = (quien: UnitInfo, recta = CARGA_MINIMA) => {
+    const { b, desde } = enRectaDe(quien, recta);
+    const h = horquillaDeDanio(stackById(b, 'attacker-0'), stackById(b, 'defender-0'), {
+      chargeHexes: recta,
+    });
+    applyAction(b, { type: 'attack', target: 'defender-0', from: desde, ...NORMAL }, createRng(2));
+    return { h, golpe: golpeDe(b) };
+  };
+
+  it('montado de guerra con lanza, la carga tira con la fuerza de la montura más la de la lanza, por la agilidad del jinete', () => {
+    const jinete = vestido(JINETE_FUERZA, { arma: LANZA.id, montura: DE_GUERRA.id });
+    expect(cargaMontada(jinete)).toBe(true);
+    const F = (DE_GUERRA.fuerza ?? 0) + (LANZA.fuerza ?? 0);
+    expect(jinete.armas?.arma?.carga).toEqual([F, F * JINETE_AGILIDAD]);
+    // Lo mismo que carga a pie quien tuviera de suyo la fuerza de la montura: la
+    // misma horquilla, el mismo golpe; solo cambia que la carga se dice montada.
+    const comoLaMontura = vestido(DE_GUERRA.fuerza ?? 0, { arma: LANZA.id });
+    expect(comoLaMontura.damage).toEqual([F, F * JINETE_AGILIDAD]);
+    const montado = cargando(jinete);
+    const aPie = cargando(comoLaMontura);
+    expect(montado.h.danio).toEqual(aPie.h.danio);
+    expect(montado.golpe.damage).toBe(aPie.golpe.damage);
+    const cobradas = cargaEfectiva(CARGA_MINIMA, CARGA);
+    expect(montado.golpe.charge).toBe(cobradas);
+    expect(montado.h.modificadores.map((m) => m.causa)).toContain(
+      dichoDeLaCarga(cobradas, true, false),
+    );
+    expect(aPie.h.modificadores.map((m) => m.causa)).toContain(
+      dichoDeLaCarga(cobradas, false, false),
+    );
+  });
+
+  it('sin carga, el golpe del jinete montado no lleva la fuerza de la montura', () => {
+    const montado = vestido(JINETE_FUERZA, { arma: LANZA.id, montura: DE_GUERRA.id });
+    const F = JINETE_FUERZA + (LANZA.fuerza ?? 0);
+    expect(montado.damage).toEqual([F, F * JINETE_AGILIDAD]);
+    // Pegado de salida (sin recta): el mismo golpe que a pie.
+    const golpe = (quien: UnitInfo) => {
+      const { b } = enRectaDe(quien, 0);
+      applyAction(b, { type: 'attack', target: 'defender-0', ...NORMAL }, createRng(2));
+      return golpeDe(b);
+    };
+    const conMontura = golpe(montado);
+    expect(conMontura.charge).toBeUndefined();
+    expect(conMontura.damage).toBe(golpe(vestido(JINETE_FUERZA, { arma: LANZA.id })).damage);
+  });
+
+  it('montado sin lanza, o a pie con ella, la carga va con la horquilla de su arma', () => {
+    for (const equipo of [
+      { arma: ESPADA.id, montura: DE_GUERRA.id },
+      { arma: LANZA.id },
+    ] satisfies Equipo[]) {
+      const quien = vestido(JINETE_FUERZA, equipo);
+      expect(cargaMontada(quien), JSON.stringify(equipo)).toBe(false);
+      expect(quien.armas?.arma?.carga, JSON.stringify(equipo)).toBeUndefined();
+      // La horquilla de la carga es la de su golpe con el factor de la carga: la de un
+      // cuerpo a pie con su misma arma y su misma fuerza.
+      const igual = vestido(JINETE_FUERZA, { arma: equipo.arma });
+      expect(cargando(quien).h.danio, JSON.stringify(equipo)).toEqual(cargando(igual).h.danio);
+    }
   });
 });
 

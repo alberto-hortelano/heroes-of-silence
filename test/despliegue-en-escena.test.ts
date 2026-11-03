@@ -10,14 +10,22 @@ import { describe, expect, it } from 'vitest';
 import { renderPanelDeBatalla } from '../src/client/arena/paneles.js';
 import { marcadoDe } from '../src/client/html.js';
 import { centroHex, planoDeHex } from '../src/client/render/proyeccion.js';
+import { Session } from '../src/client/session.js';
 import { renderSide } from '../src/client/views/panels.js';
+import { fuerzaDe, poderDe, ventajaClara } from '../src/core/ai/fuerza.js';
 import { activeStack } from '../src/core/battle/battle.js';
 import { hexEquals, hexKey } from '../src/core/battle/board.js';
 import { zonaDeSalida } from '../src/core/battle/despliegue.js';
 import { type MurallaDeBatalla, validarMuralla } from '../src/core/battle/muralla.js';
 import type { BattleState, Side } from '../src/core/battle/types.js';
+import { unidadesDelJuego } from '../src/core/catalogo.js';
+import { isEnterable, objectAt, pointKey } from '../src/core/map/map.js';
+import { estructura } from '../src/core/map/regiones.js';
+import { type Raider, regionDeCasilla } from '../src/core/state/asaltantes.js';
+import { caminoHasta } from '../src/core/state/game.js';
+import type { Point } from '../src/core/types.js';
 import { sesionContraMonstruoAlDesplegar } from './batalla-de-cliente.js';
-import { escenaDeBatalla, sesionDeArena, unidadDeArena } from './helpers.js';
+import { escenaDeBatalla, fueraDeSuBase, sesionDeArena, unidadDeArena } from './helpers.js';
 
 /** Los ids de los vivos de `side` en `b`. */
 const delBando = (b: BattleState, side: Side): string[] =>
@@ -109,6 +117,102 @@ describe('el atacante despliega viendo al defensor', () => {
     s.autoResolveBattle();
     expect(s.battle).toBeNull();
     expect(s.scene).not.toBe('battle');
+  });
+});
+
+describe('el defensor despliega sin ver al atacante, en la partida', () => {
+  /**
+   * La persona da un paso y la embosca un grupo plantado en la región que pisa: un
+   * grupo de la unidad más fuerte del catálogo, del tamaño justo para sacarle el
+   * margen (`ventajaClara`, la regla de `emboscador`). Es una batalla del mapa en la
+   * que la persona defiende, y nace en su propio turno, sin esperar a lo que decida
+   * la IA. La primera semilla en que el héroe, junto a su base, tiene un paso así.
+   */
+  function emboscada(): Session {
+    const porPoder = (id: string) => poderDe({ troops: [{ creature: id, count: 1 }] });
+    const ids = unidadesDelJuego().map((u) => u.id);
+    const fuerte = [...ids].sort((a, b) => porPoder(b) - porPoder(a))[0]!;
+    const flojo = [...ids].sort((a, b) => porPoder(a) - porPoder(b))[0]!;
+    for (let semilla = 1; semilla <= 40; semilla++) {
+      const s = new Session(semilla);
+      const st = s.state;
+      const hero = fueraDeSuBase(st, 0);
+      if (s.selectedHero?.id !== hero.id) continue;
+      hero.army = [{ creature: flojo }];
+      st.raiders = [];
+      const { regionDe } = estructura(st.map);
+      const W = st.map.width;
+      for (const [dx, dy] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]) {
+        const paso = { x: hero.at.x + dx!, y: hero.at.y + dy! };
+        if (!isEnterable(st.map, paso) || objectAt(st.map, paso) !== undefined) continue;
+        if (caminoHasta(st, hero, paso)?.length !== 1) continue;
+        const region = regionDeCasilla(st.map, paso);
+        if (region < 0) continue;
+        let donde: Point | null = null;
+        for (let i = 0; i < regionDe.length && donde === null; i++) {
+          const q = { x: i % W, y: Math.floor(i / W) };
+          if (regionDe[i] !== region || pointKey(q) === pointKey(paso)) continue;
+          if (pointKey(q) === pointKey(hero.at) || !isEnterable(st.map, q)) continue;
+          if (objectAt(st.map, q) === undefined) donde = q;
+        }
+        if (donde === null) continue;
+        const suya = fuerzaDe(hero, st.characters);
+        let troops: Raider['troops'] | null = null;
+        for (let count = 1; count <= 6 && troops === null; count++) {
+          const grupo = [{ creature: fuerte, count }];
+          if (ventajaClara(poderDe({ troops: grupo }), suya)) troops = grupo;
+        }
+        if (troops === null) continue;
+        st.raiders = [{ id: 'grupo-de-prueba', at: donde, troops }];
+        s.clickTile(paso);
+        if (s.battle === null || s.state.pendingBattle?.attacker.kind !== 'raider')
+          throw new Error(`pisar (${paso.x},${paso.y}) no abrió la emboscada`);
+        return s;
+      }
+    }
+    throw new Error('en 40 semillas el héroe junto a su base no tiene un paso a una región');
+  }
+
+  it('abre en la tanda del defensor: ni figuras, ni lista, ni pista del rival', () => {
+    const s = emboscada();
+    const b = s.battle!;
+    expect(s.scene).toBe('battle');
+    expect(s.miBando).toBe('defender');
+    expect(s.despliegue.enCurso).toMatchObject({ side: 'defender' });
+    expect(delBando(b, 'attacker').length).toBeGreaterThan(0);
+    const vista = s.batallaALaVista!;
+    expect(delBando(vista, 'attacker')).toEqual([]);
+    // El panel no nombra a ninguno del atacante.
+    const panel = marcadoDe(renderSide(s));
+    expect(panel).toContain('Despliegas primero');
+    for (const x of b.stacks.filter((y) => y.side === 'attacker')) {
+      expect(panel).not.toContain(`data-stack="${x.id}"`);
+      expect(panel).not.toContain(x.unit.name);
+    }
+    // La escena: ni la pista del borde cuenta al atacante, ni su casilla se pulsa
+    // como suya (el clic ahí coloca o dice por qué no, nunca lo elige).
+    const escena = escenaDeBatalla(() => s);
+    expect(escena.enemigosFuera(0, 1)).toEqual({ izquierda: 0, derecha: 0 });
+    const t = (escena as unknown as { tablero: Parameters<typeof centroHex>[0] }).tablero;
+    for (const x of b.stacks.filter((y) => y.side === 'attacker' && y.count > 0)) {
+      const p = centroHex(t, x.hex);
+      expect(escena.objetivoEn(p.x, p.y)?.side).not.toBe('attacker');
+      escena.mover(p.x, p.y);
+      expect(s.status).not.toContain(x.unit.name);
+      const casillas = b.stacks.map((y) => hexKey(y.hex));
+      escena.pulsar(p.x, p.y);
+      expect(s.status).not.toContain(x.unit.name);
+      expect(b.stacks.map((y) => hexKey(y.hex))).toEqual(casillas);
+    }
+    // «Listo»: el atacante (sin dueño) despliega solo, empieza la ronda y ya se ve.
+    s.despliegue.listo();
+    expect(b.despliegue).toBeNull();
+    expect(s.batallaALaVista).toBe(b);
   });
 });
 

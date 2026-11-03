@@ -11,11 +11,20 @@ import { describe, expect, it } from 'vitest';
 import { EscenaTropa } from '../src/client/escenas/tropa.js';
 import { AYUDA_DE_LA_TROPA, Session } from '../src/client/session.js';
 import { zonaDeSalida } from '../src/core/battle/despliegue.js';
+import { UNIDADES } from '../src/core/catalogo.js';
+import { EQUIPO } from '../src/core/data.js';
+import { aDosManos, pieza } from '../src/core/hero/equipo.js';
 import { rangoDeHeroe, umbral } from '../src/core/hero/experiencia.js';
 import { heroUnit } from '../src/core/hero/hero.js';
 import { troopUnit } from '../src/core/hero/troop.js';
 import { indiceDePoder, nivelDeUnidad } from '../src/core/nivel.js';
-import { formacionDe, formarBlocker, turnBlocker, unequipBlocker } from '../src/core/state/game.js';
+import {
+  formacionDe,
+  formarBlocker,
+  ponerseBlocker,
+  turnBlocker,
+  unequipBlocker,
+} from '../src/core/state/game.js';
 import type { Hex } from '../src/core/types.js';
 import { sesionAntesDelMonstruo } from './batalla-de-cliente.js';
 import { TROPA_BARATA } from './helpers.js';
@@ -135,6 +144,31 @@ describe('repartir el equipo (C4, C5, C6)', () => {
     s.quitarALaElegida('arma');
     expect(s.status).toBe(`no se puede desequipar: ${motivo}`);
     expect(hero.equipo.arma).toBe('espada');
+  });
+
+  it('una pieza a dos manos para quien lleva escudo de serie sale apagada con el motivo de `ponerseBlocker`', () => {
+    // Elegidas por lo que son: la primera unidad con escudo de serie y la primera
+    // arma a dos manos del catálogo.
+    const conEscudo = UNIDADES.find((u) => u.equipo.escudo !== undefined);
+    const dosManos = EQUIPO.find((p) => p.hueco === 'arma' && aDosManos(p));
+    if (conEscudo === undefined || dosManos === undefined)
+      throw new Error('el catálogo no tiene unidad con escudo de serie o arma a dos manos');
+    const s = abierta();
+    const hero = s.selectedHero!;
+    hero.army = [{ creature: conEscudo.id }];
+    hero.mochila = [dosManos.id];
+    s.elegirEnLaTropa({ indice: 0 });
+    const motivo = ponerseBlocker(hero, { indice: 0 }, dosManos.id);
+    // No pide quitar el escudo, que es de serie y no se puede (QA, H4).
+    expect(motivo).toBe(
+      `esa unidad de ${conEscudo.name} no admite ${dosManos.nombre}: es un arma a dos manos y su ${pieza(conEscudo.equipo.escudo!).nombre} es de serie, que no se quita`,
+    );
+    expect(s.vistaDeLaTropa()!.ficha.mochila).toEqual([expect.objectContaining({ poner: motivo })]);
+    // Si llega igual, el núcleo la rechaza con el mismo motivo y no cambia nada.
+    s.ponerALaElegida(dosManos.id);
+    expect(s.status).toBe(`no se puede equipar: ${motivo}`);
+    expect(hero.mochila).toEqual([dosManos.id]);
+    expect(hero.army).toEqual([{ creature: conEscudo.id }]);
   });
 
   it('fuera de tu turno todo sale apagado con el motivo del turno', () => {

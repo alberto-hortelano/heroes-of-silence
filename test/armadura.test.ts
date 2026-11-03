@@ -21,7 +21,13 @@ import {
   piezasDelMontaje,
   VERSION_DEL_ENLACE,
 } from '../src/core/arena.js';
-import { applyAction, createBattle, stackById } from '../src/core/battle/battle.js';
+import {
+  applyAction,
+  createBattle,
+  opcionesDeDanio,
+  stackById,
+} from '../src/core/battle/battle.js';
+import { expectedDamage } from '../src/core/battle/damage.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { cuerpoConSusCifras } from '../src/core/cuerpo.js';
@@ -123,6 +129,49 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
     // Ni experiencia: no quitó nada.
     expect(stackById(b, 'attacker-0').ganado.experiencia).toBe(0);
     expect(marcadoDe(renderBattleLog(b, null))).toContain('0 de daño: la armadura para los 5');
+  });
+});
+
+describe('la IA cuenta con la armadura (`expectedDamage`)', () => {
+  it('baja exactamente lo que para, y nunca de 0', () => {
+    // Una armadura de la prueba que no pesa ni da defensa: lo único que cambia
+    // entre el desnudo y el que la lleva son sus puntos.
+    const PETO: Pieza = {
+      id: 'peto_de_prueba',
+      nombre: 'Peto de prueba',
+      hueco: 'armadura',
+      seConsigue: [],
+      ataque: 0,
+      defensa: 0,
+      armadura: 4,
+      peso: 0,
+      precio: 0,
+    };
+    const conPeto = catalogoCon(PETO).conEquipo(cuerpo('Con peto'), { armadura: PETO.id });
+    const desnudo = cuerpo('Desnudo');
+    expect(conPeto.defense).toBe(desnudo.defense);
+    // Sin las manos de prueba de `frente`, que visten con el catálogo del juego (sin
+    // el peto): el daño medio no pide arma, sale de las cifras de cada uno.
+    const daño = (quien: UnitInfo, contra: UnitInfo): number => {
+      const b = createBattle(
+        bandoDe([{ id: 'quien', unit: quien }]),
+        bandoDe([{ id: 'contra', unit: contra }]),
+        createRng(1),
+        COMBATE_COMPLETO,
+      );
+      const a = stackById(b, 'attacker-0');
+      const d = stackById(b, 'defender-0');
+      return expectedDamage(a, d, opcionesDeDanio(b, a, d));
+    };
+    const armadura = PETO.armadura ?? 0;
+    const fuerte = cuerpo('Fuerte', { damage: [20, 30] });
+    const bruto = daño(fuerte, desnudo);
+    expect(bruto).toBeGreaterThan(armadura);
+    expect(daño(fuerte, conPeto)).toBeCloseTo(bruto - armadura, 9);
+    // Un golpe que la armadura para entero se queda en 0, no en negativo.
+    const flojo = cuerpo('Flojo', { damage: [1, 1] });
+    expect(daño(flojo, desnudo)).toBeLessThan(armadura);
+    expect(daño(flojo, conPeto)).toBe(0);
   });
 });
 

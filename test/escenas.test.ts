@@ -48,12 +48,13 @@ import { COLOR_SIN_DUEÑO, MARCA_DE_COMANDANTE, playerColor } from '../src/clien
 import {
   ALTO_DE_FIGURA,
   centroDeStack,
+  centroHex,
   enPantalla,
   type Tablero,
   tableroPara,
 } from '../src/client/render/proyeccion.js';
 import { repartirClic } from '../src/client/reparto-del-clic.js';
-import { Session } from '../src/client/session.js';
+import { SesionDeArena, Session } from '../src/client/session.js';
 import { renderConversacion } from '../src/client/views/base.js';
 import {
   AVISO_DE_ESPERA,
@@ -61,13 +62,26 @@ import {
   renderActions,
   renderSide,
 } from '../src/client/views/panels.js';
-import { isAlive, SIN_CARGAS, stackHexes } from '../src/core/battle/battle.js';
-import { areAdjacent, isInside, neighbours } from '../src/core/battle/board.js';
+import {
+  apuntarBlocker,
+  isAlive,
+  lanzarBlocker,
+  SIN_CARGAS,
+  stackById,
+  stackHexes,
+} from '../src/core/battle/battle.js';
+import { areAdjacent, hexDistance, isInside, neighbours } from '../src/core/battle/board.js';
+import { alcanceDeLaGranada } from '../src/core/battle/granada.js';
+import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import type { BattleStack, Side } from '../src/core/battle/types.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
+import type { Pieza } from '../src/core/data.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import { DESPEJADO } from '../src/core/state/clima.js';
 import { faccionesDeLaSemilla } from '../src/core/state/setup.js';
 import { building } from '../src/core/town/buildings.js';
+import type { Hex } from '../src/core/types.js';
+import type { Unidad } from '../src/core/unidad.js';
 import {
   bordeDeAtras,
   type Disposicion,
@@ -79,9 +93,12 @@ import { destinoDeHoy, sesionContraMonstruo } from './batalla-de-cliente.js';
 import {
   agresiva,
   anteLaBase,
+  catalogoCon,
   enElCampo,
   escenaDeBatalla,
   fueraDeSuBase,
+  hojasDeLaArena,
+  MANOS_DE_PRUEBA,
   primeraSemillaCon,
 } from './helpers.js';
 
@@ -1055,6 +1072,147 @@ describe('la base caminable (escenas/castillo.ts)', () => {
       lista.filter((e) => e.tipo === 'edificio').map((e) => (e as { sitio: string }).sitio),
     ).toEqual(expect.arrayContaining(['hall', 'lvl1']));
     expect(lista.filter((e) => e.tipo === 'edificio')).toHaveLength(2);
+  });
+});
+
+describe('«A distancia» con el puntero: lo que no se puede, dicho como al pulsar', () => {
+  /** Piezas de la prueba, que no suman nada: una granada y un arco. */
+  const GRANADA: Pieza = {
+    id: 'granada_de_prueba',
+    nombre: 'Granada de prueba',
+    hueco: 'distancia',
+    seConsigue: [],
+    ataque: 0,
+    fuerza: 0,
+    defensa: 0,
+    peso: 0,
+    tiro: 'granada',
+    cargas: 2,
+    precio: 0,
+  };
+  const ARCO: Pieza = {
+    id: 'arco_de_prueba',
+    nombre: 'Arco de prueba',
+    hueco: 'distancia',
+    seConsigue: [],
+    ataque: 0,
+    fuerza: 0,
+    defensa: 0,
+    peso: 0,
+    precio: 0,
+  };
+
+  /** Una unidad de la prueba con las manos de prueba y, si se dice, `distancia`. */
+  function deLaPrueba(id: string, name: string, distancia?: string): Unidad {
+    return {
+      id,
+      name,
+      faction: 'templarios',
+      leadership: 1,
+      attack: 1,
+      fuerza: 2,
+      agilidad: 3,
+      hp: 50,
+      cuerpo: { hoja: hojasDeLaArena()[0]!.id },
+      equipo: { arma: MANOS_DE_PRUEBA.id, ...(distancia === undefined ? {} : { distancia }) },
+      traits: [],
+      habilidades: [],
+    };
+  }
+
+  /**
+   * Una pelea de la arena con `quien` de la persona en (1,4) y un blanco de la IA en
+   * (10,4), lejos: a ninguno le pesa el contacto. La escena, en un lienzo de 1280×720,
+   * y la casilla en píxeles de su tablero.
+   */
+  function enLaArena(quien: Unidad) {
+    const lado = (u: Unidad, ia: boolean) => ({ unidades: [{ unidad: u }], heroe: null, ia });
+    const s = new SesionDeArena(
+      {
+        izquierda: lado(quien, false),
+        derecha: lado(deLaPrueba('blanco-de-prueba', 'Blanco de prueba'), true),
+        equipo: catalogoCon(MANOS_DE_PRUEBA, GRANADA, ARCO),
+        combate: COMBATE_COMPLETO,
+        muralla: SIN_MURALLA,
+      },
+      7,
+    );
+    s.empezar();
+    s.despliegue.listoTalCual();
+    const yo = s.turnoPropio?.stack;
+    if (yo === undefined) throw new Error('esperaba el turno de la izquierda');
+    yo.hex = { col: 1, row: 4 };
+    stackById(s.battle, 'defender-0').hex = { col: 10, row: 4 };
+    const escena = new EscenaBatalla(() => s);
+    escena.encuadrar(1280, 720);
+    escena.sincronizar(0);
+    const t = tableroPara(1280, 720);
+    const en = (h: Hex) => centroHex(t, h);
+    return { s, escena, en, yo };
+  }
+
+  /** Lo que dice la barra al pasar el puntero por `h` y lo que dice al pulsarla. */
+  function señalarYPulsar(
+    { s, escena, en }: ReturnType<typeof enLaArena>,
+    h: Hex,
+  ): { señalada: string; pulsada: string } {
+    const p = en(h);
+    s.status = '';
+    escena.mover(p.x, p.y);
+    const señalada = s.status;
+    s.status = '';
+    escena.pulsar(p.x, p.y);
+    return { señalada, pulsada: s.status };
+  }
+
+  it('la granada fuera de alcance da su motivo sobre un enemigo y sobre una casilla vacía (H1 del QA de las granadas)', () => {
+    const pelea = enLaArena(deLaPrueba('lanzador-de-prueba', 'Lanzador de prueba', GRANADA.id));
+    const { s, yo } = pelea;
+    expect(s.arma.modo).toBe('distancia');
+    const alcance = alcanceDeLaGranada(yo.unit);
+    // Sobre el blanco y sobre una casilla vacía, los dos más allá de su alcance: lo
+    // que dice el puntero es lo que dice el clic, el motivo del núcleo. Antes, sobre
+    // el enemigo, el del cuerpo a cuerpo, y sobre la vacía, nada.
+    for (const h of [
+      { col: 10, row: 4 },
+      { col: 8, row: 6 },
+    ]) {
+      expect(hexDistance(yo.hex, h)).toBeGreaterThan(alcance);
+      const motivo = lanzarBlocker(s.battle, h);
+      expect(motivo).toContain(`está a ${hexDistance(yo.hex, h)}`);
+      const { señalada, pulsada } = señalarYPulsar(pelea, h);
+      expect(señalada).toBe(pulsada);
+      expect(señalada).toContain(motivo!);
+    }
+    // Nada de eso se ha jugado.
+    expect(s.battle.stacks.every((x) => x.granada === null)).toBe(true);
+    // Y a su alcance, lo de siempre: a dónde lanzaría.
+    const cerca = { col: yo.hex.col + alcance, row: yo.hex.row };
+    expect(lanzarBlocker(s.battle, cerca)).toBeNull();
+    const p = pelea.en(cerca);
+    pelea.escena.mover(p.x, p.y);
+    expect(s.status.startsWith(`Lanzarías a (${cerca.col},${cerca.row}).`)).toBe(true);
+  });
+
+  it('el arco sigue igual sobre un enemigo, y sobre su propia casilla dice por qué', () => {
+    const pelea = enLaArena(deLaPrueba('arquero-de-prueba', 'Arquero de prueba', ARCO.id));
+    const { s, yo } = pelea;
+    expect(s.arma.modo).toBe('distancia');
+    const blanco = { col: 10, row: 4 };
+    const p = pelea.en(blanco);
+    pelea.escena.mover(p.x, p.y);
+    expect(
+      s.status.startsWith(
+        `Apuntarías a (10,4). Hoy daría a ${stackById(s.battle, 'defender-0').unit.name}.`,
+      ),
+    ).toBe(true);
+    // Sobre su casilla, el motivo del núcleo, el mismo que el del clic.
+    const motivo = apuntarBlocker(s.battle, yo.hex);
+    expect(motivo).not.toBeNull();
+    const { señalada, pulsada } = señalarYPulsar(pelea, yo.hex);
+    expect(señalada).toBe(pulsada);
+    expect(señalada).toContain(motivo!);
+    expect(s.battle.stacks.every((x) => x.apuntado === null)).toBe(true);
   });
 });
 
