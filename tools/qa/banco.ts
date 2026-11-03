@@ -1326,11 +1326,19 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   s4, s5, s11, s13 y s16 (j0 gana 6 de 20, 8 antes); duración 4 / 5 / 6 → **4 / 6 /
  *   6**, días 75 → 81; aparece `march_halted`, ningún tipo de hecho perdido. La forma del
  *   diff, no una medida.
+ * - `ebbcaf98…` (3 666 líneas, 20 semillas, 03-11-2026): **el techo de los asaltantes a
+ *   310** (`data/asaltantes.json`: con el catálogo retocado, el héroe que espera más flojo,
+ *   el de los orkos, llega a 313 con el margen) y el grupo de caballeros de la muerte, de 7
+ *   a 6. Contra `b0aadddd…` cambian 9 (s1, s3, s4, s6, s11, s12, s13, s18, s19), y en las
+ *   nueve el primer hecho distinto es el `raider_spawned` de ese grupo al crear la partida
+ *   (6 en vez de 7). Siete acaban con los mismos hechos; s3 (5 → 4 días) y s19 se juegan
+ *   distinto. Ningún ganador cambia (j0 6 de 20); días 81 → 80. La forma del diff, no una
+ *   medida.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'b0aaddddf2d099a779e435f723e800f2864a99006e8bdbffa76ef6bf5b62a839',
+  sha: 'ebbcaf988e33692b7d1f9c7cd97c4a1829213be886d7a42810b924c711ea592b',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

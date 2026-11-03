@@ -628,13 +628,15 @@ describe('el plan de mapa con asaltantes', () => {
     expect(con({ at: uno.at, troops: [{ creature: TROPA_BARATA, count: 8 }] })).toMatch(
       /como mucho 7/,
     );
-    // Un jinete de plaga y seis caballeros de la muerte pasan del liderazgo sin
-    // pasar de la fuerza: solo caen por el primer techo. Tres jinetes de plaga
-    // caben en el liderazgo y pasan de la fuerza: solo por el otro (con la fuerza
-    // y la agilidad, 25-10-2026, tres hermanos de carga: los de plaga ya no pasan).
+    // Un jinete de plaga, cinco caballeros de la muerte y un goblin pasan del
+    // liderazgo sin pasar de la fuerza: solo caen por el primer techo. Siete
+    // caballeros de la muerte caben en el liderazgo y pasan de la fuerza: solo por
+    // el otro (con el catálogo retocado y el techo a 310, 02-11-2026; antes, tres
+    // hermanos de carga, que ya no pasan).
     const porLiderazgo = [
       { creature: 'jinete-de-plaga', count: 1 },
-      { creature: 'caballero-de-la-muerte', count: 6 },
+      { creature: 'caballero-de-la-muerte', count: 5 },
+      { creature: 'goblin-lancero', count: 1 },
     ];
     const ocupa = porLiderazgo.reduce(
       (n, g) => n + unidadDelJuego(g.creature).leadership * g.count,
@@ -643,10 +645,10 @@ describe('el plan de mapa con asaltantes', () => {
     expect(ocupa).toBeGreaterThan(ASALTANTES.liderazgoMax);
     expect(poderDe({ troops: porLiderazgo })).toBeLessThanOrEqual(ASALTANTES.fuerzaMax);
     expect(con({ at: uno.at, troops: porLiderazgo })).toMatch(`ocupa ${ocupa} de liderazgo`);
-    const porFuerza = [{ creature: 'templario-hermano-de-carga', count: 3 }];
+    const porFuerza = [{ creature: 'caballero-de-la-muerte', count: 7 }];
     const suma = poderDe({ troops: porFuerza });
     expect(suma).toBeGreaterThan(ASALTANTES.fuerzaMax);
-    expect(3 * unidadDelJuego('templario-hermano-de-carga').leadership).toBeLessThanOrEqual(
+    expect(7 * unidadDelJuego('caballero-de-la-muerte').leadership).toBeLessThanOrEqual(
       ASALTANTES.liderazgoMax,
     );
     expect(con({ at: uno.at, troops: porFuerza })).toMatch(`suma ${suma} de fuerza`);

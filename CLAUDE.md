@@ -376,7 +376,7 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   era la mediana medida sobre las 21 criaturas de fheroes2 antes de retirarlas, 143 465, y con la
   fuerza y la agilidad subió con la mediana del poder bruto² del catálogo, 714 961, para no recalibrar
   `MARGEN_CONTRA_NEUTRALES`, y con la escala baja baja con ella, 62 989, a ojo, 26-10-2026; el techo
-  de los asaltantes, `fuerzaMax`, bajó de 800 a 600 y a 580 con la escala baja), el
+  de los asaltantes, `fuerzaMax`, bajó de 800 a 600, a 580 con la escala baja y a 310 con el catálogo retocado a mano, 02-11-2026: MARGEN × el héroe de los orkos que espera en su base, 313), el
   maná vale 4 × escala y `valorDePieza` es lo que sube el índice del cuerpo de referencia al
   ponérsela.
 - **Experiencia (regla nuestra)**: quien quita PV cobra `PV quitados × índice de poder

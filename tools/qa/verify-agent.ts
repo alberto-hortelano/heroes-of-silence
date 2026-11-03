@@ -33,6 +33,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import WebSocket from 'ws';
+import { unidadDelJuego } from '../../src/core/catalogo.js';
 import { COMO_SE_LEE_EL_MAPA } from '../../src/core/contract/serialize.js';
 import {
   CABECERA_ESTADO,
@@ -886,7 +887,9 @@ async function main(): Promise<void> {
     armor?: number;
     equipment?: Record<string, string | null>;
   };
-  if (ficha.name !== 'Guerrero con escudo') {
+  // El nombre, del catálogo: lo cambia quien edita la arena (el 02-11-2026,
+  // «Guerrero con escudo» pasó a «Guardia del temple» y esto lo tenía a mano).
+  if (ficha.name !== unidadDelJuego('templario-escudo').name) {
     throw new Error(`creature_stats no devuelve la ficha: ${JSON.stringify(ficha).slice(0, 200)}`);
   }
   // El catálogo de las cinco facciones (19-10-2026): el edificio que la produce
@@ -907,7 +910,7 @@ async function main(): Promise<void> {
     );
   }
   log(
-    `creature_stats responde correctamente: guerrero con escudo, de ${ficha.dwelling}, índice ${ficha.powerIndex}, nivel ${ficha.level}, armadura ${ficha.armor}`,
+    `creature_stats responde correctamente: ${ficha.name}, de ${ficha.dwelling}, índice ${ficha.powerIndex}, nivel ${ficha.level}, armadura ${ficha.armor}`,
   );
 
   // Los otros dos catálogos, por su CONTENIDO: antes solo se comprobaba que
