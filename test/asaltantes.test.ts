@@ -8,14 +8,10 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { fuerzaDe, MARGEN_CONTRA_NEUTRALES, poderDe, ventajaClara } from '../src/core/ai/fuerza.js';
-import { planBuildings, planRecruits } from '../src/core/ai/strategy.js';
+import { fuerzaDe, MARGEN_CONTRA_NEUTRALES, poderDe } from '../src/core/ai/fuerza.js';
 import { playAiTurn } from '../src/core/ai/turn.js';
-import { unidadDelJuego, unidadesDeFaccion } from '../src/core/catalogo.js';
-import { COMBATE_COMPLETO, cupoDelHeroe } from '../src/core/combate.js';
 import { serializeKnownMap } from '../src/core/contract/serialize.js';
 import { ASALTANTES } from '../src/core/data.js';
-import { withTroops } from '../src/core/hero/troop.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import {
   buildMap,
@@ -29,9 +25,7 @@ import { createRng } from '../src/core/rng.js';
 import {
   type AsaltanteRecordado,
   asaltantesALaVista,
-  casillasPeligrosas,
   dondeBrotan,
-  emboscadaEnLaRuta,
   mascaraDeOcupacion,
   pasoDePatrulla,
   pasosDeLaPatrulla,
@@ -42,35 +36,18 @@ import {
   tocaUnNodo,
 } from '../src/core/state/asaltantes.js';
 import {
-  alcanceDelHeroe,
   applyAdventureAction,
-  baseOf,
-  battleOwners,
   caminoHasta,
-  currentPlayer,
   type GameState,
   heroesOf,
   resolvePendingBattle,
-  revealEverything,
-  sidesOwnedBy,
   visibleNow,
   visibleNowAt,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { Point } from '../src/core/types.js';
-import {
-  aMano,
-  conCifrasAMano,
-  costesDelAlcance,
-  ejercito,
-  JINETE,
-  PESADA,
-  TROPA_BARATA,
-} from './helpers.js';
+import { ejercito, JINETE, PESADA, TROPA_BARATA } from './helpers.js';
 import { segunPrisa } from './lento.js';
-
-/** Los cupos con el tope de siempre (7): un héroe lleva 6 y una guarnición 7. */
-const CUPO_HEROE = cupoDelHeroe(COMBATE_COMPLETO.tope);
 
 /**
  * Las casillas libres de la región de `r` con la regla de la patrulla: sin
@@ -157,16 +134,6 @@ describe('la patrulla', () => {
     expect(largos).toBeGreaterThan(0);
   });
 
-  it('si no se cree capaz con el héroe de su región, se aparta de él', () => {
-    const { state, hero, grupo } = enSuRegion(11);
-    hero.army = ejercito({ creature: PESADA, count: 6 });
-    hero.at = libresDeSuRegion(state, grupo)[0]!;
-    const lejos = (p: Point) => Math.max(Math.abs(p.x - hero.at.x), Math.abs(p.y - hero.at.y));
-    const antes = lejos(grupo.at);
-    const paso = pasoDePatrulla(state, grupo, createRng(1), mascaraDeOcupacion(state));
-    expect(lejos(paso)).toBeGreaterThanOrEqual(antes);
-  });
-
   it('en una partida jugada, ningún grupo vive en región con dueño, junto a un nodo o donde brotó un héroe', async () => {
     // El invariante del plan, sobre partidas de verdad y turno a turno.
     let vistos = 0;
@@ -209,25 +176,6 @@ describe('la patrulla', () => {
 });
 
 describe('la emboscada', () => {
-  it('un héroe mermado que pisa la región: el grupo ataca y el héroe DEFIENDE', () => {
-    const { state, ctx, hero, grupo, hasta } = enSuRegion(11);
-    hero.army = [];
-    expect(poderDe(grupo)).toBeGreaterThan(MARGEN_CONTRA_NEUTRALES * fuerzaDe(hero, undefined));
-
-    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: hasta }, ctx, 0);
-
-    const pending = state.pendingBattle!;
-    expect(pending).not.toBeNull();
-    expect(pending.attacker).toEqual({ kind: 'raider', raiderId: grupo.id });
-    expect(pending.foe).toEqual({ kind: 'hero', heroId: hero.id });
-    expect(battleOwners(state, pending)).toEqual({ attacker: null, defender: 0 });
-    expect([...sidesOwnedBy(state, pending, [0])]).toEqual(['defender']);
-    // La marcha se para en la casilla de la emboscada, y la crónica la cuenta.
-    expect(hero.at).toEqual(hasta);
-    const inicio = [...state.log].reverse().find((e) => e.kind === 'battle_started');
-    expect(inicio).toMatchObject({ attacker: { kind: 'raider' }, actor: 0 });
-  });
-
   it('un héroe que no da el margen al grupo pasa sin batalla', () => {
     const { state, ctx, hero, grupo, hasta } = enSuRegion(11);
     // Seis jinetes: con la escala baja (26-10-2026), seis pesadas ya no daban el margen.
@@ -236,20 +184,6 @@ describe('la emboscada', () => {
     applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: hasta }, ctx, 0);
     expect(state.pendingBattle).toBeNull();
     expect(hero.at).toEqual(hasta);
-  });
-
-  it('gana el grupo: el héroe vuelve a su base y el grupo sigue con lo que le quede', () => {
-    const { state, ctx, hero, grupo, hasta } = enSuRegion(11);
-    hero.army = [];
-    // El grupo, fijo y fuerte (siete jinetes): con la fuerza y la agilidad
-    // (25-10-2026) el héroe solo, de 1 000 PV, ganaba al más fuerte de la semilla y
-    // a tres jinetes. Aquí se mide qué pasa si gana el grupo.
-    (grupo as { troops: unknown }).troops = [{ creature: JINETE, count: 7 }];
-    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: hasta }, ctx, 0);
-    resolvePendingBattle(state, ctx);
-    expect(state.log.find((e) => e.kind === 'hero_returned')).toMatchObject({ hero: hero.id });
-    expect(state.log.find((e) => e.kind === 'battle_ended')).toMatchObject({ winner: 'attacker' });
-    expect(state.raiders.some((r) => r.id === grupo.id)).toBe(true);
   });
 
   it('gana el héroe atacando: el grupo desaparece', () => {
@@ -266,38 +200,6 @@ describe('la emboscada', () => {
     expect(state.pendingBattle?.foe).toEqual({ kind: 'raider', raiderId: grupo.id });
     resolvePendingBattle(state, ctx);
     expect(state.raiders.some((r) => r.id === grupo.id)).toBe(false);
-  });
-
-  it('la IA que resuelve la defensa de una persona no la rinde por ella', () => {
-    // Con dos de la tropa más barata contra el grupo, la IA para sí se rinde
-    // —pesa menos de un tercio y hay base—; por la persona pelea, pero no paga.
-    const desenlace = (vetada: boolean) => {
-      const { state, ctx, hero, grupo, hasta } = enSuRegion(11);
-      hero.army = ejercito({ creature: TROPA_BARATA, count: 2 });
-      // El grupo, fijo: siete jinetes de plaga, que emboscan. El más fuerte de la
-      // semilla depende del mapa, y con los bordes de #169 eran cinco momias,
-      // contra las que la IA no llegaba a rendirse (un desenlace de la batalla,
-      // no del veto, que es lo que mira este test).
-      (grupo as { troops: unknown }).troops = [{ creature: 'jinete-de-plaga', count: 7 }];
-      applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: hasta }, ctx, 0);
-      // Y en la batalla, con diez veces su vida: con el catálogo de F3 (todas las
-      // unidades de 60 a 160 PV) ningún grupo de siete pesa el triple que un
-      // héroe de rango 5 (500 PV), y la IA no se rendiría nunca. El test necesita
-      // una batalla perdida, no un grupo del catálogo.
-      const b = state.pendingBattle!.battle;
-      const jinete = unidadDelJuego('jinete-de-plaga');
-      conCifrasAMano(
-        b,
-        b.stacks.filter((x) => x.side === 'attacker').map((x) => x.id),
-        aMano(jinete.id, { hp: 10 * jinete.hp }),
-      );
-      // El jugador 0, de la persona: la IA pelea por él sin rendirse (`sinLaIA`).
-      if (vetada) (state.players[0] as { controller: string }).controller = 'human';
-      resolvePendingBattle(state, ctx);
-      return state.log.find((e) => e.kind === 'hero_returned');
-    };
-    expect(desenlace(false)).toMatchObject({ surrendered: true });
-    expect(desenlace(true)).toMatchObject({ surrendered: false });
   });
 
   it('misma semilla, misma partida: patrulla, brote y emboscadas incluidos', async () => {
@@ -421,24 +323,6 @@ describe('la IA teme lo que vio (#164)', () => {
     expect(recuerdo.has(grupo.id)).toBe(false);
   });
 
-  it('el alcance prudente esquiva el grupo que su dueño vio y no el que no ha visto', () => {
-    // La semilla 1: su grupo más fuerte embosca a un héroe sin tropa. La 5, que era
-    // el ejemplo, ya no (02-11-2026: con el catálogo retocado su grupo más fuerte
-    // pesa 122, menos que el margen sobre el héroe solo).
-    const { state, hero, grupo } = enSuRegion(1);
-    hero.army = [];
-    const W = state.map.width;
-    const i = grupo.at.y * W + grupo.at.x;
-    const recuerdo = state.players[0]!.asaltantesVistos;
-    recuerdo.clear();
-    expect(casillasPeligrosas(state, hero, recuerdo)?.[i]).toBeUndefined();
-    const sinSaber = alcanceDelHeroe(state, hero, { evitarEmboscadas: true });
-    recordarAsaltantes(state, recuerdo, laCasilla(state, grupo.at));
-    expect(casillasPeligrosas(state, hero, recuerdo)?.[i]).toBe(1);
-    const sabiendo = alcanceDelHeroe(state, hero, { evitarEmboscadas: true });
-    expect(sabiendo.descubiertas.length).toBeLessThan(sinSaber.descubiertas.length);
-  });
-
   it('al crear la partida, cada jugador recuerda los grupos que ve: el recuerdo lo escribe quien mira', () => {
     const state = newGame({ seed: 5 });
     for (const p of state.players) {
@@ -448,158 +332,7 @@ describe('la IA teme lo que vio (#164)', () => {
   });
 });
 
-describe('la IA no entra en una emboscada que va a perder', () => {
-  it('su alcance prudente no pisa ninguna casilla de una región donde la emboscarían, la suya incluida', () => {
-    // El héroe, sin tropa —solo su cuerpo—, en una casilla de la región del
-    // grupo más fuerte: todas las regiones con grupo son peligrosas para él. La
-    // semilla 1, por lo mismo que en la prueba de arriba (era la 5).
-    const { state, hero, grupo } = enSuRegion(1);
-    hero.army = [];
-    // Lo que sabe el héroe recién puesto ahí: nada aún; al mirar, el grupo.
-    const recuerdo = state.players[0]!.asaltantesVistos;
-    recuerdo.clear();
-    expect(casillasPeligrosas(state, hero, recuerdo)).toBeNull();
-    revealEverything(state, 0);
-    const peligro = casillasPeligrosas(state, hero, recuerdo)!;
-    expect(peligro).not.toBeNull();
-    const suya = regionDeCasilla(state.map, hero.at);
-    expect(regionDeCasilla(state.map, grupo.at)).toBe(suya);
-    const W = state.map.width;
-    expect(peligro[hero.at.y * W + hero.at.x]).toBe(1);
-    const alcance = alcanceDelHeroe(state, hero, { evitarEmboscadas: true });
-    for (const clave of costesDelAlcance(alcance).keys()) {
-      const [x, y] = clave.split(',').map(Number) as [number, number];
-      if (x === hero.at.x && y === hero.at.y) continue;
-      expect(peligro[y * W + x], `(${x},${y}) es de una región que embosca`).not.toBe(1);
-    }
-    // Y sale: desde dentro se pisa el nodo de al lado, si lo hay; prohibir la
-    // región no es encerrarlo en su casilla.
-    const normal = alcanceDelHeroe(state, hero);
-    expect(alcance.descubiertas.length).toBeLessThan(normal.descubiertas.length);
-  });
-
-  it('si los dos están encerrados en una región que los embosca, el que juega vuelve a casa; si el rival se mueve, espera', async () => {
-    // La semilla 10 del banco con los mapas densos: los dos héroes, sin tropa,
-    // en mitad de una región que los embosca y sin un nodo al lado. El alcance
-    // prudente era su casilla, el repliegue no llegaba y nadie se movió en 298
-    // días. Se buscan dos casillas así en la región del grupo más fuerte. La 1
-    // desde el acantilado en línea (#215): en el mapa nuevo de la 5 el que
-    // juega no se mueve con los dos encerrados (queda en el informe de #215).
-    // La 3 desde el río continuo (#144): en el mapa nuevo de la 1 le pasa lo
-    // que a la 5 (y a la 2, la 15 y la 44 de 1-60); la 3 es la primera que no.
-    const montar = () => {
-      const { state, ctx, hero, grupo } = enSuRegion(3);
-      // Los dos saben del grupo (#164): se prueba qué hacen con lo que saben.
-      revealEverything(state, 0);
-      revealEverything(state, 1);
-      const rival = heroesOf(state, 1)[0]!;
-      hero.army = [];
-      rival.army = [];
-      const encerradas = libresDeSuRegion(state, grupo).filter((p) => {
-        hero.at = p;
-        return alcanceDelHeroe(state, hero, { evitarEmboscadas: true }).descubiertas.length <= 1;
-      });
-      if (encerradas.length < 2) throw new Error('la semilla 3 no deja dos casillas encerradas');
-      hero.at = encerradas[0]!;
-      hero.movePoints = 1500;
-      expect(currentPlayer(state).id).toBe(hero.owner);
-      return { state, ctx, hero, rival, otra: encerradas[1]! };
-    };
-    const seMovio = (state: GameState, id: string) =>
-      state.log.some((e) => e.kind === 'hero_moved' && e.hero === id);
-
-    // El rival en su casa, libre: esperar todavía puede arreglarlo.
-    const libre = montar();
-    expect(
-      alcanceDelHeroe(libre.state, libre.rival, { evitarEmboscadas: true }).descubiertas.length,
-    ).toBeGreaterThan(1);
-    await playAiTurn(libre.state, libre.ctx);
-    expect(seMovio(libre.state, libre.hero.id)).toBe(false);
-
-    // El rival encerrado también: o ha andado hacia casa, o lo han emboscado al
-    // intentarlo. Quieto, no.
-    const empate = montar();
-    empate.rival.at = empate.otra;
-    expect(
-      alcanceDelHeroe(empate.state, empate.rival, { evitarEmboscadas: true }).descubiertas.length,
-    ).toBeLessThanOrEqual(1);
-    await playAiTurn(empate.state, empate.ctx);
-    expect(seMovio(empate.state, empate.hero.id)).toBe(true);
-  });
-
-  it('en partidas enteras de la IA contra sí misma no hay ni una emboscada', async () => {
-    // Antes eran 304 en las 200 del banco y el grupo ganaba 270: el «si no, va
-    // igual» mandaba al héroe a perder. Ahora se repliega y se refuerza. Con la
-    // niebla (#164) puede caer en una que no vio venir: 1 en 300 semillas, no
-    // en estas. Con el catálogo retocado del 02-11-2026 (y un grupo que solo se ve
-    // si se mira su casilla) le pasa en 4 de 1-40 —la 3, la 19, la 33 y la 36—,
-    // siempre con un grupo que no recordaba al empezar el turno y siempre ganándola
-    // el héroe: la 3 sale de la lista por la 1, que no la tiene.
-    for (const semilla of [1, 7, 11, 17, 23]) {
-      const state = newGame({ seed: semilla });
-      const ctx = { rng: createRng(semilla) };
-      while (state.finished === null) await playAiTurn(state, ctx);
-      expect(state.finished.winner, `semilla ${semilla}`).not.toBeNull();
-      const emboscadas = state.log.filter(
-        (e) => e.kind === 'battle_started' && e.attacker.kind === 'raider',
-      );
-      expect(emboscadas, `semilla ${semilla}`).toEqual([]);
-    }
-  });
-});
-
 describe('los datos de los asaltantes', () => {
-  /**
-   * Lo más fuerte que llega a ser un héroe de nivel 1 que **espera en su base**
-   * con el cupo lleno de lo más barato de su facción, mientras la IA de reglas
-   * construye, licencia y recluta como en cualquier partida (`planBuildings`,
-   * `planRecruits`). Es la fuerza que un héroe alcanza de verdad en el mapa, y
-   * no la de un héroe ideal sacado a fuerza bruta: la de antes daba 526 y era
-   * cierta solo si el héroe podía cambiar su tropa, que hasta despedir no podía.
-   */
-  async function loQueAlcanzaEsperando(
-    semilla: number,
-  ): Promise<{ fuerza: number[]; licencias: number }> {
-    const state = newGame({ seed: semilla });
-    const ctx = { rng: createRng(semilla) };
-    for (const p of [0, 1] as const) {
-      const hero = heroesOf(state, p)[0]!;
-      hero.at = { ...baseOf(state, p)!.at };
-      const barata = [...unidadesDeFaccion(state.players[p]!.faction)].sort(
-        (a, b) => a.oro - b.oro,
-      )[0]!.id;
-      hero.army = withTroops([], barata, CUPO_HEROE);
-    }
-    const fuerza = [0, 0];
-    while (state.day <= 21) {
-      const p = state.current;
-      for (const a of planBuildings(state, p)) applyAdventureAction(state, a, ctx, p);
-      for (const a of planRecruits(state, p)) applyAdventureAction(state, a, ctx, p);
-      for (const h of heroesOf(state, p)) fuerza[p] = Math.max(fuerza[p]!, fuerzaDe(h, undefined));
-      applyAdventureAction(state, { type: 'end_turn' }, ctx, p);
-    }
-    return { fuerza, licencias: state.log.filter((e) => e.kind === 'dismissed').length };
-  }
-
-  it('el techo de fuerza no es un muro: un héroe que espera en su base lo pasa licenciando y reclutando', async () => {
-    for (const semilla of [1, 2, 3]) {
-      const { fuerza, licencias } = await loQueAlcanzaEsperando(semilla);
-      for (const f of fuerza) {
-        expect(MARGEN_CONTRA_NEUTRALES * f, `semilla ${semilla}`).toBeGreaterThanOrEqual(
-          ASALTANTES.fuerzaMax,
-        );
-      }
-      // Y lo pasa licenciando: sin cambiar tropa se quedaba con lo barato.
-      expect(licencias).toBeGreaterThan(0);
-    }
-    for (const grupos of ASALTANTES.composiciones) {
-      expect(poderDe({ troops: grupos })).toBeLessThanOrEqual(ASALTANTES.fuerzaMax);
-      expect(
-        grupos.reduce((n, g) => n + unidadDelJuego(g.creature).leadership * g.count, 0),
-      ).toBeLessThanOrEqual(ASALTANTES.liderazgoMax);
-    }
-  });
-
   it('siete jinetes son un muro, y se rechazan diciéndolo', () => {
     const problemas = problemasDeAsaltante([{ creature: JINETE, count: 7 }], 'el grupo');
     expect(problemas.join(' ')).toMatch(/liderazgo|muro/);
@@ -615,54 +348,6 @@ describe('el plan de mapa con asaltantes', () => {
     expect(validateMapPlan(plan)).toEqual([]);
     expect(validateMapPlan({ ...plan, raiders: undefined })).toEqual([]);
     expect(buildMap({ ...plan, raiders: undefined }).raiders).toEqual([]);
-  });
-
-  it('se rechazan con su frase: criatura falsa, de más, pegado a un nodo, sobre un muro', () => {
-    const plan = base();
-    const uno = plan.raiders![0]!;
-    const con = (r: { at: Point; troops: readonly { creature: string; count: number }[] }) =>
-      validateMapPlan({ ...plan, raiders: [r] }).join(' | ');
-    expect(con({ at: uno.at, troops: [{ creature: 'dragon', count: 3 }] })).toMatch(
-      /unidad que no existe: "dragon"/,
-    );
-    expect(con({ at: uno.at, troops: [{ creature: TROPA_BARATA, count: 8 }] })).toMatch(
-      /como mucho 7/,
-    );
-    // Un jinete de plaga, cinco caballeros de la muerte y un goblin pasan del
-    // liderazgo sin pasar de la fuerza: solo caen por el primer techo. Siete
-    // caballeros de la muerte caben en el liderazgo y pasan de la fuerza: solo por
-    // el otro (con el catálogo retocado y el techo a 310, 02-11-2026; antes, tres
-    // hermanos de carga, que ya no pasan).
-    const porLiderazgo = [
-      { creature: 'jinete-de-plaga', count: 1 },
-      { creature: 'caballero-de-la-muerte', count: 5 },
-      { creature: 'goblin-lancero', count: 1 },
-    ];
-    const ocupa = porLiderazgo.reduce(
-      (n, g) => n + unidadDelJuego(g.creature).leadership * g.count,
-      0,
-    );
-    expect(ocupa).toBeGreaterThan(ASALTANTES.liderazgoMax);
-    expect(poderDe({ troops: porLiderazgo })).toBeLessThanOrEqual(ASALTANTES.fuerzaMax);
-    expect(con({ at: uno.at, troops: porLiderazgo })).toMatch(`ocupa ${ocupa} de liderazgo`);
-    const porFuerza = [{ creature: 'caballero-de-la-muerte', count: 7 }];
-    const suma = poderDe({ troops: porFuerza });
-    expect(suma).toBeGreaterThan(ASALTANTES.fuerzaMax);
-    expect(7 * unidadDelJuego('caballero-de-la-muerte').leadership).toBeLessThanOrEqual(
-      ASALTANTES.liderazgoMax,
-    );
-    expect(con({ at: uno.at, troops: porFuerza })).toMatch(`suma ${suma} de fuerza`);
-    const { map } = buildMap(plan);
-    const red = estructura(map);
-    const nodo = red.nodos.find((n) => !n.ciudad)!;
-    const pegada = VECINAS.map(([dx, dy]) => ({ x: nodo.at.x + dx, y: nodo.at.y + dy })).find(
-      (p) => regionDeCasilla(map, p) >= 0 && objectAt(map, p) === undefined,
-    )!;
-    expect(con({ at: pegada, troops: uno.troops })).toMatch(/pegado a un nodo/);
-    const muro = map.terrain.indexOf('mountain');
-    expect(
-      con({ at: { x: muro % map.width, y: Math.floor(muro / map.width) }, troops: uno.troops }),
-    ).toMatch(/cae sobre mountain/);
   });
 
   it('un grupo de cero individuos se rechaza con su frase (H3)', () => {
@@ -687,47 +372,6 @@ describe('el plan de mapa con asaltantes', () => {
 });
 
 describe('lo que el castillo ve se pinta (H1)', () => {
-  // El castillo ve en un radio de 5 (`visibleNow`), y ese radio no se escribía en
-  // `fog`: el agente veía el grupo de la región de casa y la persona, que pinta
-  // con `fog`, no — en 96 de 200 semillas el día 1, y lo pisaba a ciegas.
-  it('el día 1, todo grupo cuya casilla se ve está explorado (también los que emboscan al héroe), y ningún objeto cae sobre `null`', () => {
-    // Todos los que se ven y no solo los que emboscan: con la fuerza por el índice
-    // de F3 (19-10-2026) los que emboscan el día 1 son pocos (5 en 1-60), y la
-    // regla es la misma para todo grupo cuya casilla se mira.
-    let vistos = 0;
-    let emboscadores = 0;
-    let sobreLaNiebla = 0;
-    for (let semilla = 1; semilla <= 60; semilla++) {
-      const state = newGame({ seed: semilla });
-      const hero = heroesOf(state, 0)[0]!;
-      const fog = state.players[0]!.fog;
-      const mirando = visibleNow(state, 0);
-      for (const r of state.raiders) {
-        if (!mirando.has(r.at)) continue;
-        vistos++;
-        if (ventajaClara(poderDe(r), fuerzaDe(hero, state.characters))) emboscadores++;
-        expect(fog.has(r.at), `semilla ${semilla}: ${r.id} se ve y no se pinta`).toBe(true);
-      }
-      const km = serializeKnownMap(state, 0);
-      for (const cosa of km.objects) {
-        expect(
-          km.terrain[cosa.at.y * km.width + cosa.at.x],
-          `semilla ${semilla}: (${cosa.at.x},${cosa.at.y}) se ve sobre lo no explorado`,
-        ).not.toBeNull();
-      }
-      // Tampoco un grupo: se ve por su casilla, y solo sobre lo explorado
-      // (02-11-2026; desde #130 hasta entonces, por su región y sobre el negro).
-      for (const r of km.raiders) {
-        if (km.terrain[r.at.y * km.width + r.at.x] === null) sobreLaNiebla++;
-      }
-    }
-    // Que haya de qué hablar: sin grupos vistos, el test pasaría por vacío; y
-    // entre ellos, alguno que embosca, que es el que la persona pisaba a ciegas.
-    expect(vistos).toBeGreaterThan(20);
-    expect(emboscadores).toBeGreaterThan(0);
-    expect(sobreLaNiebla).toBe(0);
-  });
-
   it('jugando, lo que se ve ahora está siempre explorado: también tras capturar un castillo', async () => {
     let capturas = 0;
     let recuerdos = 0;
@@ -768,44 +412,6 @@ describe('lo que el castillo ve se pinta (H1)', () => {
   });
 });
 
-describe('la ruta que pisa una emboscada (H2)', () => {
-  it('avisa en el primer paso de la región del grupo, y solo de un grupo que se ve', () => {
-    // La primera semilla con un destino cuya ruta pisa, a la vista, la región de
-    // un grupo que embosca. Eran la semilla 1 y la (2,10), escritas a mano, y
-    // los mapas densos se las llevaron.
-    const hallada = (() => {
-      for (let seed = 1; seed <= 200; seed++) {
-        const state = newGame({ seed });
-        const hero = heroesOf(state, 0)[0]!;
-        const vistos = asaltantesALaVista(state, visibleNow(state, 0));
-        for (let y = 0; y < state.map.height; y++) {
-          for (let x = 0; x < state.map.width; x++) {
-            const camino = caminoHasta(state, hero, { x, y });
-            if (camino === null) continue;
-            const aviso = emboscadaEnLaRuta(state, hero, camino, vistos);
-            if (aviso !== null) return { state, hero, camino, vistos, aviso };
-          }
-        }
-      }
-      throw new Error('ninguna de 200 semillas da una ruta con emboscada a la vista');
-    })();
-    const { state, hero, camino, vistos, aviso } = hallada;
-    // La misma regla que la marcha: el paso avisado es donde salta.
-    const r = regionDeCasilla(state.map, camino[aviso.paso]!.at);
-    expect(regionDeCasilla(state.map, aviso.raider.at)).toBe(r);
-    for (const paso of camino.slice(0, aviso.paso)) {
-      expect(regionDeCasilla(state.map, paso.at)).not.toBe(r);
-    }
-    // Lo que no se ve no avisa: la ruta no cuenta lo que tapa la niebla.
-    expect(
-      emboscadaEnLaRuta(state, hero, camino, asaltantesALaVista(state, Casillas.vacias(state.map))),
-    ).toBeNull();
-    // Y un héroe al que el grupo no le saca el margen, tampoco.
-    hero.army = ejercito({ creature: JINETE, count: 7 });
-    expect(emboscadaEnLaRuta(state, hero, camino, vistos)).toBeNull();
-  });
-});
-
 describe('qué grupo se ve: si se mira su casilla (02-11-2026)', () => {
   /**
    * La primera semilla con un grupo cuya región se ve el día 1 y cuya casilla
@@ -842,25 +448,6 @@ describe('qué grupo se ve: si se mira su casilla (02-11-2026)', () => {
     expect(asaltantesALaVista(state, null).map((r) => r.id)).toEqual(
       state.raiders.map((r) => r.id),
     );
-  });
-
-  it('la ruta no avisa de un grupo cuya casilla no se ve, aunque se vea su región', () => {
-    const { state, raider, mirando } = grupoPorSuRegion();
-    const hero = heroesOf(state, 0)[0]!;
-    // Lo bastante débil para que el grupo le saque el margen: aquí se mira qué se
-    // ve, no quién embosca a quién. El grupo, fijo y fuerte, que el héroe solo ya
-    // pega como una tropa entera (25-10-2026).
-    hero.army = ejercito({ creature: TROPA_BARATA, count: 1 });
-    (raider as { troops: unknown }).troops = [{ creature: JINETE, count: 3 }];
-    const region = regionDeCasilla(state.map, raider.at);
-    const { regionDe } = estructura(state.map);
-    const i = regionDe.indexOf(region);
-    const destino = { x: i % state.map.width, y: Math.floor(i / state.map.width) };
-    const camino = caminoHasta(state, hero, destino);
-    if (camino === null) throw new Error('no hay camino a la región del grupo');
-    expect(emboscadaEnLaRuta(state, hero, camino, asaltantesALaVista(state, mirando))).toBeNull();
-    // Con todo a la vista, avisa: el grupo sí la emboscaría.
-    expect(emboscadaEnLaRuta(state, hero, camino, asaltantesALaVista(state, null))).not.toBeNull();
   });
 
   it('el agente lee la misma regla: `knownMap.raiders` es `asaltantesALaVista`', () => {

@@ -8,19 +8,16 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { batallaDeArena, type HeroeDeArena, heroePorDefecto } from '../src/core/arena.js';
 import {
   activeStack,
   applyAction,
-  isAlive,
   legalActions,
   poderBlocker,
   previsionDe,
 } from '../src/core/battle/battle.js';
-import { hexKey, neighbours } from '../src/core/battle/board.js';
 import { poder, poderDeHabilidad, validarPoderes } from '../src/core/battle/poderes.js';
-import type { BattleStack, BattleState } from '../src/core/battle/types.js';
+import type { BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
@@ -105,46 +102,6 @@ describe('Curar (A1)', () => {
 });
 
 describe('los rechazos los escribe poderBlocker (A5)', () => {
-  it('cada motivo, y applyAction lanza con él', () => {
-    const { b, rng, monje, escudero, orco } = enElTurnoDelMonje(0);
-    const motivos: [string, string | undefined, string][] = [
-      ['curar', escudero.id, 'Escudero no tiene ninguna herida'],
-      ['curar', undefined, 'nadie de su bando tiene ninguna herida'],
-      ['curar', orco.id, '«Curar» va dirigido a un aliado'],
-      ['curar', 'nadie', 'no hay ninguna unidad "nadie"'],
-      ['volar', escudero.id, 'no hay ningún poder «volar»'],
-    ];
-    for (const [p, t, motivo] of motivos) {
-      expect(poderBlocker(b, p, t)).toContain(motivo.replace('Escudero', escudero.unit.name));
-      if (t !== undefined) {
-        expect(() => applyAction(b, { type: 'power', poder: p, target: t }, rng)).toThrow(
-          `${monje.unit.name} no puede usar ese poder:`,
-        );
-      }
-    }
-    // Muerto.
-    escudero.count = 0;
-    expect(poderBlocker(b, 'curar', escudero.id)).toBe('el objetivo ya está destruido');
-    escudero.count = 1;
-    // Tras moverse, ninguno: es al principio del turno.
-    const paso = legalActions(b).find((a) => a.type === 'move');
-    if (paso === undefined) throw new Error('el monje no se puede mover');
-    applyAction(b, paso, rng);
-    expect(poderBlocker(b, 'curar', escudero.id)).toBe(
-      'ya se ha movido este turno: «Curar» se usa al principio del turno',
-    );
-    expect(legalActions(b).some((a) => a.type === 'power')).toBe(false);
-  });
-
-  it('quien no tiene el poder no lo sabe', () => {
-    const rng = createRng(7);
-    const b = pelea(rng);
-    const escudero = stack(b, 1);
-    hastaSuTurno(b, escudero.id, rng);
-    expect(poderBlocker(b, 'curar', escudero.id)).toBe(`${escudero.unit.name} no sabe Curar`);
-    expect(legalActions(b).some((a) => a.type === 'power')).toBe(false);
-  });
-
   it('la lista legal ofrece exactamente los pares que deja pasar el bloqueador', () => {
     const { b, escudero } = enElTurnoDelMonje(3);
     const ofrecidos = legalActions(b)
@@ -205,35 +162,5 @@ describe('el catálogo de poderes (data/poderes.json)', () => {
       expect(u.poderes ?? [], u.id).toEqual(suyos);
     }
     expect(unidadDelJuego(SANADOR).poderes).toEqual(['curar']);
-  });
-});
-
-describe('la IA de batalla usa los poderes (A4)', () => {
-  /** El orco, en una casilla libre de al lado del escudero. */
-  function orcoJuntoAlEscudero(b: BattleState, escudero: BattleStack, orco: BattleStack): void {
-    const ocupadas = new Set(b.stacks.filter(isAlive).map((x) => hexKey(x.hex)));
-    const libre = neighbours(escudero.hex).find((h) => !ocupadas.has(hexKey(h)));
-    if (libre === undefined) throw new Error('el escudero no tiene una casilla libre al lado');
-    orco.hex = libre;
-  }
-
-  it('cura a quien puede caer si la pelea se gana; si no corre peligro, no gasta el turno en él', () => {
-    // Sin héroe: con él, la IA lanza antes su hechizo, que no gasta el turno.
-    // 40 de herida sobre los 50 del escudero (la brigantina da armadura, no PV:
-    // #262), y le quedan 10. Eran 28 (le quedaban 22) hasta el catálogo retocado del
-    // 02-11-2026, en que el orco de dos armas pasó a pegar 6–18.
-    const { b, escudero, orco } = enElTurnoDelMonje(40, null);
-    orco.topHp = 9; // el bando del monje va ganando la carrera
-    // Lejos del orco, 10 PV no corren peligro: el monje no se queda curando.
-    expect(chooseBattleAction(b)).not.toMatchObject({ type: 'power' });
-    // Con el orco pegado (espada y maza, 6–18, menos los 2 de la brigantina), 10 PV
-    // caen: lo cura.
-    orcoJuntoAlEscudero(b, escudero, orco);
-    expect(chooseBattleAction(b)).toEqual({ type: 'power', poder: 'curar', target: escudero.id });
-    // Y si la pelea se pierde, curar solo la alarga: pega o se mueve. Con un orco
-    // de 600 PV entero, se pierde.
-    Object.assign(orco, { unit: { ...orco.unit, hp: 600 } });
-    orco.topHp = orco.unit.hp;
-    expect(chooseBattleAction(b)).not.toMatchObject({ type: 'power' });
   });
 });

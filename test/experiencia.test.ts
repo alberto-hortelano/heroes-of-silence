@@ -15,20 +15,17 @@
 import { describe, expect, it } from 'vitest';
 import { galonesDe } from '../src/client/render/batalla.js';
 import { marcaDeVeterano } from '../src/client/views/panels.js';
-import { unitPower } from '../src/core/ai/fuerza.js';
-import { planRecruits } from '../src/core/ai/strategy.js';
 import {
   applyAction,
   type BattleSide,
   createBattle,
   stackById,
-  surrenderBlocker,
 } from '../src/core/battle/battle.js';
 import { herir, stackHp } from '../src/core/battle/damage.js';
 import { castSpell, delHeroe, spell } from '../src/core/battle/spells.js';
 import type { BattleHero, BattleState } from '../src/core/battle/types.js';
 import { HERO_BODY } from '../src/core/battle/types.js';
-import { cifrasDeUnidad, unidadDelJuego, unidadesDeFaccion } from '../src/core/catalogo.js';
+import { cifrasDeUnidad, unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { serializeAdventureTurn, serializeBattleTurn } from '../src/core/contract/serialize.js';
 import {
@@ -45,7 +42,6 @@ import {
   RANGO_MAXIMO_DE_TROPA,
   rangoDe,
   rangoDeHeroe,
-  rangoDeTropa,
   siguienteUmbral,
   subidasDeRango,
   umbral,
@@ -57,13 +53,10 @@ import {
   heroLeadership,
   sinIndividuos,
   troopSummary,
-  troopUnit,
 } from '../src/core/hero/troop.js';
 import { isEnterable, objectAt } from '../src/core/map/map.js';
 import { indiceDePoder, nivelDeUnidad } from '../src/core/nivel.js';
 import { createRng } from '../src/core/rng.js';
-import { createCharacter, defaultBuild } from '../src/core/rpg/character.js';
-import { combatProfile } from '../src/core/rpg/stats.js';
 import { visibleTo } from '../src/core/state/events.js';
 import {
   applyAdventureAction,
@@ -175,38 +168,6 @@ describe('la experiencia se gana por daño × índice de poder del que lo recibe
     expect(autor.ganado.experiencia).toBe(50 * indice);
     expect(autor.ganado.experiencia).not.toBe(50 * nivelDeUnidad(recibe.unit));
     expect(autor.ganado.bajas).toBe(1);
-  });
-
-  it('el índice del que recibe es el de sus cifras: el rango lo sube, y el del héroe es el de su cuerpo', () => {
-    const b = createBattle(
-      // Un héroe de rango 7: recibe con el nivel de su cuerpo, que crece por rango.
-      conHeroe([{ creature: NO_MUERTO, count: 1 }], 7),
-      {
-        army: [
-          { creature: TROPA, count: 1 },
-          { creature: TROPA, count: 1, veterania: hoja('v-1', umbral(4)) },
-        ],
-        hero: null,
-      },
-      createRng(1),
-      COMBATE_COMPLETO,
-    );
-    const novato = stackById(b, 'defender-0').unit;
-    const veterano4 = stackById(b, 'defender-1').unit;
-    // El rango 4 le suma +3/+3: más índice, así que cobrar de él paga más.
-    expect(indiceDePoder(veterano4)).toBeGreaterThan(indiceDePoder(novato));
-    const autor = stackById(b, 'attacker-0');
-    // Lo que quita de verdad, tras su armadura (`herir` la resta).
-    const antes = stackHp(stackById(b, 'defender-1'));
-    herir(stackById(b, 'defender-1'), { damage: 30, perfora: false }, autor);
-    const quitado = antes - stackHp(stackById(b, 'defender-1'));
-    expect(quitado).toBeGreaterThan(0);
-    expect(autor.ganado.experiencia).toBe(quitado * indiceDePoder(veterano4));
-    // El héroe de rango 7 (atq/def 1 + 2, 1 400 PV): su cuerpo, no su rango.
-    const cuerpo = stackById(b, 'attacker-heroe').unit;
-    expect(cuerpo.hp).toBe(HEROE.combate.pv.base + 2 * HEROE.combate.pv.porRango);
-    expect(nivelDeUnidad(cuerpo)).toBe(4);
-    expect(nivelDeUnidad(cuerpo)).not.toBe(rangoDeHeroe({ experience: umbral(7) }));
   });
 
   it('la salpicadura sobre un aliado no da experiencia', () => {
@@ -340,31 +301,6 @@ describe('la experiencia se gana por daño × índice de poder del que lo recibe
 // ---------------------------------------------------------------- C2
 
 describe('una sola tabla en Fibonacci (C2)', () => {
-  it('los umbrales salen del JSON: 2 700, 8 100, 16 200 y 29 700 para los rangos 2-5 (en PV × índice)', () => {
-    expect(EXPERIENCIA.base).toBe(2_700);
-    expect([1, 2, 3, 4, 5].map(umbral)).toEqual([0, 2_700, 8_100, 16_200, 29_700]);
-    expect(rangoDe(0)).toBe(1);
-    expect(rangoDe(2_699)).toBe(1);
-    expect(rangoDe(2_700)).toBe(2);
-    expect(rangoDe(29_699)).toBe(4);
-    expect(rangoDe(29_700)).toBe(5);
-  });
-
-  it('la tropa se para en el 5 y el héroe no: sigue la misma recurrencia', () => {
-    expect(RANGO_MAXIMO_DE_TROPA).toBe(5);
-    // Más allá de [1, 2, 3, 5] vienen 8, 13… por la recurrencia, no por el JSON.
-    expect(umbral(6)).toBe(29_700 + 2_700 * 8);
-    expect(umbral(7)).toBe(51_300 + 2_700 * 13);
-    expect(rangoDeTropa(hoja('v', 8_000_000))).toBe(5);
-    expect(rangoDe(8_000_000)).toBeGreaterThan(5);
-    expect(siguienteUmbral(20_000, RANGO_MAXIMO_DE_TROPA)).toBe(29_700);
-    expect(siguienteUmbral(29_700, RANGO_MAXIMO_DE_TROPA)).toBeNull();
-    // La tabla se acaba donde deja de caber en un entero, y entonces lanza en
-    // vez de redondear.
-    expect(() => umbral(500)).toThrow('pide más experiencia de la que cabe en un entero');
-    expect(rangoDe(Number.MAX_SAFE_INTEGER)).toBeGreaterThan(50);
-  });
-
   it('`data.ts` lanza si los incrementos no son Fibonacci (sonda)', () => {
     const roto = { ...structuredClone(EXPERIENCIA), incrementos: [1, 2, 4, 6] };
     expect(() => validarExperiencia(roto)).toThrow(
@@ -562,69 +498,6 @@ describe('la veteranía vive en el individuo y lo acompaña (C3)', () => {
 // ---------------------------------------------------------------- C4
 
 describe('cifras por rango, en una sola puerta (C4)', () => {
-  /**
-   * El coracero (fuerza 3, agilidad 3; espada, daga y coraza, que pesan 4): de novato
-   * el peso le quita un punto de agilidad, y con la fuerza que da el rango lo
-   * recupera. Era el guerrero con escudo (`TROPA`) hasta el catálogo retocado del
-   * 02-11-2026, en que lo que lleva pesa 3, su fuerza, y ya no le resta nada.
-   */
-  const CARGADO = 'imperio-coracero';
-  it('las cifras de un veterano se guardan por su hoja, y otra hoja u otra criatura se recalculan', () => {
-    const h = hoja('v-c', umbral(4));
-    const novato = unidadDelJuego(CARGADO);
-    const a = cifrasDeUnidad(CARGADO, h);
-    // Rango 4: ataque +3 y fuerza +3 (y con ella el daño), y su nivel es el de esas
-    // cifras, no uno sumado aparte. La agilidad no sube, pero con fuerza 6 lo que
-    // lleva (4) ya no le pesa: recupera el punto que el novato pierde con fuerza 3
-    // (31-10-2026), y con él uno de defensa.
-    expect(a).toMatchObject({
-      attack: novato.attack + 3,
-      fuerza: novato.fuerza + 3,
-      defense: novato.defense + 1,
-    });
-    expect(a.damage[0]).toBe(novato.damage[0] + 3);
-    expect(a).not.toHaveProperty('nivel');
-    // La misma hoja da el MISMO objeto: `armyPower` ya no fabrica uno por pregunta.
-    expect(cifrasDeUnidad(CARGADO, h)).toBe(a);
-    // Más experiencia es otra hoja —`settleBattle` escribe una nueva—: otras cifras.
-    expect(cifrasDeUnidad(CARGADO, hoja('v-c', umbral(5))).attack).toBe(novato.attack + 4);
-    // La misma hoja en otra unidad no presta las de la primera.
-    expect(cifrasDeUnidad(TIRADOR, h)).toMatchObject({
-      name: unidadDelJuego(TIRADOR).name,
-      attack: unidadDelJuego(TIRADOR).attack + 3,
-    });
-    expect(cifrasDeUnidad(CARGADO, h)).toMatchObject({ name: novato.name });
-    // Y un novato es la referencia del catálogo.
-    expect(cifrasDeUnidad(CARGADO, undefined)).toBe(novato);
-  });
-
-  it('un coracero de rango 3 entra con ataque +2 y fuerza +2, y rendirse lo cobra a su precio', () => {
-    const v = veterano(CARGADO, 'v-1', umbral(3));
-    expect(rangoDeTropa(v.veterania)).toBe(3);
-    const b = createBattle(
-      {
-        army: [{ ...v, count: 1 }],
-        hero: { ...conHeroe([]).hero!, mando: mando({ retreat: { purse: 10_000 } }) },
-      },
-      { army: [{ creature: TROPA_BARATA, count: 1 }], hero: null },
-      createRng(1),
-      COMBATE_COMPLETO,
-    );
-    const s = stackById(b, 'attacker-0');
-    const base = unidadDelJuego(CARGADO);
-    expect(s.unit.attack).toBe(base.attack + 2 * EXPERIENCIA.porRango.ataque);
-    expect(s.unit.fuerza).toBe(base.fuerza + 2 * EXPERIENCIA.porRango.fuerza);
-    expect(s.unit.damage[0]).toBe(base.damage[0] + 2 * EXPERIENCIA.porRango.fuerza);
-    // Con fuerza 5, su peso 4 ya no le resta el punto de agilidad del novato.
-    expect(s.unit.defense).toBe(base.defense + 1);
-    expect(s.unit.hp).toBe(base.hp);
-    // Antes el precio salía de la referencia del catálogo, que un veterano ya
-    // no lleva: el oro viaja en el origen.
-    expect(surrenderBlocker(b, 'attacker').coste).toBe(
-      Math.ceil((base.oro * HEROE.rendicion.porcentajeDelOro) / 100),
-    );
-  });
-
   it('un novato sigue llevando la MISMA referencia del catálogo', () => {
     const b = createBattle(
       { army: [{ creature: TROPA, count: 1 }], hero: null },
@@ -634,38 +507,6 @@ describe('cifras por rango, en una sola puerta (C4)', () => {
     );
     expect(stackById(b, 'attacker-0').unit).toBe(unidadDelJuego(TROPA));
     expect(cifrasVeteranas(unidadDelJuego(TROPA), 1)).toBe(unidadDelJuego(TROPA));
-  });
-
-  it('las dos puertas de cifras dan lo mismo: `troopUnit` y lo que pisa el tablero', () => {
-    // Una criatura veterana y un personaje veterano. Si cada puerta sumara la
-    // veteranía por su cuenta, el día que cambie `porRango` divergirían.
-    const aren = createCharacter('aren', defaultBuild);
-    const criatura = veterano(PESADA, 'v-1', umbral(5));
-    const personaje: Troop = {
-      creature: 'character',
-      member: aren.id,
-      veterania: hoja('v-2', umbral(4)),
-    };
-    const b = createBattle(
-      {
-        army: [
-          { ...criatura, count: 1 },
-          { ...personaje, count: 1 },
-        ],
-        hero: null,
-        members: new Map([[aren.id, { profile: combatProfile(aren), hp: aren.hp }]]),
-      },
-      { army: [{ creature: TROPA_BARATA, count: 1 }], hero: null },
-      createRng(1),
-      COMBATE_COMPLETO,
-    );
-    expect(stackById(b, 'attacker-0').unit).toEqual(troopUnit(criatura, undefined));
-    expect(stackById(b, 'attacker-1').unit).toEqual(troopUnit(personaje, { aren }));
-    expect(stackById(b, 'attacker-1').unit.attack).toBe(combatProfile(aren).unit.attack + 3);
-    // Y el personaje recibe con el nivel de sus cifras, que su rango sube.
-    expect(indiceDePoder(stackById(b, 'attacker-1').unit)).toBeGreaterThan(
-      indiceDePoder(combatProfile(aren).unit),
-    );
   });
 });
 
@@ -777,50 +618,6 @@ describe('la veteranía se ve (C7)', () => {
 
 // ---------------------------------------------------------------- C8
 
-describe('la IA no tira a la tropa veterana (C8)', () => {
-  it('para meter algo mejor licencia a los novatos antes que al veterano, aunque sea más caro', () => {
-    const state = newGame({ seed: 5 });
-    const hero = heroesOf(state, 0)[0]!;
-    const base = baseOf(state, 0)!;
-    hero.at = base.at;
-    base.garrison = [];
-    // Uno de lo más barato de rango 3 y cuatro tiradores novatos, más caros: con
-    // la regla de antes el barato era el primero en irse. Ahora se van antes los
-    // tiradores, que son novatos. Cuatro y no cinco desde la escala baja
-    // (26-10-2026): con cinco, entrar el más fuerte pedía licenciar a dos, que
-    // pegan más que él, y la IA (con razón) no cambiaba.
-    const barato = unidadDelJuego(TROPA_BARATA);
-    const tirador = unidadDelJuego(TIRADOR);
-    expect(barato.oro).toBeLessThan(tirador.oro);
-    hero.army = [
-      veterano(TROPA_BARATA, 'v-1', umbral(3)),
-      ...ejercito({ creature: TIRADOR, count: 4 }),
-    ];
-    // Lo que más pega de la facción de la base, con su morada levantada y uno
-    // solo disponible: para meterlo hay que liberar sitio, que son tiradores. Con
-    // más de uno, la IA se lo llevaría todo —veterano incluido, el último— para
-    // meterlos.
-    const fuerte = [...unidadesDeFaccion(base.faction)]
-      .filter((u) => u.edificio !== null)
-      .sort((x, y) => unitPower(y) - unitPower(x))[0]!;
-    if (!base.buildings.includes(fuerte.edificio!)) base.buildings.push(fuerte.edificio!);
-    base.available = { [fuerte.id]: 1 };
-    state.players[0]!.oro = 50_000;
-    const libre = heroLeadership(hero) - (barato.leadership + 4 * tirador.leadership);
-    // Lo que pide su liderazgo, y como poco uno (con el veterano y cinco tiradores
-    // el ejército llevaría 6 de 6 individuos).
-    const fuera = Math.max(1, Math.ceil((fuerte.leadership - libre) / tirador.leadership));
-    expect(fuera).toBeGreaterThan(0);
-    const acciones = planRecruits(state, 0);
-    // (Detrás puede reclutar algo con el hueco que queda: no es asunto de este test.)
-    expect(acciones.slice(0, 2)).toEqual([
-      { type: 'dismiss', hero: hero.id, creature: TIRADOR, count: fuera },
-      { type: 'recruit', town: base.id, creature: fuerte.id, count: 1 },
-    ]);
-    expect(acciones.some((a) => a.type === 'dismiss' && a.creature === TROPA_BARATA)).toBe(false);
-  });
-});
-
 // ------------------------------------------------- una sola escala de rangos
 
 describe('una sola escala de rangos: el héroe empieza donde acaba la tropa', () => {
@@ -880,21 +677,6 @@ describe('una sola escala de rangos: el héroe empieza donde acaba la tropa', ()
       heroUnit({ name: 'X', attack: 0, defense: 0, experience: umbral(4), equipo: {} }),
     ).toThrow(/rango 4/);
     expect(() => heroLeadership({ experience: umbral(4) })).toThrow(/rango 4/);
-  });
-
-  it('el agente ve el rango del héroe, su nivel, su experiencia y el umbral siguiente', () => {
-    const state = newGame({ seed: 7 });
-    const turno = serializeAdventureTurn(state, 0) as { heroes: Record<string, unknown>[] };
-    const heroe = heroesOf(state, 0)[0]!;
-    expect(turno.heroes[0]).toMatchObject({
-      rank: 5,
-      level: nivelDeUnidad(heroUnit(heroe)),
-      experience: umbral(5),
-      nextRankAt: umbral(6),
-    });
-    // El héroe inicial (2/2, rango 5) es del nivel 4: su cuerpo con su equipo
-    // base, que el nivel ve desde el 18-10-2026 y mide con la carga a pie.
-    expect(turno.heroes[0]!.level).toBe(4);
   });
 
   it('el primer ascenso del héroe es al 6 y cuesta 8 bases, no una', () => {

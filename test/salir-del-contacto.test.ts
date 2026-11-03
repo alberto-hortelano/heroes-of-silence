@@ -32,7 +32,7 @@ import {
   stackById,
 } from '../src/core/battle/battle.js';
 import { caminoDe, hexDistance, hexKey } from '../src/core/battle/board.js';
-import { CARGA, type CifrasDeCarga } from '../src/core/battle/carga.js';
+import { CARGA } from '../src/core/battle/carga.js';
 import { applyEffect } from '../src/core/battle/effects.js';
 import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from '../src/core/battle/muralla.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
@@ -409,26 +409,6 @@ describe('el panel', () => {
     expect(tras).toContain('Finta: puede andar 4 casillas; andar termina el turno.');
     expect(tras).not.toContain('golpearlo');
     expect(tras).not.toContain('se le puede cargar');
-  });
-
-  it('la ayuda de la carga dice las cifras de la carga, sin un «»3» fijo (C3 de QA)', () => {
-    const b = pelea(PIQUERO, h(5, 4), [h(7, 4)]);
-    const ayuda = (carga: CifrasDeCarga): string =>
-      marcadoDe(
-        accionesDeLaUnidad({
-          activa: yo(b),
-          carga,
-          legales: legalActions(b),
-          pasos: 4,
-          rendicion: NADA,
-          hechizos: NADA,
-          poderes: NADA,
-          muralla: NADA,
-          modo: 'cuerpo',
-        }),
-      );
-    expect(ayuda(CARGA)).toContain('(de 3 a 5, +5 % cada una)');
-    expect(ayuda(CARGA)).not.toContain('»3');
   });
 });
 

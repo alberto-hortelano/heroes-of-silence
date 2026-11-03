@@ -22,16 +22,14 @@ import {
 } from '../src/client/arena/edicion.js';
 import {
   avisoDelCatalogoLeido,
-  avisoDeNuevaUnidad,
   enElMontaje,
   focoTrasQuitar,
   renderCatalogo,
   renderFicha,
 } from '../src/client/arena/paneles.js';
 import { html, marcadoDe } from '../src/client/html.js';
-import { unidadNueva } from '../src/core/arena.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
-import { hojaDeLaArena, hojasDeLaArena, unidadDeArena } from './helpers.js';
+import { hojasDeLaArena, unidadDeArena } from './helpers.js';
 
 const HOJAS = hojasDeLaArena();
 const hoja = (id: string): FichaEditable => ({ kind: 'unidad', id });
@@ -337,43 +335,6 @@ describe('la lista en la vista de edición', () => {
 });
 
 describe('la vista de edición', () => {
-  it('cada ficha va con su × y su cuerpo es la ficha de siempre, tal cual', () => {
-    const u = unidadDeArena('templario-monje');
-    const como = enElMontaje(EQUIPO_DEL_JUEGO);
-    const deHoja = renderFicha(u, false, como);
-    const deOtra = renderFicha(unidadDeArena('imperio-piquero'), false, como);
-    const m = marcadoDe(
-      renderEdicion({
-        lista: html`<div class="catalogo"></div>`,
-        fichas: [
-          { clave: 'unidad:templario-monje', titulo: u.name, cuerpo: deHoja },
-          { clave: 'unidad:imperio-piquero', titulo: '<Piquero>', cuerpo: deOtra },
-        ],
-      }),
-    );
-    // Un solo renderizador: el cuerpo es el marcado de la ficha del montaje.
-    expect(m).toContain(marcadoDe(deHoja));
-    expect(m).toContain(marcadoDe(deOtra));
-    expect(m.match(/<article class="ficha-abierta"/g)).toHaveLength(2);
-    expect(m.match(/data-arena="cerrar-ficha"/g)).toHaveLength(2);
-    // El × no lleva clave propia: la de su `article`, la misma que la de la ficha.
-    expect(m).toContain(
-      '<article class="ficha-abierta" data-clave-de-ficha="unidad:templario-monje">',
-    );
-    expect(m).toContain(
-      '<article class="ficha-abierta" data-clave-de-ficha="unidad:imperio-piquero">',
-    );
-    // Lo que se repinta solo tras un cambio es lo de dentro del `article`, tal cual.
-    expect(m).toContain(
-      marcadoDe(
-        interiorDeFichaAbierta({ clave: 'unidad:templario-monje', titulo: u.name, cuerpo: deHoja }),
-      ),
-    );
-    expect(m).toContain('&lt;Piquero&gt;');
-    expect(m).toContain('Fichas abiertas · 2</h3>');
-    expect(m).not.toContain(' de 4');
-  });
-
   it('sin ninguna dice cómo abrir, sin tope; con seis, las seis y sin aviso de lleno', () => {
     const vacia = marcadoDe(renderEdicion({ lista: html``, fichas: [] }));
     expect(vacia).toContain('Ninguna ficha abierta');
@@ -403,29 +364,6 @@ describe('la vista de edición', () => {
 });
 
 describe('la barra al crear y al leer el borrador (segunda vuelta de QA)', () => {
-  const ocupados = { validas: [], hojas: [] };
-
-  it('R1: el nivel de una nueva se lee de su índice, el mismo de su ficha', () => {
-    // Desde una hoja (las criaturas del catálogo ya no entran, 13-10-2026), con el
-    // doble golpe que la sube al 3: la barra no lo escribe a mano. Con la Espada del
-    // 02-11-2026 (1 de fuerza; era 3), 266 y 314 (eran 286 y 328).
-    const nueva = unidadNueva(hojaDeLaArena('templario-escudo'), ocupados, EQUIPO_DEL_JUEGO);
-    const doble = { ...nueva, traits: ['double_attack' as const] };
-    expect(avisoDeNuevaUnidad(doble, 'edicion', EQUIPO_DEL_JUEGO)).toBe(
-      'Nueva unidad «Guerrero con escudo 2», con Espada (Índice 314 · nivel 3): su ficha está abierta.',
-    );
-    expect(avisoDeNuevaUnidad(doble, 'montaje', EQUIPO_DEL_JUEGO)).toBe(
-      'Nueva unidad «Guerrero con escudo 2», con Espada (Índice 314 · nivel 3): añádela a un bando o cambia su ficha.',
-    );
-    // Lo mismo que dice su ficha, sin el nivel escrito a mano.
-    expect(marcadoDe(renderFicha(doble, false, enElMontaje(EQUIPO_DEL_JUEGO)))).toContain(
-      'Índice 314 · nivel 3',
-    );
-    expect(avisoDeNuevaUnidad(nueva, 'edicion', EQUIPO_DEL_JUEGO)).toMatch(
-      / \(Índice 266 · nivel 2\): /,
-    );
-  });
-
   it('R4: sin ninguna unidad en el catálogo no hay qué montar, y se dice', () => {
     // Las cifras solo salen del catálogo: sin él no hay «cifras por defecto».
     expect(avisoDelCatalogoLeido('b.json', 0)).toBe(

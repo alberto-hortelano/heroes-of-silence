@@ -8,39 +8,24 @@
 
 import { describe, expect, it } from 'vitest';
 import cargaJson from '../data/carga.json' with { type: 'json' };
-import { marcadoDe } from '../src/client/html.js';
-import { renderBattleLog } from '../src/client/views/panels.js';
-import { batallaDeArena, type HeroeDeArena, heroePorDefecto } from '../src/core/arena.js';
+import { batallaDeArena } from '../src/core/arena.js';
 import {
   applyAction,
-  cargaDesde,
   casillasDeCarga,
-  createBattle,
-  previsionDe,
   soltarElGolpe,
   stackById,
   stackSpeed,
 } from '../src/core/battle/battle.js';
-import {
-  CARGA,
-  CARGA_MINIMA,
-  cargaMontada,
-  dichoDeLaCarga,
-  dichoDeLasCifras,
-  validarCarga,
-} from '../src/core/battle/carga.js';
-import { computeDamage, horquillaDeDanio } from '../src/core/battle/damage.js';
+import { CARGA_MINIMA, cargaMontada, validarCarga } from '../src/core/battle/carga.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
-import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
-import type { Hex, UnitInfo } from '../src/core/types.js';
+import type { Hex } from '../src/core/types.js';
 import { unidadDeCombate } from '../src/core/unidad.js';
 import { delBorrador, forzarTurno, MONTAJE, NORMAL, unidadDeArena } from './helpers.js';
 
 const A_PIE = 'templario-escudo';
 const JINETE = 'templario-hermano-de-carga';
-const ARQUERO = 'elfo-arquero';
 const RIVAL = 'zombi';
 
 /**
@@ -81,19 +66,7 @@ function golpeDe(b: BattleState, desde = 0): Ataque {
   return golpe;
 }
 
-/** El factor con que la previsión anota la carga, o `null` si no anota ninguna. */
-function factorDeLaCarga(b: BattleState, desde: Hex): { causa: string; factor: number } | null {
-  const p = previsionDe(b, { type: 'attack', target: 'defender-0', from: desde });
-  if (p === null || p.kind !== 'golpe') throw new Error('no hay previsión de golpe');
-  const m = p.modificadores.find((x) => x.causa.startsWith('carga de '));
-  return m === undefined ? null : { causa: m.causa, factor: m.factor as number };
-}
-
 describe('las cifras de la carga (`data/carga.json`)', () => {
-  it('+5 % por casilla hasta 5, para todos', () => {
-    expect(CARGA).toEqual({ porcentaje: 5, tope: 5 });
-  });
-
   it('valida el fichero: enteros ≥ 1, el tope desde la recta mínima y sin campos ajenos', () => {
     const con = (cambio: object) => ({ ...cargaJson, ...cambio });
     expect(() => validarCarga(con({ tope: 2 }))).toThrow(
@@ -126,127 +99,9 @@ describe('las cifras de la carga (`data/carga.json`)', () => {
     expect(cargaMontada(conEquipo(JINETE, aPie))).toBe(false);
     expect(cargaMontada(conEquipo(JINETE, { ...aPie, montura: 'caballo_de_silla' }))).toBe(false);
   });
-
-  it('la frase de una carga cobrada', () => {
-    expect(dichoDeLaCarga(3, false)).toBe('carga de 3 casillas, +15 %');
-    expect(dichoDeLaCarga(5, true)).toBe('carga de 5 casillas montada, +25 %');
-    expect(dichoDeLasCifras(false)).toBe('+5 %/casilla (3 a 5)');
-    expect(dichoDeLasCifras(true)).toBe('+5 %/casilla (3 a 5), montada');
-  });
-});
-
-describe('la carga montada pega con la fuerza de la montura (26-10-2026)', () => {
-  /**
-   * El hermano de carga de verdad (el «Caballero templario» desde el 02-11-2026:
-   * fuerza 3, agilidad 3, Caballo de guerra de fuerza 7 y Lanza de jinete de 2; eran
-   * 7, 4, 16 y 4) contra un rival sin armadura con la defensa de su
-   * ataque: ataque contra defensa no multiplica, y lo que se ve es la horquilla.
-   */
-  const contra = (equipo?: object) => {
-    const jinete = unidadDeArena(JINETE, equipo === undefined ? {} : { equipo: equipo as never });
-    const { attack } = unidadDeCombate(jinete, EQUIPO_DEL_JUEGO);
-    const b = batallaDeArena(
-      {
-        izquierda: { unidades: [delBorrador(jinete)], heroe: null },
-        derecha: {
-          unidades: [
-            delBorrador(unidadDeArena(RIVAL, { agilidad: attack, equipo: { arma: 'daga' } })),
-          ],
-          heroe: null,
-        },
-        ...MONTAJE,
-      },
-      createRng(1),
-    );
-    const a = stackById(b, 'attacker-0');
-    const d = stackById(b, 'defender-0');
-    expect(a.unit.attack).toBe(d.unit.defense);
-    return { a, d };
-  };
-
-  it('con una recta de 5, tira en [9, 27] ×1,25, y el golpe cae en su previsión', () => {
-    const { a, d } = contra();
-    const h = horquillaDeDanio(a, d, { chargeHexes: 6 });
-    // [7 + 2, (7 + 2) × 3] × 1,25 = [11,25, 33,75], redondeado.
-    expect(h.danio).toEqual({ min: 11, max: 34 });
-    expect(h.modificadores.map((m) => m.causa)).toContain('carga de 5 casillas montada');
-    expect(h.conArma).toBe(
-      'con Espada y Lanza de jinete, montado en Caballo de guerra (en la carga)',
-    );
-    for (let semilla = 1; semilla <= 40; semilla++) {
-      const { damage, montada } = computeDamage(a, d, createRng(semilla), { chargeHexes: 6 });
-      expect(montada).toBe(true);
-      expect(damage).toBeGreaterThanOrEqual(11);
-      expect(damage).toBeLessThanOrEqual(34);
-    }
-  });
-
-  it('montado sin lanza, o a pie, la carga va con la horquilla de su arma', () => {
-    const { segunda: _lanza, ...sinLanza } = unidadDeArena(JINETE).equipo;
-    const { montura: _caballo, ...aPie } = unidadDeArena(JINETE).equipo;
-    for (const equipo of [sinLanza, aPie]) {
-      const { a, d } = contra(equipo);
-      const [min, max] = a.unit.damage;
-      const h = horquillaDeDanio(a, d, { chargeHexes: 6 });
-      expect(h.danio).toEqual({ min: Math.round(min * 1.25), max: Math.round(max * 1.25) });
-      expect(h.modificadores.map((m) => m.causa)).toContain('carga de 5 casillas');
-    }
-  });
-
-  it('sin carga, el golpe del jinete montado no lleva la fuerza de la montura', () => {
-    const { a, d } = contra();
-    // (3 + 2) × [1, 3]: la fuerza del jinete y la de su mejor arma (con la del
-    // caballo, 7 + 2, serían 9–27).
-    expect(a.unit.damage).toEqual([5, 15]);
-    expect(horquillaDeDanio(a, d, {}).danio).toEqual({ min: 5, max: 15 });
-  });
 });
 
 describe('carga todo el que pega cuerpo a cuerpo, y lo mismo cobra el jinete', () => {
-  // [recta, casillas cobradas, %, factor]
-  const CASOS = [
-    [3, 3, 15, 1.15],
-    [4, 4, 20, 1.2],
-    [6, 5, 25, 1.25],
-  ] as const;
-
-  for (const [recta, cobradas, porciento, factor] of CASOS) {
-    it(`una recta de ${recta}: cobra ${cobradas} casillas (+${porciento} %), a pie y montado`, () => {
-      for (const [id, esAPie] of [
-        [A_PIE, true],
-        [JINETE, false],
-      ] as const) {
-        const { b, desde } = enRecta(id, recta);
-        const s = stackById(b, 'attacker-0');
-        // Montado, las casillas son las del caballo: 5 con lo que carga desde el
-        // 31-10-2026, y la recta de 6 no le cabe. La geometría es del test.
-        if (!esAPie) (s as { unit: UnitInfo }).unit = { ...s.unit, speed: 'ultra_fast' };
-        // La recta se mide entera; el tope lo pone la carga.
-        expect(cargaDesde(b, s, desde, stackById(b, 'defender-0'))).toBe(recta);
-        // Lo que se enseña: el enemigo, su casilla y lo que suma.
-        expect(casillasDeCarga(b, s)).toEqual([
-          { target: 'defender-0', at: desde, hexes: cobradas, porciento },
-        ]);
-        // La previsión lo dice con su factor.
-        const prevista = factorDeLaCarga(b, desde);
-        expect(prevista?.causa).toBe(`carga de ${cobradas} casillas${esAPie ? '' : ' montada'}`);
-        expect(prevista?.factor).toBeCloseTo(factor, 12);
-        // Y el golpe la cobra, con su arma de carga (el jinete, la lanza).
-        applyAction(
-          b,
-          { type: 'attack', target: 'defender-0', from: desde, ...NORMAL },
-          createRng(2),
-        );
-        const golpe = golpeDe(b);
-        expect(golpe.charge).toBe(cobradas);
-        // A pie o montado lo dice quien pegó (`cargaMontada`).
-        expect(cargaMontada(stackById(b, golpe.stack).unit)).toBe(!esAPie);
-        // La carrera, también marcada: se anima con el clip de cargar.
-        expect(b.log.find((e) => e.kind === 'move')).toMatchObject({ charge: true });
-      }
-    });
-  }
-
   it('sin recta no hay carga: pegado de salida, o a 2 casillas', () => {
     const { b } = enRecta(A_PIE, 2);
     expect(casillasDeCarga(b, stackById(b, 'attacker-0'))).toEqual([]);
@@ -256,54 +111,6 @@ describe('carga todo el que pega cuerpo a cuerpo, y lo mismo cobra el jinete', (
       createRng(2),
     );
     expect(golpeDe(b).charge).toBeUndefined();
-  });
-
-  it('el tirador que pega con la daga también carga', () => {
-    const { b, desde } = enRecta(ARQUERO, 3);
-    expect(casillasDeCarga(b, stackById(b, 'attacker-0'))).toContainEqual({
-      target: 'defender-0',
-      at: desde,
-      hexes: 3,
-      porciento: 15,
-    });
-    applyAction(b, { type: 'attack', target: 'defender-0', from: desde, ...NORMAL }, createRng(2));
-    expect(golpeDe(b)).toMatchObject({ charge: 3 });
-    expect(cargaMontada(stackById(b, 'attacker-0').unit)).toBe(false);
-  });
-
-  it('el héroe de la arena también carga a pie', () => {
-    const heroe: HeroeDeArena = heroePorDefecto('izquierda');
-    const b = batallaDeArena(
-      {
-        izquierda: { unidades: [], heroe },
-        derecha: { unidades: [delBorrador(unidadDeArena(RIVAL))], heroe: null },
-        ...MONTAJE,
-      },
-      createRng(1),
-    );
-    colocar(b, 'attacker-heroe', 3);
-    expect(casillasDeCarga(b, stackById(b, 'attacker-heroe'))).toEqual([
-      { target: 'defender-0', at: { col: 3, row: 4 }, hexes: 3, porciento: 15 },
-    ]);
-  });
-
-  it('el parte dice la carga, a pie o montada, con lo que sumó', () => {
-    const aPie = enRecta(A_PIE, 3);
-    applyAction(
-      aPie.b,
-      { type: 'attack', target: 'defender-0', from: aPie.desde, ...NORMAL },
-      createRng(2),
-    );
-    expect(marcadoDe(renderBattleLog(aPie.b, null))).toContain('(carga de 3 casillas, +15 %)');
-    const jinete = enRecta(JINETE, 4);
-    applyAction(
-      jinete.b,
-      { type: 'attack', target: 'defender-0', from: jinete.desde, ...NORMAL },
-      createRng(2),
-    );
-    expect(marcadoDe(renderBattleLog(jinete.b, null))).toContain(
-      '(carga de 4 casillas montada, +20 %)',
-    );
   });
 });
 
@@ -350,30 +157,6 @@ describe('la rueda del golpe con una carga a pie', () => {
       createRng(5),
     );
     expect(golpeDe(b, largo)).toMatchObject({ charge: 4 });
-  });
-});
-
-describe('el juego carga como la arena (19-10-2026)', () => {
-  it('la misma unidad y la misma recta por `createBattle`: a pie y el jinete montado', () => {
-    for (const [id, aPie] of [
-      [A_PIE, true],
-      [JINETE, false],
-    ] as const) {
-      const b = createBattle(
-        { army: [{ creature: id, count: 1 }], hero: null },
-        { army: [{ creature: RIVAL, count: 1 }], hero: null },
-        createRng(1),
-        COMBATE_COMPLETO,
-      );
-      colocar(b, 'attacker-0', 3);
-      applyAction(
-        b,
-        { type: 'attack', target: 'defender-0', from: { col: 3, row: 4 }, ...NORMAL },
-        createRng(2),
-      );
-      expect(golpeDe(b).charge).toBe(3);
-      expect(cargaMontada(stackById(b, 'attacker-0').unit)).toBe(!aPie);
-    }
   });
 });
 

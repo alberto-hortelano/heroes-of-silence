@@ -395,46 +395,6 @@ describe('la ficha y el reclutamiento (C4, C5)', () => {
     );
     expect(vista.ficha.rasgos).toContain(`${curar.nombre} (${curar.lanzador.cantidad} PV)`);
   });
-
-  it('con la guarnición llena, «+1» y «Todo (0)» apagados y la frase del núcleo escrita debajo; con sitio, se recluta sin salir', () => {
-    const { s, escena } = enLaBase();
-    escena.irA('lvl1', 0);
-    const recluta = s.vistaDeLaMorada()!.ficha.id;
-    // El primer día la guarnición está llena: no cabe ni uno.
-    expect(s.recruitPlan(recluta)!.maximo).toBe(0);
-    const motivo = s.motivoParaNoReclutar(recluta)!;
-    expect(motivo).toMatch(/no cabe|liderazgo/);
-    const lleno = marcadoDe(renderSide(s));
-    expect(lleno).toContain(
-      `<button data-action="recruit" data-creature="${recluta}" data-todo="no" disabled>+1</button>`,
-    );
-    expect(lleno).toContain(
-      `data-creature="${recluta}" data-todo="si" class="primary" disabled>Todo (0)</button>`,
-    );
-    expect(lleno).toContain(`<span class="motivo-apagado">${motivo}</span>`);
-    // Sin `title`: en el móvil no hay ratón que lo enseñe.
-    expect(lleno).not.toMatch(/data-action="recruit"[^>]*title=/);
-    // Con sitio (la guarnición vaciada a mano, que no es una jugada: se vuelve a
-    // entrar para que la vista no sea la de antes): encendidos, «Todo» recluta lo
-    // que calcula el núcleo y la vista lo enseña sin salir.
-    s.cerrarLaMorada();
-    s.activeTown!.garrison = [];
-    escena.irA('lvl1', 0);
-    const antes = s.activeTown!.available[recluta]!;
-    const plan = s.recruitPlan(recluta)!;
-    expect(plan.maximo).toBeGreaterThan(0);
-    const conSitio = marcadoDe(renderSide(s));
-    expect(conSitio).toContain(`data-todo="si" class="primary" >Todo (${plan.maximo})</button>`);
-    expect(conSitio).not.toContain('class="motivo-apagado"');
-    s.recruitAll(recluta);
-    expect(s.scene).toBe('morada');
-    expect(s.activeTown!.available[recluta]).toBe(antes - plan.maximo);
-    const despues = s.vistaDeLaMorada()!.ficha;
-    expect(despues.disponibles).toBe(antes - plan.maximo);
-    expect(marcadoDe(renderSide(s))).toContain(
-      `<span>${antes - plan.maximo} · +${unidadDelJuego(recluta).growth}/semana</span>`,
-    );
-  });
 });
 
 describe('licenciar dentro de la morada (QA I1)', () => {

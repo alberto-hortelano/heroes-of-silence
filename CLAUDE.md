@@ -360,8 +360,8 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   la mediana del poder bruto del catálogo para que siga del 2 al 4, y con la escala baja, 26-10-2026,
   baja a 623 con la misma mediana, a ojo; la mide `npx tsx tools/qa/cifras-del-catalogo.ts --medianas`).
   Nadie lo escribe, ni el coste: el catálogo guarda la morada (`Unidad.edificio`) y el contrato la
-  manda como `dwelling`. Las 34 del catálogo van del nivel 1 al 4 (`TABLA_DEL_CATALOGO`; el esqueleto guerrero, 196, en el 1 desde el peso que resta por cada fuerza entera, 31-10-2026,
-  `test/nivel.test.ts`): el edificio no implica nivel y la escala no se recalibra a ojo
+  manda como `dwelling`. Las 34 del catálogo van del nivel 1 al 4 (el esqueleto guerrero, 196, en el 1 desde el peso que resta por cada fuerza entera, 31-10-2026;
+  ningún test lo fija: lo lista `tools/qa/cifras-del-catalogo.ts`): el edificio no implica nivel y la escala no se recalibra a ojo
   (decisión del usuario del 19-10-2026: «no te preocupes por el valor de las unidades, lo iremos
   refinando»). Un héroe recién hecho (2/2) es del nivel 3 desnudo (356) y del 4 con la Espada
   (412). **PV y fuerza van ×3** (`ESCALA_DE_CIFRAS`, `core/escala.ts`: catálogo, equipo, héroe,

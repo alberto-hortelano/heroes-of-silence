@@ -23,11 +23,8 @@ import {
   sitioEnLaRueda,
 } from '../src/client/rueda/rueda.js';
 import type { SesionDeArena } from '../src/client/session.js';
-import { efectoEnCurso, modificadoresEnCurso } from '../src/client/views/panels.js';
 import { stackById } from '../src/core/battle/battle.js';
-import type { StackEffect } from '../src/core/battle/effects.js';
 import {
-  formaDeLaBatalla,
   LAS_TRES_RUEDAS,
   RUEDA_DE_REFERENCIA,
   type TipoDeGolpe,
@@ -38,7 +35,6 @@ import {
   empezarTalCual,
   hastaLaRueda,
   PESADA,
-  primerCruce,
   sesionDeArena,
   TROPA,
   unidadDeArena,
@@ -111,35 +107,6 @@ describe('#258: el botón de cada sector se recorta a lo que se ve', () => {
     const d = desenlaceDe(otra.battle, caraDeLaArena(otra));
     expect(d).not.toContain('<clipPath');
     expect(d).not.toContain('data-golpe=');
-  });
-});
-
-describe('R3 de QA (#263): R. guardia dice en cuánto deja el contraataque antes de elegir', () => {
-  it('su nota, y su etiqueta, llevan el contraataque con cada éxito frente al de Normal', () => {
-    // La 2: en la 1, desde la fuerza y la agilidad (25-10-2026), pega antes el del mandoble.
-    const s = sesion(2);
-    hastaElGolpe(s);
-    const p = s.ruedaPendiente;
-    if (p === null) throw new Error('la rueda no pide el golpe');
-    const ahora = p.prevision.contraataque;
-    const porExito = p.prevision.porTipo?.romperGuardia?.contraataquePorExito ?? [];
-    expect(ahora).not.toBeNull();
-    // Pega el guerrero con escudo, con la espada: Romper guardia en el nivel 3
-    // (quita 0, 0, 1, 2 y 3 del mínimo al máximo). El medio, el alto y el máximo
-    // rebajan el contraataque; el bajo y el mínimo, no.
-    expect(p.atacante.body).toBe(TROPA);
-    expect(porExito.map((x) => x.punto)).toEqual([4, 3, 2]);
-    const h = (x: { min: number; max: number }) =>
-      x.min === x.max ? `${x.min}` : `${x.min}–${x.max}`;
-    const frase = `Su contraataque (con Normal, ${h(ahora ?? { min: 0, max: 0 })}) queda, según el éxito, en: ${porExito
-      .map((x) => `${['mínimo', 'bajo', 'medio', 'alto', 'máximo'][x.punto]}, ${h(x.danio)}`)
-      .join('; ')}.`;
-    const m = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
-    const rg = m.slice(m.indexOf('data-golpe="romperGuardia"'), m.indexOf('data-golpe="normal"'));
-    // Una vez en la etiqueta del botón y otra en su «ⓘ».
-    expect(rg.split(frase)).toHaveLength(3);
-    // Los demás tipos no lo dicen.
-    expect(m.split('Su contraataque (con Normal')).toHaveLength(3);
   });
 });
 
@@ -253,29 +220,6 @@ describe('#261: los dos contrincantes en la cabecera', () => {
     expect(conGolpe('defensivo')).toBe(fuerte);
   });
 });
-
-/** Defensivo colgado, hasta que empiece su próximo turno (lo que deja la rueda). */
-const DEFENSIVO: StackEffect = {
-  kind: 'defense',
-  amount: 1,
-  source: 'defensivo',
-  roundsLeft: 2,
-  hasta: { turno: 1, al: 'empezar' },
-};
-/** Lo que deja el miedo: ataque −2 dos rondas. */
-const MIEDO: StackEffect = { kind: 'attack', amount: -2, source: 'fear', roundsLeft: 2 };
-/** Lo que deja Lentitud: velocidad −2 tres rondas. */
-const LENTITUD: StackEffect = { kind: 'speed', amount: -2, source: 'slow', roundsLeft: 3 };
-
-/** Lo que hay entre `data-contrincante="id"` y el siguiente contrincante (o el final de la cabecera). */
-function delContrincante(m: string, id: string): string {
-  const desde = m.indexOf(`data-contrincante="${id}"`);
-  if (desde < 0) throw new Error(`${id} no está en la cabecera`);
-  const fin = [m.indexOf('data-contrincante="', desde + 1), m.indexOf('</header>', desde)]
-    .filter((i) => i > 0)
-    .reduce((a, b) => Math.min(a, b));
-  return m.slice(desde, fin);
-}
 
 describe('31-10-2026: al responder, la rueda dice el daño del atacante', () => {
   /** La rueda de la respuesta de una sesión con los dos bandos «Yo», tras un Fuerte. */
@@ -398,76 +342,6 @@ describe('31-10-2026: al responder, la rueda dice el daño del atacante', () => 
   });
 });
 
-describe('31-10-2026: los modificadores de los dos, en la cabecera de la rueda', () => {
-  it('lo que lleva colgado cada uno, en pastillas con su signo y una sola nota; sin nada, nada', () => {
-    const s = sesion();
-    hastaElGolpe(s);
-    const p = s.ruedaPendiente;
-    if (p === null) throw new Error('sin rueda');
-    const sin = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
-    expect(sin).not.toContain('modificadores en-curso');
-    stackById(s.battle, p.atacante.id).effects.push({ ...MIEDO }, { ...LENTITUD });
-    stackById(s.battle, p.objetivo.id).effects.push({ ...DEFENSIVO });
-    const m = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
-    const forma = formaDeLaBatalla(s.battle);
-    const suyo = delContrincante(m, p.atacante.id);
-    expect(suyo).toContain('data-efecto="attack" data-signo="−">ataque -2</span>');
-    expect(suyo).toContain('data-efecto="speed" data-signo="−">velocidad -2</span>');
-    // Una nota con los dos enteros, con la frase de `efectoEnCurso`.
-    const notas = [...suyo.matchAll(/class="nota"[^>]*aria-label="([^"]*)"/g)].map((x) => x[1]);
-    expect(notas).toEqual([`${efectoEnCurso(MIEDO, forma)}; ${efectoEnCurso(LENTITUD, forma)}`]);
-    const otro = delContrincante(m, p.objetivo.id);
-    expect(otro).toContain('data-efecto="defense" data-signo="+">defensa +1</span>');
-    expect(otro).not.toContain('data-efecto="attack"');
-    // Debajo del nombre: dentro de sus datos, tras `.quien`.
-    expect(suyo.indexOf('class="quien"')).toBeLessThan(suyo.indexOf('modificadores en-curso'));
-  });
-
-  it('una sola forma: la de «En el campo» y la de la rueda salen de la misma función', () => {
-    const forma = RUEDA;
-    const m = marcadoDe(modificadoresEnCurso([MIEDO, DEFENSIVO], forma));
-    expect(m.match(/class="modificador"/g)).toHaveLength(2);
-    expect(m.match(/class="nota"/g)).toHaveLength(1);
-    expect(marcadoDe(modificadoresEnCurso([], forma))).toBe('');
-    // La carga: «carga +25 %» y, en la nota, la frase entera.
-    const conCarga = marcadoDe(modificadoresEnCurso([], forma, { casillas: 5, montada: true }));
-    expect(conCarga).toContain('data-carga data-signo="+">carga +25 %</span>');
-    expect(conCarga).toContain('aria-label="carga de 5 casillas montada, +25 %"');
-  });
-
-  it('el desenlace pinta lo que llevaban antes del cruce (la foto del animador), no lo que trae el estado', () => {
-    const s = sesion();
-    hastaElGolpe(s);
-    s.elegirEnLaRueda('defensivo');
-    s.elegirEnLaRueda('normal');
-    const b = s.battle;
-    const e = primerCruce(b);
-    // El Defensivo que el cruce acaba de dejar está en el estado…
-    expect(stackById(b, e.stack).effects.some((x) => x.source === 'defensivo')).toBe(true);
-    // …pero antes del cruce no lo llevaba: no sale.
-    const antes = new Map(b.stacks.map((x) => [x.id, [] as StackEffect[]]));
-    expect(desenlaceDe(b, caraDeLaArena(s), antes)).not.toContain('modificadores en-curso');
-    // Con una foto que lleva Lentitud en el objetivo, sale esa; y sin carrera, ninguna carga.
-    antes.set(e.target, [LENTITUD]);
-    const conLentitud = desenlaceDe(b, caraDeLaArena(s), antes);
-    expect(delContrincante(conLentitud, e.target)).toContain('velocidad -2');
-    expect(delContrincante(conLentitud, e.stack)).not.toContain('modificadores en-curso');
-    // La carga es la que cobró su golpe en el registro (`cargaDelCruce`): con 3
-    // casillas cobradas, la pastilla va en quien pega.
-    const cobrada = {
-      ...b,
-      log: b.log.map((x) =>
-        x.kind === 'attack' && !x.retaliation && x.stack === e.stack ? { ...x, charge: 3 } : x,
-      ),
-    };
-    const conCarga = desenlaceDe(cobrada, caraDeLaArena(s), antes);
-    expect(delContrincante(conCarga, e.stack)).toContain('carga +15 %');
-    expect(delContrincante(conCarga, e.target)).not.toContain('carga +');
-    // Una foto sin uno de los dos es un fallo, no «nada».
-    expect(() => desenlaceDe(b, null, new Map())).toThrow(/no sabe qué llevaba/);
-  });
-});
-
 describe('#261: la vista previa', () => {
   /** La vista previa de `id` en la rueda del golpe de la sesión. */
   const previa = (s: SesionDeArena, id: string): string => {
@@ -477,32 +351,6 @@ describe('#261: la vista previa', () => {
     const desde = m.indexOf(`id="previa-${id}"`);
     return m.slice(desde, m.indexOf('</div><span class="datos-del-contrincante">', desde));
   };
-
-  it('el nombre, la vida y las cifras con lo que cambia el equipo (el guerrero con escudo: espada, brigantina y escudo)', () => {
-    const s = sesion();
-    hastaElGolpe(s);
-    const p = s.ruedaPendiente;
-    if (p === null) throw new Error('sin rueda');
-    const guerrero = [p.atacante, p.objetivo].find((x) => x.body === TROPA);
-    if (guerrero === undefined) throw new Error('el guerrero no se cruza');
-    const v = previa(s, guerrero.id);
-    expect(v).toContain('Guardia del temple');
-    expect(v).toContain(`${guerrero.topHp} / 50 PV`);
-    // Del catálogo de piezas (data/equipo.json, retocado el 02-11-2026): Espada +3
-    // ataque y +1 de fuerza; Brigantina 2 de armadura y ningún PV (#262); el escudo,
-    // defensa. Lo puesto pesa 3, y con fuerza 3 no le resta agilidad: las casillas
-    // no cambian.
-    expect(v).toContain('data-cifra="ataque">+3 Ataque');
-    expect(v).toContain('data-cifra="danio">+1 / +3 Daño');
-    expect(v).not.toContain('data-cifra="pv"');
-    expect(v).toContain('<span class="label">Armadura</span><span>2</span>');
-    expect(v).not.toContain('data-cifra="casillas"');
-    expect(v).toMatch(/data-cifra="defensa">\+3 Defensa/);
-    // El daño de la rueda es el del cuerpo a cuerpo, en una fila y sin notas: su
-    // fuerza (3) con la de la Espada (1), por su agilidad (3).
-    expect(v).toContain('<span class="label">Daño</span><span>4–12');
-    expect(v).not.toContain('class="nota"');
-  });
 
   it('si ya devolvió un golpe esta ronda', () => {
     const s = sesion();

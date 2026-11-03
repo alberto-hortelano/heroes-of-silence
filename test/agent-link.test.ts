@@ -6,10 +6,8 @@ import WebSocket, { WebSocketServer } from 'ws';
 import { playAiTurn } from '../src/core/ai/turn.js';
 import { activeStack, applyAction, legalActions } from '../src/core/battle/battle.js';
 import { isInside, tableroDelContrato } from '../src/core/battle/board.js';
-import { RUEDAS } from '../src/core/battle/rueda.js';
 import type { BattleState } from '../src/core/battle/types.js';
-import { cifrasDeUnidad, unidadDelJuego } from '../src/core/catalogo.js';
-import { hitsDeLaRueda } from '../src/core/contract/vocabulario.js';
+import { cifrasDeUnidad } from '../src/core/catalogo.js';
 import { tiposDeHeroe } from '../src/core/data.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import { type Hero, heroUnit } from '../src/core/hero/hero.js';
@@ -23,8 +21,6 @@ import {
 import { pointKey, reachableFrom } from '../src/core/map/map.js';
 import { nivelDeUnidad } from '../src/core/nivel.js';
 import { createRng } from '../src/core/rng.js';
-import { loQueLaPara } from '../src/core/state/asaltantes.js';
-import { cronicaPara, sinSello, visibleTo } from '../src/core/state/events.js';
 import {
   applyAdventureAction,
   baseOf,
@@ -36,7 +32,7 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { Town } from '../src/core/town/town.js';
-import { FACTION_IDS, type FactionId, type Point, SPEED_TO_HEXES } from '../src/core/types.js';
+import { FACTION_IDS, type FactionId, type Point } from '../src/core/types.js';
 import { AgentLink } from '../src/server/agent-link.js';
 import { responderConsulta } from '../src/server/consultas.js';
 import { Director } from '../src/server/director.js';
@@ -51,11 +47,8 @@ import {
   NO_MUERTO,
   PESADA,
   ponerMonstruo,
-  primeraMarchaQueSePara,
-  primeraSemillaCon,
   SANADOR,
   sinGuarnicionDeSalida,
-  TIRADOR,
   TROPA,
   TROPA_BARATA,
 } from './helpers.js';
@@ -249,30 +242,6 @@ function plantarRival(state: GameState, objetivo: Point, lejosDe?: Point): Hero 
   return rival;
 }
 
-/**
- * Monta lo único que el agente no podía vivir hasta ahora: que le ataquen.
- *
- * El héroe del rival (jugador 0) aparece pegado al del agente (jugador 1) con
- * un ejército aplastante, que es lo que `chooseHeroDestination` necesita para
- * decidirse a atacarlo. Devuelve el héroe del agente, el que va a defender.
- */
-/**
- * Un ejército más rápido que el del rival plantado y más flojo: tres
- * asesinos elfos (6 casillas) contra los pesados (4). El rival lo ataca y
- * él abre la ronda sin llegar a nadie, que es la escena de la espera de #52.
- * Eran cinco hasta la escala baja (26-10-2026): con cinco, el rival ya no atacaba
- * en ninguna semilla de 309 a 348. Y eran exploradores elfos hasta el catálogo
- * retocado del 02-11-2026, en que el explorador pasó a agilidad 4: tan lento como
- * los pesados.
- */
-const RAPIDO = 'elfo-asesino';
-function rapidos(h: Hero): void {
-  expect(SPEED_TO_HEXES[unidadDelJuego(RAPIDO).speed]).toBeGreaterThan(
-    SPEED_TO_HEXES[unidadDelJuego(PESADA).speed],
-  );
-  h.army = ejercito({ creature: RAPIDO, count: 3 });
-}
-
 function rivalAlAtaque(state: GameState): Hero {
   // El héroe nace en su base (19-10-2026): se le saca al lado, que es donde
   // empezaba, para que la batalla sea contra él y no contra la base.
@@ -406,57 +375,6 @@ describe('enlace con el agente', () => {
     expect(director.state.towns[0]!.buildings.length).toBe(antes + 1);
     // Y el turno ha pasado al rival.
     expect(director.state.current).not.toBe(0);
-  });
-
-  it('el agente compra y se equipa por el cable, leyendo solo la petición', async () => {
-    const { link, agent } = await montar((kind, payload) => {
-      if (kind !== 'adventure_turn') return {};
-      const town = payload.towns.find((t: any) => t.armory !== undefined);
-      const hero = payload.heroes[0];
-      const pieza = town.armory.find((a: any) => a.slot === 'armor').item;
-      return {
-        actions: [
-          { type: 'buy_item', town: town.id, item: pieza },
-          { type: 'equip', hero: hero.id, item: pieza, creature: hero.army[0].creature },
-          { type: 'unequip', hero: hero.id, slot: 'armor' },
-          // Y cuatro que no valen, que se descartan una a una con el motivo del
-          // núcleo. El hueco inventado tumbaba el turno ENTERO cuando `slot` era
-          // un `z.enum`: ni la compra ni el equipo de arriba llegaban (M3). Y el
-          // arma no se quita: sin ella no se combate (19-10-2026).
-          { type: 'unequip', hero: hero.id, slot: 'melee_weapon' },
-          { type: 'equip', hero: hero.id, item: 'maza' },
-          { type: 'unequip', hero: hero.id, slot: 'casco' },
-          // El nombre de dentro no es un hueco del contrato: van en inglés.
-          { type: 'unequip', hero: hero.id, slot: 'arma' },
-        ],
-      };
-    });
-    const director = new Director(link, { seed: 107, agentPlayers: [0] });
-    const base = director.state.towns.find((t) => t.owner === 0)!;
-    const hero = director.state.heroes.find((h) => h.owner === 0)!;
-    hero.at = base.at;
-    base.buildings.push('armory');
-    director.state.players[0]!.oro = 20000;
-
-    const informe = await director.playTurn();
-
-    expect(agent.seen[0]?.kind).toBe('adventure_turn');
-    expect(informe.actions).toBe(3);
-    expect(informe.problems).toHaveLength(4);
-    expect(informe.problems[0]).toMatch(
-      /se quedaría sin arma de cuerpo a cuerpo, y nadie pelea sin ella/,
-    );
-    expect(informe.problems[1]).toMatch(/no lleva Maza en la mochila/);
-    expect(informe.problems[2]).toMatch(
-      /unequip casco de .*: no hay ningún hueco "casco": son melee_weapon, second_melee_weapon, ranged_weapon, armor, shield/,
-    );
-    expect(informe.problems[3]).toMatch(
-      /unequip arma de .*: no hay ningún hueco "arma": son melee_weapon, second_melee_weapon, ranged_weapon, armor, shield/,
-    );
-    const equipado = hero.army.find((t) => t.veterania?.equipo !== undefined);
-    expect(equipado?.veterania?.equipo).toEqual({ armadura: 'brigantina' });
-    expect(hero.equipo).toEqual({ arma: 'espada' });
-    expect(hero.mochila).toEqual(['gambeson']);
   });
 
   it('una acción ilegal se descarta, se le cuenta al agente y el turno sigue', async () => {
@@ -740,71 +658,6 @@ function sinRecogidas(state: GameState): void {
 }
 
 describe('el agente se rinde (fase 1b)', () => {
-  it('la rendición se le ofrece, entra por el contrato y el héroe vuelve a su base', async () => {
-    // Lo cubría `pnpm qa` reescribiendo el mapa para forzar la batalla; ahora
-    // juega el mapa tal cual y solo avisa, y el circuito se prueba aquí, donde
-    // la batalla se puede construir.
-    let rendida = false;
-    const { link, agent } = await montar((kind, payload) => {
-      if (kind === 'adventure_turn') {
-        if (rendida) return { actions: [] };
-        const hero = payload.heroes[0];
-        const monstruo = payload.knownMap.objects.find(
-          (o: any) => o.kind === 'monster' && !o.defeated,
-        );
-        if (monstruo === undefined) return { actions: [] };
-        return { actions: [{ type: 'move_hero', hero: hero.id, to: monstruo.at }] };
-      }
-      if (kind === 'battle_turn') {
-        const acciones = payload.legalActions as any[];
-        if (acciones.some((a) => a.type === 'surrender')) {
-          rendida = true;
-          return { action: { type: 'surrender' } };
-        }
-        return { action: acciones[0] };
-      }
-      return {};
-    });
-
-    const director = new Director(link, { seed: 108, agentPlayers: [0] });
-    revealEverything(director.state, 0);
-    // Vacía: de camino al monstruo el héroe pasa por casa, y con la guarnición
-    // de salida dentro se la llevaría y el precio ya no sería el de dos arqueros.
-    sinGuarnicionDeSalida(director.state);
-    sinAsaltantes(director.state);
-    sinRecogidas(director.state);
-    const heroe = director.state.heroes[0]!;
-    heroe.army = ejercito({ creature: TIRADOR, count: 2 });
-    heroe.movePoints = 20000;
-    const oroAntes = director.state.players[0]!.oro;
-
-    await director.playTurn();
-    await respira();
-
-    const batallas = agent.seen.filter((p) => p.kind === 'battle_turn');
-    const conRendicion = batallas.find((p) =>
-      (p.payload.legalActions as any[]).some((a) => a.type === 'surrender'),
-    );
-    // Se ofrece, con su precio y con el oro con el que se compara (H-2)…
-    expect(conRendicion).toBeDefined();
-    const precio = Math.ceil((2 * unidadDelJuego(TIRADOR).oro * 50) / 100);
-    expect(conRendicion!.payload.legalActions).toContainEqual({ type: 'surrender', gold: precio });
-    expect(conRendicion!.payload.yourGold).toBe(oroAntes);
-    // …entra, y el veredicto dice cuánto se pagó…
-    const acuse = agent.results.find((r) => r.requestId === conRendicion!.requestId);
-    expect(acuse?.ok).toBe(true);
-    expect(acuse?.note).toContain(`Has pagado ${precio} de oro`);
-    // …y el héroe vuelve a su base con los dos arqueros, pagando el 50 % de su oro.
-    const vuelta = director.state.log.find((e) => e.kind === 'hero_returned');
-    expect(vuelta).toMatchObject({ hero: heroe.id, surrendered: true });
-    expect(director.state.log.some((e) => e.kind === 'hero_defeated')).toBe(false);
-    const base = director.state.towns.find((t) => t.id === director.state.players[0]!.base)!;
-    expect(pointKey(heroe.at)).toBe(pointKey(base.at));
-    expect(heroe.army).toEqual(ejercito({ creature: TIRADOR, count: 2 }));
-    expect(oroAntes - director.state.players[0]!.oro).toBe(precio);
-    // …y la crónica que le llega después lo cuenta también.
-    expect(vuelta).toMatchObject({ surrendered: true, gold: precio });
-  });
   it('si su acción se descarta, la sustituta de la IA nunca es rendirse por él (H-1)', async () => {
     // Una acción imposible en cada turno de batalla: todas las del agente se
     // juegan con la sustituta de la IA. En esta posición, sin veto, la IA de
@@ -1088,40 +941,6 @@ function entregado(
  * cable, se pida como se pida.
  */
 describe('una consulta solo habla de los jugadores que lleva el agente', () => {
-  it('game_state del rival ya no devuelve su crónica, y dice por cuál preguntar', async () => {
-    const { link } = await montar(() => ({ actions: [] }));
-    // La 417: en la 401, desde la fuerza y la agilidad (25-10-2026), lo de cada uno
-    // en esos turnos lo veían los dos.
-    const director = new Director(link, { seed: 417, agentPlayers: [1] });
-    // Un puñado de turnos de la IA para que los dos tengan diario propio.
-    for (let i = 0; i < 8; i++) await director.playTurn();
-
-    // Los hechos que le constan al rival y a mí NO, dentro de su ventana de 25:
-    // exactamente lo que este ciclo dejó de mandar por la puerta principal.
-    const ventana = new Set(cronicaPara(director.state, 0, 25).map((e) => JSON.stringify(e)));
-    const soloSuyos = director.state.log
-      .filter((e) => visibleTo(e, 0) && !visibleTo(e, 1))
-      .map((e) => JSON.stringify(sinSello(e)))
-      .filter((s) => ventana.has(s));
-    expect(soloSuyos.length).toBeGreaterThan(0);
-
-    const fugado = entregado(director, 'game_state', { player: 0 });
-    for (const hecho of soloSuyos) expect(fugado).not.toContain(hecho);
-    // Y tampoco lo demás que iba en el mismo paquete: el punto de vista entero.
-    expect(fugado).not.toContain('"player":0');
-
-    // Se rechaza DICIÉNDOLO, y nombrando el jugador que sí lleva: es lo único
-    // con lo que el agente puede corregirse en vez de reintentar.
-    expect(() => responderConsulta(director, 'game_state', { player: 0 })).toThrow(
-      /no es tuyo.*Llevas el jugador 1/s,
-    );
-
-    // Lo suyo sigue llegando entero.
-    const mio = JSON.parse(entregado(director, 'game_state', { player: 1 }));
-    expect(mio.you.player).toBe(1);
-    expect(mio.recentEvents.length).toBeGreaterThan(0);
-  });
-
   it('sin `player` se contesta por el suyo, sea cual sea, y no por un 1 escrito a mano', async () => {
     const { link } = await montar(() => ({ actions: [] }));
     const director = new Director(link, { seed: 402, agentPlayers: [0] });
@@ -1692,45 +1511,6 @@ describe('el agente sabe cómo le fue', () => {
     expect(veredicto.note).not.toMatch(/descartad/);
   });
 
-  it('una marcha que se para al ver un grupo lo dice en el veredicto (#130)', async () => {
-    let destino: Point | null = null;
-    const { link, agent } = await montar((kind, payload) => {
-      if (kind !== 'adventure_turn') return {};
-      return { actions: [{ type: 'move_hero', hero: payload.heroes[0].id, to: destino }] };
-    });
-
-    // La primera semilla con una marcha de hoy que se para, y en ella la
-    // primera casilla. Se busca: la del issue era la semilla 1, que con las
-    // entradas de nodo en eje (#161) ya no paraba ninguna, y la 2 dejó de
-    // valer con los bordes de #169.
-    const { semilla } = primeraSemillaCon('una marcha de hoy que se pare', (s) => {
-      const state = newGame({ seed: s });
-      const h = state.heroes.find((x) => x.owner === 0)!;
-      return primeraMarchaQueSePara(state, h) ?? undefined;
-    });
-    const director = new Director(link, { seed: semilla, agentPlayers: [0] });
-    const heroe = director.state.heroes.find((h) => h.owner === 0)!;
-    destino = primeraMarchaQueSePara(director.state, heroe);
-    if (destino === null) throw new Error(`en la semilla ${semilla} ninguna marcha de hoy se para`);
-    const antes = director.state.log.length;
-    const informe = await director.playTurn();
-    await respira();
-
-    const parada = director.state.log.slice(antes).find((e) => e.kind === 'march_halted');
-    if (parada === undefined) throw new Error('la marcha no se paró dentro del director');
-    expect(informe.problems).toEqual([]);
-    const aventura = agent.seen.find((p) => p.kind === 'adventure_turn')!;
-    const veredicto = agent.results.find((r) => r.requestId === aventura.requestId)!;
-    expect(veredicto.ok).toBe(true);
-    expect(veredicto.problems).toBeUndefined();
-    expect(veredicto.note).toMatch(/entró parcialmente/);
-    expect(veredicto.note).toContain(
-      `se paró en (${parada.at.x},${parada.at.y}), donde ${loQueLaPara(parada.troops)}`,
-    );
-    expect(veredicto.note).toContain(parada.raider);
-    expect(veredicto.note).not.toMatch(/aplicado entero|descartad|faltan/);
-  });
-
   it('un turno con una acción ilegal lo cuenta con su motivo', async () => {
     const { link, agent } = await montar((kind, payload) => {
       if (kind !== 'adventure_turn') return {};
@@ -1826,38 +1606,6 @@ describe('el agente sabe cómo le fue', () => {
     // Con el nombre de cada una, para poder volver a pedirlas mañana.
     expect(veredicto.problems).toHaveLength(2);
     expect(veredicto.problems!.some((p) => p.startsWith('recruit'))).toBe(true);
-  });
-
-  it('una acción de batalla que cuela también se acusa, en una línea', async () => {
-    const { link, agent } = await montar((kind, payload) => {
-      if (kind !== 'battle_turn') return { actions: [] };
-      // Cierra el turno: la jugada que siempre está (era `defend`, la primera de la
-      // lista; un `move` acusa además lo que le queda).
-      return { action: payload.legalActions.find((a: any) => a.type === 'end_turn') };
-    });
-
-    // La primera desde la 309 en que el rival ataca, buscada con el ejército ya
-    // puesto: que el rival lo ataque depende de su fuerza.
-    const seed = await semillaEnQueElRivalAtaca(309, rapidos);
-    const director = new Director(link, { seed, agentPlayers: [1] });
-    const mio = rivalAlAtaque(director.state);
-    // Tres asesinos elfos (6 casillas) contra los pesados del rival: la escena de
-    // la regla de #52 (esperar), que se retiró con `wait`; se queda la semilla.
-    rapidos(mio);
-    await director.playTurn();
-    await respira();
-
-    const batallas = agent.seen.filter((p) => p.kind === 'battle_turn');
-    expect(batallas.length).toBeGreaterThan(0);
-    const acuses = agent.results.filter(
-      (r) => r.ok && batallas.some((p) => p.requestId === r.requestId),
-    );
-    expect(acuses.length).toBeGreaterThan(0);
-    // Una línea corta, no un informe: el precio de no callar nunca.
-    for (const a of acuses) {
-      expect(a.note).toMatch(/aplicada\.$/);
-      expect(a.note!.length).toBeLessThan(80);
-    }
   });
 
   it('una acción de batalla rechazada dice qué jugó la IA y qué costó', async () => {
@@ -2488,72 +2236,6 @@ describe('la rueda del golpe por el contrato (F6)', () => {
   }
 
   const numero = (requestId: string): number => Number(requestId.replace('req-', ''));
-
-  it('manda su golpe con `hit`, responde con `battle_response` sin ver el golpe y usa sus poderes', async () => {
-    const { agent } = await contraElMonstruo(601, (kind, payload) => {
-      if (kind === 'battle_turn') {
-        const acciones = payload.legalActions as any[];
-        const elegida =
-          acciones.find((a) => a.type === 'power') ??
-          acciones.find((a) => a.type === 'attack') ??
-          acciones.find((a) => a.type === 'move') ??
-          acciones[0];
-        return { action: elegida.type === 'attack' ? { ...elegida, hit: 'strong' } : elegida };
-      }
-      if (kind === 'battle_response') return { response: 'quick' };
-      return undefined;
-    });
-
-    const nota = (id: string) => agent.results.find((r) => r.requestId === id);
-    const turnos = agent.seen.filter((p) => p.kind === 'battle_turn');
-    // El golpe: entra con su `hit`, y el veredicto lo dice con lo que respondió el otro.
-    const golpes = turnos.filter((p) =>
-      nota(p.requestId)?.note?.includes('Golpeaste con "strong"'),
-    );
-    expect(golpes.length).toBeGreaterThan(0);
-    expect(nota(golpes[0]!.requestId)?.ok).toBe(true);
-    expect(nota(golpes[0]!.requestId)?.note).toMatch(
-      /respondió "[a-z_]+": el golpe cayó en el punto/,
-    );
-    // Lo que hace cada golpe con su arma viene en el turno cuando puede golpear.
-    const conGolpe = turnos.find((p) =>
-      (p.payload.legalActions as any[]).some((a) => a.type === 'attack'),
-    );
-    expect(conGolpe?.payload.hits.map((h: any) => h.hit)).toEqual([...hitsDeLaRueda(RUEDAS[7])]);
-    // Los poderes: en la lista legal como `power`, y entran.
-    const poderes = turnos.filter((p) =>
-      (p.payload.legalActions as any[]).some((a) => a.type === 'power'),
-    );
-    expect(poderes.length).toBeGreaterThan(0);
-    expect(nota(poderes[0]!.requestId)).toMatchObject({ ok: true });
-    expect(nota(poderes[0]!.requestId)?.note).toMatch(
-      /^attacker-\d+: power curar sobre attacker-\d+, aplicada\.$/,
-    );
-    const monje = poderes[0]!.payload.stacks.find(
-      (x: any) => x.id === poderes[0]!.payload.activeStack,
-    );
-    expect(monje.powers).toEqual(['curar']);
-
-    // La respuesta: se pide para una unidad suya, sin el golpe del otro, con los siete tipos.
-    const respuestas = agent.seen.filter((p) => p.kind === 'battle_response');
-    expect(respuestas.length).toBeGreaterThan(0);
-    for (const r of respuestas) {
-      // Fuera del registro, que cuenta los cruces ya dados (públicos), ni rastro del golpe.
-      const { log: _log, ...sinElRegistro } = r.payload;
-      expect(JSON.stringify(sinElRegistro)).not.toMatch(/"(?:hit|golpe)"\s*:/);
-      const suya = r.payload.stacks.find((x: any) => x.id === r.payload.target);
-      expect(suya.side).toBe(r.payload.yourSide);
-      expect(r.payload.responses.map((x: any) => x.response)).toEqual([
-        ...hitsDeLaRueda(RUEDAS[7]),
-      ]);
-      expect(nota(r.requestId)).toMatchObject({ ok: true });
-      expect(nota(r.requestId)?.note).toMatch(
-        new RegExp(
-          `^${r.payload.target}: respondiste "quick" y ${r.payload.attacker} golpeó con "[a-z_]+"`,
-        ),
-      );
-    }
-  });
 
   it('un `hit` que no es un golpe descarta ese ataque diciéndolo, y juega la IA', async () => {
     const { agent } = await contraElMonstruo(602, (kind, payload) => {

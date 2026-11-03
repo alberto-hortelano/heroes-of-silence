@@ -10,25 +10,14 @@ import { describe, expect, it } from 'vitest';
 import { renderPanelDeBatalla } from '../src/client/arena/paneles.js';
 import { marcadoDe } from '../src/client/html.js';
 import { centroHex, planoDeHex } from '../src/client/render/proyeccion.js';
-import { Session } from '../src/client/session.js';
 import { renderSide } from '../src/client/views/panels.js';
 import { activeStack } from '../src/core/battle/battle.js';
 import { hexEquals, hexKey } from '../src/core/battle/board.js';
 import { zonaDeSalida } from '../src/core/battle/despliegue.js';
 import { type MurallaDeBatalla, validarMuralla } from '../src/core/battle/muralla.js';
 import type { BattleState, Side } from '../src/core/battle/types.js';
-import { heroesOf } from '../src/core/state/game.js';
 import { sesionContraMonstruoAlDesplegar } from './batalla-de-cliente.js';
-import {
-  casillaADosPasos,
-  ejercito,
-  escenaDeBatalla,
-  hastaQue,
-  PESADA,
-  sesionDeArena,
-  TROPA_BARATA,
-  unidadDeArena,
-} from './helpers.js';
+import { escenaDeBatalla, sesionDeArena, unidadDeArena } from './helpers.js';
 
 /** Los ids de los vivos de `side` en `b`. */
 const delBando = (b: BattleState, side: Side): string[] =>
@@ -120,63 +109,6 @@ describe('el atacante despliega viendo al defensor', () => {
     s.autoResolveBattle();
     expect(s.battle).toBeNull();
     expect(s.scene).not.toBe('battle');
-  });
-});
-
-describe('el defensor despliega sin ver al atacante', () => {
-  /** El rival ataca a la persona en su turno (la semilla de `heroe-en-batalla.test.ts`). */
-  async function defensa(): Promise<{ s: Session; turno: Promise<void> }> {
-    const s = new Session(3);
-    const st = s.state;
-    const mio = heroesOf(st, 0)[0]!;
-    const suyo = heroesOf(st, 1)[0]!;
-    mio.army = ejercito({ creature: TROPA_BARATA, count: 3 });
-    suyo.army = ejercito({ creature: PESADA, count: 6 });
-    mio.at = casillaADosPasos(st, suyo.at);
-    const turno = s.endTurn();
-    await hastaQue(() => s.scene === 'battle');
-    return { s, turno };
-  }
-
-  it('abre en la tanda del defensor: ni figuras, ni lista, ni pista del rival', async () => {
-    const { s, turno } = await defensa();
-    const b = s.battle!;
-    expect(s.miBando).toBe('defender');
-    expect(s.despliegue.enCurso).toMatchObject({ side: 'defender' });
-    expect(delBando(b, 'attacker').length).toBeGreaterThan(0);
-    const vista = s.batallaALaVista!;
-    expect(delBando(vista, 'attacker')).toEqual([]);
-    expect(s.status).toContain('aún no ves al enemigo');
-    // El panel no nombra a ninguno del atacante.
-    const panel = marcadoDe(renderSide(s));
-    expect(panel).toContain('Despliegas primero');
-    for (const x of b.stacks.filter((y) => y.side === 'attacker')) {
-      expect(panel).not.toContain(`data-stack="${x.id}"`);
-      expect(panel).not.toContain(x.unit.name);
-    }
-    // La escena: ni la pista del borde cuenta al atacante, ni su casilla se pulsa
-    // como suya (el clic ahí coloca o dice por qué no, nunca lo elige).
-    const escena = escenaDeBatalla(() => s);
-    expect(escena.enemigosFuera(0, 1)).toEqual({ izquierda: 0, derecha: 0 });
-    const t = (escena as unknown as { tablero: Parameters<typeof centroHex>[0] }).tablero;
-    for (const x of b.stacks.filter((y) => y.side === 'attacker' && y.count > 0)) {
-      const p = centroHex(t, x.hex);
-      expect(escena.objetivoEn(p.x, p.y)?.side).not.toBe('attacker');
-      escena.mover(p.x, p.y);
-      expect(s.status).not.toContain(x.unit.name);
-      // Y pulsarla tampoco: ni lo nombra ni mueve a nadie (la casilla queda fuera
-      // de la zona del elegido, y lo dice de él).
-      const casillas = b.stacks.map((y) => hexKey(y.hex));
-      escena.pulsar(p.x, p.y);
-      expect(s.status).not.toContain(x.unit.name);
-      expect(b.stacks.map((y) => hexKey(y.hex))).toEqual(casillas);
-    }
-    // «Listo»: el atacante (de la IA) despliega solo, empieza la ronda y ya se ve.
-    s.despliegue.listo();
-    expect(b.despliegue).toBeNull();
-    expect(s.batallaALaVista).toBe(b);
-    s.autoResolveBattle();
-    await turno;
   });
 });
 

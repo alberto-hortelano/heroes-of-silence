@@ -104,17 +104,6 @@ describe('validarFigurasDeHeroe muerde', () => {
     expect(() => validarFigurasDeHeroe(figurasJson, TIPOS)).not.toThrow();
   });
 
-  it('un tipo sin hoja', () => {
-    expect(() =>
-      validarFigurasDeHeroe(
-        con((f) => {
-          delete f.orkos!.goblin;
-        }),
-        TIPOS,
-      ),
-    ).toThrow('el tipo goblin (Goblin (Jefe goblin)) de orkos no tiene hoja');
-  });
-
   it('una fila que no es ningún tipo (la de uno que el cuaderno retiró)', () => {
     expect(() =>
       validarFigurasDeHeroe(

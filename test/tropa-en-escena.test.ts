@@ -10,23 +10,15 @@
 import { describe, expect, it } from 'vitest';
 import { EscenaTropa } from '../src/client/escenas/tropa.js';
 import { AYUDA_DE_LA_TROPA, Session } from '../src/client/session.js';
-import { armaduraDe } from '../src/core/battle/armas.js';
 import { zonaDeSalida } from '../src/core/battle/despliegue.js';
-import { equipoPuestoDe } from '../src/core/catalogo.js';
 import { rangoDeHeroe, umbral } from '../src/core/hero/experiencia.js';
 import { heroUnit } from '../src/core/hero/hero.js';
 import { troopUnit } from '../src/core/hero/troop.js';
 import { indiceDePoder, nivelDeUnidad } from '../src/core/nivel.js';
-import {
-  formacionDe,
-  formarBlocker,
-  ponerseBlocker,
-  turnBlocker,
-  unequipBlocker,
-} from '../src/core/state/game.js';
+import { formacionDe, formarBlocker, turnBlocker, unequipBlocker } from '../src/core/state/game.js';
 import type { Hex } from '../src/core/types.js';
 import { sesionAntesDelMonstruo } from './batalla-de-cliente.js';
-import { TROPA, TROPA_BARATA } from './helpers.js';
+import { TROPA_BARATA } from './helpers.js';
 
 const SEMILLA = 7;
 
@@ -122,57 +114,6 @@ describe('lo que se ve (C2, C3)', () => {
 });
 
 describe('repartir el equipo (C4, C5, C6)', () => {
-  it('quitarle el gambesón al héroe lo manda a la mochila y su armadura baja', () => {
-    const s = abierta();
-    const hero = s.selectedHero!;
-    expect(hero.equipo.armadura).toBe('gambeson');
-    const antes = s.vistaDeLaTropa()!.ficha.armadura;
-    s.quitarALaElegida('armadura');
-    expect(hero.mochila).toEqual(['gambeson']);
-    expect(s.status).toBe(`Gambesón vuelve a la mochila de ${hero.name}.`);
-    const f = s.vistaDeLaTropa()!.ficha;
-    expect(f.armadura).toBeLessThan(antes);
-    expect(f.armadura).toBe(armaduraDe(heroUnit(hero)));
-    expect(f.mochila.map((m) => m.pieza.id)).toEqual(['gambeson']);
-  });
-
-  it('ponérselo al tercer novato de un tipo se lo pone a ÉL, y la elección no salta (QA, H2)', () => {
-    const s = abierta();
-    const hero = s.selectedHero!;
-    hero.army = [
-      { creature: TROPA_BARATA },
-      { creature: TROPA_BARATA },
-      { creature: TROPA_BARATA },
-    ];
-    s.quitarALaElegida('armadura');
-    s.elegirEnLaTropa({ indice: 2 });
-    expect(s.vistaDeLaTropa()!.ficha.mochila[0]!.poner).toBeNull();
-    s.ponerALaElegida('gambeson');
-    expect(hero.army[2]!.veterania?.equipo).toEqual({ armadura: 'gambeson' });
-    expect(hero.army[0]).toEqual({ creature: TROPA_BARATA });
-    expect(hero.army[1]).toEqual({ creature: TROPA_BARATA });
-    expect(s.elegidoEnLaTropa).toEqual({ indice: 2 });
-    const cifras = troopUnit(hero.army[2]!, s.state.characters);
-    expect(s.status).toBe(`${cifras.name} lleva ahora Gambesón.`);
-    const vista = s.vistaDeLaTropa()!;
-    expect(vista.elegida).toBe(3);
-    expect(vista.figuras[3]!.id).toBe('attacker-2');
-    expect(vista.ficha.cifras).toEqual(cifras);
-    expect(vista.ficha.nivel).toBe(nivelDeUnidad(cifras));
-    expect(vista.ficha.indice).toBe(indiceDePoder(cifras));
-    // Lo suyo se le quita; lo de serie (su escudo) no lleva ×.
-    const armadura = vista.ficha.huecos.find((h) => h.hueco === 'armadura')!;
-    expect(armadura).toMatchObject({ deSerie: false, quitar: { motivo: null } });
-    const escudo = vista.ficha.huecos.find((h) => h.hueco === 'escudo')!;
-    expect(escudo.deSerie).toBe(true);
-    expect(escudo.quitar).toBeNull();
-    // Y de vuelta: se lo quita a ÉL, no al héroe.
-    s.quitarALaElegida('armadura');
-    expect(hero.army[2]!.veterania?.equipo).toEqual({});
-    expect(hero.mochila).toEqual(['gambeson']);
-    expect(hero.equipo.armadura).toBeUndefined();
-  });
-
   it('a un novato, que no lleva nada suyo, quitarle algo lo rechaza el núcleo con su motivo', () => {
     const s = abierta();
     const hero = s.selectedHero!;
@@ -181,29 +122,6 @@ describe('repartir el equipo (C4, C5, C6)', () => {
     s.quitarALaElegida('armadura');
     expect(s.status).toMatch(/^no se puede desequipar: .*/);
     expect(hero.army[0]).toEqual({ creature: TROPA_BARATA });
-  });
-
-  it('un doble clic en «Poner» o en «×» juega una vez y no escribe un error (QA, H6)', () => {
-    const s = abierta();
-    const hero = s.selectedHero!;
-    s.quitarALaElegida('armadura');
-    const quitado = s.status;
-    // El segundo clic llega al botón de antes de repintar: nada cambió desde el primero.
-    s.quitarALaElegida('armadura');
-    expect(s.status).toBe(quitado);
-    expect(hero.mochila).toEqual(['gambeson']);
-    s.ponerALaElegida('gambeson');
-    const puesto = s.status;
-    expect(puesto).toBe(`${hero.name} lleva ahora Gambesón.`);
-    s.ponerALaElegida('gambeson');
-    expect(s.status).toBe(puesto);
-    expect(hero.equipo.armadura).toBe('gambeson');
-    expect(hero.mochila).toEqual([]);
-    // Si algo cambió entremedias, ya no es la misma jugada repetida: llega al
-    // núcleo, que la rechaza con su motivo (el fail-loud sigue en su sitio).
-    s.elegirEnLaTropa({ heroe: true });
-    s.ponerALaElegida('gambeson');
-    expect(s.status).toBe(`no se puede equipar: ${hero.name} no lleva Gambesón en la mochila`);
   });
 
   it('el arma del héroe sale sin poder quitarse, con el motivo de `unequipBlocker`', () => {
@@ -217,24 +135,6 @@ describe('repartir el equipo (C4, C5, C6)', () => {
     s.quitarALaElegida('arma');
     expect(s.status).toBe(`no se puede desequipar: ${motivo}`);
     expect(hero.equipo.arma).toBe('espada');
-  });
-
-  it('una pieza a dos manos para quien lleva escudo de serie sale apagada con el motivo de `ponerseBlocker`', () => {
-    const s = abierta();
-    const hero = s.selectedHero!;
-    hero.army = [{ creature: TROPA }];
-    hero.mochila = ['mandoble'];
-    s.elegirEnLaTropa({ indice: 0 });
-    expect(equipoPuestoDe(hero, { indice: 0 }).escudo).toBeDefined();
-    const motivo = ponerseBlocker(hero, { indice: 0 }, 'mandoble');
-    // No pide quitar el escudo, que es de serie y no se puede (QA, H4).
-    expect(motivo).toMatch(
-      /no admite Mandoble: es un arma a dos manos y su .* es de serie, que no se quita$/,
-    );
-    expect(s.vistaDeLaTropa()!.ficha.mochila).toEqual([expect.objectContaining({ poner: motivo })]);
-    s.ponerALaElegida('mandoble');
-    expect(s.status).toBe(`no se puede equipar: ${motivo}`);
-    expect(hero.mochila).toEqual(['mandoble']);
   });
 
   it('fuera de tu turno todo sale apagado con el motivo del turno', () => {

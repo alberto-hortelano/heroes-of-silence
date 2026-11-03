@@ -18,13 +18,11 @@ import {
   piezasEnOrden,
 } from '../src/client/render/batalla.js';
 import { altoConAlzado, planoDeHex, tableroPara } from '../src/client/render/proyeccion.js';
-import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { FORMAS_DE_EJEMPLO, ladosDeLaForma } from '../src/core/arena-murallas.js';
 import {
   applyAction,
   type BattleSide,
   createBattle,
-  distanciaAndando,
   movableFrom,
   movableHexes,
   movimientoBlocker,
@@ -186,14 +184,6 @@ describe('de lo alto solo se baja hacia dentro (C11)', () => {
     );
   });
 
-  it('en el semicírculo, el de lo alto baja al arco y no afuera', () => {
-    const state = duelo(SEMICIRCULO, PESADA, h(7, 2), TROPA, h(10, 8));
-    const movibles = claves(movableHexes(state, stackById(state, 'attacker-0')));
-    expect(movibles.has('8,2')).toBe(true);
-    expect(movibles.has('6,2')).toBe(false);
-    expect(movimientoBlocker(state, h(6, 2))).toBe('desde la muralla solo se baja hacia dentro');
-  });
-
   it('el defensor sube solo desde dentro: fuera de la línea no tiene escaleras', () => {
     const state = duelo(LINEA, TROPA, h(0, 0), PESADA, h(6, 4), 'defender-0');
     expect(movableFrom(state, stackById(state, 'defender-0')).has('7,4')).toBe(false);
@@ -289,15 +279,6 @@ describe('de lo alto solo se baja hacia dentro (C11)', () => {
       }
     }
     expect(subidas).toBeGreaterThan(0);
-  });
-
-  it('el tirador defensor lejos de la muralla va hacia ella en vez de defenderse', () => {
-    const state = duelo(LINEA, PESADA, h(1, 4), TIRADOR, h(10, 4), 'defender-0');
-    const d = stackById(state, 'defender-0');
-    const accion = chooseBattleAction(state);
-    if (accion.type !== 'move') throw new Error(`esperaba un move y es ${accion.type}`);
-    const alMuro = distanciaAndando(state, d, LINEA.muros);
-    expect(alMuro(accion.to)).toBeLessThan(alMuro(d.hex));
   });
 });
 

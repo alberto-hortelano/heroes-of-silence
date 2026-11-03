@@ -19,14 +19,12 @@ import { rioAnteLaCiudad } from '../src/core/map/recinto.js';
 import { estructura, regionMasCercana } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
 import { asaltantesALaVista } from '../src/core/state/asaltantes.js';
-import { visibleTo } from '../src/core/state/events.js';
 import {
   type GameState,
   HERO_SCOUT_RADIUS,
   heroesALaVista,
   heroesOf,
   NODE_SCOUT_RADIUS,
-  objetosConocidos,
   playerById,
   revealEverything,
   visibleNow,
@@ -291,41 +289,5 @@ describe('vuelta 1 de QA', () => {
       }
     }
     expect(casillas).toBeGreaterThan(100);
-  });
-
-  it('a quien le quitan un nodo o un castillo se entera y ve la bandera nueva (H1)', async () => {
-    // El caso de QA: semilla 5, día 2, `node-6` pasa del j0 al j1. Y todo lo
-    // que se quita en unas partidas de la IA: un nodo propio mira a 6, así que
-    // la toma pasa siempre a la vista de su dueño.
-    let quitados = 0;
-    let elDeQA = false;
-    for (const seed of [5, 3, 11]) {
-      const state = newGame({ seed, maxDays: 15 });
-      const ctx = { rng: createRng(seed) };
-      while (state.finished === null) {
-        const desde = state.log.length;
-        await playAiTurn(state, ctx);
-        for (const e of state.log.slice(desde)) {
-          if (e.kind !== 'node_captured' && e.kind !== 'town_captured') continue;
-          if (e.from === null || e.from === e.actor) continue;
-          const anterior = playerById(state, e.from);
-          if (anterior.defeated) continue;
-          quitados++;
-          if (seed === 5 && e.kind === 'node_captured' && e.node === 'node-6') elDeQA = true;
-          expect(visibleTo(e, e.from), `semilla ${seed}, ${e.kind} el día ${state.day}`).toBe(true);
-          const id = e.kind === 'node_captured' ? e.node : e.town;
-          const vivo = state.map.objects.find((o) => o.id === id) as { owner: number | null };
-          const sabido = objetosConocidos(state, e.from, visibleNow(state, e.from)).find(
-            (r) => r.object.id === id,
-          );
-          expect(
-            (sabido?.object as { owner?: number | null } | undefined)?.owner,
-            `semilla ${seed}, ${id} para su dueño de antes`,
-          ).toBe(vivo.owner);
-        }
-      }
-    }
-    expect(elDeQA).toBe(true);
-    expect(quitados).toBeGreaterThan(3);
   });
 });

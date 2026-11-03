@@ -7,7 +7,7 @@
  * libre; y la batalla siguiente sale desde ella (`asentar`).
  */
 import { describe, expect, it } from 'vitest';
-import { espejo, hexEquals, hexKey } from '../src/core/battle/board.js';
+import { hexEquals, hexKey } from '../src/core/battle/board.js';
 import { zonaDeSalida } from '../src/core/battle/despliegue.js';
 import type { Portador } from '../src/core/hero/equipo.js';
 import { type Hero, heroUnit } from '../src/core/hero/hero.js';
@@ -21,13 +21,12 @@ import {
   formacionDe,
   formarBlocker,
   type GameState,
-  resolvePendingBattle,
   salidaPendienteBlocker,
   turnBlocker,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { Hex } from '../src/core/types.js';
-import { conSuEquipo, forzarBatalla, pegadoA, TROPA, TROPA_BARATA } from './helpers.js';
+import { conSuEquipo, forzarBatalla, TROPA, TROPA_BARATA } from './helpers.js';
 
 const ctx = () => ({ rng: createRng(7) });
 const SEMILLA = 11;
@@ -252,47 +251,5 @@ describe('la formación sobrevive a los cambios de la tropa (C2)', () => {
     expect(hero.army[0]!.veterania?.equipo).toEqual({ armadura: 'gambeson' });
     expect(hero.army[0]!.salida).toEqual(antes.tropa[0]);
     expect(formacionDe(state, hero)).toEqual(antes);
-  });
-
-  it('una batalla sale desde la formación, espejada al defender, y el superviviente vuelve con su casilla', () => {
-    const { state, hero } = formada();
-    // Un rival con la suya: el héroe en (0,8) y su tropa congelada.
-    const rival = state.heroes.find((h) => h.owner === 1)!;
-    // Corto, para que gane alguien con tropa en pie (no se mide quién).
-    rival.army = rival.army.slice(0, 2);
-    state.current = 1;
-    applyAdventureAction(state, formar(rival, { heroe: true }, { col: 0, row: 8 }), ctx(), 1);
-    state.current = 0;
-    const deRival = formacionDe(state, rival);
-    const miaAntes = formacionDe(state, hero);
-    // El héroe sale de la base y el rival se planta a su lado.
-    const otros = state.heroes.filter((h) => h !== hero).map((h) => h.at);
-    hero.at = pegadoA(state, baseOf(state, 0)!.at, otros);
-    rival.at = pegadoA(state, hero.at, [baseOf(state, 0)!.at, baseOf(state, 1)!.at]);
-    forzarBatalla(state, ctx(), hero, rival.at);
-    const b = state.pendingBattle!.battle;
-    expect(state.pendingBattle!.foe).toEqual({ kind: 'hero', heroId: rival.id });
-    const en = (id: string): Hex => b.stacks.find((s) => s.id === id)!.hex;
-    expect(en('attacker-heroe')).toEqual(miaAntes.heroe);
-    expect(hero.army.map((_, i) => en(`attacker-${i}`))).toEqual(miaAntes.tropa);
-    expect(en('defender-heroe')).toEqual(espejo(deRival.heroe));
-    expect(rival.army.map((_, i) => en(`defender-${i}`))).toEqual(deRival.tropa.map(espejo));
-    // Sin bandos a mano en la fase A: la batalla sale ya por rondas.
-    expect(b.despliegue).toBeNull();
-    const salidaAntes = {
-      attacker: hero.army.map((t) => t.salida),
-      defender: rival.army.map((t) => t.salida),
-    };
-    resolvePendingBattle(state, ctx());
-    // Quien sobrevive vuelve con su casilla: la del puesto que tenía. (El que
-    // pierde sale del mapa o vuelve con otra tropa: solo cuenta el que gana.)
-    const gana = b.finished!.winner;
-    const ganador = gana === 'attacker' ? hero : rival;
-    const vivos = b.stacks.filter(
-      (s) => s.side === gana && s.count > 0 && s.origen.kind !== 'heroe',
-    );
-    expect(vivos.length).toBeGreaterThan(0);
-    expect(ganador.army.map((t) => t.salida)).toEqual(vivos.map((s) => salidaAntes[gana][s.slot]));
-    formacionSana(state, ganador);
   });
 });

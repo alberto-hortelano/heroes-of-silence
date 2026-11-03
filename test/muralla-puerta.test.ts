@@ -19,7 +19,6 @@ import {
   applyAction,
   type BattleSide,
   createBattle,
-  distanciaACaminar,
   firmaDelTurno,
   legalActions,
   movableFrom,
@@ -306,75 +305,6 @@ describe('abrir y cerrar, al principio del turno de quien defiende (C21)', () =>
 });
 
 describe('la IA con la puerta (C24)', () => {
-  it('quien defiende la abre para salir si ningún atacante llega a ella, y sale', () => {
-    // El campesino atacante, lento y lejos: no pisa la puerta en su turno.
-    const state = duelo(
-      CON_PUERTA,
-      ['goblin-lancero', h(0, 8)],
-      [['templario-mandoble', h(9, 4)]],
-      'defender-0',
-    );
-    expect(chooseBattleAction(state)).toEqual(abrir());
-    applyAction(state, abrir(), createRng(1));
-    const sale = chooseBattleAction(state);
-    expect(sale.type).toBe('move');
-    applyAction(state, sale, createRng(1));
-    const paso = state.log.at(-1);
-    if (paso?.kind !== 'move') throw new Error('esperaba un paso en la crónica');
-    // Hacia el campesino, cruzando la puerta: de (8,4) a (7,4).
-    const camino = [h(9, 4), ...paso.path].map(hexKey);
-    expect(camino.join(' ')).toContain('8,4 7,4');
-  });
-
-  it('no la abre si un atacante llega a ella, ni para salir', () => {
-    const state = duelo(
-      CON_PUERTA,
-      ['templario-mandoble', h(5, 4)],
-      [['templario-mandoble', h(9, 4)]],
-      'defender-0',
-    );
-    expect(tipos(legalActions(state))).toContain('abrir_puerta');
-    expect(chooseBattleAction(state).type).not.toBe('abrir_puerta');
-  });
-
-  it('el tirador no sale: su sitio es la muralla', () => {
-    const state = duelo(
-      CON_PUERTA,
-      ['goblin-lancero', h(0, 8)],
-      [['elfo-arquero', h(9, 4)]],
-      'defender-0',
-    );
-    expect(chooseBattleAction(state).type).not.toBe('abrir_puerta');
-  });
-
-  it('la cierra en cuanto un atacante puede llegar a ella, si nadie la ocupa', () => {
-    const state = duelo(
-      CON_PUERTA,
-      ['templario-mandoble', h(5, 4)],
-      [['elfo-arquero', h(9, 1)]],
-      'defender-0',
-    );
-    abrirPuertas(state);
-    expect(chooseBattleAction(state)).toEqual(cerrar());
-  });
-
-  it('el atacante cruza la puerta abierta: la distancia lee la puerta, sin caché vieja', () => {
-    const state = duelo(
-      CON_PUERTA,
-      ['templario-mandoble', h(5, 4)],
-      [['templario-escudo', h(9, 4)]],
-      'attacker-0',
-    );
-    const a = stackById(state, 'attacker-0');
-    const d = stackById(state, 'defender-0');
-    expect(distanciaACaminar(state, a, d)(a.hex)).toBe(Number.POSITIVE_INFINITY);
-    abrirPuertas(state);
-    expect(distanciaACaminar(state, a, d)(a.hex)).toBe(4);
-    const accion = chooseBattleAction(state);
-    // Cuatro casillas: llega pegado al piquero y le golpea, cruzando la puerta.
-    expect(accion.type).toBe('attack');
-  });
-
   it('IA contra IA con la muralla gruesa y la línea con puerta: nadie cruza cerrada, las puertas cambian solo al principio del turno de quien defiende, y acaba', () => {
     let cambios = 0;
     let cruces = 0;

@@ -61,11 +61,10 @@ import {
 import {
   type CatalogoDeEquipo,
   catalogoDeEquipo,
-  EQUIPO_BASE,
   EQUIPO_DEL_JUEGO,
 } from '../src/core/hero/equipo.js';
-import { EXPERIENCIA_INICIAL_DE_HEROE, umbral } from '../src/core/hero/experiencia.js';
-import { cuerposDelHeroe, type GrupoQueMarcha, type Hero } from '../src/core/hero/hero.js';
+import { umbral } from '../src/core/hero/experiencia.js';
+import { cuerposDelHeroe, type Hero } from '../src/core/hero/hero.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import { basesDelPlan, type MapPlan, type PlanConCasillas } from '../src/core/map/generate.js';
@@ -80,7 +79,6 @@ import {
   pointKey,
   type Reachable,
   RedDeCaminos,
-  reachableFrom,
 } from '../src/core/map/map.js';
 import { puertasDeLaCiudad, rioAnteLaCiudad } from '../src/core/map/recinto.js';
 import {
@@ -93,9 +91,8 @@ import {
 import { esBarrera, type TerrainKind } from '../src/core/map/terrain.js';
 import { lineasQueSeparan } from '../src/core/map/vestir.js';
 import { type FiguraDeNpc, RUTA_DEL_BANCO } from '../src/core/npcs.js';
-import { createRng, type Rng } from '../src/core/rng.js';
+import type { Rng } from '../src/core/rng.js';
 import {
-  alcanceDelHeroe,
   applyAdventureAction,
   baseOf,
   type GameContext,
@@ -267,26 +264,6 @@ export function ejercito(...grupos: Stack[]): Army {
     for (let i = 0; i < count; i++) out.push(troop);
   }
   return out;
-}
-
-/**
- * Un héroe recién hecho con `army`, lo que pide la marcha (`slowestSpeed`,
- * `maxMovePoints`): desde el 26-10-2026 el héroe cuenta en el más lento del grupo.
- * A pie con el equipo base, salvo que se diga otro.
- */
-export function grupoQueMarcha(
-  army: Army,
-  cambios: { readonly equipo?: Equipo; readonly skills?: Hero['skills'] } = {},
-): GrupoQueMarcha & Pick<Hero, 'skills'> {
-  return {
-    name: 'Prueba',
-    attack: 1,
-    defense: 1,
-    experience: EXPERIENCIA_INICIAL_DE_HEROE,
-    equipo: cambios.equipo ?? EQUIPO_BASE,
-    army,
-    skills: cambios.skills ?? {},
-  };
 }
 
 /** Un individuo de `creature` con su propia hoja y `equipo` encima de lo de serie. */
@@ -490,22 +467,6 @@ export function copiaDePartida(state: GameState): GameState {
     ),
   }));
   return copia;
-}
-
-export function primeraMarchaQueSePara(state: GameState, heroe: Hero): Point | null {
-  for (const [clave, coste] of costesDelAlcance(alcanceDelHeroe(state, heroe))) {
-    if (coste === 0 || coste > heroe.movePoints) continue;
-    const destino = pointFromKey(clave);
-    const prueba = copiaDePartida(state);
-    applyAdventureAction(
-      prueba,
-      { type: 'move_hero', hero: heroe.id, to: destino },
-      { rng: createRng(state.seed) },
-      heroe.owner,
-    );
-    if (prueba.log.at(-1)?.kind === 'march_halted') return destino;
-  }
-  return null;
 }
 
 /**
@@ -1526,7 +1487,7 @@ export function ataquesDe(b: BattleState, desde = 0): Ataque[] {
 }
 
 /** El primer cruce de la rueda del registro de `b`; lanza si no hay ninguno. */
-export function primerCruce(b: BattleState): HechoDelCruce {
+function primerCruce(b: BattleState): HechoDelCruce {
   const e = b.log.find((x) => x.kind === 'cruce');
   if (e?.kind !== 'cruce') throw new Error('sin cruce en el registro');
   return e;
@@ -1683,17 +1644,6 @@ export function ladoDeBatalla(army: Army, hero: HeroeDelBando | null, aMano = fa
 export async function hastaQue(cond: () => boolean): Promise<void> {
   for (let i = 0; i < 100 && !cond(); i++) await new Promise((r) => setTimeout(r, 0));
   if (!cond()) throw new Error('el turno del rival no llegó a lo que se esperaba');
-}
-
-/** Una casilla libre y pisable a dos pasos de `desde`, la primera que salga. */
-export function casillaADosPasos(state: GameState, desde: Point): Point {
-  const alcance = reachableFrom(state.map, desde);
-  for (const [clave, coste] of costesDelAlcance(alcance)) {
-    const p = pointFromKey(clave);
-    const lejos = Math.max(Math.abs(p.x - desde.x), Math.abs(p.y - desde.y));
-    if (coste > 0 && lejos === 2 && objectAt(state.map, p) === undefined) return p;
-  }
-  throw new Error(`no hay casilla libre a dos pasos de (${desde.x},${desde.y})`);
 }
 
 /** La escena de batalla de la sesión, encuadrada y con su primera lectura hecha, que no anima. */

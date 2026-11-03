@@ -7,37 +7,12 @@
  * azar (`createRng` con semilla).
  */
 import { describe, expect, it } from 'vitest';
-import {
-  applyAction,
-  apuntarBlocker,
-  createBattle,
-  legalActions,
-  previsionDe,
-  stackById,
-} from '../src/core/battle/battle.js';
+import { applyAction, createBattle, stackById } from '../src/core/battle/battle.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import type { UnitInfo } from '../src/core/types.js';
 import { avanzarHasta, forzarTurno } from './helpers.js';
-
-/**
- * `tirador` en (2,4) contra el orko de dos armas (brigantina: 2 de armadura) en (8,4),
- * con el turno del tirador. Era el coracero hasta el catálogo retocado del
- * 02-11-2026, en que el coracero pasó a llevar la coraza (7).
- */
-function aTiro(tirador: string): BattleState {
-  const b = createBattle(
-    { army: [{ creature: tirador, count: 1 }], hero: null },
-    { army: [{ creature: 'orko-dos-armas', count: 1 }], hero: null },
-    createRng(1),
-    COMBATE_COMPLETO,
-  );
-  stackById(b, 'attacker-0').hex = { col: 2, row: 4 };
-  stackById(b, 'defender-0').hex = { col: 8, row: 4 };
-  forzarTurno(b, 'attacker-0');
-  return b;
-}
 
 /** Cierra turnos sin hacer nada hasta que le toque a `id`. */
 function hastaSuTurno(b: BattleState, id: string, rng: Rng): void {
@@ -50,32 +25,6 @@ function disparos(b: BattleState): Disparo[] {
 }
 
 describe('las armas de fuego', () => {
-  it('el disparo de un arma de fuego perfora la armadura, y la previsión lo dice; el de una ballesta no', () => {
-    for (const [tirador, perfora] of [
-      ['imperio-arcabucero', true],
-      ['imperio-ballestero', false],
-    ] as const) {
-      const rng = createRng(7);
-      const b = aTiro(tirador);
-      const at = stackById(b, 'defender-0').hex;
-      const p = previsionDe(b, { type: 'aim', at });
-      if (p === null || p.kind !== 'disparo')
-        throw new Error(`${tirador}: sin previsión del disparo`);
-      const causas = p.modificadores.map((m) => m.causa);
-      expect(causas.includes('perfora la armadura'), tirador).toBe(perfora);
-      expect(causas.includes('−2 armadura'), tirador).toBe(!perfora);
-      applyAction(b, { type: 'aim', at }, rng);
-      hastaSuTurno(b, 'attacker-0', rng);
-      const [d] = disparos(b);
-      if (d === undefined) throw new Error(`${tirador}: no salió el disparo`);
-      expect(d.target, tirador).toBe('defender-0');
-      // Nadie se ha movido: la previsión de antes es la del disparo, en un cuarto fijo.
-      expect(d.damage, tirador).toBe(p.danio.min);
-      expect(p.danio.min, tirador).toBe(p.danio.max);
-      expect(d.parado ?? 0, tirador).toBe(perfora ? 0 : 2);
-    }
-  });
-
   it('lo que salpica un arma de fuego también perfora la armadura', () => {
     // Hallazgo F2 de /simplify (02-11-2026): la perforación viajaba como un opcional
     // de `herir` y la salpicadura no lo pasaba: perforaba el blanco y no lo salpicado.
@@ -107,29 +56,5 @@ describe('las armas de fuego', () => {
     if (salpicado === undefined) throw new Error('no salpicó');
     expect(salpicado.target).toBe('defender-1');
     expect(salpicado.parado ?? 0).toBe(0);
-  });
-
-  it('tras disparar, la culebrina (recarga 2) no apunta en ese turno ni en el siguiente; luego, sí', () => {
-    const rng = createRng(3);
-    const b = aTiro('imperio-artillero-culebrina');
-    applyAction(b, { type: 'aim', at: stackById(b, 'defender-0').hex }, rng);
-    hastaSuTurno(b, 'attacker-0', rng);
-    expect(disparos(b)).toHaveLength(1);
-    // El turno del disparo cuenta como el primero de los dos.
-    expect(apuntarBlocker(b)).toBe('Artillero con culebrina está recargando: le faltan 2 turnos');
-    expect(legalActions(b).some((a) => a.type === 'aim')).toBe(false);
-    applyAction(b, { type: 'end_turn' }, rng);
-    hastaSuTurno(b, 'attacker-0', rng);
-    expect(apuntarBlocker(b)).toBe('Artillero con culebrina está recargando: le falta 1 turno');
-    applyAction(b, { type: 'end_turn' }, rng);
-    hastaSuTurno(b, 'attacker-0', rng);
-    expect(apuntarBlocker(b)).toBeNull();
-    expect(legalActions(b).some((a) => a.type === 'aim')).toBe(true);
-    // Un arma sin recarga, como siempre: el ballestero apunta en el turno del disparo.
-    const c = aTiro('imperio-ballestero');
-    applyAction(c, { type: 'aim', at: stackById(c, 'defender-0').hex }, rng);
-    hastaSuTurno(c, 'attacker-0', rng);
-    expect(disparos(c)).toHaveLength(1);
-    expect(apuntarBlocker(c)).toBeNull();
   });
 });

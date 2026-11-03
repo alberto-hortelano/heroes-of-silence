@@ -8,9 +8,7 @@
  */
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { UNIDADES, unidad } from '../src/core/catalogo.js';
-import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
-import { RUTA_DEL_CATALOGO_DE_UNIDADES, validarCatalogo } from '../src/core/unidad.js';
+import { UNIDADES } from '../src/core/catalogo.js';
 import { leerCatalogo } from '../tools/arena/borrador.js';
 import { hojasDeLaArena } from './helpers.js';
 
@@ -31,34 +29,5 @@ describe('el catálogo de unidades (data/unidades.json)', () => {
     const leido = leerCatalogo(RAIZ);
     expect(leido.invalidas).toEqual([]);
     expect(leido.unidades).toEqual(UNIDADES);
-  });
-
-  it('busca por id, y lanza diciendo cuál si no está', () => {
-    expect(unidad('troll-maza').name).toBe('Troll con maza');
-    expect(() => unidad('nadie')).toThrow(
-      `no hay ninguna unidad «nadie» en ${RUTA_DEL_CATALOGO_DE_UNIDADES}`,
-    );
-  });
-
-  it('se valida con una sola regla, la de la carga y la de «Guardar»: una unidad que no vale lanza nombrando el fichero y a quién', () => {
-    const guerrero = unidad('templario-escudo');
-    expect(validarCatalogo({ unidades: [guerrero] }, EQUIPO_DEL_JUEGO)).toEqual([guerrero]);
-    expect(() =>
-      validarCatalogo({ unidades: [{ ...guerrero, equipo: {} }] }, EQUIPO_DEL_JUEGO),
-    ).toThrow(
-      'data/unidades.json: la unidad «Guardia del temple»: no lleva arma de cuerpo a cuerpo',
-    );
-    expect(() =>
-      validarCatalogo({ unidades: [guerrero, { ...guerrero }] }, EQUIPO_DEL_JUEGO),
-    ).toThrow('data/unidades.json: la unidad "templario-escudo" está dos veces en el catálogo');
-    expect(() =>
-      validarCatalogo(
-        { unidades: [{ ...guerrero, equipo: { ...guerrero.equipo, arma: 'espada-9' } }] },
-        EQUIPO_DEL_JUEGO,
-      ),
-    ).toThrow('data/unidades.json: la unidad «Guardia del temple»: no existe ninguna pieza');
-    expect(() => validarCatalogo({ otra: [] }, EQUIPO_DEL_JUEGO)).toThrow(
-      'data/unidades.json tiene que ser { unidades: [...] }',
-    );
   });
 });

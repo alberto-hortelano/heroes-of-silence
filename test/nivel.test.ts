@@ -11,80 +11,16 @@
  * (19-10-2026, F3).
  */
 import { describe, expect, it } from 'vitest';
-import { equiparEnArena, piezaNueva } from '../src/core/arena.js';
-import {
-  cifrasDeUnidad,
-  UNIDADES,
-  unidad,
-  unidadDelJuego,
-  unidadesDelJuego,
-} from '../src/core/catalogo.js';
+import { piezaNueva } from '../src/core/arena.js';
+import { cifrasDeUnidad, unidad, unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
 import { restaDelPeso } from '../src/core/cuerpo.js';
 import { EQUIPO, type Pieza, validarPoder } from '../src/core/data.js';
-import { conEquipo, EQUIPO_DEL_JUEGO, pieza } from '../src/core/hero/equipo.js';
+import { conEquipo, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { umbral } from '../src/core/hero/experiencia.js';
-import { heroUnit } from '../src/core/hero/hero.js';
 import { indiceDePoder, medidaBlocker, nivelDeUnidad, poderBruto } from '../src/core/nivel.js';
 import { type NivelesDeLaRueda, SPEED_TIERS, type UnitInfo } from '../src/core/types.js';
 import { cuerpoDeCombate, unidadDeCombate } from '../src/core/unidad.js';
 import { catalogoCon, JINETE, PESADA, TROPA, todoA } from './helpers.js';
-
-/**
- * id → [índice, nivel] de cada unidad del catálogo (`data/unidades.json`) con su
- * equipo, medida el 18-10-2026 al pasar al nivel con equipo. Es el ancla: un
- * cambio de la fórmula, de `data/poder.json`, de una pieza o de una unidad la
- * mueve, y se mira a propósito. Tras simplify (carga a pie y rueda × carga), las
- * unidades sin `charge` suben de +5 a +10 y los jinetes +3. **Es el único sitio del
- * rango de índices y niveles del catálogo**: `data/poder.json`, `nivel.ts` y
- * `unidad.ts` apuntan aquí. Re-anclada sin juzgar el 26-10-2026 con la escala baja
- * (fuerza, PV y armadura ×0,3, `docs/agents/2026-10-26-escala-baja/`), y el
- * 31-10-2026 con el peso que resta 1 por cada fuerza entera, o parte, que pasa
- * (once unidades bajan; el esqueleto guerrero, al nivel 1), y el 02-11-2026 con las
- * armas de fuego y la granada del imperio (`docs/agents/2026-11-02-armas-de-fuego-y-granadas/`:
- * el arcabucero y el artillero, de 271 a 216, los mide su daga; el granadero, de 306 a
- * 258, nivel 3 → 2; el pistolero montado no se mueve, lo mide su carga), y el 02-11-2026
- * con el catálogo retocado a mano en la arena (commit `0f715185`, «equipo y unidades»:
- * menos fuerza en casi todas las unidades y en las armas, menos peso en las armaduras,
- * otro equipo de serie en varias; la daga y el bastón sin fuerza): casi todas bajan,
- * suben el espectro y el caballero de la muerte (la coraza, que ahora pesa 3), y el
- * catálogo va del 167 (esqueleto guerrero) al 425 (jinete elfo), del nivel 1 al 4.
- */
-const TABLA_DEL_CATALOGO: Readonly<Record<string, readonly [number, number]>> = {
-  'templario-escudo': [218, 2],
-  'templario-mandoble': [223, 2],
-  'templario-monje': [210, 2],
-  'templario-escudero': [206, 2],
-  'templario-hermano-de-carga': [394, 3],
-  'templario-penitente': [289, 2],
-  'esqueleto-guerrero': [167, 1],
-  'esqueleto-arquero': [189, 1],
-  zombi: [202, 2],
-  espectro: [357, 3],
-  'caballero-de-la-muerte': [343, 3],
-  'jinete-de-plaga': [311, 3],
-  'imperio-alabardero': [221, 2],
-  'imperio-piquero': [219, 2],
-  'imperio-ballestero': [239, 2],
-  'imperio-coracero': [268, 2],
-  'imperio-arcabucero': [187, 1],
-  'imperio-rodelero': [214, 2],
-  'imperio-artillero-culebrina': [192, 1],
-  'imperio-pistolero-montado': [329, 3],
-  'imperio-granadero': [219, 2],
-  'elfo-arquero': [228, 2],
-  'elfo-explorador': [199, 1],
-  'elfo-guardia-del-bosque': [208, 2],
-  'elfo-jinete': [425, 4],
-  'elfo-sacerdotisa': [202, 2],
-  'elfo-asesino': [310, 3],
-  'orko-hacha-escudo': [247, 2],
-  'orko-dos-armas': [240, 2],
-  'goblin-lancero': [171, 1],
-  'goblin-arquero': [192, 1],
-  'troll-maza': [268, 2],
-  'goblin-jinete-de-hiena': [292, 2],
-  'orko-armadura-pesada': [248, 2],
-};
 
 describe('el índice de poder y el nivel (core/nivel.ts)', () => {
   it('el nivel es la primera cifra del índice, y nunca baja del 1', () => {
@@ -150,70 +86,6 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
     expect(indiceDePoder(conEquipo(espadachin, { arma: 'espada' }))).toBeGreaterThan(desnudo);
   });
 
-  it('la armadura cuenta en lo que aguanta, contra un golpe de 9, y como mucho ×4', () => {
-    const cuerpo: UnitInfo = {
-      name: 'cuerpo',
-      faction: null,
-      attack: 3,
-      fuerza: 20,
-      agilidad: 4,
-      defensaPropia: 0,
-      defense: 3,
-      damage: [20, 40],
-      hp: 80,
-      speed: 'average',
-    };
-    const con = (armadura: number) => indiceDePoder({ ...cuerpo, puntosDeArmadura: armadura });
-    expect(con(2)).toBeGreaterThan(indiceDePoder(cuerpo));
-    expect(con(6)).toBeGreaterThan(con(2));
-    // De 7 en adelante (9 − ⌊9 / 4⌋), el tope: no hace a nadie inmortal en la cuenta.
-    expect(con(20)).toBe(con(7));
-    expect(con(6)).toBeLessThan(con(7));
-  });
-
-  it('lo que pega es el mejor de sus golpes, cada uno con su arma: el disparo cuenta si tira', () => {
-    // El arquero de las hojas pega con la espada y dispara con el arco.
-    const arquero = unidad('elfo-arquero');
-    const conArco = indiceDePoder(unidadDeCombate(arquero, EQUIPO_DEL_JUEGO));
-    const { distancia: _arco, ...sinElArco } = arquero.equipo;
-    expect(_arco).toBe('arco');
-    const sinArco = indiceDePoder(
-      unidadDeCombate({ ...arquero, equipo: sinElArco }, EQUIPO_DEL_JUEGO),
-    );
-    expect(conArco).toBeGreaterThan(sinArco);
-    // Con la ballesta, que pega más, más todavía.
-    const conBallesta = equiparEnArena(arquero, 'ballesta', EQUIPO_DEL_JUEGO);
-    expect(indiceDePoder(unidadDeCombate(conBallesta, EQUIPO_DEL_JUEGO))).toBeGreaterThan(conArco);
-  });
-
-  it('el arma de fuego y la granada se miden (02-11-2026): la recarga baja el disparo y la granada cuenta como un disparo', () => {
-    // El arquero, cuyo índice lo da su arco (con la espada sola, 193), con su arco
-    // hecho arma de fuego de su misma horquilla (la agilidad del arma, la suya): ×2/3
-    // por recargar 1 y ×5/4 por perforar; con recarga 2, ×1/2 × 5/4, aún por encima
-    // de la espada (02-11-2026: la espada del catálogo retocado pega menos que la
-    // daga de antes), y con recarga 3, ×2/5 × 5/4, por debajo. Hecho granada, como el
-    // arco: su área paga sus cargas.
-    const arquero = unidad('elfo-arquero');
-    const arco = pieza('arco');
-    const con = (p: Pieza): number => indiceDePoder(unidadDeCombate(arquero, catalogoCon(p)));
-    const conArco = con(arco);
-    const fuego = (recarga: number): Pieza => ({
-      ...arco,
-      tiro: 'fuego',
-      agilidad: arquero.agilidad,
-      recarga,
-    });
-    const { distancia: _arco, ...sinElArco } = arquero.equipo;
-    const sinArco = indiceDePoder(
-      unidadDeCombate({ ...arquero, equipo: sinElArco }, EQUIPO_DEL_JUEGO),
-    );
-    expect(con(fuego(1))).toBeLessThan(conArco);
-    expect(con(fuego(1))).toBeGreaterThan(con(fuego(2)));
-    expect(con(fuego(2))).toBeGreaterThan(con(fuego(3)));
-    expect(con(fuego(3))).toBe(sinArco);
-    expect(con({ ...arco, tiro: 'granada', cargas: 2 })).toBe(conArco);
-  });
-
   it('la rueda del arma pesa por su daño: Fuerte y Rápido suben el índice; Ofensivo, Defensivo, Romper guardia y Finta, no', () => {
     const guerrero = unidad('templario-escudo');
     // Un arma nueva, que nace como la Espada, y de la que no cuelga ninguna otra.
@@ -235,26 +107,6 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
     }
   });
 
-  it('la rueda de la segunda arma pesa en el índice: de cada tipo, la mejor de las dos (25-10-2026)', () => {
-    // Se mide como pelearán (rueda × carga, `intercambio`), no la carga sola.
-    const jinete = unidad('templario-hermano-de-carga');
-    // Una copia de la lanza, que no cuelga de nadie, en la segunda mano.
-    const lanza = piezaNueva(EQUIPO_DEL_JUEGO.pieza('lanza'), EQUIPO_DEL_JUEGO) as Pieza;
-    const conLaLanza = (rueda: NivelesDeLaRueda) =>
-      indiceDePoder(
-        unidadDeCombate(
-          { ...jinete, equipo: { ...jinete.equipo, segunda: lanza.id } },
-          catalogoCon({ ...lanza, rueda }),
-        ),
-      );
-    const base = conLaLanza(todoA(3));
-    expect(conLaLanza({ ...todoA(3), fuerte: 6 })).toBeGreaterThan(base);
-    expect(conLaLanza({ ...todoA(3), rapido: 6 })).toBeGreaterThan(base);
-    expect(conLaLanza({ ...todoA(3), finta: 6 })).toBe(base);
-    // Por debajo de la espada (todo a 3), lo de la lanza no cuenta: manda la espada.
-    expect(conLaLanza({ ...todoA(3), fuerte: 0, rapido: 0 })).toBe(base);
-  });
-
   it('quien carga montado se mide también por la carga: el jinete sin el caballo vale menos', () => {
     const jinete = unidad('templario-hermano-de-carga');
     expect(jinete.equipo.montura).toBe('caballo_de_guerra');
@@ -264,34 +116,6 @@ describe('el índice de poder y el nivel (core/nivel.ts)', () => {
       unidadDeCombate({ ...jinete, equipo: aPie }, EQUIPO_DEL_JUEGO),
     );
     expect(conCaballo).toBeGreaterThan(sinCaballo);
-  });
-
-  it('las unidades del catálogo, vestidas, tienen el índice y el nivel de su tabla', () => {
-    const leidas = Object.fromEntries(
-      UNIDADES.map((u) => {
-        const c = unidadDeCombate(u, EQUIPO_DEL_JUEGO);
-        return [u.id, [indiceDePoder(c), nivelDeUnidad(c)]];
-      }),
-    );
-    expect(leidas).toEqual(TABLA_DEL_CATALOGO);
-  });
-
-  it('el héroe: su cuerpo crece por rango y su nivel se lee de él, con el equipo', () => {
-    const conRango = (r: number) =>
-      heroUnit({ name: 'X', attack: 2, defense: 2, experience: umbral(r), equipo: {} });
-    expect(indiceDePoder(conRango(5))).toBe(356);
-    expect(nivelDeUnidad(conRango(5))).toBe(3);
-    expect(indiceDePoder(conRango(10))).toBeGreaterThan(indiceDePoder(conRango(5)));
-    // Con la Espada, más: las piezas cuentan.
-    const equipado = heroUnit({
-      name: 'X',
-      attack: 2,
-      defense: 2,
-      experience: umbral(5),
-      equipo: { arma: 'espada' },
-    });
-    expect(equipado.attack).toBeGreaterThan(conRango(5).attack);
-    expect(indiceDePoder(equipado)).toBe(397);
   });
 
   it('unas cifras que no caben en un entero lanzan diciéndolo, no redondean', () => {

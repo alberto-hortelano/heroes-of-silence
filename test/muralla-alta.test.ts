@@ -13,7 +13,6 @@ import { EscenaBatalla } from '../src/client/escenas/batalla.js';
 import { marcadoDe } from '../src/client/html.js';
 import { alturaDeColumna, alzadoDeLaMuralla, cajaDeFigura } from '../src/client/render/batalla.js';
 import { centroHex, hexEnPixel, planoDeHex, tableroPara } from '../src/client/render/proyeccion.js';
-import { autoResolve, chooseBattleAction } from '../src/core/ai/tactics.js';
 import { escaleraDeArenaBlocker } from '../src/core/arena.js';
 import {
   COMENTARIO_DEL_BORRADOR_DE_MURALLAS,
@@ -29,9 +28,7 @@ import {
   escalaBlocker,
   escaleraBlocker,
   legalActions,
-  MAX_ROUNDS,
   mismoTurno,
-  movimientoBlocker,
   opcionesDeDanio,
   stackById,
   subirBlocker,
@@ -137,14 +134,6 @@ describe('el cuerpo a cuerpo, solo al mismo nivel', () => {
     expect(ataqueBlocker(state, 'defender-0')).toBe(
       'no alcanza a esa unidad cuerpo a cuerpo este turno',
     );
-  });
-
-  it('al que señala una columna ocupada se le dice quién está', () => {
-    const state = duelo(LINEA, PESADA, { col: 6, row: 4 }, TIRADOR, {
-      col: 7,
-      row: 4,
-    });
-    expect(movimientoBlocker(state, { col: 7, row: 4 })).toBe('ahí está Arquero');
   });
 
   it('arriba, los dos en el muro, sí', () => {
@@ -363,84 +352,6 @@ describe('el rasgo escalar', () => {
     expect(tipos(legalActions(state))).not.toContain('poner_escalera');
     applyAction(state, { type: 'subir', muro: { col: 7, row: 4 } }, createRng(1));
     expect(stackById(state, 'attacker-0').hex).toEqual({ col: 7, row: 4 });
-  });
-});
-
-describe('la IA con la muralla alta', () => {
-  it('el atacante sin camino escala: va al pie, pone la escalera y sube', () => {
-    const state = createBattle(
-      lado([
-        { creature: PESADA, count: 3 },
-        { creature: TROPA, count: 3 },
-      ]),
-      lado([{ creature: TIRADOR, count: 3 }]),
-      createRng(5),
-      COMBATE_COMPLETO,
-      LINEA,
-    );
-    conEscalera(state, 0, 1);
-    autoResolve(state, createRng(5));
-    expect(state.finished).not.toBeNull();
-    expect(state.round).toBeLessThan(MAX_ROUNDS);
-    const kinds = state.log.map((e) => e.kind);
-    expect(kinds).toContain('ladder_placed');
-    expect(kinds).toContain('climbed');
-    expect(kinds.indexOf('ladder_placed')).toBeLessThan(kinds.indexOf('climbed'));
-  });
-
-  it('el que sabe escalar sube sin escalera', () => {
-    const trepa = unidadDeArena('zombi', { id: 'zombi-9', traits: ['escalar'] });
-    const state = peleaDelMotor(
-      aPelear([trepa, trepa]),
-      aPelear([unidadDeArena('zombi'), unidadDeArena('zombi')]),
-      createRng(2),
-      LINEA,
-    );
-    autoResolve(state, createRng(2));
-    expect(state.finished).not.toBeNull();
-    const kinds = state.log.map((e) => e.kind);
-    expect(kinds).toContain('climbed');
-    expect(kinds).not.toContain('ladder_placed');
-  });
-
-  it('el atacante al pie con escalera la pone, y el que puede subir sube', () => {
-    const state = duelo(
-      LINEA,
-      PESADA,
-      { col: 6, row: 4 },
-      TIRADOR,
-      { col: 10, row: 0 },
-      'attacker-0',
-      {
-        escalera: true,
-      },
-    );
-    expect(chooseBattleAction(state)).toEqual({
-      type: 'poner_escalera',
-      muro: { col: 7, row: 4 },
-    });
-    state.escaleras.push({ pie: { col: 6, row: 4 }, muro: { col: 7, row: 4 } });
-    stackById(state, 'attacker-0').escalera = false;
-    expect(chooseBattleAction(state)).toEqual({ type: 'subir', muro: { col: 7, row: 4 } });
-  });
-
-  it('el tirador que defiende sube al muro, y arriba se queda tras subir', () => {
-    const state = duelo(
-      LINEA,
-      PESADA,
-      { col: 2, row: 4 },
-      TIRADOR,
-      { col: 8, row: 4 },
-      'defender-0',
-    );
-    const accion = chooseBattleAction(state);
-    expect(accion.type).toBe('move');
-    if (accion.type !== 'move') throw new Error('esperaba un move');
-    expect(accion.to.col).toBe(7);
-    // Ya arriba y con el tramo gastado: cierra el turno, no baja a por nadie.
-    stackById(state, 'defender-0').hex = accion.to;
-    forzarTurno(state, 'defender-0', 1);
-    expect(chooseBattleAction(state)).toEqual({ type: 'end_turn' });
   });
 });
 

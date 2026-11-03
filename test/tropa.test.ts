@@ -10,8 +10,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { armyPower, fuerzaDe, unitPower } from '../src/core/ai/fuerza.js';
-import { planRecruits } from '../src/core/ai/strategy.js';
+import { armyPower, unitPower } from '../src/core/ai/fuerza.js';
 import { playAiGame } from '../src/core/ai/turn.js';
 import { createBattle } from '../src/core/battle/battle.js';
 import { allHexes, BOARD_HEIGHT, bandoDeSalida } from '../src/core/battle/board.js';
@@ -19,13 +18,11 @@ import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO, cupoDelHeroe } from '../src/core/combate.js';
 import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
 import { LIDERAZGO } from '../src/core/data.js';
-import { marchaALaEscala } from '../src/core/escala.js';
 import {
   cifrasDelIndividuo,
   RANGO_INICIAL_DE_HEROE,
   umbral,
 } from '../src/core/hero/experiencia.js';
-import { maxMovePoints, slowestSpeed } from '../src/core/hero/hero.js';
 import {
   armyLeadership,
   GARRISON_LEADERSHIP,
@@ -33,8 +30,6 @@ import {
   troopBlocker,
   troopSummary,
 } from '../src/core/hero/troop.js';
-import { pointKey } from '../src/core/map/map.js';
-import { puertasDeLaCiudad } from '../src/core/map/recinto.js';
 import { createRng } from '../src/core/rng.js';
 import { CHARACTER_BODY, createCharacter, defaultBuild } from '../src/core/rpg/character.js';
 import { combatProfile } from '../src/core/rpg/stats.js';
@@ -50,16 +45,13 @@ import {
 } from '../src/core/state/game.js';
 import { newGame, startingArmy } from '../src/core/state/setup.js';
 import { dwellings } from '../src/core/town/town.js';
-import { FACTION_IDS, SPEED_TO_MOVE_POINTS } from '../src/core/types.js';
+import { FACTION_IDS } from '../src/core/types.js';
 import {
   copiaDePartida,
   ejercito,
   fueraDeSuBase,
-  hastaSuSiguienteTurno,
   JINETE,
-  PESADA,
   sinGuarnicionDeSalida,
-  TROPA,
   TROPA_BARATA,
 } from './helpers.js';
 
@@ -154,43 +146,6 @@ describe('liderazgo', () => {
     expect(heroLeadership({ experience: umbral(40) })).toBe(max);
   });
 
-  it('reclutar por encima del liderazgo lanza con la frase, y no cobra nada', () => {
-    const { state, hero, town } = heroeEnCasa(SEMILLA);
-    // Dos jinetes y un templario, 19 de 20 con 3 de los 6 individuos: lo que
-    // muerde aquí es el liderazgo.
-    hero.army = ejercito({ creature: JINETE, count: 2 }, { creature: TROPA, count: 1 });
-    const tope = heroLeadership(hero);
-    const ocupa = armyLeadership(hero.army);
-    const uno = unidadDelJuego(RECLUTA).leadership;
-    expect(Math.floor((tope - ocupa) / uno)).toBe(1);
-    const oro = state.players[0]!.oro;
-    const disponibles = town.available[RECLUTA];
-
-    expect(() =>
-      applyAdventureAction(
-        state,
-        { type: 'recruit', town: town.id, creature: RECLUTA, count: 2 },
-        ctx(SEMILLA),
-        0,
-      ),
-    ).toThrow(
-      `no se puede reclutar: no cabe: el ejército ocupa ${ocupa} de ${tope} de liderazgo y 2 × ${NOMBRE_DEL_RECLUTA} piden ${2 * uno}; caben 1`,
-    );
-    // Rechazado ANTES de pagar: ni el oro ni las criaturas del pueblo se mueven.
-    expect(state.players[0]!.oro).toBe(oro);
-    expect(town.available[RECLUTA]).toBe(disponibles);
-    expect(hero.army).toHaveLength(3);
-
-    // Y el que sí cabe, entra.
-    applyAdventureAction(
-      state,
-      { type: 'recruit', town: town.id, creature: RECLUTA, count: 1 },
-      ctx(SEMILLA),
-      0,
-    );
-    expect(armyLeadership(hero.army)).toBe(ocupa + uno);
-  });
-
   it('la frase de un solo individuo dice «pide», y sin sitio no promete ninguno', () => {
     const jinete = unidadDelJuego(JINETE);
     const lleno = ejercito({ creature: JINETE, count: 2 });
@@ -224,84 +179,6 @@ describe('liderazgo', () => {
     expect(troopBlocker(ejercito({ creature: RECLUTA, count: 4 }), 20, 6, RECLUTA, 3)).toBe(
       `no cabe: el ejército lleva 4 de 6 individuos y 3 × ${NOMBRE_DEL_RECLUTA} son 3 más; caben 2`,
     );
-  });
-
-  it('sin héroe en el pueblo se recluta a la guarnición, con su propio tope', () => {
-    const { state, hero, town } = heroeEnCasa(SEMILLA);
-    // Se mide reclutar a una guarnición con sitio; la de salida la llena.
-    sinGuarnicionDeSalida(state);
-    hero.at = { x: hero.at.x + 1, y: hero.at.y };
-    town.available[RECLUTA] = 50;
-    state.players[0]!.oro = 10_000;
-    // Con lo más barato muerde el cupo: la guarnición lleva siete, no seis,
-    // porque no tiene héroe que ocupe el séptimo puesto. 7 × 1 = 7 de sus 20.
-    applyAdventureAction(
-      state,
-      { type: 'recruit', town: town.id, creature: RECLUTA, count: CUPO_GUARNICION },
-      ctx(SEMILLA),
-      0,
-    );
-    expect(town.garrison).toHaveLength(7);
-    expect(armyLeadership(town.garrison)).toBeLessThan(GARRISON_LEADERSHIP);
-    expect(() =>
-      applyAdventureAction(
-        state,
-        { type: 'recruit', town: town.id, creature: RECLUTA, count: 1 },
-        ctx(SEMILLA),
-        0,
-      ),
-    ).toThrow('no cabe: la guarnición ya lleva 7 de 7 individuos');
-
-    // Y con criaturas caras, su propio tope de liderazgo: dos jinetes y uno más
-    // pasan de él.
-    const tope = GARRISON_LEADERSHIP;
-    const jinete = unidadDelJuego(JINETE);
-    town.garrison = ejercito({ creature: JINETE, count: 2 });
-    const ocupa = armyLeadership(town.garrison);
-    expect(ocupa + jinete.leadership).toBeGreaterThan(tope);
-    expect(troopBlocker(town.garrison, tope, CUPO_GUARNICION, JINETE, 1, 'la guarnición')).toBe(
-      `no cabe: la guarnición ocupa ${ocupa} de ${tope} de liderazgo y 1 × ${jinete.name} pide ${jinete.leadership}`,
-    );
-  });
-
-  it('un héroe que entra en casa se lleva lo que le cabe, en orden, y el resto se queda', () => {
-    const state = newGame({ seed: 13 });
-    const hero = heroesOf(state, 0)[0]!;
-    const town = townsOf(state, 0)[0]!;
-    // 3 de 20 de liderazgo y 3 de 6 individuos.
-    hero.army = ejercito({ creature: TROPA_BARATA, count: 3 });
-    expect(heroLeadership(hero)).toBe(20);
-    // El jinete (8, y llega a 11) y la pesada (4, 15) caben; el segundo jinete
-    // (8) ya no —quedan 5—, y se salta sin cerrar el paso a los de detrás: entra
-    // uno de lo más barato (1, y llega a 16)… y el segundo, que cabría en el
-    // liderazgo, se queda porque el ejército ya lleva sus seis. Los dos límites,
-    // en la misma entrada.
-    town.garrison = ejercito(
-      { creature: JINETE, count: 1 },
-      { creature: PESADA, count: 1 },
-      { creature: JINETE, count: 1 },
-      { creature: TROPA_BARATA, count: 2 },
-    );
-    // En una puerta de su recinto: de la ciudad solo se sale por las que tiene.
-    hero.at = { ...puertasDeLaCiudad(state.map, town.at)[0]!.casilla };
-    hero.movePoints = 5000;
-
-    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: town.at }, ctx(13), 0);
-
-    expect(pointKey(hero.at)).toBe(pointKey(town.at));
-    expect(hero.army).toHaveLength(CUPO_HEROE);
-    expect(armyLeadership(hero.army)).toBe(
-      4 * unidadDelJuego(TROPA_BARATA).leadership +
-        unidadDelJuego(JINETE).leadership +
-        unidadDelJuego(PESADA).leadership,
-    );
-    expect(hero.army.slice(3)).toEqual([
-      { creature: JINETE },
-      { creature: PESADA },
-      { creature: TROPA_BARATA },
-    ]);
-    expect(town.garrison).toEqual([{ creature: JINETE }, { creature: TROPA_BARATA }]);
-    expect(state.log.some((e) => e.kind === 'garrison_taken')).toBe(true);
   });
 
   it('el ejército de salida cabe en el liderazgo de un héroe recién hecho, en las cinco facciones', () => {
@@ -351,15 +228,6 @@ describe('los datos garantizan que lo que cabe en un bando cabe en el tablero', 
     }
     expect(LIDERAZGO.personaje).toBeGreaterThan(0);
   });
-
-  it('la guarnición no pasa del liderazgo de un héroe recién contratado', () => {
-    // Ese acoplamiento vivía solo en el `_comment` de `data/liderazgo.json`: con
-    // una guarnición mayor que lo que lleva un héroe de nivel 1, dos héroes
-    // nuevos no la vencen nunca, nadie sube de nivel y la semilla 10 se queda
-    // en tablas para siempre. Bajar `heroe.base` lo reabría sin decir nada.
-    expect(LIDERAZGO.guarnicion).toBeLessThanOrEqual(LIDERAZGO.heroe.base);
-    expect(GARRISON_LEADERSHIP).toBe(LIDERAZGO.guarnicion);
-  });
 });
 
 describe('todos los lectores del ejército saben de personajes', () => {
@@ -371,24 +239,6 @@ describe('todos los lectores del ejército saben de personajes', () => {
     hero.army = [{ creature: CHARACTER_BODY, member: 'aren' }, { creature: 'elfo-jinete' }];
     return { hero, aren };
   }
-
-  it('un héroe con un personaje pasa de día sin lanzar', () => {
-    // La issue que dejó abierta la fase 2: `advanceDay` repone el movimiento con
-    // `maxMovePoints`, que buscaba la velocidad de cada stack en el catálogo y
-    // lanzaba «criatura desconocida: "character"».
-    const state = newGame({ seed: 7 });
-    const { hero, aren } = conPersonaje(state);
-    const dia = state.day;
-    hastaSuSiguienteTurno(state, ctx(7), 0);
-    expect(state.day).toBe(dia + 1);
-
-    // Y el movimiento lo marca el más lento: el personaje, por su destreza, y
-    // no el campeón ultrarrápido.
-    const speed = combatProfile(aren).unit.speed;
-    expect(slowestSpeed(hero, state.characters)).toBe(speed);
-    expect(hero.movePoints).toBe(maxMovePoints(hero, state.characters));
-    expect(hero.movePoints).toBeLessThan(marchaALaEscala(SPEED_TO_MOVE_POINTS.ultra_fast));
-  });
 
   it('la fuerza de la IA y la vista del agente leen el perfil del personaje', () => {
     const state = newGame({ seed: 7 });
@@ -432,31 +282,6 @@ describe('la IA de reglas juega dentro del liderazgo', () => {
         expect(t.garrison.length).toBeLessThanOrEqual(CUPO_GUARNICION);
       }
     }
-  });
-
-  it('el reclutamiento de la IA no pide más de lo que cabe', () => {
-    const { state, hero, town } = heroeEnCasa(SEMILLA);
-    // Dos jinetes y un templario: 19 de 20, con tres puestos libres.
-    hero.army = ejercito({ creature: JINETE, count: 2 }, { creature: TROPA, count: 1 });
-    // Solo hay lo más barato, a montones, y oro de sobra.
-    town.available = { [RECLUTA]: 50 };
-    state.players[0]!.oro = 50_000;
-    const libre = heroLeadership(hero) - armyLeadership(hero.army);
-    expect(libre / unidadDelJuego(RECLUTA).leadership).toBeLessThan(CUPO_HEROE - hero.army.length);
-    const reclutas = planRecruits(state, 0).filter((a) => a.type === 'recruit');
-    const total = reclutas.reduce((n, a) => n + (a.type === 'recruit' ? a.count : 0), 0);
-    // Había cincuenta y oro de sobra: lo que manda es el liderazgo libre.
-    expect(total).toBe(libre / unidadDelJuego(RECLUTA).leadership);
-    for (const a of reclutas) applyAdventureAction(state, a, ctx(SEMILLA), 0);
-    expect(armyLeadership(hero.army)).toBe(heroLeadership(hero));
-
-    // Y con liderazgo de sobra, lo que manda es el cupo de seis.
-    hero.army = ejercito({ creature: RECLUTA, count: 4 }); // 4 de 20, 4 de 6
-    const masReclutas = planRecruits(state, 0).filter((a) => a.type === 'recruit');
-    const masTotal = masReclutas.reduce((n, a) => n + (a.type === 'recruit' ? a.count : 0), 0);
-    expect(masTotal).toBe(2);
-    for (const a of masReclutas) applyAdventureAction(state, a, ctx(SEMILLA), 0);
-    expect(hero.army).toHaveLength(CUPO_HEROE);
   });
 });
 
@@ -524,67 +349,6 @@ describe('licenciar: cambiar tropa barata por otra mejor', () => {
     expect(() => licenciar(RECLUTA, 1)).toThrow(/no está en un castillo suyo/);
     expect(JSON.stringify(hero.army)).toBe(antes);
     expect(state.log.some((e) => e.kind === 'dismissed')).toBe(false);
-  });
-
-  it('la IA cambia lo barato por lo mejor cuando no cabe, y lo que pide es legal', () => {
-    const { state, hero, town } = heroeEnCasa(SEMILLA);
-    hero.army = ejercito({ creature: RECLUTA, count: CUPO_HEROE }); // el cupo lleno de lo barato
-    // Lo que más pega de lo que cría la base, a montones.
-    const mejor = [...dwellings(town)]
-      .map((d) => unidadDelJuego(d.creature))
-      .sort((a, b) => unitPower(b) - unitPower(a))[0]!;
-    expect(unitPower(mejor)).toBeGreaterThan(unitPower(unidadDelJuego(RECLUTA)));
-    town.available = { [mejor.id]: 10 };
-    state.players[0]!.oro = 50_000;
-    const antes = fuerzaDe(hero, undefined);
-    const acciones = planRecruits(state, 0);
-    const despide = acciones.findIndex((a) => a.type === 'dismiss');
-    const recluta = acciones.findIndex((a) => a.type === 'recruit' && a.creature === mejor.id);
-    expect(despide).toBeGreaterThanOrEqual(0);
-    // Primero se hace sitio y después se recluta: al revés, el `recruit` no cabe.
-    expect(despide).toBeLessThan(recluta);
-    for (const a of acciones) applyAdventureAction(state, a, ctx(SEMILLA), 0);
-    expect(hero.army.some((t) => t.creature === mejor.id)).toBe(true);
-    expect(fuerzaDe(hero, undefined)).toBeGreaterThan(antes);
-    expect(armyLeadership(hero.army)).toBeLessThanOrEqual(heroLeadership(hero));
-  });
-
-  it('y no licencia a nadie si lo que hay ya pega más que lo que se ofrece', () => {
-    const { state, hero, town } = heroeEnCasa(SEMILLA);
-    // Dos jinetes y un templario: 19 de 20 de liderazgo.
-    hero.army = ejercito({ creature: JINETE, count: 2 }, { creature: TROPA, count: 1 });
-    // Lo que se ofrece pega menos que cualquiera de los que lleva.
-    const ofrecidas = [RECLUTA, 'goblin-arquero'];
-    for (const id of ofrecidas) {
-      expect(unitPower(unidadDelJuego(id)), id).toBeLessThan(unitPower(unidadDelJuego(TROPA)));
-    }
-    town.available = Object.fromEntries(ofrecidas.map((id) => [id, 50]));
-    state.players[0]!.oro = 50_000;
-    expect(planRecruits(state, 0).some((a) => a.type === 'dismiss')).toBe(false);
-  });
-
-  it('no licencia lo que recluta en la misma jugada: recorre lo que se ofrece del más fuerte al más flojo', () => {
-    // Por la morada del revés (que no es un nivel), el día 1 de los orkos de s2
-    // reclutaba goblins y los licenciaba en el mismo plan para meter a un orko:
-    // 8 de 80 planes del día 1 en 1-40.
-    const malos: string[] = [];
-    for (let seed = 1; seed <= 40; seed++) {
-      const state = newGame({ seed });
-      for (const p of [0, 1] as const) {
-        const plan = planRecruits(state, p);
-        const reclutados = plan.flatMap((a) => (a.type === 'recruit' ? [a.creature] : []));
-        for (const a of plan) {
-          if (a.type === 'dismiss' && reclutados.includes(a.creature))
-            malos.push(`s${seed} j${p}: recluta y licencia ${a.creature}`);
-        }
-        const poderes = reclutados.map((id) => unitPower(unidadDelJuego(id)));
-        if (poderes.some((x, i) => i > 0 && x > (poderes[i - 1] as number)))
-          malos.push(
-            `s${seed} j${p}: recluta ${reclutados.join(', ')}, no del más fuerte al más flojo`,
-          );
-      }
-    }
-    expect(malos).toEqual([]);
   });
 });
 

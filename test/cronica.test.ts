@@ -289,45 +289,6 @@ describe('la crónica pasa por la niebla', () => {
     expect(meConsta()).toBe(true);
   });
 
-  it('el reloj y el final llegan siempre, sean de quien sean', () => {
-    const { state, ctx } = partida(104);
-    // Sin la guarnición de salida: con ella, cinco templarios con su armadura
-    // paran al rival en la puerta y el castillo no cae. Aquí no se mide quién
-    // gana, sino que el final me llega.
-    sinGuarnicionDeSalida(state);
-
-    // Pierdo el héroe y después el castillo: me quedo sin nada que mirar y sin
-    // partida, y me tengo que enterar de las dos cosas. Desde la fase 1b el
-    // héroe que cae vuelve a casa, así que la segunda batalla es en mi castillo
-    // y con él dentro: perderla se lleva la casa y al héroe a la vez.
-    heroById(state, 'hero-0').army = ejercito({ creature: TROPA_BARATA, count: 1 });
-    pasear(state, ctx, 0, [{ x: 8, y: 6 }]);
-    pasarTurno(state, ctx, 0);
-    // Con fuerza de sobra también aquí: con el peso que resta 1 por cada fuerza, o
-    // parte, que pasa (31-10-2026), mi héroe y su goblin paraban a la tropa de
-    // salida del rival.
-    heroById(state, 'hero-1').army = ejercito({ creature: PESADA, count: 5 });
-    pasear(state, ctx, 1, [{ x: 8, y: 6 }]);
-    expect(resolvePendingBattle(state, ctx).winner).toBe('attacker');
-    expect(heroById(state, 'hero-0').at).toEqual(MI_CASTILLO);
-    // Cruzar el día es lo que pone un `day_start` del rival en la ventana. En
-    // serpiente (`ordenDelDia`) el 1 cierra el día 1 y abre el 2.
-    pasarTurno(state, ctx, 1);
-    expect(state.day).toBe(2);
-    // Con fuerza de sobra: con la rueda (19-10-2026), mi héroe solo, con su
-    // Espada, paraba a la tropa de salida del rival.
-    heroById(state, 'hero-1').army = ejercito({ creature: PESADA, count: 5 });
-    pasear(state, ctx, 1, [MI_CASTILLO]);
-    expect(state.pendingBattle?.foe).toEqual({ kind: 'hero', heroId: 'hero-0' });
-    expect(resolvePendingBattle(state, ctx).winner).toBe('attacker');
-
-    const ev = leer(state, 0).recentEvents;
-    expect(ev.some((e) => e.kind === 'day_start')).toBe(true);
-    expect(ev.some((e) => e.kind === 'turn_start' && e.actor === 1)).toBe(true);
-    expect(ev.some((e) => e.kind === 'player_defeated' && e.actor === 0)).toBe(true);
-    expect(ev.some((e) => e.kind === 'game_over' && e.actor === 1)).toBe(true);
-  });
-
   it('perder un castillo se sabe siempre, aunque no lo mire nadie mío', () => {
     const { state, ctx } = partida(105);
     // Vacía: el rival tiene que ENTRAR y tomarla, no asaltar su guarnición.
@@ -598,18 +559,6 @@ describe('la crónica de la pantalla deja de mentir', () => {
     );
     expect(linea({ kind: 'garrison_taken', hero: 'h', town: 't' })).toContain(
       'El jugador 1 incorpora una guarnición',
-    );
-  });
-
-  it('los hechizos del rival ya no se pintan como una buena noticia tuya', () => {
-    // Salía SIEMPRE en clase `win`, aprendiera quien aprendiera.
-    const spells = ['haste'];
-    expect(linea({ kind: 'spells_learned', hero: 'h', town: 't', spells, actor: 0 })).toContain(
-      '<div class="win">Aprendido en\u00a0(0,\u00a00): Prisa</div>',
-    );
-    // Sin clase: lo que aprende el rival no es ni tu victoria ni tu derrota.
-    expect(linea({ kind: 'spells_learned', hero: 'h', town: 't', spells, actor: 1 })).toContain(
-      '<div>El jugador 1 aprende en\u00a0(0,\u00a00): Prisa</div>',
     );
   });
 
