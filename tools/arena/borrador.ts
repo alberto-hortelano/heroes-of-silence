@@ -22,8 +22,11 @@ import {
 } from '../../src/core/arena-murallas.js';
 import {
   COMENTARIO_DEL_CATALOGO_DE_EQUIPO,
+  type CuerpoDeTodoHeroe,
+  combateDelHeroe,
   type PiezaEscrita,
   RUTA_DEL_CATALOGO_DE_EQUIPO,
+  RUTA_DEL_HEROE,
 } from '../../src/core/data.js';
 import {
   type CatalogoDeEquipo,
@@ -241,10 +244,34 @@ export function leerCatalogo(raiz: string): {
   readonly unidades: readonly Unidad[];
   readonly invalidas: readonly UnidadSinValidar[];
   readonly piezas: readonly PiezaEscrita[];
+  readonly heroe: CuerpoDeTodoHeroe;
 } {
   const { equipo } = equipoEnDisco(raiz);
   const { validas, invalidas } = leer(raiz, deUnidades(equipo));
-  return { unidades: validas, invalidas, piezas: [...equipo.escritas.values()] };
+  return {
+    unidades: validas,
+    invalidas,
+    piezas: [...equipo.escritas.values()],
+    heroe: heroeEnDisco(raiz).cuerpo,
+  };
+}
+
+/**
+ * `data/heroe.json` en disco y su cuerpo de todo héroe (`combate`), con la regla
+ * con que lo carga el juego (`combateDelHeroe`). Del disco y no del módulo
+ * (`HEROE`), como el equipo: «Guardar» lo cambia. Lanza si falta o no se lee:
+ * el juego tampoco arrancaría.
+ */
+function heroeEnDisco(raiz: string): {
+  readonly json: Record<string, unknown>;
+  readonly cuerpo: CuerpoDeTodoHeroe;
+} {
+  const json = jsonDe(raiz, RUTA_DEL_HEROE);
+  if (typeof json !== 'object' || json === null || Array.isArray(json)) {
+    throw new Error(`${RUTA_DEL_HEROE} no existe o no es un objeto`);
+  }
+  const o = json as Record<string, unknown>;
+  return { json: o, cuerpo: combateDelHeroe(o.combate) };
 }
 
 /**
@@ -267,7 +294,22 @@ export function escribirCatalogo(
   readonly unidades: number;
   readonly conservadas: number;
   readonly piezas: number;
+  readonly heroe: boolean;
 } {
+  // El cuerpo de todo héroe, si viene (la página lo manda siempre): solo su
+  // `combate`, comprobado como lo carga el juego; lo demás de data/heroe.json
+  // (la rendición, el equipo base, el comentario) se queda como está en disco.
+  const delHeroe = (cuerpo as { heroe?: unknown } | null)?.heroe;
+  const heroe: AEscribir | null =
+    delHeroe === undefined
+      ? null
+      : {
+          ruta: join(raiz, RUTA_DEL_HEROE),
+          contenido: {
+            ...heroeEnDisco(raiz).json,
+            combate: combateDelHeroe(delHeroe, 'no se guarda el cuerpo del héroe'),
+          },
+        };
   const equipo = catalogoDelFichero(cuerpo);
   const unidades = leerCatalogos(equipo, cuerpo);
   // Y con los edificios: una unidad que sale de una morada que no es de su
@@ -296,23 +338,29 @@ export function escribirCatalogo(
       conservadas: 0,
     },
     deUnidadesListo,
+    ...(heroe === null ? [] : [heroe]),
   ]);
   return {
     unidades: deUnidadesListo.escritas,
     conservadas: deUnidadesListo.conservadas,
     piezas: escritas.length,
+    heroe: heroe !== null,
   };
 }
 
 /**
- * La versión en disco de los dos ficheros que escribe «Guardar»: un hash de su
+ * La versión en disco de los ficheros que escribe «Guardar»: un hash de su
  * texto, o `"falta"` si no está. La página la recibe al leer el catálogo y la
  * devuelve al guardar (`guardarCatalogo`).
  */
 export type VersionDelCatalogo = Readonly<Record<string, string>>;
 
-/** Los dos ficheros del catálogo, en el orden en que se dice cuál cambió. */
-const FICHEROS_DEL_CATALOGO = [RUTA_DEL_CATALOGO_DE_EQUIPO, RUTA_DEL_CATALOGO_DE_UNIDADES];
+/** Los ficheros que escribe «Guardar», en el orden en que se dice cuál cambió. */
+export const FICHEROS_DEL_CATALOGO = [
+  RUTA_DEL_CATALOGO_DE_EQUIPO,
+  RUTA_DEL_CATALOGO_DE_UNIDADES,
+  RUTA_DEL_HEROE,
+];
 
 export function versionDelCatalogo(raiz: string): VersionDelCatalogo {
   return Object.fromEntries(

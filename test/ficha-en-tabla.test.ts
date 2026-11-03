@@ -104,7 +104,7 @@ describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
     }
   });
 
-  it('la del héroe: ataque y defensa de su cuerpo, y lo que no se escribe sin casilla', () => {
+  it('la del héroe: ataque y defensa de su cuerpo, y PV, fuerza y agilidad del de todo héroe', () => {
     const h = heroePorDefecto('izquierda');
     const { cuerpo } = fichaDeHeroeDeArena(h, EQUIPO_DEL_JUEGO);
     const m = marcadoDe(renderFichaDeHeroe('izquierda', h, MONTAJE, []));
@@ -112,8 +112,13 @@ describe('la ficha en tabla, con las notas como tooltip (13-10-2026)', () => {
     expect(finalDe(m, 'defensa').valor).toBe(cuerpo.defense);
     expect(finalDe(m, 'poder')).toEqual({ valor: h.poder, cambiada: false });
     expect(finalDe(m, 'hp').valor).toBe(cuerpo.hp);
-    const hp = /<tr data-cifra-de-la-ficha="hp">[\s\S]*?<\/tr>/.exec(m)?.[0] ?? '';
-    expect(hp).not.toContain('<input');
+    // Las tres del cuerpo de todo héroe se escriben (03-11-2026): la casilla, la
+    // del héroe recién hecho de data/heroe.json.
+    const casilla = (campo: string) =>
+      new RegExp(`data-heroe-campo="${campo}" value="(\\d+)"`).exec(m)?.[1];
+    expect(casilla('hp')).toBe(String(h.cuerpo.pv.base));
+    expect(casilla('fuerza')).toBe(String(h.cuerpo.fuerza.base));
+    expect(casilla('agilidad')).toBe(String(h.cuerpo.agilidad));
     expect(m).not.toContain('Cuerpo (con el equipo base)');
   });
 

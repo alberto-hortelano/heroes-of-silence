@@ -65,9 +65,12 @@ import { type CatalogoDeUnidades, cuerpoDe } from './catalogo.js';
 import { combateBlocker, type ReglasDelCombate } from './combate.js';
 import {
   baseBlocker,
+  type CuerpoDeTodoHeroe,
+  combateDelHeroe,
   diferenciaDe,
   EQUIPO_ESCRITO,
   esPiezaConBase,
+  HEROE,
   type Pieza,
   type PiezaEscrita,
   validarPieza,
@@ -704,6 +707,13 @@ export interface HeroeDeArena {
   readonly conocimiento: number;
   /** Los ids de `data/spells.json` de su libro, sin repetir. */
   readonly hechizos: readonly string[];
+  /**
+   * El cuerpo de todo héroe (`combate` de `data/heroe.json`: PV, fuerza y
+   * agilidad, y lo que suben por rango), el mismo en los dos bandos: la página lo
+   * cambia a la vez en los dos y «Guardar» lo escribe. Va en cada héroe para que la
+   * batalla, el retoque y el enlace lo lleven sin otro camino.
+   */
+  readonly cuerpo: CuerpoDeTodoHeroe;
 }
 
 /** Lo más alto que admite una cifra del héroe: más arriba ninguna fórmula cambia ya. */
@@ -714,8 +724,12 @@ export const CIFRA_MAXIMA_DE_HEROE = 99;
  * (`CIFRAS_DEL_HEROE_INICIAL`), la figura genérica y todo el libro. Aquí y no en
  * la página para que un test monte la misma pelea que monta quien pulsa.
  */
-export function heroePorDefecto(lado: Lado): HeroeDeArena {
+export function heroePorDefecto(
+  lado: Lado,
+  cuerpo: CuerpoDeTodoHeroe = HEROE.combate,
+): HeroeDeArena {
   return {
+    cuerpo,
     nombre: `Héroe ${LADOS[lado].adjetivo}`,
     figura: null,
     ataque: CIFRAS_DEL_HEROE_INICIAL.attack,
@@ -753,6 +767,7 @@ export function validarHeroeDeArena(h: HeroeDeArena): HeroeDeArena {
     poder: cifra(h.poder, 'el poder', 1),
     conocimiento: cifra(h.conocimiento, 'el conocimiento', 0),
     hechizos,
+    cuerpo: combateDelHeroe(h.cuerpo, `${quien}: su cuerpo`),
   };
 }
 
@@ -792,12 +807,15 @@ export function heroeDeArena(datos: HeroeDeArena, eq: EquipoAtado): HeroeDelBand
 /** El cuerpo del héroe de la arena sin su equipo: lo que viste `heroeDeArena`. */
 function cuerpoDelHeroeDeArena(datos: HeroeDeArena): UnitInfo {
   const h = validarHeroeDeArena(datos);
-  return cuerpoDelHeroe({
-    name: h.nombre,
-    attack: h.ataque,
-    defense: h.defensa,
-    experience: EXPERIENCIA_INICIAL_DE_HEROE,
-  });
+  return cuerpoDelHeroe(
+    {
+      name: h.nombre,
+      attack: h.ataque,
+      defense: h.defensa,
+      experience: EXPERIENCIA_INICIAL_DE_HEROE,
+    },
+    h.cuerpo,
+  );
 }
 
 /**
@@ -1577,9 +1595,10 @@ export function retiradosDeLaURL(
  * velocidad ni daño; la 16 (25-10-2026), la segunda arma: el hueco `lanza` se fue,
  * una pieza dice `lanza: true` y una unidad lleva `segunda`; la 17 (26-10-2026), la
  * montura: el hueco `montura`, piezas con `agilidad` y `guerra`, y el rasgo
- * `charge` fuera.
+ * `charge` fuera; la 18 (03-11-2026), el cuerpo de todo héroe en cada héroe
+ * (`HeroeDeArena.cuerpo`: PV, fuerza y agilidad, que la arena edita).
  */
-export const VERSION_DEL_ENLACE = 17;
+export const VERSION_DEL_ENLACE = 18;
 
 const CAMPOS_DEL_ENLACE = ['v', 'unidades', 'piezas', 'izquierda', 'derecha', 'muralla', 'combate'];
 const CAMPOS_DEL_COMBATE = ['tope', 'rueda'];
@@ -1593,6 +1612,7 @@ const CAMPOS_DEL_HEROE = [
   'poder',
   'conocimiento',
   'hechizos',
+  'cuerpo',
 ];
 
 /** Un objeto con solo esos campos, o se lanza diciendo cuál sobra o falta. */
@@ -1680,6 +1700,16 @@ export function montajeDeLaURL(textoDelEnlace: string): MontajeDelEnlace {
   if (sinCombate !== null) throw new Error(`la complejidad del enlace no vale: ${sinCombate}`);
   const izquierda = ladoDelEnlace(o.izquierda, 'izquierda', combate.tope);
   const derecha = ladoDelEnlace(o.derecha, 'derecha', combate.tope);
+  // El cuerpo es el de todo héroe: dos distintos no los escribe la página.
+  if (
+    izquierda.heroe !== null &&
+    derecha.heroe !== null &&
+    JSON.stringify(izquierda.heroe.cuerpo) !== JSON.stringify(derecha.heroe.cuerpo)
+  ) {
+    throw new Error(
+      'los dos héroes del enlace llevan cuerpos distintos, y el cuerpo es el de todo héroe',
+    );
+  }
   let muralla: MurallaDeBatalla | null = null;
   if (o.muralla !== null) {
     try {

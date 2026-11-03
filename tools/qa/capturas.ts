@@ -107,6 +107,7 @@ import { COMBATE_COMPLETO } from '../../src/core/combate.js';
 import {
   ECONOMIA,
   figuraDelHeroe,
+  HEROE,
   nombreDeTipoDeHeroe,
   RUTA_DEL_CATALOGO_DE_EQUIPO,
   tipoDeHeroePorDefecto,
@@ -5164,6 +5165,7 @@ async function jugarArena(
  */
 const HEROE_DEL_BANCO: HeroeDeArena = {
   nombre: 'Héroe izquierdo',
+  cuerpo: HEROE.combate,
   figura: null,
   ataque: 2,
   defensa: 2,

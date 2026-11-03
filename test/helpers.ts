@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { onTestFinished } from 'vitest';
@@ -57,6 +57,7 @@ import {
   type Pieza,
   type PiezaEscrita,
   RUTA_DEL_CATALOGO_DE_EQUIPO,
+  RUTA_DEL_HEROE,
 } from '../src/core/data.js';
 import {
   type CatalogoDeEquipo,
@@ -1331,8 +1332,9 @@ export function elCatalogoCon(...encima: PiezaEscrita[]): readonly PiezaEscrita[
 
 /**
  * Una carpeta temporal con lo que la arena lee del repo además de lo que escribe:
- * el catálogo de equipo (`data/equipo.json`, el del juego). Sin él, `leerCatalogo`
- * no tiene con qué leer las unidades, como no lo tendría el juego.
+ * el catálogo de equipo (`data/equipo.json`, el del juego) y el héroe
+ * (`data/heroe.json`). Sin ellos, `leerCatalogo` no tiene con qué leer, como no lo
+ * tendría el juego.
  */
 export function carpetaDeLaArena(prefijo = 'arena-'): string {
   const dir = mkdtempSync(join(tmpdir(), prefijo));
@@ -1341,6 +1343,8 @@ export function carpetaDeLaArena(prefijo = 'arena-'): string {
     join(dir, RUTA_DEL_CATALOGO_DE_EQUIPO),
     JSON.stringify({ _comment: COMENTARIO_DEL_CATALOGO_DE_EQUIPO, piezas: EQUIPO_ESCRITO }),
   );
+  // Y el héroe del repo: «Guardar» escribe su cuerpo y conserva lo demás.
+  copyFileSync(resolve(import.meta.dirname, '..', RUTA_DEL_HEROE), join(dir, RUTA_DEL_HEROE));
   return dir;
 }
 

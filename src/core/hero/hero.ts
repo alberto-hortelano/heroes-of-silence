@@ -1,6 +1,6 @@
 /** Héroes: atributos, ejército y movimiento diario. */
 import { cuerpoConSusCifras, marchaDe } from '../cuerpo.js';
-import { HEROE } from '../data.js';
+import { type CuerpoDeTodoHeroe, HEROE } from '../data.js';
 import { marchaALaEscala } from '../escala.js';
 import type {
   Army,
@@ -175,17 +175,19 @@ export function cuerposDelHeroe(
 /**
  * El cuerpo del héroe SIN su equipo: lo de `heroUnit` antes de `conEquipo`. Solo
  * para quien lo viste con otro catálogo de piezas —la arena, con
- * `EquipoAtado.conEquipo`—; el juego entra por `heroUnit`.
+ * `EquipoAtado.conEquipo`, y con el cuerpo de todo héroe que edita (`combate`)—;
+ * el juego entra por `heroUnit`, con el de `data/heroe.json`.
  */
 export function cuerpoDelHeroe(
   hero: Pick<Hero, 'name' | 'attack' | 'defense' | 'experience'>,
+  combate: CuerpoDeTodoHeroe = HEROE.combate,
 ): UnitInfo {
-  return cuerpoDesnudo(hero, HEROE.combate, subidasDeRango(rangoDeHeroe(hero)));
+  return cuerpoDesnudo(hero, combate, subidasDeRango(rangoDeHeroe(hero)));
 }
 
 function cuerpoDesnudo(
   hero: Pick<Hero, 'name' | 'attack' | 'defense'>,
-  c: (typeof HEROE)['combate'],
+  c: CuerpoDeTodoHeroe,
   subidas: number,
 ): UnitInfo {
   // Su Defensa suma a la defensa, no a la agilidad (decisión del usuario,

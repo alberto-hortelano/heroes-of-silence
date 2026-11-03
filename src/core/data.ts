@@ -182,12 +182,19 @@ function equipoBaseDelHeroe(valor: unknown): Equipo {
   return valor as Equipo;
 }
 
+/** Dónde vive el héroe, relativo a la raíz del repo: el juego lo carga y «Guardar» de la arena escribe su `combate`. */
+export const RUTA_DEL_HEROE = 'data/heroe.json';
+
+/** El cuerpo de todo héroe en batalla (`combate` de `data/heroe.json`): el que edita la arena. */
+export type CuerpoDeTodoHeroe = ReglasDelHeroe['combate'];
+
 /**
  * El cuerpo del héroe de `data/heroe.json`, comprobado: un JSON se edita a mano, y
  * una cifra mal escrita se dice al cargar, no en la batalla. Lo de antes (`danio`,
- * `velocidad`) no vale: la fuerza y la agilidad lo sustituyen (25-10-2026).
+ * `velocidad`) no vale: la fuerza y la agilidad lo sustituyen (25-10-2026). La
+ * misma regla para el que edita la arena y escribe «Guardar» (`donde`, quién lo trae).
  */
-function combateDelHeroe(c: unknown): ReglasDelHeroe['combate'] {
+export function combateDelHeroe(c: unknown, donde = RUTA_DEL_HEROE): CuerpoDeTodoHeroe {
   const campos = ['pv', 'fuerza', 'agilidad', 'ataquePorRango', 'defensaPorRango'];
   const problemas = problemasDeObjeto(c, campos).map((p) => `combate: ${p}`);
   const j = (c ?? {}) as Record<string, unknown>;
@@ -209,7 +216,7 @@ function combateDelHeroe(c: unknown): ReglasDelHeroe['combate'] {
   entero('agilidad', j.agilidad, 1);
   entero('ataquePorRango', j.ataquePorRango, 0);
   entero('defensaPorRango', j.defensaPorRango, 0);
-  if (problemas.length > 0) throw new Error(`data/heroe.json: ${problemas.join('; ')}`);
+  if (problemas.length > 0) throw new Error(`${donde}: ${problemas.join('; ')}`);
   return {
     pv,
     fuerza,

@@ -82,6 +82,7 @@ import {
   type Pieza,
   RECARGA_MAXIMA,
   RUTA_DEL_CATALOGO_DE_EQUIPO,
+  RUTA_DEL_HEROE,
   SOLO_EN_KITS,
 } from '@core/data.js';
 import {
@@ -1241,10 +1242,17 @@ export function renderFichaDeHeroe(
     },
     final,
   });
-  const delCuerpo = (clave: string, rotulo: string, final: number): FilaDeCifra => ({
-    clave,
+  // El cuerpo de todo héroe (`HeroeDeArena.cuerpo`, `combate` de data/heroe.json):
+  // cambiarlo aquí cambia los dos héroes, y «Guardar» lo escribe.
+  const delCuerpo = (campo: string, rotulo: string, valor: number, final: number): FilaDeCifra => ({
+    clave: campo,
     rotulo,
-    nota: 'De su cuerpo en el tablero, con su rango y el equipo base.',
+    nota: 'Del cuerpo de todo héroe (data/heroe.json): cambiarlo cambia a los dos héroes, y «Guardar» lo escribe.',
+    casilla: {
+      atributo: html`data-heroe-campo="${campo}"`,
+      valor,
+      minimo: 1,
+    },
     final,
   });
   const libro = unir(
@@ -1281,7 +1289,7 @@ export function renderFichaDeHeroe(
       ${filaDelNivel(lecturaDelNivel(c))}
       ${tablaDeCifras(
         { nombre: 'Héroe', nota: 'Las cifras del héroe, las que se escriben.' },
-        'Con lo que pelea: su cuerpo en el tablero suma a su ataque y su defensa los de su rango, su agilidad y su equipo base; las demás, de su cuerpo, no se escriben.',
+        'Con lo que pelea: su cuerpo en el tablero suma a su ataque y su defensa los de su rango, su agilidad y su equipo base. Fuerza, agilidad y PV son del cuerpo de todo héroe.',
         [
           escrita('ataque', NOMBRE_DE_CIFRA.ataque, h.ataque, 0, c.attack),
           escrita(
@@ -1308,9 +1316,9 @@ export function renderFichaDeHeroe(
             h.conocimiento,
             'Su maná: 10 por punto.',
           ),
-          delCuerpo('fuerza', NOMBRE_DE_CIFRA.fuerza, c.fuerza),
-          delCuerpo('agilidad', NOMBRE_DE_CIFRA.agilidad, agilidadDe(c)),
-          delCuerpo('hp', NOMBRE_DE_CIFRA.pv, c.hp),
+          delCuerpo('fuerza', NOMBRE_DE_CIFRA.fuerza, h.cuerpo.fuerza.base, c.fuerza),
+          delCuerpo('agilidad', NOMBRE_DE_CIFRA.agilidad, h.cuerpo.agilidad, agilidadDe(c)),
+          delCuerpo('hp', NOMBRE_DE_CIFRA.pv, h.cuerpo.pv.base, c.hp),
           ...filasDerivadas(c, null).filter((f) => f.clave !== 'defensa'),
         ],
       )}`,
@@ -1359,10 +1367,11 @@ export interface VistaDeEquipo {
  * Lo que queda por guardar dicho en una frase: «Sin guardar: 1 pieza y 2
  * unidades.», o vacío si nada. Lo leen la vista «Editar equipo» y la barra.
  */
-export function sinGuardarEnPalabras(piezas: number, unidades: number): string {
+export function sinGuardarEnPalabras(piezas: number, unidades: number, heroe = false): string {
   const partes = [
     piezas === 0 ? null : `${piezas} ${piezas === 1 ? 'pieza' : 'piezas'}`,
     unidades === 0 ? null : `${unidades} ${unidades === 1 ? 'unidad' : 'unidades'}`,
+    heroe ? 'el cuerpo del héroe' : null,
   ].filter((x) => x !== null);
   return partes.length === 0 ? '' : `Sin guardar: ${partes.join(' y ')}.`;
 }
@@ -1377,6 +1386,8 @@ export interface Guardado {
   readonly unidades?: number;
   readonly conservadas?: number;
   readonly piezas?: number;
+  /** Si escribió el cuerpo de todo héroe en data/heroe.json. */
+  readonly heroe?: boolean;
 }
 
 /**
@@ -1389,9 +1400,13 @@ export function guardadoEnPalabras(g: Guardado): string {
     `en ${ruta}: ${n} ${n === 1 ? una : varias}${malas === 0 ? '' : `, y ${malas} que ${malas === 1 ? 'no vale, tal como estaba' : 'no valen, tal como estaban'}`}.`;
   const unidades = `Guardado ${parte(g.ruta, g.unidades ?? 0, g.conservadas ?? 0, 'unidad', 'unidades')}`;
   const piezas = g.piezas ?? 0;
-  return piezas === 0
-    ? unidades
-    : `${unidades} Y ${parte(RUTA_DEL_CATALOGO_DE_EQUIPO, piezas, 0, 'pieza', 'piezas')}`;
+  const conPiezas =
+    piezas === 0
+      ? unidades
+      : `${unidades} Y ${parte(RUTA_DEL_CATALOGO_DE_EQUIPO, piezas, 0, 'pieza', 'piezas')}`;
+  return g.heroe === true
+    ? `${conPiezas} Y en ${RUTA_DEL_HEROE}: el cuerpo de todo héroe.`
+    : conPiezas;
 }
 
 /**

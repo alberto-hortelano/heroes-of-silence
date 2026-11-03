@@ -65,11 +65,14 @@ import type { BattleStack, TipoDeEscala, TipoDePuerta } from '@core/battle/types
 import { UNIDADES } from '@core/catalogo.js';
 import { COMBATE_COMPLETO, type ReglasDelCombate } from '@core/combate.js';
 import {
+  type CuerpoDeTodoHeroe,
+  combateDelHeroe,
   conLosExtras,
   DONDE_SE_CONSIGUE,
   type ExtrasDePieza,
   esPiezaConBase,
   extrasDe,
+  HEROE,
   type Pieza,
   type PiezaEscrita,
   validarPieza,
@@ -255,6 +258,20 @@ function piezasSinGuardar(): readonly string[] {
 const montaje: Record<Lado, Puesto[]> = { izquierda: [], derecha: [] };
 /** El héroe de cada lado, si lleva. */
 const heroes: Record<Lado, HeroeDeArena | null> = { izquierda: null, derecha: null };
+
+/**
+ * El cuerpo de todo héroe (`combate` de data/heroe.json): el de los dos héroes y el
+ * de quien se ponga, que la ficha de cualquiera de ellos cambia en los dos
+ * (`cambiarCuerpoDeTodoHeroe`) y «Guardar» escribe. `cuerpoGuardado`, el del disco
+ * (o el del núcleo, sin servidor): lo distinto está sin guardar.
+ */
+let cuerpoDeTodoHeroe: CuerpoDeTodoHeroe = HEROE.combate;
+let cuerpoGuardado: CuerpoDeTodoHeroe = HEROE.combate;
+
+/** Si el cuerpo de todo héroe de la página no es el del disco. */
+function cuerpoSinGuardar(): boolean {
+  return JSON.stringify(cuerpoDeTodoHeroe) !== JSON.stringify(cuerpoGuardado);
+}
 /**
  * Quién mueve cada bando, entero: sus unidades y su héroe. Por defecto la
  * izquierda la persona y la derecha la IA; se cambia con Yo / IA en su cabecera.
@@ -709,6 +726,8 @@ interface RespuestaDeBorrador {
   readonly piezas?: unknown;
   /** La versión en disco de lo leído (`versionDelCatalogo`): se devuelve al guardar. */
   readonly version?: unknown;
+  /** El cuerpo de todo héroe de data/heroe.json, que va con las unidades (`leerCatalogo`). */
+  readonly heroe?: unknown;
 }
 
 /**
@@ -795,6 +814,11 @@ async function arrancar(): Promise<void> {
     return;
   }
   versionLeida = cuerpo.version ?? null;
+  if (cuerpo.heroe === undefined) {
+    throw new Error('el servidor no ha mandado el cuerpo del héroe con las unidades');
+  }
+  cuerpoDeTodoHeroe = combateDelHeroe(cuerpo.heroe, 'el cuerpo del héroe que manda el servidor');
+  cuerpoGuardado = cuerpoDeTodoHeroe;
   // Las piezas antes que las unidades: una unidad puede llevar una nueva.
   cargarPiezas(cuerpo);
   const unidades = Array.isArray(cuerpo.unidades) ? cuerpo.unidades : [];
@@ -1079,7 +1103,11 @@ function repintarEquipo(): void {
         llevan: quienesLaLlevan,
         rechazo: aviso === rechazado ? aviso : null,
         enCombate: sesion !== null,
-        sinGuardar: sinGuardarEnPalabras(piezasSinGuardar().length, unidadesSinGuardar.size),
+        sinGuardar: sinGuardarEnPalabras(
+          piezasSinGuardar().length,
+          unidadesSinGuardar.size,
+          cuerpoSinGuardar(),
+        ),
       }),
     );
     vistaALaBarra();
@@ -1545,21 +1573,51 @@ function añadir(lado: Lado, id: string, escalera = false): void {
 }
 
 /** Cambia el héroe de un lado, comprobado. */
-function cambiarHeroe(lado: Lado, cambio: (h: HeroeDeArena) => HeroeDeArena): void {
+function cambiarHeroe(lado: Lado, cambio: (h: HeroeDeArena) => HeroeDeArena): boolean {
   const h = heroes[lado];
-  if (h === null) return;
+  if (h === null) return true;
   try {
     const nuevo = validarHeroeDeArena(cambio(h));
     const motivo = retocarLaPelea({ kind: 'heroe', lado, datos: nuevo });
     if (motivo !== null) {
       noSeCambia(motivo);
-      return;
+      return false;
     }
     heroes[lado] = nuevo;
     avisoTrasCambio('');
+    return true;
   } catch (err) {
     noSeCambia(`${mensaje(err)}.`);
+    return false;
   }
+}
+
+/**
+ * Una cifra del cuerpo de todo héroe (`hp`, los PV; `fuerza` o `agilidad`: la de un héroe
+ * recién hecho): se comprueba con la regla de data/heroe.json y entra en los dos
+ * héroes, también a media pelea; si uno la rechaza, el cuerpo de la página no cambia.
+ */
+function cambiarCuerpoDeTodoHeroe(campo: 'hp' | 'fuerza' | 'agilidad', v: string): void {
+  const n = v.trim() === '' ? Number.NaN : Number(v);
+  const c = cuerpoDeTodoHeroe;
+  let nuevo: CuerpoDeTodoHeroe;
+  try {
+    nuevo = combateDelHeroe(
+      campo === 'agilidad'
+        ? { ...c, agilidad: n }
+        : campo === 'hp'
+          ? { ...c, pv: { ...c.pv, base: n } }
+          : { ...c, fuerza: { ...c.fuerza, base: n } },
+      'el cuerpo de todo héroe',
+    );
+  } catch (err) {
+    noSeCambia(`${mensaje(err)}.`);
+    return;
+  }
+  for (const lado of ['izquierda', 'derecha'] as const) {
+    if (!cambiarHeroe(lado, (h) => ({ ...h, cuerpo: nuevo }))) return;
+  }
+  cuerpoDeTodoHeroe = nuevo;
 }
 
 /** Aplica un cambio a la unidad de un tipo, validado: lo que no cuadra se dice y no entra. */
@@ -1626,9 +1684,10 @@ async function guardar(): Promise<void> {
   const piezas = [...guardado.escritas.values()];
   // Con la versión que se leyó: si otra pestaña guardó entre medias, el servidor
   // lo rechaza en vez de pisarlo (`guardarCatalogo`).
+  const heroe = cuerpoDeTodoHeroe;
   const hecho = await mandarAlServidor(
     '/__arena/unidades',
-    { unidades, piezas, version: versionLeida },
+    { unidades, piezas, heroe, version: versionLeida },
     sinGuardado,
     { noSePuede: 'No se puede guardar', noSeHa: 'No se ha guardado' },
   );
@@ -1636,6 +1695,7 @@ async function guardar(): Promise<void> {
   versionLeida = hecho.version ?? null;
   unidadesSinGuardar.clear();
   equipoGuardado = guardado;
+  cuerpoGuardado = heroe;
   aviso = guardadoEnPalabras(hecho as Guardado);
 }
 
@@ -1646,7 +1706,7 @@ function nombresDe(piezas: readonly Pieza[]): string {
 
 // Cerrar o recargar con cifras sin guardar las perdía sin decir nada (M5 de QA).
 window.addEventListener('beforeunload', (ev) => {
-  const algo = unidadesSinGuardar.size + piezasSinGuardar().length > 0;
+  const algo = unidadesSinGuardar.size + piezasSinGuardar().length > 0 || cuerpoSinGuardar();
   if (algo && sinGuardado === null) ev.preventDefault();
 });
 
@@ -1768,6 +1828,10 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
       heroes[l] = m[l].heroe;
       iaDelBando[l] = m[l].ia;
     }
+    // El cuerpo de sus héroes (el mismo en los dos: `montajeDeLaURL`) es el de todo
+    // héroe de la página, como sus piezas: sin guardar si no es el del disco.
+    const conCuerpo = heroes.izquierda ?? heroes.derecha;
+    if (conCuerpo !== null) cuerpoDeTodoHeroe = conCuerpo.cuerpo;
     // La muralla del enlace sustituye a la dibujada; sin ella, el tablero va limpio.
     muralla = m.muralla ?? SIN_MURALLA;
     combate = m.combate;
@@ -1776,9 +1840,10 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
     // enlace.
     aLaBarraDeLaArena((url) => url.searchParams.delete('montaje'));
     const cifras =
-      distintas.length === 0
+      (distintas.length === 0
         ? ''
-        : ` Las cifras de ${distintas.map((u) => u.name).join(', ')} son las del enlace, sin guardar.`;
+        : ` Las cifras de ${distintas.map((u) => u.name).join(', ')} son las del enlace, sin guardar.`) +
+      (cuerpoSinGuardar() ? ' El cuerpo de todo héroe es el del enlace, sin guardar.' : '');
     return {
       montado: true,
       aviso: `Montada la pelea del enlace${semillaPedida === null ? '' : ` (semilla ${semillaPedida})`}: pulsa Luchar.${cifras}${piezasDichas} `,
@@ -2311,7 +2376,7 @@ document.addEventListener('click', (ev) => {
           aviso = `El bando ${LADOS[lado].adjetivo} ya lleva ${combate.tope}: no cabe el héroe.`;
           break;
         }
-        heroes[lado] = heroePorDefecto(lado);
+        heroes[lado] = heroePorDefecto(lado, cuerpoDeTodoHeroe);
         elegida = { kind: 'heroe', lado };
         aviso = `El bando ${LADOS[lado].adjetivo} lleva héroe: cambia sus cifras y su libro en la ficha.`;
         break;
@@ -2862,7 +2927,9 @@ function cambiarDeLaUnidad(id: string, el: Element): void {
 function cambiarDelHeroe(lado: Lado, el: Element): void {
   const campo = el.getAttribute('data-heroe-campo');
   const hechizo = el.getAttribute('data-heroe-hechizo');
-  if (campo !== null) {
+  if (campo === 'hp' || campo === 'fuerza' || campo === 'agilidad') {
+    cambiarCuerpoDeTodoHeroe(campo, valorDe(el));
+  } else if (campo !== null) {
     const v = valorDe(el);
     cambiarHeroe(lado, (h) => {
       switch (campo) {

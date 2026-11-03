@@ -1272,7 +1272,7 @@ antes del destino (`battle_started` con `faltan`).
   procedencia. Una morada ofrece cada unidad que produce.
 - **Arena** (`pnpm arena`): **edita el catálogo del juego** (19-10-2026, decisión del usuario) y
   monta peleas con sus reglas. Las unidades son las de `data/unidades.json` y las piezas, las de
-  `data/equipo.json`: «Guardar» escribe los dos en una operación (`escribirCatalogo`,
+  `data/equipo.json`: «Guardar» escribe los dos, y el cuerpo de todo héroe en `data/heroe.json`, en una operación (`escribirCatalogo`,
   `tools/arena/borrador.ts`), validados con la regla de la carga del juego (`leerCatalogos`,
   `moradasBlocker`), conservando su `_comment` y sin recargar la página (`handleHotUpdate` por
   contenido, `vite.config.ts`); si algo no vale no escribe ninguno, y uno ilegible no se pisa. **Ni lo guardado desde otra pestaña** (26-10-2026): la página lee la versión en disco de los dos
@@ -1285,14 +1285,21 @@ antes del destino (`battle_started` con `faltan`).
   pleno desarrollo»): el catálogo y el enlace se leen solo en el formato de hoy; una unidad del
   catálogo que no vale (editada a mano) no deja arrancar la página, que dice por qué (`arranque.ts`).
   Es también el banco
-  de combate: un héroe por lado con libro (`heroeDeArena`, con el equipo base), y **pelea como el
+  de combate: un héroe por lado con libro (`heroeDeArena`, con el equipo base) y **el cuerpo de todo
+  héroe** (03-11-2026, petición del usuario: «los héroes son casi indestructibles… ¿cómo las puedo
+  editar en la arena?»): PV, fuerza y agilidad del héroe recién hecho (`combate` de `data/heroe.json`,
+  `CuerpoDeTodoHeroe`, con su regla de carga, `combateDelHeroe`) se escriben en la ficha de
+  cualquiera de los dos héroes y cambian a los dos (`HeroeDeArena.cuerpo`, el mismo en los dos:
+  un enlace con dos distintos se rechaza), también a media pelea; «Guardar» escribe solo ese
+  `combate` y deja la rendición, el equipo base y el comentario (`escribirCatalogo` con `heroe`; su
+  versión, en la de «Guardar», `FICHEROS_DEL_CATALOGO`). Y **pelea como el
   juego** (19-10-2026): sin interruptores; un `?reglas=`, `?golpe=` o `?contacto=` se rechaza
   diciéndolo («la arena pelea con las reglas del juego: quita «?reglas=» de la dirección»,
   `retiradosDeLaURL`) y el enlace que lo trae no se monta. Lo suyo: la muralla, retocar cifras a
   media pelea y que quién mueve es del **bando entero** (Yo / IA en su cabecera; con un solo bando
   de la persona, la rueda dice «Tu golpe»). Monta sus unidades como stacks del catálogo de la pelea
   (`catalogoDelMontaje`; dos unidades distintas con el mismo id lanzan). «Copiar enlace de la
-  pelea» escribe el montaje entero (`?montaje=`, versión 17, `VERSION_DEL_ENLACE`, leída estricta:
+  pelea» escribe el montaje entero (`?montaje=`, versión 18, `VERSION_DEL_ENLACE`, leída estricta:
   unidades con cuerpo y equipo, puestos `{ unidad }` y todas las piezas que lleva lo montado con sus
   bases en cadena, `piezasDelMontaje`); al abrirlo, sus piezas entran en el catálogo de la página
   como cambios sin guardar, con la regla de editarlas a mano (`conPiezas`, `cambioDePiezas`), y la

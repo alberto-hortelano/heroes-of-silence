@@ -65,7 +65,7 @@ import type { BattleStack, BattleState } from '../src/core/battle/types.js';
 import { HERO_BODY } from '../src/core/battle/types.js';
 import { UNIDADES as CATALOGO, cuerpoDe } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { CATALOGO_DE_HABILIDADES, EQUIPO_ESCRITO, LIDERAZGO } from '../src/core/data.js';
+import { CATALOGO_DE_HABILIDADES, EQUIPO_ESCRITO, HEROE, LIDERAZGO } from '../src/core/data.js';
 import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { indiceDePoder } from '../src/core/nivel.js';
 import { createRng, type Rng } from '../src/core/rng.js';
@@ -436,7 +436,11 @@ describe('el borrador se valida antes de escribirse', () => {
       expect(leerCatalogo(dir).unidades).toEqual(catalogoEntero(monje));
       // Sin temporales al lado, y sin crear el borrador de equipo: no había piezas.
       expect(readdirSync(dir).sort()).toEqual(['data']);
-      expect(readdirSync(join(dir, 'data')).sort()).toEqual(['equipo.json', 'unidades.json']);
+      expect(readdirSync(join(dir, 'data')).sort()).toEqual([
+        'equipo.json',
+        'heroe.json',
+        'unidades.json',
+      ]);
 
       // Un guardado malo después de uno bueno deja el bueno donde estaba.
       expect(() =>
@@ -1067,6 +1071,7 @@ const deLaHoja = (id: string): FuenteDeArena => delBorrador(unidad(id));
 
 const MAGO: HeroeDeArena = {
   nombre: 'Maga de pruebas',
+  cuerpo: HEROE.combate,
   figura: null,
   ataque: 2,
   defensa: 1,
