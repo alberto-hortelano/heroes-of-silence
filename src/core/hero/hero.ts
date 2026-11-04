@@ -59,6 +59,17 @@ export interface Hero {
    * pierde con él.
    */
   mochila: readonly string[];
+  /**
+   * **Efímero**: vuelve a su base vencido o rendido desde que acabó su último turno
+   * (`volverABase`, en `state/game.ts`), y se borra al acabar el turno de su dueño
+   * (`nextPlayer`). Lo pone y lo quita solo `game.ts` (lo vigila
+   * `invariantes.test.ts`). Es lo que hace que la IA recoja de la guarnición al que
+   * vuelve en el turno del rival como al que llega (`playAiTurn`): sin él salía de
+   * casa sin la tropa que lo esperaba (H2 del QA del puesto fronterizo, 04-11-2026:
+   * 22 de 22 veces en 1-40). Ausente casi siempre: con `exactOptionalPropertyTypes`
+   * no hay un `false` que guardar.
+   */
+  vueltoACasa?: true;
 }
 
 /** Lo que el héroe nacido de la tropa recuerda de cuando era tropa. */

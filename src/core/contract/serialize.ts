@@ -91,6 +91,7 @@ import {
   week,
 } from '../state/game.js';
 import { REGLA_DEL_PUEBLO, rentaDelDia } from '../state/renta.js';
+import { casillaDelSitio, sitioPorId } from '../state/sitios.js';
 import { building } from '../town/buildings.js';
 import { construidoEn } from '../town/sitios.js';
 import {
@@ -450,8 +451,9 @@ export const COMO_SE_LEE_EL_MAPA = `  Trae width, height, terrain[], roads[], ob
     de una ciudad junto a un río. El resto de su recinto no se pisa aunque sea
     hierba: desde fuera se pasa de un acceso a la puerta y de la puerta a la
     ciudad. La puerta y la ciudad cuestan como un camino.
-  - Un héroe enemigo o una ciudad ajena con guarnición se alcanzan pero no se
-    cruzan: pedirlos de destino es pedir la batalla, y un "move_hero" a otro
+  - Un héroe enemigo, una ciudad ajena con guarnición o un paso o un pueblo
+    con guarnición ajena se alcanzan pero no se cruzan: pedirlos de destino es
+    pedir la batalla, y un "move_hero" a otro
     sitio los rodea por otro paso si lo hay. Si no lo hay, no hay camino.
   - "raiders" son los grupos de ASALTANTES que ves AHORA, con su tropa
     ("troops") y su fuerza ("strength"). No son de nadie: viven en una región
@@ -504,6 +506,26 @@ function climaALaVista(state: GameState, playerId: PlayerId) {
   });
 }
 
+/**
+ * Las guarniciones de pasos y pueblos de `playerId`, en el orden en que se
+ * dejaron: dónde, qué sitio y su tropa, agrupada como un ejército (`armyView`).
+ * La ajena no viaja: no se ve hasta pisarla, como la de una ciudad ajena.
+ */
+function guarnicionesView(state: GameState, playerId: PlayerId) {
+  const out = [];
+  for (const [id, g] of Object.entries(state.guarniciones)) {
+    if (g.dueño !== playerId) continue;
+    const sitio = sitioPorId(state, id);
+    out.push({
+      site: id,
+      kind: sitio.kind === 'paso' ? 'node' : 'village',
+      at: casillaDelSitio(sitio),
+      army: armyView(g.tropa, state.characters),
+    });
+  }
+  return out;
+}
+
 export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
   const player = playerById(state, playerId);
 
@@ -534,6 +556,10 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
         troopCap: state.combate.tope,
         wheel: ruedaAlAgente(formaDeLaBatalla(state.combate)),
       },
+      // Lo que guarda cada paso y cada pueblo suyo (`GameState.guarniciones`); la
+      // de cada ciudad va en `towns[].garrison`. Va con su línea en RESPONSE_FORMAT
+      // (GUARNICIONES).
+      garrisons: guarnicionesView(state, playerId),
     },
     // El clima de hoy (presentación: `state/clima.ts`), solo de las regiones
     // cuya casilla de referencia se ha explorado, como el resto del mapa; con

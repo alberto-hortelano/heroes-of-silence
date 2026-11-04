@@ -22,7 +22,7 @@ import { EscenaLugar } from './escenas/lugar.js';
 import { EscenaMorada } from './escenas/morada.js';
 import { EscenaTropa } from './escenas/tropa.js';
 import { PuertaDeFinDeTurno } from './fin-de-turno.js';
-import { pintar } from './html.js';
+import { type Html, pintar } from './html.js';
 import { mundoPedido } from './mundo/cargar.js';
 import { cargarArte } from './render/assets.js';
 import { apuntarElSueloEn, escenarioListo, sueloDelMapa } from './render/escenario/superficie.js';
@@ -36,6 +36,7 @@ import { Session } from './session.js';
 import { ponerTema } from './temas.js';
 import { pintarSiguiendoElFinal } from './views/al-final.js';
 import { renderConversacion } from './views/base.js';
+import { renderDefensa, renderGuarnicion } from './views/guarnicion.js';
 import { renderConversacionDelLugar } from './views/lugar.js';
 import { renderActions, renderSide, renderTopbar } from './views/panels.js';
 import { modoDelBoton } from './views/poderes.js';
@@ -65,6 +66,10 @@ const conversacion = document.getElementById('conversacion') as HTMLDialogElemen
 const elRueda = document.getElementById('rueda') as HTMLDialogElement;
 /** «¿Volver al menú?» (botón «Menú» de la barra de arriba): «Abandonar la partida» es el `restart`. */
 const salirAlMenu = document.getElementById('salir-al-menu') as HTMLDialogElement;
+/** Dejar y recoger tropa en un sitio propio (`views/guarnicion.ts`). */
+const elGuarnicion = document.getElementById('guarnicion') as HTMLDialogElement;
+/** Con quién se defiende el héroe atacado en su sitio (`views/guarnicion.ts`). */
+const elDefensa = document.getElementById('defensa') as HTMLDialogElement;
 const stage = document.getElementById('stage') as HTMLElement;
 const lateral = document.getElementById('lateral') as HTMLElement;
 
@@ -554,6 +559,7 @@ function dibujarFotograma(ahora: number): void {
     );
     pintar(elActions, renderActions(session, contando));
     mostrarConversacion(enCastillo, escena === 'lugar');
+    mostrarLaGuarnicion();
   }
   paneles = { sesion: session, version: session.version, arte: arteLlegado, contando, base };
   if (lateralPendiente !== null) {
@@ -605,6 +611,40 @@ function mostrarConversacion(enCastillo: boolean, enUnLugar: boolean): void {
   pintar(conversacion, renderConversacion(session, a.id));
   if (!conversacion.open) conversacion.show();
 }
+
+/**
+ * Las dos pantallas de la guarnición, modales: la de dejar y recoger (la abre la
+ * sesión al parar en un sitio propio o con el botón) y la de la defensa (al ser
+ * atacado en él). Se pintan desde la sesión, como la conversación; Escape las
+ * cierra por su `cancel` (la defensa, con la propuesta de la IA).
+ */
+function mostrarLaGuarnicion(): void {
+  const vista = session.vistaDeLaGuarnicion();
+  mostrarModal(elGuarnicion, vista === null ? null : renderGuarnicion(vista));
+  const defensa = session.defensa;
+  mostrarModal(elDefensa, defensa === null ? null : renderDefensa(defensa));
+}
+
+/** Un `<dialog>` modal con `contenido`, o cerrado si no hay nada que enseñar. */
+function mostrarModal(el: HTMLDialogElement, contenido: Html | null): void {
+  if (contenido === null) {
+    if (el.open) el.close();
+    return;
+  }
+  pintar(el, contenido);
+  if (!el.open) el.showModal();
+}
+
+elGuarnicion.addEventListener('cancel', (ev) => {
+  ev.preventDefault();
+  session.cerrarLaGuarnicion();
+  pedirFotograma();
+});
+elDefensa.addEventListener('cancel', (ev) => {
+  ev.preventDefault();
+  session.dejarLaDefensaDeLaIA();
+  pedirFotograma();
+});
 
 /**
  * La única puerta de los gestos de batalla mientras la jugada se está contando.
@@ -957,6 +997,46 @@ document.addEventListener('click', (ev) => {
       }
       break;
     }
+    case 'abrir-guarnicion':
+      session.abrirLaGuarnicion(target.getAttribute('data-hero') as string);
+      break;
+    case 'cerrar-guarnicion':
+      session.cerrarLaGuarnicion();
+      break;
+    case 'mover-en-el-reparto': {
+      // Apagado: su nota ya se lee debajo; el clic no hace nada (como en un lugar). Cada clic
+      // solo edita el reparto, así que un doble clic mueve dos (H-V2-1 del QA).
+      if (target.getAttribute('aria-disabled') === 'true') break;
+      const hacia = target.getAttribute('data-hacia');
+      if (hacia !== 'heroe' && hacia !== 'guarnicion') {
+        throw new Error(`un botón de la guarnición sin lado al que pasar: «${hacia}»`);
+      }
+      session.moverEnElReparto(
+        hacia,
+        target.getAttribute('data-creature') as string,
+        target.getAttribute('data-veterano') ?? undefined,
+      );
+      break;
+    }
+    case 'confirmar-reparto':
+      if (target.getAttribute('aria-disabled') === 'true') break;
+      session.confirmarElReparto();
+      break;
+    case 'defensa-mas':
+    case 'defensa-menos':
+      if (target.getAttribute('aria-disabled') === 'true') break;
+      session.cambiarLaDefensa(
+        target.getAttribute('data-creature') as string,
+        action === 'defensa-mas' ? 1 : -1,
+      );
+      break;
+    case 'defensa-confirmar':
+      if (target.getAttribute('aria-disabled') === 'true') break;
+      session.confirmarLaDefensa();
+      break;
+    case 'defensa-de-la-ia':
+      session.dejarLaDefensaDeLaIA();
+      break;
     case 'dismiss':
       session.dismiss(
         target.getAttribute('data-hero') as string,
@@ -1049,6 +1129,11 @@ document.addEventListener('click', (ev) => {
 });
 
 document.addEventListener('keydown', (ev) => {
+  // Con la guarnición o la defensa abiertas (modales), toda tecla es suya: Escape
+  // las cierra por su `cancel`, que llega aunque el foco se haya ido al `body` tras
+  // un clic, y aquí no debe cerrar también la base de detrás (H3 del QA de la
+  // fase 1: la guarnición se cerraba y se salía al mapa).
+  if (elGuarnicion.open || elDefensa.open) return;
   // Lo que se escribe en un campo de texto o se pulsa en un cuadro es suyo, no un
   // atajo. Salvo Escape en la conversación: al abrirse se queda el foco (su primera
   // opción), y sin esto Escape no la cerraba nunca, aunque la barra lo anuncia

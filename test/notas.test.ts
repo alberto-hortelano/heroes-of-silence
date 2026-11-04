@@ -466,20 +466,15 @@ describe('notas para el agente', () => {
     expect(notaVoces(0, 0, 1)).toMatch(/frases de siempre/);
   });
 
-  it('el ascenso que entra dice la tropa con la que quedó el nacido, en sus tres casos (I1)', () => {
+  it('el ascenso que entra dice que nace sin tropa y dónde, en sus dos casos (04-11-2026)', () => {
     const h = { id: 'hero-veterano-1', name: 'Ana', tipo: 'lich' };
-    const conTropa = notaAscenso(h, 5, 'Base', { enElCastillo: true, tropa: 6 });
-    expect(conTropa).toContain('Se ha llevado 6 individuos de la guarnición.');
-    expect(conTropa).not.toMatch(/sin tropa/);
-    expect(notaAscenso(h, 5, 'Base', { enElCastillo: true, tropa: 1 })).toContain(
-      'Se ha llevado 1 individuo de la guarnición.',
-    );
-    expect(notaAscenso(h, 5, 'Base', { enElCastillo: true, tropa: 0 })).toContain(
-      'No había guarnición que recoger: nace sin tropa.',
-    );
-    const alLado = notaAscenso(h, 5, 'Base', { enElCastillo: false, tropa: 0 });
-    expect(alLado).toMatch(/Nace junto al castillo.*la guarnición se la lleva el del castillo/);
-    for (const n of [conTropa, alLado]) expect(n).toMatch(/Nace sin movimiento/);
+    const enElCastillo = notaAscenso(h, 5, 'Base', { enElCastillo: true });
+    expect(enElCastillo).toContain('Nace sin tropa en la casilla del castillo');
+    expect(enElCastillo).toContain('"take_troops"');
+    expect(enElCastillo).not.toMatch(/Se ha llevado/);
+    const alLado = notaAscenso(h, 5, 'Base', { enElCastillo: false });
+    expect(alLado).toMatch(/Nace junto al castillo.*sin tropa; la guarnición se queda guardando/);
+    for (const n of [enElCastillo, alLado]) expect(n).toMatch(/Nace sin movimiento/);
   });
 
   it('el plan que llega y no se puede jugar se rechaza sin prometer un reintento', () => {

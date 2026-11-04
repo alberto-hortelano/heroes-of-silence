@@ -27,6 +27,7 @@ import {
   destinoDeRepliegue,
   planBuildings,
   planHires,
+  planIntercambios,
   planRecruits,
   siguienteDeEquipo,
   stepTowards,
@@ -253,6 +254,13 @@ async function cerrarLaBatallaDelTurno(
   if (state.pendingBattle !== null) resolvePendingBattle(state, ctx);
 }
 
+/** Las jugadas de recoger de `planIntercambios`, aplicadas por el dueño de `hero`. */
+function recogerLoQueQuepa(state: GameState, hero: Hero, ctx: GameContext): void {
+  for (const accion of planIntercambios(state, hero)) {
+    applyAdventureAction(state, accion, ctx, hero.owner);
+  }
+}
+
 export async function playAiTurn(
   state: GameState,
   ctx: GameContext,
@@ -262,9 +270,23 @@ export async function playAiTurn(
   const player = currentPlayer(state);
 
   // Contratar antes que nada: un héroe nuevo puede reclutar hoy mismo.
+  const yaEstaban = new Set(heroesOf(state, player.id));
   for (const accion of planHires(state, player.id)) {
     applyAdventureAction(state, accion, ctx, player.id);
   }
+  // **Se recoge al llegar** (`planIntercambios`): el contratado, en la ciudad donde
+  // nace, antes de reclutar; el que volvió vencido o rendido a su base desde su
+  // último turno (`Hero.vueltoACasa`: volver es llegar, también en el turno del
+  // rival; H2 del QA, 04-11-2026), y el que acaba hoy una marcha en un sitio suyo, en
+  // la pasada siguiente. Es lo que hacía la recogida automática antes de retirarse
+  // (04-11-2026). El que se queda en casa no la vacía —con la defensa elegida, la
+  // guarnición pelea aunque no la lleve—, y así el de salida, que nace en su base el
+  // día 1, la deja guardándola (decisión del usuario del 22-10-2026). Quién llegó
+  // hoy andando lo sabe este turno; quién volvió antes, el héroe.
+  for (const hero of heroesOf(state, player.id)) {
+    if (!yaEstaban.has(hero) || hero.vueltoACasa === true) recogerLoQueQuepa(state, hero, ctx);
+  }
+  const llegaron = new Set<Hero>();
   // Construir después: cambia lo que hay disponible para reclutar.
   for (const accion of planBuildings(state, player.id)) {
     applyAdventureAction(state, accion, ctx, player.id);
@@ -290,6 +312,9 @@ export async function playAiTurn(
     for (const hero of [...heroesOf(state, player.id)]) {
       if (state.finished !== null) break;
       if (!state.heroes.includes(hero)) continue;
+
+      // Si acaba de llegar a un sitio suyo, lo que le quepa de la guarnición.
+      if (llegaron.delete(hero)) recogerLoQueQuepa(state, hero, ctx);
 
       // En un lugar de un mundo, lo que haya que hacer allí, antes de andar
       // (`ai/lugares.ts`): llega al acabar una marcha y lo hace en la pasada
@@ -323,6 +348,7 @@ export async function playAiTurn(
         marcha.alcance,
       );
       if (state.pendingBattle !== null) await cerrarLaBatallaDelTurno(state, ctx, batallas);
+      llegaron.add(hero);
       seMovio = true;
       movimientos++;
     }

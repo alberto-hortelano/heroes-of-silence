@@ -32,6 +32,7 @@ import { TOPES_DE_TROPA } from '../combate.js';
 import { ECONOMIA } from '../data.js';
 import { EQUIPO_BASE, REGLA_DEL_ESCUDO } from '../hero/equipo.js';
 import { RANGO_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
+import { GARRISON_LEADERSHIP } from '../hero/troop.js';
 import { LADO_MAXIMO_DEL_PLAN, LADO_MINIMO_DEL_PLAN } from '../map/generate.js';
 import { LADO_DEL_RECINTO, SEPARACION_DE_CIUDADES } from '../map/recinto.js';
 import {
@@ -140,6 +141,17 @@ export const adventureActionSchema = z.discriminatedUnion('type', [
     hero: z.string(),
     creature: z.string(),
     count: z.number().int().positive(),
+  }),
+  // Dejar y recoger tropa en la guarnición del sitio tuyo donde está el héroe
+  // (04-11-2026). Texto libre en `creature` y `veteran`, como en `dismiss` y `equip`:
+  // lo juzga el núcleo (`intercambioBlocker`) y el motivo va al veredicto.
+  // Las dos son la misma forma: un miembro con las dos palabras.
+  z.object({
+    type: z.enum(['leave_troops', 'take_troops']),
+    hero: z.string(),
+    creature: z.string(),
+    count: z.number().int().positive(),
+    veteran: z.string().optional(),
   }),
   // `item`, `veteran` y `creature` van como texto libre: que existan, que sean
   // suyos y que quepan lo dice el núcleo (`buyBlocker`, `equipBlocker`), y el
@@ -448,6 +460,10 @@ Acciones válidas (el turno termina solo, no hace falta enviar end_turn):
   { "type": "build",     "town": "<id>", "building": "<id de edificio>" }
   { "type": "recruit",   "town": "<id>", "creature": "<id>", "count": N }
   { "type": "dismiss",   "hero": "<id>", "creature": "<id>", "count": N }
+  { "type": "leave_troops", "hero": "<id>", "creature": "<id>", "count": N }
+  { "type": "leave_troops", "hero": "<id>", "creature": "<id>", "count": 1, "veteran": "<id de veterano>" }
+  { "type": "take_troops",  "hero": "<id>", "creature": "<id>", "count": N }
+  { "type": "take_troops",  "hero": "<id>", "creature": "<id>", "count": 1, "veteran": "<id de veterano>" }
   { "type": "buy_item",  "town": "<id>", "item": "<id de pieza>" }
   { "type": "equip",     "hero": "<id>", "item": "<id de pieza>" }
   { "type": "equip",     "hero": "<id>", "item": "<id de pieza>", "veteran": "<id de veterano>" }
@@ -471,8 +487,8 @@ Notas:
   menos gente de la que salió —o no llegar—.
 - Si al andar ves un grupo que te emboscaría más adelante en la ruta y que no
   era el que ya veías emboscarte al salir —uno que no veías, o el siguiente
-  cuando por el camino ganas fuerza (la guarnición de tu base se recoge al
-  pasar) y el primero deja de sacarte el margen—, el héroe se para donde lo
+  cuando por el camino ganas fuerza (tomar un nodo dispersa a los grupos de
+  la región que cierra) y el primero deja de sacarte el margen—, el héroe se para donde lo
   ve ("march_halted" en recentEvents) y conserva lo andado; el veredicto lo
   cuenta como marcha que entró parcialmente y dice qué grupo la paró. Las
   acciones que vengan detrás se siguen aplicando; con el grupo ya a la vista
@@ -522,10 +538,33 @@ Notas:
   de 20 de liderazgo y 2 × Piquero piden 8" o "no cabe: el ejército ya lleva 6
   de 6 individuos". Sin héroe en el pueblo se recluta a la guarnición, que
   guarda como mucho "you.combat.troopCap" individuos y tiene su propio tope en
-  "towns[].garrisonLeadership". Un héroe que entra en su pueblo se lleva de la
-  guarnición lo que le quepa; el resto se queda guardándolo. Tu base NACE con
-  la guarnición llena: para reclutar en ella el primer día, entra con el héroe
-  —y al entrar se lleva la parte que le quepa, que deja de defenderla—.
+  "towns[].garrisonLeadership". Con un héroe tuyo dentro se recluta a su
+  ejército. Tu base NACE con la guarnición llena.
+- GUARNICIONES: la tropa no se recoge sola al pasar por casa. Un héroe tuyo
+  PARADO en un sitio tuyo —una ciudad, un paso ("node") o un pueblo
+  ("village") de una región tuya o que ya guardas— deja tropa en su
+  guarnición con "leave_troops" y la recoge con "take_troops" ("count"
+  individuos de "creature"; de cada tipo se mueven los de menos experiencia, o
+  el veterano que digas con "veteran"). La guarnición de cualquier sitio cabe
+  en ${GARRISON_LEADERSHIP} de liderazgo y "you.combat.troopCap" individuos, y la del ejército
+  en su "leadership"; lo que no cabe se rechaza diciendo cuántos caben. Un
+  personaje no se deja. "you.garrisons" dice qué guarda cada paso y cada pueblo
+  tuyo (la de las ciudades, en "towns[].garrison"). Un paso que pierdes pierde
+  su guarnición. Un paso o un pueblo con guarnición AJENA se alcanza pero no se
+  cruza: pisarlo es pelear contra ella (como contra una ciudad guarnecida); si
+  la vences, el paso es tuyo y el pueblo se queda sin guarnición, y tu héroe se
+  queda en la casilla de antes. La guarnición ajena no se ve hasta pisarla.
+  Esa batalla llega en "recentEvents" con "foe": { "kind": "garrison", "site":
+  "<id>" }: la guarnición SIN héroe de un paso o un pueblo, "site" el id del
+  nodo o del pueblo en "knownMap", y del jugador que la dejó allí (su "owners"
+  en el "battle_ended"; la tuya, si te atacan una). La de una ciudad es "town".
+- DEFENSA: si atacan a un héroe tuyo en un sitio tuyo con guarnición, defiende
+  él (siempre pelea) con lo más fuerte que quepa en su ejército de entre su
+  tropa y la guarnición: lo elige el juego por ti (aún no hay jugada para
+  elegirlo), y "recentEvents" lo cuenta con "defense_set" ("fighting" con él,
+  "staying" fuera). Lo que se queda fuera no pelea, y si pierde la batalla se
+  pierde con el sitio: la ciudad o el paso son del rival. Sin héroe, defiende
+  la guarnición entera.
 - "dismiss" LICENCIA individuos del ejército de un héroe que está en un castillo
   tuyo (tu base u otro): se van para siempre, no vuelven a la guarnición. Sirve
   para CAMBIAR tropa: con el liderazgo o los 6 individuos llenos de lo barato,
@@ -609,11 +648,10 @@ ${CATALOGO_DE_EQUIPO_EN_PROSA}
   pierde. Si un héroe tuyo pierde defendiendo un castillo tuyo, ese castillo
   es del rival; si era la base, el héroe ya no tiene a dónde volver y se
   pierde. Sin base ("yourBase": null), un héroe que cae se pierde.
-- Con un héroe dentro de una ciudad, la defiende SOLO ese héroe con su tropa:
-  la guarnición NO se suma a la batalla. Esa batalla es la final: si la pierde,
-  la ciudad cae con su guarnición sin que esta llegue a pelear, y si era tu
-  base, pierdes la partida. Lo que el héroe se llevó al entrar sí pelea: ya es
-  su tropa.
+- Con un héroe dentro de una ciudad, la defiende él con lo que se elija de su
+  tropa y de la guarnición (DEFENSA, arriba). Esa batalla es la final: si la
+  pierde, la ciudad cae con lo que no peleó, y si era tu base, pierdes la
+  partida.
 - ORO: es el ÚNICO recurso (no hay minas, ni madera, ni mineral). "you.gold"
   es tu oro y "you.income" lo que cobrarás al empezar tu próximo turno:
   "total" y de dónde sale, "towns" (cada ciudad tuya, con el "gold" que da su
@@ -630,9 +668,8 @@ ${CATALOGO_DE_EQUIPO_EN_PROSA}
   tu turno, en la guarnición o en la tropa de un héroe tuyo que esté allí, SE
   HACE HÉROE: antes de este turno se te pide con "hero_from_troop" que le des
   nombre, historia y tipo. Nace en la base, con su experiencia y sin movimiento
-  ese día. Quien quede en la casilla del castillo —el nacido, o el héroe tuyo
-  que ya estaba en ella— RECOGE LA GUARNICIÓN que le quepa, como al contratar:
-  la base no se queda defendida por un héroe sin tropa.
+  ese día. Nadie recoge la guarnición: si atacan la base, el héroe de la
+  casilla del castillo defiende con lo que se elija de su tropa y de ella.
   Con ${MAX_HEROES_PER_PLAYER} héroes no se te pide nada y el veterano ESPERA en la base
   hasta que haya sitio; mientras espere, el turno te lo dice en
   "veteransWaiting", que solo viene entonces. A cada veterano se le pregunta
@@ -675,8 +712,11 @@ ${COMO_SE_LEE_EL_MAPA}
 Mira "yourSide": puedes ser el atacante o el defensor. La juegas defendiendo
 cuando el rival te ataca un héroe o un castillo, y también cuando unos
 ASALTANTES emboscan a un héroe tuyo que ha pisado su región: entonces el
-atacante es su grupo, sin héroe, y no se rinde. "stacks" con tu "side" son
-los tuyos.
+atacante es su grupo, sin héroe, y no se rinde. Una GUARNICIÓN de un paso o
+un pueblo ("foe": { "kind": "garrison", "site": "<id>" } en el
+"battle_started") es la tropa que su dueño dejó allí, SIN héroe: si es tuya y
+te la atacan, la defiendes sin héroe y sin rendición; si es del rival, la
+atacas y el defensor no tiene héroe. "stacks" con tu "side" son los tuyos.
 
 El tablero viene en "board": ${FORMA_DEL_TABLERO}. Una acción a una casilla
 que no existe se descarta.
@@ -982,10 +1022,9 @@ rivales que derribó—, y "town" dónde está.
 
 El héroe nace en tu base con la experiencia del veterano (rango ${RANGO_MAXIMO_DE_TROPA} o más), las
 cifras de un héroe contratado y SIN MOVIMIENTO hasta mañana. El veterano deja
-de estar donde estaba. Si nace en la casilla del castillo, se lleva la
-guarnición que le quepa, como uno contratado; si la casilla la ocupa otro
-héroe tuyo —el que llevaba al veterano, por ejemplo—, nace al lado sin tropa y
-la guarnición se la lleva el del castillo, que es quien la defiende. Si tu respuesta no vale —o no llega—, no
+de estar donde estaba. Nace sin tropa, en la casilla del castillo o, si la
+ocupa otro héroe tuyo —el que llevaba al veterano, por ejemplo—, al lado. La
+guarnición se queda en la base: se recoge con "take_troops". Si tu respuesta no vale —o no llega—, no
 pasa nada: la tropa sigue igual y no se te vuelve a preguntar por él hasta que
 salga de la base y vuelva.`,
 

@@ -93,6 +93,20 @@ export function decidir(kind: string, payload: any, semilla: number): unknown {
           count: Math.min(2, reclutable.available),
         });
       }
+      // La guarnición ya no se recoge sola (04-11-2026): con el héroe en su ciudad,
+      // deja uno de su primer grupo y lo vuelve a recoger, o al revés si la
+      // guarnición está llena. Es como el arnés cruza `leave_troops` y
+      // `take_troops` por el circuito; que conste lo mira `verify-agent.ts`.
+      const suyo = dentro?.army?.find((g: any) => g.member === undefined && g.id === undefined);
+      const enCasa = (town?.garrison ?? []).reduce((n: number, g: any) => n + g.count, 0);
+      const deCasa = town?.garrison?.find((g: any) => g.member === undefined && g.id === undefined);
+      if (dentro !== undefined && suyo !== undefined && enCasa < cabe + 1) {
+        const una = { hero: dentro.id, creature: suyo.creature, count: 1 };
+        acciones.push({ type: 'leave_troops', ...una }, { type: 'take_troops', ...una });
+      } else if (dentro !== undefined && deCasa !== undefined) {
+        const una = { hero: dentro.id, creature: deCasa.creature, count: 1 };
+        acciones.push({ type: 'take_troops', ...una }, { type: 'leave_troops', ...una });
+      }
       const hero = payload.heroes?.[0];
       if (hero !== undefined) {
         // Un cofre sin recoger o un nodo sin dueño: lo que cambia de dueño al

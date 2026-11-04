@@ -73,6 +73,7 @@ import { type Desenlace, desenlaceDe } from '@core/state/desenlace.js';
 import type { DefeatReason, GameEventDraft } from '@core/state/events.js';
 import { buyBlocker } from '@core/state/game.js';
 import type { RentaDelDia } from '@core/state/renta.js';
+import { delSitio, nombreDelSitio, type Sitio } from '@core/state/sitios.js';
 import { building } from '@core/town/buildings.js';
 import {
   dailyIncome,
@@ -383,7 +384,11 @@ function renderAdventurePanel(session: Session): Html {
       : html`
         <p class="eyebrow">HÉROE · RANGO ${rangoDeHeroe(hero)} · NIVEL ${nivelDeUnidad(puesto)} · ${nombreDeTipoDeHeroe(hero.faction, hero.tipo)}</p>
         <h2>${hero.name}</h2>${historiaDelHeroe(hero.origen?.historia ?? null)}
-        ${botonDeSueño(session, hero)} ${botonDeLaTropa(session)}
+        ${botonDeSueño(session, hero)} ${botonDeLaTropa(session)}${
+          session.enSuPasoOPueblo(hero)
+            ? html` <button data-action="abrir-guarnicion" data-hero="${hero.id}" title="Dejar aquí tropa de guarnición o recogerla">Guarnición</button>`
+            : NADA
+        }
         ${filaLiderazgo(session.liderazgo({ heroe: hero.id }))}
         <div class="row"><span class="label">Movimiento</span><span>${hero.movePoints} / ${maxMovePoints(hero, session.state.characters)}</span></div>
         <div class="row"><span class="label">Maná</span><span>${hero.mana} / ${maxMana(hero)}</span></div>
@@ -440,7 +445,12 @@ function renderAdventurePanel(session: Session): Html {
         )}</div>`;
 
   return html`${fin}${heroPanel}${listaHeroes}${listaPueblos}${listaAldeas}
-    <h3>Crónica</h3>${renderLog(session.cronica(60), session.viewer, (id) => session.lugarDelMundo(id))}`;
+    <h3>Crónica</h3>${renderLog(
+      session.cronica(60),
+      session.viewer,
+      (id) => session.lugarDelMundo(id),
+      (id) => session.sitioDeLaCronica(id),
+    )}`;
 }
 
 /**
@@ -560,7 +570,7 @@ function lineaDeEquipo(g: TroopGroup, heroId?: string): Html {
  * recuento, los «×» del equipo—. **La única fila de tropa**: la comparten la del
  * mapa, la que licencia y la que equipa.
  */
-function filaDeTropa(
+export function filaDeTropa(
   g: TroopGroup,
   extras: { readonly boton?: Html; readonly quitarDe?: string } = {},
 ): Html {
@@ -751,6 +761,12 @@ function renderTownPanel(session: Session, abierto: Abierto | null): Html {
     <h3>Guarnición</h3>
     ${filaLiderazgo(session.liderazgo({ guarnicion: town.id }))}
     ${renderArmy(town.garrison, session.state.characters)}
+    ${
+      heroeAqui === undefined
+        ? NADA
+        : html`<button data-action="abrir-guarnicion" data-hero="${heroeAqui.id}">Dejar y recoger tropa</button>
+          <p class="cost">La guarnición no se recoge sola: ${heroeAqui.name} deja o se lleva lo que quiera. Si atacan con él dentro, defiende con lo que elija de los dos.</p>`
+    }
 
     ${
       heroeAqui === undefined
@@ -1504,6 +1520,22 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
  * pintar. La casilla ya pasó la niebla con el hecho (`cronicaPara`): o el hecho
  * es tuyo, o la mirabas cuando ocurrió.
  */
+/**
+ * «2 × Orko, 1 × Goblin»: lo que se movió entre un héroe y una guarnición, por tipo.
+ * Con comas y no con «y»: la frase del reparto ya junta con «y» lo que deja y lo
+ * que recoge.
+ */
+function tropaMovida(
+  grupos: readonly { readonly creature: string; readonly count: number }[],
+): string {
+  return grupos.map((g) => `${g.count} × ${unidadDelJuego(g.creature).name}`).join(', ');
+}
+
+/** «1 individuo», «6 individuos». */
+function individuos(n: number): string {
+  return `${n} ${n === 1 ? 'individuo' : 'individuos'}`;
+}
+
 function enLaCasilla(at: Point | null): string {
   // Espacios duros: en la caja estrecha la casilla se partía en «(10,» y «4)»
   // (visto en la captura), y una coordenada partida no se lee como una.
@@ -1549,6 +1581,9 @@ function fraseDeBatalla(
         return { uno: 'un monstruo', el: 'el monstruo' };
       case 'raider':
         return { uno: 'un grupo de asaltantes', el: 'el grupo de asaltantes' };
+      case 'garrison':
+        if (dueño === null) throw new Error('la crónica cuenta una guarnición sin dueño');
+        return { uno: `la guarnición de un sitio del jugador ${dueño}`, el: `el jugador ${dueño}` };
       case 'lugar': {
         const encuentro =
           e.foe.kind === 'lugar' && lugar !== null ? lugar.encuentros[e.foe.encuentro] : undefined;
@@ -1602,7 +1637,7 @@ function fraseDeBatalla(
  * que lo contara—, y se filtró con el lienzo, a la vez (#64).
  *
  * Lo que sí se arregla es que MENTÍA. Sin dueño en el evento, `built`,
- * `recruited` y `garrison_taken` se pintaban igual fueran de quien fueran —lo
+ * `recruited` y la guarnición recogida se pintaban igual fueran de quien fueran —lo
  * del rival parecía tuyo—, `spells_learned` salía siempre en verde y
  * `hero_defeated` siempre en rojo: cuando el que caía era el héroe ENEMIGO, a
  * la persona se le pintaba como derrota propia. El color se sigue usando para
@@ -1627,6 +1662,11 @@ export function renderLog(
    * espectador), ninguno, y la frase dice la casilla.
    */
   lugarDe: (id: string) => Lugar | null = () => null,
+  /**
+   * El sitio de una guarnición por su id, para nombrarlo («la guarnición del paso
+   * de montaña de (13,7)», «Defiendes Valdeluz»): sin él (el espectador), la casilla.
+   */
+  sitioDe: (id: string) => Sitio | null = () => null,
 ): Html {
   /** «El osario», con sus comillas, si se conoce; si no, `null`. */
   const nombreDelLugar = (lugar: string): string | null => {
@@ -1651,6 +1691,21 @@ export function renderLog(
     id === null ? 'de alguien' : id === viewer ? 'tuyo' : `del jugador ${id}`;
   const alJugador = (id: number | null): string =>
     id === null ? 'a alguien' : id === viewer ? 'a ti' : `al jugador ${id}`;
+
+  /** «en la guarnición de Valdeluz», o, sin el sitio, «en la guarnición en (3, 4)». */
+  const enLaGuarnicion = (site: string, at: Point | null): string => {
+    const sitio = sitioDe(site);
+    return sitio === null
+      ? `en la guarnición${enLaCasilla(at)}`
+      : `en la guarnición ${delSitio(sitio)}`;
+  };
+  /** «de la guarnición del puente de (12,8)», o, sin el sitio, con su casilla. */
+  const deLaGuarnicion = (site: string, at: Point | null): string => {
+    const sitio = sitioDe(site);
+    return sitio === null
+      ? `de la guarnición${enLaCasilla(at)}`
+      : `de la guarnición ${delSitio(sitio)}`;
+  };
 
   const lineas = log
     .slice(-60)
@@ -1748,10 +1803,38 @@ export function renderLog(
           return html`<div${clase(mio, false)}>Un ${unidadDelJuego(e.creature).name} ${deJugador(
             e.actor,
           )} se hace héroe${aqui}: ${e.name}</div>`;
-        case 'garrison_taken':
+        // La guarnición se nombra por su sitio (H4 del QA de la fase 1): «la guarnición
+        // del paso de montaña de (13,7)» dice cuál; «en (13, 7)», no.
+        case 'troops_left':
+          return html`<div${clase(mio, false)}>${mio ? 'Dejas' : `${jugador(e.actor)} deja`} ${tropaMovida(
+            [e],
+          )} ${enLaGuarnicion(e.site, e.at)}</div>`;
+        case 'troops_taken':
+          return html`<div${clase(mio, false)}>${mio ? 'Recoges' : `${jugador(e.actor)} recoge`} ${tropaMovida(
+            [e],
+          )} ${deLaGuarnicion(e.site, e.at)}</div>`;
+        case 'troops_exchanged': {
+          const deja = e.left.length === 0 ? null : tropaMovida(e.left);
+          const recoge = e.taken.length === 0 ? null : tropaMovida(e.taken);
+          const partes = [
+            deja === null ? null : `${mio ? 'dejas' : 'deja'} ${deja}`,
+            recoge === null ? null : `${mio ? 'recoges' : 'recoge'} ${recoge}`,
+          ].filter((x) => x !== null);
+          const frase = partes.join(' y ');
           return html`<div${clase(mio, false)}>${
-            mio ? 'Guarnición incorporada' : `${jugador(e.actor)} incorpora una guarnición`
-          }${aqui}</div>`;
+            mio ? frase.charAt(0).toUpperCase() + frase.slice(1) : `${jugador(e.actor)} ${frase}`
+          } ${enLaGuarnicion(e.site, e.at)}</div>`;
+        }
+        case 'defense_set': {
+          const sitio = sitioDe(e.site);
+          const donde = sitio === null ? '' : ` ${nombreDelSitio(sitio)}`;
+          const fuera = sitio === null ? aqui : '';
+          return html`<div${clase(mio, false)}>${
+            mio
+              ? `Defiendes${donde} con ${individuos(e.fighting)} y dejas fuera ${e.staying}`
+              : `${jugador(e.actor)} defiende${donde} con ${individuos(e.fighting)} y deja fuera ${e.staying}`
+          }${fuera}</div>`;
+        }
         case 'spells_learned':
           return html`<div${clase(mio, false)}>${
             mio ? 'Aprendido' : `${jugador(e.actor)} aprende`

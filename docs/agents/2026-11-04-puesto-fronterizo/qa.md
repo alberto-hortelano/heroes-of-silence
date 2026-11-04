@@ -1,0 +1,264 @@
+# QA — puesto fronterizo, fase 1 (guarnición y defensa)
+
+04-11-2026. Solo la fase 1: guarnición en ciudad, paso y pueblo; dejar y recoger al parar; la
+defensa con el héroe que elige su tropa; la guarnición ajena que bloquea; la IA y el contrato del
+agente. Murallas, escaleras, puertas, mejoras y arte (fases 2-4) no se juzgan. La jugabilidad
+tampoco (CLAUDE.md).
+
+Código sin commitear del worktree, tal como lo dejó el ingeniero tras `/simplify`. No he tocado
+nada del repositorio; mis guiones están en el scratchpad
+(`/tmp/claude-1000/-home-al-code-heroes--claude-worktrees-mountain-node-interaction-7b9212/46fb9bb3-8555-4262-a482-fe1df0ee30b2/scratchpad/qa/`,
+con las capturas en `nav1/` y `nav2/`).
+
+## Lo que corrí, y por qué
+
+| Comprobación | Por qué | Resultado |
+|---|---|---|
+| `pnpm typecheck`, `pnpm lint` | hay código cambiado | limpio; lint «Checked 514 files … No fixes applied», los 10 avisos de siempre |
+| `vitest run test/guarniciones.test.ts test/session.test.ts test/escenas.test.ts` | lo nuevo, y confirmar los rojos que ya había | guarniciones verde (21); 5 rojos en session/escenas |
+| los mismos dos ficheros en un worktree de HEAD (`3d6922d9`, sin los cambios) | ver si los 5 rojos son de antes | **los mismos 5 rojos en HEAD**: «cuando golpean a la persona, elige su respuesta…» (`RuedaPendiente` con 6 claves) y cuatro de «la batalla en el lienzo» («la unidad activa no tiene a dónde moverse»). No son de esta tarea. El worktree temporal ya está borrado |
+| `pnpm qa` | toca el contrato y el director | sale 0; «guarnición: 2 veces dejada y 2 recogida en la crónica del agente» |
+| `pnpm banco` | el núcleo cambió y se volvió a anclar | `a49a5ad6…`, «ancla: igual», 0/20 sin terminar |
+| `barrido-semillas.ts 40 --tropa 3 / 5 / 7` | `repartir` lanza ahora con los cupos: un tope de tropa menor podía hacer que una defensa lanzara | 0/40 sin terminar con cada tope, ninguna excepción |
+| Navegador (Playwright sin pantalla, contra el `pnpm dev` del 3123, que no arranqué yo) | la feature se ve | ver criterios; la consola sin errores en todas las pasadas |
+| Guiones sobre el núcleo y la `Session` (`s8.mts`, `adv.mts`, `adv2.mts`, `swap*.mts`, `pueblo.mts`) | la pasada adversarial y el punto S8 | ver abajo |
+
+No corrí `pnpm verify`, `verify:lento` ni `pnpm capturas`. El ingeniero corrió `capturas` antes de
+`/simplify` y salió 1 por la pasada de la arena, un fallo que ya estaba en HEAD; las pantallas de
+esta fase las he mirado con mis propias pasadas. Los demás ficheros de test de lo que se tocó
+(invariantes, game, tropa, agent-contract, agent-link, notas, ascenso…) los cito del informe del
+ingeniero sobre este mismo árbol.
+
+## Criterios (fase 1)
+
+| Criterio | | Evidencia |
+|---|---|---|
+| **D5 / C2 Dejar** en un sitio propio al parar, desde su pantalla, con el motivo del núcleo en lo apagado y un cupo declarado en `data/` | ✅ | s1, paso (13,7): «Dejar ›» lleva el ejército de 5 a 0 y la guarnición de 0 a 5 de 7 (`nav1/s1-guarnicion-llena.png`). En la base, el «Dejar» apagado dice «no cabe: la guarnición de Valdeluz ocupa 18 de 20 de liderazgo y 1 × Arquero pide 3». El cupo es `GARRISON_LEADERSHIP` (`data/liderazgo.json`) con el tope de la partida |
+| **D5 / C2 Recoger** | ✅ | s1: «‹ Recoger» devuelve los 5 al héroe. En la base, apagado con «no cabe: el ejército ya lleva 6 de 6 individuos». Un clic sobre un botón apagado no cambia nada |
+| **D5 Intercambiar** («dejar, llevarse e intercambiar») | ❌ | Con el héroe y la guarnición llenos no hay ningún cambio posible. **En el día 1, en la base y sin haber hecho nada, en 12 de las semillas 1-20** (2, 4-8, 11, 12, 14-16, 20). En el navegador, s2 y s7: 5 de 5 botones apagados (`nav2/swap-s2.png`). Es H1 |
+| **D5 Fuera la recogida automática al pasar** | ✅ | El diff quita `takeGarrison`/`garrison_taken`; los tests del ingeniero lo cubren; en el banco, el `garrison_taken` pasa a ser un `troops_taken` explícito |
+| **C3 Parar abre la pantalla y pasar de largo no** | ✅ | s1: andar de (5,8) a (11,7) cruzando el paso (13,7) lo toma (`owner` 0) y no abre nada (`nav2/A-de-largo.png`). Parar en él la abre: «Guarnición del paso del acantilado de (13,7)». En un pueblo propio también se abre (s1, s2, s5 con la `Session`; región propia forzada, ver «Workarounds»). Se reabre con el botón «Guarnición» del panel del héroe; en la base, con «Dejar y recoger tropa». Escape y «Cerrar» la cierran |
+| **D1 Defensa con el héroe dentro**: elige su tropa entre su ejército y la guarnición, el héroe pelea siempre, la persona en una pantalla, la IA y el agente por la IA | ✅ | s37, el día 2 el rival ataca la base: «¡Te atacan en Valdeluz!» con la propuesta de la IA (1 Arquero y 5 Guardias, 6 de 6), el «+» apagado con su motivo y un clic en el lienzo que no juega nada («¡Te atacan! Elige con quién defiendes.»). Con «−» y «Defender», en el campo quedan 5 Guardias y el héroe (♛ Aerin del Roble). Con «−» y Escape vuelve la de la IA (Arquero y 5 Guardias). En un **paso** (`adv.mts` §6, s1) la pantalla sale como «el paso de montaña de (33,27)». En un **pueblo**, la IA la elige: `defense_set` con fighting 6 y staying 1 (`adv.mts` §4) |
+| **D1 Lo no elegido se pierde con el sitio** | ✅ | Héroe vencido en su paso: `node_captured` y luego `hero_defeated`, y la guarnición desaparece (`adv.mts` §1). Vencido en su pueblo: la guarnición desaparece y el pueblo vuelve a su región (§4) |
+| **D2 Sin héroe, defiende la guarnición entera** | ✅ en el núcleo, ⚠️ no en pantalla | Lo prueban los tests (`guarnicion` sin héroe, 1 defensor). En 60 semillas la IA nunca atacó en su primer turno un paso de la persona guardado y sin héroe (`adv2.mts`), así que la batalla de la persona que defiende solo con la guarnición no la he visto en la pantalla |
+| **D4 / C4 Guarnición ajena**: no se cruza, pisarla es pelear contra ella; si se gana, el paso es del que gana y el pueblo vuelve a su región, y quien gana se queda en la casilla de antes; si se pierde, la guarnición sigue con lo que le quede | ✅ en el núcleo, ⚠️ no en la partida | Tests del ingeniero y `adv.mts` §3: la guarnición de j0 en un pueblo de una región que pasa a j1 sigue siendo de j0 y es hostil para j1. **En `pnpm dev` la persona no se encuentra nunca una guarnición ajena**, porque la IA no deja tropa (backlog del plan): ver «Workarounds» |
+| **D4 La renta no cambia** | ✅ | `state/renta.ts` no está en el diff |
+| **C5 Un paso sin guarnición se toma de pasada** | ✅ | s1, (13,7): «Paso tomado en (13, 7)» al cruzarlo |
+| **C10 Niebla**: la guarnición ajena no viaja | ✅ | `you.garrisons` solo trae lo propio (`guarnicionesView` filtra por dueño). La ruta rodea la guarnición ajena y la marcha rechazada la nombra, como pasa hoy con una ciudad ajena guarnecida |
+| **C11 La IA** pelea contra un sitio defendido (`ventajaClara`) y no se rompe; recoge «al llegar o al contratarse» | ✅ que no se rompe, ❌ en la regla de recoger | El barrido con tope 3, 5 y 7 da 0/40 sin terminar y ninguna excepción. **Pero el héroe de la IA que vuelve vencido en el turno del rival sale de casa sin recoger: 22 de 22 casos en 1-40.** Es H2 |
+| **C12 El agente**: `leave_troops`/`take_troops` en el zod y en `RESPONSE_FORMAT`, `you.garrisons`, la prosa nueva; las jugadas malas se descartan una a una con su motivo | ✅ | `pnpm qa` sale 0 y las dos jugadas cruzan. 16 jugadas malas (`adv.mts` §2): las de forma (count 0, "2", 2.5, sin count) las para el zod; las demás se descartan con su motivo (veterano con count 2, de otro tipo o que no está; un héroe ajeno o que no existe; una unidad que no existe; 99 o 50; la guarnición llena) sin tocar el ejército ni la guarnición |
+| **C14 La crónica**: los hechos nuevos llevan protagonista, sitio y sello | ✅ | `troops_left {hero, site, creature, count, actor, at, seen}`; `defense_set` va detrás del `battle_started` |
+| **D6 El banco cambia y se vuelve a anclar; el barrido sigue en 0** | ✅ | `a49a5ad6…` igual; barrido 0/40 con cada tope |
+
+## Hallazgos
+
+### Importantes
+
+**H1. No se puede intercambiar tropa cuando el héroe y la guarnición están llenos, y en la base
+eso pasa el día 1 en 12 de 20 semillas.**
+Pasos: `http://localhost:3123/?seed=2&heroe=orko` (o la semilla 7); la partida abre en la base;
+«Dejar y recoger tropa». El héroe está a 20 de 20 de liderazgo y la guarnición a 7 de 7: los
+«Dejar ›» dicen «ya lleva 7 de 7 individuos» y los «‹ Recoger», «el ejército ocupa 20 de 20 de
+liderazgo». Los cinco botones están apagados (`nav2/swap-s2.png`).
+Lo que esperaba quien juega: cambiar un Orko con dos armas por un Goblin, que es justo el
+«intercambiar» de D5. El cambio uno por uno vale como reparto (`repartoBlocker` da `null` para ese
+mismo cambio, `swap.mts`), pero la pantalla solo mueve de uno en uno y cada mitad sola desborda un
+lado. La única salida es licenciar, que pierde la tropa. El lateral de la base promete otra cosa:
+«deja o se lleva lo que quiera». Si la frase de la petición («puede intercambiar tropa, dejar o
+llevarse») se lee como «intercambiar, es decir, dejar o llevarse», esto es una reserva y no un
+fallo: **lo tiene que decidir el usuario**.
+
+**H2 (el punto S8). La IA vencida en el turno del rival sale de casa sin la guarnición, a veces con
+el ejército vacío.**
+En 1-40 (`s8.mts`): 22 veces un héroe de la IA vuelve vencido a su base (`hero_returned`) en el
+turno del rival, empieza el suyo en ella con algo que recogería (`planIntercambios` no vacío) y,
+**las 22 veces, sale sin recoger nada**. Ejemplos:
+- s5, día 10, j0: Grommash Dientenegro vuelve con 0, la guarnición tiene 5 y sale a (21,21) **con
+  0**;
+- s5, día 2: guarnición 7, sale con 1;
+- s13, día 2, y s18, día 3: guarnición 6, sale con 1.
+
+Así que sí: en la práctica la IA sale sin tropa teniendo guarnición en casa. El código y la fila de
+CLAUDE.md dicen lo mismo («el que vuelve vencido en el turno del rival tampoco recoge hasta que
+llegue a un sitio»), pero el plan (§4) pedía que la recogida explícita cubriera los cuatro sitios de
+`takeGarrison`, y `volverABase` era uno de ellos. Hasta ahora ese héroe recogía al volver; con esto,
+la regla «recoge al llegar» no cuenta como llegada la vuelta a casa del vencido. No es una medida de
+equilibrio: es si la regla hace lo que dice. Para cerrarlo hay que saber que el héroe llegó en el
+turno del rival, por ejemplo por el `hero_returned` desde el último turno propio o por una marca en
+`volverABase`. El ingeniero lo dejó parado a propósito para no inventar estado: hay que decidirlo.
+
+### Menores
+
+**H3. Escape en la guarnición de la base, después de un clic con el ratón, cierra también la base.**
+Pasos: `?seed=1&heroe=guerrero`; en la base, «Dejar y recoger tropa»; un clic en «‹ Recoger»;
+Escape. El diálogo se cierra **y se sale al mapa** (escena `town` → `adventure`). Sin el clic, con
+el foco dentro del diálogo, solo se cierra el diálogo (`esc.mts`). El clic con el ratón deja el foco
+en `body`, el `keydown` de `main.ts` no ve el `dialog` y aplica el Escape de la base. La
+conversación de la base tiene su propio caso para esto; la guarnición no. Quien juega esperaba
+cerrar el diálogo y seguir en la base.
+
+**H4. La crónica se llena y nombra la casilla en vez del sitio.** La pantalla mueve de uno en uno,
+así que dejar y recoger cinco son diez líneas: «Dejas de guarnición 1 × Arquero en (13, 7)» ×3,
+«… 1 × Guardia del bosque …» ×2, «Recoges de la guarnición …» ×5 (s1). No hay «todos» por fila. La
+línea dice «en (13, 7)» y no «en el paso del acantilado» (en un pueblo, la casilla y no el nombre
+del pueblo). «Defiendes con 6 y dejas fuera 0» no dice de qué (individuos).
+
+**H5. Un motivo que solo informa se pinta como un rechazo.** Bajo la fila en que ya pelean todos
+sale «pelean los 5 × Guardia del bosque que hay» en el mismo naranja que «no cabe: …»
+(`nav2/C-defensa.png`). El ingeniero ya lo apuntó como cambio visible de S4 sin mirar.
+
+**H6. La defensa mueve tropa para siempre, y la pantalla no lo dice.** En s37, lo que la IA
+propone sacar de la guarnición (Guardias) se queda en el ejército del héroe después de ganar, y lo
+que deja fuera (4 Arqueros) se queda en la base. Es la opción A del plan («elegir es repartir»),
+pero el texto de la pantalla solo habla de lo que pasa si se pierde. Quien juega puede esperar que,
+al ganar, cada uno vuelva a su sitio.
+
+**H7. El contrato del agente.** El `battle_started` le llega con `foe: {kind: "guarnicion", sitio}`,
+que la prosa no explica, y con las claves en español. En `contract/agent.ts:145-152`, el comentario
+de `buy_item`/`equip` («`item`, `veteran` y `creature` van como texto libre…») ha quedado encima
+del de `leave_troops`, separado de su `z.object`.
+
+## Workarounds usados
+
+- **Un espejo de la `Session` solo para saber dónde pulsar** (como `pnpm capturas`). La página es
+  la de verdad; el espejo traduce una casilla a píxeles y lleva la cuenta. No afecta a quien juega.
+- **`?clima=despejado,dia`** en las URL, como `capturas`, para que el clima no tape las capturas.
+  No afecta a lo que se prueba.
+- **Estado forzado en los guiones del núcleo y de la `Session`** (`adv.mts`, `adv2.mts`,
+  `pueblo.mts`, `swap.mts`): guarniciones ajenas puestas a mano, regiones hechas propias y ejércitos
+  montados. Veredicto:
+  - las regiones propias (`pueblo.mts`) solo se saltan días de tomar nodos y no cambian la lógica de
+    la pantalla: no afectan;
+  - **la guarnición ajena sí es un obstáculo real**: en `pnpm dev` la IA no deja tropa (backlog del
+    plan), así que la persona no se encuentra nunca un paso o un pueblo ajeno guardado. La regla
+    solo la ejerce un agente. Lo cuento como reserva («No probado») y no como fallo, porque el plan
+    lo dejó así a sabiendas;
+  - H1 **no** usa estado forzado: es el día 1 en la base (`swap2.mts`, `swapnav.mts`).
+
+## No probado
+
+- **La persona defendiendo solo con la guarnición** (D2) en la pantalla, y una guarnición ajena en
+  la partida (D4/C4) vista desde el navegador: no ocurren en el flujo real de la fase 1 (arriba).
+- **El espectador** con los hechos nuevos y una batalla `guarnicion`: no tiene código nuevo y no
+  levanté `pnpm partida` + `pnpm mirar`.
+- **Personajes en la defensa** (que vayan siempre y no se dejen): solo lo cubren los tests del
+  ingeniero.
+- **`?mundo=`** con lugares y guarniciones.
+- **`pnpm capturas`** sobre el estado de después de `/simplify`.
+- **La recarga a media defensa**: la probé, pero no hay guardado, así que recargar vuelve al día 1
+  en la base, como siempre, sin estado roto y sin errores (`nav2/R-tras-recargar.png`). No es un
+  hallazgo.
+
+## Veredicto
+
+**Apto con reservas.** Dejar y recoger, la pantalla al parar (y no al pasar), la defensa elegida
+con el héroe dentro, perder el sitio con lo que no se eligió, la guarnición ajena en el núcleo, el
+contrato del agente (también con jugadas malas), la crónica, el banco y el barrido con los tres
+topes hacen lo que dicen, y la consola está limpia. Las reservas son dos decisiones antes de dar la
+fase por cerrada:
+- **H1**: si «intercambiar» incluye cambiar uno por otro con los dos llenos, que hoy es imposible
+  en la base el día 1 en 12 de 20 semillas;
+- **H2**: si el vencido que vuelve en el turno del rival debe recoger al empezar su turno.
+
+---
+
+# Vuelta 2 (tras Q1–Q7)
+
+04-11-2026. Solo lo que tocan Q1–Q7 de `hallazgos-qa.md` y una pasada adversarial nueva sobre el
+reparto. Fase 1; la jugabilidad no se juzga. Mismo árbol sin commitear que dejó el ingeniero
+(ningún fichero de `src/`, `test/` ni `tools/` es más nuevo que su `implementacion.md`). No he
+tocado nada del repositorio. Guiones y capturas en
+`/tmp/claude-1000/-home-al-code-heroes--claude-worktrees-mountain-node-interaction-7b9212/46fb9bb3-8555-4262-a482-fe1df0ee30b2/scratchpad/qa/`
+(`v2core.mts`, `s8c.mts`, `v2nav.mts`; capturas en `v2/` y `v2d/`).
+
+## Lo que corrí, y por qué
+
+| Comprobación | Por qué | Resultado |
+|---|---|---|
+| `pnpm typecheck`, `pnpm lint` | código cambiado en la vuelta | `tsc` sale 0; lint «Checked 514 files … No fixes applied», 10 avisos de siempre |
+| `pnpm qa` | Q7 toca el contrato y la prosa | sale 0; «guarnición: 2 veces dejada y 2 recogida en la crónica del agente» |
+| `pnpm banco` | Q2 re-ancló el banco | `ancla: igual` (el `b8b0690c…` del ingeniero), 0/20 sin terminar, 4 / 8 / 9 días |
+| Tests (`guarniciones`, `cronica`, `invariantes`, `paneles`, `agent-*`, `notas`, `game`…) | | **citados** del informe del ingeniero sobre este mismo árbol: no hay cambios desde entonces |
+| `v2core.mts` (núcleo + `Session`, sin navegador) | la pasada adversarial del reparto | abajo |
+| `s8c.mts 100` (IA contra IA, semillas 1-100, 935 turnos) | Q2 y que la marca no se quede pegada | abajo |
+| Navegador (Playwright sin pantalla contra el `pnpm dev` del 3123: `ss -ltnp` da el pid 188129 y su `cwd` es este worktree; no lo arranqué yo) | Q1, Q3, Q4, Q5, Q6 en el flujo real | abajo; consola sin errores en todas las pasadas |
+
+No corrí `verify`, `verify:lento` ni `capturas` (presupuesto; las corre CI o el ingeniero ya las citó).
+
+## Criterios
+
+| Criterio (Q) | | Evidencia |
+|---|---|---|
+| **Q1** Con los dos llenos se cambia uno por otro: editar y confirmar una sola acción | ✅ | `?seed=2&heroe=orko`, base el día 1: «Con Grommash Dientenegro · 5 de 6», «En la guarnición · 7 de 7»; **5 botones, 0 apagados** (eran 5 de 5). «Dejar ›» de un Orko → «8 de 7», motivo «lo que se queda no cabe en la guarnición de Valdeluz: serían 8 de 7 individuos y 21 de 20 de liderazgo», Confirmar `aria-disabled` (`v2/b2-desborda.png`). «‹ Recoger» de un Goblin lancero → 5 de 6 / 7 de 7, sin motivo, Confirmar encendido (`v2/b3-cambio.png`); confirmar cierra, seguimos en `town`, y en el mapa la crónica dice «Dejas 1 × Orko con hacha y escudo y recoges 1 × Goblin lancero en la guarnición de Valdeluz» |
+| **Q1** Lo editado no toca la partida hasta confirmar; Cancelar y Escape lo descartan | ✅ | `Session`: tras desbordar y cancelar, `hero.army` y `town.garrison` son los mismos objetos en el mismo orden y el registro no crece. Navegador: «Cancelar» y Escape (foco en `BODY`) cierran, la escena sigue en `town`, y reabierta está como al principio («5 de 6 / 7 de 7», botón «Cerrar») |
+| **Q1** Confirmar con un desborde no hace nada y dice por qué | ✅ | clic forzado en el Confirmar apagado: el diálogo sigue abierto y no se mueve nada; el motivo ya está bajo las columnas. Por la `Session`, la barra dice «Lo que se queda no cabe en la guarnición de Valdeluz…» |
+| **Q1** Un reparto que no cambia nada no manda nada | ✅ | dejar un Orko y recogerlo otra vez: «5 de 6 / 7 de 7» y el pie vuelve a «Cerrar»; al pulsarlo, se cierra y la crónica no gana ninguna línea (1 → 1 de guarnición). En la `Session`, 0 hechos nuevos |
+| **Q1** Repetirlo el mismo día | ✅ | dos confirmaciones seguidas (uno por otro y deshacerlo): dos `troops_exchanged` y dos líneas en la crónica; la composición final es la inicial |
+| **Q1** Pueblo y paso | ✅ | paso: s1, el héroe para en (13,7) el día 1 y se abre «Guarnición del paso del acantilado de (13,7)» (`v2/p1-paso.png`); dejar 2 y confirmar: «Dejas 2 × Arquero en la guarnición del paso del acantilado de (13,7)»; se reabre con «Guarnición» del panel. Pueblo (`Session`, s1, Las Ventas, región forzada mía como en la vuelta 1): dejar 2 da `troops_exchanged` con `site: "village-2"` y 2 en la guarnición; recogerlos los quita y el pueblo sigue siendo mío |
+| **Q1** Veteranos en el reparto | ✅ | `Session`, s2 con un veterano `v-heroe` en el héroe y otro `v-guar` (con gambesón) en la guarnición, del mismo tipo: salen en filas propias, se cambian uno por otro, y tras confirmar son **los mismos objetos** con su hoja y su equipo. Dejar un novato del tipo del veterano mueve al novato, no al veterano. Ver H-V2-2 para cómo lo cuenta la crónica |
+| **Q1** Personajes en el reparto | ✅ (con nota) | `Session`: la fila del personaje lleva «un personaje no se deja en una guarnición: va siempre con su héroe» y no se mueve; en la pantalla su botón va apagado con esa nota. Ver H-V2-3 (latente, no alcanzable desde la pantalla) |
+| **Q1** Turno del rival, partida terminada | ✅ | en el turno del rival el motivo es «todavía no es tu turno: ahora juega el jugador 1 (no-muertos)»; terminada, «la partida ya ha terminado». Con una batalla pendiente forzada a mano, la vista no da motivo y Confirmar sale rechazado por el núcleo en la barra («hay una batalla pendiente de resolver») sin tocar nada; no he encontrado cómo llegar a eso en el flujo real (el diálogo es modal y nada abre una batalla mientras está abierto): no es un hallazgo |
+| **Q1** El agente no reparte (backlog) | ✅ | `adventureActionSchema` rechaza `repartir_tropa` |
+| **Q2** El que vuelve vencido en el turno del rival recoge | ✅ | `s8c.mts`, 1-100: **96 de 96** recogen al empezar su turno (eran 22 de 22 sin recoger en 1-40). Los que vuelven en su **propio** turno: 78, 67 recogen en ese mismo turno y ninguno acaba el turno pudiendo recoger sin hacerlo; los 4 que «salen sin recoger» en su turno siguiente (s2, s46, s50 día 4; s76 día 7) ya recogieron al volver y son el que se queda en casa con hueco, que por regla no vacía la guarnición |
+| **Q2** La marca `vueltoACasa` no se queda pegada | ✅ | en 935 turnos (1-100), tras el turno de cada jugador **ningún** héroe suyo sigue marcado (0). Ojo con el orden en serpiente: el héroe de j1 marcado en el turno de j0 que cierra un día sigue marcado al empezar el de j0 del día siguiente, y es correcto (j1 aún no ha jugado). La marca no viaja al agente ni al espectador (solo la leen `game.ts` y `ai/turn.ts`) |
+| **Q3** Escape no cierra también la base | ✅ | s2, base: clic dentro, foco en `BODY`, Escape → diálogo cerrado y escena `town`. Con el diálogo abierto, `e` y `→` no hacen nada (turno sigue «Tu turno»). s1, paso: Escape cierra y la escena sigue en `adventure` con el héroe elegido. La defensa (s37): Escape la cierra con la propuesta de la IA y la batalla sigue |
+| **Q4** La crónica dice el sitio y agrupa | ✅ | «Dejas 1 × Orko con hacha y escudo y recoges 1 × Goblin lancero en la guarnición de Valdeluz» (una línea por confirmación); «Dejas 2 × Arquero en la guarnición del paso del acantilado de (13,7)»; tras la defensa de s37, «Defiendes Valdeluz con 6 individuos y dejas fuera 4». Lo de la IA (un `recoger_tropa` por tipo, cada línea con su sitio) es la desviación declarada, permitida por Q4 |
+| **Q5** Lo informativo no va como rechazo | ✅ | s37, día 2: bajo los Guardias «pelean los 5 × Guardia del bosque que hay» en el gris apagado; el rechazo «no cabe: el ejército de Aerin del Roble ya lleva 6 de 6 individuos» en el tono del rechazo (`v2d/C-defensa-menos.png`) |
+| **Q6** La defensa avisa de que la tropa se queda con el héroe | ✅ | «Los que elijas se quedan con Aerin del Roble después de la batalla, y los demás, en la guarnición.» |
+| **Q7** El contrato: `garrison`/`site`, la prosa, el comentario | ✅ | `BattleFoe` es `{ kind: 'garrison', site }`; la prosa de la aventura (GUARNICIONES) y la de la batalla dicen qué es, de quién y qué `site`; el comentario de `leave_troops` está sobre su esquema y el de `buy_item` sobre el suyo (`agent.ts:145-160`); `pnpm qa` en 0 |
+
+## Hallazgos
+
+### H-V2-1 · menor · Los clics rápidos en «Dejar ›» / «‹ Recoger» se pierden
+
+1. `http://localhost:3123/?seed=2&heroe=orko` → «Dejar y recoger tropa».
+2. Doble clic rápido en «Dejar ›» del Orko con hacha y escudo.
+
+Pasa **uno** (7 de 7 → 8 de 7), no dos. El `click` de `mover-en-el-reparto` en `main.ts` hace
+`break` con `ev.detail > 1`: tiene sentido cuando cada clic era una acción del núcleo, pero ahora el
+botón solo edita. Quien quiere pasar tres pulsa tres veces seguidas y ve pasar uno, sin aviso. La
+defensa («−»/«+») no tiene esa guarda. Se esperaba que cada clic pase uno.
+
+### H-V2-2 · menor · Un cambio de veterano por otro del mismo tipo se lee como que no pasó nada
+
+Con un veterano de un tipo en el héroe y otro del mismo tipo en la guarnición (o un veterano por un
+novato), el hecho es `left: [{orko-hacha-escudo, 1}], taken: [{orko-hacha-escudo, 1}]` y la crónica
+dice «Dejas 1 × Orko con hacha y escudo y recoges 1 × Orko con hacha y escudo en la guarnición de
+Valdeluz». El reparto es correcto (son los objetos que se pidieron, con su hoja y su equipo); lo
+que no se entiende es la línea. Solo con veteranos, que en el día 1 no hay (`v2core.mts` §2, con
+veteranos puestos a mano).
+
+### H-V2-3 · menor (latente) · `moverEnElReparto` con un personaje lanza en vez de dar su motivo
+
+`Session.moverEnElReparto('guarnicion', 'character')` lanza «no hay ninguna unidad «character» en
+data/unidades.json»: la búsqueda de la fila excluye a los que llevan `member`, así que cae en la
+frase de «no queda ningún …», que llama a `unidadDelJuego`. La rama `fila.motivo !== null` que su
+comentario promete para el personaje no se alcanza. **Desde la pantalla no pasa**: el botón del
+personaje va con `aria-disabled` y `main.ts` no llama. Lo apunto por si otra vía llama a la sesión.
+
+## Workarounds usados
+
+- **Veteranos y personaje puestos a mano** en el ejército y la guarnición (`v2core.mts` §2): en el
+  día 1 no hay ninguno. No afecta a quien juega: lo que mira es el reparto, que es el mismo código
+  que la pantalla; la vista en el navegador con veteranos sigue **no probada**.
+- **Región del pueblo forzada mía** para el reparto en un pueblo (`v2core.mts` §3), como en la
+  vuelta 1: llegar a un pueblo propio jugando lleva días. El paso sí se jugó en el navegador.
+- **`pendingBattle` y `finished` puestos a mano** (§4): para ver qué dice la vista; el
+  `finished` sintético rompe `desenlace.ts` («la crónica no dice quién quedó eliminado»), que es
+  del estado falso, no un hallazgo.
+- El `pnpm dev` del 3123 no lo arranqué yo y no lo he parado.
+
+## No probado
+
+- La pantalla del reparto **con un veterano o un personaje en el navegador** (solo `Session`).
+- El reparto en un pueblo en el navegador (solo `Session`).
+- La crónica del espectador (sigue con la casilla, como dice el ingeniero).
+
+## Veredicto (vuelta 2)
+
+**Apto.** Q1–Q7 hacen lo que piden en el flujo real y en la pasada adversarial: con los dos llenos
+se cambia uno por otro y se confirma en una acción y un hecho con el sitio; cancelar, Escape y un
+reparto sin cambios no tocan la partida; veteranos y personajes salen bien del reparto; el vencido
+que vuelve recoge (96 de 96) y la marca no se queda pegada; la defensa avisa y separa la nota del
+rechazo; el contrato dice `garrison`/`site` con su prosa. Los tres hallazgos son menores (dos de
+lectura, uno latente) y no impiden cerrar la fase 1.

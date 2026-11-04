@@ -1289,11 +1289,55 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   (`battle_ended`, otras bajas, 6) o lo que sigue a ella (`troop_rank_up`, s11;
  *   `town_captured`, s16). Nadie cambia de ganador; duración 4 / 6 / 8 → **4 / 6 / 7**
  *   (s11, 8 → 7 días). La forma del diff, no una medida.
+ * - `d1c851e3…` (3 956 líneas, 20 semillas, 04-11-2026): **la guarnición ya no se
+ *   recoge sola y el héroe atacado en su sitio defiende con ella** (fase 1 del puesto
+ *   fronterizo, `docs/agents/2026-11-04-puesto-fronterizo/`: fuera `takeGarrison` y
+ *   `garrison_taken`; la IA recoge con `recoger_tropa` al estar parada en su sitio,
+ *   salvo la base el día 1; `defensaDeLaIA` al nacer la batalla; el héroe vencido en
+ *   su paso lo entrega). Contra `e48a2f0f…`, cambian 9 (s2, s3, s5, s11, s13, s15,
+ *   s18, s19, s20), ninguna antes de su hecho 84: en 6, donde iba un `garrison_taken`
+ *   va un `troops_taken` (el mismo héroe en la misma casilla, de vuelta en su base:
+ *   s2, s3, s15, s18, s19, s20); en 2, el `garrison_taken` de pasar por una ciudad
+ *   propia a media marcha ya no está y la marcha sigue (`hero_moved`: s11, s13); en
+ *   1, el héroe vencido en su paso lo entrega antes de caer (`node_captured` antes
+ *   del `hero_defeated`: s5). `defense_set` 0 → 5, `troops_taken` 0 → 53 (uno por
+ *   tipo recogido), batallas 87 → 92, `hero_defeated` 22 → 26; ningún otro tipo de
+ *   hecho nuevo ni perdido. 0 sin terminar; j0 gana 8 de 20 (10 antes; cambian de
+ *   ganador s2 y s11); duración 4 / 6 / 7 → **4 / 8 / 9**, días 78 → 84. La forma del
+ *   diff, no una medida.
+ * - `a49a5ad6…` (3 859 líneas, 20 semillas, 04-11-2026): **la IA recoge al llegar, no
+ *   cada vez que está en su sitio** (S8 de `/simplify` sobre la fase 1: recoge el
+ *   contratado y el que acaba hoy una marcha en un sitio suyo; fuera la excepción de
+ *   la base el día 1). Contra `d1c851e3…`, cambian 4 (s2, s5, s13, s18) y en las
+ *   cuatro el primer hecho distinto es el mismo: al empezar su turno, un héroe que
+ *   **no llegó hoy** a su base ya no recoge de ella (`troops_taken` → lo siguiente
+ *   del turno, `built`): en s5, s13 y s18 había vuelto vencido en el turno del rival
+ *   (`hero_returned`), y en s2 se había quedado en casa defendiéndola. `troops_taken`
+ *   53 → 31, `defense_set` 5 → 3, batallas 92 → 95, `node_captured` 67 → 62; ningún
+ *   tipo de hecho nuevo ni perdido. 0 sin terminar; j0 gana 10 de 20 (8 antes;
+ *   cambian de ganador s5 y s18); duración 4 / 8 / 9 → **4 / 5 / 11**, días 84 → 83.
+ *   La forma del diff, no una medida.
+ * - `b8b0690c…` (3 951 líneas, 20 semillas, 04-11-2026): **el que vuelve vencido a
+ *   su base en el turno del rival recoge al empezar el suyo** (H2 del QA de la fase
+ *   1: `volverABase` marca al héroe, `Hero.vueltoACasa`, que se borra al acabar el
+ *   turno de su dueño, y `playAiTurn` lo trata como al que llega). Contra
+ *   `a49a5ad6…`, cambian 3 (s5, s13, s18) y en las tres el primer hecho distinto es
+ *   el mismo, el que S8 había quitado: al empezar su turno, el héroe que volvió
+ *   vencido en el turno del rival (`hero_returned`: s5 hecho 88, s13 hecho 89, s18
+ *   hecho 140) recoge de su base (`built` → `troops_taken`: s5 hecho 106, s13 hecho
+ *   94, s18 hecho 149). s2, el que se quedó en casa, no cambia. `troops_taken`
+ *   31 → 52, `defense_set` 3 → 5, batallas 95 → 92, `node_captured` 62 → 67; ningún
+ *   tipo de hecho nuevo ni perdido. Lo demás de la vuelta (el reparto de la pantalla,
+ *   la crónica con el sitio, `garrison` en el contrato, `destinoDeRecluta` con
+ *   `cupoDeLaGuarnicion`) no lo mueve: sin la marca en `playAiTurn`, `a49a5ad6…`
+ *   igual. 0 sin terminar; j0 gana 8 de 20 (10 antes; cambian de ganador s5 y s18);
+ *   duración 4 / 5 / 11 → **4 / 8 / 9**, días 83 → 84. La forma del diff, no una
+ *   medida.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'e48a2f0f868d90e534eebf79aeff9fa8c196a0379323ed5c7ae99634deb648e0',
+  sha: 'b8b0690c833e32b941218102327f790254850d014f1a2a6098dc47500e1eb8d1',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

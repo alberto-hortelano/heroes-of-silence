@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { armyPower, fuerzaDe, poderDe, ventajaClara } from '../src/core/ai/fuerza.js';
+import { armyPower } from '../src/core/ai/fuerza.js';
 import {
   chooseBuilding,
   chooseHeroDestination,
@@ -50,7 +50,6 @@ import {
 } from '../src/core/map/map.js';
 import {
   conectadoABase,
-  estructura,
   regionesQueCierra,
   regionOwner,
   territorio,
@@ -67,7 +66,6 @@ import {
 import {
   asaltantesALaVista,
   emboscadaEnLaRuta,
-  type Raider,
   regionDeCasilla,
 } from '../src/core/state/asaltantes.js';
 import { finDePartida } from '../src/core/state/desenlace.js';
@@ -127,7 +125,6 @@ import {
   primeraMarchaQueSePara,
   sinGuarnicionDeSalida,
   TIRADOR,
-  TROPA,
   TROPA_BARATA,
 } from './helpers.js';
 
@@ -1537,10 +1534,16 @@ describe('el gremio enseña (#2)', () => {
     // la 21 (uno y dos). Con la escala baja (26-10-2026), 8 gremios en 1-80 y
     // hechizos en 6 de ellos: se jugaba la 5 (uno y dos). Con el peso que resta 1
     // por cada fuerza, o parte, que pasa (31-10-2026), 2 gremios en 1-80 y hechizos
-    // en uno: se juega la 28 (uno y dos).
+    // en uno: se jugaba la 28 (uno y dos). Sin la recogida de la guarnición al pasar
+    // y con la defensa elegida (04-11-2026), 2 gremios en 1-80 (la 46 y la 74) y
+    // hechizos en uno: se jugaba la 46 (uno y dos). Con la IA que recoge solo al
+    // llegar (S8 de /simplify, 04-11-2026), 3 gremios en 1-80 (la 42, la 46 y la 74)
+    // y hechizos solo en la 42: se jugaba la 42 (uno y dos). Con el que vuelve vencido
+    // recogiendo al empezar su turno (H2 del QA, 04-11-2026), 2 gremios en 1-80 (la 46
+    // y la 74) y hechizos solo en la 46: se juega la 46 (uno y dos).
     let gremios = 0;
     let aprendidos = 0;
-    for (const semilla of [28]) {
+    for (const semilla of [46]) {
       const state = newGame({ seed: semilla });
       await playAiGame(state, { rng: createRng(semilla) });
       for (const e of state.log) {
@@ -1883,11 +1886,9 @@ function darCiudad(state: GameState, id: string, jugador: number): void {
 
 /** Lo que cobra el jugador 0 al empezar su turno siguiente. */
 describe('el mapa de nodos se juega', () => {
-  it('cruzar un nodo ajeno lo hace mío y lo cuenta; pasar por casa recoge la guarnición', () => {
+  it('cruzar un nodo ajeno lo hace mío y lo cuenta; pasar por casa NO recoge la guarnición', () => {
     const { state, c } = enLaRed();
     const base = state.towns.find((t) => t.id === 'town-0')!;
-    // Zombis: lentos. Si entrar en la tropa recortara los puntos del día, la
-    // marcha se quedaría sin puntos a mitad de camino y `moveHero` lanzaría.
     base.garrison = ejercito({ creature: 'zombi', count: 1 });
     const hero = heroById(state, 'hero-0');
     const tropa = hero.army.length;
@@ -1901,9 +1902,10 @@ describe('el mapa de nodos se juega', () => {
     expect(
       state.log.filter((e) => e.kind === 'node_captured').map((e) => [e.node, e.from, e.actor]),
     ).toEqual([['node-1', null, 0]]);
-    // La tropa de casa se recoge al PASAR: los puntos del día ya están fijados.
-    expect(base.garrison).toHaveLength(0);
-    expect(hero.army).toHaveLength(tropa + 1);
+    // La tropa de casa ya no se recoge al pasar (04-11-2026): se recoge parando,
+    // con `recoger_tropa`.
+    expect(base.garrison).toHaveLength(1);
+    expect(hero.army).toHaveLength(tropa);
     const gastado = state.log
       .filter((e) => e.kind === 'hero_moved')
       .reduce((t, e) => t + e.spent, 0);
@@ -2281,24 +2283,22 @@ describe('el mapa de nodos se juega', () => {
     );
   });
 
-  it('con el héroe del dueño dentro, defiende SOLO él con su tropa, y si cae, cae la base (regla del usuario, I2)', () => {
-    // Regla DECIDIDA, no un olvido: «Solo el heroe con su tropa, es la batalla
-    // final (si pierde)». QA la señaló como fallo —la guarnición inicial se
-    // queda fuera justo cuando el dueño vuelve a casa— y el usuario la
-    // confirmó. Este test existe para que nadie la «arregle» sumando la
-    // guarnición al bando del héroe: si eso cambia, es otra decisión suya.
+  it('con el héroe del dueño dentro, defiende él con lo que se elija de la guarnición, y si cae, cae la base con lo que no peleó (D1, 04-11-2026)', () => {
+    // Hasta el 04-11-2026 la regla era la contraria, decidida por el usuario (I2):
+    // «Solo el heroe con su tropa, es la batalla final (si pierde)». La sustituye
+    // D1 del puesto fronterizo: «Si esta el heroe, elije la tropa que quiere usar
+    // para la defensa, el heroe siempre participa». La IA elige por quien no la
+    // elige en pantalla (`defensaDeLaIA`).
     const { state, c } = enLaRed();
     const base = state.towns.find((t) => t.id === 'town-0')!;
-    const guarnicion = base.garrison.map((g) => g.creature);
-    expect(guarnicion.length).toBeGreaterThan(0);
+    // Siete en la guarnición: le caben seis, y el séptimo se queda fuera.
+    base.garrison = ejercito({ creature: TROPA_BARATA, count: 7 });
     const mio = heroById(state, 'hero-0');
     mio.at = { ...base.at };
     mio.army = [];
     state.current = 1;
     const suyo = heroById(state, 'hero-1');
-    // Cinco con mandoble: con dos esqueletos, el héroe solo los paraba (19-10-2026,
-    // la rueda y su Espada).
-    suyo.army = ejercito({ creature: PESADA, count: 5 });
+    suyo.army = ejercito({ creature: JINETE, count: 6 });
     // En la puerta del noreste: la muralla no se pisa (`recinto.ts`).
     suyo.at = { x: base.at.x + 1, y: base.at.y - 1 };
     suyo.movePoints = 9000;
@@ -2307,13 +2307,14 @@ describe('el mapa de nodos se juega', () => {
     // Contra el héroe, no contra la ciudad: el héroe va antes en `enemyAt`.
     expect(state.pendingBattle?.foe).toEqual({ kind: 'hero', heroId: 'hero-0' });
     const defensores = state.pendingBattle!.battle.stacks.filter((st) => st.side === 'defender');
-    // Uno: el héroe solo, sin tropa, y ninguno de la guarnición en el tablero.
-    expect(defensores.map((st) => st.origen.kind)).toEqual(['heroe']);
-    expect(defensores.some((st) => guarnicion.includes(queEs(st)))).toBe(false);
+    // El héroe y seis de la guarnición en el tablero; uno, fuera.
+    expect(defensores.filter((st) => st.origen.kind === 'heroe')).toHaveLength(1);
+    expect(defensores.filter((st) => queEs(st) === TROPA_BARATA)).toHaveLength(6);
+    expect(base.garrison).toHaveLength(1);
 
     expect(resolvePendingBattle(state, c).winner).toBe('attacker');
-    // Era la batalla final: la base cae sin que la guarnición llegue a pelear,
-    // `captureTown` se la lleva, y perder la base elimina.
+    // Era la batalla final: la base cae con el que no peleó (`captureTown` se lo
+    // lleva), y perder la base elimina.
     expect(base.owner).toBe(1);
     expect(base.garrison).toEqual([]);
     expect(state.players[0]!.defeated).toBe(true);
@@ -2616,177 +2617,6 @@ describe('la marcha se para al descubrir un grupo que la emboscaría (#130)', ()
     hero.movePoints = 100_000;
     applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: destino }, ctx(seed), 0);
     expect(state.log.some((e) => e.kind === 'march_halted')).toBe(false);
-    expect(pointKey(hero.at)).toBe(pointKey(destino));
-  });
-});
-
-// ------------------------------------- la fuerza cambia a mitad de marcha (H1 y H2 de QA de #130)
-
-/** Las regiones que el jugador 0 está mirando ahora. */
-function regionesMiradas(state: GameState): Set<number> {
-  const out = new Set<number>();
-  for (const p of visibleNow(state, 0)) out.add(regionDeCasilla(state.map, p));
-  return out;
-}
-
-/** Una casilla libre de `region` que no pisa `ruta`, donde plantar un grupo. */
-function casillaLibre(state: GameState, region: number, ruta: readonly Point[]): Point | null {
-  const { regionDe } = estructura(state.map);
-  const W = state.map.width;
-  const pisadas = new Set(ruta.map(pointKey));
-  for (let i = 0; i < regionDe.length; i++) {
-    if (regionDe[i] !== region) continue;
-    const p = { x: i % W, y: Math.floor(i / W) };
-    if (pisadas.has(pointKey(p)) || !isEnterable(state.map, p)) continue;
-    if (objectAt(state.map, p) !== undefined) continue;
-    if (state.heroes.some((h) => pointKey(h.at) === pointKey(p))) continue;
-    return p;
-  }
-  return null;
-}
-
-/**
- * La marcha de QA en `?seed=198`, montada a mano para que no dependa del mapa:
- * el héroe del día 1 sale junto a su base y la ruta pisa primero la base —donde
- * recoge la guarnición y gana fuerza—, después la región `a`, que se ve al
- * salir, y más adelante la región `g`, que no se ve al salir y sí desde algún
- * paso anterior a ella. Devuelve la partida sin grupos, el destino, la casilla
- * de cada región donde plantarlos (fuera de la ruta) y la fuerza del héroe antes
- * y después de recoger.
- */
-function marchaQueGanaFuerza(): {
-  seed: number;
-  state: GameState;
-  destino: Point;
-  enA: Point;
-  enG: Point;
-  antes: number;
-  despues: number;
-} {
-  for (let seed = 1; seed <= 40; seed++) {
-    const state = newGame({ seed });
-    state.raiders = [];
-    // El héroe nace en su base (19-10-2026) y salir de ella no recoge nada: se
-    // le pone al lado para que la marcha pase por ella.
-    const hero = fueraDeSuBase(state, 0);
-    const base = baseOf(state, 0)!;
-    // El héroe nace delante de una puerta de su base, a dos casillas (el
-    // recinto de la ciudad, vuelta 3): se le pone en la casilla de esa puerta,
-    // junto a la base, que es de donde salía esta marcha.
-    hero.at = {
-      x: base.at.x + Math.sign(hero.at.x - base.at.x),
-      y: base.at.y + Math.sign(hero.at.y - base.at.y),
-    };
-    // Uno de lo más barato con el héroe y dos de la tropa en casa: con la
-    // guarnición de salida, recogerla no movía la fuerza lo bastante para que
-    // quepa un grupo entre la de antes y la de después.
-    hero.army = ejercito({ creature: TROPA_BARATA, count: 1 });
-    base.garrison = ejercito({ creature: TROPA, count: 2 });
-    const antes = fuerzaDe(hero, state.characters);
-    const recogida = copiaDePartida(state);
-    applyAdventureAction(recogida, { type: 'move_hero', hero: hero.id, to: base.at }, ctx(seed), 0);
-    const despues = fuerzaDe(heroById(recogida, hero.id), recogida.characters);
-    if (despues < antes * 1.1) throw new Error(`recoger la guarnición da ${antes} → ${despues}`);
-    const alSalir = regionesMiradas(state);
-    for (const [clave, coste] of costesDelAlcance(alcanceDelHeroe(state, hero))) {
-      if (coste === 0 || coste > hero.movePoints) continue;
-      const destino = pointFromKey(clave);
-      const camino = caminoHasta(state, hero, destino);
-      if (camino === null || pointKey(camino[0]!.at) !== pointKey(base.at)) continue;
-      const regiones = camino.map((p) => regionDeCasilla(state.map, p.at));
-      const iA = regiones.findIndex((r, i) => i > 0 && r >= 0 && alSalir.has(r));
-      if (iA < 0) continue;
-      const a = regiones[iA]!;
-      const iG = regiones.findIndex((r, i) => i > iA && r >= 0 && r !== a && !alSalir.has(r));
-      if (iG < 0) continue;
-      const g = regiones[iG]!;
-      // Que se vea desde algún paso de antes de pisarla: si no, no hay parada posible.
-      const seVeAntes = camino.slice(0, iG - 1).some((p) => {
-        const alli = copiaDePartida(state);
-        heroById(alli, hero.id).at = p.at;
-        return regionesMiradas(alli).has(g);
-      });
-      if (!seVeAntes) continue;
-      const ruta = camino.map((p) => p.at);
-      const enA = casillaLibre(state, a, ruta);
-      const enG = casillaLibre(state, g, ruta);
-      if (enA === null || enG === null) continue;
-      // Con los dos grupos plantados la ruta tiene que ser la misma: son casillas hostiles.
-      const conGrupos = copiaDePartida(state);
-      conGrupos.raiders = [
-        { id: 'raider-a', at: enA, troops: [] },
-        { id: 'raider-g', at: enG, troops: [] },
-      ];
-      const otra = caminoHasta(conGrupos, heroById(conGrupos, hero.id), destino);
-      if (otra?.map((p) => pointKey(p.at)).join(' ') !== ruta.map(pointKey).join(' ')) continue;
-      return { seed, state, destino, enA, enG, antes, despues };
-    }
-  }
-  throw new Error(
-    'ninguna marcha del día 1 de 40 semillas pasa por la base y luego por dos regiones',
-  );
-}
-
-/** El menor grupo de esqueletos cuya fuerza cumple `vale`. */
-function esqueletos(vale: (poder: number) => boolean): Raider['troops'] {
-  for (let count = 1; count <= 2000; count++) {
-    const troops = [{ creature: NO_MUERTO, count }];
-    if (vale(poderDe({ troops }))) return troops;
-  }
-  throw new Error('ningún grupo de hasta 2000 esqueletos tiene esa fuerza');
-}
-
-describe('la marcha que gana fuerza por el camino vuelve a mirar quién la emboscaría (H1, H2 de QA)', () => {
-  it('avisaba de un grupo que deja de temer: se para al ver al siguiente, que no avisaba (H1)', () => {
-    const { seed, state, destino, enA, enG, antes, despues } = marchaQueGanaFuerza();
-    // `a` embosca al héroe que sale y no al que ha recogido la guarnición; `g`, a los dos.
-    const troopsA = esqueletos((p) => ventajaClara(p, antes) && !ventajaClara(p, despues));
-    const troopsG = esqueletos((p) => ventajaClara(p, despues));
-    state.raiders = [
-      { id: 'raider-a', at: enA, troops: troopsA },
-      { id: 'raider-g', at: enG, troops: troopsG },
-    ];
-    const hero = heroesOf(state, 0)[0]!;
-    const camino = caminoHasta(state, hero, destino)!;
-    const vistos = asaltantesALaVista(state, visibleNow(state, 0));
-    // Al salir, la ruta avisa de `a` y no ve a `g`.
-    expect(vistos.map((r) => r.id)).toEqual(['raider-a']);
-    expect(emboscadaEnLaRuta(state, hero, camino, vistos)?.raider.id).toBe('raider-a');
-    const desde = state.log.length;
-
-    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: destino }, ctx(seed), 0);
-
-    const hechos = state.log.slice(desde);
-    expect(hechos.some((e) => e.kind === 'garrison_taken')).toBe(true);
-    expect(hechos.some((e) => e.kind === 'battle_started')).toBe(false);
-    expect(state.log.at(-1)).toMatchObject({ kind: 'march_halted', raider: 'raider-g' });
-    expect(regionDeCasilla(state.map, hero.at)).not.toBe(regionDeCasilla(state.map, enG));
-    // Desde donde se paró, la ruta ya nombra al que la emboscaría.
-    const resto = caminoHasta(state, hero, destino)!;
-    const ahora = asaltantesALaVista(state, visibleNow(state, 0));
-    expect(emboscadaEnLaRuta(state, hero, resto, ahora)?.raider.id).toBe('raider-g');
-  });
-
-  it('no se para por un grupo que, con la guarnición recogida, ya no la emboscaría (H2)', () => {
-    const { seed, state, destino, enG, antes, despues } = marchaQueGanaFuerza();
-    state.raiders = [
-      {
-        id: 'raider-g',
-        at: enG,
-        troops: esqueletos((p) => ventajaClara(p, antes) && !ventajaClara(p, despues)),
-      },
-    ];
-    const hero = heroesOf(state, 0)[0]!;
-    const desde = state.log.length;
-
-    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: destino }, ctx(seed), 0);
-
-    const hechos = state.log.slice(desde);
-    expect(hechos.some((e) => e.kind === 'garrison_taken')).toBe(true);
-    expect(hechos.some((e) => e.kind === 'march_halted' || e.kind === 'battle_started')).toBe(
-      false,
-    );
-    // Cruzó la región del grupo sin que lo emboscara, y llegó.
     expect(pointKey(hero.at)).toBe(pointKey(destino));
   });
 });

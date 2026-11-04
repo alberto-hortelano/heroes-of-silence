@@ -34,6 +34,7 @@ import {
   visibleNowAt,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import { sitioSiExiste } from '../src/core/state/sitios.js';
 import type { Point } from '../src/core/types.js';
 import {
   ejercito,
@@ -558,9 +559,81 @@ describe('la crónica de la pantalla deja de mentir', () => {
     expect(linea({ kind: 'recruited', town: 't', creature: TROPA_BARATA, count: 3 })).toContain(
       `El jugador 1 recluta 3 × ${unidadDelJuego(TROPA_BARATA).name}`,
     );
-    expect(linea({ kind: 'garrison_taken', hero: 'h', town: 't' })).toContain(
-      'El jugador 1 incorpora una guarnición',
+    // Sin el sitio (el espectador), la casilla.
+    const goblin = unidadDelJuego(TROPA_BARATA).name;
+    expect(
+      linea({ kind: 'troops_left', hero: 'h', site: 't', creature: TROPA_BARATA, count: 2 }),
+    ).toContain(`El jugador 1 deja 2 × ${goblin} en la guarnición en\u00a0(0,\u00a00)`);
+    expect(
+      linea({ kind: 'troops_taken', hero: 'h', site: 't', creature: TROPA_BARATA, count: 1 }),
+    ).toContain(`El jugador 1 recoge 1 × ${goblin} de la guarnición en\u00a0(0,\u00a00)`);
+    expect(linea({ kind: 'defense_set', hero: 'h', site: 't', fighting: 4, staying: 1 })).toContain(
+      'El jugador 1 defiende con 4 individuos y deja fuera 1',
     );
+  });
+
+  it('la guarnición se nombra por su sitio, y un reparto es una línea (H4 del QA)', () => {
+    const state = newGame({ seed: 3 });
+    const base = state.towns.find((t) => t.owner === 0)!;
+    const paso = state.map.objects.find((o) => o.kind === 'node')!;
+    const conSitio = (cuerpo: Record<string, unknown>, quien = 0): string =>
+      marcadoDe(renderLog([evento(cuerpo)], quien, undefined, (id) => sitioSiExiste(state, id)));
+    const goblin = unidadDelJuego(TROPA_BARATA).name;
+    const escudo = unidadDelJuego(TROPA).name;
+    expect(
+      conSitio({
+        kind: 'troops_left',
+        hero: 'h',
+        site: base.id,
+        creature: TROPA,
+        count: 3,
+        actor: 0,
+      }),
+    ).toContain(`Dejas 3 × ${escudo} en la guarnición de ${base.name}`);
+    expect(
+      conSitio({
+        kind: 'troops_taken',
+        hero: 'h',
+        site: paso.id,
+        creature: TROPA,
+        count: 1,
+        actor: 0,
+      }),
+    ).toMatch(
+      new RegExp(
+        `Recoges 1 × ${escudo} de la guarnición (del|de la) .* de \\(${paso.at.x},${paso.at.y}\\)`,
+      ),
+    );
+    expect(
+      conSitio({
+        kind: 'troops_exchanged',
+        hero: 'h',
+        site: base.id,
+        left: [{ creature: TROPA, count: 2 }],
+        taken: [{ creature: TROPA_BARATA, count: 1 }],
+        actor: 0,
+      }),
+    ).toContain(`Dejas 2 × ${escudo} y recoges 1 × ${goblin} en la guarnición de ${base.name}`);
+    expect(
+      conSitio({
+        kind: 'troops_exchanged',
+        hero: 'h',
+        site: base.id,
+        left: [],
+        taken: [{ creature: TROPA_BARATA, count: 1 }],
+        actor: 1,
+      }),
+    ).toContain(`El jugador 1 recoge 1 × ${goblin} en la guarnición de ${base.name}`);
+    expect(
+      conSitio({
+        kind: 'defense_set',
+        hero: 'h',
+        site: base.id,
+        fighting: 6,
+        staying: 0,
+        actor: 0,
+      }),
+    ).toContain(`Defiendes ${base.name} con 6 individuos y dejas fuera 0`);
   });
 
   it('los hechizos del rival ya no se pintan como una buena noticia tuya', () => {

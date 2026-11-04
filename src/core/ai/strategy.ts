@@ -26,6 +26,7 @@ import {
   elQueSeIria,
   sinIndividuos,
   troopRoom,
+  troopSummary,
   troopsThatFit,
   troopUnit,
   withTroops,
@@ -50,6 +51,7 @@ import {
   townsOf,
 } from '../state/game.js';
 import { rentaDeLaRegion } from '../state/renta.js';
+import { guarnicionDe, guarnicionHostil, pedidoDelGrupo, sitioDelHeroe } from '../state/sitios.js';
 import { building, buildingsOfFaction, nivelDeMorada } from '../town/buildings.js';
 import {
   availableBuildings,
@@ -116,6 +118,15 @@ function objectValue(
         : 0;
     case 'node': {
       if (obj.owner === player) return 0;
+      // Un paso con guarnición ajena es una batalla, como una ciudad guarnecida: no
+      // se va sin ventaja clara (`ventajaClara`, la regla de los neutrales).
+      const guardado = guarnicionHostil(state, obj.id, player);
+      if (
+        guardado !== null &&
+        !ventajaClara(miPoder, armyPower(guardado.tropa, state.characters))
+      ) {
+        return -1;
+      }
       // Un nodo ajeno vale por sí mismo y, sobre todo, por las regiones que
       // CIERRA: las que tienen ya todos sus demás nodos en mi mano. Es la
       // valoración mínima de la fase 2a —«no tiene que ser buena; tiene que
@@ -136,7 +147,8 @@ function objectValue(
       const pueblo = state.towns.find((t) => t.id === obj.id);
       if (pueblo === undefined) throw new Error(`el mapa tiene un castillo sin datos: ${obj.id}`);
       if (pueblo.owner === player) {
-        // Pueblo propio: merece el viaje si guarda tropas QUE LE QUEPAN.
+        // Pueblo propio: merece el viaje si guarda tropas QUE LE QUEPAN, que al
+        // llegar recoge (`planIntercambios`).
         // Concentrar el ejército en un héroe es lo que decide las partidas,
         // pero con el liderazgo lleno la guarnición entera vale cero: sin esta
         // resta, el héroe volvería a casa a por una tropa que no puede
@@ -459,6 +471,27 @@ export function planHires(state: GameState, playerId: PlayerId): AdventureAction
     break; // uno por turno basta
   }
   return acciones;
+}
+
+/**
+ * Lo que recoge `hero` de la guarnición del sitio suyo donde está: **lo que le
+ * quepa**, en el orden de la guarnición (`troopsThatFit`), que es lo que hacía la
+ * recogida automática al pasar por casa antes de retirarse (04-11-2026). Ahora es
+ * una jugada como las demás (`recoger_tropa`), y **cuándo** la juega lo decide el
+ * turno de la IA (`playAiTurn`): al contratarlo y al acabar una marcha en el sitio,
+ * no cada vez que está en él. Un veterano va por su id; los demás, por tipo
+ * (`pedidoDelGrupo`). La IA no deja tropa (backlog).
+ */
+export function planIntercambios(state: GameState, hero: Hero): AdventureAction[] {
+  const sitio = sitioDelHeroe(state, hero);
+  if (sitio === null) return [];
+  const { tope, cupo } = capacidadDe(hero, state.combate.tope);
+  const { dentro } = troopsThatFit(hero.army, tope, cupo, guarnicionDe(state, sitio));
+  // Un grupo, un pedido (`pedidoDelGrupo`): el veterano por su id, los demás por tipo.
+  return troopSummary(dentro, state.characters).map((g) => ({
+    type: 'recoger_tropa',
+    ...pedidoDelGrupo(hero.id, g),
+  }));
 }
 
 /** Qué reclutar hoy, sobre el estado YA construido. */

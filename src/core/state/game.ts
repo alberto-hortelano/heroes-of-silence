@@ -62,13 +62,11 @@ import {
   capacidadDe,
   characterOf,
   ejercitoDe,
-  GARRISON_LEADERSHIP,
   gruposDe,
   licenciar,
   troopBlocker,
   troopRoom,
   troopsAsStacks,
-  troopsThatFit,
   withTroops,
 } from '../hero/troop.js';
 import { Casillas, type CasillasLeidas, casillasDelCuadrado } from '../map/casillas.js';
@@ -146,6 +144,33 @@ import {
   SE_VE_POR,
 } from './events.js';
 import { rentaDelDia } from './renta.js';
+import {
+  casillaDelSitio,
+  cupoDeLaGuarnicion,
+  defensaDeLaIA,
+  delSitio,
+  dueñoDelSitio,
+  ejercitoDeLaDefensa,
+  type Guarnicion,
+  guarnicionDe,
+  guarnicionHostil,
+  idDelSitio,
+  type LaDefensa,
+  type LineaDeDefensa,
+  laDefensa,
+  moverTropa,
+  nombreDelSitio,
+  type PedidoDeReparto,
+  type PedidoDeTropa,
+  ponerLaGuarnicion,
+  quitarLaGuarnicion,
+  repartir,
+  repartirTropa,
+  type Sitio,
+  sitioDelHeroe,
+  sitioEn,
+  sitioPorId,
+} from './sitios.js';
 
 export interface Player {
   readonly id: PlayerId;
@@ -270,7 +295,22 @@ export type Enfrentamiento =
       readonly foe: Extract<BattleFoe, { kind: 'hero' }>;
     };
 
-export type PendingBattle = Enfrentamiento & { readonly battle: BattleState };
+/**
+ * La defensa elegida de una batalla pendiente: el héroe atacado en un sitio suyo
+ * con guarnición y ese sitio, por sus ids (`PendingBattle` es estado que se puede
+ * guardar). La pone `dejarPendiente` y la lee quien la deja rehacer
+ * (`defensaPosible`): que se pueda elegir es de la batalla, no de la crónica.
+ */
+export interface DefensaElegida {
+  readonly hero: string;
+  readonly sitio: string;
+}
+
+export type PendingBattle = Enfrentamiento & {
+  readonly battle: BattleState;
+  /** Con quién defiende el héroe atacado en su sitio, si lo está (D1 del puesto fronterizo). */
+  readonly defensa?: DefensaElegida;
+};
 
 /** Si la batalla es una emboscada: la abrió un grupo, y el emboscado es un héroe. */
 function esEmboscada<T extends Enfrentamiento>(
@@ -401,6 +441,15 @@ export interface GameState {
    * `climaDeLaPartida`.
    */
   climaPedido?: Record<string, PedidoDeClima>;
+  /**
+   * La tropa que guarda cada paso y cada pueblo, por id de su objeto del mapa, con
+   * quien la dejó (`state/sitios.ts`). Sin entrada, el sitio no guarda nada. La de
+   * una ciudad sigue en `Town.garrison`. **Solo la escribe `sitios.ts`** (dejar,
+   * recoger, la defensa y lo que sobrevive o se pierde en una batalla; lo vigila
+   * `test/invariantes.test.ts`). La IA de reglas no deja tropa, así que en una
+   * partida sin persona ni agente se queda vacía.
+   */
+  guarniciones: Record<string, Guarnicion>;
 }
 
 export interface GameContext {
@@ -443,6 +492,23 @@ export type AdventureAction =
    * la mochila del héroe propio que está dentro (`buyBlocker`).
    */
   | { readonly type: 'buy_item'; readonly town: string; readonly item: string }
+  /**
+   * Dejar tropa del ejército de `hero` en la guarnición del sitio suyo donde está
+   * —una ciudad, un paso o un pueblo— (`dejar_tropa`), o recogerla de ella
+   * (`recoger_tropa`): `count` de `creature` (los que se irían, `elQueSeIria`) o el
+   * veterano `veterano` (`PedidoDeTropa`). La regla, `intercambioBlocker`
+   * (`state/sitios.ts`). Sustituye a la recogida al pasar por casa, que se retiró.
+   */
+  | ({ readonly type: 'dejar_tropa' | 'recoger_tropa' } & PedidoDeTropa)
+  /**
+   * Repartir de una vez la tropa entre `hero` y la guarnición del sitio suyo donde
+   * está: `enElHeroe` dice todo lo que va con él (`LineaDelReparto`) y lo demás queda
+   * guardando. Se juzga solo el reparto final (`repartirTropaBlocker`), así que con
+   * los dos llenos se cambia uno por otro (D9 de la tarea del puesto fronterizo). La
+   * manda la pantalla de la guarnición al confirmar; la IA y el agente siguen con
+   * `dejar_tropa` y `recoger_tropa`.
+   */
+  | ({ readonly type: 'repartir_tropa' } & PedidoDeReparto)
   /**
    * Ponerle a alguien una pieza de la mochila del héroe `hero`: al héroe si no se
    * dice a quién; a `veteran`, el individuo de su tropa con esa hoja; o a
@@ -593,8 +659,7 @@ export function destinoDeRecluta(state: GameState, town: Town): DestinoDeRecluta
     ? {
         hero,
         army: town.garrison,
-        tope: GARRISON_LEADERSHIP,
-        cupo: state.combate.tope,
+        ...cupoDeLaGuarnicion(state),
         quien: 'la guarnición',
       }
     : { hero, army: hero.army, ...capacidadDe(hero, state.combate.tope), quien: 'el ejército' };
@@ -759,6 +824,7 @@ export function createGame(config: GameConfig): GameState {
     siguienteVeterano: 1,
     siguienteBotin: 0,
     siguienteHeroe: 1,
+    guarniciones: {},
   };
   if (config.mundo !== undefined) {
     state.mundo = {
@@ -1118,6 +1184,9 @@ export function ordenDelDia(
 }
 
 function nextPlayer(state: GameState, ctx: GameContext): void {
+  // Lo de «volvió a casa» dura hasta que su dueño acaba un turno: en él ya ha podido
+  // recoger (`Hero.vueltoACasa`).
+  for (const hero of heroesOf(state, state.current)) delete hero.vueltoACasa;
   const vivos = state.players.filter((p) => !p.defeated);
   if (vivos.length <= 1) {
     // Sin nadie vivo no gana nadie, y ahora se puede decir: antes esto coronaba
@@ -1485,6 +1554,39 @@ function aplicar(
         hero: hero.id,
         creature: action.creature,
         count: action.count,
+        actor: player.id,
+        at: hero.at,
+      });
+      return;
+    }
+
+    case 'dejar_tropa':
+    case 'recoger_tropa': {
+      const player = currentPlayer(state);
+      // Lanza con `intercambioBlocker`, la regla que leen también la pantalla y el agente.
+      const { hero, sitio, creature, count } = moverTropa(state, player.id, action.type, action);
+      emit(state, {
+        kind: action.type === 'dejar_tropa' ? 'troops_left' : 'troops_taken',
+        hero: hero.id,
+        site: idDelSitio(sitio),
+        creature,
+        count,
+        actor: player.id,
+        at: hero.at,
+      });
+      return;
+    }
+
+    case 'repartir_tropa': {
+      const player = currentPlayer(state);
+      // Lanza con `repartirTropaBlocker`, la regla que lee también la pantalla.
+      const { hero, sitio, deja, recoge } = repartirTropa(state, player.id, action);
+      emit(state, {
+        kind: 'troops_exchanged',
+        hero: hero.id,
+        site: idDelSitio(sitio),
+        left: deja,
+        taken: recoge,
         actor: player.id,
         at: hero.at,
       });
@@ -1990,9 +2092,10 @@ export function salidaPendienteBlocker(state: GameState, quien: PlayerId): strin
  *
  * Con el de salida pendiente lo asienta: el que hizo `newGame` (nombre, cifras y
  * tropa de su tirada), con el tipo elegido, en su base, **sin hecho en la
- * crónica** (el de salida nunca lo tuvo) y **sin recoger la guarnición** (la
- * base del día 1 se queda con la suya, decisión del usuario). Sin él, uno nuevo,
- * 1/1 y sin tropa, que recoge la guarnición.
+ * crónica** (el de salida nunca lo tuvo). Sin él, uno nuevo, 1/1 y sin tropa.
+ * Ninguno recoge la guarnición: la tropa entre héroe y sitio la mueven solo
+ * `dejar_tropa`, `recoger_tropa` y la defensa (la recogida automática se retiró
+ * el 04-11-2026).
  *
  * Sin esto, perder al único héroe deja al jugador inerte para siempre: conserva
  * el castillo, así que no está derrotado, pero no puede volver a mover una sola
@@ -2044,7 +2147,6 @@ function hireHero(state: GameState, quien: PlayerId, townId: string, tipo?: stri
     at: town.at,
   });
 
-  takeGarrison(state, hero, town);
   revealAround(state, hero);
 }
 
@@ -2174,16 +2276,11 @@ export function ascensoBlocker(
  * día en que nace. El individuo sale de donde estaba: la guarnición o la tropa
  * del héroe que lo llevaba.
  *
- * **Quien quede en la casilla del castillo recoge la guarnición** (`takeGarrison`,
- * la misma puerta que el contratado y el que vuelve vencido): el nacido si nace
- * en ella, y si no, el héroe del dueño que ya la ocupaba —el portador, cuando
- * el veterano venía en su tropa—, con el nacido al lado y sin tropa. Antes no la recogía nadie, porque «un héroe sin tropa en su base no
- * corre peligro». Era falso: con el héroe del dueño dentro la ciudad la defiende
- * **solo él con su tropa** (regla del usuario), así que la guarnición dejaba de
- * pelear y la base caía esa misma noche ante dos campesinos —las semillas 11 y
- * 23 de la sonda de QA, que sin ascenso aguantaban—. La recoge el de la casilla
- * y no «el nacido» porque es el que defiende: dársela al de al lado dejaba el
- * mismo agujero con otro nombre. Decisión del usuario: «Recoge la guarnición».
+ * **Nadie recoge la guarnición** (04-11-2026): recogía el de la casilla del
+ * castillo porque con el héroe dentro la ciudad la defendía «solo él con su
+ * tropa», y la guarnición se quedaba fuera de la batalla. Desde que el héroe que
+ * defiende su sitio elige con quién de su ejército y de la guarnición
+ * (`defensaDeLaIA`, `elegirLaDefensa`), la guarnición pelea aunque no la lleve.
  *
  * El id es `hero-<id del veterano>`, único porque el del veterano lo es y porque
  * el individuo sale de la tropa al ascender; el de `hireHero` es
@@ -2236,45 +2333,15 @@ export function ascenderVeterano(
     actor: player,
     at: hero.at,
   });
-  const enLaCasilla = heroeEnElPueblo(state, v.base);
-  if (enLaCasilla !== undefined) takeGarrison(state, enLaCasilla, v.base);
   revealAround(state, hero);
   return hero;
 }
 
 /**
- * Un héroe que entra en su pueblo se lleva la guarnición que le quepa en el
- * liderazgo y en su cupo de individuos, en orden; lo que no cabe se queda
- * guardando el pueblo en vez de desaparecer. No lanza: entrar en casa no es
- * pedir tropa.
- *
- * **No toca los puntos de movimiento.** Los del día se fijan al empezarlo
- * (`startTurn`) con la tropa que se tenía, y lo que se una después —esta tropa
- * o la que se recluta— cuenta desde mañana. Antes se recortaban aquí al de la
- * criatura más lenta, y eso hacía que recoger tropa de paso dejara sin puntos
- * una marcha ya cobrada: había que distinguir pasar de llegar. Regla de juego
- * por verificar contra fheroes2; no se cita como suya.
- */
-function takeGarrison(state: GameState, hero: Hero, town: Town): void {
-  if (town.owner !== hero.owner) return;
-  const { tope, cupo } = capacidadDe(hero, state.combate.tope);
-  const { dentro, fuera } = troopsThatFit(hero.army, tope, cupo, town.garrison);
-  if (dentro.length === 0) return;
-  hero.army = [...hero.army, ...dentro];
-  town.garrison = fuera;
-  emit(state, {
-    kind: 'garrison_taken',
-    hero: hero.id,
-    town: town.id,
-    actor: hero.owner,
-    at: town.at,
-  });
-}
-
-/**
  * Las casillas que un héroe de `player` puede **alcanzar pero no cruzar**: lo
- * que `enemyAt` da por batalla y el mapa no sabe —un héroe ajeno y un castillo
- * ajeno con guarnición—. Los monstruos ya los bloquea el mapa.
+ * que `enemyAt` da por batalla y el mapa no sabe —un héroe ajeno, un castillo
+ * ajeno con guarnición y un paso o un pueblo con guarnición ajena—. Los
+ * monstruos ya los bloquea el mapa.
  *
  * Existe para que nadie se meta en una batalla que no eligió a mitad de un
  * paso estrecho: con los pasos de la red, un héroe plantado junto a uno es una
@@ -2289,9 +2356,24 @@ export function casillasHostiles(state: GameState, player: PlayerId): Point[] {
   const out: Point[] = [];
   for (const h of state.heroes) if (h.owner !== player) out.push(h.at);
   for (const t of state.towns) if (t.owner !== player && t.garrison.length > 0) out.push(t.at);
+  for (const at of guarnicionesAjenas(state, player)) out.push(at);
   // Un grupo de asaltantes es hostil para todos: se alcanza —atacarlo es
   // pedirlo de destino— y no se cruza.
   for (const r of state.raiders) out.push(r.at);
+  return out;
+}
+
+/**
+ * Las casillas de los pasos y pueblos con guarnición hostil para `player`
+ * (`guarnicionHostil`, la regla que leen también `enemyAt`, `queLoCierra` y la IA),
+ * en el orden de los objetos del mapa: lo hostil que añadió el puesto fronterizo.
+ */
+function guarnicionesAjenas(state: GameState, player: PlayerId): Point[] {
+  const out: Point[] = [];
+  for (const o of state.map.objects) {
+    if (o.kind !== 'node' && o.kind !== 'village') continue;
+    if (guarnicionHostil(state, o.id, player) !== null) out.push(o.at);
+  }
   return out;
 }
 
@@ -2419,11 +2501,15 @@ function queLoCierra(state: GameState, hero: Hero, at: Point): string {
   if (rival !== undefined) return `el héroe rival ${rival.name} ${donde}`;
   const ciudad = state.towns.find((t) => pointKey(t.at) === pointKey(at));
   if (ciudad !== undefined) return `la ciudad ${ciudad.name}, con guarnición, ${donde}`;
+  const sitio = sitioEn(state, at);
+  if (sitio !== null && guarnicionHostil(state, sitio, hero.owner) !== null) {
+    return `${nombreDelSitio(sitio)}, con guarnición`;
+  }
   if (state.raiders.some((r) => pointKey(r.at) === pointKey(at))) {
     return `un grupo de asaltantes ${donde}`;
   }
   throw new Error(
-    `(${at.x},${at.y}) se tiene por hostil y no hay en ella ni héroe, ni ciudad, ni asaltantes`,
+    `(${at.x},${at.y}) se tiene por hostil y no hay en ella ni héroe, ni ciudad, ni guarnición, ni asaltantes`,
   );
 }
 
@@ -2525,9 +2611,9 @@ function moveHero(
     if (vigia === null || i === camino.length - 1) continue;
     // Ver por el camino al que la emboscaría para la marcha aquí, con lo andado
     // ya andado y gastado: la ruta no lo avisaba al salir, y quien la pidió
-    // tiene ocasión de cambiar de idea (#130). Lo que recoge el paso —guarnición,
-    // un nodo que dispersa grupos— cambia quién la emboscaría, y siempre deja un
-    // hecho en la crónica. También en el último paso de hoy: la parada gana al
+    // tiene ocasión de cambiar de idea (#130). Lo que recoge el paso —un cofre, un
+    // nodo que dispersa grupos— puede cambiar quién la emboscaría, y siempre deja
+    // un hecho en la crónica. También en el último paso de hoy: la parada gana al
     // `march_cut`, porque dice por qué conviene no seguir y no solo que se acabó
     // el día.
     const visto = vigia(i + 1, state.log.length > antesDeRecoger);
@@ -2559,19 +2645,16 @@ function moveHero(
 /**
  * Qué hay de hostil en esa casilla, si algo.
  *
- * **El héroe va antes que la ciudad, y es una regla decidida, no un orden de
- * comprobación**: si atacan una ciudad con el héroe del dueño dentro, defiende
- * **solo el héroe con su tropa** (`defenderSide`), y esa batalla es la final.
- * Si pierde, `applyVictory` captura la ciudad, `captureTown` se lleva la
- * guarnición que no llegó a pelear y, si era la base, `checkDefeat` elimina a su
- * dueño. La guarnición que no viaja con él no pelea; quien la quiera en la
- * batalla la recoge en su tropa al pasar por casa.
+ * **El héroe va antes que el sitio**: si atacan una ciudad, un paso o un pueblo
+ * con el héroe del dueño dentro, la batalla es contra él, y defiende con quien
+ * elija de su ejército y de la guarnición (`defensaDeLaIA` al nacer la batalla,
+ * `elegirLaDefensa` si la rehace la persona; D1 del puesto fronterizo, 04-11-2026).
+ * Si pierde, `applyVictory` entrega el sitio y lo que no eligió se pierde con él.
+ * Sustituye a la regla de antes («con el héroe dentro defiende solo él con su
+ * tropa», I2 de la 2a), que dejaba fuera a la guarnición.
  *
- * QA la señaló como fallo (I2 de la 2a: la guarnición inicial se queda fuera
- * justo cuando el dueño vuelve a defender) y el usuario la confirmó con estas
- * palabras: «Solo el heroe con su tropa, es la batalla final (si pierde)». La
- * fija un test de `game.test.ts`; sumar la guarnición al héroe es otra
- * decisión, suya.
+ * Sin héroe, la guarnición entera: la de la ciudad (`town`) o la de un paso o un
+ * pueblo que no es de quien llega (`guarnicion`, D2).
  */
 function enemyAt(state: GameState, at: Point, player: PlayerId): BattleFoe | null {
   const obj = objectAt(state.map, at);
@@ -2592,16 +2675,22 @@ function enemyAt(state: GameState, at: Point, player: PlayerId): BattleFoe | nul
     const defendido = pueblo.garrison.length > 0;
     if (defendido) return { kind: 'town', townId: pueblo.id };
   }
+  if (obj !== undefined && (obj.kind === 'node' || obj.kind === 'village')) {
+    if (guarnicionHostil(state, obj.id, player) !== null) {
+      return { kind: 'garrison', site: obj.id };
+    }
+  }
   return null;
 }
 
 /**
  * Lo que pasa al pisar una casilla: se recoge el cofre, se toma el nodo y se
- * toma el castillo vacío (o se recoge su tropa, si es tuyo).
+ * toma el castillo vacío.
  *
  * Corre en **cada casilla del camino**, no solo en la última, y es lo que hace
- * que un nodo se tome cruzándolo y que la tropa de casa se recoja al pasar. El
- * pueblo no hace nada aquí: es de quien tenga su región.
+ * que un nodo se tome cruzándolo. La tropa de casa ya no se recoge al pasar
+ * (04-11-2026): se recoge parando, con `recoger_tropa`. El pueblo no hace nada
+ * aquí: es de quien tenga su región.
  */
 function collectAt(state: GameState, hero: Hero, at: Point): void {
   const player = playerById(state, hero.owner);
@@ -2630,15 +2719,30 @@ function collectAt(state: GameState, hero: Hero, at: Point): void {
   }
 
   const pueblo = state.towns.find((t) => pointKey(t.at) === pointKey(at));
-  if (pueblo !== undefined) {
-    if (pueblo.owner !== player.id) {
-      captureTown(state, pueblo, player.id);
-      checkDefeat(state);
-    }
-    // La tropa de casa se recoge también al pasar: desde que los puntos del día
-    // no los recorta la tropa nueva (`takeGarrison`), recogerla de camino ya no
-    // deja sin puntos una marcha cobrada.
-    else takeGarrison(state, hero, pueblo);
+  if (pueblo !== undefined && pueblo.owner !== player.id) {
+    captureTown(state, pueblo, player.id);
+    checkDefeat(state);
+  }
+}
+
+/**
+ * El sitio que pierde quien lo guardaba pasa a `ganador`, con lo que se quedó en
+ * él: la ciudad (`captureTown`), el paso (`captureNode`, que borra su guarnición) o,
+ * el pueblo, que no es de nadie por sí mismo, se queda sin guarnición y vuelve a
+ * ser de su región (`quitarLaGuarnicion`). Lo llaman las dos batallas que se pierden
+ * en un sitio: la del héroe que lo defendía y la de la guarnición sola.
+ */
+function entregarElSitio(state: GameState, sitio: Sitio, ganador: PlayerId): void {
+  switch (sitio.kind) {
+    case 'ciudad':
+      captureTown(state, sitio.town, ganador);
+      return;
+    case 'paso':
+      captureNode(state, sitio.nodo, ganador);
+      return;
+    case 'pueblo':
+      quitarLaGuarnicion(state, sitio.pueblo.id);
+      return;
   }
 }
 
@@ -2649,6 +2753,10 @@ function collectAt(state: GameState, hero: Hero, at: Point): void {
  *
  * De quién era se lee ANTES de escribir el dueño nuevo: después ya no hay a
  * quién preguntárselo, y es el dato con el que su dueño de ayer se entera.
+ *
+ * El paso tomado pierde la guarnición que tuviera (`quitarLaGuarnicion`): la del
+ * dueño de antes, vencida o la que no eligió para defenderlo (D1). Así la
+ * guarnición de un paso es siempre del dueño del paso.
  */
 function captureNode(
   state: GameState,
@@ -2657,6 +2765,7 @@ function captureNode(
 ): void {
   const anterior = nodo.owner;
   nodo.owner = player;
+  quitarLaGuarnicion(state, nodo.id);
   emit(state, { kind: 'node_captured', node: nodo.id, from: anterior, actor: player, at: nodo.at });
   dispersarAsaltantes(state);
 }
@@ -2796,9 +2905,9 @@ function restoreHeroFromBattle(mapHero: Hero, battleHero: BattleHero | null, arm
 }
 
 /**
- * El bando que defiende. Con un héroe, **su tropa y nada más**, también dentro
- * de su propia ciudad: la guarnición no se suma. Es la regla decidida por el
- * usuario que cuenta `enemyAt` (I2 de la 2a), no una rama que falte.
+ * El bando que defiende. Con un héroe, su ejército, que en su sitio es el que
+ * eligió de su tropa y de la guarnición antes de montar la batalla
+ * (`montarLaBatalla`, `enemyAt`); sin héroe, la guarnición entera.
  */
 function defenderSide(state: GameState, foe: BattleFoe): BattleSide {
   switch (foe.kind) {
@@ -2826,6 +2935,11 @@ function defenderSide(state: GameState, foe: BattleFoe): BattleSide {
     }
     case 'raider':
       return ladoDeAsaltante(state, foe.raiderId);
+    case 'garrison':
+      return {
+        army: troopsAsStacks(guarnicionDe(state, sitioPorId(state, foe.site))),
+        hero: null,
+      };
     case 'lugar':
       // La tropa del encuentro, como un grupo de asaltantes: sin héroe ni dueño, y
       // en el tope de tropa de la partida (`gruposAlTope`), como todo lo neutral.
@@ -2901,6 +3015,9 @@ export function battleOwners(
     case 'town':
       defender = townById(state, foe.townId).owner;
       break;
+    case 'garrison':
+      defender = dueñoDelSitio(state, sitioPorId(state, foe.site));
+      break;
   }
   // Un grupo de asaltantes no es de nadie: cuando embosca, el atacante es
   // `null` igual que un monstruo cuando defiende.
@@ -2937,6 +3054,8 @@ export function lugarDelRival(state: GameState, foe: BattleFoe): Point {
       return townById(state, foe.townId).at;
     case 'raider':
       return raiderById(state, foe.raiderId).at;
+    case 'garrison':
+      return casillaDelSitio(sitioPorId(state, foe.site));
     case 'lugar':
       return encuentroDe(state, foe).lugar.at;
   }
@@ -2984,7 +3103,9 @@ function protagonista(state: GameState, pending: Enfrentamiento): PlayerId {
 /** Prepara la batalla y la deja pendiente: la juega la IA o el jugador. */
 function abrirBatalla(state: GameState, quienes: Enfrentamiento, ctx: GameContext): void {
   const { attacker, foe } = quienes;
-  emit(state, { kind: 'battle_started', attacker, foe, ...dejarPendiente(state, quienes, ctx) });
+  const { defensa, ...lugar } = dejarPendiente(state, quienes, ctx);
+  emit(state, { kind: 'battle_started', attacker, foe, ...lugar });
+  contarLaDefensa(state, defensa);
 }
 
 /**
@@ -3002,36 +3123,189 @@ function emboscar(
 ): void {
   const attacker = { kind: 'raider', raiderId: raider.id } as const;
   const foe = { kind: 'hero', heroId: hero.id } as const;
-  const lugar = dejarPendiente(state, { attacker, foe }, ctx);
+  const { defensa, ...lugar } = dejarPendiente(state, { attacker, foe }, ctx);
   emit(
     state,
     faltan > 0
       ? { kind: 'battle_started', attacker, foe, ...lugar, faltan }
       : { kind: 'battle_started', attacker, foe, ...lugar },
   );
+  contarLaDefensa(state, defensa);
 }
 
 /**
  * Crea la batalla, la deja en `pendingBattle` y dice de quién es y dónde, que
  * es lo que lleva el `battle_started`.
+ *
+ * Si el defensor es un héroe en un sitio suyo con guarnición, antes de montarla
+ * se elige con quién defiende (D1): la propuesta de la IA (`defensaDeLaIA`), que la
+ * persona puede rehacer antes de la primera jugada (`elegirLaDefensa`). Montar la
+ * batalla no tira (`createBattle` no usa el azar), así que rehacerla no mueve la
+ * partida.
  */
 function dejarPendiente(
   state: GameState,
   quienes: Enfrentamiento,
   ctx: GameContext,
-): { actor: PlayerId; at: Point } {
-  const battle = createBattle(
+): { actor: PlayerId; at: Point; defensa: DefensaElegida | null } {
+  let defensa: DefensaElegida | null = null;
+  if (quienes.foe.kind === 'hero') {
+    const hero = heroById(state, quienes.foe.heroId);
+    const sitio = sitioDelHeroe(state, hero);
+    if (sitio !== null && guarnicionDe(state, sitio).length > 0) {
+      repartir(state, hero, sitio, defensaDeLaIA(state, hero, sitio));
+      defensa = { hero: hero.id, sitio: idDelSitio(sitio) };
+    }
+  }
+  const pending: PendingBattle = {
+    ...quienes,
+    battle: montarLaBatalla(state, quienes, ctx),
+    ...(defensa === null ? {} : { defensa }),
+  };
+  state.pendingBattle = pending;
+  // La casilla se deriva aquí también, y no se toma del paso que abrió la
+  // batalla: así el sitio que dice el `battle_started` y el que dice el
+  // `battle_ended` no son dos respuestas que puedan dejar de coincidir.
+  return {
+    actor: protagonista(state, pending),
+    at: lugarDelRival(state, quienes.foe),
+    defensa,
+  };
+}
+
+/**
+ * Monta el tablero de una batalla del mapa con los bandos de ahora. **La única
+ * llamada a `createBattle` de `state/`** (lo vigila `test/invariantes.test.ts`): la
+ * hacen la batalla que nace y la defensa que se rehace.
+ */
+function montarLaBatalla(state: GameState, quienes: Enfrentamiento, ctx: GameContext): BattleState {
+  return createBattle(
     attackerSide(state, quienes.attacker),
     defenderSide(state, quienes.foe),
     ctx.rng,
     state.combate,
   );
-  const pending: PendingBattle = { ...quienes, battle };
-  state.pendingBattle = pending;
-  // La casilla se deriva aquí también, y no se toma del paso que abrió la
-  // batalla: así el sitio que dice el `battle_started` y el que dice el
-  // `battle_ended` no son dos respuestas que puedan dejar de coincidir.
-  return { actor: protagonista(state, pending), at: lugarDelRival(state, quienes.foe) };
+}
+
+/**
+ * El hecho de la defensa elegida, detrás del `battle_started` (o de lo que la
+ * rehace). Solo la cuenta: que se pueda rehacer lo dice la batalla pendiente.
+ */
+function contarLaDefensa(state: GameState, defensa: DefensaElegida | null): void {
+  if (defensa === null) return;
+  const hero = heroById(state, defensa.hero);
+  const sitio = sitioPorId(state, defensa.sitio);
+  emit(state, {
+    kind: 'defense_set',
+    hero: hero.id,
+    site: idDelSitio(sitio),
+    fighting: hero.army.length,
+    staying: guarnicionDe(state, sitio).length,
+    actor: hero.owner,
+    at: hero.at,
+  });
+}
+
+/**
+ * Si la batalla no ha empezado: nadie ha jugado nada todavía (el registro solo
+ * trae el comienzo de la primera ronda) y el primer turno sigue abierto. Hasta
+ * entonces se puede rehacer la defensa sin que haya dos batallas distintas.
+ */
+function batallaSinEmpezar(battle: BattleState): boolean {
+  return (
+    battle.finished === null &&
+    battle.round === 1 &&
+    battle.golpeEnCurso === null &&
+    (battle.turno === null || battle.turno.n === 1) &&
+    battle.log.every((e) => e.kind === 'round_start')
+  );
+}
+
+/** La defensa que `player` puede elegir ahora: quién la hace, dónde, y cómo queda (`laDefensa`). */
+export type DefensaPorElegir = LaDefensa & { readonly hero: Hero; readonly sitio: Sitio };
+
+/**
+ * Por qué `player` no puede elegir ahora la defensa de su héroe atacado, o `null`:
+ * tiene que haber una batalla pendiente en la que **defiende un héroe suyo en un
+ * sitio suyo con guarnición** (la que guarda `PendingBattle.defensa`), y sin
+ * empezar. No mira lo que se pide: eso lo añade `defensaBlocker`.
+ */
+function defensaPosible(
+  state: GameState,
+  player: PlayerId,
+): { readonly hero: Hero; readonly sitio: Sitio } | { readonly motivo: string } {
+  const pending = state.pendingBattle;
+  if (pending === null) return { motivo: 'no hay ninguna batalla pendiente' };
+  if (pending.foe.kind !== 'hero') return { motivo: 'en esta batalla no defiende ningún héroe' };
+  const hero = heroById(state, pending.foe.heroId);
+  if (hero.owner !== player) return { motivo: `${hero.name} no es de tu bando` };
+  if (pending.defensa === undefined) {
+    return {
+      motivo: `${hero.name} no defiende un sitio suyo con guarnición: pelea con su ejército`,
+    };
+  }
+  if (!batallaSinEmpezar(pending.battle)) {
+    return { motivo: 'la batalla ya ha empezado: la defensa se elige antes de la primera jugada' };
+  }
+  return { hero, sitio: sitioPorId(state, pending.defensa.sitio) };
+}
+
+/**
+ * La defensa que `player` puede elegir ahora, o `null` si no hay ninguna
+ * (`defensaPosible`): de cada tipo entre el ejército y la guarnición, cuántos hay,
+ * cuántos pelean ahora y cuántos con `pedida`, con el motivo del núcleo para no
+ * subir o bajar uno y para no defender así (`laDefensa`). La lee la pantalla de la
+ * defensa, que solo lo pinta.
+ */
+export function defensaPorElegir(
+  state: GameState,
+  player: PlayerId,
+  pedida: readonly LineaDeDefensa[] = [],
+): DefensaPorElegir | null {
+  const posible = defensaPosible(state, player);
+  if ('motivo' in posible) return null;
+  const { hero, sitio } = posible;
+  return { ...laDefensa(state, hero, sitio, pedida), hero, sitio };
+}
+
+/**
+ * Por qué `player` no puede defender con `pedida`, o `null`: lo de
+ * `defensaPosible` y lo que pide (`ejercitoDeLaDefensa`: los tipos, que los haya,
+ * que quepan en su ejército y que lo de fuera quepa en la guarnición).
+ */
+export function defensaBlocker(
+  state: GameState,
+  player: PlayerId,
+  pedida: readonly LineaDeDefensa[],
+): string | null {
+  const posible = defensaPosible(state, player);
+  if ('motivo' in posible) return posible.motivo;
+  const ejercito = ejercitoDeLaDefensa(state, posible.hero, posible.sitio, pedida);
+  return 'motivo' in ejercito ? ejercito.motivo : null;
+}
+
+/**
+ * La persona rehace la defensa de su héroe atacado en su sitio antes de la primera
+ * jugada: reparte su ejército y la guarnición con lo que pide y **vuelve a montar
+ * la batalla** con los bandos de ahora (`montarLaBatalla`; montar no tira, así que
+ * la partida no se mueve). Fuera del turno, como `ascenderVeterano`: la defensa
+ * nace en el turno del rival. Lanza con `defensaBlocker`.
+ */
+export function elegirLaDefensa(
+  state: GameState,
+  ctx: GameContext,
+  player: PlayerId,
+  pedida: readonly LineaDeDefensa[],
+): void {
+  const posible = defensaPosible(state, player);
+  if ('motivo' in posible) throw new Error(`no se puede elegir la defensa: ${posible.motivo}`);
+  const { hero, sitio } = posible;
+  const ejercito = ejercitoDeLaDefensa(state, hero, sitio, pedida);
+  if ('motivo' in ejercito) throw new Error(`no se puede elegir la defensa: ${ejercito.motivo}`);
+  const pending = state.pendingBattle as PendingBattle;
+  repartir(state, hero, sitio, ejercito);
+  state.pendingBattle = { ...pending, battle: montarLaBatalla(state, pending, ctx) };
+  contarLaDefensa(state, { hero: hero.id, sitio: idDelSitio(sitio) });
 }
 
 /**
@@ -3273,13 +3547,17 @@ function heroeVencido(state: GameState, hero: Hero, precio: number | null, at: P
  * ocupa otro héroe, en la primera casilla libre más cercana (`casillaDeVuelta`).
  *
  * Con el ejército vacío, salvo si se rindió (entonces con la tropa que salvó,
- * que ya trae puesta), y sin movimiento hasta mañana. Mira alrededor y, si cae
- * en el castillo, se lleva la guarnición que le quepa: es su casa.
+ * que ya trae puesta), y sin movimiento hasta mañana. Mira alrededor. La
+ * guarnición no la recoge aquí: se recoge con `recoger_tropa` (04-11-2026), y lo
+ * hace la IA al empezar su turno porque el héroe queda marcado (`Hero.vueltoACasa`).
  */
 function volverABase(state: GameState, hero: Hero, base: Town, precio: number | null): void {
   if (precio === null) hero.army = [];
   hero.at = casillaDeVuelta(state, hero, base);
   hero.movePoints = 0;
+  // Volver a casa es llegar a ella: la IA recoge al empezar su turno (`playAiTurn`)
+  // lo que le quepa de la guarnición, como al que acaba una marcha en su sitio.
+  hero.vueltoACasa = true;
   revealAround(state, hero);
   const comun = { kind: 'hero_returned', hero: hero.id, town: base.id } as const;
   const origen = { actor: hero.owner, at: hero.at };
@@ -3289,7 +3567,6 @@ function volverABase(state: GameState, hero: Hero, base: Town, precio: number | 
       ? { ...comun, surrendered: false, ...origen }
       : { ...comun, surrendered: true, gold: precio, ...origen },
   );
-  if (pointKey(hero.at) === pointKey(base.at)) takeGarrison(state, hero, base);
 }
 
 /**
@@ -3458,10 +3735,12 @@ function applyVictory(
       // caso especial de la base dentro de `heroeVencido`, y un héroe que perdía
       // defendiendo otro castillo suyo no lo entregaba. Primero la captura y
       // después el héroe pregunta si le queda base: si era esa, ya no.
-      const pueblo = state.towns.find(
-        (t) => t.owner === derrotado.owner && pointKey(t.at) === pointKey(at),
-      );
-      if (pueblo !== undefined) captureTown(state, pueblo, hero.owner);
+      // Lo mismo si defendía un paso o un pueblo suyo: lo que no eligió para
+      // defenderlo se pierde con el sitio (D1).
+      const sitio = sitioEn(state, at);
+      if (sitio !== null && dueñoDelSitio(state, sitio) === derrotado.owner) {
+        entregarElSitio(state, sitio, hero.owner);
+      }
       heroeVencido(state, derrotado, precio, at);
       break;
     }
@@ -3473,6 +3752,11 @@ function applyVictory(
     case 'raider':
       // Un grupo sin héroe no se rinde: perder es caer entero.
       dejarAsaltante(state, foe.raiderId, []);
+      break;
+    case 'garrison':
+      // La guarnición cae entera (`entregarElSitio`). Quien gana no entra: se queda
+      // en la casilla de antes, como en toda batalla.
+      entregarElSitio(state, sitioPorId(state, foe.site), hero.owner);
       break;
     case 'lugar': {
       // Lo que da ganar: lo que da la opción que la abrió (oro, pieza, tropa: la tropa
@@ -3549,6 +3833,14 @@ function applyDefenderSurvivors(state: GameState, pending: PendingBattle, army: 
       // Repele al héroe y sigue patrullando con lo que le quede.
       dejarAsaltante(state, foe.raiderId, army);
       break;
+    case 'garrison': {
+      // La guarnición sigue guardando con lo que le quede, del mismo dueño.
+      const sitio = sitioPorId(state, foe.site);
+      const dueño = dueñoDelSitio(state, sitio);
+      if (dueño === null) throw new Error(`la guarnición ${delSitio(sitio)} resiste sin dueño`);
+      ponerLaGuarnicion(state, sitio, dueño, army);
+      break;
+    }
     case 'lugar': {
       // El encuentro no queda en el mapa: si se vuelve, es entero. Lo que cambia
       // es el mundo (`alPerder`: estado o marca), y lo protagoniza quien perdió,

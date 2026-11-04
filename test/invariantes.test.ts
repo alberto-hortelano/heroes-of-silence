@@ -2442,6 +2442,66 @@ describe('invariantes del proyecto', () => {
     expect(escrituras).toHaveLength(1);
   });
 
+  it('las guarniciones de pasos y pueblos las escribe solo `state/sitios.ts`', () => {
+    // `GameState.guarniciones` es tropa: quien la escribiera por su cuenta se
+    // saltaría los cupos y el dueño de `intercambioBlocker`, o dejaría una entrada
+    // vacía que hace de un pueblo un sitio guardado por nadie. La escriben dejar,
+    // recoger, la defensa y el cierre de una batalla, todos por `sitios.ts`. Roto a
+    // mano (04-11-2026): un `delete state.guarniciones[nodo.id]` en `captureNode` y
+    // un `state.guarniciones[o.id] = { dueño: 0, tropa: [] }` en `director.ts` salen
+    // rojos con su línea.
+    const PUERTA = 'src/core/state/sitios.ts';
+    const escrituras = infractoresDeCodigo(
+      [...CORE, ...CLIENTE, ...SERVIDOR],
+      /\bguarniciones\s*(?:\[[^\]]*\]\s*)?=(?!=)|\bdelete\s+[\w.]*guarniciones\b|\bguarniciones\s*\[[^\]]*\]\s*\.\w+\s*=(?!=)/,
+    );
+    expect(escrituras.filter((e) => !e.startsWith(`${PUERTA}:`))).toEqual([]);
+    expect(escrituras.filter((e) => e.startsWith(`${PUERTA}:`))).not.toEqual([]);
+  });
+
+  it('la marca de «volvió a casa» del héroe la ponen y la quitan solo `volverABase` y `nextPlayer`', () => {
+    // `Hero.vueltoACasa` es efímera: la pone el héroe vencido o rendido que vuelve a
+    // su base y se borra al acabar el turno de su dueño, y la IA recoge por ella
+    // (H2 del QA del puesto fronterizo). Escrita en otro sitio duraría de más (la IA
+    // recogería cada turno) o de menos (saldría sin la tropa). Roto a mano
+    // (04-11-2026): un `hero.vueltoACasa = true` en `hireHero` y un `delete
+    // hero.vueltoACasa` en `ai/turn.ts` salen rojos con su línea.
+    const PERMITIDO = 'src/core/state/game.ts';
+    const conPermiso = lineasDeLasDeclaraciones(PERMITIDO, ['volverABase', 'nextPlayer']);
+    const escrituras: string[] = [];
+    for (const ruta of [...CORE, ...CLIENTE, ...SERVIDOR]) {
+      for (const [i, linea] of codigoDe(ruta).split('\n').entries()) {
+        if (!/\.vueltoACasa\s*=(?!=)|\bdelete\s+[\w.]*\.vueltoACasa\b/.test(linea)) continue;
+        if (ruta === PERMITIDO && conPermiso.has(i + 1)) continue;
+        escrituras.push(`${ruta}:${i + 1} → ${linea.trim()}`);
+      }
+    }
+    expect(escrituras).toEqual([]);
+    expect(
+      infractoresDeCodigo([PERMITIDO], /\.vueltoACasa\s*=(?!=)|\bdelete\s+[\w.]*\.vueltoACasa\b/),
+    ).toHaveLength(2);
+  });
+
+  it('en `state/` solo `montarLaBatalla` llama a `createBattle`', () => {
+    // La batalla del mapa se monta en un sitio: la que nace y la defensa que la
+    // persona rehace antes de la primera jugada (`elegirLaDefensa`) tienen que
+    // salir de los mismos bandos, o rehacerla daría otra batalla. Roto a mano
+    // (04-11-2026): un `createBattle(...)` en `elegirLaDefensa` sale rojo.
+    const PERMITIDO = 'src/core/state/game.ts';
+    const conPermiso = lineasDeLasDeclaraciones(PERMITIDO, ['montarLaBatalla']);
+    const deState = CORE.filter((r) => r.startsWith('src/core/state/'));
+    const llamadas: string[] = [];
+    for (const ruta of deState) {
+      for (const [i, linea] of codigoDe(ruta).split('\n').entries()) {
+        if (!/\bcreateBattle\s*\(/.test(linea)) continue;
+        if (ruta === PERMITIDO && conPermiso.has(i + 1)) continue;
+        llamadas.push(`${ruta}:${i + 1} → ${linea.trim()}`);
+      }
+    }
+    expect(llamadas).toEqual([]);
+    expect(infractoresDeCodigo([PERMITIDO], /\bcreateBattle\s*\(/)).toHaveLength(1);
+  });
+
   it('`data/clima.json` lo importa solo `core/state/clima.ts`, que lo valida al cargar', () => {
     // Las cifras del clima (pesos, rachas, topes del narrador) se leen validadas
     // en un sitio (`validarClima`). Roto a mano: un `import c from

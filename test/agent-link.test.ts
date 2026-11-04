@@ -2204,10 +2204,10 @@ describe('la tropa se hace héroe, por el cable', () => {
       level: nivelDeUnidad(heroUnit(heroe)),
       movePoints: 0,
     });
-    // Nace en la casilla del castillo y se lleva la guarnición (I1): una base
-    // defendida por un héroe sin tropa caía esa noche ante dos goblins.
+    // Nace en la casilla del castillo y sin tropa: la guarnición ya no la recoge
+    // nadie (04-11-2026); si atacan la base, defiende con lo que se elija de ella.
     expect(nacido.at).toEqual(turno.towns.find((t: any) => t.id === turno.yourBase).at);
-    expect(nacido.army.length).toBeGreaterThan(0);
+    expect(nacido.army).toEqual([]);
     expect(nacido.story).toMatch(/batallas/);
     // El que ya estaba lleva su tipo por defecto y no trae historia.
     const viejo = turno.heroes.find((h: any) => h.id !== nacido.id);
@@ -2217,9 +2217,7 @@ describe('la tropa se hace héroe, por el cable', () => {
     const veredicto = agent.results.find((r) => r.requestId === agent.seen[0]!.requestId)!;
     expect(veredicto.ok).toBe(true);
     expect(veredicto.note).toContain(`es ya un héroe tuyo de tipo ${tipos[1]} y rango 5`);
-    // La nota dice la tropa con la que quedó, no la que se suponía.
-    expect(veredicto.note).toMatch(/Se ha llevado \d+ individuos de la guarnición/);
-    expect(veredicto.note).not.toMatch(/sin tropa/);
+    expect(veredicto.note).toContain('Nace sin tropa en la casilla del castillo');
   });
 
   /** Un tipo de héroe de otra facción que la suya no tiene (hay nombres repetidos). */
@@ -2371,9 +2369,9 @@ describe('la tropa se hace héroe, por el cable', () => {
   });
 
   it('con dos veteranos en la guarnición, la segunda petición dice dónde está el segundo DESPUÉS del primer ascenso', async () => {
-    // El primer nacido ocupa el castillo y recoge la guarnición (I1), y con ella
-    // al segundo veterano: la petición de este tiene que decir que ya va en la
-    // tropa de ese héroe, no en la guarnición de la foto de antes (N1 de QA).
+    // La petición del segundo se hace DESPUÉS del primer ascenso (N1 de QA): cuando
+    // el nacido recogía la guarnición, el segundo pasaba a su tropa. Desde el
+    // 04-11-2026 nadie la recoge, así que sigue en la guarnición, y eso dice.
     const { link, agent } = await montar(narrador(bueno));
     let segundo = '';
     const director = new Director(link, {
@@ -2398,8 +2396,7 @@ describe('la tropa se hace héroe, por el cable', () => {
     const peticiones = agent.seen.filter((p) => p.kind === 'hero_from_troop');
     expect(peticiones).toHaveLength(2);
     expect(peticiones[0]!.payload.veteran.in).toBe('garrison');
-    const nacido = `hero-${peticiones[0]!.payload.veteran.id}`;
-    expect(peticiones[1]!.payload.veteran).toMatchObject({ id: segundo, in: { hero: nacido } });
+    expect(peticiones[1]!.payload.veteran).toMatchObject({ id: segundo, in: 'garrison' });
   });
 
   it('sin tope lleno el turno no trae el aviso de veteranos esperando', async () => {

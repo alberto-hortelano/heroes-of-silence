@@ -231,8 +231,13 @@ html, body {
 
 #topbar .boton-de-la-barra { font: 12px var(--letra-ui); padding: 0.15rem 0.6rem; }
 
-/* «¿Volver al menú?» a media partida: modal, centrado, con el aspecto de la conversación. */
-.salir-al-menu {
+/* «¿Volver al menú?» a media partida: modal, centrado, con el aspecto de la conversación.
+   La guarnición de un sitio propio y la defensa al ser atacado en él (puesto
+   fronterizo, 04-11-2026) son modales con su mismo aspecto, más anchas y con
+   desplazamiento: dos columnas en la de dejar y recoger, una debajo de otra en un
+   móvil. */
+.salir-al-menu,
+.guarnicion {
   max-width: min(24rem, calc(100% - 2rem));
   padding: 0.9rem 1.1rem;
   background: var(--fondo-dialogo);
@@ -241,10 +246,18 @@ html, body {
   border-radius: 6px;
   box-shadow: var(--dialogo-sombra);
 }
-.salir-al-menu::backdrop { background: var(--velo); }
-.salir-al-menu h3 { margin: 0 0 0.4rem; }
+.salir-al-menu::backdrop,
+.guarnicion::backdrop { background: var(--velo); }
+.salir-al-menu h3,
+.guarnicion h3 { margin: 0 0 0.4rem; }
 .salir-al-menu p { margin: 0 0 0.8rem; }
-.salir-al-menu .botones { display: flex; gap: 0.6rem; justify-content: flex-end; flex-wrap: wrap; }
+.salir-al-menu .botones,
+.guarnicion .botones { display: flex; gap: 0.6rem; justify-content: flex-end; flex-wrap: wrap; }
+.guarnicion { max-width: min(44rem, calc(100% - 2rem)); max-height: calc(100% - 2rem); overflow: auto; }
+.guarnicion.defensa { max-width: min(30rem, calc(100% - 2rem)); }
+.guarnicion h4 { margin: 0.6rem 0 0.3rem; }
+.guarnicion .botones { margin-top: 0.8rem; }
+.columnas-de-la-guarnicion { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 0.4rem 1rem; }
 
 /* Un desplegable de la barra de arriba (`selectorDeLaBarra`): «Ejército» en la
    partida y «Tema» en la arena, con la letra de la barra. */
@@ -545,8 +558,15 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
    se puede elegir, apagada y con su motivo debajo. */
 .opciones-del-lugar { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
 .opciones-del-lugar button { width: 100%; text-align: left; }
-.opciones-del-lugar button[aria-disabled='true'] { opacity: 0.55; cursor: not-allowed; }
-.opciones-del-lugar .motivo { display: block; color: var(--rechazo); margin: 0.1rem 0 0 0.4rem; }
+/* Lo que no se puede, apagado (`apagadoPor`) y con su motivo debajo (`motivoDebajo`):
+   las opciones de un lugar y las pantallas de la guarnición. */
+.opciones-del-lugar button[aria-disabled='true'],
+.guarnicion button[aria-disabled='true'] { opacity: 0.55; cursor: not-allowed; }
+.opciones-del-lugar .motivo,
+.guarnicion .motivo { display: block; color: var(--rechazo); margin: 0.1rem 0 0 0.4rem; }
+.guarnicion .motivo { margin-bottom: 0.2rem; font-size: 0.85em; }
+/* Lo que solo informa (`notaDebajo`): ya pelean todos, un personaje va con su héroe. */
+.guarnicion .motivo.nota { color: var(--ink-dim); }
 .abierto-en-la-base { border-bottom: 1px solid var(--borde-oscuro); padding-bottom: 0.6rem; margin-bottom: 0.6rem; }
 .abierto-en-la-base .motivo { color: var(--rechazo); }
 /* La escena de la morada: «+1» y «Todo» uno al lado del otro. */

@@ -67,17 +67,12 @@ import type {
   TipoDeEscala,
   TipoDePuerta,
 } from '@core/battle/types.js';
-import { cuerpoDe } from '@core/catalogo.js';
+import { cuerpoDe, unidadDelJuego } from '@core/catalogo.js';
 import type { ReglasDelCombate } from '@core/combate.js';
 import { figuraDelHeroe, isShooter } from '@core/data.js';
 import { type CatalogoDeEquipo, type Portador, pedidoDelPuesto, pieza } from '@core/hero/equipo.js';
 import { type Hero, maxMana } from '@core/hero/hero.js';
-import {
-  armyLeadership,
-  GARRISON_LEADERSHIP,
-  heroLeadership,
-  troopUnit,
-} from '@core/hero/troop.js';
+import { armyLeadership, heroLeadership, troopUnit } from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
 import type { MapObject, PathStep } from '@core/map/map.js';
 import { type Lugar, lugarSiExiste, type MundoLeido } from '@core/mundo/formato.js';
@@ -111,7 +106,9 @@ import {
   battleOwners,
   caminoHasta,
   candidatosAHeroe,
+  defensaPorElegir,
   destinoDeRecluta,
+  elegirLaDefensa,
   type GameContext,
   type GameState,
   heroById,
@@ -138,6 +135,22 @@ import {
 } from '@core/state/game.js';
 import { type RentaDelDia, rentaDelDia } from '@core/state/renta.js';
 import { newGame } from '@core/state/setup.js';
+import {
+  cupoDeLaGuarnicion,
+  delSitio,
+  type ElReparto,
+  elReparto,
+  type FilaDeLaDefensa,
+  guarnicionDe,
+  type LaDefensa,
+  type LineaDelReparto,
+  lineasDelEjercito,
+  nombreDelSitio,
+  type Sitio,
+  sitioDelHeroe,
+  sitioPorId,
+  sitioSiExiste,
+} from '@core/state/sitios.js';
 import { building } from '@core/town/buildings.js';
 import { figurasDeLaGente } from '@core/town/figuras.js';
 import { construidoEn, type SitioId, sitiosConstruidos } from '@core/town/sitios.js';
@@ -1493,8 +1506,9 @@ export class Session implements ControlDeBatalla {
 
   /**
    * El liderazgo que ocupa una tropa y su tope: la de un héroe, o la guarnición
-   * de un castillo. Las dos por el mismo camino, para que el panel pinte la
-   * misma fila con una sola llamada.
+   * de un sitio (una ciudad, un paso o un pueblo, por su id: `guarnicionDe` y
+   * `cupoDeLaGuarnicion`). Por el mismo camino, para que el panel de la base y la
+   * pantalla de la guarnición pinten la misma fila con una sola llamada.
    */
   liderazgo(de: { readonly heroe: string } | { readonly guarnicion: string }): {
     ocupado: number;
@@ -1504,8 +1518,11 @@ export class Session implements ControlDeBatalla {
       const hero = heroById(this.state, de.heroe);
       return { ocupado: armyLeadership(hero.army), tope: heroLeadership(hero) };
     }
-    const town = townById(this.state, de.guarnicion);
-    return { ocupado: armyLeadership(town.garrison), tope: GARRISON_LEADERSHIP };
+    const sitio = sitioPorId(this.state, de.guarnicion);
+    return {
+      ocupado: armyLeadership(guarnicionDe(this.state, sitio)),
+      tope: cupoDeLaGuarnicion(this.state).tope,
+    };
   }
 
   // ------------------------------------------------------------ aventura
@@ -1539,6 +1556,13 @@ export class Session implements ControlDeBatalla {
 
     if (heroSeleccionado === null) {
       this.status = 'No tienes ningún héroe seleccionado.';
+      return;
+    }
+
+    // Pulsar al héroe en un paso o un pueblo suyo abre su guarnición, como el
+    // castillo abre la base (la de la ciudad, en la base).
+    if (sameTile(heroSeleccionado.at, p) && this.enSuPasoOPueblo(heroSeleccionado)) {
+      this.abrirLaGuarnicion(heroSeleccionado.id);
       return;
     }
 
@@ -1606,6 +1630,249 @@ export class Session implements ControlDeBatalla {
     if (pueblo !== undefined) this.openTown(pueblo.id);
     // Se entra en un lugar al ACABAR la marcha en él (no al pasar, como el cofre).
     else if (lugarEn(this.state, hero.at) !== null) this.abrirElLugar(heroId);
+    // Y parar en un paso o un pueblo suyo abre su guarnición; pasar de largo, no.
+    else if (this.enSuPasoOPueblo(hero)) this.abrirLaGuarnicion(heroId);
+  }
+
+  // ------------------------------------------------------------ guarnición
+
+  /** Si `hero` está en un paso o un pueblo suyo (la ciudad tiene su base). */
+  enSuPasoOPueblo(hero: Hero): boolean {
+    const sitio = sitioDelHeroe(this.state, hero);
+    return sitio !== null && sitio.kind !== 'ciudad';
+  }
+
+  /** El héroe cuya guarnición está abierta (`<dialog id="guarnicion">`), o `null`. */
+  get guarnicionAbierta(): string | null {
+    return this.repartoEnPantalla?.hero ?? null;
+  }
+  /**
+   * La guarnición abierta: de qué héroe y el reparto que se edita (`LineaDelReparto`:
+   * lo que iría con él), o `null`. Nace como están (`lineasDelEjercito`) y nada pasa
+   * al núcleo hasta «Confirmar»: Escape y «Cancelar» lo descartan.
+   */
+  private repartoEnPantalla: { readonly hero: string; lineas: LineaDelReparto[] } | null = null;
+
+  /**
+   * Abre la pantalla de repartir la tropa del sitio suyo donde está `heroId`: una
+   * ciudad (desde su base), un paso o un pueblo (al parar en él, o pulsándolo con el
+   * héroe dentro). Fuera de un sitio suyo no se abre, y la barra dice por qué.
+   */
+  abrirLaGuarnicion(heroId: string): void {
+    const hero = heroById(this.state, heroId);
+    if (hero.owner !== this.viewer || sitioDelHeroe(this.state, hero) === null) {
+      this.status = `${hero.name} no está en ningún sitio tuyo: la tropa se deja y se recoge en una ciudad, un paso o un pueblo tuyos.`;
+      return;
+    }
+    this.repartoEnPantalla = { hero: heroId, lineas: lineasDelEjercito(hero.army) };
+    this.tocar();
+  }
+
+  /** Escape o «Cancelar»: se cierra y lo editado se descarta. */
+  cerrarLaGuarnicion(): void {
+    if (this.repartoEnPantalla === null) return;
+    this.repartoEnPantalla = null;
+    this.tocar();
+  }
+
+  /**
+   * Lo que enseña la pantalla de la guarnición: cómo quedarían el héroe y la
+   * guarnición con lo editado, agrupados y con sus cupos, y el motivo del núcleo para
+   * no confirmarlo (`elReparto`; antes, el turno). `null` si no hay ninguna abierta o
+   * el héroe ya no está en su sitio.
+   */
+  vistaDeLaGuarnicion(): VistaDeLaGuarnicion | null {
+    const abierto = this.repartoEnPantalla;
+    const hero =
+      abierto === null ? undefined : this.state.heroes.find((h) => h.id === abierto.hero);
+    if (abierto === null || hero === undefined) return null;
+    const sitio = sitioDelHeroe(this.state, hero);
+    if (sitio === null) return null;
+    const reparto = elReparto(this.state, this.viewer, hero, abierto.lineas);
+    return {
+      ...reparto,
+      hero,
+      delSitio: delSitio(sitio),
+      motivo: reparto.cambia ? (this.bloqueoDeTurno() ?? reparto.motivo) : null,
+    };
+  }
+
+  /**
+   * Pasa uno del grupo de `creature` —o el veterano `veterano`— al otro lado del
+   * reparto que se edita: `hacia` el héroe o la guarnición. Solo cambia la pantalla;
+   * lo que no cabría lo dice «Confirmar». Lo único que no se pasa es un personaje,
+   * con el motivo que escribe el núcleo en su fila.
+   */
+  moverEnElReparto(hacia: 'heroe' | 'guarnicion', creature: string, veterano?: string): void {
+    const abierto = this.repartoEnPantalla;
+    const vista = this.vistaDeLaGuarnicion();
+    if (abierto === null || vista === null) return;
+    // El grupo tiene que estar en el lado del que sale: así no se pide uno que no hay.
+    const origen = hacia === 'heroe' ? vista.guarnicion : vista.heroe;
+    const fila = origen.filas.find((f) =>
+      veterano === undefined
+        ? f.grupo.creature === creature &&
+          f.grupo.veterania === undefined &&
+          f.grupo.member === undefined
+        : f.grupo.veterania?.id === veterano,
+    );
+    if (fila === undefined) {
+      this.status = `no queda ningún ${unidadDelJuego(creature).name} ${hacia === 'heroe' ? 'en la guarnición' : `con ${vista.hero.name}`}`;
+      this.tocar();
+      return;
+    }
+    if (fila.motivo !== null) {
+      this.status = comoFrase(fila.motivo);
+      this.tocar();
+      return;
+    }
+    if (veterano !== undefined) {
+      abierto.lineas =
+        hacia === 'heroe'
+          ? [...abierto.lineas, { veterano }]
+          : abierto.lineas.filter((l) => !('veterano' in l && l.veterano === veterano));
+    } else {
+      const antes = abierto.lineas.find(
+        (l): l is { creature: string; count: number } => 'creature' in l && l.creature === creature,
+      );
+      const count = (antes?.count ?? 0) + (hacia === 'heroe' ? 1 : -1);
+      abierto.lineas = [...abierto.lineas.filter((l) => l !== antes), { creature, count }];
+    }
+    this.status = '';
+    this.tocar();
+  }
+
+  /**
+   * «Confirmar»: manda el reparto al núcleo (`repartir_tropa`, que juzga solo el
+   * reparto final) y cierra la pantalla. Sin cambios, la cierra sin más; con un
+   * rechazo, se queda abierta con su motivo en la barra.
+   */
+  confirmarElReparto(): void {
+    const abierto = this.repartoEnPantalla;
+    const vista = this.vistaDeLaGuarnicion();
+    if (abierto === null || vista === null) return;
+    if (!vista.cambia) {
+      this.cerrarLaGuarnicion();
+      return;
+    }
+    if (vista.motivo !== null) {
+      this.status = comoFrase(vista.motivo);
+      this.tocar();
+      return;
+    }
+    const hecho = this.run(() =>
+      applyAdventureAction(
+        this.state,
+        { type: 'repartir_tropa', hero: abierto.hero, enElHeroe: abierto.lineas },
+        this.ctx,
+        this.viewer,
+      ),
+    );
+    if (hecho) this.cerrarLaGuarnicion();
+  }
+
+  /** El sitio de un hecho de la crónica por su id, para nombrarlo (`renderLog`), o `null`. */
+  sitioDeLaCronica(id: string): Sitio | null {
+    return sitioSiExiste(this.state, id);
+  }
+
+  // ------------------------------------------------------------ la defensa
+
+  /**
+   * Con cuántos de cada tipo defiende la persona, mientras elige (`<dialog
+   * id="defensa">`), o `null` si no elige nada: solo lo que ha cambiado, sobre la
+   * propuesta de la IA (la de `defensaDeLaIA`, ya repartida al nacer la batalla).
+   */
+  private defensaEnPantalla: Map<string, number> | null = null;
+
+  /**
+   * La pantalla de la defensa, o `null`: lo que hay, lo que pelea y por qué no
+   * más ni menos, todo del núcleo (`defensaPorElegir`); aquí solo los nombres.
+   */
+  get defensa(): VistaDeLaDefensa | null {
+    const elegida = this.defensaEnPantalla;
+    if (elegida === null) return null;
+    const pedida = [...elegida].map(([creature, count]) => ({ creature, count }));
+    const d = defensaPorElegir(this.state, this.viewer, pedida);
+    if (d === null) return null;
+    return {
+      ...d,
+      sitio: nombreDelSitio(d.sitio),
+      filas: d.filas.map((f) => ({ ...f, nombre: unidadDelJuego(f.creature).name })),
+    };
+  }
+
+  /** Uno más (o uno menos) de `creature` en la defensa que se elige. */
+  cambiarLaDefensa(creature: string, cambio: 1 | -1): void {
+    const vista = this.defensa;
+    const fila = vista?.filas.find((f) => f.creature === creature);
+    if (vista === null || fila === undefined) return;
+    const motivo = cambio === 1 ? (fila.motivoMas ?? fila.notaMas) : fila.motivoMenos;
+    if (motivo !== null) {
+      this.status = comoFrase(motivo);
+      return;
+    }
+    this.defensaEnPantalla?.set(creature, fila.pelean + cambio);
+    this.status = '';
+    this.tocar();
+  }
+
+  /**
+   * «Defender»: si la persona cambió la propuesta, el núcleo reparte y vuelve a
+   * montar la batalla (`elegirLaDefensa`); con ella o sin cambios, empieza la
+   * batalla (si la iniciativa es del rival, mueve él). Un rechazo se queda en la
+   * pantalla con su motivo.
+   */
+  confirmarLaDefensa(): void {
+    const vista = this.defensa;
+    if (vista === null) return;
+    if (vista.motivo !== null) {
+      this.status = comoFrase(vista.motivo);
+      return;
+    }
+    if (vista.filas.some((f) => f.pelean !== f.propuesta)) {
+      try {
+        elegirLaDefensa(
+          this.state,
+          this.ctx,
+          this.viewer,
+          vista.filas.map((f) => ({ creature: f.creature, count: f.pelean })),
+        );
+      } catch (err) {
+        this.status = comoFrase(mensaje(err));
+        return;
+      }
+    }
+    this.empezarLaDefensa();
+  }
+
+  /**
+   * Si la pantalla de la defensa está abierta: hasta cerrarla no se juega nada de
+   * la batalla, y la barra lo dice. La compuerta de jugar y de «Resolver sola».
+   */
+  private eligiendoLaDefensa(): boolean {
+    if (this.defensaEnPantalla === null) return false;
+    this.status = 'Antes de nada, elige con quién defiendes.';
+    return true;
+  }
+
+  /** Escape o «Como propone la IA»: se defiende con la propuesta, sin cambiarla. */
+  dejarLaDefensaDeLaIA(): void {
+    if (this.defensaEnPantalla === null) return;
+    this.empezarLaDefensa();
+  }
+
+  /**
+   * Cierra la pantalla de la defensa y empieza la batalla. Sin `alCambiarSinGesto`:
+   * lo cierra un gesto (un clic o Escape), que ya pide fotograma, y quien espera
+   * esa señal para saber que hay una defensa nueva (`pnpm capturas`) la tomaría por
+   * otra.
+   */
+  private empezarLaDefensa(): void {
+    this.defensaEnPantalla = null;
+    this.status = '¡Te atacan! Defiéndete.';
+    this.advanceEnemyTurns();
+    this.tocar();
   }
 
   // ------------------------------------------------------------ lugares
@@ -1745,6 +2012,16 @@ export class Session implements ControlDeBatalla {
       this.alCerrarLaDefensa = resolve;
     });
     this.scene = 'battle';
+    // Con el héroe en un sitio suyo con guarnición, antes de la primera jugada se
+    // elige con quién defiende (D1 del puesto fronterizo): la batalla empieza al
+    // confirmar (`confirmarLaDefensa`) o al dejar la propuesta de la IA.
+    if (defensaPorElegir(this.state, this.viewer) !== null) {
+      this.defensaEnPantalla = new Map();
+      this.status = '¡Te atacan! Elige con quién defiendes.';
+      this.alCambiarSinGesto();
+      await cerrada;
+      return;
+    }
     this.status = '¡Te atacan! Defiéndete.';
     // Si la iniciativa la tiene el rival, mueve él primero.
     this.advanceEnemyTurns();
@@ -2698,6 +2975,7 @@ export class Session implements ControlDeBatalla {
    * rueda (`ruedaPendiente`) espera su elección (`elegirEnLaRueda`).
    */
   playBattleAction(action: BattleAction): void {
+    if (this.eligiendoLaDefensa()) return;
     if (this.battle !== null) this.rueda.jugar(this.battle, action);
   }
 
@@ -2733,6 +3011,7 @@ export class Session implements ControlDeBatalla {
   /** Resuelve el resto de la batalla con la IA en ambos bandos. */
   autoResolveBattle(): void {
     if (this.state.pendingBattle === null) return;
+    if (this.eligiendoLaDefensa()) return;
     // Con un golpe plantado ante la rueda, la IA no sabría qué hacer con él.
     if (this.rueda.pendiente !== null) {
       this.status = comoFrase(ELIGE_EN_LA_RUEDA);
@@ -3436,6 +3715,23 @@ interface ConductorDelCruce {
   };
   readonly alMoverse: () => void;
   readonly seguirLaIA: () => void;
+}
+
+/**
+ * La pantalla de repartir la tropa (`Session.vistaDeLaGuarnicion`): la del núcleo
+ * (`elReparto`), con el héroe y el nombre del sitio, y en `motivo` también el turno.
+ */
+export interface VistaDeLaGuarnicion extends ElReparto {
+  readonly hero: Hero;
+  /** «del paso de montaña de (3,4)», «de Villarreal». */
+  readonly delSitio: string;
+}
+
+/** La pantalla de la defensa (`Session.defensa`): la del núcleo, con los nombres. */
+export interface VistaDeLaDefensa extends Omit<LaDefensa, 'filas'> {
+  readonly hero: Hero;
+  readonly sitio: string;
+  readonly filas: readonly (FilaDeLaDefensa & { readonly nombre: string })[];
 }
 
 /** Lo que la rueda enseña a quien elige (`CruceDeLaRueda.pendiente`). */

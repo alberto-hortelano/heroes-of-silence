@@ -471,7 +471,7 @@ describe('la veteranía vive en el individuo y lo acompaña (C3)', () => {
     expect(vuelto.army[0]?.veterania).toMatchObject({ id: 'veterano-a', batallas: 2 });
   });
 
-  it('la guarnición que defiende y repele conserva y suma; al entrar el héroe se la lleva igual', () => {
+  it('la guarnición que defiende y repele conserva y suma; al recogerla el héroe se la lleva igual', () => {
     const state = newGame({ seed: 5 });
     const c = ctx(5);
     const base = baseOf(state, 0)!;
@@ -499,6 +499,19 @@ describe('la veteranía vive en el individuo y lo acompaña (C3)', () => {
     nuestro.army = [];
     nuestro.movePoints = 5000;
     applyAdventureAction(state, { type: 'move_hero', hero: nuestro.id, to: base.at }, c, 0);
+    // Entrar no recoge (04-11-2026): se recoge el veterano por su id.
+    applyAdventureAction(
+      state,
+      {
+        type: 'recoger_tropa',
+        hero: nuestro.id,
+        creature: TROPA,
+        count: 1,
+        veterano: 'veterano-g',
+      },
+      c,
+      0,
+    );
     expect(heroById(state, nuestro.id).army).toContain(guardado);
   });
 

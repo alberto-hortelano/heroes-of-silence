@@ -132,15 +132,13 @@ describe('la tropa se hace héroe: el ascenso', () => {
     // ocupa el héroe que ya estaba).
     const d = Math.max(Math.abs(heroe.at.x - base.at.x), Math.abs(heroe.at.y - base.at.y));
     expect(d).toBe(1);
-    // El individuo ya no está en la guarnición, y nadie más se ha ido: lo que
-    // falte de la guarnición lo ha recogido el héroe que ocupa la base, que es
-    // la regla (`takeGarrison`). Cuántos caben depende de la tropa con la que
-    // nace, y esa sale del `rng` después del mapa: contarlo con la semilla era
-    // anclar el mapa de la semilla 7.
-    expect(base.garrison.length + delQueEstaba.army.length).toBe(guarnicion - 1 + tropa);
+    // El individuo ya no está en la guarnición, y nadie más se ha movido: ni el
+    // nacido ni el que ocupa la base recogen la guarnición (la recogida
+    // automática se retiró el 04-11-2026; se recoge con `recoger_tropa`).
+    expect(base.garrison).toHaveLength(guarnicion - 1);
+    expect(delQueEstaba.army).toHaveLength(tropa);
     expect(base.garrison.some((t) => t.veterania?.id === 'veterano-guarnicion')).toBe(false);
-    // La crónica lo cuenta, con su dueño y la casilla donde nace (detrás puede
-    // ir el `garrison_taken` del que ocupa la base).
+    // La crónica lo cuenta, con su dueño y la casilla donde nace.
     const hecho = [...state.log].reverse().find((e) => e.kind === 'hero_promoted');
     expect(hecho).toMatchObject({
       kind: 'hero_promoted',
@@ -154,10 +152,11 @@ describe('la tropa se hace héroe: el ascenso', () => {
     expect(cronicaPara(state, 1, 5).some((e) => e.kind === 'hero_promoted')).toBe(true);
   });
 
-  it('si el portador ocupa el castillo, nace al lado y el portador, que se queda sin tropa, recoge la guarnición', () => {
-    // Antes este test fijaba lo contrario —«el portador puede quedarse sin
-    // tropa» y «la guarnición no se toca»—, que era el agujero I1: el portador
-    // vacío en la casilla del castillo es quien la defiende, solo.
+  it('si el portador ocupa el castillo, nace al lado y la guarnición no se toca', () => {
+    // Hasta el 04-11-2026 el portador, sin tropa, recogía la guarnición: era el
+    // agujero I1, el portador vacío en la casilla del castillo la defendía solo.
+    // Desde que el héroe atacado en su sitio defiende con la guarnición
+    // (`defensaDeLaIA`), no hace falta moverla: lo vigila la sonda de abajo.
     const { state, base } = conVeteranos();
     const portador = heroesOf(state, 1)[0]!;
     // Un portador con un único individuo, que es el veterano.
@@ -174,10 +173,9 @@ describe('la tropa se hace héroe: el ascenso', () => {
     // El portador está en la casilla del castillo: el nuevo, al lado y sin tropa.
     expect(heroe.at).not.toEqual(base.at);
     expect(heroe.army).toEqual([]);
-    // El que defiende, el de la casilla, se lleva lo que le quepa de la guarnición.
-    expect(portador.army.length).toBeGreaterThan(0);
-    expect(portador.army.length + base.garrison.length).toBe(guarnicion);
-    expect(portador.army.some((t) => t.veterania?.id === 'veterano-guarnicion')).toBe(true);
+    expect(portador.army).toEqual([]);
+    expect(base.garrison).toHaveLength(guarnicion);
+    expect(base.garrison.some((t) => t.veterania?.id === 'veterano-guarnicion')).toBe(true);
   });
 
   it('el día en que nace no se mueve: un `move_hero` suyo se rechaza por falta de puntos', () => {
@@ -215,10 +213,12 @@ describe('la tropa se hace héroe: el ascenso', () => {
 
 /**
  * La sonda de QA (I1), hecha test: el héroe del jugador 0 llega junto a la base
- * del 1 con solo dos goblins (lo más barato del catálogo) y entra. Con el héroe del dueño dentro, la ciudad
- * la defiende solo él con su tropa (regla del usuario); así que un nacido sin
- * tropa en la casilla del castillo dejaba la base indefensa esa misma noche.
- * Devuelve si la base sigue siendo del 1 y cuántos defendieron.
+ * del 1 con solo dos goblins (lo más barato del catálogo) y entra. Con la regla de
+ * antes —con el héroe del dueño dentro, la defendía solo él con su tropa— un
+ * nacido sin tropa en la casilla del castillo dejaba la base indefensa esa misma
+ * noche. Desde el 04-11-2026 el héroe atacado en su sitio defiende con lo que se
+ * elija de la guarnición (`defensaDeLaIA`). Devuelve si la base sigue siendo del 1
+ * y cuántos defendieron.
  */
 function asaltoConDosGoblins(
   seed: number,
@@ -275,12 +275,12 @@ describe('la tropa se hace héroe: la base no se queda sin defensa (I1)', () => 
       const con = asaltoConDosGoblins(seed, ascender);
       expect(sin.aguanta).toBe(true);
       expect(con.aguanta).toBe(sin.aguanta);
-      // El nacido se lleva la guarnición: defiende con ella, no solo.
+      // El nacido, sin tropa, defiende con la guarnición (la defensa elegida), no solo.
       expect(con.defensores).toBeGreaterThan(1);
     });
   }
 
-  it('el nacido en la casilla del castillo recoge la guarnición, como el contratado', () => {
+  it('el nacido en la casilla del castillo no recoge la guarnición, como el contratado', () => {
     const state = newGame({ seed: 11 });
     // El héroe de salida nace en la base (19-10-2026): fuera, para que la ocupe el nacido.
     fueraDeSuBase(state, 1);
@@ -293,12 +293,10 @@ describe('la tropa se hace héroe: la base no se queda sin defensa (I1)', () => 
       heroType: tipoDel1(state, 0),
     });
     expect(heroe.at).toEqual(base.at);
-    expect(heroe.army.length).toBeGreaterThan(0);
-    expect(heroe.army.length + base.garrison.length).toBe(resto);
-    expect(state.log.some((e) => e.kind === 'garrison_taken' && e.hero === heroe.id)).toBe(true);
-    // El hecho del ascenso va antes que el de recoger: primero nace.
-    const kinds = state.log.slice(-2).map((e) => e.kind);
-    expect(kinds).toEqual(['hero_promoted', 'garrison_taken']);
+    expect(heroe.army).toEqual([]);
+    expect(base.garrison).toHaveLength(resto);
+    // El último hecho es el ascenso: nadie recoge nada detrás.
+    expect(state.log.at(-1)?.kind).toBe('hero_promoted');
   });
 });
 

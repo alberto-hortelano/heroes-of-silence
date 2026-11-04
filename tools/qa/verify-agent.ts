@@ -145,6 +145,12 @@ const emboscadasVistas = new Set<string>();
  */
 const licenciasVistas = new Set<string>();
 /**
+ * Lo dejado y recogido de la guarnición que le consta al agente (`troops_left`,
+ * `troops_taken`): el arnés deja y recoge uno con el héroe en su ciudad
+ * (`politica.ts`), y que conste es que las dos jugadas cruzaron y se aplicaron.
+ */
+const guarnicionVista = { dejada: new Set<string>(), recogida: new Set<string>() };
+/**
  * El equipo, cruzado de verdad: las compras que le constan al agente en su
  * crónica (`item_bought`) y el primer individuo de su tropa que aparece con
  * `equipment` en un turno, comprobado **una vez** contra `game_state`. El
@@ -743,6 +749,14 @@ async function terminarBien(
     );
   }
   log(`licencias: ${licenciasVistas.size} en la crónica del agente`);
+  if (guarnicionVista.dejada.size === 0 || guarnicionVista.recogida.size === 0) {
+    throw new Error(
+      `el agente no ha dejado y recogido tropa de la guarnición (${guarnicionVista.dejada.size} dejadas, ${guarnicionVista.recogida.size} recogidas): \`leave_troops\` y \`take_troops\` no han cruzado el circuito`,
+    );
+  }
+  log(
+    `guarnición: ${guarnicionVista.dejada.size} veces dejada y ${guarnicionVista.recogida.size} recogida en la crónica del agente`,
+  );
   if (comprasVistas.size === 0) {
     throw new Error(
       'el agente no ha comprado nada en la armería: `buy_item` no ha cruzado el circuito',
@@ -1052,6 +1066,8 @@ async function main(): Promise<void> {
           emboscadasVistas.add(JSON.stringify(e));
         }
         if (e.kind === 'dismissed') licenciasVistas.add(JSON.stringify(e));
+        if (e.kind === 'troops_left') guarnicionVista.dejada.add(JSON.stringify(e));
+        if (e.kind === 'troops_taken') guarnicionVista.recogida.add(JSON.stringify(e));
         if (e.kind === 'item_bought') comprasVistas.add(JSON.stringify(e));
       }
       if (equipo.visto === null) await cruzaElEquipo(client, payload);

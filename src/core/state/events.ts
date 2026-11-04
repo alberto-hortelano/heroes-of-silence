@@ -34,6 +34,13 @@ export type BattleFoe =
   /** Un grupo de asaltantes al que ataca un héroe (`state/asaltantes.ts`). */
   | { readonly kind: 'raider'; readonly raiderId: string }
   /**
+   * La guarnición de un paso o de un pueblo (`state/sitios.ts`, `GameState.guarniciones`)
+   * sin héroe dentro: la que dejó allí su dueño (`dejar_tropa`). `site` es el id del
+   * objeto del mapa (el nodo o el pueblo). La de una ciudad es `town`. En inglés, como
+   * los demás: viaja tal cual al agente en `recentEvents` (H7 del QA de la fase 1).
+   */
+  | { readonly kind: 'garrison'; readonly site: string }
+  /**
    * Un encuentro de un lugar de un mundo (`core/mundo/`): la tropa del encuentro,
    * sin héroe ni dueño, que abre una opción del diálogo (`opcion`). Al ganarla se da
    * lo que da esa opción y su `alGanar`; al perderla, su `alPerder`.
@@ -177,7 +184,36 @@ type Cuerpo =
    */
   | { kind: 'hero_promoted'; hero: string; town: string; creature: string; name: string }
   | { kind: 'spells_learned'; hero: string; town: string; spells: string[] }
-  | { kind: 'garrison_taken'; hero: string; town: string }
+  /**
+   * Un héroe deja tropa en la guarnición de un sitio suyo (`dejar_tropa`): una ciudad,
+   * un paso o un pueblo. `site` es el id del sitio (el de la ciudad o el del objeto
+   * del mapa). La recogida de la guarnición al pasar por casa se retiró con esto
+   * (04-11-2026): la tropa entre héroe y sitio solo la mueven estas dos acciones y
+   * la defensa.
+   */
+  | { kind: 'troops_left'; hero: string; site: string; creature: string; count: number }
+  /** Un héroe recoge tropa de la guarnición de un sitio suyo (`recoger_tropa`). */
+  | { kind: 'troops_taken'; hero: string; site: string; creature: string; count: number }
+  /**
+   * Un héroe reparte su tropa y la de la guarnición de un sitio suyo
+   * (`repartir_tropa`, la pantalla de la guarnición): lo que dejó (`left`) y lo que
+   * se llevó (`taken`), por tipo. Uno por reparto confirmado, aunque mueva de
+   * varios tipos a los dos lados (H4 del QA de la fase 1).
+   */
+  | {
+      kind: 'troops_exchanged';
+      hero: string;
+      site: string;
+      left: readonly { readonly creature: string; readonly count: number }[];
+      taken: readonly { readonly creature: string; readonly count: number }[];
+    }
+  /**
+   * Quién defiende con el héroe que atacan en un sitio suyo (`defensaDeLaIA` al nacer
+   * la batalla, `elegirLaDefensa` si lo rehace la persona): `fighting` individuos de
+   * su ejército y la guarnición pelean con él y `staying` se quedan fuera; si pierde,
+   * se pierden con el sitio. Va detrás del `battle_started`.
+   */
+  | { kind: 'defense_set'; hero: string; site: string; fighting: number; staying: number }
   | { kind: 'battle_started'; attacker: Atacante; foe: BattleFoe }
   /**
    * Un grupo embosca a un héroe **antes de que llegue** a donde iba: `faltan`
@@ -313,7 +349,10 @@ export const SE_VE_POR: Readonly<
   item_bought: 'casilla',
   hero_promoted: 'casilla',
   spells_learned: 'casilla',
-  garrison_taken: 'casilla',
+  troops_left: 'casilla',
+  troops_taken: 'casilla',
+  troops_exchanged: 'casilla',
+  defense_set: 'casilla',
   battle_started: 'casilla',
   battle_ended: 'casilla',
   raider_spawned: 'region',
@@ -396,7 +435,10 @@ export function visibleTo(e: GameEvent, p: PlayerId): boolean {
     case 'item_bought':
     case 'hero_promoted':
     case 'spells_learned':
-    case 'garrison_taken':
+    case 'troops_left':
+    case 'troops_taken':
+    case 'troops_exchanged':
+    case 'defense_set':
     case 'battle_started':
     case 'battle_ended':
     case 'hero_defeated':

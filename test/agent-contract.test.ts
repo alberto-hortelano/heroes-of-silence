@@ -177,48 +177,54 @@ describe('contrato con el agente', () => {
     // Los huecos viajan en inglés (12-10-2026) y se traducen al entrar
     // (`accionDelAgente`, dentro del `try` del director): el nombre de dentro,
     // «arma», ya no es un hueco del contrato, y se dice con los cinco que valen.
-    expect(() => accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'arma' })).toThrow(
+    expect(() => accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'arma' }, state)).toThrow(
       'no hay ningún hueco "arma": son melee_weapon, second_melee_weapon, ranged_weapon, armor, shield',
     );
     expect(
-      accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'ranged_weapon' }),
+      accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'ranged_weapon' }, state),
     ).toMatchObject({
       slot: 'distancia',
     });
     expect(
-      accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'second_melee_weapon' }),
+      accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'second_melee_weapon' }, state),
     ).toMatchObject({ slot: 'segunda' });
     // Equipar en la segunda mano lo dice el «slot» (25-10-2026); sin él, el hueco de la pieza.
     expect(
-      accionDelAgente({ type: 'equip', hero: hero.id, item: 'daga', slot: 'second_melee_weapon' }),
+      accionDelAgente(
+        { type: 'equip', hero: hero.id, item: 'daga', slot: 'second_melee_weapon' },
+        state,
+      ),
     ).toMatchObject({ type: 'equip', hueco: 'segunda' });
-    expect(accionDelAgente({ type: 'equip', hero: hero.id, item: 'daga' })).not.toHaveProperty(
-      'hueco',
-    );
+    expect(
+      accionDelAgente({ type: 'equip', hero: hero.id, item: 'daga' }, state),
+    ).not.toHaveProperty('hueco');
     // La lanza dejó su hueco: el agente que lo pide lo oye.
-    expect(() => accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'lance' })).toThrow(
+    expect(() => accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'lance' }, state)).toThrow(
       'no hay ningún hueco "lance"',
     );
     // El accesorio se fue (18-10-2026): el agente que lo pide lo oye.
-    expect(() => accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'accessory' })).toThrow(
-      'no hay ningún hueco "accessory"',
-    );
-    expect(accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'shield' })).toEqual({
+    expect(() =>
+      accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'accessory' }, state),
+    ).toThrow('no hay ningún hueco "accessory"');
+    expect(accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'shield' }, state)).toEqual({
       type: 'unequip',
       hero: hero.id,
       slot: 'escudo',
     });
-    expect(() => accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'casco' })).toThrow(
+    expect(() => accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'casco' }, state)).toThrow(
       'no hay ningún hueco "casco": son melee_weapon, second_melee_weapon, ranged_weapon, armor, shield, mount',
     );
     // La montura (26-10-2026): su slot es `mount`, y un caballo va a ella.
-    expect(accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'mount' })).toEqual({
+    expect(accionDelAgente({ type: 'unequip', hero: hero.id, slot: 'mount' }, state)).toEqual({
       type: 'unequip',
       hero: hero.id,
       slot: 'montura',
     });
     expect(
-      accionDelAgente({ type: 'equip', hero: hero.id, item: 'caballo_de_silla', slot: 'mount' }),
+      accionDelAgente(
+        { type: 'equip', hero: hero.id, item: 'caballo_de_silla', slot: 'mount' },
+        state,
+      ),
     ).toEqual({ type: 'equip', hero: hero.id, item: 'caballo_de_silla', hueco: 'montura' });
     // Y el motivo del núcleo nombra el hueco para la persona, no por su clave: el
     // agente lo pidió como `shield`, y «escudo» en minúscula no le decía nada.
@@ -1286,11 +1292,15 @@ describe('lo que ve el agente', () => {
     expect(RESPONSE_FORMAT.adventure_turn).toContain('yourBase');
   });
 
-  it('la prosa avisa de que, con un héroe dentro, la ciudad la defiende solo él (regla del usuario, I2)', () => {
-    // La regla está fijada en `game.test.ts`; esto fija que el agente la sepa
-    // antes de llevar a su héroe a casa a defender contando con la guarnición.
-    expect(RESPONSE_FORMAT.adventure_turn).toMatch(/la defiende SOLO ese héroe con su tropa/);
-    expect(RESPONSE_FORMAT.adventure_turn).toMatch(/la guarnición NO se suma a la batalla/);
+  it('la prosa dice que, con un héroe dentro de su sitio, defiende con lo que se elija de la guarnición (D1, 04-11-2026)', () => {
+    // La regla está fijada en `guarniciones.test.ts`; esto fija que el agente la
+    // sepa: la regla de antes («la defiende SOLO ese héroe con su tropa», I2) se fue.
+    expect(RESPONSE_FORMAT.adventure_turn).toMatch(
+      /DEFENSA: si atacan a un héroe tuyo en un sitio tuyo/,
+    );
+    expect(RESPONSE_FORMAT.adventure_turn).toContain('"defense_set"');
+    expect(RESPONSE_FORMAT.adventure_turn).not.toMatch(/la defiende SOLO ese héroe/);
+    expect(RESPONSE_FORMAT.adventure_turn).not.toMatch(/la guarnición NO se suma/);
   });
 
   it('el turno dice cuál es tu base, y la batalla cuál es tu héroe', () => {
@@ -1784,17 +1794,17 @@ describe('la tropa se hace héroe: el contrato', () => {
       expect(prosa, campo).toContain(campo);
     }
     // Lo que el agente tiene que saber antes de elegir: es inerte, nace sin
-    // movimiento y —desde I1— con la guarnición si nace en el castillo, y una
-    // respuesta mala no se reintenta enseguida.
+    // movimiento y —desde el 04-11-2026— sin tropa: la guarnición se queda en la
+    // base y se recoge con «take_troops»; y una respuesta mala no se reintenta enseguida.
     expect(prosa).toMatch(/todavía NO da ninguna habilidad/);
     expect(prosa).toMatch(/SIN MOVIMIENTO hasta mañana/);
-    expect(prosa).toMatch(/se lleva la\s+guarnición que le quepa/);
-    expect(prosa).not.toMatch(/SIN TROPA/);
+    expect(prosa).toMatch(/La\s+guarnición se queda en la base: se recoge con "take_troops"/);
+    expect(prosa).not.toMatch(/se lleva la\s+guarnición/);
     expect(prosa).toMatch(/no se te vuelve a preguntar por él hasta que\s+salga de la base/);
     // Y el turno de aventura anuncia la regla con el tope interpolado.
     expect(RESPONSE_FORMAT.adventure_turn).toMatch(/SE\s+HACE HÉROE/);
     expect(RESPONSE_FORMAT.adventure_turn).toMatch(/Con 4 héroes no se te pide nada/);
-    expect(RESPONSE_FORMAT.adventure_turn).toMatch(/RECOGE LA GUARNICIÓN/);
+    expect(RESPONSE_FORMAT.adventure_turn).toMatch(/Nadie recoge la guarnición/);
     expect(RESPONSE_FORMAT.adventure_turn).toMatch(/"veteransWaiting"/);
     expect(RESPONSE_FORMAT.adventure_turn).toMatch(/"type"/);
   });

@@ -471,15 +471,16 @@ function conMargenEnLaRuta(
  * al salir. Ese lo vio quien la pidió y decidió pisarlo; cualquier otro, no.
  *
  * Por qué «no es el avisado» y no «no se veía al salir» (H1 de QA, `?seed=198`):
- * el héroe que recoge la guarnición de camino deja de temer al grupo avisado y
- * pasa a emboscarlo uno posterior, que pudo verse desde el principio sin que la
+ * el héroe que recogía la guarnición de camino dejaba de temer al grupo avisado y
+ * pasaba a emboscarlo uno posterior, que pudo verse desde el principio sin que la
  * ruta lo nombrara —la ruta nombra uno—. Al salir las dos reglas dicen lo mismo:
- * el primero que embosca, si se ve, es el avisado.
+ * el primero que embosca, si se ve, es el avisado. Desde el 04-11-2026 la
+ * guarnición ya no se recoge al pasar, y la fuerza no cambia a media marcha.
  *
- * Quién embosca se recalcula solo cuando el paso cambió algo —la guarnición
- * recogida sube la fuerza, un nodo tomado dispersa grupos—: ninguna otra cosa
- * de una marcha cambia la respuesta. Si no se recalculara, la marcha se pararía
- * por un grupo que ya no la emboscaría (H2, `?seed=6`). Las `miradas` se piden
+ * Quién embosca se recalcula solo cuando el paso cambió algo —un nodo tomado
+ * dispersa grupos—: ninguna otra cosa de una marcha cambia la respuesta. Si no se
+ * recalculara, la marcha se pararía por un grupo que ya no la emboscaría (H2,
+ * `?seed=6`, con la guarnición que entonces se recogía). Las `miradas` se piden
  * solo si hay un grupo con margen en la ruta, y por eso es una función: la IA no
  * pisa las regiones de los que ha visto (`casillasPeligrosas`), así que en casi
  * todas sus marchas no se miran.

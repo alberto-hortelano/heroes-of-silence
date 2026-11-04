@@ -666,14 +666,13 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const primeraConsecuencia = kinds.findIndex((k, i) => i > 0 && !ascensos(k));
     expect(kinds.slice(1, primeraConsecuencia).every(ascensos)).toBe(true);
     expect(kinds.slice(primeraConsecuencia).some(ascensos)).toBe(false);
-    // Y en casa recoge la guarnición con la que nació la base: vuelve sin
-    // tropa y se lleva lo que le quepa.
+    // Y en casa no recoge la guarnición (04-11-2026): vuelve sin tropa, y la
+    // guarnición se queda guardando la base.
     expect(kinds.filter((k) => !ascensos(k))).toEqual([
       'battle_ended',
       'town_captured',
       'hero_defeated',
       'hero_returned',
-      'garrison_taken',
     ]);
   });
 

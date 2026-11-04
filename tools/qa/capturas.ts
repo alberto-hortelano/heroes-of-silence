@@ -489,8 +489,29 @@ async function defenderseSola(page: Page, espejo: Session, donde: string): Promi
   const battle = espejo.battle;
   if (battle === null) throw new Error(`${donde}: el espejo defiende sin batalla`);
   await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 20_000 });
+  // Con el héroe en un sitio suyo con guarnición, antes se elige con quién defiende
+  // (puesto fronterizo, 04-11-2026): se fotografía la pantalla y se deja lo que
+  // propone la IA, en la página y en el espejo.
+  if (espejo.defensa !== null) {
+    await page.locator('#defensa[open]').waitFor({ timeout: 20_000 });
+    await captura(page, 'defensa-elegida');
+    await page.locator('#defensa [data-action="defensa-de-la-ia"]').click();
+    espejo.dejarLaDefensaDeLaIA();
+    await page
+      .locator('#defensa[open]')
+      .waitFor({ state: 'detached', timeout: 10_000 })
+      .catch(async () => {
+        if (await page.locator('#defensa[open]').count()) {
+          throw new Error(`${donde}: la pantalla de la defensa no se cierra`);
+        }
+      });
+    log(`${donde}: atacado en su sitio, defiende con lo que propone la IA`);
+  }
+  // La batalla ya montada, también si la defensa la rehizo.
+  const enCurso = espejo.battle;
+  if (enCurso === null) throw new Error(`${donde}: la defensa se quedó sin batalla`);
   await responderLaRueda(page, espejo);
-  await esperarCola(battle, battle.log);
+  await esperarCola(enCurso, enCurso.log);
   const resolver = page.locator('#actions [data-action="auto-battle"]:enabled');
   await resolver.waitFor({ timeout: 20_000 }).catch(async () => {
     throw new Error(
@@ -705,6 +726,34 @@ class Mapa {
     await this.page.mouse.click(px.x, px.y);
     this.espejo.clickTile(p);
     await sleep(250);
+    await cerrarLaGuarnicion(this.page, this.espejo, `(${p.x},${p.y})`);
+  }
+}
+
+/**
+ * Parar en un paso o un pueblo propio abre su guarnición, modal (puesto
+ * fronterizo, 04-11-2026): las pasadas que andan por el mapa la cierran con
+ * Escape, como la persona, en la página y en el espejo, y siguen. La primera vez,
+ * su foto.
+ */
+let guarnicionFotografiada = false;
+async function cerrarLaGuarnicion(page: Page, espejo: Session, donde: string): Promise<void> {
+  if (espejo.guarnicionAbierta === null) return;
+  await page
+    .locator('#guarnicion[open]')
+    .waitFor({ timeout: 10_000 })
+    .catch(() => {
+      throw new Error(`${donde}: el espejo abre la guarnición y la página no`);
+    });
+  if (!guarnicionFotografiada) {
+    guarnicionFotografiada = true;
+    await captura(page, 'guarnicion-al-parar');
+  }
+  await page.keyboard.press('Escape');
+  espejo.cerrarLaGuarnicion();
+  await sleep(150);
+  if (await page.locator('#guarnicion[open]').count()) {
+    throw new Error(`${donde}: Escape no cierra la guarnición`);
   }
 }
 
@@ -2610,6 +2659,7 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
   await page.touchscreen.tap(px.x, px.y);
   espejo.clickTile(destino);
   await sleep(300);
+  await cerrarLaGuarnicion(page, espejo, 'táctil: segundo toque');
   await comprobar(page, espejo, 'táctil: segundo toque');
   log(
     `táctil: el segundo toque anda hasta (${espejo.selectedHero?.at.x},${espejo.selectedHero?.at.y})`,

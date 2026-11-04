@@ -28,7 +28,8 @@ import {
   tipoDeGolpeBlocker,
 } from '../battle/formas-de-la-rueda.js';
 import type { BattleAction, BattleEvent } from '../battle/types.js';
-import type { AdventureAction } from '../state/game.js';
+import type { AdventureAction, GameState } from '../state/game.js';
+import { tipoDelVeterano } from '../state/sitios.js';
 import {
   type Hex,
   HUECOS,
@@ -79,25 +80,66 @@ export function huecoDelSlot(slot: string): Hueco {
  * director), no el turno entero.
  */
 export type AccionDelAgente =
-  | Exclude<AdventureAction, { readonly type: 'unequip' | 'equip' }>
+  | Exclude<
+      AdventureAction,
+      // `repartir_tropa` es de la pantalla de la guarnición: el agente deja y recoge
+      // (que no pueda cambiar uno por otro con los dos llenos va a backlog).
+      { readonly type: 'unequip' | 'equip' | 'dejar_tropa' | 'recoger_tropa' | 'repartir_tropa' }
+    >
   | (Omit<Extract<AdventureAction, { readonly type: 'unequip' }>, 'slot'> & {
       readonly slot: string;
     })
   | (Omit<Extract<AdventureAction, { readonly type: 'equip' }>, 'hueco'> & {
       readonly slot?: string;
-    });
+    })
+  /**
+   * Dejar y recoger tropa en la guarnición del sitio suyo donde está el héroe
+   * (04-11-2026): en el contrato, en inglés, siempre con `creature` y `count`, y con
+   * `veteran` como en `equip`. El núcleo, con el veterano, no lleva lo demás
+   * (`PedidoDeTropa`): lo traduce `accionDelAgente`.
+   */
+  | {
+      readonly type: 'leave_troops' | 'take_troops';
+      readonly hero: string;
+      readonly creature: string;
+      readonly count: number;
+      readonly veteran?: string;
+    };
 
 /**
  * La acción del agente tal como la juega el núcleo: cambia el `slot` de `unequip`
- * y de `equip`, del inglés del contrato al hueco de dentro. Lo demás pasa tal cual.
+ * y de `equip`, del inglés del contrato al hueco de dentro, y `leave_troops` y
+ * `take_troops` a `dejar_tropa` y `recoger_tropa`. Lo demás pasa tal cual.
+ *
+ * Con `veteran`, el núcleo mueve a ese individuo y nada más (`PedidoDeTropa`), así
+ * que lo que el agente escribe al lado se mira aquí, con la partida (`state`): uno
+ * solo, y de su tipo (`tipoDelVeterano`). Lanza con el motivo, dentro del `try` del
+ * director, como un hueco mal escrito.
  */
-export function accionDelAgente(a: AccionDelAgente): AdventureAction {
-  if (a.type === 'unequip') return { ...a, slot: huecoDelSlot(a.slot) };
-  if (a.type === 'equip') {
-    const { slot, ...resto } = a;
-    return slot === undefined ? resto : { ...resto, hueco: huecoDelSlot(slot) };
+export function accionDelAgente(a: AccionDelAgente, state: GameState): AdventureAction {
+  switch (a.type) {
+    case 'unequip':
+      return { ...a, slot: huecoDelSlot(a.slot) };
+    case 'leave_troops':
+    case 'take_troops': {
+      const type = a.type === 'leave_troops' ? 'dejar_tropa' : 'recoger_tropa';
+      if (a.veteran === undefined) {
+        return { type, hero: a.hero, creature: a.creature, count: a.count };
+      }
+      if (a.count !== 1) throw new Error(`un veterano es uno solo: no se mueven ${a.count}`);
+      const tipo = tipoDelVeterano(state, a.hero, a.veteran);
+      if (tipo !== null && tipo !== a.creature) {
+        throw new Error(`el veterano "${a.veteran}" es de tipo "${tipo}", no "${a.creature}"`);
+      }
+      return { type, hero: a.hero, veterano: a.veteran };
+    }
+    case 'equip': {
+      const { slot, ...resto } = a;
+      return slot === undefined ? resto : { ...resto, hueco: huecoDelSlot(slot) };
+    }
+    default:
+      return a;
   }
-  return a;
 }
 
 // ---------------------------------------------------------------- la rueda y los poderes

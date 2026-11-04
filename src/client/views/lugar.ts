@@ -11,6 +11,7 @@
 import { type Html, html, NADA, unir } from '../html.js';
 import type { VistaDeLaConversacion } from '../lugar/sesion.js';
 import type { Session } from '../session.js';
+import { apagadoPor, motivoDebajo } from './cifras.js';
 
 export function renderPanelDelLugar(session: Session): Html {
   const vista = session.lugar.vista();
@@ -41,11 +42,11 @@ export function renderConversacionDelLugar(c: VistaDeLaConversacion): Html {
   const opciones = unir(
     c.opciones.map(
       (o) =>
-        html`<li><button data-action="lugar-opcion" data-indice="${String(o.indice)}"${
-          o.motivo === null ? NADA : html` aria-disabled="true" class="apagada"`
-        }>${o.texto}${o.pelea ? html` <span class="veterania">(pelea)</span>` : NADA}</button>${
-          o.motivo === null ? NADA : html`<span class="veterania motivo">${o.motivo}</span>`
-        }</li>`,
+        html`<li><button data-action="lugar-opcion" data-indice="${String(o.indice)}"${apagadoPor(
+          o.motivo,
+        )}>${o.texto}${o.pelea ? html` <span class="veterania">(pelea)</span>` : NADA}</button>${motivoDebajo(
+          o.motivo,
+        )}</li>`,
     ),
   );
   // De la pantalla, sin efecto: al volver a hablar se sigue donde quedó (H14 de la

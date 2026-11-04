@@ -335,7 +335,6 @@ export class Director {
           undefined,
           notaAscenso(heroe, rangoDeHeroe(heroe), v.base.name, {
             enElCastillo: pointKey(heroe.at) === pointKey(v.base.at),
-            tropa: heroe.army.length,
           }),
         );
       } catch (err) {
@@ -465,7 +464,7 @@ export class Director {
       try {
         // Dentro del `try`: un `slot` que no es un hueco del contrato descarta
         // esta acción con su motivo (`huecoDelSlot`), no el turno.
-        applyAdventureAction(this.state, accionDelAgente(a), this.ctx, playerId);
+        applyAdventureAction(this.state, accionDelAgente(a, this.state), this.ctx, playerId);
         aplicadas++;
         this.frame();
       } catch (err) {

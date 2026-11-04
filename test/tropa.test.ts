@@ -11,7 +11,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { armyPower, fuerzaDe, unitPower } from '../src/core/ai/fuerza.js';
-import { planRecruits } from '../src/core/ai/strategy.js';
+import { planIntercambios, planRecruits } from '../src/core/ai/strategy.js';
 import { playAiGame } from '../src/core/ai/turn.js';
 import { createBattle } from '../src/core/battle/battle.js';
 import { allHexes, BOARD_HEIGHT, bandoDeSalida } from '../src/core/battle/board.js';
@@ -264,7 +264,7 @@ describe('liderazgo', () => {
     );
   });
 
-  it('un héroe que entra en casa se lleva lo que le cabe, en orden, y el resto se queda', () => {
+  it('un héroe que entra en casa no recoge nada; la IA recoge lo que le cabe, en orden, y el resto se queda', () => {
     const state = newGame({ seed: 13 });
     const hero = heroesOf(state, 0)[0]!;
     const town = townsOf(state, 0)[0]!;
@@ -289,6 +289,14 @@ describe('liderazgo', () => {
     applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: town.at }, ctx(13), 0);
 
     expect(pointKey(hero.at)).toBe(pointKey(town.at));
+    // Entrar no recoge (04-11-2026): la recogida al pasar se retiró.
+    expect(hero.army).toHaveLength(3);
+    expect(town.garrison).toHaveLength(5);
+    // Lo que recoge la IA al llegar a su sitio (`planIntercambios`; cuándo, lo decide
+    // su turno: `guarniciones.test.ts`), con `recoger_tropa`.
+    for (const accion of planIntercambios(state, hero)) {
+      applyAdventureAction(state, accion, ctx(13), 0);
+    }
     expect(hero.army).toHaveLength(CUPO_HEROE);
     expect(armyLeadership(hero.army)).toBe(
       4 * unidadDelJuego(TROPA_BARATA).leadership +
@@ -301,7 +309,9 @@ describe('liderazgo', () => {
       { creature: TROPA_BARATA },
     ]);
     expect(town.garrison).toEqual([{ creature: JINETE }, { creature: TROPA_BARATA }]);
-    expect(state.log.some((e) => e.kind === 'garrison_taken')).toBe(true);
+    expect(state.log.filter((e) => e.kind === 'troops_taken').map((e) => e.count)).toEqual([
+      1, 1, 1,
+    ]);
   });
 
   it('el ejército de salida cabe en el liderazgo de un héroe recién hecho, en las cinco facciones', () => {

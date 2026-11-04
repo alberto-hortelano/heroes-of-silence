@@ -29,3 +29,30 @@ export function filasDeCombate(u: UnitInfo, armadura: number): Html {
 export function motivoApagado(m: string | null): Html {
   return m === null ? NADA : html`<span class="motivo-apagado">${m}</span>`;
 }
+
+/**
+ * Los atributos de un botón que sale apagado **sin dejar de leerse**: con
+ * `aria-disabled` y no `disabled`, que se puede enfocar y el lector de pantalla lo
+ * dice, con la clase `apagada` sobre la suya si la lleva (`clase`). Lo comparten
+ * las opciones de un lugar y las dos pantallas de la guarnición, que ponen debajo
+ * su motivo (`motivoDebajo`); quien atiende el clic mira `aria-disabled` y no hace
+ * nada.
+ */
+export function apagadoPor(motivo: string | null, clase?: string): Html {
+  if (motivo === null) return clase === undefined ? NADA : html` class="${clase}"`;
+  return html` aria-disabled="true" class="${clase === undefined ? 'apagada' : `${clase} apagada`}"`;
+}
+
+/** El motivo de lo apagado con `apagadoPor`, debajo y en el color del rechazo. */
+export function motivoDebajo(motivo: string | null): Html {
+  return motivo === null ? NADA : html`<span class="veterania motivo">${motivo}</span>`;
+}
+
+/**
+ * Lo que dice por qué algo sale apagado **sin ser un rechazo** (ya pelean todos los
+ * de su tipo, un personaje va siempre con su héroe), debajo y en el tono apagado:
+ * no se pinta como «no cabe» (H5 del QA de la fase 1).
+ */
+export function notaDebajo(nota: string | null): Html {
+  return nota === null ? NADA : html`<span class="veterania motivo nota">${nota}</span>`;
+}

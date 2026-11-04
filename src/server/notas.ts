@@ -637,21 +637,19 @@ export function notaMapaAceptado(width: number, height: number, ciudades: number
 // ---------------------------------------------------------- la tropa se hace héroe
 
 /**
- * El ascenso entró: quién nace, dónde y con qué. La tropa se dice como quedó, y
- * no como se supone: decía «nace sin tropa» cuando no recogía la guarnición, y
- * desde que la recoge (I1) esa frase habría sido falsa en el caso de siempre.
+ * El ascenso entró: quién nace, dónde y con qué. Nace sin tropa: la guarnición no
+ * la recoge nadie desde el 04-11-2026 (se recoge con «take_troops»), y si atacan la
+ * base el héroe del castillo defiende con lo que se elija de ella.
  */
 export function notaAscenso(
   heroe: { readonly id: string; readonly name: string; readonly tipo: string },
   rango: number,
   base: string,
-  donde: { readonly enElCastillo: boolean; readonly tropa: number },
+  donde: { readonly enElCastillo: boolean },
 ): string {
-  const tropa = !donde.enElCastillo
-    ? 'Nace junto al castillo, que ya ocupa otro héroe tuyo, y sin tropa: la guarnición se la lleva el del castillo, que es quien la defiende.'
-    : donde.tropa > 0
-      ? `Se ha llevado ${donde.tropa} ${donde.tropa === 1 ? 'individuo' : 'individuos'} de la guarnición.`
-      : 'No había guarnición que recoger: nace sin tropa.';
+  const tropa = donde.enElCastillo
+    ? 'Nace sin tropa en la casilla del castillo; la guarnición se queda guardando la base y se recoge con "take_troops".'
+    : 'Nace junto al castillo, que ya ocupa otro héroe tuyo, y sin tropa; la guarnición se queda guardando la base.';
   return (
     `${heroe.name} (${heroe.id}) es ya un héroe tuyo de tipo ${heroe.tipo} y rango ${rango}, en ` +
     `${base}. ${tropa} Nace sin movimiento: lo moverás desde mañana.`
@@ -869,6 +867,11 @@ export function describeAccion(accion: BattleAction | AccionDelAgente): string {
       return `recruit ${accion.count}× ${accion.creature} en ${accion.town}`;
     case 'dismiss':
       return `dismiss ${accion.count}× ${accion.creature} de ${accion.hero}`;
+    case 'leave_troops':
+    case 'take_troops':
+      return `${accion.type} ${accion.count}× ${accion.creature}${
+        accion.veteran === undefined ? '' : ` (${accion.veteran})`
+      } de ${accion.hero}`;
     case 'build':
       return `build ${accion.building} en ${accion.town}`;
     case 'buy_item':

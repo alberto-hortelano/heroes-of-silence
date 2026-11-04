@@ -858,7 +858,6 @@ describe('elegir en un lugar', () => {
       'battle_ended',
       'hero_defeated',
       'hero_returned',
-      'garrison_taken',
       'world_mark',
     ]);
   });
