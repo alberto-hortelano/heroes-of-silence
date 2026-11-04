@@ -16,26 +16,26 @@
   "clips": [
     {
       "clip": "idle",
-      "anim": "idle",
+      "anim": "idle4",
       "indices": [
         0,
-        3,
+        2,
+        4,
         6,
-        9,
-        12,
-        15,
-        18
+        8,
+        10,
+        12
       ],
       "sourceMetadata": {
         "angle": "tactical_25",
-        "anim": "idle",
+        "anim": "idle4",
         "directions": 8,
-        "duration": 3.6666666666666665,
+        "duration": 2.533333333333333,
         "fps": 6,
-        "frame_count": 22,
+        "frame_count": 15,
         "frame_height": 256,
         "frame_width": 256,
-        "generated_at": "2026-10-01T15:00:15",
+        "generated_at": "2026-11-04T12:31:05",
         "model": "y_bot"
       }
     },
@@ -60,7 +60,7 @@
         "frame_count": 7,
         "frame_height": 256,
         "frame_width": 256,
-        "generated_at": "2026-10-01T15:00:16",
+        "generated_at": "2026-11-04T12:31:06",
         "model": "y_bot"
       }
     },
@@ -85,10 +85,10 @@
         "frame_count": 18,
         "frame_height": 256,
         "frame_width": 256,
-        "generated_at": "2026-10-01T15:00:18",
+        "generated_at": "2026-11-04T12:31:10",
         "model": "y_bot"
       }
     }
   ],
-  "sha256": "ed53da07a9c45eb3e1982b4ffa763ba185b48269b73bc292d18f061eeb10d81a"
+  "sha256": "c537ceaed5c9721d7bcab1c4d74f7709df3aa92ed581c30f1494b41043e806a9"
 }

@@ -5648,3 +5648,22 @@ jugador. Lo que pase cerca en un radio x se ve. Si no, no». Plan y decisiones e
   miraba los grupos de lo explorado de la pantalla, que ya no se pintan si no están en el radio:
   ahora mira solo los que ve la persona y, tras un día sin que se mueva ninguno, lleva la cámara a
   uno que patrulle una región sin héroe (H2). El banco no se mueve.
+
+## El reposo del Y Bot de espada y escudo, quieto (04-11-2026)
+
+Petición del usuario: «La animación idle que sale como genérica del juego hay que cambiarla, esa se
+mueve mucho, pon uno de los idle que se mueven menos, que ya hemos usado en otros personajes y
+elimina este idle de todas partes porque queda muy mal».
+
+- **Quién lo llevaba**: solo el juego de armas `espada-escudo` (`JUEGOS_DE_ARMAS`), que es el Y Bot
+  de lo que se pinta sin hoja (`JUEGO_SIN_HOJA`: el héroe genérico, el personaje). Ninguna unidad
+  del catálogo lo usaba: 22 van con `idle4`, 13 con `idle_neutral`, 3 con `idle_breathing`, 3 con
+  `wounded_idle` y 4 con `block_idle`.
+- **Por cuál**: `idle4`, la guardia quieta del mismo pack, la de 22 unidades y del juego de dos
+  manos. En la dirección 2, los píxeles que cambian entre dos fotogramas del reposo bajaron de
+  1 200-2 500 a 180-260.
+- **De todas partes**: `idle` está en `CLIPS_RETIRADOS` (`tools/art/poses.ts`): `archivoDeClip` y
+  `hojasDe` lanzan con él, ya no está en el muestrario ni en las hojas de perfil, y lo vigila
+  `test/clips-por-unidad.test.ts`. Se volvieron a renderizar las 16 hojas de `_poses/espada-escudo-8d/`
+  y las cinco de perfil, y `pnpm taller derivar-poses` rehízo las anclas: en `atlas-8d.json` solo
+  cambia `espada-escudo`.
