@@ -19,7 +19,7 @@ import {
 } from '../src/core/arena.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { type CuerpoDeTodoHeroe, EQUIPO_ESCRITO, HEROE, RUTA_DEL_HEROE } from '../src/core/data.js';
-import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
+import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import {
   escribirCatalogo,
   guardarCatalogo,
@@ -63,7 +63,7 @@ describe('el cuerpo de todo héroe en la arena', () => {
   });
   const enlace = (izq: CuerpoDeTodoHeroe, der: CuerpoDeTodoHeroe): MontajeDelEnlace => ({
     unidades: [],
-    piezas: piezasDelMontaje([], true, EQUIPO_ESCRITO),
+    piezas: piezasDelMontaje([], [EQUIPO_BASE], EQUIPO_ESCRITO),
     izquierda: lado(izq),
     derecha: { ...lado(der), ia: true },
     muralla: null,

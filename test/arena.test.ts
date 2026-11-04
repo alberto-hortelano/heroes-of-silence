@@ -1072,6 +1072,7 @@ const deLaHoja = (id: string): FuenteDeArena => delBorrador(unidad(id));
 const MAGO: HeroeDeArena = {
   nombre: 'Maga de pruebas',
   cuerpo: HEROE.combate,
+  equipo: EQUIPO_BASE,
   figura: null,
   ataque: 2,
   defensa: 1,
@@ -1219,7 +1220,7 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
   const MONTAJE: MontajeDelEnlace = {
     unidades: UNIDADES_DEL_ENLACE,
     // Todas las piezas que lleva lo montado, la tropa y los héroes.
-    piezas: piezasDelMontaje(UNIDADES_DEL_ENLACE, true, EQUIPO_ESCRITO),
+    piezas: piezasDelMontaje(UNIDADES_DEL_ENLACE, [EQUIPO_BASE], EQUIPO_ESCRITO),
     izquierda: {
       ia: false,
       puestos: [
@@ -1751,10 +1752,10 @@ describe('cuerpo y equipo: el perfil de arma es equipo, y el nivel lo mide puest
       piezas: [{ id: ESPADA }],
       rueda: nivelesDeLaEspada(),
     });
-    expect(idsLlevados([], true)).toContain(ESPADA);
-    expect(idsLlevados([], false)).not.toContain(ESPADA);
+    expect(idsLlevados([], [EQUIPO_BASE])).toContain(ESPADA);
+    expect(idsLlevados([], [])).not.toContain(ESPADA);
     expect(h.cuerpo.equipo).toEqual(EQUIPO_BASE);
-    expect(idsLlevados([], true)).toEqual(new Set(['espada', 'gambeson']));
+    expect(idsLlevados([], [EQUIPO_BASE])).toEqual(new Set(['espada', 'gambeson']));
     // Su equipo pasa la misma regla que el de la tropa: lleva un arma.
     expect(armaDeCuerpoBlocker(EQUIPO_BASE)).toBeNull();
   });

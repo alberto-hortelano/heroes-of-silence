@@ -1001,7 +1001,7 @@ function filaDeArmadura(final: UnitInfo): FilaDeCifra {
  * manos— va desactivado y con su motivo) y si se puede quitar lo puesto (`quitarBlocker`: sin arma de cuerpo a
  * cuerpo no se combate, y el arma no lleva ×, sino su motivo en nota).
  */
-function equipoDeLaFicha(u: Unidad, piezas: EquipoAtado): Html {
+function equipoDeLaFicha(u: Unidad | HeroeDeArena, piezas: EquipoAtado): Html {
   const filas = unir(
     HUECOS.flatMap((hueco) => {
       const id = u.equipo[hueco];
@@ -1323,12 +1323,13 @@ export function renderFichaDeHeroe(
         ],
       )}`,
       })}
+      ${equipoDeLaFicha(h, como.piezas)}
       <h3>Armas ${nota(
-        `Lleva el equipo base de todo héroe (${idsPuestos(EQUIPO_BASE)
+        `Empieza con el equipo base de todo héroe (${idsPuestos(EQUIPO_BASE)
           .map((id) => como.piezas.pieza(id).nombre)
           .join(
             ', ',
-          )}), con las cifras de «Editar equipo». Cada golpe va con las cifras de su arma.`,
+          )}) y lleva lo que le pongas en «Equipo», con las cifras de «Editar equipo»; es de este héroe de la arena y «Guardar» no lo escribe. Cada golpe va con las cifras de su arma.`,
       )}</h3>
       <div class="armas-de-la-ficha" data-armas-del-heroe="si">${filasDeArmas(c)}</div>
       <h3>Libro de hechizos</h3>

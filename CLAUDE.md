@@ -1292,14 +1292,22 @@ antes del destino (`battle_started` con `faltan`).
   cualquiera de los dos héroes y cambian a los dos (`HeroeDeArena.cuerpo`, el mismo en los dos:
   un enlace con dos distintos se rechaza), también a media pelea; «Guardar» escribe solo ese
   `combate` y deja la rendición, el equipo base y el comentario (`escribirCatalogo` con `heroe`; su
-  versión, en la de «Guardar», `FICHEROS_DEL_CATALOGO`). Y **pelea como el
+  versión, en la de «Guardar», `FICHEROS_DEL_CATALOGO`). **Y su equipo** (04-11-2026, petición del
+  usuario: «no se les puede cambiar el equipo y no pueden tener armadura»): cada héroe lleva el
+  suyo (`HeroeDeArena.equipo`), que empieza en `EQUIPO_BASE` y se cambia en la sección «Equipo» de
+  su ficha, la de las unidades (`equipoDeLaFicha`, `opcionesDelHueco`, `quitarBlocker`,
+  `equiparEnArena`, `quitarEnArena`, para una unidad o un héroe), con la regla del equipo de una
+  unidad (`equipoDeUnidadBlocker`, que `heroeDeArena` aplica al vestirlo); va en el enlace, nadie
+  borra una pieza que lleve (`cambioDePiezas(…, heroes)`) y «Guardar» no lo escribe. El retoque
+  del héroe a media pelea compara su ficha entera en palabras (`fichaDelHeroe`: también el cuerpo y
+  lo puesto; sin ellos, cambiar PV o equipo a media pelea no hacía nada). Y **pelea como el
   juego** (19-10-2026): sin interruptores; un `?reglas=`, `?golpe=` o `?contacto=` se rechaza
   diciéndolo («la arena pelea con las reglas del juego: quita «?reglas=» de la dirección»,
   `retiradosDeLaURL`) y el enlace que lo trae no se monta. Lo suyo: la muralla, retocar cifras a
   media pelea y que quién mueve es del **bando entero** (Yo / IA en su cabecera; con un solo bando
   de la persona, la rueda dice «Tu golpe»). Monta sus unidades como stacks del catálogo de la pelea
   (`catalogoDelMontaje`; dos unidades distintas con el mismo id lanzan). «Copiar enlace de la
-  pelea» escribe el montaje entero (`?montaje=`, versión 18, `VERSION_DEL_ENLACE`, leída estricta:
+  pelea» escribe el montaje entero (`?montaje=`, versión 19, `VERSION_DEL_ENLACE`, leída estricta:
   unidades con cuerpo y equipo, puestos `{ unidad }` y todas las piezas que lleva lo montado con sus
   bases en cadena, `piezasDelMontaje`); al abrirlo, sus piezas entran en el catálogo de la página
   como cambios sin guardar, con la regla de editarlas a mano (`conPiezas`, `cambioDePiezas`), y la

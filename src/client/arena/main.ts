@@ -22,6 +22,7 @@ import {
   escritaDe,
   type FuenteDeArena,
   type HeroeDeArena,
+  heroeDeArena,
   heroePorDefecto,
   IA_POR_DEFECTO,
   LADOS,
@@ -1115,8 +1116,9 @@ function repintarEquipo(): void {
 }
 
 /**
- * Quiénes llevan la pieza `id`: las unidades del catálogo, por su nombre, y todo
- * héroe si es de su equipo base (`laLlevaElHeroe`: la Espada y el gambesón).
+ * Quiénes llevan la pieza `id`: las unidades del catálogo, por su nombre, todo
+ * héroe si es de su equipo base (`laLlevaElHeroe`: la Espada y el gambesón) y los
+ * héroes de los bandos que la llevan puesta.
  */
 function quienesLaLlevan(id: string): string[] {
   return [
@@ -1124,7 +1126,15 @@ function quienesLaLlevan(id: string): string[] {
       .filter((u) => idsPuestos(u.equipo).includes(id))
       .map((u) => u.name),
     ...(laLlevaElHeroe(id) ? [LA_LLEVA_EL_HEROE] : []),
+    ...heroesDeLaPagina()
+      .filter((h) => idsPuestos(h.equipo).includes(id))
+      .map((h) => h.nombre),
   ];
+}
+
+/** Los héroes puestos en los bandos, izquierda primero. */
+function heroesDeLaPagina(): HeroeDeArena[] {
+  return [heroes.izquierda, heroes.derecha].filter((h) => h !== null);
 }
 
 /**
@@ -1141,6 +1151,7 @@ function cambiarPiezas(id: string, nueva: PiezaEscrita | null, texto: string): b
     equipo,
     nueva === null ? escritas.filter((p) => p.id !== id) : conPiezas(escritas, [nueva]),
     [...unidadesDelCatalogo.values()],
+    heroesDeLaPagina(),
   );
   if ('motivo' in cambio) {
     noSeCambia(`${cambio.motivo}.`);
@@ -1578,6 +1589,9 @@ function cambiarHeroe(lado: Lado, cambio: (h: HeroeDeArena) => HeroeDeArena): bo
   if (h === null) return true;
   try {
     const nuevo = validarHeroeDeArena(cambio(h));
+    // Lo que lleva, con la regla de su ficha (sin arma de cuerpo a cuerpo no se
+    // combate): fuera de la pelea no lo mira nadie más.
+    heroeDeArena(nuevo, equipo);
     const motivo = retocarLaPelea({ kind: 'heroe', lado, datos: nuevo });
     if (motivo !== null) {
       noSeCambia(motivo);
@@ -1725,10 +1739,13 @@ function montajeDelEnlace(): MontajeDelEnlace {
     heroe: heroes[l],
   });
   const unidades = unidadesMontadas.map(unidadDe);
-  const conHeroe = heroes.izquierda !== null || heroes.derecha !== null;
   return {
     unidades,
-    piezas: piezasDelMontaje(unidades, conHeroe, [...equipo.escritas.values()]),
+    piezas: piezasDelMontaje(
+      unidades,
+      heroesDeLaPagina().map((h) => h.equipo),
+      [...equipo.escritas.values()],
+    ),
     izquierda: lado('izquierda'),
     derecha: lado('derecha'),
     muralla: hayMuralla(muralla) ? muralla : null,
@@ -2348,8 +2365,8 @@ document.addEventListener('click', (ev) => {
         const hueco = el.getAttribute('data-hueco') ?? '';
         if (!esHueco(hueco)) throw new Error(`el × del equipo trae «${hueco}», que no es un hueco`);
         const f = laFichaDe(el, 'quitar una pieza');
-        if (f.kind !== 'unidad') throw new Error('solo las unidades llevan equipo que quitar');
-        cambiarUnidad(f.id, (u) => quitarEnArena(u, hueco));
+        if (f.kind === 'heroe') cambiarHeroe(f.lado, (h) => quitarEnArena(h, hueco));
+        else cambiarUnidad(f.id, (u) => quitarEnArena(u, hueco));
         soloLaFicha = claveDeFicha(f);
         break;
       }
@@ -2927,7 +2944,13 @@ function cambiarDeLaUnidad(id: string, el: Element): void {
 function cambiarDelHeroe(lado: Lado, el: Element): void {
   const campo = el.getAttribute('data-heroe-campo');
   const hechizo = el.getAttribute('data-heroe-hechizo');
-  if (campo === 'hp' || campo === 'fuerza' || campo === 'agilidad') {
+  const hueco = el.getAttribute('data-arena-pieza');
+  if (hueco !== null) {
+    // Ponerle una pieza, como a una unidad: lo que no se puede lo dice el núcleo.
+    if (!esHueco(hueco)) throw new Error(`«${hueco}» no es un hueco`);
+    const puesta = valorDe(el);
+    if (puesta !== '') cambiarHeroe(lado, (h) => equiparEnArena(h, puesta, equipo, hueco));
+  } else if (campo === 'hp' || campo === 'fuerza' || campo === 'agilidad') {
     cambiarCuerpoDeTodoHeroe(campo, valorDe(el));
   } else if (campo !== null) {
     const v = valorDe(el);

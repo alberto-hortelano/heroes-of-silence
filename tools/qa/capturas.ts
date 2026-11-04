@@ -114,7 +114,7 @@ import {
   tiposDeHeroe,
 } from '../../src/core/data.js';
 import { ESCALA_DE_CIFRAS } from '../../src/core/escala.js';
-import { EQUIPO_DEL_JUEGO } from '../../src/core/hero/equipo.js';
+import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../../src/core/hero/equipo.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
 import { nivelDeUnidad } from '../../src/core/nivel.js';
 import { parseSeed } from '../../src/core/rng.js';
@@ -5166,6 +5166,7 @@ async function jugarArena(
 const HEROE_DEL_BANCO: HeroeDeArena = {
   nombre: 'Héroe izquierdo',
   cuerpo: HEROE.combate,
+  equipo: EQUIPO_BASE,
   figura: null,
   ataque: 2,
   defensa: 2,

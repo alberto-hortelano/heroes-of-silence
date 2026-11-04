@@ -112,6 +112,7 @@ import {
   cuerpoDeCombate,
   ESPADA,
   equipoDeUnidadBlocker,
+  equipoEscrito,
   type Hoja,
   KIT_DEL_PERFIL,
   leerCatalogos,
@@ -208,15 +209,44 @@ export function unidadNueva(
  * `segunda`): lo que hubiera ahí se quita. Lanza con el motivo de `ponerPieza`
  * (`manosBlocker`: un arma a dos manos va sola) diciendo a quién.
  */
-export function equiparEnArena(u: Unidad, id: string, eq: EquipoAtado, hueco?: Hueco): Unidad {
-  return { ...u, equipo: eq.ponerPieza(u.equipo, id, u.name, hueco).equipo };
+export function equiparEnArena<T extends Unidad | HeroeDeArena>(
+  u: T,
+  id: string,
+  eq: EquipoAtado,
+  hueco?: Hueco,
+): T {
+  return { ...u, equipo: eq.ponerPieza(u.equipo, id, nombreDe(u), hueco).equipo };
 }
 
-/** La unidad sin lo que lleve en `hueco`; si no lleva nada ahí, se dice. */
-export function quitarEnArena(u: Unidad, hueco: Hueco): Unidad {
+/** La unidad o el héroe sin lo que lleve en `hueco`; si no lleva nada ahí, se dice. */
+export function quitarEnArena<T extends Unidad | HeroeDeArena>(u: T, hueco: Hueco): T {
   const { equipo, quitada } = quitarPieza(u.equipo, hueco);
-  if (quitada === null) throw new Error(nadaEnElHueco(u.name, hueco));
+  if (quitada === null) throw new Error(nadaEnElHueco(nombreDe(u), hueco));
   return { ...u, equipo };
+}
+
+/** El nombre de quien lleva el equipo: la unidad (`name`) o el héroe (`nombre`). */
+function nombreDe(u: Unidad | HeroeDeArena): string {
+  return 'nombre' in u ? u.nombre : u.name;
+}
+
+/**
+ * Quien lleva equipo en la arena, con su cuerpo sin él: una unidad del catálogo
+ * (`cuerpoDeCombate`) o el héroe de un bando (`cuerpoDelHeroeDeArena`). Lo leen las
+ * preguntas del equipo (`opcionesDelHueco`, `quitarBlocker`) y lo que deja de valer
+ * al cambiar una pieza (`cambioDePiezas`): la misma regla para los dos,
+ * `equipoDeUnidadBlocker`.
+ */
+interface Portador {
+  readonly nombre: string;
+  readonly cuerpo: UnitInfo;
+  readonly equipo: Equipo;
+}
+
+function portadorDe(u: Unidad | HeroeDeArena): Portador {
+  return 'nombre' in u
+    ? { nombre: u.nombre, cuerpo: cuerpoDelHeroeDeArena(u), equipo: u.equipo }
+    : { nombre: u.name, cuerpo: cuerpoDeCombate(u), equipo: u.equipo };
 }
 
 // ------------------------------------------------------------- las piezas
@@ -504,17 +534,18 @@ export interface OpcionDelHueco {
  * junto a un mandoble; H2 del QA de fuerza y agilidad, 26-10-2026).
  */
 export function opcionesDelHueco(
-  u: Unidad,
+  quien: Unidad | HeroeDeArena,
   hueco: Hueco,
   eq: EquipoAtado,
 ): readonly OpcionDelHueco[] {
+  const u = portadorDe(quien);
   return [...eq.piezas.values()]
     .filter((p) => huecosDeLaPieza(p.hueco).includes(hueco) && p.id !== u.equipo[hueco])
     .map((p) => ({
       pieza: p,
       motivo:
         eq.manosBlocker(u.equipo, p.id, hueco) ??
-        equipoDeUnidadBlocker(cuerpoDeCombate(u), { ...u.equipo, [hueco]: p.id }, eq),
+        equipoDeUnidadBlocker(u.cuerpo, { ...u.equipo, [hueco]: p.id }, eq),
     }));
 }
 
@@ -524,10 +555,15 @@ export function opcionesDelHueco(
  * (`equipoDeUnidadBlocker`: sin arma de cuerpo a cuerpo no se combate). La lee la
  * ficha, que no ofrece la × que el núcleo rechazaría.
  */
-export function quitarBlocker(u: Unidad, hueco: Hueco, eq: EquipoAtado): string | null {
-  if (u.equipo[hueco] === undefined) return nadaEnElHueco(u.name, hueco);
+export function quitarBlocker(
+  quien: Unidad | HeroeDeArena,
+  hueco: Hueco,
+  eq: EquipoAtado,
+): string | null {
+  const u = portadorDe(quien);
+  if (u.equipo[hueco] === undefined) return nadaEnElHueco(u.nombre, hueco);
   const { [hueco]: _quitada, ...sin } = u.equipo;
-  return equipoDeUnidadBlocker(cuerpoDeCombate(u), sin, eq);
+  return equipoDeUnidadBlocker(u.cuerpo, sin, eq);
 }
 
 /**
@@ -548,13 +584,16 @@ export function cambioDePiezas(
   antes: CatalogoDeEquipo,
   despues: readonly PiezaEscrita[],
   unidades: readonly Unidad[],
+  heroes: readonly HeroeDeArena[] = [],
 ): { readonly equipo: CatalogoDeEquipo } | { readonly motivo: string } {
   const borrada = baseQueSeBorra(antes, despues);
   if (borrada !== null) return { motivo: borrada };
   const leido = oElMotivo(() => catalogoDeEquipo(despues));
   if ('motivo' in leido) return leido;
   const equipo = leido.valor;
-  const motivo = nombreRepetido(antes, equipo) ?? quienDejaDeValer(antes, equipo, unidades);
+  const motivo =
+    nombreRepetido(antes, equipo) ??
+    quienDejaDeValer(antes, equipo, [...unidades, ...heroes].map(portadorDe));
   if (motivo !== null) return { motivo };
   const carga = oElMotivo(() => leerCatalogos(equipo, { unidades }));
   return 'motivo' in carga ? carga : { equipo };
@@ -568,17 +607,17 @@ export function cambioDePiezas(
 function quienDejaDeValer(
   antes: CatalogoDeEquipo,
   despues: CatalogoDeEquipo,
-  unidades: readonly Unidad[],
+  portadores: readonly Portador[],
 ): string | null {
-  for (const u of unidades) {
+  for (const u of portadores) {
     for (const id of idsPuestos(u.equipo)) {
       const a = antes.piezaSiExiste(id);
       const d = despues.piezaSiExiste(id);
       if (a === d || (a !== null && d !== null && mismaPieza(a, d))) continue;
       if (d === null) {
-        return `la lleva «${u.name}»: quítasela antes de borrar ${a === null ? `«${id}»` : `«${a.nombre}»`}`;
+        return `la lleva «${u.nombre}»: quítasela antes de borrar ${a === null ? `«${id}»` : `«${a.nombre}»`}`;
       }
-      const motivo = equipoQueNoVale(cuerpoDeCombate(u), u.equipo, despues);
+      const motivo = equipoQueNoVale(u.cuerpo, u.equipo, despues);
       if (motivo !== null) return motivo;
     }
   }
@@ -630,19 +669,23 @@ function nombreRepetido(viejo: EquipoAtado, nuevo: EquipoAtado): string | null {
 }
 
 /**
- * Los ids de las piezas que lleva lo montado: las de sus unidades y, con héroe,
- * su equipo base. Lo leen el enlace (qué piezas viajan) y la página al abrirlo.
+ * Los ids de las piezas que lleva lo montado: las de sus unidades y las de sus
+ * héroes (`deLosHeroes`, el equipo de cada uno). Lo leen el enlace (qué piezas
+ * viajan) y la página al abrirlo.
  */
-export function idsLlevados(unidades: readonly Unidad[], conHeroe: boolean): ReadonlySet<string> {
+export function idsLlevados(
+  unidades: readonly Unidad[],
+  deLosHeroes: readonly Equipo[],
+): ReadonlySet<string> {
   return new Set([
     ...unidades.flatMap((u) => idsPuestos(u.equipo)),
-    ...(conHeroe ? idsPuestos(EQUIPO_BASE) : []),
+    ...deLosHeroes.flatMap(idsPuestos),
   ]);
 }
 
 /**
- * Las piezas, escritas, que lleva lo montado: las puestas en alguna unidad o, con
- * héroe, en su equipo base (`idsLlevados`), **con sus bases** en cadena (la Espada
+ * Las piezas, escritas, que lleva lo montado: las puestas en alguna unidad o en
+ * algún héroe (`idsLlevados`), **con sus bases** en cadena (la Espada
  * bendita lleva la Espada de herrería y la Espada), tal como están en `piezas`, en
  * su orden. Es lo que va en el enlace de la pelea, todas, para que se abra igual
  * en otra máquina aunque su catálogo sea otro. Lanza si lo montado lleva una que
@@ -650,7 +693,7 @@ export function idsLlevados(unidades: readonly Unidad[], conHeroe: boolean): Rea
  */
 export function piezasDelMontaje(
   unidades: readonly Unidad[],
-  conHeroe: boolean,
+  deLosHeroes: readonly Equipo[],
   piezas: readonly PiezaEscrita[],
 ): readonly PiezaEscrita[] {
   const escritas = new Map(piezas.map((p) => [p.id, p]));
@@ -662,7 +705,7 @@ export function piezasDelMontaje(
     llevadas.add(id);
     if (esPiezaConBase(e)) poner(e.base);
   };
-  for (const id of idsLlevados(unidades, conHeroe)) poner(id);
+  for (const id of idsLlevados(unidades, deLosHeroes)) poner(id);
   return piezas.filter((p) => llevadas.has(p.id));
 }
 
@@ -714,6 +757,14 @@ export interface HeroeDeArena {
    * batalla, el retoque y el enlace lo lleven sin otro camino.
    */
   readonly cuerpo: CuerpoDeTodoHeroe;
+  /**
+   * Lo que lleva puesto, un id de pieza por hueco (04-11-2026, petición del usuario:
+   * «no se les puede cambiar el equipo»): empieza en el equipo base de todo héroe
+   * (`EQUIPO_BASE`, la Espada y el gambesón) y se cambia en su ficha, como el de
+   * una unidad, con la misma regla (`equipoDeUnidadBlocker`). Es de este héroe de
+   * la arena: «Guardar» no lo escribe.
+   */
+  readonly equipo: Equipo;
 }
 
 /** Lo más alto que admite una cifra del héroe: más arriba ninguna fórmula cambia ya. */
@@ -730,6 +781,7 @@ export function heroePorDefecto(
 ): HeroeDeArena {
   return {
     cuerpo,
+    equipo: EQUIPO_BASE,
     nombre: `Héroe ${LADOS[lado].adjetivo}`,
     figura: null,
     ataque: CIFRAS_DEL_HEROE_INICIAL.attack,
@@ -768,6 +820,7 @@ export function validarHeroeDeArena(h: HeroeDeArena): HeroeDeArena {
     conocimiento: cifra(h.conocimiento, 'el conocimiento', 0),
     hechizos,
     cuerpo: combateDelHeroe(h.cuerpo, `${quien}: su cuerpo`),
+    equipo: equipoEscrito(h.equipo, quien),
   };
 }
 
@@ -781,15 +834,20 @@ export function laLlevaElHeroe(id: string): boolean {
  * gasta su maná y marca su hechizo de la ronda sobre este objeto, y una segunda
  * pelea con el mismo empezaría con el maná de la primera.
  *
- * Su equipo, el base de todo héroe (`EQUIPO_BASE`, la Espada y el gambesón), se
- * lee de `eq`, como el de la tropa (el cuerpo de `heroUnit`, vestido con él): las
+ * Su equipo, el suyo (`HeroeDeArena.equipo`, que empieza en el base de todo héroe),
+ * se lee de `eq`, como el de la tropa (el cuerpo de `heroUnit`, vestido con él): las
  * piezas que la arena puede haber cambiado.
  */
 export function heroeDeArena(datos: HeroeDeArena, eq: EquipoAtado): HeroeDelBando {
   const h = validarHeroeDeArena(datos);
+  const desnudo = cuerpoDelHeroeDeArena(h);
+  // Con la regla del equipo de una unidad: piezas que existen, manos y un arma de
+  // cuerpo a cuerpo, sin la que nadie pelea.
+  const motivo = equipoDeUnidadBlocker(desnudo, h.equipo, eq);
+  if (motivo !== null) throw new Error(`${h.nombre}: ${motivo}`);
   return {
-    cuerpo: eq.conEquipo(cuerpoDelHeroeDeArena(h), EQUIPO_BASE),
-    desnudo: cuerpoDelHeroeDeArena(h),
+    cuerpo: eq.conEquipo(desnudo, h.equipo),
+    desnudo,
     mando: mandoDe(
       {
         name: h.nombre,
@@ -1033,7 +1091,7 @@ export function batallaDeArena(
       fichas[claveDeFicha(tipoDeLaFuente(f))] = fichaEnPalabras(f, eq);
     }
     const heroe = montaje[lado].heroe;
-    if (heroe !== null) fichas[claveDeFicha({ kind: 'heroe', lado })] = fichaDelHeroe(heroe);
+    if (heroe !== null) fichas[claveDeFicha({ kind: 'heroe', lado })] = fichaDelHeroe(heroe, eq);
   }
   return { ...batalla, fichasDeArena: fichas };
 }
@@ -1121,7 +1179,7 @@ function huecosEnPalabras(equipo: Equipo, eq: EquipoAtado): Record<Hueco, readon
  * su cuerpo, que llevan el equipo base (N2 de QA: «ataque 2 → 9» salía «5 → 12»),
  * y el libro por los nombres que enseña la página («Prisa», no `haste`).
  */
-function fichaDelHeroe(datos: HeroeDeArena): FichaEnPalabras {
+function fichaDelHeroe(datos: HeroeDeArena, eq: EquipoAtado): FichaEnPalabras {
   const h = validarHeroeDeArena(datos);
   return {
     nombre: h.nombre,
@@ -1129,10 +1187,16 @@ function fichaDelHeroe(datos: HeroeDeArena): FichaEnPalabras {
     defensa: `${h.defensa}`,
     poder: `${h.poder}`,
     conocimiento: `${h.conocimiento}`,
+    // El cuerpo de todo héroe y lo puesto: sin ellos, cambiarlos a media pelea no
+    // cambiaba nada (la ficha salía igual y el retoque no se aplicaba).
+    fuerza: `${h.cuerpo.fuerza.base}`,
+    agilidad: `${h.cuerpo.agilidad}`,
+    vida: `${h.cuerpo.pv.base}`,
     hechizos: h.hechizos
       .map(spell)
       .sort(ordenDelLibro)
       .map((x) => x.name),
+    ...huecosEnPalabras(h.equipo, eq),
   };
 }
 
@@ -1223,7 +1287,7 @@ export function retocarEnBatalla(
     case 'heroe': {
       const nuevo = oElMotivo(() => ({
         heroe: heroeDeArena(r.datos, eq),
-        ficha: fichaDelHeroe(r.datos),
+        ficha: fichaDelHeroe(r.datos, eq),
       }));
       return 'motivo' in nuevo
         ? nuevo.motivo
@@ -1368,8 +1432,10 @@ function retocarLasPiezas(
   const fichas = state.fichasDeArena as Record<string, FichaEnPalabras> | undefined;
   for (const s of state.stacks) {
     const lleva = s.unit.equipo;
-    if (fichas === undefined || lleva === undefined || s.origen.kind === 'heroe') continue;
-    const clave = claveDeFicha(tipoDelStack(s));
+    if (fichas === undefined || lleva === undefined) continue;
+    const clave = claveDeFicha(
+      s.origen.kind === 'heroe' ? { kind: 'heroe', lado: ladoDe(s.side) } : tipoDelStack(s),
+    );
     const ficha = fichas[clave];
     if (ficha !== undefined) fichas[clave] = { ...ficha, ...huecosEnPalabras(lleva, despues) };
   }
@@ -1596,9 +1662,10 @@ export function retiradosDeLaURL(
  * una pieza dice `lanza: true` y una unidad lleva `segunda`; la 17 (26-10-2026), la
  * montura: el hueco `montura`, piezas con `agilidad` y `guerra`, y el rasgo
  * `charge` fuera; la 18 (03-11-2026), el cuerpo de todo héroe en cada héroe
- * (`HeroeDeArena.cuerpo`: PV, fuerza y agilidad, que la arena edita).
+ * (`HeroeDeArena.cuerpo`: PV, fuerza y agilidad, que la arena edita); la 19
+ * (04-11-2026), lo que lleva puesto cada héroe (`HeroeDeArena.equipo`).
  */
-export const VERSION_DEL_ENLACE = 18;
+export const VERSION_DEL_ENLACE = 19;
 
 const CAMPOS_DEL_ENLACE = ['v', 'unidades', 'piezas', 'izquierda', 'derecha', 'muralla', 'combate'];
 const CAMPOS_DEL_COMBATE = ['tope', 'rueda'];
@@ -1613,6 +1680,7 @@ const CAMPOS_DEL_HEROE = [
   'conocimiento',
   'hechizos',
   'cuerpo',
+  'equipo',
 ];
 
 /** Un objeto con solo esos campos, o se lanza diciendo cuál sobra o falta. */
@@ -1737,7 +1805,11 @@ export function montajeDeLaURL(textoDelEnlace: string): MontajeDelEnlace {
   // escribió la página.
   const llevadas = (() => {
     try {
-      return piezasDelMontaje(unidades, izquierda.heroe !== null || derecha.heroe !== null, piezas);
+      return piezasDelMontaje(
+        unidades,
+        [izquierda.heroe, derecha.heroe].flatMap((h) => (h === null ? [] : [h.equipo])),
+        piezas,
+      );
     } catch (err) {
       throw new Error(
         `el montaje del enlace no trae una pieza: ${err instanceof Error ? err.message : String(err)}`,
@@ -1747,6 +1819,20 @@ export function montajeDeLaURL(textoDelEnlace: string): MontajeDelEnlace {
   for (const p of piezas) {
     if (!llevadas.includes(p)) {
       throw new Error(`el montaje del enlace trae la pieza «${p.nombre}» y no la lleva nadie`);
+    }
+  }
+  // Y lo que lleva cada héroe, con la regla de su ficha (`heroeDeArena`).
+  for (const [l, h] of [
+    ['izquierda', izquierda.heroe],
+    ['derecha', derecha.heroe],
+  ] as const) {
+    if (h === null) continue;
+    try {
+      heroeDeArena(h, conLasPiezas);
+    } catch (err) {
+      throw new Error(
+        `el héroe del bando ${LADOS[l].adjetivo} del enlace no vale: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
   const montaje = { unidades, piezas, izquierda, derecha, muralla, combate };

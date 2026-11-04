@@ -67,17 +67,17 @@ describe('una pieza sobre otra', () => {
   });
 
   it('el enlace lleva todas las piezas de lo que lleva, con sus bases, y se reabre igual', () => {
-    expect(VERSION_DEL_ENLACE).toBe(17);
+    expect(VERSION_DEL_ENLACE).toBe(19);
     const u = conBendita();
     // El guerrero lleva la bendita, la brigantina y el escudo; con sus bases van la
     // de herrería y la Espada, tal como están en el catálogo con que pelea.
     const conLaMia = elCatalogoCon(ESPADA_MAS, { ...pieza('arco'), ataque: 9 });
-    const llevadas = piezasDelMontaje([u], false, conLaMia);
+    const llevadas = piezasDelMontaje([u], [], conLaMia);
     expect(llevadas.map((p) => p.id).sort()).toEqual(
       ['brigantina', 'escudo', 'espada', 'espada_bendita', 'espada_de_herreria'].sort(),
     );
     expect(llevadas.find((p) => p.id === 'espada')).toEqual(validarPieza(ESPADA_MAS));
-    expect(() => piezasDelMontaje([u], false, [])).toThrow(
+    expect(() => piezasDelMontaje([u], [], [])).toThrow(
       'lo montado lleva la pieza «espada_bendita» y no está',
     );
     const lado = (unidad: string, ia: boolean) => ({
@@ -88,7 +88,7 @@ describe('una pieza sobre otra', () => {
     const arquero = unidadDeArena('goblin-arquero');
     const ENLACE: MontajeDelEnlace = {
       unidades: [u, arquero],
-      piezas: piezasDelMontaje([u, arquero], false, conLaMia),
+      piezas: piezasDelMontaje([u, arquero], [], conLaMia),
       izquierda: lado(u.id, false),
       derecha: lado('goblin-arquero', true),
       muralla: null,
@@ -117,7 +117,7 @@ describe('una pieza sobre otra', () => {
       montajeALaURL({
         ...ENLACE,
         unidades: [lleva, arquero],
-        piezas: piezasDelMontaje([lleva, arquero], false, [...eqDos.escritas.values()]),
+        piezas: piezasDelMontaje([lleva, arquero], [], [...eqDos.escritas.values()]),
         izquierda: lado(lleva.id, false),
       }),
     );

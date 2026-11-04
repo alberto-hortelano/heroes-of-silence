@@ -254,7 +254,7 @@ describe('el enlace de la pelea lleva las piezas de lo montado', () => {
   });
   const ENLACE: MontajeDelEnlace = {
     unidades: [conNueva, arquero()],
-    piezas: piezasDelMontaje([conNueva, arquero()], false, [...eq.escritas.values()]),
+    piezas: piezasDelMontaje([conNueva, arquero()], [], [...eq.escritas.values()]),
     izquierda: lado(conNueva.id, false),
     derecha: lado('goblin-arquero', true),
     muralla: null,
@@ -262,7 +262,7 @@ describe('el enlace de la pelea lleva las piezas de lo montado', () => {
   };
 
   it('va y vuelve con todas las piezas que lleva, y monta con ellas en el catálogo de quien lo abre', () => {
-    expect(VERSION_DEL_ENLACE).toBe(18);
+    expect(VERSION_DEL_ENLACE).toBe(19);
     // Lo que llevan el guerrero (la nueva, la brigantina, el escudo) y el arquero
     // (daga, arco, jubón): todas, no solo las cambiadas.
     expect(ENLACE.piezas.map((p) => p.id).sort()).toEqual(
@@ -275,12 +275,11 @@ describe('el enlace de la pelea lleva las piezas de lo montado', () => {
       unidadDeCombate(conNueva, eq).attack,
     );
     // El héroe: su equipo base, la Espada y el gambesón, viaja con él.
-    expect(idsLlevados([], true)).toEqual(new Set(Object.values(EQUIPO_BASE)));
-    expect(piezasDelMontaje([], true, elCatalogoCon(ESPADA_MAS)).map((p) => p.id)).toEqual([
-      'espada',
-      'gambeson',
-    ]);
-    expect(piezasDelMontaje([], false, elCatalogoCon(ESPADA_MAS))).toEqual([]);
+    expect(idsLlevados([], [EQUIPO_BASE])).toEqual(new Set(Object.values(EQUIPO_BASE)));
+    expect(piezasDelMontaje([], [EQUIPO_BASE], elCatalogoCon(ESPADA_MAS)).map((p) => p.id)).toEqual(
+      ['espada', 'gambeson'],
+    );
+    expect(piezasDelMontaje([], [], elCatalogoCon(ESPADA_MAS))).toEqual([]);
   });
 
   it('abierto en una arena con piezas cambiadas, sus piezas entran en ella: el enlace aplica, no se superpone', () => {
@@ -417,7 +416,7 @@ describe('«Guardar»: piezas y unidades, una sola operación', () => {
     const enlace = montajeDeLaURL(
       montajeALaURL({
         unidades: [guerrero(), conNueva],
-        piezas: piezasDelMontaje([guerrero(), conNueva], false, elCatalogoCon(nueva)),
+        piezas: piezasDelMontaje([guerrero(), conNueva], [], elCatalogoCon(nueva)),
         izquierda: lado(guerrero().id),
         derecha: lado(conNueva.id),
         muralla: null,
