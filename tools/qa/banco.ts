@@ -1333,11 +1333,28 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   igual. 0 sin terminar; j0 gana 8 de 20 (10 antes; cambian de ganador s5 y s18);
  *   duración 4 / 5 / 11 → **4 / 8 / 9**, días 83 → 84. La forma del diff, no una
  *   medida.
+ * - `883fe9be…` (4 768 líneas, 20 semillas, 04-11-2026): **las murallas del mapa**
+ *   (fase 2 del puesto fronterizo: toda batalla contra una ciudad, con la piedra de
+ *   `data/sitios.json`; contra un pueblo, con la madera; y el bando atacante entero
+ *   con escalera, `conEscaleras`). Contra `b8b0690c…` cambian **las 20**, y en las
+ *   20 el primer hecho distinto es el `battle_ended` del **primer `battle_started`
+ *   contra una ciudad** (`foe: town`; s1 hecho 30, s5 hecho 22, s18 hecho 22, s20
+ *   hecho 19…): la misma batalla, ya tras la muralla, acaba distinta (otras rondas,
+ *   otras bajas, o la pierde quien atacaba). Ningún hecho antes de ella se mueve: ni
+ *   el mapa, ni la economía, ni las batallas contra monstruos y asaltantes, que van
+ *   sin muralla. Batallas 92 → 114, rondas por batalla 3 / 7 / 11 → **5 / 9 / 19**
+ *   (mediana / p90 / máximo); ganadas por quien defiende una ciudad 0 → 4 y héroes
+ *   vencidos 26 → 45 (la IA del mapa ataca la muralla sin pesarla: `ventajaClara`
+ *   no la ve, el riesgo 2 del plan); `town_captured` 85 → 94, `node_captured` 67 →
+ *   84, `troops_taken` 52 → 83, `defense_set` 5 → 3; ningún tipo de hecho nuevo ni
+ *   perdido (las escaleras y las puertas son de la batalla, no de la crónica). 0 sin
+ *   terminar; j0 gana 10 de 20 (8 antes); duración 4 / 8 / 9 → **4 / 7 / 12**, días
+ *   84 → 100; el banco, 1,9 s. La forma del diff, no una medida.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'b8b0690c833e32b941218102327f790254850d014f1a2a6098dc47500e1eb8d1',
+  sha: '883fe9be85bcf887a534efe540b69f346bf93e7bb2d7ef672800deb3e19d4858',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

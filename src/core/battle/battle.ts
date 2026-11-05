@@ -31,12 +31,10 @@ import {
   allHexes,
   areAdjacent,
   BOARD_SIZE,
-  COLUMNAS_DE_SALIDA,
   type CosteDeSalir,
   caminoDe,
   carreraConCostes,
   distanciasDesde,
-  espejo,
   hexDistance,
   hexEquals,
   hexKey,
@@ -125,6 +123,7 @@ import {
   puntosDeLaForma,
   type TipoDeGolpe,
 } from './rueda.js';
+import { enElMarco, salidaDe } from './salida.js';
 import {
   castSpell,
   curaDe,
@@ -176,10 +175,34 @@ export interface BattleSide {
 
 /**
  * Un stack de la tropa tal como entra: el del ejército y, si lleva, su escalera
- * para subir a la muralla (`poner_escalera`). La escalera solo la pone la arena,
- * y no llega al tablero si no la puede usar (`quienNoEscala`).
+ * para subir a la muralla (`poner_escalera`). La ponen la arena (por puesto) y
+ * la batalla del mapa con muralla (a todo el bando atacante, `alAsalto`), y
+ * no llega al tablero si no la puede usar (`quienNoEscala`).
  */
 export type StackDeBatalla = Stack & { readonly escalera?: boolean };
+
+/**
+ * El bando atacante `lado` listo para pelear contra `muralla`: **con muralla, una
+ * escalera para cada uno, el héroe incluido** (D8 del puesto fronterizo, 04-11-2026,
+ * decisión del usuario: «Todo el atacante»; sin comprarla, una por stack, y se gasta
+ * al ponerla); sin muralla, tal cual. Sin escaleras, una muralla del mapa, que
+ * cierra (`murallaDelMapaBlocker`), no la cruzaría nadie que ande y la batalla
+ * llegaría a `MAX_ROUNDS`. A quien vuela no le llega (`createBattle`,
+ * `quienNoEscala`). LA decisión de quién lleva escalera en el mapa: la leen
+ * `montarLaBatalla` y la medida de la IA contra la IA (`tools/qa/arena-ia.ts`).
+ */
+export function alAsalto(lado: BattleSide, muralla: MurallaDeBatalla): BattleSide {
+  return hayMuralla(muralla) ? conEscaleras(lado) : lado;
+}
+
+/** `lado` con una escalera para cada uno, el héroe incluido (`alAsalto`). */
+function conEscaleras(lado: BattleSide): BattleSide {
+  return {
+    ...lado,
+    army: lado.army.map((s) => ({ ...s, escalera: true })),
+    hero: lado.hero === null ? null : { ...lado.hero, escalera: true },
+  };
+}
 
 /**
  * El héroe de un bando, tal como entra: lo que el motor guarda en
@@ -205,6 +228,11 @@ export interface HeroeDelBando {
    * (`queEs`).
    */
   readonly figura: string;
+  /**
+   * Si entra con escalera (`poner_escalera`): solo el héroe que ataca una muralla
+   * del mapa (`alAsalto`). La arena no se la da: allí la escalera es de un puesto.
+   */
+  readonly escalera?: boolean;
 }
 
 /**
@@ -241,9 +269,6 @@ export interface BattleMember {
 // es dentro y qué es fuera desde la del defensor.
 export { bandoDeSalida } from './board.js';
 
-/** Las filas, del centro hacia fuera: el centro es lo primero que se llena. */
-const DEL_CENTRO_A_FUERA: readonly number[] = [4, 3, 5, 2, 6, 1, 7, 0, 8];
-
 /**
  * La casilla de cada unidad, en el orden en que llegan: las tres columnas del
  * borde, columna a columna desde el borde y cada columna del centro hacia fuera.
@@ -276,7 +301,7 @@ function despliegue(
   primera: number | null,
   muralla: MurallaDeBatalla,
 ): Hex[] {
-  const { huecos, motivo } = salidaDe(units, side, muralla);
+  const { huecos, motivo } = salidaDe(units.length, side, casillasDeMuro(muralla));
   if (motivo !== null) throw new Error(motivo);
   const out: Hex[] = new Array<Hex>(units.length);
   let siguiente = 0;
@@ -297,47 +322,7 @@ export function despliegueBlocker(
   side: Side,
   muralla: MurallaDeBatalla,
 ): string | null {
-  return salidaDe(units, side, muralla).motivo;
-}
-
-/** Del marco del atacante, en el que se calcula la salida, al del tablero (el del defensor es `espejo`). */
-function enElMarco(side: Side, h: Hex): Hex {
-  return side === 'attacker' ? h : espejo(h);
-}
-
-/**
- * Los huecos de salida, en el marco del atacante: lo que no es muro ni puerta de
- * las columnas de salida; y si no caben, por qué.
- */
-function salidaDe(
-  units: readonly UnitInfo[],
-  side: Side,
-  muralla: MurallaDeBatalla,
-): { readonly huecos: readonly Hex[]; readonly motivo: string | null } {
-  const cerradas = casillasDeMuro(muralla);
-  const cerrada = (h: Hex): boolean => cerradas.has(hexKey(enElMarco(side, h)));
-  const lado = side === 'attacker' ? 'la izquierda' : 'la derecha';
-  const huecos: Hex[] = [];
-  for (let col = 0; col < COLUMNAS_DE_SALIDA; col++) {
-    for (const row of DEL_CENTRO_A_FUERA) {
-      const h = { col, row };
-      if (!cerrada(h)) huecos.push(h);
-    }
-  }
-  const motivo =
-    units.length > huecos.length
-      ? `la muralla deja ${unaOVarias(huecos.length, 'casilla')} de salida a ${lado} y ${haceFalta(units.length)}`
-      : null;
-  return { huecos, motivo };
-}
-
-/** «1 casilla», «0 casillas», «3 casillas»: QA vio «deja 1 filas de salida» (M6). */
-function unaOVarias(n: number, palabra: string): string {
-  return `${n} ${palabra}${n === 1 ? '' : 's'}`;
-}
-
-function haceFalta(n: number): string {
-  return `${n === 1 ? 'hace' : 'hacen'} falta ${n}`;
+  return salidaDe(units.length, side, casillasDeMuro(muralla)).motivo;
 }
 
 /**
@@ -393,8 +378,9 @@ export function armyMorale(units: readonly UnitInfo[]): number {
  * juego y la arena, con la rueda, salir del contacto, la carga a pie y la
  * armadura siempre). `combate`, **obligatorio**, es la complejidad de la partida
  * (`GameState.combate`) o del montaje de la arena: el tope de individuos por bando
- * y la rueda con que se pelea (`BattleState.rueda`). `muralla` la pone solo la
- * arena (y los tests); toda batalla del mapa va sin ella (`SIN_MURALLA`).
+ * y la rueda con que se pelea (`BattleState.rueda`). `muralla` la pone la arena
+ * (la que se dibuje) y la batalla del mapa contra una ciudad o un pueblo (la de
+ * `data/sitios.json`, `murallaDelSitio`); sin ella, `SIN_MURALLA`.
  */
 export function createBattle(
   attacker: BattleSide,
@@ -406,7 +392,9 @@ export function createBattle(
   const sinCombate = combateBlocker(combate);
   if (sinCombate !== null) throw new Error(`no se puede montar la batalla: ${sinCombate}`);
   const stacks: BattleStack[] = [];
-  const muralla = murallaPedida === SIN_MURALLA ? SIN_MURALLA : validarMuralla(murallaPedida);
+  // Una muralla ya validada vuelve tal cual (`validarMuralla` la recuerda): todas las
+  // batallas contra una ciudad comparten su objeto y sus cachés.
+  const muralla = validarMuralla(murallaPedida);
 
   for (const [side, setup] of [
     ['attacker', attacker],
@@ -458,7 +446,7 @@ export function createBattle(
         topHp: e.topHp,
         hex: hexes[i]!,
         // La escalera solo va con quien puede ponerla: el defensor y el volador no
-        // escalan, y el héroe no trae (`entradaDelHeroe`).
+        // escalan (`quienNoEscala`).
         escalera: e.escalera && quienNoEscala(side, e.unit) === null,
         retaliated: false,
         acted: false,
@@ -622,7 +610,7 @@ function entradaDelHeroe(heroe: HeroeDelBando, slot: number): Entrada {
     count: 1,
     topHp: heroe.cuerpo.hp,
     ownMorale: 0,
-    escalera: false,
+    escalera: heroe.escalera === true,
   };
 }
 
@@ -3760,8 +3748,16 @@ function escalasA(state: BattleState, s: BattleStack): BattleAction[] {
   return out;
 }
 
-/** En el orden en que se ofrecen: poner antes que subir, contra el mismo muro. */
-const TIPOS_DE_ESCALA: readonly TipoDeEscala[] = ['poner_escalera', 'subir'];
+/**
+ * Las jugadas de la escala, en el orden en que se ofrecen: poner antes que subir,
+ * contra el mismo muro. La lista que leen la lista legal, la escena y los botones.
+ */
+export const TIPOS_DE_ESCALA: readonly TipoDeEscala[] = ['poner_escalera', 'subir'];
+
+/** ¿Es `x` una jugada de la escala (`TIPOS_DE_ESCALA`)? */
+export function esTipoDeEscala(x: string): x is TipoDeEscala {
+  return (TIPOS_DE_ESCALA as readonly string[]).includes(x);
+}
 
 // ---------------------------------------------------------------- puertas
 
@@ -3791,7 +3787,8 @@ export function puertaBlocker(
   if (porLaFase !== null) return porLaFase;
   const p = state.puertas.find((q) => mismaPuerta(q, puerta));
   if (p === undefined) return `entre ${nombreDePuerta(puerta)} no hay puerta`;
-  if (s.side !== 'defender') return 'las puertas las abre y las cierra quien defiende';
+  const quien = quienNoAbre(s.side);
+  if (quien !== null) return quien;
   if (seHaMovido(state, s)) {
     return 'ya se ha movido este turno: la puerta se abre o se cierra al principio del turno';
   }
@@ -3799,6 +3796,15 @@ export function puertaBlocker(
   if (tipo === 'cerrar_puerta' && !p.abierta) return 'la puerta ya está cerrada';
   if (p.cambiadaEn === turno.n) return 'esa puerta ya se ha abierto o cerrado en este turno';
   return null;
+}
+
+/**
+ * Quién no abre ni cierra nunca una puerta, esté donde esté: solo quien defiende.
+ * Como `quienNoEscala`, la leen la regla de la puerta (`puertaBlocker`) y los
+ * botones, que no salen a quien nunca los podría pulsar.
+ */
+export function quienNoAbre(side: Side): string | null {
+  return side === 'defender' ? null : 'las puertas las abre y las cierra quien defiende';
 }
 
 /**
@@ -3824,7 +3830,13 @@ function puertasA(state: BattleState): BattleAction[] {
   return out;
 }
 
-const TIPOS_DE_PUERTA: readonly TipoDePuerta[] = ['abrir_puerta', 'cerrar_puerta'];
+/** Las jugadas de la puerta, en el orden en que se ofrecen (como `TIPOS_DE_ESCALA`). */
+export const TIPOS_DE_PUERTA: readonly TipoDePuerta[] = ['abrir_puerta', 'cerrar_puerta'];
+
+/** ¿Es `x` una jugada de la puerta (`TIPOS_DE_PUERTA`)? */
+export function esTipoDePuerta(x: string): x is TipoDePuerta {
+  return (TIPOS_DE_PUERTA as readonly string[]).includes(x);
+}
 
 // ---------------------------------------------------------------- legalidad
 

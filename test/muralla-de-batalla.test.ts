@@ -102,6 +102,7 @@ describe('validarMuralla', () => {
     const crudo = {
       muros: [{ col: 7, row: 1 }],
       puertas: [{ a: { col: 7, row: 2 }, b: { col: 8, row: 2 } }],
+      material: 'madera',
     };
     const m = validarMuralla(crudo);
     expect(m).toEqual(crudo);
@@ -111,34 +112,57 @@ describe('validarMuralla', () => {
   });
 
   it('lanza con una frase por cada cosa que no entiende', () => {
-    expect(() => validarMuralla(null)).toThrow('la muralla tiene que ser un objeto');
-    expect(() => validarMuralla({ muros: [] })).toThrow('la muralla necesita «puertas»');
-    expect(() => validarMuralla({ muros: [], puertas: [], torres: [] })).toThrow(
-      'la muralla no entiende «torres»',
+    expect(() => validarMuralla(null)).toThrow('la muralla: tiene que ser un objeto');
+    // El material es obligatorio (puesto fronterizo, fase 2): sin él, y uno que no hay.
+    expect(() => validarMuralla({ muros: [], puertas: [] })).toThrow(
+      'la muralla: falta «material»',
     );
+    expect(() => validarMuralla({ muros: [], puertas: [], material: 'barro' })).toThrow(
+      'la muralla: material "barro" no existe; valen piedra, madera',
+    );
+    expect(() => validarMuralla({ material: 'piedra', muros: [] })).toThrow(
+      'la muralla: falta «puertas»',
+    );
+    expect(() =>
+      validarMuralla({ material: 'piedra', muros: [], puertas: [], torres: [] }),
+    ).toThrow('la muralla: «torres» no es un campo; valen muros, puertas, material');
     // La columna 11 existe en las filas pares y no en las impares.
-    expect(() => validarMuralla({ muros: [{ col: 11, row: 1 }], puertas: [] })).toThrow(
-      `cae en (11,1), fuera del tablero (${FORMA_DEL_TABLERO})`,
-    );
-    expect(validarMuralla({ muros: [{ col: 11, row: 0 }], puertas: [] }).muros).toHaveLength(1);
+    expect(() =>
+      validarMuralla({ material: 'piedra', muros: [{ col: 11, row: 1 }], puertas: [] }),
+    ).toThrow(`cae en (11,1), fuera del tablero (${FORMA_DEL_TABLERO})`);
+    expect(
+      validarMuralla({ material: 'piedra', muros: [{ col: 11, row: 0 }], puertas: [] }).muros,
+    ).toHaveLength(1);
     // La puerta va entre una casilla y la de su este: (10,1) no tiene este.
     expect(() =>
-      validarMuralla({ muros: [], puertas: [{ a: { col: 10, row: 1 }, b: { col: 11, row: 1 } }] }),
+      validarMuralla({
+        material: 'piedra',
+        muros: [],
+        puertas: [{ a: { col: 10, row: 1 }, b: { col: 11, row: 1 } }],
+      }),
     ).toThrow('cae en (11,1), fuera del tablero');
     expect(
-      validarMuralla({ muros: [], puertas: [{ a: { col: 10, row: 0 }, b: { col: 11, row: 0 } }] })
-        .puertas,
+      validarMuralla({
+        material: 'piedra',
+        muros: [],
+        puertas: [{ a: { col: 10, row: 0 }, b: { col: 11, row: 0 } }],
+      }).puertas,
     ).toHaveLength(1);
-    expect(() => validarMuralla({ muros: [{ col: -1, row: 0 }], puertas: [] })).toThrow(
-      'fuera del tablero',
+    expect(() =>
+      validarMuralla({ material: 'piedra', muros: [{ col: -1, row: 0 }], puertas: [] }),
+    ).toThrow('fuera del tablero');
+    expect(() =>
+      validarMuralla({ material: 'piedra', muros: [{ col: 1.5, row: 0 }], puertas: [] }),
+    ).toThrow('el muro 1 necesita col y row enteros');
+    expect(() =>
+      validarMuralla({ material: 'piedra', muros: [{ col: '1', row: 0 }], puertas: [] }),
+    ).toThrow('enteros');
+    expect(() => validarMuralla({ material: 'piedra', muros: [3], puertas: [] })).toThrow(
+      'no es un hex',
     );
-    expect(() => validarMuralla({ muros: [{ col: 1.5, row: 0 }], puertas: [] })).toThrow(
-      'el muro 1 necesita col y row enteros',
-    );
-    expect(() => validarMuralla({ muros: [{ col: '1', row: 0 }], puertas: [] })).toThrow('enteros');
-    expect(() => validarMuralla({ muros: [3], puertas: [] })).toThrow('no es un hex');
     expect(() =>
       validarMuralla({
+        material: 'piedra',
         muros: [
           { col: 2, row: 2 },
           { col: 2, row: 2 },
@@ -150,6 +174,7 @@ describe('validarMuralla', () => {
     const puerta = (a: Hex, b: Hex): unknown => ({
       muros: [{ col: 2, row: 2 }],
       puertas: [{ a, b }],
+      material: 'piedra',
     });
     expect(() => validarMuralla(puerta({ col: 2, row: 2 }, { col: 3, row: 2 }))).toThrow(
       'la puerta (2,2)-(3,2) cae en el muro de (2,2): va entre dos casillas de suelo',
@@ -168,6 +193,7 @@ describe('validarMuralla', () => {
     );
     expect(() =>
       validarMuralla({
+        material: 'piedra',
         muros: [],
         puertas: [
           { a: { col: 4, row: 2 }, b: { col: 5, row: 2 } },
@@ -175,23 +201,30 @@ describe('validarMuralla', () => {
         ],
       }),
     ).toThrow('la muralla repite la puerta (4,2)-(5,2)');
-    expect(() => validarMuralla({ muros: [], puertas: [{ a: { col: 1, row: 1 } }] })).toThrow(
-      'el lado b de la puerta 1 no es un hex',
-    );
+    expect(() =>
+      validarMuralla({ material: 'piedra', muros: [], puertas: [{ a: { col: 1, row: 1 } }] }),
+    ).toThrow('el lado b de la puerta 1 no es un hex');
     expect(() =>
       validarMuralla({
+        material: 'piedra',
         muros: [],
         puertas: [{ a: { col: 1, row: 1 }, b: { col: 2, row: 1 }, c: 1 }],
       }),
     ).toThrow('la puerta 1 no entiende «c»');
     // El formato de antes —la puerta como casilla— se dice como tal (C31).
-    expect(() => validarMuralla({ muros: [], puertas: [{ col: 7, row: 4 }] })).toThrow(
+    expect(() =>
+      validarMuralla({ material: 'piedra', muros: [], puertas: [{ col: 7, row: 4 }] }),
+    ).toThrow(
       'la puerta 1 es una casilla, como antes; ahora una puerta va entre dos casillas vecinas en horizontal',
     );
   });
 
   it('createBattle la valida en la puerta, aunque llegue tipada', () => {
-    const mala = { muros: [{ col: 20, row: 0 }], puertas: [] } as MurallaDeBatalla;
+    const mala = {
+      muros: [{ col: 20, row: 0 }],
+      puertas: [],
+      material: 'piedra',
+    } as MurallaDeBatalla;
     expect(() =>
       createBattle(
         lado([{ creature: TROPA_BARATA, count: 1 }]),
@@ -278,7 +311,7 @@ describe('el muro (C3)', () => {
   });
 
   it('la carga no cruza el muro', () => {
-    const muro = validarMuralla({ muros: [{ col: 6, row: 4 }], puertas: [] });
+    const muro = validarMuralla({ material: 'piedra', muros: [{ col: 6, row: 4 }], puertas: [] });
     const conMuro = duelo(muro, JINETE, { col: 3, row: 4 }, TROPA, { col: 8, row: 4 });
     const sinMuro = duelo(SIN_MURALLA, JINETE, { col: 3, row: 4 }, TROPA, {
       col: 8,
@@ -414,7 +447,11 @@ describe('el despliegue esquiva la muralla', () => {
   });
 
   it('nadie empieza en un muro, tampoco el defensor', () => {
-    const m = validarMuralla({ muros: columna(10).filter((h) => h.row !== 4), puertas: [] });
+    const m = validarMuralla({
+      material: 'piedra',
+      muros: columna(10).filter((h) => h.row !== 4),
+      puertas: [],
+    });
     const b = createBattle(
       siete(TROPA_BARATA),
       siete(TROPA_BARATA),
@@ -429,7 +466,7 @@ describe('el despliegue esquiva la muralla', () => {
   it('si no caben, lo dice', () => {
     // Toda la salida de la derecha: las tres últimas casillas de cada fila.
     const salidaDerecha = allHexes().filter((h) => bandoDeSalida(h) === 'defender');
-    const tapia = validarMuralla({ muros: salidaDerecha, puertas: [] });
+    const tapia = validarMuralla({ material: 'piedra', muros: salidaDerecha, puertas: [] });
     // La misma frase antes de montar la batalla, que es la que lee el editor.
     const peones = Array.from({ length: 7 }, () => unidadDelJuego(TROPA_BARATA));
     expect(despliegueBlocker(peones, 'defender', tapia)).toBe(
@@ -447,6 +484,7 @@ describe('las frases del despliegue, con su plural (QA, M6)', () => {
   it('«1 casilla» y «hacen falta 2»', () => {
     const peones = (n: number) => Array.from({ length: n }, () => unidadDelJuego(TROPA_BARATA));
     const casiTapia = validarMuralla({
+      material: 'piedra',
       muros: allHexes().filter(
         (h) => bandoDeSalida(h) === 'defender' && !(h.col === 11 && h.row === 4),
       ),

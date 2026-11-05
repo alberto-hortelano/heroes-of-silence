@@ -5,7 +5,13 @@
  * pasar. Cuando todos han pasado, avanza el día; los lunes crecen las moradas.
  */
 import { autoResolve, type BattleOutcome } from '../ai/tactics.js';
-import { type BattleMember, type BattleSide, createBattle, mandoDe } from '../battle/battle.js';
+import {
+  alAsalto,
+  type BattleMember,
+  type BattleSide,
+  createBattle,
+  mandoDe,
+} from '../battle/battle.js';
 import { stackHp } from '../battle/damage.js';
 import { resumenDeBatalla } from '../battle/resumen.js';
 import type { BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
@@ -159,6 +165,7 @@ import {
   type LineaDeDefensa,
   laDefensa,
   moverTropa,
+  murallaDelSitio,
   nombreDelSitio,
   type PedidoDeReparto,
   type PedidoDeTropa,
@@ -3151,7 +3158,7 @@ function dejarPendiente(
   let defensa: DefensaElegida | null = null;
   if (quienes.foe.kind === 'hero') {
     const hero = heroById(state, quienes.foe.heroId);
-    const sitio = sitioDelHeroe(state, hero);
+    const sitio = sitioQueSeDefiende(state, quienes.foe);
     if (sitio !== null && guarnicionDe(state, sitio).length > 0) {
       repartir(state, hero, sitio, defensaDeLaIA(state, hero, sitio));
       defensa = { hero: hero.id, sitio: idDelSitio(sitio) };
@@ -3177,14 +3184,47 @@ function dejarPendiente(
  * Monta el tablero de una batalla del mapa con los bandos de ahora. **La única
  * llamada a `createBattle` de `state/`** (lo vigila `test/invariantes.test.ts`): la
  * hacen la batalla que nace y la defensa que se rehace.
+ *
+ * Con la muralla del sitio que se defiende (fase 2 del puesto fronterizo: piedra en
+ * una ciudad, madera en un pueblo, `murallaDelSitio`), y entonces **todo el bando
+ * atacante lleva escalera**, el héroe incluido (D8, `alAsalto`): la muralla del
+ * mapa cierra, y sin escaleras nadie que ande la cruzaría.
  */
 function montarLaBatalla(state: GameState, quienes: Enfrentamiento, ctx: GameContext): BattleState {
+  const muralla = murallaDelSitio(state, sitioQueSeDefiende(state, quienes.foe));
   return createBattle(
-    attackerSide(state, quienes.attacker),
+    alAsalto(attackerSide(state, quienes.attacker), muralla),
     defenderSide(state, quienes.foe),
     ctx.rng,
     state.combate,
+    muralla,
   );
+}
+
+/**
+ * El sitio que defiende `foe`, o `null` si no defiende ninguno: la ciudad que se
+ * ataca, la guarnición de un paso o un pueblo, o el sitio suyo en que está el
+ * héroe atacado (`sitioDelHeroe`: también sin guarnición, y en un pueblo de su
+ * región). Un monstruo, un grupo de asaltantes o un lugar no defienden sitio.
+ *
+ * **LA pregunta del sitio en juego** (simplify de la fase 2): la leen la defensa
+ * que se elige (`dejarPendiente`), la muralla de la batalla (`montarLaBatalla`) y lo
+ * que se entrega al perder (`applyVictory`), así que no puede haber una batalla tras
+ * la muralla de un sitio que entrega otro.
+ */
+function sitioQueSeDefiende(state: GameState, foe: BattleFoe): Sitio | null {
+  switch (foe.kind) {
+    case 'town':
+      return sitioPorId(state, foe.townId);
+    case 'garrison':
+      return sitioPorId(state, foe.site);
+    case 'hero':
+      return sitioDelHeroe(state, heroById(state, foe.heroId));
+    case 'monster':
+    case 'raider':
+    case 'lugar':
+      return null;
+  }
 }
 
 /**
@@ -3737,10 +3777,9 @@ function applyVictory(
       // después el héroe pregunta si le queda base: si era esa, ya no.
       // Lo mismo si defendía un paso o un pueblo suyo: lo que no eligió para
       // defenderlo se pierde con el sitio (D1).
-      const sitio = sitioEn(state, at);
-      if (sitio !== null && dueñoDelSitio(state, sitio) === derrotado.owner) {
-        entregarElSitio(state, sitio, hero.owner);
-      }
+      // `at` es la casilla del vencido (`lugarDelRival`): su sitio, el que defendía.
+      const sitio = sitioQueSeDefiende(state, foe);
+      if (sitio !== null) entregarElSitio(state, sitio, hero.owner);
       heroeVencido(state, derrotado, precio, at);
       break;
     }

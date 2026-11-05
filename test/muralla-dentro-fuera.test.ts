@@ -37,7 +37,6 @@ import {
   ladoDeLaMuralla,
   type MurallaDeBatalla,
   SIN_MURALLA,
-  validarMuralla,
 } from '../src/core/battle/muralla.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
@@ -48,6 +47,7 @@ import {
   aMano,
   bandoDePersonajes,
   forzarTurno,
+  muralla,
   NO_MUERTO,
   PESADA,
   sesionDeArena,
@@ -134,7 +134,7 @@ describe('dentro y fuera, derivados de la forma (C10)', () => {
     expect(ladoDeLaMuralla(EN_L, h(8, 3))).toBe('dentro');
     // Un anillo en medio tampoco cierra: se rodea. Su hueco, adonde no se llega
     // desde ninguna salida, es dentro.
-    const anillo = validarMuralla({ muros: neighbours(h(5, 4)), puertas: [] });
+    const anillo = muralla(neighbours(h(5, 4)));
     expect(cierra(anillo)).toBe(false);
     expect(ladoDeLaMuralla(anillo, h(5, 4))).toBe('dentro');
     expect(ladoDeLaMuralla(anillo, h(3, 4))).toBe('fuera');
@@ -329,7 +329,7 @@ describe('columnas altas y lienzo que crece (C12)', () => {
 
   it('quien está en lo alto de la columna más atrasada no se sale del lienzo', () => {
     // La figura de pie en lo alto de cada columna de la fila de atrás y de la siguiente.
-    const m = validarMuralla({ muros: [h(7, 0), h(8, 1)], puertas: [] });
+    const m = muralla([h(7, 0), h(8, 1)]);
     for (const [ancho, alto] of [
       [1280, 600],
       [1600, 520],
@@ -392,7 +392,7 @@ describe('lo de delante tapa lo de detrás; la portada, a quien pasa (C13)', () 
     );
 
   it('la figura detrás de una columna se pinta antes que ella, y la de delante después', () => {
-    const m = validarMuralla({ muros: [h(5, 5)], puertas: [] });
+    const m = muralla([h(5, 5)]);
     const state = duelo(m, PESADA, h(5, 3), TROPA, h(5, 6));
     const p = orden(state);
     expect(indice(p, 'figura:attacker-0')).toBeLessThan(indice(p, 'columna:5,5'));

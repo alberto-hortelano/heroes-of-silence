@@ -22,6 +22,7 @@
  */
 import { EventEmitter } from 'node:events';
 import type { WebSocket } from 'ws';
+import { JUGADAS_DE_MURALLA } from '../../src/core/contract/vocabulario.js';
 import { LADO_DEL_MAPA } from '../../src/core/map/generate.js';
 import { parseSeed } from '../../src/core/rng.js';
 import { AgentLink } from '../../src/server/agent-link.js';
@@ -293,6 +294,17 @@ export function faltaParaElArnes(
     faltan.push(
       'un «attack» del agente con su «hit», con una petición después para ver su veredicto',
     );
+  // La muralla, como la exige `pnpm qa` (`exigeLaMuralla`, fase 2 del puesto
+  // fronterizo): una batalla del agente con muralla en la que la política mande una
+  // de sus cuatro jugadas, con una petición después que le traiga el veredicto.
+  const deMuralla = (p: Peticion) =>
+    p.kind === 'battle_turn' &&
+    p.payload.walls !== null &&
+    JUGADAS_DE_MURALLA.includes((p.respuesta as { action: { type: string } }).action.type);
+  if (!escuchadas.some((p, i) => deMuralla(p) && i < escuchadas.length - 1))
+    faltan.push(
+      `una batalla del agente con muralla en que mande ${JUGADAS_DE_MURALLA.map((j) => `«${j}»`).join(', ')}, con una petición después`,
+    );
   return faltan;
 }
 
@@ -369,7 +381,7 @@ export function semillaDelArnes(): Promise<SemillaDelArnes> {
   return primeraSemilla(
     TURNOS_DEL_ARNES,
     (m) => faltaParaElArnes(m),
-    `la primera que en ${TURNOS_DEL_ARNES} turnos da ocasión de ver dos tramos, asaltantes, licencia, compra, equipo, ascenso, dos respuestas de la rueda y un golpe con su «hit»`,
+    `la primera que en ${TURNOS_DEL_ARNES} turnos da ocasión de ver dos tramos, asaltantes, licencia, compra, equipo, ascenso, dos respuestas de la rueda, un golpe con su «hit» y una jugada de la muralla`,
   );
 }
 

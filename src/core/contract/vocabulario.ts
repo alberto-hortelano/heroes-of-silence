@@ -2,7 +2,7 @@
  * **El vocabulario del contrato del agente**: lo que el agente lee y escribe en
  * inglés y el núcleo nombra en español, traducido en un solo sitio. Lo leen el
  * esquema y la prosa del contrato (`agent.ts`), lo que se le manda
- * (`serialize.ts`) y lo que manda él (el director). Dos familias:
+ * (`serialize.ts`) y lo que manda él (el director). Tres familias:
  *
  * - **Los huecos de equipo** (decisión del usuario, 12-10-2026: «los huecos van en
  *   inglés en el contrato del agente ya»), **simétricos por uso** (simplify de F2):
@@ -18,6 +18,8 @@
  *   al atacar (`hit`) y su respuesta cuando le golpean (`battle_response`), y usa
  *   los poderes de sus unidades con la jugada `power`, que se llama como la del
  *   núcleo y como su hecho.
+ * - **La muralla** (fase 2 del puesto fronterizo, 04-11-2026): las cuatro jugadas de
+ *   la escala y la puerta (`JUGADA_DE_MURALLA`) y los hechos que las cuentan.
  *
  * Eran dos módulos (`huecos.ts`, `golpes.ts`) hasta el simplify de F3-F6
  * (19-10-2026): una sola puerta para lo que se traduce.
@@ -27,7 +29,14 @@ import {
   type FormaDeLaRueda,
   tipoDeGolpeBlocker,
 } from '../battle/formas-de-la-rueda.js';
-import type { BattleAction, BattleEvent } from '../battle/types.js';
+import type { PuertaDeMuralla } from '../battle/muralla.js';
+import type {
+  BattleAction,
+  BattleEvent,
+  JugadaDeMuralla,
+  TipoDeEscala,
+  TipoDePuerta,
+} from '../battle/types.js';
 import type { AdventureAction, GameState } from '../state/game.js';
 import { tipoDelVeterano } from '../state/sitios.js';
 import {
@@ -213,26 +222,71 @@ export function ruedaAlAgente(forma: FormaDeLaRueda) {
 
 type Ataque = Extract<BattleAction, { type: 'attack' }>;
 type Poder = Extract<BattleAction, { type: 'power' }>;
+type DeLaMuralla = Extract<BattleAction, { type: JugadaDeMuralla }>;
+
+/**
+ * Las jugadas de la muralla en las palabras del contrato (fase 2 del puesto
+ * fronterizo, 04-11-2026): las cuatro del núcleo, que van en español por dentro
+ * (`poner_escalera`, `subir`, `abrir_puerta`, `cerrar_puerta`), con el muro en
+ * `wall` y la puerta en `gate`. Hasta esta fase el `default` de `accionAlAgente`
+ * las dejaba pasar en español, y no se veía porque el mapa no llevaba muralla. **La
+ * tabla**: de ella salen la inversa (`JUGADA_DEL_AGENTE`), el esquema y la prosa
+ * (`agent.ts`) y lo que el arnés de QA exige ver cruzar (`JUGADAS_DE_MURALLA`).
+ */
+export const JUGADA_DE_MURALLA = {
+  poner_escalera: 'place_ladder',
+  subir: 'climb',
+  abrir_puerta: 'open_gate',
+  cerrar_puerta: 'close_gate',
+} as const satisfies Readonly<Record<DeLaMuralla['type'], string>>;
+
+/** Las cuatro, en el orden de la tabla: las que el arnés de QA exige ver cruzar (`exigeLaMuralla`). */
+export const JUGADAS_DE_MURALLA: readonly string[] = Object.values(JUGADA_DE_MURALLA);
+
+/** La inversa de `JUGADA_DE_MURALLA`, derivada: del nombre del agente al del núcleo. */
+const JUGADA_DEL_AGENTE = Object.fromEntries(
+  Object.entries(JUGADA_DE_MURALLA).map(([nucleo, agente]) => [agente, nucleo]),
+) as { readonly [K in DeLaMuralla['type'] as (typeof JUGADA_DE_MURALLA)[K]]: K };
+
+/** Una escalera puesta como la lee el agente: su pie (`foot`) y su muro (`wall`). */
+export function escaleraAlAgente(e: { readonly pie: Hex; readonly muro: Hex }) {
+  return { foot: e.pie, wall: e.muro };
+}
+
+/** Una puerta como la lee el agente: sus dos casillas, `a` y `b` (`gate`). */
+export function puertaAlAgente(p: PuertaDeMuralla): PuertaDeMuralla {
+  return { a: p.a, b: p.b };
+}
 
 /**
  * Una acción de batalla tal como la escribe el agente: la del núcleo, salvo el
- * golpe (`hit`, texto del contrato, sin la respuesta, que elige el otro) y el id
- * del poder, que va en `power` (en el núcleo, `poder`). Texto y no un `z.enum` en el
- * esquema: un `hit` mal escrito descarta ESA jugada con su motivo, no la batalla.
+ * golpe (`hit`, texto del contrato, sin la respuesta, que elige el otro), el id
+ * del poder, que va en `power` (en el núcleo, `poder`), y las cuatro de la muralla
+ * (`JUGADA_DE_MURALLA`). Texto y no un `z.enum` en el esquema: un `hit` mal escrito
+ * descarta ESA jugada con su motivo, no la batalla.
  */
 export type AccionDeBatallaDelAgente =
-  | Exclude<BattleAction, Ataque | Poder>
+  | Exclude<BattleAction, Ataque | Poder | DeLaMuralla>
   | {
       readonly type: 'attack';
       readonly target: string;
       readonly from?: Hex;
       readonly hit?: string;
     }
-  | { readonly type: 'power'; readonly power: string; readonly target: string };
+  | { readonly type: 'power'; readonly power: string; readonly target: string }
+  | {
+      readonly type: (typeof JUGADA_DE_MURALLA)[TipoDeEscala];
+      readonly wall: Hex;
+    }
+  | {
+      readonly type: (typeof JUGADA_DE_MURALLA)[TipoDePuerta];
+      readonly gate: PuertaDeMuralla;
+    };
 
 /**
  * La acción del agente tal como la juega el núcleo en una batalla con la rueda
- * `forma`; lanza con un `hit` que no es un golpe de ella.
+ * `forma`; lanza con un `hit` que no es un golpe de ella. Sin `default`: una jugada
+ * nueva del contrato que no se traduzca no compila.
  */
 export function accionDeBatallaDelAgente(
   a: AccionDeBatallaDelAgente,
@@ -245,7 +299,17 @@ export function accionDeBatallaDelAgente(
     }
     case 'power':
       return { type: 'power', poder: a.power, target: a.target };
-    default:
+    case 'place_ladder':
+    case 'climb':
+      return { type: JUGADA_DEL_AGENTE[a.type], muro: a.wall };
+    case 'open_gate':
+    case 'close_gate':
+      return { type: JUGADA_DEL_AGENTE[a.type], puerta: a.gate };
+    case 'move':
+    case 'aim':
+    case 'cast':
+    case 'surrender':
+    case 'end_turn':
       return a;
   }
 }
@@ -253,7 +317,9 @@ export function accionDeBatallaDelAgente(
 /**
  * Una acción del núcleo como la lee el agente (la lista legal): el id del poder,
  * en `power`; el golpe, sin lo elegido en la rueda (la lista no lo lleva: lo elige
- * él con `hit`). Lo demás, tal cual.
+ * él con `hit`); las de la muralla, con sus nombres del contrato. Lo demás, tal
+ * cual. **Sin `default`** (plan de la fase 2): una jugada nueva del núcleo que no
+ * tenga aquí su caso no compila, en vez de colarse en español.
  */
 export function accionAlAgente(a: BattleAction): AccionDeBatallaDelAgente {
   switch (a.type) {
@@ -263,18 +329,80 @@ export function accionAlAgente(a: BattleAction): AccionDeBatallaDelAgente {
     }
     case 'power':
       return { type: 'power', power: a.poder, target: a.target };
-    default:
+    case 'poner_escalera':
+    case 'subir':
+      return { type: JUGADA_DE_MURALLA[a.type], wall: a.muro };
+    case 'abrir_puerta':
+    case 'cerrar_puerta':
+      return { type: JUGADA_DE_MURALLA[a.type], gate: puertaAlAgente(a.puerta) };
+    case 'move':
+    case 'aim':
+    case 'cast':
+    case 'surrender':
+    case 'end_turn':
       return a;
   }
 }
 
+type DeLaTraduccion = 'cruce' | 'ladder_placed' | 'gate_opened' | 'gate_closed';
+
+/**
+ * Un hecho del registro como lo lee el agente (`hechoAlAgente`): los que se traducen
+ * con sus nombres del contrato, y los demás tal cual. Escrito, y no inferido, para que
+ * un hecho nuevo del núcleo sin su caso no compile (la función no tiene `default`).
+ */
+export type HechoAlAgente =
+  | Exclude<BattleEvent, { kind: DeLaTraduccion }>
+  | (Omit<Extract<BattleEvent, { kind: 'cruce' }>, 'golpe' | 'respuesta'> & {
+      readonly hit: Hit;
+      readonly response: Hit;
+    })
+  | {
+      readonly kind: 'ladder_placed';
+      readonly stack: string;
+      readonly foot: Hex;
+      readonly wall: Hex;
+    }
+  | {
+      readonly kind: 'gate_opened' | 'gate_closed';
+      readonly stack: string;
+      readonly gate: PuertaDeMuralla;
+    };
+
 /**
  * Un hecho del registro de la batalla como lo lee el agente: el cruce, con los
  * dos tipos en los nombres del contrato (`hit` el de quien pegó, `response` el
- * de quien respondió), que son los que él manda. Lo demás, tal cual.
+ * de quien respondió), que son los que él manda; la escalera puesta, con su pie
+ * (`foot`) y su muro (`wall`), y la puerta abierta o cerrada, con la puerta
+ * (`gate`): los nombres con que él las juega. Lo demás, tal cual.
  */
-export function hechoAlAgente(e: BattleEvent) {
-  if (e.kind !== 'cruce') return e;
-  const { golpe, respuesta, ...resto } = e;
-  return { ...resto, hit: HIT_DE_GOLPE[golpe], response: HIT_DE_GOLPE[respuesta] };
+export function hechoAlAgente(e: BattleEvent): HechoAlAgente {
+  switch (e.kind) {
+    case 'cruce': {
+      const { golpe, respuesta, ...resto } = e;
+      return { ...resto, hit: HIT_DE_GOLPE[golpe], response: HIT_DE_GOLPE[respuesta] };
+    }
+    case 'ladder_placed':
+      return { kind: e.kind, stack: e.stack, ...escaleraAlAgente(e) };
+    case 'gate_opened':
+    case 'gate_closed':
+      return { kind: e.kind, stack: e.stack, gate: puertaAlAgente(e.puerta) };
+    // Tal cual. `power` (`poder`) y `retoque` (`nombre`, `cambios`) llevan aún campos
+    // en español: renombrarlos cambia el contrato (backlog del simplify de la fase 2).
+    case 'round_start':
+    case 'move':
+    case 'attack':
+    case 'aimed':
+    case 'shoot':
+    case 'cast':
+    case 'power':
+    case 'retoque':
+    case 'effect':
+    case 'effect_end':
+    case 'perished':
+    case 'climbed':
+    case 'surrender':
+    case 'finished':
+      return e;
+  }
 }

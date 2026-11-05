@@ -38,7 +38,6 @@ import {
   stackHp,
 } from '../src/core/battle/damage.js';
 import { applyEffect, effectTotal, tickEffects } from '../src/core/battle/effects.js';
-import { validarMuralla } from '../src/core/battle/muralla.js';
 import type {
   BattleAction,
   BattleEvent,
@@ -64,6 +63,7 @@ import {
   forzarTurno,
   JINETE,
   monstruoVivo,
+  muralla,
   NO_MUERTO,
   NORMAL,
   PESADA,
@@ -2476,15 +2476,15 @@ describe('despliegue de una tropa de individuos', () => {
       { col: 0, row: 6 },
       { col: 1, row: 2 },
     ];
-    const muralla = validarMuralla({
-      muros: [...muros, ...muros.map(board.espejo)],
-      puertas: [
+    const espejada = muralla(
+      [...muros, ...muros.map(board.espejo)],
+      [
         { a: { col: 0, row: 3 }, b: { col: 1, row: 3 } },
         { a: board.espejo({ col: 1, row: 3 }), b: board.espejo({ col: 0, row: 3 }) },
       ],
-    });
+    );
     const ejercito = side(individuos(NO_MUERTO, 7));
-    const state = createBattle(ejercito, ejercito, createRng(5), COMBATE_COMPLETO, muralla);
+    const state = createBattle(ejercito, ejercito, createRng(5), COMBATE_COMPLETO, espejada);
     const atacantes = state.stacks.filter((s) => s.side === 'attacker');
     const defensores = state.stacks.filter((s) => s.side === 'defender');
     atacantes.forEach((a, i) => {

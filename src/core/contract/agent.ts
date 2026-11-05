@@ -26,6 +26,7 @@ import {
   lasRuedasQue,
   PARTES,
 } from '../battle/formas-de-la-rueda.js';
+import { reglaDeLaMuralla } from '../battle/muralla.js';
 import { PODERES, queHaceElPoder } from '../battle/poderes.js';
 import { HERO_BODY } from '../battle/types.js';
 import { TOPES_DE_TROPA } from '../combate.js';
@@ -46,12 +47,14 @@ import {
 import { CLIMA, PEDIDOS_QUE_SE_MIRAN, TIEMPOS } from '../state/clima.js';
 import { MAX_HEROES_PER_PLAYER } from '../state/game.js';
 import { REGLA_DEL_PUEBLO } from '../state/renta.js';
+import { MURALLAS_DEL_MAPA } from '../state/sitios.js';
 import { LARGO_DE_LINEA, LINEAS_POR_VECINO, MAX_VOCES_POR_RESPUESTA } from '../town/voces.js';
 import { enumerar, FACTION_IDS, HUECOS, TIPOS_FUSIONADOS, TODOS_LOS_GOLPES } from '../types.js';
 import { ID_DE_MAPA } from '../validar.js';
 import {
   CRUCE_AL_AGENTE,
   HIT_DE_GOLPE,
+  JUGADA_DE_MURALLA,
   ruedaAlAgente,
   SLOT_DE_HUECO,
   SLOTS,
@@ -125,6 +128,9 @@ import { CATALOGO_DE_EQUIPO_EN_PROSA, COMO_SE_LEE_EL_MAPA } from './serialize.js
 
 export const pointSchema = z.object({ x: z.number().int(), y: z.number().int() });
 export const hexSchema = z.object({ col: z.number().int(), row: z.number().int() });
+
+/** Una puerta de la muralla: el lado entre dos casillas de una fila, `b` al este de `a`. */
+export const gateSchema = z.object({ a: hexSchema, b: hexSchema });
 
 export const adventureActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('move_hero'), hero: z.string(), to: pointSchema }),
@@ -214,6 +220,13 @@ export const battleActionSchema = z.discriminatedUnion('type', [
   // vale; si se manda, tiene que ser el precio de ahora (`applyAction`).
   z.object({ type: z.literal('surrender'), gold: z.number().int().nonnegative().optional() }),
   z.object({ type: z.literal('end_turn') }),
+  // La muralla (fase 2 del puesto fronterizo, 04-11-2026): toda batalla contra
+  // una ciudad o un pueblo la lleva. El núcleo las nombra en español
+  // (`JUGADA_DE_MURALLA`); el agente, así. Cada una se juzga con su `*Blocker`.
+  z.object({ type: z.literal(JUGADA_DE_MURALLA.poner_escalera), wall: hexSchema }),
+  z.object({ type: z.literal(JUGADA_DE_MURALLA.subir), wall: hexSchema }),
+  z.object({ type: z.literal(JUGADA_DE_MURALLA.abrir_puerta), gate: gateSchema }),
+  z.object({ type: z.literal(JUGADA_DE_MURALLA.cerrar_puerta), gate: gateSchema }),
 ]);
 
 /**
@@ -820,6 +833,8 @@ Notas:
   tirador muere antes, el disparo se pierde. Tras el disparo, su turno sigue:
   puede apuntar otra vez o actuar como siempre. El registro lo cuenta con
   "aimed" ("at") y "shoot" ("at" y "target", null si no dio a nadie).
+- "walls" es la muralla del tablero, y null si esta batalla no la lleva; con
+  ella, la petición trae al final cómo se juega (MURALLA).
 - "power" usa un PODER de la unidad activa ("stacks[].powers": ${PODERES_EN_PROSA})
   sobre un aliado, incluida ella misma. Gasta su turno entero y solo sin haberse movido; los que
   puede usar ahora vienen en "legalActions".
@@ -1062,3 +1077,54 @@ lo que ha pasado.
   que se levante algo en un sitio vacío. No detiene tu turno: tu
   "adventure_turn" llega después igual.`,
 };
+
+/** Las cuatro jugadas de la muralla, como el agente las escribe (`JUGADA_DE_MURALLA`). */
+const J = JUGADA_DE_MURALLA;
+
+/**
+ * Cómo se juega la muralla, para el agente: lo que lleva el formato de un
+ * `battle_turn` **solo si la batalla tiene muralla** (`walls` no es null,
+ * `formatoDeLaRespuesta`; simplify de la fase 2: eran ~2,2 KB en cada turno, también
+ * contra monstruos y asaltantes). Las jugadas salen de la tabla del contrato y la
+ * regla de la batalla de `reglaDeLaMuralla`, la misma que lee la arena; qué sitio la
+ * lleva y de qué, de `data/sitios.json` (`MURALLAS_DEL_MAPA`).
+ */
+export const PROSA_DE_LA_MURALLA = `MURALLA (esta batalla la lleva). Toda batalla contra una CIUDAD (también la base
+y la neutral) se pelea tras una muralla de ${MURALLAS_DEL_MAPA.ciudad.material} y contra un PUEBLO, tras una
+de ${MURALLAS_DEL_MAPA.pueblo.material}; en un paso, sin muralla. Viene en "walls" ("material", los muros en
+"tiles", las puertas en "gates" con "open" y las escaleras puestas en "ladders",
+cada una con su "foot" y su "wall"). El muro CIERRA el tablero: quien anda no lo
+cruza más que por una puerta abierta. Cada unidad del ATACANTE que no vuela, y su
+héroe, trae una escalera ("ladder": true en su stack, sin comprarla); quien la
+pone ya no lleva otra, y la puesta la usa cualquiera de los suyos. ${reglaDeLaMuralla({
+  atacante: 'el ATACANTE',
+  defensor: 'el DEFENSOR',
+  ponerEscalera: `ponerla ("${J.poner_escalera}", con el muro en "wall")`,
+  subir: `subir ("${J.subir}", al mismo "wall")`,
+  abrir: `la abre ("${J.abrir_puerta}")`,
+  cerrar: `la cierra ("${J.cerrar_puerta}"; las dos con "gate", sus dos casillas "a" y "b")`,
+})} Las que valen ahora vienen en "legalActions"; las demás se descartan con su
+motivo. El registro lo cuenta con "ladder_placed" ("foot", "wall"), "climbed"
+("from", "to"), "gate_opened" y "gate_closed" ("gate").
+
+Acciones de la muralla para la unidad activa:
+  { "type": "${J.poner_escalera}", "wall": { "col": N, "row": N } }
+  { "type": "${J.subir}", "wall": { "col": N, "row": N } }
+  { "type": "${J.abrir_puerta}", "gate": { "a": { "col": N, "row": N }, "b": { "col": N, "row": N } } }
+  { "type": "${J.cerrar_puerta}", "gate": { "a": { "col": N, "row": N }, "b": { "col": N, "row": N } } }`;
+
+/**
+ * El formato de respuesta que viaja con la petición `kind` de `payload`: el de
+ * `RESPONSE_FORMAT`, y en un `battle_turn` con muralla (`walls` no es null), además
+ * la prosa de la muralla (`PROSA_DE_LA_MURALLA`). Lanza con un `battle_turn` sin
+ * `walls`: lo pone siempre `serializeBattleTurn`, null o la muralla.
+ */
+export function formatoDeLaRespuesta(kind: RequestKind, payload: unknown): string {
+  if (kind !== 'battle_turn') return RESPONSE_FORMAT[kind];
+  if (typeof payload !== 'object' || payload === null || !('walls' in payload)) {
+    throw new Error('un battle_turn sin «walls»: lo pone serializeBattleTurn, null o la muralla');
+  }
+  return payload.walls === null
+    ? RESPONSE_FORMAT.battle_turn
+    : `${RESPONSE_FORMAT.battle_turn}\n\n${PROSA_DE_LA_MURALLA}`;
+}

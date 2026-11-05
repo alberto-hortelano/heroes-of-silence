@@ -20,13 +20,13 @@ import {
   validarFormaDeMuralla,
 } from '../src/core/arena-murallas.js';
 import { FORMA_DEL_TABLERO, hexKey } from '../src/core/battle/board.js';
-import { validarMuralla } from '../src/core/battle/muralla.js';
 import { LIDERAZGO } from '../src/core/data.js';
 import { createRng } from '../src/core/rng.js';
 import { escribirMurallas, leerMurallas } from '../tools/arena/borrador.js';
 import {
   aPelear,
   montajeDePrueba,
+  muralla,
   peleaDelMotor,
   sesionDeArena,
   unidadDeArena,
@@ -38,6 +38,7 @@ const unidad = unidadDeArena;
 const muro = {
   muros: [{ col: 6, row: 2 }],
   puertas: [{ a: { col: 6, row: 3 }, b: { col: 7, row: 3 } }],
+  material: 'piedra',
 };
 
 describe('las formas de ejemplo', () => {
@@ -94,7 +95,10 @@ describe('validarFormaDeMuralla', () => {
       'la forma no entiende «color»',
     );
     expect(() =>
-      validarFormaDeMuralla({ nombre: 'A', muralla: { muros: [{ col: 0, row: 9 }], puertas: [] } }),
+      validarFormaDeMuralla({
+        nombre: 'A',
+        muralla: { muros: [{ col: 0, row: 9 }], puertas: [], material: 'piedra' },
+      }),
     ).toThrow('la forma «A»: la muralla: el muro 1 cae en (0,9), fuera del tablero');
   });
 });
@@ -102,7 +106,10 @@ describe('validarFormaDeMuralla', () => {
 describe('el borrador de murallas', () => {
   it('separa las que valen de las que no, cada una con su motivo', () => {
     const buena = { nombre: 'Torreón', muralla: muro };
-    const mala = { nombre: 'Rota', muralla: { muros: [{ col: 99, row: 0 }], puertas: [] } };
+    const mala = {
+      nombre: 'Rota',
+      muralla: { muros: [{ col: 99, row: 0 }], puertas: [], material: 'piedra' },
+    };
     const repetida = { nombre: 'Torreón', muralla: muro };
     const { validas, invalidas } = revisarBorradorDeMurallas({ formas: [buena, mala, repetida] });
     expect(validas).toEqual([buena]);
@@ -118,7 +125,7 @@ describe('el borrador de murallas', () => {
     // no vale, se dice por qué y se conserva tal cual (C31).
     const vieja = {
       nombre: 'Vieja',
-      muralla: { muros: [{ col: 7, row: 1 }], puertas: [{ col: 7, row: 4 }] },
+      muralla: { muros: [{ col: 7, row: 1 }], puertas: [{ col: 7, row: 4 }], material: 'piedra' },
     };
     const conVieja = revisarBorradorDeMurallas({ formas: [vieja] });
     expect(conVieja.validas).toEqual([]);
@@ -163,7 +170,7 @@ describe('el borrador de murallas', () => {
     it('una forma que no vale se conserva al guardar, y un archivo ilegible no se pisa', () => {
       dir = mkdtempSync(join(tmpdir(), 'murallas-'));
       mkdirSync(join(dir, 'data/borradores'), { recursive: true });
-      const mala = { nombre: 'Rota', muralla: { muros: 'todas', puertas: [] } };
+      const mala = { nombre: 'Rota', muralla: { muros: 'todas', puertas: [], material: 'piedra' } };
       writeFileSync(join(dir, RUTA_DE_MURALLAS), JSON.stringify({ formas: [mala] }));
       expect(leerMurallas(dir).invalidas.map((i) => i.nombre)).toEqual(['Rota']);
       const torreon = { nombre: 'Torreón', muralla: muro };
@@ -184,7 +191,10 @@ describe('el borrador de murallas', () => {
       dir = mkdtempSync(join(tmpdir(), 'murallas-'));
       mkdirSync(join(dir, 'data/borradores'), { recursive: true });
       const buena = { nombre: 'Buena', muralla: muro };
-      const repetida = { nombre: 'Buena', muralla: { muros: [{ col: 2, row: 2 }], puertas: [] } };
+      const repetida = {
+        nombre: 'Buena',
+        muralla: { muros: [{ col: 2, row: 2 }], puertas: [], material: 'piedra' },
+      };
       writeFileSync(join(dir, RUTA_DE_MURALLAS), JSON.stringify({ formas: [buena, repetida] }));
       expect(leerMurallas(dir).invalidas.map((i) => i.motivo)).toEqual([
         'la forma «Buena» está dos veces en el borrador',
@@ -325,10 +335,7 @@ describe('la arena pelea con la muralla', () => {
   });
 
   it('si el montaje no cabe con la muralla, el editor lo dice mientras se dibuja', () => {
-    const tapia = validarMuralla({
-      muros: [...columna(0), ...columna(1), ...columna(2, 0, 5)],
-      puertas: [],
-    });
+    const tapia = muralla([...columna(0), ...columna(1), ...columna(2, 0, 5)]);
     const siete = Array.from({ length: LIDERAZGO.maxPorBando }, () => unidad('zombi'));
     const motivo = despliegueDeArenaBlocker(montajeDePrueba(aPelear(siete), aPelear(siete), tapia));
     expect(motivo).toBe('la muralla deja 3 casillas de salida a la izquierda y hacen falta 7');

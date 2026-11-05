@@ -11,6 +11,7 @@
  * reclutar, comprar y equipar, moverse y, en batalla, pegar a algo.
  */
 
+import { JUGADA_DE_MURALLA } from '../../src/core/contract/vocabulario.js';
 import {
   generateMapPlan,
   LADO_MINIMO_DEL_GENERADOR,
@@ -130,11 +131,23 @@ export function decidir(kind: string, payload: any, semilla: number): unknown {
       // El poder, si lo hay: es como el arnés cruza `power` por el circuito.
       // Al golpear, el golpe de la rueda va por turno (`turnId`) de la lista
       // "hits": así cruzan todos los tipos, no siempre el mismo.
+      // Contra una muralla (la de una ciudad o un pueblo, fase 2 del puesto
+      // fronterizo), lo de la muralla antes que andar: subir, poner la escalera o,
+      // defendiendo, la puerta; es como el arnés cruza esas cuatro jugadas.
       const acciones = payload.legalActions as any[];
+      // Subir antes que poner, cerrar antes que abrir: el orden de siempre de la
+      // política, con los nombres de la tabla del contrato.
+      const deMuralla = [
+        JUGADA_DE_MURALLA.subir,
+        JUGADA_DE_MURALLA.poner_escalera,
+        JUGADA_DE_MURALLA.cerrar_puerta,
+        JUGADA_DE_MURALLA.abrir_puerta,
+      ];
       const elegida =
         acciones.find((a) => a.type === 'power') ??
         acciones.find((a) => a.type === 'aim') ??
         acciones.find((a) => a.type === 'attack') ??
+        deMuralla.map((t) => acciones.find((a) => a.type === t)).find((a) => a !== undefined) ??
         acciones.find((a) => a.type === 'move') ??
         acciones[0];
       const hits: any[] = payload.hits ?? [];

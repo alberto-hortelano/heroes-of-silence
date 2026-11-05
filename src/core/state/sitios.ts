@@ -16,13 +16,24 @@
  *    persona). La recogida automática al pasar por casa (`takeGarrison`) se retiró
  *    con esto: la tropa ya no cambia de sitio sin que nadie lo pida. Lanza con los
  *    dos cupos (`repartoBlocker`), y la defensa de la persona se lee fila a fila de
- *    aquí (`laDefensa`).
+ *    aquí (`laDefensa`);
+ *  - **la muralla de cada sitio** en la batalla (fase 2): la piedra de la ciudad y
+ *    la madera del pueblo, de `data/sitios.json`, que **solo importa este módulo**
+ *    (lo vigila `test/invariantes.test.ts`) y que se juzga al cargar
+ *    (`murallaDelMapaBlocker`): una forma rota no llega a ninguna partida.
  *
  * No importa nada de `game.ts` salvo tipos: `game.ts` lo importa a él. De
  * `asaltantes.ts`, la región de una casilla (`regionDeCasilla`), que no importa
  * este módulo.
  */
+import sitiosJson from '../../../data/sitios.json' with { type: 'json' };
 import { unitPower } from '../ai/fuerza.js';
+import {
+  type MurallaDeBatalla,
+  murallaDelMapaBlocker,
+  SIN_MURALLA,
+  validarMuralla,
+} from '../battle/muralla.js';
 import { unidadDelJuego, unidadDelJuegoSiExiste } from '../catalogo.js';
 import type { Hero } from '../hero/hero.js';
 import {
@@ -40,6 +51,7 @@ import { dueñoDeLaRegion } from '../map/regiones.js';
 import { CHARACTER_BODY } from '../rpg/character.js';
 import type { Town } from '../town/town.js';
 import type { Army, PlayerId, Point, Troop } from '../types.js';
+import { problemasDeObjeto } from '../validar.js';
 import { regionDeCasilla } from './asaltantes.js';
 import type { AdventureAction, GameState } from './game.js';
 
@@ -175,6 +187,74 @@ export function dueñoDelSitio(state: GameState, sitio: Sitio): PlayerId | null 
       const region = regionDeCasilla(state.map, sitio.pueblo.at);
       return region < 0 ? null : dueñoDeLaRegion(state, region);
     }
+  }
+}
+
+/**
+ * Los sitios que se defienden tras una muralla del mapa, que son las claves de
+ * `data/sitios.json`: cada uno con su forma y su material. El paso no la lleva (sus
+ * mejoras, la fase 3, tendrán la suya aquí).
+ */
+const SITIOS_CON_MURALLA = ['ciudad', 'pueblo'] as const satisfies readonly Sitio['kind'][];
+type SitioConMuralla = (typeof SITIOS_CON_MURALLA)[number];
+
+/**
+ * Las murallas del mapa de `valor` (lo que trae `data/sitios.json`), una por sitio
+ * que la lleva, o lanza nombrando el fichero con la primera que no vale: que sea
+ * una muralla (`validarMuralla`) y que valga para el mapa (`murallaDelMapaBlocker`).
+ * Exportada para que el test de datos le dé formas rotas a propósito; el juego la
+ * llama una vez, al cargar (`MURALLAS_DEL_MAPA`).
+ */
+export function leerMurallasDelMapa(
+  valor: unknown,
+  fichero = 'data/sitios.json',
+): Readonly<Record<SitioConMuralla, MurallaDeBatalla>> {
+  const [enLaRaiz] = problemasDeObjeto(valor, ['_comment', 'murallas'], ['murallas']);
+  if (enLaRaiz !== undefined) throw new Error(`${fichero}: ${enLaRaiz}`);
+  const murallas = (valor as { readonly murallas: unknown }).murallas;
+  const [enLasMurallas] = problemasDeObjeto(murallas, SITIOS_CON_MURALLA, SITIOS_CON_MURALLA);
+  if (enLasMurallas !== undefined) throw new Error(`${fichero}: «murallas»: ${enLasMurallas}`);
+  const leidas = {} as Record<SitioConMuralla, MurallaDeBatalla>;
+  for (const sitio of SITIOS_CON_MURALLA) {
+    const quien = `${fichero}: la muralla ${DEL_SITIO[sitio]}`;
+    let m: MurallaDeBatalla;
+    try {
+      m = validarMuralla((murallas as Record<SitioConMuralla, unknown>)[sitio]);
+    } catch (err) {
+      throw new Error(`${quien}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    const motivo = murallaDelMapaBlocker(m);
+    if (motivo !== null) throw new Error(`${quien} no vale: ${motivo}`);
+    leidas[sitio] = m;
+  }
+  return Object.freeze(leidas);
+}
+
+/** «de la ciudad», «del pueblo»: cómo se dice de qué sitio es una muralla. */
+const DEL_SITIO: Readonly<Record<SitioConMuralla, string>> = {
+  ciudad: 'de la ciudad',
+  pueblo: 'del pueblo',
+};
+
+/** Las de la partida: la de las ciudades y la de los pueblos. */
+export const MURALLAS_DEL_MAPA = leerMurallasDelMapa(sitiosJson);
+
+/**
+ * Con qué muralla se pelea en el sitio `sitio` quien lo defiende (D3, D7): una
+ * ciudad —también la base y la neutral— y un pueblo, la suya de `data/sitios.json`
+ * (`MURALLAS_DEL_MAPA`); un paso, ninguna. Sin sitio (un monstruo, un grupo de
+ * asaltantes, un lugar, un héroe fuera de un sitio suyo), ninguna. Lo pregunta
+ * `montarLaBatalla`, que con muralla da escalera al atacante (`alAsalto`). Recibe la
+ * partida aunque hoy no la lea: la mejora de un paso (la fase 3) es de la partida.
+ */
+export function murallaDelSitio(_state: GameState, sitio: Sitio | null): MurallaDeBatalla {
+  if (sitio === null) return SIN_MURALLA;
+  switch (sitio.kind) {
+    case 'ciudad':
+    case 'pueblo':
+      return MURALLAS_DEL_MAPA[sitio.kind];
+    case 'paso':
+      return SIN_MURALLA;
   }
 }
 

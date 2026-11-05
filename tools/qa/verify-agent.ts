@@ -33,7 +33,9 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import WebSocket from 'ws';
+import { PROSA_DE_LA_MURALLA } from '../../src/core/contract/agent.js';
 import { COMO_SE_LEE_EL_MAPA } from '../../src/core/contract/serialize.js';
+import { JUGADAS_DE_MURALLA } from '../../src/core/contract/vocabulario.js';
 import {
   CABECERA_ESTADO,
   CABECERA_RESPUESTA,
@@ -150,6 +152,9 @@ const licenciasVistas = new Set<string>();
  * (`politica.ts`), y que conste es que las dos jugadas cruzaron y se aplicaron.
  */
 const guarnicionVista = { dejada: new Set<string>(), recogida: new Set<string>() };
+
+/** Los turnos de batalla del agente con muralla, de qué material y qué jugadas de ella mandó. */
+const muralla = { conMuros: 0, materiales: new Set<string>(), mandadas: new Set<string>() };
 /**
  * El equipo, cruzado de verdad: las compras que le constan al agente en su
  * crónica (`item_bought`) y el primer individuo de su tropa que aparece con
@@ -706,6 +711,31 @@ function exigeLaRueda(): void {
   );
 }
 
+/**
+ * Que la muralla cruce el contrato (fase 2 del puesto fronterizo): alguna batalla
+ * del agente llegó con `walls` (la de una ciudad o un pueblo) y alguna de sus
+ * cuatro jugadas entró, con su veredicto. Sin eso, `place_ladder`, `climb`,
+ * `open_gate` y `close_gate` no han pasado por el circuito.
+ */
+function exigeLaMuralla(): void {
+  if (muralla.conMuros === 0) {
+    throw new Error(
+      `ninguna batalla del agente ha llegado con "walls": la muralla de las ciudades y los pueblos no cruza el contrato (${decisionesDeBatalla.length} decisiones de batalla)`,
+    );
+  }
+  const jugada = veredictos.find(
+    (v) => v.ok && JUGADAS_DE_MURALLA.some((t) => v.nota.includes(`${t} `)),
+  );
+  if (jugada === undefined) {
+    throw new Error(
+      `en ${muralla.conMuros} turnos de batalla con muralla, ninguna jugada de la muralla del agente ha entrado (${[...muralla.mandadas].join(', ') || 'no mandó ninguna'})`,
+    );
+  }
+  log(
+    `muralla: ${muralla.conMuros} turnos de batalla con "walls" (${[...muralla.materiales].join(', ')}), mandadas ${[...muralla.mandadas].join(', ')} — «${jugada.nota}»`,
+  );
+}
+
 /** Cierra con el resumen de todo lo que se ha verificado. */
 async function terminarBien(
   turnos: number,
@@ -772,6 +802,7 @@ async function terminarBien(
   exigeElClima();
   exigeElAscenso();
   exigeLaRueda();
+  exigeLaMuralla();
   log(`consultas ejercitadas: ${[...consultadas].sort().join(', ')}`);
   // Peticiones por batalla: la cifra que mueve pedirle al agente también la
   // respuesta de la rueda (F6 del plan de 2026-10-18). Una batalla nueva se
@@ -1107,6 +1138,22 @@ async function main(): Promise<void> {
     // El ascenso tampoco es un turno de mapa: va antes del `adventure_turn`.
     if (kind === 'battle_turn') {
       batallas++;
+      // La prosa de la muralla viaja solo con muralla (simplify de la fase 2): la
+      // tiene que traer todo turno con "walls" y ninguno sin ella.
+      const conMuros = payload.walls !== null && payload.walls !== undefined;
+      if (texto.includes(PROSA_DE_LA_MURALLA) !== conMuros) {
+        throw new Error(
+          conMuros
+            ? 'un "battle_turn" con "walls" llega sin la prosa de la muralla'
+            : 'un "battle_turn" sin muralla ("walls": null) trae la prosa de la muralla',
+        );
+      }
+      if (conMuros) {
+        muralla.conMuros++;
+        muralla.materiales.add(String(payload.walls.material));
+        const tipo = String((respuesta as { action: { type: string } }).action.type);
+        if (JUGADAS_DE_MURALLA.includes(tipo)) muralla.mandadas.add(tipo);
+      }
       decisionesDeBatalla.push({
         requestId: RE_PETICION.exec(texto)?.[1] ?? '',
         stack: String(payload.activeStack),

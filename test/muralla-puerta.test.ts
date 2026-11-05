@@ -35,7 +35,6 @@ import {
   type MurallaDeBatalla,
   type PuertaDeMuralla,
   SIN_MURALLA,
-  validarMuralla,
 } from '../src/core/battle/muralla.js';
 import type { BattleAction, BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
@@ -46,6 +45,7 @@ import {
   abrirPuertas,
   aCiegas,
   forzarTurno,
+  muralla,
   peleaDeArena,
   peleaDelMotor,
   unidadDeArena,
@@ -128,10 +128,7 @@ describe('la puerta es una juntura y empieza cerrada (C19, C27, C30, C31)', () =
   it('una puerta al oeste del hueco deja rendija por las diagonales: la forma no cierra', () => {
     // En odd-r, a (7,4) se llega desde (6,3) y (6,5): la puerta entre (6,4) y
     // (7,4) no corta nada. Es lo que el editor enseña con «no cierra».
-    const mal = validarMuralla({
-      muros: CON_PUERTA.muros,
-      puertas: [{ a: h(6, 4), b: h(7, 4) }],
-    });
+    const mal = muralla(CON_PUERTA.muros, [{ a: h(6, 4), b: h(7, 4) }]);
     expect(cierra(mal)).toBe(false);
     expect(cierra(CON_PUERTA)).toBe(true);
   });
@@ -289,9 +286,9 @@ describe('abrir y cerrar, al principio del turno de quien defiende (C21)', () =>
     expect(puertaBlocker(state, 'cerrar_puerta', PUERTA)).toBeNull();
   });
 
-  it('el agente lo leería dicho: la nota de la acción nombra sus dos casillas', () => {
-    expect(describeAccion(abrir())).toBe('abre la puerta entre (7,4) y (8,4)');
-    expect(describeAccion(cerrar())).toBe('cierra la puerta entre (7,4) y (8,4)');
+  it('el agente lo lee dicho: la nota de la acción, con su nombre del contrato, nombra sus dos casillas', () => {
+    expect(describeAccion(abrir())).toBe('open_gate entre (7,4) y (8,4)');
+    expect(describeAccion(cerrar())).toBe('close_gate entre (7,4) y (8,4)');
   });
 
   it('sin muralla no sale ninguna jugada de puerta: la lista de siempre', () => {

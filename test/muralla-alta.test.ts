@@ -43,7 +43,6 @@ import {
   enLoAlto,
   esMuro,
   type MurallaDeBatalla,
-  validarMuralla,
 } from '../src/core/battle/muralla.js';
 import type { BattleAction, BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
@@ -57,6 +56,7 @@ import {
   aPelear,
   bandoDePersonajes,
   forzarTurno,
+  muralla,
   NO_MUERTO,
   PESADA,
   peleaDeArena,
@@ -515,13 +515,10 @@ describe('el cliente', () => {
     // cubren el centro de alguna casilla del suelo unas filas más atrás: el clic
     // ahí mira primero lo alto —a la columna no se va desde ahí— y luego el
     // suelo, que es a donde se quiere ir.
-    const dos = validarMuralla({
-      muros: [
-        { col: 7, row: 7 },
-        { col: 8, row: 7 },
-      ],
-      puertas: [],
-    });
+    const dos = muralla([
+      { col: 7, row: 7 },
+      { col: 8, row: 7 },
+    ]);
     const s = sesionDeArena(
       [{ unidad: unidadDeArena('zombi'), ia: true, escalera: false }],
       [{ unidad: unidadDeArena('imperio-rodelero'), ia: false, escalera: false }],

@@ -1,17 +1,31 @@
 /**
- * Los botones de los poderes de la unidad activa (Curar), los mismos en
+ * Los botones de los poderes de la unidad activa (Curar) y de la muralla, los mismos en
  * la partida y la arena (F6 de la tarea del combate en el juego, 19-10-2026: hasta
  * entonces solo la arena los pintaba, y la partida decía «su tropa no tiene
  * poderes» aunque el monje los trajera). Qué se puede y por qué no lo dice el
  * núcleo (`poderBlocker`, por la lista legal y `motivoDePoder`); aquí solo se
  * pinta. El gesto lo lleva la sesión (`PoderesDeLaActiva.usar`).
  */
-import type { Prevision } from '@core/battle/battle.js';
+import {
+  esTipoDeEscala,
+  esTipoDePuerta,
+  type Prevision,
+  quienNoAbre,
+  quienNoEscala,
+  TIPOS_DE_ESCALA,
+  TIPOS_DE_PUERTA,
+} from '@core/battle/battle.js';
+import { hayMuralla } from '@core/battle/muralla.js';
 import { type PoderId, poder, queHaceElPoder } from '@core/battle/poderes.js';
-import type { BattleAction, BattleStack, BattleState } from '@core/battle/types.js';
+import type {
+  BattleAction,
+  BattleStack,
+  BattleState,
+  JugadaDeMuralla,
+} from '@core/battle/types.js';
 import { isShooter } from '@core/data.js';
 import { type Html, html, NADA, unir } from '../html.js';
-import type { Apuntado, ModoDelArma } from '../session.js';
+import type { Apuntado, ModoDelArma, MurallaDeLaActiva } from '../session.js';
 import { nombreEnElCampo } from './distintivo.js';
 import { textoDePrevision } from './prevision.js';
 
@@ -150,4 +164,70 @@ export function modoDelBoton(boton: Element): ModoDelArma {
     throw new Error(`el botón del selector de arma no dice un modo: «${modo ?? ''}»`);
   }
   return modo;
+}
+
+/** Lo que piden los botones de la muralla a la sesión: su pieza común (`MurallaDeLaActiva`). */
+export interface ControlDeMuralla {
+  readonly muralla: Pick<MurallaDeLaActiva, 'motivo' | 'porElegir'>;
+}
+
+/** El rótulo de cada botón de la muralla. */
+const ROTULO_DE_MURALLA: Readonly<Record<JugadaDeMuralla, string>> = {
+  poner_escalera: 'Poner escalera',
+  subir: 'Subir',
+  abrir_puerta: 'Abrir puerta',
+  cerrar_puerta: 'Cerrar puerta',
+};
+
+/**
+ * Los botones de la muralla de la unidad activa —tuya—, los mismos en la partida y
+ * la arena (fase 2 del puesto fronterizo, 04-11-2026: hasta entonces solo los
+ * pintaba la arena): los de la puerta y los de la escala, cada familia solo a quien
+ * la podría usar alguna vez (`quienNoAbre`, `quienNoEscala`, del núcleo): al
+ * defensor y al volador la escala les saldría siempre deshabilitada. Sin muralla,
+ * nada.
+ */
+export function botonesDeMuralla(
+  s: ControlDeMuralla,
+  battle: BattleState,
+  activa: BattleStack,
+): Html {
+  if (!hayMuralla(battle.muralla)) return NADA;
+  const puertas = battle.puertas.length > 0 && quienNoAbre(activa.side) === null;
+  const escala = quienNoEscala(activa.side, activa.unit) === null;
+  return unir(
+    [...(puertas ? TIPOS_DE_PUERTA : []), ...(escala ? TIPOS_DE_ESCALA : [])].map(
+      (tipo) => html`
+         ${botonDeMuralla(s, tipo)}`,
+    ),
+  );
+}
+
+/**
+ * El botón de `tipo`: habilitado si hay contra qué muro o qué puerta, y si no, con
+ * el motivo del núcleo en el `title` (tras moverse: «se llega al pie y se sube en el
+ * turno siguiente»). Con más de uno, el clic en la columna o la portada elige cuál.
+ */
+function botonDeMuralla(s: ControlDeMuralla, tipo: JugadaDeMuralla): Html {
+  return botonDeElegir({
+    accion: 'battle-muralla',
+    dato: html`data-jugada="${tipo}"`,
+    clase: esTipoDeEscala(tipo) ? 'escala' : 'puerta',
+    rotulo: ROTULO_DE_MURALLA[tipo],
+    motivo: s.muralla.motivo(tipo),
+    esperando: s.muralla.porElegir === tipo,
+  });
+}
+
+/**
+ * La jugada de la muralla que pide un botón (`data-jugada`), o lanza: un botón sin
+ * ella, o con otra, es un fallo del marcado. Lo leen los clics de la partida y de la
+ * arena, que la mandan a su `MurallaDeLaActiva.elegir`.
+ */
+export function jugadaDelBotonDeMuralla(boton: Element): JugadaDeMuralla {
+  const jugada = boton.closest('[data-jugada]')?.getAttribute('data-jugada') ?? '';
+  if (!esTipoDeEscala(jugada) && !esTipoDePuerta(jugada)) {
+    throw new Error(`el botón de la muralla trae «${jugada}»`);
+  }
+  return jugada;
 }

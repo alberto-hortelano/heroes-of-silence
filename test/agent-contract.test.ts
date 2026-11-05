@@ -11,7 +11,9 @@ import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { playAiTurn } from '../src/core/ai/turn.js';
 import {
   activeStack,
+  alAsalto,
   applyAction,
+  type BattleSide,
   casillasDeCarga,
   createBattle,
   legalActions,
@@ -20,13 +22,16 @@ import {
 import { FORMA_DEL_TABLERO, tableroDelContrato } from '../src/core/battle/board.js';
 import { CARGA, CARGA_MINIMA } from '../src/core/battle/carga.js';
 import { LAS_TRES_RUEDAS, RUEDAS } from '../src/core/battle/formas-de-la-rueda.js';
+import type { BattleAction } from '../src/core/battle/types.js';
 import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import {
   adventureActionSchema,
   battleActionSchema,
   battleTurnResponseSchema,
+  formatoDeLaRespuesta,
   mapPlanSchema,
+  PROSA_DE_LA_MURALLA,
   REQUEST_KINDS,
   RESPONSE_FORMAT,
   responseSchemas,
@@ -49,6 +54,8 @@ import {
   golpeDelHit,
   HIT_DE_GOLPE,
   hitsDeLaRueda,
+  JUGADA_DE_MURALLA,
+  JUGADAS_DE_MURALLA,
   SLOT_DE_HUECO,
 } from '../src/core/contract/vocabulario.js';
 import { ASALTANTES, ECONOMIA, EQUIPO, tiposDeHeroe } from '../src/core/data.js';
@@ -79,6 +86,7 @@ import {
   visibleNow,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import { MURALLAS_DEL_MAPA } from '../src/core/state/sitios.js';
 import { mageGuildLevel, townSpells } from '../src/core/town/town.js';
 import { FACTION_IDS, SPEED_TO_HEXES } from '../src/core/types.js';
 import {
@@ -1079,8 +1087,9 @@ describe('lo que ve el agente', () => {
     // En las dos direcciones del mismo hecho: lo que el esquema acepta se le
     // anuncia al agente, y lo que se le anuncia lo acepta el esquema. Un
     // `surrender` en el esquema y no en la prosa es una acción que nadie pide;
-    // al revés, una que se le promete y se le rechaza.
-    const prosa = RESPONSE_FORMAT.battle_turn;
+    // al revés, una que se le promete y se le rechaza. Con la muralla, que es cuando
+    // llegan sus cuatro (`formatoDeLaRespuesta`).
+    const prosa = formatoDeLaRespuesta('battle_turn', { walls: {} });
     // Las retiradas (`wait`, `defend`) van envueltas en su rechazo: no se anuncian.
     const tipos = battleActionSchema.options.flatMap((o) =>
       o.shape.type instanceof z.ZodLiteral ? [o.shape.type.value as string] : [],
@@ -2082,5 +2091,130 @@ describe('la rueda y los poderes en el contrato (F6)', () => {
       },
     });
     expect((serializeAdventureTurn(newGame({ seed: 3 }), 1) as any).you.combat.troopCap).toBe(7);
+  });
+});
+
+describe('la muralla en el contrato (fase 2 del puesto fronterizo)', () => {
+  /** Una de cada jugada del núcleo: el `Record` obliga a escribir la que entre. */
+  const UNA_DE_CADA: Readonly<Record<BattleAction['type'], BattleAction>> = {
+    move: { type: 'move', to: { col: 3, row: 2 } },
+    attack: { type: 'attack', target: 'd-0', from: { col: 3, row: 2 } },
+    aim: { type: 'aim', at: { col: 8, row: 4 } },
+    cast: { type: 'cast', spell: 'magic_arrow', target: 'd-0' },
+    power: { type: 'power', poder: 'curar', target: 'a-1' },
+    surrender: { type: 'surrender', gold: 10 },
+    end_turn: { type: 'end_turn' },
+    poner_escalera: { type: 'poner_escalera', muro: { col: 7, row: 1 } },
+    subir: { type: 'subir', muro: { col: 7, row: 1 } },
+    abrir_puerta: {
+      type: 'abrir_puerta',
+      puerta: { a: { col: 7, row: 4 }, b: { col: 8, row: 4 } },
+    },
+    cerrar_puerta: {
+      type: 'cerrar_puerta',
+      puerta: { a: { col: 7, row: 4 }, b: { col: 8, row: 4 } },
+    },
+  };
+
+  it('cada jugada del núcleo va y vuelve por el contrato, sin un nombre en español', () => {
+    const enEspañol = Object.keys(JUGADA_DE_MURALLA);
+    for (const a of Object.values(UNA_DE_CADA)) {
+      const delAgente = accionAlAgente(a);
+      expect(enEspañol, a.type).not.toContain(delAgente.type);
+      expect(JSON.stringify(delAgente), a.type).not.toMatch(/"(muro|puerta|poder)"/);
+      // Lo que la lista ofrece lo acepta el esquema, tal cual.
+      expect(battleActionSchema.parse(delAgente), a.type).toEqual(delAgente);
+      expect(accionDeBatallaDelAgente(delAgente, RUEDAS[7]), a.type).toEqual(a);
+    }
+    expect(accionAlAgente(UNA_DE_CADA.poner_escalera)).toEqual({
+      type: 'place_ladder',
+      wall: { col: 7, row: 1 },
+    });
+    expect(accionAlAgente(UNA_DE_CADA.abrir_puerta)).toEqual({
+      type: 'open_gate',
+      gate: { a: { col: 7, row: 4 }, b: { col: 8, row: 4 } },
+    });
+    // El nombre de dentro no lo acepta el esquema: el agente escribe el suyo.
+    expect(battleActionSchema.safeParse(UNA_DE_CADA.subir).success).toBe(false);
+  });
+
+  it('la prosa de la muralla va solo en el turno de una batalla con muralla, y dice las cuatro jugadas', () => {
+    const con = formatoDeLaRespuesta('battle_turn', { walls: { material: 'piedra' } });
+    const sin = formatoDeLaRespuesta('battle_turn', { walls: null });
+    expect(sin).toBe(RESPONSE_FORMAT.battle_turn);
+    expect(con).toBe(`${RESPONSE_FORMAT.battle_turn}\n\n${PROSA_DE_LA_MURALLA}`);
+    for (const jugada of JUGADAS_DE_MURALLA) {
+      expect(con).toContain(`"type": "${jugada}"`);
+      expect(sin).not.toContain(jugada);
+    }
+    expect(con).toContain('MURALLA');
+    expect(con).toContain('"walls"');
+    expect(con).toContain('"ladder": true');
+    expect(con).toContain('de lo alto solo se baja hacia dentro');
+    // La regla de la batalla es la de la arena, con las palabras del agente.
+    expect(con).toContain('En el suelo nadie dispara a través de un muro');
+    // Qué sitio la lleva y de qué, de `data/sitios.json`.
+    expect(con).toContain(`muralla de ${MURALLAS_DEL_MAPA.ciudad.material}`);
+    // Sin `walls` no se sabe: lo pone siempre `serializeBattleTurn`.
+    expect(() => formatoDeLaRespuesta('battle_turn', {})).toThrow('sin «walls»');
+    expect(formatoDeLaRespuesta('adventure_turn', {})).toBe(RESPONSE_FORMAT.adventure_turn);
+  });
+
+  it('el turno trae la muralla («walls»), la escalera de cada stack y los hechos con sus nombres', () => {
+    const lado = (creature: string, n: number): BattleSide => ({
+      army: Array.from({ length: n }, () => ({ creature, count: 1 })),
+      hero: null,
+    });
+    const sinMuralla = createBattle(
+      lado(PESADA, 1),
+      lado(TROPA, 1),
+      createRng(3),
+      COMBATE_COMPLETO,
+    );
+    expect((serializeBattleTurn(sinMuralla, 'attacker', 'propia', 0) as any).walls).toBeNull();
+
+    const b = createBattle(
+      alAsalto(lado(PESADA, 2), MURALLAS_DEL_MAPA.pueblo),
+      lado(TROPA, 2),
+      createRng(3),
+      COMBATE_COMPLETO,
+      MURALLAS_DEL_MAPA.pueblo,
+    );
+    const antes = serializeBattleTurn(b, 'attacker', 'propia', 0) as any;
+    expect(antes.walls).toEqual({
+      material: 'madera',
+      tiles: MURALLAS_DEL_MAPA.pueblo.muros,
+      gates: [{ a: { col: 7, row: 4 }, b: { col: 8, row: 4 }, open: false }],
+      ladders: [],
+    });
+    const deAtaque = antes.stacks.filter((s: any) => s.side === 'attacker');
+    expect(deAtaque.every((s: any) => s.ladder === true)).toBe(true);
+    expect(
+      antes.stacks.filter((s: any) => s.side === 'defender').some((s: any) => 'ladder' in s),
+    ).toBe(false);
+
+    stackById(b, 'attacker-0').hex = { col: 6, row: 1 };
+    forzarTurno(b, 'attacker-0');
+    const turno = serializeBattleTurn(b, 'attacker', 'propia', 0) as any;
+    expect(turno.legalActions).toContainEqual({ type: 'place_ladder', wall: { col: 7, row: 1 } });
+    applyAction(b, { type: 'poner_escalera', muro: { col: 7, row: 1 } }, createRng(1));
+    forzarTurno(b, 'defender-0');
+    applyAction(b, UNA_DE_CADA.abrir_puerta, createRng(1));
+    const despues = serializeBattleTurn(b, 'attacker', 'propia', 0) as any;
+    expect(despues.walls.ladders).toEqual([{ foot: { col: 6, row: 1 }, wall: { col: 7, row: 1 } }]);
+    expect(despues.walls.gates[0].open).toBe(true);
+    expect(despues.stacks.find((s: any) => s.id === 'attacker-0').ladder).toBeUndefined();
+    expect(despues.log).toContainEqual({
+      kind: 'ladder_placed',
+      stack: 'attacker-0',
+      foot: { col: 6, row: 1 },
+      wall: { col: 7, row: 1 },
+    });
+    expect(despues.log).toContainEqual({
+      kind: 'gate_opened',
+      stack: 'defender-0',
+      gate: { a: { col: 7, row: 4 }, b: { col: 8, row: 4 } },
+    });
+    expect(JSON.stringify(despues.log)).not.toMatch(/"(pie|muro|puerta)"/);
   });
 });

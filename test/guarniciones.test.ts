@@ -18,8 +18,7 @@ import { adventureActionSchema, RESPONSE_FORMAT } from '../src/core/contract/age
 import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
 import { accionDelAgente } from '../src/core/contract/vocabulario.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../src/core/hero/troop.js';
-import { type MapObject, pointFromKey, pointKey } from '../src/core/map/map.js';
-import { estructura } from '../src/core/map/regiones.js';
+import { pointFromKey, pointKey } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
 import { CHARACTER_BODY } from '../src/core/rpg/character.js';
 import {
@@ -66,42 +65,11 @@ import {
   pegadoA,
   TROPA,
   TROPA_BARATA,
+  unPaso,
+  unPuebloDe,
 } from './helpers.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
-
-type Nodo = Extract<MapObject, { kind: 'node' }>;
-type Pueblo = Extract<MapObject, { kind: 'village' }>;
-
-/** Un paso de la red (un nodo que no es ciudad), el primero del mapa. */
-function unPaso(state: GameState): Nodo {
-  const n = state.map.objects.find((o): o is Nodo => o.kind === 'node');
-  if (n === undefined) throw new Error('el mapa no tiene ningún paso');
-  return n;
-}
-
-/**
- * Un pueblo cuya región se hace de `jugador` a mano: todos sus nodos, suyos (los
- * pasos por su objeto; una ciudad de la red, por sus dos caras). Así el pueblo es
- * de quien tiene su región, que es la regla.
- */
-function unPuebloDe(state: GameState, jugador: number): Pueblo {
-  const red = estructura(state.map);
-  for (const o of state.map.objects) {
-    if (o.kind !== 'village') continue;
-    const k = red.regionDe[o.at.y * state.map.width + o.at.x] ?? -1;
-    if (k < 0) continue;
-    for (const n of red.regiones[k]!.nodos) {
-      const nodo = red.nodos[n]!;
-      const obj = state.map.objects.find((x) => x.id === nodo.id)!;
-      if (obj.kind === 'node' || obj.kind === 'town') obj.owner = jugador;
-      const town = state.towns.find((t) => t.id === nodo.id);
-      if (town !== undefined) town.owner = jugador;
-    }
-    return o;
-  }
-  throw new Error('el mapa no tiene ningún pueblo en una región');
-}
 
 function jugar(state: GameState, accion: AdventureAction, quien = 0, seed = 1): void {
   applyAdventureAction(state, accion, ctx(seed), quien);

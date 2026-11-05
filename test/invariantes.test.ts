@@ -464,7 +464,8 @@ const PERMISOS_DE_LA_ARENA: Readonly<Record<string, readonly string[]>> = {
     // (`VERSION_DEL_ENLACE`): no monta nada.
     'enlaceDeLaPelea',
   ],
-  // La IA contra la IA en la arena (#259, #260, #262): sus tandas y la pelea.
+  // La IA contra la IA en la arena (#259, #260, #262): sus tandas y la pelea, también
+  // la de las murallas del mapa, con los bandos de la arena (fase 2 del puesto fronterizo).
   'tools/qa/arena-ia.ts': ['TANDAS', 'medir'],
 };
 
@@ -2500,6 +2501,50 @@ describe('invariantes del proyecto', () => {
     }
     expect(llamadas).toEqual([]);
     expect(infractoresDeCodigo([PERMITIDO], /\bcreateBattle\s*\(/)).toHaveLength(1);
+  });
+
+  it('`data/sitios.json` lo importa solo `core/state/sitios.ts`, que lo juzga al cargar', () => {
+    // Las murallas del mapa se leen en un sitio y se juzgan al cargar
+    // (`leerMurallasDelMapa`, `murallaDelMapaBlocker`): quien importara el fichero
+    // por su cuenta montaría una batalla con una forma sin juzgar, que podría no
+    // cerrar o no asaltarse y acabar por `MAX_ROUNDS`. Roto a mano (04-11-2026): un
+    // `import s from '../../../data/sitios.json'` en `state/game.ts` sale rojo.
+    const PUERTA = 'src/core/state/sitios.ts';
+    const importa = importaDe(/[^'"]*data\/sitios\.json/);
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => r !== PUERTA),
+        importa,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([PUERTA], importa)).not.toEqual([]);
+  });
+
+  it('el muro y la puerta que esperan el clic los apunta solo `MurallaDeLaActiva`', () => {
+    // La partida y la arena juegan la muralla con una pieza (fase 2 del puesto
+    // fronterizo): si una sesión o la escena guardaran su propio «muro por elegir»,
+    // el botón marcado y el clic del tablero dejarían de hablar de lo mismo, que es
+    // como vivía en la arena (un campo de `SesionDeArena` que la escena escribía a
+    // pelo). Desde el simplify de la fase 2 es una clase más de lo que espera el clic
+    // (`LoApuntado`) y `muroPorElegir`/`puertaPorElegir` son getters que el compilador
+    // no deja escribir; lo que el tipo no impide es apuntarla desde otro sitio. Desde
+    // fuera solo se suelta (`soltar`). Roto a mano (04-11-2026): un
+    // `this.apuntados.apuntar({ kind: 'muralla', id: 'subir' })` en `Session` sale rojo
+    // con su línea.
+    const PERMITIDO = 'src/client/session.ts';
+    const conPermiso = lineasDeLasDeclaraciones(PERMITIDO, ['MurallaDeLaActiva']);
+    const apunta = /\{\s*kind:\s*'muralla'/;
+    const escrituras: string[] = [];
+    for (const ruta of [...CLIENTE, ...CORE]) {
+      for (const [i, linea] of codigoDe(ruta).split('\n').entries()) {
+        if (!apunta.test(linea)) continue;
+        if (ruta === PERMITIDO && conPermiso.has(i + 1)) continue;
+        escrituras.push(`${ruta}:${i + 1} → ${linea.trim()}`);
+      }
+    }
+    expect(escrituras).toEqual([]);
+    expect(infractoresDeCodigo([PERMITIDO], apunta)).toHaveLength(1);
   });
 
   it('`data/clima.json` lo importa solo `core/state/clima.ts`, que lo valida al cargar', () => {

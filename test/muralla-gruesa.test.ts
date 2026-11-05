@@ -43,7 +43,6 @@ import {
   type MurallaDeBatalla,
   nivelDe,
   SIN_MURALLA,
-  validarMuralla,
 } from '../src/core/battle/muralla.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
@@ -52,6 +51,7 @@ import type { Hex, Stack } from '../src/core/types.js';
 import {
   abrirPuertas,
   forzarTurno,
+  muralla,
   peleaDeArena,
   sesionDeArena,
   unidadDeArena,
@@ -75,7 +75,7 @@ function recta(cols: number[], puerta: number | null, sin: number[] = []): Mural
   }
   const c = cols[0] as number;
   const puertas = puerta === null ? [] : [{ a: h(c, puerta), b: h(c + 1, puerta) }];
-  return validarMuralla({ muros, puertas });
+  return muralla(muros, puertas);
 }
 /** Los lados de las puertas de `m`, en los dos sentidos, como «a|b». */
 const ladosDePuertas = (m: MurallaDeBatalla): Set<string> =>
@@ -91,7 +91,7 @@ function arco(grosor: number, filas: number[], conPuerta: boolean): MurallaDeBat
     for (let i = 0; i < grosor; i++) muros.push({ col: (ARCO[row] as number) + i, row });
   }
   const puertas = conPuerta ? [{ a: h(6, 4), b: h(7, 4) }] : [];
-  return validarMuralla({ muros, puertas });
+  return muralla(muros, puertas);
 }
 const GRUESA = forma('Muralla gruesa');
 const SEMICIRCULO_GRUESO = forma('Semicírculo grueso');
@@ -177,7 +177,7 @@ describe('dentro y fuera por cercanía andando (C15)', () => {
     // Un muro en una esquina que no estorba. El eje del tablero cae en 5,5: en
     // una fila impar, (5, impar) queda a 3 de cada salida, un empate; en una
     // par no hay empate, (5, par) está a 3 de la izquierda y a 4 de la derecha.
-    const esquina = validarMuralla({ muros: [h(0, 0)], puertas: [] });
+    const esquina = muralla([h(0, 0)]);
     expect(ladoDeLaMuralla(esquina, h(5, 3))).toBe('dentro');
     expect(ladoDeLaMuralla(esquina, h(4, 3))).toBe('fuera');
     expect(ladoDeLaMuralla(esquina, h(6, 3))).toBe('dentro');

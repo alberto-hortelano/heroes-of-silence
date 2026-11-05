@@ -959,6 +959,25 @@ function bandoDeArena(
 }
 
 /**
+ * Los dos bandos de `montaje` como los pelea `createBattle`: cada unidad del
+ * catálogo de la pelea y el héroe, en el orden del montaje. Los monta
+ * `batallaDeArena`, y la medida de la IA contra la IA (`tools/qa/arena-ia.ts`) los
+ * pide para pelearlos tras una muralla del mapa con el atacante al asalto
+ * (`alAsalto`: el héroe con escalera, que la arena no da).
+ */
+export function bandosDeArena(montaje: MontajeDeArena): {
+  readonly izquierda: BattleSide;
+  readonly derecha: BattleSide;
+} {
+  const catalogo = catalogoDelMontaje(montaje);
+  const { tope } = montaje.combate;
+  return {
+    izquierda: bandoDeArena(montaje.izquierda, LADOS.izquierda.adjetivo, catalogo, tope),
+    derecha: bandoDeArena(montaje.derecha, LADOS.derecha.adjetivo, catalogo, tope),
+  };
+}
+
+/**
  * Una batalla de arena: la izquierda ataca y la derecha defiende, con las reglas
  * del juego (`createBattle`, la única puerta: la arena no tiene interruptores
  * desde el 19-10-2026). Los stacks de la tropa salen en el orden de cada lista (`slot` =
@@ -968,13 +987,12 @@ function bandoDeArena(
  */
 export function batallaDeArena(montaje: MontajeDeArena, rng: Rng): BattleState {
   const eq = montaje.equipo;
-  const catalogo = catalogoDelMontaje(montaje);
-  const { combate } = montaje;
+  const { izquierda, derecha } = bandosDeArena(montaje);
   const batalla = createBattle(
-    bandoDeArena(montaje.izquierda, LADOS.izquierda.adjetivo, catalogo, combate.tope),
-    bandoDeArena(montaje.derecha, LADOS.derecha.adjetivo, catalogo, combate.tope),
+    izquierda,
+    derecha,
     rng,
-    combate,
+    montaje.combate,
     montaje.muralla ?? SIN_MURALLA,
   );
   // La ficha de cada tipo y de cada héroe, con la que el retoque compara.
@@ -1543,9 +1561,10 @@ export function retiradosDeLaURL(
  * velocidad ni daño; la 16 (25-10-2026), la segunda arma: el hueco `lanza` se fue,
  * una pieza dice `lanza: true` y una unidad lleva `segunda`; la 17 (26-10-2026), la
  * montura: el hueco `montura`, piezas con `agilidad` y `guerra`, y el rasgo
- * `charge` fuera.
+ * `charge` fuera; la 18 (04-11-2026, puesto fronterizo, fase 2), el material de la
+ * muralla (`MurallaDeBatalla.material`: piedra o madera).
  */
-export const VERSION_DEL_ENLACE = 17;
+export const VERSION_DEL_ENLACE = 18;
 
 const CAMPOS_DEL_ENLACE = ['v', 'unidades', 'piezas', 'izquierda', 'derecha', 'muralla', 'combate'];
 const CAMPOS_DEL_COMBATE = ['tope', 'rueda'];

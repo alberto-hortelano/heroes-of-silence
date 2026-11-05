@@ -63,7 +63,7 @@ import {
   type TipoDelAnillo,
 } from '@core/battle/rueda.js';
 import { allSpells } from '@core/battle/spells.js';
-import type { BattleStack, BattleState, TipoDeEscala, TipoDePuerta } from '@core/battle/types.js';
+import type { BattleStack, BattleState } from '@core/battle/types.js';
 import { costeDeUnaUnidad } from '@core/catalogo.js';
 import {
   agilidadDe,
@@ -144,7 +144,7 @@ import {
   renderBattleLog,
   renderSpells,
 } from '../views/panels.js';
-import { botonDeElegir, botonesDeArma, botonesDePoder } from '../views/poderes.js';
+import { botonesDeArma, botonesDeMuralla, botonesDePoder } from '../views/poderes.js';
 import { abrirFichaBlocker, claveDeFicha, estaAbierta, type FichaEditable } from './edicion.js';
 
 /**
@@ -484,48 +484,6 @@ export function renderEnlace(enlace: string | null): Html {
   if (enlace === null) return NADA;
   return html`<div class="enlace-de-pelea"><h3>Enlace de la pelea</h3>
     <input type="text" readonly data-enlace-de-pelea value="${enlace}" aria-label="Enlace de la pelea"></div>`;
-}
-
-/**
- * «Poner escalera» y «Subir» para la unidad activa —tuya—: habilitados si hay
- * contra qué muro, y si no, con el motivo del núcleo en el `title` y debajo.
- * Al pulsarlos con más de un muro al pie, el clic en la columna elige cuál.
- */
-function botonesDeEscala(s: VistaDeArena): Html {
-  const boton = (tipo: TipoDeEscala, rotulo: string): Html =>
-    botonDeElegir({
-      accion: 'battle-escala',
-      dato: html`data-escala="${tipo}"`,
-      clase: 'escala',
-      rotulo,
-      motivo: s.motivoDeEscala(tipo),
-      esperando: s.muroPorElegir === tipo,
-    });
-  return html`
-         ${boton('poner_escalera', 'Poner escalera')}
-         ${boton('subir', 'Subir')}`;
-}
-
-/**
- * «Abrir puerta» y «Cerrar puerta» para la unidad activa —tuya— de quien
- * defiende: habilitados si hay alguna puerta que abrir (o cerrar) ahora, y si
- * no, con el motivo del núcleo en el `title` (tras moverse: «la puerta se abre o
- * se cierra al principio del turno»). Con más de una, el clic en la portada
- * elige cuál.
- */
-function botonesDePuerta(s: VistaDeArena): Html {
-  const boton = (tipo: TipoDePuerta, rotulo: string): Html =>
-    botonDeElegir({
-      accion: 'battle-puerta',
-      dato: html`data-puerta="${tipo}"`,
-      clase: 'puerta',
-      rotulo,
-      motivo: s.motivoDePuerta(tipo),
-      esperando: s.puertaPorElegir === tipo,
-    });
-  return html`
-         ${boton('abrir_puerta', 'Abrir puerta')}
-         ${boton('cerrar_puerta', 'Cerrar puerta')}`;
 }
 
 /**
@@ -1784,12 +1742,8 @@ export type VistaDeArena = Pick<
   | 'spellOptions'
   | 'heroeEnJuego'
   | 'hechizos'
-  | 'motivoDeEscala'
-  | 'motivoDePuerta'
-  | 'noEscalaNunca'
+  | 'muralla'
   | 'defensaEnLoAlto'
-  | 'muroPorElegir'
-  | 'puertaPorElegir'
   | 'motivoDePoder'
   | 'arma'
   | 'apuntado'
@@ -2027,14 +1981,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
               poderes: html`${botonesDeArma(s, activa)}${botonesDePoder(s, activa)}`,
               hechizos:
                 heroe === null ? NADA : renderSpells(s.hechizos.selectedSpell, s.spellOptions()),
-              // La puerta, solo a quien defiende: es quien la abre y la cierra. La
-              // escala, solo a quien puede llegar a escalar: al defensor y a la
-              // voladora les saldrían siempre deshabilitados.
-              muralla: html`${b.puertas.length > 0 && activa.side === 'defender' ? botonesDePuerta(s) : NADA}${
-                b.muralla.muros.length > 0 && s.noEscalaNunca(activa) === null
-                  ? botonesDeEscala(s)
-                  : NADA
-              }`,
+              muralla: botonesDeMuralla(s, b, activa),
             }),
           )
         : html`<p>Mueve la IA…</p>`;

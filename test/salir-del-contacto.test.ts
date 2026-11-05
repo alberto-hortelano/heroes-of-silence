@@ -34,7 +34,7 @@ import {
 import { caminoDe, hexDistance, hexKey } from '../src/core/battle/board.js';
 import { CARGA, type CifrasDeCarga } from '../src/core/battle/carga.js';
 import { applyEffect } from '../src/core/battle/effects.js';
-import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from '../src/core/battle/muralla.js';
+import { type MurallaDeBatalla, SIN_MURALLA } from '../src/core/battle/muralla.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
@@ -48,6 +48,7 @@ import {
   forzarTurno,
   JINETE,
   montajeDePrueba,
+  muralla,
   NO_MUERTO,
   TROPA,
   unidadDeArena,
@@ -255,8 +256,7 @@ describe('lo que dice quien no llega', () => {
 describe('qué es «en contacto»: quien te puede golpear cuerpo a cuerpo', () => {
   it('el enemigo en lo alto del muro de al lado no cuenta; el del suelo, sí', () => {
     // El muro en (6,4): el esqueleto de arriba no alcanza al piquero del suelo.
-    const muralla = validarMuralla({ muros: [h(6, 4)], puertas: [] });
-    const b = pelea(PIQUERO, h(5, 4), [h(6, 4), h(4, 3)], { muralla });
+    const b = pelea(PIQUERO, h(5, 4), [h(6, 4), h(4, 3)], { muralla: muralla([h(6, 4)]) });
     expect(enContactoEn(b, yo(b), h(5, 4))).toBe(1);
     // Salir de (5,4) cuesta 2: solo cuenta el del suelo.
     expect(costes(b, h(4, 4))).toEqual([2]);
@@ -266,16 +266,18 @@ describe('qué es «en contacto»: quien te puede golpear cuerpo a cuerpo', () =
     // La columna 7 con la puerta entre (7,4) y (8,4), cerrada. El piquero en el
     // hueco y el esqueleto al otro lado se golpean, así que se tocan.
     const muros = [0, 1, 2, 3, 5, 6, 7, 8].map((row) => h(7, row));
-    const muralla = validarMuralla({ muros, puertas: [{ a: h(7, 4), b: h(8, 4) }] });
-    const b = pelea(PIQUERO, h(7, 4), [h(8, 4)], { muralla });
+    const b = pelea(PIQUERO, h(7, 4), [h(8, 4)], {
+      muralla: muralla(muros, [{ a: h(7, 4), b: h(8, 4) }]),
+    });
     expect(b.puertas[0]?.abierta).toBe(false);
     expect(enContactoEn(b, yo(b), h(7, 4))).toBe(1);
     expect(costes(b, h(6, 4), h(5, 4))).toEqual([2, 3]);
   });
 
   it('rodeado al pie del muro, poner la escalera no paga el contacto: es el turno entero', () => {
-    const muralla = validarMuralla({ muros: [h(6, 4)], puertas: [] });
-    const b = pelea(PIQUERO, h(5, 4), [h(4, 3), h(5, 5), h(4, 4), h(5, 3)], { muralla });
+    const b = pelea(PIQUERO, h(5, 4), [h(4, 3), h(5, 5), h(4, 4), h(5, 3)], {
+      muralla: muralla([h(6, 4)]),
+    });
     yo(b).escalera = true;
     expect(movableFrom(b, yo(b)).size).toBe(0);
     expect(legalActions(b)).toContainEqual({ type: 'poner_escalera', muro: h(6, 4) });

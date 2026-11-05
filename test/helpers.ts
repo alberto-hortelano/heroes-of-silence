@@ -37,7 +37,13 @@ import {
   stackHexes,
 } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
-import { type MurallaDeBatalla, SIN_MURALLA } from '../src/core/battle/muralla.js';
+import {
+  type MaterialDeMuralla,
+  type MurallaDeBatalla,
+  type PuertaDeMuralla,
+  SIN_MURALLA,
+  validarMuralla,
+} from '../src/core/battle/muralla.js';
 import { formaDeLaBatalla, golpeNeutro, type HechoDelCruce } from '../src/core/battle/rueda.js';
 import type {
   BattleAction,
@@ -502,6 +508,54 @@ export function primeraMarchaQueSePara(state: GameState, heroe: Hero): Point | n
     if (prueba.log.at(-1)?.kind === 'march_halted') return destino;
   }
   return null;
+}
+
+/**
+ * Una muralla de batalla con esos muros y puertas, de piedra salvo que se diga
+ * (`validarMuralla`): la de los tests que no miran el material. Los de
+ * `validarMuralla` le pasan el objeto crudo.
+ */
+export function muralla(
+  muros: readonly Hex[],
+  puertas: readonly PuertaDeMuralla[] = [],
+  material: MaterialDeMuralla = 'piedra',
+): MurallaDeBatalla {
+  return validarMuralla({ muros, puertas, material });
+}
+
+/** Un paso de la red (un nodo que no es ciudad), el primero del mapa. */
+export function unPaso(state: GameState): Extract<MapObject, { kind: 'node' }> {
+  const n = state.map.objects.find(
+    (o): o is Extract<MapObject, { kind: 'node' }> => o.kind === 'node',
+  );
+  if (n === undefined) throw new Error('el mapa no tiene ningún paso');
+  return n;
+}
+
+/**
+ * Un pueblo cuya región se hace de `jugador` a mano: todos sus nodos, suyos (los
+ * pasos por su objeto; una ciudad de la red, por sus dos caras). Así el pueblo es
+ * de quien tiene su región, que es la regla.
+ */
+export function unPuebloDe(
+  state: GameState,
+  jugador: number,
+): Extract<MapObject, { kind: 'village' }> {
+  const red = estructura(state.map);
+  for (const o of state.map.objects) {
+    if (o.kind !== 'village') continue;
+    const k = red.regionDe[o.at.y * state.map.width + o.at.x] ?? -1;
+    if (k < 0) continue;
+    for (const n of red.regiones[k]!.nodos) {
+      const nodo = red.nodos[n]!;
+      const obj = state.map.objects.find((x) => x.id === nodo.id)!;
+      if (obj.kind === 'node' || obj.kind === 'town') obj.owner = jugador;
+      const town = state.towns.find((t) => t.id === nodo.id);
+      if (town !== undefined) town.owner = jugador;
+    }
+    return o;
+  }
+  throw new Error('el mapa no tiene ningún pueblo en una región');
 }
 
 /**

@@ -69,3 +69,36 @@ las claves del contrato en inglés como el resto (`garrison`, `site`), y el come
 - Que la persona no se encuentre una guarnición ajena en `pnpm dev`: la IA no deja tropa (backlog).
 - `destinoDeRecluta` con `GARRISON_LEADERSHIP` a mano (visto por el ingeniero de `/simplify`): se
   cambia a `cupoDeLaGuarnicion` si es trivial y no mueve el banco; si no, se deja y se dice.
+
+---
+
+# Hallazgos de QA de la fase 2 (vuelta 1), decididos
+
+De `qa.md` («Fase 2 · vuelta 1», apto con reservas). Decididos por el coordinador (04-11-2026). El
+juego no cambia: `pnpm banco` se queda en `883fe9be…`.
+
+## QF2-1 · Lo que espera el clic de la muralla no se pierde con un clic en otro sitio (H-F2-1)
+
+Con «Poner escalera» esperando el muro, un clic en una casilla verde mueve la unidad, suelta lo que
+esperaba sin decirlo y gasta el turno de la escalera (s6; ya pasaba en la arena). Un hechizo apuntado
+sí bloquea ese movimiento, y el docstring de `pulsarEscala` dice que «un clic en otro sitio se queda
+en él y lo dice». → el mismo trato que lo apuntado: mientras la muralla espera el clic, un clic que no
+es en lo alto de un muro elegible (o en una puerta elegible) no juega nada y la barra lo dice («Elige
+lo alto de un muro o pulsa Escape»); Escape y los botones siguen soltándolo. En la partida y en la
+arena (una pieza, `LoApuntado`). Se vigila con un test de la sesión (el clic en una casilla de andar
+no mueve con la muralla esperando) y se mira una vez en el navegador con s6. Docstrings al día.
+
+## QF2-2 · El test del volador muerde (H-F2-2)
+
+«el volador no lleva escalera» (`test/datos-de-sitios.test.ts`) no prueba un volador: el catálogo no
+tiene ninguno. → montar en el test un volador de verdad (una unidad con el rasgo de volar, en un
+catálogo de la pelea o la forma que use `quienNoEscala`) y verlo morder: quitando la rama del volador
+de `quienNoEscala` el test sale rojo.
+
+## No son hallazgos de esta tarea
+
+- La batalla contra un pueblo en la partida del navegador: la IA no deja tropa (backlog de la fase 1);
+  cubierta en el núcleo y en la arena.
+- `place_ladder` y `climb` del agente en `pnpm qa`: en las semillas que pasan solo defiende; los
+  cubren los tests del contrato. Si es barato, que `pnpm qa` busque además una semilla donde el agente
+  asalte; si no, backlog.

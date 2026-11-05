@@ -187,9 +187,10 @@ export interface BattleStack {
   /** La casilla que ocupa: toda unidad, una (13-10-2026). */
   hex: Hex;
   /**
-   * Lleva una escalera para subir a la muralla (`poner_escalera`). Llega con
-   * el personaje (`BattleMember.escalera`, solo en la arena) si la puede usar, y
-   * se le quita al ponerla: la escalera se queda contra el muro, para quien llegue.
+   * Lleva una escalera para subir a la muralla (`poner_escalera`). Llega con su
+   * stack (`StackDeBatalla.escalera`: la del puesto en la arena, o la de todo el bando
+   * atacante contra una muralla del mapa, `alAsalto`) si la puede usar, y se le
+   * quita al ponerla: la escalera se queda contra el muro, para quien llegue.
    */
   escalera: boolean;
   /** Ya contraatacó en esta ronda. */
@@ -501,8 +502,10 @@ export interface BattleState {
   turno: TurnoDeUnidad | null;
   heroes: Record<Side, BattleHero | null>;
   /**
-   * Muros y puertas del tablero (`muralla.ts`). No cambia en toda la batalla; en
-   * las del mapa, hoy, `SIN_MURALLA`. Solo la arena la pone.
+   * Muros y puertas del tablero (`muralla.ts`). No cambia en toda la batalla. La
+   * pone la arena (la que se dibuje) y la batalla del mapa (la de su sitio:
+   * `murallaDelSitio`, piedra en una ciudad, madera en un pueblo; sin sitio,
+   * `SIN_MURALLA`).
    */
   readonly muralla: MurallaDeBatalla;
   /**
@@ -610,3 +613,6 @@ export type TipoDePuerta = Extract<BattleAction, { puerta: PuertaDeMuralla }>['t
 
 /** Las dos jugadas de la escala, que eligen un muro (`escalaDesde`). */
 export type TipoDeEscala = Extract<BattleAction, { muro: Hex }>['type'];
+
+/** Las cuatro jugadas de la muralla: las de la escala y las de la puerta. */
+export type JugadaDeMuralla = TipoDeEscala | TipoDePuerta;

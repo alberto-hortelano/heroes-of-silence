@@ -8,8 +8,8 @@
  *
  *     npx tsx tools/qa/arena-ia.ts [semillas=100]
  *
- * Cuatro tandas, cada una con sus montajes de su propia corriente de azar, sin
- * muralla:
+ * Cinco tandas, cada una con sus montajes de su propia corriente de azar; las
+ * cuatro primeras sin muralla:
  *
  * - **mezcla**: de 3 a `LIDERAZGO.maxPorBando` hojas de tropa por bando.
  * - **armadura**: tres contra tres de todas las hojas (mezcla) y un jinete contra
@@ -17,6 +17,12 @@
  *   cuenta los golpes que la armadura paró enteros.
  * - **con héroes**: tres contra tres de todas las hojas, con un héroe por bando
  *   sin libro (que pega con la Espada).
+ * - **murallas del mapa** (puesto fronterizo, fase 2, 04-11-2026): las dos formas de
+ *   `data/sitios.json` (la de la ciudad, de piedra, y la del pueblo, de madera), un
+ *   héroe por lado sin libro, el atacante con seis de tropa y el defensor con cinco,
+ *   con el atacante al asalto como lo pone el juego (`alAsalto`: una escalera a cada
+ *   uno, el héroe incluido). Cuenta además las escaleras puestas, las subidas y las
+ *   puertas abiertas o cerradas.
  *
  * Cuenta en todas las cargas a pie y las montadas (`cargaMontada`), los golpes parados y los cruces
  * de la rueda. Las variantes de reglas (contacto libre, sin carga a pie, golpe al
@@ -26,25 +32,35 @@
 
 import { resolve } from 'node:path';
 import { autoResolve } from '../../src/core/ai/tactics.js';
-import { batallaDeArena, heroePorDefecto, type Lado, quitarEnArena } from '../../src/core/arena.js';
-import { causaDelFinal, MAX_ROUNDS } from '../../src/core/battle/battle.js';
+import {
+  bandosDeArena,
+  batallaDeArena,
+  heroePorDefecto,
+  type Lado,
+  type MontajeDeArena,
+  quitarEnArena,
+} from '../../src/core/arena.js';
+import { alAsalto, causaDelFinal, createBattle, MAX_ROUNDS } from '../../src/core/battle/battle.js';
 import { cargaMontada } from '../../src/core/battle/carga.js';
-import { SIN_MURALLA } from '../../src/core/battle/muralla.js';
+import { type MurallaDeBatalla, SIN_MURALLA } from '../../src/core/battle/muralla.js';
 import { unidad } from '../../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../../src/core/combate.js';
 import { LIDERAZGO } from '../../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../../src/core/rng.js';
+import { MURALLAS_DEL_MAPA } from '../../src/core/state/sitios.js';
 import type { Hoja, Unidad } from '../../src/core/unidad.js';
 import { hojasDelTaller } from '../arena/borrador.js';
 
 /** Un montaje de la medida: las unidades de cada bando. */
 type Montaje = readonly [readonly Unidad[], readonly Unidad[]];
 
-/** Una variante: lo que se le cambia a cada unidad. */
+/** Una variante: lo que se le cambia a cada unidad y, si la hay, tras qué muralla del mapa. */
 interface Variante {
   readonly nombre: string;
   readonly cambia: (u: Unidad) => Unidad;
+  /** La muralla del mapa (`MURALLAS_DEL_MAPA`), con el atacante al asalto (`alAsalto`). */
+  readonly muralla?: MurallaDeBatalla;
 }
 
 /** Una tanda: cómo se monta cada semilla, con qué variantes se pelea y si con héroes. */
@@ -65,6 +81,9 @@ interface Cuenta {
   cargasAPie: number;
   cargasDeJinete: number;
   cruces: number;
+  escaleras: number;
+  subidas: number;
+  puertas: number;
 }
 
 const HOJAS = hojasDelTaller(resolve(import.meta.dirname, '../..'));
@@ -110,6 +129,17 @@ const TANDAS: readonly Tanda[] = (() => {
       variantes: elJuego,
       conHeroes: true,
     },
+    {
+      nombre: 'murallas del mapa',
+      montar: (rng) => [elegir(rng, TROPA, 6), elegir(rng, TROPA, 5)],
+      // Una variante por sitio con muralla, con el nombre de su material.
+      variantes: Object.values(MURALLAS_DEL_MAPA).map((muralla) => ({
+        nombre: muralla.material,
+        cambia: igual,
+        muralla,
+      })),
+      conHeroes: true,
+    },
   ];
 })();
 
@@ -125,6 +155,9 @@ function medir(t: Tanda, semillas: number): Cuenta[] {
     cargasAPie: 0,
     cargasDeJinete: 0,
     cruces: 0,
+    escaleras: 0,
+    subidas: 0,
+    puertas: 0,
   }));
   for (let semilla = 1; semilla <= semillas; semilla++) {
     // El montaje, de su corriente: el mismo para todas las variantes.
@@ -141,16 +174,28 @@ function medir(t: Tanda, semillas: number): Cuenta[] {
         heroe: t.conHeroes === true ? { ...heroePorDefecto(cual), hechizos: [] } : null,
       });
       const rng = createRng(semilla);
-      const b = batallaDeArena(
-        {
-          combate: COMBATE_COMPLETO,
-          izquierda: lado(izquierda, 'izquierda'),
-          derecha: lado(derecha, 'derecha'),
-          muralla: SIN_MURALLA,
-          equipo: EQUIPO_DEL_JUEGO,
-        },
-        rng,
-      );
+      const montaje: MontajeDeArena = {
+        combate: COMBATE_COMPLETO,
+        izquierda: lado(izquierda, 'izquierda'),
+        derecha: lado(derecha, 'derecha'),
+        muralla: SIN_MURALLA,
+        equipo: EQUIPO_DEL_JUEGO,
+      };
+      // Sin muralla, la pelea de la arena; tras la del mapa, sus bandos al asalto,
+      // como `montarLaBatalla` (la arena no da escalera al héroe).
+      const b =
+        v.muralla === undefined
+          ? batallaDeArena(montaje, rng)
+          : (() => {
+              const { izquierda: atacante, derecha: defensor } = bandosDeArena(montaje);
+              return createBattle(
+                alAsalto(atacante, v.muralla),
+                defensor,
+                rng,
+                montaje.combate,
+                v.muralla,
+              );
+            })();
       const t0 = performance.now();
       autoResolve(b, rng);
       c.ms += performance.now() - t0;
@@ -159,6 +204,9 @@ function medir(t: Tanda, semillas: number): Cuenta[] {
       if (b.finished?.winner === 'attacker') c.ganaIzquierda++;
       for (const e of b.log) {
         if (e.kind === 'cruce') c.cruces++;
+        if (e.kind === 'ladder_placed') c.escaleras++;
+        if (e.kind === 'climbed') c.subidas++;
+        if (e.kind === 'gate_opened' || e.kind === 'gate_closed') c.puertas++;
         if (e.kind !== 'attack' && e.kind !== 'shoot') continue;
         c.golpes++;
         if (e.damage === 0 && (e.parado ?? 0) > 0) c.parados++;
@@ -181,15 +229,19 @@ for (const t of TANDAS) {
   const cuentas = medir(t, semillas);
   console.log(t.nombre);
   for (const [i, c] of cuentas.entries()) {
+    const v = t.variantes[i] as Variante;
     const rondas = [...c.rondas].sort((a, b) => a - b);
     const sinTerminar =
       c.agotadas.length === 0 ? '0' : `${c.agotadas.length} (s${c.agotadas.join(', s')})`;
     console.log(
-      `  ${(t.variantes[i] as Variante).nombre.padEnd(16)} sin terminar ${sinTerminar}` +
+      `  ${v.nombre.padEnd(16)} sin terminar ${sinTerminar}` +
         `; rondas ${rondas[Math.floor(rondas.length / 2)]} / ${rondas.at(-1)} (mediana / máx.)` +
         `; gana la izquierda ${c.ganaIzquierda}; ${(c.ms / semillas).toFixed(1)} ms/pelea` +
         `; cargas a pie ${c.cargasAPie}, montadas ${c.cargasDeJinete}` +
-        `; golpes parados del todo ${c.parados} de ${c.golpes}; cruces de la rueda ${c.cruces}`,
+        `; golpes parados del todo ${c.parados} de ${c.golpes}; cruces de la rueda ${c.cruces}` +
+        (v.muralla === undefined
+          ? ''
+          : `; escaleras puestas ${c.escaleras}, subidas ${c.subidas}, puertas abiertas o cerradas ${c.puertas}`),
     );
   }
 }

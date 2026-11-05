@@ -7,7 +7,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { RESPONSE_FORMAT, type RequestKind, responseSchemas } from '@core/contract/agent.js';
+import { formatoDeLaRespuesta, type RequestKind, responseSchemas } from '@core/contract/agent.js';
 import type { WebSocket } from 'ws';
 import { notaRespuestaInvalida, notaSinRespuesta } from './notas.js';
 import type {
@@ -250,7 +250,8 @@ export class AgentLink {
       requestId,
       kind,
       payload,
-      responseFormat: RESPONSE_FORMAT[kind],
+      // El de su `kind`; el del turno de batalla, con la muralla si la hay.
+      responseFormat: formatoDeLaRespuesta(kind, payload),
     };
 
     const raw = await new Promise<unknown>((resolve, reject) => {

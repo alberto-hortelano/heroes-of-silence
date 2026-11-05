@@ -1651,6 +1651,7 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
     const deAntes = {
       muros: Array.from({ length: 9 }, (_, row) => ({ col: 10, row })).filter((h) => h.row !== 4),
       puertas: [{ a: { col: 9, row: 4 }, b: { col: 10, row: 4 } }],
+      material: 'piedra',
     };
     const leido = montajeDeLaURL(tocado((o) => (o.muralla = deAntes)));
     expect(leido.muralla).toEqual(deAntes);
@@ -1675,6 +1676,11 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
       [tocado((o) => (o.v = '9')), `es de la versión "9" y esta arena lee la ${V}`],
       [tocado((o) => delete o.v), `es de la versión null y esta arena lee la ${V}`],
       [tocado((o) => delete o.muralla), 'falta «muralla»'],
+      // El material de la muralla (versión 18): obligatorio y de los que hay.
+      [
+        tocado((o) => (o.muralla = { muros: [{ col: 7, row: 1 }], puertas: [] })),
+        'la muralla del enlace no vale: la muralla: falta «material»',
+      ],
       // La complejidad de la pelea (versión 14): entera, de las que hay, y que quepa.
       [tocado((o) => delete o.combate), 'falta «combate»'],
       [tocado((o) => (o.combate.rueda = 4)), '«4» no es una rueda: valen 3, 5 o 7'],

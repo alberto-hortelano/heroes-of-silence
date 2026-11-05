@@ -69,6 +69,7 @@ import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
 import {
   conCaminos,
   costesDelAlcance,
+  forzarTurno,
   monstruoVivo,
   sinGuarnicionDeSalida,
   TROPA,
@@ -663,6 +664,31 @@ describe('la batalla en la vista', () => {
     expect(vuelta).toEqual(sinLoQueNoViaja(batalla));
     // Lo que lee quien cuenta el cruce: el hecho, con su punto, y el contraataque.
     expect(vuelta.log).toEqual(batalla.log);
+  });
+
+  it('una batalla con muralla, escaleras puestas y una puerta abierta vuelve igual del cable (fase 2)', () => {
+    // El héroe del rival defiende en su base: tras la muralla de piedra (fase 2 del
+    // puesto fronterizo). La muralla, las escaleras y las puertas viajan en el
+    // estado tal cual: el espectador no aplica ninguna regla para pintarlas.
+    const { state } = conBatalla();
+    const batalla = state.pendingBattle!.battle;
+    expect(batalla.muralla.material).toBe('piedra');
+    const rng = createRng(9);
+    for (let i = 0; i < 400 && batalla.finished === null && batalla.escaleras.length === 0; i++) {
+      applyAction(batalla, completarCruce(batalla, chooseBattleAction(batalla), rng).accion, rng);
+    }
+    expect(batalla.escaleras.length).toBeGreaterThan(0);
+    const defensor = batalla.stacks.find((x) => x.side === 'defender' && x.count > 0)!;
+    forzarTurno(batalla, defensor.id);
+    applyAction(batalla, { type: 'abrir_puerta', puerta: batalla.muralla.puertas[0]! }, rng);
+    expect(batalla.puertas[0]!.abierta).toBe(true);
+    const ida: SpectatorView = JSON.parse(JSON.stringify(construirVista(state, [])));
+    const vuelta = adaptarBatalla(ida.battle!);
+    expect(vuelta).toEqual(sinLoQueNoViaja(batalla));
+    expect(vuelta.muralla).toEqual(batalla.muralla);
+    expect(vuelta.escaleras).toEqual(batalla.escaleras);
+    expect(vuelta.puertas).toEqual(batalla.puertas);
+    expect(vuelta.stacks.map((x) => x.escalera)).toEqual(batalla.stacks.map((x) => x.escalera));
   });
 
   it('un veterano del catálogo viaja SIN `unit` y llega con sus cifras de veterano', () => {

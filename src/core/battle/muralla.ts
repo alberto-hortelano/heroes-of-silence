@@ -35,8 +35,9 @@
  * una o dos puertas son dos o cuatro, y una caché por muralla sola se quedaría
  * vieja al abrir.
  */
-import { isShooter, MURALLA } from '../data.js';
+import { isShooter, LIDERAZGO, MURALLA } from '../data.js';
 import type { Hex } from '../types.js';
+import { deLaListaBlocker, problemasDeObjeto } from '../validar.js';
 import {
   allHexes,
   BOARD_SIZE,
@@ -48,8 +49,10 @@ import {
   isInside,
   neighbours,
   type PasoPermitido,
+  reachable,
 } from './board.js';
-import type { BattleStack, BattleState, Side } from './types.js';
+import { salidaDe } from './salida.js';
+import { type BattleStack, type BattleState, SIDES, type Side } from './types.js';
 
 /**
  * Una puerta: el lado que comparten `a` y `b`, dos casillas de suelo de la misma
@@ -60,16 +63,49 @@ export interface PuertaDeMuralla {
   readonly b: Hex;
 }
 
+/**
+ * De qué está hecha una muralla: la **piedra** de las ciudades y la **madera** de la
+ * empalizada de los pueblos (puesto fronterizo, fase 2, 04-11-2026). Solo cambia
+ * cómo se pinta y lo que se dice: las reglas del muro son las mismas (el bono de lo
+ * alto, el de la arena para los dos: pregunta 5 del plan).
+ */
+export type MaterialDeMuralla = (typeof MATERIALES_DE_MURALLA)[number];
+
+/** Los materiales, en el orden en que se dicen: la lista de la que sale el tipo. */
+export const MATERIALES_DE_MURALLA = ['piedra', 'madera'] as const;
+
+/** ¿Es `x` un material de muralla? */
+export function esMaterialDeMuralla(x: unknown): x is MaterialDeMuralla {
+  return MATERIALES_DE_MURALLA.includes(x as MaterialDeMuralla);
+}
+
 export interface MurallaDeBatalla {
   readonly muros: readonly Hex[];
   readonly puertas: readonly PuertaDeMuralla[];
+  /** De qué está hecha (`MaterialDeMuralla`): obligatorio, también en la arena (piedra). */
+  readonly material: MaterialDeMuralla;
 }
 
-/** Ninguna muralla: la de toda batalla del mapa, hoy. */
+/**
+ * **Esta batalla no tiene muralla**: la de un paso, un monstruo, un grupo de
+ * asaltantes o un lugar. Su material no decide nada: sin muros ni puertas no hay
+ * nada que pintar ni que decir (`hayMuralla`), y va porque el tipo lo pide. El
+ * editor de la arena no parte de aquí, sino de una vacía con su material escrito
+ * (`murallaVacia`): lo que se dibuja no sale de piedra por el centinela.
+ */
 export const SIN_MURALLA: MurallaDeBatalla = Object.freeze({
   muros: Object.freeze([]) as readonly Hex[],
   puertas: Object.freeze([]) as readonly PuertaDeMuralla[],
+  material: 'piedra',
 });
+
+/**
+ * Una muralla sin muros ni puertas de `material`: de donde parte el editor de la
+ * arena (de piedra) al abrir y al vaciar.
+ */
+export function murallaVacia(material: MaterialDeMuralla): MurallaDeBatalla {
+  return validarMuralla({ muros: [], puertas: [], material });
+}
 
 /** Lo que pone el editor de la arena: muros en casillas, puertas entre dos. */
 export type PiezaDeMuralla = 'muro' | 'puerta';
@@ -499,22 +535,29 @@ function distanciasDesde(
 }
 
 /**
- * Una muralla de fuera —el borrador de la arena, lo que mande quien sea— o
- * excepción con lo que no se entiende. Devuelve una copia limpia y congelada:
- * nada de lo que llega se guarda por referencia.
+ * Una muralla de fuera —el borrador de la arena, el enlace, `data/sitios.json`, lo
+ * que mande quien sea— o excepción con lo que no se entiende. Devuelve una copia
+ * limpia y congelada: nada de lo que llega se guarda por referencia.
  *
  * Cada puerta es `{a, b}`: dos casillas vecinas en horizontal, `b` justo al este
  * de `a`, ninguna de las dos un muro. Una puerta de antes de la ampliación 4
  * —una casilla, `{col, row}`— se rechaza diciéndolo: el borrador la conserva
  * tal cual y la marca como inválida.
+ *
+ * **Lo que ya devolvió, lo devuelve tal cual** (`VALIDADAS`): `createBattle` la
+ * pide siempre, y así las batallas contra una ciudad comparten el objeto de su
+ * muralla y sus cachés (`conjuntosDe`), en vez de rehacerlas por batalla. Lo que
+ * devuelve está congelado, así que no puede dejar de valer.
  */
 export function validarMuralla(valor: unknown): MurallaDeBatalla {
-  if (typeof valor !== 'object' || valor === null || Array.isArray(valor)) {
-    throw new Error('la muralla tiene que ser un objeto con «muros» y «puertas»');
-  }
+  if (VALIDADAS.has(valor as MurallaDeBatalla)) return valor as MurallaDeBatalla;
+  const [problema] = problemasDeObjeto(valor, CAMPOS_DE_LA_MURALLA, CAMPOS_DE_LA_MURALLA);
+  if (problema !== undefined) throw new Error(`la muralla: ${problema}`);
   const o = valor as Record<string, unknown>;
-  const sobra = Object.keys(o).filter((k) => k !== 'muros' && k !== 'puertas');
-  if (sobra.length > 0) throw new Error(`la muralla no entiende «${sobra.join('», «')}»`);
+  const material = o.material;
+  if (!esMaterialDeMuralla(material)) {
+    throw new Error(`la muralla: material ${deLaListaBlocker(material, MATERIALES_DE_MURALLA)}`);
+  }
   if (!Array.isArray(o.muros)) throw new Error('la muralla necesita «muros» como lista de hexes');
   if (!Array.isArray(o.puertas)) {
     throw new Error('la muralla necesita «puertas» como lista de {a, b}');
@@ -547,8 +590,16 @@ export function validarMuralla(valor: unknown): MurallaDeBatalla {
       return puerta;
     }),
   );
-  return Object.freeze({ muros, puertas });
+  const m: MurallaDeBatalla = Object.freeze({ muros, puertas, material });
+  VALIDADAS.add(m);
+  return m;
 }
+
+/** Los campos de una muralla, todos obligatorios: lo demás se rechaza diciéndolo. */
+const CAMPOS_DE_LA_MURALLA: readonly string[] = ['muros', 'puertas', 'material'];
+
+/** Lo que ha devuelto `validarMuralla` (y el vacío de siempre): congelado y ya juzgado. */
+const VALIDADAS = new WeakSet<MurallaDeBatalla>([SIN_MURALLA]);
 
 function puertaDeLaMuralla(p: unknown, n: number): PuertaDeMuralla {
   if (typeof p !== 'object' || p === null || Array.isArray(p)) {
@@ -590,4 +641,107 @@ function hexDeLaMuralla(h: unknown, cual: string): Hex {
     );
   }
   return Object.freeze({ col: c, row: r });
+}
+
+/**
+ * Por qué `m` no vale como muralla de una batalla del mapa (`data/sitios.json`: la
+ * de las ciudades y la de los pueblos), o `null` si vale. Lo pide la carga de los
+ * sitios (`state/sitios.ts`), que antes la valida como muralla (`validarMuralla`) y
+ * lanza nombrando el fichero: una forma que no cumple esto no llega a ninguna
+ * partida. La arena dibuja lo que quiera; esto es lo que el mapa exige, porque allí
+ * nadie la arregla a media pelea:
+ *
+ * - que **cierre** (D7: «las murallas sí cierran»): sin rodearla andando;
+ * - que **se asalte**: un muro con un pie de suelo `fuera` desde el que poner la
+ *   escalera y, andando de muro a muro, un muro junto a suelo `dentro` adonde bajar
+ *   (`asaltoBlocker`);
+ * - que lleve **puertas**, y que cada una separe `fuera` de `dentro`
+ *   (`ladoDeLaMuralla`): una que no separa no sirve de nada;
+ * - que quepan `LIDERAZGO.maxPorBando` en la salida de cada bando (`salidaDe`).
+ *
+ * En este orden, para que cada regla tenga su forma rota y su frase: con las
+ * puertas antes, una forma sin suelo fuera o dentro no tiene puertas que separen, y
+ * la frase que salía era la de la puerta. Sin esto, una forma rota daba una batalla
+ * que acababa por `MAX_ROUNDS` (el riesgo 3 del plan): aquí se para al cargar.
+ */
+export function murallaDelMapaBlocker(m: MurallaDeBatalla): string | null {
+  if (!cierra(m)) return 'una muralla del mapa cierra: con esta, el atacante la rodea andando';
+  const asalto = asaltoBlocker(m);
+  if (asalto !== null) return asalto;
+  if (m.puertas.length === 0) return 'una muralla del mapa lleva al menos una puerta';
+  for (const p of m.puertas) {
+    const lados = [ladoDeLaMuralla(m, p.a), ladoDeLaMuralla(m, p.b)];
+    if (!lados.includes('fuera') || !lados.includes('dentro')) {
+      return `la puerta ${nombreDePuerta(p)} no separa fuera de dentro: no sirve de nada`;
+    }
+  }
+  for (const side of SIDES) {
+    const { motivo } = salidaDe(LIDERAZGO.maxPorBando, side, casillasDeMuro(m));
+    if (motivo !== null) return `no caben los ${LIDERAZGO.maxPorBando} de un bando: ${motivo}`;
+  }
+  return null;
+}
+
+/**
+ * Por qué no se puede asaltar `m` (subir por fuera y bajar dentro), o `null` si se
+ * puede: de un muro con un pie `fuera`, andando como anda el atacante arriba
+ * (`pasoPermitido`: de muro a muro, y de lo alto solo hacia dentro), a suelo
+ * `dentro`. No reescribe el paso de lo alto: lo recorre.
+ */
+function asaltoBlocker(m: MurallaDeBatalla): string | null {
+  const conPie = m.muros.filter((w) =>
+    neighbours(w).some((n) => !esMuro(m, n) && ladoDeLaMuralla(m, n) === 'fuera'),
+  );
+  if (conPie.length === 0) {
+    return 'ningún muro tiene un pie de suelo fuera desde el que poner una escalera';
+  }
+  const paso = pasoPermitido(m, 'attacker');
+  const bajaDentro = conPie.some((w) =>
+    [...reachable(w, BOARD_SIZE, NINGUNA, paso).values()].some(
+      (p) => ladoDeLaMuralla(m, p.at) === 'dentro',
+    ),
+  );
+  return bajaDentro
+    ? null
+    : 'subiendo por fuera no se llega andando por lo alto a ningún muro con suelo dentro adonde bajar';
+}
+
+/**
+ * Cómo se nombra cada cosa en la regla de la muralla dicha (`reglaDeLaMuralla`):
+ * los bandos y las cuatro jugadas. La arena dice «la izquierda» y «poner la
+ * escalera»; el agente, «el ATACANTE» y `"place_ladder"`.
+ */
+export interface PalabrasDeLaMuralla {
+  /** Quien ataca y quien defiende, como sujeto de una frase: «la izquierda (ataca)». */
+  readonly atacante: string;
+  readonly defensor: string;
+  /** Las cuatro jugadas, como verbo: «ponerla», «subir», «la abre», «la cierra». */
+  readonly ponerEscalera: string;
+  readonly subir: string;
+  readonly abrir: string;
+  readonly cerrar: string;
+}
+
+/**
+ * **La regla de la muralla dicha, una vez** (simplify de la fase 2 del puesto
+ * fronterizo, 04-11-2026): el muro alto y quién sube, de lo alto solo hacia dentro,
+ * el volador, las puertas, el tiro y el bono del tirador en lo alto, con las
+ * palabras de quien la lee (`PalabrasDeLaMuralla`). La leen la ayuda del editor de la
+ * arena y el `_comment` de su borrador (`REGLA_DE_LA_MURALLA`) y la prosa del agente
+ * (`agent.ts`): eran tres copias a mano, y dos ya se habían quedado diciendo la regla
+ * del primer ciclo (QA de la muralla alta, I1). Lo que solo es de quien la lee —el
+ * dentro y fuera del editor, los campos de `walls`— lo pone cada uno.
+ */
+export function reglaDeLaMuralla(p: PalabrasDeLaMuralla): string {
+  return [
+    `El muro es alto, una columna: ${p.defensor} sube andando desde dentro; ${p.atacante} sube desde su pie, sin haberse movido ese turno, con escalera (un turno ${p.ponerEscalera}, y se queda puesta para quien llegue; otro, ${p.subir}) o si sabe escalar, y al subir no hace nada más ese turno.`,
+    'Arriba se anda de muro a muro, y de lo alto solo se baja hacia dentro, sea quien sea.',
+    'Los voladores se posan en lo alto sin escalera y bajan donde quieran.',
+    `Las puertas empiezan cerradas: cerrada no la cruza nadie que ande, tampoco ${p.defensor}, y tapa el tiro; abierta la cruza cualquiera, de los dos bandos, y no tapa. ${mayuscula(p.defensor)} ${p.abrir} y ${p.cerrar} al principio del turno de una de sus unidades, antes de moverla (no gasta el turno), cada puerta una vez por turno.`,
+    `En el suelo nadie dispara a través de un muro ni de una puerta cerrada; desde lo alto, o a quien está arriba, sí, y un tirador en lo alto suma ${MURALLA.defensaEnLoAlto} a su defensa.`,
+  ].join(' ');
+}
+
+function mayuscula(t: string): string {
+  return t.charAt(0).toUpperCase() + t.slice(1);
 }

@@ -11,6 +11,8 @@
  */
 import {
   type CasillaDeCarga,
+  esTipoDeEscala,
+  esTipoDePuerta,
   isAlive,
   type LineaDelDisparo,
   SIN_CARGAS,
@@ -56,12 +58,12 @@ const SIN_NADA: ReadonlySet<string> = new Set();
 
 /** ¿Es una de las dos jugadas de la escala, que llevan muro? */
 function esEscala(a: BattleAction): a is Extract<BattleAction, { type: TipoDeEscala }> {
-  return a.type === 'poner_escalera' || a.type === 'subir';
+  return esTipoDeEscala(a.type);
 }
 
 /** ¿Es una de las dos jugadas de la puerta, que llevan puerta? */
 function esDePuerta(a: BattleAction): a is Extract<BattleAction, { type: TipoDePuerta }> {
-  return a.type === 'abrir_puerta' || a.type === 'cerrar_puerta';
+  return esTipoDePuerta(a.type);
 }
 const NINGUN_BANDO: ReadonlySet<Side> = new Set();
 
@@ -259,18 +261,24 @@ export class EscenaBatalla {
     const escalables = new Set<string>();
     const puertasPorElegir = new Set<string>();
     const apunta = s.apuntado;
+    // Lo que espera el clic (lo apuntado o el muro o la puerta de la muralla): el
+    // tablero no marca andar, cargar ni golpear, que el clic no haría (QF2-1).
+    const espera = this.esperaElClic();
     if (turno !== null && apunta === null) {
       for (const a of s.battleLegalActions()) {
-        if (a.type === 'attack') atacables.add(a.target);
+        if (a.type === 'attack' && !espera) atacables.add(a.target);
         // Al que se puede apuntar («A distancia»), por su casilla: la lista lo trae por ella.
-        if (a.type === 'aim') {
+        if (a.type === 'aim' && !espera) {
           const ahi = this.stackEn(a.at);
           if (ahi !== undefined) atacables.add(ahi.id);
         }
-        if (esEscala(a) && (s.muroPorElegir === null || s.muroPorElegir === a.type)) {
+        if (
+          esEscala(a) &&
+          (s.muralla.muroPorElegir === null || s.muralla.muroPorElegir === a.type)
+        ) {
           escalables.add(hexKey(a.muro));
         }
-        if (esDePuerta(a) && s.puertaPorElegir === a.type) {
+        if (esDePuerta(a) && s.muralla.puertaPorElegir === a.type) {
           puertasPorElegir.add(claveDePortada(a.puerta));
         }
       }
@@ -280,8 +288,8 @@ export class EscenaBatalla {
       tablero: this.tablero,
       ancho,
       alto,
-      movibles: quieta || apunta !== null ? [] : s.battleMovable(),
-      cargas: quieta || apunta !== null ? SIN_CARGAS : s.battleCharges(),
+      movibles: quieta || espera ? [] : s.battleMovable(),
+      cargas: quieta || espera ? SIN_CARGAS : s.battleCharges(),
       angulo: quieta ? null : this.anguloActual(),
       atacables,
       escalables,
@@ -330,11 +338,12 @@ export class EscenaBatalla {
 
   /**
    * ¿Juega el clic a distancia? La activa es tuya, su selector está en «A
-   * distancia» y no hay hechizo ni poder apuntado, que va antes.
+   * distancia» y el clic no es de lo que espera (`esperaElClic`: el hechizo, el
+   * poder o el muro o la puerta de la muralla), que va antes.
    */
   private aDistancia(): boolean {
     const s = this.sesion();
-    return s.turnoPropio !== null && s.apuntado === null && s.arma.modo === 'distancia';
+    return s.turnoPropio !== null && !this.esperaElClic() && s.arma.modo === 'distancia';
   }
 
   /** El tanteo del disparo en `at` (`ArmaDeLaActiva.tanteo`), recordado por casilla y jugada. */
@@ -494,7 +503,7 @@ export class EscenaBatalla {
     | undefined {
     const s = this.sesion();
     const turno = s.turnoPropio;
-    if (turno === null || s.apuntado !== null) return undefined;
+    if (turno === null || this.esperaElClic()) return undefined;
     if (this.movimientoEn(px, py) !== undefined) return undefined;
     const objetivo = this.unidadEn(px, py);
     if (objetivo === undefined || objetivo.side === s.miBando) return undefined;
@@ -674,7 +683,7 @@ export class EscenaBatalla {
    */
   private movimientoEn(px: number, py: number): BattleAction | undefined {
     const s = this.sesion();
-    if (s.apuntado !== null) return undefined;
+    if (this.esperaElClic()) return undefined;
     // Lo alto de una columna primero, que es lo que se ve; y si ahí no se va,
     // el suelo de debajo: la columna tapa medio hex de la fila de detrás, y su
     // centro quedaba sin clic (visto en el navegador, 09-10-2026).
@@ -686,6 +695,20 @@ export class EscenaBatalla {
       if (mover !== undefined) return mover;
     }
     return undefined;
+  }
+
+  /**
+   * Si el siguiente clic en el tablero es de lo que espera: lo apuntado (el
+   * hechizo o el poder) o el muro o la puerta de un botón de la muralla. Mientras,
+   * el clic no anda ni golpea: elige o se queda esperando y lo dice, y Escape o el
+   * botón lo sueltan. Con la muralla no era así (QA de la fase 2 del puesto
+   * fronterizo, H-F2-1, s6): con «Poner escalera» esperando el muro, un clic en una
+   * casilla verde —los pies de las columnas lo son— movía la unidad, soltaba el
+   * botón sin decirlo y le quitaba la escalera de ese turno.
+   */
+  private esperaElClic(): boolean {
+    const s = this.sesion();
+    return s.apuntado !== null || s.muralla.porElegir !== null;
   }
 
   /**
@@ -760,21 +783,27 @@ export class EscenaBatalla {
    * Un clic en una columna con escala: la del botón que espera un muro
    * (`muroPorElegir`) o, sin botón, subir —o si no, poner la escalera— contra
    * ese muro. Devuelve si el clic era suyo. Con un botón esperando, un clic en
-   * otro sitio se queda en él y lo dice.
+   * otro sitio —también en una casilla a la que se podría andar— se queda en él
+   * y lo dice (`esperaElClic`); si ya no hay muro que elegir, deja de esperar y
+   * el clic no es suyo, como el de la puerta.
    */
   private pulsarEscala(hex: Hex | null, acciones: readonly BattleAction[]): boolean {
     const session = this.sesion();
-    const tipo = session.muroPorElegir;
+    const tipo = session.muralla.muroPorElegir;
+    if (tipo !== null && !acciones.some((a) => a.type === tipo)) {
+      session.muralla.soltar();
+      return false;
+    }
     const contra = (t: TipoDeEscala): BattleAction | undefined =>
       hex === null ? undefined : acciones.find((a) => a.type === t && hexEquals(a.muro, hex));
     const accion = tipo !== null ? contra(tipo) : (contra('subir') ?? contra('poner_escalera'));
     if (accion !== undefined) {
-      session.muroPorElegir = null;
+      session.muralla.soltar();
       session.playBattleAction(accion);
       return true;
     }
     if (tipo === null) return false;
-    session.status = `${tipo === 'subir' ? 'Para subir' : 'Para poner la escalera'}, pulsa en lo alto de una columna marcada al pie de la unidad.`;
+    session.status = `${tipo === 'subir' ? 'Para subir' : 'Para poner la escalera'}, pulsa en lo alto de una columna marcada al pie de la unidad, o Escape para cancelar.`;
     return true;
   }
 
@@ -786,12 +815,12 @@ export class EscenaBatalla {
    */
   private pulsarPuerta(px: number, py: number, acciones: readonly BattleAction[]): boolean {
     const session = this.sesion();
-    const tipo = session.puertaPorElegir;
+    const tipo = session.muralla.puertaPorElegir;
     const battle = session.battle;
     if (tipo === null || battle === null) return false;
     // Ya no hay puerta que elegir (otra unidad, o se ha movido): el botón deja de esperar.
     if (!acciones.some((a) => a.type === tipo)) {
-      session.puertaPorElegir = null;
+      session.muralla.soltar();
       return false;
     }
     const puerta = portadaBajo(this.tablero, battle.muralla, { x: px, y: py });
@@ -800,11 +829,11 @@ export class EscenaBatalla {
         ? undefined
         : acciones.find((a) => a.type === tipo && mismaPuerta(a.puerta, puerta));
     if (accion !== undefined) {
-      session.puertaPorElegir = null;
+      session.muralla.soltar();
       session.playBattleAction(accion);
       return true;
     }
-    session.status = `${tipo === 'abrir_puerta' ? 'Para abrirla' : 'Para cerrarla'}, pulsa en la portada de una puerta marcada.`;
+    session.status = `${tipo === 'abrir_puerta' ? 'Para abrirla' : 'Para cerrarla'}, pulsa en la portada de una puerta marcada, o Escape para cancelar.`;
     return true;
   }
 
@@ -815,20 +844,21 @@ export class EscenaBatalla {
     if (battle === null || battle.finished !== null) return;
 
     const acciones = session.battleLegalActions();
-    // La puerta antes que nada: su portada tapa casillas que también se mueven.
+    // Lo que espera la muralla antes que nada: la puerta, que su portada tapa
+    // casillas que también se mueven, y el muro, que tiene los pies de sus
+    // columnas al lado. Con un botón esperando, el clic elige o se queda en él.
     const apunta = session.apuntado;
+    const hex = this.hexBajo(px, py);
     if (apunta === null && this.pulsarPuerta(px, py, acciones)) return;
+    if (session.muralla.muroPorElegir !== null && this.pulsarEscala(hex, acciones)) return;
     const directo = this.movimientoEn(px, py);
     if (directo !== undefined) {
-      session.muroPorElegir = null;
       session.playBattleAction(directo);
       return;
     }
-    const hex = this.hexBajo(px, py);
-    // «A distancia»: el clic elige la casilla, la que sea, salvo con el botón de
-    // la escala esperando un muro. Ni anda ni golpea: la lista de ese modo no lo trae.
+    // «A distancia»: el clic elige la casilla, la que sea. Ni anda ni golpea: la
+    // lista de ese modo no lo trae.
     if (this.aDistancia()) {
-      if (session.muroPorElegir !== null && this.pulsarEscala(hex, acciones)) return;
       const at = this.casillaDelDisparoEn(px, py);
       if (at === null) session.status = SIN_CASILLA;
       else session.arma.apuntarA(at);

@@ -24,6 +24,7 @@ import { allHexes, hexEquals, hexKey, indiceDe } from '@core/battle/board.js';
 import {
   type EstadoDePuerta,
   hayMuralla,
+  type MaterialDeMuralla,
   type MurallaDeBatalla,
   nivelDe,
   type PuertaDeMuralla,
@@ -362,13 +363,15 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
     v.angulo?.elegida ?? null,
     v.puntero,
   );
+  // Cómo se pinta su muralla, una vez: la columna y la portada lo reciben.
+  const acabado = ACABADO_DEL_MURO[battle.muralla.material];
   for (const p of piezasEnOrden(battle, yaPedida)) {
     switch (p.kind) {
       case 'columna': {
         const { k, camino } = casillas[indiceDe(p.hex)] as CasillaPintada;
         ctx.save();
         if (translucidas.has(k)) ctx.globalAlpha = ALFA_DE_LA_TRANSLUCIDA;
-        pintarColumna(ctx, tablero, p.hex, camino, estiloDe(k), v.escalables.has(k));
+        pintarColumna(ctx, tablero, p.hex, camino, estiloDe(k), v.escalables.has(k), acabado);
         ctx.restore();
         break;
       }
@@ -382,6 +385,7 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
           p.puerta,
           puertaAbierta(battle.puertas, p.puerta),
           v.puertasPorElegir.has(k),
+          acabado,
         );
         ctx.restore();
         break;
@@ -1075,14 +1079,50 @@ export function tableroA(t: Tablero, elevacion: number): Tablero {
   return elevacion === 0 ? t : { ...t, origenY: t.origenY - elevacion * alturaDeColumna(t) };
 }
 
-/** Piedra de la columna: la cara de la luz (este), la de la sombra y lo alto. */
-const PIEDRA = {
-  luz: '#9b958a',
-  sombra: '#706b62',
-  arriba: '#aaa498',
-  junta: '#55514a',
-  borde: '#2f2c28',
-} as const;
+/** Los colores de una columna o una portada: la cara de la luz (este), la de la sombra y lo alto. */
+interface ColoresDelMuro {
+  readonly luz: string;
+  readonly sombra: string;
+  readonly arriba: string;
+  readonly junta: string;
+  readonly borde: string;
+}
+
+/** Cómo se pinta un muro de un material: sus colores y sus juntas (`pintarSillares`). */
+interface AcabadoDelMuro {
+  readonly colores: ColoresDelMuro;
+  /** Hiladas de sillares a tresbolillo, o estacas de una empalizada. */
+  readonly juntas: 'hiladas' | 'estacas';
+}
+
+/**
+ * Cada material, con su acabado (fase 2 del puesto fronterizo, 04-11-2026): la
+ * piedra de las ciudades y la arena, en hiladas de sillares, y la madera de la
+ * empalizada de los pueblos, en estacas. Se resuelve una vez por batalla
+ * (`drawBatalla`) y lo reciben la columna, la portada y sus juntas.
+ */
+const ACABADO_DEL_MURO: Readonly<Record<MaterialDeMuralla, AcabadoDelMuro>> = {
+  piedra: {
+    colores: {
+      luz: '#9b958a',
+      sombra: '#706b62',
+      arriba: '#aaa498',
+      junta: '#55514a',
+      borde: '#2f2c28',
+    },
+    juntas: 'hiladas',
+  },
+  madera: {
+    colores: {
+      luz: '#8a6236',
+      sombra: '#5e4123',
+      arriba: '#9c7444',
+      junta: '#3e2a15',
+      borde: '#24170b',
+    },
+    juntas: 'estacas',
+  },
+};
 
 /**
  * El lado de cada puerta en el suelo, entre sus dos casillas: cerrada, un
@@ -1108,8 +1148,8 @@ function pintarUmbrales(
           ['#b9ad96', 0.1],
         ] as const)
       : ([
-          ['#2a160a', 0.2],
-          ['#7a4a22', 0.13],
+          [HOJA.oscura, 0.2],
+          [HOJA.madera, 0.13],
         ] as const)) {
       ctx.strokeStyle = color;
       ctx.lineWidth = Math.max(2, t.paso * grueso);
@@ -1137,16 +1177,18 @@ function pintarColumna(
   camino: Path2D,
   estilo: EstiloDeCasilla,
   escalable: boolean,
+  acabado: AcabadoDelMuro,
 ): void {
   const alto = alturaDeColumna(t);
+  const { colores } = acabado;
   // Punta arriba y en el sentido de las agujas: 0 arriba, 2 abajo a la derecha,
   // 3 abajo, 4 abajo a la izquierda.
   const v = verticesHex(t, h);
   ctx.save();
   ctx.lineJoin = 'round';
   for (const [i, j, color] of [
-    [3, 4, PIEDRA.sombra],
-    [2, 3, PIEDRA.luz],
+    [3, 4, colores.sombra],
+    [2, 3, colores.luz],
   ] as const) {
     const a = v[i] as { x: number; y: number };
     const b = v[j] as { x: number; y: number };
@@ -1158,14 +1200,14 @@ function pintarColumna(
     ctx.closePath();
     ctx.fillStyle = color;
     ctx.fill();
-    pintarSillares(ctx, t, a, b, alto);
+    pintarSillares(ctx, t, a, b, alto, acabado);
   }
   ctx.translate(0, -alto);
   const tapa = camino;
-  ctx.fillStyle = PIEDRA.arriba;
+  ctx.fillStyle = colores.arriba;
   ctx.fill(tapa);
   ctx.lineWidth = Math.max(2, t.paso * 0.045);
-  ctx.strokeStyle = PIEDRA.borde;
+  ctx.strokeStyle = colores.borde;
   ctx.stroke(tapa);
   // La marca de la casilla, encima de la piedra: lo que el suelo diría de ella.
   ctx.fillStyle = estilo.relleno;
@@ -1185,7 +1227,8 @@ function pintarColumna(
 
 /**
  * Las hiladas de una cara de piedra de `a` a `b` (sus pies) y `alto` de alto: una
- * cada `HILADA` pasos, con las juntas verticales a tresbolillo, y el borde.
+ * cada `HILADA` pasos, con las juntas verticales a tresbolillo, y el borde. En
+ * madera, estacas: las juntas solo en vertical, una cada `ESTACA` pasos.
  */
 function pintarSillares(
   ctx: CanvasRenderingContext2D,
@@ -1193,23 +1236,35 @@ function pintarSillares(
   a: { readonly x: number; readonly y: number },
   b: { readonly x: number; readonly y: number },
   alto: number,
+  { colores, juntas }: AcabadoDelMuro,
 ): void {
-  const hiladas = Math.max(2, Math.round(alto / (t.paso * HILADA)));
-  ctx.strokeStyle = PIEDRA.junta;
+  ctx.strokeStyle = colores.junta;
   ctx.lineWidth = Math.max(1, t.paso * 0.02);
   ctx.beginPath();
-  for (let i = 1; i < hiladas; i++) {
-    const f = i / hiladas;
-    ctx.moveTo(a.x, a.y - alto * f);
-    ctx.lineTo(b.x, b.y - alto * f);
-  }
-  for (let i = 0; i < hiladas; i++) {
-    const g = i % 2 === 0 ? 0.5 : 0.25;
-    for (const u of g === 0.5 ? [0.5] : [0.25, 0.75]) {
+  if (juntas === 'estacas') {
+    const estacas = Math.max(2, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / (t.paso * ESTACA)));
+    for (let i = 1; i < estacas; i++) {
+      const u = i / estacas;
       const x = a.x + (b.x - a.x) * u;
       const y = a.y + (b.y - a.y) * u;
-      ctx.moveTo(x, y - (alto * i) / hiladas);
-      ctx.lineTo(x, y - (alto * (i + 1)) / hiladas);
+      ctx.moveTo(x, y);
+      ctx.lineTo(x, y - alto);
+    }
+  } else {
+    const hiladas = Math.max(2, Math.round(alto / (t.paso * HILADA)));
+    for (let i = 1; i < hiladas; i++) {
+      const f = i / hiladas;
+      ctx.moveTo(a.x, a.y - alto * f);
+      ctx.lineTo(b.x, b.y - alto * f);
+    }
+    for (let i = 0; i < hiladas; i++) {
+      const g = i % 2 === 0 ? 0.5 : 0.25;
+      for (const u of g === 0.5 ? [0.5] : [0.25, 0.75]) {
+        const x = a.x + (b.x - a.x) * u;
+        const y = a.y + (b.y - a.y) * u;
+        ctx.moveTo(x, y - (alto * i) / hiladas);
+        ctx.lineTo(x, y - (alto * (i + 1)) / hiladas);
+      }
     }
   }
   ctx.stroke();
@@ -1219,13 +1274,16 @@ function pintarSillares(
   ctx.lineTo(b.x, b.y - alto);
   ctx.lineTo(a.x, a.y - alto);
   ctx.closePath();
-  ctx.strokeStyle = PIEDRA.borde;
+  ctx.strokeStyle = colores.borde;
   ctx.lineWidth = Math.max(1.5, t.paso * 0.03);
   ctx.stroke();
 }
 
 /** Lo que mide una hilada de sillares, en pasos. */
 const HILADA = 0.28;
+
+/** Lo que mide de ancho una estaca de la empalizada, en pasos. */
+const ESTACA = 0.14;
 
 /**
  * La portada de una puerta: una fachada de piedra de cara a la cámara, tan alta
@@ -1245,8 +1303,10 @@ function pintarPortada(
   p: PuertaDeMuralla,
   abierta: boolean,
   elegible: boolean,
+  acabado: AcabadoDelMuro,
 ): void {
   const alto = alturaDeColumna(t);
+  const { colores } = acabado;
   const c = pieDePortada(t, p);
   const x0 = c.x - PORTADA.mitad * t.paso;
   const x1 = c.x + PORTADA.mitad * t.paso;
@@ -1270,26 +1330,26 @@ function pintarPortada(
   fachada.addPath(hueco);
   ctx.save();
   ctx.clip(fachada, 'evenodd');
-  ctx.fillStyle = PIEDRA.luz;
+  ctx.fillStyle = colores.luz;
   ctx.fillRect(x0, arriba, x1 - x0, alto);
   // La jamba de la izquierda, en sombra: da volumen sin pintar caras de lado.
-  ctx.fillStyle = PIEDRA.sombra;
+  ctx.fillStyle = colores.sombra;
   ctx.fillRect(x0, arriba, izq - x0, alto);
-  pintarSillares(ctx, t, { x: x0, y: c.y }, { x: x1, y: c.y }, alto);
+  pintarSillares(ctx, t, { x: x0, y: c.y }, { x: x1, y: c.y }, alto, acabado);
   ctx.restore();
   if (abierta) pintarHojasAbiertas(ctx, t, p);
   else pintarHojasCerradas(ctx, t, c.x, clave, c.y);
   // La rosca del arco, en madera oscura como la puerta: se lee como un paso.
   ctx.lineWidth = Math.max(2.5, t.paso * 0.05);
-  ctx.strokeStyle = '#2a160a';
+  ctx.strokeStyle = HOJA.oscura;
   ctx.stroke(hueco);
   // La tapa: el fondo de la fachada visto desde arriba. Ahí no se pisa.
   ctx.beginPath();
   ctx.rect(x0, arriba - fondo, x1 - x0, fondo);
-  ctx.fillStyle = PIEDRA.arriba;
+  ctx.fillStyle = colores.arriba;
   ctx.fill();
   ctx.lineWidth = Math.max(2, t.paso * 0.045);
-  ctx.strokeStyle = PIEDRA.borde;
+  ctx.strokeStyle = colores.borde;
   ctx.stroke();
   ctx.strokeRect(x0, arriba, x1 - x0, alto);
   if (elegible) {
@@ -1373,6 +1433,8 @@ function pintarHojasTapadas(
 /** La madera de las hojas de la puerta y sus herrajes. */
 const HOJA = {
   madera: '#7a4a22',
+  /** La madera oscura: la rosca del arco y el tablón del umbral de la puerta cerrada. */
+  oscura: '#2a160a',
   tabla: '#4a2a12',
   hierro: '#26231f',
   canto: '#5a3418',

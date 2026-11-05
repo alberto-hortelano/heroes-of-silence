@@ -1168,6 +1168,9 @@ describe('el botín (C3)', () => {
     mio.army = ejercito({ creature: PESADA, count: 6 });
     const suya = baseOf(otro, 1)!;
     heroesOf(otro, 1)[0]!.at = { x: 0, y: 0 };
+    // Uno de guarnición: la de salida, tras la muralla de piedra (fase 2 del puesto
+    // fronterizo), le gana a seis pesados, y el test es del botín.
+    suya.garrison = ejercito({ creature: TROPA_BARATA, count: 1 });
     forzarBatalla(otro, c2, mio, suya.at);
     resolvePendingBattle(otro, c2);
     expect(suya.owner).toBe(0);

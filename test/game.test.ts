@@ -2422,7 +2422,10 @@ describe('el id de un héroe contratado no se repite (#126)', () => {
     };
 
     const primero = contratar();
-    // El 2 pierde su base: el primero contratado la toma. Su héroe está fuera.
+    // El 2 pierde su base: el primero contratado la toma. Su héroe está fuera, y
+    // la guarnición es de uno: tras la muralla de piedra (fase 2 del puesto
+    // fronterizo), la de salida le ganaba a seis pesados.
+    suya.garrison = ejercito({ creature: TROPA_BARATA, count: 1 });
     forzarBatalla(state, c, primero, suya.at);
     resolvePendingBattle(state, c);
     expect(baseOf(state, 2)).toBeNull();

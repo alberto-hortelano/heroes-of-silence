@@ -130,3 +130,170 @@ Se usa **si no crea un ciclo de importación**; si lo crea, se deja y se dice.
   del 1 % de la pasada; n ≤ 14.
 - **`esSuBase`** (dos revisores, dudoso): con S8 probablemente desaparece; si no, se queda.
 - **El getter `guarnicionAbierta`**: patrón aceptable.
+
+---
+
+# Hallazgos de `/simplify` sobre la fase 2 (murallas del mapa, escaleras y puertas)
+
+Cuatro revisores sobre `git diff HEAD` (la fase 1 está en `e652738d`) más `data/sitios.json` y
+`test/datos-de-sitios.test.ts`. Deduplicados y decididos por el coordinador (04-11-2026). Las líneas
+pueden haberse movido.
+
+Regla para quien aplica: **el juego no cambia**. `pnpm banco` se queda en `883fe9be…`; si se mueve,
+es un fallo de la refactorización y se busca, no se re-ancla. Lo único que cambia a propósito es del
+cliente (S24: Escape y el fin de turno sueltan el muro o la puerta por elegir) y del contrato (S23: la
+prosa de la muralla solo va cuando hay muralla). La fase 3 (mejoras del paso: empalizada y muralla en
+un paso) va a leer todo esto; varias decisiones van por ella.
+
+## Se aplican
+
+**S14 · El sitio en juego, una pregunta** (altitud 1, reutilización «menor»). Hoy se deriva tres
+veces: `dejarPendiente` (`game.ts:~3162`, `sitioDelHeroe` para la defensa), `sitioQueSeDefiende`
+(`:~3212`, la muralla) y `applyVictory` (rama `hero`: `sitioEn(at)` + `dueñoDelSitio ===
+derrotado.owner`, que es `sitioDelHeroe` a mano; rama `garrison`: `sitioPorId(foe.site)`). → una sola
+`sitioQueSeDefiende(state, foe)` que leen las tres (y `lugarDelRival` si encaja sin forzar). La fase 3
+montará la empalizada de un paso por ella: no puede haber una batalla tras la muralla de un sitio que
+entrega otro.
+
+**S15 · La regla de la muralla del mapa, en su módulo** (altitud 2, reutilización 5).
+`murallaDelMapaBlocker` y `asaltoBlocker` viven en `battle.ts` (4 000 líneas) porque necesitan la
+salida (`salidaDe`, `enElMarco`, `DEL_CENTRO_A_FUERA`, `despliegue`, `despliegueBlocker`…), y
+`state/sitios.ts` importa todo `battle.ts` para juzgar un JSON. → sacar la salida a
+`battle/salida.ts` (depende solo de `board.ts` y `casillasDeMuro`) y llevar `murallaDelMapaBlocker` y
+`asaltoBlocker` a `muralla.ts`, junto a `cierra`, `ladoDeLaMuralla` y `validarMuralla`; `sitios.ts`
+importa `muralla.ts`. `asaltoBlocker` no reescribe el paso de lo alto: recorre con `pasoPermitido(m,
+'attacker')` (`reachable`/`distanciasDesde` de `board.ts`) desde los pies con escalera. Si sacar la
+salida crea otro ciclo, se para y se dice en `implementacion.md`.
+
+**S16 · Cada forma se valida una vez, con las piezas de `validar.ts`** (simplificación 5-6,
+reutilización 6, altitud 5, eficiencia 4). `murallaDelMapaBlocker(valor: unknown)` valida por dentro
+en un `try/catch` y `leerMurallasDelMapa` vuelve a llamar a `validarMuralla`; la raíz, las formas y el
+material se juzgan con frases a mano; el material se escribe dos veces (el tipo y la lista) unidos con
+casts. → `MATERIALES_DE_MURALLA = ['piedra', 'madera'] as const` con el tipo derivado y
+`esMaterialDeMuralla`; la carga hace `validarMuralla` (lanza nombrando el fichero) y luego
+`murallaDelMapaBlocker(m: MurallaDeBatalla)`, ya tipado; los objetos con `problemasDeObjeto` y el
+material con `deLaLista`/`deLaListaBlocker`. El test de «que sea una muralla» pasa a ser de
+`validarMuralla`.
+
+**S17 · `createBattle` no revalida lo ya validado** (altitud 4, eficiencia 3). `createBattle` hace
+`murallaPedida === SIN_MURALLA ? SIN_MURALLA : validarMuralla(…)`: identidad como centinela, y cada
+batalla contra una ciudad o un pueblo crea un objeto nuevo que pierde la caché de `conjuntosDe`. →
+`validarMuralla` recuerda lo que devolvió (un `WeakSet` privado de `muralla.ts`) y lo devuelve tal
+cual si se lo vuelven a dar; `createBattle` la llama siempre, sin rama por identidad. Así todas las
+batallas de la partida comparten las cachés de las dos murallas. (La marca de tipo al estilo
+`MundoLeido` sería más estricta pero toca todas las firmas de la arena: no compensa ahora.)
+
+**S18 · El material del vacío no manda en secreto** (altitud 3, simplificación 7). `SIN_MURALLA`
+lleva `material: 'piedra'` y la desviación dice que nadie lo lee, pero el editor de la arena arranca
+en `SIN_MURALLA` y cada trazo hace `validarMuralla({ …, material: muralla.material })`
+(`arena/main.ts:~440`, `~919`): la piedra de lo dibujado sale del centinela. → el editor parte de una
+muralla vacía con el material escrito (`murallaVacia('piedra')`, en `arena-murallas.ts` o
+`muralla.ts`), y `SIN_MURALLA` queda como «esta batalla no tiene muralla», con el comentario
+corregido. En los tests, un ayudante `muralla(muros, puertas = [], material = 'piedra')` en
+`test/helpers.ts` donde hoy se añade `material: 'piedra'` a mano (los de `validarMuralla` siguen con el
+objeto crudo).
+
+**S19 · `data/sitios.json` por forma, no por material, e independiente de la arena** (altitud 6,
+simplificación 8). La clave es el material, cada material tiene una forma y `murallaDelSitio(sitio)`
+no recibe `state`; la fase 3 necesita casi seguro otra forma para un paso (un desfiladero) con el mismo
+material, y la mejora del paso se lee del estado. Además el JSON copia la «Muralla gruesa» y la «Línea
+con puerta» y un test exige que sean iguales a las de la arena, así que editarlo (su `_comment` dice
+«inventado») lo pone rojo. → formas con nombre y `material` como campo (`murallas: { ciudad: {
+material, muros, puertas }, pueblo: {…} }` o por nombre con una tabla sitio → forma, lo que quede más
+claro), `murallaDelSitio(state, sitio)`, y fuera las aserciones de igualdad con la arena: el JSON es
+del mapa.
+
+**S20 · Con muralla, escaleras: lo decide una función** (altitud 7, reutilización 11, simplificación
+11). `montarLaBatalla` hace `hayMuralla(m) ? conEscaleras(atacante) : atacante` y `arena-ia.ts`
+(`trasLaMuralla`) copia la decisión y además monta los bandos a mano saltándose `batallaDeArena` y el
+`v.cambia` de su variante; su `murallas: { piedra: 'piedra', madera: 'madera' }` es una identidad. →
+una función del núcleo que reciba la muralla y devuelva el bando atacante listo (`alAsalto(bando,
+muralla)` o similar, junto a `conEscaleras`); la llaman `montarLaBatalla` y `arena-ia`. La tanda
+«murallas del mapa» monta por `batallaDeArena` si se puede (lo que le falte, la escalera del héroe,
+se añade al montaje; si no cabe sin tocar el enlace, que aplique la función sobre lo que monte
+`bandoDeArena` y se diga), con un campo `muralla?: MaterialDeMuralla` en `Variante` y las variantes
+de `MATERIALES_DE_MURALLA`.
+
+**S21 · El contrato, de la tabla** (simplificación 4, reutilización 2-4). `JUGADA_DE_MURALLA` es la
+traducción, pero `accionDeBatallaDelAgente` invierte los cuatro pares a mano, la unión
+`AccionDeBatallaDelAgente`, el zod (`z.literal('place_ladder')`…), las cuatro líneas del formato y la
+prosa los teclean, `tools/qa/politica.ts:137` y la lista `enEspañol` del test del contrato también, y
+`serialize.ts` (`murallaVista`) y `hechoAlAgente` traducen cada uno la escalera (`pie/muro →
+foot/wall`) y la puerta. → la inversa derivada de la tabla (como `huecoDelSlot` de `SLOT_DE_HUECO`),
+literales e interpolaciones desde la tabla (como `SLOT_DE_HUECO` y `HIT_DE_GOLPE` en `agent.ts`), la
+política con `JUGADAS_DE_MURALLA` (que ya exporta `partida-del-arnes.ts`), y `escaleraAlAgente` /
+`puertaAlAgente` en `vocabulario.ts` que leen `murallaVista` y `hechoAlAgente`.
+
+**S22 · `hechoAlAgente`, exhaustivo** (altitud 8). Las dos traducciones de acciones ya son `switch`
+sin `default`; los hechos siguen con `default: return e`, y por ahí hoy se cuelan `power` (`poder`) y
+`retoque` (`nombre`, `cambios`) en español. → el mismo `switch` exhaustivo sobre `BattleEvent['kind']`
+sin `default`, con los que pasan tal cual listados a mano, para que un hecho nuevo de la fase 3 no
+compile sin decidir. **No** se renombran hoy los campos de `power` ni `retoque` (cambia el contrato):
+backlog.
+
+**S23 · La regla de la muralla, una vez, y al agente solo cuando hay muralla** (altitud 9,
+reutilización 1, eficiencia 1). La prosa MURALLA del agente (`agent.ts:~837`) es la tercera copia de
+`REGLA_DE_LA_MURALLA` (`arena-murallas.ts`, cuyo docstring cuenta que dos copias ya se quedaron
+atrás), y va en cada `battle_turn`, también contra monstruos y asaltantes: ~2,2 KB y ~550 tokens por
+petición, ~12 000 por batalla con 22,7 peticiones. → los hechos de la regla (puertas, lo alto, el
+tiro, las escaleras), una vez en `battle/muralla.ts`, con las palabras como parámetro (izquierda/derecha
+para la arena; ATACANTE/DEFENSOR y las jugadas de la tabla para el agente), y «ciudad = piedra, pueblo
+= madera, paso sin muralla» dicho desde la tabla de S19. La nota y las cuatro líneas de jugada de
+muralla van en un bloque que el formato de `battle_turn` lleva **solo si `walls !== null`**. `pnpm qa`
+sigue en 0 y su búsqueda de la muralla sigue entrando.
+
+**S24 · Lo que espera el clic de la muralla, una pieza** (simplificación 1-3, 12; reutilización 7-9;
+altitud 10b). `MurallaDeLaActiva` lleva dos campos que se excluyen (`muro` y `puerta_`), `escala` y
+`puerta` son el mismo `unaOElegir` cambiando el campo, `botonesDeEscala`/`botonesDePuerta` son copias
+con dos `data-action`, el despacho del clic está duplicado en `main.ts` y `arena/main.ts` (`'escala'
+in jugada ? … : …`), `noEscalaNunca` solo envuelve `quienNoEscala`, los literales de las dos uniones
+están en cuatro listas (`TIPOS_DE_ESCALA`/`TIPOS_DE_PUERTA` privados en `battle.ts`, las guardas de
+`escenas/batalla.ts`, `jugadaDelBotonDeMuralla` y la tabla), «solo el defensor abre» está escrito en
+el botón (`poderes.ts:~176`), y lo que espera el clic vive aparte de `LoApuntado`: Escape suelta lo
+apuntado pero no el muro por elegir, y los dos pueden convivir. → un solo «por elegir» (el tipo de
+jugada), un `elegir(tipo)` con una tabla de motivo y frases, un `data-action="battle-muralla"
+data-jugada="<tipo>"`, un `botonDeMuralla`, un `pulsar(jugada)` que llaman igual las dos páginas;
+`quienNoEscala` y un `quienNoAbre(side)` nuevo del núcleo (que lea también `puertasBlocker`)
+importados por la vista, y `hayMuralla` donde hoy se mira `muros.length`; `TIPOS_DE_ESCALA` y
+`TIPOS_DE_PUERTA` exportados del núcleo y usados en las guardas. **Lo que espera el clic es uno**:
+el muro o la puerta por elegir entran en `LoApuntado` como una clase más de `Apuntado`, con su
+exclusión y su `soltar()` (Escape, tras la jugada, al cerrar la batalla); si la forma de `LoApuntado`
+no lo admite sin retorcerlo, al menos Escape y el cambio de turno lo sueltan, y se dice. `unaOElegir`
+deja de exportarse si ya no la usa nadie fuera; el invariante de `muroPorElegir`/`puertaPorElegir` se
+queda en lo que el tipo no impide.
+
+**S25 · El lienzo por acabado** (simplificación 9, altitud 10, reutilización 12, eficiencia 7).
+`const PIEDRA = COLORES_DEL_MURO[material]` se repite en tres funciones con un nombre falso en la
+madera, `pintarSillares` mira `material === 'madera'` dos veces (un `if` y un `hiladas = … ? 0 : …`),
+y el umbral de la puerta escribe a pelo la madera que ya está en `HOJA`. → una tabla
+`ACABADO_DEL_MURO: Record<MaterialDeMuralla, { colores, juntas: 'hiladas' | 'estacas' }>` resuelta
+una vez por muro y pasada a las tres funciones, `if (estacas) … else …` en los sillares, y los
+literales del umbral nombrados desde `HOJA`. **Lo pintado no cambia** (los colores de la empalizada se
+quedan: se miraron en el navegador).
+
+**S26 · Los tests de los sitios, con sus ayudantes** (simplificación 10, reutilización 10, eficiencia
+2). `test/datos-de-sitios.test.ts` repite el ataque a la base (~5 veces) y al pueblo (~4), dos tests
+de la base empiezan igual, `unPuebloDe` y `unPaso` están copiados de `guarniciones.test.ts`, y «una
+guarnición de cada facción…» hace `newGame({ seed: 5 })` 50 veces (1,45 de sus 1,49 s; medido). →
+`unPuebloDe`/`unPaso` a `test/helpers.ts` (los importan los dos ficheros), `contraLaBase(seed,
+guarnicion, atacante?)` y `contraElPueblo(seed, guarnicion)` que devuelven `{ state, b }`, los dos
+tests de la base juntos, y una plantilla `newGame` en `beforeAll` con `structuredClone` por vuelta
+(medido: 0,37 ms el clon).
+
+## Se descartan a conciencia
+
+- **`BattleState.muralla: MurallaDeBatalla | null`** (altitud 3, opción a): quitaría el centinela de
+  raíz, pero cambia el tipo que leen la arena, el enlace, el espectador y el lienzo. Con S17 y S18 el
+  centinela ya no decide nada; se reconsidera si la fase 3 lo pide.
+- **Marca de tipo `MurallaValida`** (altitud 4): ver S17.
+- **Renombrar los campos en español de `power` y `retoque` en el contrato** (altitud 8): cambia el
+  contrato del agente fuera de esta tarea. Backlog.
+- **Mandar `walls.tiles` solo el primer turno** (eficiencia 8): ~300 caracteres; rompe la simetría del
+  contrato (como `board`). Con S23 lo caro se va.
+- **El espectador recalcula la muralla por mensaje** (eficiencia 5), **los motivos de los botones por
+  repintado** (eficiencia 6), **lo de cada fotograma** (eficiencia 7) y **lo de una vez por batalla**
+  (eficiencia 9): microsegundos.
+- **Retirar el invariante de `muroPorElegir`/`puertaPorElegir`** (simplificación 12): se estrecha
+  (S24), no se retira: un guardia barato.
+- **Condensar `CLAUDE.md`** (nota de eficiencia): es la práctica del proyecto; si acaso al cerrar la
+  tarea entera.

@@ -28,6 +28,8 @@ import {
   castBlocker,
   contactoBlocker,
   escalaBlocker,
+  esTipoDeEscala,
+  esTipoDePuerta,
   faseDelTurno,
   firmaDelTurno,
   type LineaDelDisparo,
@@ -42,7 +44,6 @@ import {
   previsionDeLaRueda,
   previsionDelGolpeQueViene,
   puertasBlocker,
-  quienNoEscala,
   SIN_CARGAS,
   soltarElGolpe,
   stackById,
@@ -63,6 +64,7 @@ import type {
   BattleHero,
   BattleStack,
   BattleState,
+  JugadaDeMuralla,
   Side,
   TipoDeEscala,
   TipoDePuerta,
@@ -345,17 +347,11 @@ export interface ControlDeBatalla {
   /** Por qué la unidad activa no puede ir a ese hex, con la frase del núcleo (`movimientoBlocker`). */
   moveRejection(hex: Hex): string;
   /**
-   * Si el siguiente clic en una columna elige el muro de «Poner escalera» o de
-   * «Subir» (lo pone el botón cuando hay más de un muro al pie). Solo la arena
-   * tiene muralla: en la partida es siempre `null`.
+   * La muralla de la activa (`MurallaDeLaActiva`): el muro o la puerta que espera el
+   * clic en el tablero (lo pone el botón cuando hay más de uno) y los motivos de sus
+   * botones. La partida y la arena, la misma pieza.
    */
-  muroPorElegir: TipoDeEscala | null;
-  /**
-   * Si el siguiente clic en una portada elige la puerta de «Abrir puerta» o de
-   * «Cerrar puerta» (lo pone el botón cuando hay más de una puerta que abrir o
-   * cerrar). En la partida, siempre `null`.
-   */
-  puertaPorElegir: TipoDePuerta | null;
+  readonly muralla: MurallaDeLaActiva;
   /**
    * Lo que apunta el siguiente clic en una unidad, o `null`: el hechizo elegido
    * del libro o, en la arena, el poder de la activa que espera un aliado. Es uno
@@ -474,11 +470,6 @@ function claveConMagia(b: BattleState): string {
   return `${claveDeBatalla(b)}|${ha?.mana}|${ha?.castThisRound}|${hd?.mana}|${hd?.castThisRound}`;
 }
 
-/** Lo apuntado en la clave de una caché o de la versión: su clase y su id. */
-function claveDeLoApuntado(a: Apuntado | null): string {
-  return a === null ? '' : `${a.kind}:${a.id}`;
-}
-
 /**
  * Por qué la unidad activa no puede actuar contra ese enemigo: ni dispararle ni
  * golpearlo. La frase es del núcleo (`ataqueBlocker`) —«ya se ha movido este
@@ -528,31 +519,51 @@ function motivoDeLaActiva(
 }
 
 /**
- * Lo que apunta el siguiente clic en una unidad, **uno solo** (`Apuntado`): el
- * hechizo del libro o el poder de la activa. Lo comparten el libro
- * (`LibroDeBatalla`) y los poderes (`PoderesDeLaActiva`) de cada sesión: apuntar
+ * Lo que espera el siguiente clic en el tablero: lo apuntado sobre una unidad
+ * (`Apuntado`: el hechizo o el poder) o la jugada de la muralla cuyo muro o puerta
+ * se elige (`MurallaDeLaActiva`).
+ */
+type LoQueEspera = Apuntado | { readonly kind: 'muralla'; readonly id: JugadaDeMuralla };
+
+/**
+ * Lo que espera el siguiente clic en el tablero, **uno solo**: el hechizo del
+ * libro, el poder de la activa (`Apuntado`) o el muro o la puerta de la muralla
+ * (simplify de la fase 2 del puesto fronterizo: vivía aparte y Escape no lo
+ * soltaba). Lo comparten el libro (`LibroDeBatalla`), los poderes
+ * (`PoderesDeLaActiva`) y la muralla (`MurallaDeLaActiva`) de cada sesión: apuntar
  * uno suelta el otro sin que ninguno se lo diga al otro, y soltar lo que haya es
  * una función (`soltar`): tras una jugada, con Escape, al cerrar la batalla.
  */
 export class LoApuntado {
-  private valor: Apuntado | null = null;
+  private valor: LoQueEspera | null = null;
 
-  /** `alCambiar`: la partida sube su versión; la arena la deriva de aquí. */
+  /** `alCambiar`: la partida sube su versión; la arena la deriva de aquí (`clave`). */
   constructor(private readonly alCambiar: () => void = () => {}) {}
 
+  /** Lo apuntado sobre una unidad, el hechizo o el poder; la muralla no apunta a nadie. */
   get actual(): Apuntado | null {
-    return this.valor;
+    return this.valor === null || this.valor.kind === 'muralla' ? null : this.valor;
+  }
+
+  /** La jugada de la muralla que espera el clic en un muro o una puerta, o `null`. */
+  get muralla(): JugadaDeMuralla | null {
+    return this.valor?.kind === 'muralla' ? this.valor.id : null;
+  }
+
+  /** Lo que espera, dicho como clave: lo leen las cachés y la versión de la sesión. */
+  get clave(): string {
+    return this.valor === null ? '' : `${this.valor.kind}:${this.valor.id}`;
   }
 
   /** Apunta `a`, soltando lo que hubiera. */
-  apuntar(a: Apuntado): void {
+  apuntar(a: LoQueEspera): void {
     if (this.valor?.kind === a.kind && this.valor.id === a.id) return;
     this.valor = a;
     this.alCambiar();
   }
 
-  /** Suelta lo apuntado si es de la clase `kind` (o lo que sea, sin ella); dice si soltó algo. */
-  soltar(kind?: Apuntado['kind']): boolean {
+  /** Suelta lo que espera si es de la clase `kind` (o lo que sea, sin ella); dice si soltó algo. */
+  soltar(kind?: LoQueEspera['kind']): boolean {
     if (this.valor === null || (kind !== undefined && this.valor.kind !== kind)) return false;
     this.valor = null;
     this.alCambiar();
@@ -592,7 +603,7 @@ interface QuienJuega {
  * (`esperar(true)` lo deja esperando y la barra dice `pide`), y pulsar el botón
  * otra vez lo cancela; con ninguna, el motivo del núcleo (`motivo`) o `ninguna`.
  */
-export function unaOElegir(
+function unaOElegir(
   s: Pick<QuienJuega, 'status' | 'playBattleAction'>,
   posibles: readonly BattleAction[],
   o: {
@@ -672,6 +683,102 @@ export class PoderesDeLaActiva {
         motivo: () => this.motivo(id),
         ninguna: 'No hay ningún aliado sobre el que usarlo.',
         pide: 'Elige el aliado sobre el que usarlo: pulsa en uno de los marcados, o Escape para cancelar.',
+      },
+    );
+  }
+}
+
+/** Lo que dice la barra de cada familia de jugadas de la muralla (`MurallaDeLaActiva.elegir`). */
+const FRASES_DE_LA_MURALLA = {
+  escala: {
+    ninguna: 'No hay muro contra el que hacerlo.',
+    pide: 'Elige el muro: pulsa en lo alto de una de las columnas marcadas, o Escape para cancelar.',
+  },
+  puerta: {
+    ninguna: 'No hay puerta que abrir o cerrar.',
+    pide: 'Elige la puerta: pulsa en una de las portadas marcadas, o Escape para cancelar.',
+  },
+} as const;
+
+/**
+ * La muralla de la batalla tal como la juega la persona: los botones de la escala
+ * («Poner escalera», «Subir») y de la puerta («Abrir puerta», «Cerrar puerta») de
+ * la unidad activa, el que espera el clic en el tablero cuando hay más de un muro o
+ * una puerta, y sus motivos, que escribe el núcleo (`escalaBlocker`,
+ * `puertasBlocker`). **Una pieza para las dos sesiones** (fase 2 del puesto
+ * fronterizo, 04-11-2026): hasta entonces solo la arena tenía muralla; desde que la
+ * ciudad y el pueblo la llevan, la partida la juega igual, al atacar y al defender.
+ *
+ * Lo que espera el clic es **uno** con lo apuntado (`LoApuntado`, simplify de la fase
+ * 2): elegir un muro suelta el hechizo o el poder y al revés, y Escape, cualquier
+ * jugada y cerrar la batalla lo sueltan; **como lo apuntado, mientras espera el clic
+ * no anda ni golpea** (QF2-1: con «Poner escalera» esperando, un clic en una casilla
+ * de andar movía y le quitaba la escalera de ese turno). `muroPorElegir` y
+ * `puertaPorElegir` son de solo lectura (se derivan de lo que espera; lo vigila
+ * `test/invariantes.test.ts`).
+ */
+export class MurallaDeLaActiva {
+  constructor(
+    private readonly dueño: QuienJuega,
+    private readonly apuntados: LoApuntado,
+  ) {}
+
+  /** La jugada cuyo muro o puerta elige el siguiente clic, o `null`. */
+  get porElegir(): JugadaDeMuralla | null {
+    return this.apuntados.muralla;
+  }
+
+  /** Si el siguiente clic en una columna elige el muro de «Poner escalera» o de «Subir». */
+  get muroPorElegir(): TipoDeEscala | null {
+    const j = this.porElegir;
+    return j !== null && esTipoDeEscala(j) ? j : null;
+  }
+
+  /** Si el siguiente clic en una portada elige la puerta de «Abrir puerta» o de «Cerrar puerta». */
+  get puertaPorElegir(): TipoDePuerta | null {
+    const j = this.porElegir;
+    return j !== null && esTipoDePuerta(j) ? j : null;
+  }
+
+  /**
+   * Deja de esperar el clic en un muro o una puerta: tras la jugada que lo
+   * resuelve (la escena del tablero) o cuando ya no queda muro o puerta que
+   * elegir. Mientras espera, un clic en otro sitio del tablero no anda ni golpea
+   * (`EscenaBatalla.esperaElClic`, QF2-1): solo Escape, el botón o una jugada lo
+   * sueltan.
+   */
+  soltar(): void {
+    this.apuntados.soltar('muralla');
+  }
+
+  /**
+   * Por qué la unidad activa —tuya— no puede `tipo` contra ningún muro de su pie
+   * o ninguna puerta (`escalaBlocker`, `puertasBlocker`), como frase; `null` si
+   * puede. Lo pinta el botón deshabilitado.
+   */
+  motivo(tipo: JugadaDeMuralla): string | null {
+    return motivoDeLaActiva(this.dueño.turnoPropio, (b) =>
+      esTipoDeEscala(tipo) ? escalaBlocker(b, tipo) : puertasBlocker(b, tipo),
+    );
+  }
+
+  /**
+   * El botón de `tipo`: con un muro o una puerta posibles, ya; con varios, el clic
+   * en el tablero elige (y otra pulsación lo cancela); sin ninguno, el motivo.
+   */
+  elegir(tipo: JugadaDeMuralla): void {
+    const frases = FRASES_DE_LA_MURALLA[esTipoDeEscala(tipo) ? 'escala' : 'puerta'];
+    unaOElegir(
+      this.dueño,
+      this.dueño.battleLegalActions().filter((a) => a.type === tipo),
+      {
+        esperando: this.porElegir === tipo,
+        esperar: (si) => {
+          if (si) this.apuntados.apuntar({ kind: 'muralla', id: tipo });
+          else this.soltar();
+        },
+        motivo: () => this.motivo(tipo),
+        ...frases,
       },
     );
   }
@@ -1089,16 +1196,14 @@ export class Session implements ControlDeBatalla {
   }
   private barra = '';
 
-  /** La partida no tiene muralla: no hay muro que elegir (`ControlDeBatalla`). */
-  muroPorElegir: TipoDeEscala | null = null;
-  /** Ni puerta (`ControlDeBatalla`). */
-  puertaPorElegir: TipoDePuerta | null = null;
+  /** La muralla de la activa (`MurallaDeLaActiva`, la de la arena): la de la ciudad y el pueblo. */
+  readonly muralla = new MurallaDeLaActiva(this, this.apuntados);
   /** Lo apuntado: el hechizo del libro o el poder de la activa (desde F6, también en la partida). */
   get apuntado(): Apuntado | null {
     return this.apuntados.actual;
   }
 
-  /** Escape: suelta lo apuntado, hechizo o poder, y limpia la barra que lo pedía. */
+  /** Escape: suelta lo que espera el clic —hechizo, poder, muro o puerta— y limpia la barra que lo pedía. */
   soltarLoApuntado(): void {
     if (this.apuntados.soltar()) this.status = '';
   }
@@ -2863,7 +2968,7 @@ export class Session implements ControlDeBatalla {
     const battle = this.battle;
     if (battle === null) return { acciones: [], movibles: [], opciones: [], cargas: SIN_CARGAS };
     const modo = this.arma.modo;
-    const clave = `${claveConMagia(battle)}|${claveDeLoApuntado(this.apuntados.actual)}|${modo}`;
+    const clave = `${claveConMagia(battle)}|${this.apuntados.clave}|${modo}`;
     const c = this.cacheBatalla;
     if (c !== null && c.battle === battle && c.clave === clave) return c.valor;
     const comunes = accionesDeBatalla(battle, this.turnoPropio, modo);
@@ -3180,7 +3285,7 @@ export class SesionDeArena implements ControlDeBatalla {
    * pueda desacompasar.
    */
   get version(): string {
-    return `${claveDeBatalla(this.battle)}|${claveDeLoApuntado(this.apuntados.actual)}|${this.arma.modo}|${this.rueda.pendiente?.fase ?? ''}`;
+    return `${claveDeBatalla(this.battle)}|${this.apuntados.clave}|${this.arma.modo}|${this.rueda.pendiente?.fase ?? ''}`;
   }
 
   /**
@@ -3200,15 +3305,13 @@ export class SesionDeArena implements ControlDeBatalla {
   /** No es parte de la versión, por lo mismo que en `Session`: la reescribe el puntero. */
   status = '';
 
-  /** El botón de la escala esperando el clic en una columna (`ControlDeBatalla`). */
-  muroPorElegir: TipoDeEscala | null = null;
-  /** El botón de la puerta esperando el clic en una portada (`ControlDeBatalla`). */
-  puertaPorElegir: TipoDePuerta | null = null;
+  /** La muralla de la activa (`MurallaDeLaActiva`, la misma de la partida). */
+  readonly muralla = new MurallaDeLaActiva(this, this.apuntados);
   get apuntado(): Apuntado | null {
     return this.apuntados.actual;
   }
 
-  /** Escape: suelta lo apuntado, hechizo o poder, y limpia la barra que lo pedía. */
+  /** Escape: suelta lo que espera el clic —hechizo, poder, muro o puerta— y limpia la barra que lo pedía. */
   soltarLoApuntado(): void {
     if (this.apuntados.soltar()) this.status = '';
   }
@@ -3377,33 +3480,6 @@ export class SesionDeArena implements ControlDeBatalla {
 
   moveRejection(hex: Hex): string {
     return motivoDeMovimiento(this.turnoPropio, hex);
-  }
-
-  /**
-   * Por qué la unidad activa —tuya— no puede poner su escalera o subir contra
-   * ningún muro de su pie (`escalaBlocker`), como frase; `null` si puede. Lo
-   * pinta el botón deshabilitado.
-   */
-  motivoDeEscala(tipo: TipoDeEscala): string | null {
-    return motivoDeLaActiva(this.turnoPropio, (b) => escalaBlocker(b, tipo));
-  }
-
-  /**
-   * Por qué la unidad activa —tuya— no puede abrir (o cerrar) ninguna puerta
-   * (`puertasBlocker`), como frase; `null` si puede alguna. Lo pinta el botón
-   * deshabilitado.
-   */
-  motivoDePuerta(tipo: TipoDePuerta): string | null {
-    return motivoDeLaActiva(this.turnoPropio, (b) => puertasBlocker(b, tipo));
-  }
-
-  /**
-   * Si `s` no escala nunca (`quienNoEscala`: defiende, dos casillas, vuela), el
-   * motivo; `null` si puede llegar a escalar. Con él, sus botones de escala no
-   * salen: al defensor le ocupaban sitio siempre deshabilitados (QA, M5).
-   */
-  noEscalaNunca(s: BattleStack): string | null {
-    return quienNoEscala(s.side, s.unit);
   }
 
   /** Lo que suma a la defensa de `s` estar en lo alto (`bonoEnLoAlto`), para la ficha. */

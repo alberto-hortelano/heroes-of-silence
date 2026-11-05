@@ -39,7 +39,7 @@ import { renderConversacion } from './views/base.js';
 import { renderDefensa, renderGuarnicion } from './views/guarnicion.js';
 import { renderConversacionDelLugar } from './views/lugar.js';
 import { renderActions, renderSide, renderTopbar } from './views/panels.js';
-import { modoDelBoton } from './views/poderes.js';
+import { jugadaDelBotonDeMuralla, modoDelBoton } from './views/poderes.js';
 
 /**
  * `true` en `pnpm dev` y `false` en `vite build` (`define` de `vite.config.ts`):
@@ -1090,6 +1090,11 @@ document.addEventListener('click', (ev) => {
       // El selector de arma del tirador activo (`ArmaDeLaActiva`, el de la arena).
       session.arma.elegir(modoDelBoton(target));
       break;
+    case 'battle-muralla':
+      // La muralla de la ciudad o del pueblo (`MurallaDeLaActiva`, la de la arena):
+      // con un muro o una puerta posibles, ya; con varios, el clic en el tablero elige.
+      session.muralla.elegir(jugadaDelBotonDeMuralla(target));
+      break;
     case 'auto-battle':
       session.autoResolveBattle();
       break;
@@ -1167,7 +1172,7 @@ document.addEventListener('keydown', (ev) => {
       castillo.salir();
     }
   }
-  // Escape suelta el hechizo elegido o el poder que espera aliado.
+  // Escape suelta lo que espera el clic: el hechizo, el poder, el muro o la puerta.
   if (ev.key === 'Escape' && session.scene === 'battle' && !jugadaEnCurso()) {
     session.soltarLoApuntado();
   }

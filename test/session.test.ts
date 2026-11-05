@@ -425,14 +425,14 @@ describe('el fin de partida cuenta la causa que selló el núcleo (I1 de la 2a)'
     // las minas por región, en la 6 se pierde y en la 5 se gana).
     const s = new Session(5);
     const { base, atacante } = anteLaBase(s.state, 0, 1);
-    // El dueño dentro de su base la defiende solo con su tropa: sin tropa, solo
-    // él contra toda la del atacante, para que la batalla se gane. Con un
+    // La base, con un goblin de guarnición y sin su héroe, para que haya batalla y
+    // se gane. Hasta la muralla de piedra (fase 2 del puesto fronterizo) la
+    // defendía su héroe solo, sin tropa; tras el muro, el héroe del atacante se
+    // metía en el pasillo de la puerta y caía antes de poner una escalera. Con un
     // esqueleto a su lado se ganaba hasta #79: desde que la IA elige a quién ir
     // por el daño que de verdad hace, el esqueleto va a por los arqueros y no
     // a por los campesinos, y la defensa aguanta.
-    const defensor = heroesOf(s.state, 1)[0]!;
-    defensor.at = { ...base.at };
-    defensor.army = [];
+    base.garrison = ejercito({ creature: 'goblin-lancero', count: 1 });
     s.moveHeroTo(atacante.id, base.at);
     expect(s.scene).toBe('battle');
     // «Resolver sola» la juega y la cierra (`afterBattle`, lo mismo que «Continuar»).

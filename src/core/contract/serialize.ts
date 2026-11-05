@@ -20,6 +20,7 @@ import {
 } from '../battle/battle.js';
 import { type Paso, tableroDelContrato } from '../battle/board.js';
 import { stackHp } from '../battle/damage.js';
+import { hayMuralla } from '../battle/muralla.js';
 import { type CifrasDeLaRueda, efectoDeGolpe, formaDeLaBatalla } from '../battle/rueda.js';
 import {
   type BattleStack,
@@ -108,9 +109,11 @@ import type { Army, Equipo, PlayerId } from '../types.js';
 import { describirCoste, FACTION_IDS, HUECOS } from '../types.js';
 import {
   accionAlAgente,
+  escaleraAlAgente,
   HIT_DE_GOLPE,
   type Hit,
   hechoAlAgente,
+  puertaAlAgente,
   ruedaAlAgente,
   SLOT_DE_HUECO,
   type Slot,
@@ -853,6 +856,7 @@ export function serializeBattleTurn(
     // La rueda de esta batalla (la de la partida): sus tipos y cómo se cruzan.
     wheel: ruedaAlAgente(formaDeLaBatalla(battle)),
     board: tableroDelContrato(),
+    walls: murallaVista(battle),
     stacks: stacksVistos(battle),
     hero:
       hero === null
@@ -975,7 +979,26 @@ function stackView(s: BattleStack) {
     // La casilla a la que apuntó (el disparo diferido): sale al empezar su
     // siguiente turno. Solo si apuntó; se ve en los dos bandos.
     ...(s.apuntado === null ? {} : { aimedAt: s.apuntado }),
+    // La escalera que aún lleva a cuestas (la muralla): solo si la lleva.
+    ...(s.escalera ? { ladder: true as const } : {}),
     ...marcaDelOrigen(s.origen),
+  };
+}
+
+/**
+ * La muralla de la batalla como la lee el agente (`walls`), o `null` sin ella: su
+ * material, los muros, las puertas con si están abiertas y las escaleras puestas
+ * con su pie y su muro (en los nombres con que él juega: `escaleraAlAgente`,
+ * `puertaAlAgente`).
+ * Todo es del tablero y se ve: viaja igual a los dos bandos.
+ */
+function murallaVista(battle: BattleState) {
+  if (!hayMuralla(battle.muralla)) return null;
+  return {
+    material: battle.muralla.material,
+    tiles: battle.muralla.muros,
+    gates: battle.puertas.map((p) => ({ ...puertaAlAgente(p), open: p.abierta })),
+    ladders: battle.escaleras.map(escaleraAlAgente),
   };
 }
 

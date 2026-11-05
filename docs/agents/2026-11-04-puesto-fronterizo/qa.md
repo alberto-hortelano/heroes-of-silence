@@ -262,3 +262,138 @@ reparto sin cambios no tocan la partida; veteranos y personajes salen bien del r
 que vuelve recoge (96 de 96) y la marca no se queda pegada; la defensa avisa y separa la nota del
 rechazo; el contrato dice `garrison`/`site` con su prosa. Los tres hallazgos son menores (dos de
 lectura, uno latente) y no impiden cerrar la fase 1.
+
+# Fase 2 · vuelta 1 (murallas del mapa: piedra, madera, escaleras y puertas)
+
+Alcance: el diff sin commitear sobre `e652738d` (fase 2 + su `/simplify`), contra lo que pidió el
+usuario: «En las ciudades hay muralla. En los pueblos empalizada.» (D3), «las murallas si cierran
+[…] Tambien hay puertas» (D7) y la escalera para «Todo el atacante» (D8). Fase 3 (mejoras del
+paso) y fase 4 (arte del mapa) fuera. Guiones y capturas en
+`/tmp/claude-1000/-home-al-code-heroes--claude-worktrees-mountain-node-interaction-7b9212/46fb9bb3-8555-4262-a482-fe1df0ee30b2/scratchpad/qa-f2/`
+(`g/adv.qa.test.ts`, `g/nav.mts`, `g/arena.mts`; `nav/*.png` y `nav/*.log`; `capturas/`). Ningún
+fichero del repo tocado: los guiones viven en el scratchpad con su propia config de vitest.
+
+## Lo que corrí, y por qué
+
+| Orden | Por qué | Resultado |
+|---|---|---|
+| `pnpm typecheck`, `pnpm lint` | cambia código | limpio; «Checked 516 files… Found 10 infos» (los de siempre) |
+| `vitest run test/datos-de-sitios test/espectador test/agent-contract test/invariantes` | lo nuevo de la fase (formas, qué muralla lleva cada batalla, escaleras, la inversa del espectador con muralla, el contrato y los guardias) | 190/190 |
+| `g/adv.qa.test.ts` (mío, 24 casos) | la pasada adversarial del núcleo: formas rotas, cierre medido sin `pasoPermitido`, voladores, tope 3/5/7, defensa elegida + muralla, lo que queda tras ganar, jugadas mal escritas del agente | 24/24 (salidas abajo) |
+| Playwright sin pantalla contra el `pnpm dev` del 3123 (pid 188129, de este worktree; no lo arranqué ni lo paré) con un espejo `Session` | el flujo de quien juega: atacar la ciudad neutral de s6, defender la base de s37, `?tropa=3`, la arena con enlaces v18/v17 | sin errores en consola en las cuatro |
+| `pnpm qa` | toca contrato y servidor | sale 0, s3: «muralla: 40 turnos de batalla con "walls" (piedra), mandadas open_gate, close_gate» |
+| `QA_SEMILLA=1,2,4…12 pnpm qa` | buscar una semilla en que el agente **ataque** una muralla | ninguna: s6, s9, s10 salen 0 y solo defienden (open/close_gate); el resto sale 1 por lo que su búsqueda exige (`dismiss`, `weather`), no por la muralla |
+| `CAPTURAS_SOLO=espectador pnpm capturas …/qa-f2/capturas` | el espectador con una batalla con muralla, tras el `/simplify` (que tocó el contrato y el lienzo; el ingeniero no la volvió a correr) | sale 0, 24 s, «34 turnos de batalla», sin errores; `espectador-02-batalla.png` pinta la piedra |
+| `pnpm banco`, `barrido-semillas.ts` | citar que el `/simplify` no movió el juego | «ancla: igual», 0/20; barrido 0/4, peor batalla 7 rondas |
+
+## Criterios (fase 2)
+
+| Criterio | | Evidencia |
+|---|---|---|
+| **F2-1** Contra una ciudad (también la base y la neutral), muralla de **piedra** | ✅ | s6, la neutral de (8,7): «batalla piedra» (`nav/a.log`, `a0-batalla.png`); s37, la base: «muralla piedra» (`d.log`); la base y la neutral en `datos-de-sitios` |
+| **F2-2** Contra un pueblo, **empalizada de madera**; en un paso, ninguna | ✅ (⚠️ en el navegador de la partida) | núcleo: `contraElPueblo` → `MURALLAS_DEL_MAPA.pueblo`, el héroe atacado en su pueblo → madera, el paso → `SIN_MURALLA` sin escaleras (`datos-de-sitios`); mío: tras ganar a una neutral, la batalla siguiente en un paso ajeno con guarnición sale sin muralla ni escaleras, 15 de 15. En la partida del navegador **no se puede montar** (la IA no deja tropa); la madera se ve en la arena (`arena-madera.png`) |
+| **F2-3** Las murallas **cierran** | ✅ | BFS mío por `neighbours` sin `pasoPermitido`, saltando muros y la arista de la puerta: desde la salida del atacante, 0 casillas de la salida del defensor alcanzables en las dos formas (55 y 64 de suelo alcanzable). La variante del `_comment` con la puerta al oeste del hueco se rechaza: «una muralla del mapa cierra: con esta, el atacante la rodea andando» |
+| **F2-4** Hay **puertas**, el defensor las abre y cierra | ✅ | s37, el Arquero defensor: «Abrir puerta» encendido y «Cerrar puerta» apagado con «La puerta ya está cerrada.»; abierta → «Esa puerta ya se ha abierto o cerrado en este turno.»; un clic forzado en el apagado no la cierra (espejo `[true]`); la unidad siguiente la cierra (`d2-abierta.png`, `d3-cerrada.png`). Al atacante no le sale ningún botón de puerta (`a.log`, primer turno: solo «Poner escalera» y «Subir») |
+| **F2-5** **Todo el atacante** lleva escalera (D8), el defensor no | ✅ | s6: «atacantes 7 (escalera: 7)»; s37: «atacante escaleras 6/6»; `?tropa=3`: «atacantes 3 (escalera: 3)»; tras rehacer la defensa, «atacantes con escalera 5/5, defensores con escalera 0/2» |
+| **F2-6** La persona juega la muralla atacando: poner, subir, bajar dentro, con sus motivos apagados | ✅ | s6: antes de llegar, los dos apagados con «No está al pie de ningún muro.»; tras andar, «Ya se ha movido este turno: se llega al pie y se sube en el turno siguiente.» (`?tropa=3`); con dos o tres muros al pie, el botón queda marcado y la barra dice «Elige el muro: pulsa en lo alto de una de las columnas marcadas, o Escape para cancelar.»; el clic en lo alto pone la escalera; 7 puestas, 7 subidas, bajadas dentro a (8,6) y (8,3); «Subir» apagado con «En ese muro está Konstanz von Adler.» cuando lo alto está ocupado; sin escalera propia, «No lleva escalera.» (arena) |
+| **F2-7** Escape suelta lo que espera el clic | ✅ | s6 y `?tropa=3`: tras Escape, barra vacía, el botón sin `primary` y la escena sigue en la batalla (`a2b-tras-escape.png`) |
+| **F2-8** La escalera puesta la usa cualquiera; no se gasta otra en el mismo pie y muro | ✅ | mío: con la del héroe puesta en (6,1)→(7,1), otro atacante con la suya en ese pie ve `subir` a (7,1) y `poner_escalera` solo a (7,0) y (7,2) |
+| **F2-9** La IA asalta y defiende, y las batallas acaban | ✅ | s37: la IA atacante pone 2 escaleras y la batalla acaba en 5 rondas; tope 3/5/7 × semillas 1-20 contra la base: 60 batallas, 0 en `MAX_ROUNDS`, ronda máxima 7/8/10, ningún bando por encima del tope ni stack en un muro; las 50 de `datos-de-sitios` |
+| **F2-10** El tope de tropa con muralla (`?tropa=3`) | ✅ | en el navegador, 3 contra 3 tras la piedra, el asalto completo (`t*.png`); en el núcleo, la tabla de F2-9 |
+| **F2-11** Defensa elegida (fase 1) + muralla | ✅ | s37 con héroe y 3 goblins en la base: `defensa {"hero":"hero-1","sitio":"town-1"}`, muralla piedra; `elegirLaDefensa` con un orko: la batalla rehecha sigue con `MURALLAS_DEL_MAPA.ciudad` por identidad, el atacante con sus 5 escaleras y los defensores dentro, en (10,3) y (11,4). En el navegador, «Como propone la IA» y la batalla tras la piedra (`d0-defensa.png`) |
+| **F2-12** Tras la victoria no queda nada de la muralla | ✅ | 15 semillas ganando a una neutral: 0 campos `escalera` en la tropa del héroe ni en `JSON.stringify(state)`; la batalla siguiente, en un paso, sin escaleras ni muros (0 de 15). En el navegador, la ciudad de s6 pasa al jugador 0 y el mapa vuelve sin errores (`a6-mapa.png`) |
+| **F2-13** Formas rotas en `data/sitios.json` lanzan nombrando el fichero | ✅ | 15 formas rotas a mano, todas con «data/sitios.json: la muralla del pueblo: …» y su motivo: muro fuera del tablero (con la forma del tablero dicha), col negativa, muro repetido, puerta no vecina, puerta sobre un muro, puerta al revés, muros vacíos (abierta), muro sin `row`, decimal, `material: null`, `puertas` que no es lista, dos puertas iguales; la raíz `null` o `[]`: «data/sitios.json: tiene que ser un objeto» |
+| **F2-14** El agente: cuatro jugadas en el contrato, mal escritas descartadas con su motivo, la prosa solo con `walls` | ✅ (⚠️ `place_ladder`/`climb` en el circuito) | zod rechaza `place_ladder` sin `wall`, la puerta sin `b`, `wall` decimal y el nombre en español (`poner_escalera`); el núcleo, con su frase: `(99,0)` «en (99,0) no hay muro», el hueco (7,4), un muro lejos «no está al pie de ese muro», subir sin escalera «primero hay que ponerla (un turno)», el atacante abriendo «las puertas las abre y las cierra quien defiende», el defensor subiendo «quien defiende sube a la muralla andando», la puerta al revés «entre (8,4)-(7,4) no hay puerta», cerrar la cerrada. `walls` al defensor con `material`, `tiles`, `gates[].open` y `ladders`; la lista legal en inglés. La prosa MURALLA dice la regla entera (leída: arriba). `pnpm qa` solo cruza `open_gate`/`close_gate` |
+| **F2-15** El espectador, inversa exacta, pinta la muralla | ✅ | `test/espectador.test.ts` (la vuelta con muralla, escaleras y puerta abierta); `CAPTURAS_SOLO=espectador`: `espectador-02-batalla.png` con la piedra, sin errores |
+| **F2-16** La arena: enlace v18 de madera sí, v17 no | ✅ | «Copiar enlace»: `v 18`, `material piedra`; con `madera`, «Montada la pelea del enlace (semilla 4)» y la empalizada de estacas; v17: «este enlace es de una versión anterior de la arena (la 17; la de hoy es la 18): vuelve a copiarlo»; `barro`: «material "barro" no existe; valen piedra, madera»; sin material: «falta «material»» |
+
+## Hallazgos
+
+### H-F2-1 · menor · Con «Poner escalera» esperando el muro, un clic en una casilla verde mueve la unidad y le quita la escalera de ese turno, sin decirlo
+
+1. `http://localhost:3123/?seed=6&…&clima=despejado,dia` (la URL de `urlDePartida(6)`), «Volver al
+   mapa», pulsar la ciudad neutral de (8,7).
+2. En la batalla, andar con el héroe (Konstanz) hasta una casilla de fuera con dos muros vecinos y terminar el turno.
+3. En el turno siguiente, «Poner escalera»: la barra dice «Elige el muro: pulsa en lo alto de una de
+   las columnas marcadas, o Escape para cancelar.»
+4. Pulsar una casilla verde que no sea muro (en la prueba, (5,5)).
+
+La unidad anda (le quedan 3 de 4 casillas), lo que esperaba se suelta, la barra queda vacía y los
+dos botones salen apagados con «Ya se ha movido este turno: se llega al pie y se sube en el turno
+siguiente.» (`nav/mv.log`, `mv-clic-verde.png`). Quien juega, que tiene el muro marcado y una frase
+que solo ofrece «lo alto» o Escape, pierde su escalera de ese turno por un clic cerca del muro (los
+pies son casillas verdes pegadas a las columnas). Con un hechizo o un poder esperando, el clic no
+mueve (`movimientoEn` devuelve nada con `apuntado`); con la muralla sí, porque la muralla no entra
+en `LoApuntado.actual`. Es el comportamiento que la arena ya tenía (`session.muroPorElegir = null`
+antes de mover, en HEAD), pero el docstring de `pulsarEscala` promete otra cosa («Con un botón
+esperando, un clic en otro sitio se queda en él y lo dice»). Se esperaba que el clic se quedara
+esperando y lo dijera, como en el resto del tablero.
+
+### H-F2-2 · menor · El test del volador no muerde: no hay ninguna unidad que vuele en el catálogo
+
+`test/datos-de-sitios.test.ts`, «el volador no lleva escalera aunque su bando ataque una muralla»,
+busca un volador de no muertos con `hasTrait(u, 'flying')` y, si no lo hay, monta solo el jinete.
+Ninguna de las 34 unidades del catálogo vuela (búsqueda en las cinco facciones: lista vacía), así que
+el test solo comprueba que el jinete lleva escalera; la rama de `quienNoEscala` para quien vuela no
+la ejerce nada de la fase. El «visto morder» de la implementación (sin `conEscaleras`, rojo en «el
+volador») mordía por el jinete. No afecta a quien juega hoy (no hay voladores); el día que entre uno,
+su escalera no está vigilada.
+
+## Observaciones (no son hallazgos)
+
+- **Como director de arte**: las columnas de piedra son altas y opacas; lo que queda detrás (los
+  defensores al fondo, quien sube por la cara de atrás) se ve solo como silueta naranja, y el
+  pasillo de la puerta (fila 4) queda tapado por las columnas de las filas 5-8 de delante: la
+  puerta se lee por su marco naranja y, abierta, por sus dos hojas (`d2-abierta.png`). Es el dibujo
+  de la arena; el arte del mapa es la fase 4 y la batalla no pide arte.
+- **La puerta cerrada no impide el cuerpo a cuerpo de un lado al otro** (regla de la arena, la
+  dijo el ingeniero); la prosa del agente dice que «cerrada no la cruza nadie que ande» y «tapa el
+  tiro», y no que se pueda golpear a través. La lista legal lo trae, así que no lleva a error.
+- «Resolver sola» vuelve al mapa sin pantalla de final y con la barra vacía: igual que antes de la
+  fase.
+
+## Workarounds usados
+
+- **El espejo `Session`** para saber dónde pulsar en el lienzo (como `pnpm capturas`), con la
+  semilla fijada en la URL: no cambia lo que ve quien juega.
+- **«Resolver sola»** para cerrar cada batalla tras probar la muralla, en vez de jugarla entera: la
+  muralla ya se había jugado a mano; lo que queda es la IA de siempre.
+- **El pueblo con guarnición, puesto a mano** (`ponerLaGuarnicion`) en las pruebas del núcleo: jugando
+  no se llega (la IA no deja tropa). Lo que cubre es la regla, no la pantalla; la pantalla de la
+  madera se vio en la arena.
+- **Posiciones y turnos forzados** (`forzarTurno`, `hex =`) en las jugadas mal escritas del agente:
+  para tener al atacante al pie y al defensor con el turno; las frases son las del núcleo.
+
+## No probado
+
+- **La batalla contra un pueblo en la partida del navegador** (madera, la persona atacando o
+  defendiendo su pueblo): no se monta jugando; cubierta en el núcleo y vista en la arena.
+- **`place_ladder` y `climb` del agente en el circuito** (`pnpm qa`): en ninguna de las semillas que
+  pasan (3, 6, 9, 10) el agente ataca una muralla; las cubren el contrato (`agent-contract`) y mis
+  jugadas directas.
+- **Rehacer la defensa con «Defender» (una elección distinta de la de la IA) en el navegador**: solo en
+  el núcleo (F2-11).
+- **Un volador con muralla**: no hay ninguno en el catálogo (H-F2-2).
+- `pnpm capturas` entera (solo la pasada «espectador»).
+
+## Veredicto (fase 2, vuelta 1)
+
+**Apto con reservas.** Lo que pidió el usuario se cumple en el flujo real: la ciudad (base y neutral)
+tras la piedra, el pueblo tras la madera y el paso sin muralla; las dos cierran (medido sin el código
+que lo juzga), llevan su puerta, que solo abre y cierra quien defiende, y todo el atacante lleva su
+escalera; la persona pone, sube, baja dentro y abre y cierra con los motivos del núcleo, Escape
+suelta, la IA asalta y defiende sin batallas eternas (también con tope 3 y 5 y con la defensa
+elegida), el agente tiene sus cuatro jugadas con sus rechazos dichos y la prosa solo con muralla, y el
+espectador la pinta. Las reservas son H-F2-1 (un clic cerca del muro, con el botón esperando, gasta
+el turno de la escalera sin aviso) y lo no probado en el navegador: la madera en una partida y la
+escalera del agente en el circuito.
+
+## Fase 2 · cierre de la vuelta 1 (coordinador, 04-11-2026)
+
+H-F2-1 y H-F2-2, corregidos (QF2-1 y QF2-2 de `hallazgos-qa.md`; detalle en `implementacion.md`,
+«Fase 2 · QA vuelta 1»). Con la muralla esperando el clic, el clic en una casilla de andar no mueve y
+la barra lo dice (test de escena sobre una `Session` real, visto morder con el código de antes, y s6
+en el navegador: no se mueve, «…o Escape para cancelar.», la escalera se pone después en (6,5)); el
+test del volador monta un volador de verdad y muerde sin su rama de `quienNoEscala`. `pnpm banco`
+igual (`883fe9be…`), `datos-de-sitios` 14/14, typecheck limpio. Al ser dos hallazgos menores de
+cliente y de test, con sus guardias vistos morder, no se lanza otra vuelta de QA entera.

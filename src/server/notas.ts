@@ -23,7 +23,11 @@ import { quedanCasillas } from '@core/battle/board.js';
 import { type HechoDelCruce, NOMBRE_DEL_PUNTO } from '@core/battle/rueda.js';
 import type { BattleAction } from '@core/battle/types.js';
 import type { RequestKind } from '@core/contract/agent.js';
-import { type AccionDelAgente, HIT_DE_GOLPE } from '@core/contract/vocabulario.js';
+import {
+  type AccionDelAgente,
+  HIT_DE_GOLPE,
+  JUGADA_DE_MURALLA,
+} from '@core/contract/vocabulario.js';
 import { loQueLaPara } from '@core/state/asaltantes.js';
 import type { ClimaAceptado } from '@core/state/clima.js';
 import { type Desenlace, finDePartida } from '@core/state/desenlace.js';
@@ -892,15 +896,15 @@ export function describeAccion(accion: BattleAction | AccionDelAgente): string {
     // unión es la del núcleo y se dice por si un día la ve.
     case 'elegir_en_lugar':
       return `elección ${accion.opcion} del nodo ${accion.nodo} de ${accion.punto} en ${accion.lugar}, con ${accion.hero}`;
-    // Hoy solo en la arena, que no tiene agente; se dicen por si un día los ve.
+    // La muralla de las ciudades y los pueblos (fase 2 del puesto fronterizo), con
+    // el nombre que el agente escribe (`JUGADA_DE_MURALLA`).
     case 'poner_escalera':
-      return `escalera contra el muro de (${accion.muro.col},${accion.muro.row})`;
+      return `${JUGADA_DE_MURALLA[accion.type]} contra el muro de (${accion.muro.col},${accion.muro.row})`;
     case 'subir':
-      return `subida al muro de (${accion.muro.col},${accion.muro.row})`;
+      return `${JUGADA_DE_MURALLA[accion.type]} al muro de (${accion.muro.col},${accion.muro.row})`;
     case 'abrir_puerta':
-      return `abre la puerta entre (${accion.puerta.a.col},${accion.puerta.a.row}) y (${accion.puerta.b.col},${accion.puerta.b.row})`;
     case 'cerrar_puerta':
-      return `cierra la puerta entre (${accion.puerta.a.col},${accion.puerta.a.row}) y (${accion.puerta.b.col},${accion.puerta.b.row})`;
+      return `${JUGADA_DE_MURALLA[accion.type]} entre (${accion.puerta.a.col},${accion.puerta.a.row}) y (${accion.puerta.b.col},${accion.puerta.b.row})`;
   }
 }
 

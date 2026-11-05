@@ -56,12 +56,12 @@ import {
   hayMuralla,
   type MurallaDeBatalla,
   mismaPuerta,
+  murallaVacia,
   type PuertaDeMuralla,
-  SIN_MURALLA,
   validarMuralla,
 } from '@core/battle/muralla.js';
 import { allSpells } from '@core/battle/spells.js';
-import type { BattleStack, TipoDeEscala, TipoDePuerta } from '@core/battle/types.js';
+import type { BattleStack } from '@core/battle/types.js';
 import { UNIDADES } from '@core/catalogo.js';
 import { COMBATE_COMPLETO, type ReglasDelCombate } from '@core/combate.js';
 import {
@@ -126,12 +126,12 @@ import {
 } from '../render/personajes.js';
 import { DialogoDeLaRueda } from '../rueda/dialogo.js';
 import { aLaBarra, semillaSorteada } from '../semilla.js';
-import { type LadoDeSesion, SesionDeArena, unaOElegir } from '../session.js';
+import { type LadoDeSesion, SesionDeArena } from '../session.js';
 import { pintarSiguiendoElFinal } from '../views/al-final.js';
 import { leerElCombate, selectoresDelCombate } from '../views/combate.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
 import { AVISO_DE_ESPERA } from '../views/panels.js';
-import { modoDelBoton } from '../views/poderes.js';
+import { jugadaDelBotonDeMuralla, modoDelBoton } from '../views/poderes.js';
 import {
   abiertasATexto,
   abrirFicha,
@@ -437,7 +437,7 @@ let combate: ReglasDelCombate = COMBATE_COMPLETO;
  * La muralla que se dibuja y con la que se pelea. Se rehace entera en cada clic
  * (`validarMuralla`, la regla del núcleo), así que nunca hay una a medias.
  */
-let muralla: MurallaDeBatalla = SIN_MURALLA;
+let muralla: MurallaDeBatalla = murallaVacia('piedra');
 let herramienta: HerramientaDeMuralla = 'muro';
 /** El nombre con el que se guardaría: el de la forma cargada o el escrito. */
 let nombreDeForma = '';
@@ -905,6 +905,7 @@ function tocarHex(hex: Hex): void {
       puertas: estaba
         ? muralla.puertas.filter((p) => !mismaPuerta(p, nueva))
         : [...muralla.puertas, nueva],
+      material: muralla.material,
     });
     return;
   }
@@ -915,7 +916,7 @@ function tocarHex(hex: Hex): void {
     herramienta === 'muro' && habia
       ? muralla.puertas
       : muralla.puertas.filter((p) => !toca(p, hex));
-  muralla = validarMuralla({ muros, puertas });
+  muralla = validarMuralla({ muros, puertas, material: muralla.material });
 }
 
 function formaPorNombre(nombre: string): FormaDeMuralla {
@@ -1773,7 +1774,7 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
       iaDelBando[l] = m[l].ia;
     }
     // La muralla del enlace sustituye a la dibujada; sin ella, el tablero va limpio.
-    muralla = m.muralla ?? SIN_MURALLA;
+    muralla = m.muralla ?? murallaVacia('piedra');
     combate = m.combate;
     nombreDeForma = '';
     // La barra se queda con la semilla: el montaje, si cambia, ya no sería el del
@@ -2120,40 +2121,6 @@ canvas.addEventListener('pointerleave', () => {
   pedirFotograma();
 });
 
-/** «Poner escalera» o «Subir», contra un muro de su pie (`muroPorElegir`). */
-function escala(s: SesionDeArena, tipo: TipoDeEscala): void {
-  unaOElegir(
-    s,
-    s.battleLegalActions().filter((a) => a.type === tipo),
-    {
-      esperando: s.muroPorElegir === tipo,
-      esperar: (si) => {
-        s.muroPorElegir = si ? tipo : null;
-      },
-      motivo: () => s.motivoDeEscala(tipo),
-      ninguna: 'No hay muro contra el que hacerlo.',
-      pide: 'Elige el muro: pulsa en lo alto de una de las columnas marcadas.',
-    },
-  );
-}
-
-/** «Abrir puerta» o «Cerrar puerta», una de las de la muralla (`puertaPorElegir`). */
-function puerta(s: SesionDeArena, tipo: TipoDePuerta): void {
-  unaOElegir(
-    s,
-    s.battleLegalActions().filter((a) => a.type === tipo),
-    {
-      esperando: s.puertaPorElegir === tipo,
-      esperar: (si) => {
-        s.puertaPorElegir = si ? tipo : null;
-      },
-      motivo: () => s.motivoDePuerta(tipo),
-      ninguna: 'No hay puerta que abrir o cerrar.',
-      pide: 'Elige la puerta: pulsa en una de las portadas marcadas.',
-    },
-  );
-}
-
 /** Los botones de la batalla, los mismos de la partida (`accionesDeLaUnidad`). */
 const JUGADA_DE_BOTON = {
   'battle-end-turn': 'end_turn',
@@ -2197,23 +2164,9 @@ document.addEventListener('click', (ev) => {
     pedirFotograma();
     return;
   }
-  if (accion === 'battle-escala') {
+  if (accion === 'battle-muralla' && conAccion) {
     if (ev.detail > 1 || sesion === null || jugadaEnCurso()) return;
-    const tipo = (ev.target as Element).closest('[data-escala]')?.getAttribute('data-escala');
-    if (tipo !== 'poner_escalera' && tipo !== 'subir') {
-      throw new Error(`el botón de la escala trae «${String(tipo)}»`);
-    }
-    escala(sesion, tipo);
-    pedirFotograma();
-    return;
-  }
-  if (accion === 'battle-puerta') {
-    if (ev.detail > 1 || sesion === null || jugadaEnCurso()) return;
-    const tipo = (ev.target as Element).closest('[data-puerta]')?.getAttribute('data-puerta');
-    if (tipo !== 'abrir_puerta' && tipo !== 'cerrar_puerta') {
-      throw new Error(`el botón de la puerta trae «${String(tipo)}»`);
-    }
-    puerta(sesion, tipo);
+    sesion.muralla.elegir(jugadaDelBotonDeMuralla(conAccion));
     pedirFotograma();
     return;
   }
@@ -2515,7 +2468,7 @@ document.addEventListener('click', (ev) => {
         repintarMuralla();
         return;
       case 'vaciar-muralla':
-        muralla = SIN_MURALLA;
+        muralla = murallaVacia('piedra');
         aviso = 'Muralla vacía: la pelea será a campo abierto.';
         repintarMuralla();
         return;
@@ -2883,7 +2836,7 @@ document.addEventListener('keydown', (ev) => {
   // Fuera del tablero —la vista de equipo a media pelea— las teclas no juegan:
   // un espacio en un campo de pieza cerraba el turno de tu unidad.
   if (escena !== 'battle') return;
-  // Escape suelta el hechizo elegido, como en la partida, o el poder que espera.
+  // Escape suelta lo que espera el clic, como en la partida: hechizo, poder, muro o puerta.
   if (ev.key === 'Escape' && sesion !== null && !jugadaEnCurso()) {
     sesion.soltarLoApuntado();
     pedirFotograma();

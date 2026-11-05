@@ -8,7 +8,13 @@
  */
 
 import { FORMA_DEL_TABLERO, isInside, ULTIMA_FILA } from './battle/board.js';
-import { cierra, hayMuralla, type MurallaDeBatalla, validarMuralla } from './battle/muralla.js';
+import {
+  cierra,
+  hayMuralla,
+  type MurallaDeBatalla,
+  reglaDeLaMuralla,
+  validarMuralla,
+} from './battle/muralla.js';
 import type { Hex } from './types.js';
 import { lista, revisarLista, texto, todasValidas } from './validar.js';
 
@@ -110,7 +116,8 @@ export const FORMAS_DE_EJEMPLO: readonly FormaDeMuralla[] = Object.freeze(
       puertas: [{ a: { col: 6, row: 4 }, b: { col: 7, row: 4 } }],
     },
   ].map(({ nombre, muros, puertas }) =>
-    Object.freeze({ nombre, muralla: validarMuralla({ muros, puertas }) }),
+    // Las de la arena, de piedra: la madera es la del pueblo (`data/sitios.json`).
+    Object.freeze({ nombre, muralla: validarMuralla({ muros, puertas, material: 'piedra' }) }),
   ),
 );
 
@@ -152,12 +159,22 @@ export function validarFormaDeMuralla(valor: unknown): FormaDeMuralla {
 /**
  * La regla de la muralla dicha para quien la dibuja, con los bandos de la arena
  * (la izquierda ataca). La leen la ayuda del editor y el `_comment` del
- * borrador: dos copias a mano se quedaron diciendo la regla del primer ciclo
- * («el muro cierra el paso a los dos bandos») cuando el muro pasó a ser alto
- * (QA de la muralla alta, I1). La regla está en `battle/muralla.ts`.
+ * borrador. La regla de la batalla es la de `battle/muralla.ts`, dicha allí una vez
+ * (`reglaDeLaMuralla`, la misma que lee el agente); aquí solo lo del editor: dónde
+ * va la puerta y qué es dentro y fuera.
  */
-export const REGLA_DE_LA_MURALLA =
-  'El muro es alto, una columna: la derecha (defiende) sube andando desde dentro; la izquierda (ataca) sube desde su pie con escalera (un turno ponerla, otro subir) o si sabe escalar, y al subir no hace nada más ese turno. De lo alto solo se baja hacia dentro, sea quien sea: dentro es el suelo que queda más cerca andando de la salida de la derecha que de la de la izquierda, sin cruzar muro ni puerta (un empate, o un hueco al que no se llega, es dentro); fuera, el resto. Vale igual si la forma no cierra: lo de delante de la curva es fuera. Los voladores se posan en lo alto y bajan donde quieran. La puerta no es una casilla: va entre dos vecinas de la misma fila (se pone pulsando la de la izquierda), las dos se pisan y la puerta solo corta el paso de una a otra. Empieza cerrada: cerrada no la cruza nadie que ande y tapa el tiro; abierta la cruza cualquiera, de los dos bandos, y no tapa. La abre o la cierra la derecha al principio del turno de una de sus unidades, antes de moverla (no gasta el turno), cada puerta una vez por turno. Dentro y fuera se cuentan con las puertas cerradas; en odd-r una puerta puede dejar rendija por las diagonales, y entonces la forma no cierra. En el suelo nadie dispara a través de un muro ni de una puerta cerrada; desde lo alto, o a quien está arriba, sí.';
+export const REGLA_DE_LA_MURALLA = [
+  reglaDeLaMuralla({
+    atacante: 'la izquierda (ataca)',
+    defensor: 'la derecha (defiende)',
+    ponerEscalera: 'ponerla',
+    subir: 'subir',
+    abrir: 'la abre',
+    cerrar: 'la cierra',
+  }),
+  'Dentro es el suelo que queda más cerca andando de la salida de la derecha que de la de la izquierda, sin cruzar muro ni puerta (un empate, o un hueco al que no se llega, es dentro); fuera, el resto. Vale igual si la forma no cierra: lo de delante de la curva es fuera.',
+  'La puerta no es una casilla: va entre dos vecinas de la misma fila (se pone pulsando la de la izquierda), las dos se pisan y la puerta solo corta el paso de una a otra. Dentro y fuera se cuentan con las puertas cerradas; en odd-r una puerta puede dejar rendija por las diagonales, y entonces la forma no cierra.',
+].join(' ');
 
 /**
  * Lo que la forma `m` hace con dentro y fuera (`cierra`, `ladoDeLaMuralla`), dicho para

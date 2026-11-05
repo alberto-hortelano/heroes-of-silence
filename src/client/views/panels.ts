@@ -97,7 +97,7 @@ import { renderAbierto } from './base.js';
 import { nombreEnElCampo } from './distintivo.js';
 import { renderPanelDelLugar } from './lugar.js';
 import { renderPanelDeLaMorada } from './morada.js';
-import { botonesDeArma, botonesDePoder } from './poderes.js';
+import { botonesDeArma, botonesDeMuralla, botonesDePoder } from './poderes.js';
 import { renderPanelDeLaTropa } from './tropa.js';
 
 /** Lo que dice la barra a quien pulsa mientras la jugada se cuenta. */
@@ -891,9 +891,9 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
             battle.heroes[s.side] === null
               ? SIN_HEROE_EN_LA_BATALLA
               : renderSpells(session.hechizos.selectedSpell, session.spellOptions()),
-          // Las batallas del mapa no tienen muralla (decisión 4 de la tarea del
-          // combate en el juego).
-          muralla: NADA,
+          // La de la ciudad o el pueblo (fase 2 del puesto fronterizo): escalera y
+          // subir al que ataca, la puerta al que defiende; sin muralla, nada.
+          muralla: botonesDeMuralla(session, battle, s),
           poderes: html`${botonesDeArma(session, s)}${botonesDePoder(session, s)}`,
         }),
       )
