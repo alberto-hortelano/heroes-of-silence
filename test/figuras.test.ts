@@ -338,47 +338,53 @@ describe('delanteEnUnaBarrera: quien se infiltra se ve parado en una barrera (05
   ): number =>
     cuanto(esc, x, y, c, (s) => sePinta(nodos)(s) && esHecho(s) && s.y > y + PIES.heroe, false);
 
-  it('s8, la de QA: en la montaña al norte de Valdeluz, detrás de su recinto; en el bosque de (4,7), a la vista', () => {
+  it('s8, la de QA: en la montaña al norte de Valdeluz, detrás de su recinto; en el bosque de (5,6), a la vista', () => {
+    // Las casillas de QA eran (6,5) y (7,5), con Valdeluz en (7,7), y el bosque de
+    // (4,7). Con las ciudades en su región (tarea 2, 05-11-2026) Valdeluz está en
+    // (11,8): su montaña del norte es (10,6) y (11,6), con las mismas cifras.
     const { map } = partidaDe(8);
     const esc = escenarioDe(map, 8);
     const { W } = esc.escena;
     const esMasa = (s: Sprite) => s.recinto === undefined && s.objeto === undefined;
     for (const [x, y] of [
-      [6, 5],
-      [7, 5],
-      [4, 7],
+      [10, 6],
+      [11, 6],
+      [5, 6],
     ] as const) {
       expect(isWalkable(map.terrain[y * W + x] as TerrainKind), `(${x}, ${y})`).toBe(false);
       const c = pisada(esc, { x, y }, PIES.heroe, sinSaber).clave;
       // Ni la montaña ni el bosque lo tapan.
       expect(cuantoLaTapan(esc, x, y, c, esMasa), `(${x}, ${y})`).toBe(0);
     }
-    for (const x of [6, 7]) {
-      const c = pisada(esc, { x, y: 5 }, PIES.heroe, sinSaber).clave;
+    for (const x of [10, 11]) {
+      const c = pisada(esc, { x, y: 6 }, PIES.heroe, sinSaber).clave;
       // Y el recinto de delante sí: ninguna parte de la figura se pinta encima de
-      // sus torres o sus casas (N1 de la vuelta 2 de QA: en (6,5), el 43 %, con
-      // los pies y el aro sobre la torre del noroeste; en (7,5), el 30 %).
-      expect(encimaDeLoHecho(esc, x, 5, c), `(${x}, 5)`).toBe(0);
+      // sus torres o sus casas (N1 de la vuelta 2 de QA: en (6,5) de entonces, el
+      // 43 %, con los pies y el aro sobre la torre del noroeste; en (7,5), el 30 %).
+      expect(encimaDeLoHecho(esc, x, 6, c), `(${x}, 6)`).toBe(0);
       expect(
-        cuantoLaTapan(esc, x, 5, c, (s) => s.recinto !== undefined),
-        `(${x}, 5)`,
+        cuantoLaTapan(esc, x, 6, c, (s) => s.recinto !== undefined),
+        `(${x}, 6)`,
       ).toBeGreaterThan(0);
       // Sin esconderlo: lo que tapa el recinto son las piernas (el 43 % de la
-      // figura en (6,5), el 30 % en (7,5)); la cabeza y el torso (las cuatro
+      // figura en (10,6), el 30 % en (11,6)); la cabeza y el torso (las cuatro
       // filas de muestras de arriba) se ven enteros, y se admite un cuarto.
       expect(
-        cuanto(esc, x, 5, c, () => true, true, 4),
-        `(${x}, 5)`,
+        cuanto(esc, x, 6, c, () => true, true, 4),
+        `(${x}, 6)`,
       ).toBeLessThanOrEqual(0.25);
     }
   });
 
   it('una obra del puesto que no se pinta no lo deja tapado por la masa: N2 de la vuelta 2 de QA', () => {
-    // s24 (15,8), node-2: con la empalizada y la torre del paso neutral contando
-    // como tope, la masa de delante la tapaba entera.
-    const { map } = partidaDe(24);
-    const esc = escenarioDe(map, 24);
-    const [x, y] = [15, 8];
+    // s10 (3,10), la montaña al norte de node-1 (3,12), de los cuatro casos de QA
+    // (s24 (15,8), s36 (8,22), s39 (23,9), s10 (3,10)): con la empalizada y la
+    // torre del paso neutral contando como tope, la masa de delante la tapaba. Con
+    // las ciudades en su región (tarea 2, 05-11-2026) el de s24, que era el de
+    // este test, ya no tiene la obra delante.
+    const { map } = partidaDe(10);
+    const esc = escenarioDe(map, 10);
+    const [x, y] = [3, 10];
     expect(isWalkable(map.terrain[y * esc.escena.W + x] as TerrainKind)).toBe(false);
     const nodosEn = (mejora: MejoraDelPuesto | null): ReadonlyMap<string, NodoQueSeSabe> =>
       new Map(
@@ -407,7 +413,8 @@ describe('delanteEnUnaBarrera: quien se infiltra se ve parado en una barrera (05
 
   it('en un mapa de verdad: fuera de una barrera (también en la puerta de un recinto), nada cambia', () => {
     // La regla es la del núcleo, `barreraEn`: la puerta de un recinto con montaña
-    // debajo (s8 (6,6), la del noroeste de Valdeluz) no es barrera, y en ella la
+    // debajo (s8 (11,7), la del norte de Valdeluz; era (6,6), la del noroeste,
+    // antes de las ciudades en su región) no es barrera, y en ella la
     // clave es la de siempre (N3 de la vuelta 3 de QA: bajaba de 2,4 a 3 casillas
     // en 177 puertas de s1-40 y el héroe quedaba escondido tras la torre).
     for (const semilla of [8, 39]) {
@@ -428,8 +435,8 @@ describe('delanteEnUnaBarrera: quien se infiltra se ve parado en una barrera (05
         }
       expect(fuera).toBeGreaterThan(100);
       if (semilla === 8) {
-        expect(isWalkable(map.terrain[6 * W + 6] as TerrainKind)).toBe(false);
-        expect(barreraEn(map, { x: 6, y: 6 })).toBeNull();
+        expect(isWalkable(map.terrain[7 * W + 11] as TerrainKind)).toBe(false);
+        expect(barreraEn(map, { x: 11, y: 7 })).toBeNull();
         expect(puertas).toBeGreaterThan(0);
       }
     }

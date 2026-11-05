@@ -53,7 +53,14 @@ import {
 import { rentaDelDia } from '../src/core/state/renta.js';
 import { newGame } from '../src/core/state/setup.js';
 import { FACTION_IDS, type FactionId, type Point } from '../src/core/types.js';
-import { ejercito, hastaSuSiguienteTurno, JINETE, primeraSemillaCon, TROPA } from './helpers.js';
+import {
+  conSuEquipo,
+  ejercito,
+  hastaSuSiguienteTurno,
+  JINETE,
+  primeraSemillaCon,
+  TROPA,
+} from './helpers.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
@@ -124,6 +131,40 @@ function travesiaEn(state: GameState): Travesia | undefined {
       return { antes: { x: x - 2, y }, borde: { x: x - 1, y }, t1, t2, despues: { x: x + 2, y } };
     }
   return undefined;
+}
+
+/**
+ * La casilla que se pisa más cercana a `cerca` (a 3 o más), en una región, y que
+ * ni ella ni sus ocho vecinas son de un recinto ni tienen objeto o héroe: la de la
+ * bolsa de H4.
+ */
+function bolsaLejosDeTodo(state: GameState, cerca: Point): Point {
+  const map = state.map;
+  const rol = pasosDelMapa(map)?.rol;
+  const limpia = (x: number, y: number): boolean => {
+    const p = { x, y };
+    return (
+      (rol?.[y * map.width + x] ?? FUERA) === FUERA &&
+      objectAt(map, p) === undefined &&
+      !state.heroes.some((h) => h.at.x === x && h.at.y === y)
+    );
+  };
+  let mejor: Point | undefined;
+  let d = Number.POSITIVE_INFINITY;
+  for (let y = 2; y < map.height - 2; y++)
+    for (let x = 2; x < map.width - 2; x++) {
+      const dd = Math.max(Math.abs(x - cerca.x), Math.abs(y - cerca.y));
+      if (dd < 3 || dd >= d) continue;
+      if (!isEnterable(map, { x, y }) || regionDeCasilla(map, { x, y }) < 0) continue;
+      let ok = true;
+      for (let dy = -1; dy <= 1 && ok; dy++)
+        for (let dx = -1; dx <= 1 && ok; dx++) ok = limpia(x + dx, y + dy);
+      if (!ok) continue;
+      mejor = { x, y };
+      d = dd;
+    }
+  if (mejor === undefined) throw new Error('ninguna casilla para la bolsa de H4');
+  return mejor;
 }
 
 const { semilla: SEMILLA, caso: TRAVESIA } = primeraSemillaCon(
@@ -394,8 +435,11 @@ describe('cruzar barreras', () => {
     // El día empieza con el goblin solo: su marcha es la de un héroe a pie solo.
     hastaSuSiguienteTurno(state, ctx(1), 0);
     const delDia = hero.movePoints;
-    // Recibe un goblin, más lento: el máximo de hoy baja; lo que le queda, no.
-    hero.army = ejercito({ creature: GOBLIN, count: 1 });
+    // Recibe un goblin con la coraza (id `barda`), más lento: el máximo de hoy
+    // baja; lo que le queda, no. Con el catálogo de `main` del 05-11-2026, el
+    // goblin a pie frena a la marcha menos de lo que cuesta el paso de `antes` a
+    // `borde`, y la coraza lo deja muy por debajo de lo que le queda.
+    hero.army = [conSuEquipo(GOBLIN, { armadura: 'barda' })];
     expect(maxMovePoints(hero, state.characters)).toBeLessThan(delDia);
     marchar(state, hero.id, TRAVESIA.borde);
     expect(hero.at).toEqual(TRAVESIA.borde);
@@ -421,20 +465,23 @@ describe('cruzar barreras', () => {
 
   it('también a lo que se pisa tras una barrera: si infiltrándose llegaría, se dice por qué no se infiltra (H4)', () => {
     const { state, hero } = enLaTravesia(TRAVESIA.antes);
-    // Una bolsa: lo de alrededor de `despues` pasa a montaña, salvo por donde
-    // llega la travesía, que ya es barrera. El mapa generado no tiene ninguna.
+    // Una bolsa: lo de alrededor de `bolsa` pasa a montaña. El mapa generado no
+    // tiene ninguna. Lejos de todo recinto, objeto y héroe: por la puerta de un
+    // recinto se pasa aunque debajo haya barrera (con las ciudades en su región,
+    // el `despues` de la travesía de s5 es el acceso de una puerta de la ciudad
+    // rival), y un nodo se pisa aunque esté en la montaña.
+    const bolsa = bolsaLejosDeTodo(state, TRAVESIA.antes);
     const terreno = [...state.map.terrain] as TerrainKind[];
     for (const dy of [-1, 0, 1])
       for (const dx of [-1, 0, 1])
         if (dx !== 0 || dy !== 0)
-          terreno[(TRAVESIA.despues.y + dy) * state.map.width + TRAVESIA.despues.x + dx] =
-            'mountain';
+          terreno[(bolsa.y + dy) * state.map.width + bolsa.x + dx] = 'mountain';
     state.map = { ...state.map, terrain: terreno };
-    expect(caminoHasta(state, hero, TRAVESIA.despues)).not.toBeNull();
+    expect(caminoHasta(state, hero, bolsa)).not.toBeNull();
     hero.army = ejercito({ creature: TROPA, count: 1 });
-    expect(caminoHasta(state, hero, TRAVESIA.despues)).toBeNull();
-    const { x, y } = TRAVESIA.despues;
-    expect(porQueNoLlega(state, hero, TRAVESIA.despues)).toBe(
+    expect(caminoHasta(state, hero, bolsa)).toBeNull();
+    const { x, y } = bolsa;
+    expect(porQueNoLlega(state, hero, bolsa)).toBe(
       `no hay camino hasta (${x},${y}) sin cruzar una barrera: solo la cruza un grupo que se infiltra, y no se infiltra: no lo lleva ${NOMBRE_DE_TROPA}`,
     );
   });

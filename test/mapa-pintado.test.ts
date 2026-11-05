@@ -45,6 +45,7 @@ import { drawMapa, PIES, recortadoArriba } from '../src/client/render/mapa.js';
 import { Session } from '../src/client/session.js';
 import { Casillas, type CasillasLeidas } from '../src/core/map/casillas.js';
 import { LADO_DEL_MAPA } from '../src/core/map/generate.js';
+import { barreraEn, inBounds, isEnterable, objectAt } from '../src/core/map/map.js';
 import { todosALaVista } from '../src/core/state/asaltantes.js';
 import {
   HERO_SCOUT_RADIUS,
@@ -54,6 +55,7 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
+import type { Point } from '../src/core/types.js';
 
 /**
  * Lo que se espera a que el hilo principal pinte el suelo: el escalón (#211) lo
@@ -875,16 +877,33 @@ describe('qué tapa a qué en el mapa', () => {
     const state = newGame({ seed: 1 });
     const esc = escenarioDe(state.map, 1);
     await vi.waitFor(() => expect(arteCargando()).toBe(false), PINTADO);
-    // Un pino con la base en la casilla de un héroe, por delante de sus pies.
-    const pino = esc.separada.volumenes.find(
-      (v) =>
-        v.s.clase === 'masa' &&
-        v.s.y - Math.floor(v.s.y) > PIES.heroe &&
-        state.map.terrain[Math.floor(v.s.y) * state.map.width + Math.floor(v.s.x)] !== undefined,
-    );
+    // Un pino de un bosque con el pie por delante de los del héroe, parado en la
+    // casilla de al lado en su fila, en lo que se pisa, y lo bastante cerca para
+    // taparlo. En lo que se pisa no hay árboles («árbol = no se pasa»): el test
+    // ponía al héroe en la casilla del primer pino, que era un bosque o el margen
+    // de la escena (x < 0, con su casilla leída en la fila de arriba); en una
+    // barrera la figura va delante de la masa a propósito (`pisada`, fase A de la
+    // infiltración, 05-11-2026).
+    let junto: Point | undefined;
+    const pino = esc.separada.volumenes.find((v) => {
+      const at = { x: Math.floor(v.s.x), y: Math.floor(v.s.y) };
+      if (v.s.clase !== 'masa' || v.s.y - at.y <= PIES.heroe) return false;
+      if (!inBounds(state.map, at) || barreraEn(state.map, at) === null) return false;
+      junto = [at.x - 1, at.x + 1]
+        .map((x) => ({ x, y: at.y }))
+        .find(
+          (h) =>
+            inBounds(state.map, h) &&
+            isEnterable(state.map, h) &&
+            barreraEn(state.map, h) === null &&
+            objectAt(state.map, h) === undefined &&
+            Math.abs(v.s.x - (h.x + 0.5)) < 0.9,
+        );
+      return junto !== undefined;
+    });
     expect(pino).toBeDefined();
     const heroe = state.heroes[0]!;
-    heroe.at = { x: Math.floor(pino!.s.x), y: Math.floor(pino!.s.y) };
+    heroe.at = junto!;
     const { registro } = pintarMapa(state, heroe.at);
     const cuerpo = indiceDelHeroe(registro);
     const arbol = indiceDelVolumen(registro, pino!.s);
