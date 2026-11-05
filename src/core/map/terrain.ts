@@ -68,9 +68,10 @@ export function costeDeEntrada(terreno: Suelo, camino: boolean, diagonal: boolea
  * de nodos (`regiones.ts`) y se levantan los obstáculos de dentro de una región.
  *
  * Son cinco y **distintas en el motor**, no solo al pintarlas (decisión del
- * usuario, 03-10-2026): hoy las cinco bloquean igual, pero la habilidad de
- * infiltración podrá cruzar unas y otras no, y para eso cada casilla tiene que
- * recordar qué accidente es. El agua es el río o el lago —no hay barcos—, la
+ * usuario, 03-10-2026): para quien no se infiltra las cinco bloquean igual, y quien
+ * se infiltra cruza las cinco a un día entero por casilla (`hero/infiltracion.ts`,
+ * 05-11-2026: el usuario las marcó todas); cada casilla sigue recordando qué
+ * accidente es, por si un día unas se cruzan y otras no. El agua es el río o el lago —no hay barcos—, la
  * montaña la cordillera, `forest` el bosque denso, `cliff` el acantilado o el
  * desnivel y `wall` el muro o la ruina.
  *
@@ -80,6 +81,20 @@ export function costeDeEntrada(terreno: Suelo, camino: boolean, diagonal: boolea
 export const BARRERAS = ['mountain', 'water', 'forest', 'cliff', 'wall'] as const;
 
 export type Barrera = (typeof BARRERAS)[number];
+
+/**
+ * Cómo se nombra cada barrera en una frase para la persona: la ficha del
+ * ayuntamiento (qué cruza quien se infiltra) y el mapa de regiones de las
+ * herramientas de desarrollo. El rechazo de niveles (`regiones.ts`) la nombra
+ * con artículo y su id: es otra frase.
+ */
+export const NOMBRE_DE_BARRERA: Readonly<Record<Barrera, string>> = {
+  mountain: 'montaña',
+  water: 'agua',
+  forest: 'bosque',
+  cliff: 'acantilado',
+  wall: 'muro',
+};
 
 /** Lo que se pisa: todo terreno que no es barrera. El suelo de una región es uno de estos. */
 export type Suelo = Exclude<TerrainKind, Barrera>;

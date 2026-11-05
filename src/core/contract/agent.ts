@@ -679,7 +679,20 @@ ${CATALOGO_DE_EQUIPO_EN_PROSA}
   "recruit" sin oro bastante se rechaza diciendo cuánto cuesta y cuánto tienes.
 - Cada héroe trae su "type", el TIPO de héroe (un id de los de su facción), y
   el que nació de la tropa trae además su "story". El tipo todavía NO da
-  ninguna habilidad: se guarda y se ve.
+  ninguna habilidad, salvo si se INFILTRA: algunos tipos de cada facción lo
+  hacen.
+- INFILTRACIÓN: "heroes[].infiltrates" dice si el héroe cruza barreras. Lo hace
+  si su tipo se infiltra Y toda su tropa lleva el rasgo "infiltrarse" (en
+  "creature_stats", "traits"); basta uno sin él para que no, y entonces
+  "heroes[].infiltrationBlocker" dice quién. Un héroe así puede pisar las casillas
+  de las cinco barreras como cualquier otra, con el mismo "move_hero" (no hay
+  jugada nueva), pero cada casilla de barrera cuesta el DÍA ENTERO de marcha
+  (los "movePoints" con que empezó el día, aunque luego cambie su tropa): solo
+  se entra con el día recién empezado; si ya anduvo, espera en el borde hasta
+  mañana. N casillas, N días: un "move_hero" a varios días anda lo de hoy, como
+  siempre. Parado en una barrera es INTOCABLE: no lo
+  emboscan los asaltantes ni lo alcanza un héroe que no se infiltra. La muralla
+  de una ciudad no es una barrera y no se cruza.
 - Un VETERANO de rango ${RANGO_MAXIMO_DE_TROPA} —el tope de la tropa— que esté en tu base al empezar
   tu turno, en la guarnición o en la tropa de un héroe tuyo que esté allí, SE
   HACE HÉROE: antes de este turno se te pide con "hero_from_troop" que le des

@@ -7,8 +7,8 @@
 import { conMiles, SPEED_TO_HEXES, type UnitInfo } from '@core/types.js';
 import { type Html, html, NADA } from '../html.js';
 
-/** Una fila de la ficha: el rótulo a la izquierda y el valor a la derecha. */
-export function filaDeCifra(rotulo: string, valor: string): Html {
+/** Una fila de la ficha: el rótulo a la izquierda y el valor (texto, o marcado con su nota) a la derecha. */
+export function filaDeCifra(rotulo: string, valor: string | Html): Html {
   return html`<div class="row"><span class="label">${rotulo}</span><span>${valor}</span></div>`;
 }
 

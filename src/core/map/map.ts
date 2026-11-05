@@ -18,6 +18,7 @@ import {
 import {
   type Barrera,
   costeDeEntrada,
+  esBarrera,
   isWalkable,
   type Nivel,
   type TerrainKind,
@@ -454,12 +455,31 @@ export function blocksMovement(o: MapObject): boolean {
  * recoge); un monstruo se "pisa" para desencadenar la batalla. En el recinto de
  * una ciudad, solo la ciudad y sus puertas, aunque debajo haya barrera; su
  * muralla no, aunque debajo haya pradera (`recinto.ts`).
+ *
+ * Con `pisaBarreras`, lo que pisa quien se infiltra (`hero/infiltracion.ts`):
+ * también las cinco barreras fuera de un recinto; la muralla, tampoco. **La única
+ * regla de qué casilla se pisa**, también para el destino de `findPath`.
  */
-export function isEnterable(map: GameMap, p: Point): boolean {
+export function isEnterable(map: GameMap, p: Point, pisaBarreras = false): boolean {
   if (!inBounds(map, p)) return false;
   const rol = pasosDelMapa(map)?.rol[p.y * map.width + p.x] ?? FUERA;
   if (rol !== FUERA) return rol !== MURO;
-  return isWalkable(terrainAt(map, p));
+  return pisaBarreras || isWalkable(terrainAt(map, p));
+}
+
+/**
+ * La barrera de `p` que pisaría quien se infiltra, o `null` si no lo es: fuera
+ * del mapa, en un recinto (su muralla no es una barrera y no se abre; la ciudad
+ * y sus puertas se pisan como una calle) o en lo que se pisa. Para nombrarla o
+ * decir que cuesta el día entero (`porQueNoLlega`, `moveHero`): qué se pisa lo
+ * dice `isEnterable`.
+ */
+export function barreraEn(map: GameMap, p: Point): Barrera | null {
+  if (!inBounds(map, p) || (pasosDelMapa(map)?.rol[p.y * map.width + p.x] ?? FUERA) !== FUERA) {
+    return null;
+  }
+  const terreno = terrainAt(map, p);
+  return esBarrera(terreno) ? terreno : null;
 }
 
 /**
@@ -481,9 +501,16 @@ export function sePasa(map: GameMap, desde: Point, hasta: Point): boolean {
  * `costeDeEntrada`, que vive con sus constantes en `terrain.ts`. El Dijkstra usa
  * la de allí directamente para precalcular sus dos tablas por casilla, y desde
  * este ciclo también la usa el contrato para decirle al agente lo que le va a
- * costar cada paso — tres lectores y una sola fórmula.
+ * costar cada paso — tres lectores y una sola fórmula. Con `barrera`, la de quien
+ * se infiltra: una casilla de barrera cuesta eso, recta u oblicua, como en el
+ * Dijkstra (`reachableFrom(…, barrera)`).
  */
-export function stepCost(map: GameMap, from: Point, to: Point): number {
+export function stepCost(
+  map: GameMap,
+  from: Point,
+  to: Point,
+  barrera: number | null = null,
+): number {
   const terreno = terrainAt(map, to);
   const diagonal = from.x !== to.x && from.y !== to.y;
   const pasos = pasosDelMapa(map);
@@ -500,6 +527,7 @@ export function stepCost(map: GameMap, from: Point, to: Point): number {
     if (pasos.rol[j] !== FUERA) return costeDeEntrada('grass', true, diagonal);
   }
   if (!isWalkable(terreno)) {
+    if (barrera !== null) return barrera;
     throw new Error(`no se entra en (${to.x},${to.y}): es ${terreno}, y una barrera no se pisa`);
   }
   return costeDeEntrada(terreno, map.caminos.tiene(to), diagonal);
@@ -526,12 +554,13 @@ export function findPath(
   from: Point,
   to: Point,
   hostiles: readonly Point[] = [],
+  barrera: number | null = null,
 ): PathStep[] | null {
   if (!inBounds(map, from) || !inBounds(map, to)) return null;
   if (pointKey(from) === pointKey(to)) return [];
-  if (!isEnterable(map, to)) return null;
+  if (!isEnterable(map, to, barrera !== null)) return null;
 
-  return pathFromReachable(map, dijkstra(map, from, to, hostiles, null), from, to);
+  return pathFromReachable(map, dijkstra(map, from, to, hostiles, null, barrera), from, to);
 }
 
 /**
@@ -617,8 +646,9 @@ export function reachableFrom(
   from: Point,
   hostiles: readonly Point[] = [],
   prohibidas: Uint8Array | null = null,
+  barrera: number | null = null,
 ): Reachable {
-  return dijkstra(map, from, null, hostiles, prohibidas);
+  return dijkstra(map, from, null, hostiles, prohibidas, barrera);
 }
 
 /**
@@ -674,6 +704,7 @@ function dijkstra(
   parar: Point | null,
   hostiles: readonly Point[],
   prohibidas: Uint8Array | null,
+  barrera: number | null,
 ): Reachable {
   const ancho = map.width;
   const casillas = ancho * map.height;
@@ -693,13 +724,29 @@ function dijkstra(
   // quiere. Se pagan enteras en cada búsqueda y aun así sale a cuenta: medido
   // en `pnpm banco`, 3402 → 1611 ms de mediana en tres pasadas intercaladas,
   // **2,11×**, con el sha256 del volcado intacto.
+  if (barrera !== null && (!Number.isSafeInteger(barrera) || barrera <= 0)) {
+    throw new Error(`el precio de una barrera tiene que ser un entero positivo: ${barrera}`);
+  }
   const pisable = new Uint8Array(casillas);
   const recto = new Int32Array(casillas);
   const oblicuo = new Int32Array(casillas);
   for (let i = 0; i < casillas; i++) {
     const terreno = map.terrain[i] as TerrainKind;
-    // Una barrera no tiene precio: se queda en 0 y no se lee, porque no se pisa.
-    if (!isWalkable(terreno)) continue;
+    if (!isWalkable(terreno)) {
+      // Una barrera no tiene precio: se queda en 0 y no se lee, porque no se
+      // pisa. Salvo para quien se infiltra (`hero/infiltracion.ts`), que la pisa
+      // a un día entero por casilla, recto u oblicuo: lo que valga `barrera`, su
+      // marcha del día. Los caminos de abajo no la abaratan (no abren barreras) y
+      // el recinto, después, vuelve a cerrar su muralla aunque debajo haya
+      // montaña. Con `null` (todo el que no se infiltra, la IA de hoy y el banco)
+      // las tablas y el orden de descubrimiento son los de siempre.
+      if (barrera !== null) {
+        pisable[i] = 1;
+        recto[i] = barrera;
+        oblicuo[i] = barrera;
+      }
+      continue;
+    }
     pisable[i] = 1;
     recto[i] = costeDeEntrada(terreno, false, false);
     oblicuo[i] = costeDeEntrada(terreno, false, true);
@@ -707,7 +754,7 @@ function dijkstra(
   // Las casillas con camino, por índice: la red las trae ya dentro del mapa.
   for (const i of map.caminos.indices) {
     const terreno = map.terrain[i] as TerrainKind;
-    // Un camino pintado sobre una barrera no la abre: sigue sin pisarse.
+    // Un camino pintado sobre una barrera no la abre ni la abarata: se queda como está.
     if (!isWalkable(terreno)) continue;
     recto[i] = costeDeEntrada(terreno, true, false);
     oblicuo[i] = costeDeEntrada(terreno, true, true);

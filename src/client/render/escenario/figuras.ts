@@ -27,6 +27,7 @@ import type { Sprite } from './colocar.js';
 import { PIES } from './figuras-del-mapa.js';
 import { type Caja, cajaDeSprite } from './pasillo.js';
 import { separar, type Volumen } from './pintar.js';
+import type { DeNodo } from './puestos.js';
 
 /**
  * La figura con que se mide si una casilla queda tapada, en casillas: los pies a
@@ -51,27 +52,35 @@ const MUESTRAS: readonly (readonly [number, number])[] = Array.from({ length: 7 
 ).flat();
 
 /**
- * Qué muestras de la figura de la casilla `(x, y)` (por su índice en
+ * Qué muestras de la figura de caja `figura` (`cajaDeFigura`; por su índice en
  * `MUESTRAS`) caen bajo la silueta del sprite `s` (`altoDeLaSilueta`): lo que
- * de ella tapa, no su caja, que es casi toda transparente por arriba.
+ * de ella tapa, no su caja, que es casi toda transparente por arriba. Una a una,
+ * para que quien solo pregunta si tapa algo (`tapaAlgo`) pare en la primera.
  */
-function muestrasBajo(
+function* muestrasBajo(
   s: Sprite,
   perfil: readonly number[] | undefined,
   caja: Caja,
-  x: number,
-  y: number,
-): number[] {
-  const [fx0, fy0, fx1, fy1] = cajaDeFigura(x, y);
-  if (fx1 <= caja[0] || fx0 >= caja[2] || fy1 <= caja[1] || fy0 >= caja[3]) return [];
-  const bajo: number[] = [];
-  MUESTRAS.forEach(([u, w], k) => {
+  figura: readonly [number, number, number, number],
+): Generator<number> {
+  const [fx0, fy0, fx1, fy1] = figura;
+  if (fx1 <= caja[0] || fx0 >= caja[2] || fy1 <= caja[1] || fy0 >= caja[3]) return;
+  for (const [k, [u, w]] of MUESTRAS.entries()) {
     const px = fx0 + u * (fx1 - fx0);
     const py = fy0 + w * (fy1 - fy0);
     const alto = altoDeLaSilueta(s, perfil, px, caja);
-    if (alto !== undefined && py >= alto && py <= caja[3]) bajo.push(k);
-  });
-  return bajo;
+    if (alto !== undefined && py >= alto && py <= caja[3]) yield k;
+  }
+}
+
+/** Si el sprite `s` tapa algo de la figura de caja `figura`: la primera muestra basta. */
+function tapaAlgo(
+  s: Sprite,
+  perfil: readonly number[] | undefined,
+  caja: Caja,
+  figura: readonly [number, number, number, number],
+): boolean {
+  return muestrasBajo(s, perfil, caja, figura).next().done !== true;
 }
 
 /** Las casillas cuya figura puede pisar la caja `caja`, con la fila desde `desde`. */
@@ -91,17 +100,48 @@ function* casillasBajo(
 }
 
 /**
- * Por casilla (`y·W + x`), la clave de la pieza del relieve más honda que
- * cuelga de su fila o de una más al norte (`Sprite.filaAlta`, la más al norte
- * de sus casillas altas) y tapa algo de su figura (`muestrasBajo`): la figura
- * que la pise se pinta con esa clave, después de ella (a igual clave va antes el
- * volumen). La de su propia fila cuenta: esa cara cae desde sus pies, por
- * debajo de ellos. Una pieza sin `filaAlta` no sube nada.
+ * **La regla de la figura que sube**: por casilla (`y·W + x`), la clave de la
+ * más honda de las piezas que se pintarían después de su figura (su clave pasa
+ * de sus pies) y le tapan algo de la silueta (`tapaAlgo`), de entre las que
+ * `desde` deja subir figuras y desde la fila que diga; la figura que la pise se
+ * pinta con esa clave, después de ella (a igual clave va antes el volumen). Las
+ * casillas a mirar salen de la caja de cada pieza (`casillasBajo`).
  *
  * Solo sube donde la pieza tapa algo de su silueta, no donde pisa su caja (casi
  * toda transparente por arriba): la figura que sube pasa también por delante de
  * lo que haya entre sus pies y la pieza —un árbol de la fila de abajo—, y así
- * solo pasa donde, si no, la taparía la pared.
+ * solo pasa donde, si no, la taparía la pieza.
+ */
+function delanteDeLasPiezas(
+  volumenes: readonly Volumen[],
+  W: number,
+  H: number,
+  perfilDe: PerfilDe,
+  desde: (v: Volumen) => number | undefined,
+): Map<number, number> {
+  const delante = new Map<number, number>();
+  for (const v of volumenes) {
+    const fila = desde(v);
+    if (fila === undefined) continue;
+    const caja = cajaDeSprite(v.s);
+    const perfil = perfilDe(v.s);
+    for (const [x, y] of casillasBajo(caja, fila, W, H)) {
+      const i = y * W + x;
+      if (y + FIGURA.pies >= v.clave) continue;
+      if (!tapaAlgo(v.s, perfil, caja, cajaDeFigura(x, y))) continue;
+      const antes = delante.get(i);
+      delante.set(i, antes === undefined ? v.clave : Math.max(antes, v.clave));
+    }
+  }
+  return delante;
+}
+
+/**
+ * Por casilla (`y·W + x`), la clave de la pieza del relieve más honda que
+ * cuelga de su fila o de una más al norte (`Sprite.filaAlta`, la más al norte
+ * de sus casillas altas) y tapa algo de su figura (`delanteDeLasPiezas`). La de
+ * su propia fila cuenta: esa cara cae desde sus pies, por debajo de ellos. Una
+ * pieza sin `filaAlta` no sube nada.
  */
 export function delanteDeLasParedes(
   volumenes: readonly Volumen[],
@@ -109,20 +149,9 @@ export function delanteDeLasParedes(
   H: number,
   perfilDe: PerfilDe,
 ): Map<number, number> {
-  const delante = new Map<number, number>();
-  for (const v of volumenes) {
-    const fila = v.s.filaAlta;
-    if (v.s.clase !== 'pared' || fila === undefined) continue;
-    const caja = cajaDeSprite(v.s);
-    const perfil = perfilDe(v.s);
-    for (const [x, y] of casillasBajo(caja, fila, W, H)) {
-      if (y + FIGURA.pies >= v.clave || muestrasBajo(v.s, perfil, caja, x, y).length === 0)
-        continue;
-      const i = y * W + x;
-      delante.set(i, Math.max(delante.get(i) ?? v.clave, v.clave));
-    }
-  }
-  return delante;
+  return delanteDeLasPiezas(volumenes, W, H, perfilDe, (v) =>
+    v.s.clase === 'pared' ? v.s.filaAlta : undefined,
+  );
 }
 
 /**
@@ -167,9 +196,140 @@ export function pisablesTapadas(
         suyas = new Set();
         bajo.set(i, suyas);
       }
-      for (const k of muestrasBajo(v.s, perfil, caja, x, y)) suyas.add(k);
+      for (const k of muestrasBajo(v.s, perfil, caja, cajaDeFigura(x, y))) suyas.add(k);
       if (suyas.size > TAPADA_DESDE * MUESTRAS.length) tapadas.add(i);
     }
   }
   return [...tapadas].sort((a, b) => a - b);
+}
+
+/**
+ * Si una pieza está **detrás** de la figura con los pies en `pies` (la de la fila
+ * `y`): la del relieve, si cuelga de su fila o de una más al norte
+ * (`Sprite.filaAlta`); lo demás, si su pie (`Sprite.y`, su sitio, no su clave: la
+ * pieza ordenada por detrás de otra, `ordenadoEn`, sigue en su casilla) no pasa
+ * de sus pies. Con la fila del pie, y no el pie, un puesto o un pueblo de su
+ * misma fila con el pie más al sur que el de la figura la dejaba subir por
+ * encima de él (12 casillas en s1-40: 6 nodos y 6 pueblos; N1 de la vuelta 2 de QA).
+ */
+const deDetras = (s: Sprite, y: number, pies: number): boolean =>
+  s.filaAlta !== undefined ? s.filaAlta <= y : s.y <= pies;
+
+/**
+ * Si la pieza es algo hecho —un objeto del mapa (también un puesto o la puerta de
+ * una muralla), una pieza de un recinto o de un puente—, no la masa de una
+ * barrera. La muralla del mapa sí es masa: es la barrera `wall`, que también se
+ * cruza infiltrado.
+ */
+const esAlgoHecho = (s: Sprite): boolean =>
+  s.clase === 'objeto' ||
+  s.objeto !== undefined ||
+  s.recinto !== undefined ||
+  s.puente !== undefined;
+
+/**
+ * Lo que tapa algo de la figura de una casilla de barrera y se pintaría después
+ * de ella (`loQueTapaEnUnaBarrera`): su clave, si la sube o la para, y el nodo de
+ * la pieza que solo se pinta según lo que se sabe de él (`Sprite.deNodo`: el hito
+ * y las tres obras del puesto).
+ */
+export interface LoQueTapaEnUnaBarrera {
+  readonly clave: number;
+  /** Si la figura sube por delante (lo de detrás, la masa) o no pasa de ella (lo hecho de delante). */
+  readonly sube: boolean;
+  readonly deNodo: DeNodo | undefined;
+}
+
+/**
+ * Lo que tapa la figura de la casilla de **barrera** `(x, y)` y se pintaría
+ * después de ella (su clave pasa de sus pies y le tapa algo de la silueta,
+ * `tapaAlgo`), cada pieza con lo que hace (`subidaEnUnaBarrera`). La sube:
+ *
+ * - lo que está **detrás** (`deDetras`): lo del relieve que cuelga de su fila o
+ *   de una más al norte, y lo demás con el pie en sus pies o más al norte, de
+ *   cualquier clase: en el mundo está detrás de ella (la regla de
+ *   `delanteDeLasParedes`, con toda pieza);
+ * - o **la masa de una barrera** de más al sur: lo que no es algo hecho
+ *   (`esAlgoHecho`) ni la cubierta de lo que se pisa (una mata, una parcela o una
+ *   casa de la labranza, que es cubierta: la de una casilla que no se pisa sí es
+ *   masa). Picos, árboles, rocas, la muralla: aunque su pie caiga en lo que se
+ *   pisa, como el de algún pico del borde de su cordillera.
+ *
+ * Y la para **lo hecho de más al sur** que la tapa (las torres, los tramos y las
+ * casas de un recinto, un objeto, un puesto): eso está delante y la sigue
+ * tapando; de la masa que se pintaría después de ello, sube solo por lo que va antes.
+ *
+ * Solo un grupo que se infiltra se para en una barrera (`hero/infiltracion.ts`,
+ * 05-11-2026), y allí la masa de la montaña o del bosque lo escondía entero (el
+ * criterio 5: «se ve en el mapa y se puede pulsar»). Por delante de toda pieza, el
+ * goblin parado en la montaña al norte de Valdeluz (s8, (6,5) y (7,5)) se pintaba
+ * encima de las torres, con el aro sobre los tejados, y se leía dentro de la ciudad
+ * (H1 de la vuelta 1 de QA). Solo por lo de su fila o más al norte, la masa de la
+ * fila de delante lo tapaba en la mitad o más en 694 de las 2 305 casillas de
+ * barrera de s8, s39, s1 y s13 (el 30 %), y en el bosque de (4,7) de s8, el de las
+ * capturas, en un 56 %: por eso la masa de delante también lo sube. En una casilla
+ * que se pisa no se pregunta: la regla de siempre (`claveDeFigura`) no cambia.
+ */
+export function loQueTapaEnUnaBarrera(
+  volumenes: Iterable<Volumen>,
+  terreno: readonly TerrainKind[],
+  W: number,
+  perfilDe: PerfilDe,
+  x: number,
+  y: number,
+): LoQueTapaEnUnaBarrera[] {
+  const figura = cajaDeFigura(x, y);
+  const pies = y + FIGURA.pies;
+  const sePisaBajo = (p: Sprite): boolean => {
+    const t = terreno[Math.floor(p.y) * W + Math.floor(p.x)];
+    return t !== undefined && isWalkable(t);
+  };
+  const lista: LoQueTapaEnUnaBarrera[] = [];
+  for (const v of volumenes) {
+    if (v.clave <= pies) continue;
+    if (!tapaAlgo(v.s, perfilDe(v.s), cajaDeSprite(v.s), figura)) continue;
+    const detras = deDetras(v.s, y, pies);
+    // La cubierta de lo que se pisa, de delante, ni sube ni para: va encima, como siempre.
+    if (!detras && !esAlgoHecho(v.s) && v.s.clase === 'cubierta' && sePisaBajo(v.s)) continue;
+    lista.push({ clave: v.clave, sube: detras || !esAlgoHecho(v.s), deNodo: v.s.deNodo });
+  }
+  return lista;
+}
+
+/**
+ * La clave con que se pinta la figura de una casilla de barrera, con lo que la
+ * tapa (`loQueTapaEnUnaBarrera`), o −∞ si no hay que subirla: la de lo más hondo
+ * que la sube y va antes que todo lo que la para. **Solo cuenta lo que se pinta**:
+ * la pieza de un nodo, si `seVe` (el hito y las obras del puesto, con lo que se
+ * sabe del nodo, `seVeConSuNodo`). Con todas, la empalizada y la torre de un paso
+ * neutral, que no se pintan, la paraban, y la masa de delante la tapaba en la
+ * mitad o más en 4 casillas de s1-40 (s24 (15,8), s36 (8,22), s39 (23,9), s10
+ * (3,10); N2 de la vuelta 2 de QA).
+ */
+export function subidaEnUnaBarrera(
+  lo: readonly LoQueTapaEnUnaBarrera[],
+  seVe: (d: DeNodo) => boolean,
+): number {
+  const cuenta = lo.filter((p) => p.deNodo === undefined || seVe(p.deNodo));
+  const tope = Math.min(...cuenta.filter((p) => !p.sube).map((p) => p.clave));
+  return cuenta.reduce(
+    (a, p) => (p.sube && p.clave < tope && p.clave > a ? p.clave : a),
+    Number.NEGATIVE_INFINITY,
+  );
+}
+
+/**
+ * La clave de la figura de la casilla de barrera `(x, y)` (`subidaEnUnaBarrera`
+ * de `loQueTapaEnUnaBarrera`), de una vez: lo que piden los tests y el taller.
+ */
+export function delanteEnUnaBarrera(
+  volumenes: Iterable<Volumen>,
+  terreno: readonly TerrainKind[],
+  W: number,
+  perfilDe: PerfilDe,
+  x: number,
+  y: number,
+  seVe: (d: DeNodo) => boolean,
+): number {
+  return subidaEnUnaBarrera(loQueTapaEnUnaBarrera(volumenes, terreno, W, perfilDe, x, y), seVe);
 }

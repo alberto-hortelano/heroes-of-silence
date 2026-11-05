@@ -1990,7 +1990,7 @@ describe('el mapa de nodos se juega', () => {
     const antes = state.log.length;
     expect(() =>
       applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: { x: 13, y: 2 } }, c, 0),
-    ).toThrow('no quedan puntos de movimiento para dar ni un paso');
+    ).toThrow(`${hero.name} hoy no da ni un paso: el primero, a (10,2), cuesta`);
     expect(hero.at).toEqual({ x: 9, y: 2 });
     expect(state.log.length).toBe(antes);
   });
@@ -2040,8 +2040,12 @@ describe('el mapa de nodos se juega', () => {
       `no hay camino hasta (14,4): lo cierran el héroe rival ${rival.name} en (11,2) y el héroe rival Otro Rival en (11,6)`,
     );
 
-    // Y si lo cierra el mapa, no se culpa a nadie: la cordillera no es un rival.
-    expect(mover({ x: 11, y: 0 })).toThrow(/^no hay camino hasta \(11,0\)$/);
+    // Y si lo cierra el mapa, no se culpa a ningún rival: la cordillera no lo es.
+    // Como infiltrándose sí llegaría (05-11-2026), se dice que solo la cruza un
+    // grupo que se infiltra y por qué este no.
+    expect(mover({ x: 11, y: 0 })).toThrow(
+      /^no hay camino hasta \(11,0\) sin cruzar una barrera: solo la cruza un grupo que se infiltra, y no se infiltra: /,
+    );
   });
 
   it('una ciudad neutral nace con la guarnición de los datos y se toma peleando', () => {

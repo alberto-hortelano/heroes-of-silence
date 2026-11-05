@@ -235,7 +235,7 @@ describe('la ciudad-puente en los mapas del juego', () => {
         // La ciudad lleva su marca en su casilla, y quien está en el puente se
         // pinta en su tablero, como en el de un nodo.
         expect(esc.asientoDeObjeto.get(o.id), donde).toEqual([o.at.x + 0.5, o.at.y + 0.5]);
-        const quien = pisada(esc, rio, PIES.heroe);
+        const quien = pisada(esc, rio, PIES.heroe, new Map());
         expect([quien.x, quien.y], donde).toEqual(pu.asiento);
         // Pulsar el tablero sobre el río lleva a su casilla.
         expect(puenteEnElTerreno(e.puentes, map.terrain, W, ...pu.asiento)?.id, donde).toBe(pu.id);

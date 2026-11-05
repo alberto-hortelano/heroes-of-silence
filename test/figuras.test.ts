@@ -11,16 +11,25 @@
  * 1-40. Ahora la figura va delante de toda pieza que cuelga de su fila o de más
  * al norte (`delanteDeLasParedes`) y el informe lo recuenta (`pisablesTapadas`).
  */
-import type { TerrainKind } from '@core/map/terrain.js';
+import { barreraEn, type MejoraDelPuesto } from '@core/map/map.js';
+import { isWalkable, type TerrainKind } from '@core/map/terrain.js';
 import { describe, expect, it } from 'vitest';
-import { perfilesDelCatalogo } from '../src/client/render/escenario/caras.js';
+import { altoDeLaSilueta, perfilesDelCatalogo } from '../src/client/render/escenario/caras.js';
 import type { Sprite } from '../src/client/render/escenario/colocar.js';
 import {
+  cajaDeFigura,
   delanteDeLasParedes,
+  delanteEnUnaBarrera,
   FIGURA,
   pisablesTapadas,
 } from '../src/client/render/escenario/figuras.js';
-import { claveDeFigura, escenarioDe } from '../src/client/render/escenario/superficie.js';
+import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
+import {
+  type DeNodo,
+  type NodoQueSeSabe,
+  seVeConSuNodo,
+} from '../src/client/render/escenario/puestos.js';
+import { claveDeFigura, escenarioDe, pisada } from '../src/client/render/escenario/superficie.js';
 import { PIES } from '../src/client/render/mapa.js';
 import { catalogoDelDisco, partidaDe } from './helpers.js';
 import { LENTO, rango } from './lento.js';
@@ -164,5 +173,265 @@ describe('en los mapas reales', () => {
     }
     // Que mire algo: cada casilla de `antes` la tapa al menos una pieza.
     expect(vistas).toBeGreaterThanOrEqual(antes.size);
+  });
+});
+
+describe('delanteEnUnaBarrera: quien se infiltra se ve parado en una barrera (05-11-2026)', () => {
+  /** Todo montaña salvo la fila 6, de hierba: la figura está en (2, 4). */
+  const monte: TerrainKind[] = Array.from({ length: 10 * 10 }, (_, i) =>
+    Math.floor(i / 10) === 6 ? 'grass' : 'mountain',
+  );
+  /** Una pieza de marcador de la clase `clase` con el pie en `pie`, centrada en `x`, de `alto` casillas. */
+  const pieza = (
+    x: number,
+    pie: number,
+    alto: number,
+    clase: Sprite['clase'] = 'masa',
+  ): Sprite => ({
+    ...frontal(x, undefined, 0, 1),
+    y: pie,
+    alto,
+    clase,
+  });
+  /** Una torre del recinto de una ciudad: algo hecho. */
+  const torre = (pie: number): Sprite => ({ ...pieza(2.5, pie, 2, 'objeto'), recinto: 'torre' });
+  /** La clave de la figura con estas piezas, cada una con la de su pie o la que se le dé. */
+  const clave = (
+    sprites: readonly (Sprite | { readonly s: Sprite; readonly clave: number })[],
+    terreno = monte,
+    seVe: (d: DeNodo) => boolean = () => true,
+  ): number =>
+    delanteEnUnaBarrera(
+      sprites.map((p) => ('s' in p ? p : { clave: p.y, s: p })),
+      terreno,
+      10,
+      sinPerfil,
+      2,
+      4,
+      seVe,
+    );
+
+  it('va delante de la masa de su casilla y de la de delante: la montaña y el bosque no lo esconden', () => {
+    const suya = pieza(2.5, 4.9, 2);
+    const deDelante = pieza(2.5, 5.3, 2);
+    expect(clave([suya])).toBe(4.9);
+    expect(clave([suya, deDelante])).toBe(5.3);
+  });
+
+  it('lo hecho de una fila más al sur (el recinto de una ciudad) lo sigue tapando: H1 de la vuelta 1 de QA', () => {
+    expect(clave([torre(5.3)])).toBe(Number.NEGATIVE_INFINITY);
+    // Lo hecho con el pie en sus pies o más al norte está detrás de él: sí sube
+    // si se pinta después (ordenado por detrás de otra pieza, `ordenadoEn`).
+    expect(clave([{ s: torre(4.7), clave: 5.3 }])).toBe(5.3);
+  });
+
+  it('lo hecho de su misma fila con el pie al sur de sus pies también lo tapa: N1 de la vuelta 2 de QA', () => {
+    // Los pies en 4,8; la torre, en su fila (4) pero con el pie en 4,95. Con la
+    // fila del pie (`Math.floor`) subía por encima de ella.
+    expect(clave([torre(4.95)])).toBe(Number.NEGATIVE_INFINITY);
+    expect(clave([torre(4.95), pieza(2.5, 4.9, 2)])).toBe(4.9);
+    // La masa de su fila con el pie al sur de sus pies sigue subiéndolo.
+    expect(clave([pieza(2.5, 4.95, 2)])).toBe(4.95);
+  });
+
+  it('de las piezas de un nodo cuenta solo la que se pinta: N2 de la vuelta 2 de QA', () => {
+    // La empalizada de un paso de delante: si no se pinta (el paso es neutral),
+    // ni lo para ni lo sube, y la masa de delante lo sube; si se pinta, lo para.
+    const empalizada: Sprite = {
+      ...pieza(2.5, 5.3, 2, 'objeto'),
+      deNodo: { id: 'node-1', cuando: 'empalizada' },
+    };
+    const masa = pieza(2.5, 5.5, 2);
+    expect(clave([empalizada, masa], monte, () => false)).toBe(5.5);
+    expect(clave([empalizada, masa], monte, () => true)).toBe(Number.NEGATIVE_INFINITY);
+    // Y la que está detrás, solo si se pinta.
+    const detras: Sprite = { ...empalizada, y: 4.7 };
+    expect(clave([{ s: detras, clave: 5.3 }], monte, () => false)).toBe(Number.NEGATIVE_INFINITY);
+    expect(clave([{ s: detras, clave: 5.3 }], monte, () => true)).toBe(5.3);
+  });
+
+  it('de la masa de delante, no sube por la que se pintaría después de lo hecho que lo tapa', () => {
+    expect(clave([torre(5.3), pieza(2.5, 5.5, 2)])).toBe(Number.NEGATIVE_INFINITY);
+    expect(clave([torre(5.3), pieza(2.5, 5.3, 2)])).toBe(Number.NEGATIVE_INFINITY);
+    expect(clave([torre(5.3), pieza(2.5, 5.2, 2)])).toBe(5.2);
+  });
+
+  it('la cubierta de lo que se pisa (una casa de la labranza) no lo sube; la de una barrera, sí', () => {
+    expect(clave([pieza(2.5, 6.3, 2.5, 'cubierta')])).toBe(Number.NEGATIVE_INFINITY);
+    expect(clave([pieza(2.5, 5.3, 2, 'cubierta')])).toBe(5.3);
+    // Un pico con el pie en lo que se pisa sigue siendo la masa de su cordillera.
+    expect(clave([pieza(2.5, 6.3, 2.5)])).toBe(6.3);
+  });
+
+  it('no sube por lo que se pinta antes ni por lo que no le toca la figura', () => {
+    expect(clave([pieza(2.5, 4.1, 2), pieza(0.2, 5.3, 2)])).toBe(Number.NEGATIVE_INFINITY);
+  });
+
+  /** Sin saber nada de ningún nodo: se pinta su hito, ninguna obra (`seVeConSuNodo`). */
+  const sinSaber: ReadonlyMap<string, NodoQueSeSabe> = new Map();
+  /** Si una pieza se pinta con lo que se sabe de los nodos. */
+  const sePinta =
+    (nodos: ReadonlyMap<string, NodoQueSeSabe>) =>
+    (s: Sprite): boolean =>
+      s.deNodo === undefined || seVeConSuNodo(s.deNodo, nodos.get(s.deNodo.id));
+  /** Algo hecho, como lo cuenta `delanteEnUnaBarrera`: un objeto, un recinto, un puente. */
+  const esHecho = (s: Sprite): boolean =>
+    s.clase === 'objeto' ||
+    s.objeto !== undefined ||
+    s.recinto !== undefined ||
+    s.puente !== undefined;
+
+  /**
+   * Qué parte de la figura de `(x, y)` (las muestras de su caja, 7 × 10) queda
+   * bajo la silueta de alguna pieza de `esc` que pasa `filtro` y se pinta
+   * `despues` de ella (con la clave `c`), o antes (la figura va encima). Mide lo
+   * que se ve, no la regla. `filas`, las filas de muestras que se miran (la 0
+   * es la cabeza).
+   */
+  function cuanto(
+    esc: ReturnType<typeof escenarioDe>,
+    x: number,
+    y: number,
+    c: number,
+    filtro: (s: Sprite) => boolean,
+    despues: boolean,
+    filas = 10,
+  ): number {
+    const [fx0, fy0, fx1, fy1] = cajaDeFigura(x, y);
+    const piezas = esc.separada.volumenes.filter(
+      (v) => (despues ? v.clave > c : v.clave <= c) && filtro(v.s),
+    );
+    let bajo = 0;
+    for (let i = 0; i < 7; i++)
+      for (let j = 0; j < filas; j++) {
+        const px = fx0 + ((i + 0.5) / 7) * (fx1 - fx0);
+        const py = fy0 + ((j + 0.5) / 10) * (fy1 - fy0);
+        const tapada = piezas.some((v) => {
+          const caja = cajaDeSprite(v.s);
+          if (px < caja[0] || px > caja[2] || py < caja[1] || py > caja[3]) return false;
+          const alto = altoDeLaSilueta(v.s, esc.perfilDe(v.s), px, caja);
+          return alto !== undefined && py >= alto;
+        });
+        if (tapada) bajo++;
+      }
+    return bajo / (7 * filas);
+  }
+  /** Cuánto de la figura tapan las piezas que pasan `filtro` y se pintan después de ella. */
+  const cuantoLaTapan = (
+    esc: ReturnType<typeof escenarioDe>,
+    x: number,
+    y: number,
+    c: number,
+    filtro: (s: Sprite) => boolean,
+  ): number => cuanto(esc, x, y, c, filtro, true);
+  /**
+   * Cuánto de la figura de `(x, y)` se pinta encima de algo hecho con el pie al
+   * sur de sus pies, de lo que se pinta (`nodos`): lo que está delante y no debe
+   * taparse (N1 de la vuelta 2 de QA).
+   */
+  const encimaDeLoHecho = (
+    esc: ReturnType<typeof escenarioDe>,
+    x: number,
+    y: number,
+    c: number,
+    nodos: ReadonlyMap<string, NodoQueSeSabe> = sinSaber,
+  ): number =>
+    cuanto(esc, x, y, c, (s) => sePinta(nodos)(s) && esHecho(s) && s.y > y + PIES.heroe, false);
+
+  it('s8, la de QA: en la montaña al norte de Valdeluz, detrás de su recinto; en el bosque de (4,7), a la vista', () => {
+    const { map } = partidaDe(8);
+    const esc = escenarioDe(map, 8);
+    const { W } = esc.escena;
+    const esMasa = (s: Sprite) => s.recinto === undefined && s.objeto === undefined;
+    for (const [x, y] of [
+      [6, 5],
+      [7, 5],
+      [4, 7],
+    ] as const) {
+      expect(isWalkable(map.terrain[y * W + x] as TerrainKind), `(${x}, ${y})`).toBe(false);
+      const c = pisada(esc, { x, y }, PIES.heroe, sinSaber).clave;
+      // Ni la montaña ni el bosque lo tapan.
+      expect(cuantoLaTapan(esc, x, y, c, esMasa), `(${x}, ${y})`).toBe(0);
+    }
+    for (const x of [6, 7]) {
+      const c = pisada(esc, { x, y: 5 }, PIES.heroe, sinSaber).clave;
+      // Y el recinto de delante sí: ninguna parte de la figura se pinta encima de
+      // sus torres o sus casas (N1 de la vuelta 2 de QA: en (6,5), el 43 %, con
+      // los pies y el aro sobre la torre del noroeste; en (7,5), el 30 %).
+      expect(encimaDeLoHecho(esc, x, 5, c), `(${x}, 5)`).toBe(0);
+      expect(
+        cuantoLaTapan(esc, x, 5, c, (s) => s.recinto !== undefined),
+        `(${x}, 5)`,
+      ).toBeGreaterThan(0);
+      // Sin esconderlo: lo que tapa el recinto son las piernas (el 43 % de la
+      // figura en (6,5), el 30 % en (7,5)); la cabeza y el torso (las cuatro
+      // filas de muestras de arriba) se ven enteros, y se admite un cuarto.
+      expect(
+        cuanto(esc, x, 5, c, () => true, true, 4),
+        `(${x}, 5)`,
+      ).toBeLessThanOrEqual(0.25);
+    }
+  });
+
+  it('una obra del puesto que no se pinta no lo deja tapado por la masa: N2 de la vuelta 2 de QA', () => {
+    // s24 (15,8), node-2: con la empalizada y la torre del paso neutral contando
+    // como tope, la masa de delante la tapaba entera.
+    const { map } = partidaDe(24);
+    const esc = escenarioDe(map, 24);
+    const [x, y] = [15, 8];
+    expect(isWalkable(map.terrain[y * esc.escena.W + x] as TerrainKind)).toBe(false);
+    const nodosEn = (mejora: MejoraDelPuesto | null): ReadonlyMap<string, NodoQueSeSabe> =>
+      new Map(
+        map.objects
+          .filter((o) => o.kind === 'node')
+          .map((o) => [o.id, { owner: mejora === null ? null : 0, mejora: mejora ?? 'ninguna' }]),
+      );
+    // El paso en cada estado, sobre el mismo escenario: lo guardado por casilla
+    // no se queda con lo que se sabía la primera vez.
+    const claves = new Map<string, number>();
+    for (const mejora of [null, 'ninguna', 'empalizada', 'muralla', null] as const) {
+      const nodos = nodosEn(mejora);
+      const nombre = mejora ?? 'neutral';
+      const c = pisada(esc, { x, y }, PIES.heroe, nodos).clave;
+      if (claves.has(nombre)) expect(c, nombre).toBe(claves.get(nombre));
+      claves.set(nombre, c);
+      const masa = (s: Sprite) => sePinta(nodos)(s) && !esHecho(s);
+      // Sin la obra de delante a la vista, la masa no lo tapa; con ella, la obra
+      // está delante y lo de después de ella también (H1 de la vuelta 1).
+      if (mejora === null || mejora === 'ninguna')
+        expect(cuantoLaTapan(esc, x, y, c, masa), nombre).toBeLessThan(0.5);
+      else expect(c, nombre).toBeLessThan(claves.get('neutral') as number);
+      expect(encimaDeLoHecho(esc, x, y, c, nodos), nombre).toBe(0);
+    }
+  });
+
+  it('en un mapa de verdad: fuera de una barrera (también en la puerta de un recinto), nada cambia', () => {
+    // La regla es la del núcleo, `barreraEn`: la puerta de un recinto con montaña
+    // debajo (s8 (6,6), la del noroeste de Valdeluz) no es barrera, y en ella la
+    // clave es la de siempre (N3 de la vuelta 3 de QA: bajaba de 2,4 a 3 casillas
+    // en 177 puertas de s1-40 y el héroe quedaba escondido tras la torre).
+    for (const semilla of [8, 39]) {
+      const { map } = partidaDe(semilla);
+      const esc = escenarioDe(map, semilla);
+      const { W, H } = esc.escena;
+      let fuera = 0;
+      let puertas = 0;
+      for (let y = 0; y < H; y++)
+        for (let x = 0; x < W; x++) {
+          if (barreraEn(map, { x, y }) !== null || esc.tableros.has(y * W + x)) continue;
+          expect(
+            pisada(esc, { x, y }, PIES.heroe, new Map()).clave,
+            `s${semilla} (${x}, ${y})`,
+          ).toBe(claveDeFigura(esc, x, y + PIES.heroe));
+          fuera++;
+          if (!isWalkable(map.terrain[y * W + x] as TerrainKind)) puertas++;
+        }
+      expect(fuera).toBeGreaterThan(100);
+      if (semilla === 8) {
+        expect(isWalkable(map.terrain[6 * W + 6] as TerrainKind)).toBe(false);
+        expect(barreraEn(map, { x: 6, y: 6 })).toBeNull();
+        expect(puertas).toBeGreaterThan(0);
+      }
+    }
   });
 });

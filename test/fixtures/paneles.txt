@@ -9,6 +9,7 @@
         <div class="row"><span class="label">Liderazgo</span><span>20 / 20</span></div>
     <progress class="liderazgo" max="20" value="20"></progress>
         <div class="row"><span class="label">Movimiento</span><span>1616 / 1616</span></div>
+        <div class="row"><span class="label">Infiltración</span><span>no <span class="nota" tabindex="0" role="note" aria-label="no se infiltra: no lo llevan su tipo (Orko (Kaudillo)), Orko con hacha y escudo ni Orko con dos armas" data-nota="si">ⓘ</span></span></div>
         <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>2 (+3) / 6</span></div>
         <div class="row"><span class="label">Poder / Conocimiento</span><span>1 / 2</span></div>
@@ -104,6 +105,7 @@
         <div class="row"><span class="label">Liderazgo</span><span>0 / 20</span></div>
     <progress class="liderazgo" max="20" value="0"></progress>
         <div class="row"><span class="label">Movimiento</span><span>1469 / 1469</span></div>
+        <div class="row"><span class="label">Infiltración</span><span>no <span class="nota" tabindex="0" role="note" aria-label="no se infiltra: no lo lleva su tipo (Orko (Kaudillo))" data-nota="si">ⓘ</span></span></div>
         <div class="row"><span class="label">Maná</span><span>10 / 10</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>1 (+3) / 5</span></div>
         <div class="row"><span class="label">Poder / Conocimiento</span><span>1 / 1</span></div>
@@ -227,6 +229,7 @@
         <div class="row"><span class="label">Liderazgo</span><span>11 / 30</span></div>
     <progress class="liderazgo" max="30" value="11"></progress>
         <div class="row"><span class="label">Movimiento</span><span>1 / 1616</span></div>
+        <div class="row"><span class="label">Infiltración</span><span>no <span class="nota" tabindex="0" role="note" aria-label="no se infiltra: no lo llevan su tipo (Guerrero (Danzante de espadas)) ni Jinete" data-nota="si">ⓘ</span></span></div>
         <div class="row"><span class="label">Maná</span><span>1 / 20</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>4 (+5) / 8</span></div>
         <div class="row"><span class="label">Poder / Conocimiento</span><span>1 / 2</span></div>
@@ -269,6 +272,7 @@
         <div class="row"><span class="label">Liderazgo</span><span>32 / 35</span></div>
     <progress class="liderazgo" max="35" value="32"></progress>
         <div class="row"><span class="label">Movimiento</span><span>27 / 1616</span></div>
+        <div class="row"><span class="label">Infiltración</span><span>no <span class="nota" tabindex="0" role="note" aria-label="no se infiltra: no lo llevan su tipo (Caballero) ni Hermano de carga" data-nota="si">ⓘ</span></span></div>
         <div class="row"><span class="label">Maná</span><span>9 / 20</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>5 (+3) / 9</span></div>
         <div class="row"><span class="label">Poder / Conocimiento</span><span>1 / 2</span></div>
@@ -297,6 +301,7 @@
         <div class="row"><span class="label">Liderazgo</span><span>20 / 20</span></div>
     <progress class="liderazgo" max="20" value="20"></progress>
         <div class="row"><span class="label">Movimiento</span><span>1616 / 1616</span></div>
+        <div class="row"><span class="label">Infiltración</span><span>no <span class="nota" tabindex="0" role="note" aria-label="no se infiltra: no lo llevan su tipo (Orko (Kaudillo)), Orko con hacha y escudo ni Orko con dos armas" data-nota="si">ⓘ</span></span></div>
         <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>2 (+3) / 6</span></div>
         <div class="row"><span class="label">Poder / Conocimiento</span><span>1 / 2</span></div>
@@ -764,6 +769,7 @@
         <div class="row"><span class="label">Liderazgo</span><span>5 / 20</span></div>
     <progress class="liderazgo" max="20" value="5"></progress>
         <div class="row"><span class="label">Movimiento</span><span>1616 / 1482</span></div>
+        <div class="row"><span class="label">Infiltración</span><span>no <span class="nota" tabindex="0" role="note" aria-label="no se infiltra: no lo llevan su tipo (Orko (Kaudillo)) ni Guerrero con escudo" data-nota="si">ⓘ</span></span></div>
         <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>2 (+3) / 6</span></div>
         <div class="row"><span class="label">Poder / Conocimiento</span><span>1 / 2</span></div>
