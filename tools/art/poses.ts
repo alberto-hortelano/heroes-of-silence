@@ -951,7 +951,7 @@ export async function renderizarPerfil(perfil: Perfil): Promise<string> {
   }
   const { celda, columnas } = FIGURA;
   const clips = [
-    { clip: 'idle', anim: 'idle', enBucle: true },
+    { clip: 'idle', anim: 'idle4', enBucle: true },
     { clip: 'walk', anim: 'walk', enBucle: true },
     { clip: 'attack', anim: PERFILES[perfil].ataque, enBucle: false },
   ] as const;
@@ -1242,7 +1242,10 @@ export const JUEGOS_DE_ARMAS = {
   'espada-escudo': {
     describe: 'espada de una mano y escudo de cometa',
     ataque: 'precise',
-    reposo: 'idle',
+    // La guardia quieta de `idle (4)`, la de 22 unidades y del juego de dos manos:
+    // la de `idle` se movía mucho (04-11-2026, decisión del usuario: «queda muy
+    // mal»), y se retiró de todas partes (`CLIPS_RETIRADOS`).
+    reposo: 'idle4',
     // El templario con escudo se aprobó con el maniquí gris (su procedencia
     // apunta aquel render); el caballero, que lo reutiliza, ya va con color.
     piernasDeColor: true,
@@ -1516,7 +1519,6 @@ export type AccionElegible = 'walk' | 'charge' | 'attack' | 'hurt' | 'death';
 
 /** Los clips que se pueden elegir: los de `ANIMS_EXTRA` y los de sprite-forge que no son de ambiente. */
 const ARCHIVO_DE_SPRITE_FORGE: Readonly<Record<string, string>> = {
-  idle: 'anims/sword_and_shield/sword and shield idle.fbx',
   walk: 'anims/sword_and_shield/sword and shield walk.fbx',
   run: 'anims/sword_and_shield/sword and shield run.fbx',
   quick: 'anims/sword_and_shield/sword and shield attack (4).fbx',
@@ -1529,8 +1531,19 @@ const ARCHIVO_DE_SPRITE_FORGE: Readonly<Record<string, string>> = {
   wounded_idle: 'mixamo/ambient_anims/wounded_idle.fbx',
 };
 
+/**
+ * Los clips que no se eligen más, con el porqué: `idle`, la guardia de espada y
+ * escudo del pack, gira el torso y la cabeza y se mueve mucho (04-11-2026, decisión
+ * del usuario: «elimina este idle de todas partes porque queda muy mal»).
+ */
+export const CLIPS_RETIRADOS: Readonly<Record<string, string>> = {
+  idle: 'la guardia de espada y escudo se mueve demasiado: usa idle4, idle_neutral o idle_breathing',
+};
+
 /** El FBX de un clip elegible; lanza con uno que no existe, que sprite-forge no pintaría. */
 export function archivoDeClip(id: string): string {
+  const retirado = CLIPS_RETIRADOS[id];
+  if (retirado !== undefined) throw new Error(`el clip «${id}» se retiró: ${retirado}`);
   const archivo =
     ARCHIVO_DE_SPRITE_FORGE[id] ?? ANIMS_EXTRA.find((a) => a.id === id && !esDisparo(a.id))?.file;
   if (archivo === undefined) throw new Error(`no hay clip de Mixamo «${id}» que elegir`);
@@ -1660,7 +1673,7 @@ export function hojasDe(
     readonly ataque: string;
     readonly disparo?: string;
   } = JUEGOS_DE_ARMAS[j];
-  for (const id of [clips.reposo, ...Object.values(clips.acciones ?? {})])
+  for (const id of [juego.reposo, clips.reposo, ...Object.values(clips.acciones ?? {})])
     if (id !== undefined) archivoDeClip(id);
   const anims: Partial<Record<ClipDeFigura, string>> = {
     ...OCHO_DIRECCIONES.anims,
@@ -2259,8 +2272,7 @@ export async function renderizarMuestrario(
 
 /** Los clips que enseña el muestrario por defecto: todo lo elegible, por acción. */
 export const CANDIDATOS_DEL_MUESTRARIO: readonly string[] = [
-  // reposo
-  'idle',
+  // reposo (sin `idle`: `CLIPS_RETIRADOS`)
   'idle2',
   'idle3',
   'idle4',

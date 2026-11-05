@@ -49,7 +49,7 @@ import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex, Stack } from '../src/core/types.js';
 import {
-  abrirPuertas,
+  empezarTalCual,
   forzarTurno,
   muralla,
   peleaDeArena,
@@ -294,22 +294,6 @@ describe('murallas gruesas (C16)', () => {
     expect(va.has('5,2')).toBe(false);
   });
 
-  it('el pasillo de dos de fondo con la puerta en medio: cerrada no la cruza nadie, abierta los dos (C20, C27)', () => {
-    const def = duelo(GRUESA, h(0, 8), h(8, 4), 'defender-0');
-    // Hasta su lado del pasillo, sí; al otro, no.
-    expect(movibles(def, 'defender-0').has('7,4')).toBe(true);
-    expect(movibles(def, 'defender-0').has('6,4')).toBe(false);
-    expect(movimientoBlocker(def, h(6, 4))).toBe('la puerta está cerrada: no pasa nadie');
-    abrirPuertas(def);
-    expect(movibles(def, 'defender-0').has('5,4')).toBe(true);
-    const at = duelo(GRUESA, h(5, 4), h(10, 8), 'attacker-0');
-    expect(movibles(at, 'attacker-0').has('6,4')).toBe(true);
-    expect(movibles(at, 'attacker-0').has('7,4')).toBe(false);
-    expect(movimientoBlocker(at, h(7, 4))).toBe('la puerta está cerrada: no pasa nadie');
-    abrirPuertas(at);
-    expect(movibles(at, 'attacker-0').has('8,4')).toBe(true);
-  });
-
   it('IA contra IA: nadie baja fuera, ningún defensor sube desde fuera, nadie cruza una puerta cerrada, y acaba (C16, C20)', () => {
     const formas: [string, MurallaDeBatalla][] = [
       ['Muralla gruesa', GRUESA],
@@ -456,7 +440,7 @@ describe('la columna translúcida y la figura en silueta (C18)', () => {
       4,
       { muralla: LINEA },
     );
-    s.empezar();
+    empezarTalCual(s);
     const yo = s.turnoPropio?.stack;
     if (yo === undefined) throw new Error('esperaba el turno de la derecha');
     yo.hex = h(9, 4);

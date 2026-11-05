@@ -36,7 +36,6 @@ import { dueñoEnLaFoto, regionesQueCierra, type Territorio, territorio } from '
 import { lugarDe } from '../mundo/formato.js';
 import { mundoDe } from '../mundo/reglas.js';
 import { indiceDePoder } from '../nivel.js';
-import { grupoALaVistaDesde } from '../state/asaltantes.js';
 import {
   type AdventureAction,
   baseOf,
@@ -46,10 +45,10 @@ import {
   heroById,
   heroeEnElPueblo,
   heroesOf,
-  miradasDe,
   ponerseBlocker,
   recruitCapacity,
   townsOf,
+  visibleNowAt,
 } from '../state/game.js';
 import { rentaDeLaRegion } from '../state/renta.js';
 import {
@@ -303,9 +302,8 @@ export function chooseHeroDestination(
   // donde lo emboscarían (`alcanceDelHeroe` con `evitarEmboscadas`). Solo
   // los que ve AHORA (#164): uno recordado ya no está donde se vio, y uno
   // que no ha visto no lo puede perseguir.
-  const miradas = miradasDe(state, hero.owner);
   for (const asaltante of state.raiders) {
-    if (!grupoALaVistaDesde(state.map, miradas, asaltante.at)) continue;
+    if (!visibleNowAt(state, hero.owner, asaltante.at)) continue;
     const valor = valorDeNeutral(miPoder, poderDe(asaltante));
     if (valor > 0) considerar(asaltante.at, valor);
   }

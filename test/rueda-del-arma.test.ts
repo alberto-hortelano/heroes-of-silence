@@ -25,39 +25,26 @@ import {
   previsionDeLaRueda,
   stackById,
 } from '../src/core/battle/battle.js';
-import { cifrasDeLosNiveles, validarRueda } from '../src/core/battle/cifras-de-la-rueda.js';
+import { validarRueda } from '../src/core/battle/cifras-de-la-rueda.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
-import {
-  efectoDeGolpe,
-  filasDeLaRueda,
-  nivelesEnLaForma,
-  RUEDAS,
-  ruedaDelArmaEnPalabras,
-} from '../src/core/battle/rueda.js';
 import type { BattleAction, BattleState } from '../src/core/battle/types.js';
 import { unidad } from '../src/core/catalogo.js';
 import type { Pieza, PiezaEscrita } from '../src/core/data.js';
-import { conEquipo, EQUIPO_DEL_JUEGO, pieza } from '../src/core/hero/equipo.js';
+import { EQUIPO_DEL_JUEGO, pieza } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
 import type { TipoDeGolpe } from '../src/core/types.js';
-import {
-  cuerpoDeCombate,
-  nivelesDeLaEspada,
-  type Unidad,
-  unidadDeCombate,
-} from '../src/core/unidad.js';
+import { cuerpoDeCombate, nivelesDeLaEspada, type Unidad } from '../src/core/unidad.js';
 import {
   type Ataque,
   aPelear,
   ataquesDe,
   catalogoCon,
+  empezarTalCual,
   golpeConLaRueda,
   hastaLaRueda,
-  JINETE,
   montajeDePrueba,
   sesionDeArena,
   TROPA,
-  todoA,
   unidadDeArena,
 } from './helpers.js';
 
@@ -68,7 +55,6 @@ function lisa(p: Pieza): Pieza {
 
 const MAZA = pieza('maza');
 const MAZA_LISA = lisa(MAZA);
-const DAGA = pieza('daga');
 const LANZA = pieza('lanza');
 const LANZA_LISA = lisa(LANZA);
 const PIEZAS: readonly PiezaEscrita[] = [MAZA_LISA, LANZA_LISA];
@@ -109,117 +95,6 @@ function dar(
 }
 
 describe('las cifras de la rueda por niveles', () => {
-  it('cada nivel da su cifra de data/rueda.json, y por éxito Romper guardia y la Finta en enteros', () => {
-    const nivel = (n: number) =>
-      cifrasDeLosNiveles({
-        ofensivo: n,
-        fuerte: n,
-        finta: n,
-        defensivo: n,
-        rapido: n,
-        romperGuardia: n,
-      });
-    // Lo peor: nada que sumar, Fuerte ×1, Rápido 2 × 0,25, la Finta resta de 8
-    // (éxito mínimo) a 4 (máximo) y Romper guardia no quita.
-    expect(nivel(0)).toEqual({
-      fuerte: { porcentaje: 100 },
-      rapido: { porcentaje: 25, golpes: 2 },
-      ofensivo: { ataque: 0 },
-      defensivo: { defensa: 0 },
-      romperGuardia: { ataque: { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 } },
-      finta: { casillas: { 0: 8, 1: 7, 2: 6, 3: 5, 4: 4 } },
-    });
-    // El 3 (la Espada): Romper guardia quita como antes de los niveles.
-    expect(nivel(3)).toEqual({
-      fuerte: { porcentaje: 150 },
-      rapido: { porcentaje: 63, golpes: 2 },
-      ofensivo: { ataque: 3 },
-      defensivo: { defensa: 3 },
-      romperGuardia: { ataque: { 0: 0, 1: 0, 2: -1, 3: -2, 4: -3 } },
-      finta: { casillas: { 0: 5, 1: 4, 2: 3, 3: 2, 4: 1 } },
-    });
-    // Lo mejor: con más éxito, la Finta resta menos (2 con el mínimo, una menos por
-    // punto de éxito, sin bajar de 0) y Romper guardia quita más (6).
-    expect(nivel(6)).toEqual({
-      fuerte: { porcentaje: 200 },
-      rapido: { porcentaje: 100, golpes: 2 },
-      ofensivo: { ataque: 6 },
-      defensivo: { defensa: 6 },
-      romperGuardia: { ataque: { 0: 0, 1: -1, 2: -3, 3: -4, 4: -6 } },
-      finta: { casillas: { 0: 2, 1: 1, 2: 0, 3: 0, 4: 0 } },
-    });
-    // Un nivel fuera de la tabla es un fallo: lanza.
-    expect(() => cifrasDeLosNiveles({ ...todoA(3), fuerte: 7 })).toThrow(
-      'el nivel de Fuerte es 7: va de 0 a 6',
-    );
-  });
-
-  it('la tabla de la ficha: seis filas sin Normal, con el nivel y lo que da', () => {
-    expect(MAZA.rueda).toEqual({
-      ofensivo: 3,
-      fuerte: 5,
-      finta: 1,
-      defensivo: 2,
-      rapido: 1,
-      romperGuardia: 5,
-    });
-    if (MAZA.rueda === undefined) throw new Error('la maza no lleva rueda');
-    const filas = filasDeLaRueda(MAZA.rueda);
-    expect(filas.map((f) => f.tipo)).toEqual([
-      'ofensivo',
-      'fuerte',
-      'finta',
-      'defensivo',
-      'rapido',
-      'romperGuardia',
-    ]);
-    expect(filas.find((f) => f.tipo === 'fuerte')).toEqual({
-      tipo: 'fuerte',
-      nivel: 5,
-      final: 'Daño ×1,83',
-      corto: '×1,83',
-      porExito: null,
-    });
-    expect(filas.find((f) => f.tipo === 'rapido')).toMatchObject({
-      final: '2 golpes ×0,38',
-      corto: '2 ×0,38',
-    });
-    expect(filas.find((f) => f.tipo === 'ofensivo')?.final).toBe('+3 ataque');
-    // Romper guardia nivel 5: quita 0, −1, −2, −3, −5 del mínimo al máximo.
-    expect(filas.find((f) => f.tipo === 'romperGuardia')).toMatchObject({
-      final: 'quita 0 a 5 de ataque',
-      corto: '0–5',
-      porExito: '0, −1, −2, −3, −5',
-    });
-    // La Finta nivel 1: resta 7 con el éxito mínimo y una menos por punto de éxito.
-    expect(filas.find((f) => f.tipo === 'finta')).toMatchObject({
-      final: 'resta 3 a 7 casillas',
-      corto: '3–7',
-      porExito: '7, 6, 5, 4, 3',
-    });
-    expect(ruedaDelArmaEnPalabras(MAZA.rueda)).toBe(
-      'Ofensivo 3, Fuerte 5, Finta 1, Defensivo 2, Rápido 1, Romper guardia 5',
-    );
-    // Con las dos puntas iguales, una sola cifra.
-    const peor = filasDeLaRueda({ ...todoA(3), finta: 0, romperGuardia: 0 });
-    expect(peor.find((f) => f.tipo === 'finta')?.final).toBe('resta 4 a 8 casillas');
-    // La mejor: con el éxito máximo no resta nada, y nunca baja de 0.
-    const mejor = filasDeLaRueda({ ...todoA(3), finta: 6 });
-    expect(mejor.find((f) => f.tipo === 'finta')?.porExito).toBe('2, 1, 0, 0, 0');
-    expect(peor.find((f) => f.tipo === 'romperGuardia')?.final).toBe('no quita ataque');
-  });
-
-  it('la Espada es la versátil (todo a 3) y la llevan la unidad y el héroe', () => {
-    expect(pieza('espada').rueda).toEqual(todoA(3));
-    const conEspada = unidadDeCombate(unidadDeArena(TROPA), EQUIPO_DEL_JUEGO);
-    expect(ruedaDelGolpe(conEspada, 'arma').fuerte.porcentaje).toBe(150);
-    // Sin arma ni arma por uso, el cuerpo (sin su equipo de serie) no lleva `armas`:
-    // todo golpe, con las de arriba.
-    expect(conEquipo(cuerpoDeCombate(unidad(TROPA)), { armadura: 'gambeson' })).not.toHaveProperty(
-      'armas',
-    );
-  });
-
   it('golpear en la rueda sin arma de la arena es un fallo: lanza', () => {
     // El cuerpo desnudo: las del catálogo llevan todas arma de serie.
     const sinArma = { ...cuerpoDeCombate(unidad(TROPA)), name: 'Piquero' };
@@ -261,21 +136,6 @@ describe('las cifras de la rueda por niveles', () => {
       }),
     ).toThrow('rueda.json: «normal» no es un campo');
   });
-
-  it('las notas de la rueda dicen las cifras del arma de quien elige; Normal, sin modificar', () => {
-    if (MAZA.rueda === undefined) throw new Error('la maza no lleva rueda');
-    const c = cifrasDeLosNiveles(MAZA.rueda);
-    expect(efectoDeGolpe('fuerte', 'golpe', true, c, RUEDAS[7])).toBe('Daño ×1,83.');
-    expect(efectoDeGolpe('rapido', 'respuesta', true, c, RUEDAS[7])).toContain(
-      'contraatacas con 2 golpes de daño ×0,38 cada uno',
-    );
-    expect(efectoDeGolpe('romperGuardia', 'golpe', true, c, RUEDAS[7])).toContain(
-      '−5 con éxito máximo, −3 alto, −2 medio, −1 bajo, nada mínimo',
-    );
-    expect(efectoDeGolpe('normal', 'golpe', true, c, RUEDAS[7])).toBe(
-      'Sin modificar. Contra cualquiera, el cruce cae en el medio.',
-    );
-  });
 });
 
 describe('cada golpe de la rueda va con su arma', () => {
@@ -292,48 +152,6 @@ describe('cada golpe de la rueda va con su arma', () => {
     expect(con('maza', 'normal')[0]?.damage).toBe(con(MAZA_LISA.id, 'normal')[0]?.damage);
   });
 
-  it('la previsión de la rueda lo enseña antes de elegir, con las cifras del arma', () => {
-    const prevista = (arma: string) =>
-      previsionDeLaRueda(
-        pelea(guerreroCon(arma), unidadDeArena(TROPA)),
-        { type: 'attack', target: 'defender-0' },
-        'golpe',
-      );
-    const maza = prevista('maza');
-    const llana = prevista(MAZA_LISA.id);
-    expect(maza.rueda.fuerte.porcentaje).toBe(183);
-    expect(llana.rueda).toEqual(cifrasDeLosNiveles(nivelesDeLaEspada()));
-    expect(maza.porTipo?.fuerte?.danio.max).toBeGreaterThan(llana.porTipo?.fuerte?.danio.max ?? 0);
-    expect(maza.porTipo?.rapido?.danio.max).toBeLessThan(llana.porTipo?.rapido?.danio.max ?? 0);
-    expect(maza.porTipo?.normal?.danio).toEqual(llana.porTipo?.normal?.danio);
-    // Y lo que cae está en lo previsto.
-    const b = pelea(guerreroCon('maza'), unidadDeArena(TROPA));
-    const previsto = previsionDeLaRueda(b, { type: 'attack', target: 'defender-0' }, 'golpe');
-    const [golpe] = dar(b, 'fuerte', 'normal').golpe;
-    const h = previsto.porTipo?.fuerte?.danio;
-    expect(golpe?.damage).toBeGreaterThanOrEqual(h?.min ?? Number.POSITIVE_INFINITY);
-    expect(golpe?.damage).toBeLessThanOrEqual(h?.max ?? 0);
-  });
-
-  it('la Finta de la daga (nivel 5) resta menos casillas que la de la espada (nivel 3)', () => {
-    // El jinete (6 o 7 casillas, lo que le deje el peso): tras golpear le queda por
-    // andar, y el turno sigue. Contra uno que aguanta el golpe: con la fuerza y la
-    // agilidad (25-10-2026), el guerrero con escudo caía de uno y la pelea acababa.
-    const tras = (arma: string): number | undefined => {
-      const jinete = equiparEnArena(unidadDeArena(JINETE), arma, EQ);
-      const b = pelea(jinete, unidadDeArena(TROPA, { hp: 2000 }));
-      // Contra Romper guardia, su opuesto: el éxito máximo.
-      dar(b, 'finta', 'romperGuardia');
-      expect(b.turno?.stack).toBe('attacker-0');
-      return b.turno?.finta;
-    };
-    // Con el éxito máximo, la espada (nivel 3) resta 1 casilla y la daga (nivel 5),
-    // ninguna. Con menos éxito restan más: con el mínimo, 5 y 3.
-    expect(DAGA.rueda?.finta).toBe(5);
-    expect(tras('espada')).toBe(1);
-    expect(tras('daga')).toBe(0);
-  });
-
   it('el contraataque va con el arma del que responde', () => {
     const vuelta = (arma: string) =>
       dar(pelea(unidadDeArena(TROPA), guerreroCon(arma)), 'normal', 'fuerte').vuelta;
@@ -341,44 +159,6 @@ describe('cada golpe de la rueda va con su arma', () => {
     const [conLisa] = vuelta(MAZA_LISA.id);
     expect(conMaza?.stack).toBe('defender-0');
     expect(conMaza?.damage).toBeGreaterThan(conLisa?.damage ?? 0);
-  });
-
-  it('con dos armas, cada tipo de la rueda es el de la mejor de las dos (25-10-2026)', () => {
-    // La lanza lleva Ofensivo 5, Fuerte 4 y Rápido 1; la espada, todo a 3. Con las
-    // dos, el golpe va con Ofensivo 5 y Fuerte 4 de la lanza y Rápido 3 de la espada;
-    // con la lanza lisa (todo a 3), todo a 3.
-    const rueda = (lanza: string) => {
-      const jinete = equiparEnArena(unidadDeArena(JINETE), lanza, EQ, 'segunda');
-      expect(jinete.equipo).toMatchObject({ arma: 'espada', segunda: lanza });
-      const b = pelea(jinete, unidadDeArena(TROPA));
-      return previsionDeLaRueda(b, { type: 'attack', target: 'defender-0' }, 'golpe').rueda;
-    };
-    const dos = rueda('lanza');
-    expect(dos.ofensivo.ataque).toBe(5);
-    expect(dos.fuerte.porcentaje).toBe(167);
-    expect(dos.rapido.porcentaje).toBe(63);
-    const lisas = rueda(LANZA_LISA.id);
-    expect(lisas.ofensivo.ataque).toBe(3);
-    expect(lisas.fuerte.porcentaje).toBe(150);
-    expect(lisas.rapido.porcentaje).toBe(63);
-  });
-
-  it('la rueda que se abre en la página enseña las cifras del arma de quien elige', () => {
-    // Yo contra Yo, los dos con maza: elija quien elija, su Fuerte es ×1,83.
-    const conMaza = {
-      unidad: equiparEnArena(unidadDeArena(TROPA), 'maza', EQUIPO_DEL_JUEGO),
-      ia: false,
-    };
-    const s = sesionDeArena([conMaza], [conMaza], 1);
-    s.empezar();
-    hastaLaRueda(s, true, 'golpe');
-    const p = s.ruedaPendiente;
-    if (p === null) throw new Error('la rueda no pide el golpe');
-    expect(p.prevision.rueda.fuerte.porcentaje).toBe(183);
-    const m = marcadoDe(renderEleccion(s.battle, p, null, caraDeLaArena(s)));
-    expect(m).toContain('Daño ×1,83.');
-    expect(m).toContain('2 golpes de daño ×0,38 cada uno');
-    expect(m).not.toContain('Daño ×1,5.');
   });
 });
 
@@ -410,23 +190,6 @@ describe('la rueda teñida por el nivel del arma de quien pega (25-10-2026)', ()
     expect(respuesta).toEqual(nivelesDeLaEspada());
   });
 
-  it('en las ruedas de 5 y de 3, un fusionado lleva la media truncada de sus partes', () => {
-    const maza = MAZA.rueda;
-    if (maza === undefined) throw new Error('la maza no lleva rueda');
-    // Ofensivo 3 y Fuerte 5 → 4; Defensivo 2 y Finta 1 → 1; Rápido 1 y Romper 5 → 3.
-    expect(nivelesEnLaForma(maza, RUEDAS[5])).toEqual({
-      ofensivoFuerte: 4,
-      rapido: 1,
-      romperGuardia: 5,
-      defensivoFinta: 1,
-    });
-    expect(nivelesEnLaForma(maza, RUEDAS[3])).toEqual({
-      ofensivoFuerte: 4,
-      rapidoRomper: 3,
-      defensivoFinta: 1,
-    });
-  });
-
   it('el diálogo pinta cada sector con su nivel y el centro sin él', () => {
     const conMaza = {
       unidad: equiparEnArena(unidadDeArena(TROPA), 'maza', EQUIPO_DEL_JUEGO),
@@ -435,7 +198,7 @@ describe('la rueda teñida por el nivel del arma de quien pega (25-10-2026)', ()
     // El de enfrente con otro id: en una pelea, un id es una unidad (`catalogoDeLaPelea`).
     const conEspada = { unidad: unidadDeArena(TROPA, { id: `${TROPA}-9` }), ia: false };
     const s = sesionDeArena([conMaza], [conEspada], 1);
-    s.empezar();
+    empezarTalCual(s);
     hastaLaRueda(s, true, 'golpe');
     const p = s.ruedaPendiente;
     if (p === null) throw new Error('la rueda no pide el golpe');

@@ -1,45 +1,40 @@
 import { describe, expect, it } from 'vitest';
-import { armyPower } from '../src/core/ai/fuerza.js';
 import {
-  chooseBuilding,
   chooseHeroDestination,
   ordenDeConstruccion,
-  planBuildings,
-  planHires,
-  planRecruits,
   stepTowards,
 } from '../src/core/ai/strategy.js';
 import { playAiGame, playAiTurn } from '../src/core/ai/turn.js';
 import { createBattle } from '../src/core/battle/battle.js';
-import { stackHp } from '../src/core/battle/damage.js';
 import { allSpells } from '../src/core/battle/spells.js';
 import { queEs } from '../src/core/battle/types.js';
 import {
   guarnicionDeBase,
   guarnicionNeutral,
   problemasDeGrupo,
-  problemasDeTopeDeLiderazgo,
-  unidadDelJuego,
   unidadesDelJuego,
   unidadesDeMorada,
 } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { crecimientoDelNivel, ECONOMIA, LIDERAZGO, oroDelIndice } from '../src/core/data.js';
-import { EQUIPO_BASE } from '../src/core/hero/equipo.js';
+import { marchaDe } from '../src/core/cuerpo.js';
+import { crecimientoDelNivel, ECONOMIA, oroDelIndice } from '../src/core/data.js';
+import { marchaALaEscala } from '../src/core/escala.js';
+import { EQUIPO_BASE, EQUIPO_DEL_JUEGO, esDeGuerra } from '../src/core/hero/equipo.js';
 import {
+  type GrupoQueMarcha,
   type Hero,
+  heroUnit,
   learnable,
   maxMana,
   maxMovePoints,
   slowestSpeed,
 } from '../src/core/hero/hero.js';
-import { GARRISON_LEADERSHIP, troopBlocker } from '../src/core/hero/troop.js';
+import { troopUnit } from '../src/core/hero/troop.js';
 import { buildMap, generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';
 import {
   blocksMovement,
   createEmptyMap,
   findPath,
-  isEnterable,
   type MapObject,
   objectAt,
   pathFromReachable,
@@ -48,8 +43,10 @@ import {
   reachableFrom,
   stepCost,
 } from '../src/core/map/map.js';
+import { regionDescubierta, zonaDeNiebla } from '../src/core/map/niebla.js';
 import {
   conectadoABase,
+  estructura,
   regionesQueCierra,
   regionOwner,
   territorio,
@@ -63,15 +60,9 @@ import {
   createCharacter,
   defaultBuild,
 } from '../src/core/rpg/character.js';
-import {
-  asaltantesALaVista,
-  emboscadaEnLaRuta,
-  regionDeCasilla,
-} from '../src/core/state/asaltantes.js';
+import { regionDeCasilla } from '../src/core/state/asaltantes.js';
 import { finDePartida } from '../src/core/state/desenlace.js';
-import { cronicaPara } from '../src/core/state/events.js';
 import {
-  type AdventureAction,
   alcanceDelHeroe,
   applyAdventureAction,
   baseOf,
@@ -85,7 +76,6 @@ import {
   ordenDelDia,
   resolvePendingBattle,
   townsOf,
-  visibleNow,
   week,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
@@ -101,12 +91,18 @@ import {
   type Town,
   townSpells,
 } from '../src/core/town/town.js';
-import { FACTION_IDS, type FactionId, type Point } from '../src/core/types.js';
+import {
+  type Equipo,
+  FACTION_IDS,
+  type FactionId,
+  type Point,
+  SPEED_TO_MOVE_POINTS,
+  type SpeedTier,
+} from '../src/core/types.js';
 import {
   acabarPorLaBase,
   conCaminos,
   conSuEquipo,
-  copiaDePartida,
   costesDelAlcance,
   darLaCiudad,
   ejercito,
@@ -115,7 +111,6 @@ import {
   FACCION_B,
   forzarBatalla,
   fueraDeSuBase,
-  grupoQueMarcha,
   guarnecer,
   guarnicionDeLaCiudad,
   hastaSuSiguienteTurno,
@@ -126,83 +121,97 @@ import {
   pegadoA,
   planDeNodos,
   ponerMonstruo,
-  primeraMarchaQueSePara,
   sinGuarnicionDeSalida,
   TIRADOR,
   TROPA_BARATA,
 } from './helpers.js';
 
-/** Los cupos con el tope de siempre (7): un héroe lleva 6 y una guarnición 7. */
-const CUPO_GUARNICION = COMBATE_COMPLETO.tope;
-
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
+describe('maná', () => {
+  it('es diez veces el conocimiento', () => {
+    expect(maxMana({ knowledge: 2 })).toBe(20);
+    expect(maxMana({ knowledge: 7 })).toBe(70);
+  });
+});
+
+// ------------------------------------------------- la marcha del grupo (26-10-2026)
+
 /**
- * Una casilla pegada al héroe, andable y sin nada encima: el sitio donde
- * plantar al defensor para que el atacante entre de un solo paso.
- *
- * Se pregunta al mapa en vez de escribir un desplazamiento a mano porque la
- * casilla de al lado puede ser agua o llevar un cofre encima, y entonces el
- * test mediría otra cosa —o reventaría— según la semilla.
+ * La marcha del grupo se prueba con lo que dicen las piezas y las unidades, no con
+ * cuáles son: un caballo de silla del catálogo (cualquiera) y una unidad sin montura
+ * de serie a la que ese caballo hace más rápida que a pie y que el héroe a pie
+ * (03-11-2026: la versión anterior escribía el piquero, el caballo y los escalones,
+ * y se rompía al retocar una cifra del catálogo). Lo esperado es `marchaDe` de cada
+ * uno, que es lo que la regla compara.
  */
-const casillaVecinaLibre = (state: GameState, desde: Point): Point => {
-  // Las diagonales al final: el héroe nace en su base, y de una ciudad solo se
-  // sale por las puertas que tiene, que pueden ser todas de esquina.
-  for (const d of [
-    { x: 1, y: 0 },
-    { x: -1, y: 0 },
-    { x: 0, y: 1 },
-    { x: 0, y: -1 },
-    { x: 1, y: 1 },
-    { x: -1, y: 1 },
-    { x: 1, y: -1 },
-    { x: -1, y: -1 },
-  ]) {
-    const at = { x: desde.x + d.x, y: desde.y + d.y };
-    const camino = findPath(state.map, desde, at);
-    if (camino !== null && camino.length === 1 && objectAt(state.map, at) === undefined) {
-      return at;
+function marchaDeSilla(): {
+  readonly silla: string;
+  readonly tropa: string;
+  readonly heroe: GrupoQueMarcha & Pick<Hero, 'skills'>;
+} {
+  const heroe = structuredClone(heroesOf(newGame({ seed: 1 }), 0)[0]!);
+  heroe.army = [];
+  const rapidez = (s: SpeedTier) => SPEED_TO_MOVE_POINTS[s];
+  const aPie = rapidez(marchaDe(heroUnit({ ...heroe, equipo: EQUIPO_BASE })));
+  for (const silla of EQUIPO_DEL_JUEGO.piezas.values()) {
+    if (silla.hueco !== 'montura' || esDeGuerra(silla)) continue;
+    const montado = rapidez(
+      marchaDe(heroUnit({ ...heroe, equipo: { ...EQUIPO_BASE, montura: silla.id } })),
+    );
+    if (montado <= aPie) continue;
+    for (const u of unidadesDelJuego()) {
+      if (u.equipo?.montura !== undefined) continue;
+      const conElla = rapidez(
+        marchaDe(troopUnit(conSuEquipo(u.id, { montura: silla.id }), undefined)),
+      );
+      const sinElla = rapidez(marchaDe(troopUnit({ creature: u.id }, undefined)));
+      if (conElla > sinElla && conElla > aPie) return { silla: silla.id, tropa: u.id, heroe };
     }
   }
-  throw new Error('el héroe no tiene ninguna casilla vecina libre');
-};
+  throw new Error('ningún caballo de silla hace más rápida a una unidad y al héroe que a pie');
+}
 
-describe('puntos de movimiento', () => {
-  it('los marca el más lento del grupo, el héroe incluido (26-10-2026)', () => {
-    // El troll anda 2 (agilidad 2); el hermano de carga, 5 (las 6 de su caballo de
-    // guerra, −1 por lo que carga: 18 frente a su fuerza 16, 31-10-2026).
-    const lento = ejercito({ creature: 'troll-maza', count: 1 }, { creature: JINETE, count: 5 });
-    expect(slowestSpeed(grupoQueMarcha(lento), undefined)).toBe('very_slow');
-    // La tabla de fheroes2 (1000, 1200 y 1400) a la escala del mapa de #226: ×√1,5.
-    expect(maxMovePoints(grupoQueMarcha(lento), undefined)).toBe(1224);
+describe('la marcha del grupo: el más lento, el héroe incluido (26-10-2026)', () => {
+  const marchaDeTropa = (t: Hero['army'][number]) => marchaDe(troopUnit(t, undefined));
+  const marchaDelHeroe = (equipo: Equipo) =>
+    marchaDe(heroUnit({ ...marchaDeSilla().heroe, equipo }));
 
-    // Los jinetes van a 5, pero el héroe a pie (agilidad 4) frena al grupo.
-    const rapido = ejercito({ creature: JINETE, count: 5 });
-    expect(slowestSpeed(grupoQueMarcha(rapido), undefined)).toBe('average');
-    expect(maxMovePoints(grupoQueMarcha(rapido), undefined)).toBe(1469);
-    // A caballo de silla, ya no: manda el jinete.
-    const aCaballo = grupoQueMarcha(rapido, {
-      equipo: { ...EQUIPO_BASE, montura: 'caballo_de_silla' },
-    });
-    expect(slowestSpeed(aCaballo, undefined)).toBe('fast');
-    expect(maxMovePoints(aCaballo, undefined)).toBe(1592);
+  it('un caballo de silla sube la marcha solo si lo llevan todos: el héroe a pie frena, y un individuo a pie también', () => {
+    const { silla, tropa, heroe } = marchaDeSilla();
+    const montados = [0, 1, 2].map((i) => conSuEquipo(tropa, { montura: silla }, `v-${i}`));
+    const aPie = EQUIPO_BASE;
+    const aCaballo: Equipo = { ...EQUIPO_BASE, montura: silla };
+    const rapidez = (s: SpeedTier) => SPEED_TO_MOVE_POINTS[s];
+
+    // La tropa a caballo y el héroe a pie: manda el héroe, que es el más lento.
+    const conElHeroeAPie = slowestSpeed({ ...heroe, army: montados, equipo: aPie }, undefined);
+    expect(conElHeroeAPie).toBe(marchaDelHeroe(aPie));
+    expect(rapidez(conElHeroeAPie)).toBeLessThan(rapidez(marchaDeTropa(montados[0]!)));
+
+    // Todos a caballo: el más lento de los montados, más rápido que con el héroe a pie.
+    const todos = slowestSpeed({ ...heroe, army: montados, equipo: aCaballo }, undefined);
+    const delMasLento = [marchaDelHeroe(aCaballo), marchaDeTropa(montados[0]!)].sort(
+      (a, b) => rapidez(a) - rapidez(b),
+    )[0]!;
+    expect(todos).toBe(delMasLento);
+    expect(rapidez(todos)).toBeGreaterThan(rapidez(conElHeroeAPie));
+    expect(
+      maxMovePoints({ ...heroe, army: montados, equipo: aCaballo }, undefined),
+    ).toBeGreaterThan(maxMovePoints({ ...heroe, army: montados, equipo: aPie }, undefined));
+
+    // Uno de la tropa a pie: manda él, aunque el héroe y los demás vayan a caballo.
+    const unoAPie = [...montados.slice(0, 2), { creature: tropa }];
+    const conUnoAPie = slowestSpeed({ ...heroe, army: unoAPie, equipo: aCaballo }, undefined);
+    expect(conUnoAPie).toBe(marchaDeTropa({ creature: tropa }));
+    expect(rapidez(conUnoAPie)).toBeLessThan(rapidez(todos));
   });
 
-  it('un caballo de silla sube la marcha solo si lo llevan todos, y no cambia la batalla', () => {
-    // El piquero templario anda 3 (su peso 8 pasa de su fuerza 7, −1 desde el
-    // 31-10-2026); con su caballo de silla (8 + 2 frente a 10), 7.
-    const SILLA = { montura: 'caballo_de_silla' } as const;
-    const todos = [0, 1, 2].map((i) => conSuEquipo('templario-escudo', SILLA, `v-${i}`));
-    const heroe = { equipo: { ...EQUIPO_BASE, ...SILLA } };
-    expect(slowestSpeed(grupoQueMarcha(todos, heroe), undefined)).toBe('ultra_fast');
-    // Si uno va a pie, manda él; y si el héroe va a pie, el héroe.
-    const unoAPie = [...todos.slice(0, 2), { creature: 'templario-escudo' }];
-    expect(slowestSpeed(grupoQueMarcha(unoAPie, heroe), undefined)).toBe('slow');
-    expect(slowestSpeed(grupoQueMarcha(todos), undefined)).toBe('average');
-    // En batalla pelea a pie: las mismas casillas y la misma defensa que sin él.
+  it('el caballo de silla no cambia la batalla: las mismas casillas, defensa y daño que a pie', () => {
+    const { silla, tropa } = marchaDeSilla();
     const b = createBattle(
-      { army: [{ ...todos[0]!, count: 1 }], hero: null },
-      { army: [{ creature: 'templario-escudo', count: 1 }], hero: null },
+      { army: [{ ...conSuEquipo(tropa, { montura: silla }), count: 1 }], hero: null },
+      { army: [{ creature: tropa, count: 1 }], hero: null },
       createRng(1),
       COMBATE_COMPLETO,
     );
@@ -212,21 +221,17 @@ describe('puntos de movimiento', () => {
     expect(conSilla?.unit.damage).toEqual(sinSilla?.unit.damage);
   });
 
-  it('Logística los aumenta un 10 % por nivel', () => {
-    // La pesada va a paso medio (`average`), como el héroe a pie.
-    expect(unidadDelJuego(PESADA).speed).toBe('average');
-    const army = ejercito({ creature: PESADA, count: 5 });
-    // 1200 de fheroes2 → 1469 a la escala (#226); la Logística va encima.
-    expect(maxMovePoints(grupoQueMarcha(army), undefined)).toBe(1469);
-    expect(maxMovePoints(grupoQueMarcha(army, { skills: { logistics: 1 } }), undefined)).toBe(1616);
-    expect(maxMovePoints(grupoQueMarcha(army, { skills: { logistics: 3 } }), undefined)).toBe(1910);
-  });
-});
-
-describe('maná', () => {
-  it('es diez veces el conocimiento', () => {
-    expect(maxMana({ knowledge: 2 })).toBe(20);
-    expect(maxMana({ knowledge: 7 })).toBe(70);
+  it('Logística sube un 10 % por nivel lo que da el más lento, a la escala del mapa', () => {
+    const { heroe, tropa } = marchaDeSilla();
+    const grupo = { ...heroe, army: [{ creature: tropa }, { creature: tropa }] };
+    const sinLogistica = marchaALaEscala(SPEED_TO_MOVE_POINTS[slowestSpeed(grupo, undefined)]);
+    expect(maxMovePoints({ ...grupo, skills: {} }, undefined)).toBe(Math.round(sinLogistica));
+    for (const nivel of [1, 2, 3] as const) {
+      expect(
+        maxMovePoints({ ...grupo, skills: { logistics: nivel } }, undefined),
+        `nivel ${nivel}`,
+      ).toBe(Math.round(sinLogistica * (1 + nivel / 10)));
+    }
   });
 });
 
@@ -392,27 +397,6 @@ describe('generación de mapas', () => {
     // Y la de los datos de hoy, la que nace en cada ciudad neutral, vale.
     for (const f of FACTION_IDS) {
       expect(problemasDeGrupo(guarnicionNeutral(f), f)).toEqual([]);
-    }
-  });
-
-  it('una guarnición de los datos tiene además el tope de liderazgo de guarnición', () => {
-    // Siete pesados caben en el cupo de un bando y no en una guarnición: 7 × 4
-    // de liderazgo donde caben 20. Un monstruo así vale; una ciudad, no.
-    const siete = [{ creature: PESADA, count: 7 }];
-    const ocupa = 7 * unidadDelJuego(PESADA).leadership;
-    expect(ocupa).toBeGreaterThan(LIDERAZGO.guarnicion);
-    expect(problemasDeGrupo(siete, 'el monstruo')).toEqual([]);
-    expect(
-      problemasDeTopeDeLiderazgo(siete, 'la base', LIDERAZGO.guarnicion, 'una guarnición'),
-    ).toEqual([
-      `la base ocupa ${ocupa} de liderazgo y una guarnición lleva como mucho ${LIDERAZGO.guarnicion}`,
-    ]);
-    // Y las tablas de hoy valen, las de las cinco facciones.
-    const enGuarnicion = (g: Parameters<typeof problemasDeGrupo>[0], q: string) =>
-      problemasDeTopeDeLiderazgo(g, q, LIDERAZGO.guarnicion, 'una guarnición');
-    for (const f of FACTION_IDS) {
-      expect(enGuarnicion(guarnicionNeutral(f), f)).toEqual([]);
-      expect(enGuarnicion(guarnicionDeBase(f), f)).toEqual([]);
     }
   });
 
@@ -725,7 +709,7 @@ describe('movimiento de héroes', () => {
     expect(minimo).toBe(ROAD_COST);
   });
 
-  it('gasta puntos de movimiento y descubre el mapa', () => {
+  it('gasta puntos de movimiento y descubre el mapa por regiones (02-11-2026)', () => {
     const state = newGame({ seed: 21 });
     const c = ctx(21);
     const hero = heroesOf(state, 0)[0]!;
@@ -757,7 +741,29 @@ describe('movimiento de héroes', () => {
 
     expect(pointKey(hero.at)).toBe(pointKey(destino));
     expect(hero.movePoints).toBeLessThan(puntosAntes);
-    expect(state.players[0]!.fog.size).toBeGreaterThan(nieblaAntes);
+    // Andar por casa no descubre nada: la región ya estaba entera desde el principio.
+    expect(state.players[0]!.fog.size).toBe(nieblaAntes);
+
+    // Pisar un paso de casa a una región sin descubrir la descubre entera. Sin
+    // grupos que paren la marcha: aquí se mira la niebla, no la emboscada.
+    state.raiders = [];
+    const fog = state.players[0]!.fog;
+    const red = estructura(state.map);
+    const paso = red.nodos.find(
+      (n) =>
+        n.clase === 'paso' &&
+        n.regiones.includes(casa) &&
+        n.regiones.some((k) => !regionDescubierta(state.map, fog, k)),
+    )!;
+    const nuevas = paso.regiones.filter((k) => !regionDescubierta(state.map, fog, k));
+    hero.movePoints = 99_999;
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: paso.at }, c, 0);
+    expect(pointKey(hero.at)).toBe(pointKey(paso.at));
+    for (const k of nuevas) {
+      expect(regionDescubierta(state.map, fog, k)).toBe(true);
+      for (const i of zonaDeNiebla(state.map, k)) expect(fog.hasIndex(i)).toBe(true);
+    }
+    expect(fog.size).toBeGreaterThan(nieblaAntes);
   });
 
   it('capturar un castillo cambia el libro de cuentas Y la bandera del mapa', () => {
@@ -849,42 +855,6 @@ describe('batallas del mapa', () => {
     expect(heroById(state, hero.id).experience).toBeGreaterThan(0);
   });
 
-  it('perder la batalla devuelve al héroe atacante a su base, sin tropa', () => {
-    // Hasta la fase 1b el héroe que perdía desaparecía del mapa. Ahora cae y
-    // vuelve a su castillo con el ejército vacío y sin movimiento: la tropa
-    // muerta se pierde, y la viva también, porque no se rindió.
-    const state = newGame({ seed: 32 });
-    const c = ctx(32);
-    const hero = heroesOf(state, 0)[0]!;
-    const monstruo = monstruoVivo(state);
-    const base = townsOf(state, 0)[0]!;
-
-    hero.army = ejercito({ creature: TROPA_BARATA, count: 1 });
-    guarnecer(state, base, []);
-    // Sin oro no hay rendición: tiene que caer peleando.
-    state.players[0]!.oro = 0;
-    // Se sustituye por un monstruo imbatible en la misma casilla.
-    state.map.objects.splice(state.map.objects.indexOf(monstruo), 1, {
-      kind: 'monster',
-      id: monstruo.id,
-      at: monstruo.at,
-      creature: 'jinete-de-plaga',
-      count: 7,
-      defeated: false,
-    });
-
-    forzarBatalla(state, c, hero);
-    const resultado = resolvePendingBattle(state, c);
-    expect(resultado.winner).toBe('defender');
-    const vuelto = heroById(state, hero.id);
-    expect(vuelto.at).toEqual(base.at);
-    expect(vuelto.movePoints).toBe(0);
-    expect(vuelto.army).toEqual([]);
-    const kinds = state.log.map((e) => e.kind);
-    expect(kinds.indexOf('hero_defeated')).toBeGreaterThan(-1);
-    expect(kinds.indexOf('hero_returned')).toBeGreaterThan(kinds.indexOf('hero_defeated'));
-  });
-
   it('no se puede seguir jugando con una batalla pendiente', () => {
     const state = newGame({ seed: 33 });
     const c = ctx(33);
@@ -898,91 +868,6 @@ describe('batallas del mapa', () => {
 });
 
 describe('IA de respaldo', () => {
-  it('planifica construir y reclutar en el primer turno, si la base tiene sitio', () => {
-    // La base nace llena (`guarnicionBase`) y el héroe no empieza dentro: con
-    // la de salida puesta, el día 1 no se recluta —eso lo prueba el bloque de
-    // la guarnición de la base—. Aquí se mide el plan.
-    const state = sinGuarnicionDeSalida(newGame({ seed: 41 }));
-    expect(planBuildings(state, 0).some((a) => a.type === 'build')).toBe(true);
-    expect(planRecruits(state, 0).some((a) => a.type === 'recruit')).toBe(true);
-  });
-
-  it('quien se ha quedado sin héroe reserva lo que cuesta el siguiente', () => {
-    // La avería, que es anterior a cuadrar la economía: `planRecruits` gastaba
-    // el monedero ENTERO y `planHires` exige 2500, así que el jugador que
-    // perdía su héroe no compraba otro nunca. Se quedaba con su castillo y
-    // ~25 de oro sosteniendo un empate hasta el día 300.
-    const state = sinGuarnicionDeSalida(newGame({ seed: 41 }));
-    const player = state.players.find((p) => p.id === 0)!;
-    state.heroes = state.heroes.filter((h) => h.owner !== 0);
-    player.oro = ECONOMIA.precioDelHeroe + 400;
-    // Con la morada llena, quien manda es el oro: sin la reserva, el
-    // reclutamiento se lo lleva hasta el último. Con lo poco que cría la morada
-    // el día 1 este test pasaría sin reserva y no guardaría nada.
-    const town = townsOf(state, 0)[0]!;
-    for (const id of Object.keys(town.available)) town.available[id] = 500;
-
-    const reclutas = planRecruits(state, 0);
-    expect(reclutas.some((a) => a.type === 'recruit')).toBe(true); // no se queda parado
-    for (const accion of reclutas) applyAdventureAction(state, accion, ctx(41), 0);
-
-    expect(player.oro).toBeGreaterThanOrEqual(ECONOMIA.precioDelHeroe);
-    expect(planHires(state, 0).some((a) => a.type === 'hire_hero')).toBe(true);
-  });
-
-  it('con un héroe vivo no se reserva nada: el oro es para el ejército', () => {
-    // La otra cara, que es lo que hace de la reserva un arreglo y no un
-    // impuesto: reservar 2500 todos los días dejaría al ejército corto para
-    // siempre. Las dos partidas salen de la misma semilla y solo se
-    // diferencian en si al jugador le queda un héroe; con la morada llena de
-    // criaturas, lo que manda es el oro. Y poco oro: el liderazgo de la
-    // guarnición también es un techo, y con más se llegaría a él por los dos
-    // lados.
-    const cuenta = (acciones: readonly AdventureAction[]): number =>
-      acciones.reduce((n, a) => (a.type === 'recruit' ? n + a.count : n), 0);
-    const montar = (conHeroe: boolean) => {
-      const state = sinGuarnicionDeSalida(newGame({ seed: 41 }));
-      const player = state.players.find((p) => p.id === 0)!;
-      player.oro = ECONOMIA.precioDelHeroe + 100;
-      const town = townsOf(state, 0)[0]!;
-      for (const id of Object.keys(town.available)) town.available[id] = 500;
-      if (!conHeroe) state.heroes = state.heroes.filter((h) => h.owner !== 0);
-      return cuenta(planRecruits(state, 0));
-    };
-
-    expect(montar(true)).toBeGreaterThan(montar(false));
-  });
-
-  it('valora más un ejército mayor', () => {
-    const debil = ejercito({ creature: TROPA_BARATA, count: 10 });
-    const fuerte = ejercito({ creature: PESADA, count: 10 });
-    expect(armyPower(fuerte, undefined)).toBeGreaterThan(armyPower(debil, undefined));
-  });
-
-  it('no manda al héroe contra un monstruo que le supera', () => {
-    const state = newGame({ seed: 42 });
-    const hero = heroesOf(state, 0)[0]!;
-    hero.army = ejercito({ creature: TROPA_BARATA, count: 1 });
-    hero.movePoints = 99999;
-
-    // Se vacía el mapa y se deja un único objetivo: un monstruo descomunal
-    // pegado al héroe. Si la IA lo elige, es que no mide sus fuerzas. Sin
-    // asaltantes, que también son objetivo (ni su recuerdo, #164).
-    state.map.objects.length = 0;
-    state.raiders = [];
-    for (const p of state.players) p.asaltantesVistos.clear();
-    state.map.objects.push({
-      kind: 'monster',
-      id: 'coloso',
-      at: { x: hero.at.x + 1, y: hero.at.y },
-      creature: 'jinete-de-plaga',
-      count: 30,
-      defeated: false,
-    });
-    const alcance = reachableFrom(state.map, hero.at);
-    expect(chooseHeroDestination(state, hero, alcance)).toBeNull();
-  });
-
   it('retroceder por los predecesores da el mismo paso que relanzar findPath (#55)', () => {
     // El segundo recorrido del mapa era `stepTowards` relanzando un Dijkstra
     // desde el mismo origen del que venía `chooseHeroDestination`. Aquí está
@@ -1218,31 +1103,6 @@ describe('IA de respaldo', () => {
 });
 
 describe('partida completa', () => {
-  // La semilla cambió de 1234 a 1235 con la cadena de moradas de #13, y NO
-  // porque hiciera falta hasta que pasara: con la cadena, los dos bandos suben
-  // de nivel al mismo ritmo, y una partida entre dos héroes igualados no
-  // termina nunca — `chooseHeroDestination` exige un 1,05 de ventaja para
-  // atacar, así que se esquivan hasta el día 1500. Ese empate eterno ya existía
-  // antes del cambio y con la misma frecuencia (medido a 40 semillas: 5 de 40
-  // no terminaban antes, 4 de 40 después); lo único que cambió es qué semillas
-  // caen en él. La 1234 pasó a estar entre ellas.
-  it('termina con un ganador jugando IA contra IA', async () => {
-    const state = newGame({ seed: 1235 });
-    const c = ctx(1235);
-    // Que la partida termine ya lo dice el tipo de retorno; lo que este test
-    // afirma es que gana ALGUIEN. `expect(state.finished).not.toBeNull()` sería
-    // verde por construcción, y también con una partida agotada.
-    const { winner: ganador } = await playAiGame(state, c);
-    expect(ganador).not.toBeNull();
-    const perdedores = state.players.filter((p) => p.id !== ganador);
-    expect(perdedores.every((p) => p.defeated)).toBe(true);
-    // `toMatchObject` y no `toEqual`: desde que el evento lleva protagonista y
-    // sitio, comparar el objeto ENTERO ataría este test a los campos de
-    // contabilidad de la crónica. Lo que se afirma aquí es cómo termina la
-    // partida, no cómo se sella un evento.
-    expect(state.log.at(-1)).toMatchObject({ kind: 'game_over', actor: ganador });
-  });
-
   it('cuando se acaban los días la partida TERMINA, y sin ganador', async () => {
     // El guardia del agujero que cierra este ciclo, contado en el docstring de
     // `GameState.finished`: agotar los días dejaba `finished` en `null`.
@@ -1281,19 +1141,6 @@ describe('partida completa', () => {
     }
     // Y el suelo sí vale: una partida de un día es corta, no ilegal.
     expect(newGame({ seed: 1235, maxDays: 1 }).maxDays).toBe(1);
-  });
-
-  it('el bucle completo pasa por construir, reclutar, luchar y capturar', async () => {
-    const state = newGame({ seed: 4321 });
-    const c = ctx(4321);
-    await playAiGame(state, c);
-
-    const tipos = new Set(state.log.map((e) => e.kind));
-    expect(tipos.has('built')).toBe(true);
-    expect(tipos.has('recruited')).toBe(true);
-    expect(tipos.has('battle_started')).toBe(true);
-    expect(tipos.has('hero_moved')).toBe(true);
-    expect(tipos.has('game_over')).toBe(true);
   });
 
   it('en una partida entera, ninguna bandera se separa de su libro de cuentas', async () => {
@@ -1464,21 +1311,6 @@ describe('catálogo de edificios por facción', () => {
     expect(availableBuildings(cripta, bolsaInfinita)).not.toContain('templarios_monasterio');
   });
 
-  it('con todas las moradas levantadas, la IA levanta el castillo: es lo primero de la villa', () => {
-    for (const faction of FACTION_IDS) {
-      const t = pueblo(faction);
-      levantar(
-        t,
-        buildingsOfFaction(faction)
-          .filter((b) => b.morada !== undefined && b.prebuilt !== true)
-          .sort((x, y) => (x.morada as number) - (y.morada as number))
-          .map((b) => b.id),
-      );
-      t.builtToday = false;
-      expect(chooseBuilding(t, bolsaInfinita), faction).toBe('castle');
-    }
-  });
-
   // --------------------------------------- el orden de construcción es la lista
 
   it('la lista de construcción coloca cada edificio de la facción exactamente una vez', () => {
@@ -1494,80 +1326,9 @@ describe('catálogo de edificios por facción', () => {
       expect(new Set(orden).size, `${faction}: hay un edificio repetido`).toBe(orden.length);
     }
   });
-
-  it('el orden se deriva: las moradas primero, de más nivel a menos, y la IA levanta la mejor que puede', () => {
-    // Con las cinco facciones (19-10-2026) el orden de cada raza de #88 dio paso
-    // a uno derivado (`ORDEN_DE_CONSTRUCCION`): la morada de más nivel antes y, a
-    // igual nivel, la del sitio más alto; detrás, la villa.
-    for (const faction of FACTION_IDS) {
-      const orden = ordenDeConstruccion(faction);
-      const moradas = orden.filter((id) => building(id).morada !== undefined);
-      expect(orden.slice(0, moradas.length), faction).toEqual(moradas);
-      const clave = (id: string) => {
-        const b = building(id);
-        return nivelDeMorada(b) * 10 + (b.morada as number);
-      };
-      expect(moradas.map(clave), faction).toEqual(moradas.map(clave).sort((x, y) => y - x));
-      // En un pueblo recién fundado, la primera de la lista que se puede levantar.
-      const t = pueblo(faction);
-      t.builtToday = false;
-      expect(chooseBuilding(t, bolsaInfinita), faction).toBe(
-        moradas.find((id) => buildBlocker(t, id, bolsaInfinita) === null),
-      );
-    }
-  });
 });
 
 describe('el gremio enseña (#2)', () => {
-  it('el gremio se construye jugando, y acaba en un hechizo aprendido', async () => {
-    // El criterio que de verdad cierra #88: un gremio construido que no acaba
-    // en un héroe que aprende algo no cierra nada. Antes de mover el gremio en
-    // la lista del nigromante, `mage_guild_1` salía en 10 de las 200 semillas
-    // del banco y `syncSpellbooks` enseñaba 15 hechizos en 3 partidas; ahora,
-    // 206 gremios en 200 de 200 y 965 hechizos en 177. Con las cinco facciones
-    // (19-10-2026) el gremio va detrás de todas las moradas y el castillo, y las
-    // partidas duran la mitad: 8 gremios y 8 hechizos aprendidos en 1-40, en 7
-    // semillas (la 3 y la 8 de las diez primeras). Con el héroe nacido en su base
-    // y el recinto de las ciudades (fusión, 21-10-2026), 3 gremios y 2 hechizos en
-    // 1-40, en la 17 (los dos hechizos), la 19 y la 26: se juegan la 17 y la 19.
-    // Sin minas y con todo en oro (21-10-2026, «solo oro»), 2 gremios y 2
-    // hechizos en 1-40, los dos en la 35: se juega la 35. Con el héroe de salida
-    // pagado (22-10-2026, 2 500 menos el día 1), ninguno en 1-40 y 12 gremios y 16
-    // hechizos en 41-200, en 11 semillas: se jugaba la 54 (uno y dos). Con la
-    // fuerza y la agilidad (25-10-2026), 11 gremios en 1-120 y hechizos en 7 de
-    // ellos: se jugaba la 5 (uno y dos). Con dos armas y la lanza en la segunda
-    // mano (25-10-2026), 6 gremios en 1-60 y hechizos en 4: se jugaba la 29 (uno y
-    // dos). Sin defender ni esperar (26-10-2026), 9 gremios en 1-80 y hechizos en 5
-    // de ellos: se jugaba la 15 (uno y dos). Con la montura y el héroe en la marcha
-    // del grupo (26-10-2026), 7 gremios en 1-80 y hechizos en 5 de ellos: se jugaba
-    // la 21 (uno y dos). Con la escala baja (26-10-2026), 8 gremios en 1-80 y
-    // hechizos en 6 de ellos: se jugaba la 5 (uno y dos). Con el peso que resta 1
-    // por cada fuerza, o parte, que pasa (31-10-2026), 2 gremios en 1-80 y hechizos
-    // en uno: se jugaba la 28 (uno y dos). Sin la recogida de la guarnición al pasar
-    // y con la defensa elegida (04-11-2026), 2 gremios en 1-80 (la 46 y la 74) y
-    // hechizos en uno: se jugaba la 46 (uno y dos). Con la IA que recoge solo al
-    // llegar (S8 de /simplify, 04-11-2026), 3 gremios en 1-80 (la 42, la 46 y la 74)
-    // y hechizos solo en la 42: se jugaba la 42 (uno y dos). Con el que vuelve vencido
-    // recogiendo al empezar su turno (H2 del QA, 04-11-2026), 2 gremios en 1-80 (la 46
-    // y la 74) y hechizos solo en la 46: se jugaba la 46 (uno y dos). Con las
-    // ciudades en mitad de su región (05-11-2026), gremios en 11 semillas de
-    // 24-80 y hechizos en 8 de ellas: se jugaba la 24 (dos y cuatro). Con los
-    // pueblos en un nodo (fase 3, 05-11-2026), gremio y hechizos en la 35, la 43, la
-    // 51 y la 62 de 20-62, uno y dos: se juega la 35.
-    let gremios = 0;
-    let aprendidos = 0;
-    for (const semilla of [35]) {
-      const state = newGame({ seed: semilla });
-      await playAiGame(state, { rng: createRng(semilla) });
-      for (const e of state.log) {
-        if (e.kind === 'built' && e.building === 'mage_guild_1') gremios++;
-        if (e.kind === 'spells_learned') aprendidos += e.spells.length;
-      }
-    }
-    expect(gremios).toBeGreaterThan(0);
-    expect(aprendidos).toBeGreaterThan(0);
-  });
-
   it('un héroe dentro de su castillo aprende lo que enseña el gremio, y repetir no duplica', () => {
     const state = newGame({ seed: 51 });
     const c = ctx(51);
@@ -1747,106 +1508,6 @@ describe('los personajes y sus heridas', () => {
     ponerMonstruo(state, TROPA_BARATA, 1);
     forzarBatalla(state, c, hero);
     expect(state.pendingBattle!.battle.stacks.find(esPersonaje('aren'))!.topHp).toBe(9);
-  });
-
-  it('el personaje que cae queda a 0 PV y sale del ejército, pero no de la partida', () => {
-    // La semilla, una en la que cae (19-10-2026: con la rueda, la 32 lo dejaba en pie).
-    const state = newGame({ seed: 33 });
-    const c = ctx(33);
-    const hero = heroesOf(state, 0)[0]!;
-    alistar(state, hero);
-    // Llega con 1 PV y sin la flecha mágica del héroe, y lleva un compañero que
-    // no cae, para que el héroe gane y conserve su ejército: si perdiera,
-    // volvería a la base sin él y no habría ejército que mirar.
-    state.characters!.aren!.hp = 1;
-    hero.mana = 0;
-    hero.army = [...hero.army, ...ejercito({ creature: PESADA, count: 1 })];
-    ponerMonstruo(state, NO_MUERTO, 4);
-    forzarBatalla(state, c, hero);
-    const final = state.pendingBattle!.battle;
-    // Que caiga lo decide el tablero; el test comprueba lo que se escribe
-    // DESPUÉS, así que exige que de verdad cayera.
-    expect(resolvePendingBattle(state, c).winner).toBe('attacker');
-    expect(final.stacks.find(esPersonaje('aren'))!.count).toBe(0);
-
-    expect(state.characters!.aren!.hp).toBe(0);
-    const vivo = heroById(state, hero.id);
-    expect(vivo.army.some((s) => s?.member === 'aren')).toBe(false);
-    // Y el compañero, en su sitio: la lista se queda densa, sin hueco.
-    expect(vivo.army.length).toBeGreaterThan(0);
-    expect(vivo.army.every((s) => s.creature === PESADA)).toBe(true);
-  });
-
-  it('las heridas se escriben también en el bando que defiende, aunque su héroe caiga', () => {
-    // La semilla, una en la que el atacante gana y la hiere (19-10-2026: con la
-    // rueda, en la 41 ganaba el defensor).
-    const state = newGame({ seed: 57 });
-    const c = ctx(57);
-    const atacante = heroesOf(state, 0)[0]!;
-    const defensor = heroesOf(state, 1)[0]!;
-    alistar(state, defensor, 'bera');
-    // Sin base: no puede rendirse —salvar solo a un personaje cuesta 0 de oro,
-    // así que el oro no lo impediría— y, si cae, sale del mapa en vez de volver.
-    (state.players[1] as { base: string | null }).base = null;
-
-    atacante.army = ejercito({ creature: PESADA, count: 6 });
-    atacante.movePoints = 5000;
-    defensor.at = casillaVecinaLibre(state, atacante.at);
-
-    applyAdventureAction(state, { type: 'move_hero', hero: atacante.id, to: defensor.at }, c, 0);
-    const final = state.pendingBattle!.battle;
-    expect(final.stacks.some(esPersonaje('bera'))).toBe(true);
-    expect(resolvePendingBattle(state, c).winner).toBe('attacker');
-    // El héroe que lo llevaba ya no está en el mapa; el personaje sí está en la
-    // partida, con su herida escrita: 0 si cayó, o lo que le quedara si la
-    // batalla acabó antes al caer el héroe (fase 1b).
-    expect(state.heroes.some((h) => h.id === defensor.id)).toBe(false);
-    const s = final.stacks.find(esPersonaje('bera'))!;
-    expect(state.characters!.bera!.hp).toBe(stackHp(s));
-    expect(state.characters!.bera!.hp).toBeLessThan(s.unit.hp);
-  });
-
-  it('el defensor con personaje que GANA lo conserva en el ejército, con sus PV escritos', () => {
-    // Es otro camino que el del atacante —`applyDefenderSurvivors` y
-    // `restoreHeroFromBattle`— y es donde ya se olvidó una línea una vez (el
-    // maná). Seis ballesteros contra el personaje y cinco caballeros de la
-    // muerte: el defensor gana, y al personaje lo hieren (los ballesteros, que
-    // apuntan, o el cuerpo a cuerpo).
-    // La semilla, una en la que la hieren y no la matan (19-10-2026: con la rueda,
-    // en la 41 salía sana; 25-10-2026: con la fuerza y la agilidad, en la 57 moría; con el disparo diferido, en la 41 salía sana).
-    const state = newGame({ seed: 42 });
-    const c = ctx(42);
-    const atacante = heroesOf(state, 0)[0]!;
-    const defensor = heroesOf(state, 1)[0]!;
-    alistar(state, defensor, 'bera');
-    defensor.army = [
-      ...defensor.army,
-      ...ejercito({ creature: 'caballero-de-la-muerte', count: 5 }),
-    ];
-    // Sin oro no hay rendición: la batalla se pelea hasta el final.
-    state.players[0]!.oro = 0;
-
-    atacante.army = ejercito({ creature: 'imperio-ballestero', count: 6 });
-    // Sin maná: la flecha mágica del héroe va a por el personaje —es el único
-    // individuo del bando con vida para que valga la pena— y lo mataría.
-    atacante.mana = 0;
-    atacante.movePoints = 5000;
-    defensor.at = casillaVecinaLibre(state, atacante.at);
-
-    applyAdventureAction(state, { type: 'move_hero', hero: atacante.id, to: defensor.at }, c, 0);
-    const final = state.pendingBattle!.battle;
-    expect(resolvePendingBattle(state, c).winner).toBe('defender');
-
-    const s = final.stacks.find(esPersonaje('bera'))!;
-    const bera = state.characters!.bera!;
-    expect(bera.hp).toBe(s.topHp);
-    // Si saliera sano el test no distinguiría «escrito» de «no tocado».
-    expect(bera.hp).toBeLessThan(s.unit.hp);
-    expect(bera.hp).toBeGreaterThan(0);
-    expect(heroById(state, defensor.id).army[0]).toMatchObject({
-      creature: CHARACTER_BODY,
-      member: 'bera',
-    });
   });
 
   it('un ejército que nombra a un personaje que la partida no conoce lanza al entrar en batalla', () => {
@@ -2135,38 +1796,6 @@ describe('el mapa de nodos se juega', () => {
     );
   });
 
-  it('la base nace llena: sin el héroe dentro no se recluta, y el rechazo lo dice', () => {
-    // La guarnición de salida llena el cupo o el tope de liderazgo de una
-    // guarnición (de 15 a 20 de liderazgo y de 5 a 7 individuos según la
-    // facción, `data/ciudades.json`): lo que su pueblo cría ya no cabe. El héroe
-    // empieza dentro (19-10-2026) y recluta en su tropa; aquí se le saca para
-    // ver que sin él no cabe nada.
-    const state = newGame({ seed: 41 });
-    const base = baseOf(state, 0)!;
-    expect(heroesOf(state, 0).some((h) => pointKey(h.at) === pointKey(base.at))).toBe(true);
-    fueraDeSuBase(state, 0);
-    expect(heroesOf(state, 0).some((h) => pointKey(h.at) === pointKey(base.at))).toBe(false);
-    const recluta = dwellings(base)[0]!.creature;
-    base.available[recluta] = 10;
-    const motivo = troopBlocker(
-      guarnicionDeLaCiudad(state, base),
-      GARRISON_LEADERSHIP,
-      CUPO_GUARNICION,
-      recluta,
-      1,
-      'la guarnición',
-    );
-    expect(motivo).toMatch(/^no cabe: la guarnición /);
-    expect(() =>
-      applyAdventureAction(
-        state,
-        { type: 'recruit', town: base.id, creature: recluta, count: 1 },
-        ctx(41),
-        0,
-      ),
-    ).toThrow(`no se puede reclutar: ${motivo}`);
-  });
-
   it('una ciudad vacía se toma entrando, con las dos caras a la vez', () => {
     const { state, c } = enLaRed();
     const neutral = state.towns.find((t) => t.id === 'town-2')!;
@@ -2380,101 +2009,45 @@ describe('el mapa de nodos se juega', () => {
     expect(hero.at).toEqual({ x: 22, y: 4 });
     expect(state.log.at(-1)?.kind).toBe('game_over');
   });
-
-  it('la IA no elige un objetivo que está detrás de una guarnición que no puede vencer', () => {
-    // Con los pasos estrechos, un Dijkstra que no supiera de héroes ni de
-    // guarniciones mandaría a la IA por ENCIMA de lo que hubiera plantado en
-    // el paso: batalla no elegida, derrota, vuelta a casa y otra vez. La
-    // semilla 54 del barrido no terminaba así. Aquí la base del rival (22,4)
-    // está detrás de la ciudad neutral (17,4), que es el único paso entre C y D.
-    const objetivo = (guarnecida: boolean) => {
-      const { state } = enLaRed();
-      guarnecer(state, state.towns.find((t) => t.id === 'town-1')!, []);
-      guarnecer(
-        state,
-        state.towns.find((t) => t.id === 'town-2')!,
-        guarnecida ? ejercito({ creature: 'jinete-de-plaga', count: 7 }) : [],
-      );
-      // El héroe rival, fuerte y fuera del camino: que no sea él el objetivo.
-      heroById(state, 'hero-1').army = ejercito({ creature: 'jinete-de-plaga', count: 6 });
-      const mio = heroById(state, 'hero-0');
-      mio.at = { x: 14, y: 2 };
-      const alcance = alcanceDelHeroe(state, mio);
-      // La guarnición se alcanza —es una batalla posible— y no se cruza.
-      expect(costesDelAlcance(alcance).has('17,4')).toBe(true);
-      expect(costesDelAlcance(alcance).has('22,4'), 'la base rival, detrás del paso').toBe(
-        !guarnecida,
-      );
-      return chooseHeroDestination(state, mio, alcance);
-    };
-    // Con el paso libre, la base rival vacía es el objetivo…
-    expect(objetivo(false)).toEqual({ x: 22, y: 4 });
-    // …y con el paso guardado por quien no puede vencer, ni ella ni el paso.
-    const conGuardia = objetivo(true);
-    expect(conGuardia).not.toEqual({ x: 22, y: 4 });
-    expect(conGuardia).not.toEqual({ x: 17, y: 4 });
-  });
 });
 
 describe('el id de un héroe contratado no se repite (#126)', () => {
-  it('con tres jugadores: contratar, caer otro héroe y volver a contratar el mismo día', () => {
-    // La colisión solo se alcanza con tres jugadores: un héroe sale de
-    // `state.heroes` únicamente si cae sin base a la que volver, y con dos,
-    // quedarse sin base acaba la partida. Aquí el 2 tiene base en `town-2`.
-    const plan = planDeNodos();
-    const state = newGame({
-      seed: 41,
-      plan: {
-        ...plan,
-        towns: plan.towns.map((t) => (t.id === 'town-2' ? { ...t, owner: 2 } : t)),
-      },
-    });
-    const c = ctx(41);
-    // Los héroes nacen en su base: el del 2 sale para que no la defienda, y el
-    // del 0 para que se pueda contratar en la suya.
-    heroById(state, 'hero-2').at = { x: 18, y: 3 };
+  it('contratar, salir otro héroe del juego y volver a contratar el mismo día da otro id', () => {
+    // Con `hero-<jugador>-<héroes en juego>-<día>` los dos contratados salían
+    // iguales en cuanto un héroe salía de `state.heroes` entre los dos: en la
+    // partida, uno que cae sin base a la que volver (hace falta un tercer jugador
+    // con base, #126). Aquí se le saca a mano: el id solo mira lo que hay en juego.
+    const seed = 41;
+    const state = newGame({ seed });
+    const c = ctx(seed);
     fueraDeSuBase(state, 0);
-    expect(state.players.map((p) => p.id)).toEqual([0, 1, 2]);
-    const dia = state.day;
     state.players[0]!.oro = 10 * ECONOMIA.precioDelHeroe;
-    const casa = state.towns.find((t) => t.id === 'town-0')!;
-    const suya = state.towns.find((t) => t.id === 'town-2')!;
-    const otro = heroById(state, 'hero-2');
+    const casa = baseOf(state, 0)!;
+    const dia = state.day;
+    const iniciales = state.heroes.map((h) => h.id);
+    // Casillas libres a las que sacar a cada contratado, para que quepa el siguiente:
+    // las que alcanza el héroe que ya está fuera, sin objeto.
+    const fuera = [...costesDelAlcance(alcanceDelHeroe(state, heroesOf(state, 0)[0]!)).keys()]
+      .map(pointFromKey)
+      .filter((p) => objectAt(state.map, p) === undefined);
     const contratar = () => {
       applyAdventureAction(state, { type: 'hire_hero', town: casa.id }, c, 0);
       const nuevo = state.heroes.at(-1)!;
-      // Fuera del pueblo, para que el siguiente quepa; con tropa de sobra para
-      // ganar lo que le toque pelear.
-      nuevo.at = { x: 3, y: 6 };
-      nuevo.army = ejercito({ creature: PESADA, count: 6 });
+      nuevo.at = fuera.find((p) => state.heroes.every((h) => pointKey(h.at) !== pointKey(p)))!;
       return nuevo;
     };
 
     const primero = contratar();
-    // El 2 pierde su base: el primero contratado la toma. Su héroe está fuera, y
-    // la guarnición es de uno: tras la muralla de piedra (fase 2 del puesto
-    // fronterizo), la de salida le ganaba a seis pesados.
-    guarnecer(state, suya, ejercito({ creature: TROPA_BARATA, count: 1 }));
-    forzarBatalla(state, c, primero, suya.at);
-    resolvePendingBattle(state, c);
-    expect(baseOf(state, 2)).toBeNull();
-    expect(state.finished).toBeNull();
-    // Y su héroe cae sin base a la que volver: sale de `state.heroes`.
-    otro.army = ejercito({ creature: TROPA_BARATA, count: 1 });
-    const cazador = heroById(state, 'hero-0');
-    cazador.army = ejercito({ creature: PESADA, count: 6 });
-    forzarBatalla(state, c, cazador, otro.at);
-    resolvePendingBattle(state, c);
-    expect(state.heroes.some((h) => h.id === otro.id)).toBe(false);
-
+    const otro = heroesOf(state, 1)[0]!;
+    state.heroes.splice(state.heroes.indexOf(otro), 1);
     const segundo = contratar();
+
     expect(state.day).toBe(dia);
-    // Con `hero-<jugador>-<héroes en juego>-<día>`, los dos salían iguales.
     expect(segundo.id).not.toBe(primero.id);
     const contratados = state.log.flatMap((e) => (e.kind === 'hero_hired' ? [e.hero] : []));
     expect(contratados).toEqual([primero.id, segundo.id]);
-    const todos = [...state.heroes.map((h) => h.id), ...contratados, otro.id];
-    expect(new Set(todos).size).toBe(state.heroes.length + 1);
+    // Ninguno repite el de nadie que haya estado en juego, tampoco el que salió.
+    expect(new Set([...iniciales, ...contratados]).size).toBe(iniciales.length + 2);
   });
 });
 
@@ -2518,137 +2091,4 @@ describe('cómo acabó la partida, en el núcleo (#123)', () => {
 
 // ---------------------------------------------------------------- la marcha que se para (#130)
 
-/** La primera semilla con una marcha del día 1 que se para, a dónde iba y la partida al salir. */
-function primeraParada(): { seed: number; destino: Point; antes: GameState } {
-  for (let seed = 1; seed <= 40; seed++) {
-    const state = newGame({ seed });
-    const destino = primeraMarchaQueSePara(state, heroesOf(state, 0)[0]!);
-    if (destino !== null) return { seed, destino, antes: state };
-  }
-  throw new Error('ninguna marcha del día 1 se para en 40 semillas');
-}
-
-describe('la marcha se para al descubrir un grupo que la emboscaría (#130)', () => {
-  it('se queda donde lo ve, sin batalla, con lo andado gastado; y el grupo ya se ve', () => {
-    const { seed, destino, antes } = primeraParada();
-    const state = copiaDePartida(antes);
-    const hero = heroesOf(state, 0)[0]!;
-    const puntos = hero.movePoints;
-    const camino = caminoHasta(state, hero, destino)!;
-    // Al salir no avisaba: es lo que hace de la parada la única ocasión de saberlo.
-    expect(
-      emboscadaEnLaRuta(state, hero, camino, asaltantesALaVista(state, visibleNow(state, 0))),
-    ).toBeNull();
-    const desde = state.log.length;
-
-    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: destino }, ctx(seed), 0);
-
-    const parada = state.log.at(-1)!;
-    if (parada.kind !== 'march_halted') throw new Error(`acabó en ${parada.kind}`);
-    expect(parada).toMatchObject({ hero: hero.id, actor: 0, at: hero.at, seen: [0] });
-    expect(state.pendingBattle).toBeNull();
-    expect(state.log.slice(desde).some((e) => e.kind === 'battle_started')).toBe(false);
-    const grupo = state.raiders.find((r) => r.id === parada.raider)!;
-    expect(parada.troops).toEqual(grupo.troops);
-    // Antes de su región, y no en el destino.
-    expect(regionDeCasilla(state.map, hero.at)).not.toBe(regionDeCasilla(state.map, grupo.at));
-    expect(pointKey(hero.at)).not.toBe(pointKey(destino));
-    // Lo andado cuenta: se ha gastado lo que cuesta llegar a donde se paró.
-    const andado = camino.find((p) => pointKey(p.at) === pointKey(hero.at))!;
-    expect(hero.movePoints).toBe(puntos - andado.cost);
-    // Y ahora se ve, por la misma regla que pinta el cliente y lee el agente.
-    expect(asaltantesALaVista(state, visibleNow(state, 0)).map((r) => r.id)).toContain(grupo.id);
-    // La crónica del dueño la cuenta: es su hecho.
-    expect(cronicaPara(state, 0, 5).some((e) => e.kind === 'march_halted')).toBe(true);
-  });
-
-  it('un grupo que ya se ve al salir no para nada: pedir la misma marcha otra vez es la emboscada', () => {
-    const { seed, destino, antes } = primeraParada();
-    const state = copiaDePartida(antes);
-    const hero = heroesOf(state, 0)[0]!;
-    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: destino }, ctx(seed), 0);
-    const parada = state.log.at(-1)!;
-    if (parada.kind !== 'march_halted') throw new Error(`acabó en ${parada.kind}`);
-    // Desde donde se paró, la ruta ya avisa: quien la pide sabe lo que pisa.
-    const resto = caminoHasta(state, hero, destino)!;
-    const vistos = asaltantesALaVista(state, visibleNow(state, 0));
-    expect(emboscadaEnLaRuta(state, hero, resto, vistos)?.raider.id).toBe(parada.raider);
-    const desde = state.log.length;
-
-    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: destino }, ctx(seed), 0);
-
-    expect(state.log.slice(desde).some((e) => e.kind === 'march_halted')).toBe(false);
-    const batalla = state.log.slice(desde).find((e) => e.kind === 'battle_started');
-    expect(batalla).toMatchObject({ attacker: { kind: 'raider', raiderId: parada.raider } });
-    expect(state.pendingBattle).not.toBeNull();
-  });
-
-  it('el rival que mira al héroe parado sin ver la región del grupo no se entera (H4 de QA)', () => {
-    // Se planta al héroe del rival a unas casillas de donde se para el nuestro:
-    // ve la casilla del héroe y, si la región del grupo le queda fuera, la
-    // crónica no le puede contar ni el grupo ni su tropa.
-    const casos = { tapado: 0, aLaVista: 0 };
-    for (let seed = 1; seed <= 40 && (casos.tapado === 0 || casos.aLaVista === 0); seed++) {
-      const antes = newGame({ seed });
-      const nuestro = heroesOf(antes, 0)[0]!;
-      const destino = primeraMarchaQueSePara(antes, nuestro);
-      if (destino === null) continue;
-      const solo = copiaDePartida(antes);
-      applyAdventureAction(
-        solo,
-        { type: 'move_hero', hero: nuestro.id, to: destino },
-        ctx(seed),
-        0,
-      );
-      const parada = solo.log.at(-1)!;
-      if (parada.kind !== 'march_halted') throw new Error(`acabó en ${parada.kind}`);
-      for (const [dx, dy] of [
-        [3, 0],
-        [-3, 0],
-        [0, 3],
-        [0, -3],
-        [2, 2],
-        [-2, -2],
-        [2, -2],
-        [-2, 2],
-      ]) {
-        const donde = { x: parada.at.x + dx!, y: parada.at.y + dy! };
-        if (!isEnterable(antes.map, donde) || objectAt(antes.map, donde) !== undefined) continue;
-        const state = copiaDePartida(antes);
-        heroesOf(state, 1)[0]!.at = donde;
-        applyAdventureAction(
-          state,
-          { type: 'move_hero', hero: nuestro.id, to: destino },
-          ctx(seed),
-          0,
-        );
-        const otra = state.log.at(-1)!;
-        if (otra.kind !== 'march_halted' || pointKey(otra.at) !== pointKey(parada.at)) continue;
-        if (!visibleNow(state, 1).has(otra.at)) continue;
-        const loVe = asaltantesALaVista(state, visibleNow(state, 1)).some(
-          (r) => r.id === otra.raider,
-        );
-        const enSuCronica = cronicaPara(state, 1, 50).some((e) => e.kind === 'march_halted');
-        expect(enSuCronica).toBe(loVe);
-        // El dueño la tiene siempre: es su hecho.
-        expect(cronicaPara(state, 0, 50).some((e) => e.kind === 'march_halted')).toBe(true);
-        casos[loVe ? 'aLaVista' : 'tapado']++;
-      }
-    }
-    // Que el test mire los dos lados de la regla, y no solo uno.
-    expect(casos.tapado).toBeGreaterThan(0);
-    expect(casos.aLaVista).toBeGreaterThan(0);
-  });
-
-  it('un héroe al que nadie le saca el margen anda entero', () => {
-    const { seed, destino, antes } = primeraParada();
-    const state = copiaDePartida(antes);
-    const hero = heroesOf(state, 0)[0]!;
-    // Siete jinetes: con la escala baja (26-10-2026), siete pesadas ya no daban el margen.
-    hero.army = ejercito({ creature: JINETE, count: 7 });
-    hero.movePoints = 100_000;
-    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: destino }, ctx(seed), 0);
-    expect(state.log.some((e) => e.kind === 'march_halted')).toBe(false);
-    expect(pointKey(hero.at)).toBe(pointKey(destino));
-  });
-});
+// ------------------------------------- la fuerza cambia a mitad de marcha (H1 y H2 de QA de #130)

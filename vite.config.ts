@@ -3,7 +3,6 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { resolve } from 'node:path';
 import { defineConfig, type Plugin, type Rollup, type ViteDevServer } from 'vite';
 import { RUTA_DE_MURALLAS } from './src/core/arena-murallas.js';
-import { RUTA_DEL_CATALOGO_DE_EQUIPO } from './src/core/data.js';
 import { CARPETA_DE_LAS_FIGURAS, RUTA_DEL_BANCO } from './src/core/npcs.js';
 import { RUTA_DEL_CATALOGO_DE_UNIDADES } from './src/core/unidad.js';
 import { puertoEspectadores } from './src/server/entorno.js';
@@ -219,15 +218,17 @@ function arena(): Plugin {
             return {
               version,
               unidades: leido.unidades,
-              // Y el catálogo de equipo (vista «Editar equipo»): va con las unidades
-              // porque se guarda con ellas, en una operación.
+              // Y el catálogo de equipo (vista «Editar equipo») y el cuerpo de todo
+              // héroe: van con las unidades porque se guardan con ellas, en una operación.
               piezas: leido.piezas,
+              heroe: leido.heroe,
             };
           },
           vacio: { unidades: [], piezas: [] },
           escribir: async (cuerpo) => {
-            const hecho = (await borrador()).guardarCatalogo(raiz, cuerpo);
-            for (const ruta of [RUTA_DEL_CATALOGO_DE_EQUIPO, RUTA_DEL_CATALOGO_DE_UNIDADES]) {
+            const b = await borrador();
+            const hecho = b.guardarCatalogo(raiz, cuerpo);
+            for (const ruta of b.FICHEROS_DEL_CATALOGO) {
               const donde = resolve(raiz, ruta);
               escritoAlGuardar.set(donde, readFileSync(donde, 'utf8'));
             }

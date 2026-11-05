@@ -1,0 +1,5 @@
+{
+  "_comment": "La granada (src/core/battle/granada.ts; 02-11-2026, petición del usuario: «Y las granadas? Me gustaria evitar meter un factor aleatorio»). REGLA NUESTRA, cifras INVENTADAS y a ojo, sin medir el equilibrio. Se lanza por encima a una casilla a su alcance (la fuerza del cuerpo de quien la lanza, al menos 1; decisión del usuario: «Fuerza»), y explota al empezar su siguiente turno en esa casilla y sus seis vecinas, a todo vivo de cualquier bando, con la tirada en un cuarto fijo de la horquilla del golpe a distancia de quien la lanzó (sin dado): cuartoDelCentro en la casilla, cuartoDelAnillo en las vecinas (de 0, el mínimo, a 4, el máximo). La armadura se resta como siempre. Cuántas lleva cada portador a cada batalla lo dice su pieza (data/equipo.json, cargas).",
+  "cuartoDelCentro": 4,
+  "cuartoDelAnillo": 2
+}

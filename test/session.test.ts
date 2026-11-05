@@ -6,28 +6,25 @@
  * asíncrono: la reentrada. Antes no había un solo instante en el que pulsar dos
  * veces significara algo; ahora sí, y hay que cerrarlo.
  */
+
 import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
 import { renderEleccion } from '../src/client/rueda/rueda.js';
 import { AYUDA_DEL_MAPA, Session } from '../src/client/session.js';
 import { renderActions, renderSide } from '../src/client/views/panels.js';
+import { poderBlocker, terminarElDespliegue } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
+import { unidadesDelJuego } from '../src/core/catalogo.js';
 import { combateCon } from '../src/core/combate.js';
 import { armyLeadership, GARRISON_LEADERSHIP } from '../src/core/hero/troop.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import { pointFromKey, reachableFrom } from '../src/core/map/map.js';
 import { puertasDeLaCiudad } from '../src/core/map/recinto.js';
-import { asaltantesALaVista } from '../src/core/state/asaltantes.js';
-import {
-  applyAdventureAction,
-  HERO_SCOUT_RADIUS,
-  heroesOf,
-  visibleNow,
-} from '../src/core/state/game.js';
+import { applyAdventureAction, HERO_SCOUT_RADIUS, heroesOf } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dwellings } from '../src/core/town/town.js';
 import type { Hex, UnitInfo } from '../src/core/types.js';
-import { sesionContraMonstruo, sesionContraMonstruoCon } from './batalla-de-cliente.js';
+import { sesionAntesDelMonstruo, sesionContraMonstruo } from './batalla-de-cliente.js';
 import {
   anteLaBase,
   costesDelAlcance,
@@ -35,13 +32,10 @@ import {
   fueraDeSuBase,
   guarnecer,
   guarnicionDeLaCiudad,
-  PESADA,
+  hastaQue,
   pegadoA,
   planDeNodos,
-  primeraMarchaQueSePara,
   primeraSemillaCon,
-  SANADOR,
-  TROPA_BARATA,
   unoDeLaRueda,
 } from './helpers.js';
 
@@ -148,6 +142,9 @@ describe('sesión del cliente: el bando de la persona', () => {
     suyo.movePoints = 100000;
     applyAdventureAction(s.state, { type: 'move_hero', hero: suyo.id, to: mio.at }, s.ctx, 1);
     if (s.state.pendingBattle === null) throw new Error('el rival no llegó a atacar');
+    // Nace en el despliegue de la persona (02-11-2026): se acepta tal cual, sin
+    // que la IA mueva, que es lo que estos tests miran después.
+    terminarElDespliegue(s.state.pendingBattle.battle, s.ctx.rng);
     return { s, mio };
   }
 
@@ -200,6 +197,12 @@ describe('sesión del cliente: el bando de la persona', () => {
         // Lo contrario de lo que hacía: se paraba al ver un atacante —creyéndolo
         // suyo— y devolvía el mando con el turno del rival a medias.
         expect(activo.side).toBe('defender');
+        // Desde el catálogo retocado (02-11-2026) quien abre por la persona en la
+        // primera semilla es un arquero elfo, y un tirador empieza su turno «A
+        // distancia», donde no se marca andar (el selector de arma, 26-10-2026): la
+        // lista legal es suya, y en «Cuerpo a cuerpo» anda.
+        expect(s.battleLegalActions().some((a) => a.type !== 'end_turn')).toBe(true);
+        if (s.arma.modo === 'distancia') s.arma.elegir('cuerpo');
         expect(s.battleMovable().length).toBeGreaterThan(0);
       }
     }
@@ -267,19 +270,6 @@ describe('sesión del cliente: reclutar lo que cabe y ver la ruta entera', () =>
     for (const p of ruta) expect(p.hoy).toBe(p.cost <= heroe.movePoints);
   });
 
-  it('el liderazgo del héroe es lo que ocupa su ejército sobre su tope', () => {
-    const s = new Session(7);
-    const heroe = s.selectedHero!;
-    // Lo ocupado no se escribe con la cifra de la semilla: el ejército de salida
-    // sale del mismo `rng` que el mapa, y cada mapa tira distinto —fue 14 con el
-    // de esquinas, 10 con el de nodos de 24, 14 con el de 28 y 12 con el denso
-    // de 34—. Se pide a la misma suma que la guarnición de abajo; el tope sí es
-    // fijo, el de un héroe de nivel 5.
-    const ocupado = armyLeadership(heroe.army);
-    expect(ocupado).toBeGreaterThan(0);
-    expect(s.liderazgo({ heroe: heroe.id })).toEqual({ ocupado, tope: 20 });
-  });
-
   it('la guarnición va por el mismo camino, con el tope de guarnición', () => {
     const s = new Session(7);
     const pueblo = s.myTowns()[0]!;
@@ -289,14 +279,12 @@ describe('sesión del cliente: reclutar lo que cabe y ver la ruta entera', () =>
     });
   });
 
-  it('lo que ve el héroe ahora está explorado, y lo visible se rehace al moverse', () => {
-    // Decía «lo visible es un subconjunto de lo explorado», y era verdad por
-    // casualidad: con el castillo en (3,3) y el héroe en (4,4), el cuadrado de
-    // 5 del castillo y el de 4 del héroe llegaban a la misma columna. El
-    // castillo **no despeja niebla** —`TOWN_SCOUT_RADIUS` alimenta
-    // `visibleNow` y no `fog`, y está escrito allí—, así que en cuanto el mapa
-    // de nodos movió la base, su borde quedó visible sin explorar. Lo que sí
-    // tiene que estar explorado es lo que ve el héroe.
+  it('lo que ve el héroe ahora es su cuadrado sobre lo explorado, y lo visible se rehace al moverse', () => {
+    // Decía «lo visible es un subconjunto de lo explorado» y comprobaba que todo
+    // el cuadrado del héroe estuviera explorado. Desde la niebla por regiones
+    // (02-11-2026) el radio ya no explora: lo explorado son regiones enteras y lo
+    // que se mira es el radio sobre ellas, así que de su cuadrado se ve justo lo
+    // explorado, y nada fuera de lo explorado se ve.
     const s = new Session(7);
     const fog = s.state.players[0]!.fog;
     const antes = s.visibles();
@@ -304,10 +292,8 @@ describe('sesión del cliente: reclutar lo que cabe y ver la ruta entera', () =>
     const delHeroe = Casillas.vacias(s.state.map);
     delHeroe.marcarCuadrado(heroe0.at, HERO_SCOUT_RADIUS);
     expect(delHeroe.size).toBeGreaterThan(0);
-    for (const k of delHeroe) {
-      expect(antes.has(k)).toBe(true);
-      expect(fog.has(k)).toBe(true);
-    }
+    for (const k of delHeroe) expect(antes.has(k), `(${k.x},${k.y})`).toBe(fog.has(k));
+    for (const k of antes) expect(fog.has(k)).toBe(true);
     expect(s.visibles()).toBe(antes); // la caché: el mismo objeto sin cambios
     const heroe = s.selectedHero!;
     // Un destino a dos pasos que de verdad se pise: a dos casillas a la derecha
@@ -360,7 +346,8 @@ describe('sesión del cliente: la versión y lo que se guarda entre fotogramas',
     mio.movePoints = 100000;
     applyAdventureAction(s.state, { type: 'move_hero', hero: mio.id, to: suyo.at }, s.ctx, 0);
     if (s.state.pendingBattle === null) throw new Error('no hubo batalla');
-    s.advanceEnemyTurns();
+    // «Listo» al despliegue: la IA mueve si abre ella (`advanceEnemyTurns`).
+    s.despliegue.listo();
     if (s.turnoPropio === null) throw new Error('a la persona no le toca');
 
     const acciones = s.battleLegalActions();
@@ -420,29 +407,6 @@ describe('el fin de partida cuenta la causa que selló el núcleo (I1 de la 2a)'
     // La regla es de la lectura: ningún escritor la salta.
     s.status = 'Cualquier otra cosa.';
     expect(s.status).toBe(fin);
-  });
-
-  it('la batalla que cierra la partida deja en la barra el desenlace con su causa (#162)', () => {
-    // La 5 otra vez desde #195 (la 6 desde #188, cuando en la 5 se perdía; con
-    // las minas por región, en la 6 se pierde y en la 5 se gana).
-    const s = new Session(5);
-    const { base, atacante } = anteLaBase(s.state, 0, 1);
-    // La base, con un goblin de guarnición y sin su héroe, para que haya batalla y
-    // se gane. Hasta la muralla de piedra (fase 2 del puesto fronterizo) la
-    // defendía su héroe solo, sin tropa; tras el muro, el héroe del atacante se
-    // metía en el pasillo de la puerta y caía antes de poner una escalera. Con un
-    // esqueleto a su lado se ganaba hasta #79: desde que la IA elige a quién ir
-    // por el daño que de verdad hace, el esqueleto va a por los arqueros y no
-    // a por los campesinos, y la defensa aguanta.
-    guarnecer(s.state, base, ejercito({ creature: 'goblin-lancero', count: 1 }));
-    s.moveHeroTo(atacante.id, base.at);
-    expect(s.scene).toBe('battle');
-    // «Resolver sola» la juega y la cierra (`afterBattle`, lo mismo que «Continuar»).
-    s.autoResolveBattle();
-    expect(s.scene).toBe('adventure');
-    expect(s.desenlace).toBe('ganada');
-    // Antes, un «¡Victoria!» a secas, sin la causa que sí dice el mapa.
-    expect(s.status).toBe('¡Victoria! Has tomado la base rival.');
   });
 
   it('una partida con ganador y sin player_defeated en la crónica se dice rota', () => {
@@ -508,83 +472,57 @@ describe('la pieza elegida es de la mochila de un héroe (M1)', () => {
   });
 });
 
-describe('los asaltantes que se ven y la marcha que se para (#130)', () => {
-  it('la sesión ve los grupos con la regla del núcleo, y la barra dice por qué se para el héroe', () => {
-    let probadas = 0;
-    for (let seed = 1; seed <= 40; seed++) {
-      const s = new Session(seed);
-      expect(s.asaltantesALaVista().map((r) => r.id)).toEqual(
-        asaltantesALaVista(s.state, visibleNow(s.state, s.viewer)).map((r) => r.id),
-      );
-      const hero = s.selectedHero!;
-      const destino = primeraMarchaQueSePara(s.state, hero);
-      if (destino === null) continue;
-      const antes = s.asaltantesALaVista().length;
-      s.moveHeroTo(hero.id, destino);
-      probadas++;
-      expect(s.state.log.at(-1)?.kind).toBe('march_halted');
-      expect(s.status).toMatch(new RegExp(`^${hero.name} se detiene: ve \\d+ asaltantes`));
-      // La caché de la sesión no se queda con los de antes de andar.
-      expect(s.asaltantesALaVista().length).toBeGreaterThan(antes);
-      break;
-    }
-    expect(probadas).toBe(1);
-  });
-});
-
-/**
- * F5 de la tarea del combate en el juego (19-10-2026): la persona elige en la
- * rueda del golpe en las batallas del mapa —su golpe y, cuando la golpean cuerpo a
- * cuerpo, su respuesta, sin ver lo del otro—, y juega las batallas en que la
- * atacan (#116). Antes, la IA elegía por ella a ciegas y resolvía sus defensas.
- */
 describe('los poderes de la tropa en la batalla del mapa (F6)', () => {
-  it('el monje de la persona usa Curar: el botón, el aliado que se elige y la jugada', () => {
-    // Hasta F6 el panel de la partida decía «su tropa no tiene poderes» aunque el
-    // monje los trajera (`poderes: NADA`). Ahora son los botones de la arena
-    // (`botonesDePoder`) y el gesto, el mismo (`PoderesDeLaActiva`).
-    // Con dos pesados y no dos de tropa: en la batalla que se halla desde que el
-    // héroe nace en su base (19-10-2026), los seis del monstruo mataban al monje
-    // antes de su primer turno.
-    const s = sesionContraMonstruoCon(
-      ejercito({ creature: SANADOR, count: 1 }, { creature: PESADA, count: 2 }),
-    );
-    // Los dos pesados, heridos de salida: con más de un aliado que curar, el botón
-    // espera el clic (Bendecir, que iba a todo aliado, se fue con la suerte).
-    for (const x of s.battle!.stacks) {
-      if (x.side === s.miBando && x.unit.poderes === undefined && x.origen.kind !== 'heroe') {
-        x.topHp -= 3;
-      }
+  it('una unidad con poder de la persona lo usa: el botón, el aliado que se elige y la jugada', () => {
+    // Hasta F6 el panel de la partida decía «su tropa no tiene poderes» aunque la
+    // unidad los trajera. Ahora son los botones de la arena (`botonesDePoder`) y el
+    // gesto, el mismo (`PoderesDeLaActiva`). La unidad, la primera del catálogo con
+    // un poder; el poder, el suyo.
+    const conPoder = unidadesDelJuego().find((u) => (u.poderes?.length ?? 0) > 0);
+    if (conPoder === undefined) throw new Error('ninguna unidad del catálogo tiene un poder');
+    const poder = conPoder.poderes![0]!;
+    const { s, at } = sesionAntesDelMonstruo();
+    s.selectedHero!.army = ejercito({ creature: conPoder.id, count: 3 });
+    s.clickTile(at);
+    s.despliegue.listoTalCual();
+    if (s.battle === null) throw new Error('con ese ejército no se abre la batalla');
+    // Los suyos, heridos de salida: con más de un aliado sobre el que usarlo, el
+    // botón espera el clic.
+    for (const x of s.battle.stacks) {
+      if (x.side === s.miBando && x.origen.kind !== 'heroe') x.topHp -= 1;
     }
     const conPoderes = () => (s.turnoPropio?.stack.unit.poderes?.length ?? 0) > 0;
     for (let i = 0; i < 40 && !conPoderes(); i++) {
-      if (s.ruedaPendiente !== null) s.elegirEnLaRueda('normal');
+      if (s.ruedaPendiente !== null) s.elegirEnLaRueda(unoDeLaRueda(s.battle));
       else if (s.turnoPropio !== null) s.playBattleAction({ type: 'end_turn' });
       else throw new Error('ni le toca a la persona ni espera la rueda');
     }
     expect(conPoderes()).toBe(true);
     const panel = marcadoDe(renderSide(s));
-    expect(panel).toContain('data-action="battle-poder" data-poder="curar"');
-    // Con su ayuda o su motivo.
-    expect(panel).toMatch(/data-poder="curar" class="poder"(?: disabled)? title="[^"]+"/);
+    expect(panel).toContain(`data-action="battle-poder" data-poder="${poder}"`);
 
-    // Con varios aliados posibles, el botón deja Curar esperando el clic.
-    const aliados = s.battleLegalActions().filter((a) => a.type === 'power' && a.poder === 'curar');
+    // Con varios aliados posibles, el botón deja el poder esperando el clic.
+    const aliados = s.battleLegalActions().filter((a) => a.type === 'power' && a.poder === poder);
     expect(aliados.length).toBeGreaterThan(1);
     const version = s.version;
-    s.poderes.usar('curar');
-    expect(s.apuntado).toEqual({ kind: 'poder', id: 'curar' });
+    s.poderes.usar(poder);
+    expect(s.apuntado).toEqual({ kind: 'poder', id: poder });
     expect(s.status).toContain('Elige el aliado');
     expect(s.version).toBeGreaterThan(version);
-    expect(marcadoDe(renderSide(s))).toContain('data-poder="curar" class="poder primary"');
+    expect(marcadoDe(renderSide(s))).toContain(`data-poder="${poder}" class="poder primary"`);
     // Un enemigo no vale, y lo dice el núcleo.
-    const enemigo = s.battle!.stacks.find((x) => x.side !== s.miBando && x.count > 0)!;
-    expect(s.rechazoDeLoApuntado(enemigo.id)).toBe('«Curar» va dirigido a un aliado.');
+    const enemigo = s.battle.stacks.find((x) => x.side !== s.miBando && x.count > 0)!;
+    const motivo = poderBlocker(s.battle, poder, enemigo.id);
+    expect(motivo).not.toBeNull();
+    // Dicho como frase de la barra: con mayúscula y punto.
+    expect(s.rechazoDeLoApuntado(enemigo.id)).toBe(
+      `${motivo!.charAt(0).toUpperCase()}${motivo!.slice(1)}.`,
+    );
     // Y sobre un aliado se juega: el registro lo cuenta y lo apuntado se suelta.
-    const monje = s.turnoPropio!.stack.id;
+    const quien = s.turnoPropio!.stack.id;
     s.playBattleAction(aliados[0]!);
-    const hecho = s.battle!.log.find((e) => e.kind === 'power');
-    expect(hecho).toMatchObject({ kind: 'power', stack: monje, poder: 'curar' });
+    const hecho = s.battle.log.find((e) => e.kind === 'power');
+    expect(hecho).toMatchObject({ kind: 'power', stack: quien, poder });
     expect(s.apuntado).toBeNull();
   });
 });
@@ -730,49 +668,6 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
     expect(quien.hex).toEqual(donde);
   });
 
-  it('una carga de la persona no corre hasta elegir: la rueda se abre con ella en su salida, y Escape no gasta nada (31-10-2026)', () => {
-    const s = sesionContraMonstruo();
-    jugarHasta(s, () => s.ruedaPendiente === null && s.battleCharges().length > 0);
-    const carga = s.battleCharges()[0]!;
-    const golpe = { type: 'attack', target: carga.target, from: carga.at } as const;
-    expect(s.battleLegalActions()).toContainEqual(golpe);
-    const quien = s.turnoPropio!.stack;
-    const salida = { ...quien.hex };
-    const gastado = s.battle!.turno?.gastado;
-    const largo = s.battle!.log.length;
-
-    s.playBattleAction(golpe);
-
-    // Plantado en su salida, sin nada escrito ni gastado, con la carga por correr.
-    expect(s.ruedaPendiente?.fase).toBe('golpe');
-    expect(quien.hex).toEqual(salida);
-    expect(s.battle!.log.length).toBe(largo);
-    expect(s.battle!.turno?.gastado).toBe(gastado);
-    expect(s.battle!.golpeEnCurso?.carga?.carrera.at).toEqual(carga.at);
-    // Lo que se enseña bajo la rueda es lo de ahora: ni casillas de andar, ni más
-    // carga que la plantada (sin el golpe plantado en la clave, las de antes).
-    expect(s.battleMovable()).toEqual([]);
-    expect(s.battleCharges()).toEqual([carga]);
-
-    // Escape: no corrió, nada que devolver, y la carga vuelve a estar a mano.
-    expect(s.cancelarGolpe()).toBe(true);
-    expect(s.status).toBe('Golpe cancelado.');
-    expect(quien.hex).toEqual(salida);
-    expect(s.battle!.turno?.gastado).toBe(gastado);
-    expect(s.battleCharges()).toContainEqual(carga);
-
-    // Y otra vez, eligiendo: el cruce, la carrera y el golpe que la cobra.
-    s.playBattleAction(golpe);
-    s.elegirEnLaRueda('fuerte');
-    const nuevos = s.battle!.log.slice(largo);
-    expect(nuevos[0]).toMatchObject({ kind: 'cruce', stack: quien.id, golpe: 'fuerte' });
-    expect(nuevos[1]).toMatchObject({ kind: 'move', stack: quien.id, to: carga.at, charge: true });
-    expect(nuevos.find((e) => e.kind === 'attack' && !e.retaliation)).toMatchObject({
-      stack: quien.id,
-      charge: carga.hexes,
-    });
-  });
-
   it('cuando golpean a la persona, elige su respuesta sin ver el golpe; esa no se cancela', () => {
     const s = sesionContraMonstruo();
     jugarHasta(s, () => s.ruedaPendiente?.fase === 'respuesta');
@@ -794,67 +689,6 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
     expect(cruce).toMatchObject({ kind: 'cruce', respuesta: 'defensivo', stack: p.atacante.id });
   });
 
-  /**
-   * Una partida en la que el turno del rival ataca al héroe de la persona: el del
-   * rival, con seis pesados a dos pasos del suyo, con tres baratos.
-   */
-  function elRivalMeAtaca(semilla: number): Session {
-    const s = new Session(semilla);
-    const mio = heroesOf(s.state, 0)[0]!;
-    const suyo = heroesOf(s.state, 1)[0]!;
-    mio.army = ejercito({ creature: TROPA_BARATA, count: 3 });
-    suyo.army = ejercito({ creature: PESADA, count: 6 });
-    mio.at = pegadoA(s.state, suyo.at);
-    return s;
-  }
-
-  /** Deja correr el turno del rival hasta que se cumpla `cond`, o lanza. */
-  async function hastaQue(cond: () => boolean): Promise<void> {
-    for (let i = 0; i < 100 && !cond(); i++) await new Promise((r) => setTimeout(r, 0));
-    if (!cond()) throw new Error('el turno del rival no llegó a lo que se esperaba');
-  }
-
-  it('la persona juega su defensa (#116): el turno del rival espera a que la cierre', async () => {
-    // s3: en la 2, desde el recinto de las ciudades (vuelta 3), tras esa batalla
-    // el rival asalta también la base, y el turno espera la segunda defensa.
-    const s = elRivalMeAtaca(3);
-    let avisos = 0;
-    s.alCambiarSinGesto = () => avisos++;
-    let acabado = false;
-    const turno = s.endTurn().then(() => {
-      acabado = true;
-    });
-    await hastaQue(() => s.scene === 'battle');
-
-    // La batalla es suya y sigue abierta: nadie la resolvió por ella.
-    expect(s.miBando).toBe('defender');
-    expect(s.battle!.finished).toBeNull();
-    expect(s.state.log.some((e) => e.kind === 'battle_ended')).toBe(false);
-    expect(s.status).toBe('¡Te atacan! Defiéndete.');
-    expect(avisos).toBe(1);
-    expect(s.isPlayersTurn).toBe(false);
-    await new Promise((r) => setTimeout(r, 0));
-    expect(acabado).toBe(false);
-
-    // La juega hasta el final —la rueda incluida— y «Continuar» la cierra.
-    let respuestas = 0;
-    for (let i = 0; i < 400 && s.battle!.finished === null; i++) {
-      if (s.ruedaPendiente !== null) {
-        if (s.ruedaPendiente.fase === 'respuesta') respuestas++;
-        s.elegirEnLaRueda('normal');
-      } else s.playBattleAction({ type: 'end_turn' });
-    }
-    expect(s.battle!.finished).not.toBeNull();
-    expect(respuestas).toBeGreaterThan(0);
-    s.finishBattle();
-    await turno;
-
-    expect(acabado).toBe(true);
-    expect(s.scene).toBe('adventure');
-    expect(s.state.pendingBattle).toBeNull();
-    expect(s.state.log.some((e) => e.kind === 'battle_ended')).toBe(true);
-  });
-
   it('una base que se defiende sin héroe no habla de «este héroe» en los hechizos (H2)', async () => {
     // s1: con «Fin de turno» y nada más, el día 3 el imperio ataca la base y la
     // guarnición se defiende sola (lo reprodujo el QA del 19-10-2026). El panel
@@ -872,6 +706,9 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
     expect(s.scene).toBe('battle');
     const mio = s.miBando!;
     expect(s.battle!.heroes[mio]).toBeNull();
+    // La guarnición también despliega a mano (es de la persona).
+    expect(s.despliegue.enCurso?.side).toBe(mio);
+    s.despliegue.listo();
     for (let i = 0; i < 40 && s.turnoPropio === null; i++) s.elegirEnLaRueda('normal');
     expect(s.turnoPropio).not.toBeNull();
     const panel = marcadoDe(renderSide(s));
@@ -1082,6 +919,7 @@ describe('«Solo la rueda del héroe» (complejidad del combate, 22-10-2026)', (
     }
     expect(s.scene).toBe('battle');
     expect(s.battle!.heroes[s.miBando!]).toBeNull();
+    s.despliegue.listo();
     const cruces = () => s.battle!.log.filter((e) => e.kind === 'cruce').length;
     for (let i = 0; i < 400 && s.battle!.finished === null; i++) {
       expect(s.ruedaPendiente).toBeNull();

@@ -14,7 +14,8 @@
  * un `.join('')` sobre cadenas era justo el sitio por donde el marcado se
  * escapaba de la puerta.
  */
-import { activeStack, stackById } from '@core/battle/battle.js';
+import { cargasDe, isShooter, lanzaGranadas, tiroADistanciaDe } from '@core/battle/armas.js';
+import { activeStack, granadasQueQuedan, recargaQueFalta, stackById } from '@core/battle/battle.js';
 import { quedanCasillas } from '@core/battle/board.js';
 import {
   CARGA,
@@ -32,6 +33,7 @@ import {
   enRondas,
   type StackEffect,
 } from '@core/battle/effects.js';
+import { alcanceDeLaGranada } from '@core/battle/granada.js';
 import { poder } from '@core/battle/poderes.js';
 import {
   contraataqueDelCruce,
@@ -53,7 +55,7 @@ import {
   type Side,
 } from '@core/battle/types.js';
 import { unidadDelJuego } from '@core/catalogo.js';
-import { ECONOMIA, isShooter, nombreDeTipoDeHeroe, type Pieza } from '@core/data.js';
+import { ECONOMIA, nombreDeTipoDeHeroe, type Pieza } from '@core/data.js';
 import {
   conSigno,
   destinoDeEquipo,
@@ -89,10 +91,11 @@ import { disposicionDe } from '../../shared/base.js';
 import { quienesDe } from '../desenlace.js';
 import { DICHO_DE_LA_OBRA } from '../dicho-del-puesto.js';
 import type { Abierto } from '../escenas/castillo.js';
+import { COMO_SE_COLOCA } from '../escenas/despliegue.js';
 import { DESHABILITADO, fondoDeColor, type Html, html, NADA, srcDeImagen, unir } from '../html.js';
 import { asset } from '../render/assets.js';
 import { COLOR_DEL_ORO, MARCA_DE_COMANDANTE } from '../render/palette.js';
-import type { Session, SpellOption } from '../session.js';
+import type { DespliegueEnPantalla, ModoDelArma, Session, SpellOption } from '../session.js';
 import { renderPanelDelAyuntamiento } from './ayuntamiento.js';
 import { renderAbierto } from './base.js';
 import { filaDeCifra } from './cifras.js';
@@ -307,7 +310,7 @@ export function renderActions(session: Session, contandoAun = false): Html {
     case 'lugar':
       return html`<button data-action="salir-del-lugar" title="Escape">Volver al mapa</button>`;
     case 'battle': {
-      const battle = session.battle;
+      const battle = session.batallaALaVista;
       // «Continuar» no se apaga: espera solo a que acabe la jugada (#158 d,
       // `EscenaBatalla.alAcabar`) y cierra una batalla que ya no cambia.
       if (battle !== null && battle.finished !== null) {
@@ -925,7 +928,9 @@ function renderTownSpells(town: Town): Html {
 // ---------------------------------------------------------------- batalla
 
 function renderBattlePanel(session: Session, contandoAun: boolean): Html {
-  const battle = session.battle;
+  // Lo que se ve (`batallaALaVista`): en el despliegue, sin el rival que aún no ha
+  // desplegado; el defensor despliega sin ver la lista del atacante.
+  const battle = session.batallaALaVista;
   if (battle === null) return NADA;
 
   // El bando de la persona lo DERIVA la sesión del dueño de la batalla; aquí no
@@ -948,6 +953,21 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
       <p>${gane ? 'El campo es tuyo.' : derrota}</p>
       ${gane || rendicion !== undefined ? filaManaDeBatalla(session) : NADA}
       <h3>Parte de guerra</h3>${renderBattleLog(battle, mio)}`;
+  }
+
+  const fila = (x: BattleStack) => ({
+    flecha: x.side === mio ? '▶' : '◀',
+    nombre: `${marcaDeComandante(x)}${nombreEnElCampo(battle, x)}${marcaDeVeterano(x)}`,
+    cuenta: x.count,
+  });
+
+  // El despliegue: lo propio y el rival que ya desplegó, nunca el que aún no.
+  if (session.despliegue.enCurso !== null) {
+    return renderDespliegue(session.despliegue, battle, {
+      quien: null,
+      apagado: contandoAun ? AVISO_DE_ESPERA : null,
+      fila,
+    });
   }
 
   const s = activeStack(battle);
@@ -979,6 +999,7 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
           // subir al que ataca, la puerta al que defiende; sin muralla, nada.
           muralla: botonesDeMuralla(session, battle, s),
           poderes: html`${botonesDeArma(session, s)}${botonesDePoder(session, s)}`,
+          modo: session.arma.modo,
         }),
       )
     : html`<p>Turno del enemigo…</p>`;
@@ -987,11 +1008,7 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
   // batalla entera, no del stack, y sin verlo no se decide si lanzar.
   const mana = filaManaDeBatalla(session);
 
-  const orden = listaDelCampo(battle, (x) => ({
-    flecha: x.side === mio ? '▶' : '◀',
-    nombre: `${marcaDeComandante(x)}${nombreEnElCampo(battle, x)}${marcaDeVeterano(x)}`,
-    cuenta: x.count,
-  }));
+  const orden = listaDelCampo(battle, fila);
 
   return html`${activo}
     <div class="row"><span class="label">Ronda</span><span>${battle.round}</span></div>
@@ -999,6 +1016,57 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
     ${acciones}
     <h3>En el campo</h3><div class="stack-list">${orden}</div>
     <h3>Parte de guerra</h3>${renderBattleLog(battle, mio)}`;
+}
+
+/** Lo que se dice de cada tanda del despliegue, por su bando y su momento (`TANDAS`). */
+function fraseDeLaTanda(d: NonNullable<DespliegueEnPantalla['enCurso']>): string {
+  if (d.momento === 'tras_el_enemigo') {
+    return 'Despliegan los que salen cuando el enemigo ya está en el campo.';
+  }
+  return d.side === 'defender'
+    ? 'Despliegas primero: el enemigo aún no está en el campo.'
+    : 'El enemigo ya está en el campo: colócate frente a él.';
+}
+
+/**
+ * El panel de la batalla en el despliegue de la persona (fase de despliegue,
+ * 02-11-2026), uno para la partida y la arena: qué tanda es, un botón por cada uno
+ * que se coloca (el elegido marcado; con el teclado se elige aquí y las flechas lo
+ * mueven), cómo se coloca (`COMO_SE_COLOCA`), «Listo», que la cierra, y «En el
+ * campo» con lo que se ve (`battle`, la vista: sin el rival que aún no desplegó).
+ * `quien` es el bando dicho, donde la persona puede llevar los dos (la arena), o
+ * `null`; `apagado`, el motivo para apagar los botones (la jugada que se cuenta);
+ * `fila`, cómo dice cada página a cada uno en el campo.
+ */
+export function renderDespliegue(
+  d: DespliegueEnPantalla,
+  battle: BattleState,
+  o: {
+    readonly quien: string | null;
+    readonly apagado: string | null;
+    readonly fila: Parameters<typeof listaDelCampo>[1];
+  },
+): Html {
+  const ahora = d.enCurso;
+  if (ahora === null) return NADA;
+  const elegido = d.elegido;
+  const botones = unir(
+    ahora.colocables.map((id) => {
+      const x = stackById(battle, id);
+      const es = id === elegido?.id;
+      return html`<button data-action="despliegue-elegir" data-stack="${id}"${es ? html` class="primary" aria-pressed="true"` : html` aria-pressed="false"`}>${marcaDeComandante(x)}${nombreEnElCampo(battle, x)} (${x.hex.col},${x.hex.row})</button>`;
+    }),
+  );
+  return html`${apagadosPor(
+    o.apagado,
+    html`<h2>Despliegue${o.quien === null ? NADA : html` · ${o.quien}`}</h2>
+    <p>${fraseDeLaTanda(ahora)}</p>
+    <h3>Colocar</h3>
+    <div class="stack-list" data-despliegue="${String(ahora.tanda)}">${botones}</div>
+    <p class="cost" style="margin-top:.5rem">Para colocar, ${COMO_SE_COLOCA}</p>
+    <div class="stack-list"><button data-action="desplegado" class="primary">Listo</button></div>`,
+  )}
+    <h3>En el campo</h3><div class="stack-list">${listaDelCampo(battle, o.fila)}</div>`;
 }
 
 /**
@@ -1052,28 +1120,38 @@ export function accionesDeLaUnidad(o: {
    * arena): la ayuda lo dice en vez de invitar a golpear (R2 de QA de #263).
    */
   readonly trasLaFinta?: boolean;
+  /**
+   * En qué modo está el selector de arma (`ArmaDeLaActiva.modo`): en «A distancia»
+   * la ayuda es la del disparo o la de la granada. Lo dice la sesión, no se deduce de
+   * la lista (hallazgo S4 de /simplify, 02-11-2026).
+   */
+  readonly modo: ModoDelArma;
 }): Html {
   const quedan = o.pasos === null ? null : quedanCasillas(o.pasos);
   const sinSalida =
     o.sinSalida == null ? NADA : html`<p class="cost" data-sin-salida>${o.sinSalida}</p>`;
   // La ayuda dice lo que se puede hacer: tras la Finta, solo andar un tramo; rodeada,
   // solo golpear a quien tiene al lado (C2 de QA de #259: no hay hexágonos verdes).
-  // Con el selector de arma en «A distancia» la lista trae el `aim` y ni andar ni
-  // golpear (`ArmaDeLaActiva`): la ayuda es la del disparo.
-  const tirador = isShooter(o.activa.unit);
+  // Con el selector de arma en «A distancia» (`ArmaDeLaActiva`), la del disparo o
+  // la de la granada.
+  const tiro = tiroADistanciaDe(o.activa.unit);
   const ayuda =
     o.trasLaFinta === true
       ? html`Finta: puede andar ${quedan === null ? 'lo que le queda' : quedan[1]}; andar termina el turno.`
-      : o.legales.some((a) => a.type === 'aim')
+      : o.modo === 'distancia' && tiro === 'disparo'
         ? html`A distancia: pulsa cualquier casilla para apuntar. Apuntar termina el turno y el
          disparo sale al empezar el siguiente, al primero de la recta. Q cambia de arma.`
-        : o.sinSalida != null
-          ? html`Pasa el ratón por un enemigo a su lado para golpearlo.`
-          : html`Haz clic en un hexágono verde para moverte —puedes moverte en varios tramos—,
+        : o.modo === 'distancia' && tiro === 'granada'
+          ? html`Granada: pulsa una casilla a su alcance (${alcanceDeLaGranada(o.activa.unit)}) para lanzarla.
+         Lanzar termina el turno; explota al empezar el siguiente, en la casilla y sus vecinas,
+         a quien esté, también a los tuyos. Q cambia de arma.`
+          : o.sinSalida != null
+            ? html`Pasa el ratón por un enemigo a su lado para golpearlo.`
+            : html`Haz clic en un hexágono verde para moverte —puedes moverte en varios tramos—,
          o pasa el ratón por un enemigo y elige desde qué casilla golpearlo.
-         ${ayudaDeCarga(o.carga)}${tirador ? html` Q cambia de arma.` : NADA}`;
+         ${ayudaDeCarga(o.carga)}${tiro !== null ? html` Q cambia de arma.` : NADA}`;
   return html`<h3>Acciones</h3>
-       ${quedan === null ? NADA : html`<div class="row"><span class="label">Le ${quedan[0]}</span><span>${quedan[1]}</span></div>`}${sinSalida}
+       ${quedan === null ? NADA : html`<div class="row"><span class="label">Le ${quedan[0]}</span><span>${quedan[1]}</span></div>`}${filaADistancia(o.activa)}${sinSalida}
        <div class="stack-list">
          <button data-action="battle-end-turn">Terminar turno</button>
          ${o.rendicion}${o.muralla}${o.poderes}
@@ -1109,13 +1187,55 @@ export function listaDelCampo(
         // Lo que lleva colgado, en su propia línea debajo (`modificadoresEnCurso`,
         // `.con-efectos`): la misma forma en la partida y en la arena, y una fila
         // sin nada, como siempre.
-        const conEfectos = x.effects.length > 0;
+        const aDistancia = estadoADistancia(x);
+        const conEfectos = x.effects.length > 0 || aDistancia !== NADA;
         return html`<div class="stack${x.id === battle.turno?.stack ? '' : ' empty'}${conEfectos ? ' con-efectos' : ''}">
           <span>${f.flecha} ${f.nombre}</span>
-          <span class="count">${f.cuenta}</span>${f.boton ?? NADA}${modificadoresEnCurso(x.effects, forma)}
+          <span class="count">${f.cuenta}</span>${f.boton ?? NADA}${modificadoresEnCurso(x.effects, forma)}${aDistancia}
         </div>`;
       }),
   );
+}
+
+/**
+ * Lo que dice de `s` su arma a distancia en esta batalla (02-11-2026): los turnos
+ * de recarga que le faltan a un arma de fuego y las granadas que le quedan, en
+ * pastillas como los efectos. Nada si no recarga ni lleva granada. Lo pintan «En el
+ * campo» y el panel de la activa (`filaADistancia`), en la partida y la arena, y la
+ * lista de la batalla del espectador.
+ */
+export function estadoADistancia(s: BattleStack): Html {
+  const pastillas: Html[] = [];
+  if (s.recargando > 0) {
+    pastillas.push(
+      pastilla(`Recargando: ${s.recargando}`, html` data-recarga="${String(s.recargando)}"`),
+    );
+  }
+  if (lanzaGranadas(s.unit)) {
+    const quedan = granadasQueQuedan(s);
+    pastillas.push(
+      pastilla(
+        `Granadas: ${quedan} de ${cargasDe(s.unit)}`,
+        html` data-granadas="${String(quedan)}"`,
+      ),
+    );
+  }
+  if (pastillas.length === 0) return NADA;
+  return html`<span class="modificadores a-distancia">${unir(pastillas)}</span>`;
+}
+
+/** La fila del panel de la activa con su estado a distancia, o nada (como `estadoADistancia`). */
+function filaADistancia(s: BattleStack): Html {
+  let dicho: string;
+  if (s.recargando > 0) {
+    dicho = `recargando: ${recargaQueFalta(s.recargando)}`;
+  } else if (lanzaGranadas(s.unit)) {
+    const quedan = granadasQueQuedan(s);
+    dicho = `${quedan} ${quedan === 1 ? 'granada' : 'granadas'}, alcance ${alcanceDeLaGranada(s.unit)}`;
+  } else {
+    return NADA;
+  }
+  return html`<div class="row" data-a-distancia><span class="label">A distancia</span><span>${dicho}</span></div>`;
 }
 
 /**
@@ -1251,7 +1371,11 @@ export function modificadoresEnPantalla(p: Pieza, vacio = 'no suma nada'): Html 
     mods.map((m) =>
       pastilla(
         textoDeModificador(m),
-        m.kind === 'cifra' ? html` data-cifra="${m.cifra}"` : html` data-marca="${m.marca}"`,
+        m.kind === 'cifra'
+          ? html` data-cifra="${m.cifra}"`
+          : m.kind === 'tiro'
+            ? html` data-tiro="${m.cual.kind}"`
+            : html` data-marca="${m.marca}"`,
       ),
     ),
   )}</span>`;
@@ -1497,6 +1621,17 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
             return html`<div>${quienEs(e.stack)} dispara a (${e.at.col},${e.at.row}) y no da a nadie</div>`;
           }
           return html`<div>${golpe(e.stack, e.target)} (${e.splash === true ? 'salpicadura' : `disparo a (${e.at.col},${e.at.row})`}): ${danio(e.damage, e.killed, e.parado)}</div>`;
+        case 'thrown':
+          return html`<div>${quienEs(e.stack)} lanza una granada a (${e.at.col},${e.at.row}): explota al empezar su siguiente turno</div>`;
+        case 'blast':
+          if (e.target === null) {
+            return html`<div>Explota la granada de ${quienEs(e.stack)} en (${e.at.col},${e.at.row}) y no da a nadie</div>`;
+          }
+          // Con la flecha, «Granadero → Granadero» (H3 del QA de las granadas, 02-11-2026).
+          if (e.target === e.stack) {
+            return html`<div>${quien(e.stack)} se alcanza con su propia granada en (${e.at.col},${e.at.row}): ${danio(e.damage, e.killed, e.parado)}</div>`;
+          }
+          return html`<div>${golpe(e.stack, e.target)} (granada en (${e.at.col},${e.at.row})): ${danio(e.damage, e.killed, e.parado)}</div>`;
         case 'cast': {
           // El nombre, no el id: `spell()` ya lo tiene y quien lee el parte no
           // sabe qué es un "magic_arrow". Quien lanza es siempre el héroe de su

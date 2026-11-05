@@ -75,7 +75,8 @@ export function armyPower(army: Army, characters: Personajes): number {
  *   batalla suelta que lo sugería era una de las que pierde el favorito.
  *
  * Se queda en 1: es el único peso cerca del mínimo en las dos clases, y el
- * que no cambia el juego. `test/ia-fuerza.test.ts` lo clava.
+ * que no cambia el juego. Lo medía `test/ia-fuerza.test.ts`, que se retiró el 03-11-2026
+ * con los tests de jugabilidad; la medida entera es `tools/qa/calibrar-fuerza.ts`.
  */
 export const PESO_DEL_CUERPO = 1;
 

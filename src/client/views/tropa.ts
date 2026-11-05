@@ -1,5 +1,6 @@
 /**
- * El panel de la escena de la tropa: a quién se puede elegir, la ficha del
+ * El panel de la escena de la tropa: a quién se puede elegir (con la casilla en
+ * que sale en su formación: la escena es el tablero de despliegue), la ficha del
  * elegido (solo lectura) y su equipo, con la mochila del héroe para repartirla.
  *
  * Sin reglas: lo que no se puede poner o quitar ya viene apagado de la vista con
@@ -7,14 +8,27 @@
  * en un `title`: en el móvil no hay ratón que lo enseñe.
  */
 import { conMiles, NOMBRE_DE_HUECO } from '@core/types.js';
+import { COMO_SE_COLOCA } from '../escenas/despliegue.js';
 import { DESHABILITADO, type Html, html, NADA, unir } from '../html.js';
 import type { FichaDeLaTropa, HuecoDeLaFicha, VistaDeLaTropa } from '../tropa/vista.js';
 import { filaDeCifra, filasDeCombate, motivoApagado } from './cifras.js';
-import { modificadoresEnPantalla, nota } from './panels.js';
+import { nombreEnElCampo } from './distintivo.js';
+import { marcaDeComandante, modificadoresEnPantalla, nota } from './panels.js';
 
 /** Lo que dice un botón de elegir: «heroe» o el puesto en la tropa. */
 export function claveDeQuien(q: { readonly heroe: true } | { readonly indice: number }): string {
   return 'heroe' in q ? 'heroe' : String(q.indice);
+}
+
+/**
+ * Cómo se nombra a uno de la formación en la lista: como en el despliegue de una
+ * batalla (`renderDespliegue`), con su letra en el campo y la corona del héroe,
+ * que es lo que dice el tablero sobre su cabeza.
+ */
+function enElCampo(vista: VistaDeLaTropa, id: string): string {
+  const st = vista.batalla.stacks.find((x) => x.id === id);
+  if (st === undefined) throw new Error(`la formación de ${vista.heroe} no tiene a ${id}`);
+  return `${marcaDeComandante(st)}${nombreEnElCampo(vista.batalla, st)}`;
 }
 
 export function renderPanelDeLaTropa(vista: VistaDeLaTropa | null): Html {
@@ -23,12 +37,13 @@ export function renderPanelDeLaTropa(vista: VistaDeLaTropa | null): Html {
     vista.figuras.map((f, i) => {
       const elegida = i === vista.elegida;
       return html`<button data-action="tropa-elegir" data-quien="${claveDeQuien(f.quien)}" class="stack${elegida ? ' primary' : ''}" aria-pressed="${elegida ? 'true' : 'false'}">
-        <span>${f.nombre}</span>${elegida ? html`<span class="count">◆</span>` : NADA}
+        <span>${enElCampo(vista, f.id)} (${f.sale.col},${f.sale.row})</span>${elegida ? html`<span class="count">◆</span>` : NADA}
       </button>`;
     }),
   );
   return html`<p class="eyebrow">TROPA DE ${vista.heroe.toUpperCase()} · ${vista.figuras.length - 1} ${vista.figuras.length === 2 ? 'INDIVIDUO' : 'INDIVIDUOS'}</p>
     <div class="stack-list tropa-quienes">${quienes}</div>
+    <p class="cost">Su formación ${nota('Donde sale cada uno al empezar el despliegue de cada batalla; allí se puede retocar antes de «Listo». Se guarda en el héroe.')}: ${COMO_SE_COLOCA}</p>
     ${renderFicha(vista.ficha)}`;
 }
 

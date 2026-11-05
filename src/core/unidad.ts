@@ -427,9 +427,10 @@ export function equipoDeUnidadBlocker(
 
 /**
  * El equipo como se escribe: un objeto con el id de una pieza por hueco, en el
- * orden de los huecos. Qué piezas valen lo dice `equipoDeUnidadBlocker`.
+ * orden de los huecos. Qué piezas valen lo dice `equipoDeUnidadBlocker`. Lo leen
+ * una unidad y el héroe de la arena (`validarHeroeDeArena`).
  */
-function equipoEscrito(valor: unknown, quien: string): Equipo {
+export function equipoEscrito(valor: unknown, quien: string): Equipo {
   if (typeof valor !== 'object' || valor === null || Array.isArray(valor)) {
     throw new Error(`${quien}: el equipo tiene que ser un objeto por hueco ({} sin nada)`);
   }

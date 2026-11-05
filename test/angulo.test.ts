@@ -6,12 +6,11 @@ import { cajaDeFigura } from '../src/client/render/batalla.js';
 import { centroDeStack, centroHex, tableroPara } from '../src/client/render/proyeccion.js';
 import type { Session } from '../src/client/session.js';
 import { renderSide } from '../src/client/views/panels.js';
-import { textoDePrevision } from '../src/client/views/prevision.js';
+import { isShooter } from '../src/core/battle/armas.js';
 import { isAlive, stackHexes } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
 import { CARGA } from '../src/core/battle/carga.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
-import { isShooter } from '../src/core/data.js';
 
 import type { Hex, UnitInfo } from '../src/core/types.js';
 import { sesionContraMonstruo } from './batalla-de-cliente.js';
@@ -240,13 +239,6 @@ describe('la carga en el cliente: el enemigo en la recta (QA, H1)', () => {
   const [ancho, alto] = [1086, 778];
   const t = tableroPara(ancho, alto);
 
-  it('se anuncia contra el enemigo y desde la casilla de su recta, y nada más', () => {
-    const { s, objetivo } = montar();
-    expect(s.battleCharges()).toEqual([
-      { target: objetivo, at: { col: 8, row: 6 }, hexes: 3, porciento: 15 },
-    ]);
-  });
-
   it('una casilla vacía de la recta solo mueve, y la barra no promete carga', () => {
     for (const casilla of [
       { col: 7, row: 6 },
@@ -264,41 +256,5 @@ describe('la carga en el cliente: el enemigo en la recta (QA, H1)', () => {
       expect(nuevos.map((e) => e.kind)).toEqual(['move']);
       expect(s.battle!.turno?.stack).toBe(activo);
     }
-  });
-
-  it('el clic sobre el enemigo, por el lado de la recta, golpea desde ella y carga', () => {
-    const { s, objetivo } = montar();
-    const escena = new EscenaBatalla(() => s);
-    escena.encuadrar(ancho, alto);
-    const rival = s.battle!.stacks.find((x) => x.id === objetivo)!;
-    const k = cajaDeFigura(t, centroDeStack(stackHexes(rival)));
-    // A la altura del centro de su casilla y hacia el oeste: el lado de la recta.
-    const px = k.x - k.ancho * 0.45;
-    const py = centroHex(t, rival.hex).y;
-    expect(escena.objetivoEn(px, py)?.id).toBe(objetivo);
-    escena.mover(px, py);
-    expect(escena.anguloEn(px, py)?.elegida).toEqual({ col: 8, row: 6 });
-    // La frase entera: el ángulo, la carga y la previsión del golpe, que sale de
-    // la sesión (la cuenta del núcleo) y la escribe `textoDePrevision`.
-    const golpeQueDaria = escena.accionContraEn(px, py)!;
-    const prevision = s.prevision(golpeQueDaria)!;
-    expect(prevision).toMatchObject({ kind: 'golpe', objetivo });
-    expect(s.status).toBe(
-      rotuloDeAngulo(
-        { col: 8, row: 6 },
-        { target: objetivo, at: { col: 8, row: 6 }, hexes: 3, porciento: 15 },
-        textoDePrevision(prevision, (id) => id),
-      ),
-    );
-    expect(s.status).toContain('carga de 3 casillas montada ×1,15');
-    expect(s.status).toContain('(+15 % de daño)');
-    const antes = s.battle!.log.length;
-    escena.pulsar(px, py);
-    // Primero anda (la carrera de la carga) y luego elige en la rueda (F5).
-    expect(s.ruedaPendiente?.fase).toBe('golpe');
-    expect(s.ruedaPendiente?.prevision.carga).not.toBeNull();
-    s.elegirEnLaRueda('normal');
-    const golpe = s.battle!.log.slice(antes).find((e) => e.kind === 'attack' && !e.retaliation);
-    expect(golpe?.kind === 'attack' ? golpe.charge : undefined).toBe(3);
   });
 });

@@ -344,8 +344,10 @@ describe('la batalla del paso, tras la muralla de su obra', () => {
 describe('la niebla, el agente y el espectador', () => {
   it('quien no mira el paso recuerda la obra que vio, y quien lo mira ve la de ahora', () => {
     const { state, paso, heroe } = partidaEnSuPaso(5, 99999);
-    // El jugador 1 lo vio un día, sin obra (lo que escribe `explorar`), y hoy no lo mira.
+    // El jugador 1 lo vio un día, sin obra (lo que escriben `descubrir` y
+    // `mirarDesde`: la casilla explorada y su recuerdo), y hoy no lo mira.
     expect(visibleNow(state, 1).has(paso.at)).toBe(false);
+    state.players[1]!.fog.marcarCuadrado(paso.at, 0);
     state.players[1]!.memory.set(paso.id, { day: state.day, object: { ...paso } });
     // El 0 lo tiene delante (su héroe está en él): lo sabe todo.
     revealEverything(state, 0);

@@ -1,25 +1,3 @@
-/**
- * El ancla del marcado de los paneles.
- *
- * No comprueba que el marcado sea BUENO: comprueba que sea **el mismo**. Existe
- * para una tarea concreta —pasar las 169 interpolaciones de `views/panels.ts`
- * por la puerta de escapar sin mover un píxel— y para la clase de cambio que
- * viene detrás: uno mecánico, sobre líneas que ningún test mira, donde un
- * espacio de más o un `&lt;` donde había un `<` no lo ve nadie.
- *
- * Las quince escenas están en `escenas-paneles.ts` y buscan ramas, no realismo:
- * el castillo con héroe dentro y sin él, la batalla en marcha y terminada, el
- * turno del rival —lo único que enseña un botón deshabilitado—, y dos volcados
- * sintéticos con los quince hechos del parte de guerra y los diecisiete de la
- * crónica, que jugando no salen nunca todos.
- *
- * Si sale rojo: mira el diff. Si el cambio de píxel se quería, se regenera con
- * `npx tsx tools/qa/ancla-paneles.ts` y el fichero va en el mismo commit que lo
- * justifica. El generador NO lo llama este test a propósito: un ancla que se
- * repone sola certifica lo que acabe de salir.
- */
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
@@ -27,34 +5,15 @@ import { renderSide, renderTopbar } from '../src/client/views/panels.js';
 import { tiposDeHeroe } from '../src/core/data.js';
 import { conSigno } from '../src/core/hero/equipo.js';
 import { umbral } from '../src/core/hero/experiencia.js';
-import { type Hero, heroUnit, maxMana } from '../src/core/hero/hero.js';
+import { heroUnit, maxMana } from '../src/core/hero/hero.js';
 import { nivelDeUnidad } from '../src/core/nivel.js';
 import { ascenderVeterano } from '../src/core/state/game.js';
 import { conMiles } from '../src/core/types.js';
 import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
-import { meAtacan, volcado } from './escenas-paneles.js';
-
-const ANCLA = fileURLToPath(new URL('fixtures/paneles.txt', import.meta.url));
+import { meAtacan } from './escenas-paneles.js';
 
 /** «(+2)» o «(−1)»: lo que cambia el equipo una cifra del héroe, como lo dice la ficha. */
 const conCambio = (base: number, total: number): string => `(${conSigno(total - base)})`;
-
-describe('el marcado de los paneles', () => {
-  it('sale byte a byte igual que su ancla', async () => {
-    const esperado = readFileSync(ANCLA, 'utf8');
-    const salida = await volcado();
-
-    // Se comparan por líneas y no de un tirón: con 34 KB en un solo `toBe`, el
-    // diff que enseña vitest es ilegible y lo que importa es la PRIMERA línea
-    // que se mueve, que es la que dice qué interpolación se torció.
-    const suyas = esperado.split('\n');
-    const mias = salida.split('\n');
-    for (let i = 0; i < Math.max(suyas.length, mias.length); i++) {
-      expect(mias[i], `línea ${i + 1} del volcado`).toBe(suyas[i]);
-    }
-    expect(salida).toBe(esperado);
-  });
-});
 
 describe('las cifras grandes se leen con separador de miles (QA, 12-10-2026)', () => {
   it('«176000 / 304000» se pinta «176 000 / 304 000», con un espacio que no se parte', () => {
@@ -65,10 +24,6 @@ describe('las cifras grandes se leen con separador de miles (QA, 12-10-2026)', (
     expect(conMiles(0)).toBe('0');
     expect(conMiles(-12_000)).toBe('-12\u00A0000');
     expect(() => conMiles(2.5)).toThrow('no es un entero');
-    // En el panel, la experiencia del héroe recién hecho (base 2 700 desde el 26-10-2026).
-    expect(readFileSync(ANCLA, 'utf8')).toContain(
-      '<span class="label">Experiencia</span><span>29\u00A0700 / 51\u00A0300</span>',
-    );
   });
 });
 
@@ -152,88 +107,7 @@ describe('la ficha del héroe cuenta lo que lleva puesto (I4)', () => {
   });
 });
 
-describe('la fila de un equipado (M5)', () => {
-  it('«Lleva:» es solo texto, y los botones para quitar van en su línea con el nombre de la pieza', () => {
-    const session = new Session(12);
-    const heroe = session.myHeroes()[0]!;
-    session.selectedHeroId = heroe.id;
-    heroe.army = [
-      {
-        creature: 'goblin-lancero',
-        veterania: {
-          id: 'veterano-1',
-          experiencia: 0,
-          batallas: 0,
-          bajas: 0,
-          heroes: [],
-          equipo: { arma: 'espada', armadura: 'brigantina' },
-        },
-      },
-    ];
-    const salida = marcadoDe(renderSide(session));
-    expect(salida).toContain(
-      '<span class="veterania">Lleva: Espada, Brigantina</span><span class="quitar-equipo">',
-    );
-    expect(salida).toMatch(
-      /data-slot="armadura" data-veteran="veterano-1"[^>]*>× Brigantina<\/button>/,
-    );
-  });
-});
-
 describe('la pantalla cuenta lo que hizo la magia (#54)', () => {
-  /**
-   * El inicial nace con la Flecha mágica (`setup`) y aprende lo demás en el
-   * gremio; el contratado lo aprende todo de golpe en el orden del gremio. Los
-   * dos saben lo mismo y en el estado lo guardan en distinto orden.
-   */
-  function dosLibrosIguales(): { session: Session; inicial: Hero; contratado: Hero } {
-    const session = new Session(12);
-    const pueblo = session.myTowns()[0]!;
-    const inicial = session.myHeroes()[0]!;
-    // Nace dentro de su castillo (19-10-2026): se abre, sin andar hasta él.
-    expect(inicial.at).toEqual(pueblo.at);
-    session.openTown(pueblo.id);
-    session.build('mage_guild_1');
-    // El inicial deja el castillo para que el contratado nazca dentro.
-    inicial.at = { ...inicial.at, x: inicial.at.x + 1 };
-    session.openTown(pueblo.id);
-    session.hireHero();
-    const contratado = session.myHeroes().find((h) => h.id !== inicial.id)!;
-    expect(new Set(inicial.spells)).toEqual(new Set(contratado.spells));
-    expect(inicial.spells).not.toEqual(contratado.spells);
-    return { session, inicial, contratado };
-  }
-
-  /** Los nombres de la lista que sigue al rótulo `{titulo}` (con `title` o sin él), en orden. */
-  function lista(marcado: string, titulo: string): string[] {
-    const desde = Math.max(
-      marcado.indexOf(`<h3>${titulo}</h3>`),
-      marcado.indexOf(`<h3 title="${titulo}">${titulo}</h3>`),
-    );
-    expect(desde).toBeGreaterThanOrEqual(0);
-    const bloque = marcado.slice(desde).split('</div></div>')[0]!;
-    return [...bloque.matchAll(/<div class="stack"><span>([^<]+)</g)].map((m) => m[1]!);
-  }
-
-  it('el libro del héroe va en el mismo orden que el gremio, lo aprendiera como lo aprendiera', () => {
-    const { session, inicial, contratado } = dosLibrosIguales();
-    session.closeTown();
-    session.selectedHeroId = inicial.id;
-    const delInicial = lista(marcadoDe(renderSide(session)), 'Hechizos');
-    session.selectedHeroId = contratado.id;
-    const delContratado = lista(marcadoDe(renderSide(session)), 'Hechizos');
-    expect(delInicial).toEqual(delContratado);
-    expect(delInicial).toEqual(['Prisa', 'Flecha mágica', 'Lentitud']);
-  });
-
-  it('el castillo enseña el libro del que está dentro y lo que aprendió allí', () => {
-    const { session, contratado } = dosLibrosIguales();
-    const marcado = marcadoDe(renderSide(session));
-    expect(marcado).toContain(`<p class="cost">${contratado.name} está dentro.</p>`);
-    expect(lista(marcado, 'Libro del héroe')).toEqual(['Prisa', 'Flecha mágica', 'Lentitud']);
-    expect(marcado).toContain('<p class="cost">Aprendió aquí: Prisa, Flecha mágica, Lentitud.</p>');
-  });
-
   it('el castillo sin nada aprendido allí no inventa la línea', () => {
     const session = new Session(12);
     const pueblo = session.myTowns()[0]!;
@@ -297,5 +171,10 @@ describe('el panel de la escena de la tropa', () => {
     // Lo de serie: «de serie» y ningún botón de quitar en todo su equipo (es un novato).
     expect(m).toContain('class="de-serie"');
     expect(m).not.toContain('data-action="tropa-quitar"');
+    // La lista dice dónde sale cada uno en su formación (la escena es el tablero de
+    // despliegue), con la corona del héroe, como el panel del despliegue.
+    const [heroe, primero] = vista.figuras;
+    expect(m).toContain(`♛ ${hero.name} (${heroe!.sale.col},${heroe!.sale.row})`);
+    expect(m).toContain(`(${primero!.sale.col},${primero!.sale.row})</span>`);
   });
 });

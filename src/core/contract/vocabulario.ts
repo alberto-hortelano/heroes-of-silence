@@ -341,6 +341,7 @@ export function accionDeBatallaDelAgente(
       return { type: JUGADA_DEL_AGENTE[a.type], puerta: a.gate };
     case 'move':
     case 'aim':
+    case 'throw':
     case 'cast':
     case 'surrender':
     case 'end_turn':
@@ -371,6 +372,7 @@ export function accionAlAgente(a: BattleAction): AccionDeBatallaDelAgente {
       return { type: JUGADA_DE_MURALLA[a.type], gate: puertaAlAgente(a.puerta) };
     case 'move':
     case 'aim':
+    case 'throw':
     case 'cast':
     case 'surrender':
     case 'end_turn':
@@ -428,6 +430,8 @@ export function hechoAlAgente(e: BattleEvent): HechoAlAgente {
     case 'attack':
     case 'aimed':
     case 'shoot':
+    case 'thrown':
+    case 'blast':
     case 'cast':
     case 'power':
     case 'retoque':

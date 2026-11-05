@@ -1289,6 +1289,51 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   (`battle_ended`, otras bajas, 6) o lo que sigue a ella (`troop_rank_up`, s11;
  *   `town_captured`, s16). Nadie cambia de ganador; duración 4 / 6 / 8 → **4 / 6 / 7**
  *   (s11, 8 → 7 días). La forma del diff, no una medida.
+ * - `421344c3…` (3 456 líneas, 20 semillas, 02-11-2026): **armas de fuego y granadas**
+ *   (`docs/agents/2026-11-02-armas-de-fuego-y-granadas/`: el arcabucero, el artillero y
+ *   el pistolero montado disparan con arcabuz, culebrina y pistola, que perforan la
+ *   armadura y recargan, y el granadero lanza granadas). Contra `e48a2f0f…`, cambian 6
+ *   (s1, s6, s8, s9, s11, s17), las seis con el imperio en juego (las 14 que no cambian
+ *   no lo llevan), y en las seis el primer hecho distinto es el resumen de la batalla
+ *   contra la guarnición imperial de una ciudad neutral (`battle_ended`, otras rondas o
+ *   bajas). Cambian de ganador s1 y s11 (j0 gana 8 de 20, 10 antes); duración 4 / 6 / 7
+ *   → **4 / 5 / 6**, días 78 → 75; ningún tipo de hecho nuevo ni perdido (las granadas y
+ *   los disparos no salen del resumen de la batalla). La forma del diff, no una medida.
+ * - `732e11ca…` (3 635 líneas, **las mismas**, 20 semillas, 02-11-2026): **la niebla por
+ *   regiones y la niebla de eventos** (`docs/agents/2026-11-02-niebla-por-regiones/`,
+ *   petición del usuario: lo explorado se descubre por regiones enteras; lo que se ve
+ *   ahora es el radio de 5 de los héroes y de 6 de castillos y nodos propios, sobre lo
+ *   explorado; un grupo de asaltantes, por su casilla y no por su región). Contra
+ *   `e48a2f0f…`, **ninguna partida se juega distinta**: quitado el sello `seen`, los
+ *   dos volcados son idénticos línea a línea. Cambian solo los sellos en 16 de 20 (s4,
+ *   s7, s10 y s14, idénticas): 165 hechos, 123 con más observadores (los nodos propios
+ *   miran y las regiones se ven enteras) y 42 con menos. El primer hecho distinto es un
+ *   `raider_spawned` de la creación que nadie ve ya (antes lo veía quien miraba su
+ *   región; 13 de 16), un `hero_moved` (s3, s18), un `battle_started` (s5) o un
+ *   `raider_dispersed` (s17). Con 100 semillas (`pnpm banco 100`) se juegan distinto 2
+ *   (s33, el día 1: la marcha del héroe del j0 va por otra casilla; s40, el día 2:
+ *   tras un botín, el héroe del j0 sigue andando donde antes cerraba el turno), 0 sin
+ *   terminar en las dos. La forma del diff, no una medida.
+ * - `333ae89b…` (3 456 líneas, **las mismas**, 20 semillas, 02-11-2026): la niebla por
+ *   regiones fusionada con las armas de fuego (`421344c3…`). Contra él, lo mismo que
+ *   arriba: quitado el sello `seen`, los volcados son idénticos; cambian solo los sellos,
+ *   en 16 de 20 (todas menos s4, s7, s10 y s14). La forma del diff, no una medida.
+ * - `b0aadddd…` (3 784 líneas, 20 semillas, 02-11-2026): **el catálogo retocado a mano**
+ *   (`data/equipo.json` y `data/unidades.json`, commit «equipo y unidades» del usuario).
+ *   Contra `333ae89b…` cambian las 20, y en todas el primer hecho distinto es del día 1
+ *   en la base, antes de salir (`recruited` o `dismissed`, hechos 11 a 33): con otras
+ *   cifras y otros precios se recluta y se licencia otra tropa. Cambian de ganador s2,
+ *   s4, s5, s11, s13 y s16 (j0 gana 6 de 20, 8 antes); duración 4 / 5 / 6 → **4 / 6 /
+ *   6**, días 75 → 81; aparece `march_halted`, ningún tipo de hecho perdido. La forma del
+ *   diff, no una medida.
+ * - `ebbcaf98…` (3 666 líneas, 20 semillas, 03-11-2026): **el techo de los asaltantes a
+ *   310** (`data/asaltantes.json`: con el catálogo retocado, el héroe que espera más flojo,
+ *   el de los orkos, llega a 313 con el margen) y el grupo de caballeros de la muerte, de 7
+ *   a 6. Contra `b0aadddd…` cambian 9 (s1, s3, s4, s6, s11, s12, s13, s18, s19), y en las
+ *   nueve el primer hecho distinto es el `raider_spawned` de ese grupo al crear la partida
+ *   (6 en vez de 7). Siete acaban con los mismos hechos; s3 (5 → 4 días) y s19 se juegan
+ *   distinto. Ningún ganador cambia (j0 6 de 20); días 81 → 80. La forma del diff, no una
+ *   medida.
  * - `d1c851e3…` (3 956 líneas, 20 semillas, 04-11-2026): **la guarnición ya no se
  *   recoge sola y el héroe atacado en su sitio defiende con ella** (fase 1 del puesto
  *   fronterizo, `docs/agents/2026-11-04-puesto-fronterizo/`: fuera `takeGarrison` y
@@ -1389,11 +1434,26 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   6). Ningún tipo de hecho se pierde ni aparece; `node_captured` 223 → 195,
  *   batallas 120 → 100, `town_owner_changed` 3 → 5, `site_occupied` 2 → 3. 0 sin
  *   terminar, duración 5 / 17 / 40 → 4 / 17 / 40. La forma del diff, no una medida.
+ * - `3f520fa0…` (3 776 líneas, 20 semillas, 05-11-2026): **la fusión de `main`**
+ *   (armas de fuego y granadas, niebla por regiones, fase de despliegue, catálogo
+ *   retocado y techo de asaltantes a 310) **sobre el puesto fronterizo, las ciudades
+ *   en su región y la infiltración** (`8e45709f…`). Contra `8e45709f…`, **el mismo
+ *   mapa** en las 20 (los `raider_spawned` en las mismas casillas), y el primer hecho
+ *   distinto, quitado el sello `seen` (que la niebla por regiones cambia desde el
+ *   hecho 1), es lo que ya movía `main` contra su base: el grupo de caballeros de la
+ *   muerte de 7 a 6 (`raider_spawned`: s9, s11, s16 y una más) o, con el catálogo
+ *   retocado, lo que se recluta y se licencia el día 1 en la base (`recruited` o
+ *   `dismissed`, hechos 11 a 32, en las otras 16). Contra `ebbcaf98…` (`main`), otro
+ *   mapa desde el hecho 1 en las 20, como en la fase 2 de las ciudades en su región.
+ *   Sin `garrison_taken` ni `march_halted`; `troops_taken` 154 → 55, `defense_set`
+ *   5 → 4, batallas 100 → 55, `node_captured` 195 → 120. 0 sin terminar; j0 gana 10 de
+ *   20 (9 antes); duración 4 / 17 / 40 → **4 / 8 / 10**, días 140 → 87. La forma del
+ *   diff, no una medida.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '8e45709f32fb11ef135afce3cd2f33a2a46f336d081e931abbd1467c319e4665',
+  sha: '3f520fa05edd8f54b28e8c841400e394b75574845648fd1e10da6c2da647cf7d',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

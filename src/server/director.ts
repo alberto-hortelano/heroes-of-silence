@@ -545,6 +545,12 @@ export class Director {
     if (bandos.size === 0) return;
 
     const battle = pending.battle;
+    // Hoy el agente no despliega (backlog): su batalla sale de `createBattle` con
+    // el despliegue hecho. Si un día llega una a medias, el bucle de abajo se
+    // saldría sin jugar nada (no hay activo); mejor decirlo.
+    if (battle.despliegue !== null) {
+      throw new Error('la batalla del agente llega en el despliegue: el agente aún no despliega');
+    }
     // De quién es cada bando, para leer su oro: el turno de batalla lo lleva,
     // porque sin él el precio de rendirse no se puede comparar con nada.
     const dueños = battleOwners(this.state, pending);

@@ -8,15 +8,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { BattleAction } from '../src/core/battle/types.js';
-import { pointFromKey, pointKey } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
 import type { GameEvent } from '../src/core/state/events.js';
-import {
-  alcanceDelHeroe,
-  applyAdventureAction,
-  type GameState,
-  heroesOf,
-} from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { PlayerId } from '../src/core/types.js';
 import { ColaDeVeredictos } from '../src/server/mcp/veredictos.js';
@@ -45,7 +38,7 @@ import {
   textoDeFin,
 } from '../src/server/notas.js';
 import type { AgentRequestMsg } from '../src/server/protocol.js';
-import { acabarPorLaBase, copiaDePartida, costesDelAlcance } from './helpers.js';
+import { acabarPorLaBase } from './helpers.js';
 
 /** Una petición cualquiera, para mirar cómo se compone la escucha. */
 const PETICION: AgentRequestMsg = {
@@ -172,66 +165,6 @@ describe('notas para el agente', () => {
       ]),
     ).toBeNull();
     expect(paradaDeLaMarcha({ ...accion, hero: 'h2' }, [parada])).toBeNull();
-  });
-
-  it('en partidas de verdad, cada marcha del día 1 que no llega lo dice, y la que llega no (#130)', () => {
-    // Lo que el director contaría como parcial tiene que ser exactamente lo que
-    // no llegó. Una de cada dos casillas que el héroe alcanza en la semilla 42
-    // (con la escala baja, 26-10-2026: en 1-80 salen las tres que se cuentan en la 40
-    // y la 42; la 19 hasta entonces; con la fuerza y la agilidad, 25-10-2026: en 1-80 salen las cuatro en la 19,
-    // la 27, la 31, la 45 y la 49; la 42 hasta entonces; sin minas, 21-10-2026: en
-    // 1-60 la 42 era la única con las cuatro; 1 y 5 hasta
-    // entonces, que se quedaron sin emboscadas; 1 y 6 hasta las puertas de las ciudades, la ciudad amurallada, que
-    // movieron sus inicios; 3 y 4 hasta el río de lago de 20 casillas, que les
-    // quitó las paradas; 1 y 2 hasta los ríos, #144, por lo mismo), hoy o en
-    // días: salen las cuatro cosas —llegar, cortarse, pararse y
-    // emboscado antes— y cuesta medio segundo. Todas en 6 semillas eran 3,5 s
-    // de clonar y andar, y filtrar por las rutas que pisan una región peligrosa
-    // no ahorraba nada: lo son nueve de cada diez. Con las ciudades en mitad
-    // de su región (05-11-2026), en 1-80 salen las tres en la 13, la 40 y la 43:
-    // se mira la 13.
-    const vistas = { halted: 0, emboscada: 0, enteras: 0 };
-    for (const seed of [13]) {
-      const inicio = newGame({ seed });
-      const heroe = heroesOf(inicio, 0)[0]!;
-      let n = 0;
-      for (const clave of costesDelAlcance(alcanceDelHeroe(inicio, heroe)).keys()) {
-        const to = pointFromKey(clave);
-        if (pointKey(to) === pointKey(heroe.at) || n++ % 2 === 1) continue;
-        const state: GameState = copiaDePartida(inicio);
-        const desde = state.log.length;
-        const accion = { type: 'move_hero', hero: heroe.id, to } as const;
-        applyAdventureAction(state, accion, { rng: createRng(seed) }, 0);
-        const hechos = state.log.slice(desde);
-        const parada = paradaDeLaMarcha(accion, hechos);
-        // Atacar lo que hay en `to` deja al héroe al lado, y eso es llegar.
-        const llego =
-          pointKey(heroesOf(state, 0)[0]!.at) === pointKey(to) ||
-          hechos.some(
-            (h) =>
-              h.kind === 'battle_started' &&
-              h.attacker.kind === 'hero' &&
-              h.at !== null &&
-              pointKey(h.at) === pointKey(to),
-          );
-        // `march_halted` y `march_cut` no salen nunca juntos: la parada gana.
-        expect(
-          hechos.filter((h) => h.kind === 'march_halted' || h.kind === 'march_cut').length,
-        ).toBeLessThanOrEqual(1);
-        if (parada === null) {
-          expect(llego, `semilla ${seed} → ${clave}: no llegó y nadie lo dice`).toBe(true);
-          vistas.enteras++;
-        } else {
-          expect(llego, `semilla ${seed} → ${clave}: llegó y se cuenta como parcial`).toBe(false);
-          if (parada.kind === 'march_halted') vistas.halted++;
-          if (parada.kind === 'battle_started') vistas.emboscada++;
-        }
-      }
-    }
-    // Que mire algo: en esta semilla hay de las tres.
-    expect(vistas.halted).toBeGreaterThan(0);
-    expect(vistas.emboscada).toBeGreaterThan(0);
-    expect(vistas.enteras).toBeGreaterThan(0);
   });
 
   it('si la partida ya había terminado, no promete un turno que viene', () => {

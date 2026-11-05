@@ -11,18 +11,20 @@
  */
 import {
   type CasillaDeCarga,
+  type ExplosionDeLaGranada,
   esTipoDeEscala,
   esTipoDePuerta,
   isAlive,
   type LineaDelDisparo,
   SIN_CARGAS,
-  stackHexes,
+  type TanteoADistancia,
 } from '@core/battle/battle.js';
 import { hexEquals, hexKey, ULTIMA_FILA } from '@core/battle/board.js';
-import { mismaPuerta, nivelDe } from '@core/battle/muralla.js';
+import { mismaPuerta } from '@core/battle/muralla.js';
 import type {
   BattleAction,
   BattleStack,
+  BattleState,
   Side,
   TipoDeEscala,
   TipoDePuerta,
@@ -35,10 +37,8 @@ import {
   bandosSinDueño,
   cajaDeFigura,
   claveDePortada,
-  dentroDeLaFigura,
   drawBatalla,
   portadaBajo,
-  tableroA,
 } from '../render/batalla.js';
 import {
   altoConAlzado,
@@ -48,11 +48,28 @@ import {
   tableroPara,
   verticesHex,
 } from '../render/proyeccion.js';
-import { type Apuntado, type ControlDeBatalla, esDeLoApuntado } from '../session.js';
+import {
+  type Apuntado,
+  type ControlDeBatalla,
+  esDeLoApuntado,
+  rechazoDelTanteo,
+} from '../session.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
 import { AVISO_DE_ESPERA } from '../views/panels.js';
 import { textoDePrevision } from '../views/prevision.js';
 import { accionContra, golpeEnPixel } from './angulo.js';
+import {
+  casillaBajo,
+  clicAlColocar,
+  muroBajo,
+  pulsarAlColocar,
+  señalarAlColocar,
+  stackEn,
+  type TableroBajoElPuntero,
+  tableroAlColocar,
+  tableroDe,
+  unidadBajo,
+} from './despliegue.js';
 
 const SIN_NADA: ReadonlySet<string> = new Set();
 
@@ -115,14 +132,25 @@ const SIN_OBJETIVO: Readonly<Record<Apuntado['kind'], string>> = {
 };
 
 /** Lo que dice la barra con un clic fuera del tablero en «A distancia» (`ArmaDeLaActiva`). */
-const SIN_CASILLA = 'Pulsa una casilla del tablero para apuntar, o Q para pelear cuerpo a cuerpo.';
+const SIN_CASILLA =
+  'Pulsa una casilla del tablero para apuntar o lanzar, o Q para pelear cuerpo a cuerpo.';
 
-/** Un disparo tanteado en una casilla (`EscenaBatalla.tanteoEn`). */
+/** Un disparo o una granada tanteados en una casilla (`EscenaBatalla.tanteoEn`). */
 interface Tanteado {
   readonly acciones: readonly BattleAction[];
   readonly clave: string;
-  readonly linea: LineaDelDisparo | null;
-  readonly accion: BattleAction & { type: 'aim' };
+  /** Lo del núcleo (`tanteoADistancia`): la recta, la explosión o por qué no; `null` sin turno tuyo. */
+  readonly tanteo: TanteoADistancia | null;
+}
+
+/** La recta del disparo de un tanteo, o `null` si no es un disparo que se pueda hacer. */
+function rectaDe(t: Tanteado | null): LineaDelDisparo | null {
+  return t?.tanteo?.kind === 'disparo' ? t.tanteo.linea : null;
+}
+
+/** La explosión de un tanteo, o `null` si no es una granada que se pueda lanzar. */
+function explosionDe(t: Tanteado | null): ExplosionDeLaGranada | null {
+  return t?.tanteo?.kind === 'granada' ? t.tanteo.explosion : null;
 }
 
 export class EscenaBatalla {
@@ -177,9 +205,12 @@ export class EscenaBatalla {
    * gesto; las lecturas de abajo no cambian nada.
    */
   sincronizar(ahora: number): void {
-    const b = this.sesion().battle;
+    const b = this.batallaQueSeCuenta();
     if (this.pendiente !== null && this.pendiente.batalla !== b) this.pendiente = null;
     if (b === null) return;
+    // El animador lleva la batalla entera, también lo que la persona aún no ve:
+    // al cerrar el despliegue, el rival que aparece ya está en su casilla. Lo que
+    // se pinta y se pulsa sale de `batallaALaVista`.
     this.animador.observe(b);
     this.animador.tick(ahora);
     if (this.antesDelAviso !== null && !this.animador.busy) {
@@ -222,7 +253,17 @@ export class EscenaBatalla {
       accion();
       return;
     }
-    this.pendiente = { batalla: this.sesion().battle, accion };
+    this.pendiente = { batalla: this.batallaQueSeCuenta(), accion };
+  }
+
+  /**
+   * La batalla entera (`ControlDeBatalla.batallaEntera`): la única lectura de la
+   * escena que no pasa por lo que se ve, para el animador y para atar a ella un
+   * gesto que espera. Todo lo que se pinta, se señala o se pulsa lee
+   * `batallaALaVista`.
+   */
+  private batallaQueSeCuenta(): BattleState | null {
+    return this.sesion().batallaEntera;
   }
 
   /** ¿Sigue contándose algo? Mientras sí, no se aceptan clics. */
@@ -245,18 +286,25 @@ export class EscenaBatalla {
   enLaRueda(): { readonly atacante: string; readonly objetivo: string } | null {
     const delCruce = this.animador.losDelCruce();
     if (delCruce !== null) return delCruce;
-    const g = this.sesion().battle?.golpeEnCurso ?? null;
+    const g = this.sesion().batallaALaVista?.golpeEnCurso ?? null;
     if (g === null || this.animador.busy) return null;
     return { atacante: g.stack, objetivo: g.target };
   }
 
   dibujar(ctx: CanvasRenderingContext2D, ancho: number, alto: number): void {
     const s = this.sesion();
-    const battle = s.battle;
+    const battle = s.batallaALaVista;
     if (battle === null) return;
     this.encuadrar(ancho, alto);
+    const colocando = this.colocando();
+    if (colocando !== null) {
+      this.dibujarAlColocar(ctx, ancho, alto, colocando);
+      return;
+    }
     const quieta = this.animador.busy;
     const turno = quieta ? null : s.turnoPropio;
+    // Una vez por fotograma: la recta y la explosión salen del mismo tanteo.
+    const tanteado = quieta ? null : this.tanteadoActual();
     const atacables = new Set<string>();
     const escalables = new Set<string>();
     const puertasPorElegir = new Set<string>();
@@ -268,7 +316,7 @@ export class EscenaBatalla {
       for (const a of s.battleLegalActions()) {
         if (a.type === 'attack' && !espera) atacables.add(a.target);
         // Al que se puede apuntar («A distancia»), por su casilla: la lista lo trae por ella.
-        if (a.type === 'aim' && !espera) {
+        if ((a.type === 'aim' || a.type === 'throw') && !espera) {
           const ahi = this.stackEn(a.at);
           if (ahi !== undefined) atacables.add(ahi.id);
         }
@@ -308,19 +356,71 @@ export class EscenaBatalla {
       sinDueño: s.dueños === null ? NINGUN_BANDO : bandosSinDueño(s.dueños),
       // El de su sitio: la región donde se pelea, o el de la arena.
       clima: { sitio: s.climaDeLaBatalla, ahora: performance.now() },
-      tanteo: quieta ? null : this.tanteoActual(),
-      apuntados: this.animador.apuntados(battle),
+      tanteo: rectaDe(tanteado),
+      ...this.animador.aDistancia(battle),
+      granadaTanteada: explosionDe(tanteado),
     });
   }
 
   /**
-   * La recta del disparo que se tantea con el puntero: en «A distancia» y sin nada
+   * El despliegue de la persona, si coloca ahora (`DespliegueEnPantalla`); `null`
+   * si no despliega ella o ya empezó la batalla. Mientras, el tablero no juega:
+   * ni golpes, ni movimientos, ni hechizos, solo colocar.
+   */
+  private colocando(): ControlDeBatalla['despliegue'] | null {
+    const d = this.sesion().despliegue;
+    return d.enCurso === null ? null : d;
+  }
+
+  /** El tablero del despliegue: el pintado que comparte con la tropa (`tableroAlColocar`). */
+  private dibujarAlColocar(
+    ctx: CanvasRenderingContext2D,
+    ancho: number,
+    alto: number,
+    colocando: ControlDeBatalla['despliegue'],
+  ): void {
+    const s = this.sesion();
+    const battle = s.batallaALaVista;
+    if (battle === null) return;
+    drawBatalla(
+      ctx,
+      tableroAlColocar(colocando, {
+        battle,
+        tablero: this.tablero,
+        ancho,
+        alto,
+        hoverHex: this.hoverHex,
+        hoverStack: this.hoverStack,
+        puntero: this.puntero,
+        figura: (st) => this.animador.figura(st),
+        efectos: this.animador.efectos(battle),
+        ...this.animador.aDistancia(battle),
+        sinDueño: s.dueños === null ? NINGUN_BANDO : bandosSinDueño(s.dueños),
+        clima: { sitio: s.climaDeLaBatalla, ahora: performance.now() },
+      }),
+    );
+  }
+
+  /**
+   * El tablero bajo el puntero (`escenas/despliegue.ts`, el mismo de la tropa):
+   * lo que se ve, su encuadre y dónde se pinta cada figura.
+   */
+  private bajoElPuntero(): TableroBajoElPuntero {
+    return {
+      battle: this.sesion().batallaALaVista,
+      tablero: this.tablero,
+      figura: (st) => this.animador.figura(st),
+    };
+  }
+
+  /**
+   * El disparo o la granada que se tantea con el puntero: en «A distancia» y sin nada
    * apuntado, a la casilla señalada. `null` si no (`ArmaDeLaActiva.tanteo`).
    */
-  private tanteoActual(): LineaDelDisparo | null {
+  private tanteadoActual(): Tanteado | null {
     if (this.puntero === null || !this.aDistancia()) return null;
     const at = this.casillaDelDisparoEn(this.puntero.x, this.puntero.y);
-    return at === null ? null : this.tanteoEn(at).linea;
+    return at === null ? null : this.tanteoEn(at);
   }
 
   /**
@@ -346,18 +446,13 @@ export class EscenaBatalla {
     return s.turnoPropio !== null && !this.esperaElClic() && s.arma.modo === 'distancia';
   }
 
-  /** El tanteo del disparo en `at` (`ArmaDeLaActiva.tanteo`), recordado por casilla y jugada. */
+  /** El tanteo a distancia en `at` (`ArmaDeLaActiva.tanteo`), recordado por casilla y jugada. */
   private tanteoEn(at: Hex): Tanteado {
     const acciones = this.sesion().battleLegalActions();
     const clave = hexKey(at);
     const t = this.tanteado;
     if (t !== null && t.acciones === acciones && t.clave === clave) return t;
-    const hecho = {
-      acciones,
-      clave,
-      linea: this.sesion().arma.tanteo(at),
-      accion: { type: 'aim', at: { col: at.col, row: at.row } } as const,
-    };
+    const hecho: Tanteado = { acciones, clave, tanteo: this.sesion().arma.tanteo(at) };
     this.tanteado = hecho;
     return hecho;
   }
@@ -393,7 +488,7 @@ export class EscenaBatalla {
   }
 
   private alzado(): number {
-    const battle = this.sesion().battle;
+    const battle = this.sesion().batallaALaVista;
     return battle === null ? 0 : alzadoDeLaMuralla(battle.muralla);
   }
 
@@ -405,7 +500,8 @@ export class EscenaBatalla {
    */
   enemigosFuera(desde: number, hasta: number): { izquierda: number; derecha: number } {
     const s = this.sesion();
-    const battle = s.battle;
+    // Lo que se ve: el defensor que despliega no sabe aún cuántos le atacan.
+    const battle = s.batallaALaVista;
     const fuera = { izquierda: 0, derecha: 0 };
     if (battle === null || battle.finished !== null) return fuera;
     for (const st of battle.stacks) {
@@ -425,6 +521,11 @@ export class EscenaBatalla {
    */
   activaPropia(): { id: string; x: number } | null {
     if (this.animador.busy) return null;
+    // En el despliegue, el elegido: el marco va a la zona de quien coloca.
+    const elegido = this.colocando()?.elegido ?? null;
+    if (elegido !== null) {
+      return { id: elegido.id, x: cajaDeFigura(this.tablero, this.animador.figura(elegido).en).x };
+    }
     const turno = this.sesion().turnoPropio;
     if (turno === null) return null;
     const { stack } = turno;
@@ -435,6 +536,14 @@ export class EscenaBatalla {
     this.puntero = { x: px, y: py };
     this.angulo = null;
     this.hoverHex = this.hexBajo(px, py);
+    const colocando = this.colocando();
+    if (colocando !== null) {
+      const señal = señalarAlColocar(colocando, this.bajoElPuntero(), px, py);
+      this.hoverHex = señal.hoverHex;
+      this.hoverStack = señal.hoverStack;
+      this.rotular(this.animador.busy ? null : señal.dicho);
+      return;
+    }
     // Lo que se señala es lo que haría el clic: si el centro de un hex al que se
     // puede ir gana a la figura que lo tapa, la figura no se ilumina.
     const movimiento = this.movimientoEn(px, py);
@@ -468,8 +577,8 @@ export class EscenaBatalla {
     if (this.aDistancia()) {
       const objetivo = this.unidadEn(px, py);
       if (objetivo === undefined || objetivo.side === this.sesion().miBando) return undefined;
-      const t = this.tanteoEn(objetivo.hex);
-      return t.linea === null ? undefined : t.accion;
+      const { tanteo } = this.tanteoEn(objetivo.hex);
+      return tanteo === null || tanteo.kind === 'no' ? undefined : tanteo.jugada;
     }
     const golpe = this.golpeEn(px, py);
     if (golpe === undefined) return undefined;
@@ -563,28 +672,39 @@ export class EscenaBatalla {
   private readonly previsiones = new WeakMap<BattleAction, string | null>();
 
   /**
-   * En «A distancia» y con el puntero sobre una casilla a la que se puede apuntar:
-   * a quién daría el disparo si saliera ahora y cuánto (la previsión del núcleo), o
-   * que no daría a nadie. `null` en «Cuerpo a cuerpo» o fuera del tablero.
+   * En «A distancia» y con el puntero sobre una casilla del tablero: a quién daría
+   * el disparo o la granada si saliera ahora y cuánto (la previsión del núcleo), que
+   * no daría a nadie o por qué ahí no se puede. `null` en «Cuerpo a cuerpo» o fuera
+   * del tablero.
    */
   private rotuloDelDisparo(): string | null {
     if (this.puntero === null || !this.aDistancia()) return null;
     const at = this.casillaDelDisparoEn(this.puntero.x, this.puntero.y);
     if (at === null) return null;
-    return this.dichoDelTanteo(at, `Apuntarías a (${at.col},${at.row}).`);
+    const verbo = this.tanteoEn(at).tanteo?.kind === 'granada' ? 'Lanzarías' : 'Apuntarías';
+    return this.dichoDelTanteo(at, `${verbo} a (${at.col},${at.row}).`);
   }
 
   /**
    * El tanteo del disparo a `at` dicho tras `aqui`: a quién daría hoy, con «¡tuyo!»
-   * si es propio, y cuánto; o que no daría a nadie y qué la para. `null` si ahí no
-   * se puede apuntar. Con la previsión sola, el puntero sobre un
-   * enemigo con un aliado delante daba el daño y los PV del aliado sin nombrarlo
-   * (H3 del QA de fuerza y agilidad, 26-10-2026).
+   * si es propio, y cuánto; o que no daría a nadie y qué la para. Si ahí no se
+   * puede, por qué, con la frase del clic (`rechazoDelTanteo`): sin ella, la
+   * granada fuera de alcance decía el motivo del cuerpo a cuerpo sobre un enemigo y
+   * nada sobre una casilla vacía (H1 del QA de las granadas, 02-11-2026). Con la
+   * previsión sola, el puntero sobre un enemigo con un aliado delante daba el daño
+   * y los PV del aliado sin nombrarlo (H3 del QA de fuerza y agilidad, 26-10-2026).
    */
   private dichoDelTanteo(at: Hex, aqui: string): string | null {
     const s = this.sesion();
-    const { linea, accion } = this.tanteoEn(at);
-    if (linea === null) return null;
+    const { tanteo } = this.tanteoEn(at);
+    if (tanteo === null) return null;
+    if (tanteo.kind === 'no') return rechazoDelTanteo(tanteo);
+    if (tanteo.kind === 'granada') {
+      // La granada: a todos los de la casilla y sus vecinas, «¡tuyo!» los propios.
+      const prevision = this.previsionDicha(tanteo.jugada);
+      return prevision === null ? aqui : `${aqui} ${prevision}`;
+    }
+    const { linea, jugada } = tanteo;
     if (linea.alcanzado === null) {
       const parada =
         linea.parada === null
@@ -592,7 +712,7 @@ export class EscenaBatalla {
           : ` La para ${linea.parada === 'muro' ? 'el muro' : 'la puerta cerrada'}.`;
       return `${aqui} Hoy no daría a nadie.${parada}`;
     }
-    const prevision = this.previsionDicha(accion);
+    const prevision = this.previsionDicha(jugada);
     const aliado = linea.alcanzado.side === s.miBando ? ' (¡tuyo!)' : '';
     const dicha = prevision === null ? '' : ` ${prevision}`;
     return `${aqui} Hoy daría a ${this.nombre()(linea.alcanzado.id)}${aliado}.${dicha}`;
@@ -638,7 +758,7 @@ export class EscenaBatalla {
 
   /** Cómo se llama cada stack en el campo, para la previsión. */
   private nombre(): (id: string) => string {
-    const battle = this.sesion().battle;
+    const battle = this.sesion().batallaALaVista;
     return (id) => {
       const st = battle?.stacks.find((x) => x.id === id);
       return battle === null || st === undefined ? id : nombreEnElCampo(battle, st);
@@ -711,28 +831,19 @@ export class EscenaBatalla {
     return s.apuntado !== null || s.muralla.porElegir !== null;
   }
 
-  /**
-   * El hex bajo el puntero, con las columnas de la muralla: primero lo alto de
-   * una columna —que tapa lo que hay detrás—, luego el suelo. Es la regla del
-   * clic y del puntero sobre el tablero.
-   */
+  /** La casilla bajo el puntero, con las columnas de la muralla (`casillaBajo`). */
   private hexBajo(px: number, py: number): Hex | null {
-    return this.muroBajo(px, py) ?? hexEnPixel(this.tablero, px, py);
+    return casillaBajo(this.bajoElPuntero(), px, py);
   }
 
-  /** El muro cuya columna tiene lo alto bajo el puntero, o `null`. */
+  /** El muro cuya columna tiene lo alto bajo el puntero, o `null` (`muroBajo`). */
   private muroBajo(px: number, py: number): Hex | null {
-    const battle = this.sesion().battle;
-    // Sin muros no hay columna que buscar: se pregunta en cada movimiento del ratón.
-    if (battle === null || battle.muralla.muros.length === 0) return null;
-    const h = hexEnPixel(tableroA(this.tablero, 1), px, py);
-    return h !== null && nivelDe(battle.muralla, h) === 1 ? h : null;
+    return muroBajo(this.bajoElPuntero(), px, py);
   }
 
-  /** El tablero en el que está `hex`: el de lo alto si es un muro. */
+  /** El tablero en el que está `hex`: el de lo alto si es un muro (`tableroDe`). */
   private tableroDe(hex: Hex): Tablero {
-    const battle = this.sesion().battle;
-    return battle === null ? this.tablero : tableroA(this.tablero, nivelDe(battle.muralla, hex));
+    return tableroDe(this.bajoElPuntero(), hex);
   }
 
   /**
@@ -744,25 +855,9 @@ export class EscenaBatalla {
     return this.movimientoEn(px, py) === undefined ? this.unidadEn(px, py) : undefined;
   }
 
-  /**
-   * La unidad bajo el puntero: primero por su figura —de delante atrás, que es
-   * la que tapa— y si no, por su hex. Con solo el hex, pulsar el cuerpo de una
-   * figura caía en el hex de la fila de atrás.
-   */
+  /** La unidad bajo el puntero (`unidadBajo`, la de la tropa): solo lo que se ve. */
   private unidadEn(px: number, py: number): BattleStack | undefined {
-    const battle = this.sesion().battle;
-    if (battle === null) return undefined;
-    let mejor: { s: BattleStack; suelo: number } | null = null;
-    for (const s of battle.stacks) {
-      if (!isAlive(s)) continue;
-      const f = this.animador.figura(s);
-      const c = cajaDeFigura(this.tablero, f.en, f.elevacion);
-      if (dentroDeLaFigura(c, px, py) && (mejor === null || c.suelo > mejor.suelo))
-        mejor = { s, suelo: c.suelo };
-    }
-    if (mejor !== null) return mejor.s;
-    const hex = this.hexBajo(px, py);
-    return hex === null ? undefined : this.stackEn(hex);
+    return unidadBajo(this.bajoElPuntero(), px, py);
   }
 
   salir(): void {
@@ -774,9 +869,7 @@ export class EscenaBatalla {
   }
 
   private stackEn(hex: Hex): BattleStack | undefined {
-    const battle = this.sesion().battle;
-    if (battle === null) return undefined;
-    return battle.stacks.find((s) => isAlive(s) && stackHexes(s).some((h) => hexEquals(h, hex)));
+    return stackEn(this.sesion().batallaALaVista, hex);
   }
 
   /**
@@ -816,7 +909,7 @@ export class EscenaBatalla {
   private pulsarPuerta(px: number, py: number, acciones: readonly BattleAction[]): boolean {
     const session = this.sesion();
     const tipo = session.muralla.puertaPorElegir;
-    const battle = session.battle;
+    const battle = session.batallaALaVista;
     if (tipo === null || battle === null) return false;
     // Ya no hay puerta que elegir (otra unidad, o se ha movido): el botón deja de esperar.
     if (!acciones.some((a) => a.type === tipo)) {
@@ -840,8 +933,13 @@ export class EscenaBatalla {
   /** Un clic en el tablero. Quien llama ya ha comprobado que no hay nada contándose. */
   pulsar(px: number, py: number): void {
     const session = this.sesion();
-    const battle = session.battle;
+    const battle = session.batallaALaVista;
     if (battle === null || battle.finished !== null) return;
+    const colocando = this.colocando();
+    if (colocando !== null) {
+      pulsarAlColocar(colocando, clicAlColocar(colocando, this.bajoElPuntero(), px, py));
+      return;
+    }
 
     const acciones = session.battleLegalActions();
     // Lo que espera la muralla antes que nada: la puerta, que su portada tapa

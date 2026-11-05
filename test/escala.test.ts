@@ -12,10 +12,8 @@ import {
   radioALaEscala,
   raizEntera,
 } from '../src/core/escala.js';
-import { maxMovePoints } from '../src/core/hero/hero.js';
-import { HERO_SCOUT_RADIUS, TOWN_SCOUT_RADIUS } from '../src/core/state/game.js';
+import { HERO_SCOUT_RADIUS, NODE_SCOUT_RADIUS } from '../src/core/state/game.js';
 import { SPEED_TIERS, SPEED_TO_MOVE_POINTS } from '../src/core/types.js';
-import { grupoQueMarcha } from './helpers.js';
 
 describe('la raíz entera', () => {
   it('es ⌊√n⌋ en todo un rango, y en los cuadrados y sus vecinos', () => {
@@ -48,14 +46,6 @@ describe('la marcha sale del área (#226)', () => {
       1224, 1224, 1347, 1469, 1592, 1714, 1837,
     ]);
   });
-
-  it('maxMovePoints la aplica: un héroe anda la tabla a escala, no la tabla', () => {
-    // El troll, de agilidad 2: dos casillas, más lento que el héroe que lo lleva.
-    const army = [{ creature: 'troll-maza' }];
-    expect(maxMovePoints(grupoQueMarcha(army), undefined)).toBe(
-      marchaALaEscala(SPEED_TO_MOVE_POINTS.very_slow),
-    );
-  });
 });
 
 describe('la vista sale del área (#229)', () => {
@@ -69,10 +59,10 @@ describe('la vista sale del área (#229)', () => {
     }
   });
 
-  it('los radios del héroe y del castillo son los de fheroes2 a escala, no la cita', () => {
+  it('los radios del héroe y del castillo (y del nodo, 02-11-2026) son los de fheroes2 a escala, no la cita', () => {
     // fheroes2: héroe 4, castillo 5 (`getFogDiscoveryDistance`); con 450 sobre 300, 5 y 6.
-    expect([HERO_SCOUT_RADIUS, TOWN_SCOUT_RADIUS]).toEqual([radioALaEscala(4), radioALaEscala(5)]);
-    expect([HERO_SCOUT_RADIUS, TOWN_SCOUT_RADIUS]).toEqual([5, 6]);
+    expect([HERO_SCOUT_RADIUS, NODE_SCOUT_RADIUS]).toEqual([radioALaEscala(4), radioALaEscala(5)]);
+    expect([HERO_SCOUT_RADIUS, NODE_SCOUT_RADIUS]).toEqual([5, 6]);
   });
 
   it('lanza con lo que no es un entero ≥ 0', () => {

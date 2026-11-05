@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { onTestFinished } from 'vitest';
 import { type FotoDeEfectos, fotoDeEfectos } from '../src/client/anim.js';
+import { EscenaBatalla } from '../src/client/escenas/batalla.js';
 import { marcadoDe } from '../src/client/html.js';
 import {
   type Catalogo,
@@ -15,7 +16,7 @@ import { componer, type Escena } from '../src/client/render/escenario/colocar.js
 import type { Puente } from '../src/client/render/escenario/puentes.js';
 import type { Senda } from '../src/client/render/escenario/sendas.js';
 import { type CaraDeLosContrincantes, renderDesenlace } from '../src/client/rueda/rueda.js';
-import { SesionDeArena } from '../src/client/session.js';
+import { type ControlDeBatalla, SesionDeArena } from '../src/client/session.js';
 import { completarCruce } from '../src/core/ai/rueda.js';
 import {
   batallaDeArena,
@@ -31,6 +32,7 @@ import {
   type BattleSide,
   createBattle,
   enemiesOf,
+  type HeroeDelBando,
   legalActions,
   type StackDeBatalla,
   stackById,
@@ -51,7 +53,7 @@ import type {
   BattleStack,
   BattleState,
 } from '../src/core/battle/types.js';
-import { personajeDe } from '../src/core/battle/types.js';
+import { HERO_BODY, personajeDe } from '../src/core/battle/types.js';
 import { UNIDADES, unidad, unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO, type ReglasDelCombate } from '../src/core/combate.js';
 import {
@@ -61,15 +63,16 @@ import {
   type Pieza,
   type PiezaEscrita,
   RUTA_DEL_CATALOGO_DE_EQUIPO,
+  RUTA_DEL_HEROE,
 } from '../src/core/data.js';
 import {
   type CatalogoDeEquipo,
   catalogoDeEquipo,
-  EQUIPO_BASE,
   EQUIPO_DEL_JUEGO,
 } from '../src/core/hero/equipo.js';
-import { EXPERIENCIA_INICIAL_DE_HEROE } from '../src/core/hero/experiencia.js';
-import type { GrupoQueMarcha, Hero } from '../src/core/hero/hero.js';
+import { umbral } from '../src/core/hero/experiencia.js';
+import { cuerposDelHeroe, type Hero } from '../src/core/hero/hero.js';
+import { troopsAsStacks } from '../src/core/hero/troop.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import { basesDelPlan, type MapPlan, type PlanConCasillas } from '../src/core/map/generate.js';
 import {
@@ -95,9 +98,8 @@ import {
 import { esBarrera, type TerrainKind } from '../src/core/map/terrain.js';
 import { lineasQueSeparan } from '../src/core/map/vestir.js';
 import { type FiguraDeNpc, RUTA_DEL_BANCO } from '../src/core/npcs.js';
-import { createRng, type Rng } from '../src/core/rng.js';
+import type { Rng } from '../src/core/rng.js';
 import {
-  alcanceDelHeroe,
   applyAdventureAction,
   baseOf,
   type GameContext,
@@ -276,26 +278,6 @@ export function ejercito(...grupos: Stack[]): Army {
     for (let i = 0; i < count; i++) out.push(troop);
   }
   return out;
-}
-
-/**
- * Un héroe recién hecho con `army`, lo que pide la marcha (`slowestSpeed`,
- * `maxMovePoints`): desde el 26-10-2026 el héroe cuenta en el más lento del grupo.
- * A pie con el equipo base, salvo que se diga otro.
- */
-export function grupoQueMarcha(
-  army: Army,
-  cambios: { readonly equipo?: Equipo; readonly skills?: Hero['skills'] } = {},
-): GrupoQueMarcha & Pick<Hero, 'skills'> {
-  return {
-    name: 'Prueba',
-    attack: 1,
-    defense: 1,
-    experience: EXPERIENCIA_INICIAL_DE_HEROE,
-    equipo: cambios.equipo ?? EQUIPO_BASE,
-    army,
-    skills: cambios.skills ?? {},
-  };
 }
 
 /** Un individuo de `creature` con su propia hoja y `equipo` encima de lo de serie. */
@@ -501,22 +483,6 @@ export function copiaDePartida(state: GameState): GameState {
     ),
   }));
   return copia;
-}
-
-export function primeraMarchaQueSePara(state: GameState, heroe: Hero): Point | null {
-  for (const [clave, coste] of costesDelAlcance(alcanceDelHeroe(state, heroe))) {
-    if (coste === 0 || coste > heroe.movePoints) continue;
-    const destino = pointFromKey(clave);
-    const prueba = copiaDePartida(state);
-    applyAdventureAction(
-      prueba,
-      { type: 'move_hero', hero: heroe.id, to: destino },
-      { rng: createRng(state.seed) },
-      heroe.owner,
-    );
-    if (prueba.log.at(-1)?.kind === 'march_halted') return destino;
-  }
-  return null;
 }
 
 /**
@@ -1431,8 +1397,9 @@ export function elCatalogoCon(...encima: PiezaEscrita[]): readonly PiezaEscrita[
 
 /**
  * Una carpeta temporal con lo que la arena lee del repo además de lo que escribe:
- * el catálogo de equipo (`data/equipo.json`, el del juego). Sin él, `leerCatalogo`
- * no tiene con qué leer las unidades, como no lo tendría el juego.
+ * el catálogo de equipo (`data/equipo.json`, el del juego) y el héroe
+ * (`data/heroe.json`). Sin ellos, `leerCatalogo` no tiene con qué leer, como no lo
+ * tendría el juego.
  */
 export function carpetaDeLaArena(prefijo = 'arena-'): string {
   const dir = mkdtempSync(join(tmpdir(), prefijo));
@@ -1441,6 +1408,8 @@ export function carpetaDeLaArena(prefijo = 'arena-'): string {
     join(dir, RUTA_DEL_CATALOGO_DE_EQUIPO),
     JSON.stringify({ _comment: COMENTARIO_DEL_CATALOGO_DE_EQUIPO, piezas: EQUIPO_ESCRITO }),
   );
+  // Y el héroe del repo: «Guardar» escribe su cuerpo y conserva lo demás.
+  copyFileSync(resolve(import.meta.dirname, '..', RUTA_DEL_HEROE), join(dir, RUTA_DEL_HEROE));
   return dir;
 }
 
@@ -1587,7 +1556,7 @@ export function ataquesDe(b: BattleState, desde = 0): Ataque[] {
 }
 
 /** El primer cruce de la rueda del registro de `b`; lanza si no hay ninguno. */
-export function primerCruce(b: BattleState): HechoDelCruce {
+function primerCruce(b: BattleState): HechoDelCruce {
   const e = b.log.find((x) => x.kind === 'cruce');
   if (e?.kind !== 'cruce') throw new Error('sin cruce en el registro');
   return e;
@@ -1688,6 +1657,70 @@ export function peleaDelMotor(
     COMBATE_COMPLETO,
     muralla,
   );
+}
+
+/**
+ * Empieza la pelea de la arena y acepta el despliegue de los bandos «Yo» tal como
+ * sale (la regla de hoy): los tests que miran la pelea la quieren ya empezada,
+ * como antes de la fase de despliegue (02-11-2026). La que mira el despliegue
+ * llama a `empezar` y coloca.
+ */
+export function empezarTalCual(s: SesionDeArena): void {
+  s.empezar();
+  s.despliegue.listoTalCual();
+}
+
+/**
+ * Un héroe de batalla con su cuerpo y, si se pide, con monedero para rendirse
+ * (`heroe-en-batalla.test.ts`); donde solo importa dónde pisa, sin él
+ * (`despliegue.test.ts`).
+ */
+export function heroeDeBatalla(purse: number | null = null): HeroeDelBando {
+  return {
+    figura: HERO_BODY,
+    ...cuerposDelHeroe({
+      name: 'Prueba',
+      attack: 2,
+      defense: 2,
+      experience: umbral(5),
+      equipo: {},
+    }),
+    mando: {
+      name: 'Prueba',
+      retreat: purse === null ? { blocked: 'no tienes base a la que volver' } : { purse },
+      spellPower: 1,
+      knowledge: 1,
+      mana: 0,
+      castThisRound: false,
+      spells: [],
+    },
+  };
+}
+
+/** Un bando de individuos, uno por stack, como los manda la partida; `aMano`, si lo despliega la persona. */
+export function ladoDeBatalla(army: Army, hero: HeroeDelBando | null, aMano = false): BattleSide {
+  return {
+    army: troopsAsStacks(army),
+    hero,
+    ...(aMano ? { despliegaAMano: true as const } : {}),
+  };
+}
+
+/**
+ * Deja correr el turno del rival hasta que se cumpla `cond` (una defensa que se
+ * abre a media jugada suya), o lanza: el turno es asíncrono y no avisa.
+ */
+export async function hastaQue(cond: () => boolean): Promise<void> {
+  for (let i = 0; i < 100 && !cond(); i++) await new Promise((r) => setTimeout(r, 0));
+  if (!cond()) throw new Error('el turno del rival no llegó a lo que se esperaba');
+}
+
+/** La escena de batalla de la sesión, encuadrada y con su primera lectura hecha, que no anima. */
+export function escenaDeBatalla(sesion: () => ControlDeBatalla): EscenaBatalla {
+  const escena = new EscenaBatalla(sesion);
+  escena.encuadrar(1086, 778);
+  escena.sincronizar(0);
+  return escena;
 }
 
 /**

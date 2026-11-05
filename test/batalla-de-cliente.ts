@@ -12,8 +12,8 @@
  */
 import { Session } from '../src/client/session.js';
 import type { ReglasDelCombate } from '../src/core/combate.js';
-import { objectAt, pointKey } from '../src/core/map/map.js';
-import type { Army, Point } from '../src/core/types.js';
+import { objectAt } from '../src/core/map/map.js';
+import type { Point } from '../src/core/types.js';
 
 /** Cómo se abre la sesión: la complejidad del combate y «Solo la rueda del héroe». */
 interface ComoSeJuega {
@@ -22,11 +22,12 @@ interface ComoSeJuega {
 }
 
 let hallada: { readonly semilla: number; readonly at: Point } | null = null;
-let emboscada: { readonly semilla: number; readonly destino: Point } | null = null;
 
 function abrir(semilla: number, at: Point, como: ComoSeJuega = {}): Session | null {
   const s = new Session(semilla, undefined, undefined, como.combate, como.soloRuedaDelHeroe);
   s.clickTile(at);
+  // Los tests de la escena miran la batalla ya empezada: «Listo» tal cual.
+  s.despliegue.listoTalCual();
   if (s.battle === null || s.turnoPropio === null) return null;
   return s.state.pendingBattle?.attacker.kind === 'hero' ? s : null;
 }
@@ -54,20 +55,26 @@ export function sesionContraMonstruo(como: ComoSeJuega = {}): Session {
 }
 
 /**
- * La misma batalla, con el héroe de la persona llevando `ejercito` en vez del
- * suyo: para los tests que necesitan una tropa concreta (el monje de los poderes).
- * Lanza si con ese ejército no se abre la batalla.
+ * La misma batalla, recién abierta y aún en el despliegue de la persona (fase de
+ * despliegue, 02-11-2026): para los tests que miran el despliegue.
  */
-export function sesionContraMonstruoCon(ejercito: Army): Session {
+export function sesionContraMonstruoAlDesplegar(): Session {
   sesionContraMonstruo();
   if (hallada === null) throw new Error('sin batalla hallada');
   const s = new Session(hallada.semilla);
-  const h = s.selectedHero;
-  if (h === null) throw new Error('la sesión no tiene héroe seleccionado');
-  h.army = ejercito;
   s.clickTile(hallada.at);
-  if (s.battle === null) throw new Error('con ese ejército no se abre la batalla');
+  if (s.battle === null) throw new Error('la batalla hallada no se repite');
   return s;
+}
+
+/**
+ * La sesión de esa batalla antes de abrirla, en el mapa, con la casilla del
+ * monstruo: para los tests que tocan algo del héroe (su formación) y luego atacan.
+ */
+export function sesionAntesDelMonstruo(): { readonly s: Session; readonly at: Point } {
+  sesionContraMonstruo();
+  if (hallada === null) throw new Error('sin batalla hallada');
+  return { s: new Session(hallada.semilla), at: hallada.at };
 }
 
 /**
@@ -117,35 +124,4 @@ export function destinoDeHoy(s: Session, sinPeligro = true): Point {
     }
   }
   throw new Error(`nada a menos de 6 casillas de (${h.at.x},${h.at.y}) se alcanza hoy sin peligro`);
-}
-
-/**
- * Una sesión y un destino cuya ruta pisa, a la vista, la región de un grupo de
- * asaltantes que embosca: la primera semilla que lo da. Era la semilla 1 y la
- * (2,10), escritas a mano.
- */
-export function rutaConEmboscada(): { readonly s: Session; readonly destino: Point } {
-  if (emboscada !== null) return { s: new Session(emboscada.semilla), destino: emboscada.destino };
-  for (let semilla = 1; semilla <= 200; semilla++) {
-    const s = new Session(semilla);
-    const { width: W, height: H } = s.state.map;
-    const ocupadas = new Set([
-      ...s.state.map.objects.map((o) => pointKey(o.at)),
-      ...s.state.raiders.map((r) => pointKey(r.at)),
-    ]);
-    for (let y = 0; y < H; y++) {
-      for (let x = 0; x < W; x++) {
-        const p = { x, y };
-        if (ocupadas.has(pointKey(p))) continue;
-        const ruta = s.previewPath(p);
-        const donde = ruta.findIndex((paso) => paso.emboscada !== undefined);
-        // Que salte antes del final y hoy: la marcha se para ahí y hay batalla.
-        if (donde >= 1 && ruta[donde]!.hoy) {
-          emboscada = { semilla, destino: p };
-          return { s, destino: p };
-        }
-      }
-    }
-  }
-  throw new Error('ninguna de 200 semillas da una ruta con emboscada a la vista');
 }

@@ -277,9 +277,11 @@ describe('el motor de mundos', () => {
   });
 
   // Sus cifras no se fijan: `ejemplo` se regenerará con la trama (fase B).
-  it('«pnpm mundo medir» mide «ejemplo» sin lanzar', async () => {
-    const { mundo, biblia } = await leerMundoDeDisco('ejemplo');
-    expect(describirMedida('ejemplo', medirMundo(mundo, biblia))[0]).toMatch(/^ejemplo: lugares: /);
+  // Con «prueba», que es del test: «ejemplo» lleva asaltantes cuya fuerza sale del catálogo, y
+  // un retoque válido del catálogo lo deja sin valer (03-11-2026).
+  it('«pnpm mundo medir» mide «prueba» sin lanzar', async () => {
+    const { mundo, biblia } = await leerMundoDeDisco('prueba');
+    expect(describirMedida('prueba', medirMundo(mundo, biblia))[0]).toMatch(/^prueba: lugares: /);
   });
 
   it('un mundo que no está o no se lee no se mide: lanza diciéndolo', async () => {

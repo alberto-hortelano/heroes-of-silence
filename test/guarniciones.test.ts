@@ -476,6 +476,10 @@ describe('cuándo recoge la IA (S8 de /simplify)', () => {
     const hero = heroesOf(state, 0)[0]!;
     const base = baseOf(state, 0)!;
     hero.at = { ...base.at };
+    // Se queda en casa: no volvió vencido. Con el catálogo retocado de `main`
+    // (fusionado el 05-11-2026), en la semilla 3 el héroe vuelve vencido a su base
+    // en el turno del rival (`vueltoACasa`), y ese sí recoge (el test de abajo).
+    delete hero.vueltoACasa;
     guarnecer(state, base, ejercito({ creature: TROPA_BARATA, count: 2 }));
     hero.army = [];
     // Sin puntos no anda: no llega a ningún sitio, y no recoge (antes del S8, sí).
@@ -900,8 +904,20 @@ describe('las pantallas de la persona (la sesión)', () => {
   });
 
   it('atacado en su base con guarnición, elige la defensa antes de la primera jugada', async () => {
-    // Semilla en que el rival ataca la base con el héroe dentro el día 2 (buscada a mano).
+    // El rival, pegado a la base y mucho más fuerte, con el héroe de la persona
+    // dentro con su guarnición. Era una semilla en que pasaba jugando el día 2
+    // (la 37, buscada a mano); con el catálogo retocado de `main` (fusionado el
+    // 05-11-2026) el rival ya no iba a por ella, y se monta a mano.
     const s = new Session(37);
+    const base = baseOf(s.state, 0)!;
+    const mio = heroesOf(s.state, 0)[0]!;
+    mio.at = { ...base.at };
+    mio.army = ejercito({ creature: TROPA_BARATA, count: 1 });
+    guarnecer(s.state, base, ejercito({ creature: TROPA_BARATA, count: 3 }));
+    const rival = heroesOf(s.state, 1)[0]!;
+    rival.at = pegadoA(s.state, base.at);
+    rival.army = ejercito({ creature: PESADA, count: 6 });
+    rival.movePoints = 100_000;
     let vista: Session['defensa'] = null;
     let jugada = '';
     s.alCambiarSinGesto = () => {
@@ -916,6 +932,10 @@ describe('las pantallas de la persona (la sesión)', () => {
         const antes = s.battle!.stacks.filter((st) => st.side === 'defender').length;
         s.confirmarLaDefensa();
         expect(s.defensa).toBeNull();
+        // La defensa elegida se despliega después, sin ver al rival (la fase de
+        // despliegue de `main`): la batalla rehecha nace desplegando.
+        expect(s.battle!.despliegue).not.toBeNull();
+        expect(s.status).toMatch(/^¡Te atacan! Despliega a los tuyos/);
         expect(s.battle!.stacks.filter((st) => st.side === 'defender')).toHaveLength(antes - 1);
         expect(s.state.log.at(-1)).toMatchObject({ kind: 'defense_set', actor: 0 });
       }

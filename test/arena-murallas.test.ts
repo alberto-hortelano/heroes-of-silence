@@ -25,6 +25,7 @@ import { createRng } from '../src/core/rng.js';
 import { escribirMurallas, leerMurallas } from '../tools/arena/borrador.js';
 import {
   aPelear,
+  empezarTalCual,
   montajeDePrueba,
   muralla,
   peleaDelMotor,
@@ -230,7 +231,7 @@ describe('la arena pelea con la muralla', () => {
       5,
       { muralla: linea },
     );
-    s.empezar();
+    empezarTalCual(s);
     expect(s.battle.muralla).toEqual(linea);
     const fin = finalDeArena(s.battle);
     expect(fin?.causa).toBe('agotada');
@@ -244,7 +245,7 @@ describe('la arena pelea con la muralla', () => {
       5,
       { muralla: conPuerta },
     );
-    s.empezar();
+    empezarTalCual(s);
     expect(s.turnoPropio).not.toBeNull();
     const cerradas = new Set(conPuerta.muros.map(hexKey));
     for (const h of s.battleMovable()) expect(cerradas.has(hexKey(h))).toBe(false);

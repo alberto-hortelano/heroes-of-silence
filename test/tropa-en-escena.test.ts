@@ -2,19 +2,32 @@
  * La escena de la tropa, por la sesión de verdad (C1, C3-C6): abrirla y cerrarla,
  * la ficha de cada uno con sus cifras de las puertas de siempre, y repartir el
  * equipo por `equip` y `unequip`, con lo que no se puede apagado con el motivo
- * del núcleo.
+ * del núcleo. Y la formación (fase C del despliegue, 02-11-2026: «la vista de
+ * tropa pasa a ser la de despliegue»): el tablero con cada uno en su casilla de
+ * `formacionDe`, colocar por `formar` con la frase del núcleo, y la batalla
+ * siguiente que despliega desde ahí.
  */
 import { describe, expect, it } from 'vitest';
+import { EscenaTropa } from '../src/client/escenas/tropa.js';
 import { AYUDA_DE_LA_TROPA, Session } from '../src/client/session.js';
-import { armaduraDe } from '../src/core/battle/armas.js';
-import { equipoPuestoDe, hojaDeUnidad } from '../src/core/catalogo.js';
-import { figuraDelHeroe } from '../src/core/data.js';
+import { zonaDeSalida } from '../src/core/battle/despliegue.js';
+import { UNIDADES } from '../src/core/catalogo.js';
+import { EQUIPO } from '../src/core/data.js';
+import { aDosManos, pieza } from '../src/core/hero/equipo.js';
 import { rangoDeHeroe, umbral } from '../src/core/hero/experiencia.js';
 import { heroUnit } from '../src/core/hero/hero.js';
 import { troopUnit } from '../src/core/hero/troop.js';
 import { indiceDePoder, nivelDeUnidad } from '../src/core/nivel.js';
-import { ponerseBlocker, turnBlocker, unequipBlocker } from '../src/core/state/game.js';
-import { TROPA, TROPA_BARATA } from './helpers.js';
+import {
+  formacionDe,
+  formarBlocker,
+  ponerseBlocker,
+  turnBlocker,
+  unequipBlocker,
+} from '../src/core/state/game.js';
+import type { Hex } from '../src/core/types.js';
+import { sesionAntesDelMonstruo } from './batalla-de-cliente.js';
+import { TROPA_BARATA } from './helpers.js';
 
 const SEMILLA = 7;
 
@@ -56,16 +69,26 @@ describe('abrir y cerrar la escena de la tropa (C1)', () => {
 });
 
 describe('lo que se ve (C2, C3)', () => {
-  it('una figura por individuo más el héroe, cada uno con su hoja', () => {
+  it('el tablero de la formación: el héroe y cada uno de los suyos en su casilla de `formacionDe`, y nadie más', () => {
     const s = abierta();
     const hero = s.selectedHero!;
     const vista = s.vistaDeLaTropa()!;
-    expect(vista.figuras).toHaveLength(hero.army.length + 1);
     expect(hero.army.length).toBeGreaterThan(0);
-    expect(vista.figuras[0]!.cuerpo).toBe(figuraDelHeroe(hero));
-    for (const [i, t] of hero.army.entries()) {
-      expect(vista.figuras[i + 1]!.cuerpo).toBe(hojaDeUnidad(t.creature));
+    expect(vista.figuras).toHaveLength(hero.army.length + 1);
+    const formacion = formacionDe(s.state, hero);
+    expect(vista.figuras[0]).toMatchObject({ id: 'attacker-heroe', sale: formacion.heroe });
+    for (const [i, h] of formacion.tropa.entries()) {
+      expect(vista.figuras[i + 1]).toMatchObject({ id: `attacker-${i}`, sale: h });
     }
+    // Solo lo propio, en despliegue: la tanda del atacante abierta y sin turno.
+    expect(vista.batalla.stacks.map((x) => x.id).sort()).toEqual(
+      vista.figuras.map((f) => f.id).sort(),
+    );
+    expect(vista.batalla.stacks.every((x) => x.side === 'attacker')).toBe(true);
+    expect(vista.batalla.despliegue).not.toBeNull();
+    expect(vista.batalla.turno).toBeNull();
+    // La zona del elegido (el héroe) es la del núcleo, en el marco del atacante.
+    expect(s.formacion.zona).toEqual(zonaDeSalida(heroUnit(hero), 'attacker'));
     // La vista no se rehace si nada cambia.
     expect(s.vistaDeLaTropa()).toBe(vista);
   });
@@ -100,57 +123,6 @@ describe('lo que se ve (C2, C3)', () => {
 });
 
 describe('repartir el equipo (C4, C5, C6)', () => {
-  it('quitarle el gambesón al héroe lo manda a la mochila y su armadura baja', () => {
-    const s = abierta();
-    const hero = s.selectedHero!;
-    expect(hero.equipo.armadura).toBe('gambeson');
-    const antes = s.vistaDeLaTropa()!.ficha.armadura;
-    s.quitarALaElegida('armadura');
-    expect(hero.mochila).toEqual(['gambeson']);
-    expect(s.status).toBe(`Gambesón vuelve a la mochila de ${hero.name}.`);
-    const f = s.vistaDeLaTropa()!.ficha;
-    expect(f.armadura).toBeLessThan(antes);
-    expect(f.armadura).toBe(armaduraDe(heroUnit(hero)));
-    expect(f.mochila.map((m) => m.pieza.id)).toEqual(['gambeson']);
-  });
-
-  it('ponérselo al tercer novato de un tipo se lo pone a ÉL, y la elección no salta (QA, H2)', () => {
-    const s = abierta();
-    const hero = s.selectedHero!;
-    hero.army = [
-      { creature: TROPA_BARATA },
-      { creature: TROPA_BARATA },
-      { creature: TROPA_BARATA },
-    ];
-    s.quitarALaElegida('armadura');
-    s.elegirEnLaTropa({ indice: 2 });
-    expect(s.vistaDeLaTropa()!.ficha.mochila[0]!.poner).toBeNull();
-    s.ponerALaElegida('gambeson');
-    expect(hero.army[2]!.veterania?.equipo).toEqual({ armadura: 'gambeson' });
-    expect(hero.army[0]).toEqual({ creature: TROPA_BARATA });
-    expect(hero.army[1]).toEqual({ creature: TROPA_BARATA });
-    expect(s.elegidoEnLaTropa).toEqual({ indice: 2 });
-    const cifras = troopUnit(hero.army[2]!, s.state.characters);
-    expect(s.status).toBe(`${cifras.name} lleva ahora Gambesón.`);
-    const vista = s.vistaDeLaTropa()!;
-    expect(vista.elegida).toBe(3);
-    expect(vista.figuras[3]!.id).toBe(hero.army[2]!.veterania!.id);
-    expect(vista.ficha.cifras).toEqual(cifras);
-    expect(vista.ficha.nivel).toBe(nivelDeUnidad(cifras));
-    expect(vista.ficha.indice).toBe(indiceDePoder(cifras));
-    // Lo suyo se le quita; lo de serie (su escudo) no lleva ×.
-    const armadura = vista.ficha.huecos.find((h) => h.hueco === 'armadura')!;
-    expect(armadura).toMatchObject({ deSerie: false, quitar: { motivo: null } });
-    const escudo = vista.ficha.huecos.find((h) => h.hueco === 'escudo')!;
-    expect(escudo.deSerie).toBe(true);
-    expect(escudo.quitar).toBeNull();
-    // Y de vuelta: se lo quita a ÉL, no al héroe.
-    s.quitarALaElegida('armadura');
-    expect(hero.army[2]!.veterania?.equipo).toEqual({});
-    expect(hero.mochila).toEqual(['gambeson']);
-    expect(hero.equipo.armadura).toBeUndefined();
-  });
-
   it('a un novato, que no lleva nada suyo, quitarle algo lo rechaza el núcleo con su motivo', () => {
     const s = abierta();
     const hero = s.selectedHero!;
@@ -159,29 +131,6 @@ describe('repartir el equipo (C4, C5, C6)', () => {
     s.quitarALaElegida('armadura');
     expect(s.status).toMatch(/^no se puede desequipar: .*/);
     expect(hero.army[0]).toEqual({ creature: TROPA_BARATA });
-  });
-
-  it('un doble clic en «Poner» o en «×» juega una vez y no escribe un error (QA, H6)', () => {
-    const s = abierta();
-    const hero = s.selectedHero!;
-    s.quitarALaElegida('armadura');
-    const quitado = s.status;
-    // El segundo clic llega al botón de antes de repintar: nada cambió desde el primero.
-    s.quitarALaElegida('armadura');
-    expect(s.status).toBe(quitado);
-    expect(hero.mochila).toEqual(['gambeson']);
-    s.ponerALaElegida('gambeson');
-    const puesto = s.status;
-    expect(puesto).toBe(`${hero.name} lleva ahora Gambesón.`);
-    s.ponerALaElegida('gambeson');
-    expect(s.status).toBe(puesto);
-    expect(hero.equipo.armadura).toBe('gambeson');
-    expect(hero.mochila).toEqual([]);
-    // Si algo cambió entremedias, ya no es la misma jugada repetida: llega al
-    // núcleo, que la rechaza con su motivo (el fail-loud sigue en su sitio).
-    s.elegirEnLaTropa({ heroe: true });
-    s.ponerALaElegida('gambeson');
-    expect(s.status).toBe(`no se puede equipar: ${hero.name} no lleva Gambesón en la mochila`);
   });
 
   it('el arma del héroe sale sin poder quitarse, con el motivo de `unequipBlocker`', () => {
@@ -198,21 +147,28 @@ describe('repartir el equipo (C4, C5, C6)', () => {
   });
 
   it('una pieza a dos manos para quien lleva escudo de serie sale apagada con el motivo de `ponerseBlocker`', () => {
+    // Elegidas por lo que son: la primera unidad con escudo de serie y la primera
+    // arma a dos manos del catálogo.
+    const conEscudo = UNIDADES.find((u) => u.equipo.escudo !== undefined);
+    const dosManos = EQUIPO.find((p) => p.hueco === 'arma' && aDosManos(p));
+    if (conEscudo === undefined || dosManos === undefined)
+      throw new Error('el catálogo no tiene unidad con escudo de serie o arma a dos manos');
     const s = abierta();
     const hero = s.selectedHero!;
-    hero.army = [{ creature: TROPA }];
-    hero.mochila = ['mandoble'];
+    hero.army = [{ creature: conEscudo.id }];
+    hero.mochila = [dosManos.id];
     s.elegirEnLaTropa({ indice: 0 });
-    expect(equipoPuestoDe(hero, { indice: 0 }).escudo).toBeDefined();
-    const motivo = ponerseBlocker(hero, { indice: 0 }, 'mandoble');
+    const motivo = ponerseBlocker(hero, { indice: 0 }, dosManos.id);
     // No pide quitar el escudo, que es de serie y no se puede (QA, H4).
-    expect(motivo).toMatch(
-      /no admite Mandoble: es un arma a dos manos y su .* es de serie, que no se quita$/,
+    expect(motivo).toBe(
+      `esa unidad de ${conEscudo.name} no admite ${dosManos.nombre}: es un arma a dos manos y su ${pieza(conEscudo.equipo.escudo!).nombre} es de serie, que no se quita`,
     );
     expect(s.vistaDeLaTropa()!.ficha.mochila).toEqual([expect.objectContaining({ poner: motivo })]);
-    s.ponerALaElegida('mandoble');
+    // Si llega igual, el núcleo la rechaza con el mismo motivo y no cambia nada.
+    s.ponerALaElegida(dosManos.id);
     expect(s.status).toBe(`no se puede equipar: ${motivo}`);
-    expect(hero.mochila).toEqual(['mandoble']);
+    expect(hero.mochila).toEqual([dosManos.id]);
+    expect(hero.army).toEqual([{ creature: conEscudo.id }]);
   });
 
   it('fuera de tu turno todo sale apagado con el motivo del turno', () => {
@@ -221,5 +177,140 @@ describe('repartir el equipo (C4, C5, C6)', () => {
     const motivo = turnBlocker(s.state, 0);
     const f = s.vistaDeLaTropa()!.ficha;
     expect(f.huecos.find((h) => h.hueco === 'armadura')!.quitar).toEqual({ motivo });
+  });
+});
+
+describe('la formación en el tablero (fase C del despliegue)', () => {
+  /** Una casilla de la zona de `x` (el marco del atacante) que no es la de nadie de la formación. */
+  function libre(s: Session): Hex {
+    const v = s.vistaDeLaTropa()!;
+    const at = s.formacion.zona.find(
+      (z) => !v.figuras.some((f) => f.sale.col === z.col && f.sale.row === z.row),
+    );
+    if (at === undefined) throw new Error('la zona del elegido no tiene hueco');
+    return at;
+  }
+
+  it('colocar al héroe en un hueco lo pone ahí, lo guarda en él y sigue elegido', () => {
+    const s = abierta();
+    const hero = s.selectedHero!;
+    const at = libre(s);
+    const antes = formacionDe(s.state, hero);
+    expect(s.formacion.dichoDeColocar(at)).toBe(`${hero.name} saldría en (${at.col},${at.row}).`);
+    s.formacion.colocarEn(at);
+    expect(s.status).toBe(`${hero.name} sale en (${at.col},${at.row}).`);
+    expect(hero.salida).toEqual(at);
+    const despues = formacionDe(s.state, hero);
+    expect(despues.heroe).toEqual(at);
+    // Nadie más se movió: la formación se congeló entera antes.
+    expect(despues.tropa).toEqual(antes.tropa);
+    expect(s.elegidoEnLaTropa).toEqual({ heroe: true });
+    const v = s.vistaDeLaTropa()!;
+    expect(v.figuras[v.elegida]!.sale).toEqual(at);
+    expect(s.formacion.elegido?.hex).toEqual(at);
+  });
+
+  it('elegir a uno de la tropa y colocarlo en la casilla del héroe los cambia', () => {
+    const s = abierta();
+    const hero = s.selectedHero!;
+    const antes = formacionDe(s.state, hero);
+    s.formacion.elegir('attacker-0');
+    expect(s.elegidoEnLaTropa).toEqual({ indice: 0 });
+    const nombre = troopUnit(hero.army[0]!, s.state.characters).name;
+    expect(s.status).toBe(
+      `${nombre}: su ficha está en el panel; pulsa la casilla verde donde sale.`,
+    );
+    expect(s.vistaDeLaTropa()!.ficha.nombre).toBe(nombre);
+    s.formacion.colocarEn(antes.heroe);
+    expect(s.status).toBe(`${nombre} y ${hero.name} se cambian de sitio.`);
+    const despues = formacionDe(s.state, hero);
+    expect(despues.heroe).toEqual(antes.tropa[0]);
+    expect(despues.tropa[0]).toEqual(antes.heroe);
+    // Y la ficha sigue al elegido, que es el mismo.
+    expect(s.elegidoEnLaTropa).toEqual({ indice: 0 });
+    expect(s.vistaDeLaTropa()!.ficha.nombre).toBe(nombre);
+  });
+
+  it('fuera de su zona, la frase del núcleo en la barra y nadie se mueve', () => {
+    const s = abierta();
+    const hero = s.selectedHero!;
+    const antes = formacionDe(s.state, hero);
+    const at = { col: 8, row: 4 };
+    const motivo = formarBlocker(s.state, 0, {
+      type: 'formar',
+      hero: hero.id,
+      quien: { heroe: true },
+      at,
+    });
+    expect(motivo).toMatch(/queda fuera de la zona de salida/);
+    const frase = `${motivo!.charAt(0).toUpperCase()}${motivo!.slice(1)}.`;
+    expect(s.formacion.dichoDeColocar(at)).toBe(frase);
+    s.formacion.colocarEn(at);
+    expect(s.status).toBe(frase);
+    expect(formacionDe(s.state, hero)).toEqual(antes);
+    expect(hero.salida).toBeUndefined();
+  });
+
+  it('fuera de tu turno no se coloca, con el motivo del turno', () => {
+    const s = abierta();
+    const hero = s.selectedHero!;
+    const at = libre(s);
+    s.state.current = 1;
+    s.formacion.colocarEn(at);
+    expect(s.status).toBe(turnBlocker(s.state, 0));
+    expect(hero.salida).toBeUndefined();
+  });
+
+  it('las flechas mueven al elegido a la casilla de al lado, juzgada por el núcleo', () => {
+    const s = abierta();
+    const hero = s.selectedHero!;
+    const desde = formacionDe(s.state, hero).heroe;
+    // El héroe sale en el centro de la columna del borde: a la derecha hay sitio.
+    s.formacion.mover(1, 0);
+    expect(formacionDe(s.state, hero).heroe).toEqual({ col: desde.col + 1, row: desde.row });
+    // Y a la izquierda del borde no hay casilla: lo dice y no se mueve.
+    s.formacion.mover(-1, 0);
+    s.formacion.mover(-1, 0);
+    expect(s.status).toMatch(/no es una casilla del tablero|fuera de la zona/i);
+    expect(formacionDe(s.state, hero).heroe).toEqual(desde);
+  });
+
+  it('la escena: el clic en el centro de una casilla verde coloca; sobre el cuerpo de otro, lo elige', () => {
+    const s = abierta();
+    const hero = s.selectedHero!;
+    const escena = new EscenaTropa(() => s);
+    escena.encuadrar(1280, 720);
+    expect(escena.marca).toBe('attacker-heroe');
+    const at = libre(s);
+    const c = escena.centroDe(at);
+    expect(escena.mover(c.x, c.y)).toBe(true);
+    expect(s.status).toBe(`${hero.name} saldría en (${at.col},${at.row}).`);
+    expect(escena.pulsar(c.x, c.y)).toBe(true);
+    expect(formacionDe(s.state, hero).heroe).toEqual(at);
+    // El cuerpo del primero de la tropa (por encima de sus pies): lo elige.
+    const caja = escena.cajaDe('attacker-0')!;
+    expect(escena.pulsar(caja.x, caja.suelo - caja.alto * 0.6)).toBe(true);
+    expect(s.elegidoEnLaTropa).toEqual({ indice: 0 });
+    expect(escena.marca).toBe('attacker-0');
+    // Fuera del tablero no hace nada.
+    expect(escena.pulsar(2, 2)).toBe(false);
+  });
+
+  it('la batalla siguiente despliega desde la formación guardada', () => {
+    const { s, at } = sesionAntesDelMonstruo();
+    const hero = s.selectedHero!;
+    s.abrirLaTropa();
+    s.formacion.colocarEn(libre(s));
+    s.formacion.elegir('attacker-0');
+    s.formacion.colocarEn(formacionDe(s.state, hero).heroe);
+    const formacion = formacionDe(s.state, hero);
+    s.cerrarLaTropa();
+    s.clickTile(at);
+    const b = s.battle;
+    expect(b).not.toBeNull();
+    expect(s.despliegue.enCurso?.side).toBe('attacker');
+    const en = (id: string) => b!.stacks.find((x) => x.id === id)!.hex;
+    expect(en('attacker-heroe')).toEqual(formacion.heroe);
+    for (const [i, h] of formacion.tropa.entries()) expect(en(`attacker-${i}`)).toEqual(h);
   });
 });

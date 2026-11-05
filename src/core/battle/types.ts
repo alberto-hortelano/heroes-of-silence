@@ -51,8 +51,19 @@ export type OrigenDelStack =
       readonly oro: number;
       /** La hoja con la que ENTRÓ, o `null` si es un novato. La de salida la escribe `settleBattle`. */
       readonly veterania: Veterania | null;
+      /**
+       * Su casilla en la formación de quien lo lleva (`Troop.salida`), si la
+       * trae: viaja como la veteranía y `settleBattle` se la devuelve al volver.
+       */
+      readonly salida?: Hex;
     }
-  | { readonly kind: 'personaje'; readonly id: string; readonly veterania: Veterania | null }
+  | {
+      readonly kind: 'personaje';
+      readonly id: string;
+      readonly veterania: Veterania | null;
+      /** Su casilla en la formación, como la del catálogo. */
+      readonly salida?: Hex;
+    }
   | {
       readonly kind: 'heroe';
       /**
@@ -224,6 +235,25 @@ export interface BattleStack {
    * antes o la batalla acaba, se pierde. Viaja al espectador con el stack.
    */
   apuntado: Hex | null;
+  /**
+   * Los turnos que le faltan para volver a apuntar con su arma de fuego (02-11-2026,
+   * `recargaDe`): lo pone el disparo, contando el turno en que sale, y lo baja el
+   * cierre de cada turno suyo (`endTurn`). 0, puede apuntar. Lo escribe solo
+   * `battle.ts` (lo vigila `invariantes.test.ts`); viaja al espectador.
+   */
+  recargando: number;
+  /**
+   * La casilla a la que lanzó una granada en su último turno (`throw`), o `null`:
+   * explota al empezar su siguiente turno (`explotarLaGranada`) y se borra; si muere
+   * antes o la batalla acaba, no explota. Lo escribe solo `battle.ts`.
+   */
+  granada: Hex | null;
+  /**
+   * Las granadas lanzadas en esta batalla: lo que le queda se deriva de lo que lleva
+   * su pieza (`granadasQueQuedan`), así que un retoque de la arena a media pelea no
+   * descuadra la cuenta. Lo escribe solo `battle.ts`.
+   */
+  granadasLanzadas: number;
 }
 
 /**
@@ -319,6 +349,24 @@ export type BattleEvent =
     }
   /** El tirador apunta a `at` (`aim`): el disparo sale al empezar su siguiente turno. */
   | { kind: 'aimed'; stack: string; at: Hex }
+  /** `stack` lanza una granada a `at` (`throw`): explota al empezar su siguiente turno. */
+  | { kind: 'thrown'; stack: string; at: Hex }
+  /**
+   * La granada de `stack` explota en `at` y da a `target` con la tirada en el cuarto
+   * `cuarto` (4 en la casilla, 2 en las vecinas, `explosionDe`); uno por alcanzado,
+   * o uno con `target` a `null` si no había nadie (entonces `damage` y `killed` son 0).
+   */
+  | {
+      kind: 'blast';
+      stack: string;
+      at: Hex;
+      target: string | null;
+      damage: number;
+      killed: number;
+      cuarto: number;
+      /** Lo que paró la armadura del objetivo, como en `attack`. */
+      parado?: number;
+    }
   /**
    * El disparo diferido sale de `stack` hacia `at` y da a `target`, el primero de
    * la recta (`lineaDelDisparo`), sea del bando que sea; `null` si la recta llega
@@ -475,6 +523,27 @@ export interface GolpeEnCurso {
   readonly carga: CargaMedida | null;
 }
 
+/**
+ * El despliegue en curso (`BattleState.despliegue`): qué tanda está abierta (un
+ * índice en `TANDAS`, `despliegue.ts`) y qué bandos despliega una persona. Las
+ * tandas de los demás pasan solas (`BattleSide.despliegaAMano`).
+ */
+export interface DespliegueEnCurso {
+  readonly tanda: number;
+  readonly aMano: readonly Side[];
+}
+
+/**
+ * Lo que se hace en el despliegue (`aplicarDespliegue`): poner a uno del bando
+ * que despliega en una casilla de su zona (o cambiarlo con quien la ocupe, de su
+ * misma tanda), o dar la tanda por desplegada. No es una `BattleAction`: esa es
+ * el vocabulario del turno, del agente y de la IA, y el despliegue va antes de
+ * cualquier turno.
+ */
+export type AccionDeDespliegue =
+  | { readonly type: 'colocar'; readonly stack: string; readonly at: Hex }
+  | { readonly type: 'desplegado' };
+
 export interface BattleState {
   round: number;
   stacks: BattleStack[];
@@ -498,6 +567,14 @@ export interface BattleState {
    * otro bando. `null` antes del primer turno, y entonces mueve el atacante.
    */
   ultimoBando: Side | null;
+  /**
+   * La fase de despliegue, antes de la primera ronda (02-11-2026, «añade al
+   * combate una fase previa de despliegue»): la tanda abierta, o `null` si ya se
+   * desplegó todo y la batalla va por rondas. Mientras no es `null` no hay turno
+   * ni cola ni iniciativa: solo `aplicarDespliegue`. Sin bandos a mano, toda
+   * batalla sale de `createBattle` ya con `null` y la ronda 1 abierta.
+   */
+  despliegue: DespliegueEnCurso | null;
   /** El turno abierto, o `null` si no actúa nadie (batalla terminada o sin montar). */
   turno: TurnoDeUnidad | null;
   heroes: Record<Side, BattleHero | null>;
@@ -572,6 +649,12 @@ export type BattleAction =
    * da al primero que encuentre (`lineaDelDisparo`; 25-10-2026, regla nuestra).
    */
   | { type: 'aim'; at: Hex }
+  /**
+   * Quien lleva granada la lanza por encima a la casilla `at`, a su alcance, y
+   * cierra su turno (`lanzarBlocker`): explota al empezar su siguiente turno en esa
+   * casilla y sus seis vecinas (`explosionDe`; 02-11-2026, regla nuestra).
+   */
+  | { type: 'throw'; at: Hex }
   | { type: 'cast'; spell: string; target?: string }
   /**
    * La unidad activa usa uno de sus poderes (`UnitInfo.poderes`) sobre el aliado

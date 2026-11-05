@@ -1,16 +1,21 @@
 /**
- * Lo que se ve en la escena de la tropa: el héroe y cada individuo que lleva,
- * con la ficha del elegido y lo que se le puede poner o quitar.
+ * Lo que se ve en la escena de la tropa: la formación del héroe —él y cada
+ * individuo que lleva en su casilla del tablero de despliegue (02-11-2026, «la
+ * vista de tropa pasa a ser la de despliegue»)—, con la ficha del elegido y lo
+ * que se le puede poner o quitar.
  *
- * Solo **lee** el núcleo: las cifras salen de las mismas puertas que la batalla
- * y el agente (`heroUnit`, `troopUnit`), el nivel de `nivelDeUnidad` y cada «no se
+ * Solo **lee** el núcleo: la formación es la batalla de la formación
+ * (`batallaDeLaFormacion`, el mismo `createBattle` y el mismo `asentar` que
+ * cada batalla), las cifras salen de las mismas puertas que la batalla y el
+ * agente (`heroUnit`, `troopUnit`), el nivel de `nivelDeUnidad` y cada «no se
  * puede» de su *blocker* (`ponerseBlocker`, `unequipBlocker`), escrito por el
  * núcleo y enseñado tal cual. Lo compone una vez la sesión (`vistaDeLaTropa`,
  * cacheada por su `version`) y lo pintan el lienzo y el panel.
  */
 import { armaduraDe } from '@core/battle/armas.js';
+import type { BattleState } from '@core/battle/types.js';
 import { equipoPuestoDe, unidadDelJuego } from '@core/catalogo.js';
-import { figuraDelHeroe, nombreDeTipoDeHeroe, type Pieza } from '@core/data.js';
+import { nombreDeTipoDeHeroe, type Pieza } from '@core/data.js';
 import {
   destinoDeEquipo,
   equipoDe,
@@ -25,19 +30,32 @@ import {
   siguienteUmbral,
 } from '@core/hero/experiencia.js';
 import { type Hero, heroUnit } from '@core/hero/hero.js';
-import { hojaDeLaTropa, troopUnit } from '@core/hero/troop.js';
+import { troopUnit } from '@core/hero/troop.js';
 import { indiceDePoder, nivelDeUnidad } from '@core/nivel.js';
-import { type GameState, ponerseBlocker, unequipBlocker } from '@core/state/game.js';
-import { HUECOS, type Hueco, huecosDeLaPieza, type PlayerId, type UnitInfo } from '@core/types.js';
+import { type ClimaDelSitio, DESPEJADO } from '@core/state/clima.js';
+import {
+  type GameState,
+  ponerseBlocker,
+  stackDelPortador,
+  unequipBlocker,
+} from '@core/state/game.js';
+import {
+  type Hex,
+  HUECOS,
+  type Hueco,
+  huecosDeLaPieza,
+  type PlayerId,
+  type UnitInfo,
+} from '@core/types.js';
 
-/** Una figura del semicírculo, en el orden del ejército: el héroe primero. */
+/** Uno de la formación, en el orden del ejército: el héroe primero. */
 export interface FiguraDeLaTropa {
   readonly quien: Portador;
-  /** Su id para el compás de la figura y para `canvas[data-tropa]`: el del héroe, el de su hoja o su puesto. */
+  /** Su stack en la batalla de la formación (`stackDelPortador`), y `canvas[data-tropa]` del elegido. */
   readonly id: string;
   readonly nombre: string;
-  /** La hoja con que se pinta (`figuraDelHeroe`, `hojaDeLaTropa`). */
-  readonly cuerpo: string;
+  /** Su casilla en la formación, en el marco del atacante (el del tablero). */
+  readonly sale: Hex;
 }
 
 /** Lo que hay en un hueco del elegido. */
@@ -93,13 +111,15 @@ export interface VistaDeLaTropa {
   readonly figuras: readonly FiguraDeLaTropa[];
   /** El índice en `figuras` del elegido. */
   readonly elegida: number;
+  /**
+   * La formación en el tablero: la batalla de la formación (`batallaDeLaFormacion`),
+   * el bando del héroe de atacante con su tanda abierta. Es lo que pinta el lienzo,
+   * como el despliegue de una batalla.
+   */
+  readonly batalla: BattleState;
+  /** El cielo del tablero: despejado, que la formación no es ningún sitio del mapa. */
+  readonly clima: ClimaDelSitio;
   readonly ficha: FichaDeLaTropa;
-}
-
-/** El id de la figura de `quien`: el del héroe, el de su hoja si la tiene, o el de su puesto. */
-function idDe(hero: Hero, quien: Portador): string {
-  if ('heroe' in quien) return hero.id;
-  return hero.army[quien.indice]?.veterania?.id ?? `${hero.id}-puesto-${quien.indice}`;
 }
 
 /** Los portadores de `hero` en el orden del ejército: él primero. */
@@ -113,9 +133,10 @@ export function mismoPortador(a: Portador, b: Portador): boolean {
 }
 
 /**
- * La vista de la tropa de `hero` con `elegido` elegido. `bloqueo` es por qué no se
- * puede jugar ahora (el turno, `bloqueoDeTurno` de la sesión), o `null`: con él,
- * todo poner y quitar sale apagado con ese motivo.
+ * La vista de la tropa de `hero` con `elegido` elegido, sobre `batalla`, la de su
+ * formación (`batallaDeLaFormacion`, que la sesión guarda por versión y héroe).
+ * `bloqueo` es por qué no se puede jugar ahora (el turno, `bloqueoDeTurno` de la
+ * sesión), o `null`: con él, todo poner y quitar sale apagado con ese motivo.
  */
 export function componerVistaDeLaTropa(
   state: GameState,
@@ -123,18 +144,12 @@ export function componerVistaDeLaTropa(
   hero: Hero,
   elegido: Portador,
   bloqueo: string | null,
+  batalla: BattleState,
 ): VistaDeLaTropa {
   const figuras = portadoresDe(hero).map((quien): FiguraDeLaTropa => {
-    if ('heroe' in quien) {
-      return { quien, id: hero.id, nombre: hero.name, cuerpo: figuraDelHeroe(hero) };
-    }
-    const t = hero.army[quien.indice]!;
-    return {
-      quien,
-      id: idDe(hero, quien),
-      nombre: troopUnit(t, state.characters).name,
-      cuerpo: hojaDeLaTropa(t),
-    };
+    const { id, hex: sale } = stackDelPortador(batalla, quien);
+    if ('heroe' in quien) return { quien, id, nombre: hero.name, sale };
+    return { quien, id, nombre: troopUnit(hero.army[quien.indice]!, state.characters).name, sale };
   });
   const elegida = figuras.findIndex((f) => mismoPortador(f.quien, elegido));
   if (elegida < 0) {
@@ -146,6 +161,8 @@ export function componerVistaDeLaTropa(
     owner: hero.owner,
     figuras,
     elegida,
+    batalla,
+    clima: DESPEJADO,
     ficha: fichaDe(state, viewer, hero, elegido, bloqueo),
   };
 }

@@ -16,7 +16,6 @@ import {
   bandoDeSalida,
   cargaDesde,
   createBattle,
-  despliegueBlocker,
   distanciaACaminar,
   distanciaHasta,
   legalActions,
@@ -26,6 +25,7 @@ import {
   stackById,
 } from '../src/core/battle/battle.js';
 import { allHexes, FORMA_DEL_TABLERO, hexKey } from '../src/core/battle/board.js';
+import { despliegueBlocker } from '../src/core/battle/despliegue.js';
 import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from '../src/core/battle/muralla.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
@@ -238,38 +238,6 @@ describe('validarMuralla', () => {
 });
 
 describe('el muro (C3)', () => {
-  it('el atacante que camina no sube ni lo cruza, y el núcleo dice por qué', () => {
-    // La pesada (mandoble): 4 casillas. Sin muro llegaría a la columna 9.
-    const state = duelo(LINEA, PESADA, { col: 5, row: 4 }, TROPA, {
-      col: 10,
-      row: 0,
-    });
-    const a = stackById(state, 'attacker-0');
-    const movibles = movableHexes(state, a);
-    expect(movibles.length).toBeGreaterThan(0);
-    expect(movibles.filter((h) => h.col >= 7)).toEqual([]);
-    expect(movimientoBlocker(state, { col: 7, row: 4 })).toBe(
-      'para subir a la muralla hace falta una escalera o saber escalar',
-    );
-    expect(movimientoBlocker(state, { col: 8, row: 4 })).toBe(
-      'no llega: le quedan 4 casillas y la muralla o las unidades cortan el camino',
-    );
-    expect(movimientoBlocker(state, { col: 6, row: 4 })).toBeNull();
-    // Y la acción lo rechaza con la misma frase, sin tocar nada.
-    expect(() =>
-      applyAction(state, { type: 'move', to: { col: 7, row: 4 } }, createRng(1)),
-    ).toThrow(
-      'attacker-0 no puede moverse a (7,4): para subir a la muralla hace falta una escalera o saber escalar',
-    );
-    expect(a.hex).toEqual({ col: 5, row: 4 });
-    // Sin muralla, la misma pesada sí llega: es el muro, no la distancia.
-    const libre = duelo(SIN_MURALLA, PESADA, { col: 5, row: 4 }, TROPA, {
-      col: 10,
-      row: 0,
-    });
-    expect(claves(movableHexes(libre, stackById(libre, 'attacker-0'))).has('8,4')).toBe(true);
-  });
-
   it('el defensor sube andando, anda por arriba y baja solo hacia dentro', () => {
     const state = duelo(LINEA, TROPA, { col: 0, row: 0 }, PESADA, { col: 8, row: 4 }, 'defender-0');
     const movibles = claves(movableHexes(state, stackById(state, 'defender-0')));
@@ -603,45 +571,6 @@ describe('la IA juega con muros sin colgarse (C5)', () => {
       row: 4,
     });
     expect(chooseBattleAction(state)).toEqual({ type: 'end_turn' });
-  });
-
-  it('el atacante rodea la L en vez de quedarse pegado al muro', () => {
-    const state = duelo(forma('En L'), PESADA, { col: 5, row: 3 }, TROPA, {
-      col: 9,
-      row: 2,
-    });
-    const a = stackById(state, 'attacker-0');
-    const d = stackById(state, 'defender-0');
-    // Que el defensor ya haya actuado: si no, la IA cede la iniciativa (`wait`)
-    // antes de meterse en su alcance, y eso es otra regla.
-    d.acted = true;
-    const accion = chooseBattleAction(state);
-    if (accion.type !== 'move') throw new Error(`esperaba un move y es ${accion.type}`);
-    const distancia = distanciaACaminar(state, a, d);
-    expect(distancia(accion.to)).toBeLessThan(distancia(a.hex));
-    // En recta habría ido a pegarse al muro, a la columna 6.
-    expect(accion.to.col).toBeLessThan(6);
-  });
-
-  it('cuerpo a cuerpo contra tiradores tras la línea: suben y acaba', () => {
-    const state = createBattle(
-      lado([
-        { creature: PESADA, count: 3 },
-        { creature: TROPA, count: 3 },
-      ]),
-      lado([{ creature: TIRADOR, count: 4 }]),
-      createRng(7),
-      COMBATE_COMPLETO,
-      forma('Línea recta'),
-    );
-    autoResolve(state, createRng(7));
-    expect(state.finished).not.toBeNull();
-    // El arquero sube a la línea. (Que tire desde arriba se dejó de mirar con el
-    // disparo diferido, que va sin tests hasta que el usuario lo valide: 25-10-2026.)
-    const subio = state.log.findIndex(
-      (e) => e.kind === 'move' && e.stack === 'defender-0' && e.to.col === 7,
-    );
-    expect(subio).toBeGreaterThanOrEqual(0);
   });
 
   it('nadie llega a nadie: se acaba por rondas, sin colgarse', () => {

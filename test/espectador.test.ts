@@ -32,7 +32,7 @@ import { componer } from '../src/client/render/escenario/colocar.js';
 import type { AdventureScene } from '../src/client/render/mapa.js';
 import { completarCruce } from '../src/core/ai/rueda.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
-import { applyAction, createBattle } from '../src/core/battle/battle.js';
+import { applyAction, createBattle, legalActions } from '../src/core/battle/battle.js';
 import type { BattleEvent, BattleStack, BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
@@ -728,8 +728,13 @@ describe('la batalla en la vista', () => {
     const batalla = state.pendingBattle!.battle;
     expect(batalla.muralla.material).toBe('piedra');
     const rng = createRng(9);
+    // Se juega a ciegas, y la primera vez que alguien del atacante puede poner una
+    // escalera, la pone: con el catálogo retocado de `main` (fusionado el
+    // 05-11-2026) la IA de la semilla 5 ganaba sin poner ninguna.
     for (let i = 0; i < 400 && batalla.finished === null && batalla.escaleras.length === 0; i++) {
-      applyAction(batalla, completarCruce(batalla, chooseBattleAction(batalla), rng).accion, rng);
+      const escalera = legalActions(batalla).find((a) => a.type === 'poner_escalera');
+      const accion = escalera ?? completarCruce(batalla, chooseBattleAction(batalla), rng).accion;
+      applyAction(batalla, accion, rng);
     }
     expect(batalla.escaleras.length).toBeGreaterThan(0);
     const defensor = batalla.stacks.find((x) => x.side === 'defender' && x.count > 0)!;

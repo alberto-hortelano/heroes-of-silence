@@ -11,12 +11,13 @@
  * empezado y el de quien no se infiltra; la muralla del recinto, que no se abre; y
  * lo de alrededor del parado en la barrera: los asaltantes no lo emboscan, un
  * héroe que no se infiltra no lo alcanza y uno que sí abre batalla, la renta no se
- * entera y la niebla mira su cuadrado.
+ * entera y la niebla es la de una barrera (la región más cercana, y su cuadrado sobre
+ * lo explorado: rehecho al fusionar con la niebla por regiones, 05-11-2026).
  */
 import { describe, expect, it } from 'vitest';
 import { llegadaDeLaRuta } from '../src/client/escenas/aventura.js';
 import { Session } from '../src/client/session.js';
-import { unidadesDeFaccion } from '../src/core/catalogo.js';
+import { unidadDelJuego, unidadesDeFaccion } from '../src/core/catalogo.js';
 import {
   hasTrait,
   tipoDeHeroePorDefecto,
@@ -32,6 +33,7 @@ import {
   seInfiltra,
 } from '../src/core/hero/infiltracion.js';
 import { barreraEn, isEnterable, objectAt, type PathStep, pointKey } from '../src/core/map/map.js';
+import { regionDescubierta, regionesQueDescubre } from '../src/core/map/niebla.js';
 import { FUERA, MURO, pasosDelMapa } from '../src/core/map/recinto.js';
 import { NOMBRE_DE_BARRERA, type TerrainKind } from '../src/core/map/terrain.js';
 import { createRng } from '../src/core/rng.js';
@@ -54,6 +56,13 @@ import { FACTION_IDS, type FactionId, type Point } from '../src/core/types.js';
 import { ejercito, hastaSuSiguienteTurno, JINETE, primeraSemillaCon, TROPA } from './helpers.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
+
+/**
+ * Cómo se llama `TROPA` en el catálogo: se lee de él y no se escribe, que el
+ * catálogo lo retoca la persona a mano (en `main`, «Guerrero con escudo» pasó a
+ * «Guardia del temple», 02-11-2026).
+ */
+const NOMBRE_DE_TROPA = unidadDelJuego(TROPA).name;
 
 /** Una unidad con el rasgo `infiltrarse` (de las que aprobó el usuario, I10). */
 const GOBLIN = 'goblin-lancero';
@@ -166,7 +175,7 @@ describe('quién se infiltra', () => {
         ...ejercito({ creature: TROPA, count: 2 }),
       ],
     };
-    expect(infiltracionBlocker(hero)).toBe('no se infiltra: no lo lleva Guerrero con escudo');
+    expect(infiltracionBlocker(hero)).toBe(`no se infiltra: no lo lleva ${NOMBRE_DE_TROPA}`);
     // El predicado del camino caliente dice lo mismo sin montar la frase.
     expect(seInfiltra(hero)).toBe(false);
   });
@@ -176,7 +185,7 @@ describe('quién se infiltra', () => {
     expect(infiltracionBlocker(caballero)).toBe('no se infiltra: no lo lleva su tipo (Caballero)');
     expect(
       infiltracionBlocker({ ...caballero, army: ejercito({ creature: TROPA, count: 1 }) }),
-    ).toBe('no se infiltra: no lo llevan su tipo (Caballero) ni Guerrero con escudo');
+    ).toBe(`no se infiltra: no lo llevan su tipo (Caballero) ni ${NOMBRE_DE_TROPA}`);
     expect(seInfiltra(caballero)).toBe(false);
   });
 
@@ -405,7 +414,7 @@ describe('cruzar barreras', () => {
     expect(caminoHasta(state, hero, TRAVESIA.t1)).toBeNull();
     const motivo = porQueNoLlega(state, hero, TRAVESIA.t1);
     expect(motivo).toBe(
-      `no hay camino hasta (${TRAVESIA.t1.x},${TRAVESIA.t1.y}) sin cruzar una barrera: solo la cruza un grupo que se infiltra, y no se infiltra: no lo lleva Guerrero con escudo`,
+      `no hay camino hasta (${TRAVESIA.t1.x},${TRAVESIA.t1.y}) sin cruzar una barrera: solo la cruza un grupo que se infiltra, y no se infiltra: no lo lleva ${NOMBRE_DE_TROPA}`,
     );
     expect(() => marchar(state, hero.id, TRAVESIA.t1)).toThrow(motivo);
   });
@@ -426,7 +435,7 @@ describe('cruzar barreras', () => {
     expect(caminoHasta(state, hero, TRAVESIA.despues)).toBeNull();
     const { x, y } = TRAVESIA.despues;
     expect(porQueNoLlega(state, hero, TRAVESIA.despues)).toBe(
-      `no hay camino hasta (${x},${y}) sin cruzar una barrera: solo la cruza un grupo que se infiltra, y no se infiltra: no lo lleva Guerrero con escudo`,
+      `no hay camino hasta (${x},${y}) sin cruzar una barrera: solo la cruza un grupo que se infiltra, y no se infiltra: no lo lleva ${NOMBRE_DE_TROPA}`,
     );
   });
 
@@ -484,14 +493,27 @@ describe('parado en una barrera (I8)', () => {
     });
   });
 
-  it('la renta no se entera y la niebla mira su cuadrado', () => {
+  it('la renta no se entera, y la niebla es la de una casilla de barrera: descubre la región más cercana y mira su cuadrado', () => {
+    // Rehecho al fusionar con la niebla por regiones de `main` (05-11-2026): lo que
+    // se mira ahora es el cuadrado del héroe sobre lo explorado, y lo explorado va
+    // por regiones enteras. Una casilla de barrera descubre la región que tiene más
+    // cerca (`regionesQueDescubre`), la misma regla que para cualquier barrera: el
+    // infiltrado no ve más que eso, ni la región del otro lado si aún no la pisó.
     const { state, hero } = enLaTravesia(TRAVESIA.borde);
     const renta = rentaDelDia(state, 0).total;
-    hero.at = TRAVESIA.t1;
+    marchar(state, hero.id, TRAVESIA.t1);
+    expect(hero.at).toEqual(TRAVESIA.t1);
     expect(rentaDelDia(state, 0).total).toBe(renta);
+    const { fog } = state.players[0]!;
+    const regiones = regionesQueDescubre(state.map, TRAVESIA.t1);
+    expect(regiones).toHaveLength(1);
+    for (const k of regiones) expect(regionDescubierta(state.map, fog, k)).toBe(true);
     const mira = visibleNow(state, 0);
+    expect(mira.has(TRAVESIA.t1)).toBe(true);
     for (const dy of [-1, 0, 1])
-      for (const dx of [-1, 0, 1])
-        expect(mira.has({ x: TRAVESIA.t1.x + dx, y: TRAVESIA.t1.y + dy })).toBe(true);
+      for (const dx of [-1, 0, 1]) {
+        const q = { x: TRAVESIA.t1.x + dx, y: TRAVESIA.t1.y + dy };
+        expect(mira.has(q)).toBe(fog.has(q));
+      }
   });
 });

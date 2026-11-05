@@ -237,6 +237,7 @@ export function buscarEmboscada(b: Caja, desde = 1): EscenaDeEmboscada {
     for (const c of candidatas) {
       const prueba = new Session(semilla);
       prueba.clickTile(c.destino);
+      prueba.despliegue.listoTalCual();
       const atacante = prueba.state.pendingBattle?.attacker;
       if (atacante?.kind === 'raider' && atacante.raiderId === c.grupo) {
         return { semilla, destino: c.destino, grupo: c.grupo };
@@ -272,6 +273,7 @@ export async function buscarVeteranos(b: Caja, desde = 1): Promise<number> {
     const primera = guardiaEnElMarco(b, e, TILE_INICIAL, espejo, VETERANOS);
     if (primera === null) continue;
     espejo.clickTile(primera);
+    espejo.despliegue.listoTalCual();
     if (espejo.battle === null) continue;
     espejo.autoResolveBattle();
     const heroe = espejo.myHeroes()[0];
@@ -282,6 +284,7 @@ export async function buscarVeteranos(b: Caja, desde = 1): Promise<number> {
     const segunda = guardiaEnElMarco(b, e, TILE_INICIAL, espejo, VETERANOS);
     if (segunda === null) continue;
     espejo.clickTile(segunda);
+    espejo.despliegue.listoTalCual();
     const battle = espejo.battle;
     if (battle === null) continue;
     if (battle.stacks.some((s) => s.count > 0 && galonesDe(s) > 0)) return semilla;
@@ -332,6 +335,7 @@ export function buscarDerrota(b: Caja, desde = DESDE_LA_DERROTA): EscenaDeDerrot
       // Una sesión por guardia: la batalla gasta la de antes.
       const prueba = new Session(semilla);
       prueba.clickTile(guardia);
+      prueba.despliegue.listoTalCual();
       if (prueba.battle === null) continue;
       prueba.autoResolveBattle();
       const final = [...prueba.state.log].reverse().find((e) => e.kind === 'battle_ended');
@@ -433,6 +437,7 @@ export function buscarEscritorio(b: Caja, desde = 1): number {
     const guardia = guardiaEnElMarco(b, e, tileTrasRueda(e, RUEDA_DEL_ESCRITORIO), espejo);
     if (guardia === null) continue;
     espejo.clickTile(guardia);
+    espejo.despliegue.listoTalCual();
     if (espejo.battle !== null && hayAnguloEnLaBatalla(espejo, b)) return semilla;
   }
   throw new Error(
@@ -483,6 +488,7 @@ export function buscarMovil(b: Caja, desde = 1): number {
     const lejos = guardiaEnElMarco(b, e, TILE_INICIAL, otra);
     if (lejos === null) continue;
     otra.clickTile(lejos);
+    otra.despliegue.listoTalCual();
     if (otra.battle === null) continue;
     const movil = new Session(semilla);
     const castillo = movil.myTowns()[0];
@@ -493,6 +499,7 @@ export function buscarMovil(b: Caja, desde = 1): number {
     const guardia = guardiaEnElMarco(b, e, TILE_INICIAL, movil);
     if (guardia === null) continue;
     movil.clickTile(guardia);
+    movil.despliegue.listoTalCual();
     if (movil.battle !== null) return semilla;
   }
   throw new Error(
@@ -505,8 +512,10 @@ export function buscarMovil(b: Caja, desde = 1): number {
 export const RUEDA_DE_LA_PATRULLA = -4;
 
 /**
- * Los grupos de asaltantes que la patrulla puede mirar: en lo explorado y
- * tocables en el lienzo. La misma pregunta que hace `patrullaALaVista`.
+ * Los grupos de asaltantes que la patrulla puede mirar: a la vista de la persona
+ * (`asaltantesALaVista`: desde la niebla de eventos, 02-11-2026, su casilla en el
+ * radio sobre lo explorado) y tocables en el lienzo. La misma pregunta que hace
+ * `patrullaALaVista`.
  */
 export function asaltantesEnElMarco(
   b: Caja,
@@ -515,7 +524,8 @@ export function asaltantesEnElMarco(
   espejo: Session,
 ): readonly Point[] {
   const explorada = (p: Point) => espejo.explorado?.has(p) ?? true;
-  return espejo.state.raiders
+  return espejo
+    .asaltantesALaVista()
     .map((r) => r.at)
     .filter((at) => explorada(at) && tocable(b, pixelDeCasilla(b, e, tile, espejo, at)));
 }
@@ -560,6 +570,7 @@ export async function buscarSinArte(b: Caja, desde = 1): Promise<number> {
     const guardia = guardiaEnElMarco(b, e, tile, espejo);
     if (guardia === null) continue;
     espejo.clickTile(guardia);
+    espejo.despliegue.listoTalCual();
     if (espejo.battle !== null && hayAnguloEnLaBatalla(espejo, b)) return semilla;
   }
   throw new Error(

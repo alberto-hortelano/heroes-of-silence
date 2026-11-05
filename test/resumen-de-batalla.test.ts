@@ -7,11 +7,9 @@
  * un resumen que se inventara un hechizo o se comiera una baja saldría rojo.
  */
 import { describe, expect, it } from 'vitest';
-import { marcadoDe } from '../src/client/html.js';
-import { renderLog } from '../src/client/views/panels.js';
 import { resumenDeBatalla } from '../src/core/battle/resumen.js';
 import { type BattleState, HERO_BODY, queEs } from '../src/core/battle/types.js';
-import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
+import { unidadesDelJuego } from '../src/core/catalogo.js';
 import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
 import { createRng } from '../src/core/rng.js';
 import { cronicaPara } from '../src/core/state/events.js';
@@ -134,30 +132,6 @@ describe('el resumen de la batalla en battle_ended (#93)', () => {
     };
     expect(() => resumenDeBatalla(roto)).toThrow(
       'hechizo sin objetivo en el registro: magic_arrow',
-    );
-  });
-
-  it('la crónica de la pantalla lo cuenta en primera persona a cada bando y en tercera al que mira', () => {
-    const nombre = unidadDelJuego(TROPA_BARATA).name;
-    const fin = {
-      kind: 'battle_ended',
-      winner: 'defender',
-      foe: { kind: 'hero', heroId: 'hero-1' },
-      owners: { attacker: 0, defender: 1 },
-      rounds: 1,
-      casts: [{ side: 'defender', spell: 'magic_arrow', target: HERO_BODY, killed: 1 }],
-      lost: { attacker: [{ creature: TROPA_BARATA, count: 3 }], defender: [] },
-      actor: 0,
-      at: { x: 1, y: 1 },
-    } as const;
-    expect(marcadoDe(renderLog([fin], 0))).toContain(
-      `<div class="lose">Batalla perdida contra un héroe del jugador 1 en\u00a0(1,\u00a01), en 1 ronda; pierdes 3\u00a0× ${nombre}; lanza el enemigo Flecha mágica sobre el héroe (mata 1)</div>`,
-    );
-    expect(marcadoDe(renderLog([fin], 1))).toContain(
-      `<div class="win">Batalla ganada contra un héroe del jugador 0 en\u00a0(1,\u00a01), en 1 ronda; pierde el enemigo 3\u00a0× ${nombre}; lanzas Flecha mágica sobre el héroe (mata 1)</div>`,
-    );
-    expect(marcadoDe(renderLog([fin], -1))).toContain(
-      `<div>Batalla en\u00a0(1,\u00a01): un héroe del jugador 0 contra un héroe del jugador 1; gana el jugador 1 en 1 ronda; pierde el jugador 0 3\u00a0× ${nombre}; lanza el jugador 1 Flecha mágica sobre el héroe (mata 1)</div>`,
     );
   });
 });

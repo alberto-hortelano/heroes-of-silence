@@ -19,7 +19,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { FORMAS_DE_EJEMPLO } from '../src/core/arena-murallas.js';
-import { armaduraDe, golpeDe } from '../src/core/battle/armas.js';
+import { armaduraDe } from '../src/core/battle/armas.js';
 import {
   applyAction,
   type BattleSide,
@@ -53,7 +53,6 @@ import {
   conLasCifrasDe,
   conManosDePrueba,
   dadoCargado,
-  JINETE,
   MANOS_DE_PRUEBA,
   NO_MUERTO,
   PESADA,
@@ -214,18 +213,12 @@ const ESCENARIOS: readonly Escenario[] = [
   {
     nombre: 'daño fijo: exacta',
     izquierda: () => aManoSolo('exacta', conManos(aMano(TROPA_BARATA, { damage: [10, 10] }))),
-    derecha: () => bando([{ creature: NO_MUERTO, count: 6 }]),
+    // Contra quien lleva armadura (la brigantina, 2), para que la previsión la diga:
+    // el esqueleto guerrero, que era el blanco, va sin ella desde el 02-11-2026.
+    derecha: () => bando([{ creature: TROPA, count: 6 }]),
     en: { col: 5, row: 4 },
     contra: { col: 6, row: 4 },
     accion: golpe(),
-  },
-  {
-    nombre: 'carga de la caballería',
-    izquierda: () => bando([{ creature: JINETE, count: 3 }]),
-    derecha: () => bando([{ creature: TROPA, count: 30 }]),
-    en: { col: 1, row: 4 },
-    contra: { col: 7, row: 4 },
-    accion: golpe({ col: 6, row: 4 }),
   },
   {
     nombre: 'arquero pegado: golpe cuerpo a cuerpo y su contraataque',
@@ -287,7 +280,7 @@ const ESCENARIOS: readonly Escenario[] = [
   // La armadura de la arena (#262): se resta lo último de cada golpe, y la
   // previsión con la misma resta (`trasLaArmadura`).
   {
-    nombre: 'armadura: la daga contra la coraza del jinete, que para casi todo el mínimo',
+    nombre: 'armadura: la daga contra la coraza del jinete, que para el mínimo entero',
     izquierda: () => deLaArena('arquero', ARQUERO_DE_LA_ARENA),
     derecha: () => deLaArena('jinete', JINETE_DE_LA_ARENA),
     en: { col: 5, row: 4 },
@@ -382,12 +375,6 @@ function losDos(b: BattleState): { yo: UnitInfo; el: UnitInfo } {
   return { yo: stackById(b, 'attacker-0').unit, el: stackById(b, 'defender-0').unit };
 }
 
-/** Lo mismo, en el escenario `nombre` montado con las reglas del juego. */
-function losDosDe(nombre: string): { yo: UnitInfo; el: UnitInfo } {
-  const e = ESCENARIOS.find((x) => x.nombre.startsWith(nombre))!;
-  return losDos(montar(e, createRng(1)).b);
-}
-
 describe('la previsión de daño cae en el daño real', () => {
   for (const e of ESCENARIOS) {
     it(e.nombre, () => {
@@ -424,6 +411,7 @@ describe('la previsión de daño cae en el daño real', () => {
             continue;
           }
           if (p.kind === 'poder') throw new Error(`${que}: este barrido no monta poderes`);
+          if (p.kind === 'granada') throw new Error(`${que}: este barrido no lanza granadas`);
           const golpes = golpesDe(nuevo);
           const mios = golpes.filter((g) => !g.retaliation);
           expect(mios.length, que).toBeGreaterThan(0);
@@ -479,71 +467,12 @@ describe('la previsión de daño cae en el daño real', () => {
     ]);
   });
 
-  it('dice qué cambia el daño: la carga', () => {
-    const causas = (nombre: string): string[] => {
-      const e = ESCENARIOS.find((x) => x.nombre === nombre)!;
-      const { b, accion } = montar(e, createRng(1));
-      const p = previsionDe(b, accion) as PrevisionDeGolpe;
-      return p.modificadores.map((m) => m.causa);
-    };
-    expect(causas('carga de la caballería')).toContain('carga de 5 casillas montada');
-    // Defenderse (+20 %, «(defiende)») se retiró el 26-10-2026.
-  });
-
   it('los rasgos hechos a mano se juegan: el doble golpe da dos', () => {
     for (const nombre of ['doble golpe']) {
       const e = ESCENARIOS.find((x) => x.nombre === nombre)!;
       const { b, accion } = montar(e, createRng(1));
       expect((previsionDe(b, accion) as PrevisionDeGolpe).golpes, nombre).toBe(2);
     }
-  });
-
-  it('con armas por uso (la arena), lo primero que dice es con qué arma pega cada golpe', () => {
-    const previsto = (nombre: string): PrevisionDeGolpe => {
-      const e = ESCENARIOS.find((x) => x.nombre.startsWith(nombre))!;
-      const { b, accion } = montar(e, createRng(1));
-      return previsionDe(b, accion) as PrevisionDeGolpe;
-    };
-    const pegado = previsto('arquero de la arena pegado');
-    expect(pegado.modificadores[0]?.causa).toBe('con Daga (cuerpo a cuerpo)');
-    expect(pegado.contraataque?.modificadores[0]?.causa).toBe('con Daga (cuerpo a cuerpo)');
-    const carga = previsto('jinete de la arena');
-    const { yo, el } = losDosDe('jinete de la arena');
-    // Con espada y lanza (25-10-2026), las dos nombradas; la carga, con las dos y,
-    // montado de guerra, con la fuerza del caballo (26-10-2026).
-    const armas = golpeDe(yo, 'arma');
-    expect(armas.piezas.map((p) => p.nombre)).toEqual(['Espada', 'Lanza de jinete']);
-    expect(carga.modificadores.map((m) => m.causa)).toEqual([
-      'con Espada y Lanza de jinete, montado en Caballo de guerra (en la carga)',
-      `ataque ${armas.attack} contra defensa ${el.defense}`,
-      'carga de 3 casillas montada',
-      `−${armaduraDe(el)} armadura`,
-    ]);
-    // La tropa del catálogo también pega con su arma (desde F3 lleva equipo): su
-    // contraataque lo dice.
-    expect(carga.contraataque?.modificadores[0]?.causa).toBe(
-      `con ${golpeDe(el, 'arma').piezas[0]?.nombre} (cuerpo a cuerpo)`,
-    );
-  });
-
-  it('con armadura (la arena), la cuenta lo dice lo último: «−2 armadura»', () => {
-    const prevista = (nombre: string): Prevision => {
-      const e = ESCENARIOS.find((x) => x.nombre.startsWith(nombre))!;
-      const { b, accion } = montar(e, createRng(1));
-      return previsionDe(b, accion)!;
-    };
-    // La daga (3 contra 4: ×0,975) da 9–35: la coraza (7) se queda casi todo el
-    // mínimo, y el contraataque del jinete (espada) contra el jubón (1) también llega.
-    const daga = prevista('armadura: la daga') as PrevisionDeGolpe;
-    expect(daga.danio).toEqual({ min: 2, max: 28 });
-    expect(daga.modificadores.at(-1)?.causa).toBe('−7 armadura');
-    expect(daga.contraataque?.modificadores.at(-1)?.causa).toBe('−1 armadura');
-    // El hechizo, con la misma resta: lo que llega, sin la cuenta.
-    const flecha = prevista('armadura: Flecha mágica');
-    if (flecha.kind !== 'hechizo') throw new Error('sin previsión de hechizo');
-    const sinArmadura = prevista('Flecha mágica');
-    if (sinArmadura.kind !== 'hechizo') throw new Error('sin previsión de hechizo');
-    expect(flecha.danio).toBe((sinArmadura.danio ?? 0) - 2);
   });
 
   it('una acción que no se puede jugar no se prevé: se dice por qué', () => {

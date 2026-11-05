@@ -359,12 +359,11 @@ function describirCasilla(s: Session, p: Point, ruta: readonly PasoDeRuta[]): st
   const heroe = s.heroesALaVista().find((h) => h.at.x === p.x && h.at.y === p.y);
   const asaltante = s.asaltantesALaVista().find((r) => r.at.x === p.x && r.at.y === p.y);
   let que = '';
-  // Un grupo a la vista se dice aunque su casilla siga en la niebla: se ve
-  // porque se ve su región (#130), y el lienzo lo pinta encima de la niebla.
-  if (asaltante !== undefined)
-    que = `${individuosDe(asaltante.troops)} asaltantes: emboscan a quien pise su región si le sacan ventaja`;
   // Lo desconocido se dice, pero la ruta también: el héroe puede ir a explorarlo.
-  else if (!explorada) que = 'Tierras desconocidas';
+  // Nada se ve sobre ello, tampoco un grupo (la niebla de eventos, 02-11-2026).
+  if (!explorada) que = 'Tierras desconocidas';
+  else if (asaltante !== undefined)
+    que = `${individuosDe(asaltante.troops)} asaltantes: emboscan a quien pise su región si le sacan ventaja`;
   else if (heroe !== undefined) {
     que = heroe.owner === s.viewer ? heroe.name : `${heroe.name}, héroe enemigo`;
     // El héroe propio en un lugar tapa su rombo: la barra dice dónde está y cómo se entra.

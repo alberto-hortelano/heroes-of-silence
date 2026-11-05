@@ -65,8 +65,6 @@ import {
   type Tablero,
   tableroPara,
 } from '../../src/client/render/proyeccion.js';
-import { encuadrarLaTropa } from '../../src/client/render/tropa/arco.js';
-import { cajasDeLaTropa } from '../../src/client/render/tropa/pintar.js';
 import {
   anguloDe as anguloEnLaRueda,
   medidasDeLaRueda,
@@ -109,21 +107,28 @@ import { COMBATE_COMPLETO } from '../../src/core/combate.js';
 import {
   ECONOMIA,
   figuraDelHeroe,
+  HEROE,
   nombreDeTipoDeHeroe,
   RUTA_DEL_CATALOGO_DE_EQUIPO,
   tipoDeHeroePorDefecto,
   tiposDeHeroe,
 } from '../../src/core/data.js';
 import { ESCALA_DE_CIFRAS } from '../../src/core/escala.js';
-import { EQUIPO_DEL_JUEGO } from '../../src/core/hero/equipo.js';
+import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../../src/core/hero/equipo.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
 import { nivelDeUnidad } from '../../src/core/nivel.js';
 import { parseSeed } from '../../src/core/rng.js';
-import { pasosDeLaPatrulla } from '../../src/core/state/asaltantes.js';
+import { pasosDeLaPatrulla, regionDeCasilla } from '../../src/core/state/asaltantes.js';
 import { baseOf, heroesOf, visibleNow } from '../../src/core/state/game.js';
 import { faccionesDeLaSemilla } from '../../src/core/state/setup.js';
 import type { SitioId } from '../../src/core/town/sitios.js';
-import { describirCoste, FACTION_IDS, type FactionId, type Point } from '../../src/core/types.js';
+import {
+  describirCoste,
+  FACTION_IDS,
+  type FactionId,
+  type Hex,
+  type Point,
+} from '../../src/core/types.js';
 import {
   RUTA_DEL_CATALOGO_DE_UNIDADES,
   type Unidad,
@@ -379,6 +384,66 @@ async function esperarLaBase(page: Page, marca: string): Promise<void> {
   await page.locator(`#canvas[data-base="${marca}"]`).waitFor({ state: 'attached', timeout: 8000 });
 }
 
+/** Las capturas del despliegue ya hechas: una por cada nombre, la primera vez que se ve. */
+const desplieguesCapturados = new Set<string>();
+
+/**
+ * «Listo» en la página (y en el espejo, si aún despliega) mientras la persona
+ * despliega (fase de despliegue, 02-11-2026): las pasadas miran la batalla, no el
+ * despliegue, y lo aceptan tal como sale (su formación o la regla de hoy). Lo
+ * lleva la página: el espejo de la arena ya lo aceptó al empezar
+ * (`DespliegueEnPantalla.listoTalCual`), porque las búsquedas de semilla lo juegan sin página. Cada
+ * tanda se espera pintada antes de seguir: con los dos bandos «Yo», un clic sobre
+ * el «Listo» de antes cerraría la del otro sin verla. La primera vez que se ve
+ * cada `captura_`, se captura antes de pulsar.
+ */
+async function desplegarTalCual(
+  page: Page,
+  espejo: ControlDeBatalla,
+  donde: string,
+  captura_?: string,
+): Promise<void> {
+  const listo = page.locator('#side [data-action="desplegado"]');
+  for (let i = 0; i < 4; i++) {
+    if (espejo.despliegue.enCurso !== null) {
+      await listo.waitFor({ timeout: 10_000 }).catch(async () => {
+        throw new Error(
+          `${donde}: el espejo despliega y la página no enseña «Listo»: ${await page.locator('#side').innerText()}`,
+        );
+      });
+    } else {
+      // El espejo de la partida va al paso de la página: sin despliegue en él, no
+      // lo hay. El de la arena lo aceptó al empezar, y la página pinta el panel un
+      // fotograma después de pasar a la batalla: se le da ese fotograma.
+      if (!(espejo instanceof SesionDeArena)) return;
+      await listo.waitFor({ timeout: i === 0 ? 1_500 : 500 }).catch(() => null);
+      if ((await listo.count()) === 0) return;
+    }
+    const tanda = await page.locator('#side [data-despliegue]').getAttribute('data-despliegue');
+    if (captura_ !== undefined && !desplieguesCapturados.has(captura_)) {
+      desplieguesCapturados.add(captura_);
+      await sleep(300);
+      await captura(page, captura_);
+    }
+    await listo.click();
+    if (espejo.despliegue.enCurso !== null) espejo.despliegue.listo();
+    // La página ha repintado su panel cuando ya no enseña «Listo» o enseña otra tanda.
+    await page
+      .waitForFunction(
+        (antes) => {
+          const t = document.querySelector('#side [data-despliegue]');
+          return t === null || t.getAttribute('data-despliegue') !== antes;
+        },
+        tanda,
+        { timeout: 10_000 },
+      )
+      .catch(() => {
+        throw new Error(`${donde}: tras «Listo» (tanda ${tanda}) la página no pasa a la siguiente`);
+      });
+  }
+  throw new Error(`${donde}: cuatro «Listo» y la página sigue desplegando`);
+}
+
 /** Comprueba que la página y el espejo juegan la misma partida. */
 async function comprobar(page: Page, espejo: Session, paso: string): Promise<void> {
   const oro = await page.locator('#resources .oro').innerText();
@@ -510,6 +575,9 @@ async function defenderseSola(page: Page, espejo: Session, donde: string): Promi
   // La batalla ya montada, también si la defensa la rehizo.
   const enCurso = espejo.battle;
   if (enCurso === null) throw new Error(`${donde}: la defensa se quedó sin batalla`);
+  // La defensa abre en el despliegue, sin ver al rival: «Listo» y, como antes, la
+  // IA mueve si la iniciativa es suya. La primera vez se captura.
+  await desplegarTalCual(page, espejo, donde, 'despliegue-02-defensor');
   await responderLaRueda(page, espejo);
   await esperarCola(enCurso, enCurso.log);
   const resolver = page.locator('#actions [data-action="auto-battle"]:enabled');
@@ -727,6 +795,15 @@ class Mapa {
     this.espejo.clickTile(p);
     await sleep(250);
     await cerrarLaGuarnicion(this.page, this.espejo, `(${p.x},${p.y})`);
+    // Si el clic abre una batalla, abre en el despliegue de la persona: se acepta
+    // tal cual, y la primera vez se captura (el atacante ve al defensor ya colocado;
+    // el emboscado, nada del rival).
+    await desplegarTalCual(
+      this.page,
+      this.espejo,
+      `el clic en (${p.x},${p.y})`,
+      `despliegue-01-${this.espejo.miBando === 'defender' ? 'emboscado' : 'atacante'}`,
+    );
   }
 }
 
@@ -2681,6 +2758,7 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
   if (otra.battle === null) {
     throw new Error(`táctil: el espejo no ha entrado en batalla: ${otra.status}`);
   }
+  await desplegarTalCual(page, otra, 'táctil');
   await esperarCola(otra.battle, otra.battle.log);
   await sleep(300);
 
@@ -2800,6 +2878,18 @@ async function mirarGuardia(mapa: Mapa, guardia: Point): Promise<Point> {
  * Lo que se compara es el lienzo de antes de pasar el día con el de después,
  * casilla a casilla alrededor de cada grupo visible: la casilla de destino no
  * se sabe hasta que el espejo juega el día.
+ *
+ * **Desde la niebla de eventos** (02-11-2026) un grupo se ve solo en el radio de
+ * los héroes, castillos y nodos de quien juega y sobre lo explorado, no por su
+ * región (#130). Los que caen ahí suelen patrullar la región donde está el héroe,
+ * y un grupo con un héroe en su región que no se cree capaz con él se aparta a su
+ * casilla más lejana y se queda en ella día tras día (`pasoDePatrulla`): en la s22
+ * de la pasada de escritorio, ninguno a la vista se movía en cuatro días. Por eso,
+ * tras un día sin que se mueva ninguno, de los que la persona ve (descubierto el
+ * mapa, todos), si ninguno de los que patrullan una región sin héroe cae en la
+ * pantalla, la cámara va a uno (`Mapa.mirar`), como la arrastraría quien juega
+ * para mirarlo. El primer día no se mueve: la pasada sin arte busca su semilla
+ * con la cámara en el héroe (`buscarSinArte`).
  */
 async function patrullaALaVista(
   page: Page,
@@ -2828,17 +2918,41 @@ async function patrullaALaVista(
       ...(await pixelesDelLienzo(page, px.x - b.x + t * 0.3, px.y - b.y + t * 0.32)),
     ];
   };
+  let quieto = false;
   for (let intento = 0; intento < 4 && espejo.state.finished === null; intento++) {
     // Lo que se ve de cada grupo hoy, y el lienzo alrededor: lo más que anda
     // mañana (`pasosDeLaPatrulla`: 2 o 3 en el 42×42, #229).
     const alcance = pasosDeLaPatrulla(espejo.state.day + 1);
+    const libres = espejo
+      .asaltantesALaVista()
+      .filter(
+        (r) =>
+          !espejo.state.heroes.some(
+            (h) =>
+              regionDeCasilla(espejo.state.map, h.at) === regionDeCasilla(espejo.state.map, r.at),
+          ),
+      );
+    if (quieto && libres.length > 0) {
+      const enPantalla = await Promise.all(libres.map(async (r) => dentro(await mapa.pixel(r.at))));
+      if (!enPantalla.some(Boolean)) {
+        const r = libres[0]!;
+        await mapa.mirar(r.at);
+        await sleep(600);
+        log(
+          `${prefijo}: la cámara va a ${r.id} en (${r.at.x},${r.at.y}), que patrulla una región sin héroe`,
+        );
+      }
+    }
     const antes = new Map<string, number[]>();
     const posiciones = new Map(espejo.state.raiders.map((r) => [r.id, { ...r.at }]));
     // Solo cuenta un grupo que se ve hoy y mañana: uno en lo explorado pero
     // fuera de la vista no se pinta (s2 con los mapas de #224, raider-5).
     const vistosAyer = new Set(espejo.asaltantesALaVista().map((r) => r.id));
+    // Solo los que la persona ve: con la niebla de eventos (02-11-2026) uno de lo
+    // explorado fuera del radio no se pinta, y mirarlo gastaba un día en balde
+    // (s22: el día 2 había 49 muestras y ninguno a la vista).
     for (const r of espejo.state.raiders) {
-      if (!explorada(r.at) || !dentro(await mapa.pixel(r.at))) continue;
+      if (!vistosAyer.has(r.id) || !explorada(r.at) || !dentro(await mapa.pixel(r.at))) continue;
       for (let dy = -alcance; dy <= alcance; dy++) {
         for (let dx = -alcance; dx <= alcance; dx++) {
           const p = { x: r.at.x + dx, y: r.at.y + dy };
@@ -2849,7 +2963,7 @@ async function patrullaALaVista(
       }
     }
     if (antes.size === 0) {
-      // Ninguno en lo explorado de la pantalla: se descubre el mapa con el botón
+      // Ninguno a la vista en la pantalla: se descubre el mapa con el botón
       // de siempre —el de depurar— en vez de buscar otra semilla. Una vez, y se
       // dice; si ni así hay ninguno, es rojo.
       //
@@ -2869,13 +2983,14 @@ async function patrullaALaVista(
           `${prefijo}: ${tapado.id} en (${tapado.at.x},${tapado.at.y}) está a la vista y la niebla lo tapa (H1)`,
         );
       }
-      // Los que ve la persona, con la regla del núcleo (basta su región, #130).
+      // Los que ve la persona, con la regla del núcleo (su casilla en el radio
+      // sobre lo explorado, 02-11-2026).
       const aLaVista = espejo.asaltantesALaVista();
       await page.getByRole('button', { name: 'Ver mapa entero' }).click();
       espejo.revealAll = true;
       await sleep(200);
       log(
-        `${prefijo}: ningún asaltante en lo explorado de la pantalla (${aLaVista.length} a la vista de la persona, ` +
+        `${prefijo}: ningún asaltante a la vista en la pantalla (${aLaVista.length} a la vista de la persona, ` +
           `ninguno tapado por la niebla); se descubre el mapa`,
       );
       intento--;
@@ -2895,6 +3010,7 @@ async function patrullaALaVista(
       );
     });
     if (movido === undefined) {
+      quieto = true;
       // Los de lo explorado pueden quedarse quietos un día (s99, con el mapa de
       // #215: el único a la vista no se mueve y los demás andan en la niebla):
       // se descubre el mapa, una vez, como cuando no se ve ninguno.
@@ -3164,21 +3280,64 @@ async function pulsarLaFigura(
 }
 
 /**
- * Pulsa en el lienzo a la figura `i` de la escena de la tropa, y lo mismo en el
- * espejo con la MISMA clase que lee el clic en la página (`EscenaTropa`), así que
- * a quién elige el espejo es por construcción a quién elige la página.
+ * La escena de la tropa del espejo en el lienzo de la página: la MISMA clase que
+ * lee el clic en la página (`EscenaTropa`), encuadrada en su lienzo. En Node no
+ * pinta: las figuras están en su casilla sin haberlas animado.
  */
-async function pulsarEnLaTropa(page: Page, espejo: Session, i: number): Promise<void> {
+async function escenaDeLaTropa(
+  page: Page,
+  espejo: Session,
+): Promise<{ b: Caja; escena: EscenaTropa }> {
+  if (espejo.vistaDeLaTropa() === null) {
+    throw new Error('tropa: el espejo no está en la escena de la tropa');
+  }
   const b = await caja(page);
   const escena = new EscenaTropa(() => espejo);
-  escena.encuadrar(b.width, b.height, await densidadDe(page));
-  const vista = espejo.vistaDeLaTropa();
-  if (vista === null) throw new Error('tropa: el espejo no está en la escena de la tropa');
-  const e = escena.encuadre(vista);
-  const en = e.en[i];
-  if (en === undefined) throw new Error(`tropa: no hay figura ${i} en la escena`);
-  const p = await pulsarLaFigura(page, b, cajasDeLaTropa(e.camara)(en));
-  escena.pulsar(p.x, p.y);
+  escena.encuadrar(b.width, b.height);
+  return { b, escena };
+}
+
+/** Pulsa en la página el punto `(x, y)` del lienzo y lo mismo en el espejo, con la misma escena. */
+async function pulsarEnElTablero(
+  page: Page,
+  b: Caja,
+  escena: EscenaTropa,
+  x: number,
+  y: number,
+): Promise<void> {
+  const px = Math.round(b.x + x);
+  const py = Math.round(b.y + y);
+  await page.mouse.move(px - 4, py);
+  await page.mouse.move(px, py);
+  await page.mouse.click(px, py);
+  escena.pulsar(px - b.x, py - b.y);
+}
+
+/**
+ * Pulsa en el lienzo el cuerpo del stack `id` de la formación, en un punto que la
+ * escena lee como elegirlo (`EscenaTropa.clicEn`: el centro de una casilla verde
+ * de detrás gana a la figura que lo tapa), y lo mismo en el espejo.
+ */
+async function elegirEnLaTropa(page: Page, espejo: Session, id: string): Promise<void> {
+  const { b, escena } = await escenaDeLaTropa(page, espejo);
+  const c = escena.cajaDe(id);
+  if (c === null) throw new Error(`tropa: no hay ${id} en la formación`);
+  for (const alto of [0.5, 0.65, 0.35, 0.8, 0.2]) {
+    const y = c.suelo - c.alto * alto;
+    const clic = escena.clicEn(Math.round(b.x + c.x) - b.x, Math.round(b.y + y) - b.y);
+    if (clic?.kind === 'elegir' && clic.stack.id === id) {
+      await pulsarEnElTablero(page, b, escena, c.x, y);
+      return;
+    }
+  }
+  throw new Error(`tropa: ningún punto del cuerpo de ${id} lo elige: lo tapan casillas verdes`);
+}
+
+/** Pulsa en el lienzo el centro de la casilla `at` (colocar al elegido ahí), y lo mismo en el espejo. */
+async function colocarEnLaTropa(page: Page, espejo: Session, at: Hex): Promise<void> {
+  const { b, escena } = await escenaDeLaTropa(page, espejo);
+  const c = escena.centroDe(at);
+  await pulsarEnElTablero(page, b, escena, c.x, c.y);
 }
 
 /** Espera a que el lienzo diga que la elegida es la del espejo (`canvas[data-tropa]`). */
@@ -3190,6 +3349,16 @@ async function esperarLaElegida(page: Page, espejo: Session, paso: string): Prom
     const tiene = await page.locator('#canvas').getAttribute('data-tropa');
     throw new Error(`tropa: tras «${paso}» la página elige «${tiene}» y el espejo «${id}»`);
   });
+  // Y la formación de la página, la del espejo: cada botón del panel dice su casilla.
+  const dicen = (await page.locator('#side [data-action="tropa-elegir"]').allInnerTexts()).map(
+    (t) => /\((\d+),(\d+)\)/.exec(t)?.[0] ?? t,
+  );
+  const espera = vista!.figuras.map((f) => `(${f.sale.col},${f.sale.row})`);
+  if (dicen.join(' ') !== espera.join(' ')) {
+    throw new Error(
+      `tropa: tras «${paso}» la formación de la página es ${dicen.join(' ')} y la del espejo ${espera.join(' ')}`,
+    );
+  }
   const titulo = (await page.locator('#side .ficha-de-la-tropa h2').innerText()).trim();
   if (titulo.toUpperCase() !== vista!.ficha.nombre.toUpperCase()) {
     throw new Error(
@@ -3254,31 +3423,40 @@ function cotaDelEncuadre(
   }
 }
 
-/** La cota del arco de la tropa: con `tropa` de los suyos y el héroe, en el lienzo de la página. */
-async function cotaDeLaTropa(page: Page, quien: string, tropa: number): Promise<void> {
-  const b = await caja(page);
-  const densidad = await densidadDe(page);
-  const e = encuadrarLaTropa({ ancho: b.width, alto: b.height, densidad }, tropa);
-  cotaDelEncuadre(
-    b,
-    densidad,
-    quien,
-    e.en.map((p) => cajasDeLaTropa(e.camara)(p)),
-    (alto, tope) =>
-      `${tropa + 1} figuras, el de delante mide ${alto} px (tope de la hoja, ${tope}),`,
+/**
+ * La cota del tablero de la tropa: con el héroe y los suyos en su formación, en el
+ * lienzo de la página (en el móvil, el tablero de 860 px que se desplaza, como el
+ * de la batalla), toda figura cabe entera en el lienzo.
+ */
+async function cotaDeLaTropa(page: Page, espejo: Session, quien: string): Promise<void> {
+  const { b, escena } = await escenaDeLaTropa(page, espejo);
+  const vista = espejo.vistaDeLaTropa()!;
+  const cajas = vista.figuras.map((f) => escena.cajaDe(f.id)!);
+  const fuera = cajas.filter(
+    (c) =>
+      c.x - c.ancho / 2 < 0 ||
+      c.x + c.ancho / 2 > b.width ||
+      c.suelo - c.alto < 0 ||
+      c.suelo > b.height,
+  ).length;
+  log(
+    `${quien}: ${cajas.length} figuras en el tablero de ${Math.round(b.width)}×${Math.round(b.height)}, de ${Math.round(Math.min(...cajas.map((c) => c.alto)))} px de alto`,
   );
+  if (fuera > 0) throw new Error(`${quien}: ${fuera} figuras fuera del lienzo`);
 }
 
 /**
- * La tropa del héroe en escena (19-10-2026): con la T se abre, pulsar a uno lo
- * elige (el aro en el lienzo y su ficha en el panel), se le quita el gambesón al
- * héroe y se le pone, con doble clic, a un novato que no es el primero de su tipo
- * —con el espejo a la par: el oro, la barra y a quién se elige, que no salta—, el
+ * La tropa del héroe en escena (19-10-2026; el tablero de despliegue desde el
+ * 02-11-2026): con la T se abre el tablero con el héroe y los suyos en su
+ * formación; se pone al héroe en un hueco de su zona pulsando la casilla, se elige
+ * a uno de la tropa pulsándole el cuerpo y se le pone en la casilla del héroe (se
+ * cambian), con el espejo a la par (la barra, el elegido y la formación del
+ * panel); salir y volver a entrar la conserva. Se le quita el gambesón al héroe y
+ * se le pone, con doble clic, a un novato que no es el primero de su tipo, el
  * panel abre arriba aunque el del mapa estuviera bajado, y «Volver al mapa» deja
- * el mapa con la cámara de antes y su panel donde estaba (la
- * vista movida con la rueda y un arrastre, para que volver a la de siempre no
- * pase por igual). Y la escena a 1280×720, a 1024×768 y en el móvil, con la cota del
- * encuadre (`cotaDelEncuadre`) en cada uno.
+ * el mapa con la cámara de antes y su panel donde estaba (la vista movida con la
+ * rueda y un arrastre, para que volver a la de siempre no pase por igual). Y la
+ * escena a 1280×720, a 1024×768 y en el móvil, con todas las figuras en el lienzo.
  */
 async function tropaEnEscena(browser: Browser, url: string, problemas: Problemas): Promise<void> {
   const semilla = 7;
@@ -3320,13 +3498,56 @@ async function tropaEnEscena(browser: Browser, url: string, problemas: Problemas
     );
   }
   await sleep(400);
-  await cotaDeLaTropa(page, 'tropa', heroe.army.length);
+  await cotaDeLaTropa(page, espejo, 'tropa');
   await captura(page, 'tropa-01-escena');
 
-  // Pulsar en el lienzo al segundo de la tropa.
-  await pulsarEnLaTropa(page, espejo, 2);
+  // El héroe, a un hueco de su zona: pulsar la casilla verde.
+  const vista0 = espejo.vistaDeLaTropa()!;
+  const hueco = espejo.formacion.zona.find(
+    (z) => !vista0.figuras.some((f) => f.sale.col === z.col && f.sale.row === z.row) && z.col > 0,
+  );
+  if (hueco === undefined) throw new Error('tropa: la zona del héroe no tiene hueco');
+  await colocarEnLaTropa(page, espejo, hueco);
+  await sleep(200);
+  await mismaBarra(page, espejo, `poner al héroe en (${hueco.col},${hueco.row})`);
+  await esperarLaElegida(page, espejo, `poner al héroe en (${hueco.col},${hueco.row})`);
+  if (!espejo.status.endsWith(`sale en (${hueco.col},${hueco.row}).`)) {
+    throw new Error(`tropa: tras poner al héroe en un hueco la barra dice «${espejo.status}»`);
+  }
+  log(`tropa: ${espejo.status}`);
+  await captura(page, 'tropa-02-heroe-movido');
+
+  // El segundo de la tropa, pulsándole el cuerpo, y a la casilla del héroe: se cambian.
+  await elegirEnLaTropa(page, espejo, 'attacker-1');
   await esperarLaElegida(page, espejo, 'pulsar al segundo de la tropa');
-  await captura(page, 'tropa-02-elegida');
+  await mismaBarra(page, espejo, 'pulsar al segundo de la tropa');
+  await colocarEnLaTropa(page, espejo, hueco);
+  await sleep(200);
+  await mismaBarra(page, espejo, 'ponerlo en la casilla del héroe');
+  await esperarLaElegida(page, espejo, 'ponerlo en la casilla del héroe');
+  if (!espejo.status.endsWith('se cambian de sitio.')) {
+    throw new Error(`tropa: tras ponerlo en la casilla del héroe la barra dice «${espejo.status}»`);
+  }
+  log(`tropa: ${espejo.status}`);
+  await captura(page, 'tropa-03-intercambio');
+
+  // Salir y volver a entrar: la formación se guardó en el héroe.
+  const guardada = espejo.vistaDeLaTropa()!.figuras.map((f) => f.sale);
+  await page.locator('[data-action="cerrar-tropa"]').click();
+  espejo.cerrarLaTropa();
+  await page.waitForSelector('#app[data-escena="adventure"]', { timeout: 5000 });
+  await page.keyboard.press('t');
+  espejo.abrirLaTropa();
+  await page.waitForSelector('#app[data-escena="tropa"]', { timeout: 5000 });
+  await esperarLaElegida(page, espejo, 'volver a abrir la tropa');
+  const otraVez = espejo.vistaDeLaTropa()!.figuras.map((f) => f.sale);
+  if (JSON.stringify(otraVez) !== JSON.stringify(guardada)) {
+    throw new Error(
+      `tropa: al volver a abrirla la formación es ${JSON.stringify(otraVez)} y era ${JSON.stringify(guardada)}`,
+    );
+  }
+  await sleep(300);
+  await captura(page, 'tropa-04-al-volver');
 
   // Al héroe, por su botón del panel, y quitarle el gambesón.
   await page.locator('#side [data-action="tropa-elegir"][data-quien="heroe"]').click();
@@ -3347,7 +3568,7 @@ async function tropaEnEscena(browser: Browser, url: string, problemas: Problemas
       `tropa: sin el gambesón la ficha dice «${dice}» y el espejo ${espejo.vistaDeLaTropa()!.ficha.armadura}`,
     );
   }
-  await captura(page, 'tropa-03-sin-gambeson');
+  await captura(page, 'tropa-05-sin-gambeson');
 
   // Ponérselo a un novato que no es el primero de su tipo, pulsado en el lienzo:
   // lo lleva ÉL y la elección no salta al primero (QA, H2). Con doble clic en
@@ -3363,7 +3584,7 @@ async function tropaEnEscena(browser: Browser, url: string, problemas: Problemas
       `tropa: la semilla ${semilla} no lleva dos novatos del mismo tipo para ver a quién se le pone`,
     );
   }
-  await pulsarEnLaTropa(page, espejo, otro + 1);
+  await elegirEnLaTropa(page, espejo, `attacker-${otro}`);
   await esperarLaElegida(page, espejo, `pulsar al ${otro + 1}.º de la tropa`);
   const poner = page.locator('#side [data-action="tropa-poner"][data-item="gambeson"]');
   if (!(await poner.isEnabled())) {
@@ -3386,7 +3607,7 @@ async function tropaEnEscena(browser: Browser, url: string, problemas: Problemas
     throw new Error(`tropa: tras el doble clic en «Poner» la barra dice «${espejo.status}»`);
   }
   await comprobar(page, espejo, `ponerle el gambesón al ${otro + 1}.º`);
-  await captura(page, 'tropa-04-gambeson-puesto');
+  await captura(page, 'tropa-06-gambeson-puesto');
   log(`tropa: ${espejo.status} (el ${otro + 1}.º de la tropa, con doble clic)`);
 
   // «Volver al mapa»: el mismo héroe y la misma cámara.
@@ -3409,7 +3630,7 @@ async function tropaEnEscena(browser: Browser, url: string, problemas: Problemas
   const cambio = cuantoCambia(huellaAntes, await huellaDelLienzo(page));
   log(`tropa: al volver al mapa cambia el ${(cambio * 100).toFixed(1)} % del lienzo`);
   if (cambio > 0.05) {
-    await captura(page, 'tropa-05-mapa-movido');
+    await captura(page, 'tropa-07-mapa-movido');
     throw new Error(
       `tropa: al volver al mapa cambia el ${(cambio * 100).toFixed(1)} % del lienzo: la cámara no es la de antes`,
     );
@@ -3434,7 +3655,7 @@ async function tropaEnEscena(browser: Browser, url: string, problemas: Problemas
   if (elegido.trim().toUpperCase() !== heroe.name.toUpperCase()) {
     throw new Error(`tropa: al volver al mapa el panel enseña a «${elegido}» y no a ${heroe.name}`);
   }
-  await captura(page, 'tropa-05-de-vuelta-en-el-mapa');
+  await captura(page, 'tropa-07-de-vuelta-en-el-mapa');
   await page.close();
 
   // A 1280×720, a 1024×768 y en el móvil: abrir con el botón «Tropa» (tocándolo en el
@@ -3457,9 +3678,11 @@ async function tropaEnEscena(browser: Browser, url: string, problemas: Problemas
     if (v.movil) await boton.tap();
     else await boton.click();
     await p.waitForSelector(`#app[data-escena="tropa"]`, { timeout: 5000 });
-    await p.waitForSelector(`#canvas[data-tropa="${heroe.id}"]`, { timeout: 3000 });
+    await p.waitForSelector('#canvas[data-tropa="attacker-heroe"]', { timeout: 3000 });
     await sleep(600);
-    await cotaDeLaTropa(p, v.nombre, heroe.army.length);
+    const espejoDeVer = new Session(semilla);
+    espejoDeVer.abrirLaTropa();
+    await cotaDeLaTropa(p, espejoDeVer, v.nombre);
     await captura(p, `${v.nombre}-escena`);
     await contexto.close();
   }
@@ -4219,6 +4442,7 @@ function espejoDeLaArena(semilla: number): SesionDeArena {
     semilla,
   );
   espejo.empezar();
+  espejo.despliegue.listoTalCual();
   return espejo;
 }
 
@@ -4418,6 +4642,7 @@ function espejoDeLosPoderes(semilla: number): SesionDeArena {
     semilla,
   );
   espejo.empezar();
+  espejo.despliegue.listoTalCual();
   return espejo;
 }
 
@@ -4532,6 +4757,9 @@ async function poderesEnLaArena(
     };
     await page.locator('[data-arena="luchar"]').click();
     await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 2000 });
+    await esperarCola(espejo.battle, espejo.battle.log);
+    // La pelea abre en el despliegue de los bandos «Yo»: se acepta tal cual.
+    await desplegarTalCual(page, espejo, 'empezar la pelea de los poderes', 'despliegue-03-arena');
     await esperarCola(espejo.battle, espejo.battle.log);
     await mismaPelea(page, espejo, 'empezar la pelea de los poderes');
 
@@ -4715,6 +4943,7 @@ async function todoIA(
     semilla,
   );
   espejo.empezar();
+  espejo.despliegue.listoTalCual();
   const fin = espejo.battle.finished;
   if (fin === null) throw new Error('arena: con todo en IA el espejo no termina la pelea');
   const cuenta = duracionDeLaJugada(espejo.battle, espejo.battle.log);
@@ -4839,6 +5068,9 @@ async function jugarArena(
       `arena: la barra debía decir «semilla ${semillaDeLaPelea}» y dice «${semilla}»`,
     );
   }
+  await esperarCola(espejo.battle, espejo.battle.log);
+  // La pelea abre en el despliegue de los bandos «Yo»: se acepta tal cual.
+  await desplegarTalCual(page, espejo, 'empezar la pelea', 'despliegue-03-arena');
   await esperarCola(espejo.battle, espejo.battle.log);
   await mismaPelea(page, espejo, 'empezar la pelea');
 
@@ -4983,6 +5215,8 @@ async function jugarArena(
  */
 const HEROE_DEL_BANCO: HeroeDeArena = {
   nombre: 'Héroe izquierdo',
+  cuerpo: HEROE.combate,
+  equipo: EQUIPO_BASE,
   figura: null,
   ataque: 2,
   defensa: 2,
@@ -5019,6 +5253,7 @@ function espejoDelBanco(semilla: number): SesionDeArena {
     semilla,
   );
   espejo.empezar();
+  espejo.despliegue.listoTalCual();
   return espejo;
 }
 
@@ -5203,6 +5438,9 @@ async function bancoDeCombate(browser: Browser, url: string, problemas: Problema
   if (!page.url().includes(`seed=${semilla}`)) {
     throw new Error(`banco: la URL de la pelea no lleva la semilla: ${page.url()}`);
   }
+  await esperarCola(espejo.battle, espejo.battle.log);
+  // La pelea abre en el despliegue de los bandos «Yo»: se acepta tal cual.
+  await desplegarTalCual(page, espejo, 'empezar la pelea del banco', 'despliegue-03-arena');
   await esperarCola(espejo.battle, espejo.battle.log);
   await mismaPelea(page, espejo, 'empezar la pelea del banco');
   // El panel de la pelea no tiene fila de munición (13-10-2026).
@@ -6201,6 +6439,7 @@ function espejoDeLasArmas(semilla: number): SesionDeArena {
     semilla,
   );
   espejo.empezar();
+  espejo.despliegue.listoTalCual();
   return espejo;
 }
 
@@ -6328,6 +6567,9 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
     await page.locator('[data-arena="luchar"]').click();
     await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 2000 });
     await esperarCola(espejo.battle, espejo.battle.log);
+    // La pelea abre en el despliegue de los bandos «Yo»: se acepta tal cual.
+    await desplegarTalCual(page, espejo, 'armas: empezar la pelea', 'despliegue-03-arena');
+    await esperarCola(espejo.battle, espejo.battle.log);
     await mismaPelea(page, espejo, 'armas: empezar la pelea');
     let golpeado = false;
     for (let jugadas = 0; !golpeado; jugadas++) {
@@ -6426,6 +6668,7 @@ function espejoDeLaRueda(semilla: number): SesionDeArena {
     semilla,
   );
   espejo.empezar();
+  espejo.despliegue.listoTalCual();
   return espejo;
 }
 
@@ -6535,6 +6778,9 @@ async function jugarLaRueda(
   await page.locator('[data-arena="luchar"]').click();
   await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 2000 });
   const espejo = espejoDeLaRueda(semilla);
+  await esperarCola(espejo.battle, espejo.battle.log);
+  // La pelea abre en el despliegue de los bandos «Yo»: se acepta tal cual.
+  await desplegarTalCual(page, espejo, 'empezar la pelea de la rueda', 'despliegue-03-arena');
   await esperarCola(espejo.battle, espejo.battle.log);
   await mismaPelea(page, espejo, 'empezar la pelea de la rueda');
 
@@ -7255,6 +7501,7 @@ function espejoTodoEnIA(semilla: number): {
     espejo.battle.stacks.map((x) => [x.id, { hex: x.hex, count: x.count, topHp: x.topHp }]),
   );
   espejo.empezar();
+  espejo.despliegue.listoTalCual();
   if (espejo.battle.finished === null) throw new Error('rueda-todo-ia: el espejo no termina');
   return { espejo, salida };
 }
@@ -7551,6 +7798,7 @@ function espejoYoContraYo(semilla: number, n: number): SesionDeArena {
     semilla,
   );
   espejo.empezar();
+  espejo.despliegue.listoTalCual();
   return espejo;
 }
 
@@ -7585,6 +7833,9 @@ async function hastaLaRuedaYoContraYo(
   await page.locator('[data-arena="luchar"]').click();
   await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 2000 });
   const espejo = espejoYoContraYo(semilla, n);
+  // La pelea abre en el despliegue de los bandos «Yo»: se acepta tal cual.
+  await desplegarTalCual(page, espejo, `${quien}: empezar`, 'despliegue-03-arena');
+  await esperarCola(espejo.battle, espejo.battle.log);
   await mismaPelea(page, espejo, `${quien}: empezar`);
   for (let jugada = 0; ; jugada++) {
     if (espejo.battle.finished !== null || jugada > 80)

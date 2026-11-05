@@ -19,6 +19,7 @@ import { EscenaAventura } from './escenas/aventura.js';
 import { EscenaAyuntamiento } from './escenas/ayuntamiento.js';
 import { EscenaBatalla } from './escenas/batalla.js';
 import { EscenaBase } from './escenas/castillo.js';
+import { FLECHAS_AL_COLOCAR } from './escenas/despliegue.js';
 import { EscenaLugar } from './escenas/lugar.js';
 import { EscenaMorada } from './escenas/morada.js';
 import { EscenaTropa } from './escenas/tropa.js';
@@ -480,8 +481,10 @@ function dibujarFotograma(ahora: number): void {
     app.dataset.escena = escena;
     principal.remedir();
     // El tablero de batalla es más ancho que un móvil: se empieza mirando el
-    // centro, que es donde se encuentran los dos bandos.
-    lienzo.scrollLeft = Math.max(0, (lienzo.scrollWidth - lienzo.clientWidth) / 2);
+    // centro, que es donde se encuentran los dos bandos. El de la tropa, por su
+    // borde: la formación es la del atacante, a la izquierda.
+    lienzo.scrollLeft =
+      escena === 'tropa' ? 0 : Math.max(0, (lienzo.scrollWidth - lienzo.clientWidth) / 2);
     // En el móvil lo que se desplaza es `#stage`: al abrir la base desde la
     // lista de castillos, que está debajo del lienzo, la pantalla nueva se
     // quedaba donde estaba el botón, con medio lienzo fuera de la vista.
@@ -1115,6 +1118,20 @@ document.addEventListener('click', (ev) => {
     case 'auto-battle':
       session.autoResolveBattle();
       break;
+    case 'despliegue-elegir': {
+      // Elegir en el despliegue a quién se coloca (el teclado, sin el lienzo).
+      const id = target.getAttribute('data-stack');
+      if (id === null) throw new Error('el botón del despliegue no dice a quién');
+      session.despliegue.elegir(id);
+      break;
+    }
+    case 'desplegado':
+      // «Listo»: cierra el despliegue de la persona; si la iniciativa es del
+      // rival, mueve él (`Session.despliegue`, `advanceEnemyTurns`). El segundo clic
+      // de un doble clic no cierra nada más (como en la arena).
+      if (ev.detail > 1) break;
+      session.despliegue.listo();
+      break;
     case 'solo-rueda-del-heroe':
       // La casilla de la batalla: vale desde el siguiente golpe, y la URL la
       // recuerda para la recarga.
@@ -1192,6 +1209,25 @@ document.addEventListener('keydown', (ev) => {
   // Escape suelta lo que espera el clic: el hechizo, el poder, el muro o la puerta.
   if (ev.key === 'Escape' && session.scene === 'battle' && !jugadaEnCurso()) {
     session.soltarLoApuntado();
+  }
+  // Al colocar —el despliegue de la batalla o la formación de la tropa, la misma
+  // pieza—, las flechas mueven al elegido a la casilla de al lado
+  // (`FLECHAS_AL_COLOCAR`): lo juzga el núcleo, como el clic.
+  const flecha = FLECHAS_AL_COLOCAR[ev.key];
+  const colocando =
+    session.scene === 'battle'
+      ? session.despliegue
+      : session.scene === 'tropa'
+        ? session.formacion
+        : null;
+  if (
+    flecha !== undefined &&
+    colocando !== null &&
+    colocando.enCurso !== null &&
+    !jugadaEnCurso()
+  ) {
+    ev.preventDefault();
+    colocando.mover(flecha[0], flecha[1]);
   }
   // Q alterna el arma del tirador activo (`ArmaDeLaActiva`): cuerpo a cuerpo o a distancia.
   if (

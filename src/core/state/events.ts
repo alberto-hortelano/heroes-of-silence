@@ -346,17 +346,16 @@ export type GameEventDraft = Con<Cuerpo, Origen>;
 export type GameEvent = Con<Cuerpo, Origen & Sello>;
 
 /**
- * Con qué vara se sella cada hecho que tiene sitio (`emit`): por su casilla; por
- * la región, que es como se ve un grupo de asaltantes (#130); o, la marcha que
- * se para por un grupo, por la casilla del héroe **y** el grupo: el hecho lleva
- * su id y su tropa, y al rival que mira al héroe sin ver la región del grupo se
- * los contaría la crónica (H4 de QA). Exhaustivo por `kind`: un hecho nuevo de
- * un grupo no puede olvidarse de decirlo. Los que no tienen sitio no se sellan;
- * dicen `casilla` por decir algo.
+ * Con qué vara se sella cada hecho que tiene sitio (`emit`): por su casilla
+ * (también lo de un grupo de asaltantes, que desde la niebla de eventos del
+ * 02-11-2026 se ve por su casilla y no por su región); o, la marcha que se para
+ * por un grupo, por la casilla del héroe **y** la del grupo: el hecho lleva su id
+ * y su tropa, y al rival que mira al héroe sin ver al grupo se los contaría la
+ * crónica (H4 de QA). Exhaustivo por `kind`: un hecho nuevo de un grupo no puede
+ * olvidarse de decirlo. Los que no tienen sitio no se sellan; dicen `casilla` por
+ * decir algo.
  */
-export const SE_VE_POR: Readonly<
-  Record<GameEvent['kind'], 'casilla' | 'region' | 'casilla y grupo'>
-> = {
+export const SE_VE_POR: Readonly<Record<GameEvent['kind'], 'casilla' | 'casilla y grupo'>> = {
   day_start: 'casilla',
   turn_start: 'casilla',
   hero_moved: 'casilla',
@@ -387,8 +386,8 @@ export const SE_VE_POR: Readonly<
   defense_set: 'casilla',
   battle_started: 'casilla',
   battle_ended: 'casilla',
-  raider_spawned: 'region',
-  raider_dispersed: 'region',
+  raider_spawned: 'casilla',
+  raider_dispersed: 'casilla',
   march_halted: 'casilla y grupo',
   hero_defeated: 'casilla',
   hero_returned: 'casilla',
@@ -435,9 +434,13 @@ export const SE_VE_POR: Readonly<
  * muerto, que ya no está en `state.heroes`, y por eso los dos van por las
  * cláusulas de «siempre».
  *
- * Un nodo propio tomado lejos **no** entra en esa excepción: no te avisa nadie,
- * y la señal es la renta —un pueblo o una ciudad que deja de darte oro es que
- * alguien ha cortado un paso—.
+ * Perder un nodo, también (vuelta 1 de QA de la niebla por regiones, 02-11-2026):
+ * desde la niebla de eventos un nodo propio mira a 6, así que su toma pasa siempre
+ * a la vista de su dueño —a distancia cero de algo suyo—, y al sellarla el nodo ya
+ * es del otro y su dueño de ayer ya no mira desde él. Medido en 1-30 con la IA:
+ * 87 nodos quitados, el dueño vio el `hero_moved` del rival sobre el nodo en los
+ * 87 y no el `node_captured` en 53. Antes de eso el nodo no miraba, no prometía
+ * nada, y la señal era la renta.
  */
 export function visibleTo(e: GameEvent, p: PlayerId): boolean {
   switch (e.kind) {
@@ -449,6 +452,7 @@ export function visibleTo(e: GameEvent, p: PlayerId): boolean {
 
     case 'town_captured':
     case 'town_owner_changed':
+    case 'node_captured':
       return e.actor === p || e.from === p || e.seen.includes(p);
 
     // Quien ocupa sabe que ocupa: su tropa está allí.
@@ -464,7 +468,6 @@ export function visibleTo(e: GameEvent, p: PlayerId): boolean {
     case 'world_mark':
     case 'item_given':
     case 'troops_joined':
-    case 'node_captured':
     case 'built':
     case 'recruited':
     case 'dismissed':

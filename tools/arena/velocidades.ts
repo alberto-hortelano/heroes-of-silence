@@ -49,14 +49,16 @@ export const AGILIDAD_DEL_CUERPO: Readonly<
   'imperio-arcabucero': [3, 'tirador pesado con arcabuz y horquilla'],
   'imperio-rodelero': [6, 'rodela y ropera: infantería ligera de asalto'],
   'imperio-artillero-culebrina': [3, 'tirador pesado: la culebrina pesa'],
-  // 5 y no 7: `test/arena.test.ts` da al hermano de carga por único jinete (docs/art/peticiones.md §12).
+  // 5 y no 7: el hermano de carga, único jinete de 7 (lo fijaba un test de `test/arena.test.ts`,
+  // retirado el 03-11-2026; docs/art/peticiones.md §12).
   'imperio-pistolero-montado': [5, 'a caballo, pero hostigador: se acerca, dispara y se va'],
   'imperio-granadero': [4, 'a pie y sin armadura: como un humano'],
   // Elfos
   'elfo-arquero': [5, 'arquero ligero (4 en un humano), más uno por elfo'],
   'elfo-explorador': [6, 'explorador agazapado, ligero; por debajo del Danzante'],
   'elfo-guardia-del-bosque': [6, 'infantería de escudo y lanza (4), más uno por elfo'],
-  // 5 y no 7: `test/arena.test.ts` da al hermano de carga por único jinete (docs/art/peticiones.md §12).
+  // 5 y no 7: el hermano de carga, único jinete de 7 (lo fijaba un test de `test/arena.test.ts`,
+  // retirado el 03-11-2026; docs/art/peticiones.md §12).
   'elfo-jinete': [5, 'a caballo, «los más rápidos del juego»: tope que admite hoy la arena'],
   'elfo-sacerdotisa': [5, 'maga (4 en un humano), más uno por elfa'],
   'elfo-asesino': [6, 'infiltrador ligero, por debajo del Danzante'],

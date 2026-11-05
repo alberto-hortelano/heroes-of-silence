@@ -17,7 +17,7 @@ import {
   oroDeUnidad,
 } from '../catalogo.js';
 import { combateBlocker, type ReglasDelCombate } from '../combate.js';
-import { HEROE, hasTrait, isShooter } from '../data.js';
+import { HEROE, hasTrait } from '../data.js';
 import { cifrasDelIndividuo } from '../hero/experiencia.js';
 import type { Hero } from '../hero/hero.js';
 import { hojaDeLaTropa } from '../hero/troop.js';
@@ -25,7 +25,18 @@ import type { Rng } from '../rng.js';
 import type { CombatProfile } from '../rpg/stats.js';
 import type { CreatureTrait, FactionId, Hex, Stack, UnitInfo, UsoDeArma } from '../types.js';
 import { SPEED_TO_HEXES } from '../types.js';
-import { disparosDe, golpesDe, nivelesDelGolpe, ruedaDelGolpe, trasLaArmadura } from './armas.js';
+import {
+  cargasDe,
+  disparosDe,
+  golpesDe,
+  isShooter,
+  lanzaGranadas,
+  mismoTiro,
+  nivelesDelGolpe,
+  recargaDe,
+  ruedaDelGolpe,
+  trasLaArmadura,
+} from './armas.js';
 import {
   alcanceConCostes,
   allHexes,
@@ -64,6 +75,9 @@ import {
   computeDamage,
   cuartoDelDisparo,
   type DamageOptions,
+  dichoDelCuarto,
+  type GolpeQueHiere,
+  type Herida,
   type Horquilla,
   herir,
   horquillaDeDanio,
@@ -72,6 +86,14 @@ import {
   trasElGolpe,
 } from './damage.js';
 import {
+  asentar,
+  asientoAlAbrir,
+  colocarBlocker,
+  deLaTanda,
+  suyoEn,
+  TANDAS,
+} from './despliegue.js';
+import {
   applyEffect,
   type CuandoVence,
   clampMorale,
@@ -79,6 +101,7 @@ import {
   type StackEffect,
   tickEffects,
 } from './effects.js';
+import { alcanceDeLaGranada, casillasDeLaExplosion } from './granada.js';
 import {
   bonoEnLoAlto,
   type CierreDeLaMuralla,
@@ -123,7 +146,6 @@ import {
   puntosDeLaForma,
   type TipoDeGolpe,
 } from './rueda.js';
-import { enElMarco, salidaDe } from './salida.js';
 import {
   castSpell,
   curaDe,
@@ -135,7 +157,9 @@ import {
   spell,
 } from './spells.js';
 import type {
+  AccionDeDespliegue,
   BattleAction,
+  BattleEvent,
   BattleHero,
   BattleStack,
   BattleState,
@@ -171,6 +195,13 @@ export interface BattleSide {
    * (`catalogoDelMontaje`), con lo que la página no ha guardado.
    */
   readonly catalogo?: CatalogoDeUnidades;
+  /**
+   * Si lo despliega una persona en pantalla: su tanda se queda abierta hasta
+   * que la cierre (`aplicarDespliegue`). Sin él —la IA, el agente, lo que no
+   * tiene dueño— despliega solo, con su formación o la regla de hoy, y la
+   * batalla no se para en su tanda.
+   */
+  readonly despliegaAMano?: true;
 }
 
 /**
@@ -233,6 +264,11 @@ export interface HeroeDelBando {
    * del mapa (`alAsalto`). La arena no se la da: allí la escalera es de un puesto.
    */
   readonly escalera?: boolean;
+  /**
+   * Su casilla en la formación (`Hero.salida`, en el marco del atacante): la
+   * pide al asentar (`asentar`), como la tropa la suya (`Troop.salida`).
+   */
+  readonly salida?: Hex;
 }
 
 /**
@@ -266,64 +302,9 @@ export interface BattleMember {
 }
 
 // La zona de salida vive en `board.ts`: la lee también la muralla, que dice qué
-// es dentro y qué es fuera desde la del defensor.
+// es dentro y qué es fuera desde la del defensor. Dónde sale cada uno, en
+// `despliegue.ts` (`asentar`).
 export { bandoDeSalida } from './board.js';
-
-/**
- * La casilla de cada unidad, en el orden en que llegan: las tres columnas del
- * borde, columna a columna desde el borde y cada columna del centro hacia fuera.
- * Se calcula en el marco del atacante y se refleja para el defensor. Toda unidad
- * ocupa una casilla (13-10-2026: «todo el mundo un hexe»).
- *
- * `primera`, si la hay, es la que coge el primer hueco —el centro de la columna
- * del borde— aunque llegue la última: es el sitio del héroe, detrás de su tropa.
- * Se dice aquí y no reordenando la lista fuera, porque el orden de la lista es
- * también el de `stacks`, y de ese orden cuelgan los empates.
- *
- * Es la única regla, para uno o para siete. Hasta la fase 1a convivía con las
- * filas de HoMM2 para cinco o menos (`ROWS_BY_COUNT`), que se habían quedado
- * solo para no mover los tests del motor: el juego no tenía motivo, y un
- * ejército saltaba de formación abierta a compacta al pasar de cinco a seis
- * individuos.
- *
- * Sin muralla no comprueba si caben porque caben siempre: un bando lleva como
- * mucho `LIDERAZGO.maxPorBando` individuos, y un test de datos (`tropa.test.ts`)
- * fija que no pasan de los 27 de un lado.
- *
- * **Con muralla** (la arena deja dibujarla en cualquier columna, también en las
- * de salida) se saltan los hexes de muro y de puerta —nadie empieza en una
- * puerta, tampoco el defensor—; el orden de lo que queda es el mismo. Si así no
- * caben, lanza diciendo cuántos sitios deja la muralla.
- */
-function despliegue(
-  units: readonly UnitInfo[],
-  side: Side,
-  primera: number | null,
-  muralla: MurallaDeBatalla,
-): Hex[] {
-  const { huecos, motivo } = salidaDe(units.length, side, casillasDeMuro(muralla));
-  if (motivo !== null) throw new Error(motivo);
-  const out: Hex[] = new Array<Hex>(units.length);
-  let siguiente = 0;
-  if (primera !== null) out[primera] = huecos[siguiente++]!;
-  units.forEach((_, i) => {
-    if (i !== primera) out[i] = huecos[siguiente++]!;
-  });
-  return out.map((h) => enElMarco(side, h));
-}
-
-/**
- * Por qué `units` no caben en la salida de `side` con esta muralla, o `null` si
- * caben. Lo lee `despliegue` —que lanza con ello— y el editor de la arena, que
- * lo avisa mientras se dibuja en vez de dejar que «Luchar» lo descubra.
- */
-export function despliegueBlocker(
-  units: readonly UnitInfo[],
-  side: Side,
-  muralla: MurallaDeBatalla,
-): string | null {
-  return salidaDe(units.length, side, casillasDeMuro(muralla)).motivo;
-}
 
 /**
  * Moral del ejército por su composición, copiada de fheroes2
@@ -385,7 +366,7 @@ export function armyMorale(units: readonly UnitInfo[]): number {
 export function createBattle(
   attacker: BattleSide,
   defender: BattleSide,
-  _rng: Rng,
+  rng: Rng,
   combate: ReglasDelCombate,
   murallaPedida: MurallaDeBatalla = SIN_MURALLA,
 ): BattleState {
@@ -418,12 +399,25 @@ export function createBattle(
     const entradas = setup.army.map((stack, slot) => resolveUnit(stack, slot, setup));
     if (setup.hero !== null) entradas.push(entradaDelHeroe(setup.hero, setup.army.length));
     const units = entradas.map((e) => e.unit);
-    const hexes = despliegue(
-      units,
+    // Dónde sale cada uno: lo que pida su formación (`Troop.salida`,
+    // `Hero.salida`) o la regla de hoy en un hueco libre (`asentar`). El héroe va
+    // el PRIMERO al asentar —su sitio es el centro de la columna del borde,
+    // detrás de su tropa— aunque en `stacks` vaya el último: el orden de `stacks`
+    // es el de los empates y no se toca.
+    const pedidas = setup.army.map((stack) => stack.salida ?? null);
+    const conHeroe = setup.hero !== null;
+    const casillas = asentar(
+      [
+        ...(conHeroe
+          ? [{ unit: units[units.length - 1]!, pedida: setup.hero.salida ?? null }]
+          : []),
+        ...setup.army.map((_, i) => ({ unit: units[i]!, pedida: pedidas[i]! })),
+      ],
       side,
-      setup.hero === null ? null : entradas.length - 1,
       muralla,
     );
+    // De vuelta al orden de `entradas`: la tropa por su puesto y el héroe el último.
+    const hexes = conHeroe ? [...casillas.slice(1), casillas[0]!] : casillas;
     // La mezcla de facciones se cuenta UNA vez, con el ejército que entra, y no
     // se recalcula al morir un stack (#49): igual que fheroes2, que la cuenta
     // sobre el `Army` de fuera de la batalla (`army.cpp`, `GetMoraleModificator`:
@@ -456,6 +450,9 @@ export function createBattle(
         effects: [],
         ganado: { experiencia: 0, bajas: 0, heroes: [] },
         apuntado: null,
+        recargando: 0,
+        granada: null,
+        granadasLanzadas: 0,
       });
     });
   }
@@ -475,10 +472,99 @@ export function createBattle(
     puertas: puertasAlEmpezar(muralla),
     log: [],
     finished: null,
+    despliegue: {
+      tanda: 0,
+      aMano: SIDES.filter((side) => (side === 'attacker' ? attacker : defender).despliegaAMano),
+    },
   };
 
-  beginRound(state, _rng);
+  // Las tandas que no son a mano pasan solas; sin ninguna a mano, la batalla
+  // sale ya con la ronda 1 abierta, como antes del despliegue.
+  seguirElDespliegue(state, rng);
   return state;
+}
+
+// ---------------------------------------------------------------- despliegue
+
+/**
+ * Abre la siguiente tanda del despliegue que tenga a alguien y despliegue una
+ * persona, desde `state.despliegue.tanda`; pasadas todas, cierra el despliegue y
+ * empieza la ronda 1. Las tandas que despliegan solas se quedan con lo que les
+ * dio `asentar` en `createBattle`.
+ *
+ * Al abrir cada tanda, quien tiene su casilla ocupada por alguien que ya
+ * desplegó se reasienta (`asientoAlAbrir`, el mismo `asentar`). No se tira nada:
+ * el despliegue no gasta azar.
+ */
+function seguirElDespliegue(state: BattleState, rng: Rng): void {
+  const d = state.despliegue;
+  if (d === null) throw new Error('no hay despliegue en curso');
+  for (let t = d.tanda; t < TANDAS.length; t++) {
+    const suyos = deLaTanda(state, t);
+    if (suyos.length === 0) continue;
+    const casillas = asientoAlAbrir(state, t);
+    suyos.forEach((s, i) => {
+      s.hex = casillas[i]!;
+    });
+    if (d.aMano.includes(TANDAS[t]!.side)) {
+      state.despliegue = { tanda: t, aMano: d.aMano };
+      return;
+    }
+  }
+  state.despliegue = null;
+  beginRound(state, rng);
+}
+
+/**
+ * Lo que se hace en el despliegue, sobre el bando que despliega ahora: colocar a
+ * uno (o cambiarlo con quien esté en esa casilla, de su misma tanda) o cerrar la
+ * tanda, que abre la siguiente o, si era la última, la ronda 1. Lo ilegal lanza
+ * con la frase de `colocarBlocker`. No escribe en el registro: el despliegue es
+ * estado, como la formación del héroe.
+ */
+export function aplicarDespliegue(state: BattleState, accion: AccionDeDespliegue, rng: Rng): void {
+  if (state.finished !== null) throw new Error('la batalla ya ha terminado');
+  const d = state.despliegue;
+  switch (accion.type) {
+    case 'colocar': {
+      const noSe = colocarBlocker(state, accion.stack, accion.at);
+      if (noSe !== null) throw new Error(`no se puede colocar: ${noSe}`);
+      const s = stackById(state, accion.stack);
+      // Solo uno de su tanda se intercambia: el enemigo que aún no ha desplegado
+      // se queda donde está y se reasienta al abrir su tanda (`asientoAlAbrir`).
+      const ahi = suyoEn(state, s, accion.at);
+      if (ahi !== undefined) ahi.hex = s.hex;
+      s.hex = accion.at;
+      return;
+    }
+    case 'desplegado': {
+      if (d === null) throw new Error('no hay despliegue en curso');
+      state.despliegue = { tanda: d.tanda + 1, aMano: d.aMano };
+      seguirElDespliegue(state, rng);
+      return;
+    }
+  }
+}
+
+/**
+ * Cierra lo que quede del despliegue aceptando lo que hay: la tanda abierta tal
+ * como está y las siguientes, solas. Lo llama quien juega la batalla sin mirar
+ * (`autoResolve`: «Resolver sola», o la batalla de la persona que cierra la IA).
+ * Sin despliegue en curso, nada.
+ */
+export function terminarElDespliegue(state: BattleState, rng: Rng): void {
+  const d = state.despliegue;
+  if (d === null) return;
+  state.despliegue = { tanda: d.tanda + 1, aMano: [] };
+  seguirElDespliegue(state, rng);
+}
+
+/**
+ * Por qué no se juega ningún turno: la batalla aún está en el despliegue. Va
+ * antes que «no hay stack activo» (`applyAction`), que no diría por qué.
+ */
+export function despliegueEnCursoBlocker(state: BattleState): string | null {
+  return state.despliegue === null ? null : 'la batalla está en el despliegue: aún no hay turnos';
 }
 
 /**
@@ -552,6 +638,7 @@ function resolveUnit(stack: StackDeBatalla, slot: number, setup: BattleSide): En
         unidad: stack.creature,
         oro: oroDeUnidad(stack.creature, cat),
         veterania: stack.veterania ?? null,
+        ...salidaDe(stack),
       },
       count: stack.count,
       topHp: unit.hp,
@@ -592,12 +679,20 @@ function resolveUnit(stack: StackDeBatalla, slot: number, setup: BattleSide): En
     slot,
     body: hojaDeLaTropa(stack),
     unit: cifrasDelIndividuo(miembro.profile.unit, stack.veterania, miembro.profile.equipo),
-    origen: { kind: 'personaje', id, veterania: stack.veterania ?? null },
+    origen: { kind: 'personaje', id, veterania: stack.veterania ?? null, ...salidaDe(stack) },
     count: 1,
     topHp: miembro.hp,
     ownMorale: miembro.profile.morale,
     escalera,
   };
+}
+
+/**
+ * La casilla de la formación del individuo, para su origen (`OrigenDelStack.salida`):
+ * la pide al asentar y `settleBattle` se la devuelve. Sin ella, nada.
+ */
+function salidaDe(stack: StackDeBatalla): { readonly salida?: Hex } {
+  return stack.salida === undefined ? {} : { salida: stack.salida };
 }
 
 /** El héroe como una entrada más: uno, sano siempre —no arrastra heridas—. */
@@ -1058,9 +1153,189 @@ export function canReachMelee(state: BattleState, s: BattleStack, target: Battle
  */
 function disparoBlocker(state: BattleState, s: BattleStack): string | null {
   if (!isShooter(s.unit)) return 'no es tirador';
+  // La recarga del arma de fuego (02-11-2026): el turno en que sale el disparo cuenta.
+  if (s.recargando > 0) return `está recargando: ${recargaQueFalta(s.recargando)}`;
   if (seHaMovido(state, s)) return 'ya se ha movido este turno: no puede apuntar';
   if (isEngaged(state, s)) return 'tiene un enemigo encima';
   return null;
+}
+
+/**
+ * Lo que le falta de recarga a quien le quedan `n` turnos: «le falta 1 turno», «le
+ * faltan 2 turnos». Lo dicen la regla de apuntar (`disparoBlocker`) y el panel.
+ */
+export function recargaQueFalta(n: number): string {
+  return n === 1 ? 'le falta 1 turno' : `le faltan ${n} turnos`;
+}
+
+/**
+ * Lo pendiente a distancia de `s` si pasa a pelear con las cifras `unit` (un retoque
+ * de la arena a media pelea, `conCifrasNuevas`): lo de siempre si tira igual
+ * (`mismoTiro`); si no, sin lo apuntado, sin la granada en el aire y sin recarga
+ * (hallazgo E4 de /simplify, 02-11-2026: la granada explotaba con las cifras del arma
+ * nueva y la recarga bloqueaba un arco recién puesto). Lo que lleva lanzado se queda:
+ * lo que queda se deriva de la pieza (`granadasQueQuedan`).
+ */
+export function loADistanciaTrasElRetoque(
+  s: BattleStack,
+  unit: UnitInfo,
+): Pick<BattleStack, 'apuntado' | 'granada' | 'recargando'> {
+  return mismoTiro(s.unit, unit)
+    ? { apuntado: s.apuntado, granada: s.granada, recargando: s.recargando }
+    : { apuntado: null, granada: null, recargando: 0 };
+}
+
+/**
+ * Las granadas que le quedan a `s` en esta batalla: las que lleva su pieza
+ * (`cargasDe`) menos las que ha lanzado, sin bajar de 0. Derivado, y no guardado: un
+ * retoque de la arena a media pelea no descuadra la cuenta. Lo leen la regla de
+ * lanzar, el panel, el contrato y la IA.
+ */
+export function granadasQueQuedan(s: BattleStack): number {
+  return Math.max(0, cargasDe(s.unit) - s.granadasLanzadas);
+}
+
+/**
+ * Por qué `s` no puede lanzar una granada ahora, sin mirar la casilla, o `null`:
+ * que la lleve, que le queden, sin moverse y sin un enemigo al lado (como el
+ * tirador). La leen `lanzarBlocker` y la lista legal.
+ */
+function granadaBlocker(state: BattleState, s: BattleStack): string | null {
+  if (!lanzaGranadas(s.unit)) return 'no lleva granadas';
+  if (granadasQueQuedan(s) === 0) return 'se ha quedado sin granadas: lanzó las que llevaba';
+  if (seHaMovido(state, s)) return 'ya se ha movido este turno: no puede lanzar';
+  if (isEngaged(state, s)) return 'tiene un enemigo encima';
+  return null;
+}
+
+/**
+ * Por qué la unidad activa no puede lanzar una granada a `at`, o `null` (02-11-2026,
+ * regla nuestra): la regla de quien la lanza (`granadaBlocker`) y la casilla, en el
+ * tablero, no la suya y a su alcance (`alcanceDeLaGranada`, por la distancia en
+ * casillas). **La recta no se mira**: va por encima, y no la paran unidades, muros
+ * ni puertas. Sin `at`, solo si puede lanzar (el botón). La leen `applyAction`, la
+ * previsión y la pantalla, con el nombre de la unidad delante.
+ */
+export function lanzarBlocker(state: BattleState, at?: Hex): string | null {
+  const s = activeStack(state);
+  if (s === null || state.finished !== null) return 'no le toca a ninguna unidad';
+  const porLaFase = faseBlocker(state, 'throw');
+  if (porLaFase !== null) return porLaFase;
+  const motivo = granadaBlocker(state, s);
+  if (motivo !== null) return `${s.unit.name} ${motivo}`;
+  if (at === undefined) return null;
+  if (!isInside(at)) return `(${at.col},${at.row}) no es una casilla del tablero`;
+  if (hexEquals(at, s.hex)) return `${s.unit.name} no puede lanzar a su propia casilla`;
+  const alcance = alcanceDeLaGranada(s.unit);
+  const d = hexDistance(s.hex, at);
+  if (d > alcance) {
+    return `${s.unit.name} lanza hasta ${alcance} ${alcance === 1 ? 'casilla' : 'casillas'} (su fuerza), y (${at.col},${at.row}) está a ${d}`;
+  }
+  return null;
+}
+
+/**
+ * Por qué la activa no puede jugar a distancia (el botón «A distancia»), o `null`:
+ * apuntar si dispara, lanzar si lleva granada (`tiroADistanciaDe`). Con casilla, lo
+ * dice `tanteoADistancia`.
+ */
+export function aDistanciaBlocker(state: BattleState): string | null {
+  const s = activeStack(state);
+  if (s !== null && lanzaGranadas(s.unit)) return lanzarBlocker(state);
+  return apuntarBlocker(state);
+}
+
+/**
+ * La jugada a distancia de la activa en `at` y lo que se vería con ella ahora, o por
+ * qué no se puede: apuntar y la recta del disparo (`lineaDelDisparo`) si dispara;
+ * lanzar y su explosión (`explosionDe`) si lleva granada. **El único sitio que elige
+ * entre las dos** (hallazgo S3 de /simplify, 02-11-2026: lo elegían a la vez el
+ * blocker, la jugada y el tanteo de la sesión): la pantalla pinta según la forma.
+ */
+export type TanteoADistancia =
+  | {
+      readonly kind: 'disparo';
+      readonly jugada: BattleAction & { type: 'aim' };
+      readonly linea: LineaDelDisparo;
+    }
+  | {
+      readonly kind: 'granada';
+      readonly jugada: BattleAction & { type: 'throw' };
+      readonly explosion: ExplosionDeLaGranada;
+    }
+  | { readonly kind: 'no'; readonly motivo: string };
+
+export function tanteoADistancia(state: BattleState, at: Hex): TanteoADistancia {
+  const s = activeStack(state);
+  if (s === null || state.finished !== null) {
+    return { kind: 'no', motivo: 'no le toca a ninguna unidad' };
+  }
+  const casilla = { col: at.col, row: at.row };
+  if (lanzaGranadas(s.unit)) {
+    const motivo = lanzarBlocker(state, casilla);
+    if (motivo !== null) return { kind: 'no', motivo };
+    return {
+      kind: 'granada',
+      jugada: { type: 'throw', at: casilla },
+      explosion: explosionDe(state, casilla),
+    };
+  }
+  const motivo = apuntarBlocker(state, casilla);
+  if (motivo !== null) return { kind: 'no', motivo };
+  return {
+    kind: 'disparo',
+    jugada: { type: 'aim', at: casilla },
+    linea: lineaDelDisparo(state, s, casilla),
+  };
+}
+
+/** A quién da una granada y cuánto (`explosionDe`). */
+export interface ExplosionDeLaGranada {
+  /** Dónde explota. */
+  readonly at: Hex;
+  /** Las casillas que alcanza, cada una con el cuarto de su tirada (`casillasDeLaExplosion`). */
+  readonly casillas: readonly CasillaDelAlcance[];
+  /** Los vivos que hay hoy en ellas, de cualquier bando (también quien la lanza), con su cuarto. */
+  readonly alcanzados: readonly { readonly stack: BattleStack; readonly cuarto: number }[];
+}
+
+/**
+ * A quién da hoy la granada de `s` que explota en `at`: todo vivo en la casilla
+ * (el cuarto del centro) y en sus seis vecinas (el del anillo), **de cualquier
+ * bando**, quien la lanzó incluido. La única regla: la leen la explosión
+ * (`explotarLaGranada`), su previsión, la IA y lo que se pinta.
+ */
+export function explosionDe(state: BattleState, at: Hex): ExplosionDeLaGranada {
+  const casillas = casillasDeLaExplosion(at);
+  const alcanzados = casillas.flatMap((c) => {
+    const quien = vivoEn(state, c.hex);
+    return quien === null ? [] : [{ stack: quien, cuarto: c.cuarto }];
+  });
+  return { at, casillas, alcanzados };
+}
+
+/** El vivo que está en `hex`, o `null`: lo que buscan la recta del disparo y la explosión. */
+function vivoEn(state: BattleState, hex: Hex): BattleStack | null {
+  return state.stacks.find((x) => isAlive(x) && hexEquals(x.hex, hex)) ?? null;
+}
+
+/**
+ * Las opciones del daño de la granada de `s` sobre `t`, con la tirada en el cuarto
+ * `cuarto`: a distancia (el arma de su hueco `distancia`, la granada) y con lo alto
+ * de un muro como todo golpe. La leen la explosión, su previsión y la IA.
+ */
+export function opcionesDeLaGranada(
+  state: BattleState,
+  s: BattleStack,
+  t: BattleStack,
+  cuarto: number,
+): DamageOptions {
+  return opcionesDeDanio(state, s, t, extraDeLaGranada(cuarto));
+}
+
+/** Lo que trae la granada a sus opciones (`opcionesDeLaGranada`): a distancia, en su cuarto. */
+function extraDeLaGranada(cuarto: number): Omit<DamageOptions, ExtraDelEstado> {
+  return { ranged: true, cuarto };
 }
 
 /**
@@ -1150,7 +1425,7 @@ export function lineaDelDisparo(state: BattleState, s: BattleStack, at: Hex): Li
     alcance.push({ hex: h, cuarto: cuartoDelDisparo(octavosHastaLaRecta(s.hex, at, h)) });
     const muro = !libre && esMuro(state.muralla, h);
     if (alcanzado === null && parada === null) {
-      const quien = state.stacks.find((x) => isAlive(x) && hexEquals(x.hex, h)) ?? null;
+      const quien = vivoEn(state, h);
       if (quien !== null && quien.id !== s.id) alcanzado = quien;
       else if (muro) parada = 'muro';
       if (parada === null) hasta = alcance.length;
@@ -1643,11 +1918,22 @@ function advance(state: BattleState, rng: Rng): void {
     return;
   }
   abrirTurno(state, s);
-  // Al empezar su turno, antes de que elija nada, sale lo que apuntó en el
-  // anterior: el disparo se soltó al apuntar (25-10-2026). Luego el turno sigue
-  // como siempre (puede apuntar otra vez). Si el disparo cierra la batalla,
-  // `checkFinished` ya cerró el turno.
+  alEmpezarSuTurno(state, s, rng);
+  // Lo que sale al empezar puede matar a quien empieza (su propia granada le da si
+  // sigue cerca; hallazgo F1 de /simplify, 02-11-2026): un muerto no juega su turno,
+  // pasa al siguiente. Si cerró la batalla, la primera línea de aquí lo dice.
+  if (!isAlive(s)) advance(state, rng);
+}
+
+/**
+ * Lo que sale al empezar el turno de `s`, antes de que elija nada: lo que apuntó en
+ * el anterior (el disparo se soltó al apuntar, 25-10-2026) y la granada que lanzó
+ * (02-11-2026). Luego el turno sigue como siempre. Si algo cierra la batalla,
+ * `checkFinished` ya cerró el turno.
+ */
+function alEmpezarSuTurno(state: BattleState, s: BattleStack, rng: Rng): void {
   dispararLoApuntado(state, s, rng);
+  explotarLaGranada(state, s, rng);
 }
 
 /**
@@ -1689,6 +1975,8 @@ function endTurn(state: BattleState, s: BattleStack, rng: Rng): void {
   }
   const n = state.turno?.n;
   if (n !== undefined) quitarLosQueVencen(state, s, 'terminar', n);
+  // Un turno menos de recarga: el del disparo cuenta (decisión del usuario, 02-11-2026).
+  if (s.recargando > 0) s.recargando -= 1;
   s.acted = true;
   advance(state, rng);
 }
@@ -1800,6 +2088,8 @@ export function applyAction(
   movibles?: Movibles,
 ): void {
   if (state.finished !== null) throw new Error('la batalla ya ha terminado');
+  const enElDespliegue = despliegueEnCursoBlocker(state);
+  if (enElDespliegue !== null) throw new Error(enElDespliegue);
   const s = activeStack(state);
   const turno = state.turno;
   if (s === null || turno === null) throw new Error('no hay stack activo');
@@ -1887,6 +2177,16 @@ export function applyAction(
       if (motivo !== null) throw new Error(motivo);
       s.apuntado = { col: action.at.col, row: action.at.row };
       state.log.push({ kind: 'aimed', stack: s.id, at: s.apuntado });
+      endTurn(state, s, rng);
+      return;
+    }
+
+    case 'throw': {
+      const motivo = lanzarBlocker(state, action.at);
+      if (motivo !== null) throw new Error(motivo);
+      s.granada = { col: action.at.col, row: action.at.row };
+      s.granadasLanzadas += 1;
+      state.log.push({ kind: 'thrown', stack: s.id, at: s.granada });
       endTurn(state, s, rng);
       return;
     }
@@ -2693,7 +2993,7 @@ function strike(
     rng,
     opcionesDeDanio(state, attacker, target, { chargeHexes: carga }, golpe, papelDe(retaliation)),
   );
-  const herida = herir(target, result.damage, attacker);
+  const herida = herir(target, result, attacker);
 
   state.log.push({
     kind: 'attack',
@@ -2761,6 +3061,9 @@ function dispararLoApuntado(state: BattleState, shooter: BattleStack, rng: Rng):
   const at = shooter.apuntado;
   if (at === null) return;
   shooter.apuntado = null;
+  // El arma de fuego recarga desde este turno, que cuenta (`endTurn` lo baja al
+  // cerrarlo): con recarga 1, no apunta en este y sí en el siguiente.
+  shooter.recargando = recargaDe(shooter.unit);
   const shots = disparosDe(shooter.unit);
   for (let i = 0; i < shots && state.finished === null; i++) {
     const { alcanzado } = lineaDelDisparo(state, shooter, at);
@@ -2774,24 +3077,68 @@ function dispararLoApuntado(state: BattleState, shooter: BattleStack, rng: Rng):
       rng,
       opcionesDelDisparo(state, shooter, alcanzado, at),
     );
-    const herida = herir(alcanzado, result.damage, shooter);
-
-    state.log.push({
+    // El arma de fuego perfora la armadura (`DamageResult.perfora`).
+    herirYContar(state, alcanzado, result, shooter, (h) => ({
       kind: 'shoot',
       stack: shooter.id,
       at,
       target: alcanzado.id,
-      damage: herida.danio,
-      killed: herida.muertos,
-      ...conLoParado(herida),
-    });
-    if (!isAlive(alcanzado)) state.log.push({ kind: 'perished', stack: alcanzado.id });
+      damage: h.danio,
+      killed: h.muertos,
+      ...conLoParado(h),
+    }));
 
-    // La salpicadura reparte el daño del disparo, no el que llegó: cada salpicado
-    // resta su propia armadura (`herir`).
-    if (hasTrait(shooter.unit, 'splash_shot')) splash(state, shooter, alcanzado, at, result.damage);
+    // La salpicadura reparte el golpe del disparo, no lo que llegó: cada salpicado
+    // resta su propia armadura (`herir`), salvo si el disparo perfora.
+    if (hasTrait(shooter.unit, 'splash_shot')) splash(state, shooter, alcanzado, at, result);
     checkFinished(state);
   }
+}
+
+/**
+ * Explota la granada que lanzó `s` en su turno anterior (`BattleStack.granada`) y se
+ * borra: a todo vivo de la casilla y de sus seis vecinas, de cualquier bando
+ * (`explosionDe`), cada uno con la tirada en su cuarto, sin dado, y su armadura
+ * restada (`herir`). Un hecho `blast` por alcanzado, o uno sin nadie. Lo llama solo
+ * el principio de su turno (`alEmpezarSuTurno`). **Regla nuestra** (02-11-2026).
+ */
+function explotarLaGranada(state: BattleState, s: BattleStack, rng: Rng): void {
+  const at = s.granada;
+  if (at === null || state.finished !== null) return;
+  s.granada = null;
+  const { alcanzados } = explosionDe(state, at);
+  if (alcanzados.length === 0) {
+    state.log.push({
+      kind: 'blast',
+      stack: s.id,
+      at,
+      target: null,
+      damage: 0,
+      killed: 0,
+      cuarto: 0,
+    });
+    return;
+  }
+  // Todos con el tablero de antes de la explosión: el daño de cada uno no depende de
+  // a quién le tocó antes.
+  const golpes = alcanzados.map(({ stack, cuarto }) => ({
+    stack,
+    cuarto,
+    result: computeDamage(s, stack, rng, opcionesDeLaGranada(state, s, stack, cuarto)),
+  }));
+  for (const { stack, cuarto, result } of golpes) {
+    herirYContar(state, stack, result, s, (h) => ({
+      kind: 'blast',
+      stack: s.id,
+      at,
+      target: stack.id,
+      damage: h.danio,
+      killed: h.muertos,
+      cuarto,
+      ...conLoParado(h),
+    }));
+  }
+  checkFinished(state);
 }
 
 /**
@@ -2831,22 +3178,37 @@ function splash(
   shooter: BattleStack,
   target: BattleStack,
   at: Hex,
-  damage: number,
+  golpe: GolpeQueHiere,
 ): void {
   for (const otro of splashTargets(state, shooter, target)) {
-    const herida = herir(otro, damage, shooter);
-    state.log.push({
+    herirYContar(state, otro, golpe, shooter, (h) => ({
       kind: 'shoot',
       stack: shooter.id,
       at,
       target: otro.id,
-      damage: herida.danio,
-      killed: herida.muertos,
-      ...conLoParado(herida),
+      damage: h.danio,
+      killed: h.muertos,
+      ...conLoParado(h),
       splash: true,
-    });
-    if (!isAlive(otro)) state.log.push({ kind: 'perished', stack: otro.id });
+    }));
   }
+}
+
+/**
+ * Hiere a `objetivo` con `golpe` de `autor` (`herir`), escribe el hecho que da
+ * `hecho` con lo que llegó y, si cae, `perished`: lo de cada disparo, salpicado y
+ * alcanzado por una granada (hallazgo S8 de /simplify, 02-11-2026: eran tres copias).
+ */
+function herirYContar(
+  state: BattleState,
+  objetivo: BattleStack,
+  golpe: GolpeQueHiere,
+  autor: BattleStack,
+  hecho: (herida: Herida) => BattleEvent,
+): void {
+  const herida = herir(objetivo, golpe, autor);
+  state.log.push(hecho(herida));
+  if (!isAlive(objetivo)) state.log.push({ kind: 'perished', stack: objetivo.id });
 }
 
 /** Se escribe una vez y se lee en dos: el bloqueador y el estrechamiento. */
@@ -3027,7 +3389,8 @@ function objetivoDelPoderBlocker(s: BattleStack, p: Poder, target: BattleStack):
  * que se lleva por delante, por qué sale esa cifra y si habrá contraataque.
  */
 export interface PrevisionDeGolpe {
-  readonly kind: 'golpe' | 'disparo';
+  /** Un golpe cuerpo a cuerpo, un disparo o lo que da una granada a uno (`PrevisionDeGranada`). */
+  readonly kind: 'golpe' | 'disparo' | 'explosion';
   readonly atacante: string;
   readonly objetivo: string;
   /** 2 con `double_attack` o `double_shot`; el segundo, si el objetivo sigue en pie. */
@@ -3092,7 +3455,26 @@ export interface PrevisionDePoder extends PrevisionDeLanzar {
   readonly poder: PoderId;
 }
 
-export type Prevision = PrevisionDeGolpe | PrevisionDeHechizo | PrevisionDePoder;
+/**
+ * Lo que daría una granada lanzada a `at` si explotara ahora: un impacto por cada
+ * vivo que hay hoy en la casilla y sus vecinas (`explosionDe`), de cualquier bando.
+ */
+export interface PrevisionDeGranada {
+  readonly kind: 'granada';
+  readonly at: Hex;
+  readonly impactos: readonly ImpactoDeGranada[];
+}
+
+/** Lo que daría una granada a uno, y si es del bando de quien la lanza (el «¡tuyo!»). */
+export interface ImpactoDeGranada extends PrevisionDeGolpe {
+  readonly aliado: boolean;
+}
+
+export type Prevision =
+  | PrevisionDeGolpe
+  | PrevisionDeHechizo
+  | PrevisionDePoder
+  | PrevisionDeGranada;
 
 /**
  * La previsión de una acción del stack activo: un golpe (`attack`, con su carga
@@ -3141,6 +3523,21 @@ export function previsionDe(state: BattleState, accion: BattleAction): Prevision
         extraDelDisparo(s, alcanzado, accion.at),
       );
     }
+    case 'throw': {
+      // Lo que daría la granada si explotara ahora: a quien está hoy en la casilla y
+      // sus vecinas (de su turno al siguiente, el tablero se mueve).
+      const motivo = lanzarBlocker(state, accion.at);
+      if (motivo !== null) throw new Error(motivo);
+      const { alcanzados } = explosionDe(state, accion.at);
+      return {
+        kind: 'granada',
+        at: accion.at,
+        impactos: alcanzados.map(({ stack, cuarto }) => ({
+          ...previsionDeGolpe(state, s, stack, 'explosion', extraDeLaGranada(cuarto)),
+          aliado: stack.side === s.side,
+        })),
+      };
+    }
     case 'cast': {
       if (accion.target === undefined) throw new Error('el hechizo necesita un objetivo');
       const motivo = castBlocker(state, s.side, accion.spell, accion.target);
@@ -3172,13 +3569,18 @@ function previsionDeGolpe(
   state: BattleState,
   a: BattleStack,
   t: BattleStack,
-  kind: 'golpe' | 'disparo',
+  kind: PrevisionDeGolpe['kind'],
   extra: Omit<DamageOptions, ExtraDelEstado>,
   golpe: GolpeEnLaRueda | null = null,
 ): PrevisionDeGolpe {
   const golpes =
-    kind === 'golpe' ? golpesDe(a.unit, golpe?.tipo ?? null, false) : disparosDe(a.unit);
+    kind === 'golpe'
+      ? golpesDe(a.unit, golpe?.tipo ?? null, false)
+      : kind === 'disparo'
+        ? disparosDe(a.unit)
+        : 1;
   const { h, siguientes } = unGolpe(a, t, opcionesDeDanio(state, a, t, extra, golpe), golpes);
+  const modificadores = conElCuarto(h, kind, extra.cuarto);
   const tras = (d: number, luego = d): { count: number; topHp: number } =>
     trasLosGolpes(t, golpes, d, luego);
   const conMenos = tras(h.danio.min, siguientes?.min);
@@ -3194,13 +3596,37 @@ function previsionDeGolpe(
     siguientes,
     bajas: { min: t.count - conMenos.count, max: t.count - conMas.count },
     leQuedan: { min: vida(conMas), max: vida(conMenos) },
-    modificadores: h.modificadores,
+    modificadores,
     contraataque: kind === 'golpe' ? previsionDelContraataque(state, a, t, h, tras, golpe) : null,
     salpica:
       kind === 'disparo' && hasTrait(a.unit, 'splash_shot')
         ? splashTargets(state, a, t).map((x) => x.id)
         : [],
   };
+}
+
+/**
+ * Los modificadores de `h` con dónde cae la tirada fija de un disparo o una granada
+ * (`cuarto`), dicho tras el arma, que es el primero (`horquillaDeDanio.conArma`). La
+ * frase la elige la previsión por su `kind` (hallazgo S5 de /simplify, 02-11-2026:
+ * antes la elegía un interruptor de `DamageOptions` que no cambiaba el daño).
+ */
+function conElCuarto(
+  h: { readonly modificadores: readonly Modificador[]; readonly conArma: string | null },
+  kind: PrevisionDeGolpe['kind'],
+  cuarto: number | undefined,
+): readonly Modificador[] {
+  if (cuarto === undefined) return h.modificadores;
+  const causa =
+    kind === 'explosion'
+      ? `la granada: la tirada en el cuarto ${cuarto} de 4`
+      : dichoDelCuarto(cuarto);
+  const tras = h.conArma === null ? 0 : 1;
+  return [
+    ...h.modificadores.slice(0, tras),
+    { causa, factor: null },
+    ...h.modificadores.slice(tras),
+  ];
 }
 
 /**
@@ -3593,7 +4019,7 @@ function previsionDeLanzar(s: Spell, l: Lanzador, t: BattleStack): PrevisionDeLa
   switch (s.kind) {
     case 'damage': {
       // Con la resta del hechizo de verdad (`castSpell` → `herir`).
-      const { danio, parado } = trasLaArmadura(l.cantidad, t);
+      const { danio, parado } = trasLaArmadura(l.cantidad, t, false);
       const quedan = trasElGolpe(t, danio);
       return {
         ...base,
@@ -3896,6 +4322,14 @@ export function legalActionsAndCosts(state: BattleState): {
   // agente lo dice. La recta y a quién da, al salir el disparo.
   if (disparoBlocker(state, s) === null) {
     for (const e of enemies) out.push({ type: 'aim', at: e.hex });
+  }
+  // Lanzar: uno por casilla de enemigo vivo a su alcance, con la regla de lanzar
+  // (`lanzarBlocker`) y no una copia; vale cualquier otra casilla a su alcance, y la
+  // prosa del agente lo dice.
+  if (granadaBlocker(state, s) === null) {
+    for (const e of enemies) {
+      if (lanzarBlocker(state, e.hex) === null) out.push({ type: 'throw', at: e.hex });
+    }
   }
 
   // Un solo BFS por llamada. Estaba dentro del bucle de ataques, así que con

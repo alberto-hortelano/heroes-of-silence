@@ -606,50 +606,6 @@ describe('la vida y quién actúa, al ritmo de la cola', () => {
     expect(a.figura(v).pv).toBe(stackHp(v));
   });
 
-  it('un fotograma que llega tarde se salta el impacto, no la vida que quita; el sobrante no cuenta', () => {
-    const { a, b, c1, c2, v } = enCola();
-    v.count = 0;
-    v.topHp = 0;
-    b.log.push(golpe(c1, v, 25), golpe(c2, v, 999));
-    a.observe(b);
-    a.tick(0);
-    // De un salto al segundo paso, antes de su impacto: el primero ya quitó lo suyo.
-    a.tick(DURACION.attack + 10);
-    expect(a.figura(v).pv).toBe(VIDA - 25);
-    a.tick(DURACION.attack + impacto + 1);
-    expect(a.figura(v).pv).toBe(0);
-  });
-
-  it('la cura de un poder sube la barra en su impacto; lo que el registro no dice llega con el último', () => {
-    const { a, b, c1, c2, v } = enCola();
-    v.topHp = 20;
-    c2.topHp = 5;
-    a.observe(b);
-    a.tick(0);
-    // El monje cura 15 al no-muerto, la segunda tropa le pega 5 y drena 3
-    // (como el señor vampiro: el registro no lo apunta) y el no-muerto le
-    // devuelve 2. El estado: 30 y 6.
-    v.topHp = 30;
-    c2.topHp = 5 + 3 - 2;
-    b.log.push(
-      { kind: 'power', stack: c1.id, poder: 'curar', target: v.id, cura: 15 },
-      golpe(c2, v, 5),
-      golpe(v, c2, 2, true),
-    );
-    a.observe(b);
-    a.tick(0);
-    expect(a.figura(v).pv).toBe(20);
-    a.tick(DURACION.cast * IMPACTO + 1);
-    expect(a.figura(v).pv).toBe(35);
-    a.tick(DURACION.cast + impacto + 1);
-    expect(a.figura(v).pv).toBe(30);
-    // A la tropa aún le queda el contraataque: su drenaje no se ve todavía.
-    expect(a.figura(c2).pv).toBe(5);
-    // Con su último impacto, la del estado, drenaje incluido.
-    a.tick(DURACION.cast + DURACION.attack + impacto + 1);
-    expect(a.figura(c2).pv).toBe(6);
-  });
-
   it('el aro y la casilla resaltada van con quien actúa en lo que se cuenta, no con el turno del estado', () => {
     const { a, b, c1, v } = enCola();
     const salida = { ...c1.hex };

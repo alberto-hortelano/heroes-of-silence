@@ -21,6 +21,7 @@ import { fondoDeColor, type Html, html, NADA, unir } from '../html.js';
 import { playerColor } from '../render/palette.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
 import {
+  estadoADistancia,
   historiaDelHeroe,
   marcaDeComandante,
   marcaDeVeterano,
@@ -173,7 +174,7 @@ export function batalla(v: SpectatorView, contandoAun = false): Html {
         .filter((s) => s.count > 0)
         .map(
           (s) => html`<div class="stack${s.id === estado.turno?.stack ? '' : ' empty'}">
-            <span>${bandera(dueños[s.side])} ${marcaDeComandante(s)}${nombreEnElCampo(estado, s)}${marcaDeVeterano(s)}</span>
+            <span>${bandera(dueños[s.side])} ${marcaDeComandante(s)}${nombreEnElCampo(estado, s)}${marcaDeVeterano(s)}${estadoADistancia(s)}</span>
             <span class="count">${s.count}</span>
           </div>`,
         ),

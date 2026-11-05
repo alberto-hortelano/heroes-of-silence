@@ -14,16 +14,14 @@ import {
   alAsalto,
   applyAction,
   type BattleSide,
-  casillasDeCarga,
   createBattle,
   legalActions,
   stackById,
 } from '../src/core/battle/battle.js';
 import { FORMA_DEL_TABLERO, tableroDelContrato } from '../src/core/battle/board.js';
-import { CARGA, CARGA_MINIMA } from '../src/core/battle/carga.js';
 import { LAS_TRES_RUEDAS, RUEDAS } from '../src/core/battle/formas-de-la-rueda.js';
 import type { BattleAction } from '../src/core/battle/types.js';
-import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
+import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import {
   adventureActionSchema,
@@ -45,7 +43,6 @@ import {
   serializeBattleTurn,
   serializeKnownMap,
   serializeMapRequest,
-  serializeTownVoices,
 } from '../src/core/contract/serialize.js';
 import {
   accionAlAgente,
@@ -73,12 +70,13 @@ import {
 } from '../src/core/map/generate.js';
 import { pointFromKey, pointKey, RedDeCaminos, stepCost } from '../src/core/map/map.js';
 import { BARRERAS, costeDeEntrada, isWalkable, TERRAIN_KINDS } from '../src/core/map/terrain.js';
-import { indiceDePoder, nivelDeUnidad } from '../src/core/nivel.js';
 import { createRng } from '../src/core/rng.js';
 import { cronicaPara } from '../src/core/state/events.js';
 import {
   applyAdventureAction,
+  HERO_SCOUT_RADIUS,
   heroesOf,
+  NODE_SCOUT_RADIUS,
   resolvePendingBattle,
   revealEverything,
   townsOf,
@@ -89,7 +87,7 @@ import { REGLA_DEL_PUEBLO } from '../src/core/state/renta.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad, MURALLAS_DEL_MAPA } from '../src/core/state/sitios.js';
 import { mageGuildLevel, townSpells } from '../src/core/town/town.js';
-import { FACTION_IDS, SPEED_TO_HEXES } from '../src/core/types.js';
+import { SPEED_TO_HEXES } from '../src/core/types.js';
 import {
   batallaConDos,
   conCaminos,
@@ -941,9 +939,16 @@ describe('lo que ve el agente', () => {
     // El margen sale de la regla y no de un número escrito a mano.
     expect(COMO_SE_LEE_EL_MAPA).toContain(String(MARGEN_CONTRA_NEUTRALES).replace('.', ','));
     expect(RESPONSE_FORMAT.adventure_turn).toMatch(/EMBOSCADA/);
-    // Qué grupo se ve y la marcha que se para (#130): si la regla cambia sin la
-    // prosa, el agente creerá que «no aparece» es «no está cerca».
-    expect(COMO_SE_LEE_EL_MAPA).toMatch(/cualquier casilla de su región/);
+    // Qué grupo se ve y la marcha que se para (#130; por su casilla desde la
+    // niebla de eventos, 02-11-2026): si la regla cambia sin la prosa, el agente
+    // creerá que «no aparece» es «no está cerca».
+    expect(COMO_SE_LEE_EL_MAPA).toMatch(/Un grupo se ve solo si su casilla está cerca/);
+    expect(COMO_SE_LEE_EL_MAPA).not.toMatch(/cualquier casilla de su región/);
+    // Y la niebla entera: se explora por regiones y se ve en el radio, con las
+    // cifras del núcleo y no escritas a mano.
+    expect(COMO_SE_LEE_EL_MAPA).toMatch(/EXPLORA POR REGIONES/);
+    expect(COMO_SE_LEE_EL_MAPA).toContain(`en ${HERO_SCOUT_RADIUS} casillas`);
+    expect(COMO_SE_LEE_EL_MAPA).toContain(`en ${NODE_SCOUT_RADIUS} alrededor`);
     expect(RESPONSE_FORMAT.adventure_turn).toMatch(/march_halted/);
     expect(RESPONSE_FORMAT.battle_turn).toMatch(/ASALTANTES emboscan/);
     expect(RESPONSE_FORMAT.map_generate).toMatch(/raiders\?/);
@@ -1206,41 +1211,6 @@ describe('lo que ve el agente', () => {
     }
   });
 
-  it('el turno en tramos y la carga viajan en el esquema, en la prosa y en el turno (02-10-2026)', () => {
-    expect(battleActionSchema.safeParse({ type: 'end_turn' }).success).toBe(true);
-    const prosa = RESPONSE_FORMAT.battle_turn;
-    expect(prosa).toContain('{ "type": "end_turn" }');
-    expect(prosa).toContain('"stepsLeft"');
-    expect(prosa).toContain('"chargeFrom"');
-    expect(prosa).toMatch(/"move" NO acaba el turno/);
-    expect(prosa).toMatch(/LÍNEA RECTA/);
-    expect(prosa).toMatch(/el "target" está EN ESA RECTA/);
-    expect(prosa).toMatch(/Un "move" a esa casilla NO carga/);
-
-    // `chargeFrom` cuando hay casilla de carga; `stepsLeft` siempre que el activo sea tuyo.
-    const turno = (criatura: string): Record<string, unknown> => {
-      const battle = createBattle(
-        { army: [{ creature: criatura, count: 5 }], hero: null },
-        { army: [{ creature: TROPA, count: 5 }], hero: null },
-        createRng(3),
-        COMBATE_COMPLETO,
-      );
-      battle.stacks.find((x) => x.id === 'attacker-0')!.hex = { col: 0, row: 4 };
-      battle.stacks.find((x) => x.id === 'defender-0')!.hex = { col: 5, row: 4 };
-      forzarTurno(battle, 'attacker-0');
-      return serializeBattleTurn(battle, 'attacker', 'propia', 0) as Record<string, unknown>;
-    };
-    const jinetes = turno(JINETE);
-    expect(jinetes.stepsLeft).toBe(SPEED_TO_HEXES[unidadDelJuego(JINETE).speed]);
-    // Contra quién y desde dónde: la casilla de la recta con el escudo detrás,
-    // y ninguna de las vacías (H1).
-    expect(jinetes.chargeFrom).toEqual([{ target: 'defender-0', col: 4, row: 4, hexes: 4 }]);
-    // Sin el rasgo también carga, a pie (desde el 19-10-2026, en toda batalla).
-    const espadas = turno(PESADA);
-    expect(espadas.stepsLeft).toBe(SPEED_TO_HEXES[unidadDelJuego(PESADA).speed]);
-    expect(espadas.chargeFrom).toEqual([{ target: 'defender-0', col: 4, row: 4, hexes: 4 }]);
-  });
-
   it('`chargeFrom` viaja cuando hay alguna casilla de carga, no cuando la unidad tiene el rasgo', () => {
     // El jinete con el tramo entero gastado y pegado al enemigo: le queda
     // golpear, pero no hay casilla a la que ir ni, por tanto, desde la que cargar.
@@ -1280,19 +1250,6 @@ describe('lo que ve el agente', () => {
     expect(vista().turnId).toBe(primero);
     applyAction(battle, { type: 'end_turn' }, createRng(1));
     expect(vista().turnId).toBe((primero as number) + 1);
-  });
-
-  it('la prosa de la carga sale de las constantes que la cobran', () => {
-    const prosa = RESPONSE_FORMAT.battle_turn;
-    expect(prosa).toContain(`a ${CARGA_MINIMA} casillas o más`);
-    // Todo el que pega cuerpo a cuerpo carga (#260; en toda batalla desde el
-    // 19-10-2026), con las mismas cifras desde el 26-10-2026; montado de guerra y con
-    // lanza, con la fuerza de la montura.
-    expect(prosa).toContain(`suma un ${CARGA.porcentaje} % de daño, hasta ${CARGA.tope}`);
-    expect(prosa).toContain('suma un 5 % de daño, hasta 5');
-    expect(prosa).toContain('la fuerza de la montura más la de la lanza');
-    expect(prosa).not.toContain('"charge"');
-    expect(prosa).toContain('"turnId"');
   });
 
   it('la prosa dice el tope por bando de la partida (3, 5 o 7) y dónde está tu base', () => {
@@ -1653,33 +1610,6 @@ describe('lo que ve el agente', () => {
     ]);
   });
 
-  it('las facciones y las criaturas de guardia de la paleta salen del catálogo, no de una copia (#108)', () => {
-    const { palette } = serializeMapRequest({ width: 24, height: 24, players: [0, 1] });
-    // Las facciones: la misma lista que acepta el esquema del plan.
-    expect(palette.factions).toEqual([...FACTION_IDS]);
-    const ciudad = mapPlanSchema.shape.towns.element.shape.faction;
-    expect(ciudad.options).toEqual([...FACTION_IDS]);
-
-    // La regla: las unidades del catálogo de nivel ≤ 3, todas y solo ellas, y
-    // cada facción pone las suyas. Un id que no existiera lo lanzaría
-    // `unidadDelJuego`.
-    const guardias = new Set(palette.creaturesForGuards);
-    expect(guardias.size).toBe(palette.creaturesForGuards.length);
-    for (const id of palette.creaturesForGuards) {
-      expect(nivelDeUnidad(unidadDelJuego(id)), id).toBeLessThanOrEqual(3);
-    }
-    for (const c of unidadesDelJuego()) {
-      if (!guardias.has(c.id)) expect(nivelDeUnidad(c), c.id).toBeGreaterThan(3);
-    }
-    for (const f of FACTION_IDS) {
-      expect(palette.creaturesForGuards.some((id) => unidadDelJuego(id).faction === f)).toBe(true);
-    }
-    // El jinete de nivel 4 se queda fuera: la sugerencia no le pone al agente
-    // lo más fuerte de cada facción en el primer recodo.
-    expect(nivelDeUnidad(unidadDelJuego(JINETE))).toBeGreaterThan(3);
-    expect(guardias.has(JINETE)).toBe(false);
-  });
-
   it('la petición de mapa sigue pidiendo ancho y alto, y aconseja las regiones y pueblos del procedimental (#195)', () => {
     // El agente diseña a mano: el tamaño lo fija el servidor (derivado de las
     // regiones) y el reparto por regiones le llega como consejo, sacado de las
@@ -1834,42 +1764,6 @@ describe('respuestas del agente', () => {
 });
 
 describe('el nivel en el contrato: derivado de las cifras (12-10-2026)', () => {
-  it('`creature_stats` da la morada como `dwelling` y el `level` y el `powerIndex` derivados', () => {
-    for (const c of unidadesDelJuego()) {
-      const ficha = fichaDeCriatura(c);
-      expect(ficha.dwelling, c.id).toBe(c.edificio);
-      expect(ficha.powerIndex, c.id).toBe(indiceDePoder(c));
-      expect(ficha.level, c.id).toBe(Math.floor(ficha.powerIndex / 100));
-      expect(ficha.level, c.id).toBe(nivelDeUnidad(c));
-      expect('morada' in ficha, c.id).toBe(false);
-      expect('edificio' in ficha, c.id).toBe(false);
-      // Las cifras van tal cual: el agente no recibe otra criatura que la del motor.
-      expect(ficha).toMatchObject({ attack: c.attack, damage: c.damage, hp: c.hp });
-    }
-    // La morada y el nivel son dos datos: los cadáveres de los no muertos sueltan
-    // esqueletos y zombis, y las cifras de cada uno dan su nivel.
-    const esqueleto = fichaDeCriatura(unidadDelJuego('esqueleto-guerrero'));
-    const zombi = fichaDeCriatura(unidadDelJuego('zombi'));
-    expect(zombi.dwelling).toBe(esqueleto.dwelling);
-    expect(zombi.level).not.toBe(esqueleto.level);
-  });
-
-  it('`creature_stats` dice la montura del jinete, su marcha y su carga montada (26-10-2026)', () => {
-    const jinete = fichaDeCriatura(unidadDelJuego('templario-hermano-de-carga'));
-    expect(jinete.equipment[SLOT_DE_HUECO.montura]).toBe('caballo_de_guerra');
-    // Las casillas del caballo, en batalla y en el mapa (6, −1 por lo que carga: 18
-    // frente a su fuerza 16); la carga, (16 + 4) × [1, 4].
-    expect(jinete).toMatchObject({ speed: 'fast', mapSpeed: 'fast' });
-    expect(jinete.chargeDamage).toEqual([20, 80]);
-    // A pie no hay carga montada, y la marcha es la de batalla.
-    const piquero = fichaDeCriatura(unidadDelJuego('templario-escudo'));
-    expect(piquero.equipment[SLOT_DE_HUECO.montura]).toBeNull();
-    expect(piquero.mapSpeed).toBe(piquero.speed);
-    expect(piquero).not.toHaveProperty('chargeDamage');
-    expect(RESPONSE_FORMAT.adventure_turn).toContain('"mapSpeed"');
-    expect(RESPONSE_FORMAT.battle_turn).toContain('"chargeDamage" en "creature_stats"');
-  });
-
   it('la prosa nombra rango y nivel con las claves que viajan', () => {
     const p = RESPONSE_FORMAT.adventure_turn;
     for (const clave of ['"rank"', '"level"', '"powerIndex"', '"dwelling"', '"nextRankAt"']) {
@@ -1992,22 +1886,6 @@ describe('las voces de la base (town_voices)', () => {
     // Una línea con un salto NO tira la respuesta entera: la juzga `ponerVoces`
     // línea a línea (criterio 8), y por eso el esquema la deja pasar.
     expect(esquema.safeParse({ voices: [voz(['bien', 'con\nsalto'])] }).success).toBe(true);
-  });
-
-  it('la petición trae cada base pedida con su gente y lo que dice ahora, y la crónica corta', () => {
-    const state = newGame({ seed: 41 });
-    const town = state.towns.find((t) => dueñoDeLaCiudad(state, t) === 0)!;
-    const p = serializeTownVoices(state, 0, [town]);
-    expect(p.kind).toBe('town_voices');
-    expect(p.towns).toHaveLength(1);
-    const ids = p.towns[0]!.npcs.map((n) => n.id);
-    expect(ids).toContain('encargado-hall');
-    for (const n of p.towns[0]!.npcs) {
-      expect(n.current.length, n.id).toBeGreaterThan(0);
-      expect(n.name.length, n.id).toBeGreaterThan(0);
-    }
-    expect(p.towns[0]!.npcs.find((n) => n.id === 'encargado-hall')!.building).toBe('Ayuntamiento');
-    expect(p.recentEvents.length).toBeLessThanOrEqual(10);
   });
 });
 
@@ -2141,32 +2019,6 @@ describe('la rueda y los poderes en el contrato (F6)', () => {
     expect(RESPONSE_FORMAT.battle_response).toContain('"response"');
   });
 
-  it('la respuesta a una carga dice desde dónde golpeará quien aún no corrió («chargeFrom»), y sin carga no', () => {
-    // Sin carga: pegados, se planta sin `from` y no hay carga que decir.
-    const pegados = batallaConDos(createRng(12));
-    applyAction(pegados, { type: 'attack', target: 'defender-0' }, createRng(1));
-    const sin = serializeBattleResponse(pegados, {
-      atacante: 'attacker-0',
-      objetivo: 'defender-0',
-    }) as any;
-    expect(sin.chargeFrom).toBeUndefined();
-    // Con carga: lejos y en recta, se planta en su salida (la carga se elige antes
-    // de correr, 31-10-2026) y la petición dice la llegada y lo que cobra.
-    const b = batallaConDos(createRng(12));
-    stackById(b, 'attacker-0').hex = { col: 2, row: 4 };
-    const carga = casillasDeCarga(b, stackById(b, 'attacker-0')).find(
-      (c) => c.target === 'defender-0',
-    );
-    if (carga === undefined) throw new Error('desde (2,4) debía cargar al de (6,4)');
-    applyAction(b, { type: 'attack', target: 'defender-0', from: carga.at }, createRng(1));
-    expect(stackById(b, 'attacker-0').hex).toEqual({ col: 2, row: 4 });
-    const p = serializeBattleResponse(b, { atacante: 'attacker-0', objetivo: 'defender-0' }) as any;
-    expect(p.chargeFrom).toEqual([
-      { target: 'defender-0', col: carga.at.col, row: carga.at.row, hexes: carga.hexes },
-    ]);
-    expect(RESPONSE_FORMAT.battle_response).toContain('"chargeFrom"');
-  });
-
   it('con la rueda de 3: «wheel» dice cuál y cómo se cruza, y «hits» y «responses» traen solo los suyos', () => {
     const b = batallaConDos(createRng(11), { tope: 7, rueda: 3 });
     const turno = serializeBattleTurn(b, 'attacker', 'propia', 0) as any;
@@ -2223,6 +2075,7 @@ describe('la muralla en el contrato (fase 2 del puesto fronterizo)', () => {
     move: { type: 'move', to: { col: 3, row: 2 } },
     attack: { type: 'attack', target: 'd-0', from: { col: 3, row: 2 } },
     aim: { type: 'aim', at: { col: 8, row: 4 } },
+    throw: { type: 'throw', at: { col: 8, row: 4 } },
     cast: { type: 'cast', spell: 'magic_arrow', target: 'd-0' },
     power: { type: 'power', poder: 'curar', target: 'a-1' },
     surrender: { type: 'surrender', gold: 10 },

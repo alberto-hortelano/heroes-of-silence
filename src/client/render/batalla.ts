@@ -12,9 +12,13 @@
  * cae el hechizo llegan hechos de `session.ts`; dónde está cada figura en este
  * instante, del animador.
  */
+import { isShooter } from '@core/battle/armas.js';
 import {
   activeStack,
   type CasillaDeCarga,
+  type CasillaDelAlcance,
+  type ExplosionDeLaGranada,
+  explosionDe,
   isAlive,
   type LineaDelDisparo,
   lineaDelDisparo,
@@ -36,7 +40,6 @@ import {
   rangoDeVeterania,
   type Side,
 } from '@core/battle/types.js';
-import { isShooter } from '@core/data.js';
 import { createRng, hashDeTexto } from '@core/rng.js';
 import { type ClimaDelSitio, DESPEJADO } from '@core/state/clima.js';
 import type { Hex, PlayerId } from '@core/types.js';
@@ -190,6 +193,16 @@ export interface VistaBatalla {
    * aunque el estado ya lo haya disparado.
    */
   readonly apuntados: ReadonlyMap<string, Hex>;
+  /**
+   * La granada en el aire de cada uno que la lanzó, al ritmo de lo que se cuenta
+   * (`BattleAnimator.granadas`): la diana se queda hasta que explota.
+   */
+  readonly granadas: ReadonlyMap<string, Hex>;
+  /**
+   * La explosión que se tantea con el puntero antes de lanzar (la unidad activa, tuya,
+   * con granada: `explosionDe` en la casilla señalada), o `null`.
+   */
+  readonly granadaTanteada: ExplosionDeLaGranada | null;
 }
 
 /**
@@ -341,6 +354,8 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
   // Los disparos apuntados de los dos bandos (se ven para los dos: se puede
   // apartar o tapar con un aliado) y el que se tantea, en el suelo.
   pintarDisparos(ctx, v);
+  // Y las granadas: en el aire, de los dos bandos, y la que se tantea.
+  pintarGranadas(ctx, v);
   // La puerta, en el suelo: su lado, de madera si está cerrada y de piedra si
   // está abierta, encima de las casillas y debajo de todo lo que pisa.
   if (battle.puertas.length > 0) pintarUmbrales(ctx, tablero, battle.puertas);
@@ -507,16 +522,14 @@ function pintarDisparos(ctx: CanvasRenderingContext2D, v: VistaBatalla): void {
   }
   if (lineas.length === 0) return;
   const casillas = hexesDe(tablero);
+  const grueso = gruesoDelTiro(tablero);
   ctx.save();
   for (const { l, side, tanteo } of lineas) {
     const color = colorDelBando(v, side);
     ctx.globalAlpha = tanteo ? 0.55 : 0.9;
     // Todas las casillas en que daría, del frío de la tirada mínima al rojo de la
     // máxima (`LineaDelDisparo.alcance`): al salir el disparo ya se habrán movido.
-    for (const { hex, cuarto } of l.alcance) {
-      ctx.fillStyle = `${CALOR_DEL_DISPARO[cuarto] as string}${tanteo ? '55' : '80'}`;
-      ctx.fill((casillas[indiceDe(hex)] as CasillaPintada).camino);
-    }
+    teñirElAlcance(ctx, casillas, l.alcance, tanteo);
     const desde = centroHex(tablero, l.desde);
     const hasta = centroHex(tablero, l.at);
     // Todo va por la recta exacta de los dos centros (la del núcleo): una casilla se
@@ -534,7 +547,6 @@ function pintarDisparos(ctx: CanvasRenderingContext2D, v: VistaBatalla): void {
     const final = l.alcance.at(-1)?.hex;
     const pasaLaCasilla = l.alcance.some((c) => hexEquals(c.hex, l.at));
     const fin = final !== undefined && pasaLaCasilla ? sobreLaRecta(final) : hasta;
-    const grueso = Math.max(2.5, tablero.paso * 0.045);
     ctx.lineCap = 'round';
     // Hasta donde llega, del color del bando sobre un filo oscuro (sobre el suelo
     // claro, sola, se perdía); de ahí a donde acabaría, en gris.
@@ -558,22 +570,168 @@ function pintarDisparos(ctx: CanvasRenderingContext2D, v: VistaBatalla): void {
     }
     ctx.setLineDash([]);
     // La diana en la casilla apuntada.
-    const r = tablero.paso * 0.28;
+    pintarDiana(ctx, tablero, hasta, color, grueso);
+    // A quién da hoy, en rojo.
+    if (l.alcanzado !== null) marcarAlcanzado(ctx, casillas, l.alcanzado.hex, grueso);
+  }
+  ctx.restore();
+}
+
+/** El grueso de las líneas de un disparo o una granada en el suelo. */
+function gruesoDelTiro(tablero: Tablero): number {
+  return Math.max(2.5, tablero.paso * 0.045);
+}
+
+/**
+ * Tiñe cada casilla del alcance de un disparo o una granada por la tirada que daría
+ * ahí, del frío del cuarto 0 al rojo del 4 (`CALOR_DEL_DISPARO`); más tenue si se tantea.
+ */
+function teñirElAlcance(
+  ctx: CanvasRenderingContext2D,
+  casillas: readonly CasillaPintada[],
+  alcance: readonly CasillaDelAlcance[],
+  tanteo: boolean,
+): void {
+  for (const { hex, cuarto } of alcance) {
+    ctx.fillStyle = `${CALOR_DEL_DISPARO[cuarto] as string}${tanteo ? '55' : '80'}`;
+    ctx.fill((casillas[indiceDe(hex)] as CasillaPintada).camino);
+  }
+}
+
+/**
+ * La diana de la casilla a la que se apunta o se lanza, centrada en `c`. Con
+ * `contorno`, el color va sobre un trazo claro y este sobre un filo oscuro: la de la
+ * granada cae en el centro de su explosión, teñido del rojo del cuarto 4, y la del
+ * bando rojo se perdía en él (H2 del QA de las granadas, 02-11-2026). La del disparo
+ * no lo lleva: su casilla no siempre va teñida y se leía bien.
+ */
+function pintarDiana(
+  ctx: CanvasRenderingContext2D,
+  tablero: Tablero,
+  c: { readonly x: number; readonly y: number },
+  color: string,
+  grueso: number,
+  contorno = false,
+): void {
+  const r = tablero.paso * 0.28;
+  const diana = new Path2D();
+  diana.ellipse(c.x, c.y, r, r * tablero.compresion, 0, 0, Math.PI * 2);
+  diana.moveTo(c.x - r * 1.3, c.y);
+  diana.lineTo(c.x + r * 1.3, c.y);
+  diana.moveTo(c.x, c.y - r * 1.3 * tablero.compresion);
+  diana.lineTo(c.x, c.y + r * 1.3 * tablero.compresion);
+  if (contorno) {
+    ctx.lineCap = 'round';
+    ctx.lineWidth = grueso + 4;
+    ctx.strokeStyle = FILO_OSCURO;
+    ctx.stroke(diana);
+    ctx.lineWidth = grueso + 2;
+    ctx.strokeStyle = TRAZO_CLARO;
+    ctx.stroke(diana);
+  }
+  ctx.lineWidth = grueso;
+  ctx.strokeStyle = color;
+  ctx.stroke(diana);
+}
+
+/** Bajo el color de la diana y del borde de una granada: el filo y el trazo claro. */
+const FILO_OSCURO = '#000000b3';
+const TRAZO_CLARO = '#f3ead6';
+
+/**
+ * El borde de fuera de un grupo de casillas (la explosión de una granada): los lados
+ * de cada una que no comparte con otra del grupo, como pares de vértices. Dos
+ * vecinas comparten sus dos vértices, calculados desde centros distintos: se casan
+ * por su posición redondeada a la centésima de píxel.
+ */
+export function bordeDeLasCasillas(
+  tablero: Tablero,
+  hexes: readonly Hex[],
+): readonly (readonly [Plano, Plano])[] {
+  const clave = (p: Plano): string => `${Math.round(p.x * 100)},${Math.round(p.y * 100)}`;
+  const lados = new Map<string, { lado: readonly [Plano, Plano]; veces: number }>();
+  for (const h of hexes) {
+    const v = verticesHex(tablero, h);
+    for (const [i, a] of v.entries()) {
+      const b = v[(i + 1) % v.length] as Plano;
+      const k = [clave(a), clave(b)].sort().join('|');
+      const hecho = lados.get(k);
+      if (hecho === undefined) lados.set(k, { lado: [a, b], veces: 1 });
+      else hecho.veces++;
+    }
+  }
+  return [...lados.values()].flatMap(({ lado, veces }) => (veces === 1 ? [lado] : []));
+}
+
+/** La casilla de a quién daría hoy, en rojo. */
+function marcarAlcanzado(
+  ctx: CanvasRenderingContext2D,
+  casillas: readonly CasillaPintada[],
+  hex: Hex,
+  grueso: number,
+): void {
+  ctx.lineWidth = grueso * 1.3;
+  ctx.strokeStyle = '#ff5a3c';
+  ctx.stroke((casillas[indiceDe(hex)] as CasillaPintada).camino);
+}
+
+/**
+ * Las granadas en el suelo (02-11-2026): de cada una en el aire (`BattleStack.granada`,
+ * al ritmo de la cola) y de la que se tantea, cada casilla que alcanza su explosión
+ * (`explosionDe`, la regla del núcleo) teñida por la tirada que daría ahí, como el
+ * disparo, con su borde de fuera continuo del color de su bando, y la diana con su
+ * contorno en la casilla; en la que se tantea, en rojo quien está hoy en ellas. Para
+ * los dos bandos y el espectador.
+ */
+function pintarGranadas(ctx: CanvasRenderingContext2D, v: VistaBatalla): void {
+  const { battle, tablero } = v;
+  const pendientes: { e: ExplosionDeLaGranada; side: Side; tanteo: boolean }[] = [];
+  for (const s of battle.stacks) {
+    const at = v.granadas.get(s.id);
+    if (at !== undefined && isAlive(s)) {
+      pendientes.push({ e: explosionDe(battle, at), side: s.side, tanteo: false });
+    }
+  }
+  const activa = activeStack(battle);
+  if (v.granadaTanteada !== null && activa !== null) {
+    pendientes.push({ e: v.granadaTanteada, side: activa.side, tanteo: true });
+  }
+  if (pendientes.length === 0) return;
+  const casillas = hexesDe(tablero);
+  const grueso = gruesoDelTiro(tablero);
+  ctx.save();
+  // Primero el teñido de todas y después los bordes y las dianas: pintando cada una
+  // entera, el teñido de la segunda tapaba la diana y el borde de la primera cuando
+  // se solapaban (H5 del QA de las granadas, 02-11-2026).
+  for (const { e, tanteo } of pendientes) {
+    ctx.globalAlpha = tanteo ? 0.55 : 0.9;
+    teñirElAlcance(ctx, casillas, e.casillas, tanteo);
+  }
+  for (const { e, side, tanteo } of pendientes) {
+    const color = colorDelBando(v, side);
+    ctx.globalAlpha = tanteo ? 0.55 : 0.9;
+    // El borde de la explosión, entero y continuo, del color de su bando sobre un
+    // filo oscuro: a trazos, casilla a casilla, se confundía con la recta teñida de
+    // un disparo que pasaba al lado (H2 del QA de las granadas, 02-11-2026).
+    const borde = new Path2D();
+    for (const [a, b] of bordeDeLasCasillas(
+      tablero,
+      e.casillas.map((c) => c.hex),
+    )) {
+      borde.moveTo(a.x, a.y);
+      borde.lineTo(b.x, b.y);
+    }
+    ctx.lineCap = 'round';
+    ctx.lineWidth = grueso + 2;
+    ctx.strokeStyle = FILO_OSCURO;
+    ctx.stroke(borde);
     ctx.lineWidth = grueso;
     ctx.strokeStyle = color;
-    ctx.beginPath();
-    ctx.ellipse(hasta.x, hasta.y, r, r * tablero.compresion, 0, 0, Math.PI * 2);
-    ctx.moveTo(hasta.x - r * 1.3, hasta.y);
-    ctx.lineTo(hasta.x + r * 1.3, hasta.y);
-    ctx.moveTo(hasta.x, hasta.y - r * 1.3 * tablero.compresion);
-    ctx.lineTo(hasta.x, hasta.y + r * 1.3 * tablero.compresion);
-    ctx.stroke();
-    // A quién da hoy, en rojo.
-    if (l.alcanzado !== null) {
-      ctx.lineWidth = grueso * 1.3;
-      ctx.strokeStyle = '#ff5a3c';
-      ctx.stroke((casillas[indiceDe(l.alcanzado.hex)] as CasillaPintada).camino);
-    }
+    ctx.stroke(borde);
+    pintarDiana(ctx, tablero, centroHex(tablero, e.at), color, grueso, true);
+    // A quién da hoy (solo en la que se tantea: las del aire, al explotar).
+    if (tanteo)
+      for (const { stack } of e.alcanzados) marcarAlcanzado(ctx, casillas, stack.hex, grueso);
   }
   ctx.restore();
 }

@@ -75,11 +75,14 @@ import {
 } from '@core/cuerpo.js';
 import {
   ARMADURA_MAXIMA_DE_PIEZA,
+  CARGAS_MAXIMAS,
   type ExtrasDePieza,
   esPiezaConBase,
   extrasDe,
   type Pieza,
+  RECARGA_MAXIMA,
   RUTA_DEL_CATALOGO_DE_EQUIPO,
+  RUTA_DEL_HEROE,
   SOLO_EN_KITS,
 } from '@core/data.js';
 import {
@@ -100,6 +103,7 @@ import {
   SIN_ARMA,
   seVende,
   textoDeModificador,
+  tiroDelGolpe,
 } from '@core/hero/equipo.js';
 import {
   type CifraDePieza,
@@ -142,6 +146,7 @@ import {
   modificadoresEnPantalla,
   nota,
   renderBattleLog,
+  renderDespliegue,
   renderSpells,
 } from '../views/panels.js';
 import { botonesDeArma, botonesDeMuralla, botonesDePoder } from '../views/poderes.js';
@@ -221,10 +226,11 @@ export function resumenDeUnidad(u: UnitInfo): string {
 export type FiltroDeArena = Hoja['faccion'] | 'todas';
 
 /**
- * Una unidad en la lista: la de una hoja o una nueva (`unidadNueva`). Su id, su
- * nombre, su facción y el retrato de identidad de su hoja (`retrato`). `sello`,
- * lo que la distingue en la lista («nueva»); `incompleta`, por qué no se monta
- * (#140).
+ * Una unidad del catálogo en la lista: la de una hoja o una nueva (`unidadNueva`).
+ * Su id, su nombre y su facción (los del catálogo, nunca los de su hoja:
+ * `tarjetasDelCatalogo`) y el retrato de identidad de su hoja (`retrato`).
+ * `sello`, lo que la distingue en la lista («nueva»); `incompleta`, por qué no se
+ * monta (#140).
  */
 export interface TarjetaDeUnidad {
   readonly id: string;
@@ -260,8 +266,50 @@ export interface CuerpoDeLaNueva {
 
 /** Lo que la lista enseña además de las hojas: las unidades nuevas y los cuerpos de «Nueva unidad». */
 export interface ListaDeUnidades {
-  readonly nuevas?: readonly TarjetaDeUnidad[];
   readonly cuerpos?: readonly CuerpoDeLaNueva[];
+}
+
+/**
+ * Por qué la unidad `u` no se monta, o `null` si se monta: la hoja de su cuerpo
+ * no está o está a medias en el taller (#140). Nunca se pinta con el Y Bot en su
+ * lugar.
+ */
+export function porQueNoSeMonta(u: Unidad, hojas: ReadonlyMap<string, Hoja>): string | null {
+  const h = hojas.get(u.cuerpo.hoja);
+  if (h === undefined) return `su hoja «${u.cuerpo.hoja}» no está en assets/unidades/`;
+  return h.incompleta;
+}
+
+/**
+ * Las tarjetas de la lista: cada unidad del catálogo con **su** nombre y **su**
+ * facción (`data/unidades.json`, lo que se edita y se guarda), y el retrato de la
+ * hoja de su cuerpo. El nombre de la hoja es el del taller (`tools/taller/unidades.ts`,
+ * lo que se le pidió pintar) y no se enseña como el de la unidad. Primero las de
+ * una hoja, en el orden del taller, y detrás las nuevas, con su sello. Una cuya
+ * hoja no está o está a medias va con el motivo (#140).
+ */
+export function tarjetasDelCatalogo(
+  unidades: Iterable<Unidad>,
+  hojas: readonly Hoja[],
+): TarjetaDeUnidad[] {
+  const porId = new Map(hojas.map((h) => [h.id, h]));
+  const tarjeta = (u: Unidad, sello?: string): TarjetaDeUnidad => ({
+    id: u.id,
+    nombre: u.name,
+    faccion: u.faction,
+    retrato: u.cuerpo.hoja,
+    ...(sello === undefined ? {} : { sello }),
+    incompleta: porQueNoSeMonta(u, porId),
+  });
+  const todas = [...unidades];
+  const deUnaHoja = new Map(todas.filter((u) => porId.has(u.id)).map((u) => [u.id, u]));
+  return [
+    ...hojas.flatMap((h) => {
+      const u = deUnaHoja.get(h.id);
+      return u === undefined ? [] : [tarjeta(u)];
+    }),
+    ...todas.filter((u) => !porId.has(u.id)).map((u) => tarjeta(u, 'nueva')),
+  ];
 }
 
 /**
@@ -330,12 +378,12 @@ function botonesDeTarjeta(
 }
 
 /**
- * La lista de unidades: las hojas y, detrás, las unidades nuevas (`nuevas`), por
- * facción. Con `cuerpos`, arriba el selector de «Nueva unidad». Sin el catálogo
- * del juego: en la arena solo están las cinco facciones (13-10-2026).
+ * La lista de unidades (`tarjetasDelCatalogo`), por facción. Con `cuerpos`,
+ * arriba el selector de «Nueva unidad». Sin el catálogo del juego: en la arena
+ * solo están las cinco facciones (13-10-2026).
  */
 export function renderCatalogo(
-  hojas: readonly Hoja[],
+  todas: readonly TarjetaDeUnidad[],
   filtro: FiltroDeArena,
   modo: ModoDelCatalogo = { kind: 'montaje' },
   extra: ListaDeUnidades = {},
@@ -349,17 +397,6 @@ export function renderCatalogo(
       return html`<button data-arena="filtro" data-faccion="${f}" class="${f === filtro ? 'primary' : ''}">${nombre}</button>`;
     }),
   );
-  // Las hojas y, detrás, las nuevas.
-  const todas: readonly TarjetaDeUnidad[] = [
-    ...hojas.map((h) => ({
-      id: h.id,
-      nombre: h.nombre,
-      faccion: h.faccion,
-      retrato: h.id,
-      incompleta: h.incompleta,
-    })),
-    ...(extra.nuevas ?? []),
-  ];
   const tarjetas = unir(
     todas
       .filter((t) => filtro === 'todas' || t.faccion === filtro)
@@ -922,7 +959,7 @@ function filaDeArmadura(final: UnitInfo): FilaDeCifra {
  * manos— va desactivado y con su motivo) y si se puede quitar lo puesto (`quitarBlocker`: sin arma de cuerpo a
  * cuerpo no se combate, y el arma no lleva ×, sino su motivo en nota).
  */
-function equipoDeLaFicha(u: Unidad, piezas: EquipoAtado): Html {
+function equipoDeLaFicha(u: Unidad | HeroeDeArena, piezas: EquipoAtado): Html {
   const filas = unir(
     HUECOS.flatMap((hueco) => {
       const id = u.equipo[hueco];
@@ -1163,10 +1200,17 @@ export function renderFichaDeHeroe(
     },
     final,
   });
-  const delCuerpo = (clave: string, rotulo: string, final: number): FilaDeCifra => ({
-    clave,
+  // El cuerpo de todo héroe (`HeroeDeArena.cuerpo`, `combate` de data/heroe.json):
+  // cambiarlo aquí cambia los dos héroes, y «Guardar» lo escribe.
+  const delCuerpo = (campo: string, rotulo: string, valor: number, final: number): FilaDeCifra => ({
+    clave: campo,
     rotulo,
-    nota: 'De su cuerpo en el tablero, con su rango y el equipo base.',
+    nota: 'Del cuerpo de todo héroe (data/heroe.json): cambiarlo cambia a los dos héroes, y «Guardar» lo escribe.',
+    casilla: {
+      atributo: html`data-heroe-campo="${campo}"`,
+      valor,
+      minimo: 1,
+    },
     final,
   });
   const libro = unir(
@@ -1203,7 +1247,7 @@ export function renderFichaDeHeroe(
       ${filaDelNivel(lecturaDelNivel(c))}
       ${tablaDeCifras(
         { nombre: 'Héroe', nota: 'Las cifras del héroe, las que se escriben.' },
-        'Con lo que pelea: su cuerpo en el tablero suma a su ataque y su defensa los de su rango, su agilidad y su equipo base; las demás, de su cuerpo, no se escriben.',
+        'Con lo que pelea: su cuerpo en el tablero suma a su ataque y su defensa los de su rango, su agilidad y su equipo base. Fuerza, agilidad y PV son del cuerpo de todo héroe.',
         [
           escrita('ataque', NOMBRE_DE_CIFRA.ataque, h.ataque, 0, c.attack),
           escrita(
@@ -1230,19 +1274,20 @@ export function renderFichaDeHeroe(
             h.conocimiento,
             'Su maná: 10 por punto.',
           ),
-          delCuerpo('fuerza', NOMBRE_DE_CIFRA.fuerza, c.fuerza),
-          delCuerpo('agilidad', NOMBRE_DE_CIFRA.agilidad, agilidadDe(c)),
-          delCuerpo('hp', NOMBRE_DE_CIFRA.pv, c.hp),
+          delCuerpo('fuerza', NOMBRE_DE_CIFRA.fuerza, h.cuerpo.fuerza.base, c.fuerza),
+          delCuerpo('agilidad', NOMBRE_DE_CIFRA.agilidad, h.cuerpo.agilidad, agilidadDe(c)),
+          delCuerpo('hp', NOMBRE_DE_CIFRA.pv, h.cuerpo.pv.base, c.hp),
           ...filasDerivadas(c, null).filter((f) => f.clave !== 'defensa'),
         ],
       )}`,
       })}
+      ${equipoDeLaFicha(h, como.piezas)}
       <h3>Armas ${nota(
-        `Lleva el equipo base de todo héroe (${idsPuestos(EQUIPO_BASE)
+        `Empieza con el equipo base de todo héroe (${idsPuestos(EQUIPO_BASE)
           .map((id) => como.piezas.pieza(id).nombre)
           .join(
             ', ',
-          )}), con las cifras de «Editar equipo». Cada golpe va con las cifras de su arma.`,
+          )}) y lleva lo que le pongas en «Equipo», con las cifras de «Editar equipo»; es de este héroe de la arena y «Guardar» no lo escribe. Cada golpe va con las cifras de su arma.`,
       )}</h3>
       <div class="armas-de-la-ficha" data-armas-del-heroe="si">${filasDeArmas(c)}</div>
       <h3>Libro de hechizos</h3>
@@ -1281,10 +1326,11 @@ export interface VistaDeEquipo {
  * Lo que queda por guardar dicho en una frase: «Sin guardar: 1 pieza y 2
  * unidades.», o vacío si nada. Lo leen la vista «Editar equipo» y la barra.
  */
-export function sinGuardarEnPalabras(piezas: number, unidades: number): string {
+export function sinGuardarEnPalabras(piezas: number, unidades: number, heroe = false): string {
   const partes = [
     piezas === 0 ? null : `${piezas} ${piezas === 1 ? 'pieza' : 'piezas'}`,
     unidades === 0 ? null : `${unidades} ${unidades === 1 ? 'unidad' : 'unidades'}`,
+    heroe ? 'el cuerpo del héroe' : null,
   ].filter((x) => x !== null);
   return partes.length === 0 ? '' : `Sin guardar: ${partes.join(' y ')}.`;
 }
@@ -1299,6 +1345,8 @@ export interface Guardado {
   readonly unidades?: number;
   readonly conservadas?: number;
   readonly piezas?: number;
+  /** Si escribió el cuerpo de todo héroe en data/heroe.json. */
+  readonly heroe?: boolean;
 }
 
 /**
@@ -1311,9 +1359,13 @@ export function guardadoEnPalabras(g: Guardado): string {
     `en ${ruta}: ${n} ${n === 1 ? una : varias}${malas === 0 ? '' : `, y ${malas} que ${malas === 1 ? 'no vale, tal como estaba' : 'no valen, tal como estaban'}`}.`;
   const unidades = `Guardado ${parte(g.ruta, g.unidades ?? 0, g.conservadas ?? 0, 'unidad', 'unidades')}`;
   const piezas = g.piezas ?? 0;
-  return piezas === 0
-    ? unidades
-    : `${unidades} Y ${parte(RUTA_DEL_CATALOGO_DE_EQUIPO, piezas, 0, 'pieza', 'piezas')}`;
+  const conPiezas =
+    piezas === 0
+      ? unidades
+      : `${unidades} Y ${parte(RUTA_DEL_CATALOGO_DE_EQUIPO, piezas, 0, 'pieza', 'piezas')}`;
+  return g.heroe === true
+    ? `${conPiezas} Y en ${RUTA_DEL_HEROE}: el cuerpo de todo héroe.`
+    : conPiezas;
 }
 
 /**
@@ -1455,6 +1507,7 @@ function fichaDePieza(p: Pieza, v: VistaDeEquipo): Html {
       : extras === null
         ? html`<label class="casilla-de-marcar"><input type="checkbox" data-arena-pieza-campo="guerra" ${esDeGuerra(p) ? html`checked` : NADA}> de guerra ${nota(DICHO_DE_LA_MONTURA)}</label>`
         : html`<div class="row"><span class="label">De guerra ${nota('La de su base.')}</span><span>${esDeGuerra(p) ? 'Sí' : 'No'}</span></div>`;
+  const tiro = tiroDelPanel(p, extras !== null);
   const cadena = cadenaDeBases(eq, p.id);
   const suBase = baseDe(eq, p.id);
   const base = html`<label class="campo"><span class="label">Base ${nota('Otra pieza de su hueco de la que parte: suma lo de la base más sus extras, y si cambia la base, cambia ella. Al cambiar de base se queda con lo que suma ahora.')}</span>
@@ -1505,6 +1558,7 @@ function fichaDePieza(p: Pieza, v: VistaDeEquipo): Html {
         ${manos}
         ${lanza}
         ${guerra}
+        ${tiro}
         ${tablaDeCifras(
           extras === null
             ? { nombre: 'Suma', nota: 'Lo que suma a quien la lleva.' }
@@ -1565,15 +1619,22 @@ const CASILLAS_DE_LA_CIFRA: Readonly<
           nota: 'Lo que suma a la fuerza de quien la lleva para el daño de su golpe: de la fuerza al de la fuerza por la agilidad.',
         },
   ],
-  agilidad: () => [
-    {
-      campo: 'agilidad',
-      rotulo: NOMBRE_DE_CIFRA.agilidad,
-      de: (x) => x.agilidad ?? 0,
-      limites: { minimo: AGILIDAD_DEL_CUERPO_MIN, maximo: AGILIDAD_DEL_CUERPO_MAX },
-      nota: `La de la montura, de ${AGILIDAD_DEL_CUERPO_MIN} a ${AGILIDAD_DEL_CUERPO_MAX}: sus casillas, menos lo que le reste el peso que carga.`,
-    },
-  ],
+  agilidad: (hueco) => {
+    // La lleva una montura (sus casillas) o un arma de fuego (su horquilla).
+    const minimo = hueco === 'distancia' ? 1 : AGILIDAD_DEL_CUERPO_MIN;
+    return [
+      {
+        campo: 'agilidad',
+        rotulo: NOMBRE_DE_CIFRA.agilidad,
+        de: (x) => x.agilidad ?? 0,
+        limites: { minimo, maximo: AGILIDAD_DEL_CUERPO_MAX },
+        nota:
+          hueco === 'distancia'
+            ? `La de un arma de fuego, de 1 a ${AGILIDAD_DEL_CUERPO_MAX}, que no se suma a la de quien la lleva: su disparo tira [F, F × esta agilidad], estrecho si es baja (con 1, siempre lo mismo).`
+            : `La de la montura, de ${AGILIDAD_DEL_CUERPO_MIN} a ${AGILIDAD_DEL_CUERPO_MAX}: sus casillas, menos lo que le reste el peso que carga.`,
+      },
+    ];
+  },
   defensa: () => [
     {
       campo: 'defensa',
@@ -1602,6 +1663,49 @@ const CASILLAS_DE_LA_CIFRA: Readonly<
   ],
 };
 
+/**
+ * Lo que tira una pieza a distancia en su ficha (02-11-2026): el desplegable «Tiro»
+ * (arco o ballesta, arma de fuego o granada) y, según él, su recarga o sus cargas,
+ * cada una con su nota. Con base, lo de su base, sin casillas: no son extras. Nada
+ * fuera de `distancia`.
+ */
+function tiroDelPanel(p: Pieza, conBase: boolean): Html {
+  if (p.hueco !== 'distancia') return NADA;
+  const t = tiroDelGolpe(p);
+  const notaDelTiro = nota(
+    'Un arco o una ballesta dispara como siempre. Un arma de fuego dispara igual, pero perfora la armadura (llega entero), tira con su propia agilidad y recarga unos turnos tras disparar. Una granada no se dispara: se lanza a una casilla a la fuerza de quien la lleva y explota al empezar su siguiente turno en ella y sus vecinas, a quien esté; se gasta.',
+  );
+  const notaDeLaRecarga = nota(
+    `Los turnos, de 1 a ${RECARGA_MAXIMA}, que pasa sin poder apuntar tras disparar, contando aquel en que sale el disparo: con 1, apunta un turno sí y otro no.`,
+  );
+  const notaDeLasCargas = nota(
+    `Las que lleva a cada batalla, de 1 a ${CARGAS_MAXIMAS}: lanzar gasta una, y con 0 no se lanza. Fuera de batalla no se gastan.`,
+  );
+  if (conBase) {
+    const dicho =
+      t === undefined ? 'Arco o ballesta' : textoDeModificador({ kind: 'tiro', cual: t });
+    return html`<div class="row"><span class="label">Tiro ${nota('El de su base, con su recarga o sus cargas.')}</span><span>${dicho}</span></div>`;
+  }
+  const opcion = (valor: string, rotulo: string, si: boolean): Html =>
+    html`<option value="${valor}" ${si ? html`selected` : NADA}>${rotulo}</option>`;
+  const desplegable = html`<label class="campo"><span class="label">Tiro ${notaDelTiro}</span>
+      <select data-arena-pieza-campo="tiro">
+        ${opcion('', 'Arco o ballesta', t === undefined)}
+        ${opcion('fuego', 'Arma de fuego', t?.kind === 'fuego')}
+        ${opcion('granada', 'Granada', t?.kind === 'granada')}
+      </select></label>`;
+  const numero = (campo: string, rotulo: string, valor: number, maximo: number, n: Html): Html =>
+    html`<label class="campo"><span class="label">${rotulo} ${n}</span>
+      <input type="number" data-arena-pieza-campo="${campo}" value="${String(valor)}" min="1" max="${String(maximo)}"></label>`;
+  return html`${desplegable}${
+    t?.kind === 'fuego'
+      ? numero('recarga', 'Recarga', t.recarga, RECARGA_MAXIMA, notaDeLaRecarga)
+      : t?.kind === 'granada'
+        ? numero('cargas', 'Cargas', t.cargas, CARGAS_MAXIMAS, notaDeLasCargas)
+        : NADA
+  }`;
+}
+
 /** La casilla del precio, la última de toda pieza: solo en oro. */
 const PRECIO_EN_ORO: CasillaDePieza = {
   campo: 'precio-gold',
@@ -1620,8 +1724,12 @@ const PRECIO_EN_ORO: CasillaDePieza = {
 function filasDePieza(p: Pieza, extras: ExtrasDePieza | null): FilaDeCifra[] {
   const final = extrasDe(p);
   const escrito = extras ?? final;
+  // A distancia, la agilidad solo la lleva un arma de fuego (`problemasDePieza`).
+  const sinAgilidad = p.hueco === 'distancia' && tiroDelGolpe(p)?.kind !== 'fuego';
   const casillas = [
-    ...camposDelHueco(p.hueco).cifras.flatMap((c) => CASILLAS_DE_LA_CIFRA[c](p.hueco)),
+    ...camposDelHueco(p.hueco)
+      .cifras.filter((c) => !(sinAgilidad && c === 'agilidad'))
+      .flatMap((c) => CASILLAS_DE_LA_CIFRA[c](p.hueco)),
     PRECIO_EN_ORO,
   ];
   return casillas.map((c) => ({
@@ -1731,7 +1839,8 @@ function notaDelHueco(hueco: Hueco): Html {
 /** Lo que el panel de la batalla lee de la sesión: la sesión misma, sin copiar su forma. */
 export type VistaDeArena = Pick<
   SesionDeArena,
-  | 'battle'
+  | 'batallaALaVista'
+  | 'despliegue'
   | 'semilla'
   | 'laLlevaLaIA'
   | 'turnoPropio'
@@ -1761,7 +1870,8 @@ export type VistaDeArena = Pick<
  */
 export function rotuloDelTurno(s: VistaDeArena, contandoAun: boolean): string {
   if (contandoAun) return 'Contando…';
-  if (s.battle.finished !== null) return 'Terminada';
+  if (s.batallaALaVista.finished !== null) return 'Terminada';
+  if (s.despliegue.enCurso !== null) return 'Despliegas';
   if (s.ruedaPendiente?.fase === 'respuesta') return 'Te toca responder';
   return s.turnoPropio === null ? 'Mueve la IA' : 'Te toca';
 }
@@ -1822,11 +1932,11 @@ function delEquipo(u: UnitInfo, cuerpo: UnitInfo | null, cifra: CifraQueCambiaEl
  * la rueda, en una fila y sin notas (el bocadillo no se puede señalar).
  */
 export function filasDelStack(
-  s: Pick<VistaDeArena, 'battle' | 'defensaEnLoAlto' | 'cuerpoDe'>,
+  s: Pick<VistaDeArena, 'batallaALaVista' | 'defensaEnLoAlto' | 'cuerpoDe'>,
   x: BattleStack,
   conArmas: boolean,
 ): Html {
-  const b = s.battle;
+  const b = s.batallaALaVista;
   const u = x.unit;
   const cuerpo = s.cuerpoDe(x);
   const danio =
@@ -1848,7 +1958,7 @@ export function filasDelStack(
  * al lado de su figura (`modificadoresEnCurso`, con lo que le queda en su nota).
  */
 export function vistaPrevia(s: VistaDeArena, x: BattleStack): Html {
-  return html`<strong class="nombre-de-la-previa">${nombreEnElCampo(s.battle, x)}</strong>
+  return html`<strong class="nombre-de-la-previa">${nombreEnElCampo(s.batallaALaVista, x)}</strong>
     ${filasDelStack(s, x, false)}
     <div class="row"><span class="label">Contraataque</span><span data-contraataco="${x.retaliated ? 'si' : 'no'}">${x.retaliated ? 'ya devolvió un golpe esta ronda' : 'aún puede devolver uno esta ronda'}</span></div>`;
 }
@@ -1935,7 +2045,8 @@ function rotuloDelGanador(battle: BattleState): string {
  *   él, como en el espectador.
  */
 export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Html {
-  const b = s.battle;
+  // Lo que se ve (`batallaALaVista`): en el despliegue, sin el rival que aún no desplegó.
+  const b = s.batallaALaVista;
   // Mientras el tablero cuenta, el estado ya va por delante de lo que se ve: el
   // parte, las vidas y la ficha de la activa contarían el final antes de que
   // llegue —con todo en IA, la pelea entera—. Se calla todo hasta que el tablero
@@ -1949,6 +2060,25 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
       <p>Ronda ${b.round}. Semilla ${s.semilla}.</p>
       <div class="stack-list"><button data-arena="otra-vez" class="primary">Otra vez</button></div>
       <h3>Parte de guerra</h3>${renderBattleLog(b, null)}`;
+  }
+  // Cada uno en el campo: en el despliegue, sin «Editar» (aún no se pelea).
+  const fila = (x: BattleStack, conBoton: boolean) => {
+    const nombre = nombreEnElCampo(b, x);
+    return {
+      flecha: x.side === LADOS.izquierda.bando ? '▶' : '◀',
+      nombre,
+      cuenta: `${x.topHp} PV · ${s.laLlevaLaIA(x.id) ? 'IA' : 'tú'}`,
+      ...(conBoton ? { boton: botonDeEditar(x, nombre) } : {}),
+    };
+  };
+  // El despliegue de un bando «Yo»: el panel de la partida (`renderDespliegue`).
+  const desplegando = s.despliegue.enCurso;
+  if (desplegando !== null) {
+    return renderDespliegue(s.despliegue, b, {
+      quien: `bando ${LADOS[ladoDe(desplegando.side)].adjetivo}`,
+      apagado: null,
+      fila: (x) => fila(x, false),
+    });
   }
   const activa = activeStack(b);
   const mia = s.turnoPropio !== null;
@@ -1977,6 +2107,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
               pasos: s.battleStepsLeft(),
               sinSalida: s.sinSalida(),
               trasLaFinta: s.trasLaFinta(),
+              modo: s.arma.modo,
               rendicion: NADA,
               poderes: html`${botonesDeArma(s, activa)}${botonesDePoder(s, activa)}`,
               hechizos:
@@ -1989,15 +2120,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
     heroe === null
       ? NADA
       : html`<div class="row"><span class="label">Maná de ${heroe.mando.name}</span><span>${heroe.mando.mana} / ${heroe.manaMaximo}</span></div>`;
-  const campo = listaDelCampo(b, (x) => {
-    const nombre = nombreEnElCampo(b, x);
-    return {
-      flecha: x.side === LADOS.izquierda.bando ? '▶' : '◀',
-      nombre,
-      cuenta: `${x.topHp} PV · ${s.laLlevaLaIA(x.id) ? 'IA' : 'tú'}`,
-      boton: botonDeEditar(x, nombre),
-    };
-  });
+  const campo = listaDelCampo(b, (x) => fila(x, true));
   return html`${ficha}
     <div class="row"><span class="label">Ronda</span><span>${b.round}</span></div>
     ${mana}

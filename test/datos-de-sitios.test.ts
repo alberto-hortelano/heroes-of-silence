@@ -371,6 +371,9 @@ describe('la partida juega la muralla con la pieza de la arena (`MurallaDeLaActi
     hero.movePoints = 100000;
     s.moveHeroTo(hero.id, pueblo.at);
     expect(s.scene).toBe('battle');
+    // La batalla de la persona empieza desplegando (la fase de despliegue de
+    // `main`): se acepta tal cual, y la muralla se juega después.
+    s.despliegue.listoTalCual();
     const b = s.battle!;
     expect(b.muralla.material).toBe('madera');
     stackById(b, 'attacker-heroe').hex = h(6, 1);

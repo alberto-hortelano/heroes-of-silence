@@ -146,6 +146,7 @@ export function decidir(kind: string, payload: any, semilla: number): unknown {
       const elegida =
         acciones.find((a) => a.type === 'power') ??
         acciones.find((a) => a.type === 'aim') ??
+        acciones.find((a) => a.type === 'throw') ??
         acciones.find((a) => a.type === 'attack') ??
         deMuralla.map((t) => acciones.find((a) => a.type === t)).find((a) => a !== undefined) ??
         acciones.find((a) => a.type === 'move') ??

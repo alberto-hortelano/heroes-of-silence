@@ -65,6 +65,17 @@ describe('los clips de cada unidad', () => {
     expect(() => archivosDeDañoYMuerte({ acciones: { death: 'muerte' } })).toThrow(/«muerte»/);
   });
 
+  it('el reposo `idle` del pack se retiró de todas partes: ningún juego ni unidad lo lleva (04-11-2026)', () => {
+    expect(() => archivoDeClip('idle')).toThrow(/«idle» se retiró/);
+    expect(() => hojasDe('lanza', { reposo: 'idle' })).toThrow(/«idle» se retiró/);
+    for (const [juego, j] of Object.entries(JUEGOS_DE_ARMAS)) {
+      expect(j.reposo, juego).not.toBe('idle');
+      expect(() => hojasDe(juego as JuegoDeArmas), juego).not.toThrow();
+    }
+    expect(JUEGOS_DE_ARMAS['espada-escudo'].reposo).toBe('idle4');
+    for (const u of TODAS) expect(u.clipsDelManiqui?.reposo, u.id).not.toBe('idle');
+  });
+
   it('toda unidad a pie tiene maniquí propio con sus clips, y todos existen', () => {
     for (const u of TODAS) {
       const juego = JUEGO_DEL_YBOT[u.id] as string;

@@ -22,6 +22,7 @@ import { rachasSinArte } from '../src/client/render/base/pintar.js';
 import { dondePulsarElSitio } from '../src/client/render/base/recortes.js';
 import {
   bandosSinDueño,
+  bordeDeLasCasillas,
   COLOR_BANDO,
   cajaDeCorona,
   cajaDeFigura,
@@ -53,7 +54,7 @@ import {
   tableroPara,
 } from '../src/client/render/proyeccion.js';
 import { repartirClic } from '../src/client/reparto-del-clic.js';
-import { AYUDA_DE_LA_BASE, Session } from '../src/client/session.js';
+import { SesionDeArena, Session } from '../src/client/session.js';
 import { renderConversacion } from '../src/client/views/base.js';
 import {
   AVISO_DE_ESPERA,
@@ -61,15 +62,27 @@ import {
   renderActions,
   renderSide,
 } from '../src/client/views/panels.js';
-import { chooseBattleAction } from '../src/core/ai/tactics.js';
-import { isAlive, SIN_CARGAS, stackHexes } from '../src/core/battle/battle.js';
+import {
+  apuntarBlocker,
+  isAlive,
+  lanzarBlocker,
+  SIN_CARGAS,
+  stackById,
+  stackHexes,
+} from '../src/core/battle/battle.js';
+import { areAdjacent, hexDistance, isInside, neighbours } from '../src/core/battle/board.js';
+import { alcanceDeLaGranada } from '../src/core/battle/granada.js';
+import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import type { BattleStack, Side } from '../src/core/battle/types.js';
+import { COMBATE_COMPLETO } from '../src/core/combate.js';
+import type { Pieza } from '../src/core/data.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import { DESPEJADO } from '../src/core/state/clima.js';
 import { faccionesDeLaSemilla } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 import { building } from '../src/core/town/buildings.js';
 import type { Hex } from '../src/core/types.js';
+import type { Unidad } from '../src/core/unidad.js';
 import {
   bordeDeAtras,
   type Disposicion,
@@ -77,13 +90,18 @@ import {
   enLaFranja,
   type Plano,
 } from '../src/shared/base.js';
+import { destinoDeHoy, sesionContraMonstruo } from './batalla-de-cliente.js';
 import {
-  destinoDeHoy,
-  rutaConEmboscada,
-  sesionContraMonstruo,
-  sesionesContraMonstruo,
-} from './batalla-de-cliente.js';
-import { agresiva, anteLaBase, enElCampo, fueraDeSuBase, primeraSemillaCon } from './helpers.js';
+  agresiva,
+  anteLaBase,
+  catalogoCon,
+  enElCampo,
+  escenaDeBatalla,
+  fueraDeSuBase,
+  hojasDeLaArena,
+  MANOS_DE_PRUEBA,
+  primeraSemillaCon,
+} from './helpers.js';
 
 /**
  * Una batalla en la que la persona ATACA a un monstruo: la busca
@@ -94,20 +112,14 @@ function sesionEnBatalla(): Session {
   return sesionContraMonstruo();
 }
 
-/** La escena de batalla de esa sesión, encuadrada y con su primera lectura hecha, que no anima. */
-function escenaDeBatalla(sesion: () => Session): EscenaBatalla {
-  const escena = new EscenaBatalla(sesion);
-  escena.encuadrar(1086, 778);
-  escena.sincronizar(0);
-  return escena;
-}
-
 /**
  * Mueve la unidad activa un tramo y devuelve lo que tarda en contarse, en ms:
  * a partir de ahí la cola tiene algo dentro.
  */
 function jugarUnTramo(s: Session): number {
   const antes = s.battle!.log.length;
+  // Un tirador empieza en «A distancia», que no anda: el tramo es de «Cuerpo a cuerpo».
+  if (s.arma.modo === 'distancia') s.arma.elegir('cuerpo');
   const paso = s.battleLegalActions().find((a) => a.type === 'move');
   if (paso === undefined) throw new Error('la unidad activa no tiene a dónde moverse');
   s.playBattleAction(paso);
@@ -284,35 +296,6 @@ describe('el mapa con el dedo', () => {
 });
 
 describe('la ruta avisa de la emboscada (H2)', () => {
-  // Una ruta que pisa, a la vista, la región de un grupo que embosca: la
-  // primera semilla que la da. Antes, la barra decía «llegas hoy (3 pasos)» y
-  // al pulsar había batalla.
-  it('el tramo desde la emboscada va marcado, la barra lo dice delante y la batalla sale donde avisa', () => {
-    const { s, destino } = rutaConEmboscada();
-    const escena = new EscenaAventura(() => s);
-    escena.encuadrar(800, 600);
-    const camara = centrarEn({ tile: TILE_INICIAL, x: 0, y: 0 }, focoDe(s), {
-      ancho: 800,
-      alto: 600,
-      mapaAncho: s.state.map.width,
-      mapaAlto: s.state.map.height,
-    });
-    const p = casillaAPixel(camara, destino);
-    escena.mover(p.x, p.y);
-    const ruta = escena.rutaVisible;
-    const donde = ruta.findIndex((paso) => paso.emboscada !== undefined);
-    expect(donde).toBeGreaterThanOrEqual(0);
-    expect(ruta.slice(0, donde).every((paso) => paso.peligro === false)).toBe(true);
-    expect(ruta.slice(donde).every((paso) => paso.peligro === true)).toBe(true);
-    expect(s.status).toMatch(
-      /^Cuidado: el camino cruza la región de \d+ asaltantes, que te emboscarían/,
-    );
-    // El aviso es VERDAD: pulsar da la batalla con ese grupo atacando.
-    const quien = ruta[donde]!.emboscada!.id;
-    s.clickTile(destino);
-    expect(s.state.pendingBattle?.attacker).toEqual({ kind: 'raider', raiderId: quien });
-  });
-
   it('una ruta sin emboscada no avisa', () => {
     const s = new Session(1);
     const ruta = s.previewPath(destinoDeHoy(s, false));
@@ -492,63 +475,6 @@ describe('la batalla en el lienzo', () => {
     expect(veces).toBe(0);
   });
 
-  it('pulsar el centro de un hex alcanzable que tapa una figura enemiga mueve, no ataca', () => {
-    // El caso de QA: semilla 2, ronda 3, el hex (5,4) queda bajo el cuerpo de
-    // `defender-13`. Se busca jugando, igual que lo midió QA, y el test exige
-    // encontrarlo: si no, no probaría nada. Va en el lienzo del móvil, donde el
-    // suelo sigue a 25°: en escritorio la cámara se levanta, las filas se
-    // separan y ya no hay ninguno tapado (0 de 1011, medido).
-    // Se busca en las batallas por orden, no solo en la primera: si la primera
-    // no lo da (con el mapa de «mapas densos», vuelta 1 de QA, no lo daba),
-    // otra sí, y lo que se prueba es el clic, no la batalla.
-    const [ancho, alto] = [860, 380];
-    const t = tableroPara(ancho, alto);
-    let s: Session | null = null;
-    let caso: { hex: Hex; tapa: string } | null = null;
-    let batallas = 0;
-    for (const hallada of sesionesContraMonstruo()) {
-      if (caso !== null || batallas >= 10) break;
-      batallas++;
-      s = hallada.s;
-      for (let n = 0; n < 80 && caso === null; n++) {
-        const b = s.battle;
-        if (b === null || b.finished !== null) break;
-        for (const a of s.battleLegalActions()) {
-          if (a.type !== 'move') continue;
-          const c = centroHex(t, a.to);
-          const tapa = b.stacks.find((e) => {
-            if (!isAlive(e) || e.side === s!.miBando) return false;
-            const k = cajaDeFigura(t, centroDeStack(stackHexes(e)));
-            return (
-              Math.abs(c.x - k.x) <= k.ancho / 2 && c.y <= k.suelo + 4 && c.y >= k.suelo - k.alto
-            );
-          });
-          if (tapa !== undefined) {
-            caso = { hex: a.to, tapa: tapa.id };
-            break;
-          }
-        }
-        if (caso === null) s.playBattleAction(chooseBattleAction(b));
-      }
-    }
-    if (caso === null || s === null) {
-      throw new Error(`en ${batallas} batallas de 80 jugadas no hay ningún hex alcanzable tapado`);
-    }
-
-    const escena = new EscenaBatalla(() => s);
-    escena.encuadrar(ancho, alto);
-    const { hex: destino, tapa: tapador } = caso;
-    const c = centroHex(t, destino);
-    const activo = s.battle!.turno?.stack;
-    // Antes del arreglo, lo que había bajo ese punto era la figura enemiga.
-    expect(escena.objetivoEn(c.x, c.y)).toBeUndefined();
-    const vidaAntes = s.battle!.stacks.find((x) => x.id === tapador)!.count;
-    escena.pulsar(c.x, c.y);
-    const movido = s.battle!.stacks.find((x) => x.id === activo)!;
-    expect(stackHexes(movido)).toContainEqual(destino);
-    expect(s.battle!.stacks.find((x) => x.id === tapador)!.count).toBe(vidaAntes);
-  });
-
   it('fuera del centro, la caja de la figura sigue siendo de la figura', () => {
     const s = sesionEnBatalla();
     const escena = new EscenaBatalla(() => s);
@@ -639,6 +565,8 @@ describe('el comandante se distingue en el tablero (H-4)', () => {
       clima: { sitio: DESPEJADO, ahora: 0 },
       tanteo: null,
       apuntados: new Map(),
+      granadas: new Map(),
+      granadaTanteada: null,
     };
     const coronas = (x: BattleStack): number => {
       const { ctx, textos } = contextoQueApunta();
@@ -1062,19 +990,6 @@ describe('la base caminable (escenas/castillo.ts)', () => {
     expect(escena.marca).toBe('quieto');
   });
 
-  it('la barra dice lo de la base, no lo del mapa (QA, H4)', () => {
-    const { s, escena, d } = enLaBase();
-    expect(s.status).toBe(AYUDA_DE_LA_BASE);
-    // El ratón encima de un edificio lo nombra; pulsado, vuelve la ayuda.
-    const q = laPuerta(d, 'hall')(escena.camara()!);
-    expect(escena.mover(q.x, q.y)).toBe(true);
-    expect(s.status).toMatch(/^Ayuntamiento: pulsa/);
-    escena.pulsar(q.x, q.y, 0);
-    expect(s.status).toBe(AYUDA_DE_LA_BASE);
-    s.closeTown();
-    expect(s.status).toBe('');
-  });
-
   it('sin arte, el marcador va de una vez por cada racha de tramos seguidos sin placa (QA, H10)', () => {
     const { d } = enLaBase();
     const sinNada = Array.from({ length: d.tramos }, () => null);
@@ -1180,5 +1095,162 @@ describe('la base caminable (escenas/castillo.ts)', () => {
       lista.filter((e) => e.tipo === 'edificio').map((e) => (e as { sitio: string }).sitio),
     ).toEqual(expect.arrayContaining(['hall', 'lvl1']));
     expect(lista.filter((e) => e.tipo === 'edificio')).toHaveLength(2);
+  });
+});
+
+describe('«A distancia» con el puntero: lo que no se puede, dicho como al pulsar', () => {
+  /** Piezas de la prueba, que no suman nada: una granada y un arco. */
+  const GRANADA: Pieza = {
+    id: 'granada_de_prueba',
+    nombre: 'Granada de prueba',
+    hueco: 'distancia',
+    seConsigue: [],
+    ataque: 0,
+    fuerza: 0,
+    defensa: 0,
+    peso: 0,
+    tiro: 'granada',
+    cargas: 2,
+    precio: 0,
+  };
+  const ARCO: Pieza = {
+    id: 'arco_de_prueba',
+    nombre: 'Arco de prueba',
+    hueco: 'distancia',
+    seConsigue: [],
+    ataque: 0,
+    fuerza: 0,
+    defensa: 0,
+    peso: 0,
+    precio: 0,
+  };
+
+  /** Una unidad de la prueba con las manos de prueba y, si se dice, `distancia`. */
+  function deLaPrueba(id: string, name: string, distancia?: string): Unidad {
+    return {
+      id,
+      name,
+      faction: 'templarios',
+      leadership: 1,
+      attack: 1,
+      fuerza: 2,
+      agilidad: 3,
+      hp: 50,
+      cuerpo: { hoja: hojasDeLaArena()[0]!.id },
+      equipo: { arma: MANOS_DE_PRUEBA.id, ...(distancia === undefined ? {} : { distancia }) },
+      traits: [],
+      habilidades: [],
+    };
+  }
+
+  /**
+   * Una pelea de la arena con `quien` de la persona en (1,4) y un blanco de la IA en
+   * (10,4), lejos: a ninguno le pesa el contacto. La escena, en un lienzo de 1280×720,
+   * y la casilla en píxeles de su tablero.
+   */
+  function enLaArena(quien: Unidad) {
+    const lado = (u: Unidad, ia: boolean) => ({ unidades: [{ unidad: u }], heroe: null, ia });
+    const s = new SesionDeArena(
+      {
+        izquierda: lado(quien, false),
+        derecha: lado(deLaPrueba('blanco-de-prueba', 'Blanco de prueba'), true),
+        equipo: catalogoCon(MANOS_DE_PRUEBA, GRANADA, ARCO),
+        combate: COMBATE_COMPLETO,
+        muralla: SIN_MURALLA,
+      },
+      7,
+    );
+    s.empezar();
+    s.despliegue.listoTalCual();
+    const yo = s.turnoPropio?.stack;
+    if (yo === undefined) throw new Error('esperaba el turno de la izquierda');
+    yo.hex = { col: 1, row: 4 };
+    stackById(s.battle, 'defender-0').hex = { col: 10, row: 4 };
+    const escena = new EscenaBatalla(() => s);
+    escena.encuadrar(1280, 720);
+    escena.sincronizar(0);
+    const t = tableroPara(1280, 720);
+    const en = (h: Hex) => centroHex(t, h);
+    return { s, escena, en, yo };
+  }
+
+  /** Lo que dice la barra al pasar el puntero por `h` y lo que dice al pulsarla. */
+  function señalarYPulsar(
+    { s, escena, en }: ReturnType<typeof enLaArena>,
+    h: Hex,
+  ): { señalada: string; pulsada: string } {
+    const p = en(h);
+    s.status = '';
+    escena.mover(p.x, p.y);
+    const señalada = s.status;
+    s.status = '';
+    escena.pulsar(p.x, p.y);
+    return { señalada, pulsada: s.status };
+  }
+
+  it('la granada fuera de alcance da su motivo sobre un enemigo y sobre una casilla vacía (H1 del QA de las granadas)', () => {
+    const pelea = enLaArena(deLaPrueba('lanzador-de-prueba', 'Lanzador de prueba', GRANADA.id));
+    const { s, yo } = pelea;
+    expect(s.arma.modo).toBe('distancia');
+    const alcance = alcanceDeLaGranada(yo.unit);
+    // Sobre el blanco y sobre una casilla vacía, los dos más allá de su alcance: lo
+    // que dice el puntero es lo que dice el clic, el motivo del núcleo. Antes, sobre
+    // el enemigo, el del cuerpo a cuerpo, y sobre la vacía, nada.
+    for (const h of [
+      { col: 10, row: 4 },
+      { col: 8, row: 6 },
+    ]) {
+      expect(hexDistance(yo.hex, h)).toBeGreaterThan(alcance);
+      const motivo = lanzarBlocker(s.battle, h);
+      expect(motivo).toContain(`está a ${hexDistance(yo.hex, h)}`);
+      const { señalada, pulsada } = señalarYPulsar(pelea, h);
+      expect(señalada).toBe(pulsada);
+      expect(señalada).toContain(motivo!);
+    }
+    // Nada de eso se ha jugado.
+    expect(s.battle.stacks.every((x) => x.granada === null)).toBe(true);
+    // Y a su alcance, lo de siempre: a dónde lanzaría.
+    const cerca = { col: yo.hex.col + alcance, row: yo.hex.row };
+    expect(lanzarBlocker(s.battle, cerca)).toBeNull();
+    const p = pelea.en(cerca);
+    pelea.escena.mover(p.x, p.y);
+    expect(s.status.startsWith(`Lanzarías a (${cerca.col},${cerca.row}).`)).toBe(true);
+  });
+
+  it('el arco sigue igual sobre un enemigo, y sobre su propia casilla dice por qué', () => {
+    const pelea = enLaArena(deLaPrueba('arquero-de-prueba', 'Arquero de prueba', ARCO.id));
+    const { s, yo } = pelea;
+    expect(s.arma.modo).toBe('distancia');
+    const blanco = { col: 10, row: 4 };
+    const p = pelea.en(blanco);
+    pelea.escena.mover(p.x, p.y);
+    expect(
+      s.status.startsWith(
+        `Apuntarías a (10,4). Hoy daría a ${stackById(s.battle, 'defender-0').unit.name}.`,
+      ),
+    ).toBe(true);
+    // Sobre su casilla, el motivo del núcleo, el mismo que el del clic.
+    const motivo = apuntarBlocker(s.battle, yo.hex);
+    expect(motivo).not.toBeNull();
+    const { señalada, pulsada } = señalarYPulsar(pelea, yo.hex);
+    expect(señalada).toBe(pulsada);
+    expect(señalada).toContain(motivo!);
+    expect(s.battle.stacks.every((x) => x.apuntado === null)).toBe(true);
+  });
+});
+
+describe('el borde de la explosión de una granada (H2 del QA de las granadas)', () => {
+  it('es el contorno de fuera: 6 lados de una casilla, 10 de dos vecinas, 18 de la flor de siete', () => {
+    const t = tableroPara(1280, 720);
+    const centro = { col: 5, row: 4 };
+    expect(bordeDeLasCasillas(t, [centro])).toHaveLength(6);
+    expect(bordeDeLasCasillas(t, [centro, { col: 6, row: 4 }])).toHaveLength(10);
+    expect(bordeDeLasCasillas(t, [centro, ...neighbours(centro)])).toHaveLength(18);
+    // En la esquina del tablero, la flor sale recortada: seis lados por casilla menos
+    // los dos de cada par de vecinas del grupo (`areAdjacent`, la del núcleo).
+    const esquina = { col: 0, row: 0 };
+    const flor = [esquina, ...neighbours(esquina).filter(isInside)];
+    const pares = flor.flatMap((a, i) => flor.slice(i + 1).filter((b) => areAdjacent(a, b)));
+    expect(bordeDeLasCasillas(t, flor)).toHaveLength(6 * flor.length - 2 * pares.length);
   });
 });
