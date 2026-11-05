@@ -20,7 +20,13 @@
  *  - **la muralla de cada sitio** en la batalla (fase 2): la piedra de la ciudad y
  *    la madera del pueblo, de `data/sitios.json`, que **solo importa este módulo**
  *    (lo vigila `test/invariantes.test.ts`) y que se juzga al cargar
- *    (`murallaDelMapaBlocker`): una forma rota no llega a ninguna partida.
+ *    (`murallaDelMapaBlocker`): una forma rota no llega a ninguna partida;
+ *  - **las obras de un puesto** (fase 3): la empalizada y la muralla de un paso
+ *    tomado, con su precio y la forma que nombran en `data/sitios.json`
+ *    (`OBRAS_DEL_PUESTO`; el fichero entero lo lee `leerSitios`), la regla de
+ *    hacerlas (`mejorarBlocker`) y **la única escritura de `node.mejora`**
+ *    (`mejorarElPuesto`; lo vigila `test/invariantes.test.ts`). El oro lo cobra la
+ *    acción, en `game.ts`, como toda compra.
  *
  * No importa nada de `game.ts` salvo tipos: `game.ts` lo importa a él. De
  * `asaltantes.ts`, la región de una casilla (`regionDeCasilla`), que no importa
@@ -29,6 +35,7 @@
 import sitiosJson from '../../../data/sitios.json' with { type: 'json' };
 import { unitPower } from '../ai/fuerza.js';
 import {
+  type MaterialDeMuralla,
   type MurallaDeBatalla,
   murallaDelMapaBlocker,
   SIN_MURALLA,
@@ -46,12 +53,19 @@ import {
   troopSummary,
   troopUnit,
 } from '../hero/troop.js';
-import type { MapObject } from '../map/map.js';
+import {
+  esObraDelPuesto,
+  type MapObject,
+  type MejoraDelPuesto,
+  OBRA_SIGUIENTE,
+  OBRAS_DE_UN_PUESTO,
+  type ObraDelPuesto,
+} from '../map/map.js';
 import { dueñoDeLaRegion } from '../map/regiones.js';
 import { CHARACTER_BODY } from '../rpg/character.js';
-import type { Town } from '../town/town.js';
+import { oroBlocker, type Town } from '../town/town.js';
 import type { Army, PlayerId, Point, Troop } from '../types.js';
-import { problemasDeObjeto } from '../validar.js';
+import { deLaLista, entero, esObjeto, problemasDeObjeto } from '../validar.js';
 import { regionDeCasilla } from './asaltantes.js';
 import type { AdventureAction, GameState } from './game.js';
 
@@ -191,71 +205,302 @@ export function dueñoDelSitio(state: GameState, sitio: Sitio): PlayerId | null 
 }
 
 /**
- * Los sitios que se defienden tras una muralla del mapa, que son las claves de
- * `data/sitios.json`: cada uno con su forma y su material. El paso no la lleva (sus
- * mejoras, la fase 3, tendrán la suya aquí).
+ * Lo que es cada sitio en una frase («… es una ciudad»): junto a `nombreDelSitio`,
+ * para los motivos que dicen por qué un sitio no vale para algo.
+ */
+export const QUE_ES_EL_SITIO: Readonly<Record<Sitio['kind'], string>> = {
+  ciudad: 'una ciudad',
+  paso: 'un paso',
+  pueblo: 'un pueblo',
+};
+
+/**
+ * Los sitios que se defienden siempre tras una muralla del mapa: cada uno nombra
+ * su forma en los «usos» de `data/sitios.json`. El paso no: según su obra, pelea
+ * tras la que nombre ella, o sin muralla.
  */
 const SITIOS_CON_MURALLA = ['ciudad', 'pueblo'] as const satisfies readonly Sitio['kind'][];
 type SitioConMuralla = (typeof SITIOS_CON_MURALLA)[number];
 
 /**
- * Las murallas del mapa de `valor` (lo que trae `data/sitios.json`), una por sitio
- * que la lleva, o lanza nombrando el fichero con la primera que no vale: que sea
- * una muralla (`validarMuralla`) y que valga para el mapa (`murallaDelMapaBlocker`).
- * Exportada para que el test de datos le dé formas rotas a propósito; el juego la
- * llama una vez, al cargar (`MURALLAS_DEL_MAPA`).
+ * El material de la muralla de cada obra: el que dice su nombre (la petición del
+ * usuario, «una torreta de madera si es una empalizada o una torre si está
+ * amurallado»). Es la regla de la carga, no un dato: el fichero dice qué forma
+ * nombra cada obra, y una empalizada que nombrara una de piedra no carga.
  */
-export function leerMurallasDelMapa(
-  valor: unknown,
-  fichero = 'data/sitios.json',
-): Readonly<Record<SitioConMuralla, MurallaDeBatalla>> {
-  const [enLaRaiz] = problemasDeObjeto(valor, ['_comment', 'murallas'], ['murallas']);
-  if (enLaRaiz !== undefined) throw new Error(`${fichero}: ${enLaRaiz}`);
-  const murallas = (valor as { readonly murallas: unknown }).murallas;
-  const [enLasMurallas] = problemasDeObjeto(murallas, SITIOS_CON_MURALLA, SITIOS_CON_MURALLA);
-  if (enLasMurallas !== undefined) throw new Error(`${fichero}: «murallas»: ${enLasMurallas}`);
-  const leidas = {} as Record<SitioConMuralla, MurallaDeBatalla>;
-  for (const sitio of SITIOS_CON_MURALLA) {
-    const quien = `${fichero}: la muralla ${DEL_SITIO[sitio]}`;
+const MATERIAL_DE_LA_OBRA: Readonly<Record<ObraDelPuesto, MaterialDeMuralla>> = {
+  empalizada: 'madera',
+  muralla: 'piedra',
+};
+
+/** Lo que es cada obra de un puesto en la partida: lo que cuesta y tras qué muralla se pelea. */
+export interface LaObra {
+  /** En oro (inventado, `data/sitios.json`). */
+  readonly precio: number;
+  /** La forma que nombra en el fichero: el mismo objeto que la de quien la comparta. */
+  readonly muralla: MurallaDeBatalla;
+}
+
+/** Lo que se lee de `data/sitios.json` (`leerSitios`). */
+export interface LosSitios {
+  /** La muralla de toda batalla contra una ciudad y contra un pueblo. */
+  readonly murallas: Readonly<Record<SitioConMuralla, MurallaDeBatalla>>;
+  /** Las obras de un puesto, con su precio y su muralla. */
+  readonly obras: Readonly<Record<ObraDelPuesto, LaObra>>;
+}
+
+/** Los usos del fichero: los sitios con muralla y las obras de un puesto. */
+const USOS = [...SITIOS_CON_MURALLA, ...OBRAS_DE_UN_PUESTO];
+
+/**
+ * Lo que trae `valor` (el contenido de `data/sitios.json`), o lanza nombrando el
+ * fichero con lo primero que no vale. Las **formas**, por nombre en «murallas» (un
+ * conjunto abierto: las que se quieran), cada una una muralla (`validarMuralla`) que
+ * vale para el mapa (`murallaDelMapaBlocker`). **Quién usa cuál**, una sola tabla,
+ * «usos»: la ciudad, el pueblo y cada obra del paso nombran su forma, y las obras
+ * llevan su precio, un entero de 1 en adelante; la forma de una obra, del material
+ * que dice su nombre (`MATERIAL_DE_LA_OBRA`). Exportada para que el test de datos le
+ * dé ficheros rotos a propósito; el juego la llama una vez, al cargar.
+ */
+export function leerSitios(valor: unknown, fichero = 'data/sitios.json'): LosSitios {
+  const enLaRaiz = objeto(valor, ['_comment', 'murallas', 'usos'], ['murallas', 'usos'], fichero);
+  const formas = new Map<string, MurallaDeBatalla>();
+  const crudas = enLaRaiz.murallas;
+  if (!esObjeto(crudas)) throw new Error(`${fichero}: «murallas» tiene que ser un objeto`);
+  for (const [nombre, cruda] of Object.entries(crudas)) {
+    const quien = `${fichero}: la muralla «${nombre}»`;
     let m: MurallaDeBatalla;
     try {
-      m = validarMuralla((murallas as Record<SitioConMuralla, unknown>)[sitio]);
+      m = validarMuralla(cruda);
     } catch (err) {
       throw new Error(`${quien}: ${err instanceof Error ? err.message : String(err)}`);
     }
     const motivo = murallaDelMapaBlocker(m);
     if (motivo !== null) throw new Error(`${quien} no vale: ${motivo}`);
-    leidas[sitio] = m;
+    formas.set(nombre, m);
   }
-  return Object.freeze(leidas);
+  const nombres = [...formas.keys()];
+  const usos = objeto(enLaRaiz.usos, USOS, USOS, `${fichero}: «usos»`);
+  /** La forma que nombra el uso `uso`, que tiene los campos `campos`. */
+  const formaDe = (uso: string, campos: readonly string[]) => {
+    const quien = `${fichero}: el uso «${uso}»`;
+    const crudo = objeto(usos[uso], campos, campos, quien);
+    const muralla = formas.get(deLaLista(crudo.muralla, nombres, '«muralla»', quien));
+    return { crudo, quien, muralla: muralla as MurallaDeBatalla };
+  };
+  const murallas = {} as Record<SitioConMuralla, MurallaDeBatalla>;
+  for (const sitio of SITIOS_CON_MURALLA) murallas[sitio] = formaDe(sitio, ['muralla']).muralla;
+  const obras = {} as Record<ObraDelPuesto, LaObra>;
+  for (const obra of OBRAS_DE_UN_PUESTO) {
+    const { crudo, quien, muralla } = formaDe(obra, ['muralla', 'precio']);
+    if (muralla.material !== MATERIAL_DE_LA_OBRA[obra]) {
+      throw new Error(
+        `${quien}: la ${obra} se pelea tras una muralla de ${MATERIAL_DE_LA_OBRA[obra]}, y «${String(crudo.muralla)}» es de ${muralla.material}`,
+      );
+    }
+    obras[obra] = { precio: entero(crudo.precio, '«precio»', quien, 1), muralla };
+  }
+  return { murallas: Object.freeze(murallas), obras: Object.freeze(obras) };
 }
 
-/** «de la ciudad», «del pueblo»: cómo se dice de qué sitio es una muralla. */
-const DEL_SITIO: Readonly<Record<SitioConMuralla, string>> = {
-  ciudad: 'de la ciudad',
-  pueblo: 'del pueblo',
-};
+/** `valor` como objeto con los campos `campos` (y `obligatorios`), o lanza con `quien` delante. */
+function objeto(
+  valor: unknown,
+  campos: readonly string[],
+  obligatorios: readonly string[],
+  quien: string,
+): Readonly<Record<string, unknown>> {
+  const [motivo] = problemasDeObjeto(valor, campos, obligatorios);
+  if (motivo !== undefined) throw new Error(`${quien}: ${motivo}`);
+  return valor as Readonly<Record<string, unknown>>;
+}
+
+const SITIOS = leerSitios(sitiosJson);
 
 /** Las de la partida: la de las ciudades y la de los pueblos. */
-export const MURALLAS_DEL_MAPA = leerMurallasDelMapa(sitiosJson);
+export const MURALLAS_DEL_MAPA = SITIOS.murallas;
+
+/** Las obras de un puesto de la partida: la empalizada y la muralla. */
+export const OBRAS_DEL_PUESTO = SITIOS.obras;
 
 /**
  * Con qué muralla se pelea en el sitio `sitio` quien lo defiende (D3, D7): una
- * ciudad —también la base y la neutral— y un pueblo, la suya de `data/sitios.json`
- * (`MURALLAS_DEL_MAPA`); un paso, ninguna. Sin sitio (un monstruo, un grupo de
- * asaltantes, un lugar, un héroe fuera de un sitio suyo), ninguna. Lo pregunta
- * `montarLaBatalla`, que con muralla da escalera al atacante (`alAsalto`). Recibe la
- * partida aunque hoy no la lea: la mejora de un paso (la fase 3) es de la partida.
+ * ciudad —también la base y la neutral— y un pueblo, la suya (`MURALLAS_DEL_MAPA`);
+ * un paso, la de su obra (`OBRAS_DEL_PUESTO`), y sin obra, ninguna. Sin sitio (un
+ * monstruo, un grupo de asaltantes, un lugar, un héroe fuera de un sitio suyo),
+ * ninguna. Lo pregunta `montarLaBatalla`, que con muralla da escalera al atacante
+ * (`alAsalto`).
  */
-export function murallaDelSitio(_state: GameState, sitio: Sitio | null): MurallaDeBatalla {
+export function murallaDelSitio(sitio: Sitio | null): MurallaDeBatalla {
   if (sitio === null) return SIN_MURALLA;
   switch (sitio.kind) {
     case 'ciudad':
     case 'pueblo':
       return MURALLAS_DEL_MAPA[sitio.kind];
     case 'paso':
-      return SIN_MURALLA;
+      return sitio.nodo.mejora === 'ninguna'
+        ? SIN_MURALLA
+        : OBRAS_DEL_PUESTO[sitio.nodo.mejora].muralla;
   }
+}
+
+/** El material de la muralla tras la que se pelea en un puesto con cada obra (`null`, sin muralla). */
+const MATERIAL_DEL_PUESTO: Readonly<Record<MejoraDelPuesto, MaterialDeMuralla | null>> = {
+  ninguna: null,
+  empalizada: OBRAS_DEL_PUESTO.empalizada.muralla.material,
+  muralla: OBRAS_DEL_PUESTO.muralla.muralla.material,
+};
+
+/** Una obra hecha (o por hacer): quién, en qué paso, cuál y por cuánto. */
+export interface ObraHecha {
+  readonly hero: Hero;
+  readonly nodo: Nodo;
+  readonly obra: ObraDelPuesto;
+  readonly precio: number;
+}
+
+/**
+ * Lo que pide mejorar un puesto, ya resuelto: que no es un puesto suyo o que la
+ * obra pedida no es la que toca (`no`), que ya está amurallado (`hecho`, que no es
+ * un rechazo: no hay nada que arreglar) o la obra que toca, con el motivo para no
+ * hacerla (el oro) o `null`.
+ */
+type LaMejoraPedida =
+  | { readonly kind: 'no'; readonly motivo: string }
+  | { readonly kind: 'hecho'; readonly nota: string }
+  | (ObraHecha & { readonly kind: 'obra'; readonly motivo: string | null });
+
+/**
+ * Juzga «hacer la obra `pedida` en el puesto donde está `heroId`» con `oro` en el
+ * monedero y, si toca obra, dice cuál y por cuánto: la regla de `mejorarBlocker`, lo
+ * que aplica `mejorarElPuesto` y lo que enseña `laObraDelPuesto` (que no pide
+ * ninguna, `null`: enseña la que toca), una vez. En el orden en que se entiende:
+ * quién, dónde, de quién es (`heroeEnSuSitio`), que sea un paso, que quede obra,
+ * que la pedida sea la que toca y el oro.
+ *
+ * **La obra se pide por su nombre** (QA de la fase 3, H-F3-1): con un doble clic en
+ * «Levantar la empalizada», el segundo caía en el mismo botón repintado como
+ * «Amurallar» y compraba la muralla, 4 000 de oro que quien juega no vio ofrecidos.
+ * Quien pide la empalizada de un puesto que ya la tiene no compra lo siguiente.
+ */
+function laMejoraPedida(
+  state: GameState,
+  player: PlayerId,
+  heroId: string,
+  pedida: ObraDelPuesto | null,
+  oro: number,
+): LaMejoraPedida {
+  const donde = heroeEnSuSitio(state, player, heroId, 'solo se mejora un paso tuyo, un puesto');
+  if ('motivo' in donde) return { kind: 'no', motivo: donde.motivo };
+  const { hero, sitio } = donde;
+  if (sitio.kind !== 'paso') {
+    return {
+      kind: 'no',
+      motivo: `solo se mejora un paso tomado, un puesto: ${nombreDelSitio(sitio)} es ${QUE_ES_EL_SITIO[sitio.kind]}`,
+    };
+  }
+  // Lo que nombra la acción, que no lo comprueba el tipo: el clic lo lee del botón.
+  const comoLlega: unknown = pedida;
+  if (comoLlega !== null && !esObraDelPuesto(comoLlega)) {
+    return {
+      kind: 'no',
+      motivo: `«${String(comoLlega)}» no es una obra de un puesto; valen ${OBRAS_DE_UN_PUESTO.join(', ')}`,
+    };
+  }
+  // «El puesto de …» y no el nombre del paso: «la puerta de la muralla de (17,6)
+  // ya está amurallado» no concordaba (QA de la fase 3, H-F3-2).
+  const elPuesto = `el puesto ${delSitio(sitio)}`;
+  const ahora = sitio.nodo.mejora;
+  const obra = OBRA_SIGUIENTE[ahora];
+  if (obra === null) {
+    return { kind: 'hecho', nota: `${elPuesto} ya está amurallado: no hay más obra que hacer` };
+  }
+  if (pedida !== null && pedida !== obra) {
+    const tiene = ahora === 'ninguna' ? 'aún no tiene ninguna obra' : `ya tiene la ${ahora}`;
+    return { kind: 'no', motivo: `${elPuesto} ${tiene}: la siguiente obra es la ${obra}` };
+  }
+  const { precio } = OBRAS_DEL_PUESTO[obra];
+  return { kind: 'obra', hero, nodo: sitio.nodo, obra, precio, motivo: oroBlocker(precio, oro) };
+}
+
+/**
+ * Por qué `player`, con `oro`, no puede hacer la obra `obra` en el puesto donde está
+ * su héroe `heroId` (`mejorar_el_puesto`), o `null`. **La regla de la mejora**, una
+ * vez, como `buildBlocker`: la lee la acción (que lanza con ella y cobra) y el botón
+ * del diálogo de la guarnición (`laObraDelPuesto`). La obra es la siguiente a la que
+ * tiene (ninguna → empalizada → muralla) y se pide por su nombre: otra se rechaza
+ * sin cobrar. Se paga en oro (`oroBlocker`) y es inmediata, sin tope por día
+ * (pregunta 4 del plan). No mira el turno.
+ */
+export function mejorarBlocker(
+  state: GameState,
+  player: PlayerId,
+  heroId: string,
+  obra: ObraDelPuesto,
+  oro: number,
+): string | null {
+  const m = laMejoraPedida(state, player, heroId, obra, oro);
+  return m.kind === 'hecho' ? m.nota : m.motivo;
+}
+
+/**
+ * Hace la obra `obra` —la siguiente— en el puesto donde está el héroe `heroId`, o
+ * lanza con `mejorarBlocker`. **La única escritura de `node.mejora`** (lo vigila
+ * `test/invariantes.test.ts`). No cobra: cobra la acción, con el jugador que ya
+ * tiene, como toda compra. Devuelve qué obra, dónde y por cuánto.
+ */
+export function mejorarElPuesto(
+  state: GameState,
+  player: PlayerId,
+  heroId: string,
+  obra: ObraDelPuesto,
+  oro: number,
+): ObraHecha {
+  const m = laMejoraPedida(state, player, heroId, obra, oro);
+  const motivo = m.kind === 'hecho' ? m.nota : m.motivo;
+  if (m.kind !== 'obra' || motivo !== null) {
+    throw new Error(`no se puede mejorar el puesto: ${motivo}`);
+  }
+  m.nodo.mejora = m.obra;
+  return m;
+}
+
+/** Lo que enseña la pantalla del puesto de su obra (`laObraDelPuesto`). */
+export interface LaObraDelPuesto {
+  /** La que tiene. */
+  readonly ahora: MejoraDelPuesto;
+  /** La que sigue y su precio, o `null` si ya está amurallado. */
+  readonly siguiente: { readonly obra: ObraDelPuesto; readonly precio: number } | null;
+  /** Tras qué muralla se pelea en el puesto con cada obra (`null`, sin muralla). */
+  readonly materiales: Readonly<Record<MejoraDelPuesto, MaterialDeMuralla | null>>;
+  /** Por qué no se puede hacer la siguiente (el oro, el dueño): un rechazo. */
+  readonly motivo: string | null;
+  /** Por qué no hay siguiente («ya está amurallado»): solo informa. */
+  readonly nota: string | null;
+}
+
+/**
+ * La obra del puesto donde está `hero` como la lee el diálogo de la guarnición, con
+ * `oro` en el monedero, o `null` si no está en un paso suyo (la ciudad y el pueblo
+ * no se mejoran). Como la fila de la defensa (`motivoMas`, `notaMas`), el núcleo
+ * separa el rechazo de lo que solo informa: la pantalla solo lo pinta.
+ */
+export function laObraDelPuesto(
+  state: GameState,
+  player: PlayerId,
+  hero: Hero,
+  oro: number,
+): LaObraDelPuesto | null {
+  const sitio = sitioDelHeroe(state, hero);
+  if (sitio === null || sitio.kind !== 'paso') return null;
+  const m = laMejoraPedida(state, player, hero.id, null, oro);
+  return {
+    ahora: sitio.nodo.mejora,
+    siguiente: m.kind === 'obra' ? { obra: m.obra, precio: m.precio } : null,
+    materiales: MATERIAL_DEL_PUESTO,
+    motivo: m.kind === 'hecho' ? null : m.motivo,
+    nota: m.kind === 'hecho' ? m.nota : null,
+  };
 }
 
 /** La tropa que guarda el sitio (vacía si no guarda nada). */
@@ -443,42 +688,45 @@ type ElIntercambio =
       readonly enElHeroe: Army;
     };
 
-/**
- * Juzga el pedido y, si se puede, dice cómo queda el héroe: la regla de
- * `intercambioBlocker` y lo que aplica `moverTropa`, una vez, para que lo que se
- * juzga y lo que se mueve no puedan contarse distinto.
- */
+/** Lo que dicen dejar, recoger y repartir a quien no está en un sitio (`heroeEnSuSitio`). */
+const PARA_LA_TROPA = 'la tropa se deja y se recoge en un sitio tuyo';
+
 /**
  * El héroe `heroId` de `player` y el sitio suyo donde está, o por qué no: lo
- * primero que preguntan dejar, recoger y repartir, en ese orden (quién, dónde, de
- * quién es el sitio).
+ * primero que preguntan dejar, recoger, repartir y mejorar, en ese orden (quién,
+ * dónde, de quién es el sitio). Fuera de todo sitio, el motivo acaba en `para`, lo
+ * que dice quien pregunta de lo que pidió.
  */
 function heroeEnSuSitio(
   state: GameState,
   player: PlayerId,
   heroId: string,
+  para: string,
 ): { readonly hero: Hero; readonly sitio: Sitio } | { readonly motivo: string } {
   const hero = state.heroes.find((h) => h.id === heroId);
   if (hero === undefined) return { motivo: `no existe ningún héroe "${heroId}"` };
   if (hero.owner !== player) return { motivo: `${hero.name} no es de tu bando` };
   const sitio = sitioEn(state, hero.at);
   if (sitio === null) {
-    return {
-      motivo: `${hero.name} no está en ninguna ciudad, paso ni pueblo: la tropa se deja y se recoge en un sitio tuyo`,
-    };
+    return { motivo: `${hero.name} no está en ninguna ciudad, paso ni pueblo: ${para}` };
   }
   if (dueñoDelSitio(state, sitio) !== player)
     return { motivo: `${nombreDelSitio(sitio)} no es tuyo` };
   return { hero, sitio };
 }
 
+/**
+ * Juzga el pedido y, si se puede, dice cómo queda el héroe: la regla de
+ * `intercambioBlocker` y lo que aplica `moverTropa`, una vez, para que lo que se
+ * juzga y lo que se mueve no puedan contarse distinto.
+ */
 function elIntercambio(
   state: GameState,
   player: PlayerId,
   que: Intercambio,
   pedido: PedidoDeTropa,
 ): ElIntercambio {
-  const donde = heroeEnSuSitio(state, player, pedido.hero);
+  const donde = heroeEnSuSitio(state, player, pedido.hero, PARA_LA_TROPA);
   if ('motivo' in donde) return donde;
   const { hero, sitio } = donde;
   if ('count' in pedido && (!Number.isSafeInteger(pedido.count) || pedido.count < 1)) {
@@ -728,7 +976,7 @@ function elRepartoPedido(
 ):
   | { readonly motivo: string }
   | (ElRepartoResuelto & { readonly hero: Hero; readonly sitio: Sitio }) {
-  const donde = heroeEnSuSitio(state, player, pedido.hero);
+  const donde = heroeEnSuSitio(state, player, pedido.hero, PARA_LA_TROPA);
   if ('motivo' in donde) return donde;
   const { hero, sitio } = donde;
   const elegidos = elegidosDelReparto(state, hero, sitio, pedido.enElHeroe);

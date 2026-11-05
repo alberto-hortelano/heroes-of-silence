@@ -47,7 +47,7 @@ import {
 import { CLIMA, PEDIDOS_QUE_SE_MIRAN, TIEMPOS } from '../state/clima.js';
 import { MAX_HEROES_PER_PLAYER } from '../state/game.js';
 import { REGLA_DEL_PUEBLO } from '../state/renta.js';
-import { MURALLAS_DEL_MAPA } from '../state/sitios.js';
+import { MURALLAS_DEL_MAPA, OBRAS_DEL_PUESTO } from '../state/sitios.js';
 import { LARGO_DE_LINEA, LINEAS_POR_VECINO, MAX_VOCES_POR_RESPUESTA } from '../town/voces.js';
 import { enumerar, FACTION_IDS, HUECOS, TIPOS_FUSIONADOS, TODOS_LOS_GOLPES } from '../types.js';
 import { ID_DE_MAPA } from '../validar.js';
@@ -58,6 +58,7 @@ import {
   ruedaAlAgente,
   SLOT_DE_HUECO,
   SLOTS,
+  UPGRADE_DE_MEJORA,
 } from './vocabulario.js';
 
 /** Los poderes de unidad, por su id y con lo que hacen (`queHaceElPoder`, lo que lee el panel). */
@@ -571,6 +572,8 @@ Notas:
   "<id>" }: la guarnición SIN héroe de un paso o un pueblo, "site" el id del
   nodo o del pueblo en "knownMap", y del jugador que la dejó allí (su "owners"
   en el "battle_ended"; la tuya, si te atacan una). La de una ciudad es "town".
+- PUESTOS: el "upgrade" de un "node" de "knownMap" es la obra de ese paso (la
+  última que viste) y la muralla de su batalla: "${UPGRADE_DE_MEJORA.ninguna}", "${UPGRADE_DE_MEJORA.empalizada}" o "${UPGRADE_DE_MEJORA.muralla}".
 - DEFENSA: si atacan a un héroe tuyo en un sitio tuyo con guarnición, defiende
   él (siempre pelea) con lo más fuerte que quepa en su ejército de entre su
   tropa y la guarnición: lo elige el juego por ti (aún no hay jugada para
@@ -1091,7 +1094,8 @@ const J = JUGADA_DE_MURALLA;
  */
 export const PROSA_DE_LA_MURALLA = `MURALLA (esta batalla la lleva). Toda batalla contra una CIUDAD (también la base
 y la neutral) se pelea tras una muralla de ${MURALLAS_DEL_MAPA.ciudad.material} y contra un PUEBLO, tras una
-de ${MURALLAS_DEL_MAPA.pueblo.material}; en un paso, sin muralla. Viene en "walls" ("material", los muros en
+de ${MURALLAS_DEL_MAPA.pueblo.material}; en un paso, la de su obra ("upgrade" del nodo: "${UPGRADE_DE_MEJORA.empalizada}", de
+${OBRAS_DEL_PUESTO.empalizada.muralla.material}; "${UPGRADE_DE_MEJORA.muralla}", de ${OBRAS_DEL_PUESTO.muralla.muralla.material}; "${UPGRADE_DE_MEJORA.ninguna}", sin muralla). Viene en "walls" ("material", los muros en
 "tiles", las puertas en "gates" con "open" y las escaleras puestas en "ladders",
 cada una con su "foot" y su "wall"). El muro CIERRA el tablero: quien anda no lo
 cruza más que por una puerta abierta. Cada unidad del ATACANTE que no vuela, y su

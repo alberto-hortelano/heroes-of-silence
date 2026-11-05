@@ -117,6 +117,7 @@ import {
   ruedaAlAgente,
   SLOT_DE_HUECO,
   type Slot,
+  UPGRADE_DE_MEJORA,
 } from './vocabulario.js';
 
 /**
@@ -244,8 +245,16 @@ function knownObjects(state: GameState, playerId: PlayerId) {
   return conocidos.map(({ day, object: o }) => {
     const cuando = { lastSeen: day };
     switch (o.kind) {
+      // La obra del puesto, la que se recuerda: como el dueño, del objeto sabido.
       case 'node':
-        return { kind: o.kind, id: o.id, at: o.at, owner: o.owner, ...cuando };
+        return {
+          kind: o.kind,
+          id: o.id,
+          at: o.at,
+          owner: o.owner,
+          upgrade: UPGRADE_DE_MEJORA[o.mejora],
+          ...cuando,
+        };
       case 'village':
         return { kind: o.kind, id: o.id, at: o.at, name: o.name, ...cuando };
       case 'town':

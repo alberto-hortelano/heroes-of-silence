@@ -258,6 +258,8 @@ html, body {
 .guarnicion h4 { margin: 0.6rem 0 0.3rem; }
 .guarnicion .botones { margin-top: 0.8rem; }
 .columnas-de-la-guarnicion { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 0.4rem 1rem; }
+/* La obra del puesto, bajo el reparto de un paso (fase 3 del puesto fronterizo). */
+.obra-del-puesto { margin-top: 0.6rem; padding-top: 0.4rem; border-top: 1px solid var(--boton-borde); }
 
 /* Un desplegable de la barra de arriba (`selectorDeLaBarra`): «Ejército» en la
    partida y «Tema» en la arena, con la letra de la barra. */

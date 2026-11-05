@@ -811,7 +811,7 @@ export function buildMap(plan: MapPlan): BuiltMap {
   for (const t of plan.towns) objects.push({ kind: 'town', id: t.id, at: t.at, owner: t.owner });
   for (const [i, n] of plan.nodes.entries()) {
     const barrera = barreras[i] as Barrera;
-    objects.push({ kind: 'node', id: idDeNodo(i), at: n, owner: null, barrera });
+    objects.push({ kind: 'node', id: idDeNodo(i), at: n, owner: null, barrera, mejora: 'ninguna' });
   }
   for (const [i, v] of plan.villages.entries()) {
     objects.push({ kind: 'village', id: idDePueblo(i), name: v.name, at: v.at });
@@ -1718,6 +1718,7 @@ function intentarRed(rng: Rng, W: number, H: number, forma: FormaDelRio): RedFin
       at: punto(n),
       owner: null,
       barrera: mascara[n] === 1 ? 'water' : 'mountain',
+      mejora: 'ninguna',
     })),
   };
   if (problemasDeRed(conNodos).length > 0) return null;

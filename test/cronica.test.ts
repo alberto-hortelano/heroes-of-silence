@@ -636,6 +636,32 @@ describe('la crónica de la pantalla deja de mentir', () => {
     ).toContain(`Defiendes ${base.name} con 6 individuos y dejas fuera 0`);
   });
 
+  it('la obra de un puesto se nombra por su sitio, con su precio (fase 3 del puesto fronterizo)', () => {
+    const state = newGame({ seed: 3 });
+    const paso = state.map.objects.find((o) => o.kind === 'node')!;
+    const conSitio = (cuerpo: Record<string, unknown>): string =>
+      marcadoDe(renderLog([evento(cuerpo)], 0, undefined, (id) => sitioSiExiste(state, id)));
+    const obra = (to: string, actor: number) => ({
+      kind: 'outpost_upgraded',
+      hero: 'h',
+      site: paso.id,
+      to,
+      cost: to === 'empalizada' ? 1500 : 4000,
+      actor,
+    });
+    const donde = `de \\(${paso.at.x},${paso.at.y}\\)`;
+    expect(conSitio(obra('empalizada', 0))).toMatch(
+      new RegExp(`>Levantas la empalizada en (el|la) [^<]* ${donde} por 1500 oro<`),
+    );
+    expect(conSitio(obra('muralla', 1))).toMatch(
+      new RegExp(`>El jugador 1 amuralla (el|la) [^<]* ${donde} por 4000 oro<`),
+    );
+    // Sin el sitio (el espectador), el puesto con su casilla.
+    expect(linea(obra('muralla', 1))).toContain(
+      'El jugador 1 amuralla el puesto en\u00a0(0,\u00a00) por 4000 oro',
+    );
+  });
+
   it('los hechizos del rival ya no se pintan como una buena noticia tuya', () => {
     // Salía SIEMPRE en clase `win`, aprendiera quien aprendiera.
     const spells = ['haste'];

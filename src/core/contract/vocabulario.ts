@@ -37,6 +37,7 @@ import type {
   TipoDeEscala,
   TipoDePuerta,
 } from '../battle/types.js';
+import type { MejoraDelPuesto } from '../map/map.js';
 import type { AdventureAction, GameState } from '../state/game.js';
 import { tipoDelVeterano } from '../state/sitios.js';
 import {
@@ -47,6 +48,30 @@ import {
   type TipoDeGolpe,
   TODOS_LOS_GOLPES,
 } from '../types.js';
+
+// ---------------------------------------------------------------- los puestos
+
+/**
+ * Cómo se dice en el contrato la obra de un puesto (`node.mejora`, puesto
+ * fronterizo, fase 3): el `upgrade` del nodo en `knownMap`. Sin obra, `none` (la
+ * caseta de un paso tomado, o un paso que nadie ha tomado).
+ */
+export const UPGRADE_DE_MEJORA = {
+  ninguna: 'none',
+  empalizada: 'palisade',
+  muralla: 'wall',
+} as const satisfies Readonly<Record<MejoraDelPuesto, string>>;
+
+/** Lo que puede valer el `upgrade` de un nodo en el contrato. */
+export type Upgrade = (typeof UPGRADE_DE_MEJORA)[MejoraDelPuesto];
+
+/** Los tres, en el orden de la tabla: lo que el arnés de QA admite en un nodo. */
+export const UPGRADES: readonly Upgrade[] = Object.values(UPGRADE_DE_MEJORA);
+
+/** Si `valor` es un `upgrade` del contrato (`UPGRADES`). */
+export function esUpgrade(valor: unknown): valor is Upgrade {
+  return (UPGRADES as readonly unknown[]).includes(valor);
+}
 
 // ---------------------------------------------------------------- los huecos
 
@@ -92,8 +117,17 @@ export type AccionDelAgente =
   | Exclude<
       AdventureAction,
       // `repartir_tropa` es de la pantalla de la guarnición: el agente deja y recoge
-      // (que no pueda cambiar uno por otro con los dos llenos va a backlog).
-      { readonly type: 'unequip' | 'equip' | 'dejar_tropa' | 'recoger_tropa' | 'repartir_tropa' }
+      // (que no pueda cambiar uno por otro con los dos llenos va a backlog). Y
+      // `mejorar_el_puesto`, del diálogo del puesto: su jugada del agente, backlog.
+      {
+        readonly type:
+          | 'unequip'
+          | 'equip'
+          | 'dejar_tropa'
+          | 'recoger_tropa'
+          | 'repartir_tropa'
+          | 'mejorar_el_puesto';
+      }
     >
   | (Omit<Extract<AdventureAction, { readonly type: 'unequip' }>, 'slot'> & {
       readonly slot: string;

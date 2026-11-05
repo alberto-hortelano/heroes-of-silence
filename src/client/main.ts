@@ -6,6 +6,7 @@
  */
 import { combateCon, type ReglasDelCombate } from '@core/combate.js';
 import { problemaDeTipo } from '@core/hero/ascenso.js';
+import { esObraDelPuesto } from '@core/map/map.js';
 import type { MundoLeido } from '@core/mundo/formato.js';
 import { parseSeed } from '@core/rng.js';
 import { faccionesDeLaSemilla } from '@core/state/setup.js';
@@ -1022,6 +1023,22 @@ document.addEventListener('click', (ev) => {
       if (target.getAttribute('aria-disabled') === 'true') break;
       session.confirmarElReparto();
       break;
+    case 'mejorar-el-puesto': {
+      // El segundo clic de un doble clic de persona (150 ms) cae ya en el botón
+      // repintado como «Amurallar», con su `data-obra`, y compraba la muralla (QA de
+      // la fase 3, H-F3-1, comprobado en el navegador): solo cuenta el primero.
+      if (ev.detail > 1) break;
+      // Apagado: su motivo ya se lee debajo.
+      if (target.getAttribute('aria-disabled') === 'true') break;
+      // La obra que decía el botón pulsado: si el diálogo ya ofrece otra (el clic
+      // llega antes del repintado), el núcleo la rechaza sin cobrar.
+      const obra = target.getAttribute('data-obra');
+      if (!esObraDelPuesto(obra)) {
+        throw new Error(`el botón del puesto no dice qué obra compra: «${obra}»`);
+      }
+      session.mejorarElPuesto(obra);
+      break;
+    }
     case 'defensa-mas':
     case 'defensa-menos':
       if (target.getAttribute('aria-disabled') === 'true') break;

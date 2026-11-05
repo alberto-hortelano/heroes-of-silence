@@ -2483,6 +2483,28 @@ describe('invariantes del proyecto', () => {
     ).toHaveLength(2);
   });
 
+  it('la obra de un puesto (`node.mejora`) la escribe solo `mejorarElPuesto`', () => {
+    // La obra de un paso tomado decide tras qué muralla se pelea en él
+    // (`murallaDelSitio`) y la cobra quien la hace (fase 3 del puesto fronterizo).
+    // Escrita en otro sitio sería una muralla sin pagar, o una que baja de nivel, y
+    // tomar el paso no la toca: es una obra y se queda con él. Roto a mano
+    // (04-11-2026): un `nodo.mejora = 'ninguna'` en `captureNode` sale rojo con su
+    // línea.
+    const PERMITIDO = 'src/core/state/sitios.ts';
+    const conPermiso = lineasDeLasDeclaraciones(PERMITIDO, ['mejorarElPuesto']);
+    const escribe = /\.mejora\s*=(?!=)/;
+    const escrituras: string[] = [];
+    for (const ruta of [...CORE, ...CLIENTE, ...SERVIDOR]) {
+      for (const [i, linea] of codigoDe(ruta).split('\n').entries()) {
+        if (!escribe.test(linea)) continue;
+        if (ruta === PERMITIDO && conPermiso.has(i + 1)) continue;
+        escrituras.push(`${ruta}:${i + 1} → ${linea.trim()}`);
+      }
+    }
+    expect(escrituras).toEqual([]);
+    expect(infractoresDeCodigo([PERMITIDO], escribe)).toHaveLength(1);
+  });
+
   it('en `state/` solo `montarLaBatalla` llama a `createBattle`', () => {
     // La batalla del mapa se monta en un sitio: la que nace y la defensa que la
     // persona rehace antes de la primera jugada (`elegirLaDefensa`) tienen que
@@ -2505,7 +2527,7 @@ describe('invariantes del proyecto', () => {
 
   it('`data/sitios.json` lo importa solo `core/state/sitios.ts`, que lo juzga al cargar', () => {
     // Las murallas del mapa se leen en un sitio y se juzgan al cargar
-    // (`leerMurallasDelMapa`, `murallaDelMapaBlocker`): quien importara el fichero
+    // (`leerSitios`, `murallaDelMapaBlocker`): quien importara el fichero
     // por su cuenta montaría una batalla con una forma sin juzgar, que podría no
     // cerrar o no asaltarse y acabar por `MAX_ROUNDS`. Roto a mano (04-11-2026): un
     // `import s from '../../../data/sitios.json'` en `state/game.ts` sale rojo.

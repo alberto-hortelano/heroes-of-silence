@@ -87,6 +87,7 @@ import type { Army, Point, UnitInfo } from '@core/types.js';
 import { conMiles, describirCoste, HUECOS, NOMBRE_DE_HUECO } from '@core/types.js';
 import { disposicionDe } from '../../shared/base.js';
 import { quienesDe } from '../desenlace.js';
+import { DICHO_DE_LA_OBRA } from '../dicho-del-puesto.js';
 import type { Abierto } from '../escenas/castillo.js';
 import { DESHABILITADO, fondoDeColor, type Html, html, NADA, srcDeImagen, unir } from '../html.js';
 import { asset } from '../render/assets.js';
@@ -1692,20 +1693,26 @@ export function renderLog(
   const alJugador = (id: number | null): string =>
     id === null ? 'a alguien' : id === viewer ? 'a ti' : `al jugador ${id}`;
 
+  /**
+   * El sitio `site` de un hecho dicho con `delSitioA` si se conoce y, si no (el
+   * espectador), `sinSitio` con la casilla: «el puente de (12,8)» o «el puesto en
+   * (12, 8)».
+   */
+  const sitioOCasilla = (
+    site: string,
+    at: Point | null,
+    delSitioA: (s: Sitio) => string,
+    sinSitio: string,
+  ): string => {
+    const sitio = sitioDe(site);
+    return sitio === null ? `${sinSitio}${enLaCasilla(at)}` : delSitioA(sitio);
+  };
   /** «en la guarnición de Valdeluz», o, sin el sitio, «en la guarnición en (3, 4)». */
-  const enLaGuarnicion = (site: string, at: Point | null): string => {
-    const sitio = sitioDe(site);
-    return sitio === null
-      ? `en la guarnición${enLaCasilla(at)}`
-      : `en la guarnición ${delSitio(sitio)}`;
-  };
+  const enLaGuarnicion = (site: string, at: Point | null): string =>
+    sitioOCasilla(site, at, (s) => `en la guarnición ${delSitio(s)}`, 'en la guarnición');
   /** «de la guarnición del puente de (12,8)», o, sin el sitio, con su casilla. */
-  const deLaGuarnicion = (site: string, at: Point | null): string => {
-    const sitio = sitioDe(site);
-    return sitio === null
-      ? `de la guarnición${enLaCasilla(at)}`
-      : `de la guarnición ${delSitio(sitio)}`;
-  };
+  const deLaGuarnicion = (site: string, at: Point | null): string =>
+    sitioOCasilla(site, at, (s) => `de la guarnición ${delSitio(s)}`, 'de la guarnición');
 
   const lineas = log
     .slice(-60)
@@ -1824,6 +1831,11 @@ export function renderLog(
           return html`<div${clase(mio, false)}>${
             mio ? frase.charAt(0).toUpperCase() + frase.slice(1) : `${jugador(e.actor)} ${frase}`
           } ${enLaGuarnicion(e.site, e.at)}</div>`;
+        }
+        case 'outpost_upgraded': {
+          const elPuesto = sitioOCasilla(e.site, e.at, nombreDelSitio, 'el puesto');
+          const obra = DICHO_DE_LA_OBRA[e.to].cronica(mio, elPuesto);
+          return html`<div${clase(mio, false)}>${mio ? obra : `${jugador(e.actor)} ${obra}`} por ${describirCoste(e.cost)}</div>`;
         }
         case 'defense_set': {
           const sitio = sitioDe(e.site);

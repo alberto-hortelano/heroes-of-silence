@@ -59,6 +59,7 @@ import {
 } from './escenario/superficie.js';
 import { animarHasta, type Figura, pintarFiguraConSombra } from './figura.js';
 import { densidadDe } from './lienzo.js';
+import { pintarMarcadorDelPuesto, puntaDelMarcador } from './marcador-del-puesto.js';
 import { COLOR_SIN_DUEÑO, playerColor } from './palette.js';
 import { MIRADA_DE_PRESENTACION } from './personajes.js';
 import { pintarPieza } from './piezas.js';
@@ -518,8 +519,14 @@ type Cosa =
       readonly objeto: MapObject;
       /** De donde cuelga su marca (`Escenario.asientoDeObjeto`). */
       readonly asiento: readonly [number, number];
-      /** El pie del mástil de su bandera, si es un nodo (`Escenario.mastilDeNodo`). */
-      readonly mastil: readonly [number, number] | null;
+    }
+  | {
+      /** El puesto de un paso tomado: su obra, con la bandera del dueño en lo alto. */
+      readonly tipo: 'puesto';
+      readonly clave: number;
+      readonly nodo: Extract<MapObject, { kind: 'node' }>;
+      /** Donde apoya, en casillas (`Escenario.puestoDeNodo`). */
+      readonly pie: readonly [number, number];
     }
   | {
       readonly tipo: 'heroe';
@@ -564,9 +571,15 @@ function cosasDe(v: VistaMapa, esc: Escenario): { cosas: Cosa[]; sobreLaNiebla: 
         throw new Error(`${o.kind} ${o.id} se hornea y la escena no lo pinta`);
       const asiento = esc.asientoDeObjeto.get(o.id);
       if (asiento === undefined) throw new Error(`${o.kind} ${o.id} se hornea y no tiene asiento`);
-      const mastil = o.kind === 'node' ? esc.mastilDeNodo.get(o.id) : null;
-      if (mastil === undefined) throw new Error(`el nodo ${o.id} se hornea y no tiene mástil`);
-      lista.push({ tipo: 'horneado', clave, objeto: o, asiento, mastil });
+      lista.push({ tipo: 'horneado', clave, objeto: o, asiento });
+      // Un paso tomado es un puesto (fase 3 del puesto fronterizo), y enseña su obra
+      // donde dice la escena, en su orden de profundidad: un árbol o un héroe de
+      // delante lo tapan. Va después de su óvalo (su clave no es menor).
+      if (o.kind === 'node' && o.owner !== null) {
+        const puesto = esc.puestoDeNodo.get(o.id);
+        if (puesto === undefined) throw new Error(`el nodo ${o.id} se hornea y no tiene puesto`);
+        lista.push({ tipo: 'puesto', clave: puesto.clave, nodo: o, pie: puesto.pie });
+      }
     } else {
       const pies =
         o.kind === 'monster' ? PIES.grupo : o.kind === 'lugar' ? PIE_DEL_LUGAR : PIES.suelto;
@@ -743,6 +756,11 @@ function pintarCosa(ctx: CanvasRenderingContext2D, v: VistaMapa, c: Cosa): void 
     case 'horneado':
       pintarDueñoDeLoHorneado(ctx, v, c.objeto, c.asiento);
       return;
+    case 'puesto': {
+      const p = mundoAPixel(v.camara, ...c.pie);
+      pintarMarcadorDelPuesto(ctx, p.x, p.y, v.camara.tile, c.nodo.mejora);
+      return;
+    }
     case 'heroe':
       pintarHeroe(ctx, v, c.heroe, c.pie);
       return;
@@ -775,8 +793,17 @@ function pintarIdentificador(
       return;
     }
     case 'horneado':
-      pintarBanderaDeLoHorneado(ctx, v, c.objeto, c.asiento, c.mastil);
+      pintarBanderaDeLoHorneado(ctx, v, c.objeto, c.asiento);
       return;
+    case 'puesto': {
+      // La bandera del dueño, plantada en lo alto de su obra; encima de todo, como
+      // toda bandera, aunque el puesto quede detrás de un árbol.
+      const p = mundoAPixel(v.camara, ...c.pie);
+      const punta = puntaDelMarcador(p.y, tile, c.nodo.mejora);
+      // Desde el pie, que es lo que se apoya: 0,75 de casilla, y el mástil mide la mitad.
+      bandera(ctx, p.x, punta - tile * 0.75 * 0.5, tile * 0.75, playerColor(c.nodo.owner));
+      return;
+    }
     case 'heroe': {
       const otros = [...cuerpos].filter(([o]) => o !== c).map(([, cuerpo]) => cuerpo);
       const en = asientoDeLaInicial(c.pie, otros, radioDeLaInicial(tile) / tile);
@@ -896,13 +923,15 @@ function pintarDueñoDeLoHorneado(
   }
 }
 
-/** La bandera del dueño de la ciudad y del nodo. */
+/**
+ * La bandera del dueño de la ciudad. La de un paso tomado va en lo alto de su
+ * puesto (`pintarIdentificador`, cosa `puesto`), y el pueblo no lleva.
+ */
 function pintarBanderaDeLoHorneado(
   ctx: CanvasRenderingContext2D,
   v: VistaMapa,
   o: MapObject,
   asiento: readonly [number, number],
-  mastil: readonly [number, number] | null,
 ): void {
   const tile = v.camara.tile;
   const c = mundoAPixel(v.camara, ...asiento);
@@ -910,14 +939,7 @@ function pintarBanderaDeLoHorneado(
     case 'town':
       bandera(ctx, c.x - tile * 0.55, c.y - tile * 1.05, tile, playerColor(o.owner));
       return;
-    case 'node': {
-      if (o.owner === null) return;
-      if (mastil === null) throw new Error(`el nodo ${o.id} no tiene dónde plantar su bandera`);
-      // Desde el pie, que es lo que se apoya: 0,75 de casilla, y el mástil mide la mitad.
-      const m = mundoAPixel(v.camara, ...mastil);
-      bandera(ctx, m.x, m.y - tile * 0.75 * 0.5, tile * 0.75, playerColor(o.owner));
-      return;
-    }
+    case 'node':
     case 'village':
       return;
     case 'chest':

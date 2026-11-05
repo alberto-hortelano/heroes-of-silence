@@ -297,3 +297,124 @@ tests de la base juntos, y una plantilla `newGame` en `beforeAll` con `structure
   (S24), no se retira: un guardia barato.
 - **Condensar `CLAUDE.md`** (nota de eficiencia): es la práctica del proyecto; si acaso al cerrar la
   tarea entera.
+
+---
+
+# Hallazgos de `/simplify` sobre la fase 3 (mejoras del puesto)
+
+Cuatro revisores sobre `git diff HEAD` (la fase 2 está en `4f101eb3`) más
+`src/client/render/marcador-del-puesto.ts` y `test/mejoras-del-puesto.test.ts`. Deduplicados y
+decididos por el coordinador (05-11-2026). Las líneas pueden haberse movido.
+
+Regla para quien aplica: **el juego no cambia**: `pnpm banco` sigue en `883fe9be…`. Cambia a
+propósito solo lo que se ve (S27: el puesto se pinta en su profundidad, detrás de lo que tiene
+delante; la bandera, encima) y la prosa del agente (S36). La fase 4 (arte de Codex para caseta,
+torreta y torre, colocado por `componer`) va a leer esto: S27 y S28 son para ella.
+
+## Se aplican
+
+**S27 · Dónde va el puesto lo dice la escena, y el edificio se pinta en su capa** (altitud 1,
+simplificación 1, reutilización 1, eficiencia 3). Hoy el renderizador decide el sitio
+(`AL_LADO_DEL_ASIENTO`, `ESCALA_DEL_MARCADOR`, `+ tile*0.14`) y pinta el edificio en la pasada de
+identificadores, encima de héroes y árboles que tiene delante; `mastilDeNodo`, `mastilesDe`,
+`MASTIL_SOBRE_EL_NODO`, `Cosa.mastil` y su test sobreviven solo como un `throw` de existencia, y en
+un puente el marcador ya no va al tablero (`Puente.mastil`). → `Escenario.mastilDeNodo` pasa a ser
+**el pie del puesto** (`puestoDeNodo` o el nombre que encaje), la única fuente de dónde va: hoy, el
+asiento con su corrimiento o el tablero en un puente; en la fase 4, el hueco que reserve `componer`.
+El cuerpo (caseta, torreta, torre) se pinta como cosa con su clave de profundidad (junto al óvalo de
+lo horneado), elegido por `o.mejora` en cada fotograma (el dueño cambia en la partida; la escena se
+compone una vez); en la pasada de identificadores queda solo la bandera, en la punta que dé el
+pintor. Fuera lo que quede muerto del mástil y su test pasa a vigilar el pie del puesto (también en
+un puente). Se mira en el navegador: caseta junto al paso, en un puente y detrás de un árbol.
+
+**S28 · `data/sitios.json`: formas por nombre y una tabla de quién usa cuál, leído una vez**
+(altitud 2, simplificación 2, reutilización 3). `mejoras.X.muralla` solo admite un valor válido
+(madera o piedra fijados en `MATERIAL_DE_LA_OBRA`, una forma por material): dos hechos en dos sitios
+cruzados al cargar; la promesa de `implementacion.md` («basta una clave más en `murallas`») es falsa
+porque el cargador exige exactamente `SITIOS_CON_MURALLA`; editar la empalizada del pueblo cambia sin
+decirlo la del paso; y la raíz se juzga dos veces, con lectores que lanzan escritos a mano. → las
+formas, por nombre en un conjunto abierto (`murallas: { <nombre>: { material, muros, puertas } }`);
+quién usa cuál, una sola tabla (la ciudad, el pueblo y cada obra del paso nombran su forma; las
+obras con su precio); la regla de la petición, **la empalizada es de madera y la muralla de piedra**,
+se juzga contra el material de la forma nombrada (fuera `MATERIAL_DE_LA_OBRA` como tabla aparte si ya
+no hace falta). Un solo `leerSitios` que lee la raíz una vez con `problemasDeObjeto`, `entero` y
+`deLaLista` de `core/validar.ts` y devuelve murallas y obras, lanzando con el fichero y el sitio. Hoy
+la empalizada del paso y la del pueblo pueden nombrar la misma forma: queda escrito, no implícito.
+
+**S29 · Cómo se dice cada obra, una tabla** (simplificación 4, reutilización 5, altitud 3). Botón
+(«Levantar la empalizada» / «Amurallar»), barra, crónica y `LO_QUE_SE_VE` van en ternarios binarios
+sobre `obra === 'empalizada'` en cuatro ficheros, y el párrafo de la sección escribe a mano «una
+muralla de madera… una de piedra». → `DICHO_DE_LA_OBRA: Record<ObraDelPuesto, { seVe, boton, hecho,
+cronica }>` (o `Record<MejoraDelPuesto, …>` con lo que se ve dentro) en un solo módulo del cliente,
+exhaustivo; el material, leído del núcleo (`LaObraDelPuesto`), no escrito.
+
+**S30 · El hecho, como sus hermanos** (altitud 7, simplificación 5). `outpost_upgraded` se insertó
+entre el JSDoc de `troops_exchanged` y su miembro, y usa `node` donde los demás hechos de sitio usan
+`site`, por lo que la crónica rehace el «dónde». → el bloque detrás de `troops_exchanged`, `node` →
+`site`, y la crónica con los ayudantes que ya tiene (un `sitioOCasilla` si lo piden `defense_set`,
+`enLaGuarnicion` y `deLaGuarnicion`). **La palabra de la obra en el hecho** (altitud 4: el agente
+lee `to: "empalizada"` en la crónica y `upgrade: "palisade"` en el mapa) no se arregla ahora: hoy
+ningún rival del agente mejora, y la traducción de los hechos de aventura al agente no existe (solo
+`hechoAlAgente` para batalla). Backlog, junto a `power` y `retoque`.
+
+**S31 · El cobro, en `game.ts` como toda compra** (reutilización 2, altitud 6). `mejorarElPuesto`
+busca al jugador dos veces con un cast `as { oro: number }` y una rama imposible. → `mejorarBlocker(
+state, player, heroId, oro)` como `buildBlocker`/`reclutarBlocker`; `case 'mejorar_el_puesto'`
+descuenta con el `player` que ya tiene; `mejorarElPuesto` escribe solo `node.mejora` (el invariante
+de `.mejora =` sigue).
+
+**S32 · La obra de la pantalla, del núcleo y una vez** (reutilización 6 y 9, simplificación 6-7,
+eficiencia 4). La vista decide el tono (`notaDebajo` o `motivoDebajo` según `siguiente === null`) y
+la sesión repite la inferencia; `laObraDelPuesto` hace la cuenta dos veces (`siguienteObra` + precio
+y otra vez `mejorarBlocker` → `laMejoraPedida`) con cuatro tipos para una idea; `Session.
+mejorarElPuesto` monta la vista entera (con `elReparto`) para leer un campo. → `LaObraDelPuesto` con
+`motivo` (rechazo: oro, dueño) y `nota` («ya está amurallado»), escritos por el núcleo como
+`motivoMas`/`notaMas` de la defensa; construida desde una sola `laMejoraPedida`; tipos reducidos; un
+privado de la sesión que la da con el turno aplicado solo al `motivo`, que leen la vista y
+`mejorarElPuesto`.
+
+**S33 · El rechazo habla de lo que se pidió** (reutilización 8, altitud 5). Fuera de un sitio,
+mejorar se rechaza con «…la tropa se deja y se recoge en un sitio tuyo» (`heroeEnSuSitio`), y «es una
+ciudad / es un pueblo» va con un ternario a mano. → `heroeEnSuSitio` da el hecho sin la cola y cada
+llamador pone la suya (o un parámetro `para`); `QUE_ES_EL_SITIO: Record<Sitio['kind'], string>`
+junto a `nombreDelSitio`/`delSitio`.
+
+**S34 · La escalera de obras, una vez y junto a su tipo** (simplificación 3, altitud 6). `OBRAS`
+repite `MEJORAS_DEL_PUESTO` sin `'ninguna'`, `siguienteObra` usa `indexOf` con un guarda imposible,
+`ObraDelPuesto` vive en `state/sitios.ts` y `events.ts` depende de él, y el test copia la lista. →
+`ObraDelPuesto` y su lista derivada junto a `MEJORAS_DEL_PUESTO` (`map.ts`), una tabla exhaustiva
+`SIGUIENTE: Record<MejoraDelPuesto, ObraDelPuesto | null>`, `events.ts` importa de `map.ts`;
+`siguienteObra` y `ALTO_DEL_MARCADOR` sin exportar si nadie de fuera los lee.
+
+**S35 · El contrato, como `JUGADA_DE_MURALLA`** (simplificación 9, reutilización 4, eficiencia 1 y
+7). `UPGRADE_DE_MEJORA` escribe su tipo a mano, la prosa teclea `"none"` y el arnés rehace los
+valores por nodo; la nota PUESTOS (~405 caracteres, ~100 tokens en cada `adventure_turn`) explica una
+obra que el agente no puede hacer. → `as const satisfies Record<MejoraDelPuesto, string>`, `UPGRADES`
+(y su guarda) exportados de `vocabulario.ts`, que lee `verify-agent.ts` con un `Set` fuera del bucle;
+`${UPGRADE_DE_MEJORA.ninguna}` en la prosa; la nota PUESTOS en **una línea** (qué es `upgrade` y que
+es la muralla de su batalla; lo de la batalla ya lo dice `PROSA_DE_LA_MURALLA`).
+
+**S36 · La sombra del marcador, la común** (reutilización 7). Elipse con `rgba(0,0,0,0.28)` fijo. →
+`pintarSombra` (`render/sombra.ts`) o al menos `colorDeSombra` de `shared/arte.ts`.
+
+**S37 · Los tests de las mejoras, con ayudantes** (simplificación 8, reutilización 10). El test de la
+sesión copia `enSuPaso`, `contraElPaso` monta lo mismo, `mejorar(); mejorar();` se repite,
+`forzarTomaDePaso` recorre vecinas con un try/catch y la lista de obras está copiada. →
+`enSuPaso(state, jugador, oro)` sobre una partida dada, `mejorarHasta(state, heroe, obra)`, `pegadoA`
+de `test/helpers.ts`, `MEJORAS_DEL_PUESTO.indexOf`.
+
+**S38 · Menores** (simplificación 10). En `espectador/adaptar.ts`, los dos `throw` casi iguales del
+formato viejo, un ayudante; el párrafo de historia del doc de `murallaDelSitio` («ya no recibe la
+partida…») se va del código (está en `implementacion.md`).
+
+## Se descartan a conciencia
+
+- **Cachear el marcador en un `OffscreenCanvas`** (eficiencia 2): < 0,05 ms por fotograma estimado
+  con 1-4 pasos con dueño a la vista, y la caché se invalidaría con el zoom; con el arte de la fase 4
+  pasará a imágenes con sus copias de siempre.
+- **Buscar el sitio del héroe una vez por llamada** (eficiencia 5): 0,4-0,5 µs, solo al repintar el
+  diálogo; si S32 lo deja de paso, bien.
+- **Omitir `upgrade` en los nodos sin dueño** (eficiencia 6): ~200 bytes por turno; complica el
+  contrato.
+- **La carga y los tests** (eficiencia 8): microsegundos; el test, 663 ms.
+- **Traducir los hechos de aventura al agente** (altitud 4): ver S30, backlog.

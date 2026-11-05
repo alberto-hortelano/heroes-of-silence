@@ -397,3 +397,140 @@ en el navegador: no se mueve, «…o Escape para cancelar.», la escalera se pon
 test del volador monta un volador de verdad y muerde sin su rama de `quienNoEscala`. `pnpm banco`
 igual (`883fe9be…`), `datos-de-sitios` 14/14, typecheck limpio. Al ser dos hallazgos menores de
 cliente y de test, con sus guardias vistos morder, no se lanza otra vuelta de QA entera.
+
+# Fase 3 · vuelta 1 (las obras del puesto y sus marcadores)
+
+QA del 05-11-2026 sobre el diff sin commitear encima de `4f101eb3` (fase 3 y su `/simplify`).
+Petición de la fase: «el puesto base muestre una caseta en el mapa una vez alguien lo ha tomado, una
+torreta de madera si es una empalizada o una torre si está amurallado», mejorando con el héroe en el
+paso y pagando (1500 y 4000, inventados), y la batalla del paso sin muralla, tras madera o tras piedra
+según su obra. La IA no mejora y el agente no tiene la jugada (backlog). El arte y la colocación en la
+escena son la fase 4. Que la obra se quede con el paso al cambiar de dueño es una pregunta abierta al
+usuario: no la juzgo.
+
+Capturas y guiones: `/tmp/claude-1000/-home-al-code-heroes--claude-worktrees-mountain-node-interaction-7b9212/46fb9bb3-8555-4262-a482-fe1df0ee30b2/scratchpad/qa-f3/`
+(los guiones, en `guiones/`; estuvieron un momento en `tools/qa/qaf3/` para resolver sus importaciones
+y los borré).
+
+## Lo que corrí, y por qué
+
+- `pnpm typecheck`: limpio. `pnpm lint`: «Checked 519 files… Found 10 infos» (los de siempre).
+- `pnpm vitest run` de `mejoras-del-puesto` (todo lo nuevo), `datos-de-sitios` (el formato nuevo de
+  `data/sitios.json`), `puentes` (el pie del puesto), `cronica` (el hecho nuevo), `espectador` (la
+  inversa exacta con `mejora`), `agent-contract` (`upgrade` y la prosa) e `invariantes` (la única
+  escritura de `node.mejora`): **264/264**. El ingeniero ya dejó en verde sobre este diff `session`,
+  `escenas`, `game`, `paneles` y los del lienzo (con los 5 rojos de HEAD): no los repito.
+- `pnpm banco`: «ancla: igual», sha256 `883fe9be85bcf887a534efe540b69f346bf93e7bb2d7ef672800deb3e19d4858`, 0/20 sin terminar.
+- `pnpm qa`: sale 0; «puestos: ningún nodo a la vista del agente en esta partida; el "upgrade" lo
+  cubre test/mejoras-del-puesto.test.ts». Lo crucé aparte en el núcleo (abajo).
+- Navegador (Playwright sin pantalla, 1440 × 900, con el espejo de `pnpm capturas`): un `pnpm dev`
+  propio en el 3123 (estaba libre; grupo 68123, parado por su grupo, `ss` dice libre). Cuatro
+  corridas: s1 paso de montaña (8,14) (de largo, parar, empalizada y batalla), s1 puente (2,17), s4
+  puerta de la muralla (17,6) y s6 paso del bosque (12,10) (doble clic y la obra sin héroe delante).
+  Consola sin errores ni avisos en las cuatro.
+- Núcleo (`guiones/nucleo.ts`, `npx tsx`): oro justo, partida terminada, paso neutral, pueblo, el
+  rival que toma el paso amurallado (niebla y `knownMap` de cada uno) y nueve `data/sitios.json` rotos
+  pasados a `leerSitios`.
+- La página con un `data/sitios.json` roto de verdad (la empalizada nombrando la forma de piedra),
+  restaurado después con el mismo sha256 (`af53983c…`).
+
+## Criterios (fase 3)
+
+| Criterio | | Evidencia |
+|---|---|---|
+| Un paso tomado enseña una caseta con el color del dueño | ✅ | s1 (8,14), tomado de pasada: `largo-s1-1-caseta-cerca.png` (caseta y bandera roja a la derecha del hito). Del rival, en el espectador: `espectador-caseta-azul.png` / `-roja.png` (recortes de la `espectador-04-fin-de-partida.png` del `pnpm capturas` del ingeniero, 11:17, sobre este código) |
+| Empalizada → torreta de madera; muralla → torre | ✅ | `largo-s1-3-cerca-empalizada.png`, `doble-s1-2-cerca.png` (puente), `doble-s4-2-cerca.png` (puerta de muralla), `doble-s6-4-sin-heroe-cerca.png` (bosque, sin el héroe delante) |
+| El neutral, su hito como hoy | ✅ | `largo-s1-0-neutral-cerca.png`: la tablilla, sin caseta ni bandera |
+| Mejorar con el héroe parado en su paso, pagando 1500 y 4000 | ✅ | s1: oro 26 000 → 24 500 con la empalizada, barra «Levantada la empalizada del paso de montaña de (8,14).»; el oro de la página y el del espejo iguales. Núcleo: con 1500 justos se hace (queda 0), con 1499 no; con 5500 las dos, con 5499 la segunda no |
+| Botón apagado con su motivo (sin oro, en rojo) y la nota de amurallado (apagada) | ✅ | Amurallado: `doble-s4-2-tras-doble-clic.png` («Mejorar» apagado, la nota en gris). Sin oro: núcleo («no alcanza el oro: cuesta 4000 oro y tienes 3999 oro») y la captura del ingeniero `nav-s/b-s8-5-dialogo-apagado-muralla.png`; no lo repetí en el navegador |
+| El diálogo al parar, no al pasar | ✅ | s1: el héroe va a (11,11) cruzando (8,14): diálogos abiertos `[]`, el paso pasa a dueño 0. Al día siguiente, parar en él: `["guarnicion"]` (`largo-s1-2-dialogo-caseta.png`) |
+| La batalla en el paso: sin muralla / madera / piedra según la obra, escaleras al atacante, puertas al defensor | ✅ | s1, empalizada, el rival ataca al héroe en su paso el día 4: `muralla madera`, `attacker-0:true, attacker-1:true, attacker-heroe:true` de escalera; en la página «Abrir puerta» y «Cerrar puerta» (este apagado), `largo-s1-6-batalla-botones.png`. Piedra: la corrida del ingeniero (s1, día 4) y el test; caseta sin muralla: el test |
+| No se mejora fuera del paso, en uno ajeno, en ciudad o pueblo, fuera de turno ni con la partida terminada | ✅ | Núcleo: «… no es tuyo» (neutral y ajeno), «Aldea del Pozo no es tuyo» (pueblo), «la partida ya ha terminado»; ciudad, fuera de sitio y turno ajeno, en el test |
+| Formas rotas en `data/sitios.json` | ✅ | Nueve rotas, cada una con su frase (p. ej. «el uso «empalizada»: «muralla» "torreon" no existe; valen gruesa, linea-con-puerta», «la empalizada se pelea tras una muralla de madera, y «gruesa» es de piedra», precio −5, "4000", 1e300, uso que falta o sobra, ciudad con precio). En la página: «La página no arranca … data/sitios.json: el uso «empalizada»…» |
+| La niebla: el último marcador visto de un paso ajeno; uno no visto no se pinta | ✅ | Núcleo: el rival toma el paso amurallado fuera de la vista del 0: el 0 sabe `0/muralla` (su bandera y su torre, lo último que vio), el 1 `1/muralla`. Lo no visto no está en `objetosConocidos` y el lienzo solo pinta de ahí |
+| Un paso sobre un puente | ✅ | `doble-s1-2-cerca.png`: la torre en el extremo de atrás del tablero, el héroe delante y entero, la bandera encima; `doble-s1-4-sin-heroe-cerca.png` sin él |
+| Profundidad: lo de delante lo tapa, la bandera encima | ✅ con observación | El héroe delante tapa la obra y la bandera queda encima (`largo-s1-3-cerca-empalizada.png`, `doble-s4-2-cerca.png`). Un árbol delante no salió en ninguna semilla de las cuatro |
+| El espectador pinta el puesto con su nivel | ✅ / ⚠️ | La caseta, vista (recortes de arriba). Torreta y torre en el espectador no se pueden ver: nadie mejora en una partida del servidor; las cubre la inversa exacta (`mejoras-del-puesto`, `espectador`) y el lienzo es el mismo `mapa.ts` |
+| El agente: `upgrade` en `knownMap` y la prosa | ✅ | Núcleo: `knownMap` del 0 `0/wall`, del 1 `1/wall` tras la toma; `none`/`palisade`/`wall` en el test. Prosa PUESTOS, dos líneas. `pnpm qa` 0 (sin nodos a la vista en su semilla, y lo dice) |
+| El banco no se mueve | ✅ | `883fe9be…`, igual |
+
+## Hallazgos
+
+### H-F3-1 · importante · Un doble clic en «Levantar la empalizada» compra también la muralla: 5500 de oro en vez de 1500
+
+Reproducido en tres semillas (s1 puente (2,17), s4 puerta de la muralla (17,6), s6 paso del bosque
+(12,10)), siempre igual. Desde el arranque (`/?seed=1&heroe=guerrero`): salir de la base, mandar el
+héroe al puente de (2,17) (llega el día 1), cerrar el diálogo, pulsar el puente con el héroe dentro y
+hacer **doble clic** en «Levantar la empalizada · 1500 oro». Resultado: oro 25 500 → 20 000, la barra
+dice «Amurallado el puesto del puente de (2,17).» y la sección, «El puesto · una torre»
+(`doble-s1-2-tras-doble-clic.png`, `doble-s4-2-tras-doble-clic.png`). El primer clic levanta la
+empalizada y repinta el mismo botón como «Amurallar · 4000 oro», encendido; el segundo cae en él y
+amuralla. Quien juega pidió una empalizada y pagó además una muralla de 4000 que no vio ofrecida, sin
+deshacer posible (no se baja de obra). Esperaba: lo que pide el primer clic y nada más (el segundo,
+si llega sobre el botón ya cambiado, no debería comprar lo que el botón no decía al pulsarlo).
+
+### H-F3-2 · menor · «la puerta de la muralla de (17,6) ya está amurallado»
+
+En un paso de muro, la nota de la obra hecha concuerda en masculino con un nombre femenino
+(`doble-s4-2-tras-doble-clic.png`, s4, (17,6), amurallado). La frase sale de `laMejoraPedida`
+(`${nombreDelSitio(sitio)} ya está amurallado`), que da por hecho «el paso» o «el puente». Para quien
+juega, además, «amurallar la puerta de la muralla» se lee raro, pero eso es del nombre del sitio.
+
+## Observaciones (no son hallazgos)
+
+- Con el héroe parado en su paso, la obra queda casi entera detrás de él (`largo-s1-3-cerca-empalizada.png`,
+  `doble-s6-1-caseta-cerca.png`): solo asoman la bandera y un canto. Es lo que pide la profundidad
+  («lo de delante lo tapa») y es justo cuando se mira el diálogo; el sitio de la pieza es de la fase 4.
+- En la puerta de la muralla y en el bosque la caseta o la torre caen sobre la senda que sale a la
+  derecha (`doble-s4-2-cerca.png`): la colocación que no tapa senda ni eje es el criterio 9, de la
+  fase 4.
+- La sección «El puesto» dice «La obra se queda con el paso si cambia de dueño»: es la regla pendiente
+  de la pregunta al usuario; si cambia, cambia esta frase.
+
+## Workarounds usados
+
+- **El espejo** (una `Session` con la misma semilla, como `pnpm capturas`) para saber dónde pulsar y
+  qué hace la IA: solo lee, cada acción va por clics reales en la página y comparo el oro de los dos.
+  Tras el doble clic apliqué una o dos mejoras al espejo según lo que decía la página; no afecta a quien
+  juega.
+- `?clima=despejado,dia` para que las fotos se lean: solo presentación.
+- `urlDePartida` (el héroe ya pagado, `?heroe=`) en vez de elegirlo ante el ayuntamiento: es otra
+  fase y no cambia nada de los puestos.
+- El núcleo con estado a mano (oro, dueño del paso, héroe puesto en el paso, `memory` del rival) para
+  las fronteras de oro y la niebla: es la regla, no lo que se ve; lo visible lo probé en la página.
+- `data/sitios.json` roto a propósito para ver la pantalla de arranque, y restaurado (mismo sha256).
+
+## No probado
+
+- Torreta y torre en el **espectador** en vivo (nadie mejora en una partida del servidor): lo cubre la
+  inversa exacta; la caseta sí se ve.
+- El botón **sin oro en rojo en el navegador** con mis manos: lo cubren el núcleo, el test de sesión y
+  la captura del ingeniero (`nav-s/b-s8-5…`), que miré.
+- La batalla del paso **amurallado** en el navegador (la vio el ingeniero, s1 día 4) y la de un paso
+  con **guarnición sin héroe** (solo en el test): la corrida mía fue la empalizada con el héroe dentro.
+  Tampoco jugué la batalla hasta ver a la IA poner escaleras (eso es de la fase 2).
+- Un árbol delante de la obra; el diálogo en un móvil; `pnpm capturas` (lo corrió el ingeniero sobre
+  este código, sale 1 solo por la pasada «edicion» de HEAD, y ninguna pasada para en un paso propio).
+- `pnpm verify` y `verify:lento` enteros (CI).
+
+## Veredicto (fase 3, vuelta 1)
+
+**Apto con reservas.** La fase hace lo que pidió el usuario: el paso tomado enseña su caseta, la
+empalizada una torreta de madera y la muralla una torre, con la bandera del dueño y el neutral con su
+hito; se mejora desde el diálogo al parar (no al pasar), pagando 1500 y 4000 con las fronteras de oro
+exactas, con el motivo y la nota en su tono; la batalla en el paso se pelea tras madera o piedra con
+escaleras para el atacante y puertas para el defensor; la niebla recuerda lo último visto, el agente
+recibe `upgrade`, el espectador la caseta, `data/sitios.json` roto no arranca diciéndolo, y el banco no
+se mueve. La reserva es H-F3-1: un doble clic compra las dos obras y cobra 4000 que nadie pidió. H-F3-2
+es una concordancia.
+
+## Fase 3 · cierre de la vuelta 1 (coordinador, 05-11-2026)
+
+H-F3-1 y H-F3-2, corregidos (QF3-1 y QF3-2 de `hallazgos-qa.md`; detalle en `implementacion.md`,
+«Fase 3 · QA vuelta 1»). La acción dice qué obra compra (`mejorar_el_puesto { hero, obra }`) y el
+núcleo rechaza sin cobrar la que no toca; en el cliente, además, el segundo clic de un doble clic no
+cuenta (`ev.detail > 1`, como los demás botones que compran), porque un doble clic de persona deja
+pasar el repintado entre los dos clics. En el navegador: s1 con `dblclick()` y s6 con doble clic de
+persona, 25 500 → 24 000; la nota dicha del puesto («el puesto de la puerta de la muralla de (17,6)
+ya está amurallado…»), con test de los cinco nombres de paso. Guardias vistos morder. `pnpm banco`
+igual (`883fe9be…`). Al ser un arreglo acotado con sus guardias, no se lanza otra vuelta de QA entera.

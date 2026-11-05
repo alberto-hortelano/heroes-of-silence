@@ -76,7 +76,7 @@ import { type CatalogoDeEquipo, type Portador, pedidoDelPuesto, pieza } from '@c
 import { type Hero, maxMana } from '@core/hero/hero.js';
 import { armyLeadership, heroLeadership, troopUnit } from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
-import type { MapObject, PathStep } from '@core/map/map.js';
+import type { MapObject, ObraDelPuesto, PathStep } from '@core/map/map.js';
 import { type Lugar, lugarSiExiste, type MundoLeido } from '@core/mundo/formato.js';
 import { partidaDelMundo } from '@core/mundo/partida.js';
 import { estadoDicho, lugarEn } from '@core/mundo/reglas.js';
@@ -145,8 +145,11 @@ import {
   type FilaDeLaDefensa,
   guarnicionDe,
   type LaDefensa,
+  type LaObraDelPuesto,
   type LineaDelReparto,
+  laObraDelPuesto,
   lineasDelEjercito,
+  mejorarBlocker,
   nombreDelSitio,
   type Sitio,
   sitioDelHeroe,
@@ -171,6 +174,7 @@ import {
 } from '@core/types.js';
 import { componerVistaDelAyuntamiento, type VistaDelAyuntamiento } from './ayuntamiento/vista.js';
 import { quienesDe } from './desenlace.js';
+import { DICHO_DE_LA_OBRA } from './dicho-del-puesto.js';
 import { EnElLugar, type TrasElegir } from './lugar/sesion.js';
 import { componerVistaDeLaMorada, type VistaDeLaMorada } from './morada/vista.js';
 import type { VistaDeLaBase } from './render/base/escena.js';
@@ -1799,7 +1803,54 @@ export class Session implements ControlDeBatalla {
       hero,
       delSitio: delSitio(sitio),
       motivo: reparto.cambia ? (this.bloqueoDeTurno() ?? reparto.motivo) : null,
+      obra: this.obraDelPuesto(hero),
     };
+  }
+
+  /**
+   * La obra del puesto donde está `hero` (`laObraDelPuesto`), con el turno en su
+   * motivo: fuera de turno no se mejora, pero «ya está amurallado» es una nota y
+   * sigue siéndolo. La lee la vista de la guarnición.
+   */
+  private obraDelPuesto(hero: Hero): LaObraDelPuesto | null {
+    const obra = laObraDelPuesto(this.state, this.viewer, hero, this.oro);
+    if (obra === null || obra.nota !== null) return obra;
+    return { ...obra, motivo: this.bloqueoDeTurno() ?? obra.motivo };
+  }
+
+  /**
+   * «Levantar la empalizada» o «Amurallar» del diálogo del puesto: manda al núcleo
+   * la obra `obra`, la que decía el botón pulsado (`mejorar_el_puesto`, que juzga
+   * `mejorarBlocker`: si ya no es la que toca, se rechaza sin cobrar), y deja el
+   * diálogo abierto, con la obra nueva y el oro que queda; lo editado del reparto
+   * sigue como estaba (la obra no toca la tropa). Con un rechazo, su motivo en la
+   * barra.
+   */
+  mejorarElPuesto(obra: ObraDelPuesto): void {
+    const abierto = this.repartoEnPantalla;
+    const hero =
+      abierto === null ? undefined : this.state.heroes.find((h) => h.id === abierto.hero);
+    if (hero === undefined) return;
+    const motivo =
+      this.bloqueoDeTurno() ?? mejorarBlocker(this.state, this.viewer, hero.id, obra, this.oro);
+    if (motivo !== null) {
+      this.status = comoFrase(motivo);
+      this.tocar();
+      return;
+    }
+    const hecho = this.run(() =>
+      applyAdventureAction(
+        this.state,
+        { type: 'mejorar_el_puesto', hero: hero.id, obra },
+        this.ctx,
+        this.viewer,
+      ),
+    );
+    const sitio = sitioDelHeroe(this.state, hero);
+    if (hecho && sitio !== null) {
+      this.status = DICHO_DE_LA_OBRA[obra].hecho(delSitio(sitio));
+      this.tocar();
+    }
   }
 
   /**
@@ -3801,6 +3852,11 @@ export interface VistaDeLaGuarnicion extends ElReparto {
   readonly hero: Hero;
   /** «del paso de montaña de (3,4)», «de Villarreal». */
   readonly delSitio: string;
+  /**
+   * La obra del puesto, si el sitio es un paso (`laObraDelPuesto`; la ciudad y el
+   * pueblo no se mejoran), con el turno en su motivo.
+   */
+  readonly obra: LaObraDelPuesto | null;
 }
 
 /** La pantalla de la defensa (`Session.defensa`): la del núcleo, con los nombres. */

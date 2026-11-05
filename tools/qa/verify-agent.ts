@@ -35,7 +35,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import WebSocket from 'ws';
 import { PROSA_DE_LA_MURALLA } from '../../src/core/contract/agent.js';
 import { COMO_SE_LEE_EL_MAPA } from '../../src/core/contract/serialize.js';
-import { JUGADAS_DE_MURALLA } from '../../src/core/contract/vocabulario.js';
+import { esUpgrade, JUGADAS_DE_MURALLA } from '../../src/core/contract/vocabulario.js';
 import {
   CABECERA_ESTADO,
   CABECERA_RESPUESTA,
@@ -139,6 +139,8 @@ let rendicionOfrecida = false;
  * verde sin haber ejercitado nada de lo que el agente tiene que ver.
  */
 const asaltantesVistos = new Set<string>();
+/** Los nodos del `knownMap` que han llegado con su obra (`upgrade`). */
+const nodosConObra = new Set<string>();
 const emboscadasVistas = new Set<string>();
 /**
  * Las licencias que le constan al agente en su crónica: el arnés licencia
@@ -779,6 +781,14 @@ async function terminarBien(
     );
   }
   log(`licencias: ${licenciasVistas.size} en la crónica del agente`);
+  // En la partida del arnés el agente no siempre llega a ver un paso (en la semilla
+  // de hoy, sus cuatro turnos de mapa no le enseñan ninguno): sin nodos no hay
+  // nada que mirar, y se dice; con alguno, el de arriba exige su "upgrade".
+  log(
+    nodosConObra.size === 0
+      ? 'puestos: ningún nodo a la vista del agente en esta partida; el "upgrade" lo cubre test/mejoras-del-puesto.test.ts'
+      : `puestos: ${nodosConObra.size} nodos del knownMap con su "upgrade"`,
+  );
   if (guarnicionVista.dejada.size === 0 || guarnicionVista.recogida.size === 0) {
     throw new Error(
       `el agente no ha dejado y recogido tropa de la guarnición (${guarnicionVista.dejada.size} dejadas, ${guarnicionVista.recogida.size} recogidas): \`leave_troops\` y \`take_troops\` no han cruzado el circuito`,
@@ -1088,6 +1098,18 @@ async function main(): Promise<void> {
       const entro = veredictos.find((x) => x.requestId === ascenso.requestId)?.ok === true;
       if (entro && ascenso.visto === null) await cruzaElHeroeNacido(client, payload);
       for (const r of payload.knownMap?.raiders ?? []) asaltantesVistos.add(r.id);
+      // La obra de cada puesto viaja en su nodo (fase 3 del puesto fronterizo): un
+      // nodo sin ella, o con una palabra que no es del contrato, es un serializador
+      // que se quedó atrás.
+      for (const o of payload.knownMap?.objects ?? []) {
+        if (o.kind !== 'node') continue;
+        if (!esUpgrade(o.upgrade)) {
+          throw new Error(
+            `el nodo ${o.id} del knownMap llega sin "upgrade" o con uno que no es del contrato: ${JSON.stringify(o)}`,
+          );
+        }
+        nodosConObra.add(o.id);
+      }
       for (const e of payload.recentEvents ?? []) {
         cuotaDeAsaltantes.total++;
         if (String(e.kind).startsWith('raider_')) cuotaDeAsaltantes.asaltantes++;

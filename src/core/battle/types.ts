@@ -504,8 +504,8 @@ export interface BattleState {
   /**
    * Muros y puertas del tablero (`muralla.ts`). No cambia en toda la batalla. La
    * pone la arena (la que se dibuje) y la batalla del mapa (la de su sitio:
-   * `murallaDelSitio`, piedra en una ciudad, madera en un pueblo; sin sitio,
-   * `SIN_MURALLA`).
+   * `murallaDelSitio`, piedra en una ciudad, madera en un pueblo, la de su obra
+   * en un paso; sin sitio, `SIN_MURALLA`).
    */
   readonly muralla: MurallaDeBatalla;
   /**

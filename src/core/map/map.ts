@@ -23,6 +23,45 @@ import {
   type TerrainKind,
 } from './terrain.js';
 
+/**
+ * Las obras de un puesto (un paso tomado), de la primera a la última: se sube de
+ * una en una y no se baja (`mejorarBlocker`, `state/sitios.ts`). Qué cuesta cada una
+ * y con qué muralla se pelea, en `data/sitios.json`.
+ */
+export const MEJORAS_DEL_PUESTO = ['ninguna', 'empalizada', 'muralla'] as const;
+export type MejoraDelPuesto = (typeof MEJORAS_DEL_PUESTO)[number];
+
+/** Las obras que se hacen en un puesto: todas menos la de partida, la caseta. */
+export type ObraDelPuesto = Exclude<MejoraDelPuesto, 'ninguna'>;
+
+/** Las obras, en su orden (`MEJORAS_DEL_PUESTO` sin la caseta). */
+export const OBRAS_DE_UN_PUESTO: readonly ObraDelPuesto[] = MEJORAS_DEL_PUESTO.filter(
+  (m): m is ObraDelPuesto => m !== 'ninguna',
+);
+
+/**
+ * La obra que sigue a cada una, o `null` tras la última: la escalera de
+ * `MEJORAS_DEL_PUESTO` como tabla, que el compilador exige entera.
+ */
+export const OBRA_SIGUIENTE: Readonly<Record<MejoraDelPuesto, ObraDelPuesto | null>> = {
+  ninguna: 'empalizada',
+  empalizada: 'muralla',
+  muralla: null,
+};
+
+/** Si `valor` es una de las obras de un puesto (`MEJORAS_DEL_PUESTO`). */
+export function esMejoraDelPuesto(valor: unknown): valor is MejoraDelPuesto {
+  return (MEJORAS_DEL_PUESTO as readonly unknown[]).includes(valor);
+}
+
+/**
+ * Si `valor` es una obra que se hace en un puesto (`OBRAS_DE_UN_PUESTO`): lo que
+ * pide `mejorar_el_puesto` y lo que lleva el botón del diálogo (`data-obra`).
+ */
+export function esObraDelPuesto(valor: unknown): valor is ObraDelPuesto {
+  return (OBRAS_DE_UN_PUESTO as readonly unknown[]).includes(valor);
+}
+
 export type MapObject =
   | {
       /**
@@ -41,6 +80,16 @@ export type MapObject =
        * empate se inventaba un río (#187). No cambia qué se pisa.
        */
       readonly barrera: Barrera;
+      /**
+       * La obra del puesto que es el paso una vez tomado (puesto fronterizo, fase 3,
+       * 04-11-2026): `ninguna` (la caseta), `empalizada` o `muralla`, en ese orden y
+       * sin bajar. Un primitivo del objeto, como `owner`, así que la memoria de la
+       * niebla la recuerda sola (`explorar` copia el objeto) y el espectador la
+       * recibe con él. **La escribe solo `mejorarElPuesto`** (`state/sitios.ts`; lo
+       * vigila `test/invariantes.test.ts`): tomar el paso no la toca, porque es una
+       * obra y se queda con él. La lee `murallaDelSitio` para la batalla del paso.
+       */
+      mejora: MejoraDelPuesto;
     }
   | {
       /**

@@ -85,6 +85,7 @@ import {
   isEnterable,
   type MapObject,
   type Mirada,
+  type ObraDelPuesto,
   objectAt,
   type PathStep,
   pathFromReachable,
@@ -164,6 +165,7 @@ import {
   type LaDefensa,
   type LineaDeDefensa,
   laDefensa,
+  mejorarElPuesto,
   moverTropa,
   murallaDelSitio,
   nombreDelSitio,
@@ -516,6 +518,16 @@ export type AdventureAction =
    * `dejar_tropa` y `recoger_tropa`.
    */
   | ({ readonly type: 'repartir_tropa' } & PedidoDeReparto)
+  /**
+   * Hacer la obra `obra` del puesto (el paso tomado) donde está `hero`, suyo: la
+   * siguiente, de la caseta a la empalizada y de la empalizada a la muralla, pagada
+   * en oro e inmediata (`mejorarBlocker`, `state/sitios.ts`). Se nombra la obra para
+   * que el segundo clic de un doble clic no compre la que sigue (QA de la fase 3). La batalla en el paso se pelea
+   * después tras la muralla de su obra (`murallaDelSitio`). La manda el diálogo de
+   * la guarnición; la IA de reglas no mejora y el agente aún no tiene la jugada
+   * (backlog).
+   */
+  | { readonly type: 'mejorar_el_puesto'; readonly hero: string; readonly obra: ObraDelPuesto }
   /**
    * Ponerle a alguien una pieza de la mochila del héroe `hero`: al héroe si no se
    * dice a quién; a `veteran`, el individuo de su tropa con esa hoja; o a
@@ -1596,6 +1608,29 @@ function aplicar(
         taken: recoge,
         actor: player.id,
         at: hero.at,
+      });
+      return;
+    }
+
+    case 'mejorar_el_puesto': {
+      const player = currentPlayer(state);
+      // Lanza con `mejorarBlocker`, la regla que lee también el botón del diálogo.
+      const { hero, nodo, obra, precio } = mejorarElPuesto(
+        state,
+        player.id,
+        action.hero,
+        action.obra,
+        player.oro,
+      );
+      player.oro -= precio;
+      emit(state, {
+        kind: 'outpost_upgraded',
+        hero: hero.id,
+        site: nodo.id,
+        to: obra,
+        cost: precio,
+        actor: player.id,
+        at: nodo.at,
       });
       return;
     }
@@ -3185,13 +3220,14 @@ function dejarPendiente(
  * llamada a `createBattle` de `state/`** (lo vigila `test/invariantes.test.ts`): la
  * hacen la batalla que nace y la defensa que se rehace.
  *
- * Con la muralla del sitio que se defiende (fase 2 del puesto fronterizo: piedra en
- * una ciudad, madera en un pueblo, `murallaDelSitio`), y entonces **todo el bando
+ * Con la muralla del sitio que se defiende (fases 2 y 3 del puesto fronterizo:
+ * piedra en una ciudad, madera en un pueblo, la de su obra en un paso,
+ * `murallaDelSitio`), y entonces **todo el bando
  * atacante lleva escalera**, el héroe incluido (D8, `alAsalto`): la muralla del
  * mapa cierra, y sin escaleras nadie que ande la cruzaría.
  */
 function montarLaBatalla(state: GameState, quienes: Enfrentamiento, ctx: GameContext): BattleState {
-  const muralla = murallaDelSitio(state, sitioQueSeDefiende(state, quienes.foe));
+  const muralla = murallaDelSitio(sitioQueSeDefiende(state, quienes.foe));
   return createBattle(
     alAsalto(attackerSide(state, quienes.attacker), muralla),
     defenderSide(state, quienes.foe),

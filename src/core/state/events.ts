@@ -18,6 +18,7 @@
 import type { ResumenDeBatalla } from '../battle/resumen.js';
 import type { Side } from '../battle/types.js';
 import type { GrupoDeTropa } from '../data.js';
+import type { ObraDelPuesto } from '../map/map.js';
 import type { PlayerId, Point } from '../types.js';
 
 /**
@@ -208,6 +209,11 @@ type Cuerpo =
       taken: readonly { readonly creature: string; readonly count: number }[];
     }
   /**
+   * Un héroe hace la siguiente obra del puesto donde está (`mejorar_el_puesto`):
+   * `site`, el id del paso, suyo; `to`, la empalizada o la muralla, por `cost` de oro.
+   */
+  | { kind: 'outpost_upgraded'; hero: string; site: string; to: ObraDelPuesto; cost: number }
+  /**
    * Quién defiende con el héroe que atacan en un sitio suyo (`defensaDeLaIA` al nacer
    * la batalla, `elegirLaDefensa` si lo rehace la persona): `fighting` individuos de
    * su ejército y la guarnición pelean con él y `staying` se quedan fuera; si pierde,
@@ -352,6 +358,7 @@ export const SE_VE_POR: Readonly<
   troops_left: 'casilla',
   troops_taken: 'casilla',
   troops_exchanged: 'casilla',
+  outpost_upgraded: 'casilla',
   defense_set: 'casilla',
   battle_started: 'casilla',
   battle_ended: 'casilla',
@@ -438,6 +445,7 @@ export function visibleTo(e: GameEvent, p: PlayerId): boolean {
     case 'troops_left':
     case 'troops_taken':
     case 'troops_exchanged':
+    case 'outpost_upgraded':
     case 'defense_set':
     case 'battle_started':
     case 'battle_ended':

@@ -70,22 +70,23 @@ export interface Puente {
    */
   readonly escala: number;
   /**
-   * Donde va la marca del dueño (el óvalo y el mástil de la bandera), en
-   * casillas de pantalla: sobre el tablero, en el punto de su línea más cercano
-   * al centro del nodo, alzado la altura del tablero. Así se lee y cae en la
-   * casilla que se pulsa; en el centro del nodo quedaba en el río, bajo el
-   * tablero.
+   * Donde va la marca del dueño (el óvalo), en casillas de pantalla: sobre el
+   * tablero, en el punto de su línea más cercano al centro del nodo, alzado la
+   * altura del tablero. Así se lee y cae en la casilla que se pulsa; en el centro
+   * del nodo quedaba en el río, bajo el tablero.
    */
   readonly asiento: Punto;
   /**
-   * El pie del mástil de la bandera del dueño, en casillas de pantalla: sobre el
-   * tablero, a `MASTIL_EN_EL_TABLERO` de su largo hacia el extremo de la
-   * derecha (el de abajo en N-S, que queda delante), a la altura del tablero
-   * ahí. En un extremo, para que no lo tape quien esté en el medio; con el
-   * mástil de los demás nodos, 0,65 casillas por encima del tablero, flotaba en
-   * el aire sobre el río (H1 del QA de #157).
+   * El pie del puesto del dueño (la caseta, la torreta o la torre con su bandera,
+   * `Escenario.puestoDeNodo`), en casillas de pantalla: sobre el tablero, a
+   * `PUESTO_EN_EL_TABLERO` de su largo hacia el extremo de atrás (el de arriba en
+   * pantalla; en E-O, el de la derecha), a la altura del tablero ahí. En un
+   * extremo y detrás, para que quien esté en el medio quede delante: hacia el de
+   * abajo, donde iba la bandera, la torre de un puente de norte a sur tapaba entero
+   * al héroe que estaba en él (visto en el navegador, 05-11-2026). En el aire, con
+   * el mástil de los demás nodos, la bandera flotaba sobre el río (H1 del QA de #157).
    */
-  readonly mastil: Punto;
+  readonly puesto: Punto;
   /** Donde cada estribo toca el suelo, a `largo / 2` del centro por el eje. */
   readonly extremos: readonly [Punto, Punto];
   /**
@@ -300,10 +301,11 @@ function armarPuente(
     Math.min(0.5, ((x + 0.5 - cx) * vx + (y + 0.5 + altura - cy) * vy) / (vx * vx + vy * vy)),
   );
   // `e1` es siempre el extremo de la derecha (o el de abajo, en N-S): todos los
-  // pasos de `PASO_DEL_EJE` tienen la x ≥ 0, y el de N-S, la y > 0. En una pieza
-  // que sube, el tablero sube un nivel de punta a punta: en N-S hacia el norte
-  // (`e0`) y en E-O hacia el este (`e1`).
-  const m = MASTIL_EN_EL_TABLERO;
+  // pasos de `PASO_DEL_EJE` tienen la x ≥ 0, y el de N-S, la y > 0. El de atrás es
+  // el de menos y: `e0` si el eje baja hacia `e1`, y si no, `e1`. En una pieza que
+  // sube, el tablero sube un nivel de punta a punta: en N-S hacia el norte (`e0`) y
+  // en E-O hacia el este (`e1`).
+  const m = vy > 0 ? -PUESTO_EN_EL_TABLERO : PUESTO_EN_EL_TABLERO;
   const subida = !pieza.endsWith('-sube') ? 0 : (eje === 'eo' ? m : -m) * ALTO_DE_NIVEL * escala;
   return {
     id: nodo.id,
@@ -314,18 +316,18 @@ function armarPuente(
     centro,
     escala,
     asiento: [cx + t * vx, cy + t * vy - altura],
-    mastil: [cx + m * vx, cy + m * vy - altura - subida],
+    puesto: [cx + m * vx, cy + m * vy - altura - subida],
     extremos,
     tablero: [e0, [e0[0], e0[1] - altura], [e1[0], e1[1] - altura], e1],
   };
 }
 
 /**
- * Dónde va el mástil por el tablero, en fracción de su largo desde el centro:
+ * A qué distancia del centro va el puesto por el tablero, en fracción de su largo:
  * dentro de lo llano en las dos clases (las rampas empiezan en ±0,37) y fuera
  * del medio, donde se pinta quien lo pisa.
  */
-const MASTIL_EN_EL_TABLERO = 0.28;
+const PUESTO_EN_EL_TABLERO = 0.28;
 
 /**
  * Media anchura de lo que se pulsa de un puente, en casillas, a escala 1: algo

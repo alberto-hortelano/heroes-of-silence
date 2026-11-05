@@ -102,3 +102,37 @@ de `quienNoEscala` el test sale rojo.
 - `place_ladder` y `climb` del agente en `pnpm qa`: en las semillas que pasan solo defiende; los
   cubren los tests del contrato. Si es barato, que `pnpm qa` busque además una semilla donde el agente
   asalte; si no, backlog.
+
+---
+
+# Hallazgos de QA de la fase 3 (vuelta 1), decididos
+
+De `qa.md` («Fase 3 · vuelta 1», apto con reservas). Decididos por el coordinador (05-11-2026). El
+juego no cambia: `pnpm banco` sigue en `883fe9be…`.
+
+## QF3-1 · Un doble clic no compra dos obras (H-F3-1)
+
+Un doble clic en «Levantar la empalizada · 1500 oro» compra también la muralla (25 500 → 20 000; s1
+puente (2,17), s4 puerta (17,6), s6 bosque (12,10)): el primer clic repinta el mismo botón como
+«Amurallar · 4000 oro» encendido y el segundo cae en él. → **la acción dice qué obra compra**:
+`mejorar_el_puesto { hero, obra }`, y `mejorarBlocker` rechaza si la siguiente obra del paso no es
+esa («el puesto ya tiene la empalizada: la siguiente es la muralla», o la frase que encaje). El botón
+lleva su obra (`data-obra`) y el clic la manda; así el segundo clic de un doble clic se rechaza solo,
+sin cobrar, en el núcleo y no por un truco del cliente (vale también para la IA y la jugada futura del
+agente). Test del núcleo (pedir la empalizada con la empalizada ya hecha se rechaza y no cobra) y de
+la sesión o la escena (dos clics seguidos en el botón de la empalizada dejan 24 000), y una vez en el
+navegador con s1 o s6 (doble clic real de Playwright).
+
+## QF3-2 · La nota sin género equivocado (H-F3-2)
+
+«la puerta de la muralla de (17,6) ya está amurallado». → una frase que no dependa del género del
+nombre del sitio (p. ej. «… ya tiene su muralla», o «ya está amurallado» dicho del puesto: «el puesto
+de … ya está amurallado»), escrita en `laMejoraPedida`; mírala con los nombres de paso que salen
+(montaña, bosque, acantilado, puerta de la muralla, puente).
+
+## No son hallazgos de esta tarea
+
+- La obra tapada por el héroe parado en su paso y el marcador sobre la senda en la puerta de muralla
+  y el bosque: colocación, fase 4 (`componer` reserva su sitio).
+- Torreta y torre en el espectador en vivo: nadie mejora en una partida del servidor; lo cubre la
+  inversa exacta.

@@ -8,6 +8,9 @@
  *    sin tocar la partida, y «Confirmar» manda el reparto entero, que el núcleo
  *    juzga solo al final (D9: con los dos llenos se cambia uno por otro). «Cancelar»
  *    y Escape lo descartan;
+ *    En un paso (un puesto), debajo, **su obra** (fase 3): la que tiene, qué se
+ *    pelea tras ella y el botón de la siguiente con su precio, apagado con el motivo
+ *    del núcleo (`laObraDelPuesto`);
  *  - **la defensa** (`<dialog id="defensa">`): con quién defiende el héroe atacado
  *    en su sitio, de su ejército y la guarnición, con la propuesta de la IA de
  *    partida y «−»/«+» por tipo.
@@ -19,7 +22,10 @@
  * personaje va siempre con su héroe) va en el tono apagado (`notaDebajo`), no en el
  * del rechazo (H5 del QA de la fase 1).
  */
-import type { FilaDelReparto, LadoDelReparto } from '@core/state/sitios.js';
+import { OBRAS_DE_UN_PUESTO } from '@core/map/map.js';
+import type { FilaDelReparto, LadoDelReparto, LaObraDelPuesto } from '@core/state/sitios.js';
+import { describirCoste } from '@core/types.js';
+import { DICHO_DE_LA_OBRA, SE_VE_EN_EL_PUESTO } from '../dicho-del-puesto.js';
 import { type Html, html, NADA, unir } from '../html.js';
 import type { VistaDeLaDefensa, VistaDeLaGuarnicion } from '../session.js';
 import { apagadoPor, motivoDebajo, notaDebajo } from './cifras.js';
@@ -46,6 +52,32 @@ function columna(lado: LadoDelReparto, hacia: 'heroe' | 'guarnicion', vacia: str
   )}</div>`;
 }
 
+/**
+ * La obra del puesto: la que tiene, tras qué se pelea en él y el botón de la
+ * siguiente con su precio. Apagado, con lo que diga el núcleo debajo: sin oro, un
+ * rechazo (`motivo`); ya amurallado, una nota (`nota`: no hay nada que arreglar).
+ */
+function seccionDeLaObra(o: LaObraDelPuesto): Html {
+  const hoy = o.materiales[o.ahora];
+  const boton =
+    o.siguiente === null
+      ? 'Mejorar'
+      : `${DICHO_DE_LA_OBRA[o.siguiente.obra].boton} · ${describirCoste(o.siguiente.precio)}`;
+  // El botón dice qué obra compra (QA de la fase 3, H-F3-1): el clic la manda tal
+  // cual y, si el diálogo ya no la ofrece, el núcleo la rechaza sin cobrar.
+  const queObra = o.siguiente === null ? NADA : html` data-obra="${o.siguiente.obra}"`;
+  const cadaObra = OBRAS_DE_UN_PUESTO.map(
+    (obra) =>
+      `${DICHO_DE_LA_OBRA[obra].nombre} (en el mapa, ${SE_VE_EN_EL_PUESTO[obra]}) pone una muralla de ${o.materiales[obra]} en la batalla`,
+  ).join(', y ');
+  return html`<section class="obra-del-puesto">
+      <h4>El puesto · ${SE_VE_EN_EL_PUESTO[o.ahora]}</h4>
+      <p class="cost">Hoy la batalla en el paso se pelea ${hoy === null ? 'sin muralla' : `tras una muralla de ${hoy}`}. Se mejora de una en una y no se baja: ${cadaObra}. La obra se queda con el paso si cambia de dueño.</p>
+      <div class="botones"><button data-action="mejorar-el-puesto"${queObra}${apagadoPor(o.motivo ?? o.nota)}>${boton}</button></div>
+      ${motivoDebajo(o.motivo)}${notaDebajo(o.nota)}
+    </section>`;
+}
+
 export function renderGuarnicion(v: VistaDeLaGuarnicion): Html {
   return html`<h3 id="titulo-de-la-guarnicion">Guarnición ${v.delSitio}</h3>
     <p class="cost">Reparte la tropa entre ${v.hero.name} y la guarnición y confirma: lo que no cabe a un lado se puede mover mientras el reparto final quepa. Lo que se deja guarda el sitio: si atacan con el héroe dentro, defiende con lo que elija de los dos; sin él, la guarnición entera.</p>
@@ -61,6 +93,7 @@ export function renderGuarnicion(v: VistaDeLaGuarnicion): Html {
         ${columna(v.guarnicion, 'heroe', 'No guarda a nadie.')}
       </section>
     </div>
+    ${v.obra === null ? NADA : seccionDeLaObra(v.obra)}
     ${motivoDebajo(v.motivo)}
     <div class="botones">${
       v.cambia

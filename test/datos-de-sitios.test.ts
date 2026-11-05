@@ -2,7 +2,7 @@
  * Las murallas del mapa (puesto fronterizo, fase 2, 04-11-2026;
  * `docs/agents/2026-11-04-puesto-fronterizo/plan.md` §4 y §7): las dos formas de
  * `data/sitios.json` y la regla que las juzga al cargar (`murallaDelMapaBlocker`,
- * `leerMurallasDelMapa`), qué muralla lleva cada batalla del mapa
+ * `leerSitios`), qué muralla lleva cada batalla del mapa
  * (`murallaDelSitio` por `montarLaBatalla`), la escalera de todo el bando atacante
  * (D8, `alAsalto`) y que la IA las asalte y la batalla acabe.
  *
@@ -41,7 +41,7 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import {
-  leerMurallasDelMapa,
+  leerSitios,
   MURALLAS_DEL_MAPA,
   ponerLaGuarnicion,
   sitioPorId,
@@ -146,33 +146,46 @@ describe('las dos formas de data/sitios.json', () => {
   });
 
   it('el fichero se lee entero o lanza nombrándolo', () => {
-    const { ciudad, pueblo } = MURALLAS_DEL_MAPA;
-    const bien = { murallas: { ciudad, pueblo } };
-    expect(leerMurallasDelMapa(bien).pueblo).toEqual(pueblo);
-    expect(() => leerMurallasDelMapa({})).toThrow('data/sitios.json: falta «murallas»');
-    expect(() => leerMurallasDelMapa({ murallas: { ciudad } })).toThrow(
-      'data/sitios.json: «murallas»: falta «pueblo»',
+    const { ciudad: gruesa, pueblo: linea } = MURALLAS_DEL_MAPA;
+    const usos = {
+      ciudad: { muralla: 'gruesa' },
+      pueblo: { muralla: 'linea' },
+      empalizada: { muralla: 'linea', precio: 1500 },
+      muralla: { muralla: 'gruesa', precio: 4000 },
+    };
+    const bien = { murallas: { gruesa, linea }, usos };
+    const con = (cambio: Record<string, unknown>) => () => leerSitios({ ...bien, ...cambio });
+    expect(leerSitios(bien).murallas.pueblo).toEqual(linea);
+    // Una forma que nadie nombra vale: las formas son un conjunto abierto.
+    expect(con({ murallas: { gruesa, linea, otra: linea } })).not.toThrow();
+    expect(() => leerSitios({})).toThrow('data/sitios.json: falta «murallas»');
+    expect(con({ mejoras: {} })).toThrow(
+      'data/sitios.json: «mejoras» no es un campo; valen _comment, murallas, usos',
     );
-    expect(() => leerMurallasDelMapa({ murallas: { ciudad, pueblo, paso: pueblo } })).toThrow(
-      'data/sitios.json: «murallas»: «paso» no es un campo; valen ciudad, pueblo',
+    const { pueblo: _sinPueblo, ...sinElPueblo } = usos;
+    expect(con({ usos: sinElPueblo })).toThrow('data/sitios.json: «usos»: falta «pueblo»');
+    expect(con({ usos: { ...usos, paso: { muralla: 'linea' } } })).toThrow(
+      '«usos»: «paso» no es un campo; valen ciudad, pueblo, empalizada, muralla',
     );
-    // Que sea una muralla (`validarMuralla`), con su frase y de qué sitio.
-    const { material: _, ...sinMaterial } = pueblo;
-    expect(() => leerMurallasDelMapa({ murallas: { ciudad, pueblo: sinMaterial } })).toThrow(
-      'data/sitios.json: la muralla del pueblo: la muralla: falta «material»',
+    // Quién usa cuál nombra una forma que está.
+    expect(con({ usos: { ...usos, ciudad: { muralla: 'ciudad' } } })).toThrow(
+      'data/sitios.json: el uso «ciudad»: «muralla» "ciudad" no existe; valen gruesa, linea',
     );
-    expect(() =>
-      leerMurallasDelMapa({ murallas: { ciudad, pueblo: { ...pueblo, material: 'barro' } } }),
-    ).toThrow(
-      'data/sitios.json: la muralla del pueblo: la muralla: material "barro" no existe; valen piedra, madera',
+    // Que sea una muralla (`validarMuralla`), con su frase y su nombre.
+    const { material: _, ...sinMaterial } = linea;
+    expect(con({ murallas: { gruesa, linea: sinMaterial } })).toThrow(
+      'data/sitios.json: la muralla «linea»: la muralla: falta «material»',
     );
-    // Y que valga para el mapa (`murallaDelMapaBlocker`).
-    expect(() =>
-      leerMurallasDelMapa({
-        murallas: { ciudad, pueblo: { muros: columna(7), puertas: [], material: 'madera' } },
+    expect(con({ murallas: { gruesa, linea: { ...linea, material: 'barro' } } })).toThrow(
+      'data/sitios.json: la muralla «linea»: la muralla: material "barro" no existe; valen piedra, madera',
+    );
+    // Y que valga para el mapa (`murallaDelMapaBlocker`), aunque nadie la nombre.
+    expect(
+      con({
+        murallas: { gruesa, linea, rota: { muros: columna(7), puertas: [], material: 'madera' } },
       }),
     ).toThrow(
-      'data/sitios.json: la muralla del pueblo no vale: una muralla del mapa lleva al menos una puerta',
+      'data/sitios.json: la muralla «rota» no vale: una muralla del mapa lleva al menos una puerta',
     );
   });
 
@@ -207,7 +220,7 @@ describe('qué muralla lleva cada batalla del mapa', () => {
     // Un pueblo con guarnición ajena: la empalizada.
     expect(contraElPueblo(5, DOS_BARATAS()).b.muralla).toBe(MURALLAS_DEL_MAPA.pueblo);
 
-    // Un paso con guarnición ajena: sin muralla (la de su nivel es la fase 3), y sin escaleras.
+    // Un paso con guarnición ajena: sin obra no hay muralla (con obra, `mejoras-del-puesto.test.ts`), y sin escaleras.
     const s3 = newGame({ seed: 5 });
     const paso = unPaso(s3);
     paso.owner = 1;

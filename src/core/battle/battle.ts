@@ -379,8 +379,8 @@ export function armyMorale(units: readonly UnitInfo[]): number {
  * armadura siempre). `combate`, **obligatorio**, es la complejidad de la partida
  * (`GameState.combate`) o del montaje de la arena: el tope de individuos por bando
  * y la rueda con que se pelea (`BattleState.rueda`). `muralla` la pone la arena
- * (la que se dibuje) y la batalla del mapa contra una ciudad o un pueblo (la de
- * `data/sitios.json`, `murallaDelSitio`); sin ella, `SIN_MURALLA`.
+ * (la que se dibuje) y la batalla del mapa contra una ciudad, un pueblo o un paso
+ * con obra (la de `data/sitios.json`, `murallaDelSitio`); sin ella, `SIN_MURALLA`.
  */
 export function createBattle(
   attacker: BattleSide,

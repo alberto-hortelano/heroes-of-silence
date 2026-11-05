@@ -18,7 +18,7 @@
 import type { BattleStack, BattleState } from '@core/battle/types.js';
 import { cifrasDeUnidad, oroDeUnidad } from '@core/catalogo.js';
 import { Casillas } from '@core/map/casillas.js';
-import { aPunto, RedDeCaminos, type TramoDeCamino } from '@core/map/map.js';
+import { aPunto, esMejoraDelPuesto, RedDeCaminos, type TramoDeCamino } from '@core/map/map.js';
 import { BARRERAS, NIVELES, type TerrainKind } from '@core/map/terrain.js';
 import type { UnitInfo, Veterania } from '@core/types.js';
 import type {
@@ -81,17 +81,27 @@ function redDelCable(m: VistaMapa): RedDeCaminos {
 }
 
 /**
- * Que cada nodo traiga la barrera que cruza (#145): el escenógrafo la lee para
- * su pieza, y sin ella no sabría si es un puente. Un `pnpm partida` arrancado
- * antes la manda sin ella, y lo honrado es decirlo y no pintar hitos.
+ * Que cada nodo traiga la barrera que cruza (#145) y la obra de su puesto (fase 3
+ * del puesto fronterizo, `mejora`): el escenógrafo lee la barrera para su pieza, y
+ * sin ella no sabría si es un puente; el lienzo, la obra para el marcador del
+ * puesto (caseta, torreta o torre). Un `pnpm partida` arrancado antes manda el
+ * nodo sin una u otra, y lo honrado es decirlo y no pintar lo que no llegó.
  */
 function nodosDelCable(objetos: SpectatorView['map']['objects']): void {
-  for (const o of objetos) {
-    if (o.kind !== 'node' || (BARRERAS as readonly unknown[]).includes(o.barrera)) continue;
-    throw new Error(
-      `el nodo ${o.id} llega sin la barrera que cruza: el servidor habla el formato de antes de #145. ` +
+  /** Un nodo al que le falta `que`, que el servidor no manda desde `desde`. */
+  const deAntes = (id: string, que: string, desde: string): Error =>
+    new Error(
+      `el nodo ${id} llega sin ${que}: el servidor habla el formato de antes de ${desde}. ` +
         'Reinicia `pnpm partida` con el código de ahora',
     );
+  for (const o of objetos) {
+    if (o.kind !== 'node') continue;
+    if (!(BARRERAS as readonly unknown[]).includes(o.barrera)) {
+      throw deAntes(o.id, 'la barrera que cruza', '#145');
+    }
+    if (!esMejoraDelPuesto(o.mejora)) {
+      throw deAntes(o.id, 'la obra de su puesto («mejora»)', 'el puesto fronterizo');
+    }
   }
 }
 
@@ -111,7 +121,7 @@ function regionesDelCable(regiones: SpectatorView['map']['regions']): void {
 
 /**
  * **Lanza** si la vista no se entiende: la red de caminos, un nodo sin su
- * barrera o una región sin su nivel. Por eso se miran antes que el terreno: un fotograma que se rechaza
+ * barrera o sin la obra de su puesto, o una región sin su nivel. Por eso se miran antes que el terreno: un fotograma que se rechaza
  * no debe tocar `terrenoAnterior`.
  */
 export function adaptarEscena(view: SpectatorView): AdventureScene {

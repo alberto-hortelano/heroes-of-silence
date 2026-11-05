@@ -177,11 +177,16 @@ export interface Escenario {
    */
   readonly asientoDeObjeto: ReadonlyMap<string, readonly [number, number]>;
   /**
-   * El pie del mástil de la bandera de cada nodo, por su id, en casillas: el de
-   * siempre sobre el centro de su casilla (`MASTIL_SOBRE_EL_NODO`), o en un
-   * puente, plantado en su tablero (`Puente.mastil`).
+   * Dónde va el puesto de cada nodo (puesto fronterizo, fase 3: la caseta, la
+   * torreta o la torre de un paso tomado, con la bandera de su dueño en lo alto),
+   * por su id: **la única fuente de dónde va**. Su pie, en casillas, a un lado del
+   * asiento para no tapar a quien está en él (`PUESTO_JUNTO_AL_ASIENTO`), o en un
+   * puente, plantado en su tablero (`Puente.puesto`); y su clave de profundidad,
+   * para pintarlo entre los volúmenes detrás de lo que tiene delante. Lo que se
+   * pinta lo elige `o.mejora` en cada fotograma: el dueño la cambia en la partida y
+   * la escena se compone una vez. En la fase 4, el hueco que reserve `componer`.
    */
-  readonly mastilDeNodo: ReadonlyMap<string, readonly [number, number]>;
+  readonly puestoDeNodo: ReadonlyMap<string, PieDelPuesto>;
   /**
    * Lo que pisa quien está en la casilla de un puente, por casilla (`y·W + x`):
    * el punto del tablero (`Puente.asiento`) y la clave del volumen del puente,
@@ -204,26 +209,50 @@ let memo: { semilla: number; escenario: Escenario } | null = null;
  */
 export const OVALO_BAJO_EL_ASIENTO = 0.45 * 0.4;
 
-/**
- * Lo que sube el pie del mástil de un nodo sobre el centro de su casilla, en
- * casillas: su punta va a 0,85 y mide 0,375 (`bandera` a 0,75 de casilla).
- */
-export const MASTIL_SOBRE_EL_NODO = 0.85 - 0.75 * 0.5;
+/** Lo que lee `claveDeFigura` de la escena: se pide antes de tener el `Escenario` entero. */
+export type Profundidad = Pick<Escenario, 'escena' | 'cubiertas' | 'delanteDeParedes'>;
 
-/** El pie del mástil de cada nodo (`Escenario.mastilDeNodo`). */
-function mastilesDe(
+/** Dónde va y en qué orden se pinta el puesto de un nodo (`Escenario.puestoDeNodo`). */
+export interface PieDelPuesto {
+  /** Donde apoya, en casillas. */
+  readonly pie: Punto;
+  /** Su clave de profundidad: la de una figura con los pies ahí, y tras su óvalo. */
+  readonly clave: number;
+}
+
+/**
+ * Lo que se corre el pie del puesto de un nodo desde su asiento, en casillas: a la
+ * derecha, fuera de la figura del héroe que está en él (mide ~0,5 de ancho), y un
+ * poco hacia delante, para que su base no caiga dentro del óvalo del dueño.
+ */
+export const PUESTO_JUNTO_AL_ASIENTO: Punto = [0.46, 0.14];
+
+/**
+ * El puesto de cada nodo (`Escenario.puestoDeNodo`). Su clave, la de una figura con
+ * los pies en su pie (`claveDeFigura`), y nunca antes que el óvalo del nodo
+ * (`claveDeLaMarca`; en un puente, la del puente: va encima de su tablero).
+ */
+function puestosDe(
   map: MapaDeEscena,
   puentes: Escena['puentes'],
-): Map<string, readonly [number, number]> {
-  const enUnPuente = new Map(puentes.map((p) => [p.id, p.mastil]));
-  const mastiles = new Map<string, readonly [number, number]>();
-  for (const o of map.objects)
-    if (o.kind === 'node')
-      mastiles.set(
-        o.id,
-        enUnPuente.get(o.id) ?? [o.at.x + 0.5, o.at.y + 0.5 - MASTIL_SOBRE_EL_NODO],
-      );
-  return mastiles;
+  asientos: ReadonlyMap<string, readonly [number, number]>,
+  claveDeLaMarca: ReadonlyMap<string, number>,
+  profundidad: Profundidad,
+): Map<string, PieDelPuesto> {
+  const enUnPuente = new Map(puentes.map((p) => [p.id, p.puesto]));
+  const puestos = new Map<string, PieDelPuesto>();
+  for (const o of map.objects) {
+    if (o.kind !== 'node') continue;
+    const asiento = asientos.get(o.id);
+    const marca = claveDeLaMarca.get(o.id);
+    if (asiento === undefined || marca === undefined)
+      throw new Error(`el nodo ${o.id} no se hornea en la escena: no hay dónde poner su puesto`);
+    const [dx, dy] = PUESTO_JUNTO_AL_ASIENTO;
+    const pie: Punto = enUnPuente.get(o.id) ?? [asiento[0] + dx, asiento[1] + dy];
+    const delFigura = claveDeFigura(profundidad, Math.floor(pie[0]), pie[1]);
+    puestos.set(o.id, { pie, clave: Math.max(delFigura, marca) });
+  }
+  return puestos;
 }
 
 /** Lo que pisa quien está en la casilla de cada puente (`Escenario.tableros`). */
@@ -347,6 +376,12 @@ export function escenarioDe(map: MapaDeEscena, semilla: number): Escenario {
     }),
   );
   const imagenes = imagenesDeEscena(escena, horneado);
+  const delanteDeParedes = delanteDeLasParedes(
+    separada.volumenes,
+    escena.W,
+    escena.H,
+    perfilesDelCatalogo(CATALOGO),
+  );
   const escenario: Escenario = {
     escena,
     catalogo: CATALOGO,
@@ -354,17 +389,16 @@ export function escenarioDe(map: MapaDeEscena, semilla: number): Escenario {
     separada,
     porFila,
     cubiertas,
-    delanteDeParedes: delanteDeLasParedes(
-      separada.volumenes,
-      escena.W,
-      escena.H,
-      perfilesDelCatalogo(CATALOGO),
-    ),
+    delanteDeParedes,
     conteo: contarVolumenes(escena.W, escena.H, bases),
     claveDeObjeto,
     claveDeLaMarca,
     asientoDeObjeto,
-    mastilDeNodo: mastilesDe(map, escena.puentes),
+    puestoDeNodo: puestosDe(map, escena.puentes, asientoDeObjeto, claveDeLaMarca, {
+      escena,
+      cubiertas,
+      delanteDeParedes,
+    }),
     tableros: tablerosDe(map, escena.puentes, claveDeObjeto, claveDePuente),
     imagenes,
     soloDelSuelo: imagenes.filter((src) => !deVolumen.has(src)),
@@ -457,8 +491,10 @@ function cubrir(cubiertas: Map<number, number>, v: Volumen, W: number, H: number
  * figura porque el mapa no levanta lo alto, pero es el frente de una casilla de
  * detrás. Con la clave de su pie, de un grupo al pie de un acantilado de caída
  * 3 solo se veía la chapa (s36 mon-2, (7, 22)).
+ *
+ * `x` es la columna de la casilla (la de quien está en ella), no un punto.
  */
-export function claveDeFigura(esc: Escenario, x: number, y: number): number {
+export function claveDeFigura(esc: Profundidad, x: number, y: number): number {
   const i = Math.floor(y) * esc.escena.W + Math.round(x);
   return Math.max(
     y,
