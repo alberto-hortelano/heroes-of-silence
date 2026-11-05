@@ -106,6 +106,13 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import {
+  dueñoDeLaCiudad,
+  guarnicionDeLaCiudad,
+  ponerLaGuarnicion,
+  sitioDeLaCiudad,
+} from '../src/core/state/sitios.js';
+import type { Town } from '../src/core/town/town.js';
+import {
   type Army,
   type Equipo,
   type FactionId,
@@ -165,7 +172,7 @@ export function previosDelAlcance(alcance: Reachable): Map<string, Point> {
 export function sinGuarnicionDeSalida(state: GameState): GameState {
   for (const p of state.players) {
     const base = state.towns.find((t) => t.id === p.base);
-    if (base !== undefined) base.garrison = [];
+    if (base !== undefined) guarnecer(state, base, []);
   }
   return state;
 }
@@ -414,7 +421,9 @@ export function primeraSemillaCon<T>(
  * 1-500 no hay otro. El héroe nacido en su base no lo mueve: con el recinto, el
  * inicio se ponía tras los caminos y después no se colocaba nada (fusión,
  * 21-10-2026; sin el recinto, la primera era la 566). Sin minas (21-10-2026)
- * la 64 es otro mapa: en 1-2000 solo queda el `node-2` de la 1469 (al 80 %). Se
+ * la 64 es otro mapa: en 1-2000 solo queda el `node-2` de la 1469 (al 80 %). Con
+ * las ciudades en mitad de su región (05-11-2026), ninguna de 1-2000 lo tiene, y
+ * la primera de 2751-3500 es la 2792 (2001-2750 no se terminó de mirar). Se
  * busca desde ella: componer cada escena cuesta ~0,3 s.
  */
 export function puenteSobreElAgua(): {
@@ -444,8 +453,8 @@ export function puenteSobreElAgua(): {
       }
       return undefined;
     },
-    1469,
-    1600,
+    2792,
+    2800,
   );
 }
 
@@ -549,9 +558,8 @@ export function unPuebloDe(
     for (const n of red.regiones[k]!.nodos) {
       const nodo = red.nodos[n]!;
       const obj = state.map.objects.find((x) => x.id === nodo.id)!;
-      if (obj.kind === 'node' || obj.kind === 'town') obj.owner = jugador;
-      const town = state.towns.find((t) => t.id === nodo.id);
-      if (town !== undefined) town.owner = jugador;
+      // El dueño guardado del paso o de la ciudad del muro: su objeto.
+      if (obj.kind === 'node' || obj.kind === 'town' || obj.kind === 'village') obj.owner = jugador;
     }
     return o;
   }
@@ -600,7 +608,7 @@ export function fueraDeSuBase(state: GameState, quien: PlayerId): Hero {
  */
 export function anteLaBase(state: GameState, quien: PlayerId, victima: PlayerId) {
   const base = baseOf(state, victima)!;
-  base.garrison = [];
+  guarnecer(state, base, []);
   const atacante = heroesOf(state, quien)[0]!;
   const defensor = heroesOf(state, victima)[0]!;
   defensor.at = pegadoA(state, baseOf(state, quien)!.at);
@@ -1141,7 +1149,8 @@ export function auditarMapaDenso(
     }
   }
   const sitios = [
-    ...map.objects.filter((o) => o.kind !== 'node' && o.kind !== 'town').map((o) => o.at),
+    // Sin los nodos de la red: el paso, la ciudad y el pueblo del muro (fase 3).
+    ...map.objects.filter((o) => !red.nodoPorId.has(o.id)).map((o) => o.at),
     ...(plan.raiders ?? []).map((r) => r.at),
   ];
   for (const p of sitios) {
@@ -1206,7 +1215,7 @@ export function auditarMapaDenso(
   // forma: la base toca dos o tres regiones y nada distingue la de casa.
   for (const n of red.nodos) {
     const i = n.at.y * W + n.at.x;
-    if (n.ciudad && !n.regiones.some((k) => leLlegaDe(i, k)))
+    if (n.clase === 'ciudad' && !n.regiones.some((k) => leLlegaDe(i, k)))
       fallos.push(`la ciudad ${en(i)} no está en un camino de ninguna de sus regiones`);
   }
   for (const [player, base] of basesDelPlan(plan)) {
@@ -1220,7 +1229,9 @@ export function auditarMapaDenso(
   // el camino de las dos. Uno de los nodos, como mucho (`crucesConCamino`); una
   // ciudad lleva el de todas sus regiones (la ciudad amurallada, fase 2: hay
   // puerta donde llega un camino), así que la pareja puede tener además la suya.
-  const ciudades = new Set(red.nodos.filter((n) => n.ciudad).map((n) => n.at.y * W + n.at.x));
+  const ciudades = new Set(
+    red.nodos.filter((n) => n.clase === 'ciudad').map((n) => n.at.y * W + n.at.x),
+  );
   for (let a = 0; a < red.regiones.length; a++) {
     for (let b = a + 1; b < red.regiones.length; b++) {
       const comunes = [...nodosDe[a]!].filter((n) => nodosDe[b]!.has(n));
@@ -1283,7 +1294,7 @@ export function grafoDeCaminos(map: GameMap): {
 }
 
 /** Lo que se alcanza desde `origen` andando por tramos, sin salir de lo que `vale`. */
-function pieza(
+export function pieza(
   unidas: ReadonlyMap<number, readonly number[]>,
   origen: number,
   vale: (j: number) => boolean,
@@ -1794,4 +1805,66 @@ export function raizDeNpcs(figuras: readonly FiguraDeNpc[]): string {
   mkdirSync(join(dir, 'data'), { recursive: true });
   writeFileSync(join(dir, RUTA_DEL_BANCO), JSON.stringify({ _comment: 'de prueba', figuras }));
   return dir;
+}
+
+// ------------------------------------------------------------ la guarnición de una ciudad
+
+// La guarnición de la ciudad `town`: desde la tarea 2 (05-11-2026) vive en
+// `GameState.guarniciones`, como la de un paso o un pueblo, y no en la ciudad. La
+// pregunta es del núcleo; se reexporta para los tests que ya la leían de aquí.
+export { guarnicionDeLaCiudad };
+
+/**
+ * Escribe la guarnición de la ciudad `town` (lo que los tests hacían con
+ * `town.garrison = …`), con el dueño de la ciudad o el que se diga. Por la puerta
+ * del núcleo (`ponerLaGuarnicion`), la única que escribe `guarniciones`.
+ */
+export function guarnecer(
+  state: GameState,
+  town: Town,
+  tropa: Army,
+  dueño: PlayerId | null = dueñoDeLaCiudad(state, town),
+): void {
+  ponerLaGuarnicion(state, sitioDeLaCiudad(town), dueño, tropa);
+}
+
+/**
+ * Da la ciudad del muro `town` a `jugador` (lo que los tests hacían con
+ * `town.owner = …`): escribe el dueño guardado en su objeto del mapa, que es donde
+ * vive desde la tarea 2. Solo para montar casos: en partida lo escribe
+ * `tomarElNodo`.
+ */
+export function darLaCiudad(state: GameState, town: Town, jugador: PlayerId | null): void {
+  const objeto = state.map.objects.find((o) => o.kind === 'town' && o.id === town.id);
+  if (objeto === undefined || objeto.kind !== 'town') {
+    throw new Error(`la ciudad ${town.id} no tiene objeto en el mapa`);
+  }
+  objeto.owner = jugador;
+}
+
+/**
+ * `planDeNodos` con **la ciudad neutral dentro de su región** (tarea 2, ciudades y
+ * pueblos en su región, 05-11-2026): Torreblanca deja el muro de la columna 17 y va
+ * al medio de Centro (`c`, columnas 12-16), con su camino del norte, y un paso
+ * ocupa su sitio en el muro. Las bases siguen en el muro (columnas 5 y 22). El
+ * pueblo que estaba donde va la ciudad baja a la fila 7. Centro la rodean los
+ * pasos de (11,2), (11,6) y (17,4): quien los tenga, tiene Torreblanca.
+ */
+export function planConCiudadDeRegion(): PlanConCasillas {
+  const plan = planDeNodos();
+  const enCentro = { x: 14, y: 4 };
+  return {
+    ...plan,
+    nodes: [...plan.nodes, { x: 17, y: 4 }],
+    towns: plan.towns.map((t) => (t.id === 'town-2' ? { ...t, at: enCentro } : t)),
+    villages: plan.villages.map((v) => (v.name === 'Las Eras' ? { ...v, at: { x: 13, y: 7 } } : v)),
+    roads: [
+      ...caminoPorLasDiagonales({ x: 5, y: 4 }),
+      ...caminoPorLasDiagonales({ x: 22, y: 4 }),
+      // La puerta del norte: de su acceso, (14,2), a la puerta y a la ciudad.
+      { x: 14, y: 2 },
+      { x: 14, y: 3 },
+      enCentro,
+    ],
+  };
 }

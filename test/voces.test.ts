@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GameState } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 import type { Town } from '../src/core/town/town.js';
 import {
   alcaideDe,
@@ -20,7 +21,7 @@ import {
 
 function base(seed = 5): { state: GameState; town: Town } {
   const state = newGame({ seed });
-  const town = state.towns.find((t) => t.owner === 0)!;
+  const town = state.towns.find((t) => dueñoDeLaCiudad(state, t) === 0)!;
   return { state, town };
 }
 
@@ -53,7 +54,7 @@ describe('cuándo caducan las voces', () => {
   it('una semana nueva o un sitio nuevo las caducan; una mejora, no', () => {
     const { town } = base();
     expect(vocesCaducadas(town, 1)).toBe(true); // nace sin voces
-    ponerVoces(town, 0, 1, []);
+    ponerVoces(town, 0, 0, 1, []);
     expect(vocesCaducadas(town, 1)).toBe(false);
     expect(vocesCaducadas(town, 2)).toBe(true);
     town.buildings.push('town_hall'); // mejora del ayuntamiento: mismo sitio
@@ -82,7 +83,7 @@ describe('lo que dice cada uno', () => {
 
   it('con narrador, dice su línea del día, en rueda', () => {
     const { town } = base();
-    ponerVoces(town, 0, 1, [{ npc: 'encargado-hall', lines: ['Una.', 'Dos.'] }]);
+    ponerVoces(town, 0, 0, 1, [{ npc: 'encargado-hall', lines: ['Una.', 'Dos.'] }]);
     expect(vozDe(town, 'encargado-hall', 1, 4)).toBe('Una.');
     expect(vozDe(town, 'encargado-hall', 1, 5)).toBe('Dos.');
   });
@@ -98,9 +99,9 @@ describe('lo que dice cada uno', () => {
 describe('las voces del narrador', () => {
   it('vocesBlocker: base ajena o persona que no está, con quiénes están', () => {
     const { state, town } = base();
-    expect(vocesBlocker(town, 0, 'encargado-hall')).toBeNull();
-    expect(vocesBlocker(town, 1, 'encargado-hall')).toMatch(/no es una base tuya/);
-    expect(vocesBlocker(town, 0, 'encargado-fort')).toMatch(
+    expect(vocesBlocker(town, 0, 0, 'encargado-hall')).toBeNull();
+    expect(vocesBlocker(town, 0, 1, 'encargado-hall')).toMatch(/no es una base tuya/);
+    expect(vocesBlocker(town, 0, 0, 'encargado-fort')).toMatch(
       /no hay nadie que se llame "encargado-fort": están encargado-hall, encargado-lvl1/,
     );
     expect(state.towns.length).toBeGreaterThan(1);
@@ -108,7 +109,7 @@ describe('las voces del narrador', () => {
 
   it('una voz buena y una mala: entra una y se rechaza una', () => {
     const { town } = base();
-    const r = ponerVoces(town, 0, 1, [
+    const r = ponerVoces(town, 0, 0, 1, [
       { npc: 'encargado-hall', lines: ['Bienvenido.'] },
       { npc: 'encargado-fort', lines: ['Aquí no hay castillo.'] },
     ]);
@@ -120,7 +121,7 @@ describe('las voces del narrador', () => {
 
   it('cada línea se juzga sola: un salto, un blanco o una de más se rechazan sin tirar las otras', () => {
     const { town } = base();
-    const r = ponerVoces(town, 0, 1, [
+    const r = ponerVoces(town, 0, 0, 1, [
       { npc: 'encargado-hall', lines: ['Buena.', 'con\nsalto', '   '] },
       { npc: 'encargado-lvl1', lines: ['x'.repeat(LARGO_DE_LINEA + 1)] },
       { npc: 'encargado-hall', lines: ['repetida'] },
@@ -137,8 +138,8 @@ describe('las voces del narrador', () => {
 
   it('sustituye las de antes y apunta la firma aunque no entre nada', () => {
     const { town } = base();
-    ponerVoces(town, 0, 1, [{ npc: 'encargado-hall', lines: ['Antes.'] }]);
-    ponerVoces(town, 0, 1, []);
+    ponerVoces(town, 0, 0, 1, [{ npc: 'encargado-hall', lines: ['Antes.'] }]);
+    ponerVoces(town, 0, 0, 1, []);
     expect(town.voces).toEqual({ firma: firmaDeVoces(town, 1), lineas: {} });
     // Y quien se quedó sin línea vuelve a sus frases.
     const v = vecinosDeLaBase(town).find((x) => x.id === 'encargado-hall')!;

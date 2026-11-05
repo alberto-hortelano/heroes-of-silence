@@ -20,6 +20,7 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { oroBlocker } from '../src/core/town/town.js';
+import { guarnicionDeLaCiudad } from './helpers.js';
 
 const ctx = () => ({ rng: createRng(7) });
 const baseDe = (state: GameState, jugador = 0) => {
@@ -93,7 +94,7 @@ describe('el héroe de salida por elegir', () => {
   it('elegirlo lo asienta con ese tipo y su tropa de salida, sin la guarnición, y lo cobra', () => {
     const state = porElegir();
     const base = baseDe(state);
-    const guarnicion = [...base.garrison];
+    const guarnicion = [...guarnicionDeLaCiudad(state, base)];
     accion(state, { type: 'hire_hero', town: base.id, tipo: 'ingeniero' });
 
     const elegido = newGame({ seed: 11, faccionDelJugador: 'imperio', tipoDelHeroe: 'ingeniero' });
@@ -103,7 +104,7 @@ describe('el héroe de salida por elegir', () => {
     expect(state.heroes[0]!.tipo).toBe('ingeniero');
     expect(state.heroes[0]!.army.length).toBeGreaterThan(0);
     expect(state.players.map((p) => p.oro)).toEqual(elegido.players.map((p) => p.oro));
-    expect(base.garrison).toEqual(guarnicion);
+    expect(guarnicionDeLaCiudad(state, base)).toEqual(guarnicion);
     expect(state.players[0]!.heroeDeSalida).toBeNull();
     // Sin hecho en la crónica: el de salida nunca lo tuvo.
     expect(state.log.filter((e) => e.kind === 'hero_hired')).toEqual([]);

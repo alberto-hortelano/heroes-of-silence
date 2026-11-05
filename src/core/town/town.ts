@@ -1,13 +1,19 @@
 /** Castillos: construcción, moradas y reclutamiento. */
 import { allSpells, ordenDelLibro, type Spell } from '../battle/spells.js';
 import { unidadDelJuego, unidadesDeMorada } from '../catalogo.js';
-import type { Army, FactionId, PlayerId, Point } from '../types.js';
+import type { FactionId, PlayerId, Point } from '../types.js';
 import { conMiles, describirCoste } from '../types.js';
 import { building, buildingIfExists, buildingsOfFaction, prebuiltBuildings } from './buildings.js';
 
+/**
+ * Una ciudad: sus edificios, sus moradas y sus vecinos. **Ni su dueño ni su
+ * guarnición viven aquí** (ciudades y pueblos en su región, 05-11-2026): el dueño
+ * se deriva (`dueñoDelSitio`, `state/sitios.ts`: el de su objeto del mapa si está
+ * en el muro, el de su región si está dentro) y la guarnición está en
+ * `GameState.guarniciones`, como la de un paso o un pueblo, con su propio dueño.
+ */
 export interface Town {
   readonly id: string;
-  owner: PlayerId | null;
   readonly name: string;
   readonly faction: FactionId;
   readonly at: Point;
@@ -17,8 +23,6 @@ export interface Town {
   builtToday: boolean;
   /** Unidades disponibles para reclutar, por id (`data/unidades.json`). */
   available: Record<string, number>;
-  /** Guarnición: defiende el pueblo si no hay héroe. */
-  garrison: Army;
   /**
    * Lo que dicen sus vecinos, si el narrador lo ha escrito (`town_voices`). Es
    * presentación: no cambia ninguna regla ni escribe en la crónica, así que el
@@ -36,32 +40,25 @@ export interface VocesDeLaBase {
   readonly lineas: Readonly<Record<string, readonly string[]>>;
 }
 
-export function createTown(
-  id: string,
-  name: string,
-  faction: FactionId,
-  at: Point,
-  owner: PlayerId | null,
-): Town {
+export function createTown(id: string, name: string, faction: FactionId, at: Point): Town {
   return {
     id,
-    owner,
     name,
     faction,
     at,
     buildings: prebuiltBuildings(faction),
     builtToday: false,
     available: {},
-    garrison: [],
   };
 }
 
 /**
- * La base de un jugador en una lista de ciudades: **la primera suya**. Es la
- * regla de siempre (`createGame` la usaba a pelo) y ahora la leen dos: la
- * partida, para apuntar `Player.base`, y `buildMap`, para guarnecerla al nacer.
- * Escrita dos veces, un plan con dos ciudades de un mismo dueño podía guarnecer
- * una y declarar base la otra sin que nadie lo notara.
+ * La base de un jugador en una lista de ciudades con dueño (las del plan, o los
+ * objetos `town` del mapa): **la primera suya**. Es la regla de siempre
+ * (`createGame` la usaba a pelo) y la leen dos: la partida, para apuntar
+ * `Player.base`, y `buildMap`, para guarnecerla al nacer. Escrita dos veces, un
+ * plan con dos ciudades de un mismo dueño podía guarnecer una y declarar base la
+ * otra sin que nadie lo notara.
  */
 export function primeraCiudadDe<T extends { readonly owner: PlayerId | null }>(
   towns: readonly T[],

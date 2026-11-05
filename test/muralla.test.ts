@@ -557,7 +557,7 @@ describe('en las partidas', () => {
       expect(tapan.map((s) => `${s.src} en ${s.x},${s.y}`)).toEqual([]);
     });
 
-  it('el nodo de otra barrera es un apoyo; la puerta de la muralla, no (s152 (25,25))', () => {
+  it('el nodo de otra barrera es un apoyo; la puerta de la muralla, no (s76 (37,24))', () => {
     // Era s699 (15,2), de acantilado; con menos mesetas (#210) es raro: en 1-900,
     // solo s219 y s420 llevan un nodo de otra barrera pegado a una muralla. Desde
     // #226 (mapa de 42×42) hay 35 casos en 1-900, y era s356 (31,19); con las
@@ -580,16 +580,18 @@ describe('en las partidas', () => {
     // Con las puertas de las ciudades (fase 2, 21-10-2026), en 1-1000 s105
     // (30,36), de bosque, junto al muro de (31,36) (y s152, de acantilado, y
     // s729, de agua). Sin minas (21-10-2026), en 1-300 solo s152 (25,25), de
-    // acantilado, junto al muro de (26,25).
-    const map = partidaDe(152).map;
+    // acantilado, junto al muro de (26,25). Con las ciudades en mitad de su
+    // región (05-11-2026), en 1-200 s76 (37,24), de montaña, junto al muro de
+    // (38,24) (y s158 (14,11), de bosque).
+    const map = partidaDe(76).map;
     const a = analizar(map);
     const al = alrededorDeMurallas(a, [], new Array<number>(a.W * a.H).fill(0));
-    const nodo = map.objects.find((o) => o.kind === 'node' && o.at.x === 25 && o.at.y === 25);
-    if (nodo?.kind !== 'node') throw new Error('s152 no tiene el nodo de (25,25)');
-    expect(nodo.barrera).toBe('cliff');
-    expect(al.apoyos(26, 25)).toContain(`nodo:${nodo.id}`);
+    const nodo = map.objects.find((o) => o.kind === 'node' && o.at.x === 37 && o.at.y === 24);
+    if (nodo?.kind !== 'node') throw new Error('s76 no tiene el nodo de (37,24)');
+    expect(nodo.barrera).toBe('mountain');
+    expect(al.apoyos(38, 24)).toContain(`nodo:${nodo.id}`);
     const puerta = map.objects.find((o) => o.kind === 'node' && o.barrera === 'wall');
-    if (puerta === undefined) throw new Error('s152 no tiene puertas de muralla');
+    if (puerta === undefined) throw new Error('s76 no tiene puertas de muralla');
     expect(al.apoyos(puerta.at.x, puerta.at.y)).not.toContain(`nodo:${puerta.id}`);
   });
 
@@ -644,8 +646,9 @@ describe('la muralla de norte a sur, de lado (§29)', () => {
     // tramo cada una.
     // Con las puertas de las ciudades (fase 2, 21-10-2026), la s105, la única de
     // 1-120 con 5 (la 141 se quedó en 2). Sin minas (21-10-2026), la s75, con
-    // 6, la que más de 1-100 (la 105 se quedó sin ninguno).
-    const e = escenaDe(75);
+    // 6, la que más de 1-100 (la 105 se quedó sin ninguno). Con las ciudades en
+    // mitad de su región (05-11-2026), la s82, con 7, la que más de 1-200.
+    const e = escenaDe(82);
     // Los de las murallas del mapa: los del recinto de una ciudad son suyos (`recinto.ts`).
     const ns = e.sprites.filter(
       (s) => /^muro-ns-[12]\.webp$/.test(s.src ?? '') && s.objeto?.kind !== 'town',
@@ -672,10 +675,12 @@ describe('la muralla de norte a sur, de lado (§29)', () => {
     // #143).
     // Con las puertas de las ciudades (fase 2, 21-10-2026) ninguna de 1-120
     // lleva tres: la s14, la primera con dos. Sin minas (21-10-2026), tampoco
-    // en 1-100: la s4, la primera con dos.
-    const e = escenaDe(4);
+    // en 1-100: la s4, la primera con dos. Con las ciudades en mitad de su región
+    // (05-11-2026), la s3, la primera con dos (cuatro en s119 y s137, de 1-200);
+    // con los pueblos en un nodo (fase 3), los mismos, otro número (node-12).
+    const e = escenaDe(3);
     const puertas = e.sprites.filter((s) => s.src === 'nodo-puerta-hondo.webp');
-    expect(puertas.map((s) => s.objeto?.id).sort()).toEqual(['node-0', 'node-10']);
+    expect(puertas.map((s) => s.objeto?.id).sort()).toEqual(['node-0', 'node-12']);
     for (const s of puertas) {
       expect(s.alto).toBe(2.6);
       expect(s.ay / s.nh).toBeCloseTo(0.625);

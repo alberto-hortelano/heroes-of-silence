@@ -6,7 +6,12 @@
  *
  * Es puro: un mapa entra y un análisis sale, sin DOM y sin ficheros.
  */
-import type { MapObject, MapRegion, RedDeCaminos } from '@core/map/map.js';
+import {
+  cruzaSuBarrera,
+  type MapObject,
+  type MapRegion,
+  type RedDeCaminos,
+} from '@core/map/map.js';
 import { type CaraDelRio, rioAnteLaCiudad } from '@core/map/recinto.js';
 import { type Estructura, estructura } from '@core/map/regiones.js';
 import { type Barrera, esBarrera, type Suelo, type TerrainKind } from '@core/map/terrain.js';
@@ -133,7 +138,7 @@ const VECINAS4 = [
 function pasosDe(map: MapaDeEscena): Map<string, PasoDeNodo> {
   return new Map(
     map.objects.flatMap((o) =>
-      o.kind === 'node' ? [[o.id, pasoDeNodo(o, map.width, map.terrain)] as const] : [],
+      cruzaSuBarrera(o) ? [[o.id, pasoDeNodo(o, map.width, map.terrain)] as const] : [],
     ),
   );
 }
@@ -203,9 +208,8 @@ export function analizar(map: MapaDeEscena): Analisis {
   const puentes = new Set([...pasos].flatMap(([id, p]) => (p.barrera === 'water' ? [id] : [])));
   const terreno = terrenoDeLaEscena(map, puentes, ciudadesPuente);
   const ocupadas = new Set(map.objects.map((o) => o.at.y * W + o.at.x));
-  const nodos = new Set(
-    map.objects.filter((o) => o.kind === 'node').map((o) => o.at.y * W + o.at.x),
-  );
+  // Con el pueblo en el muro (pueblos en un nodo, fase 3): su casilla es de paso.
+  const nodos = new Set(map.objects.filter(cruzaSuBarrera).map((o) => o.at.y * W + o.at.x));
 
   // Las franjas: componentes 4-conexos de una misma barrera.
   const franjaDe = new Int32Array(W * H).fill(-1);

@@ -89,6 +89,7 @@ import {
   week,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 import { building, buildingsOfFaction, nivelDeMorada } from '../src/core/town/buildings.js';
 import {
   applyWeeklyGrowth,
@@ -107,6 +108,7 @@ import {
   conSuEquipo,
   copiaDePartida,
   costesDelAlcance,
+  darLaCiudad,
   ejercito,
   esPersonaje,
   FACCION_A,
@@ -114,6 +116,8 @@ import {
   forzarBatalla,
   fueraDeSuBase,
   grupoQueMarcha,
+  guarnecer,
+  guarnicionDeLaCiudad,
   hastaSuSiguienteTurno,
   JINETE,
   monstruoVivo,
@@ -477,7 +481,12 @@ describe('generación de mapas', () => {
       JSON.stringify({
         terreno: s.map.terrain,
         objetos: s.map.objects,
-        pueblos: s.towns.map((t) => ({ id: t.id, at: t.at, faction: t.faction, owner: t.owner })),
+        pueblos: s.towns.map((t) => ({
+          id: t.id,
+          at: t.at,
+          faction: t.faction,
+          owner: dueñoDeLaCiudad(s, t),
+        })),
         heroes: s.heroes.map((h) => ({ id: h.id, name: h.name, at: h.at, army: h.army })),
       });
 
@@ -760,13 +769,13 @@ describe('movimiento de héroes', () => {
     const state = newGame({ seed: 23 });
     const c = ctx(23);
     const hero = heroesOf(state, 0)[0]!;
-    const suyo = state.towns.find((t) => t.owner === 1)!;
+    const suyo = state.towns.find((t) => dueñoDeLaCiudad(state, t) === 1)!;
     const bandera = state.map.objects.find((o) => o.kind === 'town' && o.id === suyo.id)!;
     expect((bandera as { owner: number | null }).owner).toBe(1);
 
     // Sin guarnición ni su héroe dentro (nace en ella) no hay batalla: lo que se
     // mide aquí es la captura.
-    suyo.garrison = [];
+    guarnecer(state, suyo, []);
     const rival = fueraDeSuBase(state, 1);
     hero.at = pegadoA(state, suyo.at, [rival.at]);
     hero.movePoints = 5000;
@@ -777,7 +786,7 @@ describe('movimiento de héroes', () => {
       state.current,
     );
 
-    expect(suyo.owner).toBe(0);
+    expect(dueñoDeLaCiudad(state, suyo)).toBe(0);
     expect((bandera as { owner: number | null }).owner).toBe(0);
   });
 
@@ -851,7 +860,7 @@ describe('batallas del mapa', () => {
     const base = townsOf(state, 0)[0]!;
 
     hero.army = ejercito({ creature: TROPA_BARATA, count: 1 });
-    base.garrison = [];
+    guarnecer(state, base, []);
     // Sin oro no hay rendición: tiene que caer peleando.
     state.players[0]!.oro = 0;
     // Se sustituye por un monstruo imbatible en la misma casilla.
@@ -1299,7 +1308,7 @@ describe('partida completa', () => {
       const bandera = state.map.objects.find((o) => o.kind === 'town' && o.id === town.id);
       expect(bandera, `${town.id} no tiene objeto en el mapa`).toBeDefined();
       expect((bandera as { owner: number | null }).owner, `${town.id} descuadrado`).toBe(
-        town.owner,
+        dueñoDeLaCiudad(state, town),
       );
     }
     // Y la semilla 9 era una de las dos que no terminaban en 300 días: lo que
@@ -1322,7 +1331,7 @@ describe('catálogo de edificios por facción', () => {
   const bolsaInfinita = 999_999;
 
   const pueblo = (faction: FactionId): Town =>
-    createTown(`t-${faction}`, 'Prueba', faction, { x: 0, y: 0 }, 0);
+    createTown(`t-${faction}`, 'Prueba', faction, { x: 0, y: 0 });
 
   /** Levanta la lista entera, uno por día, y devuelve los días gastados. */
   const levantar = (town: Town, ids: string[]): number => {
@@ -1540,10 +1549,14 @@ describe('el gremio enseña (#2)', () => {
     // llegar (S8 de /simplify, 04-11-2026), 3 gremios en 1-80 (la 42, la 46 y la 74)
     // y hechizos solo en la 42: se jugaba la 42 (uno y dos). Con el que vuelve vencido
     // recogiendo al empezar su turno (H2 del QA, 04-11-2026), 2 gremios en 1-80 (la 46
-    // y la 74) y hechizos solo en la 46: se juega la 46 (uno y dos).
+    // y la 74) y hechizos solo en la 46: se jugaba la 46 (uno y dos). Con las
+    // ciudades en mitad de su región (05-11-2026), gremios en 11 semillas de
+    // 24-80 y hechizos en 8 de ellas: se jugaba la 24 (dos y cuatro). Con los
+    // pueblos en un nodo (fase 3, 05-11-2026), gremio y hechizos en la 35, la 43, la
+    // 51 y la 62 de 20-62, uno y dos: se juega la 35.
     let gremios = 0;
     let aprendidos = 0;
-    for (const semilla of [46]) {
+    for (const semilla of [35]) {
       const state = newGame({ seed: semilla });
       await playAiGame(state, { rng: createRng(semilla) });
       for (const e of state.log) {
@@ -1603,7 +1616,7 @@ describe('el gremio enseña (#2)', () => {
   });
 
   it('lo que enseña un pueblo lo determina el nivel de su gremio', () => {
-    const castillo = createTown('t-magia', 'Prueba', 'templarios', { x: 0, y: 0 }, 0);
+    const castillo = createTown('t-magia', 'Prueba', 'templarios', { x: 0, y: 0 });
     expect(townSpells(castillo)).toEqual([]);
 
     castillo.buildings = [...castillo.buildings, 'mage_guild_1'];
@@ -1879,7 +1892,7 @@ function nodo(state: GameState, id: string): Extract<MapObject, { kind: 'node' }
  */
 function darCiudad(state: GameState, id: string, jugador: number): void {
   const town = state.towns.find((t) => t.id === id)!;
-  town.owner = jugador;
+  darLaCiudad(state, town, jugador);
   const bandera = state.map.objects.find((o) => o.kind === 'town' && o.id === id)!;
   (bandera as { owner: number | null }).owner = jugador;
 }
@@ -1889,7 +1902,7 @@ describe('el mapa de nodos se juega', () => {
   it('cruzar un nodo ajeno lo hace mío y lo cuenta; pasar por casa NO recoge la guarnición', () => {
     const { state, c } = enLaRed();
     const base = state.towns.find((t) => t.id === 'town-0')!;
-    base.garrison = ejercito({ creature: 'zombi', count: 1 });
+    guarnecer(state, base, ejercito({ creature: 'zombi', count: 1 }));
     const hero = heroById(state, 'hero-0');
     const tropa = hero.army.length;
     hero.movePoints = 1500;
@@ -1904,7 +1917,7 @@ describe('el mapa de nodos se juega', () => {
     ).toEqual([['node-1', null, 0]]);
     // La tropa de casa ya no se recoge al pasar (04-11-2026): se recoge parando,
     // con `recoger_tropa`.
-    expect(base.garrison).toHaveLength(1);
+    expect(guarnicionDeLaCiudad(state, base)).toHaveLength(1);
     expect(hero.army).toHaveLength(tropa);
     const gastado = state.log
       .filter((e) => e.kind === 'hero_moved')
@@ -2050,14 +2063,14 @@ describe('el mapa de nodos se juega', () => {
     const esperada = guarnicionNeutral('templarios').flatMap((g) =>
       Array.from({ length: g.count }, () => g.creature),
     );
-    expect(neutral.owner).toBeNull();
-    expect(neutral.garrison.map((t) => t.creature)).toEqual(esperada);
+    expect(dueñoDeLaCiudad(state, neutral)).toBeNull();
+    expect(guarnicionDeLaCiudad(state, neutral).map((t) => t.creature)).toEqual(esperada);
 
     const hero = heroById(state, 'hero-0');
     hero.at = { x: 15, y: 4 };
     hero.movePoints = 9000;
     applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: neutral.at }, c, 0);
-    expect(state.pendingBattle?.foe).toEqual({ kind: 'town', townId: 'town-2' });
+    expect(state.pendingBattle?.foe).toEqual({ kind: 'garrison', site: 'town-2' });
   });
 
   it('la base nace con la guarnición de los datos, de la facción de su dueño, y se asalta peleando', () => {
@@ -2069,7 +2082,9 @@ describe('el mapa de nodos se juega', () => {
     for (const p of state.players) {
       const base = baseOf(state, p.id)!;
       expect(base.faction).toBe(p.faction);
-      expect(base.garrison.map((t) => t.creature)).toEqual(individuos(p.faction));
+      expect(guarnicionDeLaCiudad(state, base).map((t) => t.creature)).toEqual(
+        individuos(p.faction),
+      );
     }
     expect(individuos('templarios')).not.toEqual(individuos('no-muertos'));
 
@@ -2080,8 +2095,8 @@ describe('el mapa de nodos se juega', () => {
     suyo.at = { x: 6, y: 3 };
     suyo.movePoints = 9000;
     applyAdventureAction(state, { type: 'move_hero', hero: suyo.id, to: { x: 5, y: 4 } }, c, 1);
-    expect(state.pendingBattle?.foe).toEqual({ kind: 'town', townId: 'town-0' });
-    expect(state.towns.find((t) => t.id === 'town-0')!.owner).toBe(0);
+    expect(state.pendingBattle?.foe).toEqual({ kind: 'garrison', site: 'town-0' });
+    expect(dueñoDeLaCiudad(state, state.towns.find((t) => t.id === 'town-0')!)).toBe(0);
     expect(state.players[0]!.defeated).toBe(false);
   });
 
@@ -2095,8 +2110,12 @@ describe('el mapa de nodos se juega', () => {
 
     const enOrden = newGame({ seed: 1, plan: { ...plan, towns: mia } });
     expect(enOrden.players[0]!.base).toBe('town-0');
-    expect(enOrden.towns.find((t) => t.id === 'town-0')!.garrison).toHaveLength(tamaño);
-    expect(enOrden.towns.find((t) => t.id === 'town-2')!.garrison).toEqual([]);
+    expect(
+      guarnicionDeLaCiudad(enOrden, enOrden.towns.find((t) => t.id === 'town-0')!),
+    ).toHaveLength(tamaño);
+    expect(guarnicionDeLaCiudad(enOrden, enOrden.towns.find((t) => t.id === 'town-2')!)).toEqual(
+      [],
+    );
 
     const otra = mia.find((t) => t.id === 'town-2')!;
     const alReves = newGame({
@@ -2104,8 +2123,12 @@ describe('el mapa de nodos se juega', () => {
       plan: { ...plan, towns: [otra, ...mia.filter((t) => t !== otra)] },
     });
     expect(alReves.players[0]!.base).toBe('town-2');
-    expect(alReves.towns.find((t) => t.id === 'town-2')!.garrison).toHaveLength(tamaño);
-    expect(alReves.towns.find((t) => t.id === 'town-0')!.garrison).toEqual([]);
+    expect(
+      guarnicionDeLaCiudad(alReves, alReves.towns.find((t) => t.id === 'town-2')!),
+    ).toHaveLength(tamaño);
+    expect(guarnicionDeLaCiudad(alReves, alReves.towns.find((t) => t.id === 'town-0')!)).toEqual(
+      [],
+    );
   });
 
   it('la base nace llena: sin el héroe dentro no se recluta, y el rechazo lo dice', () => {
@@ -2122,7 +2145,7 @@ describe('el mapa de nodos se juega', () => {
     const recluta = dwellings(base)[0]!.creature;
     base.available[recluta] = 10;
     const motivo = troopBlocker(
-      base.garrison,
+      guarnicionDeLaCiudad(state, base),
       GARRISON_LEADERSHIP,
       CUPO_GUARNICION,
       recluta,
@@ -2143,12 +2166,12 @@ describe('el mapa de nodos se juega', () => {
   it('una ciudad vacía se toma entrando, con las dos caras a la vez', () => {
     const { state, c } = enLaRed();
     const neutral = state.towns.find((t) => t.id === 'town-2')!;
-    neutral.garrison = [];
+    guarnecer(state, neutral, []);
     const hero = heroById(state, 'hero-0');
     hero.at = { x: 15, y: 4 };
     hero.movePoints = 9000;
     applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: neutral.at }, c, 0);
-    expect(neutral.owner).toBe(0);
+    expect(dueñoDeLaCiudad(state, neutral)).toBe(0);
     const bandera = state.map.objects.find((o) => o.id === 'town-2') as { owner: number | null };
     expect(bandera.owner).toBe(0);
   });
@@ -2220,7 +2243,7 @@ describe('el mapa de nodos se juega', () => {
     expect(conectadoABase(state, 0, { region: 'b' })).toBe(false);
     expect(conectadoABase(state, 0, { region: 'c' })).toBe(false);
     expect(conectadoABase(state, 0, { nodo: 'town-2' })).toBe(false);
-    expect(state.towns.find((t) => t.id === 'town-2')!.owner).toBe(0);
+    expect(dueñoDeLaCiudad(state, state.towns.find((t) => t.id === 'town-2')!)).toBe(0);
   });
 
   it('perder la base elimina en el acto, aunque queden héroes y ciudades', () => {
@@ -2237,7 +2260,7 @@ describe('el mapa de nodos se juega', () => {
     suyo.at = { x: 6, y: 3 };
     suyo.movePoints = 9000;
     applyAdventureAction(state, { type: 'move_hero', hero: suyo.id, to: { x: 5, y: 4 } }, c, 1);
-    expect(state.towns.find((t) => t.id === 'town-0')!.owner).toBe(1);
+    expect(dueñoDeLaCiudad(state, state.towns.find((t) => t.id === 'town-0')!)).toBe(1);
     expect(townsOf(state, 0).map((t) => t.id)).toEqual(['town-2']);
     expect(heroesOf(state, 0)).toHaveLength(1);
     expect(state.players[0]!.defeated).toBe(true);
@@ -2292,7 +2315,7 @@ describe('el mapa de nodos se juega', () => {
     const { state, c } = enLaRed();
     const base = state.towns.find((t) => t.id === 'town-0')!;
     // Siete en la guarnición: le caben seis, y el séptimo se queda fuera.
-    base.garrison = ejercito({ creature: TROPA_BARATA, count: 7 });
+    guarnecer(state, base, ejercito({ creature: TROPA_BARATA, count: 7 }));
     const mio = heroById(state, 'hero-0');
     mio.at = { ...base.at };
     mio.army = [];
@@ -2310,13 +2333,13 @@ describe('el mapa de nodos se juega', () => {
     // El héroe y seis de la guarnición en el tablero; uno, fuera.
     expect(defensores.filter((st) => st.origen.kind === 'heroe')).toHaveLength(1);
     expect(defensores.filter((st) => queEs(st) === TROPA_BARATA)).toHaveLength(6);
-    expect(base.garrison).toHaveLength(1);
+    expect(guarnicionDeLaCiudad(state, base)).toHaveLength(1);
 
     expect(resolvePendingBattle(state, c).winner).toBe('attacker');
     // Era la batalla final: la base cae con el que no peleó (`captureTown` se lo
     // lleva), y perder la base elimina.
-    expect(base.owner).toBe(1);
-    expect(base.garrison).toEqual([]);
+    expect(dueñoDeLaCiudad(state, base)).toBe(1);
+    expect(guarnicionDeLaCiudad(state, base)).toEqual([]);
     expect(state.players[0]!.defeated).toBe(true);
     expect(state.finished).toEqual({ winner: 1 });
   });
@@ -2324,14 +2347,14 @@ describe('el mapa de nodos se juega', () => {
   it('perder otra ciudad que no es la base no elimina', () => {
     const { state, c } = enLaRed();
     darCiudad(state, 'town-2', 0);
-    state.towns.find((t) => t.id === 'town-2')!.garrison = [];
+    guarnecer(state, state.towns.find((t) => t.id === 'town-2')!, []);
     state.current = 1;
     const suyo = heroById(state, 'hero-1');
     // En la puerta del noreste de Torreblanca: su muralla no se pisa.
     suyo.at = { x: 18, y: 3 };
     suyo.movePoints = 9000;
     applyAdventureAction(state, { type: 'move_hero', hero: suyo.id, to: { x: 17, y: 4 } }, c, 1);
-    expect(state.towns.find((t) => t.id === 'town-2')!.owner).toBe(1);
+    expect(dueñoDeLaCiudad(state, state.towns.find((t) => t.id === 'town-2')!)).toBe(1);
     expect(state.players[0]!.defeated).toBe(false);
     expect(state.finished).toBeNull();
   });
@@ -2342,7 +2365,7 @@ describe('el mapa de nodos se juega', () => {
     // `hero_moved` debajo del `game_over`, que tiene que ser el último hecho.
     const { state, c } = enLaRed();
     state.heroes = state.heroes.filter((h) => h.owner !== 1);
-    state.towns.find((t) => t.id === 'town-1')!.garrison = [];
+    guarnecer(state, state.towns.find((t) => t.id === 'town-1')!, []);
     const hero = heroById(state, 'hero-0');
     // Delante de la puerta del noroeste de Cripta Gris: por ella entra, y de la
     // ciudad sale por la del noreste hacia (24,4).
@@ -2362,10 +2385,12 @@ describe('el mapa de nodos se juega', () => {
     // está detrás de la ciudad neutral (17,4), que es el único paso entre C y D.
     const objetivo = (guarnecida: boolean) => {
       const { state } = enLaRed();
-      state.towns.find((t) => t.id === 'town-1')!.garrison = [];
-      state.towns.find((t) => t.id === 'town-2')!.garrison = guarnecida
-        ? ejercito({ creature: 'jinete-de-plaga', count: 7 })
-        : [];
+      guarnecer(state, state.towns.find((t) => t.id === 'town-1')!, []);
+      guarnecer(
+        state,
+        state.towns.find((t) => t.id === 'town-2')!,
+        guarnecida ? ejercito({ creature: 'jinete-de-plaga', count: 7 }) : [],
+      );
       // El héroe rival, fuerte y fuera del camino: que no sea él el objetivo.
       heroById(state, 'hero-1').army = ejercito({ creature: 'jinete-de-plaga', count: 6 });
       const mio = heroById(state, 'hero-0');
@@ -2425,7 +2450,7 @@ describe('el id de un héroe contratado no se repite (#126)', () => {
     // El 2 pierde su base: el primero contratado la toma. Su héroe está fuera, y
     // la guarnición es de uno: tras la muralla de piedra (fase 2 del puesto
     // fronterizo), la de salida le ganaba a seis pesados.
-    suya.garrison = ejercito({ creature: TROPA_BARATA, count: 1 });
+    guarnecer(state, suya, ejercito({ creature: TROPA_BARATA, count: 1 }));
     forzarBatalla(state, c, primero, suya.at);
     resolvePendingBattle(state, c);
     expect(baseOf(state, 2)).toBeNull();

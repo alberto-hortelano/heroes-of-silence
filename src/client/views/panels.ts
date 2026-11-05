@@ -73,7 +73,7 @@ import { type Desenlace, desenlaceDe } from '@core/state/desenlace.js';
 import type { DefeatReason, GameEventDraft } from '@core/state/events.js';
 import { buyBlocker } from '@core/state/game.js';
 import type { RentaDelDia } from '@core/state/renta.js';
-import { delSitio, nombreDelSitio, type Sitio } from '@core/state/sitios.js';
+import { delSitio, guarnicionDeLaCiudad, nombreDelSitio, type Sitio } from '@core/state/sitios.js';
 import { building } from '@core/town/buildings.js';
 import {
   dailyIncome,
@@ -155,8 +155,28 @@ export function rotuloDeDia(day: number): string {
   return `Día ${((day - 1) % 7) + 1} · Semana ${Math.floor((day - 1) / 7) + 1}`;
 }
 
-/** Por qué una ciudad propia no cobra (`CiudadDeLaRenta.unida`): la lista del lateral y su panel. */
-const SIN_COBRAR = 'No está unida a tu base: no da oro';
+/**
+ * Por qué una ciudad o un pueblo propio no cobra hoy, según `rentaDelDia`, o `null`
+ * si cobra: dicho corto para la lista («ocupada», «sin unir»), para la ficha
+ * («sin cobrar: ocupada») y entero, para su nota (la frase de la ocupación). Lo leen la lista del lateral y la ficha de la
+ * ciudad, que antes decían cada una lo suyo: la ficha de la ocupada cobraba «500
+ * oro/día» bajo la frase que decía que no da oro (vuelta 1 de QA de la tarea 2, H1;
+ * el pueblo sin unir no salía en ningún sitio, H2). `a`, la terminación: «a» la
+ * ciudad, «o» el pueblo.
+ */
+function sinCobrar(
+  x: { readonly ocupada: string | null },
+  unido: boolean,
+  a: 'a' | 'o',
+): { readonly corto: string; readonly dicho: string; readonly motivo: string } | null {
+  if (x.ocupada !== null)
+    return { corto: `ocupad${a}`, dicho: `sin cobrar: ocupad${a}`, motivo: x.ocupada };
+  if (!unido) {
+    const dicho = `sin cobrar: no está unid${a} a tu base`;
+    return { corto: 'sin unir', dicho, motivo: dicho };
+  }
+  return null;
+}
 
 /**
  * De dónde sale la renta del día, en una frase para la nota de la barra: cada
@@ -165,11 +185,33 @@ const SIN_COBRAR = 'No está unida a tu base: no da oro';
  */
 function notaDeLaRenta(renta: RentaDelDia): string {
   const partes = [
-    ...renta.ciudades.filter((c) => c.unida).map((c) => `${c.nombre} ${conMiles(c.oro)}`),
-    ...renta.pueblos.map((p) => `${p.nombre} ${conMiles(p.oro)}`),
+    ...renta.ciudades
+      .filter((c) => c.unida && c.ocupada === null)
+      .map((c) => `${c.nombre} ${conMiles(c.oro)}`),
+    ...renta.pueblos
+      .filter((p) => p.unido && p.ocupada === null)
+      .map((p) => `${p.nombre} ${conMiles(p.oro)}`),
   ];
+  // Lo ocupado, aparte y dicho: es oro que se deja de cobrar por algo que se arregla (tarea 2).
+  const ocupados = [...renta.ciudades, ...renta.pueblos]
+    .filter((x) => x.ocupada !== null)
+    .map((x) => x.nombre);
   const de = partes.length === 0 ? 'nada te da oro hoy' : `cobras ${partes.join(', ')}`;
-  return `Oro al día: ${de}. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan deja de darte oro.`;
+  const sinCobrar =
+    ocupados.length === 0 ? '' : ` Ocupados, no te dan nada: ${ocupados.join(', ')}.`;
+  return `Oro al día: ${de}.${sinCobrar} Cobran las ciudades y los pueblos unidos a tu base; uno que cortan u ocupan deja de darte oro.`;
+}
+
+/** Lo que da hoy una ciudad o un pueblo de la renta en la lista del lateral: su oro, o +0 con su motivo. */
+function cuantoDa(
+  x: { readonly oro: number; readonly ocupada: string | null },
+  unido: boolean,
+  a: 'a' | 'o',
+): Html {
+  const no = sinCobrar(x, unido, a);
+  if (no === null) return html`<span class="count">+${conMiles(x.oro)}</span>`;
+  const clase = x.ocupada === null ? 'count' : 'count ocupado';
+  return html`<span class="${clase}" title="${no.motivo}">+0 · ${no.corto}</span>`;
 }
 
 export function renderTopbar(session: Session): {
@@ -426,14 +468,11 @@ function renderAdventurePanel(session: Session): Html {
     renta.ciudades.length === 0
       ? NADA
       : html`<h3>Castillos</h3><div class="stack-list">${unir(
-          renta.ciudades.map((c) => {
-            const cuanto = c.unida
-              ? html`<span class="count">+${conMiles(c.oro)}</span>`
-              : html`<span class="count" title="${SIN_COBRAR}">+0</span>`;
-            return html`<button data-action="open-town" data-town="${c.id}" class="stack">
-              <span>${c.nombre}</span>${cuanto}
-            </button>`;
-          }),
+          renta.ciudades.map(
+            (c) => html`<button data-action="open-town" data-town="${c.id}" class="stack">
+              <span>${c.nombre}</span>${cuantoDa(c, c.unida, 'a')}
+            </button>`,
+          ),
         )}</div>`;
   const listaAldeas =
     renta.pueblos.length === 0
@@ -441,7 +480,7 @@ function renderAdventurePanel(session: Session): Html {
       : html`<h3>Pueblos</h3><div class="stack-list">${unir(
           renta.pueblos.map(
             (p) =>
-              html`<div class="stack"><span>${p.nombre}</span><span class="count">+${conMiles(p.oro)}</span></div>`,
+              html`<div class="stack"><span>${p.nombre}</span>${cuantoDa(p, p.unido, 'o')}</div>`,
           ),
         )}</div>`;
 
@@ -722,25 +761,46 @@ function renderTownPanel(session: Session, abierto: Abierto | null): Html {
   // Contratar abre los candidatos ante el ayuntamiento (D3), donde se elige el
   // tipo y se paga; con el de salida por elegir, es elegirlo (el mismo sitio).
   const heroeAqui = session.heroeEnLaBase() ?? undefined;
+  // Ocupada (tarea 2): ni se recluta, ni se construye, ni se contrata; lo dice el núcleo.
+  const ocupada = session.mandaEn(town);
   const contratar =
-    heroeAqui === undefined
-      ? html`<button data-action="abrir-ayuntamiento" class="primary" style="margin-top:.7rem">${session.heroeDeSalidaPendiente ? 'Elige a tu héroe' : 'Contratar héroe'} (${describirCoste(ECONOMIA.precioDelHeroe)})</button>`
-      : html`<p class="cost">${heroeAqui.name} ya está dentro: contrata otro cuando salga.</p>`;
+    ocupada !== null
+      ? html`<button class="primary" style="margin-top:.7rem" disabled title="${ocupada}">Contratar héroe</button>`
+      : heroeAqui === undefined
+        ? html`<button data-action="abrir-ayuntamiento" class="primary" style="margin-top:.7rem">${session.heroeDeSalidaPendiente ? 'Elige a tu héroe' : 'Contratar héroe'} (${describirCoste(ECONOMIA.precioDelHeroe)})</button>`
+        : html`<p class="cost">${heroeAqui.name} ya está dentro: contrata otro cuando salga.</p>`;
 
   // El `crecimiento || '<div…>Sin moradas</div>'` de antes no vale con marcado:
   // un fragmento vacío es un OBJETO, y `||` lo da por bueno siempre. Se pregunta
   // por lo que de verdad decide —si hay moradas—, que además es lo que se quería
   // decir.
   const moradas = dwellings(town);
+  // Ocupada, las moradas no crecen y la semana se pierde (`crecerLasMoradas`): la
+  // fila dice +0 y la nota el porqué, no lo que crecería (vuelta 1 de QA, H1).
   const crecimiento =
     moradas.length === 0
       ? html`<div class="stack empty">Sin moradas</div>`
       : unir(
           moradas.map(({ creature: id }) => {
             const info = unidadDelJuego(id);
-            return html`<div class="stack"><span>${info.name}</span><span class="count">+${info.growth}</span></div>`;
+            return html`<div class="stack"><span>${info.name}</span><span class="count">+${ocupada === null ? info.growth : 0}</span></div>`;
           }),
         );
+  // Cada fila, de la regla del núcleo y no de la cifra cruda (vuelta 1 de QA, H1):
+  // lo que cobra, de `rentaDelDia` (la misma de la lista del lateral); si se
+  // construye, de `ciudadQueMandaBlocker` (`mandaEn`); y la guarnición ajena, como
+  // el ocupante que es (`ocupanteDeLaCiudad`), no como la suya.
+  const enLaRenta = session.renta.ciudades.find((c) => c.id === town.id);
+  const noCobra = enLaRenta === undefined ? null : sinCobrar(enLaRenta, enLaRenta.unida, 'a');
+  const ocupante = session.ocupanteDeLaCiudad(town);
+  const guarnicionAjena = ocupante !== null && ocupante.ocupante.kind === 'guarnicion';
+  const construirHoy = session.heroeDeSalidaPendiente
+    ? html`tras elegir a tu héroe`
+    : ocupada !== null
+      ? html`<span title="${ocupada}">no: ${ocupante === null ? ocupada : 'está ocupada'}</span>`
+      : town.builtToday
+        ? html`ya hecho`
+        : html`disponible`;
 
   return html`${renderAbierto(session, town, abierto, {
     hechizos: renderTownSpells(town),
@@ -748,20 +808,25 @@ function renderTownPanel(session: Session, abierto: Abierto | null): Html {
     contratar,
   })}
     <h2>${town.name}</h2>
-    <div class="row"><span class="label">Ingresos</span><span>${conMiles(dailyIncome(town))} oro/día${session.renta.ciudades.some((c) => c.id === town.id && !c.unida) ? ` · ${SIN_COBRAR}` : ''}</span></div>
+    ${ocupada === null ? NADA : html`<p class="cost lose">${ocupada}</p>`}
+    <div class="row"><span class="label">Ingresos</span><span${noCobra === null ? NADA : html` title="${noCobra.motivo}"`}>${conMiles(dailyIncome(town))} oro/día${noCobra === null ? '' : ` · ${noCobra.dicho}`}</span></div>
     <div class="row"><span class="label">Gremio de magia</span><span>${mageGuildLevel(town) || '—'}</span></div>
-    <div class="row"><span class="label">Construir hoy</span><span>${session.heroeDeSalidaPendiente ? 'tras elegir a tu héroe' : town.builtToday ? 'ya hecho' : 'disponible'}</span></div>
-    <p class="cost">${session.heroeDeSalidaPendiente ? 'Pulsa el ayuntamiento para elegir a tu héroe; hasta entonces no se amplía ni se recluta.' : 'Pulsa el ayuntamiento para ampliar la base, una morada para reclutar, un edificio para ver lo suyo o a alguien para hablar.'}</p>
+    <div class="row"><span class="label">Construir hoy</span><span>${construirHoy}</span></div>
+    <p class="cost">${session.heroeDeSalidaPendiente ? 'Pulsa el ayuntamiento para elegir a tu héroe; hasta entonces no se amplía ni se recluta.' : ocupada !== null ? 'Mientras no mandes en ella no se amplía ni se recluta: pulsa un edificio para ver lo suyo o a alguien para hablar.' : 'Pulsa el ayuntamiento para ampliar la base, una morada para reclutar, un edificio para ver lo suyo o a alguien para hablar.'}</p>
 
     <h3>Edificios</h3>
     <div class="stack-list ir-a-sitio">${renderListaDeEdificios(session)}</div>
 
     <h3>Crecimiento semanal</h3>
-    <div class="stack-list">${crecimiento}</div>
+    <div class="stack-list">${crecimiento}</div>${ocupada === null ? NADA : html`<p class="cost lose">No crece mientras esté ocupada: la semana que empiece así se pierde.</p>`}
 
     <h3>Guarnición</h3>
-    ${filaLiderazgo(session.liderazgo({ guarnicion: town.id }))}
-    ${renderArmy(town.garrison, session.state.characters)}
+    ${
+      guarnicionAjena
+        ? html`<p class="cost lose">La ocupa: ${ocupante.quien}. No es tuya: échala atacándola.</p>`
+        : filaLiderazgo(session.liderazgo({ guarnicion: town.id }))
+    }
+    ${renderArmy(guarnicionDeLaCiudad(session.state, town), session.state.characters)}
     ${
       heroeAqui === undefined
         ? NADA
@@ -771,11 +836,15 @@ function renderTownPanel(session: Session, abierto: Abierto | null): Html {
 
     ${
       heroeAqui === undefined
-        ? html`<p class="cost">${
-            session.heroeDeSalidaPendiente
-              ? 'Antes de reclutar o construir, elige a tu héroe de salida ante el ayuntamiento.'
-              : 'Sin héroe dentro, lo que reclutes se queda de guarnición.'
-          }</p>
+        ? html`${
+            ocupada !== null
+              ? NADA
+              : html`<p class="cost">${
+                  session.heroeDeSalidaPendiente
+                    ? 'Antes de reclutar o construir, elige a tu héroe de salida ante el ayuntamiento.'
+                    : 'Sin héroe dentro, lo que reclutes se queda de guarnición.'
+                }</p>`
+          }
           ${contratar}`
         : html`${renderLibroEnElCastillo(session, heroeAqui, town)}<h3>Tropa del héroe</h3>
           ${filaLiderazgo(session.liderazgo({ heroe: heroeAqui.id }))}
@@ -1574,17 +1643,15 @@ function fraseDeBatalla(
       case 'hero':
         if (dueño === null) throw new Error('la crónica cuenta una batalla de un héroe sin dueño');
         return { uno: `un héroe del jugador ${dueño}`, el: `el jugador ${dueño}` };
-      case 'town':
-        return dueño === null
-          ? { uno: 'la guarnición de una ciudad neutral', el: 'la guarnición' }
-          : { uno: `la guarnición de un castillo del jugador ${dueño}`, el: `el jugador ${dueño}` };
       case 'monster':
         return { uno: 'un monstruo', el: 'el monstruo' };
       case 'raider':
         return { uno: 'un grupo de asaltantes', el: 'el grupo de asaltantes' };
       case 'garrison':
-        if (dueño === null) throw new Error('la crónica cuenta una guarnición sin dueño');
-        return { uno: `la guarnición de un sitio del jugador ${dueño}`, el: `el jugador ${dueño}` };
+        // La neutral es la de una ciudad neutral (la de su región, si la ocupa).
+        return dueño === null
+          ? { uno: 'una guarnición neutral', el: 'la guarnición' }
+          : { uno: `la guarnición de un sitio del jugador ${dueño}`, el: `el jugador ${dueño}` };
       case 'lugar': {
         const encuentro =
           e.foe.kind === 'lugar' && lugar !== null ? lugar.encuentros[e.foe.encuentro] : undefined;
@@ -1664,8 +1731,9 @@ export function renderLog(
    */
   lugarDe: (id: string) => Lugar | null = () => null,
   /**
-   * El sitio de una guarnición por su id, para nombrarlo («la guarnición del paso
-   * de montaña de (13,7)», «Defiendes Valdeluz»): sin él (el espectador), la casilla.
+   * El sitio de una guarnición o de un nodo tomado por su id, para nombrarlo («la
+   * guarnición del paso de montaña de (13,7)», «Pueblo tomado: El Soto»): sin él,
+   * la casilla (el espectador lo da de los pasos y los pueblos del cable).
    */
   sitioDe: (id: string) => Sitio | null = () => null,
 ): Html {
@@ -1752,7 +1820,22 @@ export function renderLog(
           return html`<div${clase(mio, false)}>${
             mio ? 'Se te unen' : `Se unen ${alJugador(e.actor)}`
           } ${e.count} × ${unidadDelJuego(e.creature).name}${enElLugar(e.lugar, e.at)}</div>`;
-        case 'node_captured':
+        case 'node_captured': {
+          // El pueblo del muro se toma como un paso y es el mismo hecho, pero se
+          // nombra por lo que es: «Paso tomado en (8, 14)» de El Soto no decía qué
+          // se había tomado (vuelta 1 de QA de la tarea 2, H2). El paso, sin
+          // nombre, por su casilla.
+          const sitio = sitioDe(e.node);
+          if (sitio?.kind === 'pueblo') {
+            const nombre = nombreDelSitio(sitio);
+            return html`<div${clase(mio, e.from === viewer)}>${
+              mio
+                ? `Pueblo tomado${e.from === null ? '' : ` ${alJugador(e.from)}`}: ${nombre}`
+                : e.from === viewer
+                  ? `${jugador(e.actor)} te ha quitado ${nombre}`
+                  : `${jugador(e.actor)} toma el pueblo de ${nombre}`
+            }</div>`;
+          }
           return html`<div${clase(mio, e.from === viewer)}>${
             mio
               ? `Paso tomado${e.from === null ? '' : ` ${alJugador(e.from)}`}`
@@ -1760,6 +1843,7 @@ export function renderLog(
                 ? `${jugador(e.actor)} te ha quitado un paso`
                 : `${jugador(e.actor)} toma un paso`
           }${aqui}</div>`;
+        }
         case 'town_captured':
           // El criterio 9: a costa de quién. «Castillo capturado» a secas era
           // media verdad justo en el evento que decide la partida.
@@ -1772,6 +1856,39 @@ export function renderLog(
                     e.from === null ? 'neutral' : deJugador(e.from)
                   }`
           }${aqui}</div>`;
+        case 'town_owner_changed': {
+          // La ciudad de dentro de una región, que va con ella: nadie la toma.
+          const ciudad = sitioOCasilla(e.town, e.at, (s) => nombreDelSitio(s), 'una ciudad');
+          return html`<div${clase(e.to === viewer, e.from === viewer)}>${
+            e.to === viewer
+              ? `${ciudad} es tuya: su región ya es tuya`
+              : e.from === viewer
+                ? `Pierdes ${ciudad}: su región ya no es tuya`
+                : `${ciudad} pasa ${e.to === null ? 'a no ser de nadie' : alJugador(e.to)}`
+          }</div>`;
+        }
+        case 'site_occupied': {
+          const sitio = sitioOCasilla(e.site, e.at, (s) => nombreDelSitio(s), 'un sitio');
+          const quien =
+            e.by.kind === 'heroe'
+              ? `un héroe ${deJugador(e.by.dueño)}`
+              : e.by.dueño === null
+                ? 'una guarnición neutral'
+                : `una guarnición ${deJugador(e.by.dueño)}`;
+          // Mío: me lo ocupan (rojo). Del ocupante: lo ocupa él (verde).
+          const ocupa = quien.charAt(0).toUpperCase() + quien.slice(1);
+          return html`<div${clase(e.by.dueño === viewer, mio)}>${
+            mio
+              ? `${ocupa} ocupa ${sitio}: no te da nada hasta que eches al ocupante`
+              : `${ocupa} ocupa ${sitio}`
+          }</div>`;
+        }
+        case 'site_freed': {
+          const sitio = sitioOCasilla(e.site, e.at, (s) => nombreDelSitio(s), 'un sitio');
+          return html`<div${clase(mio, false)}>${
+            mio ? `${sitio} queda libre: vuelve a darte lo suyo` : `${sitio} queda libre`
+          }</div>`;
+        }
         case 'built':
           return html`<div${clase(mio, false)}>${
             mio ? 'Construido' : `${jugador(e.actor)} construye`

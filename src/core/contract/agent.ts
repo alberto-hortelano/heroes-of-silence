@@ -35,6 +35,7 @@ import { EQUIPO_BASE, REGLA_DEL_ESCUDO } from '../hero/equipo.js';
 import { RANGO_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
 import { GARRISON_LEADERSHIP } from '../hero/troop.js';
 import { LADO_MAXIMO_DEL_PLAN, LADO_MINIMO_DEL_PLAN } from '../map/generate.js';
+import { BARRERAS_DEL_PUEBLO } from '../map/map.js';
 import { LADO_DEL_RECINTO, SEPARACION_DE_CIUDADES } from '../map/recinto.js';
 import {
   BARRERAS,
@@ -563,15 +564,32 @@ Notas:
   en ${GARRISON_LEADERSHIP} de liderazgo y "you.combat.troopCap" individuos, y la del ejército
   en su "leadership"; lo que no cabe se rechaza diciendo cuántos caben. Un
   personaje no se deja. "you.garrisons" dice qué guarda cada paso y cada pueblo
-  tuyo (la de las ciudades, en "towns[].garrison"). Un paso que pierdes pierde
-  su guarnición. Un paso o un pueblo con guarnición AJENA se alcanza pero no se
-  cruza: pisarlo es pelear contra ella (como contra una ciudad guarnecida); si
-  la vences, el paso es tuyo y el pueblo se queda sin guarnición, y tu héroe se
-  queda en la casilla de antes. La guarnición ajena no se ve hasta pisarla.
-  Esa batalla llega en "recentEvents" con "foe": { "kind": "garrison", "site":
-  "<id>" }: la guarnición SIN héroe de un paso o un pueblo, "site" el id del
-  nodo o del pueblo en "knownMap", y del jugador que la dejó allí (su "owners"
-  en el "battle_ended"; la tuya, si te atacan una). La de una ciudad es "town".
+  tuyo, y lo tuyo que se quedó en un sitio que ya no es tuyo (la de tus
+  ciudades, en "towns[].garrison"); de ese sitio puedes RECOGERLA, no dejar
+  más. Un sitio del muro que pierdes pierde su guarnición. Una ciudad, un paso o
+  un pueblo con guarnición AJENA (también la neutral de una ciudad neutral) se
+  alcanza pero no se cruza: pisarlo es pelear contra ella; si la vences, el
+  sitio del muro es tuyo y el de dentro de una región se queda sin guarnición,
+  y tu héroe se queda en la casilla de antes. La guarnición ajena no se ve
+  hasta pisarla. Esa batalla llega en "recentEvents" con "foe": { "kind":
+  "garrison", "site": "<id>" }: la guarnición SIN héroe del sitio, "site" su id
+  en "knownMap", y del jugador que la dejó allí ("owners" en el "battle_ended";
+  null, la neutral).
+- OCUPACIÓN: una ciudad o un pueblo TUYO con tropa de otro dentro —un héroe
+  rival parado en su casilla, o una guarnición que no es tuya (la de quien lo
+  tenía, o la neutral de una ciudad cuya región ya es tuya)— está OCUPADO:
+  mientras dure no te da oro, y una ciudad tampoco recluta, ni construye, ni
+  crecen sus moradas (esa semana se pierde), ni se contrata, ni vende su
+  armería; cada rechazo lo dice. Lo ves en "knownMap" ("occupiedBy" de la ciudad o el pueblo:
+  { "hero", "owner" } o { "garrison": dueño }), en "towns[].occupied" (y esa
+  ciudad trae "income" 0 y "canBuildNow" y "recruitable" vacíos: no hay nada que
+  hacer en ella) y en "income" ("occupied" de cada ciudad y pueblo, con 0 de oro), y lo cuentan
+  "site_occupied" y "site_freed" en "recentEvents". Se RECUPERA moviendo un
+  héroe tuyo a su casilla: es una batalla contra el ocupante, tras la muralla
+  del sitio; si ganas, vuelve a darte lo suyo. Si el ocupante se va, también.
+  Ocupar no quita el sitio a nadie: un héroe tuyo parado en una ciudad o un
+  pueblo ajeno de DENTRO de una región lo ocupa (si tiene guarnición, la vences
+  antes), pero no es tuyo, ni reclutas, ni construyes, ni dejas tropa en él.
 - PUESTOS: el "upgrade" de un "node" de "knownMap" es la obra de ese paso (la
   última que viste) y la muralla de su batalla: "${UPGRADE_DE_MEJORA.ninguna}", "${UPGRADE_DE_MEJORA.empalizada}" o "${UPGRADE_DE_MEJORA.muralla}".
 - DEFENSA: si atacan a un héroe tuyo en un sitio tuyo con guarnición, defiende
@@ -673,7 +691,8 @@ ${CATALOGO_DE_EQUIPO_EN_PROSA}
   "total" y de dónde sale, "towns" (cada ciudad tuya, con el "gold" que da su
   ayuntamiento; tu base es la primera; la que está cortada de tu base lleva
   "connected": false y da 0) y "villages" (cada
-  pueblo de una región tuya unida a tu base, ${ECONOMIA.rentaDelPueblo} de oro cada uno). Lo
+  pueblo tuyo, ${ECONOMIA.rentaDelPueblo} de oro cada uno; el que está cortado de tu base, también
+  el del muro que acabas de tomar y aún no une nada, lleva "connected": false y da 0). Lo
   que te cortan de la base deja de pagar. Todo "cost" —"canBuildNow",
   "recruitable", "towns[].armory"— es oro: un número. Un "build" o un
   "recruit" sin oro bastante se rechaza diciendo cuánto cuesta y cuánto tienes.
@@ -906,18 +925,27 @@ El mapa es una RED DE NODOS, y eso se comprueba:
   rechaza: deja huecos por las esquinas. Se mueve en 8 direcciones, así que dos
   casillas pisables que se tocan aunque sea en diagonal están unidas.
 - Un NODO es el único paso entre regiones: una casilla de "nodes" en un muro,
-  tocando dos regiones o más. Una CIUDAD ("towns") ES un nodo: va igual en el
-  muro, entre regiones, y no se repite en "nodes". Un nodo o una ciudad ABRE la
-  casilla de muro en la que está, así que puedes trazar el muro entero y poner
-  el paso encima. El nodo cruza la barrera del muro que abre —sobre "water" es
+  tocando dos regiones o más. Una CIUDAD ("towns") va en UNO de dos sitios, y lo
+  dice lo que toca (no hay campo que lo diga): EN EL MURO, entre dos regiones o
+  más, es un nodo y se TOMA como un paso (la base va siempre ahí; perderla
+  elimina); DENTRO DE UNA REGIÓN, tocando solo esa (por los accesos de sus
+  puertas), no es un nodo: es de quien tenga la región, así que no lleva
+  "owner" (null; con dueño se rechaza). No se repite en "nodes". Un nodo o una
+  ciudad en el muro ABRE la casilla de muro en la que está, así que puedes
+  trazar el muro entero y poner el paso encima. El nodo cruza la barrera del muro que abre —sobre "water" es
   un puente—, y uno sin muro debajo se rechaza. Dos nodos no pueden ser vecinos.
 - Quitando los nodos, cada zona pisable tiene que ser EXACTAMENTE una de tus
   regiones: si dos regiones se tocan sin nodo, se te dice entre qué dos casillas
   queda el paso abierto; una zona pisable sin región declarada se rechaza; cada
   región necesita al menos un nodo, y todas tienen que alcanzarse.
 - Una región es de quien tenga TODOS sus nodos, y solo da renta unida a su base.
-  Los pueblos ("villages": {"name", "at"}) no se toman: son de quien tenga su
-  región, y por eso no llevan dueño. Cada uno ${REGLA_DEL_PUEBLO}.
+  Los pueblos ("villages": {"name", "at"}) dentro de una región no se toman: son
+  de quien tenga su región, y por eso no llevan dueño. Uno EN EL MURO, sobre
+  ${BARRERAS_DEL_PUEBLO.map((b) => `"${b}"`).join(', ')} y tocando dos regiones, es un nodo, como un paso: ABRE su
+  casilla de muro, se toma pisándolo y se cruza por él (sobre "water" o "wall"
+  se rechaza: ahí el paso es un puente o una puerta). Uno sobre el muro que solo
+  toca una región, o uno entre dos regiones sin muro debajo, se rechaza; uno que
+  corta su región en dos, también. Cada uno ${REGLA_DEL_PUEBLO}.
 - Una región puede llevar "terrain": su suelo ENTERO, todas sus casillas
   pisables pintadas de ese terreno (encima de "patches"). Tiene que ser un suelo
   que se pise, no una barrera. Solo pinta: no cambia por dónde se anda.
@@ -938,9 +966,10 @@ El mapa es una RED DE NODOS, y eso se comprueba:
 - "patches" solo pintan el suelo (círculos de "terrain", "center" y "radius"): no
   separan nada. Los muros se pintan encima.
 - Una ciudad neutral ("owner": null) nace con guarnición: hay que vencerla para
-  tomarla. La base de cada jugador —su PRIMERA ciudad en "towns"— nace también
-  con guarnición, de la facción de su dueño, y su héroe empieza dentro; sus
-  otras ciudades nacen vacías.
+  tomarla (la del muro) o para que deje de ocupar la de dentro de una región que
+  ya es de alguien. La base de cada jugador —su PRIMERA ciudad en "towns", en el
+  muro— nace también con guarnición, de la facción de su dueño, y su héroe
+  empieza dentro; sus otras ciudades nacen vacías.
 
 Reglas que se validan antes de aceptarlo:
 - Mínimo ${LADO_MINIMO_DEL_PLAN}×${LADO_MINIMO_DEL_PLAN}, máximo ${LADO_MAXIMO_DEL_PLAN}×${LADO_MAXIMO_DEL_PLAN}.
@@ -948,8 +977,9 @@ Reglas que se validan antes de aceptarlo:
   ciudad: la primera suya es su base y su héroe empieza dentro, en la casilla de
   la ciudad, y sale por sus puertas.
 - Dos cosas no pueden compartir casilla.
-- Todo lo que no es nodo ni ciudad —pueblos, monstruos y cofres— va DENTRO de
-  una región, nunca sobre un muro ni sobre un nodo.
+- Todo lo que no es nodo, ciudad ni pueblo del muro —monstruos, cofres y los
+  pueblos de dentro de una región— va en una casilla que se pisa, nunca sobre
+  un muro ni sobre un nodo.
 - Cada ciudad es un RECINTO amurallado de ${LADO_DEL_RECINTO}×${LADO_DEL_RECINTO} casillas con ella en el
   medio. Por eso: una ciudad va a una casilla del borde del mapa o más; dos
   ciudades, a ${SEPARACION_DE_CIUDADES} casillas o más, contando la diagonal como una; y dentro de un

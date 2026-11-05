@@ -58,8 +58,10 @@ describe('el relieve', () => {
   // La 2 desde el río continuo (#144): la 5 se quedó sin desnivel (en 1-12,
   // la 2 es la primera con agua encajada: 18 casillas). La 8 desde el río de
   // lago de 20 casillas (17-10-2026), que dejó la 2 sin desnivel (en 1-12, la
-  // primera con agua encajada: 12 casillas).
-  const SEMILLA = 8;
+  // primera con agua encajada: 12 casillas). La 1 desde las ciudades en mitad
+  // de su región (05-11-2026), que dejaron la 8 sin desnivel (en 1-12, la
+  // primera con agua encajada: 46 casillas).
+  const SEMILLA = 1;
   const a = analizar(newGame({ seed: SEMILLA }).map);
   const r = relieve(a);
 
@@ -392,8 +394,10 @@ describe('la escena de un mapa real', () => {
   // 21-10-2026), por lo mismo; la 1 y la 2 en vez de la 12 y la 4 sin minas
   // (21-10-2026): con menos objetos los vestidos que se repiten son otros, y
   // la 12 se quedó con 3 laderas al oeste y la 4 sin desnivel (de 1-18 pasan
-  // la 1, 2, 3, 5, 7, 8, 10 y 17).
-  for (const semilla of [7, 1, 2, 17]) {
+  // la 1, 2, 3, 5, 7, 8, 10 y 17). La 3 y la 5 en vez de la 1 y la 17 desde las
+  // ciudades en mitad de su región (05-11-2026): la 1 se quedó sin bajadas y la
+  // 17 sin desnivel (de 1-12 pasan la 2, 3, 5, 7, 10, 11 y 12).
+  for (const semilla of [7, 3, 2, 5]) {
     const map = newGame({ seed: semilla }).map;
     const e = escenaDe(semilla);
 
@@ -674,7 +678,9 @@ describe('las sendas por un objeto con puerta (#188)', () => {
     kind: 'village',
     id: 'village-0',
     name: 'Pueblo',
+    owner: null,
     at: { x: 2, y: 1 },
+    barrera: null,
   };
   const terreno = new Array<TerrainKind>(20).fill('grass');
   const tramo = (x0: number, y0: number, x1: number, y1: number) =>

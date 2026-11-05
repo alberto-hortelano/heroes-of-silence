@@ -56,6 +56,7 @@ import {
   week,
 } from '@core/state/game.js';
 import { newGame } from '@core/state/setup.js';
+import { dueñoDeLaCiudad } from '@core/state/sitios.js';
 import { firmaDeVoces, ponerVoces, vocesCaducadas } from '@core/town/voces.js';
 import type { PlayerId, TipoDeGolpe } from '@core/types.js';
 import type { AgentLink } from './agent-link.js';
@@ -392,7 +393,13 @@ export class Director {
     // Todas las pedidas, también las que no traen ninguna voz: su firma se
     // apunta igual y su gente vuelve a las frases de siempre.
     for (const t of caducadas) {
-      const r = ponerVoces(t, player, semana, porBase.get(t.id) ?? []);
+      const r = ponerVoces(
+        t,
+        dueñoDeLaCiudad(this.state, t),
+        player,
+        semana,
+        porBase.get(t.id) ?? [],
+      );
       aceptadas += r.aceptadas;
       if (r.aceptadas > 0) bases++;
       rechazos.push(...r.rechazos.map((m) => `${t.id}/${m}`));

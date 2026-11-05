@@ -5,7 +5,8 @@
  * (`sendasPorObjeto`, en el escenógrafo).
  *
  * La cámara mira desde el sur y la puerta del sprite está en su pie, así que
- * la puerta es la casilla de **debajo**.
+ * la puerta es la casilla de **debajo**. El pueblo en el muro no tiene: es un
+ * nodo, y se cruza por su eje (`puertaDe`).
  *
  * **La ciudad no está aquí** (la ciudad amurallada, vuelta 3, fase 2): sus
  * puertas son las de su recinto (`PUERTAS_DE_LA_CIUDAD`, `recinto.ts`), y esas
@@ -15,6 +16,7 @@
  * Es del trazado y de la escena.
  */
 import type { Point } from '../types.js';
+import type { Barrera } from './terrain.js';
 
 /**
  * Cuántos rodeos cuesta pasar entre el pueblo y su vecina en `(dx, dy)`, por
@@ -38,8 +40,16 @@ export function rodeosParaEntrar(dx: number, dy: number): number {
 
 /**
  * La puerta del pueblo en `at` —la casilla de debajo—, si cae dentro de un mapa
- * de `W × H`; si no, `null`: se llega por donde se pueda.
+ * de `W × H`; si no, `null`: se llega por donde se pueda. **El pueblo en el muro**
+ * (con `barrera`, pueblos en un nodo, fase 3) no tiene puerta: es un nodo, y se
+ * entra y se sale por su eje, como en un paso; también `null`.
  */
-export function puertaDe(at: Point, W: number, H: number): Point | null {
+export function puertaDe(
+  pueblo: { readonly at: Point; readonly barrera: Barrera | null },
+  W: number,
+  H: number,
+): Point | null {
+  const { at } = pueblo;
+  if (pueblo.barrera !== null) return null;
   return at.x >= 0 && at.x < W && at.y >= -1 && at.y + 1 < H ? { x: at.x, y: at.y + 1 } : null;
 }

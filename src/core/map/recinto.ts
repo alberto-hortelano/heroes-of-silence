@@ -207,7 +207,8 @@ export interface MapaConCaminos extends MapaDelRecinto {
 const dentro = (map: Pick<MapaDelRecinto, 'width' | 'height'>, p: Point): boolean =>
   p.x >= 0 && p.y >= 0 && p.x < map.width && p.y < map.height;
 const mas = (at: Point, [dx, dy]: Paso, k = 1): Point => ({ x: at.x + k * dx, y: at.y + k * dy });
-const chebyshev = (a: Point, b: Point): number =>
+/** Lo que dista `a` de `b` en pasos de rey (Chebyshev): la medida de los recintos. */
+export const chebyshev = (a: Point, b: Point): number =>
   Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 const casilla = (p: Point): string => `(${p.x},${p.y})`;
 

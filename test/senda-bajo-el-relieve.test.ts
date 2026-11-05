@@ -193,7 +193,10 @@ describe('la senda bajo el relieve (#189)', () => {
     // de las ciudades del núcleo (vuelta 3, 21-10-2026), 31, 34, 8 y 39, con 6,
     // 5, 3 y 3 (media 4,25; la 22 se queda en 0). Sin minas (21-10-2026), 11,
     // 12, 22 y 34, con 5, 3, 3 y 3 (media 3,5; la 31 y la 8 se quedan en 0).
-    const semillas = segunPrisa([11, 12, 22, 34], rango(1, 40));
+    // Con las ciudades en mitad de su región (05-11-2026), 26, 19, 24 y 28, con
+    // 5, 3, 3 y 3 (media 3,5; la 34 se queda en 0). Con los pueblos en un nodo
+    // (fase 3, 05-11-2026), 26, 19, 7 y 28, con 5, 4, 3 y 3 (la 24 se queda en 0).
+    const semillas = segunPrisa([26, 19, 7, 28], rango(1, 40));
     const cuentas = semillas.map((s) => escenaDe(s).informe.sendaBajoElRelieve);
     // Que mire algo: en ninguna semilla de la muestra rápida es 0. En 1-40,
     // con menos mesetas (#210), la mitad se queda en 0: 20 de 40 y 1,2 de
@@ -206,8 +209,10 @@ describe('la senda bajo el relieve (#189)', () => {
     // casilla (#144, paso 2), 20 en 0 y 1,13 (45). Con el paso 2b, 19 en 0 y
     // 1,1 (44). Con el río continuo (#144), 19 en 0 y 1,4 (56). Con el recinto
     // de las ciudades del núcleo (vuelta 3), 20 en 0 y 1,1 (44). Sin minas
-    // (21-10-2026), 25 en 0 y 0,73 (29).
-    expect(cuentas.filter((n) => n > 0).length).toBeGreaterThanOrEqual(segunPrisa(4, 15));
+    // (21-10-2026), 25 en 0 y 0,73 (29). Con las ciudades en mitad de su región
+    // (05-11-2026), 24 en 0 y 0,88 (35). Con los pueblos en un nodo (fase 3,
+    // 05-11-2026), 27 en 0 y 0,78 (31): el suelo de la lenta baja a 12.
+    expect(cuentas.filter((n) => n > 0).length).toBeGreaterThanOrEqual(segunPrisa(4, 12));
     expect(cuentas.reduce((a, b) => a + b, 0) / semillas.length).toBeLessThanOrEqual(
       TECHO_POR_MAPA,
     );

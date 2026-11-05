@@ -53,6 +53,7 @@ import {
   visibleNow,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 
 /**
  * Lo que se espera a que el hilo principal pinte el suelo: el escalón (#211) lo
@@ -827,6 +828,7 @@ describe('qué tapa a qué en el mapa', () => {
       escena: state,
       heroes: state.heroes,
       objetos: state.map.objects,
+      ocupados: [],
       asaltantes: todosALaVista(state.raiders),
       camara: { tile: 70, x: foco.x - 6, y: foco.y - 4 },
       ancho: 900,
@@ -978,7 +980,9 @@ describe('qué tapa a qué en el mapa', () => {
     const state = newGame({ seed: 1 });
     const heroe = state.heroes[0]!;
     const castillo = state.map.objects.find(
-      (o) => o.kind === 'town' && state.towns.some((t) => t.id === o.id && t.owner === heroe.owner),
+      (o) =>
+        o.kind === 'town' &&
+        state.towns.some((t) => t.id === o.id && dueñoDeLaCiudad(state, t) === heroe.owner),
     );
     if (castillo === undefined) throw new Error('s1: el héroe 0 sin castillo');
     heroe.at = { x: castillo.at.x, y: castillo.at.y - 1 };
@@ -1009,6 +1013,7 @@ describe('un grupo que vuelve a la vista aparece en su casilla (H3 de QA de #130
       escena: state,
       heroes: state.heroes,
       objetos: state.map.objects,
+      ocupados: [],
       asaltantes: todosALaVista(
         grupos.map((g) => ({ ...g, troops: [{ creature: 'esqueleto-guerrero', count: 13 }] })),
       ),

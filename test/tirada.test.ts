@@ -176,25 +176,27 @@ describe('el paso de la tirada en el catálogo', () => {
 });
 
 describe('en la escena', () => {
-  it('la muralla del mapa de s41 lleva su tirada de norte a sur, sin testeros a media tirada', () => {
+  it('la muralla del mapa de s20 lleva su tirada de norte a sur, sin testeros a media tirada', () => {
     // s41 (20, 25-27): tres pasos de norte a sur entre una torre y una puerta
     // de este a oeste, sin nada en las juntas. Una pieza por paso, la de atrás
-    // enseñaba su testero en cada junta.
-    const e = escenaDe(41);
+    // enseñaba su testero en cada junta. Con las ciudades en mitad de su región
+    // (05-11-2026) la s41 no lleva muralla: s20 (29, 36-40), la primera de 1-200
+    // con una tirada de tres o más (cinco piezas).
+    const e = escenaDe(20);
     const ns = e.sprites.filter(
       (s) =>
         /^muro-ns-\d\.webp$/.test(s.src ?? '') &&
         s.objeto === undefined &&
-        Math.floor(s.x) === 20 &&
-        s.y > 25 &&
-        s.y < 28,
+        Math.floor(s.x) === 29 &&
+        s.y > 36 &&
+        s.y < 39,
     );
     expect(ns.length).toBeGreaterThanOrEqual(3);
     expect(new Set(ns.map((s) => s.src)).size).toBe(1);
     expect(e.informe.testerosAMediaTirada).toBe(0);
     // Recta: todas en la x de su columna (el arte no se corre de lado al subir;
     // las piezas de antes se torcían ~0,4 casillas en tres pasos, s105).
-    for (const s of ns) expect(Math.abs(s.x - 20.5)).toBeLessThan(0.01);
+    for (const s of ns) expect(Math.abs(s.x - 29.5)).toBeLessThan(0.01);
     // Romper a mano: las mismas piezas, una por paso, como iban.
     const sur = Math.max(...ns.map((s) => s.y));
     const porPaso = new Map(

@@ -49,13 +49,17 @@ export interface VeteranoEnBase {
  * narrador. Un novato no entra porque no tiene hoja, y un veterano por debajo
  * del tope tampoco.
  */
-export function veteranosEn(base: Town, heroeDentro: Hero | undefined): VeteranoEnBase[] {
+export function veteranosEn(
+  base: Town,
+  guarnicion: Hero['army'],
+  heroeDentro: Hero | undefined,
+): VeteranoEnBase[] {
   const out: VeteranoEnBase[] = [];
   const listo = (t: Hero['army'][number]): t is typeof t & { veterania: Veterania } =>
     t.member === undefined &&
     t.veterania !== undefined &&
     rangoDeTropa(t.veterania) >= RANGO_MAXIMO_DE_TROPA;
-  for (const t of base.garrison) {
+  for (const t of guarnicion) {
     if (listo(t)) out.push({ veterania: t.veterania, creature: t.creature, base, heroe: null });
   }
   if (heroeDentro === undefined) return out;

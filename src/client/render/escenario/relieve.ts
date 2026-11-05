@@ -81,7 +81,7 @@ export function relieve(a: Analisis): Relieve {
     .map((n) => ({
       casilla: n.at.y * W + n.at.x,
       regiones: n.regiones,
-      alBajo: n.ciudad || a.conCamino.has(n.id),
+      alBajo: n.clase === 'ciudad' || a.conCamino.has(n.id),
     }));
   const nivel = nivelesDelRelieve(W, H, terreno, red.regionDe, niveles, nodos);
   return { nivel };

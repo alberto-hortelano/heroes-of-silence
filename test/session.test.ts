@@ -16,7 +16,7 @@ import { combateCon } from '../src/core/combate.js';
 import { armyLeadership, GARRISON_LEADERSHIP } from '../src/core/hero/troop.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import { pointFromKey, reachableFrom } from '../src/core/map/map.js';
-import { isWalkable } from '../src/core/map/terrain.js';
+import { puertasDeLaCiudad } from '../src/core/map/recinto.js';
 import { asaltantesALaVista } from '../src/core/state/asaltantes.js';
 import {
   applyAdventureAction,
@@ -33,6 +33,8 @@ import {
   costesDelAlcance,
   ejercito,
   fueraDeSuBase,
+  guarnecer,
+  guarnicionDeLaCiudad,
   PESADA,
   pegadoA,
   planDeNodos,
@@ -210,7 +212,7 @@ describe('sesión del cliente: reclutar lo que cabe y ver la ruta entera', () =>
     const town = s.myTowns()[0]!;
     // La base nace llena (`guarnicionBase`): aquí se mide «todo» con sitio. Y el
     // héroe nace dentro (19-10-2026), donde reclutaría en su tropa: fuera.
-    town.garrison = [];
+    guarnecer(s.state, town, []);
     fueraDeSuBase(s.state, 0);
     s.openTown(town.id);
     // Lo primero que cría la morada que la base trae hecha.
@@ -225,12 +227,12 @@ describe('sesión del cliente: reclutar lo que cabe y ver la ruta entera', () =>
     // Uno más del máximo: el núcleo lo rechaza diciendo que no cabe.
     s.recruit(recluta, plan.maximo + 1);
     expect(s.status).toMatch(/no cabe/);
-    expect(town.garrison.length).toBe(0);
+    expect(guarnicionDeLaCiudad(s.state, town).length).toBe(0);
 
     // Y «todo» recluta exactamente el máximo, sin mensaje de error.
     s.recruitAll(recluta);
     expect(s.status).toBe('');
-    expect(town.garrison.length).toBe(plan.maximo);
+    expect(guarnicionDeLaCiudad(s.state, town).length).toBe(plan.maximo);
     expect(s.recruitPlan(recluta)!.maximo).toBe(0);
 
     // Con el cupo lleno, «todo» no calla: el motivo lo escribe el núcleo.
@@ -282,7 +284,7 @@ describe('sesión del cliente: reclutar lo que cabe y ver la ruta entera', () =>
     const s = new Session(7);
     const pueblo = s.myTowns()[0]!;
     expect(s.liderazgo({ guarnicion: pueblo.id })).toEqual({
-      ocupado: armyLeadership(pueblo.garrison),
+      ocupado: armyLeadership(guarnicionDeLaCiudad(s.state, pueblo)),
       tope: GARRISON_LEADERSHIP,
     });
   });
@@ -334,16 +336,16 @@ describe('sesión del cliente: la versión y lo que se guarda entre fotogramas',
     expect(s.version).toBeGreaterThan(v1);
     const v2 = s.version;
     const heroe = heroesOf(s.state, 0)[0]!;
-    // Una vecina que se pise, buscada y no supuesta: con el mapa de 32 la de
-    // la derecha del inicio de la semilla 7 es montaña, y un paso rechazado no
-    // cambia nada que versionar.
-    const vecina = [-1, 0, 1]
-      .flatMap((dy) => [-1, 0, 1].map((dx) => ({ x: heroe.at.x + dx, y: heroe.at.y + dy })))
-      .find(
-        (p) =>
-          (p.x !== heroe.at.x || p.y !== heroe.at.y) &&
-          isWalkable(s.state.map.terrain[p.y * s.state.map.width + p.x]!),
-      )!;
+    // Una vecina a la que se pase de un paso, buscada y no supuesta: con el mapa
+    // de 32 la de la derecha del inicio de la semilla 7 era montaña, y un paso
+    // rechazado no cambia nada que versionar. El héroe nace en su base, en el
+    // medio de su recinto, y de ahí solo se pasa a una puerta (`recinto.ts`):
+    // con la primera vecina que se pisa, desde las ciudades en su región
+    // (05-11-2026) la s7 daba la muralla y el héroe acababa en la puerta de
+    // debajo.
+    const vecina = puertasDeLaCiudad(s.state.map, heroe.at)[0]?.casilla;
+    if (vecina === undefined)
+      throw new Error('el héroe de la s7 no nace en una ciudad con puertas');
     s.moveHeroTo(heroe.id, vecina);
     expect(heroe.at).toEqual(vecina);
     expect(s.version).toBeGreaterThan(v2);
@@ -432,7 +434,7 @@ describe('el fin de partida cuenta la causa que selló el núcleo (I1 de la 2a)'
     // esqueleto a su lado se ganaba hasta #79: desde que la IA elige a quién ir
     // por el daño que de verdad hace, el esqueleto va a por los arqueros y no
     // a por los campesinos, y la defensa aguanta.
-    base.garrison = ejercito({ creature: 'goblin-lancero', count: 1 });
+    guarnecer(s.state, base, ejercito({ creature: 'goblin-lancero', count: 1 }));
     s.moveHeroTo(atacante.id, base.at);
     expect(s.scene).toBe('battle');
     // «Resolver sola» la juega y la cierra (`afterBattle`, lo mismo que «Continuar»).

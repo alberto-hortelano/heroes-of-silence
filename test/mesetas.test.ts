@@ -134,7 +134,7 @@ describe('en los mapas reales', () => {
       expect(e.informe.acantiladosLisos).toBe(0);
     });
 
-  it('s28 y s58: su meseta más ancha, casilla a casilla', () => {
+  it('s28 y s12: su meseta más ancha, casilla a casilla', () => {
     // Las cajas de la auditoría —s443 (14-16, 9-11) y s34 (17-22, 5-7)— ya no
     // caen en un acantilado con los niveles del mapa (#143): se mira el
     // cuadrado de 3 × 3 con más acantilado de cada una, que es lo que más se lee
@@ -148,8 +148,9 @@ describe('en los mapas reales', () => {
     // con el río continuo (#144), que deja la s52 sin acantilado, s14 y s31
     // (111 y 92); sin agua de frontera fuera del río (QA del río continuo,
     // H3), s14 y s7 (111 y 104): la s31 se quedó sin acantilado. Con las
-    // puertas de las ciudades (fase 2, 21-10-2026), s28 y s58 (114 y 112).
-    for (const semilla of [28, 58] as const) {
+    // puertas de las ciudades (fase 2, 21-10-2026), s28 y s58 (114 y 112). Con
+    // las ciudades en mitad de su región (05-11-2026), s28 y s12 (114 y 98).
+    for (const semilla of [28, 12] as const) {
       const { map, escena: e } = partidaDe(semilla);
       const huella = huellaDeLosObjetos(semilla);
       const [x0, y0] = masAcantiladoEn3x3(map.terrain, e.W, e.H);

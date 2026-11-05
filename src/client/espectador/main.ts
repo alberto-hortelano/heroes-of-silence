@@ -35,7 +35,7 @@ import { tableroPara } from '../render/proyeccion.js';
 import { DialogoDeLaRueda } from '../rueda/dialogo.js';
 import { pintarSiguiendoElFinal } from '../views/al-final.js';
 import { rotuloDeDia } from '../views/panels.js';
-import { adaptarEscena, centroDeLaEscena } from './adaptar.js';
+import { adaptarEscena, centroDeLaEscena, sitiosDelCable } from './adaptar.js';
 import { type FinDePartida, panelDelEspectador } from './paneles.js';
 import {
   type Caida,
@@ -152,6 +152,8 @@ function climaDelTablero(v: SpectatorView): ClimaDelSitio {
 let vista: SpectatorView | null = null;
 /** Lo que se pinta, adaptado una vez por fotograma del cable y no a cada fotograma de pantalla. */
 let escena: AdventureScene | null = null;
+/** Los objetos con el dueño de cada sitio y los ocupados (`sitiosDelCable`), con `escena`. */
+let sitios: ReturnType<typeof sitiosDelCable> | null = null;
 let dia = 0;
 let turnoDe = 0;
 let finDe: FinDePartida | null = null;
@@ -328,7 +330,7 @@ function pintarTodo(ahora: number): void {
   );
   ctx.clearRect(0, 0, rect.width, rect.height);
 
-  if (vista !== null && escena !== null) {
+  if (vista !== null && escena !== null && sitios !== null) {
     if (batalla !== null) {
       // Mientras hay batalla se enseña el tablero: es lo que este ciclo existe
       // para que se vea, y son la mayoría de las decisiones que toma el agente.
@@ -371,7 +373,7 @@ function pintarTodo(ahora: number): void {
         escena,
         asaltantes: todosALaVista(vista.raiders),
         heroes: vista.heroes,
-        objetos: escena.map.objects,
+        ...sitios,
         camara,
         ancho: rect.width,
         alto: rect.height,
@@ -473,6 +475,7 @@ function decirQueSeMira(): void {
 function empezarDeCero(): void {
   vista = null;
   escena = null;
+  sitios = null;
   // Otra partida, quizá con otro mapa: lo forzado se mira contra el suyo.
   climaForzadoMirado = false;
   dia = 0;
@@ -500,8 +503,10 @@ function empezarDeCero(): void {
  */
 function aplicar(snapshot: SpectatorSnapshotMsg): void {
   let nueva: AdventureScene;
+  let nuevos: ReturnType<typeof sitiosDelCable>;
   try {
     nueva = adaptarEscena(snapshot.view);
+    nuevos = sitiosDelCable(snapshot.view, nueva.map.objects);
   } catch (err) {
     const motivo = err instanceof Error ? err.message : String(err);
     console.error('[espectador] fotograma del cable que no se entiende', err);
@@ -511,6 +516,7 @@ function aplicar(snapshot: SpectatorSnapshotMsg): void {
   }
   vista = snapshot.view;
   escena = nueva;
+  sitios = nuevos;
   fijarElClimaForzado(vista);
   if (ilegible !== null) {
     ilegible = null;

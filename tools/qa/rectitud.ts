@@ -135,6 +135,7 @@ export { largoALaEscala };
  * | la muralla como cierre de un paso (#232) | 61 / 0 / 7 | 50 / 0 / 3 | 53 / 0 / 4 | 164 / 0 / 14 |
  * | el recinto de las ciudades en el núcleo (vuelta 3, 21-10-2026) | 24 / 0 / 2 | 38 / 0 / 2 | 36 / 0 / 2 | 98 / 0 / 6 |
  * | por dónde se entra en una ciudad (vuelta 3, fase 2, 21-10-2026) | 28 / 0 / 2 | 37 / 0 / 1 | 38 / 0 / 2 | 103 / 0 / 5 |
+ * | las ciudades en mitad de su región (fase 2, 05-11-2026) | 48 / 0 / 4 | 60 / 0 / 8 | 51 / 0 / 8 | 159 / 0 / 20 |
  *
  * La tercera fila es una perturbación neutra (las mismas reglas, otra tirada):
  * ±10 tramos por bloque, y las caras de 7 a 13 sin tocar nada que las haga.
@@ -161,13 +162,21 @@ export { largoALaEscala };
  * Por barrera, en 1-1000, montaña 10 → 16 y acantilado 11 → 15, el resto igual:
  * no hay una frontera de muro que se vuelva recta, es otro vestido. Techo, lo
  * medido más el margen de siempre, y los otros dos igual: 176 / 3 / 15.
+ *
+ * **Con las ciudades en mitad de su región** (05-11-2026, fase 2 de
+ * `docs/agents/2026-11-05-ciudades-en-su-region/`) los mapas con un tramo ≥ 12
+ * pasan de 15: 20 (y los tramos, de los 106 de «sin minas» a 159, bajo su techo).
+ * Es a propósito: el cruce de tres regiones ya no lleva ciudad, y su recinto, que
+ * el engorde protegía y el vestido rodeaba, partía las fronteras que se juntan
+ * en él; ahora es muro seguido, y la red lleva un paso más por pareja donde la
+ * ciudad lo saltaba. Techo de mapas, lo medido más el margen de siempre: 23.
  */
 export const TECHOS = {
   semillas: 3000,
   bloque: 1000,
   tramos: { minimo: largoALaEscala(8), techo: 176 },
   caras: { minimo: largoALaEscala(8), techo: 3 },
-  mapas: { minimo: largoALaEscala(10), techo: 15 },
+  mapas: { minimo: largoALaEscala(10), techo: 23 },
 } as const;
 
 export interface Rectitud {

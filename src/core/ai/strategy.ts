@@ -32,7 +32,7 @@ import {
   withTroops,
 } from '../hero/troop.js';
 import { casillaDelIndice, costeEnElAlcance, type MapObject, type Reachable } from '../map/map.js';
-import { regionesQueCierra, type Territorio, territorio } from '../map/regiones.js';
+import { dueñoEnLaFoto, regionesQueCierra, type Territorio, territorio } from '../map/regiones.js';
 import { lugarDe } from '../mundo/formato.js';
 import { mundoDe } from '../mundo/reglas.js';
 import { indiceDePoder } from '../nivel.js';
@@ -43,6 +43,7 @@ import {
   contratarBlocker,
   destinoDeRecluta,
   type GameState,
+  heroById,
   heroeEnElPueblo,
   heroesOf,
   miradasDe,
@@ -51,10 +52,21 @@ import {
   townsOf,
 } from '../state/game.js';
 import { rentaDeLaRegion } from '../state/renta.js';
-import { guarnicionDe, guarnicionHostil, pedidoDelGrupo, sitioDelHeroe } from '../state/sitios.js';
+import {
+  ciudadQueMandaBlocker,
+  enUnNodo,
+  guarnicionDe,
+  guarnicionHostil,
+  ocupanteDe,
+  pedidoDelGrupo,
+  type Sitio,
+  sitioDelHeroe,
+  sitioDelObjeto,
+} from '../state/sitios.js';
 import { building, buildingsOfFaction, nivelDeMorada } from '../town/buildings.js';
 import {
   availableBuildings,
+  dailyIncome,
   dwellings,
   recruitCost,
   type Town,
@@ -106,47 +118,36 @@ function objectValue(
   switch (obj.kind) {
     case 'chest':
       return obj.taken ? 0 : obj.gold;
-    // El pueblo no se toma: es de quien cierre su región. Lo que se persigue
-    // es el nodo que la cierra, que vale por su renta.
-    case 'village':
-      return 0;
     // Un lugar de un mundo vale si haría algo en él (`ai/lugares.ts`, la regla
     // simple de P4). Sin mundo no hay ninguno, así que el procedimental no cambia.
     case 'lugar':
       return hariaAlgoEn(state, hero, lugarDe(mundoDe(state).historia, obj.id), miPoder)
         ? VALOR_DE_LUGAR
         : 0;
-    case 'node': {
-      if (obj.owner === player) return 0;
-      // Un paso con guarnición ajena es una batalla, como una ciudad guarnecida: no
-      // se va sin ventaja clara (`ventajaClara`, la regla de los neutrales).
-      const guardado = guarnicionHostil(state, obj.id, player);
-      if (
-        guardado !== null &&
-        !ventajaClara(miPoder, armyPower(guardado.tropa, state.characters))
-      ) {
-        return -1;
-      }
-      // Un nodo ajeno vale por sí mismo y, sobre todo, por las regiones que
-      // CIERRA: las que tienen ya todos sus demás nodos en mi mano. Es la
-      // valoración mínima de la fase 2a —«no tiene que ser buena; tiene que
-      // jugar y acabar»—; cortar al rival y defender lo propio son de la 2b.
-      // Cada región cerrada suma además los días de renta de sus pueblos.
-      const t = foto();
-      let valor = VALOR_DE_NODO;
-      for (const r of regionesQueCierra(t, obj.id, player))
-        valor += VALOR_POR_REGION_CERRADA + DIAS_DE_RENTA * rentaDeLaRegion(state.map, t.red, r);
-      return valor;
-    }
+    case 'node':
+      return valorDeUnNodo(state, foto, obj.id, obj.owner, player, miPoder);
+    case 'village':
     case 'town': {
-      // El dueño se lee del LIBRO DE CUENTAS y no de la bandera del mapa. Son
-      // dos caras del mismo hecho y `captureTown` las escribe juntas, pero
-      // quien decide a dónde ir no tiene por qué depender de que sigan al día:
-      // la bandera es lo que se VE —y lo que recuerda la niebla—, y esta
-      // decisión es de reglas.
-      const pueblo = state.towns.find((t) => t.id === obj.id);
-      if (pueblo === undefined) throw new Error(`el mapa tiene un castillo sin datos: ${obj.id}`);
-      if (pueblo.owner === player) {
+      // El dueño, de la regla del sitio y de la foto que ya hay (`dueñoEnLaFoto`):
+      // el del objeto si está en el muro, el de su región si está dentro.
+      const sitio = sitioDelObjeto(state, obj);
+      const dueño = dueñoEnLaFoto(foto(), obj.id);
+      // El de dentro de una región no se toma (la da la región, y lo que se
+      // persigue es el nodo que la cierra): solo vale si es mío y está ocupado, por
+      // lo que rinde (tarea 2). Ocupar el ajeno a propósito es de otra vuelta
+      // (backlog).
+      if (!enUnNodo(state, sitio)) {
+        if (dueño !== player) return 0;
+        const rinde = sitio.kind === 'ciudad' ? dailyIncome(sitio.town) : ECONOMIA.rentaDelPueblo;
+        const recuperar = valorDeRecuperar(state, sitio, player, miPoder, rinde);
+        if (sitio.kind !== 'ciudad' || recuperar !== 0) return recuperar;
+      }
+      // El pueblo en el muro, como un paso: vale por lo que cierra.
+      if (sitio.kind !== 'ciudad')
+        return valorDeUnNodo(state, foto, obj.id, dueño, player, miPoder);
+      const pueblo = sitio.town;
+      const guarnicionPropia = guarnicionDe(state, sitio);
+      if (dueño === player) {
         // Pueblo propio: merece el viaje si guarda tropas QUE LE QUEPAN, que al
         // llegar recoge (`planIntercambios`).
         // Concentrar el ejército en un héroe es lo que decide las partidas,
@@ -154,11 +155,11 @@ function objectValue(
         // resta, el héroe volvería a casa a por una tropa que no puede
         // llevarse, una y otra vez.
         const { tope, cupo } = capacidadDe(hero, state.combate.tope);
-        const { dentro } = troopsThatFit(hero.army, tope, cupo, pueblo.garrison);
+        const { dentro } = troopsThatFit(hero.army, tope, cupo, guarnicionPropia);
         return armyPower(dentro, state.characters) / 10;
       }
       // Un pueblo con guarnición es una batalla: se mide antes de ir.
-      const guarnicion = armyPower(pueblo.garrison, state.characters);
+      const guarnicion = armyPower(guarnicionPropia, state.characters);
       if (guarnicion > 0 && miPoder < guarnicion * 1.1) return -1;
       // La BASE del rival vale el triple: tomarla gana la partida. Es una
       // cifra medida y no un principio: con «perder la base elimina» se probó
@@ -168,7 +169,7 @@ function objectValue(
       // medio, que siempre quedan más cerca. El arreglo de fondo es valorar
       // cada objetivo por lo que cambia la conexión a la base, y es #115.
       const esBaseRival = state.players.some(
-        (p) => p.id !== player && p.base === pueblo.id && pueblo.owner === p.id,
+        (p) => p.id !== player && p.base === pueblo.id && dueño === p.id,
       );
       return esBaseRival ? 3 * VALOR_DE_CIUDAD : VALOR_DE_CIUDAD;
     }
@@ -177,6 +178,59 @@ function objectValue(
       return valorDeNeutral(miPoder, unitPower(unidadDelJuego(obj.creature)) * obj.count);
     }
   }
+}
+
+/**
+ * Lo que vale un nodo ajeno (un paso, o un pueblo en el muro) de dueño `dueño`:
+ * por sí mismo y, sobre todo, por las regiones que CIERRA —las que tienen ya
+ * todos sus demás nodos en mi mano—. Es la valoración mínima de la fase 2a —«no
+ * tiene que ser buena; tiene que jugar y acabar»—; cortar al rival y defender lo
+ * propio son de la 2b. Cada región cerrada suma además los días de su renta. Uno
+ * con guarnición ajena es una batalla, como una ciudad guarnecida: no se va sin
+ * ventaja clara (`ventajaClara`, la regla de los neutrales).
+ */
+function valorDeUnNodo(
+  state: GameState,
+  foto: () => Territorio,
+  id: string,
+  dueño: PlayerId | null,
+  player: PlayerId,
+  miPoder: number,
+): number {
+  if (dueño === player) return 0;
+  const guardado = guarnicionHostil(state, id, player);
+  if (guardado !== null && !ventajaClara(miPoder, armyPower(guardado.tropa, state.characters))) {
+    return -1;
+  }
+  const t = foto();
+  let valor = VALOR_DE_NODO;
+  for (const r of regionesQueCierra(t, id, player))
+    valor += VALOR_POR_REGION_CERRADA + DIAS_DE_RENTA * rentaDeLaRegion(state, t.red, r);
+  return valor;
+}
+
+/**
+ * Lo que vale ir a recuperar un sitio mío de dentro de una región que está
+ * ocupado (`ocupanteDe`), que rinde `rinde` al día: los días de esa renta, si le
+ * saco ventaja clara al ocupante (`ventajaClara`: un héroe por su fuerza, una
+ * guarnición por la suya); sin ella, `-1`, no se va. Sin ocupante, 0 (tarea 2,
+ * 05-11-2026: «recupera lo suyo si tiene ventajaClara»). Quien llama ya sabe que es
+ * de `player`: no se vuelve a preguntar.
+ */
+function valorDeRecuperar(
+  state: GameState,
+  sitio: Sitio,
+  player: PlayerId,
+  miPoder: number,
+  rinde: number,
+): number {
+  const ocupante = ocupanteDe(state, sitio, player);
+  if (ocupante === null) return 0;
+  const suyo =
+    ocupante.kind === 'heroe'
+      ? fuerzaDe(heroById(state, ocupante.heroId), state.characters)
+      : armyPower(guarnicionDe(state, sitio), state.characters);
+  return ventajaClara(miPoder, suyo) ? DIAS_DE_RENTA * rinde : -1;
 }
 
 /** Sin veto: todo candidato vale. */
@@ -432,6 +486,8 @@ export function planBuildings(state: GameState, playerId: PlayerId): AdventureAc
   // Simulación del monedero: el plan se construye sin tocar el estado real.
   let oro = player.oro;
   for (const town of townsOf(state, playerId)) {
+    // Ocupada no se construye (P4): la regla del núcleo, `ciudadQueMandaBlocker`.
+    if (ciudadQueMandaBlocker(state, town, playerId) !== null) continue;
     const edificio = chooseBuilding(town, oro);
     if (edificio !== null) {
       acciones.push({ type: 'build', town: town.id, building: edificio });
@@ -512,6 +568,8 @@ export function planRecruits(state: GameState, playerId: PlayerId): AdventureAct
   let oro = player.oro - reserva;
 
   for (const town of townsOf(state, playerId)) {
+    // Ocupada no se recluta (P4): la regla del núcleo, `ciudadQueMandaBlocker`.
+    if (ciudadQueMandaBlocker(state, town, playerId) !== null) continue;
     // La misma regla que aplica `recruit`: si la IA la copiara, el día que
     // cambie una de las dos pediría lo que el motor rechaza.
     const { tope, cupo, army, quien, hero } = destinoDeRecluta(state, town);

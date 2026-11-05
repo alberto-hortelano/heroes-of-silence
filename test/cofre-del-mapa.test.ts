@@ -119,6 +119,7 @@ function pintar(): Llamada[] {
     escena: state,
     heroes: state.heroes,
     objetos: state.map.objects,
+    ocupados: [],
     asaltantes: todosALaVista(state.raiders),
     camara,
     ancho: 900,

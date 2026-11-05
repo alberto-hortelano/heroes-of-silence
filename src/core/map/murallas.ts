@@ -14,6 +14,7 @@
  */
 
 import type { GameMap } from './map.js';
+import { estructura } from './regiones.js';
 import { BARRERAS_DE_DESNIVEL, type Barrera, esBarrera, type TerrainKind } from './terrain.js';
 
 /**
@@ -222,7 +223,9 @@ export function murallasDelMapa(map: GameMap): MurallaDelMapa[] {
     W,
     map.height,
     (i) => map.terrain[i] as TerrainKind,
-    map.objects.filter((o) => o.kind === 'node' || o.kind === 'town').map((o) => indice(o.at)),
+    // Los nodos de la red: el paso, la ciudad y el pueblo del muro. Una ciudad o un
+    // pueblo de dentro de una región no está en ningún muro.
+    estructura(map).nodos.map((n) => indice(n.at)),
     map.objects.filter((o) => o.kind === 'node' && o.barrera === 'wall').map((o) => indice(o.at)),
     map.objects.filter((o) => o.kind === 'town').map((o) => indice(o.at)),
   );

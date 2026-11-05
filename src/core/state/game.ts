@@ -95,6 +95,7 @@ import {
   sePasa,
 } from '../map/map.js';
 import { muroBlocker } from '../map/recinto.js';
+import { dueñoEnLaFoto, dueñosDeLaRed } from '../map/regiones.js';
 import {
   batallaDe,
   type Cobro as CobroDelMundo,
@@ -148,27 +149,37 @@ import {
   type BattleFoe,
   type GameEvent,
   type GameEventDraft,
+  type Ocupante,
   SE_VE_POR,
 } from './events.js';
 import { rentaDelDia } from './renta.js';
 import {
   casillaDelSitio,
+  castilloSuyoDelHeroe,
+  ciudadQueMandaBlocker,
+  comoEstaElSitio,
   cupoDeLaGuarnicion,
   defensaDeLaIA,
   delSitio,
+  dueñoDeLaCiudad,
   dueñoDelSitio,
   ejercitoDeLaDefensa,
+  enUnNodo,
   type Guarnicion,
   guarnicionDe,
   guarnicionHostil,
+  heroeAjenoEn,
   idDelSitio,
   type LaDefensa,
   type LineaDeDefensa,
   laDefensa,
+  laGuarnicion,
   mejorarElPuesto,
   moverTropa,
   murallaDelSitio,
   nombreDelSitio,
+  objetoDelSitio,
+  ocupanteDe,
   type PedidoDeReparto,
   type PedidoDeTropa,
   ponerLaGuarnicion,
@@ -176,7 +187,10 @@ import {
   repartir,
   repartirTropa,
   type Sitio,
+  type SitioVisto,
+  sitioDeLaCiudad,
   sitioDelHeroe,
+  sitioDelObjeto,
   sitioEn,
   sitioPorId,
 } from './sitios.js';
@@ -218,8 +232,9 @@ export interface Player {
    * PROVISIONAL (fase 1b): es el primer castillo que el jugador tenía al empezar
    * la partida y no cambia aunque conquiste otros. La «base única» formal es de
    * la fase 3. Que la base siga siendo SUYA no se guarda aquí: se pregunta a
-   * `Town.owner` cada vez, porque el dueño de un castillo vive en un solo sitio
-   * (`captureTown`) y una segunda copia es lo que ya costó #47.
+   * `dueñoDeLaCiudad` cada vez, porque el dueño de un castillo vive en un solo
+   * sitio (su objeto del mapa, que escribe `tomarElNodo`) y una segunda copia es
+   * lo que ya costó #47.
    */
   readonly base: string | null;
   /**
@@ -240,6 +255,27 @@ export interface Player {
 export interface RememberedObject {
   readonly day: number;
   readonly object: MapObject;
+  /**
+   * De una ciudad o un pueblo, de quién era y quién lo ocupaba cuando se vio
+   * (`dueñoDelSitio`, `ocupanteDe`): el dueño de uno de dentro de una región no
+   * está en su objeto, se deriva, y la niebla tiene que recordar el que se vio y
+   * no el de ahora (ciudades y pueblos en su región, 05-11-2026). Sin él, el objeto
+   * no es un sitio con dueño (un cofre, un monstruo) o es un paso, cuyo dueño ya
+   * va en el objeto.
+   */
+  readonly sitio?: SitioVisto;
+}
+
+/**
+ * El objeto `obj` como se ve hoy: una copia (la memoria no puede cambiar con el
+ * mapa) y, de una ciudad o un pueblo, su dueño y su ocupante de ahora. La única
+ * forma de apuntar un recuerdo: la leen `explorar`, `revealEverything` y lo que se
+ * mira vivo (`objetosConocidos`).
+ */
+function recuerdoDe(state: GameState, obj: MapObject): RememberedObject {
+  const recuerdo = { day: state.day, object: { ...obj } };
+  if (obj.kind !== 'town' && obj.kind !== 'village') return recuerdo;
+  return { ...recuerdo, sitio: comoEstaElSitio(state, sitioDelObjeto(state, obj)) };
 }
 
 /**
@@ -451,12 +487,11 @@ export interface GameState {
    */
   climaPedido?: Record<string, PedidoDeClima>;
   /**
-   * La tropa que guarda cada paso y cada pueblo, por id de su objeto del mapa, con
-   * quien la dejó (`state/sitios.ts`). Sin entrada, el sitio no guarda nada. La de
-   * una ciudad sigue en `Town.garrison`. **Solo la escribe `sitios.ts`** (dejar,
-   * recoger, la defensa y lo que sobrevive o se pierde en una batalla; lo vigila
-   * `test/invariantes.test.ts`). La IA de reglas no deja tropa, así que en una
-   * partida sin persona ni agente se queda vacía.
+   * La tropa que guarda cada sitio —ciudad, paso o pueblo—, por su id, con su
+   * dueño (`state/sitios.ts`): quien la dejó, el de la base al nacer, o `null`, la
+   * neutral de una ciudad neutral. Sin entrada, el sitio no guarda nada. **Solo la
+   * escribe `sitios.ts`** (dejar, recoger, reclutar sin héroe, la defensa y lo que
+   * sobrevive o se pierde en una batalla; lo vigila `test/invariantes.test.ts`).
    */
   guarniciones: Record<string, Guarnicion>;
 }
@@ -624,8 +659,9 @@ export function heroeEnLaBase(state: GameState, player: PlayerId, town: Town): H
   return heroesOf(state, player).find((h) => h.at.x === town.at.x && h.at.y === town.at.y) ?? null;
 }
 
+/** Las ciudades de `player` (`dueñoDeLaCiudad`: en el muro, las tomadas; dentro de una región, las de sus regiones). */
 export function townsOf(state: GameState, player: PlayerId): Town[] {
-  return state.towns.filter((t) => t.owner === player);
+  return state.towns.filter((t) => dueñoDeLaCiudad(state, t) === player);
 }
 
 /**
@@ -637,8 +673,9 @@ export function townsOf(state: GameState, player: PlayerId): Town[] {
  * la base no sería el que se puede reclutar con.
  */
 export function heroeEnElPueblo(state: GameState, town: Town): Hero | undefined {
-  if (town.owner === null) return undefined;
-  return heroesOf(state, town.owner).find((h) => pointKey(h.at) === pointKey(town.at));
+  const dueño = dueñoDeLaCiudad(state, town);
+  if (dueño === null) return undefined;
+  return heroesOf(state, dueño).find((h) => pointKey(h.at) === pointKey(town.at));
 }
 
 /**
@@ -672,12 +709,14 @@ export interface DestinoDeRecluta {
  * pediría lo que el motor rechaza, y la partida lanzaría en el turno de la IA.
  */
 export function destinoDeRecluta(state: GameState, town: Town): DestinoDeRecluta {
-  if (town.owner === null) throw new Error(`no se puede reclutar en ${town.name}: no tiene dueño`);
+  if (dueñoDeLaCiudad(state, town) === null) {
+    throw new Error(`no se puede reclutar en ${town.name}: no tiene dueño`);
+  }
   const hero = heroeEnElPueblo(state, town);
   return hero === undefined
     ? {
         hero,
-        army: town.garrison,
+        army: guarnicionDe(state, sitioDeLaCiudad(town)),
         ...cupoDeLaGuarnicion(state),
         quien: 'la guarnición',
       }
@@ -778,6 +817,8 @@ export interface GameConfig {
   /** El jugador que elige su héroe de salida en la base; ninguno si falta. */
   readonly porElegir?: PlayerId | undefined;
   readonly towns: readonly Town[];
+  /** Las guarniciones con que nace cada sitio (`BuiltMap.guarniciones`); ninguna si falta. */
+  readonly guarniciones?: Readonly<Record<string, Guarnicion>>;
   /** Los asaltantes con los que empieza la partida; ninguno si falta. */
   readonly raiders?: readonly Raider[];
   /** El mundo, si la partida es de uno (`GameState.mundo`). */
@@ -801,7 +842,7 @@ export function createGame(config: GameConfig): GameState {
   // Lo que nace sin héroe, en el tope de la partida (`loNeutralAlTope`, una copia:
   // el mapa de `config` no se toca). El mapa no depende de él —misma semilla, mismo
   // mapa—, la partida sí. Con el de siempre, nada cambia.
-  const { map, towns, raiders = [] } = loNeutralAlTope(config, config.combate.tope);
+  const { map, towns, raiders = [], ...nacidas } = loNeutralAlTope(config, config.combate.tope);
 
   const players: Player[] = config.players.map((p) => ({
     id: p.id,
@@ -812,7 +853,13 @@ export function createGame(config: GameConfig): GameState {
     memory: new Map<string, RememberedObject>(),
     asaltantesVistos: new Map<string, AsaltanteRecordado>(),
     defeated: false,
-    base: primeraCiudadDe(config.towns, p.id)?.id ?? null,
+    // La primera ciudad suya del mapa: el dueño con que nace una ciudad vive en su
+    // objeto, en el orden de las ciudades del plan.
+    base:
+      primeraCiudadDe(
+        config.map.objects.filter((o) => o.kind === 'town'),
+        p.id,
+      )?.id ?? null,
     heroeDeSalida: null,
   }));
 
@@ -843,7 +890,14 @@ export function createGame(config: GameConfig): GameState {
     siguienteVeterano: 1,
     siguienteBotin: 0,
     siguienteHeroe: 1,
-    guarniciones: {},
+    // Las que nacen con el mapa (`BuiltMap.guarniciones`), copiadas: la partida las
+    // cambia y el mapa no.
+    guarniciones: Object.fromEntries(
+      Object.entries(nacidas.guarniciones ?? {}).map(([id, g]) => [
+        id,
+        { dueño: g.dueño, tropa: [...g.tropa] },
+      ]),
+    ),
   };
   if (config.mundo !== undefined) {
     state.mundo = {
@@ -857,7 +911,7 @@ export function createGame(config: GameConfig): GameState {
   }
 
   // Los pueblos arrancan con la hornada de la primera semana.
-  for (const town of state.towns) applyWeeklyGrowth(town);
+  crecerLasMoradas(state);
 
   // Cada héroe de salida, pagado y asentado en su base por la puerta de todo
   // héroe, en el sitio donde antes solo se fijaban sus puntos y miraba: antes que
@@ -911,8 +965,9 @@ function revealAround(state: GameState, hero: Hero): void {
  * el agente miran el mismo cuadrado.
  */
 function revealAroundTown(state: GameState, town: Town): void {
-  if (town.owner === null) return;
-  explorar(state, playerById(state, town.owner), town.at, TOWN_SCOUT_RADIUS);
+  const dueño = dueñoDeLaCiudad(state, town);
+  if (dueño === null) return;
+  explorar(state, playerById(state, dueño), town.at, TOWN_SCOUT_RADIUS);
 }
 
 function explorar(state: GameState, player: Player, centro: Point, radio: number): void {
@@ -924,7 +979,7 @@ function explorar(state: GameState, player: Player, centro: Point, radio: number
   // el orden de `memory` sigue siendo el de `state.map.objects`.
   for (const obj of state.map.objects) {
     if (Math.abs(obj.at.x - centro.x) <= radio && Math.abs(obj.at.y - centro.y) <= radio) {
-      player.memory.set(obj.id, { day: state.day, object: { ...obj } });
+      player.memory.set(obj.id, recuerdoDe(state, obj));
     }
   }
   recordarAsaltantes(state, player.asaltantesVistos, casillasDelCuadrado(state.map, centro, radio));
@@ -943,7 +998,7 @@ export function revealEverything(state: GameState, playerId: PlayerId): void {
   const player = playerById(state, playerId);
   player.fog.marcarCuadrado({ x: 0, y: 0 }, Math.max(state.map.width, state.map.height));
   for (const obj of state.map.objects) {
-    player.memory.set(obj.id, { day: state.day, object: { ...obj } });
+    player.memory.set(obj.id, recuerdoDe(state, obj));
   }
   recordarAsaltantes(state, player.asaltantesVistos, player.fog);
 }
@@ -1013,11 +1068,12 @@ export function objetosConocidos(
   playerId: PlayerId,
   mirando: CasillasLeidas | null,
 ): RememberedObject[] {
-  if (mirando === null) return state.map.objects.map((object) => ({ day: state.day, object }));
+  if (mirando === null) return state.map.objects.map((object) => recuerdoDe(state, object));
   const vivos = new Map(state.map.objects.map((o) => [o.id, o]));
   return [...playerById(state, playerId).memory.values()].map((recuerdo) => {
     if (!mirando.has(recuerdo.object.at)) return recuerdo;
-    return { day: state.day, object: vivos.get(recuerdo.object.id) ?? recuerdo.object };
+    const vivo = vivos.get(recuerdo.object.id);
+    return vivo === undefined ? { ...recuerdo, day: state.day } : recuerdoDe(state, vivo);
   });
 }
 
@@ -1057,10 +1113,11 @@ export function visibleNowAt(state: GameState, playerId: PlayerId, q: Point): bo
     if (dx <= HERO_SCOUT_RADIUS && dy <= HERO_SCOUT_RADIUS) return true;
   }
   for (const town of state.towns) {
-    if (town.owner !== playerId) continue;
+    // La distancia antes que el dueño: es lo barato, y casi siempre basta.
     const dx = Math.abs(town.at.x - q.x);
     const dy = Math.abs(town.at.y - q.y);
-    if (dx <= TOWN_SCOUT_RADIUS && dy <= TOWN_SCOUT_RADIUS) return true;
+    if (dx > TOWN_SCOUT_RADIUS || dy > TOWN_SCOUT_RADIUS) continue;
+    if (dueñoDeLaCiudad(state, town) === playerId) return true;
   }
   return false;
 }
@@ -1264,11 +1321,22 @@ function advanceDay(state: GameState, ctx: GameContext): void {
   }
   state.day += 1;
   emit(state, { kind: 'day_start', day: state.day, week: week(state), actor: null, at: null });
-  if (dayOfWeek(state) === 1) {
-    for (const town of state.towns) applyWeeklyGrowth(town);
-  }
+  if (dayOfWeek(state) === 1) crecerLasMoradas(state);
   moverAsaltantes(state, ctx.rng);
   if (dayOfWeek(state) === 1) brotarAsaltantes(state, ctx.rng);
+}
+
+/**
+ * El crecimiento de la semana de cada ciudad, **salvo la ocupada** (P4 de la tarea
+ * 2, 05-11-2026: «tampoco crecen sus moradas»; y la semana se pierde, no se
+ * aplaza, pregunta 4). **El único que llama a `applyWeeklyGrowth`** (lo vigila
+ * `test/invariantes.test.ts`): al nacer la partida y cada lunes.
+ */
+function crecerLasMoradas(state: GameState): void {
+  for (const town of state.towns) {
+    if (ocupanteDe(state, sitioDeLaCiudad(town)) !== null) continue;
+    applyWeeklyGrowth(town);
+  }
 }
 
 /**
@@ -1323,8 +1391,8 @@ function brotarAsaltantes(state: GameState, rng: Rng): void {
 }
 
 /**
- * Los grupos cuya región acaba de tener dueño se van. Lo llaman `captureNode` y
- * `captureTown`, que son los únicos sitios donde una región puede ganar dueño:
+ * Los grupos cuya región acaba de tener dueño se van. Lo llama `tomarElNodo`, el
+ * único sitio donde una región puede ganar dueño:
  * el dueño de una región es una consecuencia de sus nodos.
  */
 function dispersarAsaltantes(state: GameState): void {
@@ -1443,7 +1511,9 @@ export function applyAdventureAction(
   // Quién actúa se anota ANTES de la acción: `end_turn` cambia `state.current`,
   // y el que acaba de meter su héroe en el castillo es el jugador saliente.
   const actor = currentPlayer(state).id;
+  const antes = fotoDeLosSitios(state);
   aplicar(state, action, ctx, alcance);
+  anotarLosSitios(state, antes);
 
   // Y nada se aprende después del final. `aplicar` puede terminar la partida
   // —capturar el último castillo del rival lo hace—, y esta sincronía iba
@@ -1453,6 +1523,75 @@ export function applyAdventureAction(
   // —`game_over` es el ÚLTIMO hecho del registro— y no la vigilaba nadie;
   // ahora sí (`test/invariantes.test.ts`).
   if (state.finished === null) syncSpellbooks(state, actor);
+}
+
+/** De quién es un sitio y quién lo ocupa, en un instante (`fotoDeLosSitios`). */
+type SitioEnLaFoto = SitioVisto & { readonly sitio: Sitio };
+
+/**
+ * De quién es cada ciudad y cada pueblo y quién lo ocupa, ahora: lo que compara
+ * `anotarLosSitios` al acabar una acción o una batalla. Los dueños, de una pasada
+ * por la red (`dueñosDeLaRed`), no uno por sitio.
+ */
+function fotoDeLosSitios(state: GameState): ReadonlyMap<string, SitioEnLaFoto> {
+  const dueños = dueñosDeLaRed(state);
+  const foto = new Map<string, SitioEnLaFoto>();
+  for (const o of state.map.objects) {
+    if (o.kind !== 'town' && o.kind !== 'village') continue;
+    const sitio = sitioDelObjeto(state, o);
+    foto.set(o.id, { sitio, ...comoEstaElSitio(state, sitio, dueñoEnLaFoto(dueños, o.id)) });
+  }
+  return foto;
+}
+
+/** Si dos ocupantes son el mismo (el mismo héroe, o una guarnición del mismo dueño). */
+function mismoOcupante(a: Ocupante | null, b: Ocupante | null): boolean {
+  if (a === null || b === null) return a === b;
+  if (a.kind === 'heroe') return b.kind === 'heroe' && a.heroId === b.heroId;
+  return b.kind === 'guarnicion' && a.dueño === b.dueño;
+}
+
+/**
+ * **La crónica de los sitios** (tarea 2, 05-11-2026): compara la foto de antes
+ * (`fotoDeLosSitios`) con la de ahora y cuenta lo que cambió sin que nadie lo
+ * hiciera a propósito —una ciudad de dentro de una región que cambia de dueño con
+ * ella (`town_owner_changed`; la del muro ya lo cuenta `tomarElNodo`), un sitio que
+ * queda ocupado (`site_occupied`) y uno que deja de estarlo (`site_freed`)—. Así
+ * marcharse, perder una batalla, cerrar una región y la guarnición que se queda
+ * dentro de lo que cambia de dueño (P1) son un solo camino, y ninguna acción tiene
+ * que acordarse de contarlo. Cada hecho, con su dueño de protagonista y en su
+ * casilla. Lo llaman `applyAdventureAction` y `settleBattle`, al acabar; tras
+ * `game_over`, nada (es el último hecho).
+ */
+function anotarLosSitios(state: GameState, antes: ReadonlyMap<string, SitioEnLaFoto>): void {
+  if (state.finished !== null) return;
+  for (const [id, ahora] of fotoDeLosSitios(state)) {
+    const previo = antes.get(id);
+    if (previo === undefined) continue;
+    const at = casillaDelSitio(ahora.sitio);
+    if (
+      ahora.sitio.kind === 'ciudad' &&
+      previo.dueño !== ahora.dueño &&
+      !enUnNodo(state, ahora.sitio)
+    ) {
+      emit(state, {
+        kind: 'town_owner_changed',
+        town: id,
+        from: previo.dueño,
+        to: ahora.dueño,
+        actor: ahora.dueño,
+        at,
+      });
+    }
+    if (mismoOcupante(previo.ocupante, ahora.ocupante)) continue;
+    if (ahora.ocupante !== null) {
+      emit(state, { kind: 'site_occupied', site: id, by: ahora.ocupante, actor: ahora.dueño, at });
+    } else if (ahora.dueño !== null) {
+      // Sin dueño ya no hay ocupación que acabe: no se le cuenta a nadie que se
+      // «liberó» un sitio que ya no es suyo.
+      emit(state, { kind: 'site_freed', site: id, actor: ahora.dueño, at });
+    }
+  }
 }
 
 /**
@@ -1512,7 +1651,8 @@ function aplicar(
     case 'build': {
       const town = townById(state, action.town);
       const player = currentPlayer(state);
-      if (town.owner !== player.id) throw new Error('ese pueblo no es tuyo');
+      const manda = ciudadQueMandaBlocker(state, town, player.id);
+      if (manda !== null) throw new Error(`no se puede construir: ${manda}`);
       player.oro = buildInTown(town, action.building, player.oro);
       emit(state, {
         kind: 'built',
@@ -1527,7 +1667,8 @@ function aplicar(
     case 'recruit': {
       const town = townById(state, action.town);
       const player = currentPlayer(state);
-      if (town.owner !== player.id) throw new Error('ese pueblo no es tuyo');
+      const manda = ciudadQueMandaBlocker(state, town, player.id);
+      if (manda !== null) throw new Error(`no se puede reclutar: ${manda}`);
 
       const destino = destinoDeRecluta(state, town);
       // Lo que el pueblo puede dar y lo que cabe (`reclutarBlocker`), ANTES de
@@ -1542,9 +1683,7 @@ function aplicar(
       // Reclutar no toca los puntos de hoy: se fijan al empezar el día
       // (`startTurn`), y la tropa nueva cuenta a partir de mañana.
       if (hero !== undefined) hero.army = ampliado;
-      else {
-        town.garrison = ampliado;
-      }
+      else ponerLaGuarnicion(state, sitioDeLaCiudad(town), player.id, ampliado);
       emit(state, {
         kind: 'recruited',
         town: town.id,
@@ -1924,7 +2063,9 @@ export function buyBlocker(
   item: string,
   player: PlayerId,
 ): string | null {
-  if (town.owner !== player) return `${town.name} no es de tu bando`;
+  // Ocupada, la armería tampoco vende (P4: la ciudad entera deja de servir).
+  const manda = ciudadQueMandaBlocker(state, town, player);
+  if (manda !== null) return manda;
   if (!tieneArmeria(town)) return `${town.name} no tiene armería: constrúyela primero`;
   const hero = heroeEnElPueblo(state, town);
   if (hero === undefined) {
@@ -2046,9 +2187,7 @@ function dismissBlocker(
   if (!Number.isSafeInteger(count) || count < 1) {
     return `son individuos: se licencian de 1 en adelante, no ${count}`;
   }
-  const castillo = state.towns.find(
-    (t) => t.owner === hero.owner && pointKey(t.at) === pointKey(hero.at),
-  );
+  const castillo = castilloSuyoDelHeroe(state, hero);
   if (castillo === undefined) {
     return `${hero.name} no está en un castillo suyo: la tropa se licencia en la base o en un castillo propio`;
   }
@@ -2090,7 +2229,9 @@ export function contratarBlocker(
 ): string | null {
   const town = townById(state, townId);
   const player = playerById(state, quien);
-  if (town.owner !== player.id) return `${town.name} no es tuyo`;
+  // Ocupada, no se contrata (pregunta 4 de la tarea 2): lo dice su frase.
+  const manda = ciudadQueMandaBlocker(state, town, player.id);
+  if (manda !== null) return manda;
   if (player.heroeDeSalida !== null) {
     if (player.base !== town.id) {
       return `tu héroe de salida se elige en tu base, ${baseDe(state, player)}`;
@@ -2256,7 +2397,9 @@ export function candidatosAHeroe(
  */
 export function veteranosEnSuBase(state: GameState, player: PlayerId): VeteranoEnBase[] {
   const base = baseOf(state, player);
-  return base === null ? [] : veteranosEn(base, heroeEnElPueblo(state, base));
+  return base === null
+    ? []
+    : veteranosEn(base, guarnicionDe(state, sitioDeLaCiudad(base)), heroeEnElPueblo(state, base));
 }
 
 /**
@@ -2344,7 +2487,8 @@ export function ascenderVeterano(
 
   const fuera = (army: Army): Army => army.filter((t) => t.veterania?.id !== veteranoId);
   if (v.heroe === null) {
-    v.base.garrison = fuera(v.base.garrison);
+    const sitio = sitioDeLaCiudad(v.base);
+    ponerLaGuarnicion(state, sitio, player, fuera(guarnicionDe(state, sitio)));
   } else {
     const portador = heroById(state, v.heroe);
     portador.army = fuera(portador.army);
@@ -2397,7 +2541,6 @@ export function ascenderVeterano(
 export function casillasHostiles(state: GameState, player: PlayerId): Point[] {
   const out: Point[] = [];
   for (const h of state.heroes) if (h.owner !== player) out.push(h.at);
-  for (const t of state.towns) if (t.owner !== player && t.garrison.length > 0) out.push(t.at);
   for (const at of guarnicionesAjenas(state, player)) out.push(at);
   // Un grupo de asaltantes es hostil para todos: se alcanza —atacarlo es
   // pedirlo de destino— y no se cruza.
@@ -2406,14 +2549,14 @@ export function casillasHostiles(state: GameState, player: PlayerId): Point[] {
 }
 
 /**
- * Las casillas de los pasos y pueblos con guarnición hostil para `player`
- * (`guarnicionHostil`, la regla que leen también `enemyAt`, `queLoCierra` y la IA),
- * en el orden de los objetos del mapa: lo hostil que añadió el puesto fronterizo.
+ * Las casillas de las ciudades, pasos y pueblos con guarnición hostil para
+ * `player` (`guarnicionHostil`, la regla que leen también `enemyAt`, `queLoCierra`
+ * y la IA), en el orden de los objetos del mapa.
  */
 function guarnicionesAjenas(state: GameState, player: PlayerId): Point[] {
   const out: Point[] = [];
   for (const o of state.map.objects) {
-    if (o.kind !== 'node' && o.kind !== 'village') continue;
+    if (o.kind !== 'node' && o.kind !== 'village' && o.kind !== 'town') continue;
     if (guarnicionHostil(state, o.id, player) !== null) out.push(o.at);
   }
   return out;
@@ -2541,11 +2684,11 @@ function queLoCierra(state: GameState, hero: Hero, at: Point): string {
   const donde = `en (${at.x},${at.y})`;
   const rival = state.heroes.find((h) => h.owner !== hero.owner && pointKey(h.at) === pointKey(at));
   if (rival !== undefined) return `el héroe rival ${rival.name} ${donde}`;
-  const ciudad = state.towns.find((t) => pointKey(t.at) === pointKey(at));
-  if (ciudad !== undefined) return `la ciudad ${ciudad.name}, con guarnición, ${donde}`;
   const sitio = sitioEn(state, at);
   if (sitio !== null && guarnicionHostil(state, sitio, hero.owner) !== null) {
-    return `${nombreDelSitio(sitio)}, con guarnición`;
+    return sitio.kind === 'ciudad'
+      ? `la ciudad ${sitio.town.name}, con guarnición, ${donde}`
+      : `${nombreDelSitio(sitio)}, con guarnición`;
   }
   if (state.raiders.some((r) => pointKey(r.at) === pointKey(at))) {
     return `un grupo de asaltantes ${donde}`;
@@ -2695,8 +2838,10 @@ function moveHero(
  * Sustituye a la regla de antes («con el héroe dentro defiende solo él con su
  * tropa», I2 de la 2a), que dejaba fuera a la guarnición.
  *
- * Sin héroe, la guarnición entera: la de la ciudad (`town`) o la de un paso o un
- * pueblo que no es de quien llega (`guarnicion`, D2).
+ * Sin héroe, la guarnición entera de la ciudad, el paso o el pueblo, si no es de
+ * quien llega (`garrison`, D2; también la neutral de una ciudad neutral, y la que
+ * ocupa un sitio que ya es de quien llega: P1 de la tarea 2). Un héroe enemigo en
+ * un sitio de quien llega es el que lo ocupa: pelear con él es recuperarlo.
  */
 function enemyAt(state: GameState, at: Point, player: PlayerId): BattleFoe | null {
   const obj = objectAt(state.map, at);
@@ -2707,32 +2852,26 @@ function enemyAt(state: GameState, at: Point, player: PlayerId): BattleFoe | nul
   const asaltante = state.raiders.find((r) => pointKey(r.at) === pointKey(at));
   if (asaltante !== undefined) return { kind: 'raider', raiderId: asaltante.id };
 
-  const heroeEnemigo = state.heroes.find(
-    (h) => h.owner !== player && pointKey(h.at) === pointKey(at),
-  );
+  const heroeEnemigo = heroeAjenoEn(state, at, player);
   if (heroeEnemigo !== undefined) return { kind: 'hero', heroId: heroeEnemigo.id };
 
-  const pueblo = state.towns.find((t) => pointKey(t.at) === pointKey(at));
-  if (pueblo !== undefined && pueblo.owner !== player) {
-    const defendido = pueblo.garrison.length > 0;
-    if (defendido) return { kind: 'town', townId: pueblo.id };
-  }
-  if (obj !== undefined && (obj.kind === 'node' || obj.kind === 'village')) {
-    if (guarnicionHostil(state, obj.id, player) !== null) {
-      return { kind: 'garrison', site: obj.id };
-    }
+  const sitio = sitioEn(state, at);
+  if (sitio !== null && guarnicionHostil(state, sitio, player) !== null) {
+    return { kind: 'garrison', site: idDelSitio(sitio) };
   }
   return null;
 }
 
 /**
- * Lo que pasa al pisar una casilla: se recoge el cofre, se toma el nodo y se
- * toma el castillo vacío.
+ * Lo que pasa al pisar una casilla: se recoge el cofre y se toma el sitio del muro
+ * (el paso, y la ciudad o el pueblo en el muro) que no es suyo y no tiene
+ * guarnición hostil (con ella, la casilla es hostil y antes hay batalla).
  *
  * Corre en **cada casilla del camino**, no solo en la última, y es lo que hace
  * que un nodo se tome cruzándolo. La tropa de casa ya no se recoge al pasar
- * (04-11-2026): se recoge parando, con `recoger_tropa`. El pueblo no hace nada
- * aquí: es de quien tenga su región.
+ * (04-11-2026): se recoge parando, con `recoger_tropa`. Una ciudad o un pueblo de
+ * dentro de una región no se toman (es de quien tenga su región): el héroe de otro
+ * bando que se queda en su casilla lo ocupa (`ocupanteDe`), sin quedárselo.
  */
 function collectAt(state: GameState, hero: Hero, at: Point): void {
   const player = playerById(state, hero.owner);
@@ -2752,103 +2891,78 @@ function collectAt(state: GameState, hero: Hero, at: Point): void {
           });
         }
         break;
-      case 'node':
-        if (obj.owner !== player.id) captureNode(state, obj, player.id);
-        break;
       default:
         break;
     }
   }
 
-  const pueblo = state.towns.find((t) => pointKey(t.at) === pointKey(at));
-  if (pueblo !== undefined && pueblo.owner !== player.id) {
-    captureTown(state, pueblo, player.id);
-    checkDefeat(state);
+  const sitio = sitioEn(state, at);
+  if (sitio !== null && enUnNodo(state, sitio) && dueñoDelSitio(state, sitio) !== player.id) {
+    tomarElNodo(state, sitio, player.id);
+    if (sitio.kind === 'ciudad') checkDefeat(state);
   }
 }
 
 /**
  * El sitio que pierde quien lo guardaba pasa a `ganador`, con lo que se quedó en
- * él: la ciudad (`captureTown`), el paso (`captureNode`, que borra su guarnición) o,
- * el pueblo, que no es de nadie por sí mismo, se queda sin guarnición y vuelve a
- * ser de su región (`quitarLaGuarnicion`). Lo llaman las dos batallas que se pierden
- * en un sitio: la del héroe que lo defendía y la de la guarnición sola.
+ * él: el del muro (el paso, la base, la ciudad-puente, el pueblo en un nodo), por
+ * `tomarElNodo`, que borra su guarnición; el de dentro de una región, que no es de
+ * nadie por sí mismo, se queda sin guarnición (`quitarLaGuarnicion`) y es de quien
+ * tenga su región. Lo llaman las dos batallas que se pierden en un sitio: la del
+ * héroe que lo defendía y la de la guarnición sola.
  */
 function entregarElSitio(state: GameState, sitio: Sitio, ganador: PlayerId): void {
-  switch (sitio.kind) {
-    case 'ciudad':
-      captureTown(state, sitio.town, ganador);
-      return;
-    case 'paso':
-      captureNode(state, sitio.nodo, ganador);
-      return;
-    case 'pueblo':
-      quitarLaGuarnicion(state, sitio.pueblo.id);
-      return;
-  }
+  if (enUnNodo(state, sitio)) tomarElNodo(state, sitio, ganador);
+  else quitarLaGuarnicion(state, idDelSitio(sitio));
 }
 
 /**
- * Cambia de dueño un nodo de la red. **El único escritor de `node.owner`**: es
- * la regla de «un hecho, un sitio», y aquí es más fácil que con el castillo
- * porque el nodo tiene una sola cara —el objeto del mapa— y no dos.
+ * Cambia de dueño un sitio del muro: un paso, una ciudad o un pueblo en un nodo.
+ * **El único escritor del `owner` de un objeto del mapa** (lo vigila
+ * `test/invariantes.test.ts`): es la regla de «un hecho, un sitio», y desde la
+ * tarea 2 (05-11-2026) la ciudad tiene una sola cara —su objeto— como el paso:
+ * `Town.owner` se fue, y con él las dos copias que divergían en la primera captura
+ * (#47: la IA veía enemigo su propio castillo y se pasaba la partida entrando en
+ * casa). Un sitio de dentro de una región no se toma: lanza.
  *
- * De quién era se lee ANTES de escribir el dueño nuevo: después ya no hay a
- * quién preguntárselo, y es el dato con el que su dueño de ayer se entera.
+ * De quién era se lee ANTES de escribir el dueño nuevo: después ya no hay a quién
+ * preguntárselo, y es el dato con el que su dueño de ayer se entera.
  *
- * El paso tomado pierde la guarnición que tuviera (`quitarLaGuarnicion`): la del
- * dueño de antes, vencida o la que no eligió para defenderlo (D1). Así la
- * guarnición de un paso es siempre del dueño del paso.
+ * El sitio tomado pierde la guarnición que tuviera (`quitarLaGuarnicion`): la del
+ * dueño de antes, vencida o la que no eligió para defenderlo (D1), o la neutral.
+ * Así la guarnición de un sitio del muro es siempre de su dueño. La ciudad mira
+ * alrededor con su dueño nuevo.
  */
-function captureNode(
-  state: GameState,
-  nodo: Extract<MapObject, { kind: 'node' }>,
-  player: PlayerId,
-): void {
-  const anterior = nodo.owner;
-  nodo.owner = player;
-  quitarLaGuarnicion(state, nodo.id);
-  emit(state, { kind: 'node_captured', node: nodo.id, from: anterior, actor: player, at: nodo.at });
-  dispersarAsaltantes(state);
-}
-
-/**
- * Cambia de dueño un castillo. Las DOS caras del mismo hecho, juntas.
- *
- * `Town.owner` es el libro de cuentas —quién cobra, quién construye, quién
- * pierde la partida al quedarse sin ninguno— y el objeto del mapa es la
- * bandera: lo que ve quien pasa por delante, lo que pinta el cliente y lo que
- * recuerda la niebla. Mientras esta función solo escribió la primera, las dos
- * copias divergían en la primera captura y no volvían a coincidir jamás.
- *
- * Lo que provocaba no era un detalle de pintado: la IA veía el castillo ENEMIGO
- * donde tenía el suyo, y como un castillo enemigo vale 40000 y estaba a un paso,
- * se pasaba la partida entrando en su propia casa. Dos jugadores haciendo eso a
- * la vez no se encuentran nunca — y ninguno se queda sin castillos, que es la
- * única forma de perder. Ese era el ~10 % de partidas que no terminaban.
- */
-function captureTown(state: GameState, town: Town, player: PlayerId): void {
-  // De quién era, antes de que deje de serlo. Es el dato con el que su dueño de
-  // ayer se entera de que lo ha perdido: sin leerlo aquí no hay forma de
-  // escribirlo, porque un instante después el castillo ya es de otro.
-  const anterior = town.owner;
-  town.owner = player;
-  town.garrison = [];
-  const bandera = state.map.objects.find((o) => o.kind === 'town' && o.id === town.id);
-  if (bandera === undefined || bandera.kind !== 'town') {
-    throw new Error(`el castillo ${town.id} no tiene objeto en el mapa`);
+function tomarElNodo(state: GameState, sitio: Sitio, player: PlayerId): void {
+  if (!enUnNodo(state, sitio)) {
+    throw new Error(
+      `${nombreDelSitio(sitio)} está dentro de una región: no se toma, es de quien tenga la región`,
+    );
   }
-  bandera.owner = player;
-  revealAroundTown(state, town);
-  emit(state, {
-    kind: 'town_captured',
-    town: town.id,
-    from: anterior,
-    actor: player,
-    at: town.at,
-  });
-  // Una ciudad es un nodo: tomarla puede cerrar una región, y los grupos que
-  // la patrullaban se van. Antes de la nota de abajo y sin ser una derrota.
+  const objeto = objetoDelSitio(state, sitio);
+  const anterior = objeto.owner;
+  objeto.owner = player;
+  quitarLaGuarnicion(state, objeto.id);
+  if (sitio.kind === 'ciudad') {
+    revealAroundTown(state, sitio.town);
+    emit(state, {
+      kind: 'town_captured',
+      town: sitio.town.id,
+      from: anterior,
+      actor: player,
+      at: sitio.town.at,
+    });
+  } else {
+    emit(state, {
+      kind: 'node_captured',
+      node: objeto.id,
+      from: anterior,
+      actor: player,
+      at: objeto.at,
+    });
+  }
+  // Un nodo que cambia de dueño puede cerrar una región, y los grupos que la
+  // patrullaban se van. Antes de la nota de abajo y sin ser una derrota.
   dispersarAsaltantes(state);
   // Sin `checkDefeat` aquí, y es a propósito: la captura es UNA parte de lo que
   // pasa, y quien la llama comprueba la derrota al acabar lo suyo. Tomar la base
@@ -2876,13 +2990,14 @@ function membersOf(state: GameState, hero: Hero): ReadonlyMap<string, BattleMemb
 
 /**
  * La base de un jugador, si todavía es suya; `null` si no la tuvo nunca o la
- * ha perdido. El dueño se pregunta a `Town.owner`, que es donde vive.
+ * ha perdido. El dueño se pregunta a `dueñoDeLaCiudad` (la base está en el muro:
+ * el de su objeto, que escribe `tomarElNodo`).
  */
 export function baseOf(state: GameState, player: PlayerId): Town | null {
   const id = playerById(state, player).base;
   if (id === null) return null;
   const town = townById(state, id);
-  return town.owner === player ? town : null;
+  return dueñoDeLaCiudad(state, town) === player ? town : null;
 }
 
 /**
@@ -2910,9 +3025,7 @@ function retiradaDe(
 }
 
 function battleSideForHero(state: GameState, hero: Hero, side: Side): BattleSide {
-  const pueblo = state.towns.find(
-    (t) => t.owner === hero.owner && pointKey(t.at) === pointKey(hero.at),
-  );
+  const pueblo = castilloSuyoDelHeroe(state, hero);
   const members = membersOf(state, hero);
   return {
     ...(members === undefined ? {} : { members }),
@@ -2967,21 +3080,18 @@ function defenderSide(state: GameState, foe: BattleFoe): BattleSide {
       const enemigo = heroById(state, foe.heroId);
       return battleSideForHero(state, enemigo, 'defender');
     }
-    case 'town': {
-      const pueblo = townById(state, foe.townId);
-      return {
-        army: troopsAsStacks(pueblo.garrison),
-        hero: null,
-        moraleBonus: moraleFromBuildings(pueblo),
-      };
-    }
     case 'raider':
       return ladoDeAsaltante(state, foe.raiderId);
-    case 'garrison':
+    case 'garrison': {
+      // La de una ciudad lleva la moral de sus edificios, como cuando era su propia
+      // clase de batalla (`town`, hasta la tarea 2).
+      const sitio = sitioPorId(state, foe.site);
       return {
-        army: troopsAsStacks(guarnicionDe(state, sitioPorId(state, foe.site))),
+        army: troopsAsStacks(guarnicionDe(state, sitio)),
         hero: null,
+        ...(sitio.kind === 'ciudad' ? { moraleBonus: moraleFromBuildings(sitio.town) } : {}),
       };
+    }
     case 'lugar':
       // La tropa del encuentro, como un grupo de asaltantes: sin héroe ni dueño, y
       // en el tope de tropa de la partida (`gruposAlTope`), como todo lo neutral.
@@ -3054,11 +3164,10 @@ export function battleOwners(
     case 'hero':
       defender = heroById(state, foe.heroId).owner;
       break;
-    case 'town':
-      defender = townById(state, foe.townId).owner;
-      break;
     case 'garrison':
-      defender = dueñoDelSitio(state, sitioPorId(state, foe.site));
+      // La tropa defiende por su dueño, no por el del sitio (P1): la neutral, por
+      // nadie; la que ocupa un sitio ajeno, por quien la dejó.
+      defender = laGuarnicion(state, foe.site)?.dueño ?? null;
       break;
   }
   // Un grupo de asaltantes no es de nadie: cuando embosca, el atacante es
@@ -3092,8 +3201,6 @@ export function lugarDelRival(state: GameState, foe: BattleFoe): Point {
     }
     case 'hero':
       return heroById(state, foe.heroId).at;
-    case 'town':
-      return townById(state, foe.townId).at;
     case 'raider':
       return raiderById(state, foe.raiderId).at;
     case 'garrison':
@@ -3193,7 +3300,8 @@ function dejarPendiente(
   let defensa: DefensaElegida | null = null;
   if (quienes.foe.kind === 'hero') {
     const hero = heroById(state, quienes.foe.heroId);
-    const sitio = sitioQueSeDefiende(state, quienes.foe);
+    const enJuego = sitioQueSeDefiende(state, quienes.foe);
+    const sitio = enJuego?.suyo === true ? enJuego.sitio : null;
     if (sitio !== null && guarnicionDe(state, sitio).length > 0) {
       repartir(state, hero, sitio, defensaDeLaIA(state, hero, sitio));
       defensa = { hero: hero.id, sitio: idDelSitio(sitio) };
@@ -3227,7 +3335,7 @@ function dejarPendiente(
  * mapa cierra, y sin escaleras nadie que ande la cruzaría.
  */
 function montarLaBatalla(state: GameState, quienes: Enfrentamiento, ctx: GameContext): BattleState {
-  const muralla = murallaDelSitio(sitioQueSeDefiende(state, quienes.foe));
+  const muralla = murallaDelSitio(sitioQueSeDefiende(state, quienes.foe)?.sitio ?? null);
   return createBattle(
     alAsalto(attackerSide(state, quienes.attacker), muralla),
     defenderSide(state, quienes.foe),
@@ -3238,24 +3346,34 @@ function montarLaBatalla(state: GameState, quienes: Enfrentamiento, ctx: GameCon
 }
 
 /**
- * El sitio que defiende `foe`, o `null` si no defiende ninguno: la ciudad que se
- * ataca, la guarnición de un paso o un pueblo, o el sitio suyo en que está el
- * héroe atacado (`sitioDelHeroe`: también sin guarnición, y en un pueblo de su
- * región). Un monstruo, un grupo de asaltantes o un lugar no defienden sitio.
+ * El sitio en juego en una batalla contra `foe`.
+ *
+ * `sitio`: dónde se pelea tras una muralla —la guarnición de una ciudad, un paso o
+ * un pueblo, o **el sitio de la casilla del héroe atacado, sea de quien sea** (P3
+ * de la tarea 2: el que ocupa un pueblo ajeno también se defiende tras su
+ * empalizada)—. `suyo`: si el héroe defiende un sitio suyo (`sitioDelHeroe`: el
+ * sitio o la guarnición son de su bando), y entonces elige con quién de la
+ * guarnición defiende y, si pierde, lo entrega. El que ocupa un sitio ajeno no
+ * tiene nada que entregar: perder lo echa. La guarnición sola, suyo siempre.
+ * Un monstruo, un grupo de asaltantes o un lugar no defienden sitio: `null`.
  *
  * **LA pregunta del sitio en juego** (simplify de la fase 2): la leen la defensa
  * que se elige (`dejarPendiente`), la muralla de la batalla (`montarLaBatalla`) y lo
  * que se entrega al perder (`applyVictory`), así que no puede haber una batalla tras
  * la muralla de un sitio que entrega otro.
  */
-function sitioQueSeDefiende(state: GameState, foe: BattleFoe): Sitio | null {
+function sitioQueSeDefiende(
+  state: GameState,
+  foe: BattleFoe,
+): { readonly sitio: Sitio; readonly suyo: boolean } | null {
   switch (foe.kind) {
-    case 'town':
-      return sitioPorId(state, foe.townId);
     case 'garrison':
-      return sitioPorId(state, foe.site);
-    case 'hero':
-      return sitioDelHeroe(state, heroById(state, foe.heroId));
+      return { sitio: sitioPorId(state, foe.site), suyo: true };
+    case 'hero': {
+      const hero = heroById(state, foe.heroId);
+      const sitio = sitioEn(state, hero.at);
+      return sitio === null ? null : { sitio, suyo: sitioDelHeroe(state, hero) !== null };
+    }
     case 'monster':
     case 'raider':
     case 'lugar':
@@ -3419,6 +3537,8 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
   const winner = finished.winner;
   // Quién la protagoniza, leído ahora, con los dos bandos en pie.
   const actor = protagonista(state, pending);
+  // De quién es cada sitio y quién lo ocupa, antes de las consecuencias.
+  const sitiosAntes = fotoDeLosSitios(state);
   // La casilla, LEÍDA AQUÍ: con los dos bandos todavía en pie. Después hay
   // héroes que salen del mapa y castillos que cambian de bandera, y preguntar
   // entonces sería preguntar por alguien que ya no está. Es el mismo patrón que
@@ -3545,15 +3665,18 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
   // de mirar si alguien ha perdido la partida: `game_over` es el último hecho.
   if (botin !== null) repartirBotin(state, heroById(state, botin.heroId), botin.from, at);
 
+  // Lo que la batalla cambió en los sitios (el ocupante echado, el pueblo que
+  // vuelve a dar), antes de mirar si alguien ha perdido: `game_over` es el último.
+  anotarLosSitios(state, sitiosAntes);
   checkDefeat(state);
 }
 
 /**
  * Quién cobra botín de esta batalla, o `null`: **el héroe que gana a un bando
  * neutral que no es un monstruo** —un grupo de asaltantes, atacado o
- * emboscando, o la guarnición de una ciudad neutral—. Una ciudad rival
+ * emboscando, o la guarnición neutral de una ciudad—. Una ciudad rival
  * guarnecida no da: no es una guarnición de nadie, es la del rival. Se pregunta
- * antes de aplicar nada, porque la ciudad deja de ser neutral al capturarla.
+ * antes de aplicar nada, porque la guarnición se pierde al ganarle.
  */
 function botinDe(
   state: GameState,
@@ -3564,8 +3687,11 @@ function botinDe(
     winner === 'attacker' ? [pending.attacker, pending.foe] : [pending.foe, pending.attacker];
   if (ganador.kind !== 'hero') return null;
   if (perdedor.kind === 'raider') return { heroId: ganador.heroId, from: 'raider' };
-  if (perdedor.kind === 'town' && townById(state, perdedor.townId).owner === null) {
-    return { heroId: ganador.heroId, from: 'town' };
+  if (perdedor.kind === 'garrison') {
+    const sitio = sitioPorId(state, perdedor.site);
+    if (sitio.kind === 'ciudad' && laGuarnicion(state, sitio)?.dueño === null) {
+      return { heroId: ganador.heroId, from: 'town' };
+    }
   }
   return null;
 }
@@ -3814,14 +3940,11 @@ function applyVictory(
       // Lo mismo si defendía un paso o un pueblo suyo: lo que no eligió para
       // defenderlo se pierde con el sitio (D1).
       // `at` es la casilla del vencido (`lugarDelRival`): su sitio, el que defendía.
-      const sitio = sitioQueSeDefiende(state, foe);
-      if (sitio !== null) entregarElSitio(state, sitio, hero.owner);
+      // El que ocupaba un sitio ajeno no entrega nada: perder lo echa (y el sitio
+      // vuelve a dar a su dueño, `anotarLosSitios`).
+      const enJuego = sitioQueSeDefiende(state, foe);
+      if (enJuego?.suyo === true) entregarElSitio(state, enJuego.sitio, hero.owner);
       heroeVencido(state, derrotado, precio, at);
-      break;
-    }
-    case 'town': {
-      const pueblo = townById(state, foe.townId);
-      captureTown(state, pueblo, hero.owner);
       break;
     }
     case 'raider':
@@ -3899,21 +4022,17 @@ function applyDefenderSurvivors(state: GameState, pending: PendingBattle, army: 
       // los dos héroes por igual: aquí no queda nada que hacer.
       break;
     }
-    case 'town': {
-      const pueblo = townById(state, foe.townId);
-      pueblo.garrison = army;
-      break;
-    }
     case 'raider':
       // Repele al héroe y sigue patrullando con lo que le quede.
       dejarAsaltante(state, foe.raiderId, army);
       break;
     case 'garrison': {
-      // La guarnición sigue guardando con lo que le quede, del mismo dueño.
+      // La guarnición sigue guardando con lo que le quede, del mismo dueño (el suyo,
+      // no el del sitio: P1; `null`, la neutral).
       const sitio = sitioPorId(state, foe.site);
-      const dueño = dueñoDelSitio(state, sitio);
-      if (dueño === null) throw new Error(`la guarnición ${delSitio(sitio)} resiste sin dueño`);
-      ponerLaGuarnicion(state, sitio, dueño, army);
+      const g = laGuarnicion(state, sitio);
+      if (g === null) throw new Error(`la guarnición ${delSitio(sitio)} resiste sin tropa`);
+      ponerLaGuarnicion(state, sitio, g.dueño, army);
       break;
     }
     case 'lugar': {

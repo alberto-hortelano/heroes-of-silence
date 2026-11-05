@@ -51,12 +51,15 @@ import {
   townsOf,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 import type { Army, Point, Stack } from '../src/core/types.js';
 import {
   avanzarHasta,
   costesDelAlcance,
+  darLaCiudad,
   ejercito,
   forzarBatalla,
+  guarnecer,
   JINETE,
   NO_MUERTO,
   NORMAL,
@@ -418,7 +421,7 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const state = newGame({ seed: 7 });
     const c = ctx(7);
     const base = baseOf(state, 0)!;
-    base.garrison = [];
+    guarnecer(state, base, []);
     const { atacante } = batallaDeHeroes(
       state,
       c,
@@ -457,7 +460,7 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const state = newGame({ seed: 8 });
     const c = ctx(8);
     const base = baseOf(state, 0)!;
-    base.garrison = [];
+    guarnecer(state, base, []);
     // Sin oro: tiene que caer peleando.
     state.players[0]!.oro = 0;
     const { atacante } = batallaDeHeroes(
@@ -486,7 +489,7 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const state = newGame({ seed: 8 });
     const c = ctx(8);
     const base = baseOf(state, 0)!;
-    base.garrison = [];
+    guarnecer(state, base, []);
     const { atacante } = batallaDeHeroes(
       state,
       c,
@@ -512,7 +515,7 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const state = newGame({ seed: 9 });
     const c = ctx(9);
     const base = baseOf(state, 0)!;
-    base.garrison = [];
+    guarnecer(state, base, []);
     state.players[0]!.oro = 0;
     const { atacante } = batallaDeHeroes(
       state,
@@ -540,7 +543,7 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const state = newGame({ seed: 9 });
     const c = ctx(9);
     const base = baseOf(state, 0)!;
-    base.garrison = [];
+    guarnecer(state, base, []);
     state.players[0]!.oro = 0;
     const { atacante } = batallaDeHeroes(
       state,
@@ -639,7 +642,7 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     // El castillo del jugador 0 pasa a ser del 1, por las dos caras: el libro
     // de cuentas y la bandera del mapa.
     const otro = state.towns.find((t) => t.id !== base.id)!;
-    otro.owner = 1;
+    darLaCiudad(state, otro, 1);
     const bandera = state.map.objects.find((o) => o.kind === 'town' && o.id === otro.id)!;
     (bandera as { owner: number | null }).owner = 1;
     // Sin oro, para que caiga peleando y no se rinda (la rendición entrega el
@@ -654,8 +657,8 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     );
     expect(resolvePendingBattle(state, c).winner).toBe('attacker');
 
-    expect(otro.owner).toBe(atacante.owner);
-    expect(base.owner).toBe(1);
+    expect(dueñoDeLaCiudad(state, otro)).toBe(atacante.owner);
+    expect(dueñoDeLaCiudad(state, base)).toBe(1);
     const vuelto = heroById(state, defensor.id);
     expect(pointKey(vuelto.at)).toBe(pointKey(base.at));
     const tras = state.log.slice(state.log.findIndex((e) => e.kind === 'battle_ended'));
@@ -689,7 +692,7 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     );
     expect(resolvePendingBattle(state, c).winner).toBe('attacker');
 
-    expect(base.owner).toBe(atacante.owner);
+    expect(dueñoDeLaCiudad(state, base)).toBe(atacante.owner);
     expect(state.heroes.some((h) => h.id === defensor.id)).toBe(false);
     const tras = state.log.slice(state.log.findIndex((e) => e.kind === 'battle_ended'));
     const kinds = tras.map((e) => e.kind);

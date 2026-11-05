@@ -667,7 +667,9 @@ describe('la nieve que se pisa, sin sus peñascos grises (H9)', () => {
   // (617 casillas y 41). Con las puertas de las ciudades (fase 2) la s4 no
   // tiene nieve que se pise: la s61 (464 casillas y 101 peñascos). Sin minas
   // (21-10-2026) la s61 no tiene peñascos en lo alto: la s37 (418 casillas y 53).
-  const { map, escena: e } = partidaDe(37);
+  // Con las ciudades en mitad de su región (05-11-2026), otra vez la s61 (432
+  // casillas y 70), la de más nieve que se pisa de 1-80 con peñascos en lo alto.
+  const { map, escena: e } = partidaDe(61);
   const a = analizar(map);
   const rocas = e.sprites.filter((s) => s.clase === 'cubierta' && esPeñascoGris(s));
 

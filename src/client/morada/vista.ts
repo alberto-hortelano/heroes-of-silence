@@ -91,6 +91,7 @@ export type ReclutamientoDe = (id: string) => {
  */
 export function componerVistaDeLaMorada(
   town: Town,
+  dueño: PlayerId | null,
   sitio: SitioId,
   elegida: string | null,
   reclutamiento: ReclutamientoDe,
@@ -110,7 +111,7 @@ export function componerVistaDeLaMorada(
   const { plan, motivo: porQueNo } = reclutamiento(u.id);
   return {
     faccion: town.faction,
-    owner: town.owner,
+    owner: dueño,
     sitio,
     edificio,
     nombre: building(edificio).name,

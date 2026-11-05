@@ -123,10 +123,11 @@ describe('el puente de una ciudad-puente (`rioAnteLaCiudad`)', () => {
 });
 
 describe('la ciudad-puente en los mapas del juego', () => {
-  // En el bucle rápido, s2 (dos ciudades-puente, con el río al este y al oeste)
-  // y s37 (cuatro, dos con el río al norte y dos al sur); en la lenta, 1-40
-  // (44 en 21 semillas).
-  const semillas = segunPrisa([2, 37], rango(1, 40));
+  // En el bucle rápido, s12 (dos ciudades-puente, con el río al sur y al norte)
+  // y s14 (cuatro, con el río a cada lado); en la lenta, 1-40 (23 en 13
+  // semillas desde que las ciudades que no son bases ni del río van en mitad de
+  // su región, 05-11-2026: eran 44 en 21, con las de cruce).
+  const semillas = segunPrisa([12, 14], rango(1, 40));
 
   it('la ciudad está en tierra; su puente se pisa, es de la orilla de enfrente y lleva la puerta del río', () => {
     let vistas = 0;
@@ -158,7 +159,7 @@ describe('la ciudad-puente en los mapas del juego', () => {
         expect(delRio?.accesos, donde).toEqual([acceso]);
       }
     }
-    expect(vistas).toBeGreaterThanOrEqual(segunPrisa(4, 40));
+    expect(vistas).toBeGreaterThanOrEqual(segunPrisa(4, 22));
   });
 
   it('su puente es agua en la escena y cruza de frente hasta el pie de su cara, no más allá', () => {
@@ -241,17 +242,18 @@ describe('la ciudad-puente en los mapas del juego', () => {
         expect(puenteEnElTerreno(e.puentes, map.terrain, W, ...pu.asiento)?.id, donde).toBe(pu.id);
       }
     }
-    expect(alSur).toBeGreaterThanOrEqual(segunPrisa(1, 10));
+    // 8 en 1-40 desde las ciudades en su región (05-11-2026): hay menos ciudades-puente.
+    expect(alSur).toBeGreaterThanOrEqual(segunPrisa(1, 8));
   });
 
   it('en el cliente: pulsar una ciudad-puente lleva al héroe por sus puertas', () => {
-    const s = new Session(37);
+    const s = new Session(14);
     s.revealAll = true;
     s.state.raiders.splice(0);
     const esc = escenarioDe(s.state.map, s.state.seed);
     const pu = esc.escena.puentes.find((p) => p.ciudad !== undefined);
     const ciudad = s.state.towns.find((t) => t.id === pu?.ciudad);
-    if (ciudad === undefined) throw new Error('s37 no compone ninguna ciudad-puente');
+    if (ciudad === undefined) throw new Error('s14 no compone ninguna ciudad-puente');
     const escena = new EscenaAventura(() => s);
     const [ancho, alto] = [1600, 1000];
     escena.encuadrar(ancho, alto);
@@ -263,7 +265,7 @@ describe('la ciudad-puente en los mapas del juego', () => {
       tileMinimo: topeDeAlejar(esc, ancho, alto),
     });
     const heroe = s.selectedHero;
-    if (heroe === null) throw new Error('s37 sin héroe');
+    if (heroe === null) throw new Error('s14 sin héroe');
     // La ruta que va a andar entra por una puerta: el paso antes de la ciudad
     // es una puerta suya, y ninguno pisa su muralla.
     const ruta = pathFromReachable(
@@ -272,7 +274,7 @@ describe('la ciudad-puente en los mapas del juego', () => {
       heroe.at,
       ciudad.at,
     );
-    if (ruta === null) throw new Error(`s37: no se llega a ${ciudad.id}`);
+    if (ruta === null) throw new Error(`s14: no se llega a ${ciudad.id}`);
     const puertas = puertasDeLaCiudad(s.state.map, ciudad.at).map((p) => p.casilla);
     const r = recintoDeLaCiudad(ciudad.at, s.state.map.width, s.state.map.height);
     for (const { at } of ruta) {

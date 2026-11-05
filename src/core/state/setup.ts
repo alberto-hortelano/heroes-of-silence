@@ -254,7 +254,7 @@ export function newGame(options: NewGameOptions = {}): GameState {
 
   // El mapa se construye aquí también con un mundo: `buildMap` da estado que la
   // partida cambia (objetos, ciudades), y una misma lectura juega varias partidas.
-  const { map, towns, raiders } = buildMap(plan);
+  const { map, towns, raiders, guarniciones } = buildMap(plan);
 
   let mundo: EstadoDelMundo | undefined;
   if (options.mundo !== undefined) {
@@ -318,6 +318,7 @@ export function newGame(options: NewGameOptions = {}): GameState {
     heroes,
     towns,
     raiders,
+    guarniciones,
     porElegir: options.tipoDelHeroe === null ? 0 : undefined,
     ...(mundo === undefined ? {} : { mundo }),
   });

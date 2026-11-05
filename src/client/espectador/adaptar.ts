@@ -18,7 +18,13 @@
 import type { BattleStack, BattleState } from '@core/battle/types.js';
 import { cifrasDeUnidad, oroDeUnidad } from '@core/catalogo.js';
 import { Casillas } from '@core/map/casillas.js';
-import { aPunto, esMejoraDelPuesto, RedDeCaminos, type TramoDeCamino } from '@core/map/map.js';
+import {
+  aPunto,
+  esMejoraDelPuesto,
+  type MapObject,
+  RedDeCaminos,
+  type TramoDeCamino,
+} from '@core/map/map.js';
 import { BARRERAS, NIVELES, type TerrainKind } from '@core/map/terrain.js';
 import type { UnitInfo, Veterania } from '@core/types.js';
 import type {
@@ -29,6 +35,7 @@ import type {
   VistaMapa,
 } from '../../server/vista-espectador.js';
 import type { AdventureScene } from '../render/mapa.js';
+import { conLosDueñosSabidos } from '../render/sitios-sabidos.js';
 
 /**
  * El terreno del fotograma anterior, para devolver EL MISMO array si no ha
@@ -95,6 +102,17 @@ function nodosDelCable(objetos: SpectatorView['map']['objects']): void {
         'Reinicia `pnpm partida` con el código de ahora',
     );
   for (const o of objetos) {
+    // El pueblo, con la barrera de su muro o `null` dentro de una región (pueblos
+    // en un nodo, fase 3): sin el campo, el escenógrafo no sabría si es un paso.
+    if (
+      o.kind === 'village' &&
+      o.barrera !== null &&
+      !(BARRERAS as readonly unknown[]).includes(o.barrera)
+    ) {
+      throw new Error(
+        `el pueblo ${o.id} llega sin la barrera de su muro («barrera», null dentro de una región): el servidor habla el formato de antes de los pueblos en un nodo. Reinicia \`pnpm partida\` con el código de ahora`,
+      );
+    }
     if (o.kind !== 'node') continue;
     if (!(BARRERAS as readonly unknown[]).includes(o.barrera)) {
       throw deAntes(o.id, 'la barrera que cruza', '#145');
@@ -139,6 +157,32 @@ export function adaptarEscena(view: SpectatorView): AdventureScene {
     },
     players: view.players.map((p) => ({ id: p.id, fog: Casillas.deIndices(view.map, p.fog) })),
   };
+}
+
+/**
+ * Los objetos del mapa como los pinta el espectador y los sitios ocupados: lo que
+ * hace `conLosDueñosSabidos` con el dueño que trae el cable (`VistaSitio.owner`,
+ * derivado en el servidor con la regla del núcleo) y su ocupante; lo mismo que le
+ * da a quien juega su sesión, con todo a la vista. Lanza con una ciudad o un
+ * pueblo sin su sitio: el servidor es de antes.
+ */
+export function sitiosDelCable(
+  view: SpectatorView,
+  objetos: readonly MapObject[],
+): ReturnType<typeof conLosDueñosSabidos> {
+  const porId = new Map(view.sitios.map((s) => [s.id, s]));
+  return conLosDueñosSabidos(
+    objetos.map((o) => {
+      if (o.kind !== 'town' && o.kind !== 'village') return { object: o };
+      const s = porId.get(o.id);
+      if (s === undefined) {
+        throw new Error(
+          `${o.id} llega sin su sitio: el servidor habla el formato de antes de la tarea 2 (ciudades en su región). Reinicia \`pnpm partida\` con el código de ahora`,
+        );
+      }
+      return { object: o, sitio: { dueño: s.owner, ocupante: s.ocupante } };
+    }),
+  );
 }
 
 /**

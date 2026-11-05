@@ -101,7 +101,12 @@ import {
   validarForzado,
 } from '@core/state/clima.js';
 import { type Desenlace, desenlaceDe, finDePartida } from '@core/state/desenlace.js';
-import { cronicaPara, type DefeatReason, type GameEventDraft } from '@core/state/events.js';
+import {
+  cronicaPara,
+  type DefeatReason,
+  type GameEventDraft,
+  type Ocupante,
+} from '@core/state/events.js';
 import {
   type AdventureAction,
   applyAdventureAction,
@@ -138,8 +143,10 @@ import {
 import { type RentaDelDia, rentaDelDia } from '@core/state/renta.js';
 import { newGame } from '@core/state/setup.js';
 import {
+  ciudadQueMandaBlocker,
   cupoDeLaGuarnicion,
   delSitio,
+  dueñoDeLaCiudad,
   type ElReparto,
   elReparto,
   type FilaDeLaDefensa,
@@ -151,7 +158,10 @@ import {
   lineasDelEjercito,
   mejorarBlocker,
   nombreDelSitio,
+  ocupanteDe,
+  ocupanteDicho,
   type Sitio,
+  sitioDeLaCiudad,
   sitioDelHeroe,
   sitioPorId,
   sitioSiExiste,
@@ -179,6 +189,7 @@ import { EnElLugar, type TrasElegir } from './lugar/sesion.js';
 import { componerVistaDeLaMorada, type VistaDeLaMorada } from './morada/vista.js';
 import type { VistaDeLaBase } from './render/base/escena.js';
 import { cuerpoDeLaPersona } from './render/cuerpo-de-gente.js';
+import { conLosDueñosSabidos, type SitioOcupado } from './render/sitios-sabidos.js';
 import { componerVistaDeLaTropa, mismoPortador, type VistaDeLaTropa } from './tropa/vista.js';
 
 /**
@@ -1585,19 +1596,56 @@ export class Session implements ControlDeBatalla {
    * cada fotograma, y el minimapa rehace su fondo cuando cambia este array.
    */
   objetosConocidos(): readonly MapObject[] {
-    if (this.revealAll) return this.state.map.objects;
-    const mirando = this.visibles();
+    return this.loConocido().objetos;
+  }
+
+  /**
+   * Las ciudades y los pueblos que la persona sabe ocupados (`ocupanteDe`, como
+   * los vio): dónde y de quién es el ocupante (`null`, una guarnición neutral). Lo
+   * pinta el lienzo con la marca de la ocupación, del color del ocupante (tarea 2).
+   */
+  ocupados(): readonly SitioOcupado[] {
+    return this.loConocido().ocupados;
+  }
+
+  /**
+   * Lo que se sabe de los objetos, una vez por llave: los objetos, cada ciudad y
+   * cada pueblo con el dueño que se sabe (`RememberedObject.sitio`), y los sitios
+   * ocupados (`conLosDueñosSabidos`). Es una copia: el estado no se toca.
+   */
+  private loConocido(): ReturnType<typeof conLosDueñosSabidos> {
+    const mirando = this.revealAll ? null : this.visibles();
     const c = this.cacheObjetos;
-    if (c !== null && c.mirando === mirando && c.version === this.version) return c.objetos;
-    const objetos = objetosConocidos(this.state, this.viewer, mirando).map((r) => r.object);
-    this.cacheObjetos = { mirando, version: this.version, objetos };
-    return objetos;
+    if (c !== null && c.mirando === mirando && c.version === this.version) return c.conocido;
+    const conocido = conLosDueñosSabidos(objetosConocidos(this.state, this.viewer, mirando));
+    this.cacheObjetos = { mirando, version: this.version, conocido };
+    return conocido;
   }
   private cacheObjetos: {
-    mirando: CasillasLeidas;
+    mirando: CasillasLeidas | null;
     version: number;
-    objetos: readonly MapObject[];
+    conocido: ReturnType<typeof conLosDueñosSabidos>;
   } | null = null;
+
+  /**
+   * Por qué quien juega no manda hoy en la ciudad `town` (`ciudadQueMandaBlocker`:
+   * no es suya, o un héroe o una guarnición de otro la ocupa), o `null`. Lo lee la
+   * pantalla de la ciudad, que apaga con ella reclutar, construir y contratar.
+   */
+  mandaEn(town: Town): string | null {
+    return ciudadQueMandaBlocker(this.state, town, this.viewer);
+  }
+
+  /**
+   * Quién ocupa la ciudad `town` y cómo se dice («una guarnición neutral»), o
+   * `null` (`ocupanteDe`, la regla de la ocupación). Lo lee la ficha de la ciudad,
+   * que dice como ocupante la guarnición ajena y no como la suya (vuelta 1 de QA de
+   * la tarea 2, H1).
+   */
+  ocupanteDeLaCiudad(town: Town): { readonly ocupante: Ocupante; readonly quien: string } | null {
+    const ocupante = ocupanteDe(this.state, sitioDeLaCiudad(town));
+    return ocupante === null ? null : { ocupante, quien: ocupanteDicho(this.state, ocupante) };
+  }
 
   /**
    * La crónica que le consta a la persona: lo suyo, el reloj y lo que estaba
@@ -2364,7 +2412,7 @@ export class Session implements ControlDeBatalla {
     const vista: VistaDeLaBase = {
       faccion: town.faction,
       townId: town.id,
-      owner: town.owner,
+      owner: dueñoDeLaCiudad(this.state, town),
       edificios: sitiosConstruidos(town).map((sitio) => {
         const edificio = construidoEn(town, sitio) as string;
         return { sitio, edificio, nombre: building(edificio).name };
@@ -2429,7 +2477,7 @@ export class Session implements ControlDeBatalla {
    */
   recruitPlan(creatureId: string): RecruitCapacity | null {
     const town = this.activeTown;
-    if (town === null || town.owner === null) return null;
+    if (town === null || dueñoDeLaCiudad(this.state, town) === null) return null;
     return recruitCapacity(town, creatureId, destinoDeRecluta(this.state, town), this.oro);
   }
 
@@ -2440,9 +2488,10 @@ export class Session implements ControlDeBatalla {
    */
   motivoParaNoReclutar(creatureId: string): string | null {
     const town = this.activeTown;
-    if (town === null || town.owner === null) return null;
+    if (town === null || dueñoDeLaCiudad(this.state, town) === null) return null;
     return (
       this.bloqueoDeTurno() ??
+      this.mandaEn(town) ??
       reclutarBlocker(town, creatureId, 1, destinoDeRecluta(this.state, town), this.oro)
     );
   }
@@ -2619,10 +2668,16 @@ export class Session implements ControlDeBatalla {
 
   /** Compone la vista de `m` (lanza si no vale) y solo entonces la deja abierta. */
   private enLaMorada(town: Town, m: MoradaAbierta): void {
-    const vista = componerVistaDeLaMorada(town, m.sitio, m.elegida, (id) => ({
-      plan: this.recruitPlan(id),
-      motivo: this.motivoParaNoReclutar(id),
-    }));
+    const vista = componerVistaDeLaMorada(
+      town,
+      dueñoDeLaCiudad(this.state, town),
+      m.sitio,
+      m.elegida,
+      (id) => ({
+        plan: this.recruitPlan(id),
+        motivo: this.motivoParaNoReclutar(id),
+      }),
+    );
     this.moradaAbierta = m;
     this.cacheDeLaMorada = { version: this.version, abierta: m, vista };
   }
@@ -2713,6 +2768,7 @@ export class Session implements ControlDeBatalla {
   private componerElAyuntamiento(town: Town, elegido: string | null): VistaDelAyuntamiento {
     return componerVistaDelAyuntamiento(
       town,
+      dueñoDeLaCiudad(this.state, town),
       candidatosAHeroe(this.state, this.viewer, town.id),
       elegido,
       this.turnoAjeno(),

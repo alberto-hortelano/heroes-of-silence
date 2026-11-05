@@ -47,7 +47,7 @@ import {
   SPEED_TO_HEXES,
 } from '../src/core/types.js';
 import { disposicionDe, enLaFranja, planoDelCuadro } from '../src/shared/base.js';
-import { fueraDeSuBase } from './helpers.js';
+import { fueraDeSuBase, guarnecer } from './helpers.js';
 
 /**
  * Los lienzos de la escena desde que la base va a todo el alto (C16): el del
@@ -386,7 +386,7 @@ describe('la ficha y el reclutamiento (C4, C5)', () => {
     const town = s.activeTown!;
     const sitio = sitioDeEdificio('templarios', 'templarios_monasterio').id;
     town.buildings.push('templarios_monasterio');
-    const vista = componerVistaDeLaMorada(town, sitio, 'templario-monje', () => ({
+    const vista = componerVistaDeLaMorada(town, 0, sitio, 'templario-monje', () => ({
       plan: null,
       motivo: null,
     }));
@@ -418,7 +418,7 @@ describe('la ficha y el reclutamiento (C4, C5)', () => {
     // entrar para que la vista no sea la de antes): encendidos, «Todo» recluta lo
     // que calcula el núcleo y la vista lo enseña sin salir.
     s.cerrarLaMorada();
-    s.activeTown!.garrison = [];
+    guarnecer(s.state, s.activeTown!, []);
     escena.irA('lvl1', 0);
     const antes = s.activeTown!.available[recluta]!;
     const plan = s.recruitPlan(recluta)!;

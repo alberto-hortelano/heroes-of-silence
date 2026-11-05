@@ -196,7 +196,9 @@ function dibujarCapa(ctx: CanvasRenderingContext2D, capa: Capa, cam: CamaraMapa)
   for (const n of red.nodos) {
     const p = mundoAPixel(cam, n.centro.x, n.centro.y);
     const o = n.objeto;
-    const dueño = o.kind === 'town' || o.kind === 'node' ? o.owner : null;
+    // Un nodo de la red es un paso, una ciudad o un pueblo del muro, y su dueño es
+    // el que guarda su objeto (el que pinta el mapa con su óvalo).
+    const dueño = o.kind === 'town' || o.kind === 'node' || o.kind === 'village' ? o.owner : null;
     ctx.beginPath();
     if (n.ciudad) ctx.rect(p.x - radio, p.y - radio, 2 * radio, 2 * radio);
     else {
@@ -211,7 +213,12 @@ function dibujarCapa(ctx: CanvasRenderingContext2D, capa: Capa, cam: CamaraMapa)
     ctx.lineWidth = 2.5;
     ctx.strokeStyle = '#fff';
     ctx.stroke();
-    const barrera = o.kind === 'node' ? NOMBRE_DE_BARRERA[o.barrera] : 'ciudad';
+    const barrera =
+      o.kind === 'node'
+        ? NOMBRE_DE_BARRERA[o.barrera]
+        : o.kind === 'village'
+          ? `pueblo${o.barrera === null ? '' : ` (${NOMBRE_DE_BARRERA[o.barrera]})`}`
+          : 'ciudad';
     const quien = dueño === null ? '' : ` · j${dueño}`;
     ctx.fillStyle = '#fff';
     rotulo(ctx, `${barrera}${quien}`, p.x, p.y + radio + 2);

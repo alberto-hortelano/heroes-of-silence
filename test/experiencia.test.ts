@@ -81,6 +81,8 @@ import {
   ejercito,
   forzarBatalla,
   forzarTurno,
+  guarnecer,
+  guarnicionDeLaCiudad,
   JINETE,
   NO_MUERTO,
   PESADA,
@@ -455,7 +457,7 @@ describe('la veteranía vive en el individuo y lo acompaña (C3)', () => {
     const state = newGame({ seed: 7 });
     const c = ctx(7);
     const base = baseOf(state, 0)!;
-    base.garrison = [];
+    guarnecer(state, base, []);
     const hero = heroesOf(state, 0)[0]!;
     hero.army = [veterano(TIRADOR, 'veterano-a', 24_000), { creature: TIRADOR }];
     ponerMonstruo(state, PESADA, 6);
@@ -479,22 +481,22 @@ describe('la veteranía vive en el individuo y lo acompaña (C3)', () => {
     // El héroe fuera de casa, pegado a ella: si estuviera dentro defendería él y
     // no la guarnición, y más lejos se encuentra con algo por el camino.
     nuestro.at = vecinaLibre(state, base.at);
-    base.garrison = [veterano(TROPA, 'veterano-g', 32_000), { creature: TROPA_BARATA }];
+    guarnecer(state, base, [veterano(TROPA, 'veterano-g', 32_000), { creature: TROPA_BARATA }]);
     const rival = heroesOf(state, 1)[0]!;
     rival.army = ejercito({ creature: TROPA_BARATA, count: 1 });
     state.current = 1;
     forzarBatalla(state, c, rival, base.at);
-    expect(state.pendingBattle!.foe).toEqual({ kind: 'town', townId: base.id });
+    expect(state.pendingBattle!.foe).toEqual({ kind: 'garrison', site: base.id });
     const b = state.pendingBattle!.battle;
     stackById(b, 'defender-0').ganado.experiencia = 20_000;
     cerrar(state, 'attacker');
     settleBattle(state, c);
-    expect(base.garrison[0]).toEqual({
+    expect(guarnicionDeLaCiudad(state, base)[0]).toEqual({
       creature: TROPA,
       veterania: { id: 'veterano-g', experiencia: 52_000, batallas: 2, bajas: 0, heroes: [] },
     });
     // Y es el MISMO objeto el que pasa al héroe: no hay copia que se quede atrás.
-    const guardado = base.garrison[0];
+    const guardado = guarnicionDeLaCiudad(state, base)[0];
     state.current = 0;
     nuestro.army = [];
     nuestro.movePoints = 5000;
@@ -789,7 +791,7 @@ describe('la IA no tira a la tropa veterana (C8)', () => {
     const hero = heroesOf(state, 0)[0]!;
     const base = baseOf(state, 0)!;
     hero.at = base.at;
-    base.garrison = [];
+    guarnecer(state, base, []);
     // Uno de lo más barato de rango 3 y cuatro tiradores novatos, más caros: con
     // la regla de antes el barato era el primero en irse. Ahora se van antes los
     // tiradores, que son novatos. Cuatro y no cinco desde la escala baja

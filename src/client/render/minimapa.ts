@@ -6,7 +6,7 @@
  * `casillaDelMinimapa`, que es la inversa de lo que se pinta aquí.
  */
 import type { CasillasLeidas } from '@core/map/casillas.js';
-import type { MapObject } from '@core/map/map.js';
+import { cruzaSuBarrera, type MapObject } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import type { Point } from '@core/types.js';
 import { temaDelLienzo } from '../temas.js';
@@ -90,7 +90,10 @@ function baseDe(ancho: number, alto: number, v: VistaMinimapa): HTMLCanvasElemen
   }
   // Las banderas, las que se saben: el recuerdo fuera de lo que se mira (#64).
   for (const o of v.objetos) {
-    if (o.kind === 'town' || o.kind === 'node') {
+    // Toda ciudad (la de dentro de una región, con el dueño que se sabe de ella:
+    // `owner` ya viene derivado), cada paso y el pueblo del muro, que se toma
+    // como un paso (pueblos en un nodo, fase 3). El pueblo de dentro, no.
+    if (o.kind === 'town' || cruzaSuBarrera(o)) {
       ctx.fillStyle = o.owner === null ? '#d9c995' : playerColor(o.owner);
       const r = o.kind === 'town' ? 1.4 : 0.8;
       ctx.fillRect((o.at.x + 0.5 - r / 2) * sx, (o.at.y + 0.5 - r / 2) * sy, sx * r, sy * r);

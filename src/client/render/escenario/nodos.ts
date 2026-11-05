@@ -3,7 +3,12 @@
  * `buildMap` al abrir su casilla (#145)— y en qué eje va su frontera, que sale
  * de sus ocho vecinas.
  */
-import type { MapObject, TramoDeCamino } from '@core/map/map.js';
+import {
+  type CruzaSuBarrera,
+  cruzaSuBarrera,
+  type MapObject,
+  type TramoDeCamino,
+} from '@core/map/map.js';
 import { type Barrera, esBarrera, type TerrainKind } from '@core/map/terrain.js';
 
 /**
@@ -54,14 +59,17 @@ export function ejeDeLaFrontera(
   return lados >= arribaAbajo ? 'ancho' : 'hondo';
 }
 
-/** Lo que cruza un nodo: la barrera que guarda el mapa y el eje de su frontera. */
+/**
+ * Lo que cruza un nodo —un paso o un pueblo en el muro (`cruzaSuBarrera`)—: la barrera
+ * que guarda el mapa y el eje de su frontera.
+ */
 export interface PasoDeNodo {
   readonly barrera: Barrera;
   readonly eje: 'ancho' | 'hondo';
 }
 
 export function pasoDeNodo(
-  nodo: Extract<MapObject, { kind: 'node' }>,
+  nodo: CruzaSuBarrera,
   W: number,
   terreno: readonly TerrainKind[],
 ): PasoDeNodo {
@@ -242,7 +250,11 @@ export interface PasoALaVista {
  */
 export const BARRERAS_CON_PASO_A_LA_VISTA: readonly Barrera[] = ['wall', 'mountain', 'forest'];
 
-/** Los nodos de paso que tienen que verse, con su eje (`BARRERAS_CON_PASO_A_LA_VISTA`). */
+/**
+ * Los nodos de paso que tienen que verse, con su eje (`BARRERAS_CON_PASO_A_LA_VISTA`):
+ * también el del pueblo en el muro (pueblos en un nodo, fase 3), que se cruza por
+ * él: lo que se aparta (la masa) no lo tapa.
+ */
 export function pasosALaVista(
   map: {
     readonly width: number;
@@ -252,7 +264,7 @@ export function pasosALaVista(
   puentes: ReadonlySet<string>,
 ): PasoALaVista[] {
   return map.objects.flatMap((o) => {
-    if (o.kind !== 'node' || puentes.has(o.id)) return [];
+    if (!cruzaSuBarrera(o) || puentes.has(o.id)) return [];
     if (!BARRERAS_CON_PASO_A_LA_VISTA.includes(o.barrera)) return [];
     return [{ id: o.id, barrera: o.barrera, eje: ejeDelPaso(o.at, map.width, map.terrain) }];
   });

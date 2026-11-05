@@ -5,18 +5,23 @@
  * **Nada de esto se guarda**: se deriva del terreno y de los objetos del mapa.
  * Una región es la componente 8-conexa de lo pisable *sin los nodos* que
  * contiene la casilla que la declara (`GameMap.regions`); un nodo es un objeto
- * `node` o un castillo, porque **una ciudad es un nodo** —la base incluida—. El
- * terreno no cambia en toda la partida y los nodos tampoco se mueven, así que
- * la forma de la red se calcula una vez por mapa (`estructura`). Lo que sí
- * cambia, quién es dueño de qué, se pregunta cada vez a donde vive: el castillo
- * a `Town.owner` y el nodo a su objeto. Es la regla de «un hecho, un sitio»: el
- * dueño de una región no es un dato, es una consecuencia de sus nodos.
+ * `node` o **un sitio que toca dos regiones o más**: una ciudad o un pueblo en
+ * el muro, entre ellas (la base, siempre). Una ciudad o un pueblo que toca una
+ * sola región está **dentro de ella** (`Estructura.sitiosDeRegion`) y es de quien
+ * la tenga (ciudades y pueblos en su región, 05-11-2026,
+ * `docs/agents/2026-11-05-ciudades-en-su-region/`): qué es cada uno lo dice la
+ * geometría, no un campo del plan. El terreno no cambia en toda la partida y
+ * los sitios tampoco se mueven, así que la forma de la red se calcula una vez
+ * por mapa (`estructura`). Lo que sí cambia, quién es dueño de qué, se pregunta
+ * cada vez a donde vive: el de un nodo, a su objeto del mapa (`owner`, que solo
+ * escribe `tomarElNodo`); el de un sitio de región, a su región. Es la regla de
+ * «un hecho, un sitio»: el dueño de una región no es un dato, es una
+ * consecuencia de sus nodos.
  *
  * 8-vecindad en todo, como el Dijkstra del mapa: si aquí las regiones fueran
  * 4-conexas, un héroe se colaría en diagonal por la esquina de dos muros que
  * esta función daría por cerrados.
  */
-import type { Town } from '../town/town.js';
 import type { PlayerId, Point } from '../types.js';
 import { aPunto, type GameMap, inBounds, type MapObject, type MapRegion } from './map.js';
 import { regionesDeLaCiudad, rioAnteLaCiudad } from './recinto.js';
@@ -30,12 +35,18 @@ import {
   type TerrainKind,
 } from './terrain.js';
 
-/** Un nodo de la red: un objeto `node` o un castillo. */
+/**
+ * Qué es un nodo de la red: un paso (un objeto `node`), o una ciudad o un pueblo
+ * en el muro, entre dos regiones o más.
+ */
+type ClaseDeNodo = 'paso' | 'ciudad' | 'pueblo';
+
+/** Un nodo de la red: un objeto `node`, o una ciudad o un pueblo que toca dos regiones o más. */
 interface NodoDeRed {
-  /** El id del objeto del mapa: el del nodo, o el del castillo. */
+  /** El id del objeto del mapa: el del paso, el de la ciudad o el del pueblo. */
   readonly id: string;
   readonly at: Point;
-  readonly ciudad: boolean;
+  readonly clase: ClaseDeNodo;
   /** Las regiones que toca, por índice y en orden ascendente. Su número es el **grado**. */
   readonly regiones: readonly number[];
 }
@@ -55,11 +66,28 @@ export interface Estructura {
   readonly nodoPorId: ReadonlyMap<string, number>;
   /** El índice de cada región por su id. */
   readonly regionPorId: ReadonlyMap<string, number>;
+  /**
+   * Las ciudades y los pueblos **dentro de una región** (tocan solo esa), por el id
+   * de su objeto, con el índice de su región. No son nodos: su casilla es de su
+   * región (`regionDe`) y no cuentan para el dueño de nadie.
+   */
+  readonly sitiosDeRegion: ReadonlyMap<string, number>;
 }
 
-/** ¿Es este objeto un nodo de la red? Los castillos lo son todos. */
-function esNodo(o: MapObject): boolean {
-  return o.kind === 'node' || o.kind === 'town';
+/** La clase de nodo que sería el objeto `o`, o `null` si no puede ser un nodo. */
+function claseDeCandidato(o: MapObject, conRegiones: boolean): ClaseDeNodo | null {
+  switch (o.kind) {
+    case 'node':
+      return 'paso';
+    case 'town':
+      return 'ciudad';
+    case 'village':
+      // Sin regiones no hay en qué estar dentro: el pueblo no es nada de la red,
+      // como antes (los mapas de los tests del pathfinding).
+      return conRegiones ? 'pueblo' : null;
+    default:
+      return null;
+  }
 }
 
 /**
@@ -234,10 +262,18 @@ function cercaDe(width: number, a: number, b: number): boolean {
  * Las componentes de lo pisable sin nodos de un mapa, aunque no sea válido: lo
  * que pinta el suelo de cada región (`buildMap`) antes de que nadie lo valide.
  * La misma cuenta que `estructura`, con el corte del puente de cada
- * ciudad-puente.
+ * ciudad-puente y con las ciudades y los pueblos de dentro de una región ya en
+ * ella (`asentarLosSitios`).
  */
 export function componentesDelMapa(map: MapaDeRed): { comp: Int32Array; total: number } {
-  return componentes(rejillaDe(map));
+  return asentarLosSitios(map, rejillaDe(map)).comps;
+}
+
+/** Un candidato a nodo de la rejilla: un objeto `node`, una ciudad o un pueblo. */
+interface Candidato {
+  readonly id: string;
+  readonly at: Point;
+  readonly clase: ClaseDeNodo;
 }
 
 /** Lo que hace falta de un mapa para leerle la red: terreno, regiones y nodos. */
@@ -247,38 +283,118 @@ interface Rejilla {
   readonly pisable: Uint8Array;
   /** Índice del nodo en cada casilla, o −1. */
   readonly nodoEn: Int32Array;
-  readonly nodos: readonly { readonly id: string; readonly at: Point; readonly ciudad: boolean }[];
+  readonly nodos: readonly Candidato[];
   /** En el puente de cada ciudad-puente, el índice de la casilla de su ciudad; −1 en las demás. */
   readonly puenteDe: Int32Array;
 }
 
 /**
- * La rejilla de un mapa. Un nodo fuera del mapa no se puede dar: los dos
- * productores pasan por `validateMapPlan`, que lo rechaza antes de construir,
- * y aquí se **lanza** en vez de saltarlo, que callado sería un nodo menos.
+ * La rejilla de un mapa, con **todo candidato a nodo cortado**: los pasos, las
+ * ciudades y los pueblos (estos, solo en un mapa con regiones). Cuáles de las
+ * ciudades y los pueblos se quedan de nodo lo decide después `asentarLosSitios`.
+ * Un nodo fuera del mapa no se puede dar: los dos productores pasan por
+ * `validateMapPlan`, que lo rechaza antes de construir, y aquí se **lanza** en
+ * vez de saltarlo, que callado sería un nodo menos.
  */
 function rejillaDe(map: MapaDeRed): Rejilla {
   const n = map.width * map.height;
   const pisable = new Uint8Array(n);
   for (let i = 0; i < n; i++) if (isWalkable(map.terrain[i] as TerrainKind)) pisable[i] = 1;
   const nodoEn = new Int32Array(n).fill(-1);
-  const nodos: { id: string; at: Point; ciudad: boolean }[] = [];
+  const nodos: Candidato[] = [];
+  const conRegiones = map.regions.length > 0;
   for (const o of map.objects) {
-    if (!esNodo(o)) continue;
+    const clase = claseDeCandidato(o, conRegiones);
+    if (clase === null) continue;
     if (!inBounds(map, o.at)) {
       throw new Error(`el nodo ${o.id} está fuera del mapa en (${o.at.x},${o.at.y})`);
     }
     nodoEn[o.at.y * map.width + o.at.x] = nodos.length;
-    nodos.push({ id: o.id, at: o.at, ciudad: o.kind === 'town' });
+    nodos.push({ id: o.id, at: o.at, clase });
   }
   const puenteDe = new Int32Array(n).fill(-1);
   for (const c of nodos) {
-    if (!c.ciudad) continue;
+    if (c.clase !== 'ciudad') continue;
     const puente = rioAnteLaCiudad(map, c.at);
     if (puente !== null)
       puenteDe[puente.acceso.y * map.width + puente.acceso.x] = c.at.y * map.width + c.at.x;
   }
   return { width: map.width, height: map.height, pisable, nodoEn, nodos, puenteDe };
+}
+
+/**
+ * Lo que tocan una ciudad o un pueblo en `zona` (la componente de cada casilla, o
+ * la región): la ciudad, lo de los accesos de sus puertas (`regionesDeLaCiudad`:
+ * su muralla no se pisa); el pueblo, lo de sus ocho vecinas, sin la muralla de
+ * ninguna ciudad (`enRecinto`). Es **la pregunta que decide si un sitio es nodo**,
+ * y la hacen la rejilla (con las componentes) y la red (con las regiones).
+ */
+function loQueToca(
+  map: MapaDeRed,
+  c: Candidato,
+  zona: Int32Array,
+  enRecinto: Uint8Array,
+): number[] {
+  return c.clase === 'ciudad'
+    ? regionesDeLaCiudad(map, c.at, zona)
+    : regionesQueToca(map.width, map.height, zona, c.at, enRecinto);
+}
+
+/** Las casillas de la muralla de toda ciudad: las ocho de alrededor de cada una (`recinto.ts`). */
+function casillasDeMuralla(map: MapaDeRed): Uint8Array {
+  const enRecinto = new Uint8Array(map.width * map.height);
+  for (const o of map.objects)
+    if (o.kind === 'town')
+      for (const [dx, dy] of VECINAS) {
+        const p = { x: o.at.x + dx, y: o.at.y + dy };
+        if (inBounds(map, p)) enRecinto[p.y * map.width + p.x] = 1;
+      }
+  return enRecinto;
+}
+
+/** La rejilla con solo los nodos de verdad, sus componentes y los sitios de dentro de una región. */
+interface RejillaAsentada {
+  readonly r: Rejilla;
+  readonly comps: { readonly comp: Int32Array; readonly total: number };
+  /** Las ciudades y los pueblos que tocan una sola componente, con la suya. */
+  readonly sitios: ReadonlyMap<string, number>;
+  /** Las casillas de la muralla de toda ciudad (`casillasDeMuralla`), una vez por mapa. */
+  readonly enRecinto: Uint8Array;
+}
+
+/**
+ * Las componentes de `r` con **cada ciudad o pueblo que toca una sola componente
+ * puesto en ella**: está dentro de su región, no es un nodo, y su casilla es de
+ * la región como cualquier otra. Los que tocan dos o más se quedan de nodo: son
+ * los que están en el muro. La rejilla que devuelve solo corta los nodos de
+ * verdad, así que todo lo de después —la red, los vecinos, el paso abierto— ve
+ * la misma red. Sin regiones, nada se asienta: no hay región en la que estar.
+ *
+ * Por qué cortar primero y asentar después, y no al revés: que un sitio esté
+ * dentro o en el muro **no lo dice el plan**, lo dice lo que toca, y lo que toca
+ * solo se sabe con la casilla cortada (un pueblo sin cortar no tocaría nada:
+ * sería parte de lo que toca).
+ */
+function asentarLosSitios(map: MapaDeRed, r: Rejilla): RejillaAsentada {
+  const comps = componentes(r);
+  const enRecinto = casillasDeMuralla(map);
+  if (map.regions.length === 0) return { r, comps, sitios: new Map(), enRecinto };
+  const sitios = new Map<string, number>();
+  const nodos: Candidato[] = [];
+  const nodoEn = new Int32Array(r.nodoEn.length).fill(-1);
+  for (const c of r.nodos) {
+    const i = c.at.y * r.width + c.at.x;
+    const toca = c.clase === 'paso' ? [] : loQueToca(map, c, comps.comp, enRecinto);
+    if (toca.length === 1) {
+      const zona = toca[0] as number;
+      comps.comp[i] = zona;
+      sitios.set(c.id, zona);
+      continue;
+    }
+    nodoEn[i] = nodos.length;
+    nodos.push(c);
+  }
+  return { r: { ...r, nodoEn, nodos }, comps, sitios, enRecinto };
 }
 
 /**
@@ -314,20 +430,17 @@ const cache = new WeakMap<MapaDeRed, Estructura>();
 export function estructura(map: MapaDeRed): Estructura {
   const hecha = cache.get(map);
   if (hecha !== undefined) return hecha;
-  const r = rejillaDe(map);
-  return construir(map, r, componentes(r));
+  return construir(map, asentarLosSitios(map, rejillaDe(map)));
 }
 
 /**
- * La `Estructura` a partir de una rejilla y sus componentes ya calculadas, y
- * guardada en la caché. La comparten `estructura` y `problemasDeRed` para que
- * validar un mapa y leerle la red sea **un solo** relleno por inundación.
+ * La `Estructura` a partir de una rejilla ya asentada (sus componentes y los
+ * sitios de dentro de una región), y guardada en la caché. La comparten
+ * `estructura` y `problemasDeRed` para que validar un mapa y leerle la red sea
+ * **un solo** relleno por inundación.
  */
-function construir(
-  map: MapaDeRed,
-  r: Rejilla,
-  { comp, total }: { comp: Int32Array; total: number },
-): Estructura {
+function construir(map: MapaDeRed, { r, comps, sitios, enRecinto }: RejillaAsentada): Estructura {
+  const { comp, total } = comps;
   // De componente a región, por la semilla de cada región.
   const regionDeComp = new Int32Array(total).fill(-1);
   for (const [k, reg] of map.regions.entries()) {
@@ -350,25 +463,19 @@ function construir(
     const c = comp[i] as number;
     if (c !== -1) regionDe[i] = regionDeComp[c] as number;
   }
+  const sitiosDeRegion = new Map<string, number>();
+  for (const [id, c] of sitios) {
+    const reg = regionDeComp[c] as number;
+    if (reg !== -1) sitiosDeRegion.set(id, reg);
+  }
 
-  // Las casillas de algún recinto: un nodo no toca la región por ellas, que
-  // son la muralla de una ciudad (`recinto.ts`) y no se pisan.
-  const enRecinto = new Uint8Array(r.width * r.height);
-  for (const n of r.nodos)
-    if (n.ciudad)
-      for (const [dx, dy] of VECINAS) {
-        const p = { x: n.at.x + dx, y: n.at.y + dy };
-        if (inBounds(map, p)) enRecinto[p.y * r.width + p.x] = 1;
-      }
+  // Un nodo no toca la región por las casillas de algún recinto (`enRecinto`),
+  // que son la muralla de una ciudad (`recinto.ts`) y no se pisan.
   const nodosDeRegion: number[][] = map.regions.map(() => []);
   const nodos: NodoDeRed[] = r.nodos.map((n, k) => {
-    // Una ciudad toca las regiones de los accesos de sus puertas, no las de su
-    // muralla (`regionesDeLaCiudad`); un nodo, las de sus vecinas de fuera.
-    const regiones = n.ciudad
-      ? regionesDeLaCiudad(map, n.at, regionDe)
-      : regionesQueToca(r.width, r.height, regionDe, n.at, enRecinto);
+    const regiones = loQueToca(map, n, regionDe, enRecinto);
     for (const reg of regiones) nodosDeRegion[reg]?.push(k);
-    return { id: n.id, at: n.at, ciudad: n.ciudad, regiones };
+    return { id: n.id, at: n.at, clase: n.clase, regiones };
   });
   const hecha: Estructura = {
     regionDe,
@@ -376,6 +483,7 @@ function construir(
     nodos,
     nodoPorId: new Map(nodos.map((n, k) => [n.id, k])),
     regionPorId: new Map(map.regions.map((reg, k) => [reg.id, k])),
+    sitiosDeRegion,
   };
   cache.set(map, hecha);
   return hecha;
@@ -434,6 +542,42 @@ export function juntoANodo(map: GameMap): Uint8Array {
 
 const casilla = (p: Point): string => `(${p.x},${p.y})`;
 
+/** Cómo se nombra un nodo en un problema: la ciudad y el pueblo por su id, el paso por su casilla. */
+function quienEsElNodo(n: Candidato): string {
+  switch (n.clase) {
+    case 'ciudad':
+      return `la ciudad "${n.id}"`;
+    case 'pueblo':
+      return `el pueblo "${n.id}"`;
+    case 'paso':
+      return `el nodo de ${casilla(n.at)}`;
+  }
+}
+
+/**
+ * El pueblo que **parte su región**: cortado de la red, deja la zona sin semilla
+ * `c` a un lado y una sola región declarada al otro (toca `c` y una única zona
+ * con semilla), así que sin él sería parte de esa región. Dicho, o `null` si no
+ * hay ninguno y la zona sin semilla es de las de siempre. Solo el pueblo: una
+ * ciudad entre una región y una zona sin semilla es, casi siempre, una ciudad del
+ * muro junto a una región que no se declaró, y la frase de siempre lo dice mejor
+ * (la geometría no distingue las dos cosas: lo que cambia es qué se quería).
+ */
+function queParteLaZona(
+  map: MapaDeRed,
+  { r, comps, enRecinto }: RejillaAsentada,
+  c: number,
+  conSemilla: (zona: number) => boolean,
+): string | null {
+  const { comp } = comps;
+  for (const n of r.nodos) {
+    if (n.clase !== 'pueblo') continue;
+    const toca = loQueToca(map, n, comp, enRecinto);
+    if (toca.includes(c) && toca.filter(conSemilla).length === 1) return quienEsElNodo(n);
+  }
+  return null;
+}
+
 /**
  * Lo que impide que un mapa sea una red de nodos válida, en frases para quien
  * diseñó el plan. Vacío: la red está bien.
@@ -448,7 +592,10 @@ const casilla = (p: Point): string => `(${p.x},${p.y})`;
  *  2. Ningún trozo pisable sin región: sería un sitio al que se llega sin cruzar
  *     un nodo de nadie.
  *  3. Cada nodo toca al menos dos regiones —si no, no es un paso— y dos nodos
- *     no son vecinos, que dejaría pasar de nodo a nodo sin pisar región.
+ *     no son vecinos, que dejaría pasar de nodo a nodo sin pisar región. Una
+ *     ciudad o un pueblo que toca una sola región está dentro de ella y no es un
+ *     nodo (`asentarLosSitios`); el que deja a un lado una zona sin semilla
+ *     **parte la región**, y se dice así.
  *  4. Cada región tiene al menos un nodo, y todas se alcanzan unas desde otras.
  *
  * Un solo relleno por inundación: las componentes que se miran aquí son las
@@ -461,9 +608,9 @@ export function problemasDeRed(map: GameMap): string[] {
     return ['el mapa no declara ninguna región: un mapa de nodos necesita "regions"'];
   }
   const problemas: string[] = [];
-  const r = rejillaDe(map);
+  const asentada = asentarLosSitios(map, rejillaDe(map));
+  const { r, comps } = asentada;
   const W = r.width;
-  const comps = componentes(r);
   const { comp, total } = comps;
 
   // 1. Las semillas, cada una en su componente.
@@ -497,8 +644,12 @@ export function problemasDeRed(map: GameMap): string[] {
   for (let c = 0; c < total; c++) {
     const semillas = semillasDeComp[c] as number[];
     if (semillas.length === 0) {
+      const donde = casilla(aPunto(comp.indexOf(c), W));
+      const parte = queParteLaZona(map, asentada, c, (z) => (semillasDeComp[z]?.length ?? 0) > 0);
       problemas.push(
-        `hay una zona pisable sin región declarada que incluye ${casilla(aPunto(comp.indexOf(c), W))}: declara ahí una región o ciérrala con muro`,
+        parte === null
+          ? `hay una zona pisable sin región declarada que incluye ${donde}: declara ahí una región o ciérrala con muro`
+          : `${parte} parte su región: deja a un lado una zona sin región declarada que incluye ${donde}; ponlo donde no corte el paso`,
       );
       continue;
     }
@@ -509,12 +660,16 @@ export function problemasDeRed(map: GameMap): string[] {
 
   // A partir de aquí cada componente es una región: se construye la red con las
   // mismas componentes, sin volver a inundar.
-  const red = construir(map, r, comps);
+  const red = construir(map, asentada);
 
   // 3. Los nodos: pasos de verdad, y no pegados unos a otros.
   for (const [k, n] of red.nodos.entries()) {
-    const quien = n.ciudad ? `la ciudad "${n.id}"` : `el nodo de ${casilla(n.at)}`;
-    if (n.regiones.length < 2) {
+    const quien = quienEsElNodo(n);
+    if (n.clase !== 'paso' && n.regiones.length === 0) {
+      problemas.push(
+        `${quien} no toca ninguna región: ${n.clase === 'ciudad' ? 'ponla' : 'ponlo'} dentro de una región, o en el muro entre dos`,
+      );
+    } else if (n.regiones.length < 2) {
       const cuales =
         n.regiones.length === 0
           ? 'no toca ninguna región'
@@ -1115,10 +1270,12 @@ function pasoAbierto(map: GameMap, r: Rejilla, a: number, b: number): string {
 
 // ---------------------------------------------------------------- dueños
 
-/** Lo que hace falta de una partida para saber de quién es cada cosa. */
+/**
+ * Lo que hace falta de una partida para saber de quién es cada cosa: el mapa (el
+ * dueño de cada nodo vive en su objeto) y quién juega con qué base.
+ */
 interface EstadoDeRed {
   readonly map: GameMap;
-  readonly towns: readonly Town[];
   readonly players: readonly { readonly id: PlayerId; readonly base: string | null }[];
 }
 
@@ -1160,7 +1317,7 @@ export function territorio(state: EstadoDeRed): Territorio {
 
 /** El dueño de cada nodo y el de cada región: lo de `territorio` sin lo unido a cada base. */
 function dueñosDe(
-  state: EstadoDeRed,
+  state: Pick<EstadoDeRed, 'map'>,
   red: Estructura,
 ): { dueñoDeNodo: (PlayerId | null)[]; dueñoDeRegion: (PlayerId | null)[] } {
   const dueñoDeNodo = dueñosDeNodos(state, red);
@@ -1170,12 +1327,25 @@ function dueñosDe(
   };
 }
 
+/** Los dueños de una foto sin lo unido a cada base: lo que lee `dueñoEnLaFoto`. */
+export type DueñosDeLaRed = Pick<Territorio, 'red' | 'dueñoDeNodo' | 'dueñoDeRegion'>;
+
+/**
+ * De quién es cada nodo y cada región, en una pasada y sin buscar lo unido a cada
+ * base, que es lo que cuesta de `territorio`: para quien pregunta el dueño de
+ * todos los sitios a la vez (la crónica de los sitios, el cable del espectador).
+ */
+export function dueñosDeLaRed(state: Pick<EstadoDeRed, 'map'>): DueñosDeLaRed {
+  const red = estructura(state.map);
+  return { red, ...dueñosDe(state, red) };
+}
+
 /**
  * El dueño de cada región, por su índice en `map.regions`: `territorio` sin
  * buscar lo unido a cada base, que es lo que cuesta. Lo lee el clima (la noche
  * va con la facción del dueño de cada región).
  */
-export function dueñosDeLasRegiones(state: EstadoDeRed): readonly (PlayerId | null)[] {
+export function dueñosDeLasRegiones(state: Pick<EstadoDeRed, 'map'>): readonly (PlayerId | null)[] {
   return dueñosDe(state, estructura(state.map)).dueñoDeRegion;
 }
 
@@ -1184,7 +1354,7 @@ export function dueñosDeLasRegiones(state: EstadoDeRed): readonly (PlayerId | n
  * sus nodos: lo que mira una sola región (`regionOwner`, la noche de un sitio)
  * sin hacer la foto entera. La misma regla, `dueñoComun`.
  */
-export function dueñoDeLaRegion(state: EstadoDeRed, k: number): PlayerId | null {
+export function dueñoDeLaRegion(state: Pick<EstadoDeRed, 'map'>, k: number): PlayerId | null {
   const red = estructura(state.map);
   const reg = red.regiones[k];
   if (reg === undefined) {
@@ -1195,31 +1365,107 @@ export function dueñoDeLaRegion(state: EstadoDeRed, k: number): PlayerId | null
   return dueñoComun(reg.nodos, dueños, null);
 }
 
-/** El dueño de un nodo, preguntado a donde vive: como `dueñosDeNodos`, de uno solo. */
-function dueñoDelNodo(state: EstadoDeRed, n: NodoDeRed): PlayerId | null {
-  if (n.ciudad) {
-    const t = state.towns.find((t) => t.id === n.id);
-    if (t === undefined) throw new Error(`el nodo ${n.id} no tiene dueño que leer`);
-    return t.owner;
+type ObjetoConDueño = Extract<MapObject, { readonly kind: 'node' | 'town' | 'village' }>;
+
+const objetosConDueño = new WeakMap<readonly MapObject[], Map<string, ObjetoConDueño>>();
+
+/**
+ * El objeto del mapa de id `id` que guarda un dueño (un paso, una ciudad o un
+ * pueblo), por un índice hecho una vez por lista de objetos: el dueño de una
+ * ciudad se pregunta en cada hecho de la crónica (`visibleNowAt`), y buscarlo con
+ * un `find` por todo el mapa cada vez se notaba en el banco.
+ */
+function objetoConDueño(map: Pick<MapaDeRed, 'objects'>, id: string): ObjetoConDueño | undefined {
+  let indice = objetosConDueño.get(map.objects);
+  if (indice === undefined || !indice.has(id)) {
+    indice = new Map();
+    for (const o of map.objects)
+      if (o.kind === 'node' || o.kind === 'town' || o.kind === 'village') indice.set(o.id, o);
+    objetosConDueño.set(map.objects, indice);
   }
-  for (const o of state.map.objects) if (o.kind === 'node' && o.id === n.id) return o.owner;
-  throw new Error(`el nodo ${n.id} no tiene dueño que leer`);
+  return indice.get(id);
+}
+
+/** El dueño de un nodo, preguntado a donde vive: como `dueñosDeNodos`, de uno solo. */
+function dueñoDelNodo(state: Pick<EstadoDeRed, 'map'>, n: NodoDeRed): PlayerId | null {
+  const o = objetoConDueño(state.map, n.id);
+  if (o === undefined) throw new Error(`el nodo ${n.id} no tiene dueño que leer`);
+  return o.owner;
 }
 
 /**
- * El dueño de cada nodo, preguntado a donde vive: un castillo, a `Town.owner`
- * (el libro de cuentas); un nodo, a su objeto (`captureNode`). Una pasada, con
- * dos índices por id: preguntarlo nodo a nodo con un `find` era cuadrático.
+ * El dueño de cada nodo, preguntado a donde vive: su objeto del mapa (el paso, la
+ * ciudad o el pueblo en el muro), que solo escribe `tomarElNodo`. Por el índice
+ * de `objetoConDueño`: preguntarlo nodo a nodo con un `find` era cuadrático.
  */
-function dueñosDeNodos(state: EstadoDeRed, red: Estructura): (PlayerId | null)[] {
-  const porCastillo = new Map(state.towns.map((t) => [t.id, t.owner]));
-  const porObjeto = new Map<string, PlayerId | null>();
-  for (const o of state.map.objects) if (o.kind === 'node') porObjeto.set(o.id, o.owner);
-  return red.nodos.map((n) => {
-    const dueños = n.ciudad ? porCastillo : porObjeto;
-    if (!dueños.has(n.id)) throw new Error(`el nodo ${n.id} no tiene dueño que leer`);
-    return dueños.get(n.id) as PlayerId | null;
-  });
+function dueñosDeNodos(state: Pick<EstadoDeRed, 'map'>, red: Estructura): (PlayerId | null)[] {
+  return red.nodos.map((n) => dueñoDelNodo(state, n));
+}
+
+/**
+ * **De quién es una ciudad o un pueblo** (o un paso), por el id de su objeto: la
+ * regla del sitio, una vez (ciudades y pueblos en su región, 05-11-2026). En el
+ * muro (un nodo), su objeto del mapa, que se toma como un paso (`tomarElNodo`);
+ * dentro de una región, el de su región (`dueñoDeLaRegion`), que no se guarda. En
+ * un mapa sin regiones no hay en qué estar dentro: un pueblo no es de nadie.
+ * Lo pregunta `dueñoDelSitio` (`state/sitios.ts`); con la foto hecha, la misma
+ * regla es `dueñoEnLaFoto`.
+ */
+export function dueñoDeUnSitio(state: Pick<EstadoDeRed, 'map'>, id: string): PlayerId | null {
+  const red = estructura(state.map);
+  const donde = dondeEsta(red, id);
+  if (donde?.en === 'muro') return dueñoDelNodo(state, red.nodos[donde.nodo] as NodoDeRed);
+  if (donde?.en === 'region') return dueñoDeLaRegion(state, donde.region);
+  return sinSitio(red, id);
+}
+
+/** `dueñoDeUnSitio` sobre la foto ya hecha (`territorio`): la misma regla, sin volver a preguntar. */
+export function dueñoEnLaFoto(t: DueñosDeLaRed, id: string): PlayerId | null {
+  const donde = dondeEsta(t.red, id);
+  if (donde?.en === 'muro') return t.dueñoDeNodo[donde.nodo] ?? null;
+  if (donde?.en === 'region') return t.dueñoDeRegion[donde.region] ?? null;
+  return sinSitio(t.red, id);
+}
+
+/**
+ * El dueño de lo que no es un sitio de la red: en un mapa sin regiones no hay en
+ * qué estar dentro y un pueblo no es de nadie; con ellas, un id así es un fallo.
+ */
+function sinSitio(red: Estructura, id: string): null {
+  if (red.regiones.length === 0) return null;
+  throw new Error(
+    `"${id}" no es ningún sitio de la red: ni nodo, ni ciudad o pueblo de una región`,
+  );
+}
+
+/**
+ * **Dónde está un sitio de la red** por el id de su objeto: en el muro (`nodo`, su
+ * índice en `red.nodos`) o dentro de una región (`region`, su índice); `null` si
+ * no es ninguna de las dos (un id que no es un sitio, o un mapa sin regiones).
+ * Es la única bifurcación «nodo o región»: la leen el dueño, la renta, la
+ * lectura para el motor y la validación de los pueblos.
+ */
+export type DondeEsta =
+  | { readonly en: 'muro'; readonly nodo: number }
+  | { readonly en: 'region'; readonly region: number };
+
+export function dondeEsta(red: Estructura, id: string): DondeEsta | null {
+  const nodo = red.nodoPorId.get(id);
+  if (nodo !== undefined) return { en: 'muro', nodo };
+  const region = red.sitiosDeRegion.get(id);
+  return region === undefined ? null : { en: 'region', region };
+}
+
+/** Las regiones que toca un sitio (`dondeEsta`): las de su nodo, o la suya. Vacío si no es un sitio. */
+export function regionesDelSitio(red: Estructura, id: string): readonly number[] {
+  const donde = dondeEsta(red, id);
+  if (donde === null) return [];
+  return donde.en === 'muro' ? (red.nodos[donde.nodo] as NodoDeRed).regiones : [donde.region];
+}
+
+/** Si el sitio de id `id` está en un nodo (en el muro, entre regiones): se toma como un paso. */
+export function sitioEnUnNodo(map: MapaDeRed, id: string): boolean {
+  return estructura(map).nodoPorId.has(id);
 }
 
 /**
@@ -1307,7 +1553,7 @@ export function regionesQueCierra(t: Territorio, nodoId: string, player: PlayerI
  * (`dueñoDeLaRegion`): la foto entera (`territorio`) busca además lo unido a
  * cada base, y aquí no hace falta.
  */
-export function regionOwner(state: EstadoDeRed, regionId: string): PlayerId | null {
+export function regionOwner(state: Pick<EstadoDeRed, 'map'>, regionId: string): PlayerId | null {
   const k = estructura(state.map).regionPorId.get(regionId);
   if (k === undefined) throw new Error(`la región "${regionId}" no existe en este mapa`);
   return dueñoDeLaRegion(state, k);

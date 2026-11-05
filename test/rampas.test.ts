@@ -277,9 +277,11 @@ describe('las piezas de la rampa, con el arte del repo', () => {
 // 16-10-2026), 3 en 1-300 (s117 (35, 21), de roca; s164 y s277, de arenisca).
 // Con el río continuo (#144), en 1-120 solo s75 (23, 17), de roca. Con el
 // recinto de las ciudades del núcleo (vuelta 3, 21-10-2026), en 1-200 solo s126
-// (32, 34), de roca (y 6 muescas).
-const SEMILLA = 126;
-const [RX, RY] = [32, 34];
+// (32, 34), de roca (y 6 muescas). Con las ciudades en mitad de su región
+// (05-11-2026), ninguna recta en 1-700: la primera de 1-1500 es s1064 (17, 12),
+// de arenisca, la única (y 30 muescas en 1-700).
+const SEMILLA = 1064;
+const [RX, RY] = [17, 12];
 
 describe(`las rampas en un mapa real: s${SEMILLA}, (${RX}, ${RY})`, () => {
   const map = newGame({ seed: SEMILLA }).map;
@@ -290,7 +292,7 @@ describe(`las rampas en un mapa real: s${SEMILLA}, (${RX}, ${RY})`, () => {
     expect(r).toBeDefined();
     expect(e.informe.rampasSinSusPiezas).toBe(0);
     expect(rampasSinSusPiezas(e.sprites, e.relieve.rampas, catalogo)).toEqual([]);
-    expect(e.sprites.filter((s) => s.src?.includes('/rampa-roca-1/') === true)).toHaveLength(3);
+    expect(e.sprites.filter((s) => s.src?.includes('/rampa-arenisca-1/') === true)).toHaveLength(3);
     // Sus paredes no son de la cara: ni se pintan ni piden frontal.
     const fuera = new Set(celdasDeLaRampa(r as Rampa));
     expect(e.relieve.celdas.filter((c) => fuera.has(claveDeCelda(c)))).toEqual([]);
@@ -360,7 +362,9 @@ describe(`las rampas en un mapa real: s${SEMILLA}, (${RX}, ${RY})`, () => {
 // 42×42) y s3 (4, 20) en 34×34.
 // Con las puertas de las ciudades (fase 2, 21-10-2026), s78 (23, 9), de roca y
 // la única muesca de 1-120 (era s11 (32, 9) desde el recinto del núcleo).
-const [MS, MX, MY] = [78, 23, 9];
+// Con las ciudades en mitad de su región (05-11-2026), s55 (27, 21), la primera
+// de 1-200 de roca y sola en su mapa (12 muescas en 1-200: 4 de arenisca).
+const [MS, MX, MY] = [55, 27, 21];
 describe(`la rampa de muesca en un mapa real: s${MS}, (${MX}, ${MY}) (§36)`, () => {
   const map = newGame({ seed: MS }).map;
   const e = componer(map, MS, catalogo);

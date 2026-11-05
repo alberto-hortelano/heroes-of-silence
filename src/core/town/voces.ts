@@ -252,9 +252,18 @@ export function vozDe(town: Town, npc: string, semana: number, dia: number): str
   return createRng(hashDeTexto(`${town.id}|${npc}|${semana}|${dia}`)).pick(vecino.frases);
 }
 
-/** Por qué no se pueden poner voces a `npc` en esta base, o `null` si se puede. */
-export function vocesBlocker(town: Town, player: PlayerId, npc: string): string | null {
-  if (town.owner !== player) return `${town.name} no es una base tuya`;
+/**
+ * Por qué no se pueden poner voces a `npc` en esta base, o `null` si se puede.
+ * `dueño` es el de la ciudad (`dueñoDeLaCiudad`, que este módulo no puede
+ * preguntar: no conoce la partida).
+ */
+export function vocesBlocker(
+  town: Town,
+  dueño: PlayerId | null,
+  player: PlayerId,
+  npc: string,
+): string | null {
+  if (dueño !== player) return `${town.name} no es una base tuya`;
   const gente = vecinosDeLaBase(town);
   if (!gente.some((v) => v.id === npc)) {
     return `en ${town.name} no hay nadie que se llame "${npc}": están ${gente.map((v) => v.id).join(', ')}`;
@@ -287,6 +296,7 @@ export interface VocesPuestas {
  */
 export function ponerVoces(
   town: Town,
+  dueño: PlayerId | null,
   player: PlayerId,
   semana: number,
   voces: readonly VozPedida[],
@@ -295,7 +305,7 @@ export function ponerVoces(
   const lineas: Record<string, string[]> = {};
   let aceptadas = 0;
   for (const voz of voces) {
-    const motivo = vocesBlocker(town, player, voz.npc);
+    const motivo = vocesBlocker(town, dueño, player, voz.npc);
     if (motivo !== null) {
       rechazos.push(`${voz.npc}: ${motivo}`);
       continue;

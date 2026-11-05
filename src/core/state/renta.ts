@@ -12,52 +12,69 @@
  * - cada pueblo cuya región es del jugador y está unida a su base da
  *   `ECONOMIA.rentaDelPueblo` (inventado, 250).
  *
+ * Desde la tarea 2 (ciudades y pueblos en su región, 05-11-2026): una ciudad o un
+ * pueblo **en el muro** es un nodo y cobra si el nodo está unido a la base; uno
+ * **dentro de una región**, si la región lo está. Y **el ocupado no da nada**
+ * (`ocupadoBlocker`, P4): sale con oro 0 y la frase de por qué.
+ *
  * Las dos preguntas salen de UNA búsqueda desde la base (la foto de
  * `territorio`), y por eso cortar un nodo se nota en todo lo que colgaba
  * detrás a la vez, sin que nadie tenga que apuntar nada.
  */
 import { ECONOMIA } from '../data.js';
 import type { GameMap } from '../map/map.js';
-import { type Estructura, type Territorio, territorio } from '../map/regiones.js';
+import {
+  dondeEsta,
+  dueñoEnLaFoto,
+  type Estructura,
+  type Territorio,
+  territorio,
+} from '../map/regiones.js';
 import { dailyIncome, type Town } from '../town/town.js';
 import type { PlayerId } from '../types.js';
+import type { GameState } from './game.js';
+import { ocupadoBlocker, sitioDeLaCiudad, sitioDelObjeto } from './sitios.js';
 
 /**
  * La regla del pueblo dicha para la persona y para el agente: la leen la prosa
  * del contrato (`agent.ts`, `serialize.ts`) y el cliente, como `REGLA_DEL_ESCUDO`.
  */
-export const REGLA_DEL_PUEBLO = `da ${ECONOMIA.rentaDelPueblo} de oro al día a quien tenga su región unida a su base`;
-
-/** Lo que mira la renta: el mapa, las ciudades y quién juega con qué base. */
-interface EstadoConRenta {
-  readonly map: GameMap;
-  readonly towns: readonly Town[];
-  readonly players: readonly { readonly id: PlayerId; readonly base: string | null }[];
-}
+export const REGLA_DEL_PUEBLO = `da ${ECONOMIA.rentaDelPueblo} de oro al día a quien lo tenga unido a su base (dentro de una región, a quien tenga la región), salvo si está ocupado`;
 
 /** Una ciudad propia en la renta: lo que da hoy y si cobra. */
 export interface CiudadDeLaRenta {
   readonly id: string;
   readonly nombre: string;
-  /** Lo que da su ayuntamiento si está unida a la base; 0 si no. */
+  /** Lo que da su ayuntamiento si está unida a la base y no está ocupada; 0 si no. */
   readonly oro: number;
   /** Si está unida a la base: la que han dejado aislada sigue siendo suya y no cobra. */
   readonly unida: boolean;
+  /** Por qué no da nada aunque esté unida (`ocupadoBlocker`), o `null`. */
+  readonly ocupada: string | null;
 }
 
-/** Un pueblo en la renta: uno de una región del jugador unida a su base. */
+/**
+ * Un pueblo del jugador en la renta. Todos, también el que no cobra: el del muro
+ * recién tomado aún sin unir no salía en ningún sitio, y no se sabía por qué no
+ * daba oro (vuelta 1 de QA de la tarea 2, H2).
+ */
 export interface PuebloDeLaRenta {
   readonly id: string;
   readonly nombre: string;
+  /** `ECONOMIA.rentaDelPueblo` si está unido a la base y no está ocupado; 0 si no. */
   readonly oro: number;
+  /** Si está unido a la base, como `CiudadDeLaRenta.unida`. */
+  readonly unido: boolean;
+  /** Por qué no da nada aunque esté unido (`ocupadoBlocker`), o `null`. */
+  readonly ocupada: string | null;
 }
 
 /** Lo que cobra un jugador hoy, y de dónde sale cada moneda. */
 export interface RentaDelDia {
   readonly total: number;
-  /** Todas sus ciudades: las que no cobran, con `unida` a `false`. */
+  /** Todas sus ciudades: las que no cobran, con `unida` a `false` o `ocupada`. */
   readonly ciudades: readonly CiudadDeLaRenta[];
-  /** Los pueblos de sus regiones unidas a la base. */
+  /** Todos sus pueblos: los que no cobran, con `unido` a `false` o `ocupada`. */
   readonly pueblos: readonly PuebloDeLaRenta[];
 }
 
@@ -69,9 +86,8 @@ type PueblosPorRegion = ReadonlyMap<
 const pueblosCache = new WeakMap<Estructura, PueblosPorRegion>();
 
 /**
- * Los pueblos de cada región de la red, por su índice. Se cuentan una vez por
- * mapa, como la red misma (`estructura`): los pueblos no se mueven ni se toman,
- * y la renta se pide en cada turno y en cada repintado de la barra.
+ * Los pueblos de dentro de cada región de la red, por su índice. Se cuentan una
+ * vez por mapa, como la red misma (`estructura`): los pueblos no se mueven.
  */
 function pueblosPorRegion(map: GameMap, red: Estructura): PueblosPorRegion {
   const hecho = pueblosCache.get(red);
@@ -79,7 +95,8 @@ function pueblosPorRegion(map: GameMap, red: Estructura): PueblosPorRegion {
   const porRegion = new Map<number, { id: string; nombre: string }[]>();
   for (const o of map.objects) {
     if (o.kind !== 'village') continue;
-    const r = red.regionDe[o.at.y * map.width + o.at.x] ?? -1;
+    const r = red.sitiosDeRegion.get(o.id);
+    if (r === undefined) continue;
     const lista = porRegion.get(r);
     if (lista === undefined) porRegion.set(r, [{ id: o.id, nombre: o.name }]);
     else lista.push({ id: o.id, nombre: o.name });
@@ -88,35 +105,53 @@ function pueblosPorRegion(map: GameMap, red: Estructura): PueblosPorRegion {
   return porRegion;
 }
 
-/** Lo que dan al día los pueblos de la región `region` (por su índice en la red). */
-export function rentaDeLaRegion(map: GameMap, red: Estructura, region: number): number {
-  return (pueblosPorRegion(map, red).get(region)?.length ?? 0) * ECONOMIA.rentaDelPueblo;
+/**
+ * Lo que dan al día la región `region` (por su índice en la red): sus pueblos y el
+ * ayuntamiento de sus ciudades de dentro (tarea 2: la IA valora cerrarla por lo que
+ * le daría). Sin mirar la ocupación: es lo que la región vale, no lo que da hoy.
+ */
+export function rentaDeLaRegion(
+  state: { readonly map: GameMap; readonly towns: readonly Town[] },
+  red: Estructura,
+  region: number,
+): number {
+  let oro = (pueblosPorRegion(state.map, red).get(region)?.length ?? 0) * ECONOMIA.rentaDelPueblo;
+  for (const t of state.towns) if (red.sitiosDeRegion.get(t.id) === region) oro += dailyIncome(t);
+  return oro;
 }
 
 export function rentaDelDia(
-  state: EstadoConRenta,
+  state: GameState,
   jugador: PlayerId,
   foto: Territorio = territorio(state),
 ): RentaDelDia {
   const conexion = foto.conexion.get(jugador);
   if (conexion === undefined)
     throw new Error(`el jugador ${jugador} no está en la foto del territorio`);
+  // Unido a la base: el sitio del muro, por su nodo; el de dentro, por su región.
+  const unido = (id: string): boolean => {
+    const donde = dondeEsta(foto.red, id);
+    if (donde === null) return false;
+    return donde.en === 'muro' ? conexion.nodos.has(id) : conexion.regiones.has(donde.region);
+  };
   let total = 0;
   const ciudades: CiudadDeLaRenta[] = [];
   for (const t of state.towns) {
-    if (t.owner !== jugador) continue;
-    const unida = conexion.nodos.has(t.id);
-    const oro = unida ? dailyIncome(t) : 0;
+    if (dueñoEnLaFoto(foto, t.id) !== jugador) continue;
+    const unida = unido(t.id);
+    const ocupada = ocupadoBlocker(state, sitioDeLaCiudad(t), jugador);
+    const oro = unida && ocupada === null ? dailyIncome(t) : 0;
     total += oro;
-    ciudades.push({ id: t.id, nombre: t.name, oro, unida });
+    ciudades.push({ id: t.id, nombre: t.name, oro, unida, ocupada });
   }
   const pueblos: PuebloDeLaRenta[] = [];
-  for (const [region, lista] of pueblosPorRegion(state.map, foto.red)) {
-    if (!conexion.regiones.has(region)) continue;
-    for (const p of lista) {
-      total += ECONOMIA.rentaDelPueblo;
-      pueblos.push({ ...p, oro: ECONOMIA.rentaDelPueblo });
-    }
+  for (const o of state.map.objects) {
+    if (o.kind !== 'village' || dueñoEnLaFoto(foto, o.id) !== jugador) continue;
+    const esUnido = unido(o.id);
+    const ocupada = ocupadoBlocker(state, sitioDelObjeto(state, o), jugador);
+    const oro = esUnido && ocupada === null ? ECONOMIA.rentaDelPueblo : 0;
+    total += oro;
+    pueblos.push({ id: o.id, nombre: o.name, oro, unido: esUnido, ocupada });
   }
   return { total, ciudades, pueblos };
 }

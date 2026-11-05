@@ -34,7 +34,7 @@ import {
   visibleNowAt,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import { sitioSiExiste } from '../src/core/state/sitios.js';
+import { dueñoDeLaCiudad, sitioSiExiste } from '../src/core/state/sitios.js';
 import type { Point } from '../src/core/types.js';
 import {
   ejercito,
@@ -574,7 +574,7 @@ describe('la crónica de la pantalla deja de mentir', () => {
 
   it('la guarnición se nombra por su sitio, y un reparto es una línea (H4 del QA)', () => {
     const state = newGame({ seed: 3 });
-    const base = state.towns.find((t) => t.owner === 0)!;
+    const base = state.towns.find((t) => dueñoDeLaCiudad(state, t) === 0)!;
     const paso = state.map.objects.find((o) => o.kind === 'node')!;
     const conSitio = (cuerpo: Record<string, unknown>, quien = 0): string =>
       marcadoDe(renderLog([evento(cuerpo)], quien, undefined, (id) => sitioSiExiste(state, id)));
@@ -798,12 +798,14 @@ describe('la crónica de la pantalla deja de mentir', () => {
     expect(pinta(monstruo, -1)).toContain(
       `<div>Batalla en\u00a0(7,\u00a08): un héroe del jugador 0 contra un monstruo; gana el jugador 0 en 2 rondas; pierde el monstruo ${caidos}</div>`,
     );
-    const ciudad = batalla({ kind: 'town', townId: 't' }, { attacker: 1, defender: null });
+    // La guarnición de una ciudad es una guarnición más desde la tarea 2: la
+    // neutral, sin dueño, y la de un castillo, de su dueño.
+    const ciudad = batalla({ kind: 'garrison', site: 't' }, { attacker: 1, defender: null });
     expect(pinta(ciudad, -1)).toContain(
-      `un héroe del jugador 1 contra la guarnición de una ciudad neutral; gana el jugador 1 en 2 rondas; pierde la guarnición ${caidos}`,
+      `un héroe del jugador 1 contra una guarnición neutral; gana el jugador 1 en 2 rondas; pierde la guarnición ${caidos}`,
     );
     const castillo = batalla(
-      { kind: 'town', townId: 't' },
+      { kind: 'garrison', site: 't' },
       { attacker: 1, defender: 0 },
       'defender',
     );
@@ -811,7 +813,7 @@ describe('la crónica de la pantalla deja de mentir', () => {
       '<div class="win">Batalla ganada contra un héroe del jugador 1 en\u00a0(7,\u00a08), en 2 rondas',
     );
     expect(pinta(castillo, 1)).toContain(
-      '<div class="lose">Batalla perdida contra la guarnición de un castillo del jugador 0 en\u00a0(7,\u00a08)',
+      '<div class="lose">Batalla perdida contra la guarnición de un sitio del jugador 0 en\u00a0(7,\u00a08)',
     );
     // La emboscada: el atacante sin dueño es el grupo, y el defensor, tu héroe.
     const emboscada = batalla(

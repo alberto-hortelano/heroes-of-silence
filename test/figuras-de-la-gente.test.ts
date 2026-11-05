@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { Session } from '../src/client/session.js';
 import { type Banco, type FiguraDeNpc, laMasParecida, leerBanco } from '../src/core/npcs.js';
 import { createRng, hashDeTexto } from '../src/core/rng.js';
+import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 import { figurasDeLaGente } from '../src/core/town/figuras.js';
 import { personasDeLaFaccion } from '../src/core/town/voces.js';
 import type { FactionId } from '../src/core/types.js';
@@ -213,7 +214,7 @@ describe('la base en la sesión', () => {
       banco: b,
       pintadas: todas(b),
     });
-    const base = s.state.towns.find((t) => t.owner === 0)!;
+    const base = s.state.towns.find((t) => dueñoDeLaCiudad(s.state, t) === 0)!;
     s.openTown(base.id);
     const antes = s.vistaDeLaBase()!;
     expect(antes.caminante.cuerpo).not.toBe('npc:ana');

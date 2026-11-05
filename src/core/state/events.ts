@@ -31,14 +31,15 @@ import type { PlayerId, Point } from '../types.js';
 export type BattleFoe =
   | { readonly kind: 'monster'; readonly objectId: string }
   | { readonly kind: 'hero'; readonly heroId: string }
-  | { readonly kind: 'town'; readonly townId: string }
   /** Un grupo de asaltantes al que ataca un héroe (`state/asaltantes.ts`). */
   | { readonly kind: 'raider'; readonly raiderId: string }
   /**
-   * La guarnición de un paso o de un pueblo (`state/sitios.ts`, `GameState.guarniciones`)
-   * sin héroe dentro: la que dejó allí su dueño (`dejar_tropa`). `site` es el id del
-   * objeto del mapa (el nodo o el pueblo). La de una ciudad es `town`. En inglés, como
-   * los demás: viaja tal cual al agente en `recentEvents` (H7 del QA de la fase 1).
+   * La guarnición de una ciudad, un paso o un pueblo (`state/sitios.ts`,
+   * `GameState.guarniciones`) sin héroe dentro: la neutral de una ciudad, la de una
+   * base, la que dejó allí su dueño (`dejar_tropa`) o la que ocupa un sitio que ya
+   * es de otro. `site` es el id del sitio. La ciudad tenía su propia clase, `town`,
+   * hasta que su guarnición pasó a `guarniciones` (tarea 2, 05-11-2026). En inglés,
+   * como los demás: viaja tal cual al agente en `recentEvents` (H7 del QA de la fase 1).
    */
   | { readonly kind: 'garrison'; readonly site: string }
   /**
@@ -64,6 +65,15 @@ export type BattleFoe =
  * a quien acaban de emboscar: una mentira al agente, y por eso no.
  */
 export type Atacante = Extract<BattleFoe, { readonly kind: 'hero' | 'raider' }>;
+
+/**
+ * Quién ocupa un sitio (`ocupanteDe`, `state/sitios.ts`): un héroe de otro bando en
+ * su casilla, o una guarnición de otro (`dueño` `null`, la neutral). Vive aquí
+ * porque es el cuerpo de un hecho (`site_occupied`), como `BattleFoe`.
+ */
+export type Ocupante =
+  | { readonly kind: 'heroe'; readonly heroId: string; readonly dueño: PlayerId }
+  | { readonly kind: 'guarnicion'; readonly dueño: PlayerId | null };
 
 /**
  * Por qué queda eliminado un jugador. `lost_base` es la regla de la partida:
@@ -162,6 +172,18 @@ type Cuerpo =
   /** Un nodo de la red cambia de dueño al pisarlo (fase 2a). */
   | { kind: 'node_captured'; node: string; from: PlayerId | null }
   | { kind: 'town_captured'; town: string; from: PlayerId | null }
+  /**
+   * Una ciudad de dentro de una región cambia de dueño porque su región lo cambia
+   * (tarea 2, 05-11-2026): no se toma, la da la región. `actor` es el dueño nuevo.
+   */
+  | { kind: 'town_owner_changed'; town: string; from: PlayerId | null; to: PlayerId | null }
+  /**
+   * Un sitio con dueño queda ocupado por tropa de otro (`ocupanteDe`): deja de dar
+   * oro y, una ciudad, de reclutar, construir y crecer. `actor` es su dueño.
+   */
+  | { kind: 'site_occupied'; site: string; by: Ocupante }
+  /** El sitio deja de estar ocupado: el ocupante se fue o lo echaron. `actor` es su dueño. */
+  | { kind: 'site_freed'; site: string }
   | { kind: 'built'; town: string; building: string }
   | { kind: 'recruited'; town: string; creature: string; count: number }
   /** Un héroe licencia tropa en un castillo suyo, para hacer sitio a otra mejor. */
@@ -347,6 +369,9 @@ export const SE_VE_POR: Readonly<
   troops_joined: 'casilla',
   node_captured: 'casilla',
   town_captured: 'casilla',
+  town_owner_changed: 'casilla',
+  site_occupied: 'casilla',
+  site_freed: 'casilla',
   built: 'casilla',
   recruited: 'casilla',
   dismissed: 'casilla',
@@ -423,8 +448,14 @@ export function visibleTo(e: GameEvent, p: PlayerId): boolean {
       return true;
 
     case 'town_captured':
+    case 'town_owner_changed':
       return e.actor === p || e.from === p || e.seen.includes(p);
 
+    // Quien ocupa sabe que ocupa: su tropa está allí.
+    case 'site_occupied':
+      return e.actor === p || e.by.dueño === p || e.seen.includes(p);
+
+    case 'site_freed':
     case 'hero_moved':
     case 'march_cut':
     case 'gold_gained':

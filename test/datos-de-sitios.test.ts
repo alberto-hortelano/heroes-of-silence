@@ -41,6 +41,7 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import {
+  dueñoDeLaCiudad,
   leerSitios,
   MURALLAS_DEL_MAPA,
   ponerLaGuarnicion,
@@ -54,6 +55,7 @@ import {
   ejercito,
   forzarBatalla,
   forzarTurno,
+  guarnecer,
   JINETE,
   muralla,
   NO_MUERTO,
@@ -81,7 +83,7 @@ function contraLaBase(
 ): { readonly state: GameState; readonly b: BattleState } {
   const base = baseOf(state, 1)!;
   heroesOf(state, 1)[0]!.at = { x: 0, y: 0 };
-  base.garrison = guarnicion;
+  guarnecer(state, base, guarnicion);
   const heroe = heroesOf(state, 0)[0]!;
   if (atacante !== undefined) heroe.army = atacante;
   forzarBatalla(state, ctx(seed), heroe, base.at);
@@ -204,8 +206,8 @@ describe('qué muralla lleva cada batalla del mapa', () => {
     // La base del rival con guarnición y sin su héroe dentro.
     const base = contraLaBase(5, DOS_BARATAS(), ejercito({ creature: PESADA, count: 3 }));
     expect(base.state.pendingBattle!.foe).toEqual({
-      kind: 'town',
-      townId: baseOf(base.state, 1)!.id,
+      kind: 'garrison',
+      site: baseOf(base.state, 1)!.id,
     });
     expect(base.b.muralla).toBe(MURALLAS_DEL_MAPA.ciudad);
     // Y con ella, cada stack atacante y su héroe llevan escalera, y el defensor no.
@@ -239,11 +241,11 @@ describe('qué muralla lleva cada batalla del mapa', () => {
 
   it('una ciudad neutral también es de piedra', () => {
     const state = newGame({ seed: 5 });
-    const neutral = state.towns.find((t) => t.owner === null);
+    const neutral = state.towns.find((t) => dueñoDeLaCiudad(state, t) === null);
     if (neutral === undefined) throw new Error('la semilla 5 no tiene ciudad neutral');
-    neutral.garrison = ejercito({ creature: TROPA_BARATA, count: 1 });
+    guarnecer(state, neutral, ejercito({ creature: TROPA_BARATA, count: 1 }));
     forzarBatalla(state, ctx(5), heroesOf(state, 0)[0]!, neutral.at);
-    expect(state.pendingBattle!.foe).toEqual({ kind: 'town', townId: neutral.id });
+    expect(state.pendingBattle!.foe).toEqual({ kind: 'garrison', site: neutral.id });
     expect(state.pendingBattle!.battle.muralla.material).toBe('piedra');
   });
 

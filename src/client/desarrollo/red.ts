@@ -196,7 +196,7 @@ export function redPintada(map: GameMap): RedPintada {
       return {
         id: n.id,
         centro: { x: n.at.x + 0.5, y: n.at.y + 0.5 },
-        ciudad: n.ciudad,
+        ciudad: n.clase === 'ciudad',
         objeto,
         regiones: n.regiones,
       };

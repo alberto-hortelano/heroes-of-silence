@@ -49,6 +49,30 @@ export const OBRA_SIGUIENTE: Readonly<Record<MejoraDelPuesto, ObraDelPuesto | nu
   muralla: null,
 };
 
+/**
+ * Las barreras sobre las que puede ir un pueblo en el muro (pueblos en un nodo,
+ * fase 3, 05-11-2026): las de tierra. Ni el agua, cuyo paso es un puente, ni la
+ * muralla, cuyo paso es su puerta: la escena no tiene dónde poner el pueblo en
+ * ninguno de los dos.
+ */
+export const BARRERAS_DEL_PUEBLO: readonly Barrera[] = ['mountain', 'forest', 'cliff'];
+
+/**
+ * Lo que **cruza su barrera**: un paso, o un pueblo en un nodo (el que lleva
+ * `barrera`). Se cruza por su eje y corta lo que se pisa, así que el trazado y la
+ * escena lo tratan como un paso. **No es la pregunta «¿es un nodo?»**: una ciudad
+ * en el muro también es un nodo y no cruza nada por su eje (se entra por las
+ * puertas de su recinto); eso lo dice la red (`sitioEnUnNodo`, `NodoDeRed.clase`).
+ */
+export type CruzaSuBarrera =
+  | Extract<MapObject, { kind: 'node' }>
+  | (Extract<MapObject, { kind: 'village' }> & { readonly barrera: Barrera });
+
+/** Si el objeto `o` cruza su barrera (`CruzaSuBarrera`): un paso, o un pueblo con su barrera. */
+export function cruzaSuBarrera(o: MapObject): o is CruzaSuBarrera {
+  return o.kind === 'node' || (o.kind === 'village' && o.barrera !== null);
+}
+
 /** Si `valor` es una de las obras de un puesto (`MEJORAS_DEL_PUESTO`). */
 export function esMejoraDelPuesto(valor: unknown): valor is MejoraDelPuesto {
   return (MEJORAS_DEL_PUESTO as readonly unknown[]).includes(valor);
@@ -67,7 +91,7 @@ export type MapObject =
       /**
        * Un paso entre regiones (`regiones.ts`). Se toma **pisándolo**, de camino
        * o parando en él, y `owner` es el único sitio donde vive su dueño: lo
-       * escribe `captureNode` y nadie más. No bloquea el paso: es un paso.
+       * escribe `tomarElNodo` y nadie más. No bloquea el paso: es un paso.
        */
       readonly kind: 'node';
       readonly id: string;
@@ -93,18 +117,41 @@ export type MapObject =
     }
   | {
       /**
-       * Un pueblo: está DENTRO de una región y es de quien la tenga. Sin dueño
-       * guardado: el territorio se gana cerrando la región, y un dueño aquí
-       * sería una segunda copia de un hecho que ya se deriva de los nodos. Da
-       * `ECONOMIA.rentaDelPueblo` de oro al día a quien tenga su región unida a
-       * su base (`rentaDelDia`).
+       * Un pueblo. Dentro de una región es de quien la tenga, y su `owner` no
+       * cuenta (se queda en `null`): el territorio se gana cerrando la región, y un
+       * dueño aquí sería una segunda copia de un hecho que ya se deriva de los
+       * nodos. **En el muro**, entre dos regiones o más, es un nodo y se toma como
+       * un paso: entonces su dueño vive aquí, y lo escribe solo `tomarElNodo`.
+       * Qué es lo dice la red (`estructura`, `sitiosDeRegion`), no un campo. Da
+       * `ECONOMIA.rentaDelPueblo` de oro al día a su dueño si está unido a su base
+       * (`rentaDelDia`).
        */
       readonly kind: 'village';
       readonly id: string;
       readonly name: string;
       readonly at: Point;
+      owner: number | null;
+      /**
+       * La barrera del muro sobre el que está, como la de un nodo (pueblos en un
+       * nodo, fase 3, 05-11-2026): `buildMap` abre su casilla y la guarda aquí. Solo
+       * va sobre montaña, bosque o acantilado (`BARRERAS_DEL_PUEBLO`), y entonces es
+       * un nodo entre dos regiones y se entra por su eje, no por su puerta
+       * (`puertaDe`). `null` en el de dentro de una región, que va en lo que se pisa.
+       */
+      readonly barrera: Barrera | null;
     }
-  | { readonly kind: 'town'; readonly id: string; readonly at: Point; owner: number | null }
+  | {
+      /**
+       * Una ciudad. Su `owner` es el dueño guardado **solo si está en el muro** (un
+       * nodo: la base, la ciudad-puente), y lo escribe solo `tomarElNodo`; dentro de
+       * una región es de quien la tenga y su `owner` se queda en `null`. El dueño de
+       * una ciudad, sea cual sea, se pregunta a `dueñoDelSitio` (`state/sitios.ts`).
+       */
+      readonly kind: 'town';
+      readonly id: string;
+      readonly at: Point;
+      owner: number | null;
+    }
   | {
       readonly kind: 'monster';
       readonly id: string;

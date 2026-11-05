@@ -19,6 +19,7 @@ import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
 import { accionDelAgente } from '../src/core/contract/vocabulario.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../src/core/hero/troop.js';
 import { pointFromKey, pointKey } from '../src/core/map/map.js';
+import { estructura } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
 import { CHARACTER_BODY } from '../src/core/rpg/character.js';
 import {
@@ -46,6 +47,7 @@ import {
   guarnicionDe,
   intercambioBlocker,
   lineasDelEjercito,
+  ocupanteDe,
   ponerLaGuarnicion,
   repartir,
   repartirTropaBlocker,
@@ -60,6 +62,8 @@ import {
   costesDelAlcance,
   ejercito,
   forzarBatalla,
+  guarnecer,
+  guarnicionDeLaCiudad,
   JINETE,
   PESADA,
   pegadoA,
@@ -138,23 +142,23 @@ describe('dejar y recoger tropa en un sitio propio', () => {
     }
   });
 
-  it('en la ciudad: la guarnición de siempre (`Town.garrison`)', () => {
+  it('en la ciudad: la guarnición de siempre (`guarnicionDeLaCiudad(state, Town)`)', () => {
     const state = newGame({ seed: 3 });
     const hero = heroesOf(state, 0)[0]!;
     const base = baseOf(state, 0)!;
     expect(pointKey(hero.at)).toBe(pointKey(base.at));
-    base.garrison = [];
+    guarnecer(state, base, []);
     hero.army = ejercito({ creature: TROPA_BARATA, count: 3 });
     jugar(state, dejar(hero.id, TROPA_BARATA, 2));
-    expect(base.garrison).toHaveLength(2);
+    expect(guarnicionDeLaCiudad(state, base)).toHaveLength(2);
     expect(hero.army).toHaveLength(1);
     jugar(state, recoger(hero.id, TROPA_BARATA, 1));
-    expect(base.garrison).toHaveLength(1);
+    expect(guarnicionDeLaCiudad(state, base)).toHaveLength(1);
     expect(hero.army).toHaveLength(2);
     expect(state.log.at(-1)).toMatchObject({ kind: 'troops_taken', site: base.id });
   });
 
-  it('en un pueblo de una región propia: la guarda quien la deja', () => {
+  it('en un pueblo de una región propia: la guarda quien la deja, y no cambia de bando con la región (P1)', () => {
     const state = newGame({ seed: 3 });
     const hero = heroesOf(state, 0)[0]!;
     const pueblo = unPuebloDe(state, 0);
@@ -167,9 +171,34 @@ describe('dejar y recoger tropa en un sitio propio', () => {
       dueño: 0,
       tropa: ejercito({ creature: TROPA_BARATA, count: 2 }),
     });
-    // Quien la guarda manda sobre el pueblo, aunque la región cambie de manos.
-    for (const o of state.map.objects) if (o.kind === 'node') o.owner = 1;
-    expect(dueñoDelSitio(state, sitio)).toBe(0);
+    // La región cambia de manos: el pueblo es de quien la tiene (tarea 2, P1), y
+    // la tropa que se quedó no cambia de bando: lo OCUPA. Antes, quien la
+    // guardaba mandaba sobre el pueblo.
+    const red = estructura(state.map);
+    const region = red.sitiosDeRegion.get(pueblo.id)!;
+    for (const n of red.regiones[region]!.nodos) {
+      const o = state.map.objects.find((x) => x.id === red.nodos[n]!.id)!;
+      if (o.kind === 'node' || o.kind === 'town') o.owner = 1;
+    }
+    expect(dueñoDelSitio(state, sitio)).toBe(1);
+    // Lo ocupan su héroe, que está en la casilla (el héroe va antes), y su tropa.
+    expect(ocupanteDe(state, sitio)).toEqual({ kind: 'heroe', heroId: hero.id, dueño: 0 });
+    // Recoger lo suyo, sí; dejar más, no (pregunta 3: «recoger sí, dejar no»).
+    expect(
+      intercambioBlocker(state, 0, 'dejar_tropa', {
+        hero: hero.id,
+        creature: TROPA_BARATA,
+        count: 1,
+      }),
+    ).toMatch(/ya no es tuyo: puedes recoger la guarnición que dejaste, no dejar más/);
+    const fuera = { ...hero.at, x: hero.at.x + 1 };
+    hero.at = fuera;
+    expect(ocupanteDe(state, sitio)).toEqual({ kind: 'guarnicion', dueño: 0 });
+    hero.at = pueblo.at;
+    jugar(state, recoger(hero.id, TROPA_BARATA, 2));
+    expect(state.guarniciones[pueblo.id]).toBeUndefined();
+    hero.at = fuera;
+    expect(ocupanteDe(state, sitio)).toBeNull();
   });
 
   it('los rechazos dicen por qué, y no tocan nada', () => {
@@ -179,14 +208,24 @@ describe('dejar y recoger tropa en un sitio propio', () => {
     const paso = unPaso(state);
     hero.army = ejercito({ creature: TROPA_BARATA, count: 2 });
     const intenta = (a: AdventureAction, quien = 0): string => {
-      const antes = JSON.stringify({ a: hero.army, g: state.guarniciones, t: base.garrison });
+      const antes = JSON.stringify({
+        a: hero.army,
+        g: state.guarniciones,
+        t: guarnicionDeLaCiudad(state, base),
+      });
       let motivo = '';
       try {
         applyAdventureAction(state, a, ctx(1), quien);
       } catch (err) {
         motivo = (err as Error).message;
       }
-      expect(JSON.stringify({ a: hero.army, g: state.guarniciones, t: base.garrison })).toBe(antes);
+      expect(
+        JSON.stringify({
+          a: hero.army,
+          g: state.guarniciones,
+          t: guarnicionDeLaCiudad(state, base),
+        }),
+      ).toBe(antes);
       return motivo;
     };
 
@@ -269,14 +308,14 @@ describe('dejar y recoger tropa en un sitio propio', () => {
   it('pasar por casa no recoge, ni contratar', () => {
     const state = newGame({ seed: 3 });
     const base = baseOf(state, 0)!;
-    const guarnicion = base.garrison.length;
+    const guarnicion = guarnicionDeLaCiudad(state, base).length;
     expect(guarnicion).toBeGreaterThan(0);
     // Un segundo héroe contratado en la base: nace sin tropa y la guarnición se queda.
     heroesOf(state, 0)[0]!.at = pegadoA(state, base.at);
     jugar(state, { type: 'hire_hero', town: base.id });
     const nuevo = heroesOf(state, 0).find((h) => pointKey(h.at) === pointKey(base.at))!;
     expect(nuevo.army).toEqual([]);
-    expect(base.garrison).toHaveLength(guarnicion);
+    expect(guarnicionDeLaCiudad(state, base)).toHaveLength(guarnicion);
     expect(state.log.some((e) => e.kind === 'troops_taken')).toBe(false);
   });
 });
@@ -293,7 +332,7 @@ describe('repartir y confirmar (Q1 del QA, D9)', () => {
     hero.at = { ...base.at };
     const tope = state.combate.tope;
     hero.army = ejercito({ creature: TROPA, count: tope - 1 });
-    base.garrison = ejercito({ creature: TROPA_BARATA, count: tope });
+    guarnecer(state, base, ejercito({ creature: TROPA_BARATA, count: tope }));
     const sitio = sitioEn(state, base.at)!;
     return { state, hero, base, sitio, tope };
   }
@@ -324,8 +363,10 @@ describe('repartir y confirmar (Q1 del QA, D9)', () => {
     jugar(state, { type: 'repartir_tropa', ...cambio });
     expect(hero.army.filter((t) => t.creature === TROPA)).toHaveLength(tope - 2);
     expect(hero.army.filter((t) => t.creature === TROPA_BARATA)).toHaveLength(1);
-    expect(base.garrison.filter((t) => t.creature === TROPA)).toHaveLength(1);
-    expect(base.garrison.filter((t) => t.creature === TROPA_BARATA)).toHaveLength(tope - 1);
+    expect(guarnicionDeLaCiudad(state, base).filter((t) => t.creature === TROPA)).toHaveLength(1);
+    expect(
+      guarnicionDeLaCiudad(state, base).filter((t) => t.creature === TROPA_BARATA),
+    ).toHaveLength(tope - 1);
     // Un solo hecho, con lo que movió por tipo y el id del sitio.
     expect(state.log.slice(antes)).toEqual([
       expect.objectContaining({
@@ -343,12 +384,12 @@ describe('repartir y confirmar (Q1 del QA, D9)', () => {
   it('lo que no vale se rechaza con su frase y sin tocar nada', () => {
     const { state, hero, base, tope } = dosLlenos();
     const intenta = (enElHeroe: Parameters<typeof repartirTropaBlocker>[2]['enElHeroe']) => {
-      const antes = JSON.stringify({ a: hero.army, t: base.garrison });
+      const antes = JSON.stringify({ a: hero.army, t: guarnicionDeLaCiudad(state, base) });
       const motivo = repartirTropaBlocker(state, 0, { hero: hero.id, enElHeroe });
       expect(() => jugar(state, { type: 'repartir_tropa', hero: hero.id, enElHeroe })).toThrow(
         `no se puede repartir la tropa: ${motivo}`,
       );
-      expect(JSON.stringify({ a: hero.army, t: base.garrison })).toBe(antes);
+      expect(JSON.stringify({ a: hero.army, t: guarnicionDeLaCiudad(state, base) })).toBe(antes);
       return motivo;
     };
     // Un final que desborda al héroe o a la guarnición: el de los cupos.
@@ -422,7 +463,7 @@ describe('cuándo recoge la IA (S8 de /simplify)', () => {
   it('el de salida, que nace en su base el día 1, no la vacía', async () => {
     const state = newGame({ seed: 3 });
     const base = baseOf(state, 0)!;
-    expect(base.garrison.length).toBeGreaterThan(0);
+    expect(guarnicionDeLaCiudad(state, base).length).toBeGreaterThan(0);
     await playAiTurn(state, ctx(3));
     expect(recogidosEnLaBase(state, 0, 0)).toEqual([]);
   });
@@ -435,7 +476,7 @@ describe('cuándo recoge la IA (S8 de /simplify)', () => {
     const hero = heroesOf(state, 0)[0]!;
     const base = baseOf(state, 0)!;
     hero.at = { ...base.at };
-    base.garrison = ejercito({ creature: TROPA_BARATA, count: 2 });
+    guarnecer(state, base, ejercito({ creature: TROPA_BARATA, count: 2 }));
     hero.army = [];
     // Sin puntos no anda: no llega a ningún sitio, y no recoge (antes del S8, sí).
     hero.movePoints = 0;
@@ -443,7 +484,9 @@ describe('cuándo recoge la IA (S8 de /simplify)', () => {
     await playAiTurn(state, c);
     expect(recogidosEnLaBase(state, 0, desde)).toEqual([]);
     // Lo que recluta va a su ejército (está dentro); la guarnición sigue entera.
-    expect(base.garrison.filter((t) => t.creature === TROPA_BARATA)).toHaveLength(2);
+    expect(
+      guarnicionDeLaCiudad(state, base).filter((t) => t.creature === TROPA_BARATA),
+    ).toHaveLength(2);
   });
 
   it('el que vuelve vencido en el turno del rival recoge al empezar el suyo (H2 del QA)', async () => {
@@ -457,7 +500,7 @@ describe('cuándo recoge la IA (S8 de /simplify)', () => {
     vencido.at = pegadoA(state, base.at);
     vencido.army = ejercito({ creature: TROPA_BARATA, count: 1 });
     rival.army = ejercito({ creature: JINETE, count: 6 });
-    base.garrison = ejercito({ creature: TROPA_BARATA, count: 3 });
+    guarnecer(state, base, ejercito({ creature: TROPA_BARATA, count: 3 }));
     forzarBatalla(state, c, rival, vencido.at);
     expect(resolvePendingBattle(state, c).winner).toBe('attacker');
     // Vuelve a casa sin tropa, marcado: volver es llegar.
@@ -487,7 +530,7 @@ describe('la defensa con el héroe en su sitio', () => {
     const base = baseOf(state, 1)!;
     defensor.at = base.at;
     defensor.army = defensa;
-    base.garrison = guarnicion;
+    guarnecer(state, base, guarnicion);
     atacante.army = ejercito({ creature: JINETE, count: 3 });
     forzarBatalla(state, c, atacante, base.at);
     return { state, c, atacante, defensor, base };
@@ -500,7 +543,7 @@ describe('la defensa con el héroe en su sitio', () => {
     // Los jinetes de la guarnición pelean; caben los dos y los tres goblins.
     expect(defensor.army.filter((t) => t.creature === JINETE)).toHaveLength(2);
     expect(defensor.army).toHaveLength(5);
-    expect(base.garrison).toEqual([]);
+    expect(guarnicionDeLaCiudad(state, base)).toEqual([]);
     const battle = state.pendingBattle!.battle;
     expect(battle.stacks.filter((s) => s.side === 'defender')).toHaveLength(6);
     // El hecho va detrás del `battle_started`, con quién y dónde.
@@ -534,8 +577,8 @@ describe('la defensa con el héroe en su sitio', () => {
     };
     for (let vuelta = 0; vuelta < 200; vuelta++) {
       hero.army = llena(heroLeadership(hero), state.combate.tope - 1);
-      base.garrison = llena(GARRISON_LEADERSHIP, state.combate.tope);
-      const todos = [...hero.army, ...base.garrison];
+      guarnecer(state, base, llena(GARRISON_LEADERSHIP, state.combate.tope));
+      const todos = [...hero.army, ...guarnicionDeLaCiudad(state, base)];
       const elegida = defensaDeLaIA(state, hero, sitio);
       expect(defensaDeLaIA(state, hero, sitio)).toEqual(elegida);
       const fuera = todos.filter((t) => !elegida.includes(t));
@@ -589,7 +632,7 @@ describe('la defensa con el héroe en su sitio', () => {
     // Solo los dos jinetes: los goblins se quedan en la guarnición.
     elegirLaDefensa(state, c, 1, [{ creature: JINETE, count: 2 }]);
     expect(defensor.army).toEqual(fuertes);
-    expect(base.garrison).toEqual(debiles);
+    expect(guarnicionDeLaCiudad(state, base)).toEqual(debiles);
     const defensores = state.pendingBattle!.battle.stacks.filter((s) => s.side === 'defender');
     expect(defensores).toHaveLength(3);
     expect(state.log.at(-1)).toMatchObject({ kind: 'defense_set', fighting: 2, staying: 3 });

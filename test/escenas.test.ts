@@ -67,6 +67,7 @@ import type { BattleStack, Side } from '../src/core/battle/types.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import { DESPEJADO } from '../src/core/state/clima.js';
 import { faccionesDeLaSemilla } from '../src/core/state/setup.js';
+import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 import { building } from '../src/core/town/buildings.js';
 import type { Hex } from '../src/core/types.js';
 import {
@@ -722,7 +723,9 @@ describe('la ruta no se pinta sobre la niebla (M5 de la 2a)', () => {
 
   it('en una partida de verdad, una ruta hacia lo desconocido solo pinta lo explorado', () => {
     const s = new Session(3);
-    const lejos = s.state.towns.find((t) => t.owner !== null && t.owner !== s.viewer)!.at;
+    const lejos = s.state.towns.find(
+      (t) => dueñoDeLaCiudad(s.state, t) !== null && dueñoDeLaCiudad(s.state, t) !== s.viewer,
+    )!.at;
     const ruta = s.previewPath(lejos);
     const explorado = s.explorado!;
     // La premisa, para que el test no pase por vacío: la ruta entra en la niebla.

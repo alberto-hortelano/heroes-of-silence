@@ -79,6 +79,7 @@ import {
   unequipBlocker,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import { dueñoDeLaCiudad, enUnNodo } from '../src/core/state/sitios.js';
 import {
   CIFRAS_DE_PIEZA,
   type Equipo,
@@ -90,8 +91,11 @@ import {
 } from '../src/core/types.js';
 import { cuerpoDeCombate, unidadDeCombate, validarUnidad } from '../src/core/unidad.js';
 import {
+  darLaCiudad,
   ejercito,
   forzarBatalla,
+  guarnecer,
+  guarnicionDeLaCiudad,
   JINETE,
   NO_MUERTO,
   PESADA,
@@ -682,15 +686,15 @@ describe('el héroe nace equipado (decisión del usuario sobre el plan)', () => 
   it('el veterano que asciende nace con el equipo base y sus piezas propias van a su mochila', () => {
     const state = newGame({ seed: 11 });
     const base = baseOf(state, 1)!;
-    base.garrison = [
-      ...base.garrison,
+    guarnecer(state, base, [
+      ...guarnicionDeLaCiudad(state, base),
       {
         creature: NO_MUERTO,
         veterania: hoja('veterano-9', umbral(5), {
           equipo: { arma: 'maza', escudo: 'rodela' },
         }),
       },
-    ];
+    ]);
     const nacido = ascenderVeterano(state, 1, 'veterano-9', {
       name: 'Hueso',
       story: 'Volvió.',
@@ -1149,14 +1153,22 @@ describe('el botín (C3)', () => {
   });
 
   it('tomar una ciudad neutral guarnecida deja una pieza; una rival guarnecida, no', () => {
-    const state = newGame({ seed: 7 });
-    const c = ctx(7);
+    // Una del muro, que se toma: desde las ciudades en su región (05-11-2026) las
+    // neutrales del muro son las ciudades-puente, y la s7 no lleva ninguna; la
+    // s12, dos.
+    const state = newGame({ seed: 12 });
+    const c = ctx(12);
     const hero = heroesOf(state, 0)[0]!;
     hero.army = ejercito({ creature: PESADA, count: 6 });
-    const neutral = state.towns.find((t) => t.owner === null && t.garrison.length > 0)!;
+    const neutral = state.towns.find(
+      (t) =>
+        dueñoDeLaCiudad(state, t) === null &&
+        enUnNodo(state, { kind: 'ciudad', town: t }) &&
+        guarnicionDeLaCiudad(state, t).length > 0,
+    )!;
     forzarBatalla(state, c, hero, neutral.at);
     resolvePendingBattle(state, c);
-    expect(neutral.owner).toBe(0);
+    expect(dueñoDeLaCiudad(state, neutral)).toBe(0);
     expect(state.log.filter((e) => e.kind === 'loot_found')).toMatchObject([
       { from: 'town', hero: hero.id },
     ]);
@@ -1170,10 +1182,10 @@ describe('el botín (C3)', () => {
     heroesOf(otro, 1)[0]!.at = { x: 0, y: 0 };
     // Uno de guarnición: la de salida, tras la muralla de piedra (fase 2 del puesto
     // fronterizo), le gana a seis pesados, y el test es del botín.
-    suya.garrison = ejercito({ creature: TROPA_BARATA, count: 1 });
+    guarnecer(otro, suya, ejercito({ creature: TROPA_BARATA, count: 1 }));
     forzarBatalla(otro, c2, mio, suya.at);
     resolvePendingBattle(otro, c2);
-    expect(suya.owner).toBe(0);
+    expect(dueñoDeLaCiudad(otro, suya)).toBe(0);
     expect(otro.log.some((e) => e.kind === 'loot_found')).toBe(false);
   });
 
@@ -1183,8 +1195,14 @@ describe('el botín (C3)', () => {
       const c = ctx(7);
       const hero = heroesOf(state, 0)[0]!;
       hero.army = ejercito({ creature: PESADA, count: 6 });
-      const neutral = state.towns.find((t) => t.owner === null && t.garrison.length > 0)!;
-      if (!conBotin) neutral.owner = 1;
+      const neutral = state.towns.find(
+        (t) => dueñoDeLaCiudad(state, t) === null && guarnicionDeLaCiudad(state, t).length > 0,
+      )!;
+      // Del rival, ella y su guarnición (la tropa tiene su propio dueño, tarea 2).
+      if (!conBotin) {
+        darLaCiudad(state, neutral, 1);
+        guarnecer(state, neutral, guarnicionDeLaCiudad(state, neutral), 1);
+      }
       forzarBatalla(state, c, hero, neutral.at);
       resolvePendingBattle(state, c);
       return {

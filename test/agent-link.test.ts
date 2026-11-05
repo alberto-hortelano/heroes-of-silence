@@ -35,6 +35,7 @@ import {
   revealEverything,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 import type { Town } from '../src/core/town/town.js';
 import { FACTION_IDS, type FactionId, type Point, SPEED_TO_HEXES } from '../src/core/types.js';
 import { AgentLink } from '../src/server/agent-link.js';
@@ -48,6 +49,8 @@ import {
   costesDelAlcance,
   ejercito,
   fueraDeSuBase,
+  guarnecer,
+  guarnicionDeLaCiudad,
   NO_MUERTO,
   PESADA,
   ponerMonstruo,
@@ -278,7 +281,7 @@ function rivalAlAtaque(state: GameState): Hero {
   // Pegado al héroe y no a su base: con el héroe fuera de ella y el rival
   // tocando las dos, la IA tomaba la base vacía y ganaba la partida, y el test
   // no veía ninguna batalla del héroe (semilla 201 con los bordes de #169).
-  const base = state.towns.find((t) => t.owner === 1) as Town;
+  const base = state.towns.find((t) => dueñoDeLaCiudad(state, t) === 1) as Town;
   plantarRival(state, mio.at, base.at);
   return mio;
 }
@@ -353,7 +356,7 @@ function batallaEnCurso(
 
 /** Lo mismo, pero contra un castillo del agente. Sin murallas: eso es #7. */
 function rivalAlCastillo(state: GameState): Town {
-  const pueblo = state.towns.find((t) => t.owner === 1) as Town;
+  const pueblo = state.towns.find((t) => dueñoDeLaCiudad(state, t) === 1) as Town;
   const mio = state.heroes.find((h) => h.owner === 1) as Hero;
 
   // El héroe del agente se lleva lejos: pegado al castillo, el rival preferiría
@@ -365,7 +368,7 @@ function rivalAlCastillo(state: GameState): Town {
   const [x, y] = lejos[0].split(',').map(Number);
   mio.at = { x: x as number, y: y as number };
 
-  pueblo.garrison = ejercito({ creature: NO_MUERTO, count: 7 });
+  guarnecer(state, pueblo, ejercito({ creature: NO_MUERTO, count: 7 }));
   plantarRival(state, pueblo.at);
   return pueblo;
 }
@@ -430,7 +433,7 @@ describe('enlace con el agente', () => {
       };
     });
     const director = new Director(link, { seed: 107, agentPlayers: [0] });
-    const base = director.state.towns.find((t) => t.owner === 0)!;
+    const base = director.state.towns.find((t) => dueñoDeLaCiudad(director.state, t) === 0)!;
     const hero = director.state.heroes.find((h) => h.owner === 0)!;
     hero.at = base.at;
     base.buildings.push('armory');
@@ -1662,7 +1665,7 @@ describe('el agente sabe cómo le fue', () => {
     director.state.raiders.length = 0;
     const heroe = director.state.heroes.find((h) => h.owner === 0)!;
     // La base rival: a varios días de marcha en un mapa de 34.
-    destino = director.state.towns.find((t) => t.owner === 1)!.at;
+    destino = director.state.towns.find((t) => dueñoDeLaCiudad(director.state, t) === 1)!.at;
     const camino = caminoHasta(director.state, heroe, destino)!;
     expect(camino.at(-1)!.cost).toBeGreaterThan(heroe.movePoints);
     const desde = heroe.at;
@@ -1807,12 +1810,15 @@ describe('el agente sabe cómo le fue', () => {
     });
 
     const director = new Director(link, { seed: 308, agentPlayers: [0] });
-    const construidos = director.state.towns.find((t) => t.owner === 0)!.buildings.length;
+    const construidos = director.state.towns.find((t) => dueñoDeLaCiudad(director.state, t) === 0)!
+      .buildings.length;
     const informe = await director.playTurn();
     await respira();
 
     // Ni se aplican a escondidas: el turno se cerró y se quedó cerrado.
-    expect(director.state.towns.find((t) => t.owner === 0)!.buildings.length).toBe(construidos + 1);
+    expect(
+      director.state.towns.find((t) => dueñoDeLaCiudad(director.state, t) === 0)!.buildings.length,
+    ).toBe(construidos + 1);
     expect(director.state.current).not.toBe(0);
 
     // Y se cuentan las cuatro: la que entró, el cierre, y las dos que no.
@@ -2163,7 +2169,7 @@ describe('la tropa se hace héroe, por el cable', () => {
         // El héroe de salida nace en la base: fuera, para que el nacido la ocupe.
         fueraDeSuBase(s, 0);
         veterano = ponVeteranoEnLaBase(s, 0);
-        const g = baseOf(s, 0)!.garrison.find((x) => x.veterania?.id === veterano)!;
+        const g = guarnicionDeLaCiudad(s, baseOf(s, 0)!).find((x) => x.veterania?.id === veterano)!;
         nivelDelVeterano = nivelDeUnidad(cifrasDeUnidad(g.creature, g.veterania));
       },
     });
@@ -2250,14 +2256,18 @@ describe('la tropa se hace héroe, por el cable', () => {
         preparar: (s) => ponVeteranoEnLaBase(s, 0),
       });
       const heroes = director.state.heroes.length;
-      const guarnicion = JSON.stringify(director.state.towns.map((t) => t.garrison));
+      const guarnicion = JSON.stringify(
+        director.state.towns.map((t) => guarnicionDeLaCiudad(director.state, t)),
+      );
       await director.playTurn();
       await respira();
 
       expect(director.state.heroes).toHaveLength(heroes);
       // El veterano sigue en la guarnición: ningún individuo se ha movido.
       const ascensoId = agent.seen.find((p) => p.kind === 'hero_from_troop')!.requestId;
-      expect(JSON.stringify(director.state.towns.map((t) => t.garrison))).toBe(guarnicion);
+      expect(
+        JSON.stringify(director.state.towns.map((t) => guarnicionDeLaCiudad(director.state, t))),
+      ).toBe(guarnicion);
       const veredicto = agent.results.find((r) => r.requestId === ascensoId)!;
       expect(veredicto.ok).toBe(false);
       expect(veredicto.problems?.join(' ')).toMatch(motivo(director.state.players[0]!.faction));
@@ -2331,13 +2341,23 @@ describe('la tropa se hace héroe, por el cable', () => {
     expect(ascensos()).toBe(1);
 
     // Un turno sin él en la base —ha salido—, y vuelve.
-    const base = director.state.towns.find((t) => t.owner === 0 && t.garrison.length > 0)!;
-    const el = base.garrison.find((t) => t.veterania?.id === veterano)!;
-    base.garrison = base.garrison.filter((t) => t !== el);
+    const base = director.state.towns.find(
+      (t) =>
+        dueñoDeLaCiudad(director.state, t) === 0 &&
+        guarnicionDeLaCiudad(director.state, t).length > 0,
+    )!;
+    const el = guarnicionDeLaCiudad(director.state, base).find(
+      (t) => t.veterania?.id === veterano,
+    )!;
+    guarnecer(
+      director.state,
+      base,
+      guarnicionDeLaCiudad(director.state, base).filter((t) => t !== el),
+    );
     await siguienteDelAgente(); // sin el veterano
     await respira();
     expect(ascensos()).toBe(1);
-    base.garrison = [el, ...base.garrison];
+    guarnecer(director.state, base, [el, ...guarnicionDeLaCiudad(director.state, base)]);
     await siguienteDelAgente(); // ha vuelto
     await respira();
     expect(ascensos()).toBe(2);
@@ -2381,13 +2401,13 @@ describe('la tropa se hace héroe, por el cable', () => {
         fueraDeSuBase(s, 0);
         ponVeteranoEnLaBase(s, 0);
         const base = baseOf(s, 0)!;
-        const [primero, otro, ...resto] = base.garrison;
+        const [primero, otro, ...resto] = guarnicionDeLaCiudad(s, base);
         segundo = `veterano-${s.siguienteVeterano++}`;
-        base.garrison = [
+        guarnecer(s, base, [
           primero!,
           { ...otro!, veterania: { ...primero!.veterania!, id: segundo } },
           ...resto,
-        ];
+        ]);
       },
     });
     await director.playTurn();

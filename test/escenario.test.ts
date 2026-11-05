@@ -297,15 +297,17 @@ describe('sin arte se pinta igual: cada pieza, su marcador de color', () => {
     // solo la 198; desde «solo oro» (sin minas, 21-10-2026), de la 198 a la 300
     // la primera es la 240 (medido el 22-10-2026, igual en e9a3c595): buscar
     // desde la 198 eran ~17 s solo y pasaba del plazo de 60 s con todo el suite
-    // en paralelo. Se busca desde ella.
+    // en paralelo. Se busca desde ella. Sin ciudades en los cruces (ciudades en
+    // su región, 05-11-2026), ninguna de 1-300 lleva vados: la primera es la 409
+    // (y luego la 424).
     const { caso: conVados } = primeraSemillaCon(
       'vados junto a un puente',
       (s) => {
         const e = escenaDe(s);
         return e.vados.length > 0 ? e : undefined;
       },
-      240,
-      300,
+      409,
+      430,
     );
     const r = registro();
     pintarSuelo(r.contexto(), conVados, separar(conVados), { ...sinImagenes, lienzo: r.lienzo });
@@ -424,9 +426,9 @@ describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () 
   });
 
   it('ninguna tablilla de la escena apunta de través a su paso, y salen todos los rumbos (§29)', () => {
-    // 1 y 20 llevan los cinco desde las puertas de las ciudades (fase 2, 21-10-2026; 1 y 9 desde el recinto de las ciudades del núcleo, vuelta 3; 16 y 13 desde el río de lago de 20 casillas, 17-10-2026; 4 y 16 sin agua de frontera fuera del río, QA del río continuo, H3; 1 y 7 desde el río continuo, #144; 3 y 35 desde #144, los ríos; 33 y 36 desde #230, las dos puertas de la mina; 3 y 22 desde #229, las fronteras onduladas; 2 y 7 desde #226, el mapa de 42×42; 3 y 5 hasta entonces; 20 y 24 hasta #224; 1 y 2 hasta #215; 8 y 10 hasta #210; 8, 20 y 36 hasta #143; 20, 21 y 36 hasta #195; 15, 31 y 36 hasta #189); la orden lenta, 1-40.
+    // 7 y 13 llevan los cinco desde los pueblos en un nodo (05-11-2026, fase 3; 6 y 12 desde las ciudades en su región, 05-11-2026; 1 y 20 desde las puertas de las ciudades, fase 2, 21-10-2026; 1 y 9 desde el recinto de las ciudades del núcleo, vuelta 3; 16 y 13 desde el río de lago de 20 casillas, 17-10-2026; 4 y 16 sin agua de frontera fuera del río, QA del río continuo, H3; 1 y 7 desde el río continuo, #144; 3 y 35 desde #144, los ríos; 33 y 36 desde #230, las dos puertas de la mina; 3 y 22 desde #229, las fronteras onduladas; 2 y 7 desde #226, el mapa de 42×42; 3 y 5 hasta entonces; 20 y 24 hasta #224; 1 y 2 hasta #215; 8 y 10 hasta #210; 8, 20 y 36 hasta #143; 20, 21 y 36 hasta #195; 15, 31 y 36 hasta #189); la orden lenta, 1-40.
     const vistos = new Set<string>();
-    for (const semilla of segunPrisa([1, 20], rango(1, 40))) {
+    for (const semilla of segunPrisa([7, 13], rango(1, 40))) {
       const { map, escena } = partidaDe(semilla);
       for (const o of map.objects) {
         const pieza = escena.sprites
@@ -458,13 +460,13 @@ describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () 
     }
   });
 
-  it('sin tope: cada nodo de acantilado, de bosque (#196) y de montaña (#203) lleva su hito, también los de s24 (§29)', () => {
+  it('sin tope: cada nodo de acantilado, de bosque (#196) y de montaña (#203) lleva su hito, también los de s29 (§29)', () => {
     // Un nodo neutral no lleva bandera: sin su hito, no se vería que ahí hay
     // algo que tomar. En 1-40 son 233 (119 de acantilado, nunca dos a menos de 5
     // casillas, y 114 de bosque, que acercan cuatro pares a 4,1-4,5; 08-10-2026):
     // muchos en un mapa es que el mapa tiene muchos pasos, y cada uno se toma.
     // Con la montaña (#203), 121 más en 1-40.
-    for (const semilla of segunPrisa([24], rango(1, 40))) {
+    for (const semilla of segunPrisa([29], rango(1, 40))) {
       const { map, escena } = partidaDe(semilla);
       const a = analizar(map);
       const nodos = map.objects.filter(
@@ -488,8 +490,12 @@ describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () 
       // sin acantilado: va la 4, con 4 y 4 de bosque. Con el río de lago de 20
       // casillas (17-10-2026) la 4 se queda sin acantilado: va la 14, con 4 y 3.
       // Con las puertas de las ciudades (fase 2, 21-10-2026), la 24, con 4 y 2
-      // (la 28 lleva 6 y 1).
-      if (semilla === 24) {
+      // (la 28 lleva 6 y 1). Sin ciudades en los cruces (ciudades en su
+      // región, 05-11-2026), la 29, con 6 y 4 de bosque y 2 de montaña (la 12,
+      // 6 y 4 sin montaña; la 28, 6 y 1). Con los pueblos en un nodo (fase 3,
+      // 05-11-2026), dos de sus pasos de acantilado llevan pueblo: la 29, con 4 y 4
+      // de bosque.
+      if (semilla === 29) {
         expect(nodos.filter((o) => a.pasos.get(o.id)?.barrera === 'cliff')).toHaveLength(4);
         expect(nodos.some((o) => a.pasos.get(o.id)?.barrera === 'forest')).toBe(true);
       }

@@ -72,6 +72,7 @@ export interface VistaDelAyuntamiento {
  */
 export function componerVistaDelAyuntamiento(
   town: Town,
+  dueño: PlayerId | null,
   { nombre, tropa, candidatos }: EleccionDeHeroe,
   elegido: string | null,
   turno: string | null,
@@ -92,7 +93,7 @@ export function componerVistaDelAyuntamiento(
   const hoja = (tipo: string) => figuraDelHeroe({ faction: town.faction, tipo });
   return {
     faccion: town.faction,
-    owner: town.owner,
+    owner: dueño,
     sitio: SITIO_DEL_AYUNTAMIENTO,
     edificio,
     nombre: building(edificio).name,

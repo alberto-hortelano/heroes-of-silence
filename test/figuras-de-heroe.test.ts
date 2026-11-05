@@ -23,6 +23,7 @@ import {
 import { createRng } from '../src/core/rng.js';
 import { applyAdventureAction } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 import { FACTION_IDS, type FactionId } from '../src/core/types.js';
 import { hojasDelTaller } from '../tools/arena/borrador.js';
 
@@ -155,7 +156,7 @@ describe('el héroe de la partida pisa el tablero con la hoja de su tipo (criter
   it('el contratado, con la hoja del tipo de por defecto de su facción', () => {
     const state = newGame({ seed: 7, faccionDelJugador: 'orkos', tipoDelHeroe: 'chaman_goblin' });
     state.players[0]!.oro = 100_000;
-    const base = state.towns.find((t) => t.owner === 0)!;
+    const base = state.towns.find((t) => dueñoDeLaCiudad(state, t) === 0)!;
     // El inicial está dentro: se le saca para que la base deje contratar.
     state.heroes[0]!.at = { x: base.at.x, y: base.at.y + 1 };
     applyAdventureAction(state, { type: 'hire_hero', town: base.id }, { rng: createRng(7) }, 0);

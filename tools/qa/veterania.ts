@@ -29,6 +29,7 @@ import {
 import { heroUnit } from '../../src/core/hero/hero.js';
 import { nivelDeUnidad } from '../../src/core/nivel.js';
 import { baseOf, type GameState } from '../../src/core/state/game.js';
+import { guarnicionDeLaCiudad } from '../../src/core/state/sitios.js';
 import type { Army } from '../../src/core/types.js';
 import { duracion } from './estadistica.js';
 import { DIAS_POR_DEFECTO, partidaDeSemilla, SEMILLAS_DEL_BANCO } from './partidas.js';
@@ -60,7 +61,7 @@ function cincosEnBase(state: GameState, vistos: Set<string>): void {
   for (const p of state.players) {
     const base = baseOf(state, p.id);
     if (base === null) continue;
-    mirar(base.garrison);
+    mirar(guarnicionDeLaCiudad(state, base));
     for (const h of state.heroes) {
       if (h.owner === p.id && h.at.x === base.at.x && h.at.y === base.at.y) mirar(h.army);
     }

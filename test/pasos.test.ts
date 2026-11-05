@@ -234,10 +234,14 @@ describe('el paso de montaña lo abre la cordillera, sin pieza (#203)', () => {
     for (const s of segunPrisa([1, 9, 443], [...rango(1, 40), 443])) {
       const { map, escena } = partidaDe(s);
       const pasos = pasosALaVista(map, new Set(escena.puentes.map((p) => p.id)));
-      montana += pasos.filter((p) => p.barrera === 'mountain').length;
+      // Los pasos de montaña: los nodos, sin el pueblo del muro (fase 3), que
+      // lleva su pieza de pueblo.
+      const nodos = new Set(map.objects.filter((o) => o.kind === 'node').map((o) => o.id));
+      const deMontana = pasos.filter((p) => p.barrera === 'mountain' && nodos.has(p.id));
+      montana += deMontana.length;
       expect(pasosAtravesados(escena.sprites, pasos), `semilla ${s}`).toEqual([]);
       expect(escena.informe.pasosAtravesados, `semilla ${s}`).toBe(0);
-      for (const p of pasos.filter((q) => q.barrera === 'mountain')) {
+      for (const p of deMontana) {
         const pieza = escena.sprites.find((x) => x.objeto?.id === p.id);
         expect(esHito(pieza?.src?.replace(/\.webp$/, '') ?? null), `s${s} ${p.id}`).toBe(true);
       }

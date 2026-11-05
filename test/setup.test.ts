@@ -9,7 +9,7 @@ import { createRng } from '../src/core/rng.js';
 import { applyAdventureAction, baseOf, heroesOf } from '../src/core/state/game.js';
 import { faccionesDeLaSemilla, newGame, nombreDeSalida } from '../src/core/state/setup.js';
 import { esFaccion, FACTION_IDS, NOMBRE_DE_FACCION, parseFaccion } from '../src/core/types.js';
-import { pegadoA } from './helpers.js';
+import { guarnicionDeLaCiudad, pegadoA } from './helpers.js';
 
 describe('las facciones de la partida', () => {
   it('con la del jugador elegida, el rival es otra, fija por semilla', () => {
@@ -132,7 +132,7 @@ describe('el héroe nace dentro de su base', () => {
       );
       expect(heroe.at, `semilla ${s}`).toEqual(fuera);
       // Y salir no recoge la guarnición: nace sin ella y la base se queda la suya.
-      expect(base.garrison.length).toBeGreaterThan(0);
+      expect(guarnicionDeLaCiudad(state, base).length).toBeGreaterThan(0);
     }
   });
 });

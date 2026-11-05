@@ -25,11 +25,20 @@ export interface PiezasDelCastillo {
   readonly contratar: Html;
 }
 
-/** La fila de construir un edificio: su nombre, su coste y el botón, o el motivo por el que no. */
-function filaDeConstruir(session: Session, town: Town, id: string, hoyEnCabecera = false): Html {
+/**
+ * La fila de construir un edificio: su nombre, su coste y el botón, o el motivo por
+ * el que no. `noManda`, por qué no se construye nada en la ciudad (el turno, el
+ * héroe de salida por elegir, la ocupación: `noSeConstruye`), una vez por pantalla.
+ */
+function filaDeConstruir(
+  session: Session,
+  town: Town,
+  id: string,
+  noManda: string | null,
+  hoyEnCabecera = false,
+): Html {
   const b = building(id);
-  // Sin poder jugar (el turno, el héroe de salida por elegir) no se construye.
-  const motivo = session.bloqueoDeTurno() ?? buildBlocker(town, id, session.oro);
+  const motivo = noManda ?? buildBlocker(town, id, session.oro);
   return html`<div class="stack"><span>${b.name}<span class="veterania">${describirCoste(b.cost)}</span>${
     // «Ya se ha construido hoy» lo dice la cabecera de «Ampliar» una vez: repetido
     // en cada fila tapaba los motivos que sí distinguen una de otra.
@@ -39,11 +48,17 @@ function filaDeConstruir(session: Session, town: Town, id: string, hoyEnCabecera
   }</span><span class="count"><button data-action="build" data-building="${id}" ${motivo === null ? NADA : DESHABILITADO} title="${motivo ?? `Construir ${b.name}`}">Construir</button></span></div>`;
 }
 
+/** Sin poder jugar (el turno, el héroe de salida por elegir) o sin mandar en la ciudad, no se construye. */
+function noSeConstruye(session: Session, town: Town): string | null {
+  return session.bloqueoDeTurno() ?? session.mandaEn(town);
+}
+
 /** «Ampliar»: lo siguiente de cada sitio que aún tiene algo por levantar. */
 function ampliar(session: Session, town: Town): Html {
+  const noManda = noSeConstruye(session, town);
   const filas = SITIOS.map((s) => siguienteDe(town, s))
     .filter((id): id is string => id !== null)
-    .map((id) => filaDeConstruir(session, town, id, true));
+    .map((id) => filaDeConstruir(session, town, id, noManda, true));
   return html`<h2>Ampliar ${town.name}</h2>
     <p class="cost">${town.builtToday ? 'Hoy ya se ha construido: mañana se podrá levantar otra cosa.' : 'Un edificio por día. Lo que levantes aparece en su sitio.'}</p>
     <div class="stack-list">${filas.length === 0 ? html`<div class="stack empty">Ya está todo construido.</div>` : unir(filas)}</div>`;
@@ -54,7 +69,7 @@ export function mejora(session: Session, town: Town, sitio: SitioId): Html {
   const id = siguienteDe(town, sitio);
   return id === null
     ? NADA
-    : html`<h3>Mejorar</h3><div class="stack-list">${filaDeConstruir(session, town, id)}</div>`;
+    : html`<h3>Mejorar</h3><div class="stack-list">${filaDeConstruir(session, town, id, noSeConstruye(session, town))}</div>`;
 }
 
 function edificio(session: Session, town: Town, sitio: SitioId, piezas: PiezasDelCastillo): Html {

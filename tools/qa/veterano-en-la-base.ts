@@ -9,6 +9,7 @@
  */
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../../src/core/hero/experiencia.js';
 import { baseOf, type GameState } from '../../src/core/state/game.js';
+import { guarnicionDe, ponerLaGuarnicion, sitioDeLaCiudad } from '../../src/core/state/sitios.js';
 import type { PlayerId, Veterania } from '../../src/core/types.js';
 
 /**
@@ -21,7 +22,8 @@ import type { PlayerId, Veterania } from '../../src/core/types.js';
 export function ponVeteranoEnLaBase(state: GameState, player: PlayerId): string {
   const base = baseOf(state, player);
   if (base === null) throw new Error(`el jugador ${player} no tiene base donde poner un veterano`);
-  const [primero, ...resto] = base.garrison;
+  const sitio = sitioDeLaCiudad(base);
+  const [primero, ...resto] = guarnicionDe(state, sitio);
   if (primero === undefined) {
     throw new Error(`la base ${base.id} del jugador ${player} no tiene guarnición`);
   }
@@ -32,7 +34,7 @@ export function ponVeteranoEnLaBase(state: GameState, player: PlayerId): string 
     bajas: 5,
     heroes: ['Sir Arnés'],
   };
-  base.garrison = [{ ...primero, veterania }, ...resto];
+  ponerLaGuarnicion(state, sitio, player, [{ ...primero, veterania }, ...resto]);
   return veterania.id;
 }
 

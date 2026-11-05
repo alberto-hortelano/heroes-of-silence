@@ -362,23 +362,25 @@ describe('sueloQueSePinta: la barrera y el nodo pintan el suelo de su meseta', (
     ).toEqual(['grass', 'grass', 'grass', 'swamp']);
   });
 
-  it('s3 (32,8): el nodo sin camino que va a la meseta de nieve pinta nieve, no la lava de abajo (#220)', () => {
+  it('s19 (14,23): el nodo sin camino que va a la meseta de lo áspero pinta lo áspero, no la nieve de abajo (#220)', () => {
     // Era s13 (18,7), con la nieve abajo; desde #226 (42×42), s40 (8,12), con
     // la ciénaga abajo. Con las fronteras onduladas (#229, 09-10-2026), s1
     // (11,34), con la hierba; con los ríos (#144, 16-10-2026), s6 (34,6), otra
     // vez con la ciénaga. Con el río continuo (#144), s66 (12,30), la primera
     // de 1-80 con la nieve arriba y la ciénaga abajo. Con las puertas de las
     // ciudades (fase 2, 21-10-2026), s8 (9,11), con la hierba abajo. Sin minas
-    // (21-10-2026), s3 (32,8), con la lava abajo.
-    const { map, escena: e } = partidaDe(3);
+    // (21-10-2026), s3 (32,8), con la lava abajo. Con las ciudades en mitad de
+    // su región (05-11-2026), s19 (14,23), la primera de 1-80: lo áspero arriba
+    // y la nieve abajo.
+    const { map, escena: e } = partidaDe(19);
     const a = analizar(map);
-    const i = 8 * a.W + 32;
-    expect(map.objects.some((o) => o.kind === 'node' && o.at.x === 32 && o.at.y === 8)).toBe(true);
-    expect(map.caminos.tiene({ x: 32, y: 8 })).toBe(false);
+    const i = 23 * a.W + 14;
+    expect(map.objects.some((o) => o.kind === 'node' && o.at.x === 14 && o.at.y === 23)).toBe(true);
+    expect(map.caminos.tiene({ x: 14, y: 23 })).toBe(false);
     expect(e.nivel[i]).toBe(2);
-    // Que el guardia no mire al vacío: el más cercano de cualquier nivel es la lava.
-    expect(a.suelo[i]).toBe('lava');
-    expect(e.suelo[i]).toBe('snow');
+    // Que el guardia no mire al vacío: el más cercano de cualquier nivel es la nieve.
+    expect(a.suelo[i]).toBe('snow');
+    expect(e.suelo[i]).toBe('rough');
   });
 
   it('semilla 7: cada casilla de barrera de la escena lleva el suelo de su meseta, y antes no', () => {
@@ -491,7 +493,7 @@ describe('un desnivel bajo una montaña, en los mapas reales (#216)', () => {
       expect(informe.caraDeOtroMaterial).toBe(0);
     });
 
-  it('s60 (30-37, 0-6): la pared bajo la cordillera de arena es de arenisca', () => {
+  it('s39 (29-35, 0-7): la pared bajo la cordillera de arena es de arenisca', () => {
     // Era s5 (2-8, 27-31), de la auditoría; con el acantilado en línea (#215)
     // es otro mapa, y s2 (14-20, 0-5) hasta los vestidos que se repiten por una
     // silla (#224), s7 (23-29, 20-25) hasta el mapa de 42×42 (#226) y s29
@@ -502,9 +504,11 @@ describe('un desnivel bajo una montaña, en los mapas reales (#216)', () => {
     // la s53 no tiene cordillera en la arena: va la s60, la de más casillas
     // así de 1-80, donde la montaña de (30-37, 0-6) es de la meseta de arena y
     // 11 de sus 27 casillas tienen otro suelo más cercano de cualquier nivel.
-    const { escena: e } = partidaDe(60);
+    // Con las ciudades en mitad de su región (05-11-2026), la s39, la primera de
+    // 1-200: la montaña de (29-35, 0-7), con 11 de sus 28 casillas así.
+    const { escena: e } = partidaDe(39);
     const bajoLaArena = e.relieve.celdas.filter(
-      (c) => c.vx >= 30 && c.vx <= 37 && c.vy >= 0 && c.vy <= 6,
+      (c) => c.vx >= 29 && c.vx <= 35 && c.vy >= 0 && c.vy <= 7,
     );
     expect(bajoLaArena.length).toBeGreaterThan(0);
     expect(new Set(bajoLaArena.map((c) => c.material))).toEqual(new Set(['cara-arenisca']));

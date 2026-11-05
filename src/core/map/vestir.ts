@@ -190,7 +190,7 @@ function laMasPesada(candidatas: readonly BarreraConPeso[]): Barrera {
 }
 
 /** La lista barajada con el `rng` (Fisher-Yates), sin tocar la de entrada. */
-function barajar<T>(rng: Rng, lista: readonly T[]): T[] {
+export function barajar<T>(rng: Rng, lista: readonly T[]): T[] {
   const fuera = [...lista];
   for (let i = fuera.length - 1; i > 0; i--) {
     const j = rng.int(0, i);
@@ -2642,6 +2642,13 @@ export interface EntradaDeCaminos {
    * en diagonal una esquina del río, que es su vado. En ningún otro sitio.
    */
   readonly vados?: ReadonlySet<number>;
+  /**
+   * El centro fijo de una región, por su índice: la casilla de su ciudad cuando
+   * va en mitad de ella (ciudades en su región, fase 2, 05-11-2026). Sus radios
+   * salen de la ciudad por sus puertas, y la ciudad no es objetivo de su región.
+   * Las regiones que no están aquí buscan el suyo (`centroDeRegion`).
+   */
+  readonly centros?: ReadonlyMap<number, number>;
 }
 
 /**
@@ -3105,8 +3112,18 @@ export function centroDeRegion(
  */
 function centroOMotivo(e: EntradaDeCaminos, r: number, b: Busqueda): number | string {
   const objetivos = e.objetivos[r] ?? [];
-  if (objetivos.length === 0) return -1;
   const donde = (i: number) => `(${i % e.W},${Math.floor(i / e.W)})`;
+  // La ciudad de mitad de la región es su centro: de ella salen los radios, por
+  // sus puertas. Lo que no se alcanza desde ella deja la región sin caminos.
+  const fijo = e.centros?.get(r);
+  if (fijo !== undefined) {
+    b.buscar(fijo);
+    const suelto = objetivos.find((o) => (b.coste[o] as number) < 0);
+    if (suelto !== undefined)
+      return `en la región ${r} no se llega de su ciudad, en ${donde(fijo)}, a ${donde(suelto)}`;
+    return fijo;
+  }
+  if (objetivos.length === 0) return -1;
   const suma = new Map<number, number>(b.casillas.map((i) => [i, 0]));
   for (const [k, o] of objetivos.entries()) {
     b.buscar(o);

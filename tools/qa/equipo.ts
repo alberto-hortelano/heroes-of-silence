@@ -114,8 +114,8 @@ for (let semilla = DESDE; semilla < DESDE + SEMILLAS; semilla++) {
     quedan += piezasPuestas(h.equipo).length + h.mochila.length;
     for (const t of h.army) enTropa += piezasPuestas(t.veterania?.equipo).length;
   }
-  for (const town of state.towns) {
-    for (const t of town.garrison) enTropa += piezasPuestas(t.veterania?.equipo).length;
+  for (const g of Object.values(state.guarniciones)) {
+    for (const t of g.tropa) enTropa += piezasPuestas(t.veterania?.equipo).length;
   }
   quedan += enTropa;
   puestasEnTropa += enTropa;

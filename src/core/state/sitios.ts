@@ -5,10 +5,14 @@
  *
  * Aquí viven tres cosas que antes no existían o estaban sueltas:
  *
- *  - **qué sitio hay en una casilla** y de quién es (`sitioEn`, `dueñoDelSitio`);
- *  - **la guarnición de cada sitio** (`guarnicionDe`): la de una ciudad sigue en
- *    `Town.garrison`; la de un paso o un pueblo, en `GameState.guarniciones`, por id
- *    del objeto del mapa, con quien la dejó. **Este módulo es el único que escribe
+ *  - **qué sitio hay en una casilla** y de quién es (`sitioEn`, `dueñoDelSitio`: en
+ *    el muro, el de su objeto; dentro de una región, el de la región, la tarea 2,
+ *    05-11-2026, `docs/agents/2026-11-05-ciudades-en-su-region/`), y **quién lo
+ *    ocupa** (`ocupanteDe`, `ocupadoBlocker`): tropa de otro dentro de un sitio con
+ *    dueño, que deja de sumarle hasta que la echa;
+ *  - **la guarnición de cada sitio** (`guarnicionDe`): la de una ciudad, un paso o
+ *    un pueblo, en `GameState.guarniciones`, por id del sitio, con su dueño (`null`,
+ *    la neutral de una ciudad). **Este módulo es el único que escribe
  *    `guarniciones`** (lo vigila `test/invariantes.test.ts`);
  *  - **la única puerta que mueve tropa entre un héroe y la guarnición de su sitio**,
  *    `repartir`: la usan dejar y recoger (`dejar_tropa`, `recoger_tropa`) y la
@@ -28,9 +32,8 @@
  *    (`mejorarElPuesto`; lo vigila `test/invariantes.test.ts`). El oro lo cobra la
  *    acción, en `game.ts`, como toda compra.
  *
- * No importa nada de `game.ts` salvo tipos: `game.ts` lo importa a él. De
- * `asaltantes.ts`, la región de una casilla (`regionDeCasilla`), que no importa
- * este módulo.
+ * No importa nada de `game.ts` salvo tipos: `game.ts` lo importa a él. El dueño
+ * de un sitio lo pregunta a la red (`dueñoDeUnSitio`, `map/regiones.ts`).
  */
 import sitiosJson from '../../../data/sitios.json' with { type: 'json' };
 import { unitPower } from '../ai/fuerza.js';
@@ -61,17 +64,22 @@ import {
   OBRAS_DE_UN_PUESTO,
   type ObraDelPuesto,
 } from '../map/map.js';
-import { dueñoDeLaRegion } from '../map/regiones.js';
+import { dueñoDeUnSitio, sitioEnUnNodo } from '../map/regiones.js';
 import { CHARACTER_BODY } from '../rpg/character.js';
 import { oroBlocker, type Town } from '../town/town.js';
-import type { Army, PlayerId, Point, Troop } from '../types.js';
+import { type Army, NOMBRE_DE_FACCION, type PlayerId, type Point, type Troop } from '../types.js';
 import { deLaLista, entero, esObjeto, problemasDeObjeto } from '../validar.js';
-import { regionDeCasilla } from './asaltantes.js';
+import type { Ocupante } from './events.js';
 import type { AdventureAction, GameState } from './game.js';
 
-/** La tropa que guarda un paso o un pueblo, y de quién es: quien la dejó. */
+/**
+ * La tropa que guarda un sitio, y de quién es: quien la dejó, o el dueño con que
+ * nació (la de una base); `null`, la neutral de una ciudad neutral. **No cambia de
+ * bando** porque cambie el dueño del sitio (P1 de la tarea 2): si el sitio pasa a
+ * otro, la tropa lo ocupa (`ocupanteDe`).
+ */
 export interface Guarnicion {
-  readonly dueño: PlayerId;
+  readonly dueño: PlayerId | null;
   readonly tropa: Army;
 }
 
@@ -87,6 +95,47 @@ export type Sitio =
   | { readonly kind: 'ciudad'; readonly town: Town }
   | { readonly kind: 'paso'; readonly nodo: Nodo }
   | { readonly kind: 'pueblo'; readonly pueblo: Pueblo };
+
+/** El sitio de la ciudad `town`: el literal que se escribía a mano en cada pregunta a una ciudad. */
+export function sitioDeLaCiudad(town: Town): Sitio {
+  return { kind: 'ciudad', town };
+}
+
+const ciudadesPorId = new WeakMap<readonly Town[], Map<string, Town>>();
+
+/**
+ * La ciudad de id `id`, por un índice hecho una vez por lista de ciudades (no se
+ * crean ni se borran en la partida; si faltara una, se rehace), o `undefined`.
+ */
+function ciudadPorId(state: GameState, id: string): Town | undefined {
+  let indice = ciudadesPorId.get(state.towns);
+  if (indice === undefined || !indice.has(id)) {
+    indice = new Map(state.towns.map((t) => [t.id, t]));
+    ciudadesPorId.set(state.towns, indice);
+  }
+  return indice.get(id);
+}
+
+/** Lo que es un sitio en el mapa: el objeto de una ciudad, de un paso o de un pueblo. */
+type ObjetoDeUnSitio = Extract<MapObject, { kind: 'town' | 'node' | 'village' }>;
+
+/**
+ * El sitio de un objeto del mapa que ya se tiene en la mano, sin buscarlo por id
+ * (`sitioPorId`): el paso y el pueblo son su objeto; la ciudad, la de su id.
+ */
+export function sitioDelObjeto(state: GameState, o: ObjetoDeUnSitio): Sitio {
+  switch (o.kind) {
+    case 'node':
+      return { kind: 'paso', nodo: o };
+    case 'village':
+      return { kind: 'pueblo', pueblo: o };
+    case 'town': {
+      const town = ciudadPorId(state, o.id);
+      if (town === undefined) throw new Error(`el mapa tiene una ciudad sin datos: ${o.id}`);
+      return { kind: 'ciudad', town };
+    }
+  }
+}
 
 /** El sitio de la casilla `at`, o `null` si allí no hay ninguno. */
 export function sitioEn(state: GameState, at: Point): Sitio | null {
@@ -106,9 +155,19 @@ export function sitioEn(state: GameState, at: Point): Sitio | null {
  * un hecho por su id (`renderLog`) y, sin él, dice la casilla.
  */
 export function sitioSiExiste(state: GameState, id: string): Sitio | null {
-  const town = state.towns.find((t) => t.id === id);
+  const town = ciudadPorId(state, id);
   if (town !== undefined) return { kind: 'ciudad', town };
-  const o = state.map.objects.find((x) => x.id === id);
+  return pasoOPuebloSiExiste(state.map.objects, id);
+}
+
+/**
+ * El paso o el pueblo de id `id` entre los objetos de un mapa, o `null`: lo de
+ * `sitioSiExiste` que no pide las ciudades. Lo lee también la crónica del
+ * espectador, que tiene los objetos del cable y no el estado (vuelta 1 de QA de la
+ * tarea 2, H2: el pueblo del muro tomado se contaba «Paso tomado»).
+ */
+export function pasoOPuebloSiExiste(objects: readonly MapObject[], id: string): Sitio | null {
+  const o = objects.find((x) => x.id === id);
   if (o?.kind === 'node') return { kind: 'paso', nodo: o };
   if (o?.kind === 'village') return { kind: 'pueblo', pueblo: o };
   return null;
@@ -179,29 +238,135 @@ export function delSitio(sitio: Sitio): string {
 }
 
 /**
- * De quién es el sitio: la ciudad, de `Town.owner`; el paso, de `node.owner` (lo
- * escribe `captureNode`); el pueblo, **de quien lo guarda** si tiene guarnición, y
- * si no, de quien tenga su región (`dueñoDeLaRegion`, la regla de su renta).
- *
- * Quien guarda un pueblo manda sobre la región porque es lo que decide la batalla:
- * una guarnición ajena se pelea aunque la región sea tuya (`enemyAt`). Hoy no se
- * llega a eso —dejarla exige que el sitio sea de quien la deja, y nadie la deja en
- * un pueblo pisado por otro—, pero un nodo que cambia de dueño después cambia la
- * región sin tocar la tropa, y la tropa no cambia de bando por eso.
+ * De quién es el sitio: **la regla del sitio**, una vez (`dueñoDeUnSitio`, en la
+ * red). En el muro —un paso, la base, la ciudad-puente o un pueblo entre dos
+ * regiones—, el de su objeto del mapa, que se toma como un paso (`tomarElNodo`);
+ * dentro de una región, el de quien la tenga. La tropa que lo guarda **no** lo
+ * decide (P1): si es de otro, lo ocupa (`ocupanteDe`).
  */
 export function dueñoDelSitio(state: GameState, sitio: Sitio): PlayerId | null {
-  switch (sitio.kind) {
-    case 'ciudad':
-      return sitio.town.owner;
-    case 'paso':
-      return sitio.nodo.owner;
-    case 'pueblo': {
-      const guardada = state.guarniciones[sitio.pueblo.id];
-      if (guardada !== undefined) return guardada.dueño;
-      const region = regionDeCasilla(state.map, sitio.pueblo.at);
-      return region < 0 ? null : dueñoDeLaRegion(state, region);
-    }
+  return dueñoDeUnSitio(state, idDelSitio(sitio));
+}
+
+/** De quién es la ciudad (`dueñoDelSitio` de una ciudad): la pregunta de todo lo que antes leía `Town.owner`. */
+export function dueñoDeLaCiudad(state: GameState, town: Town): PlayerId | null {
+  return dueñoDeUnSitio(state, town.id);
+}
+
+/** Si el sitio está en el muro, entre regiones: entonces es un nodo y se toma como un paso. */
+export function enUnNodo(state: GameState, sitio: Sitio): boolean {
+  return sitioEnUnNodo(state.map, idDelSitio(sitio));
+}
+
+/** De quién era un sitio y quién lo ocupaba, en un instante (`comoEstaElSitio`). */
+export interface SitioVisto {
+  readonly dueño: PlayerId | null;
+  readonly ocupante: Ocupante | null;
+}
+
+/**
+ * De quién es el sitio y quién lo ocupa, ahora: el par que guardan el recuerdo de
+ * la niebla (`recuerdoDe`), la foto de la crónica (`fotoDeLosSitios`), el mapa del
+ * agente y el cable del espectador. `dueño`, si ya se sabe (de una foto del
+ * territorio), para no volver a preguntarlo.
+ */
+export function comoEstaElSitio(
+  state: GameState,
+  sitio: Sitio,
+  dueño: PlayerId | null = dueñoDelSitio(state, sitio),
+): SitioVisto {
+  return { dueño, ocupante: ocupanteDe(state, sitio, dueño) };
+}
+
+/** El héroe que no es de `jugador` y está en la casilla `at`, si hay uno: el primero, como en la batalla. */
+export function heroeAjenoEn(state: GameState, at: Point, jugador: PlayerId): Hero | undefined {
+  return state.heroes.find((h) => h.owner !== jugador && h.at.x === at.x && h.at.y === at.y);
+}
+
+/**
+ * **La regla de la ocupación**, una vez (P1 y P4 de la tarea 2, 05-11-2026): un
+ * sitio **con dueño** está ocupado si en su casilla hay un héroe de otro bando, o
+ * si lo guarda tropa que no es de su dueño (la de quien lo tenía antes, o la
+ * neutral de una ciudad neutral cuya región ya es de alguien). Mientras dura, el
+ * sitio no da oro, ni recluta, ni construye, ni crecen sus moradas, ni se contrata
+ * en él (`ocupadoBlocker`). El héroe va antes que la guarnición, como en la
+ * batalla (`enemyAt`). Un sitio sin dueño no está ocupado: no hay a quién quitarle
+ * nada. La leen la renta, la crónica (`anotarLosSitios`), el contrato, la IA y la
+ * pantalla. `dueño`, si quien pregunta ya lo tiene.
+ */
+export function ocupanteDe(
+  state: GameState,
+  sitio: Sitio,
+  dueño: PlayerId | null = dueñoDelSitio(state, sitio),
+): Ocupante | null {
+  if (dueño === null) return null;
+  const heroe = heroeAjenoEn(state, casillaDelSitio(sitio), dueño);
+  if (heroe !== undefined) return { kind: 'heroe', heroId: heroe.id, dueño: heroe.owner };
+  const g = laGuarnicion(state, sitio);
+  if (g !== null && g.dueño !== dueño) return { kind: 'guarnicion', dueño: g.dueño };
+  return null;
+}
+
+/** De quién es un jugador, dicho: «los Orkos» (su facción). */
+function deQuien(state: GameState, jugador: PlayerId | null): string {
+  if (jugador === null) return 'neutral';
+  const p = state.players.find((x) => x.id === jugador);
+  return p === undefined ? `del jugador ${jugador}` : `de los ${NOMBRE_DE_FACCION[p.faction]}`;
+}
+
+/**
+ * El ocupante dicho: «Grishnak, de los Orkos», «una guarnición neutral». Lo leen
+ * `ocupadoBlocker` y la ficha de la ciudad, que dice de quién es la tropa que la
+ * ocupa (vuelta 1 de QA de la tarea 2, H1: la enseñaba como su guarnición).
+ */
+export function ocupanteDicho(state: GameState, ocupante: Ocupante): string {
+  if (ocupante.kind === 'heroe') {
+    const nombre = state.heroes.find((h) => h.id === ocupante.heroId)?.name ?? ocupante.heroId;
+    return `${nombre}, ${deQuien(state, ocupante.dueño)}`;
   }
+  return `una guarnición ${deQuien(state, ocupante.dueño)}`;
+}
+
+/**
+ * Por qué el sitio no da nada a su dueño, o `null` si no está ocupado: la frase de
+ * la ocupación (P4), que leen las acciones que apaga (reclutar, construir,
+ * contratar y comprar en la armería, por `ciudadQueMandaBlocker`), la renta, la
+ * pantalla y el agente.
+ * «Villarreal está ocupada por Grishnak, de los Orkos: no da oro, ni recluta, ni
+ * construye, ni crecen sus moradas hasta que lo eches atacándolo».
+ */
+export function ocupadoBlocker(
+  state: GameState,
+  sitio: Sitio,
+  dueño: PlayerId | null = dueñoDelSitio(state, sitio),
+): string | null {
+  const ocupante = ocupanteDe(state, sitio, dueño);
+  if (ocupante === null) return null;
+  const quien = ocupanteDicho(state, ocupante);
+  const pronombre = ocupante.kind === 'heroe' ? 'lo' : 'la';
+  const hasta = `hasta que ${pronombre} eches atacándo${pronombre}`;
+  if (sitio.kind === 'ciudad') {
+    return `${nombreDelSitio(sitio)} está ocupada por ${quien}: no da oro, ni recluta, ni construye, ni crecen sus moradas, ni se contrata en ella, ni vende su armería ${hasta}`;
+  }
+  // El pueblo: solo da oro. (El paso no se ocupa: tomarlo limpia su guarnición.)
+  return `${nombreDelSitio(sitio)} está ocupado por ${quien}: no da oro ${hasta}`;
+}
+
+/**
+ * Por qué `player` no manda hoy en la ciudad `town`, o `null`: que no es suya, o
+ * que está ocupada (`ocupadoBlocker`). **La regla de «la ciudad que manda»**, una
+ * vez (P4 de la tarea 2: ocupada, la ciudad entera deja de servir): la leen
+ * construir, reclutar, contratar y comprar en la armería, la IA y la pantalla de la
+ * ciudad, cada una con lo suyo delante.
+ */
+export function ciudadQueMandaBlocker(
+  state: GameState,
+  town: Town,
+  player: PlayerId,
+): string | null {
+  const dueño = dueñoDeLaCiudad(state, town);
+  if (dueño !== player) return `${town.name} no es de tu bando`;
+  return ocupadoBlocker(state, sitioDeLaCiudad(town), dueño);
 }
 
 /**
@@ -393,6 +558,8 @@ function laMejoraPedida(
   const donde = heroeEnSuSitio(state, player, heroId, 'solo se mejora un paso tuyo, un puesto');
   if ('motivo' in donde) return { kind: 'no', motivo: donde.motivo };
   const { hero, sitio } = donde;
+  // Solo se mejora lo que es suyo: la guarnición suya en un sitio ajeno no basta.
+  if (!donde.suyo) return { kind: 'no', motivo: noEsTuyo(sitio) };
   if (sitio.kind !== 'paso') {
     return {
       kind: 'no',
@@ -505,25 +672,40 @@ export function laObraDelPuesto(
 
 /** La tropa que guarda el sitio (vacía si no guarda nada). */
 export function guarnicionDe(state: GameState, sitio: Sitio): Army {
-  if (sitio.kind === 'ciudad') return sitio.town.garrison;
   return state.guarniciones[idDelSitio(sitio)]?.tropa ?? [];
 }
 
+/** La guarnición de la ciudad `town` (`guarnicionDe` de su sitio). */
+export function guarnicionDeLaCiudad(state: GameState, town: Town): Army {
+  return guarnicionDe(state, sitioDeLaCiudad(town));
+}
+
 /**
- * La guarnición del paso o del pueblo (el sitio o su id) **si es hostil para
- * `player`**: tiene tropa y no es suya. Es lo que no se cruza y se pelea al pisarlo
- * (`enemyAt`, `casillasHostiles`, `queLoCierra`) y lo que la IA mide antes de ir
- * (`objectValue`): una regla, leída por los cuatro. La de una ciudad no pasa por
- * aquí (no tiene entrada en `guarniciones`, así que da `null`): sigue su camino de
- * siempre, `Town.garrison` con `Town.owner`, que la IA mide con su propio margen.
+ * La guarnición del sitio (el sitio o su id) con su dueño, o `null` si no guarda
+ * nada: la tropa tiene su propio dueño, que no tiene por qué ser el del sitio (P1).
+ * `ponerLaGuarnicion` borra la que se queda vacía; que una entrada sin tropa no
+ * cuente se comprueba aquí, una vez, y lo leen la ocupación, la hostil y la regla
+ * de «suyo».
+ */
+export function laGuarnicion(state: GameState, sitio: Sitio | string): Guarnicion | null {
+  const g = state.guarniciones[typeof sitio === 'string' ? sitio : idDelSitio(sitio)];
+  return g === undefined || g.tropa.length === 0 ? null : g;
+}
+
+/**
+ * La guarnición del sitio (el sitio o su id) **si es hostil para `player`**: tiene
+ * tropa y no es suya (la neutral de una ciudad, también). Es lo que no se cruza y
+ * se pelea al pisarlo (`enemyAt`, `casillasHostiles`, `queLoCierra`) y lo que la
+ * IA mide antes de ir (`objectValue`): una regla, leída por los cuatro. Desde la
+ * tarea 2 vale igual para la ciudad, cuya guarnición vive aquí con las demás.
  */
 export function guarnicionHostil(
   state: GameState,
   sitio: Sitio | string,
   player: PlayerId,
 ): Guarnicion | null {
-  const g = state.guarniciones[typeof sitio === 'string' ? sitio : idDelSitio(sitio)];
-  return g !== undefined && g.dueño !== player && g.tropa.length > 0 ? g : null;
+  const g = laGuarnicion(state, sitio);
+  return g !== null && g.dueño !== player ? g : null;
 }
 
 /**
@@ -549,29 +731,24 @@ export function cupoDeLaGuarnicion(state: GameState): {
 }
 
 /**
- * Escribe la guarnición del sitio. La de una ciudad es `Town.garrison`; la de un
- * paso o un pueblo, su entrada de `guarniciones`, que se borra si queda vacía (sin
- * entrada = sin guarnición, y así un pueblo vacío vuelve a ser de su región).
+ * Escribe la guarnición del sitio: su entrada de `guarniciones`, que se borra si
+ * queda vacía (sin entrada = sin guarnición: el sitio ya no está ocupado por ella).
  */
 export function ponerLaGuarnicion(
   state: GameState,
   sitio: Sitio,
-  dueño: PlayerId,
+  dueño: PlayerId | null,
   tropa: Army,
 ): void {
-  if (sitio.kind === 'ciudad') {
-    sitio.town.garrison = tropa;
-    return;
-  }
   const id = idDelSitio(sitio);
   if (tropa.length === 0) delete state.guarniciones[id];
   else state.guarniciones[id] = { dueño, tropa };
 }
 
 /**
- * La guarnición del paso o pueblo `id` se pierde: el paso cambia de dueño
- * (`captureNode`) o quien la guardaba pierde la batalla. Lo no elegido para la
- * defensa se pierde con el sitio (D1 de la tarea).
+ * La guarnición del sitio `id` se pierde: el sitio en el muro cambia de dueño
+ * (`tomarElNodo`) o quien la guardaba pierde la batalla. Lo no elegido para la
+ * defensa se pierde con el sitio (D1 de la tarea del puesto).
  */
 export function quitarLaGuarnicion(state: GameState, id: string): void {
   delete state.guarniciones[id];
@@ -696,13 +873,19 @@ const PARA_LA_TROPA = 'la tropa se deja y se recoge en un sitio tuyo';
  * primero que preguntan dejar, recoger, repartir y mejorar, en ese orden (quién,
  * dónde, de quién es el sitio). Fuera de todo sitio, el motivo acaba en `para`, lo
  * que dice quien pregunta de lo que pidió.
+ *
+ * El sitio es suyo como lo dice `loSuyoDelSitio`: también uno que ya no es suyo
+ * **si la guarnición es suya** (pregunta 3 de la tarea 2, «recoger sí, dejar no»).
+ * `suyo` dice si lo es el sitio: quien deja tropa o mejora el puesto, solo ahí.
  */
 function heroeEnSuSitio(
   state: GameState,
   player: PlayerId,
   heroId: string,
   para: string,
-): { readonly hero: Hero; readonly sitio: Sitio } | { readonly motivo: string } {
+):
+  | { readonly hero: Hero; readonly sitio: Sitio; readonly suyo: boolean }
+  | { readonly motivo: string } {
   const hero = state.heroes.find((h) => h.id === heroId);
   if (hero === undefined) return { motivo: `no existe ningún héroe "${heroId}"` };
   if (hero.owner !== player) return { motivo: `${hero.name} no es de tu bando` };
@@ -710,9 +893,34 @@ function heroeEnSuSitio(
   if (sitio === null) {
     return { motivo: `${hero.name} no está en ninguna ciudad, paso ni pueblo: ${para}` };
   }
-  if (dueñoDelSitio(state, sitio) !== player)
-    return { motivo: `${nombreDelSitio(sitio)} no es tuyo` };
-  return { hero, sitio };
+  const suyo = loSuyoDelSitio(state, sitio, player);
+  if (suyo === null) return { motivo: noEsTuyo(sitio) };
+  return { hero, sitio, suyo: suyo === 'sitio' };
+}
+
+/** Lo que dice quien pide algo en un sitio que no es suyo. */
+function noEsTuyo(sitio: Sitio): string {
+  return `${nombreDelSitio(sitio)} no es tuyo`;
+}
+
+/**
+ * **La regla de «suyo»**, una vez: si el sitio es de `jugador` (`'sitio'`), si solo
+ * lo es la tropa que lo guarda (`'guarnicion'`: lo que dejó en un pueblo cuya
+ * región cambió de dueño, pregunta 3 de la tarea 2) o ninguna de las dos (`null`).
+ * La leen `heroeEnSuSitio` y `sitioDelHeroe`.
+ */
+function loSuyoDelSitio(
+  state: GameState,
+  sitio: Sitio,
+  jugador: PlayerId,
+): 'sitio' | 'guarnicion' | null {
+  if (dueñoDelSitio(state, sitio) === jugador) return 'sitio';
+  return laGuarnicion(state, sitio)?.dueño === jugador ? 'guarnicion' : null;
+}
+
+/** Lo que dice dejar tropa en un sitio que ya no es suyo, donde solo puede recogerla. */
+function soloRecoger(sitio: Sitio): string {
+  return `${nombreDelSitio(sitio)} ya no es tuyo: puedes recoger la guarnición que dejaste, no dejar más`;
 }
 
 /**
@@ -726,13 +934,14 @@ function elIntercambio(
   que: Intercambio,
   pedido: PedidoDeTropa,
 ): ElIntercambio {
+  const deja = que === 'dejar_tropa';
   const donde = heroeEnSuSitio(state, player, pedido.hero, PARA_LA_TROPA);
   if ('motivo' in donde) return donde;
   const { hero, sitio } = donde;
+  if (deja && !donde.suyo) return { motivo: soloRecoger(sitio) };
   if ('count' in pedido && (!Number.isSafeInteger(pedido.count) || pedido.count < 1)) {
     return { motivo: `son individuos: se mueven de 1 en adelante, no ${pedido.count}` };
   }
-  const deja = que === 'dejar_tropa';
   const origen = deja ? hero.army : guarnicionDe(state, sitio);
   const destino = deja ? guarnicionDe(state, sitio) : hero.army;
   const quienOrigen = deja ? hero.name : `la guarnición ${delSitio(sitio)}`;
@@ -982,6 +1191,7 @@ function elRepartoPedido(
   const elegidos = elegidosDelReparto(state, hero, sitio, pedido.enElHeroe);
   if ('motivo' in elegidos) return elegidos;
   const r = resolver(state, hero, sitio, elegidos);
+  if (!donde.suyo && r.deja.length > 0) return { motivo: soloRecoger(sitio) };
   if (r.deja.length === 0 && r.recoge.length === 0) {
     return {
       motivo: `el reparto no mueve a nadie: ${hero.name} y la guarnición ${delSitio(sitio)} quedan como estaban`,
@@ -1129,12 +1339,43 @@ export function tipoDelVeterano(state: GameState, heroId: string, veterano: stri
 
 /**
  * El sitio **suyo** en el que está `hero`, o `null`: donde se defiende con la
- * guarnición (D1). Un héroe en un pueblo de una región ajena, o en un sitio de
- * nadie, defiende con su ejército y nada más.
+ * guarnición (D1) y donde reparte su tropa. Suyo es que el sitio sea de su bando
+ * **o que la guarnición lo sea** (`loSuyoDelSitio`: lo que dejó en un pueblo cuya
+ * región cambió de dueño se recoge y defiende con él; dejar más no,
+ * `heroeEnSuSitio`). Un héroe en un sitio ajeno sin tropa suya, o en uno de nadie,
+ * defiende con su ejército y nada más (tras la muralla del sitio, eso sí:
+ * `sitioQueSeDefiende`).
  */
 export function sitioDelHeroe(state: GameState, hero: Hero): Sitio | null {
   const sitio = sitioEn(state, hero.at);
-  return sitio !== null && dueñoDelSitio(state, sitio) === hero.owner ? sitio : null;
+  return sitio !== null && loSuyoDelSitio(state, sitio, hero.owner) !== null ? sitio : null;
+}
+
+/**
+ * La ciudad **de su bando** en la que está `hero`, o `undefined`: donde se licencia
+ * tropa y con cuya muralla y moral defiende. Sin la guarnición suya en una ajena:
+ * para eso, `sitioDelHeroe`.
+ */
+export function castilloSuyoDelHeroe(state: GameState, hero: Hero): Town | undefined {
+  const town = state.towns.find((t) => t.at.x === hero.at.x && t.at.y === hero.at.y);
+  return town !== undefined && dueñoDeLaCiudad(state, town) === hero.owner ? town : undefined;
+}
+
+/**
+ * El objeto del mapa del sitio: el paso y el pueblo lo son; la ciudad, el `town` de
+ * su id. Es donde vive el dueño guardado de un sitio del muro (`tomarElNodo`).
+ */
+export function objetoDelSitio(state: GameState, sitio: Sitio): ObjetoDeUnSitio {
+  switch (sitio.kind) {
+    case 'paso':
+      return sitio.nodo;
+    case 'pueblo':
+      return sitio.pueblo;
+    case 'ciudad': {
+      for (const o of state.map.objects) if (o.kind === 'town' && o.id === sitio.town.id) return o;
+      throw new Error(`${sitio.town.name} no tiene objeto en el mapa`);
+    }
+  }
 }
 
 /**

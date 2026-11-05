@@ -14,6 +14,7 @@ import habilidadesJson from '../../data/habilidades.json' with { type: 'json' };
 import heroeJson from '../../data/heroe.json' with { type: 'json' };
 import liderazgoJson from '../../data/liderazgo.json' with { type: 'json' };
 import murallaJson from '../../data/muralla.json' with { type: 'json' };
+import poblamientoJson from '../../data/poblamiento.json' with { type: 'json' };
 import poderJson from '../../data/poder.json' with { type: 'json' };
 import relieveJson from '../../data/relieve.json' with { type: 'json' };
 import riosJson from '../../data/rios.json' with { type: 'json' };
@@ -61,6 +62,7 @@ import {
   enteroBlocker,
   esIdDePieza,
   esIdDeUnidad,
+  esObjeto,
   problemasDeObjeto,
   revisarLista,
 } from './validar.js';
@@ -2048,3 +2050,57 @@ export function validarRios(json: unknown, fichero = 'data/rios.json'): ReglasDe
 }
 
 export const RIOS: ReglasDelRio = validarRios(riosJson);
+
+/** Lo que se lee de `data/poblamiento.json`: dónde pone el generador las ciudades que no van en un nodo. */
+export interface ReglasDelPoblamiento {
+  /**
+   * Cuántas parejas de regiones de fuera (una de cada bando, en espejo) llevan una
+   * ciudad en mitad de la región. Si el mapa tiene menos, todas.
+   */
+  readonly parejasConCiudad: number;
+  /**
+   * En cuántas parejas de regiones de fuera, de cada `de`, el pueblo va al paso con
+   * camino de su región, en el muro (pueblos en un nodo, fase 3): una cuota por mapa,
+   * redondeada, entre las parejas que pueden (`pueblosEnElMuro`, `generate.ts`).
+   */
+  readonly pueblosEnUnNodo: { readonly uno: number; readonly de: number };
+}
+
+/**
+ * Valida `data/poblamiento.json` (**inventado**, como dice su `_comment`). Lanza
+ * con todos los problemas a la vez; con el JSON de argumento para que el guardia
+ * se pueda ver morder con un fichero roto.
+ */
+export function validarPoblamiento(
+  json: unknown,
+  fichero = 'data/poblamiento.json',
+): ReglasDelPoblamiento {
+  const problemas = problemasDeObjeto(json, ['_comment', 'parejasConCiudad', 'pueblosEnUnNodo']);
+  const j = esObjeto(json) ? json : {};
+  const v = j.parejasConCiudad;
+  if (!enteroDesde(v, 0) || v > 10)
+    problemas.push(
+      `"parejasConCiudad" tiene que ser un entero de 0 a 10, y lleva ${JSON.stringify(v)}`,
+    );
+  // Una proporción, «uno de cada de»: dos enteros y no un decimal, que se lee igual
+  // en el fichero y en la cuota.
+  const p = j.pueblosEnUnNodo;
+  const q = esObjeto(p) ? p : {};
+  if (
+    problemasDeObjeto(p, ['uno', 'de'], ['uno', 'de']).length > 0 ||
+    !enteroDesde(q.de, 1) ||
+    q.de > 100 ||
+    !enteroDesde(q.uno, 0) ||
+    q.uno > q.de
+  )
+    problemas.push(
+      `"pueblosEnUnNodo" tiene que ser {"uno", "de"}, enteros con 0 ≤ uno ≤ de y de de 1 a 100 (uno de cada «de» pueblos va en un nodo), y lleva ${JSON.stringify(p)}`,
+    );
+  if (problemas.length > 0) throw new Error(`${fichero}: ${problemas.join('; ')}`);
+  return {
+    parejasConCiudad: v as number,
+    pueblosEnUnNodo: { uno: q.uno as number, de: q.de as number },
+  };
+}
+
+export const POBLAMIENTO: ReglasDelPoblamiento = validarPoblamiento(poblamientoJson);

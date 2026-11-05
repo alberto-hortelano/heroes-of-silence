@@ -12,8 +12,8 @@
 import { unidadesDelJuego } from '../catalogo.js';
 import { PIEZAS_DEL_CATALOGO } from '../hero/equipo.js';
 import { armyLeadership, capacidadDe } from '../hero/troop.js';
-import { buildMap, type MapPlan } from '../map/generate.js';
-import { estructura, franjasDeBarrera } from '../map/regiones.js';
+import { basesDelPlan, buildMap, type MapPlan } from '../map/generate.js';
+import { estructura, franjasDeBarrera, regionesDelSitio } from '../map/regiones.js';
 import { isWalkable } from '../map/terrain.js';
 import { nivelDeUnidad } from '../nivel.js';
 import {
@@ -173,7 +173,10 @@ export function lecturaParaElMotor(
 ): LecturaParaElMotor {
   const { map, towns } = hecho;
   const red = estructura(map);
-  const bases = towns.filter((t) => t.owner !== null);
+  // El dueño con que nace cada ciudad lo dice el plan (la de dentro de una región
+  // no lleva: es de quien tenga la región); la base de cada jugador, también.
+  const dueñoAlNacer = new Map(plan.towns.map((t) => [t.id, t.owner]));
+  const bases = [...basesDelPlan(plan)].map(([owner, t]) => ({ ...t, owner }));
   /** La facción de la base de `owner`: la de quien juega sale del plan, no del `mundo.json`. */
   const faccionDe = (owner: PlayerId): FactionId => {
     const base = bases.find((b) => b.owner === owner);
@@ -183,12 +186,11 @@ export function lecturaParaElMotor(
   // La casa de cada base: de las regiones que toca, la de menos nodos.
   const casa = new Map<number, PlayerId>();
   for (const b of bases) {
-    const nodo = red.nodos.find((n) => n.id === b.id);
-    const suyas = [...(nodo?.regiones ?? [])].sort(
+    const suyas = [...regionesDelSitio(red, b.id)].sort(
       (a, c) =>
         (red.regiones[a]?.nodos.length ?? 0) - (red.regiones[c]?.nodos.length ?? 0) || a - c,
     );
-    if (suyas[0] !== undefined && b.owner !== null) casa.set(suyas[0], b.owner);
+    if (suyas[0] !== undefined) casa.set(suyas[0], b.owner);
   }
   const nombreDe = (r: number): string => (red.regiones[r] as { id: string }).id;
   const suelos = new Map(plan.regions.map((r) => [r.id, r.terrain ?? null]));
@@ -239,7 +241,7 @@ export function lecturaParaElMotor(
       nivel: reg.nivel,
       vecinas: [...(vecinas[r] ?? [])].sort((a, b) => a - b).map(nombreDe),
       casaDe: casa.get(r) ?? null,
-      ciudades: red.nodos.filter((n) => n.ciudad && n.regiones.includes(r)).map((n) => n.id),
+      ciudades: towns.filter((t) => regionesDelSitio(red, t.id).includes(r)).map((t) => t.id),
       pueblos: pueblos.filter((p) => p.region === reg.id).map((p) => p.nombre),
       rio: conRio.has(r),
       casillas: casillasDe[r]?.length ?? 0,
@@ -249,9 +251,9 @@ export function lecturaParaElMotor(
       id: t.id,
       nombre: t.name,
       faccion: t.faction,
-      dueño: t.owner,
+      dueño: dueñoAlNacer.get(t.id) ?? null,
       at: t.at,
-      regiones: (red.nodos.find((n) => n.id === t.id)?.regiones ?? []).map(nombreDe),
+      regiones: regionesDelSitio(red, t.id).map(nombreDe),
     })),
     pueblos,
     rio,

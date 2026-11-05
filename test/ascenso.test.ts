@@ -28,9 +28,16 @@ import {
   veteranosEnSuBase,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 import { FACTION_IDS, type Troop, type Veterania } from '../src/core/types.js';
 import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
-import { fueraDeSuBase, TROPA_BARATA } from './helpers.js';
+import {
+  darLaCiudad,
+  fueraDeSuBase,
+  guarnecer,
+  guarnicionDeLaCiudad,
+  TROPA_BARATA,
+} from './helpers.js';
 
 /**
  * El tipo de héroe `i` de la facción del jugador 1, en el orden de
@@ -56,13 +63,13 @@ function conVeteranos(): { state: GameState; base: NonNullable<ReturnType<typeof
   const state = newGame({ seed: 7 });
   const base = baseOf(state, 1);
   if (base === null) throw new Error('el jugador 1 nace sin base');
-  const [g0, g1, ...resto] = base.garrison;
+  const [g0, g1, ...resto] = guarnicionDeLaCiudad(state, base);
   if (g0 === undefined || g1 === undefined) throw new Error('la base nace sin guarnición');
-  base.garrison = [
+  guarnecer(state, base, [
     { ...g0, veterania: hoja('veterano-guarnicion', 5) },
     { ...g1, veterania: hoja('veterano-de-4', 4) },
     ...resto,
-  ];
+  ]);
   const heroe = heroesOf(state, 1)[0];
   if (heroe === undefined) throw new Error('el jugador 1 nace sin héroe');
   heroe.at = base.at;
@@ -91,8 +98,10 @@ describe('la tropa se hace héroe: quién puede', () => {
     heroe.at = { x: base.at.x + 1, y: base.at.y };
     // Y un veterano de nivel 5 en la guarnición de otra ciudad, aunque sea suya.
     const otra = state.towns.find((t) => t.id !== base.id)!;
-    otra.owner = 1;
-    otra.garrison = [{ creature: 'esqueleto-guerrero', veterania: hoja('veterano-lejos', 5) }];
+    darLaCiudad(state, otra, 1);
+    guarnecer(state, otra, [
+      { creature: 'esqueleto-guerrero', veterania: hoja('veterano-lejos', 5) },
+    ]);
     expect(veteranosEnSuBase(state, 1).map((v) => v.veterania.id)).toEqual(['veterano-guarnicion']);
     // Ni los del rival, aunque los tenga.
     expect(veteranosEnSuBase(state, 0)).toEqual([]);
@@ -103,10 +112,10 @@ describe('la tropa se hace héroe: el ascenso', () => {
   it('crea el héroe del contrato y saca al individuo de la guarnición', () => {
     const { state, base } = conVeteranos();
     const antes = heroesOf(state, 1).length;
-    const guarnicion = base.garrison.length;
+    const guarnicion = guarnicionDeLaCiudad(state, base).length;
     const delQueEstaba = heroesOf(state, 1)[0]!;
     const tropa = delQueEstaba.army.length;
-    const criatura = base.garrison[0]!.creature;
+    const criatura = guarnicionDeLaCiudad(state, base)[0]!.creature;
     const heroe = ascenderVeterano(state, 1, 'veterano-guarnicion', {
       name: 'Ana la Paciente',
       story: 'Guardó la puerta cuatro inviernos.',
@@ -135,9 +144,11 @@ describe('la tropa se hace héroe: el ascenso', () => {
     // El individuo ya no está en la guarnición, y nadie más se ha movido: ni el
     // nacido ni el que ocupa la base recogen la guarnición (la recogida
     // automática se retiró el 04-11-2026; se recoge con `recoger_tropa`).
-    expect(base.garrison).toHaveLength(guarnicion - 1);
+    expect(guarnicionDeLaCiudad(state, base)).toHaveLength(guarnicion - 1);
     expect(delQueEstaba.army).toHaveLength(tropa);
-    expect(base.garrison.some((t) => t.veterania?.id === 'veterano-guarnicion')).toBe(false);
+    expect(
+      guarnicionDeLaCiudad(state, base).some((t) => t.veterania?.id === 'veterano-guarnicion'),
+    ).toBe(false);
     // La crónica lo cuenta, con su dueño y la casilla donde nace.
     const hecho = [...state.log].reverse().find((e) => e.kind === 'hero_promoted');
     expect(hecho).toMatchObject({
@@ -161,7 +172,7 @@ describe('la tropa se hace héroe: el ascenso', () => {
     const portador = heroesOf(state, 1)[0]!;
     // Un portador con un único individuo, que es el veterano.
     portador.army = portador.army.filter((t) => t.veterania?.id === 'veterano-tropa');
-    const guarnicion = base.garrison.length;
+    const guarnicion = guarnicionDeLaCiudad(state, base).length;
     const criatura = portador.army[0]!.creature;
     const heroe = ascenderVeterano(state, 1, 'veterano-tropa', {
       name: 'Bruno',
@@ -174,8 +185,10 @@ describe('la tropa se hace héroe: el ascenso', () => {
     expect(heroe.at).not.toEqual(base.at);
     expect(heroe.army).toEqual([]);
     expect(portador.army).toEqual([]);
-    expect(base.garrison).toHaveLength(guarnicion);
-    expect(base.garrison.some((t) => t.veterania?.id === 'veterano-guarnicion')).toBe(true);
+    expect(guarnicionDeLaCiudad(state, base)).toHaveLength(guarnicion);
+    expect(
+      guarnicionDeLaCiudad(state, base).some((t) => t.veterania?.id === 'veterano-guarnicion'),
+    ).toBe(true);
   });
 
   it('el día en que nace no se mueve: un `move_hero` suyo se rechaza por falta de puntos', () => {
@@ -256,7 +269,7 @@ function asaltoConDosGoblins(
   const defensores =
     state.pendingBattle?.battle.stacks.filter((st) => st.side === 'defender').length ?? 0;
   if (state.pendingBattle !== null) resolvePendingBattle(state, c);
-  return { aguanta: base.owner === 1, defensores };
+  return { aguanta: dueñoDeLaCiudad(state, base) === 1, defensores };
 }
 
 describe('la tropa se hace héroe: la base no se queda sin defensa (I1)', () => {
@@ -286,7 +299,7 @@ describe('la tropa se hace héroe: la base no se queda sin defensa (I1)', () => 
     fueraDeSuBase(state, 1);
     const base = baseOf(state, 1)!;
     const id = ponVeteranoEnLaBase(state, 1);
-    const resto = base.garrison.length - 1;
+    const resto = guarnicionDeLaCiudad(state, base).length - 1;
     const heroe = ascenderVeterano(state, 1, id, {
       name: 'Nacida',
       story: 'Guardó.',
@@ -294,7 +307,7 @@ describe('la tropa se hace héroe: la base no se queda sin defensa (I1)', () => 
     });
     expect(heroe.at).toEqual(base.at);
     expect(heroe.army).toEqual([]);
-    expect(base.garrison).toHaveLength(resto);
+    expect(guarnicionDeLaCiudad(state, base)).toHaveLength(resto);
     // El último hecho es el ascenso: nadie recoge nada detrás.
     expect(state.log.at(-1)?.kind).toBe('hero_promoted');
   });

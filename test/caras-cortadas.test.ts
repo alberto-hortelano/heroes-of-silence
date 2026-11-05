@@ -185,7 +185,11 @@ describe('las tiradas de frontal cortadas junto a un objeto (#221)', () => {
 // junto a una ciudad, y dentro de su recinto ya no hay pared (es su plaza); su
 // cara acaba contra la muralla. Quedaban s26 y s36. Con las puertas de las
 // ciudades y la ciudad-puente en tierra (fase 2, 21-10-2026), otros mapas: 0
-// en la lista entera.
+// en la lista entera. Sin ciudades en los cruces (ciudades en su región, fase 2,
+// 05-11-2026), otros mapas, y s2 da 1: la frontal de (36-37, 14), junto al paso
+// de (38,14), un nodo de montaña; no es de una ciudad (la más cercana está a
+// seis casillas). Con los pueblos en un nodo (fase 3, 05-11-2026), ese paso de
+// (38,14) es un pueblo y su reserva aparta lo de alrededor: 0 en la lista entera.
 const QUEDAN: Readonly<Record<number, number>> = {};
 const SEMILLAS = segunPrisa(
   [57, 12, 22, 26],

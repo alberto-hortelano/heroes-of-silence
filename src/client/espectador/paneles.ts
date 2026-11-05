@@ -14,6 +14,7 @@
  */
 import type { BattleState, Side } from '@core/battle/types.js';
 import { nombreDeTipoDeHeroe } from '@core/data.js';
+import { pasoOPuebloSiExiste } from '@core/state/sitios.js';
 import type { SpectatorView } from '../../server/vista-espectador.js';
 import { NADIE } from '../desenlace.js';
 import { fondoDeColor, type Html, html, NADA, unir } from '../html.js';
@@ -222,8 +223,16 @@ function parteDeGuerra(estado: BattleState): Html {
   return html`<h3>Parte de guerra</h3>${renderBattleLog(estado, null)}`;
 }
 
+/**
+ * Sin estado no hay ciudades que nombrar, pero los pasos y los pueblos viajan en
+ * los objetos del cable: con ellos la crónica dice «El jugador 0 toma el pueblo de
+ * El Soto» y no «toma un paso» (vuelta 1 de QA de la tarea 2, H2). Una ciudad, por
+ * su casilla.
+ */
 function crónica(v: SpectatorView): Html {
-  return html`<h3>Crónica</h3>${renderLog(v.log, NADIE)}`;
+  return html`<h3>Crónica</h3>${renderLog(v.log, NADIE, undefined, (id) =>
+    pasoOPuebloSiExiste(v.map.objects, id),
+  )}`;
 }
 
 /**

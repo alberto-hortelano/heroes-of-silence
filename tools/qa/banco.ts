@@ -1350,11 +1350,50 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   perdido (las escaleras y las puertas son de la batalla, no de la crónica). 0 sin
  *   terminar; j0 gana 10 de 20 (8 antes); duración 4 / 8 / 9 → **4 / 7 / 12**, días
  *   84 → 100; el banco, 1,9 s. La forma del diff, no una medida.
+ * - `883fe9be…` → `47b40db9…` (05-11-2026, ciudades y pueblos en su región, fase 1,
+ *   `docs/agents/2026-11-05-ciudades-en-su-region/`): la guarnición de una ciudad
+ *   pasa a `GameState.guarniciones` y su batalla deja de ser `town` para ser la de
+ *   toda guarnición, `garrison` (`BattleFoe`). Es lo único que cambia: 144 líneas
+ *   de 4 768, en las 20 semillas, todas `battle_started`/`battle_ended` contra una
+ *   ciudad, con `"foe": {"kind":"town","townId":X}` → `{"kind":"garrison","site":X}`
+ *   (la primera, semilla 1, hecho 29); volcado de antes
+ *   con esa sustitución y el de ahora, **0 diferencias**. Ninguna ciudad de las 20
+ *   semillas está dentro de una región (el generador no cambia en la fase 1) y
+ *   ningún sitio se ocupa (la IA no ocupa a propósito), así que no hay
+ *   `site_occupied`, `site_freed` ni `town_owner_changed`. 0 sin terminar,
+ *   duración 4 / 7 / 12.
+ * - `47b40db9…` → `5ac2f9e5…` (05-11-2026, ciudades y pueblos en su región, fase 2:
+ *   el generador pone en mitad de su región las ciudades que no son bases ni
+ *   ciudades-puente). **Otro mapa en las 20 semillas**: el primer hecho distinto es
+ *   el hecho 1 de cada una, el `raider_spawned` del primer grupo, en otra casilla.
+ *   Ningún tipo de hecho se pierde; salen `town_owner_changed` (3), `site_occupied`
+ *   (2) e `item_bought` (3). `town_captured` 94 → 28 (las ciudades del muro son las
+ *   bases y las del río) y `node_captured` 84 → 223 (los pasos que antes se
+ *   saltaban junto a la ciudad de un cruce); batallas 114 → 120. 0 sin terminar,
+ *   duración 4 / 7 / 12 → **5 / 17 / 40** días (mediana / p90 / máximo): la s16
+ *   acaba el día 40, con los dos héroes cambiándose `node-9` y `node-13` cada día
+ *   (75 tomas, 39 héroes vencidos y vueltos a casa; el vaivén de una ciudad del
+ *   centro de las puertas de las ciudades, ahora con dos pasos). La forma del diff,
+ *   no una medida.
+ * - `5ac2f9e5…` → `8e45709f…` (05-11-2026, ciudades y pueblos en su región, fase 3:
+ *   uno de cada cuatro pares de pueblos va al paso con camino de su región). **El
+ *   mismo mapa salvo los pueblos y sus caminos**: el sitio de dentro del pueblo que
+ *   se muda se sortea igual (`sitiosSinPueblo`), así que los asaltantes, monstruos,
+ *   cofres y obstáculos no se mueven (los `raider_spawned` del día 1 son los mismos
+ *   en las 20). Cambian 19 de las 20 semillas (la 16, igual); el primer hecho
+ *   distinto es un `node_captured` con otro número de nodo (los pasos que pasan a
+ *   pueblo salen de `nodes` y los de detrás se corren: `node-7` → `node-6`, en 9),
+ *   un `node_captured` de un pueblo del muro donde había un paso (`node-3` →
+ *   `village-6`, en 4: la 4, la 7, la 14 y la 19) o un `hero_moved` por otra
+ *   casilla, porque los caminos de la región del pueblo que se mudó son otros (en
+ *   6). Ningún tipo de hecho se pierde ni aparece; `node_captured` 223 → 195,
+ *   batallas 120 → 100, `town_owner_changed` 3 → 5, `site_occupied` 2 → 3. 0 sin
+ *   terminar, duración 5 / 17 / 40 → 4 / 17 / 40. La forma del diff, no una medida.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '883fe9be85bcf887a534efe540b69f346bf93e7bb2d7ef672800deb3e19d4858',
+  sha: '8e45709f32fb11ef135afce3cd2f33a2a46f336d081e931abbd1467c319e4665',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

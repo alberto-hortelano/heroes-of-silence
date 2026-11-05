@@ -32,6 +32,7 @@ import { reachableFrom } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
 import { applyAdventureAction, type GameState, settleBattle } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 import { ponerVoces } from '../src/core/town/voces.js';
 import type { SpectatorSnapshotMsg } from '../src/server/protocol.js';
 import { construirVista, type SpectatorView } from '../src/server/vista-espectador.js';
@@ -165,8 +166,8 @@ describe('las voces de la base en el espectador', () => {
     expect(marcadoDe(vocesDeLasBases(sin))).toBe('');
     expect(marcadoDe(panelDelEspectador(sin, null))).not.toContain('Voces de la base');
 
-    const town = state.towns.find((t) => t.owner === 0)!;
-    ponerVoces(town, 0, 1, [{ npc: 'encargado-hall', lines: ['<b>Hoy</b> llueve.'] }]);
+    const town = state.towns.find((t) => dueñoDeLaCiudad(state, t) === 0)!;
+    ponerVoces(town, 0, 0, 1, [{ npc: 'encargado-hall', lines: ['<b>Hoy</b> llueve.'] }]);
     const con = construirVista(state, []);
     const voces = con.towns.find((t) => t.id === town.id)!.voces;
     expect(voces).toEqual([

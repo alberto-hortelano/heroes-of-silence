@@ -85,8 +85,9 @@ import {
   unequipBlocker,
   visibleNow,
 } from '../src/core/state/game.js';
+import { REGLA_DEL_PUEBLO } from '../src/core/state/renta.js';
 import { newGame } from '../src/core/state/setup.js';
-import { MURALLAS_DEL_MAPA } from '../src/core/state/sitios.js';
+import { dueñoDeLaCiudad, MURALLAS_DEL_MAPA } from '../src/core/state/sitios.js';
 import { mageGuildLevel, townSpells } from '../src/core/town/town.js';
 import { FACTION_IDS, SPEED_TO_HEXES } from '../src/core/types.js';
 import {
@@ -94,9 +95,11 @@ import {
   conCaminos,
   forzarBatalla,
   forzarTurno,
+  guarnicionDeLaCiudad,
   JINETE,
   NO_MUERTO,
   PESADA,
+  planConCiudadDeRegion,
   planDeNodos,
   TIRADOR,
   TROPA,
@@ -708,7 +711,7 @@ describe('lo que ve el agente', () => {
       expect(jugador.fog.has(obj.at)).toBe(true);
     }
     // El castillo enemigo está al otro lado del mapa: no debe asomar.
-    const puebloEnemigo = state.towns.find((t) => t.owner === 1)!;
+    const puebloEnemigo = state.towns.find((t) => dueñoDeLaCiudad(state, t) === 1)!;
     expect(
       payload.knownMap.objects.some(
         (o) => o.at.x === puebloEnemigo.at.x && o.at.y === puebloEnemigo.at.y,
@@ -999,7 +1002,7 @@ describe('lo que ve el agente', () => {
   it('el pueblo manda qué enseña su gremio, y el héroe qué sabe', () => {
     const state = newGame({ seed: 94 });
     const c = { rng: createRng(94) };
-    const town = state.towns.find((t) => t.owner === 0)!;
+    const town = state.towns.find((t) => dueñoDeLaCiudad(state, t) === 0)!;
     const hero = heroesOf(state, 0)[0]!;
     hero.at = { ...town.at };
 
@@ -1037,7 +1040,7 @@ describe('lo que ve el agente', () => {
   it('el ejército viaja agrupado en individuos, con el liderazgo al lado', () => {
     const state = newGame({ seed: 94 });
     const hero = heroesOf(state, 0)[0]!;
-    const town = state.towns.find((t) => t.owner === 0)!;
+    const town = state.towns.find((t) => dueñoDeLaCiudad(state, t) === 0)!;
     const payload = serializeAdventureTurn(state, 0) as {
       heroes: {
         id: string;
@@ -1065,9 +1068,9 @@ describe('lo que ve el agente', () => {
     }
     // La base nace guarnecida (`guarnicionBase`), así que lo usado no es 0: es
     // lo que ocupa esa tropa, y la vista tiene que decirlo.
-    expect(town.garrison.length).toBeGreaterThan(0);
+    expect(guarnicionDeLaCiudad(state, town).length).toBeGreaterThan(0);
     expect(vista.garrisonLeadership).toEqual({
-      used: armyLeadership(town.garrison),
+      used: armyLeadership(guarnicionDeLaCiudad(state, town)),
       max: GARRISON_LEADERSHIP,
     });
   });
@@ -1511,6 +1514,80 @@ describe('lo que ve el agente', () => {
     expect(prosa).toMatch(/ORDEN en que escribas las ciudades no decide quién abre/);
   });
 
+  it('knownMap dice de cada ciudad y pueblo su dueño derivado, si está en el muro y quién lo ocupa (tarea 2)', () => {
+    // Torreblanca, dentro de Centro: del 0 por la región, sin dueño en su objeto, y
+    // ocupada por su guarnición neutral (P1). La base, en el muro.
+    const state = newGame({ seed: 1, plan: planConCiudadDeRegion() });
+    for (const o of state.map.objects) {
+      const enCentro = [
+        { x: 11, y: 2 },
+        { x: 11, y: 6 },
+        { x: 17, y: 4 },
+      ].some((p) => p.x === o.at.x && p.y === o.at.y);
+      if (o.kind === 'node' && enCentro) o.owner = 0;
+    }
+    revealEverything(state, 0);
+    const objetos = serializeKnownMap(state, 0).objects as Record<string, unknown>[];
+    expect(objetos.find((o) => o.id === 'town-2')).toMatchObject({
+      kind: 'town',
+      owner: 0,
+      node: false,
+      occupiedBy: { garrison: null },
+    });
+    expect(objetos.find((o) => o.id === 'town-0')).toMatchObject({
+      owner: 0,
+      node: true,
+      occupiedBy: null,
+    });
+    const pueblo = objetos.find((o) => o.kind === 'village')!;
+    expect(pueblo).toMatchObject({ node: false, occupiedBy: null });
+    // Su ciudad ocupada, con la frase del núcleo, en `towns[]` y en la renta.
+    const turno = serializeAdventureTurn(state, 0) as unknown as {
+      you: { income: { towns: { id: string; gold: number; occupied: string | null }[] } };
+      towns: { id: string; node: boolean; occupied: string | null }[];
+    };
+    const enLaRenta = turno.you.income.towns.find((t) => t.id === 'town-2')!;
+    expect(enLaRenta.gold).toBe(0);
+    expect(enLaRenta.occupied).toMatch(/^Torreblanca está ocupada por una guarnición neutral/);
+    expect(turno.towns.find((t) => t.id === 'town-2')).toMatchObject({
+      node: false,
+      occupied: enLaRenta.occupied,
+    });
+    // Y no le ofrece lo que se le rechazaría (vuelta 1 de QA, H3): la ocupada da 0
+    // y no construye ni recluta (`ciudadQueMandaBlocker`, la pregunta de `build` y
+    // `recruit`). La base, sin ocupar, sí, con lo que da su ayuntamiento.
+    type CiudadDelTurno = {
+      id: string;
+      income: number;
+      canBuildNow: { id: string }[];
+      recruitable: { creature: string }[];
+    };
+    const ciudades = (turno as unknown as { towns: CiudadDelTurno[] }).towns;
+    expect(ciudades.find((t) => t.id === 'town-2')).toMatchObject({
+      income: 0,
+      canBuildNow: [],
+      recruitable: [],
+    });
+    const base = ciudades.find((t) => t.id === 'town-0')!;
+    expect(base.income).toBe(turno.you.income.towns.find((t) => t.id === 'town-0')!.gold);
+    expect(base.income).toBeGreaterThan(0);
+    expect(base.canBuildNow.length).toBeGreaterThan(0);
+    expect(base.recruitable.length).toBeGreaterThan(0);
+    // La prosa lo dice, para que no lo descubra al perder la jugada.
+    expect(RESPONSE_FORMAT.adventure_turn).toMatch(
+      /"income" 0 y "canBuildNow" y "recruitable" vacíos/,
+    );
+    // La prosa lo explica: OCUPACIÓN, y cómo se recupera.
+    expect(RESPONSE_FORMAT.adventure_turn).toMatch(/- OCUPACIÓN: una ciudad o un pueblo TUYO/);
+    expect(RESPONSE_FORMAT.adventure_turn).toMatch(
+      /Se RECUPERA moviendo un\s+héroe tuyo a su casilla/,
+    );
+  });
+
+  it('un plan con una ciudad dentro de una región pasa la validación', () => {
+    expect(validateMapPlan(planConCiudadDeRegion())).toEqual([]);
+  });
+
   it('la prosa de map_generate explica la red: regiones, muros, nodos y la ciudad como nodo', () => {
     // El esquema y la prosa cambian en el mismo commit (fase 2a): un campo que
     // el esquema pide y la prosa no nombra es un campo que el agente no rellena.
@@ -1518,7 +1595,12 @@ describe('lo que ve el agente', () => {
     for (const campo of ['patches', 'regions', 'walls', 'nodes', 'villages']) {
       expect(prosa, campo).toContain(`${campo}[]`);
     }
-    expect(prosa).toMatch(/Una CIUDAD \("towns"\) ES un nodo/);
+    // Desde la tarea 2: en el muro es un nodo; dentro de una región, de quien la tenga.
+    expect(prosa).toMatch(/Una CIUDAD \("towns"\) va en UNO de dos sitios/);
+    expect(prosa).toMatch(
+      /EN EL MURO, entre dos regiones o\s+más, es un nodo y se TOMA como un paso/,
+    );
+    expect(prosa).toMatch(/DENTRO DE UNA REGIÓN, tocando solo esa/);
     expect(prosa).toMatch(
       /tramo RECTO de una barrera: "mountain", "water", "forest", "cliff", "wall"/,
     );
@@ -1526,7 +1608,9 @@ describe('lo que ve el agente', () => {
     expect(prosa).toMatch(/ciudad neutral \("owner": null\) nace con guarnición/);
     // Y la base también, y CUÁL es la base: el agente que diseña el mapa decide
     // con el orden de "towns" qué ciudad suya nace guarnecida.
-    expect(prosa).toMatch(/su PRIMERA ciudad en "towns"—\s+nace también\s+con guarnición/);
+    expect(prosa).toMatch(
+      /su PRIMERA ciudad en "towns", en el\s+muro— nace también con guarnición/,
+    );
     // Y la paleta le da los muros, derivados de la misma lista que valida.
     const payload = serializeMapRequest({ width: 24, height: 24, players: [0, 1] }) as {
       palette: { wallTerrains: string[]; terrains: string[] };
@@ -1608,7 +1692,7 @@ describe('lo que ve el agente', () => {
     expect(payload.want).toMatchObject({ width: lado, height: lado });
     expect(payload.advice).toContain(
       `En ${lado}×${lado} el mapa procedimental hace ${REGIONES_POR_BANDO} regiones por jugador, en espejo: ` +
-        `la de casa con la base, y cada una de las ${REGIONES_POR_BANDO - 1} de fuera con un pueblo, que da ${ECONOMIA.rentaDelPueblo} de oro al día a quien tenga su región unida a su base.`,
+        `la de casa con la base, y cada una de las ${REGIONES_POR_BANDO - 1} de fuera con un pueblo, que ${REGLA_DEL_PUEBLO}.`,
     );
     expect(payload.advice.join(' ')).not.toMatch(/\bminas?\b/);
   });
@@ -1873,7 +1957,7 @@ describe('las voces de la base (town_voices)', () => {
 
   it('la petición trae cada base pedida con su gente y lo que dice ahora, y la crónica corta', () => {
     const state = newGame({ seed: 41 });
-    const town = state.towns.find((t) => t.owner === 0)!;
+    const town = state.towns.find((t) => dueñoDeLaCiudad(state, t) === 0)!;
     const p = serializeTownVoices(state, 0, [town]);
     expect(p.kind).toBe('town_voices');
     expect(p.towns).toHaveLength(1);

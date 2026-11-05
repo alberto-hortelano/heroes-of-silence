@@ -55,6 +55,8 @@ import {
   copiaDePartida,
   ejercito,
   fueraDeSuBase,
+  guarnecer,
+  guarnicionDeLaCiudad,
   hastaSuSiguienteTurno,
   JINETE,
   PESADA,
@@ -241,8 +243,8 @@ describe('liderazgo', () => {
       ctx(SEMILLA),
       0,
     );
-    expect(town.garrison).toHaveLength(7);
-    expect(armyLeadership(town.garrison)).toBeLessThan(GARRISON_LEADERSHIP);
+    expect(guarnicionDeLaCiudad(state, town)).toHaveLength(7);
+    expect(armyLeadership(guarnicionDeLaCiudad(state, town))).toBeLessThan(GARRISON_LEADERSHIP);
     expect(() =>
       applyAdventureAction(
         state,
@@ -256,10 +258,19 @@ describe('liderazgo', () => {
     // pasan de él.
     const tope = GARRISON_LEADERSHIP;
     const jinete = unidadDelJuego(JINETE);
-    town.garrison = ejercito({ creature: JINETE, count: 2 });
-    const ocupa = armyLeadership(town.garrison);
+    guarnecer(state, town, ejercito({ creature: JINETE, count: 2 }));
+    const ocupa = armyLeadership(guarnicionDeLaCiudad(state, town));
     expect(ocupa + jinete.leadership).toBeGreaterThan(tope);
-    expect(troopBlocker(town.garrison, tope, CUPO_GUARNICION, JINETE, 1, 'la guarnición')).toBe(
+    expect(
+      troopBlocker(
+        guarnicionDeLaCiudad(state, town),
+        tope,
+        CUPO_GUARNICION,
+        JINETE,
+        1,
+        'la guarnición',
+      ),
+    ).toBe(
       `no cabe: la guarnición ocupa ${ocupa} de ${tope} de liderazgo y 1 × ${jinete.name} pide ${jinete.leadership}`,
     );
   });
@@ -276,11 +287,15 @@ describe('liderazgo', () => {
     // uno de lo más barato (1, y llega a 16)… y el segundo, que cabría en el
     // liderazgo, se queda porque el ejército ya lleva sus seis. Los dos límites,
     // en la misma entrada.
-    town.garrison = ejercito(
-      { creature: JINETE, count: 1 },
-      { creature: PESADA, count: 1 },
-      { creature: JINETE, count: 1 },
-      { creature: TROPA_BARATA, count: 2 },
+    guarnecer(
+      state,
+      town,
+      ejercito(
+        { creature: JINETE, count: 1 },
+        { creature: PESADA, count: 1 },
+        { creature: JINETE, count: 1 },
+        { creature: TROPA_BARATA, count: 2 },
+      ),
     );
     // En una puerta de su recinto: de la ciudad solo se sale por las que tiene.
     hero.at = { ...puertasDeLaCiudad(state.map, town.at)[0]!.casilla };
@@ -291,7 +306,7 @@ describe('liderazgo', () => {
     expect(pointKey(hero.at)).toBe(pointKey(town.at));
     // Entrar no recoge (04-11-2026): la recogida al pasar se retiró.
     expect(hero.army).toHaveLength(3);
-    expect(town.garrison).toHaveLength(5);
+    expect(guarnicionDeLaCiudad(state, town)).toHaveLength(5);
     // Lo que recoge la IA al llegar a su sitio (`planIntercambios`; cuándo, lo decide
     // su turno: `guarniciones.test.ts`), con `recoger_tropa`.
     for (const accion of planIntercambios(state, hero)) {
@@ -308,7 +323,10 @@ describe('liderazgo', () => {
       { creature: PESADA },
       { creature: TROPA_BARATA },
     ]);
-    expect(town.garrison).toEqual([{ creature: JINETE }, { creature: TROPA_BARATA }]);
+    expect(guarnicionDeLaCiudad(state, town)).toEqual([
+      { creature: JINETE },
+      { creature: TROPA_BARATA },
+    ]);
     expect(state.log.filter((e) => e.kind === 'troops_taken').map((e) => e.count)).toEqual([
       1, 1, 1,
     ]);
@@ -438,8 +456,10 @@ describe('la IA de reglas juega dentro del liderazgo', () => {
         expect(h.army.length).toBeLessThanOrEqual(CUPO_HEROE);
       }
       for (const t of state.towns) {
-        expect(armyLeadership(t.garrison)).toBeLessThanOrEqual(GARRISON_LEADERSHIP);
-        expect(t.garrison.length).toBeLessThanOrEqual(CUPO_GUARNICION);
+        expect(armyLeadership(guarnicionDeLaCiudad(state, t))).toBeLessThanOrEqual(
+          GARRISON_LEADERSHIP,
+        );
+        expect(guarnicionDeLaCiudad(state, t).length).toBeLessThanOrEqual(CUPO_GUARNICION);
       }
     }
   });
@@ -651,7 +671,9 @@ describe('`recruitCapacity`: lo máximo que el núcleo acepta, ni uno más ni un
           ctx(seed),
           0,
         );
-        expect(armyLeadership(town.garrison)).toBe(plan.ocupado + plan.maximo * plan.ocupaUno);
+        expect(armyLeadership(guarnicionDeLaCiudad(state, town))).toBe(
+          plan.ocupado + plan.maximo * plan.ocupaUno,
+        );
       }
     }
     // Que las dos ramas se ejerzan de verdad: si no, el test no prueba el `while`.
@@ -711,7 +733,8 @@ describe('el tope de tropa de la partida (complejidad del combate, 22-10-2026)',
           objects: s.map.objects.map((o) => (o.kind === 'monster' ? { ...o, count: 0 } : o)),
         });
       expect(sinCuentas(tres)).toBe(sinCuentas(siete));
-      for (const t of tres.towns) expect(t.garrison.length, t.name).toBeLessThanOrEqual(3);
+      for (const t of tres.towns)
+        expect(guarnicionDeLaCiudad(tres, t).length, t.name).toBeLessThanOrEqual(3);
       for (const o of tres.map.objects) {
         if (o.kind === 'monster') expect(o.count, o.id).toBeLessThanOrEqual(3);
       }
@@ -723,7 +746,7 @@ describe('el tope de tropa de la partida (complejidad del combate, 22-10-2026)',
       }
       // Con 7, lo de siempre: alguno lleva más de 3.
       expect(
-        siete.towns.some((t) => t.garrison.length > 3) ||
+        siete.towns.some((t) => guarnicionDeLaCiudad(siete, t).length > 3) ||
           siete.map.objects.some((o) => o.kind === 'monster' && o.count > 3),
       ).toBe(true);
     }

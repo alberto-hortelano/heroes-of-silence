@@ -12,6 +12,7 @@
  * del disco; la escena es un JSON que pinta `pintor.ts`.
  */
 import {
+  cruzaSuBarrera,
   type MapObject,
   MEJORAS_DEL_PUESTO,
   type MejoraDelPuesto,
@@ -1544,10 +1545,12 @@ export const RADIO_DEL_PASO_SIN_PIEZA = 0.5;
 const PASOS_SIN_PIEZA: readonly Barrera[] = ['forest', 'mountain'];
 
 /** El radio de la reserva de un objeto (`reservaDe`): el de su clase, salvo el nodo de bosque o de montaña. */
-export function radioDeLaReserva(o: Pick<MapObject, 'kind'> & { barrera?: Barrera }): number {
+export function radioDeLaReserva(
+  o: Pick<MapObject, 'kind'> & { barrera?: Barrera | null },
+): number {
   if (o.kind === 'town')
     throw new Error('la reserva de una ciudad no es un disco: es su recinto (`reservaDelRecinto`)');
-  if (o.kind === 'node' && o.barrera !== undefined && PASOS_SIN_PIEZA.includes(o.barrera))
+  if (o.kind === 'node' && o.barrera != null && PASOS_SIN_PIEZA.includes(o.barrera))
     return RADIO_DEL_PASO_SIN_PIEZA;
   return RADIO_DE_OBJETO[o.kind] ?? 0.5;
 }
@@ -2784,6 +2787,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
    * su muralla y las vecinas, que miran sus juntas antes de poner sus torres.
    */
   const lineas = new Map<number, ReturnType<typeof trazarLinea>>();
+  /** Las piezas de la línea de cada franja (`piezasDeLaLinea`), una vez, como la línea. */
+  const piezasDeLasLineas = new Map<number, PiezasDeLaLinea>();
   const lineaDe = (f: Franja) => {
     let l = lineas.get(f.id);
     if (l === undefined) {
@@ -3714,16 +3719,14 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
    * casilla, la de atrás enseñaba su testero en la junta (s41 (20, 25-27)). La
    * tirada cubre lo que cubrían ellas, salvo `HOLGURA_DE_LA_TIRADA` en cada
    * punta, que es una torre o una puerta; de un solo paso, la pieza de siempre.
-   * Cada pieza va con el paso más cercano (`paso`) y, si su adarve pasa del pie
-   * de la puerta de la punta norte, detrás de ella (`detrasDeLaPuerta`). Sin
-   * arte, null.
+   * Cada pieza va con el paso más cercano (`paso`); si va detrás de la puerta de
+   * la punta norte lo decide quien la pone (`detrasDeLaPuerta`). Sin arte, null.
    */
   function tiradaDelMapa(
     pasos: readonly Paso[],
     sitio: string,
     color: string,
-    puertaNorte: PuertaDeMuralla | undefined,
-  ): { tramo: Sprite; paso: number; detrasDeLaPuerta: boolean }[] | null {
+  ): PiezaDeTirada[] | null {
     const id = TRAMOS_NORTE_SUR[varianteDeId(sitio, TRAMOS_NORTE_SUR.length)] as string;
     const p = pieza(id);
     if (p === null) return null;
@@ -3743,9 +3746,6 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       sur,
       pasos.length === 1 ? 0 : HOLGURA_DE_LA_TIRADA,
     );
-    // La puerta de la punta norte, si la hay: la de atrás de la tirada pasa por detrás de ella.
-    const laPuerta =
-      puertaNorte === undefined ? undefined : sprites.find((o) => o.objeto?.id === puertaNorte.id);
     return piezas.map((q) => ({
       tramo: {
         src: m.src,
@@ -3762,8 +3762,19 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         sombra: true,
       },
       paso: Math.min(pasos.length - 1, Math.max(0, Math.round(q.y - pie0))),
-      detrasDeLaPuerta: laPuerta !== undefined && q.y - fondo < laPuerta.y,
     }));
+  }
+
+  /**
+   * Si la pieza `tramo` de una tirada de norte a sur va detrás de la puerta de su
+   * punta norte (`puertaNorte`): su adarve pasa del pie de la puerta.
+   */
+  function detrasDeLaPuerta(tramo: Sprite, puertaNorte: PuertaDeMuralla | undefined): boolean {
+    if (puertaNorte === undefined) return false;
+    const laPuerta = sprites.find((o) => o.objeto?.id === puertaNorte.id);
+    return (
+      laPuerta !== undefined && tramo.y - ALTO_DEL_TRAMO_NORTE_SUR * FONDO_DEL_ADARVE < laPuerta.y
+    );
   }
 
   /** La línea de una franja de muro (`trazaDeMuralla`), con sus puertas y cómo entra su torre. */
@@ -3865,26 +3876,99 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   }
 
   /**
-   * Lo que levantará la muralla de `f` (paso 3), de su línea (`lineaDe`), para que
-   * el sitio de un puesto (paso 2a) no quede detrás de ella: un tramo por paso,
-   * suelto, y sus torres (`torresDe`, sin las que quitarán las de otras murallas,
-   * y las de las puntas que se apoyan). Puede ser algo más de lo que lleve, nunca
-   * menos.
+   * Lo que levantará la muralla de `f` (paso 3), de las piezas de su línea
+   * (`piezasDeLaLinea`, las mismas que pone `vestirMuralla`), para que el sitio de
+   * un puesto (paso 2a) no quede detrás de ella: el tramo suelto de cada paso, las
+   * piezas de cada tirada de norte a sur, sus torres (`torresDeLaLinea`, sin las que
+   * quitarán las de otras murallas) y las de las puntas que se apoyan. Puede ser
+   * algo más de lo que lleve (el tramo suelto de un paso que va en su tirada, una
+   * torre que otra muralla quitará), nunca menos.
    */
   function murallaPorVenir(f: Franja): Sprite[] {
-    const { hoja, suyas, e } = lineaDe(f);
+    const { sueltos, tiradas } = piezasDeLaLinea(f);
     const { contra, arrimada } = arrimadasDe(f);
-    const torres = torresDe(
-      e,
-      suyas.map((p) => p.at),
-      (c) => !sendaDeLaMuralla.pisa(lineaDe(f).torreEn(c)),
-      ([x, y]) => alrededorDeLaMuralla.bajoCiudad(x, y).length > 0,
-    );
     return [
-      ...e.pasos.map((p) => tramoDelPaso(f, p, hoja)),
-      ...torres.map((c) => torreDeLaCasilla(f, c)),
+      ...sueltos.values(),
+      // Las piezas de una tirada no caen donde el tramo suelto de su paso: van a un
+      // paso de su tirada unas de otras (`tiradaNorteSur`), y la del sur de una
+      // tirada que acaba en el borde baja más que él. Sin ellas, el puesto de una
+      // puerta en la última fila quedaba detrás de la tirada (s18 (28,41), con las
+      // ciudades en su región).
+      ...[...tiradas.values()].flatMap((t) => t?.map((q) => q.tramo) ?? []),
+      ...torresDeLaLinea(f).map((c) => torreDeLaCasilla(f, c)),
       ...[...contra.keys()].map((k) => arrimada(k.split(',').map(Number) as [number, number])),
     ];
+  }
+
+  /** Las torres de la línea de `f` (`torresDe`), sin las que se apilarían con `otras`. */
+  function torresDeLaLinea(
+    f: Franja,
+    otras: readonly (readonly [number, number])[] = [],
+  ): ReturnType<typeof torresDe> {
+    const { suyas, torreEn, e } = lineaDe(f);
+    return torresDe(
+      e,
+      suyas.map((p) => p.at),
+      (c) => !sendaDeLaMuralla.pisa(torreEn(c)),
+      ([x, y]) => alrededorDeLaMuralla.bajoCiudad(x, y).length > 0,
+      otras,
+    );
+  }
+
+  /**
+   * Las piezas de los pasos de la línea de `f`: el tramo suelto de cada paso
+   * (`tramoDelPaso`) y, de cada tirada de norte a sur (`tiradasDeLaFranja`), sus
+   * piezas (`tiradaDelMapa`; `null` sin arte, y entonces van los sueltos). **Lo que
+   * levanta `vestirMuralla` y lo que mide el puesto (`murallaPorVenir`)**, hecho una
+   * vez: eran dos cuentas, y la del puesto ya se había quedado atrás (QA de la fase
+   * 4: la tirada de s18).
+   */
+  function piezasDeLaLinea(f: Franja): PiezasDeLaLinea {
+    const hechas = piezasDeLasLineas.get(f.id);
+    if (hechas !== undefined) return hechas;
+    const { hoja, e } = lineaDe(f);
+    const color = MARCADOR.wall as string;
+    const tiradas = new Map(
+      tiradasDeLaFranja(f).map(
+        (t) => [t, tiradaDelMapa(t, `${f.id}:${(t[0] as Paso).a}`, color)] as const,
+      ),
+    );
+    const piezas: PiezasDeLaLinea = {
+      sueltos: new Map(e.pasos.map((p) => [p, tramoDelPaso(f, p, hoja)])),
+      tiradas,
+    };
+    piezasDeLasLineas.set(f.id, piezas);
+    return piezas;
+  }
+
+  /**
+   * Los pasos de norte a sur de la línea de `f`, en tiradas: los seguidos en una
+   * columna, sin una puerta en la junta (la puerta, que va delante, ya es una
+   * punta). Los leen la muralla (`vestirMuralla`) y lo que levantará
+   * (`murallaPorVenir`).
+   */
+  function tiradasDeLaFranja(f: Franja): Paso[][] {
+    const { hoja, suyas, e } = lineaDe(f);
+    const deFondo = (p: Paso) => hoja === 'muro' && ejeDe(p) === 'profundidad';
+    const yNorte = (p: Paso) => Math.min(p.a[1], p.b[1]);
+    const tiradas: Paso[][] = [];
+    for (const p of e.pasos
+      .filter(deFondo)
+      .sort((p, q) => p.a[0] - q.a[0] || yNorte(p) - yNorte(q))) {
+      const t = tiradas.at(-1);
+      const ultimo = t?.at(-1);
+      const junta = yNorte(p);
+      if (
+        t !== undefined &&
+        ultimo !== undefined &&
+        ultimo.a[0] === p.a[0] &&
+        yNorte(ultimo) + 1 === junta &&
+        !suyas.some((q) => q.at[0] === p.a[0] && q.at[1] === junta)
+      )
+        t.push(p);
+      else tiradas.push([p]);
+    }
+    return tiradas;
   }
 
   /**
@@ -3912,8 +3996,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
    * lo que cuenta el guardia (`murallaSinLeer`).
    */
   function vestirMuralla(f: Franja): void {
-    const { hoja, suyas, torreEn, e } = lineaDe(f);
-    const color = MARCADOR.wall as string;
+    const { suyas, e } = lineaDe(f);
+    const { sueltos, tiradas } = piezasDeLaLinea(f);
     // Las torres obligadas de las otras murallas (`torresObligadas`), que irán
     // seguro: la punta o la casilla sola de esta que se apile con una se queda
     // sin la suya (s18 (12,23), una ruina de una casilla junto a la esquina de
@@ -3931,29 +4015,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       });
     const puertaDe = (p: Paso) =>
       suyas.find((q) => [p.a, p.b].some(([x, y]) => x === q.at[0] && y === q.at[1]));
-    // Los pasos de norte a sur, en tiradas: los seguidos en una columna, sin una
-    // puerta en la junta (la puerta, que va delante, ya es una punta).
-    const deFondo = (p: Paso) => hoja === 'muro' && ejeDe(p) === 'profundidad';
-    const yNorte = (p: Paso) => Math.min(p.a[1], p.b[1]);
-    const tiradas: Paso[][] = [];
-    for (const p of e.pasos
-      .filter(deFondo)
-      .sort((p, q) => p.a[0] - q.a[0] || yNorte(p) - yNorte(q))) {
-      const t = tiradas.at(-1);
-      const ultimo = t?.at(-1);
-      const junta = yNorte(p);
-      if (
-        t !== undefined &&
-        ultimo !== undefined &&
-        ultimo.a[0] === p.a[0] &&
-        yNorte(ultimo) + 1 === junta &&
-        !suyas.some((q) => q.at[0] === p.a[0] && q.at[1] === junta)
-      )
-        t.push(p);
-      else tiradas.push([p]);
-    }
-    const tiradaDe = new Map(tiradas.flatMap((t) => t.map((p) => [p, t] as const)));
-    const vestidas = new Set<Paso[]>();
+    const tiradaDe = new Map([...tiradas.keys()].flatMap((t) => t.map((p) => [p, t] as const)));
+    const vestidas = new Set<readonly Paso[]>();
     for (const p of e.pasos) {
       const puerta = puertaDe(p);
       const tirada = tiradaDe.get(p);
@@ -3964,14 +4027,14 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         const primero = tirada[0] as Paso;
         const norte = Math.min(primero.a[1], primero.b[1]);
         const puertaNorte = suyas.find((q) => q.at[0] === primero.a[0] && q.at[1] === norte);
-        const piezas = tiradaDelMapa(tirada, `${f.id}:${primero.a}`, color, puertaNorte);
+        const piezas = tiradas.get(tirada) ?? null;
         if (piezas !== null) {
           const entraron = tirada.map(() => true);
           // Las de detrás de la puerta, en su orden: de delante atrás, cada una
           // un poco antes que la anterior.
           let detras = 0;
-          for (const { tramo, paso, detrasDeLaPuerta } of piezas) {
-            const ok = detrasDeLaPuerta
+          for (const { tramo, paso } of piezas) {
+            const ok = detrasDeLaPuerta(tramo, puertaNorte)
               ? meterEnLaMuralla(tramo, puertaNorte, 0.001 * detras++)
               : meterEnLaMuralla(tramo, puertaDe(tirada[paso] as Paso));
             if (!ok) entraron[paso] = false;
@@ -3982,7 +4045,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
           continue;
         }
       }
-      const tramo = tramoDelPaso(f, p, hoja);
+      const tramo = sueltos.get(p) as Sprite;
       if (meterEnLaMuralla(tramo, puerta)) pintados.push({ franja: f.id, a: p.a, b: p.b });
     }
     const { contra, arrimada } = arrimadasDe(f);
@@ -3990,13 +4053,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       ...[...torresPintadas.keys()].map((k) => k.split(',').map(Number) as [number, number]),
       ...otras,
     ];
-    const torres = torresDe(
-      e,
-      suyas.map((p) => p.at),
-      (c) => !sendaDeLaMuralla.pisa(torreEn(c)),
-      ([x, y]) => alrededorDeLaMuralla.bajoCiudad(x, y).length > 0,
-      yaPuestas(),
-    );
+    const torres = torresDeLaLinea(f, yaPuestas());
     for (const c of torres) {
       // La que no cabe y va igual es la de una casilla sin tramos o la de una
       // esquina (`torresDe`): entra como quepa (`torreQueCabe`) y, si no cabe de
@@ -5047,15 +5104,16 @@ export function formaDeLaSenda(trazos: readonly Senda[]): Forma<Medible> {
  * declaradas (`MapaDeEscena`).
  */
 export function alrededorDeMurallas(
-  a: Pick<Analisis, 'W' | 'H' | 'terreno' | 'objetos' | 'franjaDe'>,
+  a: Pick<Analisis, 'W' | 'H' | 'terreno' | 'objetos' | 'franjaDe' | 'red'>,
   huellas: readonly (readonly (readonly [number, number])[])[],
   nivel: ArrayLike<number>,
 ): Alrededor {
   const { W, H } = a;
   const dentro = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H;
+  // Los nodos de la red: el paso, la ciudad y el pueblo del muro. La ciudad de
+  // dentro de una región es de su región, y su lado, el de ella.
   const nodo = new Uint8Array(W * H);
-  for (const o of a.objetos)
-    if (o.kind === 'node' || o.kind === 'town') nodo[o.at.y * W + o.at.x] = 1;
+  for (const n of a.red.nodos) nodo[n.at.y * W + n.at.x] = 1;
   /**
    * Los nodos de otra barrera, por su casilla: son la puerta de esa barrera y la
    * muralla que llega a uno acaba en ella. El nodo de acantilado de s699 (15,2)
@@ -5064,7 +5122,7 @@ export function alrededorDeMurallas(
    */
   const nodoDeOtra = new Map<number, string>();
   for (const o of a.objetos)
-    if (o.kind === 'node' && o.barrera !== 'wall') nodoDeOtra.set(o.at.y * W + o.at.x, o.id);
+    if (cruzaSuBarrera(o) && o.barrera !== 'wall') nodoDeOtra.set(o.at.y * W + o.at.x, o.id);
   /** Bajo qué huellas cae cada casilla: las de una ciudad y un pueblo cercanos se pisan (s64 (5,9)). */
   const enHuella = new Map<number, string[]>();
   huellas.forEach((h, k) => {
@@ -5224,6 +5282,20 @@ export function formasDeLasParedes(
 }
 
 /** Lo que mira `vaDelante` de un sprite: dónde, su clave y si es un volumen. */
+/** Una pieza de una tirada de muralla de norte a sur (`tiradaDelMapa`) y el paso de la tirada al que va. */
+interface PiezaDeTirada {
+  readonly tramo: Sprite;
+  readonly paso: number;
+}
+
+/** Las piezas de los pasos de la línea de una franja de muro (`piezasDeLaLinea`). */
+interface PiezasDeLaLinea {
+  /** El tramo suelto de cada paso. */
+  readonly sueltos: ReadonlyMap<Paso, Sprite>;
+  /** Las piezas de cada tirada de norte a sur (`tiradasDeLaFranja`), o `null` sin arte. */
+  readonly tiradas: ReadonlyMap<readonly Paso[], readonly PiezaDeTirada[] | null>;
+}
+
 type Delante = Pick<Sprite, 'x' | 'y' | 'clave'> & PreguntaDeVolumen;
 
 /** Si `s` se pinta después de lo que está en `t` y, por tanto, lo taparía. */
@@ -5954,8 +6026,10 @@ export function pasosTapados(
  * garganta de norte a sur, y en 21 de 23 nodos de la auditoría 4 el camino
  * llegaba de lado y se metía bajo la roca. `pasosTapados` no lo veía:
  * mira lo que se aparta, y la pieza es el objeto. La puerta de muralla no
- * cuenta, que se cruza por ella; las obras de su puesto (`esObra`), que son
- * piezas suyas, sí, también en el paso de la muralla. Tiene que ser 0.
+ * cuenta, que se cruza por ella, ni el pueblo en el muro (pueblos en un nodo,
+ * fase 3), que va en el paso y la senda lo cruza; las obras de su puesto
+ * (`esObra`), que son piezas suyas, sí, también en el paso de la muralla. Tiene
+ * que ser 0.
  */
 export function pasosAtravesados(
   sprites: readonly Sprite[],
@@ -5965,7 +6039,10 @@ export function pasosAtravesados(
     const eje = pasilloDe(p.eje, SEMIANCHO_DEL_PASO);
     return sprites.some(
       (s) =>
-        ((p.barrera !== 'wall' && s.objeto?.id === p.id && s.deNodo === undefined) ||
+        ((p.barrera !== 'wall' &&
+          s.objeto?.id === p.id &&
+          s.objeto.kind !== 'village' &&
+          s.deNodo === undefined) ||
           (esObra(s) && s.deNodo.id === p.id)) &&
         eje.pisa(s),
     );
@@ -5977,7 +6054,9 @@ export function pasosAtravesados(
  * tramo, que sale de su puerta (`puertaDe`: la casilla de debajo). Si no se
  * pisa o cae fuera del mapa, vale cualquier tramo, pero uno. Se mide
  * sobre los tramos que se pintan, de centro a centro de casilla, no sobre el
- * plan: si el trazado se equivoca, esto lo ve.
+ * plan: si el trazado se equivoca, esto lo ve. El pueblo en el muro (pueblos en
+ * un nodo, fase 3) no cuenta: no tiene puerta y la senda lo cruza por su eje,
+ * como un paso.
  */
 export function sendasPorObjeto(
   caminos: readonly (readonly [number, number, number, number])[],
@@ -5987,14 +6066,16 @@ export function sendasPorObjeto(
   H: number,
 ): MapObject[] {
   return objetos.filter((o) => {
-    if (o.kind !== 'village') return false;
+    // El pueblo del muro no tiene puerta (`puertaDe`), pero no se salta por eso:
+    // el de dentro sin puerta (al borde) también pide un solo tramo.
+    if (o.kind !== 'village' || cruzaSuBarrera(o)) return false;
     const cx = o.at.x + 0.5;
     const cy = o.at.y + 0.5;
     const llegan = caminos.flatMap(([x0, y0, x1, y1]) =>
       x0 === cx && y0 === cy ? [[x1, y1]] : x1 === cx && y1 === cy ? [[x0, y0]] : [],
     );
     if (llegan.length !== 1) return true;
-    const puerta = puertaDe(o.at, W, H);
+    const puerta = puertaDe(o, W, H);
     if (puerta === null || esBarrera(terreno[puerta.y * W + puerta.x] as TerrainKind)) return false;
     const [x, y] = llegan[0] as number[];
     return x !== puerta.x + 0.5 || y !== puerta.y + 0.5;
@@ -6941,7 +7022,7 @@ function arribaColocado(
  */
 export function tramosDeLasRampas(map: MapaDeEscena, a: Analisis): TramoDeCamino[] {
   return a.red.nodos.flatMap((n) => {
-    if (n.ciudad || a.puentes.has(n.id) || !nodoEntreNiveles(a, n.regiones)) return [];
+    if (n.clase === 'ciudad' || a.puentes.has(n.id) || !nodoEntreNiveles(a, n.regiones)) return [];
     if (pasaElCamino(map.caminos.tramos, n.at)) return [];
     return ejeDelPaso(n.at, a.W, map.terrain).flatMap((linea) =>
       linea.flatMap(([px, py]): TramoDeCamino[] => {
@@ -6971,7 +7052,7 @@ export function nodosSinRampa(
   const tramos = tramosDeLasRampas(map, a);
   const N = (p: { x: number; y: number }) => nivel[p.y * a.W + p.x] as number;
   return a.red.nodos.flatMap((n) => {
-    if (n.ciudad || a.puentes.has(n.id) || !nodoEntreNiveles(a, n.regiones)) return [];
+    if (n.clase === 'ciudad' || a.puentes.has(n.id) || !nodoEntreNiveles(a, n.regiones)) return [];
     if (pasaElCamino(map.caminos.tramos, n.at)) return [];
     const enSuCasilla = ([x, y]: readonly [number, number]) => x === n.at.x && y === n.at.y;
     if (bajadas.some((b) => enSuCasilla(b.alto) || enSuCasilla(b.bajo))) return [];

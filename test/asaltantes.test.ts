@@ -59,6 +59,7 @@ import {
   visibleNow,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 import type { Point } from '../src/core/types.js';
 import {
   aMano,
@@ -322,17 +323,18 @@ describe('dispersarse y brotar', () => {
     const red = estructura(state.map);
     // Una región con grupo y con algún nodo que se toma pisándolo.
     const grupo = state.raiders.find((r) =>
-      red.regiones[regionDeCasilla(state.map, r.at)]!.nodos.some((n) => !red.nodos[n]!.ciudad),
+      red.regiones[regionDeCasilla(state.map, r.at)]!.nodos.some(
+        (n) => red.nodos[n]!.clase !== 'ciudad',
+      ),
     )!;
     const region = red.regiones[regionDeCasilla(state.map, grupo.at)]!;
-    const [ultimo, ...resto] = region.nodos.filter((n) => !red.nodos[n]!.ciudad);
+    const [ultimo, ...resto] = region.nodos.filter((n) => red.nodos[n]!.clase !== 'ciudad');
     // Todo lo demás de la región ya es del jugador 0: el libro y la bandera.
-    for (const n of [...resto, ...region.nodos.filter((k) => red.nodos[k]!.ciudad)]) {
+    for (const n of [...resto, ...region.nodos.filter((k) => red.nodos[k]!.clase === 'ciudad')]) {
       const nodo = red.nodos[n]!;
       const obj = state.map.objects.find((o) => o.id === nodo.id)!;
-      if (obj.kind === 'node' || obj.kind === 'town') obj.owner = 0;
-      const town = state.towns.find((t) => t.id === nodo.id);
-      if (town !== undefined) town.owner = 0;
+      // El paso, la ciudad del muro o el pueblo del muro (fase 3): su objeto.
+      if (obj.kind === 'node' || obj.kind === 'town' || obj.kind === 'village') obj.owner = 0;
     }
     const hero = heroesOf(state, 0)[0]!;
     hero.army = ejercito({ creature: PESADA, count: 6 });
@@ -649,7 +651,7 @@ describe('el plan de mapa con asaltantes', () => {
     expect(con({ at: uno.at, troops: porFuerza })).toMatch(`suma ${suma} de fuerza`);
     const { map } = buildMap(plan);
     const red = estructura(map);
-    const nodo = red.nodos.find((n) => !n.ciudad)!;
+    const nodo = red.nodos.find((n) => n.clase !== 'ciudad')!;
     const pegada = VECINAS.map(([dx, dy]) => ({ x: nodo.at.x + dx, y: nodo.at.y + dy })).find(
       (p) => regionDeCasilla(map, p) >= 0 && objectAt(map, p) === undefined,
     )!;
@@ -743,12 +745,13 @@ describe('lo que el castillo ve se pinta (H1)', () => {
         // como está HOY, igual que un héroe quieto: la niebla no es solo `fog`.
         if (state.finished !== null) continue;
         const actual = state.players.find((p) => p.id === state.current)!;
-        for (const town of state.towns.filter((t) => t.owner === actual.id)) {
+        for (const town of state.towns.filter((t) => dueñoDeLaCiudad(state, t) === actual.id)) {
           for (const obj of state.map.objects) {
             if (Math.max(Math.abs(obj.at.x - town.at.x), Math.abs(obj.at.y - town.at.y)) > 5)
               continue;
             recuerdos++;
-            expect(actual.memory.get(obj.id), `${obj.id} junto a ${town.id}`).toEqual({
+            // De una ciudad o un pueblo, también su dueño y su ocupante de hoy (tarea 2).
+            expect(actual.memory.get(obj.id), `${obj.id} junto a ${town.id}`).toMatchObject({
               day: state.day,
               object: obj,
             });

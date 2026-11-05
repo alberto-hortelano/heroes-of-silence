@@ -26,7 +26,7 @@ import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
-import { adaptarBatalla, adaptarEscena } from '../src/client/espectador/adaptar.js';
+import { adaptarBatalla, adaptarEscena, sitiosDelCable } from '../src/client/espectador/adaptar.js';
 import { type Catalogo, RUTA_DEL_CATALOGO } from '../src/client/render/escenario/catalogo.js';
 import { componer } from '../src/client/render/escenario/colocar.js';
 import type { AdventureScene } from '../src/client/render/mapa.js';
@@ -71,6 +71,7 @@ import {
   costesDelAlcance,
   forzarTurno,
   monstruoVivo,
+  planConCiudadDeRegion,
   sinGuarnicionDeSalida,
   TROPA,
 } from './helpers.js';
@@ -130,6 +131,39 @@ describe('la vista del espectador', () => {
     expect(ida.directorLog).toEqual(['una nota del director']);
   });
 
+  it('lleva cada ciudad y pueblo con su dueño derivado y su ocupante, y el mapa los pinta así (tarea 2)', () => {
+    // Torreblanca, neutral, dentro de Centro; Centro, del 0 por sus tres pasos: la
+    // ciudad es del 0 sin que su objeto lo diga, y su guarnición neutral la ocupa.
+    const state = newGame({ seed: 1, plan: planConCiudadDeRegion() });
+    for (const o of state.map.objects) {
+      const enCentro = [
+        { x: 11, y: 2 },
+        { x: 11, y: 6 },
+        { x: 17, y: 4 },
+      ].some((p) => p.x === o.at.x && p.y === o.at.y);
+      if (o.kind === 'node' && enCentro) o.owner = 0;
+    }
+    const vista: SpectatorView = JSON.parse(JSON.stringify(construirVista(state, [])));
+    const torreblanca = vista.sitios.find((s) => s.id === 'town-2')!;
+    // Exactamente esto: `node` ya no viaja (nadie lo leía, `/simplify` de la tarea 2).
+    expect(torreblanca).toEqual({
+      id: 'town-2',
+      at: torreblanca.at,
+      owner: 0,
+      ocupante: { kind: 'guarnicion', dueño: null },
+    });
+    expect(vista.towns.find((t) => t.id === 'town-2')!.owner).toBe(0);
+    // Su objeto del mapa no lo dice (no está en el muro): lo pone el cable.
+    expect(vista.map.objects.find((o) => o.id === 'town-2')).toMatchObject({ owner: null });
+    const { objetos, ocupados } = sitiosDelCable(vista, adaptarEscena(vista).map.objects);
+    expect(objetos.find((o) => o.id === 'town-2')).toMatchObject({ owner: 0 });
+    expect(ocupados).toEqual([{ at: { x: 14, y: 4 }, por: null }]);
+    // Una vista de antes, sin sus sitios, se dice.
+    expect(() => sitiosDelCable({ ...vista, sitios: [] }, vista.map.objects)).toThrow(
+      /llega sin su sitio/,
+    );
+  });
+
   it('sin batalla, `battle` es `null`, que es casi toda la partida', () => {
     const state = newGame({ seed: 5 });
     expect(construirVista(state, []).battle).toBeNull();
@@ -174,6 +208,16 @@ describe('adaptar: la vuelta del cable', () => {
     // La barrera de cada nodo, que el escenógrafo lee para su pieza (#145).
     expect(escena.map.objects).toEqual(state.map.objects);
     expect(escena.map.objects.filter((o) => o.kind === 'node').length).toBeGreaterThan(0);
+  });
+
+  it('el pueblo en el muro cruza el cable con su barrera (pueblos en un nodo, fase 3)', () => {
+    // La semilla 15 lleva dos pueblos en un nodo de montaña: el escenógrafo del
+    // espectador lee su barrera para abrir su eje, como la de un paso.
+    const state = newGame({ seed: 15 });
+    const escena = adaptarEscena(JSON.parse(JSON.stringify(construirVista(state, []))));
+    const delMuro = escena.map.objects.filter((o) => o.kind === 'village' && o.barrera !== null);
+    expect(delMuro.length).toBeGreaterThan(0);
+    expect(escena.map.objects).toEqual(state.map.objects);
   });
 
   it('un mapa que no es una red de caminos lanza diciendo por qué, y no toca el terreno guardado', () => {
@@ -222,6 +266,16 @@ describe('adaptar: la vuelta del cable', () => {
     expect(sinBarrera.some((o) => o.kind === 'node')).toBe(true);
     expect(() => adaptarEscena(con({ objects: sinBarrera }))).toThrow(
       /el nodo node-\d+ llega sin la barrera que cruza: el servidor habla el formato de antes de #145/,
+    );
+    // Un pueblo sin la barrera de su muro (ni `null`): el servidor de antes de
+    // los pueblos en un nodo (fase 3).
+    const puebloSinBarrera = buena.map.objects.map((o) => {
+      if (o.kind !== 'village') return o;
+      const { barrera: _, ...resto } = o;
+      return resto;
+    }) as unknown as SpectatorView['map']['objects'];
+    expect(() => adaptarEscena(con({ objects: puebloSinBarrera }))).toThrow(
+      /el pueblo village-\d+ llega sin la barrera de su muro .*formato de antes de los pueblos en un nodo/,
     );
     // Una región sin su nivel de altura: el servidor de antes de #143.
     const sinNivel = buena.map.regions.map(({ nivel: _, ...resto }) => resto);

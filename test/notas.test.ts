@@ -187,9 +187,11 @@ describe('notas para el agente', () => {
     // días: salen las cuatro cosas —llegar, cortarse, pararse y
     // emboscado antes— y cuesta medio segundo. Todas en 6 semillas eran 3,5 s
     // de clonar y andar, y filtrar por las rutas que pisan una región peligrosa
-    // no ahorraba nada: lo son nueve de cada diez.
+    // no ahorraba nada: lo son nueve de cada diez. Con las ciudades en mitad
+    // de su región (05-11-2026), en 1-80 salen las tres en la 13, la 40 y la 43:
+    // se mira la 13.
     const vistas = { halted: 0, emboscada: 0, enteras: 0 };
-    for (const seed of [42]) {
+    for (const seed of [13]) {
       const inicio = newGame({ seed });
       const heroe = heroesOf(inicio, 0)[0]!;
       let n = 0;

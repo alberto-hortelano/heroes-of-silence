@@ -13,7 +13,7 @@
 import { describe, expect, it } from 'vitest';
 import barrerasJson from '../data/barreras.json' with { type: 'json' };
 import { mapPlanSchema } from '../src/core/contract/agent.js';
-import { BARRERAS_DEL_MAPA, validarBarreras } from '../src/core/data.js';
+import { BARRERAS_DEL_MAPA, POBLAMIENTO, validarBarreras } from '../src/core/data.js';
 import {
   buildMap,
   crucesConCamino,
@@ -34,7 +34,7 @@ import {
   type TramoDeCamino,
 } from '../src/core/map/map.js';
 import { puertaDe, rodeosParaEntrar } from '../src/core/map/puertas.js';
-import { puertasDeLaCiudad } from '../src/core/map/recinto.js';
+import { puertasDeLaCiudad, rioAnteLaCiudad } from '../src/core/map/recinto.js';
 import {
   aPunto,
   type Estructura,
@@ -61,7 +61,14 @@ import {
 } from '../src/core/map/vestir.js';
 import { createRng } from '../src/core/rng.js';
 import type { Point } from '../src/core/types.js';
-import { auditarMapaDenso, barrerasDe, ciclosDeCamino, planDeNodos } from './helpers.js';
+import {
+  auditarMapaDenso,
+  barrerasDe,
+  ciclosDeCamino,
+  planConCiudadDeRegion,
+  planDeNodos,
+  TROPA_BARATA,
+} from './helpers.js';
 import { itLento, rango, segunPrisa } from './lento.js';
 
 /** Los fallos de la auditoría densa de un plan, construyéndolo. */
@@ -110,6 +117,64 @@ const columna = (x: number, y0 = 0, y1 = 8) => ({
   terrain: 'mountain' as const,
   from: { x, y: y0 },
   to: { x, y: y1 },
+});
+
+describe('ciudades y pueblos: en el muro o dentro de su región (tarea 2, 05-11-2026)', () => {
+  it('el grado lo decide: la ciudad que toca una sola región está dentro, la que toca dos es un nodo', () => {
+    const plan = planConCiudadDeRegion();
+    expect(validateMapPlan(plan)).toEqual([]);
+    const red = estructura(buildMap(plan).map);
+    expect(red.sitiosDeRegion.get('town-2')).toBe(red.regionPorId.get('c'));
+    expect(red.nodoPorId.has('town-2')).toBe(false);
+    // Las bases, en el muro, nodos de la clase ciudad; los pasos, de la clase paso.
+    expect(red.nodos.filter((n) => n.clase === 'ciudad').map((n) => n.id)).toEqual([
+      'town-0',
+      'town-1',
+    ]);
+    expect(red.nodos.filter((n) => n.clase === 'paso')).toHaveLength(4);
+    // Y la de siempre, con Torreblanca en el muro, es un nodo.
+    const deSiempre = estructura(buildMap(planDeNodos()).map);
+    expect(deSiempre.nodoPorId.has('town-2')).toBe(true);
+    expect(deSiempre.sitiosDeRegion.has('town-2')).toBe(false);
+  });
+
+  it('el pueblo que parte su región se rechaza diciéndolo', () => {
+    // Una fila de montaña cruza el Oeste con un hueco de una casilla, y en el hueco
+    // un pueblo: sin él, lo de arriba es parte del Oeste; con él, queda aparte.
+    const plan = planDeNodos();
+    const parte = con({
+      walls: [
+        ...plan.walls,
+        { terrain: 'mountain', from: { x: 0, y: 1 }, to: { x: 1, y: 1 } },
+        { terrain: 'mountain', from: { x: 3, y: 1 }, to: { x: 4, y: 1 } },
+      ],
+      villages: [...plan.villages, { name: 'El Paso', at: { x: 2, y: 1 } }],
+    });
+    expect(validateMapPlan(parte)).toEqual([
+      'el pueblo "village-4" parte su región: deja a un lado una zona sin región declarada que incluye (0,0); ponlo donde no corte el paso',
+    ]);
+  });
+
+  it('la base va en el muro, y la ciudad de dentro de una región no nace con dueño', () => {
+    const plan = planConCiudadDeRegion();
+    const torreblanca = plan.towns.find((t) => t.id === 'town-2')!;
+    // La base del 0, la primera suya, dentro de Centro.
+    const baseDentro = con({
+      ...plan,
+      towns: [{ ...torreblanca, owner: 0 }, ...plan.towns.filter((t) => t !== torreblanca)],
+    });
+    expect(validateMapPlan(baseDentro)).toEqual([
+      'la ciudad "town-2" es la base del jugador 0 y está dentro de la región "c": la base va en el muro, entre dos regiones o más, y se toma como un paso',
+    ]);
+    // Del 1, sin ser su base: es de quien tenga Centro.
+    const conDueño = con({
+      ...plan,
+      towns: plan.towns.map((t) => (t === torreblanca ? { ...t, owner: 1 } : t)),
+    });
+    expect(validateMapPlan(conDueño)).toEqual([
+      'la ciudad "town-2" está dentro de la región "c" y lleva dueño (1): una ciudad dentro de una región es de quien tenga la región; quítale el dueño o ponla en el muro',
+    ]);
+  });
 });
 
 describe('la red se valida: cada rotura se dice con su sitio', () => {
@@ -282,12 +347,13 @@ describe('la red se valida: cada rotura se dice con su sitio', () => {
   });
 
   it('nada que no sea nodo se pone sobre un muro: ya no se sanea en silencio', () => {
-    const plan = planDeNodos();
+    // Un monstruo. El pueblo sí va sobre el muro, como un nodo (pueblos en un
+    // nodo, fase 3): lo miran `pueblos-en-un-nodo.test.ts`.
     const enLaSierra = con({
-      villages: [...plan.villages, { name: 'Peñas', at: { x: 11, y: 0 } }],
+      monsters: [{ at: { x: 11, y: 0 }, creature: TROPA_BARATA, count: 3 }],
     });
     expect(validateMapPlan(enLaSierra)).toEqual([
-      'el pueblo "Peñas" en (11,0) cae sobre mountain: tiene que estar dentro de una región',
+      `el monstruo ${TROPA_BARATA} en (11,0) cae sobre mountain: tiene que estar dentro de una región`,
     ]);
     // Y sobre un nodo tampoco: ocupa casilla.
     const enElPaso = con({ chests: [{ at: { x: 11, y: 2 }, gold: 100 }] });
@@ -454,34 +520,55 @@ function saltos(red: Estructura, desde: number, sin: number | null): Map<number,
   return dist;
 }
 
-/** Lo que el usuario pidió de las ciudades de un plan, medido desde fuera. */
+/**
+ * Lo que el usuario pidió de las ciudades de un plan, medido desde fuera. Desde
+ * las ciudades en su región (fase 2, 05-11-2026): las bases y las ciudades-puente
+ * van en un nodo, la del río entre tres regiones; las demás, en mitad de su
+ * región (de grado 1), `data/poblamiento.json` parejas de ellas. Cada base ve las
+ * de mitad de una región a los mismos saltos (los de su región, por su nodo más
+ * cercano), y llega a las dos más cercanas por dos caminos: quitando cualquier
+ * otro nodo, sigue llegando a su región.
+ */
 function auditar(plan: MapPlan): string[] {
   const fallos: string[] = [];
   const { map } = buildMap(plan);
   const red = estructura(map);
-  const bases = plan.towns.filter((t) => t.owner !== null).map((t) => red.nodoPorId.get(t.id)!);
+  const bases = plan.towns.filter((t) => t.owner !== null);
   const neutrales = plan.towns.filter((t) => t.owner === null);
-  if (neutrales.length < 2) fallos.push(`solo ${neutrales.length} ciudades neutrales`);
+  for (const t of bases)
+    if (red.sitiosDeRegion.has(t.id)) fallos.push(`la base ${t.id} está dentro de una región`);
+  const deRegion: number[] = [];
   for (const t of neutrales) {
-    const grado = red.nodos[red.nodoPorId.get(t.id)!]!.regiones.length;
-    if (grado < 3) fallos.push(`la ciudad ${t.id} es de grado ${grado}`);
+    const region = red.sitiosDeRegion.get(t.id);
+    if (rioAnteLaCiudad(map, t.at) !== null) {
+      const grado = red.nodos[red.nodoPorId.get(t.id) ?? -1]?.regiones.length ?? 0;
+      if (grado < 3) fallos.push(`la ciudad-puente ${t.id} es de grado ${grado}`);
+    } else if (region === undefined)
+      fallos.push(`la ciudad ${t.id} va en un nodo y no es base ni del río`);
+    else deRegion.push(region);
   }
+  const parejasDeFuera = map.regions.length / 2 - 1;
+  const quiere = 2 * Math.min(POBLAMIENTO.parejasConCiudad, parejasDeFuera);
+  if (deRegion.length !== quiere)
+    fallos.push(`${deRegion.length} ciudades en mitad de su región, y van ${quiere}`);
   const perfiles: string[] = [];
-  for (const b of bases) {
-    const d = saltos(red, b, null);
-    const cerca = neutrales
-      .map((t) => red.nodoPorId.get(t.id)!)
-      .sort((x, y) => d.get(x)! - d.get(y)! || x - y)
-      .slice(0, 2);
-    perfiles.push(cerca.map((c) => d.get(c)).join(','));
-    for (const c of cerca) {
+  for (const t of bases) {
+    const b = red.nodoPorId.get(t.id)!;
+    const aLaRegion = (r: number, sin: number | null): number => {
+      const d = saltos(red, b, sin);
+      return Math.min(99, ...red.regiones[r]!.nodos.map((n) => d.get(n) ?? 99));
+    };
+    const cerca = [...deRegion]
+      .sort((x, y) => aLaRegion(x, null) - aLaRegion(y, null) || x - y)
+      .map((r) => ({ r, d: aLaRegion(r, null) }));
+    perfiles.push(cerca.map((c) => c.d).join(','));
+    for (const { r } of cerca.slice(0, 2)) {
       for (let n = 0; n < red.nodos.length; n++) {
-        if (n === b || n === c) continue;
-        if (!saltos(red, b, n).has(c)) {
+        if (n === b) continue;
+        if (aLaRegion(r, n) >= 99)
           fallos.push(
-            `quitando ${red.nodos[n]!.id}, ${red.nodos[b]!.id} pierde ${red.nodos[c]!.id}`,
+            `quitando ${red.nodos[n]!.id}, ${red.nodos[b]!.id} pierde la región ${red.regiones[r]!.id}`,
           );
-        }
       }
     }
   }
@@ -508,7 +595,7 @@ function auditar(plan: MapPlan): string[] {
 function horquillasNuevas(map: GameMap): string[] {
   const nodos = new Set([
     ...estructura(map).nodos.map((n) => pointKey(n.at)),
-    ...map.objects.filter((o) => conPuerta(o.kind)).map((o) => pointKey(o.at)),
+    ...map.objects.filter((o) => o.kind === 'village').map((o) => pointKey(o.at)),
     // Y las puertas de las ciudades, que tampoco hacen de esquina (fase 2).
     ...map.objects.flatMap((o) =>
       o.kind === 'town' ? puertasDeLaCiudad(map, o.at).map((p) => pointKey(p.casilla)) : [],
@@ -568,15 +655,24 @@ function horquillasNuevas(map: GameMap): string[] {
  * detrás. Sin agua de frontera fuera del río (QA del río continuo, H3, que lo
  * vio en el informe de la escena) la s15 es otro mapa y ninguna de 1-300 lo da:
  * la lista se queda vacía, y el guardia de 1-200 vuelve a no admitir ninguno.
+ * Sin ciudades en los cruces (ciudades en su región, fase 2, 05-11-2026) la s66
+ * es otro mapa y lo da: el pueblo de (19,17) tiene su puerta, (19,18), en un
+ * bolsillo de dos casillas entre charcas y una montaña —agua debajo y a su
+ * derecha, (20,18)—, al que solo se llega en diagonal cortando una esquina de
+ * agua, y el radio llega por su costado, (20,17). No es de la ciudad: la de su
+ * región está en (13,7). Es la misma familia que los de arriba.
  */
-const DE_LADO_POR_LA_ESQUINA: Readonly<Record<number, string>> = {};
+const DE_LADO_POR_LA_ESQUINA: Readonly<Record<number, string>> = {
+  66: 'village (19,17): se entra desde (20,17) y no por su puerta',
+};
 
 /**
  * Los objetos con puerta: se entran por la casilla de debajo y no se cruzan
  * (#188). La ciudad ya no (la ciudad amurallada, fase 2): se entra por las
  * puertas de su recinto, y eso lo mira `problemasDeRecintos`.
  */
-const conPuerta = (kind: string): boolean => kind === 'village';
+const conPuerta = (o: GameMap['objects'][number]): boolean =>
+  o.kind === 'village' && o.barrera === null;
 
 /**
  * Las puertas mal entradas (#188, «como en el HoMM»): un pueblo lleva un solo
@@ -603,10 +699,10 @@ function puertasMalEntradas(map: GameMap): string[] {
   const fallos: string[] = [];
   const en = (p: Point) => `(${p.x},${p.y})`;
   for (const o of map.objects) {
-    if (!conPuerta(o.kind)) continue;
+    if (!conPuerta(o)) continue;
     const llegan = vecinas.get(pointKey(o.at)) ?? [];
     if (o.kind === 'village') {
-      const puerta = puertaDe(o.at, W, map.height);
+      const puerta = puertaDe(o, W, map.height);
       const puertas =
         puerta !== null &&
         regionDe[puerta.y * W + puerta.x] === regionDe[o.at.y * W + o.at.x] &&
@@ -693,7 +789,7 @@ function aspas(map: GameMap): string[] {
 }
 
 describe('el generador hace redes como las pidió el usuario', () => {
-  it(`200 semillas en ${LADO_DEL_MAPA}×${LADO_DEL_MAPA} y 20 en 48×48: válidas, ciudades de grado ≥ 3, equilibradas, con dos caminos y densas`, () => {
+  it(`200 semillas en ${LADO_DEL_MAPA}×${LADO_DEL_MAPA} y 20 en 48×48: válidas, ciudades en su sitio (en un nodo o en su región), equilibradas, con dos caminos y densas`, () => {
     const fallos: string[] = [];
     const fronteraTotal = new Set<string>();
     const conCamino: number[] = [];
@@ -975,10 +1071,13 @@ describe('el generador hace redes como las pidió el usuario', () => {
     // equilibrada y el error se queda en las redes: la fase del vestido se ve
     // en 13×13. Con el río continuo (#144), que se traza antes que las regiones
     // y con cada forma si la sorteada no sale, hasta 16×16 no sale ni una red:
-    // la fase del vestido se ve en 18×18.
-    expect(() => trazarYVestir(createRng(1), 18, 18)).toThrow(
+    // la fase del vestido se veía en 18×18. Sin ciudades en los cruces
+    // (ciudades en su región, fase 2, 05-11-2026), 18×18 sale con las semillas
+    // 1-5, y se ve en 17×18, donde las fronteras y las ciudades de mitad de su
+    // región no caben.
+    expect(() => trazarYVestir(createRng(1), 17, 18)).toThrow(
       new RegExp(
-        `no sale un mapa de nodos de 18×18 en ${INTENTOS_DE_RED} redes, dos veces, con cada forma de río \\(frontera, esquina, lago\\): \\d+ no salieron equilibradas, y las otras no se dejaron vestir en 10 intentos cada una: \\d+ en fronteras \\(la última: .+\\)`,
+        `no sale un mapa de nodos de 17×18 en ${INTENTOS_DE_RED} redes, dos veces, con cada forma de río \\(frontera, esquina, lago\\): \\d+ no salieron equilibradas, y las otras no se dejaron vestir en 10 intentos cada una: \\d+ en fronteras \\(la última: .+\\)`,
       ),
     );
   });
@@ -1071,7 +1170,9 @@ describe('el generador hace redes como las pidió el usuario', () => {
     expect(sinEje.length, sinEje.join('; ')).toBeLessThanOrEqual(nodos / 100);
     // Que no pase en vacío: 54 nodos (ciudades incluidas) en 1-3, 761 en 1-40
     // (eran 62 y 813 antes de vetar lo de bajo las diagonales: los mapas son otros).
-    expect(nodos).toBeGreaterThan(segunPrisa(50, 700));
+    // Sin ciudades en los cruces (ciudades en su región, fase 2, 05-11-2026),
+    // 693 en 1-40: las de mitad de su región no son nodos.
+    expect(nodos).toBeGreaterThan(segunPrisa(50, 650));
   });
 
   it('el engorde va casilla a casilla y la reparación deja tres pasos entre regiones (#169)', () => {
@@ -1234,13 +1335,17 @@ describe('el generador hace redes como las pidió el usuario', () => {
     expect(entradasDeNodo(mapa(base, [pueblo(6)]))).toEqual([]);
   });
 
-  it('la auditoría muerde: una ciudad de grado 2 y un nodo de corte se ven', () => {
+  it('la auditoría muerde: una ciudad neutral en el muro, la que falta en su región y un nodo de corte se ven', () => {
     // Si `auditar` no pudiera fallar, el test de arriba sería verde por vacío.
-    // El plan a mano tiene la ciudad neutral entre DOS regiones y un solo
-    // camino de la base del 1 a ella.
+    // El plan a mano tiene la ciudad neutral en el muro, entre DOS regiones, sin
+    // ser del río, y ninguna en mitad de su región.
     const fallos = auditar(planDeNodos());
-    expect(fallos).toContain('solo 1 ciudades neutrales');
-    expect(fallos).toContain('la ciudad town-2 es de grado 2');
+    expect(fallos).toContain('la ciudad town-2 va en un nodo y no es base ni del río');
+    expect(fallos.join('\n')).toMatch(/^0 ciudades en mitad de su región, y van \d+$/m);
+    // Y con una de mitad de su región a la que solo se llega por un nodo, el
+    // nodo de corte: la de Centro, a la que se entra solo por el paso de Este.
+    const conUna = planConCiudadDeRegion();
+    expect(auditar(conUna).join('\n')).toMatch(/quitando .+, town-\d pierde la región/);
   });
 });
 

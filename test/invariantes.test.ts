@@ -76,6 +76,7 @@ import {
 } from 'node:fs';
 import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { playAiGame } from '../src/core/ai/turn.js';
 import { stackSpeed } from '../src/core/battle/battle.js';
@@ -2058,7 +2059,7 @@ describe('invariantes del proyecto', () => {
     expect(JSON.parse(JSON.stringify(state!.log))).toEqual(state!.log);
   });
 
-  it('el dueño de un nodo o de un castillo lo escriben captureNode y captureTown, nadie más', () => {
+  it('el dueño guardado de un sitio del muro (paso, ciudad o pueblo) lo escribe tomarElNodo, nadie más', () => {
     // «Un hecho, un sitio», con el mapa de nodos: el dueño de una REGIÓN no se
     // guarda porque se deriva de sus nodos (`regionOwner`), y eso solo es verdad
     // mientras los nodos tengan un único escritor. Una segunda escritura —un
@@ -2070,6 +2071,12 @@ describe('invariantes del proyecto', () => {
     // el servidor tampoco escriben dueños. La asignación y la escritura por
     // corchetes (`o['owner'] =`), que es por donde se escaparía un atajo.
     // `Object.assign` no lo ve: si algún día hace falta, se dirá aquí.
+    //
+    // Desde la tarea 2 (ciudades y pueblos en su región, 05-11-2026) la ciudad
+    // tiene una sola cara, su objeto del mapa, como el paso: `Town.owner` se fue y
+    // `captureNode` y `captureTown` son una, `tomarElNodo`. Roto a mano
+    // (05-11-2026): un `obj.owner = player.id` en `collectAt`, junto a la llamada a
+    // `tomarElNodo`, sale rojo con su línea.
     const escrituras = infractoresDeCodigo(
       [...CORE, ...CLIENTE, ...SERVIDOR],
       /\.owner\s*=(?!=)|\[\s*['"`]owner['"`]\s*\]\s*=(?!=)/,
@@ -2086,13 +2093,88 @@ describe('invariantes del proyecto', () => {
       const m = /^src\/core\/state\/game\.ts:(\d+) /.exec(e);
       if (m === null) return true;
       const fn = funcionDe(Number(m[1]));
-      return fn !== 'captureNode' && fn !== 'captureTown';
+      return fn !== 'tomarElNodo';
     });
     expect(ajenas).toEqual([]);
-    // Y que mire algo: las tres escrituras de verdad —el nodo, el libro de
-    // cuentas del castillo y su bandera— tienen que salir. Sin esto, un patrón
-    // que no casara nada pasaría por vacío.
-    expect(escrituras).toHaveLength(3);
+    // Y que mire algo: la escritura de verdad —la del objeto del sitio— tiene que
+    // salir. Sin esto, un patrón que no casara nada pasaría por vacío.
+    expect(escrituras).toHaveLength(1);
+  });
+
+  it('en el núcleo, el `owner` de una ciudad o un pueblo solo lo leen la red y `tomarElNodo`', () => {
+    // El `owner` del objeto de una ciudad o un pueblo es el dueño GUARDADO, y solo
+    // es su dueño si el sitio es un nodo (está en el muro); en uno de dentro de una
+    // región vale `null` siempre (ciudades y pueblos en su región, 05-11-2026). El
+    // cliente y el espectador lo reescriben en su copia con el dueño derivado, pero
+    // en el núcleo un `town.owner` nuevo daría `null` sin avisar en cuanto la ciudad
+    // fuera de una región. La regla del sitio es `dueñoDeUnSitio` (la red) y
+    // `dueñoDelSitio` (`state/sitios.ts`).
+    //
+    // No se puede ver por el texto: `o.owner` es igual en un paso, un héroe o una
+    // ciudad. Se pregunta al compilador el tipo de lo que va antes del punto, y
+    // cuenta si alguna de sus formas es un objeto `town` o `village` con dueño.
+    // Mira el acceso con punto, con corchetes y la desestructuración. ~1 s.
+    // Roto a mano (05-11-2026): `return obj.owner;` en el `case 'town'` de
+    // `objectValue` (`ai/strategy.ts`) sale rojo con su línea.
+    const ficherosDelNucleo = CORE.filter((f) => f.endsWith('.ts')).map((f) => join(RAIZ, f));
+    const programa = ts.createProgram(ficherosDelNucleo, {
+      target: ts.ScriptTarget.ES2022,
+      module: ts.ModuleKind.ESNext,
+      moduleResolution: ts.ModuleResolutionKind.Bundler,
+      strict: true,
+      exactOptionalPropertyTypes: true,
+      noUncheckedIndexedAccess: true,
+      resolveJsonModule: true,
+      skipLibCheck: true,
+      noEmit: true,
+      types: [],
+    });
+    const tipos = programa.getTypeChecker();
+    const esUnSitio = (tipo: ts.Type): boolean =>
+      (tipo.isUnion() ? tipo.types : [tipo]).some((forma) => {
+        const kind = forma.getProperty('kind');
+        if (kind === undefined || forma.getProperty('owner') === undefined) return false;
+        const k = tipos.getTypeOfSymbol(kind);
+        return (k.isUnion() ? k.types : [k]).some(
+          (l) => l.isStringLiteral() && (l.value === 'town' || l.value === 'village'),
+        );
+      });
+    const tomar = lineasDeLasDeclaraciones('src/core/state/game.ts', ['tomarElNodo']);
+    const lecturas: string[] = [];
+    for (const fuente of programa.getSourceFiles()) {
+      const ruta = fuente.fileName.slice(RAIZ.length).replace(/^\//, '');
+      if (!ruta.startsWith('src/core/') || ruta === 'src/core/map/regiones.ts') continue;
+      const visitar = (n: ts.Node): void => {
+        let de: ts.Node | null = null;
+        if (ts.isPropertyAccessExpression(n) && n.name.text === 'owner') de = n.expression;
+        else if (
+          ts.isElementAccessExpression(n) &&
+          ts.isStringLiteralLike(n.argumentExpression) &&
+          n.argumentExpression.text === 'owner'
+        )
+          de = n.expression;
+        else if (
+          ts.isBindingElement(n) &&
+          ts.isObjectBindingPattern(n.parent) &&
+          (n.propertyName ?? n.name).getText() === 'owner'
+        )
+          de = n.parent;
+        if (de !== null && esUnSitio(tipos.getTypeAtLocation(de))) {
+          const linea = fuente.getLineAndCharacterOfPosition(n.getStart()).line + 1;
+          if (!(ruta === 'src/core/state/game.ts' && tomar.has(linea)))
+            lecturas.push(`${ruta}:${linea} → ${n.getText()}`);
+        }
+        ts.forEachChild(n, visitar);
+      };
+      visitar(fuente);
+    }
+    expect(lecturas).toEqual([]);
+    // Y que mire algo: `tomarElNodo` lo lee (y lo escribe). Sin esto, un tipo que
+    // el compilador no resolviera pasaría por vacío.
+    const enTomar = codigoDe('src/core/state/game.ts')
+      .split('\n')
+      .filter((l, i) => tomar.has(i + 1) && /\.owner\b/.test(l));
+    expect(enTomar.length).toBeGreaterThan(0);
   });
 
   it('la rejilla de tipos del vestido la escribe `ponerTipo`, nadie más: así el río no se corta', () => {
@@ -2279,8 +2361,12 @@ describe('invariantes del proyecto', () => {
       /\bstate\.heroes\b|\bmap\.objects\b|\bobjectAt\s*\(|\.memory\b/,
     );
     expect(lectores).toEqual([]);
-    // Y que mire algo: la sesión lee el estado vivo con «Ver mapa entero».
-    expect(infractoresDeCodigo(['src/client/session.ts'], /\bmap\.objects\b/)).not.toEqual([]);
+    // Y que mire algo: el espectador, que lo ve todo, lee los objetos vivos (la
+    // sesión ya no: con «Ver mapa entero» pasa también por `objetosConocidos`,
+    // que le da el dueño derivado de cada sitio, tarea 2).
+    expect(infractoresDeCodigo(['src/client/espectador/main.ts'], /\bmap\.objects\b/)).not.toEqual(
+      [],
+    );
   });
 
   it('el arte de una dirección no vuelve: ninguna figura lee `characters/`, `rpg/scenes` ni un `atlas.webp` raíz', () => {
@@ -2443,7 +2529,58 @@ describe('invariantes del proyecto', () => {
     expect(escrituras).toHaveLength(1);
   });
 
-  it('las guarniciones de pasos y pueblos las escribe solo `state/sitios.ts`', () => {
+  it('las moradas crecen solo por `crecerLasMoradas`, que salta la ciudad ocupada', () => {
+    // P4 de la tarea 2 (05-11-2026): ocupada, «tampoco crecen sus moradas», y la
+    // semana se pierde. La regla vive en un sitio, `crecerLasMoradas` (que pregunta
+    // `ocupanteDe`); un `applyWeeklyGrowth` suelto en otro sitio haría crecer la
+    // ocupada sin que nadie lo notara. Roto a mano (05-11-2026): un
+    // `for (const t of state.towns) applyWeeklyGrowth(t)` en `advanceDay`, en lugar
+    // de `crecerLasMoradas`, sale rojo con su línea.
+    const llamadas = infractoresDeCodigo(
+      [...CORE, ...CLIENTE, ...SERVIDOR],
+      /\bapplyWeeklyGrowth\s*\(/,
+    );
+    const codigo = codigoDe('src/core/state/game.ts').split('\n');
+    const funcionDe = (linea: number): string | null => {
+      for (let i = linea - 1; i >= 0; i--) {
+        const m = /^(?:export )?function (\w+)/.exec(codigo[i] ?? '');
+        if (m !== null) return m[1] ?? null;
+      }
+      return null;
+    };
+    const ajenas = llamadas.filter((e) => {
+      if (e.startsWith('src/core/town/town.ts:'))
+        return !/export function applyWeeklyGrowth/.test(e);
+      const m = /^src\/core\/state\/game\.ts:(\d+) /.exec(e);
+      return m === null || funcionDe(Number(m[1])) !== 'crecerLasMoradas';
+    });
+    expect(ajenas).toEqual([]);
+    // Y que mire algo: la llamada de verdad.
+    expect(llamadas.filter((e) => e.startsWith('src/core/state/game.ts:'))).toHaveLength(1);
+    expect(codigoDe('src/core/state/game.ts')).toMatch(
+      /function crecerLasMoradas[\s\S]*?ocupanteDe\(state, sitioDeLaCiudad\(town\)\)/,
+    );
+  });
+
+  it('la batalla contra una ciudad es la de su guarnición: no vuelve el `town` de `BattleFoe`', () => {
+    // Tarea 2 (05-11-2026): la guarnición de la ciudad vive en `guarniciones` con su
+    // dueño, como la de un paso o un pueblo, y su batalla es `garrison`. Una clase
+    // aparte para la ciudad era un segundo camino (el dueño del bando, el botín, lo
+    // que sobrevive) que se quedaba atrás. El tipo ya no la deja escribir; esto
+    // vigila que no vuelva su campo por otra puerta (un hecho, el cable, la prosa).
+    // Roto a mano (05-11-2026): un `return { kind: 'town', townId: … }` en `enemyAt`
+    // sale rojo con su línea.
+    // El campo como lo escribía `BattleFoe` y como lo leían sus casos (`foe.townId`);
+    // `townId` a secas es el nombre de muchos parámetros que no son una batalla.
+    const patron =
+      /kind:\s*['"]town['"]\s*,\s*townId|\b(?:foe|perdedor|ganador|enemigo)\??\.townId\b/;
+    expect(infractoresDeCodigo([...CORE, ...CLIENTE, ...SERVIDOR], patron)).toEqual([]);
+    // Y que muerda: la forma de antes la caza.
+    expect(patron.test("return { kind: 'town', townId: pueblo.id };")).toBe(true);
+    expect(patron.test('townById(state, foe.townId)')).toBe(true);
+  });
+
+  it('las guarniciones de ciudades, pasos y pueblos las escribe solo `state/sitios.ts`', () => {
     // `GameState.guarniciones` es tropa: quien la escribiera por su cuenta se
     // saltaría los cupos y el dueño de `intercambioBlocker`, o dejaría una entrada
     // vacía que hace de un pueblo un sitio guardado por nadie. La escriben dejar,

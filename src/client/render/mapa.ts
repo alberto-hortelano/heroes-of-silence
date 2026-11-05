@@ -21,7 +21,12 @@ import { hojaDeUnidad } from '@core/catalogo.js';
 import { figuraDelHeroe } from '@core/data.js';
 import { individuosDe } from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
-import type { MapObject, MapRegion, RedDeCaminos } from '@core/map/map.js';
+import {
+  cruzaSuBarrera,
+  type MapObject,
+  type MapRegion,
+  type RedDeCaminos,
+} from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import { inicialDelNombre } from '@core/mundo/formato.js';
 import type { AsaltantesALaVista, VistaAsaltante } from '@core/state/asaltantes.js';
@@ -69,6 +74,7 @@ import { altoDelMarcador, pintarMarcadorDelPuesto } from './marcador-del-puesto.
 import { COLOR_SIN_DUEÑO, playerColor } from './palette.js';
 import { MIRADA_DE_PRESENTACION } from './personajes.js';
 import { pintarPieza } from './piezas.js';
+import type { SitioOcupado } from './sitios-sabidos.js';
 import { pintarSombra } from './sombra.js';
 
 /**
@@ -143,6 +149,12 @@ export interface VistaMapa {
    * está cada cosa, que no cambia—, no para pintar su estado.
    */
   readonly objetos: readonly MapObject[];
+  /**
+   * Las ciudades y los pueblos ocupados que se saben (`ocupanteDe`, como se
+   * vieron): la marca de la ocupación, del color del ocupante (tarea 2,
+   * 05-11-2026). La persona, `Session.ocupados`; el espectador, del cable.
+   */
+  readonly ocupados: readonly SitioOcupado[];
   readonly camara: CamaraMapa;
   readonly ancho: number;
   readonly alto: number;
@@ -461,6 +473,9 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
   // 3 · Lo que dice quién está en cada casilla, encima de todo lo que tiene altura.
   const cuerpos = cuerposDe([...cosas, ...sobreLaNiebla]);
   for (const cosa of cosas) pintarIdentificador(ctx, v, cosa, cuerpos);
+  //     Y la marca de cada sitio ocupado, con ellos: dice quién está dentro de lo
+  //     que no es suyo (tarea 2), aunque la figura quede detrás de algo.
+  for (const s of v.ocupados) pintarOcupacion(ctx, v, s);
 
   // 4 · La niebla: negra sobre lo desconocido, tenue sobre lo que no se mira.
   pintarNiebla(ctx, v);
@@ -864,6 +879,42 @@ function pintarIdentificador(
   }
 }
 
+/**
+ * La marca de un sitio ocupado (`ocupanteDe`): un escudo pequeño del color del
+ * ocupante (gris, una guarnición neutral) con un aspa clara, en la esquina de
+ * arriba a la izquierda de la casilla. Un marcador, sin arte nuevo (P2 de la
+ * tarea 2: «sin arte»): lo que importa es que se lea que ese sitio no da nada.
+ */
+function pintarOcupacion(ctx: CanvasRenderingContext2D, v: VistaMapa, s: SitioOcupado): void {
+  const tile = v.camara.tile;
+  const p = casillaAPixel(v.camara, s.at);
+  const r = tile * 0.2;
+  const x = p.x - tile * 0.32;
+  const y = p.y - tile * 0.62;
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(x - r, y - r);
+  ctx.lineTo(x + r, y - r);
+  ctx.lineTo(x + r, y + r * 0.2);
+  ctx.quadraticCurveTo(x + r, y + r, x, y + r * 1.3);
+  ctx.quadraticCurveTo(x - r, y + r, x - r, y + r * 0.2);
+  ctx.closePath();
+  ctx.fillStyle = s.por === null ? COLOR_SIN_DUEÑO : playerColor(s.por);
+  ctx.fill();
+  ctx.lineWidth = Math.max(1, tile * 0.03);
+  ctx.strokeStyle = '#1b1410';
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x - r * 0.5, y - r * 0.5);
+  ctx.lineTo(x + r * 0.5, y + r * 0.6);
+  ctx.moveTo(x + r * 0.5, y - r * 0.5);
+  ctx.lineTo(x - r * 0.5, y + r * 0.6);
+  ctx.strokeStyle = '#f5ecd8';
+  ctx.lineWidth = Math.max(1, tile * 0.05);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function presente(o: MapObject): boolean {
   if (o.kind === 'monster') return !o.defeated;
   if (o.kind === 'chest') return !o.taken;
@@ -938,7 +989,8 @@ function pintarObjeto(ctx: CanvasRenderingContext2D, v: VistaMapa, o: MapObject)
  * El óvalo del dueño bajo la ciudad y el nodo (el del nodo, justo después de
  * su volumen; el de la ciudad, en el suelo de su plaza, `claveDeLaMarca`): se
  * lee de lejos qué es de quién, y el nodo sin dueño, gris, dice qué falta por
- * tomar. El pueblo no lleva: es de quien tenga su región.
+ * tomar. El pueblo de dentro de una región no lleva: es de quien tenga su
+ * región. El del muro (pueblos en un nodo, fase 3) sí, como un nodo: se toma.
  */
 function pintarDueñoDeLoHorneado(
   ctx: CanvasRenderingContext2D,
@@ -957,6 +1009,8 @@ function pintarDueñoDeLoHorneado(
       base(ctx, a, tile * 0.4, playerColor(o.owner));
       return;
     case 'village':
+      // El pueblo del muro se toma como un paso: lleva su óvalo. El de dentro, no.
+      if (cruzaSuBarrera(o)) base(ctx, a, tile * 0.4, playerColor(o.owner));
       return;
     case 'chest':
     case 'monster':

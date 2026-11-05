@@ -9,6 +9,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { newGame } from '../src/core/state/setup.js';
+import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 import { allBuildings, buildingsOfFaction } from '../src/core/town/buildings.js';
 import {
   construidoEn,
@@ -89,8 +90,8 @@ describe('los sitios de la base', () => {
   it('sobre una base recién hecha: construido, siguiente y los sitios levantados', () => {
     const state = newGame({ seed: 7 });
     const town =
-      state.towns.find((t) => t.owner === 0 && t.faction === 'templarios') ??
-      state.towns.find((t) => t.owner === 0)!;
+      state.towns.find((t) => dueñoDeLaCiudad(state, t) === 0 && t.faction === 'templarios') ??
+      state.towns.find((t) => dueñoDeLaCiudad(state, t) === 0)!;
     const f = town.faction;
     // Nace con el ayuntamiento y la morada del sitio 1 (su pueblo), la única
     // que trae hecha.

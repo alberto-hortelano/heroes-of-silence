@@ -179,6 +179,7 @@ export class EscenaAventura {
       // Héroes y objetos, igual: los que se ven y como se saben (#64).
       heroes: s.heroesALaVista(),
       objetos: s.objetosConocidos(),
+      ocupados: s.ocupados(),
       camara: this.camara,
       ancho,
       alto,
@@ -377,7 +378,8 @@ function describirCasilla(s: Session, p: Point, ruta: readonly PasoDeRuta[]): st
   } else if (objeto?.kind === 'node') {
     que = `Paso ${objeto.owner === s.viewer ? 'tuyo' : objeto.owner === null ? 'sin dueño' : 'enemigo'}`;
   } else if (objeto?.kind === 'village') {
-    const paga = s.renta.pueblos.some((p) => p.id === objeto.id);
+    // La renta lista todo pueblo suyo, también el que no cobra (sin unir u ocupado).
+    const paga = s.renta.pueblos.some((p) => p.id === objeto.id && p.oro > 0);
     que = `${objeto.name}: ${REGLA_DEL_PUEBLO} (${paga ? 'ya te paga' : 'a ti no te paga'})`;
   } else if (objeto?.kind === 'monster' && !objeto.defeated)
     que = `${objeto.count} monstruos de guardia`;

@@ -101,7 +101,8 @@ export function cupoDelHeroe(tope: number): number {
  * asaltantes y los monstruos del mapa. Cada campo, si lo hay.
  */
 export interface LoQueNaceSinHeroe {
-  readonly towns?: readonly { readonly garrison: Army }[];
+  /** Las guarniciones con que nacen las ciudades (`BuiltMap.guarniciones`), por id de su sitio. */
+  readonly guarniciones?: Readonly<Record<string, { readonly tropa: Army }>>;
   readonly raiders?: readonly { readonly troops: readonly GrupoDeTropa[] }[];
   readonly map?: { readonly objects: readonly MapObject[] };
 }
@@ -120,11 +121,14 @@ export function loNeutralAlTope<T extends LoQueNaceSinHeroe>(x: T, tope: number)
   const sobra = (n: number): boolean => n > tope;
   return {
     ...x,
-    ...(x.towns === undefined
+    ...(x.guarniciones === undefined
       ? {}
       : {
-          towns: x.towns.map((t) =>
-            sobra(t.garrison.length) ? { ...t, garrison: t.garrison.slice(0, tope) } : t,
+          guarniciones: Object.fromEntries(
+            Object.entries(x.guarniciones).map(([id, g]) => [
+              id,
+              sobra(g.tropa.length) ? { ...g, tropa: g.tropa.slice(0, tope) } : g,
+            ]),
           ),
         }),
     ...(x.raiders === undefined

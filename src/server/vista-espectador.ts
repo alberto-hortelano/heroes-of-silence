@@ -21,12 +21,14 @@
 import type { BattleStack, BattleState, Side } from '@core/battle/types.js';
 import { piezasPuestas } from '@core/hero/equipo.js';
 import type { MapObject, MapRegion } from '@core/map/map.js';
+import { dueñoEnLaFoto, dueñosDeLaRed } from '@core/map/regiones.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import type { VistaAsaltante } from '@core/state/asaltantes.js';
 import { type ClimaDeLaPartida, climaDeLaPartida, regionDeLaBatalla } from '@core/state/clima.js';
-import type { GameEventDraft } from '@core/state/events.js';
+import type { GameEventDraft, Ocupante } from '@core/state/events.js';
 import { sinSello } from '@core/state/events.js';
 import { battleOwners, type GameState, week } from '@core/state/game.js';
+import { comoEstaElSitio, sitioDelObjeto } from '@core/state/sitios.js';
 import type { Town } from '@core/town/town.js';
 import { vecinosDeLaBase, vozDe } from '@core/town/voces.js';
 import type { FactionId, PlayerId, Point, UnitInfo, Veterania } from '@core/types.js';
@@ -93,6 +95,7 @@ export interface VistaHeroe {
 
 export interface VistaPueblo {
   readonly id: string;
+  /** De quién es (`dueñoDeLaCiudad`): el de su objeto en el muro, el de su región dentro. */
   readonly owner: PlayerId | null;
   readonly name: string;
   readonly at: Point;
@@ -103,6 +106,19 @@ export interface VistaPueblo {
    * —las frases de respaldo no son noticia y engordarían cada fotograma—.
    */
   readonly voces: readonly VozEnLaBase[];
+}
+
+/**
+ * Una ciudad o un pueblo como lo ve el espectador: de quién es (derivado:
+ * `dueñoDelSitio`, que el espectador no puede preguntar porque no tiene la
+ * partida), si está en el muro y quién lo ocupa (`ocupanteDe`). Lo leen su mapa
+ * (la bandera y la marca de la ocupación) y sus paneles (tarea 2, 05-11-2026).
+ */
+export interface VistaSitio {
+  readonly id: string;
+  readonly at: Point;
+  readonly owner: PlayerId | null;
+  readonly ocupante: Ocupante | null;
 }
 
 export interface VozEnLaBase {
@@ -193,6 +209,8 @@ export interface SpectatorView {
   readonly players: readonly VistaJugador[];
   readonly heroes: readonly VistaHeroe[];
   readonly towns: readonly VistaPueblo[];
+  /** Cada ciudad y cada pueblo, con su dueño derivado y su ocupante (`VistaSitio`). */
+  readonly sitios: readonly VistaSitio[];
   /**
    * Los grupos de asaltantes, con su tropa contada: la figura lleva el cuerpo
    * de su primera criatura y la chapa, cuántos son. La forma es la del núcleo
@@ -242,6 +260,8 @@ function vocesNarradas(state: GameState, t: Town): VozEnLaBase[] {
 export function construirVista(state: GameState, directorLog: readonly string[]): SpectatorView {
   const pending = state.pendingBattle;
   const indice = (p: Point): number => p.y * state.map.width + p.x;
+  // Los dueños, de una pasada por la red: las ciudades y los sitios los leen.
+  const dueños = dueñosDeLaRed(state);
   return {
     seed: state.seed,
     map: {
@@ -276,12 +296,21 @@ export function construirVista(state: GameState, directorLog: readonly string[])
     })),
     towns: state.towns.map((t) => ({
       id: t.id,
-      owner: t.owner,
+      owner: dueñoEnLaFoto(dueños, t.id),
       name: t.name,
       at: t.at,
       buildings: t.buildings,
       voces: vocesNarradas(state, t),
     })),
+    sitios: state.map.objects.flatMap((o) => {
+      if (o.kind !== 'town' && o.kind !== 'village') return [];
+      const { dueño, ocupante } = comoEstaElSitio(
+        state,
+        sitioDelObjeto(state, o),
+        dueñoEnLaFoto(dueños, o.id),
+      );
+      return [{ id: o.id, at: o.at, owner: dueño, ocupante }];
+    }),
     raiders: state.raiders.map((r) => ({ id: r.id, at: r.at, troops: r.troops })),
     // Sin el sello: el espectador ve la partida entera —eso es lo que es— pero
     // quién MÁS estaba mirando cada casilla es contabilidad de casa, y salía

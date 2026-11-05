@@ -64,6 +64,7 @@ import {
 import { regionesDelMapa } from '../map/generate.js';
 import { pointFromKey } from '../map/map.js';
 import { LADO_DEL_RECINTO, SEPARACION_DE_CIUDADES } from '../map/recinto.js';
+import { sitioEnUnNodo } from '../map/regiones.js';
 import {
   BARRERAS,
   BARRERAS_DE_DESNIVEL,
@@ -74,7 +75,7 @@ import {
 import { indiceDePoder, nivelDeUnidad } from '../nivel.js';
 import { asaltantesALaVista } from '../state/asaltantes.js';
 import { climaDeLaPartida, pedidoVigente } from '../state/clima.js';
-import { cronicaPara } from '../state/events.js';
+import { cronicaPara, type Ocupante } from '../state/events.js';
 import {
   baseOf,
   type GameState,
@@ -91,13 +92,21 @@ import {
   visibleNow,
   week,
 } from '../state/game.js';
-import { REGLA_DEL_PUEBLO, rentaDelDia } from '../state/renta.js';
-import { casillaDelSitio, sitioPorId } from '../state/sitios.js';
+import { REGLA_DEL_PUEBLO, type RentaDelDia, rentaDelDia } from '../state/renta.js';
+import {
+  casillaDelSitio,
+  ciudadQueMandaBlocker,
+  dueñoDelSitio,
+  guarnicionDeLaCiudad,
+  ocupadoBlocker,
+  type Sitio,
+  sitioDeLaCiudad,
+  sitioPorId,
+} from '../state/sitios.js';
 import { building } from '../town/buildings.js';
 import { construidoEn } from '../town/sitios.js';
 import {
   availableBuildings,
-  dailyIncome,
   dwellings,
   mageGuildLevel,
   type Town,
@@ -198,17 +207,39 @@ export const CATALOGO_DE_EQUIPO_EN_PROSA: string = EQUIPO.map((p) => {
 
 /**
  * La renta del día como la lee el agente (`you.income`): el total y de dónde
- * sale, cada ciudad suya con lo que da su ayuntamiento (0 y `connected: false`
- * si está cortada de la base) y cada pueblo de sus regiones unidas con lo suyo
- * (`rentaDelDia`, un hecho en un sitio).
+ * sale, cada ciudad suya con lo que da su ayuntamiento y cada pueblo suyo con lo
+ * suyo (0 y `connected: false` el que está cortado de la base; `rentaDelDia`, un
+ * hecho en un sitio).
  */
-function incomeView(state: GameState, playerId: PlayerId) {
-  const r = rentaDelDia(state, playerId);
+function incomeView(r: RentaDelDia) {
   return {
     total: r.total,
-    towns: r.ciudades.map((c) => ({ id: c.id, gold: c.oro, connected: c.unida })),
-    villages: r.pueblos.map((p) => ({ id: p.id, name: p.nombre, gold: p.oro })),
+    // `occupied`: por qué no da nada aunque esté unida (`ocupadoBlocker`), o `null`.
+    towns: r.ciudades.map((c) => ({
+      id: c.id,
+      gold: c.oro,
+      connected: c.unida,
+      occupied: c.ocupada,
+    })),
+    villages: r.pueblos.map((p) => ({
+      id: p.id,
+      name: p.nombre,
+      gold: p.oro,
+      connected: p.unido,
+      occupied: p.ocupada,
+    })),
   };
+}
+
+/**
+ * Quién ocupaba un sitio cuando se vio, para el cable: `null`, nadie; un héroe, con
+ * su id y su dueño; una guarnición, con su dueño (`null`, la neutral).
+ */
+function ocupanteView(ocupante: Ocupante | null) {
+  if (ocupante === null) return null;
+  return ocupante.kind === 'heroe'
+    ? { hero: ocupante.heroId, owner: ocupante.dueño }
+    : { garrison: ocupante.dueño };
 }
 
 /**
@@ -242,8 +273,16 @@ function knownObjects(state: GameState, playerId: PlayerId) {
   // hubo aquí: comprobado quitando el `case 'chest'`, con el `ignore`
   // puesto **compilaba y linteaba limpio**. Un guardia ciego durante todo
   // el tiempo que nadie lo rompió a mano.
-  return conocidos.map(({ day, object: o }) => {
+  return conocidos.map(({ day, object: o, sitio }) => {
     const cuando = { lastSeen: day };
+    // De una ciudad o un pueblo: el dueño que se vio (derivado, no el del objeto:
+    // uno de dentro de una región es de quien la tenga), si está en el muro
+    // (`node`: se toma como un paso) y quién lo ocupaba (tarea 2, 05-11-2026).
+    const delSitio = () => ({
+      owner: sitio?.dueño ?? null,
+      node: sitioEnUnNodo(state.map, o.id),
+      occupiedBy: ocupanteView(sitio?.ocupante ?? null),
+    });
     switch (o.kind) {
       // La obra del puesto, la que se recuerda: como el dueño, del objeto sabido.
       case 'node':
@@ -256,9 +295,9 @@ function knownObjects(state: GameState, playerId: PlayerId) {
           ...cuando,
         };
       case 'village':
-        return { kind: o.kind, id: o.id, at: o.at, name: o.name, ...cuando };
+        return { kind: o.kind, id: o.id, at: o.at, name: o.name, ...delSitio(), ...cuando };
       case 'town':
-        return { kind: o.kind, id: o.id, at: o.at, owner: o.owner, ...cuando };
+        return { kind: o.kind, id: o.id, at: o.at, ...delSitio(), ...cuando };
       case 'monster':
         return {
           kind: o.kind,
@@ -445,14 +484,17 @@ export const COMO_SE_LEE_EL_MAPA = `  Trae width, height, terrain[], roads[], ob
     puede haber caducado —un nodo cambia de dueño y tú sigues viendo la bandera
     vieja hasta que alguien vuelva a mirar—.
   - El mapa es una RED: regiones cerradas por barreras —las que no se pisan, y
-    se dicen más abajo—, y "node" y "town"
-    son los únicos pasos entre ellas. Un "node" se toma pisándolo, de camino o
-    parando; una ciudad ("town") es un nodo con guarnición que se toma
-    venciéndola, o entrando si está vacía. Una región es tuya cuando lo son TODOS
-    los nodos que la rodean, y solo produce si además está unida a tu base por
-    regiones y nodos tuyos: los pueblos ("village") no se toman, son de quien
-    tenga su región, y cada uno ${REGLA_DEL_PUEBLO}. Un pueblo que deja de darte oro es
-    que alguien te ha cortado un paso. No hay minas ni más recurso que el oro.
+    se dicen más abajo—, y los "node", y las ciudades ("town") y los pueblos
+    ("village") con "node": true, son los únicos pasos entre ellas. Un "node" se
+    toma pisándolo, de camino o parando; una ciudad o un pueblo con "node": true
+    está en el muro y se toma igual, venciendo antes su guarnición si la tiene.
+    Una región es tuya cuando lo son TODOS los nodos que la rodean, y solo
+    produce si además está unida a tu base por regiones y nodos tuyos. Una
+    ciudad o un pueblo con "node": false está DENTRO de su región: no se toma,
+    es de quien tenga la región ("owner", el que viste). Cada pueblo
+    ${REGLA_DEL_PUEBLO}. Uno que deja de darte oro es que alguien te ha cortado
+    un paso o te lo ha OCUPADO ("occupiedBy": un héroe o una guarnición de otro
+    dentro; mira OCUPACIÓN). No hay minas ni más recurso que el oro.
   - Tu base ("yourBase") es la partida: si la pierdes quedas eliminado en el
     acto, aunque te queden héroes y ciudades. Lo mismo le pasa al rival. Las
     dos nacen con guarnición, así que tomarla es una batalla mientras le quede
@@ -518,19 +560,29 @@ function climaALaVista(state: GameState, playerId: PlayerId) {
   });
 }
 
+/** Cómo se llama cada clase de sitio en el contrato: la del objeto del mapa. */
+const KIND_DEL_SITIO: Readonly<Record<Sitio['kind'], 'node' | 'village' | 'town'>> = {
+  paso: 'node',
+  pueblo: 'village',
+  ciudad: 'town',
+};
+
 /**
- * Las guarniciones de pasos y pueblos de `playerId`, en el orden en que se
- * dejaron: dónde, qué sitio y su tropa, agrupada como un ejército (`armyView`).
- * La ajena no viaja: no se ve hasta pisarla, como la de una ciudad ajena.
+ * Las guarniciones de `playerId` en pasos, pueblos y ciudades que no son suyas
+ * (la que se quedó en un sitio que cambió de dueño, P1: se recoge, no se deja), en
+ * el orden en que se dejaron: dónde, qué sitio y su tropa, agrupada como un
+ * ejército (`armyView`). La de cada ciudad suya va en `towns[].garrison`. La ajena
+ * no viaja: no se ve hasta pisarla.
  */
 function guarnicionesView(state: GameState, playerId: PlayerId) {
   const out = [];
   for (const [id, g] of Object.entries(state.guarniciones)) {
     if (g.dueño !== playerId) continue;
     const sitio = sitioPorId(state, id);
+    if (sitio.kind === 'ciudad' && dueñoDelSitio(state, sitio) === playerId) continue;
     out.push({
       site: id,
-      kind: sitio.kind === 'paso' ? 'node' : 'village',
+      kind: KIND_DEL_SITIO[sitio.kind],
       at: casillaDelSitio(sitio),
       army: armyView(g.tropa, state.characters),
     });
@@ -544,6 +596,8 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
   // `visibleNow` otra vez —`knownObjects` levanta el suyo—, y aquí se usa para
   // lo que no es el mapa: qué héroes enemigos se están viendo AHORA.
   const mirando = visibleNow(state, playerId);
+  // Una cuenta para `you.income` y el `income` de cada ciudad: lo que da de verdad.
+  const renta = rentaDelDia(state, playerId);
 
   return {
     kind: 'adventure_turn',
@@ -561,16 +615,17 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
       // próximo turno con de dónde sale: la cuenta del núcleo (`rentaDelDia`),
       // la misma que suma `startTurn`.
       gold: player.oro,
-      income: incomeView(state, playerId),
+      income: incomeView(renta),
       // La complejidad del combate de la partida: cuántos individuos por bando,
       // héroe incluido (y lo neutral, recortado a eso), y la rueda de toda batalla.
       combat: {
         troopCap: state.combate.tope,
         wheel: ruedaAlAgente(formaDeLaBatalla(state.combate)),
       },
-      // Lo que guarda cada paso y cada pueblo suyo (`GameState.guarniciones`); la
-      // de cada ciudad va en `towns[].garrison`. Va con su línea en RESPONSE_FORMAT
-      // (GUARNICIONES).
+      // Lo que guarda cada paso y cada pueblo suyo (`GameState.guarniciones`), y lo
+      // suyo que se quedó en un sitio que ya no es suyo, también en una ciudad; la
+      // de cada ciudad suya va en `towns[].garrison`. Va con su línea en
+      // RESPONSE_FORMAT (GUARNICIONES).
       garrisons: guarnicionesView(state, playerId),
     },
     // El clima de hoy (presentación: `state/clima.ts`), solo de las regiones
@@ -622,42 +677,58 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
       equipment: equipoView(h.equipo),
       backpack: [...h.mochila],
     })),
-    towns: townsOf(state, playerId).map((t) => ({
-      id: t.id,
-      name: t.name,
-      at: t.at,
-      income: dailyIncome(t),
-      mageGuild: mageGuildLevel(t),
-      // Ids, como `buildings` y `recruitable`: el detalle lo da la tool
-      // `spell_list` y no hace falta repetirlo en cada turno.
-      teaches: townSpells(t).map((s) => s.id),
-      builtToday: t.builtToday,
-      buildings: t.buildings,
-      canBuildNow: availableBuildings(t, player.oro).map((id) => ({
-        id,
-        name: building(id).name,
-        cost: building(id).cost,
-      })),
-      recruitable: dwellings(t).map(({ creature: id }) => ({
-        creature: id,
-        available: t.available[id] ?? 0,
-        cost: unidadDelJuego(id).oro,
-        leadership: unidadDelJuego(id).leadership,
-      })),
-      garrison: armyView(t.garrison, state.characters),
-      garrisonLeadership: { used: armyLeadership(t.garrison), max: GARRISON_LEADERSHIP },
-      // Solo si la tiene: lo que vende y a qué precio. Una lista vacía en cada
-      // pueblo sin armería engordaría el turno para no decir nada.
-      ...(tieneArmeria(t)
-        ? {
-            armory: PIEZAS_DE_ARMERIA.map((p) => ({
-              item: p.id,
-              slot: SLOT_DE_HUECO[p.hueco],
-              cost: p.precio,
-            })),
-          }
-        : {}),
-    })),
+    towns: townsOf(state, playerId).map((t) => {
+      const guarnicion = guarnicionDeLaCiudad(state, t);
+      // Lo que se le ofrece sale de las reglas que lo juzgan (vuelta 1 de QA de la
+      // tarea 2, H3): la ocupada ni construye ni recluta (`ciudadQueMandaBlocker`,
+      // la misma pregunta que `build` y `recruit`), así que sus listas van vacías,
+      // y su `income` es lo que da hoy (`rentaDelDia`: 0 ocupada o cortada).
+      const manda = ciudadQueMandaBlocker(state, t, playerId);
+      return {
+        id: t.id,
+        name: t.name,
+        at: t.at,
+        income: renta.ciudades.find((c) => c.id === t.id)?.oro ?? 0,
+        mageGuild: mageGuildLevel(t),
+        // Ids, como `buildings` y `recruitable`: el detalle lo da la tool
+        // `spell_list` y no hace falta repetirlo en cada turno.
+        teaches: townSpells(t).map((s) => s.id),
+        builtToday: t.builtToday,
+        buildings: t.buildings,
+        canBuildNow: (manda === null ? availableBuildings(t, player.oro) : []).map((id) => ({
+          id,
+          name: building(id).name,
+          cost: building(id).cost,
+        })),
+        recruitable: (manda === null ? dwellings(t) : []).map(({ creature: id }) => ({
+          creature: id,
+          available: t.available[id] ?? 0,
+          cost: unidadDelJuego(id).oro,
+          leadership: unidadDelJuego(id).leadership,
+        })),
+        garrison: armyView(guarnicion, state.characters),
+        garrisonLeadership: {
+          used: armyLeadership(guarnicion),
+          max: GARRISON_LEADERSHIP,
+        },
+        // Si está en el muro (se toma como un paso) o dentro de su región (es de
+        // quien la tenga), y por qué no recluta, ni construye, ni da oro, si está
+        // ocupada (`ocupadoBlocker`), o `null`.
+        node: sitioEnUnNodo(state.map, t.id),
+        occupied: ocupadoBlocker(state, sitioDeLaCiudad(t), playerId),
+        // Solo si la tiene: lo que vende y a qué precio. Una lista vacía en cada
+        // pueblo sin armería engordaría el turno para no decir nada.
+        ...(tieneArmeria(t)
+          ? {
+              armory: PIEZAS_DE_ARMERIA.map((p) => ({
+                item: p.id,
+                slot: SLOT_DE_HUECO[p.hueco],
+                cost: p.precio,
+              })),
+            }
+          : {}),
+      };
+    }),
     // Solo lo que este jugador ha OBSERVADO, y tal como lo observó. El agente no
     // ve por las paredes, y tampoco ve el futuro de una casilla que dejó atrás:
     // `lastSeen` dice de qué día es cada dato, y si es de ayer puede haber
@@ -756,7 +827,7 @@ export function serializeTownVoices(state: GameState, playerId: PlayerId, towns:
         name: t.name,
         buildings: t.buildings.map((id) => building(id).name),
         hero: heroe === null ? null : { name: heroe.name, type: heroe.tipo },
-        garrison: armyView(t.garrison, state.characters),
+        garrison: armyView(guarnicionDeLaCiudad(state, t), state.characters),
         npcs: vecinosDeLaBase(t).map((v) => ({
           id: v.id,
           name: v.nombre,
