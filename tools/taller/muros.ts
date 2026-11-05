@@ -33,7 +33,16 @@ import { FONDO_DEL_ADARVE } from '../../src/client/render/escenario/tirada.js';
 import { derivarPieza, type PiezaDerivada } from './derivar.js';
 import type { Encargo } from './encargo.js';
 import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
-import { ARRIBA, DIR_GUIAS, FRENTE, Guia, type P2, type P3, SOMBRA } from './paredes-puentes.js';
+import {
+  ARRIBA,
+  DIR_GUIAS,
+  escribirGuia,
+  FRENTE,
+  Guia,
+  type P2,
+  type P3,
+  SOMBRA,
+} from './paredes-puentes.js';
 
 const RAIZ = join(import.meta.dirname, '../..');
 
@@ -169,15 +178,7 @@ export function guiaDelMuroNorteSur(): { guia: Guia; geometria: GeometriaDelMuro
 /** Escribe la guía del tramo y su geometría (`muro-ns.json`). */
 export async function escribirGuiaDelMuro(): Promise<string> {
   const { guia, geometria } = guiaDelMuroNorteSur();
-  await writeFile(
-    join(RAIZ, DIR_GUIAS, `${GUIA_DEL_MURO}.png`),
-    await sharp(Buffer.from(guia.svg())).png().toBuffer(),
-  );
-  await writeFile(
-    join(RAIZ, DIR_GUIAS, `${GUIA_DEL_MURO}.json`),
-    `${JSON.stringify({ ancho: guia.ancho, alto: guia.alto, ...geometria }, null, 1)}\n`,
-  );
-  return `${DIR_GUIAS}/${GUIA_DEL_MURO}.png`;
+  return await escribirGuia(GUIA_DEL_MURO, guia, geometria);
 }
 
 // ------------------------------------------------------------- el encargo

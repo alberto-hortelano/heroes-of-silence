@@ -10571,6 +10571,36 @@
     "largo": 2.24
    }
   },
+  "puesto-caseta": {
+   "src": "puesto-caseta.webp",
+   "nw": 599,
+   "nh": 822,
+   "ax": 304,
+   "ay": 797,
+   "puesto": {
+    "pxPorCasilla": 805
+   }
+  },
+  "puesto-torre": {
+   "src": "puesto-torre.webp",
+   "nw": 370,
+   "nh": 969,
+   "ax": 182,
+   "ay": 944,
+   "puesto": {
+    "pxPorCasilla": 580
+   }
+  },
+  "puesto-torreta": {
+   "src": "puesto-torreta.webp",
+   "nw": 494,
+   "nh": 1066,
+   "ax": 246,
+   "ay": 1041,
+   "puesto": {
+    "pxPorCasilla": 794
+   }
+  },
   "rocas-1": {
    "src": "rocas-1.webp",
    "nw": 1536,

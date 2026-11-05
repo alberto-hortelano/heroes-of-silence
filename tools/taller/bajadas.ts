@@ -20,7 +20,6 @@
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import sharp from 'sharp';
 import type { RumboDeBajada } from '../../src/client/render/escenario/catalogo.js';
 import {
   DIRECCION_DE_BAJADA,
@@ -34,6 +33,7 @@ import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
 import {
   ARRIBA,
   DIR_GUIAS,
+  escribirGuia,
   FRENTE,
   Guia,
   type Material,
@@ -299,14 +299,7 @@ export async function escribirGuiasDeBajadas(): Promise<string[]> {
   const escritas: string[] = [];
   for (const n of NIVELES_DE_BAJADA) {
     const { guia, piezas, casilla } = guiaDeBajadas(n);
-    const nombre = `bajadas-${n}`;
-    const png = await sharp(Buffer.from(guia.svg())).png().toBuffer();
-    await writeFile(join(RAIZ, DIR_GUIAS, `${nombre}.png`), png);
-    await writeFile(
-      join(RAIZ, DIR_GUIAS, `${nombre}.json`),
-      `${JSON.stringify({ ancho: guia.ancho, alto: guia.alto, casilla, piezas }, null, 1)}\n`,
-    );
-    escritas.push(`${DIR_GUIAS}/${nombre}.png`);
+    escritas.push(await escribirGuia(`bajadas-${n}`, guia, { casilla, piezas }));
   }
   return escritas;
 }

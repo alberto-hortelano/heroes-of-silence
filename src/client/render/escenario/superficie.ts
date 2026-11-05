@@ -8,6 +8,7 @@
  * volúmenes se pintan a cada fotograma**, solo los visibles, ordenados por
  * profundidad junto con las figuras: una figura puede quedar detrás de un árbol.
  */
+import type { MejoraDelPuesto } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import catalogoDelRepo from '../../../../assets/mapa/escena.json' with { type: 'json' };
 import {
@@ -33,6 +34,7 @@ import { perfilesDelCatalogo } from './caras.js';
 import { type Catalogo, catalogoValidado } from './catalogo.js';
 import { componer, type Escena, type Sprite } from './colocar.js';
 import { delanteDeLasParedes } from './figuras.js';
+import { pieDeFigura } from './figuras-del-mapa.js';
 import { horneado } from './horneado.js';
 import { cajaDeSprite } from './pasillo.js';
 import {
@@ -46,6 +48,7 @@ import {
 } from './pintar.js';
 import { type MensajeDelSuelo, type PeticionDelSuelo, pintarSueloA } from './pintor-del-suelo.js';
 import type { Punto } from './puentes.js';
+import { esObra, type Obra } from './puestos.js';
 import { casillasDelRecinto } from './recinto.js';
 
 /**
@@ -177,16 +180,13 @@ export interface Escenario {
    */
   readonly asientoDeObjeto: ReadonlyMap<string, readonly [number, number]>;
   /**
-   * Dónde va el puesto de cada nodo (puesto fronterizo, fase 3: la caseta, la
-   * torreta o la torre de un paso tomado, con la bandera de su dueño en lo alto),
-   * por su id: **la única fuente de dónde va**. Su pie, en casillas, a un lado del
-   * asiento para no tapar a quien está en él (`PUESTO_JUNTO_AL_ASIENTO`), o en un
-   * puente, plantado en su tablero (`Puente.puesto`); y su clave de profundidad,
-   * para pintarlo entre los volúmenes detrás de lo que tiene delante. Lo que se
-   * pinta lo elige `o.mejora` en cada fotograma: el dueño la cambia en la partida y
-   * la escena se compone una vez. En la fase 4, el hueco que reserve `componer`.
+   * Las obras del puesto de cada nodo (la caseta, la torreta y la torre de un paso
+   * tomado), por su id y su mejora: piezas de la escena con su condición
+   * (`Sprite.deNodo`), que el mapa elige en cada fotograma (`seVeConSuNodo`). Lo
+   * que lee de ellas es dónde plantar la bandera del dueño; el nodo sin sitio no
+   * tiene ninguna.
    */
-  readonly puestoDeNodo: ReadonlyMap<string, PieDelPuesto>;
+  readonly puestoDeNodo: ReadonlyMap<string, Readonly<Record<MejoraDelPuesto, Obra>>>;
   /**
    * Lo que pisa quien está en la casilla de un puente, por casilla (`y·W + x`):
    * el punto del tablero (`Puente.asiento`) y la clave del volumen del puente,
@@ -212,47 +212,16 @@ export const OVALO_BAJO_EL_ASIENTO = 0.45 * 0.4;
 /** Lo que lee `claveDeFigura` de la escena: se pide antes de tener el `Escenario` entero. */
 export type Profundidad = Pick<Escenario, 'escena' | 'cubiertas' | 'delanteDeParedes'>;
 
-/** Dónde va y en qué orden se pinta el puesto de un nodo (`Escenario.puestoDeNodo`). */
-export interface PieDelPuesto {
-  /** Donde apoya, en casillas. */
-  readonly pie: Punto;
-  /** Su clave de profundidad: la de una figura con los pies ahí, y tras su óvalo. */
-  readonly clave: number;
-}
-
-/**
- * Lo que se corre el pie del puesto de un nodo desde su asiento, en casillas: a la
- * derecha, fuera de la figura del héroe que está en él (mide ~0,5 de ancho), y un
- * poco hacia delante, para que su base no caiga dentro del óvalo del dueño.
- */
-export const PUESTO_JUNTO_AL_ASIENTO: Punto = [0.46, 0.14];
-
-/**
- * El puesto de cada nodo (`Escenario.puestoDeNodo`). Su clave, la de una figura con
- * los pies en su pie (`claveDeFigura`), y nunca antes que el óvalo del nodo
- * (`claveDeLaMarca`; en un puente, la del puente: va encima de su tablero).
- */
-function puestosDe(
-  map: MapaDeEscena,
-  puentes: Escena['puentes'],
-  asientos: ReadonlyMap<string, readonly [number, number]>,
-  claveDeLaMarca: ReadonlyMap<string, number>,
-  profundidad: Profundidad,
-): Map<string, PieDelPuesto> {
-  const enUnPuente = new Map(puentes.map((p) => [p.id, p.puesto]));
-  const puestos = new Map<string, PieDelPuesto>();
-  for (const o of map.objects) {
-    if (o.kind !== 'node') continue;
-    const asiento = asientos.get(o.id);
-    const marca = claveDeLaMarca.get(o.id);
-    if (asiento === undefined || marca === undefined)
-      throw new Error(`el nodo ${o.id} no se hornea en la escena: no hay dónde poner su puesto`);
-    const [dx, dy] = PUESTO_JUNTO_AL_ASIENTO;
-    const pie: Punto = enUnPuente.get(o.id) ?? [asiento[0] + dx, asiento[1] + dy];
-    const delFigura = claveDeFigura(profundidad, Math.floor(pie[0]), pie[1]);
-    puestos.set(o.id, { pie, clave: Math.max(delFigura, marca) });
-  }
-  return puestos;
+/** Las obras del puesto de cada nodo (`Escenario.puestoDeNodo`), de los volúmenes de la escena. */
+function puestosDe(volumenes: readonly Volumen[]): Map<string, Record<MejoraDelPuesto, Obra>> {
+  const fuera = new Map<string, Record<MejoraDelPuesto, Obra>>();
+  for (const { s } of volumenes)
+    if (esObra(s)) {
+      const obras = fuera.get(s.deNodo.id) ?? ({} as Record<MejoraDelPuesto, Obra>);
+      obras[s.deNodo.cuando] = s;
+      fuera.set(s.deNodo.id, obras);
+    }
+  return fuera;
 }
 
 /** Lo que pisa quien está en la casilla de cada puente (`Escenario.tableros`). */
@@ -289,8 +258,8 @@ export function pisada(
 ): { readonly x: number; readonly y: number; readonly clave: number } {
   const t = esc.tableros.get(at.y * esc.escena.W + at.x);
   const clave = claveDeFigura(esc, at.x, at.y + pies);
-  if (t === undefined) return { x: at.x + 0.5, y: at.y + pies, clave };
-  return { x: t.asiento[0], y: t.asiento[1], clave: Math.max(clave, t.clave) };
+  const [x, y] = pieDeFigura(at, pies, t?.asiento);
+  return { x, y, clave: t === undefined ? clave : Math.max(clave, t.clave) };
 }
 
 /** El asiento de cada objeto horneado (`Escenario.asientoDeObjeto`). */
@@ -337,11 +306,14 @@ export function escenarioDe(map: MapaDeEscena, semilla: number): Escenario {
     const fila = Math.min(escena.H - 1, Math.max(0, Math.floor(v.clave)));
     let niebla: number | null = null;
     if (s.puente !== undefined) claveDePuente.set(s.puente, v.clave);
-    if (s.objeto !== undefined) {
-      const at = casillas.get(s.objeto.id);
-      if (at === undefined)
-        throw new Error(`la escena pinta ${s.objeto.kind} ${s.objeto.id} y el mapa no lo tiene`);
+    // Lo de un objeto, y las obras de un puesto, solo sobre lo explorado.
+    const deQuien = s.objeto?.id ?? s.deNodo?.id;
+    if (deQuien !== undefined) {
+      const at = casillas.get(deQuien);
+      if (at === undefined) throw new Error(`la escena pinta ${deQuien} y el mapa no lo tiene`);
       niebla = at.y * map.width + at.x;
+    }
+    if (s.objeto !== undefined) {
       // La de un recinto, la mayor de sus piezas (su muro sur): la marca del
       // dueño va encima de todo él.
       claveDeObjeto.set(s.objeto.id, Math.max(claveDeObjeto.get(s.objeto.id) ?? v.clave, v.clave));
@@ -353,7 +325,9 @@ export function escenarioDe(map: MapaDeEscena, semilla: number): Escenario {
         ? fila * map.width + Math.min(map.width - 1, Math.max(0, Math.floor(s.x)))
         : null;
     (porFila[fila] as VolumenDelMapa[]).push({ ...v, niebla, asomaPorArriba });
-    bases.push(s);
+    // Las obras de un puesto no cuentan para el tope de alejar: en un nodo se ve
+    // como mucho una pieza, su hito o una obra.
+    if (!esObra(s)) bases.push(s);
     if (s.src !== null) deVolumen.add(s.src);
   }
   // Quien está en una casilla de un recinto va delante del recinto entero, como
@@ -394,11 +368,7 @@ export function escenarioDe(map: MapaDeEscena, semilla: number): Escenario {
     claveDeObjeto,
     claveDeLaMarca,
     asientoDeObjeto,
-    puestoDeNodo: puestosDe(map, escena.puentes, asientoDeObjeto, claveDeLaMarca, {
-      escena,
-      cubiertas,
-      delanteDeParedes,
-    }),
+    puestoDeNodo: puestosDe(separada.volumenes),
     tableros: tablerosDe(map, escena.puentes, claveDeObjeto, claveDePuente),
     imagenes,
     soloDelSuelo: imagenes.filter((src) => !deVolumen.has(src)),

@@ -418,3 +418,100 @@ partida…») se va del código (está en `implementacion.md`).
   contrato.
 - **La carga y los tests** (eficiencia 8): microsegundos; el test, 663 ms.
 - **Traducir los hechos de aventura al agente** (altitud 4): ver S30, backlog.
+
+---
+
+# Hallazgos de `/simplify` sobre la fase 4 (escena y arte del puesto)
+
+Cuatro revisores sobre `git diff HEAD` (la fase 3 está en `7f7e34be`) sin `escena.json`, más
+`render/escenario/puestos.ts` y los JSON nuevos. Deduplicados y decididos por el coordinador
+(05-11-2026). Eficiencia no encontró nada caro (~3,5 ms de ~310 por `componer`; nada por fotograma).
+
+Regla para quien aplica: **el juego no cambia** (`pnpm banco` en `883fe9be…`) y **todos los
+guardias de la escena siguen a 0 en 1-40** (también los dos del puesto o los que los sustituyan).
+Lo pintado puede moverse un poco (S40 y S41 cambian cómo se reserva y se ordena): se rehace la hoja
+de contacto con las mismas cuatro situaciones para que el usuario la juzgue.
+
+## Se aplican
+
+**S39 · Sin imagen, el marcador** (altitud 4). Hoy el respaldo se decide por si la pieza está en
+`escena.json` y, con las tres ya en el catálogo, sin imagen (pasada «sin-arte», carga fallida) se
+pinta el triángulo genérico de `pintarSprite`, no el marcador de la fase 3; la bandera sale de
+`cajaDeLaObra`. → la elección es de cada fotograma: con la imagen lista, el arte; si no, el marcador
+dibujado, y la bandera en la punta de lo que se ve. Se mira con la pasada sin arte (o la imagen
+bloqueada en Playwright).
+
+**S40 · El puesto, una reserva más** (altitud 1-2, reutilización 7, simplificación 6). Tres
+estructuras paralelas (`reservasDePuestos`, `envolturasDePuestos`, `puestosDeNodo`) que cada
+consumidor recuerda a mano; `reservaEn`, `basesSobreReserva` y `meterEnLaMuralla` no ven el puesto,
+de ahí el parche de la torre (búsqueda lineal con otra regla de solape) y la caja de muro predicha a
+ojo (`[x-0.05, y-0.6, x+1.05, y+1]`) desacoplada de `ALTO_DEL_TRAMO*`/`torresDe`. → la envoltura
+del puesto entra en `reservas` como la del recinto (`envolturaDelRecinto`/`reservaDelRecinto`), y
+`meterEnLaMuralla` tiene una sola regla para objeto, recinto y puesto. La caja predicha se va si la
+regla general deja los guardias a 0; si no, el sitio se mide contra la traza real de la muralla
+(`trazaDeMuralla`/`torresDe` son puras) y se dice. El bloque del sitio sale de `componer` a una
+función (`dondeNoVaUnPuesto` o similar) junto a `reservaDelPuesto`, con un `Map` de puentes por id,
+un solo `pasilloDe` y los ejes desde `pasos` más los nodos que faltan.
+
+**S41 · La obra, un volumen más con su condición** (altitud 3, simplificación 1, 4 y 5,
+reutilización 5 y 8). La obra vive fuera de `sprites` y de los volúmenes: un segundo camino de pintado
+en `mapa.ts` (copia la preparación del transform y se salta `recortadoArriba`), imágenes pedidas
+aparte en `superficie.ts` (`imagenesDeEscena` no las conoce), `Sprite.hito?: true` más el id
+reconstruido en tres sitios, el pie y la clave guardados dos veces (y un test solo para que coincidan)
+y los guardias de siempre ciegos a las obras. → las obras entran en los volúmenes de la escena con su
+condición (`deNodo: { id, cuando: MejoraDelPuesto | 'neutral' }`; el hito es `'neutral'`, y sustituye
+a `Sprite.hito`/`hitoDe`), `volumenesALaVista` las elige con un solo filtro por el dueño y la mejora
+que se saben, `imagenesDeEscena` las pide, y la `Cosa` del puesto queda solo para la bandera (o se
+va si la bandera cuelga del volumen). Una sola tabla de piezas por obra resuelta fuera del bucle; un
+`spriteDelPuesto` común; la clave la pone un solo sitio.
+
+**S42 · Los guardias del puesto, independientes** (altitud 6, reutilización 7; eficiencia 3 lo daba
+por bueno). `puestosSobreElPaso` repite casi el predicado con que se eligió el sitio, y
+`puestosTapados` usa la misma regla que la puerta. → con S41, las obras pasan por los guardias que ya
+hay (`spritesSobreSenda`, `pasosAtravesados`, `pasosTapados`, `puentesTapados`…); queda un guardia
+propio solo para lo que esos no miran (el héroe parado en el nodo y los nodos sin sitio), y
+`puestosTapados` se mide desde el orden real del pintor (`separar`), como `puentesTapados`. Cada uno,
+visto morder.
+
+**S43 · El tamaño de la obra, medido** (altitud 5, simplificación 8, reutilización 9). El alto sale
+de suponer que Codex llenó la guía (`MEDIDAS_DEL_PUESTO`), con `VUELO_DEL_ALERO` (de la caseta)
+sumado a las tres y `MARGEN_DEL_RECORTE = 24` copiado del trabajador; el marcador lleva otros altos.
+→ el margen del recorte, una constante en `src/shared/arte.ts` que leen el trabajador y el cliente;
+la escala de cada pieza, registrada sobre su guía al derivarla y escrita en su JSON, como los puentes
+(`pxPorCasilla`, `derivar-puentes`); la envoltura, de la mayor caja medida; el marcador, a la escala
+de su obra. Si registrar sobre la guía no sale limpio, el margen compartido y la medida de la caja
+opaca de cada imagen, y se dice.
+
+**S44 · La figura del héroe en el mapa, una vez** (simplificación 3, altitud 8, reutilización 6).
+`FIGURA_DEL_HEROE_EN_EL_MAPA` vive en el módulo del puesto, el `+ 0.13` va suelto, `pintarHeroe`
+sigue con `tile * 0.42, tile * 0.18` a mano, `heroeEnElNodo` rehace `pisada` y dos tests teclean la
+caja. → un módulo puro de figuras del mapa (junto a `PIES`) del que leen el pintor y la escena;
+`pieDelHeroe(at, asientoDelPuente?)` que leen `pisada` y `componer`; `cajaDelHeroeEn(pie)` que leen
+`componer` y los dos tests.
+
+**S45 · El taller, con sus piezas** (reutilización 1-3, simplificación 2 y 9). `guiaDelPuesto` copia
+`encajar` (y solo encaja por el alto), `cajaDeGuia(g, x, y, z)` es la tercera caja de guía y choca de
+nombre con `cajaDeGuia(png)`, `escribirGuiasDePuestos` es la cuarta copia de escribir una guía,
+`PUESTOS[].corto` repite `PIEZA_DEL_PUESTO`, y la guía de la torre duplica sus almenas y colores. →
+`encajar` exportado, una primitiva de prisma junto a `Guia` que leen muros, mapa y recinto (o, como
+mínimo, la nueva renombrada), un `escribirGuia(nombre, guia, geometria)` exportado, `PUESTOS`
+indexado por la obra (o el corto derivado de `PIEZA_DEL_PUESTO`), y la guía sin copia y pega (un
+bucle de almenas, constantes de color, una tabla de dibujo por obra). **Las piezas ya pintadas no se
+repiden**: la guía nueva tiene que dar la misma imagen de guía (compruébalo; si cambia, que sea solo
+en lo invisible o se dice).
+
+**S46 · Pequeñas** (reutilización 4, simplificación 7). `seTocan` a `pasillo.ts` junto a `Caja` y
+`cajaDeSprite`, y las copias del solape de cajas de `colocar.ts` que tengan **la misma semántica**
+pasan a usarlo (las que no, se quedan y se dice); `HOLGURA_DEL_PUESTO` para el `0.02` repetido; el
+umbral de `CORRIMIENTOS` derivado del pie del héroe; un solo nombre para el semiancho del paso.
+
+## Se descartan a conciencia
+
+- **El puesto de una puerta de muralla como la torre de la muralla junto a la puerta** (altitud 7):
+  cambia lo que el usuario pidió (caseta, torreta o torre) y la regla de las torres junto a la puerta.
+  Que el puesto quede a ~1,8-2,7 casillas de una puerta de muralla lo juzga el usuario en la hoja de
+  contacto; si no le vale, se rehace.
+- **Indexar por rejilla la búsqueda del sitio** (eficiencia 1), **cachear las cajas de
+  `puestosTapados`** (eficiencia 2), **`otras`, `meterEnLaMuralla`, lo de cada fotograma y la carga**
+  (eficiencia 4-8): microsegundos o milisegundos sueltos, una vez por partida; con S40-S42 cambian de
+  todos modos.

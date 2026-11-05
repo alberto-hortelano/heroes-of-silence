@@ -1194,7 +1194,7 @@ export function tendidosDeLasPuertas(
 
 /**
  * Lo que queda bajo el centro del recinto donde pisa quien está en la ciudad,
- * en casillas: `PIES.heroe` (`render/mapa.ts`) menos media casilla.
+ * en casillas: `PIES.heroe` (`figuras-del-mapa.ts`) menos media casilla.
  */
 export const PIE_EN_LA_PLAZA = 0.3;
 

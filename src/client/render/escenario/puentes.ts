@@ -13,7 +13,6 @@ import type { Point } from '@core/types.js';
 import { type Analisis, regionPisable } from './analizar.js';
 import type { Catalogo, MedidasDePuente } from './catalogo.js';
 import { pasaElCamino } from './nodos.js';
-import { ALTO_DE_NIVEL } from './relieve.js';
 import { ANCHO_DEL_VADO, grafoDeTramos, type Senda, type Tramo } from './sendas.js';
 
 /** Por dónde cruza: de norte a sur, de oeste a este, o en una de las diagonales. */
@@ -76,17 +75,6 @@ export interface Puente {
    * del nodo quedaba en el río, bajo el tablero.
    */
   readonly asiento: Punto;
-  /**
-   * El pie del puesto del dueño (la caseta, la torreta o la torre con su bandera,
-   * `Escenario.puestoDeNodo`), en casillas de pantalla: sobre el tablero, a
-   * `PUESTO_EN_EL_TABLERO` de su largo hacia el extremo de atrás (el de arriba en
-   * pantalla; en E-O, el de la derecha), a la altura del tablero ahí. En un
-   * extremo y detrás, para que quien esté en el medio quede delante: hacia el de
-   * abajo, donde iba la bandera, la torre de un puente de norte a sur tapaba entero
-   * al héroe que estaba en él (visto en el navegador, 05-11-2026). En el aire, con
-   * el mástil de los demás nodos, la bandera flotaba sobre el río (H1 del QA de #157).
-   */
-  readonly puesto: Punto;
   /** Donde cada estribo toca el suelo, a `largo / 2` del centro por el eje. */
   readonly extremos: readonly [Punto, Punto];
   /**
@@ -300,13 +288,6 @@ function armarPuente(
     -0.5,
     Math.min(0.5, ((x + 0.5 - cx) * vx + (y + 0.5 + altura - cy) * vy) / (vx * vx + vy * vy)),
   );
-  // `e1` es siempre el extremo de la derecha (o el de abajo, en N-S): todos los
-  // pasos de `PASO_DEL_EJE` tienen la x ≥ 0, y el de N-S, la y > 0. El de atrás es
-  // el de menos y: `e0` si el eje baja hacia `e1`, y si no, `e1`. En una pieza que
-  // sube, el tablero sube un nivel de punta a punta: en N-S hacia el norte (`e0`) y
-  // en E-O hacia el este (`e1`).
-  const m = vy > 0 ? -PUESTO_EN_EL_TABLERO : PUESTO_EN_EL_TABLERO;
-  const subida = !pieza.endsWith('-sube') ? 0 : (eje === 'eo' ? m : -m) * ALTO_DE_NIVEL * escala;
   return {
     id: nodo.id,
     pieza,
@@ -316,18 +297,10 @@ function armarPuente(
     centro,
     escala,
     asiento: [cx + t * vx, cy + t * vy - altura],
-    puesto: [cx + m * vx, cy + m * vy - altura - subida],
     extremos,
     tablero: [e0, [e0[0], e0[1] - altura], [e1[0], e1[1] - altura], e1],
   };
 }
-
-/**
- * A qué distancia del centro va el puesto por el tablero, en fracción de su largo:
- * dentro de lo llano en las dos clases (las rampas empiezan en ±0,37) y fuera
- * del medio, donde se pinta quien lo pisa.
- */
-const PUESTO_EN_EL_TABLERO = 0.28;
 
 /**
  * Media anchura de lo que se pulsa de un puente, en casillas, a escala 1: algo

@@ -1,0 +1,17 @@
+{
+  "imagen": "puesto-torreta.webp",
+  "sha256": "11722c0f49fc2e5834abbdc8b233322c438de6b446dedf0c7f2509757f7b3eaf",
+  "ancho": 494,
+  "alto": 1066,
+  "ancla": [
+    246,
+    1041
+  ],
+  "derivadoPor": "tools/taller/derivar.ts",
+  "pxPorCasilla": 794,
+  "escalaGuia": [
+    1.421,
+    1.572
+  ],
+  "guia": "assets/mapa/guias/puesto-torreta.png"
+}

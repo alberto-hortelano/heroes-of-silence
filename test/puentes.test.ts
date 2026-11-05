@@ -6,7 +6,7 @@
  * Las rejillas son a mano y las cuentas, las de las semillas 1-10; las de 1-40
  * (101 puentes) se miden con los guiones de `docs/agents/2026-10-07-puentes/`.
  */
-import { type MapObject, RedDeCaminos } from '@core/map/map.js';
+import { type MapObject, MEJORAS_DEL_PUESTO, RedDeCaminos } from '@core/map/map.js';
 import { isWalkable, type TerrainKind } from '@core/map/terrain.js';
 import { describe, expect, it } from 'vitest';
 import { EscenaAventura, focoDe } from '../src/client/escenas/aventura.js';
@@ -29,7 +29,14 @@ import {
   puentesTapados,
   type Sprite,
 } from '../src/client/render/escenario/colocar.js';
-import { cajaDeSprite, Obstaculos } from '../src/client/render/escenario/pasillo.js';
+import { cajaDelHeroeEn, pieDeFigura } from '../src/client/render/escenario/figuras-del-mapa.js';
+import {
+  cajaDeSprite,
+  Obstaculos,
+  pasilloDe,
+  seTocan,
+} from '../src/client/render/escenario/pasillo.js';
+import { claveDe } from '../src/client/render/escenario/pintar.js';
 import {
   asentar,
   ejeMasCercano,
@@ -40,12 +47,12 @@ import {
   tramosHastaLosEstribos,
   vadosDeLosEstribos,
 } from '../src/client/render/escenario/puentes.js';
+import { HOLGURA_DEL_PUESTO } from '../src/client/render/escenario/puestos.js';
 import { relieve } from '../src/client/render/escenario/relieve.js';
 import {
   claveDeFigura,
   escenarioDe,
   OVALO_BAJO_EL_ASIENTO,
-  PUESTO_JUNTO_AL_ASIENTO,
   pisada,
   topeDeAlejar,
 } from '../src/client/render/escenario/superficie.js';
@@ -820,51 +827,49 @@ describe('pulsar el puente lleva a su nodo (H2 del QA de #157)', () => {
   });
 });
 
-describe('el puesto de un nodo y su bandera, donde dice la escena (H1 del QA de #157; fase 3 del puesto fronterizo)', () => {
-  it('en las semillas 1-10: en un puente, en el tablero alzado hacia su extremo de atrás y delante del puente; si no, junto a su asiento y tras su óvalo', () => {
+describe('el puesto de un nodo, donde lo reservó la escena (puesto fronterizo, fases 3 y 4)', () => {
+  it('en las semillas 1-10: en tierra junto al puente, sin tocar su tablero, a quien lo pisa ni, si va antes, su pieza', () => {
+    let enPuentes = 0;
     for (const s of SEMILLAS) {
       const { map } = partidaDe(s);
       const esc = escenarioDe(map, s);
-      for (const pu of esc.escena.puentes) {
-        const [mx, my] = pu.puesto;
-        // Hacia el extremo de atrás (el de menos y; en E-O, el de la derecha): quien
-        // está en el medio del tablero queda delante y no lo tapa.
-        const [a, b] = [pu.tablero[1], pu.tablero[2]] as [Punto, Punto];
-        const t = b[1] > a[1] ? -0.28 : 0.28;
-        const [px, py] = enElTablero(pu, t);
-        expect(mx, `s${s} ${pu.id}`).toBeCloseTo(px, 9);
-        // En una pieza que sube, el tablero sube un nivel (0,6) de punta a punta.
-        const subida = !pu.pieza.endsWith('-sube')
-          ? 0
-          : (pu.eje === 'eo' ? 1 : -1) * t * 0.6 * pu.escala;
-        expect(my, `s${s} ${pu.id}`).toBeCloseTo(py - subida, 9);
-        // Detrás de quien lo pisa: su pie, más arriba que el asiento del tablero.
-        expect(my, `s${s} ${pu.id}`).toBeLessThanOrEqual(pu.asiento[1] + 1e-9);
-        // La ciudad-puente no es un nodo: su bandera va por su asiento, en su casilla.
-        if (pu.ciudad !== undefined) continue;
-        const puesto = esc.puestoDeNodo.get(pu.id)!;
-        expect(puesto.pie, `s${s} ${pu.id}`).toEqual(pu.puesto);
-        // Encima de su tablero: un puesto en un puente se pinta después del puente.
-        const [x, y] = pu.nodo.map(Math.floor) as [number, number];
-        const tablero = esc.tableros.get(y * esc.escena.W + x)!;
-        expect(puesto.clave, `s${s} ${pu.id}`).toBeGreaterThanOrEqual(tablero.clave);
-      }
-      // Los demás nodos: junto a su asiento, tras su óvalo y en su orden de figura.
-      for (const o of map.objects) {
-        if (o.kind !== 'node' || esc.escena.puentes.some((p) => p.id === o.id)) continue;
-        const puesto = esc.puestoDeNodo.get(o.id)!;
-        const [ax, ay] = esc.asientoDeObjeto.get(o.id)!;
-        const [dx, dy] = PUESTO_JUNTO_AL_ASIENTO;
-        expect(puesto.pie, `s${s} ${o.id}`).toEqual([ax + dx, ay + dy]);
-        expect(puesto.clave, `s${s} ${o.id}`).toBeGreaterThanOrEqual(esc.claveDeLaMarca.get(o.id)!);
-        expect(puesto.clave, `s${s} ${o.id}`).toBeGreaterThanOrEqual(
-          claveDeFigura(esc, Math.floor(puesto.pie[0]), puesto.pie[1]),
-        );
+      const W = esc.escena.W;
+      for (const [id, obras] of esc.puestoDeNodo) {
+        // Las tres obras en el mismo sitio, con la misma clave, de la escena.
+        const [primera, ...otras] = MEJORAS_DEL_PUESTO.map((m) => obras[m]);
+        for (const o of otras)
+          expect([o!.x, o!.y, claveDe(o!)]).toEqual([primera!.x, primera!.y, claveDe(primera!)]);
+        const pu = esc.escena.puentes.find((q) => q.id === id);
+        if (pu === undefined) continue;
+        enPuentes++;
+        const o = primera!;
+        // Por su pie, como todo: si va antes que su puente, no toca su pieza, que lo taparía.
+        const [nx, ny] = pu.nodo.map(Math.floor) as [number, number];
+        const pieza = esc.escena.sprites.find((x) => x.puente === id)!;
+        expect(claveDe(o), `s${s} ${id}`).toBe(o.y);
+        for (const m of MEJORAS_DEL_PUESTO) {
+          const caja = cajaDeSprite(obras[m]);
+          if (claveDe(o) < claveDe(pieza))
+            expect(seTocan(caja, cajaDeSprite(pieza), HOLGURA_DEL_PUESTO), `s${s} ${id} ${m}`).toBe(
+              false,
+            );
+          // En tierra: ni su pie ni las puntas de su base caen en el agua.
+          for (const x of [caja[0], o.x, caja[2]])
+            expect(map.terrain[Math.floor(o.y - 0.02) * W + Math.floor(x)], `s${s} ${id}`).not.toBe(
+              'water',
+            );
+          // Ni sobre su tablero ni sobre quien lo pisa.
+          expect(pasilloDe([pu.tablero], 0.2).pisa(obras[m])).toBe(false);
+          expect(
+            seTocan(caja, cajaDelHeroeEn(pieDeFigura({ x: nx, y: ny }, PIES.heroe, pu.asiento))),
+          ).toBe(false);
+        }
       }
       // Todo nodo tiene el suyo, y nada más lo tiene.
       const nodos = map.objects.filter((o) => o.kind === 'node').map((o) => o.id);
       expect([...esc.puestoDeNodo.keys()].sort()).toEqual(nodos.sort());
     }
+    expect(enPuentes).toBeGreaterThan(5);
   });
 });
 

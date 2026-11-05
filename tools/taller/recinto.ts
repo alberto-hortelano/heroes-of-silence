@@ -35,7 +35,6 @@
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import sharp from 'sharp';
 import {
   ALTO_DE_LA_PUERTA_DEL_RECINTO,
   ALTO_DEL_MURO_DEL_RECINTO,
@@ -56,7 +55,16 @@ import {
 import { registrarConEscala } from './derivar.js';
 import type { Encargo } from './encargo.js';
 import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
-import { ARRIBA, DIR_GUIAS, FRENTE, Guia, type P2, type P3, SOMBRA } from './paredes-puentes.js';
+import {
+  ARRIBA,
+  DIR_GUIAS,
+  escribirGuia,
+  FRENTE,
+  Guia,
+  type P2,
+  type P3,
+  SOMBRA,
+} from './paredes-puentes.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
 
@@ -366,15 +374,7 @@ export function guiaDelRecinto(): { guia: Guia; piezas: GeometriaDelRecinto[]; c
 /** Escribe la guía de la hoja del recinto y su geometría (`recinto.json`). */
 export async function escribirGuiaDelRecinto(): Promise<string> {
   const { guia, piezas, casilla } = guiaDelRecinto();
-  await writeFile(
-    join(RAIZ, DIR_GUIAS, `${HOJA_DEL_RECINTO}.png`),
-    await sharp(Buffer.from(guia.svg())).png().toBuffer(),
-  );
-  await writeFile(
-    join(RAIZ, DIR_GUIAS, `${HOJA_DEL_RECINTO}.json`),
-    `${JSON.stringify({ ancho: guia.ancho, alto: guia.alto, casilla, piezas }, null, 1)}\n`,
-  );
-  return `${DIR_GUIAS}/${HOJA_DEL_RECINTO}.png`;
+  return await escribirGuia(HOJA_DEL_RECINTO, guia, { casilla, piezas });
 }
 
 // ------------------------------------------------------------- el encargo

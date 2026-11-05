@@ -24,16 +24,17 @@
 import { isWalkable, type TerrainKind } from '@core/map/terrain.js';
 import { altoDeLaSilueta, type PerfilDe } from './caras.js';
 import type { Sprite } from './colocar.js';
+import { PIES } from './figuras-del-mapa.js';
 import { type Caja, cajaDeSprite } from './pasillo.js';
 import { separar, type Volumen } from './pintar.js';
 
 /**
  * La figura con que se mide si una casilla queda tapada, en casillas: los pies a
  * `pies` bajo el borde de arriba de su casilla (los del héroe, los más altos de
- * `PIES` en `mapa.ts`, que un test compara), `alto` hacia arriba y `medioAncho`
- * a cada lado del centro. Un héroe de la cámara a 25° mide eso.
+ * `PIES`), `alto` hacia arriba y `medioAncho` a cada lado del centro. Un héroe de
+ * la cámara a 25° mide eso.
  */
-export const FIGURA = { pies: 0.8, alto: 0.9, medioAncho: 0.3 } as const;
+export const FIGURA = { pies: PIES.heroe, alto: 0.9, medioAncho: 0.3 } as const;
 
 /**
  * La caja de la figura de la casilla `(x, y)`, en casillas: `[x0, y0, x1, y1]`

@@ -1,0 +1,17 @@
+{
+  "imagen": "puesto-torre.webp",
+  "sha256": "f360982f732ee79c93b13f48b5eabd92fcce8117488464aa1c3dc2709aa2c376",
+  "ancho": 370,
+  "alto": 969,
+  "ancla": [
+    182,
+    944
+  ],
+  "derivadoPor": "tools/taller/derivar.ts",
+  "pxPorCasilla": 580,
+  "escalaGuia": [
+    1.427,
+    1.371
+  ],
+  "guia": "assets/mapa/guias/puesto-torre.png"
+}

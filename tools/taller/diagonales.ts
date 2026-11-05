@@ -25,7 +25,6 @@
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import sharp from 'sharp';
 import type { PapelDeDiagonal } from '../../src/client/render/escenario/catalogo.js';
 import { JUNTAS, type TipoVisto, taludDeJunta } from '../../src/client/render/escenario/celdas.js';
 import { mascaraDeGuia, registrarPieza } from './derivar.js';
@@ -46,6 +45,7 @@ import {
 import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
 import {
   DIR_GUIAS,
+  escribirGuia,
   FRENTE,
   Guia,
   type Material,
@@ -442,14 +442,9 @@ export async function escribirGuiasDeDiagonales(): Promise<string[]> {
   for (const lado of LADOS_DE_DIAGONAL)
     for (const n of NIVELES_DE_DIAGONAL) {
       const { guia, piezas, casilla } = guiaDeDiagonales(lado, n);
-      const nombre = `diagonales-${lado}-${n}`;
-      const png = await sharp(Buffer.from(guia.svg())).png().toBuffer();
-      await writeFile(join(RAIZ, DIR_GUIAS, `${nombre}.png`), png);
-      await writeFile(
-        join(RAIZ, DIR_GUIAS, `${nombre}.json`),
-        `${JSON.stringify({ ancho: guia.ancho, alto: guia.alto, casilla, labio: LABIO, piezas }, null, 1)}\n`,
+      escritas.push(
+        await escribirGuia(`diagonales-${lado}-${n}`, guia, { casilla, labio: LABIO, piezas }),
       );
-      escritas.push(`${DIR_GUIAS}/${nombre}.png`);
     }
   return escritas;
 }

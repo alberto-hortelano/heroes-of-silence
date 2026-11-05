@@ -99,6 +99,12 @@ Lo que cambia en la tarea 1 respecto de lo de abajo:
 - **Fuera de la tarea 1**: mover ciudades y pueblos fuera de los nodos, la ocupación, el dueño
   derivado de la ciudad, los infiltrados y el robo.
 
+- **D10 (05-11-2026, tras la fase 3)**: la obra de un paso **se queda con el paso** cuando otro
+  jugador lo toma (respuesta del usuario: «Se queda»): la empalizada o la muralla son del sitio.
+- **D11 (05-11-2026, tras la fase 4)**: el arte de las tres piezas (caseta, torreta de madera, torre
+  de piedra, Codex por la suscripción) y su colocación junto al paso, aprobados por el usuario a la
+  vista de `capturas/fase4-hoja-de-contacto-3.png` («Me vale así»).
+
 ## Criterios de aceptación
 
 1. Un nodo que no es ciudad, al tomarlo un jugador, **pasa a ser un puesto fronterizo** de ese

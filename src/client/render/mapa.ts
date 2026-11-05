@@ -41,13 +41,19 @@ import {
 } from './camara-mapa.js';
 import { pintarClimaDelMapa } from './clima/clima.js';
 import { empezarFotogramaDeCopias } from './copias.js';
+import type { Sprite } from './escenario/colocar.js';
+import { FIGURA_DEL_HEROE, PIES } from './escenario/figuras-del-mapa.js';
 import { seHornea } from './escenario/horneado.js';
 import {
+  claveDe,
   type Imagen,
+  imagenCargada,
   type OpcionesDePintura,
+  pintarSombraAlPie,
   pintarSprite,
   type Volumen,
 } from './escenario/pintar.js';
+import { cajaDeLaObra, esObra, type Obra, seVeConSuNodo } from './escenario/puestos.js';
 import {
   claveDeFigura,
   copiaDeVolumen,
@@ -59,7 +65,7 @@ import {
 } from './escenario/superficie.js';
 import { animarHasta, type Figura, pintarFiguraConSombra } from './figura.js';
 import { densidadDe } from './lienzo.js';
-import { pintarMarcadorDelPuesto, puntaDelMarcador } from './marcador-del-puesto.js';
+import { altoDelMarcador, pintarMarcadorDelPuesto } from './marcador-del-puesto.js';
 import { COLOR_SIN_DUEÑO, playerColor } from './palette.js';
 import { MIRADA_DE_PRESENTACION } from './personajes.js';
 import { pintarPieza } from './piezas.js';
@@ -494,13 +500,8 @@ function fuegosDe(esc: Escenario): readonly { x: number; y: number; r: number }[
  */
 const MARGEN_DE_COSA: Margen = { lados: 2, arriba: 2, abajo: 2 };
 
-/**
- * Dónde apoya los pies cada figura, en casillas bajo el borde de arriba de su
- * casilla: la misma convención que `Sprite.y` de la escena —la `y` de la base—,
- * que es lo que deja ordenar figuras y volúmenes juntos. Un pino con la base en
- * y + 0,9 tapa al héroe de esa casilla, que la tiene en y + 0,8.
- */
-export const PIES = { heroe: 0.8, grupo: 0.82, suelto: 0.85 } as const;
+/** Dónde apoya los pies cada figura (`escenario/figuras.ts`, que lee también la escena). */
+export { PIES };
 
 /**
  * Dónde se ordena el rombo de un lugar: por detrás de quien está en él. Con el pie
@@ -525,8 +526,8 @@ type Cosa =
       readonly tipo: 'puesto';
       readonly clave: number;
       readonly nodo: Extract<MapObject, { kind: 'node' }>;
-      /** Donde apoya, en casillas (`Escenario.puestoDeNodo`). */
-      readonly pie: readonly [number, number];
+      /** La pieza de su obra, de la escena (`Escenario.puestoDeNodo`): la pinta con los volúmenes. */
+      readonly obra: Obra;
     }
   | {
       readonly tipo: 'heroe';
@@ -572,13 +573,12 @@ function cosasDe(v: VistaMapa, esc: Escenario): { cosas: Cosa[]; sobreLaNiebla: 
       const asiento = esc.asientoDeObjeto.get(o.id);
       if (asiento === undefined) throw new Error(`${o.kind} ${o.id} se hornea y no tiene asiento`);
       lista.push({ tipo: 'horneado', clave, objeto: o, asiento });
-      // Un paso tomado es un puesto (fase 3 del puesto fronterizo), y enseña su obra
-      // donde dice la escena, en su orden de profundidad: un árbol o un héroe de
-      // delante lo tapan. Va después de su óvalo (su clave no es menor).
+      // Un paso tomado es un puesto (puesto fronterizo): su obra es un volumen de
+      // la escena (`volumenesALaVista`), y aquí va solo su bandera, que se planta
+      // encima de todo. Sin sitio (lo cuenta `informe.puestosSinSitio`), nada.
       if (o.kind === 'node' && o.owner !== null) {
-        const puesto = esc.puestoDeNodo.get(o.id);
-        if (puesto === undefined) throw new Error(`el nodo ${o.id} se hornea y no tiene puesto`);
-        lista.push({ tipo: 'puesto', clave: puesto.clave, nodo: o, pie: puesto.pie });
+        const obra = esc.puestoDeNodo.get(o.id)?.[o.mejora];
+        if (obra !== undefined) lista.push({ tipo: 'puesto', clave: claveDe(obra), nodo: o, obra });
       }
     } else {
       const pies =
@@ -615,6 +615,9 @@ function cosasDe(v: VistaMapa, esc: Escenario): { cosas: Cosa[]; sobreLaNiebla: 
  */
 function volumenesALaVista(v: VistaMapa, esc: Escenario): VolumenDelMapa[] {
   const { camara, explorado } = v;
+  // Lo que se sabe de cada nodo elige su pieza: el hito o la obra de su puesto
+  // (`seVeConSuNodo`), con el dueño y la mejora que se vieron por última vez.
+  const nodos = new Map(v.objetos.flatMap((o) => (o.kind === 'node' ? [[o.id, o] as const] : [])));
   const { x0, y0, x1, y1 } = ventanaDeCasillas(camara, v.ancho, v.alto, MARGEN_DE_VOLUMEN);
   const fuera: VolumenDelMapa[] = [];
   for (let fila = Math.max(0, y0); fila < Math.min(esc.porFila.length, y1); fila++)
@@ -622,6 +625,8 @@ function volumenesALaVista(v: VistaMapa, esc: Escenario): VolumenDelMapa[] {
       // Con la base por encima de la vista no asoma: crece hacia arriba.
       if (vol.s.x < x0 || vol.s.x >= x1 || vol.s.y < camara.y) continue;
       if (vol.niebla !== null && explorado !== null && !explorado.hasIndex(vol.niebla)) continue;
+      const deNodo = vol.s.deNodo;
+      if (deNodo !== undefined && !seVeConSuNodo(deNodo, nodos.get(deNodo.id))) continue;
       fuera.push(vol);
     }
   return fuera;
@@ -672,6 +677,14 @@ function pintarLoQueTieneAltura(
   ctx.beginPath();
   ctx.rect(ox, oy - ARRIBA_SIN_RECORTE, anchoDelMapa, ARRIBA_SIN_RECORTE + altoDelMapa);
   ctx.clip();
+  // Las sombras de lo que se elige por su nodo (el hito y la obra del puesto) no
+  // están horneadas en el suelo (`seHorneaSuSombra`): van aquí, bajo todo lo que
+  // tiene altura, como las horneadas, y solo las de lo que se ve. La obra sin su
+  // imagen no: su marcador pinta la suya.
+  ctx.setTransform(1, 0, 0, 1, ox, oy);
+  for (const vol of volumenes)
+    if (vol.s.deNodo !== undefined && vol.s.sombra && (!esObra(vol.s) || conSuImagen(vol.s)))
+      pintarSombraAlPie(ctx, vol.s, opciones.tile);
   ctx.setTransform(enPantalla);
   let enElMapa = false;
   fundirPorProfundidad(
@@ -688,16 +701,19 @@ function pintarLoQueTieneAltura(
         ctx.imageSmoothingQuality = 'low';
       }
       enElMapa = true;
-      if (!recortadoArriba(vol, v.explorado)) {
-        pintarSprite(ctx, vol.s, opciones);
-        return;
+      const recortado = recortadoArriba(vol, v.explorado);
+      if (recortado) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, 0, anchoDelMapa, altoDelMapa);
+        ctx.clip();
       }
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(0, 0, anchoDelMapa, altoDelMapa);
-      ctx.clip();
-      pintarSprite(ctx, vol.s, opciones);
-      ctx.restore();
+      // La obra de un puesto sin su imagen —aún no ha llegado, o no la hay— es su
+      // marcador dibujado, no el triángulo de lo que no tiene arte: se decide en
+      // cada fotograma, y la bandera mira lo mismo (`puntaDeLaObra`).
+      if (esObra(vol.s) && !conSuImagen(vol.s)) pintarMarcadorDeLaObra(ctx, vol.s, opciones.tile);
+      else pintarSprite(ctx, vol.s, opciones);
+      if (recortado) ctx.restore();
     },
     (cosa) => {
       if (enElMapa) {
@@ -747,6 +763,33 @@ export function fundirPorProfundidad<V extends Volumen, C extends { readonly cla
   while (i < cosas.length) aLaCosa(cosas[i++] as C);
 }
 
+/** Si la obra de un puesto tiene su imagen lista para este fotograma. */
+const conSuImagen = (s: Sprite): boolean => s.src !== null && imagenCargada(imagenDeEscena(s.src));
+
+/**
+ * Lo que sube lo que se ve de la obra de un puesto sobre su pie, en casillas: su
+ * imagen sin el margen del recorte (`cajaDeLaObra`) o, sin ella, su marcador.
+ */
+function puntaDeLaObra(s: Obra): number {
+  const [x0, y0, x1] = cajaDeLaObra(s);
+  return conSuImagen(s)
+    ? s.y - y0
+    : altoDelMarcador(s.deNodo.cuando, { ancho: x1 - x0, alto: s.y - y0 });
+}
+
+/**
+ * El marcador de la obra de un puesto, en su sitio y a su escala: cabe en lo que
+ * se ve de su obra (`cajaDeLaObra`). En píxeles de dispositivo, con `T` por
+ * casilla, como los volúmenes.
+ */
+function pintarMarcadorDeLaObra(ctx: CanvasRenderingContext2D, s: Obra, T: number): void {
+  const [x0, y0, x1] = cajaDeLaObra(s);
+  pintarMarcadorDelPuesto(ctx, s.x * T, s.y * T, T, s.deNodo.cuando, {
+    ancho: x1 - x0,
+    alto: s.y - y0,
+  });
+}
+
 /** El cuerpo de una cosa, en su sitio del orden de profundidad: un árbol lo puede tapar. */
 function pintarCosa(ctx: CanvasRenderingContext2D, v: VistaMapa, c: Cosa): void {
   switch (c.tipo) {
@@ -756,11 +799,9 @@ function pintarCosa(ctx: CanvasRenderingContext2D, v: VistaMapa, c: Cosa): void 
     case 'horneado':
       pintarDueñoDeLoHorneado(ctx, v, c.objeto, c.asiento);
       return;
-    case 'puesto': {
-      const p = mundoAPixel(v.camara, ...c.pie);
-      pintarMarcadorDelPuesto(ctx, p.x, p.y, v.camara.tile, c.nodo.mejora);
+    case 'puesto':
+      // Su obra se pinta con los volúmenes; aquí solo va su bandera, encima.
       return;
-    }
     case 'heroe':
       pintarHeroe(ctx, v, c.heroe, c.pie);
       return;
@@ -796,10 +837,11 @@ function pintarIdentificador(
       pintarBanderaDeLoHorneado(ctx, v, c.objeto, c.asiento);
       return;
     case 'puesto': {
-      // La bandera del dueño, plantada en lo alto de su obra; encima de todo, como
-      // toda bandera, aunque el puesto quede detrás de un árbol.
-      const p = mundoAPixel(v.camara, ...c.pie);
-      const punta = puntaDelMarcador(p.y, tile, c.nodo.mejora);
+      // La bandera del dueño, plantada en lo alto de lo que se ve de su obra (la
+      // cumbrera, la garita, el adarve, o la punta de su marcador); encima de
+      // todo, como toda bandera, aunque el puesto quede detrás de un árbol.
+      const p = mundoAPixel(v.camara, c.obra.x, c.obra.y);
+      const punta = p.y - puntaDeLaObra(c.obra) * tile;
       // Desde el pie, que es lo que se apoya: 0,75 de casilla, y el mástil mide la mitad.
       bandera(ctx, p.x, punta - tile * 0.75 * 0.5, tile * 0.75, playerColor(c.nodo.owner));
       return;
@@ -959,20 +1001,21 @@ function pintarHeroe(
   const c = mundoAPixel(v.camara, pie.x, pie.y);
   const suelo = c.y;
   const color = playerColor(h.owner);
+  const { aro, seleccionado } = FIGURA_DEL_HEROE;
   // El aro del dueño, y el del seleccionado por fuera, en dorado y discontinuo.
   ctx.save();
   ctx.lineWidth = Math.max(2, tile * 0.045);
   ctx.strokeStyle = color;
   ctx.fillStyle = `${color}33`;
   ctx.beginPath();
-  ctx.ellipse(c.x, suelo, tile * 0.32, tile * 0.13, 0, 0, Math.PI * 2);
+  ctx.ellipse(c.x, suelo, tile * aro.rx, tile * aro.ry, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
   if (h.id === v.seleccionado) {
     ctx.strokeStyle = '#f5d973';
     ctx.setLineDash([5, 4]);
     ctx.beginPath();
-    ctx.ellipse(c.x, suelo, tile * 0.42, tile * 0.18, 0, 0, Math.PI * 2);
+    ctx.ellipse(c.x, suelo, tile * seleccionado.rx, tile * seleccionado.ry, 0, 0, Math.PI * 2);
     ctx.stroke();
   }
   ctx.restore();
@@ -1131,7 +1174,7 @@ export interface CuerpoDeFigura {
 }
 
 /** El alto de la figura de un héroe, en casillas (`pintarHeroe`). */
-const ALTO_DEL_HEROE = 0.92;
+const ALTO_DEL_HEROE = FIGURA_DEL_HEROE.alto;
 
 /** Los cuerpos de las figuras que hay que respetar al poner una inicial: héroes y grupos sin dueño. */
 function cuerposDe(cosas: readonly Cosa[]): Map<Cosa, CuerpoDeFigura> {

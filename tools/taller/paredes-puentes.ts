@@ -86,7 +86,12 @@ export class Guia {
  * Dibuja dos veces: una a escala 1 para medir lo que ocupa, y otra con la
  * casilla y el origen que lo dejan centrado y ocupando el `lleno` del lienzo.
  */
-function encajar(ancho: number, alto: number, lleno: number, dibujar: (g: Guia) => void): Guia {
+export function encajar(
+  ancho: number,
+  alto: number,
+  lleno: number,
+  dibujar: (g: Guia) => void,
+): Guia {
   const m = new Guia(ancho, alto, 1, 0, 0);
   dibujar(m);
   const w = m.caja.x1 - m.caja.x0;
@@ -101,6 +106,25 @@ function encajar(ancho: number, alto: number, lleno: number, dibujar: (g: Guia) 
   );
   dibujar(g);
   return g;
+}
+
+/**
+ * Escribe la guía `nombre` en `assets/mapa/guias/` (`<nombre>.png`) y su
+ * geometría al lado (`<nombre>.json`: el lienzo y lo que se registre sobre ella),
+ * y devuelve la ruta de la imagen. La de las laderas, las diagonales, las
+ * bajadas, el muro de norte a sur, el recinto y los puestos; los puentes llevan
+ * además la caja medida en la imagen (`escribirGuias`).
+ */
+export async function escribirGuia(nombre: string, guia: Guia, geometria: object): Promise<string> {
+  await writeFile(
+    join(RAIZ, DIR_GUIAS, `${nombre}.png`),
+    await sharp(Buffer.from(guia.svg())).png().toBuffer(),
+  );
+  await writeFile(
+    join(RAIZ, DIR_GUIAS, `${nombre}.json`),
+    `${JSON.stringify({ ancho: guia.ancho, alto: guia.alto, ...geometria }, null, 1)}\n`,
+  );
+  return `${DIR_GUIAS}/${nombre}.png`;
 }
 
 /** El gris de fondo de toda guía: lo demás es dibujo. */

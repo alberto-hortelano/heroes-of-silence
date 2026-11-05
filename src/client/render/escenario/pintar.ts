@@ -63,6 +63,7 @@ import {
   type Variante,
 } from './parches.js';
 import { cajaDeSprite } from './pasillo.js';
+import { seVeConSuNodo } from './puestos.js';
 import { bandaDeCara, type CaraDeEscena } from './relieve.js';
 import { ANCHO_DEL_VADO, ANCHO_DEL_VADO_EN_EL_BARRO, SEMIANCHO_DEL_PASILLO } from './sendas.js';
 
@@ -132,6 +133,32 @@ const TEXTURAS = ['agua', 'barro', 'cara-roca', 'cara-arenisca', 'cara-basalto',
  */
 function seVe(s: Sprite, objeto: OpcionesDePintura['objeto']): boolean {
   return s.objeto === undefined || objeto === undefined || objeto(s.objeto);
+}
+
+/**
+ * Si la sombra al pie de `s` se hornea en el suelo, que se pinta una vez por
+ * partida: la de lo que tiene sombra y se ve con el filtro `objeto`, salvo lo que
+ * se elige por su nodo en cada fotograma (`Sprite.deNodo`: el hito y las tres obras
+ * del puesto), cuya sombra va con su volumen (`pintarSombraAlPie`, en el mapa y en
+ * `pintarEscena`). Horneadas, cada nodo llevaba en el suelo las tres sombras de sus
+ * obras apiladas, tomado o no: una mancha negra junto al hito del neutral, la de la
+ * torre bajo la caseta, y la del hito cuando se tomaba (QA de la fase 4, H-F4-1).
+ */
+export function seHorneaSuSombra(s: Sprite, objeto?: OpcionesDePintura['objeto']): boolean {
+  return s.sombra && s.deNodo === undefined && seVe(s, objeto);
+}
+
+/**
+ * La sombra al pie de un volumen: un óvalo fundido, corrido hacia la luz del
+ * este. En el contexto de quien pinta, con `T` píxeles por casilla.
+ */
+export function pintarSombraAlPie(c: Contexto, s: Sprite, T: number): void {
+  const r = s.alto * T * 0.42;
+  const gr = c.createRadialGradient(s.x * T + r * 0.3, s.y * T, 0, s.x * T + r * 0.3, s.y * T, r);
+  gr.addColorStop(0, 'rgba(0,0,0,0.38)');
+  gr.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = gr;
+  c.fillRect(s.x * T - r, s.y * T - r, 2.3 * r, 2 * r);
 }
 
 /** Todas las imágenes que puede pedir la escena: para cargarlas antes de pintar. */
@@ -238,6 +265,8 @@ const altoNatural = (im: Imagen) => ('naturalHeight' in im ? im.naturalHeight : 
 const lista = (im: Imagen | undefined): im is Imagen =>
   im !== undefined && anchoNatural(im) > 0 && (!('complete' in im) || im.complete);
 const imagenLista = (im: Imagen | undefined): Imagen | undefined => (lista(im) ? im : undefined);
+/** Si una imagen ya se puede pintar (cargada y con medidas): si no, se pinta su marcador. */
+export const imagenCargada = (im: Imagen | undefined): im is Imagen => lista(im);
 
 type NuevoLienzo = (ancho: number, alto: number) => Lienzo;
 
@@ -809,23 +838,9 @@ export function pintarSuelo(
     //      de un desnivel; las sombras de sus torres van encima.
     pintarPlazas(c, e, T, tierra);
     // 6 · Las sombras al pie de lo que tiene volumen: también de los volúmenes,
-    //     que se pintan después, cada uno encima de la suya.
-    for (const s of e.sprites) {
-      if (!s.sombra || !seVe(s, o.objeto)) continue;
-      const r = s.alto * T * 0.42;
-      const gr = c.createRadialGradient(
-        s.x * T + r * 0.3,
-        s.y * T,
-        0,
-        s.x * T + r * 0.3,
-        s.y * T,
-        r,
-      );
-      gr.addColorStop(0, 'rgba(0,0,0,0.38)');
-      gr.addColorStop(1, 'rgba(0,0,0,0)');
-      c.fillStyle = gr;
-      c.fillRect(s.x * T - r, s.y * T - r, 2.3 * r, 2 * r);
-    }
+    //     que se pintan después, cada uno encima de la suya. Las de lo que se
+    //     elige por su nodo, no (`seHorneaSuSombra`).
+    for (const s of e.sprites) if (seHorneaSuSombra(s, o.objeto)) pintarSombraAlPie(c, s, T);
   }
   // 7 · En orden de profundidad: las caras de roca y lo plano.
   const orden: ({ y: number; cara: CaraDeEscena } | { y: number; s: Sprite })[] = [
@@ -1089,7 +1104,8 @@ let avisadoSinAltura = false;
 /**
  * La escena entera: el suelo y, encima, los volúmenes en su orden, con la MISMA
  * `separar` que usa el juego, así que el taller enseña exactamente lo que pinta
- * el juego (menos sus figuras). Después, las nubes del borde y la viñeta.
+ * el juego (menos sus figuras) al empezar una partida. Después, las nubes del
+ * borde y la viñeta.
  */
 export function pintarEscena(c: Contexto, e: Escena, o: OpcionesDePintura): void {
   const T = o.tile;
@@ -1101,7 +1117,15 @@ export function pintarEscena(c: Contexto, e: Escena, o: OpcionesDePintura): void
   c.save();
   c.translate(M, M);
   pintarSuelo(c, e, sep, o);
-  for (const v of sep.volumenes) pintarSprite(c, v.s, o);
+  // Los nodos, como en una partida que empieza: neutrales, con su hito y sin las
+  // obras de su puesto (`seVeConSuNodo`). Su sombra no está en el suelo
+  // (`seHorneaSuSombra`): va debajo de todo volumen, como la horneada.
+  const seVen = sep.volumenes.filter(
+    (v) => v.s.deNodo === undefined || seVeConSuNodo(v.s.deNodo, undefined),
+  );
+  if (o.silueta !== true)
+    for (const v of seVen) if (v.s.deNodo !== undefined && v.s.sombra) pintarSombraAlPie(c, v.s, T);
+  for (const v of seVen) pintarSprite(c, v.s, o);
   // 9 · Las nubes del borde y la viñeta.
   if (o.silueta !== true && o.nubes !== false) {
     c.globalAlpha = 0.92;

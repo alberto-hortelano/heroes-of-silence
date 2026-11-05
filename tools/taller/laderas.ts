@@ -42,7 +42,6 @@
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import sharp from 'sharp';
 import {
   esHojaDeLadera,
   type JuntasDeLadera,
@@ -55,6 +54,7 @@ import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
 import {
   ARRIBA,
   DIR_GUIAS,
+  escribirGuia,
   FRENTE,
   Guia,
   type Lado,
@@ -739,14 +739,14 @@ export async function escribirGuiasDeLaderas(): Promise<string[]> {
   for (const lado of ['este', 'oeste'] as const)
     for (const n of NIVELES) {
       const { guia, piezas, casilla } = guiaDeLaderas(lado, n);
-      const nombre = `laderas-${lado}-${n}`;
-      const png = await sharp(Buffer.from(guia.svg())).png().toBuffer();
-      await writeFile(join(RAIZ, DIR_GUIAS, `${nombre}.png`), png);
-      await writeFile(
-        join(RAIZ, DIR_GUIAS, `${nombre}.json`),
-        `${JSON.stringify({ ancho: guia.ancho, alto: guia.alto, casilla, talud: TALUD_DE_LADERA[n], labio: LABIO, piezas }, null, 1)}\n`,
+      escritas.push(
+        await escribirGuia(`laderas-${lado}-${n}`, guia, {
+          casilla,
+          talud: TALUD_DE_LADERA[n],
+          labio: LABIO,
+          piezas,
+        }),
       );
-      escritas.push(`${DIR_GUIAS}/${nombre}.png`);
     }
   return escritas;
 }

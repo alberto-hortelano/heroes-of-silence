@@ -534,3 +534,172 @@ pasar el repintado entre los dos clics. En el navegador: s1 con `dblclick()` y s
 persona, 25 500 → 24 000; la nota dicha del puesto («el puesto de la puerta de la muralla de (17,6)
 ya está amurallado…»), con test de los cinco nombres de paso. Guardias vistos morder. `pnpm banco`
 igual (`883fe9be…`). Al ser un arreglo acotado con sus guardias, no se lanza otra vuelta de QA entera.
+
+## Fase 4 · vuelta 1 (QA, 05-11-2026)
+
+Alcance: solo la fase 4 sin commitear sobre `7f7e34be` (la escena y el arte de los puestos, con el
+`/simplify` S39-S46 aplicado). Lo pedido: «…el puesto base muestre una caseta en el mapa una vez alquien
+lo ha tomado, una torreta de madera si es una empalizada o una torre si esta amurallado», con el arte por
+Codex y su marcador como respaldo. No juzgo si el arte gusta (es del usuario): miro que se vea, que esté
+donde dice y que no tape ni se tape. Capturas y guiones en
+`/tmp/claude-1000/-home-al-code-heroes--claude-worktrees-mountain-node-interaction-7b9212/46fb9bb3-8555-4262-a482-fe1df0ee30b2/scratchpad/qa-f4/`
+(abajo, `qa-f4/…`).
+
+### Lo que corrí, y por qué
+
+- `pnpm typecheck` (sale 0) y `pnpm lint` («Checked 521 files… Found 10 infos», sale 0): cambia código.
+- `HEROES_LENTO=1 pnpm vitest run test/pasos.test.ts`: lleva los guardias del puesto y de los pasos en
+  1-40 (el sitio de las obras aparta masa y cubierta en todo mapa) → **20 passed** (el del puesto, 1-40).
+- `pnpm vitest run test/mejoras-del-puesto.test.ts test/puentes.test.ts test/mapa-pintado.test.ts
+  test/espectador.test.ts test/escenario.test.ts test/arte-hojas.test.ts -t "puesto|obra|niebla|espectador|separar|clave|mapa"`:
+  la niebla de la obra, el puesto en un puente, el lienzo que elige obra o hito, el espectador, la
+  clave del pintor y el arte de las tres piezas → **6 ficheros, 320 passed**.
+- `pnpm banco`: «sha256: 883fe9be85bcf887a534efe540b69f346bf93e7bb2d7ef672800deb3e19d4858 … sin terminar:
+  0/20 … ancla: igual». El juego no cambia.
+- **Navegador, desde quien juega** (Playwright sin pantalla; `pnpm dev --port 3143 --strictPort` mío,
+  `set -m`, grupo 129726, parado por su grupo; `ss` dice el 3143 libre). Guion `qa-f4/guiones/juego.ts`:
+  abre `urlDePartida(s)` (`&clima=despejado,dia`), «Volver al mapa», arrastra la cámara al paso, **clic
+  en el paso** (el héroe anda y se para; se abre su guarnición), «Levantar la empalizada · 1500 oro»,
+  Escape, clic en el héroe, «Amurallar · 4000 oro», y foto de cada estado; sin ganchos en `main.ts`: un
+  espejo (`Session` con la misma semilla, como `pnpm capturas`) dice dónde cae cada casilla. Casos, todos
+  el día 1 y a 70 px (por defecto), y con `--tope` también a 40 (tope de alejar) y 110 (de acercar):
+  montaña s1 (8,14) con tope; bosque s6 (12,10) con tope; acantilado s1 (13,7); puente s7 (13,5) con
+  tope; puerta de muralla s9 (15,3) y s4 (17,6); **sin arte** (las tres `puesto-*.webp` abortadas) en la
+  puerta s5 (0,14) con tope; **móvil** 390×844 (dpr 2, táctil) en el puente s10 (20,5); **dpr 1,5** en el
+  bosque s13 (12,13) con tope; y el bosque s45 (14,8), junto a una ciudad (de la pasada adversarial). En
+  los nueve el héroe llega, el diálogo se abre, las dos mejoras se compran (oro 25 500 → 20 000, el
+  espejo igual) y el diálogo dice «El puesto · una caseta» → «una torreta de madera» → «una torre».
+  Consola sin errores, salvo los tres `ERR_FAILED` de las imágenes bloqueadas a propósito (s5).
+- **Pasada adversarial de la escena** (`qa-f4/guiones/adv.ts`, `componer` sobre `newGame`): por cada
+  nodo, sus tres obras, el pie sobre el agua del mapa o de la escena, dentro de un recinto, lejos de su
+  nodo (> 2,5), el solape de lo que se ve de la obra con otro objeto, un volumen pintado después que la
+  toque, y los guardias de `informe` del puesto, la senda, los pasos y los puentes. Semillas **41-100**
+  en 42×42 (815 nodos), **1-15 en 26×26** (66) y **1-6 en 64×64** (219); 1-40 lo cubre el test lento.
+- `pnpm capturas qa-f4/capturas` (una vez, con su propio vite): **sale 1 solo por la pasada «edicion»**
+  (`[data-arena="ir-a-edicion"]`, la de HEAD). Pasan las demás, el espectador incluido, sin error en
+  consola.
+
+### Criterios
+
+| Criterio | | Evidencia |
+|---|---|---|
+| El paso tomado enseña una caseta | ✅ | Nueve pasos tomados con el clic de la persona: `qa-f4/s1/2-caseta-con-heroe.png`, `s6-bosque/`, `s1-acantilado/`, `s7-puente/`, `s9-muralla/`, `s4-muralla/`, `s10-movil/`, `s13-dpr/`, `s45-recinto/` (cada carpeta con su `tira.png`: neutral, caseta, torreta, torre). El hito se va al tomarlo. |
+| La empalizada, una torreta de madera; la muralla, una torre | ✅ | Comprado con el botón del diálogo; mismas carpetas, `4-torreta-con-heroe.png` y `6-torre-con-heroe.png`; `log.txt` de cada una con el rótulo del diálogo tras cada compra. |
+| El color del dueño (la bandera) en lo alto | ✅ | Bandera roja en la punta de las tres obras en todas las fotos, también al tope de alejar (`s1/7-torre-tope-de-alejar.png`). |
+| El sitio, junto al paso: en tierra en un puente, junto a la puerta en una muralla | ✅ | Puente s7 y s10: en la orilla norte, fuera del tablero (`s7-puente/tira.png`, `s10-movil/tira.png`). Puertas s4, s5, s9: al rincón libre junto a la muralla (ver «Observaciones»). Ningún pie sobre agua ni dentro de un recinto en 1-100, 26×26 y 64×64; distancia al centro del nodo ≤ 2,92 (s70 node-6, acantilado). |
+| No tapa la senda, el eje del paso, el tablero de un puente ni al héroe parado | ✅ | Test lento de `pasos` (1-40) verde; en 41-100 y en 26×26 ningún `informe` del puesto, `spritesSobreSenda`, `pasosTapados`, `pasosAtravesados` ni `puentesTapados` distinto de 0. En las fotos el héroe y su inicial quedan libres en los nueve casos. |
+| Nada que se pinte después lo tapa | ✅ en 42×42 y 26×26 · ⚠️ 64×64 | 0 en 1-100 (test y guion). En 64×64 s3, `puestosTapados` 1 (H-F4-3). |
+| El neutral, su hito («como hoy») | ❌ | El hito se ve, pero con una **mancha oscura** junto a él en todo nodo neutral: la sombra horneada de las obras que no se pintan (H-F4-1). `qa-f4/zoom-sombra-s1.png`, `qa-f4/zoom-sombra-s13.png`. |
+| Sin arte, el marcador de cada obra | ✅ (con H-F4-1) | `qa-f4/s5-sinarte/tira.png`: caseta, torreta y torre dibujadas, a la escala de su obra, con la bandera en su punta; al tope de alejar también. Debajo, la misma mancha de H-F4-1. |
+| Cerca y al tope de alejar | ✅ | `s1/7-…-tope-de-alejar.png` (40 px) y `8-…-tope-de-acercar.png` (110 px); igual en s6, s7, s5 y s13. |
+| Móvil (390×844) y dpr 1,5 | ✅ | `s10-movil/` (táctil, dpr 2) y `s13-dpr/` (1280×800 a dpr 1,5): el mismo sitio y las mismas piezas, nítidas. |
+| La niebla (lo último visto) | ⚠️ no probado en el navegador | El test «quien no mira el paso recuerda la obra que vio» de `mejoras-del-puesto` está verde, y el lienzo elige la pieza con `v.objetos` (`objetosConocidos`) en `volumenesALaVista` (`render/mapa.ts:619-628`). No llegué a ver un paso ajeno mejorado fuera de la vista. |
+| El espectador, lo mismo | ✅ caseta · ⚠️ torreta y torre | `qa-f4/capturas/espectador-04-fin-de-partida.png`: dos casetas con su arte, la roja y la azul, junto a sus nodos. Nadie mejora en una partida del servidor; `espectador.test.ts` verde. |
+| El juego no cambia | ✅ | `pnpm banco` en `883fe9be…`, ancla igual. |
+
+### Hallazgos
+
+#### H-F4-1 · importante · Las sombras de las tres obras se hornean en el suelo de todo nodo, también del neutral: la mancha oscura
+
+**Es la sospecha del coordinador, y es eso: la sombra de un puesto que no se pinta.** La mancha de la
+hoja de contacto nueva (montaña s1 (8,14), puerta s4 (17,6), columna «neutral») está justo donde va la
+obra cuando se toma el paso (`qa-f4/zoom-sombra-s1.png`: a la izquierda el neutral, en el medio la
+caseta en ese mismo sitio, a la derecha la torre); en la hoja de antes del `/simplify` no estaba porque
+las obras no eran aún sprites de la escena.
+
+Por qué, en el código: el paso 6 de `pintarSuelo` (`render/escenario/pintar.ts:814-830`) pinta en el
+suelo —que se pinta **una vez por partida**, en el Worker— un degradado radial por cada sprite con
+`sombra`, y su filtro (`seVe`, `pintar.ts:134`) solo mira `s.objeto`; desde S41 las obras no llevan
+`objeto` y `spriteDelPuesto` les pone `sombra: imagen.src !== null` (`puestos.ts:142`). `seVeConSuNodo`
+se aplica en los volúmenes (`mapa.ts:628`) y en el taller (`pintar.ts:1111`), no en las sombras. Así
+que en cada nodo quedan en el suelo **tres** sombras apiladas (caseta, torreta y torre, radio
+`0,42 × alto`, la mayor 0,70 casillas, ~76 % de negro en el centro), se haya tomado o no y sea cual sea
+la obra. Contado con `qa-f4/guiones/adv.ts`: 1 623 obras con sombra en 1-40 (= 3 × 541 nodos), 2 445
+en 41-100. Consecuencias que se ven:
+
+- en el neutral, una mancha negra redonda junto al hito, donde no hay nada (`zoom-sombra-s1.png`,
+  `zoom-sombra-s13.png`, `s13-dpr/0-neutral-antes.png`, muy visible sobre suelo oscuro);
+- con la caseta, la sombra es la de la torre: un halo oscuro más ancho que la casa (`zoom-sombra-s1.png`,
+  medio);
+- sin arte (`s5-sinarte/tira.png`), la misma mancha bajo el marcador dibujado.
+- Por la misma regla, el hito (307 hitos con sombra en 1-40) deja su sombra en el suelo cuando se toma el
+  paso y él deja de pintarse. Esto lo saco del código; en las fotos no lo he podido aislar de la obra.
+
+**Reproducir**: `pnpm dev`, `/?seed=1&heroe=<el de por defecto>&clima=despejado,dia`, «Volver al mapa» y
+mirar el paso de montaña (8,14) antes de tomarlo: la mancha está al noreste del hito, a ~1 casilla. Lo
+mismo en s13 (12,13) (bosque), s4 (17,6) (puerta). **Lo que espera quien juega**: el paso neutral como
+antes, sin mancha; y cada obra con su sombra y no con la de las otras dos.
+
+#### H-F4-2 · menor · La torre de un puesto junto a una ciudad se monta sobre el recinto y se lee como una torre más de su muralla
+
+En los pasos que están al pie de una ciudad, la obra se pinta **delante** del recinto y lo tapa: la torre
+mete sus almenas sobre el pie de una torre del recinto (hasta 0,29 casillas de alto) y su bandera queda
+sobre la torre de la ciudad, así que el puesto parece una torre de la muralla y la bandera, de la ciudad
+(`qa-f4/zoom-s45-torre-recinto.png`, s45 (14,8)). Los guardias no lo miran: `puestosTapados` cuenta lo
+que tapa a la obra, no lo que la obra tapa. Con la torre: 5 nodos en 1-40 (s3 node-11, s5 node-4, s6
+node-10, s12 node-15, s13 node-8, solape de 0,09 casillas: apenas se ve) y en 41-100 s43 node-6, s45
+node-1, s52 node-12, s67 node-12 y otros (solape de 0,29 con la torre del recinto y de 0,05-0,14 con
+sus tramos); en 26×26 s7 node-3 y s13 node-1. La caseta y la torreta, más bajas, no llegan.
+
+**Reproducir**: `pnpm dev`, `/?seed=45&heroe=<el de por defecto>`, «Volver al mapa», clic en el paso del
+bosque (14,8) (se llega el día 1), «Levantar la empalizada», cerrar, clic en el héroe, «Amurallar».
+**Lo que espera quien juega**: ver la torre del puesto aparte de la ciudad, con su bandera suya.
+
+#### H-F4-3 · menor · Fuera del 42×42: un paso sin sitio y un puesto tapado en el 64×64
+
+Con el mapa más grande que sabe el generador (64×64, 1-6): **s1 node-17 (19,31)** (montaña) no tiene
+sitio (`informe.puestosSinSitio` 1: tomarlo no enseña obra ninguna, solo el óvalo) y en **s3 node-33
+(35,59)** (montaña) la pieza de bajada `bajadas-arenisca-1/s`, que se pinta después, toca las tres obras
+(`puestosTapados` 1). En 41-100 (42×42) y en 26×26 (1-15), nada. Es menor porque `pnpm dev` juega en
+42×42; un plan del agente o `regionesPorBando` lo dan. **Reproducir**:
+`componer(newGame({ seed: 1, width: 64, height: 64 }).map, 1, catálogo).informe.puestosSinSitio` (y
+`seed: 3` para `puestosTapados`), con `qa-f4/guiones/adv.ts 1 6 64`.
+
+### Observaciones (no son hallazgos)
+
+- **En una puerta de muralla la obra queda lejos y al otro lado de lo que se ve como el paso**: s9 (15,3)
+  ~1,9 casillas al noroeste, detrás de la torre de la muralla; s5 (0,14) ~2 al noreste, al otro lado del
+  muro (`s9-muralla/tira.png`, `s5-sinarte/tira.png`). Es lo que dice la implementación (mediana 1,50,
+  máximo 2,72) y lo juzga el usuario.
+- En el acantilado s1 (13,7) la caseta parece apoyada en una roca: es `cubierta-rough/7`, delante y por
+  debajo de su pie, sin tocar lo que se ve de la obra (`qa-f4/guiones/cerca.ts`).
+- El 64×64 y el 26×26 no dejan ningún pie sobre agua ni dentro de un recinto.
+
+### Workarounds usados
+
+- **El espejo** (`Session` en Node con la misma semilla) solo calcula dónde pulsar; no toca la página,
+  que se juega con clics y arrastres de ratón. No afecta a quien juega.
+- `&clima=despejado,dia`, como `pnpm capturas`: es presentación, para que la noche no tape lo que se mira.
+- Las tres imágenes `puesto-*.webp` abortadas con `page.route` para el respaldo sin arte, como la
+  pasada «sin-arte». Quien juega lo ve cuando una imagen no llega.
+- Los guiones vivieron en `tools/qa/qaf4/` por sus importaciones y se borraron (copia en
+  `qa-f4/guiones/`); `git status` igual que al empezar.
+
+### No probado
+
+- La niebla en el navegador (un paso ajeno mejorado fuera de la vista): solo por test y por código.
+- La torreta y la torre en el espectador en vivo (nadie mejora en el servidor).
+- Una figura que pasa por delante de la obra (otro héroe, un grupo de asaltantes) y la batalla del paso.
+- El 26×26 y el 64×64 en el navegador: solo la escena compuesta.
+- `pnpm verify` y `verify:lento` enteros (CI).
+
+### Veredicto (fase 4, vuelta 1)
+
+**Apto con reservas.** Desde el arranque, tomar un paso de montaña, de bosque, de acantilado, un puente
+y una puerta de muralla enseña la caseta; mejorarlo desde su diálogo, la torreta y la torre, con la
+bandera del dueño, junto al paso, sin pisar la senda, el eje ni el tablero y sin tapar al héroe, de
+cerca, al tope de alejar, en el móvil y a dpr 1,5; sin arte, su marcador; el espectador, la caseta; los
+guardias a 0 en 1-100; el banco, el mismo sha. La reserva es H-F4-1: todo nodo, también el neutral,
+lleva en el suelo la sombra de las tres obras, que es la mancha oscura que se ve junto al hito. H-F4-2 y
+H-F4-3 son menores.
+
+## Fase 4 · cierre de la vuelta 1 (coordinador, 05-11-2026)
+
+H-F4-1, H-F4-2 y H-F4-3, corregidos (QF4-1 a QF4-3 de `hallazgos-qa.md`; detalle en
+`implementacion.md`, «Fase 4 · QA vuelta 1»): lo que depende del dueño ya no se hornea en el suelo
+(`seHorneaSuSombra`; su sombra va con su pieza en el fotograma), el puesto no toca la envoltura de un
+recinto alargada hasta el pie de sus torres del sur ni el puente de otro nodo (guardia nuevo
+`puestosQueTapan`, 6 → 0 en 1-40), y los dos casos del 64×64, arreglados (0 en 1-6). Revisado en la
+hoja de contacto `capturas/fase4-hoja-de-contacto-3.png`: el neutral sin la mancha, la caseta sin el
+halo, s45 (14,8) con la torre aparte del recinto. `pnpm banco` igual (`883fe9be…`). Arreglos acotados
+con sus guardias vistos morder: no se lanza otra vuelta de QA entera.

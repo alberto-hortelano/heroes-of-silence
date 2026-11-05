@@ -1,0 +1,17 @@
+{
+  "imagen": "puesto-caseta.webp",
+  "sha256": "069e20c8626dd2f0d09f10d7fb9b852f677f5a8e64a3780bb1df491b24896a66",
+  "ancho": 599,
+  "alto": 822,
+  "ancla": [
+    304,
+    797
+  ],
+  "derivadoPor": "tools/taller/derivar.ts",
+  "pxPorCasilla": 805,
+  "escalaGuia": [
+    1.278,
+    1.272
+  ],
+  "guia": "assets/mapa/guias/puesto-caseta.png"
+}

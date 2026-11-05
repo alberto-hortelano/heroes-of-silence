@@ -14,6 +14,7 @@ import {
   catalogoValidado,
   conPerfil,
   conSilueta,
+  esPiezaDePuesto,
   type JuntasDeBajada,
   type JuntasDeDiagonal,
   type JuntasDeLadera,
@@ -52,7 +53,10 @@ interface PiezaDerivadaEnDisco {
   readonly ancho?: number;
   readonly alto?: number;
   readonly ancla?: readonly [number, number];
-  /** Solo los puentes (§17): `pnpm taller derivar-puentes` (`puenteDerivado`). */
+  /**
+   * Los puentes (§17, `pnpm taller derivar-puentes`, `puenteDerivado`) y las obras
+   * del puesto (`pnpm taller derivar-puestos`, `puestoDerivado`).
+   */
   readonly pxPorCasilla?: number;
   readonly alturaDelTablero?: number;
   readonly largoDelTablero?: number;
@@ -113,6 +117,18 @@ export async function leerCatalogo(): Promise<Catalogo> {
     if (j.ancho === undefined || j.alto === undefined || j.ancla === undefined) continue;
     const id = f.slice(0, -'.json'.length);
     const { pxPorCasilla, alturaDelTablero: altura, largoDelTablero: largo } = j;
+    if (esPiezaDePuesto(id)) {
+      piezas[id] = {
+        src: `${id}.webp`,
+        nw: j.ancho,
+        nh: j.alto,
+        ax: j.ancla[0],
+        ay: j.ancla[1],
+        // Sin ella, `catalogoValidado` dice que falta.
+        ...(pxPorCasilla === undefined ? {} : { puesto: { pxPorCasilla } }),
+      };
+      continue;
+    }
     piezas[id] = {
       src: `${id}.webp`,
       nw: j.ancho,

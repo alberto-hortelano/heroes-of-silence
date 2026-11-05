@@ -22,6 +22,13 @@ export interface Pieza {
   /** Solo los puentes (`puente-*`, §17), y todos ellos (`catalogoValidado`). */
   readonly puente?: MedidasDePuente;
   /**
+   * Solo las obras del puesto fronterizo (`puesto-*`), y todas ellas: cuántos
+   * píxeles de su imagen mide una casilla, registrado sobre su guía al derivarla
+   * (`pnpm taller derivar-puestos`, `puestoDerivado`). Es su escala en el mapa;
+   * no se escribe a mano.
+   */
+  readonly puesto?: { readonly pxPorCasilla: number };
+  /**
    * Solo los tramos de norte a sur (`muro-ns-*`, §29), y todos ellos: lo que se
    * corre cada pieza de una tirada respecto de la de delante, en píxeles de su
    * imagen (`dy` < 0), para que su testero caiga dentro de esa y no a media
@@ -51,6 +58,9 @@ export interface MedidasDePuente {
 
 /** Si una pieza es un puente (`puente-piedra-ns`, `puente-troncos-eo`…): lleva sus medidas. */
 const esPiezaDePuente = (id: string): boolean => /^puente-(piedra|troncos)-/.test(id);
+
+/** Si una pieza es una obra del puesto (`puesto-caseta`, `puesto-torreta`, `puesto-torre`): lleva su casilla. */
+export const esPiezaDePuesto = (id: string): boolean => /^puesto-/.test(id);
 
 /** Un punto `[x, y]` en píxeles de una imagen. */
 export type Par = readonly [number, number];
@@ -448,7 +458,8 @@ function juntaValidada(
  * recinto el pie de sus dos puntas dentro de su imagen, y ningún otro las trae; todo módulo de una hoja que tapa una cara trae su perfil, de
  * fracciones entre 0 y 1, y ningún otro lo trae; toda casa, su silueta, y nada
  * más la trae; todo puente trae sus medidas,
- * positivas, y ninguna otra pieza las trae. Lanza diciendo qué módulo y qué
+ * positivas, y ninguna otra pieza las trae; y toda obra del puesto su casilla, y
+ * nada más la trae. Lanza diciendo qué módulo y qué
  * hacer: sin esto, la falta solo salía al componer el primer mapa con esa ladera.
  */
 export function catalogoValidado(c: CatalogoEnBruto): Catalogo {
@@ -511,6 +522,18 @@ export function catalogoValidado(c: CatalogoEnBruto): Catalogo {
       throw new Error(
         `la pieza «${id}» trae el paso de una tirada y no es un tramo de norte a sur`,
       );
+    if (esPiezaDePuesto(id)) {
+      const px = p.puesto?.pxPorCasilla;
+      if (px === undefined)
+        throw new Error(
+          `la obra del puesto «${id}» no trae su casilla: derívala sobre su guía (pnpm taller derivar-puestos) y rehaz el catálogo (pnpm taller catalogo-escena)`,
+        );
+      if (!(Number.isFinite(px) && px > 0))
+        throw new Error(
+          `la obra del puesto «${id}»: su casilla es un número positivo, y dice ${px}`,
+        );
+    } else if (p.puesto !== undefined)
+      throw new Error(`la pieza «${id}» trae la casilla de una obra del puesto y no lo es`);
     if (!esPiezaDePuente(id)) {
       if (p.puente !== undefined)
         throw new Error(`la pieza «${id}» trae medidas de puente y no es un puente`);

@@ -1,0 +1,51 @@
+{
+  "encargo": "mapa-puesto-caseta",
+  "tipo": "imagen",
+  "fecha": "2026-11-05T10:55:39.846Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a1ab58-5179-76a3-8f86-7267ad7cf321",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la referencia de MATERIAL: de ella se toman SOLO el color, la textura y la paleta de la roca y de lo que crece en ella, para que case con estas piezas. NO copies su forma (columnas, prismas, bloques en fila) ni su composición.\nLa imagen 3 es la GUÍA DE GEOMETRÍA: un volumen gris sin acabado, dibujado con la cámara del juego. Manda en la ORIENTACIÓN, la forma, las proporciones, el tamaño y la posición de cada pieza dentro de la imagen: cópialas con exactitud, sin girar ni torcer nada. NO copies su gris liso, sus aristas de esquema ni su fondo plano: el material, el detalle y la luz son los de la imagen de estilo.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos: una CASETA de guardia de un paso de montaña: una cabaña pequeña, baja y más ancha que honda, de paredes de troncos y tablones oscuros sobre un zócalo de piedras de campo, con un tejado a dos aguas de tablas o de paja vieja que asoma por delante y por detrás, una puerta baja de tablones en la cara de delante y un ventanuco. Al lado, pegados a la pared, un par de barriles o un montón de leña. Humilde y gastada: la levanta quien toma el paso.\nLA SILUETA, LAS PROPORCIONES Y LA POSICIÓN SON LAS DE LA GUÍA (imagen 3): el volumen gris es la obra, cópialo con su forma y su tamaño relativo, sin girarla ni torcerla; la losa gris de debajo es una casilla del mapa, solo la vara de medir: NO la pintes, ni ningún suelo. En la guía lo gris claro es lo de arriba, lo gris medio la cara de delante a la luz y lo oscuro lo que queda en penumbra a la derecha.\nLos materiales y la paleta: la madera oscura, la piedra de campo y la paja de la casa de la imagen 2.\nSin suelo, sin peana, sin hierba ni piedras alrededor más allá de las que pide la pieza, sin estandartes ni banderas ni mástil: la bandera del dueño la pone el juego. Un único objeto, centrado y entero. Cámara ortográfica elevada 25 grados, la del juego, que es la de la guía; nunca cenital ni de perfil. La luz viene de arriba a la izquierda.\nEstilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/art/mapas/Imagen de ChatGPT 3 oct 2026, 10_05_01.png",
+      "papel": "estilo",
+      "sha256": "a3b78bb6efb486f6c65827e19739696aab723d824331faaa6d58d84c727fe6f5"
+    },
+    {
+      "ruta": "assets/mapa/modulos/casas/3.webp",
+      "papel": "material",
+      "sha256": "3435bfc4b41d98e51cfefab4ca531e83eac696d1d900b387c60a9bc0264a44f9"
+    },
+    {
+      "ruta": "assets/mapa/guias/puesto-caseta.png",
+      "papel": "guia",
+      "sha256": "61c7ea4de6554672a62961376c110ae793333e2d8aedb7d4d4cabf66345d9ae4"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a1ab58-5179-76a3-8f86-7267ad7cf321/exec-8c24f45f-42ff-4cc9-ab21-29198c23fe4a.png",
+    "sha256": "f77b170763f94dad1ddaad00cbe0bc0885c90fe44cdb5ff34f726c7b835e2268",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 599×822, ancla en (304,797)"
+  ],
+  "validacion": {
+    "visibles": 0.7060754136049945,
+    "opacos": 0.9961830084911522,
+    "haloSuelto": 0,
+    "ancho": 599,
+    "alto": 822
+  },
+  "salida": {
+    "ruta": "assets/mapa/puesto-caseta.webp",
+    "sha256": "069e20c8626dd2f0d09f10d7fb9b852f677f5a8e64a3780bb1df491b24896a66"
+  }
+}

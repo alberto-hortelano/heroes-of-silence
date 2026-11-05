@@ -35,6 +35,8 @@
  *   pnpm taller versiones <unidad> --rechazadas  otra vez las hojas rechazadas en el vistazo final
  *   pnpm taller encolar --hitos          los hitos de los nodos sin pieza de paso (#176, `mapa.ts`)
  *   pnpm taller encolar --cofre          el cofre del mapa, pieza suelta (#147, `mapa.ts`)
+ *   pnpm taller encolar --puestos [--solo=caseta,torreta,torre]
+ *                                        la caseta, la torreta y la torre del puesto fronterizo, con su guía (`mapa.ts`)
  *   pnpm taller encolar --tablillas | --muralla-ns [--solo=…]
  *                                        las tablillas por rumbo y la muralla norte-sur (§29, `mapa.ts`; los tramos, con su guía, `muros.ts`)
  *   pnpm taller encolar --texturas-suelo | --muestras-densas | --piezas-densas [--solo=…]
@@ -55,6 +57,7 @@
  *   pnpm taller derivar-recinto          apunta el pie de las dos puntas de cada módulo del recinto desde su guía
  *   pnpm taller guias                    escribe las guías de geometría de `paredes-puentes.ts`, `laderas.ts`, `diagonales.ts`, `bajadas.ts`, `rampas.ts` y `recinto.ts`
  *   pnpm taller derivar-puentes <puente.webp>…  rehace su ancla (centro del tablero) y su casilla
+ *   pnpm taller derivar-puestos <puesto.webp>…  rehace la casilla de una obra del puesto, desde su guía
  *   pnpm taller derivar-muros            el paso de la tirada de los tramos de norte a sur (`muros.ts`)
  *   pnpm taller escenario [semilla…] [--px=N]  el escenógrafo: compone, pinta, captura y mide
  *   pnpm taller derivar-relieve [hoja…]  apunta las juntas de cada módulo del relieve desde su guía: laderas (§20), diagonales y bajadas (§23); corta las rampas (§35)
@@ -95,7 +98,7 @@ import type { Escena } from '../../src/client/render/escenario/colocar.js';
 import { HOJA_DEL_RECINTO } from '../../src/client/render/escenario/recinto.js';
 import { figuraDelBanco } from '../../src/core/npcs.js';
 import { FACTION_IDS, type FactionId } from '../../src/core/types.js';
-import { FIGURA, NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
+import { FIGURA, MARGEN_DEL_RECORTE, NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
 import { disposicionDe } from '../../src/shared/base.js';
 import { bandera } from '../argumentos.js';
 import {
@@ -171,7 +174,10 @@ import {
   encargosDeHitos,
   encargosDeMurallaNS,
   encargosDePiezas,
+  encargosDePuestos,
   encargosDeTablillas,
+  escribirGuiasDePuestos,
+  escribirPuestoDerivado,
 } from './mapa.js';
 import { encargoDeLamina, encargosDePiezasDensas, encargosDeTexturas } from './mapa-denso.js';
 import { escribirGuiaDelMuro, escribirMurosDerivados, esMuroNorteSur } from './muros.js';
@@ -380,7 +386,7 @@ async function postprocesar(
           indice.push({ nombre: ic.nombre, imagen: `${ic.nombre}.webp`, sha256: sha256(bytes) });
         }
         extra = { indiceDeIconos: indice };
-        final = await recortarAlContenido(r, 24);
+        final = await recortarAlContenido(r, MARGEN_DEL_RECORTE);
         pasos.push(
           `lámina partida en ${iconos.length} iconos de ${LADO_ICONO}×${LADO_ICONO}, cada uno en su fichero`,
         );
@@ -392,7 +398,7 @@ async function postprocesar(
           encargo.nombres,
         );
         extra = { indiceDeModulos: indice };
-        final = await recortarAlContenido(r, 24);
+        final = await recortarAlContenido(r, MARGEN_DEL_RECORTE);
         pasos.push(
           `hoja partida en ${indice.length} módulos a su tamaño nativo, cada uno con su ancla en la base`,
         );
@@ -431,8 +437,8 @@ async function postprocesar(
           ...(p.porRejilla === undefined ? {} : { porRejilla: p.porRejilla }),
         };
       } else {
-        final = await recortarAlContenido(r, 24);
-        pasos.push('recortado al contenido con 24 px de margen');
+        final = await recortarAlContenido(r, MARGEN_DEL_RECORTE);
+        pasos.push(`recortado al contenido con ${MARGEN_DEL_RECORTE} px de margen`);
       }
     }
 
@@ -473,6 +479,11 @@ async function postprocesar(
       if (encargo.referencias.some((r) => r.papel === 'guia') && /\/puente-/.test(encargo.salida)) {
         await escribirPuenteDerivado(rutaSalida);
         pasos.push('ancla llevada al centro del tablero desde la guía de geometría');
+      }
+      // Una obra del puesto se registra sobre su guía: de ahí, su escala en el mapa.
+      if (encargo.referencias.some((r) => r.papel === 'guia') && /\/puesto-/.test(encargo.salida)) {
+        await escribirPuestoDerivado(rutaSalida);
+        pasos.push('casilla registrada sobre la guía de geometría (pxPorCasilla)');
       }
     }
     // La base caminable: con cada cuadro nuevo (un maestro, una placa, una
@@ -757,6 +768,13 @@ async function encolar(args: readonly string[]): Promise<void> {
     if (args.includes('--muralla-ns')) console.log(`guía → ${await escribirGuiaDelMuro()}`);
     const todos = args.includes('--tablillas') ? encargosDeTablillas() : encargosDeMurallaNS();
     await encolarConSolo(args, todos, (id) => id.replace(/^mapa-(nodo-hito-tablilla-)?/, ''));
+    return;
+  }
+  // Las tres obras del puesto fronterizo (fase 4), cada una con su guía.
+  // `--solo=caseta,torreta,torre`.
+  if (args.includes('--puestos')) {
+    for (const g of await escribirGuiasDePuestos()) console.log(`guía → ${g}`);
+    await encolarConSolo(args, encargosDePuestos(), (id) => id.replace(/^mapa-puesto-/, ''));
     return;
   }
   if (args.includes('--cofre')) {
@@ -1323,6 +1341,13 @@ switch (orden) {
       console.log(`→ ${f.replace(/\.webp$/, '.json')}`);
     }
     break;
+  case 'derivar-puestos':
+    // La casilla de cada obra del puesto pintada, otra vez desde su guía.
+    for (const f of resto) {
+      await escribirPuestoDerivado(resolve(f));
+      console.log(`→ ${f.replace(/\.webp$/, '.json')}`);
+    }
+    break;
   case 'derivar-muros':
     // El paso con que una pieza de norte a sur va detrás de otra sin enseñar su testero.
     for (const f of await escribirMurosDerivados()) console.log(`→ ${f}`);
@@ -1592,6 +1617,6 @@ switch (orden) {
     break;
   default:
     throw new Error(
-      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, derivar-relieve, derivar-muros, derivar-casas, maniqui, muestrario, vision-instalar, revisar-maniqui, revisar, jurado, visor, visor-maniqui, versiones, elegir, adoptar, vista-base, recortar-base, medir-base, vista-ejercitos, vista-edificios, vista-efectos, vista-8d, vista-mapa, escenario, catalogo-escena`,
+      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, derivar-relieve, derivar-muros, derivar-puestos, derivar-casas, maniqui, muestrario, vision-instalar, revisar-maniqui, revisar, jurado, visor, visor-maniqui, versiones, elegir, adoptar, vista-base, recortar-base, medir-base, vista-ejercitos, vista-edificios, vista-efectos, vista-8d, vista-mapa, escenario, catalogo-escena`,
     );
 }

@@ -38,6 +38,17 @@ export function cajaDeSprite(s: ConImagen, alto = s.alto): Caja {
   return [x0, y0, x0 + s.nw * kx, y0 + s.nh * k];
 }
 
+/**
+ * Si dos cajas se solapan con un trozo de área positiva: tocarse por un borde no
+ * cuenta. Con `margen`, tampoco un solape de `margen` o menos en alguno de los
+ * dos ejes: lo que solo se roza.
+ */
+export function seTocan(a: Caja, b: Caja, margen = 0): boolean {
+  return (
+    a[0] < b[2] - margen && a[2] > b[0] + margen && a[1] < b[3] - margen && a[3] > b[1] + margen
+  );
+}
+
 /** Pasos de la bisección de `altoLibre`: con 10, el error es una milésima del alto. */
 const PASOS_DE_BISECCION = 10;
 

@@ -12,6 +12,14 @@
  */
 import { ULTIMA_FILA } from '../core/battle/board.js';
 import type { AccionesDeNpc } from '../core/npcs.js';
+/**
+ * El margen con que el taller recorta a su contenido una pieza suelta del mapa,
+ * en píxeles de su imagen (`recortarAlContenido`, `tools/taller/trabajador.ts`):
+ * lo transparente que la imagen lleva alrededor de lo pintado. Lo lee también el
+ * escenógrafo, que mide lo que se ve de una obra del puesto sin él.
+ */
+export const MARGEN_DEL_RECORTE = 24;
+
 export const ARTE = {
   /** Proyección ortográfica, 25° hacia abajo: las figuras de Y Bot se renderizaron así. */
   camara: { elevacionGrados: 25 },

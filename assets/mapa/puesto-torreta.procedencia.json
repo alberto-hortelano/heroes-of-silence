@@ -1,0 +1,51 @@
+{
+  "encargo": "mapa-puesto-torreta",
+  "tipo": "imagen",
+  "fecha": "2026-11-05T10:58:30.932Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a1ab5a-fa81-7193-8aa8-26485ee80e27",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la referencia de MATERIAL: de ella se toman SOLO el color, la textura y la paleta de la roca y de lo que crece en ella, para que case con estas piezas. NO copies su forma (columnas, prismas, bloques en fila) ni su composición.\nLa imagen 3 es la GUÍA DE GEOMETRÍA: un volumen gris sin acabado, dibujado con la cámara del juego. Manda en la ORIENTACIÓN, la forma, las proporciones, el tamaño y la posición de cada pieza dentro de la imagen: cópialas con exactitud, sin girar ni torcer nada. NO copies su gris liso, sus aristas de esquema ni su fondo plano: el material, el detalle y la luz son los de la imagen de estilo.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos: una TORRETA DE VIGÍA DE MADERA: cuatro postes de troncos gruesos, algo abiertos hacia el suelo y arriostrados con dos cruces de madera atadas, que sostienen en lo alto una garita de tablones con barandilla y un tejadillo a cuatro aguas de tablas; una escalera de mano de troncos sube por delante hasta la garita. Al pie, las piedras que calzan los postes. Toda de madera, sin una piedra en la garita.\nLA SILUETA, LAS PROPORCIONES Y LA POSICIÓN SON LAS DE LA GUÍA (imagen 3): el volumen gris es la obra, cópialo con su forma y su tamaño relativo, sin girarla ni torcerla; la losa gris de debajo es una casilla del mapa, solo la vara de medir: NO la pintes, ni ningún suelo. En la guía lo gris claro es lo de arriba, lo gris medio la cara de delante a la luz y lo oscuro lo que queda en penumbra a la derecha.\nLos materiales y la paleta: la madera de troncos de la empalizada de la imagen 2 (no su forma: aquí no hay cerca).\nSin suelo, sin peana, sin hierba ni piedras alrededor más allá de las que pide la pieza, sin estandartes ni banderas ni mástil: la bandera del dueño la pone el juego. Un único objeto, centrado y entero. Cámara ortográfica elevada 25 grados, la del juego, que es la de la guía; nunca cenital ni de perfil. La luz viene de arriba a la izquierda.\nEstilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/art/mapas/Imagen de ChatGPT 3 oct 2026, 10_05_01.png",
+      "papel": "estilo",
+      "sha256": "a3b78bb6efb486f6c65827e19739696aab723d824331faaa6d58d84c727fe6f5"
+    },
+    {
+      "ruta": "assets/mapa/nodo-empalizada.webp",
+      "papel": "material",
+      "sha256": "012f188aacc2776e9d8026b4528ec6b95b161da573e2146fe4cfc0094b5b37ec"
+    },
+    {
+      "ruta": "assets/mapa/guias/puesto-torreta.png",
+      "papel": "guia",
+      "sha256": "055e53dcdc7e78a76e800f308e2d0473cb6d189de116fc2a0aa60903ff17265a"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a1ab5a-fa81-7193-8aa8-26485ee80e27/exec-31b8a429-9549-469e-af7c-50a2f9a337e3.png",
+    "sha256": "34d22c01ee848386899dcbc5f1f45b480afc2c93f2c34c5b65a9a2b7464326f4",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 494×1066, ancla en (246,1041)"
+  ],
+  "validacion": {
+    "visibles": 0.6631225740784347,
+    "opacos": 0.9868786923365492,
+    "haloSuelto": 0,
+    "ancho": 494,
+    "alto": 1066
+  },
+  "salida": {
+    "ruta": "assets/mapa/puesto-torreta.webp",
+    "sha256": "11722c0f49fc2e5834abbdc8b233322c438de6b446dedf0c7f2509757f7b3eaf"
+  }
+}

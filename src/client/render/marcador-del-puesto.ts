@@ -4,26 +4,23 @@
  * caseta en el mapa una vez alguien lo ha tomado, una torreta de madera si es una
  * empalizada o una torre si está amurallado». Con la bandera del dueño encima.
  *
- * **Dibujado por el juego**, con trazos de lienzo y no con arte: el arte de Codex
- * es la fase 4, y el juego se juega sin arte (cada nivel, un marcador distinto).
+ * **Dibujado por el juego**, con trazos de lienzo y no con arte: es lo que se ve
+ * mientras no llega la imagen de la obra (la fase 4), o sin ella, porque el juego
+ * se juega sin arte (cada nivel, un marcador distinto). Lo decide el mapa en cada
+ * fotograma, y lo pinta a la escala de la obra que sustituye: cabe en lo que se
+ * vería de ella (`escalaDelMarcador`).
  * Las tres siluetas se distinguen de lejos por la forma antes que por el color: la
  * caseta, ancha y baja con su tejado a dos aguas; la torreta, una caja de madera
  * en lo alto de sus patas; la torre, alta, gris y almenada.
  *
- * Puro de pintura: recibe dónde y cuánto mide una casilla, y no sabe nada de la
- * escena ni de la niebla. Dónde va lo dice la escena (`Escenario.puestoDeNodo`: su
- * pie y su clave, que lo pinta entre los volúmenes, detrás de lo que tiene
- * delante); qué obra, el objeto que se sabe (`objetosConocidos`, con la que se vio
- * por última vez); y la bandera, encima de todo, en su punta (`puntaDelMarcador`).
+ * Puro de pintura: recibe dónde, cuánto mide una casilla y la caja de su obra, y
+ * no sabe nada de la escena ni de la niebla. Dónde va y en qué orden lo dice la
+ * pieza de la obra en la escena (`Sprite.deNodo`); qué obra, el objeto que se sabe
+ * (`objetosConocidos`, con la que se vio por última vez); y la bandera, encima de
+ * todo, en su punta (`altoDelMarcador`).
  */
 import type { MejoraDelPuesto } from '@core/map/map.js';
 import { pintarSombra } from './sombra.js';
-
-/**
- * A qué escala se pinta el marcador frente a la casilla: a la de la casilla se
- * perdía junto al héroe al zoom de partida (visto en el navegador, 05-11-2026).
- */
-const ESCALA_DEL_MARCADOR = 1.3;
 
 /** El contorno de todo el marcador: oscuro, para que se lea sobre la nieve y sobre la roca. */
 const CONTORNO = 'rgba(28, 20, 12, 0.9)';
@@ -42,7 +39,7 @@ const COLORES = {
 
 /**
  * Cuánto mide cada marcador por encima de su suelo, en casillas del marcador: de
- * donde sale la bandera (`puntaDelMarcador`). Distintos a propósito: la altura dice
+ * donde sale la bandera (`altoDelMarcador`). Distintos a propósito: la altura dice
  * la obra antes que el dibujo.
  */
 const ALTO_DEL_MARCADOR: Readonly<Record<MejoraDelPuesto, number>> = {
@@ -52,16 +49,40 @@ const ALTO_DEL_MARCADOR: Readonly<Record<MejoraDelPuesto, number>> = {
 };
 
 /**
- * La `y` de la punta del marcador de la obra `mejora` con la base en `suelo`, en
- * píxeles, con casillas de `tile` píxeles: donde se planta la bandera del dueño.
+ * Lo que mide cada marcador de ancho, de alero a alero o de pata a pata, en
+ * casillas del marcador: con su alto, lo que tiene que caber en su obra.
  */
-export function puntaDelMarcador(suelo: number, tile: number, mejora: MejoraDelPuesto): number {
-  return suelo - ALTO_DEL_MARCADOR[mejora] * tile * ESCALA_DEL_MARCADOR;
+const ANCHO_DEL_MARCADOR: Readonly<Record<MejoraDelPuesto, number>> = {
+  ninguna: 0.38,
+  empalizada: 0.32,
+  muralla: 0.29,
+};
+
+/** Lo que se ve de una obra, en casillas: de ancho y de su pie a lo alto. */
+export interface CajaDeObra {
+  readonly ancho: number;
+  readonly alto: number;
+}
+
+/**
+ * La escala del marcador de la obra `mejora` frente a la casilla: la mayor con la
+ * que cabe en lo que se ve de su obra (`caja`), a la que sustituye.
+ */
+function escalaDelMarcador(mejora: MejoraDelPuesto, caja: CajaDeObra): number {
+  return Math.min(caja.alto / ALTO_DEL_MARCADOR[mejora], caja.ancho / ANCHO_DEL_MARCADOR[mejora]);
+}
+
+/**
+ * Lo que sube el marcador de la obra `mejora` a la escala de su obra, en
+ * casillas: donde se planta la bandera del dueño.
+ */
+export function altoDelMarcador(mejora: MejoraDelPuesto, caja: CajaDeObra): number {
+  return ALTO_DEL_MARCADOR[mejora] * escalaDelMarcador(mejora, caja);
 }
 
 /**
  * Pinta el marcador de la obra `mejora` con la base en (`x`, `suelo`), en píxeles,
- * con casillas de `tile` píxeles.
+ * con casillas de `tile` píxeles, a la escala de su obra (`caja`).
  */
 export function pintarMarcadorDelPuesto(
   ctx: CanvasRenderingContext2D,
@@ -69,8 +90,10 @@ export function pintarMarcadorDelPuesto(
   suelo: number,
   tile: number,
   mejora: MejoraDelPuesto,
+  caja: CajaDeObra,
 ): void {
-  const t = (f: number): number => f * tile * ESCALA_DEL_MARCADOR;
+  const k = escalaDelMarcador(mejora, caja);
+  const t = (f: number): number => f * tile * k;
   // La sombra de toda figura sin imagen: el marcador está en el suelo, no flotando.
   pintarSombra(ctx, x, suelo, t(ALTO_DEL_MARCADOR[mejora]));
   ctx.save();

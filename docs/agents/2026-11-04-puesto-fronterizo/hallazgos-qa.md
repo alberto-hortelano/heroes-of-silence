@@ -136,3 +136,38 @@ de … ya está amurallado»), escrita en `laMejoraPedida`; mírala con los nomb
   y el bosque: colocación, fase 4 (`componer` reserva su sitio).
 - Torreta y torre en el espectador en vivo: nadie mejora en una partida del servidor; lo cubre la
   inversa exacta.
+
+---
+
+# Hallazgos de QA de la fase 4 (vuelta 1), decididos
+
+De `qa.md` («Fase 4 · vuelta 1», apto con reservas). Decididos por el coordinador (05-11-2026). El
+juego no cambia: `pnpm banco` sigue en `883fe9be…`; los guardias de la escena, a 0 en 1-40.
+
+## QF4-1 · Lo que depende del dueño no se hornea en el suelo (H-F4-1)
+
+El paso 6 de `pintarSuelo` hornea una vez por partida la sombra de todo sprite con `sombra`, y su
+filtro (`seVe`) solo mira `s.objeto`: desde S41 las obras no lo llevan, así que cada nodo, tomado o
+no, lleva tres sombras apiladas (1 623 en 1-40) y el neutral una mancha negra; la del hito se queda
+al tomarse el paso. → **lo que se elige por el dueño en cada fotograma (`Sprite.deNodo`: las tres
+obras y el hito) no se hornea**: su sombra se pinta con su volumen en el fotograma (la de contacto
+común, `pintarSombra`, o la que use el pintor de volúmenes para lo suyo), solo cuando se ve
+(`seVeConSuNodo`). Un guardia de la escena o de `pintarSuelo`: ningún sprite con `deNodo` entra en
+las sombras horneadas, visto morder. Se mira en el navegador: el neutral sin mancha, la caseta sin el
+halo de la torre, y el paso tomado sin la sombra del hito.
+
+## QF4-2 · El puesto no tapa una ciudad (H-F4-2)
+
+Con el paso al pie de una ciudad, la torre del puesto se pinta delante del recinto, le tapa hasta
+0,29 casillas del pie de una torre de su muralla y su bandera queda encima: se lee como una torre más
+de la ciudad (s45 (14,8), y s43, s52, s67). → el sitio del puesto no tapa un recinto: la envoltura
+del recinto entra en lo que el puesto no puede tapar (`dondeNoVaUnPuesto`), y un guardia (que la obra
+no tape la envoltura de un recinto ni ningún objeto horneado que vaya detrás) a 0 en 1-40, visto
+morder. Se mira s45 (14,8) en el navegador.
+
+## QF4-3 · Los dos casos del 64×64 (H-F4-3)
+
+En 64×64, s1 node-17 (19,31) sin sitio y s3 node-33 (35,59) con una bajada que tapa las tres obras.
+→ si sale barato (p. ej. las bajadas en lo que no puede tapar al puesto, o un radio un poco mayor solo
+cuando no hay sitio), se arregla y los dos guardias dan 0 también en 1-6 del 64×64; si no, se deja,
+se dice en `implementacion.md` con su causa, y va al backlog.
