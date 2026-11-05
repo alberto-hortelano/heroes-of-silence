@@ -219,7 +219,7 @@ describe('la tropa se hace héroe: el ascenso', () => {
         { rng: createRng(1) },
         1,
       ),
-    ).toThrow(/no quedan puntos de movimiento/);
+    ).toThrow(`${heroe.name} hoy no da ni un paso`);
     expect(heroe.at).toEqual(desde);
   });
 });

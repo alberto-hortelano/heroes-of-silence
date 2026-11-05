@@ -58,12 +58,19 @@ import {
   pintarSprite,
   type Volumen,
 } from './escenario/pintar.js';
-import { cajaDeLaObra, esObra, type Obra, seVeConSuNodo } from './escenario/puestos.js';
+import {
+  cajaDeLaObra,
+  esObra,
+  type NodoQueSeSabe,
+  type Obra,
+  seVeConSuNodo,
+} from './escenario/puestos.js';
 import {
   claveDeFigura,
   copiaDeVolumen,
   type Escenario,
   escenarioListo,
+  pieEn,
   pisada,
   sueloDelMapa,
   type VolumenDelMapa,
@@ -123,6 +130,11 @@ export interface PasoDeRuta {
   readonly peligro?: boolean;
   /** En el primer paso con peligro: el grupo que embosca ahí. */
   readonly emboscada?: VistaAsaltante;
+  /**
+   * En el primer paso de otro día, si es una barrera que se cruza infiltrado: la
+   * frase del núcleo de por qué hoy se para antes (`barreraDeMañana`).
+   */
+  readonly barrera?: string;
 }
 
 export interface VistaMapa {
@@ -448,8 +460,9 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
 
   // 2 · Lo que tiene altura —los volúmenes de la escena y las figuras del juego—,
   //     en un solo orden de profundidad: una figura puede quedar detrás de un árbol.
-  const { cosas, sobreLaNiebla } = cosasDe(v, esc);
-  pintarLoQueTieneAltura(ctx, v, volumenesALaVista(v, esc), cosas);
+  const nodos = nodosQueSeSaben(v);
+  const { cosas, sobreLaNiebla } = cosasDe(v, esc, nodos);
+  pintarLoQueTieneAltura(ctx, v, volumenesALaVista(v, esc, nodos), cosas);
 
   // 2b · El clima de cada región, encima de lo que tiene altura y DEBAJO de los
   //      identificadores y de la niebla de guerra: no tapa ni destapa nada de
@@ -567,7 +580,11 @@ type Cosa =
  * los volúmenes; los de casilla sin explorar, en `sobreLaNiebla`, que se pinta
  * encima de ella y sin volúmenes que los tapen —su terreno no se conoce—.
  */
-function cosasDe(v: VistaMapa, esc: Escenario): { cosas: Cosa[]; sobreLaNiebla: Cosa[] } {
+function cosasDe(
+  v: VistaMapa,
+  esc: Escenario,
+  nodos: ReadonlyMap<string, NodoQueSeSabe>,
+): { cosas: Cosa[]; sobreLaNiebla: Cosa[] } {
   const { escena, camara, explorado } = v;
   const explorada = (p: Point): boolean => explorado === null || explorado.has(p);
   const { x0, y0, x1, y1 } = ventanaDeCasillas(camara, v.ancho, v.alto, MARGEN_DE_COSA);
@@ -603,7 +620,7 @@ function cosasDe(v: VistaMapa, esc: Escenario): { cosas: Cosa[]; sobreLaNiebla: 
   }
   for (const h of v.heroes) {
     if (!enVista(h.at)) continue;
-    const pie = pisada(esc, h.at, PIES.heroe);
+    const pie = pisada(esc, h.at, PIES.heroe, nodos);
     lista.push({ tipo: 'heroe', clave: pie.clave, heroe: h, pie });
   }
   const pintados = new Set<string>();
@@ -620,6 +637,16 @@ function cosasDe(v: VistaMapa, esc: Escenario): { cosas: Cosa[]; sobreLaNiebla: 
 }
 
 /**
+ * Lo que se sabe de cada nodo, por su id: el dueño y la mejora que se vieron por
+ * última vez. Elige la pieza que se pinta en él, el hito o la obra de su puesto
+ * (`seVeConSuNodo`), y de ellas lo que cuenta para quien está en una barrera
+ * (`pisada`).
+ */
+function nodosQueSeSaben(v: VistaMapa): ReadonlyMap<string, NodoQueSeSabe> {
+  return new Map(v.objetos.flatMap((o) => (o.kind === 'node' ? [[o.id, o] as const] : [])));
+}
+
+/**
  * Los volúmenes de la escena que asoman en la vista, en su orden: se recorren
  * solo las filas visibles.
  *
@@ -628,11 +655,12 @@ function cosasDe(v: VistaMapa, esc: Escenario): { cosas: Cosa[]; sobreLaNiebla: 
  * formación cuya raíz sigue en la niebla (aceptado por el usuario). Lo horneado
  * no: una ciudad asomando diría dónde hay una ciudad.
  */
-function volumenesALaVista(v: VistaMapa, esc: Escenario): VolumenDelMapa[] {
+function volumenesALaVista(
+  v: VistaMapa,
+  esc: Escenario,
+  nodos: ReadonlyMap<string, NodoQueSeSabe>,
+): VolumenDelMapa[] {
   const { camara, explorado } = v;
-  // Lo que se sabe de cada nodo elige su pieza: el hito o la obra de su puesto
-  // (`seVeConSuNodo`), con el dueño y la mejora que se vieron por última vez.
-  const nodos = new Map(v.objetos.flatMap((o) => (o.kind === 'node' ? [[o.id, o] as const] : [])));
   const { x0, y0, x1, y1 } = ventanaDeCasillas(camara, v.ancho, v.alto, MARGEN_DE_VOLUMEN);
   const fuera: VolumenDelMapa[] = [];
   for (let fila = Math.max(0, y0); fila < Math.min(esc.porFila.length, y1); fila++)
@@ -1526,8 +1554,8 @@ function pintarRuta(
   ctx.save();
   for (const paso of pasos) {
     // En la casilla de un puente, sobre su tablero: donde se pintará el héroe.
-    const p = pisada(esc, paso.at, 0.5);
-    const c = mundoAPixel(camara, p.x, p.y);
+    const [px, py] = pieEn(esc, paso.at, 0.5);
+    const c = mundoAPixel(camara, px, py);
     // El tramo de la emboscada en rojo, hoy u otro día: ahí se para la marcha y
     // empieza una batalla, que es lo que la persona tiene que ver antes de pulsar.
     ctx.fillStyle = paso.peligro === true ? COLOR_EMBOSCADA : paso.hoy ? '#f6db78' : '#9aa1a8';

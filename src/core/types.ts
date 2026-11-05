@@ -17,11 +17,12 @@ export function describirCoste(oro: number): string {
 }
 
 /**
- * Una lista en prosa: «a», «a y b», «a, b y c» o, con `o`, «3, 5 o 7». **El único
+ * Una lista en prosa: «a», «a y b», «a, b y c», con `o`, «3, 5 o 7», o con `ni`,
+ * «a, b ni c» (tras un «no»: «no lo llevan su tipo ni el goblin»). **El único
  * enumerador** de los motivos y avisos del núcleo, que antes lo escribían cada
  * uno. Lanza con la lista vacía: «nada» lo dice quien llama, que sabe de qué.
  */
-export function enumerar(lista: readonly string[], conjuncion: 'y' | 'o' = 'y'): string {
+export function enumerar(lista: readonly string[], conjuncion: 'y' | 'o' | 'ni' = 'y'): string {
   const ultimo = lista.at(-1);
   if (ultimo === undefined) throw new Error('enumerar: la lista está vacía');
   return lista.length === 1 ? ultimo : `${lista.slice(0, -1).join(', ')} ${conjuncion} ${ultimo}`;
@@ -169,6 +170,9 @@ export const CREATURE_TRAITS = [
   'bane_undead',
   'fear',
   'escalar',
+  // Cruza barreras en el mapa si lo lleva el grupo entero, héroe incluido (lo lee
+  // solo `hero/infiltracion.ts`; 05-11-2026, la fase A de los infiltrados).
+  'infiltrarse',
 ] as const;
 
 export type CreatureTrait = (typeof CREATURE_TRAITS)[number];
@@ -190,6 +194,7 @@ export const NOMBRE_DE_RASGO: Readonly<Record<CreatureTrait, string>> = {
   bane_undead: 'azote de no-muertos',
   fear: 'terror',
   escalar: 'escala murallas',
+  infiltrarse: 'se infiltra',
 };
 
 /**

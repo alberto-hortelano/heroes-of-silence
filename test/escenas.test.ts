@@ -763,6 +763,26 @@ describe('la ruta no se pinta sobre la niebla (M5 de la 2a)', () => {
       'hoy no te queda movimiento para dar ni un paso',
     );
   });
+
+  it('si hoy se para ante una barrera, lo dice con la frase de la ruta, y solo si se ve (H2 de la infiltración)', () => {
+    const porque = '(3,0) es montaña y cuesta el día entero de marcha: se entra mañana';
+    const ruta = [
+      paso(1, true),
+      paso(2, true),
+      { ...paso(3, false), barrera: porque },
+      paso(4, false),
+    ];
+    expect(llegadaDeLaRuta(ruta, null)).toBe(
+      `hoy llegas a 2 de 4 pasos: dorado hoy, gris otro día; ${porque}`,
+    );
+    // Sin un paso hoy no se dice «no te queda movimiento»: le queda, solo que no el día entero.
+    expect(llegadaDeLaRuta(ruta.slice(2), null)).toBe(`hoy no das ni un paso: ${porque}`);
+    // Con lo que se ve, también; con la barrera en la niebla, no se delata.
+    expect(llegadaDeLaRuta(ruta, fila(1, 2, 3))).toBe(
+      `hoy andas 2 de los 3 pasos que se ven; ${porque}`,
+    );
+    expect(llegadaDeLaRuta(ruta, fila(1, 2))).toBe('hoy andas 2 de los 2 pasos que se ven');
+  });
 });
 
 describe('una figura puede quedar detrás de un árbol', () => {

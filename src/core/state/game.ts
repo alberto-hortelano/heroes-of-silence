@@ -29,7 +29,13 @@ import {
   loNeutralAlTope,
   type ReglasDelCombate,
 } from '../combate.js';
-import { ECONOMIA, figuraDelHeroe, tipoDeHeroePorDefecto, tiposDeHeroe } from '../data.js';
+import {
+  ECONOMIA,
+  figuraDelHeroe,
+  tipoDeHeroePorDefecto,
+  tipoSeInfiltra,
+  tiposDeHeroe,
+} from '../data.js';
 import { radioALaEscala } from '../escala.js';
 import { problemaDeTipo, type VeteranoEnBase, veteranosEn } from '../hero/ascenso.js';
 import {
@@ -56,13 +62,14 @@ import {
 } from '../hero/experiencia.js';
 import {
   cuerposDelHeroe,
+  empezarElDia,
   type Hero,
   heroeRecienHecho,
   learnable,
   maxMana,
-  maxMovePoints,
   moraleBonus,
 } from '../hero/hero.js';
+import { infiltracionBlocker, precioDeLaBarrera } from '../hero/infiltracion.js';
 import {
   armyLeadership,
   capacidadDe,
@@ -77,6 +84,7 @@ import {
 } from '../hero/troop.js';
 import { Casillas, type CasillasLeidas, casillasDelCuadrado } from '../map/casillas.js';
 import {
+  barreraEn,
   blocksMovement,
   costeEnElAlcance,
   findPath,
@@ -96,6 +104,7 @@ import {
 } from '../map/map.js';
 import { muroBlocker } from '../map/recinto.js';
 import { dueñoEnLaFoto, dueñosDeLaRed } from '../map/regiones.js';
+import { type Barrera, NOMBRE_DE_BARRERA } from '../map/terrain.js';
 import {
   batallaDe,
   type Cobro as CobroDelMundo,
@@ -1219,7 +1228,7 @@ function startTurn(state: GameState): void {
   player.oro += renta.total;
 
   for (const hero of heroesOf(state, player.id)) {
-    hero.movePoints = maxMovePoints(hero, state.characters);
+    empezarElDia(hero, state.characters);
     // El maná se recupera poco a poco, salvo en un pueblo con gremio.
     const enPueblo = townsOf(state, player.id).some(
       (t) => pointKey(t.at) === pointKey(hero.at) && mageGuildLevel(t) > 0,
@@ -2294,7 +2303,7 @@ function hireHero(state: GameState, quien: PlayerId, townId: string, tipo?: stri
   const pendiente = player.heroeDeSalida;
   if (pendiente !== null) {
     const hero: Hero = { ...pendiente, tipo: tipo ?? pendiente.tipo };
-    hero.movePoints = maxMovePoints(hero, state.characters);
+    empezarElDia(hero, state.characters);
     // En el orden de los jugadores, como cuando nacían todos juntos: quien lee
     // `state.heroes` (la IA, los paneles) ve lo mismo eligiendo que sin elegir.
     const puesto = state.players.findIndex((p) => p.id === player.id);
@@ -2319,7 +2328,7 @@ function hireHero(state: GameState, quien: PlayerId, townId: string, tipo?: stri
     experience: EXPERIENCIA_INICIAL_DE_HEROE,
     tipo: tipo ?? tipoDeHeroePorDefecto(town.faction),
   });
-  hero.movePoints = maxMovePoints(hero, state.characters);
+  empezarElDia(hero, state.characters);
 
   state.heroes.push(hero);
   emit(state, {
@@ -2346,6 +2355,11 @@ export interface CandidatoAHeroe {
   readonly nombreDelTipo: string;
   readonly descripcion: string;
   readonly precio: number;
+  /**
+   * Si el tipo se infiltra (`tipoSeInfiltra`, `data/infiltradores.json`): con toda
+   * su tropa con el rasgo, cruza barreras a un día por casilla (`hero/infiltracion.ts`).
+   */
+  readonly seInfiltra: boolean;
   /** Por qué no se puede contratar (`contratarBlocker`; el turno no), o `null`. */
   readonly motivo: string | null;
 }
@@ -2366,8 +2380,9 @@ export interface EleccionDeHeroe {
  * Los héroes que `quien` puede contratar en `townId`: **uno por tipo** de la
  * facción del pueblo, en el orden del cuaderno (el de por defecto, el primero),
  * sin sorteo. La única lista de candidatos: la leen la escena del ayuntamiento y
- * su panel. Mientras los tipos sean inertes todos cuestan lo mismo y salen con lo
- * mismo; lo que cambia es la figura y el texto. No mira el turno: eso lo pone
+ * su panel. Todos cuestan lo mismo y salen con lo mismo; lo que cambia es la
+ * figura, el texto y si se infiltra (la única regla que da un tipo, 05-11-2026).
+ * No mira el turno: eso lo pone
  * quien enseña la lista (la sesión sabe además del turno del rival en curso).
  */
 export function candidatosAHeroe(
@@ -2385,6 +2400,7 @@ export function candidatosAHeroe(
       nombreDelTipo: t.nombre,
       descripcion: t.descripcion,
       precio: ECONOMIA.precioDelHeroe,
+      seInfiltra: tipoSeInfiltra(town.faction, t.id),
       motivo: contratarBlocker(state, quien, townId, t.id),
     })),
   };
@@ -2583,7 +2599,17 @@ export function alcanceDelHeroe(
     opciones.evitarEmboscadas === true
       ? casillasPeligrosas(state, hero, playerById(state, hero.owner).asaltantesVistos)
       : null;
-  return reachableFrom(state.map, hero.at, casillasHostiles(state, hero.owner), peligro);
+  return alcanceConPrecio(state, hero, peligro, precioDeLaBarrera(hero));
+}
+
+/** `alcanceDelHeroe` con el precio de la barrera ya sabido: `porQueNoLlega` lo pide una vez. */
+function alcanceConPrecio(
+  state: GameState,
+  hero: Hero,
+  peligro: Uint8Array | null,
+  barrera: number | null,
+): Reachable {
+  return reachableFrom(state.map, hero.at, casillasHostiles(state, hero.owner), peligro, barrera);
 }
 
 /**
@@ -2591,7 +2617,13 @@ export function alcanceDelHeroe(
  * mismo que va a andar `move_hero`. Lo pide la pantalla para enseñar la ruta.
  */
 export function caminoHasta(state: GameState, hero: Hero, to: Point): PathStep[] | null {
-  return caminoEsquivando(state, hero, to, casillasHostiles(state, hero.owner));
+  return caminoEsquivando(
+    state,
+    hero,
+    to,
+    casillasHostiles(state, hero.owner),
+    precioDeLaBarrera(hero),
+  );
 }
 
 /**
@@ -2599,15 +2631,17 @@ export function caminoHasta(state: GameState, hero: Hero, to: Point): PathStep[]
  * exporta, y es a propósito: fuera de aquí la lista es siempre la de la partida
  * (`caminoHasta`), y con esta abierta cualquiera podría pasarle `[]` y cruzar
  * por encima de una guarnición. Solo la usa, además, `porQueNoLlega`, que
- * necesita preguntar «¿y si este no estuviera?» para saber a quién culpar.
+ * necesita preguntar «¿y si este no estuviera?» para saber a quién culpar, y
+ * «¿y si se infiltrara?» (`barrera`, el precio de la barrera, que se pide una vez).
  */
 function caminoEsquivando(
   state: GameState,
   hero: Hero,
   to: Point,
   hostiles: readonly Point[],
+  barrera: number | null,
 ): PathStep[] | null {
-  return findPath(state.map, hero.at, to, hostiles);
+  return findPath(state.map, hero.at, to, hostiles, barrera);
 }
 
 /**
@@ -2619,6 +2653,32 @@ function caminoEsquivando(
 export function pasosDeHoy(camino: readonly PathStep[], hero: Hero): number {
   const primeroQueNo = camino.findIndex((paso) => paso.cost > hero.movePoints);
   return primeroQueNo === -1 ? camino.length : primeroQueNo;
+}
+
+/** «(6,5) es montaña y cuesta el día entero de marcha»: la casilla de barrera `at`, dicha. */
+function laBarrera(at: Point, barrera: Barrera): string {
+  return `(${at.x},${at.y}) es ${NOMBRE_DE_BARRERA[barrera]} y cuesta el día entero de marcha`;
+}
+
+/**
+ * Si la marcha de hoy por `camino` (`hoy`, de `pasosDeHoy`) se para ante una
+ * barrera —el primer paso de otro día es una casilla de barrera, que quien se
+ * infiltra paga con el día entero (`hero/infiltracion.ts`)—, por qué, dicho para
+ * la persona: «(6,5) es montaña y cuesta el día entero de marcha: se entra
+ * mañana». Si no, `null`. La lee la ruta que se pinta (`Session.previewPath`):
+ * pararse en el borde con casi todo el movimiento no se entendía (H2 de la vuelta
+ * 1 de QA, 05-11-2026). Mañana se entra siempre: el día empieza con su precio.
+ */
+export function barreraDeMañana(
+  map: GameMap,
+  camino: readonly PathStep[],
+  hoy: number,
+): string | null {
+  const paso = camino[hoy];
+  const barrera = paso === undefined ? null : barreraEn(map, paso.at);
+  return paso === undefined || barrera === null
+    ? null
+    : `${laBarrera(paso.at, barrera)}: se entra mañana`;
 }
 
 /**
@@ -2648,7 +2708,8 @@ export function puedeAndarHoy(state: GameState, hero: Hero): boolean {
  * que no hay camino, así que el coste lo paga el rechazo y no la marcha:
  *
  *  1. Sin nada hostil, ¿se llega? Si no, el mapa no da paso y no hay a quién
- *     culpar.
+ *     culpar, salvo que lo abriera infiltrarse: entonces se dice por qué este
+ *     grupo no se infiltra (`infiltracionBlocker`).
  *  2. Lo hostil que el héroe **alcanza**: lo que tiene delante.
  *  3. De eso, lo que basta quitar para pasar. Si nada basta solo —dos héroes
  *     guardando los dos pasos de una región—, son todos los de delante.
@@ -2661,9 +2722,18 @@ export function porQueNoLlega(state: GameState, hero: Hero, to: Point): string {
   });
   if (muro !== null) return muro;
   const frase = `no hay camino hasta (${to.x},${to.y})`;
-  if (caminoEsquivando(state, hero, to, []) === null) return frase;
+  const barrera = precioDeLaBarrera(hero);
+  if (caminoEsquivando(state, hero, to, [], barrera) === null) {
+    // Una barrera la cruza solo quien se infiltra: si infiltrándose llegaría, se
+    // dice por qué este grupo no (con su marcha del día de precio, la que pagaría).
+    const motivo = barrera === null ? infiltracionBlocker(hero) : null;
+    if (motivo === null || caminoEsquivando(state, hero, to, [], hero.marchaDelDia) === null) {
+      return frase;
+    }
+    return `${frase} sin cruzar una barrera: solo la cruza un grupo que se infiltra, y ${motivo}`;
+  }
   const hostiles = casillasHostiles(state, hero.owner);
-  const alcance = alcanceDelHeroe(state, hero);
+  const alcance = alcanceConPrecio(state, hero, null, barrera);
   const delante = hostiles.filter((h) => costeEnElAlcance(alcance, h) !== null);
   const bastan = delante.filter(
     (h) =>
@@ -2672,6 +2742,7 @@ export function porQueNoLlega(state: GameState, hero: Hero, to: Point): string {
         hero,
         to,
         hostiles.filter((o) => pointKey(o) !== pointKey(h)),
+        barrera,
       ) !== null,
   );
   const cierran = (bastan.length > 0 ? bastan : delante).map((at) => queLoCierra(state, hero, at));
@@ -2744,7 +2815,21 @@ function moveHero(
   // El héroe anda lo que le dé el día y la marcha entra aunque no llegue: se
   // lanza solo si no da ni un paso, antes de tocar nada.
   const hoy = pasosDeHoy(camino, hero);
-  if (hoy === 0) throw new Error('no quedan puntos de movimiento para dar ni un paso');
+  if (hoy === 0) {
+    // Qué cuesta el primero y qué queda: con una barrera delante (quien se
+    // infiltra la paga con el día entero) no se adivinaría por qué no anda. Sin
+    // «no quedan puntos», que con 1436 de 1616 se leía contradictorio (H2 de la
+    // vuelta 1 de QA).
+    const { at, cost } = camino[0] as PathStep;
+    const barrera = barreraEn(state.map, at);
+    throw new Error(
+      `${hero.name} hoy no da ni un paso: ${
+        barrera === null
+          ? `el primero, a (${at.x},${at.y}), cuesta ${cost} y le quedan ${hero.movePoints}`
+          : `${laBarrera(at, barrera)} (${cost}), y le quedan ${hero.movePoints}; se entra mañana`
+      }`,
+    );
+  }
 
   // Si por el camino se ve un grupo que la emboscaría y que la ruta no avisaba,
   // la marcha se para donde lo ve (#130; la regla, en `vigiaDeLaMarcha`). Casi

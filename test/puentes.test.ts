@@ -883,7 +883,7 @@ describe('quien pisa un puente se pinta en su tablero (H3 del QA de #157)', () =
       const esc = escenarioDe(map, s);
       for (const pu of esc.escena.puentes) {
         const at = { x: Math.floor(pu.nodo[0]), y: Math.floor(pu.nodo[1]) };
-        const p = pisada(esc, at, PIES.heroe);
+        const p = pisada(esc, at, PIES.heroe, new Map());
         expect([p.x, p.y], `s${s} ${pu.id}`).toEqual(pu.asiento);
         // A igual clave se pinta antes el volumen: la figura va encima del puente.
         // La del de una ciudad-puente (#144) es la de su pieza, que no es de
@@ -892,9 +892,19 @@ describe('quien pisa un puente se pinta en su tablero (H3 del QA de #157)', () =
         if (pu.ciudad === undefined) expect(clave).toBe(esc.claveDeObjeto.get(pu.id));
         expect(p.clave).toBeGreaterThanOrEqual(clave);
       }
-      // Fuera de los puentes, como antes.
-      const p = pisada(esc, { x: 0, y: 0 }, PIES.heroe);
-      expect(p).toEqual({ x: 0.5, y: PIES.heroe, clave: claveDeFigura(esc, 0, PIES.heroe) });
+      // Fuera de los puentes, como antes: en la primera casilla que se pisa (la
+      // (0, 0) suele ser una barrera del borde, donde solo se para quien se
+      // infiltra, con su propia regla: `figuras.test.ts`).
+      const i = map.terrain.findIndex(
+        (t, k) => isWalkable(t as TerrainKind) && !esc.tableros.has(k),
+      );
+      const at = { x: i % esc.escena.W, y: Math.floor(i / esc.escena.W) };
+      const p = pisada(esc, at, PIES.heroe, new Map());
+      expect(p).toEqual({
+        x: at.x + 0.5,
+        y: at.y + PIES.heroe,
+        clave: claveDeFigura(esc, at.x, at.y + PIES.heroe),
+      });
     }
   });
 });

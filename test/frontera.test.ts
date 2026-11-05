@@ -22,8 +22,9 @@ import {
   pathFromReachable,
   pointKey,
   reachableFrom,
+  stepCost,
 } from '../src/core/map/map.js';
-import { costesDelAlcance, previosDelAlcance } from './helpers.js';
+import { conCaminos, costesDelAlcance, previosDelAlcance } from './helpers.js';
 
 /**
  * Una frontera con sitio de sobra para las claves de estos tests.
@@ -158,6 +159,39 @@ function mapaDelEmpate(): ReturnType<typeof createEmptyMap> {
 }
 
 describe('el Dijkstra que usa la frontera, por sus dos puertas', () => {
+  it('con un precio de barrera, quien se infiltra la pisa a ese precio; sin él, como siempre', () => {
+    // La infiltración (05-11-2026): un número abre las cinco barreras a ese
+    // coste, recto u oblicuo, y un camino pintado encima no lo abarata; `null`
+    // no ejecuta nada nuevo, y por eso los goldens de abajo no se mueven.
+    const montaña = (): ReturnType<typeof createEmptyMap> => {
+      const map = createEmptyMap(4, 4, 'grass');
+      for (let y = 0; y < 4; y++) map.terrain[y * 4 + 1] = 'mountain';
+      return map;
+    };
+    const desde = { x: 0, y: 0 };
+    const sin = costesDelAlcance(reachableFrom(montaña(), desde));
+    expect([...sin.keys()].sort()).toEqual(['0,0', '0,1', '0,2', '0,3']);
+    expect(findPath(montaña(), desde, { x: 1, y: 0 })).toBeNull();
+
+    const con = costesDelAlcance(reachableFrom(montaña(), desde, [], null, 1500));
+    expect(con.get('1,0')).toBe(1500);
+    expect(con.get('1,1')).toBe(1500);
+    expect(con.get('2,0')).toBe(1600);
+    expect(findPath(montaña(), desde, { x: 1, y: 0 }, [], 1500)).toEqual([
+      { at: { x: 1, y: 0 }, cost: 1500 },
+    ]);
+    // Un camino sobre la montaña no la abarata.
+    const conCamino = conCaminos(montaña(), '1,0');
+    expect(costesDelAlcance(reachableFrom(conCamino, desde, [], null, 1500)).get('1,0')).toBe(1500);
+    // `stepCost` es la misma fórmula: con el precio, recto u oblicuo, lo mismo; sin él, lanza.
+    expect(stepCost(conCamino, desde, { x: 1, y: 0 }, 1500)).toBe(1500);
+    expect(stepCost(montaña(), desde, { x: 1, y: 1 }, 1500)).toBe(1500);
+    expect(() => stepCost(montaña(), desde, { x: 1, y: 0 })).toThrow(/una barrera no se pisa/);
+    // Un precio que no es un entero positivo lanza: sería una barrera gratis.
+    expect(() => reachableFrom(montaña(), desde, [], null, 0)).toThrow(/entero positivo/);
+    expect(() => reachableFrom(montaña(), desde, [], null, 1.5)).toThrow(/entero positivo/);
+  });
+
   it('una casilla prohibida no se pisa, como un muro; el origen sí, aunque venga marcado', () => {
     const map = createEmptyMap(4, 4, 'grass');
     const prohibidas = new Uint8Array(16);

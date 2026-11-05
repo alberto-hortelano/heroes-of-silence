@@ -74,6 +74,7 @@ import type { ReglasDelCombate } from '@core/combate.js';
 import { figuraDelHeroe, isShooter } from '@core/data.js';
 import { type CatalogoDeEquipo, type Portador, pedidoDelPuesto, pieza } from '@core/hero/equipo.js';
 import { type Hero, maxMana } from '@core/hero/hero.js';
+import { infiltracionBlocker } from '@core/hero/infiltracion.js';
 import { armyLeadership, heroLeadership, troopUnit } from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
 import type { MapObject, ObraDelPuesto, PathStep } from '@core/map/map.js';
@@ -110,6 +111,7 @@ import {
 import {
   type AdventureAction,
   applyAdventureAction,
+  barreraDeMañana,
   battleOwners,
   caminoHasta,
   candidatosAHeroe,
@@ -245,6 +247,8 @@ interface RoutePreview extends PathStep {
   readonly hoy: boolean;
   readonly peligro: boolean;
   readonly emboscada?: VistaAsaltante;
+  /** En el primer paso de otro día, si es una barrera: por qué hoy se para antes (`barreraDeMañana`). */
+  readonly barrera?: string;
 }
 
 /** Una entrada del libro de hechizos tal y como la pinta el panel de batalla. */
@@ -1528,11 +1532,13 @@ export class Session implements ControlDeBatalla {
     // avisa, o la ruta le contaría lo que tapa la niebla.
     const emboscada = emboscadaEnLaRuta(this.state, hero, camino, this.asaltantesALaVista());
     const hoy = pasosDeHoy(camino, hero);
+    const barrera = barreraDeMañana(this.state.map, camino, hoy);
     return camino.map((paso, i) => ({
       ...paso,
       hoy: i < hoy,
       peligro: emboscada !== null && i >= emboscada.paso,
       ...(emboscada !== null && i === emboscada.paso ? { emboscada: emboscada.raider } : {}),
+      ...(barrera !== null && i === hoy ? { barrera } : {}),
     }));
   }
 
@@ -1792,6 +1798,14 @@ export class Session implements ControlDeBatalla {
   }
 
   // ------------------------------------------------------------ guarnición
+
+  /**
+   * Por qué el grupo de `hero` no se infiltra (`infiltracionBlocker`), o `null`
+   * si cruza barreras a un día por casilla. Lo lee el panel del héroe.
+   */
+  infiltracion(hero: Hero): string | null {
+    return infiltracionBlocker(hero);
+  }
 
   /** Si `hero` está en un paso o un pueblo suyo (la ciudad tiene su base). */
   enSuPasoOPueblo(hero: Hero): boolean {

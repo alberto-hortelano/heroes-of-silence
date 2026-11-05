@@ -12,6 +12,7 @@ import faccionesJson from '../../data/facciones.json' with { type: 'json' };
 import figurasDeHeroeJson from '../../data/figuras-de-heroe.json' with { type: 'json' };
 import habilidadesJson from '../../data/habilidades.json' with { type: 'json' };
 import heroeJson from '../../data/heroe.json' with { type: 'json' };
+import infiltradoresJson from '../../data/infiltradores.json' with { type: 'json' };
 import liderazgoJson from '../../data/liderazgo.json' with { type: 'json' };
 import murallaJson from '../../data/muralla.json' with { type: 'json' };
 import poblamientoJson from '../../data/poblamiento.json' with { type: 'json' };
@@ -64,6 +65,7 @@ import {
   esIdDeUnidad,
   esObjeto,
   problemasDeObjeto,
+  repetidoEn,
   revisarLista,
 } from './validar.js';
 
@@ -626,9 +628,10 @@ export const PODER: ReglasDelPoder = validarPoder(poderJson);
 
 /**
  * Un tipo de héroe de `data/tipos-de-heroe.json`, sacado del cuaderno con una
- * expresión regular (`tools/datos/tipos-de-heroe.ts`). **Inerte**: se guarda en
- * el héroe (`Hero.tipo`), se ve y se serializa, pero no da nada hasta que exista
- * el motor de habilidades.
+ * expresión regular (`tools/datos/tipos-de-heroe.ts`). Se guarda en el héroe
+ * (`Hero.tipo`), se ve y se serializa; sus habilidades no hacen nada hasta que
+ * exista su motor, y lo único que da es si se infiltra (`tipoSeInfiltra`, de un
+ * fichero aparte, porque este es generado).
  */
 export interface TipoDeHeroe {
   readonly id: string;
@@ -699,7 +702,8 @@ export function tiposDeHeroe(faction: FactionId): readonly TipoDeHeroe[] {
  * (Caballero, Nigromante). El id y no el
  * tipo entero, porque es lo que guarda `Hero.tipo` y lo único que leen quienes
  * lo piden. Lo elige así el plan
- * de este ciclo, y como el tipo es inerte no cambia ninguna partida.
+ * de este ciclo, y como el de por defecto no se infiltra (`validarInfiltradores`
+ * lo rechaza) no cambia ninguna partida.
  */
 export function tipoDeHeroePorDefecto(faction: FactionId): string {
   return (TIPOS_DE_HEROE[faction][0] as TipoDeHeroe).id;
@@ -792,6 +796,69 @@ export function figuraDelHeroe(h: { readonly faction: FactionId; readonly tipo: 
     );
   }
   return hoja;
+}
+
+/**
+ * Los tipos de héroe que se infiltran, por facción (`data/infiltradores.json`, a
+ * mano: `tipos-de-heroe.json` es generado y perdería un campo puesto en él),
+ * comprobados contra el catálogo de tipos. **Lanza con todos los problemas a la
+ * vez**: un tipo que no es de su facción, uno repetido, una facción sin ninguno
+ * (con alguna, la infiltración se juega con cualquiera), una que no existe y **el
+ * tipo por defecto** (`tipoDeHeroePorDefecto`): es el héroe de la IA, del agente
+ * y de la partida rápida, y si se infiltrara la IA cruzaría barreras sin
+ * quererlo y `pnpm banco` cambiaría.
+ *
+ * Exportada con el JSON de argumento por lo mismo que `validarFigurasDeHeroe`:
+ * para verla morder con un fichero malo.
+ */
+export function validarInfiltradores(
+  json: unknown,
+  tipos: Readonly<Record<FactionId, readonly TipoDeHeroe[]>>,
+): Readonly<Record<FactionId, readonly string[]>> {
+  const problemas: string[] = [];
+  const escritos =
+    ((json ?? {}) as { infiltradores?: Record<string, unknown> }).infiltradores ?? {};
+  const out = {} as Record<FactionId, readonly string[]>;
+  for (const [faccion, lista] of Object.entries(tipos) as [FactionId, readonly TipoDeHeroe[]][]) {
+    const suyos = escritos[faccion];
+    if (!Array.isArray(suyos) || suyos.length === 0) {
+      problemas.push(`la facción ${faccion} no tiene ningún tipo que se infiltre`);
+      continue;
+    }
+    for (const id of suyos as unknown[]) {
+      if (typeof id !== 'string' || !lista.some((t) => t.id === id)) {
+        problemas.push(
+          `${JSON.stringify(id)} no es ningún tipo de héroe de ${faccion} (data/tipos-de-heroe.json)`,
+        );
+      }
+    }
+    const repetido = repetidoEn(suyos as unknown[]);
+    if (repetido !== undefined) problemas.push(`${faccion} repite el tipo ${String(repetido)}`);
+    const porDefecto = tipoDeHeroePorDefecto(faccion);
+    if (suyos.includes(porDefecto)) {
+      problemas.push(
+        `${porDefecto} es el tipo por defecto de ${faccion} y no puede infiltrarse: la IA, el agente y la partida rápida juegan con él`,
+      );
+    }
+    out[faccion] = suyos as string[];
+  }
+  for (const faccion of Object.keys(escritos)) {
+    if (!(faccion in tipos)) problemas.push(`"${faccion}" no es ninguna facción del motor`);
+  }
+  if (problemas.length > 0) throw new Error(`data/infiltradores.json: ${problemas.join('; ')}`);
+  return out;
+}
+
+const INFILTRADORES = validarInfiltradores(infiltradoresJson, TIPOS_DE_HEROE);
+
+/**
+ * Si el tipo `tipo` de la facción se infiltra (`data/infiltradores.json`). Es la
+ * mitad del héroe de la regla; la de la tropa y el grupo entero la junta
+ * `infiltracionBlocker` (`hero/infiltracion.ts`). Un tipo que no existe, `false`:
+ * quien lo construyó ya lanzó al pedir su figura o su nombre.
+ */
+export function tipoSeInfiltra(faction: FactionId, tipo: string): boolean {
+  return INFILTRADORES[faction].includes(tipo);
 }
 
 // ---------------------------------------------------------------- facciones

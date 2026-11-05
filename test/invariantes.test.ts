@@ -2706,6 +2706,38 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo([PERMITIDO], apunta)).toHaveLength(1);
   });
 
+  it('la infiltración se lee en un sitio: el rasgo en `hero/infiltracion.ts`, sus tipos en `core/data.ts`', () => {
+    // Quién se infiltra es una sola regla (`infiltracionBlocker`): si otro módulo
+    // mirara el rasgo `'infiltrarse'` por su cuenta, la búsqueda de caminos, la
+    // ficha y el contrato podrían decir cosas distintas del mismo grupo. Y el
+    // fichero de los tipos, a mano, se valida en un sitio (`validarInfiltradores`:
+    // nunca el tipo por defecto, o el banco cambia). Roto a mano: un
+    // `hasTrait(u, 'infiltrarse')` en `ai/strategy.ts` y un `import i from
+    // '../../data/infiltradores.json'` en `contract/serialize.ts` salen rojos.
+    const RASGO = ['src/core/types.ts', 'src/core/hero/infiltracion.ts'];
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
+    // Con comillas simples, como se escribe en el código (biome): la prosa del
+    // agente lo nombra entre dobles dentro de su plantilla, y eso no es leerlo.
+    const lee = /'infiltrarse'/;
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => !RASGO.includes(r)),
+        lee,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo(['src/core/hero/infiltracion.ts'], lee)).not.toEqual([]);
+
+    const PUERTA = 'src/core/data.ts';
+    const importa = importaDe(/[^'"]*data\/infiltradores\.json/);
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => r !== PUERTA),
+        importa,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([PUERTA], importa)).not.toEqual([]);
+  });
+
   it('`data/clima.json` lo importa solo `core/state/clima.ts`, que lo valida al cargar', () => {
     // Las cifras del clima (pesos, rachas, topes del narrador) se leen validadas
     // en un sitio (`validarClima`). Roto a mano: un `import c from

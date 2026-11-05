@@ -413,14 +413,26 @@ export function llegadaDeLaRuta(
   explorado: CasillasLeidas | null,
 ): string {
   const vistos = pasosAPintar(ruta, explorado);
+  // Si hoy se para ante una barrera que se ve, por qué (H2 de la vuelta 1 de QA
+  // de la infiltración): con casi todo el movimiento y sin decirlo, no se entendía.
+  const barrera = vistos.find((r) => r.barrera !== undefined)?.barrera;
+  const conLaBarrera = (frase: string): string =>
+    barrera === undefined ? frase : `${frase}; ${barrera}`;
   const hoy = vistos.filter((r) => r.hoy).length;
-  if (hoy === 0) return 'hoy no te queda movimiento para dar ni un paso';
+  // Ante una barrera le queda movimiento, solo que no el día entero: «no te queda
+  // movimiento» se leía contradictorio.
+  if (hoy === 0)
+    return barrera === undefined
+      ? 'hoy no te queda movimiento para dar ni un paso'
+      : `hoy no das ni un paso: ${barrera}`;
   if (vistos.length === ruta.length) {
     return hoy === ruta.length
       ? `llegas hoy (${ruta.length} ${ruta.length === 1 ? 'paso' : 'pasos'})`
-      : `hoy llegas a ${hoy} de ${ruta.length} pasos: dorado hoy, gris otro día`;
+      : conLaBarrera(`hoy llegas a ${hoy} de ${ruta.length} pasos: dorado hoy, gris otro día`);
   }
-  const queSeVen = `hoy andas ${hoy} de los ${vistos.length} ${vistos.length === 1 ? 'paso' : 'pasos'} que se ven`;
+  const queSeVen = conLaBarrera(
+    `hoy andas ${hoy} de los ${vistos.length} ${vistos.length === 1 ? 'paso' : 'pasos'} que se ven`,
+  );
   // Si el destino está en la niebla, la barra ya empieza por «Tierras
   // desconocidas» y la cola lo repetía (QA de #123, H3): solo se dice que sigue
   // por la niebla cuando el destino se ve y la niebla queda en medio. Frase

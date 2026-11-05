@@ -6,10 +6,10 @@ import { problemaDeTipo } from '../hero/ascenso.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../hero/experiencia.js';
 import {
   CIFRAS_DEL_HEROE_INICIAL,
+  empezarElDia,
   type Hero,
   heroeRecienHecho,
   maxMana,
-  maxMovePoints,
 } from '../hero/hero.js';
 import { heroLeadership, troopRoom, withTroops } from '../hero/troop.js';
 import {
@@ -299,7 +299,7 @@ export function newGame(options: NewGameOptions = {}): GameState {
     };
     hero.mana = maxMana(hero);
     // Sin personajes: una partida nueva no tiene ninguno (`GameState.characters`).
-    hero.movePoints = maxMovePoints(hero, undefined);
+    empezarElDia(hero, undefined);
     return hero;
   });
 

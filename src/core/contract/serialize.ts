@@ -53,7 +53,8 @@ import {
   rangoDeTropa,
   siguienteUmbral,
 } from '../hero/experiencia.js';
-import { heroUnit, maxMana, maxMovePoints } from '../hero/hero.js';
+import { type Hero, heroUnit, maxMana, maxMovePoints } from '../hero/hero.js';
+import { infiltracionBlocker } from '../hero/infiltracion.js';
 import {
   armyLeadership,
   GARRISON_LEADERSHIP,
@@ -179,6 +180,20 @@ function armyView(
           equipment: equipoView(g.veterania.equipo),
         }),
   }));
+}
+
+/**
+ * Si un héroe se infiltra (`infiltrates`) y, si no, por qué
+ * (`infiltrationBlocker`, `infiltracionBlocker`): sin el motivo, el agente no
+ * sabría a quién licenciar o qué tipo contratar para cruzar barreras.
+ */
+function infiltracionVista(
+  h: Hero,
+): { infiltrates: true } | { infiltrates: false; infiltrationBlocker: string } {
+  const motivo = infiltracionBlocker(h);
+  return motivo === null
+    ? { infiltrates: true }
+    : { infiltrates: false, infiltrationBlocker: motivo };
 }
 
 /**
@@ -525,9 +540,11 @@ export const COMO_SE_LEE_EL_MAPA = `  Trae width, height, terrain[], roads[], ob
     pero no se cruza.
   - Con "terrain" y "roads" eliges la ruta antes de andarla, en vez de descubrirla
     al pisarla:
-    - ${BARRERAS_EN_PROSA} NO se cruzan. No hay barcos ni puertos de montaña: una
-      casilla de una de ellas no es un atajo caro, es un muro, y un destino al otro
-      lado obliga a rodearla o, si separa dos regiones, a pasar por un nodo.
+    - ${BARRERAS_EN_PROSA} NO se cruzan, salvo un héroe que se infiltra
+      ("heroes[].infiltrates"), a un día entero de marcha por casilla. No hay
+      barcos ni puertos de montaña: para todos los demás una casilla de una de
+      ellas no es un atajo caro, es un muro, y un destino al otro lado obliga a
+      rodearla o, si separa dos regiones, a pasar por un nodo.
     - Entrar en una casilla cuesta esto en puntos de movimiento, y la cifra entre
       paréntesis es la que se cobra si entras en diagonal —las dos son ya el precio
       final, no hay nada que aplicarles—:
@@ -639,10 +656,13 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
     heroes: heroesOf(state, playerId).map((h) => ({
       id: h.id,
       name: h.name,
-      // El tipo, inerte todavía, y la historia si nació de la tropa. Van con su
-      // línea en `RESPONSE_FORMAT`, como todo campo de aquí.
+      // El tipo y la historia si nació de la tropa. Van con su línea en
+      // `RESPONSE_FORMAT`, como todo campo de aquí.
       type: h.tipo,
       ...(h.origen === undefined ? {} : { story: h.origen.historia }),
+      // Si cruza barreras (`hero/infiltracion.ts`), y si no, por qué: sin el
+      // motivo el agente no sabría a quién licenciar para que se infiltre.
+      ...infiltracionVista(h),
       at: h.at,
       // El rango con su experiencia y el umbral del siguiente, como una fila de
       // veterano de `army`: la escala es una sola (el héroe empieza en el 5,

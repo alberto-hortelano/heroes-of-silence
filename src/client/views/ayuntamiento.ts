@@ -9,13 +9,22 @@
  * (`candidatosAHeroe`), y el motivo va **escrito debajo** del botón, como en la
  * morada: en el móvil no hay ratón que enseñe un `title`.
  */
-import { type Army, describirCoste } from '@core/types.js';
+import { BARRERAS, NOMBRE_DE_BARRERA } from '@core/map/terrain.js';
+import { type Army, describirCoste, enumerar, NOMBRE_DE_RASGO } from '@core/types.js';
 import type { FichaDelAyuntamiento } from '../ayuntamiento/vista.js';
 import { DESHABILITADO, type Html, html, NADA, srcDeImagen } from '../html.js';
 import type { Session } from '../session.js';
 import { filaDeCifra, motivoApagado } from './cifras.js';
 import { botonesDeLaFila } from './morada.js';
 import { nota, renderArmy } from './panels.js';
+
+/**
+ * Lo que hace un tipo que se infiltra, para su nota: el rasgo y las barreras
+ * dichos con sus nombres de siempre (`NOMBRE_DE_RASGO`, `NOMBRE_DE_BARRERA`).
+ */
+const NOTA_DEL_INFILTRADOR = `Con toda su tropa con el rasgo «${NOMBRE_DE_RASGO.infiltrarse}», cruza ${enumerar(
+  BARRERAS.map((b) => NOMBRE_DE_BARRERA[b]),
+)} a un día entero por casilla.`;
 
 export function renderPanelDelAyuntamiento(session: Session): Html {
   const vista = session.vistaDelAyuntamiento();
@@ -62,6 +71,7 @@ function renderFicha(
     </div>
     <p class="descripcion-de-heroe">${f.descripcion}</p>
     ${filaDeCifra('Precio', describirCoste(f.precio))}
+    ${f.seInfiltra ? filaDeCifra('Se infiltra', html`sí ${nota(NOTA_DEL_INFILTRADOR)}`) : NADA}
     <div class="reclutar">
       <button data-action="hire-hero" data-tipo="${f.tipo}" class="primary" ${apagado}>Contratar a ${f.nombreDelTipo}</button>
     </div>

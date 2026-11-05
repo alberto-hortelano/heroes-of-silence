@@ -9,7 +9,7 @@
  * profundidad junto con las figuras: una figura puede quedar detrás de un árbol.
  */
 import type { MejoraDelPuesto } from '@core/map/map.js';
-import type { TerrainKind } from '@core/map/terrain.js';
+import { esBarrera, type TerrainKind } from '@core/map/terrain.js';
 import catalogoDelRepo from '../../../../assets/mapa/escena.json' with { type: 'json' };
 import {
   avisarDeArteNuevo,
@@ -30,10 +30,15 @@ import {
 import { copiaReducidaSiCabe } from '../copias.js';
 import { pigments } from '../terreno.js';
 import type { MapaDeEscena } from './analizar.js';
-import { perfilesDelCatalogo } from './caras.js';
+import { type PerfilDe, perfilesDelCatalogo } from './caras.js';
 import { type Catalogo, catalogoValidado } from './catalogo.js';
 import { componer, type Escena, type Sprite } from './colocar.js';
-import { delanteDeLasParedes } from './figuras.js';
+import {
+  delanteDeLasParedes,
+  type LoQueTapaEnUnaBarrera,
+  loQueTapaEnUnaBarrera,
+  subidaEnUnaBarrera,
+} from './figuras.js';
 import { pieDeFigura } from './figuras-del-mapa.js';
 import { horneado } from './horneado.js';
 import { cajaDeSprite } from './pasillo.js';
@@ -48,7 +53,7 @@ import {
 } from './pintar.js';
 import { type MensajeDelSuelo, type PeticionDelSuelo, pintarSueloA } from './pintor-del-suelo.js';
 import type { Punto } from './puentes.js';
-import { esObra, type Obra } from './puestos.js';
+import { esObra, type NodoQueSeSabe, type Obra, seVeConSuNodo } from './puestos.js';
 import { casillasDelRecinto } from './recinto.js';
 
 /**
@@ -158,6 +163,23 @@ export interface Escenario {
    * delante de ella (#185, `delanteDeLasParedes`). Ver `claveDeFigura`.
    */
   readonly delanteDeParedes: ReadonlyMap<number, number>;
+  /** El perfil de la silueta de cada sprite (`perfilesDelCatalogo`), hecho una vez. */
+  readonly perfilDe: PerfilDe;
+  /**
+   * Lo que tapa la figura de una casilla de barrera (`loQueTapaEnUnaBarrera`),
+   * por casilla (`y·W + x`). **Perezosa**: se llena la primera vez que `pisada`
+   * la pide, porque solo pisa una barrera quien se infiltra, y recorrer la escena
+   * para todas al componerla no sale a cuenta. Guarda las piezas y no la clave:
+   * de las de un nodo (el hito, las obras del puesto) cuenta solo la que se
+   * pinta, y eso cambia cuando el nodo cambia de dueño o de obra.
+   */
+  readonly enUnaBarrera: Map<number, readonly LoQueTapaEnUnaBarrera[]>;
+  /**
+   * Las casillas (`y·W + x`) del 3 × 3 de cada recinto. Con barrera debajo (una
+   * puerta, `rioAnteLaCiudad`) siguen siendo del recinto, no una barrera: la regla
+   * de `barreraEn` del núcleo, que `pisada` lee así (N3 de la vuelta 3 de QA).
+   */
+  readonly enUnRecinto: ReadonlySet<number>;
   /** Cuántos volúmenes hay en cada casilla, por su base: de ahí sale el tope de alejar. */
   readonly conteo: ConteoDeVolumenes;
   /** La clave del volumen de cada objeto horneado, por su id: la mayor de sus piezas. */
@@ -244,22 +266,76 @@ function tablerosDe(
 }
 
 /**
- * Dónde pisa una figura de la casilla `at` y su clave de profundidad, en
- * casillas: los pies a `pies` bajo el centro de la casilla y `claveDeFigura`;
- * o, en la de un puente, en su tablero y pintada después de él. En el centro de
+ * Dónde pisa una figura de la casilla `at`, en casillas: los pies a `pies` bajo
+ * el centro de la casilla o, en la de un puente, en su tablero. En el centro de
  * la casilla, que es agua bajo el arco, se pintaba en el río y le tapaba el
  * frente al puente (H3 del QA de #157). Con `pies` = 0,5, el centro de la
- * casilla: lo que usa el paso de la ruta.
+ * casilla: lo que usa el paso de la ruta, que no pide clave.
+ */
+export function pieEn(
+  esc: Escenario,
+  at: { readonly x: number; readonly y: number },
+  pies: number,
+): readonly [number, number] {
+  return pieDeFigura(at, pies, esc.tableros.get(at.y * esc.escena.W + at.x)?.asiento);
+}
+
+/**
+ * Dónde pisa una figura de la casilla `at` (`pieEn`) y su clave de profundidad:
+ * en una casilla de barrera (sin tablero ni recinto: `barreraEn`), la de sus pies subida por lo que la
+ * taparía (`claveEnUnaBarrera`); en las demás, `claveDeFigura`, y en la de un
+ * puente, pintada después de él. `nodos`, lo que se sabe de cada nodo: de las
+ * piezas de un nodo, en una barrera cuenta solo la que se pinta (`seVeConSuNodo`).
  */
 export function pisada(
   esc: Escenario,
   at: { readonly x: number; readonly y: number },
   pies: number,
+  nodos: ReadonlyMap<string, NodoQueSeSabe>,
 ): { readonly x: number; readonly y: number; readonly clave: number } {
   const t = esc.tableros.get(at.y * esc.escena.W + at.x);
-  const clave = claveDeFigura(esc, at.x, at.y + pies);
-  const [x, y] = pieDeFigura(at, pies, t?.asiento);
-  return { x, y, clave: t === undefined ? clave : Math.max(clave, t.clave) };
+  const [x, y] = pieEn(esc, at, pies);
+  if (t !== undefined)
+    return { x, y, clave: Math.max(claveDeFigura(esc, at.x, at.y + pies), t.clave) };
+  const i = at.y * esc.escena.W + at.x;
+  const terreno = esc.terreno[i];
+  const clave =
+    terreno !== undefined && esBarrera(terreno) && !esc.enUnRecinto.has(i)
+      ? Math.max(at.y + pies, claveEnUnaBarrera(esc, at, nodos))
+      : claveDeFigura(esc, at.x, at.y + pies);
+  return { x, y, clave };
+}
+
+/**
+ * La clave de quien está en una casilla de barrera (solo un grupo que se infiltra,
+ * `hero/infiltracion.ts`): delante de lo que lo taparía, sin pasar de lo hecho
+ * que tiene delante (`subidaEnUnaBarrera`), o −∞. Lo que la tapa se guarda por
+ * casilla en `Escenario.enUnaBarrera`.
+ *
+ * No lleva lo de `claveDeFigura`, a propósito. `cubiertas` sube la figura a la
+ * clave de todo lo horneado cuya imagen cubre el centro de su casilla, con el pie
+ * al sur: en lo que se pisa es la ficha de su casilla (la ciudad tapaba al héroe
+ * que nace en la de encima); en una barrera es lo que está delante, y por él el
+ * goblin parado en la montaña al norte de Valdeluz (s8 (6,5)) se pintaba con los
+ * pies y el aro sobre la torre del noroeste (N1 de la vuelta 2 de QA: 169
+ * casillas de barrera de s1-40 sobre un recinto, 165 sobre un pueblo y 51 sobre
+ * un nodo con un 20 % de la figura o más encima de algo hecho de delante). Y
+ * `delanteDeParedes` ya va en lo que la sube (lo del relieve que cuelga de su
+ * fila o de más al norte), pero sin el tope.
+ */
+function claveEnUnaBarrera(
+  esc: Escenario,
+  at: { readonly x: number; readonly y: number },
+  nodos: ReadonlyMap<string, NodoQueSeSabe>,
+): number {
+  const { W } = esc.escena;
+  const i = at.y * W + at.x;
+  let lo = esc.enUnaBarrera.get(i);
+  if (lo === undefined) {
+    lo = loQueTapaEnUnaBarrera(esc.separada.volumenes, esc.terreno, W, esc.perfilDe, at.x, at.y);
+    esc.enUnaBarrera.set(i, lo);
+  }
+  return subidaEnUnaBarrera(lo, (d) => seVeConSuNodo(d, nodos.get(d.id)));
 }
 
 /** El asiento de cada objeto horneado (`Escenario.asientoDeObjeto`). */
@@ -333,11 +409,13 @@ export function escenarioDe(map: MapaDeEscena, semilla: number): Escenario {
   // Quien está en una casilla de un recinto va delante del recinto entero, como
   // en la ficha de una pieza (`claveDeFigura`): un héroe que entra por una
   // abertura se ve dentro, no detrás de las casas de la fila de delante.
+  const enUnRecinto = new Set<number>();
   for (const r of escena.recintos) {
     const clave = claveDeObjeto.get(r.id);
     if (clave === undefined) throw new Error(`el recinto de ${r.id} no pinta nada`);
     for (const [x, y] of casillasDelRecinto(r.rect)) {
       const i = y * escena.W + x;
+      enUnRecinto.add(i);
       cubiertas.set(i, Math.max(cubiertas.get(i) ?? clave, clave));
     }
   }
@@ -350,12 +428,8 @@ export function escenarioDe(map: MapaDeEscena, semilla: number): Escenario {
     }),
   );
   const imagenes = imagenesDeEscena(escena, horneado);
-  const delanteDeParedes = delanteDeLasParedes(
-    separada.volumenes,
-    escena.W,
-    escena.H,
-    perfilesDelCatalogo(CATALOGO),
-  );
+  const perfilDe = perfilesDelCatalogo(CATALOGO);
+  const delanteDeParedes = delanteDeLasParedes(separada.volumenes, escena.W, escena.H, perfilDe);
   const escenario: Escenario = {
     escena,
     catalogo: CATALOGO,
@@ -364,6 +438,9 @@ export function escenarioDe(map: MapaDeEscena, semilla: number): Escenario {
     porFila,
     cubiertas,
     delanteDeParedes,
+    perfilDe,
+    enUnaBarrera: new Map(),
+    enUnRecinto,
     conteo: contarVolumenes(escena.W, escena.H, bases),
     claveDeObjeto,
     claveDeLaMarca,

@@ -27,12 +27,23 @@ export interface Hero {
   army: Army;
   at: Point;
   movePoints: number;
+  /**
+   * La marcha con que empezó su día: `maxMovePoints` al empezarlo o al
+   * contratarlo (`empezarElDia`), y no cambia en el día aunque cambie la tropa.
+   * Es lo que cuesta una casilla de barrera a quien se infiltra
+   * (`precioDeLaBarrera`, 05-11-2026): con el máximo de ahora, reclutar algo más
+   * lento a media jornada lo bajaba por debajo de lo que le quedaba y el grupo
+   * entraba con el día empezado (H1 de /simplify). El recién hecho nace con la del
+   * héroe solo y sin movimiento: su día empieza el siguiente.
+   */
+  marchaDelDia: number;
   spells: string[];
   skills: Partial<Record<SkillId, SkillLevel>>;
   /**
-   * El tipo de héroe, un id de `data/tipos-de-heroe.json` de su facción.
-   * **Inerte**: se guarda, se ve y se serializa, pero no da ninguna habilidad
-   * hasta que exista el motor que las aplique; sí da su figura (`figuraDelHeroe`).
+   * El tipo de héroe, un id de `data/tipos-de-heroe.json` de su facción. Se guarda,
+   * se ve y se serializa; da su figura (`figuraDelHeroe`) y **una sola regla**: si
+   * se infiltra (`data/infiltradores.json`, `hero/infiltracion.ts`, 05-11-2026).
+   * Las habilidades del cuaderno no, hasta que exista el motor que las aplique.
    * El inicial de la persona lleva el que eligió en el menú (`NewGameOptions.tipoDelHeroe`);
    * el de la IA y el contratado, el de por defecto (`tipoDeHeroePorDefecto`); el
    * que nace de la tropa, el que eligió el narrador.
@@ -82,8 +93,9 @@ export interface OrigenDelHeroe {
  * Un héroe recién hecho, con las cifras del contratado: ataque, defensa, poder y
  * conocimiento a 1, el maná lleno, sin tropa, sin hechizos, sin habilidades,
  * **con su equipo base** (`EQUIPO_BASE`), la mochila vacía y **sin
- * movimiento**. Quien lo llama decide si se le da el del día —el contratado
- * sí, el que nace de la tropa no—.
+ * movimiento** (con `marchaDelDia`, la del héroe solo, para que una barrera
+ * tenga precio). Quien lo llama decide si se le da el del día
+ * (`empezarElDia`) —el contratado sí, el que nace de la tropa no—.
  *
  * El equipo base sale de aquí y de ningún otro sitio: el inicial, el contratado
  * y el veterano que asciende pasan todos por esta función, y así ninguno puede
@@ -113,12 +125,15 @@ export function heroeRecienHecho(datos: {
     mana: 0,
     army: [],
     movePoints: 0,
+    marchaDelDia: 0,
     spells: [],
     skills: {},
     equipo: EQUIPO_BASE,
     mochila: [],
   };
   hero.mana = maxMana(hero);
+  // Sin tropa no hay personajes que mirar.
+  hero.marchaDelDia = maxMovePoints(hero, undefined);
   return hero;
 }
 
@@ -244,6 +259,16 @@ export function maxMovePoints(
 ): number {
   const base = marchaALaEscala(SPEED_TO_MOVE_POINTS[slowestSpeed(hero, characters)]);
   return Math.round(base * (1 + logisticsBonus(hero)));
+}
+
+/**
+ * Empieza el día de `hero`: su marcha de hoy (`maxMovePoints`) en lo que le queda
+ * y fijada en `marchaDelDia`. Las dos juntas: lo llaman el inicio de cada día, el
+ * héroe inicial y el contratado.
+ */
+export function empezarElDia(hero: Hero, characters: Personajes): void {
+  hero.marchaDelDia = maxMovePoints(hero, characters);
+  hero.movePoints = hero.marchaDelDia;
 }
 
 /** Bonus de moral que el héroe da a su ejército (Liderazgo). */

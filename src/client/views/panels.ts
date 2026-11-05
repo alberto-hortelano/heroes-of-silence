@@ -95,6 +95,7 @@ import { COLOR_DEL_ORO, MARCA_DE_COMANDANTE } from '../render/palette.js';
 import type { Session, SpellOption } from '../session.js';
 import { renderPanelDelAyuntamiento } from './ayuntamiento.js';
 import { renderAbierto } from './base.js';
+import { filaDeCifra } from './cifras.js';
 import { nombreEnElCampo } from './distintivo.js';
 import { renderPanelDelLugar } from './lugar.js';
 import { renderPanelDeLaMorada } from './morada.js';
@@ -411,6 +412,18 @@ function ataqueYDefensa(desnudo: UnitInfo, puesto: UnitInfo): string {
   return `${cifra(desnudo.attack, puesto.attack)} / ${cifra(desnudo.defense, puesto.defense)}`;
 }
 
+/**
+ * La fila «Infiltración» del héroe: si su grupo cruza barreras, o por qué no
+ * (`Session.infiltracion`, la regla del núcleo), en una nota: es largo y casi
+ * nadie lo lleva.
+ */
+function filaDeInfiltracion(motivo: string | null): Html {
+  return filaDeCifra(
+    'Infiltración',
+    motivo === null ? 'cruza barreras, un día por casilla' : html`no ${nota(motivo)}`,
+  );
+}
+
 function renderAdventurePanel(session: Session): Html {
   const hero = session.selectedHero;
   const heroes = session.myHeroes();
@@ -434,6 +447,7 @@ function renderAdventurePanel(session: Session): Html {
         }
         ${filaLiderazgo(session.liderazgo({ heroe: hero.id }))}
         <div class="row"><span class="label">Movimiento</span><span>${hero.movePoints} / ${maxMovePoints(hero, session.state.characters)}</span></div>
+        ${filaDeInfiltracion(session.infiltracion(hero))}
         <div class="row"><span class="label">Maná</span><span>${hero.mana} / ${maxMana(hero)}</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>${ataqueYDefensa(cuerpoDelHeroe(hero), puesto)}</span></div>
         <div class="row"><span class="label">Poder / Conocimiento</span><span>${hero.spellPower} / ${hero.knowledge}</span></div>

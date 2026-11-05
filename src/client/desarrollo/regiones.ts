@@ -13,7 +13,7 @@
  * una vez por mapa; a cada fotograma solo se copia.
  */
 import type { GameMap } from '@core/map/map.js';
-import { type Barrera, esBarrera } from '@core/map/terrain.js';
+import { type Barrera, esBarrera, NOMBRE_DE_BARRERA } from '@core/map/terrain.js';
 import type { EscenaAventura } from '../escenas/aventura.js';
 import { html, pintar } from '../html.js';
 import { type CamaraMapa, mundoAPixel } from '../render/camara-mapa.js';
@@ -39,14 +39,6 @@ const COLOR_DE_BARRERA: Readonly<Record<Barrera, readonly [number, number, numbe
   forest: [12, 38, 18],
   cliff: [60, 38, 18],
   wall: [80, 22, 22],
-};
-
-const NOMBRE_DE_BARRERA: Readonly<Record<Barrera, string>> = {
-  mountain: 'montaña',
-  water: 'agua',
-  forest: 'bosque',
-  cliff: 'acantilado',
-  wall: 'muro',
 };
 
 /**

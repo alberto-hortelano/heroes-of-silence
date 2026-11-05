@@ -1880,6 +1880,45 @@ describe('el nivel en el contrato: derivado de las cifras (12-10-2026)', () => {
   });
 });
 
+describe('la infiltración en el contrato (05-11-2026)', () => {
+  it('el héroe dice si se infiltra y, si no, por qué; la prosa nombra las dos claves', () => {
+    // El goblin de los orkos con una tropa de goblins se infiltra; con la de
+    // salida (orkos del pueblo), no, y el motivo los nombra; el de por defecto
+    // (orko) tampoco, y el motivo nombra su tipo.
+    const state = newGame({ seed: 7, faccionDelJugador: 'orkos', tipoDelHeroe: 'goblin' });
+    expect(serializeAdventureTurn(state, 0).heroes[0]).toMatchObject({
+      infiltrates: false,
+      infiltrationBlocker: expect.stringMatching(/^no se infiltra: no lo llevan Orko/),
+    });
+    state.heroes[0]!.army = [{ creature: 'goblin-lancero' }, { creature: 'goblin-arquero' }];
+    const goblin = serializeAdventureTurn(state, 0).heroes[0]!;
+    expect(goblin).toMatchObject({ infiltrates: true });
+    expect(goblin).not.toHaveProperty('infiltrationBlocker');
+    const orko = serializeAdventureTurn(
+      newGame({ seed: 7, faccionDelJugador: 'orkos', tipoDelHeroe: 'orko' }),
+      0,
+    ).heroes[0]!;
+    expect(orko).toMatchObject({
+      infiltrates: false,
+      infiltrationBlocker: expect.stringMatching(/^no se infiltra: no lo lleva.*su tipo \(Orko/),
+    });
+
+    const prosa = RESPONSE_FORMAT.adventure_turn;
+    expect(prosa).toContain('"heroes[].infiltrates"');
+    expect(prosa).toContain('"heroes[].infiltrationBlocker"');
+    expect(prosa).toContain('"infiltrarse"');
+    expect(prosa).toMatch(/DÍA ENTERO/);
+    expect(prosa).toMatch(/INTOCABLE/);
+  });
+
+  it('`creature_stats` trae el rasgo de las unidades que lo llevan', () => {
+    expect(fichaDeCriatura(unidadDelJuego('goblin-lancero')).traits).toContain('infiltrarse');
+    expect(fichaDeCriatura(unidadDelJuego('templario-escudo')).traits ?? []).not.toContain(
+      'infiltrarse',
+    );
+  });
+});
+
 describe('la tropa se hace héroe: el contrato', () => {
   it('el kind nuevo tiene esquema y una prosa que nombra los tres campos', () => {
     const prosa = RESPONSE_FORMAT.hero_from_troop;
