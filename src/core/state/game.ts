@@ -2769,12 +2769,22 @@ export function ascenderVeterano(
  * `chooseHeroDestination`, y la persona y el agente sin la misma defensa.
  */
 export function casillasHostiles(state: GameState, player: PlayerId): Point[] {
+  // Una casilla, una vez: el héroe rival en su ciudad es también la guarnición de
+  // ella (desde que la de la ciudad vive en `GameState.guarniciones`), y repetida
+  // `porQueNoLlega` lo nombraba dos veces.
+  const vistas = new Set<string>();
   const out: Point[] = [];
-  for (const h of state.heroes) if (h.owner !== player) out.push(h.at);
-  for (const at of guarnicionesAjenas(state, player)) out.push(at);
+  const poner = (at: Point): void => {
+    const k = pointKey(at);
+    if (vistas.has(k)) return;
+    vistas.add(k);
+    out.push(at);
+  };
+  for (const h of state.heroes) if (h.owner !== player) poner(h.at);
+  for (const at of guarnicionesAjenas(state, player)) poner(at);
   // Un grupo de asaltantes es hostil para todos: se alcanza —atacarlo es
   // pedirlo de destino— y no se cruza.
-  for (const r of state.raiders) out.push(r.at);
+  for (const r of state.raiders) poner(r.at);
   return out;
 }
 

@@ -36,11 +36,16 @@ function turno(acciones: readonly string[] = [], raiders = 0, equipado = false):
   };
 }
 
-function batalla(turnId: number, accion: string, hit?: string): Peticion {
+function batalla(
+  turnId: number,
+  accion: string,
+  hit?: string,
+  walls: Record<string, unknown> | null = null,
+): Peticion {
   return {
     requestId: id(),
     kind: 'battle_turn',
-    payload: { turnId },
+    payload: { turnId, walls },
     respuesta: { action: hit === undefined ? { type: accion } : { type: accion, hit } },
   };
 }
@@ -67,6 +72,8 @@ function completa(): Peticion[] {
     batalla(5, 'attack', 'strong'),
     respuesta(),
     respuesta(),
+    // La muralla (`exigeLaMuralla`, fase 2 del puesto fronterizo).
+    batalla(6, 'place_ladder', undefined, { material: 'piedra' }),
     ascenso(),
     turno(['dismiss', 'buy_item', 'equip']),
     turno(['move_hero'], 0, true),
@@ -94,7 +101,7 @@ describe('lo que pnpm qa necesita ver (#131)', () => {
     // El novato equipado que cae en la batalla de antes del turno siguiente: el
     // «equip» tuvo turno después, pero `pnpm qa` no ve a nadie con la pieza.
     const p = completa();
-    p[8] = turno(['move_hero']);
+    p[9] = turno(['move_hero']);
     expect(faltaParaElArnes(p, 3)).toEqual([
       'un «equip» con un turno después donde se vea el individuo equipado',
     ]);
@@ -142,6 +149,18 @@ describe('lo que pnpm qa necesita ver (#131)', () => {
     expect(faltaParaElArnes([turno(['dismiss']), batalla(5, 'attack', 'strong')], 3)).toContain(
       falta,
     );
+  });
+
+  it('la muralla: una de sus jugadas en una batalla con muralla, con una petición después', () => {
+    const falta =
+      'una batalla del agente con muralla en que mande «place_ladder», «climb», «open_gate», «close_gate», con una petición después';
+    const p = completa();
+    expect(faltaParaElArnes(p, 3)).not.toContain(falta);
+    // Sin muralla («walls»: null) no vale, ni otra jugada en una batalla con ella.
+    p[6] = batalla(6, 'place_ladder');
+    expect(faltaParaElArnes(p, 3)).toEqual([falta]);
+    p[6] = batalla(6, 'end_turn', undefined, { material: 'madera' });
+    expect(faltaParaElArnes(p, 3)).toEqual([falta]);
   });
 
   it('sin asaltantes en ningún knownMap, falta', () => {
