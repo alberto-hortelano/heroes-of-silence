@@ -86,8 +86,8 @@ export async function imagenDeLaBase(url: string): Promise<HTMLImageElement | nu
  * figuras ya no están aquí: son de 8 direcciones y se cargan a demanda, hoja a
  * hoja, la primera vez que se pinta cada una (`cargarHojaDeFigura`).
  *
- * Va aparte del manifiesto de `generated/` porque no lo produce `tools/gen`: es
- * el arte aprobado que se rescató de la rama `archivo/gpt-rpg`.
+ * Va aparte del manifiesto de `generated/` porque no es arte generado: es el
+ * arte aprobado que se rescató de la rama `archivo/gpt-rpg`.
  */
 export const ARTE_RPG = {
   campo: '/rpg/campo.webp',
@@ -203,11 +203,11 @@ function loadRpgArt(mapa: boolean): Promise<unknown> {
 }
 
 /**
- * Los grupos del manifiesto que se pintan: el icono del oro. Ni
- * `creatures` —la batalla es de figuras a 25°— ni `terrains`: el suelo del mapa
- * lo pinta el escenógrafo con sus texturas. Los edificios y el fondo del
- * castillo de fal.ai se retiraron con la base caminable: su arte es el del
- * taller (`assets/bases/`, `render/base/arte.ts`).
+ * Los grupos del manifiesto que se pintan: el icono del oro, que es lo único que
+ * lleva (las texturas `terrains` se retiraron el 06-11-2026 a
+ * `assets/art/retirado/`: el suelo del mapa lo pinta el escenógrafo con las
+ * suyas). Los edificios y el fondo del castillo se retiraron con la base
+ * caminable: su arte es el del taller (`assets/bases/`, `render/base/arte.ts`).
  */
 const GRUPOS_QUE_SE_PINTAN: ReadonlySet<string> = new Set(['icons']);
 

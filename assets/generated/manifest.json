@@ -3,46 +3,6 @@
   "style": "painted",
   "files": [
     {
-      "group": "terrains",
-      "name": "grass",
-      "path": "terrain/grass.png"
-    },
-    {
-      "group": "terrains",
-      "name": "dirt",
-      "path": "terrain/dirt.png"
-    },
-    {
-      "group": "terrains",
-      "name": "sand",
-      "path": "terrain/sand.png"
-    },
-    {
-      "group": "terrains",
-      "name": "snow",
-      "path": "terrain/snow.png"
-    },
-    {
-      "group": "terrains",
-      "name": "swamp",
-      "path": "terrain/swamp.png"
-    },
-    {
-      "group": "terrains",
-      "name": "lava",
-      "path": "terrain/lava.png"
-    },
-    {
-      "group": "terrains",
-      "name": "rough",
-      "path": "terrain/rough.png"
-    },
-    {
-      "group": "terrains",
-      "name": "water",
-      "path": "terrain/water.png"
-    },
-    {
       "group": "icons",
       "name": "gold",
       "path": "icons/gold.png"

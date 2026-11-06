@@ -2,7 +2,7 @@
 
 Clon de Heroes of Might and Magic 2 en el navegador, pensado como **banco de
 pruebas para un juego con IA**: los NPCs los lleva un agente conectado por MCP,
-los mapas los diseña ese mismo agente y los assets se generan con fal.ai.
+los mapas los diseña ese mismo agente y el arte lo pinta el taller (`pnpm taller`) con Codex.
 
 **El porqué de cada regla, las medidas con su fecha y las lecciones de QA están
 en `docs/historia.md`.** Antes de deshacer algo que parezca raro, búscalo allí.
@@ -87,7 +87,7 @@ npx tsx tools/fuentes/bajar.ts         # las letras de los temas que falten (goo
   y nada de `art/` (láminas y referencias de estilo) (`seCopiaAlBuild`, `tools/build/publico.ts`,
   #137). Por eso las letras de los temas viven en `assets/letras/`.
 - **CI** (`.github/workflows/ci.yml`): `pnpm verify`, `pnpm test:lento`, `pnpm banco`,
-  `vite build` y `pnpm qa`. No gasta un céntimo: nada de `tools/gen/`.
+  `vite build` y `pnpm qa`. No gasta un céntimo: no llama a ningún servicio de pago.
 - **Ninguna sesión corre la suite entera** (25-10-2026, decisión del usuario: «Elimina el verify
   completo. Los tests se hacen por partes y justificando cada parte»). El hook `Stop` que lanzaba
   `pnpm verify` al acabar cada turno se retiró: con varias sesiones a la vez se juntaban varios de
@@ -133,7 +133,6 @@ src/client/        Vite + Canvas 2D. Solo pinta y manda intents
   espectador/      mira la partida del servidor, no juega (adaptar.ts, paneles.ts)
   arena/           edita el catálogo del juego y monta peleas con sus reglas
 src/shared/        contrato visual (cámara a 25°, luz) de cliente y taller
-tools/gen/         generación de assets con fal.ai
 tools/mundo/       pnpm mundo y el motor de narrativa que genera un mundo desde el menú de pnpm dev
 tools/npcs/        pnpm npcs: el banco de figuras de NPC en disco (banco.ts) y la semilla
 tools/qa/          verificación de extremo a extremo y medidas
@@ -1523,21 +1522,6 @@ antes del destino (`battle_started` con `faltan`).
   nivel lo ve. A media pelea, el cambio vale ya para todos los que la llevan, de los dos bandos y el
   héroe, con lo gastado restado, y queda en el parte; la IA espera.
 
-## Generación de assets
-
-```bash
-pnpm gen                              # simula: qué falta y cuánto costaría
-pnpm gen -- all --go --budget 4       # genera de verdad (--budget = gasto ACUMULADO)
-```
-
-Sin `--go` no se gasta nada; caché por hash del payload; gasto en
-`tools/gen/spend.json`. Texturas como material a 90°, liso, sin mencionar agua.
-Atlas de poses: ≤ 10 celdas, rejilla cuadrada, segunda referencia = identidad;
-`cutout.ts` recorta por relleno desde el borde. De los iconos de recursos queda el del oro
-(`ICONO_DEL_ORO`, el mismo texto: la caché no lo repaga); los otros seis, con el atlas de la mina
-y los montones del mapa, están en `assets/art/retirado/` (21-10-2026), que no va al build. Las criaturas y sus poses de
-`tools/gen/animate.ts` se retiraron (#139): las figuras son del taller.
-
 ## Revisar las animaciones
 
 Skill **`/revisar-animaciones <id>`** (30-10-2026, `docs/agents/2026-10-30-evaluar-animaciones/`):
@@ -1619,7 +1603,6 @@ ocupado por algo ajeno no se libera: se reporta.**
 ## Decisiones tomadas
 
 - **MCP antes que API key** (el usuario tiene Claude Max).
-- **`FAL_KEY` nunca llega al navegador**: la generación son scripts CLI.
 - **Nada del HoMM2 original**: se reimplementan las reglas; el arte se genera.
 - **Facciones del juego**: las cinco de la arena —templarios, no muertos, imperio, elfos y orkos— (19-10-2026); caballeros y nigromantes se retiraron.
 - **Una cita a la fuente se extrae, no se teclea**: una cita falsa es peor que

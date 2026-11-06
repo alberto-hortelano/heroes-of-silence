@@ -20,3 +20,23 @@ simbolo	src/core/state/sitios.ts	(retirado)	LaDefensa.personajes
 simbolo	src/core/hero/troop.ts	(retirado)	TroopGroup.member
 simbolo	test/helpers.ts	(retirado)	esPersonaje
 simbolo	test/helpers.ts	test/helpers.ts	bandoDePersonajes (bandoAMano)
+fichero	tools/gen/cutout.ts	tools/taller/fondo.ts	
+fichero	tools/gen/cli.ts	(retirado)	
+fichero	tools/gen/fal.ts	(retirado)	
+fichero	tools/gen/postprocess.ts	(retirado)	
+fichero	tools/gen/prompts.ts	(retirado)	
+fichero	tools/taller/fal.ts	(retirado)	
+fichero	tools/taller/video.ts	(retirado)	
+simbolo	tools/taller/video.ts	tools/art/poses.ts	carpetaDeFotogramas
+simbolo	tools/taller/encargo.ts	(retirado)	Encargo.motor
+simbolo	tools/taller/codex.ts	(retirado)	Generacion.coste
+simbolo	package.json	(retirado)	scripts.gen
+simbolo	package.json	(retirado)	scripts.mcp
+fichero	assets/generated/terrain/dirt.png	assets/art/retirado/generated/terrain/dirt.png	
+fichero	assets/generated/terrain/grass.png	assets/art/retirado/generated/terrain/grass.png	
+fichero	assets/generated/terrain/lava.png	assets/art/retirado/generated/terrain/lava.png	
+fichero	assets/generated/terrain/rough.png	assets/art/retirado/generated/terrain/rough.png	
+fichero	assets/generated/terrain/sand.png	assets/art/retirado/generated/terrain/sand.png	
+fichero	assets/generated/terrain/snow.png	assets/art/retirado/generated/terrain/snow.png	
+fichero	assets/generated/terrain/swamp.png	assets/art/retirado/generated/terrain/swamp.png	
+fichero	assets/generated/terrain/water.png	assets/art/retirado/generated/terrain/water.png	

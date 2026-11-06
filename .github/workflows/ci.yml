@@ -7,9 +7,9 @@
 # forma documentada de jugar con el agente: el hook se pondría rojo por tener el
 # juego abierto. Aquí no hay ese problema — cada job es una máquina propia.
 #
-# NO SE GASTA UN CÉNTIMO: no se invoca nada de `tools/gen/`, que es lo único que
-# llama a fal.ai, ni se declara ninguna credencial. `permissions` es de solo
-# lectura para que tampoco pueda escribir en el repo. La comprobación es un grep
+# NO SE GASTA UN CÉNTIMO: no se llama a ningún servicio de pago ni se declara
+# ninguna credencial. `permissions` es de solo lectura para que tampoco pueda
+# escribir en el repo. La comprobación es un grep
 # de las palabras que delatarían lo contrario, y este fichero está escrito para
 # no contener ninguna.
 name: CI

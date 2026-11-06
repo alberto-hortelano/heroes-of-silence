@@ -1801,6 +1801,8 @@ export async function componerGiro(carpeta: string): Promise<string> {
  */
 export const DIR_MANIQUIES = join(DIR_POSES, 'unidades');
 export const carpetaDeManiqui = (id: string): string => join(DIR_MANIQUIES, `${id}-8d`);
+/** Dónde guarda `pnpm taller maniqui <id> --fotogramas` los fotogramas enteros de cada clip. */
+export const carpetaDeFotogramas = (id: string): string => join(RAIZ, '.cache/taller/maniqui', id);
 
 /** Una llamada a sprite-forge: los clips de Mixamo que renderiza con un mismo atrezo. */
 interface PasadaDelRender {
@@ -1862,8 +1864,8 @@ export async function renderizarOchoDirecciones(
     readonly profundidad?: boolean;
     /**
      * Una carpeta donde guardar los fotogramas enteros de cada clip (en color),
-     * no solo los siete de cada fila: los vídeos del maniquí que mueven a los
-     * modelos de transferencia de movimiento (`tools/taller/video.ts`).
+     * no solo los siete de cada fila (`carpetaDeFotogramas`), para mirarlos: los
+     * leían los modelos de vídeo del taller, retirados el 06-11-2026.
      */
     readonly fotogramas?: string;
     /**

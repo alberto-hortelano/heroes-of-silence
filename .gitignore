@@ -8,7 +8,7 @@ dist/
 
 # caché de las herramientas
 .cache/
-# restos locales de fal.ai (su caché y su gasto)
+# restos locales de fal.ai, retirado el 06-11-2026 (su caché y su gasto)
 tools/gen/
 
 # Borradores de la arena (las formas de muralla que se dibujan en ella,

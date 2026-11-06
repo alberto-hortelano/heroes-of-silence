@@ -5830,3 +5830,81 @@ Lo que decía `CLAUDE.md` de ellos, tal como estaba:
   juega nada). Con cualquiera de las dos abierta, toda tecla es suya: Escape la cierra a ella y no
   también la base de detrás (H3 del QA). `pnpm capturas` cierra
   las dos solo (la de la defensa, con la propuesta de la IA) y fotografía cada una la primera vez.
+
+### fal.ai (`tools/gen/`)
+
+El arte del principio (terrenos, iconos, los edificios y efectos del 02-10, las primeras criaturas)
+se pagaba en fal.ai con `pnpm gen` (`tools/gen/`: el cliente con caché por payload y gasto
+acumulado en `tools/gen/spend.json`, los prompts, el post-proceso). Desde el 02-10-2026 todo el arte
+lo pinta el taller con Codex por la suscripción, y lo único de fal.ai que seguía vivo eran las
+pruebas del 10-10-2026 (el campo `motor` de un encargo del taller, `taller/fal.ts`, y los modelos
+de vídeo de transferencia de movimiento, `taller/video.ts`), que nadie encargaba. Se fueron con
+`tools/gen/` (su `cutout.ts`, el recorte por relleno desde el borde que usa `recorte.ts` con lo
+que llega sin alfa, pasó a `tools/taller/fondo.ts`), `pnpm gen` y `pnpm mcp` (que no usaba
+nadie: `.mcp.json` lanza `npx tsx`), `Generacion.coste` y las texturas de
+`assets/generated/terrain/`, que el cliente no pintaba (pasaron a `assets/art/retirado/`; el
+manifiesto se quedó con el icono del oro, que se sigue pintando igual). `carpetaDeFotogramas`
+(`pnpm taller maniqui <id> --fotogramas`) pasó a `tools/art/poses.ts`. La caché y el gasto que
+queden en una máquina siguen ignorados (`tools/gen/` en `.gitignore`).
+
+Lo que decía `CLAUDE.md` de ello, tal como estaba:
+
+Clon de Heroes of Might and Magic 2 en el navegador, pensado como **banco de
+pruebas para un juego con IA**: los NPCs los lleva un agente conectado por MCP,
+los mapas los diseña ese mismo agente y los assets se generan con fal.ai.
+
+- **CI** (`.github/workflows/ci.yml`): `pnpm verify`, `pnpm test:lento`, `pnpm banco`,
+  `vite build` y `pnpm qa`. No gasta un céntimo: nada de `tools/gen/`.
+
+```
+src/core/          TypeScript puro: las reglas. Sin DOM y sin node:*
+  unidad.ts        el formato de una unidad (cuerpo + equipo) y su validación
+  catalogo.ts      el catálogo del juego: lo único que lee data/unidades.json
+  arena.ts         el montador de la arena: fichas, piezas, montaje, enlace y retoque
+  battle/          rejilla de 12 y 11 (board.ts), iniciativa, daño, armas, rueda,
+                   contacto, carga, hechizos, poderes, efectos
+  map/             mapa, pathfinding (frontera.ts), niebla, generación (generate.ts,
+                   vestir.ts) y red de nodos (regiones.ts)
+  town/ hero/      castillos, edificios, reclutamiento; héroes, tropa, experiencia, equipo
+  state/           GameState, turnos, batallas del mapa, asaltantes
+  ai/              IA de respaldo: táctica y estratégica
+  contract/        esquemas zod, serialización y vocabulario (huecos, golpes) del agente
+  mundo/           los mundos: formato y vocabulario cerrado, validación, reglas de los lugares,
+                   lectura para el motor
+src/server/        bridge WebSocket + puente MCP (partida.ts, director, entorno.ts)
+src/client/        Vite + Canvas 2D. Solo pinta y manda intents
+  html.ts          LA PUERTA del marcado
+  session.ts       LA PUERTA al núcleo
+  escenas/ render/ views/   ratón y cámara; lo que se pinta; paneles
+  rueda/           la rueda del golpe (diálogo, disco, figuras) de partida, arena y espectador
+  espectador/      mira la partida del servidor, no juega (adaptar.ts, paneles.ts)
+  arena/           edita el catálogo del juego y monta peleas con sus reglas
+src/shared/        contrato visual (cámara a 25°, luz) de cliente y taller
+tools/gen/         generación de assets con fal.ai
+tools/mundo/       pnpm mundo y el motor de narrativa que genera un mundo desde el menú de pnpm dev
+tools/npcs/        pnpm npcs: el banco de figuras de NPC en disco (banco.ts) y la semilla
+tools/qa/          verificación de extremo a extremo y medidas
+tools/datos/       extrae JSON de NuevaJugabilidad.md con expresiones regulares
+tools/arena/ tools/taller/ tools/art/   arena, taller de arte, rig del Y Bot
+data/              unidades, equipo, edificios, economía, hechizos, experiencia… en JSON editable
+assets/            arte (generated/, unidades/, npcs/ del banco de NPC, mapa/, _poses/ del Y Bot), letras/ y temas/ de los
+                   temas de la interfaz; art/ (láminas y referencias de estilo) no va al build
+docs/agents/<tarea>/   lo que se pasan los roles del ciclo
+```
+
+- **`FAL_KEY` nunca llega al navegador**: la generación son scripts CLI.
+
+## Generación de assets
+
+```bash
+pnpm gen                              # simula: qué falta y cuánto costaría
+pnpm gen -- all --go --budget 4       # genera de verdad (--budget = gasto ACUMULADO)
+```
+
+Sin `--go` no se gasta nada; caché por hash del payload; gasto en
+`tools/gen/spend.json`. Texturas como material a 90°, liso, sin mencionar agua.
+Atlas de poses: ≤ 10 celdas, rejilla cuadrada, segunda referencia = identidad;
+`cutout.ts` recorta por relleno desde el borde. De los iconos de recursos queda el del oro
+(`ICONO_DEL_ORO`, el mismo texto: la caché no lo repaga); los otros seis, con el atlas de la mina
+y los montones del mapa, están en `assets/art/retirado/` (21-10-2026), que no va al build. Las criaturas y sus poses de
+`tools/gen/animate.ts` se retiraron (#139): las figuras son del taller.

@@ -69,8 +69,8 @@ export type Papel = keyof typeof PAPELES;
 /**
  * Los papeles que son la referencia de pose de un atlas: el maniquí en color, en
  * profundidad o en profundidad con su esqueleto encima. Un solo sitio para la
- * pregunta «¿es esta referencia la pose?» (el esquema, el aplanado del trabajador,
- * fal.ai y la revisión del maniquí).
+ * pregunta «¿es esta referencia la pose?» (el esquema, el aplanado del trabajador
+ * y la revisión del maniquí).
  */
 export const PAPELES_DE_POSE = ['pose', 'pose-profundidad', 'pose-esqueleto'] as const;
 export const esDePose = (papel: string): papel is (typeof PAPELES_DE_POSE)[number] =>
@@ -202,33 +202,6 @@ export const encargoSchema = z
     cuantos: z.number().int().min(4).max(16).optional(),
     /** Iconos: el nombre de cada uno, en el orden de lectura de la lámina de 4×4. */
     nombres: z.array(z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/)).optional(),
-    /**
-     * Otro modelo que el de ChatGPT por la suscripción: un endpoint de fal.ai
-     * (las pruebas del 10-10-2026, `MOTORES` en `experimento.ts`, retirado el 30-10-2026). Sin él, codex.
-     */
-    motor: z
-      .object({
-        nombre: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/),
-        endpoint: z.string().regex(/^[a-z0-9-]+(\/[a-z0-9.-]+)+$/),
-        /** Lo que se le pasa además del prompt y las imágenes: tamaño, calidad… */
-        params: z.record(z.string(), z.unknown()).default({}),
-        /** Lo que cuesta una llamada, en dólares (de la página de fal; estimado si cobra por tokens). */
-        coste: z.number().positive(),
-        /** Si devuelve alfa, o un fondo liso que el taller recorta (`cutoutBackground`). */
-        fondo: z.enum(['transparente', 'liso']),
-        /** La pose va como ControlNet (la primera referencia) y el resto, solo por texto. */
-        control: z.literal(true).optional(),
-        /** El prompt en otro idioma, si el modelo no entiende bien el español (FLUX.1). */
-        prompt: z.string().min(20).optional(),
-        /**
-         * Un modelo de vídeo de transferencia de movimiento (`video.ts`): una
-         * llamada por acción con el vídeo del maniquí; `coste` es por segundo.
-         */
-        video: z.literal(true).optional(),
-        /** Otra tirada del mismo encargo: entra en la clave de la caché de fal (si no, sale la misma imagen). */
-        intento: z.number().int().min(2).optional(),
-      })
-      .optional(),
   })
   .superRefine((e, ctx) => {
     if (e.tipo === 'iconos') {
@@ -292,15 +265,6 @@ export function prefacioDeReferencias(referencias: Encargo['referencias']): stri
  */
 const SIN_FONDO =
   'Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.';
-
-/** El fondo que se pide a un motor que no da alfa: liso, para recortarlo (`cutoutBackground`). */
-const FONDO_LISO =
-  'Fondo LISO de un solo color gris medio uniforme (#808080), sin degradado, sin suelo, sin sombra pintada, sin halo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.';
-
-/** Las reglas con el fondo que da el motor del encargo: el alfa de siempre, o liso. */
-function conFondo(e: Encargo, texto: string): string {
-  return e.motor?.fondo === 'liso' ? texto.replace(SIN_FONDO, FONDO_LISO) : texto;
-}
 
 /**
  * Hacia dónde mira el personaje en cada una de las 8 direcciones, dicho con
@@ -451,10 +415,10 @@ function reglas(e: Encargo): string {
 }
 
 /**
- * Las reglas de `tools/gen/prompts.ts`, aprendidas en los laboratorios de
- * ne-fan: un material visto a 90°, nunca un lugar (pedir «suelo» mete
- * perspectiva); liso, porque un motivo único canta al repetirse; y sin nombrar
- * el agua, que alucina ríos. La costura la fabrica el taller (`textura.ts`):
+ * Las reglas de las texturas, aprendidas en los laboratorios de ne-fan: un
+ * material visto a 90°, nunca un lugar (pedir «suelo» mete perspectiva); liso,
+ * porque un motivo único canta al repetirse; y sin nombrar el agua, que alucina
+ * ríos. La costura la fabrica el taller (`textura.ts`):
  * aquí solo se pide que no haya nada que la estropee.
  */
 const REGLAS_DE_TEXTURA = [
@@ -490,23 +454,11 @@ export function promptDe(e: Encargo): string {
       reglas(e),
     ].join('\n\n');
   }
-  if (e.motor?.prompt !== undefined) return e.motor.prompt;
-  // Por API no hay herramienta integrada que nombrar; con ControlNet la pose la
-  // pone el control y las demás referencias no viajan: sin prefacio ni lo que
-  // las nombra.
-  const control = e.motor?.control === true;
   return [
-    e.motor !== undefined
-      ? 'Genera UNA imagen.'
-      : 'Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.',
-    control ? '' : prefacioDeReferencias(e.referencias),
-    control
-      ? e.descripcion
-          .split('\n')
-          .filter((l) => !/\(imagen \d\)/.test(l))
-          .join('\n')
-      : e.descripcion,
-    conFondo(e, reglas(e)),
+    'Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.',
+    prefacioDeReferencias(e.referencias),
+    e.descripcion,
+    reglas(e),
   ]
     .filter((p) => p.length > 0)
     .join('\n\n');

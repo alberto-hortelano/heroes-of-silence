@@ -109,6 +109,7 @@ import { disposicionDe } from '../../src/shared/base.js';
 import { bandera } from '../argumentos.js';
 import {
   CANDIDATOS_DEL_MUESTRARIO,
+  carpetaDeFotogramas,
   carpetaDeManiqui,
   DIR_MANIQUIES,
   JUEGOS_DE_ARMAS,
@@ -117,7 +118,6 @@ import {
   renderizarMuestrario,
   renderizarOchoDirecciones,
 } from '../art/poses.js';
-import { cutoutBackground } from '../gen/cutout.js';
 import { leerBancoDeDisco } from '../npcs/banco.js';
 import { esEncargoDeNpc, REINTENTOS_DE_NPC, reintentarSiQueda } from '../npcs/en-el-taller.js';
 import {
@@ -170,7 +170,6 @@ import {
   escribirModulos,
   TEXTURAS_DE_RELIEVE,
 } from './escenario/modulos.js';
-import { generarConFal } from './fal.js';
 import { alAcabarUnaHoja, derivacionDeLaCarpeta } from './juntar.js';
 import { encargosDeLaderas, escribirGuiasDeLaderas, escribirLaderasDerivadas } from './laderas.js';
 import {
@@ -238,7 +237,6 @@ import {
   unidad,
 } from './unidades.js';
 import { validarElEncargo } from './validar.js';
-import { carpetaDeFotogramas, generarConVideo } from './video.js';
 import { vistaEdificios, vistaEfectos, vistaEjercitos } from './vista.js';
 import { vista8d } from './vista-8d.js';
 import { vistaBase } from './vista-base.js';
@@ -296,19 +294,15 @@ async function procesar(
     const prompt = promptDe(encargo);
     if (previa === undefined)
       console.log(
-        `  · ${encargo.motor === undefined ? 'Codex' : `fal ${encargo.motor.endpoint}`}: ${encargo.referencias.map((r) => `${r.papel}=${r.ruta}`).join(', ') || 'sin referencias'}`,
+        `  · Codex: ${encargo.referencias.map((r) => `${r.papel}=${r.ruta}`).join(', ') || 'sin referencias'}`,
       );
     const gen =
       previa ??
-      (encargo.motor === undefined
-        ? await generar(
-            prompt,
-            referencias.map((r) => r.png),
-            encargo.reanudar?.hilo,
-          )
-        : encargo.motor.video === true
-          ? await generarConVideo(encargo)
-          : await generarConFal(encargo, prompt, referencias));
+      (await generar(
+        prompt,
+        referencias.map((r) => r.png),
+        encargo.reanudar?.hilo,
+      ));
     try {
       return await postprocesar(encargo, gen, prompt, referencias);
     } catch (err) {
@@ -364,14 +358,7 @@ async function postprocesar(
     } else {
       // Un efecto es semitransparente a propósito (humo, resplandor): recorte suave.
       const r =
-        encargo.tipo === 'efecto'
-          ? recorteSuave(await aRaster(crudo))
-          : await recortar(
-              // Un motor sin alfa pinta sobre un fondo liso: se quita antes del recorte.
-              encargo.motor?.fondo === 'liso' ? await cutoutBackground(crudo) : crudo,
-            );
-      if (encargo.motor?.fondo === 'liso')
-        pasos.push('fondo liso del motor quitado por relleno desde el borde (cutoutBackground)');
+        encargo.tipo === 'efecto' ? recorteSuave(await aRaster(crudo)) : await recortar(crudo);
       pasos.push(
         encargo.tipo === 'efecto'
           ? 'recorte suave: solo se borra lo casi invisible (alfa < 24); el humo y los resplandores conservan su alfa'
@@ -561,11 +548,10 @@ async function postprocesar(
       encargo: encargo.id,
       tipo: encargo.tipo,
       fecha: new Date().toISOString(),
-      herramienta:
-        encargo.motor === undefined
-          ? { nombre: 'codex exec (ChatGPT por la suscripción, imagegen integrado)', version }
-          : { nombre: `fal.ai ${encargo.motor.endpoint}`, params: encargo.motor.params },
-      ...(gen.coste === undefined ? {} : { coste: gen.coste }),
+      herramienta: {
+        nombre: 'codex exec (ChatGPT por la suscripción, imagegen integrado)',
+        version,
+      },
       hilo: gen.hilo,
       ...(encargo.reanudar ? { reanuda: encargo.reanudar.hilo } : {}),
       prompt,
@@ -1465,7 +1451,7 @@ switch (orden) {
         ...(u.clipsDelManiqui === undefined ? {} : { clips: u.clipsDelManiqui }),
         // Además, sus hojas en profundidad: la pose que se pinta.
         profundidad: true,
-        // Y los fotogramas enteros de cada clip, para los vídeos del maniquí (`video.ts`).
+        // Y los fotogramas enteros de cada clip, para mirarlos (`carpetaDeFotogramas`).
         ...(resto.includes('--fotogramas') ? { fotogramas: carpetaDeFotogramas(id) } : {}),
       });
       // Con `--huesos`, solo el esqueleto de cada hoja, junto a ella: la verdad con que

@@ -18,7 +18,7 @@
  * Si la imagen llega SIN alfa (fondo plano pintado), cae a `cutoutBackground`.
  */
 import sharp from 'sharp';
-import { cutoutBackground } from '../gen/cutout.js';
+import { cutoutBackground } from './fondo.js';
 
 export interface UmbralesDeHalo {
   /** Por debajo, y conectado al borde, es halo. */

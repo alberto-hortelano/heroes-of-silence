@@ -1,6 +1,6 @@
 /**
- * Pedirle una imagen a ChatGPT por la suscripción, con Codex CLI. Nunca fal.ai
- * ni una API de pago: esto no tiene clave que filtrar ni gasto que apuntar.
+ * Pedirle una imagen a ChatGPT por la suscripción, con Codex CLI. Nunca una API
+ * de pago: esto no tiene clave que filtrar ni gasto que apuntar.
  *
  * Tres cosas que no son obvias y costaron una prueba cada una:
  *  - `-i` es variádico: `-i a.png -i b.png "prompt"` se come el prompt como
@@ -42,8 +42,6 @@ export interface Generacion {
   readonly crudo: string;
   /** Lo último que dijo el agente: sirve de motivo cuando no hay imagen. */
   readonly mensaje: string;
-  /** Lo que costó, en dólares, si se pagó aparte (fal.ai); por la suscripción, nada. */
-  readonly coste?: number;
 }
 
 /** Los eventos JSONL de Codex que importan aquí. */

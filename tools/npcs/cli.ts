@@ -21,7 +21,7 @@
  *       fallido con reintentos —un encargo que falla se reintenta solo dos veces— y lo
  *       que dejó en curso un trabajador que murió) y acaba al vaciarlos
  *
- * Nada gasta dinero: el taller pinta con Codex por la suscripción, nunca con fal.ai.
+ * Nada gasta dinero: el taller pinta con Codex por la suscripción, nunca con una API de pago.
  */
 import { spawnSync } from 'node:child_process';
 import { readFile, rm } from 'node:fs/promises';

@@ -20,8 +20,6 @@
     "lint": "biome check .",
     "format": "biome check --write .",
     "partida": "tsx src/server/ws-server.ts",
-    "mcp": "tsx src/server/mcp/server.ts",
-    "gen": "tsx tools/gen/cli.ts",
     "taller": "tsx tools/taller/trabajador.ts",
     "qa": "tsx tools/qa/verify-agent.ts",
     "capturas": "tsx tools/qa/capturas.ts",
