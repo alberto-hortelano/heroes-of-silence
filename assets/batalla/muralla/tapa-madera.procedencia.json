@@ -1,0 +1,42 @@
+{
+  "encargo": "batalla-tapa-madera",
+  "tipo": "textura",
+  "fecha": "2026-11-06T09:20:09.032Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a1b027-9096-7113-a55d-6be9f31f34e5",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la referencia de MATERIAL: de ella se toman SOLO el color, la textura y la paleta de la roca y de lo que crece en ella, para que case con estas piezas. NO copies su forma (columnas, prismas, bloques en fila) ni su composición.\n\nel suelo de un ADARVE de madera visto exactamente desde arriba: tablones gruesos y toscos de madera parda puestos uno junto a otro, con vetas, nudos, grietas y clavos de hierro, algo de tierra en las juntas. Los materiales y la paleta, los de la imagen 2 (la madera de la empalizada de la imagen 2: troncos descortezados de madera parda, con vetas, nudos y grietas, y ataduras de cuerda y flejes de hierro oscuro); el acabado, el de la imagen 1.\n\nUna muestra plana de MATERIAL vista exactamente desde arriba, a 90 grados, como una muestra de una biblioteca de texturas: sin perspectiva, sin horizonte y sin sombras proyectadas.\nLisa y uniforme en toda la superficie: sin un motivo central, sin objetos sueltos, sin caminos, sin bordes ni marco, sin figuras y sin texto. Que se pueda repetir en mosaico por los cuatro lados sin que se note.\nFormato cuadrado, imagen opaca de borde a borde.",
+  "referencias": [
+    {
+      "ruta": "assets/rpg/campo.webp",
+      "papel": "estilo",
+      "sha256": "f793599c3460da9299fb6448f9a212c9504acd421af80fd78dec4879779be878"
+    },
+    {
+      "ruta": "assets/mapa/nodo-empalizada.webp",
+      "papel": "material",
+      "sha256": "012f188aacc2776e9d8026b4528ec6b95b161da573e2146fe4cfc0094b5b37ec"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a1b027-9096-7113-a55d-6be9f31f34e5/exec-ce95d6a6-7024-49d2-a986-88b8677bb61a.png",
+    "sha256": "4d8a000ed11f607c6390159f872d5244cc265f458a9de0ad6b5ab3dd1a6108ff",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "cuadrado central a 512×512 y repetible: mezclada eje a eje con su copia desplazada medio lado; costura 0.99 (1 es invisible)",
+    "WebP calidad 92, alfa sin pérdida",
+    "caja de lo opaco (y el cuerpo de una cara) en el índice de la muralla de batalla"
+  ],
+  "validacion": {
+    "ancho": 512,
+    "alto": 512
+  },
+  "salida": {
+    "ruta": "assets/batalla/muralla/tapa-madera.webp",
+    "sha256": "8419b0b68a9703334d644a42411ed9a636f08b8ce0926ec42185205ad758c09f"
+  }
+}

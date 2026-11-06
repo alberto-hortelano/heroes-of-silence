@@ -1,0 +1,41 @@
+{
+  "encargo": "batalla-portada-madera-cerrada",
+  "tipo": "imagen",
+  "fecha": "2026-11-06T09:22:29.183Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a1b029-8505-7ac3-82b8-514e2894cff4",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl ÚNICO cambio: la puerta se CIERRA. Las dos hojas de madera recia con flejes y clavos de hierro, que en la imagen 1 están abatidas contra las jambas, giran hasta juntarse en el medio y TAPAN EL HUECO del arco entero, de jamba a jamba y del suelo a la rosca del arco, vistas de frente: dos tableros de tablones verticales con dos bandas de hierro cada uno y la junta en el medio.\nLa fachada, el arco, el remate, la luz, el tamaño y la posición de todo se quedan exactamente como en la imagen 1. Fuera de la fachada, transparente como en ella.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/batalla/muralla/portada-madera-abierta.webp",
+      "papel": "edita",
+      "sha256": "00051575c4199378ff6cf3213aa96f7759f55fb20fced66f09bfe8d00f6f3935"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a1b029-8505-7ac3-82b8-514e2894cff4/exec-9a61b5c0-d1cd-4260-b914-495a58605c4a.png",
+    "sha256": "7872a1c037b08d6710702f7707bf13e02bdccb47778751e3f5d1acfcc7192998",
+    "ancho": 1308,
+    "alto": 1203
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "caja de lo opaco (y el cuerpo de una cara) en el índice de la muralla de batalla"
+  ],
+  "validacion": {
+    "visibles": 0.8718182078584245,
+    "opacos": 0.9964582963083545,
+    "haloSuelto": 0,
+    "ancho": 1293,
+    "alto": 1188
+  },
+  "salida": {
+    "ruta": "assets/batalla/muralla/portada-madera-cerrada.webp",
+    "sha256": "be14a554627f0bae6b8cc1f2100afa2df09bfab201a5a598f456e8499add1e83"
+  }
+}

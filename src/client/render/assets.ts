@@ -106,6 +106,24 @@ export const PIEZAS_DEL_MAPA = ['cofre'] as const;
 
 export type PiezaDelMapa = (typeof PIEZAS_DEL_MAPA)[number];
 
+/** Las piezas de la muralla de batalla ya pedidas (`pedirArteDeLaMuralla`). */
+const murallaPedida = new Set<string>();
+
+/**
+ * Pide, una vez, las piezas de la muralla del tablero de batalla
+ * (`assets/batalla/muralla/<pieza>.webp`, `render/arte-de-la-muralla.ts`), en una
+ * tanda: se piden con la primera batalla que lleva muralla, no al arrancar. Se
+ * leen con `asset('muralla', pieza)`; lo que no llega se queda en su marcador.
+ */
+export function pedirArteDeLaMuralla(carpeta: string, piezas: readonly string[]): void {
+  const nuevas = piezas.filter((p) => !murallaPedida.has(p));
+  if (nuevas.length === 0) return;
+  for (const p of nuevas) murallaPedida.add(p);
+  tandaDeArte(
+    Promise.all(nuevas.map((p) => cargarImagen(`muralla/${p}`, `/${carpeta}/${p}.webp`))),
+  );
+}
+
 /** ¿Ha llegado ya alguna imagen de figura? Con una ya hay alguien que respira. */
 let hayFigura = false;
 

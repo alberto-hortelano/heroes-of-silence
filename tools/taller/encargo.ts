@@ -151,6 +151,12 @@ export const encargoSchema = z
     /** Imagen: si el fondo se recorta o la imagen es opaca (un fondo de batalla). */
     fondo: z.enum(['transparente', 'opaco']).default('transparente'),
     /**
+     * Imagen transparente cuyo contenido llena su recuadro a propósito (el lienzo
+     * de un muro, la fachada de una portada: `muralla-de-batalla.ts`): no se
+     * rechaza por «casi todo es opaco», que es lo que delata un fondo sin recortar.
+     */
+    lleno: z.literal(true).optional(),
+    /**
      * Imagen opaca: el tamaño exacto al que se lleva lo que devuelva Codex. Los
      * cuadros de la base miden un tramo (`TRAMO`): se cosen a tope y se recortan
      * píxel a píxel contra su placa.

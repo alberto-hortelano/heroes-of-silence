@@ -72,6 +72,7 @@ export async function validar(
   celda: number = FIGURA.celda,
   filas = 3,
   talla = 1,
+  lleno = false,
 ): Promise<Informe> {
   const { data, info } = await sharp(imagen)
     .ensureAlpha()
@@ -86,7 +87,7 @@ export async function validar(
       `la imagen está casi vacía tras el recorte: se ve el ${((medidas.visibles ?? 0) * 100).toFixed(2)} % y una figura de talla ${talla} pide ${(visibleMinimo(talla) * 100).toFixed(2)} %`,
     );
   }
-  if ((medidas.visibles ?? 0) > 0.9)
+  if (!lleno && (medidas.visibles ?? 0) > 0.9)
     problemas.push('el fondo no se ha recortado: casi todo es opaco');
   // Un efecto es semitransparente a propósito: ni cuerpo opaco ni halo que medir.
   if (tipo !== 'efecto' && (medidas.opacos ?? 0) < 0.75) {
@@ -145,5 +146,6 @@ export function validarElEncargo(imagen: Buffer, encargo: Encargo): Promise<Info
     encargo.celda ?? FIGURA.celda,
     encargo.tipo === 'atlas' ? filasDeAtlas(encargo) : undefined,
     encargo.talla,
+    encargo.lleno === true,
   );
 }

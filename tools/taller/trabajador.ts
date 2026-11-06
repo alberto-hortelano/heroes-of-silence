@@ -54,6 +54,9 @@
  *                                        las rampas que abren la pared (§35, `rampas.ts`), con su guía
  *   pnpm taller encolar --recinto [--rehacer]
  *                                        las puertas y los tramos en diagonal del recinto de una ciudad (§37, `recinto.ts`), con su guía
+ *   pnpm taller encolar --muralla-batalla [--solo=cara-piedra,…] [--rehacer]
+ *                                        la muralla del tablero de batalla: caras, tapas, portadas y escalera, con su guía (`muralla-de-batalla.ts`)
+ *   pnpm taller derivar-muralla-batalla  rehace el índice de cajas de esas piezas (`assets/batalla/muralla/indice.json`)
  *   pnpm taller derivar-recinto          apunta el pie de las dos puntas de cada módulo del recinto desde su guía
  *   pnpm taller guias                    escribe las guías de geometría de `paredes-puentes.ts`, `laderas.ts`, `diagonales.ts`, `bajadas.ts`, `rampas.ts` y `recinto.ts`
  *   pnpm taller derivar-puentes <puente.webp>…  rehace su ancla (centro del tablero) y su casilla
@@ -180,6 +183,12 @@ import {
   escribirPuestoDerivado,
 } from './mapa.js';
 import { encargoDeLamina, encargosDePiezasDensas, encargosDeTexturas } from './mapa-denso.js';
+import {
+  encargosDeLaMurallaDeBatalla,
+  escribirGuiasDeLaMuralla,
+  escribirIndiceDeLaMuralla,
+  esDeLaMurallaDeBatalla,
+} from './muralla-de-batalla.js';
 import { escribirGuiaDelMuro, escribirMurosDerivados, esMuroNorteSur } from './muros.js';
 import { DIR_DEL_MANIQUI_CIVIL, encolarLoQueSigue, POSE_DE_LA_IDENTIDAD } from './npcs.js';
 import {
@@ -486,6 +495,13 @@ async function postprocesar(
         pasos.push('casilla registrada sobre la guía de geometría (pxPorCasilla)');
       }
     }
+    // La muralla del tablero de batalla: el índice de cajas que lee el lienzo.
+    if (esDeLaMurallaDeBatalla(encargo.salida)) {
+      await escribirIndiceDeLaMuralla();
+      pasos.push(
+        'caja de lo opaco (y el cuerpo de una cara) en el índice de la muralla de batalla',
+      );
+    }
     // La base caminable: con cada cuadro nuevo (un maestro, una placa, una
     // edición) se vuelve a recortar lo que ya se puede y se rehace el índice.
     if (encargo.despues?.orden === 'recortar-base') {
@@ -775,6 +791,21 @@ async function encolar(args: readonly string[]): Promise<void> {
   if (args.includes('--puestos')) {
     for (const g of await escribirGuiasDePuestos()) console.log(`guía → ${g}`);
     await encolarConSolo(args, encargosDePuestos(), (id) => id.replace(/^mapa-puesto-/, ''));
+    return;
+  }
+  // La muralla del tablero de batalla: caras, tapas, portadas y la escalera,
+  // con su guía. Una portada cerrada es la edición de su abierta: entra cuando
+  // la abierta ya está en disco (se vuelve a correr).
+  if (args.includes('--muralla-batalla')) {
+    for (const g of await escribirGuiasDeLaMuralla()) console.log(`guía → ${g}`);
+    const { encargos, esperan } = encargosDeLaMurallaDeBatalla();
+    await encolarConSolo(
+      args,
+      encargos,
+      (id) => id.replace(/^batalla-/, ''),
+      (s) => esperan.includes(s),
+    );
+    for (const e of esperan) console.log(`espera a su abierta: ${e}`);
     return;
   }
   if (args.includes('--cofre')) {
@@ -1358,6 +1389,10 @@ switch (orden) {
     for (const f of await escribirRelieveDerivado(resto.length === 0 ? undefined : resto))
       console.log(`→ ${f}`);
     break;
+  case 'derivar-muralla-batalla':
+    // Las cajas de cada pieza de la muralla del tablero de batalla, otra vez.
+    console.log(`→ ${await escribirIndiceDeLaMuralla()}`);
+    break;
   case 'derivar-recinto':
     // El pie de las dos puntas de cada puerta y tramo del recinto, desde su guía.
     console.log(`→ ${await escribirRecintoDerivado()}`);
@@ -1617,6 +1652,6 @@ switch (orden) {
     break;
   default:
     throw new Error(
-      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, derivar-relieve, derivar-muros, derivar-puestos, derivar-casas, maniqui, muestrario, vision-instalar, revisar-maniqui, revisar, jurado, visor, visor-maniqui, versiones, elegir, adoptar, vista-base, recortar-base, medir-base, vista-ejercitos, vista-edificios, vista-efectos, vista-8d, vista-mapa, escenario, catalogo-escena`,
+      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, derivar-relieve, derivar-muros, derivar-puestos, derivar-muralla-batalla, derivar-casas, maniqui, muestrario, vision-instalar, revisar-maniqui, revisar, jurado, visor, visor-maniqui, versiones, elegir, adoptar, vista-base, recortar-base, medir-base, vista-ejercitos, vista-edificios, vista-efectos, vista-8d, vista-mapa, escenario, catalogo-escena`,
     );
 }
