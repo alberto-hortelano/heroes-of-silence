@@ -6,11 +6,14 @@
  * si se está arrastrando—, igual que hacía `main.ts` antes de partirse.
  */
 
+import { figuraDelHeroe } from '@core/data.js';
 import { individuosDe } from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
 import { inBounds, pointKey } from '@core/map/map.js';
+import { heroById } from '@core/state/game.js';
 import { REGLA_DEL_PUEBLO } from '@core/state/renta.js';
 import type { Point } from '@core/types.js';
+import { type EnLaMarcha, enLaMarcha, msPorCasilla, PRISA_EN_EL_MAPA } from '../marcha.js';
 import {
   acotar,
   arrastrar,
@@ -23,12 +26,14 @@ import {
   topeDe,
   zoom,
 } from '../render/camara-mapa.js';
+import { FIGURA_DEL_HEROE } from '../render/escenario/figuras-del-mapa.js';
 import { puenteEnElTerreno } from '../render/escenario/puentes.js';
 import { escenarioListo, topeDeAlejar } from '../render/escenario/superficie.js';
+import { animarHasta } from '../render/figura.js';
 import { type Medida, pixelesDe } from '../render/lienzo.js';
 import { drawMapa, type PasoDeRuta, pasosAPintar, presupuestoConHolgura } from '../render/mapa.js';
 import { casillaDelMinimapa, drawMinimapa } from '../render/minimapa.js';
-import type { Session } from '../session.js';
+import type { MarchaEnPantalla, Session } from '../session.js';
 
 /** Cuántos píxeles hay que mover el puntero para que un clic pase a arrastre. */
 const UMBRAL_ARRASTRE = 8;
@@ -69,6 +74,17 @@ export class EscenaAventura {
    * pedirlo porque hasta el primer fotograma no se sabe cuánto mide el lienzo.
    */
   private mirarPendiente: { x: number; y: number; tile: number } | null = null;
+  /**
+   * La marcha que se enseña (`Session.marchaEnCurso`), desde qué fotograma anda y a
+   * cuántos ms por casilla (`msPorCasilla` de su figura, al alto con que se pinta).
+   */
+  private marchaVista: {
+    readonly de: MarchaEnPantalla;
+    readonly inicio: number;
+    readonly ms: number;
+  } | null = null;
+  /** Por dónde iba el héroe que anda en el último fotograma, en casillas: lo sigue la cámara. */
+  private puntoDeLaMarcha: Point | null = null;
 
   constructor(private readonly sesion: () => Session) {}
 
@@ -132,6 +148,17 @@ export class EscenaAventura {
     const foco = focoDe(s);
     const clave = `${s.selectedHeroId ?? ''}@${pointKey(foco)}`;
     const mirar = this.mirarPendiente;
+    // Mientras el héroe anda, la cámara va con él (si no se está arrastrando), y
+    // `seguido` no se toca: al llegar se centra en la casilla de llegada, como
+    // hacía sin la marcha, y el salto es lo que le faltaba del último paso.
+    const marcha = s.marchaEnCurso;
+    if (mirar === null && marcha !== null) {
+      const punto = this.puntoDeLaMarcha ?? (marcha.pasos[0] as Point);
+      this.camara = this.arrastrando
+        ? acotar(this.camara, this.encuadre)
+        : centrarEn(this.camara, punto, this.encuadre);
+      return;
+    }
     if (mirar !== null) {
       // Quien pidió mirar allí manda sobre seguir al héroe: se da por seguido
       // para que el encuadre siguiente no lo recentre.
@@ -171,8 +198,10 @@ export class EscenaAventura {
   dibujar(ctx: CanvasRenderingContext2D, ancho: number, alto: number, ahora: number): void {
     const s = this.sesion();
     const state = s.state;
+    const andando = this.andando(ahora);
     this.encuadrar(ancho, alto);
     drawMapa(ctx, {
+      ...(andando === null ? {} : { andando }),
       escena: state,
       // Los grupos, los que se ven: el lienzo no decide qué grupo se ve, lo pinta.
       asaltantes: s.asaltantesALaVista(),
@@ -192,6 +221,44 @@ export class EscenaAventura {
       tiempo: ahora,
       clima: s.clima,
     });
+  }
+
+  /**
+   * Por dónde va a la hora `ahora` el héroe que anda (`Session.marchaEnCurso`), o
+   * `null` si no anda nadie. La marcha empieza a contar en el primer fotograma que
+   * la pinta, y al llegar la acaba (`acabarLaMarcha`): lo que abre la llegada —la
+   * batalla, la base, el lugar— se abre entonces, con el héroe ya en su casilla.
+   */
+  private andando(ahora: number): ({ readonly heroe: string } & EnLaMarcha) | null {
+    const s = this.sesion();
+    const m = s.marchaEnCurso;
+    if (m === null) {
+      this.marchaVista = null;
+      this.puntoDeLaMarcha = null;
+      return null;
+    }
+    let vista = this.marchaVista;
+    if (vista?.de !== m) {
+      const hero = heroById(s.state, m.heroe);
+      const ms =
+        msPorCasilla(figuraDelHeroe(hero), 'walk', FIGURA_DEL_HEROE.alto) / PRISA_EN_EL_MAPA;
+      vista = { de: m, inicio: ahora, ms };
+      this.marchaVista = vista;
+    }
+    const en = enLaMarcha(m.pasos, vista.ms, ahora - vista.inicio);
+    if (en === null) {
+      this.marchaVista = null;
+      this.puntoDeLaMarcha = null;
+      s.acabarLaMarcha();
+      return null;
+    }
+    // El lienzo sigue pidiendo fotogramas también sin arte, que no respira.
+    animarHasta(performance.now() + 100);
+    this.puntoDeLaMarcha = {
+      x: en.desde.x + (en.hasta.x - en.desde.x) * en.t,
+      y: en.desde.y + (en.hasta.y - en.desde.y) * en.t,
+    };
+    return { heroe: m.heroe, ...en };
   }
 
   dibujarMinimapa(lienzo: HTMLCanvasElement): void {

@@ -470,6 +470,19 @@ async function comprobar(page: Page, espejo: Session, paso: string): Promise<voi
   }
 }
 
+/**
+ * Espera a que el héroe llegue: el clic que lo mueve deja la marcha en pantalla
+ * (`#app[data-marcha]`, que la página pone en el fotograma siguiente) y lo que abre
+ * la llegada —la batalla, la base, la guarnición— espera a que acabe. El espejo no
+ * la enseña (`Session.enseñarLaMarcha`): abre en el acto.
+ */
+async function esperarLaMarcha(page: Page): Promise<void> {
+  await page.evaluate(
+    () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))),
+  );
+  await page.waitForSelector('#app:not([data-marcha])', { timeout: 30_000 });
+}
+
 /** Espera a que la batalla acabe de contarse: lo que tarda la cola de lo que se acaba de jugar. */
 async function esperarCola(battle: BattleState, nuevos: readonly BattleEvent[]): Promise<void> {
   await sleep(250 + duracionDeLaJugada(battle, nuevos));
@@ -793,6 +806,7 @@ class Mapa {
     const px = await this.pixel(p);
     await this.page.mouse.click(px.x, px.y);
     this.espejo.clickTile(p);
+    await esperarLaMarcha(this.page);
     await sleep(250);
     await cerrarLaGuarnicion(this.page, this.espejo, `(${p.x},${p.y})`);
     // Si el clic abre una batalla, abre en el despliegue de la persona: se acepta
@@ -2735,6 +2749,7 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
   await captura(page, 'tactil-01-ruta-tras-el-primer-toque');
   await page.touchscreen.tap(px.x, px.y);
   espejo.clickTile(destino);
+  await esperarLaMarcha(page);
   await sleep(300);
   await cerrarLaGuarnicion(page, espejo, 'táctil: segundo toque');
   await comprobar(page, espejo, 'táctil: segundo toque');
@@ -2758,6 +2773,7 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
   if (otra.battle === null) {
     throw new Error(`táctil: el espejo no ha entrado en batalla: ${otra.status}`);
   }
+  await esperarLaMarcha(page);
   await desplegarTalCual(page, otra, 'táctil');
   await esperarCola(otra.battle, otra.battle.log);
   await sleep(300);

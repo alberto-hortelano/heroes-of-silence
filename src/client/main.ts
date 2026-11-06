@@ -160,6 +160,8 @@ function abrePartida(
 function prepararLaPartida(abierta: Session, rotulo: string): Session {
   // Una defensa (#116) se abre a media jugada del rival, sin gesto que pinte.
   abierta.alCambiarSinGesto = pedirFotograma;
+  // El héroe anda su marcha por el mapa, y lo que abre la llegada espera a que llegue.
+  abierta.enseñarLaMarcha = true;
   elSeed.textContent = rotulo;
   // La interfaz, con el tema de la facción de quien juega (`temas.ts`).
   ponerTema(abierta.jugador.faction);
@@ -369,7 +371,7 @@ function pedirFotograma(): void {
 function hayAnimacion(): boolean {
   if (hayFigurasAnimadas()) return true;
   if (session.scene === 'battle') return batalla.ocupada;
-  return session.scene === 'adventure' && aventura.arrastrando;
+  return session.scene === 'adventure' && (aventura.arrastrando || session.marchaEnCurso !== null);
 }
 
 const principal = ajustarLienzo(canvas, pedirFotograma);
@@ -526,6 +528,12 @@ function dibujarFotograma(ahora: number): void {
   rueda.animar(ahora);
 
   if (!enCastillo && canvas.dataset.base !== undefined) delete canvas.dataset.base;
+  // El héroe que anda su marcha (`#app[data-marcha]`, su id): `pnpm capturas` espera
+  // a que llegue antes de mirar lo que abre la llegada.
+  const andando = session.marchaEnCurso?.heroe;
+  if (andando === undefined) {
+    if (app.dataset.marcha !== undefined) delete app.dataset.marcha;
+  } else if (app.dataset.marcha !== andando) app.dataset.marcha = andando;
   // A quién se mira en cada escena de dentro (`canvas[data-tropa]`, el id de la
   // elegida; `canvas[data-morada]`, `<edificio>:<unidad>`): por donde esperan
   // `pnpm capturas` y los tests del navegador. Fuera de ella, sin la marca.
@@ -669,6 +677,22 @@ function jugadaEnCurso(): boolean {
   return true;
 }
 
+/**
+ * La puerta de los gestos del mapa mientras el héroe anda su marcha
+ * (`Session.marchaEnCurso`): el gesto —un clic en el lienzo, un botón, una
+ * tecla— solo lo hace llegar (`acabarLaMarcha`, que abre lo que esperaba a la
+ * llegada) y no hace nada más. Sin marcha, `false` y el gesto sigue. Así nada se
+ * juega con el héroe pintado a medio camino, ni con la batalla de una emboscada
+ * esperando a que llegue.
+ */
+function hastaQueLlegue(): boolean {
+  if (session.marchaEnCurso === null) return false;
+  session.acabarLaMarcha();
+  aventura.olvidarRuta();
+  pedirFotograma();
+  return true;
+}
+
 /** La última unidad propia a la que se llevó el marco, para no pelear con el dedo. */
 let activaSeguida: string | null = null;
 
@@ -762,6 +786,7 @@ canvas.addEventListener('pointerup', (ev) => {
     batalla.mover(p.x, p.y);
     if (!jugadaEnCurso()) batalla.pulsar(p.x, p.y);
   } else if (aventura.soltar()) {
+    if (hastaQueLlegue()) return;
     // Con el modo «marcar fallo» puesto, el clic es suyo y no mueve a nadie.
     if (desarrollo?.activo === true) desarrollo.clic(p.x, p.y);
     else aventura.pulsar(p.x, p.y, ev.pointerType === 'touch');
@@ -866,7 +891,7 @@ document.addEventListener('click', (ev) => {
     pedirFotograma();
     return;
   }
-  if (reparto === 'nada') return;
+  if (reparto === 'nada' || hastaQueLlegue()) return;
   pedirFotograma();
 
   switch (action) {
@@ -1193,6 +1218,9 @@ document.addEventListener('keydown', (ev) => {
     pedirFotograma();
     return;
   }
+  // Mientras el héroe anda, una tecla solo lo hace llegar (`hastaQueLlegue`); el
+  // zoom, no, que es de la cámara.
+  if (ev.key !== '+' && ev.key !== '-' && hastaQueLlegue()) return;
   if (ev.key === 'Escape' && esDeDentro(session.scene)) {
     cerrarDentro();
   } else if (ev.key === 'Escape' && session.scene === 'town') {
