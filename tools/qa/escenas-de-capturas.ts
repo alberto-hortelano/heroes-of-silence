@@ -278,7 +278,7 @@ export async function buscarVeteranos(b: Caja, desde = 1): Promise<number> {
     espejo.autoResolveBattle();
     const heroe = espejo.myHeroes()[0];
     if (heroe === undefined) continue;
-    if (!troopSummary(heroe.army, espejo.state.characters).some((g) => g.rango >= 2)) continue;
+    if (!troopSummary(heroe.army).some((g) => g.rango >= 2)) continue;
     if ((await turnoDelEspejo(espejo)) === 'defensa') continue;
     if (espejo.state.finished !== null) continue;
     const segunda = guardiaEnElMarco(b, e, TILE_INICIAL, espejo, VETERANOS);

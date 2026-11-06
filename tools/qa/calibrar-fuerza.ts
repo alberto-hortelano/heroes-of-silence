@@ -40,14 +40,8 @@ import { COMBATE_COMPLETO } from '../../src/core/combate.js';
 import type { GrupoDeTropa } from '../../src/core/data.js';
 import { rangoDeHeroe } from '../../src/core/hero/experiencia.js';
 import { cuerposDelHeroe, type Hero, heroUnit, moraleBonus } from '../../src/core/hero/hero.js';
-import {
-  characterOf,
-  ejercitoDe,
-  type Personajes,
-  troopsAsStacks,
-} from '../../src/core/hero/troop.js';
+import { ejercitoDe, troopsAsStacks } from '../../src/core/hero/troop.js';
 import { createRng } from '../../src/core/rng.js';
-import { combatProfile } from '../../src/core/rpg/stats.js';
 import { newGame } from '../../src/core/state/setup.js';
 
 const PAREJAS = Number(process.argv[2] ?? 2000);
@@ -66,7 +60,6 @@ const RAZON_CON_GRUPO = [0.4, 4] as const;
 
 interface Foto {
   readonly hero: Hero;
-  readonly characters: Personajes;
 }
 
 const fotos: Foto[] = [];
@@ -80,15 +73,7 @@ for (const lado of LADOS) {
       await playAiTurn(state, ctx);
       if (state.day === ultimo || state.day % 2 !== 0) continue;
       ultimo = state.day;
-      for (const h of state.heroes) {
-        // Solo los personajes que lleva: la foto tiene que poder pelear sola.
-        const suyos: Record<string, NonNullable<Personajes>[string]> = {};
-        for (const t of h.army) {
-          if (t.member !== undefined)
-            suyos[t.member] = characterOf(state.characters, t.member, 'la foto');
-        }
-        fotos.push({ hero: structuredClone(h), characters: structuredClone(suyos) });
-      }
+      for (const h of state.heroes) fotos.push({ hero: structuredClone(h) });
       for (const r of state.raiders) grupos.push(structuredClone(r.troops));
     }
   }
@@ -96,15 +81,7 @@ for (const lado of LADOS) {
 
 /** El bando como lo monta el mapa (`battleSideForHero`), con la rendición abierta. */
 function bando(f: Foto): BattleSide {
-  const members = new Map(
-    f.hero.army.flatMap((t) => {
-      if (t.member === undefined) return [];
-      const c = characterOf(f.characters, t.member, 'la foto');
-      return [[t.member, { profile: combatProfile(c), hp: c.hp }] as const];
-    }),
-  );
   return {
-    ...(members.size === 0 ? {} : { members }),
     army: troopsAsStacks(f.hero.army),
     hero: {
       ...cuerposDelHeroe(f.hero),
@@ -132,7 +109,7 @@ interface Pieza {
 }
 
 const piezas = (f: Foto): Pieza => ({
-  tropa: armyPower(f.hero.army, f.characters),
+  tropa: armyPower(f.hero.army),
   cuerpo: unitPower(heroUnit(f.hero)),
   solo: f.hero.army.length === 0 && rangoDeHeroe(f.hero) >= NIVEL_DE_SUBIDO,
 });

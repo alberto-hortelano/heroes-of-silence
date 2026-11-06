@@ -8,16 +8,14 @@ import { autoResolve, type BattleOutcome } from '../ai/tactics.js';
 import {
   alAsalto,
   aplicarDespliegue,
-  type BattleMember,
   type BattleSide,
   createBattle,
   mandoDe,
 } from '../battle/battle.js';
-import { stackHp } from '../battle/damage.js';
 import { colocarBlocker } from '../battle/despliegue.js';
 import { resumenDeBatalla } from '../battle/resumen.js';
 import type { BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
-import { personajeDe, SIDES } from '../battle/types.js';
+import { SIDES } from '../battle/types.js';
 import {
   equipoDelPortadorBlocker,
   equipoDeSerieDe,
@@ -76,7 +74,6 @@ import { infiltracionBlocker, precioDeLaBarrera } from '../hero/infiltracion.js'
 import {
   armyLeadership,
   capacidadDe,
-  characterOf,
   ejercitoDe,
   gruposDe,
   individuosDe,
@@ -131,8 +128,6 @@ import {
 } from '../mundo/formato.js';
 import { mundoDe, opcionBlocker, opcionDe, type RefDeOpcion } from '../mundo/reglas.js';
 import { createRng, type Rng } from '../rng.js';
-import { CHARACTER_BODY, type Character } from '../rpg/character.js';
-import { combatProfile } from '../rpg/stats.js';
 import {
   applyWeeklyGrowth,
   build as buildInTown,
@@ -459,21 +454,10 @@ export interface GameState {
    */
   readonly log: readonly GameEvent[];
   /**
-   * Los personajes por id: individuos con atributos propios (`rpg/character.ts`)
-   * que van como individuos en el ejército de un héroe con `Troop.member`.
-   *
-   * **Ausente en una partida de estrategia**, no vacío: `newGame` no lo escribe
-   * y nada de la estrategia lo lee, así que no hay forma de que su presencia
-   * mueva una partida. Lo lee la ida a la batalla (`battleSideForHero`) y lo
-   * escribe la vuelta (`woundsFromBattle`), y solo si el ejército lleva algún
-   * miembro.
-   */
-  characters?: Record<string, Character>;
-  /**
    * El mundo de la partida (`core/mundo/`): su historia y lo que cambia de ella
-   * —el estado de cada lugar y las marcas puestas—. **Ausente sin mundo**, como
-   * `characters`: `newGame` solo lo escribe con una historia, y nada del
-   * procedimental lo lee, así que su presencia no puede mover una partida del banco.
+   * —el estado de cada lugar y las marcas puestas—. **Ausente sin mundo**:
+   * `newGame` solo lo escribe con una historia, y nada del procedimental lo lee,
+   * así que su presencia no puede mover una partida del banco.
    * Lo escriben solo las acciones de los lugares (`elegir_en_lugar`) y el cierre
    * de sus batallas.
    */
@@ -1327,7 +1311,7 @@ function startTurn(state: GameState): void {
   player.oro += renta.total;
 
   for (const hero of heroesOf(state, player.id)) {
-    empezarElDia(hero, state.characters);
+    empezarElDia(hero);
     // El maná se recupera poco a poco, salvo en un pueblo con gremio.
     const enPueblo = townsOf(state, player.id).some(
       (t) => pointKey(t.at) === pointKey(hero.at) && mageGuildLevel(t) > 0,
@@ -2265,13 +2249,11 @@ export function ponerseBlocker(
   );
 }
 
-/** Cómo se nombra al portador `quien` de `hero` en un motivo: el héroe, la unidad o el personaje. */
+/** Cómo se nombra al portador `quien` de `hero` en un motivo: el héroe o la unidad. */
 function nombreDelPortador(hero: Hero, quien: Portador): string {
   if ('heroe' in quien) return hero.name;
   const t = hero.army[quien.indice] as Troop;
-  return t.member === undefined
-    ? `esa unidad de ${unidadDelJuego(t.creature).name}`
-    : 'ese personaje';
+  return `esa unidad de ${unidadDelJuego(t.creature).name}`;
 }
 
 /** Por qué no se puede hacer ese `unequip`, o `null`. */
@@ -2399,8 +2381,6 @@ export function formacionDe(
  * Solo en un castillo propio —la base u otro—: licenciar en mitad del camino
  * sería tirar tropa para pasar una emboscada más ligero, y lo que se pidió es
  * poder **cambiarla** por otra mejor, que es algo que se hace donde se recluta.
- * Un personaje no se licencia así: es uno y tiene nombre, y no está en el
- * catálogo.
  */
 function dismissBlocker(
   state: GameState,
@@ -2419,14 +2399,11 @@ function dismissBlocker(
   // palabra en inglés en la barra del castillo. Un id que no está en el catálogo
   // —el agente puede mandar cualquier texto— se nombra tal cual, diciendo que no
   // existe, en vez de reventar en `creature()` con un error que no es el motivo.
-  if (creatureId === CHARACTER_BODY) {
-    return 'un personaje no se licencia: es uno y tiene nombre, no un individuo de la tropa';
-  }
   const especie = unidadDelJuegoSiExiste(creatureId);
   if (especie === null) {
     return `no existe ninguna unidad "${creatureId}", así que ${hero.name} no lleva ninguna`;
   }
-  const lleva = hero.army.filter((t) => t.creature === creatureId && t.member === undefined).length;
+  const lleva = hero.army.filter((t) => t.creature === creatureId).length;
   if (lleva === 0) return `${hero.name} no lleva individuos de tipo ${especie.name}`;
   if (count > lleva) {
     return `${hero.name} lleva ${lleva} × ${especie.name} y no puede licenciar ${count}`;
@@ -2518,7 +2495,7 @@ function hireHero(state: GameState, quien: PlayerId, townId: string, tipo?: stri
   const pendiente = player.heroeDeSalida;
   if (pendiente !== null) {
     const hero: Hero = { ...pendiente, tipo: tipo ?? pendiente.tipo };
-    empezarElDia(hero, state.characters);
+    empezarElDia(hero);
     // En el orden de los jugadores, como cuando nacían todos juntos: quien lee
     // `state.heroes` (la IA, los paneles) ve lo mismo eligiendo que sin elegir.
     const puesto = state.players.findIndex((p) => p.id === player.id);
@@ -2543,7 +2520,7 @@ function hireHero(state: GameState, quien: PlayerId, townId: string, tipo?: stri
     experience: EXPERIENCIA_INICIAL_DE_HEROE,
     tipo: tipo ?? tipoDeHeroePorDefecto(town.faction),
   });
-  empezarElDia(hero, state.characters);
+  empezarElDia(hero);
 
   state.heroes.push(hero);
   emit(state, {
@@ -3301,21 +3278,6 @@ function tomarElNodo(state: GameState, sitio: Sitio, player: PlayerId): void {
 // ---------------------------------------------------------------- batallas
 
 /**
- * Los personajes del ejército de un héroe, listos para `createBattle`, o
- * `undefined` si no lleva ninguno —que es siempre, en estrategia—.
- */
-function membersOf(state: GameState, hero: Hero): ReadonlyMap<string, BattleMember> | undefined {
-  let out: Map<string, BattleMember> | undefined;
-  for (const s of hero.army) {
-    if (s.member === undefined) continue;
-    const c = characterOf(state.characters, s.member, `${hero.name} lleva en el ejército`);
-    out ??= new Map();
-    out.set(s.member, { profile: combatProfile(c), hp: c.hp });
-  }
-  return out;
-}
-
-/**
  * La base de un jugador, si todavía es suya; `null` si no la tuvo nunca o la
  * ha perdido. El dueño se pregunta a `dueñoDeLaCiudad` (la base está en el muro:
  * el de su objeto, que escribe `tomarElNodo`).
@@ -3353,9 +3315,7 @@ function retiradaDe(
 
 function battleSideForHero(state: GameState, hero: Hero, side: Side): BattleSide {
   const pueblo = castilloSuyoDelHeroe(state, hero);
-  const members = membersOf(state, hero);
   return {
-    ...(members === undefined ? {} : { members }),
     army: troopsAsStacks(hero.army),
     hero: {
       ...cuerposDelHeroe(hero),
@@ -3965,10 +3925,6 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
   // El botín, decidido AQUÍ por la misma razón: si el que pierde es una ciudad
   // neutral, un instante después de capturarla ya es de quien gana.
   const botin = botinDe(state, pending, winner);
-  // Las heridas, PRIMERO: antes de que el héroe que pierde salga del mapa con
-  // su ejército. Lo que se escribe es del personaje, no del héroe, y tiene que
-  // quedar escrito pase lo que pase con quien lo llevaba.
-  woundsFromBattle(state, pending.battle);
   // Los vivos de un bando, en su orden de salida. Un stack de N —el motor los
   // sigue sabiendo jugar— vuelve como N individuos, aunque la partida solo le
   // mande de 1. Sin ordenar: `createBattle` empuja cada bando en orden de
@@ -3990,11 +3946,6 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
       switch (s.origen.kind) {
         case 'catalogo':
           base = { creature: s.origen.unidad, ...salidaDelOrigen(s.origen) };
-          break;
-        case 'personaje':
-          // `member` viaja de vuelta: sin él, el superviviente volvería al mapa
-          // convertido en un individuo «character» que nadie sabe leer.
-          base = { creature: s.body, member: s.origen.id, ...salidaDelOrigen(s.origen) };
           break;
         case 'heroe':
           // El héroe no es tropa: vuelve al mapa como héroe, no como un
@@ -4231,27 +4182,6 @@ function casillaDeVuelta(state: GameState, hero: Hero, base: Town): Point {
     }
   }
   throw new Error(`${hero.name} no tiene casilla libre a la que volver junto a ${base.name}`);
-}
-
-/**
- * Los PV con los que cada personaje sale de la batalla, escritos en
- * `state.characters`: las heridas duran más que la batalla.
- *
- * Los de los DOS bandos, porque un personaje puede defender. El que cae queda a
- * 0 y sale del ejército por el mismo camino que cualquier stack a 0
- * (`superviviente`); sigue en `characters`, y qué le pasa después —si se levanta,
- * si se pierde— es de la fase siguiente, no de esta.
- */
-function woundsFromBattle(state: GameState, battle: BattleState): void {
-  if (state.characters === undefined) return;
-  for (const s of battle.stacks) {
-    // Ni la criatura ni el héroe arrastran heridas: el héroe entra sano.
-    const id = personajeDe(s.origen);
-    if (id === null) continue;
-    // `battleSideForHero` ya lanzó si faltaba al entrar: faltar al salir es
-    // que alguien lo borró a mitad de batalla, y eso también se dice.
-    characterOf(state.characters, id, 'la batalla devuelve').hp = stackHp(s);
-  }
 }
 
 /** Un individuo que cruza un rango en esta batalla: un `troop_rank_up` por rango. */

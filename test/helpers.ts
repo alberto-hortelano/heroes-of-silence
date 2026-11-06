@@ -28,7 +28,6 @@ import {
 import {
   activeStack,
   applyAction,
-  type BattleMember,
   type BattleSide,
   createBattle,
   enemiesOf,
@@ -47,14 +46,15 @@ import {
   validarMuralla,
 } from '../src/core/battle/muralla.js';
 import { formaDeLaBatalla, golpeNeutro, type HechoDelCruce } from '../src/core/battle/rueda.js';
-import type {
-  BattleAction,
-  BattleEvent,
-  BattleStack,
-  BattleState,
-} from '../src/core/battle/types.js';
-import { HERO_BODY, personajeDe } from '../src/core/battle/types.js';
-import { UNIDADES, unidad, unidadDelJuego } from '../src/core/catalogo.js';
+import type { BattleAction, BattleEvent, BattleState } from '../src/core/battle/types.js';
+import { HERO_BODY } from '../src/core/battle/types.js';
+import {
+  type CatalogoDeUnidades,
+  UNIDADES,
+  unidad,
+  unidadDelJuego,
+  unidadDelJuegoSiExiste,
+} from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO, type ReglasDelCombate } from '../src/core/combate.js';
 import {
   BARRERAS_DEL_MAPA,
@@ -128,14 +128,9 @@ import {
   type Troop,
   type UnitInfo,
 } from '../src/core/types.js';
-import {
-  cuerpoDeCombate,
-  type Hoja,
-  nivelesDeLaEspada,
-  type Unidad,
-  unidadDeCombate,
-} from '../src/core/unidad.js';
+import { cuerpoDeCombate, type Hoja, nivelesDeLaEspada, type Unidad } from '../src/core/unidad.js';
 import { hojasDelTaller } from '../tools/arena/borrador.js';
+import { catalogoDeCifras } from './batalla-de-prueba.js';
 
 /**
  * El coste de cada casilla del alcance por `"x,y"`, en orden de primer
@@ -221,9 +216,9 @@ export const TIRADOR = 'elfo-arquero';
  * **Una unidad hecha a mano** para un rasgo del motor que ninguna unidad del
  * catálogo lleva —vuelo, doble golpe, dos casillas, munición, drenaje, miedo,
  * salpicar…—: las cifras de `base` (del catálogo, novato) con `cambios`. El motor
- * sigue jugando esos rasgos (los lleva el perfil de un personaje o los pondrá la
- * arena), así que se prueban con unidades que dicen lo que tienen, no con una del
- * catálogo que hoy no los trae.
+ * sigue jugando esos rasgos (los puede poner la arena en sus unidades), así que se
+ * prueban con unidades que dicen lo que tienen, no con una del catálogo que hoy no
+ * los trae. Entran en la batalla con `bandoAMano` o, ya montada, `conCifrasAMano`.
  */
 export function aMano(base: string, cambios: Partial<UnitInfo>): UnitInfo {
   return { ...unidadDelJuego(base), ...cambios };
@@ -245,27 +240,27 @@ export function conCifrasAMano(b: BattleState, ids: string | readonly string[], 
 }
 
 /**
- * Un bando de individuos hechos a mano: cada uno entra como personaje
- * (`members`) con sus cifras, uno por stack, porque el catálogo no los tiene.
- * Es la vía del motor para lo que cambia el despliegue (dos casillas).
+ * Un bando de individuos hechos a mano: cada uno entra con sus cifras tal cual,
+ * uno por stack (`catalogoDeCifras`), porque el catálogo no los tiene. Se pintan
+ * con la hoja de `TROPA`. Es la vía del motor para lo que se decide al montar la
+ * batalla (la escalera de quien vuela, el despliegue).
  */
-export function bandoDePersonajes(
+export function bandoAMano(
   units: readonly UnitInfo[],
   hero: BattleSide['hero'] = null,
 ): BattleSide {
-  const members = new Map<string, BattleMember>();
-  const army: Stack[] = units.map((unit, i) => {
-    const member = `a-mano-${i}`;
-    members.set(member, { profile: { unit, equipo: {}, morale: 0 }, hp: unit.hp });
-    return { creature: TROPA, member, count: 1 };
-  });
-  return { army, hero, members };
+  const cifras = units.map((unit, i) => ({ id: `a-mano-${i}`, unit, hoja: TROPA }));
+  return {
+    army: cifras.map(({ id }) => ({ creature: id, count: 1 })),
+    hero,
+    catalogo: catalogoDeCifras(cifras),
+  };
 }
 
 /**
  * Un ejército de individuos, escrito por grupos: `{ creature: 'templario-escudo',
  * count: 20 }` son veinte piqueros, uno detrás de otro y en el orden en que se
- * escriben. Un personaje va con `count: 1` y conserva su `member`.
+ * escriben.
  *
  * NO pasa por el liderazgo: un test que monta un ejército a mano decide qué
  * lleva, igual que antes decidía qué había en cada hueco. Lo que sí tiene que
@@ -721,12 +716,6 @@ export function abrirPuertas(state: BattleState, cuales?: readonly Hex[]): void 
     p.abierta = true;
   }
 }
-
-/** ¿Es este stack el personaje `id`? Para los `find` de los tests. */
-export const esPersonaje =
-  (id: string) =>
-  (s: BattleStack): boolean =>
-    personajeDe(s.origen) === id;
 
 /**
  * Un mapa de nodos pequeño y escrito a mano, para que los tests de reglas no
@@ -1477,11 +1466,15 @@ export function conManosDePrueba(
   const eq = catalogoCon(manos);
   for (const s of b.stacks) {
     // Sin arma, con las cifras que traía (las de una unidad hecha a mano): vestirla
-    // vuelve a derivar defensa, daño y velocidad de su fuerza y su agilidad.
+    // vuelve a derivar defensa, daño y velocidad de su fuerza y su agilidad. Una
+    // hecha a mano con arma (`bandoDe`, `bandoAMano`: su id no es del catálogo del
+    // juego), tal cual.
+    const delJuego =
+      s.origen.kind === 'catalogo' && unidadDelJuegoSiExiste(s.origen.unidad) !== null;
     const unit =
       s.unit.equipo?.arma === undefined
         ? conLasCifrasDe(eq.conEquipo(s.unit, { arma: manos.id }), s.unit)
-        : s.origen.kind === 'catalogo'
+        : delJuego
           ? eq.conEquipo(cuerpoDeCombate(unidad(s.body)), {
               ...unidad(s.body).equipo,
               arma: manos.id,
@@ -1625,10 +1618,12 @@ export function peleaDeArena(
 }
 
 /**
- * La pelea de `peleaDeArena` por la vía del motor, sin la arena: cada unidad entra
- * como personaje (`members`) con sus cifras de combate (`unidadDeCombate`). Con
- * las reglas del juego (`createBattle`). Con `heroes`, el de cada bando: es la
- * puerta con la que se compara la de la arena (`batallaDeArena`).
+ * La pelea de `peleaDeArena` por la vía del motor, sin la arena: cada bando lleva
+ * sus unidades en su catálogo de la pelea (`BattleSide.catalogo`, con el equipo
+ * del juego), y el motor saca de él sus cifras de combate (`cifrasDeUnidad`, las
+ * de `unidadDeCombate`). Con las reglas del juego (`createBattle`). Con `heroes`,
+ * el de cada bando: es la puerta con la que se compara la de la arena
+ * (`batallaDeArena`).
  */
 export function peleaDelMotor(
   izquierda: readonly PuestoDeLaPelea[],
@@ -1641,19 +1636,25 @@ export function peleaDelMotor(
   },
 ): BattleState {
   const lado = (puestos: readonly PuestoDeLaPelea[], hero: BattleSide['hero']): BattleSide => {
-    const members = new Map<string, BattleMember>();
-    const army: StackDeBatalla[] = puestos.map(({ unidad, escalera }, i) => {
-      const unit = unidadDeCombate(unidad, EQUIPO_DEL_JUEGO);
-      const member = `motor-${i}`;
-      members.set(member, { profile: { unit, equipo: {}, morale: 0 }, hp: unit.hp });
-      return {
-        creature: unidad.cuerpo.hoja,
-        member,
-        count: 1,
-        ...(escalera === true ? { escalera: true } : {}),
-      };
-    });
-    return { army, hero, members };
+    // Un id por puesto, `motor-<n>`: dos puestos de la misma unidad, o de dos que
+    // se llaman igual, son dos fuentes, como en el montaje de la arena.
+    const porId = new Map<string, Unidad>(
+      puestos.map(({ unidad }, i) => [`motor-${i}`, { ...unidad, id: `motor-${i}` }]),
+    );
+    const army: StackDeBatalla[] = puestos.map(({ escalera }, i) => ({
+      creature: `motor-${i}`,
+      count: 1,
+      ...(escalera === true ? { escalera: true } : {}),
+    }));
+    const catalogo: CatalogoDeUnidades = {
+      unidad: (id) => {
+        const u = porId.get(id);
+        if (u === undefined) throw new Error(`el bando no lleva ninguna unidad «${id}»`);
+        return u;
+      },
+      equipo: EQUIPO_DEL_JUEGO,
+    };
+    return { army, hero, catalogo };
   };
   return createBattle(
     lado(izquierda, heroes.izquierda),

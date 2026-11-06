@@ -8,12 +8,11 @@
  * (`data/unidades.json`, `core/catalogo.ts`): la persona las ajusta aquí y la
  * página las guarda en él.
  *
- * **El juego no se entera.** Una unidad de arena entra en la batalla por la vía
- * de los personajes de `createBattle` (`members`): el motor toma
- * `profile.unit` tal cual y no vuelve a llamar a `creature()`, así que ni el
- * catálogo ni ninguna partida cambian por tener una arena. El `body` del stack
- * es solo el id de su CUERPO —una hoja (`cuerpo.hoja`)—, que es lo que el
- * cliente pinta. Las criaturas del catálogo no entran en la arena (13-10-2026: «solo
+ * **El juego no se entera.** Una unidad de arena entra en la batalla por el
+ * catálogo de la pelea (`BattleSide.catalogo`, `catalogoDelMontaje`): el motor
+ * saca de él sus cifras una vez y no vuelve a preguntar, así que ni el catálogo
+ * ni ninguna partida cambian por tener una arena. El `body` del stack es solo el
+ * id de su CUERPO —una hoja (`cuerpo.hoja`)—, que es lo que el cliente pinta. Las criaturas del catálogo no entran en la arena (13-10-2026: «solo
  * cuentan los 5 que hay en la arena»).
  *
  * **Cuerpo y equipo**: una unidad son las cifras de su cuerpo más lo que lleva
@@ -1141,8 +1140,7 @@ export interface TipoDeArena {
 /**
  * De qué sale un stack de una pelea de la arena: una unidad del catálogo (su
  * origen, `OrigenDelStack.unidad`), o el héroe de un lado. Es lo que se edita al
- * pulsar «Editar» en su fila, y lo que cambia `retocarEnBatalla`. Lanza con un
- * personaje: en la arena no los hay.
+ * pulsar «Editar» en su fila, y lo que cambia `retocarEnBatalla`.
  */
 export function tipoDelStack(
   s: BattleStack,
@@ -1152,8 +1150,6 @@ export function tipoDelStack(
       return { kind: 'heroe', lado: ladoDe(s.side) };
     case 'catalogo':
       return { kind: 'unidad', id: s.origen.unidad };
-    case 'personaje':
-      throw new Error(`${s.id} es un personaje: no sale de ningún puesto del montaje`);
   }
 }
 
@@ -1458,7 +1454,7 @@ function retocarLasPiezas(
   for (const s of state.stacks) {
     const cuerpo = cuerpoDe(s, catalogo);
     const lleva = s.unit.equipo;
-    if (cuerpo === null || lleva === undefined) continue;
+    if (lleva === undefined) continue;
     const motivo = equipoQueNoVale(cuerpo, lleva, despues);
     if (motivo !== null) return motivo;
     const unit = despues.conEquipo(cuerpo, lleva);

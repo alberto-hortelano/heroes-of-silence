@@ -135,7 +135,7 @@ export function jugadaEnElLugar(state: GameState, hero: Hero): RefDeOpcion | nul
   const mundo = state.mundo;
   const lugar = lugarEn(state, hero.at);
   if (mundo === undefined || lugar === null) return null;
-  return primera({ state, mundo, hero, lugar }, fuerzaDe(hero, state.characters));
+  return primera({ state, mundo, hero, lugar }, fuerzaDe(hero));
 }
 
 /**

@@ -42,8 +42,6 @@ import type { Hero } from '../src/core/hero/hero.js';
 import { aPunto, pointKey, reachableFrom } from '../src/core/map/map.js';
 import { isWalkable } from '../src/core/map/terrain.js';
 import { createRng } from '../src/core/rng.js';
-import { CHARACTER_BODY, createCharacter, defaultBuild } from '../src/core/rpg/character.js';
-import { combatProfile } from '../src/core/rpg/stats.js';
 import {
   climaDeLaBatalla,
   climaDeLaPartida,
@@ -668,7 +666,7 @@ describe('la batalla en la vista', () => {
     const batalla = state.pendingBattle!.battle;
     const ida: SpectatorView = JSON.parse(JSON.stringify(construirVista(state, [])));
     // El catálogo no viaja: las dos puntas ya lo tienen. El cuerpo del héroe
-    // (fase 1b) no está en el catálogo, así que viaja como el de un personaje.
+    // (fase 1b) no está en el catálogo, así que viaja con sus cifras.
     // Lo decide `origen`, y el origen tiene que decir la verdad: un novato del
     // catálogo lleva EXACTAMENTE la referencia del catálogo, y lo que no es del
     // catálogo no la lleva. (Un veterano del catálogo no la lleva tampoco —sus
@@ -789,28 +787,6 @@ describe('la batalla en la vista', () => {
     expect(vuelta.stacks[0]!.unit.attack).toBeGreaterThan(unidadDelJuego(TROPA).attack);
   });
 
-  it('un personaje viaja CON su `unit`, que no está en ninguna otra parte', () => {
-    const { state } = conBatalla();
-    const aren = createCharacter('aren', defaultBuild);
-    const batalla = createBattle(
-      {
-        army: [{ creature: CHARACTER_BODY, count: 1, member: aren.id }],
-        hero: null,
-        members: new Map([[aren.id, { profile: combatProfile(aren), hp: 20 }]]),
-      },
-      { army: [{ creature: 'zombi', count: 3 }], hero: null },
-      createRng(5),
-      COMBATE_COMPLETO,
-    );
-    state.pendingBattle = { ...state.pendingBattle!, battle: batalla };
-
-    const ida: SpectatorView = JSON.parse(JSON.stringify(construirVista(state, [])));
-    const [suyo, zombi] = ida.battle!.estado.stacks;
-    expect(suyo!.unit?.name).toBe('Aren');
-    expect(zombi!.unit).toBeUndefined();
-    expect(adaptarBatalla(ida.battle!)).toEqual(sinLoQueNoViaja(batalla));
-  });
-
   it('una unidad que no está en el catálogo y llega sin `unit` lanza, no se inventa', () => {
     const { state } = conBatalla();
     const vista = construirVista(state, []);
@@ -820,10 +796,10 @@ describe('la batalla en la vista', () => {
       ...vista.battle!,
       estado: {
         ...vista.battle!.estado,
-        stacks: [{ ...s, origen: { ...s.origen, unidad: CHARACTER_BODY } }],
+        stacks: [{ ...s, origen: { ...s.origen, unidad: 'no-existe' } }],
       },
     };
-    expect(() => adaptarBatalla(roto)).toThrow(/no hay ninguna unidad «character»/);
+    expect(() => adaptarBatalla(roto)).toThrow(/no hay ninguna unidad «no-existe»/);
   });
 
   it('y al acabarla vuelve a ser `null`, que es como el espectador cambia de escena', () => {

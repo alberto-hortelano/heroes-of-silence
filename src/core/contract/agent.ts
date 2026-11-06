@@ -587,8 +587,8 @@ Notas:
   individuos de "creature"; de cada tipo se mueven los de menos experiencia, o
   el veterano que digas con "veteran"). La guarnición de cualquier sitio cabe
   en ${GARRISON_LEADERSHIP} de liderazgo y "you.combat.troopCap" individuos, y la del ejército
-  en su "leadership"; lo que no cabe se rechaza diciendo cuántos caben. Un
-  personaje no se deja. "you.garrisons" dice qué guarda cada paso y cada pueblo
+  en su "leadership"; lo que no cabe se rechaza diciendo cuántos caben.
+  "you.garrisons" dice qué guarda cada paso y cada pueblo
   tuyo, y lo tuyo que se quedó en un sitio que ya no es tuyo (la de tus
   ciudades, en "towns[].garrison"); de ese sitio puedes RECOGERLA, no dejar
   más. Un sitio del muro que pierdes pierde su guarnición. Una ciudad, un paso o
@@ -630,8 +630,7 @@ Notas:
   un "recruit" de algo mejor no cabe; licencia primero lo que sobra y recluta
   después, en el mismo turno y en ese orden. De cada criatura se van primero
   los de MENOS experiencia: el veterano no se va mientras quede un novato de su
-  tipo. Un personaje no se licencia, y fuera de un castillo tuyo se rechaza
-  diciéndolo.
+  tipo. Fuera de un castillo tuyo se rechaza diciéndolo.
 - EQUIPO: todo héroe y todo individuo de la tropa tiene seis huecos
   (${SLOTS.join(', ')}) y en cada uno lleva una pieza o nada: "${SLOT_DE_HUECO.arma}" es
   el arma de cuerpo a cuerpo y "${SLOT_DE_HUECO.segunda}" una segunda (otra arma de

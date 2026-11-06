@@ -21,7 +21,6 @@ import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../src/core
 import { pointFromKey, pointKey } from '../src/core/map/map.js';
 import { estructura } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
-import { CHARACTER_BODY } from '../src/core/rpg/character.js';
 import {
   type AdventureAction,
   alcanceDelHeroe,
@@ -241,9 +240,7 @@ describe('dejar y recoger tropa en un sitio propio', () => {
     paso.owner = 1;
     expect(intenta(dejar(hero.id, TROPA_BARATA, 1))).toMatch(/de \(\d+,\d+\) no es tuyo$/);
 
-    // Un personaje no se deja.
     paso.owner = 0;
-    expect(intenta(dejar(hero.id, CHARACTER_BODY, 1))).toContain('un personaje no se deja');
     // Ni más de los que lleva, ni de lo que no hay, ni cero.
     expect(intenta(dejar(hero.id, TROPA_BARATA, 3))).toMatch(/lleva 2 × .* no se pueden mover 3/);
     expect(intenta(recoger(hero.id, TROPA_BARATA, 1))).toMatch(
@@ -402,8 +399,8 @@ describe('repartir y confirmar (Q1 del QA, D9)', () => {
     expect(intenta([{ creature: TROPA, count: 0 }])).toMatch(
       /^lo que se queda no cabe en la guarnición de .*: serían/,
     );
-    // Más de los que hay, un tipo dos veces, uno que no existe, un personaje, un
-    // veterano que no está, y no mover a nadie.
+    // Más de los que hay, un tipo dos veces, uno que no existe, un veterano que no
+    // está, y no mover a nadie.
     expect(intenta([{ creature: TROPA, count: tope }])).toMatch(
       /hay \d+ × .* sin veteranía, no \d+/,
     );
@@ -414,9 +411,6 @@ describe('repartir y confirmar (Q1 del QA, D9)', () => {
       ]),
     ).toContain('va dos veces en el reparto');
     expect(intenta([{ creature: 'no-existe', count: 1 }])).toContain('no existe ninguna unidad');
-    expect(intenta([{ creature: CHARACTER_BODY, count: 1 }])).toContain(
-      'un personaje no se reparte',
-    );
     expect(intenta([{ veterano: 'v-no-esta' }])).toContain('llevan al veterano "v-no-esta"');
     expect(intenta(lineasDelEjercito(hero.army))).toMatch(/^el reparto no mueve a nadie/);
     // Fuera de un sitio suyo, lo de siempre.
@@ -591,7 +585,7 @@ describe('la defensa con el héroe en su sitio', () => {
       expect(armyLeadership(fuera)).toBeLessThanOrEqual(GARRISON_LEADERSHIP);
       expect(fuera.length).toBeLessThanOrEqual(state.combate.tope);
       // Nunca pelea con menos fuerza que con su ejército de antes.
-      expect(armyPower(elegida, undefined)).toBeGreaterThanOrEqual(armyPower(hero.army, undefined));
+      expect(armyPower(elegida)).toBeGreaterThanOrEqual(armyPower(hero.army));
     }
   });
 
@@ -871,10 +865,9 @@ describe('las pantallas de la persona (la sesión)', () => {
         expect(s.guarnicionAbierta).toBe(hero.id);
         const vista = s.vistaDeLaGuarnicion()!;
         expect(vista.guarnicion.filas).toEqual([]);
-        expect(vista.heroe.filas.every((f) => f.motivo === null)).toBe(true);
         expect(vista).toMatchObject({ cambia: false, motivo: null });
         const llevaba = hero.army.length;
-        const tipo = vista.heroe.filas[0]!.grupo.creature;
+        const tipo = vista.heroe.filas[0]!.creature;
         // Pasar uno edita la pantalla y no la partida.
         s.moverEnElReparto('guarnicion', tipo);
         expect(s.vistaDeLaGuarnicion()!.guarnicion.individuos).toBe(1);

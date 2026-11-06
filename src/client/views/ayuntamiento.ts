@@ -42,25 +42,20 @@ export function renderPanelDelAyuntamiento(session: Session): Html {
   return html`<p class="eyebrow">${vista.nombre.toUpperCase()} · ${town.name.toUpperCase()}</p>
     ${cabecera}
     <div class="stack-list ayuntamiento-candidatos">${candidatos}</div>
-    ${renderFicha(session, vista.heroe, vista.ficha, vista.tropa)}`;
+    ${renderFicha(vista.heroe, vista.ficha, vista.tropa)}`;
 }
 
 /**
  * La ficha del elegido: quién es, lo que cuesta y el botón; debajo, con qué sale
  * el de salida (lo que diga la vista: un contratado no lleva tropa que enseñar).
  */
-function renderFicha(
-  session: Session,
-  nombre: string,
-  f: FichaDelAyuntamiento,
-  tropa: Army | null,
-): Html {
+function renderFicha(nombre: string, f: FichaDelAyuntamiento, tropa: Army | null): Html {
   const apagado = f.motivo === null ? NADA : DESHABILITADO;
   const conTropa =
     tropa === null
       ? NADA
       : html`<h3>Tropa ${nota('Con la que sale de la base.')}</h3>
-      ${renderArmy(tropa, session.state.characters)}`;
+      ${renderArmy(tropa)}`;
   return html`<section class="ficha-del-ayuntamiento" aria-label="Ficha de ${f.nombreDelTipo}">
     <div class="retrato-y-nombre">
       <img class="retrato-de-heroe"${srcDeImagen(`/unidades/${f.hoja}/identidad.webp`)} alt="" width="72" height="72" />

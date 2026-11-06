@@ -204,7 +204,7 @@ describe('la marcha se para al descubrir un grupo que la emboscaría (#130)', ()
     const m = marcha();
     const { state } = m;
     const hero = heroById(state, m.heroId);
-    const troops = grupoQue((p) => ventajaClara(p, fuerzaDe(hero, state.characters)), 'fuerte');
+    const troops = grupoQue((p) => ventajaClara(p, fuerzaDe(hero)), 'fuerte');
     state.raiders = [{ id: 'raider-g', at: m.enG, troops }];
     const puntos = hero.movePoints;
     const camino = caminoHasta(state, hero, m.destino)!;
@@ -247,7 +247,7 @@ describe('la marcha se para al descubrir un grupo que la emboscaría (#130)', ()
     const m = marcha();
     const { state } = m;
     const hero = heroById(state, m.heroId);
-    const troops = grupoQue((p) => ventajaClara(p, fuerzaDe(hero, state.characters)), 'fuerte');
+    const troops = grupoQue((p) => ventajaClara(p, fuerzaDe(hero)), 'fuerte');
     state.raiders = [{ id: 'raider-a', at: m.enA, troops }];
     const vistos = asaltantesALaVista(state, visibleNow(state, 0));
     const camino = caminoHasta(state, hero, m.destino)!;
@@ -274,7 +274,7 @@ describe('la marcha se para al descubrir un grupo que la emboscaría (#130)', ()
     const m = marcha();
     const { state } = m;
     const hero = heroById(state, m.heroId);
-    const troops = grupoQue((p) => ventajaClara(p, fuerzaDe(hero, state.characters)), 'fuerte');
+    const troops = grupoQue((p) => ventajaClara(p, fuerzaDe(hero)), 'fuerte');
     state.raiders = [{ id: 'raider-g', at: m.enG, troops }];
     applyAdventureAction(
       state,
@@ -306,7 +306,7 @@ describe('la marcha se para al descubrir un grupo que la emboscaría (#130)', ()
     const m = marcha();
     const { state } = m;
     const hero = heroById(state, m.heroId);
-    const suya = fuerzaDe(hero, state.characters);
+    const suya = fuerzaDe(hero);
     // El mayor grupo de lo más flojo que aún no le saca el margen: uno menos que el
     // menor que sí.
     const [justo] = grupoQue((p) => ventajaClara(p, suya), 'floja');
@@ -333,7 +333,7 @@ describe('la parada en la sesión (#130)', () => {
   it('la sesión ve los grupos con la regla del núcleo, y la barra dice por qué se para el héroe', () => {
     const m = marcha();
     const hero = heroById(m.state, m.heroId);
-    const troops = grupoQue((p) => ventajaClara(p, fuerzaDe(hero, m.state.characters)), 'fuerte');
+    const troops = grupoQue((p) => ventajaClara(p, fuerzaDe(hero)), 'fuerte');
     m.state.raiders = [{ id: 'raider-g', at: m.enG, troops }];
     m.state.players[0]!.controller = 'human';
     // La sesión de la misma semilla, con la partida de la prueba (la misma, con el

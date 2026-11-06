@@ -117,7 +117,7 @@ for (const regionesPorBando of REGIONES) {
       const dueño = bases.get(pointKey(lugarDelRival(s, p.foe)));
       if (dueño === undefined || dueño === hero.owner) return;
       const individuos = hero.army.length;
-      const fuerza = fuerzaDe(hero, s.characters);
+      const fuerza = fuerzaDe(hero);
       // El desenlace no se sabe aún: se apunta al leer el `battle_ended`.
       mirado.actual = { individuos, fuerza };
     };
@@ -149,7 +149,7 @@ for (const regionesPorBando of REGIONES) {
             if (hero !== undefined) {
               llegadas.push({
                 individuos: hero.army.length,
-                fuerza: fuerzaDe(hero, state.characters),
+                fuerza: fuerzaDe(hero),
                 perdida: false,
               });
             }

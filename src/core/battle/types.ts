@@ -31,15 +31,13 @@ export function otroBando(side: Side): Side {
 
 /**
  * De dónde sale un stack del tablero, y por tanto sus cifras y lo que pasa con
- * él al acabar: una criatura del catálogo, un personaje de
- * `GameState.characters` o el héroe del bando.
+ * él al acabar: una criatura del catálogo o el héroe del bando.
  *
- * Es un discriminante y no dos campos opcionales (`member?`, `commander?`) más
- * una pregunta por la referencia del catálogo, porque así quien reparte por el
- * origen escribe un `switch` exhaustivo: el día que llegue un cuarto origen, el
- * que se lo deje no compila. Con los opcionales, un stack sin ninguno de los dos
- * era «del catálogo» por descarte, y eso es lo que un origen nuevo habría
- * heredado en silencio.
+ * Es un discriminante y no un campo opcional (`commander?`) más una pregunta por
+ * la referencia del catálogo, porque así quien reparte por el origen escribe un
+ * `switch` exhaustivo: el día que llegue otro origen, el que se lo deje no
+ * compila. Con el opcional, un stack sin él era «del catálogo» por descarte, y
+ * eso es lo que un origen nuevo habría heredado en silencio.
  */
 export type OrigenDelStack =
   | {
@@ -66,13 +64,6 @@ export type OrigenDelStack =
       readonly salida?: Hex;
     }
   | {
-      readonly kind: 'personaje';
-      readonly id: string;
-      readonly veterania: Veterania | null;
-      /** Su casilla en la formación, como la del catálogo. */
-      readonly salida?: Hex;
-    }
-  | {
       readonly kind: 'heroe';
       /**
        * Su cuerpo sin el equipo (`cuerpoDelHeroe`): el héroe no está en ningún
@@ -92,29 +83,14 @@ export interface Ganado {
 }
 
 /**
- * El personaje de `GameState.characters` que es este stack, o `null`. Con un
- * `switch` que devuelve: un origen nuevo no compila hasta que se decida si es
- * un personaje.
- */
-export function personajeDe(origen: OrigenDelStack): string | null {
-  switch (origen.kind) {
-    case 'personaje':
-      return origen.id;
-    case 'catalogo':
-    case 'heroe':
-      return null;
-  }
-}
-
-/**
  * Qué es el héroe para quien cuenta una batalla —la crónica (`resumenDeBatalla`),
  * el agente (`creature` de su stack, el `target` de un hechizo)— y su figura
  * genérica: la de la arena cuando no se elige ninguna (`FIGURA_GENERICA`), el
  * Y Bot de espada y escudo (`render/personajes.ts`).
  *
- * Como `CHARACTER_BODY`, no está en el catálogo a propósito: un lector que lo
- * buscara con `creature()` lanza en vez de leer cifras prestadas. Las cifras
- * del héroe salen de `heroUnit`. **No es su arte en el juego**: desde el
+ * No está en el catálogo a propósito: un lector que lo buscara con `creature()`
+ * lanza en vez de leer cifras prestadas. Las cifras del héroe salen de
+ * `heroUnit`. **No es su arte en el juego**: desde el
  * 19-10-2026 (vuelta 2 del arranque) el héroe de la partida pisa el tablero y el
  * mapa con la hoja de su tipo (`figuraDelHeroe`), y por eso `queEs` no lo saca
  * de `body`: con la figura, la crónica habría contado «heroe-lich» donde contaba
@@ -127,24 +103,22 @@ export const HERO_BODY = 'hero';
 
 /**
  * Qué es un stack para quien lo cuenta —la crónica (`resumenDeBatalla`) y el
- * agente—: la unidad del catálogo que es; el héroe, `HERO_BODY`, sea cual sea su
- * figura, y el personaje, por su cuerpo (`CHARACTER_BODY`).
+ * agente—: la unidad del catálogo que es, y el héroe, `HERO_BODY`, sea cual sea
+ * su figura.
  */
-export function queEs(s: Pick<BattleStack, 'origen' | 'body'>): string {
+export function queEs(s: Pick<BattleStack, 'origen'>): string {
   switch (s.origen.kind) {
     case 'catalogo':
       return s.origen.unidad;
     case 'heroe':
       return HERO_BODY;
-    case 'personaje':
-      return s.body;
   }
 }
 
 /**
  * El rango con el que entró este stack: 1 para un novato, un monstruo y el
  * héroe —que no es tropa: su rango va en sus cifras—. Con un `switch` que
- * devuelve, como `personajeDe`.
+ * devuelve: un origen nuevo no compila hasta que se decida su rango.
  *
  * Tiene tres lectores —los galones de la figura, la fila de «En el campo» y el
  * `veteranRank` del agente— y los tres preguntan lo mismo: el rango, no la
@@ -153,7 +127,6 @@ export function queEs(s: Pick<BattleStack, 'origen' | 'body'>): string {
 export function rangoDeVeterania(origen: OrigenDelStack): number {
   switch (origen.kind) {
     case 'catalogo':
-    case 'personaje':
       return rangoDeTropa(origen.veterania);
     case 'heroe':
       return 1;
@@ -169,14 +142,14 @@ export interface BattleStack {
   /**
    * El id del ARTE: qué sprite se pinta y qué id viaja al agente. No es de
    * donde salen las cifras —eso es `unit`—, y por eso dejó de llamarse
-   * `creature`: el nombre invitaba a volver al catálogo con él, y para un
-   * personaje eso es el centinela `CHARACTER_BODY`, que el catálogo no tiene.
+   * `creature`: el nombre invitaba a volver al catálogo con él, y la hoja no es
+   * la unidad (qué unidad es lo dice `origen`).
    */
   readonly body: string;
   /**
    * Las cifras de combate, resueltas UNA vez en `createBattle`. Es la única
-   * fuente: para una criatura es la misma referencia del catálogo, para un
-   * personaje las de su perfil. Ninguna lectura de batalla vuelve a
+   * fuente: para una criatura novata es la misma referencia del catálogo, para
+   * el héroe las de su cuerpo. Ninguna lectura de batalla vuelve a
    * `creature(...)`, y lo vigila `test/invariantes.test.ts`.
    *
    * La arena cambia las cifras de un tipo a media pelea (`retocarEnBatalla`)
@@ -184,7 +157,7 @@ export interface BattleStack {
    */
   readonly unit: UnitInfo;
   /**
-   * Criatura, personaje o héroe. El héroe (fase 1b) es uno por bando con héroe
+   * Criatura o héroe. El héroe (fase 1b) es uno por bando con héroe
    * y ninguno en un monstruo o una guarnición; si cae, su bando pierde aunque
    * le quede tropa (`checkFinished`).
    */

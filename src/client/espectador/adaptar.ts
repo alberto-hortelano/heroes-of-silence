@@ -203,10 +203,10 @@ export function centroDeLaEscena(view: SpectatorView): { x: number; y: number } 
  *
  * Una criatura del catálogo llega sin `unit` y se rehace con
  * `cifrasDeUnidad`, la misma regla que usó `createBattle` —en el nivel 1, la
- * misma referencia del catálogo—; un personaje o el héroe la traen puesta. Se
- * reparte por `origen`, que viaja, y no por si `unit` vino o no: un personaje
- * que llegara sin cifras lanza nombrándolo en vez de ir a buscar al catálogo las
- * de un cuerpo que no está en él.
+ * misma referencia del catálogo—; el héroe la trae puesta. Se reparte por
+ * `origen`, que viaja, y no por si `unit` vino o no: un héroe que llegara sin
+ * cifras lanza nombrándolo en vez de ir a buscar al catálogo las de un cuerpo que
+ * no está en él.
  *
  * **Es exacta en lo que se pinta, no en lo que el cable no manda**, y eso se
  * dice aquí en vez de disimularlo: `ganado`, el precio de rendición y la hoja de
@@ -239,18 +239,6 @@ function stackDelCable(s: StackEnCable): BattleStack {
         },
       };
     }
-    case 'personaje':
-      return {
-        ...resto,
-        unit: cifrasQueViajan(s),
-        ganado,
-        origen: {
-          kind: 'personaje',
-          id: s.origen.id,
-          veterania: hojaDelCable(s.origen.veterania),
-          ...(s.origen.salida === undefined ? {} : { salida: s.origen.salida }),
-        },
-      };
     case 'heroe':
       return { ...resto, unit: cifrasQueViajan(s), ganado, origen: s.origen };
   }

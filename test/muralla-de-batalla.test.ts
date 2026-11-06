@@ -35,7 +35,7 @@ import type { Hex, Stack, UnitInfo } from '../src/core/types.js';
 import {
   abrirPuertas,
   aMano,
-  bandoDePersonajes,
+  bandoAMano,
   forzarTurno,
   JINETE,
   NO_MUERTO,
@@ -68,7 +68,7 @@ const CON_PUERTA = forma('Línea con puerta');
 
 /** Un bando de uno: tres de una unidad del catálogo, o uno hecho a mano. */
 const deUno = (quien: string | UnitInfo): BattleSide =>
-  typeof quien === 'string' ? lado([{ creature: quien, count: 3 }]) : bandoDePersonajes([quien]);
+  typeof quien === 'string' ? lado([{ creature: quien, count: 3 }]) : bandoAMano([quien]);
 
 /**
  * Uno contra uno, cada uno donde diga el test y con el turno de quien diga. Los

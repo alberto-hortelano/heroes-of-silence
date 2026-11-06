@@ -201,10 +201,10 @@ export const NOMBRE_DE_RASGO: Readonly<Record<CreatureTrait, string>> = {
  * Lo que el motor de batalla necesita saber de una unidad para jugarla: las
  * cifras de combate, sin nada de economía.
  *
- * Existe porque ya no todo lo que pisa el tablero sale del catálogo: un
- * personaje (`rpg/stats.ts`) tiene sus propias cifras, calculadas de sus
- * atributos. Una criatura ES una `UnitInfo` —la extiende—, así que para el
- * catálogo no hay traducción: el stack de batalla guarda la misma referencia.
+ * Existe porque no todo lo que pisa el tablero sale del catálogo: el héroe
+ * tiene sus propias cifras (`heroUnit`). Una criatura ES una `UnitInfo` —la
+ * extiende—, así que para el catálogo no hay traducción: el stack de batalla
+ * guarda la misma referencia.
  *
  * `faction: null` es «sin facción»: no suma a la diversidad del ejército.
  */
@@ -222,7 +222,7 @@ export interface UnitInfo {
   readonly agilidad: number;
   /**
    * La defensa que no es agilidad ni escudo: la Defensa del héroe con lo que le da
-   * su rango, y la del personaje; 0 la tropa. Se suma a la defensa (`cifrasDelCuerpo`).
+   * su rango; 0 la tropa. Se suma a la defensa (`cifrasDelCuerpo`).
    */
   readonly defensaPropia: number;
   /**
@@ -460,7 +460,7 @@ export type PoderId = string;
 // ---------------------------------------------------------------- ejército
 
 /**
- * Un individuo del ejército: una criatura del catálogo, o un personaje.
+ * Un individuo del ejército: una criatura del catálogo.
  *
  * **No tiene `count`, y es a propósito.** El ejército de un héroe es una lista
  * de individuos, uno por hex en el tablero; si el campo existiera, alguien
@@ -470,13 +470,6 @@ export type PoderId = string;
  */
 export interface Troop {
   readonly creature: string;
-  /**
-   * Id de un personaje de `GameState.characters`: el individuo ES ese
-   * personaje. Va con `creature: CHARACTER_BODY`, que no está en el catálogo a
-   * propósito: un lector de `Army` que no sepa de personajes lanza en vez de
-   * leer cifras prestadas en silencio. La puerta que sí sabe es `troopUnit`.
-   */
-  readonly member?: string;
   /**
    * Lo que este individuo lleva vivido, o nada si es un novato. **Vive en el
    * individuo y viaja con él** —batalla, guarnición, recoger tropa, rendirse—
@@ -729,8 +722,7 @@ export type Equipo = Readonly<Partial<Record<Hueco, string>>>;
 /**
  * La entrada del motor de batalla: un tipo y cuántos. El motor sigue sabiendo
  * jugar stacks de N —sus tests lo ejercen—, pero desde la tropa de individuos
- * la partida solo le manda `count: 1` (`troopsAsStacks`). Un personaje va
- * siempre con `count: 1`: `createBattle` lanza si no.
+ * la partida solo le manda `count: 1` (`troopsAsStacks`).
  */
 export interface Stack extends Troop {
   readonly count: number;

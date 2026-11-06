@@ -50,8 +50,8 @@ export function motivoDebajo(motivo: string | null): Html {
 
 /**
  * Lo que dice por qué algo sale apagado **sin ser un rechazo** (ya pelean todos los
- * de su tipo, un personaje va siempre con su héroe), debajo y en el tono apagado:
- * no se pinta como «no cabe» (H5 del QA de la fase 1).
+ * de su tipo), debajo y en el tono apagado: no se pinta como «no cabe» (H5 del QA
+ * de la fase 1).
  */
 export function notaDebajo(nota: string | null): Html {
   return nota === null ? NADA : html`<span class="veterania motivo nota">${nota}</span>`;

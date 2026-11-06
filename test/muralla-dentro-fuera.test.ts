@@ -43,7 +43,7 @@ import type { Hex, Stack, UnitInfo } from '../src/core/types.js';
 import {
   abrirPuertas,
   aMano,
-  bandoDePersonajes,
+  bandoAMano,
   empezarTalCual,
   forzarTurno,
   muralla,
@@ -72,7 +72,7 @@ const VAMPIRO = aMano(NO_MUERTO, { name: 'Vampiro', traits: ['undead', 'flying']
 
 /** Un bando de uno: tres de una unidad del catálogo, o uno hecho a mano. */
 const deUno = (quien: string | UnitInfo): BattleSide =>
-  typeof quien === 'string' ? lado([{ creature: quien, count: 3 }]) : bandoDePersonajes([quien]);
+  typeof quien === 'string' ? lado([{ creature: quien, count: 3 }]) : bandoAMano([quien]);
 
 function duelo(
   muralla: MurallaDeBatalla,

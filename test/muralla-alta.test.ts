@@ -51,7 +51,7 @@ import type { Hex, Stack, UnitInfo } from '../src/core/types.js';
 import {
   aMano,
   aPelear,
-  bandoDePersonajes,
+  bandoAMano,
   empezarTalCual,
   forzarTurno,
   muralla,
@@ -100,9 +100,7 @@ function duelo(
   { escalera = false, cuantos = 3 }: { escalera?: boolean; cuantos?: number } = {},
 ): BattleState {
   const deUno = (quien: string | UnitInfo): BattleSide =>
-    typeof quien === 'string'
-      ? lado([{ creature: quien, count: cuantos }])
-      : bandoDePersonajes([quien]);
+    typeof quien === 'string' ? lado([{ creature: quien, count: cuantos }]) : bandoAMano([quien]);
   const state = createBattle(
     deUno(atacante),
     deUno(defensor),

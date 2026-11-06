@@ -232,7 +232,7 @@ export function arrancarPartida(opciones: OpcionesDePartida = {}): Promise<void>
       const heroes = state.heroes.filter((h) => h.owner === p.id);
       const pueblos = townsOf(state, p.id);
       const tropas = heroes
-        .flatMap((h) => troopSummary(h.army, state.characters))
+        .flatMap((h) => troopSummary(h.army))
         .map((g) => `${g.count}×${g.unit.name}`)
         .join(', ');
       console.log(

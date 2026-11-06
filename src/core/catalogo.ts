@@ -170,8 +170,8 @@ export function equipoPuesto(id: string, propio: Equipo | undefined): Equipo {
 
 /**
  * **Lo que lleva puesto un portador** de `hero` —él o un individuo de su tropa—
- * si lo suyo fuera `propio` (lo de ahora si no se dice, `equipoDe`): el héroe y un
- * personaje, lo suyo; un individuo del catálogo, además lo de serie de su unidad
+ * si lo suyo fuera `propio` (lo de ahora si no se dice, `equipoDe`): el héroe, lo
+ * suyo; un individuo del catálogo, además lo de serie de su unidad
  * (`equipoPuesto`). La leen ponerse y quitar (`equipoDelPortadorBlocker`, con lo
  * que quedaría) y la IA, que no compra lo que no mejora lo puesto. Vive aquí y no
  * junto a `equipoDe` (`hero/equipo.ts`) porque necesita el catálogo, que importa
@@ -186,9 +186,9 @@ export function equipoPuestoDe(
 }
 
 /**
- * **Lo de serie del portador `quien`** de `hero`: el equipo de su unidad si es un
- * individuo del catálogo (`equipoPuesto` lo lleva debajo de lo suyo); el héroe y
- * un personaje no llevan nada de serie. Lo de serie no se quita: lo leen
+ * **Lo de serie del portador `quien`** de `hero`: el equipo de su unidad
+ * (`equipoPuesto` lo lleva debajo de lo suyo); el héroe no lleva nada de serie.
+ * Lo de serie no se quita: lo leen
  * `equipoPuestoDe` y el motivo de ponerse (`equipoDelPortadorBlocker`), que no
  * pide quitar lo que no se puede.
  */
@@ -196,7 +196,7 @@ export function equipoDeSerieDe(hero: Pick<Hero, 'army'>, quien: Portador): Equi
   if ('heroe' in quien) return {};
   const t = hero.army[quien.indice];
   if (t === undefined) throw new Error(`la tropa no tiene un individuo ${quien.indice}`);
-  return t.member === undefined ? (unidadDelJuego(t.creature).equipo ?? {}) : {};
+  return unidadDelJuego(t.creature).equipo ?? {};
 }
 
 /**
@@ -319,8 +319,7 @@ export function oroDeUnidad(id: string, cat: CatalogoDeUnidades = CATALOGO_DEL_J
 /**
  * **El cuerpo de un stack sin su equipo**, de su origen: el de su unidad en el
  * catálogo `cat` con su veteranía (`cifrasVeteranas`), o el del héroe
- * (`OrigenDelStack.desnudo`, `cuerpoDelHeroe`); `null` de un personaje, cuyo
- * perfil no está en ningún catálogo. Lo que el equipo le suma es la diferencia con
+ * (`OrigenDelStack.desnudo`, `cuerpoDelHeroe`). Lo que el equipo le suma es la diferencia con
  * `stack.unit`, que lleva lo puesto (`UnitInfo.equipo`): lo enseña el panel de la
  * batalla, y cambiar una pieza a media pelea lo vuelve a vestir
  * (`retocarEnBatalla`). La misma en la partida y en la arena: lo que cambia es el
@@ -329,15 +328,13 @@ export function oroDeUnidad(id: string, cat: CatalogoDeUnidades = CATALOGO_DEL_J
 export function cuerpoDe(
   s: Pick<BattleStack, 'origen'>,
   cat: CatalogoDeUnidades = CATALOGO_DEL_JUEGO,
-): UnitInfo | null {
+): UnitInfo {
   const o = s.origen;
   switch (o.kind) {
     case 'catalogo':
       return cifrasVeteranas(cuerpoDeCombate(cat.unidad(o.unidad)), rangoDeTropa(o.veterania));
     case 'heroe':
       return o.desnudo;
-    case 'personaje':
-      return null;
   }
 }
 

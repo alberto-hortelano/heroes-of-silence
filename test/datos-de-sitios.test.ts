@@ -55,7 +55,7 @@ import {
 import { type Army, FACTION_IDS, type FactionId } from '../src/core/types.js';
 import {
   aMano,
-  bandoDePersonajes,
+  bandoAMano,
   copiaDePartida,
   ejercito,
   forzarBatalla,
@@ -352,7 +352,7 @@ describe('la IA asalta las murallas del mapa y la batalla acaba', () => {
     expect(hasTrait(volador, 'flying')).toBe(true);
     const forma = MURALLAS_DEL_MAPA.ciudad;
     const b = createBattle(
-      alAsalto(bandoDePersonajes([volador, unidadDelJuego(JINETE)]), forma),
+      alAsalto(bandoAMano([volador, unidadDelJuego(JINETE)]), forma),
       { army: [{ creature: TROPA_BARATA, count: 1 }], hero: null },
       createRng(5),
       COMBATE_COMPLETO,

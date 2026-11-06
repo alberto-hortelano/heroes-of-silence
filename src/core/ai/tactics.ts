@@ -95,7 +95,6 @@ function threat(state: BattleState, s: BattleStack): number {
     case 'heroe':
       return sumaDelBando(state, s.side, amenazaPropia);
     case 'catalogo':
-    case 'personaje':
       return amenazaPropia(s);
   }
 }

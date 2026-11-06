@@ -63,7 +63,6 @@ import {
   armyLeadership,
   GARRISON_LEADERSHIP,
   heroLeadership,
-  type Personajes,
   troopSummary,
 } from '../hero/troop.js';
 import { todosLosHechizos } from '../magia/catalogo.js';
@@ -142,20 +141,15 @@ import {
 /**
  * El ejército tal como lo lee el agente: agrupado por criatura, con cuántos
  * individuos lleva de cada una. Agrupa `troopSummary`, que es el único sitio
- * que lo hace; un personaje va en su propia fila, con su `member` y su
- * velocidad, que es la de su perfil y no la de ningún catálogo.
+ * que lo hace.
  *
  * Ya no lleva `slot`: con la tropa de individuos no hay huecos que numerar.
  * Un veterano va en su fila con `rank`, su `level` (el de sus cifras con su
  * equipo, `nivelDeUnidad`), `experience` y `nextRankAt` (la experiencia a la que sube de
  * rango; `null` en el tope).
  */
-function armyView(
-  army: Army,
-  characters: Personajes,
-): {
+function armyView(army: Army): {
   creature: string;
-  member?: string;
   count: number;
   speed: string;
   rank?: number;
@@ -165,9 +159,8 @@ function armyView(
   id?: string;
   equipment?: Record<string, string | null>;
 }[] {
-  return troopSummary(army, characters).map((g) => ({
+  return troopSummary(army).map((g) => ({
     creature: g.creature,
-    ...(g.member === undefined ? {} : { member: g.member }),
     count: g.count,
     speed: g.unit.speed,
     // Solo en la fila de un veterano, que va sola (`troopSummary`): una fila de
@@ -617,7 +610,7 @@ function guarnicionesView(state: GameState, playerId: PlayerId) {
       site: id,
       kind: KIND_DEL_SITIO[sitio.kind],
       at: casillaDelSitio(sitio),
-      army: armyView(g.tropa, state.characters),
+      army: armyView(g.tropa),
     });
   }
   return out;
@@ -691,7 +684,7 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
       experience: h.experience,
       nextRankAt: siguienteUmbral(h.experience),
       movePoints: h.movePoints,
-      maxMovePoints: maxMovePoints(h, state.characters),
+      maxMovePoints: maxMovePoints(h),
       attack: h.attack,
       defense: h.defense,
       spellPower: h.spellPower,
@@ -700,14 +693,14 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
       // Sin esto el agente decide adónde caminar sin saber qué sabe su héroe: la
       // batalla le ofrece los `cast` legales, pero para entonces ya ha elegido.
       spells: h.spells,
-      army: armyView(h.army, state.characters),
+      army: armyView(h.army),
       // Lo que ocupa su ejército y su tope. El tope crece con el rango y un
       // `recruit` que se pase se rechaza: sin las dos cifras delante, el agente
       // solo se enteraría al leer el veredicto.
       leadership: { used: armyLeadership(h.army), max: heroLeadership(h) },
       // Su fuerza, la misma medida que la de los asaltantes de `knownMap`: sin
       // las dos cifras el agente no puede saber si un grupo lo emboscará.
-      strength: fuerzaDe(h, state.characters),
+      strength: fuerzaDe(h),
       // Lo que lleva puesto y lo que lleva en la mochila, por id: el catálogo
       // con las cifras va en `RESPONSE_FORMAT`, no en cada turno.
       equipment: equipoView(h.equipo),
@@ -742,7 +735,7 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
           cost: unidadDelJuego(id).oro,
           leadership: unidadDelJuego(id).leadership,
         })),
-        garrison: armyView(guarnicion, state.characters),
+        garrison: armyView(guarnicion),
         garrisonLeadership: {
           used: armyLeadership(guarnicion),
           max: GARRISON_LEADERSHIP,
@@ -789,7 +782,7 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
         id: h.id,
         owner: h.owner,
         at: h.at,
-        army: armyView(h.army, state.characters),
+        army: armyView(h.army),
       })),
     // La crónica pasa por la niebla, igual que el mapa desde #35: antes iba el
     // log ENTERO y el agente le seguía los pasos al rival leyendo su diario. La
@@ -863,7 +856,7 @@ export function serializeTownVoices(state: GameState, playerId: PlayerId, towns:
         name: t.name,
         buildings: t.buildings.map((id) => building(id).name),
         hero: heroe === null ? null : { name: heroe.name, type: heroe.tipo },
-        garrison: armyView(guarnicionDeLaCiudad(state, t), state.characters),
+        garrison: armyView(guarnicionDeLaCiudad(state, t)),
         npcs: vecinosDeLaBase(t).map((v) => ({
           id: v.id,
           name: v.nombre,
@@ -895,16 +888,15 @@ export type VistaDeBatalla = 'propia' | 'ajena';
 
 /**
  * Lo que el agente ve del origen de un stack. Solo el héroe se marca —tu héroe
- * o el rival en el tablero: si cae, su bando pierde—; una criatura y un
- * personaje se leen por sus cifras. Con un `switch` exhaustivo para que un
+ * o el rival en el tablero: si cae, su bando pierde—; una criatura se lee por
+ * sus cifras. Con un `switch` exhaustivo para que un
  * origen nuevo obligue a decidir aquí si el agente tiene que saberlo.
  */
 function marcaDelOrigen(origen: OrigenDelStack): { commander?: true; veteranRank?: number } {
   switch (origen.kind) {
     case 'heroe':
       return { commander: true };
-    case 'catalogo':
-    case 'personaje': {
+    case 'catalogo': {
       // La veteranía se ve en el tablero —los galones de la figura—, así que
       // es pública como la moral: sus cifras ya van en `attack`/`defense`.
       // Desde el rango 2, que es lo que promete la prosa y lo que pintan los

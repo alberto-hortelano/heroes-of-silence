@@ -461,8 +461,6 @@ describe('la veteranía vive en el individuo y lo acompaña (C3)', () => {
     expect(elQueSeIria(army, TROPA)).toBe(army[4]);
     expect(elQueSeIria([army[0]!, army[2]!], TROPA)).toBe(army[2]);
     expect(elQueSeIria(army, TIRADOR)).toBeNull();
-    // Un personaje no se licencia: no es nunca el que se iría.
-    expect(elQueSeIria([{ creature: TROPA, member: 'aren' }], TROPA)).toBeNull();
   });
 
   it('`dismiss` licencia al novato de su tipo y deja al veterano en el ejército', () => {
@@ -543,7 +541,7 @@ describe('la veteranía se ve (C7)', () => {
       { creature: TROPA },
       veterano(TROPA, 'v-2', 800_000),
     ];
-    const filas = troopSummary(army, undefined);
+    const filas = troopSummary(army);
     expect(filas.map((g) => [g.count, g.rango, g.siguiente, g.veterania?.id])).toEqual([
       [2, 1, null, undefined],
       [1, 3, umbral(4), 'v-1'],

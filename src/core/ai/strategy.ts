@@ -13,7 +13,6 @@ import {
   conEquipo,
   destinoDeEquipo,
   equipoDe,
-  type PedidoDeEquipo,
   PIEZAS_DE_ARMERIA,
   type Portador,
   pedidoDeEquipo,
@@ -155,10 +154,10 @@ function objectValue(
         // llevarse, una y otra vez.
         const { tope, cupo } = capacidadDe(hero, state.combate.tope);
         const { dentro } = troopsThatFit(hero.army, tope, cupo, guarnicionPropia);
-        return armyPower(dentro, state.characters) / 10;
+        return armyPower(dentro) / 10;
       }
       // Un pueblo con guarnición es una batalla: se mide antes de ir.
-      const guarnicion = armyPower(guarnicionPropia, state.characters);
+      const guarnicion = armyPower(guarnicionPropia);
       if (guarnicion > 0 && miPoder < guarnicion * 1.1) return -1;
       // La BASE del rival vale el triple: tomarla gana la partida. Es una
       // cifra medida y no un principio: con «perder la base elimina» se probó
@@ -198,7 +197,7 @@ function valorDeUnNodo(
 ): number {
   if (dueño === player) return 0;
   const guardado = guarnicionHostil(state, id, player);
-  if (guardado !== null && !ventajaClara(miPoder, armyPower(guardado.tropa, state.characters))) {
+  if (guardado !== null && !ventajaClara(miPoder, armyPower(guardado.tropa))) {
     return -1;
   }
   const t = foto();
@@ -227,8 +226,8 @@ function valorDeRecuperar(
   if (ocupante === null) return 0;
   const suyo =
     ocupante.kind === 'heroe'
-      ? fuerzaDe(heroById(state, ocupante.heroId), state.characters)
-      : armyPower(guarnicionDe(state, sitio), state.characters);
+      ? fuerzaDe(heroById(state, ocupante.heroId))
+      : armyPower(guarnicionDe(state, sitio));
   return ventajaClara(miPoder, suyo) ? DIAS_DE_RENTA * rinde : -1;
 }
 
@@ -260,7 +259,7 @@ export function chooseHeroDestination(
   // En un objeto y no en un `let`: lo escribe `considerar`, y `tsc` no ve una
   // escritura dentro de un cierre y lo estrecharía a `null` para siempre.
   const elegido: { mejor: { at: Point; score: number } | null } = { mejor: null };
-  const miPoder = fuerzaDe(hero, state.characters);
+  const miPoder = fuerzaDe(hero);
   // Una foto del territorio para todos los objetos: no cambia mientras se
   // elige. Perezosa, porque solo la pide un nodo ajeno.
   let hecha: Territorio | undefined;
@@ -321,7 +320,7 @@ export function chooseHeroDestination(
   // iniciativa, así que el empate lo rompe quien llega antes.
   for (const enemigo of state.heroes) {
     if (enemigo.owner === hero.owner) continue;
-    if (miPoder < fuerzaDe(enemigo, state.characters)) continue;
+    if (miPoder < fuerzaDe(enemigo)) continue;
     considerar(enemigo.at, 60000);
   }
 
@@ -542,7 +541,7 @@ export function planIntercambios(state: GameState, hero: Hero): AdventureAction[
   const { tope, cupo } = capacidadDe(hero, state.combate.tope);
   const { dentro } = troopsThatFit(hero.army, tope, cupo, guarnicionDe(state, sitio));
   // Un grupo, un pedido (`pedidoDelGrupo`): el veterano por su id, los demás por tipo.
-  return troopSummary(dentro, state.characters).map((g) => ({
+  return troopSummary(dentro).map((g) => ({
     type: 'recoger_tropa',
     ...pedidoDelGrupo(hero.id, g),
   }));
@@ -683,8 +682,7 @@ function planCambio(
  * piquero de rango 3 mientras le quede un campesino que tirar. Sin esa primera
  * clave, el veterano —que vale lo mismo en oro que un novato de su tipo— se iba
  * a la primera, y la experiencia no le servía de nada a quien la gana. A
- * igualdad de todo, el id menor, para que no decida el orden del ejército. Los
- * personajes no entran: no se licencian.
+ * igualdad de todo, el id menor, para que no decida el orden del ejército.
  */
 function laMasBarata(
   army: Army,
@@ -697,12 +695,12 @@ function laMasBarata(
     readonly poder: number;
   } | null = null;
   const vistos = new Set<string>();
-  for (const { creature: id, member } of army) {
-    if (member !== undefined || vistos.has(id)) continue;
+  for (const { creature: id } of army) {
+    if (vistos.has(id)) continue;
     vistos.add(id);
     // El que se iría de este tipo, con la MISMA regla que la acción.
     const t = elQueSeIria(army, id)!;
-    const suyo = unitPower(troopUnit(t, undefined));
+    const suyo = unitPower(troopUnit(t));
     if (suyo >= poder) continue;
     const rango = rangoDeTropa(t.veterania);
     const oro = unidadDelJuego(id).oro;
@@ -725,17 +723,13 @@ function laMasBarata(
  * más pelea y nunca se licencia— y después la tropa de **mayor índice de poder**
  * (`indiceDePoder`: catálogo + rango + el equipo que ya lleve), y a igual
  * índice en su orden. Por el índice y no por el nivel: es más fino, y dos
- * criaturas del mismo nivel no empatan por eso. Los personajes no entran —su
- * equipo es de la fase que los traiga— y se apartan **antes** de mirar nada: su
- * cuerpo es un perfil que no está en el catálogo. Las cifras salen de
+ * criaturas del mismo nivel no empatan por eso. Las cifras salen de
  * `cifrasDeUnidad`, que para un novato devuelve el catálogo tal cual y para un
  * veterano las que ya recuerda por su hoja: no se fabrica ninguna.
  */
 function portadores(hero: Hero): { readonly quien: Portador; readonly equipo: Equipo }[] {
   const tropa = hero.army
-    .map((t, indice) => ({ t, indice }))
-    .filter(({ t }) => t.member === undefined)
-    .map(({ t, indice }) => ({
+    .map((t, indice) => ({
       t,
       indice,
       poder: indiceDePoder(cifrasDeUnidad(t.creature, t.veterania)),
@@ -804,23 +798,14 @@ function mejora(equipo: Equipo, id: string): number {
 }
 
 /**
- * Cómo se nombra al portador `quien` en una acción `equip`: lo dice el núcleo
- * (`pedidoDeEquipo`, la inversa de `destinoDeEquipo`). Los personajes no llegan
- * aquí (`portadores` los aparta), así que un motivo es un fallo y se lanza.
- */
-function nombrar(hero: Hero, quien: Portador): PedidoDeEquipo {
-  const pedido = pedidoDeEquipo(hero, quien);
-  if ('motivo' in pedido) throw new Error(pedido.motivo);
-  return pedido;
-}
-
-/**
  * Si nombrar a `quien` le hace llegar la pieza a ÉL. Lo responde el motor
  * (`destinoDeEquipo`), no una copia de su regla: nombrar a un novato por su tipo
  * se la pone al primero sin hoja, y con otro delante se la pondría a otro.
  */
 function leLlega(hero: Hero, quien: Portador): boolean {
-  const destino = destinoDeEquipo(hero, nombrar(hero, quien));
+  // Cómo se nombra al portador en una acción `equip` lo dice el núcleo
+  // (`pedidoDeEquipo`, la inversa de `destinoDeEquipo`).
+  const destino = destinoDeEquipo(hero, pedidoDeEquipo(hero, quien));
   if ('motivo' in destino) return false;
   return 'heroe' in destino
     ? 'heroe' in quien
@@ -906,7 +891,7 @@ export function siguienteDeEquipo(state: GameState, playerId: PlayerId): Adventu
           leLlega(hero, p.quien),
       );
       if (quien !== undefined) {
-        return { type: 'equip', hero: hero.id, item: id, ...nombrar(hero, quien.quien) };
+        return { type: 'equip', hero: hero.id, item: id, ...pedidoDeEquipo(hero, quien.quien) };
       }
     }
   }

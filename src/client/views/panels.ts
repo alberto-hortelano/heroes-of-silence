@@ -68,12 +68,11 @@ import {
 } from '@core/hero/equipo.js';
 import { rangoDe, rangoDeHeroe, umbral } from '@core/hero/experiencia.js';
 import { cuerpoDelHeroe, type Hero, heroUnit, maxMana, maxMovePoints } from '@core/hero/hero.js';
-import { elQueSeIria, type Personajes, type TroopGroup, troopSummary } from '@core/hero/troop.js';
+import { elQueSeIria, type TroopGroup, troopSummary } from '@core/hero/troop.js';
 import { enOrdenDelLibro, nombreDeHechizo } from '@core/magia/catalogo.js';
 import type { Hechizo } from '@core/magia/formato.js';
 import type { Lugar } from '@core/mundo/formato.js';
 import { nivelDeUnidad } from '@core/nivel.js';
-import { CHARACTER_BODY } from '@core/rpg/character.js';
 import { loQueLaPara } from '@core/state/asaltantes.js';
 import { type Desenlace, desenlaceDe } from '@core/state/desenlace.js';
 import type { DefeatReason, GameEventDraft } from '@core/state/events.js';
@@ -453,7 +452,7 @@ function renderAdventurePanel(session: Session): Html {
             : NADA
         }
         ${filaLiderazgo(session.liderazgo({ heroe: hero.id }))}
-        <div class="row"><span class="label">Movimiento</span><span>${session.movimientoALaVista(hero)} / ${maxMovePoints(hero, session.state.characters)}</span></div>
+        <div class="row"><span class="label">Movimiento</span><span>${session.movimientoALaVista(hero)} / ${maxMovePoints(hero)}</span></div>
         ${filaDeInfiltracion(session.infiltracion(hero))}
         <div class="row"><span class="label">Maná</span><span>${hero.mana} / ${maxMana(hero)}</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>${ataqueYDefensa(cuerpoDelHeroe(hero), puesto)}</span></div>
@@ -463,7 +462,7 @@ function renderAdventurePanel(session: Session): Html {
         ${renderSpellbook(hero.spells)}
         ${renderEquipoDelHeroe(hero, session.selectedItem)}
         <h3>Tropa · ${hero.army.length} ${hero.army.length === 1 ? 'individuo' : 'individuos'}</h3>
-        ${renderTropaEquipable(hero, session.selectedItem, session.state.characters)}`;
+        ${renderTropaEquipable(hero, session.selectedItem)}`;
 
   // Con uno solo también (#17): con `<= 1` la lista aparecía al contratar el
   // segundo y se iba al perderlo, y con ella el sitio donde mirar quién duerme.
@@ -683,12 +682,12 @@ function renderEquipoDelHeroe(hero: Hero, elegida: string | null): Html {
  * a ÉL (`veteran`); en la de novatos, al primero sin equipar de ese tipo
  * (`creature`), que es a quien se la pone el núcleo (`quienRecibe`).
  */
-function renderTropaEquipable(hero: Hero, elegida: string | null, characters: Personajes): Html {
-  if (hero.army.length === 0) return renderArmy(hero.army, characters);
+function renderTropaEquipable(hero: Hero, elegida: string | null): Html {
+  if (hero.army.length === 0) return renderArmy(hero.army);
   // A quién iría la pieza desde esta fila lo dice el núcleo (`destinoDeEquipo`):
-  // el de hoja, por su id; una fila de novatos, por su tipo. Un personaje no.
+  // el de hoja, por su id; una fila de novatos, por su tipo.
   const boton = (g: TroopGroup): Html => {
-    if (elegida === null || g.member !== undefined) return NADA;
+    if (elegida === null) return NADA;
     if (g.veterania !== undefined) {
       return html` <button data-action="equip" data-hero="${hero.id}" data-veteran="${g.veterania.id}">Equipar</button>`;
     }
@@ -697,42 +696,38 @@ function renderTropaEquipable(hero: Hero, elegida: string | null, characters: Pe
       : html` <button data-action="equip" data-hero="${hero.id}" data-creature="${g.creature}">Equipar</button>`;
   };
   const filas = unir(
-    troopSummary(hero.army, characters).map((g) =>
-      filaDeTropa(g, { boton: boton(g), quitarDe: hero.id }),
-    ),
+    troopSummary(hero.army).map((g) => filaDeTropa(g, { boton: boton(g), quitarDe: hero.id })),
   );
   return html`<div class="stack-list">${filas}</div>`;
 }
 
 /**
  * El ejército agrupado: una fila por criatura con cuántos individuos lleva, y
- * una por personaje o por veterano, con su nivel y lo que le falta. Agrupa
- * `troopSummary`, no este panel.
+ * una por veterano, con su nivel y lo que le falta. Agrupa `troopSummary`, no
+ * este panel.
  */
-export function renderArmy(army: Army, characters: Personajes): Html {
+export function renderArmy(army: Army): Html {
   if (army.length === 0) {
     return html`<div class="stack-list"><div class="stack empty"><span>—</span></div></div>`;
   }
-  const filas = unir(troopSummary(army, characters).map((g) => filaDeTropa(g)));
+  const filas = unir(troopSummary(army).map((g) => filaDeTropa(g)));
   return html`<div class="stack-list">${filas}</div>`;
 }
 
 /**
  * La tropa del héroe que está en su castillo, con un botón por criatura para
- * licenciar uno: es donde se cambia tropa barata por otra mejor. Un personaje
- * va sin botón, porque no se licencia, y un veterano solo lo lleva si es él
- * quien se iría. Sin comprobar reglas: si no se puede,
+ * licenciar uno: es donde se cambia tropa barata por otra mejor. Un veterano
+ * solo lo lleva si es él quien se iría. Sin comprobar reglas: si no se puede,
  * lo dice el núcleo en la barra.
  */
-export function renderTropaLicenciable(heroId: string, army: Army, characters: Personajes): Html {
-  if (army.length === 0) return renderArmy(army, characters);
-  const grupos = troopSummary(army, characters);
+export function renderTropaLicenciable(heroId: string, army: Army): Html {
+  if (army.length === 0) return renderArmy(army);
+  const grupos = troopSummary(army);
   // `dismiss` licencia POR TIPO, y de cada tipo se va primero quien diga
   // `elQueSeIria`. Así que el botón va solo en la fila de quien se iría de
   // verdad: puesto en la de un veterano con novatos de su tipo detrás, el clic
   // se habría llevado a otro sin decirlo.
   const seIria = (g: TroopGroup): boolean => {
-    if (g.member !== undefined) return false;
     const t = elQueSeIria(army, g.creature);
     return t !== null && t.veterania?.id === g.veterania?.id;
   };
@@ -848,7 +843,7 @@ function renderTownPanel(session: Session, abierto: Abierto | null): Html {
         ? html`<p class="cost lose">La ocupa: ${ocupante.quien}. No es tuya: échala atacándola.</p>`
         : filaLiderazgo(session.liderazgo({ guarnicion: town.id }))
     }
-    ${renderArmy(guarnicionDeLaCiudad(session.state, town), session.state.characters)}
+    ${renderArmy(guarnicionDeLaCiudad(session.state, town))}
     ${
       heroeAqui === undefined
         ? NADA
@@ -871,7 +866,7 @@ function renderTownPanel(session: Session, abierto: Abierto | null): Html {
         : html`${renderLibroEnElCastillo(session, heroeAqui, town)}<h3>Tropa del héroe</h3>
           ${filaLiderazgo(session.liderazgo({ heroe: heroeAqui.id }))}
           <p class="cost">Lo que reclutes va a su tropa, hasta su liderazgo. Licencia lo que sobre para hacer sitio a algo mejor.</p>
-          ${renderTropaLicenciable(heroeAqui.id, heroeAqui.army, session.state.characters)}`
+          ${renderTropaLicenciable(heroeAqui.id, heroeAqui.army)}`
     }`;
 }
 
@@ -1798,10 +1793,9 @@ function enLaCasilla(at: Point | null): string {
   return at === null ? '' : ` en\u00a0(${at.x},\u00a0${at.y})`;
 }
 
-/** Cómo se llama un cuerpo del tablero en la crónica: el héroe y el personaje no están en el catálogo. */
+/** Cómo se llama un cuerpo del tablero en la crónica: el héroe no está en el catálogo. */
 function nombreDeCuerpo(body: string): string {
   if (body === HERO_BODY) return 'el héroe';
-  if (body === CHARACTER_BODY) return 'un personaje';
   return unidadDelJuego(body).name;
 }
 

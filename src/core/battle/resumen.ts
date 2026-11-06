@@ -14,8 +14,7 @@
  *
  * Los ids de stack (`a3`, `d1`) son del tablero y mueren con él: aquí se
  * escribe el CUERPO (`body`), que es lo que sigue significando algo después.
- * El del héroe es `HERO_BODY` y el de un personaje `CHARACTER_BODY`; quien lo
- * cuente decide cómo nombrarlos.
+ * El del héroe es `HERO_BODY`; quien lo cuente decide cómo nombrarlo.
  */
 import { type BattleState, queEs, type Side } from './types.js';
 

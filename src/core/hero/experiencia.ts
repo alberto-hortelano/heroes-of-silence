@@ -24,7 +24,7 @@
  */
 import { cuerpoConSusCifras } from '../cuerpo.js';
 import { EXPERIENCIA } from '../data.js';
-import type { Equipo, UnitInfo, Veterania } from '../types.js';
+import type { UnitInfo, Veterania } from '../types.js';
 import { conEquipo } from './equipo.js';
 
 /**
@@ -179,18 +179,17 @@ export function cifrasVeteranas<U extends UnitInfo>(unit: U, rango: number): U {
 }
 
 /**
- * Las cifras de un personaje sobre las de su perfil: su veteranía y lo que lleva
- * puesto. **La regla de «perfil + hoja»**: la llaman las dos ramas del personaje,
- * `troopUnit` y `resolveUnit`. La de una unidad del catálogo es `cifrasDeUnidad`
- * (`core/catalogo.ts`), que suma lo de serie y lo suyo de una vez.
+ * Las cifras de un individuo sobre las de un cuerpo dado: su veteranía y lo que
+ * lleva puesto. Lo llama el retoque de la arena (`aplicarAlTipo`), que pone las
+ * cifras nuevas de un tipo a cada stack con su hoja encima. La de una unidad del
+ * catálogo es `cifrasDeUnidad` (`core/catalogo.ts`), que suma lo de serie y lo
+ * suyo de una vez.
  *
  * Sin hoja, o con una de rango 1 y sin piezas, devuelve **la misma referencia**.
  */
 export function cifrasDelIndividuo<U extends UnitInfo>(
   unit: U,
   hoja: Pick<Veterania, 'experiencia' | 'equipo'> | null | undefined,
-  deSerie?: Equipo,
 ): U {
-  const equipo = deSerie === undefined ? hoja?.equipo : { ...deSerie, ...hoja?.equipo };
-  return conEquipo(cifrasVeteranas(unit, rangoDeTropa(hoja)), equipo);
+  return conEquipo(cifrasVeteranas(unit, rangoDeTropa(hoja)), hoja?.equipo);
 }

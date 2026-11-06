@@ -51,7 +51,6 @@ import { troopUnit } from '../src/core/hero/troop.js';
 import { isEnterable, objectAt, pointKey } from '../src/core/map/map.js';
 import { VECINAS } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
-import { CHARACTER_BODY } from '../src/core/rpg/character.js';
 import { regionDeCasilla, tocaUnNodo } from '../src/core/state/asaltantes.js';
 import {
   type AdventureAction,
@@ -367,7 +366,7 @@ describe('las cifras se suman en las puertas de siempre (C1)', () => {
       createRng(1),
       COMBATE_COMPLETO,
     );
-    expect(stackById(b, 'attacker-0').unit).toEqual(troopUnit(equipado, undefined));
+    expect(stackById(b, 'attacker-0').unit).toEqual(troopUnit(equipado));
     expect(armaduraDe(stackById(b, 'attacker-0').unit)).toBe(pieza('brigantina').armadura);
   });
 });
@@ -527,27 +526,22 @@ describe('cómo se nombra a un portador: `pedidoDeEquipo`, la inversa de `destin
       { creature: TROPA_BARATA },
       { creature: TROPA, veterania: hoja('veterano-1', 30) },
       { creature: TROPA_BARATA },
-      { creature: CHARACTER_BODY, member: 'aren', veterania: hoja('veterano-2', 0) },
       { creature: TROPA },
     ];
     expect(pedidoDeEquipo(hero, { heroe: true })).toEqual({});
     expect(destinoDeEquipo(hero, {})).toEqual({ heroe: true });
-    const esperado = [0, 1, 0, 3, 4];
+    const esperado = [0, 1, 0, 3];
     for (const [indice, vuelve] of esperado.entries()) {
       const pedido = pedidoDeEquipo(hero, { indice });
-      if ('motivo' in pedido) throw new Error(pedido.motivo);
       expect(destinoDeEquipo(hero, pedido), `el puesto ${indice}`).toEqual({ indice: vuelve });
     }
     expect(pedidoDeEquipo(hero, { indice: 1 })).toEqual({ veteran: 'veterano-1' });
     expect(pedidoDeEquipo(hero, { indice: 2 })).toEqual({ creature: TROPA_BARATA });
   });
 
-  it('un personaje sin hoja no se puede nombrar, y lo dice; un puesto vacío lanza', () => {
+  it('un puesto vacío lanza', () => {
     const { hero } = enLaArmeria();
-    hero.army = [{ creature: CHARACTER_BODY, member: 'aren' }];
-    expect(pedidoDeEquipo(hero, { indice: 0 })).toEqual({
-      motivo: 'a ese personaje aún no se le puede poner nada: no tiene hoja con la que nombrarlo',
-    });
+    hero.army = [{ creature: TROPA_BARATA }];
     expect(() => pedidoDeEquipo(hero, { indice: 3 })).toThrow(
       'la tropa no tiene a nadie en el puesto 3',
     );
@@ -555,14 +549,13 @@ describe('cómo se nombra a un portador: `pedidoDeEquipo`, la inversa de `destin
 });
 
 describe('por su puesto: `pedidoDelPuesto`, la inversa exacta de `destinoDeEquipo` (QA de la tropa, H2)', () => {
-  it('cada portador vuelve a sí mismo, también el tercer novato de un tipo; el personaje sin hoja da su motivo', () => {
+  it('cada portador vuelve a sí mismo, también el tercer novato de un tipo', () => {
     const { hero } = enLaArmeria();
     hero.army = [
       { creature: TROPA_BARATA },
       { creature: TROPA, veterania: hoja('veterano-1', 30) },
       { creature: TROPA_BARATA },
-      { creature: CHARACTER_BODY, member: 'aren', veterania: hoja('veterano-2', 0) },
-      { creature: CHARACTER_BODY, member: 'brisa' },
+      { creature: TROPA_BARATA },
     ];
     expect(destinoDeEquipo(hero, pedidoDelPuesto({ heroe: true }))).toEqual({ heroe: true });
     for (const indice of [0, 1, 2, 3]) {
@@ -570,9 +563,6 @@ describe('por su puesto: `pedidoDelPuesto`, la inversa exacta de `destinoDeEquip
         indice,
       });
     }
-    expect(destinoDeEquipo(hero, pedidoDelPuesto({ indice: 4 }))).toEqual({
-      motivo: 'a ese personaje aún no se le puede poner nada: no tiene hoja con la que nombrarlo',
-    });
   });
 
   it('un puesto que no hay, o el puesto con un nombre a la vez, no nombra a nadie y lo dice', () => {

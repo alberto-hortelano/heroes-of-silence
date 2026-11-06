@@ -27,7 +27,6 @@
  */
 
 import { HERO_BODY } from '@core/battle/types.js';
-import { CHARACTER_BODY } from '@core/rpg/character.js';
 import { type Hoja, validarHojas } from '@core/unidad.js';
 import { esIdDeUnidad } from '@core/validar.js';
 import atlasDePoses from '../../../assets/unidades/_poses/atlas-8d.json';
@@ -329,8 +328,8 @@ function ybot(juego: string): ArteDeFigura {
 }
 
 /**
- * El juego de armas de lo que se pinta **sin hoja de unidad**: el héroe, el
- * personaje y la gente de la base. Las tropas no van aquí: desde el 19-10-2026
+ * El juego de armas de lo que se pinta **sin hoja de unidad**: el héroe y la
+ * gente de la base. Las tropas no van aquí: desde el 19-10-2026
  * (F3 de `docs/agents/2026-10-18-combate-y-ejercitos-en-el-juego/`) toda tropa
  * del juego es una unidad del catálogo y se pinta con la hoja de su cuerpo
  * (`hojaDeUnidad`), registrada al arrancar (`registrarLasHojas`). La tabla de
@@ -338,7 +337,6 @@ function ybot(juego: string): ArteDeFigura {
  */
 export const JUEGO_SIN_HOJA: Readonly<Record<string, JuegoDelYBot>> = {
   [HERO_BODY]: 'espada-escudo',
-  [CHARACTER_BODY]: 'espada-escudo',
   [CUERPO_DE_VECINO]: 'civil',
 };
 

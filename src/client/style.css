@@ -575,7 +575,7 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
 .opciones-del-lugar .motivo,
 .guarnicion .motivo { display: block; color: var(--rechazo); margin: 0.1rem 0 0 0.4rem; }
 .guarnicion .motivo { margin-bottom: 0.2rem; font-size: 0.85em; }
-/* Lo que solo informa (`notaDebajo`): ya pelean todos, un personaje va con su héroe. */
+/* Lo que solo informa (`notaDebajo`): ya pelean todos. */
 .guarnicion .motivo.nota { color: var(--ink-dim); }
 .abierto-en-la-base { border-bottom: 1px solid var(--borde-oscuro); padding-bottom: 0.6rem; margin-bottom: 0.6rem; }
 .abierto-en-la-base .motivo { color: var(--rechazo); }

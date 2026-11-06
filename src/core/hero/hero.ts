@@ -15,7 +15,7 @@ import type {
 import { SPEED_TO_MOVE_POINTS } from '../types.js';
 import { conEquipo, EQUIPO_BASE } from './equipo.js';
 import { rangoDeHeroe, subidasDeRango } from './experiencia.js';
-import { type Personajes, troopUnit } from './troop.js';
+import { troopUnit } from './troop.js';
 
 /** Habilidades secundarias del slice. Cada una en básico/avanzado/experto. */
 export type SkillId = 'logistics' | 'pathfinding' | 'wisdom' | 'leadership';
@@ -147,8 +147,7 @@ export function heroeRecienHecho(datos: {
     mochila: [],
   };
   hero.mana = maxMana(hero);
-  // Sin tropa no hay personajes que mirar.
-  hero.marchaDelDia = maxMovePoints(hero, undefined);
+  hero.marchaDelDia = maxMovePoints(hero);
   return hero;
 }
 
@@ -245,15 +244,11 @@ export type GrupoQueMarcha = Pick<
  * las casillas de su montura (de guerra o de silla) o las suyas a pie (`marchaDe`).
  * **El héroe cuenta** (decisión del usuario, 26-10-2026: un héroe a pie frena; a
  * caballo, no), así que un caballo de silla solo sube la marcha si lo llevan todos.
- *
- * Pide los personajes porque un individuo puede serlo, y su velocidad sale de
- * su destreza y no del catálogo: sin ellos, un héroe que llevara uno lanzaba
- * al pasar de día.
  */
-export function slowestSpeed(grupo: GrupoQueMarcha, characters: Personajes): SpeedTier {
+export function slowestSpeed(grupo: GrupoQueMarcha): SpeedTier {
   let slowest = marchaDe(heroUnit(grupo));
   for (const t of grupo.army) {
-    const speed = marchaDe(troopUnit(t, characters));
+    const speed = marchaDe(troopUnit(t));
     if (SPEED_TO_MOVE_POINTS[speed] < SPEED_TO_MOVE_POINTS[slowest]) slowest = speed;
   }
   return slowest;
@@ -270,11 +265,8 @@ export function logisticsBonus(hero: Pick<Hero, 'skills'>): number {
  * con el héroe), con la tabla de fheroes2 llevada a la escala del mapa
  * (`marchaALaEscala`, #226: con 450 casillas por región, ×1,22) y luego la Logística.
  */
-export function maxMovePoints(
-  hero: GrupoQueMarcha & Pick<Hero, 'skills'>,
-  characters: Personajes,
-): number {
-  const base = marchaALaEscala(SPEED_TO_MOVE_POINTS[slowestSpeed(hero, characters)]);
+export function maxMovePoints(hero: GrupoQueMarcha & Pick<Hero, 'skills'>): number {
+  const base = marchaALaEscala(SPEED_TO_MOVE_POINTS[slowestSpeed(hero)]);
   return Math.round(base * (1 + logisticsBonus(hero)));
 }
 
@@ -283,8 +275,8 @@ export function maxMovePoints(
  * y fijada en `marchaDelDia`. Las dos juntas: lo llaman el inicio de cada día, el
  * héroe inicial y el contratado.
  */
-export function empezarElDia(hero: Hero, characters: Personajes): void {
-  hero.marchaDelDia = maxMovePoints(hero, characters);
+export function empezarElDia(hero: Hero): void {
+  hero.marchaDelDia = maxMovePoints(hero);
   hero.movePoints = hero.marchaDelDia;
 }
 

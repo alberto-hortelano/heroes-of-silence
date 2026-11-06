@@ -3,13 +3,15 @@
  * (`reglas-de-batalla.test.ts`) y de la previsión (`prevision.test.ts`): un
  * héroe de prueba y un bando. Escritos una vez; antes cada test llevaba su copia.
  */
-import type { BattleMember, BattleSide } from '../src/core/battle/battle.js';
+import type { BattleSide } from '../src/core/battle/battle.js';
 import type { BattleHero } from '../src/core/battle/types.js';
 import { HERO_BODY } from '../src/core/battle/types.js';
-import { EQUIPO_BASE } from '../src/core/hero/equipo.js';
+import type { CatalogoDeUnidades } from '../src/core/catalogo.js';
+import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../src/core/hero/experiencia.js';
 import { cuerposDelHeroe } from '../src/core/hero/hero.js';
 import type { Stack, UnitInfo } from '../src/core/types.js';
+import type { Unidad } from '../src/core/unidad.js';
 
 /** El mando de un héroe de prueba: poder 3, Prisa y Lentitud. */
 export function mando(over: Partial<BattleHero> = {}): BattleHero {
@@ -54,23 +56,74 @@ export function bando(
   };
 }
 
+/** Unas cifras hechas a mano, con el id que las nombra y, si se dice, la hoja con que se pintan. */
+export interface CifrasAMano {
+  readonly id: string;
+  readonly unit: UnitInfo;
+  /** La hoja de su cuerpo (`body`); sin ella, su id. */
+  readonly hoja?: string;
+}
+
+/**
+ * Un catálogo de la pelea (`BattleSide.catalogo`) que da a cada id **sus cifras
+ * hechas a mano, tal cual** (la misma referencia): la vía de los tests para pelear
+ * con unas cifras que no salen de un cuerpo y su equipo —un daño fijo, una defensa
+ * propia, un rasgo que ninguna unidad lleva—.
+ *
+ * Hasta el 06-11-2026 esas cifras entraban como un personaje del RPG
+ * (`BattleSide.members`); retirados los personajes, el motor solo saca las de la
+ * tropa de un catálogo (`resolveUnit` → `cifrasDeUnidad`, que viste el cuerpo de la
+ * unidad con su catálogo de equipo). Este da a cada id una unidad de relleno con
+ * ese id por nombre y un equipo cuyo `conEquipo` devuelve las cifras pedidas: así
+ * entran al montar la batalla, y cuentan para la moral, la escalera, el libro y el
+ * orden de la primera ronda como las de cualquier tropa. Lo que cambia frente al
+ * personaje es el origen (`catalogo`, con su precio: la rendición los cuenta).
+ */
+export function catalogoDeCifras(cifras: readonly CifrasAMano[]): CatalogoDeUnidades {
+  const porId = new Map<string, CifrasAMano>();
+  for (const c of cifras) {
+    if (porId.has(c.id)) throw new Error(`dos cifras a mano con el id «${c.id}»`);
+    porId.set(c.id, c);
+  }
+  const de = (id: string): CifrasAMano => {
+    const c = porId.get(id);
+    if (c === undefined) throw new Error(`no hay cifras a mano con el id «${id}»`);
+    return c;
+  };
+  return {
+    unidad: (id): Unidad => {
+      const { unit, hoja } = de(id);
+      return {
+        id,
+        name: id,
+        faction: 'templarios',
+        leadership: 1,
+        cuerpo: { hoja: hoja ?? id },
+        equipo: {},
+        traits: [],
+        habilidades: [],
+        attack: unit.attack,
+        fuerza: unit.fuerza,
+        agilidad: unit.agilidad,
+        hp: unit.hp,
+      };
+    },
+    // El cuerpo de relleno se llama como su id: lo vestido son las cifras de ese id.
+    equipo: {
+      ...EQUIPO_DEL_JUEGO,
+      conEquipo: <U extends UnitInfo>(cuerpo: U): U => de(cuerpo.name).unit as U,
+    },
+  };
+}
+
 /**
  * Un bando de unidades con cifras propias, como las de la arena: cada una entra
- * como un personaje de uno (`BattleSide.members`) con su `unit` tal cual, sin
- * pasar por el catálogo.
+ * con su `unit` tal cual (`catalogoDeCifras`), una por stack.
  */
-export function bandoDe(
-  unidades: readonly { readonly id: string; readonly unit: UnitInfo }[],
-): BattleSide {
-  const members = new Map<string, BattleMember>(
-    unidades.map((u) => [
-      u.id,
-      { profile: { unit: u.unit, equipo: {}, morale: 0 }, hp: u.unit.hp },
-    ]),
-  );
+export function bandoDe(unidades: readonly CifrasAMano[]): BattleSide {
   return {
-    army: unidades.map((u) => ({ creature: u.id, member: u.id, count: 1 })),
+    army: unidades.map((u) => ({ creature: u.id, count: 1 })),
     hero: null,
-    members,
+    catalogo: catalogoDeCifras(unidades),
   };
 }

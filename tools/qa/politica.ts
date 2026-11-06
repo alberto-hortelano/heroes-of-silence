@@ -60,7 +60,7 @@ export function decidir(kind: string, payload: any, semilla: number): unknown {
           ? dentro
           : payload.heroes?.find((h: any) => (h.backpack?.length ?? 0) > 0);
       const pieza = enVenta ?? portador?.backpack?.[0];
-      const novato = portador?.army?.find((g: any) => g.member === undefined && g.id === undefined);
+      const novato = portador?.army?.find((g: any) => g.id === undefined);
       if (pieza !== undefined && novato !== undefined) {
         acciones.push({ type: 'equip', hero: portador.id, item: pieza, creature: novato.creature });
       }
@@ -76,7 +76,7 @@ export function decidir(kind: string, payload: any, semilla: number): unknown {
         );
       }
       const lleva = (dentro?.army ?? []).reduce((n: number, g: any) => n + g.count, 0);
-      const primero = dentro?.army?.find((g: any) => g.member === undefined && g.count >= 2);
+      const primero = dentro?.army?.find((g: any) => g.count >= 2);
       // Dos, o uno si el grupo es de dos: se licencia por tipo, y con tope 3 el
       // grupo de dos se iba entero con el novato que se acaba de equipar en este
       // mismo turno, y ningún individuo llegaba equipado a `pnpm qa` (QA de la
@@ -98,9 +98,9 @@ export function decidir(kind: string, payload: any, semilla: number): unknown {
       // deja uno de su primer grupo y lo vuelve a recoger, o al revés si la
       // guarnición está llena. Es como el arnés cruza `leave_troops` y
       // `take_troops` por el circuito; que conste lo mira `verify-agent.ts`.
-      const suyo = dentro?.army?.find((g: any) => g.member === undefined && g.id === undefined);
+      const suyo = dentro?.army?.find((g: any) => g.id === undefined);
       const enCasa = (town?.garrison ?? []).reduce((n: number, g: any) => n + g.count, 0);
-      const deCasa = town?.garrison?.find((g: any) => g.member === undefined && g.id === undefined);
+      const deCasa = town?.garrison?.find((g: any) => g.id === undefined);
       if (dentro !== undefined && suyo !== undefined && enCasa < cabe + 1) {
         const una = { hero: dentro.id, creature: suyo.creature, count: 1 };
         acciones.push({ type: 'leave_troops', ...una }, { type: 'take_troops', ...una });

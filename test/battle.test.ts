@@ -19,6 +19,7 @@ import {
   isAlive,
   legalActions,
   legalActionsAndCosts,
+  MAX_ROUNDS,
   movableFrom,
   movableHexes,
   stackById,
@@ -53,6 +54,7 @@ import type { Rng } from '../src/core/rng.js';
 import { createRng } from '../src/core/rng.js';
 import type { CreatureTrait, Hex, Stack, UnitInfo } from '../src/core/types.js';
 import {
+  aCiegas,
   agresiva,
   aMano,
   conCifrasAMano,
@@ -1477,5 +1479,48 @@ describe('despliegue de una tropa de individuos', () => {
     );
     simular(state, rng);
     expect(state.finished).not.toBeNull();
+  });
+});
+
+/**
+ * Juega un duelo 1 contra 1 entero con la IA de reglas decidiendo por los dos
+ * lados, en (3,4) contra (7,4), que los deja a tiro en la primera ronda (las
+ * casillas de salida de `CharacterTrial`, de la rama de archivo `gpt-rpg`).
+ *
+ * El bucle es a mano y no `autoResolve` a propósito: así se ve que
+ * `chooseBattleAction` decide por los DOS bandos, y el cierre por tope se
+ * distingue del cierre por muerte. Si salta cualquiera de los dos topes, lanza
+ * diciendo cuál: el de `MAX_ROUNDS` y el de acciones, porque un bucle de acciones
+ * que no avanza de ronda también se colgaría.
+ */
+function dueloEntero(atacante: BattleSide, defensor: BattleSide, semilla: number): BattleState {
+  const rng = createRng(semilla);
+  const batalla = createBattle(atacante, defensor, rng, COMBATE_COMPLETO);
+  batalla.stacks[0]!.hex = { col: 3, row: 4 };
+  batalla.stacks[1]!.hex = { col: 7, row: 4 };
+  for (let acciones = 0; batalla.finished === null; acciones++) {
+    if (acciones > 1000) {
+      throw new Error(`el duelo no termina: 1000 acciones y va por la ronda ${batalla.round}`);
+    }
+    aCiegas(batalla, chooseBattleAction(batalla), rng);
+  }
+  if (batalla.round > MAX_ROUNDS) throw new Error('el duelo se cerró por el tope de rondas');
+  return batalla;
+}
+
+const solo = (creature: string): BattleSide => ({
+  army: [{ creature, count: 1 }],
+  hero: null,
+});
+
+describe('duelo de individuos con el motor del núcleo', () => {
+  it('un duelo 1 contra 1 se juega entero con la IA de reglas', () => {
+    const batalla = dueloEntero(solo('templario-mandoble'), solo('zombi'), 91);
+    // Uno de los dos cae: `dueloEntero` ya lanzó si se cerró por tope.
+    const vivos = batalla.stacks.filter((s) => s.count > 0);
+    expect(vivos).toHaveLength(1);
+    expect(vivos[0]!.side).toBe(batalla.finished!.winner);
+    // Hubo golpes de verdad y no solo esperas.
+    expect(batalla.log.some((e) => e.kind === 'attack')).toBe(true);
   });
 });

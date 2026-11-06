@@ -3,26 +3,18 @@
  *
  * Los tests salen de los criterios del plan, no del código: reclutar N añade N
  * individuos; pasarse del liderazgo lanza con la frase y SIN cobrar; un héroe
- * que entra en casa se lleva lo que le quepa; el tope crece con el nivel; los
- * datos garantizan que un ejército dentro del liderazgo cabe en el tablero; y
- * un héroe que lleva un personaje pasa de día, que era la issue que la fase 2
- * dejó abierta.
+ * que entra en casa se lleva lo que le quepa; el tope crece con el nivel; y los
+ * datos garantizan que un ejército dentro del liderazgo cabe en el tablero.
  */
 
 import { describe, expect, it } from 'vitest';
-import { armyPower, unitPower } from '../src/core/ai/fuerza.js';
 import { playAiGame } from '../src/core/ai/turn.js';
 import { createBattle } from '../src/core/battle/battle.js';
 import { allHexes, BOARD_HEIGHT, bandoDeSalida } from '../src/core/battle/board.js';
 import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO, cupoDelHeroe } from '../src/core/combate.js';
-import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
 import { LIDERAZGO } from '../src/core/data.js';
-import {
-  cifrasDelIndividuo,
-  RANGO_INICIAL_DE_HEROE,
-  umbral,
-} from '../src/core/hero/experiencia.js';
+import { RANGO_INICIAL_DE_HEROE, umbral } from '../src/core/hero/experiencia.js';
 import {
   armyLeadership,
   GARRISON_LEADERSHIP,
@@ -31,14 +23,11 @@ import {
   troopSummary,
 } from '../src/core/hero/troop.js';
 import { createRng } from '../src/core/rng.js';
-import { CHARACTER_BODY, createCharacter, defaultBuild } from '../src/core/rpg/character.js';
-import { combatProfile } from '../src/core/rpg/stats.js';
 import {
   applyAdventureAction,
   baseOf,
   destinoDeRecluta,
   type GameContext,
-  type GameState,
   heroesOf,
   recruitCapacity,
   townsOf,
@@ -117,23 +106,17 @@ describe('el ejército es una lista de individuos', () => {
     expect(hero.army).toHaveLength(5);
   });
 
-  it('`troopSummary` agrupa por criatura en orden de aparición, y cada personaje va solo', () => {
-    const aren = createCharacter('aren', defaultBuild);
-    const army = [
-      ...ejercito({ creature: 'elfo-arquero', count: 2 }),
-      { creature: CHARACTER_BODY, member: 'aren' },
-      ...ejercito({ creature: 'goblin-lancero', count: 3 }, { creature: 'elfo-arquero', count: 1 }),
-    ];
-    const grupos = troopSummary(army, { aren });
-    expect(grupos.map((g) => [g.creature, g.member, g.count])).toEqual([
-      ['elfo-arquero', undefined, 3],
-      [CHARACTER_BODY, 'aren', 1],
-      ['goblin-lancero', undefined, 3],
+  it('`troopSummary` agrupa por criatura en orden de aparición', () => {
+    const army = ejercito(
+      { creature: 'elfo-arquero', count: 2 },
+      { creature: 'goblin-lancero', count: 3 },
+      { creature: 'elfo-arquero', count: 1 },
+    );
+    const grupos = troopSummary(army);
+    expect(grupos.map((g) => [g.creature, g.count])).toEqual([
+      ['elfo-arquero', 3],
+      ['goblin-lancero', 3],
     ]);
-    // Las cifras del personaje son las de su perfil (con lo que lleva de serie su
-    // profesión), no las de ningún catálogo.
-    const perfil = combatProfile(aren);
-    expect(grupos[1]!.unit).toEqual(cifrasDelIndividuo(perfil.unit, undefined, perfil.equipo));
   });
 });
 
@@ -227,41 +210,6 @@ describe('los datos garantizan que lo que cabe en un bando cabe en el tablero', 
       expect(c.leadership, c.id).toBeGreaterThan(0);
       expect(Number.isInteger(c.leadership), c.id).toBe(true);
     }
-    expect(LIDERAZGO.personaje).toBeGreaterThan(0);
-  });
-});
-
-describe('todos los lectores del ejército saben de personajes', () => {
-  /** Un héroe que lleva un personaje y un jinete, con el personaje dado de alta. */
-  function conPersonaje(state: GameState) {
-    const aren = createCharacter('aren', { ...defaultBuild, profession: 'Guerrero' });
-    state.characters = { aren };
-    const hero = heroesOf(state, 0)[0]!;
-    hero.army = [{ creature: CHARACTER_BODY, member: 'aren' }, { creature: 'elfo-jinete' }];
-    return { hero, aren };
-  }
-
-  it('la fuerza de la IA y la vista del agente leen el perfil del personaje', () => {
-    const state = newGame({ seed: 7 });
-    const { hero, aren } = conPersonaje(state);
-    const perfil = combatProfile(aren).unit;
-    const campeon = unidadDelJuego('elfo-jinete');
-    // La fórmula es la de la IA y no una copia: lo que se prueba es de DÓNDE
-    // saca las cifras —el perfil del personaje—, no cómo las combina.
-    expect(armyPower(hero.army, state.characters)).toBe(unitPower(perfil) + unitPower(campeon));
-
-    const vista = serializeAdventureTurn(state, 0) as {
-      heroes: { id: string; army: unknown[]; leadership: { used: number; max: number } }[];
-    };
-    const mio = vista.heroes.find((h) => h.id === hero.id)!;
-    expect(mio.army).toEqual([
-      { creature: CHARACTER_BODY, member: 'aren', count: 1, speed: perfil.speed },
-      { creature: 'elfo-jinete', count: 1, speed: campeon.speed },
-    ]);
-    expect(mio.leadership).toEqual({
-      used: LIDERAZGO.personaje + campeon.leadership,
-      max: heroLeadership(hero),
-    });
   });
 });
 
@@ -315,15 +263,9 @@ describe('licenciar: cambiar tropa barata por otra mejor', () => {
     });
   });
 
-  it('fuera de un castillo suyo, de más, de cero o un personaje: lanza con la frase y no toca nada', () => {
+  it('fuera de un castillo suyo, de más o de cero: lanza con la frase y no toca nada', () => {
     const { state, hero } = heroeEnCasa(SEMILLA);
-    const aren = createCharacter('aren', defaultBuild);
-    state.characters = { aren };
-    hero.army = [
-      { creature: RECLUTA },
-      { creature: RECLUTA },
-      { creature: CHARACTER_BODY, member: 'aren' },
-    ];
+    hero.army = [{ creature: RECLUTA }, { creature: RECLUTA }];
     const antes = JSON.stringify(hero.army);
     const licenciar = (creature: string, count: number) =>
       applyAdventureAction(
@@ -336,7 +278,6 @@ describe('licenciar: cambiar tropa barata por otra mejor', () => {
       `lleva 2 × ${NOMBRE_DEL_RECLUTA} y no puede licenciar 3`,
     );
     expect(() => licenciar(RECLUTA, 0)).toThrow(/de 1 en adelante, no 0/);
-    expect(() => licenciar(CHARACTER_BODY, 1)).toThrow(/un personaje no se licencia/);
     // Con el NOMBRE de la unidad y no su id (H4): «"archer"» era una palabra
     // en inglés en la barra del castillo. Y un id que no existe se dice así.
     const arquero = unidadDelJuego('elfo-arquero');

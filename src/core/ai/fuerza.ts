@@ -10,7 +10,7 @@
  */
 import type { GrupoDeTropa } from '../data.js';
 import { type Hero, heroUnit } from '../hero/hero.js';
-import { ejercitoDe, type Personajes, troopUnit } from '../hero/troop.js';
+import { ejercitoDe, troopUnit } from '../hero/troop.js';
 import { poderBruto } from '../nivel.js';
 import type { Army, UnitInfo } from '../types.js';
 
@@ -47,13 +47,10 @@ export function unitPower(info: UnitInfo): number {
 /** Lo que divide al poder bruto² en `unitPower`: ver allí. Medido, no inventado. */
 export const DIVISOR_DEL_PODER = 62_989;
 
-/**
- * Fuerza bruta de un ejército. Pide los personajes porque un individuo puede
- * serlo, y sus cifras salen de su perfil y no del catálogo.
- */
-export function armyPower(army: Army, characters: Personajes): number {
+/** Fuerza bruta de un ejército: la de cada individuo, sumada. */
+export function armyPower(army: Army): number {
   let power = 0;
-  for (const t of army) power += unitPower(troopUnit(t, characters));
+  for (const t of army) power += unitPower(troopUnit(t));
   return power;
 }
 
@@ -88,8 +85,8 @@ export const PESO_DEL_CUERPO = 1;
  * cuerpo, un héroe recién vuelto a su base con el ejército vacío valía 0, no
  * perseguía a nadie y no atacaba nada — y la partida podía no acabar.
  */
-export function fuerzaDe(hero: Hero, characters: Personajes): number {
-  return armyPower(hero.army, characters) + PESO_DEL_CUERPO * unitPower(heroUnit(hero));
+export function fuerzaDe(hero: Hero): number {
+  return armyPower(hero.army) + PESO_DEL_CUERPO * unitPower(heroUnit(hero));
 }
 
 /**
@@ -98,7 +95,7 @@ export function fuerzaDe(hero: Hero, characters: Personajes): number {
  * porque no lo lleva.
  */
 export function poderDe(grupo: { readonly troops: readonly GrupoDeTropa[] }): number {
-  return armyPower(ejercitoDe(grupo.troops), undefined);
+  return armyPower(ejercitoDe(grupo.troops));
 }
 
 /**

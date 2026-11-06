@@ -161,7 +161,7 @@ describe('el defensor despliega sin ver al atacante, en la partida', () => {
           if (objectAt(st.map, q) === undefined) donde = q;
         }
         if (donde === null) continue;
-        const suya = fuerzaDe(hero, st.characters);
+        const suya = fuerzaDe(hero);
         let troops: Raider['troops'] | null = null;
         for (let count = 1; count <= 6 && troops === null; count++) {
           const grupo = [{ creature: fuerte, count }];

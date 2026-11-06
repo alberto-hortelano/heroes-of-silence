@@ -173,7 +173,7 @@ const ARQUERO_DE_LA_ARENA = KIT_DEL_PERFIL.arco.equipo;
 /**
  * Un bando de un individuo hecho a mano (`aMano`): para los rasgos del motor que
  * ninguna unidad del catálogo lleva (doble golpe, doble disparo, miedo) o un daño
- * exacto. Entra como personaje (`bandoDe`).
+ * exacto. Entra con sus cifras tal cual (`bandoDe`).
  */
 function aManoSolo(nombre: string, unit: UnitInfo): BattleSide {
   return bandoDe([{ id: nombre, unit }]);

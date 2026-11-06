@@ -298,8 +298,7 @@ export function newGame(options: NewGameOptions = {}): GameState {
       skills: { logistics: 1, wisdom: 1 },
     };
     hero.mana = maxMana(hero);
-    // Sin personajes: una partida nueva no tiene ninguno (`GameState.characters`).
-    empezarElDia(hero, undefined);
+    empezarElDia(hero);
     return hero;
   });
 

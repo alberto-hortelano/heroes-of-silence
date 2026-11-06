@@ -14,7 +14,7 @@
  * - el de un individuo, en su hoja (`Veterania.equipo`): dura lo que dura él;
  * - el de un héroe, en `Hero.equipo`, y lo que no lleva puesto en su mochila
  *   (`Hero.mochila`), sin tope;
- * - las cifras se suman en las puertas de siempre —`cifrasDelIndividuo` para la
+ * - las cifras se suman en las puertas de siempre —`cifrasDeUnidad` para la
  *   tropa y `heroUnit` para el héroe—, con `conEquipo`, que es la única suma.
  *
  * Este módulo es puro y no importa el estado: las acciones que equipan, compran
@@ -403,8 +403,8 @@ function deCuerpoACuerpo(piezas: CatalogoDePiezas, equipo: Equipo | undefined): 
 
 /**
  * Las cifras de `unit` con el equipo sumado (`sumaDeEquipo`). La llaman
- * `cifrasDelIndividuo` y `heroUnit`, y un test exige que las puertas de la tropa
- * den lo mismo.
+ * `cifrasDeUnidad`, `cifrasDelIndividuo` y `heroUnit`, y un test exige que las
+ * puertas de la tropa den lo mismo.
  *
  * Sin piezas devuelve **la misma referencia**, no una copia. El ataque y la
  * armadura suman; la defensa, el daño y la velocidad se derivan otra vez del
@@ -488,7 +488,7 @@ function armasPorUso(
   const rueda = mejorRueda(delCuerpo);
   // Sin arma ni arma por uso, sin `armas`: todo golpe va con las cifras de arriba.
   // Antes de reservar nada, que por aquí pasan cada individuo y cada héroe
-  // (`cifrasDelIndividuo`, `heroUnit`).
+  // (`cifrasDeUnidad`, `heroUnit`).
   if (porUso.length === 0 && rueda === undefined) return null;
   const armas: { -readonly [U in keyof ArmasDeLaUnidad]: ArmasDeLaUnidad[U] } = {
     arma: {
@@ -950,15 +950,6 @@ export interface DestinoPedido {
 }
 
 /**
- * Por qué a un personaje sin hoja no se le pone nada. Sus cifras salen de su
- * perfil (`troopUnit`, `combatProfile`), que no lee equipo: vestirlo abriría una
- * hoja con un equipo que no contaría. Lo dicen `destinoDeEquipo` (por su puesto)
- * y `pedidoDeEquipo` (que no tiene con qué nombrarlo).
- */
-const PERSONAJE_SIN_HOJA =
-  'a ese personaje aún no se le puede poner nada: no tiene hoja con la que nombrarlo';
-
-/**
  * Por qué no hay nadie en el puesto `puesto` (0-based) de la tropa de `hero`, o
  * `null`. La leen `destinoDeEquipo` y `formarBlocker`.
  */
@@ -977,10 +968,10 @@ export function puestoBlocker(hero: Pick<Hero, 'name' | 'army'>, puesto: number)
  * Sin `veteran` ni `creature`, el héroe. Con `veteran`, el individuo de su tropa
  * con esa hoja. Con `creature`, **el primer novato sin hoja de ese tipo**: un
  * novato sin hoja es fungible —cuál de tres piqueros recibe la espada no
- * importa— y uno con hoja ya tiene nombre (su id) y se nombra con `veteran`. Un
- * personaje no entra por `creature`: es uno y tiene nombre. Con `puesto`, el de
- * ese puesto de la tropa, sea quien sea: la escena de la tropa nombra al que se
- * pulsó, y la pieza no se va a otro novato igual en otro sitio del arco.
+ * importa— y uno con hoja ya tiene nombre (su id) y se nombra con `veteran`. Con
+ * `puesto`, el de ese puesto de la tropa, sea quien sea: la escena de la tropa
+ * nombra al que se pulsó, y la pieza no se va a otro novato igual en otro sitio
+ * del arco.
  */
 export function destinoDeEquipo(
   hero: Pick<Hero, 'name' | 'army'>,
@@ -996,8 +987,6 @@ export function destinoDeEquipo(
     }
     const sinNadie = puestoBlocker(hero, puesto);
     if (sinNadie !== null) return { motivo: sinNadie };
-    const t = hero.army[puesto]!;
-    if (t.member !== undefined && t.veterania === undefined) return { motivo: PERSONAJE_SIN_HOJA };
     return { indice: puesto };
   }
   if (veteran !== undefined) {
@@ -1012,7 +1001,7 @@ export function destinoDeEquipo(
     // ciclo que se cuelga al cargar. La unidad se nombra por su id, que es lo que
     // escribió quien pregunta.
     const indice = hero.army.findIndex(
-      (t) => t.creature === especieId && t.member === undefined && t.veterania === undefined,
+      (t) => t.creature === especieId && t.veterania === undefined,
     );
     if (indice < 0) {
       // La pista de «veteran» solo si hay a quién nombrar con ella: sin ninguno
@@ -1037,31 +1026,23 @@ export type PedidoDeEquipo =
 
 /**
  * **La inversa de `destinoDeEquipo`**: cómo se nombra en una acción `equip` o
- * `unequip` al portador `quien` de `hero`, o por qué no se le puede nombrar. El
- * héroe, sin nada; el de hoja, por su id; el novato, por su tipo —y entonces la
- * pieza va al **primer** novato de ese tipo, que no tiene por qué ser `quien`:
- * son fungibles, y quien la pide lo sabe preguntándole a `destinoDeEquipo`—. Un
- * personaje sin hoja no entra por `creature` (es uno y tiene nombre) y todavía no
- * tiene id: no hay forma de nombrarlo. La lee la IA; la escena de la tropa nombra
+ * `unequip` al portador `quien` de `hero`. El héroe, sin nada; el de hoja, por su
+ * id; el novato, por su tipo —y entonces la pieza va al **primer** novato de ese
+ * tipo, que no tiene por qué ser `quien`: son fungibles, y quien la pide lo sabe
+ * preguntándole a `destinoDeEquipo`—. La lee la IA; la escena de la tropa nombra
  * por el puesto (`pedidoDelPuesto`).
  */
-export function pedidoDeEquipo(
-  hero: Pick<Hero, 'army'>,
-  quien: Portador,
-): PedidoDeEquipo | { readonly motivo: string } {
+export function pedidoDeEquipo(hero: Pick<Hero, 'army'>, quien: Portador): PedidoDeEquipo {
   if ('heroe' in quien) return {};
   const t = individuo(hero, quien);
-  if (t.veterania !== undefined) return { veteran: t.veterania.id };
-  if (t.member === undefined) return { creature: t.creature };
-  return { motivo: PERSONAJE_SIN_HOJA };
+  return t.veterania !== undefined ? { veteran: t.veterania.id } : { creature: t.creature };
 }
 
 /**
  * **La inversa exacta de `destinoDeEquipo`** por el puesto: cómo se nombra a
  * `quien` para que la pieza le llegue a él y no a otro novato de su tipo
- * (`destinoDeEquipo(hero, pedidoDelPuesto(quien))` es `quien`, salvo el personaje
- * sin hoja, que da su motivo). La lee la escena de la tropa; la IA y el agente
- * siguen nombrando por tipo (`pedidoDeEquipo`).
+ * (`destinoDeEquipo(hero, pedidoDelPuesto(quien))` es `quien`). La lee la escena
+ * de la tropa; la IA y el agente siguen nombrando por tipo (`pedidoDeEquipo`).
  */
 export function pedidoDelPuesto(
   quien: Portador,

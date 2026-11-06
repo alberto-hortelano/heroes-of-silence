@@ -55,12 +55,6 @@ import {
 import { isWalkable, ROAD_COST, TERRAIN_KINDS } from '../src/core/map/terrain.js';
 import { indiceDePoder, nivelDeUnidad } from '../src/core/nivel.js';
 import { createRng, parseSeed } from '../src/core/rng.js';
-import {
-  CHARACTER_BODY,
-  type Character,
-  createCharacter,
-  defaultBuild,
-} from '../src/core/rpg/character.js';
 import { regionDeCasilla } from '../src/core/state/asaltantes.js';
 import { finDePartida } from '../src/core/state/desenlace.js';
 import {
@@ -107,7 +101,6 @@ import {
   costesDelAlcance,
   darLaCiudad,
   ejercito,
-  esPersonaje,
   FACCION_A,
   FACCION_B,
   forzarBatalla,
@@ -163,10 +156,8 @@ function marchaDeSilla(): {
     if (montado <= aPie) continue;
     for (const u of unidadesDelJuego()) {
       if (u.equipo?.montura !== undefined) continue;
-      const conElla = rapidez(
-        marchaDe(troopUnit(conSuEquipo(u.id, { montura: silla.id }), undefined)),
-      );
-      const sinElla = rapidez(marchaDe(troopUnit({ creature: u.id }, undefined)));
+      const conElla = rapidez(marchaDe(troopUnit(conSuEquipo(u.id, { montura: silla.id }))));
+      const sinElla = rapidez(marchaDe(troopUnit({ creature: u.id })));
       if (conElla > sinElla && conElla > aPie) return { silla: silla.id, tropa: u.id, heroe };
     }
   }
@@ -174,7 +165,7 @@ function marchaDeSilla(): {
 }
 
 describe('la marcha del grupo: el más lento, el héroe incluido (26-10-2026)', () => {
-  const marchaDeTropa = (t: Hero['army'][number]) => marchaDe(troopUnit(t, undefined));
+  const marchaDeTropa = (t: Hero['army'][number]) => marchaDe(troopUnit(t));
   const marchaDelHeroe = (equipo: Equipo) =>
     marchaDe(heroUnit({ ...marchaDeSilla().heroe, equipo }));
 
@@ -186,24 +177,24 @@ describe('la marcha del grupo: el más lento, el héroe incluido (26-10-2026)', 
     const rapidez = (s: SpeedTier) => SPEED_TO_MOVE_POINTS[s];
 
     // La tropa a caballo y el héroe a pie: manda el héroe, que es el más lento.
-    const conElHeroeAPie = slowestSpeed({ ...heroe, army: montados, equipo: aPie }, undefined);
+    const conElHeroeAPie = slowestSpeed({ ...heroe, army: montados, equipo: aPie });
     expect(conElHeroeAPie).toBe(marchaDelHeroe(aPie));
     expect(rapidez(conElHeroeAPie)).toBeLessThan(rapidez(marchaDeTropa(montados[0]!)));
 
     // Todos a caballo: el más lento de los montados, más rápido que con el héroe a pie.
-    const todos = slowestSpeed({ ...heroe, army: montados, equipo: aCaballo }, undefined);
+    const todos = slowestSpeed({ ...heroe, army: montados, equipo: aCaballo });
     const delMasLento = [marchaDelHeroe(aCaballo), marchaDeTropa(montados[0]!)].sort(
       (a, b) => rapidez(a) - rapidez(b),
     )[0]!;
     expect(todos).toBe(delMasLento);
     expect(rapidez(todos)).toBeGreaterThan(rapidez(conElHeroeAPie));
-    expect(
-      maxMovePoints({ ...heroe, army: montados, equipo: aCaballo }, undefined),
-    ).toBeGreaterThan(maxMovePoints({ ...heroe, army: montados, equipo: aPie }, undefined));
+    expect(maxMovePoints({ ...heroe, army: montados, equipo: aCaballo })).toBeGreaterThan(
+      maxMovePoints({ ...heroe, army: montados, equipo: aPie }),
+    );
 
     // Uno de la tropa a pie: manda él, aunque el héroe y los demás vayan a caballo.
     const unoAPie = [...montados.slice(0, 2), { creature: tropa }];
-    const conUnoAPie = slowestSpeed({ ...heroe, army: unoAPie, equipo: aCaballo }, undefined);
+    const conUnoAPie = slowestSpeed({ ...heroe, army: unoAPie, equipo: aCaballo });
     expect(conUnoAPie).toBe(marchaDeTropa({ creature: tropa }));
     expect(rapidez(conUnoAPie)).toBeLessThan(rapidez(todos));
   });
@@ -225,13 +216,12 @@ describe('la marcha del grupo: el más lento, el héroe incluido (26-10-2026)', 
   it('Logística sube un 10 % por nivel lo que da el más lento, a la escala del mapa', () => {
     const { heroe, tropa } = marchaDeSilla();
     const grupo = { ...heroe, army: [{ creature: tropa }, { creature: tropa }] };
-    const sinLogistica = marchaALaEscala(SPEED_TO_MOVE_POINTS[slowestSpeed(grupo, undefined)]);
-    expect(maxMovePoints({ ...grupo, skills: {} }, undefined)).toBe(Math.round(sinLogistica));
+    const sinLogistica = marchaALaEscala(SPEED_TO_MOVE_POINTS[slowestSpeed(grupo)]);
+    expect(maxMovePoints({ ...grupo, skills: {} })).toBe(Math.round(sinLogistica));
     for (const nivel of [1, 2, 3] as const) {
-      expect(
-        maxMovePoints({ ...grupo, skills: { logistics: nivel } }, undefined),
-        `nivel ${nivel}`,
-      ).toBe(Math.round(sinLogistica * (1 + nivel / 10)));
+      expect(maxMovePoints({ ...grupo, skills: { logistics: nivel } }), `nivel ${nivel}`).toBe(
+        Math.round(sinLogistica * (1 + nivel / 10)),
+      );
     }
   });
 });
@@ -1447,81 +1437,6 @@ describe('el maná es un recurso (#4)', () => {
   });
 });
 
-describe('los personajes y sus heridas', () => {
-  /**
-   * Un guerrero de 34 PV en el primer slot del héroe, dado de alta en la partida,
-   * con una espada: sin arma no se combate (la rueda va con la del arma,
-   * 19-10-2026), y un personaje no lleva equipo de serie.
-   */
-  function alistar(state: GameState, hero: Hero, id = 'aren'): Character {
-    const c = createCharacter(id, { ...defaultBuild, profession: 'Guerrero' });
-    state.characters = { ...(state.characters ?? {}), [id]: c };
-    const veterania = {
-      id: `v-${id}`,
-      experiencia: 0,
-      batallas: 0,
-      bajas: 0,
-      heroes: [],
-      equipo: { arma: 'espada' },
-    };
-    hero.army = ejercito({ creature: CHARACTER_BODY, count: 1, member: id, veterania });
-    return c;
-  }
-
-  it('una partida de estrategia no tiene personajes', () => {
-    const state = newGame({ seed: 5 });
-    expect('characters' in state).toBe(false);
-  });
-
-  it('el personaje que gana vuelve con los PV que le quedaron, no con el máximo', () => {
-    const state = newGame({ seed: 32 });
-    const c = ctx(32);
-    const hero = heroesOf(state, 0)[0]!;
-    alistar(state, hero);
-    // Sin maná: con él, la flecha mágica del héroe mata a los zombis antes de
-    // que lleguen a tocarlo, y el personaje volvería sano sin probar nada.
-    hero.mana = 0;
-    ponerMonstruo(state, 'zombi', 2);
-    forzarBatalla(state, c, hero);
-    const final = state.pendingBattle!.battle;
-
-    expect(resolvePendingBattle(state, c).winner).toBe('attacker');
-    const s = final.stacks.find(esPersonaje('aren'))!;
-    const aren = state.characters!.aren!;
-    expect(aren.hp).toBe(s.topHp);
-    // El zombi contraatacó: sale herido, y con eso el test prueba algo.
-    expect(aren.hp).toBeLessThan(340);
-    expect(aren.hp).toBeGreaterThan(0);
-    // Y sigue en el ejército, con su `member`: no vuelve como un stack anónimo.
-    // Y con la experiencia de lo que pegó: el personaje también es un individuo
-    // que hace campaña.
-    const vuelto = heroById(state, hero.id).army[0]!;
-    expect(vuelto).toMatchObject({ creature: CHARACTER_BODY, member: 'aren' });
-    expect(vuelto.veterania?.experiencia).toBe(s.ganado.experiencia);
-  });
-
-  it('herido, entra a la siguiente batalla con lo que le quedó', () => {
-    const state = newGame({ seed: 31 });
-    const c = ctx(31);
-    const hero = heroesOf(state, 0)[0]!;
-    alistar(state, hero);
-    state.characters!.aren!.hp = 9;
-    ponerMonstruo(state, TROPA_BARATA, 1);
-    forzarBatalla(state, c, hero);
-    expect(state.pendingBattle!.battle.stacks.find(esPersonaje('aren'))!.topHp).toBe(9);
-  });
-
-  it('un ejército que nombra a un personaje que la partida no conoce lanza al entrar en batalla', () => {
-    const state = newGame({ seed: 31 });
-    const c = ctx(31);
-    const hero = heroesOf(state, 0)[0]!;
-    hero.army = ejercito({ creature: CHARACTER_BODY, count: 1, member: 'nadie' });
-    expect(() => forzarBatalla(state, c, hero)).toThrow(
-      /lleva en el ejército al personaje "nadie", pero la partida no lo conoce/,
-    );
-  });
-});
-
 // ---------------------------------------------------------------- mapa de nodos
 
 /** Una partida sobre el mapa de nodos escrito a mano (`planDeNodos`). */
@@ -1595,10 +1510,10 @@ describe('el mapa de nodos se juega', () => {
     hero.movePoints = 1500;
     // Lo primero que cría la base, en la morada que trae hecha.
     const recluta = dwellings(base)[0]!.creature;
-    const lento = maxMovePoints(
-      { ...hero, army: [...hero.army, ...ejercito({ creature: recluta, count: 1 })] },
-      state.characters,
-    );
+    const lento = maxMovePoints({
+      ...hero,
+      army: [...hero.army, ...ejercito({ creature: recluta, count: 1 })],
+    });
     base.available = { ...base.available, [recluta]: 5 };
     applyAdventureAction(
       state,

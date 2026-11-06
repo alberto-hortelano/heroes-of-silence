@@ -94,8 +94,6 @@ export interface ReglasDeLiderazgo {
   readonly heroe: { readonly base: number; readonly porRango: number; readonly max: number };
   /** Tope de la tropa que guarda un castillo sin héroe. */
   readonly guarnicion: number;
-  /** Lo que ocupa un personaje (`Troop.member`), que no está en el catálogo. */
-  readonly personaje: number;
   /**
    * Los topes de individuos por bando que se pueden elegir (complejidad del
    * combate, 22-10-2026: 3, 5 y 7), de menos a más. El de cada partida es
@@ -135,7 +133,6 @@ const TOPES_POR_BANDO = topesDe(liderazgoJson.topesPorBando);
 export const LIDERAZGO: ReglasDeLiderazgo = {
   heroe: { ...liderazgoJson.heroe },
   guarnicion: liderazgoJson.guarnicion,
-  personaje: liderazgoJson.personaje,
   topesPorBando: TOPES_POR_BANDO,
   maxPorBando: TOPES_POR_BANDO.at(-1) as number,
 };

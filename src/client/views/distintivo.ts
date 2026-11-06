@@ -13,8 +13,8 @@
  * porque se deriva entera de lo que ya viaja: el espectador la saca igual de los
  * stacks que le llegan.
  *
- * Solo hay letra si hay homónimos: un héroe, un personaje (que no se repiten:
- * `personajesSinRepetir`) o una criatura sola se llaman como siempre.
+ * Solo hay letra si hay homónimos: un héroe o una criatura sola se llaman como
+ * siempre.
  */
 import type { BattleStack, BattleState } from '@core/battle/types.js';
 

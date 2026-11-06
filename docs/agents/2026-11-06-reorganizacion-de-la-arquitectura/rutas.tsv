@@ -1,0 +1,22 @@
+tipo	viejo	nuevo	símbolo
+fichero	src/core/rpg/character.ts	(retirado)	
+fichero	src/core/rpg/stats.ts	(retirado)	
+fichero	test/personaje.test.ts	(retirado)	
+simbolo	test/personaje.test.ts	test/battle.test.ts	duelo (dueloEntero)
+simbolo	src/core/hero/troop.ts	(retirado)	Personajes
+simbolo	src/core/hero/troop.ts	(retirado)	characterOf
+simbolo	src/core/battle/battle.ts	(retirado)	BattleMember
+simbolo	src/core/battle/battle.ts	(retirado)	BattleSide.members
+simbolo	src/core/battle/types.ts	(retirado)	personajeDe
+simbolo	src/core/battle/types.ts	(retirado)	OrigenDelStack 'personaje'
+simbolo	src/server/vista-espectador.ts	(retirado)	OrigenEnCable 'personaje'
+simbolo	src/core/types.ts	(retirado)	Troop.member
+simbolo	src/core/state/game.ts	(retirado)	GameState.characters
+simbolo	src/core/state/game.ts	(retirado)	membersOf
+simbolo	src/core/state/game.ts	(retirado)	woundsFromBattle
+simbolo	src/core/data.ts	(retirado)	ReglasDeLiderazgo.personaje
+simbolo	src/core/state/sitios.ts	(retirado)	FilaDelReparto
+simbolo	src/core/state/sitios.ts	(retirado)	LaDefensa.personajes
+simbolo	src/core/hero/troop.ts	(retirado)	TroopGroup.member
+simbolo	test/helpers.ts	(retirado)	esPersonaje
+simbolo	test/helpers.ts	test/helpers.ts	bandoDePersonajes (bandoAMano)

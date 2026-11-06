@@ -61,7 +61,7 @@ function formacionSana(state: GameState, hero: Hero): void {
     zonaDeSalida(unit, 'attacker').some((z) => hexEquals(z, h));
   expect(enZona(heroUnit(hero), f.heroe)).toBe(true);
   hero.army.forEach((t, i) => {
-    expect(enZona(troopUnit(t, state.characters), f.tropa[i]!)).toBe(true);
+    expect(enZona(troopUnit(t), f.tropa[i]!)).toBe(true);
   });
 }
 
@@ -126,7 +126,7 @@ describe('la acción formar (C1)', () => {
   it('lo ilegal lanza con la frase de formarBlocker y no toca nada', () => {
     const { state, hero } = partida();
     const rival = state.heroes.find((h) => h.owner === 1)!;
-    const goblin = troopUnit(hero.army[0]!, state.characters).name;
+    const goblin = troopUnit(hero.army[0]!).name;
     const casos: readonly [Formar, string][] = [
       [formar(rival, { heroe: true }, { col: 0, row: 0 }), `${rival.name} no es de tu bando`],
       [

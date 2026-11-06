@@ -206,7 +206,7 @@ interface CifrasDerivadas {
  * **Las cifras derivadas de un cuerpo con su equipo**: la defensa, el daño (con la
  * fuerza del arma de ese golpe), el escalón de velocidad y, montado de guerra y con
  * lanza, la carga. La única cuenta; la leen el cuerpo desnudo (la unidad, el héroe,
- * el personaje, el rango) y el vestido (`conEquipo`).
+ * el rango) y el vestido (`conEquipo`).
  *
  * Con un arma de fuego (02-11-2026), el daño de ese golpe es [F, F × agilidad del
  * arma] (`agilidadDelArma`): la pistola de agilidad 1 pega siempre lo mismo.

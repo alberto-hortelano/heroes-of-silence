@@ -44,10 +44,8 @@ export interface VeteranoEnBase {
  * orden en que se le pregunta al narrador, y tiene que ser el mismo en cada
  * pasada.
  *
- * Un personaje (`member`) no entra aunque tenga hoja: ya es alguien con nombre,
- * y su cuerpo no está en el catálogo, así que no hay criatura que contarle al
- * narrador. Un novato no entra porque no tiene hoja, y un veterano por debajo
- * del tope tampoco.
+ * Un novato no entra porque no tiene hoja, y un veterano por debajo del tope
+ * tampoco.
  */
 export function veteranosEn(
   base: Town,
@@ -56,9 +54,7 @@ export function veteranosEn(
 ): VeteranoEnBase[] {
   const out: VeteranoEnBase[] = [];
   const listo = (t: Hero['army'][number]): t is typeof t & { veterania: Veterania } =>
-    t.member === undefined &&
-    t.veterania !== undefined &&
-    rangoDeTropa(t.veterania) >= RANGO_MAXIMO_DE_TROPA;
+    t.veterania !== undefined && rangoDeTropa(t.veterania) >= RANGO_MAXIMO_DE_TROPA;
   for (const t of guarnicion) {
     if (listo(t)) out.push({ veterania: t.veterania, creature: t.creature, base, heroe: null });
   }

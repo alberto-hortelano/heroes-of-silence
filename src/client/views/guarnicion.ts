@@ -18,12 +18,13 @@
  * Lo que no se puede hacer sale apagado (`apagadoPor`, que deja leerlo y
  * enfocarlo) con su motivo debajo (`motivoDebajo`), que escribe el núcleo
  * (`elReparto`, `defensaPorElegir`): la persona lee por qué, no un botón gris mudo,
- * como en la conversación de un lugar. Lo que solo informa (ya pelean todos, un
- * personaje va siempre con su héroe) va en el tono apagado (`notaDebajo`), no en el
- * del rechazo (H5 del QA de la fase 1).
+ * como en la conversación de un lugar. Lo que solo informa (ya pelean todos) va en
+ * el tono apagado (`notaDebajo`), no en el del rechazo (H5 del QA de la fase 1).
  */
+
+import type { TroopGroup } from '@core/hero/troop.js';
 import { OBRAS_DE_UN_PUESTO } from '@core/map/map.js';
-import type { FilaDelReparto, LadoDelReparto, LaObraDelPuesto } from '@core/state/sitios.js';
+import type { LadoDelReparto, LaObraDelPuesto } from '@core/state/sitios.js';
 import { describirCoste } from '@core/types.js';
 import { DICHO_DE_LA_OBRA, SE_VE_EN_EL_PUESTO } from '../dicho-del-puesto.js';
 import { type Html, html, NADA, unir } from '../html.js';
@@ -31,24 +32,21 @@ import type { VistaDeLaDefensa, VistaDeLaGuarnicion } from '../session.js';
 import { apagadoPor, motivoDebajo, notaDebajo } from './cifras.js';
 import { filaDeTropa, filaLiderazgo } from './panels.js';
 
-/** Un botón que pasa uno al otro lado del reparto (`data-hacia`), apagado con su nota si no se puede. */
-function botonDeMover(hacia: 'heroe' | 'guarnicion', fila: FilaDelReparto): Html {
-  const veterano = fila.grupo.veterania?.id;
-  return html` <button data-action="mover-en-el-reparto" data-hacia="${hacia}" data-creature="${fila.grupo.creature}"${
+/** Un botón que pasa uno del grupo `g` al otro lado del reparto (`data-hacia`). */
+function botonDeMover(hacia: 'heroe' | 'guarnicion', g: TroopGroup): Html {
+  const veterano = g.veterania?.id;
+  return html` <button data-action="mover-en-el-reparto" data-hacia="${hacia}" data-creature="${g.creature}"${
     veterano === undefined ? NADA : html` data-veterano="${veterano}"`
-  }${apagadoPor(fila.motivo)}>${hacia === 'heroe' ? '‹ Recoger' : 'Dejar ›'}</button>`;
+  }>${hacia === 'heroe' ? '‹ Recoger' : 'Dejar ›'}</button>`;
 }
 
-/** Una columna: sus filas con su botón y, bajo la que no se pasa, por qué. */
+/** Una columna: sus filas con su botón. */
 function columna(lado: LadoDelReparto, hacia: 'heroe' | 'guarnicion', vacia: string): Html {
   if (lado.filas.length === 0) {
     return html`<div class="stack-list"><div class="stack empty"><span>${vacia}</span></div></div>`;
   }
   return html`<div class="stack-list">${unir(
-    lado.filas.map(
-      (f) =>
-        html`${filaDeTropa(f.grupo, { boton: botonDeMover(hacia, f) })}${notaDebajo(f.motivo)}`,
-    ),
+    lado.filas.map((g) => filaDeTropa(g, { boton: botonDeMover(hacia, g) })),
   )}</div>`;
 }
 
@@ -120,16 +118,11 @@ export function renderDefensa(v: VistaDeLaDefensa): Html {
         </span></div>${motivoDebajo(f.motivoMas)}${notaDebajo(f.notaMas)}`;
     }),
   );
-  const personajes =
-    v.personajes === 0
-      ? NADA
-      : html`<p class="cost">Van con él sus ${v.personajes} personajes: no se quedan fuera.</p>`;
   return html`<h3 id="titulo-de-la-defensa">¡Te atacan en ${v.sitio}!</h3>
     <p class="cost">${v.hero.name} pelea siempre. Elige quién pelea con él, de su tropa y de la guarnición; lo que no pelea se queda fuera y, si pierde, se pierde con el sitio. Viene marcado lo que propone la IA: lo más fuerte que cabe.</p>
     <p class="cost">Los que elijas se quedan con ${v.hero.name} después de la batalla, y los demás, en la guarnición.</p>
     <div class="row"><span class="label">Pelean con él</span><span>${v.ocupa.individuos} de ${v.cabe.cupo} · liderazgo ${v.ocupa.liderazgo} de ${v.cabe.tope}</span></div>
     <div class="stack-list">${filas}</div>
-    ${personajes}
     ${motivoDebajo(v.motivo)}
     <div class="botones">
       <button data-action="defensa-de-la-ia">Como propone la IA</button>

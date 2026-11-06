@@ -98,7 +98,6 @@ import { partidaDelMundo } from '@core/mundo/partida.js';
 import { estadoDicho, lugarEn } from '@core/mundo/reglas.js';
 import { type BancoPintado, SIN_BANCO } from '@core/npcs.js';
 import { createRng, type Rng } from '@core/rng.js';
-import { CHARACTER_BODY } from '@core/rpg/character.js';
 import {
   type AsaltantesALaVista,
   asaltantesALaVista,
@@ -2595,8 +2594,7 @@ export class Session implements ControlDeBatalla {
   /**
    * Pasa uno del grupo de `creature` —o el veterano `veterano`— al otro lado del
    * reparto que se edita: `hacia` el héroe o la guarnición. Solo cambia la pantalla;
-   * lo que no cabría lo dice «Confirmar». Lo único que no se pasa es un personaje,
-   * con el motivo que escribe el núcleo en su fila.
+   * lo que no cabría lo dice «Confirmar».
    */
   moverEnElReparto(hacia: 'heroe' | 'guarnicion', creature: string, veterano?: string): void {
     const abierto = this.repartoEnPantalla;
@@ -2604,20 +2602,13 @@ export class Session implements ControlDeBatalla {
     if (abierto === null || vista === null) return;
     // El grupo tiene que estar en el lado del que sale: así no se pide uno que no hay.
     const origen = hacia === 'heroe' ? vista.guarnicion : vista.heroe;
-    const fila = origen.filas.find((f) =>
+    const fila = origen.filas.find((g) =>
       veterano === undefined
-        ? f.grupo.creature === creature &&
-          f.grupo.veterania === undefined &&
-          f.grupo.member === undefined
-        : f.grupo.veterania?.id === veterano,
+        ? g.creature === creature && g.veterania === undefined
+        : g.veterania?.id === veterano,
     );
     if (fila === undefined) {
       this.status = `no queda ningún ${unidadDelJuego(creature).name} ${hacia === 'heroe' ? 'en la guarnición' : `con ${vista.hero.name}`}`;
-      this.tocar();
-      return;
-    }
-    if (fila.motivo !== null) {
-      this.status = comoFrase(fila.motivo);
       this.tocar();
       return;
     }
@@ -3732,10 +3723,7 @@ export class Session implements ControlDeBatalla {
         this.ctx,
         this.viewer,
       );
-      const unidad =
-        'heroe' in quien
-          ? hero.name
-          : troopUnit(hero.army[quien.indice]!, this.state.characters).name;
+      const unidad = 'heroe' in quien ? hero.name : troopUnit(hero.army[quien.indice]!).name;
       dicho = `${unidad} lleva ahora ${pieza(item).nombre}.`;
     });
     if (bien) this.recordarLaJugada(clave, quien, dicho);
@@ -4107,12 +4095,7 @@ export class Session implements ControlDeBatalla {
     if (suyo === null) return '';
     const otro: Side = suyo === 'attacker' ? 'defender' : 'attacker';
     const bajas = (l: readonly Baja[]): string =>
-      l
-        .map(
-          (b) =>
-            `${b.count}\u00a0× ${b.creature === CHARACTER_BODY ? 'personaje' : unidadDelJuego(b.creature).name}`,
-        )
-        .join(', ');
+      l.map((b) => `${b.count}\u00a0× ${unidadDelJuego(b.creature).name}`).join(', ');
     // Lo que mataron de lo tuyo. «No pierdes a nadie» no se dice si cae un héroe
     // tuyo: la tropa que no murió en el tablero se va con él (`volverABase`).
     const cayoUnoTuyo = hechos.some((e) => e.kind === 'hero_defeated' && e.actor === this.viewer);
@@ -4381,7 +4364,7 @@ export class SesionDeArena implements ControlDeBatalla {
    * El cuerpo de `s` sin lo que lleva, con el catálogo de esta pelea (`cuerpoDe`):
    * lo que el panel resta para decir qué le suma el equipo.
    */
-  cuerpoDe(s: BattleStack): UnitInfo | null {
+  cuerpoDe(s: BattleStack): UnitInfo {
     return cuerpoDe(s, this.catalogo);
   }
 

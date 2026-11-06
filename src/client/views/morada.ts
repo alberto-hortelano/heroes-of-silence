@@ -65,7 +65,7 @@ function renderTropaDelHeroe(session: Session): Html {
   if (heroe === null) return NADA;
   return html`<h3>Tropa del héroe ${nota('Licencia lo que sobre para hacer sitio a lo que reclutes: de cada tipo se va primero el de menos experiencia.')}</h3>
     ${filaLiderazgo(session.liderazgo({ heroe: heroe.id }))}
-    ${renderTropaLicenciable(heroe.id, heroe.army, session.state.characters)}`;
+    ${renderTropaLicenciable(heroe.id, heroe.army)}`;
 }
 
 /**

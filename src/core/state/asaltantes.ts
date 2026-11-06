@@ -237,7 +237,7 @@ export function pasoDePatrulla(
 
   const heroes = state.heroes.filter((h) => regionDeCasilla(map, h.at) === r);
   const mia = poderDe(raider);
-  const capazCon = heroes.some((h) => ventajaClara(mia, fuerzaDe(h, state.characters)));
+  const capazCon = heroes.some((h) => ventajaClara(mia, fuerzaDe(h)));
   if (heroes.length > 0 && !capazCon) {
     const lejania = (i: number): number => {
       const p = aPunto(i, W);
@@ -274,7 +274,7 @@ export function emboscador(state: GameState, hero: Hero): Raider | null {
   let suya: number | undefined;
   for (const raider of state.raiders) {
     if (regionDeCasilla(state.map, raider.at) !== r) continue;
-    suya ??= fuerzaDe(hero, state.characters);
+    suya ??= fuerzaDe(hero);
     if (ventajaClara(poderDe(raider), suya)) return raider;
   }
   return null;
@@ -351,7 +351,7 @@ function gruposConMargen(
   for (const raider of state.raiders) {
     const region = regionDeCasilla(state.map, raider.at);
     if (region < 0 || !cuales(raider, region)) continue;
-    suya ??= fuerzaDe(hero, state.characters);
+    suya ??= fuerzaDe(hero);
     if (ventajaClara(poderDe(raider), suya)) out.push({ raider, region });
   }
   return out;
@@ -544,7 +544,7 @@ export function casillasPeligrosas(
   for (const { grupo } of recuerdo.values()) {
     const region = regionDeCasilla(state.map, grupo.at);
     if (region < 0 || regiones.has(region)) continue;
-    suya ??= fuerzaDe(hero, state.characters);
+    suya ??= fuerzaDe(hero);
     if (ventajaClara(poderDe(grupo), suya)) regiones.add(region);
   }
   if (regiones.size === 0) return null;

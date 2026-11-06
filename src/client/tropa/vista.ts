@@ -149,7 +149,7 @@ export function componerVistaDeLaTropa(
   const figuras = portadoresDe(hero).map((quien): FiguraDeLaTropa => {
     const { id, hex: sale } = stackDelPortador(batalla, quien);
     if ('heroe' in quien) return { quien, id, nombre: hero.name, sale };
-    return { quien, id, nombre: troopUnit(hero.army[quien.indice]!, state.characters).name, sale };
+    return { quien, id, nombre: troopUnit(hero.army[quien.indice]!).name, sale };
   });
   const elegida = figuras.findIndex((f) => mismoPortador(f.quien, elegido));
   if (elegida < 0) {
@@ -234,14 +234,11 @@ function fichaDe(
     };
   }
   const t = hero.army[quien.indice]!;
-  const cifras = troopUnit(t, state.characters);
+  const cifras = troopUnit(t);
   const rango = rangoDeTropa(t.veterania);
   const experiencia = t.veterania?.experiencia ?? 0;
   // «Veterano» desde el rango 2, como el panel del mapa (`lineaDeVeterania`).
-  const queEs =
-    t.member !== undefined
-      ? 'Personaje'
-      : `${rango >= 2 ? 'Veterano' : 'Novato'} · ${unidadDelJuego(t.creature).name}`;
+  const queEs = `${rango >= 2 ? 'Veterano' : 'Novato'} · ${unidadDelJuego(t.creature).name}`;
   return {
     ...comun,
     nombre: cifras.name,

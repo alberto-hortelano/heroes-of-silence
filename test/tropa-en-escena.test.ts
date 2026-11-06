@@ -113,7 +113,7 @@ describe('lo que se ve (C2, C3)', () => {
     s.elegirEnLaTropa({ indice: 0 });
     const vista = s.vistaDeLaTropa()!;
     expect(vista.elegida).toBe(1);
-    expect(vista.ficha.cifras).toEqual(troopUnit(hero.army[0]!, s.state.characters));
+    expect(vista.ficha.cifras).toEqual(troopUnit(hero.army[0]!));
     expect(vista.ficha.rango).toBe(1);
     expect(vista.ficha.queEs).toMatch(/^Novato · /);
     expect(() => s.elegirEnLaTropa({ indice: 99 })).toThrow(
@@ -216,7 +216,7 @@ describe('la formación en el tablero (fase C del despliegue)', () => {
     const antes = formacionDe(s.state, hero);
     s.formacion.elegir('attacker-0');
     expect(s.elegidoEnLaTropa).toEqual({ indice: 0 });
-    const nombre = troopUnit(hero.army[0]!, s.state.characters).name;
+    const nombre = troopUnit(hero.army[0]!).name;
     expect(s.status).toBe(
       `${nombre}: su ficha está en el panel; pulsa la casilla verde donde sale.`,
     );

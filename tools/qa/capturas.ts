@@ -2422,9 +2422,7 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
 async function veteranosEnElPanel(page: Page, espejo: Session, paso: string): Promise<void> {
   const heroe = espejo.myHeroes()[0];
   if (heroe === undefined) throw new Error(`${paso}: no queda héroe en el espejo`);
-  const filas = troopSummary(heroe.army, espejo.state.characters).filter(
-    (g) => g.veterania !== undefined,
-  );
+  const filas = troopSummary(heroe.army).filter((g) => g.veterania !== undefined);
   if (!filas.some((g) => g.rango >= 2)) {
     throw new Error(
       `${paso}: ningún individuo de ${heroe.name} pasa del rango 1 (${filas.length} con experiencia): no hay veterano que enseñar`,
@@ -3630,7 +3628,6 @@ async function tropaEnEscena(browser: Browser, url: string, problemas: Problemas
   const otro = heroe.army.findIndex(
     (t, i) =>
       t.veterania === undefined &&
-      t.member === undefined &&
       heroe.army.slice(0, i).some((u) => u.creature === t.creature && u.veterania === undefined),
   );
   if (otro < 0) {

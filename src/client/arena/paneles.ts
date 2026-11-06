@@ -1914,8 +1914,8 @@ type CifraQueCambiaElEquipo = 'ataque' | 'defensa' | 'danio' | 'casillas';
  * casillas, así que se dice la diferencia. La armadura no pasa por aquí: el cuerpo
  * no la lleva, toda es del equipo, y su fila la dice entera (`filasDelStack`).
  */
-function delEquipo(u: UnitInfo, cuerpo: UnitInfo | null, cifra: CifraQueCambiaElEquipo): Html {
-  if (cuerpo === null || u.equipo === undefined) return NADA;
+function delEquipo(u: UnitInfo, cuerpo: UnitInfo, cifra: CifraQueCambiaElEquipo): Html {
+  if (u.equipo === undefined) return NADA;
   let dicho: string | null;
   switch (cifra) {
     case 'ataque':

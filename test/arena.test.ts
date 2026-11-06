@@ -1095,7 +1095,8 @@ function aLaIA(b: BattleState, rng: Rng): BattleState {
 describe('la arena como banco de combate', () => {
   it('C4: la arena pelea exactamente como el juego', () => {
     // El mismo ejército por las dos vías: la del juego (`createBattle`, con cada
-    // unidad como personaje: `peleaDelMotor`) y la de la arena (`batallaDeArena`).
+    // unidad en el catálogo de su bando: `peleaDelMotor`) y la de la arena
+    // (`batallaDeArena`).
     // Héroes con todo el libro, tiradores, jinetes que cargan y no-muertos. Desde
     // el 19-10-2026 las dos van por `createBattle`, sin interruptores: esto vigila
     // que el montaje de la arena no cambie nada por el camino.
@@ -1568,15 +1569,6 @@ describe('retocar en plena pelea (B10-B14)', () => {
       b.stacks[2]?.unit.attack,
       unidad('zombi').attack,
     ]);
-    // Un personaje no sale de ningún puesto del montaje: se dice.
-    const conPersonaje = peleaDelMotor(
-      [{ unidad: unidadDeArena('zombi') }],
-      [{ unidad: unidadDeArena('zombi') }],
-      createRng(1),
-    );
-    expect(() => tipoDelStack(conPersonaje.stacks[0] as BattleStack)).toThrow(
-      'no sale de ningún puesto del montaje',
-    );
   });
 
   it('lo gastado sigue gastado: la herida y el maná (sin munición, 13-10-2026)', () => {

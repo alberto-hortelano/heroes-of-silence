@@ -181,7 +181,7 @@ describe('la emboscada', () => {
     const { state, ctx, hero, grupo, hasta } = enSuRegion(11);
     // Seis jinetes: con la escala baja (26-10-2026), seis pesadas ya no daban el margen.
     hero.army = ejercito({ creature: JINETE, count: 6 });
-    expect(poderDe(grupo)).toBeLessThanOrEqual(MARGEN_CONTRA_NEUTRALES * fuerzaDe(hero, undefined));
+    expect(poderDe(grupo)).toBeLessThanOrEqual(MARGEN_CONTRA_NEUTRALES * fuerzaDe(hero));
     applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: hasta }, ctx, 0);
     expect(state.pendingBattle).toBeNull();
     expect(hero.at).toEqual(hasta);

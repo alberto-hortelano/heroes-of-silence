@@ -65,7 +65,6 @@ import {
   type ObraDelPuesto,
 } from '../map/map.js';
 import { dueñoDeUnSitio, sitioEnUnNodo } from '../map/regiones.js';
-import { CHARACTER_BODY } from '../rpg/character.js';
 import { oroBlocker, type Town } from '../town/town.js';
 import { type Army, NOMBRE_DE_FACCION, type PlayerId, type Point, type Troop } from '../types.js';
 import { deLaLista, entero, esObjeto, problemasDeObjeto } from '../validar.js';
@@ -952,14 +951,8 @@ function elIntercambio(
     const v = origen.find((t) => t.veterania?.id === pedido.veterano);
     if (v === undefined)
       return { motivo: `${quienOrigen} no lleva al veterano "${pedido.veterano}"` };
-    if (v.member !== undefined) {
-      return { motivo: 'un personaje no se deja en una guarnición: va siempre con su héroe' };
-    }
     movidos = [v];
   } else {
-    if (pedido.creature === CHARACTER_BODY) {
-      return { motivo: 'un personaje no se deja en una guarnición: va siempre con su héroe' };
-    }
     const especie = unidadDelJuegoSiExiste(pedido.creature);
     if (especie === null) return { motivo: `no existe ninguna unidad "${pedido.creature}"` };
     // De su tipo, los que se irían (`licenciar`, de uno en uno con `elQueSeIria`).
@@ -1050,14 +1043,13 @@ export interface TropaMovida {
 }
 
 /**
- * Las líneas que describen `army` tal cual (los personajes no: van siempre con su
- * héroe): de donde parte la pantalla de la guarnición, que las edita.
+ * Las líneas que describen `army` tal cual: de donde parte la pantalla de la
+ * guarnición, que las edita.
  */
 export function lineasDelEjercito(army: Army): LineaDelReparto[] {
   const lineas: LineaDelReparto[] = [];
   const novatos = new Map<string, number>();
   for (const t of army) {
-    if (t.member !== undefined) continue;
     if (t.veterania !== undefined) {
       lineas.push({ veterano: t.veterania.id });
       continue;
@@ -1072,10 +1064,9 @@ export function lineasDelEjercito(army: Army): LineaDelReparto[] {
  * Quién iría con `hero` con el reparto `lineas`, por su posición en lo que hay entre
  * él y la guarnición de su sitio (`entreLosDos`), o por qué las líneas no valen.
  * **Las líneas dicen todo lo que va con él**: un tipo que no nombran, y un veterano
- * que no nombran, quedan en la guarnición; los personajes van siempre con él. De
- * cada tipo, los novatos que ya llevaba primero (son iguales: así no se mueve a nadie
- * de más). No vale nombrar dos veces un tipo o un veterano, un personaje, un tipo que
- * no existe ni más novatos de los que hay. Los cupos no los mira: eso es del reparto
+ * que no nombran, quedan en la guarnición. De cada tipo, los novatos que ya llevaba
+ * primero (son iguales: así no se mueve a nadie de más). No vale nombrar dos veces
+ * un tipo o un veterano, un tipo que no existe ni más novatos de los que hay. Los cupos no los mira: eso es del reparto
  * entero (`repartirTropaBlocker`), y la pantalla enseña lo editado aunque no quepa.
  *
  * Por posición y no por identidad, como `defensaDeLaIA`: un mismo objeto puede ir
@@ -1089,9 +1080,6 @@ function elegidosDelReparto(
 ): ReadonlySet<number> | { readonly motivo: string } {
   const todos = entreLosDos(state, hero, sitio);
   const elegidos = new Set<number>();
-  todos.forEach((t, i) => {
-    if (t.member !== undefined) elegidos.add(i);
-  });
   const vistos = new Set<string>();
   for (const linea of lineas) {
     if ('veterano' in linea) {
@@ -1105,16 +1093,10 @@ function elegidosDelReparto(
           motivo: `ni ${hero.name} ni la guarnición ${delSitio(sitio)} llevan al veterano "${linea.veterano}"`,
         };
       }
-      if (todos[i]?.member !== undefined) {
-        return { motivo: 'un personaje no se reparte: va siempre con su héroe' };
-      }
       elegidos.add(i);
       continue;
     }
     const { creature, count } = linea;
-    if (creature === CHARACTER_BODY) {
-      return { motivo: 'un personaje no se reparte: va siempre con su héroe' };
-    }
     if (vistos.has(`c:${creature}`)) return { motivo: `«${creature}» va dos veces en el reparto` };
     vistos.add(`c:${creature}`);
     if (!Number.isSafeInteger(count) || count < 0) {
@@ -1124,9 +1106,7 @@ function elegidosDelReparto(
     if (especie === null) return { motivo: `no existe ninguna unidad "${creature}"` };
     const novatos = todos
       .map((t, i) => ({ t, i }))
-      .filter(
-        ({ t }) => t.creature === creature && t.member === undefined && t.veterania === undefined,
-      );
+      .filter(({ t }) => t.creature === creature && t.veterania === undefined);
     if (count > novatos.length) {
       return {
         motivo: `entre ${hero.name} y la guarnición ${delSitio(sitio)} hay ${novatos.length} × ${especie.name} sin veteranía, no ${count}`,
@@ -1242,15 +1222,10 @@ export function repartirTropa(
   return { hero: r.hero, sitio: r.sitio, deja: porTipo(r.deja), recoge: porTipo(r.recoge) };
 }
 
-/** Un grupo de un lado del reparto y por qué no se pasa al otro (un personaje), o `null`. */
-export interface FilaDelReparto {
-  readonly grupo: TroopGroup;
-  readonly motivo: string | null;
-}
-
 /** Lo que ocupa un lado del reparto frente a lo que cabe en él. */
 export interface LadoDelReparto {
-  readonly filas: readonly FilaDelReparto[];
+  /** Sus grupos (`troopSummary`): cada uno se puede pasar al otro lado. */
+  readonly filas: readonly TroopGroup[];
   readonly liderazgo: number;
   readonly individuos: number;
   readonly tope: number;
@@ -1272,9 +1247,8 @@ export interface ElReparto {
  * lados con `lineas` (por defecto, como están), agrupados (`troopSummary`), con lo
  * que ocupa cada uno frente a su cupo, y **el motivo del núcleo** para no
  * confirmarlo. Lo que no cabe a un lado se puede editar si el final cabe: por eso
- * el motivo es del reparto entero y no de cada paso; el único paso que no se da es
- * pasar un personaje a la guarnición. Si las líneas no valen (no las escribe la
- * pantalla así), los lados son los de ahora y el motivo lo dice.
+ * el motivo es del reparto entero y no de cada paso. Si las líneas no valen (no las
+ * escribe la pantalla así), los lados son los de ahora y el motivo lo dice.
  */
 export function elReparto(
   state: GameState,
@@ -1294,25 +1268,15 @@ export function elReparto(
     'motivo' in elegidos ? new Set(hero.army.map((_, i) => i)) : elegidos,
   );
   const cambia = deja.length > 0 || recoge.length > 0;
-  const lado = (
-    army: Army,
-    cabe: { tope: number; cupo: number },
-    conElHeroe: boolean,
-  ): LadoDelReparto => ({
-    filas: troopSummary(army, state.characters).map((grupo) => ({
-      grupo,
-      motivo:
-        conElHeroe && grupo.member !== undefined
-          ? 'un personaje no se deja en una guarnición: va siempre con su héroe'
-          : null,
-    })),
+  const lado = (army: Army, cabe: { tope: number; cupo: number }): LadoDelReparto => ({
+    filas: troopSummary(army),
     liderazgo: armyLeadership(army),
     individuos: army.length,
     ...cabe,
   });
   return {
-    heroe: lado(ejercito, capacidadDe(hero, state.combate.tope), true),
-    guarnicion: lado(resto, cupoDeLaGuarnicion(state), false),
+    heroe: lado(ejercito, capacidadDe(hero, state.combate.tope)),
+    guarnicion: lado(resto, cupoDeLaGuarnicion(state)),
     cambia,
     motivo:
       'motivo' in elegidos
@@ -1391,8 +1355,7 @@ export function objetoDelSitio(state: GameState, sitio: Sitio): ObjetoDeUnSitio 
  * Por qué no un reparto voraz de todo de más fuerte a más flojo: dejaba fuera a
  * cinco flojos y metía tres grandes, y lo de fuera —diez individuos— no cabía en la
  * guarnición: la ciudad, atacada después sin héroe, montaba una batalla con más de
- * siete y `createBattle` lanzaba. Los personajes van siempre con él. Determinista y
- * sin azar: la usan la IA de reglas, el agente (su jugada, a backlog) y la persona
+ * siete y `createBattle` lanzaba. Determinista y sin azar: la usan la IA de reglas, el agente (su jugada, a backlog) y la persona
  * como propuesta, que puede rehacer (`elegirLaDefensa`).
  *
  * Devuelve el ejército con que pelea, en el orden en que estaban (el ejército y
@@ -1402,7 +1365,7 @@ export function defensaDeLaIA(state: GameState, hero: Hero, sitio: Sitio): Army 
   // Por posición en `todos` y no por identidad: un mismo objeto puede ir dos veces
   // en un ejército (lo que se monta a mano en los tests, sin ir más lejos).
   const todos = entreLosDos(state, hero, sitio);
-  const poder = todos.map((t) => unitPower(troopUnit(t, state.characters)));
+  const poder = todos.map((t) => unitPower(troopUnit(t)));
   const fuerte = (a: number, b: number): number =>
     (poder[b] as number) - (poder[a] as number) || a - b;
   const vale = (indices: readonly number[]): boolean =>
@@ -1425,9 +1388,7 @@ export function defensaDeLaIA(state: GameState, hero: Hero, sitio: Sitio): Army 
         break;
       }
       const flojos = pelean
-        .filter(
-          (c) => todos[c]?.member === undefined && (poder[c] as number) < (poder[r] as number),
-        )
+        .filter((c) => (poder[c] as number) < (poder[r] as number))
         .sort((a, b) => fuerte(b, a));
       const c = flojos.find((x) => vale([...pelean.filter((i) => i !== x), r]));
       if (c !== undefined) {
@@ -1450,7 +1411,7 @@ export interface LineaDeDefensa {
 
 /**
  * El ejército con que pelearía `hero` en su sitio con la defensa `pedida`, o por
- * qué no: los personajes siempre, y de cada tipo los `count` **que no se irían**
+ * qué no: de cada tipo los `count` **que no se irían**
  * (`licenciar` de los demás: la misma regla de a quién se escoge que dejar y
  * recoger, los de más experiencia y, a igual, los que más llevan puesto) de lo que
  * hay entre su ejército y la guarnición, en el orden en que estaban. No vale pedir
@@ -1467,10 +1428,7 @@ export function ejercitoDeLaDefensa(
   // Por posición en `todos`, como `defensaDeLaIA`.
   const todos = entreLosDos(state, hero, sitio);
   const elegidos = new Set<number>();
-  todos.forEach((t, i) => {
-    if (t.member !== undefined) elegidos.add(i);
-  });
-  let acumulado: Army = todos.filter((_, i) => elegidos.has(i));
+  let acumulado: Army = [];
   const { tope, cupo } = capacidadDe(hero, state.combate.tope);
   const vistos = new Set<string>();
   for (const { creature, count } of pedida) {
@@ -1482,9 +1440,7 @@ export function ejercitoDeLaDefensa(
     if (count === 0) continue;
     const especie = unidadDelJuegoSiExiste(creature);
     if (especie === null) return { motivo: `no existe ninguna unidad "${creature}"` };
-    const deEse = todos
-      .map((t, i) => ({ t, i }))
-      .filter(({ t }) => t.creature === creature && t.member === undefined);
+    const deEse = todos.map((t, i) => ({ t, i })).filter(({ t }) => t.creature === creature);
     if (count > deEse.length) {
       return {
         motivo: `entre ${hero.name} y la guarnición ${delSitio(sitio)} hay ${deEse.length} × ${especie.name}, no ${count}`,
@@ -1542,9 +1498,7 @@ export interface FilaDeLaDefensa {
 /** La defensa de `hero` en su sitio con lo pedido, fila a fila y con sus cupos (`laDefensa`). */
 export interface LaDefensa {
   readonly filas: readonly FilaDeLaDefensa[];
-  /** Cuántos personajes van siempre con él. */
-  readonly personajes: number;
-  /** Lo que ocuparía la defensa pedida, con los personajes. */
+  /** Lo que ocuparía la defensa pedida. */
   readonly ocupa: { readonly liderazgo: number; readonly individuos: number };
   /** Lo que cabe en su ejército (`capacidadDe`). */
   readonly cabe: { readonly tope: number; readonly cupo: number };
@@ -1553,8 +1507,8 @@ export interface LaDefensa {
 }
 
 /**
- * La defensa que se elige, como la lee su pantalla: de cada tipo (sin personajes,
- * en orden de aparición) cuántos hay, cuántos pelean ahora (`propuesta`, lo que
+ * La defensa que se elige, como la lee su pantalla: de cada tipo (en orden de
+ * aparición) cuántos hay, cuántos pelean ahora (`propuesta`, lo que
  * lleva el héroe) y cuántos pelearían con `pedida` (los tipos que no nombra, como
  * ahora), con **el motivo del núcleo** para no subir o bajar uno, lo que ocuparía y
  * por qué no valdría. Todo lo escribe aquí el núcleo: la pantalla solo lo pinta.
@@ -1566,10 +1520,8 @@ export function laDefensa(
   pedida: readonly LineaDeDefensa[] = [],
 ): LaDefensa {
   const todos = entreLosDos(state, hero, sitio);
-  const personajes: Troop[] = todos.filter((t) => t.member !== undefined);
   const tipos: { creature: string; hay: number; propuesta: number }[] = [];
   todos.forEach((t, i) => {
-    if (t.member !== undefined) return;
     let fila = tipos.find((f) => f.creature === t.creature);
     if (fila === undefined) {
       fila = { creature: t.creature, hay: 0, propuesta: 0 };
@@ -1583,10 +1535,9 @@ export function laDefensa(
     count: pedida.find((l) => l.creature === f.creature)?.count ?? f.propuesta,
   }));
   // Lo que ocupa el liderazgo es de la unidad, no del individuo: basta con su tipo.
-  const pelearian: Troop[] = [
-    ...personajes,
-    ...lineas.flatMap((l) => Array.from({ length: l.count }, () => ({ creature: l.creature }))),
-  ];
+  const pelearian: Troop[] = lineas.flatMap((l) =>
+    Array.from({ length: l.count }, () => ({ creature: l.creature })),
+  );
   const cabe = capacidadDe(hero, state.combate.tope);
   const filas = tipos.map((f, n): FilaDeLaDefensa => {
     const pelean = (lineas[n] as LineaDeDefensa).count;
@@ -1618,7 +1569,6 @@ export function laDefensa(
   const ejercito = ejercitoDeLaDefensa(state, hero, sitio, lineas);
   return {
     filas,
-    personajes: personajes.length,
     ocupa: { liderazgo: armyLeadership(pelearian), individuos: pelearian.length },
     cabe,
     motivo: 'motivo' in ejercito ? ejercito.motivo : null,

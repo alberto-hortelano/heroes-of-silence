@@ -19,7 +19,6 @@ import {
 import { combateBlocker, type ReglasDelCombate } from '../combate.js';
 import { montadoDeGuerra } from '../cuerpo.js';
 import { HEROE, hasTrait } from '../data.js';
-import { cifrasDelIndividuo } from '../hero/experiencia.js';
 import type { Hero } from '../hero/hero.js';
 import { hojaDeLaTropa } from '../hero/troop.js';
 import { type CatalogoDeHechizos, HECHIZOS_DEL_JUEGO } from '../magia/catalogo.js';
@@ -33,7 +32,6 @@ import {
   type Impedible,
 } from '../magia/formato.js';
 import type { Rng } from '../rng.js';
-import type { CombatProfile } from '../rpg/stats.js';
 import type {
   CreatureTrait,
   FactionId,
@@ -213,12 +211,6 @@ export interface BattleSide {
   /** Bonus de moral del héroe (habilidades, artefactos, edificios). */
   readonly moraleBonus?: number;
   /**
-   * Los personajes del ejército (`Stack.member`), con su perfil y los PV con
-   * los que llegan. Lo monta quien conoce `GameState.characters`
-   * —`battleSideForHero`—: el motor no sabe de dónde salen, solo los juega.
-   */
-  readonly members?: ReadonlyMap<string, BattleMember>;
-  /**
    * El catálogo del que salen las cifras de su tropa del catálogo: el del juego
    * si no se dice (`CATALOGO_DEL_JUEGO`); la arena pone el de su montaje
    * (`catalogoDelMontaje`), con lo que la página no ha guardado.
@@ -323,13 +315,6 @@ export function mandoDe(
   };
 }
 
-/** Un personaje listo para entrar al tablero. */
-export interface BattleMember {
-  readonly profile: CombatProfile;
-  /** PV actuales: entra herido si lo está. */
-  readonly hp: number;
-}
-
 // La zona de salida vive en `board.ts`: la lee también la muralla, que dice qué
 // es dentro y qué es fuera desde la del defensor. Dónde sale cada uno, en
 // `despliegue.ts` (`asentar`).
@@ -361,14 +346,10 @@ export { bandoDeSalida } from './board.js';
  * no lee la del ejército. Lo pagan los vivos que marchan con ellos.
  * https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/monster/monster.h#L287-L291
  *
- * Mira las unidades YA resueltas, no el `Army`: así «un personaje no tiene
- * facción» se dice una sola vez —`faction: null` en `rpg/stats.ts`— y aquí solo
- * se lee. Quien no tiene facción ni rompe la unidad de un ejército de caballeros
- * ni la da. Un ejército SOLO de personajes no tiene ninguna facción que
- * compartir, así que no cobra el +1 —su moral sale de la voluntad de cada uno—.
- * En estrategia ese caso no existe: todo stack es una criatura con facción, y
- * un ejército vacío no pone a nadie en el tablero. Ni el héroe ni un personaje
- * tienen rasgos, así que tampoco cuentan como no-muertos.
+ * Mira las unidades YA resueltas, no el `Army`: así «el héroe no tiene facción»
+ * se dice una sola vez —`faction: null` en `heroUnit`— y aquí solo se lee. Quien
+ * no tiene facción ni rompe la unidad de un ejército de caballeros ni la da. El
+ * héroe no tiene rasgos, así que tampoco cuenta como no-muerto.
  */
 export function armyMorale(units: readonly UnitInfo[]): number {
   const factions = new Set<FactionId>();
@@ -411,7 +392,6 @@ export function createBattle(
     ['attacker', attacker],
     ['defender', defender],
   ] as const) {
-    personajesSinRepetir(setup);
     // El héroe pisa el tablero (fase 1b) y cuenta como uno más del bando.
     const cuantos = setup.army.length + (setup.hero === null ? 0 : 1);
     // Antes de colocar a nadie. La regla es de la partida (`ReglasDelCombate`) y
@@ -467,16 +447,15 @@ export function createBattle(
         origen: e.origen,
         initialCount: e.count,
         count: e.count,
-        topHp: e.topHp,
+        topHp: e.unit.hp,
         hex: hexes[i]!,
         // La escalera solo va con quien puede ponerla: el defensor y el volador no
         // escalan (`quienNoEscala`).
         escalera: e.escalera && quienNoEscala(side, e.unit) === null,
         retaliated: false,
         acted: false,
-        // Una regla para todos: la moral propia —0 en una criatura y en el
-        // héroe— más la del bando, recortada una vez. Los no-muertos, a 0.
-        morale: hasTrait(e.unit, 'undead') ? 0 : clampMorale(baseMorale + e.ownMorale),
+        // Una regla para todos: la del bando, recortada una vez. Los no-muertos, a 0.
+        morale: hasTrait(e.unit, 'undead') ? 0 : clampMorale(baseMorale),
         effects: [],
         ganado: { experiencia: 0, bajas: 0, heroes: [] },
         apuntado: null,
@@ -665,27 +644,6 @@ export function despliegueEnCursoBlocker(state: BattleState): string | null {
   return state.despliegue === null ? null : 'la batalla está en el despliegue: aún no hay turnos';
 }
 
-/**
- * Un personaje es un individuo: no puede aparecer dos veces en el mismo ejército.
- *
- * Si lo hiciera, los dos stacks entrarían con sus PV y saldrían con PV
- * distintos, y `woundsFromBattle` escribiría los dos sobre el mismo personaje:
- * ganaría la última escritura y una herida se perdería sin que nadie lo dijera.
- * Hoy ningún camino del juego lo produce; se cierra en la puerta de la batalla,
- * que es donde ya se validan el `count` y los PV, antes de que lo produzca uno.
- */
-function personajesSinRepetir(setup: BattleSide): void {
-  const vistos = new Set<string>();
-  for (const stack of setup.army) {
-    if (stack.member === undefined) continue;
-    if (vistos.has(stack.member)) {
-      const nombre = setup.members?.get(stack.member)?.profile.unit.name ?? stack.member;
-      throw new Error(`${nombre} aparece dos veces en el ejército`);
-    }
-    vistos.add(stack.member);
-  }
-}
-
 /** Un stack resuelto y todavía sin colocar: lo que `createBattle` empuja. */
 interface Entrada {
   readonly slot: number;
@@ -693,95 +651,45 @@ interface Entrada {
   readonly unit: UnitInfo;
   readonly origen: OrigenDelStack;
   readonly count: number;
-  readonly topHp: number;
-  readonly ownMorale: number;
   /** Si lleva escalera (`StackDeBatalla.escalera`). */
   readonly escalera: boolean;
 }
 
 /**
- * De dónde salen las cifras de un stack de la tropa: del catálogo, o del perfil
- * de su personaje. Con `entradaDelHeroe`, es el ÚNICO sitio que decide, y se
- * decide una vez: después todo el motor lee `BattleStack.unit` y no vuelve a
- * preguntar.
- *
- * Devuelve la moral PROPIA —0 en una criatura— y no la
- * final: la del bando la suma `createBattle` para todos igual. La rama de la
- * criatura devuelve la misma referencia del catálogo, así que el volcado del
- * banco no se mueve.
+ * De dónde salen las cifras de un stack de la tropa: del catálogo de su bando
+ * (`BattleSide.catalogo`, el del juego si no se dice). Con `entradaDelHeroe`, es
+ * el ÚNICO sitio que decide, y se decide una vez: después todo el motor lee
+ * `BattleStack.unit` y no vuelve a preguntar. Un novato devuelve la misma
+ * referencia del catálogo, así que el volcado del banco no se mueve.
  */
 function resolveUnit(stack: StackDeBatalla, slot: number, setup: BattleSide): Entrada {
   // La experiencia es de un individuo: un stack de N con hoja de servicios no
-  // sabría de cuál de los N es, igual que un personaje no puede ser dos.
+  // sabría de cuál de los N es.
   if (stack.veterania !== undefined && stack.count !== 1) {
     throw new Error(
       `el veterano ${stack.veterania.id} es uno solo y viene en un stack de ${stack.count}`,
     );
   }
-  const escalera = stack.escalera === true;
-  if (stack.member === undefined) {
-    // `cifrasDeUnidad`, la misma regla que leen la IA y el agente por
-    // `troopUnit`: un veterano pisa el tablero con las cifras que ellos le ven,
-    // y un novato con la referencia del catálogo tal cual.
-    const cat = setup.catalogo ?? CATALOGO_DEL_JUEGO;
-    const unit = cifrasDeUnidad(stack.creature, stack.veterania, cat);
-    return {
-      slot,
-      // El arte, la hoja de su unidad; qué unidad es lo dice su origen, que es lo
-      // que leen el agente, el resumen y `settleBattle`.
-      body: hojaDeLaTropa(stack, cat),
-      unit,
-      origen: {
-        kind: 'catalogo',
-        unidad: stack.creature,
-        oro: oroDeUnidad(stack.creature, cat),
-        veterania: stack.veterania ?? null,
-        ...salidaDe(stack),
-      },
-      count: stack.count,
-      topHp: unit.hp,
-      ownMorale: 0,
-      escalera,
-    };
-  }
-  const id = stack.member;
-  if (stack.count !== 1) {
-    throw new Error(`un personaje es uno solo: "${id}" viene en un stack de ${stack.count}`);
-  }
-  const miembro = setup.members?.get(id);
-  if (miembro === undefined) {
-    throw new Error(`el personaje "${id}" está en el ejército pero no se sabe quién es`);
-  }
-  // Antes que los límites: `NaN <= 0` y `NaN > max` son los dos falsos, así
-  // que un PV imposible pasaba por delante de las dos comprobaciones de abajo y
-  // la batalla empezaba con `topHp: NaN`. Y `2.5` entraba con dos PV y medio.
-  if (!Number.isSafeInteger(miembro.hp)) {
-    throw new Error(
-      `${miembro.profile.unit.name} llega con ${miembro.hp} PV: los PV son un número entero`,
-    );
-  }
-  if (miembro.hp <= 0) {
-    throw new Error(`${miembro.profile.unit.name} no puede entrar en batalla: tiene 0 PV`);
-  }
-  if (miembro.hp > miembro.profile.unit.hp) {
-    throw new Error(
-      `${miembro.profile.unit.name} llega con ${miembro.hp} PV y su máximo es ${miembro.profile.unit.hp}`,
-    );
-  }
-  // Un personaje no tiene rasgos, así que tampoco la inmunidad del no-muerto:
-  // entra herido si lo está, con su moral. La veteranía se le suma
-  // con la misma regla que a una criatura (`cifrasDelIndividuo`, que suma también
-  // lo que lleva puesto), y no cambia sus
-  // PV: entra con los que trae.
+  // `cifrasDeUnidad`, la misma regla que leen la IA y el agente por
+  // `troopUnit`: un veterano pisa el tablero con las cifras que ellos le ven,
+  // y un novato con la referencia del catálogo tal cual.
+  const cat = setup.catalogo ?? CATALOGO_DEL_JUEGO;
+  const unit = cifrasDeUnidad(stack.creature, stack.veterania, cat);
   return {
     slot,
-    body: hojaDeLaTropa(stack),
-    unit: cifrasDelIndividuo(miembro.profile.unit, stack.veterania, miembro.profile.equipo),
-    origen: { kind: 'personaje', id, veterania: stack.veterania ?? null, ...salidaDe(stack) },
-    count: 1,
-    topHp: miembro.hp,
-    ownMorale: miembro.profile.morale,
-    escalera,
+    // El arte, la hoja de su unidad; qué unidad es lo dice su origen, que es lo
+    // que leen el agente, el resumen y `settleBattle`.
+    body: hojaDeLaTropa(stack, cat),
+    unit,
+    origen: {
+      kind: 'catalogo',
+      unidad: stack.creature,
+      oro: oroDeUnidad(stack.creature, cat),
+      veterania: stack.veterania ?? null,
+      ...salidaDe(stack),
+    },
+    count: stack.count,
+    escalera: stack.escalera === true,
   };
 }
 
@@ -801,8 +709,6 @@ function entradaDelHeroe(heroe: HeroeDelBando, slot: number): Entrada {
     unit: heroe.cuerpo,
     origen: { kind: 'heroe', desnudo: heroe.desnudo },
     count: 1,
-    topHp: heroe.cuerpo.hp,
-    ownMorale: 0,
     escalera: heroe.escalera === true,
   };
 }
@@ -2417,8 +2323,7 @@ export function applyAction(
 
 /**
  * Lo que cuesta rendirse: un porcentaje del oro de catálogo de la tropa viva
- * que se salva, redondeado hacia arriba. El héroe no cuenta —no es tropa—, ni
- * un personaje, que no tiene precio de catálogo.
+ * que se salva, redondeado hacia arriba. El héroe no cuenta: no es tropa.
  *
  * Proporcional a lo que se salva, como en HoMM: rendirse con el ejército entero
  * cuesta, rendirse con dos campesinos casi nada. El porcentaje es provisional
@@ -2443,7 +2348,6 @@ function oroDeCatalogo(s: BattleStack): number {
       // veterano cuesta lo mismo que un novato: rendirse paga la tropa, no su
       // historia.
       return s.origen.oro * s.count;
-    case 'personaje':
     case 'heroe':
       return 0;
   }

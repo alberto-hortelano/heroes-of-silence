@@ -1,8 +1,8 @@
 /**
  * La tabla de figuras: toda figura tiene 8 direcciones y las 6 acciones —las
  * suyas o las del Y Bot de su juego de armas—. Una tropa del catálogo se pinta
- * con la hoja de su cuerpo; lo que no tiene hoja (el héroe, el personaje, la
- * gente de la base), con el juego de su fila, y lo demás cae al respaldo.
+ * con la hoja de su cuerpo; lo que no tiene hoja (el héroe y la gente de la
+ * base), con el juego de su fila, y lo demás cae al respaldo.
  */
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -19,7 +19,6 @@ import {
 } from '../src/client/render/personajes.js';
 import { HERO_BODY } from '../src/core/battle/types.js';
 import { hojaDeUnidad, UNIDADES } from '../src/core/catalogo.js';
-import { CHARACTER_BODY } from '../src/core/rpg/character.js';
 import {
   CLIPS_DE_FIGURA,
   FILAS_DEL_ATLAS,
@@ -34,12 +33,9 @@ const enDisco = (url: string): string => join(RAIZ, 'assets', url);
 const leer = (r: string): unknown => JSON.parse(readFileSync(r, 'utf8'));
 
 describe('las figuras a 25°, en 8 direcciones', () => {
-  it('lo que se pinta sin hoja de unidad —el héroe, el personaje y la gente de la base— tiene su juego de armas, y solo ello', () => {
-    expect(Object.keys(JUEGO_SIN_HOJA).sort()).toEqual(
-      [HERO_BODY, CHARACTER_BODY, CUERPO_DE_VECINO].sort(),
-    );
+  it('lo que se pinta sin hoja de unidad —el héroe y la gente de la base— tiene su juego de armas, y solo ello', () => {
+    expect(Object.keys(JUEGO_SIN_HOJA).sort()).toEqual([HERO_BODY, CUERPO_DE_VECINO].sort());
     expect(JUEGO_SIN_HOJA[HERO_BODY]).toBe('espada-escudo');
-    expect(JUEGO_SIN_HOJA[CHARACTER_BODY]).toBe('espada-escudo');
     expect(JUEGO_SIN_HOJA[CUERPO_DE_VECINO]).toBe('civil');
   });
 

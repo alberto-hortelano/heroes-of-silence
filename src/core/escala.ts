@@ -41,7 +41,7 @@ export const AREA_DE_REFERENCIA = 300;
  * los números»; a ojo, `docs/agents/2026-10-26-escala-baja/`), lo mismo que los PV,
  * la fuerza y la armadura del catálogo. Ataque, defensa y la fórmula de daño no
  * cambian. Todo lo que mide en PV o en daño y se calibró en la escala de fheroes2
- * —el precio del maná para la IA, el personaje, la vida del monje de
+ * —el precio del maná para la IA, la vida del monje de
  * `pnpm capturas`— la lee de aquí.
  */
 export const ESCALA_DE_CIFRAS = 3;
