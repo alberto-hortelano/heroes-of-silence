@@ -2,7 +2,8 @@
  * Las capas: `core` es puro (sin `node:`, sin DOM, sin conocer al servidor), sin
  * azar suelto ni coma flotante de la plataforma y sin ciclos donde se mide el
  * nivel; las herramientas de desarrollo no llegan al build, el cliente no lee el
- * entorno y ningún fichero que lee una máquina lleva la ruta de esta.
+ * entorno, ningún fichero que lee una máquina lleva la ruta de esta, y las rutas
+ * que se escriben en cadenas (las que `tsc` no ve) existen.
  *
  * Los guardias de las fronteras de `CLAUDE.md` vivían en un solo
  * `invariantes.test.ts`; desde la fase T de la reorganización (06-11-2026) van en
@@ -19,13 +20,18 @@ import {
   CLIENTE,
   CORE,
   codigoDe,
+  existeLaRuta,
+  ficheros,
+  HERRAMIENTAS,
   importacionesDe,
   importaDe,
   infractores,
   infractoresDeCodigo,
+  leer,
   lineaDe,
   ruta,
   rutasDelRepo,
+  rutasEscritasEn,
   SERVIDOR,
 } from './codigo-del-repo.js';
 import { RAIZ } from './comun.js';
@@ -341,5 +347,68 @@ describe('invariantes del proyecto', () => {
     // comentario no filtra ninguna clave. Las cadenas NO se blanquean, así que
     // un acceso indirecto escrito como texto sigue cayendo.
     expect(infractoresDeCodigo(CLIENTE, /FAL_KEY|process\.env/)).toEqual([]);
+  });
+
+  it('las rutas escritas en cadenas existen: las órdenes de `package.json` y `.mcp.json`, `vite.config.ts`, `src/` y `tools/`', () => {
+    // Lo que `tsc` no ve (fase T de la reorganización, 06-11-2026): un fichero que
+    // se lanza por su ruta (`tsx src/server/ws-server.ts`, el `spawn` del
+    // servidor de `pnpm qa`, el trabajador que lanza `pnpm npcs`), el que carga
+    // vite a demanda (`ssrLoadModule`, `import()`), el `"derivadoPor"` que el
+    // taller escribe en el arte. Si la mudanza que lo mueve se olvida de la
+    // cadena, la orden no arranca y nada se pone rojo hasta que alguien la lanza.
+    //
+    // En `src/` y `tools/` no se mira solo el argumento del `spawn`, sino toda
+    // cadena que es una ruta del repo (`rutasEscritasEn`): lo que se lanza suele
+    // ir en una constante (`VISION`, `JUEZ`) o en un parámetro (`entrada:` de
+    // `arrancarServidor`), lejos de la llamada.
+    //
+    // Lo que no existe a propósito, con su motivo; una ruta nueva que no existe
+    // no se añade aquí sin decir por qué.
+    const NO_EXISTEN: Readonly<Record<string, string>> = {
+      'tools/art/poses.ts → src/angles.mjs': 'relativa a sprite-forge (`FORGE`), otro repositorio',
+      'tools/art/poses.ts → src/page.mjs': 'relativa a sprite-forge (`FORGE`), otro repositorio',
+      'tools/art/poses.ts → src/render.mjs': 'relativa a sprite-forge (`FORGE`), otro repositorio',
+      'tools/taller/mapa.ts → assets/mapa/cofre':
+        'la salida de un encargo va sin extensión: el taller escribe `cofre.webp` y su procedencia',
+      'tools/marcas/almacen.ts → docs/revision/marcas':
+        'la bandeja de las marcas: ignorada por git, la crea la primera marca',
+      'src/core/arena-murallas.ts → data/borradores/murallas.json':
+        'el borrador de murallas de quien usa la arena: ignorado por git, lo crea «Guardar»',
+    };
+    const faltan: string[] = [];
+    const vistas = new Set<string>();
+    const mirar = (donde: string, r: string): void => {
+      const clave = `${donde.split(':')[0]} → ${r}`;
+      if (NO_EXISTEN[clave] !== undefined) {
+        vistas.add(clave);
+        return;
+      }
+      if (!existeLaRuta(r)) faltan.push(`${donde} → ${r}`);
+    };
+    // Las órdenes: cada palabra que es una ruta del repo.
+    const enUnaOrden = (orden: string): string[] =>
+      orden.split(/\s+/).filter((p) => /^(?:\.\/)?(?:src|tools|test|data|assets|docs)\//.test(p));
+    const paquete = JSON.parse(leer(ruta('package.json'))) as { scripts: Record<string, string> };
+    for (const [nombre, orden] of Object.entries(paquete.scripts))
+      for (const r of enUnaOrden(orden)) mirar(`package.json:scripts.${nombre}`, r);
+    const mcp = JSON.parse(leer(ruta('.mcp.json'))) as {
+      mcpServers: Record<string, { command: string; args?: string[] }>;
+    };
+    for (const [nombre, s] of Object.entries(mcp.mcpServers))
+      for (const r of enUnaOrden([s.command, ...(s.args ?? [])].join(' ')))
+        mirar(`.mcp.json:mcpServers.${nombre}`, r);
+    // El código: `vite.config.ts`, `src/` y `tools/`.
+    let escritas = 0;
+    for (const f of [ruta('vite.config.ts'), ...ficheros(ruta('src')), ...HERRAMIENTAS]) {
+      for (const { ruta: r, linea } of rutasEscritasEn(f)) {
+        escritas++;
+        mirar(`${f}:${linea}`, r);
+      }
+    }
+    expect(faltan).toEqual([]);
+    // Y que mire algo, y que lo que se excusa siga escrito: una excusa sin su
+    // cadena es una regla vieja que nadie quita.
+    expect(escritas).toBeGreaterThan(100);
+    expect(Object.keys(NO_EXISTEN).filter((k) => !vistas.has(k))).toEqual([]);
   });
 });

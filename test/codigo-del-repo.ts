@@ -83,6 +83,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, extname, join, relative, resolve } from 'node:path';
+import ts from 'typescript';
 import { RAIZ } from './comun.js';
 
 const COMPROBADAS = new Set<string>();
@@ -347,6 +348,65 @@ export function lineasDeImport(r: string): Set<number> {
     i = fin;
   }
   return out;
+}
+
+/** Una cadena del código que es una ruta del repositorio. */
+const ES_RUTA_DEL_REPO = /^(?:\.\/)?(?:src|tools|test|data|assets|docs)\/[^\s'"`$]*$/;
+
+/** Una ruta del repo escrita en una cadena del código de un fichero, con su línea. */
+export interface RutaEscrita {
+  /** Relativa a la raíz, sin el `./` de delante. */
+  readonly ruta: string;
+  readonly linea: number;
+}
+
+/**
+ * Las rutas del repo que `r` escribe en cadenas de su código, comentarios aparte:
+ * toda cadena entera que empieza por una carpeta del repo (`src/…`, `tools/…`,
+ * `data/…`, `assets/…`, `docs/…`, `test/…`, con `./` delante o sin él, la de un
+ * `ssrLoadModule` o un `import()` de `vite.config.ts`, el fichero que se lanza en
+ * un `spawn`, la constante que lo nombra), y la de un `new URL('…',
+ * import.meta.url)`, resuelta desde `r`. Es lo que `tsc` no comprueba: la mudanza
+ * que se olvida de una deja una orden que no arranca. Una plantilla con huecos
+ * (`data/bases/${f}.json`) no es una ruta escrita.
+ */
+export function rutasEscritasEn(r: string): RutaEscrita[] {
+  const texto = leer(r);
+  // Sin nada que lo parezca no se analiza: el árbol de cada fichero es lo que cuesta.
+  if (!/['"`](?:\.\/)?(?:src|tools|test|data|assets|docs)\/|new URL\(/.test(texto)) return [];
+  const sf = ts.createSourceFile(r, texto, ts.ScriptTarget.Latest, true);
+  const out: RutaEscrita[] = [];
+  const linea = (n: ts.Node): number => sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1;
+  const visitar = (n: ts.Node): void => {
+    if (
+      (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) &&
+      ES_RUTA_DEL_REPO.test(n.text)
+    )
+      out.push({ ruta: n.text.replace(/^\.\//, ''), linea: linea(n) });
+    if (
+      ts.isNewExpression(n) &&
+      ts.isIdentifier(n.expression) &&
+      n.expression.text === 'URL' &&
+      n.arguments?.length === 2 &&
+      ts.isStringLiteralLike(n.arguments[0] as ts.Node) &&
+      /^\.\.?\//.test((n.arguments[0] as ts.StringLiteralLike).text) &&
+      (n.arguments[1] as ts.Node).getText(sf) === 'import.meta.url'
+    ) {
+      const rel = (n.arguments[0] as ts.StringLiteralLike).text;
+      out.push({ ruta: relative(RAIZ, resolve(RAIZ, dirname(r), rel)) || '.', linea: linea(n) });
+    }
+    ts.forEachChild(n, visitar);
+  };
+  visitar(sf);
+  return out;
+}
+
+/** Si una ruta escrita existe: tal cual, o el `.ts` de un `.js` (el especificador de un módulo). */
+export function existeLaRuta(r: string): boolean {
+  return (
+    existsSync(join(RAIZ, r)) ||
+    (r.endsWith('.js') && existsSync(join(RAIZ, r.replace(/\.js$/, '.ts'))))
+  );
 }
 
 /** El número de línea, contando desde 1, del carácter `indice` de `texto`. */

@@ -1,7 +1,7 @@
 /**
  * Los datos: cada `data/*.json` lo importa un solo módulo, que lo juzga al
- * cargar (unidades, equipo, sitios, clima, hechizos, infiltradores…); el nivel y
- * el coste no se escriben; el banco de
+ * cargar (unidades, equipo, sitios, clima, hechizos, infiltradores…), y todo
+ * `data/*.json` lo lee alguien; el nivel y el coste no se escriben; el banco de
  * NPC tiene su puerta; lo retirado (caballeros, nigromantes, minas, el arte de
  * una dirección) no vuelve.
  *
@@ -20,11 +20,14 @@ import {
   CORE,
   codigoDe,
   ficheros,
+  HERRAMIENTAS,
+  importacionesDe,
   importaDe,
   infractoresDeCodigo,
   leer,
   ruta,
   rutasDelRepo,
+  rutasEscritasEn,
   SERVIDOR,
 } from './codigo-del-repo.js';
 
@@ -340,5 +343,36 @@ describe('invariantes del proyecto', () => {
       ),
     ).toEqual([]);
     expect(infractoresDeCodigo([PUERTA], importa)).not.toEqual([]);
+  });
+
+  it('todo `data/*.json` lo lee alguien: un módulo lo importa o el código escribe su ruta', () => {
+    // Un fichero de datos sin lector es una cifra que se edita y no cambia nada
+    // (fase T de la reorganización, 06-11-2026: `data/spells.json` llevaba sin
+    // lector desde 5d6f264b y se retiró en la fase 1). Lo lee alguien de `src/`,
+    // `tools/` o `vite.config.ts` si lo importa (`importacionesDe`, como
+    // `core/catalogo.ts` a `data/unidades.json`) o si escribe su ruta entera en
+    // una cadena del código (`rutasEscritasEn`, como `RUTA_DEL_BANCO`, que abre
+    // `tools/npcs/banco.ts`). Mencionarlo en un comentario o en una frase no es
+    // leerlo. Mira lo que hay en el disco, indexado o no (`rutasDelRepo`): un
+    // fichero nuevo sin `git add` es como nace la presa.
+    //
+    // Lo que no se lee a propósito, con su motivo (hoy, nada): un fichero que
+    // documenta una entrada y no lo carga el código se añade aquí diciéndolo.
+    const SIN_LECTOR_A_PROPOSITO: Readonly<Record<string, string>> = {};
+    const datos = rutasDelRepo().filter((f) => /^data\/.*\.json$/.test(f));
+    const leidos = new Set<string>();
+    for (const f of [ruta('vite.config.ts'), ...ficheros(ruta('src')), ...HERRAMIENTAS]) {
+      for (const m of importacionesDe(f)) leidos.add(m);
+      for (const { ruta: r } of rutasEscritasEn(f)) leidos.add(r);
+    }
+    expect(datos.filter((f) => !leidos.has(f) && SIN_LECTOR_A_PROPOSITO[f] === undefined)).toEqual(
+      [],
+    );
+    // Y que mire algo, y que lo excusado exista y siga sin lector.
+    expect(datos.length).toBeGreaterThan(20);
+    for (const f of Object.keys(SIN_LECTOR_A_PROPOSITO)) {
+      expect(datos, f).toContain(f);
+      expect(leidos.has(f), f).toBe(false);
+    }
   });
 });
