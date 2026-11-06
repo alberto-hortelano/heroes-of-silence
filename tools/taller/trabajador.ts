@@ -66,6 +66,9 @@
  *   pnpm taller derivar-relieve [hoja…]  apunta las juntas de cada módulo del relieve desde su guía: laderas (§20), diagonales y bajadas (§23); corta las rampas (§35)
  *   pnpm taller derivar-casas [--vista]  recorta las casas sueltas de la labranza de la hoja de pueblos (`casas.ts`); con --vista, cada casa teñida y numerada
  *   pnpm taller catalogo-escena          rehace assets/mapa/escena.json, el catálogo que lee el juego
+ *   pnpm taller piezas-de-tema [--guias] rehace `src/client/piezas-de-tema.css` con las piezas de
+ *                                        tema que hay en disco (`temas/piezas.ts`); con `--guias`,
+ *                                        también las guías de su corte (`assets/temas/_guias/`)
  *   pnpm taller encolar --base templarios [--solo=maestro-t1,placa-t1,…]
  *                                        la plaza de la base en un solo cuadro (vuelta 3, `base.ts`): maestro, placa y ediciones de cada tramo
  *                                        y, con `--solo=retoque-<id>,abierta-<id>`, el retoque de un edificio y la versión abierta de cada morada
@@ -225,6 +228,7 @@ import {
   versionesAdoptadas,
 } from './revision/versiones.js';
 import { estimarTroncos, hayVision, instalar, visor } from './revision/vision.js';
+import { escribirGuiasDeTemas, escribirPiezasDeTema } from './temas/piezas.js';
 import { costura, hacerTeselable, LADO_DE_TEXTURA, UMBRAL_DE_COSTURA } from './textura.js';
 import {
   encargoDeGiro,
@@ -1415,6 +1419,21 @@ switch (orden) {
     );
     break;
   }
+  case 'piezas-de-tema': {
+    // La hoja de fichas de las piezas de tema, desde lo que hay en disco. La cabecera
+    // de la hoja nombra esta orden, que no existió hasta el 06-11-2026: 21189b8a
+    // trajo las funciones y no la orden.
+    const sobran = resto.filter((r) => r !== '--guias');
+    if (sobran.length > 0)
+      throw new Error(
+        `uso: pnpm taller piezas-de-tema [--guias] (no se entiende ${sobran.join(' ')})`,
+      );
+    if (resto.includes('--guias'))
+      for (const g of await escribirGuiasDeTemas()) console.log(`→ ${g}`);
+    const { ruta, piezas } = await escribirPiezasDeTema();
+    console.log(`→ ${ruta}: ${piezas} piezas en disco`);
+    break;
+  }
   case 'vista-8d':
     // Un solo visor con todas: el argumento solo elige con cuál se abre.
     console.log(`→ ${await vista8d(resto[0])}`);
@@ -1652,6 +1671,6 @@ switch (orden) {
     break;
   default:
     throw new Error(
-      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, derivar-relieve, derivar-muros, derivar-puestos, derivar-muralla-batalla, derivar-casas, maniqui, muestrario, vision-instalar, revisar-maniqui, revisar, jurado, visor, visor-maniqui, versiones, elegir, adoptar, vista-base, recortar-base, medir-base, vista-ejercitos, vista-edificios, vista-efectos, vista-8d, vista-mapa, escenario, catalogo-escena`,
+      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, derivar-relieve, derivar-muros, derivar-puestos, derivar-muralla-batalla, derivar-casas, maniqui, muestrario, vision-instalar, revisar-maniqui, revisar, jurado, visor, visor-maniqui, versiones, elegir, adoptar, vista-base, recortar-base, medir-base, vista-ejercitos, vista-edificios, vista-efectos, vista-8d, vista-mapa, escenario, catalogo-escena, piezas-de-tema`,
     );
 }

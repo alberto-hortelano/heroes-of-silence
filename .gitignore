@@ -6,11 +6,14 @@ node_modules/
 dist/
 *.tsbuildinfo
 
-# caché y gasto de generación con IA
+# caché de las herramientas
 .cache/
-tools/gen/.cache/
-tools/gen/spend.json
-tools/clay/out/
+# restos locales de fal.ai (su caché y su gasto)
+tools/gen/
+
+# Borradores de la arena (las formas de muralla que se dibujan en ella,
+# `data/borradores/murallas.json`): son de quien la usa, no del repositorio.
+data/borradores/
 
 # saves de partidas
 saves/

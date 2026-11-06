@@ -25,8 +25,9 @@
  * la pantalla (el ancho de la banda, lo que sale del borde) es de `forma.css`,
  * que lo cambia en el móvil.
  *
- * La hoja se rehace desde lo que hay en disco con `escribirPiezasDeTema`; lo
- * vigila `test/piezas-de-tema.test.ts`.
+ * La hoja se rehace desde lo que hay en disco con `escribirPiezasDeTema`
+ * (`pnpm taller piezas-de-tema`; con `--guias`, también `escribirGuiasDeTemas`);
+ * lo vigila `test/piezas-de-tema.test.ts`.
  */
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
