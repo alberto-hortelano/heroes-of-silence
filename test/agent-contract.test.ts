@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { MARGEN_CONTRA_NEUTRALES } from '../src/core/ai/fuerza.js';
 import {
   planBuildings,
   planHires,
@@ -8,7 +7,7 @@ import {
   siguienteDeEquipo,
 } from '../src/core/ai/strategy.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
-import { playAiTurn } from '../src/core/ai/turn.js';
+import { playAiTurn, resolvePendingBattle } from '../src/core/ai/turn.js';
 import {
   activeStack,
   alAsalto,
@@ -57,6 +56,7 @@ import {
 } from '../src/core/contract/vocabulario.js';
 import { ASALTANTES, ECONOMIA, EQUIPO, tiposDeHeroe } from '../src/core/data.js';
 import { deDondeSale, PIEZAS_DE_ARMERIA, seVende } from '../src/core/hero/equipo.js';
+import { MARGEN_CONTRA_NEUTRALES } from '../src/core/hero/fuerza.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../src/core/hero/troop.js';
 import {
   buildMap,
@@ -77,7 +77,6 @@ import {
   applyAdventureAction,
   HERO_SCOUT_RADIUS,
   NODE_SCOUT_RADIUS,
-  resolvePendingBattle,
   revealEverything,
   unequipBlocker,
   visibleNow,

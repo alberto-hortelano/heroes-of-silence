@@ -32,6 +32,7 @@ import { componer } from '../src/client/render/escenario/colocar.js';
 import type { AdventureScene } from '../src/client/render/mapa.js';
 import { completarCruce } from '../src/core/ai/rueda.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
+import { resolvePendingBattle } from '../src/core/ai/turn.js';
 import { applyAction, createBattle, legalActions } from '../src/core/battle/battle.js';
 import type { BattleEvent, BattleStack, BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
@@ -48,11 +49,7 @@ import {
   climaDeLaRegion,
   pedirClima,
 } from '../src/core/state/clima.js';
-import {
-  applyAdventureAction,
-  ascenderVeterano,
-  resolvePendingBattle,
-} from '../src/core/state/game.js';
+import { applyAdventureAction, ascenderVeterano } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { GameState } from '../src/core/state/tipos.js';
 import type { Point, UnitInfo } from '../src/core/types.js';

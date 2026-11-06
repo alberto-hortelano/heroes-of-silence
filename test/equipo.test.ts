@@ -10,6 +10,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { resolvePendingBattle } from '../src/core/ai/turn.js';
 import { armaduraDe } from '../src/core/battle/armas.js';
 import { createBattle, stackById } from '../src/core/battle/battle.js';
 import {
@@ -58,7 +59,6 @@ import {
   ascenderVeterano,
   baseOf,
   equipBlocker,
-  resolvePendingBattle,
   settleBattle,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';

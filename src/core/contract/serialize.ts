@@ -6,7 +6,6 @@
  * mundo completo en cada turno llenaría su contexto de ruido.
  */
 
-import { fuerzaDe, MARGEN_CONTRA_NEUTRALES, poderDe } from '../ai/fuerza.js';
 import {
   armaduraDe,
   cargasDe,
@@ -57,6 +56,7 @@ import {
   rangoDeTropa,
   siguienteUmbral,
 } from '../hero/experiencia.js';
+import { fuerzaDe, MARGEN_CONTRA_NEUTRALES, poderDe } from '../hero/fuerza.js';
 import { type Hero, heroUnit, maxMana, maxMovePoints } from '../hero/hero.js';
 import { infiltracionBlocker } from '../hero/infiltracion.js';
 import {

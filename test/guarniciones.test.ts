@@ -11,12 +11,12 @@
  */
 import { describe, expect, it } from 'vitest';
 import { Session } from '../src/client/session.js';
-import { armyPower } from '../src/core/ai/fuerza.js';
-import { playAiTurn } from '../src/core/ai/turn.js';
+import { playAiTurn, resolvePendingBattle } from '../src/core/ai/turn.js';
 import { applyAction, legalActions } from '../src/core/battle/battle.js';
 import { adventureActionSchema, RESPONSE_FORMAT } from '../src/core/contract/agent.js';
 import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
 import { accionDelAgente } from '../src/core/contract/vocabulario.js';
+import { armyPower } from '../src/core/hero/fuerza.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../src/core/hero/troop.js';
 import { pointFromKey, pointKey } from '../src/core/map/map.js';
 import { estructura } from '../src/core/map/regiones.js';
@@ -32,7 +32,6 @@ import {
   defensaPorElegir,
   elegirLaDefensa,
   pasosDeHoy,
-  resolvePendingBattle,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import {

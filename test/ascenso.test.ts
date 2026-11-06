@@ -9,6 +9,7 @@
  * volver a preguntar hasta que vuelva».
  */
 import { describe, expect, it } from 'vitest';
+import { resolvePendingBattle } from '../src/core/ai/turn.js';
 import { tipoDeHeroePorDefecto, tiposDeHeroe, validarTiposDeHeroe } from '../src/core/data.js';
 import { porPreguntar, problemaDeTipo } from '../src/core/hero/ascenso.js';
 import { rangoDeHeroe, umbral } from '../src/core/hero/experiencia.js';
@@ -21,7 +22,6 @@ import {
   ascenderVeterano,
   ascensoBlocker,
   baseOf,
-  resolvePendingBattle,
   veteranosEnSuBase,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';

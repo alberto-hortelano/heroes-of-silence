@@ -12,7 +12,9 @@ import {
   applyAdventureAction,
   baseOf,
   battleOwners,
-  resolvePendingBattle,
+  settleBattle,
+  sidesOwnedBy,
+  sinLaIA,
 } from '../state/game.js';
 import type { GameContext, GameOutcome, GameState } from '../state/tipos.js';
 import type { Controller, Point } from '../types.js';
@@ -28,6 +30,7 @@ import {
   siguienteDeEquipo,
   stepTowards,
 } from './strategy.js';
+import { autoResolve, type BattleOutcome } from './tactics.js';
 
 /** Si el héroe está en la casilla de la base de su dueño. */
 function enSuBase(state: GameState, hero: Hero): boolean {
@@ -375,4 +378,20 @@ export async function playAiGame(state: GameState, ctx: GameContext): Promise<Ga
     await playAiTurn(state, ctx);
   }
   return state.finished;
+}
+
+/**
+ * Juega la batalla pendiente con la IA táctica y aplica el resultado. Por los
+ * bandos de los jugadores que no lleva ella (`sinLaIA`) pelea, pero no se rinde.
+ */
+export function resolvePendingBattle(state: GameState, ctx: GameContext): BattleOutcome {
+  const pending = state.pendingBattle;
+  if (pending === null) throw new Error('no hay batalla pendiente');
+  const outcome = autoResolve(
+    pending.battle,
+    ctx.rng,
+    sidesOwnedBy(state, pending, sinLaIA(state)),
+  );
+  settleBattle(state, ctx);
+  return outcome;
 }

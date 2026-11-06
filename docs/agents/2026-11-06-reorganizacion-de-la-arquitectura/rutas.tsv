@@ -336,3 +336,5 @@ simbolo	src/core/state/game.ts	src/core/state/consultas.ts	RecruitCapacity
 simbolo	src/core/state/game.ts	src/core/state/consultas.ts	recruitCapacity
 simbolo	src/core/state/game.ts	src/core/state/consultas.ts	turnBlocker
 simbolo	src/core/state/game.ts	src/core/state/consultas.ts	describePlayer
+fichero	src/core/ai/fuerza.ts	src/core/hero/fuerza.ts	
+simbolo	src/core/state/game.ts	src/core/ai/turn.ts	resolvePendingBattle

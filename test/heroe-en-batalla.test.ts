@@ -12,6 +12,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
+import { resolvePendingBattle } from '../src/core/ai/turn.js';
 import {
   activeStack,
   applyAction,
@@ -37,7 +38,7 @@ import {
 } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
 import { heroById, heroesOf, townsOf } from '../src/core/state/consultas.js';
-import { baseOf, resolvePendingBattle, settleBattle } from '../src/core/state/game.js';
+import { baseOf, settleBattle } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 import type { GameContext, GameState } from '../src/core/state/tipos.js';

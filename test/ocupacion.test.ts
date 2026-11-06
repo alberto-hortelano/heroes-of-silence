@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
 import { renderSide, renderTopbar } from '../src/client/views/panels.js';
+import { resolvePendingBattle } from '../src/core/ai/turn.js';
 import { estructura } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
 import { dayOfWeek, heroesOf, townById } from '../src/core/state/consultas.js';
@@ -21,7 +22,6 @@ import {
   baseOf,
   buyBlocker,
   contratarBlocker,
-  resolvePendingBattle,
 } from '../src/core/state/game.js';
 import { rentaDelDia } from '../src/core/state/renta.js';
 import { newGame } from '../src/core/state/setup.js';

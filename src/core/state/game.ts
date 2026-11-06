@@ -4,7 +4,6 @@
  * Un turno de jugador es: mover héroes, construir en los pueblos, reclutar, y
  * pasar. Cuando todos han pasado, avanza el día; los lunes crecen las moradas.
  */
-import { autoResolve, type BattleOutcome } from '../ai/tactics.js';
 import {
   alAsalto,
   aplicarDespliegue,
@@ -3325,22 +3324,6 @@ export function elegirLaDefensa(
  */
 export function sinLaIA(state: GameState): ReadonlySet<PlayerId> {
   return new Set(state.players.filter((p) => p.controller !== 'ai').map((p) => p.id));
-}
-
-/**
- * Juega la batalla pendiente con la IA táctica y aplica el resultado. Por los
- * bandos de los jugadores que no lleva ella (`sinLaIA`) pelea, pero no se rinde.
- */
-export function resolvePendingBattle(state: GameState, ctx: GameContext): BattleOutcome {
-  const pending = state.pendingBattle;
-  if (pending === null) throw new Error('no hay batalla pendiente');
-  const outcome = autoResolve(
-    pending.battle,
-    ctx.rng,
-    sidesOwnedBy(state, pending, sinLaIA(state)),
-  );
-  settleBattle(state, ctx);
-  return outcome;
 }
 
 /** Reparte las consecuencias de una batalla ya terminada. */

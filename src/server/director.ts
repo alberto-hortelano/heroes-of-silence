@@ -8,7 +8,7 @@
 
 import { elegirEnLaRueda, pasoDelCruce } from '@core/ai/rueda.js';
 import { chooseBattleAction } from '@core/ai/tactics.js';
-import { type BattleTakeover, playAiTurn } from '@core/ai/turn.js';
+import { type BattleTakeover, playAiTurn, resolvePendingBattle } from '@core/ai/turn.js';
 import {
   activeStack,
   applyAction,
@@ -50,7 +50,6 @@ import {
   applyAdventureAction,
   ascenderVeterano,
   battleOwners,
-  resolvePendingBattle,
   settleBattle,
   sidesOwnedBy,
   veteranosEnSuBase,

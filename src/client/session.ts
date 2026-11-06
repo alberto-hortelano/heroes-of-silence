@@ -7,7 +7,7 @@
  */
 import { type LaIAElige, pasoDelCruce } from '@core/ai/rueda.js';
 import { chooseBattleAction } from '@core/ai/tactics.js';
-import { playAiTurn } from '@core/ai/turn.js';
+import { playAiTurn, resolvePendingBattle } from '@core/ai/turn.js';
 import {
   batallaDeArena,
   type CatalogoDeLaArena,
@@ -155,7 +155,6 @@ import {
   pasosDeHoy,
   portadorDelStack,
   puedeAndarHoy,
-  resolvePendingBattle,
   salidaPendienteBlocker,
   settleBattle,
   sidesOwnedBy,

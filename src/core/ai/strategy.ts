@@ -19,6 +19,7 @@ import {
   pieza,
 } from '../hero/equipo.js';
 import { rangoDeTropa } from '../hero/experiencia.js';
+import { armyPower, fuerzaDe, poderDe, unitPower, ventajaClara } from '../hero/fuerza.js';
 import type { Hero } from '../hero/hero.js';
 import {
   capacidadDe,
@@ -69,7 +70,6 @@ import {
 import type { Army, Equipo, FactionId, PlayerId, Point, UnitInfo } from '../types.js';
 import { FACTION_IDS } from '../types.js';
 import { CUERPO_COMUN } from '../unidad.js';
-import { armyPower, fuerzaDe, poderDe, unitPower, ventajaClara } from './fuerza.js';
 import { hariaAlgoEn, VALOR_DE_LUGAR } from './lugares.js';
 
 /** Lo que vale tomar una ciudad ajena que no es la base de nadie. */

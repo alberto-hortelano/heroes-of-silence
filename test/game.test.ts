@@ -4,7 +4,7 @@ import {
   ordenDeConstruccion,
   stepTowards,
 } from '../src/core/ai/strategy.js';
-import { playAiGame, playAiTurn } from '../src/core/ai/turn.js';
+import { playAiGame, playAiTurn, resolvePendingBattle } from '../src/core/ai/turn.js';
 import { createBattle } from '../src/core/battle/battle.js';
 import { queEs } from '../src/core/battle/types.js';
 import {
@@ -71,7 +71,6 @@ import {
   baseOf,
   caminoHasta,
   ordenDelDia,
-  resolvePendingBattle,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad, guarnicionDeLaCiudad } from '../src/core/state/sitios.js';

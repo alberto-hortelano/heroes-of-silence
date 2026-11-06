@@ -16,6 +16,7 @@ import { alturaDeColumna, alzadoDeLaMuralla } from '../src/client/render/batalla
 import { centroHex, tableroPara } from '../src/client/render/proyeccion.js';
 import { Session } from '../src/client/session.js';
 import { renderSide } from '../src/client/views/panels.js';
+import { resolvePendingBattle } from '../src/core/ai/turn.js';
 import { columna } from '../src/core/arena-murallas.js';
 import {
   alAsalto,
@@ -38,7 +39,7 @@ import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { hasTrait } from '../src/core/data.js';
 import { createRng } from '../src/core/rng.js';
 import { heroesOf } from '../src/core/state/consultas.js';
-import { baseOf, resolvePendingBattle } from '../src/core/state/game.js';
+import { baseOf } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import {
   dueñoDeLaCiudad,

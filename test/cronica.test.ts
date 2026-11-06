@@ -17,7 +17,7 @@
 import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
 import { renderLog } from '../src/client/views/panels.js';
-import { playAiGame } from '../src/core/ai/turn.js';
+import { playAiGame, resolvePendingBattle } from '../src/core/ai/turn.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
 import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
 import type { MapPlan } from '../src/core/map/generate.js';
@@ -30,7 +30,6 @@ import {
   applyAdventureAction,
   HERO_SCOUT_RADIUS,
   objetosConocidos,
-  resolvePendingBattle,
   visibleNow,
   visibleNowAt,
 } from '../src/core/state/game.js';

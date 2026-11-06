@@ -7,12 +7,17 @@
  * (`state/asaltantes.ts`). Ese tercero lo llama `game.ts`, y `game.ts` no puede
  * importar `strategy.ts` —que importa `game.ts`— sin cerrar un ciclo. Este
  * módulo no importa el estado: solo el catálogo y la tropa.
+ *
+ * Vivía en `ai/` (`ai/fuerza.ts`) y pasó a `hero/` en la fase N de la
+ * reorganización (07-11-2026): cuándo se pelea con un neutral (`ventajaClara`)
+ * es una regla del juego, que leen la emboscada, los sitios y el contrato, y
+ * fuera de `ai/` nadie del núcleo importa la IA.
  */
 import type { GrupoDeTropa } from '../data.js';
-import { type Hero, heroUnit } from '../hero/hero.js';
-import { ejercitoDe, troopUnit } from '../hero/troop.js';
 import { poderBruto } from '../nivel.js';
 import type { Army, UnitInfo } from '../types.js';
+import { type Hero, heroUnit } from './hero.js';
+import { ejercitoDe, troopUnit } from './troop.js';
 
 /**
  * Fuerza bruta de un individuo: lo que pega por lo que aguanta, **con todo lo que

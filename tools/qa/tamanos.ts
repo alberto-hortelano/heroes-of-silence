@@ -28,9 +28,10 @@
  * `desde` es la primera semilla: con 1001 se juega otra tanda de mil, que es
  * como se comprobó que una mediana justo en el umbral no era suerte.
  */
-import { fuerzaDe } from '../../src/core/ai/fuerza.js';
+
 import { autoResolve } from '../../src/core/ai/tactics.js';
 import { playAiTurn } from '../../src/core/ai/turn.js';
+import { fuerzaDe } from '../../src/core/hero/fuerza.js';
 import { ladoDelMapa } from '../../src/core/map/generate.js';
 import { pointKey } from '../../src/core/map/map.js';
 import { createRng } from '../../src/core/rng.js';

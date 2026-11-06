@@ -15,6 +15,7 @@
 import { describe, expect, it } from 'vitest';
 import { galonesDe } from '../src/client/render/batalla.js';
 import { marcaDeVeterano } from '../src/client/views/panels.js';
+import { resolvePendingBattle } from '../src/core/ai/turn.js';
 import {
   applyAction,
   type BattleSide,
@@ -58,12 +59,7 @@ import { indiceDePoder, nivelDeUnidad } from '../src/core/nivel.js';
 import { createRng } from '../src/core/rng.js';
 import { heroById, heroesOf } from '../src/core/state/consultas.js';
 import { visibleTo } from '../src/core/state/events.js';
-import {
-  applyAdventureAction,
-  baseOf,
-  resolvePendingBattle,
-  settleBattle,
-} from '../src/core/state/game.js';
+import { applyAdventureAction, baseOf, settleBattle } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import type { GameState } from '../src/core/state/tipos.js';

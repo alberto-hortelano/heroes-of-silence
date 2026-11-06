@@ -25,13 +25,7 @@
  *
  * Uso: npx tsx tools/qa/calibrar-fuerza.ts [parejas=2000] [semillas-por-lado=40]
  */
-import {
-  armyPower,
-  MARGEN_CONTRA_NEUTRALES,
-  PESO_DEL_CUERPO,
-  poderDe,
-  unitPower,
-} from '../../src/core/ai/fuerza.js';
+
 import { autoResolve } from '../../src/core/ai/tactics.js';
 import { playAiTurn } from '../../src/core/ai/turn.js';
 import { type BattleSide, createBattle } from '../../src/core/battle/battle.js';
@@ -39,6 +33,13 @@ import { HERO_BODY } from '../../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../../src/core/combate.js';
 import type { GrupoDeTropa } from '../../src/core/data.js';
 import { rangoDeHeroe } from '../../src/core/hero/experiencia.js';
+import {
+  armyPower,
+  MARGEN_CONTRA_NEUTRALES,
+  PESO_DEL_CUERPO,
+  poderDe,
+  unitPower,
+} from '../../src/core/hero/fuerza.js';
 import { cuerposDelHeroe, type Hero, heroUnit, moraleBonus } from '../../src/core/hero/hero.js';
 import { ejercitoDe, troopsAsStacks } from '../../src/core/hero/troop.js';
 import { createRng } from '../../src/core/rng.js';

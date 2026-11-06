@@ -18,6 +18,7 @@
  * mundo no hay lugares y nada de aquí cambia una partida del banco.
  */
 import { gruposAlTope } from '../combate.js';
+import { fuerzaDe, poderDe, ventajaClara } from '../hero/fuerza.js';
 import type { Hero } from '../hero/hero.js';
 import {
   batallaDe,
@@ -39,7 +40,6 @@ import {
   soloNavega,
 } from '../mundo/reglas.js';
 import type { GameState } from '../state/tipos.js';
-import { fuerzaDe, poderDe, ventajaClara } from './fuerza.js';
 
 /**
  * Lo que vale para la IA ir a un lugar donde haría algo. **Inventado** (F1a,

@@ -8,10 +8,10 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { fuerzaDe, MARGEN_CONTRA_NEUTRALES, poderDe } from '../src/core/ai/fuerza.js';
-import { playAiTurn } from '../src/core/ai/turn.js';
+import { playAiTurn, resolvePendingBattle } from '../src/core/ai/turn.js';
 import { serializeKnownMap } from '../src/core/contract/serialize.js';
 import { ASALTANTES } from '../src/core/data.js';
+import { fuerzaDe, MARGEN_CONTRA_NEUTRALES, poderDe } from '../src/core/hero/fuerza.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import {
   buildMap,
@@ -39,7 +39,6 @@ import { heroesOf } from '../src/core/state/consultas.js';
 import {
   applyAdventureAction,
   caminoHasta,
-  resolvePendingBattle,
   visibleNow,
   visibleNowAt,
 } from '../src/core/state/game.js';
