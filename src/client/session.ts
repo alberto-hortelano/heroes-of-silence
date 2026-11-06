@@ -87,7 +87,7 @@ import { type CatalogoDeEquipo, type Portador, pedidoDelPuesto, pieza } from '@c
 import { type Hero, maxMana } from '@core/hero/hero.js';
 import { infiltracionBlocker } from '@core/hero/infiltracion.js';
 import { armyLeadership, heroLeadership, troopUnit } from '@core/hero/troop.js';
-import { enOrdenDelLibro, nombreDeHechizo } from '@core/magia/catalogo.js';
+import { type CatalogoDeHechizos, enOrdenDelLibro, nombreDeHechizo } from '@core/magia/catalogo.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
 import type { MapObject, ObraDelPuesto, PathStep } from '@core/map/map.js';
 import { type Lugar, lugarSiExiste, type MundoLeido } from '@core/mundo/formato.js';
@@ -3958,6 +3958,8 @@ export class SesionDeArena implements ControlDeBatalla {
       readonly equipo: CatalogoDeEquipo;
       /** La complejidad de la pelea (`MontajeDeArena.combate`). */
       readonly combate: ReglasDelCombate;
+      /** Los hechizos con que se pelea (los de la página; sin ellos, los del juego). */
+      readonly hechizos?: CatalogoDeHechizos;
     },
     semilla: number,
     /** La arena no tiene regiones ni días: el despejado, o lo que pida `?clima=` (`arena/main.ts`). */
@@ -3971,6 +3973,7 @@ export class SesionDeArena implements ControlDeBatalla {
       muralla: montaje.muralla ?? SIN_MURALLA,
       equipo: montaje.equipo,
       combate: montaje.combate,
+      ...(montaje.hechizos === undefined ? {} : { hechizos: montaje.hechizos }),
     };
     this.catalogo = catalogoDelMontaje(delMontaje);
     this.iaDelBando = {
@@ -4145,6 +4148,7 @@ export class SesionDeArena implements ControlDeBatalla {
     const motivo = retocarEnBatalla(this.battle, r, this.catalogo);
     if (motivo !== null) return comoFrase(motivo);
     if (r.kind === 'piezas') this.catalogo = { ...this.catalogo, equipo: r.equipo };
+    if (r.kind === 'hechizos') this.catalogo = { ...this.catalogo, hechizos: r.hechizos };
     if (r.kind === 'tipo') this.catalogo = conUnidad(this.catalogo, r.fuente.unidad);
     // Lo que entra y cambia algo deja su `retoque` en el registro; lo que deja la
     // ficha como estaba no escribe nada, y no se dice «Cambiado» (N1 de QA).

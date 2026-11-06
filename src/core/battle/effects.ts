@@ -317,6 +317,23 @@ export function enRondas(n: number): string {
   return `${n} ${n === 1 ? 'ronda' : 'rondas'}`;
 }
 
+/** Cuándo salta un disparador, en corto: la pastilla (el entero va en su nota). */
+const CUANDO_CORTO: Readonly<Record<CuandoSalta, string>> = {
+  empezarSuTurno: 'al empezar su turno',
+  terminarSuTurno: 'al terminar su turno',
+  alSerGolpeado: 'si le golpean',
+  alGolpear: 'al golpear',
+  alMorir: 'al caer',
+};
+
+/**
+ * Lo que hace un efecto colgado en una pastilla: como `dichoDelEfecto`, y el
+ * disparador en corto («si le golpean…»), que entero no cabe.
+ */
+export function dichoCortoDelEfecto(e: StackEffect): string {
+  return e.kind === 'disparador' ? `${CUANDO_CORTO[e.disparador.cuando]}…` : dichoDelEfecto(e);
+}
+
 /**
  * Lo que hace un efecto colgado, sin su duración: «ataque −2», «no puede
  * moverse», «escudo 12», «al ser golpeado…». **El único texto de un efecto

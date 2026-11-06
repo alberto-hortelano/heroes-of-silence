@@ -439,6 +439,7 @@ describe('el borrador se valida antes de escribirse', () => {
       expect(readdirSync(dir).sort()).toEqual(['data']);
       expect(readdirSync(join(dir, 'data')).sort()).toEqual([
         'equipo.json',
+        'hechizos.json',
         'heroe.json',
         'unidades.json',
       ]);
@@ -1222,6 +1223,7 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
     unidades: UNIDADES_DEL_ENLACE,
     // Todas las piezas que lleva lo montado, la tropa y los héroes.
     piezas: piezasDelMontaje(UNIDADES_DEL_ENLACE, [EQUIPO_BASE], EQUIPO_ESCRITO),
+    hechizos: hechizosDelGremio(5),
     izquierda: {
       ia: false,
       puestos: [

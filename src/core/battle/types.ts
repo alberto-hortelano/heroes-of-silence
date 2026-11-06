@@ -475,6 +475,8 @@ export type BattleEvent =
        * con `rounds` de tope.
        */
       vence?: CuandoVence;
+      /** De quién es ese turno, si no es del afectado (un hechizo: `HastaElTurno.de`). */
+      turnoDe?: string;
     }
   | { kind: 'effect_end'; stack: string; source: string }
   | { kind: 'perished'; stack: string }

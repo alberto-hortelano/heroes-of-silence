@@ -30,6 +30,7 @@ import {
 import {
   type CuandoVence,
   cifraDeEfecto,
+  dichoCortoDelEfecto,
   dichoDelEfecto,
   enRondas,
   type StackEffect,
@@ -50,6 +51,7 @@ import {
   type BattleStack,
   type BattleState,
   HERO_BODY,
+  MAX_ROUNDS,
   rangoDeVeterania,
   SIDES,
   type Side,
@@ -1344,6 +1346,8 @@ export function duracionDeEfecto(e: {
   readonly rounds: number;
   readonly vence?: CuandoVence | undefined;
 }): string {
+  // Lo que dura toda la pelea (un hechizo, `MAX_ROUNDS`) no se cuenta en rondas.
+  if (e.vence === undefined && e.rounds >= MAX_ROUNDS) return 'toda la pelea';
   return e.vence === undefined ? `durante ${enRondas(e.rounds)}` : duracion(e.vence, 'su');
 }
 
@@ -1418,7 +1422,7 @@ export function modificadoresEnCurso(
   if (efectos.length === 0 && carga === null) return NADA;
   const signo = (n: number): Html => html` data-signo="${n < 0 ? '−' : '+'}"`;
   const pastillas = efectos.map((e) =>
-    pastilla(dichoDelEfecto(e), html` data-efecto="${e.kind}"${signo(signoDelEfecto(e))}`),
+    pastilla(dichoCortoDelEfecto(e), html` data-efecto="${e.kind}"${signo(signoDelEfecto(e))}`),
   );
   const enteros = efectos.map((e) => efectoEnCurso(e, forma, libro));
   if (carga !== null) {
@@ -1695,7 +1699,11 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
         // línea verde sin nombre no deja saber si es bueno para los tuyos o para
         // el rival.
         case 'effect':
-          return html`<div${paraQuienLee(e.stack, e.amount >= 0 && e.effect !== 'impide')}>${nombreFuente(e.source, forma, battle.libro)} sobre ${quienEs(e.stack)}: ${e.dicho ?? cifraDeEfecto(e.effect, e.amount)} ${duracionDeEfecto(e)}</div>`;
+          return html`<div${paraQuienLee(e.stack, e.amount >= 0 && e.effect !== 'impide')}>${nombreFuente(e.source, forma, battle.libro)} sobre ${quienEs(e.stack)}: ${e.dicho ?? cifraDeEfecto(e.effect, e.amount)} ${
+            e.turnoDe === undefined || e.vence === undefined
+              ? duracionDeEfecto(e)
+              : `hasta que ${e.vence === 'empezar' ? 'empiece' : 'termine'} el próximo turno de ${quienEs(e.turnoDe)}`
+          }</div>`;
         // La rueda del golpe: qué eligió cada uno y dónde cayó,
         // antes de las líneas del golpe. El contraataque, solo si lo hubo.
         case 'cruce': {

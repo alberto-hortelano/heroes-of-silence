@@ -22,6 +22,7 @@ import {
   escritaDe,
   type FuenteDeArena,
   type HeroeDeArena,
+  hechizosDelMontaje,
   heroeDeArena,
   heroePorDefecto,
   IA_POR_DEFECTO,
@@ -83,7 +84,13 @@ import {
   EQUIPO_DEL_JUEGO,
   idsPuestos,
 } from '@core/hero/equipo.js';
-import { todosLosHechizos } from '@core/magia/catalogo.js';
+import {
+  type CatalogoDeHechizos,
+  catalogoDeHechizos,
+  todosLosHechizos,
+} from '@core/magia/catalogo.js';
+import type { Hechizo } from '@core/magia/formato.js';
+import { leerHechizos, problemasDelHechizo } from '@core/magia/validar.js';
 import { parseSeed } from '@core/rng.js';
 import { type ClimaDelSitio, climaSinRegiones, DESPEJADO } from '@core/state/clima.js';
 import {
@@ -152,6 +159,7 @@ import {
   listaPlegadaTras,
   renderEdicion,
 } from './edicion.js';
+import { montarEditorDeMagia } from './magia.js';
 import {
   avisoDelCatalogoLeido,
   avisoDeNuevaUnidad,
@@ -204,6 +212,8 @@ const elMontaje = document.getElementById('montaje') as HTMLElement;
 const elEdicion = document.getElementById('edicion') as HTMLElement;
 /** La vista «Editar equipo»: las piezas por hueco y la ficha de la elegida. */
 const elEquipo = document.getElementById('equipo') as HTMLElement;
+/** La vista «Editar magia» (`magia.ts`): los hechizos por entrega y la ficha del elegido. */
+const elMagia = document.getElementById('magia') as HTMLElement;
 /** El «Volver» de la vista de equipo: dice adónde vuelve (`escenaDeVuelta`). */
 const botonVolverDeEquipo = document.querySelector(
   '[data-arena="volver-de-equipo"]',
@@ -255,6 +265,77 @@ let piezaElegida: string | null = null;
 function piezasSinGuardar(): readonly string[] {
   return idsQueCambian(equipoGuardado, equipo);
 }
+
+/**
+ * Los hechizos de la página (el editor de magia, 06-11-2026): los de
+ * `data/hechizos.json` tal como los sirve el servidor (sin él, los del núcleo), con
+ * lo que se haya cambiado aquí y lo que traigan los enlaces abiertos. Los que no
+ * valen se quedan en la lista (para arreglarlos) y no se pelea con ellos.
+ */
+let hechizosDeLaPagina: readonly Hechizo[] = todosLosHechizos();
+/** Los de disco: con ellos se cuenta lo que queda por guardar. */
+let hechizosGuardados: readonly Hechizo[] = hechizosDeLaPagina;
+
+/** Los hechizos de la página que valen, y con los que se pelea. */
+function hechizosQueValen(): readonly Hechizo[] {
+  const vistos = new Set<string>();
+  return hechizosDeLaPagina.filter((h) => {
+    if (vistos.has(h.id) || problemasDelHechizo(h).length > 0) return false;
+    vistos.add(h.id);
+    return true;
+  });
+}
+
+/** El catálogo con que se pelea: los hechizos de la página que valen. */
+function catalogoDeMagia(): CatalogoDeHechizos {
+  return catalogoDeHechizos(hechizosQueValen());
+}
+
+/** Los ids de los hechizos que «Guardar» cambiaría en disco. */
+function hechizosSinGuardar(): readonly string[] {
+  const antes = new Map(hechizosGuardados.map((h) => [h.id, JSON.stringify(h)]));
+  const ahora = new Map(hechizosDeLaPagina.map((h) => [h.id, JSON.stringify(h)]));
+  const ids = new Set([...antes.keys(), ...ahora.keys()]);
+  return [...ids].filter((id) => antes.get(id) !== ahora.get(id));
+}
+
+/** Quién usa el hechizo `id`: los héroes de los bandos (su libro) y las unidades (su poder). */
+function quienUsaElHechizo(id: string): readonly string[] {
+  return [
+    ...heroesDeLaPagina()
+      .filter((h) => h.hechizos.includes(id))
+      .map((h) => h.nombre),
+    ...[...unidadesDelCatalogo.values()]
+      .filter((u) => (u.hechizos ?? []).includes(id))
+      .map((u) => u.name),
+  ];
+}
+
+/**
+ * El editor de magia: lo que cambia, la página lo adopta y, en plena pelea, la
+ * batalla también (`retocarEnBatalla`, `kind: 'hechizos'`).
+ */
+const editorDeMagia = montarEditorDeMagia(elMagia, {
+  hechizos: () => hechizosDeLaPagina,
+  cambiar: (lista, elegido) => {
+    hechizosDeLaPagina = lista;
+    editorDeMagia.elegir(elegido);
+    if (sesion !== null) {
+      const motivo = sesion.retocar({ kind: 'hechizos', hechizos: catalogoDeMagia() });
+      aviso =
+        motivo === null ? 'Cambiado: vale ya en esta pelea.' : `No entra en esta pelea: ${motivo}`;
+    }
+    repintar();
+    pedirFotograma();
+  },
+  sinGuardar: hechizosSinGuardar,
+  quienLoUsa: quienUsaElHechizo,
+  poder: () => heroes.izquierda?.poder ?? 1,
+  avisar: (texto) => {
+    aviso = texto;
+    pedirFotograma();
+  },
+});
 
 const montaje: Record<Lado, Puesto[]> = { izquierda: [], derecha: [] };
 /** El héroe de cada lado, si lleva. */
@@ -329,11 +410,12 @@ const renombrando = new Set<string>();
  * Lo que se ve: el montaje, la vista de edición, la de equipo o la pelea. Se
  * cambia solo con `irA`.
  */
-type Escena = 'montaje' | 'edicion' | 'equipo' | 'battle';
+type Escena = 'montaje' | 'edicion' | 'equipo' | 'magia' | 'battle';
 const ROTULO_DE_ESCENA: Readonly<Record<Escena, string>> = {
   montaje: 'Montaje',
   edicion: 'Edición',
   equipo: 'Equipo',
+  magia: 'Magia',
   battle: 'Batalla',
 };
 let escena: Escena = 'montaje';
@@ -342,24 +424,29 @@ let escena: Escena = 'montaje';
  * la sesión sigue viva, y la IA no juega mientras tanto: solo juega tras una
  * jugada de la persona (`SesionDeArena.avanzarIA`), y aquí no se juega ninguna.
  */
-let escenaDeVuelta: Exclude<Escena, 'equipo'> = 'montaje';
-const VUELTA_DE_EQUIPO: Readonly<Record<Exclude<Escena, 'equipo'>, string>> = {
+let escenaDeVuelta: Exclude<Escena, 'equipo' | 'magia'> = 'montaje';
+const VUELTA_DE_EQUIPO: Readonly<Record<Exclude<Escena, 'equipo' | 'magia'>, string>> = {
   montaje: 'Volver al montaje',
   edicion: 'Volver a la edición',
   battle: 'Volver a la pelea',
 };
+/** El «Volver» de la vista de magia, como el de equipo. */
+const botonVolverDeMagia = document.querySelector('[data-arena="volver-de-magia"]') as HTMLElement;
 
 /**
  * Cambia de escena: la variable, el `data-escena` que lee el CSS, el rótulo de la
  * barra y la URL (`vistaALaBarra`).
  */
 function irA(e: Escena): void {
-  if (e === 'equipo' && escena !== 'equipo') escenaDeVuelta = escena;
+  if ((e === 'equipo' || e === 'magia') && escena !== 'equipo' && escena !== 'magia') {
+    escenaDeVuelta = escena;
+  }
   escena = e;
   app.dataset.escena = e;
   elDay.textContent = ROTULO_DE_ESCENA[e];
   elTurn.textContent = '';
   botonVolverDeEquipo.textContent = VUELTA_DE_EQUIPO[escenaDeVuelta];
+  botonVolverDeMagia.textContent = VUELTA_DE_EQUIPO[escenaDeVuelta];
   vistaALaBarra();
 }
 
@@ -368,7 +455,7 @@ function irA(e: Escena): void {
  * equipo, este con su pieza elegida (`?pieza=`). El montaje es la de sin nada, y
  * la pelea no se recarga (su sesión vive en la página): vuelve al montaje.
  */
-const VISTAS_EN_LA_URL = ['edicion', 'equipo'] as const;
+const VISTAS_EN_LA_URL = ['edicion', 'equipo', 'magia'] as const;
 type VistaEnLaURL = (typeof VISTAS_EN_LA_URL)[number];
 
 function esVistaEnLaURL(x: string): x is VistaEnLaURL {
@@ -378,8 +465,9 @@ function esVistaEnLaURL(x: string): x is VistaEnLaURL {
 /** Escribe en la barra la vista de ahora y, en la de equipo, su pieza. */
 function vistaALaBarra(): void {
   aLaBarraDeLaArena((url) => {
-    if (escena === 'edicion' || escena === 'equipo') url.searchParams.set('vista', escena);
-    else url.searchParams.delete('vista');
+    if (escena === 'edicion' || escena === 'equipo' || escena === 'magia') {
+      url.searchParams.set('vista', escena);
+    } else url.searchParams.delete('vista');
     if (escena === 'equipo' && piezaElegida !== null) url.searchParams.set('pieza', piezaElegida);
     else url.searchParams.delete('pieza');
   });
@@ -387,6 +475,11 @@ function vistaALaBarra(): void {
 
 /** Lo que dice la barra al entrar en la edición o en el equipo, con su botón o al recargar. */
 function avisoAlEntrar(v: VistaEnLaURL): string {
+  if (v === 'magia') {
+    return sesion === null
+      ? 'Elige un hechizo para cambiarlo, o crea uno: «Guardar» lo escribe en data/hechizos.json. El héroe lo lleva si lo marcas en su libro; una unidad, como poder en su ficha.'
+      : 'En plena pelea: lo que cambies vale ya para quien lo lleve (lo ya echado sigue como se echó).';
+  }
   if (v === 'edicion') {
     return abiertas.length === 0
       ? 'Abre las fichas que quieras desde la lista: se añaden debajo. Lo que cambies vale para el montaje.'
@@ -594,6 +687,7 @@ function montajeDeArena(): MontajeDeArena {
     muralla,
     equipo,
     combate,
+    hechizos: catalogoDeMagia(),
   };
 }
 
@@ -729,6 +823,8 @@ interface RespuestaDeBorrador {
   readonly version?: unknown;
   /** El cuerpo de todo héroe de data/heroe.json, que va con las unidades (`leerCatalogo`). */
   readonly heroe?: unknown;
+  /** Los hechizos de data/hechizos.json, que van con las unidades (`leerCatalogo`). */
+  readonly hechizos?: unknown;
 }
 
 /**
@@ -822,6 +918,10 @@ async function arrancar(): Promise<void> {
   cuerpoGuardado = cuerpoDeTodoHeroe;
   // Las piezas antes que las unidades: una unidad puede llevar una nueva.
   cargarPiezas(cuerpo);
+  if (cuerpo.hechizos !== undefined) {
+    hechizosDeLaPagina = leerHechizos({ hechizos: cuerpo.hechizos }, 'los hechizos del servidor');
+    hechizosGuardados = hechizosDeLaPagina;
+  }
   const unidades = Array.isArray(cuerpo.unidades) ? cuerpo.unidades : [];
   const sinHoja: string[] = [];
   for (const crudo of unidades) {
@@ -1077,7 +1177,7 @@ function fichaAbierta(f: FichaEditable): FichaAbierta {
   return {
     clave: claveDeFicha(f),
     titulo: nombreDeFicha(f),
-    cuerpo: fichaDe(f, enElMontaje(equipo)),
+    cuerpo: fichaDe(f, enElMontaje(equipo, hechizosQueValen())),
   };
 }
 
@@ -1404,7 +1504,10 @@ function puestoPorClave(clave: number): { lado: Lado; i: number; p: Puesto } {
  * de las miniaturas no corre en la batalla) y diciendo que el cambio vale ya.
  */
 function fichaElegida(enCombate = false): Html {
-  const como = enCombate && sesion !== null ? { enCombate, piezas: equipo } : enElMontaje(equipo);
+  const como =
+    enCombate && sesion !== null
+      ? { enCombate, piezas: equipo, hechizos: hechizosQueValen() }
+      : enElMontaje(equipo, hechizosQueValen());
   return fichaDe(elegida, como);
 }
 
@@ -1521,6 +1624,7 @@ function abrirEditor(s: SesionDeArena, st: BattleStack, soloLectura: boolean): v
 function repintar(): void {
   if (escena === 'edicion') repintarEdicion();
   else if (escena === 'equipo') repintarEquipo();
+  else if (escena === 'magia') editorDeMagia.repintar();
   else if (escena === 'montaje') repintarMontaje();
   else {
     if (editor.open) pintarEditor();
@@ -1700,9 +1804,10 @@ async function guardar(): Promise<void> {
   // Con la versión que se leyó: si otra pestaña guardó entre medias, el servidor
   // lo rechaza en vez de pisarlo (`guardarCatalogo`).
   const heroe = cuerpoDeTodoHeroe;
+  const hechizos = hechizosDeLaPagina;
   const hecho = await mandarAlServidor(
     '/__arena/unidades',
-    { unidades, piezas, heroe, version: versionLeida },
+    { unidades, piezas, heroe, hechizos, version: versionLeida },
     sinGuardado,
     { noSePuede: 'No se puede guardar', noSeHa: 'No se ha guardado' },
   );
@@ -1711,6 +1816,7 @@ async function guardar(): Promise<void> {
   unidadesSinGuardar.clear();
   equipoGuardado = guardado;
   cuerpoGuardado = heroe;
+  hechizosGuardados = hechizos;
   aviso = guardadoEnPalabras(hecho as Guardado);
 }
 
@@ -1721,7 +1827,9 @@ function nombresDe(piezas: readonly Pieza[]): string {
 
 // Cerrar o recargar con cifras sin guardar las perdía sin decir nada (M5 de QA).
 window.addEventListener('beforeunload', (ev) => {
-  const algo = unidadesSinGuardar.size + piezasSinGuardar().length > 0 || cuerpoSinGuardar();
+  const algo =
+    unidadesSinGuardar.size + piezasSinGuardar().length + hechizosSinGuardar().length > 0 ||
+    cuerpoSinGuardar();
   if (algo && sinGuardado === null) ev.preventDefault();
 });
 
@@ -1747,6 +1855,7 @@ function montajeDelEnlace(): MontajeDelEnlace {
       heroesDeLaPagina().map((h) => h.equipo),
       [...equipo.escritas.values()],
     ),
+    hechizos: hechizosDelMontaje(unidades, heroesDeLaPagina(), catalogoDeMagia()),
     izquierda: lado('izquierda'),
     derecha: lado('derecha'),
     muralla: hayMuralla(muralla) ? muralla : null,
@@ -1835,6 +1944,12 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
     );
     const { despues, dicho: piezasDichas } = equipoAlAbrir(m);
     equipo = despues;
+    // Los hechizos del enlace entran en los de la página, como sus piezas: los que
+    // son otros, sin guardar.
+    hechizosDeLaPagina = [
+      ...hechizosDeLaPagina.map((h) => m.hechizos.find((x) => x.id === h.id) ?? h),
+      ...m.hechizos.filter((x) => !hechizosDeLaPagina.some((h) => h.id === x.id)),
+    ];
     for (const u of m.unidades) unidadesDelCatalogo.set(u.id, u);
     for (const u of distintas) unidadesSinGuardar.add(u.id);
     for (const l of ['izquierda', 'derecha'] as const) {
@@ -1942,6 +2057,7 @@ function luchar(): void {
         muralla,
         equipo,
         combate,
+        hechizos: catalogoDeMagia(),
       },
       semilla,
       climaDeLaArena,
@@ -2033,7 +2149,7 @@ function render(ahora: number): void {
   let otraVez = false;
   try {
     // En la vista de equipo, también a media pelea, la barra es la de la página.
-    if (sesion === null || escena === 'equipo') {
+    if (sesion === null || escena === 'equipo' || escena === 'magia') {
       if (elStatus.textContent !== aviso) elStatus.textContent = aviso;
       otraVez = animarFiguras(ahora);
     } else {
@@ -2413,6 +2529,33 @@ document.addEventListener('click', (ev) => {
         listaPlegada = listaPlegadaTras('entrar', listaPlegada, abiertas.length);
         aviso = avisoAlEntrar('edicion');
         break;
+      case 'ir-a-magia':
+        if (escena === 'magia') break;
+        irA('magia');
+        aviso = avisoAlEntrar('magia');
+        break;
+      case 'volver-de-magia': {
+        const vuelta = escenaDeVuelta === 'battle' && sesion === null ? 'montaje' : escenaDeVuelta;
+        irA(vuelta);
+        if (vuelta === 'battle') {
+          paneles = null;
+          principal.remedir();
+        }
+        aviso = 'De vuelta, con los hechizos que hayas cambiado.';
+        break;
+      }
+      case 'quitar-poder': {
+        const id = el.getAttribute('data-poder') as string;
+        const f = laFichaDe(el, 'quitar un poder');
+        if (f.kind !== 'unidad') throw new Error('solo las unidades llevan poderes que quitar');
+        cambiarUnidad(f.id, (u) => {
+          const quedan = (u.hechizos ?? []).filter((x) => x !== id);
+          const { hechizos: _fuera, ...sin } = u;
+          return quedan.length === 0 ? sin : { ...sin, hechizos: quedan };
+        });
+        soloLaFicha = claveDeFicha(f);
+        break;
+      }
       case 'volver-de-edicion':
         irA('montaje');
         aviso = 'De vuelta al montaje, con las cifras que hayas cambiado.';
@@ -2890,6 +3033,9 @@ function cambiarDeLaUnidad(id: string, el: Element): void {
   } else if (el.getAttribute('data-arena-habilidad') !== null) {
     const h = valorDe(el);
     if (h !== '') cambiarUnidad(id, (u) => ({ ...u, habilidades: [...u.habilidades, h] }));
+  } else if (el.getAttribute('data-arena-poder') !== null) {
+    const h = valorDe(el);
+    if (h !== '') cambiarUnidad(id, (u) => ({ ...u, hechizos: [...(u.hechizos ?? []), h] }));
   }
 }
 
@@ -2927,7 +3073,7 @@ function cambiarDelHeroe(lado: Lado, el: Element): void {
     cambiarHeroe(lado, (h) => ({
       ...h,
       hechizos: puesto
-        ? todosLosHechizos()
+        ? hechizosQueValen()
             .map((s) => s.id)
             .filter((id) => id === hechizo || h.hechizos.includes(id))
         : h.hechizos.filter((id) => id !== hechizo),

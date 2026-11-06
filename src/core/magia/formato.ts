@@ -200,6 +200,13 @@ export function rinde(c: Cantidad, poder: number): number {
   return typeof c === 'number' ? c : c.base + c.porPoder * poder;
 }
 
+/** Dónde está el catálogo de hechizos (lo lee `catalogo.ts`, lo escribe «Guardar» de la arena). */
+export const RUTA_DE_LOS_HECHIZOS = 'data/hechizos.json';
+
+/** El comentario del fichero si no tuviera uno (se conserva el del disco). */
+export const COMENTARIO_DE_LOS_HECHIZOS =
+  'Hechizos (el editor de magia de la arena, 06-11-2026). REGLA NUESTRA: el formato y su validación en src/core/magia/; lo escribe «Guardar» de la arena. Cifras y costes a mano.';
+
 // ---------------------------------------------------------------- límites
 
 export const MANA_MAXIMO = 99;

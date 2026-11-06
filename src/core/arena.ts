@@ -34,6 +34,7 @@ import {
   causaDelFinal,
   createBattle,
   type HeroeDelBando,
+  libroConElCatalogo,
   loADistanciaTrasElRetoque,
   mandoDe,
   quienNoEscala,
@@ -80,13 +81,15 @@ import { cifrasDelIndividuo, EXPERIENCIA_INICIAL_DE_HEROE } from './hero/experie
 import { CIFRAS_DEL_HEROE_INICIAL, cuerpoDelHeroe, maxMana } from './hero/hero.js';
 import {
   type CatalogoDeHechizos,
+  catalogoDeHechizos,
   HECHIZOS_DEL_JUEGO,
   hechizo,
   hechizosDelGremio,
   ordenDelLibro,
 } from './magia/catalogo.js';
 import { queHaceElHechizo } from './magia/dicho.js';
-import { GREMIO_MAXIMO } from './magia/formato.js';
+import { esIdDeHechizo, GREMIO_MAXIMO, type Hechizo } from './magia/formato.js';
+import { problemasDeLaLista } from './magia/validar.js';
 import { indiceDePoder, nivelDelIndice } from './nivel.js';
 import type { Rng } from './rng.js';
 import {
@@ -794,10 +797,7 @@ export function heroePorDefecto(
 }
 
 /** Comprueba un héroe de la arena y lanza diciendo qué no cuadra. */
-export function validarHeroeDeArena(
-  h: HeroeDeArena,
-  cat: CatalogoDeHechizos = HECHIZOS_DEL_JUEGO,
-): HeroeDeArena {
+export function validarHeroeDeArena(h: HeroeDeArena): HeroeDeArena {
   const quien = 'el héroe';
   const nombre = texto(h.nombre, 'el nombre', quien);
   if (h.figura !== null && !esIdDeUnidad(h.figura)) {
@@ -810,9 +810,13 @@ export function validarHeroeDeArena(
     }
     return n;
   };
+  // Solo la forma del id: si existe lo dice el catálogo con que se pelea (la arena
+  // tiene los suyos sin guardar; `createBattle` lanza con uno que no está).
   const hechizos = lista(h.hechizos, 'los hechizos', quien).map((id) => {
-    if (typeof id !== 'string') throw new Error(`${quien}: un hechizo no es un id`);
-    return hechizo(id, cat).id;
+    if (typeof id !== 'string' || !esIdDeHechizo(id)) {
+      throw new Error(`${quien}: ${JSON.stringify(id)} no es el id de un hechizo`);
+    }
+    return id;
   });
   sinRepetir(hechizos, 'el hechizo', quien);
   return {
@@ -951,10 +955,20 @@ export interface MontajeDeArena {
    * media pelea le da el suyo (`retocarEnBatalla`).
    */
   readonly equipo: CatalogoDeEquipo;
+  /**
+   * Los hechizos con que pelea (el editor de magia, 06-11-2026): los de la página,
+   * con lo que no se ha guardado, o los del juego si no se dice. De ellos sale el
+   * libro de la batalla (`BattleState.libro`): los de los héroes y los poderes de
+   * las unidades.
+   */
+  readonly hechizos?: CatalogoDeHechizos;
 }
 
-/** Un catálogo de unidades con las piezas como las edita la arena (con sus escritas). */
-export type CatalogoDeLaArena = CatalogoDeUnidades & { readonly equipo: CatalogoDeEquipo };
+/** Un catálogo de unidades con las piezas y los hechizos como los edita la arena. */
+export type CatalogoDeLaArena = CatalogoDeUnidades & {
+  readonly equipo: CatalogoDeEquipo;
+  readonly hechizos?: CatalogoDeHechizos;
+};
 
 /**
  * El catálogo de una pelea de la arena: las unidades de su montaje, comprobadas,
@@ -966,12 +980,13 @@ export function catalogoDelMontaje(montaje: MontajeDeArena): CatalogoDeLaArena {
   const eq = montaje.equipo;
   // Se vuelven a mirar porque la batalla es la última puerta y un objeto a mano
   // (un test, el arnés) no pasó por ninguna otra.
-  return catalogoDeLaPelea(
+  const catalogo = catalogoDeLaPelea(
     [...montaje.izquierda.unidades, ...montaje.derecha.unidades].map((f) =>
       validarUnidad(f.unidad, eq),
     ),
     eq,
   );
+  return montaje.hechizos === undefined ? catalogo : { ...catalogo, hechizos: montaje.hechizos };
 }
 
 /**
@@ -1103,6 +1118,7 @@ export function batallaDeArena(
     rng,
     montaje.combate,
     montaje.muralla ?? SIN_MURALLA,
+    montaje.hechizos ?? HECHIZOS_DEL_JUEGO,
   );
   // La ficha de cada tipo y de cada héroe, con la que el retoque compara.
   const fichas: Record<string, FichaEnPalabras> = {};
@@ -1260,7 +1276,12 @@ export type RetoqueDeArena =
    * pieza, crearla y borrarla son lo mismo: otro catálogo. «Editar equipo» también
    * vale a media pelea.
    */
-  | { readonly kind: 'piezas'; readonly equipo: CatalogoDeEquipo };
+  | { readonly kind: 'piezas'; readonly equipo: CatalogoDeEquipo }
+  /**
+   * Los hechizos enteros, como quedan tras el cambio (el editor de magia): el libro
+   * de la batalla pasa a ellos. Lo ya colgado no cambia (lleva sus números).
+   */
+  | { readonly kind: 'hechizos'; readonly hechizos: CatalogoDeHechizos };
 
 /**
  * Aplica el retoque a la batalla en curso y devuelve `null`, o devuelve por qué
@@ -1310,12 +1331,40 @@ export function retocarEnBatalla(
         heroe: heroeDeArena(r.datos, eq),
         ficha: fichaDelHeroe(r.datos, eq),
       }));
-      return 'motivo' in nuevo
-        ? nuevo.motivo
-        : retocarElHeroe(state, r.lado, nuevo.valor.heroe, nuevo.valor.ficha);
+      if ('motivo' in nuevo) return nuevo.motivo;
+      // Los hechizos de su libro, que estén en el catálogo de la pelea.
+      const falta = r.datos.hechizos.find(
+        (id) => !(catalogo.hechizos ?? HECHIZOS_DEL_JUEGO).has(id),
+      );
+      if (falta !== undefined) return `no hay ningún hechizo «${falta}»`;
+      const motivo = retocarElHeroe(state, r.lado, nuevo.valor.heroe, nuevo.valor.ficha);
+      if (motivo === null)
+        state.libro = libroConElCatalogo(state, catalogo.hechizos ?? HECHIZOS_DEL_JUEGO);
+      return motivo;
     }
     case 'piezas':
       return retocarLasPiezas(state, catalogo, r.equipo);
+    case 'hechizos': {
+      const usados = libroConElCatalogo(state, null);
+      const borrado = Object.keys(usados).find((id) => !r.hechizos.has(id));
+      if (borrado !== undefined) {
+        return `«${state.libro[borrado]?.nombre ?? borrado}» lo lleva alguien de la pelea: no se quita a media pelea`;
+      }
+      const antes = state.libro;
+      state.libro = libroConElCatalogo(state, r.hechizos);
+      const cambian = Object.keys(state.libro).filter(
+        (id) => JSON.stringify(state.libro[id]) !== JSON.stringify(antes[id]),
+      );
+      if (cambian.length > 0) {
+        state.log.push({
+          kind: 'retoque',
+          nombre: 'la magia',
+          stacks: [],
+          cambios: cambian.map((id) => `hechizo: ${state.libro[id]?.nombre ?? id}`),
+        });
+      }
+      return null;
+    }
   }
 }
 
@@ -1636,6 +1685,12 @@ export interface MontajeDelEnlace {
    * en otra máquina.
    */
   readonly piezas: readonly PiezaEscrita[];
+  /**
+   * Los hechizos que usa lo montado (el libro de cada héroe y los poderes de las
+   * unidades), tal como los tenía quien lo copió (versión 21, el editor de magia):
+   * al abrirlo entran en los de quien lo abre como cambios sin guardar.
+   */
+  readonly hechizos: readonly Hechizo[];
   readonly izquierda: LadoDelEnlace;
   readonly derecha: LadoDelEnlace;
   /** La muralla del tablero, o `null` sin ella. */
@@ -1688,9 +1743,18 @@ export function retiradosDeLaURL(
  * (04-11-2026, puesto fronterizo, fase 2; fusionada el 05-11-2026), el material
  * de la muralla (`MurallaDeBatalla.material`: piedra o madera).
  */
-export const VERSION_DEL_ENLACE = 20;
+export const VERSION_DEL_ENLACE = 21;
 
-const CAMPOS_DEL_ENLACE = ['v', 'unidades', 'piezas', 'izquierda', 'derecha', 'muralla', 'combate'];
+const CAMPOS_DEL_ENLACE = [
+  'v',
+  'unidades',
+  'piezas',
+  'hechizos',
+  'izquierda',
+  'derecha',
+  'muralla',
+  'combate',
+];
 const CAMPOS_DEL_COMBATE = ['tope', 'rueda'];
 const CAMPOS_DEL_LADO = ['ia', 'puestos', 'heroe'];
 const CAMPOS_DEL_PUESTO = ['unidad', 'escalera'];
@@ -1858,7 +1922,28 @@ export function montajeDeLaURL(textoDelEnlace: string): MontajeDelEnlace {
       );
     }
   }
-  const montaje = { unidades, piezas, izquierda, derecha, muralla, combate };
+  // Los hechizos del enlace: cada uno vale, y son justo los que usa lo montado.
+  const hechizosCrudos = lista(o.hechizos, 'los hechizos', 'el montaje del enlace');
+  const problemas = problemasDeLaLista(hechizosCrudos);
+  if (problemas.length > 0) {
+    throw new Error(`un hechizo del enlace no vale: ${problemas.join('; ')}`);
+  }
+  const hechizos = hechizosCrudos as readonly Hechizo[];
+  const usados = idsDeHechizosDelMontaje(
+    unidades,
+    [izquierda.heroe, derecha.heroe].flatMap((h) => (h === null ? [] : [h])),
+  );
+  for (const id of usados) {
+    if (!hechizos.some((h) => h.id === id)) {
+      throw new Error(`el montaje del enlace usa el hechizo «${id}» y no lo trae`);
+    }
+  }
+  for (const h of hechizos) {
+    if (!usados.includes(h.id)) {
+      throw new Error(`el montaje del enlace trae el hechizo «${h.nombre}» y no lo usa nadie`);
+    }
+  }
+  const montaje = { unidades, piezas, hechizos, izquierda, derecha, muralla, combate };
   // Que quepa en sus columnas de salida y que nadie lleve una escalera que no
   // usaría, con las mismas preguntas que el montaje de la página: un enlace no
   // monta lo que la página no dejaría montar.
@@ -1904,7 +1989,33 @@ export function montajeDeArenaDelEnlace(
     ...(m.muralla === null ? {} : { muralla: m.muralla }),
     combate: m.combate,
     equipo,
+    hechizos: catalogoDeHechizos([
+      ...[...HECHIZOS_DEL_JUEGO.values()].filter((h) => !m.hechizos.some((x) => x.id === h.id)),
+      ...m.hechizos,
+    ]),
   };
+}
+
+/**
+ * Los ids de los hechizos que usa lo montado, sin repetir y en orden: el libro de
+ * cada héroe y los poderes de cada unidad (`Unidad.hechizos`). Lo que viaja en el
+ * enlace.
+ */
+export function idsDeHechizosDelMontaje(
+  unidades: readonly Unidad[],
+  heroes: readonly HeroeDeArena[],
+): readonly string[] {
+  const ids = [...heroes.flatMap((h) => h.hechizos), ...unidades.flatMap((u) => u.hechizos ?? [])];
+  return ids.filter((id, i) => ids.indexOf(id) === i);
+}
+
+/** Los hechizos que usa lo montado, de `cat`; lanza con uno que no está. */
+export function hechizosDelMontaje(
+  unidades: readonly Unidad[],
+  heroes: readonly HeroeDeArena[],
+  cat: CatalogoDeHechizos,
+): readonly Hechizo[] {
+  return idsDeHechizosDelMontaje(unidades, heroes).map((id) => hechizo(id, cat));
 }
 
 /** Un lado del enlace, comprobado. */
@@ -1952,6 +2063,7 @@ function textoDelMontaje(m: MontajeDelEnlace): string {
     v: VERSION_DEL_ENLACE,
     unidades: m.unidades,
     piezas: m.piezas,
+    hechizos: m.hechizos,
     izquierda: lado(m.izquierda),
     derecha: lado(m.derecha),
     muralla: m.muralla,

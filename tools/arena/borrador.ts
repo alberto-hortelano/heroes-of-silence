@@ -33,6 +33,13 @@ import {
   catalogoDelFichero,
   type EquipoAtado,
 } from '../../src/core/hero/equipo.js';
+import { catalogoDeHechizos } from '../../src/core/magia/catalogo.js';
+import {
+  COMENTARIO_DE_LOS_HECHIZOS,
+  type Hechizo,
+  RUTA_DE_LOS_HECHIZOS,
+} from '../../src/core/magia/formato.js';
+import { leerHechizos } from '../../src/core/magia/validar.js';
 import { moradasBlocker } from '../../src/core/town/buildings.js';
 import {
   COMENTARIO_DEL_CATALOGO_DE_UNIDADES,
@@ -245,6 +252,7 @@ export function leerCatalogo(raiz: string): {
   readonly invalidas: readonly UnidadSinValidar[];
   readonly piezas: readonly PiezaEscrita[];
   readonly heroe: CuerpoDeTodoHeroe;
+  readonly hechizos: readonly Hechizo[];
 } {
   const { equipo } = equipoEnDisco(raiz);
   const { validas, invalidas } = leer(raiz, deUnidades(equipo));
@@ -253,6 +261,7 @@ export function leerCatalogo(raiz: string): {
     invalidas,
     piezas: [...equipo.escritas.values()],
     heroe: heroeEnDisco(raiz).cuerpo,
+    hechizos: leerHechizos(jsonDe(raiz, RUTA_DE_LOS_HECHIZOS), RUTA_DE_LOS_HECHIZOS),
   };
 }
 
@@ -295,6 +304,7 @@ export function escribirCatalogo(
   readonly conservadas: number;
   readonly piezas: number;
   readonly heroe: boolean;
+  readonly hechizos: number;
 } {
   // El cuerpo de todo héroe, si viene (la página lo manda siempre): solo su
   // `combate`, comprobado como lo carga el juego; lo demás de data/heroe.json
@@ -310,8 +320,33 @@ export function escribirCatalogo(
             combate: combateDelHeroe(delHeroe, 'no se guarda el cuerpo del héroe'),
           },
         };
+  // Los hechizos, si vienen (la página los manda siempre): enteros, con la regla de
+  // la carga del juego (`leerHechizos`), y las unidades que los usan como poder,
+  // con ellos.
+  const delCuerpo = (cuerpo as { hechizos?: unknown } | null)?.hechizos;
+  const hechizos =
+    delCuerpo === undefined ? null : leerHechizos({ hechizos: delCuerpo }, 'no se guarda la magia');
   const equipo = catalogoDelFichero(cuerpo);
-  const unidades = leerCatalogos(equipo, cuerpo);
+  const unidades =
+    hechizos === null
+      ? leerCatalogos(equipo, cuerpo)
+      : leerCatalogos(equipo, cuerpo, catalogoDeHechizos(hechizos));
+  let deHechizos: AEscribir | null = null;
+  if (hechizos !== null) {
+    let json: unknown;
+    try {
+      json = jsonDe(raiz, RUTA_DE_LOS_HECHIZOS);
+    } catch {
+      json = undefined;
+    }
+    deHechizos = {
+      ruta: join(raiz, RUTA_DE_LOS_HECHIZOS),
+      contenido: {
+        _comment: comentarioDe(json, COMENTARIO_DE_LOS_HECHIZOS),
+        hechizos,
+      },
+    };
+  }
   // Y con los edificios: una unidad que sale de una morada que no es de su
   // facción, o una morada sin unidades, y la partida no arrancaría.
   const moradas = moradasBlocker(unidades);
@@ -339,12 +374,14 @@ export function escribirCatalogo(
     },
     deUnidadesListo,
     ...(heroe === null ? [] : [heroe]),
+    ...(deHechizos === null ? [] : [deHechizos]),
   ]);
   return {
     unidades: deUnidadesListo.escritas,
     conservadas: deUnidadesListo.conservadas,
     piezas: escritas.length,
     heroe: heroe !== null,
+    hechizos: hechizos?.length ?? 0,
   };
 }
 
@@ -360,6 +397,7 @@ export const FICHEROS_DEL_CATALOGO = [
   RUTA_DEL_CATALOGO_DE_EQUIPO,
   RUTA_DEL_CATALOGO_DE_UNIDADES,
   RUTA_DEL_HEROE,
+  RUTA_DE_LOS_HECHIZOS,
 ];
 
 export function versionDelCatalogo(raiz: string): VersionDelCatalogo {

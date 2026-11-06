@@ -527,19 +527,48 @@ function libroDeLaBatalla(
   stacks: readonly BattleStack[],
   cat: CatalogoDeHechizos,
 ): Record<string, Hechizo> {
-  const ids = [
-    ...(attacker.hero?.mando.spells ?? []),
-    ...(defender.hero?.mando.spells ?? []),
-    ...stacks.flatMap((s) => s.unit.poderes ?? []),
-  ];
+  return libroDe(
+    [
+      ...(attacker.hero?.mando.spells ?? []),
+      ...(defender.hero?.mando.spells ?? []),
+      ...stacks.flatMap((s) => s.unit.poderes ?? []),
+    ],
+    (id) => cat.get(id),
+  );
+}
+
+/** El libro de estos ids, cada uno de `deDonde`; lanza con uno que no está. */
+function libroDe(
+  ids: readonly string[],
+  deDonde: (id: string) => Hechizo | undefined,
+): Record<string, Hechizo> {
   const libro: Record<string, Hechizo> = {};
   for (const id of ids) {
-    const h = cat.get(id);
+    const h = deDonde(id);
     if (h === undefined)
       throw new Error(`no se puede montar la batalla: no hay ningún hechizo «${id}»`);
     libro[id] = h;
   }
   return libro;
+}
+
+/**
+ * El libro de una batalla en curso tras un retoque de la arena: los hechizos de los
+ * libros de sus héroes y los poderes de sus stacks de ahora, de `cat` (con `null`,
+ * los que ya lleva). Lanza con uno que no está en ninguno.
+ */
+export function libroConElCatalogo(
+  state: BattleState,
+  cat: CatalogoDeHechizos | null,
+): Record<string, Hechizo> {
+  return libroDe(
+    [
+      ...(state.heroes.attacker?.spells ?? []),
+      ...(state.heroes.defender?.spells ?? []),
+      ...state.stacks.flatMap((s) => s.unit.poderes ?? []),
+    ],
+    (id) => (cat === null ? hechizoDeLaBatalla(state, id) : cat.get(id)),
+  );
 }
 
 /**
@@ -2702,6 +2731,7 @@ function applyStackEffect(state: BattleState, target: BattleStack, effect: Stack
     source: vivo.source,
     rounds: vivo.roundsLeft,
     ...(vivo.hasta === undefined ? {} : { vence: vivo.hasta.al }),
+    ...(vivo.hasta?.de === undefined ? {} : { turnoDe: vivo.hasta.de }),
   });
 }
 

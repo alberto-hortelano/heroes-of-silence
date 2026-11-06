@@ -30,6 +30,7 @@ import { UNIDADES, unidad } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { EQUIPO_ESCRITO, HEROE } from '../src/core/data.js';
 import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
+import { hechizosDelGremio } from '../src/core/magia/catalogo.js';
 import { createRng } from '../src/core/rng.js';
 import { delBorrador } from './helpers.js';
 
@@ -73,6 +74,7 @@ describe('el equipo del héroe de la arena', () => {
     const m: MontajeDelEnlace = {
       unidades: [],
       piezas: piezasDelMontaje([], [h.equipo], EQUIPO_ESCRITO),
+      hechizos: hechizosDelGremio(5),
       izquierda: { ia: false, puestos: [], heroe: h },
       derecha: { ia: true, puestos: [], heroe: null },
       muralla: null,
