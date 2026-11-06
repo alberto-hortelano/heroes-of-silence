@@ -43,6 +43,7 @@ import {
   partidaDeSemilla,
   resumenSinTerminar,
   SEMILLAS_DEL_BANCO,
+  volcadoDeLaPartida,
 } from './partidas.js';
 
 const args = process.argv.slice(2);
@@ -1496,11 +1497,10 @@ for (let semilla = 1; semilla <= SEMILLAS; semilla++) {
   // agotada vuelve **terminada** y sin ganador. Con el criterio de antes esta
   // cuenta daría 0 siempre y por construcción — un informe que imprime su línea
   // sin medir nada.
-  const ganador = fin.winner === null ? 'ninguno' : String(fin.winner);
   if (fin.winner === null) sinTerminar.push(semilla);
   dias.push(state.day);
-  lineas.push(`${semilla} fin ganador=${ganador} dia=${state.day} hechos=${state.log.length}`);
-  for (const [i, e] of state.log.entries()) lineas.push(`${semilla} ${i} ${JSON.stringify(e)}`);
+  // El volcado lo escribe `partidas.ts`: es el mismo que hashea la huella (`huella.ts`).
+  lineas.push(...volcadoDeLaPartida(semilla, state, fin));
 }
 const msPartidas = performance.now() - t0;
 

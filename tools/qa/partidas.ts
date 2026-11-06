@@ -87,6 +87,21 @@ export async function partidaDeSemilla(
 }
 
 /**
+ * El volcado de una partida ya jugada: su línea `fin` (ganador, día y cuántos
+ * hechos) y una por hecho de su crónica, cada una con su semilla delante. Es lo
+ * que hashea el banco, y lo que hashea la huella de identidad (`huella.ts`) en su
+ * sección de partidas: escrito en los dos, el día que uno cambiara el formato las
+ * dos cifras dejarían de poder compararse sin que nada lo dijera.
+ */
+export function volcadoDeLaPartida(semilla: number, state: GameState, fin: GameOutcome): string[] {
+  const ganador = fin.winner === null ? 'ninguno' : String(fin.winner);
+  return [
+    `${semilla} fin ganador=${ganador} dia=${state.day} hechos=${state.log.length}`,
+    ...state.log.map((e, i) => `${semilla} ${i} ${JSON.stringify(e)}`),
+  ];
+}
+
+/**
  * La batalla de una semilla: el ejército de salida de una facción contra el de la
  * siguiente, rotando por las cinco con la semilla (`FACTION_IDS`), resuelta por
  * la IA táctica.

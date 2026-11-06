@@ -475,7 +475,8 @@ const PERMISOS_DE_LA_ARENA: Readonly<Record<string, readonly string[]>> = {
   ],
   // La IA contra la IA en la arena (#259, #260, #262): sus tandas y la pelea, también
   // la de las murallas del mapa, con los bandos de la arena (fase 2 del puesto fronterizo).
-  'tools/qa/arena-ia.ts': ['TANDAS', 'medir'],
+  // Las montan `tandas-de-la-arena.ts`, que comparten `arena-ia.ts` y la huella.
+  'tools/qa/tandas-de-la-arena.ts': ['TANDAS', 'peleaSinJugar'],
 };
 
 /** El número de línea, contando desde 1, del carácter `indice` de `texto`. */
