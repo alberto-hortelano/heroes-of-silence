@@ -1416,9 +1416,7 @@ describe('invariantes del proyecto', () => {
     // (`core/unidad.ts`, simplify de F1).
     const PONE_PODERES = 'src/core/unidad.ts';
     const escribePoderes = /\bpoderes\s*:(?!\s*readonly)|\{\s*poderes\s*\}|\.poderes\s*=(?!=)/;
-    const ni = [...CORE, ...SERVIDOR].filter(
-      (r) => r !== PONE_PODERES && r !== 'src/core/battle/poderes.ts',
-    );
+    const ni = [...CORE, ...SERVIDOR].filter((r) => r !== PONE_PODERES);
     expect(infractoresDeCodigo(ni, escribePoderes)).toEqual([]);
     expect(infractoresDeCodigo([PONE_PODERES], escribePoderes)).not.toEqual([]);
   });
