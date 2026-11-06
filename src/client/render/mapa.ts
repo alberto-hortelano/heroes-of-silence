@@ -33,7 +33,7 @@ import type { AsaltantesALaVista, VistaAsaltante } from '@core/state/asaltantes.
 import type { ClimaDeLaPartida } from '@core/state/clima.js';
 import type { FactionId, Point } from '@core/types.js';
 import { type Direccion, direccionEnPantalla } from '../direccion.js';
-import { msPorCasilla } from '../marcha.js';
+import { type EnLaMarcha, msPorCasilla, PRISA_EN_EL_MAPA } from '../marcha.js';
 import { temaDelLienzo } from '../temas.js';
 import { imagenDeEscena } from './assets.js';
 import {
@@ -153,6 +153,12 @@ export interface VistaMapa {
    * pintar los de la partida sin filtrar no compile (#64).
    */
   readonly heroes: readonly HeroeEnElMapa[];
+  /**
+   * El héroe que anda ahora (`enLaMarcha`): se pinta entre `desde` y `hasta`, con su
+   * clip de marcha y mirando hacia donde va, y no en su casilla, que ya es la de
+   * llegada. Sin él (el espectador), cada héroe en su casilla.
+   */
+  readonly andando?: { readonly heroe: string } & EnLaMarcha;
   /**
    * Los objetos que se pintan, con el estado que se SABE de ellos: vivos donde
    * se mira ahora y, en lo demás explorado, el recuerdo de cuando se vieron
@@ -603,6 +609,8 @@ type Cosa =
       readonly heroe: HeroeEnElMapa;
       /** Donde pisa, en casillas (`pisada`): en un puente, su tablero. */
       readonly pie: { readonly x: number; readonly y: number };
+      /** Hacia dónde anda, si anda (`VistaMapa.andando`). */
+      readonly anda: Direccion | null;
     }
   | {
       readonly tipo: 'asaltante';
@@ -648,9 +656,23 @@ function cosasDe(v: VistaMapa, esc: Escenario, nodos: ReadonlyMap<string, NodoQu
     }
   }
   for (const h of v.heroes) {
-    if (!enVista(h.at)) continue;
-    const pie = pisada(esc, h.at, PIES.heroe, nodos);
-    lista.push({ tipo: 'heroe', clave: pie.clave, heroe: h, pie });
+    const a = v.andando?.heroe === h.id ? v.andando : undefined;
+    if (a === undefined) {
+      if (!enVista(h.at)) continue;
+      const pie = pisada(esc, h.at, PIES.heroe, nodos);
+      lista.push({ tipo: 'heroe', clave: pie.clave, heroe: h, pie, anda: null });
+      continue;
+    }
+    // El que anda, entre los pies de sus dos casillas (en un puente, su tablero),
+    // y con la clave de la que tiene más cerca: pasa por detrás de lo que tapa a
+    // quien está en ella.
+    const cerca = a.t < 0.5 ? a.desde : a.hasta;
+    if (!enVista(cerca)) continue;
+    const de = pisada(esc, a.desde, PIES.heroe, nodos);
+    const va = pisada(esc, a.hasta, PIES.heroe, nodos);
+    const pie = { x: de.x + (va.x - de.x) * a.t, y: de.y + (va.y - de.y) * a.t };
+    const clave = a.t < 0.5 ? de.clave : va.clave;
+    lista.push({ tipo: 'heroe', clave, heroe: h, pie, anda: a.mira });
   }
   const pintados = new Set<string>();
   for (const r of v.asaltantes) {
@@ -874,7 +896,7 @@ function pintarCosa(ctx: CanvasRenderingContext2D, v: VistaMapa, c: Cosa): void 
       // Su obra se pinta con los volúmenes; aquí solo va su bandera, encima.
       return;
     case 'heroe':
-      pintarHeroe(ctx, v, c.heroe, c.pie);
+      pintarHeroe(ctx, v, c.heroe, c.pie, c.anda);
       return;
     case 'asaltante':
       pintarAsaltante(ctx, v, c.asaltante, c.en);
@@ -1106,6 +1128,7 @@ function pintarHeroe(
   v: VistaMapa,
   h: HeroeEnElMapa,
   pie: { readonly x: number; readonly y: number },
+  anda: Direccion | null,
 ): void {
   const tile = v.camara.tile;
   const c = mundoAPixel(v.camara, pie.x, pie.y);
@@ -1135,12 +1158,14 @@ function pintarHeroe(
     // y_bot», 19-10-2026).
     id: h.id,
     body: figuraDelHeroe(h),
-    clip: 'idle',
-    tiempo: v.tiempo,
+    // Andando, con su marcha y de cara a donde va; quieto, de frente.
+    clip: anda === null ? 'idle' : 'walk',
+    // Las piernas, a la prisa de la marcha del mapa: los pies no patinan.
+    tiempo: anda === null ? v.tiempo : v.tiempo * PRISA_EN_EL_MAPA,
     x: c.x,
     suelo,
     alto: tile * ALTO_DEL_HEROE,
-    mira: MIRADA_DE_PRESENTACION,
+    mira: anda ?? MIRADA_DE_PRESENTACION,
     color,
     rotulo: h.name.charAt(0).toUpperCase(),
   };

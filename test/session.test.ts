@@ -677,7 +677,14 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
     expect(p.atacante.side).not.toBe(s.miBando);
     // Lo que se enseña no lleva el golpe que ya eligió la IA: ni la acción ni el tipo.
     // `golpeQueViene` (01-11-2026) dice, por respuesta, lo que quitaría cada golpe posible: no cuál eligió.
-    expect(Object.keys(p).sort()).toEqual(['atacante', 'bando', 'fase', 'golpeQueViene', 'objetivo', 'prevision']);
+    expect(Object.keys(p).sort()).toEqual([
+      'atacante',
+      'bando',
+      'fase',
+      'golpeQueViene',
+      'objetivo',
+      'prevision',
+    ]);
     expect(JSON.stringify(p.prevision)).not.toMatch(/"golpe"/);
     expect(JSON.stringify(p.golpeQueViene)).not.toMatch(/"golpe"/);
 

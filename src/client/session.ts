@@ -118,6 +118,7 @@ import { type Desenlace, desenlaceDe, finDePartida } from '@core/state/desenlace
 import {
   cronicaPara,
   type DefeatReason,
+  type GameEvent,
   type GameEventDraft,
   type Ocupante,
 } from '@core/state/events.js';
@@ -2127,8 +2128,44 @@ export class Session implements ControlDeBatalla {
 
   // ------------------------------------------------------------ aventura
 
+  /**
+   * Si el mapa enseña al héroe andando su marcha (`marchaEnCurso`): lo pone la
+   * página (`main.ts`). Sin ella —los tests, el espejo de `pnpm capturas`—, lo que
+   * abre la llegada se abre en el acto, como antes.
+   */
+  enseñarLaMarcha = false;
+
+  /**
+   * La marcha que el mapa está enseñando (06-11-2026, «el personaje se
+   * teletransporta…»): el núcleo ya ha movido al héroe, y lo que abre la llegada
+   * —la batalla, la base, el lugar, la guarnición, la frase de la parada— espera a
+   * `acabarLaMarcha`, que llama la página al llegar o con cualquier gesto.
+   */
+  private marcha: { readonly enPantalla: MarchaEnPantalla; readonly alLlegar: () => void } | null =
+    null;
+
+  /** La marcha que se enseña ahora, o `null`. */
+  get marchaEnCurso(): MarchaEnPantalla | null {
+    return this.marcha?.enPantalla ?? null;
+  }
+
+  /** La marcha llega (o se salta): abre lo que esperaba a la llegada. Sin marcha, nada. */
+  acabarLaMarcha(): void {
+    const m = this.marcha;
+    if (m === null) return;
+    this.marcha = null;
+    m.alLlegar();
+    this.tocar();
+  }
+
   /** Selecciona lo que haya en la casilla, o mueve el héroe hasta ella. */
   clickTile(p: Point): void {
+    // Un clic mientras el héroe anda solo lo hace llegar: lo que hubiera bajo el
+    // puntero se elige con el mapa ya quieto.
+    if (this.marcha !== null) {
+      this.acabarLaMarcha();
+      return;
+    }
     // Solo el turno: con el héroe de salida por elegir, pulsar la base la abre (es
     // donde se elige); mover no hay a quién.
     const bloqueo = this.turnoAjeno();
@@ -2183,6 +2220,8 @@ export class Session implements ControlDeBatalla {
       this.status = `${hero.name} ya está en esa casilla: pulsa otra para moverlo.`;
       return;
     }
+    const desde = hero.at;
+    const antes = this.state.log.length;
     // Se manda el destino tal cual: el núcleo anda lo que dé el día y, si no
     // hay camino o no da ni un paso, lo dice él con su frase —quién cierra el
     // paso, si es alguien (M2 de la 2a)—; aquí solo se le pone la mayúscula.
@@ -2203,6 +2242,25 @@ export class Session implements ControlDeBatalla {
     this.dormidos.delete(heroId);
     this.tocar();
 
+    // La parada (#130) se lee ahora: `applyAdventureAction` no devuelve nada, y el
+    // hecho es el último de la crónica porque la parada vuelve justo después de
+    // escribirlo.
+    const ultimo = this.state.log.at(-1);
+    const alLlegar = (): void => this.alAcabarLaMarcha(hero, ultimo);
+    // Lo que anduvo, casilla a casilla: un `hero_moved` por paso, también si la
+    // marcha se cortó, se paró o la emboscaron por el camino.
+    const pasos = [desde];
+    for (const e of this.state.log.slice(antes))
+      if (e.kind === 'hero_moved' && e.hero === heroId) pasos.push(e.to);
+    if (this.enseñarLaMarcha && pasos.length > 1) {
+      this.marcha = { enPantalla: { heroe: heroId, pasos }, alLlegar };
+      return;
+    }
+    alLlegar();
+  }
+
+  /** Lo que abre la llegada de la marcha de `hero`: `ultimo`, el último hecho de su marcha. */
+  private alAcabarLaMarcha(hero: Hero, ultimo: GameEvent | undefined): void {
     const pending = this.state.pendingBattle;
     if (pending !== null) {
       const entrar = (): void => {
@@ -2212,17 +2270,15 @@ export class Session implements ControlDeBatalla {
         // batalla se quedaba esperando a una persona que no podía hacer nada.
         this.advanceEnemyTurns();
       };
-      // Una emboscada no la eligió la persona: antes de la batalla, el aviso de
-      // quién y dónde, como cuando la atacan en el turno del rival.
+      // Una emboscada no la eligió la persona: al acabar la marcha, antes de la
+      // batalla, el aviso de quién y dónde, como cuando la atacan en el turno del rival.
       if (pending.attacker.kind !== 'raider' || !this.avisar(entrar)) entrar();
       return;
     }
 
     // La marcha se ha parado al descubrir un grupo que la emboscaría (#130), y
-    // se dice. `applyAdventureAction` no devuelve nada: el hecho es el último
-    // de la crónica porque la parada vuelve justo después de escribirlo.
-    const ultimo = this.state.log.at(-1);
-    if (ultimo?.kind === 'march_halted' && ultimo.hero === heroId) {
+    // se dice.
+    if (ultimo?.kind === 'march_halted' && ultimo.hero === hero.id) {
       this.status = `${hero.name} se detiene: ${loQueLaPara(ultimo.troops)}.`;
       return;
     }
@@ -2235,9 +2291,9 @@ export class Session implements ControlDeBatalla {
     const pueblo = this.myTowns().find((t) => sameTile(t.at, hero.at));
     if (pueblo !== undefined) this.openTown(pueblo.id);
     // Se entra en un lugar al ACABAR la marcha en él (no al pasar, como el cofre).
-    else if (lugarEn(this.state, hero.at) !== null) this.abrirElLugar(heroId);
+    else if (lugarEn(this.state, hero.at) !== null) this.abrirElLugar(hero.id);
     // Y parar en un paso o un pueblo suyo abre su guarnición; pasar de largo, no.
-    else if (this.enSuPasoOPueblo(hero)) this.abrirLaGuarnicion(heroId);
+    else if (this.enSuPasoOPueblo(hero)) this.abrirLaGuarnicion(hero.id);
   }
 
   // ------------------------------------------------------------ guarnición
@@ -4549,6 +4605,15 @@ export interface VistaDeLaDefensa extends Omit<LaDefensa, 'filas'> {
   readonly hero: Hero;
   readonly sitio: string;
   readonly filas: readonly (FilaDeLaDefensa & { readonly nombre: string })[];
+}
+
+/**
+ * La marcha que el mapa enseña (`Session.marchaEnCurso`): quién anda y por qué
+ * casillas, de la de donde salió a la última que pisó (sus `hero_moved`).
+ */
+export interface MarchaEnPantalla {
+  readonly heroe: string;
+  readonly pasos: readonly Point[];
 }
 
 /** Lo que la rueda enseña a quien elige (`CruceDeLaRueda.pendiente`). */
