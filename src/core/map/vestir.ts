@@ -16,10 +16,10 @@
  *
  * Todo es puro y determinista: el único azar es el `rng` que se pasa.
  */
-import { BARRERAS_DEL_MAPA, type BarreraConPeso } from '../data.js';
 import { largoALaEscala } from '../escala.js';
 import type { Rng } from '../rng.js';
 import { Frontera } from './frontera.js';
+import { BARRERAS_DEL_MAPA, type BarreraConPeso } from './generar/datos.js';
 import { espejoDe, parejaDe } from './geometria.js';
 import {
   APOYOS_DE_MURALLA,

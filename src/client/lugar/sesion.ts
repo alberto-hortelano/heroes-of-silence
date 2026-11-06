@@ -11,7 +11,7 @@
  * al núcleo (`invariantes.test.ts`). Las preguntas (qué puntos están, qué
  * opciones valen y por qué no) son las del núcleo (`core/mundo/reglas.ts`).
  */
-import { figuraDelHeroe } from '@core/data.js';
+import { figuraDelHeroe } from '@core/hero/tipos-de-heroe.js';
 import { nombreDelPunto } from '@core/mundo/formato.js';
 import {
   type Ante,

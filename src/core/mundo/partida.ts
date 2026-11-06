@@ -3,8 +3,8 @@
  * el paquete en disco y `newGame`.
  */
 import type { ReglasDelCombate } from '../combate.js';
-import { tipoDeHeroePorDefecto } from '../data.js';
 import { problemaDeTipo } from '../hero/ascenso.js';
+import { tipoDeHeroePorDefecto } from '../hero/tipos-de-heroe.js';
 import type { MapPlan } from '../map/generar/plan.js';
 import { generateMapPlan } from '../map/generate.js';
 import { createRng } from '../rng.js';

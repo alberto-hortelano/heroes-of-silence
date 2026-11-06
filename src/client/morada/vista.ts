@@ -12,7 +12,7 @@
  */
 import { armaduraDe } from '@core/battle/armas.js';
 import { hojaDeUnidad, unidadDelJuego, unidadesDeMorada } from '@core/catalogo.js';
-import type { Pieza } from '@core/data.js';
+import type { Pieza } from '@core/equipo/pieza.js';
 import { pieza } from '@core/hero/equipo.js';
 import { hechizo } from '@core/magia/catalogo.js';
 import { nombreDelPoder } from '@core/magia/dicho.js';

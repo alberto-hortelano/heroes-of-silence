@@ -20,9 +20,9 @@ import { activeStack, createBattle, isAlive, stackHexes } from '../src/core/batt
 import { areAdjacent, hexEquals, hexKey } from '../src/core/battle/board.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { hasTrait } from '../src/core/data.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
 import { createRng } from '../src/core/rng.js';
+import { hasTrait } from '../src/core/types.js';
 import { NOMBRES_DE_DIRECCION } from '../src/shared/arte.js';
 import { aCiegas } from './batalla-de-prueba.js';
 import { ejercito } from './partida-de-prueba.js';

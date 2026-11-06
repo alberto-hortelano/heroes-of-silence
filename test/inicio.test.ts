@@ -10,7 +10,7 @@ import { marcadoDe } from '../src/client/html.js';
 import { renderEleccion, renderMenu } from '../src/client/inicio/pantallas.js';
 import { hayQuePreguntar } from '../src/client/semilla.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { rasgoDeFaccion } from '../src/core/data.js';
+import { rasgoDeFaccion } from '../src/core/hero/tipos-de-heroe.js';
 import { nombreDeSalida } from '../src/core/state/setup.js';
 import { FACTION_IDS, NOMBRE_DE_FACCION } from '../src/core/types.js';
 

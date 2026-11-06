@@ -74,9 +74,9 @@ import {
   type Pieza,
   RECARGA_MAXIMA,
   RUTA_DEL_CATALOGO_DE_EQUIPO,
-  RUTA_DEL_HEROE,
   SOLO_EN_KITS,
-} from '@core/data.js';
+} from '@core/equipo/pieza.js';
+import { RUTA_DEL_HEROE } from '@core/hero/cuerpo-del-heroe.js';
 import {
   aDosManos,
   type CatalogoDeEquipo,

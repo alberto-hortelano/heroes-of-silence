@@ -54,7 +54,7 @@ import {
   type PiezaEscrita,
   RUTA_DEL_CATALOGO_DE_EQUIPO,
   validarPieza,
-} from '../src/core/data.js';
+} from '../src/core/equipo/pieza.js';
 import {
   type CatalogoDeEquipo,
   catalogoDeEquipo,

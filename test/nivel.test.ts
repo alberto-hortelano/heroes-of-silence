@@ -14,10 +14,16 @@ import { describe, expect, it } from 'vitest';
 import { piezaNueva } from '../src/core/arena.js';
 import { cifrasDeUnidad, unidad, unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
 import { restaDelPeso } from '../src/core/cuerpo.js';
-import { EQUIPO, type Pieza, validarPoder } from '../src/core/data.js';
+import { EQUIPO, type Pieza } from '../src/core/equipo/pieza.js';
 import { conEquipo, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { umbral } from '../src/core/hero/experiencia.js';
-import { indiceDePoder, medidaBlocker, nivelDeUnidad, poderBruto } from '../src/core/nivel.js';
+import {
+  indiceDePoder,
+  medidaBlocker,
+  nivelDeUnidad,
+  poderBruto,
+  validarPoder,
+} from '../src/core/nivel.js';
 import { type NivelesDeLaRueda, SPEED_TIERS, type UnitInfo } from '../src/core/types.js';
 import { cuerpoDeCombate, unidadDeCombate } from '../src/core/unidad.js';
 import { todoA } from './batalla-de-prueba.js';

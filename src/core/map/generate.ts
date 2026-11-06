@@ -15,16 +15,8 @@ import {
   problemasDeGrupo,
   unidadesDelJuego,
 } from '../catalogo.js';
-import {
-  ASALTANTES,
-  BARRERAS_DEL_MAPA,
-  FORMAS_DEL_RIO,
-  type FormaDelRio,
-  LIDERAZGO,
-  NIVEL_POR_SUELO,
-  POBLAMIENTO,
-} from '../data.js';
-import { problemasDeAsaltante } from '../hero/grupos.js';
+import { ASALTANTES, problemasDeAsaltante } from '../hero/grupos.js';
+import { LIDERAZGO } from '../hero/liderazgo.js';
 import { ejercitoDe } from '../hero/troop.js';
 import { nivelDeUnidad } from '../nivel.js';
 import { createRng, type Rng } from '../rng.js';
@@ -38,6 +30,7 @@ import {
   type Point,
   type RaiderPlaneado,
 } from '../types.js';
+import { BARRERAS_DEL_MAPA, NIVEL_POR_SUELO, POBLAMIENTO } from './generar/datos.js';
 import {
   type BuiltMap,
   LADO_DEL_MAPA,
@@ -100,6 +93,8 @@ import {
   vecindad,
 } from './regiones.js';
 import {
+  FORMAS_DEL_RIO,
+  type FormaDelRio,
   ladosDelRio,
   type MapaDelRio,
   nivelesDelRio,

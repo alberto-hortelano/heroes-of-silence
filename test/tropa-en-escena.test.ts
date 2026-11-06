@@ -12,7 +12,7 @@ import { EscenaTropa } from '../src/client/escenas/tropa.js';
 import { AYUDA_DE_LA_TROPA, Session } from '../src/client/session.js';
 import { zonaDeSalida } from '../src/core/battle/despliegue.js';
 import { UNIDADES } from '../src/core/catalogo.js';
-import { EQUIPO } from '../src/core/data.js';
+import { EQUIPO } from '../src/core/equipo/pieza.js';
 import { aDosManos, pieza } from '../src/core/hero/equipo.js';
 import { rangoDeHeroe, umbral } from '../src/core/hero/experiencia.js';
 import { heroUnit } from '../src/core/hero/hero.js';

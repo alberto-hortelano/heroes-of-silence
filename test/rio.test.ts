@@ -13,18 +13,20 @@
  *   y en el río solo hay puentes con dos orillas y ciudades-puente.
  */
 import { describe, expect, it } from 'vitest';
-import { FORMAS_DEL_RIO, RIOS, validarRios } from '../src/core/data.js';
 import { LADO_DEL_MAPA } from '../src/core/map/generar/plan.js';
 import { buildMap, generateMapPlan } from '../src/core/map/generate.js';
 import { chebyshev, rioAnteLaCiudad } from '../src/core/map/recinto.js';
 import { estructura } from '../src/core/map/regiones.js';
 import {
   alOtroLado,
+  FORMAS_DEL_RIO,
   ladosDelRio,
   nivelesDelRio,
+  RIOS,
   rioEntero,
   type TrazadoDelRio,
   trazarRio,
+  validarRios,
 } from '../src/core/map/rio.js';
 import { BARRERAS, type Nivel } from '../src/core/map/terrain.js';
 import { ABIERTA, conElRio, esDelRio, ponerTipo } from '../src/core/map/vestir.js';

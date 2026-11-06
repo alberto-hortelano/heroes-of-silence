@@ -20,7 +20,6 @@ import {
   unidadDelJuego,
 } from '../catalogo.js';
 import { cupoDelHeroe } from '../combate.js';
-import { LIDERAZGO } from '../data.js';
 import type { Army, GrupoDeTropa, Stack, Troop, UnitInfo, Veterania } from '../types.js';
 import { piezasPuestas } from './equipo.js';
 import {
@@ -30,6 +29,7 @@ import {
   siguienteUmbral,
   subidasDeRango,
 } from './experiencia.js';
+import { LIDERAZGO } from './liderazgo.js';
 
 /**
  * Las cifras de un individuo: las de su unidad del catálogo con su veteranía y

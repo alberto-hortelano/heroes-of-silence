@@ -8,11 +8,77 @@
  * por el tope, la complejidad del combate conocía los objetos del mapa (fase N de la
  * reorganización, 07-11-2026).
  */
+import asaltantesJson from '../../../data/asaltantes.json' with { type: 'json' };
 import { problemasDeTopeDeLiderazgo } from '../catalogo.js';
-import { ASALTANTES } from '../data.js';
 import type { MapObject } from '../map/map.js';
 import type { Army, GrupoDeTropa } from '../types.js';
+import { enteroDesde } from '../validar.js';
 import { poderDe } from './fuerza.js';
+
+/**
+ * Las reglas de los asaltantes de caminos, de `data/asaltantes.json`.
+ * **Inventadas y provisionales**, y así lo dice su `_comment`: en HoMM2 los
+ * monstruos del mapa no se mueven, así que no hay fila que copiar.
+ */
+export interface ReglasDeAsaltantes {
+  /** La probabilidad de que brote un grupo cada lunes en cada región que lo admita. */
+  readonly probabilidadSemanal: number;
+  /**
+   * Cuántas casillas se mueve un grupo al día como mucho, en Chebyshev, **en
+   * el mapa de referencia** (`AREA_DE_REFERENCIA`); la patrulla lo lleva a la
+   * escala del mapa (`pasosDeLaPatrulla`, #229).
+   */
+  readonly pasosPorDia: number;
+  /** El liderazgo que puede sumar un grupo: el techo de lo que ocupa. */
+  readonly liderazgoMax: number;
+  /**
+   * La fuerza bruta que puede sumar un grupo: el techo de lo que pega. Lo
+   * comprueba este módulo al cargar, aparte (abajo): medirla pide la fuerza y el
+   * catálogo.
+   */
+  readonly fuerzaMax: number;
+  /** Los grupos que pueden brotar; cada uno, de 1 a `maxPorBando` individuos. */
+  readonly composiciones: readonly (readonly GrupoDeTropa[])[];
+}
+
+/**
+ * Se valida al cargar, como las guarniciones: un número que no es una
+ * probabilidad o una composición imposible revientan aquí con el nombre del
+ * fichero, y no el primer lunes de una partida.
+ */
+function reglasDeAsaltantes(): ReglasDeAsaltantes {
+  const j = asaltantesJson;
+  const fichero = 'data/asaltantes.json';
+  if (!(j.probabilidadSemanal >= 0 && j.probabilidadSemanal <= 1)) {
+    throw new Error(
+      `${fichero}: probabilidadSemanal tiene que ir de 0 a 1 y es ${j.probabilidadSemanal}`,
+    );
+  }
+  for (const [campo, valor] of [
+    ['pasosPorDia', j.pasosPorDia],
+    ['liderazgoMax', j.liderazgoMax],
+    ['fuerzaMax', j.fuerzaMax],
+  ] as const) {
+    if (!enteroDesde(valor, 0)) {
+      throw new Error(`${fichero}: ${campo} tiene que ser un entero ≥ 0 y es ${valor}`);
+    }
+  }
+  if (j.composiciones.length === 0) {
+    throw new Error(`${fichero}: no hay ninguna composición, y un grupo que brota necesita una`);
+  }
+  // Cada composición (unidades que existan, cupo, liderazgo y fuerza) la mira la
+  // comprobación de las composiciones, más abajo, al cargar: pide el catálogo de
+  // unidades y la fuerza.
+  return {
+    probabilidadSemanal: j.probabilidadSemanal,
+    pasosPorDia: j.pasosPorDia,
+    liderazgoMax: j.liderazgoMax,
+    fuerzaMax: j.fuerzaMax,
+    composiciones: j.composiciones,
+  };
+}
+
+export const ASALTANTES: ReglasDeAsaltantes = reglasDeAsaltantes();
 
 /**
  * Lo que impide que unos grupos de tropa sean un grupo neutral sin héroe: de 1
@@ -51,9 +117,9 @@ export function problemasDeAsaltante(grupos: readonly GrupoDeTropa[], quien: str
   return problemasDeGrupoNeutral(grupos, quien, 'un grupo de asaltantes');
 }
 
-// El techo de fuerza se comprueba AL CARGAR, como el resto del fichero en
-// `data.ts`: aquí y no allí porque medir la fuerza pide `fuerza.ts`, que importa
-// el catálogo, y desde el catálogo sería un ciclo.
+// El techo de fuerza se comprueba AL CARGAR, como el resto del fichero
+// (`reglasDeAsaltantes`), pero aparte: medir la fuerza pide `fuerza.ts`, que
+// importa el catálogo.
 {
   const problemas = ASALTANTES.composiciones.flatMap((grupos, i) =>
     problemasDeAsaltante(grupos, `data/asaltantes.json: la composición ${i}`),

@@ -13,8 +13,8 @@ import { createBattle } from '../src/core/battle/battle.js';
 import { allHexes, BOARD_HEIGHT, bandoDeSalida } from '../src/core/battle/board.js';
 import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO, cupoDelHeroe } from '../src/core/combate.js';
-import { LIDERAZGO } from '../src/core/data.js';
 import { RANGO_INICIAL_DE_HEROE, umbral } from '../src/core/hero/experiencia.js';
+import { LIDERAZGO } from '../src/core/hero/liderazgo.js';
 import {
   armyLeadership,
   GARRISON_LEADERSHIP,

@@ -28,15 +28,10 @@ import { HERO_BODY } from '../src/core/battle/types.js';
 import { cifrasDeUnidad, unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { serializeAdventureTurn, serializeBattleTurn } from '../src/core/contract/serialize.js';
-import {
-  CATALOGO_DE_HABILIDADES,
-  EXPERIENCIA,
-  HEROE,
-  LIDERAZGO,
-  validarExperiencia,
-} from '../src/core/data.js';
+import { HEROE } from '../src/core/hero/cuerpo-del-heroe.js';
 import {
   cifrasVeteranas,
+  EXPERIENCIA,
   EXPERIENCIA_INICIAL_DE_HEROE,
   RANGO_INICIAL_DE_HEROE,
   RANGO_MAXIMO_DE_TROPA,
@@ -45,8 +40,10 @@ import {
   siguienteUmbral,
   subidasDeRango,
   umbral,
+  validarExperiencia,
 } from '../src/core/hero/experiencia.js';
 import { cuerposDelHeroe, heroUnit } from '../src/core/hero/hero.js';
+import { LIDERAZGO } from '../src/core/hero/liderazgo.js';
 import {
   elQueSeIria,
   gruposDe,
@@ -64,6 +61,7 @@ import { newGame } from '../src/core/state/setup.js';
 import { guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import type { GameState } from '../src/core/state/tipos.js';
 import type { Point, Troop, Veterania } from '../src/core/types.js';
+import { CATALOGO_DE_HABILIDADES } from '../src/core/unidad.js';
 import { forzarTurno } from './batalla-de-prueba.js';
 import {
   ctx,

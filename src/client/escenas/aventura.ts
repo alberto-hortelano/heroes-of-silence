@@ -6,7 +6,7 @@
  * si se está arrastrando—, igual que hacía `main.ts` antes de partirse.
  */
 
-import { figuraDelHeroe } from '@core/data.js';
+import { figuraDelHeroe } from '@core/hero/tipos-de-heroe.js';
 import { individuosDe } from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
 import { inBounds, pointKey } from '@core/map/map.js';

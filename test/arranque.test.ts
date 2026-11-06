@@ -94,7 +94,9 @@ describe('una página que no arranca dice por qué (H5)', () => {
 
   it('la configuración de vite no carga el catálogo al arrancar: `pnpm dev` arranca con él roto', () => {
     const carga = cargaAlEvaluarse(ruta('vite.config.ts'));
-    expect(carga.has(ruta('src/core/data.ts'))).toBe(true); // el recorrido llega al núcleo
+    // El recorrido llega al núcleo: la muralla de la arena trae el tablero de batalla
+    // (era `src/core/data.ts` hasta la fase N de la reorganización, 07-11-2026).
+    expect(carga.has(ruta('src/core/battle/board.ts'))).toBe(true);
     expect(carga.has(ruta('src/core/catalogo.ts'))).toBe(false);
     expect(carga.has(ruta('tools/arena/borrador.ts'))).toBe(false);
   });

@@ -54,16 +54,14 @@ import { type CatalogoDeUnidades, cuerpoDe } from './catalogo.js';
 import { combateBlocker, type ReglasDelCombate } from './combate.js';
 import {
   baseBlocker,
-  type CuerpoDeTodoHeroe,
-  combateDelHeroe,
   diferenciaDe,
   EQUIPO_ESCRITO,
   esPiezaConBase,
-  HEROE,
   type Pieza,
   type PiezaEscrita,
   validarPieza,
-} from './data.js';
+} from './equipo/pieza.js';
+import { type CuerpoDeTodoHeroe, combateDelHeroe, HEROE } from './hero/cuerpo-del-heroe.js';
 import {
   aDosManos,
   type CatalogoDeEquipo,

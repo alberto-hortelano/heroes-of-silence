@@ -10,8 +10,8 @@
  * importación que solo funcionaba porque lo que corre al cargar usa declaraciones
  * de función (simplify de F1, 18-10-2026). Lo vigila `test/invariantes.test.ts`.
  */
-import { hasTrait } from '../data.js';
 import type { GolpeConArma, NivelesDeLaRueda, TipoDeGolpe, UnitInfo, UsoDeArma } from '../types.js';
+import { hasTrait } from '../types.js';
 import {
   type CifrasDeLaRueda,
   cifrasDeLosNiveles,

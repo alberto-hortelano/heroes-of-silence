@@ -16,7 +16,7 @@
  * banco no cambia.
  */
 import { TIPOS_DE_LAS_RUEDAS, type TiposDeLaRueda } from './battle/formas-de-la-rueda.js';
-import { LIDERAZGO } from './data.js';
+import { LIDERAZGO } from './hero/liderazgo.js';
 import { enumerar } from './types.js';
 
 export interface ReglasDelCombate {

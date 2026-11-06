@@ -19,7 +19,7 @@ import {
   tiposDeHeroe,
   validarFigurasDeHeroe,
   validarTiposDeHeroe,
-} from '../src/core/data.js';
+} from '../src/core/hero/tipos-de-heroe.js';
 import { createRng } from '../src/core/rng.js';
 import { applyAdventureAction } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';

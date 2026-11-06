@@ -23,7 +23,7 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import type { TipoDeHeroe } from '../../src/core/data.js';
+import type { TipoDeHeroe } from '../../src/core/hero/tipos-de-heroe.js';
 import { type FactionId, NOMBRE_DE_FACCION } from '../../src/core/types.js';
 import { seccionDelCuaderno } from './cuaderno.js';
 

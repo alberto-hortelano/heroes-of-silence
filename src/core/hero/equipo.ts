@@ -27,13 +27,12 @@ import {
   DICHO_DE_DONDE,
   EQUIPO,
   EQUIPO_ESCRITO,
-  HEROE,
   leerEquipo,
   leerPiezas,
   type Pieza,
   type PiezaEscrita,
   SOLO_EN_KITS,
-} from '../data.js';
+} from '../equipo/pieza.js';
 import type {
   ArmasDeLaUnidad,
   CifraDePieza,
@@ -61,6 +60,7 @@ import {
   NOMBRE_DE_HUECO,
   TIPOS_DEL_ANILLO,
 } from '../types.js';
+import { HEROE } from './cuerpo-del-heroe.js';
 import type { Hero } from './hero.js';
 
 /** Las piezas que se pueden llevar, por su id. */

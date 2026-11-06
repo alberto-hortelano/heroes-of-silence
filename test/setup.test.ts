@@ -4,7 +4,7 @@
  * la URL y el héroe que nace dentro de su base.
  */
 import { describe, expect, it } from 'vitest';
-import { leerRasgosDeFaccion, rasgoDeFaccion } from '../src/core/data.js';
+import { leerRasgosDeFaccion, rasgoDeFaccion } from '../src/core/hero/tipos-de-heroe.js';
 import { createRng } from '../src/core/rng.js';
 import { heroesOf } from '../src/core/state/consultas.js';
 import { applyAdventureAction, baseOf } from '../src/core/state/game.js';

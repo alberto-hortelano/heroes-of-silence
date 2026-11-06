@@ -10,9 +10,13 @@
  */
 import { describe, expect, it } from 'vitest';
 import { resolvePendingBattle } from '../src/core/ai/turn.js';
-import { tipoDeHeroePorDefecto, tiposDeHeroe, validarTiposDeHeroe } from '../src/core/data.js';
 import { porPreguntar, problemaDeTipo } from '../src/core/hero/ascenso.js';
 import { rangoDeHeroe, umbral } from '../src/core/hero/experiencia.js';
+import {
+  tipoDeHeroePorDefecto,
+  tiposDeHeroe,
+  validarTiposDeHeroe,
+} from '../src/core/hero/tipos-de-heroe.js';
 import { isEnterable, objectAt } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
 import { heroesOf, playerById } from '../src/core/state/consultas.js';

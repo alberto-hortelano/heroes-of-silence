@@ -34,10 +34,9 @@
  *    los lunes en regiones sin dueño y sin héroe, en una casilla libre.
  */
 
-import { ASALTANTES } from '../data.js';
 import { deHoyALaEscala } from '../escala.js';
 import { fuerzaDe, poderDe, ventajaClara } from '../hero/fuerza.js';
-import { loNeutralAlTope } from '../hero/grupos.js';
+import { ASALTANTES, loNeutralAlTope } from '../hero/grupos.js';
 import type { Hero } from '../hero/hero.js';
 import { individuosDe } from '../hero/troop.js';
 import type { CasillasLeidas } from '../map/casillas.js';

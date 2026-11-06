@@ -19,7 +19,7 @@ import {
   retocarEnBatalla,
 } from '../src/core/arena.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { EQUIPO_ESCRITO } from '../src/core/data.js';
+import { EQUIPO_ESCRITO } from '../src/core/equipo/pieza.js';
 import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { catalogoDeHechizos, hechizo, todosLosHechizos } from '../src/core/magia/catalogo.js';
 import {

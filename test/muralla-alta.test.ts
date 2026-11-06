@@ -34,12 +34,12 @@ import {
 } from '../src/core/battle/battle.js';
 import { hexKey } from '../src/core/battle/board.js';
 import { effectiveDefense, expectedDamage } from '../src/core/battle/damage.js';
-import { bonoEnLoAlto, enLoAlto, esMuro } from '../src/core/battle/muralla.js';
+import { bonoEnLoAlto, enLoAlto, esMuro, MURALLA } from '../src/core/battle/muralla.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { LIDERAZGO, MURALLA } from '../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
+import { LIDERAZGO } from '../src/core/hero/liderazgo.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex } from '../src/core/types.js';
 import { empezarTalCual, sesionDeArena } from './batalla-de-cliente.js';

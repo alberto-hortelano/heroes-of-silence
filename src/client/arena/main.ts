@@ -66,18 +66,16 @@ import type { BattleStack } from '@core/battle/types.js';
 import { UNIDADES } from '@core/catalogo.js';
 import { COMBATE_COMPLETO, type ReglasDelCombate } from '@core/combate.js';
 import {
-  type CuerpoDeTodoHeroe,
-  combateDelHeroe,
   conLosExtras,
   DONDE_SE_CONSIGUE,
   type ExtrasDePieza,
   esPiezaConBase,
   extrasDe,
-  HEROE,
   type Pieza,
   type PiezaEscrita,
   validarPieza,
-} from '@core/data.js';
+} from '@core/equipo/pieza.js';
+import { type CuerpoDeTodoHeroe, combateDelHeroe, HEROE } from '@core/hero/cuerpo-del-heroe.js';
 import {
   type CatalogoDeEquipo,
   catalogoDeEquipo,

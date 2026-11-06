@@ -35,7 +35,8 @@
  * una o dos puertas son dos o cuatro, y una caché por muralla sola se quedaría
  * vieja al abrir.
  */
-import { LIDERAZGO, MURALLA } from '../data.js';
+import murallaJson from '../../../data/muralla.json' with { type: 'json' };
+import { LIDERAZGO } from '../hero/liderazgo.js';
 import type { Hex } from '../types.js';
 import { deLaListaBlocker, problemasDeObjeto } from '../validar.js';
 import { isShooter } from './armas.js';
@@ -739,3 +740,26 @@ export function reglaDeLaMuralla(p: PalabrasDeLaMuralla): string {
 function mayuscula(t: string): string {
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
+
+/**
+ * La muralla de la arena, de `data/muralla.json`. **Inventado y provisional**,
+ * como dice su `_comment`: en HoMM2 no hay tirador que se suba al muro.
+ */
+export interface ReglasDeLaMuralla {
+  /** Lo que suma a su defensa un tirador en lo alto de un muro (`effectiveDefense`). */
+  readonly defensaEnLoAlto: number;
+}
+
+/** Se edita a mano: una cifra que no es un entero ≥ 0 se dice al cargar, no en la batalla. */
+function defensaEnLoAlto(v: unknown): number {
+  if (!Number.isSafeInteger(v) || (v as number) < 0) {
+    throw new Error(
+      `data/muralla.json: defensaEnLoAlto tiene que ser un entero de 0 en adelante y es ${JSON.stringify(v)}`,
+    );
+  }
+  return v as number;
+}
+
+export const MURALLA: ReglasDeLaMuralla = {
+  defensaEnLoAlto: defensaEnLoAlto(murallaJson.defensaEnLoAlto),
+};

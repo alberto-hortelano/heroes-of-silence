@@ -47,7 +47,7 @@ import {
   unidadesDeFaccion,
 } from '../catalogo.js';
 import { agilidadDe, marchaDe } from '../cuerpo.js';
-import { ASALTANTES, EQUIPO, LIDERAZGO, NIVEL_POR_SUELO, tiposDeHeroe } from '../data.js';
+import { EQUIPO } from '../equipo/pieza.js';
 import type { VeteranoEnBase } from '../hero/ascenso.js';
 import { cifrasDePieza, deDondeSale, PIEZAS_DE_ARMERIA, seVende } from '../hero/equipo.js';
 import {
@@ -57,8 +57,11 @@ import {
   siguienteUmbral,
 } from '../hero/experiencia.js';
 import { fuerzaDe, MARGEN_CONTRA_NEUTRALES, poderDe } from '../hero/fuerza.js';
+import { ASALTANTES } from '../hero/grupos.js';
 import { type Hero, heroUnit, maxMana, maxMovePoints } from '../hero/hero.js';
 import { infiltracionBlocker } from '../hero/infiltracion.js';
+import { LIDERAZGO } from '../hero/liderazgo.js';
+import { tiposDeHeroe } from '../hero/tipos-de-heroe.js';
 import {
   armyLeadership,
   GARRISON_LEADERSHIP,
@@ -68,6 +71,7 @@ import {
 import { todosLosHechizos } from '../magia/catalogo.js';
 import { queHaceElHechizo } from '../magia/dicho.js';
 import type { Hechizo } from '../magia/formato.js';
+import { NIVEL_POR_SUELO } from '../map/generar/datos.js';
 import { regionesDelMapa } from '../map/generar/plan.js';
 import { pointFromKey } from '../map/map.js';
 import { LADO_DEL_RECINTO, SEPARACION_DE_CIUDADES } from '../map/recinto.js';

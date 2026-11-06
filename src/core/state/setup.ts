@@ -1,7 +1,6 @@
 /** Arranque de partida: del plan de mapa a un `GameState` listo para jugar. */
 import { unidadesDeMorada } from '../catalogo.js';
 import { COMBATE_COMPLETO, cupoDelHeroe, type ReglasDelCombate } from '../combate.js';
-import { tipoDeHeroePorDefecto } from '../data.js';
 import { problemaDeTipo } from '../hero/ascenso.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../hero/experiencia.js';
 import {
@@ -11,6 +10,7 @@ import {
   heroeRecienHecho,
   maxMana,
 } from '../hero/hero.js';
+import { tipoDeHeroePorDefecto } from '../hero/tipos-de-heroe.js';
 import { heroLeadership, troopRoom, withTroops } from '../hero/troop.js';
 import type { MapPlan } from '../map/generar/plan.js';
 import { basesDelPlan, buildMap, generateMapPlan, validateMapPlan } from '../map/generate.js';

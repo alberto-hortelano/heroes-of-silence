@@ -12,7 +12,7 @@
  * (`vistaDelAyuntamiento`, cacheada por su `version`) y lo pintan el lienzo y el
  * panel.
  */
-import { figuraDelHeroe } from '@core/data.js';
+import { figuraDelHeroe } from '@core/hero/tipos-de-heroe.js';
 import type { CandidatoAHeroe, EleccionDeHeroe } from '@core/state/game.js';
 import { building } from '@core/town/buildings.js';
 import { construidoEn, type SitioId } from '@core/town/sitios.js';

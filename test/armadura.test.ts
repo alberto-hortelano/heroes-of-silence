@@ -31,7 +31,7 @@ import { expectedDamage } from '../src/core/battle/damage.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { cuerpoConSusCifras } from '../src/core/cuerpo.js';
-import { type Pieza, problemasDePieza, validarPieza } from '../src/core/data.js';
+import { type Pieza, problemasDePieza, validarPieza } from '../src/core/equipo/pieza.js';
 import { EQUIPO_DEL_JUEGO, pieza } from '../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import type { Equipo, Hex, UnitInfo } from '../src/core/types.js';

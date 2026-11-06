@@ -8,7 +8,7 @@
  */
 
 import type { ReglasDelCombate } from '@core/combate.js';
-import { rasgoDeFaccion } from '@core/data.js';
+import { rasgoDeFaccion } from '@core/hero/tipos-de-heroe.js';
 import { nombreDeSalida } from '@core/state/setup.js';
 import { FACTION_IDS, type FactionId, NOMBRE_DE_FACCION } from '@core/types.js';
 import { type Html, html, NADA, unir } from '../html.js';

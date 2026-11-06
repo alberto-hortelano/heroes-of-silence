@@ -3,8 +3,9 @@
  * nivel de un arma en cada tipo (`Pieza.rueda`, vuelta 2 del 18-10-2026): leerlas,
  * traducir unos niveles a cifras y decir lo que no vale. **Sin dependencias** del
  * resto del núcleo (solo `types.ts`, `validar.ts` y el JSON): la regla de una
- * pieza (`problemasDePieza`, `data.ts`) juzga con ellas la rueda de un arma al
- * cargar `data/equipo.json`, y `data.ts` no puede importar `rueda.ts`, que lo lee.
+ * pieza (`problemasDePieza`, `equipo/pieza.ts`) juzga con ellas la rueda de un arma
+ * al cargar `data/equipo.json`, y `equipo/pieza.ts` no puede importar `rueda.ts`,
+ * que lo lee.
  * El resto de la rueda —el cruce, los efectos, las notas— está en `rueda.ts`, que
  * reexporta lo de aquí.
  */
@@ -78,7 +79,7 @@ export const NORMAL_SIN_NIVEL = 'Normal no tiene nivel: siempre ×1';
 /**
  * Lo que no vale de una clave de la rueda de `q` que no es un tipo del anillo:
  * Normal, que no tiene nivel, o un tipo que no existe. La leen los niveles de un
- * arma (`problemasDeNiveles`) y los extras de una pieza con base (`data.ts`).
+ * arma (`problemasDeNiveles`) y los extras de una pieza con base (`equipo/pieza.ts`).
  */
 export function fueraDelAnillo(clave: string, q: string): string {
   return clave === 'normal'

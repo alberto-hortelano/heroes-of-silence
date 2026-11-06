@@ -8,8 +8,7 @@
  * la partida; el de la persona sin `?heroe=`, pendiente hasta que lo elige.
  */
 import { describe, expect, it } from 'vitest';
-import { ECONOMIA, tipoDeHeroePorDefecto, validarEconomia } from '../src/core/data.js';
-
+import { tipoDeHeroePorDefecto } from '../src/core/hero/tipos-de-heroe.js';
 import {
   applyAdventureAction,
   candidatosAHeroe,
@@ -19,6 +18,7 @@ import {
 import { newGame } from '../src/core/state/setup.js';
 import { guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import type { AdventureAction, GameState } from '../src/core/state/tipos.js';
+import { ECONOMIA, validarEconomia } from '../src/core/town/economia.js';
 import { oroBlocker } from '../src/core/town/town.js';
 import { ctx } from './comun.js';
 

@@ -23,13 +23,6 @@ import {
   unidadDelJuegoSiExiste,
 } from '../catalogo.js';
 import { combateBlocker, type ReglasDelCombate } from '../combate.js';
-import {
-  ECONOMIA,
-  figuraDelHeroe,
-  tipoDeHeroePorDefecto,
-  tipoSeInfiltra,
-  tiposDeHeroe,
-} from '../data.js';
 import { radioALaEscala } from '../escala.js';
 import { problemaDeTipo, type VeteranoEnBase, veteranosEn } from '../hero/ascenso.js';
 import {
@@ -66,6 +59,12 @@ import {
   moraleBonus,
 } from '../hero/hero.js';
 import { infiltracionBlocker, precioDeLaBarrera } from '../hero/infiltracion.js';
+import {
+  figuraDelHeroe,
+  tipoDeHeroePorDefecto,
+  tipoSeInfiltra,
+  tiposDeHeroe,
+} from '../hero/tipos-de-heroe.js';
 import {
   ejercitoDe,
   gruposDe,
@@ -118,6 +117,7 @@ import {
 } from '../mundo/formato.js';
 import { mundoDe, opcionBlocker, opcionDe, type RefDeOpcion } from '../mundo/reglas.js';
 import { createRng, type Rng } from '../rng.js';
+import { ECONOMIA } from '../town/economia.js';
 import {
   applyWeeklyGrowth,
   build as buildInTown,

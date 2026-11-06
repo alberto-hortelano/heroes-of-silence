@@ -13,7 +13,7 @@
  * - `data/poblamiento.json`: el cargador lanza con lo que no vale.
  */
 import { describe, expect, it } from 'vitest';
-import { POBLAMIENTO, validarPoblamiento } from '../src/core/data.js';
+import { POBLAMIENTO, validarPoblamiento } from '../src/core/map/generar/datos.js';
 import {
   buildMap,
   ciudadesDeRegion,

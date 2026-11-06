@@ -18,7 +18,7 @@ import { randomInt } from 'node:crypto';
 import { appendFileSync, closeSync, mkdirSync, openSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { type Progreso, terminada } from '../../src/client/desarrollo/progreso.js';
-import { tipoDeHeroePorDefecto } from '../../src/core/data.js';
+import { tipoDeHeroePorDefecto } from '../../src/core/hero/tipos-de-heroe.js';
 import { idDeMundoBlocker } from '../../src/core/mundo/formato.js';
 import { type PedidoDelMenu, pedidoBlocker } from '../../src/core/mundo/partida.js';
 import { parseSeed } from '../../src/core/rng.js';

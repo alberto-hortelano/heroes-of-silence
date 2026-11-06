@@ -28,8 +28,7 @@ import {
   leerEquipo,
   piezaBlocker,
   problemasDePieza,
-  tipoDeHeroePorDefecto,
-} from '../src/core/data.js';
+} from '../src/core/equipo/pieza.js';
 import {
   aDosManos,
   catalogoDeEquipo,
@@ -48,6 +47,7 @@ import {
 } from '../src/core/hero/equipo.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import { heroeRecienHecho } from '../src/core/hero/hero.js';
+import { tipoDeHeroePorDefecto } from '../src/core/hero/tipos-de-heroe.js';
 import { troopUnit } from '../src/core/hero/troop.js';
 import { isEnterable, objectAt, pointKey } from '../src/core/map/map.js';
 import { regionDeCasilla, tocaUnNodo, VECINAS } from '../src/core/map/regiones.js';

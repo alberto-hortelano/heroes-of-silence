@@ -16,8 +16,8 @@
  * se escriben (25-10-2026): se derivan del cuerpo y su equipo (`cifrasDelCuerpo`,
  * `core/cuerpo.ts`).
  */
+import habilidadesJson from '../../data/habilidades.json' with { type: 'json' };
 import { AGILIDAD_DEL_CUERPO_MAX, AGILIDAD_DEL_CUERPO_MIN, cuerpoConSusCifras } from './cuerpo.js';
-import { CATALOGO_DE_HABILIDADES } from './data.js';
 import { type EquipoAtado, equipoBaseBlocker, PIEZAS_DEL_CATALOGO } from './hero/equipo.js';
 import { type CatalogoDeHechizos, HECHIZOS_DEL_JUEGO } from './magia/catalogo.js';
 import { esIdDeHechizo } from './magia/formato.js';
@@ -45,6 +45,11 @@ import {
   sinRepetir,
   texto,
 } from './validar.js';
+
+/** Los nombres del catálogo de habilidades, en el orden del cuaderno. */
+export const CATALOGO_DE_HABILIDADES: readonly string[] = habilidadesJson.habilidades.map(
+  (h) => h.nombre,
+);
 
 /**
  * Los perfiles de arma de las hojas: los cinco de pose de `tools/art/poses.ts`,

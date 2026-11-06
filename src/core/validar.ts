@@ -244,3 +244,15 @@ export function unaVezEnLaURL(valores: readonly string[], nombre: string): strin
   }
   return valores[0] ?? null;
 }
+
+/**
+ * Un entero que se puede sumar sin perder bits, y ≥ `desde`. Es como preguntan
+ * «¿es un entero válido?» los lectores de las tablas de `data/` (los grupos de
+ * tropa, las reglas de los asaltantes, las de la experiencia…), que vivían todos
+ * en `data.ts` hasta la fase N de la reorganización (07-11-2026).
+ * `isSafeInteger` y no `isInteger`, por lo mismo que `entorno.ts`: `1e21` es
+ * entero y no se puede sumar.
+ */
+export function enteroDesde(v: unknown, desde: number): v is number {
+  return typeof v === 'number' && Number.isSafeInteger(v) && v >= desde;
+}

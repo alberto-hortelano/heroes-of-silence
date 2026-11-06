@@ -657,7 +657,7 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo([PERMITIDO], /\bcreateBattle\s*\(/)).toHaveLength(2);
   });
 
-  it('la infiltración se lee en un sitio: el rasgo en `hero/infiltracion.ts`, sus tipos en `core/data.ts`', () => {
+  it('la infiltración se lee en un sitio: el rasgo en `hero/infiltracion.ts`, sus tipos en `hero/tipos-de-heroe.ts`', () => {
     // Quién se infiltra es una sola regla (`infiltracionBlocker`): si otro módulo
     // mirara el rasgo `'infiltrarse'` por su cuenta, la búsqueda de caminos, la
     // ficha y el contrato podrían decir cosas distintas del mismo grupo. Y el
@@ -678,7 +678,8 @@ describe('invariantes del proyecto', () => {
     ).toEqual([]);
     expect(infractoresDeCodigo([ruta('src/core/hero/infiltracion.ts')], lee)).not.toEqual([]);
 
-    const PUERTA = ruta('src/core/data.ts');
+    // Los tipos, en `core/data.ts` hasta la fase N de la reorganización (07-11-2026).
+    const PUERTA = ruta('src/core/hero/tipos-de-heroe.ts');
     const importa = importaDe(/[^'"]*data\/infiltradores\.json/);
     expect(
       infractoresDeCodigo(

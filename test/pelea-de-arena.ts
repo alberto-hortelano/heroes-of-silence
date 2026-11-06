@@ -30,8 +30,8 @@ import {
   EQUIPO_ESCRITO,
   type PiezaEscrita,
   RUTA_DEL_CATALOGO_DE_EQUIPO,
-  RUTA_DEL_HEROE,
-} from '../src/core/data.js';
+} from '../src/core/equipo/pieza.js';
+import { RUTA_DEL_HEROE } from '../src/core/hero/cuerpo-del-heroe.js';
 import {
   type CatalogoDeEquipo,
   catalogoDeEquipo,

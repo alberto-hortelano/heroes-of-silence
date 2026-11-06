@@ -13,7 +13,7 @@
  * texto ajeno más ancho que hay en el cable.
  */
 import type { BattleState, Side } from '@core/battle/types.js';
-import { nombreDeTipoDeHeroe } from '@core/data.js';
+import { nombreDeTipoDeHeroe } from '@core/hero/tipos-de-heroe.js';
 import { pasoOPuebloSiExiste } from '@core/state/sitios.js';
 import type { SpectatorView } from '../../server/vista-espectador.js';
 import { NADIE } from '../desenlace.js';

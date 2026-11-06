@@ -85,10 +85,10 @@ import type {
 } from '@core/battle/types.js';
 import { cuerpoDe, unidadDelJuego } from '@core/catalogo.js';
 import type { ReglasDelCombate } from '@core/combate.js';
-import { figuraDelHeroe } from '@core/data.js';
 import { type CatalogoDeEquipo, type Portador, pedidoDelPuesto, pieza } from '@core/hero/equipo.js';
 import { type Hero, maxMana } from '@core/hero/hero.js';
 import { infiltracionBlocker } from '@core/hero/infiltracion.js';
+import { figuraDelHeroe } from '@core/hero/tipos-de-heroe.js';
 import { armyLeadership, heroLeadership, troopUnit } from '@core/hero/troop.js';
 import { type CatalogoDeHechizos, enOrdenDelLibro, nombreDeHechizo } from '@core/magia/catalogo.js';
 import { Casillas, type CasillasLeidas } from '@core/map/casillas.js';

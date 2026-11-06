@@ -22,10 +22,98 @@
  * de `Math.pow`, que es lo que vigila `test/invariantes.test.ts` para que el
  * banco valga fuera de esta máquina.
  */
+import experienciaJson from '../../../data/experiencia.json' with { type: 'json' };
 import { cuerpoConSusCifras } from '../cuerpo.js';
-import { EXPERIENCIA } from '../data.js';
 import type { UnitInfo, Veterania } from '../types.js';
+import { enteroBlocker, enteroDesde, problemasDeObjeto } from '../validar.js';
 import { conEquipo } from './equipo.js';
+
+/**
+ * Las reglas de la experiencia, de `data/experiencia.json`. **Regla nuestra y
+ * no del original**, y así lo dice su `_comment`: sustituye a la tabla de
+ * fheroes2. Los umbrales y las cifras los resuelve `hero/experiencia.ts`; esto
+ * solo las lee y las valida.
+ */
+export interface ReglasDeExperiencia {
+  /** Lo que cuesta el primer rango: subir del n al n+1 cuesta `base × incrementos[n−1]`. */
+  readonly base: number;
+  /** Los primeros incrementos, Fibonacci; más allá se siguen por la recurrencia. */
+  readonly incrementos: readonly number[];
+  /** El tope de la tropa. El héroe no tiene. */
+  readonly rangoMaximoDeTropa: number;
+  /**
+   * Lo que suma cada rango por encima del 1 al ataque, la fuerza y la agilidad del
+   * cuerpo (25-10-2026: la defensa ya no se escribe, sale de la agilidad).
+   */
+  readonly porRango: {
+    readonly ataque: number;
+    readonly fuerza: number;
+    readonly agilidad: number;
+  };
+}
+
+/**
+ * Valida unas reglas de experiencia y las devuelve tipadas. **Lanza con todos los
+ * problemas a la vez**, escritos para quien edita el JSON. Exportada con el JSON
+ * de argumento para que un test pueda darle uno roto y verla morder.
+ *
+ * Las habilidades por rango de cada criatura (inertes) se fueron con
+ * `data/creatures.json` (19-10-2026): las unidades del catálogo llevan las suyas
+ * (`Unidad.habilidades`), y un campo `habilidades` aquí se rechaza.
+ */
+export function validarExperiencia(
+  json: unknown,
+  fichero = 'data/experiencia.json',
+): ReglasDeExperiencia {
+  const problemas: string[] = [];
+  const j = (json ?? {}) as Record<string, unknown>;
+  if (!enteroDesde(j.base, 1)) problemas.push(`base tiene que ser un entero ≥ 1 y es ${j.base}`);
+  const rangoMax = j.rangoMaximoDeTropa;
+  if (!enteroDesde(rangoMax, 2)) {
+    problemas.push(`rangoMaximoDeTropa tiene que ser un entero ≥ 2 y es ${rangoMax}`);
+  }
+  const inc = j.incrementos;
+  if (!Array.isArray(inc) || inc.length < 2 || !inc.every((x) => enteroDesde(x, 1))) {
+    problemas.push(
+      `incrementos tiene que ser una lista de al menos dos enteros ≥ 1 —los dos primeros siembran la recurrencia— y es ${JSON.stringify(inc)}`,
+    );
+  } else {
+    const n = inc as number[];
+    for (let k = 2; k < n.length; k++) {
+      const [a, b, c] = [n[k - 2] as number, n[k - 1] as number, n[k] as number];
+      if (c !== a + b) {
+        problemas.push(
+          `incrementos no es Fibonacci: el ${k + 1}.º es ${c} y tendría que ser ${b} + ${a} = ${a + b}`,
+        );
+        break;
+      }
+    }
+  }
+  const CAMPOS_POR_RANGO = ['ataque', 'fuerza', 'agilidad'] as const;
+  problemas.push(...problemasDeObjeto(j.porRango, CAMPOS_POR_RANGO).map((p) => `porRango: ${p}`));
+  const por = (j.porRango ?? {}) as Record<string, unknown>;
+  for (const campo of CAMPOS_POR_RANGO) {
+    const motivo = enteroBlocker(por[campo], 0);
+    if (motivo !== null) problemas.push(`porRango.${campo} ${motivo}`);
+  }
+  const ajeno = Object.keys(j).find(
+    (k) => !['_comment', 'base', 'incrementos', 'rangoMaximoDeTropa', 'porRango'].includes(k),
+  );
+  if (ajeno !== undefined) problemas.push(`«${ajeno}» no es un campo de la experiencia`);
+  if (problemas.length > 0) throw new Error(`${fichero}: ${problemas.join('; ')}`);
+  return {
+    base: j.base as number,
+    incrementos: [...(inc as number[])],
+    rangoMaximoDeTropa: rangoMax as number,
+    porRango: {
+      ataque: por.ataque as number,
+      fuerza: por.fuerza as number,
+      agilidad: por.agilidad as number,
+    },
+  };
+}
+
+export const EXPERIENCIA: ReglasDeExperiencia = validarExperiencia(experienciaJson);
 
 /**
  * Lo que cuesta llegar a cada rango: `UMBRALES[n − 1]` es el del rango `n`.

@@ -8,7 +8,8 @@
 
 import { cifrasDeUnidad, equipoPuestoDe, unidadDelJuego } from '../catalogo.js';
 import { cuerpoConSusCifras } from '../cuerpo.js';
-import { ECONOMIA, HEROE, type Pieza } from '../data.js';
+import type { Pieza } from '../equipo/pieza.js';
+import { HEROE } from '../hero/cuerpo-del-heroe.js';
 import {
   conEquipo,
   destinoDeEquipo,
@@ -59,6 +60,7 @@ import {
 } from '../state/sitios.js';
 import type { AdventureAction, GameState } from '../state/tipos.js';
 import { building, buildingsOfFaction, nivelDeMorada } from '../town/buildings.js';
+import { ECONOMIA } from '../town/economia.js';
 import {
   availableBuildings,
   dailyIncome,

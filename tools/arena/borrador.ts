@@ -22,12 +22,14 @@ import {
 } from '../../src/core/arena-murallas.js';
 import {
   COMENTARIO_DEL_CATALOGO_DE_EQUIPO,
-  type CuerpoDeTodoHeroe,
-  combateDelHeroe,
   type PiezaEscrita,
   RUTA_DEL_CATALOGO_DE_EQUIPO,
+} from '../../src/core/equipo/pieza.js';
+import {
+  type CuerpoDeTodoHeroe,
+  combateDelHeroe,
   RUTA_DEL_HEROE,
-} from '../../src/core/data.js';
+} from '../../src/core/hero/cuerpo-del-heroe.js';
 import {
   type CatalogoDeEquipo,
   catalogoDelFichero,

@@ -1,12 +1,12 @@
 /** Catálogo de edificios del castillo. */
 import buildingsJson from '../../../data/buildings.json' with { type: 'json' };
 import { UNIDADES, unidadesDeMorada } from '../catalogo.js';
-import { ECONOMIA } from '../data.js';
 import { nivelDeUnidad } from '../nivel.js';
 import type { FactionId } from '../types.js';
 import { FACTION_IDS } from '../types.js';
 import type { Unidad } from '../unidad.js';
 import { entero, objetoCon, texto } from '../validar.js';
+import { ECONOMIA } from './economia.js';
 
 export interface Building {
   readonly id: string;

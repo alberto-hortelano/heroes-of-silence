@@ -18,7 +18,7 @@
  */
 
 import { hojaDeUnidad } from '@core/catalogo.js';
-import { figuraDelHeroe } from '@core/data.js';
+import { figuraDelHeroe } from '@core/hero/tipos-de-heroe.js';
 import { individuosDe } from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
 import {

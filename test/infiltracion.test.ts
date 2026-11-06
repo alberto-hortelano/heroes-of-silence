@@ -19,13 +19,6 @@ import { describe, expect, it } from 'vitest';
 import { llegadaDeLaRuta } from '../src/client/escenas/aventura.js';
 import { Session } from '../src/client/session.js';
 import { unidadDelJuego, unidadesDeFaccion } from '../src/core/catalogo.js';
-import {
-  hasTrait,
-  tipoDeHeroePorDefecto,
-  tipoSeInfiltra,
-  tiposDeHeroe,
-  validarInfiltradores,
-} from '../src/core/data.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../src/core/hero/experiencia.js';
 import { empezarElDia, heroeRecienHecho, maxMovePoints } from '../src/core/hero/hero.js';
 import {
@@ -33,6 +26,12 @@ import {
   precioDeLaBarrera,
   seInfiltra,
 } from '../src/core/hero/infiltracion.js';
+import {
+  tipoDeHeroePorDefecto,
+  tipoSeInfiltra,
+  tiposDeHeroe,
+  validarInfiltradores,
+} from '../src/core/hero/tipos-de-heroe.js';
 import { barreraEn, isEnterable, objectAt, type PathStep, pointKey } from '../src/core/map/map.js';
 import { regionDescubierta, regionesQueDescubre } from '../src/core/map/niebla.js';
 import { FUERA, MURO, pasosDelMapa } from '../src/core/map/recinto.js';
@@ -51,7 +50,7 @@ import {
 import { rentaDelDia } from '../src/core/state/renta.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { GameState } from '../src/core/state/tipos.js';
-import { FACTION_IDS, type FactionId, type Point } from '../src/core/types.js';
+import { FACTION_IDS, type FactionId, hasTrait, type Point } from '../src/core/types.js';
 import { primeraSemillaCon } from '../tools/comun/semillas.js';
 import { ctx, JINETE, TROPA } from './comun.js';
 import { conSuEquipo, ejercito, hastaSuSiguienteTurno } from './partida-de-prueba.js';

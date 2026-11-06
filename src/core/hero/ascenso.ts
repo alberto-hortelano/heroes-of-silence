@@ -15,11 +15,11 @@
  * héroes, y este módulo importándolos cerraría un ciclo con el que lo importa a
  * él.
  */
-import { tipoDeHeroe, tiposDeHeroe } from '../data.js';
 import type { Town } from '../town/town.js';
 import type { FactionId, Veterania } from '../types.js';
 import { RANGO_MAXIMO_DE_TROPA, rangoDeTropa } from './experiencia.js';
 import type { Hero } from './hero.js';
+import { tipoDeHeroe, tiposDeHeroe } from './tipos-de-heroe.js';
 
 /**
  * Un veterano que ya puede hacerse héroe, y dónde está: en `base` y, si no está

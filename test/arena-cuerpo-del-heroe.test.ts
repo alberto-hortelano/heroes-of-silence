@@ -18,7 +18,12 @@ import {
   validarHeroeDeArena,
 } from '../src/core/arena.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { type CuerpoDeTodoHeroe, EQUIPO_ESCRITO, HEROE, RUTA_DEL_HEROE } from '../src/core/data.js';
+import { EQUIPO_ESCRITO } from '../src/core/equipo/pieza.js';
+import {
+  type CuerpoDeTodoHeroe,
+  HEROE,
+  RUTA_DEL_HEROE,
+} from '../src/core/hero/cuerpo-del-heroe.js';
 import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { hechizosDelGremio } from '../src/core/magia/catalogo.js';
 import {

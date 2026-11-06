@@ -42,7 +42,7 @@ import {
   unidadDelJuegoSiExiste,
 } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO, type ReglasDelCombate } from '../src/core/combate.js';
-import type { Pieza } from '../src/core/data.js';
+import type { Pieza } from '../src/core/equipo/pieza.js';
 import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE, umbral } from '../src/core/hero/experiencia.js';
 import { cuerposDelHeroe } from '../src/core/hero/hero.js';

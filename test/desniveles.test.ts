@@ -15,7 +15,7 @@
 import { describe, expect, it } from 'vitest';
 import barrerasJson from '../data/barreras.json' with { type: 'json' };
 import relieveJson from '../data/relieve.json' with { type: 'json' };
-import { NIVEL_POR_SUELO, validarBarreras, validarRelieve } from '../src/core/data.js';
+import { NIVEL_POR_SUELO, validarBarreras, validarRelieve } from '../src/core/map/generar/datos.js';
 import { generateMapPlan } from '../src/core/map/generate.js';
 import { problemasDeNiveles } from '../src/core/map/regiones.js';
 import { BARRERAS_DE_DESNIVEL, SUELOS_PISABLES } from '../src/core/map/terrain.js';

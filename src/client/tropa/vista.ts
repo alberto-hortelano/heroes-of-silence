@@ -15,7 +15,7 @@
 import { armaduraDe } from '@core/battle/armas.js';
 import type { BattleState } from '@core/battle/types.js';
 import { equipoPuestoDe, unidadDelJuego } from '@core/catalogo.js';
-import { nombreDeTipoDeHeroe, type Pieza } from '@core/data.js';
+import type { Pieza } from '@core/equipo/pieza.js';
 import {
   destinoDeEquipo,
   equipoDe,
@@ -30,6 +30,7 @@ import {
   siguienteUmbral,
 } from '@core/hero/experiencia.js';
 import { type Hero, heroUnit } from '@core/hero/hero.js';
+import { nombreDeTipoDeHeroe } from '@core/hero/tipos-de-heroe.js';
 import { troopUnit } from '@core/hero/troop.js';
 import { indiceDePoder, nivelDeUnidad } from '@core/nivel.js';
 import { type ClimaDelSitio, DESPEJADO } from '@core/state/clima.js';

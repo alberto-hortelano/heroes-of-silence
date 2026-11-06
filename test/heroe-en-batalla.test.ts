@@ -26,9 +26,10 @@ import { HERO_BODY, queEs } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { escalonDeCasillas } from '../src/core/cuerpo.js';
-import { figuraDelHeroe, HEROE } from '../src/core/data.js';
+import { HEROE } from '../src/core/hero/cuerpo-del-heroe.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import { type Hero, heroUnit } from '../src/core/hero/hero.js';
+import { figuraDelHeroe } from '../src/core/hero/tipos-de-heroe.js';
 import {
   isEnterable,
   objectAt,

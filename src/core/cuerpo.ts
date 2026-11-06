@@ -45,7 +45,7 @@ export const CASILLAS_MAX = Math.max(...SPEED_TIERS.map((t) => SPEED_TO_HEXES[t]
  * La agilidad que puede escribir un cuerpo o una montura, de 2 a 7: la escala de
  * las casillas de antes (decisión del usuario, 25-10-2026). Con el peso encima baja
  * hasta 1 (`AGILIDAD_MINIMA`), pero ninguno nace así. Aquí y no en `unidad.ts`
- * porque la juzgan la unidad y la pieza de montura (`problemasDePieza`, `data.ts`).
+ * porque la juzgan la unidad y la pieza de montura (`problemasDePieza`, `equipo/pieza.ts`).
  */
 export const AGILIDAD_DEL_CUERPO_MIN = 2;
 export const AGILIDAD_DEL_CUERPO_MAX = CASILLAS_MAX;

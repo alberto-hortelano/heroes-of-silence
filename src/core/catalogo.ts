@@ -19,7 +19,6 @@
 import ciudadesJson from '../../data/ciudades.json' with { type: 'json' };
 import unidadesJson from '../../data/unidades.json' with { type: 'json' };
 import type { BattleStack } from './battle/types.js';
-import { crecimientoDelNivel, enteroDesde, LIDERAZGO, oroDelIndice } from './data.js';
 import {
   aDosManos,
   conEquipo,
@@ -33,7 +32,9 @@ import {
 } from './hero/equipo.js';
 import { cifrasVeteranas, rangoDeTropa } from './hero/experiencia.js';
 import type { Hero } from './hero/hero.js';
+import { LIDERAZGO } from './hero/liderazgo.js';
 import { indiceDePoder, nivelDelIndice } from './nivel.js';
+import { crecimientoDelNivel, oroDelIndice } from './town/economia.js';
 import type { Equipo, FactionId, Hueco, UnitInfo, Veterania } from './types.js';
 import { FACTION_IDS, type GrupoDeTropa, huecoBlocker } from './types.js';
 import {
@@ -43,6 +44,7 @@ import {
   RUTA_DEL_CATALOGO_DE_UNIDADES,
   type Unidad,
 } from './unidad.js';
+import { enteroDesde } from './validar.js';
 
 /**
  * Todas las unidades del catálogo, en su orden: el de las hojas del taller y las

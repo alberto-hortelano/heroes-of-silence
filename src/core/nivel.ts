@@ -18,6 +18,7 @@
  * redondear distinto en otra máquina. La calibración y su porqué, en
  * `data/poder.json`.
  */
+import poderJson from '../../data/poder.json' with { type: 'json' };
 import {
   cifrasDelGolpe,
   disparosDe,
@@ -32,10 +33,10 @@ import {
 } from './battle/armas.js';
 import { CARGA, porcientoDeLaCarga } from './battle/carga.js';
 import type { CifrasDeLaRueda } from './battle/cifras-de-la-rueda.js';
-import { RUEDA_DE_REFERENCIA } from './battle/formas-de-la-rueda.js';
-import { PODER } from './data.js';
+import { type GolpeDeReferencia, RUEDA_DE_REFERENCIA } from './battle/formas-de-la-rueda.js';
 import { raizEntera } from './escala.js';
 import { SPEED_TO_HEXES, type TipoDeGolpe, type UnitInfo, type UsoDeArma } from './types.js';
+import { enteroDesde } from './validar.js';
 
 /**
  * El poder bruto de unas cifras: la media geométrica de lo que pega y lo que
@@ -286,3 +287,131 @@ export function nivelDeUnidad(u: UnitInfo): number {
 export function nivelDelIndice(indice: number): number {
   return Math.floor(indice / 100);
 }
+
+/**
+ * Las cifras del índice de poder, de `data/poder.json` (`core/nivel.ts`).
+ * **Inventadas y provisionales**, como dice su `_comment`: es la calibración que
+ * deja cada criatura del catálogo en el nivel de su morada o en el contiguo.
+ */
+export interface ReglasDelPoder {
+  /** El poder con el que empieza el nivel 2: por debajo, todo es el nivel 1. */
+  readonly umbralDelNivel2: number;
+  /** Cada umbral es el anterior × `razon[0]` / `razon[1]`: dos enteros, sin coma flotante. */
+  readonly razon: readonly [number, number];
+  /**
+   * La armadura con la que se mide cuánto aguanta una unidad que la lleva: el
+   * golpe de referencia (`core/nivel.ts`). Entero ≥ 1.
+   */
+  readonly armaduraDeReferencia: number;
+  /**
+   * Cuánto pesa cada tipo de la rueda en lo que pega una unidad (`core/nivel.ts`):
+   * uno por tipo de la rueda de referencia (`GOLPES_DE_LA_MEDIDA`, con la que se mide
+   * todo índice), enteros ≥ 0 y al menos uno > 0. Propios de la medida, no los de
+   * la IA (`PESOS_DE_LA_RUEDA`): retocar cómo elige la IA no mueve índices.
+   */
+  readonly pesosDeLaRueda: Readonly<Record<GolpeDeReferencia, number>>;
+  /**
+   * Cuánto baja la recarga lo que pega un arma de fuego (02-11-2026): el disparo se
+   * mide × `pesoDeLaRecarga / (pesoDeLaRecarga + recarga)`. Entero ≥ 1.
+   */
+  readonly pesoDeLaRecarga: number;
+  /** Lo que sube perforar la armadura lo que pega un arma de fuego: × `[0] / [1]`, ≥ 1. */
+  readonly perforacion: readonly [number, number];
+}
+
+/**
+ * Los tipos con que se mide el índice de poder: los de la rueda de referencia, sea
+ * cual sea la de la partida (decisión del plan de la complejidad del combate,
+ * 22-10-2026: lo que vale un arma no depende del nivel que se juegue).
+ */
+const GOLPES_DE_LA_MEDIDA = RUEDA_DE_REFERENCIA.golpes;
+
+/**
+ * Una razón de `data/poder.json`, `[numerador, denominador]` con dos enteros ≥ 1, o
+ * `null` con su problema apuntado en `problemas`: la forma de `razon` y de
+ * `perforacion` (hallazgo S11 de /simplify, 02-11-2026: la segunda copiaba la primera).
+ */
+function fraccionDelPoder(
+  v: unknown,
+  campo: string,
+  problemas: string[],
+): readonly [number, number] | null {
+  if (!Array.isArray(v) || v.length !== 2 || !v.every((x) => enteroDesde(x, 1))) {
+    problemas.push(
+      `${campo} tiene que ser [numerador, denominador], dos enteros ≥ 1, y es ${JSON.stringify(v)}`,
+    );
+    return null;
+  }
+  return [v[0] as number, v[1] as number];
+}
+
+/**
+ * Valida las reglas del índice de poder y las devuelve tipadas; lanza con todos
+ * los problemas a la vez. **Una razón ≤ 1 se rechaza**: con ella los umbrales no
+ * crecen y el bucle que los calcula no acabaría, o dos niveles empezarían en el
+ * mismo poder. Exportada con el JSON de argumento para que un test la vea morder.
+ */
+export function validarPoder(json: unknown, fichero = 'data/poder.json'): ReglasDelPoder {
+  const problemas: string[] = [];
+  const j = (json ?? {}) as Record<string, unknown>;
+  if (!enteroDesde(j.umbralDelNivel2, 1)) {
+    problemas.push(`umbralDelNivel2 tiene que ser un entero ≥ 1 y es ${j.umbralDelNivel2}`);
+  }
+  const r = fraccionDelPoder(j.razon, 'razon', problemas);
+  if (r !== null && r[0] <= r[1]) {
+    problemas.push(
+      `razon ${r[0]}/${r[1]} no pasa de 1: los umbrales de nivel tienen que crecer, o dos niveles empezarían en el mismo poder`,
+    );
+  } else if (
+    r !== null &&
+    enteroDesde(j.umbralDelNivel2, 1) &&
+    Math.floor((j.umbralDelNivel2 * r[0]) / r[1]) <= j.umbralDelNivel2
+  ) {
+    // En enteros, ⌊u · n / d⌋ puede quedarse en u con un umbral pequeño y una
+    // razón cerca de 1; si el primer paso crece, crecen todos (n/d > 1).
+    problemas.push(
+      `con umbralDelNivel2 ${j.umbralDelNivel2} y razon ${r[0]}/${r[1]} el umbral del nivel 3 sale igual que el del 2, en enteros: sube el umbral o la razón`,
+    );
+  }
+  if (!enteroDesde(j.armaduraDeReferencia, 1)) {
+    problemas.push(
+      `armaduraDeReferencia tiene que ser un entero ≥ 1 y es ${j.armaduraDeReferencia}`,
+    );
+  }
+  const pesos = j.pesosDeLaRueda;
+  const sonPesos =
+    typeof pesos === 'object' &&
+    pesos !== null &&
+    !Array.isArray(pesos) &&
+    Object.keys(pesos).length === GOLPES_DE_LA_MEDIDA.length &&
+    GOLPES_DE_LA_MEDIDA.every((t) => enteroDesde((pesos as Record<string, unknown>)[t], 0));
+  if (!sonPesos) {
+    problemas.push(
+      `pesosDeLaRueda tiene que ser un entero ≥ 0 por cada tipo de la rueda de referencia (${GOLPES_DE_LA_MEDIDA.join(', ')}), y es ${JSON.stringify(pesos)}`,
+    );
+  } else if (GOLPES_DE_LA_MEDIDA.every((t) => (pesos as Record<string, number>)[t] === 0)) {
+    problemas.push('pesosDeLaRueda son todos 0: alguno tiene que pesar');
+  }
+  if (!enteroDesde(j.pesoDeLaRecarga, 1)) {
+    problemas.push(`pesoDeLaRecarga tiene que ser un entero ≥ 1 y es ${j.pesoDeLaRecarga}`);
+  }
+  const f = fraccionDelPoder(j.perforacion, 'perforacion', problemas);
+  if (f !== null && f[0] < f[1]) {
+    problemas.push(
+      `perforacion ${f[0]}/${f[1]} baja de 1: perforar la armadura no puede restar a lo que pega`,
+    );
+  }
+  if (problemas.length > 0 || r === null || f === null) {
+    throw new Error(`${fichero}: ${problemas.join('; ')}`);
+  }
+  return {
+    pesoDeLaRecarga: j.pesoDeLaRecarga as number,
+    perforacion: f,
+    umbralDelNivel2: j.umbralDelNivel2 as number,
+    razon: r,
+    armaduraDeReferencia: j.armaduraDeReferencia as number,
+    pesosDeLaRueda: pesos as Record<GolpeDeReferencia, number>,
+  };
+}
+
+export const PODER: ReglasDelPoder = validarPoder(poderJson);

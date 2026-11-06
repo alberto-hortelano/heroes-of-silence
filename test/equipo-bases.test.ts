@@ -22,7 +22,7 @@ import {
   VERSION_DEL_ENLACE,
 } from '../src/core/arena.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { type Pieza, validarPieza } from '../src/core/data.js';
+import { type Pieza, validarPieza } from '../src/core/equipo/pieza.js';
 import { EQUIPO_DEL_JUEGO, pieza } from '../src/core/hero/equipo.js';
 import type { Unidad } from '../src/core/unidad.js';
 import { catalogoCon, elCatalogoCon, unidadDeArena } from './pelea-de-arena.js';

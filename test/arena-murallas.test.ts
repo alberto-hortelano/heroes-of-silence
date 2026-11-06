@@ -20,7 +20,7 @@ import {
   validarFormaDeMuralla,
 } from '../src/core/arena-murallas.js';
 import { FORMA_DEL_TABLERO, hexKey } from '../src/core/battle/board.js';
-import { LIDERAZGO } from '../src/core/data.js';
+import { LIDERAZGO } from '../src/core/hero/liderazgo.js';
 import { createRng } from '../src/core/rng.js';
 import { escribirMurallas, leerMurallas } from '../tools/arena/borrador.js';
 import { empezarTalCual, sesionDeArena } from './batalla-de-cliente.js';

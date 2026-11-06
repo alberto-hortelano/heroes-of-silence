@@ -31,7 +31,6 @@ import { reglaDeLaMuralla } from '../battle/muralla.js';
 import { HERO_BODY } from '../battle/types.js';
 import { unidadesDelJuego } from '../catalogo.js';
 import { TOPES_DE_TROPA } from '../combate.js';
-import { ECONOMIA } from '../data.js';
 import { EQUIPO_BASE, REGLA_DEL_ESCUDO } from '../hero/equipo.js';
 import { RANGO_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
 import { GARRISON_LEADERSHIP } from '../hero/troop.js';
@@ -132,6 +131,7 @@ const VACIOS_DE_SERIE = HUECOS.filter((h) => EQUIPO_BASE[h] === undefined).map(
   (h) => `"${SLOT_DE_HUECO[h]}"`,
 );
 
+import { ECONOMIA } from '../town/economia.js';
 import { lineaLegible } from './linea.js';
 import { CATALOGO_DE_EQUIPO_EN_PROSA, COMO_SE_LEE_EL_MAPA } from './serialize.js';
 

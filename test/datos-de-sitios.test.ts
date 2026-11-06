@@ -36,7 +36,6 @@ import {
 import type { BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego, unidadesDeFaccion } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { hasTrait } from '../src/core/data.js';
 import { createRng } from '../src/core/rng.js';
 import { heroesOf } from '../src/core/state/consultas.js';
 import { baseOf } from '../src/core/state/game.js';
@@ -49,7 +48,7 @@ import {
   sitioPorId,
 } from '../src/core/state/sitios.js';
 import type { GameState } from '../src/core/state/tipos.js';
-import { type Army, FACTION_IDS, type FactionId } from '../src/core/types.js';
+import { type Army, FACTION_IDS, type FactionId, hasTrait } from '../src/core/types.js';
 import { aMano, bandoAMano, forzarTurno, muralla } from './batalla-de-prueba.js';
 import { ctx, JINETE, NO_MUERTO, PESADA, TROPA_BARATA } from './comun.js';
 import {

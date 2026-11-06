@@ -17,7 +17,7 @@
 import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
 import { renderLog } from '../src/client/views/panels.js';
-import { POBLAMIENTO, validarPoblamiento } from '../src/core/data.js';
+import { POBLAMIENTO, validarPoblamiento } from '../src/core/map/generar/datos.js';
 import type { PlanConCasillas } from '../src/core/map/generar/plan.js';
 import { buildMap, generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';
 import { espejoDe } from '../src/core/map/geometria.js';

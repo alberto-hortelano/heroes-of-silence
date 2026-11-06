@@ -103,16 +103,15 @@ import {
 } from '../../src/core/battle/types.js';
 import { UNIDADES, unidad, unidadDelJuego } from '../../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../../src/core/combate.js';
+import { ESCALA_DE_CIFRAS } from '../../src/core/escala.js';
+import { HEROE } from '../../src/core/hero/cuerpo-del-heroe.js';
+import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../../src/core/hero/equipo.js';
 import {
-  ECONOMIA,
   figuraDelHeroe,
-  HEROE,
   nombreDeTipoDeHeroe,
   tipoDeHeroePorDefecto,
   tiposDeHeroe,
-} from '../../src/core/data.js';
-import { ESCALA_DE_CIFRAS } from '../../src/core/escala.js';
-import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../../src/core/hero/equipo.js';
+} from '../../src/core/hero/tipos-de-heroe.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
 import { hechizosDelGremio } from '../../src/core/magia/catalogo.js';
 import { regionDeCasilla } from '../../src/core/map/regiones.js';
@@ -122,6 +121,7 @@ import { pasosDeLaPatrulla } from '../../src/core/state/asaltantes.js';
 import { heroesOf } from '../../src/core/state/consultas.js';
 import { baseOf, visibleNow } from '../../src/core/state/game.js';
 import { faccionesDeLaSemilla } from '../../src/core/state/setup.js';
+import { ECONOMIA } from '../../src/core/town/economia.js';
 import type { SitioId } from '../../src/core/town/sitios.js';
 import {
   describirCoste,

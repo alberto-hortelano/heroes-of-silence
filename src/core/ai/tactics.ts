@@ -62,10 +62,10 @@ import {
 import { soloCura } from '../battle/spells.js';
 import type { BattleAction, BattleStack, BattleState, Side } from '../battle/types.js';
 import { otroBando } from '../battle/types.js';
-import { hasTrait } from '../data.js';
 import { ESCALA_DE_CIFRAS } from '../escala.js';
 import type { Rng } from '../rng.js';
 import type { Hex } from '../types.js';
+import { hasTrait } from '../types.js';
 import { completarCruce } from './rueda.js';
 
 /** Lo que pega un stack por sí solo, con el extra del tirador que aún dispara. */

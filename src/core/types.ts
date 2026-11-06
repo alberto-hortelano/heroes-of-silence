@@ -411,7 +411,7 @@ export const TIPOS_FUSIONADOS = ['ofensivoFuerte', 'defensivoFinta', 'rapidoRomp
  * los tres fusionados. **No es una rueda**: cada batalla juega con los de la suya
  * (`FormaDeLaRueda.golpes`, `battle/formas-de-la-rueda.ts`), y esta lista solo sirve para
  * validar un texto. Vive aquí y no en `rueda.ts` porque los nombra la pieza
- * (`Pieza.rueda`), y `data.ts` no puede importar `rueda.ts` (que lee `data.ts`).
+ * (`Pieza.rueda`), y `equipo/pieza.ts` no puede importar `rueda.ts` (que lo lee).
  */
 export const TODOS_LOS_GOLPES = [...TIPOS_DEL_ANILLO, 'normal', ...TIPOS_FUSIONADOS] as const;
 export type TipoDeGolpe = (typeof TODOS_LOS_GOLPES)[number];
@@ -571,7 +571,7 @@ export function huecosDeLaPieza(hueco: HuecoDePieza): readonly Hueco[] {
 /**
  * El nombre de cada hueco, para pintarlo y para decirlo en un motivo: lo leen el
  * panel del héroe, la ficha de la arena y la regla de una base (`baseBlocker`,
- * `data.ts`). En el núcleo y no en el cliente porque son dos pantallas y un mismo
+ * `equipo/pieza.ts`). En el núcleo y no en el cliente porque son dos pantallas y un mismo
  * hueco.
  */
 export const NOMBRE_DE_HUECO: Readonly<Record<Hueco, string>> = {
@@ -809,4 +809,8 @@ export interface RaiderPlaneado {
 export interface Guarnicion {
   readonly dueño: PlayerId | null;
   readonly tropa: Army;
+}
+
+export function hasTrait(c: UnitInfo, trait: CreatureTrait): boolean {
+  return c.traits?.includes(trait) ?? false;
 }

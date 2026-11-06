@@ -30,7 +30,6 @@
  * Las cifras, inventadas, en `data/clima.json`, que solo importa este módulo.
  */
 import climaJson from '../../../data/clima.json' with { type: 'json' };
-import { enteroDesde } from '../data.js';
 import { inBounds } from '../map/map.js';
 import {
   dueñoDeLaRegion,
@@ -40,7 +39,7 @@ import {
 } from '../map/regiones.js';
 import { createRng, hashDeTexto, sortearPorPesos } from '../rng.js';
 import { FACTION_IDS, type FactionId, type PlayerId, type Point } from '../types.js';
-import { esIdDeMapa } from '../validar.js';
+import { enteroDesde, esIdDeMapa } from '../validar.js';
 import { playerById } from './consultas.js';
 import { lugarDelRival } from './game.js';
 import type { GameState, PendingBattle } from './tipos.js';

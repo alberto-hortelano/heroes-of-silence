@@ -42,7 +42,7 @@ import {
   SLOTS,
   type Slot,
 } from '../src/core/contract/vocabulario.js';
-import { CAMPOS_DE_PIEZA, EQUIPO } from '../src/core/data.js';
+import { CAMPOS_DE_PIEZA, EQUIPO } from '../src/core/equipo/pieza.js';
 import { createRng } from '../src/core/rng.js';
 import { CREATURE_TRAITS, HUECOS } from '../src/core/types.js';
 import { batallaConDos } from './batalla-de-prueba.js';
@@ -154,14 +154,14 @@ function esPrecioDelCable(codigo: string, inicio: number, argumento: string): bo
 }
 
 /**
- * Si el fichero importa del catálogo (`data.js` o `catalogo.js`), con su nombre y también como
+ * Si el fichero importa del catálogo (`catalogo.js`), con su nombre y también como
  * tipo, alguno de `nombres`: la misma pregunta para el guardia de `creature` como
  * valor y para el de la arena sin el catálogo del juego.
  */
 function importaCreature(codigo: string, nombres: readonly string[]): boolean {
   const alguno = nombres.join('|');
   return new RegExp(
-    `import\\s*(?:type\\s*)?\\{[^}]*\\b(?:${alguno})\\b[^}]*\\}\\s*from\\s*['"][^'"]*\\/(?:data|catalogo)\\.js['"]`,
+    `import\\s*(?:type\\s*)?\\{[^}]*\\b(?:${alguno})\\b[^}]*\\}\\s*from\\s*['"][^'"]*\\/catalogo\\.js['"]`,
   ).test(codigo);
 }
 
@@ -790,7 +790,7 @@ describe('invariantes del proyecto', () => {
     // @ts-expect-error: un `Slot` no se escribe a mano: lo da `SLOT_DE_HUECO`.
     const aMano: Slot = 'melee_weapon';
     expect(SLOTS).toContain(aMano);
-    const MANOS = [ruta('src/core/hero/equipo.ts'), ruta('src/core/data.ts')];
+    const MANOS = [ruta('src/core/hero/equipo.ts'), ruta('src/core/equipo/pieza.ts')];
     const leeManos = /\.manos\b/;
     expect(
       infractoresDeCodigo(
@@ -858,15 +858,16 @@ describe('invariantes del proyecto', () => {
     expect(CATALOGO_DE_EQUIPO_EN_PROSA).toMatch(/^ *daga \(melee_weapon\)/m);
   });
 
-  it('si una pieza es una lanza lo leen solo `hero/equipo.ts` y `data.ts`, como sus manos', () => {
+  it('si una pieza es una lanza lo leen solo `hero/equipo.ts` y `equipo/pieza.ts`, como sus manos', () => {
     // 25-10-2026, «la lanza de carga fuera, será una lanza y una regla especial de
     // la lanza cuando se carga montado»: `Pieza.lanza` lo valida y lo escribe
-    // `data.ts`, y lo lee `hero/equipo.ts`, que lleva la fuerza de la mejor lanza a
+    // `equipo/pieza.ts` (`data.ts` hasta la fase N, 07-11-2026), y lo lee
+    // `hero/equipo.ts`, que lleva la fuerza de la mejor lanza a
     // la cuenta del cuerpo (`fuerzaDeLaLanza`, de donde sale `GolpeConArma.carga`
     // con una montura de guerra, 26-10-2026); quien lo enseña, `esLanza`. Una carga que mirara la pieza por su cuenta tendría su
     // propia regla. El `lanza` de la cola de la animación es quien lanza un hechizo:
     // fuera. Roto a mano: un `p.lanza` en `carga.ts` sale rojo.
-    const LEEN = [ruta('src/core/hero/equipo.ts'), ruta('src/core/data.ts')];
+    const LEEN = [ruta('src/core/hero/equipo.ts'), ruta('src/core/equipo/pieza.ts')];
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR].filter(
       (r) => r !== ruta('src/client/anim.ts'),
     );
@@ -884,7 +885,7 @@ describe('invariantes del proyecto', () => {
     // 02-11-2026, «armas de fuego y granadas». Dos partes, cada una rota a mano y
     // vista en rojo:
     //  (a) lo que tira una pieza o un golpe (`.tiro`: `Pieza.tiro` y
-    //      `GolpeConArma.tiro`) lo leen solo `data.ts` (la regla de la pieza y
+    //      `GolpeConArma.tiro`) lo leen solo `equipo/pieza.ts` (la regla de la pieza y
     //      `lanzaGranadas`), `hero/equipo.ts` (`tiroDelGolpe`, que lo lleva a la
     //      unidad) y `battle/armas.ts` (`perforaLaArmadura`, `recargaDe`,
     //      `cargasDe`). Una pantalla o una IA que mirara la pieza tendría su propia
@@ -897,7 +898,7 @@ describe('invariantes del proyecto', () => {
     //      regla. Roto: un `s.recargando = 0` en `tactics.ts`, rojo.
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     const LEEN = [
-      ruta('src/core/data.ts'),
+      ruta('src/core/equipo/pieza.ts'),
       ruta('src/core/hero/equipo.ts'),
       ruta('src/core/battle/armas.ts'),
     ];
@@ -934,7 +935,7 @@ describe('invariantes del proyecto', () => {
     //      que sumara la fuerza de la montura por su cuenta tendría otra regla (y la
     //      señal temprana del plan: el daño normal con la fuerza del caballo).
     //      Roto: un `fuerzaDeLaLanza` en `damage.ts`, rojo.
-    //  (c) si una montura es de guerra (`.guerra`) lo leen solo `data.ts` (la
+    //  (c) si una montura es de guerra (`.guerra`) lo leen solo `equipo/pieza.ts` (la
     //      pieza), `hero/equipo.ts` (`esDeGuerra`, que lo lleva a la unidad) y
     //      `cuerpo.ts` (`montadoDeGuerra`, la regla). La agilidad de una pieza no
     //      se puede vigilar por su nombre: `.agilidad` es también la del cuerpo.
@@ -964,7 +965,7 @@ describe('invariantes del proyecto', () => {
     ).toEqual([]);
     expect(infractoresDeCodigo([ruta('src/core/cuerpo.ts')], lanza)).not.toEqual([]);
 
-    const LEEN = [ruta('src/core/data.ts'), ESCRITOR, ruta('src/core/cuerpo.ts')];
+    const LEEN = [ruta('src/core/equipo/pieza.ts'), ESCRITOR, ruta('src/core/cuerpo.ts')];
     const guerra = /\.guerra\b/;
     expect(
       infractoresDeCodigo(
@@ -1161,12 +1162,12 @@ describe('la armadura (#262)', () => {
 describe('las bases y la rueda del arma (18-10-2026)', () => {
   it('una base se suma en un sitio y la rueda de un golpe va con su arma', () => {
     // Tres partes:
-    //  (a) `resolverBases` (la única suma de una base) es privada de `data.ts` y la
+    //  (a) `resolverBases` (la única suma de una base) es privada de `equipo/pieza.ts` y la
     //      llama solo el cargador del catálogo (`leerPiezas`), por el que pasan el
     //      fichero, el catálogo que edita la arena y las piezas de una pelea
     //      (`catalogoDeEquipo`): un segundo montador de catálogo sumaría la base con
     //      otra regla, o no la sumaría.
-    //  (b) Los extras de una pieza con base (`.extras`) los leen solo `data.ts`,
+    //  (b) Los extras de una pieza con base (`.extras`) los leen solo `equipo/pieza.ts`,
     //      `arena.ts` y la página de la arena (su ficha los escribe): nadie más
     //      suma un extra por su cuenta.
     //  (c) La tabla de los niveles (vuelta 2): `TABLA` (privada de
@@ -1198,24 +1199,26 @@ describe('las bases y la rueda del arma (18-10-2026)', () => {
     const llamada = /\bresolverBases\b/;
     expect(
       infractoresDeCodigo(
-        todos.filter((r) => r !== ruta('src/core/data.ts')),
+        todos.filter((r) => r !== ruta('src/core/equipo/pieza.ts')),
         llamada,
       ),
     ).toEqual([]);
-    expect(infractoresDeCodigo([ruta('src/core/data.ts')], /\bresolverBases\s*\(/)).not.toEqual([]);
-    // Y en `data.ts`, la llama solo `leerPiezas`: el catálogo (fichero, arena y
-    // pelea) pasa por él.
+    expect(
+      infractoresDeCodigo([ruta('src/core/equipo/pieza.ts')], /\bresolverBases\s*\(/),
+    ).not.toEqual([]);
+    // Y en `equipo/pieza.ts` (`data.ts` hasta la fase N, 07-11-2026), la llama solo
+    // `leerPiezas`: el catálogo (fichero, arena y pelea) pasa por él.
     expect(
       fueraDe(
         /\bresolverBases\s*\(/,
-        { [ruta('src/core/data.ts')]: ['resolverBases', 'leerPiezas'] },
-        [ruta('src/core/data.ts')],
+        { [ruta('src/core/equipo/pieza.ts')]: ['resolverBases', 'leerPiezas'] },
+        [ruta('src/core/equipo/pieza.ts')],
       ),
     ).toEqual([]);
 
     const extras = /\.extras\b/;
     const leenExtras = (r: string): boolean =>
-      r === ruta('src/core/data.ts') ||
+      r === ruta('src/core/equipo/pieza.ts') ||
       r === ruta('src/core/arena.ts') ||
       r.startsWith(ruta('src/client/arena/'));
     expect(
@@ -1224,7 +1227,7 @@ describe('las bases y la rueda del arma (18-10-2026)', () => {
         extras,
       ),
     ).toEqual([]);
-    expect(infractoresDeCodigo([ruta('src/core/data.ts')], extras)).not.toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/core/equipo/pieza.ts')], extras)).not.toEqual([]);
 
     const tabla = /\bTABLA\b/;
     expect(

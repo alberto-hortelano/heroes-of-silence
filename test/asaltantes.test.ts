@@ -10,9 +10,8 @@
 import { describe, expect, it } from 'vitest';
 import { playAiTurn, resolvePendingBattle } from '../src/core/ai/turn.js';
 import { serializeKnownMap } from '../src/core/contract/serialize.js';
-import { ASALTANTES } from '../src/core/data.js';
 import { fuerzaDe, MARGEN_CONTRA_NEUTRALES, poderDe } from '../src/core/hero/fuerza.js';
-import { problemasDeAsaltante } from '../src/core/hero/grupos.js';
+import { ASALTANTES, problemasDeAsaltante } from '../src/core/hero/grupos.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import type { MapPlan } from '../src/core/map/generar/plan.js';
 import { buildMap, generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';

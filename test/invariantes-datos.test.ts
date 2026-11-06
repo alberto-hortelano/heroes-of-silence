@@ -82,11 +82,11 @@ describe('invariantes del proyecto', () => {
     expect(lineasCon(viejo)).toEqual([]);
   });
 
-  it('el catálogo de equipo lo carga solo `data.ts`, y la arena lee cada pieza con el suyo', () => {
+  it('el catálogo de equipo lo carga solo `equipo/pieza.ts`, y la arena lee cada pieza con el suyo', () => {
     // Una sola clase de piezas (F2 de 2026-10-18): el borrador de equipo de la
     // arena y `data/equipo.json` dejan de ser dos cosas; la arena edita el catálogo
     // en memoria y «Guardar» lo escribe en disco. Dos partes:
-    //  (a) `data/equipo.json` lo importa solo `core/data.ts` (`leerEquipo`, que lo
+    //  (a) `data/equipo.json` lo importa solo `core/equipo/pieza.ts` (`leerEquipo`, que lo
     //      valida entero al cargar): quien lo importara por su cuenta se saltaría
     //      la validación. La arena lo escribe por su ruta, no importándolo. Y fuera
     //      de la arena nadie nombra los borradores que quedan (`data/borradores`,
@@ -95,7 +95,9 @@ describe('invariantes del proyecto', () => {
     //      catálogo tal como se cargó, y la arena pelea con el que edita.
     // Rotos a mano: un `import e from '../../data/equipo.json'` en `arena.ts` y un
     // `'data/borradores'` en `state/game.ts` salen rojos con su línea.
-    const PUERTA = ruta('src/core/data.ts');
+    // Hasta la fase N de la reorganización (07-11-2026) era `core/data.ts`, que
+    // leía todas las tablas.
+    const PUERTA = ruta('src/core/equipo/pieza.ts');
     const importa = importaDe(/[^'"]*data\/equipo\.json/);
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     expect(

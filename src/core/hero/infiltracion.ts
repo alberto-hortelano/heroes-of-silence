@@ -20,9 +20,9 @@
  * preguntan aquí.
  */
 import { unidadDelJuego } from '../catalogo.js';
-import { hasTrait, nombreDeTipoDeHeroe, tipoSeInfiltra } from '../data.js';
-import { enumerar } from '../types.js';
+import { enumerar, hasTrait } from '../types.js';
 import type { Hero } from './hero.js';
+import { nombreDeTipoDeHeroe, tipoSeInfiltra } from './tipos-de-heroe.js';
 
 /** Lo que hace falta de un héroe para saber si se infiltra: su tipo y su tropa. */
 type GrupoQueSeInfiltra = Pick<Hero, 'faction' | 'tipo' | 'army'>;

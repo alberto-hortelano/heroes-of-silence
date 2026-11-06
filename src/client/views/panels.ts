@@ -57,7 +57,7 @@ import {
   type Side,
 } from '@core/battle/types.js';
 import { unidadDelJuego } from '@core/catalogo.js';
-import { ECONOMIA, nombreDeTipoDeHeroe, type Pieza } from '@core/data.js';
+import type { Pieza } from '@core/equipo/pieza.js';
 import {
   conSigno,
   destinoDeEquipo,
@@ -68,6 +68,7 @@ import {
 } from '@core/hero/equipo.js';
 import { rangoDe, rangoDeHeroe, umbral } from '@core/hero/experiencia.js';
 import { cuerpoDelHeroe, type Hero, heroUnit, maxMana, maxMovePoints } from '@core/hero/hero.js';
+import { nombreDeTipoDeHeroe } from '@core/hero/tipos-de-heroe.js';
 import { elQueSeIria, type TroopGroup, troopSummary } from '@core/hero/troop.js';
 import { enOrdenDelLibro, nombreDeHechizo } from '@core/magia/catalogo.js';
 import type { Hechizo } from '@core/magia/formato.js';
@@ -80,6 +81,7 @@ import { buyBlocker } from '@core/state/game.js';
 import type { RentaDelDia } from '@core/state/renta.js';
 import { delSitio, guarnicionDeLaCiudad, nombreDelSitio, type Sitio } from '@core/state/sitios.js';
 import { building } from '@core/town/buildings.js';
+import { ECONOMIA } from '@core/town/economia.js';
 import {
   dailyIncome,
   dwellings,

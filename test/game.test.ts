@@ -16,7 +16,6 @@ import {
 } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { marchaDe } from '../src/core/cuerpo.js';
-import { crecimientoDelNivel, ECONOMIA, oroDelIndice } from '../src/core/data.js';
 import { marchaALaEscala } from '../src/core/escala.js';
 import { EQUIPO_BASE, EQUIPO_DEL_JUEGO, esDeGuerra } from '../src/core/hero/equipo.js';
 import { umbral } from '../src/core/hero/experiencia.js';
@@ -76,6 +75,7 @@ import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad, guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import type { GameContext, GameState } from '../src/core/state/tipos.js';
 import { building, buildingsOfFaction, nivelDeMorada } from '../src/core/town/buildings.js';
+import { crecimientoDelNivel, ECONOMIA, oroDelIndice } from '../src/core/town/economia.js';
 import {
   applyWeeklyGrowth,
   availableBuildings,

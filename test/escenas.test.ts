@@ -75,7 +75,7 @@ import { alcanceDeLaGranada } from '../src/core/battle/granada.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import type { BattleStack, Side } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import type { Pieza } from '../src/core/data.js';
+import type { Pieza } from '../src/core/equipo/pieza.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import { DESPEJADO } from '../src/core/state/clima.js';
 import { faccionesDeLaSemilla } from '../src/core/state/setup.js';

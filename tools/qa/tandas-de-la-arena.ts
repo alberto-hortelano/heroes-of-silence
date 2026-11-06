@@ -39,8 +39,8 @@ import { type MurallaDeBatalla, SIN_MURALLA } from '../../src/core/battle/murall
 import type { BattleState } from '../../src/core/battle/types.js';
 import { unidad } from '../../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../../src/core/combate.js';
-import { LIDERAZGO } from '../../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../../src/core/hero/equipo.js';
+import { LIDERAZGO } from '../../src/core/hero/liderazgo.js';
 import { createRng, type Rng } from '../../src/core/rng.js';
 import { MURALLAS_DEL_MAPA } from '../../src/core/state/sitios.js';
 import type { Hoja, Unidad } from '../../src/core/unidad.js';

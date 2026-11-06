@@ -37,9 +37,9 @@ import { applyAction, createBattle, legalActions } from '../src/core/battle/batt
 import type { BattleEvent, BattleStack, BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { figuraDelHeroe, tiposDeHeroe } from '../src/core/data.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import type { Hero } from '../src/core/hero/hero.js';
+import { figuraDelHeroe, tiposDeHeroe } from '../src/core/hero/tipos-de-heroe.js';
 import { aPunto, pointKey, reachableFrom } from '../src/core/map/map.js';
 import { isWalkable } from '../src/core/map/terrain.js';
 import { createRng } from '../src/core/rng.js';
