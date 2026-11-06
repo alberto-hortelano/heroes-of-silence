@@ -417,6 +417,28 @@ export function pintarFigura(ctx: CanvasRenderingContext2D, c: FiguraColocada): 
 }
 
 /**
+ * La figura otra vez, **al trasluz**: con su arte y a `alfa`, sin sombra, sin
+ * marcador y sin destello. Encima de sí misma no cambia nada (los mismos píxeles
+ * sobre los mismos); encima de lo que la tapa —un pico, un árbol de delante— deja
+ * ver quién está detrás. Lo pide el mapa para los grupos de asaltantes
+ * (`pintarAsaltantesAlTrasluz`). Sin arte que pintar, nada: lo dice su marcador.
+ */
+export function pintarFiguraAlTrasluz(
+  ctx: CanvasRenderingContext2D,
+  c: FiguraColocada,
+  alfa: number,
+): void {
+  const { f, p } = c;
+  if (c.cargando || p === null || alfa <= 0) return;
+  const w = Math.max(1, Math.ceil(p.lado * Math.max(1, densidadDe(ctx))));
+  const fuente = celdaEnPantalla(p, p.arte.propio ? null : f.color, w, f.luz);
+  ctx.save();
+  ctx.globalAlpha = alfa;
+  ctx.drawImage(fuente, 0, 0, w, w, f.x + p.dx, f.suelo + p.dy, p.lado, p.lado);
+  ctx.restore();
+}
+
+/**
  * La sombra y la figura, resuelta una sola vez: lo que pintan el mapa, el
  * castillo, la arena y el cadáver. `enMedio` es lo que va entre las dos —el aro
  * de la base y de la tropa (`pintarAroDeFigura`, con `piesDeFigura` de la figura

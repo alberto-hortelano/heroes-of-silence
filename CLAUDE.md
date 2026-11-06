@@ -1118,7 +1118,9 @@ antes del destino (`battle_started` con `faltan`).
   (13 módulos de picos y paredes no llegan a 120 px por casilla: pedidos en
   `docs/art/peticiones.md` §12), fundidos por profundidad con
   las figuras (`fundirPorProfundidad`): **una figura puede quedar detrás de un
-  árbol**, pero no de lo horneado de su casilla (`claveDeFigura`) ni de una pieza del relieve
+  árbol** (un grupo de asaltantes, que no lleva reserva como el monstruo, se repinta encima al
+  trasluz, a 0,7, `pintarAsaltantesAlTrasluz`: tras un pico quedaban su estandarte y su chapa
+  solos y se leía «sin arte», 06-11-2026), pero no de lo horneado de su casilla (`claveDeFigura`) ni de una pieza del relieve
   que cuelga de su fila o de más al norte: el mapa no levanta lo alto, y la cara de una caída de 3
   cuelga 1,8 casillas sobre lo de debajo con el pie más abajo que los de la figura. Cada pieza
   (frontal, ladera, diagonal, bajada y peñascos de la cara) lleva `Sprite.filaAlta`, y la figura

@@ -75,7 +75,13 @@ import {
   sueloDelMapa,
   type VolumenDelMapa,
 } from './escenario/superficie.js';
-import { animarHasta, type Figura, pintarFiguraConSombra } from './figura.js';
+import {
+  animarHasta,
+  colocarFigura,
+  type Figura,
+  pintarFiguraAlTrasluz,
+  pintarFiguraConSombra,
+} from './figura.js';
 import { densidadDe } from './lienzo.js';
 import { altoDelMarcador, pintarMarcadorDelPuesto } from './marcador-del-puesto.js';
 import { COLOR_SIN_DUEÑO, playerColor } from './palette.js';
@@ -464,6 +470,8 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
   const nodos = nodosQueSeSaben(v);
   const cosas = cosasDe(v, esc, nodos);
   pintarLoQueTieneAltura(ctx, v, volumenesALaVista(v, esc, nodos), cosas);
+  //     Y los grupos de asaltantes al trasluz: lo que los tapa no los esconde enteros.
+  pintarAsaltantesAlTrasluz(ctx, v, cosas);
 
   // 2b · El clima de cada región, encima de lo que tiene altura y DEBAJO de los
   //      identificadores y de la niebla de guerra: no tapa ni destapa nada de
@@ -979,14 +987,17 @@ function pintarObjeto(ctx: CanvasRenderingContext2D, v: VistaMapa, o: MapObject)
       return;
     }
     case 'monster':
-      pintarGrupoNeutral(ctx, tile, c, {
-        id: o.id,
-        body: hojaDeUnidad(o.creature),
-        cuantos: o.count,
-        tiempo: v.tiempo,
-        andando: false,
-        mira: 'SO',
-      });
+      pintarFiguraConSombra(
+        ctx,
+        figuraDeGrupoNeutral(tile, c, {
+          id: o.id,
+          body: hojaDeUnidad(o.creature),
+          cuantos: o.count,
+          tiempo: v.tiempo,
+          andando: false,
+          mira: 'SO',
+        }),
+      );
       return;
     case 'town':
     case 'node':
@@ -1131,7 +1142,12 @@ function pintarAsaltante(
   ctx.fill();
   ctx.stroke();
   ctx.restore();
-  pintarGrupoNeutral(ctx, tile, c, {
+  pintarFiguraConSombra(ctx, figuraDelAsaltante(v, r, p));
+}
+
+/** La figura de un grupo de asaltantes donde se pinta ahora: la de `pintarAsaltante`. */
+function figuraDelAsaltante(v: VistaMapa, r: VistaAsaltante, p: PosicionDeAsaltante): Figura {
+  return figuraDeGrupoNeutral(v.camara.tile, mundoAPixel(v.camara, p.x + 0.5, p.y + 0.5), {
     id: r.id,
     body: figuraDelGrupo(r),
     cuantos: individuosDe(r.troops),
@@ -1139,6 +1155,33 @@ function pintarAsaltante(
     andando: p.andando,
     mira: p.mira,
   });
+}
+
+/**
+ * Cuánto se ve, a través de lo que lo tapa, el grupo de asaltantes que está detrás
+ * de un volumen (`pintarAsaltantesAlTrasluz`).
+ */
+const ASALTANTE_AL_TRASLUZ = 0.7;
+
+/**
+ * Los grupos de asaltantes otra vez, al trasluz, encima de todo lo que tiene
+ * altura y debajo del clima (que los tiñe igual que a lo demás): encima de sí
+ * mismos no cambian nada, y detrás de un pico o de un árbol se dejan ver.
+ * Un grupo anda por donde quiere y no lleva la reserva de un monstruo, así que
+ * un pico de la fila de delante lo tapaba entero y quedaban el estandarte y la
+ * chapa solos, sin figura: «me asaltaron unos bandidos y no tenían arte»
+ * (06-11-2026; en s9 el grupo raider-0 (16,24), detrás de una cordillera).
+ */
+function pintarAsaltantesAlTrasluz(
+  ctx: CanvasRenderingContext2D,
+  v: VistaMapa,
+  cosas: readonly Cosa[],
+): void {
+  for (const c of cosas) {
+    if (c.tipo !== 'asaltante') continue;
+    const f = figuraDelAsaltante(v, c.asaltante, c.en);
+    pintarFiguraAlTrasluz(ctx, colocarFigura(f), ASALTANTE_AL_TRASLUZ);
+  }
 }
 
 /**
@@ -1190,13 +1233,6 @@ function estandarteDeAsaltante(
   ctx.restore();
 }
 
-/**
- * Un grupo sin dueño —monstruo que guarda o asaltante que patrulla—: la figura
- * de su criatura teñida del gris de lo que no tiene dueño, con su sombra. Los dos
- * se pintan igual a propósito: lo que los distingue es el suelo morado y el
- * estandarte del asaltante, no la figura. Y el gris es lo que los separa del
- * héroe, que lleva el color de su dueño.
- */
 /** La figura de un grupo de asaltantes: la hoja de la unidad de su primer individuo. */
 function figuraDelGrupo(r: VistaAsaltante): string {
   const id = r.troops[0]?.creature;
@@ -1204,8 +1240,14 @@ function figuraDelGrupo(r: VistaAsaltante): string {
   return hojaDeUnidad(id);
 }
 
-function pintarGrupoNeutral(
-  ctx: CanvasRenderingContext2D,
+/**
+ * Un grupo sin dueño —monstruo que guarda o asaltante que patrulla—: la figura
+ * de su criatura teñida del gris de lo que no tiene dueño, con su sombra. Los dos
+ * se pintan igual a propósito: lo que los distingue es el suelo morado y el
+ * estandarte del asaltante, no la figura. Y el gris es lo que los separa del
+ * héroe, que lleva el color de su dueño.
+ */
+function figuraDeGrupoNeutral(
   tile: number,
   c: { readonly x: number; readonly y: number },
   g: {
@@ -1216,8 +1258,8 @@ function pintarGrupoNeutral(
     readonly andando: boolean;
     readonly mira: Direccion;
   },
-): void {
-  pintarFiguraConSombra(ctx, {
+): Figura {
+  return {
     id: g.id,
     body: g.body,
     clip: g.andando ? 'walk' : 'idle',
@@ -1228,7 +1270,7 @@ function pintarGrupoNeutral(
     mira: g.mira,
     color: COLOR_SIN_DUEÑO,
     rotulo: String(g.cuantos),
-  });
+  };
 }
 
 /** El cuerpo de una figura del mapa, en casillas: dónde pisa, su media anchura y su alto. */
