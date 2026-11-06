@@ -56,7 +56,7 @@ import {
   sitioEn,
   sitioPorId,
 } from '../src/core/state/sitios.js';
-import type { Army, Troop } from '../src/core/types.js';
+import { type Army, NOMBRE_DE_FACCION, type Troop } from '../src/core/types.js';
 import {
   conSuEquipo,
   costesDelAlcance,
@@ -920,7 +920,18 @@ describe('las pantallas de la persona (la sesión)', () => {
     rival.movePoints = 100_000;
     let vista: Session['defensa'] = null;
     let jugada = '';
+    let aviso: Session['avisoDelAtaque'] = null;
     s.alCambiarSinGesto = () => {
+      // Primero el aviso en el mapa, con la cámara en la base (arreglo 3 del
+      // 06-11-2026); «Defender» abre la batalla y, con ella, la defensa.
+      if (s.avisoDelAtaque !== null) {
+        aviso = s.avisoDelAtaque;
+        expect(s.scene).toBe('adventure');
+        expect(s.battle).not.toBeNull();
+        s.defenderElAtaque();
+        expect(s.avisoDelAtaque).toBeNull();
+        expect(s.scene).toBe('battle');
+      }
       const d = s.defensa;
       if (d !== null && vista === null) {
         vista = d;
@@ -946,5 +957,12 @@ describe('las pantallas de la persona (la sesión)', () => {
     for (let n = 0; n < 4 && vista === null && s.state.finished === null; n++) await s.endTurn();
     expect(vista).not.toBeNull();
     expect(jugada).toBe('Antes de nada, elige con quién defiendes.');
+    // El aviso dice quién, a quién y dónde, y mira a la base.
+    const dicho = aviso as Session['avisoDelAtaque'];
+    expect(dicho?.at).toEqual(base.at);
+    expect(dicho?.titulo).toBe(`¡Te atacan en ${base.name}!`);
+    expect(dicho?.frase).toBe(
+      `${rival.name} (${NOMBRE_DE_FACCION[s.state.players[1]!.faction]}) ataca a ${mio.name} en ${base.name}.`,
+    );
   });
 });

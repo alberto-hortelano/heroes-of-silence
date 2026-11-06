@@ -311,9 +311,11 @@ export function maxSpellLevel(hero: Pick<Hero, 'skills'>): number {
  */
 export function learnable(
   hero: Pick<Hero, 'spells' | 'skills'>,
-  oferta: readonly { readonly id: string; readonly level: number }[],
+  oferta: readonly { readonly id: string; readonly gremio: number | null }[],
 ): string[] {
   const tope = maxSpellLevel(hero);
   const sabidos = new Set(hero.spells);
-  return oferta.filter((s) => s.level <= tope && !sabidos.has(s.id)).map((s) => s.id);
+  return oferta
+    .filter((s) => s.gremio !== null && s.gremio <= tope && !sabidos.has(s.id))
+    .map((s) => s.id);
 }

@@ -87,14 +87,12 @@ import {
 import { isAlive, mismoTurno, stackById, stackHexes } from '../../src/core/battle/battle.js';
 import { hexDistance, hexEquals, quedanCasillas } from '../../src/core/battle/board.js';
 import { armasDe, stackHp, trasElGolpe } from '../../src/core/battle/damage.js';
-import { poder } from '../../src/core/battle/poderes.js';
 import {
   NOMBRE_DEL_PUNTO,
   nombreEnLaRueda,
   RUEDA_DE_REFERENCIA,
   type TipoDeGolpe,
 } from '../../src/core/battle/rueda.js';
-import { allSpells } from '../../src/core/battle/spells.js';
 import {
   type BattleAction,
   type BattleEvent,
@@ -116,6 +114,7 @@ import {
 import { ESCALA_DE_CIFRAS } from '../../src/core/escala.js';
 import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../../src/core/hero/equipo.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
+import { hechizosDelGremio } from '../../src/core/magia/catalogo.js';
 import { nivelDeUnidad } from '../../src/core/nivel.js';
 import { parseSeed } from '../../src/core/rng.js';
 import { pasosDeLaPatrulla, regionDeCasilla } from '../../src/core/state/asaltantes.js';
@@ -470,6 +469,19 @@ async function comprobar(page: Page, espejo: Session, paso: string): Promise<voi
   }
 }
 
+/**
+ * Espera a que el héroe llegue: el clic que lo mueve deja la marcha en pantalla
+ * (`#app[data-marcha]`, que la página pone en el fotograma siguiente) y lo que abre
+ * la llegada —la batalla, la base, la guarnición— espera a que acabe. El espejo no
+ * la enseña (`Session.enseñarLaMarcha`): abre en el acto.
+ */
+async function esperarLaMarcha(page: Page): Promise<void> {
+  await page.evaluate(
+    () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))),
+  );
+  await page.waitForSelector('#app:not([data-marcha])', { timeout: 30_000 });
+}
+
 /** Espera a que la batalla acabe de contarse: lo que tarda la cola de lo que se acaba de jugar. */
 async function esperarCola(battle: BattleState, nuevos: readonly BattleEvent[]): Promise<void> {
   await sleep(250 + duracionDeLaJugada(battle, nuevos));
@@ -553,6 +565,8 @@ async function pasarElTurnoDelEspejo(page: Page, espejo: Session, donde: string)
 async function defenderseSola(page: Page, espejo: Session, donde: string): Promise<void> {
   const battle = espejo.battle;
   if (battle === null) throw new Error(`${donde}: el espejo defiende sin batalla`);
+  // Antes de la batalla, el aviso en el mapa centrado en el ataque: «Defender».
+  await aceptarElAviso(page, espejo, donde);
   await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 20_000 });
   // Con el héroe en un sitio suyo con guarnición, antes se elige con quién defiende
   // (puesto fronterizo, 04-11-2026): se fotografía la pantalla y se deja lo que
@@ -793,8 +807,11 @@ class Mapa {
     const px = await this.pixel(p);
     await this.page.mouse.click(px.x, px.y);
     this.espejo.clickTile(p);
+    await esperarLaMarcha(this.page);
     await sleep(250);
     await cerrarLaGuarnicion(this.page, this.espejo, `(${p.x},${p.y})`);
+    // Una emboscada avisa antes de su batalla: «Defender».
+    await aceptarElAviso(this.page, this.espejo, `(${p.x},${p.y})`);
     // Si el clic abre una batalla, abre en el despliegue de la persona: se acepta
     // tal cual, y la primera vez se captura (el atacante ve al defensor ya colocado;
     // el emboscado, nada del rival).
@@ -805,6 +822,29 @@ class Mapa {
       `despliegue-01-${this.espejo.miBando === 'defender' ? 'emboscado' : 'atacante'}`,
     );
   }
+}
+
+/**
+ * El aviso de un ataque a la persona (arreglo 3 del 06-11-2026): antes de la
+ * batalla de una defensa o de una emboscada, sobre el mapa centrado en el ataque.
+ * Se pulsa «Defender», en la página y en el espejo. La primera vez, su foto.
+ */
+let avisoFotografiado = false;
+async function aceptarElAviso(page: Page, espejo: Session, donde: string): Promise<void> {
+  if (espejo.avisoDelAtaque === null) return;
+  await page
+    .locator('#aviso[open]')
+    .waitFor({ timeout: 20_000 })
+    .catch(() => {
+      throw new Error(`${donde}: el espejo avisa del ataque y la página no`);
+    });
+  if (!avisoFotografiado) {
+    avisoFotografiado = true;
+    await sleep(300);
+    await captura(page, 'aviso-del-ataque');
+  }
+  await page.locator('#aviso [data-action="aviso-defender"]').click();
+  espejo.defenderElAtaque();
 }
 
 /**
@@ -1094,12 +1134,10 @@ async function turnoDeBatalla(
     const desde = battle.log.length;
     espejo.playBattleAction(cast);
     const lanzado = battle.log.slice(desde).find((e) => e.kind === 'cast');
-    if (
-      prevista.danio !== null &&
-      (lanzado?.kind !== 'cast' || lanzado.damage !== prevista.danio)
-    ) {
+    const danioPrevisto = prevista.impactos[0]?.danio ?? null;
+    if (danioPrevisto !== null && (lanzado?.kind !== 'cast' || lanzado.damage !== danioPrevisto)) {
       throw new Error(
-        `${hechizo.id} hizo ${JSON.stringify(lanzado)} y la previsión decía ${prevista.danio}`,
+        `${hechizo.id} hizo ${JSON.stringify(lanzado)} y la previsión decía ${danioPrevisto}`,
       );
     }
     log(`juego: previsión de ${hechizo.id} — «${dicha}»`);
@@ -2735,6 +2773,7 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
   await captura(page, 'tactil-01-ruta-tras-el-primer-toque');
   await page.touchscreen.tap(px.x, px.y);
   espejo.clickTile(destino);
+  await esperarLaMarcha(page);
   await sleep(300);
   await cerrarLaGuarnicion(page, espejo, 'táctil: segundo toque');
   await comprobar(page, espejo, 'táctil: segundo toque');
@@ -2758,6 +2797,7 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
   if (otra.battle === null) {
     throw new Error(`táctil: el espejo no ha entrado en batalla: ${otra.status}`);
   }
+  await esperarLaMarcha(page);
   await desplegarTalCual(page, otra, 'táctil');
   await esperarCola(otra.battle, otra.battle.log);
   await sleep(300);
@@ -4739,9 +4779,7 @@ async function poderesEnLaArena(
     // nota de su etiqueta (13-10-2026: toda aclaración es un tooltip).
     await page.locator('#bando-izquierda button.nombre[data-unidad="templario-monje"]').click();
     await page
-      .locator(
-        `#ficha [data-poder-de-la-ficha="curar"] .nota[aria-label*="cura ${poder('curar').lanzador.cantidad} PV"]`,
-      )
+      .locator(`#ficha [data-poder-de-la-ficha="curar"] .nota[aria-label*="cura 12 PV"]`)
       .waitFor({ timeout: 2000 });
     const vida = page.locator('#ficha [data-campo="hp"]');
     await vida.fill(String(VIDA_DEL_MONJE));
@@ -4803,9 +4841,9 @@ async function poderesEnLaArena(
     }
     const cura = espejo.battle.log.find((e) => e.kind === 'power' && e.cura !== undefined);
     if (cura?.kind !== 'power') throw new Error('poderes: el espejo no cuenta la cura');
-    await parteDice(page, `usa Curar sobre ${nombre(cura.target)}: cura ${cura.cura} PV`);
+    await parteDice(page, `usa Curar sobre ${nombre(cura.target ?? '')}: cura ${cura.cura} PV`);
     await captura(page, 'poderes-03-curado');
-    log(`poderes: cura ${cura.cura} PV a ${nombre(cura.target)}`);
+    log(`poderes: cura ${cura.cura} PV a ${nombre(cura.target ?? '')}`);
 
     // «Editar» en la fila del orco: su ficha, en el diálogo.
     const ronda = espejo.battle.round;
@@ -5222,7 +5260,7 @@ const HEROE_DEL_BANCO: HeroeDeArena = {
   defensa: 2,
   poder: 3,
   conocimiento: 3,
-  hechizos: allSpells().map((s) => s.id),
+  hechizos: hechizosDelGremio(5).map((s) => s.id),
 };
 
 /**
@@ -5480,10 +5518,10 @@ async function bancoDeCombate(browser: Browser, url: string, problemas: Problema
   if (
     lanzada?.kind !== 'cast' ||
     prevista.kind !== 'hechizo' ||
-    lanzada.damage !== prevista.danio
+    lanzada.damage !== prevista.impactos[0]?.danio
   ) {
     throw new Error(
-      `banco: la Flecha mágica hizo ${JSON.stringify(lanzada)} y se preveía ${prevista.kind === 'hechizo' ? prevista.danio : '?'}`,
+      `banco: la Flecha mágica hizo ${JSON.stringify(lanzada)} y se preveía ${prevista.kind === 'hechizo' ? prevista.impactos[0]?.danio : '?'}`,
     );
   }
   await esperarCola(espejo.battle, espejo.battle.log.slice(antes));
@@ -5607,7 +5645,7 @@ async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problem
     await page.locator(`[data-arena="manda"][data-lado="${lado}"][data-ia="si"]`).click();
   }
   const montado = await bandosDichos(page);
-  if (!montado.includes(`${allSpells().length - 1} hechizos`)) {
+  if (!montado.includes(`${hechizosDelGremio(5).length - 1} hechizos`)) {
     throw new Error(`enlace: los héroes no llevan el libro sin el Rayo: «${montado}»`);
   }
   if (!/IA/.test(montado) || /catálogo/i.test(montado)) {

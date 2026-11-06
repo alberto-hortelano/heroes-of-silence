@@ -79,6 +79,7 @@ import {
   characterOf,
   ejercitoDe,
   gruposDe,
+  individuosDe,
   licenciar,
   troopBlocker,
   troopRoom,
@@ -112,7 +113,7 @@ import {
   zonaDeNiebla,
 } from '../map/niebla.js';
 import { muroBlocker } from '../map/recinto.js';
-import { dueñoEnLaFoto, dueñosDeLaRed } from '../map/regiones.js';
+import { dueñoEnLaFoto, dueñosDeLaRed, estructura, regionMasCercana } from '../map/regiones.js';
 import { type Barrera, NOMBRE_DE_BARRERA } from '../map/terrain.js';
 import {
   batallaDe,
@@ -3718,6 +3719,78 @@ function sitioQueSeDefiende(
     case 'lugar':
       return null;
   }
+}
+
+/**
+ * Un ataque a quien defiende, dicho para el aviso que lo precede (arreglo 3 de la
+ * tanda del 06-11-2026: «centrar el lugar del ataque en el mapa y mostrar un popup
+ * que diga quién te ataca y muestre dónde»): dónde se pelea, quién ataca, a quién
+ * y en qué sitio. Lo arma `elAtaque`; lo dice la sesión.
+ */
+export interface Ataque {
+  /** Dónde se pelea: la casilla de lo atacado (`lugarDelRival`). */
+  readonly at: Point;
+  /** Quién ataca: un héroe con su facción, o un grupo de asaltantes que embosca. */
+  readonly quien:
+    | { readonly kind: 'heroe'; readonly nombre: string; readonly faccion: FactionId }
+    | { readonly kind: 'asaltantes'; readonly individuos: number };
+  /** A quién: un héroe, o la guarnición del sitio, sola. */
+  readonly aQuien:
+    | { readonly kind: 'heroe'; readonly nombre: string }
+    | { readonly kind: 'guarnicion' };
+  /** El sitio en juego (`sitioQueSeDefiende`), dicho, o `null` en campo abierto. */
+  readonly sitio: { readonly nombre: string; readonly delSitio: string } | null;
+  /**
+   * La región donde se pelea, por su nombre (`MapRegion.name`): lo que nombra el
+   * sitio del ataque en campo abierto (06-11-2026: «embosca a … en (11,5)» no se
+   * leía como un lugar). `dentro` si la casilla es de la región; si no (una
+   * barrera, un nodo), es la más cercana (`regionMasCercana`). `null` en un mapa
+   * sin regiones.
+   */
+  readonly region: { readonly nombre: string; readonly dentro: boolean } | null;
+}
+
+/** La región de la casilla `p` por su nombre, o la más cercana (`Ataque.region`). */
+function regionDelAtaque(map: GameMap, p: Point): Ataque['region'] {
+  const i = p.y * map.width + p.x;
+  const propia = estructura(map).regionDe[i] ?? -1;
+  const k = propia >= 0 ? propia : (regionMasCercana(map)[i] ?? -1);
+  const region = k < 0 ? undefined : map.regions[k];
+  return region === undefined ? null : { nombre: region.name, dentro: propia >= 0 };
+}
+
+/**
+ * El ataque de la batalla `pending`, o `null` si lo atacado no se defiende: un
+ * monstruo, un grupo de asaltantes o un lugar, que solo ataca quien juega.
+ */
+export function elAtaque(state: GameState, pending: Enfrentamiento): Ataque | null {
+  const { foe, attacker } = pending;
+  let aQuien: Ataque['aQuien'];
+  if (foe.kind === 'hero') aQuien = { kind: 'heroe', nombre: heroById(state, foe.heroId).name };
+  else if (foe.kind === 'garrison') aQuien = { kind: 'guarnicion' };
+  else return null;
+  let quien: Ataque['quien'];
+  if (attacker.kind === 'hero') {
+    const h = heroById(state, attacker.heroId);
+    quien = { kind: 'heroe', nombre: h.name, faccion: playerById(state, h.owner).faction };
+  } else {
+    quien = {
+      kind: 'asaltantes',
+      individuos: individuosDe(raiderById(state, attacker.raiderId).troops),
+    };
+  }
+  const enJuego = sitioQueSeDefiende(state, foe);
+  const at = lugarDelRival(state, foe);
+  return {
+    at,
+    quien,
+    aQuien,
+    sitio:
+      enJuego === null
+        ? null
+        : { nombre: nombreDelSitio(enJuego.sitio), delSitio: delSitio(enJuego.sitio) },
+    region: regionDelAtaque(state.map, at),
+  };
 }
 
 /**

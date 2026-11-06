@@ -28,13 +28,15 @@ import {
 } from '../battle/formas-de-la-rueda.js';
 import { GRANADA } from '../battle/granada.js';
 import { reglaDeLaMuralla } from '../battle/muralla.js';
-import { PODERES, queHaceElPoder } from '../battle/poderes.js';
 import { HERO_BODY } from '../battle/types.js';
+import { unidadesDelJuego } from '../catalogo.js';
 import { TOPES_DE_TROPA } from '../combate.js';
 import { ECONOMIA } from '../data.js';
 import { EQUIPO_BASE, REGLA_DEL_ESCUDO } from '../hero/equipo.js';
 import { RANGO_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
 import { GARRISON_LEADERSHIP } from '../hero/troop.js';
+import { hechizo } from '../magia/catalogo.js';
+import { queHaceElHechizo } from '../magia/dicho.js';
 import { LADO_MAXIMO_DEL_PLAN, LADO_MINIMO_DEL_PLAN } from '../map/generate.js';
 import { BARRERAS_DEL_PUEBLO } from '../map/map.js';
 import { LADO_DEL_RECINTO, SEPARACION_DE_CIUDADES } from '../map/recinto.js';
@@ -63,10 +65,16 @@ import {
   UPGRADE_DE_MEJORA,
 } from './vocabulario.js';
 
-/** Los poderes de unidad, por su id y con lo que hacen (`queHaceElPoder`, lo que lee el panel). */
-const PODERES_EN_PROSA = PODERES.map((p) => `"${p.id}" (${p.nombre}: ${queHaceElPoder(p)})`).join(
-  ', ',
-);
+/**
+ * Los poderes de las unidades del juego (los hechizos que usan con su turno), por su
+ * id y con lo que hacen (`queHaceElHechizo`, lo que lee el panel).
+ */
+const PODERES_EN_PROSA = [...new Set(unidadesDelJuego().flatMap((u) => u.poderes ?? []))]
+  .map((id) => {
+    const h = hechizo(id);
+    return `"${id}" (${h.nombre}: ${queHaceElHechizo(h, 0)})`;
+  })
+  .join(', ');
 
 /** Unos tipos en el contrato: «"offensive", "strong"». */
 const enHits = (tipos: readonly (keyof typeof HIT_DE_GOLPE)[]): string[] =>
@@ -219,9 +227,21 @@ export const battleActionSchema = z.discriminatedUnion('type', [
   // nada. La batalla sigue: se descarta esa jugada, como cualquier otra mala.
   retirada('wait', 'esperar'),
   retirada('defend', 'defenderse'),
-  z.object({ type: z.literal('cast'), spell: z.string(), target: z.string().optional() }),
-  // El poder de la unidad activa (`UnitInfo.poderes`) sobre un aliado: el turno entero.
-  z.object({ type: z.literal('power'), power: z.string(), target: z.string() }),
+  // El hechizo del héroe: a una unidad (`target`), a una casilla (`at`) o, sobre sí o
+  // el tablero, a nada (el editor de magia, 06-11-2026).
+  z.object({
+    type: z.literal('cast'),
+    spell: z.string(),
+    target: z.string().optional(),
+    at: hexSchema.optional(),
+  }),
+  // El poder de la unidad activa (`UnitInfo.poderes`, un hechizo suyo): el turno entero.
+  z.object({
+    type: z.literal('power'),
+    power: z.string(),
+    target: z.string().optional(),
+    at: hexSchema.optional(),
+  }),
   // `gold` es opcional: viene puesto en `legalActions` y devolverla tal cual
   // vale; si se manda, tiene que ser el precio de ahora (`applyAction`).
   z.object({ type: z.literal('surrender'), gold: z.number().int().nonnegative().optional() }),
@@ -865,8 +885,10 @@ Notas:
   apuntada, y da al PRIMERO que encuentre en una casilla que la recta atraviese
   (aunque solo le roce una esquina), sea del bando que sea —también a uno tuyo
   que se haya puesto en medio—; la recta no acaba en la casilla: sigue tras ella
-  hasta el borde del tablero, y si no hay nadie no da a nadie. En el suelo lo
-  para un muro o una puerta cerrada; desde lo alto, no. El daño va por la
+  hasta el borde del tablero, y si no hay nadie no da a nadie. Desde el suelo
+  sube a lo alto del muro y da al primero que haya arriba, y lo para bajar del
+  muro (lo de detrás no se alcanza) o una puerta cerrada; desde lo alto, nada.
+  El daño va por la
   horquilla de su arma de distancia según lo cerca que pase la recta del centro
   de la casilla del alcanzado: por el centro, el máximo; cada octavo de casilla
   de separación baja un cuarto de la horquilla; a media casilla o más, el
@@ -903,12 +925,25 @@ Notas:
   siempre. Sin dado. Si quien la lanzó muere antes, no explota. El registro lo
   cuenta con "thrown" ("at") y un "blast" por alcanzado ("at", "target", "damage",
   "cuarto"; "target" null si no dio a nadie).
-- "power" usa un PODER de la unidad activa ("stacks[].powers": ${PODERES_EN_PROSA})
-  sobre un aliado, incluida ella misma. Gasta su turno entero y solo sin haberse movido; los que
+- "power" usa un PODER de la unidad activa ("stacks[].powers": ${PODERES_EN_PROSA}):
+  un hechizo de "spell_list" que lanza ella, sin maná, con "target" (una unidad), "at" (una
+  casilla) o nada, como diga el hechizo. Gasta su turno entero y solo sin haberse movido; los que
   puede usar ahora vienen en "legalActions".
 - "cast" NO consume el turno de la unidad activa: lanza el héroe, se cobra el
   maná y una tirada por ronda, y después la unidad sigue pudiendo moverse,
   apuntar o atacar. Se te volverá a pedir acción para el mismo stack.
+- MAGIA: cada hechizo de "spell_list" dice a qué se lanza ("target"): "ally",
+  "enemy" o "any" llevan "target" (una unidad); "tile", "at" (una casilla; vale
+  cualquiera a su alcance, "legalActions" trae una por unidad viva); "self" y
+  "all", nada. El héroe lanza desde la casilla de su cuerpo: «en contacto» es a
+  una casilla de él y «a x casillas», hasta x. Uno diferido ("cast" con
+  "diferido" en el registro, "spellAt" en el stack del cuerpo) cae al empezar el
+  siguiente turno de quien lo lanzó. Lo que deja un hechizo va en
+  "stacks[].effects" con su "summary" en palabras: cifras, lo que impide
+  (golpear, disparar, contraatacar, moverse, lanzar) y disparadores (al empezar o
+  terminar su turno, al ser golpeado, al golpear, al morir). Lo que hace un
+  hechizo a cada uno de varios lo cuenta un "spell_hit"; un disparador que salta,
+  un "triggered".
 - La lista "legalActions" de la petición ya trae TODAS las acciones legales;
   elegir una de ellas nunca falla.
 - Si tu acción NO es legal se descarta y juega la IA de reglas en su lugar, que

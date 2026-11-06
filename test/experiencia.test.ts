@@ -22,7 +22,6 @@ import {
   stackById,
 } from '../src/core/battle/battle.js';
 import { herir, stackHp } from '../src/core/battle/damage.js';
-import { castSpell, delHeroe, spell } from '../src/core/battle/spells.js';
 import type { BattleHero, BattleState } from '../src/core/battle/types.js';
 import { HERO_BODY } from '../src/core/battle/types.js';
 import { cifrasDeUnidad, unidadDelJuego } from '../src/core/catalogo.js';
@@ -210,18 +209,8 @@ describe('la experiencia se gana por daño × índice de poder del que lo recibe
     const quitado = antes - stackHp(zombi);
     expect(quitado).toBeGreaterThan(0);
     expect(cuerpo.ganado.experiencia).toBe(quitado * indiceDePoder(zombi.unit));
-    // Y sin cuerpo que cobre, el hechizo hiere igual y no apunta a nadie.
-    const otra = createBattle(
-      conHeroe([{ creature: JINETE, count: 1 }]),
-      { army: [{ creature: 'zombi', count: 1 }], hero: null },
-      createRng(4),
-      COMBATE_COMPLETO,
-    );
-    const flecha = spell('magic_arrow');
-    const sinCobrar = stackById(otra, 'defender-0');
-    const vidaAntes = stackHp(sinCobrar);
-    castSpell(flecha, delHeroe(flecha, mando()), sinCobrar, null);
-    expect(stackHp(sinCobrar)).toBeLessThan(vidaAntes);
+    // Desde el editor de magia (06-11-2026) todo hechizo lo lanza un stack del
+    // tablero (el cuerpo del héroe o la unidad del poder): no hay hechizo sin autor.
   });
 
   it('el héroe que PIERDE también cobra lo que pegó, y quien gana lo suyo', () => {

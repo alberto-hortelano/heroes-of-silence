@@ -34,6 +34,7 @@ import {
   esTipoDePuerta,
   faseDelTurno,
   firmaDelTurno,
+  hechizoDeLaBatalla,
   legalActionsAndCosts,
   MAX_JUGADAS,
   movimientoBlocker,
@@ -64,14 +65,14 @@ import {
   zonaDe,
 } from '@core/battle/despliegue.js';
 import { bonoEnLoAlto, type MurallaDeBatalla, SIN_MURALLA } from '@core/battle/muralla.js';
-import { type PoderId, poder } from '@core/battle/poderes.js';
+import type { Baja } from '@core/battle/resumen.js';
 import {
   formaDeLaBatalla,
   type PapelEnLaRueda,
   type TipoDeGolpe,
   tipoDeGolpeBlocker,
 } from '@core/battle/rueda.js';
-import { enOrdenDelLibro, spell } from '@core/battle/spells.js';
+import { queSeApunta } from '@core/battle/spells.js';
 import type {
   BattleAction,
   BattleHero,
@@ -89,13 +90,15 @@ import { type CatalogoDeEquipo, type Portador, pedidoDelPuesto, pieza } from '@c
 import { type Hero, maxMana } from '@core/hero/hero.js';
 import { infiltracionBlocker } from '@core/hero/infiltracion.js';
 import { armyLeadership, heroLeadership, troopUnit } from '@core/hero/troop.js';
-import type { CasillasLeidas } from '@core/map/casillas.js';
+import { type CatalogoDeHechizos, enOrdenDelLibro, nombreDeHechizo } from '@core/magia/catalogo.js';
+import { Casillas, type CasillasLeidas } from '@core/map/casillas.js';
 import type { MapObject, ObraDelPuesto, PathStep } from '@core/map/map.js';
 import { type Lugar, lugarSiExiste, type MundoLeido } from '@core/mundo/formato.js';
 import { partidaDelMundo } from '@core/mundo/partida.js';
 import { estadoDicho, lugarEn } from '@core/mundo/reglas.js';
 import { type BancoPintado, SIN_BANCO } from '@core/npcs.js';
 import { createRng, type Rng } from '@core/rng.js';
+import { CHARACTER_BODY } from '@core/rpg/character.js';
 import {
   type AsaltantesALaVista,
   asaltantesALaVista,
@@ -118,11 +121,13 @@ import { type Desenlace, desenlaceDe, finDePartida } from '@core/state/desenlace
 import {
   cronicaPara,
   type DefeatReason,
+  type GameEvent,
   type GameEventDraft,
   type Ocupante,
 } from '@core/state/events.js';
 import {
   type AdventureAction,
+  type Ataque,
   applyAdventureAction,
   barreraDeMañana,
   batallaDeLaFormacion,
@@ -131,13 +136,16 @@ import {
   candidatosAHeroe,
   defensaPorElegir,
   destinoDeRecluta,
+  elAtaque,
   elegirLaDefensa,
   type GameContext,
   type GameState,
+  HERO_SCOUT_RADIUS,
   heroById,
   heroeEnLaBase,
   heroesALaVista,
   heroesOf,
+  miradasDe,
   objetosConocidos,
   type PendingBattle,
   type Player,
@@ -196,7 +204,9 @@ import {
   HUECOS,
   type Hueco,
   huecoDesconocido,
+  NOMBRE_DE_FACCION,
   type PlayerId,
+  type PoderId,
   type Point,
   type UnitInfo,
 } from '@core/types.js';
@@ -210,6 +220,11 @@ import type { VistaDeLaBase } from './render/base/escena.js';
 import { cuerpoDeLaPersona } from './render/cuerpo-de-gente.js';
 import { conLosDueñosSabidos, type SitioOcupado } from './render/sitios-sabidos.js';
 import { componerVistaDeLaTropa, mismoPortador, type VistaDeLaTropa } from './tropa/vista.js';
+import {
+  type NieblaDeAntes,
+  type NieblaDeLaMarcha,
+  nieblaDeLaMarcha,
+} from './vista-de-la-marcha.js';
 
 /**
  * Lo que dice la barra en el mapa la primera vez: al salir de la base en que
@@ -444,7 +459,7 @@ export interface Apuntado {
 
 /** Cómo se nombra lo apuntado en una frase: el hechizo o el poder. */
 function nombreDeLoApuntado(a: Apuntado): string {
-  return a.kind === 'hechizo' ? spell(a.id).name : poder(a.id).nombre;
+  return nombreDeHechizo(a.id);
 }
 
 /** ¿Es `a` una jugada de lo apuntado (sobre `objetivo`, si se dice)? */
@@ -1398,7 +1413,7 @@ function opcionesDeHechizo(
   if (hero === null || hero.spells.length === 0) return [];
 
   // En el orden del libro, el mismo que el panel del mapa (#54).
-  return enOrdenDelLibro(hero.spells).map((sp) => {
+  return enOrdenDelLibro(hero.spells, turno.battle.libro).map((sp) => {
     const id = sp.id;
     // Un solo predicado para las tres preguntas —sobre quién, si se puede, y
     // por qué no—: el par (hechizo, objetivo) sale de la lista legal y el
@@ -1406,15 +1421,15 @@ function opcionesDeHechizo(
     const targets = acciones.flatMap((a) =>
       a.type === 'cast' && a.spell === id && a.target !== undefined ? [a.target] : [],
     );
-    const castable = targets.length > 0;
+    const castable = acciones.some((a) => a.type === 'cast' && a.spell === id);
     // Con `castable` verdadero el bloqueo es `null` por construcción, así que
     // solo se pregunta cuando hace falta. Y si no lo es, el núcleo TIENE que
     // dar motivo: las dos respuestas salen de la misma función.
     const motivo = castable ? '' : castBlocker(turno.battle, turno.side, id);
     if (motivo === null) {
-      throw new Error(`${sp.name} no se ofrece y el núcleo no dice por qué`);
+      throw new Error(`${sp.nombre} no se ofrece y el núcleo no dice por qué`);
     }
-    return { id, name: sp.name, cost: sp.cost, targets, castable, motivo };
+    return { id, name: sp.nombre, cost: sp.mana, targets, castable, motivo };
   });
 }
 
@@ -1424,6 +1439,38 @@ interface DueñoDelLibro {
   /** Las opciones de ahora, de la caché de la sesión (`opcionesDeHechizo`). */
   spellOptions(): readonly SpellOption[];
   status: string;
+  battleLegalActions(): readonly BattleAction[];
+  playBattleAction(action: BattleAction): void;
+}
+
+/**
+ * La jugada de lo apuntado (un hechizo o un poder que se lanza a una casilla) en la
+ * casilla `at`, o por qué no vale ahí con la frase del núcleo (`castBlocker`,
+ * `poderBlocker`); `null` si lo apuntado no se lanza a una casilla (va a una
+ * unidad). Lo leen el clic y la previsión del tablero (06-11-2026, el editor de magia).
+ */
+export function loApuntadoEnCasilla(
+  s: Pick<ControlDeBatalla, 'batallaALaVista' | 'turnoPropio'>,
+  apunta: Apuntado,
+  at: Hex,
+): { readonly accion: BattleAction } | { readonly motivo: string } | null {
+  const b = s.batallaALaVista;
+  if (b === null) return null;
+  const h = hechizoDeLaBatalla(b, apunta.id);
+  if (queSeApunta(h) !== 'casilla') return null;
+  const turno = s.turnoPropio;
+  if (turno === null) return { motivo: NINGUNA_TUYA };
+  const motivo =
+    apunta.kind === 'hechizo'
+      ? castBlocker(b, turno.side, apunta.id, undefined, at)
+      : poderBlocker(b, apunta.id, undefined, at);
+  if (motivo !== null) return { motivo: comoFrase(motivo) };
+  return {
+    accion:
+      apunta.kind === 'hechizo'
+        ? { type: 'cast', spell: apunta.id, at }
+        : { type: 'power', poder: apunta.id, at },
+  };
 }
 
 /**
@@ -1468,7 +1515,7 @@ export class LibroDeBatalla implements HechizosDeBatalla {
     const motivo = castBlocker(turno.battle, turno.side, elegido, targetId);
     if (motivo === null) {
       throw new Error(
-        `${spell(elegido).name} no se ofrece sobre ${targetId} y el núcleo no dice por qué`,
+        `${nombreDeHechizo(elegido, turno.battle.libro)} no se ofrece sobre ${targetId} y el núcleo no dice por qué`,
       );
     }
     return motivo;
@@ -1486,8 +1533,25 @@ export class LibroDeBatalla implements HechizosDeBatalla {
       this.dueño.status = `No puedes lanzar ${opcion.name}: ${opcion.motivo}.`;
       return;
     }
+    // Sobre sí o al tablero no se elige nada: se lanza ya (el editor de magia).
+    const suyas = this.dueño
+      .battleLegalActions()
+      .filter((a) => a.type === 'cast' && a.spell === spellId);
+    const [sinApuntar] = suyas;
+    if (
+      suyas.length === 1 &&
+      sinApuntar?.type === 'cast' &&
+      sinApuntar.target === undefined &&
+      sinApuntar.at === undefined
+    ) {
+      this.dueño.playBattleAction(sinApuntar);
+      return;
+    }
     this.selectedSpell = spellId;
-    this.dueño.status = `${opcion.name}: elige sobre quién lanzarlo.`;
+    const aCasilla = suyas.some((a) => a.type === 'cast' && a.at !== undefined);
+    this.dueño.status = aCasilla
+      ? `${opcion.name}: pulsa la casilla donde lanzarlo, o Escape para cancelar.`
+      : `${opcion.name}: elige sobre quién lanzarlo.`;
   }
 
   clearSpell(): void {
@@ -1944,7 +2008,9 @@ export class Session implements ControlDeBatalla {
 
   /** Lo explorado por la persona, o `null` si se ha pedido verlo todo. */
   get explorado(): CasillasLeidas | null {
-    return this.revealAll ? null : this.jugador.fog;
+    if (this.revealAll) return null;
+    // Mientras el héroe anda, la niebla va con él (`vista-de-la-marcha.ts`).
+    return this.laNieblaDeLaMarcha()?.explorado ?? this.jugador.fog;
   }
 
   /**
@@ -1984,6 +2050,8 @@ export class Session implements ControlDeBatalla {
    * movimiento y captura, y el turno cambia al pasar de día.
    */
   visibles(): CasillasLeidas {
+    const marcha = this.laNieblaDeLaMarcha();
+    if (marcha !== null) return marcha.visibles;
     const clave = `${this.state.log.length}|${this.state.day}|${this.state.current}`;
     if (this.cacheVisibles === null || this.cacheVisibles.clave !== clave) {
       this.cacheVisibles = { clave, casillas: visibleNow(this.state, this.viewer) };
@@ -2021,7 +2089,13 @@ export class Session implements ControlDeBatalla {
    * casilla pisada alguna vez (#64). Son unos pocos: no se guarda.
    */
   heroesALaVista(): readonly Hero[] {
-    return heroesALaVista(this.state, this.viewer, this.revealAll ? null : this.visibles());
+    const heroes = heroesALaVista(this.state, this.viewer, this.revealAll ? null : this.visibles());
+    // Mientras anda, el héroe está en la casilla de su marcha que pisa (el minimapa,
+    // la barra), no en la de llegada.
+    const m = this.marcha;
+    if (m === null) return heroes;
+    const at = m.enPantalla.pasos[m.niebla?.pisada ?? 0] as Point;
+    return heroes.map((h) => (h.id === m.enPantalla.heroe ? { ...h, at } : h));
   }
 
   /**
@@ -2054,6 +2128,8 @@ export class Session implements ControlDeBatalla {
    * ocupados (`conLosDueñosSabidos`). Es una copia: el estado no se toca.
    */
   private loConocido(): ReturnType<typeof conLosDueñosSabidos> {
+    const m = this.marcha;
+    if (m !== null) return this.loConocidoEnLaMarcha(m.antes.conocido);
     const mirando = this.revealAll ? null : this.visibles();
     const c = this.cacheObjetos;
     if (c !== null && c.mirando === mirando && c.version === this.version) return c.conocido;
@@ -2064,6 +2140,40 @@ export class Session implements ControlDeBatalla {
   private cacheObjetos: {
     mirando: CasillasLeidas | null;
     version: number;
+    conocido: ReturnType<typeof conLosDueñosSabidos>;
+  } | null = null;
+
+  /**
+   * Lo que se sabe de los objetos mientras el héroe anda: como se sabían al salir
+   * (`antes`), y lo que no se sabía —lo de una región que descubre por el camino—,
+   * como lo sabe el núcleo. Así el cofre que coge, el paso que toma o el castillo
+   * que conquista cambian al llegar, como el panel.
+   */
+  private loConocidoEnLaMarcha(
+    antes: ReturnType<typeof conLosDueñosSabidos>,
+  ): ReturnType<typeof conLosDueñosSabidos> {
+    const mirando = this.revealAll ? null : this.visibles();
+    const c = this.cacheObjetosEnLaMarcha;
+    if (c !== null && c.mirando === mirando && c.antes === antes) return c.conocido;
+    const deAntes = new Map(antes.objetos.map((o) => [o.id, o] as const));
+    const ahora = conLosDueñosSabidos(objetosConocidos(this.state, this.viewer, mirando));
+    // Lo que no se sabía, solo si ya se ha descubierto por donde va: el recuerdo
+    // del núcleo ya trae lo de toda la marcha.
+    const explorado = this.explorado;
+    const conocido = {
+      objetos: ahora.objetos.flatMap((o) => {
+        const antesDeAndar = deAntes.get(o.id);
+        if (antesDeAndar !== undefined) return [antesDeAndar];
+        return explorado === null || explorado.has(o.at) ? [o] : [];
+      }),
+      ocupados: antes.ocupados,
+    };
+    this.cacheObjetosEnLaMarcha = { mirando, antes, conocido };
+    return conocido;
+  }
+  private cacheObjetosEnLaMarcha: {
+    mirando: CasillasLeidas | null;
+    antes: ReturnType<typeof conLosDueñosSabidos>;
     conocido: ReturnType<typeof conLosDueñosSabidos>;
   } | null = null;
 
@@ -2124,8 +2234,86 @@ export class Session implements ControlDeBatalla {
 
   // ------------------------------------------------------------ aventura
 
+  /**
+   * Si el mapa enseña al héroe andando su marcha (`marchaEnCurso`): lo pone la
+   * página (`main.ts`). Sin ella —los tests, el espejo de `pnpm capturas`—, lo que
+   * abre la llegada se abre en el acto, como antes.
+   */
+  enseñarLaMarcha = false;
+
+  /**
+   * La marcha que el mapa está enseñando (06-11-2026, «el personaje se
+   * teletransporta…»): el núcleo ya ha movido al héroe, y lo que abre la llegada
+   * —la batalla, la base, el lugar, la guarnición, la frase de la parada— espera a
+   * `acabarLaMarcha`, que llama la página al llegar o con cualquier gesto.
+   */
+  private marcha: {
+    readonly enPantalla: MarchaEnPantalla;
+    readonly alLlegar: () => void;
+    /** Lo que se veía al salir: lo que se pinta mientras anda (`vista-de-la-marcha.ts`). */
+    readonly antes: LoDeAntesDeLaMarcha;
+    /** La niebla con el héroe en la casilla de su marcha que pisa ahora (`pisarEnLaMarcha`). */
+    niebla: NieblaDeLaMarcha | null;
+  } | null = null;
+
+  /** La marcha que se enseña ahora, o `null`. */
+  get marchaEnCurso(): MarchaEnPantalla | null {
+    return this.marcha?.enPantalla ?? null;
+  }
+
+  /**
+   * El mapa enseña al héroe que anda en la casilla `pisada` de su marcha (el índice
+   * en `MarchaEnPantalla.pasos`): la niebla que se pinta va con él
+   * (`nieblaDeLaMarcha`). Lo llama la escena del mapa a cada fotograma; sin marcha,
+   * nada.
+   */
+  pisarEnLaMarcha(pisada: number): void {
+    const m = this.marcha;
+    if (m === null || m.niebla?.pisada === pisada) return;
+    m.niebla = nieblaDeLaMarcha(
+      this.state.map,
+      m.antes.niebla,
+      m.enPantalla.pasos,
+      pisada,
+      m.niebla,
+    );
+  }
+
+  /** La niebla de la marcha que se enseña, o `null` (sin marcha, o viéndolo todo). */
+  private laNieblaDeLaMarcha(): NieblaDeLaMarcha | null {
+    const m = this.marcha;
+    if (m === null || this.revealAll) return null;
+    if (m.niebla === null)
+      m.niebla = nieblaDeLaMarcha(this.state.map, m.antes.niebla, m.enPantalla.pasos, 0, null);
+    return m.niebla;
+  }
+
+  /**
+   * Los puntos de movimiento que enseña el panel de `hero`: mientras anda su marcha,
+   * los de antes de andar (lo que se pinta es lo de antes hasta que llega).
+   */
+  movimientoALaVista(hero: Hero): number {
+    const m = this.marcha;
+    return m !== null && m.enPantalla.heroe === hero.id ? m.antes.movimiento : hero.movePoints;
+  }
+
+  /** La marcha llega (o se salta): abre lo que esperaba a la llegada. Sin marcha, nada. */
+  acabarLaMarcha(): void {
+    const m = this.marcha;
+    if (m === null) return;
+    this.marcha = null;
+    m.alLlegar();
+    this.tocar();
+  }
+
   /** Selecciona lo que haya en la casilla, o mueve el héroe hasta ella. */
   clickTile(p: Point): void {
+    // Un clic mientras el héroe anda solo lo hace llegar: lo que hubiera bajo el
+    // puntero se elige con el mapa ya quieto.
+    if (this.marcha !== null) {
+      this.acabarLaMarcha();
+      return;
+    }
     // Solo el turno: con el héroe de salida por elegir, pulsar la base la abre (es
     // donde se elige); mover no hay a quién.
     const bloqueo = this.turnoAjeno();
@@ -2180,6 +2368,11 @@ export class Session implements ControlDeBatalla {
       this.status = `${hero.name} ya está en esa casilla: pulsa otra para moverlo.`;
       return;
     }
+    const desde = hero.at;
+    const antes = this.state.log.length;
+    // Lo que se ve antes de andar, por si la marcha se enseña: es lo que se pinta
+    // mientras anda (`vista-de-la-marcha.ts`).
+    const loDeAntes = this.enseñarLaMarcha ? this.loDeAntesDeLaMarcha(hero) : null;
     // Se manda el destino tal cual: el núcleo anda lo que dé el día y, si no
     // hay camino o no da ni un paso, lo dice él con su frase —quién cierra el
     // paso, si es alguien (M2 de la 2a)—; aquí solo se le pone la mayúscula.
@@ -2200,20 +2393,70 @@ export class Session implements ControlDeBatalla {
     this.dormidos.delete(heroId);
     this.tocar();
 
-    if (this.state.pendingBattle !== null) {
-      this.scene = 'battle';
-      this.status = this.alEntrarEnLaBatalla('¡Batalla!');
-      // Si la iniciativa la tiene el enemigo, mueve él primero: sin esto la
-      // batalla se quedaba esperando a una persona que no podía hacer nada.
-      this.advanceEnemyTurns();
+    // La parada (#130) se lee ahora: `applyAdventureAction` no devuelve nada, y el
+    // hecho es el último de la crónica porque la parada vuelve justo después de
+    // escribirlo.
+    const ultimo = this.state.log.at(-1);
+    const alLlegar = (): void => this.alAcabarLaMarcha(hero, ultimo);
+    // Lo que anduvo, casilla a casilla: un `hero_moved` por paso, también si la
+    // marcha se cortó, se paró o la emboscaron por el camino.
+    const pasos = [desde];
+    for (const e of this.state.log.slice(antes))
+      if (e.kind === 'hero_moved' && e.hero === heroId) pasos.push(e.to);
+    if (loDeAntes !== null && pasos.length > 1) {
+      this.marcha = {
+        enPantalla: { heroe: heroId, pasos },
+        alLlegar,
+        antes: loDeAntes,
+        niebla: null,
+      };
+      return;
+    }
+    alLlegar();
+  }
+
+  /**
+   * Lo que se ve justo antes de que `hero` ande (una copia: el núcleo lo cambia al
+   * moverlo): lo explorado y desde dónde se mira sin él, los objetos como se saben
+   * y sus puntos de movimiento.
+   */
+  private loDeAntesDeLaMarcha(hero: Hero): LoDeAntesDeLaMarcha {
+    const miradas = miradasDe(this.state, this.viewer);
+    const suya = miradas.findIndex(
+      (m) => m.radio === HERO_SCOUT_RADIUS && m.centro.x === hero.at.x && m.centro.y === hero.at.y,
+    );
+    if (suya >= 0) miradas.splice(suya, 1);
+    return {
+      niebla: {
+        explorado: Casillas.deIndices(this.state.map, this.jugador.fog.indices()),
+        miradas: miradas.map((m) => ({ centro: { ...m.centro }, radio: m.radio })),
+        radio: HERO_SCOUT_RADIUS,
+      },
+      conocido: structuredClone(this.loConocido()),
+      movimiento: hero.movePoints,
+    };
+  }
+
+  /** Lo que abre la llegada de la marcha de `hero`: `ultimo`, el último hecho de su marcha. */
+  private alAcabarLaMarcha(hero: Hero, ultimo: GameEvent | undefined): void {
+    const pending = this.state.pendingBattle;
+    if (pending !== null) {
+      const entrar = (): void => {
+        this.scene = 'battle';
+        this.status = this.alEntrarEnLaBatalla('¡Batalla!');
+        // Si la iniciativa la tiene el enemigo, mueve él primero: sin esto la
+        // batalla se quedaba esperando a una persona que no podía hacer nada.
+        this.advanceEnemyTurns();
+      };
+      // Una emboscada no la eligió la persona: al acabar la marcha, antes de la
+      // batalla, el aviso de quién y dónde, como cuando la atacan en el turno del rival.
+      if (pending.attacker.kind !== 'raider' || !this.avisar(entrar)) entrar();
       return;
     }
 
     // La marcha se ha parado al descubrir un grupo que la emboscaría (#130), y
-    // se dice. `applyAdventureAction` no devuelve nada: el hecho es el último
-    // de la crónica porque la parada vuelve justo después de escribirlo.
-    const ultimo = this.state.log.at(-1);
-    if (ultimo?.kind === 'march_halted' && ultimo.hero === heroId) {
+    // se dice.
+    if (ultimo?.kind === 'march_halted' && ultimo.hero === hero.id) {
       this.status = `${hero.name} se detiene: ${loQueLaPara(ultimo.troops)}.`;
       return;
     }
@@ -2226,9 +2469,9 @@ export class Session implements ControlDeBatalla {
     const pueblo = this.myTowns().find((t) => sameTile(t.at, hero.at));
     if (pueblo !== undefined) this.openTown(pueblo.id);
     // Se entra en un lugar al ACABAR la marcha en él (no al pasar, como el cofre).
-    else if (lugarEn(this.state, hero.at) !== null) this.abrirElLugar(heroId);
+    else if (lugarEn(this.state, hero.at) !== null) this.abrirElLugar(hero.id);
     // Y parar en un paso o un pueblo suyo abre su guarnición; pasar de largo, no.
-    else if (this.enSuPasoOPueblo(hero)) this.abrirLaGuarnicion(heroId);
+    else if (this.enSuPasoOPueblo(hero)) this.abrirLaGuarnicion(hero.id);
   }
 
   // ------------------------------------------------------------ guarnición
@@ -2663,25 +2906,111 @@ export class Session implements ControlDeBatalla {
     const cerrada = new Promise<void>((resolve) => {
       this.alCerrarLaDefensa = resolve;
     });
+    // Antes de la batalla, el aviso en el mapa: quién ataca, a quién y dónde, con
+    // la cámara en el sitio (arreglo 3 del 06-11-2026: saltaba a la pelea sin
+    // saber dónde). «Defender» la abre (`abrirLaDefensa`).
+    if (!this.avisar(() => this.abrirLaDefensa())) this.abrirLaDefensa();
+    // Lo que juega el rival llega sin un gesto de la persona: quien pinta no sabría
+    // que hay algo que enseñar.
+    this.alCambiarSinGesto();
+    await cerrada;
+  }
+
+  /**
+   * La batalla de la defensa, en pantalla. Con el héroe en un sitio suyo con
+   * guarnición, antes de la primera jugada se elige con quién defiende (D1 del
+   * puesto fronterizo): la batalla empieza al confirmar (`confirmarLaDefensa`) o
+   * al dejar la propuesta de la IA, y empieza desplegando (`empezarLaDefensa`).
+   */
+  private abrirLaDefensa(): void {
     this.scene = 'battle';
-    // Con el héroe en un sitio suyo con guarnición, antes de la primera jugada se
-    // elige con quién defiende (D1 del puesto fronterizo): la batalla empieza al
-    // confirmar (`confirmarLaDefensa`) o al dejar la propuesta de la IA, y empieza
-    // desplegando (`empezarLaDefensa`).
     if (defensaPorElegir(this.state, this.viewer) !== null) {
       this.defensaEnPantalla = new Map();
       this.status = '¡Te atacan! Elige con quién defiendes.';
-      this.alCambiarSinGesto();
-      await cerrada;
       return;
     }
     this.status = this.fraseDeLaDefensa();
     // Si la iniciativa la tiene el rival, mueve él primero (tras el despliegue, al pulsar «Listo»).
     this.advanceEnemyTurns();
-    // Lo que juega el rival llega sin un gesto de la persona: quien pinta no sabría
-    // que hay una batalla que enseñar.
-    this.alCambiarSinGesto();
-    await cerrada;
+  }
+
+  /**
+   * Pone en pantalla el aviso del ataque de la batalla pendiente, en el mapa, y
+   * guarda qué hacer al pulsar «Defender». `false` si no hay nada que avisar (lo
+   * atacado no se defiende: `elAtaque`), y quien llama entra directamente.
+   */
+  private avisar(alDefender: () => void): boolean {
+    const pending = this.state.pendingBattle;
+    const ataque = pending === null ? null : elAtaque(this.state, pending);
+    if (ataque === null) return false;
+    this.avisoEnPantalla = { ataque, alDefender };
+    this.scene = 'adventure';
+    this.status = this.vistaDelAviso(ataque).titulo;
+    return true;
+  }
+
+  /** El aviso del ataque en pantalla, o `null`. */
+  private avisoEnPantalla: { readonly ataque: Ataque; readonly alDefender: () => void } | null =
+    null;
+
+  /**
+   * El aviso de un ataque a la persona, antes de su batalla: en el turno del
+   * rival (#116) y en la emboscada de un grupo en el suyo. Lo pinta
+   * `views/aviso.ts` en `<dialog id="aviso">`, con «Defender» y «Resolver sola»,
+   * y la cámara del mapa mira a `at` (`focoDe`).
+   */
+  get avisoDelAtaque(): VistaDelAviso | null {
+    const a = this.avisoEnPantalla;
+    return a === null ? null : this.vistaDelAviso(a.ataque);
+  }
+
+  private vistaDelAviso(a: Ataque): VistaDelAviso {
+    const emboscada = a.quien.kind === 'asaltantes';
+    const quien =
+      a.quien.kind === 'heroe'
+        ? `${a.quien.nombre} (${NOMBRE_DE_FACCION[a.quien.faccion]})`
+        : `Un grupo de ${a.quien.individuos} asaltantes`;
+    // Dónde, por un nombre y no por la casilla (06-11-2026: «en (11,5)» no se leía
+    // como un lugar; la cámara ya enseña cuál): el sitio y, en campo abierto, su
+    // región (`Ataque.region`); sin ninguna, nada.
+    const aQuien =
+      a.aQuien.kind === 'heroe'
+        ? a.aQuien.nombre
+        : a.sitio === null
+          ? 'la guarnición'
+          : `la guarnición ${a.sitio.delSitio}`;
+    const donde =
+      a.aQuien.kind === 'guarnicion'
+        ? ''
+        : a.sitio !== null
+          ? ` en ${a.sitio.nombre}`
+          : a.region === null
+            ? ''
+            : ` ${a.region.dentro ? 'en' : 'junto a'} ${a.region.nombre}`;
+    return {
+      titulo: emboscada
+        ? '¡Emboscada!'
+        : a.sitio === null
+          ? '¡Te atacan!'
+          : `¡Te atacan en ${a.sitio.nombre}!`,
+      frase: `${quien} ${emboscada ? 'embosca' : 'ataca'} a ${aQuien}${donde}.`,
+      at: a.at,
+    };
+  }
+
+  /** «Defender» en el aviso: se cierra y se abre la batalla. */
+  defenderElAtaque(): void {
+    const a = this.avisoEnPantalla;
+    if (a === null) return;
+    this.avisoEnPantalla = null;
+    a.alDefender();
+  }
+
+  /** «Resolver sola» en el aviso: la IA pelea por la persona, sin abrir la batalla (`autoResolveBattle`). */
+  resolverElAtaqueSola(): void {
+    if (this.avisoEnPantalla === null) return;
+    this.avisoEnPantalla = null;
+    this.autoResolveBattle();
   }
 
   /**
@@ -3727,8 +4056,9 @@ export class Session implements ControlDeBatalla {
     }
     // Delegar la batalla no es delegar el oro: la IA no se rinde por la persona.
     const delLugar = this.lugarDeLaBatalla();
+    const antes = this.antesDeCerrar();
     resolvePendingBattle(this.state, this.ctx);
-    this.afterBattle(delLugar);
+    this.afterBattle(delLugar, antes);
   }
 
   /** Cierra la batalla terminada y vuelve al mapa (o al lugar donde se peleó). */
@@ -3736,11 +4066,118 @@ export class Session implements ControlDeBatalla {
     const battle = this.battle;
     if (battle === null || battle.finished === null) return;
     const delLugar = this.lugarDeLaBatalla();
+    const antes = this.antesDeCerrar();
     settleBattle(this.state, this.ctx);
-    this.afterBattle(delLugar);
+    this.afterBattle(delLugar, antes);
   }
 
-  private afterBattle(delLugar: { readonly heroe: string } | null = null): void {
+  /**
+   * Lo que hace falta para contar la batalla después de cerrarla
+   * (`fraseTrasLaBatalla`): dónde empiezan sus hechos en la crónica y el nombre de
+   * cada héroe, que el vencido sin base ya no está en el mapa para decirlo.
+   */
+  private antesDeCerrar(): AntesDeCerrar {
+    return {
+      desde: this.state.log.length,
+      nombres: new Map(this.state.heroes.map((h) => [h.id, h.name])),
+    };
+  }
+
+  /**
+   * Cómo acabó la batalla que se acaba de cerrar, en una frase para la barra, o ''
+   * si no era de la persona (06-11-2026: «Resolver sola» volvía al mapa con la
+   * barra vacía y el grupo, sin más, ya no estaba). Con lo que acaba de escribir el
+   * núcleo: quién ganó y qué perdió cada bando (`battle_ended`, con su
+   * `resumenDeBatalla`), y lo que pasó fuera del tablero: un héroe que cae, se
+   * rinde o vuelve a su base (`hero_defeated`, `hero_returned`) y un sitio que se
+   * pierde o se toma. La misma tras una batalla jugada («Continuar») y tras una
+   * resuelta sola: la jugada enseñaba su final en el panel y volvía al mapa
+   * también callada.
+   */
+  private fraseTrasLaBatalla({ desde, nombres }: AntesDeCerrar): string {
+    const hechos = this.state.log.slice(desde);
+    const fin = hechos.find((e) => e.kind === 'battle_ended');
+    if (fin === undefined) return '';
+    const suyo: Side | null =
+      fin.owners.attacker === this.viewer
+        ? 'attacker'
+        : fin.owners.defender === this.viewer
+          ? 'defender'
+          : null;
+    if (suyo === null) return '';
+    const otro: Side = suyo === 'attacker' ? 'defender' : 'attacker';
+    const bajas = (l: readonly Baja[]): string =>
+      l
+        .map(
+          (b) =>
+            `${b.count}\u00a0× ${b.creature === CHARACTER_BODY ? 'personaje' : unidadDelJuego(b.creature).name}`,
+        )
+        .join(', ');
+    // Lo que mataron de lo tuyo. «No pierdes a nadie» no se dice si cae un héroe
+    // tuyo: la tropa que no murió en el tablero se va con él (`volverABase`).
+    const cayoUnoTuyo = hechos.some((e) => e.kind === 'hero_defeated' && e.actor === this.viewer);
+    const tuyas =
+      fin.lost[suyo].length > 0
+        ? [`pierdes ${bajas(fin.lost[suyo])}`]
+        : cayoUnoTuyo
+          ? []
+          : ['no pierdes a nadie'];
+    const partes = [
+      ...tuyas,
+      fin.lost[otro].length === 0
+        ? 'el enemigo no pierde a nadie'
+        : `el enemigo pierde ${bajas(fin.lost[otro])}`,
+    ];
+    const nombre = (id: string): string => nombres.get(id) ?? 'un héroe';
+    const sitio = (id: string): string => {
+      const s = sitioSiExiste(this.state, id);
+      return s === null ? 'un sitio' : nombreDelSitio(s);
+    };
+    const caidos = new Set<string>();
+    for (const e of hechos) {
+      switch (e.kind) {
+        case 'hero_defeated':
+          // `actor` es el dueño del que cae. El tuyo se cuenta con su vuelta, si vuelve.
+          if (e.actor !== this.viewer) partes.push(`cae ${nombre(e.hero)}`);
+          else caidos.add(e.hero);
+          break;
+        case 'hero_returned': {
+          if (e.actor !== this.viewer) break;
+          const base = sitio(e.town);
+          if (e.surrendered) {
+            partes.push(`${nombre(e.hero)} se rinde por ${e.gold} de oro y vuelve a ${base}`);
+          } else {
+            caidos.delete(e.hero);
+            partes.push(`${nombre(e.hero)} cae y vuelve a ${base} sin tropa`);
+          }
+          break;
+        }
+        case 'town_captured':
+        case 'node_captured': {
+          const id = e.kind === 'town_captured' ? e.town : e.node;
+          if (e.from === this.viewer) partes.push(`pierdes ${sitio(id)}`);
+          else if (e.actor === this.viewer) partes.push(`tomas ${sitio(id)}`);
+          break;
+        }
+        case 'town_owner_changed':
+          if (e.from === this.viewer) partes.push(`pierdes ${sitio(e.town)}`);
+          else if (e.to === this.viewer) partes.push(`tomas ${sitio(e.town)}`);
+          break;
+        default:
+          break;
+      }
+    }
+    // El que cae sin base a la que volver sale del mapa.
+    for (const id of caidos) partes.push(`${nombre(id)} cae`);
+    return `Batalla ${fin.winner === suyo ? 'ganada' : 'perdida'}: ${partes.join('; ')}.`;
+  }
+
+  private afterBattle(
+    delLugar: { readonly heroe: string } | null = null,
+    antes: AntesDeCerrar | null = null,
+  ): void {
+    // Cerrada sin pasar por «Defender» (`autoResolveBattle` directo), su aviso sobra.
+    this.avisoEnPantalla = null;
     // Si era una defensa (#116), el turno del rival sigue desde aquí.
     const defensa = this.alCerrarLaDefensa;
     this.alCerrarLaDefensa = null;
@@ -3750,10 +4187,10 @@ export class Session implements ControlDeBatalla {
     if (this.selectedHero === null) {
       this.selectedHeroId = this.myHeroes()[0]?.id ?? null;
     }
-    // «¡Batalla!» se quedaba en la barra ya de vuelta en el mapa: se borra. Si
-    // la batalla cerró la partida, la barra dice cómo sin que se escriba aquí
-    // (`status`); antes era un «¡Victoria!» a secas, sin la causa.
-    this.status = '';
+    // «¡Batalla!» se quedaba en la barra ya de vuelta en el mapa: dice cómo acabó
+    // (`fraseTrasLaBatalla`). Si la batalla cerró la partida, la barra dice cómo
+    // sin que se escriba aquí (`status`); antes era un «¡Victoria!» a secas, sin la causa.
+    this.status = antes === null ? '' : this.fraseTrasLaBatalla(antes);
     // La de un lugar vuelve a su escena, ya en su estado nuevo (P-d del usuario),
     // si el héroe sigue en él: vencido, vuelve a su base y se queda en el mapa.
     const hero =
@@ -3958,6 +4395,8 @@ export class SesionDeArena implements ControlDeBatalla {
       readonly equipo: CatalogoDeEquipo;
       /** La complejidad de la pelea (`MontajeDeArena.combate`). */
       readonly combate: ReglasDelCombate;
+      /** Los hechizos con que se pelea (los de la página; sin ellos, los del juego). */
+      readonly hechizos?: CatalogoDeHechizos;
     },
     semilla: number,
     /** La arena no tiene regiones ni días: el despejado, o lo que pida `?clima=` (`arena/main.ts`). */
@@ -3971,6 +4410,7 @@ export class SesionDeArena implements ControlDeBatalla {
       muralla: montaje.muralla ?? SIN_MURALLA,
       equipo: montaje.equipo,
       combate: montaje.combate,
+      ...(montaje.hechizos === undefined ? {} : { hechizos: montaje.hechizos }),
     };
     this.catalogo = catalogoDelMontaje(delMontaje);
     this.iaDelBando = {
@@ -4145,6 +4585,7 @@ export class SesionDeArena implements ControlDeBatalla {
     const motivo = retocarEnBatalla(this.battle, r, this.catalogo);
     if (motivo !== null) return comoFrase(motivo);
     if (r.kind === 'piezas') this.catalogo = { ...this.catalogo, equipo: r.equipo };
+    if (r.kind === 'hechizos') this.catalogo = { ...this.catalogo, hechizos: r.hechizos };
     if (r.kind === 'tipo') this.catalogo = conUnidad(this.catalogo, r.fuente.unidad);
     // Lo que entra y cambia algo deja su `retoque` en el registro; lo que deja la
     // ficha como estaba no escribe nada, y no se dice «Cambiado» (N1 de QA).
@@ -4444,11 +4885,45 @@ export interface VistaDeLaGuarnicion extends ElReparto {
   readonly obra: LaObraDelPuesto | null;
 }
 
+/** Lo que la sesión guarda al cerrar una batalla para contarla después (`fraseTrasLaBatalla`). */
+interface AntesDeCerrar {
+  /** Dónde empiezan en la crónica los hechos del cierre. */
+  readonly desde: number;
+  /** El nombre de cada héroe antes de cerrarla, por su id. */
+  readonly nombres: ReadonlyMap<string, string>;
+}
+
+/** El aviso de un ataque a la persona (`Session.avisoDelAtaque`), dicho. */
+export interface VistaDelAviso {
+  /** «¡Te atacan en Valdeluz!», «¡Te atacan!», «¡Emboscada!». */
+  readonly titulo: string;
+  /** Quién ataca a quién y dónde: «Grishnak (Orkos) ataca a Aldric en Valdeluz.». */
+  readonly frase: string;
+  /** La casilla donde se pelea: a donde mira la cámara. */
+  readonly at: Point;
+}
+
 /** La pantalla de la defensa (`Session.defensa`): la del núcleo, con los nombres. */
 export interface VistaDeLaDefensa extends Omit<LaDefensa, 'filas'> {
   readonly hero: Hero;
   readonly sitio: string;
   readonly filas: readonly (FilaDeLaDefensa & { readonly nombre: string })[];
+}
+
+/** Lo que se veía al salir una marcha que se enseña: lo que se pinta mientras anda. */
+interface LoDeAntesDeLaMarcha {
+  readonly niebla: NieblaDeAntes;
+  readonly conocido: ReturnType<typeof conLosDueñosSabidos>;
+  readonly movimiento: number;
+}
+
+/**
+ * La marcha que el mapa enseña (`Session.marchaEnCurso`): quién anda y por qué
+ * casillas, de la de donde salió a la última que pisó (sus `hero_moved`).
+ */
+export interface MarchaEnPantalla {
+  readonly heroe: string;
+  readonly pasos: readonly Point[];
 }
 
 /** Lo que la rueda enseña a quien elige (`CruceDeLaRueda.pendiente`). */

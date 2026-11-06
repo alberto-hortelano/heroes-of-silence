@@ -12,6 +12,8 @@
  *
  * Del mismo reloj sale cuándo suelta la cuerda quien dispara (`msDeSuelta`).
  */
+import type { Point } from '@core/types.js';
+import { type Direccion, direccionEnPantalla } from './direccion.js';
 import { type CharacterClip, infoDelClip, msDelClip } from './render/character.js';
 import { arteDe, arteParaPintar, hojaDe, MIRADA_DE_PRESENTACION } from './render/personajes.js';
 
@@ -80,4 +82,59 @@ export function msPorCasilla(body: string, clip: CharacterClip, alto: number): n
 export function msDeSuelta(body: string): number | null {
   const info = hojaDe(arteDe(body), MIRADA_DE_PRESENTACION).clips.shoot;
   return info.suelta === undefined ? null : (info.suelta * 1000) / info.fps;
+}
+
+/**
+ * Cuánto más deprisa anda el héroe su marcha por el mapa que una figura al paso de
+ * sus pies (`msPorCasilla`): sus pasos y sus piernas, las dos cosas, así que los
+ * pies no patinan; solo se ve una marcha más viva. Al paso de sus pies, una casilla
+ * del mapa eran ~1,1 s, y una marcha de un día, de 8 a 15 casillas, de 9 a 17 s
+ * (medido el 06-11-2026): con 2, la mitad. A ojo: es la cifra que afina lo que
+ * tarda en llegar.
+ */
+export const PRISA_EN_EL_MAPA = 2;
+
+/**
+ * Dónde va un héroe que anda por el mapa (petición del usuario, 06-11-2026: «el
+ * personaje se teletransporta a donde va, tiene que verse la animación del héroe
+ * caminando»): por qué tramo de su traza (del punto `tramo` al `tramo + 1`), cuánto
+ * lleva de él (`t`, de 0 a 1), dónde pisa (`x`, `y`, en casillas) y hacia dónde mira.
+ */
+export interface EnLaMarcha {
+  readonly tramo: number;
+  readonly t: number;
+  readonly x: number;
+  readonly y: number;
+  readonly mira: Direccion;
+}
+
+/**
+ * Por dónde va, a los `transcurrido` ms de salir, quien anda los `puntos` de su
+ * traza (en casillas: el pie de cada casilla y, al cruzar la puerta de un recinto,
+ * su arco, `trazaPorLosArcos`) a `msPorCasilla` por casilla de largo, el compás de
+ * sus pies, como la patrulla de los grupos. Un tramo sin largo (dos puntos iguales)
+ * no tarda. `null` si ya ha llegado.
+ */
+export function enLaMarcha(
+  puntos: readonly Point[],
+  msPorCasilla: number,
+  transcurrido: number,
+): EnLaMarcha | null {
+  if (!(msPorCasilla > 0)) throw new Error(`una marcha de ${msPorCasilla} ms por casilla no anda`);
+  let resta = Math.max(0, transcurrido);
+  for (let i = 1; i < puntos.length; i++) {
+    const desde = puntos[i - 1] as Point;
+    const hasta = puntos[i] as Point;
+    const dx = hasta.x - desde.x;
+    const dy = hasta.y - desde.y;
+    const dura = Math.hypot(dx, dy) * msPorCasilla;
+    if (resta < dura) {
+      const t = resta / dura;
+      // El mapa se ve de frente, sin aplastar: el vector en casillas ya es el de pantalla.
+      const mira = direccionEnPantalla(dx, dy, 'S');
+      return { tramo: i - 1, t, x: desde.x + dx * t, y: desde.y + dy * t, mira };
+    }
+    resta -= dura;
+  }
+  return null;
 }

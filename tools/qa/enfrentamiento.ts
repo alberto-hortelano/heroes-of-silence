@@ -139,13 +139,13 @@ import {
   seHaMovido,
 } from '../../src/core/battle/battle.js';
 import { cargaMontada } from '../../src/core/battle/carga.js';
-import { allSpells } from '../../src/core/battle/spells.js';
 import type { BattleAction, BattleState, Side } from '../../src/core/battle/types.js';
 import { HERO_BODY, otroBando } from '../../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../../src/core/combate.js';
 import { EQUIPO_BASE } from '../../src/core/hero/equipo.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../../src/core/hero/experiencia.js';
 import { cuerposDelHeroe } from '../../src/core/hero/hero.js';
+import { hechizosDelGremio } from '../../src/core/magia/catalogo.js';
 import { createRng, type Rng } from '../../src/core/rng.js';
 import { FACTION_IDS, type Stack, type UnitInfo } from '../../src/core/types.js';
 import { ejercitoDe, tropaDe } from './ejercitos.js';
@@ -272,9 +272,7 @@ function ejercitosDe(semilla: number): Record<Side, Stack[]> {
  * es el tope que se construye hoy en partida (sin `mage_guild_3` no hay nivel
  * 3), con la Flecha del héroe inicial dentro.
  */
-const LIBRO_DE_LA_MAGIA = allSpells()
-  .filter((s) => s.level <= 2)
-  .map((s) => s.id);
+const LIBRO_DE_LA_MAGIA = hechizosDelGremio(2).map((s) => s.id);
 
 /**
  * Un héroe como el inicial de una partida (`newGame`): ataque y defensa 2,

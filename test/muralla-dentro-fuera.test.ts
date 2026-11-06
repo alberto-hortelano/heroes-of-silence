@@ -400,6 +400,20 @@ describe('lo de delante tapa lo de detrás; la portada, a quien pasa (C13)', () 
     expect(indice(q, 'figura:defender-0')).toBeGreaterThan(indice(q, 'portada:7,4'));
   });
 
+  it('quien está en lo alto de la columna de detrás de la puerta va tras la portada: su adarve sigue por ella', () => {
+    // (7,3) linda por delante con las dos casillas de la puerta (7,4)-(8,4): las
+    // almenas de la portada le tapaban los pies y el aro (QA del arte de la muralla).
+    const state = duelo(CON_PUERTA, PESADA, h(1, 4), TIRADOR, h(7, 3));
+    const p = orden(state);
+    expect(indice(p, 'figura:defender-0')).toBeGreaterThan(indice(p, 'portada:7,4'));
+    // Las columnas de más adelante lo siguen tapando: es profundidad.
+    expect(indice(p, 'figura:defender-0')).toBeLessThan(indice(p, 'columna:7,5'));
+    // Dos filas más atrás, en su sitio de siempre: antes que la columna de delante.
+    stackById(state, 'defender-0').hex = h(7, 2);
+    const q = orden(state);
+    expect(indice(q, 'figura:defender-0')).toBeLessThan(indice(q, 'columna:7,3'));
+  });
+
   it('sin muralla, ni columnas ni portadas: solo las figuras, de atrás adelante', () => {
     const state = duelo(SIN_MURALLA, PESADA, h(1, 6), TROPA, h(9, 2));
     expect(orden(state)).toEqual([

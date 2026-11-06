@@ -18,6 +18,7 @@ import {
   efectoDelTipo,
   golpesDelTipo,
 } from './cifras-de-la-rueda.js';
+import { effectTotal } from './effects.js';
 import type { BattleStack } from './types.js';
 
 /** Cómo juega a distancia una unidad (`tiroADistanciaDe`): dispara o lanza granadas. */
@@ -168,6 +169,8 @@ export interface TrasLaArmadura {
   readonly danio: number;
   /** Lo que se comió la armadura: `min(daño, armadura)`; 0 sin armadura. */
   readonly parado: number;
+  /** Lo que se comió el escudo de un hechizo, tras la armadura; sin escudo, no está. */
+  readonly absorbido?: number;
 }
 
 /**
@@ -185,13 +188,33 @@ export interface TrasLaArmadura {
  */
 export function trasLaArmadura(
   danio: number,
-  objetivo: Pick<BattleStack, 'unit'>,
+  objetivo: Pick<BattleStack, 'unit' | 'effects'>,
   perfora: boolean,
 ): TrasLaArmadura {
-  const a = armaduraDe(objetivo.unit);
+  const a = armaduraEnLaPelea(objetivo);
   // Lo de un arma de fuego llega entero (02-11-2026, decisión del usuario: «Nada, fija»).
-  if (a === 0 || perfora) return { danio, parado: 0 };
-  return { danio: Math.max(0, danio - a), parado: Math.min(danio, a) };
+  const tras = a === 0 || perfora ? danio : Math.max(0, danio - a);
+  const parado = a === 0 || perfora ? 0 : Math.min(danio, a);
+  // El escudo de un hechizo, tras la armadura (06-11-2026): se come lo que llega.
+  const escudo = escudoDe(objetivo);
+  if (escudo === 0) return { danio: tras, parado };
+  const absorbido = Math.min(escudo, tras);
+  return { danio: tras - absorbido, parado, absorbido };
+}
+
+/**
+ * La armadura con que pelea un stack ahora: la de sus piezas (`armaduraDe`) más lo
+ * que le suma o le resta un hechizo, sin bajar de 0. La leen la resta y la IA.
+ */
+export function armaduraEnLaPelea(s: Pick<BattleStack, 'unit' | 'effects'>): number {
+  return Math.max(0, armaduraDe(s.unit) + effectTotal(s, 'armadura'));
+}
+
+/** Lo que le queda por comerse a los escudos de un hechizo de `s` (`escudo`). */
+export function escudoDe(s: Pick<BattleStack, 'effects'>): number {
+  let n = 0;
+  for (const e of s.effects) if (e.kind === 'escudo') n += e.queda;
+  return n;
 }
 
 /**

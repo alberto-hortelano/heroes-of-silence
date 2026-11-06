@@ -16,10 +16,12 @@
  * se escriben (25-10-2026): se derivan del cuerpo y su equipo (`cifrasDelCuerpo`,
  * `core/cuerpo.ts`).
  */
-import { HABILIDADES_CON_PODER, poderDeHabilidad } from './battle/poderes.js';
 import { AGILIDAD_DEL_CUERPO_MAX, AGILIDAD_DEL_CUERPO_MIN, cuerpoConSusCifras } from './cuerpo.js';
 import { CATALOGO_DE_HABILIDADES } from './data.js';
 import { type EquipoAtado, equipoBaseBlocker, PIEZAS_DEL_CATALOGO } from './hero/equipo.js';
+import { type CatalogoDeHechizos, HECHIZOS_DEL_JUEGO } from './magia/catalogo.js';
+import { esIdDeHechizo } from './magia/formato.js';
+import { problemasComoPoder } from './magia/validar.js';
 import { medidaBlocker } from './nivel.js';
 import {
   CREATURE_TRAITS,
@@ -105,12 +107,17 @@ export interface Unidad extends Pick<UnitInfo, 'name' | 'attack' | 'fuerza' | 'a
   /** Rasgos del motor: estos SÍ actúan en la pelea. Siempre presente, aunque vacía. */
   readonly traits: readonly CreatureTrait[];
   /**
-   * Nombres de `HABILIDADES`: las de `data/habilidades.json` y las que
-   * dan un poder (`data/poderes.json`). Solo las de poder actúan en la pelea
-   * («Curar (X)»: `unidadDeCombate` las pasa a `UnitInfo.poderes`);
-   * las demás son **inertes**, se guardan y la ficha dice «sin efecto todavía».
+   * Nombres de `HABILIDADES` (`data/habilidades.json`, del cuaderno): **inertes**,
+   * se guardan y la ficha dice «sin efecto todavía».
    */
   readonly habilidades: readonly string[];
+  /**
+   * Los hechizos (`data/hechizos.json`) que usa como poder, con su turno y sin
+   * maná (06-11-2026, el editor de magia: un poder es un hechizo que lanza una
+   * unidad; `data/poderes.json` se fue). `unidadDeCombate` los pasa a
+   * `UnitInfo.poderes`. Sin ninguno, no se escribe.
+   */
+  readonly hechizos?: readonly string[];
 }
 
 /**
@@ -121,14 +128,10 @@ export type CuerpoDeUnidad = { readonly hoja: string };
 
 /**
  * Las habilidades que puede llevar una unidad de la arena: las del catálogo
- * (`data/habilidades.json`, sacado del cuaderno) y las que dan un poder
- * (`data/poderes.json`), sin repetir: un poder que no esté en el cuaderno no se
- * escribe en el catálogo generado.
+ * (`data/habilidades.json`, sacado del cuaderno). Los poderes ya no son
+ * habilidades: son hechizos (`Unidad.hechizos`).
  */
-export const HABILIDADES: readonly string[] = [
-  ...CATALOGO_DE_HABILIDADES,
-  ...HABILIDADES_CON_PODER.filter((h) => !CATALOGO_DE_HABILIDADES.includes(h)),
-];
+export const HABILIDADES: readonly string[] = CATALOGO_DE_HABILIDADES;
 
 /** Los campos que puede llevar una unidad del archivo: lo demás se rechaza diciéndolo. */
 const CAMPOS_DE_UNIDAD: readonly string[] = [
@@ -143,6 +146,7 @@ const CAMPOS_DE_UNIDAD: readonly string[] = [
   'hp',
   'traits',
   'habilidades',
+  'hechizos',
   'equipo',
   'edificio',
 ];
@@ -301,6 +305,16 @@ export function validarUnidad(valor: unknown, eq: EquipoAtado): Unidad {
   );
   sinRepetir(traits, 'el rasgo', quien);
   sinRepetir(habilidades, 'la habilidad', quien);
+  const hechizos =
+    u.hechizos === undefined
+      ? undefined
+      : lista(u.hechizos, 'los hechizos', quien).map((h) => {
+          if (typeof h !== 'string' || !esIdDeHechizo(h)) {
+            throw new Error(`${quien}: ${JSON.stringify(h)} no es el id de un hechizo`);
+          }
+          return h;
+        });
+  if (hechizos !== undefined) sinRepetir(hechizos, 'el hechizo', quien);
   const edificio = u.edificio === undefined ? undefined : texto(u.edificio, 'el edificio', quien);
   const equipo = equipoEscrito(u.equipo, quien);
   const unidad: Unidad = {
@@ -315,6 +329,7 @@ export function validarUnidad(valor: unknown, eq: EquipoAtado): Unidad {
     hp,
     traits,
     habilidades,
+    ...(hechizos === undefined || hechizos.length === 0 ? {} : { hechizos }),
     equipo,
     ...(edificio === undefined ? {} : { edificio }),
   };
@@ -551,10 +566,37 @@ export function validarCatalogo(valor: unknown, eq: EquipoAtado): readonly Unida
  * arena (`tools/arena/borrador.ts`) y su editor de equipo (`cambioDePiezas`),
  * que no deja hacer un cambio con el que el juego no cargaría.
  */
-export function leerCatalogos(eq: EquipoAtado, unidades: unknown): readonly Unidad[] {
+export function leerCatalogos(
+  eq: EquipoAtado,
+  unidades: unknown,
+  hechizos: CatalogoDeHechizos = HECHIZOS_DEL_JUEGO,
+): readonly Unidad[] {
   const base = equipoBaseBlocker(eq);
   if (base !== null) throw new Error(base);
-  return validarCatalogo(unidades, eq);
+  const lista = validarCatalogo(unidades, eq);
+  const motivo = hechizosDeUnidadesBlocker(lista, hechizos);
+  if (motivo !== null) throw new Error(`${RUTA_DEL_CATALOGO_DE_UNIDADES}: ${motivo}`);
+  return lista;
+}
+
+/**
+ * Por qué los hechizos que usan las unidades como poder no valen con el catálogo
+ * de hechizos `cat`, o `null`: que existan y que una unidad los pueda usar
+ * (`problemasComoPoder`: sin poder mágico). La leen la carga del juego y «Guardar».
+ */
+export function hechizosDeUnidadesBlocker(
+  unidades: readonly Unidad[],
+  cat: CatalogoDeHechizos,
+): string | null {
+  for (const u of unidades) {
+    for (const id of u.hechizos ?? []) {
+      const h = cat.get(id);
+      if (h === undefined) return `la unidad «${u.name}» usa el hechizo «${id}», que no existe`;
+      const [problema] = problemasComoPoder(h);
+      if (problema !== undefined) return `la unidad «${u.name}»: ${problema}`;
+    }
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------- la pelea
@@ -562,8 +604,8 @@ export function leerCatalogos(eq: EquipoAtado, unidades: unknown): readonly Unid
 /**
  * Lo que el motor juega de una unidad de arena: las cifras de su cuerpo, sin
  * economía, con su equipo sumado (`conEquipo`, la única suma de las piezas) y los
- * poderes de sus habilidades
- * (`poderDeHabilidad`); las demás habilidades no pelean. Sin poderes no lleva el
+ * hechizos que usa como poder (`Unidad.hechizos`); las habilidades no pelean.
+ * Sin poderes no lleva el
  * campo. Las piezas, de `eq`: las del catálogo que edita la arena
  * (`catalogoDeEquipo`) o las del juego.
  */
@@ -579,15 +621,13 @@ export function cuerpoDeCombate(u: Unidad): UnitInfo {
     faction,
     cuerpo: _cu,
     leadership: _l,
-    habilidades,
+    habilidades: _h,
+    hechizos,
     equipo: _e,
     edificio: _ed,
     ...cifras
   } = u;
-  const poderes = habilidades.flatMap((h) => {
-    const p = poderDeHabilidad(h);
-    return p === null ? [] : [p];
-  });
+  const poderes = hechizos ?? [];
   // Con su facción: desde que las cinco son las del juego, suman y restan a la
   // moral por diversidad como cualquier tropa (`moraleOf`).
   // La defensa, el daño y las casillas, del cuerpo desnudo (`cifrasDelCuerpo`); la

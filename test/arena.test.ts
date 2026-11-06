@@ -60,13 +60,14 @@ import {
 import { FORMAS_DE_EJEMPLO, validarFormaDeMuralla } from '../src/core/arena-murallas.js';
 import { activeStack, applyAction, MAX_ROUNDS, stackHexes } from '../src/core/battle/battle.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
-import { allSpells, spell, spellAmount } from '../src/core/battle/spells.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
 import { HERO_BODY } from '../src/core/battle/types.js';
 import { UNIDADES as CATALOGO, cuerpoDe } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { CATALOGO_DE_HABILIDADES, EQUIPO_ESCRITO, HEROE, LIDERAZGO } from '../src/core/data.js';
 import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
+import { hechizo, hechizosDelGremio } from '../src/core/magia/catalogo.js';
+import { rinde } from '../src/core/magia/formato.js';
 import { indiceDePoder } from '../src/core/nivel.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import { CREATURE_TRAITS } from '../src/core/types.js';
@@ -438,6 +439,7 @@ describe('el borrador se valida antes de escribirse', () => {
       expect(readdirSync(dir).sort()).toEqual(['data']);
       expect(readdirSync(join(dir, 'data')).sort()).toEqual([
         'equipo.json',
+        'hechizos.json',
         'heroe.json',
         'unidades.json',
       ]);
@@ -1078,7 +1080,7 @@ const MAGO: HeroeDeArena = {
   defensa: 1,
   poder: 3,
   conocimiento: 4,
-  hechizos: allSpells().map((s) => s.id),
+  hechizos: hechizosDelGremio(5).map((s) => s.id),
 };
 
 /** Juega la batalla entera con la IA en los dos bandos, como `autoResolve`. */
@@ -1221,6 +1223,7 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
     unidades: UNIDADES_DEL_ENLACE,
     // Todas las piezas que lleva lo montado, la tropa y los héroes.
     piezas: piezasDelMontaje(UNIDADES_DEL_ENLACE, [EQUIPO_BASE], EQUIPO_ESCRITO),
+    hechizos: hechizosDelGremio(5),
     izquierda: {
       ia: false,
       puestos: [
@@ -1732,7 +1735,9 @@ describe('retocar en plena pelea (B10-B14)', () => {
     if (objetivo === undefined) throw new Error('sin objetivo');
     applyAction(b, { type: 'cast', spell: 'magic_arrow', target: objetivo.id }, createRng(1));
     const lanzado = [...b.log].reverse().find((e) => e.kind === 'cast');
-    expect(lanzado).toMatchObject({ damage: spellAmount(spell('magic_arrow'), { spellPower: 9 }) });
+    const [flecha] = hechizo('magic_arrow').efectos;
+    if (flecha?.tipo !== 'danio') throw new Error('la Flecha mágica hiere');
+    expect(lanzado).toMatchObject({ damage: rinde(flecha.cantidad, 9) });
   });
 });
 

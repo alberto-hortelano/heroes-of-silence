@@ -1677,3 +1677,24 @@ Estilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía me
 
 Todo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.
 ```
+
+## 38. La muralla del tablero de batalla (rama del arreglo 5, 06-11-2026)
+
+Petición del usuario: «Falta arte para el muro en combate, lo que hay ahora son placeholders, también para la
+escalera». Nueve piezas por la suscripción (`pnpm taller encolar --muralla-batalla`, `tools/taller/muralla-de-batalla.ts`),
+en `assets/batalla/muralla/`, con su guía en `_guias/`:
+
+| Pieza | Qué es | Cómo se pinta |
+|---|---|---|
+| `cara-piedra`, `cara-madera` | alzado de frente de 5 caras de hex de largo y 1,68 pasos de alto, con almenas o puntas encima (0,25) | cada cara de una columna lleva una rodaja con una afín; la del sureste, entonada a la sombra; el remate, solo en las aristas que dan fuera |
+| `tapa-piedra`, `tapa-madera` | textura repetible del adarve (losas, tablones), vista desde arriba | patrón dentro del hex de lo alto, en un solo encaje, aplastado como el suelo |
+| `portada-<material>-abierta` | la fachada de `PORTADA` con el arco de la guía y las hojas abatidas contra las jambas; el paso, transparente | por su caja de jamba a jamba; el paso se recorta al pintar (`pasoDelArco`) |
+| `portada-<material>-cerrada` | la edición de la abierta: las dos hojas cierran el arco entero | entera; quien está debajo se ve en silueta |
+| `escalera` | escalera de mano de troncos y cuerda, derecha y de frente | tendida con una afín del pie a lo alto del muro |
+
+Estilo, el campo de batalla (`assets/rpg/campo.webp`); material, el recinto de la ciudad del mapa (piedra) y la
+empalizada del nodo (madera). Se piden **sin perspectiva** porque el tablero cambia de elevación (25°-35°): el lienzo
+les da el escorzo. La cara y la portada llenan su recuadro a propósito: el encargo lleva `lleno: true` (sin él, el
+validador lo tomaba por un fondo sin recortar). Las nueve salieron a la primera; la cara de piedra se reprocesó desde su
+crudo con `lleno`. Lo que queda flojo: la escalera es una sola, la misma para los dos materiales, y la cara no tiene
+variantes (cinco rodajas por material).

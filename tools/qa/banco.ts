@@ -1449,11 +1449,32 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   5 → 4, batallas 100 → 55, `node_captured` 195 → 120. 0 sin terminar; j0 gana 10 de
  *   20 (9 antes); duración 4 / 17 / 40 → **4 / 8 / 10**, días 140 → 87. La forma del
  *   diff, no una medida.
+ * - `1e43efa1…` (4 975 líneas, 20 semillas, 06-11-2026): **la muralla de la ciudad es
+ *   la «Base derecha» del usuario** (`data/sitios.json`, «base-derecha»: pegada a la
+ *   salida del defensor, en vez de la «gruesa» en medio del tablero). El mismo mapa en
+ *   las 20; cambian 17 (la 1, la 3 y la 4, igual), y en todas el primer hecho
+ *   distinto es de la primera batalla contra una ciudad (su guarnición, o el héroe
+ *   que la defiende dentro): su `battle_ended` con otras rondas, o lo que sale de ella
+ *   (`troop_rank_up`, `town_captured`, `hero_defeated`). En la 5, la 13 y la 16 la
+ *   guarnición de la base aguanta (19, 22 y 43 rondas) y la partida sigue: batallas
+ *   55 → 77, las que gana el defensor 7 → 17. 0 sin terminar; j0 gana 9 de 20 (10
+ *   antes); duración 4 / 8 / 10 → 4 / 12 / 14, días 87 → 113. La forma del diff, no
+ *   una medida.
+ * - `3f520fa0…` → `87fd2349…` (06-11-2026, el disparo diferido desde el suelo sube a
+ *   lo alto del muro: «Los disparos de abajo del muro al muro no dan»). Cambian 7 de
+ *   las 20 (s8, s10, s12, s14, s15, s17, s19), y el primer hecho distinto es siempre
+ *   de una batalla tras una muralla: su `battle_ended` (otras bajas, o una ronda más
+ *   o menos: 6 → 7, 4 → 3) o el `troop_rank_up` de un arquero que ahora da (s19). El
+ *   ganador y el día de cada partida, los mismos en las 20; hechos 3 776 → 3 788
+ *   líneas. La forma del diff, no una medida.
+ * - `f68252e3…` (06-11-2026, fusión de las dos de arriba en la misma rama: la
+ *   «Base derecha» y el disparo que sube al muro juntos). Las dos cambian solo
+ *   batallas tras una muralla; 0 sin terminar, duración 4 / 12 / 14.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '3f520fa05edd8f54b28e8c841400e394b75574845648fd1e10da6c2da647cf7d',
+  sha: 'f68252e3e07b01897a3423d47045af28c28d07d655ff7f9ec161b261e3b7c549',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

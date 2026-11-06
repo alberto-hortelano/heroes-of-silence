@@ -35,6 +35,7 @@
 import {
   LADO_DEL_RECINTO,
   type MapaConCaminos,
+  PUERTAS_DE_LA_CIUDAD,
   puertasDeLaCiudad,
   type RectDelRecinto,
 } from '../../../core/map/recinto.js';
@@ -1168,15 +1169,14 @@ export function tendidosDeLasPuertas(
         const k = puertaMasCercana(r, cruce);
         if (k === undefined || k.cara === r.rio) continue;
         if (Math.hypot(k.medio[0] - cruce[0], k.medio[1] - cruce[1]) > CRUCE_DE_LA_PUERTA) continue;
-        const [nx, ny] = k.normal;
-        const salida = salidaDe(k, sePisa);
+        const paso = pasoPorElArco(k, sePisa);
         fuera.push({
           senda,
           cerca: cruce,
-          p0: [k.medio[0] - nx * DENTRO_DE_LA_PUERTA, k.medio[1] - ny * DENTRO_DE_LA_PUERTA],
-          p1: [k.medio[0] + nx * salida, k.medio[1] + ny * salida],
-          t: [nx, ny],
-          largo: salida,
+          p0: paso.dentro,
+          p1: paso.fuera,
+          t: k.normal,
+          largo: paso.salida,
           // Hacia fuera por donde cruza: con `p1` de punto, la senda que llega
           // de lado a una puerta diagonal parecía ir hacia dentro.
           hacia: lejosDe(r.contorno, cruce),
@@ -1190,6 +1190,117 @@ export function tendidosDeLasPuertas(
       }
     });
   return fuera;
+}
+
+/**
+ * El paso por el arco de la puerta de la cara `k`: de `dentro`
+ * (`DENTRO_DE_LA_PUERTA` bajo la plaza) por `arco` (el medio de su cara) a
+ * `fuera`, a `salida` por su normal (`salidaDe`). Lo que lleva la senda pintada
+ * (`tendidosDeLasPuertas`) y lo que anda quien entra o sale (`trazaPorLosArcos`).
+ */
+export interface PasoPorElArco {
+  readonly cara: Cara;
+  readonly dentro: Par;
+  readonly arco: Par;
+  readonly fuera: Par;
+  readonly salida: number;
+}
+
+export function pasoPorElArco(
+  k: CaraDelContorno,
+  sePisa: (x: number, y: number) => boolean,
+): PasoPorElArco {
+  const [nx, ny] = k.normal;
+  const salida = salidaDe(k, sePisa);
+  return {
+    cara: k.cara,
+    dentro: [k.medio[0] - nx * DENTRO_DE_LA_PUERTA, k.medio[1] - ny * DENTRO_DE_LA_PUERTA],
+    arco: k.medio,
+    fuera: [k.medio[0] + nx * salida, k.medio[1] + ny * salida],
+    salida,
+  };
+}
+
+/** Un recinto como lo mira quien anda de casilla en casilla: su 3 × 3 y el paso por el arco de cada puerta (sin la del río). */
+export interface ArcosDeUnRecinto {
+  readonly rect: Rect;
+  readonly porElArco: readonly PasoPorElArco[];
+}
+
+/**
+ * Un punto de la traza de quien va de casilla en casilla (`trazaPorLosArcos`):
+ * dónde, en casillas, o `null` para el pie de su casilla, que pone quien la pinta
+ * (la línea de la ruta, en su centro; el héroe, a sus pies); y de qué casilla
+ * del camino es, por su índice.
+ */
+export interface PuntoDeLaTraza {
+  readonly en: Par | null;
+  readonly paso: number;
+}
+
+/**
+ * Por dónde pasa quien anda las `casillas` (06-11-2026, QA de la marcha: al salir
+ * de su ciudad, el héroe y la línea de la ruta iban en recta de la casilla de la
+ * puerta al acceso y cruzaban la torre de la esquina): el pie de cada casilla,
+ * salvo la de la puerta de un recinto que se cruza viniendo de la ciudad o de un
+ * acceso de esa puerta (`PUERTAS_DE_LA_CIUDAD`) o yendo a ellos, que es su paso
+ * por el arco (`pasoPorElArco`: el de la senda pintada). **La única regla** de los
+ * dos, la marcha (`escenas/aventura.ts`) y la línea (`render/mapa.ts`). La
+ * puerta del río de una ciudad-puente no lleva: su puente cruza de frente.
+ */
+export function trazaPorLosArcos(
+  recintos: readonly ArcosDeUnRecinto[],
+  casillas: readonly Sitio[],
+): PuntoDeLaTraza[] {
+  const igual = (a: Sitio, b: Sitio): boolean => a.x === b.x && a.y === b.y;
+  const out: PuntoDeLaTraza[] = [];
+  casillas.forEach((p, i) => {
+    const puerta = puertaEnLaCasilla(recintos, p);
+    if (puerta === null) {
+      out.push({ en: null, paso: i });
+      return;
+    }
+    const { ciudad, accesos, arco } = puerta;
+    const lado = (q: Sitio | undefined): Par | null =>
+      q === undefined
+        ? null
+        : igual(q, ciudad)
+          ? arco.dentro
+          : accesos.some((a) => igual(a, q))
+            ? arco.fuera
+            : null;
+    const antes = lado(casillas[i - 1]);
+    const despues = lado(casillas[i + 1]);
+    if (antes === null && despues === null) {
+      out.push({ en: null, paso: i });
+      return;
+    }
+    out.push({ en: antes, paso: i }, { en: arco.arco, paso: i }, { en: despues, paso: i });
+  });
+  return out;
+}
+
+/** La puerta con arco cuya casilla es `p` (la de `PUERTAS_DE_LA_CIUDAD`), con su ciudad y sus accesos. */
+function puertaEnLaCasilla(
+  recintos: readonly ArcosDeUnRecinto[],
+  p: Sitio,
+): { ciudad: Sitio; accesos: readonly Sitio[]; arco: PasoPorElArco } | null {
+  for (const r of recintos) {
+    if (p.x < r.rect.i0 || p.x > r.rect.i1 || p.y < r.rect.j0 || p.y > r.rect.j1) continue;
+    const ciudad = { x: (r.rect.i0 + r.rect.i1) / 2, y: (r.rect.j0 + r.rect.j1) / 2 };
+    for (const arco of r.porElArco) {
+      if (arco.cara === 'e' || arco.cara === 'o') continue;
+      const { casilla, accesos } = PUERTAS_DE_LA_CIUDAD[arco.cara];
+      if (p.x !== ciudad.x + casilla[0] || p.y !== ciudad.y + casilla[1]) continue;
+      return {
+        ciudad,
+        accesos: accesos.map(([dx, dy]) => ({ x: ciudad.x + dx, y: ciudad.y + dy })),
+        arco,
+      };
+    }
+    return null;
+  }
+  return null;
 }
 
 /**

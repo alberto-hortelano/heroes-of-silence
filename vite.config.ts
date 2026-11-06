@@ -222,6 +222,8 @@ function arena(): Plugin {
               // héroe: van con las unidades porque se guardan con ellas, en una operación.
               piezas: leido.piezas,
               heroe: leido.heroe,
+              // Y los hechizos (el editor de magia): se guardan con todo lo demás.
+              hechizos: leido.hechizos,
             };
           },
           vacio: { unidades: [], piezas: [] },

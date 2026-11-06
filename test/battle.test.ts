@@ -184,6 +184,7 @@ function stackOf(id: string, count: number, unit: UnitInfo = unidadDelJuego(id))
     recargando: 0,
     granada: null,
     granadasLanzadas: 0,
+    hechizoEnElAire: null,
   };
 }
 
@@ -843,7 +844,9 @@ describe('rasgos de criatura (#8)', () => {
     expect(effectiveAttack(esqueleto)).toBe(unidadDelJuego(NO_MUERTO).attack);
     aplicar(state, { type: 'attack', target: 'defender-0' }, rng);
 
-    expect(esqueleto.effects.some((e) => e.source === 'fear' && e.amount === -2)).toBe(true);
+    expect(
+      esqueleto.effects.some((e) => e.source === 'fear' && e.kind === 'attack' && e.amount === -2),
+    ).toBe(true);
     expect(effectiveAttack(esqueleto)).toBe(unidadDelJuego(NO_MUERTO).attack - 2);
     expect(
       state.log.some((e) => e.kind === 'effect' && e.source === 'fear' && e.effect === 'attack'),

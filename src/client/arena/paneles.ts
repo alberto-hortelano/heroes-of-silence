@@ -40,20 +40,13 @@ import {
 import { FORMA_DEL_TABLERO, filasDelTablero } from '@core/battle/board.js';
 import { CARGA, dichoDeLasCifras } from '@core/battle/carga.js';
 import { armasDe } from '@core/battle/damage.js';
-import { cifraDeEfecto, enRondas } from '@core/battle/effects.js';
+import { enRondas } from '@core/battle/effects.js';
 import {
   esMuro,
   ladoDeLaMuralla,
   type MurallaDeBatalla,
   type PiezaDeMuralla,
 } from '@core/battle/muralla.js';
-import {
-  nombreDeHabilidad,
-  type Poder,
-  poder,
-  poderDeHabilidad,
-  queHaceElPoder,
-} from '@core/battle/poderes.js';
 import {
   filasDeLaRueda,
   NIVEL_MAXIMO,
@@ -62,7 +55,6 @@ import {
   ruedaDelArmaEnPalabras,
   type TipoDelAnillo,
 } from '@core/battle/rueda.js';
-import { allSpells } from '@core/battle/spells.js';
 import type { BattleStack, BattleState } from '@core/battle/types.js';
 import { costeDeUnaUnidad } from '@core/catalogo.js';
 import {
@@ -105,6 +97,15 @@ import {
   textoDeModificador,
   tiroDelGolpe,
 } from '@core/hero/equipo.js';
+import {
+  catalogoDeHechizos,
+  HECHIZOS_DEL_JUEGO,
+  nombreDeHechizo,
+  todosLosHechizos,
+} from '@core/magia/catalogo.js';
+import { nombreDelPoder, queHaceElHechizo } from '@core/magia/dicho.js';
+import { type Hechizo, RUTA_DE_LOS_HECHIZOS } from '@core/magia/formato.js';
+import { problemasComoPoder } from '@core/magia/validar.js';
 import {
   type CifraDePieza,
   CREATURE_TRAITS,
@@ -559,11 +560,16 @@ export interface ComoDeLaFicha {
    * `main.ts` por la clave de la ficha, y sin él el nombre se lee y no se escribe.
    */
   readonly renombrando?: boolean;
+  /**
+   * Los hechizos de la página que valen (el editor de magia): el libro del héroe y
+   * los poderes de una unidad se eligen de ellos. Sin ellos, los del juego.
+   */
+  readonly hechizos?: readonly Hechizo[];
 }
 
-/** La ficha del montaje, con las piezas que tiene puestas. */
-export function enElMontaje(piezas: EquipoAtado): ComoDeLaFicha {
-  return { enCombate: false, piezas };
+/** La ficha del montaje, con las piezas que tiene puestas y los hechizos de la página. */
+export function enElMontaje(piezas: EquipoAtado, hechizos?: readonly Hechizo[]): ComoDeLaFicha {
+  return { enCombate: false, piezas, ...(hechizos === undefined ? {} : { hechizos }) };
 }
 
 /**
@@ -1074,33 +1080,43 @@ export function renderFicha(u: Unidad | null, dispara: boolean, como: ComoDeLaFi
   }
   // Con lo que pelea, una vez: de ahí salen el nivel y la columna «Final».
   const combate = unidadDeCombate(u, como.piezas);
-  // Las habilidades que dan un poder actúan en la pelea; las demás, todavía no.
+  // Las habilidades del cuaderno, todavía sin efecto; los poderes son hechizos que
+  // usa la unidad con su turno (`Unidad.hechizos`).
   const etiqueta = (h: string): Html =>
-    etiquetaConQuitar(
-      nombreDeHabilidad(h),
-      html`data-arena="quitar-habilidad" data-habilidad="${h}"`,
-    );
-  const conPoder: { readonly h: string; readonly p: Poder }[] = [];
-  const inertes: string[] = [];
-  for (const h of u.habilidades) {
-    const id = poderDeHabilidad(h);
-    if (id === null) inertes.push(h);
-    else conPoder.push({ h, p: poder(id) });
-  }
+    etiquetaConQuitar(h, html`data-arena="quitar-habilidad" data-habilidad="${h}"`);
+  const hechizos = u.hechizos ?? [];
+  const deLaPagina = como.hechizos ?? todosLosHechizos();
   const poderes =
-    conPoder.length === 0
+    hechizos.length === 0
       ? html`<span class="cost">Ninguno.</span>`
       : unir(
-          conPoder.map(
-            ({ h, p }) =>
-              html`<div class="poder" data-poder-de-la-ficha="${p.id}">${etiqueta(h)} ${nota(`${queHaceElPoder(p)}.`)}</div>`,
-          ),
+          hechizos.map((id) => {
+            const h = deLaPagina.find((x) => x.id === id) ?? HECHIZOS_DEL_JUEGO.get(id);
+            const que = h === undefined ? '' : `${queHaceElHechizo(h, 0)}.`;
+            return html`<div class="poder" data-poder-de-la-ficha="${id}">${etiquetaConQuitar(
+              h === undefined ? nombreDeHechizo(id) : nombreDelPoder(h),
+              html`data-arena="quitar-poder" data-poder="${id}"`,
+            )} ${nota(que)}</div>`;
+          }),
         );
+  // Solo los que una unidad puede usar (sin poder mágico): los demás se ofrecen apagados.
+  const poderesLibres = unir(
+    deLaPagina
+      .filter((h) => !hechizos.includes(h.id))
+      .map((h) => {
+        const [motivo] = problemasComoPoder(h);
+        return motivo === undefined
+          ? html`<option value="${h.id}">${h.nombre}</option>`
+          : html`<option value="${h.id}" disabled title="${motivo}">${h.nombre} (crece con el poder)</option>`;
+      }),
+  );
   const puestas =
-    inertes.length === 0 ? html`<span class="cost">Ninguna.</span>` : unir(inertes.map(etiqueta));
+    u.habilidades.length === 0
+      ? html`<span class="cost">Ninguna.</span>`
+      : unir(u.habilidades.map(etiqueta));
   const libres = unir(
     HABILIDADES.filter((h) => !u.habilidades.includes(h)).map(
-      (h) => html`<option value="${h}">${nombreDeHabilidad(h)}</option>`,
+      (h) => html`<option value="${h}">${h}</option>`,
     ),
   );
   return html`<div class="ficha" data-clave-de-ficha="${claveDeFicha({ kind: 'unidad', id: u.id })}">
@@ -1154,6 +1170,8 @@ export function renderFicha(u: Unidad | null, dispara: boolean, como: ComoDeLaFi
       ${rasgosDeLaFicha(u.traits)}
       <h3>Poderes · actúan en la pelea ${nota('Se usan en su turno en vez de golpear, al principio, sin haberse movido: el turno entero. Lo que hace cada uno, en la nota de su etiqueta.')}</h3>
       <div class="etiquetas poderes">${poderes}</div>
+      <label class="campo"><span class="label">Añadir poder ${nota('Un hechizo de «Editar magia» que la unidad usa con su turno, sin maná. Los que crecen con el poder mágico no: una unidad no tiene.')}</span>
+        <select data-arena-poder="si"><option value="">— elige un hechizo —</option>${poderesLibres}</select></label>
       <h3>Habilidades · sin efecto todavía ${nota('Se guardan con la unidad, pero solo Curar tiene motor: en la pelea, de lo demás, solo cuentan los rasgos.')}</h3>
       <div class="etiquetas">${puestas}</div>
       <label class="campo"><span class="label">Añadir</span>
@@ -1172,7 +1190,8 @@ export function renderFichaDeHeroe(
   como: ComoDeLaFicha,
   hojasDeHeroe: readonly { readonly id: string; readonly nombre: string }[],
 ): Html {
-  const ficha = fichaDeHeroeDeArena(h, como.piezas);
+  const deLaPagina = como.hechizos ?? todosLosHechizos();
+  const ficha = fichaDeHeroeDeArena(h, como.piezas, catalogoDeHechizos(deLaPagina));
   const c = ficha.cuerpo;
   const figuras = unir([
     html`<option value="" ${h.figura === null ? html`selected` : NADA}>Genérica del juego</option>`,
@@ -1214,21 +1233,16 @@ export function renderFichaDeHeroe(
     final,
   });
   const libro = unir(
-    allSpells().map(
+    deLaPagina.map(
       (s) =>
-        html`<label class="rasgo"><input type="checkbox" data-heroe-hechizo="${s.id}" ${h.hechizos.includes(s.id) ? MARCADO : NADA}> ${s.name} (${s.cost})</label>`,
+        html`<label class="rasgo"><input type="checkbox" data-heroe-hechizo="${s.id}" ${h.hechizos.includes(s.id) ? MARCADO : NADA}> ${s.nombre} (${s.mana})</label>`,
     ),
   );
   const rinde = unir(
-    ficha.hechizos.map((x) => {
-      const que =
-        x.rinde !== null
-          ? `${x.rinde} ${x.id === 'cure' ? 'PV de cura' : 'de daño'}`
-          : x.efecto === null
-            ? ''
-            : `${cifraDeEfecto(x.efecto.kind, x.efecto.amount)}, ${enRondas(x.efecto.roundsLeft)}`;
-      return html`<div class="row"><span class="label">${x.nombre} (${x.coste})</span><span>${que}</span></div>`;
-    }),
+    ficha.hechizos.map(
+      (x) =>
+        html`<div class="row"><span class="label">${x.nombre} (${x.coste})</span><span>${x.hace}</span></div>`,
+    ),
   );
   return html`<div class="ficha" data-clave-de-ficha="${claveDeFicha({ kind: 'heroe', lado })}">
       ${tituloDeFicha(
@@ -1347,6 +1361,8 @@ export interface Guardado {
   readonly piezas?: number;
   /** Si escribió el cuerpo de todo héroe en data/heroe.json. */
   readonly heroe?: boolean;
+  /** Cuántos hechizos escribió en data/hechizos.json. */
+  readonly hechizos?: number;
 }
 
 /**
@@ -1363,9 +1379,12 @@ export function guardadoEnPalabras(g: Guardado): string {
     piezas === 0
       ? unidades
       : `${unidades} Y ${parte(RUTA_DEL_CATALOGO_DE_EQUIPO, piezas, 0, 'pieza', 'piezas')}`;
-  return g.heroe === true
-    ? `${conPiezas} Y en ${RUTA_DEL_HEROE}: el cuerpo de todo héroe.`
-    : conPiezas;
+  const conHeroe =
+    g.heroe === true ? `${conPiezas} Y en ${RUTA_DEL_HEROE}: el cuerpo de todo héroe.` : conPiezas;
+  const n = g.hechizos ?? 0;
+  return n === 0
+    ? conHeroe
+    : `${conHeroe} Y en ${RUTA_DE_LOS_HECHIZOS}: ${n} ${n === 1 ? 'hechizo' : 'hechizos'}.`;
 }
 
 /**

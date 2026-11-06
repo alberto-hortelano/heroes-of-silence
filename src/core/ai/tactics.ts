@@ -6,7 +6,7 @@
  * trabajo es que el juego sea jugable sin IA externa, no ser brillante.
  */
 
-import { armaduraDe, isShooter, trasLaArmadura } from '../battle/armas.js';
+import { armaduraDe, isShooter } from '../battle/armas.js';
 import {
   activeStack,
   applyAction,
@@ -19,6 +19,7 @@ import {
   escalaDesde,
   explosionDe,
   firmaDelTurno,
+  hechizoDeLaBatalla,
   isEngaged,
   legalActionsAndCosts,
   lineaDelDisparo,
@@ -28,7 +29,9 @@ import {
   opcionesDeDanio,
   opcionesDeLaGranada,
   opcionesDelDisparo,
+  type PrevisionDeLanzar,
   pasosQueQuedan,
+  previsionDe,
   seHaMovido,
   splashTargets,
   stackById,
@@ -56,9 +59,8 @@ import {
   mismaPuerta,
   type PuertaDeMuralla,
 } from '../battle/muralla.js';
-import { esDeCura, poder } from '../battle/poderes.js';
-import { curaDe, delHeroe, efectoDe, type Lanzador, type Spell, spell } from '../battle/spells.js';
-import type { BattleAction, BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
+import { soloCura } from '../battle/spells.js';
+import type { BattleAction, BattleStack, BattleState, Side } from '../battle/types.js';
 import { otroBando } from '../battle/types.js';
 import { hasTrait } from '../data.js';
 import { ESCALA_DE_CIFRAS } from '../escala.js';
@@ -310,13 +312,12 @@ function rondasQueQuedan(state: BattleState, side: Side): number {
  */
 function rindeTemporal(
   state: BattleState,
-  sp: Spell,
+  amount: number,
   efecto: StackEffect,
   objetivo: BattleStack,
   quedan = rondasQueQuedan(state, objetivo.side),
   gastaSuTurno: BattleStack | null = null,
 ): Rinde {
-  const amount = sp.amount ?? 0;
   const yaCubre = roundsLeftOf(objetivo, efecto);
   // Quien se lo echa con su turno (un poder sobre sí mismo) ya no golpea hoy: el
   // efecto no le compra la ronda en curso. Contarla daba a quien se lo echaba
@@ -348,12 +349,17 @@ function rindeTemporal(
 }
 
 /**
- * Lo que rinde lanzar este hechizo sobre este objetivo, para poder comparar un
- * buffo con un daño en la misma escala. Lo lance el héroe (`spellRinde`) o una
- * unidad con su poder (`mejorPoder`): es el mismo hechizo con otro lanzador, y
- * se valora igual. `quedan`, las rondas que le quedan a la batalla para su bando
- * (`rondasQueQuedan`), si quien llama ya las tiene; `gastaSuTurno`, la unidad que
- * lo usa con su turno (el poder), que no se cuenta el golpe de hoy.
+ * Lo que rinde lanzar un hechizo, para poder comparar un buffo con un daño en la
+ * misma escala: la suma de lo que rinde en cada uno que alcanza, sacado de la
+ * previsión del motor (`previsionDe`: lo que hará de verdad). Lo lance el héroe
+ * (`bestCast`) o una unidad con su poder (`mejorPoder`). `quedan`, las rondas que
+ * le quedan a la batalla para su bando (`rondasQueQuedan`), si quien llama ya las
+ * tiene; `gastaSuTurno`, la unidad que lo usa con su turno (el poder), que no se
+ * cuenta el golpe de hoy.
+ *
+ * Lo que vale: el daño (contra un aliado, en contra), la cura y la velocidad; lo
+ * demás de un hechizo (impedir, escudos, disparadores, el resto de cifras) vale 0 y
+ * la IA no lo lanza por ello (backlog del editor de magia, 06-11-2026).
  *
  * #92: los temporales valían una fracción de la amenaza del objetivo, sin
  * mirar si aún actuaba ni a quién alcanzaba. Con la tropa de individuos esa
@@ -363,45 +369,49 @@ function rindeTemporal(
  */
 function rindeDe(
   state: BattleState,
-  sp: Spell,
-  l: Lanzador,
-  objetivo: BattleStack,
+  prevision: PrevisionDeLanzar,
+  bando: Side,
   quedan?: number,
   gastaSuTurno: BattleStack | null = null,
 ): Rinde {
-  switch (sp.kind) {
-    case 'damage':
+  let total = NADA;
+  for (const imp of prevision.impactos) {
+    const objetivo = stackById(state, imp.objetivo);
+    const signo = objetivo.side === bando ? -1 : 1;
+    if (imp.danio !== null) {
       // El tope es la vida que queda: sin él, un Rayo sobre tres campesinos
       // puntuaba como si matara a cincuenta.
-      // Lo que llega tras la armadura (la arena; en el juego, `cantidad` tal cual).
-      return rindeContra(state, objetivo, trasLaArmadura(l.cantidad, objetivo, false).danio);
-    case 'speed': {
-      // `efectoDe` es la misma función que el motor consulta para saber qué
-      // colgaría, así que la duración no se recalcula aquí. Solo devuelve
-      // `null` fuera de esta rama: no rinde y no lanza, porque esto es
-      // una heurística, no una regla.
-      const efecto = efectoDe(sp, l);
-      return efecto === null
-        ? NADA
-        : rindeTemporal(state, sp, efecto, objetivo, quedan, gastaSuTurno);
+      const r = rindeContra(state, objetivo, imp.danio);
+      total = { pv: total.pv + signo * r.pv, amenaza: total.amenaza + signo * r.amenaza };
     }
-    case 'heal': {
+    if (imp.cura !== null) {
       // Sale ≈0 salvo con un stack tocado, y está bien: la Curación no se lanza
       // por lanzarla. No necesita caso especial para quedar fuera del umbral.
-      const pv = curaDe(sp, l, objetivo);
-      return { pv, amenaza: (threat(state, objetivo) * pv) / Math.max(1, stackHp(objetivo)) };
+      const pv = imp.cura;
+      const amenaza = (threat(state, objetivo) * pv) / Math.max(1, stackHp(objetivo));
+      total = { pv: total.pv - signo * pv, amenaza: total.amenaza - signo * amenaza };
+    }
+    for (const e of imp.efectos) {
+      // La duración la dice el motor (`efectoColgado`): no se recalcula aquí.
+      if (e.kind !== 'speed') continue;
+      const r = rindeTemporal(state, e.amount, e, objetivo, quedan, gastaSuTurno);
+      total = { pv: total.pv + r.pv, amenaza: total.amenaza + r.amenaza };
     }
   }
+  return total;
 }
 
-/** Lo que rinde que el héroe lance `sp` sobre `objetivo` (`rindeDe` con su poder). */
-function spellRinde(
+/** Lo que rinde una jugada de lanzar de la lista legal (`rindeDe` con su previsión). */
+function rindeDeLaJugada(
   state: BattleState,
-  caster: BattleHero,
-  sp: Spell,
-  objetivo: BattleStack,
+  a: BattleAction,
+  bando: Side,
+  quedan?: number,
+  gastaSuTurno: BattleStack | null = null,
 ): Rinde {
-  return rindeDe(state, sp, delHeroe(sp, caster), objetivo);
+  const p = previsionDe(state, a);
+  if (p === null || (p.kind !== 'hechizo' && p.kind !== 'poder')) return NADA;
+  return rindeDe(state, p, bando, quedan, gastaSuTurno);
 }
 
 /**
@@ -431,13 +441,19 @@ function mejorPoder(
   let quedan: number | undefined;
   for (const a of acciones) {
     if (a.type !== 'power') continue;
-    const p = poder(a.poder);
-    const objetivo = stackById(state, a.target);
-    const efecto = efectoDe(p.hechizo, p.lanzador);
-    if (efecto !== null && roundsLeftOf(objetivo, efecto) > 0) continue;
-    if (esDeCura(p) && !(enPeligro(state, objetivo) && vaGanando(state, s.side))) continue;
+    const h = hechizoDeLaBatalla(state, a.poder);
+    if (a.target !== undefined) {
+      const objetivo = stackById(state, a.target);
+      const p = previsionDe(state, a);
+      const yaLoLleva =
+        p !== null &&
+        p.kind === 'poder' &&
+        p.impactos.some((i) => i.efectos.some((e) => roundsLeftOf(objetivo, e) > 0));
+      if (yaLoLleva) continue;
+      if (soloCura(h) && !(enPeligro(state, objetivo) && vaGanando(state, s.side))) continue;
+    }
     quedan ??= rondasQueQuedan(state, s.side);
-    const r = rindeDe(state, p.hechizo, p.lanzador, objetivo, quedan, s);
+    const r = rindeDeLaJugada(state, a, s.side, quedan, s);
     if (mas(r, suRinde)) {
       mejor = a;
       suRinde = r;
@@ -524,10 +540,10 @@ function bestCast(
   let mejor: BattleAction | null = null;
   let mejorValor = 0;
   for (const a of acciones) {
-    if (a.type !== 'cast' || a.target === undefined) continue;
-    const sp = spell(a.spell);
-    const rinde = spellRinde(state, hero, sp, stackById(state, a.target));
-    if (rinde.pv < VALOR_MINIMO_POR_MANA * sp.cost) continue;
+    if (a.type !== 'cast') continue;
+    const h = hechizoDeLaBatalla(state, a.spell);
+    const rinde = rindeDeLaJugada(state, a, s.side);
+    if (rinde.pv < VALOR_MINIMO_POR_MANA * h.mana) continue;
     if (rinde.amenaza > mejorValor) {
       mejorValor = rinde.amenaza;
       mejor = a;

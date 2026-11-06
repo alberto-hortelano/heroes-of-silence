@@ -22,7 +22,7 @@ import { unidadesDelJuego } from '../src/core/catalogo.js';
 import { isEnterable, objectAt, pointKey } from '../src/core/map/map.js';
 import { estructura } from '../src/core/map/regiones.js';
 import { type Raider, regionDeCasilla } from '../src/core/state/asaltantes.js';
-import { caminoHasta } from '../src/core/state/game.js';
+import { baseOf, caminoHasta } from '../src/core/state/game.js';
 import type { Point } from '../src/core/types.js';
 import { sesionContraMonstruoAlDesplegar } from './batalla-de-cliente.js';
 import { escenaDeBatalla, fueraDeSuBase, sesionDeArena, unidadDeArena } from './helpers.js';
@@ -128,7 +128,7 @@ describe('el defensor despliega sin ver al atacante, en la partida', () => {
    * que la persona defiende, y nace en su propio turno, sin esperar a lo que decida
    * la IA. La primera semilla en que el héroe, junto a su base, tiene un paso así.
    */
-  function emboscada(): Session {
+  function emboscada(sinDefender = false): Session {
     const porPoder = (id: string) => poderDe({ troops: [{ creature: id, count: 1 }] });
     const ids = unidadesDelJuego().map((u) => u.id);
     const fuerte = [...ids].sort((a, b) => porPoder(b) - porPoder(a))[0]!;
@@ -172,11 +172,54 @@ describe('el defensor despliega sin ver al atacante, en la partida', () => {
         s.clickTile(paso);
         if (s.battle === null || s.state.pendingBattle?.attacker.kind !== 'raider')
           throw new Error(`pisar (${paso.x},${paso.y}) no abrió la emboscada`);
+        // Antes de la batalla, el aviso en el mapa (arreglo 3 del 06-11-2026).
+        const individuos = troops.reduce((n, g) => n + g.count, 0);
+        expect(s.scene).toBe('adventure');
+        expect(s.avisoDelAtaque).toEqual({
+          titulo: '¡Emboscada!',
+          // Dónde, por el nombre de su región y no por la casilla (06-11-2026).
+          frase: `Un grupo de ${individuos} asaltantes embosca a ${hero.name} en ${st.map.regions[region]!.name}.`,
+          at: paso,
+        });
+        if (!sinDefender) s.defenderElAtaque();
         return s;
       }
     }
     throw new Error('en 40 semillas el héroe junto a su base no tiene un paso a una región');
   }
+
+  it('la emboscada avisa antes: «Resolver sola» la cierra sin abrir la batalla', () => {
+    const s = emboscada(true);
+    const heroe = s.selectedHero!;
+    const desde = s.state.log.length;
+    s.resolverElAtaqueSola();
+    expect(s.avisoDelAtaque).toBeNull();
+    expect(s.battle).toBeNull();
+    expect(s.scene).toBe('adventure');
+    // Y dice cómo acabó (06-11-2026: volvía al mapa con la barra vacía), con lo que
+    // escribió el núcleo: quién ganó, qué perdió cada bando y qué fue del héroe.
+    const fin = s.state.log.slice(desde).find((e) => e.kind === 'battle_ended');
+    if (fin?.kind !== 'battle_ended') throw new Error('la batalla resuelta sola no terminó');
+    const ganada = fin.winner === 'defender';
+    expect(s.status).toMatch(new RegExp(`^Batalla ${ganada ? 'ganada' : 'perdida'}: `));
+    expect(s.status).toMatch(/: ((no pierdes a nadie|pierdes \d+\u00a0× [^;]+); )?el enemigo /);
+    expect(s.status.endsWith('.')).toBe(true);
+    if (!ganada) expect(s.status).toContain(`${heroe.name} cae y vuelve a `);
+  });
+
+  it('resuelta sola y perdida, dice que el héroe cae y vuelve a su base sin tropa', () => {
+    const s = emboscada(true);
+    const heroe = s.selectedHero!;
+    const base = baseOf(s.state, heroe.owner)!;
+    // Para perderla seguro: lo que defiende, a 1 PV.
+    for (const st of s.state.pendingBattle!.battle.stacks) if (st.side === 'defender') st.topHp = 1;
+    s.resolverElAtaqueSola();
+    expect(s.status).toMatch(/^Batalla perdida: /);
+    expect(s.status).toMatch(/(: |; )el enemigo /);
+    expect(s.status.endsWith(`; ${heroe.name} cae y vuelve a ${base.name} sin tropa.`)).toBe(true);
+    // La tropa que no murió en el tablero se va con él: «no pierdes a nadie» mentiría.
+    expect(s.status).not.toContain('no pierdes a nadie');
+  });
 
   it('abre en la tanda del defensor: ni figuras, ni lista, ni pista del rival', () => {
     const s = emboscada();

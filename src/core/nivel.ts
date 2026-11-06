@@ -221,7 +221,11 @@ function ofensaDelAtaque(
  */
 function aguanteDe(u: UnitInfo): number {
   const R = PODER.armaduraDeReferencia;
-  const llega = Math.max(trasLaArmadura(R, { unit: u }, false).danio, Math.floor(R / 4), 1);
+  const llega = Math.max(
+    trasLaArmadura(R, { unit: u, effects: [] }, false).danio,
+    Math.floor(R / 4),
+    1,
+  );
   return Math.floor((u.hp * (10 + u.defense) * R) / llega);
 }
 

@@ -1,0 +1,42 @@
+{
+  "encargo": "batalla-tapa-piedra",
+  "tipo": "textura",
+  "fecha": "2026-11-06T09:21:12.962Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a1b028-8b37-7310-bf6a-0540088b51be",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la referencia de MATERIAL: de ella se toman SOLO el color, la textura y la paleta de la roca y de lo que crece en ella, para que case con estas piezas. NO copies su forma (columnas, prismas, bloques en fila) ni su composición.\n\nel suelo de un ADARVE de muralla visto exactamente desde arriba: losas de piedra gris y parda de tamaños distintos, gastadas por el paso, con juntas oscuras, algo de musgo y tierra en ellas y alguna losa rota. Los materiales y la paleta, los de la imagen 2 (la piedra de la muralla de la imagen 2: sillares grises y pardos bien escuadrados, con musgo y verdín en las juntas); el acabado, el de la imagen 1.\n\nUna muestra plana de MATERIAL vista exactamente desde arriba, a 90 grados, como una muestra de una biblioteca de texturas: sin perspectiva, sin horizonte y sin sombras proyectadas.\nLisa y uniforme en toda la superficie: sin un motivo central, sin objetos sueltos, sin caminos, sin bordes ni marco, sin figuras y sin texto. Que se pueda repetir en mosaico por los cuatro lados sin que se note.\nFormato cuadrado, imagen opaca de borde a borde.",
+  "referencias": [
+    {
+      "ruta": "assets/rpg/campo.webp",
+      "papel": "estilo",
+      "sha256": "f793599c3460da9299fb6448f9a212c9504acd421af80fd78dec4879779be878"
+    },
+    {
+      "ruta": "assets/mapa/modulos/recinto.webp",
+      "papel": "material",
+      "sha256": "4cbc5cb2fa9093adaa2f35924e202ec7e18937a577d1e35b9c68dc2944775b5e"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a1b028-8b37-7310-bf6a-0540088b51be/exec-2514a0c1-e05b-4eb9-95f8-8743f618e73d.png",
+    "sha256": "75e1e85cf025f213d5b12f8399c047d2158bb86969eecb167f700fc1d9d6b4ac",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "cuadrado central a 512×512 y repetible: mezclada eje a eje con su copia desplazada medio lado; costura 1.06 (1 es invisible)",
+    "WebP calidad 92, alfa sin pérdida",
+    "caja de lo opaco (y el cuerpo de una cara) en el índice de la muralla de batalla"
+  ],
+  "validacion": {
+    "ancho": 512,
+    "alto": 512
+  },
+  "salida": {
+    "ruta": "assets/batalla/muralla/tapa-piedra.webp",
+    "sha256": "1d04ad6d7001cb4ad321f6522c86ee103673f2c790f3dd72431e93d41744fe8c"
+  }
+}

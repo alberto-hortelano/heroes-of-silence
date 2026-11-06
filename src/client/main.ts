@@ -37,6 +37,7 @@ import { aLaBarra, semillaSorteada } from './semilla.js';
 import { Session } from './session.js';
 import { ponerTema } from './temas.js';
 import { pintarSiguiendoElFinal } from './views/al-final.js';
+import { renderAviso } from './views/aviso.js';
 import { renderConversacion } from './views/base.js';
 import { renderDefensa, renderGuarnicion } from './views/guarnicion.js';
 import { renderConversacionDelLugar } from './views/lugar.js';
@@ -72,6 +73,8 @@ const salirAlMenu = document.getElementById('salir-al-menu') as HTMLDialogElemen
 const elGuarnicion = document.getElementById('guarnicion') as HTMLDialogElement;
 /** Con quién se defiende el héroe atacado en su sitio (`views/guarnicion.ts`). */
 const elDefensa = document.getElementById('defensa') as HTMLDialogElement;
+/** Quién te ataca y dónde, sobre el mapa, antes de la batalla (`views/aviso.ts`). */
+const elAviso = document.getElementById('aviso') as HTMLDialogElement;
 const stage = document.getElementById('stage') as HTMLElement;
 const lateral = document.getElementById('lateral') as HTMLElement;
 
@@ -160,6 +163,8 @@ function abrePartida(
 function prepararLaPartida(abierta: Session, rotulo: string): Session {
   // Una defensa (#116) se abre a media jugada del rival, sin gesto que pinte.
   abierta.alCambiarSinGesto = pedirFotograma;
+  // El héroe anda su marcha por el mapa, y lo que abre la llegada espera a que llegue.
+  abierta.enseñarLaMarcha = true;
   elSeed.textContent = rotulo;
   // La interfaz, con el tema de la facción de quien juega (`temas.ts`).
   ponerTema(abierta.jugador.faction);
@@ -369,7 +374,7 @@ function pedirFotograma(): void {
 function hayAnimacion(): boolean {
   if (hayFigurasAnimadas()) return true;
   if (session.scene === 'battle') return batalla.ocupada;
-  return session.scene === 'adventure' && aventura.arrastrando;
+  return session.scene === 'adventure' && (aventura.arrastrando || session.marchaEnCurso !== null);
 }
 
 const principal = ajustarLienzo(canvas, pedirFotograma);
@@ -526,6 +531,12 @@ function dibujarFotograma(ahora: number): void {
   rueda.animar(ahora);
 
   if (!enCastillo && canvas.dataset.base !== undefined) delete canvas.dataset.base;
+  // El héroe que anda su marcha (`#app[data-marcha]`, su id): `pnpm capturas` espera
+  // a que llegue antes de mirar lo que abre la llegada.
+  const andando = session.marchaEnCurso?.heroe;
+  if (andando === undefined) {
+    if (app.dataset.marcha !== undefined) delete app.dataset.marcha;
+  } else if (app.dataset.marcha !== andando) app.dataset.marcha = andando;
   // A quién se mira en cada escena de dentro (`canvas[data-tropa]`, el id de la
   // elegida; `canvas[data-morada]`, `<edificio>:<unidad>`): por donde esperan
   // `pnpm capturas` y los tests del navegador. Fuera de ella, sin la marca.
@@ -627,6 +638,8 @@ function mostrarLaGuarnicion(): void {
   mostrarModal(elGuarnicion, vista === null ? null : renderGuarnicion(vista));
   const defensa = session.defensa;
   mostrarModal(elDefensa, defensa === null ? null : renderDefensa(defensa));
+  const aviso = session.avisoDelAtaque;
+  mostrarModal(elAviso, aviso === null ? null : renderAviso(aviso));
 }
 
 /** Un `<dialog>` modal con `contenido`, o cerrado si no hay nada que enseñar. */
@@ -644,6 +657,8 @@ elGuarnicion.addEventListener('cancel', (ev) => {
   session.cerrarLaGuarnicion();
   pedirFotograma();
 });
+// El aviso no se despide con Escape: la batalla llega igual, y se elige cómo.
+elAviso.addEventListener('cancel', (ev) => ev.preventDefault());
 elDefensa.addEventListener('cancel', (ev) => {
   ev.preventDefault();
   session.dejarLaDefensaDeLaIA();
@@ -665,6 +680,22 @@ elDefensa.addEventListener('cancel', (ev) => {
 function jugadaEnCurso(): boolean {
   if (session.scene !== 'battle') return false;
   if (!batalla.rechazarSiOcupada(performance.now())) return false;
+  pedirFotograma();
+  return true;
+}
+
+/**
+ * La puerta de los gestos del mapa mientras el héroe anda su marcha
+ * (`Session.marchaEnCurso`): el gesto —un clic en el lienzo, un botón, una
+ * tecla— solo lo hace llegar (`acabarLaMarcha`, que abre lo que esperaba a la
+ * llegada) y no hace nada más. Sin marcha, `false` y el gesto sigue. Así nada se
+ * juega con el héroe pintado a medio camino, ni con la batalla de una emboscada
+ * esperando a que llegue.
+ */
+function hastaQueLlegue(): boolean {
+  if (session.marchaEnCurso === null) return false;
+  session.acabarLaMarcha();
+  aventura.olvidarRuta();
   pedirFotograma();
   return true;
 }
@@ -762,6 +793,7 @@ canvas.addEventListener('pointerup', (ev) => {
     batalla.mover(p.x, p.y);
     if (!jugadaEnCurso()) batalla.pulsar(p.x, p.y);
   } else if (aventura.soltar()) {
+    if (hastaQueLlegue()) return;
     // Con el modo «marcar fallo» puesto, el clic es suyo y no mueve a nadie.
     if (desarrollo?.activo === true) desarrollo.clic(p.x, p.y);
     else aventura.pulsar(p.x, p.y, ev.pointerType === 'touch');
@@ -866,7 +898,7 @@ document.addEventListener('click', (ev) => {
     pedirFotograma();
     return;
   }
-  if (reparto === 'nada') return;
+  if (reparto === 'nada' || hastaQueLlegue()) return;
   pedirFotograma();
 
   switch (action) {
@@ -1057,6 +1089,12 @@ document.addEventListener('click', (ev) => {
     case 'defensa-de-la-ia':
       session.dejarLaDefensaDeLaIA();
       break;
+    case 'aviso-defender':
+      session.defenderElAtaque();
+      break;
+    case 'aviso-resolver-sola':
+      session.resolverElAtaqueSola();
+      break;
     case 'dismiss':
       session.dismiss(
         target.getAttribute('data-hero') as string,
@@ -1168,11 +1206,11 @@ document.addEventListener('click', (ev) => {
 });
 
 document.addEventListener('keydown', (ev) => {
-  // Con la guarnición o la defensa abiertas (modales), toda tecla es suya: Escape
+  // Con la guarnición, la defensa o el aviso abiertos (modales), toda tecla es suya: Escape
   // las cierra por su `cancel`, que llega aunque el foco se haya ido al `body` tras
   // un clic, y aquí no debe cerrar también la base de detrás (H3 del QA de la
   // fase 1: la guarnición se cerraba y se salía al mapa).
-  if (elGuarnicion.open || elDefensa.open) return;
+  if (elGuarnicion.open || elDefensa.open || elAviso.open) return;
   // Lo que se escribe en un campo de texto o se pulsa en un cuadro es suyo, no un
   // atajo. Salvo Escape en la conversación: al abrirse se queda el foco (su primera
   // opción), y sin esto Escape no la cerraba nunca, aunque la barra lo anuncia
@@ -1193,6 +1231,9 @@ document.addEventListener('keydown', (ev) => {
     pedirFotograma();
     return;
   }
+  // Mientras el héroe anda, una tecla solo lo hace llegar (`hastaQueLlegue`); el
+  // zoom, no, que es de la cámara.
+  if (ev.key !== '+' && ev.key !== '-' && hastaQueLlegue()) return;
   if (ev.key === 'Escape' && esDeDentro(session.scene)) {
     cerrarDentro();
   } else if (ev.key === 'Escape' && session.scene === 'town') {

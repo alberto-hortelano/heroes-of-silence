@@ -7,9 +7,12 @@
  * exactamente una vez; después vuelve a `heroes_listen`. Y así toda la partida.
  */
 
-import { allSpells } from '@core/battle/spells.js';
 import { unidadDelJuego, unidadesDeFaccion, unidadesDelJuego } from '@core/catalogo.js';
-import { COMO_SE_LEE_EL_MAPA, fichaDeCriatura } from '@core/contract/serialize.js';
+import {
+  COMO_SE_LEE_EL_MAPA,
+  fichaDeCriatura,
+  hechizosAlAgente,
+} from '@core/contract/serialize.js';
 import { RANGO_MAXIMO_DE_TROPA } from '@core/hero/experiencia.js';
 import { allBuildings } from '@core/town/buildings.js';
 import { FACTION_IDS } from '@core/types.js';
@@ -515,7 +518,7 @@ server.tool(
 );
 
 server.tool('spell_list', 'Los hechizos del juego con su coste y efecto.', {}, () => ({
-  content: [{ type: 'text' as const, text: JSON.stringify(allSpells(), null, 2) }],
+  content: [{ type: 'text' as const, text: JSON.stringify(hechizosAlAgente(), null, 2) }],
 }));
 
 server.tool('building_list', 'Los edificios de castillo con su coste y requisitos.', {}, () => ({

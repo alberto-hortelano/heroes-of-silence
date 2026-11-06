@@ -29,6 +29,7 @@ import {
 } from '../battle/battle.js';
 import { type Paso, tableroDelContrato } from '../battle/board.js';
 import { stackHp } from '../battle/damage.js';
+import { dichoDelEfecto } from '../battle/effects.js';
 import { alcanceDeLaGranada } from '../battle/granada.js';
 import { hayMuralla } from '../battle/muralla.js';
 import { type CifrasDeLaRueda, efectoDeGolpe, formaDeLaBatalla } from '../battle/rueda.js';
@@ -65,6 +66,9 @@ import {
   type Personajes,
   troopSummary,
 } from '../hero/troop.js';
+import { todosLosHechizos } from '../magia/catalogo.js';
+import { queHaceElHechizo } from '../magia/dicho.js';
+import type { Hechizo } from '../magia/formato.js';
 import { regionesDelMapa } from '../map/generate.js';
 import { pointFromKey } from '../map/map.js';
 import { LADO_DEL_RECINTO, SEPARACION_DE_CIUDADES } from '../map/recinto.js';
@@ -1084,10 +1088,18 @@ function stackView(s: BattleStack) {
     // cambiar de una ronda a otra sin saber por qué ni hasta cuándo.
     effects: s.effects.map((e) => ({
       kind: e.kind,
-      amount: e.amount,
+      // La cifra que suma; lo que no es una cifra (impide, escudo, disparador), 0.
+      amount: 'amount' in e ? e.amount : 0,
+      // Lo que hace, en palabras (`dichoDelEfecto`): lo único que dice qué impide un
+      // hechizo o cuándo salta un disparador.
+      summary: dichoDelEfecto(e),
       source: e.source,
       roundsLeft: e.roundsLeft,
     })),
+    // El hechizo diferido que lanzó y dónde caerá, al empezar su siguiente turno.
+    ...(s.hechizoEnElAire === null
+      ? {}
+      : { spellAt: { spell: s.hechizoEnElAire.hechizo, at: s.hechizoEnElAire.at } }),
     // La casilla a la que apuntó (el disparo diferido): sale al empezar su
     // siguiente turno. Solo si apuntó; se ve en los dos bandos.
     ...(s.apuntado === null ? {} : { aimedAt: s.apuntado }),
@@ -1364,4 +1376,38 @@ export function serializeMapRequest(opts: MapRequestOptions) {
       `A una ciudad, en cambio, se entra por las puertas de su recinto de ${LADO_DEL_RECINTO}×${LADO_DEL_RECINTO}: lleva el camino de cada región que la toque de un acceso a dos casillas (al norte, al sur o en diagonal) a la puerta de esa cara y de ahí a la ciudad; deja ${SEPARACION_DE_CIUDADES} casillas entre dos ciudades y nada dentro de un recinto. El héroe de cada jugador empieza en su base y sale por sus puertas.`,
     ],
   };
+}
+
+/** A qué se lanza un hechizo, en el contrato. */
+function objetivoAlAgente(h: Hechizo): 'ally' | 'enemy' | 'any' | 'tile' | 'self' | 'all' {
+  if (h.entrega.tipo === 'sobreSi') return 'self';
+  if (h.entrega.tipo === 'tablero') return 'all';
+  switch (h.objetivo) {
+    case 'aliado':
+      return 'ally';
+    case 'enemigo':
+      return 'enemy';
+    case 'casilla':
+      return 'tile';
+    default:
+      return 'any';
+  }
+}
+
+/**
+ * Los hechizos del juego como los lee el agente (`spell_list`, 06-11-2026): el id, el
+ * nombre, el nivel del gremio que lo enseña (`null`: ninguno), el maná, la
+ * descripción de quien lo escribió, lo que hace en una frase (`queHaceElHechizo`) y
+ * a qué se lanza (`target`: con "tile", `cast` lleva `at`; con "self" o "all", nada).
+ */
+export function hechizosAlAgente() {
+  return todosLosHechizos().map((h) => ({
+    id: h.id,
+    name: h.nombre,
+    level: h.gremio,
+    cost: h.mana,
+    description: h.descripcion,
+    summary: queHaceElHechizo(h),
+    target: objetivoAlAgente(h),
+  }));
 }

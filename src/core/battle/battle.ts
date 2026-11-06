@@ -17,13 +17,32 @@ import {
   oroDeUnidad,
 } from '../catalogo.js';
 import { combateBlocker, type ReglasDelCombate } from '../combate.js';
+import { montadoDeGuerra } from '../cuerpo.js';
 import { HEROE, hasTrait } from '../data.js';
 import { cifrasDelIndividuo } from '../hero/experiencia.js';
 import type { Hero } from '../hero/hero.js';
 import { hojaDeLaTropa } from '../hero/troop.js';
+import { type CatalogoDeHechizos, HECHIZOS_DEL_JUEGO } from '../magia/catalogo.js';
+import { dichoDeImpide } from '../magia/dicho.js';
+import {
+  areaDe,
+  type CuandoSalta,
+  type Duracion,
+  esDiferido,
+  type Hechizo,
+  type Impedible,
+} from '../magia/formato.js';
 import type { Rng } from '../rng.js';
 import type { CombatProfile } from '../rpg/stats.js';
-import type { CreatureTrait, FactionId, Hex, Stack, UnitInfo, UsoDeArma } from '../types.js';
+import type {
+  CreatureTrait,
+  FactionId,
+  Hex,
+  PoderId,
+  Stack,
+  UnitInfo,
+  UsoDeArma,
+} from '../types.js';
 import { SPEED_TO_HEXES } from '../types.js';
 import {
   cargasDe,
@@ -97,7 +116,13 @@ import {
   applyEffect,
   type CuandoVence,
   clampMorale,
+  type DisparadorResuelto,
+  dichoDelEfecto,
+  disparadoresDe,
+  type EfectoResuelto,
   effectTotal,
+  esCifraDeEfecto,
+  impedidoPor,
   type StackEffect,
   tickEffects,
 } from './effects.js';
@@ -124,7 +149,6 @@ import {
   SIN_MURALLA,
   validarMuralla,
 } from './muralla.js';
-import { esDeCura, type Poder, type PoderId, poder, poderSiExiste } from './poderes.js';
 import {
   type CifrasDeLaRueda,
   casillasQueQuitaLaFinta,
@@ -147,14 +171,19 @@ import {
   type TipoDeGolpe,
 } from './rueda.js';
 import {
-  castSpell,
+  type Apuntado,
+  casillasDelArea,
+  cuantoDura,
   curaDe,
-  delHeroe,
-  efectoDe,
+  curaDelHechizo,
+  efectoColgado,
   type Lanzador,
-  type Spell,
-  type SpellResult,
-  spell,
+  loAlcanza,
+  objetivoBlocker as objetivoDelHechizoBlocker,
+  queSeApunta,
+  resolverDisparador,
+  resolverEfecto,
+  soloCura,
 } from './spells.js';
 import type {
   AccionDeDespliegue,
@@ -171,7 +200,7 @@ import type {
   TipoDePuerta,
   TurnoDeUnidad,
 } from './types.js';
-import { otroBando, SIDES } from './types.js';
+import { MAX_ROUNDS, otroBando, SIDES } from './types.js';
 
 export interface BattleSide {
   /**
@@ -369,6 +398,7 @@ export function createBattle(
   rng: Rng,
   combate: ReglasDelCombate,
   murallaPedida: MurallaDeBatalla = SIN_MURALLA,
+  hechizos: CatalogoDeHechizos = HECHIZOS_DEL_JUEGO,
 ): BattleState {
   const sinCombate = combateBlocker(combate);
   if (sinCombate !== null) throw new Error(`no se puede montar la batalla: ${sinCombate}`);
@@ -453,6 +483,7 @@ export function createBattle(
         recargando: 0,
         granada: null,
         granadasLanzadas: 0,
+        hechizoEnElAire: null,
       });
     });
   }
@@ -467,6 +498,7 @@ export function createBattle(
     heroes: { attacker: attacker.hero?.mando ?? null, defender: defender.hero?.mando ?? null },
     muralla,
     rueda: combate.rueda,
+    libro: libroDeLaBatalla(attacker, defender, stacks, hechizos),
     golpeEnCurso: null,
     escaleras: [],
     puertas: puertasAlEmpezar(muralla),
@@ -482,6 +514,72 @@ export function createBattle(
   // sale ya con la ronda 1 abierta, como antes del despliegue.
   seguirElDespliegue(state, rng);
   return state;
+}
+
+/**
+ * Los hechizos que se pueden lanzar en una batalla: los de los libros de los dos
+ * héroes y los poderes de cada stack, resueltos en el catálogo `cat`. Un id que no
+ * está en él lanza: es un fallo de quien monta, no una batalla sin magia.
+ */
+function libroDeLaBatalla(
+  attacker: BattleSide,
+  defender: BattleSide,
+  stacks: readonly BattleStack[],
+  cat: CatalogoDeHechizos,
+): Record<string, Hechizo> {
+  return libroDe(
+    [
+      ...(attacker.hero?.mando.spells ?? []),
+      ...(defender.hero?.mando.spells ?? []),
+      ...stacks.flatMap((s) => s.unit.poderes ?? []),
+    ],
+    (id) => cat.get(id),
+  );
+}
+
+/** El libro de estos ids, cada uno de `deDonde`; lanza con uno que no está. */
+function libroDe(
+  ids: readonly string[],
+  deDonde: (id: string) => Hechizo | undefined,
+): Record<string, Hechizo> {
+  const libro: Record<string, Hechizo> = {};
+  for (const id of ids) {
+    const h = deDonde(id);
+    if (h === undefined)
+      throw new Error(`no se puede montar la batalla: no hay ningún hechizo «${id}»`);
+    libro[id] = h;
+  }
+  return libro;
+}
+
+/**
+ * El libro de una batalla en curso tras un retoque de la arena: los hechizos de los
+ * libros de sus héroes y los poderes de sus stacks de ahora, de `cat` (con `null`,
+ * los que ya lleva). Lanza con uno que no está en ninguno.
+ */
+export function libroConElCatalogo(
+  state: BattleState,
+  cat: CatalogoDeHechizos | null,
+): Record<string, Hechizo> {
+  return libroDe(
+    [
+      ...(state.heroes.attacker?.spells ?? []),
+      ...(state.heroes.defender?.spells ?? []),
+      ...state.stacks.flatMap((s) => s.unit.poderes ?? []),
+    ],
+    (id) => (cat === null ? hechizoDeLaBatalla(state, id) : cat.get(id)),
+  );
+}
+
+/**
+ * El hechizo `id` de esta batalla (`BattleState.libro`) o, si no lo lleva (un libro
+ * que cambió después de montarla), el del juego. Lanza con uno que no está en
+ * ninguno.
+ */
+export function hechizoDeLaBatalla(state: BattleState, id: string): Hechizo {
+  const h = state.libro[id] ?? HECHIZOS_DEL_JUEGO.get(id);
+  if (h === undefined) throw new Error(`esta batalla no lleva el hechizo «${id}»`);
+  return h;
 }
 
 // ---------------------------------------------------------------- despliegue
@@ -851,7 +949,10 @@ export function seHaMovido(state: BattleState, s: BattleStack): boolean {
 
 export function stackSpeed(s: BattleStack): number {
   const base = SPEED_TO_HEXES[s.unit.speed];
-  return Math.max(1, base + effectTotal(s, 'speed'));
+  // La agilidad de un hechizo mueve también las casillas, salvo montado de guerra:
+  // las casillas son las de la montura (`cifrasDelCuerpo`).
+  const agilidad = montadoDeGuerra(s.unit) ? 0 : effectTotal(s, 'agilidad');
+  return Math.max(1, base + effectTotal(s, 'speed') + agilidad);
 }
 
 /**
@@ -933,6 +1034,8 @@ export function movimientoBlocker(state: BattleState, hex: Hex): string | null {
   const s = activeStack(state);
   if (s === null || state.finished !== null) return 'no le toca a ninguna unidad';
   if (!isInside(hex)) return `(${hex.col},${hex.row}) está fuera del tablero`;
+  const impedido = impedimentoBlocker(state, s, 'moverse');
+  if (impedido !== null) return impedido;
   if (movableFrom(state, s).has(hexKey(hex))) return null;
   if (hexEquals(hex, s.hex)) return 'ya está ahí';
   if (noCabe(hex, cerradasPara(state, s))) return porQueNoCabe(state, s, hex);
@@ -1153,6 +1256,8 @@ export function canReachMelee(state: BattleState, s: BattleStack, target: Battle
  */
 function disparoBlocker(state: BattleState, s: BattleStack): string | null {
   if (!isShooter(s.unit)) return 'no es tirador';
+  const impedido = impedimentoBlocker(state, s, 'disparar');
+  if (impedido !== null) return impedido;
   // La recarga del arma de fuego (02-11-2026): el turno en que sale el disparo cuenta.
   if (s.recargando > 0) return `está recargando: ${recargaQueFalta(s.recargando)}`;
   if (seHaMovido(state, s)) return 'ya se ha movido este turno: no puede apuntar';
@@ -1202,6 +1307,8 @@ export function granadasQueQuedan(s: BattleStack): number {
  */
 function granadaBlocker(state: BattleState, s: BattleStack): string | null {
   if (!lanzaGranadas(s.unit)) return 'no lleva granadas';
+  const impedido = impedimentoBlocker(state, s, 'disparar');
+  if (impedido !== null) return impedido;
   if (granadasQueQuedan(s) === 0) return 'se ha quedado sin granadas: lanzó las que llevaba';
   if (seHaMovido(state, s)) return 'ya se ha movido este turno: no puede lanzar';
   if (isEngaged(state, s)) return 'tiene un enemigo encima';
@@ -1369,8 +1476,8 @@ export interface LineaDelDisparo {
   readonly at: Hex;
   /**
    * Las casillas de la recta hasta donde llega, en orden y sin la del tirador: hasta
-   * la del alcanzado, hasta antes del muro o la puerta que la para, o hasta el borde
-   * del tablero (la recta sigue tras `at`).
+   * la del alcanzado, hasta lo alto del muro del que bajaría o hasta antes de la
+   * puerta que la para, o hasta el borde del tablero (la recta sigue tras `at`).
    */
   readonly casillas: readonly Hex[];
   /** El primero de la recta, de cualquier bando; `null` si no da a nadie. */
@@ -1379,8 +1486,9 @@ export interface LineaDelDisparo {
   readonly parada: 'muro' | 'puerta' | null;
   /**
    * Las casillas en que el disparo daría a quien estuviera en ella, en orden y sin
-   * mirar quién hay: la recta hasta el borde, o hasta lo que la para (el muro, el suyo
-   * incluido, que a quien está en él le da; la puerta cerrada, antes de ella). Cada
+   * mirar quién hay: la recta hasta el borde, o hasta lo que la para (desde el suelo,
+   * lo alto del muro, que a quien está en él le da, antes de bajar de él; la puerta
+   * cerrada, antes de ella). Cada
    * una con el cuarto de la horquilla en que caería su tirada (`cuartoDelDisparo`):
    * lo que pinta el tablero al apuntar, porque al salir el disparo ya se habrán
    * movido todos.
@@ -1400,10 +1508,15 @@ export interface CasillaDelAlcance {
  * decisión del usuario: «da al primero que se encuentre en esa línea, aunque sea de
  * tu equipo»), también tras `at` (01-11-2026: la recta sigue hasta el borde). La
  * recta es la de `lineaDeTiro` (un rayo, el del
- * bando del tirador). En el suelo la para un muro (sin nadie arriba: a quien está
- * en él le da) o el lado de una puerta cerrada; desde lo alto de la muralla pasa
- * por encima de todo, como el tiro de antes. La única regla: la leen el disparo
- * (`dispararLoApuntado`), su previsión, la IA y lo que se pinta.
+ * bando del tirador). Desde el suelo **sube a lo alto del muro** y da al primero
+ * que haya arriba, en cualquier casilla de muro que cruce (06-11-2026, petición
+ * del usuario: «Los disparos de abajo del muro al muro no dan»: la recta en
+ * diagonal rozaba la casilla de muro vacía de al lado antes que la del blanco, y en
+ * una muralla gruesa la columna de fuera tapaba la de dentro); la para **bajar del
+ * muro** (lo de detrás de la muralla no se alcanza desde el suelo) o el lado de una
+ * puerta cerrada. Desde lo alto de la muralla pasa por encima de todo, como el tiro
+ * de antes. La única regla: la leen el disparo (`dispararLoApuntado`), su
+ * previsión, la IA y lo que se pinta.
  */
 export function lineaDelDisparo(state: BattleState, s: BattleStack, at: Hex): LineaDelDisparo {
   const recta = lineaDeTiro(s.hex, at, s.side);
@@ -1417,20 +1530,34 @@ export function lineaDelDisparo(state: BattleState, s: BattleStack, at: Hex): Li
   let parada: LineaDelDisparo['parada'] = null;
   let hasta = 0;
   let antes = s.hex;
-  for (const h of recta) {
+  // Desde el suelo, si la recta va ya por lo alto del muro.
+  let arriba = false;
+  for (let i = 0; i < recta.length; i++) {
+    const h = recta[i] as Hex;
     if (porPuertas?.(indiceDe(antes), indiceDe(h)) === false) {
       if (alcanzado === null && parada === null) parada = 'puerta';
       break;
     }
-    alcance.push({ hex: h, cuarto: cuartoDelDisparo(octavosHastaLaRecta(s.hex, at, h)) });
     const muro = !libre && esMuro(state.muralla, h);
+    if (arriba && !muro) {
+      // La esquina de una casilla de suelo entre dos de muro (la recta casi a lo
+      // largo de la muralla, que en el odd-r va en zigzag): pasa por encima.
+      const siguiente = recta[i + 1];
+      if (siguiente !== undefined && esMuro(state.muralla, siguiente)) {
+        antes = h;
+        continue;
+      }
+      // Baja del muro: lo de detrás no se alcanza desde el suelo.
+      if (alcanzado === null && parada === null) parada = 'muro';
+      break;
+    }
+    alcance.push({ hex: h, cuarto: cuartoDelDisparo(octavosHastaLaRecta(s.hex, at, h)) });
     if (alcanzado === null && parada === null) {
       const quien = vivoEn(state, h);
       if (quien !== null && quien.id !== s.id) alcanzado = quien;
-      else if (muro) parada = 'muro';
-      if (parada === null) hasta = alcance.length;
+      hasta = alcance.length;
     }
-    if (muro) break;
+    arriba = muro;
     antes = h;
   }
   const casillas = alcance.slice(0, hasta).map((c) => c.hex);
@@ -1454,6 +1581,8 @@ export function ataqueBlocker(state: BattleState, targetId: string): string | nu
   const target = stackById(state, targetId);
   const rival = rivalBlocker(s, target, 'atacar');
   if (rival !== null) return rival;
+  const impedido = impedimentoBlocker(state, s, 'golpear');
+  if (impedido !== null) return impedido;
   const { actions } = legalActionsAndCosts(state);
   if (actions.some((a) => a.type === 'attack' && a.target === targetId)) return null;
   return 'no alcanza a esa unidad cuerpo a cuerpo este turno';
@@ -1485,6 +1614,8 @@ function golpeBlocker(
 ): string | null {
   const rival = rivalBlocker(s, target, 'atacar');
   if (rival !== null) return rival;
+  const impedido = impedimentoBlocker(state, s, 'golpear');
+  if (impedido !== null) return impedido;
   if (from !== undefined && !costes().has(hexKey(from))) {
     return `${s.id} no puede moverse a (${from.col},${from.row})`;
   }
@@ -1611,6 +1742,8 @@ export function movableFrom(state: BattleState, s: BattleStack): Map<string, Pas
  * fabricar un estado distinto.
  */
 function movibles(state: BattleState, s: BattleStack, contacto: boolean): Map<string, Paso> {
+  // Impedido de moverse (un hechizo): no va a ninguna parte.
+  if (impedidoPor(s, 'moverse') !== null) return new Map();
   // Sin casillas no hay a dónde ir, y no se recorre el tablero para saberlo: es
   // el caso de cada unidad que acaba de gastar su tramo entero, y preguntar qué
   // le queda tras moverse (`quedaAlgoQueHacer`) pasa por aquí.
@@ -1835,8 +1968,8 @@ function initiativeOrder(state: BattleState): string[] {
   return intercalar(state, enSuOrden, preferidoEnElEmpate(state));
 }
 
-/** Tope de rondas: una batalla que no converge se cierra, no se cuelga. */
-export const MAX_ROUNDS = 100;
+/** Tope de rondas: una batalla que no converge se cierra, no se cuelga (`types.ts`). */
+export { MAX_ROUNDS };
 
 /**
  * Tope de jugadas de una batalla, para los bucles que la juegan acción a acción:
@@ -1934,6 +2067,8 @@ function advance(state: BattleState, rng: Rng): void {
 function alEmpezarSuTurno(state: BattleState, s: BattleStack, rng: Rng): void {
   dispararLoApuntado(state, s, rng);
   explotarLaGranada(state, s, rng);
+  caerElHechizo(state, s, rng);
+  if (isAlive(s)) saltar(state, s, 'empezarSuTurno', null);
 }
 
 /**
@@ -1973,6 +2108,12 @@ function endTurn(state: BattleState, s: BattleStack, rng: Rng): void {
     state.turno = null;
     return;
   }
+  if (isAlive(s)) saltar(state, s, 'terminarSuTurno', null);
+  checkFinished(state);
+  if (state.finished !== null) {
+    state.turno = null;
+    return;
+  }
   const n = state.turno?.n;
   if (n !== undefined) quitarLosQueVencen(state, s, 'terminar', n);
   // Un turno menos de recarga: el del disparo cuenta (decisión del usuario, 02-11-2026).
@@ -1989,13 +2130,20 @@ function endTurn(state: BattleState, s: BattleStack, rng: Rng): void {
  * no se escribe nada.
  */
 function quitarLosQueVencen(state: BattleState, s: BattleStack, al: CuandoVence, n: number): void {
-  const vencido = (e: StackEffect): boolean =>
-    e.hasta !== undefined && e.hasta.al === al && e.hasta.turno < n;
-  // Cada cierre de turno pasa por aquí: sin nada que quitar, ni una lista nueva.
-  if (!s.effects.some(vencido)) return;
-  const vencidos = s.effects.filter(vencido);
-  s.effects = s.effects.filter((e) => !vencido(e));
-  for (const e of vencidos) state.log.push({ kind: 'effect_end', stack: s.id, source: e.source });
+  // De cualquier stack: lo que dura hasta un turno de `s` puede ir colgado de otro
+  // (un hechizo «hasta el próximo turno de quien lo lanzó», `HastaElTurno.de`).
+  for (const x of state.stacks) {
+    const vencido = (e: StackEffect): boolean =>
+      e.hasta !== undefined &&
+      e.hasta.al === al &&
+      e.hasta.turno < n &&
+      (e.hasta.de ?? x.id) === s.id;
+    // Cada cierre de turno pasa por aquí: sin nada que quitar, ni una lista nueva.
+    if (!x.effects.some(vencido)) continue;
+    const vencidos = x.effects.filter(vencido);
+    x.effects = x.effects.filter((e) => !vencido(e));
+    for (const e of vencidos) state.log.push({ kind: 'effect_end', stack: x.id, source: e.source });
+  }
 }
 
 /**
@@ -2235,29 +2383,16 @@ export function applyAction(
     }
 
     case 'cast': {
-      castHeroSpell(state, s.side, action.spell, action.target);
-      // Lanzar un hechizo no consume el turno del stack: el héroe actúa aparte.
+      castHeroSpell(state, s.side, action.spell, action.target, action.at);
+      // Lanzar un hechizo no consume el turno del stack: el héroe actúa aparte. Si
+      // el hechizo mató a la activa, su turno se acaba.
+      if (state.finished === null && !isAlive(s)) advance(state, rng);
       return;
     }
 
     case 'power': {
-      const motivo = poderBlocker(state, action.poder, action.target);
-      if (motivo !== null) {
-        throw new Error(`${s.unit.name} no puede usar ese poder: ${motivo}`);
-      }
-      const p = poder(action.poder);
-      // El hechizo del poder con la unidad de lanzador: la misma aplicación que
-      // la del héroe, así que un efecto suyo refrescaría el del héroe.
-      lanzarSobre(state, p.hechizo, p.lanzador, stackById(state, action.target), null, (r) =>
-        state.log.push({
-          kind: 'power',
-          stack: s.id,
-          poder: p.id,
-          target: action.target,
-          ...(esDeCura(p) ? { cura: r.cura } : {}),
-        }),
-      );
-      endTurn(state, s, rng);
+      // El hechizo con la unidad de lanzador: la misma aplicación que la del héroe.
+      usarElPoder(state, s, action, rng);
       return;
     }
 
@@ -2611,31 +2746,13 @@ function applyStackEffect(state: BattleState, target: BattleStack, effect: Stack
     kind: 'effect',
     stack: target.id,
     effect: vivo.kind,
-    amount: vivo.amount,
+    amount: esCifraDeEfecto(vivo.kind) && 'amount' in vivo ? vivo.amount : 0,
+    ...(esCifraDeEfecto(vivo.kind) ? {} : { dicho: dichoDelEfecto(vivo) }),
     source: vivo.source,
     rounds: vivo.roundsLeft,
     ...(vivo.hasta === undefined ? {} : { vence: vivo.hasta.al }),
+    ...(vivo.hasta?.de === undefined ? {} : { turnoDe: vivo.hasta.de }),
   });
-}
-
-/**
- * Aplica un hechizo al objetivo con su lanzador —el héroe (`delHeroe`) o la
- * unidad que usa un poder (`Poder.lanzador`)—: el daño o la cura los pone
- * `castSpell`, `anotar` escribe la línea de quien lanza y el efecto que dura lo
- * cuelga el motor detrás (refresca el del mismo origen y lo anota). Una sola
- * aplicación para los dos.
- */
-function lanzarSobre(
-  state: BattleState,
-  s: Spell,
-  l: Lanzador,
-  target: BattleStack,
-  autor: BattleStack | null,
-  anotar: (r: SpellResult) => void,
-): void {
-  const r = castSpell(s, l, target, autor);
-  anotar(r);
-  if (r.effect !== undefined) applyStackEffect(state, target, r.effect);
 }
 
 /**
@@ -2650,6 +2767,8 @@ function contraataqueBlocker(
   target: BattleStack,
 ): string | null {
   if (target.retaliated) return `${target.unit.name} ya devolvió un golpe esta ronda`;
+  const impedido = impedimentoBlocker(state, target, 'contraatacar');
+  if (impedido !== null) return impedido;
   if (hasTrait(attacker.unit, 'no_retaliation')) {
     return `a ${attacker.unit.name} no se le devuelve el golpe`;
   }
@@ -2737,6 +2856,11 @@ function melee(
   if (isAlive(target)) {
     colgarDeLaRueda(state, target, rueda.golpe, rueda.punto, 'rival', rueda.cifras);
   }
+
+  // Los disparadores de un hechizo (06-11-2026): una vez por golpe, tras él y antes
+  // del contraataque, como lo que deja un rasgo al golpear.
+  if (isAlive(attacker)) saltar(state, attacker, 'alGolpear', target);
+  if (isAlive(target)) saltar(state, target, 'alSerGolpeado', attacker);
 
   // Contraataque: uno por ronda, y solo si el atacante lo permite.
   if (isAlive(target) && isAlive(attacker) && devolveraElGolpe(state, attacker, target)) {
@@ -3027,7 +3151,7 @@ function strike(
     }
   }
 
-  if (!isAlive(target)) state.log.push({ kind: 'perished', stack: target.id });
+  if (!isAlive(target)) anotarLaMuerte(state, target);
 }
 
 /**
@@ -3061,6 +3185,8 @@ function dispararLoApuntado(state: BattleState, shooter: BattleStack, rng: Rng):
   const at = shooter.apuntado;
   if (at === null) return;
   shooter.apuntado = null;
+  // Impedido de disparar (un hechizo): lo apuntado no sale.
+  if (impedidoPor(shooter, 'disparar') !== null) return;
   // El arma de fuego recarga desde este turno, que cuenta (`endTurn` lo baja al
   // cerrarlo): con recarga 1, no apunta en este y sí en el siguiente.
   shooter.recargando = recargaDe(shooter.unit);
@@ -3106,6 +3232,8 @@ function explotarLaGranada(state: BattleState, s: BattleStack, rng: Rng): void {
   const at = s.granada;
   if (at === null || state.finished !== null) return;
   s.granada = null;
+  // Impedido de disparar (un hechizo): la granada no explota.
+  if (impedidoPor(s, 'disparar') !== null) return;
   const { alcanzados } = explosionDe(state, at);
   if (alcanzados.length === 0) {
     state.log.push({
@@ -3208,32 +3336,492 @@ function herirYContar(
 ): void {
   const herida = herir(objetivo, golpe, autor);
   state.log.push(hecho(herida));
-  if (!isAlive(objetivo)) state.log.push({ kind: 'perished', stack: objetivo.id });
+  if (!isAlive(objetivo)) anotarLaMuerte(state, objetivo);
 }
 
 /** Se escribe una vez y se lee en dos: el bloqueador y el estrechamiento. */
 const SIN_HEROE = 'este bando no tiene héroe';
 
+// ---------------------------------------------------------------- la magia
+
 /**
- * Motivo por el que el héroe de `side` no puede lanzar `spellId` —sobre
- * `targetId` si se apunta a alguien—, o `null` si sí puede. Mismo patrón que
- * `buildBlocker` en `town.ts`: la frase la escribe el núcleo y la pantalla la
- * enseña tal cual, así que el panel de batalla no reimplementa ni una regla.
+ * Quien lanza los hechizos del héroe de `side`: su cuerpo en el tablero (desde
+ * él miden el contacto, el alcance y la recta: P1 del plan del editor de magia),
+ * su bando y su poder mágico; `null` sin héroe o sin cuerpo.
+ */
+function lanzadorDelHeroe(state: BattleState, side: Side): Lanzador | null {
+  const hero = state.heroes[side];
+  if (hero === null) return null;
+  const cuerpo = state.stacks.find((x) => x.side === side && x.origen.kind === 'heroe');
+  if (cuerpo === undefined) return null;
+  return { stack: cuerpo, bando: side, poder: hero.spellPower };
+}
+
+/** Una unidad que usa un hechizo como poder: sin poder mágico (P7). */
+function lanzadorDeLaUnidad(s: BattleStack): Lanzador {
+  return { stack: s, bando: s.side, poder: 0 };
+}
+
+/** El nombre de un hechizo de la batalla, o su id si ya no lo lleva (lo quitó la arena). */
+function nombreDelHechizo(state: BattleState, id: string): string {
+  return state.libro[id]?.nombre ?? id;
+}
+
+/**
+ * Por qué `s` no puede hacer `que` porque se lo impide un hechizo (`impide`), con la
+ * frase para la persona, o `null`. La leen los `*Blocker` de golpear, disparar,
+ * contraatacar, moverse y lanzar.
+ */
+function impedimentoBlocker(state: BattleState, s: BattleStack, que: Impedible): string | null {
+  const e = impedidoPor(s, que);
+  if (e === null) return null;
+  return `${s.unit.name} ${dichoDeImpide([que])} (${nombreDelHechizo(state, e.source)})`;
+}
+
+/** Lo que se apunta en una jugada: la unidad, la casilla o nada. */
+function apuntadoDe(target: string | undefined, at: Hex | undefined): Apuntado {
+  if (target !== undefined) return { target };
+  if (at !== undefined) return { at };
+  return null;
+}
+
+/**
+ * Por qué `h`, lanzado por `l`, no vale sobre `apuntado`, o `null`: lo que se elige
+ * (una unidad, una casilla o nada), el bando del objetivo y la distancia de la
+ * entrega. Sin `apuntado`, la pregunta del botón: ¿hay sobre qué lanzarlo? Con
+ * `exigeHerida` (el poder que solo cura), a quien no le falta vida no vale.
+ */
+function apuntadoBlocker(
+  state: BattleState,
+  h: Hechizo,
+  l: Lanzador,
+  apuntado: Apuntado | undefined,
+  exigeHerida: boolean,
+): string | null {
+  const que = queSeApunta(h);
+  if (que === 'nada') {
+    if (apuntado != null)
+      return `«${h.nombre}» no se apunta: va ${h.entrega.tipo === 'sobreSi' ? 'sobre quien lo lanza' : 'a todo el tablero'}`;
+    return null;
+  }
+  if (apuntado === undefined) {
+    if (que === 'casilla') return null;
+    return state.stacks.some((t) => unidadBlocker(h, l, t, exigeHerida) === null)
+      ? null
+      : exigeHerida && soloCura(h)
+        ? 'nadie de su bando tiene ninguna herida'
+        : 'no hay ningún objetivo válido';
+  }
+  if (que === 'unidad') {
+    if (apuntado === null || !('target' in apuntado)) return `«${h.nombre}» se lanza a una unidad`;
+    const target = state.stacks.find((t) => t.id === apuntado.target);
+    if (target === undefined) return `no hay ninguna unidad "${apuntado.target}"`;
+    return unidadBlocker(h, l, target, exigeHerida);
+  }
+  if (apuntado === null || !('at' in apuntado)) return `«${h.nombre}» se lanza a una casilla`;
+  const at = apuntado.at;
+  if (!isInside(at)) return `(${at.col},${at.row}) no es una casilla del tablero`;
+  if (h.entrega.tipo === 'proyectil' && hexEquals(at, l.stack.hex)) {
+    return `«${h.nombre}» no se lanza a la casilla de quien lo lanza: no habría recta`;
+  }
+  return distanciaBlocker(h, l, at);
+}
+
+/** Por qué `t` no vale como la unidad elegida, o `null`: bando, vida, distancia y herida. */
+function unidadBlocker(
+  h: Hechizo,
+  l: Lanzador,
+  t: BattleStack,
+  exigeHerida: boolean,
+): string | null {
+  const objetivo = objetivoDelHechizoBlocker(h, l.bando, t);
+  if (objetivo !== null) return objetivo;
+  const lejos = distanciaBlocker(h, l, t.hex);
+  if (lejos !== null) return lejos;
+  if (exigeHerida && soloCura(h) && curaDelHechizo(h, l.poder, t) <= 0) {
+    return `${t.unit.name} no tiene ninguna herida`;
+  }
+  return null;
+}
+
+/** Por qué `at` está fuera del alcance de la entrega de `h` desde `l`, o `null`. */
+function distanciaBlocker(h: Hechizo, l: Lanzador, at: Hex): string | null {
+  const e = h.entrega;
+  const d = hexDistance(l.stack.hex, at);
+  if (e.tipo === 'contacto' && d > 1) {
+    return `«${h.nombre}» se lanza en contacto, y eso está a ${d} casillas de ${l.stack.unit.name}`;
+  }
+  const tope = e.tipo === 'alcance' ? e.casillas : e.tipo === 'proyectil' ? e.casillas : undefined;
+  if (tope !== undefined && d > tope) {
+    return `«${h.nombre}» llega a ${tope} ${tope === 1 ? 'casilla' : 'casillas'}, y eso está a ${d}`;
+  }
+  return null;
+}
+
+/** El punto de impacto y los vivos que alcanza `h` lanzado por `l` sobre `apuntado`, ahora. */
+function afectadosDe(
+  state: BattleState,
+  h: Hechizo,
+  l: Lanzador,
+  apuntado: Apuntado,
+): readonly BattleStack[] {
+  const afecta = h.afecta ?? 'todos';
+  const area = areaDe(h);
+  const vivosEn = (casillas: readonly Hex[], sin: BattleStack | null): BattleStack[] =>
+    casillas.flatMap((c) => {
+      const t = vivoEn(state, c);
+      return t !== null && t !== sin && loAlcanza(afecta, l.bando, t.side) ? [t] : [];
+    });
+  const alrededor = (centro: Hex): BattleStack[] =>
+    vivosEn(casillasDelArea(centro, typeof area === 'number' ? area : 0), null);
+  switch (h.entrega.tipo) {
+    case 'tablero':
+      return state.stacks.filter((t) => isAlive(t) && loAlcanza(afecta, l.bando, t.side));
+    case 'sobreSi':
+      return area === 0 ? [l.stack] : alrededor(l.stack.hex);
+    case 'proyectil': {
+      if (apuntado === null || !('at' in apuntado)) return [];
+      const linea = lineaDelDisparo(state, l.stack, apuntado.at);
+      const tope = h.entrega.casillas;
+      const dentro = (c: Hex): boolean => tope === undefined || hexDistance(l.stack.hex, c) <= tope;
+      if (area === 'recta') return vivosEn(linea.alcance.map((c) => c.hex).filter(dentro), l.stack);
+      const quien = linea.alcanzado;
+      if (quien === null || !dentro(quien.hex)) return [];
+      if (area === 0) return loAlcanza(afecta, l.bando, quien.side) ? [quien] : [];
+      return alrededor(quien.hex);
+    }
+    default: {
+      if (apuntado === null) return [];
+      if ('at' in apuntado) return alrededor(apuntado.at);
+      const t = stackById(state, apuntado.target);
+      return area === 0 ? [t] : alrededor(t.hex);
+    }
+  }
+}
+
+/** Lo que hizo un hechizo (o un disparador) a uno: el daño, lo parado y la cura. */
+interface LoQueHizo {
+  damage: number;
+  killed: number;
+  parado: number;
+  cura: number;
+}
+
+/** Lo común de lo que cuelga un hechizo, sin el afectado. */
+interface ContextoDelHechizo {
+  readonly source: string;
+  readonly bando: Side;
+  /** El stack que lo lanzó: cobra la experiencia del daño y cierra «turnoDe: lanzador». */
+  readonly lanzador: BattleStack | null;
+  readonly lanzadorId: string;
+  /** Quien lleva el disparador que lo lanzó, si es un disparador. */
+  readonly portador?: string;
+  readonly poder: number;
+  readonly duracion: Duracion | null;
+  readonly seAcabaSiMuere?: string;
+}
+
+/**
+ * Lo que se hace en el acto de `efectos` sobre `t`: el daño (`herir`, con o sin la
+ * armadura), la cura (sin pasar de la vida del de arriba, `curaDe`) y `disipar`.
+ */
+function enElActo(
+  state: BattleState,
+  efectos: readonly (EfectoResuelto | DisparadorResuelto)[],
+  ctx: ContextoDelHechizo,
+  t: BattleStack,
+): LoQueHizo {
+  const hizo: LoQueHizo = { damage: 0, killed: 0, parado: 0, cura: 0 };
+  for (const e of efectos) {
+    if ('cuando' in e || !isAlive(t)) continue;
+    if (e.tipo === 'danio') {
+      const h = herir(t, { damage: e.cantidad, perfora: !e.armadura }, ctx.lanzador);
+      hizo.damage += h.danio;
+      hizo.killed += h.muertos;
+      hizo.parado += h.parado;
+    } else if (e.tipo === 'cura') {
+      const c = curaDe(e.cantidad, t);
+      t.topHp += c;
+      hizo.cura += c;
+    } else if (e.tipo === 'disipar') {
+      disipar(state, t, e.de);
+    }
+  }
+  return hizo;
+}
+
+/** Quita de `t` los efectos de hechizo que dice `de` (relativo a su bando), y los anota. */
+function disipar(state: BattleState, t: BattleStack, de: 'contrarios' | 'propios' | 'todos'): void {
+  const vaFuera = (e: StackEffect): boolean =>
+    e.bando !== undefined && (de === 'todos' || (de === 'propios') === (e.bando === t.side));
+  const fuera = t.effects.filter(vaFuera);
+  if (fuera.length === 0) return;
+  t.effects = t.effects.filter((e) => !vaFuera(e));
+  for (const e of fuera) state.log.push({ kind: 'effect_end', stack: t.id, source: e.source });
+}
+
+/**
+ * Cuelga de `t` lo que dura de `efectos`, con la duración del contexto, y salta en
+ * el acto los disparadores que lo piden (`yAlLanzarse`, el pulso de un aura). Lo
+ * que dura en un muerto no se cuelga.
+ */
+function colgarLoQueDura(
+  state: BattleState,
+  efectos: readonly (EfectoResuelto | DisparadorResuelto)[],
+  ctx: ContextoDelHechizo,
+  t: BattleStack,
+  cargas: (d: DisparadorResuelto) => number | null,
+): void {
+  if (!isAlive(t) || ctx.duracion === null) return;
+  const dura = cuantoDura(ctx.duracion, ctx.poder, state.turno?.n ?? 0, {
+    afectado: t.id,
+    lanzador: ctx.lanzadorId,
+    ...(ctx.portador === undefined ? {} : { portador: ctx.portador }),
+  });
+  const comun = {
+    source: ctx.source,
+    bando: ctx.bando,
+    ...dura,
+    ...(ctx.seAcabaSiMuere === undefined ? {} : { seAcabaSiMuere: ctx.seAcabaSiMuere }),
+  };
+  for (const e of efectos) {
+    const colgado = efectoColgado(e, comun, 'cuando' in e ? cargas(e) : null);
+    if (colgado === null) continue;
+    applyStackEffect(state, t, colgado);
+    if ('cuando' in e && e.yAlLanzarse) {
+      const vivo = t.effects.find((x) => x.kind === 'disparador' && x.source === ctx.source);
+      if (vivo !== undefined && vivo.kind === 'disparador') saltarUno(state, t, vivo, null);
+    }
+  }
+}
+
+/** Los efectos de `h` resueltos con el poder de `l`, y las cargas de sus disparadores. */
+function resueltosDe(
+  h: Hechizo,
+  l: Lanzador,
+): {
+  readonly efectos: readonly (EfectoResuelto | DisparadorResuelto)[];
+  readonly cargas: (d: DisparadorResuelto) => number | null;
+} {
+  const conCargas = new Map<DisparadorResuelto, number | null>();
+  const efectos = h.efectos.map((e) => {
+    if (e.tipo !== 'disparador') return resolverEfecto(e, l.poder);
+    const d = resolverDisparador(e, l.poder, l.stack.id);
+    conCargas.set(d, e.cargas ?? null);
+    return d;
+  });
+  return { efectos, cargas: (d) => conCargas.get(d) ?? null };
+}
+
+/** El contexto de `h` lanzado por `l`. */
+function contextoDe(h: Hechizo, l: Lanzador): ContextoDelHechizo {
+  return {
+    source: h.id,
+    bando: l.bando,
+    lanzador: l.stack,
+    lanzadorId: l.stack.id,
+    poder: l.poder,
+    duracion: h.duracion ?? null,
+    ...(h.seAcabaSiMuere === 'lanzador' ? { seAcabaSiMuere: l.stack.id } : {}),
+  };
+}
+
+/**
+ * Lanza `h` con `l` sobre `apuntado` (ya validado por su `*Blocker`): **la única
+ * aplicación de un hechizo**, del héroe y del poder de una unidad. Lo diferido se
+ * queda en el aire (`hechizoEnElAire`) y cae al empezar el siguiente turno del
+ * lanzador (`caerElHechizo`). A una sola unidad elegida, el hecho de quien lanza
+ * (`hecho`) lleva lo que le hizo, como siempre; si va a una casilla, al tablero o
+ * alcanza a varios, un `spell_hit` por alcanzado.
+ */
+function lanzarHechizo(
+  state: BattleState,
+  h: Hechizo,
+  l: Lanzador,
+  apuntado: Apuntado,
+  hecho: (hizo: LoQueHizo | null) => BattleEvent,
+): void {
+  if (esDiferido(h)) {
+    if (apuntado === null || !('at' in apuntado)) throw new Error('lo diferido va a una casilla');
+    l.stack.hechizoEnElAire = { hechizo: h.id, at: apuntado.at, poder: l.poder };
+    state.log.push({ ...hecho(null), diferido: true } as BattleEvent);
+    return;
+  }
+  const afectados = afectadosDe(state, h, l, apuntado);
+  if (queSeApunta(h) === 'unidad' && areaDe(h) === 0) {
+    // A una sola unidad: el hecho de siempre, con lo que le hizo.
+    const [t] = afectados;
+    if (t === undefined) throw new Error('una unidad elegida sin unidad');
+    const { efectos, cargas } = resueltosDe(h, l);
+    const ctx = contextoDe(h, l);
+    state.log.push(hecho(enElActo(state, efectos, ctx, t)));
+    colgarLoQueDura(state, efectos, ctx, t, cargas);
+    if (!isAlive(t)) anotarLaMuerte(state, t);
+    checkFinished(state);
+    return;
+  }
+  state.log.push(hecho(null));
+  aplicarAVarios(state, h, l, afectados);
+}
+
+/** Aplica `h` a cada uno de `afectados`, con un `spell_hit` por alcanzado. */
+function aplicarAVarios(
+  state: BattleState,
+  h: Hechizo,
+  l: Lanzador,
+  afectados: readonly BattleStack[],
+): void {
+  const { efectos, cargas } = resueltosDe(h, l);
+  const ctx = contextoDe(h, l);
+  for (const t of afectados) {
+    if (!isAlive(t)) continue;
+    const hizo = enElActo(state, efectos, ctx, t);
+    state.log.push(golpeDeHechizo(h.id, t, hizo));
+    colgarLoQueDura(state, efectos, ctx, t, cargas);
+  }
+  for (const t of afectados) if (!isAlive(t) && !yaAnotado(state, t)) anotarLaMuerte(state, t);
+  checkFinished(state);
+}
+
+/** El hecho de lo que un hechizo le hizo a uno de varios. */
+function golpeDeHechizo(spell: string, t: BattleStack, hizo: LoQueHizo): BattleEvent {
+  return {
+    kind: 'spell_hit',
+    spell,
+    stack: t.id,
+    damage: hizo.damage,
+    killed: hizo.killed,
+    ...conLoParado(hizo),
+    ...(hizo.cura > 0 ? { cura: hizo.cura } : {}),
+  };
+}
+
+/** Si la muerte de `t` ya está en el registro (un disparador `alMorir` puede llegar antes). */
+function yaAnotado(state: BattleState, t: BattleStack): boolean {
+  return state.log.some((e) => e.kind === 'perished' && e.stack === t.id);
+}
+
+/**
+ * Cae el hechizo diferido que lanzó `s` en su turno anterior (`hechizoEnElAire`) y se
+ * borra: desde donde está ahora, sobre la casilla que eligió. Lo llama solo el
+ * principio de su turno (`alEmpezarSuTurno`).
+ */
+function caerElHechizo(state: BattleState, s: BattleStack, _rng: Rng): void {
+  const e = s.hechizoEnElAire;
+  if (e === null || state.finished !== null) return;
+  s.hechizoEnElAire = null;
+  const h = state.libro[e.hechizo] ?? HECHIZOS_DEL_JUEGO.get(e.hechizo);
+  if (h === undefined) return;
+  const l: Lanzador = { stack: s, bando: s.side, poder: e.poder };
+  aplicarAVarios(state, h, l, afectadosDe(state, h, l, { at: e.at }));
+}
+
+/**
+ * Saltan los disparadores de `portador` de la clase `cuando` (`otro`, quien le
+ * golpeó o a quien golpeó). Lo llaman el principio y el final de su turno, el
+ * golpe cuerpo a cuerpo (`melee`) y su muerte (`anotarLaMuerte`).
+ */
+function saltar(
+  state: BattleState,
+  portador: BattleStack,
+  cuando: CuandoSalta,
+  otro: BattleStack | null,
+): void {
+  for (const e of disparadoresDe(portador, cuando)) {
+    if (state.finished !== null) return;
+    // Uno que ya se quitó (cargas, una muerte) no salta.
+    if (!portador.effects.includes(e)) continue;
+    saltarUno(state, portador, e, otro);
+  }
+}
+
+/** Salta un disparador colgado de `portador`. */
+function saltarUno(
+  state: BattleState,
+  portador: BattleStack,
+  e: StackEffect & { kind: 'disparador' },
+  otro: BattleStack | null,
+): void {
+  const d = e.disparador;
+  const bando = e.bando ?? portador.side;
+  const objetivos =
+    d.a === 'portador'
+      ? isAlive(portador)
+        ? [portador]
+        : []
+      : d.a === 'otro'
+        ? otro !== null && isAlive(otro)
+          ? [otro]
+          : []
+        : casillasDelArea(portador.hex, d.radio).flatMap((c) => {
+            const t = vivoEn(state, c);
+            return t !== null && t !== portador && loAlcanza(d.afecta, bando, t.side) ? [t] : [];
+          });
+  state.log.push({ kind: 'triggered', stack: portador.id, spell: e.source, cuando: d.cuando });
+  const lanzador = state.stacks.find((x) => x.id === d.lanzador) ?? null;
+  const ctx: ContextoDelHechizo = {
+    source: e.source,
+    bando,
+    lanzador,
+    lanzadorId: d.lanzador,
+    portador: portador.id,
+    poder: d.poder,
+    duracion: d.duracion,
+    ...(d.seAcabaSiMuere === null
+      ? {}
+      : { seAcabaSiMuere: d.seAcabaSiMuere === 'portador' ? portador.id : d.lanzador }),
+  };
+  for (const t of objetivos) {
+    const hizo = enElActo(state, d.efectos, ctx, t);
+    if (d.efectos.some((x) => x.tipo === 'danio' || x.tipo === 'cura')) {
+      state.log.push(golpeDeHechizo(e.source, t, hizo));
+    }
+    colgarLoQueDura(state, d.efectos, ctx, t, () => null);
+  }
+  if (e.cargas !== null) {
+    e.cargas -= 1;
+    if (e.cargas <= 0 && portador.effects.includes(e)) {
+      portador.effects = portador.effects.filter((x) => x !== e);
+      state.log.push({ kind: 'effect_end', stack: portador.id, source: e.source });
+    }
+  }
+  for (const t of objetivos) if (!isAlive(t) && !yaAnotado(state, t)) anotarLaMuerte(state, t);
+  checkFinished(state);
+}
+
+/**
+ * La muerte de `s`, **la única escritura de `perished`**: se anota, se va con él lo
+ * que dejó con «se acaba si muere» (de cualquier stack), se pierde su hechizo en el
+ * aire y saltan sus disparadores `alMorir`. Lo vigila `invariantes.test.ts`.
+ */
+function anotarLaMuerte(state: BattleState, s: BattleStack): void {
+  state.log.push({ kind: 'perished', stack: s.id });
+  s.hechizoEnElAire = null;
+  for (const x of state.stacks) {
+    const fuera = x.effects.filter((e) => e.seAcabaSiMuere === s.id);
+    if (fuera.length === 0) continue;
+    x.effects = x.effects.filter((e) => e.seAcabaSiMuere !== s.id);
+    for (const e of fuera) state.log.push({ kind: 'effect_end', stack: x.id, source: e.source });
+  }
+  saltar(state, s, 'alMorir', null);
+}
+
+/**
+ * Motivo por el que el héroe de `side` no puede lanzar `spellId` —sobre la unidad
+ * `targetId` o la casilla `at` si se apunta a algo—, o `null` si sí puede. Mismo
+ * patrón que `buildBlocker` en `town.ts`: la frase la escribe el núcleo y la
+ * pantalla la enseña tal cual. Es la ÚNICA redacción de estas reglas: la consultan
+ * el lanzamiento y `legalActions` al ofrecer.
  *
- * Es la ÚNICA redacción de estas reglas: la consultan `castHeroSpell` al lanzar
- * y `legalActions` al ofrecer. Cuando `legalActions` las repetía a mano, la
- * promesa que `agent.ts` le hace al agente —«elegir de `legalActions` nunca
- * falla»— la sostenía una copia, y la quinta regla que entrara (un silencio, un
- * tope de nivel) se habría aplicado al lanzar y no al ofrecer.
- *
- * Sin objetivo la pregunta es «¿puede lanzarlo sobre alguien?»; con objetivo,
- * «¿sobre ese?».
+ * Sin objetivo la pregunta es «¿puede lanzarlo?» (un hechizo sobre sí o al tablero
+ * no se apunta: es la respuesta entera); con objetivo, «¿sobre eso?».
  */
 export function castBlocker(
   state: BattleState,
   side: Side,
   spellId: string,
   targetId?: string,
+  at?: Hex,
 ): string | null {
   const hero = state.heroes[side];
   if (hero === null) return SIN_HEROE;
@@ -3243,36 +3831,14 @@ export function castBlocker(
   // El id se comprueba contra el libro ANTES de buscarlo en el catálogo: con un
   // id inventado, "no lo conoce" es más cierto y más útil que reventar.
   if (!hero.spells.includes(spellId)) return `el héroe no conoce "${spellId}"`;
-  const s = spell(spellId);
-  if (hero.mana < s.cost) return `maná insuficiente: cuesta ${s.cost} y quedan ${hero.mana}`;
-
-  if (targetId !== undefined) {
-    const target = state.stacks.find((t) => t.id === targetId);
-    if (target === undefined) return `no hay ninguna unidad "${targetId}"`;
-    return targetBlocker(s, side, target);
-  }
-  return state.stacks.some((t) => targetBlocker(s, side, t) === null)
-    ? null
-    : 'no hay ningún objetivo válido';
-}
-
-/** Por qué este stack no vale como objetivo de este hechizo. */
-function targetBlocker(s: Spell, side: Side, target: BattleStack): string | null {
-  return objetivoBlocker(target, side, s, `"${s.name}"`);
-}
-
-/**
- * Por qué `target` no vale para el hechizo `s` lanzado desde el bando `side`:
- * lo común al héroe (`targetBlocker`) y al poder de una unidad
- * (`objetivoDelPoderBlocker`). `citado` es el nombre tal como lo dice cada uno.
- */
-function objetivoBlocker(target: BattleStack, side: Side, s: Spell, citado: string): string | null {
-  if (!isAlive(target)) return 'el objetivo ya está destruido';
-  const wantsEnemy = s.target === 'enemy';
-  if (wantsEnemy === (target.side === side)) {
-    return `${citado} va dirigido a ${wantsEnemy ? 'un enemigo' : 'un aliado'}`;
-  }
-  return null;
+  const h = hechizoDeLaBatalla(state, spellId);
+  if (hero.mana < h.mana) return `maná insuficiente: cuesta ${h.mana} y quedan ${hero.mana}`;
+  const l = lanzadorDelHeroe(state, side);
+  if (l === null) return 'el héroe no está en el tablero';
+  const impedido = impedimentoBlocker(state, l.stack, 'lanzar');
+  if (impedido !== null) return impedido;
+  const pregunta = targetId === undefined && at === undefined;
+  return apuntadoBlocker(state, h, l, pregunta ? undefined : apuntadoDe(targetId, at), false);
 }
 
 function castHeroSpell(
@@ -3280,106 +3846,218 @@ function castHeroSpell(
   side: Side,
   spellId: string,
   targetId: string | undefined,
+  at: Hex | undefined,
 ): void {
   // El nulo se comprueba aquí, y no solo dentro del bloqueador, porque el
   // estrechamiento no cruza la llamada. El motivo sigue escrito una sola vez.
   const hero = state.heroes[side];
   if (hero === null) throw new Error(`no se puede lanzar: ${SIN_HEROE}`);
-
-  const blocker = castBlocker(state, side, spellId, targetId);
+  const blocker = castBlocker(state, side, spellId, targetId, at);
   if (blocker !== null) throw new Error(`no se puede lanzar: ${blocker}`);
+  const h = hechizoDeLaBatalla(state, spellId);
+  if (queSeApunta(h) !== 'nada' && targetId === undefined && at === undefined) {
+    throw new Error(`«${h.nombre}» necesita un objetivo`);
+  }
+  const l = lanzadorDelHeroe(state, side);
+  if (l === null) throw new Error('castBlocker dejó lanzar sin el cuerpo del héroe');
 
-  const s = spell(spellId);
-  if (targetId === undefined) throw new Error(`"${s.name}" necesita un objetivo`);
-  const target = stackById(state, targetId);
-
-  hero.mana -= s.cost;
+  hero.mana -= h.mana;
   hero.castThisRound = true;
-  // El cuerpo del héroe es quien cobra la experiencia del hechizo. Está vivo
-  // seguro: si cae, su bando pierde (`checkFinished`) y aquí no se llega.
-  const cuerpo = state.stacks.find((x) => x.side === side && x.origen.kind === 'heroe') ?? null;
-  lanzarSobre(state, s, delHeroe(s, hero), target, cuerpo, (r) =>
-    state.log.push({
-      kind: 'cast',
-      side,
-      spell: spellId,
-      target: targetId,
-      damage: r.damage,
-      killed: r.killed,
-      ...conLoParado(r),
-    }),
-  );
-  if (!isAlive(target)) state.log.push({ kind: 'perished', stack: target.id });
-  checkFinished(state);
+  // El cuerpo del héroe es quien cobra la experiencia del hechizo (`lanzarHechizo`).
+  lanzarHechizo(state, h, l, apuntadoDe(targetId, at), (hizo) => ({
+    kind: 'cast',
+    side,
+    spell: spellId,
+    ...(targetId === undefined ? {} : { target: targetId }),
+    ...(at === undefined ? {} : { at }),
+    ...(hizo === null ? {} : { damage: hizo.damage, killed: hizo.killed, ...conLoParado(hizo) }),
+  }));
 }
 
 // ---------------------------------------------------------------- poderes
 
 /**
- * Por qué la unidad activa no puede usar el poder `poderId` —sobre `targetId` si
- * se apunta a alguien—, o `null` si puede. La ÚNICA redacción de estas reglas,
- * como `castBlocker` para el héroe: la leen `applyAction`, `legalActions` (y con
- * ella la IA), la previsión y los botones de la arena.
+ * Por qué la unidad activa no puede usar el poder `poderId` (un hechizo de su
+ * `UnitInfo.poderes`) —sobre `targetId` o `at` si se apunta—, o `null` si puede. La
+ * ÚNICA redacción de estas reglas, como `castBlocker` para el héroe: la leen
+ * `applyAction`, `legalActions` (y con ella la IA), la previsión y los botones.
  *
- * Reglas nuestras (`data/poderes.json`): a un aliado vivo, también
- * a sí misma, esté donde esté y aunque esté trabada (es un bastón, no un arco); y
- * al principio del turno, sin haberse movido, como disparar. Usarlo es el turno
- * entero. Sin objetivo la pregunta es «¿puede usarlo sobre alguien?»; con
- * objetivo, «¿sobre ese?».
+ * Reglas nuestras: al principio del turno, sin haberse movido, como disparar, y
+ * usarlo es el turno entero; sin maná (P7). Un poder que solo cura no vale sobre
+ * quien no tiene herida. Sin objetivo la pregunta es «¿puede usarlo?».
  */
 export function poderBlocker(
   state: BattleState,
   poderId: PoderId,
   targetId?: string,
+  at?: Hex,
 ): string | null {
   const previo = previoDelPoder(state, poderId);
   if ('motivo' in previo) return previo.motivo;
-  const { s, p } = previo;
-  if (targetId !== undefined) {
-    const target = state.stacks.find((t) => t.id === targetId);
-    if (target === undefined) return `no hay ninguna unidad "${targetId}"`;
-    return objetivoDelPoderBlocker(s, p, target);
-  }
-  if (state.stacks.some((t) => objetivoDelPoderBlocker(s, p, t) === null)) return null;
-  // Lo que dice el botón deshabilitado: si nadie de su bando tiene una herida,
-  // eso, que es lo que se le pregunta a «Curar»; si no, lo general.
-  return esDeCura(p)
-    ? 'nadie de su bando tiene ninguna herida'
-    : 'no hay ningún aliado sobre el que usarlo';
+  const { s, h } = previo;
+  const pregunta = targetId === undefined && at === undefined;
+  return apuntadoBlocker(
+    state,
+    h,
+    lanzadorDeLaUnidad(s),
+    pregunta ? undefined : apuntadoDe(targetId, at),
+    true,
+  );
 }
 
 /**
- * Lo que no depende del objetivo, una vez: que le toque a alguien, que el poder
- * exista, que la activa lo sepa y que no se haya movido. Lo leen `poderBlocker` y `legalActions`.
+ * Lo que no depende del objetivo, una vez: que le toque a alguien, que la activa
+ * lo sepa, que no se haya movido y que nada se lo impida. Lo leen `poderBlocker` y
+ * `legalActions`.
  */
 function previoDelPoder(
   state: BattleState,
   poderId: PoderId,
-): { readonly motivo: string } | { readonly s: BattleStack; readonly p: Poder } {
+): { readonly motivo: string } | { readonly s: BattleStack; readonly h: Hechizo } {
   const s = activeStack(state);
   if (s === null || state.finished !== null) return { motivo: 'no le toca a ninguna unidad' };
   const porLaFase = faseBlocker(state, 'power');
   if (porLaFase !== null) return { motivo: porLaFase };
   // Un id inventado se dice, no revienta: llega de fuera (un test, el arnés).
-  const p = poderSiExiste(poderId);
-  if (p === null) return { motivo: `no hay ningún poder «${poderId}»` };
-  if (!(s.unit.poderes ?? []).includes(poderId)) {
-    return { motivo: `${s.unit.name} no sabe ${p.nombre}` };
+  const h = state.libro[poderId] ?? HECHIZOS_DEL_JUEGO.get(poderId);
+  if (h === undefined || !(s.unit.poderes ?? []).includes(poderId)) {
+    return { motivo: `${s.unit.name} no sabe «${h?.nombre ?? poderId}»` };
   }
   if (seHaMovido(state, s)) {
-    return { motivo: `ya se ha movido este turno: «${p.nombre}» se usa al principio del turno` };
+    return { motivo: `ya se ha movido este turno: «${h.nombre}» se usa al principio del turno` };
   }
-  return { s, p };
+  const impedido = impedimentoBlocker(state, s, 'lanzar');
+  if (impedido !== null) return { motivo: impedido };
+  return { s, h };
 }
 
-/** Por qué este stack no vale como objetivo de este poder de `s`. */
-function objetivoDelPoderBlocker(s: BattleStack, p: Poder, target: BattleStack): string | null {
-  const comun = objetivoBlocker(target, s.side, p.hechizo, `«${p.nombre}»`);
-  if (comun !== null) return comun;
-  if (esDeCura(p) && curaDe(p.hechizo, p.lanzador, target) <= 0) {
-    return `${target.unit.name} no tiene ninguna herida`;
+/** Usa el poder: el hechizo con la unidad de lanzador, y cierra su turno. */
+function usarElPoder(
+  state: BattleState,
+  s: BattleStack,
+  action: BattleAction & { type: 'power' },
+  rng: Rng,
+): void {
+  const motivo = poderBlocker(state, action.poder, action.target, action.at);
+  if (motivo !== null) throw new Error(`${s.unit.name} no puede usar ese poder: ${motivo}`);
+  const h = hechizoDeLaBatalla(state, action.poder);
+  if (queSeApunta(h) !== 'nada' && action.target === undefined && action.at === undefined) {
+    throw new Error(`«${h.nombre}» necesita un objetivo`);
   }
-  return null;
+  const cura = h.efectos.some((e) => e.tipo === 'cura');
+  lanzarHechizo(state, h, lanzadorDeLaUnidad(s), apuntadoDe(action.target, action.at), (hizo) => ({
+    kind: 'power',
+    stack: s.id,
+    poder: action.poder,
+    ...(action.target === undefined ? {} : { target: action.target }),
+    ...(action.at === undefined ? {} : { at: action.at }),
+    ...(hizo !== null && cura ? { cura: hizo.cura } : {}),
+  }));
+  if (state.finished === null) endTurn(state, s, rng);
+}
+
+/**
+ * Las jugadas de lanzar `h` que se ofrecen (`legalActions`): sin apuntar, a cada
+ * unidad que vale, o a la casilla de cada vivo que vale (vale cualquier casilla a
+ * su alcance, y la prosa del agente lo dice). `vale` es el `*Blocker` de quien lo
+ * lanza con el objetivo.
+ */
+function jugadasDeLanzar(
+  state: BattleState,
+  h: Hechizo,
+  vale: (target?: string, at?: Hex) => boolean,
+): readonly { target?: string; at?: Hex }[] {
+  switch (queSeApunta(h)) {
+    case 'nada':
+      return vale() ? [{}] : [];
+    case 'unidad':
+      return state.stacks.flatMap((t) => (vale(t.id) ? [{ target: t.id }] : []));
+    case 'casilla':
+      return state.stacks.flatMap((t) =>
+        isAlive(t) && vale(undefined, t.hex) ? [{ at: t.hex }] : [],
+      );
+  }
+}
+
+/**
+ * Lo que haría `h` lanzado por `l` sobre `apuntado` si cayera ahora, sin tocar el
+ * estado: a quién alcanza, el daño tras la armadura (y el escudo), lo que mata, la
+ * cura y lo que le dejaría colgado. Con las cuentas que lo aplican (`enElActo`,
+ * `colgarLoQueDura`).
+ */
+function previsionDeLanzar(
+  state: BattleState,
+  h: Hechizo,
+  l: Lanzador,
+  apuntado: Apuntado,
+): PrevisionDeLanzar {
+  const { efectos, cargas } = resueltosDe(h, l);
+  const ctx = contextoDe(h, l);
+  const impactos = afectadosDe(state, h, l, apuntado).map((t): ImpactoDeHechizo => {
+    let danio = 0;
+    let parado = 0;
+    let cura = 0;
+    let hiere = false;
+    for (const e of efectos) {
+      if ('cuando' in e) continue;
+      if (e.tipo === 'danio') {
+        hiere = true;
+        const r = trasLaArmadura(e.cantidad, t, !e.armadura);
+        danio += r.danio;
+        parado += r.parado;
+      } else if (e.tipo === 'cura') {
+        cura += e.cantidad;
+      }
+    }
+    const quedan = hiere ? trasElGolpe(t, danio) : null;
+    const dura =
+      ctx.duracion === null
+        ? null
+        : cuantoDura(ctx.duracion, ctx.poder, state.turno?.n ?? 0, {
+            afectado: t.id,
+            lanzador: ctx.lanzadorId,
+          });
+    const colgados =
+      dura === null
+        ? []
+        : efectos.flatMap((e) => {
+            const c = efectoColgado(
+              e,
+              { source: ctx.source, bando: ctx.bando, ...dura },
+              'cuando' in e ? cargas(e) : null,
+            );
+            return c === null ? [] : [c];
+          });
+    return {
+      objetivo: t.id,
+      danio: hiere ? danio : null,
+      parado,
+      bajas: quedan === null ? null : t.count - quedan.count,
+      leQuedan: quedan === null ? null : stackHp({ ...t, ...quedan }),
+      cura: h.efectos.some((e) => e.tipo === 'cura') ? curaDe(cura, t) : null,
+      efectos: colgados,
+    };
+  });
+  return {
+    objetivo: apuntado !== null && 'target' in apuntado ? apuntado.target : null,
+    at: apuntado !== null && 'at' in apuntado ? apuntado.at : null,
+    diferido: esDiferido(h),
+    impactos,
+  };
+}
+
+/** Lo que haría a uno que alcanza un hechizo (`PrevisionDeLanzar.impactos`). */
+export interface ImpactoDeHechizo {
+  readonly objetivo: string;
+  /** El daño que llegaría, tras la armadura; `null` si no hiere. */
+  readonly danio: number | null;
+  readonly parado: number;
+  readonly bajas: number | null;
+  readonly leQuedan: number | null;
+  /** PV que repondría, si cura; `null` si no cura. */
+  readonly cura: number | null;
+  /** Lo que le dejaría colgado. */
+  readonly efectos: readonly StackEffect[];
 }
 
 // ---------------------------------------------------------------- previsión
@@ -3427,20 +4105,14 @@ export interface PrevisionDeContraataque {
  * su poder (`previsionDeLanzar`): la misma cuenta para los dos.
  */
 export interface PrevisionDeLanzar {
-  readonly objetivo: string;
-  /** El daño de un hechizo de daño, que no tira dado. */
-  readonly danio: number | null;
-  /**
-   * Lo que para la armadura del objetivo de ese daño (`trasLaArmadura`, la arena);
-   * 0 sin armadura o sin daño. La barra lo dice como el golpe (A1 de QA de #262).
-   */
-  readonly parado: number;
-  readonly bajas: number | null;
-  readonly leQuedan: number | null;
-  /** Lo que dejaría colgado: Prisa, Lentitud. */
-  readonly efecto: StackEffect | null;
-  /** PV que repondría una Curación. */
-  readonly cura: number | null;
+  /** La unidad elegida, si se elige una. */
+  readonly objetivo: string | null;
+  /** La casilla elegida, si se elige una. */
+  readonly at: Hex | null;
+  /** Diferido: lo de `impactos` es lo que haría si cayera ahora; cae en el siguiente turno. */
+  readonly diferido: boolean;
+  /** A cada uno que alcanzaría, lo que le haría; vacío si no alcanza a nadie. */
+  readonly impactos: readonly ImpactoDeHechizo[];
 }
 
 /** Lo que haría un hechizo del héroe sobre su objetivo. */
@@ -3539,19 +4211,28 @@ export function previsionDe(state: BattleState, accion: BattleAction): Prevision
       };
     }
     case 'cast': {
-      if (accion.target === undefined) throw new Error('el hechizo necesita un objetivo');
-      const motivo = castBlocker(state, s.side, accion.spell, accion.target);
+      const motivo = castBlocker(state, s.side, accion.spell, accion.target, accion.at);
       if (motivo !== null) throw new Error(`no se puede lanzar: ${motivo}`);
-      return previsionDeHechizo(state, s.side, accion.spell, stackById(state, accion.target));
+      const h = hechizoDeLaBatalla(state, accion.spell);
+      if (queSeApunta(h) !== 'nada' && accion.target === undefined && accion.at === undefined) {
+        throw new Error('el hechizo necesita un objetivo');
+      }
+      const l = lanzadorDelHeroe(state, s.side);
+      if (l === null) throw new Error('castBlocker dejó lanzar sin el cuerpo del héroe');
+      return {
+        kind: 'hechizo',
+        hechizo: accion.spell,
+        ...previsionDeLanzar(state, h, l, apuntadoDe(accion.target, accion.at)),
+      };
     }
     case 'power': {
-      const motivo = poderBlocker(state, accion.poder, accion.target);
+      const motivo = poderBlocker(state, accion.poder, accion.target, accion.at);
       if (motivo !== null) throw new Error(`${s.unit.name} no puede usar ese poder: ${motivo}`);
-      const p = poder(accion.poder);
+      const h = hechizoDeLaBatalla(state, accion.poder);
       return {
         kind: 'poder',
-        poder: p.id,
-        ...previsionDeLanzar(p.hechizo, p.lanzador, stackById(state, accion.target)),
+        poder: accion.poder,
+        ...previsionDeLanzar(state, h, lanzadorDeLaUnidad(s), apuntadoDe(accion.target, accion.at)),
       };
     }
     case 'move':
@@ -3989,53 +4670,6 @@ export function previsionDelGolpeQueViene(
   return porRespuesta;
 }
 
-function previsionDeHechizo(
-  state: BattleState,
-  side: Side,
-  spellId: string,
-  t: BattleStack,
-): PrevisionDeHechizo {
-  const hero = state.heroes[side];
-  if (hero === null) throw new Error(`no se puede lanzar: ${SIN_HEROE}`);
-  const s = spell(spellId);
-  return {
-    kind: 'hechizo',
-    hechizo: spellId,
-    ...previsionDeLanzar(s, delHeroe(s, hero), t),
-  };
-}
-
-/** Lo que haría `s` lanzado por `l` sobre `t`, con las cuentas que lo aplican (`castSpell`). */
-function previsionDeLanzar(s: Spell, l: Lanzador, t: BattleStack): PrevisionDeLanzar {
-  const base = {
-    objetivo: t.id,
-    danio: null,
-    parado: 0,
-    bajas: null,
-    leQuedan: null,
-    efecto: null,
-    cura: null,
-  } as const;
-  switch (s.kind) {
-    case 'damage': {
-      // Con la resta del hechizo de verdad (`castSpell` → `herir`).
-      const { danio, parado } = trasLaArmadura(l.cantidad, t, false);
-      const quedan = trasElGolpe(t, danio);
-      return {
-        ...base,
-        danio,
-        parado,
-        bajas: t.count - quedan.count,
-        leQuedan: stackHp({ ...t, ...quedan }),
-      };
-    }
-    case 'speed':
-      return { ...base, efecto: efectoDe(s, l) };
-    case 'heal':
-      return { ...base, cura: curaDe(s, l, t) };
-  }
-}
-
 // ---------------------------------------------------------------- escalas
 
 /**
@@ -4349,7 +4983,9 @@ export function legalActionsAndCosts(state: BattleState): {
   // sale tiene que estar arriba si el enemigo lo está. El nivel de cada casilla,
   // una vez, fuera del bucle de enemigos.
   const niveles = alcanzables.map((h) => nivelDe(state.muralla, h));
-  for (const e of enemies) {
+  // Impedido de golpear (un hechizo): ni un golpe en la lista.
+  const golpea = impedidoPor(s, 'golpear') === null;
+  for (const e of golpea ? enemies : []) {
     if (canReachMelee(state, s, e)) out.push({ type: 'attack', target: e.id });
     const nivel = nivelDe(state.muralla, e.hex);
     // Con índice y no con `entries()`: este bucle es el más caliente de la IA,
@@ -4373,11 +5009,13 @@ export function legalActionsAndCosts(state: BattleState): {
   if (hero !== null) {
     for (const spellId of hero.spells) {
       if (castBlocker(state, s.side, spellId) !== null) continue;
-      for (const t of state.stacks) {
-        if (castBlocker(state, s.side, spellId, t.id) === null) {
-          out.push({ type: 'cast', spell: spellId, target: t.id });
-        }
-      }
+      const h = hechizoDeLaBatalla(state, spellId);
+      const vale = (target?: string, at?: Hex): boolean =>
+        target === undefined && at === undefined
+          ? true
+          : castBlocker(state, s.side, spellId, target, at) === null;
+      for (const j of jugadasDeLanzar(state, h, vale))
+        out.push({ type: 'cast', spell: spellId, ...j });
     }
   }
 
@@ -4388,11 +5026,17 @@ export function legalActionsAndCosts(state: BattleState): {
   for (const id of s.unit.poderes ?? []) {
     const previo = previoDelPoder(state, id);
     if ('motivo' in previo) continue;
-    for (const t of state.stacks) {
-      if (objetivoDelPoderBlocker(previo.s, previo.p, t) === null) {
-        out.push({ type: 'power', poder: id, target: t.id });
-      }
-    }
+    const l = lanzadorDeLaUnidad(previo.s);
+    const vale = (target?: string, at?: Hex): boolean =>
+      apuntadoBlocker(
+        state,
+        previo.h,
+        l,
+        target === undefined && at === undefined ? null : apuntadoDe(target, at),
+        true,
+      ) === null;
+    for (const j of jugadasDeLanzar(state, previo.h, vale))
+      out.push({ type: 'power', poder: id, ...j });
   }
 
   out.push({ type: 'end_turn' });

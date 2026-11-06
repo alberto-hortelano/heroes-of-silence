@@ -11,10 +11,11 @@
  * (`vistaDeLaMorada`, cacheada por su `version`) y lo pintan el lienzo y el panel.
  */
 import { armaduraDe } from '@core/battle/armas.js';
-import { nombreDelPoder, poder } from '@core/battle/poderes.js';
 import { hojaDeUnidad, unidadDelJuego, unidadesDeMorada } from '@core/catalogo.js';
 import type { Pieza } from '@core/data.js';
 import { pieza } from '@core/hero/equipo.js';
+import { hechizo } from '@core/magia/catalogo.js';
+import { nombreDelPoder } from '@core/magia/dicho.js';
 import { indiceDePoder, nivelDeUnidad } from '@core/nivel.js';
 import type { RecruitCapacity } from '@core/state/game.js';
 import { building } from '@core/town/buildings.js';
@@ -142,7 +143,7 @@ function fichaDe(
     armadura: armaduraDe(u),
     rasgos: [
       ...(u.traits ?? []).map((t) => NOMBRE_DE_RASGO[t]),
-      ...(u.poderes ?? []).map((p) => nombreDelPoder(poder(p))),
+      ...(u.poderes ?? []).map((p) => nombreDelPoder(hechizo(p))),
     ],
     deSerie,
     disponibles: town.available[id] ?? 0,

@@ -33,7 +33,7 @@ import type { AsaltantesALaVista, VistaAsaltante } from '@core/state/asaltantes.
 import type { ClimaDeLaPartida } from '@core/state/clima.js';
 import type { FactionId, Point } from '@core/types.js';
 import { type Direccion, direccionEnPantalla } from '../direccion.js';
-import { msPorCasilla } from '../marcha.js';
+import { msPorCasilla, PRISA_EN_EL_MAPA } from '../marcha.js';
 import { temaDelLienzo } from '../temas.js';
 import { imagenDeEscena } from './assets.js';
 import {
@@ -49,6 +49,7 @@ import { empezarFotogramaDeCopias } from './copias.js';
 import type { Sprite } from './escenario/colocar.js';
 import { FIGURA_DEL_HEROE, PIES } from './escenario/figuras-del-mapa.js';
 import { seHornea } from './escenario/horneado.js';
+import { cajaDeSprite } from './escenario/pasillo.js';
 import {
   claveDe,
   type Imagen,
@@ -65,6 +66,7 @@ import {
   type Obra,
   seVeConSuNodo,
 } from './escenario/puestos.js';
+import { trazaPorLosArcos } from './escenario/recinto.js';
 import {
   claveDeFigura,
   copiaDeVolumen,
@@ -75,7 +77,22 @@ import {
   sueloDelMapa,
   type VolumenDelMapa,
 } from './escenario/superficie.js';
-import { animarHasta, type Figura, pintarFiguraConSombra } from './figura.js';
+import {
+  animarHasta,
+  colocarFigura,
+  type Figura,
+  type FiguraColocada,
+  pintarFiguraConSombra,
+} from './figura.js';
+import {
+  aplicar,
+  type ColoresDeLoTapado,
+  cajaDeLaCelda,
+  type GuardarLoTapado,
+  type Matriz,
+  type PintarEnLaMascara,
+  pintarLoTapadoDeLaFigura,
+} from './figura-tapada.js';
 import { densidadDe } from './lienzo.js';
 import { altoDelMarcador, pintarMarcadorDelPuesto } from './marcador-del-puesto.js';
 import { COLOR_SIN_DUEÑO, playerColor } from './palette.js';
@@ -120,6 +137,43 @@ export interface HeroeEnElMapa {
   readonly tipo: string;
 }
 
+/** El héroe que anda su marcha (`VistaMapa.andando`). */
+export interface HeroeQueAnda {
+  readonly heroe: string;
+  /** Dónde pisa, en casillas. */
+  readonly x: number;
+  readonly y: number;
+  /** La casilla de su marcha que tiene más cerca: la de su profundidad. */
+  readonly cerca: Point;
+  readonly mira: Direccion;
+}
+
+/** Un punto de la traza de un camino (`puntosDeLaTraza`), en casillas, y de qué casilla es. */
+export interface PuntoDeLaTrazaEnElMapa {
+  readonly x: number;
+  readonly y: number;
+  readonly paso: number;
+}
+
+/**
+ * Los puntos por los que pasa quien anda las `casillas` (`trazaPorLosArcos`, la
+ * única regla: por el arco de la puerta de un recinto), en casillas, con el pie de
+ * cada casilla a `pies` (`pieEn`: en un puente, su tablero). La línea de la ruta
+ * los pinta con 0,5, por el centro de cada casilla; el héroe que anda, a sus pies
+ * (`PIES.heroe`). Sin escena todavía, el pie de cada casilla y nada más.
+ */
+export function puntosDeLaTraza(
+  esc: Escenario | null,
+  casillas: readonly Point[],
+  pies: number,
+): PuntoDeLaTrazaEnElMapa[] {
+  if (esc === null) return casillas.map((c, paso) => ({ x: c.x + 0.5, y: c.y + pies, paso }));
+  return trazaPorLosArcos(esc.escena.recintos, casillas).map(({ en, paso }) => {
+    const [x, y] = en ?? pieEn(esc, casillas[paso] as Point, pies);
+    return { x, y, paso };
+  });
+}
+
 /**
  * Un paso de la ruta que se enseña: dorado si llega hoy, gris si otro día, y
  * rojo desde donde un grupo a la vista emboscaría al héroe (`peligro`).
@@ -154,6 +208,26 @@ export interface VistaMapa {
    */
   readonly heroes: readonly HeroeEnElMapa[];
   /**
+   * El héroe que anda ahora (`enLaMarcha`): se pinta donde pisa (`x`, `y`, en
+   * casillas, por su traza: `puntosDeLaTraza`), con su clip de marcha y mirando
+   * hacia donde va, y no en su casilla, que ya es la de llegada; con la
+   * profundidad de la casilla de su marcha que tiene más cerca (`cerca`). Sin él
+   * (el espectador), cada héroe en su casilla.
+   */
+  readonly andando?: HeroeQueAnda;
+  /**
+   * Mientras el héroe anda: la ruta (`ruta`, la de su marcha y lo que le quedaba)
+   * sale de `origen`, de donde salió, y su línea se pinta desde donde va, a `t`
+   * del tramo `tramo` de su traza; sus puntos, desde el paso `pasados` de la ruta.
+   * Sin él, la ruta sale del héroe elegido.
+   */
+  readonly marchaDeLaRuta?: {
+    readonly origen: Point;
+    readonly tramo: number;
+    readonly t: number;
+    readonly pasados: number;
+  };
+  /**
    * Los objetos que se pintan, con el estado que se SABE de ellos: vivos donde
    * se mira ahora y, en lo demás explorado, el recuerdo de cuando se vieron
    * (`Session.objetosConocidos`). La bandera de un castillo lejano es la de su
@@ -177,6 +251,12 @@ export interface VistaMapa {
   readonly ruta: readonly PasoDeRuta[];
   readonly seleccionado: string | null;
   readonly hover: Point | null;
+  /**
+   * La casilla de un ataque a quien juega, mientras su aviso está en pantalla
+   * (`Session.avisoDelAtaque`): un aro rojo que late encima de todo. El
+   * espectador no la pasa.
+   */
+  readonly ataque?: Point | null;
   /**
    * La semilla de la partida, que es la de la escena (`componer`): la misma en
    * el cliente, el espectador y el taller, así que los tres ven el mismo mapa.
@@ -459,11 +539,16 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
   ctx.drawImage(suelo, 0, 0);
   ctx.restore();
 
+  // 1b · La línea de la ruta, en el suelo: bajo lo que tiene altura (no tapa
+  //      figuras ni lo que dice quién está) y bajo la niebla, como el camino que
+  //      es. Los puntos de cada paso van encima de todo (paso 5).
+  pintarLineaDeLaRuta(ctx, v, esc);
+
   // 2 · Lo que tiene altura —los volúmenes de la escena y las figuras del juego—,
   //     en un solo orden de profundidad: una figura puede quedar detrás de un árbol.
   const nodos = nodosQueSeSaben(v);
   const cosas = cosasDe(v, esc, nodos);
-  pintarLoQueTieneAltura(ctx, v, volumenesALaVista(v, esc, nodos), cosas);
+  const tapados = pintarLoQueTieneAltura(ctx, v, volumenesALaVista(v, esc, nodos), cosas);
 
   // 2b · El clima de cada región, encima de lo que tiene altura y DEBAJO de los
   //      identificadores y de la niebla de guerra: no tapa ni destapa nada de
@@ -484,6 +569,11 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
     );
   }
 
+  // 2c · Lo tapado de cada grupo de asaltantes, en silueta: lo que los tapa no
+  //      los esconde enteros. Encima del clima, como lo que dice quién está: de
+  //      noche y con niebla se lee igual.
+  pintarLoTapadoDeLosAsaltantes(ctx, tapados);
+
   // 3 · Lo que dice quién está en cada casilla, encima de todo lo que tiene altura.
   const cuerpos = cuerposDe(cosas);
   for (const cosa of cosas) pintarIdentificador(ctx, v, cosa, cuerpos);
@@ -497,13 +587,48 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
   pintarNiebla(ctx, v);
 
   // 5 · Encima de todo, lo que es de quien juega: la ruta y la casilla señalada.
-  pintarRuta(ctx, camara, esc, pasosAPintar(v.ruta, v.explorado));
+  //     Mientras anda, de la ruta solo lo que le queda.
+  const ruta = v.marchaDeLaRuta === undefined ? v.ruta : v.ruta.slice(v.marchaDeLaRuta.pasados);
+  pintarRuta(ctx, camara, esc, pasosAPintar(ruta, v.explorado));
   if (v.hover !== null && v.hover.x >= 0 && v.hover.y >= 0 && v.hover.x < W && v.hover.y < H) {
     const c = casillaAPixel(camara, v.hover);
     ctx.strokeStyle = '#f2d585';
     ctx.lineWidth = 2;
     ctx.strokeRect(c.x - tile / 2 + 3, c.y - tile / 2 + 3, tile - 6, tile - 6);
   }
+  if (v.ataque != null) pintarAtaque(ctx, camara, v.ataque, tile, v.tiempo);
+  ctx.restore();
+}
+
+/** El aro que late en la casilla de un ataque a quien juega (`VistaMapa.ataque`). */
+function pintarAtaque(
+  ctx: CanvasRenderingContext2D,
+  camara: CamaraMapa,
+  at: Point,
+  tile: number,
+  tiempo: number,
+): void {
+  const c = casillaAPixel(camara, at);
+  const fase = (tiempo % 1200) / 1200;
+  ctx.save();
+  ctx.strokeStyle = COLOR_EMBOSCADA;
+  ctx.lineWidth = 3;
+  ctx.globalAlpha = 0.95;
+  ctx.beginPath();
+  ctx.ellipse(c.x, c.y + tile * 0.3, tile * 0.55, tile * 0.28, 0, 0, 2 * Math.PI);
+  ctx.stroke();
+  ctx.globalAlpha = 0.9 * (1 - fase);
+  ctx.beginPath();
+  ctx.ellipse(
+    c.x,
+    c.y + tile * 0.3,
+    tile * (0.55 + 0.5 * fase),
+    tile * (0.28 + 0.25 * fase),
+    0,
+    0,
+    2 * Math.PI,
+  );
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -559,6 +684,8 @@ type Cosa =
       readonly heroe: HeroeEnElMapa;
       /** Donde pisa, en casillas (`pisada`): en un puente, su tablero. */
       readonly pie: { readonly x: number; readonly y: number };
+      /** Hacia dónde anda, si anda (`VistaMapa.andando`). */
+      readonly anda: Direccion | null;
     }
   | {
       readonly tipo: 'asaltante';
@@ -604,9 +731,18 @@ function cosasDe(v: VistaMapa, esc: Escenario, nodos: ReadonlyMap<string, NodoQu
     }
   }
   for (const h of v.heroes) {
-    if (!enVista(h.at)) continue;
-    const pie = pisada(esc, h.at, PIES.heroe, nodos);
-    lista.push({ tipo: 'heroe', clave: pie.clave, heroe: h, pie });
+    const a = v.andando?.heroe === h.id ? v.andando : undefined;
+    if (a === undefined) {
+      if (!enVista(h.at)) continue;
+      const pie = pisada(esc, h.at, PIES.heroe, nodos);
+      lista.push({ tipo: 'heroe', clave: pie.clave, heroe: h, pie, anda: null });
+      continue;
+    }
+    // El que anda, donde pisa por su traza, y con la clave de la casilla que tiene
+    // más cerca: pasa por detrás de lo que tapa a quien está en ella.
+    if (!enVista(a.cerca)) continue;
+    const { clave } = pisada(esc, a.cerca, PIES.heroe, nodos);
+    lista.push({ tipo: 'heroe', clave, heroe: h, pie: { x: a.x, y: a.y }, anda: a.mira });
   }
   const pintados = new Set<string>();
   for (const r of v.asaltantes) {
@@ -670,7 +806,7 @@ function pintarLoQueTieneAltura(
   v: VistaMapa,
   volumenes: readonly VolumenDelMapa[],
   cosas: readonly Cosa[],
-): void {
+): AsaltanteTapado[] {
   const enPantalla = ctx.getTransform();
   const dpr = densidadDe(ctx);
   const origen = mundoAPixel(v.camara, 0, 0);
@@ -713,6 +849,32 @@ function pintarLoQueTieneAltura(
     if (vol.s.deNodo !== undefined && vol.s.sombra && (!esObra(vol.s) || conSuImagen(vol.s)))
       pintarSombraAlPie(ctx, vol.s, opciones.tile);
   ctx.setTransform(enPantalla);
+  const pintarVolumen = (c: CanvasRenderingContext2D, vol: VolumenDelMapa) => {
+    const recortado = recortadoArriba(vol, v.explorado);
+    if (recortado) {
+      c.save();
+      c.beginPath();
+      c.rect(0, 0, anchoDelMapa, altoDelMapa);
+      c.clip();
+    }
+    // La obra de un puesto sin su imagen —aún no ha llegado, o no la hay— es su
+    // marcador dibujado, no el triángulo de lo que no tiene arte: se decide en
+    // cada fotograma, y la bandera mira lo mismo (`puntaDeLaObra`).
+    if (esObra(vol.s) && !conSuImagen(vol.s)) pintarMarcadorDeLaObra(c, vol.s, opciones.tile);
+    else pintarSprite(c, vol.s, opciones);
+    if (recortado) c.restore();
+  };
+  // Cada grupo de asaltantes, con lo que se pinta después de él encima de su
+  // celda: lo que lo tapa y lo que va delante (`pintarLoTapadoDeLosAsaltantes`).
+  const tapados: {
+    readonly id: string;
+    readonly figura: FiguraColocada;
+    readonly caja: Caja4;
+    readonly tapan: VolumenDelMapa[];
+    readonly delante: Cosa[];
+  }[] = [];
+  const queSeTocan = (a: Caja4, b: Caja4) =>
+    a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
   let enElMapa = false;
   fundirPorProfundidad(
     volumenes,
@@ -728,19 +890,12 @@ function pintarLoQueTieneAltura(
         ctx.imageSmoothingQuality = 'low';
       }
       enElMapa = true;
-      const recortado = recortadoArriba(vol, v.explorado);
-      if (recortado) {
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(0, 0, anchoDelMapa, altoDelMapa);
-        ctx.clip();
-      }
-      // La obra de un puesto sin su imagen —aún no ha llegado, o no la hay— es su
-      // marcador dibujado, no el triángulo de lo que no tiene arte: se decide en
-      // cada fotograma, y la bandera mira lo mismo (`puntaDeLaObra`).
-      if (esObra(vol.s) && !conSuImagen(vol.s)) pintarMarcadorDeLaObra(ctx, vol.s, opciones.tile);
-      else pintarSprite(ctx, vol.s, opciones);
-      if (recortado) ctx.restore();
+      pintarVolumen(ctx, vol);
+      if (tapados.length === 0) return;
+      const [x0, y0, x1, y1] = cajaDeSprite(vol.s);
+      const T = opciones.tile;
+      const caja: Caja4 = [ox + x0 * T, oy + y0 * T, ox + x1 * T, oy + y1 * T];
+      for (const t of tapados) if (queSeTocan(t.caja, caja)) t.tapan.push(vol);
     },
     (cosa) => {
       if (enElMapa) {
@@ -749,10 +904,119 @@ function pintarLoQueTieneAltura(
       }
       enElMapa = false;
       pintarCosa(ctx, v, cosa);
+      if (tapados.length > 0) {
+        const caja = cajaDeCosa(v, cosa, enPantalla);
+        if (caja !== null)
+          for (const t of tapados) if (queSeTocan(t.caja, caja)) t.delante.push(cosa);
+      }
+      if (cosa.tipo !== 'asaltante') return;
+      const figura = colocarFigura(figuraDelAsaltante(v, cosa.asaltante, cosa.en));
+      const caja = cajaDeLaCelda(figura, enPantalla);
+      if (caja !== null)
+        tapados.push({ id: cosa.asaltante.id, figura, caja, tapan: [], delante: [] });
     },
   );
   ctx.restore();
   if (aplazado) animarHasta(performance.now() + 100);
+  // Lo que se vuelve a pintar en la máscara de lo tapado, con sus mismas reglas:
+  // los volúmenes dentro del mapa y con su origen (`ox, oy`), las figuras en los
+  // píxeles de la pantalla.
+  const enElOrigen: Matriz = { a: 1, b: 0, c: 0, d: 1, e: ox, f: oy };
+  const sinMover: Matriz = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+  return tapados.flatMap((t): AsaltanteTapado[] =>
+    t.tapan.length === 0
+      ? []
+      : [
+          {
+            figura: t.figura,
+            enPantalla,
+            // Se guarda lo compuesto si lo que lo tapa no ha de cambiar sin que lo
+            // diga la clave: sin copias por hacer (`aplazado`) ni figuras delante,
+            // que se animan a su aire (es raro: un héroe o un monstruo delante).
+            guardar:
+              aplazado || t.delante.length > 0
+                ? null
+                : {
+                    id: t.id,
+                    clave: `${opciones.tile}|${t.tapan.map((vol) => claveDelVolumen(vol, v.explorado)).join(',')}`,
+                    origen: [ox, oy],
+                  },
+            pintarLoQueTapa: (m, poner) => {
+              poner(sinMover);
+              m.beginPath();
+              m.rect(ox, oy - ARRIBA_SIN_RECORTE, anchoDelMapa, ARRIBA_SIN_RECORTE + altoDelMapa);
+              m.clip();
+              poner(enElOrigen);
+              m.imageSmoothingQuality = 'low';
+              for (const vol of t.tapan) pintarVolumen(m, vol);
+            },
+            pintarLoDeDelante:
+              t.delante.length === 0
+                ? null
+                : (m, poner) => {
+                    poner(enPantalla);
+                    m.imageSmoothingQuality = 'high';
+                    for (const c of t.delante) pintarCosa(m, v, c);
+                  },
+          },
+        ],
+  );
+}
+
+/** Un número por volumen de la escena, para la clave de lo tapado. */
+const idsDeVolumen = new WeakMap<VolumenDelMapa, number>();
+let ultimoVolumen = 0;
+
+/**
+ * Lo que dice cómo se pinta un volumen, sin dónde: cuál es, si se recorta por
+ * arriba y si ya tiene su imagen (sin ella, su marcador).
+ */
+function claveDelVolumen(vol: VolumenDelMapa, explorado: CasillasLeidas | null): string {
+  let id = idsDeVolumen.get(vol);
+  if (id === undefined) {
+    id = ++ultimoVolumen;
+    idsDeVolumen.set(vol, id);
+  }
+  return `${id}${recortadoArriba(vol, explorado) ? 'r' : ''}${conSuImagen(vol.s) ? '' : 'm'}`;
+}
+
+/** Una caja en píxeles del lienzo: `[x0, y0, x1, y1]`. */
+type Caja4 = readonly [number, number, number, number];
+
+/**
+ * Un grupo de asaltantes con algún volumen pintado después de él sobre su celda:
+ * cómo se pintó y cómo se vuelve a pintar, en la máscara de lo tapado, lo que lo
+ * puede tapar y las figuras que van delante.
+ */
+interface AsaltanteTapado {
+  readonly figura: FiguraColocada;
+  readonly enPantalla: Matriz;
+  readonly guardar: GuardarLoTapado | null;
+  readonly pintarLoQueTapa: PintarEnLaMascara;
+  readonly pintarLoDeDelante: PintarEnLaMascara | null;
+}
+
+/**
+ * Lo que ocupa a lo sumo una figura en píxeles del lienzo, desde donde apoya: de
+ * una casilla a cada lado, dos y media por encima y media por debajo (la chapa y
+ * el aro). Solo para saber si va delante de un grupo; `null` lo que no es una
+ * figura: la marca del dueño de lo horneado es suelo de su plaza y la bandera
+ * del puesto va con lo que dice quién está, encima de todo.
+ */
+function cajaDeCosa(v: VistaMapa, c: Cosa, enPantalla: Matriz): Caja4 | null {
+  const en =
+    c.tipo === 'objeto'
+      ? casillaAPixel(v.camara, c.objeto.at)
+      : c.tipo === 'heroe'
+        ? mundoAPixel(v.camara, c.pie.x, c.pie.y)
+        : c.tipo === 'asaltante'
+          ? mundoAPixel(v.camara, c.en.x + 0.5, c.en.y + 0.5)
+          : null;
+  if (en === null) return null;
+  const tile = v.camara.tile;
+  const [x0, y0] = aplicar(enPantalla, en.x - tile, en.y - tile * 2.5);
+  const [x1, y1] = aplicar(enPantalla, en.x + tile, en.y + tile * 0.6);
+  return [x0, y0, x1, y1];
 }
 
 /** Cuánto, en píxeles de dispositivo, puede subir sobre el borde de arriba lo que tiene altura: sin tope. */
@@ -830,7 +1094,7 @@ function pintarCosa(ctx: CanvasRenderingContext2D, v: VistaMapa, c: Cosa): void 
       // Su obra se pinta con los volúmenes; aquí solo va su bandera, encima.
       return;
     case 'heroe':
-      pintarHeroe(ctx, v, c.heroe, c.pie);
+      pintarHeroe(ctx, v, c.heroe, c.pie, c.anda);
       return;
     case 'asaltante':
       pintarAsaltante(ctx, v, c.asaltante, c.en);
@@ -979,14 +1243,17 @@ function pintarObjeto(ctx: CanvasRenderingContext2D, v: VistaMapa, o: MapObject)
       return;
     }
     case 'monster':
-      pintarGrupoNeutral(ctx, tile, c, {
-        id: o.id,
-        body: hojaDeUnidad(o.creature),
-        cuantos: o.count,
-        tiempo: v.tiempo,
-        andando: false,
-        mira: 'SO',
-      });
+      pintarFiguraConSombra(
+        ctx,
+        figuraDeGrupoNeutral(tile, c, {
+          id: o.id,
+          body: hojaDeUnidad(o.creature),
+          cuantos: o.count,
+          tiempo: v.tiempo,
+          andando: false,
+          mira: 'SO',
+        }),
+      );
       return;
     case 'town':
     case 'node':
@@ -1062,6 +1329,7 @@ function pintarHeroe(
   v: VistaMapa,
   h: HeroeEnElMapa,
   pie: { readonly x: number; readonly y: number },
+  anda: Direccion | null,
 ): void {
   const tile = v.camara.tile;
   const c = mundoAPixel(v.camara, pie.x, pie.y);
@@ -1091,12 +1359,14 @@ function pintarHeroe(
     // y_bot», 19-10-2026).
     id: h.id,
     body: figuraDelHeroe(h),
-    clip: 'idle',
-    tiempo: v.tiempo,
+    // Andando, con su marcha y de cara a donde va; quieto, de frente.
+    clip: anda === null ? 'idle' : 'walk',
+    // Las piernas, a la prisa de la marcha del mapa: los pies no patinan.
+    tiempo: anda === null ? v.tiempo : v.tiempo * PRISA_EN_EL_MAPA,
     x: c.x,
     suelo,
     alto: tile * ALTO_DEL_HEROE,
-    mira: MIRADA_DE_PRESENTACION,
+    mira: anda ?? MIRADA_DE_PRESENTACION,
     color,
     rotulo: h.name.charAt(0).toUpperCase(),
   };
@@ -1131,7 +1401,12 @@ function pintarAsaltante(
   ctx.fill();
   ctx.stroke();
   ctx.restore();
-  pintarGrupoNeutral(ctx, tile, c, {
+  pintarFiguraConSombra(ctx, figuraDelAsaltante(v, r, p));
+}
+
+/** La figura de un grupo de asaltantes donde se pinta ahora: la de `pintarAsaltante`. */
+function figuraDelAsaltante(v: VistaMapa, r: VistaAsaltante, p: PosicionDeAsaltante): Figura {
+  return figuraDeGrupoNeutral(v.camara.tile, mundoAPixel(v.camara, p.x + 0.5, p.y + 0.5), {
     id: r.id,
     body: figuraDelGrupo(r),
     cuantos: individuosDe(r.troops),
@@ -1139,6 +1414,43 @@ function pintarAsaltante(
     andando: p.andando,
     mira: p.mira,
   });
+}
+
+/**
+ * Lo tapado de un grupo de asaltantes: la silueta morada con un contorno claro y
+ * otro oscuro por fuera, que se lee sobre la roca, la nieve, la lava y de noche.
+ */
+const TAPADO_DEL_ASALTANTE: ColoresDeLoTapado = {
+  contorno: '#e7a6ea',
+  borde: 'rgba(24, 10, 26, 0.9)',
+  relleno: 'rgba(140, 59, 143, 0.55)',
+};
+
+/**
+ * Lo tapado de cada grupo de asaltantes, en silueta y solo donde lo tapa un
+ * volumen pintado después de él (`pintarLoTapadoDeLaFigura`): el grupo sin nada
+ * delante se queda como se pintó, y lo que va delante del grupo (un héroe) no
+ * queda debajo de la silueta. Un grupo anda por donde quiere y no lleva la
+ * reserva de un monstruo, así que un pico de la fila de delante lo tapaba entero
+ * y quedaban el estandarte y la chapa solos, sin figura: «me asaltaron unos
+ * bandidos y no tenían arte» (06-11-2026; en s9 el grupo raider-0 (16,24), detrás
+ * de una cordillera). Repintado encima a 0,7 con su arte, sobre la nieve y de
+ * noche era una mancha rojiza (QA del mismo día).
+ */
+function pintarLoTapadoDeLosAsaltantes(
+  ctx: CanvasRenderingContext2D,
+  tapados: readonly AsaltanteTapado[],
+): void {
+  for (const t of tapados)
+    pintarLoTapadoDeLaFigura(
+      ctx,
+      t.figura,
+      t.enPantalla,
+      TAPADO_DEL_ASALTANTE,
+      t.pintarLoQueTapa,
+      t.pintarLoDeDelante,
+      t.guardar,
+    );
 }
 
 /**
@@ -1190,13 +1502,6 @@ function estandarteDeAsaltante(
   ctx.restore();
 }
 
-/**
- * Un grupo sin dueño —monstruo que guarda o asaltante que patrulla—: la figura
- * de su criatura teñida del gris de lo que no tiene dueño, con su sombra. Los dos
- * se pintan igual a propósito: lo que los distingue es el suelo morado y el
- * estandarte del asaltante, no la figura. Y el gris es lo que los separa del
- * héroe, que lleva el color de su dueño.
- */
 /** La figura de un grupo de asaltantes: la hoja de la unidad de su primer individuo. */
 function figuraDelGrupo(r: VistaAsaltante): string {
   const id = r.troops[0]?.creature;
@@ -1204,8 +1509,14 @@ function figuraDelGrupo(r: VistaAsaltante): string {
   return hojaDeUnidad(id);
 }
 
-function pintarGrupoNeutral(
-  ctx: CanvasRenderingContext2D,
+/**
+ * Un grupo sin dueño —monstruo que guarda o asaltante que patrulla—: la figura
+ * de su criatura teñida del gris de lo que no tiene dueño, con su sombra. Los dos
+ * se pintan igual a propósito: lo que los distingue es el suelo morado y el
+ * estandarte del asaltante, no la figura. Y el gris es lo que los separa del
+ * héroe, que lleva el color de su dueño.
+ */
+function figuraDeGrupoNeutral(
   tile: number,
   c: { readonly x: number; readonly y: number },
   g: {
@@ -1216,8 +1527,8 @@ function pintarGrupoNeutral(
     readonly andando: boolean;
     readonly mira: Direccion;
   },
-): void {
-  pintarFiguraConSombra(ctx, {
+): Figura {
+  return {
     id: g.id,
     body: g.body,
     clip: g.andando ? 'walk' : 'idle',
@@ -1228,7 +1539,7 @@ function pintarGrupoNeutral(
     mira: g.mira,
     color: COLOR_SIN_DUEÑO,
     rotulo: String(g.cuantos),
-  });
+  };
 }
 
 /** El cuerpo de una figura del mapa, en casillas: dónde pisa, su media anchura y su alto. */
@@ -1542,8 +1853,8 @@ function pintarRuta(
     const c = mundoAPixel(camara, px, py);
     // El tramo de la emboscada en rojo, hoy u otro día: ahí se para la marcha y
     // empieza una batalla, que es lo que la persona tiene que ver antes de pulsar.
-    ctx.fillStyle = paso.peligro === true ? COLOR_EMBOSCADA : paso.hoy ? '#f6db78' : '#9aa1a8';
-    ctx.strokeStyle = '#1b1608';
+    ctx.fillStyle = COLOR_DEL_TRAMO[estiloDelPaso(paso)];
+    ctx.strokeStyle = CONTORNO_DE_LA_RUTA;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.arc(c.x, c.y, paso.marca === 'paso' ? 3.5 : 6.5, 0, Math.PI * 2);
@@ -1570,9 +1881,175 @@ function pintarRuta(
       ctx.fillText('!', c.x, c.y + 1);
     }
     if (paso.marca === 'parada') {
-      ctx.strokeStyle = '#f6db78';
+      ctx.strokeStyle = COLOR_DEL_TRAMO.hoy;
       ctx.beginPath();
       ctx.arc(c.x, c.y, 10, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+/**
+ * Cómo va cada tramo de la ruta, por el paso al que llega: lo que se anda hoy,
+ * lo de otro día y, desde donde un grupo a la vista emboscaría, el peligro.
+ */
+type EstiloDelTramo = 'hoy' | 'otroDia' | 'peligro';
+
+function estiloDelPaso(paso: PasoDeRuta): EstiloDelTramo {
+  return paso.peligro === true ? 'peligro' : paso.hoy ? 'hoy' : 'otroDia';
+}
+
+/** Los colores de la ruta, los mismos en sus puntos y en su línea: «dorado hoy, gris otro día». */
+const COLOR_DEL_TRAMO: Readonly<Record<EstiloDelTramo, string>> = {
+  hoy: '#f6db78',
+  otroDia: '#9aa1a8',
+  peligro: COLOR_EMBOSCADA,
+};
+/** El contorno oscuro de los puntos y de la línea: la despega de cualquier suelo. */
+const CONTORNO_DE_LA_RUTA = '#1b1608';
+
+/**
+ * Un tramo de la ruta, de un punto de su traza al siguiente (`puntosDeLaTraza`), en
+ * casillas: el primero sale del héroe. `visible` si se pinta: con las casillas de
+ * sus dos puntas exploradas, la misma regla que los puntos (`pasosAPintar`), para
+ * no dibujar la red sin explorar.
+ */
+interface TramoDeLaRuta {
+  readonly desde: { readonly x: number; readonly y: number };
+  readonly hasta: { readonly x: number; readonly y: number };
+  readonly estilo: EstiloDelTramo;
+  readonly visible: boolean;
+}
+
+/**
+ * Los tramos de la ruta en su orden, desde `origen` (la casilla del héroe; sin
+ * él, desde el primer paso), por su traza: de casilla en casilla y, al cruzar la
+ * puerta de un recinto, por su arco. Cada uno con el estilo del paso de la casilla
+ * a la que llega: el que sale de la parada de hoy ya es de otro día.
+ */
+function tramosDeLaRuta(
+  esc: Escenario,
+  ruta: readonly PasoDeRuta[],
+  origen: Point | null,
+  explorado: CasillasLeidas | null,
+): readonly TramoDeLaRuta[] {
+  const casillas = [...(origen === null ? [] : [origen]), ...ruta.map((p) => p.at)];
+  const primero = origen === null ? 0 : 1;
+  const puntos = puntosDeLaTraza(esc, casillas, 0.5);
+  const tramos: TramoDeLaRuta[] = [];
+  for (let j = 1; j < puntos.length; j++) {
+    const a = puntos[j - 1] as PuntoDeLaTrazaEnElMapa;
+    const b = puntos[j] as PuntoDeLaTrazaEnElMapa;
+    const de = casillas[a.paso] as Point;
+    const va = casillas[b.paso] as Point;
+    tramos.push({
+      desde: a,
+      hasta: b,
+      estilo: estiloDelPaso(ruta[Math.max(0, b.paso - primero)] as PasoDeRuta),
+      visible: explorado === null || (explorado.has(de) && explorado.has(va)),
+    });
+  }
+  return tramos;
+}
+
+/**
+ * La línea que une los pasos de la ruta, suavizada: por el medio de cada tramo y
+ * doblando en cada punto con una curva cuyo control es el punto (pasa junto al
+ * punto del paso, nunca fuera de su casilla). Cada tramo lleva su mitad de las dos
+ * curvas de sus puntas (la cuadrática partida por la mitad), así que el color
+ * cambia justo en la casilla donde cambia el día o empieza el peligro y la línea
+ * sigue sin quiebros. Lo de otro día, a trazos.
+ *
+ * Mientras el héroe anda (`VistaMapa.marchaDeLaRuta`), desde donde va: lo que le
+ * queda.
+ *
+ * Va en el suelo (`drawMapa`, paso 1b): bajo los volúmenes, las figuras, sus
+ * identificadores y la niebla; el tramo con una punta sin explorar no se pinta.
+ */
+function pintarLineaDeLaRuta(ctx: CanvasRenderingContext2D, v: VistaMapa, esc: Escenario): void {
+  if (v.ruta.length === 0) return;
+  const marcha = v.marchaDeLaRuta;
+  const heroe = v.heroes.find((h) => h.id === v.seleccionado);
+  const todos = tramosDeLaRuta(esc, v.ruta, marcha?.origen ?? heroe?.at ?? null, v.explorado);
+  let tramos = todos;
+  if (marcha !== undefined) {
+    const t = todos[marcha.tramo];
+    if (t === undefined) return;
+    const desde = {
+      x: t.desde.x + (t.hasta.x - t.desde.x) * marcha.t,
+      y: t.desde.y + (t.hasta.y - t.desde.y) * marcha.t,
+    };
+    tramos = [{ ...t, desde }, ...todos.slice(marcha.tramo + 1)];
+  }
+  if (!tramos.some((t) => t.visible)) return;
+  // Los vértices de la cadena, en píxeles: los puntos de su traza (en un puente,
+  // su tablero). P[k] y P[k + 1] son las puntas del tramo k.
+  const camara = v.camara;
+  const enPixeles = (p: { readonly x: number; readonly y: number }) =>
+    mundoAPixel(camara, p.x, p.y);
+  const P = [enPixeles(tramos[0]!.desde), ...tramos.map((t) => enPixeles(t.hasta))];
+  const medio = (a: { x: number; y: number }, b: { x: number; y: number }) => ({
+    x: (a.x + b.x) / 2,
+    y: (a.y + b.y) / 2,
+  });
+  const M = tramos.map((_, k) => medio(P[k]!, P[k + 1]!));
+  const ultimo = P.length - 1;
+
+  /** El tramo k como trazo: de la mitad de la curva de su arranque a la de su llegada. */
+  const trazar = (k: number, empieza: boolean): void => {
+    const a = P[k]!;
+    const b = P[k + 1]!;
+    const m = M[k]!;
+    if (k === 0) {
+      if (empieza) ctx.moveTo(a.x, a.y);
+      ctx.lineTo(m.x, m.y);
+    } else {
+      // La mitad de la curva M[k-1] → (a) → M[k] que es de este tramo.
+      const ini = { x: (M[k - 1]!.x + 2 * a.x + m.x) / 4, y: (M[k - 1]!.y + 2 * a.y + m.y) / 4 };
+      if (empieza) ctx.moveTo(ini.x, ini.y);
+      ctx.quadraticCurveTo((a.x + m.x) / 2, (a.y + m.y) / 2, m.x, m.y);
+    }
+    if (k + 1 === ultimo) {
+      ctx.lineTo(b.x, b.y);
+    } else {
+      const sig = M[k + 1]!;
+      const fin = { x: (m.x + 2 * b.x + sig.x) / 4, y: (m.y + 2 * b.y + sig.y) / 4 };
+      ctx.quadraticCurveTo((m.x + b.x) / 2, (m.y + b.y) / 2, fin.x, fin.y);
+    }
+  };
+
+  // Los tramos seguidos, visibles y del mismo estilo van en un solo trazo: los
+  // trazos de lo de otro día no se reinician en cada casilla.
+  const grupos: { estilo: EstiloDelTramo; desde: number; hasta: number }[] = [];
+  tramos.forEach((t, k) => {
+    if (!t.visible) return;
+    const g = grupos.at(-1);
+    if (g !== undefined && g.hasta === k - 1 && g.estilo === t.estilo) g.hasta = k;
+    else grupos.push({ estilo: t.estilo, desde: k, hasta: k });
+  });
+
+  const ancho = Math.max(2.5, camara.tile * 0.07);
+  const contorno = ancho + Math.max(2, ancho * 0.6);
+  // Lo de otro día, a trazos con su contorno cada uno: el mismo patrón en las dos
+  // pasadas (el remate redondo alarga cada trazo medio grueso por punta, así que
+  // quedan centrados), y el hueco deja ver el suelo entre los contornos.
+  const aTrazos = [ancho * 1.6, ancho * 1.8 + contorno];
+
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  // Primero el contorno de todo y después el color, para que en el cambio de
+  // estilo el contorno de un tramo no muerda la punta del de al lado.
+  for (const pasada of ['contorno', 'color'] as const) {
+    for (const g of grupos) {
+      const grueso = pasada === 'contorno' ? contorno : ancho;
+      ctx.beginPath();
+      for (let k = g.desde; k <= g.hasta; k++) trazar(k, k === g.desde);
+      ctx.setLineDash(g.estilo === 'otroDia' ? aTrazos : []);
+      ctx.strokeStyle = pasada === 'contorno' ? CONTORNO_DE_LA_RUTA : COLOR_DEL_TRAMO[g.estilo];
+      ctx.globalAlpha = pasada === 'contorno' ? 0.75 : 0.95;
+      ctx.lineWidth = grueso;
       ctx.stroke();
     }
   }

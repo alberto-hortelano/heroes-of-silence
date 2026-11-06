@@ -1,4 +1,5 @@
 import { rangoDeTropa } from '../hero/experiencia.js';
+import type { CuandoSalta, Hechizo } from '../magia/formato.js';
 import type { Hex, PoderId, UnitInfo, Veterania } from '../types.js';
 import type { Paso } from './board.js';
 import type { CuandoVence, EffectKind, StackEffect } from './effects.js';
@@ -15,6 +16,13 @@ export type Side = 'attacker' | 'defender';
  * tercer bando y solo actualice dos.
  */
 export const SIDES: readonly Side[] = ['attacker', 'defender'];
+
+/**
+ * Tope de rondas: una batalla que no converge se cierra, no se cuelga. Aquí y no
+ * en `battle.ts` para que lo lea también lo que dura «toda la pelea» de un hechizo
+ * (`spells.ts`) sin un ciclo de importación; `battle.ts` lo reexporta.
+ */
+export const MAX_ROUNDS = 100;
 
 /** El bando de enfrente. Estaba escrito a mano en cuatro sitios. */
 export function otroBando(side: Side): Side {
@@ -254,6 +262,19 @@ export interface BattleStack {
    * descuadra la cuenta. Lo escribe solo `battle.ts`.
    */
   granadasLanzadas: number;
+  /**
+   * El hechizo diferido que lanzó (06-11-2026, el editor de magia: `entrega.diferido`),
+   * o `null`: sale al empezar su siguiente turno (`alEmpezarSuTurno`) y se borra; si
+   * cae antes o la batalla acaba, se pierde. Lo escribe solo `battle.ts`.
+   */
+  hechizoEnElAire: HechizoEnElAire | null;
+}
+
+/** Un hechizo diferido en el aire: cuál, dónde caerá y con el poder de quien lo lanzó. */
+export interface HechizoEnElAire {
+  readonly hechizo: string;
+  readonly at: Hex;
+  readonly poder: number;
 }
 
 /**
@@ -370,7 +391,8 @@ export type BattleEvent =
   /**
    * El disparo diferido sale de `stack` hacia `at` y da a `target`, el primero de
    * la recta (`lineaDelDisparo`), sea del bando que sea; `null` si la recta llega
-   * a la casilla sin nadie o la para un muro (entonces `damage` y `killed` son 0).
+   * a la casilla sin nadie o la para un muro, al bajar de él, o una puerta cerrada
+   * (entonces `damage` y `killed` son 0).
    * La salpicadura va en otro `shoot` con `splash`, sobre el mismo `at`.
    */
   | {
@@ -389,6 +411,10 @@ export type BattleEvent =
       side: Side;
       spell: string;
       target?: string;
+      /** La casilla a la que se lanzó (`objetivo: casilla`). */
+      at?: Hex;
+      /** Diferido: aún no cae (`hechizoEnElAire`). */
+      diferido?: true;
       damage?: number;
       killed?: number;
       /** Lo que paró la armadura del objetivo, como en `attack`. */
@@ -399,7 +425,32 @@ export type BattleEvent =
    * los PV que repuso, si cura; lo que deja un poder de efecto va detrás, en su
    * propio `effect`, como el del hechizo.
    */
-  | { kind: 'power'; stack: string; poder: PoderId; target: string; cura?: number }
+  | {
+      kind: 'power';
+      stack: string;
+      poder: PoderId;
+      target?: string;
+      at?: Hex;
+      cura?: number;
+      diferido?: true;
+    }
+  /**
+   * Lo que hizo un hechizo (o un disparador) a uno que alcanzó, cuando alcanza a
+   * más de uno o va a una casilla (06-11-2026): el daño, lo que paró la armadura y
+   * la cura. Lo que deja colgado va en su `effect`. `spell`, el hechizo; `stack`,
+   * a quién.
+   */
+  | {
+      kind: 'spell_hit';
+      spell: string;
+      stack: string;
+      damage: number;
+      killed: number;
+      parado?: number;
+      cura?: number;
+    }
+  /** Un disparador colgado de `stack` saltó (`cuando`), del hechizo `spell`. */
+  | { kind: 'triggered'; stack: string; spell: string; cuando: CuandoSalta }
   /**
    * La arena cambió a media pelea las cifras de `nombre` —un tipo entero o el
    * héroe de un lado— en estos `stacks` (`retocarEnBatalla`). No es una jugada:
@@ -414,7 +465,10 @@ export type BattleEvent =
       kind: 'effect';
       stack: string;
       effect: EffectKind;
+      /** La cifra que suma; lo que no es una cifra (impide, escudo, disparador), 0 y su `dicho`. */
       amount: number;
+      /** Lo que hace, si no es una cifra (`dichoDelEfecto`). */
+      dicho?: string;
       source: string;
       rounds: number;
       /**
@@ -422,6 +476,8 @@ export type BattleEvent =
        * con `rounds` de tope.
        */
       vence?: CuandoVence;
+      /** De quién es ese turno, si no es del afectado (un hechizo: `HastaElTurno.de`). */
+      turnoDe?: string;
     }
   | { kind: 'effect_end'; stack: string; source: string }
   | { kind: 'perished'; stack: string }
@@ -592,6 +648,14 @@ export interface BattleState {
    */
   readonly rueda: TiposDeLaRueda;
   /**
+   * Los hechizos de esta batalla: los de los libros de los héroes y los poderes de
+   * las unidades, **resueltos al montarla** (`createBattle`) y por id, como las
+   * cifras de cada stack: la arena pelea con hechizos sin guardar y el espectador los
+   * recibe por el cable. Lo lee `hechizoDeLaBatalla`; lo cambia solo el retoque de
+   * la arena.
+   */
+  libro: Readonly<Record<string, Hechizo>>;
+  /**
    * El golpe de quien se ha plantado ante su objetivo y espera la
    * rueda: quién, contra quién y la carga de la carrera con que llegó (medida
    * antes de andar; al pegar ya no se puede medir). Lo pone el `attack` sin
@@ -655,14 +719,19 @@ export type BattleAction =
    * casilla y sus seis vecinas (`explosionDe`; 02-11-2026, regla nuestra).
    */
   | { type: 'throw'; at: Hex }
-  | { type: 'cast'; spell: string; target?: string }
+  /**
+   * El héroe del bando activo lanza un hechizo de su libro (`castBlocker`), sin gastar
+   * el turno de la unidad: a la unidad `target`, a la casilla `at` o, sobre sí o el
+   * tablero, a nada (06-11-2026, el editor de magia).
+   */
+  | { type: 'cast'; spell: string; target?: string; at?: Hex }
   /**
    * La unidad activa usa uno de sus poderes (`UnitInfo.poderes`) sobre el aliado
    * `target`, sin haberse movido: es el turno entero (`poderBlocker`). La tienen
    * las unidades con una habilidad que da poder (`unidadDeCombate`), en la arena y
    * en la partida; el agente la escribe `power` (`accionDeBatallaDelAgente`).
    */
-  | { type: 'power'; poder: PoderId; target: string }
+  | { type: 'power'; poder: PoderId; target?: string; at?: Hex }
   /**
    * El bando de la unidad activa se rinde (`surrenderBlocker` dice si puede).
    * `gold` es el precio: `legalActions` lo trae puesto, para que quien decide

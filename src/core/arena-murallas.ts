@@ -7,11 +7,12 @@
  * los ejemplos que trae la arena de salida.
  */
 
-import { FORMA_DEL_TABLERO, isInside, ULTIMA_FILA } from './battle/board.js';
+import { espejo, FORMA_DEL_TABLERO, isInside, ULTIMA_FILA } from './battle/board.js';
 import {
   cierra,
   hayMuralla,
   type MurallaDeBatalla,
+  type PuertaDeMuralla,
   reglaDeLaMuralla,
   validarMuralla,
 } from './battle/muralla.js';
@@ -40,6 +41,45 @@ export function columna(col: number, desde = 0, hasta = ULTIMA_FILA): Hex[] {
 /** La columna del arco del semicírculo, fila a fila: la 4 es la del hueco de la puerta. */
 const ARCO: readonly number[] = [8, 7, 7, 6, 6, 6, 7, 7, 8];
 
+/** Los muros y las puertas de una forma, sin su nombre ni su material. */
+interface Trazado {
+  readonly muros: readonly Hex[];
+  readonly puertas: readonly PuertaDeMuralla[];
+}
+
+/**
+ * La base de quien defiende (06-11-2026, la dibujó el usuario en la arena y la
+ * guardó como «Base derecha»): pegada al borde de la derecha, la columna 8 de la
+ * fila 1 a la 7 con las esquinas de las filas 0 y 8 en la 9, y la puerta en el
+ * hueco de la fila 4, entre (8,4) y (9,4). Deja dentro 21 casillas, las de la
+ * salida del defensor. Es la de la ciudad del mapa (`data/sitios.json`, «base-derecha»),
+ * copiada como las demás: se editan por separado.
+ */
+const BASE_DERECHA: Trazado = {
+  muros: [
+    { col: 9, row: 0 },
+    { col: 8, row: 1 },
+    { col: 8, row: 2 },
+    { col: 8, row: 3 },
+    { col: 8, row: 5 },
+    { col: 8, row: 6 },
+    { col: 8, row: 7 },
+    { col: 9, row: 8 },
+  ],
+  puertas: [{ a: { col: 8, row: 4 }, b: { col: 9, row: 4 } }],
+};
+
+/**
+ * `t` reflejado de izquierda a derecha (`espejo`): la puerta cambia sus dos casillas
+ * de papel, porque `b` va siempre al este de `a`.
+ */
+function enEspejo(t: Trazado): Trazado {
+  return {
+    muros: t.muros.map(espejo),
+    puertas: t.puertas.map((p) => ({ a: espejo(p.b), b: espejo(p.a) })),
+  };
+}
+
 /**
  * Las que trae la arena de salida. **No se guardan ni se borran**: son de la
  * página, y una con el mismo nombre en el borrador sería otra forma con un
@@ -64,6 +104,11 @@ const ARCO: readonly number[] = [8, 7, 7, 6, 6, 6, 7, 7, 8];
  *   casilla de grosor»).
  * - **Semicírculo grueso**: el semicírculo con una casilla más de fondo hacia
  *   dentro en cada fila, y el pasillo y la puerta como en la gruesa.
+ * - **Base derecha** (`BASE_DERECHA`): la muralla por defecto, la de la ciudad del
+ *   mapa. Cierra la salida del defensor.
+ * - **Base izquierda**: su espejo, cerrando la salida del atacante: como dentro es lo
+ *   que queda más cerca de la salida de la derecha, el atacante sale de su base por
+ *   la escalera y la puerta la abre y la cierra la derecha.
  */
 export const FORMAS_DE_EJEMPLO: readonly FormaDeMuralla[] = Object.freeze(
   [
@@ -115,6 +160,8 @@ export const FORMAS_DE_EJEMPLO: readonly FormaDeMuralla[] = Object.freeze(
       ),
       puertas: [{ a: { col: 6, row: 4 }, b: { col: 7, row: 4 } }],
     },
+    { nombre: 'Base derecha', ...BASE_DERECHA },
+    { nombre: 'Base izquierda', ...enEspejo(BASE_DERECHA) },
   ].map(({ nombre, muros, puertas }) =>
     // Las de la arena, de piedra: la madera es la del pueblo (`data/sitios.json`).
     Object.freeze({ nombre, muralla: validarMuralla({ muros, puertas, material: 'piedra' }) }),
