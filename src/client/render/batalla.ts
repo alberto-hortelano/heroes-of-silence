@@ -24,7 +24,7 @@ import {
   lineaDelDisparo,
   stackHexes,
 } from '@core/battle/battle.js';
-import { allHexes, hexEquals, hexKey, indiceDe } from '@core/battle/board.js';
+import { allHexes, desplazamientoDeFila, hexEquals, hexKey, indiceDe } from '@core/battle/board.js';
 import {
   type EstadoDePuerta,
   hayMuralla,
@@ -44,10 +44,21 @@ import { createRng, hashDeTexto } from '@core/rng.js';
 import { type ClimaDelSitio, DESPEJADO } from '@core/state/clima.js';
 import type { Hex, PlayerId } from '@core/types.js';
 import { COMPRESION_SUELO } from '../../shared/arte.js';
+import { ALTO_DE_MURALLA, PORTADA } from '../../shared/muralla-de-batalla.js';
 import type { Efecto, EstadoFigura } from '../anim.js';
 import { temaDelLienzo } from '../temas.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
 import { aroDeFigura, type PiesDeLaFigura } from './aro.js';
+import {
+  type CaraConArte,
+  caraDe,
+  pedirElArteDe,
+  pintarCaraConArte,
+  pintarEscaleraConArte,
+  pintarPortadaConArte,
+  pintarRemateConArte,
+  rellenoDeLaTapa,
+} from './arte-de-la-muralla.js';
 import { asset } from './assets.js';
 import { type CharacterClip, clipEnCurso } from './character.js';
 import {
@@ -378,15 +389,33 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
     v.angulo?.elegida ?? null,
     v.puntero,
   );
-  // Cómo se pinta su muralla, una vez: la columna y la portada lo reciben.
-  const acabado = ACABADO_DEL_MURO[battle.muralla.material];
+  // Cómo se pinta su muralla, una vez: la columna y la portada lo reciben. Con
+  // su arte, si ha llegado (se pide con la primera batalla que la lleva); sin
+  // él, el marcador de siempre (`ACABADO_DEL_MURO`).
+  const { material } = battle.muralla;
+  if (hayMuralla(battle.muralla)) pedirElArteDe(material);
+  const acabado = ACABADO_DEL_MURO[material];
+  const arteDelMuro: ArteDelMuro = {
+    material,
+    cara: caraDe(material),
+    muros: new Set(battle.muralla.muros.map(hexKey)),
+  };
   for (const p of piezasEnOrden(battle, yaPedida)) {
     switch (p.kind) {
       case 'columna': {
         const { k, camino } = casillas[indiceDe(p.hex)] as CasillaPintada;
         ctx.save();
         if (translucidas.has(k)) ctx.globalAlpha = ALFA_DE_LA_TRANSLUCIDA;
-        pintarColumna(ctx, tablero, p.hex, camino, estiloDe(k), v.escalables.has(k), acabado);
+        pintarColumna(
+          ctx,
+          tablero,
+          p.hex,
+          camino,
+          estiloDe(k),
+          v.escalables.has(k),
+          acabado,
+          arteDelMuro,
+        );
         ctx.restore();
         break;
       }
@@ -401,6 +430,7 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
           puertaAbierta(battle.puertas, p.puerta),
           v.puertasPorElegir.has(k),
           acabado,
+          material,
         );
         ctx.restore();
         break;
@@ -820,26 +850,6 @@ export function siluetaDeColumna(t: Tablero, h: Hex): Punto[] {
   return [arriba(v[0]!), arriba(v[1]!), v[2]!, v[3]!, v[4]!, arriba(v[5]!)];
 }
 
-/**
- * La portada de una puerta, en pasos: una fachada de cara a la cámara levantada
- * sobre el lado de sus dos casillas, centrada en él, con el arco tan ancho que
- * quien está en cualquiera de las dos pasa entero por debajo (su figura mide
- * unos 0,8 de ancho y su centro cae a 0,5 del lado). Las jambas acaban antes de
- * la figura de la casilla siguiente (a 1,5 del lado, desde 1,1).
- */
-const PORTADA = {
-  /** Del lado a la cara de fuera de cada jamba. */
-  mitad: 1.03,
-  /** Del lado al borde del hueco. */
-  hueco: 0.88,
-  /** Lo alto del hueco, del suelo a la clave del arco: pasa la figura de una casilla (0,95). */
-  arco: 1.2,
-  /** Lo que baja el arco de la clave a sus arranques. */
-  flecha: 0.22,
-  /** El fondo de la fachada visto desde arriba: la tapa. */
-  fondo: 0.3,
-} as const;
-
 /** El pie del lado de la puerta, en el lienzo: el punto del suelo entre sus dos centros. */
 function pieDePortada(t: Tablero, p: PuertaDeMuralla): Punto {
   const a = centroHex(t, p.a);
@@ -1194,14 +1204,8 @@ interface EstiloDeCasilla {
   readonly trazo: string;
 }
 
-/**
- * Lo que mide una columna de la muralla, en pasos: la figura que está arriba se
- * pinta así de alta. Era 0,42 —algo menos de media figura, para que la de detrás
- * asomara la cabeza— y el usuario, al probarlo, la quiso «unas 4 veces más»
- * alta: la muralla tapa de verdad a quien pasa detrás (`piezasEnOrden`) y lo que
- * no cabe encima de la fila de atrás lo pide el lienzo (`alzadoDeLaMuralla`).
- */
-export const ALTO_DE_MURALLA = 4 * 0.42;
+/** Lo que mide una columna de la muralla, en pasos (`shared/muralla-de-batalla.ts`). */
+export { ALTO_DE_MURALLA };
 
 /**
  * Los pasos que el tablero pide de más encima de su fila de atrás para que lo
@@ -1321,12 +1325,52 @@ function pintarUmbrales(
 }
 
 /**
+ * El arte de la muralla de una batalla, resuelto una vez por fotograma
+ * (`drawBatalla`): el material, su cara pintada si ha llegado y qué casillas son
+ * muro (el remate va solo en las caras que dan fuera de la muralla).
+ */
+interface ArteDelMuro {
+  readonly material: MaterialDeMuralla;
+  readonly cara: CaraConArte | null;
+  readonly muros: ReadonlySet<string>;
+}
+
+/**
+ * Las aristas de una columna con su arte, por los vértices de su hex (punta
+ * arriba y en el sentido de las agujas: 0 arriba, 2 abajo a la derecha, 3 abajo,
+ * 4 abajo a la izquierda), de izquierda a derecha como se ven, y la casilla
+ * vecina al otro lado (columnas y filas en el plano, `planoDeHex`): las dos de
+ * delante con su cara, la del suroeste a la luz y la del sureste a la sombra
+ * (la luz viene de la izquierda, `ARTE.luz`), y las dos de atrás, con solo su
+ * remate. Las del este y el oeste van de canto a esta cámara.
+ */
+const ARISTAS_DE_LA_COLUMNA = [
+  { de: 5, a: 0, dx: -0.5, dy: -1, delante: false, sombra: false },
+  { de: 0, a: 1, dx: 0.5, dy: -1, delante: false, sombra: false },
+  { de: 4, a: 3, dx: -0.5, dy: 1, delante: true, sombra: false },
+  { de: 3, a: 2, dx: 0.5, dy: 1, delante: true, sombra: true },
+] as const;
+
+/** ¿Da fuera de la muralla la arista de `h` hacia (`dx`, `dy` filas)? Si al otro lado no hay muro. */
+function daFuera(m: ReadonlySet<string>, h: Hex, dx: number, dy: number): boolean {
+  const row = h.row + dy;
+  const x = planoDeHex(h).x + dx;
+  const col = Math.round(x - desplazamientoDeFila(row) * 0.5);
+  return !m.has(hexKey({ col, row }));
+}
+
+/**
  * Un muro, como columna: el hex subido `alturaDeColumna` es lo alto, donde se
  * pisa —y donde se pinta la marca de la casilla (`estilo`): movible, atacable,
- * la de la activa—, y las dos caras de delante, de piedra con hiladas. Las de
- * los lados del hexágono van de canto a esta cámara y no se ven. Lo alto es el
- * `camino` de su casilla en el suelo (`hexesDe`), trasladado.
- * `escalable`, si la activa puede poner su escalera o subir ahí.
+ * la de la activa—, y las dos caras de delante. Las de los lados del hexágono
+ * van de canto a esta cámara y no se ven. Lo alto es el `camino` de su casilla
+ * en el suelo (`hexesDe`), trasladado. `escalable`, si la activa puede poner su
+ * escalera o subir ahí.
+ *
+ * Con su arte (`arte.cara`), cada cara lleva una rodaja del lienzo de muro
+ * pintado, la tapa su adarve y cada arista que da fuera su remate (las de atrás
+ * antes de la tapa, las de delante encima); sin él, el marcador: las caras de
+ * un color con sus hiladas o sus estacas (`pintarSillares`).
  */
 function pintarColumna(
   ctx: CanvasRenderingContext2D,
@@ -1336,35 +1380,57 @@ function pintarColumna(
   estilo: EstiloDeCasilla,
   escalable: boolean,
   acabado: AcabadoDelMuro,
+  arte: ArteDelMuro,
 ): void {
   const alto = alturaDeColumna(t);
   const { colores } = acabado;
-  // Punta arriba y en el sentido de las agujas: 0 arriba, 2 abajo a la derecha,
-  // 3 abajo, 4 abajo a la izquierda.
   const v = verticesHex(t, h);
+  const arriba = (p: { x: number; y: number }) => ({ x: p.x, y: p.y - alto });
+  const { cara } = arte;
+  const rodaja = (de: number) => hashDeTexto(`${hexKey(h)}|${de}`);
   ctx.save();
   ctx.lineJoin = 'round';
-  for (const [i, j, color] of [
-    [3, 4, colores.sombra],
-    [2, 3, colores.luz],
-  ] as const) {
-    const a = v[i] as { x: number; y: number };
-    const b = v[j] as { x: number; y: number };
-    ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
-    ctx.lineTo(b.x, b.y - alto);
-    ctx.lineTo(a.x, a.y - alto);
-    ctx.closePath();
-    ctx.fillStyle = color;
-    ctx.fill();
-    pintarSillares(ctx, t, a, b, alto, acabado);
+  if (cara !== null) {
+    for (const e of ARISTAS_DE_LA_COLUMNA) {
+      const a = v[e.de] as { x: number; y: number };
+      const b = v[e.a] as { x: number; y: number };
+      if (e.delante) {
+        pintarCaraConArte(ctx, t, cara, a, b, alto, rodaja(e.de), e.sombra);
+        ctx.strokeStyle = 'rgba(20, 16, 12, 0.45)';
+        ctx.lineWidth = Math.max(1, t.paso * 0.012);
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(a.x, a.y - alto);
+        ctx.moveTo(b.x, b.y);
+        ctx.lineTo(b.x, b.y - alto);
+        ctx.stroke();
+      } else if (daFuera(arte.muros, h, e.dx, e.dy)) {
+        pintarRemateConArte(ctx, t, cara, arriba(a), arriba(b), rodaja(e.de), true, false);
+      }
+    }
+  } else {
+    for (const [i, j, color] of [
+      [3, 4, colores.sombra],
+      [2, 3, colores.luz],
+    ] as const) {
+      const a = v[i] as { x: number; y: number };
+      const b = v[j] as { x: number; y: number };
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.lineTo(b.x, b.y - alto);
+      ctx.lineTo(a.x, a.y - alto);
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+      pintarSillares(ctx, t, a, b, alto, acabado);
+    }
   }
   ctx.translate(0, -alto);
   const tapa = camino;
-  ctx.fillStyle = colores.arriba;
+  ctx.fillStyle = (cara !== null ? rellenoDeLaTapa(ctx, t, arte.material) : null) ?? colores.arriba;
   ctx.fill(tapa);
-  ctx.lineWidth = Math.max(2, t.paso * 0.045);
+  ctx.lineWidth = Math.max(2, t.paso * (cara !== null ? 0.03 : 0.045));
   ctx.strokeStyle = colores.borde;
   ctx.stroke(tapa);
   // La marca de la casilla, encima de la piedra: lo que el suelo diría de ella.
@@ -1379,6 +1445,16 @@ function pintarColumna(
     ctx.strokeStyle = '#ffd24a';
     ctx.stroke(tapa);
     ctx.setLineDash([]);
+  }
+  // El remate de las caras de delante que dan fuera, encima de lo alto: el
+  // lienzo ya está subido, así que la arista de lo alto es la del hex.
+  if (cara !== null) {
+    for (const e of ARISTAS_DE_LA_COLUMNA) {
+      if (!e.delante || !daFuera(arte.muros, h, e.dx, e.dy)) continue;
+      const a = v[e.de] as { x: number; y: number };
+      const b = v[e.a] as { x: number; y: number };
+      pintarRemateConArte(ctx, t, cara, a, b, rodaja(e.de), false, e.sombra);
+    }
   }
   ctx.restore();
 }
@@ -1454,6 +1530,10 @@ const ESTACA = 0.14;
  * (`piezasEnOrden`): jambas y dintel le pasan por delante. Por arriba no se
  * anda. `elegible`, si el botón de la puerta espera que se elija esta: se marca
  * el arco.
+ *
+ * Con su arte (`pintarPortadaConArte`), la fachada pintada de su `material`,
+ * abierta (con el paso recortado: se ve a quien pasa) o cerrada (las hojas
+ * tapan el arco); sin él, el marcador de abajo.
  */
 function pintarPortada(
   ctx: CanvasRenderingContext2D,
@@ -1462,6 +1542,7 @@ function pintarPortada(
   abierta: boolean,
   elegible: boolean,
   acabado: AcabadoDelMuro,
+  material: MaterialDeMuralla,
 ): void {
   const alto = alturaDeColumna(t);
   const { colores } = acabado;
@@ -1480,6 +1561,18 @@ function pintarPortada(
   hueco.closePath();
   const arriba = c.y - alto;
   const fondo = PORTADA.fondo * t.paso * t.compresion;
+  if (pintarPortadaConArte(ctx, t, material, c, abierta)) {
+    if (elegible) {
+      ctx.save();
+      ctx.setLineDash([6, 4]);
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#ffd24a';
+      ctx.stroke(hueco);
+      ctx.strokeRect(x0, arriba - fondo, x1 - x0, alto + fondo);
+      ctx.restore();
+    }
+    return;
+  }
   ctx.save();
   ctx.lineJoin = 'round';
   // La fachada, menos el hueco: piedra con hiladas, como las columnas.
@@ -1524,7 +1617,9 @@ function pintarPortada(
 /**
  * El contorno de las hojas de la puerta `p` —el tablero cerrado en medio del
  * arco, o las dos hojas abiertas contra las jambas— en el lienzo: lo que pintan
- * `pintarHojasCerradas` y `pintarHojasAbiertas`, como un trazo.
+ * `pintarHojasCerradas` y `pintarHojasAbiertas`, como un trazo. Con arte también:
+ * es lo que se ve de la puerta a través de las columnas de delante, y el tablón
+ * estrecho del medio se lee mejor como «cerrada» que el arco entero.
  */
 function formaDeLasHojas(t: Tablero, p: PuertaDeMuralla, abierta: boolean): Path2D {
   const c = pieDePortada(t, p);
@@ -1663,7 +1758,7 @@ function pintarHojasAbiertas(ctx: CanvasRenderingContext2D, t: Tablero, p: Puert
 }
 
 /**
- * La escalera puesta, sin arte: dos largueros de madera del pie (en el suelo,
+ * La escalera puesta: con su arte, la pintada (`pintarEscaleraConArte`); sin él, dos largueros de madera del pie (en el suelo,
  * junto a la base de la columna) hasta pasado el borde de lo alto, y sus
  * peldaños. Se queda puesta toda la batalla. Sale ancha y gruesa a propósito:
  * de 0,09 pasos y apoyada a un tercio del pie, la tapaba la figura que esperaba
@@ -1677,6 +1772,8 @@ function pintarEscalera(ctx: CanvasRenderingContext2D, t: Tablero, pie: Hex, mur
     x: m.x + (p.x - m.x) * 0.3,
     y: m.y + (p.y - m.y) * 0.3 - alturaDeColumna(t) * 1.15,
   };
+  // Con su arte, la escalera pintada tendida del pie a lo alto; sin él, el marcador.
+  if (pintarEscaleraConArte(ctx, t, abajo, arriba)) return;
   const dx = arriba.x - abajo.x;
   const dy = arriba.y - abajo.y;
   const largo = Math.max(1, Math.hypot(dx, dy));

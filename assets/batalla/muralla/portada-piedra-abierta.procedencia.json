@@ -1,0 +1,51 @@
+{
+  "encargo": "batalla-portada-piedra-abierta",
+  "tipo": "imagen",
+  "fecha": "2026-11-06T09:20:19.856Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a1b027-6600-7e53-bb15-67d73a8477d5",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la referencia de MATERIAL: de ella se toman SOLO el color, la textura y la paleta de la roca y de lo que crece en ella, para que case con estas piezas. NO copies su forma (columnas, prismas, bloques en fila) ni su composición.\nLa imagen 3 es la GUÍA DE GEOMETRÍA: un volumen gris sin acabado, dibujado con la cámara del juego. Manda en la ORIENTACIÓN, la forma, las proporciones, el tamaño y la posición de cada pieza dentro de la imagen: cópialas con exactitud, sin girar ni torcer nada. NO copies su gris liso, sus aristas de esquema ni su fondo plano: el material, el detalle y la luz son los de la imagen de estilo.\n\nPara el tablero de batalla de un juego de estrategia por turnos, la PORTADA de una puerta de muralla de piedra: una fachada de sillares con un ARCO rebajado ancho abajo, con su rosca de dovelas bien marcada, jambas de piedra y, encima del arco, el muro hasta el remate de almenas. La puerta está ABIERTA: sus dos hojas de madera recia con flejes de hierro están abatidas hacia dentro y se ven de canto, pegadas a cada jamba, como dos tiras estrechas.\nLA SILUETA, LAS PROPORCIONES Y LA POSICIÓN SON LAS DE LA GUÍA (imagen 3): el gris medio es la fachada, con su contorno de fuera; el hueco del arco (el gris del fondo dentro de la fachada) es el PASO, por donde se ve lo de detrás: píntalo TRANSPARENTE, sin suelo, sin sombra y sin nada al fondo; las dos tiras oscuras a los lados del hueco son las hojas abiertas; y arriba, el remate, con los merlones donde los rectángulos claros. Cópialo con exactitud: el arco tan ancho y tan alto como en la guía.\nLos materiales y la paleta: la piedra de la muralla de la imagen 2: sillares grises y pardos bien escuadrados, con musgo y verdín en las juntas. Las hojas, de madera oscura con herrajes de hierro.\nALZADO DE FRENTE: la cámara mira de frente y a la altura, ortográfica, SIN perspectiva ni escorzo y sin enseñar lo de arriba ni los costados (el juego lo pega sobre las caras del muro con su propio ángulo). Las verticales, verticales; las horizontales, horizontales.\nSin torres a los lados, sin suelo, sin escalones, sin estandartes ni banderas. Un único objeto, entero.\nEstilo de la imagen de estilo: pintura digital detallada de fantasía medieval, como una maqueta en miniatura, con mucho detalle menudo (juntas, grietas, musgo, vetas, clavos), paleta terrosa y algo apagada, sin colores vivos ni aspecto de juego para móvil.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/rpg/campo.webp",
+      "papel": "estilo",
+      "sha256": "f793599c3460da9299fb6448f9a212c9504acd421af80fd78dec4879779be878"
+    },
+    {
+      "ruta": "assets/mapa/modulos/recinto.webp",
+      "papel": "material",
+      "sha256": "4cbc5cb2fa9093adaa2f35924e202ec7e18937a577d1e35b9c68dc2944775b5e"
+    },
+    {
+      "ruta": "assets/batalla/muralla/_guias/portada-piedra-abierta.png",
+      "papel": "guia",
+      "sha256": "931aea4e2c979ca4ef19d8db65ee8e620f583c0134f8d4964ce2b6da26357f0d"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a1b027-6600-7e53-bb15-67d73a8477d5/exec-2a12eff3-cace-45eb-b92a-6434bf712ee7.png",
+    "sha256": "63f82b8e0ce1898a055589984cc379c6af6bf0634701a144b8b5273008ac7de2",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "caja de lo opaco (y el cuerpo de una cara) en el índice de la muralla de batalla"
+  ],
+  "validacion": {
+    "visibles": 0.4635494299065506,
+    "opacos": 0.9921398948696134,
+    "haloSuelto": 0,
+    "ancho": 1081,
+    "alto": 1011
+  },
+  "salida": {
+    "ruta": "assets/batalla/muralla/portada-piedra-abierta.webp",
+    "sha256": "cfa2e5e3be8749b456fa3da5d80b434e0814cb90884a781420a28addcacabce0"
+  }
+}

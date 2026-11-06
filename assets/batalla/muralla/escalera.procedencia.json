@@ -1,0 +1,51 @@
+{
+  "encargo": "batalla-escalera",
+  "tipo": "imagen",
+  "fecha": "2026-11-06T09:18:54.063Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a1b025-c0b1-7cd1-b77d-e8f49544a80e",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la referencia de MATERIAL: de ella se toman SOLO el color, la textura y la paleta de la roca y de lo que crece en ella, para que case con estas piezas. NO copies su forma (columnas, prismas, bloques en fila) ni su composición.\nLa imagen 3 es la GUÍA DE GEOMETRÍA: un volumen gris sin acabado, dibujado con la cámara del juego. Manda en la ORIENTACIÓN, la forma, las proporciones, el tamaño y la posición de cada pieza dentro de la imagen: cópialas con exactitud, sin girar ni torcer nada. NO copies su gris liso, sus aristas de esquema ni su fondo plano: el material, el detalle y la luz son los de la imagen de estilo.\n\nUna ESCALERA DE MANO de asalto para el tablero de batalla de un juego de estrategia por turnos: dos largueros de tronco delgado descortezado y peldaños de rama atados a ellos con cuerda, tosca, recia y algo gastada, de madera parda.\nLA SILUETA, LAS PROPORCIONES Y LA POSICIÓN SON LAS DE LA GUÍA (imagen 3): derecha y vertical, los dos largueros donde las barras grises largas y los peldaños donde las cortas, del mismo largo y ancho que en la guía.\nLos materiales y la paleta: la madera parda y la cuerda de la imagen 2.\nALZADO DE FRENTE: la cámara mira de frente y a la altura, ortográfica, SIN perspectiva ni escorzo y sin enseñar lo de arriba ni los costados (el juego lo pega sobre las caras del muro con su propio ángulo). Las verticales, verticales; las horizontales, horizontales.\nSola, sin muro, sin suelo, sin nadie subiendo. Un único objeto, entero.\nEstilo de la imagen de estilo: pintura digital detallada de fantasía medieval, como una maqueta en miniatura, con mucho detalle menudo (juntas, grietas, musgo, vetas, clavos), paleta terrosa y algo apagada, sin colores vivos ni aspecto de juego para móvil.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/rpg/campo.webp",
+      "papel": "estilo",
+      "sha256": "f793599c3460da9299fb6448f9a212c9504acd421af80fd78dec4879779be878"
+    },
+    {
+      "ruta": "assets/mapa/nodo-empalizada.webp",
+      "papel": "material",
+      "sha256": "012f188aacc2776e9d8026b4528ec6b95b161da573e2146fe4cfc0094b5b37ec"
+    },
+    {
+      "ruta": "assets/batalla/muralla/_guias/escalera.png",
+      "papel": "guia",
+      "sha256": "31144377d70ffdd5b5e29871bcf5bffdf70d2548982d1f899ac1f3edf828f65e"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a1b025-c0b1-7cd1-b77d-e8f49544a80e/exec-7b18e1b3-2b7f-405e-83fe-4e2bef3f4b4b.png",
+    "sha256": "23eaec8084438af6c6eb22e614fc34b2734e49bfe9a202796f99038a53bfaac0",
+    "ancho": 1024,
+    "alto": 1536
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "caja de lo opaco (y el cuerpo de una cara) en el índice de la muralla de batalla"
+  ],
+  "validacion": {
+    "visibles": 0.3924075567544518,
+    "opacos": 0.9811429955057375,
+    "haloSuelto": 0,
+    "ancho": 308,
+    "alto": 1401
+  },
+  "salida": {
+    "ruta": "assets/batalla/muralla/escalera.webp",
+    "sha256": "251f15324be2874bbe8a3efc9bdaedcc4323b118c735f4095951abb6d89c82d2"
+  }
+}

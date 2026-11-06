@@ -1,0 +1,51 @@
+{
+  "encargo": "batalla-cara-madera",
+  "tipo": "imagen",
+  "fecha": "2026-11-06T09:17:06.050Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a1b024-5e29-7362-b2e7-63b1bf7b5252",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la referencia de MATERIAL: de ella se toman SOLO el color, la textura y la paleta de la roca y de lo que crece en ella, para que case con estas piezas. NO copies su forma (columnas, prismas, bloques en fila) ni su composición.\nLa imagen 3 es la GUÍA DE GEOMETRÍA: un volumen gris sin acabado, dibujado con la cámara del juego. Manda en la ORIENTACIÓN, la forma, las proporciones, el tamaño y la posición de cada pieza dentro de la imagen: cópialas con exactitud, sin girar ni torcer nada. NO copies su gris liso, sus aristas de esquema ni su fondo plano: el material, el detalle y la luz son los de la imagen de estilo.\n\nUn trozo recto de muralla para el tablero de batalla de un juego de estrategia por turnos: una EMPALIZADA de troncos verticales gruesos y apretados, uno junto a otro sin huecos, de madera parda con vetas y nudos, atados con dos travesaños horizontales de madera y cuerda a un tercio y a dos tercios del alto, rematado arriba por las PUNTAS AFILADAS de los troncos, talladas a hachazos en punta de lápiz, una por tronco.\nLA SILUETA, LAS PROPORCIONES Y LA POSICIÓN SON LAS DE LA GUÍA (imagen 3): el rectángulo gris es el lienzo del muro, de borde a borde de la imagen y de abajo hasta la moldura; lo de encima, el remate, con sus puntas exactamente donde están los picos de la guía (una por tronco). Cópialo con ese tamaño y en ese sitio. El lienzo llega a los bordes izquierdo y derecho y al de abajo SIN margen ni remate lateral: es un trozo de una muralla más larga, cortado a plomo por los dos lados, sin torres, sin esquinas, sin contrafuertes y sin puerta.\nLos materiales y la paleta: la madera de la empalizada de la imagen 2: troncos descortezados de madera parda, con vetas, nudos y grietas, y ataduras de cuerda y flejes de hierro oscuro. Luz uniforme en todo el lienzo, sin una sombra que lo cruce: el juego oscurece él las caras que quedan a la sombra.\nALZADO DE FRENTE: la cámara mira de frente y a la altura, ortográfica, SIN perspectiva ni escorzo y sin enseñar lo de arriba ni los costados (el juego lo pega sobre las caras del muro con su propio ángulo). Las verticales, verticales; las horizontales, horizontales.\nSin suelo al pie, sin hierba, sin estandartes ni banderas. Lo de encima del remate y entre sus merlones o sus puntas es transparente.\nEstilo de la imagen de estilo: pintura digital detallada de fantasía medieval, como una maqueta en miniatura, con mucho detalle menudo (juntas, grietas, musgo, vetas, clavos), paleta terrosa y algo apagada, sin colores vivos ni aspecto de juego para móvil.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/rpg/campo.webp",
+      "papel": "estilo",
+      "sha256": "f793599c3460da9299fb6448f9a212c9504acd421af80fd78dec4879779be878"
+    },
+    {
+      "ruta": "assets/mapa/nodo-empalizada.webp",
+      "papel": "material",
+      "sha256": "012f188aacc2776e9d8026b4528ec6b95b161da573e2146fe4cfc0094b5b37ec"
+    },
+    {
+      "ruta": "assets/batalla/muralla/_guias/cara-madera.png",
+      "papel": "guia",
+      "sha256": "7b657ded895f787ac450fb2ee8db6038550596539f5b7b5fa718973e62f759e2"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a1b024-5e29-7362-b2e7-63b1bf7b5252/exec-06c83269-23fa-4285-94b2-45d9e47429b8.png",
+    "sha256": "14ef22132705440d61d65819bd2accaed37a86d6db713e6f999de28f459c926d",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "caja de lo opaco (y el cuerpo de una cara) en el índice de la muralla de batalla"
+  ],
+  "validacion": {
+    "visibles": 0.866179933887251,
+    "opacos": 0.9966044885113715,
+    "haloSuelto": 0,
+    "ancho": 1435,
+    "alto": 975
+  },
+  "salida": {
+    "ruta": "assets/batalla/muralla/cara-madera.webp",
+    "sha256": "fcbb08f582e31c8d5c93043af02408c904ee1c5179c35e494d04a403a77f58ab"
+  }
+}

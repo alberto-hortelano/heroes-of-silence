@@ -1,0 +1,94 @@
+{
+ "cara-piedra": {
+  "ancho": 1432,
+  "alto": 1000,
+  "caja": [
+   25,
+   24,
+   1408,
+   1000
+  ],
+  "cuerpo": 153
+ },
+ "tapa-piedra": {
+  "ancho": 512,
+  "alto": 512,
+  "caja": [
+   0,
+   0,
+   512,
+   512
+  ]
+ },
+ "portada-piedra-abierta": {
+  "ancho": 1081,
+  "alto": 1011,
+  "caja": [
+   24,
+   24,
+   1057,
+   987
+  ]
+ },
+ "portada-piedra-cerrada": {
+  "ancho": 1274,
+  "alto": 1190,
+  "caja": [
+   24,
+   24,
+   1250,
+   1165
+  ]
+ },
+ "cara-madera": {
+  "ancho": 1435,
+  "alto": 975,
+  "caja": [
+   25,
+   24,
+   1410,
+   951
+  ],
+  "cuerpo": 124
+ },
+ "tapa-madera": {
+  "ancho": 512,
+  "alto": 512,
+  "caja": [
+   0,
+   0,
+   512,
+   512
+  ]
+ },
+ "portada-madera-abierta": {
+  "ancho": 1101,
+  "alto": 1013,
+  "caja": [
+   25,
+   25,
+   1077,
+   989
+  ]
+ },
+ "portada-madera-cerrada": {
+  "ancho": 1293,
+  "alto": 1188,
+  "caja": [
+   24,
+   24,
+   1269,
+   1164
+  ]
+ },
+ "escalera": {
+  "ancho": 308,
+  "alto": 1401,
+  "caja": [
+   24,
+   25,
+   284,
+   1377
+  ]
+ }
+}
