@@ -17,6 +17,7 @@
  * skill: una palabra nueva sin frase no compila.
  */
 import { type MapPlan, REGIONES_POR_BANDO } from '../map/generar/plan.js';
+import type { MapObject } from '../map/map.js';
 import type { PeticionDeFigura } from '../npcs.js';
 import type { FactionId, GrupoDeTropa, PlayerId, Point } from '../types.js';
 import { esIdDePieza, esIdDeUnidad } from '../validar.js';
@@ -522,4 +523,28 @@ export function efectosDe<K extends ClaveDeEfecto>(
   clave: K,
 ): Extract<Efecto, Record<K, unknown>>[] {
   return (efectos ?? []).filter((e): e is Extract<Efecto, Record<K, unknown>> => clave in e);
+}
+
+// ---------------------------------------------------------------- en la partida
+
+/** Los objetos del mapa de los lugares de una historia ya validada. */
+export function objetosDeLosLugares(historia: Historia): MapObject[] {
+  return historia.lugares.map((l: Lugar) => ({
+    kind: 'lugar',
+    id: l.id,
+    at: l.at,
+    name: l.nombre,
+  }));
+}
+
+/** El estado con que empieza una partida de ese mundo: cada lugar en su estado inicial, sin marcas ni nada cobrado. */
+export function estadoInicialDelMundo(historia: Historia): EstadoDelMundo {
+  return {
+    historia,
+    estados: Object.fromEntries(historia.lugares.map((l) => [l.id, l.estadoInicial])),
+    marcas: [],
+    cobradas: {},
+    vencidos: {},
+    conversaciones: {},
+  };
 }

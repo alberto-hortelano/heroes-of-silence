@@ -371,3 +371,5 @@ simbolo	src/core/map/generate.ts	src/core/map/generar/plan.ts	LADO_MAXIMO_DEL_PL
 simbolo	src/core/map/generate.ts	src/core/map/generar/plan.ts	LADO_MINIMO_DEL_GENERADOR
 simbolo	src/core/map/generate.ts	src/core/map/generar/plan.ts	LADO_MAXIMO_DEL_GENERADOR
 simbolo	src/core/state/asaltantes.ts	src/core/hero/grupos.ts	la comprobación de las composiciones de data/asaltantes.json al cargar (una sentencia de efecto, a mano)
+simbolo	src/core/mundo/validar.ts	src/core/mundo/formato.ts	objetosDeLosLugares
+simbolo	src/core/mundo/validar.ts	src/core/mundo/formato.ts	estadoInicialDelMundo

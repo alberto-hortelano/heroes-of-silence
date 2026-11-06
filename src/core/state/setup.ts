@@ -14,8 +14,12 @@ import {
 import { heroLeadership, troopRoom, withTroops } from '../hero/troop.js';
 import type { MapPlan } from '../map/generar/plan.js';
 import { basesDelPlan, buildMap, generateMapPlan, validateMapPlan } from '../map/generate.js';
-import type { EstadoDelMundo, MundoLeido } from '../mundo/formato.js';
-import { estadoInicialDelMundo, objetosDeLosLugares } from '../mundo/validar.js';
+import {
+  type EstadoDelMundo,
+  estadoInicialDelMundo,
+  type MundoLeido,
+  objetosDeLosLugares,
+} from '../mundo/formato.js';
 import { createRng, hashDeTexto, type Rng } from '../rng.js';
 import { sitioDe } from '../town/sitios.js';
 import { type Controller, FACTION_IDS, type FactionId, type PlayerId } from '../types.js';

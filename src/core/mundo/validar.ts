@@ -23,7 +23,7 @@ import { piezaSiExiste } from '../hero/equipo.js';
 import { problemasDeGrupoNeutral } from '../hero/grupos.js';
 import type { MapPlan } from '../map/generar/plan.js';
 import { basesDelPlan, buildMap, validateMapPlan } from '../map/generate.js';
-import { type GameMap, inBounds, isEnterable, type MapObject, terrainAt } from '../map/map.js';
+import { type GameMap, inBounds, isEnterable, terrainAt } from '../map/map.js';
 import { FUERA, pasosDelMapa, queEsElObjeto } from '../map/recinto.js';
 import { regionDeCasilla } from '../map/regiones.js';
 import {
@@ -49,11 +49,9 @@ import {
   EFECTOS_AL_GANAR,
   EFECTOS_AL_PERDER,
   type Efecto,
-  type EstadoDelMundo,
   esIdDeHistoria,
   type Historia,
   idDeMundoBlocker,
-  type Lugar,
   type Mundo,
   type MundoLeido,
   trasLosEfectos,
@@ -1046,28 +1044,4 @@ function efecto(
       }
       return { batalla: x };
   }
-}
-
-// ---------------------------------------------------------------- en la partida
-
-/** Los objetos del mapa de los lugares de una historia ya validada. */
-export function objetosDeLosLugares(historia: Historia): MapObject[] {
-  return historia.lugares.map((l: Lugar) => ({
-    kind: 'lugar',
-    id: l.id,
-    at: l.at,
-    name: l.nombre,
-  }));
-}
-
-/** El estado con que empieza una partida de ese mundo: cada lugar en su estado inicial, sin marcas ni nada cobrado. */
-export function estadoInicialDelMundo(historia: Historia): EstadoDelMundo {
-  return {
-    historia,
-    estados: Object.fromEntries(historia.lugares.map((l) => [l.id, l.estadoInicial])),
-    marcas: [],
-    cobradas: {},
-    vencidos: {},
-    conversaciones: {},
-  };
 }
