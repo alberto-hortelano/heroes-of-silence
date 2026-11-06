@@ -31,7 +31,6 @@ import { playAiTurn } from '../../src/core/ai/turn.js';
 import { type BattleSide, createBattle } from '../../src/core/battle/battle.js';
 import { HERO_BODY } from '../../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../../src/core/combate.js';
-import type { GrupoDeTropa } from '../../src/core/data.js';
 import { rangoDeHeroe } from '../../src/core/hero/experiencia.js';
 import {
   armyPower,
@@ -44,6 +43,7 @@ import { cuerposDelHeroe, type Hero, heroUnit, moraleBonus } from '../../src/cor
 import { ejercitoDe, troopsAsStacks } from '../../src/core/hero/troop.js';
 import { createRng } from '../../src/core/rng.js';
 import { newGame } from '../../src/core/state/setup.js';
+import type { GrupoDeTropa } from '../../src/core/types.js';
 
 const PAREJAS = Number(process.argv[2] ?? 2000);
 const SEMILLAS = Number(process.argv[3] ?? 40);

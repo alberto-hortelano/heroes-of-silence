@@ -13,11 +13,10 @@ import { describe, expect, it } from 'vitest';
 import { componer } from '../src/client/render/escenario/colocar.js';
 import { mapPlanSchema, RESPONSE_FORMAT } from '../src/core/contract/agent.js';
 import { serializeMapRequest } from '../src/core/contract/serialize.js';
+import type { MapPlan, PlanConCasillas } from '../src/core/map/generar/plan.js';
 import {
   buildMap,
   generateMapPlan,
-  type MapPlan,
-  type PlanConCasillas,
   planDelAgente,
   validateMapPlan,
 } from '../src/core/map/generate.js';

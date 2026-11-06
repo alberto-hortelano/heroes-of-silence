@@ -13,9 +13,8 @@
  * es una regla del juego, que leen la emboscada, los sitios y el contrato, y
  * fuera de `ai/` nadie del núcleo importa la IA.
  */
-import type { GrupoDeTropa } from '../data.js';
 import { poderBruto } from '../nivel.js';
-import type { Army, UnitInfo } from '../types.js';
+import type { Army, GrupoDeTropa, UnitInfo } from '../types.js';
 import { type Hero, heroUnit } from './hero.js';
 import { ejercitoDe, troopUnit } from './troop.js';
 

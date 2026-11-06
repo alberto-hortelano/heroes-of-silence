@@ -6,7 +6,7 @@
 
 /**
  * Casillas de mapa por pareja de regiones de fuera: la cuenta que une el lado
- * y las regiones (`ladoDelMapa`, `regionesDelMapa`, en `map/generate.ts`).
+ * y las regiones (`ladoDelMapa`, `regionesDelMapa`, en `map/generar/plan.ts`).
  *
  * Era 144, y con la frontera de una casilla y el suelo libre bastaba. Con
  * fronteras de 2-3 casillas, obstáculos que bloquean y los objetos de siempre,

@@ -14,7 +14,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { FORMAS_DEL_RIO, RIOS, validarRios } from '../src/core/data.js';
-import { buildMap, generateMapPlan, LADO_DEL_MAPA } from '../src/core/map/generate.js';
+import { LADO_DEL_MAPA } from '../src/core/map/generar/plan.js';
+import { buildMap, generateMapPlan } from '../src/core/map/generate.js';
 import { chebyshev, rioAnteLaCiudad } from '../src/core/map/recinto.js';
 import { estructura } from '../src/core/map/regiones.js';
 import {

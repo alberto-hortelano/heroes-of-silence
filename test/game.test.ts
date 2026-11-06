@@ -48,6 +48,7 @@ import { regionDescubierta, zonaDeNiebla } from '../src/core/map/niebla.js';
 import {
   conectadoABase,
   estructura,
+  regionDeCasilla,
   regionesQueCierra,
   regionOwner,
   territorio,
@@ -55,7 +56,6 @@ import {
 import { isWalkable, ROAD_COST, TERRAIN_KINDS } from '../src/core/map/terrain.js';
 import { indiceDePoder, nivelDeUnidad } from '../src/core/nivel.js';
 import { createRng, parseSeed } from '../src/core/rng.js';
-import { regionDeCasilla } from '../src/core/state/asaltantes.js';
 import {
   currentPlayer,
   dayOfWeek,

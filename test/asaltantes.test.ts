@@ -12,15 +12,18 @@ import { playAiTurn, resolvePendingBattle } from '../src/core/ai/turn.js';
 import { serializeKnownMap } from '../src/core/contract/serialize.js';
 import { ASALTANTES } from '../src/core/data.js';
 import { fuerzaDe, MARGEN_CONTRA_NEUTRALES, poderDe } from '../src/core/hero/fuerza.js';
+import { problemasDeAsaltante } from '../src/core/hero/grupos.js';
 import { Casillas } from '../src/core/map/casillas.js';
-import {
-  buildMap,
-  generateMapPlan,
-  type MapPlan,
-  validateMapPlan,
-} from '../src/core/map/generate.js';
+import type { MapPlan } from '../src/core/map/generar/plan.js';
+import { buildMap, generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';
 import { isEnterable, objectAt, pointKey } from '../src/core/map/map.js';
-import { estructura, territorio, VECINAS } from '../src/core/map/regiones.js';
+import {
+  estructura,
+  regionDeCasilla,
+  territorio,
+  tocaUnNodo,
+  VECINAS,
+} from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
 import {
   type AsaltanteRecordado,
@@ -29,11 +32,7 @@ import {
   mascaraDeOcupacion,
   pasoDePatrulla,
   pasosDeLaPatrulla,
-  problemasDeAsaltante,
-  type Raider,
   recordarAsaltantes,
-  regionDeCasilla,
-  tocaUnNodo,
 } from '../src/core/state/asaltantes.js';
 import { heroesOf } from '../src/core/state/consultas.js';
 import {
@@ -45,7 +44,7 @@ import {
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 import type { GameState } from '../src/core/state/tipos.js';
-import type { Point } from '../src/core/types.js';
+import type { Point, Raider } from '../src/core/types.js';
 import { JINETE, PESADA, TROPA_BARATA } from './comun.js';
 import { segunPrisa } from './lento.js';
 import { ejercito } from './partida-de-prueba.js';

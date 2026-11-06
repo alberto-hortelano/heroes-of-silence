@@ -44,7 +44,7 @@ import {
 import { drawMapa, PIES, recortadoArriba } from '../src/client/render/mapa.js';
 import { Session } from '../src/client/session.js';
 import { Casillas, type CasillasLeidas } from '../src/core/map/casillas.js';
-import { LADO_DEL_MAPA } from '../src/core/map/generate.js';
+import { LADO_DEL_MAPA } from '../src/core/map/generar/plan.js';
 import { barreraEn, inBounds, isEnterable, objectAt } from '../src/core/map/map.js';
 import { todosALaVista } from '../src/core/state/asaltantes.js';
 import { heroesOf } from '../src/core/state/consultas.js';

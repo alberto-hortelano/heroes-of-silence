@@ -23,7 +23,7 @@
 import { EventEmitter } from 'node:events';
 import type { WebSocket } from 'ws';
 import { JUGADAS_DE_MURALLA } from '../../src/core/contract/vocabulario.js';
-import { LADO_DEL_MAPA } from '../../src/core/map/generate.js';
+import { LADO_DEL_MAPA } from '../../src/core/map/generar/plan.js';
 import { parseSeed } from '../../src/core/rng.js';
 import { AgentLink } from '../../src/server/agent-link.js';
 import { Director } from '../../src/server/director.js';

@@ -11,13 +11,8 @@ import { cifrasDeUnidad } from '../src/core/catalogo.js';
 import { tiposDeHeroe } from '../src/core/data.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import { type Hero, heroUnit } from '../src/core/hero/hero.js';
-import {
-  generateMapPlan,
-  LADO_DEL_MAPA,
-  type MapPlan,
-  planDelAgente,
-  validateMapPlan,
-} from '../src/core/map/generate.js';
+import { LADO_DEL_MAPA, type MapPlan } from '../src/core/map/generar/plan.js';
+import { generateMapPlan, planDelAgente, validateMapPlan } from '../src/core/map/generate.js';
 import { pointKey, reachableFrom } from '../src/core/map/map.js';
 import { nivelDeUnidad } from '../src/core/nivel.js';
 import { createRng } from '../src/core/rng.js';

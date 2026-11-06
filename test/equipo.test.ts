@@ -50,9 +50,8 @@ import { umbral } from '../src/core/hero/experiencia.js';
 import { heroeRecienHecho } from '../src/core/hero/hero.js';
 import { troopUnit } from '../src/core/hero/troop.js';
 import { isEnterable, objectAt, pointKey } from '../src/core/map/map.js';
-import { VECINAS } from '../src/core/map/regiones.js';
+import { regionDeCasilla, tocaUnNodo, VECINAS } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
-import { regionDeCasilla, tocaUnNodo } from '../src/core/state/asaltantes.js';
 import { heroById, heroesOf } from '../src/core/state/consultas.js';
 import {
   applyAdventureAction,

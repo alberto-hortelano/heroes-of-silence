@@ -12,14 +12,13 @@
 import { describe, expect, it } from 'vitest';
 import { mapPlanSchema } from '../src/core/contract/agent.js';
 import {
-  generateMapPlan,
   LADO_DEL_MAPA,
   LADO_MAXIMO_DEL_GENERADOR,
   LADO_MAXIMO_DEL_PLAN,
   LADO_MINIMO_DEL_GENERADOR,
   LADO_MINIMO_DEL_PLAN,
-  validateMapPlan,
-} from '../src/core/map/generate.js';
+} from '../src/core/map/generar/plan.js';
+import { generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';
 import { createRng } from '../src/core/rng.js';
 import { itLento, rango, segunPrisa } from './lento.js';
 

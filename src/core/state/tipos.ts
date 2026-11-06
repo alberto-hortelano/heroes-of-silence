@@ -16,11 +16,20 @@ import type { GameMap, MapObject, ObraDelPuesto } from '../map/map.js';
 import type { EstadoDelMundo } from '../mundo/formato.js';
 import type { Rng } from '../rng.js';
 import type { Town } from '../town/town.js';
-import type { Controller, FactionId, Hex, Hueco, PlayerId, Point } from '../types.js';
-import type { AsaltanteRecordado, Raider } from './asaltantes.js';
+import type {
+  Controller,
+  FactionId,
+  Guarnicion,
+  Hex,
+  Hueco,
+  PlayerId,
+  Point,
+  Raider,
+} from '../types.js';
+import type { AsaltanteRecordado } from './asaltantes.js';
 import type { PedidoDeClima } from './clima.js';
 import type { Atacante, BattleFoe, GameEvent } from './events.js';
-import type { Guarnicion, PedidoDeReparto, PedidoDeTropa, SitioVisto } from './sitios.js';
+import type { PedidoDeReparto, PedidoDeTropa, SitioVisto } from './sitios.js';
 
 export interface Player {
   readonly id: PlayerId;

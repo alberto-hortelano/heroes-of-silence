@@ -17,8 +17,8 @@
  * El agente no entra en los lugares (F4): esto es solo de la IA de reglas. Sin
  * mundo no hay lugares y nada de aquí cambia una partida del banco.
  */
-import { gruposAlTope } from '../combate.js';
 import { fuerzaDe, poderDe, ventajaClara } from '../hero/fuerza.js';
+import { gruposAlTope } from '../hero/grupos.js';
 import type { Hero } from '../hero/hero.js';
 import {
   batallaDe,

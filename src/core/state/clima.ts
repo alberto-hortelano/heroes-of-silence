@@ -36,7 +36,7 @@ import {
   dueñoDeLaRegion,
   dueñosDeLasRegiones,
   type MapaDeRed,
-  regionMasCercana,
+  regionDelSitio,
 } from '../map/regiones.js';
 import { createRng, hashDeTexto, sortearPorPesos } from '../rng.js';
 import { FACTION_IDS, type FactionId, type PlayerId, type Point } from '../types.js';
@@ -275,12 +275,6 @@ export function nocheDeLaSemilla(
 }
 
 // ----------------------------------------------------------- las regiones
-
-/** La región del clima de la casilla `p`, por su índice en `map.regions` (−1 en un mapa sin regiones). Lanza fuera del mapa. */
-export function regionDelSitio(map: MapaDeRed, p: Point): number {
-  if (!inBounds(map, p)) throw new Error(`(${p.x},${p.y}) está fuera del mapa: no tiene clima`);
-  return regionMasCercana(map)[p.y * map.width + p.x] as number;
-}
 
 /** El clima de la región `k` del clima de la partida, o el despejado sin región (−1). */
 export function climaDeLaRegion(clima: ClimaDeLaPartida, k: number): ClimaDelSitio {

@@ -19,13 +19,7 @@
 import ciudadesJson from '../../data/ciudades.json' with { type: 'json' };
 import unidadesJson from '../../data/unidades.json' with { type: 'json' };
 import type { BattleStack } from './battle/types.js';
-import {
-  crecimientoDelNivel,
-  enteroDesde,
-  type GrupoDeTropa,
-  LIDERAZGO,
-  oroDelIndice,
-} from './data.js';
+import { crecimientoDelNivel, enteroDesde, LIDERAZGO, oroDelIndice } from './data.js';
 import {
   aDosManos,
   conEquipo,
@@ -41,7 +35,7 @@ import { cifrasVeteranas, rangoDeTropa } from './hero/experiencia.js';
 import type { Hero } from './hero/hero.js';
 import { indiceDePoder, nivelDelIndice } from './nivel.js';
 import type { Equipo, FactionId, Hueco, UnitInfo, Veterania } from './types.js';
-import { FACTION_IDS, huecoBlocker } from './types.js';
+import { FACTION_IDS, type GrupoDeTropa, huecoBlocker } from './types.js';
 import {
   armaDeCuerpoBlocker,
   cuerpoDeCombate,

@@ -764,3 +764,49 @@ export interface Hex {
   readonly col: number;
   readonly row: number;
 }
+
+/** Un grupo de individuos de la misma criatura, como se escriben en los datos. */
+export interface GrupoDeTropa {
+  readonly creature: string;
+  readonly count: number;
+}
+
+/**
+ * Un grupo de asaltantes tal y como lo ven los demás: dónde está y qué lleva,
+ * en grupos de tropa —«5 × piquero»— y no individuo a individuo. Es lo que
+ * viaja al espectador y lo que pinta el lienzo: una sola forma para los dos, y
+ * `GameState.raiders` la cumple tal cual.
+ */
+export interface VistaAsaltante {
+  readonly id: string;
+  readonly at: Point;
+  readonly troops: readonly GrupoDeTropa[];
+}
+
+/**
+ * Un grupo de asaltantes en el mapa. Su tropa se guarda en grupos y no en
+ * individuos: son siete como mucho y de una o dos criaturas, y el ejército de
+ * individuos solo hace falta para pelear, así que se deriva al abrir batalla
+ * (`ejercitoDe`) y vuelve a grupos con lo que quede en pie.
+ */
+export interface Raider extends VistaAsaltante {
+  at: Point;
+  troops: readonly GrupoDeTropa[];
+}
+
+/** Un grupo tal como lo declara un plan de mapa: casilla y tropa. */
+export interface RaiderPlaneado {
+  readonly at: Point;
+  readonly troops: readonly GrupoDeTropa[];
+}
+
+/**
+ * La tropa que guarda un sitio, y de quién es: quien la dejó, o el dueño con que
+ * nació (la de una base); `null`, la neutral de una ciudad neutral. **No cambia de
+ * bando** porque cambie el dueño del sitio (P1 de la tarea 2): si el sitio pasa a
+ * otro, la tropa lo ocupa (`ocupanteDe`).
+ */
+export interface Guarnicion {
+  readonly dueño: PlayerId | null;
+  readonly tropa: Army;
+}

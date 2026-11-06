@@ -20,10 +20,9 @@ import type { BattleState, Side } from '../src/core/battle/types.js';
 import { unidadesDelJuego } from '../src/core/catalogo.js';
 import { fuerzaDe, poderDe, ventajaClara } from '../src/core/hero/fuerza.js';
 import { isEnterable, objectAt, pointKey } from '../src/core/map/map.js';
-import { estructura } from '../src/core/map/regiones.js';
-import { type Raider, regionDeCasilla } from '../src/core/state/asaltantes.js';
+import { estructura, regionDeCasilla } from '../src/core/map/regiones.js';
 import { baseOf, caminoHasta } from '../src/core/state/game.js';
-import type { Point } from '../src/core/types.js';
+import type { Point, Raider } from '../src/core/types.js';
 import {
   escenaDeBatalla,
   sesionContraMonstruoAlDesplegar,

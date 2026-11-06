@@ -22,12 +22,7 @@ import {
   unidadDelJuego,
   unidadDelJuegoSiExiste,
 } from '../catalogo.js';
-import {
-  combateBlocker,
-  gruposAlTope,
-  loNeutralAlTope,
-  type ReglasDelCombate,
-} from '../combate.js';
+import { combateBlocker, type ReglasDelCombate } from '../combate.js';
 import {
   ECONOMIA,
   figuraDelHeroe,
@@ -60,6 +55,7 @@ import {
   rangoDeHeroe,
   rangoDeTropa,
 } from '../hero/experiencia.js';
+import { gruposAlTope, loNeutralAlTope } from '../hero/grupos.js';
 import {
   cuerposDelHeroe,
   empezarElDia,
@@ -144,7 +140,7 @@ import type {
   Troop,
   Veterania,
 } from '../types.js';
-import { enumerar, type Hueco } from '../types.js';
+import { enumerar, type Guarnicion, type Hueco, type Raider } from '../types.js';
 import {
   type AsaltanteRecordado,
   casillasPeligrosas,
@@ -153,7 +149,6 @@ import {
   emboscador,
   mascaraDeOcupacion,
   pasoDePatrulla,
-  type Raider,
   recordarAsaltantes,
   vigiaDeLaMarcha,
 } from './asaltantes.js';
@@ -193,7 +188,6 @@ import {
   dueñoDelSitio,
   ejercitoDeLaDefensa,
   enUnNodo,
-  type Guarnicion,
   guarnicionDe,
   guarnicionHostil,
   heroeAjenoEn,

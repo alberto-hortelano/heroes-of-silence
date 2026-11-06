@@ -31,7 +31,7 @@ import {
   UMBRAL_DE_VOLUMEN,
 } from '../src/client/render/escenario/pintar.js';
 import { playAiTurn } from '../src/core/ai/turn.js';
-import type { MapPlan } from '../src/core/map/generate.js';
+import type { MapPlan } from '../src/core/map/generar/plan.js';
 import { createRng } from '../src/core/rng.js';
 import { newGame } from '../src/core/state/setup.js';
 import { primeraSemillaCon } from '../tools/comun/semillas.js';

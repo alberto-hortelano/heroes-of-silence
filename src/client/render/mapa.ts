@@ -29,9 +29,9 @@ import {
 } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import { inicialDelNombre } from '@core/mundo/formato.js';
-import type { AsaltantesALaVista, VistaAsaltante } from '@core/state/asaltantes.js';
+import type { AsaltantesALaVista } from '@core/state/asaltantes.js';
 import type { ClimaDeLaPartida } from '@core/state/clima.js';
-import type { FactionId, Point } from '@core/types.js';
+import type { FactionId, Point, VistaAsaltante } from '@core/types.js';
 import { type Direccion, direccionEnPantalla } from '../direccion.js';
 import { msPorCasilla, PRISA_EN_EL_MAPA } from '../marcha.js';
 import { temaDelLienzo } from '../temas.js';

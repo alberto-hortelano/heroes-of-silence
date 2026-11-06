@@ -15,15 +15,17 @@ import barrerasJson from '../data/barreras.json' with { type: 'json' };
 import { mapPlanSchema } from '../src/core/contract/agent.js';
 import { BARRERAS_DEL_MAPA, POBLAMIENTO, validarBarreras } from '../src/core/data.js';
 import {
+  LADO_DEL_MAPA,
+  LADO_MINIMO_DEL_GENERADOR,
+  type MapPlan,
+  type PlanConCasillas,
+} from '../src/core/map/generar/plan';
+import {
   basesDelPlan,
   buildMap,
   crucesConCamino,
   generateMapPlan,
   INTENTOS_DE_RED,
-  LADO_DEL_MAPA,
-  LADO_MINIMO_DEL_GENERADOR,
-  type MapPlan,
-  type PlanConCasillas,
   trazarYVestir,
   validateMapPlan,
 } from '../src/core/map/generate.js';

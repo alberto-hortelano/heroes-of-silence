@@ -5,7 +5,7 @@
  * escenógrafo, en `escena-de-prueba.ts`. (De `test/helpers.ts`, fase T,
  * 06-11-2026.)
  */
-import type { PlanConCasillas } from '../src/core/map/generate.js';
+import type { PlanConCasillas } from '../src/core/map/generar/plan.js';
 import {
   casillaDelIndice,
   type GameMap,

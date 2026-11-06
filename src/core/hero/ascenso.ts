@@ -39,7 +39,7 @@ export interface VeteranoEnBase {
 /**
  * Los individuos de nivel máximo que hay en `base`: los de su guarnición y los
  * de la tropa de `heroeDentro`, el héroe del dueño que está en su casilla
- * (`heroeEnElPueblo`, en `game.ts`: se recibe resuelto porque buscarlo aquí
+ * (`heroeEnElPueblo`, en `state/consultas.ts`: se recibe resuelto porque buscarlo aquí
  * cerraría el ciclo de imports). En ese orden —guarnición primero— porque es el
  * orden en que se le pregunta al narrador, y tiene que ser el mismo en cada
  * pasada.

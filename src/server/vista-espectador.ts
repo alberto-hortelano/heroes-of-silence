@@ -23,7 +23,6 @@ import { piezasPuestas } from '@core/hero/equipo.js';
 import type { MapObject, MapRegion } from '@core/map/map.js';
 import { dueñoEnLaFoto, dueñosDeLaRed } from '@core/map/regiones.js';
 import type { TerrainKind } from '@core/map/terrain.js';
-import type { VistaAsaltante } from '@core/state/asaltantes.js';
 import { type ClimaDeLaPartida, climaDeLaPartida, regionDeLaBatalla } from '@core/state/clima.js';
 import { week } from '@core/state/consultas.js';
 import type { GameEventDraft, Ocupante } from '@core/state/events.js';
@@ -33,7 +32,15 @@ import { comoEstaElSitio, sitioDelObjeto } from '@core/state/sitios.js';
 import type { GameState } from '@core/state/tipos.js';
 import type { Town } from '@core/town/town.js';
 import { vecinosDeLaBase, vozDe } from '@core/town/voces.js';
-import type { FactionId, Hex, PlayerId, Point, UnitInfo, Veterania } from '@core/types.js';
+import type {
+  FactionId,
+  Hex,
+  PlayerId,
+  Point,
+  UnitInfo,
+  Veterania,
+  VistaAsaltante,
+} from '@core/types.js';
 
 /**
  * El mapa tal como viaja. Los caminos van como **tramos** (#153), los mismos que

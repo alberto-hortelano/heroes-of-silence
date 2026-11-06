@@ -1598,3 +1598,21 @@ export function conectadoABase(
   if (k === undefined) throw new Error(`la región "${que.region}" no existe en este mapa`);
   return conexion.regiones.has(k);
 }
+
+/** La región de una casilla, o −1: muro, nodo o fuera de toda región. */
+export function regionDeCasilla(map: GameMap, p: Point): number {
+  if (!inBounds(map, p)) return -1;
+  return estructura(map).regionDe[p.y * map.width + p.x] as number;
+}
+
+/** Si la casilla toca un nodo: un grupo ahí taparía un paso. */
+export function tocaUnNodo(map: GameMap, p: Point): boolean {
+  if (!inBounds(map, p)) return false;
+  return juntoANodo(map)[p.y * map.width + p.x] === 1;
+}
+
+/** La región del clima de la casilla `p`, por su índice en `map.regions` (−1 en un mapa sin regiones). Lanza fuera del mapa. */
+export function regionDelSitio(map: MapaDeRed, p: Point): number {
+  if (!inBounds(map, p)) throw new Error(`(${p.x},${p.y}) está fuera del mapa: no tiene clima`);
+  return regionMasCercana(map)[p.y * map.width + p.x] as number;
+}

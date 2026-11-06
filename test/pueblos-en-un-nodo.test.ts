@@ -18,12 +18,8 @@ import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
 import { renderLog } from '../src/client/views/panels.js';
 import { POBLAMIENTO, validarPoblamiento } from '../src/core/data.js';
-import {
-  buildMap,
-  generateMapPlan,
-  type PlanConCasillas,
-  validateMapPlan,
-} from '../src/core/map/generate.js';
+import type { PlanConCasillas } from '../src/core/map/generar/plan.js';
+import { buildMap, generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';
 import { espejoDe } from '../src/core/map/geometria.js';
 import { BARRERAS_DEL_PUEBLO, type MapObject, pointKey } from '../src/core/map/map.js';
 import { puertaDe } from '../src/core/map/puertas.js';

@@ -12,13 +12,8 @@ import {
   maxMana,
 } from '../hero/hero.js';
 import { heroLeadership, troopRoom, withTroops } from '../hero/troop.js';
-import {
-  basesDelPlan,
-  buildMap,
-  generateMapPlan,
-  type MapPlan,
-  validateMapPlan,
-} from '../map/generate.js';
+import type { MapPlan } from '../map/generar/plan.js';
+import { basesDelPlan, buildMap, generateMapPlan, validateMapPlan } from '../map/generate.js';
 import type { EstadoDelMundo, MundoLeido } from '../mundo/formato.js';
 import { estadoInicialDelMundo, objetosDeLosLugares } from '../mundo/validar.js';
 import { createRng, hashDeTexto, type Rng } from '../rng.js';

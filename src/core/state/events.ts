@@ -17,9 +17,8 @@
  */
 import type { ResumenDeBatalla } from '../battle/resumen.js';
 import type { Side } from '../battle/types.js';
-import type { GrupoDeTropa } from '../data.js';
 import type { ObraDelPuesto } from '../map/map.js';
-import type { PlayerId, Point } from '../types.js';
+import type { GrupoDeTropa, PlayerId, Point } from '../types.js';
 
 /**
  * Contra qué se libra una batalla del mapa.

@@ -12,8 +12,14 @@
 import { unidadesDelJuego } from '../catalogo.js';
 import { PIEZAS_DEL_CATALOGO } from '../hero/equipo.js';
 import { armyLeadership, capacidadDe } from '../hero/troop.js';
-import { basesDelPlan, buildMap, type MapPlan } from '../map/generate.js';
-import { estructura, franjasDeBarrera, regionesDelSitio } from '../map/regiones.js';
+import type { MapPlan } from '../map/generar/plan.js';
+import { basesDelPlan, buildMap } from '../map/generate.js';
+import {
+  estructura,
+  franjasDeBarrera,
+  regionDeCasilla,
+  regionesDelSitio,
+} from '../map/regiones.js';
 import { isWalkable } from '../map/terrain.js';
 import { nivelDeUnidad } from '../nivel.js';
 import {
@@ -23,7 +29,6 @@ import {
   FIGURAS_NUEVAS_POR_MUNDO,
   type FiguraDeNpc,
 } from '../npcs.js';
-import { regionDeCasilla } from '../state/asaltantes.js';
 import { newGame } from '../state/setup.js';
 import { type PersonaDeLaFaccion, personasDeLaFaccion } from '../town/voces.js';
 import type { FactionId, PlayerId, Point } from '../types.js';

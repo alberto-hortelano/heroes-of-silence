@@ -32,7 +32,7 @@
  *    (`mejorarElPuesto`; lo vigila `test/invariantes.test.ts`). El oro lo cobra la
  *    acción, en `game.ts`, como toda compra.
  *
- * No importa nada de `game.ts` salvo tipos: `game.ts` lo importa a él. El dueño
+ * No importa nada de `game.ts` (sus tipos, de `tipos.ts`): `game.ts` lo importa a él. El dueño
  * de un sitio lo pregunta a la red (`dueñoDeUnSitio`, `map/regiones.ts`).
  */
 import sitiosJson from '../../../data/sitios.json' with { type: 'json' };
@@ -66,21 +66,17 @@ import {
 } from '../map/map.js';
 import { dueñoDeUnSitio, sitioEnUnNodo } from '../map/regiones.js';
 import { oroBlocker, type Town } from '../town/town.js';
-import { type Army, NOMBRE_DE_FACCION, type PlayerId, type Point, type Troop } from '../types.js';
+import {
+  type Army,
+  type Guarnicion,
+  NOMBRE_DE_FACCION,
+  type PlayerId,
+  type Point,
+  type Troop,
+} from '../types.js';
 import { deLaLista, entero, esObjeto, problemasDeObjeto } from '../validar.js';
 import type { Ocupante } from './events.js';
 import type { AdventureAction, GameState } from './tipos.js';
-
-/**
- * La tropa que guarda un sitio, y de quién es: quien la dejó, o el dueño con que
- * nació (la de una base); `null`, la neutral de una ciudad neutral. **No cambia de
- * bando** porque cambie el dueño del sitio (P1 de la tarea 2): si el sitio pasa a
- * otro, la tropa lo ocupa (`ocupanteDe`).
- */
-export interface Guarnicion {
-  readonly dueño: PlayerId | null;
-  readonly tropa: Army;
-}
 
 type Nodo = Extract<MapObject, { kind: 'node' }>;
 type Pueblo = Extract<MapObject, { kind: 'village' }>;

@@ -37,7 +37,7 @@ import { RANGO_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
 import { GARRISON_LEADERSHIP } from '../hero/troop.js';
 import { hechizo } from '../magia/catalogo.js';
 import { queHaceElHechizo } from '../magia/dicho.js';
-import { LADO_MAXIMO_DEL_PLAN, LADO_MINIMO_DEL_PLAN } from '../map/generate.js';
+import { LADO_MAXIMO_DEL_PLAN, LADO_MINIMO_DEL_PLAN } from '../map/generar/plan.js';
 import { BARRERAS_DEL_PUEBLO } from '../map/map.js';
 import { LADO_DEL_RECINTO, SEPARACION_DE_CIUDADES } from '../map/recinto.js';
 import {

@@ -338,3 +338,36 @@ simbolo	src/core/state/game.ts	src/core/state/consultas.ts	turnBlocker
 simbolo	src/core/state/game.ts	src/core/state/consultas.ts	describePlayer
 fichero	src/core/ai/fuerza.ts	src/core/hero/fuerza.ts	
 simbolo	src/core/state/game.ts	src/core/ai/turn.ts	resolvePendingBattle
+simbolo	src/core/data.ts	src/core/types.ts	GrupoDeTropa
+simbolo	src/core/state/asaltantes.ts	src/core/types.ts	VistaAsaltante
+simbolo	src/core/state/asaltantes.ts	src/core/types.ts	Raider
+simbolo	src/core/state/asaltantes.ts	src/core/types.ts	RaiderPlaneado
+simbolo	src/core/state/sitios.ts	src/core/types.ts	Guarnicion
+simbolo	src/core/state/asaltantes.ts	src/core/hero/grupos.ts	problemasDeGrupoNeutral
+simbolo	src/core/state/asaltantes.ts	src/core/hero/grupos.ts	problemasDeAsaltante
+simbolo	src/core/combate.ts	src/core/hero/grupos.ts	LoQueNaceSinHeroe
+simbolo	src/core/combate.ts	src/core/hero/grupos.ts	loNeutralAlTope
+simbolo	src/core/combate.ts	src/core/hero/grupos.ts	gruposAlTope
+simbolo	src/core/state/asaltantes.ts	src/core/map/regiones.ts	regionDeCasilla
+simbolo	src/core/state/asaltantes.ts	src/core/map/regiones.ts	tocaUnNodo
+simbolo	src/core/state/clima.ts	src/core/map/regiones.ts	regionDelSitio
+simbolo	src/core/map/generate.ts	src/core/map/generar/plan.ts	TerrainPatch
+simbolo	src/core/map/generate.ts	src/core/map/generar/plan.ts	PlannedWall
+simbolo	src/core/map/generate.ts	src/core/map/generar/plan.ts	RegionPlaneada
+simbolo	src/core/map/generate.ts	src/core/map/generar/plan.ts	PlannedTown
+simbolo	src/core/map/generate.ts	src/core/map/generar/plan.ts	PlanComun
+simbolo	src/core/map/generate.ts	src/core/map/generar/plan.ts	PlanConCasillas
+simbolo	src/core/map/generate.ts	src/core/map/generar/plan.ts	PlanConTramos
+simbolo	src/core/map/generate.ts	src/core/map/generar/plan.ts	MapPlan
+simbolo	src/core/map/generate.ts	src/core/map/generar/plan.ts	BuiltMap
+simbolo	src/core/map/generate.ts	src/core/map/generar/plan.ts	REGIONES_POR_BANDO
+simbolo	src/core/map/generate.ts	src/core/map/generar/plan.ts	REGIONES_MINIMAS_POR_BANDO
+simbolo	src/core/map/generate.ts	src/core/map/generar/plan.ts	REGIONES_MAXIMAS_POR_BANDO
+simbolo	src/core/map/generate.ts	src/core/map/generar/plan.ts	ladoDelMapa
+simbolo	src/core/map/generate.ts	src/core/map/generar/plan.ts	regionesDelMapa
+simbolo	src/core/map/generate.ts	src/core/map/generar/plan.ts	LADO_DEL_MAPA
+simbolo	src/core/map/generate.ts	src/core/map/generar/plan.ts	LADO_MINIMO_DEL_PLAN
+simbolo	src/core/map/generate.ts	src/core/map/generar/plan.ts	LADO_MAXIMO_DEL_PLAN
+simbolo	src/core/map/generate.ts	src/core/map/generar/plan.ts	LADO_MINIMO_DEL_GENERADOR
+simbolo	src/core/map/generate.ts	src/core/map/generar/plan.ts	LADO_MAXIMO_DEL_GENERADOR
+simbolo	src/core/state/asaltantes.ts	src/core/hero/grupos.ts	la comprobación de las composiciones de data/asaltantes.json al cargar (una sentencia de efecto, a mano)

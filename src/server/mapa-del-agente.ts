@@ -19,7 +19,8 @@
 
 import type { MapGenerateResponse } from '@core/contract/agent.js';
 import { type MapRequestOptions, serializeMapRequest } from '@core/contract/serialize.js';
-import { basesDelPlan, type MapPlan, validateMapPlan } from '@core/map/generate.js';
+import type { MapPlan } from '@core/map/generar/plan.js';
+import { basesDelPlan, validateMapPlan } from '@core/map/generate.js';
 import type { AgentAnswer, AgentLink } from './agent-link.js';
 import { notaMapaAceptado, notaMapaRechazado } from './notas.js';
 

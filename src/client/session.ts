@@ -103,7 +103,6 @@ import {
   asaltantesALaVista,
   emboscadaEnLaRuta,
   loQueLaPara,
-  type VistaAsaltante,
 } from '@core/state/asaltantes.js';
 import {
   type ClimaDeLaPartida,
@@ -211,6 +210,7 @@ import {
   type PoderId,
   type Point,
   type UnitInfo,
+  type VistaAsaltante,
 } from '@core/types.js';
 import { componerVistaDelAyuntamiento, type VistaDelAyuntamiento } from './ayuntamiento/vista.js';
 import { quienesDe } from './desenlace.js';

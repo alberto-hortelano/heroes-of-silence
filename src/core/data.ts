@@ -42,6 +42,7 @@ import type {
   Equipo,
   ExtrasDeLaRueda,
   FactionId,
+  GrupoDeTropa,
   HuecoDePieza,
   NivelesDeLaRueda,
   UnitInfo,
@@ -256,12 +257,6 @@ export const MURALLA: ReglasDeLaMuralla = {
   defensaEnLoAlto: defensaEnLoAlto(murallaJson.defensaEnLoAlto),
 };
 
-/** Un grupo de individuos de la misma criatura, como se escriben en los datos. */
-export interface GrupoDeTropa {
-  readonly creature: string;
-  readonly count: number;
-}
-
 /**
  * Las reglas de los asaltantes de caminos, de `data/asaltantes.json`.
  * **Inventadas y provisionales**, y así lo dice su `_comment`: en HoMM2 los
@@ -280,7 +275,7 @@ export interface ReglasDeAsaltantes {
   readonly liderazgoMax: number;
   /**
    * La fuerza bruta que puede sumar un grupo: el techo de lo que pega. Lo
-   * comprueba `state/asaltantes.ts` al cargar, que es quien sabe medirla sin
+   * comprueba `hero/grupos.ts` al cargar, que es quien sabe medirla sin
    * cerrar un ciclo con este módulo.
    */
   readonly fuerzaMax: number;
@@ -314,7 +309,7 @@ function reglasDeAsaltantes(): ReglasDeAsaltantes {
     throw new Error(`${fichero}: no hay ninguna composición, y un grupo que brota necesita una`);
   }
   // Cada composición (unidades que existan, cupo, liderazgo y fuerza) la mira
-  // `state/asaltantes.ts` al cargar: pide el catálogo de unidades y la fuerza, y
+  // `hero/grupos.ts` al cargar: pide el catálogo de unidades y la fuerza, y
   // desde aquí serían ciclos.
   return {
     probabilidadSemanal: j.probabilidadSemanal,

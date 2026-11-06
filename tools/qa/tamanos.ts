@@ -32,7 +32,7 @@
 import { autoResolve } from '../../src/core/ai/tactics.js';
 import { playAiTurn } from '../../src/core/ai/turn.js';
 import { fuerzaDe } from '../../src/core/hero/fuerza.js';
-import { ladoDelMapa } from '../../src/core/map/generate.js';
+import { ladoDelMapa } from '../../src/core/map/generar/plan.js';
 import { pointKey } from '../../src/core/map/map.js';
 import { createRng } from '../../src/core/rng.js';
 import { baseOf, lugarDelRival, settleBattle } from '../../src/core/state/game.js';

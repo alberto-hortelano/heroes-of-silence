@@ -58,14 +58,12 @@ import { ASALTANTES, ECONOMIA, EQUIPO, tiposDeHeroe } from '../src/core/data.js'
 import { deDondeSale, PIEZAS_DE_ARMERIA, seVende } from '../src/core/hero/equipo.js';
 import { MARGEN_CONTRA_NEUTRALES } from '../src/core/hero/fuerza.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../src/core/hero/troop.js';
+import { LADO_DEL_MAPA, type MapPlan, REGIONES_POR_BANDO } from '../src/core/map/generar/plan.js';
 import {
   buildMap,
   caminosDelPlan,
   generateMapPlan,
-  LADO_DEL_MAPA,
-  type MapPlan,
   planDelAgente,
-  REGIONES_POR_BANDO,
   validateMapPlan,
 } from '../src/core/map/generate.js';
 import { pointFromKey, pointKey, RedDeCaminos, stepCost } from '../src/core/map/map.js';

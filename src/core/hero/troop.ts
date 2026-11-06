@@ -20,8 +20,8 @@ import {
   unidadDelJuego,
 } from '../catalogo.js';
 import { cupoDelHeroe } from '../combate.js';
-import { type GrupoDeTropa, LIDERAZGO } from '../data.js';
-import type { Army, Stack, Troop, UnitInfo, Veterania } from '../types.js';
+import { LIDERAZGO } from '../data.js';
+import type { Army, GrupoDeTropa, Stack, Troop, UnitInfo, Veterania } from '../types.js';
 import { piezasPuestas } from './equipo.js';
 import {
   RANGO_MAXIMO_DE_TROPA,

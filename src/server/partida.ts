@@ -12,7 +12,7 @@
 
 import { once } from 'node:events';
 import { troopSummary } from '@core/hero/troop.js';
-import { LADO_DEL_MAPA } from '@core/map/generate.js';
+import { LADO_DEL_MAPA } from '@core/map/generar/plan.js';
 import { parseSeed } from '@core/rng.js';
 import { townsOf } from '@core/state/consultas.js';
 import type { PlayerId } from '@core/types.js';

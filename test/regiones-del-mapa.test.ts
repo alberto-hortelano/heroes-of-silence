@@ -7,7 +7,6 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  generateMapPlan,
   LADO_DEL_MAPA,
   LADO_MAXIMO_DEL_GENERADOR,
   LADO_MINIMO_DEL_GENERADOR,
@@ -16,7 +15,8 @@ import {
   REGIONES_MINIMAS_POR_BANDO,
   REGIONES_POR_BANDO,
   regionesDelMapa,
-} from '../src/core/map/generate.js';
+} from '../src/core/map/generar/plan.js';
+import { generateMapPlan } from '../src/core/map/generate.js';
 import { createRng } from '../src/core/rng.js';
 import { rango, segunPrisa } from './lento.js';
 

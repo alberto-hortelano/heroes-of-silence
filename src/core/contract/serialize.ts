@@ -68,7 +68,7 @@ import {
 import { todosLosHechizos } from '../magia/catalogo.js';
 import { queHaceElHechizo } from '../magia/dicho.js';
 import type { Hechizo } from '../magia/formato.js';
-import { regionesDelMapa } from '../map/generate.js';
+import { regionesDelMapa } from '../map/generar/plan.js';
 import { pointFromKey } from '../map/map.js';
 import { LADO_DEL_RECINTO, SEPARACION_DE_CIUDADES } from '../map/recinto.js';
 import { sitioEnUnNodo } from '../map/regiones.js';

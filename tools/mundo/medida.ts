@@ -9,6 +9,7 @@
  * `critica.md`). Lo que dice si es plano es leer la biblia y un diálogo entero.
  */
 import { buildMap } from '../../src/core/map/generate.js';
+import { regionDeCasilla } from '../../src/core/map/regiones.js';
 import {
   batallaDe,
   type Condicion,
@@ -18,7 +19,6 @@ import {
   type Lugar,
   type MundoLeido,
 } from '../../src/core/mundo/formato.js';
-import { regionDeCasilla } from '../../src/core/state/asaltantes.js';
 import { palabrasDe } from './disco.js';
 
 /** Las conversaciones de una persona de un lugar. */
