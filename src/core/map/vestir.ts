@@ -20,6 +20,7 @@ import { BARRERAS_DEL_MAPA, type BarreraConPeso } from '../data.js';
 import { largoALaEscala } from '../escala.js';
 import type { Rng } from '../rng.js';
 import { Frontera } from './frontera.js';
+import { espejoDe, parejaDe } from './geometria.js';
 import {
   APOYOS_DE_MURALLA,
   juntoACiudad,
@@ -109,12 +110,6 @@ export function ponerTipo(tipos: Tipos, i: number, t: number): void {
   }
   tipos[i] = t;
 }
-
-/** La pareja de una región en el espejo: las regiones 2k y 2k+1 son espejo. */
-export const parejaDe = (r: number): number => (r % 2 === 0 ? r + 1 : r - 1);
-
-/** La casilla espejo de `i` en un mapa de `N` casillas: el giro de 180° del generador. */
-export const espejoDe = (i: number, N: number): number => N - 1 - i;
 
 /** Un sorteo por pesos con el `rng` de la partida: la única forma de elegir barrera. */
 function sortear(rng: Rng, candidatas: readonly BarreraConPeso[]): Barrera {

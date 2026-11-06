@@ -38,6 +38,7 @@ import {
 import type { Guarnicion } from '../state/sitios.js';
 import { createTown, primeraCiudadDe, type Town } from '../town/town.js';
 import { type Army, FACTION_IDS, type FactionId, type PlayerId, type Point } from '../types.js';
+import { espejoDe, parejaDe } from './geometria.js';
 import {
   BARRERAS_DEL_PUEBLO,
   createEmptyMap,
@@ -118,11 +119,9 @@ import {
   type EntradaDeCaminos,
   engordarFronteras,
   esDelRio,
-  espejoDe,
   esquinasDeAgua,
   mesasDelRelieve,
   nivelesDeLoEngordado,
-  parejaDe,
   ponerObstaculos,
   ponerTipo,
   sinAguaEnLasEsquinas,

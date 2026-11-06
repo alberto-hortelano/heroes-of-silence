@@ -306,3 +306,5 @@ simbolo	test/mapa-de-prueba.ts	test/mapa-de-prueba.ts	pieza → piezaDeCaminos
 simbolo	test/armadura.test.ts	test/armadura.test.ts	JINETE → JINETE_CON_BARDA
 simbolo	test/{experiencia,prevision}.test.ts	(los mismos)	mando → mandoConFlechaMagica, mandoConCincoHechizos
 simbolo	test/poderes.test.ts	test/poderes.test.ts	hastaSuTurno → hastaSuTurnoEn50
+simbolo	src/core/map/vestir.ts	src/core/map/geometria.ts	parejaDe
+simbolo	src/core/map/vestir.ts	src/core/map/geometria.ts	espejoDe

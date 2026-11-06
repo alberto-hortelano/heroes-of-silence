@@ -24,10 +24,10 @@ import {
   type PlanConCasillas,
   validateMapPlan,
 } from '../src/core/map/generate.js';
+import { espejoDe } from '../src/core/map/geometria.js';
 import { BARRERAS_DEL_PUEBLO, type MapObject, pointKey } from '../src/core/map/map.js';
 import { puertaDe } from '../src/core/map/puertas.js';
 import { estructura } from '../src/core/map/regiones.js';
-import { espejoDe } from '../src/core/map/vestir.js';
 import { createRng } from '../src/core/rng.js';
 import { applyAdventureAction, type GameState, townById } from '../src/core/state/game.js';
 import { rentaDelDia } from '../src/core/state/renta.js';
