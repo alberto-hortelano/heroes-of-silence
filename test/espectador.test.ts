@@ -65,7 +65,7 @@ import {
 } from '../src/server/vista-espectador.js';
 import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
 import { forzarTurno } from './batalla-de-prueba.js';
-import { TROPA } from './comun.js';
+import { RAIZ, TROPA } from './comun.js';
 import { conCaminos, costesDelAlcance, planConCiudadDeRegion } from './mapa-de-prueba.js';
 import { monstruoVivo, sinGuarnicionDeSalida } from './partida-de-prueba.js';
 
@@ -340,9 +340,7 @@ describe('adaptar: la vuelta del cable', () => {
     const vista: SpectatorView = JSON.parse(JSON.stringify(construirVista(state, [])));
     expect(vista.seed).toBe(7);
     const escena = adaptarEscena(vista);
-    const catalogo = JSON.parse(
-      readFileSync(join(import.meta.dirname, '..', RUTA_DEL_CATALOGO), 'utf8'),
-    ) as Catalogo;
+    const catalogo = JSON.parse(readFileSync(join(RAIZ, RUTA_DEL_CATALOGO), 'utf8')) as Catalogo;
     expect(JSON.stringify(componer(escena.map, vista.seed, catalogo))).toBe(
       JSON.stringify(componer(state.map, state.seed, catalogo)),
     );

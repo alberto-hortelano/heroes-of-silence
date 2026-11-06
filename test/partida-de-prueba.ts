@@ -285,6 +285,7 @@ export function acabarPorLaBase(
   }
   return state;
 }
+
 // ------------------------------------------------------------ la guarnición de una ciudad
 
 /**

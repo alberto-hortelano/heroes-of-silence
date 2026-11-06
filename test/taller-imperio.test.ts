@@ -4,7 +4,7 @@
  * sobre sus unidades (el Duelista sustituye al Noble; el Ingeniero lleva rifle).
  */
 import { existsSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   clipDeDisparoDe,
@@ -21,8 +21,8 @@ import {
   UNIDADES,
   unidad,
 } from '../tools/taller/unidades.js';
+import { RAIZ } from './comun.js';
 
-const RAIZ = resolve(import.meta.dirname, '..');
 const atlas = JSON.parse(
   readFileSync(join(RAIZ, 'assets/unidades/_poses/atlas-8d.json'), 'utf8'),
 ) as {

@@ -50,11 +50,9 @@ import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 import type { Point, Stack } from '../src/core/types.js';
 import { avanzarHasta, heroeDeBatalla, ladoDeBatalla } from './batalla-de-prueba.js';
-import { JINETE, NO_MUERTO, PESADA, TIRADOR_NO_MUERTO, TROPA, TROPA_BARATA } from './comun.js';
+import { ctx, JINETE, NO_MUERTO, PESADA, TIRADOR_NO_MUERTO, TROPA, TROPA_BARATA } from './comun.js';
 import { costesDelAlcance } from './mapa-de-prueba.js';
 import { darLaCiudad, ejercito, forzarBatalla, guarnecer } from './partida-de-prueba.js';
-
-const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
 /** Juega con la IA de reglas hasta que le toque a `side`, sin terminar la batalla. */
 function hastaQueLeToque(state: BattleState, side: Side): void {

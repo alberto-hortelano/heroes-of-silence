@@ -52,6 +52,7 @@ import { nivelPintado, SOTOBOSQUE, sotobosqueDe } from '../src/client/render/esc
 import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
 import { trozosConAlfa } from '../src/client/render/escenario/pintar.js';
 import { enElRecinto } from '../src/client/render/escenario/recinto.js';
+import { RAIZ } from './comun.js';
 import { catalogoDelDisco, partidaDe } from './escena-de-prueba.js';
 import { LENTO, rango } from './lento.js';
 
@@ -209,7 +210,7 @@ const HOJAS_MIRADAS: Readonly<Record<string, string>> = {
 };
 
 describe('los árboles de la cubierta, mirados uno a uno', () => {
-  const MODULOS = join(import.meta.dirname, '..', 'assets', 'mapa', 'modulos');
+  const MODULOS = join(RAIZ, 'assets', 'mapa', 'modulos');
 
   it('las hojas de cubierta son las que se miraron, sin cambiar', () => {
     for (const [hoja, suma] of Object.entries(HOJAS_MIRADAS)) {

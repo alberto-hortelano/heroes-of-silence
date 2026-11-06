@@ -11,14 +11,12 @@ import { resumenDeBatalla } from '../src/core/battle/resumen.js';
 import { type BattleState, HERO_BODY, queEs } from '../src/core/battle/types.js';
 import { unidadesDelJuego } from '../src/core/catalogo.js';
 import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
-import { createRng } from '../src/core/rng.js';
-import { cronicaPara } from '../src/core/state/events.js';
-import { type GameContext, heroesOf, resolvePendingBattle } from '../src/core/state/game.js';
-import { newGame } from '../src/core/state/setup.js';
-import { TROPA_BARATA } from './comun.js';
-import { ejercito, forzarBatalla, ponerMonstruo } from './partida-de-prueba.js';
 
-const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
+import { cronicaPara } from '../src/core/state/events.js';
+import { heroesOf, resolvePendingBattle } from '../src/core/state/game.js';
+import { newGame } from '../src/core/state/setup.js';
+import { ctx, TROPA_BARATA } from './comun.js';
+import { ejercito, forzarBatalla, ponerMonstruo } from './partida-de-prueba.js';
 
 /**
  * La semilla de la batalla: tiene que lanzar algún hechizo y matar algo, y el

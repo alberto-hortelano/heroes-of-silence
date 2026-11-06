@@ -18,6 +18,7 @@ import {
   tableroPara,
 } from '../src/client/render/proyeccion.js';
 import { disposicionDe } from '../src/shared/base.js';
+import { RAIZ } from './comun.js';
 
 describe('la escala de la base: la del combate en un marco 20:11 de su alto', () => {
   it('con el mismo alto, el mismo paso a cualquier ancho', () => {
@@ -51,7 +52,7 @@ describe('la escala de la base: la del combate en un marco 20:11 de su alto', ()
   });
 
   it('el 860 de la hoja de estilos es `ANCHO_DEL_COMBATE_EN_MOVIL`', () => {
-    const css = readFileSync(join(import.meta.dirname, '../src/client/style.css'), 'utf8');
+    const css = readFileSync(join(RAIZ, 'src/client/style.css'), 'utf8');
     // La regla del lienzo de batalla, lleve los selectores que lleve: desde la fase de
     // despliegue (02-11-2026) la comparte la tropa, que es el mismo tablero
     // (`#app[data-escena='battle'] #canvas, #app[data-escena='tropa'] #canvas`).
@@ -68,7 +69,7 @@ describe('la escala de la base: la del combate en un marco 20:11 de su alto', ()
   });
 
   it('el marco de la base no lleva proporción propia en la hoja de estilos: va a todo el alto, como el mapa', () => {
-    const css = readFileSync(join(import.meta.dirname, '../src/client/style.css'), 'utf8');
+    const css = readFileSync(join(RAIZ, 'src/client/style.css'), 'utf8');
     const reglas = css.split('}').filter((r) => /data-escena='town'/.test(r));
     for (const r of reglas) expect(r, r).not.toMatch(/aspect-ratio|align-self/);
   });

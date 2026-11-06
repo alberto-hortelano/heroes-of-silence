@@ -15,7 +15,7 @@
  * `pnpm verify:lento`, todas.
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import {
@@ -26,9 +26,10 @@ import {
   piesEn,
 } from '../src/client/render/aro.js';
 import { FIGURA } from '../src/shared/arte.js';
+import { RAIZ } from './comun.js';
 import { segunPrisa } from './lento.js';
 
-const UNIDADES = fileURLToPath(new URL('../assets/unidades/', import.meta.url));
+const UNIDADES = join(RAIZ, 'assets/unidades/');
 
 /** Las hojas con reposo de frente: las de la tropa y los héroes. */
 const TODAS = readdirSync(UNIDADES)

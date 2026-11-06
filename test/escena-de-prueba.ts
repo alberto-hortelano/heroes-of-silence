@@ -5,7 +5,7 @@
  * T, 06-11-2026.)
  */
 import { readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import {
   type Catalogo,
   type CatalogoEnBruto,
@@ -19,6 +19,7 @@ import type { GameMap } from '../src/core/map/map.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { Point } from '../src/core/types.js';
 import { primeraSemillaCon } from '../tools/comun/semillas.js';
+import { RAIZ } from './comun.js';
 
 /**
  * Un puente cuyo tablero, hacia uno de sus extremos (del 60 al 90 % del
@@ -77,9 +78,7 @@ export function puenteSobreElAgua(): {
 /** El catálogo de la escena que está en el repo (`assets/mapa/escena.json`), comprobado como lo carga el juego. */
 export function catalogoDelDisco(): Catalogo {
   return catalogoValidado(
-    JSON.parse(
-      readFileSync(join(resolve(import.meta.dirname, '..'), RUTA_DEL_CATALOGO), 'utf8'),
-    ) as CatalogoEnBruto,
+    JSON.parse(readFileSync(join(RAIZ, RUTA_DEL_CATALOGO), 'utf8')) as CatalogoEnBruto,
   );
 }
 

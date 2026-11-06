@@ -19,7 +19,7 @@ import { fuerzaDe, poderDe, ventajaClara } from '../src/core/ai/fuerza.js';
 import { unidadesDelJuego } from '../src/core/catalogo.js';
 import type { GrupoDeTropa } from '../src/core/data.js';
 import { objectAt, pointFromKey, pointKey } from '../src/core/map/map.js';
-import { createRng } from '../src/core/rng.js';
+
 import {
   asaltantesALaVista,
   emboscadaEnLaRuta,
@@ -32,7 +32,6 @@ import {
   applyAdventureAction,
   baseOf,
   caminoHasta,
-  type GameContext,
   type GameState,
   heroById,
   heroesOf,
@@ -40,10 +39,9 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { Point } from '../src/core/types.js';
+import { ctx } from './comun.js';
 import { costesDelAlcance } from './mapa-de-prueba.js';
 import { copiaDePartida, fueraDeSuBase, guarnecer } from './partida-de-prueba.js';
-
-const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
 /** Lo que mide un individuo de cada unidad del catálogo, de menos a más. */
 function unidadesPorPoder(): readonly string[] {

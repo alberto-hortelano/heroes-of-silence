@@ -4,15 +4,15 @@
  * disco de la arena y, con él, el taller: un test que no las pide no lo carga.
  * (De `test/helpers.ts`, fase T, 06-11-2026.)
  */
-import { resolve } from 'node:path';
 import type { Hoja } from '../src/core/unidad.js';
 import { hojasDelTaller } from '../tools/arena/borrador.js';
+import { RAIZ } from './comun.js';
 
 let hojasLeidas: readonly Hoja[] | null = null;
 
 /** Las hojas de la arena del repo, leídas una vez por fichero de test. */
 export function hojasDeLaArena(): readonly Hoja[] {
-  hojasLeidas ??= hojasDelTaller(resolve(import.meta.dirname, '..'));
+  hojasLeidas ??= hojasDelTaller(RAIZ);
   return hojasLeidas;
 }
 

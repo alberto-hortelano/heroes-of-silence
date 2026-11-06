@@ -10,7 +10,7 @@
  * (`enElEncaje`), con la luminancia de cada textura de verdad: con el patrón
  * solo da 0,9 o más; con los parches, cerca de 0.
  */
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { nivelPintado } from '../src/client/render/escenario/escalon.js';
@@ -28,9 +28,9 @@ import {
   RADIO_DEL_PARCHE,
 } from '../src/client/render/escenario/parches.js';
 import { pintarSuelo, separar } from '../src/client/render/escenario/pintar.js';
+import { RAIZ } from './comun.js';
 import { escenaDe } from './escena-de-prueba.js';
 
-const RAIZ = resolve(import.meta.dirname, '..');
 const SUELOS = ['grass', 'dirt', 'snow', 'sand', 'swamp', 'lava'] as const;
 
 /** Muestras por casilla a las que se mide: las de `medir.ts`. */

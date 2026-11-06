@@ -5,7 +5,7 @@
  * mapa real sin nada apoyado sobre un objeto.
  */
 import { readFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
 import { carasLisas, perfilesDelCatalogo } from '../src/client/render/escenario/caras.js';
@@ -49,6 +49,7 @@ import type { MapObject } from '../src/core/map/map.js';
 import type { TerrainKind } from '../src/core/map/terrain.js';
 import { newGame } from '../src/core/state/setup.js';
 import { leerCatalogo, textoDelCatalogo } from '../tools/taller/escenario/catalogo-disco.js';
+import { RAIZ } from './comun.js';
 import { catalogoDelDisco, escenaDe } from './escena-de-prueba.js';
 
 describe('el relieve', () => {
@@ -370,8 +371,6 @@ describe('el esparcido', () => {
     expect(uno).toEqual(otro);
   });
 });
-
-const RAIZ = resolve(import.meta.dirname, '..');
 
 describe('la escena de un mapa real', () => {
   const catalogo = catalogoDelDisco();

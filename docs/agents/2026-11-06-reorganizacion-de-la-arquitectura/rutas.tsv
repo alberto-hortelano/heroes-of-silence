@@ -291,3 +291,5 @@ simbolo	test/helpers.ts	test/npcs-de-prueba.ts	FIGURA_DE_PRUEBA
 simbolo	test/helpers.ts	test/npcs-de-prueba.ts	raizDeNpcs
 simbolo	test/helpers.ts	src/core/state/sitios.ts	guarnicionDeLaCiudad (era una reexportación: se importa del núcleo)
 fichero	test/helpers.ts	(retirado)	repartido en comun, partida-de-prueba, mapa-de-prueba, escena-de-prueba, npcs-de-prueba, hojas-de-la-arena, batalla-de-prueba, pelea-de-arena, batalla-de-cliente y tools/comun/semillas.ts
+simbolo	test/*.test.ts (24 copias)	test/comun.ts	RAIZ (y las raíces escritas en línea con import.meta.dirname o new URL(…, import.meta.url))
+simbolo	test/*.test.ts (13 copias)	test/comun.ts	ctx

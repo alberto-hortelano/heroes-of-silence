@@ -32,7 +32,6 @@ import {
   defensaBlocker,
   defensaPorElegir,
   elegirLaDefensa,
-  type GameContext,
   type GameState,
   heroesOf,
   pasosDeHoy,
@@ -57,7 +56,7 @@ import {
   sitioPorId,
 } from '../src/core/state/sitios.js';
 import { type Army, NOMBRE_DE_FACCION, type Troop } from '../src/core/types.js';
-import { JINETE, PESADA, TROPA, TROPA_BARATA } from './comun.js';
+import { ctx, JINETE, PESADA, TROPA, TROPA_BARATA } from './comun.js';
 import { costesDelAlcance } from './mapa-de-prueba.js';
 import {
   conSuEquipo,
@@ -68,8 +67,6 @@ import {
   unPaso,
   unPuebloDe,
 } from './partida-de-prueba.js';
-
-const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
 function jugar(state: GameState, accion: AdventureAction, quien = 0, seed = 1): void {
   applyAdventureAction(state, accion, ctx(seed), quien);

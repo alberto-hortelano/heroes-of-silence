@@ -37,13 +37,12 @@ import { barreraEn, isEnterable, objectAt, type PathStep, pointKey } from '../sr
 import { regionDescubierta, regionesQueDescubre } from '../src/core/map/niebla.js';
 import { FUERA, MURO, pasosDelMapa } from '../src/core/map/recinto.js';
 import { NOMBRE_DE_BARRERA, type TerrainKind } from '../src/core/map/terrain.js';
-import { createRng } from '../src/core/rng.js';
+
 import { emboscador, regionDeCasilla } from '../src/core/state/asaltantes.js';
 import {
   applyAdventureAction,
   barreraDeMañana,
   caminoHasta,
-  type GameContext,
   type GameState,
   heroesOf,
   pasosDeHoy,
@@ -54,10 +53,8 @@ import { rentaDelDia } from '../src/core/state/renta.js';
 import { newGame } from '../src/core/state/setup.js';
 import { FACTION_IDS, type FactionId, type Point } from '../src/core/types.js';
 import { primeraSemillaCon } from '../tools/comun/semillas.js';
-import { JINETE, TROPA } from './comun.js';
+import { ctx, JINETE, TROPA } from './comun.js';
 import { conSuEquipo, ejercito, hastaSuSiguienteTurno } from './partida-de-prueba.js';
-
-const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
 /**
  * Cómo se llama `TROPA` en el catálogo: se lee de él y no se escribe, que el

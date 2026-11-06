@@ -11,7 +11,7 @@
  */
 import { copyFileSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import {
   batallaDeArena,
   type CatalogoDeLaArena,
@@ -39,6 +39,7 @@ import {
 } from '../src/core/hero/equipo.js';
 import type { Rng } from '../src/core/rng.js';
 import type { Unidad } from '../src/core/unidad.js';
+import { RAIZ } from './comun.js';
 
 const MONTAJES = new WeakMap<BattleState, MontajeDeArena>();
 
@@ -102,12 +103,9 @@ export function carpetaDeLaArena(prefijo = 'arena-'): string {
     JSON.stringify({ _comment: COMENTARIO_DEL_CATALOGO_DE_EQUIPO, piezas: EQUIPO_ESCRITO }),
   );
   // Y el héroe del repo: «Guardar» escribe su cuerpo y conserva lo demás.
-  copyFileSync(resolve(import.meta.dirname, '..', RUTA_DEL_HEROE), join(dir, RUTA_DEL_HEROE));
+  copyFileSync(join(RAIZ, RUTA_DEL_HEROE), join(dir, RUTA_DEL_HEROE));
   // Y los hechizos (el editor de magia): las unidades los usan como poder.
-  copyFileSync(
-    resolve(import.meta.dirname, '..', 'data/hechizos.json'),
-    join(dir, 'data/hechizos.json'),
-  );
+  copyFileSync(join(RAIZ, 'data/hechizos.json'), join(dir, 'data/hechizos.json'));
   return dir;
 }
 

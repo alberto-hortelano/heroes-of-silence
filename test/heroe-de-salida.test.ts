@@ -9,7 +9,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { ECONOMIA, tipoDeHeroePorDefecto, validarEconomia } from '../src/core/data.js';
-import { createRng } from '../src/core/rng.js';
+
 import {
   type AdventureAction,
   applyAdventureAction,
@@ -21,14 +21,14 @@ import {
 import { newGame } from '../src/core/state/setup.js';
 import { guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import { oroBlocker } from '../src/core/town/town.js';
+import { ctx } from './comun.js';
 
-const ctx = () => ({ rng: createRng(7) });
 const baseDe = (state: GameState, jugador = 0) => {
   const id = state.players.find((p) => p.id === jugador)!.base!;
   return state.towns.find((t) => t.id === id)!;
 };
 const accion = (state: GameState, a: AdventureAction, quien = 0) =>
-  applyAdventureAction(state, a, ctx(), quien);
+  applyAdventureAction(state, a, ctx(7), quien);
 
 describe('el precio de todo héroe', () => {
   it('newGame por defecto da a cada jugador su héroe ya pagado', () => {

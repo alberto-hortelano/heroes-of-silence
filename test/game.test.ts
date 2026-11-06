@@ -94,7 +94,16 @@ import {
   SPEED_TO_MOVE_POINTS,
   type SpeedTier,
 } from '../src/core/types.js';
-import { FACCION_A, FACCION_B, JINETE, NO_MUERTO, PESADA, TIRADOR, TROPA_BARATA } from './comun.js';
+import {
+  ctx,
+  FACCION_A,
+  FACCION_B,
+  JINETE,
+  NO_MUERTO,
+  PESADA,
+  TIRADOR,
+  TROPA_BARATA,
+} from './comun.js';
 import { conCaminos, costesDelAlcance, planDeNodos } from './mapa-de-prueba.js';
 import {
   acabarPorLaBase,
@@ -110,8 +119,6 @@ import {
   ponerMonstruo,
   sinGuarnicionDeSalida,
 } from './partida-de-prueba.js';
-
-const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
 describe('maná', () => {
   it('es diez veces el conocimiento', () => {

@@ -47,9 +47,8 @@ import {
   JUEGOS_EN_8D,
   unidad,
 } from '../tools/taller/unidades.js';
+import { RAIZ } from './comun.js';
 import { segunPrisa } from './lento.js';
-
-const RAIZ = join(import.meta.dirname, '..');
 
 const C = OCHO_DIRECCIONES.celda;
 

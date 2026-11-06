@@ -33,6 +33,7 @@ import {
   UNIDADES,
   unidad,
 } from '../tools/taller/unidades.js';
+import { carpetaTemporal } from './comun.js';
 
 let dir: string;
 beforeEach(async () => {
@@ -566,7 +567,7 @@ describe('la celda de las monturas', () => {
 describe('las filas de una hoja', () => {
   it('una hoja de cinco filas no es del taller, y se dice', async () => {
     const lado = 64;
-    const ruta = join(await mkdtemp(join(tmpdir(), 'taller-filas-')), 'cinco.png');
+    const ruta = join(carpetaTemporal('taller-filas-'), 'cinco.png');
     await sharp({
       create: {
         width: lado * FIGURA.columnas,
@@ -578,6 +579,5 @@ describe('las filas de una hoja', () => {
       .png()
       .toFile(ruta);
     await expect(derivarAtlas(ruta)).rejects.toThrow(/por 6 filas/);
-    await rm(join(ruta, '..'), { recursive: true, force: true });
   });
 });

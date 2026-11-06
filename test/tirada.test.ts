@@ -35,9 +35,8 @@ import {
   LARGO_DEL_ADARVE,
   TORCIDO_MAXIMO,
 } from '../tools/taller/muros.js';
+import { RAIZ } from './comun.js';
 import { catalogoDelDisco, escenaDe } from './escena-de-prueba.js';
-
-const RAIZ = join(import.meta.dirname, '..');
 
 const catalogo = catalogoDelDisco();
 const NS1 = catalogo.piezas['muro-ns-1'];

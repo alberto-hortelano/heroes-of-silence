@@ -8,7 +8,7 @@
  */
 
 import { readdirSync, readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { armaduraDe } from '../src/core/battle/armas.js';
 import { createBattle, stackById } from '../src/core/battle/battle.js';
@@ -75,7 +75,7 @@ import {
   type Veterania,
 } from '../src/core/types.js';
 import { cuerpoDeCombate } from '../src/core/unidad.js';
-import { NO_MUERTO, PESADA, TROPA, TROPA_BARATA } from './comun.js';
+import { ctx, NO_MUERTO, PESADA, RAIZ, TROPA, TROPA_BARATA } from './comun.js';
 import {
   darLaCiudad,
   ejercito,
@@ -83,8 +83,6 @@ import {
   guarnecer,
   ponerMonstruo,
 } from './partida-de-prueba.js';
-
-const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
 /**
  * El cuerpo de una unidad del catálogo **sin su equipo de serie**: lo que suma
@@ -864,7 +862,7 @@ describe('la mochila se escribe en un sitio (M2)', () => {
     // El docstring de `aLaMochila` y CLAUDE.md la llamaban «la única escritura
     // que añade» mientras `repartirBotin` añadía por su cuenta. Se mira el texto
     // porque es una frase sobre DÓNDE se escribe, no sobre qué resulta.
-    const raiz = fileURLToPath(new URL('../src/core/', import.meta.url));
+    const raiz = join(RAIZ, 'src/core/');
     const fuera: string[] = [];
     for (const f of readdirSync(raiz, { recursive: true }) as string[]) {
       if (!f.endsWith('.ts')) continue;

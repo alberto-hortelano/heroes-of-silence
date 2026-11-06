@@ -14,8 +14,8 @@ import { FACTION_IDS } from '../src/core/types.js';
 import { NOMBRES_DE_DIRECCION } from '../src/shared/arte.js';
 import { copiarPublico, seCopiaAlBuild } from '../tools/build/publico.js';
 import { direccionesDe } from '../tools/taller/arte-en-disco.js';
+import { RAIZ } from './comun.js';
 
-const RAIZ = join(import.meta.dirname, '..');
 /** Una URL del navegador (`/unidades/…`) a su ruta dentro de `assets/`. */
 const deLaUrl = (url: string): string => url.replace(/^\//, '');
 

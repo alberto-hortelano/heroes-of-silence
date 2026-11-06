@@ -39,6 +39,7 @@ import { Obstaculos } from '../src/client/render/escenario/pasillo.js';
 import { recintoDeLaCiudad } from '../src/core/map/recinto.js';
 import { esBarrera, isWalkable, type Suelo, type TerrainKind } from '../src/core/map/terrain.js';
 import { primeraSemillaCon } from '../tools/comun/semillas.js';
+import { RAIZ } from './comun.js';
 import { catalogoDelDisco, partidaDe } from './escena-de-prueba.js';
 import { itLento, rango } from './lento.js';
 
@@ -133,7 +134,7 @@ describe('cimaDeOtroMaterial: el guardia muerde', () => {
 
 describe('las mesas de arenisca son del acantilado, no de la cordillera', () => {
   const indice = JSON.parse(
-    readFileSync(join(import.meta.dirname, '../assets/mapa/modulos/picos-arenisca.json'), 'utf8'),
+    readFileSync(join(RAIZ, 'assets/mapa/modulos/picos-arenisca.json'), 'utf8'),
   ) as { modulos: { imagen: string; ancho: number; alto: number }[] };
   const mesas = indice.modulos
     .filter((m) => esMesa('picos-arenisca', { nw: m.ancho, nh: m.alto }))

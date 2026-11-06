@@ -20,8 +20,8 @@ import {
   JUEGO_DEL_YBOT,
   UNIDADES,
 } from '../tools/taller/unidades.js';
+import { RAIZ } from './comun.js';
 
-const RAIZ = join(import.meta.dirname, '..');
 const TODAS = [...UNIDADES, ...HEROES];
 
 describe('los clips de cada unidad', () => {

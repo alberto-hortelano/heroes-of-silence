@@ -46,9 +46,10 @@ import {
   type GameState,
   settleBattle,
 } from '../src/core/state/game.js';
-import { leerCrudos, RAIZ, validarEnDisco } from '../tools/mundo/disco.js';
+import { leerCrudos, validarEnDisco } from '../tools/mundo/disco.js';
 import { medirMundo } from '../tools/mundo/medida.js';
 import { leerBancoDeDisco } from '../tools/npcs/banco.js';
+import { RAIZ } from './comun.js';
 
 /** El banco de figuras de NPC del repo: contra él se miran las figuras de los mundos. */
 const BANCO = leerBancoDeDisco();
@@ -845,7 +846,7 @@ describe('el mundo en la URL', () => {
     vi.stubGlobal('fetch', async (url: string) =>
       url === '/__npcs'
         ? new Response('<h1>500</h1>', { status: 500 })
-        : new Response(readFileSync(join(import.meta.dirname, '../assets', url)), {
+        : new Response(readFileSync(join(RAIZ, 'assets', url)), {
             headers: { 'content-type': 'application/json' },
           }),
     );

@@ -22,11 +22,10 @@ import {
   OBRAS_DE_UN_PUESTO,
   type ObraDelPuesto,
 } from '../src/core/map/map.js';
-import { createRng } from '../src/core/rng.js';
+
 import {
   applyAdventureAction,
   baseOf,
-  type GameContext,
   type GameState,
   heroesOf,
   objetosConocidos,
@@ -43,12 +42,11 @@ import {
   sitioPorId,
 } from '../src/core/state/sitios.js';
 import { construirVista, type SpectatorView } from '../src/server/vista-espectador.js';
-import { TROPA_BARATA } from './comun.js';
+import { ctx, TROPA_BARATA } from './comun.js';
 import { ejercito, forzarBatalla, pegadoA, unPaso } from './partida-de-prueba.js';
 
 type Nodo = Extract<MapObject, { kind: 'node' }>;
 
-const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 const DOS_BARATAS = () => ejercito({ creature: TROPA_BARATA, count: 2 });
 
 /**

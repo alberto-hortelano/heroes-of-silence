@@ -28,10 +28,12 @@ import {
   piezaDeCasilla,
   TEXTURAS,
 } from '../tools/taller/mapa-denso.js';
+import { RAIZ } from './comun.js';
 
-const barreras = JSON.parse(
-  readFileSync(join(import.meta.dirname, '../data/barreras.json'), 'utf8'),
-) as Record<'frontera' | 'obstaculos', Record<Suelo, Partial<Record<Barrera, number>>>>;
+const barreras = JSON.parse(readFileSync(join(RAIZ, 'data/barreras.json'), 'utf8')) as Record<
+  'frontera' | 'obstaculos',
+  Record<Suelo, Partial<Record<Barrera, number>>>
+>;
 
 function parejas(tabla: 'frontera' | 'obstaculos'): [Barrera, Suelo][] {
   return Object.entries(barreras[tabla]).flatMap(([suelo, pesos]) =>

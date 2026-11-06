@@ -7,7 +7,7 @@
  * escenario` y `pnpm capturas`.
  */
 import { existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
 import { componer } from '../src/client/render/escenario/colocar.js';
@@ -37,10 +37,10 @@ import { newGame } from '../src/core/state/setup.js';
 import { primeraSemillaCon } from '../tools/comun/semillas.js';
 import { semillaDelArnes } from '../tools/qa/partida-del-arnes.js';
 import { decidir } from '../tools/qa/politica.js';
+import { RAIZ } from './comun.js';
 import { catalogoDelDisco, escenaDe, partidaDe } from './escena-de-prueba.js';
 import { rango, segunPrisa } from './lento.js';
 
-const RAIZ = resolve(import.meta.dirname, '..');
 const catalogo = catalogoDelDisco();
 
 /** Cuántas rachas de dos o más columnas pintadas tiene una cara: los trozos de su contorno. */

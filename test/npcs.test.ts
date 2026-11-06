@@ -31,10 +31,9 @@ import {
 } from '../tools/npcs/banco.js';
 import semilla from '../tools/npcs/semilla.json' with { type: 'json' };
 import { colaDelTaller } from '../tools/taller/cola.js';
-
+import { RAIZ } from './comun.js';
 import { FIGURA_DE_PRUEBA, raizDeNpcs } from './npcs-de-prueba.js';
 
-const RAIZ = join(import.meta.dirname, '..');
 const BANCO = leerBancoDeDisco();
 
 /** Una figura que vale, para romperla campo a campo. */

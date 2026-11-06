@@ -27,7 +27,6 @@ import {
   applyAdventureAction,
   baseOf,
   destinoDeRecluta,
-  type GameContext,
   heroesOf,
   recruitCapacity,
   townsOf,
@@ -36,7 +35,7 @@ import { newGame, startingArmy } from '../src/core/state/setup.js';
 import { guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import { dwellings } from '../src/core/town/town.js';
 import { FACTION_IDS } from '../src/core/types.js';
-import { JINETE, TROPA_BARATA } from './comun.js';
+import { ctx, JINETE, TROPA_BARATA } from './comun.js';
 import {
   copiaDePartida,
   ejercito,
@@ -47,8 +46,6 @@ import {
 /** Los cupos con el tope de siempre (7): un héroe lleva 6 y una guarnición 7. */
 const CUPO_HEROE = cupoDelHeroe(COMBATE_COMPLETO.tope);
 const CUPO_GUARNICION = COMBATE_COMPLETO.tope;
-
-const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
 /**
  * La semilla de las pruebas de reclutar: la base del jugador 0 es de los orkos,

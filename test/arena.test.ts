@@ -109,6 +109,7 @@ import {
 } from '../tools/taller/unidades.js';
 import { empezarTalCual, enElCampo } from './batalla-de-cliente.js';
 import { MANOS_DE_PRUEBA } from './batalla-de-prueba.js';
+import { RAIZ } from './comun.js';
 import { hojaDeLaArena, hojasDeLaArena } from './hojas-de-la-arena.js';
 import {
   carpetaDeLaArena,
@@ -122,7 +123,6 @@ import {
   unidadDeArena,
 } from './pelea-de-arena.js';
 
-const RAIZ = resolve(import.meta.dirname, '..');
 /** El catálogo del juego con las manos de prueba: el de las peleas de estas pruebas. */
 const CON_MANOS = catalogoCon(MANOS_DE_PRUEBA);
 const HOJAS = hojasDeLaArena();

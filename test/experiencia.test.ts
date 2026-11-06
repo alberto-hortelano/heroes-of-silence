@@ -60,7 +60,6 @@ import { visibleTo } from '../src/core/state/events.js';
 import {
   applyAdventureAction,
   baseOf,
-  type GameContext,
   type GameState,
   heroById,
   heroesOf,
@@ -72,6 +71,7 @@ import { guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import type { Point, Troop, Veterania } from '../src/core/types.js';
 import { forzarTurno } from './batalla-de-prueba.js';
 import {
+  ctx,
   JINETE,
   NO_MUERTO,
   PESADA,
@@ -81,8 +81,6 @@ import {
   TROPA_BARATA,
 } from './comun.js';
 import { ejercito, forzarBatalla, guarnecer, ponerMonstruo } from './partida-de-prueba.js';
-
-const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
 function hoja(id: string, experiencia: number, extra: Partial<Veterania> = {}): Veterania {
   return { id, experiencia, batallas: 1, bajas: 0, heroes: [], ...extra };

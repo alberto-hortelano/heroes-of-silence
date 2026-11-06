@@ -37,13 +37,7 @@ import { unidadDelJuego, unidadesDeFaccion } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { hasTrait } from '../src/core/data.js';
 import { createRng } from '../src/core/rng.js';
-import {
-  baseOf,
-  type GameContext,
-  type GameState,
-  heroesOf,
-  resolvePendingBattle,
-} from '../src/core/state/game.js';
+import { baseOf, type GameState, heroesOf, resolvePendingBattle } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import {
   dueñoDeLaCiudad,
@@ -54,7 +48,7 @@ import {
 } from '../src/core/state/sitios.js';
 import { type Army, FACTION_IDS, type FactionId } from '../src/core/types.js';
 import { aMano, bandoAMano, forzarTurno, muralla } from './batalla-de-prueba.js';
-import { JINETE, NO_MUERTO, PESADA, TROPA_BARATA } from './comun.js';
+import { ctx, JINETE, NO_MUERTO, PESADA, TROPA_BARATA } from './comun.js';
 import {
   copiaDePartida,
   ejercito,
@@ -65,7 +59,6 @@ import {
   unPuebloDe,
 } from './partida-de-prueba.js';
 
-const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 const h = (col: number, row: number) => ({ col, row });
 const DOS_BARATAS = () => ejercito({ creature: TROPA_BARATA, count: 2 });
 

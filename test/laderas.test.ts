@@ -49,7 +49,7 @@ import {
   PIEZAS,
   papelDe,
 } from '../tools/taller/laderas.js';
-import { sha256 } from './comun.js';
+import { RAIZ, sha256 } from './comun.js';
 import { catalogoDelDisco } from './escena-de-prueba.js';
 
 /** Las caídas por celdas de una rejilla de niveles escrita a mano, una cifra por casilla. */
@@ -248,7 +248,7 @@ describe('la colocación de las laderas con el arte del repo', () => {
 
 describe('un catálogo de laderas sin sus juntas no llega a pintarse', () => {
   const crudo = JSON.parse(
-    readFileSync(join(import.meta.dirname, '..', 'assets/mapa/escena.json'), 'utf8'),
+    readFileSync(join(RAIZ, 'assets/mapa/escena.json'), 'utf8'),
   ) as CatalogoEnBruto;
   /** El catálogo con el módulo `medio-a` de `laderas-roca-este-1` cambiado. */
   const con = (
@@ -331,7 +331,6 @@ describe('un catálogo de laderas sin sus juntas no llega a pintarse', () => {
 });
 
 describe('las juntas de cada ladera salen de su guía (`pnpm taller derivar-relieve`)', () => {
-  const RAIZ = join(import.meta.dirname, '..');
   const MODULOS = join(RAIZ, 'assets/mapa/modulos');
   const hojas = encargosDeLaderas().map((e) => basename(e.salida));
   const indice = (hoja: string) =>

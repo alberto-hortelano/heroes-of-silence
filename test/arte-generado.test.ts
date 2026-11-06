@@ -9,8 +9,9 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { RAIZ } from './comun.js';
 
-const GENERADO = join(import.meta.dirname, '..', 'assets', 'generated');
+const GENERADO = join(RAIZ, 'assets', 'generated');
 
 interface Manifiesto {
   readonly files: readonly { readonly group: string; readonly path: string }[];

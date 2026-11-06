@@ -28,9 +28,8 @@ import {
   sliceDe,
   sobrantesEnDisco,
 } from '../tools/taller/temas/piezas.js';
+import { RAIZ } from './comun.js';
 import { bloquesCss, COLOR, leerHoja, temas } from './hojas-de-estilo.js';
-
-const RAIZ = join(import.meta.dirname, '..');
 
 describe('las piezas en imagen de los temas', () => {
   it('la hoja generada es la del disco: la imagen de cada pieza presente, ninguna de la que falta, y el corte medido de cada marco', async () => {

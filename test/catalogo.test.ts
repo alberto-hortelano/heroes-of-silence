@@ -6,13 +6,11 @@
  * validación al cargar con su fichero en el mensaje, y la búsqueda por id que
  * lanza diciendo cuál.
  */
-import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { UNIDADES } from '../src/core/catalogo.js';
 import { leerCatalogo } from '../tools/arena/borrador.js';
+import { RAIZ } from './comun.js';
 import { hojasDeLaArena } from './hojas-de-la-arena.js';
-
-const RAIZ = resolve(import.meta.dirname, '..');
 
 describe('el catálogo de unidades (data/unidades.json)', () => {
   it('trae una unidad por hoja de tropa del taller, con su id, y ninguna sin hoja', () => {

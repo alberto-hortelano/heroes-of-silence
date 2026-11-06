@@ -7,8 +7,8 @@
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { extname, join, relative } from 'node:path';
+import { RAIZ } from './comun.js';
 
-const RAIZ = join(import.meta.dirname, '..');
 const CLIENTE = join(RAIZ, 'src/client');
 
 /** Una hoja de `src/client/`, por su ruta relativa. */

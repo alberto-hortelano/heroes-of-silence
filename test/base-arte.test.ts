@@ -50,10 +50,9 @@ import {
   placasDeLaBase,
   tramoDelSuelo,
 } from '../tools/taller/recorte-base.js';
-import { sha256 } from './comun.js';
+import { RAIZ, sha256 } from './comun.js';
 import { itLento, segunPrisa } from './lento.js';
 
-const RAIZ = join(import.meta.dirname, '..');
 const FACCIONES = FACTION_IDS;
 
 /** El índice escrito de una facción, leído una vez. */

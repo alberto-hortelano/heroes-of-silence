@@ -5,7 +5,7 @@
  */
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { renderMuralla } from '../src/client/arena/paneles.js';
 import { marcadoDe } from '../src/client/html.js';
@@ -25,9 +25,9 @@ import { createRng } from '../src/core/rng.js';
 import { escribirMurallas, leerMurallas } from '../tools/arena/borrador.js';
 import { empezarTalCual, sesionDeArena } from './batalla-de-cliente.js';
 import { muralla } from './batalla-de-prueba.js';
+import { RAIZ } from './comun.js';
 import { aPelear, montajeDePrueba, peleaDelMotor, unidadDeArena } from './pelea-de-arena.js';
 
-const RAIZ = resolve(import.meta.dirname, '..');
 const unidad = unidadDeArena;
 
 const muro = {

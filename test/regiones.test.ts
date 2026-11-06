@@ -1880,6 +1880,7 @@ function entradasDeNodo(map: GameMap): string[] {
   }
   return fallos;
 }
+
 // ---------------------------------------------------------------- mapas densos
 
 /**
