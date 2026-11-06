@@ -449,7 +449,7 @@ function renderAdventurePanel(session: Session): Html {
             : NADA
         }
         ${filaLiderazgo(session.liderazgo({ heroe: hero.id }))}
-        <div class="row"><span class="label">Movimiento</span><span>${hero.movePoints} / ${maxMovePoints(hero, session.state.characters)}</span></div>
+        <div class="row"><span class="label">Movimiento</span><span>${session.movimientoALaVista(hero)} / ${maxMovePoints(hero, session.state.characters)}</span></div>
         ${filaDeInfiltracion(session.infiltracion(hero))}
         <div class="row"><span class="label">Maná</span><span>${hero.mana} / ${maxMana(hero)}</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>${ataqueYDefensa(cuerpoDelHeroe(hero), puesto)}</span></div>

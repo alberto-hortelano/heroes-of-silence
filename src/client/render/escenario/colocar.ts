@@ -207,10 +207,12 @@ import {
   type ModulosDelRecinto,
   type PapelEnElRecinto,
   type Par,
+  type PasoPorElArco,
   type PiezaDelRecinto,
   type PiezaPintada,
   PROPORCION_DE_TORRE,
   PX_POR_CASILLA_DEL_PUEBLO,
+  pasoPorElArco,
   pisaElAnillo,
   puentesSobreElAnillo,
   puertasDelNucleo,
@@ -367,6 +369,8 @@ export interface RecintoDeEscena {
   readonly rect: Rect;
   readonly contorno: Contorno;
   readonly puertas: readonly CaraDelRecinto[];
+  /** El paso por el arco de cada puerta, sin la del río (`pasoPorElArco`): el de la senda, el de la marcha y el de la ruta. */
+  readonly porElArco: readonly PasoPorElArco[];
 }
 
 export interface Luz {
@@ -4807,7 +4811,15 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   );
   const loPisable = sobreLoPisable(sprites, a.franjaDe, W);
   const recintosDeEscena: RecintoDeEscena[] = [...puertasDe.values()].map(
-    ({ id, rect, contorno, puertas }) => ({ id, rect, contorno, puertas }),
+    ({ id, rect, contorno, puertas, rio }) => ({
+      id,
+      rect,
+      contorno,
+      puertas,
+      porElArco: contorno.caras
+        .filter((k) => k.cara !== rio && puertas.includes(k.cara))
+        .map((k) => pasoPorElArco(k, sePisaJuntoAlRecinto)),
+    }),
   );
   const puestos = [...recintosPuestos.values()];
   return {

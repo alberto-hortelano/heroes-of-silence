@@ -97,37 +97,42 @@ export const PRISA_EN_EL_MAPA = 2;
 /**
  * Dónde va un héroe que anda por el mapa (petición del usuario, 06-11-2026: «el
  * personaje se teletransporta a donde va, tiene que verse la animación del héroe
- * caminando»): de qué casilla a qué casilla de su marcha, cuánto lleva de ese paso
- * (`t`, de 0 a 1) y hacia dónde mira.
+ * caminando»): por qué tramo de su traza (del punto `tramo` al `tramo + 1`), cuánto
+ * lleva de él (`t`, de 0 a 1), dónde pisa (`x`, `y`, en casillas) y hacia dónde mira.
  */
 export interface EnLaMarcha {
-  readonly desde: Point;
-  readonly hasta: Point;
+  readonly tramo: number;
   readonly t: number;
+  readonly x: number;
+  readonly y: number;
   readonly mira: Direccion;
 }
 
 /**
- * Por dónde va, a los `transcurrido` ms de salir, quien anda `pasos` (de la casilla
- * de donde sale a la última a la que llega) a `msPorCasilla` por casilla, √2 veces
- * eso en diagonal: el compás de sus pies, como la patrulla de los grupos. `null` si
- * ya ha llegado.
+ * Por dónde va, a los `transcurrido` ms de salir, quien anda los `puntos` de su
+ * traza (en casillas: el pie de cada casilla y, al cruzar la puerta de un recinto,
+ * su arco, `trazaPorLosArcos`) a `msPorCasilla` por casilla de largo, el compás de
+ * sus pies, como la patrulla de los grupos. Un tramo sin largo (dos puntos iguales)
+ * no tarda. `null` si ya ha llegado.
  */
 export function enLaMarcha(
-  pasos: readonly Point[],
+  puntos: readonly Point[],
   msPorCasilla: number,
   transcurrido: number,
 ): EnLaMarcha | null {
   if (!(msPorCasilla > 0)) throw new Error(`una marcha de ${msPorCasilla} ms por casilla no anda`);
   let resta = Math.max(0, transcurrido);
-  for (let i = 1; i < pasos.length; i++) {
-    const desde = pasos[i - 1] as Point;
-    const hasta = pasos[i] as Point;
-    const dura = Math.hypot(hasta.x - desde.x, hasta.y - desde.y) * msPorCasilla;
+  for (let i = 1; i < puntos.length; i++) {
+    const desde = puntos[i - 1] as Point;
+    const hasta = puntos[i] as Point;
+    const dx = hasta.x - desde.x;
+    const dy = hasta.y - desde.y;
+    const dura = Math.hypot(dx, dy) * msPorCasilla;
     if (resta < dura) {
+      const t = resta / dura;
       // El mapa se ve de frente, sin aplastar: el vector en casillas ya es el de pantalla.
-      const mira = direccionEnPantalla(hasta.x - desde.x, hasta.y - desde.y, 'S');
-      return { desde, hasta, t: resta / dura, mira };
+      const mira = direccionEnPantalla(dx, dy, 'S');
+      return { tramo: i - 1, t, x: desde.x + dx * t, y: desde.y + dy * t, mira };
     }
     resta -= dura;
   }

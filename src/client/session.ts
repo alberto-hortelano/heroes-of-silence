@@ -89,7 +89,7 @@ import { type CatalogoDeEquipo, type Portador, pedidoDelPuesto, pieza } from '@c
 import { type Hero, maxMana } from '@core/hero/hero.js';
 import { infiltracionBlocker } from '@core/hero/infiltracion.js';
 import { armyLeadership, heroLeadership, troopUnit } from '@core/hero/troop.js';
-import type { CasillasLeidas } from '@core/map/casillas.js';
+import { Casillas, type CasillasLeidas } from '@core/map/casillas.js';
 import type { MapObject, ObraDelPuesto, PathStep } from '@core/map/map.js';
 import { type Lugar, lugarSiExiste, type MundoLeido } from '@core/mundo/formato.js';
 import { partidaDelMundo } from '@core/mundo/partida.js';
@@ -137,10 +137,12 @@ import {
   elegirLaDefensa,
   type GameContext,
   type GameState,
+  HERO_SCOUT_RADIUS,
   heroById,
   heroeEnLaBase,
   heroesALaVista,
   heroesOf,
+  miradasDe,
   objetosConocidos,
   type PendingBattle,
   type Player,
@@ -214,6 +216,11 @@ import type { VistaDeLaBase } from './render/base/escena.js';
 import { cuerpoDeLaPersona } from './render/cuerpo-de-gente.js';
 import { conLosDueñosSabidos, type SitioOcupado } from './render/sitios-sabidos.js';
 import { componerVistaDeLaTropa, mismoPortador, type VistaDeLaTropa } from './tropa/vista.js';
+import {
+  type NieblaDeAntes,
+  type NieblaDeLaMarcha,
+  nieblaDeLaMarcha,
+} from './vista-de-la-marcha.js';
 
 /**
  * Lo que dice la barra en el mapa la primera vez: al salir de la base en que
@@ -1948,7 +1955,9 @@ export class Session implements ControlDeBatalla {
 
   /** Lo explorado por la persona, o `null` si se ha pedido verlo todo. */
   get explorado(): CasillasLeidas | null {
-    return this.revealAll ? null : this.jugador.fog;
+    if (this.revealAll) return null;
+    // Mientras el héroe anda, la niebla va con él (`vista-de-la-marcha.ts`).
+    return this.laNieblaDeLaMarcha()?.explorado ?? this.jugador.fog;
   }
 
   /**
@@ -1988,6 +1997,8 @@ export class Session implements ControlDeBatalla {
    * movimiento y captura, y el turno cambia al pasar de día.
    */
   visibles(): CasillasLeidas {
+    const marcha = this.laNieblaDeLaMarcha();
+    if (marcha !== null) return marcha.visibles;
     const clave = `${this.state.log.length}|${this.state.day}|${this.state.current}`;
     if (this.cacheVisibles === null || this.cacheVisibles.clave !== clave) {
       this.cacheVisibles = { clave, casillas: visibleNow(this.state, this.viewer) };
@@ -2025,7 +2036,13 @@ export class Session implements ControlDeBatalla {
    * casilla pisada alguna vez (#64). Son unos pocos: no se guarda.
    */
   heroesALaVista(): readonly Hero[] {
-    return heroesALaVista(this.state, this.viewer, this.revealAll ? null : this.visibles());
+    const heroes = heroesALaVista(this.state, this.viewer, this.revealAll ? null : this.visibles());
+    // Mientras anda, el héroe está en la casilla de su marcha que pisa (el minimapa,
+    // la barra), no en la de llegada.
+    const m = this.marcha;
+    if (m === null) return heroes;
+    const at = m.enPantalla.pasos[m.niebla?.pisada ?? 0] as Point;
+    return heroes.map((h) => (h.id === m.enPantalla.heroe ? { ...h, at } : h));
   }
 
   /**
@@ -2058,6 +2075,8 @@ export class Session implements ControlDeBatalla {
    * ocupados (`conLosDueñosSabidos`). Es una copia: el estado no se toca.
    */
   private loConocido(): ReturnType<typeof conLosDueñosSabidos> {
+    const m = this.marcha;
+    if (m !== null) return this.loConocidoEnLaMarcha(m.antes.conocido);
     const mirando = this.revealAll ? null : this.visibles();
     const c = this.cacheObjetos;
     if (c !== null && c.mirando === mirando && c.version === this.version) return c.conocido;
@@ -2068,6 +2087,40 @@ export class Session implements ControlDeBatalla {
   private cacheObjetos: {
     mirando: CasillasLeidas | null;
     version: number;
+    conocido: ReturnType<typeof conLosDueñosSabidos>;
+  } | null = null;
+
+  /**
+   * Lo que se sabe de los objetos mientras el héroe anda: como se sabían al salir
+   * (`antes`), y lo que no se sabía —lo de una región que descubre por el camino—,
+   * como lo sabe el núcleo. Así el cofre que coge, el paso que toma o el castillo
+   * que conquista cambian al llegar, como el panel.
+   */
+  private loConocidoEnLaMarcha(
+    antes: ReturnType<typeof conLosDueñosSabidos>,
+  ): ReturnType<typeof conLosDueñosSabidos> {
+    const mirando = this.revealAll ? null : this.visibles();
+    const c = this.cacheObjetosEnLaMarcha;
+    if (c !== null && c.mirando === mirando && c.antes === antes) return c.conocido;
+    const deAntes = new Map(antes.objetos.map((o) => [o.id, o] as const));
+    const ahora = conLosDueñosSabidos(objetosConocidos(this.state, this.viewer, mirando));
+    // Lo que no se sabía, solo si ya se ha descubierto por donde va: el recuerdo
+    // del núcleo ya trae lo de toda la marcha.
+    const explorado = this.explorado;
+    const conocido = {
+      objetos: ahora.objetos.flatMap((o) => {
+        const antesDeAndar = deAntes.get(o.id);
+        if (antesDeAndar !== undefined) return [antesDeAndar];
+        return explorado === null || explorado.has(o.at) ? [o] : [];
+      }),
+      ocupados: antes.ocupados,
+    };
+    this.cacheObjetosEnLaMarcha = { mirando, antes, conocido };
+    return conocido;
+  }
+  private cacheObjetosEnLaMarcha: {
+    mirando: CasillasLeidas | null;
+    antes: ReturnType<typeof conLosDueñosSabidos>;
     conocido: ReturnType<typeof conLosDueñosSabidos>;
   } | null = null;
 
@@ -2141,12 +2194,54 @@ export class Session implements ControlDeBatalla {
    * —la batalla, la base, el lugar, la guarnición, la frase de la parada— espera a
    * `acabarLaMarcha`, que llama la página al llegar o con cualquier gesto.
    */
-  private marcha: { readonly enPantalla: MarchaEnPantalla; readonly alLlegar: () => void } | null =
-    null;
+  private marcha: {
+    readonly enPantalla: MarchaEnPantalla;
+    readonly alLlegar: () => void;
+    /** Lo que se veía al salir: lo que se pinta mientras anda (`vista-de-la-marcha.ts`). */
+    readonly antes: LoDeAntesDeLaMarcha;
+    /** La niebla con el héroe en la casilla de su marcha que pisa ahora (`pisarEnLaMarcha`). */
+    niebla: NieblaDeLaMarcha | null;
+  } | null = null;
 
   /** La marcha que se enseña ahora, o `null`. */
   get marchaEnCurso(): MarchaEnPantalla | null {
     return this.marcha?.enPantalla ?? null;
+  }
+
+  /**
+   * El mapa enseña al héroe que anda en la casilla `pisada` de su marcha (el índice
+   * en `MarchaEnPantalla.pasos`): la niebla que se pinta va con él
+   * (`nieblaDeLaMarcha`). Lo llama la escena del mapa a cada fotograma; sin marcha,
+   * nada.
+   */
+  pisarEnLaMarcha(pisada: number): void {
+    const m = this.marcha;
+    if (m === null || m.niebla?.pisada === pisada) return;
+    m.niebla = nieblaDeLaMarcha(
+      this.state.map,
+      m.antes.niebla,
+      m.enPantalla.pasos,
+      pisada,
+      m.niebla,
+    );
+  }
+
+  /** La niebla de la marcha que se enseña, o `null` (sin marcha, o viéndolo todo). */
+  private laNieblaDeLaMarcha(): NieblaDeLaMarcha | null {
+    const m = this.marcha;
+    if (m === null || this.revealAll) return null;
+    if (m.niebla === null)
+      m.niebla = nieblaDeLaMarcha(this.state.map, m.antes.niebla, m.enPantalla.pasos, 0, null);
+    return m.niebla;
+  }
+
+  /**
+   * Los puntos de movimiento que enseña el panel de `hero`: mientras anda su marcha,
+   * los de antes de andar (lo que se pinta es lo de antes hasta que llega).
+   */
+  movimientoALaVista(hero: Hero): number {
+    const m = this.marcha;
+    return m !== null && m.enPantalla.heroe === hero.id ? m.antes.movimiento : hero.movePoints;
   }
 
   /** La marcha llega (o se salta): abre lo que esperaba a la llegada. Sin marcha, nada. */
@@ -2222,6 +2317,9 @@ export class Session implements ControlDeBatalla {
     }
     const desde = hero.at;
     const antes = this.state.log.length;
+    // Lo que se ve antes de andar, por si la marcha se enseña: es lo que se pinta
+    // mientras anda (`vista-de-la-marcha.ts`).
+    const loDeAntes = this.enseñarLaMarcha ? this.loDeAntesDeLaMarcha(hero) : null;
     // Se manda el destino tal cual: el núcleo anda lo que dé el día y, si no
     // hay camino o no da ni un paso, lo dice él con su frase —quién cierra el
     // paso, si es alguien (M2 de la 2a)—; aquí solo se le pone la mayúscula.
@@ -2252,11 +2350,38 @@ export class Session implements ControlDeBatalla {
     const pasos = [desde];
     for (const e of this.state.log.slice(antes))
       if (e.kind === 'hero_moved' && e.hero === heroId) pasos.push(e.to);
-    if (this.enseñarLaMarcha && pasos.length > 1) {
-      this.marcha = { enPantalla: { heroe: heroId, pasos }, alLlegar };
+    if (loDeAntes !== null && pasos.length > 1) {
+      this.marcha = {
+        enPantalla: { heroe: heroId, pasos },
+        alLlegar,
+        antes: loDeAntes,
+        niebla: null,
+      };
       return;
     }
     alLlegar();
+  }
+
+  /**
+   * Lo que se ve justo antes de que `hero` ande (una copia: el núcleo lo cambia al
+   * moverlo): lo explorado y desde dónde se mira sin él, los objetos como se saben
+   * y sus puntos de movimiento.
+   */
+  private loDeAntesDeLaMarcha(hero: Hero): LoDeAntesDeLaMarcha {
+    const miradas = miradasDe(this.state, this.viewer);
+    const suya = miradas.findIndex(
+      (m) => m.radio === HERO_SCOUT_RADIUS && m.centro.x === hero.at.x && m.centro.y === hero.at.y,
+    );
+    if (suya >= 0) miradas.splice(suya, 1);
+    return {
+      niebla: {
+        explorado: Casillas.deIndices(this.state.map, this.jugador.fog.indices()),
+        miradas: miradas.map((m) => ({ centro: { ...m.centro }, radio: m.radio })),
+        radio: HERO_SCOUT_RADIUS,
+      },
+      conocido: structuredClone(this.loConocido()),
+      movimiento: hero.movePoints,
+    };
   }
 
   /** Lo que abre la llegada de la marcha de `hero`: `ultimo`, el último hecho de su marcha. */
@@ -4605,6 +4730,13 @@ export interface VistaDeLaDefensa extends Omit<LaDefensa, 'filas'> {
   readonly hero: Hero;
   readonly sitio: string;
   readonly filas: readonly (FilaDeLaDefensa & { readonly nombre: string })[];
+}
+
+/** Lo que se veía al salir una marcha que se enseña: lo que se pinta mientras anda. */
+interface LoDeAntesDeLaMarcha {
+  readonly niebla: NieblaDeAntes;
+  readonly conocido: ReturnType<typeof conLosDueñosSabidos>;
+  readonly movimiento: number;
 }
 
 /**

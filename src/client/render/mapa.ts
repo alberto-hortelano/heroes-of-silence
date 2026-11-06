@@ -33,7 +33,7 @@ import type { AsaltantesALaVista, VistaAsaltante } from '@core/state/asaltantes.
 import type { ClimaDeLaPartida } from '@core/state/clima.js';
 import type { FactionId, Point } from '@core/types.js';
 import { type Direccion, direccionEnPantalla } from '../direccion.js';
-import { type EnLaMarcha, msPorCasilla, PRISA_EN_EL_MAPA } from '../marcha.js';
+import { msPorCasilla, PRISA_EN_EL_MAPA } from '../marcha.js';
 import { temaDelLienzo } from '../temas.js';
 import { imagenDeEscena } from './assets.js';
 import {
@@ -65,6 +65,7 @@ import {
   type Obra,
   seVeConSuNodo,
 } from './escenario/puestos.js';
+import { trazaPorLosArcos } from './escenario/recinto.js';
 import {
   claveDeFigura,
   copiaDeVolumen,
@@ -126,6 +127,43 @@ export interface HeroeEnElMapa {
   readonly tipo: string;
 }
 
+/** El héroe que anda su marcha (`VistaMapa.andando`). */
+export interface HeroeQueAnda {
+  readonly heroe: string;
+  /** Dónde pisa, en casillas. */
+  readonly x: number;
+  readonly y: number;
+  /** La casilla de su marcha que tiene más cerca: la de su profundidad. */
+  readonly cerca: Point;
+  readonly mira: Direccion;
+}
+
+/** Un punto de la traza de un camino (`puntosDeLaTraza`), en casillas, y de qué casilla es. */
+export interface PuntoDeLaTrazaEnElMapa {
+  readonly x: number;
+  readonly y: number;
+  readonly paso: number;
+}
+
+/**
+ * Los puntos por los que pasa quien anda las `casillas` (`trazaPorLosArcos`, la
+ * única regla: por el arco de la puerta de un recinto), en casillas, con el pie de
+ * cada casilla a `pies` (`pieEn`: en un puente, su tablero). La línea de la ruta
+ * los pinta con 0,5, por el centro de cada casilla; el héroe que anda, a sus pies
+ * (`PIES.heroe`). Sin escena todavía, el pie de cada casilla y nada más.
+ */
+export function puntosDeLaTraza(
+  esc: Escenario | null,
+  casillas: readonly Point[],
+  pies: number,
+): PuntoDeLaTrazaEnElMapa[] {
+  if (esc === null) return casillas.map((c, paso) => ({ x: c.x + 0.5, y: c.y + pies, paso }));
+  return trazaPorLosArcos(esc.escena.recintos, casillas).map(({ en, paso }) => {
+    const [x, y] = en ?? pieEn(esc, casillas[paso] as Point, pies);
+    return { x, y, paso };
+  });
+}
+
 /**
  * Un paso de la ruta que se enseña: dorado si llega hoy, gris si otro día, y
  * rojo desde donde un grupo a la vista emboscaría al héroe (`peligro`).
@@ -160,11 +198,25 @@ export interface VistaMapa {
    */
   readonly heroes: readonly HeroeEnElMapa[];
   /**
-   * El héroe que anda ahora (`enLaMarcha`): se pinta entre `desde` y `hasta`, con su
-   * clip de marcha y mirando hacia donde va, y no en su casilla, que ya es la de
-   * llegada. Sin él (el espectador), cada héroe en su casilla.
+   * El héroe que anda ahora (`enLaMarcha`): se pinta donde pisa (`x`, `y`, en
+   * casillas, por su traza: `puntosDeLaTraza`), con su clip de marcha y mirando
+   * hacia donde va, y no en su casilla, que ya es la de llegada; con la
+   * profundidad de la casilla de su marcha que tiene más cerca (`cerca`). Sin él
+   * (el espectador), cada héroe en su casilla.
    */
-  readonly andando?: { readonly heroe: string } & EnLaMarcha;
+  readonly andando?: HeroeQueAnda;
+  /**
+   * Mientras el héroe anda: la ruta (`ruta`, la de su marcha y lo que le quedaba)
+   * sale de `origen`, de donde salió, y su línea se pinta desde donde va, a `t`
+   * del tramo `tramo` de su traza; sus puntos, desde el paso `pasados` de la ruta.
+   * Sin él, la ruta sale del héroe elegido.
+   */
+  readonly marchaDeLaRuta?: {
+    readonly origen: Point;
+    readonly tramo: number;
+    readonly t: number;
+    readonly pasados: number;
+  };
   /**
    * Los objetos que se pintan, con el estado que se SABE de ellos: vivos donde
    * se mira ahora y, en lo demás explorado, el recuerdo de cuando se vieron
@@ -522,7 +574,9 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
   pintarNiebla(ctx, v);
 
   // 5 · Encima de todo, lo que es de quien juega: la ruta y la casilla señalada.
-  pintarRuta(ctx, camara, esc, pasosAPintar(v.ruta, v.explorado));
+  //     Mientras anda, de la ruta solo lo que le queda.
+  const ruta = v.marchaDeLaRuta === undefined ? v.ruta : v.ruta.slice(v.marchaDeLaRuta.pasados);
+  pintarRuta(ctx, camara, esc, pasosAPintar(ruta, v.explorado));
   if (v.hover !== null && v.hover.x >= 0 && v.hover.y >= 0 && v.hover.x < W && v.hover.y < H) {
     const c = casillaAPixel(camara, v.hover);
     ctx.strokeStyle = '#f2d585';
@@ -671,16 +725,11 @@ function cosasDe(v: VistaMapa, esc: Escenario, nodos: ReadonlyMap<string, NodoQu
       lista.push({ tipo: 'heroe', clave: pie.clave, heroe: h, pie, anda: null });
       continue;
     }
-    // El que anda, entre los pies de sus dos casillas (en un puente, su tablero),
-    // y con la clave de la que tiene más cerca: pasa por detrás de lo que tapa a
-    // quien está en ella.
-    const cerca = a.t < 0.5 ? a.desde : a.hasta;
-    if (!enVista(cerca)) continue;
-    const de = pisada(esc, a.desde, PIES.heroe, nodos);
-    const va = pisada(esc, a.hasta, PIES.heroe, nodos);
-    const pie = { x: de.x + (va.x - de.x) * a.t, y: de.y + (va.y - de.y) * a.t };
-    const clave = a.t < 0.5 ? de.clave : va.clave;
-    lista.push({ tipo: 'heroe', clave, heroe: h, pie, anda: a.mira });
+    // El que anda, donde pisa por su traza, y con la clave de la casilla que tiene
+    // más cerca: pasa por detrás de lo que tapa a quien está en ella.
+    if (!enVista(a.cerca)) continue;
+    const { clave } = pisada(esc, a.cerca, PIES.heroe, nodos);
+    lista.push({ tipo: 'heroe', clave, heroe: h, pie: { x: a.x, y: a.y }, anda: a.mira });
   }
   const pintados = new Set<string>();
   for (const r of v.asaltantes) {
@@ -1710,37 +1759,44 @@ const COLOR_DEL_TRAMO: Readonly<Record<EstiloDelTramo, string>> = {
 const CONTORNO_DE_LA_RUTA = '#1b1608';
 
 /**
- * Un tramo de la ruta, de una casilla a la siguiente: el primero sale del héroe.
- * `visible` si se pinta: con sus dos puntas exploradas, la misma regla que los
- * puntos (`pasosAPintar`), para no dibujar la red sin explorar.
+ * Un tramo de la ruta, de un punto de su traza al siguiente (`puntosDeLaTraza`), en
+ * casillas: el primero sale del héroe. `visible` si se pinta: con las casillas de
+ * sus dos puntas exploradas, la misma regla que los puntos (`pasosAPintar`), para
+ * no dibujar la red sin explorar.
  */
 interface TramoDeLaRuta {
-  readonly desde: Point;
-  readonly hasta: Point;
+  readonly desde: { readonly x: number; readonly y: number };
+  readonly hasta: { readonly x: number; readonly y: number };
   readonly estilo: EstiloDelTramo;
   readonly visible: boolean;
 }
 
 /**
  * Los tramos de la ruta en su orden, desde `origen` (la casilla del héroe; sin
- * él, desde el primer paso). Uno por paso, con el estilo del paso al que llega:
- * el que sale de la parada de hoy ya es de otro día.
+ * él, desde el primer paso), por su traza: de casilla en casilla y, al cruzar la
+ * puerta de un recinto, por su arco. Cada uno con el estilo del paso de la casilla
+ * a la que llega: el que sale de la parada de hoy ya es de otro día.
  */
 function tramosDeLaRuta(
+  esc: Escenario,
   ruta: readonly PasoDeRuta[],
   origen: Point | null,
   explorado: CasillasLeidas | null,
 ): readonly TramoDeLaRuta[] {
+  const casillas = [...(origen === null ? [] : [origen]), ...ruta.map((p) => p.at)];
+  const primero = origen === null ? 0 : 1;
+  const puntos = puntosDeLaTraza(esc, casillas, 0.5);
   const tramos: TramoDeLaRuta[] = [];
-  for (let i = 0; i < ruta.length; i++) {
-    const desde = i === 0 ? origen : ruta[i - 1]!.at;
-    if (desde === null) continue;
-    const hasta = ruta[i]!.at;
+  for (let j = 1; j < puntos.length; j++) {
+    const a = puntos[j - 1] as PuntoDeLaTrazaEnElMapa;
+    const b = puntos[j] as PuntoDeLaTrazaEnElMapa;
+    const de = casillas[a.paso] as Point;
+    const va = casillas[b.paso] as Point;
     tramos.push({
-      desde,
-      hasta,
-      estilo: estiloDelPaso(ruta[i]!),
-      visible: explorado === null || (explorado.has(desde) && explorado.has(hasta)),
+      desde: a,
+      hasta: b,
+      estilo: estiloDelPaso(ruta[Math.max(0, b.paso - primero)] as PasoDeRuta),
+      visible: explorado === null || (explorado.has(de) && explorado.has(va)),
     });
   }
   return tramos;
@@ -1748,27 +1804,39 @@ function tramosDeLaRuta(
 
 /**
  * La línea que une los pasos de la ruta, suavizada: por el medio de cada tramo y
- * doblando en cada casilla con una curva cuyo control es el centro de la casilla
- * (pasa junto al punto del paso, nunca fuera de su casilla). Cada tramo lleva su
- * mitad de las dos curvas de sus puntas (la cuadrática partida por la mitad), así
- * que el color cambia justo en la casilla donde cambia el día o empieza el peligro
- * y la línea sigue sin quiebros. Lo de otro día, a trazos.
+ * doblando en cada punto con una curva cuyo control es el punto (pasa junto al
+ * punto del paso, nunca fuera de su casilla). Cada tramo lleva su mitad de las dos
+ * curvas de sus puntas (la cuadrática partida por la mitad), así que el color
+ * cambia justo en la casilla donde cambia el día o empieza el peligro y la línea
+ * sigue sin quiebros. Lo de otro día, a trazos.
+ *
+ * Mientras el héroe anda (`VistaMapa.marchaDeLaRuta`), desde donde va: lo que le
+ * queda.
  *
  * Va en el suelo (`drawMapa`, paso 1b): bajo los volúmenes, las figuras, sus
  * identificadores y la niebla; el tramo con una punta sin explorar no se pinta.
  */
 function pintarLineaDeLaRuta(ctx: CanvasRenderingContext2D, v: VistaMapa, esc: Escenario): void {
   if (v.ruta.length === 0) return;
+  const marcha = v.marchaDeLaRuta;
   const heroe = v.heroes.find((h) => h.id === v.seleccionado);
-  const tramos = tramosDeLaRuta(v.ruta, heroe?.at ?? null, v.explorado);
+  const todos = tramosDeLaRuta(esc, v.ruta, marcha?.origen ?? heroe?.at ?? null, v.explorado);
+  let tramos = todos;
+  if (marcha !== undefined) {
+    const t = todos[marcha.tramo];
+    if (t === undefined) return;
+    const desde = {
+      x: t.desde.x + (t.hasta.x - t.desde.x) * marcha.t,
+      y: t.desde.y + (t.hasta.y - t.desde.y) * marcha.t,
+    };
+    tramos = [{ ...t, desde }, ...todos.slice(marcha.tramo + 1)];
+  }
   if (!tramos.some((t) => t.visible)) return;
-  // Los vértices de la cadena, en píxeles: donde se pintan los puntos (en un
-  // puente, su tablero). P[k] y P[k + 1] son las puntas del tramo k.
+  // Los vértices de la cadena, en píxeles: los puntos de su traza (en un puente,
+  // su tablero). P[k] y P[k + 1] son las puntas del tramo k.
   const camara = v.camara;
-  const enPixeles = (at: Point): { x: number; y: number } => {
-    const [px, py] = pieEn(esc, at, 0.5);
-    return mundoAPixel(camara, px, py);
-  };
+  const enPixeles = (p: { readonly x: number; readonly y: number }) =>
+    mundoAPixel(camara, p.x, p.y);
   const P = [enPixeles(tramos[0]!.desde), ...tramos.map((t) => enPixeles(t.hasta))];
   const medio = (a: { x: number; y: number }, b: { x: number; y: number }) => ({
     x: (a.x + b.x) / 2,
