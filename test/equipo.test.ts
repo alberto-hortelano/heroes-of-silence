@@ -132,9 +132,10 @@ describe('el catálogo de equipo, en datos (C2)', () => {
     expect(PIEZAS_DE_BOTIN).toEqual(EQUIPO.filter((p) => p.seConsigue?.includes('botin')));
     const conBase = new Set(EQUIPO_ESCRITO.filter((p) => 'base' in p).map((p) => p.id));
     expect(PIEZAS_DE_BOTIN.map((p) => p.id).sort()).toEqual([...conBase].sort());
-    // Solo en kits: la hiena de los jinetes de hiena (26-10-2026) y la culebrina del
-    // artillero (02-11-2026, decisión del usuario).
-    const SOLO_EN_KITS = ['hiena_de_guerra', 'culebrina'];
+    // Solo en kits: la hiena de los jinetes de hiena (26-10-2026), la culebrina del
+    // artillero (02-11-2026, decisión del usuario) y la Cota de malla (`armadura-2`,
+    // que el usuario guardó desde la arena el 06-11-2026 sin «Se consigue»).
+    const SOLO_EN_KITS = ['hiena_de_guerra', 'culebrina', 'armadura-2'];
     expect(PIEZAS_DE_ARMERIA.map((p) => p.id).sort()).toEqual(
       EQUIPO.filter((p) => !conBase.has(p.id) && !SOLO_EN_KITS.includes(p.id))
         .map((p) => p.id)

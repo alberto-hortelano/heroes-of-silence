@@ -117,6 +117,16 @@ function duelo(state: GameState, cerca: Point): Point {
 }
 
 /**
+ * El rango del héroe que asalta una ciudad y tiene que ganar sin duda. Desde la
+ * «Base derecha» (06-11-2026, `79b5c76b`: la muralla de toda ciudad, pegada a la
+ * salida del defensor) la IA que asalta deja a sus jinetes ante el muro y su héroe
+ * pelea solo en la puerta: uno recién hecho (rango 5) caía en las 30 semillas de
+ * batalla que se probaron, y con él su bando. Con el 12 gana las 40 primeras con
+ * holgura: le quedan como poco 647 de sus 720 PV.
+ */
+const RANGO_DEL_ASALTO = 12;
+
+/**
  * Monta una batalla de héroe contra héroe en la casilla `defensa` (o en el
  * medio del mapa), con los ejércitos que se pidan, y la deja pendiente.
  */
@@ -499,9 +509,13 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     darLaCiudad(state, otro, 1);
     const bandera = state.map.objects.find((o) => o.kind === 'town' && o.id === otro.id)!;
     (bandera as { owner: number | null }).owner = 1;
+    // Y sin la guarnición del jugador 0, que `tomarElNodo` quita al tomarla: dentro,
+    // el 1 la defendía con la tropa del 0 (la defensa elegida, 04-11-2026).
+    guarnecer(state, otro, []);
     // Sin oro, para que caiga peleando y no se rinda (la rendición entrega el
     // castillo igual: lo que decide es la casilla).
     state.players[1]!.oro = 0;
+    heroesOf(state, 0)[0]!.experience = umbral(RANGO_DEL_ASALTO);
     const { atacante, defensor } = batallaDeHeroes(
       state,
       c,
@@ -537,6 +551,8 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const state = newGame({ seed: 11 });
     const c = ctx(11);
     const base = baseOf(state, 1)!;
+    // La defiende con su guarnición (04-11-2026) tras la muralla de la ciudad.
+    heroesOf(state, 0)[0]!.experience = umbral(RANGO_DEL_ASALTO);
     const { atacante, defensor } = batallaDeHeroes(
       state,
       c,

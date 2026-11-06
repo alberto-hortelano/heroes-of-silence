@@ -52,9 +52,19 @@ describe('la escala de la base: la del combate en un marco 20:11 de su alto', ()
 
   it('el 860 de la hoja de estilos es `ANCHO_DEL_COMBATE_EN_MOVIL`', () => {
     const css = readFileSync(join(import.meta.dirname, '../src/client/style.css'), 'utf8');
-    const regla = /#app\[data-escena='battle'\] #canvas \{ width: (\d+)px; \}/.exec(css);
-    expect(regla, 'no encuentro el ancho del lienzo de batalla en el móvil').not.toBeNull();
-    expect(Number(regla?.[1])).toBe(ANCHO_DEL_COMBATE_EN_MOVIL);
+    // La regla del lienzo de batalla, lleve los selectores que lleve: desde la fase de
+    // despliegue (02-11-2026) la comparte la tropa, que es el mismo tablero
+    // (`#app[data-escena='battle'] #canvas, #app[data-escena='tropa'] #canvas`).
+    const sinComentarios = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    const regla = sinComentarios
+      .split('}')
+      .map((r) => r.split('{'))
+      .find(([selectores]) =>
+        selectores?.split(',').some((s) => s.trim() === "#app[data-escena='battle'] #canvas"),
+      );
+    const ancho = /^\s*width: (\d+)px;\s*$/.exec(regla?.at(-1) ?? '');
+    expect(ancho, 'no encuentro el ancho del lienzo de batalla en el móvil').not.toBeNull();
+    expect(Number(ancho?.[1])).toBe(ANCHO_DEL_COMBATE_EN_MOVIL);
   });
 
   it('el marco de la base no lleva proporción propia en la hoja de estilos: va a todo el alto, como el mapa', () => {

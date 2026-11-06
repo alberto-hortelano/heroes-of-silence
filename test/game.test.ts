@@ -19,6 +19,7 @@ import { marchaDe } from '../src/core/cuerpo.js';
 import { crecimientoDelNivel, ECONOMIA, oroDelIndice } from '../src/core/data.js';
 import { marchaALaEscala } from '../src/core/escala.js';
 import { EQUIPO_BASE, EQUIPO_DEL_JUEGO, esDeGuerra } from '../src/core/hero/equipo.js';
+import { umbral } from '../src/core/hero/experiencia.js';
 import {
   type GrupoQueMarcha,
   type Hero,
@@ -1955,6 +1956,12 @@ describe('el mapa de nodos se juega', () => {
     state.current = 1;
     const suyo = heroById(state, 'hero-1');
     suyo.army = ejercito({ creature: JINETE, count: 6 });
+    // Curtido, para que el asalto lo gane sin duda: desde la «Base derecha»
+    // (06-11-2026, `79b5c76b`, la muralla de toda ciudad, pegada a la salida del
+    // defensor) la IA que asalta deja a sus jinetes ante el muro y su héroe pelea solo
+    // en la puerta. Recién hecho (rango 5) caía en las 30 semillas de batalla que se
+    // probaron; con el 12 gana las 40 primeras y le quedan como poco 657 de 720 PV.
+    suyo.experience = umbral(12);
     // En la puerta del noreste: la muralla no se pisa (`recinto.ts`).
     suyo.at = { x: base.at.x + 1, y: base.at.y - 1 };
     suyo.movePoints = 9000;

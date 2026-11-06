@@ -222,9 +222,14 @@ const RESPUESTA_MALA = '{"nada": true}';
  * Pide una decisión de batalla y se queda con el error que acabará dando. El
  * rechazo se recoge YA: esperarlo después de `heroes_respond` lo dejaba un rato
  * sin manejar y vitest lo cuenta como error.
+ *
+ * Con `walls: null`, una batalla sin muralla: desde el 05-11-2026 (`4f101eb3`) el
+ * formato de un `battle_turn` depende de ella y `formatoDeLaRespuesta` lanza sin
+ * ella (la pone siempre `serializeBattleTurn`). Sin el campo, `ask` lanzaba antes de
+ * mandar nada y la escucha del puente esperaba hasta el plazo del test.
  */
 function pedir(link: AgentLink, payload: object): Promise<unknown> {
-  return link.ask('battle_turn', payload).then(
+  return link.ask('battle_turn', { walls: null, ...payload }).then(
     () => 'aceptada',
     (err: unknown) => err,
   );
