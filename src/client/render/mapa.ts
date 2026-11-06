@@ -459,6 +459,11 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
   ctx.drawImage(suelo, 0, 0);
   ctx.restore();
 
+  // 1b · La línea de la ruta, en el suelo: bajo lo que tiene altura (no tapa
+  //      figuras ni lo que dice quién está) y bajo la niebla, como el camino que
+  //      es. Los puntos de cada paso van encima de todo (paso 5).
+  pintarLineaDeLaRuta(ctx, v, esc);
+
   // 2 · Lo que tiene altura —los volúmenes de la escena y las figuras del juego—,
   //     en un solo orden de profundidad: una figura puede quedar detrás de un árbol.
   const nodos = nodosQueSeSaben(v);
@@ -1542,8 +1547,8 @@ function pintarRuta(
     const c = mundoAPixel(camara, px, py);
     // El tramo de la emboscada en rojo, hoy u otro día: ahí se para la marcha y
     // empieza una batalla, que es lo que la persona tiene que ver antes de pulsar.
-    ctx.fillStyle = paso.peligro === true ? COLOR_EMBOSCADA : paso.hoy ? '#f6db78' : '#9aa1a8';
-    ctx.strokeStyle = '#1b1608';
+    ctx.fillStyle = COLOR_DEL_TRAMO[estiloDelPaso(paso)];
+    ctx.strokeStyle = CONTORNO_DE_LA_RUTA;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.arc(c.x, c.y, paso.marca === 'paso' ? 3.5 : 6.5, 0, Math.PI * 2);
@@ -1570,9 +1575,156 @@ function pintarRuta(
       ctx.fillText('!', c.x, c.y + 1);
     }
     if (paso.marca === 'parada') {
-      ctx.strokeStyle = '#f6db78';
+      ctx.strokeStyle = COLOR_DEL_TRAMO.hoy;
       ctx.beginPath();
       ctx.arc(c.x, c.y, 10, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+/**
+ * Cómo va cada tramo de la ruta, por el paso al que llega: lo que se anda hoy,
+ * lo de otro día y, desde donde un grupo a la vista emboscaría, el peligro.
+ */
+type EstiloDelTramo = 'hoy' | 'otroDia' | 'peligro';
+
+function estiloDelPaso(paso: PasoDeRuta): EstiloDelTramo {
+  return paso.peligro === true ? 'peligro' : paso.hoy ? 'hoy' : 'otroDia';
+}
+
+/** Los colores de la ruta, los mismos en sus puntos y en su línea: «dorado hoy, gris otro día». */
+const COLOR_DEL_TRAMO: Readonly<Record<EstiloDelTramo, string>> = {
+  hoy: '#f6db78',
+  otroDia: '#9aa1a8',
+  peligro: COLOR_EMBOSCADA,
+};
+/** El contorno oscuro de los puntos y de la línea: la despega de cualquier suelo. */
+const CONTORNO_DE_LA_RUTA = '#1b1608';
+
+/**
+ * Un tramo de la ruta, de una casilla a la siguiente: el primero sale del héroe.
+ * `visible` si se pinta: con sus dos puntas exploradas, la misma regla que los
+ * puntos (`pasosAPintar`), para no dibujar la red sin explorar.
+ */
+interface TramoDeLaRuta {
+  readonly desde: Point;
+  readonly hasta: Point;
+  readonly estilo: EstiloDelTramo;
+  readonly visible: boolean;
+}
+
+/**
+ * Los tramos de la ruta en su orden, desde `origen` (la casilla del héroe; sin
+ * él, desde el primer paso). Uno por paso, con el estilo del paso al que llega:
+ * el que sale de la parada de hoy ya es de otro día.
+ */
+function tramosDeLaRuta(
+  ruta: readonly PasoDeRuta[],
+  origen: Point | null,
+  explorado: CasillasLeidas | null,
+): readonly TramoDeLaRuta[] {
+  const tramos: TramoDeLaRuta[] = [];
+  for (let i = 0; i < ruta.length; i++) {
+    const desde = i === 0 ? origen : ruta[i - 1]!.at;
+    if (desde === null) continue;
+    const hasta = ruta[i]!.at;
+    tramos.push({
+      desde,
+      hasta,
+      estilo: estiloDelPaso(ruta[i]!),
+      visible: explorado === null || (explorado.has(desde) && explorado.has(hasta)),
+    });
+  }
+  return tramos;
+}
+
+/**
+ * La línea que une los pasos de la ruta, suavizada: por el medio de cada tramo y
+ * doblando en cada casilla con una curva cuyo control es el centro de la casilla
+ * (pasa junto al punto del paso, nunca fuera de su casilla). Cada tramo lleva su
+ * mitad de las dos curvas de sus puntas (la cuadrática partida por la mitad), así
+ * que el color cambia justo en la casilla donde cambia el día o empieza el peligro
+ * y la línea sigue sin quiebros. Lo de otro día, a trazos.
+ *
+ * Va en el suelo (`drawMapa`, paso 1b): bajo los volúmenes, las figuras, sus
+ * identificadores y la niebla; el tramo con una punta sin explorar no se pinta.
+ */
+function pintarLineaDeLaRuta(ctx: CanvasRenderingContext2D, v: VistaMapa, esc: Escenario): void {
+  if (v.ruta.length === 0) return;
+  const heroe = v.heroes.find((h) => h.id === v.seleccionado);
+  const tramos = tramosDeLaRuta(v.ruta, heroe?.at ?? null, v.explorado);
+  if (!tramos.some((t) => t.visible)) return;
+  // Los vértices de la cadena, en píxeles: donde se pintan los puntos (en un
+  // puente, su tablero). P[k] y P[k + 1] son las puntas del tramo k.
+  const camara = v.camara;
+  const enPixeles = (at: Point): { x: number; y: number } => {
+    const [px, py] = pieEn(esc, at, 0.5);
+    return mundoAPixel(camara, px, py);
+  };
+  const P = [enPixeles(tramos[0]!.desde), ...tramos.map((t) => enPixeles(t.hasta))];
+  const medio = (a: { x: number; y: number }, b: { x: number; y: number }) => ({
+    x: (a.x + b.x) / 2,
+    y: (a.y + b.y) / 2,
+  });
+  const M = tramos.map((_, k) => medio(P[k]!, P[k + 1]!));
+  const ultimo = P.length - 1;
+
+  /** El tramo k como trazo: de la mitad de la curva de su arranque a la de su llegada. */
+  const trazar = (k: number, empieza: boolean): void => {
+    const a = P[k]!;
+    const b = P[k + 1]!;
+    const m = M[k]!;
+    if (k === 0) {
+      if (empieza) ctx.moveTo(a.x, a.y);
+      ctx.lineTo(m.x, m.y);
+    } else {
+      // La mitad de la curva M[k-1] → (a) → M[k] que es de este tramo.
+      const ini = { x: (M[k - 1]!.x + 2 * a.x + m.x) / 4, y: (M[k - 1]!.y + 2 * a.y + m.y) / 4 };
+      if (empieza) ctx.moveTo(ini.x, ini.y);
+      ctx.quadraticCurveTo((a.x + m.x) / 2, (a.y + m.y) / 2, m.x, m.y);
+    }
+    if (k + 1 === ultimo) {
+      ctx.lineTo(b.x, b.y);
+    } else {
+      const sig = M[k + 1]!;
+      const fin = { x: (m.x + 2 * b.x + sig.x) / 4, y: (m.y + 2 * b.y + sig.y) / 4 };
+      ctx.quadraticCurveTo((m.x + b.x) / 2, (m.y + b.y) / 2, fin.x, fin.y);
+    }
+  };
+
+  // Los tramos seguidos, visibles y del mismo estilo van en un solo trazo: los
+  // trazos de lo de otro día no se reinician en cada casilla.
+  const grupos: { estilo: EstiloDelTramo; desde: number; hasta: number }[] = [];
+  tramos.forEach((t, k) => {
+    if (!t.visible) return;
+    const g = grupos.at(-1);
+    if (g !== undefined && g.hasta === k - 1 && g.estilo === t.estilo) g.hasta = k;
+    else grupos.push({ estilo: t.estilo, desde: k, hasta: k });
+  });
+
+  const ancho = Math.max(2.5, camara.tile * 0.07);
+  const contorno = ancho + Math.max(2, ancho * 0.6);
+  // Lo de otro día, a trazos con su contorno cada uno: el mismo patrón en las dos
+  // pasadas (el remate redondo alarga cada trazo medio grueso por punta, así que
+  // quedan centrados), y el hueco deja ver el suelo entre los contornos.
+  const aTrazos = [ancho * 1.6, ancho * 1.8 + contorno];
+
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  // Primero el contorno de todo y después el color, para que en el cambio de
+  // estilo el contorno de un tramo no muerda la punta del de al lado.
+  for (const pasada of ['contorno', 'color'] as const) {
+    for (const g of grupos) {
+      const grueso = pasada === 'contorno' ? contorno : ancho;
+      ctx.beginPath();
+      for (let k = g.desde; k <= g.hasta; k++) trazar(k, k === g.desde);
+      ctx.setLineDash(g.estilo === 'otroDia' ? aTrazos : []);
+      ctx.strokeStyle = pasada === 'contorno' ? CONTORNO_DE_LA_RUTA : COLOR_DEL_TRAMO[g.estilo];
+      ctx.globalAlpha = pasada === 'contorno' ? 0.75 : 0.95;
+      ctx.lineWidth = grueso;
       ctx.stroke();
     }
   }
