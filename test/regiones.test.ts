@@ -66,9 +66,14 @@ import {
 } from '../src/core/map/vestir.js';
 import { createRng } from '../src/core/rng.js';
 import type { Point } from '../src/core/types.js';
-import { TROPA_BARATA } from './comun';
+import { TROPA_BARATA } from './comun.js';
 import { itLento, rango, segunPrisa } from './lento.js';
-import { grafoDeCaminos, pieza, planConCiudadDeRegion, planDeNodos } from './mapa-de-prueba';
+import {
+  grafoDeCaminos,
+  piezaDeCaminos,
+  planConCiudadDeRegion,
+  planDeNodos,
+} from './mapa-de-prueba.js';
 
 /** Los fallos de la auditoría densa de un plan, construyéndolo. */
 const densa = (plan: MapPlan): string[] => auditarMapaDenso(plan, buildMap(plan).map).fallos;
@@ -2144,7 +2149,7 @@ function auditarMapaDenso(
       fallos.push(`la región ${reg.id} no tiene ni una casilla de camino`);
       continue;
     }
-    const visto = pieza(unidas, origen, (j) => red.regionDe[j] === k);
+    const visto = piezaDeCaminos(unidas, origen, (j) => red.regionDe[j] === k);
     const sueltas = suCamino.filter((c) => !visto.has(c));
     if (sueltas.length > 0) {
       fallos.push(
@@ -2204,7 +2209,7 @@ function auditarMapaDenso(
   }
   // Y la red del mapa, de una pieza.
   if (todas.length > 0) {
-    const visto = pieza(unidas, todas[0]!, () => true);
+    const visto = piezaDeCaminos(unidas, todas[0]!, () => true);
     const fuera = todas.filter((c) => !visto.has(c));
     if (fuera.length > 0) {
       fallos.push(
@@ -2218,7 +2223,7 @@ function auditarMapaDenso(
 /**
  * Cuántos ciclos independientes tiene la red de caminos, y cuántos de ellos
  * caben dentro de una sola región: μ = tramos − casillas + piezas, con las
- * piezas por `pieza`, la misma búsqueda por tramos de la auditoría. Es la
+ * piezas por `piezaDeCaminos`, la misma búsqueda por tramos de la auditoría. Es la
  * medida del criterio 1 de «menos caminos» (#149) y de «los caminos como
  * tramos» (#153): dentro de una región la red es un árbol, así que `dentro` es 0.
  */
@@ -2233,7 +2238,7 @@ function ciclosDeCamino(map: GameMap): { total: number; dentro: number } {
     for (const c of casillas) {
       if (vistas.has(c)) continue;
       piezas++;
-      for (const j of pieza(unidas, c, (j) => casillas.has(j))) vistas.add(j);
+      for (const j of piezaDeCaminos(unidas, c, (j) => casillas.has(j))) vistas.add(j);
     }
     const dentro = aristas.filter(([i, k]) => casillas.has(i) && casillas.has(k)).length;
     return dentro - casillas.size + piezas;

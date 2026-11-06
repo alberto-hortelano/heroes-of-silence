@@ -89,7 +89,7 @@ const EN_LA_PUNTA = {
 } as const;
 
 /** El héroe de estos escenarios: con ataque y defensa, poder 2 y un libro con daño. */
-function mando(over: Partial<BattleHero> = {}): BattleHero {
+function mandoConCincoHechizos(over: Partial<BattleHero> = {}): BattleHero {
   return mandoDePrueba({
     spellPower: 2,
     spells: ['magic_arrow', 'lightning_bolt', 'haste', 'slow', 'cure'],
@@ -243,8 +243,8 @@ const ESCENARIOS: readonly Escenario[] = [
   },
   {
     nombre: 'tropa con héroes a los dos lados',
-    izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mando() }),
-    derecha: () => bando([{ creature: TROPA, count: 30 }], { heroe: mando() }),
+    izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mandoConCincoHechizos() }),
+    derecha: () => bando([{ creature: TROPA, count: 30 }], { heroe: mandoConCincoHechizos() }),
     en: { col: 5, row: 4 },
     contra: { col: 6, row: 4 },
     accion: golpe(),
@@ -286,7 +286,7 @@ const ESCENARIOS: readonly Escenario[] = [
   },
   {
     nombre: 'armadura: Flecha mágica sobre el templario',
-    izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mando() }),
+    izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mandoConCincoHechizos() }),
     derecha: () => deLaArena('templario', KIT_DEL_PERFIL['espada-escudo'].equipo),
     en: { col: 5, row: 4 },
     contra: { col: 8, row: 4 },
@@ -295,7 +295,7 @@ const ESCENARIOS: readonly Escenario[] = [
   },
   {
     nombre: 'Flecha mágica',
-    izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mando() }),
+    izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mandoConCincoHechizos() }),
     // Sin armadura (el monje): la del templario la compara con esta.
     derecha: () => bando([{ creature: SANADOR, count: 3 }]),
     en: { col: 5, row: 4 },
@@ -305,7 +305,7 @@ const ESCENARIOS: readonly Escenario[] = [
   },
   {
     nombre: 'Rayo',
-    izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mando() }),
+    izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mandoConCincoHechizos() }),
     derecha: () => bando([{ creature: TROPA, count: 3 }]),
     en: { col: 5, row: 4 },
     contra: { col: 8, row: 4 },
@@ -314,7 +314,7 @@ const ESCENARIOS: readonly Escenario[] = [
   },
   {
     nombre: 'Lentitud',
-    izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mando() }),
+    izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mandoConCincoHechizos() }),
     derecha: () => bando([{ creature: TROPA, count: 3 }]),
     en: { col: 5, row: 4 },
     contra: { col: 8, row: 4 },

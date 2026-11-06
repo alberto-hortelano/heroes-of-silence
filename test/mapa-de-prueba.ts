@@ -174,7 +174,7 @@ export function grafoDeCaminos(map: GameMap): {
 }
 
 /** Lo que se alcanza desde `origen` andando por tramos, sin salir de lo que `vale`. */
-export function pieza(
+export function piezaDeCaminos(
   unidas: ReadonlyMap<number, readonly number[]>,
   origen: number,
   vale: (j: number) => boolean,

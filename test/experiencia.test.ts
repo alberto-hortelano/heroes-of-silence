@@ -90,7 +90,7 @@ function veterano(creatureId: string, id: string, experiencia: number): Troop {
   return { creature: creatureId, veterania: hoja(id, experiencia) };
 }
 
-const mando = (over: Partial<BattleHero> = {}): BattleHero => ({
+const mandoConFlechaMagica = (over: Partial<BattleHero> = {}): BattleHero => ({
   name: 'Prueba',
   retreat: { blocked: 'no tienes base a la que volver' },
   spellPower: 1,
@@ -104,7 +104,7 @@ const mando = (over: Partial<BattleHero> = {}): BattleHero => ({
 const conHeroe = (army: BattleSide['army'], rango = RANGO_INICIAL_DE_HEROE): BattleSide => ({
   army,
   hero: {
-    mando: mando(),
+    mando: mandoConFlechaMagica(),
     figura: HERO_BODY,
     ...cuerposDelHeroe({
       name: 'Prueba',

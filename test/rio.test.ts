@@ -15,7 +15,7 @@
 import { describe, expect, it } from 'vitest';
 import { FORMAS_DEL_RIO, RIOS, validarRios } from '../src/core/data.js';
 import { buildMap, generateMapPlan, LADO_DEL_MAPA } from '../src/core/map/generate.js';
-import { rioAnteLaCiudad } from '../src/core/map/recinto.js';
+import { chebyshev, rioAnteLaCiudad } from '../src/core/map/recinto.js';
 import { estructura } from '../src/core/map/regiones.js';
 import {
   alOtroLado,
@@ -39,7 +39,6 @@ const N = W * H;
 /** Semillas de región como las de `intentarRed`: las dos casas y parejas en espejo. */
 function semillasDe(seed: number): Point[] {
   const rng = createRng(seed);
-  const cheb = (a: Point, b: Point) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
   const semillas: Point[] = [
     { x: 3, y: 3 },
     { x: W - 4, y: H - 4 },
@@ -47,7 +46,8 @@ function semillasDe(seed: number): Point[] {
   for (let g = 0; semillas.length < 10 && g < 1000; g++) {
     const p = { x: rng.int(1, W - 2), y: rng.int(1, H - 2) };
     const m = { x: W - 1 - p.x, y: H - 1 - p.y };
-    if (cheb(p, m) < 6 || semillas.some((s) => cheb(s, p) < 6 || cheb(s, m) < 6)) continue;
+    if (chebyshev(p, m) < 6 || semillas.some((s) => chebyshev(s, p) < 6 || chebyshev(s, m) < 6))
+      continue;
     semillas.push(p, m);
   }
   return semillas;

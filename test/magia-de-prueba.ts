@@ -98,9 +98,6 @@ export function turnoDeId(b: BattleState, id: string, rng: Rng): void {
   throw new Error(`a ${id} no le llega el turno`);
 }
 
-/** La vida que le queda a un stack. */
-export const vida = (s: BattleStack): number => (s.count - 1) * s.unit.hp + s.topHp;
-
 /** Que el héroe del atacante pueda lanzar otra vez en esta ronda (los tests lanzan seguidos). */
 export function otraVez(b: BattleState): void {
   const h = b.heroes.attacker;

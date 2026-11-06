@@ -29,7 +29,6 @@ import { centroHex, hexEnPixel, planoDeHex, tableroPara } from '../src/client/re
 import { autoResolve } from '../src/core/ai/tactics.js';
 import { FORMAS_DE_EJEMPLO, ladosDeLaForma } from '../src/core/arena-murallas.js';
 import {
-  type BattleSide,
   createBattle,
   movableHexes,
   movimientoBlocker,
@@ -47,17 +46,12 @@ import {
 import type { BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
-import type { Hex, Stack } from '../src/core/types.js';
+import type { Hex } from '../src/core/types.js';
 import { empezarTalCual, sesionDeArena } from './batalla-de-cliente.js';
-import { forzarTurno, muralla } from './batalla-de-prueba.js';
+import { muralla } from './batalla-de-prueba.js';
+import { duelo, forma, h, LINEA, lado } from './muralla-de-prueba.js';
 import { peleaDeArena, unidadDeArena } from './pelea-de-arena.js';
 
-const forma = (nombre: string): MurallaDeBatalla => {
-  const f = FORMAS_DE_EJEMPLO.find((x) => x.nombre === nombre);
-  if (f === undefined) throw new Error(`no hay forma de ejemplo «${nombre}»`);
-  return f.muralla;
-};
-const h = (col: number, row: number): Hex => ({ col, row });
 const FILAS = [0, 1, 2, 3, 4, 5, 6, 7, 8];
 /**
  * Columnas `cols` enteras sin las filas `sin`; si se da `puerta`, esa fila es un
@@ -96,25 +90,6 @@ const RECTA_3 = recta([5, 6, 7], 4);
 const ARCO_ABIERTO = arco(1, [1, 2, 3, 4, 5, 6, 7], true);
 const ARCO_ABIERTO_2 = arco(2, [1, 2, 3, 4, 5, 6, 7], true);
 
-const lado = (army: readonly Stack[]): BattleSide => ({ army, hero: null });
-function duelo(
-  muralla: MurallaDeBatalla,
-  en: Hex,
-  enDefensor: Hex,
-  turnoDe: 'attacker-0' | 'defender-0',
-): BattleState {
-  const state = createBattle(
-    lado([{ creature: 'templario-mandoble', count: 3 }]),
-    lado([{ creature: 'templario-mandoble', count: 3 }]),
-    createRng(3),
-    COMBATE_COMPLETO,
-    muralla,
-  );
-  stackById(state, 'attacker-0').hex = en;
-  stackById(state, 'defender-0').hex = enDefensor;
-  forzarTurno(state, turnoDe);
-  return state;
-}
 const movibles = (state: BattleState, id: string): Set<string> =>
   new Set(movableHexes(state, stackById(state, id)).map(hexKey));
 
@@ -245,7 +220,12 @@ describe('dentro y fuera por cercanía andando (C15)', () => {
 
 describe('murallas gruesas (C16)', () => {
   it('el defensor anda de muro a muro y baja solo hacia dentro', () => {
-    const state = duelo(GRUESA, h(1, 8), h(7, 2), 'defender-0');
+    const state = duelo({
+      muralla: GRUESA,
+      atacante: ['templario-mandoble', h(1, 8)],
+      defensores: [['templario-mandoble', h(7, 2)]],
+      turnoDe: 'defender-0',
+    });
     const va = movibles(state, 'defender-0');
     expect(va.has('6,2')).toBe(true);
     expect(va.has('6,1')).toBe(true);
@@ -256,7 +236,12 @@ describe('murallas gruesas (C16)', () => {
 
   it('el atacante que subió por la cara de fuera cruza por arriba y baja dentro, no fuera', () => {
     for (const m of [GRUESA, RECTA_2]) {
-      const state = duelo(m, h(6, 2), h(10, 8), 'attacker-0');
+      const state = duelo({
+        muralla: m,
+        atacante: ['templario-mandoble', h(6, 2)],
+        defensores: [['templario-mandoble', h(10, 8)]],
+        turnoDe: 'attacker-0',
+      });
       const va = movibles(state, 'attacker-0');
       expect(va.has('7,2')).toBe(true);
       expect(va.has('8,2')).toBe(true);
@@ -266,7 +251,12 @@ describe('murallas gruesas (C16)', () => {
   });
 
   it('el defensor de fuera no sube: las escaleras están dentro', () => {
-    const state = duelo(RECTA_2, h(0, 8), h(5, 2), 'defender-0');
+    const state = duelo({
+      muralla: RECTA_2,
+      atacante: ['templario-mandoble', h(0, 8)],
+      defensores: [['templario-mandoble', h(5, 2)]],
+      turnoDe: 'defender-0',
+    });
     expect(movibles(state, 'defender-0').has('6,2')).toBe(false);
     expect(movimientoBlocker(state, h(6, 2))).toBe(
       'desde fuera no se sube a la muralla: sus escaleras están dentro',
@@ -274,14 +264,24 @@ describe('murallas gruesas (C16)', () => {
   });
 
   it('de tres de fondo: se anda por los tres y se baja solo a la columna 8', () => {
-    const state = duelo(RECTA_3, h(1, 8), h(7, 1), 'defender-0');
+    const state = duelo({
+      muralla: RECTA_3,
+      atacante: ['templario-mandoble', h(1, 8)],
+      defensores: [['templario-mandoble', h(7, 1)]],
+      turnoDe: 'defender-0',
+    });
     const va = movibles(state, 'defender-0');
     for (const k of ['6,1', '5,1', '8,1']) expect(va.has(k), k).toBe(true);
     for (const k of ['4,1', '4,0', '4,2']) expect(va.has(k), k).toBe(false);
   });
 
   it('el semicírculo grueso: de lo alto, al arco y no afuera', () => {
-    const state = duelo(SEMICIRCULO_GRUESO, h(1, 8), h(6, 3), 'defender-0');
+    const state = duelo({
+      muralla: SEMICIRCULO_GRUESO,
+      atacante: ['templario-mandoble', h(1, 8)],
+      defensores: [['templario-mandoble', h(6, 3)]],
+      turnoDe: 'defender-0',
+    });
     const va = movibles(state, 'defender-0');
     expect(va.has('7,3')).toBe(true);
     expect(va.has('8,3')).toBe(true);
@@ -365,7 +365,6 @@ describe('murallas gruesas (C16)', () => {
 });
 
 describe('la columna translúcida y la figura en silueta (C18)', () => {
-  const LINEA = forma('Línea recta');
   const t = tableroPara(1280, 720, alzadoDeLaMuralla(LINEA));
 
   it('la silueta de una columna va de su pie a lo alto de su tapa', () => {

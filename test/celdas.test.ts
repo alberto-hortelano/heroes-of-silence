@@ -49,7 +49,7 @@ import { newGame } from '../src/core/state/setup.js';
 import { catalogoDelDisco, recta } from './escena-de-prueba.js';
 
 /** Las celdas de una rejilla de niveles escrita a mano, una cifra por casilla. */
-function deRejilla(filas: readonly string[], suelo: Suelo = 'grass') {
+function celdasYCaidasDeRejilla(filas: readonly string[], suelo: Suelo = 'grass') {
   const W = (filas[0] as string).length;
   const H = filas.length;
   const nivel = filas.flatMap((f) => [...f].map(Number));
@@ -63,7 +63,13 @@ const catalogo = catalogoDelDisco();
 describe('las paredes por celda de vértice', () => {
   it('una meseta rectangular: en sus esquinas de delante, dos convexas, y ninguna recta S, E u O en ellas', () => {
     // La meseta ocupa x 2-4, y 1-3.
-    const { celdas: cs } = deRejilla(['111111', '112221', '112221', '112221', '111111']);
+    const { celdas: cs } = celdasYCaidasDeRejilla([
+      '111111',
+      '112221',
+      '112221',
+      '112221',
+      '111111',
+    ]);
     const vistas = cs.filter((c) => esVisto(c.tipo));
     expect(tipos(vistas.filter((c) => c.tipo.includes('-')))).toEqual([
       '2,4 SO-convexa',
@@ -89,7 +95,7 @@ describe('las paredes por celda de vértice', () => {
 
   it('una escalera a 45° alterna convexas y cóncavas, sin rectas S ni E en medio', () => {
     // Alto todo lo que queda al noroeste de la diagonal.
-    const { celdas: cs } = deRejilla(['22221', '22211', '22111', '21111', '11111']);
+    const { celdas: cs } = celdasYCaidasDeRejilla(['22221', '22211', '22111', '21111', '11111']);
     const vistas = cs.filter((c) => esVisto(c.tipo));
     expect(new Set(vistas.map((c) => c.tipo))).toEqual(new Set(['SE-convexa', 'SE-concava']));
     // Alternan por la diagonal: el vértice de la punta de cada peldaño da la
@@ -106,13 +112,13 @@ describe('las paredes por celda de vértice', () => {
   });
 
   it('la silla se resuelve «el alto une»: dos rincones', () => {
-    const { celdas: cs } = deRejilla(['21', '12']);
+    const { celdas: cs } = celdasYCaidasDeRejilla(['21', '12']);
     expect(tipos(cs)).toEqual(['1,1 NE-concava', '1,1 SO-concava']);
   });
 
   it('una celda de tres niveles da dos paredes, una por grupo de umbrales con el mismo caso', () => {
     // NO 3, NE 2, SO 1, SE 1: con t = 2, caso 12 (S); con t = 3, caso 8 (SE convexa).
-    const { celdas: cs } = deRejilla(['32', '11']);
+    const { celdas: cs } = celdasYCaidasDeRejilla(['32', '11']);
     expect(cs.map((c) => [c.tipo, c.desde, c.caida])).toEqual([
       ['S', 2, 1],
       ['SE-convexa', 3, 1],
@@ -122,7 +128,7 @@ describe('las paredes por celda de vértice', () => {
   it('el mismo tipo en dos grupos seguidos es una sola pared con la caída de los dos', () => {
     // NO 3, NE 3, SO 3, SE 0 con NO bajando: el rincón SE (caso 14) y, más
     // arriba, la silla (caso 6) que también lo da. Dos piezas se montaban.
-    const { celdas: cs } = deRejilla(['13', '30']);
+    const { celdas: cs } = celdasYCaidasDeRejilla(['13', '30']);
     const se = cs.filter((c) => c.tipo === 'SE-concava');
     expect(se.map((c) => [c.desde, c.caida])).toEqual([[1, 3]]);
   });
@@ -132,7 +138,7 @@ describe('las paredes por celda de vértice', () => {
       celdas: cs,
       W,
       H,
-    } = deRejilla(['1111111', '1223221', '1233321', '1223221', '1122111', '1111111']);
+    } = celdasYCaidasDeRejilla(['1111111', '1223221', '1233321', '1223221', '1122111', '1111111']);
     const juntas = porJunta(cs);
     for (const c of cs)
       for (const [x, y] of filosDe(c)) {
@@ -160,7 +166,7 @@ describe('las paredes por celda de vértice', () => {
 
 describe('las bajadas (R5)', () => {
   // Una meseta de nivel 2 (x 1-3, y 0-1) sobre un llano de 1.
-  const r = deRejilla(['122211', '122211', '111111', '111111']);
+  const r = celdasYCaidasDeRejilla(['122211', '122211', '111111', '111111']);
   const tramo = (p: readonly [number, number], q: readonly [number, number]) =>
     [
       { x: p[0], y: p[1] },
@@ -306,7 +312,7 @@ describe('las bajadas (R5)', () => {
 });
 
 describe('las piezas en su sitio, con el arte del repo', () => {
-  const r = deRejilla(['111111', '112221', '112221', '112221', '111111']);
+  const r = celdasYCaidasDeRejilla(['111111', '112221', '112221', '112221', '111111']);
   const convexa = r.celdas.find((c) => c.tipo === 'SE-convexa') as Celda;
 
   it('una diagonal pone sus dos filos en los de su celda', () => {
@@ -445,7 +451,7 @@ describe('las piezas en su sitio, con el arte del repo', () => {
 });
 
 describe('los guardias del relieve por celdas, mordiendo', () => {
-  const r = deRejilla(['111111', '112221', '112221', '112221', '111111']);
+  const r = celdasYCaidasDeRejilla(['111111', '112221', '112221', '112221', '111111']);
   const { caidas: rel } = r;
   const sinRazon = () => null;
   /** Las piezas de la meseta, como las pondría `componer`: diagonales y laderas con marcador o arte. */

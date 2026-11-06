@@ -53,7 +53,7 @@ function stack(b: BattleState, slot: number, side: 'attacker' | 'defender' = 'at
 }
 
 /** Cierra turnos hasta que le toca a `id`: el resto no hace nada. */
-function hastaSuTurno(b: BattleState, id: string, rng: Rng): void {
+function hastaSuTurnoEn50(b: BattleState, id: string, rng: Rng): void {
   if (!avanzarHasta(b, rng, id, () => ({ type: 'end_turn' }), 50)) {
     throw new Error(`a ${id} no le llega el turno`);
   }
@@ -69,7 +69,7 @@ function enElTurnoDelMonje(
   const monje = stack(b, 0);
   const escudero = stack(b, 1);
   const orco = stack(b, 0, 'defender');
-  hastaSuTurno(b, monje.id, rng);
+  hastaSuTurnoEn50(b, monje.id, rng);
   escudero.topHp = escudero.unit.hp - herida;
   return { b, rng, monje, escudero, orco };
 }

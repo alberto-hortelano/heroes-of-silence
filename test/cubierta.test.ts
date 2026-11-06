@@ -26,7 +26,7 @@ import { partidaDe } from './escena-de-prueba.js';
 import { LENTO, rango } from './lento.js';
 
 /** Una pieza de cubierta con imagen de `nw`×`nh` y pie en `(x, y)`. */
-function pieza(x: number, y: number, nw: number, nh: number, alto: number): Sprite {
+function spriteDeCubierta(x: number, y: number, nw: number, nh: number, alto: number): Sprite {
   return {
     src: 'modulos/prueba/1.webp',
     nw,
@@ -45,13 +45,13 @@ function pieza(x: number, y: number, nw: number, nh: number, alto: number): Spri
 
 describe('tumbado: lo esbelto se encoge hasta la esbeltez que se le pide', () => {
   it('un módulo el doble de alto que ancho, con esbeltez 1, se pinta a la mitad', () => {
-    expect(tumbado(pieza(0, 0, 100, 200, 0.5), 1).alto).toBeCloseTo(0.25);
+    expect(tumbado(spriteDeCubierta(0, 0, 100, 200, 0.5), 1).alto).toBeCloseTo(0.25);
   });
 
   it('el tumbado sigue como es, y sin esbeltez o sin imagen nada cambia', () => {
-    expect(tumbado(pieza(0, 0, 300, 100, 0.5), 1.3).alto).toBe(0.5);
-    expect(tumbado(pieza(0, 0, 100, 200, 0.5), undefined).alto).toBe(0.5);
-    expect(tumbado({ ...pieza(0, 0, 100, 200, 0.5), src: null }, 1.3).alto).toBe(0.5);
+    expect(tumbado(spriteDeCubierta(0, 0, 300, 100, 0.5), 1.3).alto).toBe(0.5);
+    expect(tumbado(spriteDeCubierta(0, 0, 100, 200, 0.5), undefined).alto).toBe(0.5);
+    expect(tumbado({ ...spriteDeCubierta(0, 0, 100, 200, 0.5), src: null }, 1.3).alto).toBe(0.5);
   });
 });
 
@@ -62,9 +62,9 @@ describe('cubiertaComoLaBarrera: el guardia muerde', () => {
   const region = new Int32Array(16);
 
   it('un árbol o una aguja a su alto en lo que se pisa de la lava cuenta', () => {
-    const arbol = pieza(1.5, 1.9, 200, 280, 0.8);
-    const aguja = pieza(2.5, 2.9, 190, 236, 0.5);
-    const guijarro = tumbado(pieza(0.5, 0.9, 190, 236, 0.5), 1.3);
+    const arbol = spriteDeCubierta(1.5, 1.9, 200, 280, 0.8);
+    const aguja = spriteDeCubierta(2.5, 2.9, 190, 236, 0.5);
+    const guijarro = tumbado(spriteDeCubierta(0.5, 0.9, 190, 236, 0.5), 1.3);
     expect(cubiertaComoLaBarrera([arbol, aguja, guijarro], lava, region, W).altas).toEqual([
       arbol,
       aguja,
@@ -72,7 +72,7 @@ describe('cubiertaComoLaBarrera: el guardia muerde', () => {
   });
 
   it('en la hierba, o en lo que no se pisa, no cuenta', () => {
-    const arbol = pieza(1.5, 1.9, 200, 280, 0.8);
+    const arbol = spriteDeCubierta(1.5, 1.9, 200, 280, 0.8);
     const hierba: Suelo[] = Array(16).fill('grass');
     expect(cubiertaComoLaBarrera([arbol], hierba, region, W).altas).toEqual([]);
     const barrera = new Int32Array(16).fill(-1);
@@ -84,7 +84,7 @@ describe('cubiertaComoLaBarrera: el guardia muerde', () => {
     const peñascos = (porCasilla: number) =>
       rango(0, 15).flatMap((i) =>
         rango(1, porCasilla).map(() =>
-          pieza((i % W) + 0.5, Math.floor(i / W) + 0.9, 200, 100, 0.3),
+          spriteDeCubierta((i % W) + 0.5, Math.floor(i / W) + 0.9, 200, 100, 0.3),
         ),
       );
     const densa = peñascos(Math.ceil(HUELLA_DE_LO_PISABLE / 0.18) + 1);
@@ -98,7 +98,7 @@ describe('cubiertaComoLaBarrera: el guardia muerde', () => {
   it('un enclave de menos de nueve casillas no se mide por su media', () => {
     const enclave = new Int32Array(16).fill(-1);
     enclave[5] = 0;
-    const charcos = rango(1, 10).map(() => pieza(1.5, 1.9, 300, 100, 0.4));
+    const charcos = rango(1, 10).map(() => spriteDeCubierta(1.5, 1.9, 300, 100, 0.4));
     expect(cubiertaComoLaBarrera(charcos, lava, enclave, W).regionesDensas).toEqual([]);
   });
 });

@@ -69,7 +69,7 @@ import { LENTO, rango } from './lento.js';
 const TOQUE = 1e-9;
 
 /** Una pieza de la hoja `hoja` de `nw`×`nh`, con el ancla abajo en medio y el pie en `(x, y)`. */
-function pieza(
+function spriteDeHoja(
   hoja: string,
   clase: Sprite['clase'],
   x: number,
@@ -129,10 +129,10 @@ describe('los guardias muerden', () => {
   const franjaDe = Int32Array.from([0, 0, 0, 0, 0, 0, 0, -1, 1, 1]);
 
   it('un pino en la hierba cuenta, de cubierta o de masa; en el bosque, no', () => {
-    const enLaHierba = pieza('pinos', 'cubierta', 2.5, 1.8, 0.6);
-    const deMasa = pieza('frondosos', 'masa', 2.4, 1.7, 0.9);
-    const enElBosque = pieza('pinos', 'cubierta', 1.5, 1.8, 0.6);
-    const mata = pieza('cubierta-grass', 'cubierta', 2.5, 1.8, 0.4);
+    const enLaHierba = spriteDeHoja('pinos', 'cubierta', 2.5, 1.8, 0.6);
+    const deMasa = spriteDeHoja('frondosos', 'masa', 2.4, 1.7, 0.9);
+    const enElBosque = spriteDeHoja('pinos', 'cubierta', 1.5, 1.8, 0.6);
+    const mata = spriteDeHoja('cubierta-grass', 'cubierta', 2.5, 1.8, 0.4);
     expect(sobreLoPisable([enLaHierba, deMasa, enElBosque, mata], franjaDe, W).arboles).toEqual([
       enLaHierba,
       deMasa,
@@ -141,7 +141,7 @@ describe('los guardias muerden', () => {
 
   it('la copa de 1,23 con el ancla en x = 1,95 entra en el pasillo y cuenta; una fila al norte, no', () => {
     // Como el frondoso de la marca: 1,5 veces más ancho que alto, de 1,23 llega a x = 2,87.
-    const frondoso = pieza('frondosos', 'masa', 1.95, 1.81, 1.23, 150, 100);
+    const frondoso = spriteDeHoja('frondosos', 'masa', 1.95, 1.81, 1.23, 150, 100);
     expect(entraEn(frondoso, 2)).toBeCloseTo(0.87, 2);
     expect(sobreLoPisable([frondoso], franjaDe, W).masas).toEqual([frondoso]);
     // Con el pie en la fila de arriba, todo bosque: su silueta no cuenta, es perspectiva.
@@ -158,7 +158,7 @@ describe('los guardias muerden', () => {
 
   it('la que entra hasta el margen no cuenta; la que pasa de él, sí', () => {
     // Medio ancho de 0,25: con el ancla en 1,95 llega a 2,2, el margen justo.
-    const alMargen = pieza('pinos', 'masa', 1.95, 1.8, 0.5);
+    const alMargen = spriteDeHoja('pinos', 'masa', 1.95, 1.8, 0.5);
     expect(entraEn(alMargen, 2)).toBeCloseTo(MARGEN_SOBRE_LO_PISABLE, 6);
     expect(sobreLoPisable([alMargen], franjaDe, W).masas).toEqual([]);
     const pasada = { ...alMargen, alto: 0.52 };
@@ -167,12 +167,18 @@ describe('los guardias muerden', () => {
 
   it('el alto libre sale en cuenta cerrada: hasta el margen justo, por los dos lados', () => {
     // Medio ancho de 0,5 por casilla de alto: desde 1,95 llega a 2,2 con 0,5.
-    expect(altoPorLosLados(pieza('pinos', 'masa', 1.95, 1.8, 1), franjaDe, W)).toBeCloseTo(0.5, 9);
+    expect(altoPorLosLados(spriteDeHoja('pinos', 'masa', 1.95, 1.8, 1), franjaDe, W)).toBeCloseTo(
+      0.5,
+      9,
+    );
     // Desde el bosque de la derecha (x = 3,1), hacia el oeste hasta 2,8: 0,3 de medio ancho.
-    expect(altoPorLosLados(pieza('pinos', 'masa', 3.1, 1.8, 1), franjaDe, W)).toBeCloseTo(0.6, 9);
+    expect(altoPorLosLados(spriteDeHoja('pinos', 'masa', 3.1, 1.8, 1), franjaDe, W)).toBeCloseTo(
+      0.6,
+      9,
+    );
     // Lejos del pasillo, o con el pie en la fila de arriba, su alto.
-    expect(altoPorLosLados(pieza('pinos', 'masa', 0.5, 1.8, 1), franjaDe, W)).toBe(1);
-    expect(altoPorLosLados(pieza('pinos', 'masa', 1.95, 0.8, 1), franjaDe, W)).toBe(1);
+    expect(altoPorLosLados(spriteDeHoja('pinos', 'masa', 0.5, 1.8, 1), franjaDe, W)).toBe(1);
+    expect(altoPorLosLados(spriteDeHoja('pinos', 'masa', 1.95, 0.8, 1), franjaDe, W)).toBe(1);
   });
 
   it('los abetos en miniatura de la nieve son árboles; sus montones de nieve, no', () => {
@@ -182,7 +188,7 @@ describe('los guardias muerden', () => {
     expect(esArbol('modulos/cubierta-grass/1.webp')).toBe(false);
     expect(esArbol(null)).toBe(false);
     // Una mata con la imagen del abeto cuenta en lo que se pisa (QA: 9 455 en 1-40).
-    const abeto = pieza('cubierta-snow', 'cubierta', 2.5, 1.8, 0.42);
+    const abeto = spriteDeHoja('cubierta-snow', 'cubierta', 2.5, 1.8, 0.42);
     const nieve = { ...abeto, src: 'modulos/cubierta-snow/9.webp' };
     expect(sobreLoPisable([abeto, nieve], franjaDe, W).arboles).toEqual([abeto]);
   });
@@ -277,7 +283,7 @@ describe('la copa sobre un pasillo estrecho de su norte', () => {
 
   it('la copa de la fila de debajo tapa como mucho TAPADO_DEL_PASILLO: cuenta cerrada', () => {
     // Un pino cuadrado con el ancla abajo en medio: su caja sube su alto desde el pie.
-    const pino = pieza('pinos', 'masa', 2.5, 2.5, 1.2);
+    const pino = spriteDeHoja('pinos', 'masa', 2.5, 2.5, 1.2);
     // Lo alto de la caja no pasa de 2 − 0,4: alto 0,9.
     expect(altoSobreLosPasillos(pino, estrechas, W)).toBeCloseTo(2.5 - (2 - TAPADO_DEL_PASILLO), 9);
     // Con el pie más abajo, cabe entero; dos filas más abajo, por encima del bosque, hasta el mismo sitio.
@@ -289,7 +295,7 @@ describe('la copa sobre un pasillo estrecho de su norte', () => {
   });
 
   it('el contador lo ve en `pasillos`; una cumbre que hace lo mismo, en `cumbres`', () => {
-    const pino = pieza('pinos', 'masa', 2.5, 2.5, 1.2);
+    const pino = spriteDeHoja('pinos', 'masa', 2.5, 2.5, 1.2);
     expect(sobreLoPisable([pino], franjaDe, W)).toEqual({
       arboles: [],
       masas: [],
@@ -306,12 +312,12 @@ describe('la copa sobre un pasillo estrecho de su norte', () => {
 describe('toda casilla de bosque con su árbol', () => {
   it('sin árbol cuenta; con uno, o tapada por un objeto o una pared, no', () => {
     const W = 4;
-    const arbol = pieza('pinos', 'masa', 0.5, 0.8, 1);
-    const mata = pieza('cubierta-grass', 'cubierta', 1.5, 0.8, 0.4);
+    const arbol = spriteDeHoja('pinos', 'masa', 0.5, 0.8, 1);
+    const mata = spriteDeHoja('cubierta-grass', 'cubierta', 1.5, 0.8, 0.4);
     // Un pueblo de 1 × 1 con el pie en (3,5; 2,4): tapa el 0,6 de la casilla
     // (3, 1), que basta, y el 0,4 de (3, 2), que no.
     const ciudad: Sprite = {
-      ...pieza('pueblos', 'objeto', 3.5, 2.4, 1),
+      ...spriteDeHoja('pueblos', 'objeto', 3.5, 2.4, 1),
       objeto: { id: 'village-1', kind: 'village' },
     };
     const bosque = [0, 1, 2, 7, 11];

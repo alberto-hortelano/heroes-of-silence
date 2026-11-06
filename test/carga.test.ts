@@ -34,12 +34,11 @@ import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
 import type { Equipo, Hex, UnitInfo } from '../src/core/types.js';
 import { unidadDeCombate } from '../src/core/unidad.js';
-import { forzarTurno, NORMAL, todoA } from './batalla-de-prueba';
-import { bandoDe } from './batalla-de-prueba.js';
-import { catalogoCon, delBorrador, MONTAJE, unidadDeArena } from './pelea-de-arena';
+import { bandoDe, forzarTurno, NORMAL, todoA } from './batalla-de-prueba.js';
+import { JINETE } from './comun.js';
+import { catalogoCon, delBorrador, MONTAJE, unidadDeArena } from './pelea-de-arena.js';
 
 const A_PIE = 'templario-escudo';
-const JINETE = 'templario-hermano-de-carga';
 const RIVAL = 'zombi';
 
 /**
@@ -119,7 +118,7 @@ describe('la carga montada pega con la fuerza de la montura (26-10-2026)', () =>
   // Todo de la prueba, sin el catálogo: un jinete de fuerza 2 y agilidad 4, una lanza
   // de fuerza 3, una espada de fuerza 1 y una montura de guerra de fuerza 9. Nada pesa,
   // así que la agilidad no cambia con lo puesto y la horquilla se lee en las cifras.
-  const pieza = (p: Partial<Pieza> & Pick<Pieza, 'id' | 'hueco'>): Pieza => ({
+  const piezaDeEquipo = (p: Partial<Pieza> & Pick<Pieza, 'id' | 'hueco'>): Pieza => ({
     nombre: p.id,
     seConsigue: [],
     ataque: 0,
@@ -128,15 +127,20 @@ describe('la carga montada pega con la fuerza de la montura (26-10-2026)', () =>
     precio: 0,
     ...p,
   });
-  const LANZA = pieza({
+  const LANZA = piezaDeEquipo({
     id: 'lanza_de_prueba',
     hueco: 'arma',
     lanza: true,
     fuerza: 3,
     rueda: todoA(3),
   });
-  const ESPADA = pieza({ id: 'espada_de_prueba', hueco: 'arma', fuerza: 1, rueda: todoA(3) });
-  const DE_GUERRA = pieza({
+  const ESPADA = piezaDeEquipo({
+    id: 'espada_de_prueba',
+    hueco: 'arma',
+    fuerza: 1,
+    rueda: todoA(3),
+  });
+  const DE_GUERRA = piezaDeEquipo({
     id: 'montura_de_prueba',
     hueco: 'montura',
     guerra: true,

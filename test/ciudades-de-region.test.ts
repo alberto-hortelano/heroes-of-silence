@@ -25,7 +25,7 @@ import { puertasDeLaCiudad, rioAnteLaCiudad } from '../src/core/map/recinto.js';
 import { estructura, regionesDelSitio } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
 import { rango, segunPrisa } from './lento.js';
-import { grafoDeCaminos, pieza } from './mapa-de-prueba.js';
+import { grafoDeCaminos, piezaDeCaminos } from './mapa-de-prueba.js';
 
 describe('las ciudades del generador: en un nodo, solo las bases y las del río', () => {
   // En el bucle rápido, tres semillas; en la orden lenta, 1-40: 160 ciudades de
@@ -62,7 +62,7 @@ describe('las ciudades del generador: en un nodo, solo las bases y las del río'
         // El centro de sus caminos: por ellos se llega de la ciudad a todo lo
         // de su región que lleva camino (sus pueblos y sus nodos), y le entra
         // al menos uno por una puerta.
-        const alcance = pieza(grafoDeCaminos(map).unidas, t.at.y * W + t.at.x, () => true);
+        const alcance = piezaDeCaminos(grafoDeCaminos(map).unidas, t.at.y * W + t.at.x, () => true);
         const puertas = puertasDeLaCiudad(map, t.at);
         expect(puertas.length, `${donde}: sin puerta`).toBeGreaterThan(0);
         for (const o of map.objects) {

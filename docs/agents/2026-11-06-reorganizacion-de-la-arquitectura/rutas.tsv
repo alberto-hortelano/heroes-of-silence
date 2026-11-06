@@ -293,3 +293,16 @@ simbolo	test/helpers.ts	src/core/state/sitios.ts	guarnicionDeLaCiudad (era una r
 fichero	test/helpers.ts	(retirado)	repartido en comun, partida-de-prueba, mapa-de-prueba, escena-de-prueba, npcs-de-prueba, hojas-de-la-arena, batalla-de-prueba, pelea-de-arena, batalla-de-cliente y tools/comun/semillas.ts
 simbolo	test/*.test.ts (24 copias)	test/comun.ts	RAIZ (y las raíces escritas en línea con import.meta.dirname o new URL(…, import.meta.url))
 simbolo	test/*.test.ts (13 copias)	test/comun.ts	ctx
+simbolo	test/muralla-{alta,de-batalla,dentro-fuera,gruesa,puerta}.test.ts	test/muralla-de-prueba.ts	forma, LINEA, CON_PUERTA, h, claves, tipos, lado, VAMPIRO, deUno, conEscalera, duelo (las cuatro firmas, en una con objeto)
+simbolo	test/muralla-de-batalla.test.ts	test/muralla-de-batalla.test.ts	VAMPIRO → VAMPIRO_DE_4_CASILLAS (el suyo lleva speed: 'average')
+simbolo	test/magia-de-prueba.ts	src/core/battle/damage.ts	vida → stackHp
+simbolo	test/{recinto-nucleo,rio}.test.ts	src/core/map/recinto.ts	cheb → chebyshev
+simbolo	test/carga.test.ts	test/comun.ts	JINETE
+simbolo	test/labranza.test.ts	test/labranza.test.ts	cheb → chebyshevDeIndices
+simbolo	test/{celdas,laderas,rampas}.test.ts	(los mismos)	deRejilla → celdasYCaidasDeRejilla, caidasDeRejilla, celdasVistasDeRejilla
+simbolo	test/mesetas.test.ts	test/mesetas.test.ts	huellaDeLosObjetos → huellaDeLosObjetosYSusPuentes
+simbolo	test/{cubierta,cubierta-de-lo-alto,figuras,carga,mesetas,pisable-junto-al-bosque}.test.ts	(los mismos)	pieza → spriteDeCubierta, piezaDeHoja, masaFrontal, piezaDeEquipo, piezaSinArte, spriteDeHoja
+simbolo	test/mapa-de-prueba.ts	test/mapa-de-prueba.ts	pieza → piezaDeCaminos
+simbolo	test/armadura.test.ts	test/armadura.test.ts	JINETE → JINETE_CON_BARDA
+simbolo	test/{experiencia,prevision}.test.ts	(los mismos)	mando → mandoConFlechaMagica, mandoConCincoHechizos
+simbolo	test/poderes.test.ts	test/poderes.test.ts	hastaSuTurno → hastaSuTurnoEn50

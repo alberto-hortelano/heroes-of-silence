@@ -53,7 +53,7 @@ import { RAIZ, sha256 } from './comun.js';
 import { catalogoDelDisco } from './escena-de-prueba.js';
 
 /** Las caídas por celdas de una rejilla de niveles escrita a mano, una cifra por casilla. */
-function deRejilla(filas: readonly string[], suelo: Suelo = 'grass') {
+function caidasDeRejilla(filas: readonly string[], suelo: Suelo = 'grass') {
   const W = (filas[0] as string).length;
   const H = filas.length;
   const nivel = filas.flatMap((f) => [...f].map(Number));
@@ -91,7 +91,7 @@ describe('las laderas salen del relieve por celdas', () => {
     // Las celdas de los vértices de las esquinas de la meseta son diagonales: la
     // cadena va de la junta del medio de la fila 1 a la del medio de la fila 4.
     // Al norte sigue de espaldas (remata); al sur, por la diagonal (no remata).
-    expect(deRejilla(meseta).laderas).toEqual([
+    expect(caidasDeRejilla(meseta).laderas).toEqual([
       {
         x: 4,
         y0: 1.5,
@@ -113,7 +113,7 @@ describe('las laderas salen del relieve por celdas', () => {
         fin: false,
       },
     ]);
-    expect(deRejilla(meseta, 'sand').laderas.map((l) => l.material)).toEqual([
+    expect(caidasDeRejilla(meseta, 'sand').laderas.map((l) => l.material)).toEqual([
       'cara-arenisca',
       'cara-arenisca',
     ]);
@@ -122,7 +122,7 @@ describe('las laderas salen del relieve por celdas', () => {
   it('un barranco de una casilla no lleva ninguna de sus dos laderas: van a los barrancos', () => {
     // La columna 1 baja entre dos altas: la ladera este de x 0 y la oeste de
     // x 2 caían las dos en ella y tapaban su fondo (QA de #156, H1).
-    const barranco = deRejilla(['2222', '2122', '2122', '2222']);
+    const barranco = caidasDeRejilla(['2222', '2122', '2122', '2222']);
     expect(barranco.laderas.filter((l) => l.x <= 2)).toEqual([]);
     expect(barranco.barrancos.map((c) => [c.vx, c.vy, c.tipo])).toEqual([
       [1, 2, 'E'],
@@ -132,7 +132,7 @@ describe('las laderas salen del relieve por celdas', () => {
 
   it('la cadena se corta donde cambia la caída, y la mayor remata por donde sigue la menor', () => {
     // La columna 1 cae 1 al este en la fila 1 y 2 en las filas 2-3.
-    const { laderas } = deRejilla(['1111', '1211', '1311', '1311', '1111']);
+    const { laderas } = caidasDeRejilla(['1111', '1211', '1311', '1311', '1111']);
     expect(
       laderas.filter((l) => l.lado === 'este').map((l) => [l.y0, l.y1, l.caida, l.inicio, l.fin]),
     ).toEqual([

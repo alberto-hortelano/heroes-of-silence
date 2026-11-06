@@ -5,11 +5,11 @@
  */
 import { describe, expect, it } from 'vitest';
 import { applyAction, ataqueBlocker, legalActions, stackById } from '../src/core/battle/battle.js';
-import { danioPorIndividuo, effectiveAttack } from '../src/core/battle/damage.js';
+import { danioPorIndividuo, effectiveAttack, stackHp } from '../src/core/battle/damage.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { hechizo } from '../src/core/magia/catalogo.js';
 import type { Rng } from '../src/core/rng.js';
-import { de, montar, otraVez, turnoDe, turnoDeId, vida } from './magia-de-prueba.js';
+import { de, montar, otraVez, turnoDe, turnoDeId } from './magia-de-prueba.js';
 
 /** Que `quien` golpee cuerpo a cuerpo a `a` (pegados), Normal contra Normal. */
 function golpear(b: BattleState, rng: Rng, quien: string, a: string): void {
@@ -96,9 +96,9 @@ describe('Berserker', () => {
     const [lo] = danioPorIndividuo(s);
     applyAction(b, { type: 'cast', spell: 'berserker', target: s.id }, rng);
     expect(danioPorIndividuo(s)[0]).toBe(lo + 3);
-    const antes = vida(s);
+    const antes = stackHp(s);
     turnoDeId(b, s.id, rng);
-    expect(vida(s)).toBe(antes - 6);
+    expect(stackHp(s)).toBe(antes - 6);
   });
 });
 
@@ -120,13 +120,13 @@ describe('las reacciones', () => {
     const { b, rng } = montar([replica], { casillas: PEGADO });
     applyAction(b, { type: 'cast', spell: 'replica', target: 'attacker-0' }, rng);
     const orco = stackById(b, 'defender-0');
-    const antes = vida(orco);
+    const antes = stackHp(orco);
     golpear(b, rng, 'defender-0', 'attacker-0');
     expect(b.log.filter((e) => e.kind === 'triggered')).toHaveLength(1);
     expect(b.log.some((e) => e.kind === 'spell_hit' && e.stack === orco.id && e.damage === 4)).toBe(
       true,
     );
-    expect(vida(orco)).toBeLessThanOrEqual(antes - 4);
+    expect(stackHp(orco)).toBeLessThanOrEqual(antes - 4);
     expect(stackById(b, 'attacker-0').effects.some((e) => e.kind === 'disparador')).toBe(false);
   });
 
@@ -134,11 +134,11 @@ describe('las reacciones', () => {
     const { b, rng } = montar([hechizo('venganza_postuma'), RAYO], { casillas: PEGADO });
     applyAction(b, { type: 'cast', spell: 'venganza_postuma', target: 'attacker-0' }, rng);
     const orco = stackById(b, 'defender-0');
-    const antes = vida(orco);
+    const antes = stackHp(orco);
     otraVez(b);
     applyAction(b, { type: 'cast', spell: 'rayo', target: 'attacker-0' }, rng);
     expect(stackById(b, 'attacker-0').count).toBe(0);
-    expect(vida(orco)).toBe(Math.max(0, antes - 20));
-    expect(vida(stackById(b, 'defender-1'))).toBe(stackById(b, 'defender-1').unit.hp);
+    expect(stackHp(orco)).toBe(Math.max(0, antes - 20));
+    expect(stackHp(stackById(b, 'defender-1'))).toBe(stackById(b, 'defender-1').unit.hp);
   });
 });

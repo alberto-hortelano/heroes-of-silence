@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { autoResolve, chooseBattleAction } from '../src/core/ai/tactics.js';
-import { columna, FORMAS_DE_EJEMPLO } from '../src/core/arena-murallas.js';
+import { columna } from '../src/core/arena-murallas.js';
 import {
   applyAction,
   type BattleSide,
@@ -31,60 +31,18 @@ import type { BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
-import type { Hex, Stack, UnitInfo } from '../src/core/types.js';
-import { abrirPuertas, aMano, bandoAMano, forzarTurno } from './batalla-de-prueba.js';
+import type { Hex } from '../src/core/types.js';
+import { abrirPuertas, aMano } from './batalla-de-prueba.js';
 import { JINETE, NO_MUERTO, PESADA, TIRADOR, TROPA, TROPA_BARATA } from './comun.js';
+import { CON_PUERTA, claves, duelo, forma, LINEA, lado } from './muralla-de-prueba.js';
 import { peleaDelMotor, unidadDeArena } from './pelea-de-arena.js';
 
-const lado = (army: readonly Stack[]): BattleSide => ({ army, hero: null });
-
 /** Un volador de 4 casillas (el vampiro): `flying`, que nadie del catálogo lleva. */
-const VAMPIRO = aMano(NO_MUERTO, {
+const VAMPIRO_DE_4_CASILLAS = aMano(NO_MUERTO, {
   name: 'Vampiro',
   speed: 'average',
   traits: ['undead', 'flying'],
 });
-
-const forma = (nombre: string): MurallaDeBatalla => {
-  const f = FORMAS_DE_EJEMPLO.find((x) => x.nombre === nombre);
-  if (f === undefined) throw new Error(`no hay forma de ejemplo «${nombre}»`);
-  return f.muralla;
-};
-
-/** La columna 7 entera, y la misma con la puerta en (7,4). */
-const LINEA = forma('Línea recta');
-const CON_PUERTA = forma('Línea con puerta');
-
-/** Un bando de uno: tres de una unidad del catálogo, o uno hecho a mano. */
-const deUno = (quien: string | UnitInfo): BattleSide =>
-  typeof quien === 'string' ? lado([{ creature: quien, count: 3 }]) : bandoAMano([quien]);
-
-/**
- * Uno contra uno, cada uno donde diga el test y con el turno de quien diga. Los
- * hexes se ponen a mano: el despliegue tiene su propio test.
- */
-function duelo(
-  muralla: MurallaDeBatalla,
-  atacante: string | UnitInfo,
-  en: Hex,
-  defensor: string | UnitInfo,
-  enDefensor: Hex,
-  turnoDe: 'attacker-0' | 'defender-0' = 'attacker-0',
-): BattleState {
-  const state = createBattle(
-    deUno(atacante),
-    deUno(defensor),
-    createRng(3),
-    COMBATE_COMPLETO,
-    muralla,
-  );
-  stackById(state, 'attacker-0').hex = en;
-  stackById(state, 'defender-0').hex = enDefensor;
-  forzarTurno(state, turnoDe);
-  return state;
-}
-
-const claves = (hexes: readonly Hex[]): Set<string> => new Set(hexes.map(hexKey));
 
 describe('validarMuralla', () => {
   it('acepta una muralla bien formada y devuelve una copia congelada', () => {
@@ -228,7 +186,12 @@ describe('validarMuralla', () => {
 
 describe('el muro (C3)', () => {
   it('el defensor sube andando, anda por arriba y baja solo hacia dentro', () => {
-    const state = duelo(LINEA, TROPA, { col: 0, row: 0 }, PESADA, { col: 8, row: 4 }, 'defender-0');
+    const state = duelo({
+      muralla: LINEA,
+      atacante: [TROPA, { col: 0, row: 0 }],
+      defensores: [[PESADA, { col: 8, row: 4 }]],
+      turnoDe: 'defender-0',
+    });
     const movibles = claves(movableHexes(state, stackById(state, 'defender-0')));
     // Sube (7,x) y anda por arriba; al otro lado, fuera, no baja.
     for (const h of ['7,4', '7,3', '7,5', '8,3']) expect(movibles.has(h)).toBe(true);
@@ -240,9 +203,18 @@ describe('el muro (C3)', () => {
   });
 
   it('el atacante que ya está arriba anda por los muros y baja solo hacia dentro', () => {
-    const state = duelo(LINEA, PESADA, { col: 7, row: 4 }, TROPA, {
-      col: 10,
-      row: 0,
+    const state = duelo({
+      muralla: LINEA,
+      atacante: [PESADA, { col: 7, row: 4 }],
+      defensores: [
+        [
+          TROPA,
+          {
+            col: 10,
+            row: 0,
+          },
+        ],
+      ],
     });
     const movibles = claves(movableHexes(state, stackById(state, 'attacker-0')));
     for (const h of ['7,3', '7,2', '7,5', '8,4']) expect(movibles.has(h)).toBe(true);
@@ -255,9 +227,18 @@ describe('el muro (C3)', () => {
 
   it('el volador se posa en el muro, de cualquier bando', () => {
     // Vampiro: vuela, 4 casillas.
-    const state = duelo(LINEA, VAMPIRO, { col: 5, row: 4 }, TROPA, {
-      col: 10,
-      row: 0,
+    const state = duelo({
+      muralla: LINEA,
+      atacante: [VAMPIRO_DE_4_CASILLAS, { col: 5, row: 4 }],
+      defensores: [
+        [
+          TROPA,
+          {
+            col: 10,
+            row: 0,
+          },
+        ],
+      ],
     });
     const movibles = claves(movableHexes(state, stackById(state, 'attacker-0')));
     expect(movibles.has('8,4')).toBe(true);
@@ -269,10 +250,23 @@ describe('el muro (C3)', () => {
 
   it('la carga no cruza el muro', () => {
     const muro = validarMuralla({ material: 'piedra', muros: [{ col: 6, row: 4 }], puertas: [] });
-    const conMuro = duelo(muro, JINETE, { col: 3, row: 4 }, TROPA, { col: 8, row: 4 });
-    const sinMuro = duelo(SIN_MURALLA, JINETE, { col: 3, row: 4 }, TROPA, {
-      col: 8,
-      row: 4,
+    const conMuro = duelo({
+      muralla: muro,
+      atacante: [JINETE, { col: 3, row: 4 }],
+      defensores: [[TROPA, { col: 8, row: 4 }]],
+    });
+    const sinMuro = duelo({
+      muralla: SIN_MURALLA,
+      atacante: [JINETE, { col: 3, row: 4 }],
+      defensores: [
+        [
+          TROPA,
+          {
+            col: 8,
+            row: 4,
+          },
+        ],
+      ],
     });
     const desde = { col: 7, row: 4 };
     const carga = (st: BattleState): number =>
@@ -284,14 +278,12 @@ describe('el muro (C3)', () => {
 
 describe('la puerta (C4, C20 de la ampliación 3)', () => {
   it('cerrada no la cruza nadie, tampoco quien defiende', () => {
-    const state = duelo(
-      CON_PUERTA,
-      PESADA,
-      { col: 0, row: 0 },
-      PESADA,
-      { col: 8, row: 4 },
-      'defender-0',
-    );
+    const state = duelo({
+      muralla: CON_PUERTA,
+      atacante: [PESADA, { col: 0, row: 0 }],
+      defensores: [[PESADA, { col: 8, row: 4 }]],
+      turnoDe: 'defender-0',
+    });
     const movibles = claves(movableHexes(state, stackById(state, 'defender-0')));
     expect(movibles.has('7,4')).toBe(false);
     expect(movibles.has('6,4')).toBe(false);
@@ -306,21 +298,28 @@ describe('la puerta (C4, C20 de la ampliación 3)', () => {
   });
 
   it('abierta la cruzan y la pisan los dos bandos', () => {
-    const defensa = duelo(
-      CON_PUERTA,
-      PESADA,
-      { col: 0, row: 0 },
-      PESADA,
-      { col: 8, row: 4 },
-      'defender-0',
-    );
+    const defensa = duelo({
+      muralla: CON_PUERTA,
+      atacante: [PESADA, { col: 0, row: 0 }],
+      defensores: [[PESADA, { col: 8, row: 4 }]],
+      turnoDe: 'defender-0',
+    });
     abrirPuertas(defensa);
     const suyas = claves(movableHexes(defensa, stackById(defensa, 'defender-0')));
     expect(suyas.has('7,4')).toBe(true);
     expect(suyas.has('6,4')).toBe(true);
-    const ataque = duelo(CON_PUERTA, PESADA, { col: 5, row: 4 }, TROPA, {
-      col: 10,
-      row: 0,
+    const ataque = duelo({
+      muralla: CON_PUERTA,
+      atacante: [PESADA, { col: 5, row: 4 }],
+      defensores: [
+        [
+          TROPA,
+          {
+            col: 10,
+            row: 0,
+          },
+        ],
+      ],
     });
     abrirPuertas(ataque);
     const movibles = claves(movableHexes(ataque, stackById(ataque, 'attacker-0')));
@@ -331,9 +330,18 @@ describe('la puerta (C4, C20 de la ampliación 3)', () => {
   });
 
   it('las dos casillas de la puerta se pisan: lo cerrado es el paso entre ellas (C27)', () => {
-    const state = duelo(CON_PUERTA, PESADA, { col: 5, row: 4 }, TROPA, {
-      col: 10,
-      row: 0,
+    const state = duelo({
+      muralla: CON_PUERTA,
+      atacante: [PESADA, { col: 5, row: 4 }],
+      defensores: [
+        [
+          TROPA,
+          {
+            col: 10,
+            row: 0,
+          },
+        ],
+      ],
     });
     const movibles = claves(movableHexes(state, stackById(state, 'attacker-0')));
     // El hueco (7,4) es suelo, a su lado oeste de la puerta: se pisa.
@@ -347,16 +355,29 @@ describe('la puerta (C4, C20 de la ampliación 3)', () => {
   });
 
   it('el volador la sobrevuela, abierta o cerrada, y se posa a cualquier lado (C23)', () => {
-    const state = duelo(CON_PUERTA, VAMPIRO, { col: 5, row: 4 }, TROPA, { col: 10, row: 0 });
+    const state = duelo({
+      muralla: CON_PUERTA,
+      atacante: [VAMPIRO_DE_4_CASILLAS, { col: 5, row: 4 }],
+      defensores: [[TROPA, { col: 10, row: 0 }]],
+    });
     const movibles = claves(movableHexes(state, stackById(state, 'attacker-0')));
     expect(movibles.has('8,4')).toBe(true);
     expect(movibles.has('7,4')).toBe(true);
   });
 
   it('a quien está en la puerta abierta se le golpea desde fuera', () => {
-    const state = duelo(CON_PUERTA, PESADA, { col: 5, row: 4 }, TROPA, {
-      col: 7,
-      row: 4,
+    const state = duelo({
+      muralla: CON_PUERTA,
+      atacante: [PESADA, { col: 5, row: 4 }],
+      defensores: [
+        [
+          TROPA,
+          {
+            col: 7,
+            row: 4,
+          },
+        ],
+      ],
     });
     abrirPuertas(state);
     const golpes = legalActions(state).filter(
@@ -482,9 +503,18 @@ describe('las formas de ejemplo cierran lo que dicen', () => {
     side: 'attacker-0' | 'defender-0',
     abierta = false,
   ): number => {
-    const state = duelo(m, PESADA, { col: 1, row: 4 }, PESADA, {
-      col: 9,
-      row: 4,
+    const state = duelo({
+      muralla: m,
+      atacante: [PESADA, { col: 1, row: 4 }],
+      defensores: [
+        [
+          PESADA,
+          {
+            col: 9,
+            row: 4,
+          },
+        ],
+      ],
     });
     if (abierta) abrirPuertas(state);
     const yo = stackById(state, side);
@@ -513,9 +543,18 @@ describe('las formas de ejemplo cierran lo que dicen', () => {
   });
 
   it('el recorrido se guarda por muralla, puertas abiertas, bando y destino (C24)', () => {
-    const state = duelo(CON_PUERTA, PESADA, { col: 5, row: 4 }, TROPA, {
-      col: 9,
-      row: 4,
+    const state = duelo({
+      muralla: CON_PUERTA,
+      atacante: [PESADA, { col: 5, row: 4 }],
+      defensores: [
+        [
+          TROPA,
+          {
+            col: 9,
+            row: 4,
+          },
+        ],
+      ],
     });
     const a = stackById(state, 'attacker-0');
     const d = stackById(state, 'defender-0');
@@ -535,18 +574,36 @@ describe('las formas de ejemplo cierran lo que dicen', () => {
   });
 
   it('la L está abierta: se llega rodeando, más lejos que en recta', () => {
-    const state = duelo(forma('En L'), PESADA, { col: 5, row: 3 }, TROPA, {
-      col: 9,
-      row: 2,
+    const state = duelo({
+      muralla: forma('En L'),
+      atacante: [PESADA, { col: 5, row: 3 }],
+      defensores: [
+        [
+          TROPA,
+          {
+            col: 9,
+            row: 2,
+          },
+        ],
+      ],
     });
     const a = stackById(state, 'attacker-0');
     const d = stackById(state, 'defender-0');
     expect(distanciaACaminar(state, a, d)(a.hex)).toBeGreaterThan(4);
     expect(distanciaACaminar(state, a, d)(a.hex)).toBeLessThan(Number.POSITIVE_INFINITY);
     // Sin muralla, la distancia andando es la de siempre.
-    const libre = duelo(SIN_MURALLA, PESADA, { col: 5, row: 3 }, TROPA, {
-      col: 9,
-      row: 2,
+    const libre = duelo({
+      muralla: SIN_MURALLA,
+      atacante: [PESADA, { col: 5, row: 3 }],
+      defensores: [
+        [
+          TROPA,
+          {
+            col: 9,
+            row: 2,
+          },
+        ],
+      ],
     });
     const al = stackById(libre, 'attacker-0');
     expect(distanciaACaminar(libre, al, stackById(libre, 'defender-0'))(al.hex)).toBe(4);
@@ -555,9 +612,18 @@ describe('las formas de ejemplo cierran lo que dicen', () => {
 
 describe('la IA juega con muros sin colgarse (C5)', () => {
   it('sin camino a nadie, el atacante cierra el turno', () => {
-    const state = duelo(LINEA, PESADA, { col: 5, row: 4 }, TROPA, {
-      col: 9,
-      row: 4,
+    const state = duelo({
+      muralla: LINEA,
+      atacante: [PESADA, { col: 5, row: 4 }],
+      defensores: [
+        [
+          TROPA,
+          {
+            col: 9,
+            row: 4,
+          },
+        ],
+      ],
     });
     expect(chooseBattleAction(state)).toEqual({ type: 'end_turn' });
   });

@@ -59,7 +59,7 @@ function cuerpo(name: string, over: Partial<UnitInfo> = {}): UnitInfo {
 const vestido = (c: UnitInfo, equipo: Equipo): UnitInfo => EQUIPO_DEL_JUEGO.conEquipo(c, equipo);
 
 /** Con la coraza (`barda`): pesa 12 con fuerza 7, −1 de agilidad: defensa 3, 7 de armadura. */
-const JINETE = vestido(cuerpo('Jinete'), { armadura: 'barda' });
+const JINETE_CON_BARDA = vestido(cuerpo('Jinete'), { armadura: 'barda' });
 
 /**
  * `quien` en `en` contra `contra` en `donde` (y los demás defensores detrás), con
@@ -121,7 +121,7 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
   it('un golpe flojo contra la coraza se queda en 0: no quita nada, no lanza y se cuenta parado', () => {
     // 5 con ataque 3 contra defensa 3 (la coraza le quita 1 de agilidad): ×1; 5 − 7 → 0.
     const flojo = cuerpo('Flojo', { damage: [5, 5] });
-    const b = frente(flojo, [JINETE], PEGADOS[0], PEGADOS[1]);
+    const b = frente(flojo, [JINETE_CON_BARDA], PEGADOS[0], PEGADOS[1]);
     const desde = jugar(b, { type: 'attack', target: 'defender-0', ...NORMAL }, createRng(1));
     expect(hechos(b, 'attack', desde)[0]).toMatchObject({ damage: 0, killed: 0, parado: 5 });
     const jinete = stackById(b, 'defender-0');

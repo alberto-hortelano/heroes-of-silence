@@ -31,6 +31,7 @@ import {
 import {
   CIUDAD,
   cabeElRecinto,
+  chebyshev,
   LADO_DEL_RECINTO,
   MURO,
   muroBlocker,
@@ -50,9 +51,6 @@ import { baseOf } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { rango, segunPrisa } from './lento.js';
 import { planDeNodos } from './mapa-de-prueba.js';
-
-const cheb = (a: { x: number; y: number }, b: { x: number; y: number }) =>
-  Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 
 describe('el 3 × 3 de una ciudad (`recintoDeLaCiudad`)', () => {
   it('es el 3 × 3 con la ciudad en el medio', () => {
@@ -152,7 +150,7 @@ describe('por dónde se entra en una ciudad (`pasoPermitido`, fase 2)', () => {
     const desdeElEste = findPath(map, { x: 8, y: 4 }, { x: 4, y: 4 });
     if (desdeElEste === null) throw new Error('no llega');
     for (const { at } of desdeElEste.slice(0, -2))
-      expect(cheb(at, { x: 4, y: 4 }), `(${at.x},${at.y})`).toBeGreaterThan(1);
+      expect(chebyshev(at, { x: 4, y: 4 }), `(${at.x},${at.y})`).toBeGreaterThan(1);
     expect(['4,3', '4,5']).toContain(`${desdeElEste.at(-2)?.at.x},${desdeElEste.at(-2)?.at.y}`);
   });
 
@@ -192,11 +190,11 @@ describe('las puertas de una ciudad (`PUERTAS_DE_LA_CIUDAD`)', () => {
     for (const [cara, { casilla, accesos }] of Object.entries(PUERTAS_DE_LA_CIUDAD)) {
       const puerta = { x: casilla[0], y: casilla[1] };
       // La puerta, en el anillo; sus accesos, fuera, pegados a ella.
-      expect(cheb(puerta, { x: 0, y: 0 }), cara).toBe(1);
+      expect(chebyshev(puerta, { x: 0, y: 0 }), cara).toBe(1);
       expect(accesos.length, cara).toBe(cara === 'n' || cara === 's' ? 1 : 3);
       for (const [x, y] of accesos) {
-        expect(cheb({ x, y }, { x: 0, y: 0 }), `${cara} (${x},${y})`).toBe(2);
-        expect(cheb({ x, y }, puerta), `${cara} (${x},${y})`).toBe(1);
+        expect(chebyshev({ x, y }, { x: 0, y: 0 }), `${cara} (${x},${y})`).toBe(2);
+        expect(chebyshev({ x, y }, puerta), `${cara} (${x},${y})`).toBe(1);
       }
     }
   });

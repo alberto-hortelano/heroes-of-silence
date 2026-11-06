@@ -14,11 +14,9 @@ import {
 } from '../src/client/render/batalla.js';
 import { tableroPara } from '../src/client/render/proyeccion.js';
 import { autoResolve, chooseBattleAction } from '../src/core/ai/tactics.js';
-import { FORMAS_DE_EJEMPLO } from '../src/core/arena-murallas.js';
+
 import {
   applyAction,
-  type BattleSide,
-  createBattle,
   firmaDelTurno,
   legalActions,
   movableFrom,
@@ -31,71 +29,41 @@ import {
   cierra,
   claveDeAbiertas,
   ladoDeLaMuralla,
-  type MurallaDeBatalla,
   type PuertaDeMuralla,
   SIN_MURALLA,
 } from '../src/core/battle/muralla.js';
-import type { BattleAction, BattleState } from '../src/core/battle/types.js';
-import { COMBATE_COMPLETO } from '../src/core/combate.js';
+import type { BattleAction } from '../src/core/battle/types.js';
+
 import { createRng } from '../src/core/rng.js';
-import type { Hex, Stack } from '../src/core/types.js';
+import type { Hex } from '../src/core/types.js';
 import { describeAccion } from '../src/server/notas.js';
 import { abrirPuertas, aCiegas, forzarTurno, muralla } from './batalla-de-prueba.js';
+import { CON_PUERTA, duelo, forma, h, tipos } from './muralla-de-prueba.js';
 import { peleaDeArena, peleaDelMotor, unidadDeArena } from './pelea-de-arena.js';
 
-const h = (col: number, row: number): Hex => ({ col, row });
-const forma = (nombre: string): MurallaDeBatalla => {
-  const f = FORMAS_DE_EJEMPLO.find((x) => x.nombre === nombre);
-  if (f === undefined) throw new Error(`no hay forma de ejemplo «${nombre}»`);
-  return f.muralla;
-};
-const CON_PUERTA = forma('Línea con puerta');
 const PUERTA: PuertaDeMuralla = { a: h(7, 4), b: h(8, 4) };
-const lado = (army: readonly Stack[]): BattleSide => ({ army, hero: null });
 
-/** Uno contra uno (o contra dos), con el turno de `turnoDe`. */
-function duelo(
-  muralla: MurallaDeBatalla,
-  atacante: [string, Hex],
-  defensores: [string, Hex][],
-  turnoDe: string,
-): BattleState {
-  const state = createBattle(
-    lado([{ creature: atacante[0], count: 3 }]),
-    lado(defensores.map(([creature]) => ({ creature, count: 3 }))),
-    createRng(3),
-    COMBATE_COMPLETO,
-    muralla,
-  );
-  stackById(state, 'attacker-0').hex = atacante[1];
-  defensores.forEach(([, en], i) => {
-    stackById(state, `defender-${i}`).hex = en;
-  });
-  forzarTurno(state, turnoDe);
-  return state;
-}
 const abrir = (p: PuertaDeMuralla = PUERTA): BattleAction => ({ type: 'abrir_puerta', puerta: p });
 const cerrar = (p: PuertaDeMuralla = PUERTA): BattleAction => ({
   type: 'cerrar_puerta',
   puerta: p,
 });
-const tipos = (acciones: readonly BattleAction[]): string[] => acciones.map((a) => a.type);
 
 describe('la puerta es una juntura y empieza cerrada (C19, C27, C30, C31)', () => {
   it('cada puerta de la muralla, en su orden, cerrada; sin muralla, ninguna', () => {
-    const state = duelo(
-      CON_PUERTA,
-      ['templario-mandoble', h(0, 0)],
-      [['templario-escudo', h(9, 4)]],
-      'defender-0',
-    );
+    const state = duelo({
+      muralla: CON_PUERTA,
+      atacante: ['templario-mandoble', h(0, 0)],
+      defensores: [['templario-escudo', h(9, 4)]],
+      turnoDe: 'defender-0',
+    });
     expect(state.puertas).toEqual([{ ...PUERTA, abierta: false, cambiadaEn: null }]);
-    const libre = duelo(
-      SIN_MURALLA,
-      ['templario-mandoble', h(0, 0)],
-      [['templario-escudo', h(9, 4)]],
-      'defender-0',
-    );
+    const libre = duelo({
+      muralla: SIN_MURALLA,
+      atacante: ['templario-mandoble', h(0, 0)],
+      defensores: [['templario-escudo', h(9, 4)]],
+      turnoDe: 'defender-0',
+    });
     expect(libre.puertas).toEqual([]);
   });
 
@@ -126,12 +94,12 @@ describe('la puerta es una juntura y empieza cerrada (C19, C27, C30, C31)', () =
   });
 
   it('dentro y fuera se cuentan con las puertas cerradas: abrir no cambia la forma de lado (C22)', () => {
-    const state = duelo(
-      CON_PUERTA,
-      ['templario-mandoble', h(0, 0)],
-      [['templario-escudo', h(9, 4)]],
-      'defender-0',
-    );
+    const state = duelo({
+      muralla: CON_PUERTA,
+      atacante: ['templario-mandoble', h(0, 0)],
+      defensores: [['templario-escudo', h(9, 4)]],
+      turnoDe: 'defender-0',
+    });
     const lados = (): string[] =>
       Array.from({ length: 99 }, (_, i) =>
         ladoDeLaMuralla(state.muralla, h(i % 11, Math.floor(i / 11))),
@@ -146,12 +114,12 @@ describe('la puerta es una juntura y empieza cerrada (C19, C27, C30, C31)', () =
 
 describe('abrir y cerrar, al principio del turno de quien defiende (C21)', () => {
   it('se ofrece al defensor sin moverse, no gasta el turno y queda en la crónica', () => {
-    const state = duelo(
-      CON_PUERTA,
-      ['templario-mandoble', h(0, 0)],
-      [['templario-escudo', h(9, 2)]],
-      'defender-0',
-    );
+    const state = duelo({
+      muralla: CON_PUERTA,
+      atacante: ['templario-mandoble', h(0, 0)],
+      defensores: [['templario-escudo', h(9, 2)]],
+      turnoDe: 'defender-0',
+    });
     expect(legalActions(state)).toContainEqual(abrir());
     expect(tipos(legalActions(state))).not.toContain('cerrar_puerta');
     const turno = state.turno;
@@ -177,12 +145,12 @@ describe('abrir y cerrar, al principio del turno de quien defiende (C21)', () =>
   });
 
   it('un recorrido de antes de abrir no vale después: el camino ha cambiado', () => {
-    const state = duelo(
-      CON_PUERTA,
-      ['templario-mandoble', h(0, 0)],
-      [['templario-mandoble', h(9, 4)]],
-      'defender-0',
-    );
+    const state = duelo({
+      muralla: CON_PUERTA,
+      atacante: ['templario-mandoble', h(0, 0)],
+      defensores: [['templario-mandoble', h(9, 4)]],
+      turnoDe: 'defender-0',
+    });
     const turno = state.turno;
     if (turno === null) throw new Error('sin turno');
     const viejo = {
@@ -197,22 +165,22 @@ describe('abrir y cerrar, al principio del turno de quien defiende (C21)', () =>
   });
 
   it('cualquier unidad defensora, esté donde esté, también en lo alto', () => {
-    const state = duelo(
-      CON_PUERTA,
-      ['templario-mandoble', h(0, 0)],
-      [['elfo-arquero', h(7, 1)]],
-      'defender-0',
-    );
+    const state = duelo({
+      muralla: CON_PUERTA,
+      atacante: ['templario-mandoble', h(0, 0)],
+      defensores: [['elfo-arquero', h(7, 1)]],
+      turnoDe: 'defender-0',
+    });
     expect(puertaBlocker(state, 'abrir_puerta', PUERTA)).toBeNull();
   });
 
   it('el atacante no: ni se le ofrece ni se le deja, y se dice por qué', () => {
-    const state = duelo(
-      CON_PUERTA,
-      ['templario-mandoble', h(5, 4)],
-      [['templario-escudo', h(9, 2)]],
-      'attacker-0',
-    );
+    const state = duelo({
+      muralla: CON_PUERTA,
+      atacante: ['templario-mandoble', h(5, 4)],
+      defensores: [['templario-escudo', h(9, 2)]],
+      turnoDe: 'attacker-0',
+    });
     expect(tipos(legalActions(state))).not.toContain('abrir_puerta');
     expect(puertaBlocker(state, 'abrir_puerta', PUERTA)).toBe(
       'las puertas las abre y las cierra quien defiende',
@@ -226,12 +194,12 @@ describe('abrir y cerrar, al principio del turno de quien defiende (C21)', () =>
   });
 
   it('tras moverse ya no: la puerta es del principio del turno', () => {
-    const state = duelo(
-      CON_PUERTA,
-      ['templario-mandoble', h(0, 0)],
-      [['templario-escudo', h(9, 2)]],
-      'defender-0',
-    );
+    const state = duelo({
+      muralla: CON_PUERTA,
+      atacante: ['templario-mandoble', h(0, 0)],
+      defensores: [['templario-escudo', h(9, 2)]],
+      turnoDe: 'defender-0',
+    });
     applyAction(state, { type: 'move', to: h(9, 3) }, createRng(1));
     expect(state.turno?.stack).toBe('defender-0');
     const motivo =
@@ -242,24 +210,24 @@ describe('abrir y cerrar, al principio del turno de quien defiende (C21)', () =>
   });
 
   it('lo que no tiene sentido se dice: ya abierta, ya cerrada, ninguna puerta ahí', () => {
-    const state = duelo(
-      CON_PUERTA,
-      ['templario-mandoble', h(0, 0)],
-      [['templario-escudo', h(9, 2)]],
-      'defender-0',
-    );
+    const state = duelo({
+      muralla: CON_PUERTA,
+      atacante: ['templario-mandoble', h(0, 0)],
+      defensores: [['templario-escudo', h(9, 2)]],
+      turnoDe: 'defender-0',
+    });
     expect(puertaBlocker(state, 'cerrar_puerta', PUERTA)).toBe('la puerta ya está cerrada');
     expect(puertaBlocker(state, 'abrir_puerta', { a: h(2, 2), b: h(3, 2) })).toBe(
       'entre (2,2)-(3,2) no hay puerta',
     );
     abrirPuertas(state);
     expect(puertaBlocker(state, 'abrir_puerta', PUERTA)).toBe('la puerta ya está abierta');
-    const libre = duelo(
-      SIN_MURALLA,
-      ['templario-mandoble', h(0, 0)],
-      [['templario-escudo', h(9, 2)]],
-      'defender-0',
-    );
+    const libre = duelo({
+      muralla: SIN_MURALLA,
+      atacante: ['templario-mandoble', h(0, 0)],
+      defensores: [['templario-escudo', h(9, 2)]],
+      turnoDe: 'defender-0',
+    });
     expect(puertasBlocker(libre, 'abrir_puerta')).toBe('no hay puerta');
   });
 
@@ -284,12 +252,12 @@ describe('abrir y cerrar, al principio del turno de quien defiende (C21)', () =>
   });
 
   it('sin muralla no sale ninguna jugada de puerta: la lista de siempre', () => {
-    const libre = duelo(
-      SIN_MURALLA,
-      ['templario-mandoble', h(0, 0)],
-      [['templario-escudo', h(9, 2)]],
-      'defender-0',
-    );
+    const libre = duelo({
+      muralla: SIN_MURALLA,
+      atacante: ['templario-mandoble', h(0, 0)],
+      defensores: [['templario-escudo', h(9, 2)]],
+      turnoDe: 'defender-0',
+    });
     expect(tipos(legalActions(libre)).filter((t) => t.includes('puerta'))).toEqual([]);
   });
 });

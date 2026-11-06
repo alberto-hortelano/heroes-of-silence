@@ -34,10 +34,10 @@ import { EQUIPO_DEL_JUEGO, pieza } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
 import type { TipoDeGolpe } from '../src/core/types.js';
 import { cuerpoDeCombate, nivelesDeLaEspada, type Unidad } from '../src/core/unidad.js';
-import { empezarTalCual, hastaLaRueda, sesionDeArena } from './batalla-de-cliente';
-import { type Ataque, ataquesDe, golpeConLaRueda } from './batalla-de-prueba';
-import { TROPA } from './comun';
-import { aPelear, catalogoCon, montajeDePrueba, unidadDeArena } from './pelea-de-arena';
+import { empezarTalCual, hastaLaRueda, sesionDeArena } from './batalla-de-cliente.js';
+import { type Ataque, ataquesDe, golpeConLaRueda } from './batalla-de-prueba.js';
+import { TROPA } from './comun.js';
+import { aPelear, catalogoCon, montajeDePrueba, unidadDeArena } from './pelea-de-arena.js';
 
 /** `p` con los niveles de la Espada, con otro id y otro nombre: la misma arma, versátil. */
 function lisa(p: Pieza): Pieza {

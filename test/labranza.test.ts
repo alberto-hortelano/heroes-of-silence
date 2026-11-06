@@ -84,7 +84,7 @@ const CRUZ = [
 const dentro = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H;
 
 const SEMILLAS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-const cheb = (i: number, j: number) =>
+const chebyshevDeIndices = (i: number, j: number) =>
   Math.max(Math.abs((i % W) - (j % W)), Math.abs(Math.floor(i / W) - Math.floor(j / W)));
 const tamaños = (l: Labranza) => {
   const n = new Map<number, number>();
@@ -242,7 +242,7 @@ describe('la regla de la labranza (pura)', () => {
       }
       for (const [k, a] of l.atrezo.entries())
         for (const b of l.atrezo.slice(k + 1))
-          expect(cheb(a.i, b.i)).toBeGreaterThanOrEqual(ENTRE_ATREZO);
+          expect(chebyshevDeIndices(a.i, b.i)).toBeGreaterThanOrEqual(ENTRE_ATREZO);
     }
     expect(total, 'sin atrezo en diez semillas no se prueba nada').toBeGreaterThan(5);
   });
@@ -262,9 +262,10 @@ describe('la regla de la labranza (pura)', () => {
         // Lejos del camino (H1): el héroe no se para encima de ella.
         for (let j = 0; j < W * H; j++)
           if (e.camino[j] === 1)
-            expect(cheb(c.i, j), `casa ${c.i} junto al camino ${j}`).toBeGreaterThanOrEqual(
-              CASA_LEJOS_DEL_CAMINO,
-            );
+            expect(
+              chebyshevDeIndices(c.i, j),
+              `casa ${c.i} junto al camino ${j}`,
+            ).toBeGreaterThanOrEqual(CASA_LEJOS_DEL_CAMINO);
         expect(l.deRelleno[c.i]).toBe(0);
         const x = c.i % W;
         const y = Math.floor(c.i / W);
@@ -278,7 +279,7 @@ describe('la regla de la labranza (pura)', () => {
       }
       for (const [k, a] of l.casas.entries())
         for (const b of l.casas.slice(k + 1))
-          expect(cheb(a.i, b.i)).toBeGreaterThanOrEqual(ENTRE_CASAS);
+          expect(chebyshevDeIndices(a.i, b.i)).toBeGreaterThanOrEqual(ENTRE_CASAS);
     }
     expect(total, 'sin casas en diez semillas no se prueba nada').toBeGreaterThan(3);
   });

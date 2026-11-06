@@ -22,7 +22,6 @@ import {
 import {
   applyAction,
   ataqueBlocker,
-  type BattleSide,
   canReachMelee,
   createBattle,
   escalaBlocker,
@@ -35,80 +34,42 @@ import {
 } from '../src/core/battle/battle.js';
 import { hexKey } from '../src/core/battle/board.js';
 import { effectiveDefense, expectedDamage } from '../src/core/battle/damage.js';
-import {
-  bonoEnLoAlto,
-  enLoAlto,
-  esMuro,
-  type MurallaDeBatalla,
-} from '../src/core/battle/muralla.js';
-import type { BattleAction, BattleState } from '../src/core/battle/types.js';
+import { bonoEnLoAlto, enLoAlto, esMuro } from '../src/core/battle/muralla.js';
+import type { BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { LIDERAZGO, MURALLA } from '../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
-import type { Hex, Stack, UnitInfo } from '../src/core/types.js';
+import type { Hex } from '../src/core/types.js';
 import { empezarTalCual, sesionDeArena } from './batalla-de-cliente.js';
-import { aMano, bandoAMano, forzarTurno, muralla } from './batalla-de-prueba.js';
-import { NO_MUERTO, PESADA, TIRADOR, TIRADOR_NO_MUERTO, TROPA } from './comun.js';
+import { forzarTurno, muralla } from './batalla-de-prueba.js';
+import { PESADA, TIRADOR, TIRADOR_NO_MUERTO, TROPA } from './comun.js';
+import {
+  CON_PUERTA,
+  conEscalera,
+  duelo,
+  LINEA,
+  lado,
+  tipos,
+  VAMPIRO,
+} from './muralla-de-prueba.js';
 import { aPelear, peleaDeArena, peleaDelMotor, unidadDeArena } from './pelea-de-arena.js';
-
-const forma = (nombre: string): MurallaDeBatalla => {
-  const f = FORMAS_DE_EJEMPLO.find((x) => x.nombre === nombre);
-  if (f === undefined) throw new Error(`no hay forma de ejemplo «${nombre}»`);
-  return f.muralla;
-};
-
-/** La columna 7 entera, y la misma con la puerta en (7,4). */
-const LINEA = forma('Línea recta');
-const CON_PUERTA = forma('Línea con puerta');
-
-const lado = (army: readonly Stack[]): BattleSide => ({ army, hero: null });
-
-/** Un volador (el vampiro): `flying`, que nadie del catálogo lleva. */
-const VAMPIRO = aMano(NO_MUERTO, { name: 'Vampiro', traits: ['undead', 'flying'] });
-
-/** Les da escalera a los atacantes de esos puestos, como la casilla del montaje. */
-function conEscalera(state: BattleState, ...puestos: number[]): void {
-  for (const i of puestos) stackById(state, `attacker-${i}`).escalera = true;
-}
-
-/**
- * Uno contra uno, cada uno donde diga el test y con el turno de quien diga: del
- * catálogo (`cuantos` de él) o uno hecho a mano. `escalera`: si el atacante la lleva.
- */
-function duelo(
-  muralla: MurallaDeBatalla,
-  atacante: string | UnitInfo,
-  en: Hex,
-  defensor: string | UnitInfo,
-  enDefensor: Hex,
-  turnoDe: 'attacker-0' | 'defender-0' = 'attacker-0',
-  { escalera = false, cuantos = 3 }: { escalera?: boolean; cuantos?: number } = {},
-): BattleState {
-  const deUno = (quien: string | UnitInfo): BattleSide =>
-    typeof quien === 'string' ? lado([{ creature: quien, count: cuantos }]) : bandoAMano([quien]);
-  const state = createBattle(
-    deUno(atacante),
-    deUno(defensor),
-    createRng(3),
-    COMBATE_COMPLETO,
-    muralla,
-  );
-  if (escalera) conEscalera(state, 0);
-  stackById(state, 'attacker-0').hex = en;
-  stackById(state, 'defender-0').hex = enDefensor;
-  forzarTurno(state, turnoDe);
-  return state;
-}
-
-const tipos = (acciones: readonly BattleAction[]): string[] => acciones.map((a) => a.type);
 
 describe('el cuerpo a cuerpo, solo al mismo nivel', () => {
   it('del suelo no se golpea a quien está arriba', () => {
-    const state = duelo(LINEA, PESADA, { col: 6, row: 4 }, TROPA, {
-      col: 7,
-      row: 4,
+    const state = duelo({
+      muralla: LINEA,
+      atacante: [PESADA, { col: 6, row: 4 }],
+      defensores: [
+        [
+          TROPA,
+          {
+            col: 7,
+            row: 4,
+          },
+        ],
+      ],
     });
     const a = stackById(state, 'attacker-0');
     const d = stackById(state, 'defender-0');
@@ -122,9 +83,18 @@ describe('el cuerpo a cuerpo, solo al mismo nivel', () => {
   });
 
   it('arriba, los dos en el muro, sí', () => {
-    const state = duelo(LINEA, PESADA, { col: 7, row: 3 }, TROPA, {
-      col: 7,
-      row: 4,
+    const state = duelo({
+      muralla: LINEA,
+      atacante: [PESADA, { col: 7, row: 3 }],
+      defensores: [
+        [
+          TROPA,
+          {
+            col: 7,
+            row: 4,
+          },
+        ],
+      ],
     });
     expect(legalActions(state)).toContainEqual({ type: 'attack', target: 'defender-0' });
   });
@@ -132,7 +102,12 @@ describe('el cuerpo a cuerpo, solo al mismo nivel', () => {
   it('el que baja a golpear sale de una casilla de su nivel', () => {
     // El piquero defensor está arriba y el espadachín en el suelo, dentro: las
     // casillas desde las que se le golpea son del suelo, nunca un muro.
-    const state = duelo(LINEA, PESADA, { col: 9, row: 4 }, TROPA, { col: 7, row: 4 }, 'defender-0');
+    const state = duelo({
+      muralla: LINEA,
+      atacante: [PESADA, { col: 9, row: 4 }],
+      defensores: [[TROPA, { col: 7, row: 4 }]],
+      turnoDe: 'defender-0',
+    });
     const desdes = legalActions(state).flatMap((x) =>
       x.type === 'attack' && x.from !== undefined ? [x.from] : [],
     );
@@ -143,9 +118,18 @@ describe('el cuerpo a cuerpo, solo al mismo nivel', () => {
 
 describe('la defensa del tirador en lo alto', () => {
   it(`suma ${MURALLA.defensaEnLoAlto} a su defensa, y solo si tira`, () => {
-    const state = duelo(LINEA, PESADA, { col: 3, row: 4 }, TIRADOR, {
-      col: 7,
-      row: 4,
+    const state = duelo({
+      muralla: LINEA,
+      atacante: [PESADA, { col: 3, row: 4 }],
+      defensores: [
+        [
+          TIRADOR,
+          {
+            col: 7,
+            row: 4,
+          },
+        ],
+      ],
     });
     const arquero = stackById(state, 'defender-0');
     const espada = stackById(state, 'attacker-0');
@@ -176,7 +160,11 @@ describe('la escalera', () => {
    * arquero.
    */
   const alPie = (): BattleState =>
-    duelo(LINEA, PESADA, { col: 6, row: 4 }, TIRADOR_NO_MUERTO, { col: 10, row: 0 }, 'attacker-0', {
+    duelo({
+      muralla: LINEA,
+      atacante: [PESADA, { col: 6, row: 4 }],
+      defensores: [[TIRADOR_NO_MUERTO, { col: 10, row: 0 }]],
+      turnoDe: 'attacker-0',
       escalera: true,
     });
 
@@ -292,9 +280,18 @@ describe('la escalera', () => {
   });
 
   it('el volador no escala', () => {
-    const volador = duelo(LINEA, VAMPIRO, { col: 6, row: 4 }, TIRADOR, {
-      col: 10,
-      row: 0,
+    const volador = duelo({
+      muralla: LINEA,
+      atacante: [VAMPIRO, { col: 6, row: 4 }],
+      defensores: [
+        [
+          TIRADOR,
+          {
+            col: 10,
+            row: 0,
+          },
+        ],
+      ],
     });
     expect(subirBlocker(volador, { col: 7, row: 4 })).toBe(
       'vuela: se posa en la muralla sin escalera',
@@ -343,9 +340,18 @@ describe('el rasgo escalar', () => {
 describe('el cliente', () => {
   it('la figura de lo alto se pinta subida lo que mide la columna', () => {
     const t = tableroPara(1280, 720);
-    const state = duelo(LINEA, PESADA, { col: 6, row: 4 }, TIRADOR, {
-      col: 7,
-      row: 4,
+    const state = duelo({
+      muralla: LINEA,
+      atacante: [PESADA, { col: 6, row: 4 }],
+      defensores: [
+        [
+          TIRADOR,
+          {
+            col: 7,
+            row: 4,
+          },
+        ],
+      ],
     });
     const s = stackById(state, 'defender-0');
     const en = planoDeHex(s.hex);
@@ -355,15 +361,13 @@ describe('el cliente', () => {
   });
 
   it('el animador sube a la figura al trepar, de 0 a 1', () => {
-    const state = duelo(
-      LINEA,
-      PESADA,
-      { col: 6, row: 4 },
-      TIRADOR,
-      { col: 10, row: 0 },
-      'attacker-0',
-      { escalera: true },
-    );
+    const state = duelo({
+      muralla: LINEA,
+      atacante: [PESADA, { col: 6, row: 4 }],
+      defensores: [[TIRADOR, { col: 10, row: 0 }]],
+      turnoDe: 'attacker-0',
+      escalera: true,
+    });
     state.escaleras.push({ pie: { col: 6, row: 4 }, muro: { col: 7, row: 4 } });
     const anim = new BattleAnimator();
     anim.observe(state);
@@ -538,15 +542,13 @@ describe('tras QA', () => {
     for (let semilla = 1; semilla <= 20; semilla++) {
       for (const accion of ['poner_escalera', 'subir'] as const) {
         // El arquero, más lento: el turno forzado es el de la ronda del espadachín.
-        const state = duelo(
-          LINEA,
-          PESADA,
-          { col: 6, row: 4 },
-          TIRADOR_NO_MUERTO,
-          { col: 10, row: 0 },
-          'attacker-0',
-          { escalera: true },
-        );
+        const state = duelo({
+          muralla: LINEA,
+          atacante: [PESADA, { col: 6, row: 4 }],
+          defensores: [[TIRADOR_NO_MUERTO, { col: 10, row: 0 }]],
+          turnoDe: 'attacker-0',
+          escalera: true,
+        });
         const a = stackById(state, 'attacker-0');
         a.morale = 3;
         const muro = { col: 7, row: 4 };
