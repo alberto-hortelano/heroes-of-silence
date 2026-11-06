@@ -1077,8 +1077,11 @@ antes del destino (`battle_started` con `faltan`).
   **Antes, el aviso** (06-11-2026, «centrar el lugar del ataque en el mapa y mostrar un popup»): el
   mapa mira a la casilla del ataque (`focoDe`, con un aro rojo que late, `VistaMapa.ataque`) y
   `<dialog id="aviso">` (`views/aviso.ts`) dice quién ataca, a quién y dónde (`elAtaque`, `game.ts`:
-  el sitio de `sitioQueSeDefiende`; la frase, `Session.avisoDelAtaque`), con «Defender» (abre la
-  batalla y, si toca, la defensa) y «Resolver sola»; Escape no lo cierra. Cada batalla del turno
+  el sitio de `sitioQueSeDefiende` y, en campo abierto, el nombre de su región, `Ataque.region`, nunca
+  la casilla; la frase, `Session.avisoDelAtaque`), con «Defender» (abre la
+  batalla y, si toca, la defensa) y «Resolver sola»; Escape no lo cierra. Al volver al mapa de toda
+  batalla suya, jugada o resuelta sola, la barra dice cómo acabó (`fraseTrasLaBatalla`: «Batalla
+  perdida: …; X cae y vuelve a Valdeluz sin tropa.»). Cada batalla del turno
   del rival, el suyo; y la emboscada de un grupo en el turno propio, igual (`moveHeroTo`).
   Mientras la rueda espera, los botones de la batalla salen apagados con su motivo
   (`apagadosPor`), y un clic mientras se cuenta una jugada dice «Espera a que termine la jugada.»

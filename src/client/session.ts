@@ -65,6 +65,7 @@ import {
 } from '@core/battle/despliegue.js';
 import { bonoEnLoAlto, type MurallaDeBatalla, SIN_MURALLA } from '@core/battle/muralla.js';
 import { type PoderId, poder } from '@core/battle/poderes.js';
+import type { Baja } from '@core/battle/resumen.js';
 import {
   formaDeLaBatalla,
   type PapelEnLaRueda,
@@ -96,6 +97,7 @@ import { partidaDelMundo } from '@core/mundo/partida.js';
 import { estadoDicho, lugarEn } from '@core/mundo/reglas.js';
 import { type BancoPintado, SIN_BANCO } from '@core/npcs.js';
 import { createRng, type Rng } from '@core/rng.js';
+import { CHARACTER_BODY } from '@core/rpg/character.js';
 import {
   type AsaltantesALaVista,
   asaltantesALaVista,
@@ -2792,16 +2794,23 @@ export class Session implements ControlDeBatalla {
       a.quien.kind === 'heroe'
         ? `${a.quien.nombre} (${NOMBRE_DE_FACCION[a.quien.faccion]})`
         : `Un grupo de ${a.quien.individuos} asaltantes`;
+    // Dónde, por un nombre y no por la casilla (06-11-2026: «en (11,5)» no se leía
+    // como un lugar; la cámara ya enseña cuál): el sitio y, en campo abierto, su
+    // región (`Ataque.region`); sin ninguna, nada.
     const aQuien =
       a.aQuien.kind === 'heroe'
         ? a.aQuien.nombre
-        : `la guarnición ${a.sitio?.delSitio ?? `de (${a.at.x},${a.at.y})`}`;
+        : a.sitio === null
+          ? 'la guarnición'
+          : `la guarnición ${a.sitio.delSitio}`;
     const donde =
       a.aQuien.kind === 'guarnicion'
         ? ''
         : a.sitio !== null
           ? ` en ${a.sitio.nombre}`
-          : ` en (${a.at.x},${a.at.y})`;
+          : a.region === null
+            ? ''
+            : ` ${a.region.dentro ? 'en' : 'junto a'} ${a.region.nombre}`;
     return {
       titulo: emboscada
         ? '¡Emboscada!'
@@ -3871,8 +3880,9 @@ export class Session implements ControlDeBatalla {
     }
     // Delegar la batalla no es delegar el oro: la IA no se rinde por la persona.
     const delLugar = this.lugarDeLaBatalla();
+    const antes = this.antesDeCerrar();
     resolvePendingBattle(this.state, this.ctx);
-    this.afterBattle(delLugar);
+    this.afterBattle(delLugar, antes);
   }
 
   /** Cierra la batalla terminada y vuelve al mapa (o al lugar donde se peleó). */
@@ -3880,11 +3890,116 @@ export class Session implements ControlDeBatalla {
     const battle = this.battle;
     if (battle === null || battle.finished === null) return;
     const delLugar = this.lugarDeLaBatalla();
+    const antes = this.antesDeCerrar();
     settleBattle(this.state, this.ctx);
-    this.afterBattle(delLugar);
+    this.afterBattle(delLugar, antes);
   }
 
-  private afterBattle(delLugar: { readonly heroe: string } | null = null): void {
+  /**
+   * Lo que hace falta para contar la batalla después de cerrarla
+   * (`fraseTrasLaBatalla`): dónde empiezan sus hechos en la crónica y el nombre de
+   * cada héroe, que el vencido sin base ya no está en el mapa para decirlo.
+   */
+  private antesDeCerrar(): AntesDeCerrar {
+    return {
+      desde: this.state.log.length,
+      nombres: new Map(this.state.heroes.map((h) => [h.id, h.name])),
+    };
+  }
+
+  /**
+   * Cómo acabó la batalla que se acaba de cerrar, en una frase para la barra, o ''
+   * si no era de la persona (06-11-2026: «Resolver sola» volvía al mapa con la
+   * barra vacía y el grupo, sin más, ya no estaba). Con lo que acaba de escribir el
+   * núcleo: quién ganó y qué perdió cada bando (`battle_ended`, con su
+   * `resumenDeBatalla`), y lo que pasó fuera del tablero: un héroe que cae, se
+   * rinde o vuelve a su base (`hero_defeated`, `hero_returned`) y un sitio que se
+   * pierde o se toma. La misma tras una batalla jugada («Continuar») y tras una
+   * resuelta sola: la jugada enseñaba su final en el panel y volvía al mapa
+   * también callada.
+   */
+  private fraseTrasLaBatalla({ desde, nombres }: AntesDeCerrar): string {
+    const hechos = this.state.log.slice(desde);
+    const fin = hechos.find((e) => e.kind === 'battle_ended');
+    if (fin === undefined) return '';
+    const suyo: Side | null =
+      fin.owners.attacker === this.viewer
+        ? 'attacker'
+        : fin.owners.defender === this.viewer
+          ? 'defender'
+          : null;
+    if (suyo === null) return '';
+    const otro: Side = suyo === 'attacker' ? 'defender' : 'attacker';
+    const bajas = (l: readonly Baja[]): string =>
+      l
+        .map(
+          (b) =>
+            `${b.count}\u00a0× ${b.creature === CHARACTER_BODY ? 'personaje' : unidadDelJuego(b.creature).name}`,
+        )
+        .join(', ');
+    // Lo que mataron de lo tuyo. «No pierdes a nadie» no se dice si cae un héroe
+    // tuyo: la tropa que no murió en el tablero se va con él (`volverABase`).
+    const cayoUnoTuyo = hechos.some((e) => e.kind === 'hero_defeated' && e.actor === this.viewer);
+    const tuyas =
+      fin.lost[suyo].length > 0
+        ? [`pierdes ${bajas(fin.lost[suyo])}`]
+        : cayoUnoTuyo
+          ? []
+          : ['no pierdes a nadie'];
+    const partes = [
+      ...tuyas,
+      fin.lost[otro].length === 0
+        ? 'el enemigo no pierde a nadie'
+        : `el enemigo pierde ${bajas(fin.lost[otro])}`,
+    ];
+    const nombre = (id: string): string => nombres.get(id) ?? 'un héroe';
+    const sitio = (id: string): string => {
+      const s = sitioSiExiste(this.state, id);
+      return s === null ? 'un sitio' : nombreDelSitio(s);
+    };
+    const caidos = new Set<string>();
+    for (const e of hechos) {
+      switch (e.kind) {
+        case 'hero_defeated':
+          // `actor` es el dueño del que cae. El tuyo se cuenta con su vuelta, si vuelve.
+          if (e.actor !== this.viewer) partes.push(`cae ${nombre(e.hero)}`);
+          else caidos.add(e.hero);
+          break;
+        case 'hero_returned': {
+          if (e.actor !== this.viewer) break;
+          const base = sitio(e.town);
+          if (e.surrendered) {
+            partes.push(`${nombre(e.hero)} se rinde por ${e.gold} de oro y vuelve a ${base}`);
+          } else {
+            caidos.delete(e.hero);
+            partes.push(`${nombre(e.hero)} cae y vuelve a ${base} sin tropa`);
+          }
+          break;
+        }
+        case 'town_captured':
+        case 'node_captured': {
+          const id = e.kind === 'town_captured' ? e.town : e.node;
+          if (e.from === this.viewer) partes.push(`pierdes ${sitio(id)}`);
+          else if (e.actor === this.viewer) partes.push(`tomas ${sitio(id)}`);
+          break;
+        }
+        case 'town_owner_changed':
+          if (e.from === this.viewer) partes.push(`pierdes ${sitio(e.town)}`);
+          else if (e.to === this.viewer) partes.push(`tomas ${sitio(e.town)}`);
+          break;
+        default:
+          break;
+      }
+    }
+    // El que cae sin base a la que volver sale del mapa.
+    for (const id of caidos) partes.push(`${nombre(id)} cae`);
+    return `Batalla ${fin.winner === suyo ? 'ganada' : 'perdida'}: ${partes.join('; ')}.`;
+  }
+
+  private afterBattle(
+    delLugar: { readonly heroe: string } | null = null,
+    antes: AntesDeCerrar | null = null,
+  ): void {
     // Cerrada sin pasar por «Defender» (`autoResolveBattle` directo), su aviso sobra.
     this.avisoEnPantalla = null;
     // Si era una defensa (#116), el turno del rival sigue desde aquí.
@@ -3896,10 +4011,10 @@ export class Session implements ControlDeBatalla {
     if (this.selectedHero === null) {
       this.selectedHeroId = this.myHeroes()[0]?.id ?? null;
     }
-    // «¡Batalla!» se quedaba en la barra ya de vuelta en el mapa: se borra. Si
-    // la batalla cerró la partida, la barra dice cómo sin que se escriba aquí
-    // (`status`); antes era un «¡Victoria!» a secas, sin la causa.
-    this.status = '';
+    // «¡Batalla!» se quedaba en la barra ya de vuelta en el mapa: dice cómo acabó
+    // (`fraseTrasLaBatalla`). Si la batalla cerró la partida, la barra dice cómo
+    // sin que se escriba aquí (`status`); antes era un «¡Victoria!» a secas, sin la causa.
+    this.status = antes === null ? '' : this.fraseTrasLaBatalla(antes);
     // La de un lugar vuelve a su escena, ya en su estado nuevo (P-d del usuario),
     // si el héroe sigue en él: vencido, vuelve a su base y se queda en el mapa.
     const hero =
@@ -4588,6 +4703,14 @@ export interface VistaDeLaGuarnicion extends ElReparto {
    * pueblo no se mejoran), con el turno en su motivo.
    */
   readonly obra: LaObraDelPuesto | null;
+}
+
+/** Lo que la sesión guarda al cerrar una batalla para contarla después (`fraseTrasLaBatalla`). */
+interface AntesDeCerrar {
+  /** Dónde empiezan en la crónica los hechos del cierre. */
+  readonly desde: number;
+  /** El nombre de cada héroe antes de cerrarla, por su id. */
+  readonly nombres: ReadonlyMap<string, string>;
 }
 
 /** El aviso de un ataque a la persona (`Session.avisoDelAtaque`), dicho. */
