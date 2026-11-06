@@ -17,13 +17,15 @@ import {
   buildMap,
   generateMapPlan,
   type MapPlan,
+  type PlanConCasillas,
   planDelAgente,
   validateMapPlan,
 } from '../src/core/map/generate.js';
 import { problemasDeNiveles } from '../src/core/map/regiones.js';
 import { BARRERAS_DE_DESNIVEL, type Nivel, QUE_ES_UN_NIVEL } from '../src/core/map/terrain.js';
 import { createRng } from '../src/core/rng.js';
-import { catalogoDelDisco, planDeMesetas } from './helpers.js';
+import { catalogoDelDisco } from './escena-de-prueba.js';
+import { caminoPorLasDiagonales } from './mapa-de-prueba.js';
 
 /** El plan de las mesetas con los niveles cambiados (los que no se nombran, como estaban). */
 function conNiveles(niveles: Readonly<Record<string, Nivel | undefined>>): MapPlan {
@@ -188,3 +190,57 @@ describe('la escena pinta las mesetas del agente (#209)', () => {
     expect(e.relieve.caras).toEqual([]);
   });
 });
+
+/**
+ * Un mapa con una meseta, escrito a mano (#209): la región `alta` (nivel 2)
+ * ocupa el norte y la corta un acantilado en la fila 7 de las dos de abajo,
+ * `oeste` y `este`, que van al llano y las separa un bosque en la columna 10.
+ *
+ * ```
+ *   filas 0-6    alta (2)          town-1 (5,7)  node (15,7): rampas del acantilado
+ *   fila 7       cliff ───────────────────────
+ *   filas 8-15   oeste (1) | forest x=10 | este (1)   town-0 (10,11)
+ * ```
+ *
+ * Es el plan de las mesetas del agente: con los niveles, el acantilado es el
+ * borde de la meseta y la escena le pinta cara; sin ellos, todo al llano.
+ */
+function planDeMesetas(): PlanConCasillas {
+  return {
+    width: 20,
+    height: 16,
+    baseTerrain: 'grass',
+    patches: [],
+    regions: [
+      { id: 'alta', name: 'La Meseta', at: { x: 3, y: 3 }, nivel: 2 },
+      { id: 'oeste', name: 'Vega Baja', at: { x: 3, y: 12 }, nivel: 1 },
+      { id: 'este', name: 'Prado Bajo', at: { x: 16, y: 12 }, nivel: 1 },
+    ],
+    walls: [
+      { terrain: 'cliff', from: { x: 0, y: 7 }, to: { x: 19, y: 7 } },
+      { terrain: 'forest', from: { x: 10, y: 8 }, to: { x: 10, y: 15 } },
+    ],
+    nodes: [{ x: 15, y: 7 }],
+    towns: [
+      { id: 'town-0', name: 'Valdeluz', faction: 'templarios', at: { x: 10, y: 11 }, owner: 0 },
+      // A cinco casillas o más del recinto de Valdeluz también cuando el
+      // bosque pasa a agua y Valdeluz es una ciudad-puente, con el recinto en
+      // su orilla (`problemasDeRecintos`).
+      { id: 'town-1', name: 'Cripta Gris', faction: 'no-muertos', at: { x: 3, y: 7 }, owner: 1 },
+    ],
+    villages: [],
+    monsters: [],
+    chests: [],
+    // Cada ciudad, con el camino de sus regiones por sus puertas: Valdeluz por
+    // las diagonales de arriba (el norte y el sur dan al bosque), y Cripta Gris
+    // de norte a sur, de la meseta a la vega.
+    roads: [
+      ...caminoPorLasDiagonales({ x: 10, y: 11 }),
+      { x: 3, y: 5 },
+      { x: 3, y: 6 },
+      { x: 3, y: 7 },
+      { x: 3, y: 8 },
+      { x: 3, y: 9 },
+    ],
+  };
+}

@@ -39,16 +39,8 @@ import {
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad, sitioSiExiste } from '../src/core/state/sitios.js';
 import type { Point } from '../src/core/types.js';
-import {
-  ejercito,
-  FACCION_A,
-  FACCION_B,
-  NO_MUERTO,
-  PESADA,
-  sinGuarnicionDeSalida,
-  TROPA,
-  TROPA_BARATA,
-} from './helpers.js';
+import { FACCION_A, FACCION_B, NO_MUERTO, PESADA, TROPA, TROPA_BARATA } from './comun.js';
+import { ejercito, sinGuarnicionDeSalida } from './partida-de-prueba.js';
 
 const MI_CASTILLO: Point = { x: 2, y: 6 };
 const SU_CASTILLO: Point = { x: 37, y: 6 };

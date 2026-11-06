@@ -28,7 +28,8 @@ import { derivarAtlas } from '../tools/taller/derivar.js';
 import { encargoSchema } from '../tools/taller/encargo.js';
 import { juntarDireccion } from '../tools/taller/juntar.js';
 import { encargosQueSiguen, encolarLoQueSigue, rescatar } from '../tools/taller/npcs.js';
-import { FIGURA_DE_PRUEBA, raizDeNpcs } from './helpers.js';
+
+import { FIGURA_DE_PRUEBA, raizDeNpcs } from './npcs-de-prueba.js';
 
 const RAIZ = join(import.meta.dirname, '..');
 

@@ -18,7 +18,7 @@ import {
   desnivelesSinBarrera,
   nivelFueraDeSuRegion,
 } from '../src/client/render/escenario/relieve.js';
-import { partidaDe } from './helpers.js';
+import { partidaDe } from './escena-de-prueba.js';
 import { LENTO, rango } from './lento.js';
 
 /** En la orden lenta, 1-40 (s1, s24 y s34 eran las de la auditoría) y la 57; en `verify`, la 1 de las marcas. */

@@ -64,15 +64,10 @@ import {
   type VistaHeroe,
 } from '../src/server/vista-espectador.js';
 import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
-import {
-  conCaminos,
-  costesDelAlcance,
-  forzarTurno,
-  monstruoVivo,
-  planConCiudadDeRegion,
-  sinGuarnicionDeSalida,
-  TROPA,
-} from './helpers.js';
+import { forzarTurno } from './batalla-de-prueba.js';
+import { TROPA } from './comun.js';
+import { conCaminos, costesDelAlcance, planConCiudadDeRegion } from './mapa-de-prueba.js';
+import { monstruoVivo, sinGuarnicionDeSalida } from './partida-de-prueba.js';
 
 const abiertos: (() => void)[] = [];
 afterEach(() => {

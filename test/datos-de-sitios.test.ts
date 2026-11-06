@@ -53,23 +53,17 @@ import {
   sitioPorId,
 } from '../src/core/state/sitios.js';
 import { type Army, FACTION_IDS, type FactionId } from '../src/core/types.js';
+import { aMano, bandoAMano, forzarTurno, muralla } from './batalla-de-prueba.js';
+import { JINETE, NO_MUERTO, PESADA, TROPA_BARATA } from './comun.js';
 import {
-  aMano,
-  bandoAMano,
   copiaDePartida,
   ejercito,
   forzarBatalla,
-  forzarTurno,
   guarnecer,
-  JINETE,
-  muralla,
-  NO_MUERTO,
-  PESADA,
   pegadoA,
-  TROPA_BARATA,
   unPaso,
   unPuebloDe,
-} from './helpers.js';
+} from './partida-de-prueba.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 const h = (col: number, row: number) => ({ col, row });

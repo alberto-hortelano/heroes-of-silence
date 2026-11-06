@@ -43,7 +43,7 @@ import {
 } from '../src/client/render/escenario/recinto.js';
 import { claveDeFigura, escenarioDe } from '../src/client/render/escenario/superficie.js';
 import { puertasDeLaCiudad, recintoDeLaCiudad } from '../src/core/map/recinto.js';
-import { catalogoDelDisco, partidaDe } from './helpers.js';
+import { catalogoDelDisco, partidaDe } from './escena-de-prueba.js';
 import { rango, segunPrisa } from './lento.js';
 
 // Y s21, s25 y s32: la salida recta de una puerta pisaba la barrera de al lado.

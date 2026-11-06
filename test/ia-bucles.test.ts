@@ -26,7 +26,8 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { Point } from '../src/core/types.js';
-import { costesDelAlcance, hastaSuSiguienteTurno } from './helpers.js';
+import { costesDelAlcance } from './mapa-de-prueba.js';
+import { hastaSuSiguienteTurno } from './partida-de-prueba.js';
 
 /** Anda `hero` hasta `to` con puntos de sobra: lo que importa es dónde acaba. */
 function andar(state: GameState, ctx: GameContext, hero: Hero, to: Point): void {

@@ -37,7 +37,7 @@ import {
 } from '../src/client/render/escenario/relieve.js';
 import type { Suelo } from '../src/core/map/terrain.js';
 import { FRANJAS_DEL_PERFIL, perfilDeModulo } from '../tools/taller/derivar.js';
-import { catalogoDelDisco, partidaDe } from './helpers.js';
+import { catalogoDelDisco, partidaDe } from './escena-de-prueba.js';
 import { rango, segunPrisa } from './lento.js';
 
 const catalogo = catalogoDelDisco();

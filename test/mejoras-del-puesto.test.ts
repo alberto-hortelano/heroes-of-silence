@@ -43,7 +43,8 @@ import {
   sitioPorId,
 } from '../src/core/state/sitios.js';
 import { construirVista, type SpectatorView } from '../src/server/vista-espectador.js';
-import { ejercito, forzarBatalla, pegadoA, TROPA_BARATA, unPaso } from './helpers.js';
+import { TROPA_BARATA } from './comun.js';
+import { ejercito, forzarBatalla, pegadoA, unPaso } from './partida-de-prueba.js';
 
 type Nodo = Extract<MapObject, { kind: 'node' }>;
 

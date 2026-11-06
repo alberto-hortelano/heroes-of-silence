@@ -25,7 +25,7 @@ import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { type Pieza, validarPieza } from '../src/core/data.js';
 import { EQUIPO_DEL_JUEGO, pieza } from '../src/core/hero/equipo.js';
 import type { Unidad } from '../src/core/unidad.js';
-import { catalogoCon, elCatalogoCon, unidadDeArena } from './helpers.js';
+import { catalogoCon, elCatalogoCon, unidadDeArena } from './pelea-de-arena.js';
 
 const ESPADA = pieza('espada');
 /** La Espada cambiada en el catálogo: +3 de ataque. */

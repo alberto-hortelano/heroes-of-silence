@@ -12,7 +12,7 @@ import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import type { UnitInfo } from '../src/core/types.js';
-import { avanzarHasta, forzarTurno } from './helpers.js';
+import { avanzarHasta, forzarTurno } from './batalla-de-prueba.js';
 
 /** Cierra turnos sin hacer nada hasta que le toque a `id`. */
 function hastaSuTurno(b: BattleState, id: string, rng: Rng): void {

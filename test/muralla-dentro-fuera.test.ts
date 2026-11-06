@@ -40,20 +40,10 @@ import type { BattleStack, BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex, Stack, UnitInfo } from '../src/core/types.js';
-import {
-  abrirPuertas,
-  aMano,
-  bandoAMano,
-  empezarTalCual,
-  forzarTurno,
-  muralla,
-  NO_MUERTO,
-  PESADA,
-  sesionDeArena,
-  TIRADOR,
-  TROPA,
-  unidadDeArena,
-} from './helpers.js';
+import { empezarTalCual, sesionDeArena } from './batalla-de-cliente.js';
+import { abrirPuertas, aMano, bandoAMano, forzarTurno, muralla } from './batalla-de-prueba.js';
+import { NO_MUERTO, PESADA, TIRADOR, TROPA } from './comun.js';
+import { unidadDeArena } from './pelea-de-arena.js';
 
 const forma = (nombre: string): MurallaDeBatalla => {
   const f = FORMAS_DE_EJEMPLO.find((x) => x.nombre === nombre);

@@ -50,7 +50,7 @@ import {
   placasDeLaBase,
   tramoDelSuelo,
 } from '../tools/taller/recorte-base.js';
-import { sha256 } from './helpers.js';
+import { sha256 } from './comun.js';
 import { itLento, segunPrisa } from './lento.js';
 
 const RAIZ = join(import.meta.dirname, '..');

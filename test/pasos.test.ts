@@ -38,7 +38,7 @@ import {
   seVeConSuNodo,
   sitiosDeLosPuestos,
 } from '../src/client/render/escenario/puestos.js';
-import { catalogoDelDisco, partidaDe } from './helpers.js';
+import { catalogoDelDisco, partidaDe } from './escena-de-prueba.js';
 import { rango, segunPrisa } from './lento.js';
 
 /** Un terreno de `filas` (`#` montaña, `.` hierba), en orden de filas. */

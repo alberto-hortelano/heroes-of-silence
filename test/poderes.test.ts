@@ -24,7 +24,9 @@ import { catalogoDeHechizos, hechizo } from '../src/core/magia/catalogo.js';
 import { rinde } from '../src/core/magia/formato.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import { hechizosDeUnidadesBlocker } from '../src/core/unidad.js';
-import { avanzarHasta, delBorrador, SANADOR, unidadDeArena as unidad } from './helpers.js';
+import { avanzarHasta } from './batalla-de-prueba.js';
+import { SANADOR } from './comun.js';
+import { delBorrador, unidadDeArena as unidad } from './pelea-de-arena.js';
 
 /** El monje y el escudero a la izquierda contra un orco, con la semilla que se pida. */
 function pelea(rng: Rng, heroe: HeroeDeArena | null = null): BattleState {

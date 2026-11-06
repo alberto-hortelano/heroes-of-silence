@@ -49,7 +49,8 @@ import {
   PIEZAS,
   papelDe,
 } from '../tools/taller/laderas.js';
-import { catalogoDelDisco, sha256 } from './helpers.js';
+import { sha256 } from './comun.js';
+import { catalogoDelDisco } from './escena-de-prueba.js';
 
 /** Las caídas por celdas de una rejilla de niveles escrita a mano, una cifra por casilla. */
 function deRejilla(filas: readonly string[], suelo: Suelo = 'grass') {

@@ -39,8 +39,9 @@ import { SEMIANCHO_DE_LA_HUELLA } from '../src/client/render/escenario/sendas.js
 import { escenarioDe, pisada, topeDeAlejar } from '../src/client/render/escenario/superficie.js';
 import { PIES } from '../src/client/render/mapa.js';
 import { Session } from '../src/client/session.js';
-import { fueraDeSuBase, partidaDe } from './helpers.js';
+import { partidaDe } from './escena-de-prueba.js';
 import { rango, segunPrisa } from './lento.js';
+import { fueraDeSuBase } from './partida-de-prueba.js';
 
 describe('la orilla de una ciudad-puente en la red del generador (`orillaDeLaCiudad`)', () => {
   // 5×5: el río de este a oeste por la fila 2; arriba, las regiones 0 y 1 con la

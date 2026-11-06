@@ -66,7 +66,7 @@ import {
   settleBattle,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import { dueñoDeLaCiudad, enUnNodo } from '../src/core/state/sitios.js';
+import { dueñoDeLaCiudad, enUnNodo, guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import {
   CIFRAS_DE_PIEZA,
   type Point,
@@ -75,18 +75,14 @@ import {
   type Veterania,
 } from '../src/core/types.js';
 import { cuerpoDeCombate } from '../src/core/unidad.js';
+import { NO_MUERTO, PESADA, TROPA, TROPA_BARATA } from './comun.js';
 import {
   darLaCiudad,
   ejercito,
   forzarBatalla,
   guarnecer,
-  guarnicionDeLaCiudad,
-  NO_MUERTO,
-  PESADA,
   ponerMonstruo,
-  TROPA,
-  TROPA_BARATA,
-} from './helpers.js';
+} from './partida-de-prueba.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 

@@ -23,6 +23,7 @@ import {
 } from '../src/client/arena/paneles.js';
 import { marcadoDe } from '../src/client/html.js';
 import {
+  cambioDePiezas,
   conPiezas,
   enElHueco,
   equiparEnArena,
@@ -54,7 +55,13 @@ import {
   RUTA_DEL_CATALOGO_DE_EQUIPO,
   validarPieza,
 } from '../src/core/data.js';
-import { catalogoDeEquipo, EQUIPO_BASE, EQUIPO_DEL_JUEGO, pieza } from '../src/core/hero/equipo.js';
+import {
+  type CatalogoDeEquipo,
+  catalogoDeEquipo,
+  EQUIPO_BASE,
+  EQUIPO_DEL_JUEGO,
+  pieza,
+} from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
 import { HUECOS, type Hueco, huecosDeLaPieza } from '../src/core/types.js';
 import {
@@ -64,20 +71,19 @@ import {
   validarUnidad,
 } from '../src/core/unidad.js';
 import { escribirCatalogo, leerCatalogo } from '../tools/arena/borrador.js';
+import { todoA } from './batalla-de-prueba.js';
+import { hojaDeLaArena, hojasDeLaArena } from './hojas-de-la-arena.js';
 import {
   carpetaDeLaArena,
   catalogoCon,
+  catalogoDe,
   catalogoEntero,
   delBorrador,
   elCatalogoCon,
-  hojaDeLaArena,
-  hojasDeLaArena,
   MONTAJE,
-  motivoDelCambio,
-  todoA,
+  montar,
   unidadDeArena,
-} from './helpers.js';
-import { catalogoDe, montar } from './pelea-de-arena.js';
+} from './pelea-de-arena.js';
 
 const ESPADA = pieza('espada');
 const ARCO = pieza('arco');
@@ -644,3 +650,17 @@ describe('la ficha de una unidad ofrece solo lo que el núcleo admite (H3 de la 
     }
   });
 });
+
+/**
+ * Por qué no se pasa del catálogo `antes` a las piezas `despues` con esas
+ * unidades (`cambioDePiezas`), o `null` si se puede: la pregunta de las pruebas
+ * del editor de equipo, que miran el motivo.
+ */
+function motivoDelCambio(
+  antes: CatalogoDeEquipo,
+  despues: readonly PiezaEscrita[],
+  unidades: readonly Unidad[],
+): string | null {
+  const r = cambioDePiezas(antes, despues, unidades);
+  return 'motivo' in r ? r.motivo : null;
+}

@@ -36,8 +36,8 @@ import { EQUIPO_DEL_JUEGO, pieza } from '../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import type { Equipo, Hex, UnitInfo } from '../src/core/types.js';
 import { CUERPO_COMUN } from '../src/core/unidad.js';
-import { bandoDe } from './batalla-de-prueba.js';
-import { catalogoCon, conManosDePrueba, NORMAL, unidadDeArena } from './helpers.js';
+import { bandoDe, conManosDePrueba, NORMAL } from './batalla-de-prueba.js';
+import { catalogoCon, unidadDeArena } from './pelea-de-arena.js';
 
 /** El cuerpo común de la arena (fuerza 7, agilidad 4) con lo que se cambie. */
 function cuerpo(name: string, over: Partial<UnitInfo> = {}): UnitInfo {

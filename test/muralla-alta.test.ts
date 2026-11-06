@@ -48,23 +48,10 @@ import { LIDERAZGO, MURALLA } from '../src/core/data.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex, Stack, UnitInfo } from '../src/core/types.js';
-import {
-  aMano,
-  aPelear,
-  bandoAMano,
-  empezarTalCual,
-  forzarTurno,
-  muralla,
-  NO_MUERTO,
-  PESADA,
-  peleaDeArena,
-  peleaDelMotor,
-  sesionDeArena,
-  TIRADOR,
-  TIRADOR_NO_MUERTO,
-  TROPA,
-  unidadDeArena,
-} from './helpers.js';
+import { empezarTalCual, sesionDeArena } from './batalla-de-cliente.js';
+import { aMano, bandoAMano, forzarTurno, muralla } from './batalla-de-prueba.js';
+import { NO_MUERTO, PESADA, TIRADOR, TIRADOR_NO_MUERTO, TROPA } from './comun.js';
+import { aPelear, peleaDeArena, peleaDelMotor, unidadDeArena } from './pelea-de-arena.js';
 
 const forma = (nombre: string): MurallaDeBatalla => {
   const f = FORMAS_DE_EJEMPLO.find((x) => x.nombre === nombre);

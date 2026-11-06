@@ -74,7 +74,7 @@ import {
   week,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
+import { dueñoDeLaCiudad, guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import { building, buildingsOfFaction, nivelDeMorada } from '../src/core/town/buildings.js';
 import {
   applyWeeklyGrowth,
@@ -94,31 +94,22 @@ import {
   SPEED_TO_MOVE_POINTS,
   type SpeedTier,
 } from '../src/core/types.js';
+import { FACCION_A, FACCION_B, JINETE, NO_MUERTO, PESADA, TIRADOR, TROPA_BARATA } from './comun.js';
+import { conCaminos, costesDelAlcance, planDeNodos } from './mapa-de-prueba.js';
 import {
   acabarPorLaBase,
-  conCaminos,
   conSuEquipo,
-  costesDelAlcance,
   darLaCiudad,
   ejercito,
-  FACCION_A,
-  FACCION_B,
   forzarBatalla,
   fueraDeSuBase,
   guarnecer,
-  guarnicionDeLaCiudad,
   hastaSuSiguienteTurno,
-  JINETE,
   monstruoVivo,
-  NO_MUERTO,
-  PESADA,
   pegadoA,
-  planDeNodos,
   ponerMonstruo,
   sinGuarnicionDeSalida,
-  TIRADOR,
-  TROPA_BARATA,
-} from './helpers.js';
+} from './partida-de-prueba.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 

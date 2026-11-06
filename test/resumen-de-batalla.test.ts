@@ -15,7 +15,8 @@ import { createRng } from '../src/core/rng.js';
 import { cronicaPara } from '../src/core/state/events.js';
 import { type GameContext, heroesOf, resolvePendingBattle } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import { ejercito, forzarBatalla, ponerMonstruo, TROPA_BARATA } from './helpers.js';
+import { TROPA_BARATA } from './comun.js';
+import { ejercito, forzarBatalla, ponerMonstruo } from './partida-de-prueba.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 

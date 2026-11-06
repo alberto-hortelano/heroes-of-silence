@@ -15,7 +15,7 @@ import {
   pueblosPartidos,
 } from '../tools/taller/casas.js';
 import { aRaster } from '../tools/taller/recorte.js';
-import { sha256 } from './helpers.js';
+import { sha256 } from './comun.js';
 
 const MODULOS = join(import.meta.dirname, '..', 'assets', 'mapa', 'modulos');
 const leer = (f: string): any => JSON.parse(readFileSync(join(MODULOS, f), 'utf8'));

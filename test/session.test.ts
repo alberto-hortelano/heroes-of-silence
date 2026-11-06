@@ -22,22 +22,17 @@ import { pointFromKey, reachableFrom } from '../src/core/map/map.js';
 import { puertasDeLaCiudad } from '../src/core/map/recinto.js';
 import { applyAdventureAction, HERO_SCOUT_RADIUS, heroesOf } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import { guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import { dwellings } from '../src/core/town/town.js';
 import type { Hex, UnitInfo } from '../src/core/types.js';
-import { sesionAntesDelMonstruo, sesionContraMonstruo } from './batalla-de-cliente.js';
+import { primeraSemillaCon } from '../tools/comun/semillas.js';
 import {
-  anteLaBase,
-  costesDelAlcance,
-  ejercito,
-  fueraDeSuBase,
-  guarnecer,
-  guarnicionDeLaCiudad,
-  hastaQue,
-  pegadoA,
-  planDeNodos,
-  primeraSemillaCon,
+  sesionAntesDelMonstruo,
+  sesionContraMonstruo,
   unoDeLaRueda,
-} from './helpers.js';
+} from './batalla-de-cliente.js';
+import { costesDelAlcance, planDeNodos } from './mapa-de-prueba.js';
+import { anteLaBase, ejercito, fueraDeSuBase, guarnecer, pegadoA } from './partida-de-prueba.js';
 
 describe('sesión del cliente: el turno del rival', () => {
   it('mientras juega el rival no es tu turno, y pulsar otra vez no hace nada', async () => {
@@ -952,3 +947,12 @@ describe('«Solo la rueda del héroe» (complejidad del combate, 22-10-2026)', (
     expect(cruces()).toBeGreaterThan(0);
   });
 });
+
+/**
+ * Deja correr el turno del rival hasta que se cumpla `cond` (una defensa que se
+ * abre a media jugada suya), o lanza: el turno es asíncrono y no avisa.
+ */
+async function hastaQue(cond: () => boolean): Promise<void> {
+  for (let i = 0; i < 100 && !cond(); i++) await new Promise((r) => setTimeout(r, 0));
+  if (!cond()) throw new Error('el turno del rival no llegó a lo que se esperaba');
+}

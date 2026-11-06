@@ -26,7 +26,7 @@ import {
 } from '../src/client/render/escenario/colocar.js';
 import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
 import { ANCHO_DE_SENDA } from '../src/client/render/escenario/sendas.js';
-import { catalogoDelDisco, escenaDe } from './helpers.js';
+import { catalogoDelDisco, escenaDe } from './escena-de-prueba.js';
 import { rango, segunPrisa } from './lento.js';
 
 const catalogo = catalogoDelDisco();

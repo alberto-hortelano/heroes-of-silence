@@ -48,8 +48,8 @@ import {
 import { estructura } from '../src/core/map/regiones.js';
 import { baseOf } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import { planDeNodos } from './helpers.js';
 import { rango, segunPrisa } from './lento.js';
+import { planDeNodos } from './mapa-de-prueba.js';
 
 const cheb = (a: { x: number; y: number }, b: { x: number; y: number }) =>
   Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));

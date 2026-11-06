@@ -64,7 +64,7 @@ import { SEMIANCHO_DE_LA_HUELLA, type Senda } from '../src/client/render/escenar
 import { PIES } from '../src/client/render/mapa.js';
 import { recintoDeLaCiudad } from '../src/core/map/recinto.js';
 import { FRANJAS_DEL_PERFIL, siluetaDeModulo } from '../tools/taller/derivar.js';
-import { catalogoDelDisco, recta } from './helpers.js';
+import { catalogoDelDisco, recta } from './escena-de-prueba.js';
 
 const faltan = new Set<string>();
 const MODULOS = modulosDelRecinto(catalogoDelDisco(), faltan);

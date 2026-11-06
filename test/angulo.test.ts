@@ -14,7 +14,7 @@ import { unidadDelJuego } from '../src/core/catalogo.js';
 
 import type { Hex, UnitInfo } from '../src/core/types.js';
 import { sesionContraMonstruo } from './batalla-de-cliente.js';
-import { PESADA } from './helpers.js';
+import { PESADA } from './comun.js';
 
 /**
  * Elegir desde dónde golpear (decisión del usuario, 02-10-2026): al pasar por un

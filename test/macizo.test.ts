@@ -26,7 +26,7 @@ import {
 } from '../src/client/render/escenario/macizo.js';
 import { relieve } from '../src/client/render/escenario/relieve.js';
 import type { Suelo } from '../src/core/map/terrain.js';
-import { escenaDe, partidaDe } from './helpers.js';
+import { escenaDe, partidaDe } from './escena-de-prueba.js';
 import { LENTO, rango, segunPrisa } from './lento.js';
 
 /** Las casillas `[x0, x1) × [y0, y1)` de un mapa de ancho `W`. */

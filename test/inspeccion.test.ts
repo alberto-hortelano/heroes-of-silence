@@ -4,6 +4,7 @@
  * escena del mapa que usa el modo «marcar fallo»: el clic que no mueve a nadie
  * y la cámara que vuelve al sitio de una marca.
  */
+
 import { describe, expect, it } from 'vitest';
 import { EscenaAventura } from '../src/client/escenas/aventura.js';
 import { cajaEnPixeles, mundoAPixel, pixelAMundo } from '../src/client/render/camara-mapa.js';
@@ -12,7 +13,8 @@ import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
 import { bandaDeCara } from '../src/client/render/escenario/relieve.js';
 import { escenarioDe } from '../src/client/render/escenario/superficie.js';
 import { Session } from '../src/client/session.js';
-import { primeraSemillaCon, puenteSobreElAgua } from './helpers.js';
+import { primeraSemillaCon } from '../tools/comun/semillas.js';
+import { puenteSobreElAgua } from './escena-de-prueba.js';
 
 describe('queHayEn', () => {
   // La 7 (la 2 hasta el río de lago de 20 casillas, que la dejó sin mesetas;

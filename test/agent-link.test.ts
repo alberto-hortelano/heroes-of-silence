@@ -31,7 +31,7 @@ import {
   revealEverything,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
+import { dueñoDeLaCiudad, guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import type { Town } from '../src/core/town/town.js';
 import { FACTION_IDS, type FactionId, type Point } from '../src/core/types.js';
 import { AgentLink } from '../src/server/agent-link.js';
@@ -40,21 +40,15 @@ import { Director } from '../src/server/director.js';
 import { pedirMapaAlAgente } from '../src/server/mapa-del-agente.js';
 import { SIN_PARTIDA_TODAVIA } from '../src/server/notas.js';
 import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
+import { NO_MUERTO, PESADA, SANADOR, TROPA, TROPA_BARATA } from './comun.js';
+import { conCaminos, costesDelAlcance } from './mapa-de-prueba.js';
 import {
-  conCaminos,
-  costesDelAlcance,
   ejercito,
   fueraDeSuBase,
   guarnecer,
-  guarnicionDeLaCiudad,
-  NO_MUERTO,
-  PESADA,
   ponerMonstruo,
-  SANADOR,
   sinGuarnicionDeSalida,
-  TROPA,
-  TROPA_BARATA,
-} from './helpers.js';
+} from './partida-de-prueba.js';
 
 /** Agente de mentira: responde leyendo el payload, como haría uno de verdad. */
 interface FakeAgent {

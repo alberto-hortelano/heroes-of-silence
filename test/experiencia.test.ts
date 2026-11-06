@@ -68,22 +68,19 @@ import {
   settleBattle,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import { guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import type { Point, Troop, Veterania } from '../src/core/types.js';
+import { forzarTurno } from './batalla-de-prueba.js';
 import {
-  ejercito,
-  forzarBatalla,
-  forzarTurno,
-  guarnecer,
-  guarnicionDeLaCiudad,
   JINETE,
   NO_MUERTO,
   PESADA,
-  ponerMonstruo,
   TIRADOR,
   TIRADOR_NO_MUERTO,
   TROPA,
   TROPA_BARATA,
-} from './helpers.js';
+} from './comun.js';
+import { ejercito, forzarBatalla, guarnecer, ponerMonstruo } from './partida-de-prueba.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 

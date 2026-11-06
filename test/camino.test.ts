@@ -24,7 +24,8 @@ import { hasTrait } from '../src/core/data.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
 import { createRng } from '../src/core/rng.js';
 import { NOMBRES_DE_DIRECCION } from '../src/shared/arte.js';
-import { aCiegas, ejercito } from './helpers.js';
+import { aCiegas } from './batalla-de-prueba.js';
+import { ejercito } from './partida-de-prueba.js';
 
 function pelea(semilla: number): BattleState {
   return createBattle(

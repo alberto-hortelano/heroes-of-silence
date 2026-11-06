@@ -27,7 +27,7 @@ import {
 } from '../src/core/state/game.js';
 import type { Hex } from '../src/core/types.js';
 import { sesionAntesDelMonstruo } from './batalla-de-cliente.js';
-import { TROPA_BARATA } from './helpers.js';
+import { TROPA_BARATA } from './comun.js';
 
 const SEMILLA = 7;
 

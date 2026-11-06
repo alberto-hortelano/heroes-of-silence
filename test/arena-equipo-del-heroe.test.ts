@@ -32,7 +32,7 @@ import { EQUIPO_ESCRITO, HEROE } from '../src/core/data.js';
 import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { hechizosDelGremio } from '../src/core/magia/catalogo.js';
 import { createRng } from '../src/core/rng.js';
-import { delBorrador } from './helpers.js';
+import { delBorrador } from './pelea-de-arena.js';
 
 const eq = EQUIPO_DEL_JUEGO;
 const izquierdo = (): HeroeDeArena => heroePorDefecto('izquierda');

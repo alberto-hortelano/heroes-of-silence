@@ -16,7 +16,7 @@ import { derivarPieza, rutaDelJson } from '../tools/taller/derivar.js';
 import { puestoDerivado } from '../tools/taller/mapa.js';
 import { muroDerivado } from '../tools/taller/muros.js';
 import { puenteDerivado } from '../tools/taller/paredes-puentes.js';
-import { sha256 } from './helpers.js';
+import { sha256 } from './comun.js';
 import { segunPrisa } from './lento.js';
 
 const RAIZ = join(import.meta.dirname, '..');

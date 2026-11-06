@@ -26,7 +26,7 @@ import {
   torresDe,
   trazaDeMuralla,
 } from '../src/client/render/escenario/muralla.js';
-import { catalogoDelDisco, escenaDe, partidaDe } from './helpers.js';
+import { catalogoDelDisco, escenaDe, partidaDe } from './escena-de-prueba.js';
 import { rango, segunPrisa } from './lento.js';
 
 type Casilla = readonly [number, number];

@@ -49,22 +49,10 @@ import {
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 import type { Point, Stack } from '../src/core/types.js';
-import {
-  avanzarHasta,
-  costesDelAlcance,
-  darLaCiudad,
-  ejercito,
-  forzarBatalla,
-  guarnecer,
-  heroeDeBatalla,
-  JINETE,
-  ladoDeBatalla,
-  NO_MUERTO,
-  PESADA,
-  TIRADOR_NO_MUERTO,
-  TROPA,
-  TROPA_BARATA,
-} from './helpers.js';
+import { avanzarHasta, heroeDeBatalla, ladoDeBatalla } from './batalla-de-prueba.js';
+import { JINETE, NO_MUERTO, PESADA, TIRADOR_NO_MUERTO, TROPA, TROPA_BARATA } from './comun.js';
+import { costesDelAlcance } from './mapa-de-prueba.js';
+import { darLaCiudad, ejercito, forzarBatalla, guarnecer } from './partida-de-prueba.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 

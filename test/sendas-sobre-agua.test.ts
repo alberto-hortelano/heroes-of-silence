@@ -17,7 +17,7 @@ import type { GameMap } from '../src/core/map/map.js';
 import { rioAnteLaCiudad } from '../src/core/map/recinto.js';
 import { esquinasDeAgua } from '../src/core/map/vestir.js';
 import { newGame } from '../src/core/state/setup.js';
-import { escenaDe } from './helpers.js';
+import { escenaDe } from './escena-de-prueba.js';
 import { rango, segunPrisa } from './lento.js';
 
 /**

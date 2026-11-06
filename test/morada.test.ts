@@ -48,7 +48,7 @@ import {
   SPEED_TO_HEXES,
 } from '../src/core/types.js';
 import { disposicionDe, enLaFranja, planoDelCuadro } from '../src/shared/base.js';
-import { fueraDeSuBase } from './helpers.js';
+import { fueraDeSuBase } from './partida-de-prueba.js';
 
 /**
  * Los lienzos de la escena desde que la base va a todo el alto (C16): el del

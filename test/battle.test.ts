@@ -58,20 +58,21 @@ import {
   agresiva,
   aMano,
   conCifrasAMano,
-  FACCION_B,
   forzarTurno,
-  JINETE,
-  monstruoVivo,
   muralla,
-  NO_MUERTO,
   NORMAL,
+} from './batalla-de-prueba.js';
+import {
+  FACCION_B,
+  JINETE,
+  NO_MUERTO,
   PESADA,
-  simular,
   TIRADOR,
   TIRADOR_NO_MUERTO,
   TROPA,
   TROPA_BARATA,
-} from './helpers.js';
+} from './comun.js';
+import { monstruoVivo } from './partida-de-prueba.js';
 
 /**
  * `alcanceConCostes` y `reachable` son el recorrido del tablero: el primero paga
@@ -1524,3 +1525,16 @@ describe('duelo de individuos con el motor del núcleo', () => {
     expect(batalla.log.some((e) => e.kind === 'attack')).toBe(true);
   });
 });
+
+/**
+ * Juega la batalla hasta el final (o hasta `maxTurnos`), con la rueda a ciegas
+ * (`aCiegas`). Devuelve los turnos usados.
+ */
+function simular(state: BattleState, rng: Rng, maxTurnos = 3000): number {
+  let n = 0;
+  while (state.finished === null && n < maxTurnos) {
+    aCiegas(state, agresiva(state), rng);
+    n++;
+  }
+  return n;
+}

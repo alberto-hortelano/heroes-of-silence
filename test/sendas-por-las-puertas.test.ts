@@ -23,7 +23,7 @@ import {
 } from '../src/client/render/escenario/recinto.js';
 import type { Senda } from '../src/client/render/escenario/sendas.js';
 import { recintoDeLaCiudad } from '../src/core/map/recinto.js';
-import { recta } from './helpers.js';
+import { recta } from './escena-de-prueba.js';
 
 const RECT = recintoDeLaCiudad({ x: 10, y: 10 }, 30, 30);
 const C = contornoDelRecinto(RECT);

@@ -34,16 +34,9 @@ import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
 import type { Equipo, Hex, UnitInfo } from '../src/core/types.js';
 import { unidadDeCombate } from '../src/core/unidad.js';
+import { forzarTurno, NORMAL, todoA } from './batalla-de-prueba';
 import { bandoDe } from './batalla-de-prueba.js';
-import {
-  catalogoCon,
-  delBorrador,
-  forzarTurno,
-  MONTAJE,
-  NORMAL,
-  todoA,
-  unidadDeArena,
-} from './helpers.js';
+import { catalogoCon, delBorrador, MONTAJE, unidadDeArena } from './pelea-de-arena';
 
 const A_PIE = 'templario-escudo';
 const JINETE = 'templario-hermano-de-carga';

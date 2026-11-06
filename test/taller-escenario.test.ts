@@ -49,7 +49,7 @@ import type { MapObject } from '../src/core/map/map.js';
 import type { TerrainKind } from '../src/core/map/terrain.js';
 import { newGame } from '../src/core/state/setup.js';
 import { leerCatalogo, textoDelCatalogo } from '../tools/taller/escenario/catalogo-disco.js';
-import { catalogoDelDisco, escenaDe } from './helpers.js';
+import { catalogoDelDisco, escenaDe } from './escena-de-prueba.js';
 
 describe('el relieve', () => {
   // La 9 hasta el acantilado en línea (#215), que la dejó sin agua encajada.

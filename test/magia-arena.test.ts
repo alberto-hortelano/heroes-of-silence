@@ -33,7 +33,7 @@ import {
 import { problemasDelHechizo } from '../src/core/magia/validar.js';
 import { createRng } from '../src/core/rng.js';
 import { escribirCatalogo, leerCatalogo } from '../tools/arena/borrador.js';
-import { carpetaDeLaArena, catalogoEntero } from './helpers.js';
+import { carpetaDeLaArena, catalogoEntero } from './pelea-de-arena.js';
 
 describe('editar un hechizo (core/magia/editar.ts)', () => {
   it('uno nuevo vale, y su copia lleva otro id y otro nombre', () => {

@@ -107,21 +107,20 @@ import {
   UNIDADES,
   unidad as unidadDelTaller,
 } from '../tools/taller/unidades.js';
+import { empezarTalCual, enElCampo } from './batalla-de-cliente.js';
+import { MANOS_DE_PRUEBA } from './batalla-de-prueba.js';
+import { hojaDeLaArena, hojasDeLaArena } from './hojas-de-la-arena.js';
 import {
   carpetaDeLaArena,
   catalogoCon,
+  catalogoDe,
   catalogoEntero,
   delBorrador,
-  empezarTalCual,
-  enElCampo,
-  hojaDeLaArena,
-  hojasDeLaArena,
-  MANOS_DE_PRUEBA,
   MONTAJE,
+  montar,
   peleaDelMotor,
   unidadDeArena,
-} from './helpers.js';
-import { catalogoDe, montar } from './pelea-de-arena.js';
+} from './pelea-de-arena.js';
 
 const RAIZ = resolve(import.meta.dirname, '..');
 /** El catálogo del juego con las manos de prueba: el de las peleas de estas pruebas. */

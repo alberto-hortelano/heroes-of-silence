@@ -28,7 +28,7 @@ import {
   RADIO_DEL_PARCHE,
 } from '../src/client/render/escenario/parches.js';
 import { pintarSuelo, separar } from '../src/client/render/escenario/pintar.js';
-import { escenaDe } from './helpers.js';
+import { escenaDe } from './escena-de-prueba.js';
 
 const RAIZ = resolve(import.meta.dirname, '..');
 const SUELOS = ['grass', 'dirt', 'snow', 'sand', 'swamp', 'lava'] as const;

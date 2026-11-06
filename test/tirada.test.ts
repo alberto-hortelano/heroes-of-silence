@@ -35,7 +35,7 @@ import {
   LARGO_DEL_ADARVE,
   TORCIDO_MAXIMO,
 } from '../tools/taller/muros.js';
-import { catalogoDelDisco, escenaDe } from './helpers.js';
+import { catalogoDelDisco, escenaDe } from './escena-de-prueba.js';
 
 const RAIZ = join(import.meta.dirname, '..');
 

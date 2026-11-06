@@ -24,8 +24,8 @@ import { cuerpoConSusCifras } from '../src/core/cuerpo.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex, UnitInfo } from '../src/core/types.js';
 import { armaDeCuerpoBlocker, CUERPO_COMUN } from '../src/core/unidad.js';
-import { bandoDe } from './batalla-de-prueba.js';
-import { catalogoCon, dadoCargado, MANOS_DE_PRUEBA } from './helpers.js';
+import { bandoDe, dadoCargado, MANOS_DE_PRUEBA } from './batalla-de-prueba.js';
+import { catalogoCon } from './pelea-de-arena.js';
 
 /**
  * El cuerpo común de la arena (`CUERPO_COMUN`): ataque 3, fuerza 7, 50 PV, con su

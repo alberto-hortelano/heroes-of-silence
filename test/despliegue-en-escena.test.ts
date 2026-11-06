@@ -24,8 +24,13 @@ import { estructura } from '../src/core/map/regiones.js';
 import { type Raider, regionDeCasilla } from '../src/core/state/asaltantes.js';
 import { baseOf, caminoHasta } from '../src/core/state/game.js';
 import type { Point } from '../src/core/types.js';
-import { sesionContraMonstruoAlDesplegar } from './batalla-de-cliente.js';
-import { escenaDeBatalla, fueraDeSuBase, sesionDeArena, unidadDeArena } from './helpers.js';
+import {
+  escenaDeBatalla,
+  sesionContraMonstruoAlDesplegar,
+  sesionDeArena,
+} from './batalla-de-cliente.js';
+import { fueraDeSuBase } from './partida-de-prueba.js';
+import { unidadDeArena } from './pelea-de-arena.js';
 
 /** Los ids de los vivos de `side` en `b`. */
 const delBando = (b: BattleState, side: Side): string[] =>

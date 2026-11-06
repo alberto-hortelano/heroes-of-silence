@@ -27,7 +27,7 @@ import {
   spriteDeRampa,
 } from '../src/client/render/escenario/colocar.js';
 import { newGame } from '../src/core/state/setup.js';
-import { catalogoDelDisco } from './helpers.js';
+import { catalogoDelDisco } from './escena-de-prueba.js';
 
 const catalogo = catalogoDelDisco();
 

@@ -22,7 +22,7 @@ import {
 } from '../src/client/render/escenario/colocar.js';
 import { recintoDeLaCiudad } from '../src/core/map/recinto.js';
 import type { TerrainKind } from '../src/core/map/terrain.js';
-import { partidaDe } from './helpers.js';
+import { partidaDe } from './escena-de-prueba.js';
 import { itLento, rango } from './lento.js';
 
 /** Un sprite de clase `clase` y `alto` con el pie en `(x, y)`. */

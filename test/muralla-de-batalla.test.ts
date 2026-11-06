@@ -32,20 +32,9 @@ import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex, Stack, UnitInfo } from '../src/core/types.js';
-import {
-  abrirPuertas,
-  aMano,
-  bandoAMano,
-  forzarTurno,
-  JINETE,
-  NO_MUERTO,
-  PESADA,
-  peleaDelMotor,
-  TIRADOR,
-  TROPA,
-  TROPA_BARATA,
-  unidadDeArena,
-} from './helpers.js';
+import { abrirPuertas, aMano, bandoAMano, forzarTurno } from './batalla-de-prueba.js';
+import { JINETE, NO_MUERTO, PESADA, TIRADOR, TROPA, TROPA_BARATA } from './comun.js';
+import { peleaDelMotor, unidadDeArena } from './pelea-de-arena.js';
 
 const lado = (army: readonly Stack[]): BattleSide => ({ army, hero: null });
 

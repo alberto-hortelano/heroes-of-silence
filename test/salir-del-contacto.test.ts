@@ -40,19 +40,9 @@ import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex, Stack, UnitInfo } from '../src/core/types.js';
-import { bando } from './batalla-de-prueba.js';
-import {
-  aMano,
-  aPelear,
-  conCifrasAMano,
-  forzarTurno,
-  JINETE,
-  montajeDePrueba,
-  muralla,
-  NO_MUERTO,
-  TROPA,
-  unidadDeArena,
-} from './helpers.js';
+import { aMano, bando, conCifrasAMano, forzarTurno, muralla } from './batalla-de-prueba.js';
+import { JINETE, NO_MUERTO, TROPA } from './comun.js';
+import { aPelear, montajeDePrueba, unidadDeArena } from './pelea-de-arena.js';
 
 const h = (col: number, row: number): Hex => ({ col, row });
 

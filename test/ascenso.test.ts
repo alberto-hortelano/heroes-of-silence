@@ -28,16 +28,11 @@ import {
   veteranosEnSuBase,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
+import { dueñoDeLaCiudad, guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import { FACTION_IDS, type Troop, type Veterania } from '../src/core/types.js';
 import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
-import {
-  darLaCiudad,
-  fueraDeSuBase,
-  guarnecer,
-  guarnicionDeLaCiudad,
-  TROPA_BARATA,
-} from './helpers.js';
+import { TROPA_BARATA } from './comun.js';
+import { darLaCiudad, fueraDeSuBase, guarnecer } from './partida-de-prueba.js';
 
 /**
  * El tipo de héroe `i` de la facción del jugador 1, en el orden de

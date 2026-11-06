@@ -4,6 +4,7 @@
  * al llegar; un clic fuera de la franja se recorta al punto más cercano dentro, y
  * la marcha resbala por el borde de atrás, que sigue los umbrales pintados.
  */
+
 import { describe, expect, it } from 'vitest';
 import templariosJson from '../data/bases/templarios.json' with { type: 'json' };
 import { EscenaBase } from '../src/client/escenas/castillo.js';
@@ -22,7 +23,7 @@ import {
   leerDisposicion,
   MARGEN_DE_LA_FRANJA,
 } from '../src/shared/base.js';
-import { primeraSemillaCon } from './helpers.js';
+import { primeraSemillaCon } from '../tools/comun/semillas.js';
 
 const d = disposicionDe('templarios');
 const lienzo = { ancho: 1086, alto: 778 };

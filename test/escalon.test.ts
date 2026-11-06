@@ -23,7 +23,7 @@ import {
   tonoDeNivel,
 } from '../src/client/render/escenario/escalon.js';
 import { fronterasDelSuelo } from '../src/client/render/escenario/fronteras.js';
-import { partidaDe } from './helpers.js';
+import { partidaDe } from './escena-de-prueba.js';
 import { LENTO, rango } from './lento.js';
 
 const R = PX_DEL_ESCALON;

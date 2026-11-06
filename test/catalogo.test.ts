@@ -10,7 +10,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { UNIDADES } from '../src/core/catalogo.js';
 import { leerCatalogo } from '../tools/arena/borrador.js';
-import { hojasDeLaArena } from './helpers.js';
+import { hojasDeLaArena } from './hojas-de-la-arena.js';
 
 const RAIZ = resolve(import.meta.dirname, '..');
 

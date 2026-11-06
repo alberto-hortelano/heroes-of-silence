@@ -85,24 +85,17 @@ import {
 } from '../src/core/state/game.js';
 import { REGLA_DEL_PUEBLO } from '../src/core/state/renta.js';
 import { newGame } from '../src/core/state/setup.js';
-import { dueñoDeLaCiudad, MURALLAS_DEL_MAPA } from '../src/core/state/sitios.js';
+import {
+  dueñoDeLaCiudad,
+  guarnicionDeLaCiudad,
+  MURALLAS_DEL_MAPA,
+} from '../src/core/state/sitios.js';
 import { mageGuildLevel, townSpells } from '../src/core/town/town.js';
 import { SPEED_TO_HEXES } from '../src/core/types.js';
-import {
-  batallaConDos,
-  conCaminos,
-  forzarBatalla,
-  forzarTurno,
-  guarnicionDeLaCiudad,
-  JINETE,
-  NO_MUERTO,
-  PESADA,
-  planConCiudadDeRegion,
-  planDeNodos,
-  TIRADOR,
-  TROPA,
-  TROPA_BARATA,
-} from './helpers.js';
+import { batallaConDos, forzarTurno } from './batalla-de-prueba.js';
+import { JINETE, NO_MUERTO, PESADA, TIRADOR, TROPA, TROPA_BARATA } from './comun.js';
+import { conCaminos, planConCiudadDeRegion, planDeNodos } from './mapa-de-prueba.js';
+import { forzarBatalla } from './partida-de-prueba.js';
 
 describe('contrato con el agente', () => {
   it('cada tipo de petición tiene esquema y formato de respuesta', () => {

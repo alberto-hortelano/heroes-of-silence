@@ -34,18 +34,15 @@ import {
   dueñoDeLaCiudad,
   dueñoDelSitio,
   enUnNodo,
+  guarnicionDeLaCiudad,
   ocupadoBlocker,
   ocupanteDe,
   sitioPorId,
 } from '../src/core/state/sitios.js';
 import type { Point } from '../src/core/types.js';
-import {
-  ejercito,
-  guarnicionDeLaCiudad,
-  PESADA,
-  planConCiudadDeRegion,
-  TROPA_BARATA,
-} from './helpers.js';
+import { PESADA, TROPA_BARATA } from './comun.js';
+import { planConCiudadDeRegion } from './mapa-de-prueba.js';
+import { ejercito } from './partida-de-prueba.js';
 
 const SEMILLA = 1;
 const ctx = { rng: createRng(SEMILLA) };

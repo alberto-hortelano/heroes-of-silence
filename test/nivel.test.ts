@@ -20,7 +20,9 @@ import { umbral } from '../src/core/hero/experiencia.js';
 import { indiceDePoder, medidaBlocker, nivelDeUnidad, poderBruto } from '../src/core/nivel.js';
 import { type NivelesDeLaRueda, SPEED_TIERS, type UnitInfo } from '../src/core/types.js';
 import { cuerpoDeCombate, unidadDeCombate } from '../src/core/unidad.js';
-import { catalogoCon, JINETE, PESADA, TROPA, todoA } from './helpers.js';
+import { todoA } from './batalla-de-prueba.js';
+import { JINETE, PESADA, TROPA } from './comun.js';
+import { catalogoCon } from './pelea-de-arena.js';
 
 describe('el índice de poder y el nivel (core/nivel.ts)', () => {
   it('el nivel es la primera cifra del índice, y nunca baja del 1', () => {

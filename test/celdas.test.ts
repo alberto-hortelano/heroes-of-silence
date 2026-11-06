@@ -46,7 +46,7 @@ import {
 } from '../src/client/render/escenario/colocar.js';
 import type { Suelo } from '../src/core/map/terrain.js';
 import { newGame } from '../src/core/state/setup.js';
-import { catalogoDelDisco, recta } from './helpers.js';
+import { catalogoDelDisco, recta } from './escena-de-prueba.js';
 
 /** Las celdas de una rejilla de niveles escrita a mano, una cifra por casilla. */
 function deRejilla(filas: readonly string[], suelo: Suelo = 'grass') {

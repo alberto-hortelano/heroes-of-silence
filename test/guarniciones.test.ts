@@ -44,6 +44,7 @@ import {
   dueñoDelSitio,
   elReparto,
   guarnicionDe,
+  guarnicionDeLaCiudad,
   intercambioBlocker,
   lineasDelEjercito,
   ocupanteDe,
@@ -56,21 +57,17 @@ import {
   sitioPorId,
 } from '../src/core/state/sitios.js';
 import { type Army, NOMBRE_DE_FACCION, type Troop } from '../src/core/types.js';
+import { JINETE, PESADA, TROPA, TROPA_BARATA } from './comun.js';
+import { costesDelAlcance } from './mapa-de-prueba.js';
 import {
   conSuEquipo,
-  costesDelAlcance,
   ejercito,
   forzarBatalla,
   guarnecer,
-  guarnicionDeLaCiudad,
-  JINETE,
-  PESADA,
   pegadoA,
-  TROPA,
-  TROPA_BARATA,
   unPaso,
   unPuebloDe,
-} from './helpers.js';
+} from './partida-de-prueba.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 

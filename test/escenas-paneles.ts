@@ -27,7 +27,9 @@ import { isEnterable, objectAt } from '../src/core/map/map.js';
 import type { GameEvent } from '../src/core/state/events.js';
 import { applyAdventureAction, heroesOf } from '../src/core/state/game.js';
 import type { Army, Point, Veterania } from '../src/core/types.js';
-import { aCiegas, agresiva, avanzarHasta, fueraDeSuBase, TIRADOR, TROPA } from './helpers.js';
+import { aCiegas, agresiva, avanzarHasta } from './batalla-de-prueba.js';
+import { TIRADOR, TROPA } from './comun.js';
+import { fueraDeSuBase } from './partida-de-prueba.js';
 
 /** Una hoja de servicios de prueba: lo justo para que el panel la pinte. */
 function hoja(id: string, experiencia: number): Veterania {

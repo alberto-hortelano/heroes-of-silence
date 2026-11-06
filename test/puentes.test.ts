@@ -58,7 +58,8 @@ import {
 } from '../src/client/render/escenario/superficie.js';
 import { PIES } from '../src/client/render/mapa.js';
 import { Session } from '../src/client/session.js';
-import { catalogoDelDisco, partidaDe, primeraSemillaCon, puenteSobreElAgua } from './helpers.js';
+import { primeraSemillaCon } from '../tools/comun/semillas.js';
+import { catalogoDelDisco, partidaDe, puenteSobreElAgua } from './escena-de-prueba.js';
 import { LENTO, rango, segunPrisa } from './lento.js';
 
 /**

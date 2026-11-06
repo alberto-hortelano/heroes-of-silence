@@ -33,17 +33,16 @@ import {
   townsOf,
 } from '../src/core/state/game.js';
 import { newGame, startingArmy } from '../src/core/state/setup.js';
+import { guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import { dwellings } from '../src/core/town/town.js';
 import { FACTION_IDS } from '../src/core/types.js';
+import { JINETE, TROPA_BARATA } from './comun.js';
 import {
   copiaDePartida,
   ejercito,
   fueraDeSuBase,
-  guarnicionDeLaCiudad,
-  JINETE,
   sinGuarnicionDeSalida,
-  TROPA_BARATA,
-} from './helpers.js';
+} from './partida-de-prueba.js';
 
 /** Los cupos con el tope de siempre (7): un héroe lleva 6 y una guarnición 7. */
 const CUPO_HEROE = cupoDelHeroe(COMBATE_COMPLETO.tope);

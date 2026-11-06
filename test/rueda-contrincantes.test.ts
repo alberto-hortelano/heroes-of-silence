@@ -36,17 +36,10 @@ import {
 } from '../src/core/battle/rueda.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
 import { TIPOS_DEL_ANILLO } from '../src/core/types.js';
-import {
-  conManosDePrueba,
-  desenlaceDe,
-  empezarTalCual,
-  hastaLaRueda,
-  PESADA,
-  sesionDeArena,
-  TROPA,
-  todoA,
-  unidadDeArena,
-} from './helpers.js';
+import { desenlaceDe, empezarTalCual, hastaLaRueda, sesionDeArena } from './batalla-de-cliente.js';
+import { conManosDePrueba, todoA } from './batalla-de-prueba.js';
+import { PESADA, TROPA } from './comun.js';
+import { unidadDeArena } from './pelea-de-arena.js';
 
 /** Las peleas de estos tests, con la rueda de siempre (7). */
 const RUEDA = RUEDA_DE_REFERENCIA;

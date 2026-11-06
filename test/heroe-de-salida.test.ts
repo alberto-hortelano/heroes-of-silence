@@ -19,8 +19,8 @@ import {
   salidaPendienteBlocker,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import { guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import { oroBlocker } from '../src/core/town/town.js';
-import { guarnicionDeLaCiudad } from './helpers.js';
 
 const ctx = () => ({ rng: createRng(7) });
 const baseDe = (state: GameState, jugador = 0) => {

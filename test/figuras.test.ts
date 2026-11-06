@@ -31,7 +31,7 @@ import {
 } from '../src/client/render/escenario/puestos.js';
 import { claveDeFigura, escenarioDe, pisada } from '../src/client/render/escenario/superficie.js';
 import { PIES } from '../src/client/render/mapa.js';
-import { catalogoDelDisco, partidaDe } from './helpers.js';
+import { catalogoDelDisco, partidaDe } from './escena-de-prueba.js';
 import { LENTO, rango } from './lento.js';
 
 const sinPerfil = () => undefined;

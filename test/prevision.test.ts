@@ -46,22 +46,19 @@ import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import type { CreatureTrait, Equipo, Hex, UnitInfo } from '../src/core/types.js';
 import { CUERPO_COMUN, KIT_DEL_PERFIL } from '../src/core/unidad.js';
-import { bando, bandoDe, mando as mandoDePrueba } from './batalla-de-prueba.js';
 import {
   aMano,
-  catalogoCon,
+  bando,
+  bandoDe,
   conLasCifrasDe,
   conManosDePrueba,
   dadoCargado,
   MANOS_DE_PRUEBA,
-  NO_MUERTO,
-  PESADA,
-  SANADOR,
-  TIRADOR,
-  TROPA,
-  TROPA_BARATA,
-} from './helpers.js';
+  mando as mandoDePrueba,
+} from './batalla-de-prueba.js';
+import { NO_MUERTO, PESADA, SANADOR, TIRADOR, TROPA, TROPA_BARATA } from './comun.js';
 import { rango, segunPrisa } from './lento.js';
+import { catalogoCon } from './pelea-de-arena.js';
 
 const SEMILLAS = segunPrisa(rango(1, 40), rango(1, 300));
 

@@ -16,7 +16,7 @@ import {
 import type { BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
-import { avanzarHasta, forzarTurno } from './helpers.js';
+import { avanzarHasta, forzarTurno } from './batalla-de-prueba.js';
 
 /**
  * El granadero (fuerza 3: alcance 3) en (3,4) con un piquero suyo en (4,4), contra dos

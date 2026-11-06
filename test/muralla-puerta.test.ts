@@ -40,15 +40,8 @@ import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex, Stack } from '../src/core/types.js';
 import { describeAccion } from '../src/server/notas.js';
-import {
-  abrirPuertas,
-  aCiegas,
-  forzarTurno,
-  muralla,
-  peleaDeArena,
-  peleaDelMotor,
-  unidadDeArena,
-} from './helpers.js';
+import { abrirPuertas, aCiegas, forzarTurno, muralla } from './batalla-de-prueba.js';
+import { peleaDeArena, peleaDelMotor, unidadDeArena } from './pelea-de-arena.js';
 
 const h = (col: number, row: number): Hex => ({ col, row });
 const forma = (nombre: string): MurallaDeBatalla => {

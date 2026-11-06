@@ -25,7 +25,8 @@ import {
   hojaDeLaFila,
   JUEGO_POR_DEFECTO,
 } from '../src/shared/arte.js';
-import { hojasDeLaArena, TROPA } from './helpers.js';
+import { TROPA } from './comun.js';
+import { hojasDeLaArena } from './hojas-de-la-arena.js';
 
 const RAIZ = join(import.meta.dirname, '..');
 /** Una URL del navegador (publicDir = assets/) a su fichero. */

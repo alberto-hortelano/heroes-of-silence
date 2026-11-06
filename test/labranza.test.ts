@@ -32,7 +32,7 @@ import {
 } from '../src/client/render/escenario/labranza.js';
 import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
 import { esVolumen, separar } from '../src/client/render/escenario/pintar.js';
-import { partidaDe } from './helpers.js';
+import { partidaDe } from './escena-de-prueba.js';
 
 const W = 16;
 const H = 16;

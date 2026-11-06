@@ -45,6 +45,7 @@ import {
 import { CAMPOS_DE_PIEZA, EQUIPO } from '../src/core/data.js';
 import { createRng } from '../src/core/rng.js';
 import { CREATURE_TRAITS, HUECOS } from '../src/core/types.js';
+import { batallaConDos } from './batalla-de-prueba.js';
 import {
   CLIENTE,
   CORE,
@@ -59,8 +60,7 @@ import {
   ruta,
   SERVIDOR,
 } from './codigo-del-repo.js';
-import { RAIZ } from './comun.js';
-import { batallaConDos, TROPA } from './helpers.js';
+import { RAIZ, TROPA } from './comun.js';
 
 /** Dónde se puede nombrar lo de la arena sin permiso, y todo lo que se mira. */
 const RUTAS_DE_LA_ARENA = {

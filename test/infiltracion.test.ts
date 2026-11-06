@@ -14,6 +14,7 @@
  * entera y la niebla es la de una barrera (la región más cercana, y su cuadrado sobre
  * lo explorado: rehecho al fusionar con la niebla por regiones, 05-11-2026).
  */
+
 import { describe, expect, it } from 'vitest';
 import { llegadaDeLaRuta } from '../src/client/escenas/aventura.js';
 import { Session } from '../src/client/session.js';
@@ -52,14 +53,9 @@ import {
 import { rentaDelDia } from '../src/core/state/renta.js';
 import { newGame } from '../src/core/state/setup.js';
 import { FACTION_IDS, type FactionId, type Point } from '../src/core/types.js';
-import {
-  conSuEquipo,
-  ejercito,
-  hastaSuSiguienteTurno,
-  JINETE,
-  primeraSemillaCon,
-  TROPA,
-} from './helpers.js';
+import { primeraSemillaCon } from '../tools/comun/semillas.js';
+import { JINETE, TROPA } from './comun.js';
+import { conSuEquipo, ejercito, hastaSuSiguienteTurno } from './partida-de-prueba.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 

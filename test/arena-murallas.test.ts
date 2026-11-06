@@ -23,15 +23,9 @@ import { FORMA_DEL_TABLERO, hexKey } from '../src/core/battle/board.js';
 import { LIDERAZGO } from '../src/core/data.js';
 import { createRng } from '../src/core/rng.js';
 import { escribirMurallas, leerMurallas } from '../tools/arena/borrador.js';
-import {
-  aPelear,
-  empezarTalCual,
-  montajeDePrueba,
-  muralla,
-  peleaDelMotor,
-  sesionDeArena,
-  unidadDeArena,
-} from './helpers.js';
+import { empezarTalCual, sesionDeArena } from './batalla-de-cliente.js';
+import { muralla } from './batalla-de-prueba.js';
+import { aPelear, montajeDePrueba, peleaDelMotor, unidadDeArena } from './pelea-de-arena.js';
 
 const RAIZ = resolve(import.meta.dirname, '..');
 const unidad = unidadDeArena;

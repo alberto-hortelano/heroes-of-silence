@@ -15,7 +15,7 @@ import { Session } from '../src/client/session.js';
 import { PUERTAS_DE_LA_CIUDAD } from '../src/core/map/recinto.js';
 import { caminoHasta } from '../src/core/state/game.js';
 import { sesionAntesDelMonstruo } from './batalla-de-cliente.js';
-import { partidaDe } from './helpers.js';
+import { partidaDe } from './escena-de-prueba.js';
 
 describe('enLaMarcha: por dónde va quien anda', () => {
   const pasos = [

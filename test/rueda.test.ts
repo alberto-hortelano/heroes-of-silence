@@ -73,26 +73,19 @@ import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng, type Rng, sortearPorPesos } from '../src/core/rng.js';
 import type { Hex, NivelesDeLaRueda, Stack, UnitInfo } from '../src/core/types.js';
 import { cuerpoDeCombate, nivelesDeLaEspada, type Unidad } from '../src/core/unidad.js';
-import { bando } from './batalla-de-prueba.js';
+import { desenlaceDe, empezarTalCual, hastaLaRueda, sesionDeArena } from './batalla-de-cliente.js';
 import {
   type Ataque,
   ataquesDe,
+  bando,
   conCifrasAMano,
   conManosDePrueba,
-  delBorrador,
-  desenlaceDe,
-  empezarTalCual,
   golpeConLaRueda,
-  hastaLaRueda,
-  JINETE,
-  NO_MUERTO,
   NORMAL,
-  PESADA,
-  sesionDeArena,
-  TROPA,
   todoA,
-  unidadDeArena,
-} from './helpers.js';
+} from './batalla-de-prueba.js';
+import { JINETE, NO_MUERTO, PESADA, TROPA } from './comun.js';
+import { delBorrador, unidadDeArena } from './pelea-de-arena.js';
 
 /** La rueda de 7, la de siempre: con la que pelean las batallas de estos tests. */
 const RUEDA_DE_7 = RUEDAS[7];

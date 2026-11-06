@@ -26,7 +26,8 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { Hex } from '../src/core/types.js';
-import { conSuEquipo, forzarBatalla, TROPA, TROPA_BARATA } from './helpers.js';
+import { TROPA, TROPA_BARATA } from './comun.js';
+import { conSuEquipo, forzarBatalla } from './partida-de-prueba.js';
 
 const ctx = () => ({ rng: createRng(7) });
 const SEMILLA = 11;

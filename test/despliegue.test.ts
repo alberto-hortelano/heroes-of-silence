@@ -33,7 +33,8 @@ import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
 import type { AlcanceDelDespliegue, Hex } from '../src/core/types.js';
-import { conCifrasAMano, heroeDeBatalla, ladoDeBatalla, TROPA_BARATA } from './helpers.js';
+import { conCifrasAMano, heroeDeBatalla, ladoDeBatalla } from './batalla-de-prueba.js';
+import { TROPA_BARATA } from './comun.js';
 
 /** Un héroe de batalla cualquiera: aquí solo importa dónde pisa. */
 const heroe = heroeDeBatalla();

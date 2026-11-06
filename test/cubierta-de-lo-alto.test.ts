@@ -14,7 +14,7 @@ import type { Suelo } from '@core/map/terrain.js';
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
 import { cubiertaDeOtroNivel, type Sprite } from '../src/client/render/escenario/colocar.js';
-import { partidaDe } from './helpers.js';
+import { partidaDe } from './escena-de-prueba.js';
 import { LENTO, rango } from './lento.js';
 
 /** Una pieza de la hoja `hoja` con el pie en `(x, y)`. */

@@ -90,18 +90,17 @@ import {
   enLaFranja,
   type Plano,
 } from '../src/shared/base.js';
-import { destinoDeHoy, sesionContraMonstruo } from './batalla-de-cliente.js';
+import { primeraSemillaCon } from '../tools/comun/semillas.js';
 import {
-  agresiva,
-  anteLaBase,
-  catalogoCon,
+  destinoDeHoy,
   enElCampo,
   escenaDeBatalla,
-  fueraDeSuBase,
-  hojasDeLaArena,
-  MANOS_DE_PRUEBA,
-  primeraSemillaCon,
-} from './helpers.js';
+  sesionContraMonstruo,
+} from './batalla-de-cliente.js';
+import { agresiva, MANOS_DE_PRUEBA } from './batalla-de-prueba.js';
+import { hojasDeLaArena } from './hojas-de-la-arena.js';
+import { anteLaBase, fueraDeSuBase } from './partida-de-prueba.js';
+import { catalogoCon } from './pelea-de-arena.js';
 
 /**
  * Una batalla en la que la persona ATACA a un monstruo: la busca

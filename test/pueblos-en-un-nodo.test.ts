@@ -43,8 +43,10 @@ import {
   sitioSiExiste,
 } from '../src/core/state/sitios.js';
 import type { Point } from '../src/core/types.js';
-import { darLaCiudad, ejercito, PESADA, planDeNodos, TROPA_BARATA } from './helpers.js';
+import { PESADA, TROPA_BARATA } from './comun.js';
 import { rango, segunPrisa } from './lento.js';
+import { planDeNodos } from './mapa-de-prueba.js';
+import { darLaCiudad, ejercito } from './partida-de-prueba.js';
 
 type Pueblo = Extract<MapObject, { kind: 'village' }>;
 

@@ -48,14 +48,9 @@ import type { BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex, Stack } from '../src/core/types.js';
-import {
-  empezarTalCual,
-  forzarTurno,
-  muralla,
-  peleaDeArena,
-  sesionDeArena,
-  unidadDeArena,
-} from './helpers.js';
+import { empezarTalCual, sesionDeArena } from './batalla-de-cliente.js';
+import { forzarTurno, muralla } from './batalla-de-prueba.js';
+import { peleaDeArena, unidadDeArena } from './pelea-de-arena.js';
 
 const forma = (nombre: string): MurallaDeBatalla => {
   const f = FORMAS_DE_EJEMPLO.find((x) => x.nombre === nombre);

@@ -27,7 +27,7 @@ import {
   leerCatalogo,
   versionDelCatalogo,
 } from '../tools/arena/borrador.js';
-import { carpetaDeLaArena, catalogoEntero } from './helpers.js';
+import { carpetaDeLaArena, catalogoEntero } from './pelea-de-arena.js';
 
 /** El de data/heroe.json con PV, fuerza y agilidad de un héroe más flojo. */
 const FLOJO: CuerpoDeTodoHeroe = {

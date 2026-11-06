@@ -38,7 +38,8 @@ import {
 import { Obstaculos } from '../src/client/render/escenario/pasillo.js';
 import { recintoDeLaCiudad } from '../src/core/map/recinto.js';
 import { esBarrera, isWalkable, type Suelo, type TerrainKind } from '../src/core/map/terrain.js';
-import { catalogoDelDisco, partidaDe, primeraSemillaCon } from './helpers.js';
+import { primeraSemillaCon } from '../tools/comun/semillas.js';
+import { catalogoDelDisco, partidaDe } from './escena-de-prueba.js';
 import { itLento, rango } from './lento.js';
 
 const nunca = () => false;

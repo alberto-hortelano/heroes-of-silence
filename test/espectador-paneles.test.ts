@@ -36,7 +36,9 @@ import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 import { ponerVoces } from '../src/core/town/voces.js';
 import type { SpectatorSnapshotMsg } from '../src/server/protocol.js';
 import { construirVista, type SpectatorView } from '../src/server/vista-espectador.js';
-import { aCiegas, costesDelAlcance, forzarBatalla, monstruoVivo } from './helpers.js';
+import { aCiegas } from './batalla-de-prueba.js';
+import { costesDelAlcance } from './mapa-de-prueba.js';
+import { forzarBatalla, monstruoVivo } from './partida-de-prueba.js';
 
 /** Una partida con una batalla contra un MONSTRUO: el defensor no es de nadie. */
 function contraUnNeutral(semilla: number): { state: GameState; vista: SpectatorView } {

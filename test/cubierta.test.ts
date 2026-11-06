@@ -22,7 +22,7 @@ import {
   type Sprite,
   tumbado,
 } from '../src/client/render/escenario/colocar.js';
-import { partidaDe } from './helpers.js';
+import { partidaDe } from './escena-de-prueba.js';
 import { LENTO, rango } from './lento.js';
 
 /** Una pieza de cubierta con imagen de `nw`×`nh` y pie en `(x, y)`. */

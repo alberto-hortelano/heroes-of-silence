@@ -29,7 +29,8 @@ import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
 import { createRng } from '../src/core/rng.js';
-import { ejercito, NO_MUERTO, TIRADOR, TROPA_BARATA } from './helpers.js';
+import { NO_MUERTO, TIRADOR, TROPA_BARATA } from './comun.js';
+import { ejercito } from './partida-de-prueba.js';
 
 /**
  * Cuerpos de prueba, cada uno con el Y Bot de un juego de armas y sin arte

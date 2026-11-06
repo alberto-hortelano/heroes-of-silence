@@ -34,9 +34,10 @@ import { playAiTurn } from '../src/core/ai/turn.js';
 import type { MapPlan } from '../src/core/map/generate.js';
 import { createRng } from '../src/core/rng.js';
 import { newGame } from '../src/core/state/setup.js';
+import { primeraSemillaCon } from '../tools/comun/semillas.js';
 import { semillaDelArnes } from '../tools/qa/partida-del-arnes.js';
 import { decidir } from '../tools/qa/politica.js';
-import { catalogoDelDisco, escenaDe, partidaDe, primeraSemillaCon } from './helpers.js';
+import { catalogoDelDisco, escenaDe, partidaDe } from './escena-de-prueba.js';
 import { rango, segunPrisa } from './lento.js';
 
 const RAIZ = resolve(import.meta.dirname, '..');

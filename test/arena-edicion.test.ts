@@ -31,7 +31,8 @@ import {
 import { html, marcadoDe } from '../src/client/html.js';
 import { UNIDADES } from '../src/core/catalogo.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
-import { hojasDeLaArena, unidadDeArena } from './helpers.js';
+import { hojasDeLaArena } from './hojas-de-la-arena.js';
+import { unidadDeArena } from './pelea-de-arena.js';
 
 const HOJAS = hojasDeLaArena();
 const TARJETAS = tarjetasDelCatalogo(UNIDADES, HOJAS);

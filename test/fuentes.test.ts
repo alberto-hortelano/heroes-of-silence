@@ -16,7 +16,7 @@ import {
   FUENTES,
   HOJA_DE_LETRAS,
 } from '../tools/fuentes/bajar.js';
-import { sha256 } from './helpers.js';
+import { sha256 } from './comun.js';
 import {
   bloquesCss,
   hojasDelCliente,

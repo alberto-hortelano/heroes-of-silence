@@ -24,8 +24,8 @@ import { aPunto, pointKey } from '../src/core/map/map.js';
 import { puertasDeLaCiudad, rioAnteLaCiudad } from '../src/core/map/recinto.js';
 import { estructura, regionesDelSitio } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
-import { grafoDeCaminos, pieza } from './helpers.js';
 import { rango, segunPrisa } from './lento.js';
+import { grafoDeCaminos, pieza } from './mapa-de-prueba.js';
 
 describe('las ciudades del generador: en un nodo, solo las bases y las del río', () => {
   // En el bucle rápido, tres semillas; en la orden lenta, 1-40: 160 ciudades de

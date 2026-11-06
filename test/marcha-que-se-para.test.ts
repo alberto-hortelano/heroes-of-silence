@@ -40,7 +40,8 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { Point } from '../src/core/types.js';
-import { copiaDePartida, costesDelAlcance, fueraDeSuBase, guarnecer } from './helpers.js';
+import { costesDelAlcance } from './mapa-de-prueba.js';
+import { copiaDePartida, fueraDeSuBase, guarnecer } from './partida-de-prueba.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 

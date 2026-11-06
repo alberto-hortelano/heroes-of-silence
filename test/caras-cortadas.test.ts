@@ -34,7 +34,7 @@ import type { Sprite } from '../src/client/render/escenario/colocar.js';
 import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
 import { claveDe } from '../src/client/render/escenario/pintar.js';
 import { bandaDeCara, type Cara } from '../src/client/render/escenario/relieve.js';
-import { catalogoDelDisco, partidaDe } from './helpers.js';
+import { catalogoDelDisco, partidaDe } from './escena-de-prueba.js';
 import { rango, segunPrisa } from './lento.js';
 
 const catalogo = catalogoDelDisco();

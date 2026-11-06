@@ -20,7 +20,7 @@ import {
 import { marcadoDe } from '../src/client/html.js';
 import { fichaDeHeroeDeArena, heroePorDefecto } from '../src/core/arena.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
-import { unidadDeArena } from './helpers.js';
+import { unidadDeArena } from './pelea-de-arena.js';
 
 const MONTAJE = enElMontaje(EQUIPO_DEL_JUEGO);
 const COMBATE: ComoDeLaFicha = { ...MONTAJE, enCombate: true };

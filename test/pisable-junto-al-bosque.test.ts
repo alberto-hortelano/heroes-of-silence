@@ -52,7 +52,7 @@ import { nivelPintado, SOTOBOSQUE, sotobosqueDe } from '../src/client/render/esc
 import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
 import { trozosConAlfa } from '../src/client/render/escenario/pintar.js';
 import { enElRecinto } from '../src/client/render/escenario/recinto.js';
-import { catalogoDelDisco, partidaDe } from './helpers.js';
+import { catalogoDelDisco, partidaDe } from './escena-de-prueba.js';
 import { LENTO, rango } from './lento.js';
 
 /**

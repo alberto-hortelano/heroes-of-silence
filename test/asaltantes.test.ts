@@ -47,8 +47,9 @@ import {
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 import type { Point } from '../src/core/types.js';
-import { ejercito, JINETE, PESADA, TROPA_BARATA } from './helpers.js';
+import { JINETE, PESADA, TROPA_BARATA } from './comun.js';
 import { segunPrisa } from './lento.js';
+import { ejercito } from './partida-de-prueba.js';
 
 /**
  * Las casillas libres de la región de `r` con la regla de la patrulla: sin
