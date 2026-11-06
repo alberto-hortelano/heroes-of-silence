@@ -191,19 +191,34 @@ const DE_VALOR = /^\s*(?:import|export)\s+(?!type\b)(?:[^'";]*?\s+from\s+)?['"](
  * (un `.json`, un `.css`) va tal cual: quien recorre el grafo se queda con los `.ts`.
  *
  * Es el único resolutor de los guardias: el de «la página no carga el núcleo»
- * (`arranque.test.ts`) y el de los ciclos (`nivel.ts`). Hasta la fase T cada uno
- * llevaba el suyo, y el de los ciclos solo veía los relativos.
+ * (`arranque.test.ts`) y los de los ciclos (`nivel.ts` y todo `core`). Hasta la
+ * fase T cada uno llevaba el suyo, y el de los ciclos solo veía los relativos.
  */
 export function importacionesDe(r: string): string[] {
-  const out: string[] = [];
-  for (const m of codigoDe(r).matchAll(DE_VALOR)) {
+  return importacionesConLineaDe(r).map((i) => i.ruta);
+}
+
+/**
+ * Lo mismo que `importacionesDe`, con la línea (desde 1) donde empieza cada
+ * `import`: lo que dice un guardia que señala una importación (el de los ciclos
+ * de `core`, fase N de la reorganización, 07-11-2026).
+ */
+export function importacionesConLineaDe(r: string): { ruta: string; linea: number }[] {
+  const out: { ruta: string; linea: number }[] = [];
+  const codigo = codigoDe(r);
+  for (const m of codigo.matchAll(DE_VALOR)) {
     const destino = m[1] as string;
     let absoluto: string;
     if (destino.startsWith('.')) absoluto = resolve(RAIZ, dirname(r), destino);
     else if (destino.startsWith('@core/')) absoluto = join(RAIZ, 'src/core', destino.slice(6));
     else continue;
     const ts = absoluto.replace(/\.js$/, '.ts');
-    out.push(relative(RAIZ, existsSync(ts) ? ts : absoluto));
+    // `^\s*` puede empezar en una línea en blanco de antes: la línea es la del `import`.
+    const inicio = m.index + (m[0].length - m[0].trimStart().length);
+    out.push({
+      ruta: relative(RAIZ, existsSync(ts) ? ts : absoluto),
+      linea: lineaDe(codigo, inicio),
+    });
   }
   return out;
 }

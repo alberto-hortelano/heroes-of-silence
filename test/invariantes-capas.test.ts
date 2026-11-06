@@ -1,9 +1,10 @@
 /**
  * Las capas: `core` es puro (sin `node:`, sin DOM, sin conocer al servidor), sin
- * azar suelto ni coma flotante de la plataforma y sin ciclos donde se mide el
- * nivel; las herramientas de desarrollo no llegan al build, el cliente no lee el
- * entorno, ningún fichero que lee una máquina lleva la ruta de esta, y las rutas
- * que se escriben en cadenas (las que `tsc` no ve) existen.
+ * azar suelto ni coma flotante de la plataforma y sin ciclos de importación en
+ * ejecución (ni donde se mide el nivel); las herramientas de desarrollo no llegan
+ * al build, el cliente no lee el entorno, ningún fichero que lee una máquina lleva
+ * la ruta de esta, y las rutas que se escriben en cadenas (las que `tsc` no ve)
+ * existen.
  *
  * Los guardias de las fronteras de `CLAUDE.md` vivían en un solo
  * `invariantes.test.ts`; desde la fase T de la reorganización (06-11-2026) van en
@@ -23,6 +24,7 @@ import {
   existeLaRuta,
   ficheros,
   HERRAMIENTAS,
+  importacionesConLineaDe,
   importacionesDe,
   importaDe,
   infractores,
@@ -257,6 +259,63 @@ describe('invariantes del proyecto', () => {
     expect(ciclo(INICIO, [INICIO])).toBeNull();
     // Y el guardia ve los imports que corren: `nivel.ts` importa `battle/armas.ts`.
     expect(importa(INICIO)).toContain(ruta('src/core/battle/armas.ts'));
+  });
+
+  it('`core` no tiene ciclos de importación en ejecución', () => {
+    // Un ciclo de lo que corre al cargar (`import` de valor, `export … from`,
+    // `import 'x'`) funciona solo mientras lo que se ejecuta al cargarse no lea
+    // del otro lado: una constante leída al cargarse da un `ReferenceError` (TDZ)
+    // según quién se cargue antes, y `tsc` no lo ve. `import type` no cuenta (se
+    // borra al compilar) ni `import()` (va a demanda); `import { type X }` sí,
+    // porque con `verbatimModuleSyntax` queda como `import {}` y carga el módulo.
+    // Había dos (fase N de la reorganización, 07-11-2026): `map/rio.ts` ↔
+    // `map/vestir.ts` (por `parejaDe`, hoy en `map/geometria.ts`) y
+    // `mundo/reglas.ts` ↔ `state/game.ts` (por `playerById` y `turnBlocker`, hoy
+    // en `state/consultas.ts`). Rotos a mano: `import { parejaDe } from
+    // './vestir.js'` en `rio.ts` y `import { mundoDe } from '../mundo/reglas.js'`
+    // en `state/consultas.ts` salen rojos con el ciclo entero, cada paso con la
+    // línea de su `import`.
+    const aristas = new Map<string, { ruta: string; linea: number }[]>(
+      CORE.map((r) => [
+        r,
+        importacionesConLineaDe(r).filter(
+          (x) => x.ruta.startsWith('src/core/') && x.ruta.endsWith('.ts'),
+        ),
+      ]),
+    );
+    // Un ciclo por fichero que vuelve a sí mismo, girado para empezar por el
+    // menor: cada ciclo sale una vez, con todos sus pasos (`fichero:línea` del
+    // `import` que lleva al siguiente).
+    const ciclos = new Set<string>();
+    for (const inicio of CORE) {
+      const visto = new Set<string>();
+      type Paso = { readonly ruta: string; readonly linea: number };
+      const buscar = (desde: string, camino: readonly Paso[]): readonly Paso[] | null => {
+        for (const { ruta: siguiente, linea } of aristas.get(desde) ?? []) {
+          const conLinea = [...camino.slice(0, -1), { ruta: desde, linea }];
+          if (siguiente === inicio) return conLinea;
+          if (visto.has(siguiente)) continue;
+          visto.add(siguiente);
+          const hallado = buscar(siguiente, [...conLinea, { ruta: siguiente, linea: 0 }]);
+          if (hallado !== null) return hallado;
+        }
+        return null;
+      };
+      const hallado = buscar(inicio, [{ ruta: inicio, linea: 0 }]);
+      if (hallado === null) continue;
+      const rutas = hallado.map((p) => p.ruta);
+      const menor = rutas.indexOf([...rutas].sort()[0] as string);
+      const girado = [...hallado.slice(menor), ...hallado.slice(0, menor)];
+      ciclos.add(
+        [...girado.map((p) => `${p.ruta}:${p.linea}`), (girado[0] as Paso).ruta].join(' → '),
+      );
+    }
+    expect([...ciclos]).toEqual([]);
+    // Y que mire algo: las dos importaciones que quedan de aquellos ciclos, en un
+    // solo sentido, las ve el resolutor.
+    const importa = (de: string): string[] => (aristas.get(de) ?? []).map((x) => x.ruta);
+    expect(importa(ruta('src/core/map/vestir.ts'))).toContain(ruta('src/core/map/rio.ts'));
+    expect(importa(ruta('src/core/state/game.ts'))).toContain(ruta('src/core/mundo/reglas.ts'));
   });
 
   it('ningún fichero que una máquina lee lleva dentro la ruta de esta máquina', () => {
