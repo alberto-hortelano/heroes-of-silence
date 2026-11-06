@@ -1470,11 +1470,15 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  * - `f68252e3…` (06-11-2026, fusión de las dos de arriba en la misma rama: la
  *   «Base derecha» y el disparo que sube al muro juntos). Las dos cambian solo
  *   batallas tras una muralla; 0 sin terminar, duración 4 / 12 / 14.
+ * - `3ea9e845…` (06-11-2026, el usuario sube el ataque del templario del mandoble
+ *   de 3 a 4 en la arena). Cambia solo la s13: dos `battle_ended` (hechos 577 y
+ *   658) con una ronda menos, las mismas bajas y el mismo ganador. La forma del
+ *   diff, no una medida.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'f68252e3e07b01897a3423d47045af28c28d07d655ff7f9ec161b261e3b7c549',
+  sha: '3ea9e845a18e648e29f59db619bcacecbc100b0ba2438dd5b04e35364e90a0fd',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);
