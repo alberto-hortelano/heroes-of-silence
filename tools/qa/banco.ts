@@ -1460,11 +1460,21 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   55 → 77, las que gana el defensor 7 → 17. 0 sin terminar; j0 gana 9 de 20 (10
  *   antes); duración 4 / 8 / 10 → 4 / 12 / 14, días 87 → 113. La forma del diff, no
  *   una medida.
+ * - `3f520fa0…` → `87fd2349…` (06-11-2026, el disparo diferido desde el suelo sube a
+ *   lo alto del muro: «Los disparos de abajo del muro al muro no dan»). Cambian 7 de
+ *   las 20 (s8, s10, s12, s14, s15, s17, s19), y el primer hecho distinto es siempre
+ *   de una batalla tras una muralla: su `battle_ended` (otras bajas, o una ronda más
+ *   o menos: 6 → 7, 4 → 3) o el `troop_rank_up` de un arquero que ahora da (s19). El
+ *   ganador y el día de cada partida, los mismos en las 20; hechos 3 776 → 3 788
+ *   líneas. La forma del diff, no una medida.
+ * - `f68252e3…` (06-11-2026, fusión de las dos de arriba en la misma rama: la
+ *   «Base derecha» y el disparo que sube al muro juntos). Las dos cambian solo
+ *   batallas tras una muralla; 0 sin terminar, duración 4 / 12 / 14.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '1e43efa1d2ca80ddf7c384b106feaf621c3d1012e13d278addf707ca0418795f',
+  sha: 'f68252e3e07b01897a3423d47045af28c28d07d655ff7f9ec161b261e3b7c549',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

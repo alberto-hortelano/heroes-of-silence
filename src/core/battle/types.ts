@@ -370,7 +370,8 @@ export type BattleEvent =
   /**
    * El disparo diferido sale de `stack` hacia `at` y da a `target`, el primero de
    * la recta (`lineaDelDisparo`), sea del bando que sea; `null` si la recta llega
-   * a la casilla sin nadie o la para un muro (entonces `damage` y `killed` son 0).
+   * a la casilla sin nadie o la para un muro, al bajar de él, o una puerta cerrada
+   * (entonces `damage` y `killed` son 0).
    * La salpicadura va en otro `shoot` con `splash`, sobre el mismo `at`.
    */
   | {

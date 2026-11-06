@@ -865,8 +865,10 @@ Notas:
   apuntada, y da al PRIMERO que encuentre en una casilla que la recta atraviese
   (aunque solo le roce una esquina), sea del bando que sea —también a uno tuyo
   que se haya puesto en medio—; la recta no acaba en la casilla: sigue tras ella
-  hasta el borde del tablero, y si no hay nadie no da a nadie. En el suelo lo
-  para un muro o una puerta cerrada; desde lo alto, no. El daño va por la
+  hasta el borde del tablero, y si no hay nadie no da a nadie. Desde el suelo
+  sube a lo alto del muro y da al primero que haya arriba, y lo para bajar del
+  muro (lo de detrás no se alcanza) o una puerta cerrada; desde lo alto, nada.
+  El daño va por la
   horquilla de su arma de distancia según lo cerca que pase la recta del centro
   de la casilla del alcanzado: por el centro, el máximo; cada octavo de casilla
   de separación baja un cuarto de la horquilla; a media casilla o más, el
