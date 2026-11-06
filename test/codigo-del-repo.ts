@@ -11,6 +11,74 @@
  * filtra «todo menos `src/core/battle/battle.ts`», o que exige que algo NO esté en
  * un fichero, sigue verde si ese fichero se muda: deja de mirar en silencio. Con
  * `ruta()`, la mudanza que se olvide de él sale en rojo diciendo qué ruta falta.
+ *
+ * ## Lo que se aprendió escribiéndolos
+ *
+ * La cabecera de `invariantes.test.ts` cuando eran uno solo, tal cual:
+ *
+ * Las fronteras de `CLAUDE.md`, comprobadas.
+ *
+ * Un contrato que solo vive en la documentación se rompe sin que nadie se
+ * entere; aquí se rompe en rojo. Son quince guardias: ocho leen el código con
+ * una expresión regular, uno recorre el catálogo de rasgos, el de efectos
+ * temporales llama de verdad a los lectores del motor, otro recorre todo el
+ * repo —menos la prosa y los binarios— buscando la ruta de esta máquina, dos
+ * juegan partidas enteras —uno le da a la crónica un viaje de ida y vuelta por
+ * `JSON`, el otro comprueba que nadie escriba detrás de «fin de la partida»— y
+ * el último vigila que el núcleo no ejecute coma flotante que dependa de la
+ * plataforma, que es en lo que se apoya el sha256 de `pnpm banco` para valer
+ * fuera de esta máquina. Cuestan milisegundos —los dos que juegan, medio
+ * segundo cada uno— así que caben en cada `pnpm test` sin frenar a nadie.
+ *
+ * Los catorce nacen en verde. Un guardia que nace rojo se ignora desde el primer
+ * día — y uno que nace verde sin comprobar que MUERDE no guarda nada: el de la
+ * frontera con el servidor se probó metiendo un `import` del director en
+ * `src/core/ai/turn.ts`, viéndolo rojo y quitándolo. Se volvió a probar con la
+ * forma que se le colaba (`import 'ruta';`, sin `from`) al cerrarle ese hueco.
+ * El de las rutas absolutas nació con trece presas —`.mcp.json` y los doce
+ * `atlas.json`— y se corrió en rojo antes de quitarlas; y se volvió a correr en
+ * rojo con un fichero SIN INDEXAR, que es el caso que se le escapaba mientras
+ * miró `git ls-files` a secas. Y una tercera vez con los NUEVE ficheros que se
+ * le colaban por mirar una lista blanca de extensiones (`.js`, `.mjs`, `.cjs`,
+ * `.tsx`, `.toml`, `.envrc`, un ejecutable sin extensión, y un `.json` con las
+ * barras escapadas), que es lo que invirtió la lista. Y el del candado de la
+ * crónica se rompió copiando el `as GameEvent[]` de `game.ts` a
+ * `serialize.ts`, que es justo el sitio al que se copiaría de verdad: cazado
+ * con el fichero y la línea, y retirada la sonda antes de darlo por bueno.
+ * Ese último **no bastaba**: miraba una sola puerta y QA se coló por la de al
+ * lado —castear el ESTADO en vez del log— con `tsc`, Biome y los 235 tests en
+ * verde. Ahora mira cuatro y las cuatro se han roto a mano, una a una, y se
+ * han visto rojas con su nombre delante.
+ *
+ * Y el de la coma flotante repitió la lección entera. Nació probado con CINCO
+ * sondas —`Math.pow`, `1.4 ** n`, `Math.hypot`, `Math.sqrt` y un `2 ** n` en la
+ * línea siguiente a una cadena que lleva dentro las dos marcas de comentario,
+ * que es como se comprueba que el quitacomentarios no se come código de verdad
+ * en silencio— y las cinco mordieron. Y aun así **tenía un agujero**: QA lo
+ * rompió con `const { pow } = Math`, que no escribe `Math.pow` en ninguna parte.
+ * Cinco sondas con punto no prueban un guardia que mira puntos. Ahora la regla
+ * es que `Math` solo puede aparecer seguido de una de las siete permitidas, y
+ * las sondas son OCHO: las cinco de antes más desestructurar, desestructurar
+ * renombrando y `Math['pow']`. Es la tercera vez que este fichero aprende lo
+ * mismo —el de `node:` con `import 'x';`, el del candado con el cast del
+ * estado, este con la desestructuración—: **lo que hay que ensanchar es la
+ * batería de sondas, no la confianza**.
+ *
+ * El catorceavo es el de #63: `pintar` es el único `innerHTML` del repositorio y
+ * un `Html` solo se fabrica dentro de `src/client/html.ts`. Nace en verde **en
+ * el commit que reescribe `views/panels.ts`** y no en el que escribe la puerta,
+ * donde habría nacido rojo con los tres `innerHTML` que `main.ts` tenía
+ * entonces. También se rompió a mano, copiando uno de vuelta a `main.ts`.
+ *
+ * El quinceavo es de la fase 2a: el dueño de un nodo o de un castillo lo
+ * escriben `captureNode` y `captureTown` y nadie más, que es lo que permite que
+ * el dueño de una región se derive en vez de guardarse. Se rompió a mano
+ * metiendo una escritura de `obj.owner` en la IA (`strategy.ts`) y salió rojo
+ * con el fichero y la línea.
+ *
+ * Y esta frase no puede escribir la marca de cierre de un comentario de bloque:
+ * al escribirla la primera vez cerró este docstring de verdad y tumbó el `tsc`
+ * con seis errores a partir de aquí abajo.
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';

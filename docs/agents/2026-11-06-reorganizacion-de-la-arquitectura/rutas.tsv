@@ -187,3 +187,9 @@ simbolo	tools/taller/temas/piezas.ts	(retirado)	texturaNeutra
 simbolo	test/invariantes.test.ts	test/codigo-del-repo.ts	rutasDelRepo, ficheros, CORE, CLIENTE, SERVIDOR, leer, codigoDe, sinComentarios, importaDe, infractores, infractoresDeCodigo, lineasDeLasDeclaraciones, lineasDeImport, lineaDe, llamadasA
 simbolo	test/arranque.test.ts	test/codigo-del-repo.ts	el resolutor de cargaAlEvaluarse (importacionesDe, también el de los ciclos de nivel.ts)
 simbolo	test/invariantes.test.ts	test/comun.ts	RAIZ
+fichero	test/invariantes.test.ts	test/invariantes-capas.test.ts	10 guardias (el reparto, por nombre, en implementacion-faseT.md)
+fichero	test/invariantes.test.ts	test/invariantes-batalla.test.ts	25 guardias (el reparto, por nombre, en implementacion-faseT.md)
+fichero	test/invariantes.test.ts	test/invariantes-partida.test.ts	20 guardias (el reparto, por nombre, en implementacion-faseT.md)
+fichero	test/invariantes.test.ts	test/invariantes-datos.test.ts	12 guardias (el reparto, por nombre, en implementacion-faseT.md)
+fichero	test/invariantes.test.ts	test/invariantes-cliente.test.ts	12 guardias (el reparto, por nombre, en implementacion-faseT.md)
+simbolo	test/invariantes.test.ts	test/codigo-del-repo.ts	la cabecera (lo que se aprendió escribiendo los guardias)
