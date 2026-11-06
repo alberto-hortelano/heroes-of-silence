@@ -25,8 +25,13 @@ import {
   MAX_ROUNDS,
   stackById,
 } from '../src/core/battle/battle.js';
-import { allHexes, bandoDeSalida } from '../src/core/battle/board.js';
-import { murallaDelMapaBlocker, SIN_MURALLA, validarMuralla } from '../src/core/battle/muralla.js';
+import { allHexes, bandoDeSalida, hexKey } from '../src/core/battle/board.js';
+import {
+  ladoDeLaMuralla,
+  murallaDelMapaBlocker,
+  SIN_MURALLA,
+  validarMuralla,
+} from '../src/core/battle/muralla.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego, unidadesDeFaccion } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
@@ -110,6 +115,16 @@ describe('las dos formas de data/sitios.json', () => {
     expect(MURALLAS_DEL_MAPA.ciudad.material).toBe('piedra');
     expect(MURALLAS_DEL_MAPA.pueblo.material).toBe('madera');
     for (const m of Object.values(MURALLAS_DEL_MAPA)) expect(murallaDelMapaBlocker(m)).toBeNull();
+  });
+
+  it('la de la ciudad es la base del defensor (06-11-2026): lo de dentro es su salida, y nada más', () => {
+    // La «Base derecha» del usuario. Con la «gruesa» de antes, en medio del tablero,
+    // la columna 8 de las filas pares quedaba dentro y fuera de la salida: rojo.
+    const dentro = allHexes().filter(
+      (x) => ladoDeLaMuralla(MURALLAS_DEL_MAPA.ciudad, x) === 'dentro',
+    );
+    expect(dentro).toHaveLength(21);
+    for (const x of dentro) expect(bandoDeSalida(x), hexKey(x)).toBe('defender');
   });
 
   it('cada regla rechaza con su frase una forma rota a propósito', () => {

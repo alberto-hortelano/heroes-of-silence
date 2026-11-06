@@ -1,82 +1,50 @@
 {
-  "_comment": "Las murallas de las batallas del mapa (puesto fronterizo, fases 2 y 3, 04-11-2026; docs/agents/2026-11-04-puesto-fronterizo/). INVENTADO y PROVISIONAL: HoMM2 tiene una sola forma de castillo y aquí hay dos, sacadas en su día de las formas de ejemplo de la arena; son del mapa y se editan aquí sin tocar la arena. «murallas» son las formas, por nombre (se añaden las que se quieran): «gruesa», de piedra, las columnas 6 y 7 con un pasillo de dos casillas en la fila 4 y la puerta en medio, entre (6,4) y (7,4); «linea-con-puerta», de madera, la columna 7 con un hueco en (7,4) y la puerta al este del hueco, entre (7,4) y (8,4) (al oeste dejaría rendija por las diagonales del odd-r). Cada una es {material, muros, puertas}: material, piedra o madera (cómo se pinta y se dice: las reglas son las mismas); muros, hexes {col, row} del tablero de batalla (9 filas, las pares de 12 y las impares de 11); puertas, {a, b}, dos casillas vecinas de la misma fila con b justo al este de a. «usos» dice quién pelea tras cuál, nombrándola: toda batalla contra una «ciudad» (también la base y la neutral) y contra un «pueblo»; y en un paso tomado (un puesto), la de su obra: «empalizada» y «muralla» llevan además lo que cuestan en oro («precio», INVENTADO: 1500 y 4000). Un paso sin obra no lleva muralla. La empalizada se pelea tras una muralla de madera y la muralla tras una de piedra (lo que dicen sus nombres; la carga lo exige). Hoy la empalizada del paso y la del pueblo nombran la misma forma, y la muralla del paso y la de la ciudad, también: editar una forma cambia la batalla de todos los que la nombran; para separarlas, una forma más con otro nombre. Las obras se suben de una en una (ninguna → empalizada → muralla), con el héroe del dueño en el paso, y no se bajan; tomar el paso no las quita. Lo lee solo src/core/state/sitios.ts (leerSitios), que lanza al cargar nombrando este fichero si una forma no es una muralla (validarMuralla) o no cumple murallaDelMapaBlocker (src/core/battle/muralla.ts): que cierre, que se asalte (un muro con pie fuera y, por lo alto, uno con suelo dentro), que lleve puertas y cada una separe fuera de dentro, y que quepan 7 por bando; o si un uso falta, sobra o nombra una forma que no está. El atacante lleva una escalera por stack y su héroe (D8, decisión del usuario: «Todo el atacante»). El bono de lo alto es el de la arena para las dos (data/muralla.json).",
+  "_comment": "Las murallas de las batallas del mapa (puesto fronterizo, fases 2 y 3, 04-11-2026; docs/agents/2026-11-04-puesto-fronterizo/). INVENTADO y PROVISIONAL: HoMM2 tiene una sola forma de castillo y aquí hay dos, copiadas de formas de la arena; son del mapa y se editan aquí sin tocar la arena. «murallas» son las formas, por nombre (se añaden las que se quieran): «base-derecha», de piedra, la muralla por defecto (06-11-2026, decisión del usuario: la «Base derecha» que dibujó en la arena, que cierra la salida del defensor; hasta entonces era «gruesa», las columnas 6 y 7 en medio del tablero): la columna 8 de la fila 1 a la 7, las esquinas (9,0) y (9,8) y la puerta en el hueco de la fila 4, entre (8,4) y (9,4), con 21 casillas dentro; «linea-con-puerta», de madera, la columna 7 con un hueco en (7,4) y la puerta al este del hueco, entre (7,4) y (8,4) (al oeste dejaría rendija por las diagonales del odd-r). Cada una es {material, muros, puertas}: material, piedra o madera (cómo se pinta y se dice: las reglas son las mismas); muros, hexes {col, row} del tablero de batalla (9 filas, las pares de 12 y las impares de 11); puertas, {a, b}, dos casillas vecinas de la misma fila con b justo al este de a. «usos» dice quién pelea tras cuál, nombrándola: toda batalla contra una «ciudad» (también la base y la neutral) y contra un «pueblo»; y en un paso tomado (un puesto), la de su obra: «empalizada» y «muralla» llevan además lo que cuestan en oro («precio», INVENTADO: 1500 y 4000). Un paso sin obra no lleva muralla. La empalizada se pelea tras una muralla de madera y la muralla tras una de piedra (lo que dicen sus nombres; la carga lo exige). Hoy la empalizada del paso y la del pueblo nombran la misma forma, y la muralla del paso y la de la ciudad (la «base-derecha»), también: editar una forma cambia la batalla de todos los que la nombran; para separarlas, una forma más con otro nombre. Las obras se suben de una en una (ninguna → empalizada → muralla), con el héroe del dueño en el paso, y no se bajan; tomar el paso no las quita. Lo lee solo src/core/state/sitios.ts (leerSitios), que lanza al cargar nombrando este fichero si una forma no es una muralla (validarMuralla) o no cumple murallaDelMapaBlocker (src/core/battle/muralla.ts): que cierre, que se asalte (un muro con pie fuera y, por lo alto, uno con suelo dentro), que lleve puertas y cada una separe fuera de dentro, y que quepan 7 por bando; o si un uso falta, sobra o nombra una forma que no está. El atacante lleva una escalera por stack y su héroe (D8, decisión del usuario: «Todo el atacante»). El bono de lo alto es el de la arena para las dos (data/muralla.json).",
   "murallas": {
-    "gruesa": {
+    "base-derecha": {
       "material": "piedra",
       "muros": [
         {
-          "col": 6,
+          "col": 9,
           "row": 0
         },
         {
-          "col": 6,
+          "col": 8,
           "row": 1
         },
         {
-          "col": 6,
+          "col": 8,
           "row": 2
         },
         {
-          "col": 6,
+          "col": 8,
           "row": 3
         },
         {
-          "col": 6,
+          "col": 8,
           "row": 5
         },
         {
-          "col": 6,
+          "col": 8,
           "row": 6
         },
         {
-          "col": 6,
+          "col": 8,
           "row": 7
         },
         {
-          "col": 6,
-          "row": 8
-        },
-        {
-          "col": 7,
-          "row": 0
-        },
-        {
-          "col": 7,
-          "row": 1
-        },
-        {
-          "col": 7,
-          "row": 2
-        },
-        {
-          "col": 7,
-          "row": 3
-        },
-        {
-          "col": 7,
-          "row": 5
-        },
-        {
-          "col": 7,
-          "row": 6
-        },
-        {
-          "col": 7,
-          "row": 7
-        },
-        {
-          "col": 7,
+          "col": 9,
           "row": 8
         }
       ],
       "puertas": [
         {
           "a": {
-            "col": 6,
+            "col": 8,
             "row": 4
           },
           "b": {
-            "col": 7,
+            "col": 9,
             "row": 4
           }
         }
@@ -134,7 +102,7 @@
   },
   "usos": {
     "ciudad": {
-      "muralla": "gruesa"
+      "muralla": "base-derecha"
     },
     "pueblo": {
       "muralla": "linea-con-puerta"
@@ -144,7 +112,7 @@
       "precio": 1500
     },
     "muralla": {
-      "muralla": "gruesa",
+      "muralla": "base-derecha",
       "precio": 4000
     }
   }

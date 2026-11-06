@@ -51,6 +51,8 @@ describe('las formas de ejemplo', () => {
       'En L',
       'Muralla gruesa',
       'Semicírculo grueso',
+      'Base derecha',
+      'Base izquierda',
     ]);
     const siete = Array.from({ length: LIDERAZGO.maxPorBando }, () => ({
       unidad: unidad('troll-maza'),
@@ -61,6 +63,24 @@ describe('las formas de ejemplo', () => {
       for (const s of b.stacks) expect(cerradas.has(hexKey(s.hex)), f.nombre).toBe(false);
       expect(b.muralla).toEqual(f.muralla);
     }
+  });
+
+  it('las dos bases son las que dibujó el usuario: la izquierda, el espejo de la derecha', () => {
+    // Las del borrador del 06-11-2026, casilla a casilla (sin el orden en que se pulsaron).
+    const casillas = (nombre: string) => {
+      const f = FORMAS_DE_EJEMPLO.find((x) => x.nombre === nombre)!.muralla;
+      return { muros: f.muros.map(hexKey).sort(), puertas: f.puertas };
+    };
+    const hexes = (...cr: [number, number][]) =>
+      cr.map(([col, row]) => hexKey({ col, row })).sort();
+    expect(casillas('Base derecha')).toEqual({
+      muros: hexes([9, 0], [8, 1], [8, 2], [8, 3], [8, 5], [8, 6], [8, 7], [9, 8]),
+      puertas: [{ a: { col: 8, row: 4 }, b: { col: 9, row: 4 } }],
+    });
+    expect(casillas('Base izquierda')).toEqual({
+      muros: hexes([2, 0], [2, 1], [3, 2], [2, 3], [2, 5], [3, 6], [2, 7], [2, 8]),
+      puertas: [{ a: { col: 2, row: 4 }, b: { col: 3, row: 4 } }],
+    });
   });
 
   it('no se guardan con su nombre', () => {
