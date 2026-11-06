@@ -455,6 +455,17 @@
         "romperGuardia": 3
       },
       "precio": 0
+    },
+    {
+      "id": "armadura-2",
+      "nombre": "Cota de malla",
+      "hueco": "armadura",
+      "seConsigue": [],
+      "ataque": 0,
+      "defensa": 0,
+      "armadura": 5,
+      "peso": 3,
+      "precio": 1000
     }
   ]
 }
