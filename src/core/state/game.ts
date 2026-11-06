@@ -113,7 +113,7 @@ import {
   zonaDeNiebla,
 } from '../map/niebla.js';
 import { muroBlocker } from '../map/recinto.js';
-import { dueñoEnLaFoto, dueñosDeLaRed } from '../map/regiones.js';
+import { dueñoEnLaFoto, dueñosDeLaRed, estructura, regionMasCercana } from '../map/regiones.js';
 import { type Barrera, NOMBRE_DE_BARRERA } from '../map/terrain.js';
 import {
   batallaDe,
@@ -3740,6 +3740,23 @@ export interface Ataque {
     | { readonly kind: 'guarnicion' };
   /** El sitio en juego (`sitioQueSeDefiende`), dicho, o `null` en campo abierto. */
   readonly sitio: { readonly nombre: string; readonly delSitio: string } | null;
+  /**
+   * La región donde se pelea, por su nombre (`MapRegion.name`): lo que nombra el
+   * sitio del ataque en campo abierto (06-11-2026: «embosca a … en (11,5)» no se
+   * leía como un lugar). `dentro` si la casilla es de la región; si no (una
+   * barrera, un nodo), es la más cercana (`regionMasCercana`). `null` en un mapa
+   * sin regiones.
+   */
+  readonly region: { readonly nombre: string; readonly dentro: boolean } | null;
+}
+
+/** La región de la casilla `p` por su nombre, o la más cercana (`Ataque.region`). */
+function regionDelAtaque(map: GameMap, p: Point): Ataque['region'] {
+  const i = p.y * map.width + p.x;
+  const propia = estructura(map).regionDe[i] ?? -1;
+  const k = propia >= 0 ? propia : (regionMasCercana(map)[i] ?? -1);
+  const region = k < 0 ? undefined : map.regions[k];
+  return region === undefined ? null : { nombre: region.name, dentro: propia >= 0 };
 }
 
 /**
@@ -3763,14 +3780,16 @@ export function elAtaque(state: GameState, pending: Enfrentamiento): Ataque | nu
     };
   }
   const enJuego = sitioQueSeDefiende(state, foe);
+  const at = lugarDelRival(state, foe);
   return {
-    at: lugarDelRival(state, foe),
+    at,
     quien,
     aQuien,
     sitio:
       enJuego === null
         ? null
         : { nombre: nombreDelSitio(enJuego.sitio), delSitio: delSitio(enJuego.sitio) },
+    region: regionDelAtaque(state.map, at),
   };
 }
 
