@@ -1369,8 +1369,8 @@ export interface LineaDelDisparo {
   readonly at: Hex;
   /**
    * Las casillas de la recta hasta donde llega, en orden y sin la del tirador: hasta
-   * la del alcanzado, hasta antes del muro o la puerta que la para, o hasta el borde
-   * del tablero (la recta sigue tras `at`).
+   * la del alcanzado, hasta lo alto del muro del que bajaría o hasta antes de la
+   * puerta que la para, o hasta el borde del tablero (la recta sigue tras `at`).
    */
   readonly casillas: readonly Hex[];
   /** El primero de la recta, de cualquier bando; `null` si no da a nadie. */
@@ -1379,8 +1379,9 @@ export interface LineaDelDisparo {
   readonly parada: 'muro' | 'puerta' | null;
   /**
    * Las casillas en que el disparo daría a quien estuviera en ella, en orden y sin
-   * mirar quién hay: la recta hasta el borde, o hasta lo que la para (el muro, el suyo
-   * incluido, que a quien está en él le da; la puerta cerrada, antes de ella). Cada
+   * mirar quién hay: la recta hasta el borde, o hasta lo que la para (desde el suelo,
+   * lo alto del muro, que a quien está en él le da, antes de bajar de él; la puerta
+   * cerrada, antes de ella). Cada
    * una con el cuarto de la horquilla en que caería su tirada (`cuartoDelDisparo`):
    * lo que pinta el tablero al apuntar, porque al salir el disparo ya se habrán
    * movido todos.
@@ -1400,10 +1401,15 @@ export interface CasillaDelAlcance {
  * decisión del usuario: «da al primero que se encuentre en esa línea, aunque sea de
  * tu equipo»), también tras `at` (01-11-2026: la recta sigue hasta el borde). La
  * recta es la de `lineaDeTiro` (un rayo, el del
- * bando del tirador). En el suelo la para un muro (sin nadie arriba: a quien está
- * en él le da) o el lado de una puerta cerrada; desde lo alto de la muralla pasa
- * por encima de todo, como el tiro de antes. La única regla: la leen el disparo
- * (`dispararLoApuntado`), su previsión, la IA y lo que se pinta.
+ * bando del tirador). Desde el suelo **sube a lo alto del muro** y da al primero
+ * que haya arriba, en cualquier casilla de muro que cruce (06-11-2026, petición
+ * del usuario: «Los disparos de abajo del muro al muro no dan»: la recta en
+ * diagonal rozaba la casilla de muro vacía de al lado antes que la del blanco, y en
+ * una muralla gruesa la columna de fuera tapaba la de dentro); la para **bajar del
+ * muro** (lo de detrás de la muralla no se alcanza desde el suelo) o el lado de una
+ * puerta cerrada. Desde lo alto de la muralla pasa por encima de todo, como el tiro
+ * de antes. La única regla: la leen el disparo (`dispararLoApuntado`), su
+ * previsión, la IA y lo que se pinta.
  */
 export function lineaDelDisparo(state: BattleState, s: BattleStack, at: Hex): LineaDelDisparo {
   const recta = lineaDeTiro(s.hex, at, s.side);
@@ -1417,20 +1423,34 @@ export function lineaDelDisparo(state: BattleState, s: BattleStack, at: Hex): Li
   let parada: LineaDelDisparo['parada'] = null;
   let hasta = 0;
   let antes = s.hex;
-  for (const h of recta) {
+  // Desde el suelo, si la recta va ya por lo alto del muro.
+  let arriba = false;
+  for (let i = 0; i < recta.length; i++) {
+    const h = recta[i] as Hex;
     if (porPuertas?.(indiceDe(antes), indiceDe(h)) === false) {
       if (alcanzado === null && parada === null) parada = 'puerta';
       break;
     }
-    alcance.push({ hex: h, cuarto: cuartoDelDisparo(octavosHastaLaRecta(s.hex, at, h)) });
     const muro = !libre && esMuro(state.muralla, h);
+    if (arriba && !muro) {
+      // La esquina de una casilla de suelo entre dos de muro (la recta casi a lo
+      // largo de la muralla, que en el odd-r va en zigzag): pasa por encima.
+      const siguiente = recta[i + 1];
+      if (siguiente !== undefined && esMuro(state.muralla, siguiente)) {
+        antes = h;
+        continue;
+      }
+      // Baja del muro: lo de detrás no se alcanza desde el suelo.
+      if (alcanzado === null && parada === null) parada = 'muro';
+      break;
+    }
+    alcance.push({ hex: h, cuarto: cuartoDelDisparo(octavosHastaLaRecta(s.hex, at, h)) });
     if (alcanzado === null && parada === null) {
       const quien = vivoEn(state, h);
       if (quien !== null && quien.id !== s.id) alcanzado = quien;
-      else if (muro) parada = 'muro';
-      if (parada === null) hasta = alcance.length;
+      hasta = alcance.length;
     }
-    if (muro) break;
+    arriba = muro;
     antes = h;
   }
   const casillas = alcance.slice(0, hasta).map((c) => c.hex);
