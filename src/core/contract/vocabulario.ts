@@ -38,8 +38,8 @@ import type {
   TipoDePuerta,
 } from '../battle/types.js';
 import type { MejoraDelPuesto } from '../map/map.js';
-import type { AdventureAction, GameState } from '../state/game.js';
 import { tipoDelVeterano } from '../state/sitios.js';
+import type { AdventureAction, GameState } from '../state/tipos.js';
 import {
   type Hex,
   HUECOS,

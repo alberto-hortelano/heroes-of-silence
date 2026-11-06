@@ -53,7 +53,7 @@ import {
 } from '../map/regiones.js';
 import type { Rng } from '../rng.js';
 import type { Point } from '../types.js';
-import type { GameState } from './game.js';
+import type { GameState } from './tipos.js';
 
 /**
  * Un grupo de asaltantes tal y como lo ven los demás: dónde está y qué lleva,

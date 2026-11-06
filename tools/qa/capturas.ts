@@ -118,7 +118,8 @@ import { hechizosDelGremio } from '../../src/core/magia/catalogo.js';
 import { nivelDeUnidad } from '../../src/core/nivel.js';
 import { parseSeed } from '../../src/core/rng.js';
 import { pasosDeLaPatrulla, regionDeCasilla } from '../../src/core/state/asaltantes.js';
-import { baseOf, heroesOf, visibleNow } from '../../src/core/state/game.js';
+import { heroesOf } from '../../src/core/state/consultas.js';
+import { baseOf, visibleNow } from '../../src/core/state/game.js';
 import { faccionesDeLaSemilla } from '../../src/core/state/setup.js';
 import type { SitioId } from '../../src/core/town/sitios.js';
 import {

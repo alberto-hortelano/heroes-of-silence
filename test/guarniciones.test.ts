@@ -21,19 +21,16 @@ import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../src/core
 import { pointFromKey, pointKey } from '../src/core/map/map.js';
 import { estructura } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
+import { currentPlayer, heroesOf } from '../src/core/state/consultas.js';
 import {
-  type AdventureAction,
   alcanceDelHeroe,
   applyAdventureAction,
   baseOf,
   caminoHasta,
   casillasHostiles,
-  currentPlayer,
   defensaBlocker,
   defensaPorElegir,
   elegirLaDefensa,
-  type GameState,
-  heroesOf,
   pasosDeHoy,
   resolvePendingBattle,
 } from '../src/core/state/game.js';
@@ -55,6 +52,7 @@ import {
   sitioEn,
   sitioPorId,
 } from '../src/core/state/sitios.js';
+import type { AdventureAction, GameState } from '../src/core/state/tipos.js';
 import { type Army, NOMBRE_DE_FACCION, type Troop } from '../src/core/types.js';
 import { ctx, JINETE, PESADA, TROPA, TROPA_BARATA } from './comun.js';
 import { costesDelAlcance } from './mapa-de-prueba.js';

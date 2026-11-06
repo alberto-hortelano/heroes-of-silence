@@ -36,18 +36,11 @@ import {
   reachableFrom,
 } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
-import {
-  baseOf,
-  type GameContext,
-  type GameState,
-  heroById,
-  heroesOf,
-  resolvePendingBattle,
-  settleBattle,
-  townsOf,
-} from '../src/core/state/game.js';
+import { heroById, heroesOf, townsOf } from '../src/core/state/consultas.js';
+import { baseOf, resolvePendingBattle, settleBattle } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
+import type { GameContext, GameState } from '../src/core/state/tipos.js';
 import type { Point, Stack } from '../src/core/types.js';
 import { avanzarHasta, heroeDeBatalla, ladoDeBatalla } from './batalla-de-prueba.js';
 import { ctx, JINETE, NO_MUERTO, PESADA, TIRADOR_NO_MUERTO, TROPA, TROPA_BARATA } from './comun.js';

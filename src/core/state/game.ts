@@ -72,14 +72,10 @@ import {
 } from '../hero/hero.js';
 import { infiltracionBlocker, precioDeLaBarrera } from '../hero/infiltracion.js';
 import {
-  armyLeadership,
-  capacidadDe,
   ejercitoDe,
   gruposDe,
   individuosDe,
   licenciar,
-  troopBlocker,
-  troopRoom,
   troopsAsStacks,
   withTroops,
 } from '../hero/troop.js';
@@ -94,7 +90,6 @@ import {
   isEnterable,
   type MapObject,
   type Mirada,
-  type ObraDelPuesto,
   objectAt,
   type PathStep,
   pathFromReachable,
@@ -136,8 +131,6 @@ import {
   oroBlocker,
   payRecruit,
   primeraCiudadDe,
-  recruitBlocker,
-  recruitCost,
   type Town,
   tieneArmeria,
   townSpells,
@@ -165,7 +158,22 @@ import {
   recordarAsaltantes,
   vigiaDeLaMarcha,
 } from './asaltantes.js';
-import type { PedidoDeClima } from './clima.js';
+import {
+  currentPlayer,
+  dayOfWeek,
+  describePlayer,
+  destinoDeRecluta,
+  hayHuecoDeHeroe,
+  heroById,
+  heroeEnElPueblo,
+  heroesOf,
+  playerById,
+  reclutarBlocker,
+  townById,
+  townsOf,
+  turnBlocker,
+  week,
+} from './consultas.js';
 import {
   type Atacante,
   type BattleFoe,
@@ -180,7 +188,6 @@ import {
   castilloSuyoDelHeroe,
   ciudadQueMandaBlocker,
   comoEstaElSitio,
-  cupoDeLaGuarnicion,
   defensaDeLaIA,
   delSitio,
   dueñoDeLaCiudad,
@@ -202,8 +209,6 @@ import {
   nombreDelSitio,
   objetoDelSitio,
   ocupanteDe,
-  type PedidoDeReparto,
-  type PedidoDeTropa,
   ponerLaGuarnicion,
   quitarLaGuarnicion,
   repartir,
@@ -216,77 +221,17 @@ import {
   sitioEn,
   sitioPorId,
 } from './sitios.js';
-
-export interface Player {
-  readonly id: PlayerId;
-  readonly faction: FactionId;
-  controller: Controller;
-  /**
-   * Su oro, el único recurso. Entra por la renta del
-   * día (`rentaDelDia`) y los cofres, y sale al construir, reclutar, comprar,
-   * contratar y rendirse.
-   */
-  oro: number;
-  /** Casillas ya exploradas (`Casillas`, un byte por casilla, #146). */
-  readonly fog: Casillas;
-  /**
-   * Lo último OBSERVADO de cada objeto del mapa, por id de objeto.
-   *
-   * La niebla filtraba el espacio pero no el tiempo: bastaba haber pisado una
-   * casilla el día 3 para ver, el día 20, quién posee el nodo AHORA. Lo que se
-   * recuerda es lo que se vio, con el día en que se vio, así que hay algo que
-   * reconocer — y un pueblo que dejó de dar oro sin que cambie nada en el mapa
-   * conocido es justo la señal de que allí ha pasado algo.
-   */
-  memory: Map<string, RememberedObject>;
-  /**
-   * Lo último OBSERVADO de cada grupo de asaltantes, por id de grupo: lo que la
-   * IA de reglas teme (`casillasPeligrosas`, #164). Se escribe junto a `memory`
-   * (`mirarDesde`, con `recordarAsaltantes`) y no viaja a nadie: el agente y la
-   * pantalla ven los grupos de ahora (`asaltantesALaVista`).
-   */
-  asaltantesVistos: Map<string, AsaltanteRecordado>;
-  defeated: boolean;
-  /**
-   * El id del castillo al que vuelve un héroe derrotado o rendido, o `null` si
-   * no tiene ninguno.
-   *
-   * PROVISIONAL (fase 1b): es el primer castillo que el jugador tenía al empezar
-   * la partida y no cambia aunque conquiste otros. La «base única» formal es de
-   * la fase 3. Que la base siga siendo SUYA no se guarda aquí: se pregunta a
-   * `dueñoDeLaCiudad` cada vez, porque el dueño de un castillo vive en un solo
-   * sitio (su objeto del mapa, que escribe `tomarElNodo`) y una segunda copia es
-   * lo que ya costó #47.
-   */
-  readonly base: string | null;
-  /**
-   * El héroe de salida **que aún no se ha elegido**, o `null` si no hay ninguno
-   * pendiente (lo normal). Lo hace `newGame` como siempre —nombre, cifras, tropa de
-   * su tirada— y se queda aquí, fuera de `state.heroes`, hasta que su jugador lo
-   * elige y lo paga en su base (`hire_hero` con `tipo`, `hireHero`): solo la
-   * persona que empieza sin `?heroe=` (`NewGameOptions.tipoDelHeroe` a `null`); la
-   * IA, el agente y `newGame` por defecto lo pagan al crear la partida, por la
-   * misma puerta. Mientras está pendiente, su jugador no hace nada más
-   * (`salidaPendienteBlocker`). Es «el de salida», no «sin héroes»: un jugador que
-   * pierde al suyo a media partida sigue pasando el turno.
-   */
-  heroeDeSalida: Hero | null;
-}
-
-/** Un objeto del mapa tal y como se vio, y cuándo. */
-export interface RememberedObject {
-  readonly day: number;
-  readonly object: MapObject;
-  /**
-   * De una ciudad o un pueblo, de quién era y quién lo ocupaba cuando se vio
-   * (`dueñoDelSitio`, `ocupanteDe`): el dueño de uno de dentro de una región no
-   * está en su objeto, se deriva, y la niebla tiene que recordar el que se vio y
-   * no el de ahora (ciudades y pueblos en su región, 05-11-2026). Sin él, el objeto
-   * no es un sitio con dueño (un cofre, un monstruo) o es un paso, cuyo dueño ya
-   * va en el objeto.
-   */
-  readonly sitio?: SitioVisto;
-}
+import {
+  type AdventureAction,
+  type DefensaElegida,
+  type Enfrentamiento,
+  type GameContext,
+  type GameState,
+  MAX_HEROES_PER_PLAYER,
+  type PendingBattle,
+  type Player,
+  type RememberedObject,
+} from './tipos.js';
 
 /**
  * El objeto `obj` como se ve hoy: una copia (la memoria no puede cambiar con el
@@ -329,492 +274,11 @@ export const HERO_SCOUT_RADIUS = radioALaEscala(4);
  */
 export const NODE_SCOUT_RADIUS = radioALaEscala(5);
 
-/**
- * Cómo terminó una partida: quién ganó, o `null` si **no ganó nadie**.
- *
- * Tiene nombre porque lo devuelven cuatro sitios —el estado, `playAiGame`, el
- * director y el arnés del banco— y escrito inline en cada uno son cuatro
- * declaraciones de la misma cosa, libres de divergir en cuanto a alguien se le
- * ocurra añadirle el día o el motivo.
- */
-export interface GameOutcome {
-  readonly winner: PlayerId | null;
-}
-
-/**
- * Quién pelea contra quién en una batalla del mapa: un héroe que ataca a
- * cualquier cosa, o un grupo de asaltantes que **embosca a un héroe**.
- *
- * Es una unión y no `{ attacker: Atacante; foe: BattleFoe }` para que el tipo
- * diga lo que la regla dice: un grupo solo embosca a héroes. Con los dos campos
- * sueltos cabía un asaltante contra un monstruo, y quien cerraba la emboscada
- * tenía que lanzar por un caso que nadie puede construir.
- *
- * Era `attackerHeroId: string`, y la frase «el atacante es siempre un jugador»
- * vivía en dos comentarios del servidor; los asaltantes la hicieron falsa.
- */
-export type Enfrentamiento =
-  | { readonly attacker: Extract<Atacante, { kind: 'hero' }>; readonly foe: BattleFoe }
-  | {
-      readonly attacker: Extract<Atacante, { kind: 'raider' }>;
-      readonly foe: Extract<BattleFoe, { kind: 'hero' }>;
-    };
-
-/**
- * La defensa elegida de una batalla pendiente: el héroe atacado en un sitio suyo
- * con guarnición y ese sitio, por sus ids (`PendingBattle` es estado que se puede
- * guardar). La pone `dejarPendiente` y la lee quien la deja rehacer
- * (`defensaPosible`): que se pueda elegir es de la batalla, no de la crónica.
- */
-export interface DefensaElegida {
-  readonly hero: string;
-  readonly sitio: string;
-}
-
-export type PendingBattle = Enfrentamiento & {
-  readonly battle: BattleState;
-  /** Con quién defiende el héroe atacado en su sitio, si lo está (D1 del puesto fronterizo). */
-  readonly defensa?: DefensaElegida;
-};
-
 /** Si la batalla es una emboscada: la abrió un grupo, y el emboscado es un héroe. */
 function esEmboscada<T extends Enfrentamiento>(
   p: T,
 ): p is Extract<T, { readonly attacker: { readonly kind: 'raider' } }> {
   return p.attacker.kind === 'raider';
-}
-
-export interface GameState {
-  readonly seed: number;
-  /** Día 1 en adelante. Los lunes son los días 1, 8, 15… */
-  day: number;
-  /**
-   * El último día que se juega. Pasado él, la partida termina sin ganador.
-   *
-   * Se pide en `newGame({ maxDays })` y lo aplica `advanceDay`. Por qué vive
-   * aquí y no en el bucle de cada conductor, en `finished`, tres campos abajo.
-   */
-  readonly maxDays: number;
-  /**
-   * La complejidad del combate que se eligió al empezar (`core/combate.ts`): el
-   * tope de tropa por bando y la rueda. No cambia en toda la partida; la leen cada
-   * batalla (`createBattle`), lo que se recluta y se recoge, la IA y el agente
-   * (`you.combat`). Ningún hecho de la crónica la lleva: con 7 / 7 el banco no se
-   * mueve.
-   */
-  readonly combate: ReglasDelCombate;
-  map: GameMap;
-  players: Player[];
-  heroes: Hero[];
-  towns: Town[];
-  current: PlayerId;
-  pendingBattle: PendingBattle | null;
-  /**
-   * Los grupos de asaltantes en pie (`state/asaltantes.ts`). Son actores, como
-   * los héroes, y no objetos del mapa: se mueven cada día, y la memoria de la
-   * niebla —que copia objetos— los enseñaría donde ya no están.
-   */
-  raiders: Raider[];
-  /**
-   * La partida ha terminado, y `winner` dice quién ganó **o que no ganó nadie**.
-   *
-   * **Este docstring es el sitio donde se cuenta el porqué del tope de días**;
-   * el resto del repositorio apunta aquí en vez de repetirlo.
-   *
-   * `!== null` significa «terminó» y nada más. Antes significaba «terminó **con**
-   * ganador», y el tope de días vivía fuera —`MAX_DAYS` en `ws-server.ts`,
-   * `DIAS_POR_DEFECTO` en el banco y un parámetro de `playAiGame`, cada uno con
-   * su bucle—, así que al agotarse los días el bucle salía y esto se quedaba en
-   * `null`: el núcleo sosteniendo que la partida seguía viva cuando ya no la
-   * jugaba nadie. Un cuarto conductor que se olvidara del suyo jugaba hasta el
-   * fin de los tiempos, y los que sí lo tenían tapaban el hueco por su cuenta:
-   * de ahí nacieron el booleano `partidaTerminada` de `ws-server.ts` y el
-   * `winner: number | null` del protocolo, los dos parcheando lo mismo desde
-   * fuera.
-   *
-   * El `null` de dentro es ese empate por tiempo, y obliga a decidir qué se
-   * enseña. Lo que **no** obliga es `tsc`: `finished.winner === viewer` con un
-   * `null` delante compila y contesta «has perdido», así que la clasificación
-   * de tres se escribe una vez por lector —`client/desenlace.ts`— y no en cada
-   * ternario.
-   */
-  finished: GameOutcome | null;
-  /**
-   * La crónica. `readonly` es un candado, no adorno: el único `push` está en
-   * `emit`, y con el array de solo lectura cualquier otro **no compila**.
-   *
-   * Es lo que sostiene «un hecho, un sitio» aquí: si el reparto se apoyara en
-   * que todo el mundo se acuerde de llamar a `emit`, el emisor número veinte
-   * nacería sin protagonista y sin sello. Y lo sostiene `tsc` en cada build, no
-   * una expresión regular: un guardia por texto no sabe distinguir este
-   * `log.push` del de `battle.ts`, que es otro tipo y otro canal.
-   *
-   * Los consumidores no se enteran: `slice`, `some`, `map`, `filter` y `at`
-   * valen igual sobre un array de solo lectura.
-   */
-  readonly log: readonly GameEvent[];
-  /**
-   * El mundo de la partida (`core/mundo/`): su historia y lo que cambia de ella
-   * —el estado de cada lugar y las marcas puestas—. **Ausente sin mundo**:
-   * `newGame` solo lo escribe con una historia, y nada del procedimental lo lee,
-   * así que su presencia no puede mover una partida del banco.
-   * Lo escriben solo las acciones de los lugares (`elegir_en_lugar`) y el cierre
-   * de sus batallas.
-   */
-  mundo?: EstadoDelMundo;
-  /**
-   * El número del próximo veterano (`Veterania.id`). Un contador del estado y
-   * no un id derivado de dónde está el individuo: se mueve de héroe a
-   * guarnición y vuelve, y su identidad tiene que sobrevivir a eso. Se lleva
-   * el primero al ganar su primer punto, en el orden de `stacks`, así que es
-   * determinista.
-   */
-  siguienteVeterano: number;
-  /**
-   * Cuántas piezas de botín se han repartido. Cada reparto tira de **su propia
-   * corriente** (`createRng` sobre la semilla de la partida y este número) y no
-   * de `ctx.rng`: así el botín no desplaza ni una tirada de batalla, y que lo
-   * hiciera se vería en el volcado del banco como partidas distintas en vez de
-   * como líneas de botín añadidas. Es la misma idea que `siguienteVeterano`: un
-   * contador del estado, determinista.
-   */
-  siguienteBotin: number;
-  /**
-   * El número del próximo héroe contratado (`hireHero`). Antes el id salía de
-   * `hero-<jugador>-<cuántos héroes hay>-<día>`, y eso se repetía: con tres
-   * jugadores, el 0 contrata, el 2 pierde la base y su héroe sale de
-   * `state.heroes`, y la segunda contratación del 0 ese mismo día recibía el
-   * mismo id que la primera (#126). Un contador no depende de cuántos quedan.
-   */
-  siguienteHeroe: number;
-  /**
-   * El clima que pidió el narrador, por id de región, hasta el día `hasta`
-   * (`state/clima.ts`). **Presentación**, como `Town.voces`: ninguna regla lo
-   * lee, no escribe en la crónica y el banco no lo ve. Ausente sin agente: el
-   * clima sale entero de la semilla. Lo escribe solo `pedirClima` y lo lee
-   * `climaDeLaPartida`.
-   */
-  climaPedido?: Record<string, PedidoDeClima>;
-  /**
-   * La tropa que guarda cada sitio —ciudad, paso o pueblo—, por su id, con su
-   * dueño (`state/sitios.ts`): quien la dejó, el de la base al nacer, o `null`, la
-   * neutral de una ciudad neutral. Sin entrada, el sitio no guarda nada. **Solo la
-   * escribe `sitios.ts`** (dejar, recoger, reclutar sin héroe, la defensa y lo que
-   * sobrevive o se pierde en una batalla; lo vigila `test/invariantes.test.ts`).
-   */
-  guarniciones: Record<string, Guarnicion>;
-}
-
-export interface GameContext {
-  readonly rng: Rng;
-}
-
-/** Héroes simultáneos por jugador. */
-export const MAX_HEROES_PER_PLAYER = 4;
-
-export type AdventureAction =
-  | { readonly type: 'move_hero'; readonly hero: string; readonly to: Point }
-  /**
-   * Contratar en `town` un héroe del tipo `tipo` (de la facción del pueblo; sin él,
-   * el de por defecto), al precio de todo héroe (`ECONOMIA.precioDelHeroe`). Con el
-   * héroe de salida pendiente, es elegirlo y pagarlo en la base (`hireHero`). El
-   * contrato del agente no lleva `tipo`: contrata el de por defecto.
-   */
-  | { readonly type: 'hire_hero'; readonly town: string; readonly tipo?: string }
-  | {
-      readonly type: 'recruit';
-      readonly town: string;
-      readonly creature: string;
-      readonly count: number;
-    }
-  | { readonly type: 'build'; readonly town: string; readonly building: string }
-  /**
-   * Licenciar `count` individuos de `creature` del ejército de un héroe que
-   * está en un castillo suyo (`dismissBlocker`). Es lo que deja cambiar una
-   * tropa barata por una mejor: el cupo y el liderazgo se llenan con lo primero
-   * que se recluta, y sin esto un héroe se quedaba con ella para siempre.
-   */
-  | {
-      readonly type: 'dismiss';
-      readonly hero: string;
-      readonly creature: string;
-      readonly count: number;
-    }
-  /**
-   * Comprar en la armería de `town` una pieza que se vende (`seVende`, `item`) para
-   * la mochila del héroe propio que está dentro (`buyBlocker`).
-   */
-  | { readonly type: 'buy_item'; readonly town: string; readonly item: string }
-  /**
-   * Dejar tropa del ejército de `hero` en la guarnición del sitio suyo donde está
-   * —una ciudad, un paso o un pueblo— (`dejar_tropa`), o recogerla de ella
-   * (`recoger_tropa`): `count` de `creature` (los que se irían, `elQueSeIria`) o el
-   * veterano `veterano` (`PedidoDeTropa`). La regla, `intercambioBlocker`
-   * (`state/sitios.ts`). Sustituye a la recogida al pasar por casa, que se retiró.
-   */
-  | ({ readonly type: 'dejar_tropa' | 'recoger_tropa' } & PedidoDeTropa)
-  /**
-   * Repartir de una vez la tropa entre `hero` y la guarnición del sitio suyo donde
-   * está: `enElHeroe` dice todo lo que va con él (`LineaDelReparto`) y lo demás queda
-   * guardando. Se juzga solo el reparto final (`repartirTropaBlocker`), así que con
-   * los dos llenos se cambia uno por otro (D9 de la tarea del puesto fronterizo). La
-   * manda la pantalla de la guarnición al confirmar; la IA y el agente siguen con
-   * `dejar_tropa` y `recoger_tropa`.
-   */
-  | ({ readonly type: 'repartir_tropa' } & PedidoDeReparto)
-  /**
-   * Hacer la obra `obra` del puesto (el paso tomado) donde está `hero`, suyo: la
-   * siguiente, de la caseta a la empalizada y de la empalizada a la muralla, pagada
-   * en oro e inmediata (`mejorarBlocker`, `state/sitios.ts`). Se nombra la obra para
-   * que el segundo clic de un doble clic no compre la que sigue (QA de la fase 3). La batalla en el paso se pelea
-   * después tras la muralla de su obra (`murallaDelSitio`). La manda el diálogo de
-   * la guarnición; la IA de reglas no mejora y el agente aún no tiene la jugada
-   * (backlog).
-   */
-  | { readonly type: 'mejorar_el_puesto'; readonly hero: string; readonly obra: ObraDelPuesto }
-  /**
-   * Ponerle a alguien una pieza de la mochila del héroe `hero`: al héroe si no se
-   * dice a quién; a `veteran`, el individuo de su tropa con esa hoja; o a
-   * `creature`, el primer novato sin hoja de ese tipo, que pasa a tenerla; o a
-   * `puesto`, el individuo de ese puesto de su tropa (la escena de la tropa, donde
-   * se pulsa a uno: el contrato del agente no lo lleva). En `hueco`, o en el suyo
-   * si no se dice: un arma de cuerpo a cuerpo va también en `segunda` (25-10-2026,
-   * «se permiten dos armas»). Lo que ocupaba el hueco vuelve a la mochila
-   * (`equipBlocker`).
-   */
-  | {
-      readonly type: 'equip';
-      readonly hero: string;
-      readonly item: string;
-      readonly veteran?: string;
-      readonly creature?: string;
-      readonly puesto?: number;
-      readonly hueco?: Hueco;
-    }
-  /**
-   * Quitarle a alguien la pieza de `slot` y devolverla a la mochila
-   * (`unequipBlocker`). El hueco llega ya comprobado: lo traducen las dos
-   * puertas por las que entra como texto, `accionDelAgente` (el inglés del
-   * contrato) y la sesión del cliente (`esHueco`).
-   */
-  | {
-      readonly type: 'unequip';
-      readonly hero: string;
-      readonly slot: Hueco;
-      readonly veteran?: string;
-      /** El individuo de ese puesto de la tropa, como en `equip`. */
-      readonly puesto?: number;
-    }
-  /**
-   * Poner a `quien` (el héroe o el individuo de un puesto de su tropa) en la
-   * casilla `at` de la formación de `hero`, en el marco del atacante; si ahí sale
-   * otro de los suyos, se cambian (02-11-2026, «la vista de tropa pasa a ser la de
-   * despliegue»). La formación es de donde arranca el despliegue de cada batalla
-   * (`Troop.salida`, `Hero.salida`, `asentar`). Es estado y no un hecho, como
-   * `equip`: no gasta nada ni va a la crónica (`formarBlocker`). El contrato del
-   * agente no lo lleva (backlog).
-   */
-  | {
-      readonly type: 'formar';
-      readonly hero: string;
-      readonly quien: Portador;
-      readonly at: Hex;
-    }
-  /**
-   * Elegir una opción de la conversación de un punto de un lugar de un mundo
-   * (`core/mundo/`), con el héroe que está en él. Solo las opciones que hacen algo
-   * (`hace`): ir de un nodo a otro es de quien conversa, no del núcleo. Aplica sus
-   * efectos todos o ninguno (`opcionBlocker` antes), cada uno con su hecho; una
-   * batalla, la última, queda pendiente como cualquier otra.
-   */
-  | {
-      readonly type: 'elegir_en_lugar';
-      readonly hero: string;
-      readonly lugar: string;
-      readonly punto: string;
-      readonly nodo: string;
-      readonly opcion: number;
-    }
-  | { readonly type: 'end_turn' };
-
-// ---------------------------------------------------------------- consultas
-
-export function week(state: GameState): number {
-  return Math.floor((state.day - 1) / 7) + 1;
-}
-
-export function dayOfWeek(state: GameState): number {
-  return ((state.day - 1) % 7) + 1;
-}
-
-export function currentPlayer(state: GameState): Player {
-  const p = state.players.find((x) => x.id === state.current);
-  if (p === undefined) throw new Error(`jugador desconocido: ${state.current}`);
-  return p;
-}
-
-export function playerById(state: GameState, id: PlayerId): Player {
-  const p = state.players.find((x) => x.id === id);
-  if (p === undefined) throw new Error(`jugador desconocido: ${id}`);
-  return p;
-}
-
-export function heroById(state: GameState, id: string): Hero {
-  const h = state.heroes.find((x) => x.id === id);
-  if (h === undefined) throw new Error(`héroe desconocido: "${id}"`);
-  return h;
-}
-
-export function townById(state: GameState, id: string): Town {
-  const t = state.towns.find((x) => x.id === id);
-  if (t === undefined) throw new Error(`pueblo desconocido: "${id}"`);
-  return t;
-}
-
-export function heroesOf(state: GameState, player: PlayerId): Hero[] {
-  return state.heroes.filter((h) => h.owner === player);
-}
-
-/**
- * El héroe PROPIO que está en la base `town`, o `null`. Solo los de `player`: un
- * rival parado en tu castillo no camina por tu base ni le pone voz el narrador.
- */
-export function heroeEnLaBase(state: GameState, player: PlayerId, town: Town): Hero | null {
-  return heroesOf(state, player).find((h) => h.at.x === town.at.x && h.at.y === town.at.y) ?? null;
-}
-
-/** Las ciudades de `player` (`dueñoDeLaCiudad`: en el muro, las tomadas; dentro de una región, las de sus regiones). */
-export function townsOf(state: GameState, player: PlayerId): Town[] {
-  return state.towns.filter((t) => dueñoDeLaCiudad(state, t) === player);
-}
-
-/**
- * El héroe del dueño de `town` que está en su casilla, o `undefined` si no hay
- * ninguno (o el pueblo no tiene dueño). **Una regla con dos lectores**: a quién
- * va un recluta (`destinoDeRecluta`) y de qué tropa salen los veteranos de la
- * base (`veteranosEnSuBase`). Escrita en cada uno, el día que cambie —un héroe
- * de al lado que también cuente, por ejemplo— el veterano que el narrador ve en
- * la base no sería el que se puede reclutar con.
- */
-export function heroeEnElPueblo(state: GameState, town: Town): Hero | undefined {
-  const dueño = dueñoDeLaCiudad(state, town);
-  if (dueño === null) return undefined;
-  return heroesOf(state, dueño).find((h) => pointKey(h.at) === pointKey(town.at));
-}
-
-/**
- * Si `player` puede tener un héroe más: el tope (`MAX_HEROES_PER_PLAYER`) escrito
- * una vez, para los dos caminos por los que nace un héroe —contratarlo y
- * ascender a un veterano— y para el director, que no pregunta por un ascenso
- * que el tope no dejaría hacer.
- */
-export function hayHuecoDeHeroe(state: GameState, player: PlayerId): boolean {
-  return heroesOf(state, player).length < MAX_HEROES_PER_PLAYER;
-}
-
-/** A dónde va lo que se recluta en un pueblo, y con qué tope de liderazgo. */
-export interface DestinoDeRecluta {
-  /** El héroe del dueño que está dentro, o `undefined` si va a la guarnición. */
-  readonly hero: Hero | undefined;
-  readonly army: Army;
-  readonly tope: number;
-  /** Cuántos individuos caben como mucho: el del héroe (`capacidadDe`) o el tope de la partida. */
-  readonly cupo: number;
-  /** Cómo lo nombra la frase de rechazo: «el ejército» o «la guarnición». */
-  readonly quien: string;
-}
-
-/**
- * La regla de a dónde va un recluta: al héroe del dueño que esté en el pueblo,
- * con su liderazgo; si no hay ninguno, a la guarnición, con el suyo.
- *
- * Una sola regla con dos lectores —`recruit`, que la aplica, y `planRecruits`,
- * que planifica con ella—. Copiada en los dos, el día que cambie uno la IA
- * pediría lo que el motor rechaza, y la partida lanzaría en el turno de la IA.
- */
-export function destinoDeRecluta(state: GameState, town: Town): DestinoDeRecluta {
-  if (dueñoDeLaCiudad(state, town) === null) {
-    throw new Error(`no se puede reclutar en ${town.name}: no tiene dueño`);
-  }
-  const hero = heroeEnElPueblo(state, town);
-  return hero === undefined
-    ? {
-        hero,
-        army: guarnicionDe(state, sitioDeLaCiudad(town)),
-        ...cupoDeLaGuarnicion(state),
-        quien: 'la guarnición',
-      }
-    : { hero, army: hero.army, ...capacidadDe(hero, state.combate.tope), quien: 'el ejército' };
-}
-
-/**
- * Por qué no se pueden reclutar `count` de `creatureId` en `town` con `oro`,
- * o `null`: primero lo que el pueblo puede dar —hay tantos, alcanza el oro— y
- * luego si caben en `destino`. Lo leen la acción `recruit`, que lanza con él, y
- * el panel de la morada, que apaga «+1» y «Todo» y pone el motivo en su `title`.
- */
-export function reclutarBlocker(
-  town: Town,
-  creatureId: string,
-  count: number,
-  destino: Pick<DestinoDeRecluta, 'army' | 'tope' | 'cupo' | 'quien'>,
-  oro: number,
-): string | null {
-  return (
-    recruitBlocker(town, creatureId, count, oro) ??
-    troopBlocker(destino.army, destino.tope, destino.cupo, creatureId, count, destino.quien)
-  );
-}
-
-/** Cuántos individuos de una criatura se pueden reclutar ahora, y por qué no más. */
-export interface RecruitCapacity {
-  /** Los que ofrece el pueblo esta semana. */
-  readonly disponibles: number;
-  /** Los que caben en el liderazgo del destino. */
-  readonly caben: number;
-  /** De los que hay y caben, cuántos se pueden pagar con `oro`. */
-  readonly maximo: number;
-  /** Lo que ocupa uno en el liderazgo. */
-  readonly ocupaUno: number;
-  /** Lo que ya ocupa el destino. */
-  readonly ocupado: number;
-  readonly tope: number;
-  /** «el ejército» o «la guarnición», como lo nombra el rechazo. */
-  readonly quien: string;
-}
-
-/**
- * Lo máximo que se puede reclutar de `creatureId` hacia `destino` con `oro`.
- *
- * Es la cuenta que hacía `planRecruits` por dentro, sacada aquí para que la
- * lean la IA y la pantalla: el botón «todo» del castillo reclutaba
- * `town.available` sin mirar el liderazgo ni el oro, y el núcleo lo rechazaba
- * entero —«no cabe»— en vez de dar lo que cabía.
- *
- * Toma el destino y no el estado porque la IA planifica varias criaturas
- * seguidas sobre un ejército que va creciendo y un monedero que va menguando;
- * quien solo quiere la foto de ahora lo saca con `destinoDeRecluta`.
- */
-export function recruitCapacity(
-  town: Town,
-  creatureId: string,
-  destino: Pick<DestinoDeRecluta, 'army' | 'tope' | 'cupo' | 'quien'>,
-  oro: number,
-): RecruitCapacity {
-  const disponibles = town.available[creatureId] ?? 0;
-  const caben = troopRoom(destino.army, destino.tope, destino.cupo, creatureId);
-  const uno = recruitCost(creatureId, 1);
-  const pagables = uno === 0 ? Number.POSITIVE_INFINITY : Math.floor(oro / uno);
-  const maximo = Math.max(0, Math.min(disponibles, caben, pagables));
-  return {
-    disponibles,
-    caben,
-    maximo,
-    ocupaUno: unidadDelJuego(creatureId).leadership,
-    ocupado: armyLeadership(destino.army),
-    tope: destino.tope,
-    quien: destino.quien,
-  };
 }
 
 // ---------------------------------------------------------------- creación
@@ -1534,31 +998,6 @@ function checkDefeat(state: GameState): void {
 }
 
 // ---------------------------------------------------------------- acciones
-
-/**
- * Por qué `quien` no puede actuar ahora mismo, o `null` si sí puede.
- *
- * La frase la escribe el núcleo y la enseña quien la pida, igual que
- * `buildBlocker` y `castBlocker`: antes había tres redacciones de esto —una
- * aquí y dos en el cliente— y la única que decía **quién** está jugando era la
- * que no se veía nunca, porque el cliente comprobaba el turno antes de llamar.
- */
-export function turnBlocker(state: GameState, quien: PlayerId): string | null {
-  if (state.finished !== null) return 'la partida ya ha terminado';
-  if (quien === state.current) return null;
-  return `todavía no es tu turno: ahora juega el ${describePlayer(state, state.current)}`;
-}
-
-/**
- * Quién es un jugador, con **el mismo número que ve todo lo demás**: el agente
- * ve el id en `owner`, en `you`, en las consultas y en la nota de fin de
- * partida, y dos numeraciones para la misma cosa es una trampa. `playerById`
- * **lanza** si el id no existe, en vez de degradar a un `jugador 7` con pinta
- * de dato bueno.
- */
-export function describePlayer(state: GameState, id: PlayerId): string {
-  return `jugador ${id} (${playerById(state, id).faction})`;
-}
 
 /**
  * Aplica una acción de mapa.

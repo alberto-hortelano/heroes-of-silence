@@ -25,13 +25,15 @@ import {
   applyAdventureAction,
   baseOf,
   caminoHasta,
-  type GameContext,
-  type GameState,
-  MAX_HEROES_PER_PLAYER,
   revealEverything,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad, guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
+import {
+  type GameContext,
+  type GameState,
+  MAX_HEROES_PER_PLAYER,
+} from '../src/core/state/tipos.js';
 import type { Town } from '../src/core/town/town.js';
 import { FACTION_IDS, type FactionId, type Point } from '../src/core/types.js';
 import { AgentLink } from '../src/server/agent-link.js';

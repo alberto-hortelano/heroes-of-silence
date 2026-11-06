@@ -69,7 +69,7 @@ import { oroBlocker, type Town } from '../town/town.js';
 import { type Army, NOMBRE_DE_FACCION, type PlayerId, type Point, type Troop } from '../types.js';
 import { deLaLista, entero, esObjeto, problemasDeObjeto } from '../validar.js';
 import type { Ocupante } from './events.js';
-import type { AdventureAction, GameState } from './game.js';
+import type { AdventureAction, GameState } from './tipos.js';
 
 /**
  * La tropa que guarda un sitio, y de quién es: quien la dejó, o el dueño con que

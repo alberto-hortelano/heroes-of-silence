@@ -18,11 +18,11 @@ import { rangoDeHeroe, umbral } from '../src/core/hero/experiencia.js';
 import { heroUnit } from '../src/core/hero/hero.js';
 import { troopUnit } from '../src/core/hero/troop.js';
 import { indiceDePoder, nivelDeUnidad } from '../src/core/nivel.js';
+import { turnBlocker } from '../src/core/state/consultas.js';
 import {
   formacionDe,
   formarBlocker,
   ponerseBlocker,
-  turnBlocker,
   unequipBlocker,
 } from '../src/core/state/game.js';
 import type { Hex } from '../src/core/types.js';

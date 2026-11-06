@@ -56,18 +56,17 @@ import {
 import { isEnterable, objectAt } from '../src/core/map/map.js';
 import { indiceDePoder, nivelDeUnidad } from '../src/core/nivel.js';
 import { createRng } from '../src/core/rng.js';
+import { heroById, heroesOf } from '../src/core/state/consultas.js';
 import { visibleTo } from '../src/core/state/events.js';
 import {
   applyAdventureAction,
   baseOf,
-  type GameState,
-  heroById,
-  heroesOf,
   resolvePendingBattle,
   settleBattle,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
+import type { GameState } from '../src/core/state/tipos.js';
 import type { Point, Troop, Veterania } from '../src/core/types.js';
 import { forzarTurno } from './batalla-de-prueba.js';
 import {

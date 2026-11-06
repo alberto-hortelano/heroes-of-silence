@@ -11,15 +11,14 @@ import { describe, expect, it } from 'vitest';
 import { ECONOMIA, tipoDeHeroePorDefecto, validarEconomia } from '../src/core/data.js';
 
 import {
-  type AdventureAction,
   applyAdventureAction,
   candidatosAHeroe,
   contratarBlocker,
-  type GameState,
   salidaPendienteBlocker,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
+import type { AdventureAction, GameState } from '../src/core/state/tipos.js';
 import { oroBlocker } from '../src/core/town/town.js';
 import { ctx } from './comun.js';
 

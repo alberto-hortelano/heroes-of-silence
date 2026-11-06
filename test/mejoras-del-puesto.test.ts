@@ -22,12 +22,10 @@ import {
   OBRAS_DE_UN_PUESTO,
   type ObraDelPuesto,
 } from '../src/core/map/map.js';
-
+import { heroesOf } from '../src/core/state/consultas.js';
 import {
   applyAdventureAction,
   baseOf,
-  type GameState,
-  heroesOf,
   objetosConocidos,
   revealEverything,
   visibleNow,
@@ -41,6 +39,7 @@ import {
   ponerLaGuarnicion,
   sitioPorId,
 } from '../src/core/state/sitios.js';
+import type { GameState } from '../src/core/state/tipos.js';
 import { construirVista, type SpectatorView } from '../src/server/vista-espectador.js';
 import { ctx, TROPA_BARATA } from './comun.js';
 import { ejercito, forzarBatalla, pegadoA, unPaso } from './partida-de-prueba.js';

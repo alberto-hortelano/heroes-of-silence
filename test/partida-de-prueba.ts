@@ -10,14 +10,10 @@ import type { Hero } from '../src/core/hero/hero.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import { findPath, isEnterable, type MapObject, objectAt, pointKey } from '../src/core/map/map.js';
 import { estructura, VECINAS } from '../src/core/map/regiones.js';
-import {
-  applyAdventureAction,
-  baseOf,
-  type GameContext,
-  type GameState,
-  heroesOf,
-} from '../src/core/state/game.js';
+import { heroesOf } from '../src/core/state/consultas.js';
+import { applyAdventureAction, baseOf } from '../src/core/state/game.js';
 import { dueñoDeLaCiudad, ponerLaGuarnicion, sitioDeLaCiudad } from '../src/core/state/sitios.js';
+import type { GameContext, GameState } from '../src/core/state/tipos.js';
 import type { Town } from '../src/core/town/town.js';
 import type { Army, Equipo, PlayerId, Point, Stack, Troop } from '../src/core/types.js';
 

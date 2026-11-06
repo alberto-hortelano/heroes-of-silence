@@ -10,7 +10,7 @@ import { figuraDelHeroe } from '@core/data.js';
 import { individuosDe } from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
 import { inBounds, pointKey } from '@core/map/map.js';
-import { heroById } from '@core/state/game.js';
+import { heroById } from '@core/state/consultas.js';
 import { REGLA_DEL_PUEBLO } from '@core/state/renta.js';
 import type { Point } from '@core/types.js';
 import { enLaMarcha, msPorCasilla, PRISA_EN_EL_MAPA } from '../marcha.js';

@@ -17,14 +17,10 @@ import {
 import type { Hero } from '../src/core/hero/hero.js';
 import { pointKey } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
-import {
-  alcanceDelHeroe,
-  applyAdventureAction,
-  type GameContext,
-  type GameState,
-  heroesOf,
-} from '../src/core/state/game.js';
+import { heroesOf } from '../src/core/state/consultas.js';
+import { alcanceDelHeroe, applyAdventureAction } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import type { GameContext, GameState } from '../src/core/state/tipos.js';
 import type { Point } from '../src/core/types.js';
 import { costesDelAlcance } from './mapa-de-prueba.js';
 import { hastaSuSiguienteTurno } from './partida-de-prueba.js';

@@ -25,8 +25,8 @@ import { createBattle } from '../../src/core/battle/battle.js';
 import { COMBATE_COMPLETO, type ReglasDelCombate } from '../../src/core/combate.js';
 import { troopsAsStacks } from '../../src/core/hero/troop.js';
 import { createRng } from '../../src/core/rng.js';
-import type { GameOutcome, GameState } from '../../src/core/state/game.js';
 import { newGame, startingArmy } from '../../src/core/state/setup.js';
+import type { GameOutcome, GameState } from '../../src/core/state/tipos.js';
 import { FACTION_IDS, type FactionId } from '../../src/core/types.js';
 
 /** Días de tope: pasados estos, una partida que no ha acabado no acaba. */

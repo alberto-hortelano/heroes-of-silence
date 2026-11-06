@@ -18,8 +18,8 @@ import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { playAiGame } from '../src/core/ai/turn.js';
 import { createRng } from '../src/core/rng.js';
-import type { GameState } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import type { GameState } from '../src/core/state/tipos.js';
 import {
   CLIENTE,
   CORE,

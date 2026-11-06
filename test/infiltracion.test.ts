@@ -39,18 +39,18 @@ import { FUERA, MURO, pasosDelMapa } from '../src/core/map/recinto.js';
 import { NOMBRE_DE_BARRERA, type TerrainKind } from '../src/core/map/terrain.js';
 
 import { emboscador, regionDeCasilla } from '../src/core/state/asaltantes.js';
+import { heroesOf } from '../src/core/state/consultas.js';
 import {
   applyAdventureAction,
   barreraDeMañana,
   caminoHasta,
-  type GameState,
-  heroesOf,
   pasosDeHoy,
   porQueNoLlega,
   visibleNow,
 } from '../src/core/state/game.js';
 import { rentaDelDia } from '../src/core/state/renta.js';
 import { newGame } from '../src/core/state/setup.js';
+import type { GameState } from '../src/core/state/tipos.js';
 import { FACTION_IDS, type FactionId, type Point } from '../src/core/types.js';
 import { primeraSemillaCon } from '../tools/comun/semillas.js';
 import { ctx, JINETE, TROPA } from './comun.js';

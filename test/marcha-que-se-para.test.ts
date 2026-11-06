@@ -26,18 +26,17 @@ import {
   loQueLaPara,
   regionDeCasilla,
 } from '../src/core/state/asaltantes.js';
+import { heroById, heroesOf } from '../src/core/state/consultas.js';
 import { cronicaPara } from '../src/core/state/events.js';
 import {
   alcanceDelHeroe,
   applyAdventureAction,
   baseOf,
   caminoHasta,
-  type GameState,
-  heroById,
-  heroesOf,
   visibleNow,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import type { GameState } from '../src/core/state/tipos.js';
 import type { Point } from '../src/core/types.js';
 import { ctx } from './comun.js';
 import { costesDelAlcance } from './mapa-de-prueba.js';

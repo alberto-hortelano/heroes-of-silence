@@ -56,25 +56,26 @@ import { isWalkable, ROAD_COST, TERRAIN_KINDS } from '../src/core/map/terrain.js
 import { indiceDePoder, nivelDeUnidad } from '../src/core/nivel.js';
 import { createRng, parseSeed } from '../src/core/rng.js';
 import { regionDeCasilla } from '../src/core/state/asaltantes.js';
+import {
+  currentPlayer,
+  dayOfWeek,
+  heroById,
+  heroesOf,
+  townsOf,
+  week,
+} from '../src/core/state/consultas.js';
 import { finDePartida } from '../src/core/state/desenlace.js';
 import {
   alcanceDelHeroe,
   applyAdventureAction,
   baseOf,
   caminoHasta,
-  currentPlayer,
-  dayOfWeek,
-  type GameContext,
-  type GameState,
-  heroById,
-  heroesOf,
   ordenDelDia,
   resolvePendingBattle,
-  townsOf,
-  week,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad, guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
+import type { GameContext, GameState } from '../src/core/state/tipos.js';
 import { building, buildingsOfFaction, nivelDeMorada } from '../src/core/town/buildings.js';
 import {
   applyWeeklyGrowth,

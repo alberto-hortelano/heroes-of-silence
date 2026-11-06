@@ -51,10 +51,10 @@ import {
 import {
   applyAdventureAction,
   ascenderVeterano,
-  type GameState,
   resolvePendingBattle,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import type { GameState } from '../src/core/state/tipos.js';
 import type { Point, UnitInfo } from '../src/core/types.js';
 import { AgentLink } from '../src/server/agent-link.js';
 import { Director } from '../src/server/director.js';

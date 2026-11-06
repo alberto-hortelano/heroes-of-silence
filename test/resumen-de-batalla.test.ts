@@ -11,9 +11,9 @@ import { resumenDeBatalla } from '../src/core/battle/resumen.js';
 import { type BattleState, HERO_BODY, queEs } from '../src/core/battle/types.js';
 import { unidadesDelJuego } from '../src/core/catalogo.js';
 import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
-
+import { heroesOf } from '../src/core/state/consultas.js';
 import { cronicaPara } from '../src/core/state/events.js';
-import { heroesOf, resolvePendingBattle } from '../src/core/state/game.js';
+import { resolvePendingBattle } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { ctx, TROPA_BARATA } from './comun.js';
 import { ejercito, forzarBatalla, ponerMonstruo } from './partida-de-prueba.js';

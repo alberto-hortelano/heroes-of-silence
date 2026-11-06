@@ -40,23 +40,24 @@ import { pointKey } from '@core/map/map.js';
 import { createRng } from '@core/rng.js';
 import { pedirClima } from '@core/state/clima.js';
 import {
+  currentPlayer,
+  hayHuecoDeHeroe,
+  playerById,
+  townsOf,
+  week,
+} from '@core/state/consultas.js';
+import {
   applyAdventureAction,
   ascenderVeterano,
   battleOwners,
-  currentPlayer,
-  type GameContext,
-  type GameState,
-  hayHuecoDeHeroe,
-  playerById,
   resolvePendingBattle,
   settleBattle,
   sidesOwnedBy,
-  townsOf,
   veteranosEnSuBase,
-  week,
 } from '@core/state/game.js';
 import { newGame } from '@core/state/setup.js';
 import { dueñoDeLaCiudad } from '@core/state/sitios.js';
+import type { GameContext, GameState } from '@core/state/tipos.js';
 import { firmaDeVoces, ponerVoces, vocesCaducadas } from '@core/town/voces.js';
 import type { PlayerId, TipoDeGolpe } from '@core/types.js';
 import type { AgentLink } from './agent-link.js';

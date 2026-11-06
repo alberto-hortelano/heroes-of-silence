@@ -14,7 +14,7 @@ import { once } from 'node:events';
 import { troopSummary } from '@core/hero/troop.js';
 import { LADO_DEL_MAPA } from '@core/map/generate.js';
 import { parseSeed } from '@core/rng.js';
-import { townsOf } from '@core/state/game.js';
+import { townsOf } from '@core/state/consultas.js';
 import type { PlayerId } from '@core/types.js';
 import { type WebSocket, WebSocketServer } from 'ws';
 import { AgentLink } from './agent-link.js';

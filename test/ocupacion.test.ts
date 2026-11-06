@@ -14,18 +14,14 @@ import { Session } from '../src/client/session.js';
 import { renderSide, renderTopbar } from '../src/client/views/panels.js';
 import { estructura } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
+import { dayOfWeek, heroesOf, townById } from '../src/core/state/consultas.js';
 import type { GameEvent } from '../src/core/state/events.js';
 import {
-  type AdventureAction,
   applyAdventureAction,
   baseOf,
   buyBlocker,
   contratarBlocker,
-  dayOfWeek,
-  type GameState,
-  heroesOf,
   resolvePendingBattle,
-  townById,
 } from '../src/core/state/game.js';
 import { rentaDelDia } from '../src/core/state/renta.js';
 import { newGame } from '../src/core/state/setup.js';
@@ -39,6 +35,7 @@ import {
   ocupanteDe,
   sitioPorId,
 } from '../src/core/state/sitios.js';
+import type { AdventureAction, GameState } from '../src/core/state/tipos.js';
 import type { Point } from '../src/core/types.js';
 import { PESADA, TROPA_BARATA } from './comun.js';
 import { planConCiudadDeRegion } from './mapa-de-prueba.js';

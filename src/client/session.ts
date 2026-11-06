@@ -116,6 +116,19 @@ import {
   forzarClima,
   validarForzado,
 } from '@core/state/clima.js';
+import {
+  destinoDeRecluta,
+  heroById,
+  heroeEnLaBase,
+  heroesOf,
+  type RecruitCapacity,
+  reclutarBlocker,
+  recruitCapacity,
+  townById,
+  townsOf,
+  turnBlocker,
+  week,
+} from '@core/state/consultas.js';
 import { type Desenlace, desenlaceDe, finDePartida } from '@core/state/desenlace.js';
 import {
   cronicaPara,
@@ -125,7 +138,6 @@ import {
   type Ocupante,
 } from '@core/state/events.js';
 import {
-  type AdventureAction,
   type Ataque,
   applyAdventureAction,
   barreraDeMañana,
@@ -134,36 +146,21 @@ import {
   caminoHasta,
   candidatosAHeroe,
   defensaPorElegir,
-  destinoDeRecluta,
   elAtaque,
   elegirLaDefensa,
-  type GameContext,
-  type GameState,
   HERO_SCOUT_RADIUS,
-  heroById,
-  heroeEnLaBase,
   heroesALaVista,
-  heroesOf,
   miradasDe,
   objetosConocidos,
-  type PendingBattle,
-  type Player,
   pasosDeHoy,
   portadorDelStack,
   puedeAndarHoy,
-  type RecruitCapacity,
-  reclutarBlocker,
-  recruitCapacity,
   resolvePendingBattle,
   salidaPendienteBlocker,
   settleBattle,
   sidesOwnedBy,
   stackDelPortador,
-  townById,
-  townsOf,
-  turnBlocker,
   visibleNow,
-  week,
 } from '@core/state/game.js';
 import { type RentaDelDia, rentaDelDia } from '@core/state/renta.js';
 import { newGame } from '@core/state/setup.js';
@@ -191,6 +188,13 @@ import {
   sitioPorId,
   sitioSiExiste,
 } from '@core/state/sitios.js';
+import type {
+  AdventureAction,
+  GameContext,
+  GameState,
+  PendingBattle,
+  Player,
+} from '@core/state/tipos.js';
 import { building } from '@core/town/buildings.js';
 import { figurasDeLaGente } from '@core/town/figuras.js';
 import { construidoEn, type SitioId, sitiosConstruidos } from '@core/town/sitios.js';

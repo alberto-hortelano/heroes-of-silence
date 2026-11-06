@@ -6,19 +6,15 @@
 import type { Hero } from '../hero/hero.js';
 import { pointKey, type Reachable } from '../map/map.js';
 import { ROAD_COST } from '../map/terrain.js';
+import { currentPlayer, heroesOf, playerById } from '../state/consultas.js';
 import {
   alcanceDelHeroe,
   applyAdventureAction,
   baseOf,
   battleOwners,
-  currentPlayer,
-  type GameContext,
-  type GameOutcome,
-  type GameState,
-  heroesOf,
-  playerById,
   resolvePendingBattle,
 } from '../state/game.js';
+import type { GameContext, GameOutcome, GameState } from '../state/tipos.js';
 import type { Controller, Point } from '../types.js';
 import { jugadaEnElLugar, MAX_JUGADAS_EN_UN_LUGAR } from './lugares.js';
 import { turnosEnLaMismaCasilla, vueltaDelVaiven } from './memoria.js';

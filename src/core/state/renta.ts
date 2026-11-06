@@ -32,8 +32,8 @@ import {
 } from '../map/regiones.js';
 import { dailyIncome, type Town } from '../town/town.js';
 import type { PlayerId } from '../types.js';
-import type { GameState } from './game.js';
 import { ocupadoBlocker, sitioDeLaCiudad, sitioDelObjeto } from './sitios.js';
+import type { GameState } from './tipos.js';
 
 /**
  * La regla del pueblo dicha para la persona y para el agente: la leen la prosa

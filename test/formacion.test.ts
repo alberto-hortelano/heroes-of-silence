@@ -12,19 +12,17 @@ import { zonaDeSalida } from '../src/core/battle/despliegue.js';
 import type { Portador } from '../src/core/hero/equipo.js';
 import { type Hero, heroUnit } from '../src/core/hero/hero.js';
 import { troopUnit } from '../src/core/hero/troop.js';
-
+import { turnBlocker } from '../src/core/state/consultas.js';
 import {
-  type AdventureAction,
   applyAdventureAction,
   baseOf,
   batallaDeLaFormacion,
   formacionDe,
   formarBlocker,
-  type GameState,
   salidaPendienteBlocker,
-  turnBlocker,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import type { AdventureAction, GameState } from '../src/core/state/tipos.js';
 import type { Hex } from '../src/core/types.js';
 import { ctx, TROPA, TROPA_BARATA } from './comun.js';
 import { conSuEquipo, forzarBatalla } from './partida-de-prueba.js';

@@ -17,7 +17,8 @@ import { idsPuestos, piezaSiExiste } from '../hero/equipo.js';
 import type { Hero } from '../hero/hero.js';
 import { heroLeadership, troopBlocker, withTroops } from '../hero/troop.js';
 import { pointKey } from '../map/map.js';
-import { type GameState, playerById, turnBlocker } from '../state/game.js';
+import { playerById, turnBlocker } from '../state/consultas.js';
+import type { GameState } from '../state/tipos.js';
 import { oroBlocker } from '../town/town.js';
 import { conMiles, describirCoste, NOMBRE_DE_FACCION, type Point } from '../types.js';
 import {

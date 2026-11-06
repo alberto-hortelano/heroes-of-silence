@@ -6,7 +6,8 @@
 import { describe, expect, it } from 'vitest';
 import { leerRasgosDeFaccion, rasgoDeFaccion } from '../src/core/data.js';
 import { createRng } from '../src/core/rng.js';
-import { applyAdventureAction, baseOf, heroesOf } from '../src/core/state/game.js';
+import { heroesOf } from '../src/core/state/consultas.js';
+import { applyAdventureAction, baseOf } from '../src/core/state/game.js';
 import { faccionesDeLaSemilla, newGame, nombreDeSalida } from '../src/core/state/setup.js';
 import { guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import { esFaccion, FACTION_IDS, NOMBRE_DE_FACCION, parseFaccion } from '../src/core/types.js';

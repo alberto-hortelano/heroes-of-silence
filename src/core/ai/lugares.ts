@@ -38,7 +38,7 @@ import {
   type RefDeOpcion,
   soloNavega,
 } from '../mundo/reglas.js';
-import type { GameState } from '../state/game.js';
+import type { GameState } from '../state/tipos.js';
 import { fuerzaDe, poderDe, ventajaClara } from './fuerza.js';
 
 /**

@@ -24,7 +24,8 @@ import { estadoInicialDelMundo, objetosDeLosLugares } from '../mundo/validar.js'
 import { createRng, hashDeTexto, type Rng } from '../rng.js';
 import { sitioDe } from '../town/sitios.js';
 import { type Controller, FACTION_IDS, type FactionId, type PlayerId } from '../types.js';
-import { createGame, type GameState } from './game.js';
+import { createGame } from './game.js';
+import type { GameState } from './tipos.js';
 
 /**
  * Nombres propios del juego: nada tomado de la serie original. Los de Templarios y

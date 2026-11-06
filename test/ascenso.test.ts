@@ -14,21 +14,19 @@ import { porPreguntar, problemaDeTipo } from '../src/core/hero/ascenso.js';
 import { rangoDeHeroe, umbral } from '../src/core/hero/experiencia.js';
 import { isEnterable, objectAt } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
+import { heroesOf, playerById } from '../src/core/state/consultas.js';
 import { cronicaPara } from '../src/core/state/events.js';
 import {
   applyAdventureAction,
   ascenderVeterano,
   ascensoBlocker,
   baseOf,
-  type GameState,
-  heroesOf,
-  MAX_HEROES_PER_PLAYER,
-  playerById,
   resolvePendingBattle,
   veteranosEnSuBase,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad, guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
+import { type GameState, MAX_HEROES_PER_PLAYER } from '../src/core/state/tipos.js';
 import { FACTION_IDS, type Troop, type Veterania } from '../src/core/types.js';
 import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
 import { TROPA_BARATA } from './comun.js';

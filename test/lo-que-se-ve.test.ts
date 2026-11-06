@@ -14,16 +14,16 @@ import { EscenaAventura } from '../src/client/escenas/aventura.js';
 import { casillaAPixel, centrarEn, TILE_INICIAL } from '../src/client/render/camara-mapa.js';
 import { Session } from '../src/client/session.js';
 import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
+import { heroesOf } from '../src/core/state/consultas.js';
 import { sinSello, visibleTo } from '../src/core/state/events.js';
 import {
-  type GameState,
   heroesALaVista,
-  heroesOf,
   objetosConocidos,
   revealEverything,
   visibleNow,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import type { GameState } from '../src/core/state/tipos.js';
 import type { Point } from '../src/core/types.js';
 
 // La 1 (la 92 hasta las fronteras onduladas de #229: la ruta a su nodo lejano

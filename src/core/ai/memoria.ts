@@ -24,7 +24,7 @@
 import type { Hero } from '../hero/hero.js';
 import { pointFromKey, pointKey } from '../map/map.js';
 import type { GameEvent } from '../state/events.js';
-import type { GameState } from '../state/game.js';
+import type { GameState } from '../state/tipos.js';
 import type { Point } from '../types.js';
 
 /**

@@ -25,7 +25,7 @@ import {
   puntosDe,
 } from '@core/mundo/reglas.js';
 import { type BancoPintado, figuraQueSePinta, SIN_BANCO } from '@core/npcs.js';
-import type { AdventureAction, GameState } from '@core/state/game.js';
+import type { AdventureAction, GameState } from '@core/state/tipos.js';
 import type { FactionId, PlayerId, Point } from '@core/types.js';
 import { cuerpoDeLaPersona } from '../render/cuerpo-de-gente.js';
 

@@ -23,14 +23,12 @@ import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
 import type { MapPlan } from '../src/core/map/generate.js';
 import type { MapObject } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
+import { heroById } from '../src/core/state/consultas.js';
 import type { GameEvent } from '../src/core/state/events.js';
 import { visibleTo } from '../src/core/state/events.js';
 import {
   applyAdventureAction,
-  type GameContext,
-  type GameState,
   HERO_SCOUT_RADIUS,
-  heroById,
   objetosConocidos,
   resolvePendingBattle,
   visibleNow,
@@ -38,6 +36,7 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad, sitioSiExiste } from '../src/core/state/sitios.js';
+import type { GameContext, GameState } from '../src/core/state/tipos.js';
 import type { Point } from '../src/core/types.js';
 import { FACCION_A, FACCION_B, NO_MUERTO, PESADA, TROPA, TROPA_BARATA } from './comun.js';
 import { ejercito, sinGuarnicionDeSalida } from './partida-de-prueba.js';

@@ -33,12 +33,8 @@ import { type Hero, heroUnit } from '@core/hero/hero.js';
 import { troopUnit } from '@core/hero/troop.js';
 import { indiceDePoder, nivelDeUnidad } from '@core/nivel.js';
 import { type ClimaDelSitio, DESPEJADO } from '@core/state/clima.js';
-import {
-  type GameState,
-  ponerseBlocker,
-  stackDelPortador,
-  unequipBlocker,
-} from '@core/state/game.js';
+import { ponerseBlocker, stackDelPortador, unequipBlocker } from '@core/state/game.js';
+import type { GameState } from '@core/state/tipos.js';
 import {
   type Hex,
   HUECOS,

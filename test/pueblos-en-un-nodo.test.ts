@@ -29,7 +29,8 @@ import { BARRERAS_DEL_PUEBLO, type MapObject, pointKey } from '../src/core/map/m
 import { puertaDe } from '../src/core/map/puertas.js';
 import { estructura } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
-import { applyAdventureAction, type GameState, townById } from '../src/core/state/game.js';
+import { townById } from '../src/core/state/consultas.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
 import { rentaDelDia } from '../src/core/state/renta.js';
 import { newGame } from '../src/core/state/setup.js';
 import {
@@ -42,6 +43,7 @@ import {
   sitioPorId,
   sitioSiExiste,
 } from '../src/core/state/sitios.js';
+import type { GameState } from '../src/core/state/tipos.js';
 import type { Point } from '../src/core/types.js';
 import { PESADA, TROPA_BARATA } from './comun.js';
 import { rango, segunPrisa } from './lento.js';

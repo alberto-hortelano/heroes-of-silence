@@ -82,24 +82,24 @@ import {
 import { indiceDePoder, nivelDeUnidad } from '../nivel.js';
 import { asaltantesALaVista } from '../state/asaltantes.js';
 import { climaDeLaPartida, pedidoVigente } from '../state/clima.js';
+import {
+  hayHuecoDeHeroe,
+  heroeEnLaBase,
+  heroesOf,
+  playerById,
+  townsOf,
+  week,
+} from '../state/consultas.js';
 import { cronicaPara, type Ocupante } from '../state/events.js';
 import {
   baseOf,
-  type GameState,
   HERO_SCOUT_RADIUS,
-  hayHuecoDeHeroe,
-  heroeEnLaBase,
   heroesALaVista,
-  heroesOf,
-  MAX_HEROES_PER_PLAYER,
   NODE_SCOUT_RADIUS,
   objetosConocidos,
   ordenDelDia,
-  playerById,
-  townsOf,
   veteranosEnSuBase,
   visibleNow,
-  week,
 } from '../state/game.js';
 import { REGLA_DEL_PUEBLO, type RentaDelDia, rentaDelDia } from '../state/renta.js';
 import {
@@ -112,6 +112,7 @@ import {
   sitioDeLaCiudad,
   sitioPorId,
 } from '../state/sitios.js';
+import { type GameState, MAX_HEROES_PER_PLAYER } from '../state/tipos.js';
 import { building } from '../town/buildings.js';
 import { construidoEn } from '../town/sitios.js';
 import {

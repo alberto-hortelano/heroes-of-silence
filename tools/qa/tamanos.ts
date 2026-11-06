@@ -34,14 +34,9 @@ import { playAiTurn } from '../../src/core/ai/turn.js';
 import { ladoDelMapa } from '../../src/core/map/generate.js';
 import { pointKey } from '../../src/core/map/map.js';
 import { createRng } from '../../src/core/rng.js';
-import {
-  baseOf,
-  type GameContext,
-  type GameState,
-  lugarDelRival,
-  settleBattle,
-} from '../../src/core/state/game.js';
+import { baseOf, lugarDelRival, settleBattle } from '../../src/core/state/game.js';
 import { newGame } from '../../src/core/state/setup.js';
+import type { GameContext, GameState } from '../../src/core/state/tipos.js';
 import { duracion, mediana } from './estadistica.js';
 
 const REGIONES = (process.argv[2] ?? '3,4,5,6').split(',').map(Number);

@@ -28,8 +28,9 @@ import {
 } from '../../src/core/hero/experiencia.js';
 import { heroUnit } from '../../src/core/hero/hero.js';
 import { nivelDeUnidad } from '../../src/core/nivel.js';
-import { baseOf, type GameState } from '../../src/core/state/game.js';
+import { baseOf } from '../../src/core/state/game.js';
 import { guarnicionDeLaCiudad } from '../../src/core/state/sitios.js';
+import type { GameState } from '../../src/core/state/tipos.js';
 import type { Army } from '../../src/core/types.js';
 import { duracion } from './estadistica.js';
 import { DIAS_POR_DEFECTO, partidaDeSemilla, SEMILLAS_DEL_BANCO } from './partidas.js';

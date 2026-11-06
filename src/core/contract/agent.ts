@@ -49,9 +49,9 @@ import {
   TERRAIN_KINDS,
 } from '../map/terrain.js';
 import { CLIMA, PEDIDOS_QUE_SE_MIRAN, TIEMPOS } from '../state/clima.js';
-import { MAX_HEROES_PER_PLAYER } from '../state/game.js';
 import { REGLA_DEL_PUEBLO } from '../state/renta.js';
 import { MURALLAS_DEL_MAPA, OBRAS_DEL_PUESTO } from '../state/sitios.js';
+import { MAX_HEROES_PER_PLAYER } from '../state/tipos.js';
 import { LARGO_DE_LINEA, LINEAS_POR_VECINO, MAX_VOCES_POR_RESPUESTA } from '../town/voces.js';
 import { enumerar, FACTION_IDS, HUECOS, TIPOS_FUSIONADOS, TODOS_LOS_GOLPES } from '../types.js';
 import { ID_DE_MAPA } from '../validar.js';

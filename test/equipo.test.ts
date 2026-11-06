@@ -52,21 +52,18 @@ import { isEnterable, objectAt, pointKey } from '../src/core/map/map.js';
 import { VECINAS } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
 import { regionDeCasilla, tocaUnNodo } from '../src/core/state/asaltantes.js';
+import { heroById, heroesOf } from '../src/core/state/consultas.js';
 import {
-  type AdventureAction,
   applyAdventureAction,
   ascenderVeterano,
   baseOf,
   equipBlocker,
-  type GameContext,
-  type GameState,
-  heroById,
-  heroesOf,
   resolvePendingBattle,
   settleBattle,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad, enUnNodo, guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
+import type { AdventureAction, GameContext, GameState } from '../src/core/state/tipos.js';
 import {
   CIFRAS_DE_PIEZA,
   type Point,

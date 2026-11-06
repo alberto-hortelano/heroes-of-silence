@@ -11,7 +11,9 @@ import {
   serializeBattleTurn,
   serializeKnownMap,
 } from '@core/contract/serialize.js';
-import { type GameState, playerById, sidesOwnedBy } from '@core/state/game.js';
+import { playerById } from '@core/state/consultas.js';
+import { sidesOwnedBy } from '@core/state/game.js';
+import type { GameState } from '@core/state/tipos.js';
 import type { PlayerId } from '@core/types.js';
 
 /**

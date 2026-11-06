@@ -19,19 +19,17 @@ import { rioAnteLaCiudad } from '../src/core/map/recinto.js';
 import { estructura, regionMasCercana } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
 import { asaltantesALaVista } from '../src/core/state/asaltantes.js';
+import { heroesOf, playerById, townsOf } from '../src/core/state/consultas.js';
 import {
-  type GameState,
   HERO_SCOUT_RADIUS,
   heroesALaVista,
-  heroesOf,
   NODE_SCOUT_RADIUS,
-  playerById,
   revealEverything,
-  townsOf,
   visibleNow,
   visibleNowAt,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import type { GameState } from '../src/core/state/tipos.js';
 import type { PlayerId, Point } from '../src/core/types.js';
 
 const aPunto = (i: number, W: number): Point => ({ x: i % W, y: Math.floor(i / W) });

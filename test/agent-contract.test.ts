@@ -71,15 +71,14 @@ import {
 import { pointFromKey, pointKey, RedDeCaminos, stepCost } from '../src/core/map/map.js';
 import { BARRERAS, costeDeEntrada, isWalkable, TERRAIN_KINDS } from '../src/core/map/terrain.js';
 import { createRng } from '../src/core/rng.js';
+import { heroesOf, townsOf } from '../src/core/state/consultas.js';
 import { cronicaPara } from '../src/core/state/events.js';
 import {
   applyAdventureAction,
   HERO_SCOUT_RADIUS,
-  heroesOf,
   NODE_SCOUT_RADIUS,
   resolvePendingBattle,
   revealEverything,
-  townsOf,
   unequipBlocker,
   visibleNow,
 } from '../src/core/state/game.js';

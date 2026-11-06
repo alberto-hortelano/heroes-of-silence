@@ -41,7 +41,9 @@ import {
 import { createRng, hashDeTexto, sortearPorPesos } from '../rng.js';
 import { FACTION_IDS, type FactionId, type PlayerId, type Point } from '../types.js';
 import { esIdDeMapa } from '../validar.js';
-import { type GameState, lugarDelRival, type PendingBattle, playerById } from './game.js';
+import { playerById } from './consultas.js';
+import { lugarDelRival } from './game.js';
+import type { GameState, PendingBattle } from './tipos.js';
 
 /** Los tiempos que hay, del más claro al más cerrado. Un clima nuevo es una fila más aquí y en las recetas del cliente. */
 export const TIEMPOS = ['despejado', 'niebla', 'lluvia', 'tormenta'] as const;

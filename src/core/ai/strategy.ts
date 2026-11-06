@@ -36,19 +36,14 @@ import { lugarDe } from '../mundo/formato.js';
 import { mundoDe } from '../mundo/reglas.js';
 import { indiceDePoder } from '../nivel.js';
 import {
-  type AdventureAction,
-  baseOf,
-  contratarBlocker,
   destinoDeRecluta,
-  type GameState,
   heroById,
   heroeEnElPueblo,
   heroesOf,
-  ponerseBlocker,
   recruitCapacity,
   townsOf,
-  visibleNowAt,
-} from '../state/game.js';
+} from '../state/consultas.js';
+import { baseOf, contratarBlocker, ponerseBlocker, visibleNowAt } from '../state/game.js';
 import { rentaDeLaRegion } from '../state/renta.js';
 import {
   ciudadQueMandaBlocker,
@@ -61,6 +56,7 @@ import {
   sitioDelHeroe,
   sitioDelObjeto,
 } from '../state/sitios.js';
+import type { AdventureAction, GameState } from '../state/tipos.js';
 import { building, buildingsOfFaction, nivelDeMorada } from '../town/buildings.js';
 import {
   availableBuildings,

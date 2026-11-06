@@ -40,12 +40,8 @@ import {
   problemasDelMundo,
 } from '../src/core/mundo/validar.js';
 import { createRng } from '../src/core/rng.js';
-import {
-  type AdventureAction,
-  applyAdventureAction,
-  type GameState,
-  settleBattle,
-} from '../src/core/state/game.js';
+import { applyAdventureAction, settleBattle } from '../src/core/state/game.js';
+import type { AdventureAction, GameState } from '../src/core/state/tipos.js';
 import { leerCrudos, validarEnDisco } from '../tools/mundo/disco.js';
 import { medirMundo } from '../tools/mundo/medida.js';
 import { leerBancoDeDisco } from '../tools/npcs/banco.js';

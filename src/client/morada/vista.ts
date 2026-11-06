@@ -17,7 +17,7 @@ import { pieza } from '@core/hero/equipo.js';
 import { hechizo } from '@core/magia/catalogo.js';
 import { nombreDelPoder } from '@core/magia/dicho.js';
 import { indiceDePoder, nivelDeUnidad } from '@core/nivel.js';
-import type { RecruitCapacity } from '@core/state/game.js';
+import type { RecruitCapacity } from '@core/state/consultas.js';
 import { building } from '@core/town/buildings.js';
 import { moradaEn, type SitioId } from '@core/town/sitios.js';
 import { recruitCost, type Town } from '@core/town/town.js';
