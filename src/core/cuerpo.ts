@@ -150,6 +150,23 @@ function danioDeLaFuerza(fuerza: number, agilidad: number): readonly [number, nu
   return [fuerza, fuerza * agilidad];
 }
 
+/**
+ * El daño de un golpe con la fuerza y la agilidad que le suma un hechizo a media
+ * pelea (06-11-2026, el editor de magia): la misma cuenta, [F, F × agilidad], con
+ * F y la agilidad de `rango` (F = su mínimo; la agilidad, su máximo entre su mínimo)
+ * más lo que suman, sin bajar de 1. Sin nada que sumar, `rango` tal cual. Lo lee
+ * solo el golpe (`deUnGolpe`, `damage.ts`).
+ */
+export function danioConLosEfectos(
+  rango: readonly [number, number],
+  masFuerza: number,
+  masAgilidad: number,
+): readonly [number, number] {
+  if ((masFuerza === 0 && masAgilidad === 0) || rango[0] <= 0) return rango;
+  const agilidad = Math.floor(rango[1] / rango[0]);
+  return danioDeLaFuerza(Math.max(1, rango[0] + masFuerza), Math.max(1, agilidad + masAgilidad));
+}
+
 /** Las cifras primitivas de un cuerpo: de ellas y del equipo sale lo demás. */
 type Primitivas = Pick<UnitInfo, 'fuerza' | 'agilidad' | 'defensaPropia'>;
 

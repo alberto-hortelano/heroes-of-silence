@@ -1,6 +1,7 @@
 /** Castillos: construcción, moradas y reclutamiento. */
-import { allSpells, ordenDelLibro, type Spell } from '../battle/spells.js';
 import { unidadDelJuego, unidadesDeMorada } from '../catalogo.js';
+import { hechizosDelGremio } from '../magia/catalogo.js';
+import type { Hechizo } from '../magia/formato.js';
 import type { FactionId, PlayerId, Point } from '../types.js';
 import { conMiles, describirCoste } from '../types.js';
 import { building, buildingIfExists, buildingsOfFaction, prebuiltBuildings } from './buildings.js';
@@ -109,12 +110,8 @@ export function mageGuildLevel(town: Town): number {
  * la que ven el panel, `serialize.ts` y el aprendizaje, así que ninguno se
  * entera. Sin tirada, el `createRng` de `CLAUDE.md` no aplica todavía.
  */
-export function townSpells(town: Town): readonly Spell[] {
-  const nivel = mageGuildLevel(town);
-  if (nivel === 0) return [];
-  return allSpells()
-    .filter((s) => s.level <= nivel)
-    .sort(ordenDelLibro);
+export function townSpells(town: Town): readonly Hechizo[] {
+  return hechizosDelGremio(mageGuildLevel(town));
 }
 
 export function hasWalls(town: Town): boolean {

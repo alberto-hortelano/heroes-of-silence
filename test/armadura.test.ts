@@ -200,6 +200,7 @@ describe('una pieza con PV no vale: ni se convierte ni se avisa (14-10-2026)', (
     const arquero = unidadDeArena('goblin-arquero');
     const ENLACE: MontajeDelEnlace = {
       unidades: [guerrero, arquero],
+      hechizos: [],
       piezas: piezasDelMontaje(
         [guerrero, arquero],
         [],

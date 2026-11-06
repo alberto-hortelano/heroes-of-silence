@@ -124,14 +124,23 @@ describe('el resumen de la batalla en battle_ended (#93)', () => {
     );
   });
 
-  it('lanza con un hechizo sin objetivo en vez de contarlo sobre nadie', () => {
+  it('un hechizo sin unidad (a una casilla, sobre sí) se cuenta sin objetivo y con lo que mató', () => {
+    // Desde el editor de magia (06-11-2026) un hechizo puede ir a una casilla: lo que
+    // mata va en sus `spell_hit`.
     const { battle } = batallaConMagia(SEMILLA);
-    const roto: BattleState = {
+    const [uno] = battle.stacks;
+    if (uno === undefined) throw new Error('sin stacks');
+    const conArea: BattleState = {
       ...battle,
-      log: [{ kind: 'cast', side: 'attacker', spell: 'magic_arrow' }],
+      log: [
+        { kind: 'cast', side: 'attacker', spell: 'bola_de_fuego', at: uno.hex },
+        { kind: 'spell_hit', spell: 'bola_de_fuego', stack: uno.id, damage: 9, killed: 2 },
+        { kind: 'perished', stack: uno.id },
+        { kind: 'round_start', round: 2 },
+      ],
     };
-    expect(() => resumenDeBatalla(roto)).toThrow(
-      'hechizo sin objetivo en el registro: magic_arrow',
-    );
+    expect(resumenDeBatalla(conArea).casts).toEqual([
+      { side: 'attacker', spell: 'bola_de_fuego', target: null, killed: 2 },
+    ]);
   });
 });

@@ -6,7 +6,6 @@ import {
 } from '../src/core/ai/strategy.js';
 import { playAiGame, playAiTurn } from '../src/core/ai/turn.js';
 import { createBattle } from '../src/core/battle/battle.js';
-import { allSpells } from '../src/core/battle/spells.js';
 import { queEs } from '../src/core/battle/types.js';
 import {
   guarnicionDeBase,
@@ -30,6 +29,7 @@ import {
   slowestSpeed,
 } from '../src/core/hero/hero.js';
 import { troopUnit } from '../src/core/hero/troop.js';
+import { hechizosDelGremio } from '../src/core/magia/catalogo.js';
 import { buildMap, generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';
 import {
   blocksMovement,
@@ -1362,7 +1362,7 @@ describe('el gremio enseña (#2)', () => {
     // Los dos de nivel 3 existen en el catálogo y hoy no hay gremio que los
     // ofrezca, así que esta es la prueba de que `maxSpellLevel()` se lee: sin
     // Sabiduría quedan fuera, con Sabiduría entran.
-    const oferta = allSpells();
+    const oferta = hechizosDelGremio(5);
     const sinSabiduria = learnable({ spells: [], skills: {} }, oferta);
     expect(sinSabiduria).toContain('haste');
     expect(sinSabiduria).not.toContain('lightning_bolt');

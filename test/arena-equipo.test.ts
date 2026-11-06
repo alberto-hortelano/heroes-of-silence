@@ -255,6 +255,7 @@ describe('el enlace de la pelea lleva las piezas de lo montado', () => {
   const ENLACE: MontajeDelEnlace = {
     unidades: [conNueva, arquero()],
     piezas: piezasDelMontaje([conNueva, arquero()], [], [...eq.escritas.values()]),
+    hechizos: [],
     izquierda: lado(conNueva.id, false),
     derecha: lado('goblin-arquero', true),
     muralla: null,
@@ -262,7 +263,7 @@ describe('el enlace de la pelea lleva las piezas de lo montado', () => {
   };
 
   it('va y vuelve con todas las piezas que lleva, y monta con ellas en el catálogo de quien lo abre', () => {
-    expect(VERSION_DEL_ENLACE).toBe(20);
+    expect(VERSION_DEL_ENLACE).toBe(21);
     // Lo que llevan el guerrero (la nueva, la brigantina, el escudo) y el arquero
     // (daga, arco, jubón): todas, no solo las cambiadas.
     expect(ENLACE.piezas.map((p) => p.id).sort()).toEqual(
@@ -417,6 +418,7 @@ describe('«Guardar»: piezas y unidades, una sola operación', () => {
       montajeALaURL({
         unidades: [guerrero(), conNueva],
         piezas: piezasDelMontaje([guerrero(), conNueva], [], elCatalogoCon(nueva)),
+        hechizos: [],
         izquierda: lado(guerrero().id),
         derecha: lado(conNueva.id),
         muralla: null,

@@ -6,14 +6,17 @@
  * -70 %. Es la nuestra, no la de HoMM2 ni la de fheroes2 (que resta un 5 % hasta
  * −80 %). Las constantes viven aquí y no repartidas por el motor.
  */
+
+import { danioConLosEfectos } from '../cuerpo.js';
 import { hasTrait } from '../data.js';
 import { DICHO_DE_LA_CARGA, DICHO_DEL_USO, SIN_ARMA } from '../hero/equipo.js';
 import { indiceDePoder } from '../nivel.js';
 import type { Rng } from '../rng.js';
 import { conComa, type GolpeConArma, type UnitInfo, type UsoDeArma } from '../types.js';
 import {
-  armaduraDe,
+  armaduraEnLaPelea,
   cifrasDelGolpe,
+  escudoDe,
   golpeDe,
   perforaLaArmadura,
   tiroADistanciaDe,
@@ -121,7 +124,10 @@ export function effectiveAttack(stack: BattleStack, uso: UsoDeArma = 'arma'): nu
  * retiró el 26-10-2026 con la de esperar: el turno se cierra con `end_turn`.
  */
 export function effectiveDefense(stack: BattleStack, extra = 0): number {
-  return stack.unit.defense + extra + effectTotal(stack, 'defense');
+  // La agilidad de un hechizo sube la defensa como la del cuerpo (`cifrasDelCuerpo`).
+  return (
+    stack.unit.defense + extra + effectTotal(stack, 'defense') + effectTotal(stack, 'agilidad')
+  );
 }
 
 /**
@@ -358,12 +364,31 @@ function deUnGolpe(attacker: BattleStack, opts: DamageOptions): DeUnGolpe {
   const uso = usoDelGolpe(opts);
   const charge = cargaEfectiva(opts.chargeHexes ?? 0, CARGA);
   const deLaCarga = charge > 0 ? golpeDe(attacker.unit, 'arma').carga : undefined;
+  // La fuerza y la agilidad de un hechizo (06-11-2026): la agilidad, no en el arma de
+  // fuego, que pega con la suya (`cifrasDelCuerpo`).
+  const agilidad = perforaLaArmadura(attacker.unit, uso) ? 0 : effectTotal(attacker, 'agilidad');
   return {
     charge,
     montada: deLaCarga !== undefined,
     uso,
-    danio: deLaCarga ?? cifrasDelGolpe(attacker.unit, uso).damage,
+    danio: danioConLosEfectos(
+      deLaCarga ?? cifrasDelGolpe(attacker.unit, uso).damage,
+      effectTotal(attacker, 'fuerza'),
+      agilidad,
+    ),
   };
+}
+
+/**
+ * El daño [mín, máx] por individuo con que tira un golpe de `attacker` con `opts`
+ * (`deUnGolpe`): el de su arma o su carga, con la fuerza y la agilidad de un hechizo.
+ * Para leerlo de fuera (la ficha, los guardias).
+ */
+export function danioPorIndividuo(
+  attacker: BattleStack,
+  opts: DamageOptions = {},
+): readonly [number, number] {
+  return deUnGolpe(attacker, opts).danio;
 }
 
 /**
@@ -455,7 +480,7 @@ export function fraccionQueLlega(
   defender: BattleStack,
   opts: DamageOptions,
 ): number {
-  if (armaduraDe(defender.unit) === 0) return 1;
+  if (armaduraEnLaPelea(defender) === 0 && escudoDe(defender) === 0) return 1;
   const bruto = medioSinArmadura(attacker, defender, opts);
   if (bruto <= 0) return 0;
   const perfora = perforaLaArmadura(attacker.unit, usoDelGolpe(opts));
@@ -536,7 +561,7 @@ export function horquillaDeDanio(
   const llega = (d: number): number => trasLaArmadura(d, defender, perfora).danio;
   // La armadura, lo último y con la misma resta que el golpe (`herir`): es
   // monótona, así que los extremos siguen siéndolo. El arma de fuego la perfora.
-  const a = armaduraDe(defender.unit);
+  const a = armaduraEnLaPelea(defender);
   if (a > 0) {
     modificadores.push({
       causa: perfora ? 'perfora la armadura' : `−${a} armadura`,
@@ -629,7 +654,8 @@ export function herir(
   golpe: GolpeQueHiere,
   autor: BattleStack | null,
 ): Herida {
-  const { danio, parado } = trasLaArmadura(golpe.damage, objetivo, golpe.perfora);
+  const { danio, parado, absorbido } = trasLaArmadura(golpe.damage, objetivo, golpe.perfora);
+  if (absorbido !== undefined && absorbido > 0) gastarElEscudo(objetivo, absorbido);
   const antes = stackHp(objetivo);
   const muertos = applyDamage(objetivo, danio);
   if (autor !== null && autor.side !== objetivo.side) {
@@ -640,6 +666,24 @@ export function herir(
     }
   }
   return { muertos, danio, parado };
+}
+
+/**
+ * Gasta `n` de los escudos de un hechizo de `s` (`escudo`), en el orden en que se
+ * colgaron, y quita el que se agota. Lo llama solo `herir`, con lo que se comió
+ * (`trasLaArmadura`).
+ */
+function gastarElEscudo(s: BattleStack, n: number): void {
+  let falta = n;
+  for (const e of s.effects) {
+    if (e.kind !== 'escudo' || falta === 0) continue;
+    const quita = Math.min(e.queda, falta);
+    e.queda -= quita;
+    falta -= quita;
+  }
+  if (s.effects.some((e) => e.kind === 'escudo' && e.queda <= 0)) {
+    s.effects = s.effects.filter((e) => e.kind !== 'escudo' || e.queda > 0);
+  }
 }
 
 /** Puntos de vida totales que le quedan a un stack. Útil para la IA. */

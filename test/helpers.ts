@@ -1410,6 +1410,11 @@ export function carpetaDeLaArena(prefijo = 'arena-'): string {
   );
   // Y el héroe del repo: «Guardar» escribe su cuerpo y conserva lo demás.
   copyFileSync(resolve(import.meta.dirname, '..', RUTA_DEL_HEROE), join(dir, RUTA_DEL_HEROE));
+  // Y los hechizos (el editor de magia): las unidades los usan como poder.
+  copyFileSync(
+    resolve(import.meta.dirname, '..', 'data/hechizos.json'),
+    join(dir, 'data/hechizos.json'),
+  );
   return dir;
 }
 

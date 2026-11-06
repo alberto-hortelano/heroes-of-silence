@@ -34,6 +34,7 @@ import {
   esTipoDePuerta,
   faseDelTurno,
   firmaDelTurno,
+  hechizoDeLaBatalla,
   legalActionsAndCosts,
   MAX_JUGADAS,
   movimientoBlocker,
@@ -64,7 +65,6 @@ import {
   zonaDe,
 } from '@core/battle/despliegue.js';
 import { bonoEnLoAlto, type MurallaDeBatalla, SIN_MURALLA } from '@core/battle/muralla.js';
-import { type PoderId, poder } from '@core/battle/poderes.js';
 import type { Baja } from '@core/battle/resumen.js';
 import {
   formaDeLaBatalla,
@@ -72,7 +72,7 @@ import {
   type TipoDeGolpe,
   tipoDeGolpeBlocker,
 } from '@core/battle/rueda.js';
-import { enOrdenDelLibro, spell } from '@core/battle/spells.js';
+import { queSeApunta } from '@core/battle/spells.js';
 import type {
   BattleAction,
   BattleHero,
@@ -90,6 +90,7 @@ import { type CatalogoDeEquipo, type Portador, pedidoDelPuesto, pieza } from '@c
 import { type Hero, maxMana } from '@core/hero/hero.js';
 import { infiltracionBlocker } from '@core/hero/infiltracion.js';
 import { armyLeadership, heroLeadership, troopUnit } from '@core/hero/troop.js';
+import { type CatalogoDeHechizos, enOrdenDelLibro, nombreDeHechizo } from '@core/magia/catalogo.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
 import type { MapObject, ObraDelPuesto, PathStep } from '@core/map/map.js';
 import { type Lugar, lugarSiExiste, type MundoLeido } from '@core/mundo/formato.js';
@@ -203,6 +204,7 @@ import {
   huecoDesconocido,
   NOMBRE_DE_FACCION,
   type PlayerId,
+  type PoderId,
   type Point,
   type UnitInfo,
 } from '@core/types.js';
@@ -450,7 +452,7 @@ export interface Apuntado {
 
 /** Cómo se nombra lo apuntado en una frase: el hechizo o el poder. */
 function nombreDeLoApuntado(a: Apuntado): string {
-  return a.kind === 'hechizo' ? spell(a.id).name : poder(a.id).nombre;
+  return nombreDeHechizo(a.id);
 }
 
 /** ¿Es `a` una jugada de lo apuntado (sobre `objetivo`, si se dice)? */
@@ -1404,7 +1406,7 @@ function opcionesDeHechizo(
   if (hero === null || hero.spells.length === 0) return [];
 
   // En el orden del libro, el mismo que el panel del mapa (#54).
-  return enOrdenDelLibro(hero.spells).map((sp) => {
+  return enOrdenDelLibro(hero.spells, turno.battle.libro).map((sp) => {
     const id = sp.id;
     // Un solo predicado para las tres preguntas —sobre quién, si se puede, y
     // por qué no—: el par (hechizo, objetivo) sale de la lista legal y el
@@ -1412,15 +1414,15 @@ function opcionesDeHechizo(
     const targets = acciones.flatMap((a) =>
       a.type === 'cast' && a.spell === id && a.target !== undefined ? [a.target] : [],
     );
-    const castable = targets.length > 0;
+    const castable = acciones.some((a) => a.type === 'cast' && a.spell === id);
     // Con `castable` verdadero el bloqueo es `null` por construcción, así que
     // solo se pregunta cuando hace falta. Y si no lo es, el núcleo TIENE que
     // dar motivo: las dos respuestas salen de la misma función.
     const motivo = castable ? '' : castBlocker(turno.battle, turno.side, id);
     if (motivo === null) {
-      throw new Error(`${sp.name} no se ofrece y el núcleo no dice por qué`);
+      throw new Error(`${sp.nombre} no se ofrece y el núcleo no dice por qué`);
     }
-    return { id, name: sp.name, cost: sp.cost, targets, castable, motivo };
+    return { id, name: sp.nombre, cost: sp.mana, targets, castable, motivo };
   });
 }
 
@@ -1430,6 +1432,38 @@ interface DueñoDelLibro {
   /** Las opciones de ahora, de la caché de la sesión (`opcionesDeHechizo`). */
   spellOptions(): readonly SpellOption[];
   status: string;
+  battleLegalActions(): readonly BattleAction[];
+  playBattleAction(action: BattleAction): void;
+}
+
+/**
+ * La jugada de lo apuntado (un hechizo o un poder que se lanza a una casilla) en la
+ * casilla `at`, o por qué no vale ahí con la frase del núcleo (`castBlocker`,
+ * `poderBlocker`); `null` si lo apuntado no se lanza a una casilla (va a una
+ * unidad). Lo leen el clic y la previsión del tablero (06-11-2026, el editor de magia).
+ */
+export function loApuntadoEnCasilla(
+  s: Pick<ControlDeBatalla, 'batallaALaVista' | 'turnoPropio'>,
+  apunta: Apuntado,
+  at: Hex,
+): { readonly accion: BattleAction } | { readonly motivo: string } | null {
+  const b = s.batallaALaVista;
+  if (b === null) return null;
+  const h = hechizoDeLaBatalla(b, apunta.id);
+  if (queSeApunta(h) !== 'casilla') return null;
+  const turno = s.turnoPropio;
+  if (turno === null) return { motivo: NINGUNA_TUYA };
+  const motivo =
+    apunta.kind === 'hechizo'
+      ? castBlocker(b, turno.side, apunta.id, undefined, at)
+      : poderBlocker(b, apunta.id, undefined, at);
+  if (motivo !== null) return { motivo: comoFrase(motivo) };
+  return {
+    accion:
+      apunta.kind === 'hechizo'
+        ? { type: 'cast', spell: apunta.id, at }
+        : { type: 'power', poder: apunta.id, at },
+  };
 }
 
 /**
@@ -1474,7 +1508,7 @@ export class LibroDeBatalla implements HechizosDeBatalla {
     const motivo = castBlocker(turno.battle, turno.side, elegido, targetId);
     if (motivo === null) {
       throw new Error(
-        `${spell(elegido).name} no se ofrece sobre ${targetId} y el núcleo no dice por qué`,
+        `${nombreDeHechizo(elegido, turno.battle.libro)} no se ofrece sobre ${targetId} y el núcleo no dice por qué`,
       );
     }
     return motivo;
@@ -1492,8 +1526,25 @@ export class LibroDeBatalla implements HechizosDeBatalla {
       this.dueño.status = `No puedes lanzar ${opcion.name}: ${opcion.motivo}.`;
       return;
     }
+    // Sobre sí o al tablero no se elige nada: se lanza ya (el editor de magia).
+    const suyas = this.dueño
+      .battleLegalActions()
+      .filter((a) => a.type === 'cast' && a.spell === spellId);
+    const [sinApuntar] = suyas;
+    if (
+      suyas.length === 1 &&
+      sinApuntar?.type === 'cast' &&
+      sinApuntar.target === undefined &&
+      sinApuntar.at === undefined
+    ) {
+      this.dueño.playBattleAction(sinApuntar);
+      return;
+    }
     this.selectedSpell = spellId;
-    this.dueño.status = `${opcion.name}: elige sobre quién lanzarlo.`;
+    const aCasilla = suyas.some((a) => a.type === 'cast' && a.at !== undefined);
+    this.dueño.status = aCasilla
+      ? `${opcion.name}: pulsa la casilla donde lanzarlo, o Escape para cancelar.`
+      : `${opcion.name}: elige sobre quién lanzarlo.`;
   }
 
   clearSpell(): void {
@@ -4219,6 +4270,8 @@ export class SesionDeArena implements ControlDeBatalla {
       readonly equipo: CatalogoDeEquipo;
       /** La complejidad de la pelea (`MontajeDeArena.combate`). */
       readonly combate: ReglasDelCombate;
+      /** Los hechizos con que se pelea (los de la página; sin ellos, los del juego). */
+      readonly hechizos?: CatalogoDeHechizos;
     },
     semilla: number,
     /** La arena no tiene regiones ni días: el despejado, o lo que pida `?clima=` (`arena/main.ts`). */
@@ -4232,6 +4285,7 @@ export class SesionDeArena implements ControlDeBatalla {
       muralla: montaje.muralla ?? SIN_MURALLA,
       equipo: montaje.equipo,
       combate: montaje.combate,
+      ...(montaje.hechizos === undefined ? {} : { hechizos: montaje.hechizos }),
     };
     this.catalogo = catalogoDelMontaje(delMontaje);
     this.iaDelBando = {
@@ -4406,6 +4460,7 @@ export class SesionDeArena implements ControlDeBatalla {
     const motivo = retocarEnBatalla(this.battle, r, this.catalogo);
     if (motivo !== null) return comoFrase(motivo);
     if (r.kind === 'piezas') this.catalogo = { ...this.catalogo, equipo: r.equipo };
+    if (r.kind === 'hechizos') this.catalogo = { ...this.catalogo, hechizos: r.hechizos };
     if (r.kind === 'tipo') this.catalogo = conUnidad(this.catalogo, r.fuente.unidad);
     // Lo que entra y cambia algo deja su `retoque` en el registro; lo que deja la
     // ficha como estaba no escribe nada, y no se dice «Cambiado» (N1 de QA).

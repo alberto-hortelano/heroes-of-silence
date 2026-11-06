@@ -17,13 +17,15 @@ import {
   TIPOS_DE_PUERTA,
 } from '@core/battle/battle.js';
 import { hayMuralla } from '@core/battle/muralla.js';
-import { type PoderId, poder, queHaceElPoder } from '@core/battle/poderes.js';
 import type {
   BattleAction,
   BattleStack,
   BattleState,
   JugadaDeMuralla,
 } from '@core/battle/types.js';
+import { hechizo } from '@core/magia/catalogo.js';
+import { queHaceElHechizo } from '@core/magia/dicho.js';
+import type { PoderId } from '@core/types.js';
 import { type Html, html, NADA, unir } from '../html.js';
 import type { Apuntado, ModoDelArma, MurallaDeLaActiva } from '../session.js';
 import { nombreEnElCampo } from './distintivo.js';
@@ -79,7 +81,8 @@ export function botonesDePoder(s: ControlDePoderes, activa: BattleStack): Html {
   const legales = s.battleLegalActions();
   return unir(
     ids.map((id) => {
-      const p = poder(id);
+      // El hechizo como lo lleva la batalla (la arena, sin guardar), o el del juego.
+      const p = s.batallaALaVista?.libro[id] ?? hechizo(id);
       // Se puede si la lista legal lo trae; el motivo, al núcleo solo si no.
       const suyas = legales.filter((a) => a.type === 'power' && a.poder === id);
       return html`
@@ -90,7 +93,7 @@ export function botonesDePoder(s: ControlDePoderes, activa: BattleStack): Html {
            rotulo: p.nombre,
            motivo: suyas.length > 0 ? null : s.motivoDePoder(id),
            esperando: apuntado?.kind === 'poder' && apuntado.id === id,
-           ayuda: suyas.length === 1 ? previsionDelUnico(s, suyas[0]) : queHaceElPoder(p),
+           ayuda: suyas.length === 1 ? previsionDelUnico(s, suyas[0]) : queHaceElHechizo(p, 0),
          })}`;
     }),
   );
@@ -111,10 +114,14 @@ function previsionDelUnico(s: ControlDePoderes, accion: BattleAction | undefined
   if (p === null || b === null) {
     throw new Error('la jugada del poder no tiene previsión: no es un turno propio');
   }
-  return textoDePrevision(p, (id) => {
-    const x = b.stacks.find((st) => st.id === id);
-    return x === undefined ? id : nombreEnElCampo(b, x);
-  });
+  return textoDePrevision(
+    p,
+    (id) => {
+      const x = b.stacks.find((st) => st.id === id);
+      return x === undefined ? id : nombreEnElCampo(b, x);
+    },
+    b.libro,
+  );
 }
 
 /** Lo que pide el selector de arma a la sesión: el de la activa (`ArmaDeLaActiva`). */

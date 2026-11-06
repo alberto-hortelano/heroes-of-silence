@@ -79,9 +79,17 @@ import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { playAiGame } from '../src/core/ai/turn.js';
+import { armaduraEnLaPelea, trasLaArmadura } from '../src/core/battle/armas.js';
 import { stackSpeed } from '../src/core/battle/battle.js';
-import { effectiveAttack, effectiveDefense } from '../src/core/battle/damage.js';
-import { applyEffect, EFFECT_KINDS, type EffectKind } from '../src/core/battle/effects.js';
+import { danioPorIndividuo, effectiveAttack, effectiveDefense } from '../src/core/battle/damage.js';
+import {
+  applyEffect,
+  type CifraDeEfecto,
+  disparadoresDe,
+  EFFECT_KINDS,
+  impedidoPor,
+  type StackEffect,
+} from '../src/core/battle/effects.js';
 import { formaDeLaBatalla } from '../src/core/battle/formas-de-la-rueda.js';
 import type { BattleStack } from '../src/core/battle/types.js';
 import { UNIDADES, unidadDelJuego } from '../src/core/catalogo.js';
@@ -617,12 +625,53 @@ const MATH_PERMITIDO = ['min', 'max', 'floor', 'ceil', 'abs', 'round', 'imul'] a
  * propósito y no por `EffectKind`: con `Record<EffectKind, …>` un tipo nuevo
  * rompería el `tsc` y el aserto de cobertura no llegaría a correr nunca.
  */
-const LECTORES_DE_EFECTO: Readonly<Record<string, (s: BattleStack) => number>> = {
-  speed: stackSpeed,
-  attack: (s) => effectiveAttack(s),
+const LECTORES_DE_EFECTO: Readonly<
+  Record<string, { readonly efecto: StackEffect; readonly lector: (s: BattleStack) => number }>
+> = {
+  speed: { efecto: cifra('speed'), lector: stackSpeed },
+  attack: { efecto: cifra('attack'), lector: (s) => effectiveAttack(s) },
   // La rueda del golpe (Defensivo y Romper guardia).
-  defense: (s) => effectiveDefense(s),
+  defense: { efecto: cifra('defense'), lector: (s) => effectiveDefense(s) },
+  // Las del editor de magia (06-11-2026).
+  armadura: { efecto: cifra('armadura'), lector: armaduraEnLaPelea },
+  fuerza: { efecto: cifra('fuerza'), lector: (s) => danioPorIndividuo(s)[0] },
+  agilidad: { efecto: cifra('agilidad'), lector: (s) => effectiveDefense(s) },
+  impide: {
+    efecto: { kind: 'impide', que: ['moverse'], source: 'guardia', roundsLeft: 2 },
+    lector: (s) => (impedidoPor(s, 'moverse') === null ? 0 : 1),
+  },
+  escudo: {
+    efecto: { kind: 'escudo', queda: 5, source: 'guardia', roundsLeft: 2 },
+    lector: (s) => trasLaArmadura(10, s, true).danio,
+  },
+  disparador: {
+    efecto: {
+      kind: 'disparador',
+      source: 'guardia',
+      roundsLeft: 2,
+      cargas: null,
+      disparador: {
+        cuando: 'alGolpear',
+        yAlLanzarse: false,
+        a: 'portador',
+        radio: 0,
+        afecta: 'todos',
+        duracion: null,
+        seAcabaSiMuere: null,
+        efectos: [{ tipo: 'cura', cantidad: 1 }],
+        poder: 0,
+        lanzador: 'guardia-0',
+        dicho: 'cura',
+      },
+    },
+    lector: (s) => disparadoresDe(s, 'alGolpear').length,
+  },
 };
+
+/** Un efecto de cifra de prueba. */
+function cifra(kind: CifraDeEfecto): StackEffect {
+  return { kind, amount: 2, source: 'guardia', roundsLeft: 2 };
+}
 
 /** Un stack limpio, fuera de tablero: solo se le cuelgan efectos y se lee. */
 function stackDePrueba(): BattleStack {
@@ -647,6 +696,7 @@ function stackDePrueba(): BattleStack {
     recargando: 0,
     granada: null,
     granadasLanzadas: 0,
+    hechizoEnElAire: null,
   };
 }
 
@@ -1060,10 +1110,10 @@ describe('invariantes del proyecto', () => {
     // la ponía roja.
     expect(Object.keys(LECTORES_DE_EFECTO).sort()).toEqual([...EFFECT_KINDS].sort());
 
-    for (const [kind, lector] of Object.entries(LECTORES_DE_EFECTO)) {
+    for (const [kind, { efecto, lector }] of Object.entries(LECTORES_DE_EFECTO)) {
       const s = stackDePrueba();
       const antes = lector(s);
-      applyEffect(s, { kind: kind as EffectKind, amount: 2, source: 'guardia', roundsLeft: 2 });
+      applyEffect(s, efecto);
       expect(lector(s), `${kind}: su lector no suma el efecto`).not.toBe(antes);
     }
   });
@@ -2879,6 +2929,40 @@ describe('invariantes del proyecto', () => {
       ),
     ).toEqual([]);
     expect(infractoresDeCodigo([PUERTA], importa)).not.toEqual([]);
+  });
+
+  it('`data/hechizos.json` lo importa solo `core/magia/catalogo.ts`, que lo juzga al cargar', () => {
+    // Los hechizos (el editor de magia, 06-11-2026) se leen y juzgan una vez
+    // (`leerHechizos`): quien importara el fichero por su cuenta lanzaría un hechizo
+    // sin juzgar. La arena escribe el fichero desde `tools/arena/` (no lo importa).
+    // Roto a mano: un `import h from '../../../data/hechizos.json'` en
+    // `battle/spells.ts` sale rojo.
+    const PUERTA = 'src/core/magia/catalogo.ts';
+    const importa = importaDe(/[^'"]*data\/hechizos\.json/);
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => r !== PUERTA),
+        importa,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([PUERTA], importa)).not.toEqual([]);
+  });
+
+  it('la muerte de un stack (`perished`) la escribe solo `anotarLaMuerte`', () => {
+    // Al morir se van los efectos de «se acaba si muere» y saltan sus disparadores
+    // `alMorir` (el editor de magia, 06-11-2026): un `perished` empujado a mano se
+    // los saltaría. Roto a mano: un `state.log.push({ kind: 'perished', … })` en
+    // `herirYContar` sale rojo.
+    const PUERTA = 'src/core/battle/battle.ts';
+    const escribe = /kind: 'perished'/;
+    const todos = [...CORE].filter((r) => r !== PUERTA && !r.endsWith('/types.ts'));
+    expect(infractoresDeCodigo(todos, escribe)).toEqual([]);
+    const enLaPuerta = infractoresDeCodigo([PUERTA], escribe);
+    expect(enLaPuerta).toHaveLength(1);
+    const permitidas = lineasDeLasDeclaraciones(PUERTA, ['anotarLaMuerte']);
+    const linea = Number(enLaPuerta[0]?.split(':')[1]?.split(' ')[0]);
+    expect(permitidas.has(linea), enLaPuerta.join('\n')).toBe(true);
   });
 
   it('la pieza que pinta el clima no lee la sesión: le dan el clima del sitio', () => {

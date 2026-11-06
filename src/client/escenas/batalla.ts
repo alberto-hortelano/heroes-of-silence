@@ -52,6 +52,7 @@ import {
   type Apuntado,
   type ControlDeBatalla,
   esDeLoApuntado,
+  loApuntadoEnCasilla,
   rechazoDelTanteo,
 } from '../session.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
@@ -665,7 +666,8 @@ export class EscenaBatalla {
     const hecha = this.previsiones.get(accion);
     if (hecha !== undefined) return hecha;
     const p = this.sesion().prevision(accion);
-    const dicha = p === null ? null : textoDePrevision(p, this.nombre());
+    const dicha =
+      p === null ? null : textoDePrevision(p, this.nombre(), this.sesion().batallaALaVista?.libro);
     this.previsiones.set(accion, dicha);
     return dicha;
   }
@@ -726,6 +728,14 @@ export class EscenaBatalla {
     const s = this.sesion();
     const apunta = s.apuntado;
     if (apunta === null || this.puntero === null) return null;
+    // A una casilla: lo que haría si cayera ahora en la del puntero.
+    const hex = this.hexBajo(this.puntero.x, this.puntero.y);
+    if (hex !== null) {
+      const enCasilla = loApuntadoEnCasilla(s, apunta, hex);
+      if (enCasilla !== null) {
+        return 'accion' in enCasilla ? this.previsionDicha(enCasilla.accion) : enCasilla.motivo;
+      }
+    }
     const objetivo = this.unidadEn(this.puntero.x, this.puntero.y);
     if (objetivo === undefined) return null;
     const accion = s.battleLegalActions().find((a) => esDeLoApuntado(apunta, a, objetivo.id));
@@ -968,6 +978,15 @@ export class EscenaBatalla {
     // Con un hechizo elegido o un poder esperando, el clic apunta: va ANTES que
     // atacar y moverse.
     if (apunta !== null) {
+      // Lo que se lanza a una casilla (el editor de magia): la que se pulse.
+      if (hex !== null) {
+        const enCasilla = loApuntadoEnCasilla(session, apunta, hex);
+        if (enCasilla !== null) {
+          if ('accion' in enCasilla) session.playBattleAction(enCasilla.accion);
+          else session.status = enCasilla.motivo;
+          return;
+        }
+      }
       if (objetivo === undefined) {
         session.status = SIN_OBJETIVO[apunta.kind];
         return;

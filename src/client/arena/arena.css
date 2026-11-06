@@ -27,6 +27,21 @@
 #app[data-escena='equipo'] [data-arena='enlace'],
 #app[data-escena='equipo'] [data-arena='ir-a-edicion'],
 #app[data-escena='equipo'] [data-arena='ir-a-equipo'] { display: none; }
+/* La vista «Editar magia» (`magia.ts`), como la de equipo. */
+#app:not([data-escena='magia']) #magia,
+#app:not([data-escena='magia']) [data-arena='volver-de-magia'] { display: none; }
+#app[data-escena='magia'] #montaje,
+#app[data-escena='magia'] #edicion,
+#app[data-escena='magia'] #equipo,
+#app[data-escena='magia'] #stage,
+#app[data-escena='magia'] #combate-de-la-arena,
+#app[data-escena='magia'] [data-arena='luchar'],
+#app[data-escena='magia'] [data-arena='enlace'],
+#app[data-escena='magia'] [data-arena='ir-a-edicion'],
+#app[data-escena='magia'] [data-arena='ir-a-equipo'],
+#app[data-escena='magia'] [data-arena='ir-a-magia'],
+#app[data-escena='equipo'] [data-arena='ir-a-magia'],
+#app[data-escena='edicion'] [data-arena='ir-a-magia'] { display: none; }
 #acciones-arena { display: flex; gap: 0.4rem; }
 /* Los selectores de la pelea en la barra, sin el margen de debajo de «Nuevo juego». */
 #combate-de-la-arena .selectores-del-combate { margin: 0; flex-wrap: nowrap; }
@@ -566,4 +581,53 @@ canvas.figura { background: var(--fondo-figura); border: 1px solid var(--borde-t
 }
 @media (max-width: 760px) {
   #equipo { grid-template-columns: minmax(0, 1fr); }
+}
+
+/*
+ * La vista «Editar magia»: a la izquierda los hechizos por entrega y a la derecha
+ * la ficha del elegido, con sus problemas debajo. Como la de equipo.
+ */
+#magia {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  align-content: start;
+  align-items: start;
+  gap: 14px;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 8px 14px;
+  font-size: 0.86rem;
+}
+#magia > section { min-width: 0; }
+#magia h3 {
+  margin: 0.6rem 0 0.4rem;
+  font: 10px var(--letra-ui);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.3rem;
+}
+#magia h3.cabecera-hueco { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
+#magia .pieza.no-vale { border-color: var(--danger); }
+#magia .pieza .sello { grid-column: 1 / -1; font-size: 0.75rem; color: var(--ink-dim); }
+#magia .fila-magia { display: grid; grid-template-columns: 11rem minmax(0, 1fr); gap: 0.5rem; align-items: center; margin: 0.25rem 0; }
+#magia .fila-magia textarea, #magia .fila-magia input[type='text'] { width: 100%; box-sizing: border-box; }
+#magia .fila-magia input[type='number'] { width: 4.5rem; }
+#magia .cantidad input[type='number'] { width: 4rem; }
+#magia .efecto { border: 1px solid var(--borde-tenue); background: var(--panel-alt); padding: 0.35rem 0.5rem; margin: 0.35rem 0; }
+#magia .cabecera-efecto { display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.25rem; }
+#magia .cabecera-efecto button { margin-left: auto; }
+#magia .disparador { border-left: 2px solid var(--gold); padding-left: 0.6rem; margin-top: 0.3rem; }
+#magia .lo-que-hace { font-style: italic; }
+#magia .problemas-de-magia { color: var(--danger); margin: 0.3rem 0; padding-left: 1.2rem; }
+#magia .vale { color: var(--accent); }
+#magia .botones { display: flex; gap: 0.4rem; margin: 0.6rem 0; }
+@media (min-width: 761px) {
+  #magia .magia-ficha { position: sticky; top: 0; }
+}
+@media (max-width: 760px) {
+  #magia { grid-template-columns: minmax(0, 1fr); }
+  #magia .fila-magia { grid-template-columns: minmax(0, 1fr); }
 }

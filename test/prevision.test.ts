@@ -395,16 +395,18 @@ describe('la previsión de daño cae en el daño real', () => {
           if (p.kind === 'hechizo') {
             const c = nuevo.find((x) => x.kind === 'cast');
             if (c?.kind !== 'cast') throw new Error(`${que}: no se lanzó`);
-            if (p.danio !== null) {
-              expect(c.damage, que).toBe(p.danio);
-              expect(c.killed, que).toBe(p.bajas);
+            const [imp] = p.impactos;
+            if (imp !== undefined && imp.danio !== null) {
+              expect(c.damage, que).toBe(imp.danio);
+              expect(c.killed, que).toBe(imp.bajas);
             }
-            if (p.efecto !== null) {
+            const [efecto] = imp?.efectos ?? [];
+            if (efecto !== undefined && 'amount' in efecto) {
               const ef = nuevo.find((x) => x.kind === 'effect');
               expect(ef, que).toMatchObject({
-                effect: p.efecto.kind,
-                amount: p.efecto.amount,
-                rounds: p.efecto.roundsLeft,
+                effect: efecto.kind,
+                amount: efecto.amount,
+                rounds: efecto.roundsLeft,
               });
             }
             vistos++;

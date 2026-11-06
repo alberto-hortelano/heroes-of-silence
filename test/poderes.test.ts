@@ -16,12 +16,14 @@ import {
   poderBlocker,
   previsionDe,
 } from '../src/core/battle/battle.js';
-import { poder, poderDeHabilidad, validarPoderes } from '../src/core/battle/poderes.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
+import { catalogoDeHechizos, hechizo } from '../src/core/magia/catalogo.js';
+import { rinde } from '../src/core/magia/formato.js';
 import { createRng, type Rng } from '../src/core/rng.js';
+import { hechizosDeUnidadesBlocker } from '../src/core/unidad.js';
 import { avanzarHasta, delBorrador, SANADOR, unidadDeArena as unidad } from './helpers.js';
 
 /** El monje y el escudero a la izquierda contra un orco, con la semilla que se pida. */
@@ -73,11 +75,13 @@ function enElTurnoDelMonje(
 describe('Curar (A1)', () => {
   it('repone lo que dice el poder, sin pasar del máximo, cierra el turno y lo cuenta', () => {
     const { b, rng, monje, escudero } = enElTurnoDelMonje(6);
-    const cura = { cura: poder('curar').lanzador.cantidad };
+    const [efecto] = hechizo('curar').efectos;
+    if (efecto?.tipo !== 'cura') throw new Error('Curar cura');
+    const cura = { cura: rinde(efecto.cantidad, 0) };
     const accion = { type: 'power', poder: 'curar', target: escudero.id } as const;
     const p = previsionDe(b, accion);
     expect(p).toMatchObject({ kind: 'poder', poder: 'curar', objetivo: escudero.id });
-    expect(p?.kind === 'poder' ? p.cura : null).toBe(Math.min(cura.cura, 6));
+    expect(p?.kind === 'poder' ? p.impactos[0]?.cura : null).toBe(Math.min(cura.cura, 6));
     const antes = escudero.topHp;
     const desde = b.log.length;
     applyAction(b, accion, rng);
@@ -123,44 +127,23 @@ describe('los rechazos los escribe poderBlocker (A5)', () => {
   });
 });
 
-describe('el catálogo de poderes (data/poderes.json)', () => {
-  const bueno = {
-    poderes: [
-      { id: 'curar', nombre: 'Curar', habilidad: 'Curar (X)', hechizo: 'cure', cura: 4 },
-      { id: 'apresurar', nombre: 'Apresurar', habilidad: 'Apresurar', hechizo: 'haste', rondas: 3 },
-    ],
-  };
-
-  it('el bueno se lee', () => {
-    expect(validarPoderes(bueno).poderes.map((p) => p.id)).toEqual(['curar', 'apresurar']);
-  });
-
-  it('lanza con la cura que falta, un hechizo de daño o uno al enemigo', () => {
-    const con = (cambio: object, i = 0) => ({
-      ...bueno,
-      poderes: bueno.poderes.map((p, j) => (j === i ? { ...p, ...cambio } : p)),
-    });
-    const { cura: _fuera, ...sinCura } = bueno.poderes[0] as { cura: number };
-    expect(() => validarPoderes({ ...bueno, poderes: [sinCura, bueno.poderes[1]] })).toThrow(
-      'data/poderes.json: el poder «curar»: la cura tiene que ser un número entero',
-    );
-    expect(() => validarPoderes(con({ cura: 0 }))).toThrow('la cura tiene que ser 1 o más');
-    expect(() =>
-      validarPoderes({ ...bueno, poderes: [bueno.poderes[0], bueno.poderes[0]] }),
-    ).toThrow('el poder «curar» está dos veces');
-    expect(() => validarPoderes(con({ hechizo: 'lightning_bolt' }))).toThrow('es de daño');
-    expect(() => validarPoderes(con({ hechizo: 'slow', rondas: 3 }, 1))).toThrow('va a un enemigo');
-    expect(() => validarPoderes(con({ rondas: 2 }))).toThrow('no lleva «rondas»');
-  });
-
-  it('cada unidad del juego trae los poderes de sus habilidades, y nada más: el monje, Curar', () => {
+describe('los poderes son hechizos de la unidad (Unidad.hechizos, 06-11-2026)', () => {
+  it('cada unidad del juego trae sus hechizos como poderes, y nada más: el monje, Curar', () => {
     for (const u of unidadesDelJuego()) {
-      const suyos = unidad(u.id).habilidades.flatMap((h) => {
-        const p = poderDeHabilidad(h);
-        return p === null ? [] : [p];
-      });
-      expect(u.poderes ?? [], u.id).toEqual(suyos);
+      expect(u.poderes ?? [], u.id).toEqual(unidad(u.id).hechizos ?? []);
     }
     expect(unidadDelJuego(SANADOR).poderes).toEqual(['curar']);
+  });
+
+  it('un hechizo que no existe, o que crece con el poder mágico, no vale como poder', () => {
+    const monje = unidad('templario-monje');
+    const cat = catalogoDeHechizos([hechizo('curar'), hechizo('cure')]);
+    expect(hechizosDeUnidadesBlocker([monje], cat)).toBeNull();
+    expect(hechizosDeUnidadesBlocker([{ ...monje, hechizos: ['nada'] }], cat)).toMatch(
+      /usa el hechizo «nada», que no existe/,
+    );
+    expect(hechizosDeUnidadesBlocker([{ ...monje, hechizos: ['cure'] }], cat)).toMatch(
+      /«porPoder» no sumaría nada/,
+    );
   });
 });
