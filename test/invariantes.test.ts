@@ -64,18 +64,8 @@
  * con seis errores a partir de aquí abajo.
  */
 
-import { execFileSync } from 'node:child_process';
-import {
-  closeSync,
-  existsSync,
-  openSync,
-  readdirSync,
-  readFileSync,
-  readSync,
-  statSync,
-} from 'node:fs';
-import { dirname, extname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { closeSync, existsSync, openSync, readSync, statSync } from 'node:fs';
+import { extname, join } from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { playAiGame } from '../src/core/ai/turn.js';
@@ -110,15 +100,29 @@ import { createRng } from '../src/core/rng.js';
 import type { GameState } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { CREATURE_TRAITS, HUECOS } from '../src/core/types.js';
+import {
+  CLIENTE,
+  CORE,
+  codigoDe,
+  ficheros,
+  importacionesDe,
+  importaDe,
+  infractores,
+  infractoresDeCodigo,
+  leer,
+  lineaDe,
+  lineasDeImport,
+  lineasDeLasDeclaraciones,
+  llamadasA,
+  ruta,
+  rutasDelRepo,
+  SERVIDOR,
+} from './codigo-del-repo.js';
+import { RAIZ } from './comun.js';
 import { batallaConDos, TROPA } from './helpers.js';
 import { bloquesCss, COLOR, hojasDelCliente } from './hojas-de-estilo.js';
 import { rango, segunPrisa } from './lento.js';
 
-// `new URL(...).pathname` devuelve la ruta PERCENT-ENCODED: en un checkout que
-// viva en una ruta con espacios o paréntesis daba `…/ruta%20con%20(…)/repo` y
-// los NUEVE invariantes morían con ENOENT al cargar el módulo, antes de que
-// ninguno llegara a comprobar nada. `fileURLToPath` decodifica.
-const RAIZ = fileURLToPath(new URL('..', import.meta.url));
 /**
  * La ruta absoluta de ESTE checkout, sin la barra final.
  *
@@ -191,28 +195,6 @@ function esTextoDeMaquina(ruta: string): boolean {
   }
 }
 
-let rutasGuardadas: readonly string[] | null = null;
-
-/**
- * Lo que hay en el repo, indexado o no: `-o --exclude-standard` es la mitad que
- * faltaba. Una sola llamada a git por corrida: la leen `ficherosDeMaquina` y los
- * guardias de lo retirado (`lineasCon`).
- *
- * `git ls-files` a secas lista solo lo indexado, y un fichero nuevo sin
- * `git add` —que es como nacen las presas, y como está el árbol mientras se
- * trabaja— pasaba por debajo.
- */
-function rutasDelRepo(): readonly string[] {
-  rutasGuardadas ??= execFileSync('git', ['ls-files', '-c', '-o', '--exclude-standard', '-z'], {
-    cwd: RAIZ,
-  })
-    .toString('utf8')
-    .split('\0')
-    // `ls-files -c` sigue listando lo borrado del árbol hasta que se indexa el borrado.
-    .filter((f) => f !== '' && existsSync(join(RAIZ, f)));
-  return rutasGuardadas;
-}
-
 function ficherosDeMaquina(): string[] {
   return rutasDelRepo().filter(
     (f) => !CLASES_QUE_LEE_UNA_PERSONA.includes(extname(f).toLowerCase()) && esTextoDeMaquina(f),
@@ -237,211 +219,21 @@ function lineasCon(viejo: RegExp): string[] {
     );
 }
 
-function ficheros(dir: string): string[] {
-  const out: string[] = [];
-  for (const entrada of readdirSync(join(RAIZ, dir), { withFileTypes: true })) {
-    const ruta = join(dir, entrada.name);
-    if (entrada.isDirectory()) out.push(...ficheros(ruta));
-    else if (extname(entrada.name) === '.ts') out.push(ruta);
-  }
-  return out;
-}
-
-// Los listados y el contenido se resuelven UNA vez: seis guardias recorrían
-// `src/core` entero por su cuenta, y la sexta lectura del mismo fichero costaba
-// más que todo lo demás junto.
-const CORE = ficheros('src/core');
-const CLIENTE = ficheros('src/client');
-const SERVIDOR = ficheros('src/server');
-
-const CACHE = new Map<string, string>();
-const CACHE_SIN_COMENTARIOS = new Map<string, string>();
-/** El código de `ruta` sin comentarios (`sinComentarios`), una vez por fichero, como `leer`. */
-function codigoDe(ruta: string): string {
-  const guardado = CACHE_SIN_COMENTARIOS.get(ruta);
-  if (guardado !== undefined) return guardado;
-  const codigo = sinComentarios(leer(ruta));
-  CACHE_SIN_COMENTARIOS.set(ruta, codigo);
-  return codigo;
-}
 /**
  * Las hojas del cliente que vigilan los guardias de colores fijos y de la forma
  * de los temas: todas las del disco menos `temas.css`, que solo lleva fichas (y
  * vigila `temas.test.ts`). Del disco y no de una lista: una hoja nueva no se
  * libra sin que nadie lo note.
  */
-const HOJAS_CON_REGLAS = hojasDelCliente().filter((r) => r !== 'src/client/temas.css');
-
-function leer(ruta: string): string {
-  const guardado = CACHE.get(ruta);
-  if (guardado !== undefined) return guardado;
-  const texto = readFileSync(join(RAIZ, ruta), 'utf8');
-  CACHE.set(ruta, texto);
-  return texto;
-}
-
-/**
- * Cualquier forma de traerse `destino`, incluida la que no tiene `from`.
- *
- * Las formas son `from 'x'`, `import('x')`, `require('x')` y `import 'x';` a
- * secas, y de la última —la de efecto lateral, que es justo la que se usa cuando
- * lo único que se quiere es enchufar el módulo— eran ciegos los dos guardias de
- * importación: `import '../../server/director.js'` los dejaba a los ocho en
- * verde. Un guardia con un hueco conocido invita a usar el hueco.
- */
-function importaDe(destino: RegExp): RegExp {
-  return new RegExp(`(?:from|import\\(|require\\(|import)\\s*['"](?:${destino.source})`);
-}
-
-/** Ficheros que incumplen, con la línea que lo hace: el mensaje del fallo. */
-function infractores(rutas: string[], patron: RegExp): string[] {
-  const out: string[] = [];
-  for (const ruta of rutas) {
-    for (const [i, linea] of leer(ruta).split('\n').entries()) {
-      if (patron.test(linea)) out.push(`${ruta}:${i + 1} → ${linea.trim()}`);
-    }
-  }
-  return out;
-}
-
-/**
- * El mismo fichero con los COMENTARIOS en blanco y las líneas donde estaban.
- *
- * Hace falta para un solo guardia —el de la coma flotante— y sin él ese guardia
- * **nace rojo**, que es lo que este fichero tiene prohibido. En este repositorio
- * el comentario es el documento de diseño y usa negrita de Markdown, así que
- * `**` sale cinco veces en `generate.ts` y `serialize.ts` sin ser una potencia;
- * y `hero.ts` explica en su docstring que la curva vieja usaba `Math.pow`, que
- * es justo la palabra que se persigue. Un guardia que caza su propia
- * explicación se ignora desde el primer día.
- *
- * Las cadenas NO se ponen en blanco, y es deliberado: solo se siguen para no
- * confundir un `//` de dentro de una con el principio de un comentario —eso sí
- * taparía código de verdad, en silencio—. Un `**` escrito dentro de una cadena
- * da falso positivo, que es el lado bueno por el que fallar y se quita con una
- * línea. Hoy no hay ninguno.
- *
- * Se conservan los saltos de línea uno a uno para que el número de línea del
- * mensaje siga señalando el sitio real del fichero.
- */
-function sinComentarios(texto: string): string {
-  let estado: 'codigo' | 'linea' | 'bloque' | 'cadena' = 'codigo';
-  let comilla = '';
-  let out = '';
-
-  for (let i = 0; i < texto.length; i++) {
-    const c = texto[i] as string;
-    const siguiente = texto[i + 1] ?? '';
-
-    if (estado === 'linea') {
-      if (c === '\n') estado = 'codigo';
-      out += c === '\n' ? c : ' ';
-      continue;
-    }
-    if (estado === 'bloque') {
-      if (c === '*' && siguiente === '/') {
-        estado = 'codigo';
-        out += '  ';
-        i++;
-        continue;
-      }
-      out += c === '\n' ? c : ' ';
-      continue;
-    }
-    if (estado === 'cadena') {
-      // La barra invertida se come el carácter de detrás: sin esto, un
-      // `'\''` cerraría la cadena donde no toca y el resto de la línea se
-      // leería como código.
-      if (c === '\\') {
-        out += texto.slice(i, i + 2);
-        i++;
-        continue;
-      }
-      if (c === comilla) estado = 'codigo';
-      out += c;
-      continue;
-    }
-
-    if (c === '/' && siguiente === '/') {
-      estado = 'linea';
-      out += '  ';
-      i++;
-      continue;
-    }
-    if (c === '/' && siguiente === '*') {
-      estado = 'bloque';
-      out += '  ';
-      i++;
-      continue;
-    }
-    if (c === "'" || c === '"' || c === '`') {
-      estado = 'cadena';
-      comilla = c;
-    }
-    out += c;
-  }
-  return out;
-}
-
-/** Como `infractores`, pero mirando solo el CÓDIGO: los comentarios no cuentan. */
-function infractoresDeCodigo(rutas: string[], patron: RegExp): string[] {
-  const out: string[] = [];
-  for (const ruta of rutas) {
-    for (const [i, linea] of codigoDe(ruta).split('\n').entries()) {
-      if (patron.test(linea)) out.push(`${ruta}:${i + 1} → ${linea.trim()}`);
-    }
-  }
-  return out;
-}
-
-/**
- * Las líneas (desde 1) de unas declaraciones de primer nivel de un fichero: de
- * `function`/`class`/`const NOMBRE` a la primera línea que empieza por `}`, o
- * solo la suya si es un `const` de una línea (`const X = y;`: si no, el permiso
- * llegaba hasta el final de la función de debajo). Una que no está lanza:
- * renombrarla no puede ensanchar un permiso sin que se vea.
- */
-function lineasDeLasDeclaraciones(ruta: string, nombres: readonly string[]): Set<number> {
-  const lineas = leer(ruta).split('\n');
-  const out = new Set<number>();
-  for (const nombre of nombres) {
-    const inicio = lineas.findIndex((l) =>
-      new RegExp(`^(?:export\\s+)?(?:async\\s+)?(?:function|class|const)\\s+${nombre}\\b`).test(l),
-    );
-    if (inicio < 0) throw new Error(`${ruta} no declara «${nombre}» en su primer nivel`);
-    let fin = inicio;
-    const deUnaLinea = /\bconst\b[^{[(]*;\s*$/.test(lineas[inicio] ?? '');
-    while (!deUnaLinea && fin < lineas.length && !lineas[fin]?.startsWith('}')) fin++;
-    for (let n = inicio; n <= fin; n++) out.add(n + 1);
-  }
-  return out;
-}
-
-/** Las líneas (desde 1) de las sentencias `import` de un fichero, de `import` a su `from '…'`. */
-function lineasDeImport(ruta: string): Set<number> {
-  const lineas = leer(ruta).split('\n');
-  const out = new Set<number>();
-  for (let i = 0; i < lineas.length; i++) {
-    if (!lineas[i]?.startsWith('import ')) continue;
-    let fin = i;
-    while (
-      fin < lineas.length &&
-      !/\bfrom\s+['"][^'"]+['"];?\s*$|^import\s+['"]/.test(lineas[fin] ?? '')
-    )
-      fin++;
-    for (let n = i; n <= fin; n++) out.add(n + 1);
-    i = fin;
-  }
-  return out;
-}
+const HOJAS_CON_REGLAS = hojasDelCliente().filter((r) => r !== ruta('src/client/temas.css'));
 
 /** Dónde se puede nombrar lo de la arena sin permiso, y todo lo que se mira. */
 const RUTAS_DE_LA_ARENA = {
   enTodoElFichero: (r: string): boolean =>
-    r.startsWith('src/core/battle/') ||
-    r === 'src/core/arena.ts' ||
-    r.startsWith('src/client/arena/'),
-  todas: (): string[] => [...CORE, ...CLIENTE, ...SERVIDOR, ...ficheros('tools')],
+    r.startsWith(ruta('src/core/battle/')) ||
+    r === ruta('src/core/arena.ts') ||
+    r.startsWith(ruta('src/client/arena/')),
+  todas: (): string[] => [...CORE, ...CLIENTE, ...SERVIDOR, ...ficheros(ruta('tools'))],
 };
 
 /**
@@ -452,8 +244,8 @@ const RUTAS_DE_LA_ARENA = {
  * el guardia de la puerta de las batallas.
  */
 const PERMISOS_DE_LA_ARENA: Readonly<Record<string, readonly string[]>> = {
-  'src/client/session.ts': ['SesionDeArena'],
-  'tools/qa/capturas.ts': [
+  [ruta('src/client/session.ts')]: ['SesionDeArena'],
+  [ruta('tools/qa/capturas.ts')]: [
     'espejoDeLaArena',
     'todoIA',
     'espejoDelBanco',
@@ -475,48 +267,8 @@ const PERMISOS_DE_LA_ARENA: Readonly<Record<string, readonly string[]>> = {
   // La IA contra la IA en la arena (#259, #260, #262): sus tandas y la pelea, también
   // la de las murallas del mapa, con los bandos de la arena (fase 2 del puesto fronterizo).
   // Las montan `tandas-de-la-arena.ts`, que comparten `arena-ia.ts` y la huella.
-  'tools/qa/tandas-de-la-arena.ts': ['TANDAS', 'peleaSinJugar'],
+  [ruta('tools/qa/tandas-de-la-arena.ts')]: ['TANDAS', 'peleaSinJugar'],
 };
-
-/** El número de línea, contando desde 1, del carácter `indice` de `texto`. */
-function lineaDe(texto: string, indice: number): number {
-  let n = 1;
-  for (let i = 0; i < indice; i++) if (texto[i] === '\n') n++;
-  return n;
-}
-
-/**
- * Cada llamada a `nombre(` del código con su argumento ENTERO: se empareja el
- * paréntesis de cierre en vez de pararse en el primer `)`, y el argumento
- * conserva los saltos de línea.
- *
- * Las cadenas se saltan para que un `)` escrito dentro de una no cierre la
- * llamada. Un `${…}` dentro de una plantilla no se analiza: su contenido cuenta
- * como parte de la cadena. Hoy ningún argumento de `creature(` lleva plantilla.
- */
-function llamadasA(nombre: string, codigo: string): { inicio: number; argumento: string }[] {
-  const out: { inicio: number; argumento: string }[] = [];
-  for (const m of codigo.matchAll(new RegExp(`\\b${nombre}\\s*\\(`, 'g'))) {
-    const abre = m.index + m[0].length;
-    let nivel = 1;
-    let comilla = '';
-    let i = abre;
-    for (; i < codigo.length && nivel > 0; i++) {
-      const c = codigo[i] as string;
-      if (comilla !== '') {
-        if (c === '\\') i++;
-        else if (c === comilla) comilla = '';
-        continue;
-      }
-      if (c === "'" || c === '"' || c === '`') comilla = c;
-      else if (c === '(') nivel++;
-      else if (c === ')') nivel--;
-    }
-    if (nivel > 0) throw new Error(`llamada a ${nombre}( sin cerrar en el carácter ${m.index}`);
-    out.push({ inicio: m.index, argumento: codigo.slice(abre, i - 1).trim() });
-  }
-  return out;
-}
 
 /**
  * La única forma permitida de leer el catálogo con el cuerpo, y solo en la
@@ -807,16 +559,16 @@ describe('invariantes del proyecto', () => {
     // tendría que escribirlo. Roto a mano (19-10-2026): un `{ golpeEnCurso: null }`
     // en `state/game.ts` sale rojo con su línea.
     const PERMITIDOS: Readonly<Record<string, readonly string[]>> = {
-      'src/core/battle/battle.ts': ['createBattle'],
+      [ruta('src/core/battle/battle.ts')]: ['createBattle'],
     };
     const escribeElEstado = /(?:^\s*|[{,]\s*)golpeEnCurso\s*:/;
     const fuera: string[] = [];
-    for (const ruta of RUTAS_DE_LA_ARENA.todas()) {
-      if (ruta === 'src/core/battle/types.ts') continue;
-      const conPermiso = lineasDeLasDeclaraciones(ruta, PERMITIDOS[ruta] ?? []);
-      for (const [i, linea] of codigoDe(ruta).split('\n').entries()) {
+    for (const fichero of RUTAS_DE_LA_ARENA.todas()) {
+      if (fichero === ruta('src/core/battle/types.ts')) continue;
+      const conPermiso = lineasDeLasDeclaraciones(fichero, PERMITIDOS[fichero] ?? []);
+      for (const [i, linea] of codigoDe(fichero).split('\n').entries()) {
         if (conPermiso.has(i + 1)) continue;
-        if (escribeElEstado.test(linea)) fuera.push(`${ruta}:${i + 1} → ${linea.trim()}`);
+        if (escribeElEstado.test(linea)) fuera.push(`${fichero}:${i + 1} → ${linea.trim()}`);
       }
     }
     expect(fuera).toEqual([]);
@@ -836,8 +588,8 @@ describe('invariantes del proyecto', () => {
       /\bfrom\s+['"](?:@core\/|(?:\.\.?\/)+(?:(?:src\/)?core\/)?)arena(?:\.js)?['"]/;
     const puedeImportarla = (r: string): boolean =>
       enTodoElFichero(r) ||
-      r.startsWith('tools/arena/') ||
-      r.startsWith('tools/taller/') ||
+      r.startsWith(ruta('tools/arena/')) ||
+      r.startsWith(ruta('tools/taller/')) ||
       r in porDeclaracion;
     const colados: string[] = [];
     for (const ruta of RUTAS_DE_LA_ARENA.todas().filter((r) => !enTodoElFichero(r))) {
@@ -913,7 +665,7 @@ describe('invariantes del proyecto', () => {
     // nombra, no.
     const puertas =
       /\b(applyAdventureAction|applyAction|resolvePendingBattle|settleBattle|playAiTurn|chooseBattleAction|newGame|retocarEnBatalla)\b/;
-    const fuera = CLIENTE.filter((r) => r !== 'src/client/session.ts');
+    const fuera = CLIENTE.filter((r) => r !== ruta('src/client/session.ts'));
     expect(infractoresDeCodigo(fuera, puertas)).toEqual([]);
   });
 
@@ -930,13 +682,13 @@ describe('invariantes del proyecto', () => {
     // `Session.playBattleAction` y un `plantarse(battle, a, rng)` en
     // `server/partida.ts` salen rojos con su línea.
     const llama = /\b(?:completarCruce|pasoDelCruce|plantarse|soltarElGolpe)\s*\(/;
-    const conPermiso = lineasDeLasDeclaraciones('src/client/session.ts', ['CruceDeLaRueda']);
+    const conPermiso = lineasDeLasDeclaraciones(ruta('src/client/session.ts'), ['CruceDeLaRueda']);
     const fuera: string[] = [];
-    for (const ruta of [...CLIENTE, ...SERVIDOR]) {
-      if (ruta === 'src/server/director.ts') continue;
-      for (const [i, linea] of codigoDe(ruta).split('\n').entries()) {
-        if (ruta === 'src/client/session.ts' && conPermiso.has(i + 1)) continue;
-        if (llama.test(linea)) fuera.push(`${ruta}:${i + 1} → ${linea.trim()}`);
+    for (const fichero of [...CLIENTE, ...SERVIDOR]) {
+      if (fichero === ruta('src/server/director.ts')) continue;
+      for (const [i, linea] of codigoDe(fichero).split('\n').entries()) {
+        if (fichero === ruta('src/client/session.ts') && conPermiso.has(i + 1)) continue;
+        if (llama.test(linea)) fuera.push(`${fichero}:${i + 1} → ${linea.trim()}`);
       }
     }
     expect(fuera).toEqual([]);
@@ -1012,7 +764,9 @@ describe('invariantes del proyecto', () => {
     // `createContextualFragment` y `DOMParser`. Las dos últimas las encontró la
     // compuerta **pasando** por encima de la primera redacción, que era una
     // lista negra corta.
-    const fuera = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== 'src/client/html.ts');
+    const fuera = [...CORE, ...CLIENTE, ...SERVIDOR].filter(
+      (r) => r !== ruta('src/client/html.ts'),
+    );
     /**
      * Los únicos tipos del DOM que el cliente nombra. Cerrado y comprobado.
      * `DialogElement` entró con la conversación de la base caminable: es el
@@ -1035,7 +789,7 @@ describe('invariantes del proyecto', () => {
      * Los dos sitios que pueden meter un atributo interpretado en el DOM sin
      * pasar por una plantilla. Cerrado y comprobado: cualquier otro es rojo.
      */
-    const SITIOS_CON_PERMISO = ['src/client/html.ts', 'src/client/render/assets.ts'];
+    const SITIOS_CON_PERMISO = [ruta('src/client/html.ts'), ruta('src/client/render/assets.ts')];
     const porSitio: readonly (readonly [string, RegExp])[] = [
       // `setAttribute` acepta CUALQUIER nombre de atributo, incluido `onerror`,
       // así que no se puede acotar por el nombre: se acota por quién la llama.
@@ -1085,7 +839,7 @@ describe('invariantes del proyecto', () => {
     // lee es una promesa sin respaldo: el jugador paga por una caballería que
     // no carga y el agente decide con una ficha que miente. Este guardia nace
     // en verde justo después de implementar los cuatro que faltaban.
-    const motor = CORE.filter((r) => r !== 'src/core/types.ts')
+    const motor = CORE.filter((r) => r !== ruta('src/core/types.ts'))
       .map(leer)
       .join('\n');
 
@@ -1188,7 +942,7 @@ describe('invariantes del proyecto', () => {
     // (`esPrecioDelCable`). Roto a mano: un `unidadDelJuego(s.origen.unidad).attack`
     // en `ai/tactics.ts`, un `cifrasDeUnidad(s.body, null)` en `battle.ts` y un
     // `oroDeUnidad(s.origen.unidad)` fuera de su rama en la inversa salen rojos.
-    const INVERSA_DEL_CABLE = 'src/client/espectador/adaptar.ts';
+    const INVERSA_DEL_CABLE = ruta('src/client/espectador/adaptar.ts');
     const LECTURAS = [
       'unidad',
       'unidadDelJuego',
@@ -1270,8 +1024,8 @@ describe('invariantes del proyecto', () => {
     // anillo. Rotos a mano (22-10-2026): un `RUEDAS[battle.rueda]` en
     // `director.ts`, un `RUEDA_DE_REFERENCIA` en `rueda/rueda.ts` y otro en
     // `anguloDe` de `disco.ts` salen rojos con su línea.
-    const FORMAS = 'src/core/battle/formas-de-la-rueda.ts';
-    const todos = [...CORE, ...CLIENTE, ...SERVIDOR, ...ficheros('tools')];
+    const FORMAS = ruta('src/core/battle/formas-de-la-rueda.ts');
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR, ...ficheros(ruta('tools'))];
     expect(
       infractoresDeCodigo(
         todos.filter((r) => r !== FORMAS),
@@ -1279,7 +1033,7 @@ describe('invariantes del proyecto', () => {
       ),
     ).toEqual([]);
     expect(infractoresDeCodigo(CLIENTE, /\bTODOS_LOS_GOLPES\b/)).toEqual([]);
-    const FICHA = 'src/client/rueda/disco.ts';
+    const FICHA = ruta('src/client/rueda/disco.ts');
     const fija = /\bRUEDA_DE_REFERENCIA\b/;
     expect(
       infractoresDeCodigo(
@@ -1356,7 +1110,7 @@ describe('invariantes del proyecto', () => {
     // medida antes de andar o dejaría un turno colgado. Y Escape lo suelta por la
     // sesión de la arena, nadie más. Roto a mano: un `this.battle.golpeEnCurso = null` en
     // `session.ts` y un `soltarElGolpe(` en `arena/main.ts` salen rojos con su línea.
-    const PUERTA = 'src/core/battle/battle.ts';
+    const PUERTA = ruta('src/core/battle/battle.ts');
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     const escribe = /\.golpeEnCurso\s*=(?!=)|\bgolpeEnCurso\s*:(?!\s*GolpeEnCurso\b)/;
     expect(
@@ -1368,7 +1122,7 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo([PUERTA], escribe)).not.toEqual([]);
     const suelta = /\bsoltarElGolpe\b/;
     const quienes = infractoresDeCodigo(todos, suelta).map((e) => e.split(':')[0]);
-    expect([...new Set(quienes)].sort()).toEqual(['src/client/session.ts', PUERTA]);
+    expect([...new Set(quienes)].sort()).toEqual([ruta('src/client/session.ts'), PUERTA]);
   });
 
   it('el tramo de la Finta lo abre solo el golpe (`melee`, en battle.ts)', () => {
@@ -1377,7 +1131,7 @@ describe('invariantes del proyecto', () => {
     // Lo escribe solo el golpe con Finta: otro que lo pusiera dejaría a una unidad
     // sin poder golpear, o le quitaría casillas sin haber fintado. Roto a mano: un
     // `turno.finta = 2` en `session.ts` sale rojo con su línea.
-    const PUERTA = 'src/core/battle/battle.ts';
+    const PUERTA = ruta('src/core/battle/battle.ts');
     const escribe = /\.finta\s*(?:\?\?|\|\||&&)?=(?!=)/;
     expect(
       infractoresDeCodigo(
@@ -1400,7 +1154,7 @@ describe('invariantes del proyecto', () => {
     // escriben aparte. Roto a mano: un `state.stacks[0] = s` en `battle.ts`, un
     // `fichasDeArena: {}` en `state/game.ts`, un `{ ...c, poderes }` en `data.ts` y
     // un `poderes: c.poderes` en `contract/serialize.ts` salen rojos con su línea.
-    const PUERTA = 'src/core/arena.ts';
+    const PUERTA = ruta('src/core/arena.ts');
     const fuera = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== PUERTA);
     const sustituyeUnStack = /\bstacks\[[^\]]+\]\s*=(?!=)/;
     expect(infractoresDeCodigo(fuera, sustituyeUnStack)).toEqual([]);
@@ -1409,12 +1163,12 @@ describe('invariantes del proyecto', () => {
     // cambió, también: las pone ella al montar y al retocar.
     const escribeTipos =
       /\bfichasDeArena\s*[:=](?!\s*readonly)|\.fichasDeArena\b(?:\s+as\b[^;]*)?\)?\[[^\]]+\]\s*=(?!=)/;
-    const sinElTipo = fuera.filter((r) => r !== 'src/core/battle/types.ts');
+    const sinElTipo = fuera.filter((r) => r !== ruta('src/core/battle/types.ts'));
     expect(infractoresDeCodigo(sinElTipo, escribeTipos)).toEqual([]);
     expect(infractoresDeCodigo([PUERTA], escribeTipos)).not.toEqual([]);
     // Los poderes los pone `unidadDeCombate`, que vive con el formato de la unidad
     // (`core/unidad.ts`, simplify de F1).
-    const PONE_PODERES = 'src/core/unidad.ts';
+    const PONE_PODERES = ruta('src/core/unidad.ts');
     const escribePoderes = /\bpoderes\s*:(?!\s*readonly)|\{\s*poderes\s*\}|\.poderes\s*=(?!=)/;
     const ni = [...CORE, ...SERVIDOR].filter((r) => r !== PONE_PODERES);
     expect(infractoresDeCodigo(ni, escribePoderes)).toEqual([]);
@@ -1432,11 +1186,11 @@ describe('invariantes del proyecto', () => {
     // en `battle.ts` salen rojos con su línea.
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     expect(infractoresDeCodigo(todos, /\bpiezasDeArena\b|\bpiezasDeLaPelea\b/)).toEqual([]);
-    const MOTOR = CORE.filter((r) => r.startsWith('src/core/battle/'));
+    const MOTOR = CORE.filter((r) => r.startsWith(ruta('src/core/battle/')));
     const leeUnCatalogo =
       /\b(?:EQUIPO_DEL_JUEGO|catalogoDeEquipo|equipoCon|PIEZAS_DEL_CATALOGO|CatalogoDeEquipo|EquipoAtado)\b/;
     expect(infractoresDeCodigo(MOTOR, leeUnCatalogo)).toEqual([]);
-    expect(infractoresDeCodigo(['src/core/arena.ts'], leeUnCatalogo)).not.toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/core/arena.ts')], leeUnCatalogo)).not.toEqual([]);
   });
 
   it('el catálogo de equipo lo carga solo `data.ts`, y la arena lee cada pieza con el suyo', () => {
@@ -1452,7 +1206,7 @@ describe('invariantes del proyecto', () => {
     //      catálogo tal como se cargó, y la arena pelea con el que edita.
     // Rotos a mano: un `import e from '../../data/equipo.json'` en `arena.ts` y un
     // `'data/borradores'` en `state/game.ts` salen rojos con su línea.
-    const PUERTA = 'src/core/data.ts';
+    const PUERTA = ruta('src/core/data.ts');
     const importa = importaDe(/[^'"]*data\/equipo\.json/);
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     expect(
@@ -1463,13 +1217,13 @@ describe('invariantes del proyecto', () => {
     ).toEqual([]);
     expect(infractoresDeCodigo([PUERTA], importa)).not.toEqual([]);
     const ARENA = (r: string): boolean =>
-      r === 'src/core/arena.ts' ||
-      r === 'src/core/arena-murallas.ts' ||
-      r.startsWith('src/client/arena/');
+      r === ruta('src/core/arena.ts') ||
+      r === ruta('src/core/arena-murallas.ts') ||
+      r.startsWith(ruta('src/client/arena/'));
     const veElBorrador = /data\/borradores|tools\/arena\//;
     const fuera = todos.filter((r) => !ARENA(r));
     expect(infractoresDeCodigo(fuera, veElBorrador)).toEqual([]);
-    expect(infractoresDeCodigo(['src/client/arena/main.ts'], veElBorrador)).not.toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/client/arena/main.ts')], veElBorrador)).not.toEqual([]);
 
     // (b) La arena lee las piezas solo con su catálogo atado (`equipoCon`, que da
     // `catalogoDeLaArena`): no importa las lecturas sueltas de `equipo.ts`, que
@@ -1516,26 +1270,26 @@ describe('invariantes del proyecto', () => {
     // `"level": 1` y un `"cost": {…}` en una unidad de `data/unidades.json`, un
     // `readonly nivel: number;` en `UnitInfo`, un `{ ...u, sinEquipo: u }` en
     // `arena.ts` y una `function nivelDeUnidad` en `strategy.ts` salen rojos.
-    const catalogo = JSON.parse(leer('data/unidades.json')) as {
+    const catalogo = JSON.parse(leer(ruta('data/unidades.json'))) as {
       unidades: { id: string; [campo: string]: unknown }[];
     };
     expect(
       catalogo.unidades.filter((u) => 'level' in u || 'nivel' in u || 'cost' in u).map((u) => u.id),
     ).toEqual([]);
-    const tipos = codigoDe('src/core/types.ts');
+    const tipos = codigoDe(ruta('src/core/types.ts'));
     const unitInfo = /export interface UnitInfo \{[\s\S]*?\n\}/.exec(tipos)?.[0];
     if (unitInfo === undefined) throw new Error('no encuentro `interface UnitInfo` en types.ts');
     expect(unitInfo).not.toMatch(/\b(?:nivel|level)\??\s*:/);
     expect(infractoresDeCodigo([...CORE, ...CLIENTE, ...SERVIDOR], /\bsinEquipo\b/)).toEqual([]);
     // Y el índice y el nivel los calcula `nivel.ts`, y nadie más.
     const calcula = /\bfunction\s+(?:indiceDePoder|nivelDeUnidad|nivelDelIndice|poderBruto)\b/;
-    const otros = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== 'src/core/nivel.ts');
+    const otros = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== ruta('src/core/nivel.ts'));
     expect(infractoresDeCodigo(otros, calcula)).toEqual([]);
-    expect(infractoresDeCodigo(['src/core/nivel.ts'], calcula)).not.toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/core/nivel.ts')], calcula)).not.toEqual([]);
     // Con sus pesos (`PODER.pesosDeLaRueda`), no los de la IA: retocar cómo elige
     // la IA no mueve índices (simplify de F1). Roto a mano: un
     // `PESOS_DE_LA_RUEDA.golpe` en `ofensaDelAtaque` sale rojo.
-    expect(infractoresDeCodigo(['src/core/nivel.ts'], /\bPESOS_DE_LA_RUEDA\b/)).toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/core/nivel.ts')], /\bPESOS_DE_LA_RUEDA\b/)).toEqual([]);
   });
 
   it('`nivel.ts` no está en un ciclo de importación: lo que mide lo lee de módulos que no lo importan', () => {
@@ -1548,13 +1302,9 @@ describe('invariantes del proyecto', () => {
     // (simplify de F1, 18-10-2026). Solo cuenta lo que corre: `import type` no.
     // Roto a mano: `golpeDe` importado de `./battle/damage.js` en `nivel.ts` sale
     // rojo con el ciclo entero.
-    const INICIO = 'src/core/nivel.ts';
-    const deUnModulo =
-      /^(?:import|export)\s+(?!type\s)(?:[^;'"]*?\sfrom\s+)?['"](\.\.?\/[^'"]+)['"]/gm;
-    const importa = (ruta: string): string[] =>
-      [...codigoDe(ruta).matchAll(deUnModulo)].map((m) =>
-        join(dirname(ruta), (m[1] as string).replace(/\.js$/, '.ts')),
-      );
+    const INICIO = ruta('src/core/nivel.ts');
+    // El resolutor de los guardias, el de `arranque.test.ts` (fase T, 06-11-2026).
+    const importa = importacionesDe;
     const visto = new Set<string>();
     const ciclo = (ruta: string, camino: readonly string[]): string[] | null => {
       for (const siguiente of importa(ruta)) {
@@ -1568,7 +1318,7 @@ describe('invariantes del proyecto', () => {
     };
     expect(ciclo(INICIO, [INICIO])).toBeNull();
     // Y el guardia ve los imports que corren: `nivel.ts` importa `battle/armas.ts`.
-    expect(importa(INICIO)).toContain('src/core/battle/armas.ts');
+    expect(importa(INICIO)).toContain(ruta('src/core/battle/armas.ts'));
   });
 
   it('los tiros de un disparo los cuenta solo `disparosDe`', () => {
@@ -1576,7 +1326,7 @@ describe('invariantes del proyecto', () => {
     // previsión y la medida del nivel. Eran tres copias de `double_shot ? 2 : 1`
     // (simplify de F1, 18-10-2026). Roto a mano: la de `shoot` devuelta a
     // `battle.ts` sale roja.
-    const PUERTA = 'src/core/battle/armas.ts';
+    const PUERTA = ruta('src/core/battle/armas.ts');
     const cuenta = /hasTrait\([^)]*['"]double_shot['"]\s*\)/;
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     expect(
@@ -1594,7 +1344,7 @@ describe('invariantes del proyecto', () => {
     // un sitio, y el escalón de velocidad de unas casillas (`escalonDeCasillas`) solo
     // lo pide él: si otro lo pidiera, unas casillas escritas a mano se saltarían el
     // peso. Roto a mano: un `escalonDeCasillas(` en `unidad.ts` sale rojo.
-    const CUERPO = 'src/core/cuerpo.ts';
+    const CUERPO = ruta('src/core/cuerpo.ts');
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     const declara = /\bfunction\s+(restaDelPeso|cifrasDelCuerpo|escalonDeCasillas)\b/;
     expect(
@@ -1620,7 +1370,7 @@ describe('invariantes del proyecto', () => {
     // nodos, inicios y otras ciudades donde ella levantaba la muralla. Ahora es
     // del núcleo, y la escena, el generador y la puerta de los planes lo leen de
     // allí. Roto a mano: `LADO_DEL_RECINTO` declarado otra vez en la escena sale rojo.
-    const PUERTA = 'src/core/map/recinto.ts';
+    const PUERTA = ruta('src/core/map/recinto.ts');
     const declara =
       /\b(?:const|let|var)\s+(?:LADO_DEL_RECINTO|SEPARACION_DE_CIUDADES|PUERTAS_DE_LA_CIUDAD)\b/;
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
@@ -1639,7 +1389,7 @@ describe('invariantes del proyecto', () => {
     // las puertas de su recinto (`PUERTAS_DE_LA_CIUDAD`), que mira el juego. Si
     // `puertas.ts` volviera a nombrar la ciudad, habría dos reglas para la
     // misma puerta. Roto a mano: `town: [[0, 1]]` en `RUMBOS` sale rojo.
-    expect(infractoresDeCodigo(['src/core/map/puertas.ts'], /\btown\b/)).toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/core/map/puertas.ts')], /\btown\b/)).toEqual([]);
     // Y el paso por el recinto lo lee solo `map.ts` (el Dijkstra, `stepCost`,
     // `sePasa`): nadie más decide por su cuenta qué casilla del recinto se pisa.
     // El de la batalla (`battle/`) es otro: el de los muros de la muralla.
@@ -1648,9 +1398,9 @@ describe('invariantes del proyecto', () => {
       infractoresDeCodigo(
         [...CORE, ...CLIENTE, ...SERVIDOR].filter(
           (r) =>
-            r !== 'src/core/map/map.ts' &&
-            r !== 'src/core/map/recinto.ts' &&
-            !r.startsWith('src/core/battle/'),
+            r !== ruta('src/core/map/map.ts') &&
+            r !== ruta('src/core/map/recinto.ts') &&
+            !r.startsWith(ruta('src/core/battle/')),
         ),
         lee,
       ),
@@ -1665,7 +1415,7 @@ describe('invariantes del proyecto', () => {
     // (`RUTA_DEL_CATALOGO_DE_UNIDADES`), no importándolo: así lo abre aunque esté
     // roto. Roto a mano: un `import u from '../../data/unidades.json'` en
     // `arena.ts` sale rojo.
-    const PUERTA = 'src/core/catalogo.ts';
+    const PUERTA = ruta('src/core/catalogo.ts');
     const importa = importaDe(/[^'"]*data\/unidades\.json/);
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     expect(
@@ -1688,9 +1438,9 @@ describe('invariantes del proyecto', () => {
     // herramientas solo la usa la puerta. Rotos a mano: un `import b from
     // '../../data/npcs.json'` en `session.ts`, un `readFileSync('data/npcs.json')` y
     // un `jsonDe(RAIZ, RUTA_DEL_BANCO)` en `cli.ts`, salen rojos.
-    const PUERTA = 'tools/npcs/banco.ts';
-    const NOMBRE = 'src/core/npcs.ts';
-    const HERRAMIENTAS = ficheros('tools');
+    const PUERTA = ruta('tools/npcs/banco.ts');
+    const NOMBRE = ruta('src/core/npcs.ts');
+    const HERRAMIENTAS = ficheros(ruta('tools'));
     expect(
       infractoresDeCodigo(
         [...CORE, ...CLIENTE, ...SERVIDOR, ...HERRAMIENTAS],
@@ -1698,14 +1448,14 @@ describe('invariantes del proyecto', () => {
       ),
     ).toEqual([]);
     // La ruta como literal entero (lo que se abre); dentro de una frase no es leerlo.
-    const ruta = /['"`](?:\.\.\/)*(?:\.\/)?data\/npcs\.json['"`]/;
+    const rutaEscrita = /['"`](?:\.\.\/)*(?:\.\/)?data\/npcs\.json['"`]/;
     expect(
       infractoresDeCodigo(
         [...CORE, ...SERVIDOR, ...CLIENTE, ...HERRAMIENTAS].filter((r) => r !== NOMBRE),
-        ruta,
+        rutaEscrita,
       ),
     ).toEqual([]);
-    expect(infractoresDeCodigo([NOMBRE], ruta)).not.toEqual([]);
+    expect(infractoresDeCodigo([NOMBRE], rutaEscrita)).not.toEqual([]);
     const usaLaRuta = /\bRUTA_DEL_BANCO\b/;
     expect(
       infractoresDeCodigo(
@@ -1724,11 +1474,11 @@ describe('invariantes del proyecto', () => {
     // a mano: un `cuerpoDeGente` en `render/batalla.ts` sale rojo.
     const PELEA = CLIENTE.filter(
       (r) =>
-        r === 'src/client/render/batalla.ts' ||
-        r === 'src/client/anim.ts' ||
-        r.startsWith('src/client/rueda/') ||
-        r.startsWith('src/client/arena/') ||
-        r.startsWith('src/client/espectador/'),
+        r === ruta('src/client/render/batalla.ts') ||
+        r === ruta('src/client/anim.ts') ||
+        r.startsWith(ruta('src/client/rueda/')) ||
+        r.startsWith(ruta('src/client/arena/')) ||
+        r.startsWith(ruta('src/client/espectador/')),
     );
     expect(PELEA.length).toBeGreaterThan(5);
     expect(
@@ -1745,9 +1495,9 @@ describe('invariantes del proyecto', () => {
     // marca que solo pone `leerMundo`, después de `problemasDelMundo`. Un
     // `as MundoLeido` en otro sitio colaría un mundo sin juzgar en una partida.
     // Roto a mano: un `as MundoLeido` en `client/mundo/cargar.ts` sale rojo.
-    const LECTURA = 'src/core/mundo/validar.ts';
+    const LECTURA = ruta('src/core/mundo/validar.ts');
     const produceUno = /\bas\s+MundoLeido\b|<MundoLeido>/;
-    const todos = [...CORE, ...CLIENTE, ...SERVIDOR, ...ficheros('tools')];
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR, ...ficheros(ruta('tools'))];
     expect(
       infractoresDeCodigo(
         todos.filter((r) => r !== LECTURA),
@@ -1767,7 +1517,7 @@ describe('invariantes del proyecto', () => {
     // `manosBlocker`, que leen el juego, el agente y la arena. Rotos a mano: un
     // `slot: 'shield' as Slot` en `serialize.ts`, un `p.manos === 2` en `arena.ts` y
     // una `function manosBlocker` en `game.ts` salen rojos.
-    const TRADUCCION = 'src/core/contract/vocabulario.ts';
+    const TRADUCCION = ruta('src/core/contract/vocabulario.ts');
     const produceUnSlot = /\bas\s+Slot\b|<Slot>/;
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     expect(
@@ -1780,7 +1530,7 @@ describe('invariantes del proyecto', () => {
     // @ts-expect-error: un `Slot` no se escribe a mano: lo da `SLOT_DE_HUECO`.
     const aMano: Slot = 'melee_weapon';
     expect(SLOTS).toContain(aMano);
-    const MANOS = ['src/core/hero/equipo.ts', 'src/core/data.ts'];
+    const MANOS = [ruta('src/core/hero/equipo.ts'), ruta('src/core/data.ts')];
     const leeManos = /\.manos\b/;
     expect(
       infractoresDeCodigo(
@@ -1788,7 +1538,7 @@ describe('invariantes del proyecto', () => {
         leeManos,
       ),
     ).toEqual([]);
-    expect(infractoresDeCodigo(['src/core/hero/equipo.ts'], leeManos)).not.toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/core/hero/equipo.ts')], leeManos)).not.toEqual([]);
     const define = /\bfunction\s+manosBlocker\b/;
     expect(
       infractoresDeCodigo(
@@ -1813,8 +1563,12 @@ describe('invariantes del proyecto', () => {
     // `s.unit.armas?.distancia` en `paneles.ts` y un `SLOT_DE_HUECO` sin `carga`
     // salen rojos.
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
-    const ESCRITOR = 'src/core/hero/equipo.ts';
-    const LECTORES = [ESCRITOR, 'src/core/battle/armas.ts', 'src/core/battle/damage.ts'];
+    const ESCRITOR = ruta('src/core/hero/equipo.ts');
+    const LECTORES = [
+      ESCRITOR,
+      ruta('src/core/battle/armas.ts'),
+      ruta('src/core/battle/damage.ts'),
+    ];
     const escribe = /\barmas\s*:/;
     expect(
       infractoresDeCodigo(
@@ -1830,7 +1584,7 @@ describe('invariantes del proyecto', () => {
         lee,
       ),
     ).toEqual([]);
-    expect(infractoresDeCodigo(['src/core/battle/armas.ts'], lee)).not.toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/core/battle/armas.ts')], lee)).not.toEqual([]);
 
     expect(SLOTS).toHaveLength(HUECOS.length);
     expect(Object.keys(SLOT_DE_HUECO)).toEqual([...HUECOS]);
@@ -1852,8 +1606,10 @@ describe('invariantes del proyecto', () => {
     // con una montura de guerra, 26-10-2026); quien lo enseña, `esLanza`. Una carga que mirara la pieza por su cuenta tendría su
     // propia regla. El `lanza` de la cola de la animación es quien lanza un hechizo:
     // fuera. Roto a mano: un `p.lanza` en `carga.ts` sale rojo.
-    const LEEN = ['src/core/hero/equipo.ts', 'src/core/data.ts'];
-    const todos = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== 'src/client/anim.ts');
+    const LEEN = [ruta('src/core/hero/equipo.ts'), ruta('src/core/data.ts')];
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR].filter(
+      (r) => r !== ruta('src/client/anim.ts'),
+    );
     const lee = /\.lanza\b/;
     expect(
       infractoresDeCodigo(
@@ -1861,7 +1617,7 @@ describe('invariantes del proyecto', () => {
         lee,
       ),
     ).toEqual([]);
-    expect(infractoresDeCodigo(['src/core/hero/equipo.ts'], lee)).not.toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/core/hero/equipo.ts')], lee)).not.toEqual([]);
   });
 
   it('las armas de fuego y las granadas: lo que tira lo leen tres módulos y la recarga y las granadas de un stack las escribe la batalla', () => {
@@ -1880,7 +1636,11 @@ describe('invariantes del proyecto', () => {
     //      turno. Quien los escribiera por su cuenta daría disparos o granadas sin
     //      regla. Roto: un `s.recargando = 0` en `tactics.ts`, rojo.
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
-    const LEEN = ['src/core/data.ts', 'src/core/hero/equipo.ts', 'src/core/battle/armas.ts'];
+    const LEEN = [
+      ruta('src/core/data.ts'),
+      ruta('src/core/hero/equipo.ts'),
+      ruta('src/core/battle/armas.ts'),
+    ];
     const lee = /\.tiro\b/;
     expect(
       infractoresDeCodigo(
@@ -1888,9 +1648,9 @@ describe('invariantes del proyecto', () => {
         lee,
       ),
     ).toEqual([]);
-    expect(infractoresDeCodigo(['src/core/battle/armas.ts'], lee)).not.toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/core/battle/armas.ts')], lee)).not.toEqual([]);
 
-    const ESCRIBE = 'src/core/battle/battle.ts';
+    const ESCRIBE = ruta('src/core/battle/battle.ts');
     const escribe = /\.(recargando|granada|granadasLanzadas)\s*(\+|-)?=(?!=)/;
     expect(
       infractoresDeCodigo(
@@ -1923,7 +1683,7 @@ describe('invariantes del proyecto', () => {
     //      del catálogo; montar es llevar una montura de guerra. El «charge» de los
     //      clips de la animación (correr) es otra cosa y no se mira.
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
-    const ESCRITOR = 'src/core/hero/equipo.ts';
+    const ESCRITOR = ruta('src/core/hero/equipo.ts');
     const escribe =
       /\bmontura\s*:\s*(\{\s*(id|nombre|fuerza|agilidad|peso|guerra)\b|monturaPuesta\s*\()/;
     expect(
@@ -1934,7 +1694,7 @@ describe('invariantes del proyecto', () => {
     ).toEqual([]);
     expect(infractoresDeCodigo([ESCRITOR], escribe)).not.toEqual([]);
 
-    const CUENTA = ['src/core/cuerpo.ts', ESCRITOR];
+    const CUENTA = [ruta('src/core/cuerpo.ts'), ESCRITOR];
     const lanza = /\bfuerzaDeLaLanza\b/;
     expect(
       infractoresDeCodigo(
@@ -1942,9 +1702,9 @@ describe('invariantes del proyecto', () => {
         lanza,
       ),
     ).toEqual([]);
-    expect(infractoresDeCodigo(['src/core/cuerpo.ts'], lanza)).not.toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/core/cuerpo.ts')], lanza)).not.toEqual([]);
 
-    const LEEN = ['src/core/data.ts', ESCRITOR, 'src/core/cuerpo.ts'];
+    const LEEN = [ruta('src/core/data.ts'), ESCRITOR, ruta('src/core/cuerpo.ts')];
     const guerra = /\.guerra\b/;
     expect(
       infractoresDeCodigo(
@@ -1952,7 +1712,7 @@ describe('invariantes del proyecto', () => {
         guerra,
       ),
     ).toEqual([]);
-    expect(infractoresDeCodigo(['src/core/cuerpo.ts'], guerra)).not.toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/core/cuerpo.ts')], guerra)).not.toEqual([]);
 
     expect(CREATURE_TRAITS as readonly string[]).not.toContain('charge');
     expect(UNIDADES.filter((u) => (u.traits as readonly string[]).includes('charge'))).toEqual([]);
@@ -2014,7 +1774,9 @@ describe('invariantes del proyecto', () => {
     // se le escapa a las puertas 2 y 3; lo que lo tapa es la 4, porque para
     // partir así un cast hace falta escribirlo largo, y el atajo corto de
     // verdad es `as any`.
-    const fuera = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== 'src/core/state/game.ts');
+    const fuera = [...CORE, ...CLIENTE, ...SERVIDOR].filter(
+      (r) => r !== ruta('src/core/state/game.ts'),
+    );
     const puertas: readonly (readonly [string, RegExp])[] = [
       // 1 · el log casteado a algo escribible. `as const` pasa: no abre nada.
       ['el log casteado', /\.log\s+as\s+(?!const\b)/],
@@ -2168,7 +1930,7 @@ describe('invariantes del proyecto', () => {
       [...CORE, ...CLIENTE, ...SERVIDOR],
       /\.owner\s*=(?!=)|\[\s*['"`]owner['"`]\s*\]\s*=(?!=)/,
     );
-    const codigo = codigoDe('src/core/state/game.ts').split('\n');
+    const codigo = codigoDe(ruta('src/core/state/game.ts')).split('\n');
     const funcionDe = (linea: number): string | null => {
       for (let i = linea - 1; i >= 0; i--) {
         const m = /^function (\w+)/.exec(codigo[i] ?? '');
@@ -2226,11 +1988,12 @@ describe('invariantes del proyecto', () => {
           (l) => l.isStringLiteral() && (l.value === 'town' || l.value === 'village'),
         );
       });
-    const tomar = lineasDeLasDeclaraciones('src/core/state/game.ts', ['tomarElNodo']);
+    const tomar = lineasDeLasDeclaraciones(ruta('src/core/state/game.ts'), ['tomarElNodo']);
     const lecturas: string[] = [];
     for (const fuente of programa.getSourceFiles()) {
-      const ruta = fuente.fileName.slice(RAIZ.length).replace(/^\//, '');
-      if (!ruta.startsWith('src/core/') || ruta === 'src/core/map/regiones.ts') continue;
+      const fichero = fuente.fileName.slice(RAIZ.length).replace(/^\//, '');
+      if (!fichero.startsWith(ruta('src/core/')) || fichero === ruta('src/core/map/regiones.ts'))
+        continue;
       const visitar = (n: ts.Node): void => {
         let de: ts.Node | null = null;
         if (ts.isPropertyAccessExpression(n) && n.name.text === 'owner') de = n.expression;
@@ -2248,8 +2011,8 @@ describe('invariantes del proyecto', () => {
           de = n.parent;
         if (de !== null && esUnSitio(tipos.getTypeAtLocation(de))) {
           const linea = fuente.getLineAndCharacterOfPosition(n.getStart()).line + 1;
-          if (!(ruta === 'src/core/state/game.ts' && tomar.has(linea)))
-            lecturas.push(`${ruta}:${linea} → ${n.getText()}`);
+          if (!(fichero === ruta('src/core/state/game.ts') && tomar.has(linea)))
+            lecturas.push(`${fichero}:${linea} → ${n.getText()}`);
         }
         ts.forEachChild(n, visitar);
       };
@@ -2258,7 +2021,7 @@ describe('invariantes del proyecto', () => {
     expect(lecturas).toEqual([]);
     // Y que mire algo: `tomarElNodo` lo lee (y lo escribe). Sin esto, un tipo que
     // el compilador no resolviera pasaría por vacío.
-    const enTomar = codigoDe('src/core/state/game.ts')
+    const enTomar = codigoDe(ruta('src/core/state/game.ts'))
       .split('\n')
       .filter((l, i) => tomar.has(i + 1) && /\.owner\b/.test(l));
     expect(enTomar.length).toBeGreaterThan(0);
@@ -2274,7 +2037,7 @@ describe('invariantes del proyecto', () => {
       CORE,
       /\btipos\s*\[[^\]]+\]\s*=(?!=)|\btipos\s*\.\s*(fill|set|copyWithin)\s*\(/,
     );
-    const codigo = codigoDe('src/core/map/vestir.ts').split('\n');
+    const codigo = codigoDe(ruta('src/core/map/vestir.ts')).split('\n');
     const funcionDe = (linea: number): string | null => {
       for (let i = linea - 1; i >= 0; i--) {
         const m = /^export function (\w+)/.exec(codigo[i] ?? '');
@@ -2313,7 +2076,9 @@ describe('invariantes del proyecto', () => {
     // trajeron una tercera —el alcance prudente de la IA— y volvió a ser una
     // opción de `alcanceDelHeroe` (`evitarEmboscadas`): el mismo Dijkstra con
     // una marca más no es una segunda puerta.
-    expect(llamadas.filter((e) => e.startsWith('src/core/state/game.ts:'))).toHaveLength(2);
+    expect(llamadas.filter((e) => e.startsWith(`${ruta('src/core/state/game.ts')}:`))).toHaveLength(
+      2,
+    );
   });
 
   it('la forma del tablero de batalla la dice `board.ts`: nadie más importa el ancho de una fila ni compara una columna con un número', () => {
@@ -2337,15 +2102,15 @@ describe('invariantes del proyecto', () => {
       /import\s*(?:type\s*)?(\{[^}]*\}|\*\s*as\s+\w+)\s*from\s*['"]([^'"]*\/board\.js)['"]/g;
     const importadores: string[] = [];
     const conMedidas: string[] = [];
-    for (const ruta of [...CORE, ...CLIENTE, ...SERVIDOR, ...ficheros('src/shared')]) {
-      if (ruta === 'src/core/battle/board.ts') continue;
-      for (const [, nombres, desde] of leer(ruta).matchAll(deBoard)) {
+    for (const fichero of [...CORE, ...CLIENTE, ...SERVIDOR, ...ficheros(ruta('src/shared'))]) {
+      if (fichero === ruta('src/core/battle/board.ts')) continue;
+      for (const [, nombres, desde] of leer(fichero).matchAll(deBoard)) {
         // Solo el `board.ts` de la batalla: `./board.js` lo es desde `battle/`.
         const esElDeLaBatalla =
           (desde as string).endsWith('battle/board.js') ||
-          (desde === './board.js' && ruta.startsWith('src/core/battle/'));
+          (desde === './board.js' && fichero.startsWith(ruta('src/core/battle/')));
         if (!esElDeLaBatalla) continue;
-        importadores.push(ruta);
+        importadores.push(fichero);
         const importados = (nombres as string).startsWith('*')
           ? ['* (todo el módulo)']
           : (nombres as string)
@@ -2360,16 +2125,16 @@ describe('invariantes del proyecto', () => {
               )
               .filter((n) => n !== '');
         for (const n of importados) {
-          if (MEDIDAS_DE_FILA.has(n) || n.startsWith('*')) conMedidas.push(`${ruta} → ${n}`);
+          if (MEDIDAS_DE_FILA.has(n) || n.startsWith('*')) conMedidas.push(`${fichero} → ${n}`);
         }
       }
     }
     expect(conMedidas).toEqual([]);
     // Y que mire algo: la proyección, el editor y el despliegue importan de `board.ts`.
     for (const r of [
-      'src/client/render/proyeccion.ts',
-      'src/client/arena/paneles.ts',
-      'src/core/battle/battle.ts',
+      ruta('src/client/render/proyeccion.ts'),
+      ruta('src/client/arena/paneles.ts'),
+      ruta('src/core/battle/battle.ts'),
     ]) {
       expect(importadores, r).toContain(r);
     }
@@ -2378,7 +2143,7 @@ describe('invariantes del proyecto', () => {
     const bordes = infractoresDeCodigo(
       [
         ...CORE.filter(
-          (r) => /^src\/core\/(?:battle|ai|contract)\//.test(r) || r === 'src/core/arena.ts',
+          (r) => /^src\/core\/(?:battle|ai|contract)\//.test(r) || r === ruta('src/core/arena.ts'),
         ),
         ...CLIENTE,
         ...SERVIDOR,
@@ -2397,9 +2162,9 @@ describe('invariantes del proyecto', () => {
     // es su ventaja declarada (#115), y por eso `ai/` no entra aquí.
     const lectores = infractoresDeCodigo(
       [
-        ...CLIENTE.filter((r) => !r.startsWith('src/client/espectador/')),
-        ...CORE.filter((r) => r.startsWith('src/core/contract/')),
-        ...SERVIDOR.filter((r) => r !== 'src/server/vista-espectador.ts'),
+        ...CLIENTE.filter((r) => !r.startsWith(ruta('src/client/espectador/'))),
+        ...CORE.filter((r) => r.startsWith(ruta('src/core/contract/'))),
+        ...SERVIDOR.filter((r) => r !== ruta('src/server/vista-espectador.ts')),
       ],
       /\bstate\.raiders\b/,
     );
@@ -2408,7 +2173,7 @@ describe('invariantes del proyecto', () => {
     // incluido—, ni el contrato, ni el servidor. (`game.ts` filtra para QUITAR
     // un grupo de la partida, que es mutación y no vista.)
     const filtros = infractoresDeCodigo(
-      [...CLIENTE, ...CORE.filter((r) => r.startsWith('src/core/contract/')), ...SERVIDOR],
+      [...CLIENTE, ...CORE.filter((r) => r.startsWith(ruta('src/core/contract/'))), ...SERVIDOR],
       /\b(?:raiders|asaltantesALaVista\([^)]*\))\s*\.\s*filter\s*\(/,
     );
     expect(filtros).toEqual([]);
@@ -2419,10 +2184,10 @@ describe('invariantes del proyecto', () => {
     // `.filter` pierde; lo segundo, en el lienzo, recorta a la cámara, no decide
     // si se ve.
     expect(
-      infractoresDeCodigo(['src/core/state/asaltantes.ts'], /\braiders\s*\.\s*filter\s*\(/),
+      infractoresDeCodigo([ruta('src/core/state/asaltantes.ts')], /\braiders\s*\.\s*filter\s*\(/),
     ).not.toEqual([]);
     expect(
-      infractoresDeCodigo(['src/server/vista-espectador.ts'], /\bstate\.raiders\b/),
+      infractoresDeCodigo([ruta('src/server/vista-espectador.ts')], /\bstate\.raiders\b/),
     ).not.toEqual([]);
   });
 
@@ -2434,18 +2199,18 @@ describe('invariantes del proyecto', () => {
     // refrescaría `memory` desde lejos. Escribir es marcar o borrar en un `fog`.
     const escritura =
       /\bfog\s*\.\s*(?:add|delete|marcarCuadrado|marcarCuadradoDentroDe|marcarIndices)\s*\(/;
-    const conPermiso = lineasDeLasDeclaraciones('src/core/state/game.ts', [
+    const conPermiso = lineasDeLasDeclaraciones(ruta('src/core/state/game.ts'), [
       'descubrir',
       'revealEverything',
     ]);
     const fuera = infractoresDeCodigo([...CORE, ...CLIENTE, ...SERVIDOR], escritura).filter((l) => {
-      const [ruta, linea] = l.split(' → ')[0]!.split(':');
-      return !(ruta === 'src/core/state/game.ts' && conPermiso.has(Number(linea)));
+      const [fichero, linea] = l.split(' → ')[0]!.split(':');
+      return !(fichero === ruta('src/core/state/game.ts') && conPermiso.has(Number(linea)));
     });
     expect(fuera).toEqual([]);
     // Y que mire algo: los dos escriben.
     expect(
-      infractoresDeCodigo(['src/core/state/game.ts'], escritura).length,
+      infractoresDeCodigo([ruta('src/core/state/game.ts')], escritura).length,
     ).toBeGreaterThanOrEqual(3);
   });
 
@@ -2459,14 +2224,14 @@ describe('invariantes del proyecto', () => {
     // sesión (que es la puerta), el espectador (lo ve todo), el escenógrafo (lee
     // DÓNDE está cada objeto, que no cambia, nunca su estado) y lo de desarrollo.
     const fuera = (r: string) =>
-      r === 'src/client/session.ts' ||
-      r.startsWith('src/client/espectador/') ||
-      r.startsWith('src/client/render/escenario/') ||
-      r.startsWith('src/client/desarrollo/');
+      r === ruta('src/client/session.ts') ||
+      r.startsWith(ruta('src/client/espectador/')) ||
+      r.startsWith(ruta('src/client/render/escenario/')) ||
+      r.startsWith(ruta('src/client/desarrollo/'));
     const lectores = infractoresDeCodigo(
       [
         ...CLIENTE.filter((r) => !fuera(r)),
-        ...CORE.filter((r) => r.startsWith('src/core/contract/')),
+        ...CORE.filter((r) => r.startsWith(ruta('src/core/contract/'))),
       ],
       /\bstate\.heroes\b|\bmap\.objects\b|\bobjectAt\s*\(|\.memory\b/,
     );
@@ -2474,9 +2239,9 @@ describe('invariantes del proyecto', () => {
     // Y que mire algo: el espectador, que lo ve todo, lee los objetos vivos (la
     // sesión ya no: con «Ver mapa entero» pasa también por `objetosConocidos`,
     // que le da el dueño derivado de cada sitio, tarea 2).
-    expect(infractoresDeCodigo(['src/client/espectador/main.ts'], /\bmap\.objects\b/)).not.toEqual(
-      [],
-    );
+    expect(
+      infractoresDeCodigo([ruta('src/client/espectador/main.ts')], /\bmap\.objects\b/),
+    ).not.toEqual([]);
   });
 
   it('el arte de una dirección no vuelve: ninguna figura lee `characters/`, `rpg/scenes` ni un `atlas.webp` raíz', () => {
@@ -2495,7 +2260,7 @@ describe('invariantes del proyecto', () => {
     // `src/client/desarrollo/` no llega a `vite build`: solo `import type` o un
     // `import()` dentro de `if (HERRAMIENTAS_DE_DESARROLLO)`. `sinDesarrollo` lo
     // caza al construir; esto, en cada `pnpm test`, con fichero y línea.
-    const fuera = CLIENTE.filter((r) => !r.startsWith('src/client/desarrollo/'));
+    const fuera = CLIENTE.filter((r) => !r.startsWith(ruta('src/client/desarrollo/')));
     const colados: string[] = [];
     for (const ruta of fuera) {
       const codigo = codigoDe(ruta);
@@ -2524,14 +2289,14 @@ describe('invariantes del proyecto', () => {
     // campo y un renombrado en `core` no compila.
     const tapados: string[] = [];
     let serializadores = 0;
-    for (const ruta of CORE.filter((r) => r.startsWith('src/core/contract/'))) {
-      const codigo = codigoDe(ruta);
+    for (const fichero of CORE.filter((r) => r.startsWith(ruta('src/core/contract/')))) {
+      const codigo = codigoDe(fichero);
       for (const m of codigo.matchAll(
         /export function (serialize\w*)\(([^{]*?)\)\s*(:\s*[^{]+)?\{/g,
       )) {
         serializadores++;
         if (/^:\s*unknown\s*$/.test(m[3] ?? ''))
-          tapados.push(`${ruta}:${lineaDe(codigo, m.index)} → ${m[1]}`);
+          tapados.push(`${fichero}:${lineaDe(codigo, m.index)} → ${m[1]}`);
       }
     }
     expect(tapados).toEqual([]);
@@ -2567,14 +2332,14 @@ describe('invariantes del proyecto', () => {
     // `escenas/tropa.ts`, rojo.
     const base = CLIENTE.filter(
       (r) =>
-        r.startsWith('src/client/render/base/') ||
-        r.startsWith('src/client/render/morada/') ||
-        r === 'src/client/render/de-pie.ts' ||
-        r === 'src/client/escenas/de-pie.ts' ||
-        r === 'src/client/escenas/tropa.ts' ||
-        r === 'src/client/escenas/morada.ts',
+        r.startsWith(ruta('src/client/render/base/')) ||
+        r.startsWith(ruta('src/client/render/morada/')) ||
+        r === ruta('src/client/render/de-pie.ts') ||
+        r === ruta('src/client/escenas/de-pie.ts') ||
+        r === ruta('src/client/escenas/tropa.ts') ||
+        r === ruta('src/client/escenas/morada.ts'),
     );
-    expect(base.filter((r) => r.includes('tropa'))).toEqual(['src/client/escenas/tropa.ts']);
+    expect(base.filter((r) => r.includes('tropa'))).toEqual([ruta('src/client/escenas/tropa.ts')]);
     expect(base.filter((r) => r.includes('morada') || r.includes('de-pie')).length).toBe(4);
     const colados: string[] = [];
     for (const ruta of base) {
@@ -2600,13 +2365,13 @@ describe('invariantes del proyecto', () => {
     // puede fijar su propio alto de figura.
     const base = CLIENTE.filter(
       (r) =>
-        r.startsWith('src/client/render/base/') ||
-        r === 'src/client/escenas/castillo.ts' ||
-        r.startsWith('src/client/render/morada/') ||
-        r === 'src/client/render/de-pie.ts' ||
-        r === 'src/client/escenas/de-pie.ts' ||
-        r === 'src/client/escenas/tropa.ts' ||
-        r === 'src/client/escenas/morada.ts',
+        r.startsWith(ruta('src/client/render/base/')) ||
+        r === ruta('src/client/escenas/castillo.ts') ||
+        r.startsWith(ruta('src/client/render/morada/')) ||
+        r === ruta('src/client/render/de-pie.ts') ||
+        r === ruta('src/client/escenas/de-pie.ts') ||
+        r === ruta('src/client/escenas/tropa.ts') ||
+        r === ruta('src/client/escenas/morada.ts'),
     );
     expect(base.length).toBeGreaterThan(11);
     expect(
@@ -2622,7 +2387,7 @@ describe('invariantes del proyecto', () => {
       [...CORE, ...CLIENTE, ...SERVIDOR],
       /\.voces\s*=(?!=)|\[\s*['"`]voces['"`]\s*\]\s*=(?!=)/,
     );
-    const ajenas = escrituras.filter((e) => !e.startsWith('src/core/town/voces.ts:'));
+    const ajenas = escrituras.filter((e) => !e.startsWith(`${ruta('src/core/town/voces.ts')}:`));
     expect(ajenas).toEqual([]);
     // Y que mire algo: la escritura de verdad tiene que salir.
     expect(escrituras).toHaveLength(1);
@@ -2637,7 +2402,7 @@ describe('invariantes del proyecto', () => {
       [...CORE, ...CLIENTE, ...SERVIDOR],
       /\.climaPedido\s*=(?!=)|\[\s*['"`]climaPedido['"`]\s*\]\s*=(?!=)|\.climaPedido\s*\[[^\]]*\]\s*=(?!=)/,
     );
-    const ajenas = escrituras.filter((e) => !e.startsWith('src/core/state/clima.ts:'));
+    const ajenas = escrituras.filter((e) => !e.startsWith(`${ruta('src/core/state/clima.ts')}:`));
     expect(ajenas).toEqual([]);
     expect(escrituras).toHaveLength(1);
   });
@@ -2653,7 +2418,7 @@ describe('invariantes del proyecto', () => {
       [...CORE, ...CLIENTE, ...SERVIDOR],
       /\bapplyWeeklyGrowth\s*\(/,
     );
-    const codigo = codigoDe('src/core/state/game.ts').split('\n');
+    const codigo = codigoDe(ruta('src/core/state/game.ts')).split('\n');
     const funcionDe = (linea: number): string | null => {
       for (let i = linea - 1; i >= 0; i--) {
         const m = /^(?:export )?function (\w+)/.exec(codigo[i] ?? '');
@@ -2662,15 +2427,17 @@ describe('invariantes del proyecto', () => {
       return null;
     };
     const ajenas = llamadas.filter((e) => {
-      if (e.startsWith('src/core/town/town.ts:'))
+      if (e.startsWith(`${ruta('src/core/town/town.ts')}:`))
         return !/export function applyWeeklyGrowth/.test(e);
       const m = /^src\/core\/state\/game\.ts:(\d+) /.exec(e);
       return m === null || funcionDe(Number(m[1])) !== 'crecerLasMoradas';
     });
     expect(ajenas).toEqual([]);
     // Y que mire algo: la llamada de verdad.
-    expect(llamadas.filter((e) => e.startsWith('src/core/state/game.ts:'))).toHaveLength(1);
-    expect(codigoDe('src/core/state/game.ts')).toMatch(
+    expect(llamadas.filter((e) => e.startsWith(`${ruta('src/core/state/game.ts')}:`))).toHaveLength(
+      1,
+    );
+    expect(codigoDe(ruta('src/core/state/game.ts'))).toMatch(
       /function crecerLasMoradas[\s\S]*?ocupanteDe\(state, sitioDeLaCiudad\(town\)\)/,
     );
   });
@@ -2701,7 +2468,7 @@ describe('invariantes del proyecto', () => {
     // mano (04-11-2026): un `delete state.guarniciones[nodo.id]` en `captureNode` y
     // un `state.guarniciones[o.id] = { dueño: 0, tropa: [] }` en `director.ts` salen
     // rojos con su línea.
-    const PUERTA = 'src/core/state/sitios.ts';
+    const PUERTA = ruta('src/core/state/sitios.ts');
     const escrituras = infractoresDeCodigo(
       [...CORE, ...CLIENTE, ...SERVIDOR],
       /\bguarniciones\s*(?:\[[^\]]*\]\s*)?=(?!=)|\bdelete\s+[\w.]*guarniciones\b|\bguarniciones\s*\[[^\]]*\]\s*\.\w+\s*=(?!=)/,
@@ -2717,7 +2484,7 @@ describe('invariantes del proyecto', () => {
     // recogería cada turno) o de menos (saldría sin la tropa). Roto a mano
     // (04-11-2026): un `hero.vueltoACasa = true` en `hireHero` y un `delete
     // hero.vueltoACasa` en `ai/turn.ts` salen rojos con su línea.
-    const PERMITIDO = 'src/core/state/game.ts';
+    const PERMITIDO = ruta('src/core/state/game.ts');
     const conPermiso = lineasDeLasDeclaraciones(PERMITIDO, ['volverABase', 'nextPlayer']);
     const escrituras: string[] = [];
     for (const ruta of [...CORE, ...CLIENTE, ...SERVIDOR]) {
@@ -2740,7 +2507,7 @@ describe('invariantes del proyecto', () => {
     // tomar el paso no la toca: es una obra y se queda con él. Roto a mano
     // (04-11-2026): un `nodo.mejora = 'ninguna'` en `captureNode` sale rojo con su
     // línea.
-    const PERMITIDO = 'src/core/state/sitios.ts';
+    const PERMITIDO = ruta('src/core/state/sitios.ts');
     const conPermiso = lineasDeLasDeclaraciones(PERMITIDO, ['mejorarElPuesto']);
     const escribe = /\.mejora\s*=(?!=)/;
     const escrituras: string[] = [];
@@ -2763,12 +2530,12 @@ describe('invariantes del proyecto', () => {
     // llamada, `batallaDeLaFormacion` (la fase de despliegue de `main`, fusionada el
     // 05-11-2026), no es una batalla del mapa: es la vista de la formación de un
     // héroe contra nadie, que no nace ni se pelea.
-    const PERMITIDO = 'src/core/state/game.ts';
+    const PERMITIDO = ruta('src/core/state/game.ts');
     const conPermiso = lineasDeLasDeclaraciones(PERMITIDO, [
       'montarLaBatalla',
       'batallaDeLaFormacion',
     ]);
-    const deState = CORE.filter((r) => r.startsWith('src/core/state/'));
+    const deState = CORE.filter((r) => r.startsWith(ruta('src/core/state/')));
     const llamadas: string[] = [];
     for (const ruta of deState) {
       for (const [i, linea] of codigoDe(ruta).split('\n').entries()) {
@@ -2788,7 +2555,7 @@ describe('invariantes del proyecto', () => {
     // por su cuenta montaría una batalla con una forma sin juzgar, que podría no
     // cerrar o no asaltarse y acabar por `MAX_ROUNDS`. Roto a mano (04-11-2026): un
     // `import s from '../../../data/sitios.json'` en `state/game.ts` sale rojo.
-    const PUERTA = 'src/core/state/sitios.ts';
+    const PUERTA = ruta('src/core/state/sitios.ts');
     const importa = importaDe(/[^'"]*data\/sitios\.json/);
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     expect(
@@ -2811,7 +2578,7 @@ describe('invariantes del proyecto', () => {
     // fuera solo se suelta (`soltar`). Roto a mano (04-11-2026): un
     // `this.apuntados.apuntar({ kind: 'muralla', id: 'subir' })` en `Session` sale rojo
     // con su línea.
-    const PERMITIDO = 'src/client/session.ts';
+    const PERMITIDO = ruta('src/client/session.ts');
     const conPermiso = lineasDeLasDeclaraciones(PERMITIDO, ['MurallaDeLaActiva']);
     const apunta = /\{\s*kind:\s*'muralla'/;
     const escrituras: string[] = [];
@@ -2834,7 +2601,7 @@ describe('invariantes del proyecto', () => {
     // nunca el tipo por defecto, o el banco cambia). Roto a mano: un
     // `hasTrait(u, 'infiltrarse')` en `ai/strategy.ts` y un `import i from
     // '../../data/infiltradores.json'` en `contract/serialize.ts` salen rojos.
-    const RASGO = ['src/core/types.ts', 'src/core/hero/infiltracion.ts'];
+    const RASGO = [ruta('src/core/types.ts'), ruta('src/core/hero/infiltracion.ts')];
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     // Con comillas simples, como se escribe en el código (biome): la prosa del
     // agente lo nombra entre dobles dentro de su plantilla, y eso no es leerlo.
@@ -2845,9 +2612,9 @@ describe('invariantes del proyecto', () => {
         lee,
       ),
     ).toEqual([]);
-    expect(infractoresDeCodigo(['src/core/hero/infiltracion.ts'], lee)).not.toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/core/hero/infiltracion.ts')], lee)).not.toEqual([]);
 
-    const PUERTA = 'src/core/data.ts';
+    const PUERTA = ruta('src/core/data.ts');
     const importa = importaDe(/[^'"]*data\/infiltradores\.json/);
     expect(
       infractoresDeCodigo(
@@ -2869,7 +2636,7 @@ describe('invariantes del proyecto', () => {
       [...CORE, ...CLIENTE, ...SERVIDOR],
       /\.despliegue\s*=(?!=)|\[\s*['"`]despliegue['"`]\s*\]\s*=(?!=)/,
     );
-    const ajenas = escrituras.filter((e) => !e.startsWith('src/core/battle/battle.ts:'));
+    const ajenas = escrituras.filter((e) => !e.startsWith(`${ruta('src/core/battle/battle.ts')}:`));
     expect(ajenas).toEqual([]);
     // Y que mire algo: las de `battle.ts` tienen que salir.
     expect(escrituras.length).toBeGreaterThan(0);
@@ -2882,9 +2649,9 @@ describe('invariantes del proyecto', () => {
     // `EscenaBatalla.batallaQueSeCuenta`, para el animador. Roto a mano
     // (02-11-2026): un `this.sesion().batallaEntera` en `unidadEn` sale rojo con su
     // línea, y `renderBattlePanel` leyendo `session.battle`, también.
-    const ESCENA = 'src/client/escenas/batalla.ts';
+    const ESCENA = ruta('src/client/escenas/batalla.ts');
     const lecturas = infractoresDeCodigo(
-      CLIENTE.filter((r) => r !== 'src/client/session.ts'),
+      CLIENTE.filter((r) => r !== ruta('src/client/session.ts')),
       /\.batallaEntera\b/,
     );
     const permitidas = lineasDeLasDeclaraciones(ESCENA, ['EscenaBatalla']);
@@ -2903,9 +2670,9 @@ describe('invariantes del proyecto', () => {
     expect(
       infractoresDeCodigo(
         [
-          'src/client/views/panels.ts',
-          'src/client/arena/paneles.ts',
-          'src/client/views/poderes.ts',
+          ruta('src/client/views/panels.ts'),
+          ruta('src/client/arena/paneles.ts'),
+          ruta('src/client/views/poderes.ts'),
         ],
         /\b(session|s)\.battle\b/,
       ),
@@ -2916,7 +2683,7 @@ describe('invariantes del proyecto', () => {
     // Las cifras del clima (pesos, rachas, topes del narrador) se leen validadas
     // en un sitio (`validarClima`). Roto a mano: un `import c from
     // '../../data/clima.json'` en `render/clima/recetas.ts` sale rojo.
-    const PUERTA = 'src/core/state/clima.ts';
+    const PUERTA = ruta('src/core/state/clima.ts');
     const importa = importaDe(/[^'"]*data\/clima\.json/);
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     expect(
@@ -2934,7 +2701,7 @@ describe('invariantes del proyecto', () => {
     // sin juzgar. La arena escribe el fichero desde `tools/arena/` (no lo importa).
     // Roto a mano: un `import h from '../../../data/hechizos.json'` en
     // `battle/spells.ts` sale rojo.
-    const PUERTA = 'src/core/magia/catalogo.ts';
+    const PUERTA = ruta('src/core/magia/catalogo.ts');
     const importa = importaDe(/[^'"]*data\/hechizos\.json/);
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     expect(
@@ -2951,7 +2718,7 @@ describe('invariantes del proyecto', () => {
     // `alMorir` (el editor de magia, 06-11-2026): un `perished` empujado a mano se
     // los saltaría. Roto a mano: un `state.log.push({ kind: 'perished', … })` en
     // `herirYContar` sale rojo.
-    const PUERTA = 'src/core/battle/battle.ts';
+    const PUERTA = ruta('src/core/battle/battle.ts');
     const escribe = /kind: 'perished'/;
     const todos = [...CORE].filter((r) => r !== PUERTA && !r.endsWith('/types.ts'));
     expect(infractoresDeCodigo(todos, escribe)).toEqual([]);
@@ -2968,7 +2735,7 @@ describe('invariantes del proyecto', () => {
     // partida, la arena y el espectador, que no la tienen, no podrían usarla.
     // Roto a mano: un `import type { Session } from '../../session.js'` en
     // `render/clima/clima.ts` sale rojo.
-    const pieza = CLIENTE.filter((r) => r.startsWith('src/client/render/clima/'));
+    const pieza = CLIENTE.filter((r) => r.startsWith(ruta('src/client/render/clima/')));
     expect(pieza.length).toBeGreaterThanOrEqual(4);
     expect(infractoresDeCodigo(pieza, importaDe(/[^'"]*session(?:\.js)?/))).toEqual([]);
   });
@@ -2981,9 +2748,11 @@ describe('invariantes del proyecto', () => {
     // en `arena/main.ts` sale rojo con su línea.
     const escribeElTema =
       /dataset\s*(?:\.\s*tema|\[\s*['"`]tema['"`]\s*\])\s*=(?!=)|delete\s+[\w.]*dataset\s*\.\s*tema\b|['"`]data-tema['"`]/;
-    const fuera = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== 'src/client/temas.ts');
+    const fuera = [...CORE, ...CLIENTE, ...SERVIDOR].filter(
+      (r) => r !== ruta('src/client/temas.ts'),
+    );
     expect(infractoresDeCodigo(fuera, escribeElTema)).toEqual([]);
-    expect(infractoresDeCodigo(['src/client/temas.ts'], escribeElTema)).not.toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/client/temas.ts')], escribeElTema)).not.toEqual([]);
   });
 
   it('la forma de los temas vive en forma.css y toda regla suya empieza por `:root[data-tema]`', () => {
@@ -2995,7 +2764,7 @@ describe('invariantes del proyecto', () => {
     // `#side h3 { letter-spacing: 3px }` sin el prefijo en `forma.css` sale rojo
     // con su línea, y `:root[data-tema] #day { padding: 0 }` en `style.css`, también.
     const sinTema: string[] = [];
-    const deForma = bloquesCss(leer('src/client/forma.css'));
+    const deForma = bloquesCss(leer(ruta('src/client/forma.css')));
     for (const { selector, linea } of deForma) {
       if (selector.startsWith('@')) continue;
       for (const parte of selector.split(','))
@@ -3046,7 +2815,7 @@ describe('invariantes del proyecto', () => {
       /\.font\s*=.*(?:system-ui|sans-serif|\bserif\b|monospace|cursive|fantasy|Georgia|DejaVu|Times|Arial|Helvetica|Verdana)/;
     // Las herramientas de desarrollo (`src/client/desarrollo/`, solo en `pnpm dev`)
     // no se visten: pintan sobre el mapa lo que se mide, en la letra del sistema.
-    const lienzoDelJuego = CLIENTE.filter((r) => !r.startsWith('src/client/desarrollo/'));
+    const lienzoDelJuego = CLIENTE.filter((r) => !r.startsWith(ruta('src/client/desarrollo/')));
     expect(infractoresDeCodigo(lienzoDelJuego, familiaEscrita)).toEqual([]);
     // Y el guardia mira algo: el lienzo sí pone letras.
     expect(
@@ -3087,8 +2856,8 @@ describe('la armadura (#262)', () => {
     // en `paneles.ts`, un `hp: unit.hp + pv` en la suma y un `'pv'` en
     // `CAMPOS_DE_PIEZA` salen rojos.
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
-    const ESCRITOR = 'src/core/hero/equipo.ts';
-    const LECTORES = [ESCRITOR, 'src/core/battle/armas.ts', 'src/core/types.ts'];
+    const ESCRITOR = ruta('src/core/hero/equipo.ts');
+    const LECTORES = [ESCRITOR, ruta('src/core/battle/armas.ts'), ruta('src/core/types.ts')];
     const menciona = /\bpuntosDeArmadura\b/;
     expect(
       infractoresDeCodigo(
@@ -3096,7 +2865,7 @@ describe('la armadura (#262)', () => {
         menciona,
       ),
     ).toEqual([]);
-    expect(infractoresDeCodigo(['src/core/battle/armas.ts'], menciona)).not.toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/core/battle/armas.ts')], menciona)).not.toEqual([]);
     const escribe = /\bpuntosDeArmadura\s*:|\{\s*puntosDeArmadura\s*\}|\.puntosDeArmadura\s*=(?!=)/;
     expect(
       infractoresDeCodigo(
@@ -3158,50 +2927,56 @@ describe('las bases y la rueda del arma (18-10-2026)', () => {
     const llamada = /\bresolverBases\b/;
     expect(
       infractoresDeCodigo(
-        todos.filter((r) => r !== 'src/core/data.ts'),
+        todos.filter((r) => r !== ruta('src/core/data.ts')),
         llamada,
       ),
     ).toEqual([]);
-    expect(infractoresDeCodigo(['src/core/data.ts'], /\bresolverBases\s*\(/)).not.toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/core/data.ts')], /\bresolverBases\s*\(/)).not.toEqual([]);
     // Y en `data.ts`, la llama solo `leerPiezas`: el catálogo (fichero, arena y
     // pelea) pasa por él.
     expect(
-      fueraDe(/\bresolverBases\s*\(/, { 'src/core/data.ts': ['resolverBases', 'leerPiezas'] }, [
-        'src/core/data.ts',
-      ]),
+      fueraDe(
+        /\bresolverBases\s*\(/,
+        { [ruta('src/core/data.ts')]: ['resolverBases', 'leerPiezas'] },
+        [ruta('src/core/data.ts')],
+      ),
     ).toEqual([]);
 
     const extras = /\.extras\b/;
     const leenExtras = (r: string): boolean =>
-      r === 'src/core/data.ts' || r === 'src/core/arena.ts' || r.startsWith('src/client/arena/');
+      r === ruta('src/core/data.ts') ||
+      r === ruta('src/core/arena.ts') ||
+      r.startsWith(ruta('src/client/arena/'));
     expect(
       infractoresDeCodigo(
         todos.filter((r) => !leenExtras(r)),
         extras,
       ),
     ).toEqual([]);
-    expect(infractoresDeCodigo(['src/core/data.ts'], extras)).not.toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/core/data.ts')], extras)).not.toEqual([]);
 
     const tabla = /\bTABLA\b/;
     expect(
       fueraDe(tabla, {
-        'src/core/battle/cifras-de-la-rueda.ts': [
+        [ruta('src/core/battle/cifras-de-la-rueda.ts')]: [
           'TABLA',
           'cifrasDeLosNiveles',
           'GOLPES_DEL_RAPIDO',
         ],
       }),
     ).toEqual([]);
-    expect(infractoresDeCodigo(['src/core/battle/cifras-de-la-rueda.ts'], tabla)).not.toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/core/battle/cifras-de-la-rueda.ts')], tabla)).not.toEqual(
+      [],
+    );
     const traduce = /\bcifrasDeLosNiveles\s*\(/;
     expect(
       fueraDe(traduce, {
-        'src/core/battle/cifras-de-la-rueda.ts': ['cifrasDeLosNiveles'],
-        'src/core/battle/armas.ts': ['ruedaDelGolpe'],
-        'src/core/battle/rueda.ts': ['filasDeLaRueda'],
+        [ruta('src/core/battle/cifras-de-la-rueda.ts')]: ['cifrasDeLosNiveles'],
+        [ruta('src/core/battle/armas.ts')]: ['ruedaDelGolpe'],
+        [ruta('src/core/battle/rueda.ts')]: ['filasDeLaRueda'],
       }),
     ).toEqual([]);
-    expect(infractoresDeCodigo(['src/core/battle/armas.ts'], traduce)).not.toEqual([]);
-    expect(infractoresDeCodigo(['src/core/battle/rueda.ts'], traduce)).not.toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/core/battle/armas.ts')], traduce)).not.toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/core/battle/rueda.ts')], traduce)).not.toEqual([]);
   });
 });

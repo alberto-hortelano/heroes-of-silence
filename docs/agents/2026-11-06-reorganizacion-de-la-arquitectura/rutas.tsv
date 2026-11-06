@@ -184,3 +184,6 @@ simbolo	tools/taller/escenario/modulos.ts	(retirado)	hoja
 simbolo	tools/art/poses.ts	(retirado)	AtrezoDeTiro
 simbolo	tools/taller/derivar.ts	(retirado)	ClipDeHoja
 simbolo	tools/taller/temas/piezas.ts	(retirado)	texturaNeutra
+simbolo	test/invariantes.test.ts	test/codigo-del-repo.ts	rutasDelRepo, ficheros, CORE, CLIENTE, SERVIDOR, leer, codigoDe, sinComentarios, importaDe, infractores, infractoresDeCodigo, lineasDeLasDeclaraciones, lineasDeImport, lineaDe, llamadasA
+simbolo	test/arranque.test.ts	test/codigo-del-repo.ts	el resolutor de cargaAlEvaluarse (importacionesDe, también el de los ciclos de nivel.ts)
+simbolo	test/invariantes.test.ts	test/comun.ts	RAIZ
