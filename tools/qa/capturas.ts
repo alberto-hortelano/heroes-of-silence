@@ -553,6 +553,8 @@ async function pasarElTurnoDelEspejo(page: Page, espejo: Session, donde: string)
 async function defenderseSola(page: Page, espejo: Session, donde: string): Promise<void> {
   const battle = espejo.battle;
   if (battle === null) throw new Error(`${donde}: el espejo defiende sin batalla`);
+  // Antes de la batalla, el aviso en el mapa centrado en el ataque: «Defender».
+  await aceptarElAviso(page, espejo, donde);
   await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 20_000 });
   // Con el héroe en un sitio suyo con guarnición, antes se elige con quién defiende
   // (puesto fronterizo, 04-11-2026): se fotografía la pantalla y se deja lo que
@@ -795,6 +797,8 @@ class Mapa {
     this.espejo.clickTile(p);
     await sleep(250);
     await cerrarLaGuarnicion(this.page, this.espejo, `(${p.x},${p.y})`);
+    // Una emboscada avisa antes de su batalla: «Defender».
+    await aceptarElAviso(this.page, this.espejo, `(${p.x},${p.y})`);
     // Si el clic abre una batalla, abre en el despliegue de la persona: se acepta
     // tal cual, y la primera vez se captura (el atacante ve al defensor ya colocado;
     // el emboscado, nada del rival).
@@ -805,6 +809,29 @@ class Mapa {
       `despliegue-01-${this.espejo.miBando === 'defender' ? 'emboscado' : 'atacante'}`,
     );
   }
+}
+
+/**
+ * El aviso de un ataque a la persona (arreglo 3 del 06-11-2026): antes de la
+ * batalla de una defensa o de una emboscada, sobre el mapa centrado en el ataque.
+ * Se pulsa «Defender», en la página y en el espejo. La primera vez, su foto.
+ */
+let avisoFotografiado = false;
+async function aceptarElAviso(page: Page, espejo: Session, donde: string): Promise<void> {
+  if (espejo.avisoDelAtaque === null) return;
+  await page
+    .locator('#aviso[open]')
+    .waitFor({ timeout: 20_000 })
+    .catch(() => {
+      throw new Error(`${donde}: el espejo avisa del ataque y la página no`);
+    });
+  if (!avisoFotografiado) {
+    avisoFotografiado = true;
+    await sleep(300);
+    await captura(page, 'aviso-del-ataque');
+  }
+  await page.locator('#aviso [data-action="aviso-defender"]').click();
+  espejo.defenderElAtaque();
 }
 
 /**

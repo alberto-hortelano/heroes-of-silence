@@ -34,12 +34,13 @@ import type { Session } from '../session.js';
 const UMBRAL_ARRASTRE = 8;
 
 /**
- * Dónde mira la cámara cuando nadie la ha movido: el héroe elegido, y si no hay,
- * el primer castillo. Exportada porque el guion de capturas tiene que saber a
- * dónde mira la página para pulsar donde toca.
+ * Dónde mira la cámara cuando nadie la ha movido: el sitio del ataque mientras
+ * su aviso está en pantalla (`Session.avisoDelAtaque`), si no el héroe elegido,
+ * y si no hay, el primer castillo. Exportada porque el guion de capturas tiene
+ * que saber a dónde mira la página para pulsar donde toca.
  */
 export function focoDe(s: Session): Point {
-  return s.selectedHero?.at ?? s.myTowns()[0]?.at ?? { x: 0, y: 0 };
+  return s.avisoDelAtaque?.at ?? s.selectedHero?.at ?? s.myTowns()[0]?.at ?? { x: 0, y: 0 };
 }
 
 export class EscenaAventura {
@@ -130,7 +131,10 @@ export class EscenaAventura {
       ...(esc === null ? {} : { tileMinimo: topeDeAlejar(esc, ancho, alto) }),
     };
     const foco = focoDe(s);
-    const clave = `${s.selectedHeroId ?? ''}@${pointKey(foco)}`;
+    // El aviso de un ataque recentra aunque mire donde ya está el héroe elegido:
+    // la cámara pudo moverse a mano desde entonces.
+    const aviso = s.avisoDelAtaque === null ? '' : 'ataque:';
+    const clave = `${aviso}${s.selectedHeroId ?? ''}@${pointKey(foco)}`;
     const mirar = this.mirarPendiente;
     if (mirar !== null) {
       // Quien pidió mirar allí manda sobre seguir al héroe: se da por seguido
@@ -188,6 +192,7 @@ export class EscenaAventura {
       ruta: this.ruta,
       seleccionado: s.selectedHeroId,
       hover: this.hover,
+      ataque: s.avisoDelAtaque?.at ?? null,
       semilla: state.seed,
       tiempo: ahora,
       clima: s.clima,

@@ -696,6 +696,12 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
     const s = new Session(1);
     // El héroe nace en la base (19-10-2026): fuera, que aquí se defiende sola.
     fueraDeSuBase(s.state, 0);
+    // El ataque llega con su aviso en el mapa (arreglo 3 del 06-11-2026): se lee y se defiende.
+    let aviso: Session['avisoDelAtaque'] = null;
+    s.alCambiarSinGesto = () => {
+      aviso = s.avisoDelAtaque;
+      s.defenderElAtaque();
+    };
     // Una función y no `s.scene` a pelo: el compilador no sabe que `endTurn` la cambia.
     const enBatalla = () => s.scene === 'battle';
     for (let dia = 0; dia < 5 && !enBatalla(); dia++) {
@@ -704,6 +710,12 @@ describe('la rueda y las defensas de la persona en la partida (F5)', () => {
       if (!enBatalla()) await turno;
     }
     expect(s.scene).toBe('battle');
+    // Sin héroe, atacan a la guarnición de la base, y la cámara miraba allí.
+    const base = s.myTowns()[0]!;
+    const dicho = aviso as Session['avisoDelAtaque'];
+    expect(dicho?.titulo).toBe(`¡Te atacan en ${base.name}!`);
+    expect(dicho?.frase).toMatch(new RegExp(` ataca a la guarnición de ${base.name}\\.$`));
+    expect(dicho?.at).toEqual(base.at);
     const mio = s.miBando!;
     expect(s.battle!.heroes[mio]).toBeNull();
     // La guarnición también despliega a mano (es de la persona).
@@ -909,6 +921,7 @@ describe('«Solo la rueda del héroe» (complejidad del combate, 22-10-2026)', (
   it('una defensa sin su héroe (la guarnición sola) no le abre ninguna rueda', async () => {
     const s = new Session(1, undefined, undefined, undefined, true);
     fueraDeSuBase(s.state, 0);
+    s.alCambiarSinGesto = () => s.defenderElAtaque();
     const enBatalla = () => s.scene === 'battle';
     for (let dia = 0; dia < 5 && !enBatalla(); dia++) {
       const turno = s.endTurn();
