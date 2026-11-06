@@ -86,6 +86,7 @@ import {
 } from '../../src/core/arena.js';
 import { isAlive, mismoTurno, stackById, stackHexes } from '../../src/core/battle/battle.js';
 import { hexDistance, hexEquals, quedanCasillas } from '../../src/core/battle/board.js';
+import { dichoDeLasCifras } from '../../src/core/battle/carga.js';
 import { armasDe, stackHp, trasElGolpe } from '../../src/core/battle/damage.js';
 import {
   NOMBRE_DEL_PUNTO,
@@ -100,14 +101,13 @@ import {
   type BattleState,
   queEs,
 } from '../../src/core/battle/types.js';
-import { UNIDADES, unidad } from '../../src/core/catalogo.js';
+import { UNIDADES, unidad, unidadDelJuego } from '../../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../../src/core/combate.js';
 import {
   ECONOMIA,
   figuraDelHeroe,
   HEROE,
   nombreDeTipoDeHeroe,
-  RUTA_DEL_CATALOGO_DE_EQUIPO,
   tipoDeHeroePorDefecto,
   tiposDeHeroe,
 } from '../../src/core/data.js';
@@ -145,7 +145,7 @@ import {
   FONDO_DE_LA_FRANJA,
   type Plano,
 } from '../../src/shared/base.js';
-import { hojasDelTaller, leerCatalogo } from '../arena/borrador.js';
+import { FICHEROS_DEL_CATALOGO, hojasDelTaller, leerCatalogo } from '../arena/borrador.js';
 import { cifrasCortadas } from './cifras-de-la-ficha.js';
 import {
   buscarDerrota,
@@ -807,6 +807,15 @@ class Mapa {
     const px = await this.pixel(p);
     await this.page.mouse.click(px.x, px.y);
     this.espejo.clickTile(p);
+    // La escena del espejo se pone al día con el héroe ya donde lo dejó el clic, como
+    // la página en el fotograma en que acaba su marcha (06-11-2026, `9c80bc5f`) o en
+    // que avisa del ataque: se recentra en él y lo da por seguido. El espejo solo mira
+    // cuando se le pregunta, y sin esto no veía la ida: una batalla que acaba en
+    // rendición devuelve al héroe a su base, la página se recentraba allí (la seguía
+    // desde la llegada) y el espejo, que lo seguía en la base desde antes, se quedaba
+    // donde lo dejó el arrastre, dos casillas más allá; desde ahí cada píxel del mapa
+    // caía fuera de sitio (desktop-15 miraba la patrulla donde no estaba).
+    await this.encuadre();
     await esperarLaMarcha(this.page);
     await sleep(250);
     await cerrarLaGuarnicion(this.page, this.espejo, `(${p.x},${p.y})`);
@@ -1200,6 +1209,11 @@ async function avisoQueSeRetira(
   battle: BattleState,
   nuevos: readonly BattleEvent[],
 ): Promise<void> {
+  // En el móvil el marco puede no estar a la vista: el último gesto fue un botón del
+  // panel («Terminar turno»), que va debajo del tablero, y pulsarlo desplazó `#stage`
+  // hasta él (el marco quedaba a −469 px y el clic caía fuera de la página). Se trae
+  // a la vista, como quien sube a tocar el tablero.
+  await page.locator('#lienzo').scrollIntoViewIfNeeded();
   const marco = await page.locator('#lienzo').boundingBox();
   if (marco === null) throw new Error('el marco del lienzo no está en la página');
   // Una esquina de arriba: cielo, ni hex ni figura.
@@ -4623,26 +4637,30 @@ async function arena(browser: Browser, url: string, problemas: Problemas): Promi
 }
 
 /**
- * Juega `fn` y deja los catálogos de unidades y de equipo como estaban al salir,
- * pase lo que pase: «Guardar» escribe en los dos, y la prueba no puede dejar en el
- * repo lo que nadie ha pedido. **No se apartan** (simplify de F1, 18-10-2026): los
- * importa el núcleo y de ellos leen la página y el espejo; sin ellos no carga
- * nada.
+ * Juega `fn` y deja los ficheros que escribe «Guardar» (`FICHEROS_DEL_CATALOGO`:
+ * equipo, unidades, el cuerpo del héroe y los hechizos) como estaban al salir, pase
+ * lo que pase: la prueba no puede dejar en el repo lo que nadie ha pedido. Eran solo
+ * los dos primeros, de cuando «Guardar» no escribía más: desde el cuerpo del héroe
+ * (03-11-2026) la página lo manda siempre, y la arena dejaba `data/heroe.json` con
+ * sus objetos de una línea desplegados. **No se apartan** (simplify de F1,
+ * 18-10-2026): los importa el núcleo y de ellos leen la página y el espejo; sin
+ * ellos no carga nada.
  */
 async function conLosCatalogosDevueltos(
   quien: string,
   fn: (ruta: string) => Promise<void>,
 ): Promise<void> {
-  const ruta = join(process.cwd(), RUTA_DEL_CATALOGO_DE_UNIDADES);
-  const deEquipo = join(process.cwd(), RUTA_DEL_CATALOGO_DE_EQUIPO);
-  const catalogo = readFileSync(ruta, 'utf8');
-  const equipo = readFileSync(deEquipo, 'utf8');
+  const como = FICHEROS_DEL_CATALOGO.map((r) => {
+    const donde = join(process.cwd(), r);
+    return { donde, texto: readFileSync(donde, 'utf8') };
+  });
   try {
-    await fn(ruta);
+    await fn(join(process.cwd(), RUTA_DEL_CATALOGO_DE_UNIDADES));
   } finally {
-    writeFileSync(ruta, catalogo);
-    writeFileSync(deEquipo, equipo);
-    log(`${quien}: catálogos de unidades y de equipo devueltos como estaban`);
+    for (const { donde, texto } of como) writeFileSync(donde, texto);
+    log(
+      `${quien}: los ficheros de «Guardar» devueltos como estaban (${FICHEROS_DEL_CATALOGO.join(', ')})`,
+    );
   }
 }
 
@@ -5061,6 +5079,14 @@ async function jugarArena(
   await page.locator('#ficha [data-arena="girar"]').click();
   await page.locator('#ficha [data-arena="girar"]').click();
   await page.locator('#ficha [data-clip="death"]').click();
+  // El orco solo se pinta a la vista (`animarFiguras` salta la figura que no se ve):
+  // en 1440×900, con el editor de la muralla abierto, a los bandos y la ficha les
+  // queda una franja de ~70 px —la barra lleva los selectores de la complejidad del
+  // combate desde el 22-10-2026 y el editor crece con sus formas— y su tarjeta queda
+  // bajo «+ Héroe». Se trae a la vista, como haría quien la mira.
+  await page
+    .locator('#bando-derecha button.ver[data-unidad="orko-dos-armas"]')
+    .scrollIntoViewIfNeeded();
   await sleep(1200);
   const pedidas = await page.evaluate(() =>
     performance
@@ -6230,14 +6256,24 @@ async function edicionDeLaArena(
     'edición: «✎» + Intro cambia el nombre (Escape no) y un rasgo se pone y se quita por su etiqueta, hasta el montaje',
   );
 
-  // Y al recargar la página, las mismas (`localStorage`, de comodidad).
+  // Y al recargar la página, la misma vista —la edición va en la URL, `?vista=edicion`
+  // («La arena recuerda la vista al recargar», 23-10-2026, `7bd54662`)— y las mismas
+  // fichas abiertas (`localStorage`, de comodidad). Antes de eso se volvía al montaje y
+  // la pasada pulsaba «Editar fichas», que en la edición no se ve.
   await page.reload({ waitUntil: 'networkidle' });
+  await page
+    .locator('#app[data-escena="edicion"]')
+    .waitFor({ timeout: 5000 })
+    .catch(() => {
+      throw new Error(`edición: al recargar no vuelve a la edición (${page.url()})`);
+    });
+  if (new URL(page.url()).searchParams.get('vista') !== 'edicion')
+    throw new Error(`edición: la dirección no lleva la vista: ${page.url()}`);
   await page.locator('[data-unidad-catalogo]').first().waitFor({ timeout: 5000 });
-  await page.locator('[data-arena="ir-a-edicion"]').click();
   const recargadas = await orden();
   if (recargadas.join() !== quedan.join())
     throw new Error(`edición: al recargar están abiertas ${recargadas.join(', ')}`);
-  log('edición: al recargar, las mismas abiertas');
+  log('edición: al recargar, la misma vista y las mismas abiertas');
 
   // Cerrar con el teclado (H4): el foco pasa al × de la de al lado —la
   // siguiente, o la anterior si era la última— y, sin ninguna, al «Abrir» de la
@@ -6327,18 +6363,21 @@ async function equipoDeLaArena(browser: Browser, url: string, problemas: Problem
   await sobre.waitFor({ timeout: 2000 });
   const cadena = (await sobre.locator('[data-cadena-de-bases]').innerText()).trim();
   if (cadena !== 'Espada → Espada 2') throw new Error(`equipo: la cadena dice «${cadena}»`);
-  // Subir el daño de la Espada cambia la que está sobre ella.
+  // Subir la fuerza de la Espada cambia la que está sobre ella. Era su daño máximo
+  // hasta que un arma dejó de llevar daño y suma fuerza (fuerza, agilidad y peso,
+  // 25-10-2026, `99132e20`: el campo `danio-max` ya no existe).
   await page.locator('#equipo [data-arena="elegir-pieza"][data-pieza="espada"]').click();
-  const danio = page.locator(
-    '#equipo [data-pieza-elegida="espada"] [data-arena-pieza-campo="danio-max"]',
+  const fuerza = page.locator(
+    '#equipo [data-pieza-elegida="espada"] [data-arena-pieza-campo="fuerza"]',
   );
-  await danio.fill('45');
-  await danio.press('Tab');
+  const subida = String((EQUIPO_DEL_JUEGO.pieza('espada').fuerza ?? 0) + 4);
+  await fuerza.fill(subida);
+  await fuerza.press('Tab');
   await asentada(page);
   await page.locator('#equipo [data-arena="elegir-pieza"][data-pieza="espada-2"]').click();
-  const final = (await sobre.locator('[data-final="danio-max"]').innerText()).trim();
-  if (final !== '45')
-    throw new Error(`equipo: la de encima de la Espada suma «${final}» de daño máximo, no 45`);
+  const final = (await sobre.locator('[data-final="fuerza"]').innerText()).trim();
+  if (final !== subida)
+    throw new Error(`equipo: la de encima de la Espada suma «${final}» de fuerza, no ${subida}`);
   await sobre.scrollIntoViewIfNeeded();
   await asentada(page);
   await captura(page, 'arena-12-equipo-sobre-la-espada');
@@ -6447,7 +6486,8 @@ async function equipoDeLaArena(browser: Browser, url: string, problemas: Problem
 
 /**
  * La pelea de las armas en el espejo (13-10-2026): el arquero élfico de la persona
- * —daga, arco y jubón— contra el orco con dos armas de la IA, que viene a por él.
+ * —su arma de cuerpo a cuerpo, arco y jubón— contra el orco con dos armas de la IA,
+ * que viene a por él.
  */
 /**
  * El orco de la pasada con una lanza de jinete en «Arma de carga»: tiene armas por
@@ -6502,6 +6542,18 @@ function jugadaDeLasArmas(
   return pegado ? { tipo: 'golpe', contra } : { tipo: 'terminar' };
 }
 
+/**
+ * Con qué pega cuerpo a cuerpo el arquero élfico: el arma de su hueco `arma` en el
+ * catálogo, no su arco. Era la Daga hasta que el usuario le puso la Espada desde la
+ * arena (02-11-2026, `0f715185`), y la pasada la tenía escrita a mano.
+ */
+function armaDelArquero(): string {
+  const arma = unidad('elfo-arquero').equipo.arma;
+  if (arma === undefined)
+    throw new Error('armas: el arquero élfico no lleva arma de cuerpo a cuerpo');
+  return EQUIPO_DEL_JUEGO.pieza(arma).nombre;
+}
+
 /** La semilla en que el arquero golpea pegado antes de que acabe la pelea. */
 function buscarArmas(): number {
   for (let semilla = 1; semilla <= TOPE_DE_SEMILLAS; semilla++) {
@@ -6520,8 +6572,9 @@ function buscarArmas(): number {
 /**
  * Cada arma para lo suyo, con clics de verdad: el editor de equipo enseña los
  * huecos nuevos con el arco y la lanza en el suyo; la ficha del jinete élfico, sus
- * tres armas; y en la pelea, con el orco pegado, el arquero pega con la daga —la
- * barra dice con cuál antes del clic, y lo que pasa es lo del espejo—.
+ * tres armas; y en la pelea, con el orco pegado, el arquero pega con su arma de cuerpo
+ * a cuerpo (`armaDelArquero`), no con el arco —la barra dice con cuál antes del clic, y
+ * lo que pasa es lo del espejo—.
  */
 async function armasEnLaArena(browser: Browser, url: string, problemas: Problemas): Promise<void> {
   await conLosCatalogosDevueltos('armas', async () => {
@@ -6533,16 +6586,24 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
 
     // La ficha del jinete élfico: espada y lanza (lo mejor de las dos) y arco, cada
     // golpe con lo suyo y su agilidad entera sobre el caballo de guerra; la carga,
-    // con la fuerza del caballo más la de la lanza (26-10-2026).
+    // con la fuerza del caballo más la de la lanza (26-10-2026). Las cifras son las
+    // del núcleo (`armasDe`), como la del golpe del arquero, abajo: escritas a mano
+    // («Daño 10–50», «20–100») se quedaron atrás cuando el usuario retocó el
+    // catálogo desde la arena (02-11-2026, `0f715185`).
     await page.locator('[data-unidad-catalogo="elfo-jinete"] [data-lado="izquierda"]').click();
     await page.locator('#bando-izquierda button.ver[data-unidad="elfo-jinete"]').click();
     const filas = page.locator('#ficha .armas-de-la-ficha [data-arma-de-la-ficha]');
     await filas.first().waitFor({ timeout: 2000 });
     const dichas = (await filas.allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim());
+    const [cuerpo, distancia, carga] = armasDe(unidadDelJuego('elfo-jinete'));
+    if (cuerpo?.uso !== 'arma' || distancia?.uso !== 'distancia' || carga?.montada !== true)
+      throw new Error('armas: el jinete élfico ya no pega, dispara y carga montado');
+    const cifras = (a: { attack: number; damage: readonly number[] }): string =>
+      `Ataque ${a.attack} · Daño ${a.damage[0]}–${a.damage[1]}`;
     const esperadas = [
-      'Cuerpo a cuerpo ⓘ Espada y Lanza de jinete · Ataque 7 · Daño 10–50',
-      'A distancia ⓘ Arco · Ataque 6 · Daño 9–45',
-      'Carga ⓘ Espada y Lanza de jinete · Ataque 7 · Daño 20–100 · +5 %/casilla (3 a 5), montada',
+      `Cuerpo a cuerpo ⓘ Espada y Lanza de jinete · ${cifras(cuerpo)}`,
+      `A distancia ⓘ Arco · ${cifras(distancia)}`,
+      `Carga ⓘ Espada y Lanza de jinete · ${cifras(carga)} · +5 %/casilla (3 a 5), montada`,
     ];
     if (JSON.stringify(dichas) !== JSON.stringify(esperadas)) {
       throw new Error(`armas: la ficha del jinete élfico dice ${JSON.stringify(dichas)}`);
@@ -6594,10 +6655,12 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
     });
     await filaDeLaLanza.waitFor({ timeout: 5000 });
     const dichaLanza = (await filaDeLaLanza.innerText()).replace(/\s+/g, ' ').trim();
-    // A pie también carga (#260): la lanza se usa, con lo que cobra a pie.
+    // A pie también carga (#260): la lanza se usa, con lo que cobra todo el que pega.
+    // Lo que cobra se dice sin «a pie» desde la montura (26-10-2026, `fa0a6e9c`): solo
+    // la montada lo dice («, montada»).
     if (
       !dichaLanza.startsWith('Carga ⓘ Espada y Lanza de jinete · Ataque ') ||
-      !dichaLanza.endsWith(' · +5 %/casilla (3 a 5), a pie')
+      !dichaLanza.endsWith(` · ${dichoDeLasCifras(false)}`)
     ) {
       throw new Error(`armas: la ficha del orco con lanza dice «${dichaLanza}»`);
     }
@@ -6632,7 +6695,7 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
             `armas: el clic sobre el orco haría ${px.accion?.type ?? 'nada'}, no attack`,
           );
         }
-        const conQue = 'Cuenta: con Daga (cuerpo a cuerpo)';
+        const conQue = `Cuenta: con ${armaDelArquero()} (cuerpo a cuerpo)`;
         await page.mouse.move(px.x - 6, px.y);
         await page.mouse.move(px.x, px.y);
         await esperarBarra(page, conQue, `armas: apuntar ${j.tipo}`, { exacta: false });
@@ -6641,11 +6704,11 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
         if (!CONTRAATAQUE_DEL_ORCO.test(barra)) {
           throw new Error(`armas: la barra no nombra el arma del contraataque: «${barra}»`);
         }
-        log('armas: la barra nombra el arma del contraataque (Mandoble)');
-        await captura(page, 'arena-17-pega-con-la-daga');
+        log('armas: la barra nombra el arma del contraataque (Espada y Lanza de jinete)');
+        await captura(page, 'arena-17-pega-cuerpo-a-cuerpo');
         await page.mouse.click(px.x, px.y);
         espejo.playBattleAction(px.accion);
-        // El golpe con la daga pasa por la rueda (el juego la lleva siempre).
+        // El golpe pasa por la rueda (el juego la lleva siempre).
         await responderLaRueda(page, espejo);
         // Lo que hace, con las cifras del arma: el daño cae en su horquilla.
         const hecho = espejo.battle.log
@@ -6655,8 +6718,8 @@ async function armasEnLaArena(browser: Browser, url: string, problemas: Problema
         const fila = armasDe(arquero.unit).find((a) => a.uso === 'arma');
         if (hecho === undefined || fila === undefined)
           throw new Error(`armas: el ${j.tipo} no se ve en el parte`);
-        if (fila.arma !== 'Daga')
-          throw new Error(`armas: el ${j.tipo} va con ${fila.arma}, no con Daga`);
+        if (fila.arma !== armaDelArquero())
+          throw new Error(`armas: el ${j.tipo} va con ${fila.arma}, no con ${armaDelArquero()}`);
         log(
           `armas: ${j.tipo} con ${fila.arma} (${fila.attack}, ${fila.damage.join('–')}): ${'damage' in hecho ? hecho.damage : '?'} de daño`,
         );
@@ -7086,8 +7149,9 @@ const COLORES_DE_LA_VIDA: readonly (readonly [number, number, number])[] = [
 
 /**
  * Lo que mide la barra de vida de `s` pintada en el lienzo, en píxeles del
- * lienzo: los de su fila del medio con uno de los colores de la vida. La barra
- * va donde la pone `cabezaDe`, con la figura quieta en su casilla.
+ * lienzo: los de su fila del medio con uno de los colores de la vida, y los de sus
+ * dos puntas por lo que cubren. La barra va donde la pone `cabezaDe`, con la
+ * figura quieta en su casilla.
  */
 async function vidaPintada(page: Page, s: BattleStack): Promise<number> {
   const b = await caja(page);
@@ -7105,17 +7169,43 @@ async function vidaPintada(page: Page, s: BattleStack): Promise<number> {
         Math.round((ancho + 6) * k),
         1,
       ).data;
+      // Los píxeles enteros del color de la vida, y los dos de las puntas por lo que
+      // cubren: la barra empieza y acaba a medio píxel, y esos dos, a media luz, no
+      // casan con el color (la medida salía hasta 2 px corta: 26,0 de 27,8).
       let n = 0;
+      let primero = -1;
+      let ultimo = -1;
       for (let i = 0; i < fila.length; i += 4) {
         const [r, g, b] = [fila[i] ?? 0, fila[i + 1] ?? 0, fila[i + 2] ?? 0];
         if (
           colores.some(
             ([R, G, B]) => Math.abs(r - R) < 14 && Math.abs(g - G) < 14 && Math.abs(b - B) < 14,
           )
-        )
+        ) {
           n++;
+          if (primero < 0) primero = i;
+          ultimo = i;
+        }
       }
-      return n / k;
+      let medido = n;
+      if (n > 0) {
+        // Lo que cubre una punta, entre el color de la barra (su primer píxel entero) y
+        // lo de debajo (el fondo de la barra, dos píxeles tras su final).
+        const u = Math.min(ultimo + 8, fila.length - 4);
+        const dr = (fila[primero] ?? 0) - (fila[u] ?? 0);
+        const dg = (fila[primero + 1] ?? 0) - (fila[u + 1] ?? 0);
+        const db = (fila[primero + 2] ?? 0) - (fila[u + 2] ?? 0);
+        const norma = dr * dr + dg * dg + db * db;
+        for (const e of [primero - 4, ultimo + 4]) {
+          if (norma === 0 || e < 0 || e >= fila.length) continue;
+          const d =
+            ((fila[e] ?? 0) - (fila[u] ?? 0)) * dr +
+            ((fila[e + 1] ?? 0) - (fila[u + 1] ?? 0)) * dg +
+            ((fila[e + 2] ?? 0) - (fila[u + 2] ?? 0)) * db;
+          medido += Math.max(0, Math.min(1, d / norma));
+        }
+      }
+      return medido / k;
     },
     { x: cabeza.x, y: cabeza.y, ancho: cabeza.anchoBarra, colores: COLORES_DE_LA_VIDA },
   );
@@ -7164,18 +7254,40 @@ async function muestrasDeLaBarra(
           Math.round((ancho + 6) * k),
           1,
         ).data;
+        // Como `vidaPintada`: los enteros y las dos puntas por lo que cubren.
         let n = 0;
+        let primero = -1;
+        let ultimo = -1;
         for (let i = 0; i < fila.length; i += 4) {
           const [r, g, b] = [fila[i] ?? 0, fila[i + 1] ?? 0, fila[i + 2] ?? 0];
           if (
             colores.some(
               ([R, G, B]) => Math.abs(r - R) < 14 && Math.abs(g - G) < 14 && Math.abs(b - B) < 14,
             )
-          )
+          ) {
             n++;
+            if (primero < 0) primero = i;
+            ultimo = i;
+          }
+        }
+        let medido = n;
+        if (n > 0) {
+          const u = Math.min(ultimo + 8, fila.length - 4);
+          const dr = (fila[primero] ?? 0) - (fila[u] ?? 0);
+          const dg = (fila[primero + 1] ?? 0) - (fila[u + 1] ?? 0);
+          const db = (fila[primero + 2] ?? 0) - (fila[u + 2] ?? 0);
+          const norma = dr * dr + dg * dg + db * db;
+          for (const e of [primero - 4, ultimo + 4]) {
+            if (norma === 0 || e < 0 || e >= fila.length) continue;
+            const d =
+              ((fila[e] ?? 0) - (fila[u] ?? 0)) * dr +
+              ((fila[e + 1] ?? 0) - (fila[u + 1] ?? 0)) * dg +
+              ((fila[e + 2] ?? 0) - (fila[u + 2] ?? 0)) * db;
+            medido += Math.max(0, Math.min(1, d / norma));
+          }
         }
         const abierta = rueda.open && rueda.dataset.tramo !== undefined;
-        muestras.push({ t, abierta, ancho: n / k });
+        muestras.push({ t, abierta, ancho: medido / k });
         if (abierta) {
           vista = true;
           cerrada = null;
