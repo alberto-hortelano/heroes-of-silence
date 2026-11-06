@@ -79,6 +79,7 @@ import {
   characterOf,
   ejercitoDe,
   gruposDe,
+  individuosDe,
   licenciar,
   troopBlocker,
   troopRoom,
@@ -3718,6 +3719,59 @@ function sitioQueSeDefiende(
     case 'lugar':
       return null;
   }
+}
+
+/**
+ * Un ataque a quien defiende, dicho para el aviso que lo precede (arreglo 3 de la
+ * tanda del 06-11-2026: «centrar el lugar del ataque en el mapa y mostrar un popup
+ * que diga quién te ataca y muestre dónde»): dónde se pelea, quién ataca, a quién
+ * y en qué sitio. Lo arma `elAtaque`; lo dice la sesión.
+ */
+export interface Ataque {
+  /** Dónde se pelea: la casilla de lo atacado (`lugarDelRival`). */
+  readonly at: Point;
+  /** Quién ataca: un héroe con su facción, o un grupo de asaltantes que embosca. */
+  readonly quien:
+    | { readonly kind: 'heroe'; readonly nombre: string; readonly faccion: FactionId }
+    | { readonly kind: 'asaltantes'; readonly individuos: number };
+  /** A quién: un héroe, o la guarnición del sitio, sola. */
+  readonly aQuien:
+    | { readonly kind: 'heroe'; readonly nombre: string }
+    | { readonly kind: 'guarnicion' };
+  /** El sitio en juego (`sitioQueSeDefiende`), dicho, o `null` en campo abierto. */
+  readonly sitio: { readonly nombre: string; readonly delSitio: string } | null;
+}
+
+/**
+ * El ataque de la batalla `pending`, o `null` si lo atacado no se defiende: un
+ * monstruo, un grupo de asaltantes o un lugar, que solo ataca quien juega.
+ */
+export function elAtaque(state: GameState, pending: Enfrentamiento): Ataque | null {
+  const { foe, attacker } = pending;
+  let aQuien: Ataque['aQuien'];
+  if (foe.kind === 'hero') aQuien = { kind: 'heroe', nombre: heroById(state, foe.heroId).name };
+  else if (foe.kind === 'garrison') aQuien = { kind: 'guarnicion' };
+  else return null;
+  let quien: Ataque['quien'];
+  if (attacker.kind === 'hero') {
+    const h = heroById(state, attacker.heroId);
+    quien = { kind: 'heroe', nombre: h.name, faccion: playerById(state, h.owner).faction };
+  } else {
+    quien = {
+      kind: 'asaltantes',
+      individuos: individuosDe(raiderById(state, attacker.raiderId).troops),
+    };
+  }
+  const enJuego = sitioQueSeDefiende(state, foe);
+  return {
+    at: lugarDelRival(state, foe),
+    quien,
+    aQuien,
+    sitio:
+      enJuego === null
+        ? null
+        : { nombre: nombreDelSitio(enJuego.sitio), delSitio: delSitio(enJuego.sitio) },
+  };
 }
 
 /**

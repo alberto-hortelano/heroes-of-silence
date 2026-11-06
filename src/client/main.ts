@@ -37,6 +37,7 @@ import { aLaBarra, semillaSorteada } from './semilla.js';
 import { Session } from './session.js';
 import { ponerTema } from './temas.js';
 import { pintarSiguiendoElFinal } from './views/al-final.js';
+import { renderAviso } from './views/aviso.js';
 import { renderConversacion } from './views/base.js';
 import { renderDefensa, renderGuarnicion } from './views/guarnicion.js';
 import { renderConversacionDelLugar } from './views/lugar.js';
@@ -72,6 +73,8 @@ const salirAlMenu = document.getElementById('salir-al-menu') as HTMLDialogElemen
 const elGuarnicion = document.getElementById('guarnicion') as HTMLDialogElement;
 /** Con quién se defiende el héroe atacado en su sitio (`views/guarnicion.ts`). */
 const elDefensa = document.getElementById('defensa') as HTMLDialogElement;
+/** Quién te ataca y dónde, sobre el mapa, antes de la batalla (`views/aviso.ts`). */
+const elAviso = document.getElementById('aviso') as HTMLDialogElement;
 const stage = document.getElementById('stage') as HTMLElement;
 const lateral = document.getElementById('lateral') as HTMLElement;
 
@@ -627,6 +630,8 @@ function mostrarLaGuarnicion(): void {
   mostrarModal(elGuarnicion, vista === null ? null : renderGuarnicion(vista));
   const defensa = session.defensa;
   mostrarModal(elDefensa, defensa === null ? null : renderDefensa(defensa));
+  const aviso = session.avisoDelAtaque;
+  mostrarModal(elAviso, aviso === null ? null : renderAviso(aviso));
 }
 
 /** Un `<dialog>` modal con `contenido`, o cerrado si no hay nada que enseñar. */
@@ -644,6 +649,8 @@ elGuarnicion.addEventListener('cancel', (ev) => {
   session.cerrarLaGuarnicion();
   pedirFotograma();
 });
+// El aviso no se despide con Escape: la batalla llega igual, y se elige cómo.
+elAviso.addEventListener('cancel', (ev) => ev.preventDefault());
 elDefensa.addEventListener('cancel', (ev) => {
   ev.preventDefault();
   session.dejarLaDefensaDeLaIA();
@@ -1057,6 +1064,12 @@ document.addEventListener('click', (ev) => {
     case 'defensa-de-la-ia':
       session.dejarLaDefensaDeLaIA();
       break;
+    case 'aviso-defender':
+      session.defenderElAtaque();
+      break;
+    case 'aviso-resolver-sola':
+      session.resolverElAtaqueSola();
+      break;
     case 'dismiss':
       session.dismiss(
         target.getAttribute('data-hero') as string,
@@ -1168,11 +1181,11 @@ document.addEventListener('click', (ev) => {
 });
 
 document.addEventListener('keydown', (ev) => {
-  // Con la guarnición o la defensa abiertas (modales), toda tecla es suya: Escape
+  // Con la guarnición, la defensa o el aviso abiertos (modales), toda tecla es suya: Escape
   // las cierra por su `cancel`, que llega aunque el foco se haya ido al `body` tras
   // un clic, y aquí no debe cerrar también la base de detrás (H3 del QA de la
   // fase 1: la guarnición se cerraba y se salía al mapa).
-  if (elGuarnicion.open || elDefensa.open) return;
+  if (elGuarnicion.open || elDefensa.open || elAviso.open) return;
   // Lo que se escribe en un campo de texto o se pulsa en un cuadro es suyo, no un
   // atajo. Salvo Escape en la conversación: al abrirse se queda el foco (su primera
   // opción), y sin esto Escape no la cerraba nunca, aunque la barra lo anuncia

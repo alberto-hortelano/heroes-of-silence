@@ -128,7 +128,7 @@ describe('el defensor despliega sin ver al atacante, en la partida', () => {
    * que la persona defiende, y nace en su propio turno, sin esperar a lo que decida
    * la IA. La primera semilla en que el héroe, junto a su base, tiene un paso así.
    */
-  function emboscada(): Session {
+  function emboscada(sinDefender = false): Session {
     const porPoder = (id: string) => poderDe({ troops: [{ creature: id, count: 1 }] });
     const ids = unidadesDelJuego().map((u) => u.id);
     const fuerte = [...ids].sort((a, b) => porPoder(b) - porPoder(a))[0]!;
@@ -172,11 +172,28 @@ describe('el defensor despliega sin ver al atacante, en la partida', () => {
         s.clickTile(paso);
         if (s.battle === null || s.state.pendingBattle?.attacker.kind !== 'raider')
           throw new Error(`pisar (${paso.x},${paso.y}) no abrió la emboscada`);
+        // Antes de la batalla, el aviso en el mapa (arreglo 3 del 06-11-2026).
+        const individuos = troops.reduce((n, g) => n + g.count, 0);
+        expect(s.scene).toBe('adventure');
+        expect(s.avisoDelAtaque).toEqual({
+          titulo: '¡Emboscada!',
+          frase: `Un grupo de ${individuos} asaltantes embosca a ${hero.name} en (${paso.x},${paso.y}).`,
+          at: paso,
+        });
+        if (!sinDefender) s.defenderElAtaque();
         return s;
       }
     }
     throw new Error('en 40 semillas el héroe junto a su base no tiene un paso a una región');
   }
+
+  it('la emboscada avisa antes: «Resolver sola» la cierra sin abrir la batalla', () => {
+    const s = emboscada(true);
+    s.resolverElAtaqueSola();
+    expect(s.avisoDelAtaque).toBeNull();
+    expect(s.battle).toBeNull();
+    expect(s.scene).toBe('adventure');
+  });
 
   it('abre en la tanda del defensor: ni figuras, ni lista, ni pista del rival', () => {
     const s = emboscada();

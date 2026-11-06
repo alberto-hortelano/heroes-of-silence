@@ -178,6 +178,12 @@ export interface VistaMapa {
   readonly seleccionado: string | null;
   readonly hover: Point | null;
   /**
+   * La casilla de un ataque a quien juega, mientras su aviso está en pantalla
+   * (`Session.avisoDelAtaque`): un aro rojo que late encima de todo. El
+   * espectador no la pasa.
+   */
+  readonly ataque?: Point | null;
+  /**
    * La semilla de la partida, que es la de la escena (`componer`): la misma en
    * el cliente, el espectador y el taller, así que los tres ven el mismo mapa.
    */
@@ -504,6 +510,39 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
     ctx.lineWidth = 2;
     ctx.strokeRect(c.x - tile / 2 + 3, c.y - tile / 2 + 3, tile - 6, tile - 6);
   }
+  if (v.ataque != null) pintarAtaque(ctx, camara, v.ataque, tile, v.tiempo);
+  ctx.restore();
+}
+
+/** El aro que late en la casilla de un ataque a quien juega (`VistaMapa.ataque`). */
+function pintarAtaque(
+  ctx: CanvasRenderingContext2D,
+  camara: CamaraMapa,
+  at: Point,
+  tile: number,
+  tiempo: number,
+): void {
+  const c = casillaAPixel(camara, at);
+  const fase = (tiempo % 1200) / 1200;
+  ctx.save();
+  ctx.strokeStyle = COLOR_EMBOSCADA;
+  ctx.lineWidth = 3;
+  ctx.globalAlpha = 0.95;
+  ctx.beginPath();
+  ctx.ellipse(c.x, c.y + tile * 0.3, tile * 0.55, tile * 0.28, 0, 0, 2 * Math.PI);
+  ctx.stroke();
+  ctx.globalAlpha = 0.9 * (1 - fase);
+  ctx.beginPath();
+  ctx.ellipse(
+    c.x,
+    c.y + tile * 0.3,
+    tile * (0.55 + 0.5 * fase),
+    tile * (0.28 + 0.25 * fase),
+    0,
+    0,
+    2 * Math.PI,
+  );
+  ctx.stroke();
   ctx.restore();
 }
 
