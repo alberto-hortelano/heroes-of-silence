@@ -318,6 +318,53 @@ describe('invariantes del proyecto', () => {
     expect(importa(ruta('src/core/state/game.ts'))).toContain(ruta('src/core/mundo/reglas.ts'));
   });
 
+  it('las capas de `core`: la IA solo la importa la IA, y el mapa no conoce la partida', () => {
+    // La IA de reglas lee y propone: si una regla de la partida la importara, un
+    // cambio de cómo decide la IA cambiaría el juego. Y el mapa (su forma, su red,
+    // el generador) va debajo de la partida, del mundo y del contrato: el mapa de
+    // una semilla no puede depender de cómo se juega. Mira toda importación, también
+    // las de solo tipos (una capa no nombra a la de arriba ni para un tipo); `import()`
+    // no se mira. Hasta la fase N de la reorganización (07-11-2026) los dos se
+    // saltaban: la partida importaba la IA para `resolvePendingBattle` (hoy en
+    // `ai/turn.ts`) y la fuerza (`hero/fuerza.ts`), y el generador importaba los
+    // asaltantes y los sitios de la partida (lo que usaba, hoy en `types.ts`,
+    // `hero/grupos.ts` y `map/regiones.ts`). Rotos a mano: `import { autoResolve }
+    // from '../ai/tactics.js'` en `state/game.ts` e `import type { GameState } from
+    // '../state/tipos.js'` en `map/generate.ts` salen rojos con su línea.
+    const AI = `${ruta('src/core/ai')}/`;
+    const MAPA = `${ruta('src/core/map')}/`;
+    const SOBRE_EL_MAPA = [
+      ruta('src/core/state'),
+      ruta('src/core/mundo'),
+      ruta('src/core/ai'),
+      ruta('src/core/contract'),
+    ].map((c) => `${c}/`);
+    const capas: readonly (readonly [string, (de: string, a: string) => boolean])[] = [
+      ['fuera de `ai/`, nadie importa `ai/`', (de, a) => !de.startsWith(AI) && a.startsWith(AI)],
+      [
+        '`map/` no importa `state/`, `mundo/`, `ai/` ni `contract/`',
+        (de, a) => de.startsWith(MAPA) && SOBRE_EL_MAPA.some((c) => a.startsWith(c)),
+      ],
+    ];
+    const colados: string[] = [];
+    let miradas = 0;
+    for (const de of CORE) {
+      for (const { ruta: a, linea } of importacionesConLineaDe(de, true)) {
+        miradas++;
+        for (const [capa, rompe] of capas) {
+          if (rompe(de, a)) colados.push(`[${capa}] ${de}:${linea} → ${a}`);
+        }
+      }
+    }
+    expect(colados).toEqual([]);
+    // Y que mire algo, también las de solo tipos: `ai/turn.ts` importa la forma de la
+    // partida con `import type`.
+    expect(miradas).toBeGreaterThan(500);
+    expect(importacionesConLineaDe(ruta('src/core/ai/turn.ts'), true).map((x) => x.ruta)).toContain(
+      ruta('src/core/state/tipos.ts'),
+    );
+  });
+
   it('ningún fichero que una máquina lee lleva dentro la ruta de esta máquina', () => {
     // Una ruta absoluta en un fichero que se consume es un fichero que solo
     // vale aquí. Y no es teórico: `.mcp.json` es lo que enchufa el MCP

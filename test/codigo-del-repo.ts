@@ -180,6 +180,8 @@ export function importaDe(destino: RegExp): RegExp {
 
 /** Lo que se carga al evaluar un módulo: `import`/`export … from` de valor, o `import 'x';`. */
 const DE_VALOR = /^\s*(?:import|export)\s+(?!type\b)(?:[^'";]*?\s+from\s+)?['"]([^'"]+)['"]/gm;
+/** Lo de `DE_VALOR` y además `import type` y `export type … from`: lo que nombra otro módulo. */
+const CON_TIPOS = /^\s*(?:import|export)\s+(?:type\s+)?(?:[^'";]*?\s+from\s+)?['"]([^'"]+)['"]/gm;
 
 /**
  * Los ficheros del repo que `r` (relativa a la raíz) carga **al evaluarse**, en su
@@ -200,13 +202,18 @@ export function importacionesDe(r: string): string[] {
 
 /**
  * Lo mismo que `importacionesDe`, con la línea (desde 1) donde empieza cada
- * `import`: lo que dice un guardia que señala una importación (el de los ciclos
- * de `core`, fase N de la reorganización, 07-11-2026).
+ * `import`: lo que dice un guardia que señala una importación (los de los ciclos y
+ * las capas de `core`, fase N de la reorganización, 07-11-2026). Con `conTipos`,
+ * también las de solo tipos (`import type`, `export type … from`): una capa no
+ * nombra a la de arriba ni para un tipo.
  */
-export function importacionesConLineaDe(r: string): { ruta: string; linea: number }[] {
+export function importacionesConLineaDe(
+  r: string,
+  conTipos = false,
+): { ruta: string; linea: number }[] {
   const out: { ruta: string; linea: number }[] = [];
   const codigo = codigoDe(r);
-  for (const m of codigo.matchAll(DE_VALOR)) {
+  for (const m of codigo.matchAll(conTipos ? CON_TIPOS : DE_VALOR)) {
     const destino = m[1] as string;
     let absoluto: string;
     if (destino.startsWith('.')) absoluto = resolve(RAIZ, dirname(r), destino);
