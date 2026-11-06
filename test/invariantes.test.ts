@@ -2881,6 +2881,24 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo([PUERTA], importa)).not.toEqual([]);
   });
 
+  it('`data/hechizos.json` lo importa solo `core/magia/catalogo.ts`, que lo juzga al cargar', () => {
+    // Los hechizos (el editor de magia, 06-11-2026) se leen y juzgan una vez
+    // (`leerHechizos`): quien importara el fichero por su cuenta lanzaría un hechizo
+    // sin juzgar. La arena escribe el fichero desde `tools/arena/` (no lo importa).
+    // Roto a mano: un `import h from '../../../data/hechizos.json'` en
+    // `battle/spells.ts` sale rojo.
+    const PUERTA = 'src/core/magia/catalogo.ts';
+    const importa = importaDe(/[^'"]*data\/hechizos\.json/);
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
+    expect(
+      infractoresDeCodigo(
+        todos.filter((r) => r !== PUERTA),
+        importa,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([PUERTA], importa)).not.toEqual([]);
+  });
+
   it('la pieza que pinta el clima no lee la sesión: le dan el clima del sitio', () => {
     // `render/clima/` la llaman el mapa, la batalla y cualquier escena lateral
     // (la base, la morada y las del «mapa vivo»): si leyera la sesión de la

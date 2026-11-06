@@ -1,0 +1,1048 @@
+{
+  "_comment": "Hechizos (06-11-2026, el editor de magia de la arena; docs/agents/2026-11-06-editor-de-magia/). REGLA NUESTRA. El formato y su validación, en src/core/magia/ (formato.ts, validar.ts); lo edita la arena («Editar magia») y lo escribe «Guardar». Los cinco del gremio son los de antes (ids de siempre; daño y cura: base + porPoder × poder mágico, ×0,3 desde la escala baja del 26-10-2026, a ojo). «curar» es el poder Curar del monje (12 PV, inventado). Los demás, ejemplos con cifras INVENTADAS y a ojo, sin medir: gremio null = no los enseña ningún gremio (decisión por defecto, P3 del plan), solo la arena y los poderes. Coste (maná) a mano: no se sistematiza (decisión del usuario).",
+  "hechizos": [
+    {
+      "id": "magic_arrow",
+      "nombre": "Flecha mágica",
+      "descripcion": "Un dardo de energía que hiere a un enemigo.",
+      "mana": 3,
+      "gremio": 1,
+      "entrega": {
+        "tipo": "libre"
+      },
+      "objetivo": "enemigo",
+      "efectos": [
+        {
+          "tipo": "danio",
+          "cantidad": {
+            "base": 30,
+            "porPoder": 30
+          },
+          "armadura": true
+        }
+      ]
+    },
+    {
+      "id": "haste",
+      "nombre": "Prisa",
+      "descripcion": "El aliado anda más deprisa.",
+      "mana": 3,
+      "gremio": 1,
+      "entrega": {
+        "tipo": "libre"
+      },
+      "objetivo": "aliado",
+      "duracion": {
+        "rondas": "poder"
+      },
+      "efectos": [
+        {
+          "tipo": "cifra",
+          "cifra": "casillas",
+          "valor": 2
+        }
+      ]
+    },
+    {
+      "id": "slow",
+      "nombre": "Lentitud",
+      "descripcion": "El enemigo se arrastra.",
+      "mana": 3,
+      "gremio": 1,
+      "entrega": {
+        "tipo": "libre"
+      },
+      "objetivo": "enemigo",
+      "duracion": {
+        "rondas": "poder"
+      },
+      "efectos": [
+        {
+          "tipo": "cifra",
+          "cifra": "casillas",
+          "valor": -2
+        }
+      ]
+    },
+    {
+      "id": "lightning_bolt",
+      "nombre": "Rayo",
+      "descripcion": "Un rayo cae sobre un enemigo.",
+      "mana": 7,
+      "gremio": 3,
+      "entrega": {
+        "tipo": "libre"
+      },
+      "objetivo": "enemigo",
+      "efectos": [
+        {
+          "tipo": "danio",
+          "cantidad": {
+            "base": 75,
+            "porPoder": 75
+          },
+          "armadura": true
+        }
+      ]
+    },
+    {
+      "id": "cure",
+      "nombre": "Curación",
+      "descripcion": "Cierra las heridas de un aliado.",
+      "mana": 6,
+      "gremio": 3,
+      "entrega": {
+        "tipo": "libre"
+      },
+      "objetivo": "aliado",
+      "efectos": [
+        {
+          "tipo": "cura",
+          "cantidad": {
+            "base": 15,
+            "porPoder": 15
+          }
+        }
+      ]
+    },
+    {
+      "id": "curar",
+      "nombre": "Curar",
+      "descripcion": "El monje cura a un aliado herido, incluido él mismo.",
+      "mana": 0,
+      "gremio": null,
+      "entrega": {
+        "tipo": "libre"
+      },
+      "objetivo": "aliado",
+      "efectos": [
+        {
+          "tipo": "cura",
+          "cantidad": 12
+        }
+      ]
+    },
+    {
+      "id": "zombi_pegajoso",
+      "nombre": "Zombi pegajoso",
+      "descripcion": "Se unta al zombi con una costra que se pega a quien lo golpea: el enemigo que le ataque cuerpo a cuerpo no podrá atacar hasta el siguiente turno del zombi, salvo que el zombi caiga antes.",
+      "mana": 4,
+      "gremio": null,
+      "entrega": {
+        "tipo": "contacto"
+      },
+      "objetivo": "aliado",
+      "duracion": "pelea",
+      "efectos": [
+        {
+          "tipo": "disparador",
+          "cuando": "alSerGolpeado",
+          "a": "otro",
+          "duracion": {
+            "hasta": "empezar",
+            "turnoDe": "portador"
+          },
+          "seAcabaSiMuere": "portador",
+          "efectos": [
+            {
+              "tipo": "impide",
+              "que": [
+                "golpear",
+                "disparar"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "luz_cegadora",
+      "nombre": "Luz cegadora",
+      "descripcion": "El aliado brilla con una luz que ciega a los enemigos que tiene cerca: atacan peor mientras dure.",
+      "mana": 5,
+      "gremio": null,
+      "entrega": {
+        "tipo": "libre"
+      },
+      "objetivo": "aliado",
+      "duracion": {
+        "rondas": 3
+      },
+      "efectos": [
+        {
+          "tipo": "disparador",
+          "cuando": "empezarSuTurno",
+          "yAlLanzarse": true,
+          "a": "alrededor",
+          "radio": 1,
+          "afecta": "enemigos",
+          "duracion": {
+            "hasta": "empezar",
+            "turnoDe": "portador"
+          },
+          "efectos": [
+            {
+              "tipo": "cifra",
+              "cifra": "ataque",
+              "valor": -3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "berserker",
+      "nombre": "Berserker",
+      "descripcion": "El aliado entra en furia: cada turno se desangra sin que la armadura lo pare, pero pega con más fuerza.",
+      "mana": 4,
+      "gremio": null,
+      "entrega": {
+        "tipo": "libre"
+      },
+      "objetivo": "aliado",
+      "duracion": {
+        "rondas": "poder"
+      },
+      "efectos": [
+        {
+          "tipo": "cifra",
+          "cifra": "fuerza",
+          "valor": 3
+        },
+        {
+          "tipo": "disparador",
+          "cuando": "empezarSuTurno",
+          "a": "portador",
+          "efectos": [
+            {
+              "tipo": "danio",
+              "cantidad": 6,
+              "armadura": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "saeta_de_hielo",
+      "nombre": "Saeta de hielo",
+      "descripcion": "Una saeta que vuela recta desde el lanzador y se clava en el primero que encuentra, amigo o enemigo; lo deja clavado al suelo.",
+      "mana": 5,
+      "gremio": null,
+      "entrega": {
+        "tipo": "proyectil"
+      },
+      "objetivo": "casilla",
+      "afecta": "todos",
+      "duracion": {
+        "hasta": "terminar",
+        "turnoDe": "afectado"
+      },
+      "efectos": [
+        {
+          "tipo": "danio",
+          "cantidad": {
+            "base": 20,
+            "porPoder": 10
+          },
+          "armadura": true
+        },
+        {
+          "tipo": "impide",
+          "que": [
+            "moverse"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bola_de_fuego",
+      "nombre": "Bola de fuego",
+      "descripcion": "Estalla en una casilla a la vista, a 5 o menos del lanzador, y quema todo lo que hay en ella y alrededor.",
+      "mana": 9,
+      "gremio": null,
+      "entrega": {
+        "tipo": "alcance",
+        "casillas": 5
+      },
+      "objetivo": "casilla",
+      "area": 1,
+      "afecta": "todos",
+      "efectos": [
+        {
+          "tipo": "danio",
+          "cantidad": {
+            "base": 20,
+            "porPoder": 20
+          },
+          "armadura": true
+        }
+      ]
+    },
+    {
+      "id": "meteoro",
+      "nombre": "Meteoro",
+      "descripcion": "Se invoca sobre una casilla y cae al empezar el siguiente turno del lanzador; la armadura no lo para. Quien se aparte a tiempo se salva.",
+      "mana": 10,
+      "gremio": null,
+      "entrega": {
+        "tipo": "alcance",
+        "casillas": 6,
+        "diferido": true
+      },
+      "objetivo": "casilla",
+      "area": 1,
+      "afecta": "todos",
+      "efectos": [
+        {
+          "tipo": "danio",
+          "cantidad": {
+            "base": 40,
+            "porPoder": 20
+          },
+          "armadura": false
+        }
+      ]
+    },
+    {
+      "id": "onda_de_choque",
+      "nombre": "Onda de choque",
+      "descripcion": "Una onda sale del lanzador y golpea a los enemigos pegados a él.",
+      "mana": 6,
+      "gremio": null,
+      "entrega": {
+        "tipo": "sobreSi"
+      },
+      "area": 1,
+      "afecta": "enemigos",
+      "efectos": [
+        {
+          "tipo": "danio",
+          "cantidad": 15,
+          "armadura": true
+        }
+      ]
+    },
+    {
+      "id": "toque_helado",
+      "nombre": "Toque helado",
+      "descripcion": "Un toque que congela: hiere sin armadura a un enemigo pegado al lanzador.",
+      "mana": 3,
+      "gremio": null,
+      "entrega": {
+        "tipo": "contacto"
+      },
+      "objetivo": "enemigo",
+      "efectos": [
+        {
+          "tipo": "danio",
+          "cantidad": 18,
+          "armadura": false
+        }
+      ]
+    },
+    {
+      "id": "tormenta_de_granizo",
+      "nombre": "Tormenta de granizo",
+      "descripcion": "Granizo sobre un círculo amplio: hiere poco y frena a todos los que pilla.",
+      "mana": 12,
+      "gremio": null,
+      "entrega": {
+        "tipo": "alcance",
+        "casillas": 8
+      },
+      "objetivo": "casilla",
+      "area": 2,
+      "afecta": "todos",
+      "duracion": {
+        "rondas": 2
+      },
+      "efectos": [
+        {
+          "tipo": "danio",
+          "cantidad": 10,
+          "armadura": true
+        },
+        {
+          "tipo": "cifra",
+          "cifra": "casillas",
+          "valor": -1
+        }
+      ]
+    },
+    {
+      "id": "lanza_de_luz",
+      "nombre": "Lanza de luz",
+      "descripcion": "Un haz que atraviesa a todos los de la recta hasta un muro o el borde.",
+      "mana": 9,
+      "gremio": null,
+      "entrega": {
+        "tipo": "proyectil"
+      },
+      "objetivo": "casilla",
+      "area": "recta",
+      "afecta": "enemigos",
+      "efectos": [
+        {
+          "tipo": "danio",
+          "cantidad": 25,
+          "armadura": true
+        }
+      ]
+    },
+    {
+      "id": "grito_de_guerra",
+      "nombre": "Grito de guerra",
+      "descripcion": "El lanzador grita y los aliados a 2 casillas o menos (él incluido) atacan mejor.",
+      "mana": 5,
+      "gremio": null,
+      "entrega": {
+        "tipo": "sobreSi"
+      },
+      "area": 2,
+      "afecta": "aliados",
+      "duracion": {
+        "rondas": 2
+      },
+      "efectos": [
+        {
+          "tipo": "cifra",
+          "cifra": "ataque",
+          "valor": 2
+        }
+      ]
+    },
+    {
+      "id": "plegaria",
+      "nombre": "Plegaria",
+      "descripcion": "Todo el ejército se siente protegido.",
+      "mana": 12,
+      "gremio": null,
+      "entrega": {
+        "tipo": "tablero"
+      },
+      "afecta": "aliados",
+      "duracion": {
+        "rondas": "poder"
+      },
+      "efectos": [
+        {
+          "tipo": "cifra",
+          "cifra": "defensa",
+          "valor": 1
+        }
+      ]
+    },
+    {
+      "id": "piel_de_piedra",
+      "nombre": "Piel de piedra",
+      "descripcion": "La piel del aliado se vuelve piedra: le para más los golpes, pero le pesa.",
+      "mana": 5,
+      "gremio": null,
+      "entrega": {
+        "tipo": "libre"
+      },
+      "objetivo": "aliado",
+      "duracion": {
+        "rondas": "poder"
+      },
+      "efectos": [
+        {
+          "tipo": "cifra",
+          "cifra": "armadura",
+          "valor": 3
+        },
+        {
+          "tipo": "cifra",
+          "cifra": "casillas",
+          "valor": -1
+        }
+      ]
+    },
+    {
+      "id": "fuerza_de_oso",
+      "nombre": "Fuerza de oso",
+      "descripcion": "Tocando al aliado, le da la fuerza de un oso (más daño y aguanta más peso).",
+      "mana": 4,
+      "gremio": null,
+      "entrega": {
+        "tipo": "contacto"
+      },
+      "objetivo": "aliado",
+      "duracion": {
+        "rondas": 3
+      },
+      "efectos": [
+        {
+          "tipo": "cifra",
+          "cifra": "fuerza",
+          "valor": 3
+        }
+      ]
+    },
+    {
+      "id": "agilidad_felina",
+      "nombre": "Agilidad felina",
+      "descripcion": "El aliado se mueve como un gato: esquiva, anda y pega con más variación.",
+      "mana": 4,
+      "gremio": null,
+      "entrega": {
+        "tipo": "libre"
+      },
+      "objetivo": "aliado",
+      "duracion": {
+        "rondas": 2
+      },
+      "efectos": [
+        {
+          "tipo": "cifra",
+          "cifra": "agilidad",
+          "valor": 2
+        }
+      ]
+    },
+    {
+      "id": "debilidad",
+      "nombre": "Debilidad",
+      "descripcion": "Un enemigo a 4 casillas o menos pierde fuerza.",
+      "mana": 4,
+      "gremio": null,
+      "entrega": {
+        "tipo": "alcance",
+        "casillas": 4
+      },
+      "objetivo": "enemigo",
+      "duracion": {
+        "rondas": "poder"
+      },
+      "efectos": [
+        {
+          "tipo": "cifra",
+          "cifra": "fuerza",
+          "valor": -2
+        }
+      ]
+    },
+    {
+      "id": "corrosion",
+      "nombre": "Corrosión",
+      "descripcion": "La armadura del enemigo se pudre.",
+      "mana": 5,
+      "gremio": null,
+      "entrega": {
+        "tipo": "libre"
+      },
+      "objetivo": "enemigo",
+      "duracion": {
+        "rondas": 3
+      },
+      "efectos": [
+        {
+          "tipo": "cifra",
+          "cifra": "armadura",
+          "valor": -2
+        }
+      ]
+    },
+    {
+      "id": "furia_propia",
+      "nombre": "Furia",
+      "descripcion": "El lanzador se enfurece: pega más y se defiende peor.",
+      "mana": 2,
+      "gremio": null,
+      "entrega": {
+        "tipo": "sobreSi"
+      },
+      "duracion": {
+        "rondas": 2
+      },
+      "efectos": [
+        {
+          "tipo": "cifra",
+          "cifra": "ataque",
+          "valor": 3
+        },
+        {
+          "tipo": "cifra",
+          "cifra": "defensa",
+          "valor": -2
+        }
+      ]
+    },
+    {
+      "id": "curacion_en_masa",
+      "nombre": "Curación en masa",
+      "descripcion": "Cura a los aliados en una casilla y alrededor.",
+      "mana": 10,
+      "gremio": null,
+      "entrega": {
+        "tipo": "libre"
+      },
+      "objetivo": "casilla",
+      "area": 1,
+      "afecta": "aliados",
+      "efectos": [
+        {
+          "tipo": "cura",
+          "cantidad": {
+            "base": 10,
+            "porPoder": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "regeneracion",
+      "nombre": "Regeneración",
+      "descripcion": "Las heridas del aliado se cierran solas al empezar cada turno suyo.",
+      "mana": 6,
+      "gremio": null,
+      "entrega": {
+        "tipo": "libre"
+      },
+      "objetivo": "aliado",
+      "duracion": {
+        "rondas": 3
+      },
+      "efectos": [
+        {
+          "tipo": "disparador",
+          "cuando": "empezarSuTurno",
+          "a": "portador",
+          "efectos": [
+            {
+              "tipo": "cura",
+              "cantidad": 8
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "escudo_arcano",
+      "nombre": "Escudo arcano",
+      "descripcion": "Un escudo que se come el daño (tras la armadura) hasta que se rompe.",
+      "mana": 6,
+      "gremio": null,
+      "entrega": {
+        "tipo": "libre"
+      },
+      "objetivo": "aliado",
+      "duracion": "pelea",
+      "efectos": [
+        {
+          "tipo": "escudo",
+          "absorbe": {
+            "base": 10,
+            "porPoder": 10
+          }
+        }
+      ]
+    },
+    {
+      "id": "hoja_vampirica",
+      "nombre": "Hoja vampírica",
+      "descripcion": "Cada golpe que da el aliado le devuelve vida.",
+      "mana": 5,
+      "gremio": null,
+      "entrega": {
+        "tipo": "libre"
+      },
+      "objetivo": "aliado",
+      "duracion": {
+        "rondas": 3
+      },
+      "efectos": [
+        {
+          "tipo": "disparador",
+          "cuando": "alGolpear",
+          "a": "portador",
+          "efectos": [
+            {
+              "tipo": "cura",
+              "cantidad": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "paralisis",
+      "nombre": "Parálisis",
+      "descripcion": "El enemigo se queda rígido: no hace nada hasta acabar su siguiente turno.",
+      "mana": 8,
+      "gremio": null,
+      "entrega": {
+        "tipo": "alcance",
+        "casillas": 3
+      },
+      "objetivo": "enemigo",
+      "duracion": {
+        "hasta": "terminar",
+        "turnoDe": "afectado"
+      },
+      "efectos": [
+        {
+          "tipo": "impide",
+          "que": [
+            "golpear",
+            "disparar",
+            "moverse",
+            "lanzar",
+            "contraatacar"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "raices",
+      "nombre": "Raíces",
+      "descripcion": "Las raíces sujetan los pies del enemigo.",
+      "mana": 4,
+      "gremio": null,
+      "entrega": {
+        "tipo": "libre"
+      },
+      "objetivo": "enemigo",
+      "duracion": {
+        "rondas": 2
+      },
+      "efectos": [
+        {
+          "tipo": "impide",
+          "que": [
+            "moverse"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "silencio",
+      "nombre": "Silencio",
+      "descripcion": "Ni hechizos ni poderes. Sobre el cuerpo de un héroe, su libro queda cerrado.",
+      "mana": 5,
+      "gremio": null,
+      "entrega": {
+        "tipo": "libre"
+      },
+      "objetivo": "enemigo",
+      "duracion": {
+        "rondas": 2
+      },
+      "efectos": [
+        {
+          "tipo": "impide",
+          "que": [
+            "lanzar"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "desarmar",
+      "nombre": "Desarmar",
+      "descripcion": "Con un toque, el enemigo suelta el arma hasta el siguiente turno del lanzador: ni golpea ni devuelve golpes.",
+      "mana": 4,
+      "gremio": null,
+      "entrega": {
+        "tipo": "contacto"
+      },
+      "objetivo": "enemigo",
+      "duracion": {
+        "hasta": "empezar",
+        "turnoDe": "lanzador"
+      },
+      "efectos": [
+        {
+          "tipo": "impide",
+          "que": [
+            "golpear",
+            "contraatacar"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "red",
+      "nombre": "Red",
+      "descripcion": "Una red lanzada en recta que atrapa al primero que encuentra.",
+      "mana": 3,
+      "gremio": null,
+      "entrega": {
+        "tipo": "proyectil",
+        "casillas": 5
+      },
+      "objetivo": "casilla",
+      "afecta": "enemigos",
+      "duracion": {
+        "hasta": "terminar",
+        "turnoDe": "afectado"
+      },
+      "efectos": [
+        {
+          "tipo": "impide",
+          "que": [
+            "moverse"
+          ]
+        },
+        {
+          "tipo": "cifra",
+          "cifra": "defensa",
+          "valor": -2
+        }
+      ]
+    },
+    {
+      "id": "espinas",
+      "nombre": "Espinas",
+      "descripcion": "Quien golpee al aliado cuerpo a cuerpo se pincha (la armadura no lo para).",
+      "mana": 5,
+      "gremio": null,
+      "entrega": {
+        "tipo": "libre"
+      },
+      "objetivo": "aliado",
+      "duracion": {
+        "rondas": "poder"
+      },
+      "efectos": [
+        {
+          "tipo": "disparador",
+          "cuando": "alSerGolpeado",
+          "a": "otro",
+          "efectos": [
+            {
+              "tipo": "danio",
+              "cantidad": 6,
+              "armadura": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "replica",
+      "nombre": "Réplica",
+      "descripcion": "La primera vez que golpeen al aliado, devuelve un tajo arcano.",
+      "mana": 4,
+      "gremio": null,
+      "entrega": {
+        "tipo": "libre"
+      },
+      "objetivo": "aliado",
+      "duracion": {
+        "rondas": 2
+      },
+      "efectos": [
+        {
+          "tipo": "disparador",
+          "cuando": "alSerGolpeado",
+          "a": "otro",
+          "cargas": 1,
+          "efectos": [
+            {
+              "tipo": "danio",
+              "cantidad": 15,
+              "armadura": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "veneno",
+      "nombre": "Veneno",
+      "descripcion": "Al empezar cada turno suyo, el enemigo sufre el veneno sin que la armadura lo pare.",
+      "mana": 4,
+      "gremio": null,
+      "entrega": {
+        "tipo": "alcance",
+        "casillas": 3
+      },
+      "objetivo": "enemigo",
+      "duracion": {
+        "rondas": 3
+      },
+      "efectos": [
+        {
+          "tipo": "disparador",
+          "cuando": "empezarSuTurno",
+          "a": "portador",
+          "efectos": [
+            {
+              "tipo": "danio",
+              "cantidad": 5,
+              "armadura": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "marca_del_cazador",
+      "nombre": "Marca del cazador",
+      "descripcion": "Marca a un enemigo: se defiende peor mientras viva quien lo marcó.",
+      "mana": 3,
+      "gremio": null,
+      "entrega": {
+        "tipo": "libre"
+      },
+      "objetivo": "enemigo",
+      "duracion": "pelea",
+      "seAcabaSiMuere": "lanzador",
+      "efectos": [
+        {
+          "tipo": "cifra",
+          "cifra": "defensa",
+          "valor": -2
+        }
+      ]
+    },
+    {
+      "id": "juramento",
+      "nombre": "Juramento",
+      "descripcion": "El aliado jura por su señor: pelea mejor mientras el lanzador siga en pie.",
+      "mana": 6,
+      "gremio": null,
+      "entrega": {
+        "tipo": "libre"
+      },
+      "objetivo": "aliado",
+      "duracion": "pelea",
+      "seAcabaSiMuere": "lanzador",
+      "efectos": [
+        {
+          "tipo": "cifra",
+          "cifra": "ataque",
+          "valor": 1
+        },
+        {
+          "tipo": "cifra",
+          "cifra": "defensa",
+          "valor": 1
+        }
+      ]
+    },
+    {
+      "id": "venganza_postuma",
+      "nombre": "Venganza póstuma",
+      "descripcion": "Si el aliado cae, estalla y hiere sin armadura a los enemigos pegados a él.",
+      "mana": 6,
+      "gremio": null,
+      "entrega": {
+        "tipo": "libre"
+      },
+      "objetivo": "aliado",
+      "duracion": "pelea",
+      "efectos": [
+        {
+          "tipo": "disparador",
+          "cuando": "alMorir",
+          "a": "alrededor",
+          "radio": 1,
+          "afecta": "enemigos",
+          "efectos": [
+            {
+              "tipo": "danio",
+              "cantidad": 20,
+              "armadura": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "aura_de_pavor",
+      "nombre": "Aura de pavor",
+      "descripcion": "Mientras dure, los enemigos a 2 casillas del lanzador tiemblan y atacan peor.",
+      "mana": 7,
+      "gremio": null,
+      "entrega": {
+        "tipo": "sobreSi"
+      },
+      "duracion": {
+        "rondas": 3
+      },
+      "efectos": [
+        {
+          "tipo": "disparador",
+          "cuando": "empezarSuTurno",
+          "yAlLanzarse": true,
+          "a": "alrededor",
+          "radio": 2,
+          "afecta": "enemigos",
+          "duracion": {
+            "hasta": "empezar",
+            "turnoDe": "portador"
+          },
+          "efectos": [
+            {
+              "tipo": "cifra",
+              "cifra": "ataque",
+              "valor": -1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sangre_por_poder",
+      "nombre": "Pacto de sangre",
+      "descripcion": "El aliado se hace un corte (sin armadura) y a cambio pega más fuerte el resto de la pelea.",
+      "mana": 2,
+      "gremio": null,
+      "entrega": {
+        "tipo": "libre"
+      },
+      "objetivo": "aliado",
+      "duracion": "pelea",
+      "efectos": [
+        {
+          "tipo": "danio",
+          "cantidad": 10,
+          "armadura": false
+        },
+        {
+          "tipo": "cifra",
+          "cifra": "fuerza",
+          "valor": 2
+        }
+      ]
+    },
+    {
+      "id": "disipar",
+      "nombre": "Disipar",
+      "descripcion": "Quita de una unidad todo lo que le echó la magia del otro bando.",
+      "mana": 4,
+      "gremio": null,
+      "entrega": {
+        "tipo": "libre"
+      },
+      "objetivo": "cualquiera",
+      "efectos": [
+        {
+          "tipo": "disipar",
+          "de": "contrarios"
+        }
+      ]
+    },
+    {
+      "id": "limpieza",
+      "nombre": "Limpieza",
+      "descripcion": "Los aliados alrededor del lanzador se quitan lo que les echó el enemigo.",
+      "mana": 6,
+      "gremio": null,
+      "entrega": {
+        "tipo": "sobreSi"
+      },
+      "area": 2,
+      "afecta": "aliados",
+      "efectos": [
+        {
+          "tipo": "disipar",
+          "de": "contrarios"
+        }
+      ]
+    }
+  ]
+}
