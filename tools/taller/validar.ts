@@ -89,13 +89,12 @@ export async function validar(
   }
   if (!lleno && (medidas.visibles ?? 0) > 0.9)
     problemas.push('el fondo no se ha recortado: casi todo es opaco');
-  // Un efecto es semitransparente a propósito: ni cuerpo opaco ni halo que medir.
-  if (tipo !== 'efecto' && (medidas.opacos ?? 0) < 0.75) {
+  if ((medidas.opacos ?? 0) < 0.75) {
     problemas.push(
       `el cuerpo no es opaco: solo el ${Math.round((medidas.opacos ?? 0) * 100)} % de lo visible`,
     );
   }
-  if (tipo !== 'efecto' && (medidas.haloSuelto ?? 0) > 0.01) {
+  if ((medidas.haloSuelto ?? 0) > 0.01) {
     problemas.push(
       `queda halo suelto: ${((medidas.haloSuelto ?? 0) * 100).toFixed(1)} % de lo visible`,
     );

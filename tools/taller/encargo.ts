@@ -95,18 +95,6 @@ export function fondoDeReferencia(papel: Papel): string | null {
   return null;
 }
 
-/**
- * La rejilla de una lámina de iconos según cuántos lleva: hasta cuatro, una
- * fila; más, filas de cuatro (y entonces tienen que ser múltiplo de cuatro).
- */
-export function rejillaDeIconos(n: number): { filas: number; columnas: number } {
-  if (n >= 1 && n <= 4) return { filas: 1, columnas: n };
-  if (n > 4 && n % 4 === 0) return { filas: n / 4, columnas: 4 };
-  throw new Error(`una lámina de ${n} iconos no cabe en una rejilla: hasta 4, o múltiplos de 4`);
-}
-/** Un efecto animado son 6 fotogramas en 3 columnas por 2 filas. */
-export const REJILLA_DE_EFECTO = { columnas: 3, filas: 2 } as const;
-
 const ruta = z
   .string()
   .min(1)
@@ -129,16 +117,7 @@ const referencia = z.object({
 export const encargoSchema = z
   .object({
     id: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'el id va en kebab-case'),
-    tipo: z.enum([
-      'identidad',
-      'giro',
-      'atlas',
-      'imagen',
-      'iconos',
-      'efecto',
-      'textura',
-      'modulos',
-    ]),
+    tipo: z.enum(['identidad', 'giro', 'atlas', 'imagen', 'textura', 'modulos']),
     /** El contenido: quién es, qué lleva. Las reglas de cámara y fondo las pone el taller. */
     descripcion: z.string().min(20),
     referencias: z.array(referencia),
@@ -200,17 +179,10 @@ export const encargoSchema = z
       .optional(),
     /** Módulos del escenario: cuántos lleva la hoja, en filas de 4. */
     cuantos: z.number().int().min(4).max(16).optional(),
-    /** Iconos: el nombre de cada uno, en el orden de lectura de la lámina de 4×4. */
+    /** Módulos: el nombre de cada uno, en el orden de lectura de la hoja. */
     nombres: z.array(z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/)).optional(),
   })
   .superRefine((e, ctx) => {
-    if (e.tipo === 'iconos') {
-      try {
-        rejillaDeIconos(e.nombres?.length ?? 0);
-      } catch (err) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: (err as Error).message });
-      }
-    }
     if (e.tipo === 'atlas' && e.ocho === undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -375,24 +347,6 @@ function reglasDeGiro(): string {
   ].join('\n');
 }
 
-function reglasDeIconos(e: Encargo): string {
-  const n = e.nombres?.length ?? 0;
-  const { filas, columnas } = rejillaDeIconos(n);
-  return [
-    `Rejilla de EXACTAMENTE ${filas} fila${filas > 1 ? 's' : ''} por ${columnas} columnas: ${n} iconos del mismo tamaño, cada uno compacto y entero, con mucho aire alrededor; ningún icono toca a otro.`,
-    SIN_FONDO,
-  ].join('\n');
-}
-
-function reglasDeEfecto(): string {
-  const { columnas, filas } = REJILLA_DE_EFECTO;
-  return [
-    `Hoja de animación de EXACTAMENTE ${columnas * filas} fotogramas del mismo efecto, en ${columnas} columnas por ${filas} filas, en orden de lectura: del inicio al final del efecto.`,
-    'Cada fotograma ocupa su celda de una rejilla imaginaria igual para todos, centrado en el mismo punto de su celda y a la misma escala; nada cruza el borde de su celda.',
-    SIN_FONDO,
-  ].join('\n');
-}
-
 function reglas(e: Encargo): string {
   switch (e.tipo) {
     case 'atlas':
@@ -401,10 +355,6 @@ function reglas(e: Encargo): string {
       return reglasDeIdentidad();
     case 'giro':
       return reglasDeGiro();
-    case 'iconos':
-      return reglasDeIconos(e);
-    case 'efecto':
-      return reglasDeEfecto();
     case 'imagen':
       return reglasDeImagen(e);
     case 'textura':

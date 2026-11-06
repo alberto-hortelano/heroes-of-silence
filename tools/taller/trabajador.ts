@@ -130,12 +130,7 @@ import { ARTE_DE_LA_BASE, encargosDeLaBase, escribirFuentesDeLaBase } from './ba
 import { escribirCasas, vistaDeLasCasas } from './casas.js';
 import { CODEX, FalloDeCodex, type Generacion, generar } from './codex.js';
 import { colaDelTaller, YaEnLaCola } from './cola.js';
-import {
-  escribirDerivado,
-  escribirEfectoDerivado,
-  escribirPiezaDerivada,
-  RELOJ,
-} from './derivar.js';
+import { escribirDerivado, escribirPiezaDerivada, RELOJ } from './derivar.js';
 import {
   encargoDeDiagonales,
   escribirDiagonalesDerivadas,
@@ -143,15 +138,6 @@ import {
   LADOS_DE_DIAGONAL,
   NIVELES_DE_DIAGONAL,
 } from './diagonales.js';
-import { encargosDeEdificios } from './edificios.js';
-import { encargoDeIconosDeRecursos, encargosDeEfectos } from './efectos.js';
-import {
-  empaquetarEfecto,
-  LADO_EFECTO,
-  LADO_ICONO,
-  partirIconos,
-  recorteSuave,
-} from './efectos-proceso.js';
 import { baseEnCelda, empaquetar, figuraDeLaLamina, recortarAlContenido } from './empaquetar.js';
 import {
   alturaDelReposo,
@@ -203,7 +189,7 @@ import { escalaDePose } from './pose-del-encargo.js';
 import { escribirAtlasDePoses, RUTA_DEL_ATLAS_8D, ritmoDelEncargo } from './poses-8d.js';
 import { encargosDeRampas, escribirGuiasDeRampas, escribirRampasDerivadas } from './rampas.js';
 import { encargoDelRecinto, escribirGuiaDelRecinto, escribirRecintoDerivado } from './recinto.js';
-import { aRaster, dePng, recortar, UMBRALES } from './recorte.js';
+import { dePng, recortar, UMBRALES } from './recorte.js';
 import { medirLaBase, recortarLaBase } from './recorte-base.js';
 import { arbitrar, cruzar, unir } from './revision/jurado.js';
 import {
@@ -237,7 +223,7 @@ import {
   unidad,
 } from './unidades.js';
 import { validarElEncargo } from './validar.js';
-import { vistaEdificios, vistaEfectos, vistaEjercitos } from './vista.js';
+import { vistaEjercitos } from './vista.js';
 import { vista8d } from './vista-8d.js';
 import { vistaBase } from './vista-base.js';
 import { vistaMapa } from './vista-mapa.js';
@@ -356,41 +342,11 @@ async function postprocesar(
         }
       }
     } else {
-      // Un efecto es semitransparente a propósito (humo, resplandor): recorte suave.
-      const r =
-        encargo.tipo === 'efecto' ? recorteSuave(await aRaster(crudo)) : await recortar(crudo);
+      const r = await recortar(crudo);
       pasos.push(
-        encargo.tipo === 'efecto'
-          ? 'recorte suave: solo se borra lo casi invisible (alfa < 24); el humo y los resplandores conservan su alfa'
-          : `halo recortado desde los bordes (alfa < ${UMBRALES.halo}); cuerpo opaco (alfa ≥ ${UMBRALES.cuerpo})`,
+        `halo recortado desde los bordes (alfa < ${UMBRALES.halo}); cuerpo opaco (alfa ≥ ${UMBRALES.cuerpo})`,
       );
-      if (encargo.tipo === 'efecto') {
-        const ef = await empaquetarEfecto(r);
-        final = ef.png;
-        pasos.push(
-          `fotogramas cortados por la rejilla nominal 3×2 y empaquetados en una tira de 6×${LADO_EFECTO}` +
-            (ef.rozaduras > 0
-              ? `; ${ef.rozaduras} píxeles que rozaban las líneas de corte, recortados`
-              : ''),
-        );
-      } else if (encargo.tipo === 'iconos') {
-        const iconos = await partirIconos(r, encargo.nombres ?? []);
-        const dir = join(RAIZ, dirname(encargo.salida));
-        await mkdir(dir, { recursive: true });
-        const indice = [];
-        for (const ic of iconos) {
-          const bytes = await sharp(ic.png)
-            .webp({ quality: 92, alphaQuality: 100, effort: 6 })
-            .toBuffer();
-          await writeFile(join(dir, `${ic.nombre}.webp`), bytes);
-          indice.push({ nombre: ic.nombre, imagen: `${ic.nombre}.webp`, sha256: sha256(bytes) });
-        }
-        extra = { indiceDeIconos: indice };
-        final = await recortarAlContenido(r, MARGEN_DEL_RECORTE);
-        pasos.push(
-          `lámina partida en ${iconos.length} iconos de ${LADO_ICONO}×${LADO_ICONO}, cada uno en su fichero`,
-        );
-      } else if (encargo.tipo === 'modulos') {
+      if (encargo.tipo === 'modulos') {
         const indice = await escribirModulos(
           r,
           join(RAIZ, encargo.salida),
@@ -455,16 +411,12 @@ async function postprocesar(
     pasos.push('WebP calidad 92, alfa sin pérdida');
 
     // Las piezas sueltas del mapa (no las láminas de muestra) llevan su JSON derivado.
-    // Y los edificios de ciudad, que se colocan igual: por el centro de su base.
     // Una rampa (§35) es una imagen entera que se corta en sus tres piezas por la guía.
     if (encargo.tipo === 'imagen' && esHojaDeRampa(basename(encargo.salida))) {
       await escribirRelieveDerivado([basename(encargo.salida)]);
       pasos.push('cortada en sus tres piezas por la guía, con las juntas de cada una');
     }
-    if (
-      encargo.tipo === 'imagen' &&
-      /^assets\/(mapa|edificios\/[a-z-]+)\/[^/]+$/.test(encargo.salida)
-    ) {
+    if (encargo.tipo === 'imagen' && /^assets\/mapa\/[^/]+$/.test(encargo.salida)) {
       const d = await escribirPiezaDerivada(rutaSalida);
       pasos.push(`JSON derivado: ${d.ancho}×${d.alto}, ancla en (${d.ancla})`);
       // Un tramo de norte a sur se ancla y se encadena por las juntas de su guía (§29).
@@ -502,10 +454,6 @@ async function postprocesar(
         ...avisos,
       );
     }
-    if (encargo.tipo === 'efecto') {
-      const d = await escribirEfectoDerivado(rutaSalida);
-      pasos.push(`JSON derivado: ${d.fotogramas} fotogramas, caja ${d.caja}`);
-    }
     if (encargo.tipo === 'modulos') {
       await writeFile(
         join(RAIZ, `${encargo.salida}.json`),
@@ -521,12 +469,6 @@ async function postprocesar(
         await escribirRelieveDerivado([basename(encargo.salida)]);
         pasos.push('las juntas de cada módulo, registradas sobre la guía');
       }
-    }
-    if (encargo.tipo === 'iconos') {
-      await writeFile(
-        join(RAIZ, `${encargo.salida}.json`),
-        `${JSON.stringify({ lado: LADO_ICONO, iconos: extra.indiceDeIconos, lamina: basename(rutaSalida) }, null, 2)}\n`,
-      );
     }
     // Media dirección: se deriva al juntarse con la otra hoja. Una versión de la
     // revisión (fuera de `assets/`) no se junta: entra con `pnpm taller adoptar`.
@@ -828,25 +770,12 @@ async function encolar(args: readonly string[]): Promise<void> {
     for (const e of esperan) console.log(`espera: ${e}`);
     return;
   }
-  if (args.includes('--edificios')) {
-    for (const bruto of encargosDeEdificios()) {
-      if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
-      console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
-    }
-    return;
-  }
-  if (args.includes('--iconos-recursos')) {
-    const bruto = encargoDeIconosDeRecursos();
-    if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
-    console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
-    return;
-  }
-  if (args.includes('--efectos')) {
-    for (const bruto of encargosDeEfectos()) {
-      if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
-      console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
-    }
-    return;
+  // Sin la orden, el bucle de abajo no encolaría nada y callaría.
+  const retirada = ['--edificios', '--efectos', '--iconos-recursos'].find((x) => args.includes(x));
+  if (retirada !== undefined) {
+    throw new Error(
+      `${retirada} se retiró el 06-11-2026 con los edificios, los efectos y los iconos de recursos del 02-10: el cliente no los pinta (su arte está en assets/art/retirado/)`,
+    );
   }
   // Los puentes (§17, `paredes-puentes.ts`): primero las guías.
   if (args.includes('--paredes-puentes')) {
@@ -1287,12 +1216,6 @@ switch (orden) {
     }
     break;
   }
-  case 'vista-edificios':
-    console.log(`→ ${await vistaEdificios()}`);
-    break;
-  case 'vista-efectos':
-    console.log(`→ ${await vistaEfectos()}`);
-    break;
   case 'vista-mapa': {
     const semilla = resto[0] === undefined ? 1 : Number(resto[0]);
     if (!Number.isSafeInteger(semilla))
@@ -1657,6 +1580,6 @@ switch (orden) {
     break;
   default:
     throw new Error(
-      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, derivar-relieve, derivar-muros, derivar-puestos, derivar-muralla-batalla, derivar-casas, maniqui, muestrario, vision-instalar, revisar-maniqui, revisar, jurado, visor, visor-maniqui, versiones, elegir, adoptar, vista-base, recortar-base, medir-base, vista-ejercitos, vista-edificios, vista-efectos, vista-8d, vista-mapa, escenario, catalogo-escena, piezas-de-tema`,
+      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, derivar-relieve, derivar-muros, derivar-puestos, derivar-muralla-batalla, derivar-casas, maniqui, muestrario, vision-instalar, revisar-maniqui, revisar, jurado, visor, visor-maniqui, versiones, elegir, adoptar, vista-base, recortar-base, medir-base, vista-ejercitos, vista-8d, vista-mapa, escenario, catalogo-escena, piezas-de-tema`,
     );
 }

@@ -40,3 +40,130 @@ fichero	assets/generated/terrain/sand.png	assets/art/retirado/generated/terrain/
 fichero	assets/generated/terrain/snow.png	assets/art/retirado/generated/terrain/snow.png	
 fichero	assets/generated/terrain/swamp.png	assets/art/retirado/generated/terrain/swamp.png	
 fichero	assets/generated/terrain/water.png	assets/art/retirado/generated/terrain/water.png	
+fichero	tools/taller/edificios.ts	(retirado)	
+fichero	tools/taller/efectos.ts	(retirado)	
+fichero	tools/taller/efectos-proceso.ts	(retirado)	
+simbolo	tools/taller/vista.ts	(retirado)	vistaEdificios
+simbolo	tools/taller/vista.ts	(retirado)	vistaEfectos
+simbolo	tools/taller/encargo.ts	(retirado)	rejillaDeIconos
+simbolo	tools/taller/encargo.ts	(retirado)	REJILLA_DE_EFECTO
+simbolo	tools/taller/encargo.ts	(retirado)	encargoSchema tipo 'iconos'
+simbolo	tools/taller/encargo.ts	(retirado)	encargoSchema tipo 'efecto'
+simbolo	tools/taller/derivar.ts	(retirado)	derivarEfecto
+simbolo	tools/taller/derivar.ts	(retirado)	escribirEfectoDerivado
+simbolo	tools/taller/derivar.ts	(retirado)	EfectoDerivado
+simbolo	tools/taller/trabajador.ts	(retirado)	pnpm taller encolar --edificios
+simbolo	tools/taller/trabajador.ts	(retirado)	pnpm taller encolar --efectos
+simbolo	tools/taller/trabajador.ts	(retirado)	pnpm taller encolar --iconos-recursos
+simbolo	tools/taller/trabajador.ts	(retirado)	pnpm taller vista-edificios
+simbolo	tools/taller/trabajador.ts	(retirado)	pnpm taller vista-efectos
+fichero	assets/edificios/elfos/arboleda.json	assets/art/retirado/edificios/elfos/arboleda.json	
+fichero	assets/edificios/elfos/arboleda.procedencia.json	assets/art/retirado/edificios/elfos/arboleda.procedencia.json	
+fichero	assets/edificios/elfos/arboleda.webp	assets/art/retirado/edificios/elfos/arboleda.webp	
+fichero	assets/edificios/elfos/cubil.json	assets/art/retirado/edificios/elfos/cubil.json	
+fichero	assets/edificios/elfos/cubil.procedencia.json	assets/art/retirado/edificios/elfos/cubil.procedencia.json	
+fichero	assets/edificios/elfos/cubil.webp	assets/art/retirado/edificios/elfos/cubil.webp	
+fichero	assets/edificios/elfos/pabellon-de-caza.json	assets/art/retirado/edificios/elfos/pabellon-de-caza.json	
+fichero	assets/edificios/elfos/pabellon-de-caza.procedencia.json	assets/art/retirado/edificios/elfos/pabellon-de-caza.procedencia.json	
+fichero	assets/edificios/elfos/pabellon-de-caza.webp	assets/art/retirado/edificios/elfos/pabellon-de-caza.webp	
+fichero	assets/edificios/imperio/armeria.json	assets/art/retirado/edificios/imperio/armeria.json	
+fichero	assets/edificios/imperio/armeria.procedencia.json	assets/art/retirado/edificios/imperio/armeria.procedencia.json	
+fichero	assets/edificios/imperio/armeria.webp	assets/art/retirado/edificios/imperio/armeria.webp	
+fichero	assets/edificios/imperio/biblioteca.json	assets/art/retirado/edificios/imperio/biblioteca.json	
+fichero	assets/edificios/imperio/biblioteca.procedencia.json	assets/art/retirado/edificios/imperio/biblioteca.procedencia.json	
+fichero	assets/edificios/imperio/biblioteca.webp	assets/art/retirado/edificios/imperio/biblioteca.webp	
+fichero	assets/edificios/imperio/fundicion.json	assets/art/retirado/edificios/imperio/fundicion.json	
+fichero	assets/edificios/imperio/fundicion.procedencia.json	assets/art/retirado/edificios/imperio/fundicion.procedencia.json	
+fichero	assets/edificios/imperio/fundicion.webp	assets/art/retirado/edificios/imperio/fundicion.webp	
+fichero	assets/edificios/imperio/taller.json	assets/art/retirado/edificios/imperio/taller.json	
+fichero	assets/edificios/imperio/taller.procedencia.json	assets/art/retirado/edificios/imperio/taller.procedencia.json	
+fichero	assets/edificios/imperio/taller.webp	assets/art/retirado/edificios/imperio/taller.webp	
+fichero	assets/edificios/no-muertos/cripta.json	assets/art/retirado/edificios/no-muertos/cripta.json	
+fichero	assets/edificios/no-muertos/cripta.procedencia.json	assets/art/retirado/edificios/no-muertos/cripta.procedencia.json	
+fichero	assets/edificios/no-muertos/cripta.webp	assets/art/retirado/edificios/no-muertos/cripta.webp	
+fichero	assets/edificios/no-muertos/mausoleo.json	assets/art/retirado/edificios/no-muertos/mausoleo.json	
+fichero	assets/edificios/no-muertos/mausoleo.procedencia.json	assets/art/retirado/edificios/no-muertos/mausoleo.procedencia.json	
+fichero	assets/edificios/no-muertos/mausoleo.webp	assets/art/retirado/edificios/no-muertos/mausoleo.webp	
+fichero	assets/edificios/no-muertos/torre-oscura.json	assets/art/retirado/edificios/no-muertos/torre-oscura.json	
+fichero	assets/edificios/no-muertos/torre-oscura.procedencia.json	assets/art/retirado/edificios/no-muertos/torre-oscura.procedencia.json	
+fichero	assets/edificios/no-muertos/torre-oscura.webp	assets/art/retirado/edificios/no-muertos/torre-oscura.webp	
+fichero	assets/edificios/orkos/cueva.json	assets/art/retirado/edificios/orkos/cueva.json	
+fichero	assets/edificios/orkos/cueva.procedencia.json	assets/art/retirado/edificios/orkos/cueva.procedencia.json	
+fichero	assets/edificios/orkos/cueva.webp	assets/art/retirado/edificios/orkos/cueva.webp	
+fichero	assets/edificios/orkos/pocilga.json	assets/art/retirado/edificios/orkos/pocilga.json	
+fichero	assets/edificios/orkos/pocilga.procedencia.json	assets/art/retirado/edificios/orkos/pocilga.procedencia.json	
+fichero	assets/edificios/orkos/pocilga.webp	assets/art/retirado/edificios/orkos/pocilga.webp	
+fichero	assets/edificios/orkos/totem.json	assets/art/retirado/edificios/orkos/totem.json	
+fichero	assets/edificios/orkos/totem.procedencia.json	assets/art/retirado/edificios/orkos/totem.procedencia.json	
+fichero	assets/edificios/orkos/totem.webp	assets/art/retirado/edificios/orkos/totem.webp	
+fichero	assets/edificios/templarios/establos.json	assets/art/retirado/edificios/templarios/establos.json	
+fichero	assets/edificios/templarios/establos.procedencia.json	assets/art/retirado/edificios/templarios/establos.procedencia.json	
+fichero	assets/edificios/templarios/establos.webp	assets/art/retirado/edificios/templarios/establos.webp	
+fichero	assets/edificios/templarios/forja.json	assets/art/retirado/edificios/templarios/forja.json	
+fichero	assets/edificios/templarios/forja.procedencia.json	assets/art/retirado/edificios/templarios/forja.procedencia.json	
+fichero	assets/edificios/templarios/forja.webp	assets/art/retirado/edificios/templarios/forja.webp	
+fichero	assets/edificios/templarios/monasterio.json	assets/art/retirado/edificios/templarios/monasterio.json	
+fichero	assets/edificios/templarios/monasterio.procedencia.json	assets/art/retirado/edificios/templarios/monasterio.procedencia.json	
+fichero	assets/edificios/templarios/monasterio.webp	assets/art/retirado/edificios/templarios/monasterio.webp	
+fichero	assets/efectos/animados/curacion.json	assets/art/retirado/efectos/animados/curacion.json	
+fichero	assets/efectos/animados/curacion.procedencia.json	assets/art/retirado/efectos/animados/curacion.procedencia.json	
+fichero	assets/efectos/animados/curacion.webp	assets/art/retirado/efectos/animados/curacion.webp	
+fichero	assets/efectos/animados/drenaje.json	assets/art/retirado/efectos/animados/drenaje.json	
+fichero	assets/efectos/animados/drenaje.procedencia.json	assets/art/retirado/efectos/animados/drenaje.procedencia.json	
+fichero	assets/efectos/animados/drenaje.webp	assets/art/retirado/efectos/animados/drenaje.webp	
+fichero	assets/efectos/animados/explosion.json	assets/art/retirado/efectos/animados/explosion.json	
+fichero	assets/efectos/animados/explosion.procedencia.json	assets/art/retirado/efectos/animados/explosion.procedencia.json	
+fichero	assets/efectos/animados/explosion.webp	assets/art/retirado/efectos/animados/explosion.webp	
+fichero	assets/efectos/animados/fuego.json	assets/art/retirado/efectos/animados/fuego.json	
+fichero	assets/efectos/animados/fuego.procedencia.json	assets/art/retirado/efectos/animados/fuego.procedencia.json	
+fichero	assets/efectos/animados/fuego.webp	assets/art/retirado/efectos/animados/fuego.webp	
+fichero	assets/efectos/animados/golpe.json	assets/art/retirado/efectos/animados/golpe.json	
+fichero	assets/efectos/animados/golpe.procedencia.json	assets/art/retirado/efectos/animados/golpe.procedencia.json	
+fichero	assets/efectos/animados/golpe.webp	assets/art/retirado/efectos/animados/golpe.webp	
+fichero	assets/efectos/animados/raices.json	assets/art/retirado/efectos/animados/raices.json	
+fichero	assets/efectos/animados/raices.procedencia.json	assets/art/retirado/efectos/animados/raices.procedencia.json	
+fichero	assets/efectos/animados/raices.webp	assets/art/retirado/efectos/animados/raices.webp	
+fichero	assets/efectos/animados/resurreccion.json	assets/art/retirado/efectos/animados/resurreccion.json	
+fichero	assets/efectos/animados/resurreccion.procedencia.json	assets/art/retirado/efectos/animados/resurreccion.procedencia.json	
+fichero	assets/efectos/animados/resurreccion.webp	assets/art/retirado/efectos/animados/resurreccion.webp	
+fichero	assets/efectos/animados/veneno.json	assets/art/retirado/efectos/animados/veneno.json	
+fichero	assets/efectos/animados/veneno.procedencia.json	assets/art/retirado/efectos/animados/veneno.procedencia.json	
+fichero	assets/efectos/animados/veneno.webp	assets/art/retirado/efectos/animados/veneno.webp	
+fichero	assets/efectos/bala-de-canon.procedencia.json	assets/art/retirado/efectos/bala-de-canon.procedencia.json	
+fichero	assets/efectos/bala-de-canon.webp	assets/art/retirado/efectos/bala-de-canon.webp	
+fichero	assets/efectos/cadaver.procedencia.json	assets/art/retirado/efectos/cadaver.procedencia.json	
+fichero	assets/efectos/cadaver.webp	assets/art/retirado/efectos/cadaver.webp	
+fichero	assets/efectos/empalizada.procedencia.json	assets/art/retirado/efectos/empalizada.procedencia.json	
+fichero	assets/efectos/empalizada.webp	assets/art/retirado/efectos/empalizada.webp	
+fichero	assets/efectos/flecha.procedencia.json	assets/art/retirado/efectos/flecha.procedencia.json	
+fichero	assets/efectos/flecha.webp	assets/art/retirado/efectos/flecha.webp	
+fichero	assets/efectos/iconos/antiinfanteria.webp	assets/art/retirado/efectos/iconos/antiinfanteria.webp	
+fichero	assets/efectos/iconos/aturdido.webp	assets/art/retirado/efectos/iconos/aturdido.webp	
+fichero	assets/efectos/iconos/bendecido.webp	assets/art/retirado/efectos/iconos/bendecido.webp	
+fichero	assets/efectos/iconos/cobarde.webp	assets/art/retirado/efectos/iconos/cobarde.webp	
+fichero	assets/efectos/iconos/contraataque.webp	assets/art/retirado/efectos/iconos/contraataque.webp	
+fichero	assets/efectos/iconos/desafio.webp	assets/art/retirado/efectos/iconos/desafio.webp	
+fichero	assets/efectos/iconos/estupido.webp	assets/art/retirado/efectos/iconos/estupido.webp	
+fichero	assets/efectos/iconos/fe.webp	assets/art/retirado/efectos/iconos/fe.webp	
+fichero	assets/efectos/iconos/furia.webp	assets/art/retirado/efectos/iconos/furia.webp	
+fichero	assets/efectos/iconos/guardia.webp	assets/art/retirado/efectos/iconos/guardia.webp	
+fichero	assets/efectos/iconos/iconos.json	assets/art/retirado/efectos/iconos/iconos.json	
+fichero	assets/efectos/iconos/iconos.procedencia.json	assets/art/retirado/efectos/iconos/iconos.procedencia.json	
+fichero	assets/efectos/iconos/iconos.webp	assets/art/retirado/efectos/iconos/iconos.webp	
+fichero	assets/efectos/iconos/miedo.webp	assets/art/retirado/efectos/iconos/miedo.webp	
+fichero	assets/efectos/iconos/proteger.webp	assets/art/retirado/efectos/iconos/proteger.webp	
+fichero	assets/efectos/iconos/recarga.webp	assets/art/retirado/efectos/iconos/recarga.webp	
+fichero	assets/efectos/iconos/regeneracion.webp	assets/art/retirado/efectos/iconos/regeneracion.webp	
+fichero	assets/efectos/iconos/sigilo.webp	assets/art/retirado/efectos/iconos/sigilo.webp	
+fichero	assets/efectos/iconos/veneno.webp	assets/art/retirado/efectos/iconos/veneno.webp	
+fichero	assets/efectos/trampa.procedencia.json	assets/art/retirado/efectos/trampa.procedencia.json	
+fichero	assets/efectos/trampa.webp	assets/art/retirado/efectos/trampa.webp	
+fichero	assets/efectos/virote.procedencia.json	assets/art/retirado/efectos/virote.procedencia.json	
+fichero	assets/efectos/virote.webp	assets/art/retirado/efectos/virote.webp	
+fichero	assets/iconos/recursos/madera.webp	assets/art/retirado/iconos/recursos/madera.webp	
+fichero	assets/iconos/recursos/oro.webp	assets/art/retirado/iconos/recursos/oro.webp	
+fichero	assets/iconos/recursos/piedra.webp	assets/art/retirado/iconos/recursos/piedra.webp	
+fichero	assets/iconos/recursos/recursos.json	assets/art/retirado/iconos/recursos/recursos.json	
+fichero	assets/iconos/recursos/recursos.procedencia.json	assets/art/retirado/iconos/recursos/recursos.procedencia.json	
+fichero	assets/iconos/recursos/recursos.webp	assets/art/retirado/iconos/recursos/recursos.webp	
+fichero	assets/rpg/suelo.webp	assets/art/retirado/rpg/suelo.webp	

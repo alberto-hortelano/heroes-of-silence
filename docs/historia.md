@@ -5908,3 +5908,14 @@ Atlas de poses: ≤ 10 celdas, rejilla cuadrada, segunda referencia = identidad;
 (`ICONO_DEL_ORO`, el mismo texto: la caché no lo repaga); los otros seis, con el atlas de la mina
 y los montones del mapa, están en `assets/art/retirado/` (21-10-2026), que no va al build. Las criaturas y sus poses de
 `tools/gen/animate.ts` se retiraron (#139): las figuras son del taller.
+
+### El arte que el cliente no pinta
+
+Los edificios de ciudad y los efectos de batalla del 02-10-2026 (`assets/edificios/`,
+`assets/efectos/`) y los iconos de recursos de piedra y madera (`assets/iconos/recursos/`) no los
+pintaba ningún cliente desde la base caminable y el «solo oro», y `assets/rpg/suelo.webp` solo lo
+leía la página de revisión de los edificios. El arte pasó con `git mv` a `assets/art/retirado/`
+(fuera del build); del taller se fueron sus encargos (`taller/edificios.ts`, `efectos.ts`,
+`efectos-proceso.ts`, los tipos `iconos` y `efecto` de un encargo, `derivarEfecto`), sus órdenes
+(`encolar --edificios`, `--efectos` y `--iconos-recursos`, que ahora se rechazan diciéndolo;
+`vista-edificios` y `vista-efectos`) y sus tests. `dist` adelgaza unos 8 MB.

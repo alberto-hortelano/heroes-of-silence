@@ -552,54 +552,6 @@ describe('los eventos de Codex', () => {
   });
 });
 
-describe('los efectos', () => {
-  it('parte una lámina de 4×4 en dieciséis iconos cuadrados, en orden de lectura', async () => {
-    const { partirIconos, LADO_ICONO } = await import('../tools/taller/efectos-proceso.js');
-    const r = lienzo(800, 800);
-    for (let f = 0; f < 4; f++)
-      for (let c = 0; c < 4; c++) rect(r, 40 + c * 200, 40 + f * 200, 60 + c * 10, 50, 255);
-    const nombres = Array.from({ length: 16 }, (_, i) => `i${i}`);
-    const iconos = await partirIconos(r, nombres);
-    expect(iconos.map((i) => i.nombre)).toEqual(nombres);
-    const m = await sharp(iconos[3]!.png).metadata();
-    expect([m.width, m.height]).toEqual([LADO_ICONO, LADO_ICONO]);
-  });
-
-  it('empaqueta seis fotogramas en una tira y rechaza lo que cruza una línea de corte', async () => {
-    const { empaquetarEfecto, LADO_EFECTO } = await import('../tools/taller/efectos-proceso.js');
-    const r = lienzo(600, 400);
-    for (let i = 0; i < 6; i++)
-      rect(r, (i % 3) * 200 + 70, Math.floor(i / 3) * 200 + 60, 40 + i * 5, 60, 180);
-    const { png: tira, rozaduras } = await empaquetarEfecto(r);
-    expect(rozaduras).toBe(0);
-    const m = await sharp(tira).metadata();
-    expect([m.width, m.height]).toEqual([LADO_EFECTO * 6, LADO_EFECTO]);
-    rect(r, 195, 300, 10, 4, 200); // una astilla que roza la línea: se recorta y se cuenta
-    expect((await empaquetarEfecto(r)).rozaduras).toBeGreaterThan(0);
-    rect(r, 180, 220, 40, 160, 200); // un fotograma que cruza de verdad
-    await expect(empaquetarEfecto(r)).rejects.toThrow(/cruzando la línea entre las columnas 1 y 2/);
-  });
-
-  it('el recorte suave respeta el humo semitransparente', async () => {
-    const { recorteSuave } = await import('../tools/taller/efectos-proceso.js');
-    const r = lienzo(10, 10);
-    rect(r, 0, 0, 5, 10, 10);
-    rect(r, 5, 0, 5, 10, 90);
-    recorteSuave(r);
-    expect(alfaEn(r, 1, 1)).toBe(0);
-    expect(alfaEn(r, 7, 1)).toBe(90);
-  });
-});
-
-describe('la rejilla de una lámina de iconos', () => {
-  it('hasta cuatro van en una fila; más, en filas de cuatro; lo demás se rechaza diciéndolo', async () => {
-    const { rejillaDeIconos } = await import('../tools/taller/encargo.js');
-    expect(rejillaDeIconos(3)).toEqual({ filas: 1, columnas: 3 });
-    expect(rejillaDeIconos(16)).toEqual({ filas: 4, columnas: 4 });
-    expect(() => rejillaDeIconos(6)).toThrow(/hasta 4, o múltiplos de 4/);
-  });
-});
-
 describe('la celda de las monturas', () => {
   it('empaqueta y deriva una hoja de 384 con los pies en su base proporcional', async () => {
     const { baseEnCelda } = await import('../tools/taller/empaquetar.js');
