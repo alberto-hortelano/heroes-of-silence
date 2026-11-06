@@ -13,7 +13,7 @@ import { inBounds, pointKey } from '@core/map/map.js';
 import { heroById } from '@core/state/game.js';
 import { REGLA_DEL_PUEBLO } from '@core/state/renta.js';
 import type { Point } from '@core/types.js';
-import { type EnLaMarcha, enLaMarcha, msPorCasilla, PRISA_EN_EL_MAPA } from '../marcha.js';
+import { enLaMarcha, msPorCasilla, PRISA_EN_EL_MAPA } from '../marcha.js';
 import {
   acotar,
   arrastrar,
@@ -26,12 +26,21 @@ import {
   topeDe,
   zoom,
 } from '../render/camara-mapa.js';
-import { FIGURA_DEL_HEROE } from '../render/escenario/figuras-del-mapa.js';
+import { FIGURA_DEL_HEROE, PIES } from '../render/escenario/figuras-del-mapa.js';
 import { puenteEnElTerreno } from '../render/escenario/puentes.js';
 import { escenarioListo, topeDeAlejar } from '../render/escenario/superficie.js';
 import { animarHasta } from '../render/figura.js';
 import { type Medida, pixelesDe } from '../render/lienzo.js';
-import { drawMapa, type PasoDeRuta, pasosAPintar, presupuestoConHolgura } from '../render/mapa.js';
+import {
+  drawMapa,
+  type HeroeQueAnda,
+  type PasoDeRuta,
+  type PuntoDeLaTrazaEnElMapa,
+  pasosAPintar,
+  presupuestoConHolgura,
+  puntosDeLaTraza,
+  type VistaMapa,
+} from '../render/mapa.js';
 import { casillaDelMinimapa, drawMinimapa } from '../render/minimapa.js';
 import type { MarchaEnPantalla, Session } from '../session.js';
 
@@ -86,6 +95,21 @@ export class EscenaAventura {
   } | null = null;
   /** Por dónde iba el héroe que anda en el último fotograma, en casillas: lo sigue la cámara. */
   private puntoDeLaMarcha: Point | null = null;
+  /**
+   * La ruta que se enseñaba al mandar andar al héroe (`pulsar`): la de su marcha y,
+   * si no llegaba hoy, lo que le quedaba. Mientras anda se pinta lo que le queda
+   * desde donde va.
+   */
+  private rutaDeLaMarcha: readonly PasoDeRuta[] = [];
+  /**
+   * A dónde se mandó al héroe que no llegó (06-11-2026, QA de la marcha): lo que le
+   * falta se sigue pintando —gris a trazos lo de otro día— sin pasar el ratón,
+   * hasta que se pulse otra cosa o llegue. Solo con él elegido; la ruta la vuelve a
+   * pedir a la sesión cuando cambia algo (`rutaQueQueda`).
+   */
+  private destino: { readonly heroe: string; readonly casilla: Point } | null = null;
+  private rutaDelDestino: { readonly clave: string; readonly ruta: readonly PasoDeRuta[] } | null =
+    null;
 
   constructor(private readonly sesion: () => Session) {}
 
@@ -202,10 +226,15 @@ export class EscenaAventura {
   dibujar(ctx: CanvasRenderingContext2D, ancho: number, alto: number, ahora: number): void {
     const s = this.sesion();
     const state = s.state;
-    const andando = this.andando(ahora);
+    const marcha = this.andando(ahora);
     this.encuadrar(ancho, alto);
+    // Mientras anda, lo que le queda de su ruta; si no, la que se señala y, sin
+    // ninguna, la que le falta hasta donde se le mandó.
+    const ruta = marcha?.ruta ?? (this.ruta.length > 0 ? this.ruta : this.rutaQueQueda());
     drawMapa(ctx, {
-      ...(andando === null ? {} : { andando }),
+      ...(marcha === null
+        ? {}
+        : { andando: marcha.andando, marchaDeLaRuta: marcha.marchaDeLaRuta }),
       escena: state,
       // Los grupos, los que se ven: el lienzo no decide qué grupo se ve, lo pinta.
       asaltantes: s.asaltantesALaVista(),
@@ -218,7 +247,7 @@ export class EscenaAventura {
       alto,
       explorado: s.explorado,
       visibles: s.revealAll ? null : s.visibles(),
-      ruta: this.ruta,
+      ruta,
       seleccionado: s.selectedHeroId,
       hover: this.hover,
       ataque: s.avisoDelAtaque?.at ?? null,
@@ -230,11 +259,18 @@ export class EscenaAventura {
 
   /**
    * Por dónde va a la hora `ahora` el héroe que anda (`Session.marchaEnCurso`), o
-   * `null` si no anda nadie. La marcha empieza a contar en el primer fotograma que
-   * la pinta, y al llegar la acaba (`acabarLaMarcha`): lo que abre la llegada —la
-   * batalla, la base, el lugar— se abre entonces, con el héroe ya en su casilla.
+   * `null` si no anda nadie: por su traza (`puntosDeLaTraza`, por el arco de la
+   * puerta de un recinto), con lo que le queda de su ruta. La marcha empieza a
+   * contar en el primer fotograma que la pinta, y al llegar la acaba
+   * (`acabarLaMarcha`): lo que abre la llegada —la batalla, la base, el lugar— se
+   * abre entonces, con el héroe ya en su casilla. A cada fotograma le dice a la
+   * sesión qué casilla pisa (`pisarEnLaMarcha`): la niebla va con él.
    */
-  private andando(ahora: number): ({ readonly heroe: string } & EnLaMarcha) | null {
+  private andando(ahora: number): {
+    readonly andando: HeroeQueAnda;
+    readonly marchaDeLaRuta: NonNullable<VistaMapa['marchaDeLaRuta']>;
+    readonly ruta: readonly PasoDeRuta[];
+  } | null {
     const s = this.sesion();
     const m = s.marchaEnCurso;
     if (m === null) {
@@ -250,20 +286,68 @@ export class EscenaAventura {
       vista = { de: m, inicio: ahora, ms };
       this.marchaVista = vista;
     }
-    const en = enLaMarcha(m.pasos, vista.ms, ahora - vista.inicio);
+    // La ruta de la marcha y lo que le quedaba, y su traza: la misma que pinta la
+    // línea (`VistaMapa.marchaDeLaRuta` cuenta en ella), andada hasta la última
+    // casilla de la marcha.
+    const ruta = rutaDeLaMarchaPara(m, this.rutaDeLaMarcha);
+    const casillas = [m.pasos[0] as Point, ...ruta.map((p) => p.at)];
+    const puntos = puntosDeLaTraza(escenarioListo(s.state.map, s.state.seed), casillas, PIES.heroe);
+    const ultima = m.pasos.length - 1;
+    let fin = puntos.length - 1;
+    while (fin > 0 && (puntos[fin] as PuntoDeLaTrazaEnElMapa).paso > ultima) fin--;
+    const en = enLaMarcha(puntos.slice(0, fin + 1), vista.ms, ahora - vista.inicio);
     if (en === null) {
       this.marchaVista = null;
       this.puntoDeLaMarcha = null;
       s.acabarLaMarcha();
       return null;
     }
+    const a = puntos[en.tramo] as PuntoDeLaTrazaEnElMapa;
+    const b = puntos[en.tramo + 1] as PuntoDeLaTrazaEnElMapa;
+    const cerca = en.t < 0.5 ? a.paso : b.paso;
+    s.pisarEnLaMarcha(cerca);
     // El lienzo sigue pidiendo fotogramas también sin arte, que no respira.
     animarHasta(performance.now() + 100);
-    this.puntoDeLaMarcha = {
-      x: en.desde.x + (en.hasta.x - en.desde.x) * en.t,
-      y: en.desde.y + (en.hasta.y - en.desde.y) * en.t,
+    this.puntoDeLaMarcha = { x: en.x - 0.5, y: en.y - PIES.heroe };
+    return {
+      andando: {
+        heroe: m.heroe,
+        x: en.x,
+        y: en.y,
+        cerca: casillas[cerca] as Point,
+        mira: en.mira,
+      },
+      // Los pasos de la ruta que ya ha dejado atrás: la casilla a la que va es la
+      // `b.paso` de la traza, el paso `b.paso - 1` de la ruta.
+      marchaDeLaRuta: {
+        origen: casillas[0] as Point,
+        tramo: en.tramo,
+        t: en.t,
+        pasados: Math.max(0, b.paso - 1),
+      },
+      ruta,
     };
-    return { heroe: m.heroe, ...en };
+  }
+
+  /**
+   * Lo que le falta al héroe elegido hasta donde se le mandó (`destino`), o nada:
+   * la ruta de la sesión desde donde está, pedida otra vez solo cuando cambia algo
+   * (dónde está, lo que le queda de marcha, la partida). Sin ruta —ya llegó, o no
+   * hay camino—, se olvida el destino.
+   */
+  private rutaQueQueda(): readonly PasoDeRuta[] {
+    const d = this.destino;
+    const s = this.sesion();
+    const heroe = s.selectedHero;
+    if (d === null || heroe === null || heroe.id !== d.heroe) return [];
+    const clave = `${pointKey(d.casilla)}|${pointKey(heroe.at)}|${heroe.movePoints}|${s.version}|${s.isPlayersTurn}`;
+    if (this.rutaDelDestino?.clave !== clave) {
+      this.rutaDelDestino = { clave, ruta: s.previewPath(d.casilla) };
+    }
+    const ruta = this.rutaDelDestino.ruta;
+    // Fuera de su turno la sesión no da rutas: el destino espera al siguiente.
+    if (ruta.length === 0 && s.isPlayersTurn) this.destino = null;
+    return ruta;
   }
 
   dibujarMinimapa(lienzo: HTMLCanvasElement): void {
@@ -335,6 +419,9 @@ export class EscenaAventura {
   private señalar(casilla: Point): void {
     const s = this.sesion();
     this.hover = casilla;
+    // Mientras el héroe anda no se señala ruta: la de la sesión saldría de su
+    // casilla de llegada, y se pinta la de su marcha.
+    if (s.marchaEnCurso !== null) return;
     // Con la partida terminada no hay ruta que enseñar (#158 c). La barra ya no
     // hay que guardarla aquí: es del desenlace por regla de `Session.status` (#162).
     if (s.desenlace !== null) {
@@ -392,8 +479,23 @@ export class EscenaAventura {
       this.fraseDeLaRuta = s.status;
       return;
     }
+    // Un clic mientras anda solo lo hace llegar: lo que le falta se sigue pintando.
+    if (s.marchaEnCurso !== null) {
+      s.clickTile(casilla);
+      this.olvidarRuta();
+      return;
+    }
+    const heroe = s.selectedHero;
+    const salida = heroe === null ? null : { ...heroe.at };
+    const ruta = heroe === null ? [] : s.previewPath(casilla);
     s.clickTile(casilla);
     this.olvidarRuta();
+    // Si el clic lo ha mandado andar, su ruta se pinta mientras anda y, si no llega,
+    // lo que le falta, hasta que se pulse otra cosa.
+    const anduvo = heroe !== null && salida !== null && !mismaCasilla(heroe.at, salida);
+    this.rutaDeLaMarcha = anduvo ? ruta : [];
+    this.destino = anduvo && !mismaCasilla(heroe.at, casilla) ? { heroe: heroe.id, casilla } : null;
+    this.rutaDelDestino = null;
   }
 
   /**
@@ -511,4 +613,20 @@ export function llegadaDeLaRuta(
   return vistos.at(-1)?.marca === 'destino'
     ? `${queSeVen}; sigue por tierras desconocidas`
     : queSeVen;
+}
+
+const mismaCasilla = (a: Point, b: Point): boolean => a.x === b.x && a.y === b.y;
+
+/**
+ * La ruta de la marcha `m` que se pinta mientras anda: la que se enseñaba al
+ * mandarlo (`ruta`), si empieza por las casillas que anduvo, con lo que le quedaba;
+ * si no (la marcha no salió de un clic en el mapa), solo las que anda, de hoy.
+ */
+function rutaDeLaMarchaPara(
+  m: MarchaEnPantalla,
+  ruta: readonly PasoDeRuta[],
+): readonly PasoDeRuta[] {
+  const anda = m.pasos.slice(1);
+  if (anda.every((p, i) => ruta[i] !== undefined && mismaCasilla(ruta[i].at, p))) return ruta;
+  return anda.map((at) => ({ at, hoy: true }));
 }
