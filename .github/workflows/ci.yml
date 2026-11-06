@@ -1,11 +1,11 @@
 # Lo que comprueba el repo cuando sale de la máquina de quien lo escribe.
 #
-# Dos jobs a propósito: `verify` es el bucle rápido (lo mismo que corre el hook
-# `Stop`, más `build`), y `qa` es la única prueba del circuito entero del
-# agente. `qa` no está dentro de `pnpm verify` porque abre los puertos fijos
-# 9880/9881 y sale 1 con EADDRINUSE si hay un `pnpm partida` levantado, que es la
-# forma documentada de jugar con el agente: el hook se pondría rojo por tener el
-# juego abierto. Aquí no hay ese problema — cada job es una máquina propia.
+# Dos jobs a propósito: `verify` es el bucle rápido (la suite entera, que ninguna
+# sesión corre en local desde el 25-10-2026, más `build`), y `qa` es la única
+# prueba del circuito entero del agente. `qa` no está dentro de `pnpm verify`
+# porque abría los puertos fijos 9880/9881 y salía 1 con EADDRINUSE si había un
+# `pnpm partida` levantado, que es la forma documentada de jugar con el agente.
+# Aquí no hay ese problema — cada job es una máquina propia.
 #
 # NO SE GASTA UN CÉNTIMO: no se llama a ningún servicio de pago ni se declara
 # ninguna credencial. `permissions` es de solo lectura para que tampoco pueda

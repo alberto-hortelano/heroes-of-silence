@@ -114,10 +114,6 @@ export function townSpells(town: Town): readonly Hechizo[] {
   return hechizosDelGremio(mageGuildLevel(town));
 }
 
-export function hasWalls(town: Town): boolean {
-  return town.buildings.some((id) => building(id).grantsWalls === true);
-}
-
 export function moraleFromBuildings(town: Town): number {
   return town.buildings.reduce((n, id) => n + (building(id).moraleBonus ?? 0), 0);
 }

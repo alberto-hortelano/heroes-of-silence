@@ -36,7 +36,6 @@ export interface Building {
    */
   readonly morada?: number;
   readonly mageGuildLevel?: number;
-  readonly grantsWalls?: boolean;
   readonly moraleBonus?: number;
   /**
    * Vende las piezas que se venden (`seVende`, `hero/equipo.ts`) al héroe propio que
@@ -79,7 +78,6 @@ const CAMPOS_DE_EDIFICIO: readonly string[] = [
   'requires',
   'morada',
   'mageGuildLevel',
-  'grantsWalls',
   'moraleBonus',
   'sellsEquipment',
 ];
@@ -114,7 +112,6 @@ for (const [i, crudo] of (buildingsJson.buildings as readonly unknown[]).entries
     ...('requires' in raw ? { requires: raw.requires as readonly string[] } : {}),
     ...(morada === undefined ? {} : { morada }),
     ...('mageGuildLevel' in raw ? { mageGuildLevel: raw.mageGuildLevel as number } : {}),
-    ...('grantsWalls' in raw ? { grantsWalls: raw.grantsWalls as boolean } : {}),
     ...('moraleBonus' in raw ? { moraleBonus: raw.moraleBonus as number } : {}),
     ...('sellsEquipment' in raw ? { sellsEquipment: raw.sellsEquipment as boolean } : {}),
   });

@@ -2074,8 +2074,8 @@ function checkFinished(state: BattleState): void {
   if (!attackerLost && !defenderLost) return;
 
   // Sin atacante no hay conquista: el empate a cero lo gana el defensor. Y con
-  // héroes en el tablero hay otro empate posible —un disparo del liche que
-  // salpica a los dos comandantes a la vez—, que se resuelve igual.
+  // héroes en el tablero hay otro empate posible —un disparo que salpica
+  // (`splash`) a los dos comandantes a la vez—, que se resuelve igual.
   const winner: Side = attackerLost ? 'defender' : 'attacker';
   state.finished = { winner };
   state.turno = null;
@@ -2871,7 +2871,7 @@ function deLaRueda(state: BattleState, efecto: EfectoDeLaRueda): StackEffect {
   };
 }
 
-/** El dragón óseo: ataque −2 durante 2 rondas. Ver la nota de la tabla. */
+/** El miedo (`fear`): ataque −2 durante 2 rondas. Ver la nota de la tabla. */
 const FEAR_ATTACK_PENALTY = -2;
 const FEAR_ROUNDS = 2;
 
@@ -3046,8 +3046,8 @@ function strike(
     healFromDrain(attacker, herida.danio);
   }
 
-  // Lo que el golpe deja pegado. Va ANTES del contraataque a propósito: al
-  // dragón óseo le devuelven el golpe ya asustados, que es donde se nota.
+  // Lo que el golpe deja pegado. Va ANTES del contraataque a propósito: a quien
+  // asusta (`fear`) le devuelven el golpe ya asustados, que es donde se nota.
   // Un contraataque no asusta ni maldice: solo el que ataca de verdad.
   if (!retaliation && isAlive(target)) {
     for (const { trait, effect } of ON_HIT_EFFECTS) {
@@ -3201,7 +3201,8 @@ export function splashTargets(
 }
 
 /**
- * La salpicadura del liche. Se reparte el daño YA calculado, sin volver a
+ * La salpicadura (el rasgo `splash`; la llevaba el liche, que se fue con
+ * `data/creatures.json`). Se reparte el daño YA calculado, sin volver a
  * tirar: una tirada por disparo mantiene los tests legibles y la semilla
  * estable.
  */

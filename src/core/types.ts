@@ -451,9 +451,10 @@ export type ArmasDeLaUnidad = { readonly arma: GolpeConArma } & Readonly<
 >;
 
 /**
- * El id de un poder de unidad de `data/poderes.json` (`curar`). Vive
- * aquí y no en `battle/poderes.ts` porque lo nombran `UnitInfo` y la jugada
- * `poder`, y este fichero no importa de nadie.
+ * El id de un poder de unidad: un hechizo de `data/hechizos.json` que la unidad
+ * usa con su turno (`Unidad.hechizos`, `curar`). Vive aquí y no en
+ * `battle/poderes.ts` porque lo nombran `UnitInfo` y la jugada `poder`, y este
+ * fichero no importa de nadie.
  */
 export type PoderId = string;
 

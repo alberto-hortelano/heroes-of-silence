@@ -167,23 +167,20 @@ export const CUERPO_COMUN = {
 } as const satisfies Pick<Unidad, 'leadership' | 'attack' | 'fuerza' | 'hp'>;
 
 /** Lo que trae un perfil de arma sobre el cuerpo común (`KIT_DEL_PERFIL`). */
-type KitDelPerfil = Pick<Unidad, 'equipo' | 'leadership'> & {
-  readonly traits: readonly CreatureTrait[];
-};
+type KitDelPerfil = Pick<Unidad, 'equipo' | 'leadership'>;
 
 /**
  * Lo que trae cada perfil de arma sobre el cuerpo común: **su equipo** (piezas de
- * `data/equipo.json`), más lo que no pelea —el liderazgo— y
- * los rasgos. El cuerpo es el mismo para todos y lo distinto lo pone el equipo.
- * Con esto se escribió cada unidad del catálogo (18-10-2026), que desde entonces
- * es la única fuente de sus cifras: hoy lo lee solo `unidadNueva`, por los
- * rasgos del perfil, y los tests que miden un perfil. Cada pieza era la diferencia entre lo que pelea su perfil y el cuerpo común,
- * salvo la velocidad de los personajes de varias hojas
+ * `data/equipo.json`), más lo que no pelea —el liderazgo—. El cuerpo es el mismo
+ * para todos y lo distinto lo pone el equipo. Con esto se escribió cada unidad del
+ * catálogo (18-10-2026), que desde entonces es la única fuente de sus cifras: hoy
+ * lo leen solo los tests que miden un perfil (sus rasgos, que ya no traía ninguno,
+ * se fueron el 06-11-2026). Cada pieza era la diferencia entre lo que pelea su
+ * perfil y el cuerpo común, salvo la velocidad de los personajes de varias hojas
  * (`tools/arena/velocidades.ts`; lo comprueba `test/arena.test.ts`); desde el
  * 14-10-2026 (#262) la armadura no suma PV sino puntos de armadura (PV / 10), así
  * que los perfiles con armadura pelean con menos vida y restan esos puntos de
- * cada golpe. `charge` es del caballo, no de la lanza: por eso va en
- * los rasgos del perfil y no en la pieza. **Inventado.**
+ * cada golpe. **Inventado.**
  *
  * **Cada arma para lo suyo** (13-10-2026): el tirador dispara con su arco o su
  * ballesta (hueco `distancia`) y pega con la daga; el jinete lleva espada y lanza
@@ -195,28 +192,23 @@ export const KIT_DEL_PERFIL: Readonly<Record<PerfilDeUnidad, KitDelPerfil>> = {
   'espada-escudo': {
     equipo: { arma: 'espada', armadura: 'brigantina', escudo: 'escudo' },
     leadership: 3,
-    traits: [],
   },
   'dos-manos': {
     equipo: { arma: 'mandoble', armadura: 'arnes_de_placas' },
     leadership: 4,
-    traits: [],
   },
-  baston: { equipo: { arma: 'baston' }, leadership: 3, traits: [] },
+  baston: { equipo: { arma: 'baston' }, leadership: 3 },
   arco: {
     equipo: { arma: 'daga', distancia: 'arco', armadura: 'jubon_de_arquero' },
     leadership: 3,
-    traits: [],
   },
   ballesta: {
     equipo: { arma: 'daga', distancia: 'ballesta', armadura: 'gambeson' },
     leadership: 4,
-    traits: [],
   },
   'montado-lanza': {
     equipo: { arma: 'espada', segunda: 'lanza', armadura: 'barda', montura: 'caballo_de_guerra' },
     leadership: 8,
-    traits: [],
   },
   'montado-arco': {
     equipo: {
@@ -227,7 +219,6 @@ export const KIT_DEL_PERFIL: Readonly<Record<PerfilDeUnidad, KitDelPerfil>> = {
       montura: 'caballo_de_guerra',
     },
     leadership: 8,
-    traits: [],
   },
 };
 

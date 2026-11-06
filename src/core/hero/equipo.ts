@@ -323,16 +323,6 @@ export interface SumaDeEquipo {
 }
 
 /**
- * Lo que suma `equipo`. **La única suma de las piezas**: la aplica `conEquipo` a
- * unas cifras y la lee el panel del héroe para enseñar «2 (+3)», en vez de volver
- * a sumar las piezas por su cuenta —que es como el panel enseñaba 2 / 2 a un
- * héroe que peleaba con 5 / 5—.
- */
-export function sumaDeEquipo(equipo: Equipo | undefined): SumaDeEquipo {
-  return sumaDe(PIEZAS_DEL_CATALOGO, equipo);
-}
-
-/**
  * La suma, **clasificada por la clave del hueco en `equipo`**, no por el hueco
  * que dice la pieza: con un equipo válido es lo mismo. El ataque y la fuerza son
  * solo de las armas de cuerpo a cuerpo (las demás piezas no los llevan,
@@ -402,7 +392,7 @@ function deCuerpoACuerpo(piezas: CatalogoDePiezas, equipo: Equipo | undefined): 
 }
 
 /**
- * Las cifras de `unit` con el equipo sumado (`sumaDeEquipo`). La llaman
+ * Las cifras de `unit` con el equipo sumado (`sumaDe`). La llaman
  * `cifrasDeUnidad`, `cifrasDelIndividuo` y `heroUnit`, y un test exige que las
  * puertas de la tropa den lo mismo.
  *

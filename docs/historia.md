@@ -5919,3 +5919,24 @@ leía la página de revisión de los edificios. El arte pasó con `git mv` a `as
 `efectos-proceso.ts`, los tipos `iconos` y `efecto` de un encargo, `derivarEfecto`), sus órdenes
 (`encolar --edificios`, `--efectos` y `--iconos-recursos`, que ahora se rechazan diciéndolo;
 `vista-edificios` y `vista-efectos`) y sus tests. `dist` adelgaza unos 8 MB.
+
+### Lo muerto suelto
+
+Sin lectores en `src/`, `tools/`, `test/`, `vite.config.ts`, `package.json` ni `.mcp.json`:
+`tools/qa/hechizos-de-partida.ts`, `equipo.ts`, `asiento.ts` y `lugares-ia.ts` (medidas que nadie
+corría); `data/spells.json` (nadie lo importaba desde el editor de magia, `data/hechizos.json`);
+`Building.grantsWalls` y `hasWalls` (con su `"grantsWalls": true` del castillo en
+`data/buildings.json`: la muralla de una batalla la dice `data/sitios.json`, no un edificio);
+`KitDelPerfil.traits` (ningún perfil traía un rasgo); `dejaAlgoQueDura`, `puertasDe` (de la
+muralla de batalla), la `sumaDeEquipo` suelta (la del catálogo atado, `EquipoAtado.sumaDeEquipo`,
+se queda), `registrar` (`taller/encuadre.ts`), `hoja` (`taller/escenario/modulos.ts`),
+`AtrezoDeTiro`, `ClipDeHoja` y `texturaNeutra`. Y los comentarios que hablaban en presente de lo
+que ya no existe (`creature()`, `data/poderes.json`, `data/creatures.json` en la arena, el liche,
+el dragón óseo, el hook `Stop`, `medir-nodos.ts`, `test/taller-derivar.test.ts`); los que cuentan
+cuándo y por qué se fue algo se quedan.
+
+Lo que decía `CLAUDE.md`, tal como estaba:
+
+| Qué | Dónde |
+|---|---|
+| El editor de piezas (arena) | `conPiezas` (la única superposición de piezas sobre un catálogo: cambiar una, abrir un enlace), `cambioDePiezas` (el catálogo nuevo, hecho una vez, o el motivo: nadie de los catálogos deja de valer, dos piezas no se llaman igual, el equipo base del héroe; un retoque a media pelea, `retocarEnBatalla` con `kind: 'piezas'`, pregunta `equipoQueNoVale`), `enElHueco` (lo que exige el hueco; lo que no suma, a 0; el peso se queda), `piezaNueva` (en blanco o copia; ni id ni nombre de otra) y `piezaSobre` (sobre otra, extras a 0), `idsLlevados`/`piezasDelMontaje` (`core/arena.ts`). Las lecturas de una pieza atadas a un catálogo, `equipoCon` (`hero/equipo.ts`): la arena no importa las sueltas (`pieza`, `piezasPuestas`, `sumaDeEquipo`, `conEquipo`, `manosBlocker`, `equipoBlocker`, `ponerPieza`, `heroUnit`), que leen las del juego; al héroe lo viste con `cuerpoDelHeroe`. La batalla no lleva catálogo de piezas: quien cambia una a media pelea le da el suyo; el equipo puesto de cada stack, en `UnitInfo.equipo` (lo escribe `conEquipo` y viaja al espectador). Lo vigila `invariantes.test.ts`, por importación |

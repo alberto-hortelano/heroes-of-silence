@@ -199,9 +199,8 @@ let rutasGuardadas: readonly string[] | null = null;
  * guardias de lo retirado (`lineasCon`).
  *
  * `git ls-files` a secas lista solo lo indexado, y un fichero nuevo sin
- * `git add` —que es como nacen las presas, y como está el árbol justo cuando
- * corre el hook `Stop`— pasaba por debajo. Es la misma llamada que ya hacía
- * `.claude/hooks/verde.sh` dos ficheros más allá.
+ * `git add` —que es como nacen las presas, y como está el árbol mientras se
+ * trabaja— pasaba por debajo.
  */
 function rutasDelRepo(): readonly string[] {
   rutasGuardadas ??= execFileSync('git', ['ls-files', '-c', '-o', '--exclude-standard', '-z'], {
@@ -1082,7 +1081,7 @@ describe('invariantes del proyecto', () => {
   });
 
   it('ningún rasgo de criatura está declarado y muerto', () => {
-    // Un rasgo escrito en el tipo y en `data/creatures.json` que el motor no
+    // Un rasgo escrito en el tipo y en `data/unidades.json` que el motor no
     // lee es una promesa sin respaldo: el jugador paga por una caballería que
     // no carga y el agente decide con una ficha que miente. Este guardia nace
     // en verde justo después de implementar los cuatro que faltaban.
@@ -1483,7 +1482,6 @@ describe('invariantes del proyecto', () => {
       'pieza',
       'piezaSiExiste',
       'piezasPuestas',
-      'sumaDeEquipo',
       'conEquipo',
       'manosBlocker',
       'equipoBlocker',

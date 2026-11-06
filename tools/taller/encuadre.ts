@@ -130,19 +130,10 @@ function luz(c: CeldaRgba): Float32Array {
 }
 
 /**
- * El desplazamiento `(dx, dy)` que lleva la ventana de `a` sobre `b`, y su NCC:
- * `b(x + dx, y + dy) ≈ a(x, y)`.
+ * El desplazamiento `(dx, dy)` que lleva la ventana de `a` sobre `b`, y su NCC
+ * (`b(x + dx, y + dy) ≈ a(x, y)`), con la luz de cada celda ya calculada (una vez
+ * por fotograma, `luz`).
  */
-export function registrar(
-  a: CeldaRgba,
-  b: CeldaRgba,
-  ventana: readonly [number, number, number, number],
-  radio = RADIO,
-): { dx: number; dy: number; ncc: number } {
-  return registrarLuces(luz(a), luz(b), a.lado, ventana, radio);
-}
-
-/** `registrar` con la luz de cada celda ya calculada (una vez por fotograma). */
 function registrarLuces(
   la: Float32Array,
   lb: Float32Array,

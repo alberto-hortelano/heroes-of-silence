@@ -1063,9 +1063,6 @@ export async function renderizarPerfil(perfil: Perfil): Promise<string> {
  */
 export type Atrezo = AtrezoDeMano | AtrezoDeArco | AtrezoDeBallesta | AtrezoDeGranada;
 
-/** El atrezo de quien dispara: el arco, la ballesta (o arma de fuego) y la granada. */
-export type AtrezoDeTiro = AtrezoDeArco | AtrezoDeBallesta | AtrezoDeGranada;
-
 /**
  * El arma con la que quien dispara pelea cuerpo a cuerpo: la del clip `attack`
  * (decisión del usuario, 04-10-2026). `describe` es lo que se le dice al pintor

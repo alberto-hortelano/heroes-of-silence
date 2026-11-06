@@ -12,9 +12,10 @@
  *    eso se apuntaba a mano como `frames: 6`—;
  *  - la **caja de clic**: la unión de las cajas del reposo, relativa al ancla.
  *
- * Y apunta el sha256 de la imagen que midió: `test/taller-derivar.test.ts`
- * vuelve a derivar cada hoja y exige el mismo JSON, así que un número tocado a
- * mano —o una imagen cambiada sin volver a derivar— se pone rojo.
+ * Y apunta el sha256 de la imagen que midió: `test/taller-8d.test.ts` (las hojas)
+ * y `test/arte-hojas.test.ts` (las piezas del mapa) vuelven a derivar y exigen el
+ * mismo JSON, así que un número tocado a mano —o una imagen cambiada sin volver a
+ * derivar— se pone rojo.
  */
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
@@ -55,7 +56,6 @@ export const RELOJ = {
   /** El disparo, al reloj que tenía cuando era la fila del ataque: la suelta cae donde caía. */
   shoot: { fps: 10, loop: false },
 } as const satisfies Record<ClipDeFigura, { fps: number; loop: boolean }>;
-export type ClipDeHoja = keyof typeof RELOJ;
 
 /**
  * Los fotogramas por segundo de los clips de una unidad que no van al reloj de

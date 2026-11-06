@@ -148,13 +148,6 @@ export function hayMuralla(m: MurallaDeBatalla): boolean {
   return m.muros.length > 0 || m.puertas.length > 0;
 }
 
-/** Las puertas que tocan la casilla `h`, por un lado o por el otro (el editor). */
-export function puertasDe(m: MurallaDeBatalla, h: Hex): PuertaDeMuralla[] {
-  return m.puertas.filter(
-    (p) => (p.a.col === h.col && p.a.row === h.row) || (p.b.col === h.col && p.b.row === h.row),
-  );
-}
-
 /**
  * De qué lado de la muralla cae `h`: `muralla` si es muro; si es suelo, del lado
  * cuya salida (`bandoDeSalida`) le queda más cerca andando con los muros y las

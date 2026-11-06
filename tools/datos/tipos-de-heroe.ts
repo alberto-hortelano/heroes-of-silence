@@ -41,7 +41,7 @@ const texto = readFileSync(ORIGEN, 'utf8');
 
 /**
  * El id de un tipo: lo que va antes del primer paréntesis, sin tildes, en
- * minúsculas y con guion bajo, como los ids de criatura (`bone_dragon`).
+ * minúsculas y con guion bajo.
  * «Monje (Abad)» → `monje`; «Caballero de la muerte» → `caballero_de_la_muerte`.
  */
 function idDe(nombre: string): string {

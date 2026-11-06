@@ -1,7 +1,7 @@
 /**
  * Los poderes de unidad de la arena (docs/agents/2026-10-11-poderes-y-edicion-en-combate/):
  * el monje cura a un aliado en su turno, con la regla escrita una vez en el
- * núcleo (`poderBlocker`) y las cifras de `data/poderes.json`.
+ * núcleo (`poderBlocker`) y las cifras de su hechizo (`data/hechizos.json`).
  *
  * Escritos desde los criterios del plan: A1 (Curar), A5 (cada motivo del rechazo), la lista legal, la previsión, el
  * cargador y A4 (la IA los usa).

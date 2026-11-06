@@ -408,8 +408,8 @@ export function filaLiderazgo({ ocupado, tope }: { ocupado: number; tope: number
  * que le da el rango y, en la defensa, su agilidad— y, entre paréntesis, lo que le
  * cambia el equipo (25-10-2026: el peso puede restar defensa, y se dice). `puesto`
  * es su `heroUnit`, la misma puerta con la que entra en batalla, y lo de sin nada
- * puesto, `desnudo`, su `cuerpoDelHeroe`: sumar aquí `hero.attack + sumaDeEquipo`
- * se saltaba el rango, y a un héroe de rango 6 la ficha le enseñaba uno menos de
+ * puesto, `desnudo`, su `cuerpoDelHeroe`: sumar aquí al ataque del héroe lo que
+ * suma su equipo se saltaba el rango, y a un héroe de rango 6 la ficha le enseñaba uno menos de
  * lo que pegaba.
  */
 function ataqueYDefensa(desnudo: UnitInfo, puesto: UnitInfo): string {
@@ -1310,10 +1310,10 @@ export function renderSpells(elegido: string | null, opciones: readonly SpellOpt
 
 /**
  * Nombres de los RASGOS que ponen efectos. Los hechizos no están aquí: ya se
- * llaman a sí mismos en `data/spells.json`, y copiarlos era una segunda fuente
+ * llaman a sí mismos en `data/hechizos.json`, y copiarlos era una segunda fuente
  * de verdad que se quedaría vieja al retocar el catálogo. Y ninguno lleva el
- * nombre de su criatura: el día que una segunda tenga `fear`, "Terror del
- * dragón óseo" sería mentira.
+ * nombre de su criatura: el día que una segunda tenga `fear`, el nombre de la
+ * primera en su terror sería mentira.
  */
 const FUENTE_RASGO: Readonly<Record<string, string>> = {
   fear: 'Terror',

@@ -111,7 +111,7 @@ export function armasDe(unit: UnitInfo): ArmaDeLaUnidad[] {
  * El ataque con el que pega un stack un golpe de `uso` (el de cuerpo a cuerpo si
  * no se dice): el de su arma (`cifrasDelGolpe`) y sus efectos, sin héroe
  * (`BattleHero` cuenta por qué). Los efectos de `attack` son los que mete el
- * miedo del dragón óseo.
+ * miedo (`fear`).
  */
 export function effectiveAttack(stack: BattleStack, uso: UsoDeArma = 'arma'): number {
   return cifrasDelGolpe(stack.unit, uso).attack + effectTotal(stack, 'attack');

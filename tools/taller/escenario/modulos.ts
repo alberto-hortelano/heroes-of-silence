@@ -252,13 +252,6 @@ export const HOJAS: readonly HojaDeModulos[] = [
   },
 ];
 
-export function hoja(id: string): HojaDeModulos {
-  const h = HOJAS.find((x) => x.id === id);
-  if (h === undefined)
-    throw new Error(`no hay hoja de módulos «${id}». Hay: ${HOJAS.map((x) => x.id).join(', ')}`);
-  return h;
-}
-
 export function encargoDeModulos(h: HojaDeModulos): Encargo {
   return {
     id: `modulos-${h.id}`,

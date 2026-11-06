@@ -167,3 +167,20 @@ fichero	assets/iconos/recursos/recursos.json	assets/art/retirado/iconos/recursos
 fichero	assets/iconos/recursos/recursos.procedencia.json	assets/art/retirado/iconos/recursos/recursos.procedencia.json	
 fichero	assets/iconos/recursos/recursos.webp	assets/art/retirado/iconos/recursos/recursos.webp	
 fichero	assets/rpg/suelo.webp	assets/art/retirado/rpg/suelo.webp	
+fichero	tools/qa/hechizos-de-partida.ts	(retirado)	
+fichero	tools/qa/equipo.ts	(retirado)	
+fichero	tools/qa/asiento.ts	(retirado)	
+fichero	tools/qa/lugares-ia.ts	(retirado)	
+fichero	data/spells.json	(retirado)	
+simbolo	src/core/town/buildings.ts	(retirado)	Building.grantsWalls
+simbolo	data/buildings.json	(retirado)	castle.grantsWalls
+simbolo	src/core/town/town.ts	(retirado)	hasWalls
+simbolo	src/core/unidad.ts	(retirado)	KitDelPerfil.traits
+simbolo	src/core/magia/formato.ts	(retirado)	dejaAlgoQueDura
+simbolo	src/core/battle/muralla.ts	(retirado)	puertasDe
+simbolo	src/core/hero/equipo.ts	(retirado)	sumaDeEquipo (la suelta; EquipoAtado.sumaDeEquipo se queda)
+simbolo	tools/taller/encuadre.ts	(retirado)	registrar
+simbolo	tools/taller/escenario/modulos.ts	(retirado)	hoja
+simbolo	tools/art/poses.ts	(retirado)	AtrezoDeTiro
+simbolo	tools/taller/derivar.ts	(retirado)	ClipDeHoja
+simbolo	tools/taller/temas/piezas.ts	(retirado)	texturaNeutra

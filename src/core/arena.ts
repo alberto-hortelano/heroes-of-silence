@@ -2,11 +2,10 @@
  * La arena: unidades con cifras inventadas que se prueban peleando, fuera de una
  * partida (`/arena/`, decisión del usuario del 02-10-2026).
  *
- * Las hojas de las cinco facciones (`assets/unidades/`) tienen arte y **no tienen
- * cifras en ningún sitio**: el catálogo del juego (`data/creatures.json`) solo
- * conoce a caballeros y nigromantes. Sus cifras viven en el catálogo de unidades
- * (`data/unidades.json`, `core/catalogo.ts`): la persona las ajusta aquí y la
- * página las guarda en él.
+ * Las hojas de las cinco facciones (`assets/unidades/`) tienen arte, y sus cifras
+ * viven en el catálogo de unidades (`data/unidades.json`, `core/catalogo.ts`), que
+ * es el del juego desde el 19-10-2026 (sustituyó a `data/creatures.json`): la
+ * persona las ajusta aquí y la página las guarda en él.
  *
  * **El juego no se entera.** Una unidad de arena entra en la batalla por el
  * catálogo de la pelea (`BattleSide.catalogo`, `catalogoDelMontaje`): el motor
@@ -115,7 +114,6 @@ import {
   equipoDeUnidadBlocker,
   equipoEscrito,
   type Hoja,
-  KIT_DEL_PERFIL,
   leerCatalogos,
   nivelesDeLaEspada,
   type Unidad,
@@ -142,12 +140,9 @@ export function ladoDe(bando: Side): Lado {
   return bando === LADOS.izquierda.bando ? 'izquierda' : 'derecha';
 }
 
-/** Los rasgos con los que nace un cuerpo: los suyos y `undead` si es de los no muertos. */
-function rasgosDelCuerpo(
-  faccion: FactionId,
-  suyos: readonly CreatureTrait[],
-): readonly CreatureTrait[] {
-  return faccion === 'no-muertos' && !suyos.includes('undead') ? [...suyos, 'undead'] : suyos;
+/** Los rasgos con los que nace un cuerpo: `undead` si es de los no muertos, y ninguno más. */
+function rasgosDelCuerpo(faccion: FactionId): readonly CreatureTrait[] {
+  return faccion === 'no-muertos' ? ['undead'] : [];
 }
 
 /**
@@ -170,10 +165,9 @@ export interface IdsOcupados {
  * no esté en `ocupados`. Su nivel no se escribe: nace donde caiga su índice
  * (`indiceDePoder`, con la Espada puesta), el 2.
  *
- * De su hoja toma la facción, la agilidad del cuerpo de su personaje y los
- * rasgos de su perfil (`charge`, el del caballo; los no muertos, `undead`: un
- * esqueleto vivo, con moral, era raro, M7 de QA); ni el equipo, ni los poderes,
- * ni lo que el perfil cobra. **Es la única unidad que no sale del catálogo**
+ * De su hoja toma la facción, la agilidad del cuerpo de su personaje y, si es de
+ * los no muertos, `undead` (un esqueleto vivo, con moral, era raro, M7 de QA); ni
+ * el equipo, ni los poderes, ni lo que el perfil cobra. **Es la única unidad que no sale del catálogo**
  * (`data/unidades.json`): todas las demás se leen de él (simplify de F1,
  * 18-10-2026). Desde una criatura del catálogo del juego ya no se crea
  * (13-10-2026: en la arena solo están las cinco facciones de las hojas). Lo que
@@ -195,7 +189,7 @@ export function unidadNueva(
       cuerpo: { hoja: hoja.id },
       ...CUERPO_COMUN,
       agilidad: hoja.agilidad,
-      traits: rasgosDelCuerpo(hoja.faccion, KIT_DEL_PERFIL[hoja.perfil].traits),
+      traits: rasgosDelCuerpo(hoja.faccion),
       habilidades: [],
       // Sin arma no se combate (18-10-2026): nace con la Espada, la versátil.
       equipo: { arma: ESPADA },

@@ -680,7 +680,7 @@ export interface Escena {
      */
     readonly pasosAtravesados: number;
     /**
-     * Minas y pueblos a los que la senda pintada no llega por un solo tramo
+     * Pueblos a los que la senda pintada no llega por un solo tramo
      * desde su puerta, la casilla de debajo (`sendasPorObjeto`, #188): tiene
      * que ser 0 en el procedimental. Un plan del agente puede cruzarlos.
      */

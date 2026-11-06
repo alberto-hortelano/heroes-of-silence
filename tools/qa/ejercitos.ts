@@ -1,8 +1,8 @@
 /**
  * Las poblaciones de batalla de las medidas de `tools/qa/`: las de
- * `enfrentamiento.ts` (stacks y, con `--magia`, tropa) y las de `asiento.ts`,
- * que mide el asiento con los mismos ejércitos. Un sitio, para que «la
- * población de enfrentamiento» quiera decir lo mismo en las dos.
+ * `enfrentamiento.ts` (stacks y, con `--magia`, tropa). Un sitio, para que «la
+ * población de enfrentamiento» quiera decir siempre lo mismo (la medía también
+ * `asiento.ts`, retirada el 06-11-2026 sin usuarios).
  */
 import { unidadesDeFaccion } from '../../src/core/catalogo.js';
 import type { Rng } from '../../src/core/rng.js';

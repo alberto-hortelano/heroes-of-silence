@@ -73,7 +73,7 @@ describe('el héroe nacido de la tropa en el panel del cliente', () => {
 describe('la ficha del héroe cuenta lo que lleva puesto (I4)', () => {
   it('ataque y defensa enseñan la suma del equipo con la que pelea, y desnudo no', () => {
     // La ficha enseñaba «2 / 2» a un héroe que entraba en batalla con +3/+3 de
-    // serie. El «(+N)» sale de `sumaDeEquipo`, la misma suma que aplica
+    // serie. El «(+N)» es lo que le suma el equipo, la misma suma que aplica
     // `heroUnit`: aquí se comprueba contra el cuerpo con el que pelea.
     const session = new Session(12);
     const heroe = session.myHeroes()[0]!;

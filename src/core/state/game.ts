@@ -2398,7 +2398,7 @@ function dismissBlocker(
   // La frase dice el NOMBRE de la criatura y no su id: «"peasant"» era una
   // palabra en inglés en la barra del castillo. Un id que no está en el catálogo
   // —el agente puede mandar cualquier texto— se nombra tal cual, diciendo que no
-  // existe, en vez de reventar en `creature()` con un error que no es el motivo.
+  // existe, en vez de reventar en `unidadDelJuego` con un error que no es el motivo.
   const especie = unidadDelJuegoSiExiste(creatureId);
   if (especie === null) {
     return `no existe ninguna unidad "${creatureId}", así que ${hero.name} no lleva ninguna`;

@@ -63,8 +63,8 @@ import { LENTO, rango, segunPrisa } from './lento.js';
 
 /**
  * Las semillas de los recuentos: 1-10 en la orden lenta, 15 puentes desde #169
- * (las cifras de 1-40 y 1-80 de antes están en `medir-nodos.ts` y
- * `medir-orillas.ts` de la tarea 2026-10-07-orillas-del-puente). En
+ * (las cifras de 1-40 y 1-80 de antes las midieron dos órdenes de la tarea
+ * 2026-10-07-orillas-del-puente que no se guardaron en git). En
  * `pnpm verify`, dos con de todo (#167), **buscadas**: la primera con una senda
  * de estribo que sin vado pasaría por agua y la primera con un puente de este
  * a oeste (era en diagonal: el río continuo, #144, no los tiende). Eran la 5 y

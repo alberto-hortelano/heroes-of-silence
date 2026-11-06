@@ -195,8 +195,8 @@ const yo = (...us: Unidad[]): LadoDeSesion => ({ ...ia(...us), ia: false });
 
 describe('la arena pelea con las cifras del borrador', () => {
   it('las cifras editadas llegan al stack tal cual, sin pasar por el catálogo', () => {
-    // `templario-monje` no es una criatura del catálogo: si algo llamara a
-    // `creature()` con él, lanzaría. Y el ataque de 42 no es el de nadie.
+    // El ataque de 42 no es el de nadie: si algo leyera el catálogo del juego en
+    // vez del de la pelea, no llegaría al stack.
     // Con las manos de prueba, que no suman nada: el bastón de su perfil le
     // sumaría daño (eso, en el test de abajo), y sin arma no se monta.
     // Fuerza 3 y agilidad 3, con las manos (fuerza 0): daño 3–9.

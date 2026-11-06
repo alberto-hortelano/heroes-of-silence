@@ -172,11 +172,6 @@ export function areaDe(h: Pick<Hechizo, 'area'>): number | 'recta' {
   return h.area ?? 0;
 }
 
-/** Si lo que deja el hechizo dura (algún efecto de arriba no es instantáneo). */
-export function dejaAlgoQueDura(efectos: readonly Efecto[]): boolean {
-  return efectos.some((e) => !esInstantaneo(e));
-}
-
 /** Si el hechizo sale al empezar el siguiente turno de quien lo lanza. */
 export function esDiferido(h: Pick<Hechizo, 'entrega'>): boolean {
   const e = h.entrega;

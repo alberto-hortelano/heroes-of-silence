@@ -88,8 +88,8 @@ export interface Ganado {
  * genérica: la de la arena cuando no se elige ninguna (`FIGURA_GENERICA`), el
  * Y Bot de espada y escudo (`render/personajes.ts`).
  *
- * No está en el catálogo a propósito: un lector que lo buscara con `creature()`
- * lanza en vez de leer cifras prestadas. Las cifras del héroe salen de
+ * No está en el catálogo a propósito: un lector que lo buscara en él
+ * (`unidadDelJuego`) lanza en vez de leer cifras prestadas. Las cifras del héroe salen de
  * `heroUnit`. **No es su arte en el juego**: desde el
  * 19-10-2026 (vuelta 2 del arranque) el héroe de la partida pisa el tablero y el
  * mapa con la hoja de su tipo (`figuraDelHeroe`), y por eso `queEs` no lo saca
