@@ -17,42 +17,152 @@
  * apila** (ver `applyEffect`). De orígenes distintos sí se suman, sin depender
  * del orden en que se aplicaron.
  */
-import type { BattleStack } from './types.js';
+
+import { dichoDeImpide } from '../magia/dicho.js';
+import type {
+  Afecta,
+  AQuien,
+  CifraDeHechizo,
+  CuandoSalta,
+  DisiparDe,
+  Duracion,
+  Impedible,
+  SeAcabaSiMuere,
+} from '../magia/formato.js';
+import type { BattleStack, Side } from './types.js';
 
 /**
  * Los tipos de efecto que existen. Es una lista de valores y no solo un tipo
  * porque `test/invariantes.test.ts` la recorre para exigir que cada uno tenga
  * quien lo lea: un tipo que nadie suma se colgaría del stack sin hacer nada.
- * `'defense'` lo suma `effectiveDefense` (`damage.ts`); hoy solo lo ponen
- * Defensivo y Romper guardia de la rueda del golpe. Mismo patrón que
+ * `'defense'` lo suma `effectiveDefense` (`damage.ts`); lo ponen Defensivo y
+ * Romper guardia de la rueda del golpe y los hechizos. Las cifras que añadió la
+ * magia (06-11-2026): `armadura` (la lee `trasLaArmadura`), `fuerza` y
+ * `agilidad` (el daño de cada golpe, `danioConLosEfectos`; la agilidad, también la
+ * defensa y las casillas). Y lo que no es una cifra: `impide` (`impedidoPor`),
+ * `escudo` (`herir`) y `disparador` (`saltar`, `battle.ts`). Mismo patrón que
  * `CREATURE_TRAITS` en `types.ts`.
  */
-export const EFFECT_KINDS = ['speed', 'attack', 'defense'] as const;
+export const EFFECT_KINDS = [
+  'speed',
+  'attack',
+  'defense',
+  'armadura',
+  'fuerza',
+  'agilidad',
+  'impide',
+  'escudo',
+  'disparador',
+] as const;
 
 export type EffectKind = (typeof EFFECT_KINDS)[number];
 
-export interface StackEffect {
-  readonly kind: EffectKind;
-  readonly amount: number;
-  /** Quién lo puso: el id del hechizo ('slow') o el del rasgo ('fear'). */
+/** Los tipos que son una cifra que se suma al leer (`effectTotal`). */
+export const CIFRAS_DE_EFECTO = [
+  'speed',
+  'attack',
+  'defense',
+  'armadura',
+  'fuerza',
+  'agilidad',
+] as const;
+export type CifraDeEfecto = (typeof CIFRAS_DE_EFECTO)[number];
+
+/** Si un tipo de efecto es una cifra. */
+export function esCifraDeEfecto(k: EffectKind): k is CifraDeEfecto {
+  return (CIFRAS_DE_EFECTO as readonly string[]).includes(k);
+}
+
+/** Lo que tienen todos los efectos: quién lo puso, lo que le queda y cuándo se va. */
+interface ComunDelEfecto {
+  /** Quién lo puso: el id del hechizo ('slow'), el del rasgo ('fear') o el tipo de la rueda. */
   readonly source: string;
   /** Rondas que le quedan. Baja una en cada `beginRound`. */
   roundsLeft: number;
   /**
-   * Si dura «hasta el próximo turno del afectado» (la rueda del golpe): hasta
-   * cuándo. `roundsLeft` sigue de tope, por si ese turno no llega.
+   * Si dura «hasta el próximo turno de alguien» (la rueda del golpe, un hechizo):
+   * hasta cuándo. `roundsLeft` sigue de tope, por si ese turno no llega.
    */
   readonly hasta?: HastaElTurno;
+  /** De un hechizo: el bando de quien lo lanzó (lo lee `disipar`). */
+  readonly bando?: Side;
+  /** De un hechizo: se quita si cae este stack (`seAcabaSiMuere`; `anotarLaMuerte`). */
+  readonly seAcabaSiMuere?: string;
+}
+
+/** Un efecto que suma a una cifra. */
+export interface EfectoDeCifra extends ComunDelEfecto {
+  readonly kind: CifraDeEfecto;
+  readonly amount: number;
+}
+
+/** No puede hacer lo de `que` mientras dure (`impedidoPor`). */
+export interface EfectoQueImpide extends ComunDelEfecto {
+  readonly kind: 'impide';
+  readonly que: readonly Impedible[];
+}
+
+/** Se come el daño que llega, tras la armadura, hasta agotarse (`herir`). */
+export interface EfectoDeEscudo extends ComunDelEfecto {
+  readonly kind: 'escudo';
+  /** Lo que le queda por comerse; con 0 se quita. */
+  queda: number;
+}
+
+/** Un disparador colgado: sus efectos, ya con las cifras de quien lo lanzó. */
+export interface EfectoDisparador extends ComunDelEfecto {
+  readonly kind: 'disparador';
+  readonly disparador: DisparadorResuelto;
+  /** Las veces que le quedan por saltar; `null`, mientras dure. */
+  cargas: number | null;
+}
+
+export type StackEffect = EfectoDeCifra | EfectoQueImpide | EfectoDeEscudo | EfectoDisparador;
+
+/**
+ * Un efecto de un hechizo con las cantidades ya calculadas con el poder de quien
+ * lo lanzó: lo que guarda un disparador (`DisparadorResuelto`). Lo resuelve
+ * `resolverEfecto` (`spells.ts`).
+ */
+export type EfectoResuelto =
+  | { readonly tipo: 'danio'; readonly cantidad: number; readonly armadura: boolean }
+  | { readonly tipo: 'cura'; readonly cantidad: number }
+  | { readonly tipo: 'disipar'; readonly de: DisiparDe }
+  | { readonly tipo: 'cifra'; readonly cifra: CifraDeHechizo; readonly valor: number }
+  | { readonly tipo: 'impide'; readonly que: readonly Impedible[] }
+  | { readonly tipo: 'escudo'; readonly absorbe: number };
+
+/**
+ * Un disparador como se cuelga: el de su hechizo con las cantidades resueltas, el
+ * poder de quien lo lanzó (para las rondas «poder» de lo que deja) y quién lo lanzó.
+ * Se guarda entero en el efecto: editar el hechizo a media pelea (la arena) no
+ * cambia lo ya echado.
+ */
+export interface DisparadorResuelto {
+  readonly cuando: CuandoSalta;
+  readonly yAlLanzarse: boolean;
+  readonly a: AQuien;
+  readonly radio: number;
+  readonly afecta: Afecta;
+  readonly duracion: Duracion | null;
+  readonly seAcabaSiMuere: SeAcabaSiMuere | null;
+  readonly efectos: readonly EfectoResuelto[];
+  readonly poder: number;
+  /** El stack que lo lanzó. */
+  readonly lanzador: string;
+  /** Cómo se dice, ya hecho (`dichoDelEfecto` del disparador). */
+  readonly dicho: string;
 }
 
 /**
- * Hasta qué turno dura un efecto de la rueda del golpe: el `turno.n` en que se
- * colgó y cuándo vence (`al`). El turno en que nace no cuenta: se quita con otro
- * `n`.
+ * Hasta qué turno dura un efecto: el `turno.n` en que se colgó, cuándo vence
+ * (`al`) y de quién es ese turno (`de`, un stack; sin él, el del afectado). El
+ * turno en que nace no cuenta: se quita con otro `n`.
  */
 export interface HastaElTurno {
   readonly turno: number;
   readonly al: CuandoVence;
+  readonly de?: string;
 }
 
 /**
@@ -122,11 +232,38 @@ export function roundsLeftOf(
   return mismoOrigen(stack, effect)?.roundsLeft ?? 0;
 }
 
-/** Lo que suman todos los efectos vivos de ese tipo. */
-export function effectTotal(stack: BattleStack, kind: EffectKind): number {
+/** Lo que suman todos los efectos vivos de esa cifra. */
+export function effectTotal(stack: Pick<BattleStack, 'effects'>, kind: CifraDeEfecto): number {
   let total = 0;
   for (const e of stack.effects) if (e.kind === kind) total += e.amount;
   return total;
+}
+
+/**
+ * Los disparadores de `stack` que saltan `cuando` (`disparador`), en el orden en que
+ * se colgaron. La única lectura de los disparadores: la hace `saltar` (`battle.ts`).
+ */
+export function disparadoresDe(
+  stack: Pick<BattleStack, 'effects'>,
+  cuando: CuandoSalta,
+): EfectoDisparador[] {
+  return stack.effects.filter(
+    (e): e is EfectoDisparador => e.kind === 'disparador' && e.disparador.cuando === cuando,
+  );
+}
+
+/**
+ * El efecto que le impide a `stack` hacer `que`, o `null`. **La única lectura**
+ * de `impide`: la hacen los `*Blocker` del motor (golpear, disparar,
+ * contraatacar, moverse, lanzar), así que la lista legal, la IA y el agente lo
+ * respetan sin saberlo.
+ */
+export function impedidoPor(
+  stack: Pick<BattleStack, 'effects'>,
+  que: Impedible,
+): EfectoQueImpide | null {
+  for (const e of stack.effects) if (e.kind === 'impide' && e.que.includes(que)) return e;
+  return null;
 }
 
 /**
@@ -155,6 +292,12 @@ export const NOMBRE_DEL_EFECTO: Readonly<Record<EffectKind, string>> = {
   speed: 'velocidad',
   attack: 'ataque',
   defense: 'defensa',
+  armadura: 'armadura',
+  fuerza: 'fuerza',
+  agilidad: 'agilidad',
+  impide: 'impide',
+  escudo: 'escudo',
+  disparador: 'disparador',
 };
 
 /**
@@ -175,14 +318,55 @@ export function enRondas(n: number): string {
 }
 
 /**
+ * Lo que hace un efecto colgado, sin su duración: «ataque −2», «no puede
+ * moverse», «escudo 12», «al ser golpeado…». **El único texto de un efecto
+ * colgado**: lo leen las pastillas, el parte, la previsión y la ficha.
+ */
+export function dichoDelEfecto(e: StackEffect): string {
+  switch (e.kind) {
+    case 'impide':
+      return dichoDeImpide(e.que);
+    case 'escudo':
+      return `escudo ${e.queda}`;
+    case 'disparador':
+      return e.disparador.dicho;
+    default:
+      return cifraDeEfecto(e.kind, e.amount);
+  }
+}
+
+/**
+ * El signo de lo que hace un efecto para quien lo lleva: una cifra, el suyo; lo que
+ * impide, en contra; el escudo, a favor; un disparador, sin signo (`0`).
+ */
+export function signoDelEfecto(e: StackEffect): number {
+  switch (e.kind) {
+    case 'impide':
+      return -1;
+    case 'escudo':
+      return 1;
+    case 'disparador':
+      return 0;
+    default:
+      return e.amount;
+  }
+}
+
+/**
  * Lo que hace un hechizo que no hiere, en pocas palabras: «cura 4 PV», «velocidad
  * +2 durante 3 rondas»; `null` si no cura ni deja nada. Una sola redacción para la
- * previsión del hechizo, la del poder y lo que hace un poder (`queHaceElPoder`).
+ * previsión del hechizo, la del poder y la ficha.
  */
-export function curaOEfecto(cura: number | null, efecto: StackEffect | null): string | null {
-  if (cura !== null) return `cura ${cura} PV`;
-  if (efecto !== null) {
-    return `${cifraDeEfecto(efecto.kind, efecto.amount)} durante ${enRondas(efecto.roundsLeft)}`;
+export function curaOEfecto(cura: number | null, efectos: readonly StackEffect[]): string | null {
+  const partes: string[] = [];
+  if (cura !== null && cura > 0) partes.push(`cura ${cura} PV`);
+  for (const e of efectos) {
+    const dura =
+      e.hasta === undefined
+        ? `durante ${enRondas(e.roundsLeft)}`
+        : `hasta que ${e.hasta.al === 'empezar' ? 'empiece' : 'termine'} un turno`;
+    partes.push(`${dichoDelEfecto(e)} ${dura}`);
   }
-  return null;
+  if (partes.length === 0) return cura === null ? null : `cura ${cura} PV`;
+  return partes.join('; ');
 }

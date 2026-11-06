@@ -665,7 +665,8 @@ export class EscenaBatalla {
     const hecha = this.previsiones.get(accion);
     if (hecha !== undefined) return hecha;
     const p = this.sesion().prevision(accion);
-    const dicha = p === null ? null : textoDePrevision(p, this.nombre());
+    const dicha =
+      p === null ? null : textoDePrevision(p, this.nombre(), this.sesion().batallaALaVista?.libro);
     this.previsiones.set(accion, dicha);
     return dicha;
   }

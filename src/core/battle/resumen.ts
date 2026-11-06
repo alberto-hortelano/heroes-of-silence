@@ -23,8 +23,12 @@ import { type BattleState, queEs, type Side } from './types.js';
 export interface HechizoLanzado {
   readonly side: Side;
   readonly spell: string;
-  /** El cuerpo del stack sobre el que cayó. */
-  readonly target: string;
+  /**
+   * El cuerpo del stack sobre el que cayó; `null` si no se lanzó a una unidad (una
+   * casilla, sobre sí o al tablero: el editor de magia, 06-11-2026).
+   */
+  readonly target: string | null;
+  /** Los que mató: en uno a varios, los de sus `spell_hit`. */
   readonly killed: number;
 }
 
@@ -45,6 +49,15 @@ export interface ResumenDeBatalla {
   readonly lost: Readonly<Record<Side, readonly Baja[]>>;
 }
 
+/** Los hechos que van detrás de un hechizo y son suyos. */
+const SIGUEN_AL_HECHIZO: ReadonlySet<string> = new Set([
+  'spell_hit',
+  'effect',
+  'effect_end',
+  'perished',
+  'triggered',
+]);
+
 /** El resumen de una batalla ya terminada. Lanza si el registro miente. */
 export function resumenDeBatalla(battle: BattleState): ResumenDeBatalla {
   const cuerpoDe = (id: string): string => {
@@ -55,13 +68,23 @@ export function resumenDeBatalla(battle: BattleState): ResumenDeBatalla {
   };
 
   const casts: HechizoLanzado[] = [];
-  for (const e of battle.log) {
-    if (e.kind !== 'cast') continue;
-    // `cast` sin objetivo no existe hoy (`castOn` lo exige); si un hechizo de
-    // masas llega un día, que se diga aquí en vez de contarse sobre nadie.
-    if (e.target === undefined) throw new Error(`hechizo sin objetivo en el registro: ${e.spell}`);
-    casts.push({ side: e.side, spell: e.spell, target: cuerpoDe(e.target), killed: e.killed ?? 0 });
-  }
+  battle.log.forEach((e, i) => {
+    if (e.kind !== 'cast') return;
+    // A uno, lo que mató va en el hecho; a varios (o diferido), en los `spell_hit` que
+    // le siguen hasta la siguiente jugada.
+    let killed = e.killed ?? 0;
+    for (let j = i + 1; j < battle.log.length; j++) {
+      const x = battle.log[j];
+      if (x === undefined || !SIGUEN_AL_HECHIZO.has(x.kind)) break;
+      if (x.kind === 'spell_hit' && x.spell === e.spell) killed += x.killed;
+    }
+    casts.push({
+      side: e.side,
+      spell: e.spell,
+      target: e.target === undefined ? null : cuerpoDe(e.target),
+      killed,
+    });
+  });
 
   // `initialCount - count` son los muertos exactos: ningún hechizo resucita
   // (ver `BattleStack.initialCount`). Un `Map` por bando para agrupar sin

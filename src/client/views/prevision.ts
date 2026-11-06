@@ -5,6 +5,7 @@
  * la arena a través de la escena de batalla, que es una.
  */
 import type {
+  ImpactoDeHechizo,
   Prevision,
   PrevisionDeContraataque,
   PrevisionDeGolpe,
@@ -13,8 +14,7 @@ import type {
 } from '@core/battle/battle.js';
 import type { Horquilla, Modificador } from '@core/battle/damage.js';
 import { curaOEfecto } from '@core/battle/effects.js';
-import { poder } from '@core/battle/poderes.js';
-import { spell } from '@core/battle/spells.js';
+import { type LibroDeHechizos, nombreDeHechizo } from '@core/magia/catalogo.js';
 import { conComa } from '@core/types.js';
 
 /** Un número con coma decimal y dos decimales como mucho. */
@@ -74,30 +74,48 @@ function deGolpe(p: PrevisionDeGolpe, nombre: (id: string) => string): string {
  * durante 3 rondas.», «Curar a Escudero: cura 4 PV.». `quien` es lo que va
  * delante de los dos puntos.
  */
-function deLanzar(quien: string, p: PrevisionDeLanzar): string {
-  if (p.danio !== null) {
-    const bajas =
-      p.bajas === 0 ? 'no caería ninguno' : p.bajas === 1 ? 'caería 1' : `caerían ${p.bajas}`;
-    const leQuedan = p.leQuedan === 0 ? 'no le quedaría nada' : `le quedarían ${p.leQuedan} PV`;
-    // Lo que para la armadura, como en el parte («193 de daño (−7 armadura)»): sin
-    // ello se veía 193 donde se esperaba 200 (A1 de QA de #262).
-    const armadura = p.parado > 0 ? ` (−${p.parado} armadura)` : '';
-    return `${quien}: ${p.danio} de daño${armadura}, ${bajas} y ${leQuedan}.`;
+function deLanzar(quien: string, p: PrevisionDeLanzar, nombre: (id: string) => string): string {
+  const uno = (i: ImpactoDeHechizo): string => {
+    const partes: string[] = [];
+    if (i.danio !== null) {
+      const bajas =
+        i.bajas === 0 ? 'no caería ninguno' : i.bajas === 1 ? 'caería 1' : `caerían ${i.bajas}`;
+      const leQuedan = i.leQuedan === 0 ? 'no le quedaría nada' : `le quedarían ${i.leQuedan} PV`;
+      // Lo que para la armadura, como en el parte («193 de daño (−7 armadura)»): sin
+      // ello se veía 193 donde se esperaba 200 (A1 de QA de #262).
+      const armadura = i.parado > 0 ? ` (−${i.parado} armadura)` : '';
+      partes.push(`${i.danio} de daño${armadura}, ${bajas} y ${leQuedan}`);
+    }
+    const hace = curaOEfecto(i.cura, i.efectos);
+    if (hace !== null) partes.push(hace);
+    return partes.join('; ');
+  };
+  const diferido = p.diferido ? ' Cae al empezar su siguiente turno; si cayera ahora:' : '';
+  if (p.impactos.length === 0) return `${quien}:${diferido} no alcanzaría a nadie.`;
+  const [solo] = p.impactos;
+  if (p.impactos.length === 1 && solo !== undefined && solo.objetivo === p.objetivo) {
+    const hace = uno(solo);
+    return `${quien}${diferido}${hace === '' ? '' : `: ${hace}`}.`;
   }
-  const hace = curaOEfecto(p.cura, p.efecto);
-  return `${quien}${hace === null ? '' : `: ${hace}`}.`;
+  return `${quien}:${diferido} ${p.impactos.map((i) => `a ${nombre(i.objetivo)}, ${uno(i) || 'nada'}`).join('; ')}.`;
 }
 
 /**
  * La previsión en una frase para la barra. `nombre` dice cómo se llama en el
  * campo cada stack (`nombreEnElCampo`), para la salpicadura y el poder.
  */
-export function textoDePrevision(p: Prevision, nombre: (id: string) => string): string {
+export function textoDePrevision(
+  p: Prevision,
+  nombre: (id: string) => string,
+  libro?: LibroDeHechizos,
+): string {
   switch (p.kind) {
     case 'hechizo':
-      return deLanzar(spell(p.hechizo).name, p);
-    case 'poder':
-      return deLanzar(`${poder(p.poder).nombre} a ${nombre(p.objetivo)}`, p);
+      return deLanzar(nombreDeHechizo(p.hechizo, libro), p, nombre);
+    case 'poder': {
+      const a = p.objetivo === null ? '' : ` a ${nombre(p.objetivo)}`;
+      return deLanzar(`${nombreDeHechizo(p.poder, libro)}${a}`, p, nombre);
+    }
     case 'golpe':
     case 'disparo':
     case 'explosion':

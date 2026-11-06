@@ -61,7 +61,6 @@ import {
   type PuertaDeMuralla,
   validarMuralla,
 } from '@core/battle/muralla.js';
-import { allSpells } from '@core/battle/spells.js';
 import type { BattleStack } from '@core/battle/types.js';
 import { UNIDADES } from '@core/catalogo.js';
 import { COMBATE_COMPLETO, type ReglasDelCombate } from '@core/combate.js';
@@ -84,6 +83,7 @@ import {
   EQUIPO_DEL_JUEGO,
   idsPuestos,
 } from '@core/hero/equipo.js';
+import { todosLosHechizos } from '@core/magia/catalogo.js';
 import { parseSeed } from '@core/rng.js';
 import { type ClimaDelSitio, climaSinRegiones, DESPEJADO } from '@core/state/clima.js';
 import {
@@ -2927,7 +2927,7 @@ function cambiarDelHeroe(lado: Lado, el: Element): void {
     cambiarHeroe(lado, (h) => ({
       ...h,
       hechizos: puesto
-        ? allSpells()
+        ? todosLosHechizos()
             .map((s) => s.id)
             .filter((id) => id === hechizo || h.hechizos.includes(id))
         : h.hechizos.filter((id) => id !== hechizo),

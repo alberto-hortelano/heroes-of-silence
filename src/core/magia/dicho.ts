@@ -163,3 +163,17 @@ export function queHaceElHechizo(h: Hechizo, poder?: number): string {
   const frase = `${dichoDelAlcance(h)}: ${hace}${dura}`;
   return frase.charAt(0).toUpperCase() + frase.slice(1);
 }
+
+/**
+ * Cómo se dice un hechizo que usa una unidad como poder (sin poder mágico): el que
+ * solo cura, con lo que cura («Curar (12 PV)»; S9 de la morada: decía «Curar»); los
+ * demás, por su nombre. Lo leen la ficha de la morada y la de la arena.
+ */
+export function nombreDelPoder(h: Hechizo): string {
+  let total = 0;
+  for (const e of h.efectos) {
+    if (e.tipo !== 'cura') return h.nombre;
+    total += rinde(e.cantidad, 0);
+  }
+  return `${h.nombre} (${total} PV)`;
+}

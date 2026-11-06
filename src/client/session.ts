@@ -64,14 +64,12 @@ import {
   zonaDe,
 } from '@core/battle/despliegue.js';
 import { bonoEnLoAlto, type MurallaDeBatalla, SIN_MURALLA } from '@core/battle/muralla.js';
-import { type PoderId, poder } from '@core/battle/poderes.js';
 import {
   formaDeLaBatalla,
   type PapelEnLaRueda,
   type TipoDeGolpe,
   tipoDeGolpeBlocker,
 } from '@core/battle/rueda.js';
-import { enOrdenDelLibro, spell } from '@core/battle/spells.js';
 import type {
   BattleAction,
   BattleHero,
@@ -89,6 +87,7 @@ import { type CatalogoDeEquipo, type Portador, pedidoDelPuesto, pieza } from '@c
 import { type Hero, maxMana } from '@core/hero/hero.js';
 import { infiltracionBlocker } from '@core/hero/infiltracion.js';
 import { armyLeadership, heroLeadership, troopUnit } from '@core/hero/troop.js';
+import { enOrdenDelLibro, nombreDeHechizo } from '@core/magia/catalogo.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
 import type { MapObject, ObraDelPuesto, PathStep } from '@core/map/map.js';
 import { type Lugar, lugarSiExiste, type MundoLeido } from '@core/mundo/formato.js';
@@ -197,6 +196,7 @@ import {
   type Hueco,
   huecoDesconocido,
   type PlayerId,
+  type PoderId,
   type Point,
   type UnitInfo,
 } from '@core/types.js';
@@ -444,7 +444,7 @@ export interface Apuntado {
 
 /** Cómo se nombra lo apuntado en una frase: el hechizo o el poder. */
 function nombreDeLoApuntado(a: Apuntado): string {
-  return a.kind === 'hechizo' ? spell(a.id).name : poder(a.id).nombre;
+  return nombreDeHechizo(a.id);
 }
 
 /** ¿Es `a` una jugada de lo apuntado (sobre `objetivo`, si se dice)? */
@@ -1398,7 +1398,7 @@ function opcionesDeHechizo(
   if (hero === null || hero.spells.length === 0) return [];
 
   // En el orden del libro, el mismo que el panel del mapa (#54).
-  return enOrdenDelLibro(hero.spells).map((sp) => {
+  return enOrdenDelLibro(hero.spells, turno.battle.libro).map((sp) => {
     const id = sp.id;
     // Un solo predicado para las tres preguntas —sobre quién, si se puede, y
     // por qué no—: el par (hechizo, objetivo) sale de la lista legal y el
@@ -1406,15 +1406,15 @@ function opcionesDeHechizo(
     const targets = acciones.flatMap((a) =>
       a.type === 'cast' && a.spell === id && a.target !== undefined ? [a.target] : [],
     );
-    const castable = targets.length > 0;
+    const castable = acciones.some((a) => a.type === 'cast' && a.spell === id);
     // Con `castable` verdadero el bloqueo es `null` por construcción, así que
     // solo se pregunta cuando hace falta. Y si no lo es, el núcleo TIENE que
     // dar motivo: las dos respuestas salen de la misma función.
     const motivo = castable ? '' : castBlocker(turno.battle, turno.side, id);
     if (motivo === null) {
-      throw new Error(`${sp.name} no se ofrece y el núcleo no dice por qué`);
+      throw new Error(`${sp.nombre} no se ofrece y el núcleo no dice por qué`);
     }
-    return { id, name: sp.name, cost: sp.cost, targets, castable, motivo };
+    return { id, name: sp.nombre, cost: sp.mana, targets, castable, motivo };
   });
 }
 
@@ -1468,7 +1468,7 @@ export class LibroDeBatalla implements HechizosDeBatalla {
     const motivo = castBlocker(turno.battle, turno.side, elegido, targetId);
     if (motivo === null) {
       throw new Error(
-        `${spell(elegido).name} no se ofrece sobre ${targetId} y el núcleo no dice por qué`,
+        `${nombreDeHechizo(elegido, turno.battle.libro)} no se ofrece sobre ${targetId} y el núcleo no dice por qué`,
       );
     }
     return motivo;

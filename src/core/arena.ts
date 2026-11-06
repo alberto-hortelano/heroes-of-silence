@@ -40,19 +40,9 @@ import {
   type StackDeBatalla,
 } from './battle/battle.js';
 import { despliegueBlocker } from './battle/despliegue.js';
-import type { StackEffect } from './battle/effects.js';
 import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from './battle/muralla.js';
-import { nombreDeHabilidad } from './battle/poderes.js';
 import { ruedaDelArmaEnPalabras } from './battle/rueda.js';
-import {
-  allSpells,
-  delHeroe,
-  duracionDeLoQueLanza,
-  efectoDe,
-  ordenDelLibro,
-  spell,
-  spellAmount,
-} from './battle/spells.js';
+import { duracionDeLoQueLanza } from './battle/spells.js';
 import type {
   BattleStack,
   BattleState,
@@ -88,6 +78,15 @@ import {
 } from './hero/equipo.js';
 import { cifrasDelIndividuo, EXPERIENCIA_INICIAL_DE_HEROE } from './hero/experiencia.js';
 import { CIFRAS_DEL_HEROE_INICIAL, cuerpoDelHeroe, maxMana } from './hero/hero.js';
+import {
+  type CatalogoDeHechizos,
+  HECHIZOS_DEL_JUEGO,
+  hechizo,
+  hechizosDelGremio,
+  ordenDelLibro,
+} from './magia/catalogo.js';
+import { queHaceElHechizo } from './magia/dicho.js';
+import { GREMIO_MAXIMO } from './magia/formato.js';
 import { indiceDePoder, nivelDelIndice } from './nivel.js';
 import type { Rng } from './rng.js';
 import {
@@ -748,7 +747,7 @@ export interface HeroeDeArena {
   readonly defensa: number;
   readonly poder: number;
   readonly conocimiento: number;
-  /** Los ids de `data/spells.json` de su libro, sin repetir. */
+  /** Los ids de los hechizos de su libro (`data/hechizos.json` o los de la arena), sin repetir. */
   readonly hechizos: readonly string[];
   /**
    * El cuerpo de todo héroe (`combate` de `data/heroe.json`: PV, fuerza y
@@ -788,12 +787,17 @@ export function heroePorDefecto(
     defensa: CIFRAS_DEL_HEROE_INICIAL.defense,
     poder: CIFRAS_DEL_HEROE_INICIAL.spellPower,
     conocimiento: CIFRAS_DEL_HEROE_INICIAL.knowledge,
-    hechizos: allSpells().map((x) => x.id),
+    // Los que enseña el gremio (los de antes del editor de magia): los demás se
+    // ponen en su libro desde la ficha.
+    hechizos: hechizosDelGremio(GREMIO_MAXIMO).map((x) => x.id),
   };
 }
 
 /** Comprueba un héroe de la arena y lanza diciendo qué no cuadra. */
-export function validarHeroeDeArena(h: HeroeDeArena): HeroeDeArena {
+export function validarHeroeDeArena(
+  h: HeroeDeArena,
+  cat: CatalogoDeHechizos = HECHIZOS_DEL_JUEGO,
+): HeroeDeArena {
   const quien = 'el héroe';
   const nombre = texto(h.nombre, 'el nombre', quien);
   if (h.figura !== null && !esIdDeUnidad(h.figura)) {
@@ -808,7 +812,7 @@ export function validarHeroeDeArena(h: HeroeDeArena): HeroeDeArena {
   };
   const hechizos = lista(h.hechizos, 'los hechizos', quien).map((id) => {
     if (typeof id !== 'string') throw new Error(`${quien}: un hechizo no es un id`);
-    return spell(id).id;
+    return hechizo(id, cat).id;
   });
   sinRepetir(hechizos, 'el hechizo', quien);
   return {
@@ -884,17 +888,18 @@ function cuerpoDelHeroeDeArena(datos: HeroeDeArena): UnitInfo {
 export function fichaDeHeroeDeArena(
   datos: HeroeDeArena,
   eq: EquipoAtado,
+  cat: CatalogoDeHechizos = HECHIZOS_DEL_JUEGO,
 ): {
   readonly cuerpo: UnitInfo;
   readonly mana: number;
-  /** Las rondas que dura lo que lanza (`duracionDeLoQueLanza`). */
+  /** Las rondas que dura lo que lanza con «rondas: poder» (`duracionDeLoQueLanza`). */
   readonly duracion: number;
   readonly hechizos: readonly {
     readonly id: string;
     readonly nombre: string;
     readonly coste: number;
-    readonly rinde: number | null;
-    readonly efecto: StackEffect | null;
+    /** Lo que hace con su poder (`queHaceElHechizo`). */
+    readonly hace: string;
   }[];
 } {
   const { cuerpo, mando } = heroeDeArena(datos, eq);
@@ -903,14 +908,13 @@ export function fichaDeHeroeDeArena(
     mana: mando.mana,
     duracion: duracionDeLoQueLanza(mando),
     hechizos: mando.spells
-      .map(spell)
+      .map((id) => hechizo(id, cat))
       .sort(ordenDelLibro)
-      .map((s) => ({
-        id: s.id,
-        nombre: s.name,
-        coste: s.cost,
-        rinde: s.kind === 'damage' || s.kind === 'heal' ? spellAmount(s, mando) : null,
-        efecto: efectoDe(s, delHeroe(s, mando)),
+      .map((h) => ({
+        id: h.id,
+        nombre: h.nombre,
+        coste: h.mana,
+        hace: queHaceElHechizo(h, mando.spellPower),
       })),
   };
 }
@@ -1170,7 +1174,7 @@ function fichaEnPalabras(f: FuenteDeArena, eq: EquipoAtado): FichaEnPalabras {
     agilidad: `${u.agilidad}`,
     vida: `${u.hp}`,
     rasgos: rasgos(u.traits),
-    habilidades: u.habilidades.map(nombreDeHabilidad),
+    habilidades: [...u.habilidades],
     // Un hueco, una lista de cero o una pieza: el parte dice «escudo: − Escudo».
     ...huecosEnPalabras(u.equipo, eq),
   };
@@ -1209,9 +1213,10 @@ function fichaDelHeroe(datos: HeroeDeArena, eq: EquipoAtado): FichaEnPalabras {
     agilidad: `${h.cuerpo.agilidad}`,
     vida: `${h.cuerpo.pv.base}`,
     hechizos: h.hechizos
-      .map(spell)
+      .map((id) => HECHIZOS_DEL_JUEGO.get(id) ?? null)
+      .flatMap((x) => (x === null ? [] : [x]))
       .sort(ordenDelLibro)
-      .map((x) => x.name),
+      .map((x) => x.nombre),
     ...huecosEnPalabras(h.equipo, eq),
   };
 }

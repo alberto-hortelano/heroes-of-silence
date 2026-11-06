@@ -50,6 +50,23 @@ export function ordenDelLibro(a: Hechizo, b: Hechizo): number {
   return ga - gb || a.mana - b.mana || a.id.localeCompare(b.id);
 }
 
+/** Los hechizos de una batalla, por id (`BattleState.libro`). */
+export type LibroDeHechizos = Readonly<Record<string, Hechizo>>;
+
+/**
+ * Cómo se llama un hechizo: el de `libro` (el de la batalla, con lo que pelea la
+ * arena sin guardar) o el del juego; si no está en ninguno, su id. Lo leen el parte,
+ * las pastillas y los botones.
+ */
+export function nombreDeHechizo(id: string, libro?: LibroDeHechizos): string {
+  return libro?.[id]?.nombre ?? HECHIZOS_DEL_JUEGO.get(id)?.nombre ?? id;
+}
+
+/** Los hechizos de `ids` en el orden del libro, de `libro` o del juego. Lanza con uno que no está. */
+export function enOrdenDelLibro(ids: readonly string[], libro?: LibroDeHechizos): Hechizo[] {
+  return ids.map((id) => libro?.[id] ?? hechizo(id)).sort(ordenDelLibro);
+}
+
 /** Los hechizos que enseña un gremio de nivel `nivel`: los de su nivel o menos, en orden. */
 export function hechizosDelGremio(
   nivel: number,

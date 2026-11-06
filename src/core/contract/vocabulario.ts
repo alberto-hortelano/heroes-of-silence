@@ -307,7 +307,12 @@ export type AccionDeBatallaDelAgente =
       readonly from?: Hex;
       readonly hit?: string;
     }
-  | { readonly type: 'power'; readonly power: string; readonly target: string }
+  | {
+      readonly type: 'power';
+      readonly power: string;
+      readonly target?: string;
+      readonly at?: Hex;
+    }
   | {
       readonly type: (typeof JUGADA_DE_MURALLA)[TipoDeEscala];
       readonly wall: Hex;
@@ -331,8 +336,10 @@ export function accionDeBatallaDelAgente(
       const { hit, ...resto } = a;
       return hit === undefined ? resto : { ...resto, golpe: golpeDelHit(hit, forma) };
     }
-    case 'power':
-      return { type: 'power', poder: a.power, target: a.target };
+    case 'power': {
+      const { power, type: _t, ...resto } = a;
+      return { type: 'power', poder: power, ...resto };
+    }
     case 'place_ladder':
     case 'climb':
       return { type: JUGADA_DEL_AGENTE[a.type], muro: a.wall };
@@ -362,8 +369,10 @@ export function accionAlAgente(a: BattleAction): AccionDeBatallaDelAgente {
       const { golpe: _golpe, respuesta: _respuesta, ...resto } = a;
       return resto;
     }
-    case 'power':
-      return { type: 'power', power: a.poder, target: a.target };
+    case 'power': {
+      const { poder, type: _t, ...resto } = a;
+      return { type: 'power', power: poder, ...resto };
+    }
     case 'poner_escalera':
     case 'subir':
       return { type: JUGADA_DE_MURALLA[a.type], wall: a.muro };
@@ -434,6 +443,8 @@ export function hechoAlAgente(e: BattleEvent): HechoAlAgente {
     case 'blast':
     case 'cast':
     case 'power':
+    case 'spell_hit':
+    case 'triggered':
     case 'retoque':
     case 'effect':
     case 'effect_end':

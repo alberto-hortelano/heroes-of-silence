@@ -32,9 +32,10 @@ import { pasoDeLaBase } from '../src/client/render/proyeccion.js';
 import { AYUDA_DE_LA_BASE, AYUDA_DE_LA_MORADA, Session } from '../src/client/session.js';
 import { renderActions, renderSide } from '../src/client/views/panels.js';
 import { armaduraDe } from '../src/core/battle/armas.js';
-import { esDeCura, nombreDelPoder, poder } from '../src/core/battle/poderes.js';
 import { hojaDeUnidad, unidadDelJuego, unidadesDeMorada } from '../src/core/catalogo.js';
 import { pieza } from '../src/core/hero/equipo.js';
+import { hechizo } from '../src/core/magia/catalogo.js';
+import { nombreDelPoder } from '../src/core/magia/dicho.js';
 import { indiceDePoder, nivelDeUnidad } from '../src/core/nivel.js';
 import { construidoEn, sitioDeEdificio, sitiosDeLaBase } from '../src/core/town/sitios.js';
 import {
@@ -366,7 +367,7 @@ describe('la ficha y el reclutamiento (C4, C5)', () => {
       expect(panel).toContain(fila('Velocidad', `${SPEED_TO_HEXES[u.speed]} casillas`));
       const rasgos = [
         ...(u.traits ?? []).map((t) => NOMBRE_DE_RASGO[t]),
-        ...(u.poderes ?? []).map((p) => nombreDelPoder(poder(p))),
+        ...(u.poderes ?? []).map((p) => nombreDelPoder(hechizo(p))),
       ];
       if (rasgos.length > 0) expect(panel).toContain(fila('Rasgos', rasgos.join(', ')));
       else expect(panel).not.toContain('>Rasgos<');
@@ -390,10 +391,8 @@ describe('la ficha y el reclutamiento (C4, C5)', () => {
       plan: null,
       motivo: null,
     }));
-    const curar = poder(
-      unidadDelJuego('templario-monje').poderes!.find((p) => esDeCura(poder(p)))!,
-    );
-    expect(vista.ficha.rasgos).toContain(`${curar.nombre} (${curar.lanzador.cantidad} PV)`);
+    expect(unidadDelJuego('templario-monje').poderes).toEqual(['curar']);
+    expect(vista.ficha.rasgos).toContain('Curar (12 PV)');
   });
 });
 

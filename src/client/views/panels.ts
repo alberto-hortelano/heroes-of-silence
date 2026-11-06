@@ -30,11 +30,12 @@ import {
 import {
   type CuandoVence,
   cifraDeEfecto,
+  dichoDelEfecto,
   enRondas,
   type StackEffect,
+  signoDelEfecto,
 } from '@core/battle/effects.js';
 import { alcanceDeLaGranada } from '@core/battle/granada.js';
-import { poder } from '@core/battle/poderes.js';
 import {
   contraataqueDelCruce,
   duracion,
@@ -44,7 +45,6 @@ import {
   NOMBRE_DEL_PUNTO,
   nombreEnLaRueda,
 } from '@core/battle/rueda.js';
-import { enOrdenDelLibro, type Spell, spell } from '@core/battle/spells.js';
 import {
   type BattleAction,
   type BattleStack,
@@ -67,6 +67,8 @@ import {
 import { rangoDe, rangoDeHeroe, umbral } from '@core/hero/experiencia.js';
 import { cuerpoDelHeroe, type Hero, heroUnit, maxMana, maxMovePoints } from '@core/hero/hero.js';
 import { elQueSeIria, type Personajes, type TroopGroup, troopSummary } from '@core/hero/troop.js';
+import { enOrdenDelLibro, nombreDeHechizo } from '@core/magia/catalogo.js';
+import type { Hechizo } from '@core/magia/formato.js';
 import type { Lugar } from '@core/mundo/formato.js';
 import { nivelDeUnidad } from '@core/nivel.js';
 import { CHARACTER_BODY } from '@core/rpg/character.js';
@@ -555,9 +557,10 @@ function experienciaDeHeroe(experiencia: number): string {
  * eso. El tercer pintor, `renderSpells`, NO entra aquí: son botones con
  * `disabled` y `title`, y forzarlos en este molde saldría más caro que la copia.
  */
-function filaHechizo(s: Spell, conNivel = false): Html {
-  const nivel = conNivel ? html` <span class="count">n.${s.level}</span>` : NADA;
-  return html`<div class="stack"><span>${s.name}${nivel}</span><span class="count">${s.cost}</span></div>`;
+function filaHechizo(s: Hechizo, conNivel = false): Html {
+  const nivel =
+    conNivel && s.gremio !== null ? html` <span class="count">n.${s.gremio}</span>` : NADA;
+  return html`<div class="stack"><span>${s.nombre}${nivel}</span><span class="count">${s.mana}</span></div>`;
 }
 
 /**
@@ -901,7 +904,7 @@ function renderLibroEnElCastillo(session: Session, heroe: Hero, town: Town): Htm
     aprendido.length === 0
       ? NADA
       : html`<p class="cost">Aprendió aquí: ${enOrdenDelLibro(aprendido)
-          .map((s) => s.name)
+          .map((s) => s.nombre)
           .join(', ')}.</p>`;
   // El nombre, en su línea y no en el rótulo: con tema, la barra de sección es
   // de una línea y «Libro de Aldo de Valdeluz» (como «Tropa de…», o con
@@ -1320,16 +1323,16 @@ const FUENTE_RASGO: Readonly<Record<string, string>> = {
 };
 
 /**
- * Cómo se llama en el parte lo que puso un efecto. Si no es un rasgo tiene que
- * ser un hechizo, y `spell()` lanza con un id desconocido: un origen sin nombre
- * es un fallo nuestro, no algo que disimular con el id crudo en pantalla.
+ * Cómo se llama en el parte lo que puso un efecto. Si no es un rasgo ni un golpe de
+ * la rueda, es un hechizo: el de la batalla (`libro`: la arena pelea con hechizos sin
+ * guardar) o el del juego (`nombreDeHechizo`).
  */
-function nombreFuente(source: string, forma: FormaDeLaRueda): string {
+function nombreFuente(source: string, forma: FormaDeLaRueda, libro?: BattleState['libro']): string {
   // Lo que deja un golpe de la rueda (Defensivo, Romper guardia…), por el nombre que
   // le da la rueda de la batalla: en la de 3, «Rápido» aunque quite el ataque su
   // parte de Romper guardia (`EfectoDeLaRueda.fuente`).
   if (esTipoDeGolpe(source)) return nombreEnLaRueda(source, forma);
-  return FUENTE_RASGO[source] ?? spell(source).name;
+  return FUENTE_RASGO[source] ?? nombreDeHechizo(source, libro);
 }
 
 /**
@@ -1351,9 +1354,13 @@ export function duracionDeEfecto(e: {
  * `duracionDeEfecto`), que lo dice al colgarse; esto lo dice mientras dura (la
  * vista previa de la rueda, #261).
  */
-export function efectoEnCurso(e: StackEffect, forma: FormaDeLaRueda): string {
+export function efectoEnCurso(
+  e: StackEffect,
+  forma: FormaDeLaRueda,
+  libro?: BattleState['libro'],
+): string {
   const dura = duracionDeEfecto({ rounds: e.roundsLeft, vence: e.hasta?.al });
-  return `${nombreFuente(e.source, forma)}: ${cifraDeEfecto(e.kind, e.amount)} ${dura}`;
+  return `${nombreFuente(e.source, forma, libro)}: ${dichoDelEfecto(e)} ${dura}`;
 }
 
 /**
@@ -1406,13 +1413,14 @@ export function modificadoresEnCurso(
   efectos: readonly StackEffect[],
   forma: FormaDeLaRueda,
   carga: CargaDeLaRueda | null = null,
+  libro?: BattleState['libro'],
 ): Html {
   if (efectos.length === 0 && carga === null) return NADA;
   const signo = (n: number): Html => html` data-signo="${n < 0 ? '−' : '+'}"`;
   const pastillas = efectos.map((e) =>
-    pastilla(cifraDeEfecto(e.kind, e.amount), html` data-efecto="${e.kind}"${signo(e.amount)}`),
+    pastilla(dichoDelEfecto(e), html` data-efecto="${e.kind}"${signo(signoDelEfecto(e))}`),
   );
-  const enteros = efectos.map((e) => efectoEnCurso(e, forma));
+  const enteros = efectos.map((e) => efectoEnCurso(e, forma, libro));
   if (carga !== null) {
     const suma = porcientoDeLaCarga(carga.casillas, CARGA);
     pastillas.push(pastilla(dichoCortoDeLaCarga(carga.casillas), html` data-carga${signo(suma)}`));
@@ -1642,20 +1650,41 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
               : e.side === mio
                 ? 'Lanzas'
                 : 'El enemigo lanza';
-          const sobre = e.target === undefined ? '' : ` sobre ${quien(e.target)}`;
+          const sobre =
+            e.target !== undefined
+              ? ` sobre ${quien(e.target)}`
+              : e.at !== undefined
+                ? ` sobre (${e.at.col},${e.at.row})`
+                : '';
           const efecto =
             e.damage || e.parado !== undefined
               ? `: ${danio(e.damage ?? 0, e.killed ?? 0, e.parado)}`
               : '';
-          return html`<div>${lanza} ${spell(e.spell).name}${sobre}${efecto}</div>`;
+          const cae = e.diferido === true ? ' (caerá al empezar su siguiente turno)' : '';
+          return html`<div>${lanza} ${nombreDeHechizo(e.spell, battle.libro)}${sobre}${efecto}${cae}</div>`;
         }
         case 'power': {
           // Lo que deje un poder va detrás en su propia línea (`effect`); aquí,
           // quién a quién y, si cura, cuánto.
-          const p = poder(e.poder);
           const cura = e.cura === undefined ? '' : `: cura ${e.cura} PV`;
-          return html`<div${paraQuienLee(e.target, true)}>${quienEs(e.stack)}, usa ${p.nombre} sobre ${quien(e.target)}${cura}</div>`;
+          const sobre =
+            e.target !== undefined
+              ? ` sobre ${quien(e.target)}`
+              : e.at !== undefined
+                ? ` sobre (${e.at.col},${e.at.row})`
+                : '';
+          return html`<div${paraQuienLee(e.target ?? e.stack, true)}>${quienEs(e.stack)}, usa ${nombreDeHechizo(e.poder, battle.libro)}${sobre}${cura}</div>`;
         }
+        // Lo que hizo un hechizo a uno de los que alcanzó.
+        case 'spell_hit': {
+          const hace: string[] = [];
+          if (e.damage > 0 || e.parado !== undefined)
+            hace.push(danio(e.damage, e.killed, e.parado));
+          if (e.cura !== undefined) hace.push(`cura ${e.cura} PV`);
+          return html`<div${paraQuienLee(e.stack, e.cura !== undefined)}>${nombreDeHechizo(e.spell, battle.libro)} alcanza a ${quienEs(e.stack)}${hace.length === 0 ? '' : `: ${hace.join(', ')}`}</div>`;
+        }
+        case 'triggered':
+          return html`<div>Salta ${nombreDeHechizo(e.spell, battle.libro)} de ${quienEs(e.stack)}</div>`;
         // La arena cambió unas cifras a media pelea (el editor): no es una
         // jugada, pero desde aquí la pelea se juega con las nuevas. Entre
         // paréntesis y con «;», porque un cambio de lista ya lleva sus dos
@@ -1666,7 +1695,7 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
         // línea verde sin nombre no deja saber si es bueno para los tuyos o para
         // el rival.
         case 'effect':
-          return html`<div${paraQuienLee(e.stack, e.amount >= 0)}>${nombreFuente(e.source, forma)} sobre ${quienEs(e.stack)}: ${cifraDeEfecto(e.effect, e.amount)} ${duracionDeEfecto(e)}</div>`;
+          return html`<div${paraQuienLee(e.stack, e.amount >= 0 && e.effect !== 'impide')}>${nombreFuente(e.source, forma, battle.libro)} sobre ${quienEs(e.stack)}: ${e.dicho ?? cifraDeEfecto(e.effect, e.amount)} ${duracionDeEfecto(e)}</div>`;
         // La rueda del golpe: qué eligió cada uno y dónde cayó,
         // antes de las líneas del golpe. El contraataque, solo si lo hubo.
         case 'cruce': {
@@ -1675,7 +1704,7 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
           return html`<div class="cruce">${golpe(e.stack, e.target)}, ${nombreEnLaRueda(e.golpe, forma)} contra ${nombreEnLaRueda(e.respuesta, forma)}: ${NOMBRE_DEL_PUNTO[e.punto]}${contra}</div>`;
         }
         case 'effect_end':
-          return html`<div>Se disipa ${nombreFuente(e.source, forma)} de ${quienEs(e.stack)}</div>`;
+          return html`<div>Se disipa ${nombreFuente(e.source, forma, battle.libro)} de ${quienEs(e.stack)}</div>`;
         case 'perished': {
           // Quién cae decide el color, igual que en `hero_defeated` un piso más
           // arriba: lo tuyo es la derrota y lo suyo la victoria. Sin bando —el
@@ -1838,7 +1867,7 @@ function fraseDeBatalla(
     const mata = c.killed > 0 ? ` (mata ${c.killed})` : '';
     const quien = bando(c.side);
     partes.push(
-      `${quien === 'tú' ? 'lanzas' : `lanza ${quien}`} ${spell(c.spell).name} sobre ${nombreDeCuerpo(c.target)}${mata}`,
+      `${quien === 'tú' ? 'lanzas' : `lanza ${quien}`} ${nombreDeHechizo(c.spell)}${c.target === null ? '' : ` sobre ${nombreDeCuerpo(c.target)}`}${mata}`,
     );
   }
   return partes.join('; ');
@@ -2116,7 +2145,7 @@ export function renderLog(
         case 'spells_learned':
           return html`<div${clase(mio, false)}>${
             mio ? 'Aprendido' : `${jugador(e.actor)} aprende`
-          }${aqui}: ${e.spells.map((id) => spell(id).name).join(', ')}</div>`;
+          }${aqui}: ${e.spells.map((id) => nombreDeHechizo(id)).join(', ')}</div>`;
         case 'battle_ended': {
           // Lo que sobrevive de la batalla (#93): antes, «Batalla resuelta» y
           // nada más, ni quién ganó. El bando de quien lee sale de `owners`, que
