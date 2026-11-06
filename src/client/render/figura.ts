@@ -416,26 +416,30 @@ export function pintarFigura(ctx: CanvasRenderingContext2D, c: FiguraColocada): 
   ctx.restore();
 }
 
+/** La celda de una figura con arte, lista para copiarla: la misma que pinta `pintarFigura`. */
+export interface CeldaDeLaFigura {
+  /** El lienzo guardado de la celda (`celdaEnPantalla`), de `w` píxeles de lado. */
+  readonly fuente: HTMLCanvasElement;
+  readonly w: number;
+  /** Dónde va, en píxeles de la pantalla: la esquina de arriba a la izquierda y el lado. */
+  readonly x: number;
+  readonly y: number;
+  readonly lado: number;
+}
+
 /**
- * La figura otra vez, **al trasluz**: con su arte y a `alfa`, sin sombra, sin
- * marcador y sin destello. Encima de sí misma no cambia nada (los mismos píxeles
- * sobre los mismos); encima de lo que la tapa —un pico, un árbol de delante— deja
- * ver quién está detrás. Lo pide el mapa para los grupos de asaltantes
- * (`pintarAsaltantesAlTrasluz`). Sin arte que pintar, nada: lo dice su marcador.
+ * La celda con que se pinta la figura y dónde, o `null` si no hay arte que pintar
+ * (cargando, o el marcador): de ella sale la silueta de lo tapado
+ * (`pintarLoTapadoDeLaFigura`, `figura-tapada.ts`). Es la celda guardada de
+ * `pintarFigura` con la misma `densidad` (la de `densidadDe`), así que no hace
+ * ninguna nueva.
  */
-export function pintarFiguraAlTrasluz(
-  ctx: CanvasRenderingContext2D,
-  c: FiguraColocada,
-  alfa: number,
-): void {
+export function celdaDeLaFigura(c: FiguraColocada, densidad: number): CeldaDeLaFigura | null {
   const { f, p } = c;
-  if (c.cargando || p === null || alfa <= 0) return;
-  const w = Math.max(1, Math.ceil(p.lado * Math.max(1, densidadDe(ctx))));
+  if (c.cargando || p === null) return null;
+  const w = Math.max(1, Math.ceil(p.lado * Math.max(1, densidad)));
   const fuente = celdaEnPantalla(p, p.arte.propio ? null : f.color, w, f.luz);
-  ctx.save();
-  ctx.globalAlpha = alfa;
-  ctx.drawImage(fuente, 0, 0, w, w, f.x + p.dx, f.suelo + p.dy, p.lado, p.lado);
-  ctx.restore();
+  return { fuente, w, x: f.x + p.dx, y: f.suelo + p.dy, lado: p.lado };
 }
 
 /**

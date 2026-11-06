@@ -49,6 +49,7 @@ import { empezarFotogramaDeCopias } from './copias.js';
 import type { Sprite } from './escenario/colocar.js';
 import { FIGURA_DEL_HEROE, PIES } from './escenario/figuras-del-mapa.js';
 import { seHornea } from './escenario/horneado.js';
+import { cajaDeSprite } from './escenario/pasillo.js';
 import {
   claveDe,
   type Imagen,
@@ -79,9 +80,18 @@ import {
   animarHasta,
   colocarFigura,
   type Figura,
-  pintarFiguraAlTrasluz,
+  type FiguraColocada,
   pintarFiguraConSombra,
 } from './figura.js';
+import {
+  aplicar,
+  type ColoresDeLoTapado,
+  cajaDeLaCelda,
+  type GuardarLoTapado,
+  type Matriz,
+  type PintarEnLaMascara,
+  pintarLoTapadoDeLaFigura,
+} from './figura-tapada.js';
 import { densidadDe } from './lienzo.js';
 import { altoDelMarcador, pintarMarcadorDelPuesto } from './marcador-del-puesto.js';
 import { COLOR_SIN_DUEÑO, playerColor } from './palette.js';
@@ -486,9 +496,7 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
   //     en un solo orden de profundidad: una figura puede quedar detrás de un árbol.
   const nodos = nodosQueSeSaben(v);
   const cosas = cosasDe(v, esc, nodos);
-  pintarLoQueTieneAltura(ctx, v, volumenesALaVista(v, esc, nodos), cosas);
-  //     Y los grupos de asaltantes al trasluz: lo que los tapa no los esconde enteros.
-  pintarAsaltantesAlTrasluz(ctx, v, cosas);
+  const tapados = pintarLoQueTieneAltura(ctx, v, volumenesALaVista(v, esc, nodos), cosas);
 
   // 2b · El clima de cada región, encima de lo que tiene altura y DEBAJO de los
   //      identificadores y de la niebla de guerra: no tapa ni destapa nada de
@@ -508,6 +516,11 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
       v.tiempo,
     );
   }
+
+  // 2c · Lo tapado de cada grupo de asaltantes, en silueta: lo que los tapa no
+  //      los esconde enteros. Encima del clima, como lo que dice quién está: de
+  //      noche y con niebla se lee igual.
+  pintarLoTapadoDeLosAsaltantes(ctx, tapados);
 
   // 3 · Lo que dice quién está en cada casilla, encima de todo lo que tiene altura.
   const cuerpos = cuerposDe(cosas);
@@ -744,7 +757,7 @@ function pintarLoQueTieneAltura(
   v: VistaMapa,
   volumenes: readonly VolumenDelMapa[],
   cosas: readonly Cosa[],
-): void {
+): AsaltanteTapado[] {
   const enPantalla = ctx.getTransform();
   const dpr = densidadDe(ctx);
   const origen = mundoAPixel(v.camara, 0, 0);
@@ -787,6 +800,32 @@ function pintarLoQueTieneAltura(
     if (vol.s.deNodo !== undefined && vol.s.sombra && (!esObra(vol.s) || conSuImagen(vol.s)))
       pintarSombraAlPie(ctx, vol.s, opciones.tile);
   ctx.setTransform(enPantalla);
+  const pintarVolumen = (c: CanvasRenderingContext2D, vol: VolumenDelMapa) => {
+    const recortado = recortadoArriba(vol, v.explorado);
+    if (recortado) {
+      c.save();
+      c.beginPath();
+      c.rect(0, 0, anchoDelMapa, altoDelMapa);
+      c.clip();
+    }
+    // La obra de un puesto sin su imagen —aún no ha llegado, o no la hay— es su
+    // marcador dibujado, no el triángulo de lo que no tiene arte: se decide en
+    // cada fotograma, y la bandera mira lo mismo (`puntaDeLaObra`).
+    if (esObra(vol.s) && !conSuImagen(vol.s)) pintarMarcadorDeLaObra(c, vol.s, opciones.tile);
+    else pintarSprite(c, vol.s, opciones);
+    if (recortado) c.restore();
+  };
+  // Cada grupo de asaltantes, con lo que se pinta después de él encima de su
+  // celda: lo que lo tapa y lo que va delante (`pintarLoTapadoDeLosAsaltantes`).
+  const tapados: {
+    readonly id: string;
+    readonly figura: FiguraColocada;
+    readonly caja: Caja4;
+    readonly tapan: VolumenDelMapa[];
+    readonly delante: Cosa[];
+  }[] = [];
+  const queSeTocan = (a: Caja4, b: Caja4) =>
+    a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
   let enElMapa = false;
   fundirPorProfundidad(
     volumenes,
@@ -802,19 +841,12 @@ function pintarLoQueTieneAltura(
         ctx.imageSmoothingQuality = 'low';
       }
       enElMapa = true;
-      const recortado = recortadoArriba(vol, v.explorado);
-      if (recortado) {
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(0, 0, anchoDelMapa, altoDelMapa);
-        ctx.clip();
-      }
-      // La obra de un puesto sin su imagen —aún no ha llegado, o no la hay— es su
-      // marcador dibujado, no el triángulo de lo que no tiene arte: se decide en
-      // cada fotograma, y la bandera mira lo mismo (`puntaDeLaObra`).
-      if (esObra(vol.s) && !conSuImagen(vol.s)) pintarMarcadorDeLaObra(ctx, vol.s, opciones.tile);
-      else pintarSprite(ctx, vol.s, opciones);
-      if (recortado) ctx.restore();
+      pintarVolumen(ctx, vol);
+      if (tapados.length === 0) return;
+      const [x0, y0, x1, y1] = cajaDeSprite(vol.s);
+      const T = opciones.tile;
+      const caja: Caja4 = [ox + x0 * T, oy + y0 * T, ox + x1 * T, oy + y1 * T];
+      for (const t of tapados) if (queSeTocan(t.caja, caja)) t.tapan.push(vol);
     },
     (cosa) => {
       if (enElMapa) {
@@ -823,10 +855,119 @@ function pintarLoQueTieneAltura(
       }
       enElMapa = false;
       pintarCosa(ctx, v, cosa);
+      if (tapados.length > 0) {
+        const caja = cajaDeCosa(v, cosa, enPantalla);
+        if (caja !== null)
+          for (const t of tapados) if (queSeTocan(t.caja, caja)) t.delante.push(cosa);
+      }
+      if (cosa.tipo !== 'asaltante') return;
+      const figura = colocarFigura(figuraDelAsaltante(v, cosa.asaltante, cosa.en));
+      const caja = cajaDeLaCelda(figura, enPantalla);
+      if (caja !== null)
+        tapados.push({ id: cosa.asaltante.id, figura, caja, tapan: [], delante: [] });
     },
   );
   ctx.restore();
   if (aplazado) animarHasta(performance.now() + 100);
+  // Lo que se vuelve a pintar en la máscara de lo tapado, con sus mismas reglas:
+  // los volúmenes dentro del mapa y con su origen (`ox, oy`), las figuras en los
+  // píxeles de la pantalla.
+  const enElOrigen: Matriz = { a: 1, b: 0, c: 0, d: 1, e: ox, f: oy };
+  const sinMover: Matriz = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+  return tapados.flatMap((t): AsaltanteTapado[] =>
+    t.tapan.length === 0
+      ? []
+      : [
+          {
+            figura: t.figura,
+            enPantalla,
+            // Se guarda lo compuesto si lo que lo tapa no ha de cambiar sin que lo
+            // diga la clave: sin copias por hacer (`aplazado`) ni figuras delante,
+            // que se animan a su aire (es raro: un héroe o un monstruo delante).
+            guardar:
+              aplazado || t.delante.length > 0
+                ? null
+                : {
+                    id: t.id,
+                    clave: `${opciones.tile}|${t.tapan.map((vol) => claveDelVolumen(vol, v.explorado)).join(',')}`,
+                    origen: [ox, oy],
+                  },
+            pintarLoQueTapa: (m, poner) => {
+              poner(sinMover);
+              m.beginPath();
+              m.rect(ox, oy - ARRIBA_SIN_RECORTE, anchoDelMapa, ARRIBA_SIN_RECORTE + altoDelMapa);
+              m.clip();
+              poner(enElOrigen);
+              m.imageSmoothingQuality = 'low';
+              for (const vol of t.tapan) pintarVolumen(m, vol);
+            },
+            pintarLoDeDelante:
+              t.delante.length === 0
+                ? null
+                : (m, poner) => {
+                    poner(enPantalla);
+                    m.imageSmoothingQuality = 'high';
+                    for (const c of t.delante) pintarCosa(m, v, c);
+                  },
+          },
+        ],
+  );
+}
+
+/** Un número por volumen de la escena, para la clave de lo tapado. */
+const idsDeVolumen = new WeakMap<VolumenDelMapa, number>();
+let ultimoVolumen = 0;
+
+/**
+ * Lo que dice cómo se pinta un volumen, sin dónde: cuál es, si se recorta por
+ * arriba y si ya tiene su imagen (sin ella, su marcador).
+ */
+function claveDelVolumen(vol: VolumenDelMapa, explorado: CasillasLeidas | null): string {
+  let id = idsDeVolumen.get(vol);
+  if (id === undefined) {
+    id = ++ultimoVolumen;
+    idsDeVolumen.set(vol, id);
+  }
+  return `${id}${recortadoArriba(vol, explorado) ? 'r' : ''}${conSuImagen(vol.s) ? '' : 'm'}`;
+}
+
+/** Una caja en píxeles del lienzo: `[x0, y0, x1, y1]`. */
+type Caja4 = readonly [number, number, number, number];
+
+/**
+ * Un grupo de asaltantes con algún volumen pintado después de él sobre su celda:
+ * cómo se pintó y cómo se vuelve a pintar, en la máscara de lo tapado, lo que lo
+ * puede tapar y las figuras que van delante.
+ */
+interface AsaltanteTapado {
+  readonly figura: FiguraColocada;
+  readonly enPantalla: Matriz;
+  readonly guardar: GuardarLoTapado | null;
+  readonly pintarLoQueTapa: PintarEnLaMascara;
+  readonly pintarLoDeDelante: PintarEnLaMascara | null;
+}
+
+/**
+ * Lo que ocupa a lo sumo una figura en píxeles del lienzo, desde donde apoya: de
+ * una casilla a cada lado, dos y media por encima y media por debajo (la chapa y
+ * el aro). Solo para saber si va delante de un grupo; `null` lo que no es una
+ * figura: la marca del dueño de lo horneado es suelo de su plaza y la bandera
+ * del puesto va con lo que dice quién está, encima de todo.
+ */
+function cajaDeCosa(v: VistaMapa, c: Cosa, enPantalla: Matriz): Caja4 | null {
+  const en =
+    c.tipo === 'objeto'
+      ? casillaAPixel(v.camara, c.objeto.at)
+      : c.tipo === 'heroe'
+        ? mundoAPixel(v.camara, c.pie.x, c.pie.y)
+        : c.tipo === 'asaltante'
+          ? mundoAPixel(v.camara, c.en.x + 0.5, c.en.y + 0.5)
+          : null;
+  if (en === null) return null;
+  const tile = v.camara.tile;
+  const [x0, y0] = aplicar(enPantalla, en.x - tile, en.y - tile * 2.5);
+  const [x1, y1] = aplicar(enPantalla, en.x + tile, en.y + tile * 0.6);
+  return [x0, y0, x1, y1];
 }
 
 /** Cuánto, en píxeles de dispositivo, puede subir sobre el borde de arriba lo que tiene altura: sin tope. */
@@ -1227,30 +1368,40 @@ function figuraDelAsaltante(v: VistaMapa, r: VistaAsaltante, p: PosicionDeAsalta
 }
 
 /**
- * Cuánto se ve, a través de lo que lo tapa, el grupo de asaltantes que está detrás
- * de un volumen (`pintarAsaltantesAlTrasluz`).
+ * Lo tapado de un grupo de asaltantes: la silueta morada con un contorno claro y
+ * otro oscuro por fuera, que se lee sobre la roca, la nieve, la lava y de noche.
  */
-const ASALTANTE_AL_TRASLUZ = 0.7;
+const TAPADO_DEL_ASALTANTE: ColoresDeLoTapado = {
+  contorno: '#e7a6ea',
+  borde: 'rgba(24, 10, 26, 0.9)',
+  relleno: 'rgba(140, 59, 143, 0.55)',
+};
 
 /**
- * Los grupos de asaltantes otra vez, al trasluz, encima de todo lo que tiene
- * altura y debajo del clima (que los tiñe igual que a lo demás): encima de sí
- * mismos no cambian nada, y detrás de un pico o de un árbol se dejan ver.
- * Un grupo anda por donde quiere y no lleva la reserva de un monstruo, así que
- * un pico de la fila de delante lo tapaba entero y quedaban el estandarte y la
- * chapa solos, sin figura: «me asaltaron unos bandidos y no tenían arte»
- * (06-11-2026; en s9 el grupo raider-0 (16,24), detrás de una cordillera).
+ * Lo tapado de cada grupo de asaltantes, en silueta y solo donde lo tapa un
+ * volumen pintado después de él (`pintarLoTapadoDeLaFigura`): el grupo sin nada
+ * delante se queda como se pintó, y lo que va delante del grupo (un héroe) no
+ * queda debajo de la silueta. Un grupo anda por donde quiere y no lleva la
+ * reserva de un monstruo, así que un pico de la fila de delante lo tapaba entero
+ * y quedaban el estandarte y la chapa solos, sin figura: «me asaltaron unos
+ * bandidos y no tenían arte» (06-11-2026; en s9 el grupo raider-0 (16,24), detrás
+ * de una cordillera). Repintado encima a 0,7 con su arte, sobre la nieve y de
+ * noche era una mancha rojiza (QA del mismo día).
  */
-function pintarAsaltantesAlTrasluz(
+function pintarLoTapadoDeLosAsaltantes(
   ctx: CanvasRenderingContext2D,
-  v: VistaMapa,
-  cosas: readonly Cosa[],
+  tapados: readonly AsaltanteTapado[],
 ): void {
-  for (const c of cosas) {
-    if (c.tipo !== 'asaltante') continue;
-    const f = figuraDelAsaltante(v, c.asaltante, c.en);
-    pintarFiguraAlTrasluz(ctx, colocarFigura(f), ASALTANTE_AL_TRASLUZ);
-  }
+  for (const t of tapados)
+    pintarLoTapadoDeLaFigura(
+      ctx,
+      t.figura,
+      t.enPantalla,
+      TAPADO_DEL_ASALTANTE,
+      t.pintarLoQueTapa,
+      t.pintarLoDeDelante,
+      t.guardar,
+    );
 }
 
 /**
