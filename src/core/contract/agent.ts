@@ -930,6 +930,18 @@ Notas:
 - "cast" NO consume el turno de la unidad activa: lanza el héroe, se cobra el
   maná y una tirada por ronda, y después la unidad sigue pudiendo moverse,
   apuntar o atacar. Se te volverá a pedir acción para el mismo stack.
+- MAGIA: cada hechizo de "spell_list" dice a qué se lanza ("target"): "ally",
+  "enemy" o "any" llevan "target" (una unidad); "tile", "at" (una casilla; vale
+  cualquiera a su alcance, "legalActions" trae una por unidad viva); "self" y
+  "all", nada. El héroe lanza desde la casilla de su cuerpo: «en contacto» es a
+  una casilla de él y «a x casillas», hasta x. Uno diferido ("cast" con
+  "diferido" en el registro, "spellAt" en el stack del cuerpo) cae al empezar el
+  siguiente turno de quien lo lanzó. Lo que deja un hechizo va en
+  "stacks[].effects" con su "summary" en palabras: cifras, lo que impide
+  (golpear, disparar, contraatacar, moverse, lanzar) y disparadores (al empezar o
+  terminar su turno, al ser golpeado, al golpear, al morir). Lo que hace un
+  hechizo a cada uno de varios lo cuenta un "spell_hit"; un disparador que salta,
+  un "triggered".
 - La lista "legalActions" de la petición ya trae TODAS las acciones legales;
   elegir una de ellas nunca falla.
 - Si tu acción NO es legal se descarta y juega la IA de reglas en su lugar, que

@@ -34,6 +34,7 @@ import {
   esTipoDePuerta,
   faseDelTurno,
   firmaDelTurno,
+  hechizoDeLaBatalla,
   legalActionsAndCosts,
   MAX_JUGADAS,
   movimientoBlocker,
@@ -70,6 +71,7 @@ import {
   type TipoDeGolpe,
   tipoDeGolpeBlocker,
 } from '@core/battle/rueda.js';
+import { queSeApunta } from '@core/battle/spells.js';
 import type {
   BattleAction,
   BattleHero,
@@ -1424,6 +1426,38 @@ interface DueñoDelLibro {
   /** Las opciones de ahora, de la caché de la sesión (`opcionesDeHechizo`). */
   spellOptions(): readonly SpellOption[];
   status: string;
+  battleLegalActions(): readonly BattleAction[];
+  playBattleAction(action: BattleAction): void;
+}
+
+/**
+ * La jugada de lo apuntado (un hechizo o un poder que se lanza a una casilla) en la
+ * casilla `at`, o por qué no vale ahí con la frase del núcleo (`castBlocker`,
+ * `poderBlocker`); `null` si lo apuntado no se lanza a una casilla (va a una
+ * unidad). Lo leen el clic y la previsión del tablero (06-11-2026, el editor de magia).
+ */
+export function loApuntadoEnCasilla(
+  s: Pick<ControlDeBatalla, 'batallaALaVista' | 'turnoPropio'>,
+  apunta: Apuntado,
+  at: Hex,
+): { readonly accion: BattleAction } | { readonly motivo: string } | null {
+  const b = s.batallaALaVista;
+  if (b === null) return null;
+  const h = hechizoDeLaBatalla(b, apunta.id);
+  if (queSeApunta(h) !== 'casilla') return null;
+  const turno = s.turnoPropio;
+  if (turno === null) return { motivo: NINGUNA_TUYA };
+  const motivo =
+    apunta.kind === 'hechizo'
+      ? castBlocker(b, turno.side, apunta.id, undefined, at)
+      : poderBlocker(b, apunta.id, undefined, at);
+  if (motivo !== null) return { motivo: comoFrase(motivo) };
+  return {
+    accion:
+      apunta.kind === 'hechizo'
+        ? { type: 'cast', spell: apunta.id, at }
+        : { type: 'power', poder: apunta.id, at },
+  };
 }
 
 /**
@@ -1486,8 +1520,25 @@ export class LibroDeBatalla implements HechizosDeBatalla {
       this.dueño.status = `No puedes lanzar ${opcion.name}: ${opcion.motivo}.`;
       return;
     }
+    // Sobre sí o al tablero no se elige nada: se lanza ya (el editor de magia).
+    const suyas = this.dueño
+      .battleLegalActions()
+      .filter((a) => a.type === 'cast' && a.spell === spellId);
+    const [sinApuntar] = suyas;
+    if (
+      suyas.length === 1 &&
+      sinApuntar?.type === 'cast' &&
+      sinApuntar.target === undefined &&
+      sinApuntar.at === undefined
+    ) {
+      this.dueño.playBattleAction(sinApuntar);
+      return;
+    }
     this.selectedSpell = spellId;
-    this.dueño.status = `${opcion.name}: elige sobre quién lanzarlo.`;
+    const aCasilla = suyas.some((a) => a.type === 'cast' && a.at !== undefined);
+    this.dueño.status = aCasilla
+      ? `${opcion.name}: pulsa la casilla donde lanzarlo, o Escape para cancelar.`
+      : `${opcion.name}: elige sobre quién lanzarlo.`;
   }
 
   clearSpell(): void {
