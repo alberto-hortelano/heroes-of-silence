@@ -1791,3 +1791,7 @@ simbolo	src/client/render/mapa/mapa.ts	src/client/render/mapa/rotulos.ts	pintarO
 simbolo	src/client/render/mapa/mapa.ts	src/client/render/mapa/niebla.ts	niebla
 simbolo	src/client/render/mapa/mapa.ts	src/client/render/mapa/niebla.ts	mascaraDeNiebla
 simbolo	src/client/render/mapa/mapa.ts	src/client/render/mapa/niebla.ts	pintarNiebla
+simbolo	src/client/render/escenario/muralla.ts	src/client/render/escenario/muralla-sin-leer.ts	PASO_POR_LA_LINEA
+simbolo	src/client/render/escenario/muralla.ts	src/client/render/escenario/muralla-sin-leer.ts	murallaSobreLaSenda
+simbolo	src/client/render/escenario/muralla.ts	src/client/render/escenario/muralla-sin-leer.ts	murallaSinLeer
+simbolo	src/client/render/escenario/muralla.ts	src/client/render/escenario/muralla-sin-leer.ts	apiladas

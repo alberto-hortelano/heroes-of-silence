@@ -118,8 +118,6 @@ import {
   ANCHO_DEL_TRAMO_HORIZONTAL,
   ARRIMO,
   CIUDAD,
-  murallaSinLeer,
-  murallaSobreLaSenda,
   type PuertaDeMuralla,
   puntasContraSuApoyo,
   seApilan,
@@ -128,6 +126,7 @@ import {
   torresObligadas,
   trazaDeMuralla,
 } from './muralla.js';
+import { murallaSinLeer, murallaSobreLaSenda } from './muralla-sin-leer.js';
 import {
   ejeDelPaso,
   esHito,
