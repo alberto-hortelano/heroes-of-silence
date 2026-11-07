@@ -337,9 +337,6 @@ const catalogo: EstadoDelCatalogo = {
   unidadesSinGuardar: new Set(),
 };
 
-/** La pieza de la ficha de la vista de equipo, por su id. */
-let piezaElegida: string | null = null;
-
 /** Los ids de las piezas que «Guardar» cambiaría en disco: lo que de verdad queda sin guardar. */
 function piezasSinGuardar(): readonly string[] {
   return idsQueCambian(catalogo.equipoGuardado, catalogo.equipo);
@@ -391,7 +388,7 @@ const editorDeMagia = montarEditorDeMagia(elMagia, {
     editorDeMagia.elegir(elegido);
     if (sesion !== null) {
       const motivo = sesion.retocar({ kind: 'hechizos', hechizos: catalogoDeMagia() });
-      aviso =
+      vista.aviso =
         motivo === null ? 'Cambiado: vale ya en esta pelea.' : `No entra en esta pelea: ${motivo}`;
     }
     repintar();
@@ -401,7 +398,7 @@ const editorDeMagia = montarEditorDeMagia(elMagia, {
   quienLoUsa: quienUsaElHechizo,
   poder: () => montaje.heroes.izquierda?.poder ?? 1,
   avisar: (texto) => {
-    aviso = texto;
+    vista.aviso = texto;
     pedirFotograma();
   },
 });
@@ -473,14 +470,109 @@ const montaje: EstadoDelMontaje = {
 function cuerpoSinGuardar(): boolean {
   return JSON.stringify(catalogo.cuerpoDeTodoHeroe) !== JSON.stringify(catalogo.cuerpoGuardado);
 }
-let filtro: FiltroDeArena = 'todas';
+
+/** Una figura animada de lo que se ve (`recogerFiguras`): una miniatura o el retrato de una ficha. */
+interface FiguraDeFicha {
+  lienzo: HTMLCanvasElement;
+  ctx: CanvasRenderingContext2D;
+  id: string;
+  /** La ficha de la que es retrato (`claveDeFicha`), con su clip y su giro; `null` en una miniatura. */
+  clave: string | null;
+  /** El bando de la miniatura, que le da el color; `null` en la ficha. */
+  lado: Lado | null;
+  /** Las tres letras de su marcador sin arte, de `nombreDeFigura`. */
+  rotulo: string;
+}
+
 /**
- * La ficha que enseñan el montaje y el editor de la batalla. Solo dice cuál se
- * pinta allí: un gesto DENTRO de una ficha escribe en la ficha que lo contiene
- * (`fichaDelElemento`), nunca en esta, que con varias abiertas en la edición
- * sería otra.
+ * Lo que se ve: la escena y de dónde se vino, la lista (su filtro, plegada o no), la ficha
+ * elegida y las abiertas, la pieza elegida, lo que dice la barra mientras se monta, lo que queda
+ * por repintar y las figuras animadas de lo que se ve. Eran quince `let` y `const` de módulo
+ * hasta R8 de la reorganización (07-11-2026).
  */
-let elegida: Elegida | null = null;
+interface EstadoDeLaVista {
+  /** La pieza de la ficha de la vista de equipo, por su id. */
+  piezaElegida: string | null;
+  filtro: FiltroDeArena;
+  /**
+   * La ficha que enseñan el montaje y el editor de la batalla. Solo dice cuál se
+   * pinta allí: un gesto DENTRO de una ficha escribe en la ficha que lo contiene
+   * (`fichaDelElemento`), nunca en esta, que con varias abiertas en la edición
+   * sería otra.
+   */
+  elegida: Elegida | null;
+  /** La figura del retrato de cada ficha (`AnimDeFicha`), por `claveDeFicha`. */
+  readonly animDeFicha: Map<string, AnimDeFicha>;
+  /**
+   * Las fichas abiertas en la vista de edición, en su orden. Siguen al ir y volver
+   * del montaje (estado del módulo) y, de comodidad, en `localStorage`.
+   */
+  abiertas: readonly FichaEditable[];
+  /**
+   * Si la lista de la edición va plegada a su cabecera (`listaPlegadaTras`): solo
+   * la cambia su botón. Se recuerda en `localStorage` (`CLAVE_DE_LISTA`).
+   */
+  listaPlegada: boolean;
+  /**
+   * Las fichas cuyo título es ahora el campo del nombre (por su clave): tras «✎
+   * Editar», hasta que el campo pierde el foco (Intro lo guarda, Escape no).
+   */
+  readonly renombrando: Set<string>;
+  /** La escena que se ve (`Escena`): solo la cambia `irA`. */
+  escena: Escena;
+  /**
+   * Adónde vuelve «Volver» de la vista de equipo: de donde se entró. Desde la pelea
+   * la sesión sigue viva, y la IA no juega mientras tanto: solo juega tras una
+   * jugada de la persona (`SesionDeBatalla.seguirLaIA`), y aquí no se juega ninguna.
+   */
+  escenaDeVuelta: Exclude<Escena, 'equipo' | 'magia'>;
+  /** La barra mientras se monta; en la batalla manda la de la sesión. */
+  aviso: string;
+  /** Los lienzos de las miniaturas, recogidos al repintar: son los mismos hasta el siguiente. */
+  figuras: FiguraDeFicha[];
+  /**
+   * Lo último que se pintó en cada miniatura: se repinta solo si cambia su
+   * fotograma, su clip, su dirección o su hoja. Un reposo a 8 fps repintaba cada
+   * miniatura sesenta veces por segundo para enseñar ocho fotogramas distintos.
+   * Un lienzo nuevo —el montaje se rehace entero— no tiene entrada y se pinta.
+   */
+  readonly pintado: WeakMap<HTMLCanvasElement, string>;
+  /**
+   * Qué lienzos de figura se ven ahora. Lo escribe un `IntersectionObserver`, que
+   * avisa al entrar o salir uno de la pantalla (o de su región desplazable); sin
+   * él —un navegador sin la API— se pintan todos, como antes.
+   */
+  readonly enPantalla: Set<Element>;
+  /** El último aviso de un cambio rechazado (`noSeCambia`). */
+  rechazado: string | null;
+  /**
+   * Lo que queda por repintar: todo, unas fichas (por clave) o nada. Un gesto lo
+   * pide y se repinta en la tarea siguiente, una vez por muchos que lleguen:
+   * un cambio llega al salir del campo, ANTES de que el tabulador pase al
+   * siguiente, y repintar en ese momento destruía el campo de destino y el foco
+   * caía al `body`. En la tarea siguiente el foco ya está en él, y `pintar` lo
+   * conserva.
+   */
+  pendiente: 'todo' | Set<string> | null;
+}
+
+const vista: EstadoDeLaVista = {
+  piezaElegida: null,
+  filtro: 'todas',
+  elegida: null,
+  animDeFicha: new Map(),
+  abiertas: [],
+  listaPlegada: false,
+  renombrando: new Set(),
+  escena: 'montaje',
+  escenaDeVuelta: 'montaje',
+  aviso: 'Cargando las hojas…',
+  figuras: [],
+  pintado: new WeakMap(),
+  enPantalla: new Set(),
+  rechazado: null,
+  pendiente: null,
+};
 /** Lo que se queda quieto el último fotograma antes de repetir un clip que no va en bucle. */
 const PAUSA_DE_LA_FICHA_MS = 700;
 /**
@@ -495,30 +587,14 @@ interface AnimDeFicha {
   readonly inicio: number;
   readonly mira: number;
 }
-const animDeFicha = new Map<string, AnimDeFicha>();
 const ANIM_DE_PARTIDA: AnimDeFicha = {
   clip: 'idle',
   inicio: 0,
   mira: INDICE_DE_HOJA[MIRADA_DE_PRESENTACION],
 };
 function animDe(clave: string): AnimDeFicha {
-  return animDeFicha.get(clave) ?? ANIM_DE_PARTIDA;
+  return vista.animDeFicha.get(clave) ?? ANIM_DE_PARTIDA;
 }
-/**
- * Las fichas abiertas en la vista de edición, en su orden. Siguen al ir y volver
- * del montaje (estado del módulo) y, de comodidad, en `localStorage`.
- */
-let abiertas: readonly FichaEditable[] = [];
-/**
- * Si la lista de la edición va plegada a su cabecera (`listaPlegadaTras`): solo
- * la cambia su botón. Se recuerda en `localStorage` (`CLAVE_DE_LISTA`).
- */
-let listaPlegada = false;
-/**
- * Las fichas cuyo título es ahora el campo del nombre (por su clave): tras «✎
- * Editar», hasta que el campo pierde el foco (Intro lo guarda, Escape no).
- */
-const renombrando = new Set<string>();
 
 /**
  * Lo que se ve: el montaje, la vista de edición, la de equipo o la pelea. Se
@@ -532,13 +608,6 @@ const ROTULO_DE_ESCENA: Readonly<Record<Escena, string>> = {
   magia: 'Magia',
   battle: 'Batalla',
 };
-let escena: Escena = 'montaje';
-/**
- * Adónde vuelve «Volver» de la vista de equipo: de donde se entró. Desde la pelea
- * la sesión sigue viva, y la IA no juega mientras tanto: solo juega tras una
- * jugada de la persona (`SesionDeBatalla.seguirLaIA`), y aquí no se juega ninguna.
- */
-let escenaDeVuelta: Exclude<Escena, 'equipo' | 'magia'> = 'montaje';
 const VUELTA_DE_EQUIPO: Readonly<Record<Exclude<Escena, 'equipo' | 'magia'>, string>> = {
   montaje: 'Volver al montaje',
   edicion: 'Volver a la edición',
@@ -552,15 +621,15 @@ const botonVolverDeMagia = document.querySelector('[data-arena="volver-de-magia"
  * barra y la URL (`vistaALaBarra`).
  */
 function irA(e: Escena): void {
-  if ((e === 'equipo' || e === 'magia') && escena !== 'equipo' && escena !== 'magia') {
-    escenaDeVuelta = escena;
+  if ((e === 'equipo' || e === 'magia') && vista.escena !== 'equipo' && vista.escena !== 'magia') {
+    vista.escenaDeVuelta = vista.escena;
   }
-  escena = e;
+  vista.escena = e;
   app.dataset.escena = e;
   elDay.textContent = ROTULO_DE_ESCENA[e];
   elTurn.textContent = '';
-  botonVolverDeEquipo.textContent = VUELTA_DE_EQUIPO[escenaDeVuelta];
-  botonVolverDeMagia.textContent = VUELTA_DE_EQUIPO[escenaDeVuelta];
+  botonVolverDeEquipo.textContent = VUELTA_DE_EQUIPO[vista.escenaDeVuelta];
+  botonVolverDeMagia.textContent = VUELTA_DE_EQUIPO[vista.escenaDeVuelta];
   vistaALaBarra();
 }
 
@@ -579,10 +648,11 @@ function esVistaEnLaURL(x: string): x is VistaEnLaURL {
 /** Escribe en la barra la vista de ahora y, en la de equipo, su pieza. */
 function vistaALaBarra(): void {
   aLaBarraDeLaArena((url) => {
-    if (escena === 'edicion' || escena === 'equipo' || escena === 'magia') {
-      url.searchParams.set('vista', escena);
+    if (vista.escena === 'edicion' || vista.escena === 'equipo' || vista.escena === 'magia') {
+      url.searchParams.set('vista', vista.escena);
     } else url.searchParams.delete('vista');
-    if (escena === 'equipo' && piezaElegida !== null) url.searchParams.set('pieza', piezaElegida);
+    if (vista.escena === 'equipo' && vista.piezaElegida !== null)
+      url.searchParams.set('pieza', vista.piezaElegida);
     else url.searchParams.delete('pieza');
   });
 }
@@ -595,7 +665,7 @@ function avisoAlEntrar(v: VistaEnLaURL): string {
       : 'En plena pelea: lo que cambies vale ya para quien lo lleve (lo ya echado sigue como se echó).';
   }
   if (v === 'edicion') {
-    return abiertas.length === 0
+    return vista.abiertas.length === 0
       ? 'Abre las fichas que quieras desde la lista: se añaden debajo. Lo que cambies vale para el montaje.'
       : 'Lo que cambies aquí vale para el montaje; «Volver al montaje» lo enseña allí.';
   }
@@ -633,8 +703,6 @@ function vistaDeLaURL(): {
   }
 }
 let sesion: SesionDeArena | null = null;
-/** La barra mientras se monta; en la batalla manda la de la sesión. */
-let aviso = 'Cargando las hojas…';
 
 /**
  * La muralla que se dibuja y con la que se pelea. Se rehace entera en cada clic
@@ -684,7 +752,7 @@ const CLAVE_DE_ABIERTAS = 'arena.fichas-abiertas';
 const QUE_ABIERTAS = 'las fichas abiertas';
 
 function recordarAbiertas(): void {
-  guardarEnElNavegador(CLAVE_DE_ABIERTAS, abiertasATexto(abiertas), QUE_ABIERTAS);
+  guardarEnElNavegador(CLAVE_DE_ABIERTAS, abiertasATexto(vista.abiertas), QUE_ABIERTAS);
 }
 
 /** Si la lista de la edición va plegada: lo único que la cambia es su botón. */
@@ -838,7 +906,7 @@ function listaDeUnidades(): ListaDeUnidades {
  */
 function crearUnidad(valor: string): string | null {
   if (valor === '') {
-    aviso = 'Elige primero un cuerpo para la unidad nueva.';
+    vista.aviso = 'Elige primero un cuerpo para la unidad nueva.';
     return null;
   }
   const h = hojaPorId(valor);
@@ -853,8 +921,12 @@ function crearUnidad(valor: string): string | null {
   );
   catalogo.unidadesDelCatalogo.set(u.id, u);
   catalogo.unidadesSinGuardar.add(u.id);
-  elegida = { kind: 'unidad', id: u.id };
-  aviso = avisoDeNuevaUnidad(u, escena === 'edicion' ? 'edicion' : 'montaje', catalogo.equipo);
+  vista.elegida = { kind: 'unidad', id: u.id };
+  vista.aviso = avisoDeNuevaUnidad(
+    u,
+    vista.escena === 'edicion' ? 'edicion' : 'montaje',
+    catalogo.equipo,
+  );
   return u.id;
 }
 
@@ -926,7 +998,7 @@ async function mandarAlServidor(
   fallo: FalloAlGuardar,
 ): Promise<Record<string, unknown> | null> {
   if (sinGuardadoAhora !== null) {
-    aviso = `${fallo.noSePuede}: ${sinGuardadoAhora}.`;
+    vista.aviso = `${fallo.noSePuede}: ${sinGuardadoAhora}.`;
     return null;
   }
   const r = await fetch(url, {
@@ -936,7 +1008,7 @@ async function mandarAlServidor(
   });
   const respuesta = (await r.json()) as Record<string, unknown>;
   if (!r.ok) {
-    aviso = `${fallo.noSeHa}: ${String(respuesta.error ?? r.status)}.`;
+    vista.aviso = `${fallo.noSeHa}: ${String(respuesta.error ?? r.status)}.`;
     return null;
   }
   return respuesta;
@@ -965,11 +1037,11 @@ async function arrancar(): Promise<void> {
   const cuerpo = leido.cuerpo;
   catalogo.sinGuardado = leido.sinGuardado;
   if (!cuerpo.guardado) {
-    aviso = `${delCatalogoDelNucleo()} Sin el servidor de desarrollo (pnpm arena) no se guarda: las cifras que cambies aquí se pierden al cerrar.`;
+    vista.aviso = `${delCatalogoDelNucleo()} Sin el servidor de desarrollo (pnpm arena) no se guarda: las cifras que cambies aquí se pierden al cerrar.`;
     return;
   }
   if (cuerpo.ilegible !== undefined) {
-    aviso = `No se puede leer ${RUTA_DEL_CATALOGO_DE_UNIDADES}: ${cuerpo.ilegible}. No hay unidades que montar ni se guarda hasta que se arregle; «Nueva unidad» sí crea.`;
+    vista.aviso = `No se puede leer ${RUTA_DEL_CATALOGO_DE_UNIDADES}: ${cuerpo.ilegible}. No hay unidades que montar ni se guarda hasta que se arregle; «Nueva unidad» sí crea.`;
     return;
   }
   catalogo.versionLeida = cuerpo.version ?? null;
@@ -998,10 +1070,13 @@ async function arrancar(): Promise<void> {
     const motivo = porQueNoSeMonta(u);
     if (motivo !== null) sinHoja.push(`${u.id} (${motivo})`);
   }
-  aviso = avisoDelCatalogoLeido(RUTA_DEL_CATALOGO_DE_UNIDADES, catalogo.unidadesDelCatalogo.size);
+  vista.aviso = avisoDelCatalogoLeido(
+    RUTA_DEL_CATALOGO_DE_UNIDADES,
+    catalogo.unidadesDelCatalogo.size,
+  );
   // Las que no tienen hoja se quedan en el catálogo y se vuelven a guardar; solo
   // no se pueden montar.
-  if (sinHoja.length > 0) aviso += ` No se pueden montar: ${sinHoja.join(', ')}.`;
+  if (sinHoja.length > 0) vista.aviso += ` No se pueden montar: ${sinHoja.join(', ')}.`;
 }
 
 /**
@@ -1063,7 +1138,7 @@ async function arrancarMurallas(): Promise<string> {
 function tocarHex(hex: Hex): void {
   // El clic despeja la barra, salvo lo que sigue siendo verdad: si no se puede
   // guardar, se dice hasta que se pueda (QA, M4: el primer clic lo borraba).
-  aviso =
+  vista.aviso =
     murallasSinGuardado === null
       ? ''
       : `No se pueden guardar ni borrar formas: ${murallasSinGuardado}.`;
@@ -1071,7 +1146,7 @@ function tocarHex(hex: Hex): void {
   if (herramienta === 'puerta') {
     const este = { col: hex.col + 1, row: hex.row };
     if (!isInside(este)) {
-      aviso = `La puerta va entre una casilla y la de su este: (${hex.col},${hex.row}) es la última de su fila y no tiene.`;
+      vista.aviso = `La puerta va entre una casilla y la de su este: (${hex.col},${hex.row}) es la última de su fila y no tiene.`;
       return;
     }
     const nueva = { a: hex, b: este };
@@ -1128,7 +1203,7 @@ async function guardarForma(): Promise<void> {
   };
   if (await escribirFormas(formas, fallo)) {
     nombreDeForma = forma.nombre;
-    aviso = `${yaEstaba ? 'Cambiada' : 'Guardada'} la forma «${forma.nombre}» en data/borradores/murallas.json.`;
+    vista.aviso = `${yaEstaba ? 'Cambiada' : 'Guardada'} la forma «${forma.nombre}» en data/borradores/murallas.json.`;
   }
 }
 
@@ -1143,32 +1218,11 @@ async function borrarForma(nombre: string): Promise<void> {
       fallo,
     )
   ) {
-    aviso = `Borrada la forma «${nombre}».`;
+    vista.aviso = `Borrada la forma «${nombre}».`;
   }
 }
 
 // ---------------------------------------------------------------- montaje
-
-/** Los lienzos de las miniaturas, recogidos al repintar: son los mismos hasta el siguiente. */
-let figuras: {
-  lienzo: HTMLCanvasElement;
-  ctx: CanvasRenderingContext2D;
-  id: string;
-  /** La ficha de la que es retrato (`claveDeFicha`), con su clip y su giro; `null` en una miniatura. */
-  clave: string | null;
-  /** El bando de la miniatura, que le da el color; `null` en la ficha. */
-  lado: Lado | null;
-  /** Las tres letras de su marcador sin arte, de `nombreDeFigura`. */
-  rotulo: string;
-}[] = [];
-
-/**
- * Lo último que se pintó en cada miniatura: se repinta solo si cambia su
- * fotograma, su clip, su dirección o su hoja. Un reposo a 8 fps repintaba cada
- * miniatura sesenta veces por segundo para enseñar ocho fotogramas distintos.
- * Un lienzo nuevo —el montaje se rehace entero— no tiene entrada y se pinta.
- */
-const pintado = new WeakMap<HTMLCanvasElement, string>();
 
 /**
  * El editor de la muralla y lo que depende de él: si el montaje cabe con ella
@@ -1210,7 +1264,7 @@ function repintarMontaje(): void {
           lado,
           montaje.puestos[lado],
           (p) => describir(p, lado),
-          elegida,
+          vista.elegida,
           montaje.combate.tope,
           montaje.heroes[lado],
           ocupados(lado),
@@ -1224,7 +1278,7 @@ function repintarMontaje(): void {
       elCatalogo,
       html`${renderEnlace(enlaceVigente())}${renderCatalogo(
         tarjetasDeLaLista(),
-        filtro,
+        vista.filtro,
         { kind: 'montaje' },
         listaDeUnidades(),
       )}`,
@@ -1254,11 +1308,11 @@ function repintarEdicion(): void {
   pintarVista(elEdicion, () => {
     const lista = renderCatalogo(
       tarjetasDeLaLista(),
-      filtro,
-      { kind: 'edicion', abiertas, plegada: listaPlegada },
+      vista.filtro,
+      { kind: 'edicion', abiertas: vista.abiertas, plegada: vista.listaPlegada },
       listaDeUnidades(),
     );
-    pintar(elEdicion, renderEdicion({ lista, fichas: abiertas.map(fichaAbierta) }));
+    pintar(elEdicion, renderEdicion({ lista, fichas: vista.abiertas.map(fichaAbierta) }));
   });
 }
 
@@ -1269,9 +1323,9 @@ function repintarEquipo(): void {
       elEquipo,
       renderEquipo({
         piezas: catalogo.equipo,
-        elegida: piezaElegida,
+        elegida: vista.piezaElegida,
         llevan: quienesLaLlevan,
-        rechazo: aviso === rechazado ? aviso : null,
+        rechazo: vista.aviso === vista.rechazado ? vista.aviso : null,
         enCombate: sesion !== null,
         sinGuardar: sinGuardarEnPalabras(
           piezasSinGuardar().length,
@@ -1452,8 +1506,8 @@ function cambiarCampoDePieza(
 
 /** La pieza de la ficha de equipo: la elegida, o lanza si no hay ninguna (el botón no estaría). */
 function piezaDeLaFicha(): Pieza {
-  if (piezaElegida === null) throw new Error('no hay ninguna pieza elegida en la ficha');
-  return catalogo.equipo.pieza(piezaElegida);
+  if (vista.piezaElegida === null) throw new Error('no hay ninguna pieza elegida en la ficha');
+  return catalogo.equipo.pieza(vista.piezaElegida);
 }
 
 /**
@@ -1465,7 +1519,7 @@ function piezaDeLaFicha(): Pieza {
 function repintarFicha(clave: string): void {
   const f = fichaDeClave(clave);
   const marco =
-    escena === 'edicion' && f.kind !== 'heroe'
+    vista.escena === 'edicion' && f.kind !== 'heroe'
       ? elEdicion.querySelector(`article[data-clave-de-ficha="${CSS.escape(clave)}"]`)
       : null;
   if (marco === null || f.kind === 'heroe') repintar();
@@ -1507,7 +1561,7 @@ function recogerFiguras(raiz: Element): void {
     if (ctx === null || !(lienzo instanceof HTMLCanvasElement)) continue;
     const id = lienzo.getAttribute('data-figura') as string;
     const lado = lienzo.getAttribute('data-lado');
-    figuras.push({
+    vista.figuras.push({
       lienzo,
       ctx,
       id,
@@ -1521,24 +1575,17 @@ function recogerFiguras(raiz: Element): void {
 
 /** Ninguna figura que animar (se ha cerrado lo que las tenía). */
 function soltarFiguras(): void {
-  figuras = [];
+  vista.figuras = [];
   vigiaDeFiguras?.disconnect();
-  enPantalla.clear();
+  vista.enPantalla.clear();
 }
-
-/**
- * Qué lienzos de figura se ven ahora. Lo escribe un `IntersectionObserver`, que
- * avisa al entrar o salir uno de la pantalla (o de su región desplazable); sin
- * él —un navegador sin la API— se pintan todos, como antes.
- */
-const enPantalla = new Set<Element>();
 const vigiaDeFiguras =
   typeof IntersectionObserver === 'undefined'
     ? null
     : new IntersectionObserver((cambios) => {
         for (const c of cambios) {
-          if (c.isIntersecting) enPantalla.add(c.target);
-          else enPantalla.delete(c.target);
+          if (c.isIntersecting) vista.enPantalla.add(c.target);
+          else vista.enPantalla.delete(c.target);
         }
         pedirFotograma();
       });
@@ -1576,7 +1623,7 @@ function fichaElegida(enCombate = false): Html {
     enCombate && sesion !== null
       ? { enCombate, piezas: catalogo.equipo, hechizos: hechizosQueValen() }
       : enElMontaje(catalogo.equipo, hechizosQueValen());
-  return fichaDe(elegida, como);
+  return fichaDe(vista.elegida, como);
 }
 
 /**
@@ -1586,7 +1633,7 @@ function fichaElegida(enCombate = false): Html {
  */
 function fichaDe(e: Elegida | null, como0: ComoDeLaFicha): Html {
   if (e === null) return renderFicha(null, false, como0);
-  const como = renombrando.has(claveDeFicha(e)) ? { ...como0, renombrando: true } : como0;
+  const como = vista.renombrando.has(claveDeFicha(e)) ? { ...como0, renombrando: true } : como0;
   switch (e.kind) {
     case 'unidad': {
       const u = unidadDe(e.id);
@@ -1616,25 +1663,23 @@ function retocarLaPelea(r: RetoqueDeArena): string | null {
 function noSeCambia(motivo: string): void {
   // Con la mayúscula siempre: la sesión ya da el motivo como frase y lo que lanza
   // el validador empieza en minúscula (M3 de QA: salían de las dos maneras).
-  aviso = `No se cambia: ${motivo.charAt(0).toUpperCase()}${motivo.slice(1)}`;
-  rechazado = aviso;
+  vista.aviso = `No se cambia: ${motivo.charAt(0).toUpperCase()}${motivo.slice(1)}`;
+  vista.rechazado = vista.aviso;
   // En plena pelea la barra de abajo es la de la sesión: se quedaba con el
   // «Cambiado: vale ya en esta pelea.» del cambio anterior, justo lo contrario
   // de lo que decía el editor (H5 de QA del ciclo 2).
-  if (sesion !== null) sesion.status = aviso;
+  if (sesion !== null) sesion.status = vista.aviso;
 }
 /** La barra de la vista de equipo a media pelea, hasta el primer cambio. */
 const EQUIPO_EN_PLENA_PELEA =
   'En plena pelea: lo que cambies vale ya para todos los que la llevan, de los dos bandos. La IA espera a que vuelvas.';
-/** El último aviso de un cambio rechazado (`noSeCambia`). */
-let rechazado: string | null = null;
 
 /**
  * El aviso de un cambio que ha entrado: lo que dice el cambio y, en plena pelea,
  * lo que dice la sesión al retocar (`retocar`: si ha soltado algo).
  */
 function avisoTrasCambio(texto: string): void {
-  aviso = [texto, sesion === null ? '' : sesion.status].filter((t) => t !== '').join(' ');
+  vista.aviso = [texto, sesion === null ? '' : sesion.status].filter((t) => t !== '').join(' ');
 }
 
 /**
@@ -1648,8 +1693,8 @@ function pintarEditor(): void {
     elFichaDelEditor,
     fichaDeLaRueda ? html`<fieldset disabled class="solo-lectura">${ficha}</fieldset>` : ficha,
   );
-  elAvisoDelEditor.textContent = aviso;
-  elAvisoDelEditor.classList.toggle('rechazo', aviso === rechazado);
+  elAvisoDelEditor.textContent = vista.aviso;
+  elAvisoDelEditor.classList.toggle('rechazo', vista.aviso === vista.rechazado);
 }
 
 /**
@@ -1676,12 +1721,12 @@ let fichaDeLaRueda = false;
  * el orden en que se abren, y Escape cierra solo el de arriba.
  */
 function abrirEditor(s: SesionDeArena, st: BattleStack, soloLectura: boolean): void {
-  elegida = tipoDelStack(st);
+  vista.elegida = tipoDelStack(st);
   const nombre = nombreEnElCampo(s.battle, st);
   fichaDeLaRueda = soloLectura;
   elTituloDelEditor.textContent = soloLectura ? `Ficha de ${nombre}` : TEXTOS_DEL_EDITOR.titulo;
   botonCerrarEditor.textContent = soloLectura ? 'Volver a la rueda' : TEXTOS_DEL_EDITOR.cerrar;
-  aviso = soloLectura
+  vista.aviso = soloLectura
     ? 'Solo para mirar: con la rueda abierta no se cambian cifras. Para eso, «Editar» en el panel de la pelea.'
     : 'Lo que cambies aquí vale ya, para todas las de su tipo en el campo.';
   pintarEditor();
@@ -1690,29 +1735,19 @@ function abrirEditor(s: SesionDeArena, st: BattleStack, soloLectura: boolean): v
 
 /** Repinta lo que se ve: el montaje o la edición, o en la batalla el editor y el panel. */
 function repintar(): void {
-  if (escena === 'edicion') repintarEdicion();
-  else if (escena === 'equipo') repintarEquipo();
-  else if (escena === 'magia') editorDeMagia.repintar();
-  else if (escena === 'montaje') repintarMontaje();
+  if (vista.escena === 'edicion') repintarEdicion();
+  else if (vista.escena === 'equipo') repintarEquipo();
+  else if (vista.escena === 'magia') editorDeMagia.repintar();
+  else if (vista.escena === 'montaje') repintarMontaje();
   else {
     if (editor.open) pintarEditor();
     pedirFotograma();
   }
 }
-
-/**
- * Lo que queda por repintar: todo, unas fichas (por clave) o nada. Un gesto lo
- * pide y se repinta en la tarea siguiente, una vez por muchos que lleguen:
- * un cambio llega al salir del campo, ANTES de que el tabulador pase al
- * siguiente, y repintar en ese momento destruía el campo de destino y el foco
- * caía al `body`. En la tarea siguiente el foco ya está en él, y `pintar` lo
- * conserva.
- */
-let pendiente: 'todo' | Set<string> | null = null;
 function pedirRepintado(clave: string | null = null): void {
-  const antes = pendiente;
-  if (clave === null || antes === 'todo') pendiente = 'todo';
-  else if (antes === null) pendiente = new Set([clave]);
+  const antes = vista.pendiente;
+  if (clave === null || antes === 'todo') vista.pendiente = 'todo';
+  else if (antes === null) vista.pendiente = new Set([clave]);
   else antes.add(clave);
   if (antes === null) setTimeout(repintarLoPendiente, 0);
 }
@@ -1723,8 +1758,8 @@ function pedirRepintado(clave: string | null = null): void {
  * pide y lo repinta en el acto, junto con lo que hubiera pendiente.
  */
 function repintarLoPendiente(): void {
-  const que = pendiente;
-  pendiente = null;
+  const que = vista.pendiente;
+  vista.pendiente = null;
   if (que === 'todo') repintar();
   else for (const k of que ?? []) repintarFicha(k);
 }
@@ -1737,13 +1772,13 @@ function ocupados(lado: Lado): number {
 function añadir(lado: Lado, id: string, escalera = false): void {
   const adjetivo = LADOS[lado].adjetivo;
   if (ocupados(lado) >= montaje.combate.tope) {
-    aviso = `El bando ${adjetivo} ya lleva ${montaje.combate.tope}: no cabe ninguna más.`;
+    vista.aviso = `El bando ${adjetivo} ya lleva ${montaje.combate.tope}: no cabe ninguna más.`;
     return;
   }
   const u = unidadDe(id);
   const motivo = porQueNoSeMonta(u);
   if (motivo !== null) {
-    aviso = `${u.name} no se monta: ${motivo}.`;
+    vista.aviso = `${u.name} no se monta: ${motivo}.`;
     return;
   }
   // La unidad entra en el catálogo al montarla: es lo que se probó y lo que se guarda.
@@ -1751,9 +1786,9 @@ function añadir(lado: Lado, id: string, escalera = false): void {
     catalogo.unidadesDelCatalogo.set(u.id, u);
     catalogo.unidadesSinGuardar.add(u.id);
   }
-  elegida = { kind: 'unidad', id: u.id };
+  vista.elegida = { kind: 'unidad', id: u.id };
   montaje.puestos[lado].push({ clave: montaje.siguienteClave++, unidad: id, escalera });
-  aviso = `${describir({ clave: 0, unidad: id, escalera }, lado).nombre} entra en el bando ${adjetivo}.`;
+  vista.aviso = `${describir({ clave: 0, unidad: id, escalera }, lado).nombre} entra en el bando ${adjetivo}.`;
 }
 
 /** Cambia el héroe de un lado, comprobado. */
@@ -1887,7 +1922,7 @@ async function guardar(): Promise<void> {
   catalogo.equipoGuardado = guardado;
   catalogo.cuerpoGuardado = heroe;
   catalogo.hechizosGuardados = hechizos;
-  aviso = guardadoEnPalabras(hecho as Guardado);
+  vista.aviso = guardadoEnPalabras(hecho as Guardado);
 }
 
 /** Nombres de piezas para la barra: «Espada», «Brigantina». */
@@ -1963,9 +1998,9 @@ async function copiarEnlace(): Promise<void> {
   montaje.enlaceCopiado = enlace;
   try {
     await navigator.clipboard.writeText(enlace);
-    aviso = `Enlace de la pelea copiado (semilla ${semilla}): abrirlo monta esta misma pelea.`;
+    vista.aviso = `Enlace de la pelea copiado (semilla ${semilla}): abrirlo monta esta misma pelea.`;
   } catch (err) {
-    aviso = `El enlace de la pelea (semilla ${semilla}) está en su campo: no se ha podido copiar solo (${mensajeDe(err)}).`;
+    vista.aviso = `El enlace de la pelea (semilla ${semilla}) está en su campo: no se ha podido copiar solo (${mensajeDe(err)}).`;
   }
 }
 
@@ -2137,7 +2172,7 @@ function luchar(): void {
       montaje.climaDeLaArena,
     );
   } catch (err) {
-    aviso = `No se puede luchar: ${mensajeDe(err)}.`;
+    vista.aviso = `No se puede luchar: ${mensajeDe(err)}.`;
     return;
   }
   aLaBarraDeLaArena((url) => url.searchParams.set('seed', String(semilla)));
@@ -2157,7 +2192,7 @@ function volverAlMontaje(): void {
   rueda.cerrar();
   sesion = null;
   irA('montaje');
-  aviso = 'De vuelta al montaje: todo sigue como estaba.';
+  vista.aviso = 'De vuelta al montaje: todo sigue como estaba.';
   repintarMontaje();
 }
 
@@ -2225,8 +2260,8 @@ let paneles: { version: string; ocupada: boolean } | null = null;
 /** Un fotograma del bucle (`pedirFotograma`): lo pinta y dice si se pide otro. */
 function render(ahora: number): boolean {
   // En la vista de equipo, también a media pelea, la barra es la de la página.
-  if (sesion === null || escena === 'equipo' || escena === 'magia') {
-    if (elStatus.textContent !== aviso) elStatus.textContent = aviso;
+  if (sesion === null || vista.escena === 'equipo' || vista.escena === 'magia') {
+    if (elStatus.textContent !== vista.aviso) elStatus.textContent = vista.aviso;
     return animarFiguras(ahora);
   }
   dibujarBatalla(ahora, sesion);
@@ -2253,8 +2288,8 @@ function repeticion(
  * hasta el siguiente gesto o la siguiente imagen.
  */
 function animarFiguras(ahora: number): boolean {
-  for (const [i, { lienzo, ctx, id, clave: deFicha, lado, rotulo }] of figuras.entries()) {
-    if (vigiaDeFiguras !== null && !enPantalla.has(lienzo)) continue;
+  for (const [i, { lienzo, ctx, id, clave: deFicha, lado, rotulo }] of vista.figuras.entries()) {
+    if (vigiaDeFiguras !== null && !vista.enPantalla.has(lienzo)) continue;
     const arte = arteDe(id);
     // En la miniatura cada figura llena su marco: aquí se mira una, no se
     // comparan. `pintarFigura` escala contra un adulto, así que se le pide el
@@ -2301,15 +2336,15 @@ function animarFiguras(ahora: number): boolean {
     };
     const colocada = colocarFigura(figura);
     const clave = claveDelDibujo(colocada);
-    if (pintado.get(lienzo) === clave) continue;
-    pintado.set(lienzo, clave);
+    if (vista.pintado.get(lienzo) === clave) continue;
+    vista.pintado.set(lienzo, clave);
     ctx.clearRect(0, 0, lienzo.width, lienzo.height);
     pintarSombraDeFigura(ctx, colocada);
     pintarFigura(ctx, colocada);
   }
   // Con alguna figura con arte en pantalla, respira: el bucle sigue. Sin arte,
   // la imagen que llegue avisa y repinta.
-  const aLaVista = vigiaDeFiguras === null ? figuras.length : enPantalla.size;
+  const aLaVista = vigiaDeFiguras === null ? vista.figuras.length : vista.enPantalla.size;
   return aLaVista > 0 && hayFigurasAnimadas();
 }
 
@@ -2417,7 +2452,7 @@ document.addEventListener('click', (ev) => {
   try {
     switch (que) {
       case 'filtro':
-        filtro = el.getAttribute('data-faccion') as typeof filtro;
+        vista.filtro = el.getAttribute('data-faccion') as typeof vista.filtro;
         break;
       case 'añadir': {
         const lado = el.getAttribute('data-lado') as Lado;
@@ -2425,8 +2460,8 @@ document.addEventListener('click', (ev) => {
         break;
       }
       case 'editar':
-        elegida = { kind: 'unidad', id: unidad as string };
-        aviso = '';
+        vista.elegida = { kind: 'unidad', id: unidad as string };
+        vista.aviso = '';
         break;
       case 'crear-unidad': {
         const select = el.closest('[data-nueva-unidad]')?.querySelector('[data-arena-nueva]');
@@ -2434,11 +2469,11 @@ document.addEventListener('click', (ev) => {
           throw new Error('el botón «Crear» no está junto a su selector de cuerpo');
         }
         const id = crearUnidad(valorDe(select));
-        if (id !== null && escena === 'edicion') {
+        if (id !== null && vista.escena === 'edicion') {
           const f: FichaEditable = { kind: 'unidad', id };
-          const r = abrirFicha(abiertas, f, nombreDeFicha(f));
-          if (r.abiertas !== abiertas) abiertaTrasElGesto = claveDeFicha(f);
-          abiertas = r.abiertas;
+          const r = abrirFicha(vista.abiertas, f, nombreDeFicha(f));
+          if (r.abiertas !== vista.abiertas) abiertaTrasElGesto = claveDeFicha(f);
+          vista.abiertas = r.abiertas;
           recordarAbiertas();
         }
         break;
@@ -2472,22 +2507,22 @@ document.addEventListener('click', (ev) => {
       case 'poner-heroe': {
         const lado = el.getAttribute('data-lado') as Lado;
         if (ocupados(lado) >= montaje.combate.tope) {
-          aviso = `El bando ${LADOS[lado].adjetivo} ya lleva ${montaje.combate.tope}: no cabe el héroe.`;
+          vista.aviso = `El bando ${LADOS[lado].adjetivo} ya lleva ${montaje.combate.tope}: no cabe el héroe.`;
           break;
         }
         montaje.heroes[lado] = heroePorDefecto(lado, catalogo.cuerpoDeTodoHeroe);
-        elegida = { kind: 'heroe', lado };
-        aviso = `El bando ${LADOS[lado].adjetivo} lleva héroe: cambia sus cifras y su libro en la ficha.`;
+        vista.elegida = { kind: 'heroe', lado };
+        vista.aviso = `El bando ${LADOS[lado].adjetivo} lleva héroe: cambia sus cifras y su libro en la ficha.`;
         break;
       }
       case 'editar-heroe':
-        elegida = { kind: 'heroe', lado: el.getAttribute('data-lado') as Lado };
-        aviso = '';
+        vista.elegida = { kind: 'heroe', lado: el.getAttribute('data-lado') as Lado };
+        vista.aviso = '';
         break;
       case 'quitar-heroe': {
         const lado = el.getAttribute('data-lado') as Lado;
         montaje.heroes[lado] = null;
-        if (elegida?.kind === 'heroe' && elegida.lado === lado) elegida = null;
+        if (vista.elegida?.kind === 'heroe' && vista.elegida.lado === lado) vista.elegida = null;
         break;
       }
       case 'manda':
@@ -2511,7 +2546,7 @@ document.addEventListener('click', (ev) => {
       }
       case 'clip': {
         const k = claveDeFicha(laFichaDe(el, 'el botón del clip'));
-        animDeFicha.set(k, {
+        vista.animDeFicha.set(k, {
           ...animDe(k),
           clip: el.getAttribute('data-clip') as CharacterClip,
           inicio: performance.now(),
@@ -2522,7 +2557,7 @@ document.addEventListener('click', (ev) => {
       case 'girar': {
         const k = claveDeFicha(laFichaDe(el, 'el botón de girar'));
         const a = animDe(k);
-        animDeFicha.set(k, { ...a, mira: (a.mira + 1) % DIRECCION_DE_HOJA.length });
+        vista.animDeFicha.set(k, { ...a, mira: (a.mira + 1) % DIRECCION_DE_HOJA.length });
         pedirFotograma();
         return;
       }
@@ -2540,22 +2575,23 @@ document.addEventListener('click', (ev) => {
       }
       case 'ir-a-edicion':
         irA('edicion');
-        listaPlegada = listaPlegadaTras('entrar', listaPlegada, abiertas.length);
-        aviso = avisoAlEntrar('edicion');
+        vista.listaPlegada = listaPlegadaTras('entrar', vista.listaPlegada, vista.abiertas.length);
+        vista.aviso = avisoAlEntrar('edicion');
         break;
       case 'ir-a-magia':
-        if (escena === 'magia') break;
+        if (vista.escena === 'magia') break;
         irA('magia');
-        aviso = avisoAlEntrar('magia');
+        vista.aviso = avisoAlEntrar('magia');
         break;
       case 'volver-de-magia': {
-        const vuelta = escenaDeVuelta === 'battle' && sesion === null ? 'montaje' : escenaDeVuelta;
+        const vuelta =
+          vista.escenaDeVuelta === 'battle' && sesion === null ? 'montaje' : vista.escenaDeVuelta;
         irA(vuelta);
         if (vuelta === 'battle') {
           paneles = null;
           principal.remedir();
         }
-        aviso = 'De vuelta, con los hechizos que hayas cambiado.';
+        vista.aviso = 'De vuelta, con los hechizos que hayas cambiado.';
         break;
       }
       case 'quitar-poder': {
@@ -2572,31 +2608,32 @@ document.addEventListener('click', (ev) => {
       }
       case 'volver-de-edicion':
         irA('montaje');
-        aviso = 'De vuelta al montaje, con las cifras que hayas cambiado.';
+        vista.aviso = 'De vuelta al montaje, con las cifras que hayas cambiado.';
         break;
       case 'ir-a-equipo':
-        if (escena === 'equipo') break;
+        if (vista.escena === 'equipo') break;
         irA('equipo');
-        piezaElegida ??= catalogo.equipo.piezas.keys().next().value ?? null;
-        aviso = avisoAlEntrar('equipo');
+        vista.piezaElegida ??= catalogo.equipo.piezas.keys().next().value ?? null;
+        vista.aviso = avisoAlEntrar('equipo');
         break;
       case 'volver-de-equipo': {
-        const vuelta = escenaDeVuelta === 'battle' && sesion === null ? 'montaje' : escenaDeVuelta;
+        const vuelta =
+          vista.escenaDeVuelta === 'battle' && sesion === null ? 'montaje' : vista.escenaDeVuelta;
         irA(vuelta);
         if (vuelta === 'battle') {
           // El panel se rehace con las cifras nuevas; la barra, la de la sesión.
           paneles = null;
           principal.remedir();
         }
-        aviso = 'De vuelta, con las piezas que hayas cambiado.';
+        vista.aviso = 'De vuelta, con las piezas que hayas cambiado.';
         break;
       }
       case 'elegir-pieza':
-        piezaElegida = el.getAttribute('data-pieza');
-        piezaTrasElGesto = piezaElegida;
+        vista.piezaElegida = el.getAttribute('data-pieza');
+        piezaTrasElGesto = vista.piezaElegida;
         // En plena pelea la barra sigue recordando qué pasa al cambiar (M4 de QA:
         // al elegir la primera pieza se quedaba en blanco).
-        aviso = sesion === null ? '' : EQUIPO_EN_PLENA_PELEA;
+        vista.aviso = sesion === null ? '' : EQUIPO_EN_PLENA_PELEA;
         break;
       case 'crear-pieza':
       case 'crear-pieza-sobre': {
@@ -2619,7 +2656,7 @@ document.addEventListener('click', (ev) => {
               ? `«${p.nombre}», sobre «${desde.nombre}»: suma lo mismo hasta que le pongas extras, y si cambia «${desde.nombre}», cambia con ella.`
               : `«${p.nombre}», copia de «${desde.nombre}»: es nueva.`;
         if (cambiarPiezas(p.id, p, dicho)) {
-          piezaElegida = p.id;
+          vista.piezaElegida = p.id;
           piezaTrasElGesto = p.id;
         }
         break;
@@ -2647,20 +2684,20 @@ document.addEventListener('click', (ev) => {
       case 'retirar-pieza': {
         const p = piezaDeLaFicha();
         const dicho = `Borrada la pieza «${p.nombre}»: «Guardar» la quita de data/equipo.json.`;
-        if (cambiarPiezas(p.id, null, dicho)) piezaElegida = null;
+        if (cambiarPiezas(p.id, null, dicho)) vista.piezaElegida = null;
         break;
       }
       case 'abrir-ficha': {
         if (unidad === null) throw new Error('el botón «Abrir» no dice de qué unidad es');
         const f: FichaEditable = { kind: 'unidad', id: unidadDe(unidad).id };
         const incompleta = porQueNoSeMonta(unidadDe(f.id));
-        const r = abrirFicha(abiertas, f, nombreDeFicha(f), incompleta);
-        if (r.abiertas !== abiertas) {
-          listaPlegada = listaPlegadaTras('abrir', listaPlegada, r.abiertas.length);
+        const r = abrirFicha(vista.abiertas, f, nombreDeFicha(f), incompleta);
+        if (r.abiertas !== vista.abiertas) {
+          vista.listaPlegada = listaPlegadaTras('abrir', vista.listaPlegada, r.abiertas.length);
           abiertaTrasElGesto = claveDeFicha(f);
         }
-        abiertas = r.abiertas;
-        aviso = r.aviso;
+        vista.abiertas = r.abiertas;
+        vista.aviso = r.aviso;
         recordarAbiertas();
         break;
       }
@@ -2670,22 +2707,26 @@ document.addEventListener('click', (ev) => {
         const k = claveDeFicha(f);
         // Con el teclado, el foco sigue en la ficha de al lado o en su «Abrir»;
         // con el ratón no se mueve (como `pintar`: el Espacio no pulsa nada solo).
-        if (el.matches(':focus-visible')) focoTrasElGesto = focoTrasCerrar(abiertas, k);
-        abiertas = cerrarFicha(abiertas, k);
-        listaPlegada = listaPlegadaTras('cerrar', listaPlegada, abiertas.length);
+        if (el.matches(':focus-visible')) focoTrasElGesto = focoTrasCerrar(vista.abiertas, k);
+        vista.abiertas = cerrarFicha(vista.abiertas, k);
+        vista.listaPlegada = listaPlegadaTras('cerrar', vista.listaPlegada, vista.abiertas.length);
         // Reabrirla empieza de cero: de pie y mirando a la cámara.
-        animDeFicha.delete(k);
-        aviso = `${nombreDeFicha(f)}: ficha cerrada.`;
+        vista.animDeFicha.delete(k);
+        vista.aviso = `${nombreDeFicha(f)}: ficha cerrada.`;
         recordarAbiertas();
         break;
       }
       case 'plegar-lista':
-        listaPlegada = listaPlegadaTras('alternar', listaPlegada, abiertas.length);
-        guardarEnElNavegador(CLAVE_DE_LISTA, listaPlegada ? '1' : '0', QUE_LISTA);
+        vista.listaPlegada = listaPlegadaTras(
+          'alternar',
+          vista.listaPlegada,
+          vista.abiertas.length,
+        );
+        guardarEnElNavegador(CLAVE_DE_LISTA, vista.listaPlegada ? '1' : '0', QUE_LISTA);
         break;
       case 'renombrar': {
         const k = claveDeFicha(laFichaDe(el, 'el botón de cambiar el nombre'));
-        renombrando.add(k);
+        vista.renombrando.add(k);
         soloLaFicha = k;
         renombrarTrasElGesto = k;
         break;
@@ -2703,7 +2744,7 @@ document.addEventListener('click', (ev) => {
         break;
       case 'enlace':
         void copiarEnlace().then(repintarMontaje, (err: unknown) => {
-          aviso = `No se ha podido escribir el enlace de la pelea: ${mensajeDe(err)}.`;
+          vista.aviso = `No se ha podido escribir el enlace de la pelea: ${mensajeDe(err)}.`;
           repintarMontaje();
         });
         return;
@@ -2725,7 +2766,7 @@ document.addEventListener('click', (ev) => {
         return;
       case 'vaciar-muralla':
         muralla = murallaVacia('piedra');
-        aviso = 'Muralla vacía: la pelea será a campo abierto.';
+        vista.aviso = 'Muralla vacía: la pelea será a campo abierto.';
         repintarMuralla();
         return;
       case 'cargar-forma': {
@@ -2733,20 +2774,20 @@ document.addEventListener('click', (ev) => {
         muralla = f.muralla;
         // Una de ejemplo no se guarda con su nombre: se deja el campo para otro.
         nombreDeForma = esFormaDeEjemplo(f.nombre) ? '' : f.nombre;
-        aviso = `Cargada la forma «${f.nombre}».`;
+        vista.aviso = `Cargada la forma «${f.nombre}».`;
         repintarMuralla();
         return;
       }
       case 'guardar-forma':
         void guardarForma().then(repintarMuralla, (err: unknown) => {
-          aviso = `No se ha guardado la muralla: ${mensajeDe(err)}.`;
+          vista.aviso = `No se ha guardado la muralla: ${mensajeDe(err)}.`;
           repintarMuralla();
         });
         return;
       case 'borrar-forma': {
         const nombre = el.getAttribute('data-nombre') as string;
         void borrarForma(nombre).then(repintarMuralla, (err: unknown) => {
-          aviso = `No se ha borrado la forma «${nombre}»: ${mensajeDe(err)}.`;
+          vista.aviso = `No se ha borrado la forma «${nombre}»: ${mensajeDe(err)}.`;
           repintarMuralla();
         });
         return;
@@ -2756,7 +2797,7 @@ document.addEventListener('click', (ev) => {
         void guardar().then(
           () => pedirRepintado(),
           (err: unknown) => {
-            aviso = `No se ha guardado: ${mensajeDe(err)}.`;
+            vista.aviso = `No se ha guardado: ${mensajeDe(err)}.`;
             pedirRepintado();
           },
         );
@@ -2768,7 +2809,7 @@ document.addEventListener('click', (ev) => {
         return;
     }
   } catch (err) {
-    aviso = mensajeDe(err);
+    vista.aviso = mensajeDe(err);
     soloLaFicha = null;
   }
   pedirRepintado(soloLaFicha);
@@ -2868,7 +2909,11 @@ const ALTO_DE_LA_FICHA_A_LA_VISTA = 0.4;
 
 /** La raíz de lo que se ve: donde se busca un elemento de una ficha tras repintarla. */
 function raizVisible(): HTMLElement {
-  return escena === 'edicion' ? elEdicion : escena === 'montaje' ? elFicha : elFichaDelEditor;
+  return vista.escena === 'edicion'
+    ? elEdicion
+    : vista.escena === 'montaje'
+      ? elFicha
+      : elFichaDelEditor;
 }
 
 /**
@@ -2933,7 +2978,7 @@ document.addEventListener('focusout', (ev) => {
   setTimeout(() => {
     const ahora = campoDelNombre(document.activeElement);
     const sigue = ahora !== null && claveDelElemento(ahora) === clave;
-    if (sigue || !renombrando.delete(clave)) return;
+    if (sigue || !vista.renombrando.delete(clave)) return;
     pedirRepintado(clave);
   }, 0);
 });
@@ -2980,10 +3025,10 @@ function cambiarElCombate(nuevo: ReglasDelCombate): void {
     )
     .find((motivo) => motivo !== null);
   if (noCabe !== undefined && noCabe !== null) {
-    aviso = `${noCabe} antes de bajar el tope a ${nuevo.tope}.`;
+    vista.aviso = `${noCabe} antes de bajar el tope a ${nuevo.tope}.`;
   } else {
     montaje.combate = nuevo;
-    aviso = `La pelea será con ${montaje.combate.tope} por bando y la rueda de ${montaje.combate.rueda}.`;
+    vista.aviso = `La pelea será con ${montaje.combate.tope} por bando y la rueda de ${montaje.combate.rueda}.`;
   }
   pedirRepintado();
 }
@@ -3102,7 +3147,7 @@ document.addEventListener('keydown', (ev) => {
   if (editor.open || elRueda.open) return;
   // Fuera del tablero —la vista de equipo a media pelea— las teclas no juegan:
   // un espacio en un campo de pieza cerraba el turno de tu unidad.
-  if (escena !== 'battle') return;
+  if (vista.escena !== 'battle') return;
   // Las teclas de la batalla, las de la partida (`GestosDeBatalla.tecla`): Escape suelta
   // lo que espera el clic, las flechas mueven al elegido del despliegue, la Q alterna el
   // arma y Espacio cierra el turno de tu unidad activa.
@@ -3132,11 +3177,11 @@ Promise.all([arrancar(), arrancarMurallas()]).then(
       leerDelNavegador(CLAVE_DE_ABIERTAS, QUE_ABIERTAS),
       (f) => catalogo.unidadesDelCatalogo.has(f.id) && porQueNoSeMonta(unidadDe(f.id)) === null,
     );
-    abiertas = recordadas.abiertas;
-    listaPlegada = listaPlegadaTras(
+    vista.abiertas = recordadas.abiertas;
+    vista.listaPlegada = listaPlegadaTras(
       'entrar',
       leerDelNavegador(CLAVE_DE_LISTA, QUE_LISTA) === '1',
-      abiertas.length,
+      vista.abiertas.length,
     );
     const deAbiertas = recordadas.aviso === '' ? '' : ` ${recordadas.aviso}`;
     const pedida = vistaDeLaURL();
@@ -3144,21 +3189,21 @@ Promise.all([arrancar(), arrancarMurallas()]).then(
       pedida.vista === null
         ? 'Añade unidades a los dos bandos y pulsa Luchar.'
         : avisoAlEntrar(pedida.vista);
-    aviso = delEnlace?.montado
-      ? `${delEnlace.aviso}${aviso}${catalogo.avisoDeIncompletas}${avisoDeMurallas}${deAbiertas}`
-      : `${montaje.avisoDeSemilla}${delEnlace?.aviso ?? ''}${aviso}${catalogo.avisoDeIncompletas}${avisoDeMurallas} ${queHacer}${deAbiertas}`;
-    aviso = `${pedida.aviso}${aviso}`;
+    vista.aviso = delEnlace?.montado
+      ? `${delEnlace.aviso}${vista.aviso}${catalogo.avisoDeIncompletas}${avisoDeMurallas}${deAbiertas}`
+      : `${montaje.avisoDeSemilla}${delEnlace?.aviso ?? ''}${vista.aviso}${catalogo.avisoDeIncompletas}${avisoDeMurallas} ${queHacer}${deAbiertas}`;
+    vista.aviso = `${pedida.aviso}${vista.aviso}`;
     // Recargar deja la vista donde estaba: la edición con sus fichas (recordadas
     // arriba) o el equipo con su pieza.
     if (pedida.vista === 'equipo') {
-      piezaElegida = pedida.pieza ?? catalogo.equipo.piezas.keys().next().value ?? null;
+      vista.piezaElegida = pedida.pieza ?? catalogo.equipo.piezas.keys().next().value ?? null;
     }
     irA(pedida.vista ?? 'montaje');
     repintar();
   },
   (err: unknown) => {
     console.error('[arena] no ha arrancado', err);
-    aviso = `La arena no ha podido arrancar: ${mensajeDe(err)}`;
-    elStatus.textContent = aviso;
+    vista.aviso = `La arena no ha podido arrancar: ${mensajeDe(err)}`;
+    elStatus.textContent = vista.aviso;
   },
 );
