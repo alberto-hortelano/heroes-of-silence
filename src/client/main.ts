@@ -35,6 +35,7 @@ import {
   esDeDentro,
   type PaginaDeLaPartida,
 } from './partida/pagina.js';
+import { instalarElPuntero } from './partida/puntero.js';
 import { repartirClic } from './partida/reparto-del-clic.js';
 import { cargarArte } from './render/assets.js';
 import { apuntarElSueloEn } from './render/escenario/superficie.js';
@@ -53,7 +54,6 @@ const {
   app,
   canvas,
   lienzo,
-  minimapa,
   elStatus,
   elSeed,
   haciaEnemigo,
@@ -127,29 +127,6 @@ cargarArte(() => {
 });
 apuntarElSueloEn(app);
 
-/**
- * `fichaALaVista` tras el `click` que el navegador saca de este mismo toque, que
- * llega después de `pointerup` y se apunta donde esté el dedo entonces: con el
- * panel ya desplazado, en un teléfono de 375×667 caía sobre «Contratar» y
- * contrataba sin que nadie viera la ficha (QA H6, 22-10-2026). Si el `click` no
- * llega (el dedo se arrastró), a los `ESPERA_DEL_CLIC` ms.
- */
-function fichaTrasElClic(): void {
-  let hecho = false;
-  const traer = (): void => {
-    if (hecho) return;
-    hecho = true;
-    window.removeEventListener('click', traer, true);
-    estado.fichaALaVista = true;
-    pedirFotograma();
-  };
-  // En la captura: el `click` ya tiene su blanco y el desplazamiento llega en el
-  // fotograma siguiente, cuando ya se ha repartido.
-  window.addEventListener('click', traer, true);
-  setTimeout(traer, ESPERA_DEL_CLIC);
-}
-const ESPERA_DEL_CLIC = 400;
-
 // Antes que los gestos de la batalla, como siempre: con lo que leen, que la página aún no
 // está entera.
 instalarLosDialogos({ elGuarnicion, elAviso, elDefensa, session, pedirFotograma });
@@ -183,81 +160,7 @@ const pagina: PaginaDeLaPartida = {
   estado,
 };
 
-lienzo.addEventListener('scroll', pedirFotograma, { passive: true });
-
-// ---------------------------------------------------------------- puntero
-
-function enLienzo(ev: { clientX: number; clientY: number }): { x: number; y: number } {
-  const r = canvas.getBoundingClientRect();
-  return { x: ev.clientX - r.left, y: ev.clientY - r.top };
-}
-
-canvas.addEventListener('pointerdown', (ev) => {
-  if (ev.button !== 0) return;
-  const p = enLienzo(ev);
-  if (session.scene === 'adventure') {
-    aventura.bajar(p.x, p.y);
-    canvas.setPointerCapture(ev.pointerId);
-  }
-  pedirFotograma();
-});
-
-canvas.addEventListener('pointermove', (ev) => {
-  const p = enLienzo(ev);
-  if (session.scene === 'town') {
-    canvas.style.cursor = castillo.mover(p.x, p.y, performance.now()) ? 'pointer' : 'default';
-  } else if (session.scene === 'battle') {
-    gestos.mover(p.x, p.y);
-  } else if (esDeDentro(dentro, session.scene)) {
-    canvas.style.cursor = dentro[session.scene].de.mover(p.x, p.y) ? 'pointer' : 'default';
-  } else {
-    aventura.mover(p.x, p.y);
-  }
-  pedirFotograma();
-});
-
-canvas.addEventListener('pointerup', (ev) => {
-  if (ev.button !== 0) return;
-  const p = enLienzo(ev);
-  if (session.scene === 'town') castillo.pulsar(p.x, p.y, performance.now());
-  else if (esDeDentro(dentro, session.scene)) {
-    const escena = session.scene;
-    if (dentro[escena].de.pulsar(p.x, p.y) && escena === 'ayuntamiento') fichaTrasElClic();
-  } else if (session.scene === 'battle') {
-    gestos.soltar(p.x, p.y);
-  } else if (aventura.soltar()) {
-    if (hastaQueLlegue(pagina)) return;
-    // Con el modo «marcar fallo» puesto, el clic es suyo y no mueve a nadie.
-    if (estado.desarrollo?.activo === true) estado.desarrollo.clic(p.x, p.y);
-    else aventura.pulsar(p.x, p.y, ev.pointerType === 'touch');
-  }
-  pedirFotograma();
-});
-
-canvas.addEventListener('pointerleave', () => {
-  aventura.salir();
-  gestos.salir();
-  castillo.salir();
-  for (const d of Object.values(dentro)) d.de.salir();
-  pedirFotograma();
-});
-
-canvas.addEventListener(
-  'wheel',
-  (ev) => {
-    if (session.scene !== 'adventure') return;
-    ev.preventDefault();
-    aventura.zoom(ev.deltaY < 0 ? 1 : -1, enLienzo(ev));
-    pedirFotograma();
-  },
-  { passive: false },
-);
-
-minimapa.addEventListener('pointerdown', (ev) => {
-  const r = minimapa.getBoundingClientRect();
-  aventura.pulsarMinimapa(ev.clientX - r.left, ev.clientY - r.top, r.width, r.height);
-  pedirFotograma();
-});
+instalarElPuntero(pagina);
 
 document.addEventListener('click', (ev) => {
   const target = (ev.target as HTMLElement).closest('[data-action]');
