@@ -10,20 +10,20 @@
  * lienzo pinte lo que la sesión le da lo mira `mapa-pintado.test.ts`.
  */
 import { describe, expect, it } from 'vitest';
-import { EscenaAventura } from '../src/client/escenas/aventura.js';
-import { casillaAPixel, centrarEn, TILE_INICIAL } from '../src/client/render/camara-mapa.js';
-import { Session } from '../src/client/session.js';
-import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
+import { EscenaAventura } from '../src/client/partida/mapa/escena.js';
+import { casillaAPixel, centrarEn, TILE_INICIAL } from '../src/client/render/mapa/camara.js';
+import { Session } from '../src/client/sesion/partida.js';
+import { serializeAdventureTurn } from '../src/core/contract/aventura.js';
+import { heroesOf } from '../src/core/state/consultas.js';
 import { sinSello, visibleTo } from '../src/core/state/events.js';
+import { newGame } from '../src/core/state/setup.js';
+import type { GameState } from '../src/core/state/tipos.js';
 import {
-  type GameState,
   heroesALaVista,
-  heroesOf,
   objetosConocidos,
   revealEverything,
   visibleNow,
-} from '../src/core/state/game.js';
-import { newGame } from '../src/core/state/setup.js';
+} from '../src/core/state/vision.js';
 import type { Point } from '../src/core/types.js';
 
 // La 1 (la 92 hasta las fronteras onduladas de #229: la ruta a su nodo lejano

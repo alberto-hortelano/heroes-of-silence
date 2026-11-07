@@ -8,66 +8,45 @@
  */
 
 import { readdirSync, readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { resolvePendingBattle } from '../src/core/ai/turn.js';
 import { armaduraDe } from '../src/core/battle/armas.js';
-import { createBattle, stackById } from '../src/core/battle/battle.js';
-import {
-  cifrasDeUnidad,
-  equipoPuestoDe,
-  UNIDADES,
-  unidad,
-  unidadDelJuego,
-} from '../src/core/catalogo.js';
+import { stackById } from '../src/core/battle/consultas.js';
+import { createBattle } from '../src/core/battle/montaje.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { RESPONSE_FORMAT } from '../src/core/contract/agent.js';
+import { RESPONSE_FORMAT } from '../src/core/contract/formato.js';
+import { catalogoDeEquipo, EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
+import { textoDeModificador } from '../src/core/equipo/dicho.js';
+import { aDosManos } from '../src/core/equipo/manos.js';
 import {
   EQUIPO,
   EQUIPO_ESCRITO,
   leerEquipo,
-  piezaBlocker,
-  problemasDePieza,
-  tipoDeHeroePorDefecto,
-} from '../src/core/data.js';
-import {
-  aDosManos,
-  catalogoDeEquipo,
-  conEquipo,
-  destinoDeEquipo,
-  EQUIPO_BASE,
-  EQUIPO_DEL_JUEGO,
-  equipoBaseBlocker,
-  mismasCifras,
   PIEZAS_DE_ARMERIA,
   PIEZAS_DE_BOTIN,
-  pedidoDeEquipo,
-  pedidoDelPuesto,
   pieza,
-  textoDeModificador,
-} from '../src/core/hero/equipo.js';
-import { umbral } from '../src/core/hero/experiencia.js';
+  problemasDePieza,
+} from '../src/core/equipo/pieza.js';
+import { destinoDeEquipo, pedidoDeEquipo, pedidoDelPuesto } from '../src/core/equipo/portador.js';
+import { conEquipo, mismasCifras } from '../src/core/equipo/vestir.js';
+import { EQUIPO_BASE, equipoBaseBlocker } from '../src/core/hero/cuerpo-del-heroe.js';
 import { heroeRecienHecho } from '../src/core/hero/hero.js';
+import { umbral } from '../src/core/hero/rango.js';
+import { tipoDeHeroePorDefecto } from '../src/core/hero/tipos-de-heroe.js';
 import { troopUnit } from '../src/core/hero/troop.js';
-import { isEnterable, objectAt, pointKey } from '../src/core/map/map.js';
-import { VECINAS } from '../src/core/map/regiones.js';
+import { pointKey, VECINAS } from '../src/core/map/geometria.js';
+import { isEnterable, objectAt } from '../src/core/map/map.js';
+import { regionDeCasilla, tocaUnNodo } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
-import { CHARACTER_BODY } from '../src/core/rpg/character.js';
-import { regionDeCasilla, tocaUnNodo } from '../src/core/state/asaltantes.js';
-import {
-  type AdventureAction,
-  applyAdventureAction,
-  ascenderVeterano,
-  baseOf,
-  equipBlocker,
-  type GameContext,
-  type GameState,
-  heroById,
-  heroesOf,
-  resolvePendingBattle,
-  settleBattle,
-} from '../src/core/state/game.js';
+import { settleBattle } from '../src/core/state/cierre.js';
+import { baseOf, heroById, heroesOf } from '../src/core/state/consultas.js';
+import { equipBlocker } from '../src/core/state/equipar.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
+import { ascenderVeterano } from '../src/core/state/heroes.js';
 import { newGame } from '../src/core/state/setup.js';
-import { dueñoDeLaCiudad, enUnNodo } from '../src/core/state/sitios.js';
+import { dueñoDeLaCiudad, enUnNodo, guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
+import type { AdventureAction, GameContext, GameState } from '../src/core/state/tipos.js';
 import {
   CIFRAS_DE_PIEZA,
   type Point,
@@ -75,21 +54,22 @@ import {
   type Troop,
   type Veterania,
 } from '../src/core/types.js';
-import { cuerpoDeCombate } from '../src/core/unidad.js';
+import {
+  cifrasDeUnidad,
+  equipoPuestoDe,
+  UNIDADES,
+  unidad,
+  unidadDelJuego,
+} from '../src/core/unidad/catalogo.js';
+import { cuerpoDeCombate } from '../src/core/unidad/formato.js';
+import { ctx, NO_MUERTO, PESADA, RAIZ, TROPA, TROPA_BARATA } from './comun.js';
 import {
   darLaCiudad,
   ejercito,
   forzarBatalla,
   guarnecer,
-  guarnicionDeLaCiudad,
-  NO_MUERTO,
-  PESADA,
   ponerMonstruo,
-  TROPA,
-  TROPA_BARATA,
-} from './helpers.js';
-
-const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
+} from './partida-de-prueba.js';
 
 /**
  * El cuerpo de una unidad del catálogo **sin su equipo de serie**: lo que suma
@@ -132,9 +112,10 @@ describe('el catálogo de equipo, en datos (C2)', () => {
     expect(PIEZAS_DE_BOTIN).toEqual(EQUIPO.filter((p) => p.seConsigue?.includes('botin')));
     const conBase = new Set(EQUIPO_ESCRITO.filter((p) => 'base' in p).map((p) => p.id));
     expect(PIEZAS_DE_BOTIN.map((p) => p.id).sort()).toEqual([...conBase].sort());
-    // Solo en kits: la hiena de los jinetes de hiena (26-10-2026) y la culebrina del
-    // artillero (02-11-2026, decisión del usuario).
-    const SOLO_EN_KITS = ['hiena_de_guerra', 'culebrina'];
+    // Solo en kits: la hiena de los jinetes de hiena (26-10-2026), la culebrina del
+    // artillero (02-11-2026, decisión del usuario) y la Cota de malla (`armadura-2`,
+    // que el usuario guardó desde la arena el 06-11-2026 sin «Se consigue»).
+    const SOLO_EN_KITS = ['hiena_de_guerra', 'culebrina', 'armadura-2'];
     expect(PIEZAS_DE_ARMERIA.map((p) => p.id).sort()).toEqual(
       EQUIPO.filter((p) => !conBase.has(p.id) && !SOLO_EN_KITS.includes(p.id))
         .map((p) => p.id)
@@ -236,39 +217,39 @@ describe('el catálogo de equipo, en datos (C2)', () => {
     expect(problemasDePieza({ ...pieza('espada'), tiro: 'fuego' })).toContain(
       '"espada" va en el hueco arma y dice tiro: solo una pieza a distancia tira',
     );
-    expect(piezaBlocker({ ...arcabuz, tiro: 'rayo' })).toBe(
+    expect(problemasDePieza({ ...arcabuz, tiro: 'rayo' })[0]).toBe(
       '"arcabuz": tiro es fuego o granada, o no se escribe (un arco o una ballesta), y es rayo',
     );
     // El arma de fuego dice su recarga y su agilidad, dentro de sus rangos.
     const { recarga: _r, ...sinRecarga } = arcabuz;
-    expect(piezaBlocker(sinRecarga)).toBe(
+    expect(problemasDePieza(sinRecarga)[0]).toBe(
       '"arcabuz" es un arma de fuego y no dice su recarga: los turnos de 1 a 9 que pasa sin apuntar tras disparar',
     );
-    expect(piezaBlocker({ ...arcabuz, recarga: 0 })).toBe(
+    expect(problemasDePieza({ ...arcabuz, recarga: 0 })[0]).toBe(
       '"arcabuz": la recarga va de 1 a 9 turnos y es 0',
     );
-    expect(piezaBlocker({ ...arcabuz, agilidad: 0 })).toBe(
+    expect(problemasDePieza({ ...arcabuz, agilidad: 0 })[0]).toBe(
       '"arcabuz": la agilidad de un arma de fuego va de 1 a 7 y es 0',
     );
     const { agilidad: _a, ...sinAgilidad } = arcabuz;
-    expect(piezaBlocker(sinAgilidad)).toBe(
+    expect(problemasDePieza(sinAgilidad)[0]).toBe(
       '"arcabuz" es un arma de fuego y no dice su agilidad: un entero de 1 a 7, el de su horquilla [F, F × agilidad]',
     );
     // Un arco no lleva agilidad ni recarga; la granada, ni recarga, y dice sus cargas.
-    expect(piezaBlocker({ ...pieza('arco'), agilidad: 3 })).toBe(
+    expect(problemasDePieza({ ...pieza('arco'), agilidad: 3 })[0]).toBe(
       '"arco" dice agilidad: a distancia solo la lleva un arma de fuego (tiro: fuego)',
     );
-    expect(piezaBlocker({ ...pieza('arco'), recarga: 1 })).toBe(
+    expect(problemasDePieza({ ...pieza('arco'), recarga: 1 })[0]).toBe(
       '"arco" dice recarga: solo un arma de fuego recarga',
     );
-    expect(piezaBlocker({ ...granada, recarga: 1 })).toBe(
+    expect(problemasDePieza({ ...granada, recarga: 1 })[0]).toBe(
       '"granada" dice recarga: solo un arma de fuego recarga',
     );
     const { cargas: _c, ...sinCargas } = granada;
-    expect(piezaBlocker(sinCargas)).toBe(
+    expect(problemasDePieza(sinCargas)[0]).toBe(
       '"granada" es una granada y no dice sus cargas: las que lleva a cada batalla, de 1 a 9',
     );
-    expect(piezaBlocker({ ...arcabuz, cargas: 2 })).toBe(
+    expect(problemasDePieza({ ...arcabuz, cargas: 2 })[0]).toBe(
       '"arcabuz" dice cargas: solo una granada se gasta',
     );
   });
@@ -278,21 +259,20 @@ describe('el catálogo de equipo, en datos (C2)', () => {
     // mismo texto, para que la arena pregunte por una pieza suelta.
     const escudo = { ...pieza('escudo') };
     expect(problemasDePieza(escudo)).toEqual([]);
-    expect(piezaBlocker(escudo)).toBeNull();
-    expect(piezaBlocker({ ...escudo, velocidad: 0 })).toBe(
+    expect(problemasDePieza({ ...escudo, velocidad: 0 })[0]).toBe(
       '"escudo" dice velocidad: ninguna pieza resta movimiento, lo hace su peso («peso»)',
     );
     // Un escudo que no pesa vale: el peso es 0 o más.
-    expect(piezaBlocker({ ...escudo, peso: 0 })).toBeNull();
+    expect(problemasDePieza({ ...escudo, peso: 0 })).toEqual([]);
     expect(problemasDePieza({ ...pieza('brigantina'), manos: 2, ataque: -1 })).toEqual([
       '"brigantina": ataque tiene que ser un entero ≥ 0 y es -1',
       '"brigantina" va en el hueco armadura, que no suma ataque: en él una pieza suma armadura, peso',
       '"brigantina" va en el hueco armadura y dice manos: solo un arma se lleva a dos manos',
     ]);
-    expect(piezaBlocker({ ...pieza('espada'), danio: [30, 10] })).toBe(
+    expect(problemasDePieza({ ...pieza('espada'), danio: [30, 10] })[0]).toBe(
       '"espada" dice daño: un arma suma fuerza («fuerza») y el daño sale de la fuerza y la agilidad',
     );
-    expect(piezaBlocker(7)).toBe('la pieza no es un objeto');
+    expect(problemasDePieza(7)[0]).toBe('la pieza no es un objeto');
     // Repetida es del catálogo entero: la dice el cargador, no la pieza.
     const dos = { piezas: [...EQUIPO, { ...pieza('maza') }] };
     expect(() => leerEquipo(dos).piezas).toThrow('"maza" está dos veces en el catálogo');
@@ -366,7 +346,7 @@ describe('las cifras se suman en las puertas de siempre (C1)', () => {
       createRng(1),
       COMBATE_COMPLETO,
     );
-    expect(stackById(b, 'attacker-0').unit).toEqual(troopUnit(equipado, undefined));
+    expect(stackById(b, 'attacker-0').unit).toEqual(troopUnit(equipado));
     expect(armaduraDe(stackById(b, 'attacker-0').unit)).toBe(pieza('brigantina').armadura);
   });
 });
@@ -526,27 +506,22 @@ describe('cómo se nombra a un portador: `pedidoDeEquipo`, la inversa de `destin
       { creature: TROPA_BARATA },
       { creature: TROPA, veterania: hoja('veterano-1', 30) },
       { creature: TROPA_BARATA },
-      { creature: CHARACTER_BODY, member: 'aren', veterania: hoja('veterano-2', 0) },
       { creature: TROPA },
     ];
     expect(pedidoDeEquipo(hero, { heroe: true })).toEqual({});
     expect(destinoDeEquipo(hero, {})).toEqual({ heroe: true });
-    const esperado = [0, 1, 0, 3, 4];
+    const esperado = [0, 1, 0, 3];
     for (const [indice, vuelve] of esperado.entries()) {
       const pedido = pedidoDeEquipo(hero, { indice });
-      if ('motivo' in pedido) throw new Error(pedido.motivo);
       expect(destinoDeEquipo(hero, pedido), `el puesto ${indice}`).toEqual({ indice: vuelve });
     }
     expect(pedidoDeEquipo(hero, { indice: 1 })).toEqual({ veteran: 'veterano-1' });
     expect(pedidoDeEquipo(hero, { indice: 2 })).toEqual({ creature: TROPA_BARATA });
   });
 
-  it('un personaje sin hoja no se puede nombrar, y lo dice; un puesto vacío lanza', () => {
+  it('un puesto vacío lanza', () => {
     const { hero } = enLaArmeria();
-    hero.army = [{ creature: CHARACTER_BODY, member: 'aren' }];
-    expect(pedidoDeEquipo(hero, { indice: 0 })).toEqual({
-      motivo: 'a ese personaje aún no se le puede poner nada: no tiene hoja con la que nombrarlo',
-    });
+    hero.army = [{ creature: TROPA_BARATA }];
     expect(() => pedidoDeEquipo(hero, { indice: 3 })).toThrow(
       'la tropa no tiene a nadie en el puesto 3',
     );
@@ -554,14 +529,13 @@ describe('cómo se nombra a un portador: `pedidoDeEquipo`, la inversa de `destin
 });
 
 describe('por su puesto: `pedidoDelPuesto`, la inversa exacta de `destinoDeEquipo` (QA de la tropa, H2)', () => {
-  it('cada portador vuelve a sí mismo, también el tercer novato de un tipo; el personaje sin hoja da su motivo', () => {
+  it('cada portador vuelve a sí mismo, también el tercer novato de un tipo', () => {
     const { hero } = enLaArmeria();
     hero.army = [
       { creature: TROPA_BARATA },
       { creature: TROPA, veterania: hoja('veterano-1', 30) },
       { creature: TROPA_BARATA },
-      { creature: CHARACTER_BODY, member: 'aren', veterania: hoja('veterano-2', 0) },
-      { creature: CHARACTER_BODY, member: 'brisa' },
+      { creature: TROPA_BARATA },
     ];
     expect(destinoDeEquipo(hero, pedidoDelPuesto({ heroe: true }))).toEqual({ heroe: true });
     for (const indice of [0, 1, 2, 3]) {
@@ -569,9 +543,6 @@ describe('por su puesto: `pedidoDelPuesto`, la inversa exacta de `destinoDeEquip
         indice,
       });
     }
-    expect(destinoDeEquipo(hero, pedidoDelPuesto({ indice: 4 }))).toEqual({
-      motivo: 'a ese personaje aún no se le puede poner nada: no tiene hoja con la que nombrarlo',
-    });
   });
 
   it('un puesto que no hay, o el puesto con un nombre a la vez, no nombra a nadie y lo dice', () => {
@@ -877,7 +848,7 @@ describe('la mochila se escribe en un sitio (M2)', () => {
     // El docstring de `aLaMochila` y CLAUDE.md la llamaban «la única escritura
     // que añade» mientras `repartirBotin` añadía por su cuenta. Se mira el texto
     // porque es una frase sobre DÓNDE se escribe, no sobre qué resulta.
-    const raiz = fileURLToPath(new URL('../src/core/', import.meta.url));
+    const raiz = join(RAIZ, 'src/core/');
     const fuera: string[] = [];
     for (const f of readdirSync(raiz, { recursive: true }) as string[]) {
       if (!f.endsWith('.ts')) continue;

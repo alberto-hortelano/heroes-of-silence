@@ -6,7 +6,7 @@
  */
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { hojasDeFigura } from '../src/shared/arte.js';
 import { ARMAS_MONTADAS, armaDeLaOrden } from '../tools/art/montura.js';
@@ -18,8 +18,8 @@ import {
   type JuegoMontado,
 } from '../tools/art/poses.js';
 import { JUEGOS_EN_8D } from '../tools/taller/unidades.js';
+import { RAIZ } from './comun.js';
 
-const RAIZ = resolve(import.meta.dirname, '..');
 const leer = (ruta: string) => JSON.parse(readFileSync(ruta, 'utf8'));
 const atlas = leer(join(RAIZ, 'assets/unidades/_poses/atlas-8d.json')) as {
   juegos: Record<

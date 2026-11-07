@@ -25,8 +25,9 @@
  * la pantalla (el ancho de la banda, lo que sale del borde) es de `forma.css`,
  * que lo cambia en el móvil.
  *
- * La hoja se rehace desde lo que hay en disco con `escribirPiezasDeTema`; lo
- * vigila `test/piezas-de-tema.test.ts`.
+ * La hoja se rehace desde lo que hay en disco con `escribirPiezasDeTema`
+ * (`pnpm taller piezas-de-tema`; con `--guias`, también `escribirGuiasDeTemas`);
+ * lo vigila `test/piezas-de-tema.test.ts`.
  */
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -376,25 +377,6 @@ export const POR_TEMA: Readonly<Record<FactionId, Partial<Record<Pieza, EnLaLami
  * 156 y el de los no muertos de 19 a 6 (afinado del 18-10-2026, punto 4).
  */
 export const GRIS_DE_LA_MEZCLA = 128;
-
-/**
- * Una textura de tema lista para mezclarse: en gris (el color es de la ficha) y
- * con la media en `GRIS_DE_LA_MEZCLA`, sin tocar su contraste (el dibujo de la
- * veta queda igual). Es el post-proceso del taller, no una segunda generación: el
- * crudo de Codex es el mismo.
- */
-export async function texturaNeutra(png: Buffer): Promise<{ png: Buffer; media: number }> {
-  const gris = await sharp(png).greyscale().png().toBuffer();
-  const media = (await sharp(gris).stats()).channels[0]?.mean;
-  if (media === undefined) throw new Error('la textura no tiene ni un canal que medir');
-  return {
-    png: await sharp(gris)
-      .linear(1, GRIS_DE_LA_MEZCLA - media)
-      .png()
-      .toBuffer(),
-    media,
-  };
-}
 
 /** Las piezas que lleva un tema, en el orden de `PIEZAS`. */
 export function piezasDe(tema: FactionId): Pieza[] {

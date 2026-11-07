@@ -12,15 +12,16 @@
  *
  * Uso: npx tsx tools/qa/cifras-del-catalogo.ts [--medianas]
  */
-import { unitPower } from '../../src/core/ai/fuerza.js';
+
 import { armaduraDe } from '../../src/core/battle/armas.js';
 import { armasDe } from '../../src/core/battle/damage.js';
-import { costeDeUnaUnidad, unidadesDelJuego } from '../../src/core/catalogo.js';
-import { agilidadDe, restaDelPesoDe } from '../../src/core/cuerpo.js';
-import { EXPERIENCIA_INICIAL_DE_HEROE } from '../../src/core/hero/experiencia.js';
+import { unitPower } from '../../src/core/hero/fuerza.js';
 import { heroeRecienHecho, heroUnit } from '../../src/core/hero/hero.js';
-import { indiceDePoder, nivelDelIndice, poderBruto } from '../../src/core/nivel.js';
+import { EXPERIENCIA_INICIAL_DE_HEROE } from '../../src/core/hero/rango.js';
 import { SPEED_TO_HEXES, type UnitInfo } from '../../src/core/types.js';
+import { costeDeUnaUnidad, unidadesDelJuego } from '../../src/core/unidad/catalogo.js';
+import { agilidadDe, restaDelPesoDe } from '../../src/core/unidad/cuerpo.js';
+import { indiceDePoder, nivelDelIndice, poderBruto } from '../../src/core/unidad/nivel.js';
 
 const horquilla = ([a, b]: readonly [number, number]): string => `${a}–${b}`;
 

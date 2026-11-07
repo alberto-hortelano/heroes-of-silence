@@ -1,6 +1,6 @@
 /**
  * Las figuras del juego en el mapa, en casillas: dónde apoyan los pies, lo que
- * mide el héroe y sus aros. Las leen el pintor del mapa (`render/mapa.ts`) y la
+ * mide el héroe y sus aros. Las leen el pintor del mapa (`render/mapa/mapa.ts`) y la
  * escena, que no pone el puesto de un nodo encima del héroe parado en él
  * (`componer`). Puro y sin dependencias: lo importan módulos que se importan entre
  * sí (`puestos.ts`, `figuras.ts`, `pintar.ts`).
@@ -12,7 +12,7 @@ import type { Caja } from './pasillo.js';
  * de su casilla: la misma convención que `Sprite.y` de la escena —la `y` de la
  * base—, que es lo que deja ordenar figuras y volúmenes juntos. Un pino con la
  * base en y + 0,9 tapa al héroe de esa casilla, que la tiene en y + 0,8. La leen
- * el pintor del mapa (`render/mapa.ts`) y la escena (el sitio del puesto).
+ * el pintor del mapa (`render/mapa/mapa.ts`) y la escena (el sitio del puesto).
  */
 export const PIES = { heroe: 0.8, grupo: 0.82, suelto: 0.85 } as const;
 

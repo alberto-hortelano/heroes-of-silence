@@ -3,13 +3,11 @@
  * `buildMap` al abrir su casilla (#145)— y en qué eje va su frontera, que sale
  * de sus ocho vecinas.
  */
-import {
-  type CruzaSuBarrera,
-  cruzaSuBarrera,
-  type MapObject,
-  type TramoDeCamino,
-} from '@core/map/map.js';
+import { EJES } from '@core/map/geometria.js';
+import { type CruzaSuBarrera, cruzaSuBarrera } from '@core/map/map.js';
+import type { TramoDeCamino } from '@core/map/red-de-caminos.js';
 import { type Barrera, esBarrera, type TerrainKind } from '@core/map/terrain.js';
+import type { MapObject } from '@core/map/tipos.js';
 
 /**
  * Los nodos de paso, uno por barrera; la puerta en las dos orientaciones de la
@@ -177,17 +175,6 @@ export function pasaElCamino(
 ): boolean {
   return tramos.some(([p, q]) => (p.x === at.x && p.y === at.y) || (q.x === at.x && q.y === at.y));
 }
-
-/**
- * Los ejes que se prueban, en el orden de `ejeDelNodo` (`vestir.ts`): los rectos
- * y luego los diagonales, cada uno con su opuesto.
- */
-const EJES: readonly (readonly [number, number])[] = [
-  [0, 1],
-  [1, 0],
-  [1, -1],
-  [1, 1],
-];
 
 /**
  * El eje de un nodo de paso, como línea por centros de casilla: de la segunda

@@ -46,10 +46,9 @@ lo rápido que conteste el agente, porque la página pinta el último fotograma 
 cada refresco. También sale lo que va pensando: el `reasoning` que manda con cada
 turno, escapado como todo lo demás.
 
-**El arte se genera.** 140 imágenes con [fal.ai](https://fal.ai) por 3,74 $,
-incluidas 72 poses de animación y los edificios de las dos facciones. Cada
-criatura se anima con **una sola llamada**: las seis poses viajan en el mismo
-atlas, que es lo que mantiene al personaje reconocible entre fotogramas.
+**El arte se genera.** Lo pinta el taller (`pnpm taller`) con ChatGPT por la
+suscripción de Codex, sobre el maniquí del Y Bot: cada figura en ocho
+direcciones, con sus hojas de animación.
 
 ## Arrancar
 
@@ -86,21 +85,6 @@ Y para comprobar el circuito entero sin tocar nada a mano:
 pnpm qa
 ```
 
-## Generar el arte
-
-Hace falta una clave de [fal.ai](https://fal.ai) en `.env`:
-
-```bash
-echo 'FAL_KEY=tu-clave' > .env
-
-pnpm gen                                    # simula: qué falta y qué costaría
-pnpm gen -- all --go --budget 4             # terrenos, iconos y edificios
-```
-
-Sin `--go` no se gasta un céntimo. La caché va por hash del payload, así que
-repetir una tanda sale gratis. `--budget` es el tope del gasto **acumulado** del
-proyecto, no el de la tanda.
-
 ## Cómo está montado
 
 ```
@@ -108,7 +92,7 @@ src/core/      las reglas. TypeScript puro: sin DOM y sin node:*
 src/server/    bridge WebSocket + puente MCP para el agente
 src/client/    Vite + Canvas 2D. Una escena por pantalla; solo pinta
                espectador/ es la página que mira la partida del servidor
-tools/gen/     generación de assets con fal.ai
+tools/taller/  el taller que pinta el arte con Codex (`pnpm taller`)
 data/          criaturas, edificios y hechizos en JSON editable
 ```
 

@@ -22,7 +22,7 @@
 import { quedanCasillas } from '@core/battle/board.js';
 import { type HechoDelCruce, NOMBRE_DEL_PUNTO } from '@core/battle/rueda.js';
 import type { BattleAction } from '@core/battle/types.js';
-import type { RequestKind } from '@core/contract/agent.js';
+import type { RequestKind } from '@core/contract/esquemas.js';
 import {
   type AccionDelAgente,
   HIT_DE_GOLPE,
@@ -30,15 +30,10 @@ import {
 } from '@core/contract/vocabulario.js';
 import { loQueLaPara } from '@core/state/asaltantes.js';
 import type { ClimaAceptado } from '@core/state/clima.js';
+import { describePlayer, heroesOf, townsOf } from '@core/state/consultas.js';
 import { type Desenlace, finDePartida } from '@core/state/desenlace.js';
 import type { DefeatReason, GameEvent } from '@core/state/events.js';
-import {
-  type AdventureAction,
-  describePlayer,
-  type GameState,
-  heroesOf,
-  townsOf,
-} from '@core/state/game.js';
+import type { AdventureAction, GameState } from '@core/state/tipos.js';
 import type { PlayerId } from '@core/types.js';
 import type { Aviso } from './mcp/buzon.js';
 

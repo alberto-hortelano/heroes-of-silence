@@ -20,8 +20,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
 
-    "baseUrl": ".",
-    "paths": { "@core/*": ["src/core/*"] }
+    "paths": { "@core/*": ["./src/core/*"] }
   },
   "include": ["src", "tools", "test", "vite.config.ts"]
 }

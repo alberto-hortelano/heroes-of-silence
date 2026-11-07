@@ -7,25 +7,31 @@
  * pulsar lo oculto.
  */
 import { describe, expect, it } from 'vitest';
-import { renderPanelDeBatalla } from '../src/client/arena/paneles.js';
-import { marcadoDe } from '../src/client/html.js';
+import { renderPanelDeBatalla } from '../src/client/arena/paneles/batalla.js';
+import { marcadoDe } from '../src/client/comun/html.js';
+import { renderSide } from '../src/client/partida/paneles.js';
 import { centroHex, planoDeHex } from '../src/client/render/proyeccion.js';
-import { Session } from '../src/client/session.js';
-import { renderSide } from '../src/client/views/panels.js';
-import { fuerzaDe, poderDe, ventajaClara } from '../src/core/ai/fuerza.js';
-import { activeStack } from '../src/core/battle/battle.js';
+import { Session } from '../src/client/sesion/partida.js';
 import { hexEquals, hexKey } from '../src/core/battle/board.js';
+import { activeStack } from '../src/core/battle/consultas.js';
 import { zonaDeSalida } from '../src/core/battle/despliegue.js';
-import { type MurallaDeBatalla, validarMuralla } from '../src/core/battle/muralla.js';
-import type { BattleState, Side } from '../src/core/battle/types.js';
-import { unidadesDelJuego } from '../src/core/catalogo.js';
-import { isEnterable, objectAt, pointKey } from '../src/core/map/map.js';
-import { estructura } from '../src/core/map/regiones.js';
-import { type Raider, regionDeCasilla } from '../src/core/state/asaltantes.js';
-import { baseOf, caminoHasta } from '../src/core/state/game.js';
-import type { Point } from '../src/core/types.js';
-import { sesionContraMonstruoAlDesplegar } from './batalla-de-cliente.js';
-import { escenaDeBatalla, fueraDeSuBase, sesionDeArena, unidadDeArena } from './helpers.js';
+import { validarMuralla } from '../src/core/battle/muralla.js';
+import type { BattleState, MurallaDeBatalla, Side } from '../src/core/battle/types.js';
+import { fuerzaDe, poderDe, ventajaClara } from '../src/core/hero/fuerza.js';
+import { pointKey } from '../src/core/map/geometria.js';
+import { isEnterable, objectAt } from '../src/core/map/map.js';
+import { estructura, regionDeCasilla } from '../src/core/map/regiones.js';
+import { baseOf } from '../src/core/state/consultas.js';
+import { caminoHasta } from '../src/core/state/marcha.js';
+import type { Point, Raider } from '../src/core/types.js';
+import { unidadesDelJuego } from '../src/core/unidad/catalogo.js';
+import {
+  escenaDeBatalla,
+  sesionContraMonstruoAlDesplegar,
+  sesionDeArena,
+} from './batalla-de-cliente.js';
+import { fueraDeSuBase } from './partida-de-prueba.js';
+import { unidadDeArena } from './pelea-de-arena.js';
 
 /** Los ids de los vivos de `side` en `b`. */
 const delBando = (b: BattleState, side: Side): string[] =>
@@ -161,7 +167,7 @@ describe('el defensor despliega sin ver al atacante, en la partida', () => {
           if (objectAt(st.map, q) === undefined) donde = q;
         }
         if (donde === null) continue;
-        const suya = fuerzaDe(hero, st.characters);
+        const suya = fuerzaDe(hero);
         let troops: Raider['troops'] | null = null;
         for (let count = 1; count <= 6 && troops === null; count++) {
           const grupo = [{ creature: fuerte, count }];

@@ -51,7 +51,7 @@ import {
   MODULOS_DEL_RECINTO,
   puertaDelEje,
   tramoDelEje,
-} from '../../src/client/render/escenario/recinto.js';
+} from '../../src/client/render/escenario/recinto/octogono.js';
 import { registrarConEscala } from './derivar.js';
 import type { Encargo } from './encargo.js';
 import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';

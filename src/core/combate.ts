@@ -16,9 +16,8 @@
  * banco no cambia.
  */
 import { TIPOS_DE_LAS_RUEDAS, type TiposDeLaRueda } from './battle/formas-de-la-rueda.js';
-import { type GrupoDeTropa, LIDERAZGO } from './data.js';
-import type { MapObject } from './map/map.js';
-import { type Army, enumerar } from './types.js';
+import { LIDERAZGO } from './hero/liderazgo.js';
+import { enumerar } from './texto.js';
 
 export interface ReglasDelCombate {
   /** Cuántos individuos por bando, como mucho, con el héroe (uno de `LIDERAZGO.topesPorBando`). */
@@ -94,77 +93,4 @@ export function parseRueda(texto: string | null | undefined): TiposDeLaRueda | n
 /** Cuánta tropa lleva un héroe con el tope `tope`: él ocupa uno de los puestos de su bando. */
 export function cupoDelHeroe(tope: number): number {
   return tope - 1;
-}
-
-/**
- * Lo que nace sin héroe en una partida: las guarniciones, los grupos de
- * asaltantes y los monstruos del mapa. Cada campo, si lo hay.
- */
-export interface LoQueNaceSinHeroe {
-  /** Las guarniciones con que nacen las ciudades (`BuiltMap.guarniciones`), por id de su sitio. */
-  readonly guarniciones?: Readonly<Record<string, { readonly tropa: Army }>>;
-  readonly raiders?: readonly { readonly troops: readonly GrupoDeTropa[] }[];
-  readonly map?: { readonly objects: readonly MapObject[] };
-}
-
-/**
- * Una copia de `x` con todo lo que nace sin héroe en el tope de tropa `tope`: cada
- * guarnición, sus primeros `tope` individuos; cada asaltante, de sus primeros
- * grupos hasta `tope`; cada monstruo, `tope` como mucho. **La regla del nivel**,
- * no una corrección callada, y **la única**: el mapa no depende del tope (misma
- * semilla, mismo mapa), y es la partida la que lo deja en su tope al nacer
- * (`createGame`) y al brotar (`dondeBrotan`). No toca `x`: lo que ya cabe va tal
- * cual, y con el tope de siempre no cambia nada. Se le dice al agente
- * (`you.combat.troopCap`).
- */
-export function loNeutralAlTope<T extends LoQueNaceSinHeroe>(x: T, tope: number): T {
-  const sobra = (n: number): boolean => n > tope;
-  return {
-    ...x,
-    ...(x.guarniciones === undefined
-      ? {}
-      : {
-          guarniciones: Object.fromEntries(
-            Object.entries(x.guarniciones).map(([id, g]) => [
-              id,
-              sobra(g.tropa.length) ? { ...g, tropa: g.tropa.slice(0, tope) } : g,
-            ]),
-          ),
-        }),
-    ...(x.raiders === undefined
-      ? {}
-      : { raiders: x.raiders.map((r) => ({ ...r, troops: gruposAlTope(r.troops, tope) })) }),
-    ...(x.map === undefined || !x.map.objects.some((o) => o.kind === 'monster' && sobra(o.count))
-      ? {}
-      : {
-          map: {
-            ...x.map,
-            objects: x.map.objects.map((o) =>
-              o.kind === 'monster' && sobra(o.count) ? { ...o, count: tope } : o,
-            ),
-          },
-        }),
-  };
-}
-
-/**
- * La tropa en grupos de lo neutral (un asaltante, el encuentro de un lugar de un
- * mundo), de los primeros grupos hasta `tope` individuos. La de un encuentro se
- * recorta al pelearlo (`defenderSide`) y al medirlo la IA (`ai/lugares.ts`): la
- * historia del mundo no depende del tope, como el mapa.
- */
-export function gruposAlTope(
-  grupos: readonly GrupoDeTropa[],
-  tope: number,
-): readonly GrupoDeTropa[] {
-  if (grupos.reduce((n, g) => n + g.count, 0) <= tope) return grupos;
-  const out: GrupoDeTropa[] = [];
-  let quedan = tope;
-  for (const g of grupos) {
-    if (quedan <= 0) break;
-    const count = Math.min(g.count, quedan);
-    out.push(count === g.count ? g : { ...g, count });
-    quedan -= count;
-  }
-  return out;
 }

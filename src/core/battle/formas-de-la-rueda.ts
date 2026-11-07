@@ -10,11 +10,11 @@
  * cada tipo (`PARTES`). Lo que da cada tipo, en `cifras-de-la-rueda.ts`
  * (`efectoDelTipo`); el punto del cruce, en `rueda.ts` (`puntoDelCruce`).
  *
- * Solo importa `types.ts`: lo leen `data.ts` (los pesos del índice, con la rueda
+ * Solo importa `types.ts`: lo leen `nivel.ts` (los pesos del índice, con la rueda
  * de referencia) y `cifras-de-la-rueda.ts`, que `rueda.ts` no puede ser.
  */
+import { enumerar } from '../texto.js';
 import {
-  enumerar,
   esTipoDeGolpe,
   type NivelesDeLaRueda,
   TIPOS_DEL_ANILLO,
@@ -163,7 +163,7 @@ function rueda<T extends TipoDeGolpe>(
  * La rueda de siempre, la de 7, letra a letra (`pnpm banco` con 7 no cambia): el
  * anillo es el de un arma (`TIPOS_DEL_ANILLO`). Es también **la de referencia**:
  * con ella se mide el índice de poder (lo que vale un arma no depende del nivel
- * que se juegue; `data.ts`, `nivel.ts`) y se pinta la ficha de un arma, que tiene
+ * que se juegue; `nivel.ts`) y se pinta la ficha de un arma, que tiene
  * un nivel por tipo del anillo (`disco.ts`). Nadie más la toma fija: el combate
  * juega la de su batalla (`formaDeLaBatalla`; lo vigila `invariantes.test.ts`).
  */

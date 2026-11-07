@@ -15,11 +15,12 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
-import { ZANCADA } from '../src/client/marcha.js';
+import { ZANCADA } from '../src/client/render/figuras/marcha.js';
 import { FIGURA } from '../src/shared/arte.js';
 import { indicesDeClip } from '../tools/art/poses.js';
+import { RAIZ } from './comun.js';
 
-const CARPETA = join(import.meta.dirname, '../assets/unidades/_poses/espada-escudo-8d');
+const CARPETA = join(RAIZ, 'assets/unidades/_poses/espada-escudo-8d');
 const CELDA = 384;
 
 async function avancePorCiclo(clip: 'walk' | 'charge'): Promise<number> {

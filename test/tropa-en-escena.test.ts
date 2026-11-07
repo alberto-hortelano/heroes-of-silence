@@ -8,26 +8,23 @@
  * siguiente que despliega desde ahí.
  */
 import { describe, expect, it } from 'vitest';
-import { EscenaTropa } from '../src/client/escenas/tropa.js';
-import { AYUDA_DE_LA_TROPA, Session } from '../src/client/session.js';
+import { AYUDA_DE_LA_TROPA } from '../src/client/comun/dichos.js';
+import { EscenaTropa } from '../src/client/partida/tropa/escena.js';
+import { Session } from '../src/client/sesion/partida.js';
 import { zonaDeSalida } from '../src/core/battle/despliegue.js';
-import { UNIDADES } from '../src/core/catalogo.js';
-import { EQUIPO } from '../src/core/data.js';
-import { aDosManos, pieza } from '../src/core/hero/equipo.js';
-import { rangoDeHeroe, umbral } from '../src/core/hero/experiencia.js';
+import { aDosManos } from '../src/core/equipo/manos.js';
+import { EQUIPO, pieza } from '../src/core/equipo/pieza.js';
 import { heroUnit } from '../src/core/hero/hero.js';
+import { rangoDeHeroe, umbral } from '../src/core/hero/rango.js';
 import { troopUnit } from '../src/core/hero/troop.js';
-import { indiceDePoder, nivelDeUnidad } from '../src/core/nivel.js';
-import {
-  formacionDe,
-  formarBlocker,
-  ponerseBlocker,
-  turnBlocker,
-  unequipBlocker,
-} from '../src/core/state/game.js';
+import { formacionDe, formarBlocker } from '../src/core/state/batallas.js';
+import { turnBlocker } from '../src/core/state/consultas.js';
+import { ponerseBlocker, unequipBlocker } from '../src/core/state/equipar.js';
 import type { Hex } from '../src/core/types.js';
+import { UNIDADES } from '../src/core/unidad/catalogo.js';
+import { indiceDePoder, nivelDeUnidad } from '../src/core/unidad/nivel.js';
 import { sesionAntesDelMonstruo } from './batalla-de-cliente.js';
-import { TROPA_BARATA } from './helpers.js';
+import { TROPA_BARATA } from './comun.js';
 
 const SEMILLA = 7;
 
@@ -113,7 +110,7 @@ describe('lo que se ve (C2, C3)', () => {
     s.elegirEnLaTropa({ indice: 0 });
     const vista = s.vistaDeLaTropa()!;
     expect(vista.elegida).toBe(1);
-    expect(vista.ficha.cifras).toEqual(troopUnit(hero.army[0]!, s.state.characters));
+    expect(vista.ficha.cifras).toEqual(troopUnit(hero.army[0]!));
     expect(vista.ficha.rango).toBe(1);
     expect(vista.ficha.queEs).toMatch(/^Novato · /);
     expect(() => s.elegirEnLaTropa({ indice: 99 })).toThrow(
@@ -216,7 +213,7 @@ describe('la formación en el tablero (fase C del despliegue)', () => {
     const antes = formacionDe(s.state, hero);
     s.formacion.elegir('attacker-0');
     expect(s.elegidoEnLaTropa).toEqual({ indice: 0 });
-    const nombre = troopUnit(hero.army[0]!, s.state.characters).name;
+    const nombre = troopUnit(hero.army[0]!).name;
     expect(s.status).toBe(
       `${nombre}: su ficha está en el panel; pulsa la casilla verde donde sale.`,
     );

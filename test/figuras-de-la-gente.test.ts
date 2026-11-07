@@ -5,12 +5,12 @@
  * su facción, y con un mundo, la historia manda en la base de quien juega.
  */
 import { describe, expect, it } from 'vitest';
-import { Session } from '../src/client/session.js';
-import { type Banco, type FiguraDeNpc, laMasParecida, leerBanco } from '../src/core/npcs.js';
+import { Session } from '../src/client/sesion/partida.js';
+import { type Banco, type FiguraDeNpc, laMasParecida, leerBanco } from '../src/core/gente/banco.js';
+import { figurasDeLaGente } from '../src/core/gente/figuras.js';
+import { personasDeLaFaccion } from '../src/core/gente/voces.js';
 import { createRng, hashDeTexto } from '../src/core/rng.js';
 import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
-import { figurasDeLaGente } from '../src/core/town/figuras.js';
-import { personasDeLaFaccion } from '../src/core/town/voces.js';
 import type { FactionId } from '../src/core/types.js';
 import { leerMundoDeDisco } from '../tools/mundo/disco.js';
 import { leerBancoDeDisco } from '../tools/npcs/banco.js';

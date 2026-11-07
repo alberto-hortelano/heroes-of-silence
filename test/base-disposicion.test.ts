@@ -11,8 +11,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import templariosJson from '../data/bases/templarios.json' with { type: 'json' };
+import { idsDeVecinos } from '../src/core/gente/voces.js';
 import { SITIOS } from '../src/core/town/sitios.js';
-import { idsDeVecinos } from '../src/core/town/voces.js';
 import {
   bordeDeAtras,
   disposicionDe,

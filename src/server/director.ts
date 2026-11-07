@@ -8,24 +8,19 @@
 
 import { elegirEnLaRueda, pasoDelCruce } from '@core/ai/rueda.js';
 import { chooseBattleAction } from '@core/ai/tactics.js';
-import { type BattleTakeover, playAiTurn } from '@core/ai/turn.js';
-import {
-  activeStack,
-  applyAction,
-  MAX_JUGADAS,
-  mismoTurno,
-  pasosQueQuedan,
-} from '@core/battle/battle.js';
-import { formaDeLaBatalla, type HechoDelCruce } from '@core/battle/rueda.js';
+import { type BattleTakeover, playAiTurn, resolvePendingBattle } from '@core/ai/turn.js';
+import { applyAction, MAX_JUGADAS } from '@core/battle/battle.js';
+import { activeStack, mismoTurno, pasosQueQuedan } from '@core/battle/consultas.js';
+import { formaDeLaBatalla } from '@core/battle/formas-de-la-rueda.js';
+import type { HechoDelCruce } from '@core/battle/rueda.js';
 import type { BattleAction, BattleState, Side, TurnoDeUnidad } from '@core/battle/types.js';
 import type { ReglasDelCombate } from '@core/combate.js';
 import {
   serializeAdventureTurn,
-  serializeBattleResponse,
-  serializeBattleTurn,
   serializeHeroFromTroop,
   serializeTownVoices,
-} from '@core/contract/serialize.js';
+} from '@core/contract/aventura.js';
+import { serializeBattleResponse, serializeBattleTurn } from '@core/contract/batalla.js';
 import {
   type AccionDeBatallaDelAgente,
   type AccionDelAgente,
@@ -33,31 +28,28 @@ import {
   accionDelAgente,
   golpeDelHit,
 } from '@core/contract/vocabulario.js';
+import { firmaDeVoces, ponerVoces, vocesCaducadas } from '@core/gente/voces.js';
 import { porPreguntar } from '@core/hero/ascenso.js';
-import { RANGO_MAXIMO_DE_TROPA, rangoDeHeroe } from '@core/hero/experiencia.js';
-import type { MapPlan } from '@core/map/generate.js';
-import { pointKey } from '@core/map/map.js';
+import { RANGO_MAXIMO_DE_TROPA, rangoDeHeroe } from '@core/hero/rango.js';
+import type { MapPlan } from '@core/map/generar/plan.js';
+import { pointKey } from '@core/map/geometria.js';
 import { createRng } from '@core/rng.js';
+import { settleBattle } from '@core/state/cierre.js';
 import { pedirClima } from '@core/state/clima.js';
 import {
-  applyAdventureAction,
-  ascenderVeterano,
   battleOwners,
   currentPlayer,
-  type GameContext,
-  type GameState,
   hayHuecoDeHeroe,
   playerById,
-  resolvePendingBattle,
-  settleBattle,
   sidesOwnedBy,
   townsOf,
-  veteranosEnSuBase,
   week,
-} from '@core/state/game.js';
+} from '@core/state/consultas.js';
+import { applyAdventureAction } from '@core/state/game.js';
+import { ascenderVeterano, veteranosEnSuBase } from '@core/state/heroes.js';
 import { newGame } from '@core/state/setup.js';
 import { dueñoDeLaCiudad } from '@core/state/sitios.js';
-import { firmaDeVoces, ponerVoces, vocesCaducadas } from '@core/town/voces.js';
+import type { GameContext, GameState } from '@core/state/tipos.js';
 import type { PlayerId, TipoDeGolpe } from '@core/types.js';
 import type { AgentLink } from './agent-link.js';
 import {

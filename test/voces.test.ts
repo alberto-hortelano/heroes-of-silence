@@ -4,10 +4,6 @@
  * voces que escribe el narrador, cada una sola y cada línea sola.
  */
 import { describe, expect, it } from 'vitest';
-import type { GameState } from '../src/core/state/game.js';
-import { newGame } from '../src/core/state/setup.js';
-import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
-import type { Town } from '../src/core/town/town.js';
 import {
   alcaideDe,
   firmaDeVoces,
@@ -17,7 +13,11 @@ import {
   vocesBlocker,
   vocesCaducadas,
   vozDe,
-} from '../src/core/town/voces.js';
+} from '../src/core/gente/voces.js';
+import { newGame } from '../src/core/state/setup.js';
+import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
+import type { GameState } from '../src/core/state/tipos.js';
+import type { Town } from '../src/core/town/town.js';
 
 function base(seed = 5): { state: GameState; town: Town } {
   const state = newGame({ seed });

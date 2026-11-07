@@ -30,7 +30,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { type Browser, chromium, type Page } from 'playwright';
 import sharp from 'sharp';
 import WebSocket from 'ws';
-import { FONDO_INEXPLORADO } from '../../src/client/render/minimapa.js';
+import { FONDO_INEXPLORADO } from '../../src/client/render/mapa/minimapa.js';
 import type {
   AgentHelloMsg,
   AgentResponseMsg,

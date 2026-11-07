@@ -19,15 +19,15 @@ import {
   tiposDeHeroe,
   validarFigurasDeHeroe,
   validarTiposDeHeroe,
-} from '../src/core/data.js';
+} from '../src/core/hero/tipos-de-heroe.js';
 import { createRng } from '../src/core/rng.js';
 import { applyAdventureAction } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 import { FACTION_IDS, type FactionId } from '../src/core/types.js';
 import { hojasDelTaller } from '../tools/arena/borrador.js';
+import { RAIZ } from './comun.js';
 
-const RAIZ = join(import.meta.dirname, '..');
 const TIPOS = validarTiposDeHeroe(tiposJson, FACTION_IDS);
 
 describe('la tabla tipo → hoja (criterio 13)', () => {

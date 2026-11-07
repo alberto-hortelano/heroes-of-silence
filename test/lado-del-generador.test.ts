@@ -10,18 +10,18 @@
  * `regiones.test.ts` ya roza el minuto sin ellos.
  */
 import { describe, expect, it } from 'vitest';
-import { mapPlanSchema } from '../src/core/contract/agent.js';
+import { mapPlanSchema } from '../src/core/contract/esquemas.js';
 import {
-  generateMapPlan,
   LADO_DEL_MAPA,
   LADO_MAXIMO_DEL_GENERADOR,
   LADO_MAXIMO_DEL_PLAN,
   LADO_MINIMO_DEL_GENERADOR,
   LADO_MINIMO_DEL_PLAN,
-  validateMapPlan,
-} from '../src/core/map/generate.js';
+} from '../src/core/map/generar/plan.js';
+import { generateMapPlan } from '../src/core/map/generar/procedimental.js';
+import { validateMapPlan } from '../src/core/map/generar/validar.js';
 import { createRng } from '../src/core/rng.js';
-import { itLento, rango, segunPrisa } from './lento.js';
+import { conRespiro, itLento, rango, segunPrisa } from './lento.js';
 
 /**
  * Lo que falla al generar un plan de ese tamaño con esa semilla, con su
@@ -54,22 +54,23 @@ describe('el lado que sabe hacer el generador (#102)', () => {
       [max, min],
     ];
     // Un mapa grande cuesta ~1 s desde #224 (los vestidos con una silla se
-    // repiten): se suelta el hilo entre uno y otro para que el trabajador de
-    // vitest conteste («Timeout calling onTaskUpdate»).
+    // repiten): se suelta el hilo entre uno y otro (`conRespiro`) para que el
+    // trabajador de vitest conteste («Timeout calling onTaskUpdate»).
     const malos: string[] = [];
     for (const [width, height] of medidas)
-      for (const s of segunPrisa([1], rango(1, 3))) {
-        await new Promise((r) => setTimeout(r, 0));
+      for await (const s of conRespiro(segunPrisa([1], rango(1, 3))))
         malos.push(...loQueFallaAlGenerar(width, height, s));
-      }
     expect(malos).toEqual([]);
   }, 180_000);
 
   itLento(
     `el lado mínimo del generador sale en las 200 semillas: es lo que lo define (#102)`,
-    () => {
+    async () => {
       const lado = LADO_MINIMO_DEL_GENERADOR;
-      expect(rango(1, 200).flatMap((s) => loQueFallaAlGenerar(lado, lado, s))).toEqual([]);
+      const malos: string[] = [];
+      for await (const s of conRespiro(rango(1, 200)))
+        malos.push(...loQueFallaAlGenerar(lado, lado, s));
+      expect(malos).toEqual([]);
     },
   );
 

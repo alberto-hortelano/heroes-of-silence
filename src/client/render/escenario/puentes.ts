@@ -7,7 +7,8 @@
  * Puro, como el resto del escenógrafo: un análisis, un relieve y el catálogo
  * entran y un `Puente` sale. Lo coloca `componer`.
  */
-import type { TramoDeCamino } from '@core/map/map.js';
+
+import type { TramoDeCamino } from '@core/map/red-de-caminos.js';
 import { isWalkable, type TerrainKind } from '@core/map/terrain.js';
 import type { Point } from '@core/types.js';
 import { type Analisis, regionPisable } from './analizar.js';

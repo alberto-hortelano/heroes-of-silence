@@ -33,13 +33,9 @@
 :root[data-tema] body,
 :root[data-tema] button { line-height: 1.15; }
 
-/* La barra mide lo mismo con cualquier letra (H2 de QA). Un desplegable mide lo
-   que pide su letra y no hace caso de `line-height`: con la de los no muertos la
-   barra crecía de 38,6 a 41,6 px y con la de los templarios encogía a 36,6. Se
-   fija al alto del neutro (21,2 px con la letra de sistema de 12 px de Linux), y
-   el texto de la barra lleva el alto de línea del neutro. */
+/* La barra mide lo mismo con cualquier letra (H2 de QA): su texto lleva el alto
+   de línea del neutro. */
 :root[data-tema] #topbar { line-height: 0.9375rem; }
-:root[data-tema] .selector-de-la-barra select { height: 1.325rem; }
 
 /* La letra de los títulos es de rótulo: en párrafos (la aclaración de una nota,
    lo que dice un vecino) se lee la del cuerpo. */

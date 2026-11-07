@@ -38,7 +38,7 @@ import {
   textoDeFin,
 } from '../src/server/notas.js';
 import type { AgentRequestMsg } from '../src/server/protocol.js';
-import { acabarPorLaBase } from './helpers.js';
+import { acabarPorLaBase } from './partida-de-prueba.js';
 
 /** Una petición cualquiera, para mirar cómo se compone la escucha. */
 const PETICION: AgentRequestMsg = {

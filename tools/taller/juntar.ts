@@ -6,7 +6,7 @@
 import { existsSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve } from 'node:path';
-import { CARPETA_DE_LAS_FIGURAS, figuraDelBanco } from '../../src/core/npcs.js';
+import { CARPETA_DE_LAS_FIGURAS, figuraDelBanco } from '../../src/core/gente/banco.js';
 import {
   HOJAS_DE_FIGURA,
   type HojaDeFigura,

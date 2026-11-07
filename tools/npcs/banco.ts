@@ -25,7 +25,7 @@ import {
   type PeticionDeFigura,
   problemasDePeticiones,
   RUTA_DEL_BANCO,
-} from '../../src/core/npcs.js';
+} from '../../src/core/gente/banco.js';
 import { comentarioDe, escribirAtomico, jsonDe } from '../json.js';
 import {
   arteEnOchoDirecciones,

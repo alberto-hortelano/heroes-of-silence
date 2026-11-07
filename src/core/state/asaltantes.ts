@@ -6,8 +6,12 @@
  *
  * **Este módulo decide y no escribe la crónica**: dice a dónde se mueve un
  * grupo, quién embosca a quién, dónde brota uno nuevo y cuáles se dispersan.
- * Lo aplica `game.ts`, que es el único que llama a `emit` —el candado de
- * `state.log`— y el único que muta la partida.
+ * Lo aplican los módulos de la partida que llaman a `emit` —el candado de
+ * `state.log`, en `cronica.ts`—: el reloj (`turnos.ts`: la patrulla y el brote),
+ * la marcha (`marcha.ts`: la emboscada, la parada y el grupo que se dispersa) y el
+ * cierre de una batalla (`cierre.ts`). De la partida solo escribe lo que queda de
+ * un grupo tras una batalla o al dispersarse (`dejarAsaltante`, la única escritura
+ * de su tropa).
  *
  * Un asaltante es un **actor**, como un héroe, y no un objeto del mapa como el
  * monstruo. La diferencia no es de gusto: la niebla **copia** los objetos a
@@ -34,110 +38,28 @@
  *    los lunes en regiones sin dueño y sin héroe, en una casilla libre.
  */
 
-import { fuerzaDe, poderDe, ventajaClara } from '../ai/fuerza.js';
-import { problemasDeTopeDeLiderazgo } from '../catalogo.js';
-import { loNeutralAlTope } from '../combate.js';
-import { ASALTANTES, type GrupoDeTropa } from '../data.js';
 import { deHoyALaEscala } from '../escala.js';
-import type { Hero } from '../hero/hero.js';
-import { individuosDe } from '../hero/troop.js';
+import { fuerzaDe, poderDe, ventajaClara } from '../hero/fuerza.js';
+import { ASALTANTES, loNeutralAlTope } from '../hero/grupos.js';
+import { gruposDe, individuosDe } from '../hero/troop.js';
 import type { CasillasLeidas } from '../map/casillas.js';
-import { type GameMap, inBounds } from '../map/map.js';
-import {
-  aPunto,
-  type Estructura,
-  estructura,
-  juntoANodo,
-  territorio,
-  VECINAS,
-} from '../map/regiones.js';
+import { aPunto, chebyshev, inBounds, VECINAS } from '../map/geometria.js';
+import { estructura, juntoANodo, regionDeCasilla } from '../map/regiones.js';
+import { territorio } from '../map/territorio.js';
+import type { Estructura, GameMap } from '../map/tipos.js';
 import type { Rng } from '../rng.js';
-import type { Point } from '../types.js';
-import type { GameState } from './game.js';
-
-/**
- * Un grupo de asaltantes tal y como lo ven los demás: dónde está y qué lleva,
- * en grupos de tropa —«5 × piquero»— y no individuo a individuo. Es lo que
- * viaja al espectador y lo que pinta el lienzo: una sola forma para los dos, y
- * `GameState.raiders` la cumple tal cual.
- */
-export interface VistaAsaltante {
-  readonly id: string;
-  readonly at: Point;
-  readonly troops: readonly GrupoDeTropa[];
-}
-
-/**
- * Un grupo de asaltantes en el mapa. Su tropa se guarda en grupos y no en
- * individuos: son siete como mucho y de una o dos criaturas, y el ejército de
- * individuos solo hace falta para pelear, así que se deriva al abrir batalla
- * (`ejercitoDe`) y vuelve a grupos con lo que quede en pie.
- */
-export interface Raider extends VistaAsaltante {
-  at: Point;
-  troops: readonly GrupoDeTropa[];
-}
-
-/** Un grupo tal como lo declara un plan de mapa: casilla y tropa. */
-export interface RaiderPlaneado {
-  readonly at: Point;
-  readonly troops: readonly GrupoDeTropa[];
-}
-
-/**
- * Lo que impide que unos grupos de tropa sean un grupo neutral sin héroe: de 1
- * individuo en adelante, el techo de liderazgo y el techo de fuerza de
- * `data/asaltantes.json`. `queEs` lo nombra en la frase —«un grupo de
- * asaltantes», «un encuentro»—. Una sola comprobación para los sitios donde se
- * escribe uno: los datos de los asaltantes, el plan de mapa del agente
- * (`validateMapPlan`) y los encuentros de un mundo (`problemasDelMundo`), que
- * así no llevan una cifra propia.
- */
-export function problemasDeGrupoNeutral(
-  grupos: readonly GrupoDeTropa[],
-  quien: string,
-  queEs: string,
-): string[] {
-  // Un grupo de cero individuos no es un grupo: ocupaba casilla, era hostil y no
-  // emboscaba, y atacarlo daba una batalla de 0 rondas ganada al instante. Aquí y
-  // no en `problemasDeGrupo`, porque una guarnición vacía SÍ es un estado de
-  // juego —la que queda al tomar un castillo—.
-  if (grupos.length === 0) {
-    return [`${quien} no lleva a nadie: ${queEs} es de 1 individuo en adelante`];
-  }
-  const problemas = problemasDeTopeDeLiderazgo(grupos, quien, ASALTANTES.liderazgoMax, queEs);
-  if (problemas.length > 0) return problemas;
-  const fuerza = poderDe({ troops: grupos });
-  if (fuerza > ASALTANTES.fuerzaMax) {
-    problemas.push(
-      `${quien} suma ${fuerza} de fuerza y ${queEs} lleva como mucho ${ASALTANTES.fuerzaMax}: más fuerte que eso es un muro que ningún héroe cruza`,
-    );
-  }
-  return problemas;
-}
-
-/** Lo que impide que unos grupos de tropa sean un asaltante (`problemasDeGrupoNeutral`). */
-export function problemasDeAsaltante(grupos: readonly GrupoDeTropa[], quien: string): string[] {
-  return problemasDeGrupoNeutral(grupos, quien, 'un grupo de asaltantes');
-}
-
-// El techo de fuerza se comprueba AL CARGAR, como el resto del fichero en
-// `data.ts`: aquí y no allí porque medir la fuerza pide `fuerza.ts`, que importa
-// el catálogo, y desde el catálogo sería un ciclo.
-{
-  const problemas = ASALTANTES.composiciones.flatMap((grupos, i) =>
-    problemasDeAsaltante(grupos, `data/asaltantes.json: la composición ${i}`),
-  );
-  if (problemas.length > 0) throw new Error(problemas.join('; '));
-}
+import type {
+  Army,
+  GrupoDeTropa,
+  Hero,
+  Point,
+  Raider,
+  RaiderPlaneado,
+  VistaAsaltante,
+} from '../types.js';
+import type { GameState } from './tipos.js';
 
 // ---------------------------------------------------------------- la región
-
-/** La región de una casilla, o −1: muro, nodo o fuera de toda región. */
-export function regionDeCasilla(map: GameMap, p: Point): number {
-  if (!inBounds(map, p)) return -1;
-  return estructura(map).regionDe[p.y * map.width + p.x] as number;
-}
 
 /**
  * Si un grupo puede ESTAR en la casilla `i` de la región `r`: dentro de ella,
@@ -158,7 +80,7 @@ function casillaLibre(
 /**
  * Lo que ocupa casilla para un grupo, marcado con un 1 (índice `y*width+x`):
  * objetos, héroes y grupos. Se hace UNA vez por día y quien mueve los grupos
- * la tiene al día al moverlos (`game.ts`): rehacerla por grupo eran un `Set`
+ * la tiene al día al moverlos (`turnos.ts`): rehacerla por grupo eran un `Set`
  * de cadenas por grupo y por día, la mitad del tiempo de la patrulla.
  */
 export function mascaraDeOcupacion(state: GameState): Uint8Array {
@@ -237,13 +159,13 @@ export function pasoDePatrulla(
 
   const heroes = state.heroes.filter((h) => regionDeCasilla(map, h.at) === r);
   const mia = poderDe(raider);
-  const capazCon = heroes.some((h) => ventajaClara(mia, fuerzaDe(h, state.characters)));
+  const capazCon = heroes.some((h) => ventajaClara(mia, fuerzaDe(h)));
   if (heroes.length > 0 && !capazCon) {
     const lejania = (i: number): number => {
       const p = aPunto(i, W);
       let cerca = Number.POSITIVE_INFINITY;
       for (const h of heroes) {
-        cerca = Math.min(cerca, Math.max(Math.abs(h.at.x - p.x), Math.abs(h.at.y - p.y)));
+        cerca = Math.min(cerca, chebyshev(h.at, p));
       }
       return cerca;
     };
@@ -274,7 +196,7 @@ export function emboscador(state: GameState, hero: Hero): Raider | null {
   let suya: number | undefined;
   for (const raider of state.raiders) {
     if (regionDeCasilla(state.map, raider.at) !== r) continue;
-    suya ??= fuerzaDe(hero, state.characters);
+    suya ??= fuerzaDe(hero);
     if (ventajaClara(poderDe(raider), suya)) return raider;
   }
   return null;
@@ -351,7 +273,7 @@ function gruposConMargen(
   for (const raider of state.raiders) {
     const region = regionDeCasilla(state.map, raider.at);
     if (region < 0 || !cuales(raider, region)) continue;
-    suya ??= fuerzaDe(hero, state.characters);
+    suya ??= fuerzaDe(hero);
     if (ventajaClara(poderDe(raider), suya)) out.push({ raider, region });
   }
   return out;
@@ -544,7 +466,7 @@ export function casillasPeligrosas(
   for (const { grupo } of recuerdo.values()) {
     const region = regionDeCasilla(state.map, grupo.at);
     if (region < 0 || regiones.has(region)) continue;
-    suya ??= fuerzaDe(hero, state.characters);
+    suya ??= fuerzaDe(hero);
     if (ventajaClara(poderDe(grupo), suya)) regiones.add(region);
   }
   if (regiones.size === 0) return null;
@@ -617,8 +539,21 @@ export function dondeBrotan(state: GameState, rng: Rng): RaiderPlaneado[] {
   return loNeutralAlTope({ raiders: out }, state.combate.tope).raiders;
 }
 
-/** Si la casilla toca un nodo: un grupo ahí taparía un paso. */
-export function tocaUnNodo(map: GameMap, p: Point): boolean {
-  if (!inBounds(map, p)) return false;
-  return juntoANodo(map)[p.y * map.width + p.x] === 1;
+// ---------------------------------------------------------------- el grupo en la partida
+
+/**
+ * Lo que le queda en pie a un grupo después de una batalla, o nada: un grupo
+ * sin nadie deja de existir. La única escritura de la tropa de un grupo y el
+ * único sitio que lo borra, gane, pierda o se disperse.
+ */
+export function dejarAsaltante(state: GameState, id: string, army: Army): void {
+  if (army.length > 0) raiderById(state, id).troops = gruposDe(army);
+  else state.raiders = state.raiders.filter((r) => r.id !== id);
+}
+
+/** El grupo de asaltantes con ese id; lanza si ya no está. */
+export function raiderById(state: GameState, id: string): Raider {
+  const r = state.raiders.find((x) => x.id === id);
+  if (r === undefined) throw new Error(`grupo de asaltantes desconocido: "${id}"`);
+  return r;
 }

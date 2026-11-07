@@ -13,19 +13,17 @@
  * - `data/poblamiento.json`: el cargador lanza con lo que no vale.
  */
 import { describe, expect, it } from 'vitest';
-import { POBLAMIENTO, validarPoblamiento } from '../src/core/data.js';
-import {
-  buildMap,
-  ciudadesDeRegion,
-  generateMapPlan,
-  honduraDeLaRegion,
-} from '../src/core/map/generate.js';
-import { aPunto, pointKey } from '../src/core/map/map.js';
+import { buildMap } from '../src/core/map/generar/construir.js';
+import { POBLAMIENTO, validarPoblamiento } from '../src/core/map/generar/datos.js';
+import { ciudadesDeRegion, honduraDeLaRegion } from '../src/core/map/generar/poblar.js';
+import { generateMapPlan } from '../src/core/map/generar/procedimental.js';
+import { aPunto, pointKey } from '../src/core/map/geometria.js';
 import { puertasDeLaCiudad, rioAnteLaCiudad } from '../src/core/map/recinto.js';
-import { estructura, regionesDelSitio } from '../src/core/map/regiones.js';
+import { estructura } from '../src/core/map/regiones.js';
+import { regionesDelSitio } from '../src/core/map/territorio.js';
 import { createRng } from '../src/core/rng.js';
-import { grafoDeCaminos, pieza } from './helpers.js';
 import { rango, segunPrisa } from './lento.js';
+import { grafoDeCaminos, piezaDeCaminos } from './mapa-de-prueba.js';
 
 describe('las ciudades del generador: en un nodo, solo las bases y las del río', () => {
   // En el bucle rápido, tres semillas; en la orden lenta, 1-40: 160 ciudades de
@@ -62,7 +60,7 @@ describe('las ciudades del generador: en un nodo, solo las bases y las del río'
         // El centro de sus caminos: por ellos se llega de la ciudad a todo lo
         // de su región que lleva camino (sus pueblos y sus nodos), y le entra
         // al menos uno por una puerta.
-        const alcance = pieza(grafoDeCaminos(map).unidas, t.at.y * W + t.at.x, () => true);
+        const alcance = piezaDeCaminos(grafoDeCaminos(map).unidas, t.at.y * W + t.at.x, () => true);
         const puertas = puertasDeLaCiudad(map, t.at);
         expect(puertas.length, `${donde}: sin puerta`).toBeGreaterThan(0);
         for (const o of map.objects) {

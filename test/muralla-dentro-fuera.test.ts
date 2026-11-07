@@ -7,96 +7,39 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { renderMuralla } from '../src/client/arena/paneles.js';
-import { EscenaBatalla } from '../src/client/escenas/batalla.js';
-import { marcadoDe } from '../src/client/html.js';
+import { renderMuralla } from '../src/client/arena/paneles/muralla.js';
+import { EscenaBatalla } from '../src/client/batalla/escena.js';
+import { marcadoDe } from '../src/client/comun/html.js';
+import { cajaDeFigura } from '../src/client/render/batalla/figura.js';
 import {
-  ALTO_DE_MURALLA,
   alzadoDeLaMuralla,
-  cajaDeFigura,
   type PiezaDelTablero,
   piezasEnOrden,
-} from '../src/client/render/batalla.js';
+} from '../src/client/render/batalla/muralla.js';
 import { altoConAlzado, planoDeHex, tableroPara } from '../src/client/render/proyeccion.js';
-import { FORMAS_DE_EJEMPLO, ladosDeLaForma } from '../src/core/arena-murallas.js';
+import { FORMAS_DE_EJEMPLO, ladosDeLaForma } from '../src/core/arena/murallas.js';
+import { applyAction } from '../src/core/battle/battle.js';
+import { caminoDe, hexKey, neighbours } from '../src/core/battle/board.js';
 import {
-  applyAction,
-  type BattleSide,
-  createBattle,
   movableFrom,
   movableHexes,
   movimientoBlocker,
   stackById,
-} from '../src/core/battle/battle.js';
-import { caminoDe, hexKey, neighbours } from '../src/core/battle/board.js';
-import {
-  cierra,
-  esMuro,
-  ladoDeLaMuralla,
-  type MurallaDeBatalla,
-  SIN_MURALLA,
-} from '../src/core/battle/muralla.js';
-import type { BattleStack, BattleState } from '../src/core/battle/types.js';
-import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { createRng } from '../src/core/rng.js';
-import type { Hex, Stack, UnitInfo } from '../src/core/types.js';
-import {
-  abrirPuertas,
-  aMano,
-  bandoDePersonajes,
-  empezarTalCual,
-  forzarTurno,
-  muralla,
-  NO_MUERTO,
-  PESADA,
-  sesionDeArena,
-  TIRADOR,
-  TROPA,
-  unidadDeArena,
-} from './helpers.js';
+} from '../src/core/battle/consultas.js';
+import { cierra, esMuro, ladoDeLaMuralla, SIN_MURALLA } from '../src/core/battle/muralla.js';
+import type { BattleStack, BattleState, MurallaDeBatalla } from '../src/core/battle/types.js';
 
-const forma = (nombre: string): MurallaDeBatalla => {
-  const f = FORMAS_DE_EJEMPLO.find((x) => x.nombre === nombre);
-  if (f === undefined) throw new Error(`no hay forma de ejemplo «${nombre}»`);
-  return f.muralla;
-};
-const LINEA = forma('Línea recta');
-const CON_PUERTA = forma('Línea con puerta');
+import { createRng } from '../src/core/rng.js';
+import type { Hex } from '../src/core/types.js';
+import { ALTO_DE_MURALLA } from '../src/shared/muralla-de-batalla.js';
+import { empezarTalCual, sesionDeArena } from './batalla-de-cliente.js';
+import { abrirPuertas, muralla } from './batalla-de-prueba.js';
+import { PESADA, TIRADOR, TROPA } from './comun.js';
+import { CON_PUERTA, claves, duelo, forma, h, LINEA, VAMPIRO } from './muralla-de-prueba.js';
+import { unidadDeArena } from './pelea-de-arena.js';
+
 const SEMICIRCULO = forma('Semicírculo');
 const EN_L = forma('En L');
-
-const lado = (army: readonly Stack[]): BattleSide => ({ army, hero: null });
-
-/** Un volador (el vampiro): `flying`, que nadie del catálogo lleva. */
-const VAMPIRO = aMano(NO_MUERTO, { name: 'Vampiro', traits: ['undead', 'flying'] });
-
-/** Un bando de uno: tres de una unidad del catálogo, o uno hecho a mano. */
-const deUno = (quien: string | UnitInfo): BattleSide =>
-  typeof quien === 'string' ? lado([{ creature: quien, count: 3 }]) : bandoDePersonajes([quien]);
-
-function duelo(
-  muralla: MurallaDeBatalla,
-  atacante: string | UnitInfo,
-  en: Hex,
-  defensor: string | UnitInfo,
-  enDefensor: Hex,
-  turnoDe: 'attacker-0' | 'defender-0' = 'attacker-0',
-): BattleState {
-  const state = createBattle(
-    deUno(atacante),
-    deUno(defensor),
-    createRng(3),
-    COMBATE_COMPLETO,
-    muralla,
-  );
-  stackById(state, 'attacker-0').hex = en;
-  stackById(state, 'defender-0').hex = enDefensor;
-  forzarTurno(state, turnoDe);
-  return state;
-}
-
-const claves = (hexes: readonly Hex[]): Set<string> => new Set(hexes.map(hexKey));
-const h = (col: number, row: number): Hex => ({ col, row });
 
 describe('dentro y fuera, derivados de la forma (C10)', () => {
   it('la línea recta y la de la puerta cierran: dentro la derecha, fuera la izquierda', () => {
@@ -174,7 +117,11 @@ describe('dentro y fuera, derivados de la forma (C10)', () => {
 
 describe('de lo alto solo se baja hacia dentro (C11)', () => {
   it('el atacante que subió no vuelve fuera, y moverlo ahí lanza diciéndolo', () => {
-    const state = duelo(LINEA, PESADA, h(7, 4), TROPA, h(10, 0));
+    const state = duelo({
+      muralla: LINEA,
+      atacante: [PESADA, h(7, 4)],
+      defensores: [[TROPA, h(10, 0)]],
+    });
     const a = stackById(state, 'attacker-0');
     const movibles = claves(movableHexes(state, a));
     expect(movibles.has('8,4')).toBe(true);
@@ -185,7 +132,12 @@ describe('de lo alto solo se baja hacia dentro (C11)', () => {
   });
 
   it('el defensor sube solo desde dentro: fuera de la línea no tiene escaleras', () => {
-    const state = duelo(LINEA, TROPA, h(0, 0), PESADA, h(6, 4), 'defender-0');
+    const state = duelo({
+      muralla: LINEA,
+      atacante: [TROPA, h(0, 0)],
+      defensores: [[PESADA, h(6, 4)]],
+      turnoDe: 'defender-0',
+    });
     expect(movableFrom(state, stackById(state, 'defender-0')).has('7,4')).toBe(false);
     expect(movimientoBlocker(state, h(7, 4))).toBe(
       'desde fuera no se sube a la muralla: sus escaleras están dentro',
@@ -193,7 +145,12 @@ describe('de lo alto solo se baja hacia dentro (C11)', () => {
   });
 
   it('el defensor que salió por la puerta vuelve a lo alto por dentro, no por el arco', () => {
-    const state = duelo(CON_PUERTA, TROPA, h(0, 0), PESADA, h(6, 4), 'defender-0');
+    const state = duelo({
+      muralla: CON_PUERTA,
+      atacante: [TROPA, h(0, 0)],
+      defensores: [[PESADA, h(6, 4)]],
+      turnoDe: 'defender-0',
+    });
     abrirPuertas(state);
     const d = stackById(state, 'defender-0');
     // (6,4) → puerta (7,4) → (7,3) eran dos pasos; ahora entra y sube de dentro.
@@ -206,7 +163,12 @@ describe('de lo alto solo se baja hacia dentro (C11)', () => {
   });
 
   it('de lo alto no se baja a la puerta: a ella se llega por el suelo', () => {
-    const state = duelo(CON_PUERTA, TROPA, h(0, 0), PESADA, h(7, 3), 'defender-0');
+    const state = duelo({
+      muralla: CON_PUERTA,
+      atacante: [TROPA, h(0, 0)],
+      defensores: [[PESADA, h(7, 3)]],
+      turnoDe: 'defender-0',
+    });
     abrirPuertas(state);
     const paso = movableFrom(state, stackById(state, 'defender-0')).get('7,4');
     if (paso === undefined) throw new Error('el espadachín debería llegar a su puerta');
@@ -216,12 +178,20 @@ describe('de lo alto solo se baja hacia dentro (C11)', () => {
   });
 
   it('el volador, sin cambio: se posa arriba y baja donde quiera', () => {
-    const state = duelo(LINEA, VAMPIRO, h(7, 4), TROPA, h(10, 0));
+    const state = duelo({
+      muralla: LINEA,
+      atacante: [VAMPIRO, h(7, 4)],
+      defensores: [[TROPA, h(10, 0)]],
+    });
     expect(claves(movableHexes(state, stackById(state, 'attacker-0'))).has('5,4')).toBe(true);
   });
 
   it('en una forma que no cierra también se baja solo hacia dentro (C15)', () => {
-    const state = duelo(EN_L, PESADA, h(7, 3), TROPA, h(10, 8));
+    const state = duelo({
+      muralla: EN_L,
+      atacante: [PESADA, h(7, 3)],
+      defensores: [[TROPA, h(10, 8)]],
+    });
     const movibles = claves(movableHexes(state, stackById(state, 'attacker-0')));
     expect(movibles.has('8,3')).toBe(true);
     expect(movibles.has('6,3')).toBe(false);
@@ -375,21 +345,33 @@ describe('lo de delante tapa lo de detrás; la portada, a quien pasa (C13)', () 
 
   it('la figura detrás de una columna se pinta antes que ella, y la de delante después', () => {
     const m = muralla([h(5, 5)]);
-    const state = duelo(m, PESADA, h(5, 3), TROPA, h(5, 6));
+    const state = duelo({
+      muralla: m,
+      atacante: [PESADA, h(5, 3)],
+      defensores: [[TROPA, h(5, 6)]],
+    });
     const p = orden(state);
     expect(indice(p, 'figura:attacker-0')).toBeLessThan(indice(p, 'columna:5,5'));
     expect(indice(p, 'figura:defender-0')).toBeGreaterThan(indice(p, 'columna:5,5'));
   });
 
   it('quien está en lo alto, después de su columna y antes de la de delante', () => {
-    const state = duelo(LINEA, PESADA, h(1, 4), TIRADOR, h(7, 3));
+    const state = duelo({
+      muralla: LINEA,
+      atacante: [PESADA, h(1, 4)],
+      defensores: [[TIRADOR, h(7, 3)]],
+    });
     const p = orden(state);
     expect(indice(p, 'figura:defender-0')).toBeGreaterThan(indice(p, 'columna:7,3'));
     expect(indice(p, 'figura:defender-0')).toBeLessThan(indice(p, 'columna:7,4'));
   });
 
   it('quien está en una casilla de la puerta pasa bajo la portada: el dintel va encima de él', () => {
-    const state = duelo(CON_PUERTA, PESADA, h(7, 4), TROPA, h(8, 4));
+    const state = duelo({
+      muralla: CON_PUERTA,
+      atacante: [PESADA, h(7, 4)],
+      defensores: [[TROPA, h(8, 4)]],
+    });
     const p = orden(state);
     expect(indice(p, 'portada:7,4')).toBeGreaterThan(-1);
     expect(indice(p, 'figura:defender-0')).toBeLessThan(indice(p, 'portada:7,4'));
@@ -403,7 +385,11 @@ describe('lo de delante tapa lo de detrás; la portada, a quien pasa (C13)', () 
   it('quien está en lo alto de la columna de detrás de la puerta va tras la portada: su adarve sigue por ella', () => {
     // (7,3) linda por delante con las dos casillas de la puerta (7,4)-(8,4): las
     // almenas de la portada le tapaban los pies y el aro (QA del arte de la muralla).
-    const state = duelo(CON_PUERTA, PESADA, h(1, 4), TIRADOR, h(7, 3));
+    const state = duelo({
+      muralla: CON_PUERTA,
+      atacante: [PESADA, h(1, 4)],
+      defensores: [[TIRADOR, h(7, 3)]],
+    });
     const p = orden(state);
     expect(indice(p, 'figura:defender-0')).toBeGreaterThan(indice(p, 'portada:7,4'));
     // Las columnas de más adelante lo siguen tapando: es profundidad.
@@ -415,7 +401,11 @@ describe('lo de delante tapa lo de detrás; la portada, a quien pasa (C13)', () 
   });
 
   it('sin muralla, ni columnas ni portadas: solo las figuras, de atrás adelante', () => {
-    const state = duelo(SIN_MURALLA, PESADA, h(1, 6), TROPA, h(9, 2));
+    const state = duelo({
+      muralla: SIN_MURALLA,
+      atacante: [PESADA, h(1, 6)],
+      defensores: [[TROPA, h(9, 2)]],
+    });
     expect(orden(state)).toEqual([
       { kind: 'figura', id: 'defender-0' },
       { kind: 'figura', id: 'attacker-0' },

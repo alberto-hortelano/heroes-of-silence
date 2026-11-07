@@ -16,63 +16,57 @@ import {
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { BattleAnimator } from '../src/client/anim.js';
 import {
   type DatosDePuesto,
-  enElMontaje,
   FIGURA_GENERICA,
   renderBando,
-  renderCatalogo,
-  renderFicha,
-  renderFichaDeHeroe,
-  renderPanelDeBatalla,
   resumenDeCifras,
-  tarjetasDelCatalogo,
-} from '../src/client/arena/paneles.js';
-import { marcadoDe } from '../src/client/html.js';
-import { arteDe, juegosDelYBot, registrarUnidad } from '../src/client/render/personajes.js';
-import { type LadoDeSesion, SesionDeArena } from '../src/client/session.js';
-import { nombreEnElCampo } from '../src/client/views/distintivo.js';
-import { renderBattleLog } from '../src/client/views/panels.js';
+} from '../src/client/arena/paneles/bandos.js';
+import { renderPanelDeBatalla } from '../src/client/arena/paneles/batalla.js';
+import { enElMontaje, renderFicha, renderFichaDeHeroe } from '../src/client/arena/paneles/ficha.js';
+import { renderCatalogo, tarjetasDelCatalogo } from '../src/client/arena/paneles/lista.js';
+import { BattleAnimator } from '../src/client/batalla/anim.js';
+import { renderBattleLog } from '../src/client/batalla/parte.js';
+import { marcadoDe } from '../src/client/comun/html.js';
+import { nombreEnElCampo } from '../src/client/render/batalla/distintivo.js';
+import { arteDe, juegosDelYBot, registrarUnidad } from '../src/client/render/figuras/personajes.js';
+import { type LadoDeSesion, SesionDeArena } from '../src/client/sesion/sesion-de-arena.js';
 import { completarCruce } from '../src/core/ai/rueda.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import {
-  equiparEnArena,
-  type FuenteDeArena,
-  finalDeArena,
-  type HeroeDeArena,
-  heroeDeArena,
-  heroePorDefecto,
-  type IdsOcupados,
-  idsLlevados,
-  lecturaDelNivel,
   type MontajeDelEnlace,
   montajeALaURL,
   montajeDeArenaDelEnlace,
   montajeDeLaURL,
-  piezasDelMontaje,
   retiradosDeLaURL,
-  retocarEnBatalla,
-  tipoDelStack,
-  unidadNueva,
   VERSION_DEL_ENLACE,
-} from '../src/core/arena.js';
-import { FORMAS_DE_EJEMPLO, validarFormaDeMuralla } from '../src/core/arena-murallas.js';
-import { activeStack, applyAction, MAX_ROUNDS, stackHexes } from '../src/core/battle/battle.js';
+} from '../src/core/arena/enlace.js';
+import { lecturaDelNivel, tipoDelStack } from '../src/core/arena/ficha.js';
+import { type HeroeDeArena, heroeDeArena, heroePorDefecto } from '../src/core/arena/heroe.js';
+import type { FuenteDeArena } from '../src/core/arena/lados.js';
+import { finalDeArena } from '../src/core/arena/montaje.js';
+import { FORMAS_DE_EJEMPLO, validarFormaDeMuralla } from '../src/core/arena/murallas.js';
+import { equiparEnArena, idsLlevados, piezasDelMontaje } from '../src/core/arena/piezas.js';
+import { retocarEnBatalla } from '../src/core/arena/retoque.js';
+import { type IdsOcupados, unidadNueva } from '../src/core/arena/unidad-nueva.js';
+import { applyAction } from '../src/core/battle/battle.js';
+import { activeStack, stackHexes } from '../src/core/battle/consultas.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
-import { HERO_BODY } from '../src/core/battle/types.js';
-import { UNIDADES as CATALOGO, cuerpoDe } from '../src/core/catalogo.js';
+import { HERO_BODY, MAX_ROUNDS } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { CATALOGO_DE_HABILIDADES, EQUIPO_ESCRITO, HEROE, LIDERAZGO } from '../src/core/data.js';
-import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
+import { EQUIPO_ESCRITO } from '../src/core/equipo/pieza.js';
+import { EQUIPO_BASE, HEROE } from '../src/core/hero/cuerpo-del-heroe.js';
+import { LIDERAZGO } from '../src/core/hero/liderazgo.js';
 import { hechizo, hechizosDelGremio } from '../src/core/magia/catalogo.js';
 import { rinde } from '../src/core/magia/formato.js';
-import { indiceDePoder } from '../src/core/nivel.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import { CREATURE_TRAITS } from '../src/core/types.js';
+import { UNIDADES as CATALOGO, cuerpoDe } from '../src/core/unidad/catalogo.js';
 import {
   armaDeCuerpoBlocker,
+  CATALOGO_DE_HABILIDADES,
   COMENTARIO_DEL_CATALOGO_DE_UNIDADES,
   ESPADA,
   HABILIDADES,
@@ -86,7 +80,8 @@ import {
   validarCatalogo,
   validarHojas,
   validarUnidad,
-} from '../src/core/unidad.js';
+} from '../src/core/unidad/formato.js';
+import { indiceDePoder } from '../src/core/unidad/nivel.js';
 import { unaVezEnLaURL } from '../src/core/validar.js';
 import { NOMBRES_DE_DIRECCION } from '../src/shared/arte.js';
 import {
@@ -107,23 +102,22 @@ import {
   UNIDADES,
   unidad as unidadDelTaller,
 } from '../tools/taller/unidades.js';
+import { empezarTalCual, enElCampo } from './batalla-de-cliente.js';
+import { MANOS_DE_PRUEBA } from './batalla-de-prueba.js';
+import { RAIZ } from './comun.js';
+import { hojaDeLaArena, hojasDeLaArena } from './hojas-de-la-arena.js';
 import {
   carpetaDeLaArena,
   catalogoCon,
+  catalogoDe,
   catalogoEntero,
   delBorrador,
-  empezarTalCual,
-  enElCampo,
-  hojaDeLaArena,
-  hojasDeLaArena,
-  MANOS_DE_PRUEBA,
   MONTAJE,
+  montar,
   peleaDelMotor,
   unidadDeArena,
-} from './helpers.js';
-import { catalogoDe, montar } from './pelea-de-arena.js';
+} from './pelea-de-arena.js';
 
-const RAIZ = resolve(import.meta.dirname, '..');
 /** El catálogo del juego con las manos de prueba: el de las peleas de estas pruebas. */
 const CON_MANOS = catalogoCon(MANOS_DE_PRUEBA);
 const HOJAS = hojasDeLaArena();
@@ -195,8 +189,8 @@ const yo = (...us: Unidad[]): LadoDeSesion => ({ ...ia(...us), ia: false });
 
 describe('la arena pelea con las cifras del borrador', () => {
   it('las cifras editadas llegan al stack tal cual, sin pasar por el catálogo', () => {
-    // `templario-monje` no es una criatura del catálogo: si algo llamara a
-    // `creature()` con él, lanzaría. Y el ataque de 42 no es el de nadie.
+    // El ataque de 42 no es el de nadie: si algo leyera el catálogo del juego en
+    // vez del de la pelea, no llegaría al stack.
     // Con las manos de prueba, que no suman nada: el bastón de su perfil le
     // sumaría daño (eso, en el test de abajo), y sin arma no se monta.
     // Fuerza 3 y agilidad 3, con las manos (fuerza 0): daño 3–9.
@@ -1095,7 +1089,8 @@ function aLaIA(b: BattleState, rng: Rng): BattleState {
 describe('la arena como banco de combate', () => {
   it('C4: la arena pelea exactamente como el juego', () => {
     // El mismo ejército por las dos vías: la del juego (`createBattle`, con cada
-    // unidad como personaje: `peleaDelMotor`) y la de la arena (`batallaDeArena`).
+    // unidad en el catálogo de su bando: `peleaDelMotor`) y la de la arena
+    // (`batallaDeArena`).
     // Héroes con todo el libro, tiradores, jinetes que cargan y no-muertos. Desde
     // el 19-10-2026 las dos van por `createBattle`, sin interruptores: esto vigila
     // que el montaje de la arena no cambie nada por el camino.
@@ -1568,15 +1563,6 @@ describe('retocar en plena pelea (B10-B14)', () => {
       b.stacks[2]?.unit.attack,
       unidad('zombi').attack,
     ]);
-    // Un personaje no sale de ningún puesto del montaje: se dice.
-    const conPersonaje = peleaDelMotor(
-      [{ unidad: unidadDeArena('zombi') }],
-      [{ unidad: unidadDeArena('zombi') }],
-      createRng(1),
-    );
-    expect(() => tipoDelStack(conPersonaje.stacks[0] as BattleStack)).toThrow(
-      'no sale de ningún puesto del montaje',
-    );
   });
 
   it('lo gastado sigue gastado: la herida y el maná (sin munición, 13-10-2026)', () => {

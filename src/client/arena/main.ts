@@ -3,87 +3,83 @@
  * cinco facciones, se cambian sus cifras, se elige quién mueve cada unidad y se
  * pelea con el mismo tablero y los mismos controles que la partida.
  *
- * Aquí solo se conecta: las reglas las aplica `SesionDeArena` (en `session.ts`,
- * la única puerta del cliente al núcleo), el ratón del tablero lo traduce
- * `EscenaBatalla` —la misma de la partida— y el marcado sale de `paneles.ts`.
+ * Aquí solo se conecta: las reglas las aplica `SesionDeArena` (en
+ * `sesion/sesion-de-arena.ts`, de la única puerta del cliente al núcleo, `sesion/`), el
+ * ratón del tablero lo traduce `EscenaBatalla` —la misma de la partida— y el marcado
+ * sale de `paneles/`.
  * Las cifras se guardan en el catálogo de unidades del repo a través del servidor de
  * desarrollo (`vite.config.ts`); sin él la página lo dice y sigue sirviendo para
  * pelear.
  */
 
 import {
-  cambioDePiezas,
-  conBase,
-  conPiezas,
-  despliegueDeArenaBlocker,
-  enElHueco,
-  equiparEnArena,
-  escaleraDeArenaBlocker,
-  escritaDe,
-  type FuenteDeArena,
-  type HeroeDeArena,
   hechizosDelMontaje,
-  heroeDeArena,
-  heroePorDefecto,
   IA_POR_DEFECTO,
-  LADOS,
-  type Lado,
-  laLlevaElHeroe,
-  type MontajeDeArena,
   type MontajeDelEnlace,
-  mismaPieza,
   montajeALaURL,
   montajeDeLaURL,
   type PuestoDelEnlace,
-  piezaNueva,
-  piezaSobre,
-  piezasDelMontaje,
-  quitarEnArena,
-  type RetoqueDeArena,
   retiradosDeLaURL,
-  tipoDelStack,
-  topeDelBandoBlocker,
-  unidadNueva,
+} from '@core/arena/enlace.js';
+import { tipoDelStack } from '@core/arena/ficha.js';
+import {
+  type HeroeDeArena,
+  heroeDeArena,
+  heroePorDefecto,
+  laLlevaElHeroe,
   validarHeroeDeArena,
-} from '@core/arena.js';
+} from '@core/arena/heroe.js';
+import { type FuenteDeArena, LADOS, type Lado } from '@core/arena/lados.js';
+import {
+  despliegueDeArenaBlocker,
+  escaleraDeArenaBlocker,
+  type MontajeDeArena,
+  topeDelBandoBlocker,
+} from '@core/arena/montaje.js';
 import {
   esFormaDeEjemplo,
   FORMAS_DE_EJEMPLO,
   type FormaDeMuralla,
   validarFormaDeMuralla,
-} from '@core/arena-murallas.js';
+} from '@core/arena/murallas.js';
+import {
+  cambioDePiezas,
+  conBase,
+  conPiezas,
+  enElHueco,
+  equiparEnArena,
+  escritaDe,
+  mismaPieza,
+  piezaNueva,
+  piezaSobre,
+  piezasDelMontaje,
+  quitarEnArena,
+} from '@core/arena/piezas.js';
+import type { RetoqueDeArena } from '@core/arena/retoque.js';
+import { unidadNueva } from '@core/arena/unidad-nueva.js';
 import { hexEquals, isInside } from '@core/battle/board.js';
 import {
   esMuro,
   hayMuralla,
-  type MurallaDeBatalla,
   mismaPuerta,
   murallaVacia,
-  type PuertaDeMuralla,
   validarMuralla,
 } from '@core/battle/muralla.js';
-import type { BattleStack } from '@core/battle/types.js';
-import { UNIDADES } from '@core/catalogo.js';
+import type { BattleStack, MurallaDeBatalla, PuertaDeMuralla } from '@core/battle/types.js';
 import { COMBATE_COMPLETO, type ReglasDelCombate } from '@core/combate.js';
+import { type CatalogoDeEquipo, catalogoDeEquipo, EQUIPO_DEL_JUEGO } from '@core/equipo/atado.js';
 import {
-  type CuerpoDeTodoHeroe,
-  combateDelHeroe,
   conLosExtras,
   DONDE_SE_CONSIGUE,
   type ExtrasDePieza,
   esPiezaConBase,
   extrasDe,
-  HEROE,
   type Pieza,
   type PiezaEscrita,
   validarPieza,
-} from '@core/data.js';
-import {
-  type CatalogoDeEquipo,
-  catalogoDeEquipo,
-  EQUIPO_DEL_JUEGO,
-  idsPuestos,
-} from '@core/hero/equipo.js';
+} from '@core/equipo/pieza.js';
+import { idsPuestos } from '@core/equipo/vestir.js';
+import { type CuerpoDeTodoHeroe, combateDelHeroe, HEROE } from '@core/hero/cuerpo-del-heroe.js';
 import {
   type CatalogoDeHechizos,
   catalogoDeHechizos,
@@ -102,22 +98,28 @@ import {
   type Hex,
   type HuecoDePieza,
 } from '@core/types.js';
+import { UNIDADES } from '@core/unidad/catalogo.js';
 import {
   type Hoja,
   RUTA_DEL_CATALOGO_DE_UNIDADES,
   type Unidad,
   validarUnidad,
-} from '@core/unidad.js';
+} from '@core/unidad/formato.js';
 import { unaVezEnLaURL } from '@core/validar.js';
 import { FIGURA } from '../../shared/arte.js';
-import { avisoDelClima, climaDeLaURL } from '../clima-de-la-url.js';
-import type { Direccion } from '../direccion.js';
-import { EscenaBatalla } from '../escenas/batalla.js';
-import { FLECHAS_AL_COLOCAR } from '../escenas/despliegue.js';
-import { type Html, html, pintar } from '../html.js';
+import { EscenaBatalla } from '../batalla/escena.js';
+import { GestosDeBatalla } from '../batalla/gestos.js';
+import { DialogoDeLaRueda } from '../batalla/rueda/dialogo.js';
+import { bucleDeDibujo } from '../comun/bucle.js';
+import { avisoDelClima, climaDeLaURL } from '../comun/clima-de-la-url.js';
+import { mensajeDe } from '../comun/errores.js';
+import { type Html, html, pintar } from '../comun/html.js';
+import { aLaBarra, semillaSorteada } from '../comun/semilla.js';
 import { cargarArte } from '../render/assets.js';
-import { COLOR_BANDO } from '../render/batalla.js';
-import type { CharacterClip } from '../render/character.js';
+import { COLOR_BANDO } from '../render/batalla/bandos.js';
+import { nombreEnElCampo } from '../render/batalla/distintivo.js';
+import type { CharacterClip } from '../render/figuras/character.js';
+import type { Direccion } from '../render/figuras/direccion.js';
 import {
   claveDelDibujo,
   colocarFigura,
@@ -125,9 +127,7 @@ import {
   hayFigurasAnimadas,
   pintarFigura,
   pintarSombraDeFigura,
-} from '../render/figura.js';
-import { ajustarLienzo } from '../render/lienzo.js';
-import { COLOR_NEUTRO } from '../render/palette.js';
+} from '../render/figuras/figura.js';
 import {
   arteDe,
   DIRECCION_DE_HOJA,
@@ -135,15 +135,13 @@ import {
   INDICE_DE_HOJA,
   MIRADA_DE_PRESENTACION,
   registrarLasHojas,
-} from '../render/personajes.js';
-import { DialogoDeLaRueda } from '../rueda/dialogo.js';
-import { aLaBarra, semillaSorteada } from '../semilla.js';
-import { type LadoDeSesion, SesionDeArena } from '../session.js';
+} from '../render/figuras/personajes.js';
+import { ajustarLienzo } from '../render/lienzo.js';
+import { COLOR_NEUTRO } from '../render/palette.js';
+import { type LadoDeSesion, SesionDeArena } from '../sesion/sesion-de-arena.js';
 import { pintarSiguiendoElFinal } from '../views/al-final.js';
+import { AVISO_DE_ESPERA } from '../views/cifras.js';
 import { leerElCombate, selectoresDelCombate } from '../views/combate.js';
-import { nombreEnElCampo } from '../views/distintivo.js';
-import { AVISO_DE_ESPERA } from '../views/panels.js';
-import { jugadaDelBotonDeMuralla, modoDelBoton } from '../views/poderes.js';
 import {
   abiertasATexto,
   abrirFicha,
@@ -161,37 +159,40 @@ import {
 } from './edicion.js';
 import { montarEditorDeMagia } from './magia.js';
 import {
-  avisoDelCatalogoLeido,
-  avisoDeNuevaUnidad,
-  type ComoDeLaFicha,
-  caraDeLaArena,
   type DatosDePuesto,
   type Elegida,
-  enElMontaje,
   FIGURA_GENERICA,
-  type FiltroDeArena,
-  focoTrasQuitar,
+  type Puesto,
+  renderBando,
+  renderEnlace,
+  resumenDeCifras,
+} from './paneles/bandos.js';
+import { caraDeLaArena, renderPanelDeBatalla, rotuloDelTurno } from './paneles/batalla.js';
+import {
   type Guardado,
   guardadoEnPalabras,
-  type HerramientaDeMuralla,
   LA_LLEVA_EL_HEROE,
-  type ListaDeUnidades,
-  type Puesto,
-  porQueNoSeMonta as porQueNoSeMontaEntre,
-  renderBando,
-  renderCatalogo,
-  renderEnlace,
   renderEquipo,
+  sinGuardarEnPalabras,
+} from './paneles/equipo.js';
+import {
+  type ComoDeLaFicha,
+  enElMontaje,
+  focoTrasQuitar,
   renderFicha,
   renderFichaDeHeroe,
-  renderMuralla,
-  renderPanelDeBatalla,
-  resumenDeCifras,
-  rotuloDelTurno,
-  sinGuardarEnPalabras,
+} from './paneles/ficha.js';
+import {
+  avisoDelCatalogoLeido,
+  avisoDeNuevaUnidad,
+  type FiltroDeArena,
+  type ListaDeUnidades,
+  porQueNoSeMonta as porQueNoSeMontaEntre,
+  renderCatalogo,
   type TarjetaDeUnidad,
   tarjetasDelCatalogo,
-} from './paneles.js';
+} from './paneles/lista.js';
+import { type HerramientaDeMuralla, renderMuralla } from './paneles/muralla.js';
 
 const app = document.getElementById('app') as HTMLElement;
 const canvas = document.getElementById('canvas') as HTMLCanvasElement;
@@ -231,6 +232,21 @@ const elBando: Record<Lado, HTMLElement> = {
   izquierda: document.getElementById('bando-izquierda') as HTMLElement,
   derecha: document.getElementById('bando-derecha') as HTMLElement,
 };
+
+/**
+ * El bucle de dibujo (`comun/bucle.ts`), con la red de la arena: un fallo al pintar se
+ * escribe en la barra y no se pide otro fotograma hasta el siguiente gesto. Va aquí arriba
+ * porque lo recogen desde el principio los gestos y la rueda; lo que pinta, `render`, en
+ * «dibujo».
+ */
+const pedirFotograma = bucleDeDibujo({
+  pintar: render,
+  alFallar: (motivo) => {
+    console.error('[arena] fallo al pintar', motivo);
+    elStatus.textContent = `No se ha podido pintar la pantalla: ${mensajeDe(motivo)}`;
+    return false;
+  },
+});
 
 // ---------------------------------------------------------------- estado
 
@@ -422,7 +438,7 @@ let escena: Escena = 'montaje';
 /**
  * Adónde vuelve «Volver» de la vista de equipo: de donde se entró. Desde la pelea
  * la sesión sigue viva, y la IA no juega mientras tanto: solo juega tras una
- * jugada de la persona (`SesionDeArena.avanzarIA`), y aquí no se juega ninguna.
+ * jugada de la persona (`SesionDeBatalla.seguirLaIA`), y aquí no se juega ninguna.
  */
 let escenaDeVuelta: Exclude<Escena, 'equipo' | 'magia'> = 'montaje';
 const VUELTA_DE_EQUIPO: Readonly<Record<Exclude<Escena, 'equipo' | 'magia'>, string>> = {
@@ -515,7 +531,7 @@ function vistaDeLaURL(): {
     }
     return { vista, pieza, aviso: '' };
   } catch (err) {
-    return { vista: null, pieza: null, aviso: `${mensaje(err)}. ` };
+    return { vista: null, pieza: null, aviso: `${mensajeDe(err)}. ` };
   }
 }
 let siguienteClave = 1;
@@ -618,7 +634,7 @@ const parametrosQueNoValen: string[] = [];
 try {
   semillaPedida = parseSeed(unaVezEnLaURL(parametros.getAll('seed'), 'seed'));
 } catch (err) {
-  avisoDeSemilla = `${mensaje(err)} — quita "?seed=…" de la barra de direcciones para sortear la semilla. `;
+  avisoDeSemilla = `${mensajeDe(err)} — quita "?seed=…" de la barra de direcciones para sortear la semilla. `;
   parametrosQueNoValen.push('seed');
 }
 
@@ -713,10 +729,6 @@ function hojasDeHeroe(): { id: string; nombre: string }[] {
   return hojas
     .filter((h) => h.heroe && h.incompleta === null)
     .map((h) => ({ id: h.id, nombre: h.nombre }));
-}
-
-function mensaje(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
 
 /** La ficha que contiene el botón de un gesto de ficha: sin ella, el marcado está mal. */
@@ -1378,7 +1390,7 @@ function cambiarCampoDePieza(
       `«${nueva.nombre}» cambiada: «Guardar» la escribe en data/equipo.json.`,
     );
   } catch (err) {
-    noSeCambia(`${mensaje(err)}.`);
+    noSeCambia(`${mensajeDe(err)}.`);
   }
 }
 
@@ -1706,7 +1718,7 @@ function cambiarHeroe(lado: Lado, cambio: (h: HeroeDeArena) => HeroeDeArena): bo
     avisoTrasCambio('');
     return true;
   } catch (err) {
-    noSeCambia(`${mensaje(err)}.`);
+    noSeCambia(`${mensajeDe(err)}.`);
     return false;
   }
 }
@@ -1730,7 +1742,7 @@ function cambiarCuerpoDeTodoHeroe(campo: 'hp' | 'fuerza' | 'agilidad', v: string
       'el cuerpo de todo héroe',
     );
   } catch (err) {
-    noSeCambia(`${mensaje(err)}.`);
+    noSeCambia(`${mensajeDe(err)}.`);
     return;
   }
   for (const lado of ['izquierda', 'derecha'] as const) {
@@ -1752,7 +1764,7 @@ function cambiarUnidad(id: string, cambio: (u: Unidad) => unknown): void {
     unidadesSinGuardar.add(id);
     avisoTrasCambio('');
   } catch (err) {
-    noSeCambia(`${mensaje(err)}.`);
+    noSeCambia(`${mensajeDe(err)}.`);
   }
 }
 
@@ -1893,7 +1905,7 @@ async function copiarEnlace(): Promise<void> {
     await navigator.clipboard.writeText(enlace);
     aviso = `Enlace de la pelea copiado (semilla ${semilla}): abrirlo monta esta misma pelea.`;
   } catch (err) {
-    aviso = `El enlace de la pelea (semilla ${semilla}) está en su campo: no se ha podido copiar solo (${mensaje(err)}).`;
+    aviso = `El enlace de la pelea (semilla ${semilla}) está en su campo: no se ha podido copiar solo (${mensajeDe(err)}).`;
   }
 }
 
@@ -1907,7 +1919,7 @@ async function copiarEnlace(): Promise<void> {
 function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string } | null {
   const noSeMonta = (err: unknown) => ({
     montado: false,
-    aviso: `El enlace de la pelea no se monta: ${mensaje(err)}. `,
+    aviso: `El enlace de la pelea no se monta: ${mensajeDe(err)}. `,
   });
   let texto: string | null;
   try {
@@ -2063,7 +2075,7 @@ function luchar(): void {
       climaDeLaArena,
     );
   } catch (err) {
-    aviso = `No se puede luchar: ${mensaje(err)}.`;
+    aviso = `No se puede luchar: ${mensajeDe(err)}.`;
     return;
   }
   aLaBarraDeLaArena((url) => url.searchParams.set('seed', String(semilla)));
@@ -2130,40 +2142,35 @@ function jugadaEnCurso(): boolean {
   return true;
 }
 
-// ---------------------------------------------------------------- dibujo
+/**
+ * Los gestos de la batalla, los de la partida (`batalla/gestos.ts`): los botones del
+ * panel, las teclas y el puntero sobre el tablero, con la misma puerta de arriba.
+ */
+const gestos = new GestosDeBatalla({
+  sesion: () => sesion,
+  escena: batalla,
+  jugadaEnCurso,
+  pedirFotograma,
+});
 
-let fotogramaPedido = false;
-function pedirFotograma(): void {
-  if (fotogramaPedido) return;
-  fotogramaPedido = true;
-  requestAnimationFrame(render);
-}
+// ---------------------------------------------------------------- dibujo
 
 const principal = ajustarLienzo(canvas, pedirFotograma);
 cargarArte(pedirFotograma, { manifiesto: false, mapa: false, hojas: false });
 
 let paneles: { version: string; ocupada: boolean } | null = null;
 
-function render(ahora: number): void {
-  fotogramaPedido = false;
-  let otraVez = false;
-  try {
-    // En la vista de equipo, también a media pelea, la barra es la de la página.
-    if (sesion === null || escena === 'equipo' || escena === 'magia') {
-      if (elStatus.textContent !== aviso) elStatus.textContent = aviso;
-      otraVez = animarFiguras(ahora);
-    } else {
-      dibujarBatalla(ahora, sesion);
-      // Las figuras de los dos de la rueda (su cabecera, `DialogoDeLaRueda.animar`).
-      const enLaRueda = rueda.animar(ahora);
-      otraVez = enLaRueda || hayFigurasAnimadas() || batalla.ocupada;
-    }
-  } catch (err) {
-    console.error('[arena] fallo al pintar', err);
-    elStatus.textContent = `No se ha podido pintar la pantalla: ${mensaje(err)}`;
-  } finally {
-    if (otraVez) pedirFotograma();
+/** Un fotograma del bucle (`pedirFotograma`): lo pinta y dice si se pide otro. */
+function render(ahora: number): boolean {
+  // En la vista de equipo, también a media pelea, la barra es la de la página.
+  if (sesion === null || escena === 'equipo' || escena === 'magia') {
+    if (elStatus.textContent !== aviso) elStatus.textContent = aviso;
+    return animarFiguras(ahora);
   }
+  dibujarBatalla(ahora, sesion);
+  // Las figuras de los dos de la rueda (su cabecera, `DialogoDeLaRueda.animar`).
+  const enLaRueda = rueda.animar(ahora);
+  return enLaRueda || hayFigurasAnimadas() || batalla.ocupada;
 }
 
 /** El instante dentro de un clip que no va en bucle, repetido con una pausa al final. */
@@ -2278,7 +2285,7 @@ function dibujarBatalla(ahora: number, s: SesionDeArena): void {
 }
 
 /**
- * La rueda del golpe (`rueda/dialogo.ts`, la misma de la partida): la arena pone
+ * La rueda del golpe (`batalla/rueda/dialogo.ts`, la misma de la partida): la arena pone
  * alrededor de la figura de los dos que se cruzan su ficha y su vista previa
  * (`caraDeLaArena`).
  */
@@ -2302,87 +2309,31 @@ function enLienzo(ev: { clientX: number; clientY: number }): { x: number; y: num
 canvas.addEventListener('pointermove', (ev) => {
   if (sesion === null) return;
   const p = enLienzo(ev);
-  batalla.mover(p.x, p.y);
+  gestos.mover(p.x, p.y);
   pedirFotograma();
 });
 
 canvas.addEventListener('pointerup', (ev) => {
   if (ev.button !== 0 || sesion === null) return;
   const p = enLienzo(ev);
-  batalla.mover(p.x, p.y);
-  if (!jugadaEnCurso()) batalla.pulsar(p.x, p.y);
+  gestos.soltar(p.x, p.y);
   pedirFotograma();
 });
 
 canvas.addEventListener('pointerleave', () => {
-  if (sesion !== null) batalla.salir();
+  gestos.salir();
   pedirFotograma();
 });
 
-/** Los botones de la batalla, los mismos de la partida (`accionesDeLaUnidad`). */
-const JUGADA_DE_BOTON = {
-  'battle-end-turn': 'end_turn',
-} as const;
-
 document.addEventListener('click', (ev) => {
+  // Los botones de la batalla, los de la partida (`GestosDeBatalla.clic`): el libro, el
+  // arma, los poderes, la muralla, el despliegue y «Terminar turno», con la regla del
+  // doble clic (M12 de QA: el segundo no es otra jugada).
   const conAccion = (ev.target as Element).closest('[data-action]');
-  const accion = conAccion?.getAttribute('data-action');
-  // El libro, como en la partida: elegir el hechizo no es una jugada, apuntar sí.
   if (
-    accion === 'battle-spell' &&
-    sesion !== null &&
     conAccion !== null &&
-    conAccion !== undefined
+    gestos.clic(conAccion.getAttribute('data-action'), conAccion, ev.detail)
   ) {
-    if (!jugadaEnCurso())
-      sesion.hechizos.selectSpell(conAccion.getAttribute('data-spell') as string);
-    pedirFotograma();
-    return;
-  }
-  if (accion === 'battle-arma' && conAccion !== null && conAccion !== undefined) {
-    if (ev.detail > 1 || sesion === null || jugadaEnCurso()) return;
-    sesion.arma.elegir(modoDelBoton(conAccion));
-    pedirFotograma();
-    return;
-  }
-  // El despliegue de los bandos «Yo», como en la partida (`DespliegueEnPantalla`).
-  if (accion === 'despliegue-elegir' && conAccion !== null && conAccion !== undefined) {
-    if (sesion === null || jugadaEnCurso()) return;
-    const id = conAccion.getAttribute('data-stack');
-    if (id === null) throw new Error('el botón del despliegue no dice a quién');
-    sesion.despliegue.elegir(id);
-    pedirFotograma();
-    return;
-  }
-  if (accion === 'desplegado') {
-    // Un doble clic no cierra dos tandas: con los dos bandos «Yo», el segundo
-    // cerraba la del otro sin que lo viera (como M12 de QA con «Terminar turno»).
-    if (ev.detail > 1 || sesion === null || jugadaEnCurso()) return;
-    sesion.despliegue.listo();
-    pedirFotograma();
-    return;
-  }
-  if (accion === 'battle-poder') {
-    if (ev.detail > 1 || sesion === null || jugadaEnCurso()) return;
-    const id = (ev.target as Element).closest('[data-poder]')?.getAttribute('data-poder');
-    if (id === null || id === undefined) throw new Error('el botón del poder no dice cuál es');
-    sesion.poderes.usar(id);
-    pedirFotograma();
-    return;
-  }
-  if (accion !== undefined && accion !== null && accion in JUGADA_DE_BOTON) {
-    // Un doble clic no son dos jugadas: el segundo caía en el botón ya repintado
-    // y cerraba el turno de la SIGUIENTE unidad tuya sin que nadie lo pidiera
-    // (M12 de QA). `detail` cuenta los clics seguidos.
-    if (ev.detail > 1 || sesion === null || jugadaEnCurso()) return;
-    sesion.playBattleAction({ type: JUGADA_DE_BOTON[accion as keyof typeof JUGADA_DE_BOTON] });
-    pedirFotograma();
-    return;
-  }
-  if (accion === 'battle-muralla' && conAccion) {
-    if (ev.detail > 1 || sesion === null || jugadaEnCurso()) return;
-    sesion.muralla.elegir(jugadaDelBotonDeMuralla(conAccion));
-    pedirFotograma();
     return;
   }
   const el = (ev.target as Element).closest('[data-arena]');
@@ -2689,7 +2640,7 @@ document.addEventListener('click', (ev) => {
         break;
       case 'enlace':
         void copiarEnlace().then(repintarMontaje, (err: unknown) => {
-          aviso = `No se ha podido escribir el enlace de la pelea: ${mensaje(err)}.`;
+          aviso = `No se ha podido escribir el enlace de la pelea: ${mensajeDe(err)}.`;
           repintarMontaje();
         });
         return;
@@ -2725,14 +2676,14 @@ document.addEventListener('click', (ev) => {
       }
       case 'guardar-forma':
         void guardarForma().then(repintarMuralla, (err: unknown) => {
-          aviso = `No se ha guardado la muralla: ${mensaje(err)}.`;
+          aviso = `No se ha guardado la muralla: ${mensajeDe(err)}.`;
           repintarMuralla();
         });
         return;
       case 'borrar-forma': {
         const nombre = el.getAttribute('data-nombre') as string;
         void borrarForma(nombre).then(repintarMuralla, (err: unknown) => {
-          aviso = `No se ha borrado la forma «${nombre}»: ${mensaje(err)}.`;
+          aviso = `No se ha borrado la forma «${nombre}»: ${mensajeDe(err)}.`;
           repintarMuralla();
         });
         return;
@@ -2742,7 +2693,7 @@ document.addEventListener('click', (ev) => {
         void guardar().then(
           () => pedirRepintado(),
           (err: unknown) => {
-            aviso = `No se ha guardado: ${mensaje(err)}.`;
+            aviso = `No se ha guardado: ${mensajeDe(err)}.`;
             pedirRepintado();
           },
         );
@@ -2754,7 +2705,7 @@ document.addEventListener('click', (ev) => {
         return;
     }
   } catch (err) {
-    aviso = mensaje(err);
+    aviso = mensajeDe(err);
     soloLaFicha = null;
   }
   pedirRepintado(soloLaFicha);
@@ -3089,46 +3040,10 @@ document.addEventListener('keydown', (ev) => {
   // Fuera del tablero —la vista de equipo a media pelea— las teclas no juegan:
   // un espacio en un campo de pieza cerraba el turno de tu unidad.
   if (escena !== 'battle') return;
-  // Escape suelta lo que espera el clic, como en la partida: hechizo, poder, muro o puerta.
-  if (ev.key === 'Escape' && sesion !== null && !jugadaEnCurso()) {
-    sesion.soltarLoApuntado();
-    pedirFotograma();
-    return;
-  }
-  // En el despliegue, las flechas mueven al elegido, como en la partida.
-  const flecha = FLECHAS_AL_COLOCAR[ev.key];
-  if (
-    flecha !== undefined &&
-    sesion !== null &&
-    sesion.despliegue.enCurso !== null &&
-    !jugadaEnCurso()
-  ) {
-    ev.preventDefault();
-    sesion.despliegue.mover(flecha[0], flecha[1]);
-    pedirFotograma();
-    return;
-  }
-  // Q alterna el arma del tirador activo, como en la partida (`ArmaDeLaActiva`).
-  if (
-    (ev.key === 'q' || ev.key === 'Q') &&
-    !(ev.ctrlKey || ev.metaKey || ev.altKey) &&
-    sesion !== null &&
-    !jugadaEnCurso() &&
-    sesion.arma.conSelector
-  ) {
-    sesion.arma.alternar();
-    pedirFotograma();
-    return;
-  }
-  // Espacio cierra el turno de tu unidad activa, como en la partida; con el foco
-  // en un botón, Espacio pulsa ese botón.
-  const enUnBoton = ev.target instanceof Element && ev.target.closest('button') !== null;
-  if (ev.key !== ' ' || sesion === null || enUnBoton) return;
-  ev.preventDefault();
-  if (!ev.repeat && sesion.turnoPropio !== null && !jugadaEnCurso()) {
-    sesion.playBattleAction({ type: 'end_turn' });
-  }
-  pedirFotograma();
+  // Las teclas de la batalla, las de la partida (`GestosDeBatalla.tecla`): Escape suelta
+  // lo que espera el clic, las flechas mueven al elegido del despliegue, la Q alterna el
+  // arma y Espacio cierra el turno de tu unidad activa.
+  gestos.tecla(ev);
 });
 
 // Cerrar el editor (su botón o Escape) vuelve a la batalla tal como estaba: no
@@ -3180,7 +3095,7 @@ Promise.all([arrancar(), arrancarMurallas()]).then(
   },
   (err: unknown) => {
     console.error('[arena] no ha arrancado', err);
-    aviso = `La arena no ha podido arrancar: ${mensaje(err)}`;
+    aviso = `La arena no ha podido arrancar: ${mensajeDe(err)}`;
     elStatus.textContent = aviso;
   },
 );

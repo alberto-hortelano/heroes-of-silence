@@ -7,12 +7,14 @@
  * azar (`createRng` con semilla).
  */
 import { describe, expect, it } from 'vitest';
-import { applyAction, createBattle, stackById } from '../src/core/battle/battle.js';
+import { applyAction } from '../src/core/battle/battle.js';
+import { stackById } from '../src/core/battle/consultas.js';
+import { createBattle } from '../src/core/battle/montaje.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import type { UnitInfo } from '../src/core/types.js';
-import { avanzarHasta, forzarTurno } from './helpers.js';
+import { avanzarHasta, forzarTurno } from './batalla-de-prueba.js';
 
 /** Cierra turnos sin hacer nada hasta que le toque a `id`. */
 function hastaSuTurno(b: BattleState, id: string, rng: Rng): void {

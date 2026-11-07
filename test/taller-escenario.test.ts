@@ -5,27 +5,33 @@
  * mapa real sin nada apoyado sobre un objeto.
  */
 import { readFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
 import { carasLisas, perfilesDelCatalogo } from '../src/client/render/escenario/caras.js';
 import { RUTA_DEL_CATALOGO } from '../src/client/render/escenario/catalogo.js';
 import { caidas, rampasDesviadas } from '../src/client/render/escenario/celdas.js';
 import {
-  APARTE,
+  laderasEnfrentadas,
+  modulosDeLadera,
+} from '../src/client/render/escenario/colocar/laderas.js';
+import { sendasPorObjeto } from '../src/client/render/escenario/colocar/pasos-y-puentes.js';
+import {
   bajadasSinPieza,
   bajadasTapadas,
   COLOR_DE_BAJADA,
   COLOR_DE_DIAGONAL,
   celdasMalCubiertas,
+} from '../src/client/render/escenario/colocar/relieve.js';
+import {
   envolturaDelRecinto,
-  laderasEnfrentadas,
-  modulosDeLadera,
   RADIO_DEL_RECINTO,
+} from '../src/client/render/escenario/colocar/sendas-y-murallas.js';
+import {
+  APARTE,
   radioDeLaReserva,
   SEMIANCHO_DE_PARED,
-  sendasPorObjeto,
-} from '../src/client/render/escenario/colocar.js';
+} from '../src/client/render/escenario/colocar/tablas.js';
 import { azarDe, esparcir } from '../src/client/render/escenario/esparcir.js';
 import {
   type ConImagen,
@@ -45,11 +51,12 @@ import {
   suavizar,
   VAIVEN,
 } from '../src/client/render/escenario/sendas.js';
-import type { MapObject } from '../src/core/map/map.js';
 import type { TerrainKind } from '../src/core/map/terrain.js';
+import type { MapObject } from '../src/core/map/tipos.js';
 import { newGame } from '../src/core/state/setup.js';
 import { leerCatalogo, textoDelCatalogo } from '../tools/taller/escenario/catalogo-disco.js';
-import { catalogoDelDisco, escenaDe } from './helpers.js';
+import { RAIZ } from './comun.js';
+import { catalogoDelDisco, escenaDe } from './escena-de-prueba.js';
 
 describe('el relieve', () => {
   // La 9 hasta el acantilado en línea (#215), que la dejó sin agua encajada.
@@ -370,8 +377,6 @@ describe('el esparcido', () => {
     expect(uno).toEqual(otro);
   });
 });
-
-const RAIZ = resolve(import.meta.dirname, '..');
 
 describe('la escena de un mapa real', () => {
   const catalogo = catalogoDelDisco();

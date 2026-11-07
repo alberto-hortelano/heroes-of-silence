@@ -11,19 +11,23 @@
 import { describe, expect, it } from 'vitest';
 import { sendasPorLosTendidos } from '../src/client/render/escenario/celdas.js';
 import {
-  type Cara,
-  CRUCE_DE_LA_PUERTA,
-  contornoDelRecinto,
-  crucesConElContorno,
-  type Par,
   puertasSinSuCamino,
-  SALIDA_DE_LA_PUERTA,
   sendasFueraDeLaPuerta,
+} from '../src/client/render/escenario/recinto/guardias.js';
+import {
+  type Cara,
+  contornoDelRecinto,
+  type Par,
+} from '../src/client/render/escenario/recinto/octogono.js';
+import {
+  CRUCE_DE_LA_PUERTA,
+  crucesConElContorno,
+  SALIDA_DE_LA_PUERTA,
   tendidosDeLasPuertas,
-} from '../src/client/render/escenario/recinto.js';
+} from '../src/client/render/escenario/recinto/sendas.js';
 import type { Senda } from '../src/client/render/escenario/sendas.js';
 import { recintoDeLaCiudad } from '../src/core/map/recinto.js';
-import { recta } from './helpers.js';
+import { recta } from './escena-de-prueba.js';
 
 const RECT = recintoDeLaCiudad({ x: 10, y: 10 }, 30, 30);
 const C = contornoDelRecinto(RECT);

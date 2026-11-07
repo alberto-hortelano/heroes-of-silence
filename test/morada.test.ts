@@ -10,36 +10,35 @@
  * de siempre con el motivo del núcleo escrito debajo (C4, C5).
  */
 import { describe, expect, it } from 'vitest';
-import { EscenaBase } from '../src/client/escenas/castillo.js';
-import { cajasDeLaMorada, EscenaMorada } from '../src/client/escenas/morada.js';
-import { marcadoDe } from '../src/client/html.js';
-import { componerVistaDeLaMorada } from '../src/client/morada/vista.js';
+import { AYUDA_DE_LA_BASE, AYUDA_DE_LA_MORADA } from '../src/client/comun/dichos.js';
+import { marcadoDe } from '../src/client/comun/html.js';
+import { EscenaBase } from '../src/client/partida/base/escena.js';
+import { cajasDeLaMorada, EscenaMorada } from '../src/client/partida/morada/escena.js';
+import { renderActions, renderSide } from '../src/client/partida/paneles.js';
 import {
   type ArteDeLaBase,
   conLaAbierta,
   type RecorteDeLaBase,
 } from '../src/client/render/base/arte.js';
-import { cajaDeFiguraEn } from '../src/client/render/batalla.js';
-import { pasoDeLaHoja } from '../src/client/render/de-pie.js';
 import {
   DELANTE_DE_LA_PUERTA,
   dondeEsperaEnLaMorada,
   encuadrarLaMorada,
   filaDeLosReclutas,
   SEPARACION,
-} from '../src/client/render/morada/fila.js';
+} from '../src/client/render/base/fila.js';
+import { cajaDeFiguraEn } from '../src/client/render/figuras/caja.js';
+import { pasoDeLaHoja } from '../src/client/render/figuras/de-pie.js';
 import { pasoDeLaBase } from '../src/client/render/proyeccion.js';
-import { AYUDA_DE_LA_BASE, AYUDA_DE_LA_MORADA, Session } from '../src/client/session.js';
-import { renderActions, renderSide } from '../src/client/views/panels.js';
+import { Session } from '../src/client/sesion/partida.js';
+import { componerVistaDeLaMorada } from '../src/client/sesion/vistas/morada.js';
 import { armaduraDe } from '../src/core/battle/armas.js';
-import { hojaDeUnidad, unidadDelJuego, unidadesDeMorada } from '../src/core/catalogo.js';
-import { pieza } from '../src/core/hero/equipo.js';
+import { pieza } from '../src/core/equipo/pieza.js';
 import { hechizo } from '../src/core/magia/catalogo.js';
 import { nombreDelPoder } from '../src/core/magia/dicho.js';
-import { indiceDePoder, nivelDeUnidad } from '../src/core/nivel.js';
+import { conMiles } from '../src/core/texto.js';
 import { construidoEn, sitioDeEdificio, sitiosDeLaBase } from '../src/core/town/sitios.js';
 import {
-  conMiles,
   FACTION_IDS,
   type FactionId,
   HUECOS,
@@ -47,8 +46,10 @@ import {
   NOMBRE_DE_RASGO,
   SPEED_TO_HEXES,
 } from '../src/core/types.js';
+import { hojaDeUnidad, unidadDelJuego, unidadesDeMorada } from '../src/core/unidad/catalogo.js';
+import { indiceDePoder, nivelDeUnidad } from '../src/core/unidad/nivel.js';
 import { disposicionDe, enLaFranja, planoDelCuadro } from '../src/shared/base.js';
-import { fueraDeSuBase } from './helpers.js';
+import { fueraDeSuBase } from './partida-de-prueba.js';
 
 /**
  * Los lienzos de la escena desde que la base va a todo el alto (C16): el del

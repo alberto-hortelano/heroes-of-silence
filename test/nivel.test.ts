@@ -11,16 +11,30 @@
  * (19-10-2026, F3).
  */
 import { describe, expect, it } from 'vitest';
-import { piezaNueva } from '../src/core/arena.js';
-import { cifrasDeUnidad, unidad, unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
-import { restaDelPeso } from '../src/core/cuerpo.js';
-import { EQUIPO, type Pieza, validarPoder } from '../src/core/data.js';
-import { conEquipo, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
-import { umbral } from '../src/core/hero/experiencia.js';
-import { indiceDePoder, medidaBlocker, nivelDeUnidad, poderBruto } from '../src/core/nivel.js';
+import { piezaNueva } from '../src/core/arena/piezas.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
+import { EQUIPO, type Pieza } from '../src/core/equipo/pieza.js';
+import { conEquipo } from '../src/core/equipo/vestir.js';
+import { umbral } from '../src/core/hero/rango.js';
 import { type NivelesDeLaRueda, SPEED_TIERS, type UnitInfo } from '../src/core/types.js';
-import { cuerpoDeCombate, unidadDeCombate } from '../src/core/unidad.js';
-import { catalogoCon, JINETE, PESADA, TROPA, todoA } from './helpers.js';
+import {
+  cifrasDeUnidad,
+  unidad,
+  unidadDelJuego,
+  unidadesDelJuego,
+} from '../src/core/unidad/catalogo.js';
+import { restaDelPeso } from '../src/core/unidad/cuerpo.js';
+import { cuerpoDeCombate, unidadDeCombate } from '../src/core/unidad/formato.js';
+import {
+  indiceDePoder,
+  medidaBlocker,
+  nivelDeUnidad,
+  poderBruto,
+  validarPoder,
+} from '../src/core/unidad/nivel.js';
+import { todoA } from './batalla-de-prueba.js';
+import { JINETE, PESADA, TROPA } from './comun.js';
+import { catalogoCon } from './pelea-de-arena.js';
 
 describe('el índice de poder y el nivel (core/nivel.ts)', () => {
   it('el nivel es la primera cifra del índice, y nunca baja del 1', () => {

@@ -16,7 +16,7 @@
  */
 import { relative, resolve } from 'node:path';
 import type { FactionId } from '../../src/core/types.js';
-import type { PerfilDeUnidad } from '../../src/core/unidad.js';
+import type { PerfilDeUnidad } from '../../src/core/unidad/formato.js';
 import {
   type ClipDeFigura,
   HOJAS_DE_FIGURA,

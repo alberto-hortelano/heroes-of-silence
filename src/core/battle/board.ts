@@ -13,7 +13,7 @@
  * así cualquier lista hecha en ese orden casa con él, sin huecos.
  */
 import type { Hex } from '../types.js';
-import type { Side } from './types.js';
+import type { Paso, Side } from './types.js';
 
 export const ANCHO_DE_FILA_PAR = 12;
 export const ANCHO_DE_FILA_IMPAR = 11;
@@ -320,7 +320,7 @@ const VERTICES: readonly (readonly [number, number])[] = [
  * hasta el borde del tablero (01-11-2026, decisión del usuario: «no debe acabar en
  * la casilla apuntada, en las siguientes también da»). La recta es la de los dos
  * centros (ver arriba) y el empate, del bando que tira. La leen el disparo, la IA y
- * lo que se pinta (`lineaDelDisparo`, `battle.ts`).
+ * lo que se pinta (`lineaDelDisparo`, `a-distancia.ts`).
  */
 export function lineaDeTiro(desde: Hex, hasta: Hex, side: Side): readonly Hex[] {
   // Geometría pura de las dos casillas y el bando: se recuerda por el par
@@ -549,29 +549,6 @@ export function areAdjacent(a: Hex, b: Hex): boolean {
 // -------------------------------------------------------------- pathfinding
 
 /**
- * Un hex alcanzado por el BFS: la casilla y a cuántos pasos queda.
- *
- * El `Hex` viaja aquí dentro porque quien lo mete YA lo tiene en la mano —sale
- * de `neighbours`, que lo acaba de construir— y quien lo saca lo necesita. Sin
- * él, la clave se partía por la coma y se convertían dos trozos a número **dos
- * veces por hex**: una en `movableFrom` para filtrar los que no caben y otra en
- * `movableHexes` para devolverlos. Es el mismo motivo por el que
- * `NodoFrontera.at` lleva su `Point` en el mapa de aventura.
- */
-export interface Paso {
-  readonly at: Hex;
-  /** Pasos desde el origen. */
-  readonly steps: number;
-  /**
-   * El paso desde el que se llegó aquí, o `null` en el origen: la cadena hasta
-   * el origen ES el camino que se anda (`caminoDe`). Va en el propio paso y no
-   * en el mapa porque `movableFrom` filtra el mapa —quita el origen y lo que no
-   * cabe— y las casillas de en medio pueden ser de las quitadas.
-   */
-  readonly previo: Paso | null;
-}
-
-/**
  * Las casillas que se pisan para llegar a `paso`, sin el origen y con el
  * destino: el camino de la MISMA búsqueda que decidió que el destino es legal y
  * lo que cuesta. Lo apunta el hecho `move` para que el tablero lo enseñe.
@@ -642,8 +619,8 @@ export function reachable(
  * casillas']`. Lo escriben el panel («Le queda 1 casilla»), las notas del agente
  * («le quedan 3 casillas») y las frases del motor (`movimientoBlocker`,
  * `fraseDelContacto`); antes cada uno ponía su plural, y la del contacto decía
- * «le queda 1» sin la casilla. Aquí y no en `battle.ts` para que la lea
- * `contacto.ts`, que no importa el motor.
+ * «le queda 1» sin la casilla. Aquí y no junto a `movimientoBlocker`
+ * (`consultas.ts`) para que la lea `contacto.ts`, que no importa las consultas.
  */
 export function quedanCasillas(n: number): readonly [verbo: string, casillas: string] {
   return n === 1 ? ['queda', '1 casilla'] : ['quedan', `${n} casillas`];

@@ -1,18 +1,19 @@
 /**
  * Cuánto cobra una carga (#260, 14-10-2026): las cifras de `data/carga.json`, las
  * mismas para todos desde el 26-10-2026 (la montura pone su fuerza en el golpe, no
- * en lo que cobra). Cuándo hay recta lo dice `cargaDesde` (`battle.ts`);
+ * en lo que cobra). Cuándo hay recta lo dice `cargaDesde` (`consultas.ts`);
  * esto es lo que vale una vez que la hay.
  *
  * Aparte de `damage.ts` porque la leen también la ficha de la arena
- * (`DICHO_DEL_USO`, `hero/equipo.ts`) y el contrato del agente, y porque
+ * (`DICHO_DE_LA_CARGA`, abajo) y el contrato del agente, y porque
  * `CARGA_MINIMA` —la recta— tiene que estar donde se validan las cifras: un tope
  * por debajo de la recta más corta no se notaría en ningún golpe.
  */
 import cargaJson from '../../../data/carga.json' with { type: 'json' };
+import { conPlural } from '../texto.js';
 import type { UnitInfo } from '../types.js';
 import { entero, objetoCon, porcentaje } from '../validar.js';
-import { golpeDe } from './armas.js';
+import { type DichoDeUnUso, golpeDe } from './armas.js';
 
 /** Por debajo de esto no hay carga: hace falta arrancar (decisión del usuario, 02-10-2026). */
 export const CARGA_MINIMA = 3;
@@ -81,7 +82,7 @@ export function porcientoDeLaCarga(casillas: number, cifras: CifrasDeCarga): num
  * factor detrás; con él, el parte de guerra.
  */
 export function dichoDeLaCarga(casillas: number, montada: boolean, conLoQueSuma = true): string {
-  const causa = `carga de ${casillas} ${casillas === 1 ? 'casilla' : 'casillas'}${montada ? ' montada' : ''}`;
+  const causa = `carga de ${conPlural(casillas, 'casilla')}${montada ? ' montada' : ''}`;
   return conLoQueSuma ? `${causa}, ${loQueSuma(casillas)}` : causa;
 }
 
@@ -123,3 +124,15 @@ export function cargaDeLaRueda(casillas: number, unit: UnitInfo): CargaDeLaRueda
 export function dichoDeLasCifras(montada: boolean): string {
   return `+${CARGA.porcentaje} %/casilla (${CARGA_MINIMA} a ${CARGA.tope})${montada ? ', montada' : ''}`;
 }
+
+/**
+ * La carga dicha para quien juega, en la forma de un uso (`DICHO_DEL_USO`): la fila
+ * de la carga de «Armas» y la previsión de un golpe que la cobra. Va con el arma de
+ * cuerpo a cuerpo; con una montura de guerra y una lanza puestas, con la fuerza de
+ * la montura (`GolpeConArma.carga`, 26-10-2026).
+ */
+export const DICHO_DE_LA_CARGA: DichoDeUnUso = {
+  rotulo: 'Carga',
+  golpe: 'en la carga',
+  cuando: `Se usa al cargar: el golpe tras correr en línea recta ${CARGA_MINIMA} casillas o más hacia el objetivo, con el arma de cuerpo a cuerpo. Carga todo el que pega cuerpo a cuerpo, +${CARGA.porcentaje} % de daño por casilla hasta ${CARGA.tope}. Con una montura de guerra y una lanza puestas, el daño de ese golpe es el de la fuerza de la montura más la de la lanza, por la agilidad del jinete.`,
+};

@@ -41,8 +41,8 @@ import {
   VOCABULARIO_DE_LA_MAGIA as V,
 } from '@core/magia/formato.js';
 import { problemasDeLaLista, problemasDelHechizo } from '@core/magia/validar.js';
-import { type Html, html, NADA, pintar, unir } from '../html.js';
-import { nota } from '../views/panels.js';
+import { type Html, html, NADA, pintar, unir } from '../comun/html.js';
+import { nota } from '../views/notas.js';
 
 /** Lo que la vista necesita de la página. */
 export interface PaginaDeMagia {

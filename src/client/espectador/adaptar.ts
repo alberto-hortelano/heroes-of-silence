@@ -16,17 +16,13 @@
  */
 
 import type { BattleStack, BattleState } from '@core/battle/types.js';
-import { cifrasDeUnidad, oroDeUnidad } from '@core/catalogo.js';
 import { Casillas } from '@core/map/casillas.js';
-import {
-  aPunto,
-  esMejoraDelPuesto,
-  type MapObject,
-  RedDeCaminos,
-  type TramoDeCamino,
-} from '@core/map/map.js';
+import { aPunto } from '@core/map/geometria.js';
+import { RedDeCaminos, type TramoDeCamino } from '@core/map/red-de-caminos.js';
 import { BARRERAS, NIVELES, type TerrainKind } from '@core/map/terrain.js';
+import { esMejoraDelPuesto, type MapObject } from '@core/map/tipos.js';
 import type { UnitInfo, Veterania } from '@core/types.js';
+import { cifrasDeUnidad, oroDeUnidad } from '@core/unidad/catalogo.js';
 import type {
   SpectatorView,
   StackEnCable,
@@ -34,8 +30,8 @@ import type {
   VistaBatalla,
   VistaMapa,
 } from '../../server/vista-espectador.js';
-import type { AdventureScene } from '../render/mapa.js';
-import { conLosDueñosSabidos } from '../render/sitios-sabidos.js';
+import type { AdventureScene } from '../render/mapa/mapa.js';
+import { conLosDueñosSabidos } from '../render/mapa/sitios-sabidos.js';
 
 /**
  * El terreno del fotograma anterior, para devolver EL MISMO array si no ha
@@ -203,10 +199,10 @@ export function centroDeLaEscena(view: SpectatorView): { x: number; y: number } 
  *
  * Una criatura del catálogo llega sin `unit` y se rehace con
  * `cifrasDeUnidad`, la misma regla que usó `createBattle` —en el nivel 1, la
- * misma referencia del catálogo—; un personaje o el héroe la traen puesta. Se
- * reparte por `origen`, que viaja, y no por si `unit` vino o no: un personaje
- * que llegara sin cifras lanza nombrándolo en vez de ir a buscar al catálogo las
- * de un cuerpo que no está en él.
+ * misma referencia del catálogo—; el héroe la trae puesta. Se reparte por
+ * `origen`, que viaja, y no por si `unit` vino o no: un héroe que llegara sin
+ * cifras lanza nombrándolo en vez de ir a buscar al catálogo las de un cuerpo que
+ * no está en él.
  *
  * **Es exacta en lo que se pinta, no en lo que el cable no manda**, y eso se
  * dice aquí en vez de disimularlo: `ganado`, el precio de rendición y la hoja de
@@ -239,18 +235,6 @@ function stackDelCable(s: StackEnCable): BattleStack {
         },
       };
     }
-    case 'personaje':
-      return {
-        ...resto,
-        unit: cifrasQueViajan(s),
-        ganado,
-        origen: {
-          kind: 'personaje',
-          id: s.origen.id,
-          veterania: hojaDelCable(s.origen.veterania),
-          ...(s.origen.salida === undefined ? {} : { salida: s.origen.salida }),
-        },
-      };
     case 'heroe':
       return { ...resto, unit: cifrasQueViajan(s), ganado, origen: s.origen };
   }

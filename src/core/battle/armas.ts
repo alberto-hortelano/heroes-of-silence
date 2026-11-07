@@ -2,7 +2,7 @@
  * Con qué arma y con qué cifras pega una unidad, y cuánto le para su armadura:
  * **las lecturas puras de una `UnitInfo`** que comparten el combate (`damage.ts`,
  * `rueda.ts`, `battle.ts`), la IA, la ficha y la medida del nivel
- * (`core/nivel.ts`).
+ * (`unidad/nivel.ts`).
  *
  * Aparte, y sin importar nada que importe `nivel.ts`, porque el nivel las lee
  * para medir y el combate lee el nivel para la experiencia (`herir`): con ellas
@@ -10,8 +10,8 @@
  * importación que solo funcionaba porque lo que corre al cargar usa declaraciones
  * de función (simplify de F1, 18-10-2026). Lo vigila `test/invariantes.test.ts`.
  */
-import { hasTrait } from '../data.js';
 import type { GolpeConArma, NivelesDeLaRueda, TipoDeGolpe, UnitInfo, UsoDeArma } from '../types.js';
+import { hasTrait } from '../types.js';
 import {
   type CifrasDeLaRueda,
   cifrasDeLosNiveles,
@@ -53,7 +53,7 @@ export function lanzaGranadas(c: UnitInfo): boolean {
 /**
  * Si `a` y `b` tiran a distancia de la misma clase: nada, arco o ballesta, arma de
  * fuego o granada. Lo pregunta un retoque de la arena a media pelea
- * (`loADistanciaTrasElRetoque`, `battle.ts`): con otra clase, lo pendiente no vale.
+ * (`loADistanciaTrasElRetoque`, `a-distancia.ts`): con otra clase, lo pendiente no vale.
  */
 export function mismoTiro(a: UnitInfo, b: UnitInfo): boolean {
   const clase = (u: UnitInfo): string | null =>
@@ -64,7 +64,7 @@ export function mismoTiro(a: UnitInfo, b: UnitInfo): boolean {
 /**
  * Con qué arma y con qué cifras da `unit` un golpe de `uso`: el de su arma
  * (`UnitInfo.armas`) o, si no la lleva, el de cuerpo a cuerpo, que son las cifras
- * de arriba (la carga va con la de cuerpo a cuerpo). Sin `armas` —un personaje sin
+ * de arriba (la carga va con la de cuerpo a cuerpo). Sin `armas` —un cuerpo sin
  * arma, que no golpea en la rueda— todo golpe va con las cifras de arriba. **La única regla del
  * respaldo**: de aquí leen las cifras del golpe (`cifrasDelGolpe`), la previsión
  * y la ficha (`armasDe`).
@@ -96,7 +96,7 @@ export function cifrasDelGolpe(
  * Las cifras de la rueda con que da `unit` un golpe de `uso`: las de los niveles de
  * su arma (`golpeDe(unit, uso).rueda`, que escribe `conEquipo`;
  * `cifrasDeLosNiveles`). **La única lectura del arma en la rueda**: la piden el
- * golpe, el contraataque y la previsión (`battle.ts`). Sin arma con rueda
+ * golpe, el contraataque y la previsión (`golpe.ts`). Sin arma con rueda
  * **lanza**: toda unidad del catálogo la lleva (`armaDeCuerpoBlocker`) y el héroe,
  * la Espada; si se llega aquí sin ella, es un fallo, no un golpe con cifras
  * inventadas.
@@ -157,7 +157,7 @@ export function disparosDe(unit: UnitInfo): number {
 /**
  * Los puntos de armadura de `u` (`UnitInfo.puntosDeArmadura`, la suma de las
  * piezas que lleva; 0 sin ella). La única
- * lectura del campo fuera de `hero/equipo.ts`: la leen la resta (`trasLaArmadura`),
+ * lectura del campo fuera de `equipo/vestir.ts`: la leen la resta (`trasLaArmadura`),
  * la IA y la ficha.
  */
 export function armaduraDe(u: UnitInfo): number {
@@ -241,9 +241,45 @@ export function recargaDe(unit: UnitInfo): number {
 /**
  * Las granadas que lleva `unit` a cada batalla (`Pieza.cargas`), o 0 si no lleva
  * granada. Lo gastado lo cuenta el stack (`BattleStack.granadasLanzadas`), y lo que
- * queda se deriva (`granadasQueQuedan`, `battle.ts`).
+ * queda se deriva (`granadasQueQuedan`, `a-distancia.ts`).
  */
 export function cargasDe(unit: UnitInfo): number {
   const tiro = unit.armas?.distancia?.tiro;
   return tiro?.kind === 'granada' ? tiro.cargas : 0;
 }
+
+/** Lo que dice de un uso de arma `DICHO_DEL_USO`. */
+export interface DichoDeUnUso {
+  readonly rotulo: string;
+  readonly golpe: string;
+  readonly cuando: string;
+}
+
+/**
+ * Cada uso de un arma dicho para quien juega, en la forma en que se pinta: el
+ * `rotulo` de su fila en «Armas» (la ficha y el panel de la pelea), el `golpe`
+ * con que lo dice la previsión («con Daga (cuerpo a cuerpo)», también la del
+ * contraataque), `cuando` se usa, la nota de su fila y la del hueco en el editor
+ * de equipo. Toda arma puesta se usa: el cuerpo a cuerpo siempre, la de carga al
+ * cargar (carga todo el que pega cuerpo a cuerpo) y la de distancia, que ya es
+ * disparar. Las cifras de la carga salen de `data/carga.json`
+ * (`CARGA`), no se escriben aquí. La regla la aplican `usoDelGolpe` y `armasDe`
+ * (`battle/damage.ts`); esto la cuenta.
+ */
+export const DICHO_DEL_USO: Readonly<Record<UsoDeArma, DichoDeUnUso>> = {
+  arma: {
+    rotulo: 'Cuerpo a cuerpo',
+    golpe: 'cuerpo a cuerpo',
+    cuando:
+      'Se usa al pegar cuerpo a cuerpo, al devolver un golpe y al cargar. Con dos armas, en cada cifra la mejor de las dos: ataque, fuerza y cada tipo de la rueda. Sin arma, pega con el cuerpo.',
+  },
+  distancia: {
+    rotulo: 'A distancia',
+    golpe: 'a distancia',
+    cuando:
+      'Se usa al disparar: llevarla ya es disparar, sin munición (dos tiros por disparo con Dos disparos). Un arma de fuego perfora la armadura y recarga unos turnos tras disparar; una granada no se dispara: se lanza a una casilla, explota al empezar su siguiente turno y se gasta.',
+  },
+};
+
+/** Con qué se da un golpe sin arma (`GolpeConArma.piezas` vacía), dicho para quien juega. */
+export const SIN_ARMA = 'sin arma, con el cuerpo';

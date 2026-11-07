@@ -5667,3 +5667,276 @@ elimina este idle de todas partes porque queda muy mal».
   `test/clips-por-unidad.test.ts`. Se volvieron a renderizar las 16 hojas de `_poses/espada-escudo-8d/`
   y las cinco de perfil, y `pnpm taller derivar-poses` rehízo las anclas: en `atlas-8d.json` solo
   cambia `espada-escudo`.
+
+## La reorganización: lo retirado (06-11-2026)
+
+La reorganización de la arquitectura (`docs/agents/2026-11-06-reorganizacion-de-la-arquitectura/`,
+petición del usuario: «elimina codigo muerto, unifica y aplica las mejoras que consideres
+oportunas») retiró, por decisión del usuario, los personajes del RPG (`core/rpg/`), fal.ai y el arte
+que el cliente no pinta. El texto de `CLAUDE.md` que describía lo retirado está aquí tal como
+estaba, para que no se pierda.
+
+### Los personajes del RPG (`core/rpg/`)
+
+Los personajes eran individuos con atributos propios, traídos de la rama de archivo `gpt-rpg`
+(`rpg/character.ts`, `rpg/stats.ts`): iban en el ejército de un héroe con `Troop.member`, vivían
+en `GameState.characters` y entraban en batalla por `BattleSide.members` con su perfil
+(`combatProfile`) y los PV con que llegaban; al salir, `woundsFromBattle` les escribía las heridas.
+Ninguna partida los creaba: el RPG se descartó el 01-10-2026, y `newGame` nunca escribía
+`characters`. Se fueron con ellos el centinela `CHARACTER_BODY`, el origen `'personaje'` del stack
+(y del cable del espectador), el parámetro de personajes de `troopUnit`, `troopSummary`,
+`armyPower`, `fuerzaDe`, `slowestSpeed`, `maxMovePoints` y `empezarElDia`, el tercer parámetro de
+`cifrasDelIndividuo`, `LIDERAZGO.personaje` (con su clave de `data/liderazgo.json`), los
+«un personaje no se deja / no se reparte / no se licencia» y la prosa del agente que los nombraba.
+El banco no se movió (`3ea9e845…`). Lo que llega con `creature: "character"` se rechaza ya como
+cualquier unidad que no existe. Los tests que montaban cifras hechas a mano por la vía del personaje
+(`bandoDe`, `bandoDePersonajes`, `peleaDelMotor`) las montan ahora por el catálogo de la pelea
+(`catalogoDeCifras`, en `test/batalla-de-prueba.ts`).
+
+Lo que decía `CLAUDE.md` de ellos, tal como estaba:
+
+| Qué | Dónde |
+|---|---|
+| Cifras = catálogo + veteranía + equipo | `cifrasDeUnidad` (`core/catalogo.ts`: cuerpo + rango + lo de serie con lo propio encima, un solo `conEquipo`; con el catálogo de la pelea, `CatalogoDeUnidades`, por defecto `CATALOGO_DEL_JUEGO`), `cifrasDelIndividuo` (el personaje), `conEquipo`; el oro de una unidad, `costeDeUnaUnidad` (de la vestida) y `oroDeUnidad`; el cuerpo sin equipo de un stack, `cuerpoDe(stack, cat?)` (del origen: igual en el juego y la arena; el héroe lo lleva en `OrigenDelStack`, `desnudo`); qué unidad es un stack, `origen.unidad` o `queEs` (`battle/types.ts`): `body` es el arte |
+| Fuerza, agilidad y peso: lo que se deriva de un cuerpo (25-10-2026) | `cifrasDelCuerpo` (`core/cuerpo.ts`: defensa = agilidad efectiva + escudo + `defensaPropia`; daño = [F, F × agilidad efectiva] con F = fuerza + la del arma; casillas = agilidad efectiva, tope 7, y `crawling` con 1), `restaDelPeso` (−1 de agilidad por cada fuerza entera, o parte de ella, que pase lo que pesa todo: 31-10-2026, decisión del usuario; antes, por cada 50 %, truncado), `agilidadEfectiva` (como poco `AGILIDAD_MINIMA`, 1; la de una `UnitInfo` ya vestida, `agilidadDe`, y lo que le resta su peso, `restaDelPesoDe`: el contrato y la ficha de la arena), `escalonDeCasillas` (la única traducción de casillas a escalón, que solo piden `cifrasDelCuerpo` y `marchaDe`; con una montura de guerra, las casillas y el peso son de ella: «La montura», abajo) y `cuerpoConSusCifras` (el cuerpo desnudo: la unidad, `cuerpoDeCombate`; el héroe, `cuerpoDelHeroe`; el personaje, `combatProfile`; el rango, `cifrasVeteranas`). `UnitInfo` lleva las primitivas (`fuerza`, `agilidad`, `defensaPropia`: la Defensa del héroe, 0 la tropa; `peso`, lo escribe `conEquipo`) y las derivadas (`defense`, `damage`, `speed`), que lee el motor tal cual. El rango sube primitivas **antes** que el equipo (`cifrasVeteranas` lanza con algo puesto); lo de serie del personaje, `CombatProfile.equipo` (`cifrasDelIndividuo(unit, hoja, deSerie)`). Lo vigila `invariantes.test.ts` |
+| La infiltración (05-11-2026, fase A, `docs/agents/2026-11-05-infiltrados-y-robo/`) | quién se infiltra, `infiltracionBlocker` (`hero/infiltracion.ts`: su tipo y toda su tropa; sin tropa, solo el tipo; un personaje, no; «no se infiltra: no lo llevan su tipo (Caballero) ni …»), y `seInfiltra` (el predicado del camino caliente, que no monta la frase); el rasgo `infiltrarse` (`CREATURE_TRAITS`, en `data/unidades.json`) lo lee solo ese módulo, y los tipos, `data/infiltradores.json` (a mano: `tipos-de-heroe.json` es generado), solo `core/data.ts` (`validarInfiltradores`, que rechaza el tipo por defecto; `tipoSeInfiltra`; lo vigila `invariantes.test.ts`); lo que cuesta una barrera, `precioDeLaBarrera` (el día entero: `Hero.marchaDelDia`, la marcha con que empezó el día, que fija con `movePoints` solo `empezarElDia` —al empezarlo, el inicial y el contratado— y no cambia con la tropa; o `null`), que es el `barrera` del Dijkstra del héroe (`reachableFrom`/`findPath(…, barrera)`, y el de `stepCost`: con `null` no corre nada nuevo y el banco no cambia); qué casilla se pisa, `isEnterable(map, p, pisaBarreras)` (la única regla: con él, también las cinco barreras fuera de todo recinto; la muralla de una ciudad, no), y cuál es barrera para nombrarla, `barreraEn`; las frases, la de la marcha que no da ni un paso (`moveHero`: «<héroe> hoy no da ni un paso: …», cuánto cuesta el primero y cuánto le queda, y si es barrera «(x,y) es montaña y cuesta el día entero de marcha (N), y le quedan M; se entra mañana»: sin «no quedan puntos», que con casi todo el día se leía al revés, H2 de la vuelta 1 de QA), la de la ruta que hoy se para ante una barrera (`barreraDeMañana`, `state/game.ts`: el primer paso de otro día, si es barrera; la pone `Session.previewPath` en ese paso, `PasoDeRuta.barrera`, y la dice `llegadaDeLaRuta` si se ve) y la de `porQueNoLlega` («… sin cruzar una barrera: solo la cruza un grupo que se infiltra, y no se infiltra: …», cuando infiltrándose llegaría); el nombre de cada barrera para la persona, `NOMBRE_DE_BARRERA` (`map/terrain.ts`); el agente, `heroes[].infiltrates`/`infiltrationBlocker`; el panel, `Session.infiltracion`; el candidato del ayuntamiento, `CandidatoAHeroe.seInfiltra`; la figura parada en una barrera (sin tablero), `pisada(…, nodos)`: la clave de sus pies subida por `subidaEnUnaBarrera` de `loQueTapaEnUnaBarrera` (`render/escenario/figuras.ts`; de una vez, `delanteEnUnaBarrera`), **sin `claveDeFigura`** (sus `cubiertas` la subían por encima de lo horneado de delante: N1 de la vuelta 2 de QA), con lo que la tapa guardado, perezoso, por casilla en `Escenario.enUnaBarrera`: sube por delante de lo que está detrás (`deDetras`: lo del relieve que cuelga de su fila o de más al norte, `filaAlta`; lo demás con el pie en sus pies o más al norte, no en su fila) y de la masa de una barrera de más al sur (lo que no es algo hecho, `esAlgoHecho`, ni la cubierta de lo que se pisa), y nunca hasta pasar lo hecho de más al sur que la tapa (un recinto, un objeto, un puesto); de las piezas de un nodo (hito y obras) cuenta solo la que se pinta con lo que se sabe de él (`seVeConSuNodo`, con los nodos que pasa `mapa.ts`, `nodosQueSeSaben`: N2 de la vuelta 2): H1 de la vuelta 1 de QA, el goblin al norte de Valdeluz (s8) se pintaba encima de sus torres |
+
+| Dato | Valor |
+|---|---|
+| Suerte | **no hay** (02-11-2026, decisión del usuario: «Elimina la suerte completamente del juego»): ni tirada de golpe afortunado o desafortunado, ni suerte en el stack, el héroe (la habilidad `luck`) o el personaje (la percepción ya no mueve ninguna cifra). Se fueron con ella Bendición y Maldición (el gremio de nivel 2 se quedó sin hechizos), el poder Bendecir, el rasgo `curse_on_hit` y la inmunidad de los no-muertos, que era solo a la mala suerte (los hechos `luck` e `immune`) |
+| Guarnición y defensa | **regla nuestra** (04-11-2026, fase 1 del puesto fronterizo, decisiones del usuario; `docs/agents/2026-11-04-puesto-fronterizo/`): toda ciudad, todo paso (nodo que no es ciudad) y todo pueblo es un **sitio** que guarda tropa: todas en `GameState.guarniciones`, con su dueño (quien la dejó, el de la base, o `null` la neutral; la de la ciudad estaba en `Town.garrison` hasta el 05-11-2026). **La guarnición no se recoge sola** (fuera la recogida al pasar por casa, `takeGarrison` y `garrison_taken`): el héroe PARADO en un sitio suyo deja y recoge tropa (`dejar_tropa`, `recoger_tropa`; de su tipo, los que se irían, `elQueSeIria`, o el veterano que se nombre; personajes no), o la reparte de una vez (`repartir_tropa`, la pantalla de la persona: solo cuenta el reparto final, así que con los dos llenos se cambia uno por otro; D9, 04-11-2026), con el cupo de la guarnición de siempre (`GARRISON_LEADERSHIP` y el tope de la partida) en los tres. El pueblo y la ciudad de dentro de una región son de quien tenga la región; la tropa de otro dentro los **ocupa** (fila «Ocupación»; hasta el 05-11-2026 el pueblo era de quien lo guardaba). **Defensa**: con el héroe en su sitio con guarnición, pelea él (siempre) con lo que se elija de su tropa y la guarnición, hasta lo que le cabe y sin dejar fuera más de lo que cabe en la guarnición; lo propone la IA (`defensaDeLaIA`) y la persona lo puede rehacer antes de la primera jugada; lo que no pelea, si pierde, se pierde con el sitio (la ciudad o el paso pasan al que gana). Sin héroe, la guarnición entera. Una ciudad, un paso o un pueblo con guarnición ajena se alcanza pero no se cruza: pisarlo es pelear contra ella (`BattleFoe` `garrison`, con `site`; la ciudad era `town` hasta el 05-11-2026); vencida, el sitio del muro es del que gana y el de dentro de una región se queda sin ella, y quien gana se queda en su casilla de antes. Un paso tomado pierde la guarnición que tuviera. La IA recoge lo que le quepa **al llegar** a un sitio suyo: el contratado en su ciudad, el que acaba hoy una marcha en él y el que volvió vencido o rendido a su base desde su último turno, también en el del rival (volver es llegar: `Hero.vueltoACasa`; `playAiTurn`, 04-11-2026, S8 de `/simplify` y H2 del QA); el que se queda en casa no la vacía, así que el de salida deja la de su base el día 1. No deja tropa (backlog). La batalla en un sitio se pelea tras su muralla (fila «Murallas del mapa») |
+
+- **Un solo nivel, derivado de las cifras con el equipo puesto (regla nuestra, 12-10-2026; con el
+  equipo desde el 18-10-2026, «el nivel ve el equipo»)**: el nivel de toda unidad —del catálogo,
+  veterana, héroe o personaje— es la primera cifra de su **índice de poder** (`indiceDePoder`, 340
+  = nivel 3), en enteros, de la unidad **vestida** (`raizEntera` de ofensa × aguante, por lo que
+  corre: cada arma por su uso, la rueda, la carga y la armadura contra un golpe de referencia
+  inventado, de 9 desde la escala baja; la fórmula, en el `_comment` de `data/poder.json`; umbral del
+  nivel 2 en 623 y ×2 cada nivel: era 940, con la fuerza y la agilidad, 25-10-2026, subió a 2 098 con
+  la mediana del poder bruto del catálogo para que siga del 2 al 4, y con la escala baja, 26-10-2026,
+  baja a 623 con la misma mediana, a ojo; la mide `npx tsx tools/qa/cifras-del-catalogo.ts --medianas`).
+  Nadie lo escribe, ni el coste: el catálogo guarda la morada (`Unidad.edificio`) y el contrato la
+  manda como `dwelling`. Las 34 del catálogo van del nivel 1 al 4 (el esqueleto guerrero, 196, en el 1 desde el peso que resta por cada fuerza entera, 31-10-2026;
+  ningún test lo fija: lo lista `tools/qa/cifras-del-catalogo.ts`): el edificio no implica nivel y la escala no se recalibra a ojo
+  (decisión del usuario del 19-10-2026: «no te preocupes por el valor de las unidades, lo iremos
+  refinando»). Un héroe recién hecho (2/2) es del nivel 3 desnudo (356) y del 4 con la Espada
+  (412). **PV y fuerza van ×3** (`ESCALA_DE_CIFRAS`, `core/escala.ts`: catálogo, equipo, héroe,
+  hechizos de PV, la cura de los poderes y el personaje): eran ×10 desde el 12-10-2026, con los PV de
+  tropa y héroe, además, ×2 (25-10-2026, decisión del usuario: con el daño de la fuerza por la
+  agilidad casi todo caía de un golpe), y con **la escala baja** (26-10-2026, petición del usuario:
+  «la idea es bajar los números»; a ojo, `docs/agents/2026-10-26-escala-baja/`, con su tabla en
+  `cifras.md`) fuerza, PV, armadura y hechizos bajan ×0,3: la fuerza de la tropa va de 4 a 12, como
+  la agilidad, los PV de 30 a 90 y el héroe recién hecho, fuerza 6 y 300 PV. Ataque y la fórmula de
+  daño no cambian. La fuerza de la IA es `poderBruto`² /
+  `DIVISOR_DEL_PODER` (`unitPower`: ve armadura, armas por uso, rueda y carga, #129, #250; el divisor
+  era la mediana medida sobre las 21 criaturas de fheroes2 antes de retirarlas, 143 465, y con la
+  fuerza y la agilidad subió con la mediana del poder bruto² del catálogo, 714 961, para no recalibrar
+  `MARGEN_CONTRA_NEUTRALES`, y con la escala baja baja con ella, 62 989, a ojo, 26-10-2026; el techo
+  de los asaltantes, `fuerzaMax`, bajó de 800 a 600, a 580 con la escala baja y a 310 con el catálogo retocado a mano, 02-11-2026: MARGEN × el héroe de los orkos que espera en su base, 313), el
+  maná vale 4 × escala y `valorDePieza` es lo que sube el índice del cuerpo de referencia al
+  ponérsela.
+
+- **Equipo (inventado; un solo catálogo desde el 18-10-2026)**: seis huecos con el nombre de su
+  uso —`arma` (cuerpo a cuerpo), `segunda` (otra de una mano, 25-10-2026: el hueco `lanza` se fue y
+  la lanza es un arma más), `distancia` (con lo que se dispara), `armadura`, `escudo` y `montura`
+  (26-10-2026: su fuerza, su agilidad y su peso son suyos; la de guerra se monta en batalla —carga el
+  peso del jinete y el suyo frente a su fuerza, da sus casillas, el jinete pelea con su agilidad entera
+  y con lanza la carga va con su fuerza— y la de silla solo cuenta en el mapa; el caballo de guerra,
+  fuerza 16 y agilidad 6, 1 500 de oro, y el de silla, 10 y 7, 500, en la armería; la hiena de guerra,
+  10 y 6, solo en el kit de su jinete (fuerzas de la escala baja, 26-10-2026; eran 50, 30 y 30); los cinco jinetes la llevan de serie con su fuerza y su agilidad
+  de jinete; cifras a ojo, `docs/agents/2026-10-26-montura/plan.md`) (`HUECOS`)—, por individuo y por héroe, y una sola clase de piezas
+  (`data/equipo.json`, que edita la arena): ni calidades, ni accesorio, ni PV. **Fuerza, agilidad y
+  peso (25-10-2026, petición del usuario; cifras a ojo, `docs/agents/2026-10-25-fuerza-agilidad-y-disparo/cifras.md`)**:
+  toda unidad y todo héroe tienen fuerza y agilidad (`data/unidades.json`: `fuerza`, de 4 a 12 desde la
+  escala baja, y `agilidad`, de 2 a 7; la defensa, el daño y las casillas no se escriben), toda pieza
+  pesa (`peso`: la daga 0, la espada 1, el mandoble 2, la coraza 12, a ojo, 26-10-2026) y ninguna resta
+  movimiento: lo puesto que pasa de la fuerza resta agilidad (`restaDelPeso`), y de la agilidad que
+  queda salen las casillas, la defensa (más el escudo y la Defensa del héroe) y el daño, [F, F ×
+  agilidad] con F = fuerza + la del arma (lo torpe pega parejo; lo ágil, con mucha variación). Una
+  arma suma ataque y fuerza; la armadura, armadura (ya no defensa); el escudo, defensa; `conEquipo`
+  es la única suma, y el nivel la ve. **Un arma a dos manos (`manos: 2`) va sola** (ni escudo, 12-10-2026,
+  ni segunda arma), y con dos de una mano no queda mano para el escudo (`manosBlocker`, 25-10-2026). Cada pieza cuesta un número de oro y dice de dónde
+  sale (`seConsigue`; precios inventados): la armería vende las que no van sobre otra (la maza y el
+  pavés también desde el 26-10-2026, y la Alabarda y la Lanza de infantería, a dos manos, nuevas ese
+  día); el botín de asaltantes y ciudades neutrales (con su propia corriente de azar) da las que van
+  sobre otra; las que no salen de ningún sitio van solo en los kits de las unidades. La lanza de la
+  carga se llama «Lanza de jinete» (id `lanza`) y la de infantería, «Lanza» (`lanza_de_infanteria`,
+  sin la marca de la carga), y la barda, «Coraza» (id `barda`). Todo héroe nace con la Espada y el gambesón (`equipoBase`, `data/heroe.json`); la
+  tropa lleva el equipo de serie de su unidad (`data/unidades.json`) y lo que se le ponga encima,
+  hueco a hueco. **Cada arma para lo suyo (13-10-2026; en el juego desde el 18-10-2026)**: cada
+  golpe va con el ataque y la fuerza de su arma más lo que no es arma (`usoDelGolpe`,
+  `cifrasDelGolpe`): el disparo con la de distancia, el golpe, la carga y el contraataque con
+  las de cuerpo a cuerpo (con dos, la mejor de cada cifra), sin la que nadie pelea
+  (`armaDeCuerpoBlocker`); un personaje sin arma (el perfil de `core/rpg/`) pega con sus cifras
+  (`SIN_ARMA`). **Sin munición (13-10-2026; en el juego desde el 19-10-2026)**: llevar algo en
+  `distancia` ya es disparar (`isShooter`), sin cuenta de tiros: un tiro por disparo y dos con
+  `double_shot`; el guardabosques lleva su arco. **Salvo la granada** (02-11-2026): se lanza, no
+  se dispara, y se gasta (sus `cargas` por batalla); el arcabucero, el artillero y el pistolero
+  montado llevan arcabuz, culebrina y pistola, y el granadero, granada (armas de fuego y granadas,
+  en las reglas). Toda unidad ocupa una casilla.
+
+- **Figuras**: 8 direcciones y 6 acciones (`idle`, `ready`, `attack`, `hit`,
+  `die`, `win`), **salvo la gente** del banco de NPC (22-10-2026: solo la hoja A, de pie y
+  andando, `ArteDeFigura.clips`; no pelea y no llega a una batalla). Arte propio (`dN/atlas.webp`) o el Y Bot de su juego de armas
+  teñido del color del bando; lo sin dueño, en gris. **Nunca se espeja.** Tablas:
+  `JUEGO_SIN_HOJA` (el héroe genérico de la arena, el personaje y el vecino), `JUEGO_DEL_YBOT`,
+  `DIRECCION_DE_HOJA`. Una tropa del catálogo se pinta con la hoja de su unidad (`hojaDeUnidad`; el
+  `body` de su stack es esa hoja) y un héroe con la de su tipo (`figuraDelHeroe`), que registra
+  `registrarLasHojas` al arrancar (`cargarArte`) en la partida, el espectador y la arena; hasta que
+  contesta, lo que no está registrado no se pinta, ni con el Y Bot (`arteSabido`). **Una figura cuya hoja va en camino no se pinta** (20-10-2026, «quita unos círculos rojos con una letra que aparecen antes de cargar»: `FiguraColocada.cargando`, `figuraEnCamino`); el óvalo de color con su inicial queda para la que no tiene arte, porque su imagen falló o no existe. Anclas del Y Bot en `_poses/atlas-8d.json` (`pnpm taller derivar-poses`).
+
+- **La rueda, en las tres pantallas** (19-10-2026): un `<dialog id="rueda">` modal y sin fondo (en
+  un móvil, con velo) que pinta y conduce `DialogoDeLaRueda` (`client/rueda/`: `rueda.ts`,
+  `disco.ts`, `figuras.ts`, `dialogo.ts` y `rueda.css`, que enlazan las tres páginas). El golpe
+  cuerpo a cuerpo de quien juega **sin carga primero anda** (se planta ante su objetivo,
+  `BattleState.golpeEnCurso`) y al acabar la marcha abre la rueda; **con carga, primero la rueda**
+  (31-10-2026, petición del usuario: «en la carga es anticlimático, debería ser primero la rueda y
+  luego el movimiento y el ataque de la carga»): se planta en su salida, sin andar ni gastar, el
+  tablero marca su llegada con su «»N», y tras elegir se cuentan el desenlace, la carrera y el
+  golpe. La rueda lleva los siete tipos, su daño (`previsionDeLaRueda`, con la carga, también la
+  que aún no se corrió) y su efecto en nota; clic, teclas 1-7 o flechas + Intro; Escape cancela
+  solo antes de elegir («Golpe cancelado.»): sin carga deja a quien pega donde llegó, con su
+  turno; con carga, en su salida con el turno entero, y puede volver a cargar (`soltarElGolpe`).
+  Cuando golpean a quien juega, elige su respuesta sin ver el golpe; cada sector dice grande lo que le haría el atacante y debajo su contraataque, con «†» donde puede tumbarle (01-11-2026). Los modificadores en curso de cada stack (lo de `BattleStack.effects` y la carga de quien pega), en pastillas de una sola forma, `modificadoresEnCurso` (`views/panels.ts`): bajo cada contrincante de la rueda y en cada fila de «En el campo»; el desenlace los pinta como estaban antes del cruce (`fotoDeEfectos`, `anim.ts`) (`RuedaPendiente` no lo
+  lleva), y si le cargan, antes de que corra quien carga. El golpe de una vez (`from` y las dos
+  elecciones: `autoResolve`, IA contra IA) escribe lo mismo: `move`, `cruce`, `attack`, y con
+  carga `cruce`, `move` (`charge`), `attack`. El golpe plantado va en la clave de las cachés de
+  las sesiones (`claveDeBatalla`): plantarse sin andar no deja línea ni gasta. El desenlace —giro, marcadores del
+  color de cada bando, arco, medidor con una muesca por punto que da el cruce (`puntosDeLaForma`), rótulo— lo cuenta el animador con el hecho
+  `cruce` (`DURACION.cruce`, `data-tramo`), con el tablero de antes del golpe detrás. Cada fase nace
+  quieta (`data-quieta`: el `:hover` no enciende el sector hasta que se mueve el puntero), y la nota
+  de cada tipo dice cuándo actúa en esa fase (`efectoDeGolpe(tipo, papel, contraataca)`). **Cada
+  sector va teñido por el nivel del arma de quien pega** (25-10-2026: «los tuyos cuando atacas y los
+  de tu enemigo cuando defiendes»): `previsionDeLaRueda().niveles` (`nivelesEnLaForma` sobre
+  `nivelesDelGolpe` de quien pega, con el uso de su primer golpe; un fusionado de las ruedas de 5 y 3,
+  la media truncada de sus partes; Normal, sin nivel), que `disco` pone en `data-nivel`; la escala de
+  rojo a verde es la de la ficha del arma, una sola en `rueda.css`, y el pie lo dice (`data-tinte`).
+  El desenlace va sin tinte. La cabecera lleva las figuras de los dos y dice quién es quien mira. El espectador la usa solo para
+  contar (`SOLO_MIRA`: una sesión que no elige), y el cable le lleva lo puesto de héroes y
+  personajes (`UnitInfo.equipo`), así que `adaptar.ts` sigue siendo la inversa exacta.
+
+- **La guarnición y la defensa** (04-11-2026): parar en un paso o un pueblo suyo, o pulsarlo con el
+  héroe dentro, abre `<dialog id="guarnicion">` (modal: su ejército y la guarnición como quedarían,
+  «Dejar ›» y «‹ Recoger» pasan uno al otro lado **sin tocar la partida**, y «Confirmar» manda el
+  reparto entero, que el núcleo juzga solo al final: con los dos llenos se cambia uno por otro, y lo
+  que no cabe a un lado se puede mover mientras el final quepa, con el motivo bajo «Confirmar»;
+  «Cancelar» o Escape lo descartan; vuelta 1 de QA, D9); pasar de largo no la abre; en la base,
+  el botón «Dejar y recoger tropa», y en el panel del héroe, «Guarnición». Atacado en su sitio con
+  guarnición, antes de la primera jugada sale `<dialog id="defensa">` con la propuesta de la IA
+  marcada y «−»/«+» por tipo, y dice que los elegidos se quedan con el héroe después de la batalla;
+  lo que solo informa («pelean los 5 × … que hay», un personaje que no se deja) va en el tono
+  apagado (`notaDebajo`) y no en el del rechazo (`motivoDebajo`); «Defender» la rehace en el núcleo,
+  «Como propone la IA» o Escape la dejan, y la batalla empieza al cerrarla (hasta entonces no se
+  juega nada). Con cualquiera de las dos abierta, toda tecla es suya: Escape la cierra a ella y no
+  también la base de detrás (H3 del QA). `pnpm capturas` cierra
+  las dos solo (la de la defensa, con la propuesta de la IA) y fotografía cada una la primera vez.
+
+### fal.ai (`tools/gen/`)
+
+El arte del principio (terrenos, iconos, los edificios y efectos del 02-10, las primeras criaturas)
+se pagaba en fal.ai con `pnpm gen` (`tools/gen/`: el cliente con caché por payload y gasto
+acumulado en `tools/gen/spend.json`, los prompts, el post-proceso). Desde el 02-10-2026 todo el arte
+lo pinta el taller con Codex por la suscripción, y lo único de fal.ai que seguía vivo eran las
+pruebas del 10-10-2026 (el campo `motor` de un encargo del taller, `taller/fal.ts`, y los modelos
+de vídeo de transferencia de movimiento, `taller/video.ts`), que nadie encargaba. Se fueron con
+`tools/gen/` (su `cutout.ts`, el recorte por relleno desde el borde que usa `recorte.ts` con lo
+que llega sin alfa, pasó a `tools/taller/fondo.ts`), `pnpm gen` y `pnpm mcp` (que no usaba
+nadie: `.mcp.json` lanza `npx tsx`), `Generacion.coste` y las texturas de
+`assets/generated/terrain/`, que el cliente no pintaba (pasaron a `assets/art/retirado/`; el
+manifiesto se quedó con el icono del oro, que se sigue pintando igual). `carpetaDeFotogramas`
+(`pnpm taller maniqui <id> --fotogramas`) pasó a `tools/art/poses.ts`. La caché y el gasto que
+queden en una máquina siguen ignorados (`tools/gen/` en `.gitignore`).
+
+Lo que decía `CLAUDE.md` de ello, tal como estaba:
+
+Clon de Heroes of Might and Magic 2 en el navegador, pensado como **banco de
+pruebas para un juego con IA**: los NPCs los lleva un agente conectado por MCP,
+los mapas los diseña ese mismo agente y los assets se generan con fal.ai.
+
+- **CI** (`.github/workflows/ci.yml`): `pnpm verify`, `pnpm test:lento`, `pnpm banco`,
+  `vite build` y `pnpm qa`. No gasta un céntimo: nada de `tools/gen/`.
+
+```
+src/core/          TypeScript puro: las reglas. Sin DOM y sin node:*
+  unidad.ts        el formato de una unidad (cuerpo + equipo) y su validación
+  catalogo.ts      el catálogo del juego: lo único que lee data/unidades.json
+  arena.ts         el montador de la arena: fichas, piezas, montaje, enlace y retoque
+  battle/          rejilla de 12 y 11 (board.ts), iniciativa, daño, armas, rueda,
+                   contacto, carga, hechizos, poderes, efectos
+  map/             mapa, pathfinding (frontera.ts), niebla, generación (generate.ts,
+                   vestir.ts) y red de nodos (regiones.ts)
+  town/ hero/      castillos, edificios, reclutamiento; héroes, tropa, experiencia, equipo
+  state/           GameState, turnos, batallas del mapa, asaltantes
+  ai/              IA de respaldo: táctica y estratégica
+  contract/        esquemas zod, serialización y vocabulario (huecos, golpes) del agente
+  mundo/           los mundos: formato y vocabulario cerrado, validación, reglas de los lugares,
+                   lectura para el motor
+src/server/        bridge WebSocket + puente MCP (partida.ts, director, entorno.ts)
+src/client/        Vite + Canvas 2D. Solo pinta y manda intents
+  html.ts          LA PUERTA del marcado
+  session.ts       LA PUERTA al núcleo
+  escenas/ render/ views/   ratón y cámara; lo que se pinta; paneles
+  rueda/           la rueda del golpe (diálogo, disco, figuras) de partida, arena y espectador
+  espectador/      mira la partida del servidor, no juega (adaptar.ts, paneles.ts)
+  arena/           edita el catálogo del juego y monta peleas con sus reglas
+src/shared/        contrato visual (cámara a 25°, luz) de cliente y taller
+tools/gen/         generación de assets con fal.ai
+tools/mundo/       pnpm mundo y el motor de narrativa que genera un mundo desde el menú de pnpm dev
+tools/npcs/        pnpm npcs: el banco de figuras de NPC en disco (banco.ts) y la semilla
+tools/qa/          verificación de extremo a extremo y medidas
+tools/datos/       extrae JSON de NuevaJugabilidad.md con expresiones regulares
+tools/arena/ tools/taller/ tools/art/   arena, taller de arte, rig del Y Bot
+data/              unidades, equipo, edificios, economía, hechizos, experiencia… en JSON editable
+assets/            arte (generated/, unidades/, npcs/ del banco de NPC, mapa/, _poses/ del Y Bot), letras/ y temas/ de los
+                   temas de la interfaz; art/ (láminas y referencias de estilo) no va al build
+docs/agents/<tarea>/   lo que se pasan los roles del ciclo
+```
+
+- **`FAL_KEY` nunca llega al navegador**: la generación son scripts CLI.
+
+## Generación de assets
+
+```bash
+pnpm gen                              # simula: qué falta y cuánto costaría
+pnpm gen -- all --go --budget 4       # genera de verdad (--budget = gasto ACUMULADO)
+```
+
+Sin `--go` no se gasta nada; caché por hash del payload; gasto en
+`tools/gen/spend.json`. Texturas como material a 90°, liso, sin mencionar agua.
+Atlas de poses: ≤ 10 celdas, rejilla cuadrada, segunda referencia = identidad;
+`cutout.ts` recorta por relleno desde el borde. De los iconos de recursos queda el del oro
+(`ICONO_DEL_ORO`, el mismo texto: la caché no lo repaga); los otros seis, con el atlas de la mina
+y los montones del mapa, están en `assets/art/retirado/` (21-10-2026), que no va al build. Las criaturas y sus poses de
+`tools/gen/animate.ts` se retiraron (#139): las figuras son del taller.
+
+### El arte que el cliente no pinta
+
+Los edificios de ciudad y los efectos de batalla del 02-10-2026 (`assets/edificios/`,
+`assets/efectos/`) y los iconos de recursos de piedra y madera (`assets/iconos/recursos/`) no los
+pintaba ningún cliente desde la base caminable y el «solo oro», y `assets/rpg/suelo.webp` solo lo
+leía la página de revisión de los edificios. El arte pasó con `git mv` a `assets/art/retirado/`
+(fuera del build); del taller se fueron sus encargos (`taller/edificios.ts`, `efectos.ts`,
+`efectos-proceso.ts`, los tipos `iconos` y `efecto` de un encargo, `derivarEfecto`), sus órdenes
+(`encolar --edificios`, `--efectos` y `--iconos-recursos`, que ahora se rechazan diciéndolo;
+`vista-edificios` y `vista-efectos`) y sus tests. `dist` adelgaza unos 8 MB.
+
+### Lo muerto suelto
+
+Sin lectores en `src/`, `tools/`, `test/`, `vite.config.ts`, `package.json` ni `.mcp.json`:
+`tools/qa/hechizos-de-partida.ts`, `equipo.ts`, `asiento.ts` y `lugares-ia.ts` (medidas que nadie
+corría); `data/spells.json` (nadie lo importaba desde el editor de magia, `data/hechizos.json`);
+`Building.grantsWalls` y `hasWalls` (con su `"grantsWalls": true` del castillo en
+`data/buildings.json`: la muralla de una batalla la dice `data/sitios.json`, no un edificio);
+`KitDelPerfil.traits` (ningún perfil traía un rasgo); `dejaAlgoQueDura`, `puertasDe` (de la
+muralla de batalla), la `sumaDeEquipo` suelta (la del catálogo atado, `EquipoAtado.sumaDeEquipo`,
+se queda), `registrar` (`taller/encuadre.ts`), `hoja` (`taller/escenario/modulos.ts`),
+`AtrezoDeTiro`, `ClipDeHoja` y `texturaNeutra`. Y los comentarios que hablaban en presente de lo
+que ya no existe (`creature()`, `data/poderes.json`, `data/creatures.json` en la arena, el liche,
+el dragón óseo, el hook `Stop`, `medir-nodos.ts`, `test/taller-derivar.test.ts`); los que cuentan
+cuándo y por qué se fue algo se quedan.
+
+Lo que decía `CLAUDE.md`, tal como estaba:
+
+| Qué | Dónde |
+|---|---|
+| El editor de piezas (arena) | `conPiezas` (la única superposición de piezas sobre un catálogo: cambiar una, abrir un enlace), `cambioDePiezas` (el catálogo nuevo, hecho una vez, o el motivo: nadie de los catálogos deja de valer, dos piezas no se llaman igual, el equipo base del héroe; un retoque a media pelea, `retocarEnBatalla` con `kind: 'piezas'`, pregunta `equipoQueNoVale`), `enElHueco` (lo que exige el hueco; lo que no suma, a 0; el peso se queda), `piezaNueva` (en blanco o copia; ni id ni nombre de otra) y `piezaSobre` (sobre otra, extras a 0), `idsLlevados`/`piezasDelMontaje` (`core/arena.ts`). Las lecturas de una pieza atadas a un catálogo, `equipoCon` (`hero/equipo.ts`): la arena no importa las sueltas (`pieza`, `piezasPuestas`, `sumaDeEquipo`, `conEquipo`, `manosBlocker`, `equipoBlocker`, `ponerPieza`, `heroUnit`), que leen las del juego; al héroe lo viste con `cuerpoDelHeroe`. La batalla no lleva catálogo de piezas: quien cambia una a media pelea le da el suyo; el equipo puesto de cada stack, en `UnitInfo.equipo` (lo escribe `conEquipo` y viaja al espectador). Lo vigila `invariantes.test.ts`, por importación |

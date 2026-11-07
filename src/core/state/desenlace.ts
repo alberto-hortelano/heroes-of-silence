@@ -14,7 +14,7 @@
  */
 import type { PlayerId } from '../types.js';
 import type { DefeatReason } from './events.js';
-import type { GameState } from './game.js';
+import type { GameState } from './tipos.js';
 
 export type Desenlace = 'ganada' | 'perdida' | 'sin resolver' | 'ajena';
 

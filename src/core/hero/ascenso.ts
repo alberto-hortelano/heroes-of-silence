@@ -8,18 +8,18 @@
  * crea la IA en base al personaje». Y la acotó: **solo con narrador**. Sin
  * agente no pasa nada, así que el núcleo no decide nunca un ascenso: dice quién
  * podría (`veteranosEn`) y lo aplica cuando alguien se lo pide
- * (`ascenderVeterano`, en `game.ts`, que es el único que escribe la crónica).
+ * (`ascenderVeterano`, en `state/heroes.ts`, que es de los que escriben la
+ * crónica).
  *
- * Lo que vive en `game.ts` y no aquí —`veteranosEnSuBase`, `ascensoBlocker`,
- * `heroeEnElPueblo`— lo hace porque necesita `baseOf`, `heroesOf` y el tope de
- * héroes, y este módulo importándolos cerraría un ciclo con el que lo importa a
- * él.
+ * Lo que vive en la partida y no aquí —`veteranosEnSuBase` y `ascensoBlocker`
+ * (`state/heroes.ts`), `heroeEnElPueblo` (`state/consultas.ts`)— lo hace porque
+ * necesita `baseOf`, `heroesOf` y el tope de héroes, y este módulo importándolos
+ * cerraría un ciclo con el que lo importa a él.
  */
-import { tipoDeHeroe, tiposDeHeroe } from '../data.js';
 import type { Town } from '../town/town.js';
-import type { FactionId, Veterania } from '../types.js';
-import { RANGO_MAXIMO_DE_TROPA, rangoDeTropa } from './experiencia.js';
-import type { Hero } from './hero.js';
+import type { FactionId, Hero, Veterania } from '../types.js';
+import { RANGO_MAXIMO_DE_TROPA, rangoDeTropa } from './rango.js';
+import { tipoDeHeroe, tiposDeHeroe } from './tipos-de-heroe.js';
 
 /**
  * Un veterano que ya puede hacerse héroe, y dónde está: en `base` y, si no está
@@ -39,15 +39,13 @@ export interface VeteranoEnBase {
 /**
  * Los individuos de nivel máximo que hay en `base`: los de su guarnición y los
  * de la tropa de `heroeDentro`, el héroe del dueño que está en su casilla
- * (`heroeEnElPueblo`, en `game.ts`: se recibe resuelto porque buscarlo aquí
+ * (`heroeEnElPueblo`, en `state/consultas.ts`: se recibe resuelto porque buscarlo aquí
  * cerraría el ciclo de imports). En ese orden —guarnición primero— porque es el
  * orden en que se le pregunta al narrador, y tiene que ser el mismo en cada
  * pasada.
  *
- * Un personaje (`member`) no entra aunque tenga hoja: ya es alguien con nombre,
- * y su cuerpo no está en el catálogo, así que no hay criatura que contarle al
- * narrador. Un novato no entra porque no tiene hoja, y un veterano por debajo
- * del tope tampoco.
+ * Un novato no entra porque no tiene hoja, y un veterano por debajo del tope
+ * tampoco.
  */
 export function veteranosEn(
   base: Town,
@@ -56,9 +54,7 @@ export function veteranosEn(
 ): VeteranoEnBase[] {
   const out: VeteranoEnBase[] = [];
   const listo = (t: Hero['army'][number]): t is typeof t & { veterania: Veterania } =>
-    t.member === undefined &&
-    t.veterania !== undefined &&
-    rangoDeTropa(t.veterania) >= RANGO_MAXIMO_DE_TROPA;
+    t.veterania !== undefined && rangoDeTropa(t.veterania) >= RANGO_MAXIMO_DE_TROPA;
   for (const t of guarnicion) {
     if (listo(t)) out.push({ veterania: t.veterania, creature: t.creature, base, heroe: null });
   }

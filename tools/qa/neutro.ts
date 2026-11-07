@@ -20,9 +20,12 @@
  * que fuera una orden.
  */
 import { execFileSync } from 'node:child_process';
+import { once } from 'node:events';
 import { readFileSync } from 'node:fs';
+import type { AddressInfo } from 'node:net';
 import { dirname, join, normalize, resolve } from 'node:path';
 import { chromium, type Page } from 'playwright';
+import { WebSocketServer } from 'ws';
 import { urlDePartida } from './url-de-partida.js';
 import { arrancarVite, chromiumInstalado, esperarElSuelo, matarGrupo } from './vite-propio.js';
 
@@ -79,12 +82,12 @@ const PSEUDOS = ['', '::before', '::after', '::marker'] as const;
  */
 const OCULTOS_SIN_TEMA = ['.adornos-del-mapa'];
 /**
- * Lo que existe ahora y no en un `ref` de antes del tema por ejército (#ejercito,
- * el selector de la arena, que sí se ve; y lo de arriba): sin su regla, su alto
- * movía la barra y todo lo de detrás. Se oculta en las dos pasadas: no es neutro
- * ni tema, es nuevo.
+ * Lo que existe ahora y no en un `ref` de antes del tema por ejército (lo de
+ * arriba): se oculta en las dos pasadas, porque no es neutro ni tema, es nuevo.
+ * Llevaba también `.selector-de-la-barra`, el desplegable de la barra, hasta que
+ * se fue su regla sin nadie que la usara (fase C de la reorganización, 07-11-2026).
  */
-const NUEVOS = ['.selector-de-la-barra', ...OCULTOS_SIN_TEMA];
+const NUEVOS = [...OCULTOS_SIN_TEMA];
 
 /** Una hoja del cliente en el disco o en un `ref`, con sus `@import` relativos dentro. */
 function hoja(ruta: string, ref: string | null): string {
@@ -99,7 +102,8 @@ function hoja(ruta: string, ref: string | null): string {
 
 interface Escena {
   readonly nombre: string;
-  readonly url: string;
+  /** Su dirección; la del espectador lleva el puerto de su canal (`canalQuieto`). */
+  readonly url: string | ((puertoDelCanal: number) => string);
   readonly hojas: readonly string[];
   /** Lo que se hace en la página para llegar a la escena, ya cargada. */
   readonly llegar?: (page: Page) => Promise<void>;
@@ -162,8 +166,43 @@ const ESCENAS: readonly Escena[] = [
       await page.waitForSelector('#app[data-escena="equipo"]');
     },
   },
-  { nombre: 'espectador', url: '/espectador/', hojas: PARTIDA },
+  {
+    nombre: 'espectador',
+    // Contra el canal propio (`canalQuieto`), no contra el puerto de siempre.
+    url: (puerto) => `/espectador/?puerto=${puerto}`,
+    hojas: PARTIDA,
+    llegar: async (page) => {
+      await page.waitForSelector('#app[data-canal="abierto"]', { timeout: 60_000 });
+    },
+  },
 ];
+
+/**
+ * El canal del espectador: uno propio, que acepta la conexión y no manda nada. Sin
+ * él, el espectador llamaba al puerto de siempre (9880, o el de quien lo tenga en
+ * esta máquina compartida): sin nadie allí, su barra cuenta cada segundo lo que
+ * falta para el siguiente intento, y con el servidor de otra sesión, lo que este
+ * mande. Entre las dos lecturas del estilo, sobre la misma página, cambiaban así el
+ * texto de `#status`, `#turn` y `#seed`, y con él sus medidas: 4 diferencias en 3
+ * de 4 pasadas sobre el árbol limpio (fase 0 de la reorganización, 06-11-2026). Con
+ * este, la barra se queda quieta en «Conectado… Esperando a que empiece la
+ * partida» (`data-canal="abierto"`).
+ */
+async function canalQuieto(): Promise<{ readonly puerto: number; readonly cerrar: () => void }> {
+  const servidor = new WebSocketServer({ port: 0 });
+  await once(servidor, 'listening');
+  let cerrado = false;
+  return {
+    puerto: (servidor.address() as AddressInfo).port,
+    // Una vez: se llama al acabar y al salir, como `matarGrupo`.
+    cerrar: () => {
+      if (cerrado) return;
+      cerrado = true;
+      for (const ws of servidor.clients) ws.terminate();
+      servidor.close();
+    },
+  };
+}
 
 /**
  * Deja `css` como la única hoja de la página, sin `data-tema`: apaga las que
@@ -235,8 +274,15 @@ async function visiblesSinTema(page: Page, css: string): Promise<string[]> {
   );
 }
 
-async function compararEscena(page: Page, base: string, e: Escena, ref: string): Promise<string[]> {
-  if (e.enLaMisma !== true) await page.goto(`${base}${e.url}`);
+async function compararEscena(
+  page: Page,
+  base: string,
+  e: Escena,
+  ref: string,
+  puertoDelCanal: number,
+): Promise<string[]> {
+  const url = typeof e.url === 'string' ? e.url : e.url(puertoDelCanal);
+  if (e.enLaMisma !== true) await page.goto(`${base}${url}`);
   await e.llegar?.(page);
   // El ratón, fuera de todo: tras un clic se queda encima de un botón, y su
   // `:hover` cambia de dueño entre las dos pasadas.
@@ -268,7 +314,11 @@ async function compararEscena(page: Page, base: string, e: Escena, ref: string):
 
 const ref = process.argv[2] ?? 'HEAD';
 const vite = await arrancarVite();
-const limpiar = (): void => matarGrupo(vite.proceso, console.log);
+const canal = await canalQuieto();
+const limpiar = (): void => {
+  canal.cerrar();
+  matarGrupo(vite.proceso, console.log);
+};
 process.on('exit', limpiar);
 const ejecutable = chromiumInstalado(console.log);
 const navegador = await chromium.launch(
@@ -277,7 +327,9 @@ const navegador = await chromium.launch(
 try {
   const page = await navegador.newPage({ viewport: { width: 1440, height: 900 } });
   const todas: string[] = [];
-  for (const e of ESCENAS) todas.push(...(await compararEscena(page, vite.url, e, ref)));
+  for (const e of ESCENAS) {
+    todas.push(...(await compararEscena(page, vite.url, e, ref, canal.puerto)));
+  }
   if (todas.length > 0) {
     for (const d of todas.slice(0, 80)) console.log(`  ${d}`);
     if (todas.length > 80) console.log(`  … y ${todas.length - 80} más`);

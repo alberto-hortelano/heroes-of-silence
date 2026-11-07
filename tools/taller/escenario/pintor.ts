@@ -6,7 +6,7 @@
  */
 import { resolve } from 'node:path';
 import { build } from 'vite';
-import type { Escena } from '../../../src/client/render/escenario/colocar.js';
+import type { Escena } from '../../../src/client/render/escenario/colocar/escena.js';
 
 let guion: Promise<string> | undefined;
 

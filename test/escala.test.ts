@@ -12,7 +12,7 @@ import {
   radioALaEscala,
   raizEntera,
 } from '../src/core/escala.js';
-import { HERO_SCOUT_RADIUS, NODE_SCOUT_RADIUS } from '../src/core/state/game.js';
+import { HERO_SCOUT_RADIUS, NODE_SCOUT_RADIUS } from '../src/core/state/vision.js';
 import { SPEED_TIERS, SPEED_TO_MOVE_POINTS } from '../src/core/types.js';
 
 describe('la raíz entera', () => {

@@ -5,8 +5,8 @@ import {
   clipEnCurso,
   clipFrame,
   fotogramaDeCaida,
-} from '../src/client/render/character.js';
-import { arteDe, hojaDe } from '../src/client/render/personajes.js';
+} from '../src/client/render/figuras/character.js';
+import { arteDe, hojaDe } from '../src/client/render/figuras/personajes.js';
 
 describe('clips de personaje', () => {
   const atlas = hojaDe(arteDe('goblin-lancero'), 'SE');

@@ -18,50 +18,47 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { FORMAS_DE_EJEMPLO } from '../src/core/arena-murallas.js';
+import { FORMAS_DE_EJEMPLO } from '../src/core/arena/murallas.js';
 import { armaduraDe } from '../src/core/battle/armas.js';
+import { applyAction } from '../src/core/battle/battle.js';
+import { hexEquals } from '../src/core/battle/board.js';
+import { stackById } from '../src/core/battle/consultas.js';
+import type { Horquilla } from '../src/core/battle/damage.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
+import { type BattleSide, createBattle } from '../src/core/battle/montaje.js';
+import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import {
-  applyAction,
-  type BattleSide,
-  createBattle,
-  legalActions,
   type Prevision,
   type PrevisionDeGolpe,
   previsionDe,
-  stackById,
-} from '../src/core/battle/battle.js';
-import { hexEquals } from '../src/core/battle/board.js';
-import type { Horquilla } from '../src/core/battle/damage.js';
-import { type MurallaDeBatalla, SIN_MURALLA } from '../src/core/battle/muralla.js';
+} from '../src/core/battle/prevision.js';
 import type {
   BattleAction,
   BattleEvent,
   BattleHero,
   BattleState,
+  MurallaDeBatalla,
 } from '../src/core/battle/types.js';
-import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { cuerpoConSusCifras } from '../src/core/cuerpo.js';
-import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import type { CreatureTrait, Equipo, Hex, UnitInfo } from '../src/core/types.js';
-import { CUERPO_COMUN, KIT_DEL_PERFIL } from '../src/core/unidad.js';
-import { bando, bandoDe, mando as mandoDePrueba } from './batalla-de-prueba.js';
+import { unidadDelJuego } from '../src/core/unidad/catalogo.js';
+import { cuerpoConSusCifras } from '../src/core/unidad/cuerpo.js';
+import { CUERPO_COMUN, KIT_DEL_PERFIL } from '../src/core/unidad/formato.js';
 import {
   aMano,
-  catalogoCon,
+  bando,
+  bandoDe,
   conLasCifrasDe,
   conManosDePrueba,
   dadoCargado,
   MANOS_DE_PRUEBA,
-  NO_MUERTO,
-  PESADA,
-  SANADOR,
-  TIRADOR,
-  TROPA,
-  TROPA_BARATA,
-} from './helpers.js';
+  mando as mandoDePrueba,
+} from './batalla-de-prueba.js';
+import { NO_MUERTO, PESADA, SANADOR, TIRADOR, TROPA, TROPA_BARATA } from './comun.js';
 import { rango, segunPrisa } from './lento.js';
+import { catalogoCon } from './pelea-de-arena.js';
 
 const SEMILLAS = segunPrisa(rango(1, 40), rango(1, 300));
 
@@ -92,7 +89,7 @@ const EN_LA_PUNTA = {
 } as const;
 
 /** El héroe de estos escenarios: con ataque y defensa, poder 2 y un libro con daño. */
-function mando(over: Partial<BattleHero> = {}): BattleHero {
+function mandoConCincoHechizos(over: Partial<BattleHero> = {}): BattleHero {
   return mandoDePrueba({
     spellPower: 2,
     spells: ['magic_arrow', 'lightning_bolt', 'haste', 'slow', 'cure'],
@@ -173,7 +170,7 @@ const ARQUERO_DE_LA_ARENA = KIT_DEL_PERFIL.arco.equipo;
 /**
  * Un bando de un individuo hecho a mano (`aMano`): para los rasgos del motor que
  * ninguna unidad del catálogo lleva (doble golpe, doble disparo, miedo) o un daño
- * exacto. Entra como personaje (`bandoDe`).
+ * exacto. Entra con sus cifras tal cual (`bandoDe`).
  */
 function aManoSolo(nombre: string, unit: UnitInfo): BattleSide {
   return bandoDe([{ id: nombre, unit }]);
@@ -246,8 +243,8 @@ const ESCENARIOS: readonly Escenario[] = [
   },
   {
     nombre: 'tropa con héroes a los dos lados',
-    izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mando() }),
-    derecha: () => bando([{ creature: TROPA, count: 30 }], { heroe: mando() }),
+    izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mandoConCincoHechizos() }),
+    derecha: () => bando([{ creature: TROPA, count: 30 }], { heroe: mandoConCincoHechizos() }),
     en: { col: 5, row: 4 },
     contra: { col: 6, row: 4 },
     accion: golpe(),
@@ -289,7 +286,7 @@ const ESCENARIOS: readonly Escenario[] = [
   },
   {
     nombre: 'armadura: Flecha mágica sobre el templario',
-    izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mando() }),
+    izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mandoConCincoHechizos() }),
     derecha: () => deLaArena('templario', KIT_DEL_PERFIL['espada-escudo'].equipo),
     en: { col: 5, row: 4 },
     contra: { col: 8, row: 4 },
@@ -298,7 +295,7 @@ const ESCENARIOS: readonly Escenario[] = [
   },
   {
     nombre: 'Flecha mágica',
-    izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mando() }),
+    izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mandoConCincoHechizos() }),
     // Sin armadura (el monje): la del templario la compara con esta.
     derecha: () => bando([{ creature: SANADOR, count: 3 }]),
     en: { col: 5, row: 4 },
@@ -308,7 +305,7 @@ const ESCENARIOS: readonly Escenario[] = [
   },
   {
     nombre: 'Rayo',
-    izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mando() }),
+    izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mandoConCincoHechizos() }),
     derecha: () => bando([{ creature: TROPA, count: 3 }]),
     en: { col: 5, row: 4 },
     contra: { col: 8, row: 4 },
@@ -317,7 +314,7 @@ const ESCENARIOS: readonly Escenario[] = [
   },
   {
     nombre: 'Lentitud',
-    izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mando() }),
+    izquierda: () => bando([{ creature: PESADA, count: 5 }], { heroe: mandoConCincoHechizos() }),
     derecha: () => bando([{ creature: TROPA, count: 3 }]),
     en: { col: 5, row: 4 },
     contra: { col: 8, row: 4 },

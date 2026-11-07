@@ -16,7 +16,7 @@ import {
   FUENTES,
   HOJA_DE_LETRAS,
 } from '../tools/fuentes/bajar.js';
-import { sha256 } from './helpers.js';
+import { RAIZ, sha256 } from './comun.js';
 import {
   bloquesCss,
   hojasDelCliente,
@@ -26,7 +26,6 @@ import {
   temas,
 } from './hojas-de-estilo.js';
 
-const RAIZ = join(import.meta.dirname, '..');
 const ASSETS = join(RAIZ, 'assets');
 
 describe('las letras de los temas', () => {

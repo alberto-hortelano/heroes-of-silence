@@ -8,8 +8,8 @@
  * mismas no se pintan aquí: el cuerpo de cada una lo da `main.ts` con
  * `renderFicha`, la de siempre, sin copia.
  */
-import { type Html, html, unir } from '../html.js';
-import type { Elegida } from './paneles.js';
+import { type Html, html, unir } from '../comun/html.js';
+import type { Elegida } from './paneles/bandos.js';
 
 /** Lo que se abre en la vista de edición: una unidad (los héroes, no). */
 export type FichaEditable = Extract<Elegida, { readonly kind: 'unidad' }>;

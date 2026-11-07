@@ -29,7 +29,6 @@ export interface Desarrollo {
 export type QueHay = z.infer<typeof esquemaDeQueHay>;
 export type SpriteAhi = QueHay['sprites'][number];
 export type CaraAhi = QueHay['caras'][number];
-export type PuenteAhi = NonNullable<QueHay['puente']>;
 
 /** Lo que manda el cliente al guardar. */
 export type MarcaNueva = z.infer<typeof esquemaDeMarcaNueva>;

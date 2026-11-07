@@ -1,7 +1,7 @@
 /**
  * La renta del día: el oro que cobra un jugador al empezar su turno. **Un
  * hecho, un sitio**: lo suman `startTurn`, lo cuentan
- * al agente (`serialize.ts`, `you.income`) y lo enseña la barra (`Session`), y
+ * al agente (`contract/aventura.ts`, `you.income`) y lo enseña la barra (`Session`), y
  * los tres lo leen de aquí.
  *
  * **Lo que está unido a la base, y nada más** (fase 2a; el usuario corrigió el
@@ -21,25 +21,37 @@
  * `territorio`), y por eso cortar un nodo se nota en todo lo que colgaba
  * detrás a la vez, sin que nadie tenga que apuntar nada.
  */
-import { ECONOMIA } from '../data.js';
-import type { GameMap } from '../map/map.js';
-import {
-  dondeEsta,
-  dueñoEnLaFoto,
-  type Estructura,
-  type Territorio,
-  territorio,
-} from '../map/regiones.js';
+import { dondeEsta, dueñoEnLaFoto, type Territorio, territorio } from '../map/territorio.js';
+import type { Estructura, GameMap } from '../map/tipos.js';
+import { ECONOMIA } from '../town/economia.js';
 import { dailyIncome, type Town } from '../town/town.js';
 import type { PlayerId } from '../types.js';
-import type { GameState } from './game.js';
-import { ocupadoBlocker, sitioDeLaCiudad, sitioDelObjeto } from './sitios.js';
+import { ocupadoBlocker, type Sitio, sitioDeLaCiudad, sitioDelObjeto } from './sitios.js';
+import type { GameState } from './tipos.js';
 
 /**
  * La regla del pueblo dicha para la persona y para el agente: la leen la prosa
- * del contrato (`agent.ts`, `serialize.ts`) y el cliente, como `REGLA_DEL_ESCUDO`.
+ * del contrato (`formato.ts`, `mapa-conocido.ts` y `peticion-de-mapa.ts`) y el cliente, como `REGLA_DEL_ESCUDO`.
  */
 export const REGLA_DEL_PUEBLO = `da ${ECONOMIA.rentaDelPueblo} de oro al día a quien lo tenga unido a su base (dentro de una región, a quien tenga la región), salvo si está ocupado`;
+
+/**
+ * Lo que da un sitio al día, sin mirar si está unido a la base ni ocupado: una
+ * ciudad, su ayuntamiento (`dailyIncome`); un pueblo, `ECONOMIA.rentaDelPueblo`; un
+ * paso, nada. **Un hecho, un sitio**: lo leen la renta del día, la de una región y
+ * la IA (`valorDeRecuperar`), que hasta la fase N de la reorganización (07-11-2026)
+ * lo escribían cada una.
+ */
+export function rentaDelSitio(sitio: Sitio): number {
+  switch (sitio.kind) {
+    case 'ciudad':
+      return dailyIncome(sitio.town);
+    case 'pueblo':
+      return ECONOMIA.rentaDelPueblo;
+    case 'paso':
+      return 0;
+  }
+}
 
 /** Una ciudad propia en la renta: lo que da hoy y si cobra. */
 export interface CiudadDeLaRenta {
@@ -78,28 +90,27 @@ export interface RentaDelDia {
   readonly pueblos: readonly PuebloDeLaRenta[];
 }
 
-type PueblosPorRegion = ReadonlyMap<
-  number,
-  readonly { readonly id: string; readonly nombre: string }[]
->;
+type PueblosPorRegion = ReadonlyMap<number, readonly Sitio[]>;
 
 const pueblosCache = new WeakMap<Estructura, PueblosPorRegion>();
 
 /**
- * Los pueblos de dentro de cada región de la red, por su índice. Se cuentan una
- * vez por mapa, como la red misma (`estructura`): los pueblos no se mueven.
+ * El sitio de cada pueblo de dentro de cada región de la red, por su índice. Se
+ * hacen una vez por mapa, como la red misma (`estructura`): los pueblos no se
+ * mueven.
  */
 function pueblosPorRegion(map: GameMap, red: Estructura): PueblosPorRegion {
   const hecho = pueblosCache.get(red);
   if (hecho !== undefined) return hecho;
-  const porRegion = new Map<number, { id: string; nombre: string }[]>();
+  const porRegion = new Map<number, Sitio[]>();
   for (const o of map.objects) {
     if (o.kind !== 'village') continue;
     const r = red.sitiosDeRegion.get(o.id);
     if (r === undefined) continue;
+    const sitio: Sitio = { kind: 'pueblo', pueblo: o };
     const lista = porRegion.get(r);
-    if (lista === undefined) porRegion.set(r, [{ id: o.id, nombre: o.name }]);
-    else lista.push({ id: o.id, nombre: o.name });
+    if (lista === undefined) porRegion.set(r, [sitio]);
+    else lista.push(sitio);
   }
   pueblosCache.set(red, porRegion);
   return porRegion;
@@ -115,8 +126,13 @@ export function rentaDeLaRegion(
   red: Estructura,
   region: number,
 ): number {
-  let oro = (pueblosPorRegion(state.map, red).get(region)?.length ?? 0) * ECONOMIA.rentaDelPueblo;
-  for (const t of state.towns) if (red.sitiosDeRegion.get(t.id) === region) oro += dailyIncome(t);
+  let oro = 0;
+  for (const sitio of pueblosPorRegion(state.map, red).get(region) ?? []) {
+    oro += rentaDelSitio(sitio);
+  }
+  for (const t of state.towns) {
+    if (red.sitiosDeRegion.get(t.id) === region) oro += rentaDelSitio(sitioDeLaCiudad(t));
+  }
   return oro;
 }
 
@@ -134,13 +150,18 @@ export function rentaDelDia(
     if (donde === null) return false;
     return donde.en === 'muro' ? conexion.nodos.has(id) : conexion.regiones.has(donde.region);
   };
+  // Lo que cobra hoy un sitio suyo: lo que da (`rentaDelSitio`) si está unido a la
+  // base y no está ocupado; si no, nada, con la frase de la ocupación si la hay.
+  const cobro = (sitio: Sitio, esUnido: boolean) => {
+    const ocupada = ocupadoBlocker(state, sitio, jugador);
+    return { oro: esUnido && ocupada === null ? rentaDelSitio(sitio) : 0, ocupada };
+  };
   let total = 0;
   const ciudades: CiudadDeLaRenta[] = [];
   for (const t of state.towns) {
     if (dueñoEnLaFoto(foto, t.id) !== jugador) continue;
     const unida = unido(t.id);
-    const ocupada = ocupadoBlocker(state, sitioDeLaCiudad(t), jugador);
-    const oro = unida && ocupada === null ? dailyIncome(t) : 0;
+    const { oro, ocupada } = cobro(sitioDeLaCiudad(t), unida);
     total += oro;
     ciudades.push({ id: t.id, nombre: t.name, oro, unida, ocupada });
   }
@@ -148,8 +169,7 @@ export function rentaDelDia(
   for (const o of state.map.objects) {
     if (o.kind !== 'village' || dueñoEnLaFoto(foto, o.id) !== jugador) continue;
     const esUnido = unido(o.id);
-    const ocupada = ocupadoBlocker(state, sitioDelObjeto(state, o), jugador);
-    const oro = esUnido && ocupada === null ? ECONOMIA.rentaDelPueblo : 0;
+    const { oro, ocupada } = cobro(sitioDelObjeto(state, o), esUnido);
     total += oro;
     pueblos.push({ id: o.id, nombre: o.name, oro, unido: esUnido, ocupada });
   }

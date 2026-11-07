@@ -1,48 +1,43 @@
 /**
- * Punto de entrada del cliente: arranque, bucle de dibujo y reparto del ratón.
+ * Punto de entrada de la partida: busca los elementos de la página, abre la partida que pide la
+ * URL y monta lo demás, en orden.
  *
- * La sesión decide, `render/` pinta, `views/` monta los paneles y cada escena
- * (`escenas/`) traduce el puntero de su pantalla. Aquí solo se conecta todo.
+ * La sesión decide, `render/` pinta, los paneles salen de `partida/` y `views/`, y cada escena
+ * traduce el puntero de su pantalla. Aquí solo se conecta todo: lo que hace cada parte de la
+ * página vive en `partida/` desde R7 de la reorganización (07-11-2026) —abrir la partida
+ * (`abrir.ts`), el fotograma (`dibujo.ts`), los diálogos (`dialogos.ts`), lo que comparten los
+ * gestos (`gestos.ts`), el puntero (`puntero.ts`), el clic (`clic.ts`) y el teclado
+ * (`teclado.ts`)—, y la página que comparten, en `pagina.ts`. Ninguna registra un oyente ni hace
+ * nada al importarse: aquí se construye cada cosa y se instala cada parte en el orden de
+ * siempre, porque es comportamiento: dos oyentes del mismo evento en el mismo nodo corren en el
+ * orden en que se registraron.
  */
-import { combateCon, type ReglasDelCombate } from '@core/combate.js';
-import { problemaDeTipo } from '@core/hero/ascenso.js';
-import { esObraDelPuesto } from '@core/map/map.js';
-import type { MundoLeido } from '@core/mundo/formato.js';
-import { parseSeed } from '@core/rng.js';
-import { faccionesDeLaSemilla } from '@core/state/setup.js';
-import { type FactionId, parseFaccion } from '@core/types.js';
-import { unaVezEnLaURL } from '@core/validar.js';
-import { leerElClimaDeLaURL } from './clima-de-la-url.js';
-import { combateALaURL, combateDeLaURL, type ParametroDelCombate } from './combate-en-la-url.js';
-import type { Desarrollo } from './desarrollo/tipos.js';
-import { EscenaAventura } from './escenas/aventura.js';
-import { EscenaAyuntamiento } from './escenas/ayuntamiento.js';
-import { EscenaBatalla } from './escenas/batalla.js';
-import { EscenaBase } from './escenas/castillo.js';
-import { FLECHAS_AL_COLOCAR } from './escenas/despliegue.js';
-import { EscenaLugar } from './escenas/lugar.js';
-import { EscenaMorada } from './escenas/morada.js';
-import { EscenaTropa } from './escenas/tropa.js';
-import { PuertaDeFinDeTurno } from './fin-de-turno.js';
-import { type Html, pintar } from './html.js';
-import { mundoPedido } from './mundo/cargar.js';
+import { EscenaBatalla } from './batalla/escena.js';
+import { GestosDeBatalla } from './batalla/gestos.js';
+import { DialogoDeLaRueda } from './batalla/rueda/dialogo.js';
+import { bucleDeDibujo } from './comun/bucle.js';
+import { mensajeDe } from './comun/errores.js';
+import { abrirLaPartida } from './partida/abrir.js';
+import { EscenaBase } from './partida/base/escena.js';
+import { instalarElClic } from './partida/clic.js';
+import { instalarLosDialogos } from './partida/dialogos.js';
+import { calentarElMapa, dibujarFotograma, otroFotograma } from './partida/dibujo.js';
+import { PuertaDeFinDeTurno } from './partida/fin-de-turno.js';
+import { jugadaEnCurso } from './partida/gestos.js';
+import { EscenaLugar } from './partida/lugar/escena.js';
+import { EscenaAventura } from './partida/mapa/escena.js';
+import {
+  type EstadoDeLaPagina,
+  elementosDeLaPartida,
+  escenasDeDentro,
+  type PaginaDeLaPartida,
+} from './partida/pagina.js';
+import { instalarElPuntero } from './partida/puntero.js';
+import { instalarElTeclado } from './partida/teclado.js';
 import { cargarArte } from './render/assets.js';
-import { apuntarElSueloEn, escenarioListo, sueloDelMapa } from './render/escenario/superficie.js';
-import { hayFigurasAnimadas } from './render/figura.js';
-import { genteCargada } from './render/gente.js';
+import { apuntarElSueloEn } from './render/escenario/superficie.js';
 import { ajustarLienzo } from './render/lienzo.js';
-import { repartirClic } from './reparto-del-clic.js';
-import { DialogoDeLaRueda } from './rueda/dialogo.js';
-import { aLaBarra, semillaSorteada } from './semilla.js';
-import { Session } from './session.js';
-import { ponerTema } from './temas.js';
-import { pintarSiguiendoElFinal } from './views/al-final.js';
-import { renderAviso } from './views/aviso.js';
-import { renderConversacion } from './views/base.js';
-import { renderDefensa, renderGuarnicion } from './views/guarnicion.js';
-import { renderConversacionDelLugar } from './views/lugar.js';
-import { renderActions, renderSide, renderTopbar } from './views/panels.js';
-import { jugadaDelBotonDeMuralla, modoDelBoton } from './views/poderes.js';
+import type { Session } from './sesion/partida.js';
 
 /**
  * `true` en `pnpm dev` y `false` en `vite build` (`define` de `vite.config.ts`):
@@ -51,290 +46,38 @@ import { jugadaDelBotonDeMuralla, modoDelBoton } from './views/poderes.js';
  */
 declare const HERRAMIENTAS_DE_DESARROLLO: boolean;
 
-const app = document.getElementById('app') as HTMLElement;
-const canvas = document.getElementById('canvas') as HTMLCanvasElement;
-const lienzo = document.getElementById('lienzo') as HTMLElement;
-const minimapa = document.getElementById('minimapa') as HTMLCanvasElement;
-
-const elDay = document.getElementById('day') as HTMLElement;
-const elResources = document.getElementById('resources') as HTMLElement;
-const elTurn = document.getElementById('turn') as HTMLElement;
-const elSide = document.getElementById('side') as HTMLElement;
-const elStatus = document.getElementById('status') as HTMLElement;
-const elActions = document.getElementById('actions') as HTMLElement;
-const elSeed = document.getElementById('seed') as HTMLElement;
-const haciaEnemigo = document.getElementById('hacia-enemigo') as HTMLElement;
-const conversacion = document.getElementById('conversacion') as HTMLDialogElement;
-/** La rueda del golpe (`rueda/dialogo.ts`): modal sobre el lienzo, mientras se elige y se cuenta un cruce. */
-const elRueda = document.getElementById('rueda') as HTMLDialogElement;
-/** «¿Volver al menú?» (botón «Menú» de la barra de arriba): «Abandonar la partida» es el `restart`. */
-const salirAlMenu = document.getElementById('salir-al-menu') as HTMLDialogElement;
-/** Dejar y recoger tropa en un sitio propio (`views/guarnicion.ts`). */
-const elGuarnicion = document.getElementById('guarnicion') as HTMLDialogElement;
-/** Con quién se defiende el héroe atacado en su sitio (`views/guarnicion.ts`). */
-const elDefensa = document.getElementById('defensa') as HTMLDialogElement;
-/** Quién te ataca y dónde, sobre el mapa, antes de la batalla (`views/aviso.ts`). */
-const elAviso = document.getElementById('aviso') as HTMLDialogElement;
-const stage = document.getElementById('stage') as HTMLElement;
-const lateral = document.getElementById('lateral') as HTMLElement;
+const elementos = elementosDeLaPartida();
+const { app, canvas, elStatus, elSeed, elRueda, elGuarnicion, elDefensa, elAviso } = elementos;
 
 /**
- * La semilla que pide la URL, o `null` si no pide ninguna. Lanza si pide una
- * que no lo es, o si la pide dos veces: la regla entera —incluido que `?seed=`
- * vacío es no pedir— la escribe el núcleo (`parseSeed`, `unaVezEnLaURL`), aquí
- * solo se lee la barra de direcciones.
+ * El bucle de dibujo (`comun/bucle.ts`), con la red de la partida: un fallo al pintar se
+ * escribe en la barra, y el siguiente fotograma se vuelve a pedir si hace falta, también
+ * tras un fallo (`otroFotograma`). Va aquí arriba porque lo recogen desde el principio la
+ * sesión (`alCambiarSinGesto`) y la rueda; lo que pinta, en `partida/dibujo.ts`.
  */
-function semillaDeLaUrl(): number | null {
-  return parseSeed(unaVezEnLaURL(new URLSearchParams(location.search).getAll('seed'), 'seed'));
-}
+const pedirFotograma = bucleDeDibujo({
+  pintar: (ahora) => {
+    dibujarFotograma(pagina, ahora);
+    return otroFotograma(pagina);
+  },
+  alFallar: (motivo) => {
+    console.error('[cliente] fallo al pintar', motivo);
+    elStatus.textContent = `No se ha podido pintar la pantalla: ${mensajeDe(motivo)}`;
+    return otroFotograma(pagina);
+  },
+});
 
-/**
- * La facción que pide la URL (`?faccion=`, la que escribe el menú de inicio), o
- * `null` si no pide ninguna. Como la semilla: vacío es no pedir, lo que no sea
- * una facción lanza nombrando las cinco (`parseFaccion`) y repetido también.
- */
-function faccionDeLaUrl(): FactionId | null {
-  return parseFaccion(
-    unaVezEnLaURL(new URLSearchParams(location.search).getAll('faccion'), 'faccion'),
-  );
-}
-
-/**
- * El tipo de héroe que pide la URL (`?heroe=`, el que escribe el menú), o `null`
- * si no pide ninguno. Como la facción: vacío es no pedir, y uno que no es de
- * `faccion` —la que se jugará— lanza diciendo cuáles valen, con la regla del
- * núcleo (`problemaDeTipo`, la misma que aplica `newGame`).
- */
-function heroeDeLaUrl(faccion: FactionId): string | null {
-  const tipo = unaVezEnLaURL(new URLSearchParams(location.search).getAll('heroe'), 'heroe');
-  if (tipo === null || tipo.trim() === '') return null;
-  const problema = problemaDeTipo(faccion, tipo);
-  if (problema !== null) throw new Error(problema);
-  return tipo;
-}
-
-/** Lo que la URL puede pedir de una partida. */
-type Pedido = 'seed' | 'faccion' | 'heroe' | 'clima' | ParametroDelCombate;
-
-/**
- * Cómo salir de una URL que no abre partida: quitar lo que pidió. Sin la semilla
- * se juega otra al azar; sin nada, vuelve el menú de inicio.
- */
-function salidaDe(pedidos: readonly Pedido[]): string | null {
-  if (pedidos.length === 0) return null;
-  return `quita ${pedidos.map((p) => `"?${p}=…"`).join(' y ')} de la barra de direcciones`;
-}
-
-/**
- * Abre la partida y deja dicho, en la URL y en la barra, con qué semilla, con qué
- * facción, con qué héroe y con qué complejidad juega: se escriben siempre, también
- * si los sacó la semilla (la partida rápida, 7 / 7), para que la URL la
- * reproduzca entera. «Solo la rueda del héroe», solo si se marcó. Sin `heroe`
- * (`null`), el héroe de salida está por elegir en la base (22-10-2026) y `?heroe=`
- * no se escribe hasta que se elige (el clic de `hire-hero`): una recarga a media
- * elección vuelve a preguntar.
- */
-function abrePartida(
-  seed: number,
-  faccion: FactionId | null,
-  heroe: string | null,
-  combate: ReglasDelCombate,
-  soloHeroe: boolean,
-): Session {
-  const abierta = new Session(
-    seed,
-    faccion ?? undefined,
-    heroe,
-    combate,
-    soloHeroe,
-    undefined,
-    genteCargada(),
-  );
-  aLaBarra((url) => {
-    url.searchParams.set('seed', String(seed));
-    url.searchParams.set('faccion', abierta.jugador.faction);
-    if (heroe !== null) url.searchParams.set('heroe', heroe);
-    combateALaURL(url, abierta.state.combate, abierta.soloRuedaDelHeroe);
-  });
-  return prepararLaPartida(abierta, `semilla ${abierta.state.seed}`);
-}
-
-/** Lo que toda partida abierta deja hecho: su rótulo en la barra y su tema. */
-function prepararLaPartida(abierta: Session, rotulo: string): Session {
-  // Una defensa (#116) se abre a media jugada del rival, sin gesto que pinte.
-  abierta.alCambiarSinGesto = pedirFotograma;
-  // El héroe anda su marcha por el mapa, y lo que abre la llegada espera a que llegue.
-  abierta.enseñarLaMarcha = true;
-  elSeed.textContent = rotulo;
-  // La interfaz, con el tema de la facción de quien juega (`temas.ts`).
-  ponerTema(abierta.jugador.faction);
-  return abierta;
-}
-
-/**
- * Abre la partida de un mundo (`?mundo=`, ya cargado y validado por
- * `mundo/cargar.ts`): su semilla, su facción y su héroe son los suyos. La URL ya
- * es la que la repite: `?mundo=` solo, que `mundoDeLaUrl` no deja ir con nada de
- * eso, más la complejidad del combate, que es de quien juega y no del mundo.
- */
-function abrePartidaDelMundo(
-  mundo: MundoLeido,
-  combate: ReglasDelCombate,
-  soloHeroe: boolean,
-): Session {
-  const abierta = new Session(
-    mundo.mundo.semilla,
-    undefined,
-    undefined,
-    combate,
-    soloHeroe,
-    mundo,
-    genteCargada(),
-  );
-  aLaBarra((url) => combateALaURL(url, abierta.state.combate, abierta.soloRuedaDelHeroe));
-  return prepararLaPartida(
-    abierta,
-    `mundo «${mundo.historia.titulo}» · semilla ${abierta.state.seed}`,
-  );
-}
-
-/** Por qué no arranca la partida y, si es por la URL, cómo salir: quitar lo que pidió. */
-interface Fallo {
-  readonly motivo: unknown;
-  readonly salida: string | null;
-}
-
-/**
- * Sin sesión no arranca el bucle y la página se queda en blanco: los motivos se
- * escriben para la persona, cada uno con su salida, y se relanza igual: un fallo
- * no se tapa con una barra bonita. Con dos (`?seed=abc&faccion=xyz`) se dicen
- * los dos: diciendo solo el primero, arreglarlo destapaba el segundo en otra
- * recarga (H4 de QA del tema por ejército, en su rama).
- */
-function sinArrancar(fallos: readonly Fallo[]): never {
-  const texto = fallos
-    .map(({ motivo, salida }) => {
-      const m = motivo instanceof Error ? motivo.message : String(motivo);
-      return salida === null ? m : `${m} — ${salida}`;
-    })
-    .join('. ');
-  elStatus.textContent = texto;
-  // Sin partida no hay lienzo que se mueva: la barra suelta sus dos líneas y se
-  // lee entera también en el móvil.
-  elStatus.dataset.sinArrancar = 'si';
-  // Con la salida en el mensaje: lo que se lanza lo pinta entero la página que
-  // no arranca (`arranque.ts`), encima de la barra.
-  throw new Error(texto, {
-    cause: fallos.length === 1 ? fallos[0]?.motivo : fallos.map((f) => f.motivo),
-  });
-}
-
-let session: Session;
-{
-  // Lo que pide la URL, leído entero antes de decir nada: cada parámetro que no
-  // vale, con su salida, y todos a la vez.
-  const fallos: Fallo[] = [];
-  const leer = <T>(nombre: Pedido, leerlo: () => T | null): T | null => {
-    try {
-      return leerlo();
-    } catch (motivo) {
-      fallos.push({ motivo, salida: salidaDe([nombre]) });
-      return null;
-    }
-  };
-  // Un mundo trae su semilla, su facción y su héroe (`mundoDeLaUrl` no los deja
-  // ir con él); de la URL, solo la complejidad del combate y el clima.
-  const mundo = mundoPedido();
-  const semilla = mundo === null ? leer('seed', semillaDeLaUrl) : null;
-  const faccion = mundo === null ? leer('faccion', faccionDeLaUrl) : null;
-  const { tope, rueda, soloHeroe } = combateDeLaURL(location.search, (parametro, motivo) =>
-    fallos.push({ motivo, salida: salidaDe([parametro]) }),
-  );
-  const clima = leer('clima', () => leerElClimaDeLaURL(new URLSearchParams(location.search)));
-  const delCombate = [
-    ...(tope === null ? [] : (['tropa'] as const)),
-    ...(rueda === null ? [] : (['rueda'] as const)),
-  ];
-  if (mundo !== null) {
-    if (fallos.length > 0) sinArrancar(fallos);
-    try {
-      session = abrePartidaDelMundo(mundo, combateCon(tope, rueda), soloHeroe);
-    } catch (motivo) {
-      sinArrancar([{ motivo, salida: salidaDe(delCombate) }]);
-    }
-  } else {
-    const seed = semilla ?? semillaSorteada();
-    // El héroe se juzga contra la facción que se jugará: la pedida o la que saque
-    // la semilla, que la dice la misma función que usa `newGame`. Así el motivo
-    // nombra solo `?heroe=` como salida. Con la semilla o la facción rotas no se
-    // juzga: sería contra otra.
-    const heroe =
-      fallos.length > 0
-        ? null
-        : leer('heroe', () => heroeDeLaUrl(faccionesDeLaSemilla(seed, faccion ?? undefined)[0]));
-    if (fallos.length > 0) sinArrancar(fallos);
-    try {
-      session = abrePartida(seed, faccion, heroe, combateCon(tope, rueda), soloHeroe);
-    } catch (motivo) {
-      // Lo que no abre partida es lo que pidió la URL, y la salida es quitar eso.
-      // Sin nada pedido no hay salida que dar.
-      const pedidos = [
-        ...(semilla === null ? [] : (['seed'] as const)),
-        ...(faccion === null ? [] : (['faccion'] as const)),
-        ...(heroe === null ? [] : (['heroe'] as const)),
-        ...delCombate,
-      ];
-      sinArrancar([{ motivo, salida: salidaDe(pedidos) }]);
-    }
-  }
-  // Una región de `?clima=` que este mapa no tiene lanza aquí, diciendo cuáles
-  // hay, y la salida es quitar solo `?clima=`: la semilla está bien, y quitarla
-  // cambiaría la partida (H6 del QA del clima, 22-10-2026).
-  leer('clima', () => {
-    session.fijarElClima(clima);
-    return null;
-  });
-  if (fallos.length > 0) sinArrancar(fallos);
-}
-
+const session = abrirLaPartida({ elStatus, elSeed, pedirFotograma });
 const sesion = (): Session => session;
 const aventura = new EscenaAventura(sesion);
 const batalla = new EscenaBatalla(sesion);
 const castillo = new EscenaBase(sesion);
-/** La escena de un lugar de un mundo (`escenas/lugar.ts`): se entra desde el mapa, como en la tropa. */
-const lugar = new EscenaLugar(sesion);
 /**
- * Las escenas de dentro: se entra en ellas desde otra (la tropa desde el mapa, la
- * morada desde la base), abren con el lateral arriba y, al salir, reponen el de la
- * escena de la que se vino. Cada una con su escena de pie, el `data-*` que deja en
- * el lienzo para `pnpm capturas` y su salida, la de la sesión.
+ * La escena de un lugar de un mundo (`partida/lugar/escena.ts`): se entra desde el mapa, como en
+ * la tropa.
  */
-const DENTRO = {
-  tropa: { de: new EscenaTropa(sesion), cerrar: (s: Session) => s.cerrarLaTropa() },
-  morada: {
-    // Detrás de la fila, la base con su edificio abierto: no se sale de ella.
-    de: new EscenaMorada(sesion, (ctx, lienzo, camara, vista, ahora) =>
-      castillo.pintarLaMorada(ctx, lienzo, camara, vista.edificio, ahora),
-    ),
-    cerrar: (s: Session) => s.cerrarLaMorada(),
-  },
-  ayuntamiento: {
-    // Detrás de la fila, la base con el ayuntamiento por fuera (no tiene versión
-    // abierta) y sin quien anduvo: delante solo van los candidatos.
-    de: new EscenaAyuntamiento(sesion, (ctx, lienzo, camara, vista, ahora) =>
-      castillo.pintarLaMorada(ctx, lienzo, camara, vista.edificio, ahora, { caminante: false }),
-    ),
-    cerrar: (s: Session) => s.cerrarElAyuntamiento(),
-  },
-  // Escape cierra primero la conversación y, sin ella, sale al mapa.
-  lugar: {
-    de: lugar,
-    cerrar: (s: Session) =>
-      s.lugar.hablando !== null ? s.lugar.dejarDeHablar() : s.salirDelLugar(),
-  },
-} as const;
-type EscenaDeDentro = keyof typeof DENTRO;
-const esDeDentro = (escena: string): escena is EscenaDeDentro => escena in DENTRO;
+const lugar = new EscenaLugar(sesion);
+const dentro = escenasDeDentro(sesion, castillo, lugar);
 /**
  * La rueda del golpe de la partida, la misma de la arena (F5, 19-10-2026). De los
  * dos que se cruzan, su figura, su chapa y su nombre, y quién es «tú»
@@ -346,1023 +89,93 @@ const rueda = new DialogoDeLaRueda(elRueda, {
   cara: () => null,
   pedirFotograma,
   alPulsarMientrasCuenta: () => {
-    jugadaEnCurso();
+    jugadaEnCurso(pagina);
   },
 });
 const finDeTurno = new PuertaDeFinDeTurno(() => performance.now());
-/** El modo «marcar fallo» y la vista de regiones (`desarrollo/herramientas.ts`): solo en `pnpm dev`. */
-let desarrollo: Desarrollo | null = null;
 
-// ---------------------------------------------------------------- dibujo
-
-/**
- * Cuándo se pinta, que es la mitad del trabajo.
- *
- * El lienzo pide fotograma solo mientras hay algo que se mueve: figuras que
- * respiran (con su arte cargado), la cola del animador de batalla o un arrastre
- * del mapa. Fuera de eso, se pinta cuando algo pasa —un gesto, el fin del turno
- * del rival, un cambio de tamaño, arte que llega— y se para. Antes era un
- * `requestAnimationFrame` perpetuo que lo rehacía todo, paneles incluidos.
- */
-let fotogramaPedido = false;
-function pedirFotograma(): void {
-  if (fotogramaPedido) return;
-  fotogramaPedido = true;
-  requestAnimationFrame(render);
-}
-
-function hayAnimacion(): boolean {
-  if (hayFigurasAnimadas()) return true;
-  if (session.scene === 'battle') return batalla.ocupada;
-  return session.scene === 'adventure' && (aventura.arrastrando || session.marchaEnCurso !== null);
-}
+/** Lo que la página cambia mientras vive (`EstadoDeLaPagina`, `partida/pagina.ts`). */
+const estado: EstadoDeLaPagina = {
+  desarrollo: null,
+  paneles: null,
+  arteLlegado: 0,
+  escenaPintada: '',
+  escenaDeAntes: '',
+  lateralDeAntes: 0,
+  lateralPendiente: null,
+  fichaALaVista: false,
+  activaSeguida: null,
+};
 
 const principal = ajustarLienzo(canvas, pedirFotograma);
 const ctx = principal.ctx;
 
-/**
- * Los paneles se rehacen cuando la sesión dice que algo ha cambiado (`version`),
- * cuando la partida es otra o
- * cuando el tablero de batalla empieza o acaba de contar una jugada (sus botones
- * van apagados mientras tanto, #165); la barra, además, cuando llega arte (el
- * icono del oro). Antes se generaba su marcado en cada fotograma para
- * compararlo con el anterior.
- */
-let paneles: {
-  sesion: Session;
-  version: number;
-  arte: number;
-  contando: boolean;
-  base: string;
-} | null = null;
-let arteLlegado = 0;
 cargarArte(() => {
-  arteLlegado++;
+  estado.arteLlegado++;
   pedirFotograma();
 });
 apuntarElSueloEn(app);
 
-let escenaPintada = '';
-/**
- * La escena de donde se entró en una de dentro (el mapa o la base) y lo bajado
- * en su lateral, y lo que toca poner tras repintar los paneles.
- */
-let escenaDeAntes = '';
-let lateralDeAntes = 0;
-let lateralPendiente: number | null = null;
+// Antes que los gestos de la batalla, como siempre: con lo que leen, que la página aún no
+// está entera.
+instalarLosDialogos({ elGuarnicion, elAviso, elDefensa, session, pedirFotograma });
 
 /**
- * Tras elegir un candidato del ayuntamiento (en el lienzo o en su botón), su ficha
- * con «Contratar» se trae a la vista si no se veía (QA H2, 22-10-2026). En un
- * teléfono pequeño el panel va debajo del lienzo y asoma una franja: quien tocaba
- * una figura no veía pasar nada. Se lee en el fotograma que repinta el panel, con
- * la ficha ya nueva.
+ * Los gestos de la batalla, los de la arena (`batalla/gestos.ts`): los botones del
+ * panel, las teclas y el puntero sobre el tablero, con la misma puerta (`jugadaEnCurso`).
  */
-let fichaALaVista = false;
-
-/**
- * `fichaALaVista` tras el `click` que el navegador saca de este mismo toque, que
- * llega después de `pointerup` y se apunta donde esté el dedo entonces: con el
- * panel ya desplazado, en un teléfono de 375×667 caía sobre «Contratar» y
- * contrataba sin que nadie viera la ficha (QA H6, 22-10-2026). Si el `click` no
- * llega (el dedo se arrastró), a los `ESPERA_DEL_CLIC` ms.
- */
-function fichaTrasElClic(): void {
-  let hecho = false;
-  const traer = (): void => {
-    if (hecho) return;
-    hecho = true;
-    window.removeEventListener('click', traer, true);
-    fichaALaVista = true;
-    pedirFotograma();
-  };
-  // En la captura: el `click` ya tiene su blanco y el desplazamiento llega en el
-  // fotograma siguiente, cuando ya se ha repartido.
-  window.addEventListener('click', traer, true);
-  setTimeout(traer, ESPERA_DEL_CLIC);
-}
-const ESPERA_DEL_CLIC = 400;
-
-/**
- * El bucle de dibujo, con red: el fallo se escribe en la barra y el siguiente
- * fotograma se vuelve a pedir si hace falta. Desde que el marcado sale por
- * `pintar`, dentro hay funciones que lanzan, y con el `requestAnimationFrame` en
- * la última línea una sola excepción congelaba el tablero sin decir nada.
- */
-function render(ahora: number): void {
-  fotogramaPedido = false;
-  try {
-    dibujarFotograma(ahora);
-  } catch (err) {
-    const motivo = err instanceof Error ? err.message : String(err);
-    console.error('[cliente] fallo al pintar', err);
-    elStatus.textContent = `No se ha podido pintar la pantalla: ${motivo}`;
-  } finally {
-    // También si la escena cambió mientras se pintaba —un «Continuar» que
-    // esperaba a la jugada vuelve al mapa en `batalla.sincronizar`—: este
-    // fotograma pintó la de antes.
-    if (hayAnimacion() || session.scene !== escenaPintada) pedirFotograma();
-  }
-}
-
-function dibujarFotograma(ahora: number): void {
-  const escena = session.scene;
-  if (escena !== escenaPintada) {
-    // El lateral se desplaza solo, y la tropa heredaba lo bajado en el panel del
-    // mapa: abría con la lista de a quién elegir por encima de la vista (QA, H3).
-    // La tropa y la morada abren arriba, y al volver el mapa o la base se
-    // encuentran su panel como lo dejaron. Se lee antes de cambiar `data-escena`
-    // (con el marco de la tropa el lateral mide otra cosa y el navegador ya lo
-    // recorta) y se pone después de repintar los paneles, por lo mismo.
-    if (esDeDentro(escena)) {
-      escenaDeAntes = escenaPintada;
-      lateralDeAntes = lateral.scrollTop;
-      lateralPendiente = 0;
-    } else if (esDeDentro(escenaPintada)) {
-      // A la escena de donde se entró, como estaba; a otra, arriba.
-      lateralPendiente = escena === escenaDeAntes ? lateralDeAntes : 0;
-      lateralDeAntes = 0;
-    }
-    app.dataset.escena = escena;
-    principal.remedir();
-    // El tablero de batalla es más ancho que un móvil: se empieza mirando el
-    // centro, que es donde se encuentran los dos bandos. El de la tropa, por su
-    // borde: la formación es la del atacante, a la izquierda.
-    lienzo.scrollLeft =
-      escena === 'tropa' ? 0 : Math.max(0, (lienzo.scrollWidth - lienzo.clientWidth) / 2);
-    // En el móvil lo que se desplaza es `#stage`: al abrir la base desde la
-    // lista de castillos, que está debajo del lienzo, la pantalla nueva se
-    // quedaba donde estaba el botón, con medio lienzo fuera de la vista.
-    stage.scrollTop = 0;
-    escenaPintada = escena;
-  }
-
-  const enCastillo = escena === 'town' && session.activeTown !== null;
-  const enBatalla = escena === 'battle' && session.battle !== null;
-  const dentro = esDeDentro(escena) ? DENTRO[escena].de : null;
-  // Solo el mapa tiene presupuesto de píxeles: es la única pantalla que pinta
-  // miles de sprites a cada fotograma. Depende del zoom: acercando, plena.
-  const rect = principal.preparar(
-    enCastillo || enBatalla || dentro !== null ? undefined : aventura.presupuesto,
-  );
-  ctx.clearRect(0, 0, rect.width, rect.height);
-  // Lo abierto en la base o si se anda: lo leen la página (`canvas[data-base]`)
-  // y los paneles. Una lectura por fotograma, después de dibujar.
-  let base = '';
-  if (enCastillo) {
-    castillo.dibujar(ctx, rect.width, rect.height, ahora);
-    base = castillo.marca;
-    if (canvas.dataset.base !== base) canvas.dataset.base = base;
-  } else if (enBatalla) {
-    batalla.sincronizar(ahora);
-    batalla.dibujar(ctx, rect.width, rect.height);
-    seguirALaActiva();
-  } else if (dentro !== null) {
-    dentro.dibujar(ctx, rect.width, rect.height, window.devicePixelRatio || 1, ahora);
-  } else {
-    aventura.dibujar(ctx, rect.width, rect.height, ahora);
-    desarrollo?.dibujar(ctx);
-    aventura.dibujarMinimapa(minimapa);
-  }
-  señalarEnemigo(enBatalla);
-  // Fuera de la batalla, cerrada (`pintar` la cierra si no hay batalla). Sus dos
-  // figuras respiran con las del tablero (`hayFigurasAnimadas` pide el siguiente).
-  rueda.pintar();
-  rueda.animar(ahora);
-
-  if (!enCastillo && canvas.dataset.base !== undefined) delete canvas.dataset.base;
-  // El héroe que anda su marcha (`#app[data-marcha]`, su id): `pnpm capturas` espera
-  // a que llegue antes de mirar lo que abre la llegada.
-  const andando = session.marchaEnCurso?.heroe;
-  if (andando === undefined) {
-    if (app.dataset.marcha !== undefined) delete app.dataset.marcha;
-  } else if (app.dataset.marcha !== andando) app.dataset.marcha = andando;
-  // A quién se mira en cada escena de dentro (`canvas[data-tropa]`, el id de la
-  // elegida; `canvas[data-morada]`, `<edificio>:<unidad>`): por donde esperan
-  // `pnpm capturas` y los tests del navegador. Fuera de ella, sin la marca.
-  for (const nombre of Object.keys(DENTRO) as EscenaDeDentro[]) {
-    const marca = escena === nombre ? DENTRO[nombre].de.marca : '';
-    if (marca === '') {
-      if (canvas.dataset[nombre] !== undefined) delete canvas.dataset[nombre];
-    } else if (canvas.dataset[nombre] !== marca) canvas.dataset[nombre] = marca;
-  }
-
-  // Después de `batalla.sincronizar`: es la cola de ESTE fotograma.
-  const contando = enBatalla && batalla.ocupada;
-  // Lo abierto en la base cambia el panel sin cambiar la partida: al llegar a
-  // una puerta se abre su panel, y eso no sube la versión de la sesión.
-  const cambiaLaPartida =
-    paneles === null ||
-    paneles.sesion !== session ||
-    paneles.version !== session.version ||
-    paneles.contando !== contando ||
-    paneles.base !== base;
-  // El arte que llega solo cambia la barra (el icono del oro). El lateral
-  // y las acciones no lo leen, y repintarlos con cada hoja o tramo que llegaba
-  // perdía el toque que caía en medio: el botón tocado ya no existía al llegar
-  // su clic (1 de cada 10 en la morada del móvil, 21-10-2026).
-  if (cambiaLaPartida || paneles?.arte !== arteLlegado) {
-    const top = renderTopbar(session);
-    elDay.textContent = top.day;
-    pintar(elResources, top.resources);
-    elTurn.textContent = top.turn;
-  }
-  if (cambiaLaPartida) {
-    pintarSiguiendoElFinal(
-      elSide,
-      renderSide(session, contando, enCastillo ? castillo.abierto : null),
-    );
-    pintar(elActions, renderActions(session, contando));
-    mostrarConversacion(enCastillo, escena === 'lugar');
-    mostrarLaGuarnicion();
-  }
-  paneles = { sesion: session, version: session.version, arte: arteLlegado, contando, base };
-  if (lateralPendiente !== null) {
-    lateral.scrollTop = lateralPendiente;
-    lateralPendiente = null;
-  }
-  if (fichaALaVista) {
-    fichaALaVista = false;
-    llevarLaFichaALaVista();
-  }
-  if (elStatus.textContent !== session.status) elStatus.textContent = session.status;
-}
-
-/** Trae a la vista la ficha del elegido del ayuntamiento y su «Contratar» (`fichaALaVista`). */
-function llevarLaFichaALaVista(): void {
-  const ficha = elSide.querySelector('.ficha-del-ayuntamiento');
-  const contratar = ficha?.querySelector('[data-action="hire-hero"]');
-  if (ficha == null || contratar == null) return;
-  // Primero la ficha desde arriba y luego el botón: si la ficha entera no cabe,
-  // manda que se vea «Contratar». `nearest` no mueve nada si ya se ve (el
-  // escritorio, con el panel al lado).
-  ficha.scrollIntoView({ block: 'nearest' });
-  contratar.scrollIntoView({ block: 'nearest' });
-}
-
-/**
- * La conversación con una persona de la base: un `<dialog>` no modal sobre el
- * lienzo, que se abre cuando quien camina llega a su lado y se cierra con
- * «Seguir», con Escape o con un clic en el suelo. Se rellena por la puerta del
- * marcado, como los paneles: el nombre y la línea los puede escribir el agente.
- */
-function mostrarConversacion(enCastillo: boolean, enUnLugar: boolean): void {
-  // La de un lugar de un mundo: su árbol, con las opciones (`views/lugar.ts`).
-  if (enUnLugar) {
-    const c = session.lugar.conversacion();
-    if (c === null) {
-      if (conversacion.open) conversacion.close();
-      return;
-    }
-    pintar(conversacion, renderConversacionDelLugar(c));
-    if (!conversacion.open) conversacion.show();
-    return;
-  }
-  const a = enCastillo ? castillo.abierto : null;
-  if (a === null || a.tipo !== 'pnj') {
-    if (conversacion.open) conversacion.close();
-    return;
-  }
-  pintar(conversacion, renderConversacion(session, a.id));
-  if (!conversacion.open) conversacion.show();
-}
-
-/**
- * Las dos pantallas de la guarnición, modales: la de dejar y recoger (la abre la
- * sesión al parar en un sitio propio o con el botón) y la de la defensa (al ser
- * atacado en él). Se pintan desde la sesión, como la conversación; Escape las
- * cierra por su `cancel` (la defensa, con la propuesta de la IA).
- */
-function mostrarLaGuarnicion(): void {
-  const vista = session.vistaDeLaGuarnicion();
-  mostrarModal(elGuarnicion, vista === null ? null : renderGuarnicion(vista));
-  const defensa = session.defensa;
-  mostrarModal(elDefensa, defensa === null ? null : renderDefensa(defensa));
-  const aviso = session.avisoDelAtaque;
-  mostrarModal(elAviso, aviso === null ? null : renderAviso(aviso));
-}
-
-/** Un `<dialog>` modal con `contenido`, o cerrado si no hay nada que enseñar. */
-function mostrarModal(el: HTMLDialogElement, contenido: Html | null): void {
-  if (contenido === null) {
-    if (el.open) el.close();
-    return;
-  }
-  pintar(el, contenido);
-  if (!el.open) el.showModal();
-}
-
-elGuarnicion.addEventListener('cancel', (ev) => {
-  ev.preventDefault();
-  session.cerrarLaGuarnicion();
-  pedirFotograma();
-});
-// El aviso no se despide con Escape: la batalla llega igual, y se elige cómo.
-elAviso.addEventListener('cancel', (ev) => ev.preventDefault());
-elDefensa.addEventListener('cancel', (ev) => {
-  ev.preventDefault();
-  session.dejarLaDefensaDeLaIA();
-  pedirFotograma();
+const gestos = new GestosDeBatalla({
+  sesion,
+  escena: batalla,
+  jugadaEnCurso: () => jugadaEnCurso(pagina),
+  pedirFotograma,
 });
 
-/**
- * La única puerta de los gestos de batalla mientras la jugada se está contando.
- *
- * El tablero que se ve todavía no es el del estado, así que no se acepta nada:
- * ni un clic en el lienzo ni un botón ni Escape. Estaba repartida —una
- * comprobación en el clic del lienzo y otra en dos de los botones—, y por los
- * huecos se colaban «Resolver sola», el libro de hechizos, «Continuar» y Escape.
- *
- * Los botones del panel ya salen apagados mientras se cuenta (#165); por aquí
- * pasan aún el lienzo, el teclado y el clic que cae entre el gesto y el
- * fotograma que repinta el panel.
- */
-function jugadaEnCurso(): boolean {
-  if (session.scene !== 'battle') return false;
-  if (!batalla.rechazarSiOcupada(performance.now())) return false;
-  pedirFotograma();
-  return true;
-}
+/** La página entera (`partida/pagina.ts`): lo que leen las piezas de `partida/`. */
+const pagina: PaginaDeLaPartida = {
+  ...elementos,
+  session,
+  pedirFotograma,
+  aventura,
+  batalla,
+  castillo,
+  lugar,
+  dentro,
+  rueda,
+  gestos,
+  finDeTurno,
+  principal,
+  ctx,
+  estado,
+};
 
-/**
- * La puerta de los gestos del mapa mientras el héroe anda su marcha
- * (`Session.marchaEnCurso`): el gesto —un clic en el lienzo, un botón, una
- * tecla— solo lo hace llegar (`acabarLaMarcha`, que abre lo que esperaba a la
- * llegada) y no hace nada más. Sin marcha, `false` y el gesto sigue. Así nada se
- * juega con el héroe pintado a medio camino, ni con la batalla de una emboscada
- * esperando a que llegue.
- */
-function hastaQueLlegue(): boolean {
-  if (session.marchaEnCurso === null) return false;
-  session.acabarLaMarcha();
-  aventura.olvidarRuta();
-  pedirFotograma();
-  return true;
-}
-
-/** La última unidad propia a la que se llevó el marco, para no pelear con el dedo. */
-let activaSeguida: string | null = null;
-
-/**
- * En el móvil el tablero se desplaza dentro de su marco: cuando le toca a otra
- * unidad tuya, el marco va hasta ella. Una sola vez por unidad, para que quien
- * desplaza a mano para mirar no vea el marco volver solo a cada fotograma.
- */
-function seguirALaActiva(): void {
-  if (lienzo.scrollWidth <= lienzo.clientWidth) return;
-  const activa = batalla.activaPropia();
-  if (activa === null || activa.id === activaSeguida) return;
-  activaSeguida = activa.id;
-  lienzo.scrollLeft = Math.max(0, activa.x - lienzo.clientWidth / 2);
-}
-
-/**
- * La pista del borde: en el móvil el marco empieza en tu unidad, y el enemigo
- * —al otro lado de un tablero de 860 px— quedaba entero fuera de la vista sin
- * que nada dijera que el tablero seguía. Si hay enemigos fuera, un botón en ese
- * borde lo dice con cuántos son, y pulsarlo lleva el marco hasta allí.
- */
-function señalarEnemigo(enBatalla: boolean): void {
-  const fuera =
-    enBatalla && lienzo.scrollWidth > lienzo.clientWidth
-      ? batalla.enemigosFuera(lienzo.scrollLeft, lienzo.scrollLeft + lienzo.clientWidth)
-      : { izquierda: 0, derecha: 0 };
-  // A la derecha primero: es donde está el enemigo cuando la persona ataca.
-  const lado = fuera.derecha > 0 ? 'derecha' : fuera.izquierda > 0 ? 'izquierda' : '';
-  const cuantos = lado === 'derecha' ? fuera.derecha : fuera.izquierda;
-  const texto =
-    lado === 'derecha'
-      ? `Enemigo (${cuantos}) ▸`
-      : lado === 'izquierda'
-        ? `◂ Enemigo (${cuantos})`
-        : '';
-  if (haciaEnemigo.dataset.lado !== lado) haciaEnemigo.dataset.lado = lado;
-  if (haciaEnemigo.textContent !== texto) haciaEnemigo.textContent = texto;
-  haciaEnemigo.hidden = lado === '';
-  // El botón vive dentro del marco que se desplaza: se recoloca en su borde.
-  if (lado !== '') {
-    const izquierda =
-      lado === 'derecha'
-        ? lienzo.scrollLeft + lienzo.clientWidth - haciaEnemigo.offsetWidth - 8
-        : lienzo.scrollLeft + 8;
-    haciaEnemigo.style.left = `${izquierda}px`;
-  }
-}
-
-lienzo.addEventListener('scroll', pedirFotograma, { passive: true });
-
-// ---------------------------------------------------------------- puntero
-
-function enLienzo(ev: { clientX: number; clientY: number }): { x: number; y: number } {
-  const r = canvas.getBoundingClientRect();
-  return { x: ev.clientX - r.left, y: ev.clientY - r.top };
-}
-
-canvas.addEventListener('pointerdown', (ev) => {
-  if (ev.button !== 0) return;
-  const p = enLienzo(ev);
-  if (session.scene === 'adventure') {
-    aventura.bajar(p.x, p.y);
-    canvas.setPointerCapture(ev.pointerId);
-  }
-  pedirFotograma();
-});
-
-canvas.addEventListener('pointermove', (ev) => {
-  const p = enLienzo(ev);
-  if (session.scene === 'town') {
-    canvas.style.cursor = castillo.mover(p.x, p.y, performance.now()) ? 'pointer' : 'default';
-  } else if (session.scene === 'battle') {
-    batalla.mover(p.x, p.y);
-  } else if (esDeDentro(session.scene)) {
-    canvas.style.cursor = DENTRO[session.scene].de.mover(p.x, p.y) ? 'pointer' : 'default';
-  } else {
-    aventura.mover(p.x, p.y);
-  }
-  pedirFotograma();
-});
-
-canvas.addEventListener('pointerup', (ev) => {
-  if (ev.button !== 0) return;
-  const p = enLienzo(ev);
-  if (session.scene === 'town') castillo.pulsar(p.x, p.y, performance.now());
-  else if (esDeDentro(session.scene)) {
-    const escena = session.scene;
-    if (DENTRO[escena].de.pulsar(p.x, p.y) && escena === 'ayuntamiento') fichaTrasElClic();
-  } else if (session.scene === 'battle') {
-    batalla.mover(p.x, p.y);
-    if (!jugadaEnCurso()) batalla.pulsar(p.x, p.y);
-  } else if (aventura.soltar()) {
-    if (hastaQueLlegue()) return;
-    // Con el modo «marcar fallo» puesto, el clic es suyo y no mueve a nadie.
-    if (desarrollo?.activo === true) desarrollo.clic(p.x, p.y);
-    else aventura.pulsar(p.x, p.y, ev.pointerType === 'touch');
-  }
-  pedirFotograma();
-});
-
-canvas.addEventListener('pointerleave', () => {
-  aventura.salir();
-  batalla.salir();
-  castillo.salir();
-  for (const d of Object.values(DENTRO)) d.de.salir();
-  pedirFotograma();
-});
-
-canvas.addEventListener(
-  'wheel',
-  (ev) => {
-    if (session.scene !== 'adventure') return;
-    ev.preventDefault();
-    aventura.zoom(ev.deltaY < 0 ? 1 : -1, enLienzo(ev));
-    pedirFotograma();
-  },
-  { passive: false },
-);
-
-minimapa.addEventListener('pointerdown', (ev) => {
-  const r = minimapa.getBoundingClientRect();
-  aventura.pulsarMinimapa(ev.clientX - r.left, ev.clientY - r.top, r.width, r.height);
-  pedirFotograma();
-});
-
-// ---------------------------------------------------------------- paneles
-
-/**
- * «Fin de turno», por el botón o por el Espacio. La puerta lo ignora fuera del
- * turno de la persona, con algo moviéndose y durante el cambio de día; `endTurn`
- * no rechaza —se traga su fallo y lo escribe en `status`—, y lo que juega el
- * rival llega cuando termina, sin gesto que pida fotograma.
- */
-function pasarTurno(confirmado = false): void {
-  const animando = session.scene === 'adventure' && aventura.arrastrando;
-  if (!finDeTurno.abierta(session, animando)) return;
-  void finDeTurno
-    .pasar(session, animando, confirmado, () => aventura.olvidarRuta())
-    .then(pedirFotograma);
-}
-
-/**
- * «Tropa», por el botón o por la T: la escena de la tropa del héroe elegido. Si no
- * se puede (sin héroe, fuera de tu turno), el motivo va a la barra.
- */
-function abrirLaTropa(): void {
-  if (session.scene !== 'adventure') return;
-  const motivo = session.tropaBlocker();
-  if (motivo !== null) {
-    session.status = motivo;
-    return;
-  }
-  aventura.salir();
-  session.abrirLaTropa();
-}
-
-/**
- * Sale de la escena de dentro en que se esté a la de donde se entró: de la tropa
- * al mapa, con el héroe elegido y la cámara del mapa como estaban; de la morada a
- * la base, con quien anduvo quieto en su puerta, porque la base no se ha cerrado
- * (`EscenaBase` no se reinicia sin otra apertura).
- */
-function cerrarDentro(): void {
-  const escena = session.scene;
-  if (!esDeDentro(escena)) return;
-  DENTRO[escena].de.salir();
-  canvas.style.cursor = 'default';
-  DENTRO[escena].cerrar(session);
-}
-
-/** «Siguiente héroe», por el botón o por la H: lo elige la sesión y aquí se le mira. */
-function siguienteHeroe(): void {
-  if (session.scene !== 'adventure' || !session.siguienteHeroe()) return;
-  aventura.olvidarRuta();
-  aventura.centrar();
-}
-
-document.addEventListener('click', (ev) => {
-  const target = (ev.target as HTMLElement).closest('[data-action]');
-  if (target === null) return;
-  const action = target.getAttribute('data-action');
-  const reparto = repartirClic(action, session.scene, jugadaEnCurso);
-  if (reparto === 'mirar') {
-    const izquierda = haciaEnemigo.dataset.lado === 'izquierda' ? 0 : lienzo.scrollWidth;
-    lienzo.scrollTo({ left: izquierda, behavior: 'smooth' });
-    return;
-  }
-  if (reparto === 'al-acabar') {
-    // Si espera, la vuelta al mapa ocurre dentro de un fotograma, y `render`
-    // pide el siguiente al ver que la escena cambió.
-    batalla.alAcabar(performance.now(), () => {
-      session.finishBattle();
-      aventura.olvidarRuta();
-    });
-    pedirFotograma();
-    return;
-  }
-  if (reparto === 'nada' || hastaQueLlegue()) return;
-  pedirFotograma();
-
-  switch (action) {
-    case 'end-turn':
-      pasarTurno();
-      break;
-    case 'end-turn-confirm':
-      pasarTurno(true);
-      break;
-    case 'end-turn-cancel':
-      session.retirarAvisoDeFinDeTurno();
-      break;
-    case 'next-hero':
-      siguienteHeroe();
-      break;
-    case 'sleep-hero':
-      session.alternarSueño(target.getAttribute('data-hero') as string);
-      break;
-    case 'toggle-fog':
-      session.revealAll = !session.revealAll;
-      break;
-    case 'select-hero':
-      session.selectedHeroId = target.getAttribute('data-hero');
-      aventura.olvidarRuta();
-      aventura.centrar();
-      break;
-    case 'open-town':
-      session.openTown(target.getAttribute('data-town') as string);
-      break;
-    case 'close-town':
-      castillo.cerrar();
-      session.closeTown();
-      castillo.salir();
-      break;
-    case 'abrir-tropa':
-      abrirLaTropa();
-      break;
-    case 'cerrar-tropa':
-    case 'cerrar-morada':
-    case 'cerrar-ayuntamiento':
-      cerrarDentro();
-      break;
-    case 'abrir-ayuntamiento':
-      castillo.cerrar();
-      session.abrirElAyuntamiento();
-      break;
-    case 'ayuntamiento-elegir': {
-      const tipo = target.getAttribute('data-tipo');
-      if (tipo === null) throw new Error('el botón del ayuntamiento no dice qué héroe elige');
-      session.elegirEnElAyuntamiento(tipo);
-      fichaALaVista = true;
-      break;
-    }
-    case 'salir-del-lugar':
-      // El botón sale del todo, hable o no: sin la conversación, `cerrarDentro`
-      // (con el cursor) saca al mapa, como Escape la segunda vez.
-      session.lugar.dejarDeHablar();
-      cerrarDentro();
-      break;
-    case 'lugar-ir':
-      if (ev.detail > 1) break;
-      lugar.irA(target.getAttribute('data-punto') as string, performance.now());
-      break;
-    case 'lugar-al-principio':
-      if (ev.detail > 1) break;
-      session.lugar.alPrincipio();
-      break;
-    case 'lugar-opcion': {
-      // El segundo clic de un doble clic cae ya en el nodo siguiente: solo el primero.
-      if (ev.detail > 1) break;
-      // Apagada: su motivo ya se lee debajo; el clic no hace nada.
-      if (target.getAttribute('aria-disabled') === 'true') break;
-      session.elegirEnElLugar(Number(target.getAttribute('data-indice')));
-      break;
-    }
-    case 'tropa-elegir': {
-      const quien = target.getAttribute('data-quien');
-      if (quien === null) throw new Error('el botón de la tropa no dice a quién elige');
-      session.elegirEnLaTropa(quien === 'heroe' ? { heroe: true } : { indice: Number(quien) });
-      break;
-    }
-    case 'tropa-poner':
-      // El segundo clic de un doble clic cae ya en el panel repintado, a menudo sobre
-      // OTRO «Poner» (la mochila tiene una fila menos y el panel baja): solo cuenta el primero.
-      if (ev.detail > 1) break;
-      session.ponerALaElegida(
-        target.getAttribute('data-item') as string,
-        target.getAttribute('data-hueco') ?? undefined,
-      );
-      break;
-    case 'tropa-quitar':
-      if (ev.detail > 1) break;
-      // El hueco lo valida la sesión (`esHueco`), como en `unequip`.
-      session.quitarALaElegida(target.getAttribute('data-slot') as string);
-      break;
-    case 'morada-elegir': {
-      const unidad = target.getAttribute('data-unidad');
-      if (unidad === null) throw new Error('el botón de la morada no dice qué unidad elige');
-      session.elegirEnLaMorada(unidad);
-      break;
-    }
-    case 'ir-a-sitio':
-      // El segundo clic de un doble clic cae ya en la morada que abrió el primero
-      // (QA I3 de la vuelta 2): solo cuenta el primero, como en «Poner».
-      if (ev.detail > 1) break;
-      castillo.irA(target.getAttribute('data-sitio') as string, performance.now());
-      break;
-    case 'build':
-      session.build(target.getAttribute('data-building') as string);
-      break;
-    case 'recruit': {
-      const criatura = target.getAttribute('data-creature') as string;
-      if (target.getAttribute('data-todo') === 'si') session.recruitAll(criatura);
-      else session.recruit(criatura, 1);
-      break;
-    }
-    case 'cerrar-en-la-base':
-    case 'cerrar-conversacion':
-      castillo.cerrar();
-      break;
-    case 'hire-hero': {
-      // Solo cuenta el primer clic: el segundo de un doble clic caería en la base.
-      if (ev.detail > 1) break;
-      const tipo = target.getAttribute('data-tipo');
-      if (tipo === null) throw new Error('el botón de contratar no dice qué héroe contrata');
-      const eraElDeSalida = session.heroeDeSalidaPendiente;
-      session.hireHero(tipo);
-      // Elegido el de salida, la URL lo lleva: la recarga entra con él («ya elegido
-      // y pagado»). Uno contratado después no la cambia.
-      if (eraElDeSalida && !session.heroeDeSalidaPendiente) {
-        aLaBarra((url) => url.searchParams.set('heroe', tipo));
-      }
-      break;
-    }
-    case 'abrir-guarnicion':
-      session.abrirLaGuarnicion(target.getAttribute('data-hero') as string);
-      break;
-    case 'cerrar-guarnicion':
-      session.cerrarLaGuarnicion();
-      break;
-    case 'mover-en-el-reparto': {
-      // Apagado: su nota ya se lee debajo; el clic no hace nada (como en un lugar). Cada clic
-      // solo edita el reparto, así que un doble clic mueve dos (H-V2-1 del QA).
-      if (target.getAttribute('aria-disabled') === 'true') break;
-      const hacia = target.getAttribute('data-hacia');
-      if (hacia !== 'heroe' && hacia !== 'guarnicion') {
-        throw new Error(`un botón de la guarnición sin lado al que pasar: «${hacia}»`);
-      }
-      session.moverEnElReparto(
-        hacia,
-        target.getAttribute('data-creature') as string,
-        target.getAttribute('data-veterano') ?? undefined,
-      );
-      break;
-    }
-    case 'confirmar-reparto':
-      if (target.getAttribute('aria-disabled') === 'true') break;
-      session.confirmarElReparto();
-      break;
-    case 'mejorar-el-puesto': {
-      // El segundo clic de un doble clic de persona (150 ms) cae ya en el botón
-      // repintado como «Amurallar», con su `data-obra`, y compraba la muralla (QA de
-      // la fase 3, H-F3-1, comprobado en el navegador): solo cuenta el primero.
-      if (ev.detail > 1) break;
-      // Apagado: su motivo ya se lee debajo.
-      if (target.getAttribute('aria-disabled') === 'true') break;
-      // La obra que decía el botón pulsado: si el diálogo ya ofrece otra (el clic
-      // llega antes del repintado), el núcleo la rechaza sin cobrar.
-      const obra = target.getAttribute('data-obra');
-      if (!esObraDelPuesto(obra)) {
-        throw new Error(`el botón del puesto no dice qué obra compra: «${obra}»`);
-      }
-      session.mejorarElPuesto(obra);
-      break;
-    }
-    case 'defensa-mas':
-    case 'defensa-menos':
-      if (target.getAttribute('aria-disabled') === 'true') break;
-      session.cambiarLaDefensa(
-        target.getAttribute('data-creature') as string,
-        action === 'defensa-mas' ? 1 : -1,
-      );
-      break;
-    case 'defensa-confirmar':
-      if (target.getAttribute('aria-disabled') === 'true') break;
-      session.confirmarLaDefensa();
-      break;
-    case 'defensa-de-la-ia':
-      session.dejarLaDefensaDeLaIA();
-      break;
-    case 'aviso-defender':
-      session.defenderElAtaque();
-      break;
-    case 'aviso-resolver-sola':
-      session.resolverElAtaqueSola();
-      break;
-    case 'dismiss':
-      session.dismiss(
-        target.getAttribute('data-hero') as string,
-        target.getAttribute('data-creature') as string,
-        1,
-      );
-      break;
-    case 'select-item':
-      session.selectItem(target.getAttribute('data-item') as string);
-      break;
-    case 'equip': {
-      const veteran = target.getAttribute('data-veteran');
-      const creature = target.getAttribute('data-creature');
-      session.equip(target.getAttribute('data-hero') as string, {
-        ...(veteran === null ? {} : { veteran }),
-        ...(creature === null ? {} : { creature }),
-      });
-      break;
-    }
-    case 'unequip': {
-      // El hueco lo valida la sesión (`esHueco`), su puerta al núcleo: uno mal
-      // escrito sale en la barra con su motivo.
-      session.unequip(
-        target.getAttribute('data-hero') as string,
-        target.getAttribute('data-slot') as string,
-        target.getAttribute('data-veteran') ?? undefined,
-      );
-      break;
-    }
-    case 'buy-item':
-      session.buyItem(target.getAttribute('data-item') as string);
-      break;
-    case 'battle-end-turn':
-      session.playBattleAction({ type: 'end_turn' });
-      break;
-    case 'battle-surrender':
-      session.playBattleAction({ type: 'surrender' });
-      break;
-    case 'battle-spell':
-      session.hechizos.selectSpell(target.getAttribute('data-spell') as string);
-      break;
-    case 'battle-poder': {
-      // Un poder de la unidad activa (`PoderesDeLaActiva`, el de la arena):
-      // con un aliado posible, ya; con varios, el clic en el tablero elige.
-      const id = target.getAttribute('data-poder');
-      if (id === null) throw new Error('el botón del poder no dice cuál es');
-      session.poderes.usar(id);
-      break;
-    }
-    case 'battle-arma':
-      // El selector de arma del tirador activo (`ArmaDeLaActiva`, el de la arena).
-      session.arma.elegir(modoDelBoton(target));
-      break;
-    case 'battle-muralla':
-      // La muralla de la ciudad o del pueblo (`MurallaDeLaActiva`, la de la arena):
-      // con un muro o una puerta posibles, ya; con varios, el clic en el tablero elige.
-      session.muralla.elegir(jugadaDelBotonDeMuralla(target));
-      break;
-    case 'auto-battle':
-      session.autoResolveBattle();
-      break;
-    case 'despliegue-elegir': {
-      // Elegir en el despliegue a quién se coloca (el teclado, sin el lienzo).
-      const id = target.getAttribute('data-stack');
-      if (id === null) throw new Error('el botón del despliegue no dice a quién');
-      session.despliegue.elegir(id);
-      break;
-    }
-    case 'desplegado':
-      // «Listo»: cierra el despliegue de la persona; si la iniciativa es del
-      // rival, mueve él (`Session.despliegue`, `advanceEnemyTurns`). El segundo clic
-      // de un doble clic no cierra nada más (como en la arena).
-      if (ev.detail > 1) break;
-      session.despliegue.listo();
-      break;
-    case 'solo-rueda-del-heroe':
-      // La casilla de la batalla: vale desde el siguiente golpe, y la URL la
-      // recuerda para la recarga.
-      session.alternarSoloRuedaDelHeroe();
-      aLaBarra((url) => combateALaURL(url, session.state.combate, session.soloRuedaDelHeroe));
-      break;
-    case 'zoom-in':
-      aventura.zoom(1);
-      break;
-    case 'zoom-out':
-      aventura.zoom(-1);
-      break;
-    case 'centrar':
-      aventura.centrar();
-      break;
-    case 'menu':
-      salirAlMenu.showModal();
-      break;
-    case 'seguir-jugando':
-      salirAlMenu.close();
-      break;
-    case 'restart':
-      // «Partida nueva» vuelve al menú de inicio: la página sin nada pedido.
-      // Recargando y no montando otra sesión aquí: así se suelta la partida
-      // entera, el Worker del suelo incluido.
-      aLaBarra((url) => {
-        url.search = '';
-      });
-      location.reload();
-      break;
-    default:
-      return;
-  }
-});
-
-document.addEventListener('keydown', (ev) => {
-  // Con la guarnición, la defensa o el aviso abiertos (modales), toda tecla es suya: Escape
-  // las cierra por su `cancel`, que llega aunque el foco se haya ido al `body` tras
-  // un clic, y aquí no debe cerrar también la base de detrás (H3 del QA de la
-  // fase 1: la guarnición se cerraba y se salía al mapa).
-  if (elGuarnicion.open || elDefensa.open || elAviso.open) return;
-  // Lo que se escribe en un campo de texto o se pulsa en un cuadro es suyo, no un
-  // atajo. Salvo Escape en la conversación: al abrirse se queda el foco (su primera
-  // opción), y sin esto Escape no la cerraba nunca, aunque la barra lo anuncia
-  // (H3 del QA de la F1a). Lo demás —Intro, espacio— sigue siendo de su botón.
-  const enLaConversacion =
-    ev.target instanceof Element && ev.target.closest('#conversacion') !== null;
-  if (enLaConversacion && ev.key !== 'Escape') return;
-  if (
-    !enLaConversacion &&
-    ev.target instanceof Element &&
-    ev.target.closest('textarea, input, dialog') !== null
-  )
-    return;
-  // Escape mantenido se repite: cada repetición cerraría un nivel más (la morada,
-  // la base…). Solo cuenta la primera pulsación (QA M5 de la morada, 20-10-2026).
-  if (ev.key === 'Escape' && ev.repeat) return;
-  if (desarrollo?.tecla(ev) === true) {
-    pedirFotograma();
-    return;
-  }
-  // Mientras el héroe anda, una tecla solo lo hace llegar (`hastaQueLlegue`); el
-  // zoom, no, que es de la cámara.
-  if (ev.key !== '+' && ev.key !== '-' && hastaQueLlegue()) return;
-  if (ev.key === 'Escape' && esDeDentro(session.scene)) {
-    cerrarDentro();
-  } else if (ev.key === 'Escape' && session.scene === 'town') {
-    // Con `else`: la misma pulsación que saca de la morada a la base no la cierra
-    // también, que es lo que pasaría mirando la escena otra vez tras cambiarla.
-    // Escape cierra primero lo abierto en la base y, si no hay nada, la base.
-    if (castillo.abierto !== null) {
-      castillo.cerrar();
-    } else {
-      session.closeTown();
-      castillo.salir();
-    }
-  }
-  // Escape suelta lo que espera el clic: el hechizo, el poder, el muro o la puerta.
-  if (ev.key === 'Escape' && session.scene === 'battle' && !jugadaEnCurso()) {
-    session.soltarLoApuntado();
-  }
-  // Al colocar —el despliegue de la batalla o la formación de la tropa, la misma
-  // pieza—, las flechas mueven al elegido a la casilla de al lado
-  // (`FLECHAS_AL_COLOCAR`): lo juzga el núcleo, como el clic.
-  const flecha = FLECHAS_AL_COLOCAR[ev.key];
-  const colocando =
-    session.scene === 'battle'
-      ? session.despliegue
-      : session.scene === 'tropa'
-        ? session.formacion
-        : null;
-  if (
-    flecha !== undefined &&
-    colocando !== null &&
-    colocando.enCurso !== null &&
-    !jugadaEnCurso()
-  ) {
-    ev.preventDefault();
-    colocando.mover(flecha[0], flecha[1]);
-  }
-  // Q alterna el arma del tirador activo (`ArmaDeLaActiva`): cuerpo a cuerpo o a distancia.
-  if (
-    (ev.key === 'q' || ev.key === 'Q') &&
-    !(ev.ctrlKey || ev.metaKey || ev.altKey) &&
-    session.scene === 'battle' &&
-    !jugadaEnCurso() &&
-    session.arma.conSelector
-  ) {
-    session.arma.alternar();
-  }
-  // En batalla, Espacio cierra el turno de la unidad tuya que está actuando: con
-  // el movimiento en tramos es lo que más se pulsa. Pasa por la misma puerta que
-  // el lienzo y los botones, y sin turno propio no hace nada.
-  // Con el foco en un botón, Espacio es pulsar ESE botón —Rendirse, Continuar—,
-  // que es lo que el navegador hace con él: no se le roba la tecla.
-  const enUnBoton = ev.target instanceof Element && ev.target.closest('button') !== null;
-  if (ev.key === ' ' && session.scene === 'battle' && !enUnBoton) {
-    ev.preventDefault();
-    if (!ev.repeat && session.turnoPropio !== null && !jugadaEnCurso()) {
-      session.playBattleAction({ type: 'end_turn' });
-    }
-  }
-  if (ev.key === ' ' && session.scene === 'adventure') {
-    ev.preventDefault();
-    // Dejar el Espacio pulsado repite la tecla: eso no es pedir varios días.
-    if (!ev.repeat) pasarTurno();
-  }
-  // La pregunta de fin de turno (#17): Intro la confirma y Escape la retira. El
-  // Espacio NO confirma: es la tecla que la hizo salir, y dos Espacios seguidos
-  // pasarían el turno sin que la pregunta se llegase a leer.
-  if (session.avisoDeFinDeTurno !== null && session.scene === 'adventure') {
-    if (ev.key === 'Enter' && !enUnBoton) {
-      ev.preventDefault();
-      if (!ev.repeat) pasarTurno(true);
-    }
-    if (ev.key === 'Escape') session.retirarAvisoDeFinDeTurno();
-  }
-  const conModificador = ev.ctrlKey || ev.metaKey || ev.altKey;
-  if ((ev.key === 'h' || ev.key === 'H') && !conModificador && session.scene === 'adventure') {
-    if (!ev.repeat) siguienteHeroe();
-  }
-  if ((ev.key === 't' || ev.key === 'T') && !conModificador && session.scene === 'adventure') {
-    if (!ev.repeat) abrirLaTropa();
-  }
-  if ((ev.key === '+' || ev.key === '-') && session.scene === 'adventure') {
-    aventura.zoom(ev.key === '+' ? 1 : -1);
-  }
-  pedirFotograma();
-});
-
-/**
- * Compone el escenario del mapa y encarga su suelo mientras se está en la base,
- * cuando el hilo quede libre: el suelo lo pinta un Worker en 2-12 s y, si se
- * encargaba al salir de la base, el mapa se veía ese rato con el sucedáneo o el
- * esbozo. Son las mismas llamadas que hace el primer fotograma del mapa
- * (`escenarioListo`, `sueloDelMapa`), así que lo que se adelanta es lo que luego
- * se pinta.
- */
-function calentarElMapa(): void {
-  const cuandoQuedeLibre = (fn: () => void): void => {
-    if (typeof requestIdleCallback === 'function') requestIdleCallback(fn, { timeout: 1000 });
-    else setTimeout(fn, 100);
-  };
-  const paso = (): void => {
-    const esc = escenarioListo(session.state.map, session.state.seed);
-    // Se compone en una tarea aparte: hasta que esté, otra vuelta.
-    if (esc === null) cuandoQuedeLibre(paso);
-    else sueloDelMapa(esc, 1, devicePixelRatio);
-  };
-  cuandoQuedeLibre(paso);
-}
+// Sus oyentes, en el orden de siempre: el puntero (el marco del tablero, el lienzo y el
+// minimapa), el clic y el teclado.
+instalarElPuntero(pagina);
+instalarElClic(pagina);
+instalarElTeclado(pagina);
 
 // La partida empieza en la base, con el héroe dentro: salir de ella lleva al
 // mapa, y la barra dice entonces cómo se anda (`AYUDA_DEL_MAPA`).
 session.abrirSuBase();
 pedirFotograma();
-calentarElMapa();
+calentarElMapa(session);
 
 if (HERRAMIENTAS_DE_DESARROLLO) {
   void import('./desarrollo/herramientas.js')
     .then((m) => {
-      desarrollo = m.montar({
+      estado.desarrollo = m.montar({
         sesion,
         aventura,
         canvas,
         herramientas: document.getElementById('herramientas') as HTMLElement,
         pedirFotograma,
-        pintarYa: () => dibujarFotograma(performance.now()),
+        pintarYa: () => dibujarFotograma(pagina, performance.now()),
       });
       pedirFotograma();
     })
     .catch((err: unknown) => {
       console.error('[cliente] no se han podido montar las herramientas de desarrollo', err);
-      elStatus.textContent = `No se han podido montar las herramientas de desarrollo: ${err instanceof Error ? err.message : String(err)}`;
+      elStatus.textContent = `No se han podido montar las herramientas de desarrollo: ${mensajeDe(err)}`;
     });
 }

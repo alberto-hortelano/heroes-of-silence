@@ -12,9 +12,10 @@
  *    eso se apuntaba a mano como `frames: 6`—;
  *  - la **caja de clic**: la unión de las cajas del reposo, relativa al ancla.
  *
- * Y apunta el sha256 de la imagen que midió: `test/taller-derivar.test.ts`
- * vuelve a derivar cada hoja y exige el mismo JSON, así que un número tocado a
- * mano —o una imagen cambiada sin volver a derivar— se pone rojo.
+ * Y apunta el sha256 de la imagen que midió: `test/taller-8d.test.ts` (las hojas)
+ * y `test/arte-hojas.test.ts` (las piezas del mapa) vuelven a derivar y exigen el
+ * mismo JSON, así que un número tocado a mano —o una imagen cambiada sin volver a
+ * derivar— se pone rojo.
  */
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
@@ -55,7 +56,6 @@ export const RELOJ = {
   /** El disparo, al reloj que tenía cuando era la fila del ataque: la suelta cae donde caía. */
   shoot: { fps: 10, loop: false },
 } as const satisfies Record<ClipDeFigura, { fps: number; loop: boolean }>;
-export type ClipDeHoja = keyof typeof RELOJ;
 
 /**
  * Los fotogramas por segundo de los clips de una unidad que no van al reloj de
@@ -708,57 +708,6 @@ export async function registrarPieza(
 
 export async function escribirPiezaDerivada(rutaImagen: string): Promise<PiezaDerivada> {
   const d = await derivarPieza(rutaImagen);
-  await writeFile(rutaDelJson(rutaImagen), `${JSON.stringify(d, null, 2)}\n`);
-  return d;
-}
-
-/** El JSON de una tira de efecto: cuántos fotogramas tienen algo y la caja que ocupan todos. */
-export interface EfectoDerivado {
-  readonly imagen: string;
-  readonly sha256: string;
-  readonly celda: number;
-  readonly fotogramas: number;
-  /** Unión de las cajas del alfa de todos los fotogramas, dentro de una celda: [x0, y0, x1, y1]. */
-  readonly caja: readonly [number, number, number, number];
-  readonly derivadoPor: 'tools/taller/derivar.ts';
-}
-
-export async function derivarEfecto(rutaImagen: string): Promise<EfectoDerivado> {
-  const bytes = await readFile(rutaImagen);
-  const { data, info } = await sharp(bytes)
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  const lado = info.height;
-  if (info.width % lado !== 0) throw new Error(`${rutaImagen} no es una tira de celdas cuadradas`);
-  let fotogramas = 0;
-  const caja: [number, number, number, number] = [lado, lado, -1, -1];
-  for (let f = 0; f < info.width / lado; f++) {
-    let alguno = false;
-    for (let y = 0; y < lado; y++) {
-      for (let x = 0; x < lado; x++) {
-        if ((data[(y * info.width + f * lado + x) * 4 + 3] as number) < ALFA_FIGURA) continue;
-        alguno = true;
-        if (x < caja[0]) caja[0] = x;
-        if (y < caja[1]) caja[1] = y;
-        if (x > caja[2]) caja[2] = x;
-        if (y > caja[3]) caja[3] = y;
-      }
-    }
-    if (alguno) fotogramas++;
-  }
-  return {
-    imagen: basename(rutaImagen),
-    sha256: createHash('sha256').update(bytes).digest('hex'),
-    celda: lado,
-    fotogramas,
-    caja,
-    derivadoPor: 'tools/taller/derivar.ts',
-  };
-}
-
-export async function escribirEfectoDerivado(rutaImagen: string): Promise<EfectoDerivado> {
-  const d = await derivarEfecto(rutaImagen);
   await writeFile(rutaDelJson(rutaImagen), `${JSON.stringify(d, null, 2)}\n`);
   return d;
 }

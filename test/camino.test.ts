@@ -10,21 +10,23 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { BattleAnimator, DURACION, porElCamino } from '../src/client/anim.js';
-import { type Direccion, direccionHacia } from '../src/client/direccion.js';
-import { msPorCasilla } from '../src/client/marcha.js';
-import { arteDe, hojaDe, INDICE_DE_HOJA } from '../src/client/render/personajes.js';
-import { ALTO_DE_FIGURA, planoDeHex } from '../src/client/render/proyeccion.js';
+import { BattleAnimator, DURACION, porElCamino } from '../src/client/batalla/anim.js';
+import { type Direccion, direccionHacia } from '../src/client/render/figuras/direccion.js';
+import { msPorCasilla } from '../src/client/render/figuras/marcha.js';
+import { arteDe, hojaDe, INDICE_DE_HOJA } from '../src/client/render/figuras/personajes.js';
+import { planoDeHex } from '../src/client/render/proyeccion.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
-import { activeStack, createBattle, isAlive, stackHexes } from '../src/core/battle/battle.js';
 import { areAdjacent, hexEquals, hexKey } from '../src/core/battle/board.js';
+import { activeStack, isAlive, stackHexes } from '../src/core/battle/consultas.js';
+import { createBattle } from '../src/core/battle/montaje.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { hasTrait } from '../src/core/data.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
 import { createRng } from '../src/core/rng.js';
-import { NOMBRES_DE_DIRECCION } from '../src/shared/arte.js';
-import { aCiegas, ejercito } from './helpers.js';
+import { hasTrait } from '../src/core/types.js';
+import { ALTO_DE_FIGURA, NOMBRES_DE_DIRECCION } from '../src/shared/arte.js';
+import { aCiegas } from './batalla-de-prueba.js';
+import { ejercito } from './partida-de-prueba.js';
 
 function pelea(semilla: number): BattleState {
   return createBattle(

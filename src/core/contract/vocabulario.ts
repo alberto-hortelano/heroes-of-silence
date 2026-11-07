@@ -1,8 +1,8 @@
 /**
  * **El vocabulario del contrato del agente**: lo que el agente lee y escribe en
  * inglés y el núcleo nombra en español, traducido en un solo sitio. Lo leen el
- * esquema y la prosa del contrato (`agent.ts`), lo que se le manda
- * (`serialize.ts`) y lo que manda él (el director). Tres familias:
+ * esquema y la prosa del contrato (`esquemas.ts`, `formato.ts`), lo que se le
+ * manda (las vistas y las peticiones) y lo que manda él (el director). Tres familias:
  *
  * - **Los huecos de equipo** (decisión del usuario, 12-10-2026: «los huecos van en
  *   inglés en el contrato del agente ya»), **simétricos por uso** (simplify de F2):
@@ -29,17 +29,17 @@ import {
   type FormaDeLaRueda,
   tipoDeGolpeBlocker,
 } from '../battle/formas-de-la-rueda.js';
-import type { PuertaDeMuralla } from '../battle/muralla.js';
 import type {
   BattleAction,
   BattleEvent,
   JugadaDeMuralla,
+  PuertaDeMuralla,
   TipoDeEscala,
   TipoDePuerta,
 } from '../battle/types.js';
-import type { MejoraDelPuesto } from '../map/map.js';
-import type { AdventureAction, GameState } from '../state/game.js';
+import type { MejoraDelPuesto } from '../map/tipos.js';
 import { tipoDelVeterano } from '../state/sitios.js';
+import type { AdventureAction, GameState } from '../state/tipos.js';
 import {
   type Hex,
   HUECOS,
@@ -265,7 +265,7 @@ type DeLaMuralla = Extract<BattleAction, { type: JugadaDeMuralla }>;
  * `wall` y la puerta en `gate`. Hasta esta fase el `default` de `accionAlAgente`
  * las dejaba pasar en español, y no se veía porque el mapa no llevaba muralla. **La
  * tabla**: de ella salen la inversa (`JUGADA_DEL_AGENTE`), el esquema y la prosa
- * (`agent.ts`) y lo que el arnés de QA exige ver cruzar (`JUGADAS_DE_MURALLA`).
+ * (`esquemas.ts`, `formato.ts`) y lo que el arnés de QA exige ver cruzar (`JUGADAS_DE_MURALLA`).
  */
 export const JUGADA_DE_MURALLA = {
   poner_escalera: 'place_ladder',

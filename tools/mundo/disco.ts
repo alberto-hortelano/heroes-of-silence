@@ -10,7 +10,8 @@
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
-import { buildMap, type MapPlan } from '../../src/core/map/generate.js';
+import { buildMap } from '../../src/core/map/generar/construir.js';
+import type { MapPlan } from '../../src/core/map/generar/plan.js';
 import {
   idDeMundoBlocker,
   type Mundo,

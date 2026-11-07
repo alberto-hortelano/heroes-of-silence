@@ -12,37 +12,32 @@
  * Todo es puro salvo la caja del lienzo, que la mide la página: lo que «se ve»
  * depende de ella, y es la misma cuenta que hace `Mapa` en el guion.
  */
-import { masCercana, opcionesDeGolpe } from '../../src/client/escenas/angulo.js';
-import { focoDe, llegadaDeLaRuta } from '../../src/client/escenas/aventura.js';
-import { cajaDeFigura, galonesDe } from '../../src/client/render/batalla.js';
+import { masCercana, opcionesDeGolpe } from '../../src/client/batalla/angulo.js';
+import { focoDe, llegadaDeLaRuta } from '../../src/client/partida/mapa/escena.js';
+import { cajaDeFigura, galonesDe } from '../../src/client/render/batalla/figura.js';
+import { escenarioDe, topeDeAlejar } from '../../src/client/render/escenario/superficie.js';
 import {
   casillaAPixel,
   centrarEn,
   type Encuadre,
   TILE_INICIAL,
   zoom,
-} from '../../src/client/render/camara-mapa.js';
-import { escenarioDe, topeDeAlejar } from '../../src/client/render/escenario/superficie.js';
-import { pasosAPintar } from '../../src/client/render/mapa.js';
+} from '../../src/client/render/mapa/camara.js';
+import { pasosAPintar } from '../../src/client/render/mapa/ruta.js';
 import { centroDeStack, tableroPara } from '../../src/client/render/proyeccion.js';
-import { Session } from '../../src/client/session.js';
+import { Session } from '../../src/client/sesion/partida.js';
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';
-import {
-  activeStack,
-  applyAction,
-  isAlive,
-  legalActions,
-  mismoTurno,
-  stackHexes,
-} from '../../src/core/battle/battle.js';
+import { applyAction } from '../../src/core/battle/battle.js';
 import { hexEquals } from '../../src/core/battle/board.js';
+import { activeStack, isAlive, mismoTurno, stackHexes } from '../../src/core/battle/consultas.js';
+import { legalActions } from '../../src/core/battle/legalidad.js';
 import type { BattleAction, BattleStack, BattleState } from '../../src/core/battle/types.js';
-import { unidadesDeMorada } from '../../src/core/catalogo.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
 import { createRng } from '../../src/core/rng.js';
 import { casillasPeligrosas } from '../../src/core/state/asaltantes.js';
 import { sitioDe } from '../../src/core/town/sitios.js';
 import type { FactionId, Point } from '../../src/core/types.js';
+import { unidadesDeMorada } from '../../src/core/unidad/catalogo.js';
 
 /**
  * Pasa el turno en el espejo y dice si el rival atacó a la persona por el camino
@@ -278,7 +273,7 @@ export async function buscarVeteranos(b: Caja, desde = 1): Promise<number> {
     espejo.autoResolveBattle();
     const heroe = espejo.myHeroes()[0];
     if (heroe === undefined) continue;
-    if (!troopSummary(heroe.army, espejo.state.characters).some((g) => g.rango >= 2)) continue;
+    if (!troopSummary(heroe.army).some((g) => g.rango >= 2)) continue;
     if ((await turnoDelEspejo(espejo)) === 'defensa') continue;
     if (espejo.state.finished !== null) continue;
     const segunda = guardiaEnElMarco(b, e, TILE_INICIAL, espejo, VETERANOS);

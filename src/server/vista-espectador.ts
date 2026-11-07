@@ -19,19 +19,28 @@
  * dos, lo que junta son dos reglas distintas bajo un solo nombre.
  */
 import type { BattleStack, BattleState, Side } from '@core/battle/types.js';
-import { piezasPuestas } from '@core/hero/equipo.js';
-import type { MapObject, MapRegion } from '@core/map/map.js';
-import { dueñoEnLaFoto, dueñosDeLaRed } from '@core/map/regiones.js';
+import { piezasPuestas } from '@core/equipo/vestir.js';
+import { vecinosDeLaBase, vozDe } from '@core/gente/voces.js';
 import type { TerrainKind } from '@core/map/terrain.js';
-import type { VistaAsaltante } from '@core/state/asaltantes.js';
-import { type ClimaDeLaPartida, climaDeLaPartida, regionDeLaBatalla } from '@core/state/clima.js';
+import { dueñoEnLaFoto, dueñosDeLaRed } from '@core/map/territorio.js';
+import type { MapObject, MapRegion } from '@core/map/tipos.js';
+import { regionDeLaBatalla } from '@core/state/batallas.js';
+import { type ClimaDeLaPartida, climaDeLaPartida } from '@core/state/clima.js';
+import { battleOwners, week } from '@core/state/consultas.js';
 import type { GameEventDraft, Ocupante } from '@core/state/events.js';
 import { sinSello } from '@core/state/events.js';
-import { battleOwners, type GameState, week } from '@core/state/game.js';
 import { comoEstaElSitio, sitioDelObjeto } from '@core/state/sitios.js';
+import type { GameState } from '@core/state/tipos.js';
 import type { Town } from '@core/town/town.js';
-import { vecinosDeLaBase, vozDe } from '@core/town/voces.js';
-import type { FactionId, Hex, PlayerId, Point, UnitInfo, Veterania } from '@core/types.js';
+import type {
+  FactionId,
+  Hex,
+  PlayerId,
+  Point,
+  UnitInfo,
+  Veterania,
+  VistaAsaltante,
+} from '@core/types.js';
 
 /**
  * El mapa tal como viaja. Los caminos van como **tramos** (#153), los mismos que
@@ -131,7 +140,7 @@ export interface VozEnLaBase {
 /**
  * Un stack de batalla tal y como viaja: **sin `unit` si sus cifras salen del
  * catálogo**, que el espectador ya tiene —`cifrasDeUnidad(origen.unidad, …)`,
- * con la experiencia que viaja en el origen—, y con `unit` si es un personaje, cuyas
+ * con la experiencia que viaja en el origen—, y con `unit` si es el héroe, cuyas
  * cifras no están en ninguna otra parte.
  *
  * Mandar el catálogo por el cable costaba +2 097 B en una batalla de 5 contra 5
@@ -168,12 +177,6 @@ export type OrigenEnCable =
   | {
       readonly kind: 'catalogo';
       readonly unidad: string;
-      readonly veterania: VeteraniaEnCable | null;
-      readonly salida?: Hex;
-    }
-  | {
-      readonly kind: 'personaje';
-      readonly id: string;
       readonly veterania: VeteraniaEnCable | null;
       readonly salida?: Hex;
     }
@@ -342,15 +345,15 @@ export function construirVista(state: GameState, directorLog: readonly string[])
  * Se quita `unit` exactamente cuando `createBattle` la sacó del catálogo
  * (`origen: catalogo`), que es lo que deja a `adaptarBatalla` rehacerla con
  * `cifrasDeUnidad` sin adivinar nada: un veterano también, porque su
- * experiencia viaja en `origen.veterania`. El personaje y el héroe la traen de
- * otro sitio y viajan con ella.
+ * experiencia viaja en `origen.veterania`. El héroe la trae de otro sitio y
+ * viaja con ella.
  *
  * Y no viaja lo que el espectador no lee: `ganado` —la contabilidad de la
  * batalla en curso, que cobra `settleBattle`—, el precio de rendición y la hoja
  * de servicios. Iban en cada fotograma por el solo hecho de estar en el objeto.
  *
- * Lo puesto (`UnitInfo.equipo`) sí viaja con las cifras del héroe y del
- * personaje (F6 de la tarea del combate en el juego, 19-10-2026): son unos pocos
+ * Lo puesto (`UnitInfo.equipo`) sí viaja con las cifras del héroe (F6 de la
+ * tarea del combate en el juego, 19-10-2026): son unos pocos
  * ids, y con ellos la vuelta (`adaptarBatalla`) es la inversa exacta, sin un
  * «menos el equipo» que la comparación tuviera que quitar; las del catálogo lo
  * rehacen con `cifrasDeUnidad`, como el resto de sus cifras.
@@ -364,17 +367,6 @@ function stackAlCable(s: BattleStack): StackEnCable {
         origen: {
           kind: 'catalogo',
           unidad: origen.unidad,
-          veterania: hojaAlCable(origen.veterania),
-          ...(origen.salida === undefined ? {} : { salida: origen.salida }),
-        },
-      };
-    case 'personaje':
-      return {
-        ...resto,
-        unit,
-        origen: {
-          kind: 'personaje',
-          id: origen.id,
           veterania: hojaAlCable(origen.veterania),
           ...(origen.salida === undefined ? {} : { salida: origen.salida }),
         },

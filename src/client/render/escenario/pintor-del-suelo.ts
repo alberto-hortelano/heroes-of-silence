@@ -16,8 +16,9 @@
  * `superficie.ts`): con él se va la memoria de las texturas y de las máscaras,
  * que un Worker vivo no soltaba antes de pintar la siguiente.
  */
-import { urlDeImagenSegura } from '../../html.js';
-import type { Escena } from './colocar.js';
+import { mensajeDe } from '../../comun/errores.js';
+import { urlDeImagenSegura } from '../../comun/html.js';
+import type { Escena } from './colocar/escena.js';
 import { horneado } from './horneado.js';
 import {
   type EscenaSeparada,
@@ -65,7 +66,7 @@ async function cargar(base: string, src: string): Promise<ImageBitmap | string> 
       }
       return await createImageBitmap(await r.blob());
     } catch (err) {
-      motivo = `${src}: ${err instanceof Error ? err.message : String(err)}`;
+      motivo = `${src}: ${mensajeDe(err)}`;
     }
   }
   return motivo;
@@ -139,8 +140,7 @@ if (typeof document === 'undefined' && typeof self !== 'undefined' && 'postMessa
   const ambito = self as unknown as AmbitoDelWorker;
   ambito.addEventListener('message', (e) => {
     pintarSueloAparte(e.data, (m, transferir) => ambito.postMessage(m, transferir ?? [])).catch(
-      (err: unknown) =>
-        ambito.postMessage({ error: err instanceof Error ? err.message : String(err) }),
+      (err: unknown) => ambito.postMessage({ error: mensajeDe(err) }),
     );
   });
 }

@@ -30,8 +30,9 @@
  * sprites ni de la escena; `componer` la pone con `poner`, que guarda el
  * pasillo de la senda y las reservas de los objetos.
  */
-import type { MapObject, RedDeCaminos } from '@core/map/map.js';
-import { VECINAS } from '@core/map/regiones.js';
+import { VECINAS } from '@core/map/geometria.js';
+import type { RedDeCaminos } from '@core/map/red-de-caminos.js';
+import type { MapObject } from '@core/map/tipos.js';
 import { azarDe, barajar } from './esparcir.js';
 
 /** Los cultivos, por la hoja `cubierta-dirt`. */

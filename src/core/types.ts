@@ -1,63 +1,5 @@
 /** Tipos compartidos por todo el núcleo. Sin DOM, sin node:*. */
 
-// ---------------------------------------------------------------- oro
-
-/**
- * Un precio en prosa: «15 000 oro» (con `conMiles`), o «gratis» si no cuesta
- * nada. **El único formateador de precios**: lo leen los motivos del núcleo
- * (`buildBlocker`, `recruitBlocker`), la prosa del agente y el cliente. Un
- * precio es un número de oro, el único recurso, y el monedero también
- * (`Player.oro`).
- */
-export function describirCoste(oro: number): string {
-  if (!Number.isSafeInteger(oro) || oro < 0) {
-    throw new Error(`describirCoste: ${oro} no es un precio en oro (un entero ≥ 0)`);
-  }
-  return oro === 0 ? 'gratis' : `${conMiles(oro)} oro`;
-}
-
-/**
- * Una lista en prosa: «a», «a y b», «a, b y c», con `o`, «3, 5 o 7», o con `ni`,
- * «a, b ni c» (tras un «no»: «no lo llevan su tipo ni el goblin»). **El único
- * enumerador** de los motivos y avisos del núcleo, que antes lo escribían cada
- * uno. Lanza con la lista vacía: «nada» lo dice quien llama, que sabe de qué.
- */
-export function enumerar(lista: readonly string[], conjuncion: 'y' | 'o' | 'ni' = 'y'): string {
-  const ultimo = lista.at(-1);
-  if (ultimo === undefined) throw new Error('enumerar: la lista está vacía');
-  return lista.length === 1 ? ultimo : `${lista.slice(0, -1).join(', ')} ${conjuncion} ${ultimo}`;
-}
-
-/**
- * Un entero con separador de miles, como se lee en castellano: «176 000», con un
- * espacio que no se parte (U+00A0), no con punto ni coma, que en una barra con
- * decimales a coma se confundirían. Los de cuatro cifras van juntos («2500»),
- * como pide la RAE. El único formateador de miles: lo leen los paneles del
- * cliente y del espectador; el contrato del agente sigue con números.
- */
-export function conMiles(n: number): string {
-  if (!Number.isSafeInteger(n)) {
-    throw new Error(`conMiles: ${n} no es un entero que se pueda escribir con sus cifras`);
-  }
-  const cifras = Math.abs(n).toString();
-  if (cifras.length <= 4) return n.toString();
-  const agrupadas = cifras.replace(/\B(?=(\d{3})+$)/g, '\u00A0');
-  return n < 0 ? `-${agrupadas}` : agrupadas;
-}
-
-/**
- * Una cifra con, como mucho, `decimales` decimales y coma, como se lee en
- * castellano: `10,8`, no `10.8`. El único formateador de decimales: lo leen la
- * previsión del núcleo (`damage.ts`), la de la barra y la ficha de la arena, que
- * antes lo escribían cada uno.
- */
-export function conComa(n: number, decimales: number): string {
-  // Sin `**`: `core` no usa potencias (CLAUDE.md, coma flotante portable).
-  let f = 1;
-  for (let i = 0; i < decimales; i++) f *= 10;
-  return (Math.round(n * f) / f).toString().replace('.', ',');
-}
-
 // ---------------------------------------------------------------- velocidad
 
 /**
@@ -65,7 +7,7 @@ export function conComa(n: number, decimales: number): string {
  * el orden de iniciativa en batalla y los puntos de movimiento del héroe en
  * el mapa (que los marca la criatura MÁS LENTA del ejército).
  *
- * Salen de la agilidad efectiva (`cifrasDelCuerpo`, `core/cuerpo.ts`), que el peso
+ * Salen de la agilidad efectiva (`cifrasDelCuerpo`, `unidad/cuerpo.ts`), que el peso
  * puede bajar hasta 1: por eso `crawling` (1 casilla), **regla nuestra**
  * (25-10-2026), que fheroes2 no tiene; en el mapa anda como `very_slow`.
  */
@@ -180,7 +122,7 @@ export type CreatureTrait = (typeof CREATURE_TRAITS)[number];
 /**
  * Qué hace cada rasgo del motor, dicho en corto: la casilla de la ficha de la
  * arena, el parte y la ficha de la morada. Vive junto a los rasgos y no en
- * `core/arena.ts` porque la partida también los nombra, y la arena no la importa
+ * `core/arena/` porque la partida también los nombra, y la arena no la importa
  * nadie más (`invariantes.test.ts`).
  */
 export const NOMBRE_DE_RASGO: Readonly<Record<CreatureTrait, string>> = {
@@ -201,10 +143,10 @@ export const NOMBRE_DE_RASGO: Readonly<Record<CreatureTrait, string>> = {
  * Lo que el motor de batalla necesita saber de una unidad para jugarla: las
  * cifras de combate, sin nada de economía.
  *
- * Existe porque ya no todo lo que pisa el tablero sale del catálogo: un
- * personaje (`rpg/stats.ts`) tiene sus propias cifras, calculadas de sus
- * atributos. Una criatura ES una `UnitInfo` —la extiende—, así que para el
- * catálogo no hay traducción: el stack de batalla guarda la misma referencia.
+ * Existe porque no todo lo que pisa el tablero sale del catálogo: el héroe
+ * tiene sus propias cifras (`heroUnit`). Una criatura ES una `UnitInfo` —la
+ * extiende—, así que para el catálogo no hay traducción: el stack de batalla
+ * guarda la misma referencia.
  *
  * `faction: null` es «sin facción»: no suma a la diversidad del ejército.
  */
@@ -215,19 +157,19 @@ export interface UnitInfo {
   /**
    * La fuerza del cuerpo (25-10-2026, «aparecen las características fuerza y
    * agilidad»): el daño mínimo, con la del arma encima, y lo que aguanta el peso
-   * sin restar agilidad (`core/cuerpo.ts`).
+   * sin restar agilidad (`unidad/cuerpo.ts`).
    */
   readonly fuerza: number;
   /** La agilidad del cuerpo, sin lo que le reste el peso: de ella salen la defensa, el daño máximo y las casillas. */
   readonly agilidad: number;
   /**
    * La defensa que no es agilidad ni escudo: la Defensa del héroe con lo que le da
-   * su rango, y la del personaje; 0 la tropa. Se suma a la defensa (`cifrasDelCuerpo`).
+   * su rango; 0 la tropa. Se suma a la defensa (`cifrasDelCuerpo`).
    */
   readonly defensaPropia: number;
   /**
    * **Derivadas**: `defense`, `damage` y `speed` salen de las de arriba y del
-   * equipo, y las escribe solo `cifrasDelCuerpo` (`core/cuerpo.ts`; lo vigila
+   * equipo, y las escribe solo `cifrasDelCuerpo` (`unidad/cuerpo.ts`; lo vigila
    * `test/invariantes.test.ts`). El motor, la IA y el contrato las leen tal cual.
    */
   readonly defense: number;
@@ -272,7 +214,7 @@ export interface UnitInfo {
   /**
    * Los puntos de armadura que lleva puesta (#262): se restan del daño de cada
    * golpe que recibe, con mínimo 0. Lo escribe solo `conEquipo` (la suma de
-   * `Pieza.armadura`), y solo si es > 0. Fuera de `hero/equipo.ts`
+   * `Pieza.armadura`), y solo si es > 0. Fuera de `equipo/vestir.ts`
    * lo lee solo `battle/armas.ts` (`armaduraDe`, `trasLaArmadura`); lo vigila
    * `test/invariantes.test.ts`. No es el hueco `armadura`: se llama de otro modo
    * para que se encuentre buscándolo. No viaja al espectador.
@@ -411,7 +353,7 @@ export const TIPOS_FUSIONADOS = ['ofensivoFuerte', 'defensivoFinta', 'rapidoRomp
  * los tres fusionados. **No es una rueda**: cada batalla juega con los de la suya
  * (`FormaDeLaRueda.golpes`, `battle/formas-de-la-rueda.ts`), y esta lista solo sirve para
  * validar un texto. Vive aquí y no en `rueda.ts` porque los nombra la pieza
- * (`Pieza.rueda`), y `data.ts` no puede importar `rueda.ts` (que lee `data.ts`).
+ * (`Pieza.rueda`), y `equipo/pieza.ts` no puede importar `rueda.ts` (que lo lee).
  */
 export const TODOS_LOS_GOLPES = [...TIPOS_DEL_ANILLO, 'normal', ...TIPOS_FUSIONADOS] as const;
 export type TipoDeGolpe = (typeof TODOS_LOS_GOLPES)[number];
@@ -451,16 +393,17 @@ export type ArmasDeLaUnidad = { readonly arma: GolpeConArma } & Readonly<
 >;
 
 /**
- * El id de un poder de unidad de `data/poderes.json` (`curar`). Vive
- * aquí y no en `battle/poderes.ts` porque lo nombran `UnitInfo` y la jugada
- * `poder`, y este fichero no importa de nadie.
+ * El id de un poder de unidad: un hechizo de `data/hechizos.json` que la unidad
+ * usa con su turno (`Unidad.hechizos`, `curar`). Vive aquí y no en
+ * `battle/poderes.ts` porque lo nombran `UnitInfo` y la jugada `poder`, y este
+ * fichero no importa de nadie.
  */
 export type PoderId = string;
 
 // ---------------------------------------------------------------- ejército
 
 /**
- * Un individuo del ejército: una criatura del catálogo, o un personaje.
+ * Un individuo del ejército: una criatura del catálogo.
  *
  * **No tiene `count`, y es a propósito.** El ejército de un héroe es una lista
  * de individuos, uno por hex en el tablero; si el campo existiera, alguien
@@ -470,13 +413,6 @@ export type PoderId = string;
  */
 export interface Troop {
   readonly creature: string;
-  /**
-   * Id de un personaje de `GameState.characters`: el individuo ES ese
-   * personaje. Va con `creature: CHARACTER_BODY`, que no está en el catálogo a
-   * propósito: un lector de `Army` que no sepa de personajes lanza en vez de
-   * leer cifras prestadas en silencio. La puerta que sí sabe es `troopUnit`.
-   */
-  readonly member?: string;
   /**
    * Lo que este individuo lleva vivido, o nada si es un novato. **Vive en el
    * individuo y viaja con él** —batalla, guarnición, recoger tropa, rendirse—
@@ -515,7 +451,7 @@ export interface Veterania {
   /** Los nombres de los héroes rivales que ha derribado él. */
   readonly heroes: readonly string[];
   /**
-   * Lo que lleva puesto, si lleva algo (`hero/equipo.ts`). Vive en la hoja y no
+   * Lo que lleva puesto, si lleva algo (`equipo/vestir.ts`). Vive en la hoja y no
    * al lado de ella porque la hoja ya es «lo que distingue a ESTE individuo de
    * los demás de su tipo»: lo vivido y, desde el ciclo del equipo, lo que lleva.
    * Un novato sin hoja es fungible —cuál de tres piqueros recibe la espada no
@@ -577,7 +513,7 @@ export function huecosDeLaPieza(hueco: HuecoDePieza): readonly Hueco[] {
 /**
  * El nombre de cada hueco, para pintarlo y para decirlo en un motivo: lo leen el
  * panel del héroe, la ficha de la arena y la regla de una base (`baseBlocker`,
- * `data.ts`). En el núcleo y no en el cliente porque son dos pantallas y un mismo
+ * `equipo/pieza.ts`). En el núcleo y no en el cliente porque son dos pantallas y un mismo
  * hueco.
  */
 export const NOMBRE_DE_HUECO: Readonly<Record<Hueco, string>> = {
@@ -634,7 +570,7 @@ export const HUECOS_DE_CUERPO_A_CUERPO = ['arma', 'segunda'] as const satisfies 
  * **Ninguna da PV** (18-10-2026: la armadura protege restando de cada golpe,
  * `trasLaArmadura`): `pv` no es una cifra de pieza. **Ninguna resta movimiento**
  * (25-10-2026): todo pesa (`peso`), y el peso que pasa de la fuerza resta agilidad
- * (`restaDelPeso`, `core/cuerpo.ts`). Un arma suma `fuerza` al daño en vez de una
+ * (`restaDelPeso`, `unidad/cuerpo.ts`). Un arma suma `fuerza` al daño en vez de una
  * horquilla. La montura escribe `fuerza` y `agilidad`, que son suyas y no se suman
  * a las del jinete (`camposDelHueco`, `cifrasDelCuerpo`).
  */
@@ -729,8 +665,7 @@ export type Equipo = Readonly<Partial<Record<Hueco, string>>>;
 /**
  * La entrada del motor de batalla: un tipo y cuántos. El motor sigue sabiendo
  * jugar stacks de N —sus tests lo ejercen—, pero desde la tropa de individuos
- * la partida solo le manda `count: 1` (`troopsAsStacks`). Un personaje va
- * siempre con `count: 1`: `createBattle` lanza si no.
+ * la partida solo le manda `count: 1` (`troopsAsStacks`).
  */
 export interface Stack extends Troop {
   readonly count: number;
@@ -770,4 +705,149 @@ export interface Point {
 export interface Hex {
   readonly col: number;
   readonly row: number;
+}
+
+/** Un grupo de individuos de la misma criatura, como se escriben en los datos. */
+export interface GrupoDeTropa {
+  readonly creature: string;
+  readonly count: number;
+}
+
+/**
+ * Un grupo de asaltantes tal y como lo ven los demás: dónde está y qué lleva,
+ * en grupos de tropa —«5 × piquero»— y no individuo a individuo. Es lo que
+ * viaja al espectador y lo que pinta el lienzo: una sola forma para los dos, y
+ * `GameState.raiders` la cumple tal cual.
+ */
+export interface VistaAsaltante {
+  readonly id: string;
+  readonly at: Point;
+  readonly troops: readonly GrupoDeTropa[];
+}
+
+/**
+ * Un grupo de asaltantes en el mapa. Su tropa se guarda en grupos y no en
+ * individuos: son siete como mucho y de una o dos criaturas, y el ejército de
+ * individuos solo hace falta para pelear, así que se deriva al abrir batalla
+ * (`ejercitoDe`) y vuelve a grupos con lo que quede en pie.
+ */
+export interface Raider extends VistaAsaltante {
+  at: Point;
+  troops: readonly GrupoDeTropa[];
+}
+
+/** Un grupo tal como lo declara un plan de mapa: casilla y tropa. */
+export interface RaiderPlaneado {
+  readonly at: Point;
+  readonly troops: readonly GrupoDeTropa[];
+}
+
+/**
+ * La tropa que guarda un sitio, y de quién es: quien la dejó, o el dueño con que
+ * nació (la de una base); `null`, la neutral de una ciudad neutral. **No cambia de
+ * bando** porque cambie el dueño del sitio (P1 de la tarea 2): si el sitio pasa a
+ * otro, la tropa lo ocupa (`ocupanteDe`).
+ */
+export interface Guarnicion {
+  readonly dueño: PlayerId | null;
+  readonly tropa: Army;
+}
+
+export function hasTrait(c: UnitInfo, trait: CreatureTrait): boolean {
+  return c.traits?.includes(trait) ?? false;
+}
+
+// ---------------------------------------------------------------- héroe
+
+// La forma de un héroe, lo que la partida guarda de él. Vivía en `hero/hero.ts`
+// hasta la fase N de la reorganización (07-11-2026): la nombran el equipo, el
+// catálogo de unidades y la partida, a los que `hero/hero.ts` importa, y la forma
+// solo pide lo de este fichero. Lo que se hace con él sigue en `hero/hero.ts`.
+
+/** Habilidades secundarias del slice. Cada una en básico/avanzado/experto. */
+export type SkillId = 'logistics' | 'pathfinding' | 'wisdom' | 'leadership';
+
+export type SkillLevel = 1 | 2 | 3;
+
+export interface Hero {
+  readonly id: string;
+  owner: PlayerId;
+  readonly name: string;
+  readonly faction: FactionId;
+  attack: number;
+  defense: number;
+  spellPower: number;
+  knowledge: number;
+  mana: number;
+  /** El rango se deriva de aquí (`rangoDeHeroe`): no hay un `level` que mantener al día. */
+  experience: number;
+  army: Army;
+  at: Point;
+  movePoints: number;
+  /**
+   * La marcha con que empezó su día: `maxMovePoints` al empezarlo o al
+   * contratarlo (`empezarElDia`), y no cambia en el día aunque cambie la tropa.
+   * Es lo que cuesta una casilla de barrera a quien se infiltra
+   * (`precioDeLaBarrera`, 05-11-2026): con el máximo de ahora, reclutar algo más
+   * lento a media jornada lo bajaba por debajo de lo que le quedaba y el grupo
+   * entraba con el día empezado (H1 de /simplify). El recién hecho nace con la del
+   * héroe solo y sin movimiento: su día empieza el siguiente.
+   */
+  marchaDelDia: number;
+  spells: string[];
+  skills: Partial<Record<SkillId, SkillLevel>>;
+  /**
+   * El tipo de héroe, un id de `data/tipos-de-heroe.json` de su facción. Se guarda,
+   * se ve y se serializa; da su figura (`figuraDelHeroe`) y **una sola regla**: si
+   * se infiltra (`data/infiltradores.json`, `hero/infiltracion.ts`, 05-11-2026).
+   * Las habilidades del cuaderno no, hasta que exista el motor que las aplique.
+   * El inicial de la persona lleva el que eligió en el menú (`NewGameOptions.tipoDelHeroe`);
+   * el de la IA y el contratado, el de por defecto (`tipoDeHeroePorDefecto`); el
+   * que nace de la tropa, el que eligió el narrador.
+   */
+  readonly tipo: string;
+  /**
+   * De dónde salió, solo si salió de la tropa (`ascenderVeterano`): la criatura
+   * que era y la historia que le escribió el narrador. El id de su hoja de
+   * servicios no se guarda: es la raíz de su `id` (`hero-<veterano>`). El inicial y el contratado no lo llevan, y no llevan un `null`:
+   * con `exactOptionalPropertyTypes` la ausencia ya dice «no tiene».
+   */
+  readonly origen?: OrigenDelHeroe;
+  /**
+   * Lo que lleva puesto (`equipo/vestir.ts`). **Nace lleno**: todo héroe trae de
+   * serie la pieza de armería de cada hueco (`EQUIPO_BASE`), y solo mejora con
+   * lo especial que encuentre (decisión del usuario, 02-10-2026). Se sustituye
+   * entero al equipar o desequipar, nunca se muta.
+   */
+  equipo: Equipo;
+  /**
+   * Su casilla en su formación, en el marco del atacante (la acción `formar`,
+   * 02-11-2026); sin ella, el centro de la columna del borde o el primer hueco
+   * libre (`asentar`). La de su tropa va en cada individuo (`Troop.salida`).
+   */
+  salida?: Hex;
+  /**
+   * Las piezas que lleva sin ponérselas, por id, en el orden en que llegaron:
+   * el botín, lo comprado, lo que se quita y lo que devuelve la tropa licenciada.
+   * Sin tope (decisión del usuario sobre el plan). Si el héroe cae sin base, se
+   * pierde con él.
+   */
+  mochila: readonly string[];
+  /**
+   * **Efímero**: vuelve a su base vencido o rendido desde que acabó su último turno
+   * (`volverABase`, en `state/cierre.ts`), y se borra al acabar el turno de su dueño
+   * (`nextPlayer`, en `state/turnos.ts`). Lo ponen y lo quitan solo esas dos (lo vigila
+   * `invariantes.test.ts`). Es lo que hace que la IA recoja de la guarnición al que
+   * vuelve en el turno del rival como al que llega (`playAiTurn`): sin él salía de
+   * casa sin la tropa que lo esperaba (H2 del QA del puesto fronterizo, 04-11-2026:
+   * 22 de 22 veces en 1-40). Ausente casi siempre: con `exactOptionalPropertyTypes`
+   * no hay un `false` que guardar.
+   */
+  vueltoACasa?: true;
+}
+
+/** Lo que el héroe nacido de la tropa recuerda de cuando era tropa. */
+export interface OrigenDelHeroe {
+  readonly creature: string;
+  readonly historia: string;
 }

@@ -28,18 +28,19 @@ import {
 import { perfilesDelCatalogo } from '../src/client/render/escenario/caras.js';
 import { caidas, celdas as celdasDe } from '../src/client/render/escenario/celdas.js';
 import {
-  ANCHO_DE_MESA,
   casillasDeLaHuella,
-  esMesa,
   formasDeLasParedes,
   type Medible,
-  type Sprite,
-} from '../src/client/render/escenario/colocar.js';
+} from '../src/client/render/escenario/colocar/sendas-y-murallas.js';
+import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
+import { ANCHO_DE_MESA, esMesa } from '../src/client/render/escenario/colocar/tablas.js';
 import { Obstaculos } from '../src/client/render/escenario/pasillo.js';
 import { recintoDeLaCiudad } from '../src/core/map/recinto.js';
 import { esBarrera, isWalkable, type Suelo, type TerrainKind } from '../src/core/map/terrain.js';
-import { catalogoDelDisco, partidaDe, primeraSemillaCon } from './helpers.js';
-import { itLento, rango } from './lento.js';
+import { primeraSemillaCon } from '../tools/comun/semillas.js';
+import { RAIZ } from './comun.js';
+import { catalogoDelDisco, partidaDe } from './escena-de-prueba.js';
+import { conRespiro, itLento, rango } from './lento.js';
 
 const nunca = () => false;
 
@@ -132,7 +133,7 @@ describe('cimaDeOtroMaterial: el guardia muerde', () => {
 
 describe('las mesas de arenisca son del acantilado, no de la cordillera', () => {
   const indice = JSON.parse(
-    readFileSync(join(import.meta.dirname, '../assets/mapa/modulos/picos-arenisca.json'), 'utf8'),
+    readFileSync(join(RAIZ, 'assets/mapa/modulos/picos-arenisca.json'), 'utf8'),
   ) as { modulos: { imagen: string; ancho: number; alto: number }[] };
   const mesas = indice.modulos
     .filter((m) => esMesa('picos-arenisca', { nw: m.ancho, nh: m.alto }))
@@ -273,8 +274,8 @@ describe('en los mapas reales', () => {
 
   itLento(
     '1-40: ninguna espalda sin reborde, ninguna cima de otra roca, ninguna mesa en la cordillera',
-    () => {
-      for (const s of rango(1, 40)) {
+    async () => {
+      for await (const s of conRespiro(rango(1, 40))) {
         const { informe } = partidaDe(s).escena;
         expect(espaldasDe(s), `s${s}`).toEqual([]);
         expect([

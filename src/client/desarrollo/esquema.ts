@@ -9,7 +9,7 @@
 
 import { TERRAIN_KINDS } from '@core/map/terrain.js';
 import { z } from 'zod';
-import { CLASES_DE_SPRITE } from '../render/escenario/colocar.js';
+import { CLASES_DE_SPRITE } from '../render/escenario/colocar/sprite.js';
 import { CLASES_DE_PUENTE, EJES_DE_PUENTE } from '../render/escenario/puentes.js';
 
 /** Lo que es un id de marca: `AAAAMMDD-HHMMSS-s<semilla>-<x>-<y>`. Ni barras ni puntos. */
@@ -166,10 +166,6 @@ export const esquemaDeMarca = esquemaDeMarcaNueva.omit({ png: true }).extend({
   /** El fichero del recorte, junto al JSON. */
   png: z.string(),
 });
-
-/** El motivo de un fallo, para la barra, la consola o la respuesta del servidor. */
-export const motivoDe = (err: unknown): string =>
-  err instanceof Error ? err.message : String(err);
 
 /** La primera frase de un fallo de zod, con el campo delante: lo que lee la persona. */
 export function fraseDe(err: z.ZodError): string {

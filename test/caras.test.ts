@@ -23,11 +23,9 @@ import {
   catalogoValidado,
   type Modulo,
 } from '../src/client/render/escenario/catalogo.js';
-import {
-  materialDeCara,
-  type Sprite,
-  tonoDelPedregalSuelto,
-} from '../src/client/render/escenario/colocar.js';
+import { tonoDelPedregalSuelto } from '../src/client/render/escenario/colocar/relieve.js';
+import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
+import { materialDeCara } from '../src/client/render/escenario/colocar/tablas.js';
 import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
 import {
   bandaDeCara,
@@ -37,7 +35,7 @@ import {
 } from '../src/client/render/escenario/relieve.js';
 import type { Suelo } from '../src/core/map/terrain.js';
 import { FRANJAS_DEL_PERFIL, perfilDeModulo } from '../tools/taller/derivar.js';
-import { catalogoDelDisco, partidaDe } from './helpers.js';
+import { catalogoDelDisco, partidaDe } from './escena-de-prueba.js';
 import { rango, segunPrisa } from './lento.js';
 
 const catalogo = catalogoDelDisco();

@@ -9,8 +9,8 @@ import { describe, expect, it } from 'vitest';
 import { playAiGame } from '../src/core/ai/turn.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import { createRng } from '../src/core/rng.js';
-import { HERO_SCOUT_RADIUS, visibleNow, visibleNowAt } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import { HERO_SCOUT_RADIUS, visibleNow, visibleNowAt } from '../src/core/state/vision.js';
 
 const MAPA = { width: 10, height: 6 };
 

@@ -15,8 +15,10 @@ vi.mock('../src/client/render/assets.js', async (original) => ({
   cargarHojaDeFigura: (url: string) => cargadas.push(url),
 }));
 
-const { precargarDisparo } = await import('../src/client/render/figura.js');
-const { arteDe, hojaDe, registrarUnidad } = await import('../src/client/render/personajes.js');
+const { precargarDisparo } = await import('../src/client/render/figuras/figura.js');
+const { arteDe, hojaDe, registrarUnidad } = await import(
+  '../src/client/render/figuras/personajes.js'
+);
 
 describe('precargar el disparo', () => {
   it('quien pinta el disparo pide su hoja C de la dirección en la que mira, una vez', () => {

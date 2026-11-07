@@ -21,7 +21,7 @@
  * `AMPLIACION_MAXIMA` al zoom máximo.
  */
 import type { Suelo } from '@core/map/terrain.js';
-import { PX_AL_ZOOM_MAXIMO } from '../camara-mapa.js';
+import { PX_AL_ZOOM_MAXIMO } from '../mapa/camara.js';
 
 /** Hasta dónde se mira el borde, en casillas: más hondo, la cumbre ya no sube. */
 const HONDURA_MAXIMA = 4;

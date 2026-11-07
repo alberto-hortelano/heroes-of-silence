@@ -1,30 +1,33 @@
 /** Arranque de partida: del plan de mapa a un `GameState` listo para jugar. */
-import { unidadesDeMorada } from '../catalogo.js';
+
 import { COMBATE_COMPLETO, cupoDelHeroe, type ReglasDelCombate } from '../combate.js';
-import { tipoDeHeroePorDefecto } from '../data.js';
 import { problemaDeTipo } from '../hero/ascenso.js';
-import { EXPERIENCIA_INICIAL_DE_HEROE } from '../hero/experiencia.js';
-import {
-  CIFRAS_DEL_HEROE_INICIAL,
-  empezarElDia,
-  type Hero,
-  heroeRecienHecho,
-  maxMana,
-} from '../hero/hero.js';
+import { CIFRAS_DEL_HEROE_INICIAL, empezarElDia, heroeRecienHecho, maxMana } from '../hero/hero.js';
+import { EXPERIENCIA_INICIAL_DE_HEROE } from '../hero/rango.js';
+import { tipoDeHeroePorDefecto } from '../hero/tipos-de-heroe.js';
 import { heroLeadership, troopRoom, withTroops } from '../hero/troop.js';
+import { buildMap } from '../map/generar/construir.js';
+import type { MapPlan } from '../map/generar/plan.js';
+import { generateMapPlan } from '../map/generar/procedimental.js';
+import { basesDelPlan, validateMapPlan } from '../map/generar/validar.js';
 import {
-  basesDelPlan,
-  buildMap,
-  generateMapPlan,
-  type MapPlan,
-  validateMapPlan,
-} from '../map/generate.js';
-import type { EstadoDelMundo, MundoLeido } from '../mundo/formato.js';
-import { estadoInicialDelMundo, objetosDeLosLugares } from '../mundo/validar.js';
+  type EstadoDelMundo,
+  estadoInicialDelMundo,
+  type MundoLeido,
+  objetosDeLosLugares,
+} from '../mundo/formato.js';
 import { createRng, hashDeTexto, type Rng } from '../rng.js';
 import { sitioDe } from '../town/sitios.js';
-import { type Controller, FACTION_IDS, type FactionId, type PlayerId } from '../types.js';
-import { createGame, type GameState } from './game.js';
+import {
+  type Controller,
+  FACTION_IDS,
+  type FactionId,
+  type Hero,
+  type PlayerId,
+} from '../types.js';
+import { unidadesDeMorada } from '../unidad/catalogo.js';
+import { createGame } from './game.js';
+import type { GameState } from './tipos.js';
 
 /**
  * Nombres propios del juego: nada tomado de la serie original. Los de Templarios y
@@ -298,8 +301,7 @@ export function newGame(options: NewGameOptions = {}): GameState {
       skills: { logistics: 1, wisdom: 1 },
     };
     hero.mana = maxMana(hero);
-    // Sin personajes: una partida nueva no tiene ninguno (`GameState.characters`).
-    empezarElDia(hero, undefined);
+    empezarElDia(hero);
     return hero;
   });
 

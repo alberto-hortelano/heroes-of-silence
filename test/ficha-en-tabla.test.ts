@@ -10,17 +10,17 @@
  * tres fichas, en el montaje y en el combate. Nada de comparar combates.
  */
 import { describe, expect, it } from 'vitest';
+import { renderEquipo } from '../src/client/arena/paneles/equipo.js';
 import {
   type ComoDeLaFicha,
   enElMontaje,
-  renderEquipo,
   renderFicha,
   renderFichaDeHeroe,
-} from '../src/client/arena/paneles.js';
-import { marcadoDe } from '../src/client/html.js';
-import { fichaDeHeroeDeArena, heroePorDefecto } from '../src/core/arena.js';
-import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
-import { unidadDeArena } from './helpers.js';
+} from '../src/client/arena/paneles/ficha.js';
+import { marcadoDe } from '../src/client/comun/html.js';
+import { fichaDeHeroeDeArena, heroePorDefecto } from '../src/core/arena/heroe.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
+import { unidadDeArena } from './pelea-de-arena.js';
 
 const MONTAJE = enElMontaje(EQUIPO_DEL_JUEGO);
 const COMBATE: ComoDeLaFicha = { ...MONTAJE, enCombate: true };

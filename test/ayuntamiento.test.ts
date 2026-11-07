@@ -6,15 +6,17 @@
  * `paneles.test.ts`); el clic de verdad lo juega `pnpm capturas` («arranque»).
  */
 import { describe, expect, it } from 'vitest';
-import { EscenaBase } from '../src/client/escenas/castillo.js';
-import { marcadoDe } from '../src/client/html.js';
+import { AYUDA_DE_LA_SALIDA } from '../src/client/comun/dichos.js';
+import { marcadoDe } from '../src/client/comun/html.js';
+import { EscenaBase } from '../src/client/partida/base/escena.js';
+import { renderActions, renderSide } from '../src/client/partida/paneles.js';
 import { componerBase } from '../src/client/render/base/escena.js';
 import { dondePulsarElSitio } from '../src/client/render/base/recortes.js';
-import { AYUDA_DE_LA_SALIDA, Session } from '../src/client/session.js';
-import { renderActions, renderSide } from '../src/client/views/panels.js';
-import { ECONOMIA, figuraDelHeroe, tipoDeHeroePorDefecto } from '../src/core/data.js';
+import { Session } from '../src/client/sesion/partida.js';
+import { figuraDelHeroe, tipoDeHeroePorDefecto } from '../src/core/hero/tipos-de-heroe.js';
+import { describirCoste } from '../src/core/texto.js';
+import { ECONOMIA } from '../src/core/town/economia.js';
 import { oroBlocker } from '../src/core/town/town.js';
-import { describirCoste } from '../src/core/types.js';
 import { disposicionDe } from '../src/shared/base.js';
 
 /** La persona con el héroe de salida por elegir, en su base, como abre `main.ts` sin `?heroe=`. */

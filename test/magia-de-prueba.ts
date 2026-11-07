@@ -4,7 +4,9 @@
  * héroe que lo sabe y cada uno en su casilla, y cerrar turnos hasta el de alguien.
  */
 import { expect } from 'vitest';
-import { activeStack, applyAction, createBattle } from '../src/core/battle/battle.js';
+import { applyAction } from '../src/core/battle/battle.js';
+import { activeStack } from '../src/core/battle/consultas.js';
+import { createBattle } from '../src/core/battle/montaje.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import type { BattleStack, BattleState, Side } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
@@ -97,9 +99,6 @@ export function turnoDeId(b: BattleState, id: string, rng: Rng): void {
   }
   throw new Error(`a ${id} no le llega el turno`);
 }
-
-/** La vida que le queda a un stack. */
-export const vida = (s: BattleStack): number => (s.count - 1) * s.unit.hp + s.topHp;
 
 /** Que el héroe del atacante pueda lanzar otra vez en esta ronda (los tests lanzan seguidos). */
 export function otraVez(b: BattleState): void {

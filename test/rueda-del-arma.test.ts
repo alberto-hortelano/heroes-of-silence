@@ -14,39 +14,29 @@
 
 import { describe, expect, it } from 'vitest';
 import ruedaJson from '../data/rueda.json' with { type: 'json' };
-import { caraDeLaArena } from '../src/client/arena/paneles.js';
-import { marcadoDe } from '../src/client/html.js';
-import { renderEleccion } from '../src/client/rueda/rueda.js';
-import { batallaDeArena, equiparEnArena } from '../src/core/arena.js';
+import { caraDeLaArena } from '../src/client/arena/paneles/batalla.js';
+import { renderEleccion } from '../src/client/batalla/rueda/rueda.js';
+import { marcadoDe } from '../src/client/comun/html.js';
+import { batallaDeArena } from '../src/core/arena/montaje.js';
+import { equiparEnArena } from '../src/core/arena/piezas.js';
 import { ruedaDelGolpe } from '../src/core/battle/armas.js';
-import {
-  activeStack,
-  applyAction,
-  previsionDeLaRueda,
-  stackById,
-} from '../src/core/battle/battle.js';
+import { applyAction } from '../src/core/battle/battle.js';
 import { validarRueda } from '../src/core/battle/cifras-de-la-rueda.js';
+import { activeStack, stackById } from '../src/core/battle/consultas.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
+import { previsionDeLaRueda } from '../src/core/battle/prevision.js';
 import type { BattleAction, BattleState } from '../src/core/battle/types.js';
-import { unidad } from '../src/core/catalogo.js';
-import type { Pieza, PiezaEscrita } from '../src/core/data.js';
-import { EQUIPO_DEL_JUEGO, pieza } from '../src/core/hero/equipo.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
+import type { Pieza, PiezaEscrita } from '../src/core/equipo/pieza.js';
+import { pieza } from '../src/core/equipo/pieza.js';
 import { createRng } from '../src/core/rng.js';
 import type { TipoDeGolpe } from '../src/core/types.js';
-import { cuerpoDeCombate, nivelesDeLaEspada, type Unidad } from '../src/core/unidad.js';
-import {
-  type Ataque,
-  aPelear,
-  ataquesDe,
-  catalogoCon,
-  empezarTalCual,
-  golpeConLaRueda,
-  hastaLaRueda,
-  montajeDePrueba,
-  sesionDeArena,
-  TROPA,
-  unidadDeArena,
-} from './helpers.js';
+import { unidad } from '../src/core/unidad/catalogo.js';
+import { cuerpoDeCombate, nivelesDeLaEspada, type Unidad } from '../src/core/unidad/formato.js';
+import { empezarTalCual, hastaLaRueda, sesionDeArena } from './batalla-de-cliente.js';
+import { type Ataque, ataquesDe, golpeConLaRueda } from './batalla-de-prueba.js';
+import { TROPA } from './comun.js';
+import { aPelear, catalogoCon, montajeDePrueba, unidadDeArena } from './pelea-de-arena.js';
 
 /** `p` con los niveles de la Espada, con otro id y otro nombre: la misma arma, versátil. */
 function lisa(p: Pieza): Pieza {

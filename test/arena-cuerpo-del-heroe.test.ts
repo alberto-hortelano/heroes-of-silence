@@ -8,18 +8,18 @@
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import {
-  heroeDeArena,
-  heroePorDefecto,
-  type MontajeDelEnlace,
-  montajeALaURL,
-  montajeDeLaURL,
-  piezasDelMontaje,
-  validarHeroeDeArena,
-} from '../src/core/arena.js';
+import { type MontajeDelEnlace, montajeALaURL, montajeDeLaURL } from '../src/core/arena/enlace.js';
+import { heroeDeArena, heroePorDefecto, validarHeroeDeArena } from '../src/core/arena/heroe.js';
+import { piezasDelMontaje } from '../src/core/arena/piezas.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { type CuerpoDeTodoHeroe, EQUIPO_ESCRITO, HEROE, RUTA_DEL_HEROE } from '../src/core/data.js';
-import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
+import { EQUIPO_ESCRITO } from '../src/core/equipo/pieza.js';
+import {
+  type CuerpoDeTodoHeroe,
+  EQUIPO_BASE,
+  HEROE,
+  RUTA_DEL_HEROE,
+} from '../src/core/hero/cuerpo-del-heroe.js';
 import { hechizosDelGremio } from '../src/core/magia/catalogo.js';
 import {
   escribirCatalogo,
@@ -27,7 +27,7 @@ import {
   leerCatalogo,
   versionDelCatalogo,
 } from '../tools/arena/borrador.js';
-import { carpetaDeLaArena, catalogoEntero } from './helpers.js';
+import { carpetaDeLaArena, catalogoEntero } from './pelea-de-arena.js';
 
 /** El de data/heroe.json con PV, fuerza y agilidad de un héroe más flojo. */
 const FLOJO: CuerpoDeTodoHeroe = {

@@ -11,11 +11,17 @@
  * 1-40. Ahora la figura va delante de toda pieza que cuelga de su fila o de más
  * al norte (`delanteDeLasParedes`) y el informe lo recuenta (`pisablesTapadas`).
  */
-import { barreraEn, type MejoraDelPuesto } from '@core/map/map.js';
+import { barreraEn } from '@core/map/map.js';
 import { isWalkable, type TerrainKind } from '@core/map/terrain.js';
+import type { MejoraDelPuesto } from '@core/map/tipos.js';
 import { describe, expect, it } from 'vitest';
 import { altoDeLaSilueta, perfilesDelCatalogo } from '../src/client/render/escenario/caras.js';
-import type { Sprite } from '../src/client/render/escenario/colocar.js';
+import {
+  type DeNodo,
+  type NodoQueSeSabe,
+  type Sprite,
+  seVeConSuNodo,
+} from '../src/client/render/escenario/colocar/sprite.js';
 import {
   cajaDeFigura,
   delanteDeLasParedes,
@@ -23,15 +29,10 @@ import {
   FIGURA,
   pisablesTapadas,
 } from '../src/client/render/escenario/figuras.js';
+import { PIES } from '../src/client/render/escenario/figuras-del-mapa.js';
 import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
-import {
-  type DeNodo,
-  type NodoQueSeSabe,
-  seVeConSuNodo,
-} from '../src/client/render/escenario/puestos.js';
 import { claveDeFigura, escenarioDe, pisada } from '../src/client/render/escenario/superficie.js';
-import { PIES } from '../src/client/render/mapa.js';
-import { catalogoDelDisco, partidaDe } from './helpers.js';
+import { catalogoDelDisco, partidaDe } from './escena-de-prueba.js';
 import { LENTO, rango } from './lento.js';
 
 const sinPerfil = () => undefined;
@@ -182,7 +183,7 @@ describe('delanteEnUnaBarrera: quien se infiltra se ve parado en una barrera (05
     Math.floor(i / 10) === 6 ? 'grass' : 'mountain',
   );
   /** Una pieza de marcador de la clase `clase` con el pie en `pie`, centrada en `x`, de `alto` casillas. */
-  const pieza = (
+  const masaFrontal = (
     x: number,
     pie: number,
     alto: number,
@@ -194,7 +195,10 @@ describe('delanteEnUnaBarrera: quien se infiltra se ve parado en una barrera (05
     clase,
   });
   /** Una torre del recinto de una ciudad: algo hecho. */
-  const torre = (pie: number): Sprite => ({ ...pieza(2.5, pie, 2, 'objeto'), recinto: 'torre' });
+  const torre = (pie: number): Sprite => ({
+    ...masaFrontal(2.5, pie, 2, 'objeto'),
+    recinto: 'torre',
+  });
   /** La clave de la figura con estas piezas, cada una con la de su pie o la que se le dé. */
   const clave = (
     sprites: readonly (Sprite | { readonly s: Sprite; readonly clave: number })[],
@@ -212,8 +216,8 @@ describe('delanteEnUnaBarrera: quien se infiltra se ve parado en una barrera (05
     );
 
   it('va delante de la masa de su casilla y de la de delante: la montaña y el bosque no lo esconden', () => {
-    const suya = pieza(2.5, 4.9, 2);
-    const deDelante = pieza(2.5, 5.3, 2);
+    const suya = masaFrontal(2.5, 4.9, 2);
+    const deDelante = masaFrontal(2.5, 5.3, 2);
     expect(clave([suya])).toBe(4.9);
     expect(clave([suya, deDelante])).toBe(5.3);
   });
@@ -229,19 +233,19 @@ describe('delanteEnUnaBarrera: quien se infiltra se ve parado en una barrera (05
     // Los pies en 4,8; la torre, en su fila (4) pero con el pie en 4,95. Con la
     // fila del pie (`Math.floor`) subía por encima de ella.
     expect(clave([torre(4.95)])).toBe(Number.NEGATIVE_INFINITY);
-    expect(clave([torre(4.95), pieza(2.5, 4.9, 2)])).toBe(4.9);
+    expect(clave([torre(4.95), masaFrontal(2.5, 4.9, 2)])).toBe(4.9);
     // La masa de su fila con el pie al sur de sus pies sigue subiéndolo.
-    expect(clave([pieza(2.5, 4.95, 2)])).toBe(4.95);
+    expect(clave([masaFrontal(2.5, 4.95, 2)])).toBe(4.95);
   });
 
   it('de las piezas de un nodo cuenta solo la que se pinta: N2 de la vuelta 2 de QA', () => {
     // La empalizada de un paso de delante: si no se pinta (el paso es neutral),
     // ni lo para ni lo sube, y la masa de delante lo sube; si se pinta, lo para.
     const empalizada: Sprite = {
-      ...pieza(2.5, 5.3, 2, 'objeto'),
+      ...masaFrontal(2.5, 5.3, 2, 'objeto'),
       deNodo: { id: 'node-1', cuando: 'empalizada' },
     };
-    const masa = pieza(2.5, 5.5, 2);
+    const masa = masaFrontal(2.5, 5.5, 2);
     expect(clave([empalizada, masa], monte, () => false)).toBe(5.5);
     expect(clave([empalizada, masa], monte, () => true)).toBe(Number.NEGATIVE_INFINITY);
     // Y la que está detrás, solo si se pinta.
@@ -251,20 +255,22 @@ describe('delanteEnUnaBarrera: quien se infiltra se ve parado en una barrera (05
   });
 
   it('de la masa de delante, no sube por la que se pintaría después de lo hecho que lo tapa', () => {
-    expect(clave([torre(5.3), pieza(2.5, 5.5, 2)])).toBe(Number.NEGATIVE_INFINITY);
-    expect(clave([torre(5.3), pieza(2.5, 5.3, 2)])).toBe(Number.NEGATIVE_INFINITY);
-    expect(clave([torre(5.3), pieza(2.5, 5.2, 2)])).toBe(5.2);
+    expect(clave([torre(5.3), masaFrontal(2.5, 5.5, 2)])).toBe(Number.NEGATIVE_INFINITY);
+    expect(clave([torre(5.3), masaFrontal(2.5, 5.3, 2)])).toBe(Number.NEGATIVE_INFINITY);
+    expect(clave([torre(5.3), masaFrontal(2.5, 5.2, 2)])).toBe(5.2);
   });
 
   it('la cubierta de lo que se pisa (una casa de la labranza) no lo sube; la de una barrera, sí', () => {
-    expect(clave([pieza(2.5, 6.3, 2.5, 'cubierta')])).toBe(Number.NEGATIVE_INFINITY);
-    expect(clave([pieza(2.5, 5.3, 2, 'cubierta')])).toBe(5.3);
+    expect(clave([masaFrontal(2.5, 6.3, 2.5, 'cubierta')])).toBe(Number.NEGATIVE_INFINITY);
+    expect(clave([masaFrontal(2.5, 5.3, 2, 'cubierta')])).toBe(5.3);
     // Un pico con el pie en lo que se pisa sigue siendo la masa de su cordillera.
-    expect(clave([pieza(2.5, 6.3, 2.5)])).toBe(6.3);
+    expect(clave([masaFrontal(2.5, 6.3, 2.5)])).toBe(6.3);
   });
 
   it('no sube por lo que se pinta antes ni por lo que no le toca la figura', () => {
-    expect(clave([pieza(2.5, 4.1, 2), pieza(0.2, 5.3, 2)])).toBe(Number.NEGATIVE_INFINITY);
+    expect(clave([masaFrontal(2.5, 4.1, 2), masaFrontal(0.2, 5.3, 2)])).toBe(
+      Number.NEGATIVE_INFINITY,
+    );
   });
 
   /** Sin saber nada de ningún nodo: se pinta su hito, ninguna obra (`seVeConSuNodo`). */

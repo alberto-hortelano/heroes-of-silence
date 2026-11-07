@@ -15,9 +15,9 @@ import {
   pueblosPartidos,
 } from '../tools/taller/casas.js';
 import { aRaster } from '../tools/taller/recorte.js';
-import { sha256 } from './helpers.js';
+import { RAIZ, sha256 } from './comun.js';
 
-const MODULOS = join(import.meta.dirname, '..', 'assets', 'mapa', 'modulos');
+const MODULOS = join(RAIZ, 'assets', 'mapa', 'modulos');
 const leer = (f: string): any => JSON.parse(readFileSync(join(MODULOS, f), 'utf8'));
 
 describe('las casas sueltas de la labranza', () => {

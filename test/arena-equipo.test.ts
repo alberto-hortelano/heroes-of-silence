@@ -15,46 +15,53 @@ import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  enElMontaje,
   guardadoEnPalabras,
   renderEquipo,
-  renderFicha,
   sinGuardarEnPalabras,
-} from '../src/client/arena/paneles.js';
-import { marcadoDe } from '../src/client/html.js';
+} from '../src/client/arena/paneles/equipo.js';
+import { enElMontaje, renderFicha } from '../src/client/arena/paneles/ficha.js';
+import { marcadoDe } from '../src/client/comun/html.js';
 import {
-  conPiezas,
-  enElHueco,
-  equiparEnArena,
-  type HeroeDeArena,
-  heroePorDefecto,
-  idsLlevados,
-  type MontajeDeArena,
   type MontajeDelEnlace,
   montajeALaURL,
   montajeDeArenaDelEnlace,
   montajeDeLaURL,
+  VERSION_DEL_ENLACE,
+} from '../src/core/arena/enlace.js';
+import { type HeroeDeArena, heroePorDefecto } from '../src/core/arena/heroe.js';
+import type { MontajeDeArena } from '../src/core/arena/montaje.js';
+import {
+  cambioDePiezas,
+  conPiezas,
+  enElHueco,
+  equiparEnArena,
+  idsLlevados,
   piezaNueva,
   piezasDelMontaje,
   quitarBlocker,
   quitarEnArena,
-  retocarEnBatalla,
-  unidadNueva,
-  VERSION_DEL_ENLACE,
-} from '../src/core/arena.js';
+} from '../src/core/arena/piezas.js';
+import { retocarEnBatalla } from '../src/core/arena/retoque.js';
+import { unidadNueva } from '../src/core/arena/unidad-nueva.js';
 import { armaduraDe, isShooter } from '../src/core/battle/armas.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
+import {
+  type CatalogoDeEquipo,
+  catalogoDeEquipo,
+  EQUIPO_DEL_JUEGO,
+} from '../src/core/equipo/atado.js';
 import {
   COMENTARIO_DEL_CATALOGO_DE_EQUIPO,
   EQUIPO,
   EQUIPO_ESCRITO,
   type Pieza,
   type PiezaEscrita,
+  pieza,
   RUTA_DEL_CATALOGO_DE_EQUIPO,
   validarPieza,
-} from '../src/core/data.js';
-import { catalogoDeEquipo, EQUIPO_BASE, EQUIPO_DEL_JUEGO, pieza } from '../src/core/hero/equipo.js';
+} from '../src/core/equipo/pieza.js';
+import { EQUIPO_BASE } from '../src/core/hero/cuerpo-del-heroe.js';
 import { createRng } from '../src/core/rng.js';
 import { HUECOS, type Hueco, huecosDeLaPieza } from '../src/core/types.js';
 import {
@@ -62,22 +69,21 @@ import {
   type Unidad,
   unidadDeCombate,
   validarUnidad,
-} from '../src/core/unidad.js';
+} from '../src/core/unidad/formato.js';
 import { escribirCatalogo, leerCatalogo } from '../tools/arena/borrador.js';
+import { todoA } from './batalla-de-prueba.js';
+import { hojaDeLaArena, hojasDeLaArena } from './hojas-de-la-arena.js';
 import {
   carpetaDeLaArena,
   catalogoCon,
+  catalogoDe,
   catalogoEntero,
   delBorrador,
   elCatalogoCon,
-  hojaDeLaArena,
-  hojasDeLaArena,
   MONTAJE,
-  motivoDelCambio,
-  todoA,
+  montar,
   unidadDeArena,
-} from './helpers.js';
-import { catalogoDe, montar } from './pelea-de-arena.js';
+} from './pelea-de-arena.js';
 
 const ESPADA = pieza('espada');
 const ARCO = pieza('arco');
@@ -644,3 +650,17 @@ describe('la ficha de una unidad ofrece solo lo que el núcleo admite (H3 de la 
     }
   });
 });
+
+/**
+ * Por qué no se pasa del catálogo `antes` a las piezas `despues` con esas
+ * unidades (`cambioDePiezas`), o `null` si se puede: la pregunta de las pruebas
+ * del editor de equipo, que miran el motivo.
+ */
+function motivoDelCambio(
+  antes: CatalogoDeEquipo,
+  despues: readonly PiezaEscrita[],
+  unidades: readonly Unidad[],
+): string | null {
+  const r = cambioDePiezas(antes, despues, unidades);
+  return 'motivo' in r ? r.motivo : null;
+}

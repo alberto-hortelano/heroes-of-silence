@@ -15,16 +15,17 @@
  */
 import { describe, expect, it } from 'vitest';
 import { Frontera } from '../src/core/map/frontera.js';
+import { aPunto, pointKey } from '../src/core/map/geometria.js';
 import {
   costeEnElAlcance,
   createEmptyMap,
   findPath,
   pathFromReachable,
-  pointKey,
+  type Reachable,
   reachableFrom,
-  stepCost,
 } from '../src/core/map/map.js';
-import { conCaminos, costesDelAlcance, previosDelAlcance } from './helpers.js';
+import type { Point } from '../src/core/types.js';
+import { conCaminos, costesDelAlcance } from './mapa-de-prueba.js';
 
 /**
  * Una frontera con sitio de sobra para las claves de estos tests.
@@ -183,10 +184,6 @@ describe('el Dijkstra que usa la frontera, por sus dos puertas', () => {
     // Un camino sobre la montaña no la abarata.
     const conCamino = conCaminos(montaña(), '1,0');
     expect(costesDelAlcance(reachableFrom(conCamino, desde, [], null, 1500)).get('1,0')).toBe(1500);
-    // `stepCost` es la misma fórmula: con el precio, recto u oblicuo, lo mismo; sin él, lanza.
-    expect(stepCost(conCamino, desde, { x: 1, y: 0 }, 1500)).toBe(1500);
-    expect(stepCost(montaña(), desde, { x: 1, y: 1 }, 1500)).toBe(1500);
-    expect(() => stepCost(montaña(), desde, { x: 1, y: 0 })).toThrow(/una barrera no se pisa/);
     // Un precio que no es un entero positivo lanza: sería una barrera gratis.
     expect(() => reachableFrom(montaña(), desde, [], null, 0)).toThrow(/entero positivo/);
     expect(() => reachableFrom(montaña(), desde, [], null, 1.5)).toThrow(/entero positivo/);
@@ -333,3 +330,13 @@ describe('el Dijkstra que usa la frontera, por sus dos puertas', () => {
     expect(() => f.push(2, 50)).toThrow(/ya salió 100/);
   });
 });
+
+/** Por dónde se llega a cada casilla, por `"x,y"`: el `prev` de antes de #94. Sin el origen. */
+function previosDelAlcance(alcance: Reachable): Map<string, Point> {
+  const previos = new Map<string, Point>();
+  for (const i of alcance.descubiertas) {
+    const p = alcance.previos[i] as number;
+    if (p !== -1) previos.set(pointKey(aPunto(i, alcance.ancho)), aPunto(p, alcance.ancho));
+  }
+  return previos;
+}

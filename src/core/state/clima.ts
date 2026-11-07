@@ -6,8 +6,8 @@
  * el estado y porque el «mapa vivo» quiere leer la noche desde las reglas de sus
  * lugares («un comerciante que solo sale de noche», `esDeNocheEn` y `climaEn`).
  *
- * Dos fuentes, una sola lectura por región (`climaDeHoy`, que leen
- * `climaDeLaPartida` para todas y `climaEn` para una):
+ * Dos fuentes, una sola lectura por región (`climaDeHoy`, que lee
+ * `climaDeLaPartida` para todas; de ella salen `climaEn` y `esDeNocheEn`):
  *
  * - **La semilla**, sin agente o donde no pide nada: una función pura de la
  *   semilla, el día y la región, en enteros y con **su propia corriente**
@@ -30,18 +30,14 @@
  * Las cifras, inventadas, en `data/clima.json`, que solo importa este módulo.
  */
 import climaJson from '../../../data/clima.json' with { type: 'json' };
-import { enteroDesde } from '../data.js';
-import { inBounds } from '../map/map.js';
-import {
-  dueñoDeLaRegion,
-  dueñosDeLasRegiones,
-  type MapaDeRed,
-  regionMasCercana,
-} from '../map/regiones.js';
+import { inBounds } from '../map/geometria.js';
+import { type MapaDeRed, regionDelSitio } from '../map/regiones.js';
+import { dueñosDeLasRegiones } from '../map/territorio.js';
 import { createRng, hashDeTexto, sortearPorPesos } from '../rng.js';
 import { FACTION_IDS, type FactionId, type PlayerId, type Point } from '../types.js';
-import { esIdDeMapa } from '../validar.js';
-import { type GameState, lugarDelRival, type PendingBattle, playerById } from './game.js';
+import { enteroDesde, esIdDeMapa, esObjeto } from '../validar.js';
+import { playerById } from './consultas.js';
+import type { GameState } from './tipos.js';
 
 /** Los tiempos que hay, del más claro al más cerrado. Un clima nuevo es una fila más aquí y en las recetas del cliente. */
 export const TIEMPOS = ['despejado', 'niebla', 'lluvia', 'tormenta'] as const;
@@ -108,11 +104,11 @@ const DUEÑOS: readonly DueñoDelClima[] = ['neutral', ...FACTION_IDS];
 export function validarClima(json: unknown, fichero = 'data/clima.json'): ReglasDelClima {
   const problemas: string[] = [];
   const objeto = (v: unknown, donde: string): Record<string, unknown> => {
-    if (v === null || typeof v !== 'object' || Array.isArray(v)) {
+    if (!esObjeto(v)) {
       problemas.push(`${donde} tiene que ser un objeto, y es ${JSON.stringify(v)}`);
       return {};
     }
-    return v as Record<string, unknown>;
+    return v;
   };
   const sobran = (o: Record<string, unknown>, donde: string, valen: readonly string[]): void => {
     for (const k of Object.keys(o)) {
@@ -274,12 +270,6 @@ export function nocheDeLaSemilla(
 
 // ----------------------------------------------------------- las regiones
 
-/** La región del clima de la casilla `p`, por su índice en `map.regions` (−1 en un mapa sin regiones). Lanza fuera del mapa. */
-export function regionDelSitio(map: MapaDeRed, p: Point): number {
-  if (!inBounds(map, p)) throw new Error(`(${p.x},${p.y}) está fuera del mapa: no tiene clima`);
-  return regionMasCercana(map)[p.y * map.width + p.x] as number;
-}
-
 /** El clima de la región `k` del clima de la partida, o el despejado sin región (−1). */
 export function climaDeLaRegion(clima: ClimaDeLaPartida, k: number): ClimaDelSitio {
   return k < 0 ? DESPEJADO : (clima.regiones[k] ?? DESPEJADO);
@@ -358,20 +348,23 @@ export function climaDeLaPartida(state: GameState): ClimaDeLaPartida {
 }
 
 /**
- * El clima de hoy en la casilla `p`, sin hacer el de todo el mapa: solo su
- * región, con el dueño de esa región (`dueñoDeLaRegion`). Lo que lee una regla
- * de `core` sobre un sitio (el «mapa vivo»). En un mapa sin regiones, el
- * despejado; fuera del mapa, lanza.
+ * El clima de hoy en la casilla `p`: el de su región en el de toda la partida
+ * (`climaDeLaPartida`, lo que leen la página, el servidor y el espectador). Lo que
+ * leería una regla de `core` sobre un sitio (el «mapa vivo»; hoy, ninguna). En un
+ * mapa sin regiones, el despejado; fuera del mapa, lanza.
+ *
+ * Hasta la fase N de la reorganización (07-11-2026) lo calculaba aparte, con el
+ * dueño de su región por otro camino (`dueñoDeLaRegion`): dos cuentas de lo mismo,
+ * y la que se ve era la otra.
  */
 export function climaEn(state: GameState, p: Point): ClimaDelSitio {
-  const k = regionDelSitio(state.map, p);
-  if (k < 0) return DESPEJADO;
-  return climaDeHoy(state, k, faccionDe(state, dueñoDeLaRegion(state, k)));
+  return climaDelSitio(climaDeLaPartida(state), state.map, p);
 }
 
 /**
- * Si es de noche hoy en la región `regionId`: lo que lee `core` (el «mapa vivo»
- * y sus lugares). Lanza con una región que no es del mapa.
+ * Si es de noche hoy en la región `regionId`, en el clima de toda la partida
+ * (`climaDeLaPartida`, como `climaEn`): lo que leería `core` (el «mapa vivo» y sus
+ * lugares; hoy, nadie). Lanza con una región que no es del mapa.
  */
 export function esDeNocheEn(state: GameState, regionId: string): boolean {
   const k = state.map.regions.findIndex((r) => r.id === regionId);
@@ -380,25 +373,7 @@ export function esDeNocheEn(state: GameState, regionId: string): boolean {
       `en este mapa no hay "${regionId}": hay ${state.map.regions.map((r) => r.id).join(', ')}`,
     );
   }
-  return climaDeHoy(state, k, faccionDe(state, dueñoDeLaRegion(state, k))).noche;
-}
-
-/**
- * La región del clima donde se pelea una batalla del mapa: la del sitio de lo
- * atacado (`lugarDelRival`, la casilla del defensor). Es lo que viaja al
- * espectador (`VistaBatalla.region`), que saca de ahí el clima de su tablero.
- */
-export function regionDeLaBatalla(state: GameState, pending: PendingBattle): number {
-  return regionDelSitio(state.map, lugarDelRival(state, pending.foe));
-}
-
-/** El clima que hereda una batalla del mapa: el de la región donde se pelea, con `clima` (lo forzado encima, si lo hay). */
-export function climaDeLaBatalla(
-  state: GameState,
-  clima: ClimaDeLaPartida,
-  pending: PendingBattle,
-): ClimaDelSitio {
-  return climaDeLaRegion(clima, regionDeLaBatalla(state, pending));
+  return climaDeLaRegion(climaDeLaPartida(state), k).noche;
 }
 
 // --------------------------------------------------------------- el narrador
@@ -457,10 +432,10 @@ const esPunto = (v: unknown): v is Point =>
  * cuántos van ni si la región se repite: eso es de `pedirClima`.
  */
 export function climaBlocker(state: GameState, entrada: EntradaDeClima): string | null {
-  if (typeof entrada !== 'object' || entrada === null || Array.isArray(entrada)) {
+  if (!esObjeto(entrada)) {
     return `cada pedido es un objeto { "at", "weather", "night", "days" }, y llega ${dicho(entrada)}`;
   }
-  const { at, weather, night, days } = entrada as Record<string, unknown>;
+  const { at, weather, night, days } = entrada;
   if (!esPunto(at)) {
     return `"at" es una casilla { "x": N, "y": N } con dos enteros, y llega ${dicho(at)}`;
   }
@@ -475,13 +450,7 @@ export function climaBlocker(state: GameState, entrada: EntradaDeClima): string 
   if (night !== undefined && typeof night !== 'boolean') {
     return `"night" va true o false, y llega ${dicho(night)}`;
   }
-  if (
-    days !== undefined &&
-    (typeof days !== 'number' ||
-      !Number.isSafeInteger(days) ||
-      days < 1 ||
-      days > CLIMA.diasMaximos)
-  ) {
+  if (days !== undefined && (!enteroDesde(days, 1) || days > CLIMA.diasMaximos)) {
     return `days ${dicho(days)}: un entero de 1 a ${CLIMA.diasMaximos} días`;
   }
   return null;

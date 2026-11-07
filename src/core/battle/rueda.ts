@@ -24,14 +24,15 @@
  * Aquí está la regla una vez: el punto del cruce, la tirada fija de cada punto,
  * cuántos golpes da cada tipo y sus cifras, con sus notas para la persona. Las
  * formas de las tres ruedas (7, 5 y 3: qué sectores, cómo se cruzan, sus
- * nombres), en `formas-de-la-rueda.ts`, que se reexporta aquí. Puro: no importa
- * `battle.ts`; lo leen el motor (`applyAction`, `melee`, el daño), la IA
+ * nombres), en `formas-de-la-rueda.ts`; la tabla de los niveles, en
+ * `cifras-de-la-rueda.ts`, y los tipos de golpe, en `types.ts`: quien los lee los
+ * pide allí (este fichero los reexportaba hasta la fase N de la reorganización,
+ * 07-11-2026). Puro: no importa
+ * `battle.ts` ni sus piezas; lo leen el motor (`applyAction`, `melee`, el daño), la IA
  * (`ai/rueda.ts`), las sesiones y la rueda del cliente.
  */
-import { conSigno } from '../hero/equipo.js';
+import { conComa, conSigno } from '../texto.js';
 import {
-  conComa,
-  esTipoDeGolpe,
   type NivelesDeLaRueda,
   TIPOS_DEL_ANILLO,
   type TipoDeGolpe,
@@ -46,62 +47,22 @@ import {
   type EfectoDelTipo,
   efectoDelTipo,
   golpesDelTipo,
-  NOMBRE_DE_GOLPE,
   type PapelEnLaRueda,
   type PorExito,
   PUNTOS,
   type Punto,
 } from './cifras-de-la-rueda.js';
 import { type CruceDelGolpe, tiradaEnCuartos } from './damage.js';
-import type { CuandoVence } from './effects.js';
 import {
   cicloDe,
   esFusionado,
   type FormaDeLaRueda,
-  nombreEnLaRueda,
-  PARTES,
-  tipoDeGolpeBlocker,
-} from './formas-de-la-rueda.js';
-import type { BattleAction, BattleEvent } from './types.js';
-
-export {
-  type CifrasDeLaRueda,
-  type EfectoDelTipo,
-  efectoDelTipo,
-  NIVEL_MAXIMO,
   NOMBRE_DE_GOLPE,
-  NORMAL_SIN_NIVEL,
-  type PapelEnLaRueda,
-  PESOS_DE_LA_RUEDA,
-  type PesosDeLaRueda,
-  type PorExito,
-  PUNTOS,
-  type Punto,
-  validarRueda,
-} from './cifras-de-la-rueda.js';
-export {
-  type CruceDeLaRueda,
-  cicloDe,
-  dichoDelCruce,
-  esDeLaRueda,
-  type FormaDeLaRueda,
-  formaDeLaBatalla,
-  golpeNeutro,
-  LAS_TRES_RUEDAS,
-  lasRuedasQue,
-  nivelesEnLaForma,
   nombreEnLaRueda,
   PARTES,
-  RUEDA_DE_REFERENCIA,
-  RUEDAS,
-  TIPOS_DE_LAS_RUEDAS,
-  type TiposDeLaRueda,
   tipoDeGolpeBlocker,
 } from './formas-de-la-rueda.js';
-// Los tipos viven en `types.ts`, porque los nombra la pieza (`Pieza.rueda`), y la
-// tabla de los niveles, en `cifras-de-la-rueda.ts`, que lee la regla de una
-// pieza: aquí se reexportan, que es donde los busca quien lee la rueda.
-export { esTipoDeGolpe, type TipoDeGolpe, type TipoDelAnillo };
+import type { BattleAction, BattleEvent, CuandoVence } from './types.js';
 
 /** El punto según la distancia en el anillo: igual, al lado, a dos, enfrente. */
 const PUNTO_POR_DISTANCIA: readonly Punto[] = [0, 1, 3, 4];
@@ -402,7 +363,7 @@ export function casillasQueQuitaLaFinta(p: Punto, e: EfectoDelTipo, quedan: numb
  * golpe o el contraataque de la respuesta) con las cifras de su arma `c`
  * (`ruedaDelGolpe`), en los números que lee `damage.ts`.
  * La única traducción: la piden `opcionesDeDanio` y la previsión de la rueda
- * (`battle.ts`).
+ * (`conElGolpe`, `golpe.ts`).
  */
 export function cruceDelGolpe(
   tipo: TipoDeGolpe,

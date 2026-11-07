@@ -1,0 +1,78 @@
+/**
+ * El panel de la escena del ayuntamiento: los héroes que se pueden contratar para
+ * elegir (como el clic en su figura), y la ficha del elegido —su retrato, su
+ * nombre, su tipo, lo que dice de él el cuaderno, su precio y, si es el de salida,
+ * su tropa— con el botón de contratarlo, que va por la acción de siempre
+ * (`hire_hero`, con su tipo).
+ *
+ * Sin reglas: el precio y por qué no se puede ya vienen del núcleo en la vista
+ * (`candidatosAHeroe`), y el motivo va **escrito debajo** del botón, como en la
+ * morada: en el móvil no hay ratón que enseñe un `title`.
+ */
+import { BARRERAS, NOMBRE_DE_BARRERA } from '@core/map/terrain.js';
+import { describirCoste, enumerar } from '@core/texto.js';
+import { type Army, NOMBRE_DE_RASGO } from '@core/types.js';
+import { DESHABILITADO, type Html, html, NADA, srcDeImagen } from '../../comun/html.js';
+import type { Session } from '../../sesion/partida.js';
+import type { FichaDelAyuntamiento } from '../../sesion/vistas/ayuntamiento.js';
+import { filaDeCifra, motivoDelRechazo } from '../../views/cifras.js';
+import { nota } from '../../views/notas.js';
+import { renderArmy } from '../ejercito.js';
+import { botonesDeLaFila } from '../morada/panel.js';
+
+/**
+ * Lo que hace un tipo que se infiltra, para su nota: el rasgo y las barreras
+ * dichos con sus nombres de siempre (`NOMBRE_DE_RASGO`, `NOMBRE_DE_BARRERA`).
+ */
+const NOTA_DEL_INFILTRADOR = `Con toda su tropa con el rasgo «${NOMBRE_DE_RASGO.infiltrarse}», cruza ${enumerar(
+  BARRERAS.map((b) => NOMBRE_DE_BARRERA[b]),
+)} a un día entero por casilla.`;
+
+export function renderPanelDelAyuntamiento(session: Session): Html {
+  const vista = session.vistaDelAyuntamiento();
+  const town = session.activeTown;
+  if (vista === null || town === null) return NADA;
+  const candidatos = botonesDeLaFila(
+    vista,
+    (tipo) => html`data-action="ayuntamiento-elegir" data-tipo="${tipo}"`,
+  );
+  const cabecera =
+    vista.tropa !== null
+      ? html`<h2>Elige a tu héroe</h2>
+      <p class="cost">Es tu primera compra: lo que cuesta se descuenta del oro con que reclutarás la tropa.</p>`
+      : html`<h2>Contratar héroe</h2>`;
+  return html`<p class="eyebrow">${vista.nombre.toUpperCase()} · ${town.name.toUpperCase()}</p>
+    ${cabecera}
+    <div class="stack-list ayuntamiento-candidatos">${candidatos}</div>
+    ${renderFicha(vista.heroe, vista.ficha, vista.tropa)}`;
+}
+
+/**
+ * La ficha del elegido: quién es, lo que cuesta y el botón; debajo, con qué sale
+ * el de salida (lo que diga la vista: un contratado no lleva tropa que enseñar).
+ */
+function renderFicha(nombre: string, f: FichaDelAyuntamiento, tropa: Army | null): Html {
+  const apagado = f.motivo === null ? NADA : DESHABILITADO;
+  const conTropa =
+    tropa === null
+      ? NADA
+      : html`<h3>Tropa ${nota('Con la que sale de la base.')}</h3>
+      ${renderArmy(tropa)}`;
+  return html`<section class="ficha-del-ayuntamiento" aria-label="Ficha de ${f.nombreDelTipo}">
+    <div class="retrato-y-nombre">
+      <img class="retrato-de-heroe"${srcDeImagen(`/unidades/${f.hoja}/identidad.webp`)} alt="" width="72" height="72" />
+      <div>
+        <p class="nombre-de-heroe">${nombre}</p>
+        <p class="tipo-de-heroe">${f.nombreDelTipo}</p>
+      </div>
+    </div>
+    <p class="descripcion-de-heroe">${f.descripcion}</p>
+    ${filaDeCifra('Precio', describirCoste(f.precio))}
+    ${f.seInfiltra ? filaDeCifra('Se infiltra', html`sí ${nota(NOTA_DEL_INFILTRADOR)}`) : NADA}
+    <div class="reclutar">
+      <button data-action="hire-hero" data-tipo="${f.tipo}" class="primary" ${apagado}>Contratar a ${f.nombreDelTipo}</button>
+    </div>
+    ${motivoDelRechazo(f.motivo)}
+    ${conTropa}
+  </section>`;
+}

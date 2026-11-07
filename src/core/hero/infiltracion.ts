@@ -6,8 +6,6 @@
  * - **Quién**: el héroe cuyo tipo se infiltra (`data/infiltradores.json`,
  *   `tipoSeInfiltra`) y cuya tropa entera lleva el rasgo `infiltrarse`
  *   (`data/unidades.json`). Basta uno sin él para que no. Sin tropa, solo el tipo.
- *   Un personaje (`Troop.member`) no lo lleva: no es del catálogo y su ficha no
- *   dice nada de esto (decisión del plan; a backlog si se quiere otra).
  * - **Cuánto**: una casilla de barrera cuesta el día entero de marcha del grupo
  *   (I7, «Un día entero»): la marcha con que empezó el día (`Hero.marchaDelDia`),
  *   así que solo se entra con el día recién empezado y se gasta todo; con el día
@@ -21,10 +19,11 @@
  * `invariantes.test.ts`): la búsqueda de caminos, la ficha y el contrato le
  * preguntan aquí.
  */
-import { unidadDelJuego } from '../catalogo.js';
-import { hasTrait, nombreDeTipoDeHeroe, tipoSeInfiltra } from '../data.js';
-import { enumerar } from '../types.js';
-import type { Hero } from './hero.js';
+
+import { enumerar } from '../texto.js';
+import { type Hero, hasTrait } from '../types.js';
+import { unidadDelJuego } from '../unidad/catalogo.js';
+import { nombreDeTipoDeHeroe, tipoSeInfiltra } from './tipos-de-heroe.js';
 
 /** Lo que hace falta de un héroe para saber si se infiltra: su tipo y su tropa. */
 type GrupoQueSeInfiltra = Pick<Hero, 'faction' | 'tipo' | 'army'>;
@@ -39,7 +38,7 @@ type GrupoQueSeInfiltra = Pick<Hero, 'faction' | 'tipo' | 'army'>;
 export function seInfiltra(hero: GrupoQueSeInfiltra): boolean {
   return (
     tipoSeInfiltra(hero.faction, hero.tipo) &&
-    hero.army.every((t) => quienNoLoLleva(t.creature, t.member) === null)
+    hero.army.every((t) => quienNoLoLleva(t.creature) === null)
   );
 }
 
@@ -55,7 +54,7 @@ export function infiltracionBlocker(hero: GrupoQueSeInfiltra): string | null {
     faltan.push(`su tipo (${nombreDeTipoDeHeroe(hero.faction, hero.tipo)})`);
   }
   for (const t of hero.army) {
-    const quien = quienNoLoLleva(t.creature, t.member);
+    const quien = quienNoLoLleva(t.creature);
     if (quien !== null && !faltan.includes(quien)) faltan.push(quien);
   }
   if (faltan.length === 0) return null;
@@ -63,9 +62,7 @@ export function infiltracionBlocker(hero: GrupoQueSeInfiltra): string | null {
 }
 
 /** El nombre de un individuo de la tropa que no lleva el rasgo, o `null` si lo lleva. */
-function quienNoLoLleva(creature: string, member: string | undefined): string | null {
-  // El personaje no lee su ficha: no es del catálogo y no tiene rasgos de unidad.
-  if (member !== undefined) return 'el personaje de su tropa';
+function quienNoLoLleva(creature: string): string | null {
   const unidad = unidadDelJuego(creature);
   return hasTrait(unidad, 'infiltrarse') ? null : unidad.name;
 }

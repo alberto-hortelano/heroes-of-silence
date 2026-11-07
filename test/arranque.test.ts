@@ -1,50 +1,42 @@
 /**
  * **Una página con el núcleo roto dice por qué** (H5 de QA, 19-10-2026): una
- * unidad que no vale en `data/unidades.json` tumba `core/catalogo.ts` al
+ * unidad que no vale en `data/unidades.json` tumba `core/unidad/catalogo.ts` al
  * importarse, y con `main.ts` de entrada la arena se quedaba en «Cargando las
  * hojas…», la partida en blanco y `pnpm dev` ni arrancaba. Se vigilan las tres
  * cosas que lo arreglan: el motivo llega entero a la página (`arranque.ts`), la
  * entrada de cada página no importa el núcleo (lo carga a demanda) y la
  * configuración de vite tampoco (carga el lado de disco de la arena a demanda).
  */
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import unidadesJson from '../data/unidades.json' with { type: 'json' };
-import { renderNoArranca } from '../src/client/arranque.js';
-import { html, marcadoDe } from '../src/client/html.js';
-
-const RAIZ = fileURLToPath(new URL('..', import.meta.url));
+import { renderNoArranca } from '../src/client/comun/arranque.js';
+import { html, marcadoDe } from '../src/client/comun/html.js';
+import { importacionesDe, ruta } from './codigo-del-repo.js';
+import { RAIZ } from './comun.js';
 
 /** Las páginas, cada una con su entrada: la partida, la arena y el espectador. */
-const PAGINAS = ['src/client', 'src/client/arena', 'src/client/espectador'] as const;
+const PAGINAS = [
+  ruta('src/client'),
+  ruta('src/client/arena'),
+  ruta('src/client/espectador'),
+] as const;
 
 /**
- * Los módulos que `ruta` (relativa a la raíz) carga **al evaluarse**: sus imports
+ * Los módulos que `desde` (relativa a la raíz) carga **al evaluarse**: sus imports
  * estáticos de valor, y los de esos, sin los `import type` (se borran al compilar)
- * ni los `import()` (van a demanda) ni los paquetes. Relativos a la raíz.
+ * ni los `import()` (van a demanda) ni los paquetes. Relativos a la raíz. Cada
+ * paso, con el resolutor de los guardias (`importacionesDe`).
  */
-function cargaAlEvaluarse(ruta: string): Set<string> {
+function cargaAlEvaluarse(desde: string): Set<string> {
   const vistos = new Set<string>();
-  const pendientes = [ruta];
+  const pendientes = [desde];
   while (pendientes.length > 0) {
     const actual = pendientes.pop() as string;
     if (vistos.has(actual)) continue;
     vistos.add(actual);
-    const codigo = readFileSync(join(RAIZ, actual), 'utf8');
-    const patron = /^\s*(import|export)\s+(?!type\b)(?:[^'";]*?\s+from\s+)?['"]([^'"]+)['"]/gm;
-    for (const m of codigo.matchAll(patron)) {
-      const destino = m[2] as string;
-      let absoluto: string;
-      if (destino.startsWith('.')) absoluto = resolve(RAIZ, dirname(actual), destino);
-      else if (destino.startsWith('@core/')) absoluto = join(RAIZ, 'src/core', destino.slice(6));
-      else continue;
-      const ts = absoluto.replace(/\.js$/, '.ts');
-      const final = existsSync(ts) ? ts : absoluto;
-      if (!final.endsWith('.ts')) continue;
-      pendientes.push(relative(RAIZ, final));
-    }
+    for (const m of importacionesDe(actual)) if (m.endsWith('.ts')) pendientes.push(m);
   }
   return vistos;
 }
@@ -61,14 +53,14 @@ describe('una página que no arranca dice por qué (H5)', () => {
     const rota = { ...unidadesJson, unidades: [{ ...primera, nivelInventado: 3 }, ...resto] };
     vi.doMock('../data/unidades.json', () => ({ default: rota }));
     vi.resetModules();
-    const err = await import('../src/core/catalogo.js').then(
+    const err = await import('../src/core/unidad/catalogo.js').then(
       () => null,
       (e: unknown) => e,
     );
     expect(err).toBeInstanceOf(Error);
     const motivo = (err as Error).message;
     // Dice el fichero, la unidad y el campo que sobra.
-    expect(motivo).toContain('data/unidades.json');
+    expect(motivo).toContain(ruta('data/unidades.json'));
     expect(motivo).toContain(String(primera?.id));
     expect(motivo).toContain('nivelInventado');
     // Y la página lo pinta entero, escapado, sin cortar.
@@ -93,17 +85,27 @@ describe('una página que no arranca dice por qué (H5)', () => {
       /arrancar\((?:async )?\(\) =>[\s\S]*import\('\.\/main\.js'\)[\s\S]*\);/,
     );
     // Lo que se evalúa seguro: si cargase algo del núcleo, un catálogo roto lo
-    // tumbaría antes de poder decir nada.
-    const dePartida = dir === 'src/client' ? ['src/client/semilla.ts'] : [];
+    // tumbaría antes de poder decir nada. El motivo lo saca `mensajeDe`
+    // (`comun/errores.ts`, que tampoco importa nada: fase C de la reorganización).
+    const dePartida = dir === ruta('src/client') ? [ruta('src/client/comun/semilla.ts')] : [];
     expect([...cargaAlEvaluarse(entrada)].sort()).toEqual(
-      [entrada, 'src/client/arranque.ts', 'src/client/html.ts', ...dePartida].sort(),
+      [
+        entrada,
+        ruta('src/client/comun/arranque.ts'),
+        ruta('src/client/comun/errores.ts'),
+        ruta('src/client/comun/html.ts'),
+        ...dePartida,
+      ].sort(),
     );
   });
 
   it('la configuración de vite no carga el catálogo al arrancar: `pnpm dev` arranca con él roto', () => {
-    const carga = cargaAlEvaluarse('vite.config.ts');
-    expect(carga.has('src/core/data.ts')).toBe(true); // el recorrido llega al núcleo
-    expect(carga.has('src/core/catalogo.ts')).toBe(false);
-    expect(carga.has('tools/arena/borrador.ts')).toBe(false);
+    const carga = cargaAlEvaluarse(ruta('vite.config.ts'));
+    // El recorrido llega al núcleo: la muralla de la arena trae el tablero de batalla
+    // (era `src/core/data.ts` hasta la fase N de la reorganización, 07-11-2026).
+    expect(carga.has(ruta('src/core/battle/board.ts'))).toBe(true);
+    // El catálogo (era `src/core/catalogo.ts` hasta la fase N de la reorganización, 07-11-2026).
+    expect(carga.has(ruta('src/core/unidad/catalogo.ts'))).toBe(false);
+    expect(carga.has(ruta('tools/arena/borrador.ts'))).toBe(false);
   });
 });

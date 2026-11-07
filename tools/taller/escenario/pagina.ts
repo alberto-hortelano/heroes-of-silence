@@ -3,7 +3,7 @@
  * carga las imágenes, pinta con `pintarEscena`, mide el suelo desnudo y deja el
  * informe en `window.__informe`. Es lo mismo que haría el juego, más la medida.
  */
-import type { Escena } from '../../../src/client/render/escenario/colocar.js';
+import type { Escena } from '../../../src/client/render/escenario/colocar/escena.js';
 import {
   aguaEnLoAlto,
   espaldasSinCanto,

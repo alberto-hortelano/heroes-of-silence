@@ -152,9 +152,6 @@ export interface JuntasDeRampa {
   readonly rumbo: 's';
 }
 
-/** Las juntas de cualquier pieza del relieve: una ladera, una diagonal, una bajada o una rampa. */
-export type JuntasDeRelieve = JuntasDeLadera | JuntasDeDiagonal | JuntasDeBajada | JuntasDeRampa;
-
 export interface Modulo extends Pieza {
   /** El nombre del módulo dentro de su hoja (`1`, `torre-redonda`…). */
   readonly nombre: string;
@@ -169,7 +166,7 @@ export interface Modulo extends Pieza {
   /**
    * Solo en la hoja del recinto de una ciudad (`recinto`, §37), y en todos sus
    * módulos: el pie de sus dos puntas, en píxeles del módulo. `componer` las
-   * pone en los dos vértices de su cara del octógono (`recinto.ts`). Las lleva
+   * pone en los dos vértices de su cara del octógono (`recinto/octogono.ts`). Las lleva
    * de la guía `pnpm taller derivar-recinto`.
    */
   readonly junta?: readonly [Par, Par];

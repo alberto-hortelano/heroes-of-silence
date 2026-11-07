@@ -42,11 +42,11 @@
 import type { MapaDeRed } from '@core/map/regiones.js';
 import { hashDeTexto } from '@core/rng.js';
 import type { ClimaDeLaPartida, ClimaDelSitio } from '@core/state/clima.js';
-import { type CamaraMapa, mundoAPixel } from '../camara-mapa.js';
 import { CacheDeLienzos } from '../copias.js';
 import { mezclar } from '../escenario/fronteras.js';
 import { type Lienzo, lienzoCon } from '../escenario/pintar.js';
-import { animarHasta } from '../figura.js';
+import { animarHasta } from '../figuras/figura.js';
+import { type CamaraMapa, mundoAPixel } from '../mapa/camara.js';
 import { casillaDelRayo, mascarasDelMapa, regionEnElFrente } from './mascaras.js';
 import {
   alzaDe,

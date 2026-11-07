@@ -13,7 +13,7 @@
  * construcción.
  */
 import type { Catalogo } from './catalogo.js';
-import type { Sprite } from './colocar.js';
+import type { Sprite } from './colocar/sprite.js';
 import { type Caja, cajaDeSprite } from './pasillo.js';
 import { bandaDeCara, type Cara, type CaraDeEscena } from './relieve.js';
 

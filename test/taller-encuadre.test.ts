@@ -20,8 +20,8 @@ import {
   TOPE,
 } from '../tools/taller/encuadre.js';
 import { saltoDelClip, UMBRAL_DEL_SALTO } from '../tools/taller/revision/salto.js';
+import { RAIZ } from './comun.js';
 
-const RAIZ = join(import.meta.dirname, '..');
 const LADO = 384;
 
 /** La primera celda (el reposo) de la hoja A de d0 del caballero de la muerte. */

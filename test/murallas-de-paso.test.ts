@@ -18,16 +18,17 @@
  * muralla de 8 mientras se hacía esto) y la de la marca.
  */
 import { describe, expect, it } from 'vitest';
-import { buildMap, generateMapPlan } from '../src/core/map/generate.js';
-import type { GameMap } from '../src/core/map/map.js';
+import { buildMap } from '../src/core/map/generar/construir.js';
+import { generateMapPlan } from '../src/core/map/generar/procedimental.js';
 import {
   LARGO_MAXIMO_DE_MURALLA,
   lineaDeLaPuerta,
   murallasDelMapa,
   type RejillaDeMuralla,
 } from '../src/core/map/murallas.js';
+import type { GameMap } from '../src/core/map/tipos.js';
 import { createRng } from '../src/core/rng.js';
-import { itLento, rango, segunPrisa } from './lento.js';
+import { conRespiro, itLento, rango, segunPrisa } from './lento.js';
 
 // Cada mapa, una vez: en la orden lenta, los tres guardias recorren 1-200.
 const hechos = new Map<number, GameMap>();
@@ -112,16 +113,19 @@ describe('la muralla, el cierre de un paso (#232)', () => {
   // y por lo mismo la 28 en vez de la 14, la de más casillas de muro de 1-60 (25).
   const semillas = segunPrisa([1, 3, 28, 69, 42644], rango(1, 200));
 
-  it('toda muralla tiene puerta y llega de ella a sus dos apoyos', () => {
-    const malas = semillas.flatMap((s) => {
+  it('toda muralla tiene puerta y llega de ella a sus dos apoyos', async () => {
+    const malas: string[] = [];
+    for await (const s of conRespiro(semillas)) {
       const map = mapaDe(s);
-      return murallasDelMapa(map)
-        .filter((m) => m.sinApoyo.length > 0)
-        .map((m) => {
-          const c = m.casillas[0] as number;
-          return `s${s} (${c % map.width},${Math.floor(c / map.width)}): ${m.sinApoyo.join('; ')}`;
-        });
-    });
+      malas.push(
+        ...murallasDelMapa(map)
+          .filter((m) => m.sinApoyo.length > 0)
+          .map((m) => {
+            const c = m.casillas[0] as number;
+            return `s${s} (${c % map.width},${Math.floor(c / map.width)}): ${m.sinApoyo.join('; ')}`;
+          }),
+      );
+    }
     expect(malas).toEqual([]);
   });
 

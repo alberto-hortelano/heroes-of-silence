@@ -10,7 +10,7 @@
  */
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { motivoDe } from '../../src/client/desarrollo/esquema.js';
+import { mensajeDe } from '../../src/client/comun/errores.js';
 import { urlDePartida } from '../qa/url-de-partida.js';
 import { CARPETA_DE_MARCAS, leerMarca, listarMarcas, resolverMarca } from './almacen.js';
 
@@ -91,6 +91,6 @@ async function main(argv: readonly string[]): Promise<void> {
 }
 
 main(process.argv.slice(2)).catch((err: unknown) => {
-  console.error(motivoDe(err));
+  console.error(mensajeDe(err));
   process.exit(1);
 });

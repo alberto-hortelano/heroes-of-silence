@@ -33,8 +33,7 @@
       "cost": 15000,
       "requires": [
         "village_hall"
-      ],
-      "grantsWalls": true
+      ]
     },
     {
       "id": "mage_guild_1",

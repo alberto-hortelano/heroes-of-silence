@@ -1,10 +1,18 @@
-import { rangoDeTropa } from '../hero/experiencia.js';
-import type { CuandoSalta, Hechizo } from '../magia/formato.js';
-import type { Hex, PoderId, UnitInfo, Veterania } from '../types.js';
-import type { Paso } from './board.js';
-import type { CuandoVence, EffectKind, StackEffect } from './effects.js';
-import type { EstadoDePuerta, MurallaDeBatalla, PuertaDeMuralla } from './muralla.js';
-import type { Punto, TipoDeGolpe, TiposDeLaRueda } from './rueda.js';
+import { rangoDeTropa } from '../hero/rango.js';
+import type {
+  Afecta,
+  AQuien,
+  CifraDeHechizo,
+  CuandoSalta,
+  DisiparDe,
+  Duracion,
+  Hechizo,
+  Impedible,
+  SeAcabaSiMuere,
+} from '../magia/formato.js';
+import type { Hex, PoderId, Stack, TipoDeGolpe, UnitInfo, Veterania } from '../types.js';
+import type { Punto } from './cifras-de-la-rueda.js';
+import type { TiposDeLaRueda } from './formas-de-la-rueda.js';
 
 export type Side = 'attacker' | 'defender';
 
@@ -31,15 +39,13 @@ export function otroBando(side: Side): Side {
 
 /**
  * De dónde sale un stack del tablero, y por tanto sus cifras y lo que pasa con
- * él al acabar: una criatura del catálogo, un personaje de
- * `GameState.characters` o el héroe del bando.
+ * él al acabar: una criatura del catálogo o el héroe del bando.
  *
- * Es un discriminante y no dos campos opcionales (`member?`, `commander?`) más
- * una pregunta por la referencia del catálogo, porque así quien reparte por el
- * origen escribe un `switch` exhaustivo: el día que llegue un cuarto origen, el
- * que se lo deje no compila. Con los opcionales, un stack sin ninguno de los dos
- * era «del catálogo» por descarte, y eso es lo que un origen nuevo habría
- * heredado en silencio.
+ * Es un discriminante y no un campo opcional (`commander?`) más una pregunta por
+ * la referencia del catálogo, porque así quien reparte por el origen escribe un
+ * `switch` exhaustivo: el día que llegue otro origen, el que se lo deje no
+ * compila. Con el opcional, un stack sin él era «del catálogo» por descarte, y
+ * eso es lo que un origen nuevo habría heredado en silencio.
  */
 export type OrigenDelStack =
   | {
@@ -66,13 +72,6 @@ export type OrigenDelStack =
       readonly salida?: Hex;
     }
   | {
-      readonly kind: 'personaje';
-      readonly id: string;
-      readonly veterania: Veterania | null;
-      /** Su casilla en la formación, como la del catálogo. */
-      readonly salida?: Hex;
-    }
-  | {
       readonly kind: 'heroe';
       /**
        * Su cuerpo sin el equipo (`cuerpoDelHeroe`): el héroe no está en ningún
@@ -92,29 +91,14 @@ export interface Ganado {
 }
 
 /**
- * El personaje de `GameState.characters` que es este stack, o `null`. Con un
- * `switch` que devuelve: un origen nuevo no compila hasta que se decida si es
- * un personaje.
- */
-export function personajeDe(origen: OrigenDelStack): string | null {
-  switch (origen.kind) {
-    case 'personaje':
-      return origen.id;
-    case 'catalogo':
-    case 'heroe':
-      return null;
-  }
-}
-
-/**
  * Qué es el héroe para quien cuenta una batalla —la crónica (`resumenDeBatalla`),
  * el agente (`creature` de su stack, el `target` de un hechizo)— y su figura
  * genérica: la de la arena cuando no se elige ninguna (`FIGURA_GENERICA`), el
- * Y Bot de espada y escudo (`render/personajes.ts`).
+ * Y Bot de espada y escudo (`render/figuras/personajes.ts`).
  *
- * Como `CHARACTER_BODY`, no está en el catálogo a propósito: un lector que lo
- * buscara con `creature()` lanza en vez de leer cifras prestadas. Las cifras
- * del héroe salen de `heroUnit`. **No es su arte en el juego**: desde el
+ * No está en el catálogo a propósito: un lector que lo buscara en él
+ * (`unidadDelJuego`) lanza en vez de leer cifras prestadas. Las cifras del héroe salen de
+ * `heroUnit`. **No es su arte en el juego**: desde el
  * 19-10-2026 (vuelta 2 del arranque) el héroe de la partida pisa el tablero y el
  * mapa con la hoja de su tipo (`figuraDelHeroe`), y por eso `queEs` no lo saca
  * de `body`: con la figura, la crónica habría contado «heroe-lich» donde contaba
@@ -127,24 +111,22 @@ export const HERO_BODY = 'hero';
 
 /**
  * Qué es un stack para quien lo cuenta —la crónica (`resumenDeBatalla`) y el
- * agente—: la unidad del catálogo que es; el héroe, `HERO_BODY`, sea cual sea su
- * figura, y el personaje, por su cuerpo (`CHARACTER_BODY`).
+ * agente—: la unidad del catálogo que es, y el héroe, `HERO_BODY`, sea cual sea
+ * su figura.
  */
-export function queEs(s: Pick<BattleStack, 'origen' | 'body'>): string {
+export function queEs(s: Pick<BattleStack, 'origen'>): string {
   switch (s.origen.kind) {
     case 'catalogo':
       return s.origen.unidad;
     case 'heroe':
       return HERO_BODY;
-    case 'personaje':
-      return s.body;
   }
 }
 
 /**
  * El rango con el que entró este stack: 1 para un novato, un monstruo y el
  * héroe —que no es tropa: su rango va en sus cifras—. Con un `switch` que
- * devuelve, como `personajeDe`.
+ * devuelve: un origen nuevo no compila hasta que se decida su rango.
  *
  * Tiene tres lectores —los galones de la figura, la fila de «En el campo» y el
  * `veteranRank` del agente— y los tres preguntan lo mismo: el rango, no la
@@ -153,7 +135,6 @@ export function queEs(s: Pick<BattleStack, 'origen' | 'body'>): string {
 export function rangoDeVeterania(origen: OrigenDelStack): number {
   switch (origen.kind) {
     case 'catalogo':
-    case 'personaje':
       return rangoDeTropa(origen.veterania);
     case 'heroe':
       return 1;
@@ -169,14 +150,14 @@ export interface BattleStack {
   /**
    * El id del ARTE: qué sprite se pinta y qué id viaja al agente. No es de
    * donde salen las cifras —eso es `unit`—, y por eso dejó de llamarse
-   * `creature`: el nombre invitaba a volver al catálogo con él, y para un
-   * personaje eso es el centinela `CHARACTER_BODY`, que el catálogo no tiene.
+   * `creature`: el nombre invitaba a volver al catálogo con él, y la hoja no es
+   * la unidad (qué unidad es lo dice `origen`).
    */
   readonly body: string;
   /**
    * Las cifras de combate, resueltas UNA vez en `createBattle`. Es la única
-   * fuente: para una criatura es la misma referencia del catálogo, para un
-   * personaje las de su perfil. Ninguna lectura de batalla vuelve a
+   * fuente: para una criatura novata es la misma referencia del catálogo, para
+   * el héroe las de su cuerpo. Ninguna lectura de batalla vuelve a
    * `creature(...)`, y lo vigila `test/invariantes.test.ts`.
    *
    * La arena cambia las cifras de un tipo a media pelea (`retocarEnBatalla`)
@@ -184,7 +165,7 @@ export interface BattleStack {
    */
   readonly unit: UnitInfo;
   /**
-   * Criatura, personaje o héroe. El héroe (fase 1b) es uno por bando con héroe
+   * Criatura o héroe. El héroe (fase 1b) es uno por bando con héroe
    * y ninguno en un monstruo o una guarnición; si cae, su bando pierde aunque
    * le quede tropa (`checkFinished`).
    */
@@ -457,7 +438,7 @@ export type BattleEvent =
    * ni gasta turno ni lo mueve; queda en el registro para que el parte lo cuente
    * y para que quien guarda por el registro se entere. `cambios`, qué campo de la
    * ficha cambió, ya en palabras («ataque 3 → 10», «hechizos: − Prisa»;
-   * `cambiosDeLaFicha`, `arena.ts`). Nunca vacío: un retoque que deja la ficha
+   * `cambiosDeLaFicha`, `arena/ficha.ts`). Nunca vacío: un retoque que deja la ficha
    * como estaba no escribe ninguno.
    */
   | { kind: 'retoque'; nombre: string; stacks: readonly string[]; cambios: readonly string[] }
@@ -668,7 +649,7 @@ export interface BattleState {
   golpeEnCurso: GolpeEnCurso | null;
   /**
    * La ficha de cada tipo y de cada héroe tal como pelea ahora, dicha en
-   * palabras campo a campo (`fichaEnPalabras`, `arena.ts`): lo que escribe la
+   * palabras campo a campo (`fichaEnPalabras`, `arena/ficha.ts`): lo que escribe la
    * persona, no las cifras del cuerpo. Solo la arena la pone al montar y la pone
    * al día al retocar: el parte del retoque dice qué campo cambió comparando la
    * de antes con la nueva (N1 y N2 de QA), y un retoque que no cambia nada no
@@ -768,3 +749,265 @@ export type TipoDeEscala = Extract<BattleAction, { muro: Hex }>['type'];
 
 /** Las cuatro jugadas de la muralla: las de la escala y las de la puerta. */
 export type JugadaDeMuralla = TipoDeEscala | TipoDePuerta;
+
+// ------------------------------------------------- el paso, la muralla y los efectos
+//
+// La forma de lo que guarda la batalla de un recorrido del tablero (`Paso`), de su
+// muralla y de los efectos de un stack vivía en `board.ts`, `muralla.ts` y
+// `effects.ts`, que importan este módulo: desde la fase N de la reorganización
+// (07-11-2026) vive aquí, y este módulo no importa nada de `battle/` salvo las dos
+// hojas de la rueda (`cifras-de-la-rueda.ts`, `formas-de-la-rueda.ts`). Las reglas
+// siguen en su sitio.
+
+/**
+ * Un hex alcanzado por el BFS: la casilla y a cuántos pasos queda.
+ *
+ * El `Hex` viaja aquí dentro porque quien lo mete YA lo tiene en la mano —sale
+ * de `neighbours`, que lo acaba de construir— y quien lo saca lo necesita. Sin
+ * él, la clave se partía por la coma y se convertían dos trozos a número **dos
+ * veces por hex**: una en `movableFrom` para filtrar los que no caben y otra en
+ * `movableHexes` para devolverlos. Es el mismo motivo por el que
+ * `NodoFrontera.at` lleva su `Point` en el mapa de aventura.
+ */
+export interface Paso {
+  readonly at: Hex;
+  /** Pasos desde el origen. */
+  readonly steps: number;
+  /**
+   * El paso desde el que se llegó aquí, o `null` en el origen: la cadena hasta
+   * el origen ES el camino que se anda (`caminoDe`). Va en el propio paso y no
+   * en el mapa porque `movableFrom` filtra el mapa —quita el origen y lo que no
+   * cabe— y las casillas de en medio pueden ser de las quitadas.
+   */
+  readonly previo: Paso | null;
+}
+
+/**
+ * Una puerta: el lado que comparten `a` y `b`, dos casillas de suelo de la misma
+ * fila, `b` justo al este de `a`. No ocupa ninguna de las dos.
+ */
+export interface PuertaDeMuralla {
+  readonly a: Hex;
+  readonly b: Hex;
+}
+
+/**
+ * De qué está hecha una muralla: la **piedra** de las ciudades y la **madera** de la
+ * empalizada de los pueblos (puesto fronterizo, fase 2, 04-11-2026). Solo cambia
+ * cómo se pinta y lo que se dice: las reglas del muro son las mismas (el bono de lo
+ * alto, el de la arena para los dos: pregunta 5 del plan).
+ */
+export type MaterialDeMuralla = (typeof MATERIALES_DE_MURALLA)[number];
+
+/** Los materiales, en el orden en que se dicen: la lista de la que sale el tipo. */
+export const MATERIALES_DE_MURALLA = ['piedra', 'madera'] as const;
+
+export interface MurallaDeBatalla {
+  readonly muros: readonly Hex[];
+  readonly puertas: readonly PuertaDeMuralla[];
+  /** De qué está hecha (`MaterialDeMuralla`): obligatorio, también en la arena (piedra). */
+  readonly material: MaterialDeMuralla;
+}
+
+/**
+ * Una puerta de la muralla en una batalla: abierta o cerrada, y el turno
+ * (`TurnoDeUnidad.n`) en que se cambió por última vez, porque cada puerta se
+ * cambia una vez por turno de unidad. Vive en `BattleState.puertas`, en el orden
+ * de `MurallaDeBatalla.puertas`: la muralla está congelada y se guarda en cachés
+ * por objeto, y esto cambia.
+ */
+export interface EstadoDePuerta extends PuertaDeMuralla {
+  abierta: boolean;
+  cambiadaEn: number | null;
+}
+
+/**
+ * Los tipos de efecto que existen. Es una lista de valores y no solo un tipo
+ * porque `test/invariantes.test.ts` la recorre para exigir que cada uno tenga
+ * quien lo lea: un tipo que nadie suma se colgaría del stack sin hacer nada.
+ * `'defense'` lo suma `effectiveDefense` (`damage.ts`); lo ponen Defensivo y
+ * Romper guardia de la rueda del golpe y los hechizos. Las cifras que añadió la
+ * magia (06-11-2026): `armadura` (la lee `trasLaArmadura`), `fuerza` y
+ * `agilidad` (el daño de cada golpe, `danioConLosEfectos`; la agilidad, también la
+ * defensa y las casillas). Y lo que no es una cifra: `impide` (`impedidoPor`),
+ * `escudo` (`herir`) y `disparador` (`saltar`, `battle.ts`). Mismo patrón que
+ * `CREATURE_TRAITS` en `types.ts`.
+ */
+export const EFFECT_KINDS = [
+  'speed',
+  'attack',
+  'defense',
+  'armadura',
+  'fuerza',
+  'agilidad',
+  'impide',
+  'escudo',
+  'disparador',
+] as const;
+
+export type EffectKind = (typeof EFFECT_KINDS)[number];
+
+/** Los tipos que son una cifra que se suma al leer (`effectTotal`). */
+export const CIFRAS_DE_EFECTO = [
+  'speed',
+  'attack',
+  'defense',
+  'armadura',
+  'fuerza',
+  'agilidad',
+] as const;
+
+export type CifraDeEfecto = (typeof CIFRAS_DE_EFECTO)[number];
+
+/** Lo que tienen todos los efectos: quién lo puso, lo que le queda y cuándo se va. */
+interface ComunDelEfecto {
+  /** Quién lo puso: el id del hechizo ('slow'), el del rasgo ('fear') o el tipo de la rueda. */
+  readonly source: string;
+  /** Rondas que le quedan. Baja una en cada `beginRound`. */
+  roundsLeft: number;
+  /**
+   * Si dura «hasta el próximo turno de alguien» (la rueda del golpe, un hechizo):
+   * hasta cuándo. `roundsLeft` sigue de tope, por si ese turno no llega.
+   */
+  readonly hasta?: HastaElTurno;
+  /** De un hechizo: el bando de quien lo lanzó (lo lee `disipar`). */
+  readonly bando?: Side;
+  /** De un hechizo: se quita si cae este stack (`seAcabaSiMuere`; `anotarLaMuerte`). */
+  readonly seAcabaSiMuere?: string;
+}
+
+/** Un efecto que suma a una cifra. */
+export interface EfectoDeCifra extends ComunDelEfecto {
+  readonly kind: CifraDeEfecto;
+  readonly amount: number;
+}
+
+/** No puede hacer lo de `que` mientras dure (`impedidoPor`). */
+export interface EfectoQueImpide extends ComunDelEfecto {
+  readonly kind: 'impide';
+  readonly que: readonly Impedible[];
+}
+
+/** Se come el daño que llega, tras la armadura, hasta agotarse (`herir`). */
+export interface EfectoDeEscudo extends ComunDelEfecto {
+  readonly kind: 'escudo';
+  /** Lo que le queda por comerse; con 0 se quita. */
+  queda: number;
+}
+
+/** Un disparador colgado: sus efectos, ya con las cifras de quien lo lanzó. */
+export interface EfectoDisparador extends ComunDelEfecto {
+  readonly kind: 'disparador';
+  readonly disparador: DisparadorResuelto;
+  /** Las veces que le quedan por saltar; `null`, mientras dure. */
+  cargas: number | null;
+}
+
+export type StackEffect = EfectoDeCifra | EfectoQueImpide | EfectoDeEscudo | EfectoDisparador;
+
+/**
+ * Un efecto de un hechizo con las cantidades ya calculadas con el poder de quien
+ * lo lanzó: lo que guarda un disparador (`DisparadorResuelto`). Lo resuelve
+ * `resolverEfecto` (`spells.ts`).
+ */
+export type EfectoResuelto =
+  | { readonly tipo: 'danio'; readonly cantidad: number; readonly armadura: boolean }
+  | { readonly tipo: 'cura'; readonly cantidad: number }
+  | { readonly tipo: 'disipar'; readonly de: DisiparDe }
+  | { readonly tipo: 'cifra'; readonly cifra: CifraDeHechizo; readonly valor: number }
+  | { readonly tipo: 'impide'; readonly que: readonly Impedible[] }
+  | { readonly tipo: 'escudo'; readonly absorbe: number };
+
+/**
+ * Un disparador como se cuelga: el de su hechizo con las cantidades resueltas, el
+ * poder de quien lo lanzó (para las rondas «poder» de lo que deja) y quién lo lanzó.
+ * Se guarda entero en el efecto: editar el hechizo a media pelea (la arena) no
+ * cambia lo ya echado.
+ */
+export interface DisparadorResuelto {
+  readonly cuando: CuandoSalta;
+  readonly yAlLanzarse: boolean;
+  readonly a: AQuien;
+  readonly radio: number;
+  readonly afecta: Afecta;
+  readonly duracion: Duracion | null;
+  readonly seAcabaSiMuere: SeAcabaSiMuere | null;
+  readonly efectos: readonly EfectoResuelto[];
+  readonly poder: number;
+  /** El stack que lo lanzó. */
+  readonly lanzador: string;
+  /** Cómo se dice, ya hecho (`dichoDelEfecto` del disparador). */
+  readonly dicho: string;
+}
+
+/**
+ * Hasta qué turno dura un efecto: el `turno.n` en que se colgó, cuándo vence
+ * (`al`) y de quién es ese turno (`de`, un stack; sin él, el del afectado). El
+ * turno en que nace no cuenta: se quita con otro `n`.
+ */
+export interface HastaElTurno {
+  readonly turno: number;
+  readonly al: CuandoVence;
+  readonly de?: string;
+}
+
+/**
+ * Cuándo vence un efecto de la rueda: al **empezar** el siguiente turno del
+ * afectado (Defensivo: `abrirTurno`) o al **terminarlo** (Romper guardia: `endTurn`). Decisión del
+ * usuario, 14-10-2026. El único nombre de esto: lo leen el efecto, el evento, la
+ * rueda y su nota.
+ */
+export type CuandoVence = 'empezar' | 'terminar';
+
+// ------------------------------------------------- lo que entra de cada bando
+//
+// La tropa (`StackDeBatalla`) y el héroe (`HeroeDelBando`) de un bando tal como los
+// recibe `createBattle`. Vivían en `battle.ts` hasta la fase N de la reorganización
+// (07-11-2026). `BattleSide`, que los junta, sigue junto a `createBattle`: lleva el
+// catálogo de su tropa (`CatalogoDeUnidades`), y `unidad/catalogo.ts` lee de aquí la
+// forma de un stack, así que nombrarlo aquí cerraría un ciclo de tipos entre dos
+// carpetas.
+
+/**
+ * Un stack de la tropa tal como entra: el del ejército y, si lleva, su escalera
+ * para subir a la muralla (`poner_escalera`). La ponen la arena (por puesto) y
+ * la batalla del mapa con muralla (a todo el bando atacante, `alAsalto`), y
+ * no llega al tablero si no la puede usar (`quienNoEscala`).
+ */
+export type StackDeBatalla = Stack & { readonly escalera?: boolean };
+
+/**
+ * El héroe de un bando, tal como entra: lo que el motor guarda en
+ * `BattleState.heroes` (`mando`: su magia y su rendición) y las cifras con las
+ * que pisa el tablero (`cuerpo`, de `heroUnit`). Van juntos para que no pueda
+ * haber héroe sin cuerpo ni cuerpo sin héroe; el cuerpo se queda en su stack
+ * y no se copia al estado, que nadie lo leería allí.
+ */
+export interface HeroeDelBando {
+  readonly mando: BattleHero;
+  readonly cuerpo: UnitInfo;
+  /**
+   * El mismo cuerpo sin el equipo (`cuerpoDelHeroe`): va a su origen
+   * (`OrigenDelStack.desnudo`), de donde `cuerpoDe` lo lee.
+   */
+  readonly desnudo: UnitInfo;
+  /**
+   * El id del ARTE con el que pisa el tablero (`BattleStack.body`): en la partida,
+   * la hoja de su tipo (`figuraDelHeroe`); en la arena, la que se elija entre las
+   * hojas de héroe o la genérica (`HERO_BODY`). Sin opcional: con un `?? HERO_BODY`
+   * aquí, la partida pintó al héroe con el Y Bot sin que nada lo dijera («la imagen
+   * es el y_bot», 19-10-2026). Lo que el héroe ES para la crónica no sale de aquí
+   * (`queEs`).
+   */
+  readonly figura: string;
+  /**
+   * Si entra con escalera (`poner_escalera`): solo el héroe que ataca una muralla
+   * del mapa (`alAsalto`). La arena no se la da: allí la escalera es de un puesto.
+   */
+  readonly escalera?: boolean;
+  /**
+   * Su casilla en la formación (`Hero.salida`, en el marco del atacante): la
+   * pide al asentar (`asentar`), como la tropa la suya (`Troop.salida`).
+   */
+  readonly salida?: Hex;
+}

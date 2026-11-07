@@ -7,17 +7,16 @@
  * un resumen que se inventara un hechizo o se comiera una baja saldría rojo.
  */
 import { describe, expect, it } from 'vitest';
+import { resolvePendingBattle } from '../src/core/ai/turn.js';
 import { resumenDeBatalla } from '../src/core/battle/resumen.js';
 import { type BattleState, HERO_BODY, queEs } from '../src/core/battle/types.js';
-import { unidadesDelJuego } from '../src/core/catalogo.js';
-import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
-import { createRng } from '../src/core/rng.js';
+import { serializeAdventureTurn } from '../src/core/contract/aventura.js';
+import { heroesOf } from '../src/core/state/consultas.js';
 import { cronicaPara } from '../src/core/state/events.js';
-import { type GameContext, heroesOf, resolvePendingBattle } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import { ejercito, forzarBatalla, ponerMonstruo, TROPA_BARATA } from './helpers.js';
-
-const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
+import { unidadesDelJuego } from '../src/core/unidad/catalogo.js';
+import { ctx, TROPA_BARATA } from './comun.js';
+import { ejercito, forzarBatalla, ponerMonstruo } from './partida-de-prueba.js';
 
 /**
  * La semilla de la batalla: tiene que lanzar algún hechizo y matar algo, y el

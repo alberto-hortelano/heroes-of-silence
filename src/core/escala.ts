@@ -6,7 +6,7 @@
 
 /**
  * Casillas de mapa por pareja de regiones de fuera: la cuenta que une el lado
- * y las regiones (`ladoDelMapa`, `regionesDelMapa`, en `map/generate.ts`).
+ * y las regiones (`ladoDelMapa`, `regionesDelMapa`, en `map/generar/plan.ts`).
  *
  * Era 144, y con la frontera de una casilla y el suelo libre bastaba. Con
  * fronteras de 2-3 casillas, obstáculos que bloquean y los objetos de siempre,
@@ -41,7 +41,7 @@ export const AREA_DE_REFERENCIA = 300;
  * los números»; a ojo, `docs/agents/2026-10-26-escala-baja/`), lo mismo que los PV,
  * la fuerza y la armadura del catálogo. Ataque, defensa y la fórmula de daño no
  * cambian. Todo lo que mide en PV o en daño y se calibró en la escala de fheroes2
- * —el precio del maná para la IA, el personaje, la vida del monje de
+ * —el precio del maná para la IA, la vida del monje de
  * `pnpm capturas`— la lee de aquí.
  */
 export const ESCALA_DE_CIFRAS = 3;
@@ -97,7 +97,7 @@ export function radioALaEscala(radio: number): number {
  * región, llevado al de hoy: ×√(AREA_POR_REGION / AREA_DE_REFERENCIA), **al
  * entero más cercano** (8 → 10 y 10 → 12 con 450). Lo leen los techos de
  * rectitud de #169 (`tools/qa/rectitud.ts`) y el quiebro de las caídas largas
- * (#231, `quebrarCaidas` en `map/vestir.ts`): un tramo de 8 en 34×34 es uno de
+ * (#231, `quebrarCaidas` en `map/vestir/lineas.ts`): un tramo de 8 en 34×34 es uno de
  * 10 en 42×42, las mismas fronteras más largas.
  */
 export function largoALaEscala(casillas: number): number {

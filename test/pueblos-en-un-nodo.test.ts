@@ -15,21 +15,21 @@
  * - Se entra por su eje: sin puerta (`puertaDe`).
  */
 import { describe, expect, it } from 'vitest';
-import { marcadoDe } from '../src/client/html.js';
-import { renderLog } from '../src/client/views/panels.js';
-import { POBLAMIENTO, validarPoblamiento } from '../src/core/data.js';
-import {
-  buildMap,
-  generateMapPlan,
-  type PlanConCasillas,
-  validateMapPlan,
-} from '../src/core/map/generate.js';
-import { BARRERAS_DEL_PUEBLO, type MapObject, pointKey } from '../src/core/map/map.js';
+import { marcadoDe } from '../src/client/comun/html.js';
+import { renderLog } from '../src/client/views/cronica.js';
+import { buildMap } from '../src/core/map/generar/construir.js';
+import { POBLAMIENTO, validarPoblamiento } from '../src/core/map/generar/datos.js';
+import type { PlanConCasillas } from '../src/core/map/generar/plan.js';
+import { generateMapPlan } from '../src/core/map/generar/procedimental.js';
+import { validateMapPlan } from '../src/core/map/generar/validar.js';
+import { espejoDe, pointKey } from '../src/core/map/geometria.js';
+import { BARRERAS_DEL_PUEBLO } from '../src/core/map/map.js';
 import { puertaDe } from '../src/core/map/puertas.js';
 import { estructura } from '../src/core/map/regiones.js';
-import { espejoDe } from '../src/core/map/vestir.js';
+import type { MapObject } from '../src/core/map/tipos.js';
 import { createRng } from '../src/core/rng.js';
-import { applyAdventureAction, type GameState, townById } from '../src/core/state/game.js';
+import { townById } from '../src/core/state/consultas.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
 import { rentaDelDia } from '../src/core/state/renta.js';
 import { newGame } from '../src/core/state/setup.js';
 import {
@@ -42,9 +42,12 @@ import {
   sitioPorId,
   sitioSiExiste,
 } from '../src/core/state/sitios.js';
+import type { GameState } from '../src/core/state/tipos.js';
 import type { Point } from '../src/core/types.js';
-import { darLaCiudad, ejercito, PESADA, planDeNodos, TROPA_BARATA } from './helpers.js';
+import { PESADA, TROPA_BARATA } from './comun.js';
 import { rango, segunPrisa } from './lento.js';
+import { planDeNodos } from './mapa-de-prueba.js';
+import { darLaCiudad, ejercito } from './partida-de-prueba.js';
 
 type Pueblo = Extract<MapObject, { kind: 'village' }>;
 

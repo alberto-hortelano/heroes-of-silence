@@ -19,7 +19,7 @@
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { CARPETA_DE_LAS_FIGURAS, type FiguraDeNpc } from '../../src/core/npcs.js';
+import { CARPETA_DE_LAS_FIGURAS, type FiguraDeNpc } from '../../src/core/gente/banco.js';
 import {
   type HojaDeFigura,
   hojasDeLasAcciones,

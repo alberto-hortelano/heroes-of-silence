@@ -11,8 +11,11 @@ import {
   type FiguraColocada,
   pintarFigura,
   pintarSombraDeFigura,
-} from '../src/client/render/figura.js';
-import { cajaDeLaCelda, pintarLoTapadoDeLaFigura } from '../src/client/render/figura-tapada.js';
+} from '../src/client/render/figuras/figura.js';
+import {
+  cajaDeLaCelda,
+  pintarLoTapadoDeLaFigura,
+} from '../src/client/render/mapa/figura-tapada.js';
 
 /** Un lienzo que lanza si alguien pinta en él. */
 const lienzoQueNoSeToca = new Proxy({} as CanvasRenderingContext2D, {

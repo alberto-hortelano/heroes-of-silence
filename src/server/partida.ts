@@ -12,9 +12,9 @@
 
 import { once } from 'node:events';
 import { troopSummary } from '@core/hero/troop.js';
-import { LADO_DEL_MAPA } from '@core/map/generate.js';
+import { LADO_DEL_MAPA } from '@core/map/generar/plan.js';
 import { parseSeed } from '@core/rng.js';
-import { townsOf } from '@core/state/game.js';
+import { townsOf } from '@core/state/consultas.js';
 import type { PlayerId } from '@core/types.js';
 import { type WebSocket, WebSocketServer } from 'ws';
 import { AgentLink } from './agent-link.js';
@@ -232,7 +232,7 @@ export function arrancarPartida(opciones: OpcionesDePartida = {}): Promise<void>
       const heroes = state.heroes.filter((h) => h.owner === p.id);
       const pueblos = townsOf(state, p.id);
       const tropas = heroes
-        .flatMap((h) => troopSummary(h.army, state.characters))
+        .flatMap((h) => troopSummary(h.army))
         .map((g) => `${g.count}×${g.unit.name}`)
         .join(', ');
       console.log(

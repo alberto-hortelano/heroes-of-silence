@@ -38,7 +38,8 @@
 
 import { colorDeSombra } from '../../../shared/arte.js';
 import { columnasDeCara } from './caras.js';
-import type { Escena, Luz, Sprite } from './colocar.js';
+import type { Escena, Luz } from './colocar/escena.js';
+import { type Sprite, seVeConSuNodo } from './colocar/sprite.js';
 import {
   aguasDeLaEscena,
   cantoDeLasEspaldas,
@@ -63,7 +64,6 @@ import {
   type Variante,
 } from './parches.js';
 import { cajaDeSprite } from './pasillo.js';
-import { seVeConSuNodo } from './puestos.js';
 import { bandaDeCara, type CaraDeEscena } from './relieve.js';
 import { ANCHO_DEL_VADO, ANCHO_DEL_VADO_EN_EL_BARRO, SEMIANCHO_DEL_PASILLO } from './sendas.js';
 
@@ -401,7 +401,7 @@ export const claveDe = (s: Pick<Sprite, 'y' | 'clave'>): number => s.clave ?? s.
 /**
  * El orden en que se pintan los volúmenes: por su clave (`claveDe`), y a igual
  * clave de oeste a este. Negativo si `p` va antes que `q`. Lo que se pinta
- * después tapa a lo de antes: es la pregunta de `vaDelante` (`colocar.ts`).
+ * después tapa a lo de antes: es la pregunta de `vaDelante` (`colocar/sendas-y-murallas.ts`).
  */
 export const ordenDeVolumenes = (
   p: Pick<Sprite, 'x' | 'y' | 'clave'>,

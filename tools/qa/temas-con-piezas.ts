@@ -123,7 +123,7 @@ async function ponerTema(page: Page, tema: FactionId | null): Promise<void> {
   await page.evaluate(async (t: string | null) => {
     // El módulo lo sirve el vite de la página; la ruta, en una variable para que
     // TypeScript no la busque en el disco.
-    const ruta = '/temas.ts';
+    const ruta = '/comun/temas.ts';
     const m = (await import(/* @vite-ignore */ ruta)) as {
       ponerTema: (t: string) => void;
       letrasListas: () => Promise<void>;

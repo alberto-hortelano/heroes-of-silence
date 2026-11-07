@@ -10,34 +10,30 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { marcadoDe } from '../src/client/html.js';
-import { renderBattleLog } from '../src/client/views/panels.js';
+import { renderBattleLog } from '../src/client/batalla/parte.js';
+import { marcadoDe } from '../src/client/comun/html.js';
 import {
-  equiparEnArena,
   type MontajeDelEnlace,
   montajeALaURL,
   montajeDeLaURL,
-  piezaNueva,
-  piezasDelMontaje,
   VERSION_DEL_ENLACE,
-} from '../src/core/arena.js';
-import {
-  applyAction,
-  createBattle,
-  opcionesDeDanio,
-  stackById,
-} from '../src/core/battle/battle.js';
+} from '../src/core/arena/enlace.js';
+import { equiparEnArena, piezaNueva, piezasDelMontaje } from '../src/core/arena/piezas.js';
+import { applyAction } from '../src/core/battle/battle.js';
+import { stackById } from '../src/core/battle/consultas.js';
 import { expectedDamage } from '../src/core/battle/damage.js';
+import { opcionesDeDanio } from '../src/core/battle/golpe.js';
+import { createBattle } from '../src/core/battle/montaje.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { cuerpoConSusCifras } from '../src/core/cuerpo.js';
-import { type Pieza, problemasDePieza, validarPieza } from '../src/core/data.js';
-import { EQUIPO_DEL_JUEGO, pieza } from '../src/core/hero/equipo.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
+import { type Pieza, pieza, problemasDePieza, validarPieza } from '../src/core/equipo/pieza.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import type { Equipo, Hex, UnitInfo } from '../src/core/types.js';
-import { CUERPO_COMUN } from '../src/core/unidad.js';
-import { bandoDe } from './batalla-de-prueba.js';
-import { catalogoCon, conManosDePrueba, NORMAL, unidadDeArena } from './helpers.js';
+import { cuerpoConSusCifras } from '../src/core/unidad/cuerpo.js';
+import { CUERPO_COMUN } from '../src/core/unidad/formato.js';
+import { bandoDe, conManosDePrueba, NORMAL } from './batalla-de-prueba.js';
+import { catalogoCon, unidadDeArena } from './pelea-de-arena.js';
 
 /** El cuerpo común de la arena (fuerza 7, agilidad 4) con lo que se cambie. */
 function cuerpo(name: string, over: Partial<UnitInfo> = {}): UnitInfo {
@@ -59,7 +55,7 @@ function cuerpo(name: string, over: Partial<UnitInfo> = {}): UnitInfo {
 const vestido = (c: UnitInfo, equipo: Equipo): UnitInfo => EQUIPO_DEL_JUEGO.conEquipo(c, equipo);
 
 /** Con la coraza (`barda`): pesa 12 con fuerza 7, −1 de agilidad: defensa 3, 7 de armadura. */
-const JINETE = vestido(cuerpo('Jinete'), { armadura: 'barda' });
+const JINETE_CON_BARDA = vestido(cuerpo('Jinete'), { armadura: 'barda' });
 
 /**
  * `quien` en `en` contra `contra` en `donde` (y los demás defensores detrás), con
@@ -121,7 +117,7 @@ describe('cada golpe resta la armadura de quien lo recibe, con mínimo 0', () =>
   it('un golpe flojo contra la coraza se queda en 0: no quita nada, no lanza y se cuenta parado', () => {
     // 5 con ataque 3 contra defensa 3 (la coraza le quita 1 de agilidad): ×1; 5 − 7 → 0.
     const flojo = cuerpo('Flojo', { damage: [5, 5] });
-    const b = frente(flojo, [JINETE], PEGADOS[0], PEGADOS[1]);
+    const b = frente(flojo, [JINETE_CON_BARDA], PEGADOS[0], PEGADOS[1]);
     const desde = jugar(b, { type: 'attack', target: 'defender-0', ...NORMAL }, createRng(1));
     expect(hechos(b, 'attack', desde)[0]).toMatchObject({ damage: 0, killed: 0, parado: 5 });
     const jinete = stackById(b, 'defender-0');

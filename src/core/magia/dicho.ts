@@ -4,6 +4,7 @@
  * (`spell_list`). La descripción la escribe quien lo crea; esto lo escribe el
  * formato, así que no miente.
  */
+import { conPlural } from '../texto.js';
 import {
   type Afecta,
   type Cantidad,
@@ -47,7 +48,7 @@ export function dichoDeDuracion(d: Duracion, poder?: number): string {
 }
 
 function enRondas(n: number, antes: string): string {
-  return `${antes}${n} ${n === 1 ? 'ronda' : 'rondas'}`;
+  return `${antes}${conPlural(n, 'ronda')}`;
 }
 
 /** «no puede golpear ni disparar». */
@@ -127,7 +128,7 @@ export function dichoDelAlcance(h: Hechizo): string {
       donde = `a ${obj} pegado a quien lo lanza`;
       break;
     case 'alcance':
-      donde = `a ${obj} a ${e.casillas} ${e.casillas === 1 ? 'casilla' : 'casillas'} o menos`;
+      donde = `a ${obj} a ${conPlural(e.casillas, 'casilla')} o menos`;
       break;
     case 'proyectil':
       donde =
@@ -140,7 +141,7 @@ export function dichoDelAlcance(h: Hechizo): string {
       break;
   }
   if (typeof area === 'number' && area > 0) {
-    donde += `, y a ${losQue(h.afecta ?? 'todos')} a ${area} ${area === 1 ? 'casilla' : 'casillas'} de allí`;
+    donde += `, y a ${losQue(h.afecta ?? 'todos')} a ${conPlural(area, 'casilla')} de allí`;
   } else if (h.objetivo === 'casilla' && e.tipo !== 'proyectil') {
     donde += ` (a ${losQue(h.afecta ?? 'todos')})`;
   } else if (e.tipo === 'proyectil' && area !== 'recta' && h.afecta !== 'todos') {

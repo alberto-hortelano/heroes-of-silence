@@ -3,23 +3,23 @@
  * recluta, mueve a sus héroes y resuelve las batallas que provoque.
  */
 
-import type { Hero } from '../hero/hero.js';
-import { pointKey, type Reachable } from '../map/map.js';
+import { pointKey } from '../map/geometria.js';
+import type { Reachable } from '../map/map.js';
 import { ROAD_COST } from '../map/terrain.js';
+import { settleBattle } from '../state/cierre.js';
 import {
-  alcanceDelHeroe,
-  applyAdventureAction,
   baseOf,
   battleOwners,
   currentPlayer,
-  type GameContext,
-  type GameOutcome,
-  type GameState,
   heroesOf,
   playerById,
-  resolvePendingBattle,
-} from '../state/game.js';
-import type { Controller, Point } from '../types.js';
+  sidesOwnedBy,
+  sinLaIA,
+} from '../state/consultas.js';
+import { applyAdventureAction } from '../state/game.js';
+import { alcanceDelHeroe } from '../state/marcha.js';
+import type { GameContext, GameOutcome, GameState } from '../state/tipos.js';
+import type { Controller, Hero, Point } from '../types.js';
 import { jugadaEnElLugar, MAX_JUGADAS_EN_UN_LUGAR } from './lugares.js';
 import { turnosEnLaMismaCasilla, vueltaDelVaiven } from './memoria.js';
 import {
@@ -32,6 +32,7 @@ import {
   siguienteDeEquipo,
   stepTowards,
 } from './strategy.js';
+import { autoResolve, type BattleOutcome } from './tactics.js';
 
 /** Si el héroe está en la casilla de la base de su dueño. */
 function enSuBase(state: GameState, hero: Hero): boolean {
@@ -379,4 +380,20 @@ export async function playAiGame(state: GameState, ctx: GameContext): Promise<Ga
     await playAiTurn(state, ctx);
   }
   return state.finished;
+}
+
+/**
+ * Juega la batalla pendiente con la IA táctica y aplica el resultado. Por los
+ * bandos de los jugadores que no lleva ella (`sinLaIA`) pelea, pero no se rinde.
+ */
+export function resolvePendingBattle(state: GameState, ctx: GameContext): BattleOutcome {
+  const pending = state.pendingBattle;
+  if (pending === null) throw new Error('no hay batalla pendiente');
+  const outcome = autoResolve(
+    pending.battle,
+    ctx.rng,
+    sidesOwnedBy(state, pending, sinLaIA(state)),
+  );
+  settleBattle(state, ctx);
+  return outcome;
 }

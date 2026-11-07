@@ -7,10 +7,9 @@
  * `docs/agents/2026-10-07-cumbres/`; aquí, las reglas que lo sostienen.
  */
 import { describe, expect, it } from 'vitest';
-import { PX_AL_ZOOM_MAXIMO } from '../src/client/render/camara-mapa.js';
 import { analizar } from '../src/client/render/escenario/analizar.js';
 import { sueloDeLaMeseta } from '../src/client/render/escenario/bordes.js';
-import { ruidosDelMacizo, VECINO_IGUAL } from '../src/client/render/escenario/colocar.js';
+import { ruidosDelMacizo, VECINO_IGUAL } from '../src/client/render/escenario/colocar/tablas.js';
 import {
   ALTO_DE_CUMBRE,
   ALTO_DE_FALDA,
@@ -25,9 +24,10 @@ import {
   UMBRAL_DEL_CLARO,
 } from '../src/client/render/escenario/macizo.js';
 import { relieve } from '../src/client/render/escenario/relieve.js';
+import { PX_AL_ZOOM_MAXIMO } from '../src/client/render/mapa/camara.js';
 import type { Suelo } from '../src/core/map/terrain.js';
-import { escenaDe, partidaDe } from './helpers.js';
-import { LENTO, rango, segunPrisa } from './lento.js';
+import { escenaDe, partidaDe } from './escena-de-prueba.js';
+import { conRespiro, LENTO, rango, segunPrisa } from './lento.js';
 
 /** Las casillas `[x0, x1) × [y0, y1)` de un mapa de ancho `W`. */
 function rectangulo(W: number, x0: number, y0: number, x1: number, y1: number): number[] {
@@ -377,8 +377,9 @@ describe('las cordilleras no son una alfombra de pinchos (#204)', () => {
   // cabe una cumbre, y el 3 %.
   const semillas = segunPrisa([1, 24, 443], rango(1, 40));
 
-  it(`semillas ${segunPrisa('1, 24 y 443', '1-40')}: pocas cumbres dominan cada cordillera`, () => {
-    const todas = semillas.flatMap(cordillerasDe);
+  it(`semillas ${segunPrisa('1, 24 y 443', '1-40')}: pocas cumbres dominan cada cordillera`, async () => {
+    const todas: ReturnType<typeof cordillerasDe> = [];
+    for await (const s of conRespiro(semillas)) todas.push(...cordillerasDe(s));
     expect(todas.length).toBeGreaterThan(segunPrisa(8, 150));
     // Cuatro: las que pide la propuesta (`MAS_CUMBRES`), escrito aquí para que mida también sin ellas.
     const muchas = todas.filter((c) => c.dominantes > 4);

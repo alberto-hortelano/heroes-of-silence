@@ -3,8 +3,9 @@
  * leen también el pintor del suelo, que corre en un Worker y no puede traerse
  * la carga de imágenes ni el catálogo del cliente.
  */
-import type { MapObject } from '@core/map/map.js';
-import type { Sprite } from './colocar.js';
+
+import type { MapObject } from '@core/map/tipos.js';
+import type { Sprite } from './colocar/sprite.js';
 
 /**
  * Lo que se hornea en la escena: lo que no cambia en la partida salvo de dueño.

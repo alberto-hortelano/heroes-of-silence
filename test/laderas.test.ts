@@ -20,17 +20,17 @@ import {
 import { caidas } from '../src/client/render/escenario/celdas.js';
 import {
   colocarLadera,
-  componer,
   hojaDeLadera,
   juegoDeLadera,
   juntasColocadas,
   laderasEnfrentadas,
-  materialDeCara,
   modulosDeLadera,
   type PiezaDeLadera,
   piezasDeLadera,
-  type Sprite,
-} from '../src/client/render/escenario/colocar.js';
+} from '../src/client/render/escenario/colocar/laderas.js';
+import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
+import { materialDeCara } from '../src/client/render/escenario/colocar/tablas.js';
+import { componer } from '../src/client/render/escenario/colocar.js';
 import { azarDe } from '../src/client/render/escenario/esparcir.js';
 import {
   ALTO_DE_NIVEL,
@@ -39,7 +39,7 @@ import {
   pieDeLadera,
   TALUD_DE_LADERA,
 } from '../src/client/render/escenario/relieve.js';
-import { RedDeCaminos } from '../src/core/map/map.js';
+import { RedDeCaminos } from '../src/core/map/red-de-caminos.js';
 import type { Suelo } from '../src/core/map/terrain.js';
 import { mascaraDeGuia, registrarLadera } from '../tools/taller/derivar.js';
 import {
@@ -49,10 +49,11 @@ import {
   PIEZAS,
   papelDe,
 } from '../tools/taller/laderas.js';
-import { catalogoDelDisco, sha256 } from './helpers.js';
+import { RAIZ, sha256 } from './comun.js';
+import { catalogoDelDisco } from './escena-de-prueba.js';
 
 /** Las caídas por celdas de una rejilla de niveles escrita a mano, una cifra por casilla. */
-function deRejilla(filas: readonly string[], suelo: Suelo = 'grass') {
+function caidasDeRejilla(filas: readonly string[], suelo: Suelo = 'grass') {
   const W = (filas[0] as string).length;
   const H = filas.length;
   const nivel = filas.flatMap((f) => [...f].map(Number));
@@ -90,7 +91,7 @@ describe('las laderas salen del relieve por celdas', () => {
     // Las celdas de los vértices de las esquinas de la meseta son diagonales: la
     // cadena va de la junta del medio de la fila 1 a la del medio de la fila 4.
     // Al norte sigue de espaldas (remata); al sur, por la diagonal (no remata).
-    expect(deRejilla(meseta).laderas).toEqual([
+    expect(caidasDeRejilla(meseta).laderas).toEqual([
       {
         x: 4,
         y0: 1.5,
@@ -112,7 +113,7 @@ describe('las laderas salen del relieve por celdas', () => {
         fin: false,
       },
     ]);
-    expect(deRejilla(meseta, 'sand').laderas.map((l) => l.material)).toEqual([
+    expect(caidasDeRejilla(meseta, 'sand').laderas.map((l) => l.material)).toEqual([
       'cara-arenisca',
       'cara-arenisca',
     ]);
@@ -121,7 +122,7 @@ describe('las laderas salen del relieve por celdas', () => {
   it('un barranco de una casilla no lleva ninguna de sus dos laderas: van a los barrancos', () => {
     // La columna 1 baja entre dos altas: la ladera este de x 0 y la oeste de
     // x 2 caían las dos en ella y tapaban su fondo (QA de #156, H1).
-    const barranco = deRejilla(['2222', '2122', '2122', '2222']);
+    const barranco = caidasDeRejilla(['2222', '2122', '2122', '2222']);
     expect(barranco.laderas.filter((l) => l.x <= 2)).toEqual([]);
     expect(barranco.barrancos.map((c) => [c.vx, c.vy, c.tipo])).toEqual([
       [1, 2, 'E'],
@@ -131,7 +132,7 @@ describe('las laderas salen del relieve por celdas', () => {
 
   it('la cadena se corta donde cambia la caída, y la mayor remata por donde sigue la menor', () => {
     // La columna 1 cae 1 al este en la fila 1 y 2 en las filas 2-3.
-    const { laderas } = deRejilla(['1111', '1211', '1311', '1311', '1111']);
+    const { laderas } = caidasDeRejilla(['1111', '1211', '1311', '1311', '1111']);
     expect(
       laderas.filter((l) => l.lado === 'este').map((l) => [l.y0, l.y1, l.caida, l.inicio, l.fin]),
     ).toEqual([
@@ -247,7 +248,7 @@ describe('la colocación de las laderas con el arte del repo', () => {
 
 describe('un catálogo de laderas sin sus juntas no llega a pintarse', () => {
   const crudo = JSON.parse(
-    readFileSync(join(import.meta.dirname, '..', 'assets/mapa/escena.json'), 'utf8'),
+    readFileSync(join(RAIZ, 'assets/mapa/escena.json'), 'utf8'),
   ) as CatalogoEnBruto;
   /** El catálogo con el módulo `medio-a` de `laderas-roca-este-1` cambiado. */
   const con = (
@@ -330,7 +331,6 @@ describe('un catálogo de laderas sin sus juntas no llega a pintarse', () => {
 });
 
 describe('las juntas de cada ladera salen de su guía (`pnpm taller derivar-relieve`)', () => {
-  const RAIZ = join(import.meta.dirname, '..');
   const MODULOS = join(RAIZ, 'assets/mapa/modulos');
   const hojas = encargosDeLaderas().map((e) => basename(e.salida));
   const indice = (hoja: string) =>

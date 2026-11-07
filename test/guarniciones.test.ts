@@ -10,41 +10,35 @@
  * héroe que pierde en su sitio, que lo entrega con lo que no eligió.
  */
 import { describe, expect, it } from 'vitest';
-import { Session } from '../src/client/session.js';
-import { armyPower } from '../src/core/ai/fuerza.js';
-import { playAiTurn } from '../src/core/ai/turn.js';
-import { applyAction, legalActions } from '../src/core/battle/battle.js';
-import { adventureActionSchema, RESPONSE_FORMAT } from '../src/core/contract/agent.js';
-import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
+import { Session } from '../src/client/sesion/partida.js';
+import { playAiTurn, resolvePendingBattle } from '../src/core/ai/turn.js';
+import { applyAction } from '../src/core/battle/battle.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
+import { serializeAdventureTurn } from '../src/core/contract/aventura.js';
+import { adventureActionSchema } from '../src/core/contract/esquemas.js';
+import { RESPONSE_FORMAT } from '../src/core/contract/formato.js';
 import { accionDelAgente } from '../src/core/contract/vocabulario.js';
+import { armyPower } from '../src/core/hero/fuerza.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../src/core/hero/troop.js';
-import { pointFromKey, pointKey } from '../src/core/map/map.js';
+import { pointFromKey, pointKey } from '../src/core/map/geometria.js';
 import { estructura } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
-import { CHARACTER_BODY } from '../src/core/rpg/character.js';
+import { defensaBlocker, defensaPorElegir, elegirLaDefensa } from '../src/core/state/batallas.js';
+import { baseOf, currentPlayer, heroesOf } from '../src/core/state/consultas.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
 import {
-  type AdventureAction,
   alcanceDelHeroe,
-  applyAdventureAction,
-  baseOf,
   caminoHasta,
   casillasHostiles,
-  currentPlayer,
-  defensaBlocker,
-  defensaPorElegir,
-  elegirLaDefensa,
-  type GameContext,
-  type GameState,
-  heroesOf,
   pasosDeHoy,
-  resolvePendingBattle,
-} from '../src/core/state/game.js';
+} from '../src/core/state/marcha.js';
 import { newGame } from '../src/core/state/setup.js';
 import {
   defensaDeLaIA,
   dueñoDelSitio,
   elReparto,
   guarnicionDe,
+  guarnicionDeLaCiudad,
   intercambioBlocker,
   lineasDelEjercito,
   ocupanteDe,
@@ -56,24 +50,19 @@ import {
   sitioEn,
   sitioPorId,
 } from '../src/core/state/sitios.js';
+import type { AdventureAction, GameState } from '../src/core/state/tipos.js';
 import { type Army, NOMBRE_DE_FACCION, type Troop } from '../src/core/types.js';
+import { ctx, JINETE, PESADA, TROPA, TROPA_BARATA } from './comun.js';
+import { costesDelAlcance } from './mapa-de-prueba.js';
 import {
   conSuEquipo,
-  costesDelAlcance,
   ejercito,
   forzarBatalla,
   guarnecer,
-  guarnicionDeLaCiudad,
-  JINETE,
-  PESADA,
   pegadoA,
-  TROPA,
-  TROPA_BARATA,
   unPaso,
   unPuebloDe,
-} from './helpers.js';
-
-const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
+} from './partida-de-prueba.js';
 
 function jugar(state: GameState, accion: AdventureAction, quien = 0, seed = 1): void {
   applyAdventureAction(state, accion, ctx(seed), quien);
@@ -241,9 +230,7 @@ describe('dejar y recoger tropa en un sitio propio', () => {
     paso.owner = 1;
     expect(intenta(dejar(hero.id, TROPA_BARATA, 1))).toMatch(/de \(\d+,\d+\) no es tuyo$/);
 
-    // Un personaje no se deja.
     paso.owner = 0;
-    expect(intenta(dejar(hero.id, CHARACTER_BODY, 1))).toContain('un personaje no se deja');
     // Ni más de los que lleva, ni de lo que no hay, ni cero.
     expect(intenta(dejar(hero.id, TROPA_BARATA, 3))).toMatch(/lleva 2 × .* no se pueden mover 3/);
     expect(intenta(recoger(hero.id, TROPA_BARATA, 1))).toMatch(
@@ -402,8 +389,8 @@ describe('repartir y confirmar (Q1 del QA, D9)', () => {
     expect(intenta([{ creature: TROPA, count: 0 }])).toMatch(
       /^lo que se queda no cabe en la guarnición de .*: serían/,
     );
-    // Más de los que hay, un tipo dos veces, uno que no existe, un personaje, un
-    // veterano que no está, y no mover a nadie.
+    // Más de los que hay, un tipo dos veces, uno que no existe, un veterano que no
+    // está, y no mover a nadie.
     expect(intenta([{ creature: TROPA, count: tope }])).toMatch(
       /hay \d+ × .* sin veteranía, no \d+/,
     );
@@ -414,9 +401,6 @@ describe('repartir y confirmar (Q1 del QA, D9)', () => {
       ]),
     ).toContain('va dos veces en el reparto');
     expect(intenta([{ creature: 'no-existe', count: 1 }])).toContain('no existe ninguna unidad');
-    expect(intenta([{ creature: CHARACTER_BODY, count: 1 }])).toContain(
-      'un personaje no se reparte',
-    );
     expect(intenta([{ veterano: 'v-no-esta' }])).toContain('llevan al veterano "v-no-esta"');
     expect(intenta(lineasDelEjercito(hero.army))).toMatch(/^el reparto no mueve a nadie/);
     // Fuera de un sitio suyo, lo de siempre.
@@ -591,7 +575,7 @@ describe('la defensa con el héroe en su sitio', () => {
       expect(armyLeadership(fuera)).toBeLessThanOrEqual(GARRISON_LEADERSHIP);
       expect(fuera.length).toBeLessThanOrEqual(state.combate.tope);
       // Nunca pelea con menos fuerza que con su ejército de antes.
-      expect(armyPower(elegida, undefined)).toBeGreaterThanOrEqual(armyPower(hero.army, undefined));
+      expect(armyPower(elegida)).toBeGreaterThanOrEqual(armyPower(hero.army));
     }
   });
 
@@ -871,10 +855,9 @@ describe('las pantallas de la persona (la sesión)', () => {
         expect(s.guarnicionAbierta).toBe(hero.id);
         const vista = s.vistaDeLaGuarnicion()!;
         expect(vista.guarnicion.filas).toEqual([]);
-        expect(vista.heroe.filas.every((f) => f.motivo === null)).toBe(true);
         expect(vista).toMatchObject({ cambia: false, motivo: null });
         const llevaba = hero.army.length;
-        const tipo = vista.heroe.filas[0]!.grupo.creature;
+        const tipo = vista.heroe.filas[0]!.creature;
         // Pasar uno edita la pantalla y no la partida.
         s.moverEnElReparto('guarnicion', tipo);
         expect(s.vistaDeLaGuarnicion()!.guarnicion.individuos).toBe(1);

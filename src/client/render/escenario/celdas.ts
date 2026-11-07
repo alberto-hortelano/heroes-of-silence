@@ -1091,7 +1091,7 @@ function delanteDe(
 /**
  * Un tramo recto por el que tiene que pasar la senda que se pinta, de `p0` a
  * `p1` en el rumbo `t`: la rampa de una bajada (`tendidoDeBajada`) o el paso por
- * el arco de la puerta de un recinto (`tendidosDeLasPuertas`, `recinto.ts`).
+ * el arco de la puerta de un recinto (`tendidosDeLasPuertas`, `recinto/sendas.ts`).
  */
 export interface TendidoDeSenda {
   /** La senda que lo lleva, por su índice; sin él, la que pasa por `cerca` (a media casilla como mucho). */

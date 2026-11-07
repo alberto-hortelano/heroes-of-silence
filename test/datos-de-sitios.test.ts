@@ -10,22 +10,19 @@
  * forma rota a propósito y su frase.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
-import { EscenaBatalla } from '../src/client/escenas/batalla.js';
-import { marcadoDe } from '../src/client/html.js';
-import { alturaDeColumna, alzadoDeLaMuralla } from '../src/client/render/batalla.js';
+import { EscenaBatalla } from '../src/client/batalla/escena.js';
+import { marcadoDe } from '../src/client/comun/html.js';
+import { renderSide } from '../src/client/partida/paneles.js';
+import { alturaDeColumna, alzadoDeLaMuralla } from '../src/client/render/batalla/muralla.js';
 import { centroHex, tableroPara } from '../src/client/render/proyeccion.js';
-import { Session } from '../src/client/session.js';
-import { renderSide } from '../src/client/views/panels.js';
-import { columna } from '../src/core/arena-murallas.js';
-import {
-  alAsalto,
-  applyAction,
-  createBattle,
-  legalActions,
-  MAX_ROUNDS,
-  stackById,
-} from '../src/core/battle/battle.js';
+import { Session } from '../src/client/sesion/partida.js';
+import { resolvePendingBattle } from '../src/core/ai/turn.js';
+import { columna } from '../src/core/arena/murallas.js';
+import { applyAction } from '../src/core/battle/battle.js';
 import { allHexes, bandoDeSalida, hexKey } from '../src/core/battle/board.js';
+import { stackById } from '../src/core/battle/consultas.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
+import { alAsalto, createBattle } from '../src/core/battle/montaje.js';
 import {
   ladoDeLaMuralla,
   murallaDelMapaBlocker,
@@ -33,17 +30,10 @@ import {
   validarMuralla,
 } from '../src/core/battle/muralla.js';
 import type { BattleState } from '../src/core/battle/types.js';
-import { unidadDelJuego, unidadesDeFaccion } from '../src/core/catalogo.js';
+import { MAX_ROUNDS } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { hasTrait } from '../src/core/data.js';
 import { createRng } from '../src/core/rng.js';
-import {
-  baseOf,
-  type GameContext,
-  type GameState,
-  heroesOf,
-  resolvePendingBattle,
-} from '../src/core/state/game.js';
+import { baseOf, heroesOf } from '../src/core/state/consultas.js';
 import { newGame } from '../src/core/state/setup.js';
 import {
   dueñoDeLaCiudad,
@@ -52,26 +42,21 @@ import {
   ponerLaGuarnicion,
   sitioPorId,
 } from '../src/core/state/sitios.js';
-import { type Army, FACTION_IDS, type FactionId } from '../src/core/types.js';
+import type { GameState } from '../src/core/state/tipos.js';
+import { type Army, FACTION_IDS, type FactionId, hasTrait } from '../src/core/types.js';
+import { unidadDelJuego, unidadesDeFaccion } from '../src/core/unidad/catalogo.js';
+import { aMano, bandoAMano, forzarTurno, muralla } from './batalla-de-prueba.js';
+import { ctx, JINETE, NO_MUERTO, PESADA, TROPA_BARATA } from './comun.js';
 import {
-  aMano,
-  bandoDePersonajes,
   copiaDePartida,
   ejercito,
   forzarBatalla,
-  forzarTurno,
   guarnecer,
-  JINETE,
-  muralla,
-  NO_MUERTO,
-  PESADA,
   pegadoA,
-  TROPA_BARATA,
   unPaso,
   unPuebloDe,
-} from './helpers.js';
+} from './partida-de-prueba.js';
 
-const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 const h = (col: number, row: number) => ({ col, row });
 const DOS_BARATAS = () => ejercito({ creature: TROPA_BARATA, count: 2 });
 
@@ -352,7 +337,7 @@ describe('la IA asalta las murallas del mapa y la batalla acaba', () => {
     expect(hasTrait(volador, 'flying')).toBe(true);
     const forma = MURALLAS_DEL_MAPA.ciudad;
     const b = createBattle(
-      alAsalto(bandoDePersonajes([volador, unidadDelJuego(JINETE)]), forma),
+      alAsalto(bandoAMano([volador, unidadDelJuego(JINETE)]), forma),
       { army: [{ creature: TROPA_BARATA, count: 1 }], hero: null },
       createRng(5),
       COMBATE_COMPLETO,

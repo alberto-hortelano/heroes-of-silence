@@ -5,10 +5,12 @@
  * la rueda, en «Nuevo juego» (con «Solo la rueda del héroe») y en el montaje de la
  * arena. Solo pinta y lee lo elegido: qué vale lo dice el núcleo
  * (`core/combate.ts`), y lo elegido lo aplica quien lo pinta (el menú, a la URL;
- * la arena, a su montaje).
+ * la arena, a su montaje). La casilla «Solo la rueda del héroe»
+ * (`casillaSoloRuedaDelHeroe`) va también en la batalla de la partida; era de
+ * `views/panels.ts` hasta la fase C de la reorganización (07-11-2026).
  */
 
-import { TIPOS_DE_LAS_RUEDAS } from '@core/battle/rueda.js';
+import { TIPOS_DE_LAS_RUEDAS } from '@core/battle/formas-de-la-rueda.js';
 import {
   combateCon,
   parseRueda,
@@ -16,8 +18,8 @@ import {
   type ReglasDelCombate,
   TOPES_DE_TROPA,
 } from '@core/combate.js';
-import { type Html, html, NADA, unir } from '../html.js';
-import { casillaSoloRuedaDelHeroe } from './panels.js';
+import { type Html, html, MARCADO, NADA, unir } from '../comun/html.js';
+import { nota } from './notas.js';
 
 /** Qué se lee en cada tope y en cada rueda: lo que es, en pocas palabras. */
 const DICHO_DEL_TOPE = (n: number): string => `${n} por bando`;
@@ -39,7 +41,7 @@ function grupo(
       ${unir(
         valores.map(
           (n) =>
-            html`<label class="opcion-del-combate"><input type="radio" name="combate-${campo}" data-combate="${campo}" value="${String(n)}" ${n === elegido ? html`checked` : NADA} /> ${dicho(n)}</label>`,
+            html`<label class="opcion-del-combate"><input type="radio" name="combate-${campo}" data-combate="${campo}" value="${String(n)}" ${n === elegido ? MARCADO : NADA} /> ${dicho(n)}</label>`,
         ),
       )}
     </fieldset>`;
@@ -79,4 +81,14 @@ export function leerElCombate(el: Element, antes: ReglasDelCombate): ReglasDelCo
 /** Si quedó marcada la casilla «Solo la rueda del héroe» de los selectores; `null` si `el` no es ella. */
 export function leerSoloHeroe(el: Element): boolean | null {
   return el.getAttribute('data-combate') === 'solo-heroe' ? el.matches(':checked') : null;
+}
+
+/**
+ * La casilla «Solo la rueda del héroe» (22-10-2026), con lo que hace en su nota:
+ * la misma en «Nuevo juego» (`selectoresDelCombate`) y en la batalla. `dato`, el
+ * atributo con que la lee quien la pinta (`data-combate` en el menú, `data-action`
+ * en la batalla).
+ */
+export function casillaSoloRuedaDelHeroe(dato: Html, marcada: boolean): Html {
+  return html`<span class="solo-heroe"><label><input type="checkbox" ${dato}${marcada ? html` checked` : NADA} /> Solo la rueda del héroe</label>${nota('La rueda se te abre solo cuando tu héroe golpea o responde; la de tu tropa la elige la IA a ciegas, como la del rival.')}</span>`;
 }

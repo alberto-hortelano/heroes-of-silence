@@ -4,57 +4,51 @@ import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
 import { playAiTurn } from '../src/core/ai/turn.js';
-import { activeStack, applyAction, legalActions } from '../src/core/battle/battle.js';
+import { applyAction } from '../src/core/battle/battle.js';
 import { isInside, tableroDelContrato } from '../src/core/battle/board.js';
+import { activeStack } from '../src/core/battle/consultas.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
 import type { BattleState } from '../src/core/battle/types.js';
-import { cifrasDeUnidad } from '../src/core/catalogo.js';
-import { tiposDeHeroe } from '../src/core/data.js';
-import { umbral } from '../src/core/hero/experiencia.js';
-import { type Hero, heroUnit } from '../src/core/hero/hero.js';
-import {
-  generateMapPlan,
-  LADO_DEL_MAPA,
-  type MapPlan,
-  planDelAgente,
-  validateMapPlan,
-} from '../src/core/map/generate.js';
-import { pointKey, reachableFrom } from '../src/core/map/map.js';
-import { nivelDeUnidad } from '../src/core/nivel.js';
+import { heroUnit } from '../src/core/hero/hero.js';
+import { umbral } from '../src/core/hero/rango.js';
+import { tiposDeHeroe } from '../src/core/hero/tipos-de-heroe.js';
+import { planDelAgente } from '../src/core/map/generar/construir.js';
+import { LADO_DEL_MAPA, type MapPlan } from '../src/core/map/generar/plan.js';
+import { generateMapPlan } from '../src/core/map/generar/procedimental.js';
+import { validateMapPlan } from '../src/core/map/generar/validar.js';
+import { pointKey } from '../src/core/map/geometria.js';
+import { reachableFrom } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
+import { baseOf } from '../src/core/state/consultas.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
+import { caminoHasta } from '../src/core/state/marcha.js';
+import { newGame } from '../src/core/state/setup.js';
+import { dueñoDeLaCiudad, guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import {
-  applyAdventureAction,
-  baseOf,
-  caminoHasta,
   type GameContext,
   type GameState,
   MAX_HEROES_PER_PLAYER,
-  revealEverything,
-} from '../src/core/state/game.js';
-import { newGame } from '../src/core/state/setup.js';
-import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
+} from '../src/core/state/tipos.js';
+import { revealEverything } from '../src/core/state/vision.js';
 import type { Town } from '../src/core/town/town.js';
-import { FACTION_IDS, type FactionId, type Point } from '../src/core/types.js';
+import { FACTION_IDS, type FactionId, type Hero, type Point } from '../src/core/types.js';
+import { cifrasDeUnidad } from '../src/core/unidad/catalogo.js';
+import { nivelDeUnidad } from '../src/core/unidad/nivel.js';
 import { AgentLink } from '../src/server/agent-link.js';
 import { responderConsulta } from '../src/server/consultas.js';
 import { Director } from '../src/server/director.js';
 import { pedirMapaAlAgente } from '../src/server/mapa-del-agente.js';
 import { SIN_PARTIDA_TODAVIA } from '../src/server/notas.js';
 import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
+import { NO_MUERTO, PESADA, SANADOR, TROPA, TROPA_BARATA } from './comun.js';
+import { conCaminos, costesDelAlcance } from './mapa-de-prueba.js';
 import {
-  conCaminos,
-  costesDelAlcance,
   ejercito,
   fueraDeSuBase,
   guarnecer,
-  guarnicionDeLaCiudad,
-  NO_MUERTO,
-  PESADA,
   ponerMonstruo,
-  SANADOR,
   sinGuarnicionDeSalida,
-  TROPA,
-  TROPA_BARATA,
-} from './helpers.js';
+} from './partida-de-prueba.js';
 
 /** Agente de mentira: responde leyendo el payload, como haría uno de verdad. */
 interface FakeAgent {

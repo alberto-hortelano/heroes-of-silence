@@ -12,7 +12,7 @@
  */
 import { TAMAÑO_POR_DEFECTO, TAMAÑOS_DE_UN_MUNDO } from '@core/mundo/formato.js';
 import type { FactionId } from '@core/types.js';
-import { type Html, html, NADA, pintar, unir } from '../html.js';
+import { type Html, html, MARCADO, NADA, pintar, unir } from '../comun/html.js';
 import { type Fase, type Progreso, terminada } from './progreso.js';
 
 /** Por qué los rivales están fijos en 1. */
@@ -55,7 +55,7 @@ function renderMundo(tamaño: number): Html {
       ${unir(
         TAMAÑOS_DE_UN_MUNDO.map(
           (t) => html`<label class="opcion-de-tamano">
-            <input type="radio" name="tamano" value="${String(t.regiones)}" ${t.regiones === tamaño ? html`checked` : NADA} />
+            <input type="radio" name="tamano" value="${String(t.regiones)}" ${t.regiones === tamaño ? MARCADO : NADA} />
             <span class="nombre-de-tamano">${t.nombre}</span> <span class="cost">${t.que} · de ${String(t.lugares.de)} a ${String(t.lugares.a)} lugares</span>
           </label>`,
         ),

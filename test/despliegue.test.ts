@@ -8,32 +8,30 @@
  */
 import { describe, expect, it } from 'vitest';
 import { autoResolve } from '../src/core/ai/tactics.js';
-import {
-  aplicarDespliegue,
-  applyAction,
-  type BattleSide,
-  createBattle,
-  legalActions,
-  stackById,
-  terminarElDespliegue,
-} from '../src/core/battle/battle.js';
+import { applyAction } from '../src/core/battle/battle.js';
 import { espejo } from '../src/core/battle/board.js';
+import { stackById } from '../src/core/battle/consultas.js';
 import {
   alcanceDelDespliegue,
+  aplicarDespliegue,
   asentar,
   batallaALaVista,
   colocarBlocker,
   despliegueDe,
   firmaDelDespliegue,
+  terminarElDespliegue,
   zonaDeSalida,
 } from '../src/core/battle/despliegue.js';
-import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from '../src/core/battle/muralla.js';
-import type { BattleState } from '../src/core/battle/types.js';
-import { unidadDelJuego } from '../src/core/catalogo.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
+import { type BattleSide, createBattle } from '../src/core/battle/montaje.js';
+import { SIN_MURALLA, validarMuralla } from '../src/core/battle/muralla.js';
+import type { BattleState, MurallaDeBatalla } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
 import type { AlcanceDelDespliegue, Hex } from '../src/core/types.js';
-import { conCifrasAMano, heroeDeBatalla, ladoDeBatalla, TROPA_BARATA } from './helpers.js';
+import { unidadDelJuego } from '../src/core/unidad/catalogo.js';
+import { conCifrasAMano, heroeDeBatalla, ladoDeBatalla } from './batalla-de-prueba.js';
+import { TROPA_BARATA } from './comun.js';
 
 /** Un héroe de batalla cualquiera: aquí solo importa dónde pisa. */
 const heroe = heroeDeBatalla();

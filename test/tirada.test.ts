@@ -16,12 +16,13 @@ import {
   catalogoValidado,
   esTramoNorteSur,
 } from '../src/client/render/escenario/catalogo.js';
-import { type Sprite, testerosDeLaEscena } from '../src/client/render/escenario/colocar.js';
+import { testerosDeLaEscena } from '../src/client/render/escenario/colocar/sendas-y-murallas.js';
+import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
 import { ALTO_DEL_TRAMO_NORTE_SUR } from '../src/client/render/escenario/muralla.js';
 import {
   ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO,
   ESCALA_DEL_MURO_NORTE_SUR,
-} from '../src/client/render/escenario/recinto.js';
+} from '../src/client/render/escenario/recinto/octogono.js';
 import {
   FONDO_DEL_ADARVE,
   pasoEnCasillas,
@@ -35,9 +36,8 @@ import {
   LARGO_DEL_ADARVE,
   TORCIDO_MAXIMO,
 } from '../tools/taller/muros.js';
-import { catalogoDelDisco, escenaDe } from './helpers.js';
-
-const RAIZ = join(import.meta.dirname, '..');
+import { RAIZ } from './comun.js';
+import { catalogoDelDisco, escenaDe } from './escena-de-prueba.js';
 
 const catalogo = catalogoDelDisco();
 const NS1 = catalogo.piezas['muro-ns-1'];

@@ -16,6 +16,7 @@ import {
   LADO_DE_TEXTURA,
   UMBRAL_DE_COSTURA,
 } from '../tools/taller/textura.js';
+import { RAIZ } from './comun.js';
 
 /** Un degradado en diagonal con ruido: no se repite, la costura salta a la vista. */
 async function sinRepetir(lado = 300): Promise<Buffer> {
@@ -65,7 +66,7 @@ describe('la textura repetible', () => {
 });
 
 describe('las texturas del taller', () => {
-  const dir = join(import.meta.dirname, '../assets/mapa/suelos');
+  const dir = join(RAIZ, 'assets/mapa/suelos');
   let hay: string[] = [];
   try {
     hay = readdirSync(dir).filter((f) => f.endsWith('.webp'));

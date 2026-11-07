@@ -3,11 +3,13 @@
  *
  *     npx tsx tools/qa/ancla-paneles.ts
  *
- * Se corre A MANO y a propósito, nunca desde el test. Un ancla que se regenera
- * sola no ancla nada: se limitaría a certificar lo que acabe de salir. Cuando
- * `pnpm test` la ve moverse, la pregunta es si el cambio de píxel se quería —y
- * solo entonces se corre esto y se commitea el fichero con el cambio que lo
- * justifica.
+ * Se corre A MANO y a propósito, y es la comprobación misma: ningún test compara
+ * contra el ancla desde el 03-11-2026 (`b0e0ba5f`, que sacó los tests que fijan
+ * cifras del catálogo, por decisión del usuario; las escenas, en
+ * `test/escenas-paneles.ts`). Tras correrlo, `git diff test/fixtures/` dice si el
+ * marcado se movió: si no se quería, es un fallo; si se quería, el fichero va en el
+ * commit con el cambio que lo justifica. Un ancla que se regenera sola en cada
+ * cambio no ancla nada: se limitaría a certificar lo que acabe de salir.
  *
  * Existe porque la reescritura de `views/panels.ts` para que pase por la puerta
  * de escapar toca sus 169 interpolaciones y no debe mover ni un byte de lo

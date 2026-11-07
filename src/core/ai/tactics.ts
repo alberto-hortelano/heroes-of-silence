@@ -6,66 +6,52 @@
  * trabajo es que el juego sea jugable sin IA externa, no ser brillante.
  */
 
+import {
+  explosionDe,
+  lineaDelDisparo,
+  opcionesDeLaGranada,
+  opcionesDelDisparo,
+} from '../battle/a-distancia.js';
 import { armaduraDe, isShooter } from '../battle/armas.js';
+import { escalaDesde } from '../battle/asalto.js';
+import { applyAction, MAX_JUGADAS, type Movibles } from '../battle/battle.js';
+import { hexDistance, hexEquals, hexKey, indiceDe, neighbours } from '../battle/board.js';
+import { CARGA, CARGA_MINIMA, cargaEfectiva, cargaMontada } from '../battle/carga.js';
 import {
   activeStack,
-  applyAction,
   canReachMelee,
   cargaDesde,
   cerradasPara,
   distanciaACaminar,
   distanciaAndando,
   enemiesOf,
-  escalaDesde,
-  explosionDe,
   firmaDelTurno,
   hechizoDeLaBatalla,
   isEngaged,
-  legalActionsAndCosts,
-  lineaDelDisparo,
-  MAX_JUGADAS,
-  type Movibles,
   medirCargas,
-  opcionesDeDanio,
-  opcionesDeLaGranada,
-  opcionesDelDisparo,
-  type PrevisionDeLanzar,
   pasosQueQuedan,
-  previsionDe,
   seHaMovido,
   splashTargets,
   stackById,
   stackHexes,
   stackSpeed,
   sumaDelBando,
-  terminarElDespliegue,
-} from '../battle/battle.js';
-import {
-  hexDistance,
-  hexEquals,
-  hexKey,
-  indiceDe,
-  neighbours,
-  type Paso,
-} from '../battle/board.js';
-import { CARGA, CARGA_MINIMA, cargaEfectiva, cargaMontada } from '../battle/carga.js';
+} from '../battle/consultas.js';
 import { type DamageOptions, expectedDamage, fraccionQueLlega, stackHp } from '../battle/damage.js';
-import { roundsLeftOf, type StackEffect } from '../battle/effects.js';
+import { terminarElDespliegue } from '../battle/despliegue.js';
+import { roundsLeftOf } from '../battle/effects.js';
+import { opcionesDeDanio } from '../battle/golpe.js';
 import { alcanceDeLaGranada } from '../battle/granada.js';
-import {
-  claveDeAbiertas,
-  enLoAlto,
-  esMuro,
-  mismaPuerta,
-  type PuertaDeMuralla,
-} from '../battle/muralla.js';
+import { legalActionsAndCosts } from '../battle/legalidad.js';
+import { claveDeAbiertas, enLoAlto, esMuro, mismaPuerta } from '../battle/muralla.js';
+import { type PrevisionDeLanzar, previsionDe } from '../battle/prevision.js';
 import { soloCura } from '../battle/spells.js';
 import type { BattleAction, BattleStack, BattleState, Side } from '../battle/types.js';
-import { otroBando } from '../battle/types.js';
-import { hasTrait } from '../data.js';
+import { otroBando, type Paso, type PuertaDeMuralla, type StackEffect } from '../battle/types.js';
 import { ESCALA_DE_CIFRAS } from '../escala.js';
 import type { Rng } from '../rng.js';
 import type { Hex } from '../types.js';
+import { hasTrait } from '../types.js';
 import { completarCruce } from './rueda.js';
 
 /** Lo que pega un stack por sí solo, con el extra del tirador que aún dispara. */
@@ -95,7 +81,6 @@ function threat(state: BattleState, s: BattleStack): number {
     case 'heroe':
       return sumaDelBando(state, s.side, amenazaPropia);
     case 'catalogo':
-    case 'personaje':
       return amenazaPropia(s);
   }
 }

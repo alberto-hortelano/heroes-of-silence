@@ -11,42 +11,32 @@
  * nuevo no deja ver lo que eligió el otro.
  */
 import { describe, expect, it } from 'vitest';
-import { caraDeLaArena } from '../src/client/arena/paneles.js';
-import { EscenaBatalla } from '../src/client/escenas/batalla.js';
-import { marcadoDe } from '../src/client/html.js';
+import { caraDeLaArena } from '../src/client/arena/paneles/batalla.js';
+import { EscenaBatalla } from '../src/client/batalla/escena.js';
+import { anguloDe, medidasDeLaRueda } from '../src/client/batalla/rueda/disco.js';
 import {
-  anguloDe,
   haciaDe,
   idDeLaForma,
-  medidasDeLaRueda,
   renderEleccion,
   sitioEnLaRueda,
-} from '../src/client/rueda/rueda.js';
-import type { SesionDeArena } from '../src/client/session.js';
-import { efectoEnCurso, modificadoresEnCurso } from '../src/client/views/panels.js';
-import { stackById } from '../src/core/battle/battle.js';
+} from '../src/client/batalla/rueda/rueda.js';
+import { marcadoDe } from '../src/client/comun/html.js';
+import type { SesionDeArena } from '../src/client/sesion/sesion-de-arena.js';
+import { efectoEnCurso, modificadoresEnCurso } from '../src/client/views/notas.js';
 import { dichoCortoDeLaCarga, dichoDeLaCarga } from '../src/core/battle/carga.js';
 import { NIVEL_MAXIMO } from '../src/core/battle/cifras-de-la-rueda.js';
-import type { StackEffect } from '../src/core/battle/effects.js';
+import { stackById } from '../src/core/battle/consultas.js';
 import {
   formaDeLaBatalla,
   LAS_TRES_RUEDAS,
   RUEDA_DE_REFERENCIA,
-  type TipoDeGolpe,
-} from '../src/core/battle/rueda.js';
-import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
-import { TIPOS_DEL_ANILLO } from '../src/core/types.js';
-import {
-  conManosDePrueba,
-  desenlaceDe,
-  empezarTalCual,
-  hastaLaRueda,
-  PESADA,
-  sesionDeArena,
-  TROPA,
-  todoA,
-  unidadDeArena,
-} from './helpers.js';
+} from '../src/core/battle/formas-de-la-rueda.js';
+import type { BattleEvent, BattleState, StackEffect } from '../src/core/battle/types.js';
+import { TIPOS_DEL_ANILLO, type TipoDeGolpe } from '../src/core/types.js';
+import { desenlaceDe, empezarTalCual, hastaLaRueda, sesionDeArena } from './batalla-de-cliente.js';
+import { conManosDePrueba, todoA } from './batalla-de-prueba.js';
+import { PESADA, TROPA } from './comun.js';
+import { unidadDeArena } from './pelea-de-arena.js';
 
 /** Las peleas de estos tests, con la rueda de siempre (7). */
 const RUEDA = RUEDA_DE_REFERENCIA;

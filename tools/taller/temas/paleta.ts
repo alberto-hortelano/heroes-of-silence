@@ -35,7 +35,8 @@
 import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import sharp, { type OverlayOptions } from 'sharp';
-import { conComa, esFaccion, FACTION_IDS, type FactionId } from '../../../src/core/types.js';
+import { conComa } from '../../../src/core/texto.js';
+import { esFaccion, FACTION_IDS, type FactionId } from '../../../src/core/types.js';
 
 export interface Rect {
   readonly x: number;

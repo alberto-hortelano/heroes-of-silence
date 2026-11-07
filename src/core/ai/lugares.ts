@@ -17,8 +17,8 @@
  * El agente no entra en los lugares (F4): esto es solo de la IA de reglas. Sin
  * mundo no hay lugares y nada de aquí cambia una partida del banco.
  */
-import { gruposAlTope } from '../combate.js';
-import type { Hero } from '../hero/hero.js';
+import { fuerzaDe, poderDe, ventajaClara } from '../hero/fuerza.js';
+import { gruposAlTope } from '../hero/grupos.js';
 import {
   batallaDe,
   daPremio,
@@ -38,8 +38,8 @@ import {
   type RefDeOpcion,
   soloNavega,
 } from '../mundo/reglas.js';
-import type { GameState } from '../state/game.js';
-import { fuerzaDe, poderDe, ventajaClara } from './fuerza.js';
+import type { GameState } from '../state/tipos.js';
+import type { Hero } from '../types.js';
 
 /**
  * Lo que vale para la IA ir a un lugar donde haría algo. **Inventado** (F1a,
@@ -135,7 +135,7 @@ export function jugadaEnElLugar(state: GameState, hero: Hero): RefDeOpcion | nul
   const mundo = state.mundo;
   const lugar = lugarEn(state, hero.at);
   if (mundo === undefined || lugar === null) return null;
-  return primera({ state, mundo, hero, lugar }, fuerzaDe(hero, state.characters));
+  return primera({ state, mundo, hero, lugar }, fuerzaDe(hero));
 }
 
 /**

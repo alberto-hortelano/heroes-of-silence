@@ -6,11 +6,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { type Html, html, marcadoDe, unir } from '../src/client/html.js';
+import { renderBattleLog } from '../src/client/batalla/parte.js';
+import { type Html, html, marcadoDe, unir } from '../src/client/comun/html.js';
+import { nombreEnElCampo } from '../src/client/render/batalla/distintivo.js';
 import { desplazamientoTrasPintar, pintarSiguiendoElFinal } from '../src/client/views/al-final.js';
-import { nombreEnElCampo } from '../src/client/views/distintivo.js';
-import { renderBattleLog } from '../src/client/views/panels.js';
-import { activeStack, createBattle } from '../src/core/battle/battle.js';
+import { activeStack } from '../src/core/battle/consultas.js';
+import { createBattle } from '../src/core/battle/montaje.js';
 import type { BattleState, Side } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';

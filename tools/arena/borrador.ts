@@ -19,20 +19,22 @@ import {
   RUTA_DE_MURALLAS,
   revisarBorradorDeMurallas,
   validarBorradorDeMurallas,
-} from '../../src/core/arena-murallas.js';
-import {
-  COMENTARIO_DEL_CATALOGO_DE_EQUIPO,
-  type CuerpoDeTodoHeroe,
-  combateDelHeroe,
-  type PiezaEscrita,
-  RUTA_DEL_CATALOGO_DE_EQUIPO,
-  RUTA_DEL_HEROE,
-} from '../../src/core/data.js';
+} from '../../src/core/arena/murallas.js';
 import {
   type CatalogoDeEquipo,
   catalogoDelFichero,
   type EquipoAtado,
-} from '../../src/core/hero/equipo.js';
+} from '../../src/core/equipo/atado.js';
+import {
+  COMENTARIO_DEL_CATALOGO_DE_EQUIPO,
+  type PiezaEscrita,
+  RUTA_DEL_CATALOGO_DE_EQUIPO,
+} from '../../src/core/equipo/pieza.js';
+import {
+  type CuerpoDeTodoHeroe,
+  combateDelHeroe,
+  RUTA_DEL_HEROE,
+} from '../../src/core/hero/cuerpo-del-heroe.js';
 import { catalogoDeHechizos } from '../../src/core/magia/catalogo.js';
 import {
   COMENTARIO_DE_LOS_HECHIZOS,
@@ -51,7 +53,7 @@ import {
   type UnidadSinValidar,
   validarCatalogo,
   validarHojas,
-} from '../../src/core/unidad.js';
+} from '../../src/core/unidad/formato.js';
 import { type AEscribir, comentarioDe, escribirAtomico, jsonDe } from '../json.js';
 import { direccionesDe } from '../taller/arte-en-disco.js';
 import { HEROES, juegoDelYBot, perfilDeUnidad, UNIDADES } from '../taller/unidades.js';

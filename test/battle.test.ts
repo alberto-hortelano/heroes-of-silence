@@ -1,32 +1,26 @@
 import { describe, expect, it, vi } from 'vitest';
-import { marcadoDe } from '../src/client/html.js';
-import { Session } from '../src/client/session.js';
-import { renderSide } from '../src/client/views/panels.js';
+import { marcadoDe } from '../src/client/comun/html.js';
+import { renderSide } from '../src/client/partida/paneles.js';
+import { Session } from '../src/client/sesion/partida.js';
 import { completarCruce } from '../src/core/ai/rueda.js';
 import { chooseBattleAction, chooseBattleActionAndCosts } from '../src/core/ai/tactics.js';
 import { armaduraDe } from '../src/core/battle/armas.js';
+import { applyAction } from '../src/core/battle/battle.js';
+import * as board from '../src/core/battle/board.js';
+import { CARGA } from '../src/core/battle/carga.js';
 import {
   activeStack,
-  applyAction,
-  armyMorale,
-  ataqueBlocker,
-  type BattleSide,
   cargaDesde,
   casillasDeCarga,
-  createBattle,
   enemiesOf,
   firmaDelTurno,
   isAlive,
-  legalActions,
-  legalActionsAndCosts,
   movableFrom,
   movableHexes,
   stackById,
   stackHexes,
   stackSpeed,
-} from '../src/core/battle/battle.js';
-import * as board from '../src/core/battle/board.js';
-import { CARGA } from '../src/core/battle/carga.js';
+} from '../src/core/battle/consultas.js';
 import {
   computeDamage,
   damageMultiplier,
@@ -35,6 +29,8 @@ import {
   stackHp,
 } from '../src/core/battle/damage.js';
 import { applyEffect, effectTotal, tickEffects } from '../src/core/battle/effects.js';
+import { ataqueBlocker, legalActions, legalActionsAndCosts } from '../src/core/battle/legalidad.js';
+import { armyMorale, type BattleSide, createBattle } from '../src/core/battle/montaje.js';
 import type {
   BattleAction,
   BattleEvent,
@@ -44,32 +40,34 @@ import type {
   Side,
   TurnoDeUnidad,
 } from '../src/core/battle/types.js';
-import { HERO_BODY } from '../src/core/battle/types.js';
-import { unidadDelJuego } from '../src/core/catalogo.js';
+import { HERO_BODY, MAX_ROUNDS } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { umbral } from '../src/core/hero/experiencia.js';
 import { heroUnit } from '../src/core/hero/hero.js';
+import { umbral } from '../src/core/hero/rango.js';
 import type { Rng } from '../src/core/rng.js';
 import { createRng } from '../src/core/rng.js';
 import type { CreatureTrait, Hex, Stack, UnitInfo } from '../src/core/types.js';
+import { unidadDelJuego } from '../src/core/unidad/catalogo.js';
 import {
+  aCiegas,
   agresiva,
   aMano,
   conCifrasAMano,
-  FACCION_B,
   forzarTurno,
-  JINETE,
-  monstruoVivo,
   muralla,
-  NO_MUERTO,
   NORMAL,
+} from './batalla-de-prueba.js';
+import {
+  FACCION_B,
+  JINETE,
+  NO_MUERTO,
   PESADA,
-  simular,
   TIRADOR,
   TIRADOR_NO_MUERTO,
   TROPA,
   TROPA_BARATA,
-} from './helpers.js';
+} from './comun.js';
+import { monstruoVivo } from './partida-de-prueba.js';
 
 /**
  * `alcanceConCostes` y `reachable` son el recorrido del tablero: el primero paga
@@ -1479,3 +1477,59 @@ describe('despliegue de una tropa de individuos', () => {
     expect(state.finished).not.toBeNull();
   });
 });
+
+/**
+ * Juega un duelo 1 contra 1 entero con la IA de reglas decidiendo por los dos
+ * lados, en (3,4) contra (7,4), que los deja a tiro en la primera ronda (las
+ * casillas de salida de `CharacterTrial`, de la rama de archivo `gpt-rpg`).
+ *
+ * El bucle es a mano y no `autoResolve` a propósito: así se ve que
+ * `chooseBattleAction` decide por los DOS bandos, y el cierre por tope se
+ * distingue del cierre por muerte. Si salta cualquiera de los dos topes, lanza
+ * diciendo cuál: el de `MAX_ROUNDS` y el de acciones, porque un bucle de acciones
+ * que no avanza de ronda también se colgaría.
+ */
+function dueloEntero(atacante: BattleSide, defensor: BattleSide, semilla: number): BattleState {
+  const rng = createRng(semilla);
+  const batalla = createBattle(atacante, defensor, rng, COMBATE_COMPLETO);
+  batalla.stacks[0]!.hex = { col: 3, row: 4 };
+  batalla.stacks[1]!.hex = { col: 7, row: 4 };
+  for (let acciones = 0; batalla.finished === null; acciones++) {
+    if (acciones > 1000) {
+      throw new Error(`el duelo no termina: 1000 acciones y va por la ronda ${batalla.round}`);
+    }
+    aCiegas(batalla, chooseBattleAction(batalla), rng);
+  }
+  if (batalla.round > MAX_ROUNDS) throw new Error('el duelo se cerró por el tope de rondas');
+  return batalla;
+}
+
+const solo = (creature: string): BattleSide => ({
+  army: [{ creature, count: 1 }],
+  hero: null,
+});
+
+describe('duelo de individuos con el motor del núcleo', () => {
+  it('un duelo 1 contra 1 se juega entero con la IA de reglas', () => {
+    const batalla = dueloEntero(solo('templario-mandoble'), solo('zombi'), 91);
+    // Uno de los dos cae: `dueloEntero` ya lanzó si se cerró por tope.
+    const vivos = batalla.stacks.filter((s) => s.count > 0);
+    expect(vivos).toHaveLength(1);
+    expect(vivos[0]!.side).toBe(batalla.finished!.winner);
+    // Hubo golpes de verdad y no solo esperas.
+    expect(batalla.log.some((e) => e.kind === 'attack')).toBe(true);
+  });
+});
+
+/**
+ * Juega la batalla hasta el final (o hasta `maxTurnos`), con la rueda a ciegas
+ * (`aCiegas`). Devuelve los turnos usados.
+ */
+function simular(state: BattleState, rng: Rng, maxTurnos = 3000): number {
+  let n = 0;
+  while (state.finished === null && n < maxTurnos) {
+    aCiegas(state, agresiva(state), rng);
+    n++;
+  }
+  return n;
+}

@@ -12,14 +12,13 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { derivarEfecto, derivarPieza, rutaDelJson } from '../tools/taller/derivar.js';
+import { derivarPieza, rutaDelJson } from '../tools/taller/derivar.js';
 import { puestoDerivado } from '../tools/taller/mapa.js';
 import { muroDerivado } from '../tools/taller/muros.js';
 import { puenteDerivado } from '../tools/taller/paredes-puentes.js';
-import { sha256 } from './helpers.js';
+import { RAIZ, sha256 } from './comun.js';
 import { segunPrisa } from './lento.js';
 
-const RAIZ = join(import.meta.dirname, '..');
 const UNIDADES = join(RAIZ, 'assets/unidades');
 
 const hojas = existsSync(UNIDADES)
@@ -40,16 +39,6 @@ const muestras = existsSync(join(MAPA, 'muestras'))
   ? readdirSync(join(MAPA, 'muestras'))
       .filter((f) => f.endsWith('.webp'))
       .map((f) => join(MAPA, 'muestras', f))
-  : [];
-
-/** Los edificios de ciudad, por facción: se colocan por su base, como las piezas del mapa. */
-const EDIFICIOS = join(RAIZ, 'assets/edificios');
-const edificios = existsSync(EDIFICIOS)
-  ? readdirSync(EDIFICIOS).flatMap((f) =>
-      readdirSync(join(EDIFICIOS, f))
-        .filter((x) => x.endsWith('.webp'))
-        .map((x) => join(EDIFICIOS, f, x)),
-    )
   : [];
 
 /**
@@ -100,8 +89,9 @@ const esPuesto = (p: string): boolean => /\/puesto-[^/]+\.webp$/.test(p);
 
 /**
  * Las que se vuelven a derivar en `pnpm verify`: la primera pieza suelta, el
- * primer puente, el primer tramo de norte a sur, la primera obra del puesto y el
- * primer edificio, que son las cinco cuentas distintas (#167). Derivarlas todas eran ~100 imágenes y
+ * primer puente, el primer tramo de norte a sur y la primera obra del puesto, que
+ * son las cuatro cuentas distintas (#167; el edificio, la quinta, se retiró con
+ * los edificios del 02-10 el 06-11-2026). Derivarlas todas eran ~100 imágenes y
  * 10 s con la máquina cargada; eso queda en `pnpm verify:lento`. El sha256 del
  * JSON, que caza la imagen sustituida sin volver a derivar, lo miran todas en
  * las dos.
@@ -113,18 +103,17 @@ const derivadas = new Set(
       piezas.find(esPuente),
       piezas.find(esMuroNorteSur),
       piezas.find(esPuesto),
-      edificios[0],
     ].filter((p) => p !== undefined),
-    [...piezas, ...edificios],
+    piezas,
   ),
 );
 
 describe('las piezas del mapa', () => {
-  it('el bucle rápido deriva una de cada cuenta: pieza suelta, puente, tramo de norte a sur, obra del puesto y edificio', () => {
-    expect(derivadas.size).toBe(segunPrisa(5, piezas.length + edificios.length));
+  it('el bucle rápido deriva una de cada cuenta: pieza suelta, puente, tramo de norte a sur y obra del puesto', () => {
+    expect(derivadas.size).toBe(segunPrisa(4, piezas.length));
   });
 
-  it.each([...piezas, ...edificios])('%s: el JSON es lo que mide la imagen', async (p) => {
+  it.each(piezas)('%s: el JSON es lo que mide la imagen', async (p) => {
     const json = leer(rutaDelJson(p));
     expect(json.sha256, 'la imagen cambió sin volver a derivar su JSON').toBe(sha256(p));
     if (!derivadas.has(p)) return;
@@ -138,7 +127,7 @@ describe('las piezas del mapa', () => {
     expect(json).toEqual(JSON.parse(JSON.stringify(esperado)));
   });
 
-  it.each([...piezas, ...muestras, ...edificios])('%s: lleva su procedencia', (p) => {
+  it.each([...piezas, ...muestras])('%s: lleva su procedencia', (p) => {
     const pr = leer(p.replace(/\.webp$/, '.procedencia.json'));
     expect(pr.salida.sha256, 'la imagen cambió sin registrar de dónde sale').toBe(sha256(p));
     expect(pr.hilo).toMatch(/^[0-9a-f-]{36}$/);
@@ -157,42 +146,4 @@ describe('los ids de las hojas son los del catálogo', () => {
     );
     expect([...enDisco].sort()).toEqual([...enDoc].sort());
   });
-});
-
-describe('los efectos de batalla', () => {
-  const EF = join(RAIZ, 'assets/efectos');
-  const de = (dir: string): string[] =>
-    existsSync(dir)
-      ? readdirSync(dir)
-          .filter((f) => f.endsWith('.webp'))
-          .map((f) => join(dir, f))
-      : [];
-  const animados = de(join(EF, 'animados'));
-  const quietos = de(EF);
-
-  it.each(animados)('%s: el JSON es lo que mide la tira', async (p) => {
-    expect(leer(rutaDelJson(p))).toEqual(JSON.parse(JSON.stringify(await derivarEfecto(p))));
-  });
-
-  it.each([...animados, ...quietos])('%s: lleva su procedencia', (p) => {
-    const pr = leer(p.replace(/\.webp$/, '.procedencia.json'));
-    expect(pr.salida.sha256, 'la imagen cambió sin registrar de dónde sale').toBe(sha256(p));
-    expect(pr.hilo).toMatch(/^[0-9a-f-]{36}$/);
-  });
-
-  // Cada lámina de iconos apunta el sha256 de los ficheros que salieron de ella.
-  for (const indice of [
-    join(EF, 'iconos/iconos.json'),
-    join(RAIZ, 'assets/iconos/recursos/recursos.json'),
-  ]) {
-    it.runIf(existsSync(indice))(`${indice}: cada icono es el que apuntó su lámina`, () => {
-      const dir = join(indice, '..');
-      const d = leer(indice);
-      for (const ic of d.iconos) expect(sha256(join(dir, ic.imagen)), ic.nombre).toBe(ic.sha256);
-      const lamina = join(dir, d.lamina);
-      expect(leer(lamina.replace(/\.webp$/, '.procedencia.json')).salida.sha256).toBe(
-        sha256(lamina),
-      );
-    });
-  }
 });

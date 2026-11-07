@@ -14,19 +14,17 @@
  */
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
-import {
-  ALTO_DE_LO_ALTO,
-  acantiladosLisos,
-  casillasDeLaHuella,
-  type Sprite,
-} from '../src/client/render/escenario/colocar.js';
+import { acantiladosLisos } from '../src/client/render/escenario/colocar/relieve.js';
+import { casillasDeLaHuella } from '../src/client/render/escenario/colocar/sendas-y-murallas.js';
+import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
+import { ALTO_DE_LO_ALTO } from '../src/client/render/escenario/colocar/tablas.js';
 import { recintoDeLaCiudad } from '../src/core/map/recinto.js';
 import type { TerrainKind } from '../src/core/map/terrain.js';
-import { partidaDe } from './helpers.js';
-import { itLento, rango } from './lento.js';
+import { partidaDe } from './escena-de-prueba.js';
+import { conRespiro, itLento, rango } from './lento.js';
 
 /** Un sprite de clase `clase` y `alto` con el pie en `(x, y)`. */
-const pieza = (clase: Sprite['clase'], x: number, y: number, alto: number) => ({
+const piezaSinArte = (clase: Sprite['clase'], x: number, y: number, alto: number) => ({
   clase,
   x,
   y,
@@ -39,20 +37,20 @@ describe('acantiladosLisos: el guardia muerde', () => {
   const nada = () => false;
 
   it('una casilla de acantilado sin roca ni masa de ALTO_DE_LO_ALTO cuenta', () => {
-    const roca = pieza('roca', 0.5, 0.6, ALTO_DE_LO_ALTO);
+    const roca = piezaSinArte('roca', 0.5, 0.6, ALTO_DE_LO_ALTO);
     expect(acantiladosLisos([roca], terreno, 3, nada)).toEqual([1]);
   });
 
   it('la cubierta, por alta que sea, o la roca baja no la marcan como barrera', () => {
     const sprites = [
-      pieza('cubierta', 0.5, 0.6, 0.9),
-      pieza('roca', 1.5, 0.6, ALTO_DE_LO_ALTO - 0.01),
+      piezaSinArte('cubierta', 0.5, 0.6, 0.9),
+      piezaSinArte('roca', 1.5, 0.6, ALTO_DE_LO_ALTO - 0.01),
     ];
     expect(acantiladosLisos(sprites, terreno, 3, nada)).toEqual([0, 1]);
   });
 
   it('una masa la marca, y lo que se pisa nunca cuenta', () => {
-    const sprites = [pieza('masa', 0.5, 0.6, 0.8), pieza('roca', 1.2, 0.9, 0.5)];
+    const sprites = [piezaSinArte('masa', 0.5, 0.6, 0.8), piezaSinArte('roca', 1.2, 0.9, 0.5)];
     expect(acantiladosLisos(sprites, terreno, 3, nada)).toEqual([]);
     expect(acantiladosLisos([], ['grass', 'grass', 'grass'], 3, nada)).toEqual([]);
   });
@@ -63,7 +61,7 @@ describe('acantiladosLisos: el guardia muerde', () => {
 });
 
 /** Las casillas de la huella de ciudades, pueblos y nodos (`casillasDeLaHuella`, la de `componer`). */
-function huellaDeLosObjetos(semilla: number): Set<number> {
+function huellaDeLosObjetosYSusPuentes(semilla: number): Set<number> {
   const { map } = partidaDe(semilla);
   const W = map.width;
   const a = analizar(map);
@@ -104,7 +102,7 @@ function masAcantiladoEn3x3(
 /** Los lisos de la semilla, contados desde fuera con el mismo guardia y la huella derivada aquí. */
 function lisosDe(semilla: number): number[] {
   const { map, escena: e } = partidaDe(semilla);
-  const huella = huellaDeLosObjetos(semilla);
+  const huella = huellaDeLosObjetosYSusPuentes(semilla);
   return acantiladosLisos(e.sprites, map.terrain, e.W, (i) => huella.has(i));
 }
 
@@ -152,7 +150,7 @@ describe('en los mapas reales', () => {
     // las ciudades en mitad de su región (05-11-2026), s28 y s12 (114 y 98).
     for (const semilla of [28, 12] as const) {
       const { map, escena: e } = partidaDe(semilla);
-      const huella = huellaDeLosObjetos(semilla);
+      const huella = huellaDeLosObjetosYSusPuentes(semilla);
       const [x0, y0] = masAcantiladoEn3x3(map.terrain, e.W, e.H);
       const [x1, y1] = [x0 + 2, y0 + 2];
       const casillas = rango(y0, y1).flatMap((y) =>
@@ -182,7 +180,9 @@ describe('en los mapas reales', () => {
     // continuo (#144), que dejó la 52 sin él; la 28 desde las puertas de las
     // ciudades (fase 2), la de más acantilado de 1-60.
     const { map, escena: e } = partidaDe(28);
-    const i = map.terrain.findIndex((t, k) => t === 'cliff' && !huellaDeLosObjetos(28).has(k));
+    const i = map.terrain.findIndex(
+      (t, k) => t === 'cliff' && !huellaDeLosObjetosYSusPuentes(28).has(k),
+    );
     expect(i).toBeGreaterThanOrEqual(0);
     const sin = e.sprites.filter(
       (s) => Math.floor(s.y) * e.W + Math.floor(s.x) !== i || s.clase === 'cubierta',
@@ -190,11 +190,12 @@ describe('en los mapas reales', () => {
     expect(acantiladosLisos(sin, map.terrain, e.W, () => false)).toContain(i);
   });
 
-  itLento(`1-40: no más de ${TECHO_EN_1_40} casillas de acantilado lisas en total`, () => {
-    const total = rango(1, 40).reduce((n, s) => {
+  itLento(`1-40: no más de ${TECHO_EN_1_40} casillas de acantilado lisas en total`, async () => {
+    let total = 0;
+    for await (const s of conRespiro(rango(1, 40))) {
       expect(partidaDe(s).escena.informe.acantiladosLisos).toBe(lisosDe(s).length);
-      return n + lisosDe(s).length;
-    }, 0);
+      total += lisosDe(s).length;
+    }
     expect(total).toBeLessThanOrEqual(TECHO_EN_1_40);
   });
 });

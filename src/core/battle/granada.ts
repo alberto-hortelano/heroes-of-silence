@@ -3,7 +3,7 @@
  * gustaria evitar meter un factor aleatorio»): lo que no depende del estado de la
  * batalla —su alcance y qué casillas alcanza su explosión, cada una con el cuarto de
  * la horquilla en que cae su tirada—. A quién da y cuánto lo dice `explosionDe`
- * (`battle.ts`), la única regla que leen la explosión, la previsión, la IA y el
+ * (`a-distancia.ts`), la única regla que leen la explosión, la previsión, la IA y el
  * tablero. Las cifras, inventadas, en `data/granada.json`, que importa solo este
  * módulo.
  */

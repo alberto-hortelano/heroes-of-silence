@@ -18,7 +18,7 @@ import { randomInt } from 'node:crypto';
 import { appendFileSync, closeSync, mkdirSync, openSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { type Progreso, terminada } from '../../src/client/desarrollo/progreso.js';
-import { tipoDeHeroePorDefecto } from '../../src/core/data.js';
+import { tipoDeHeroePorDefecto } from '../../src/core/hero/tipos-de-heroe.js';
 import { idDeMundoBlocker } from '../../src/core/mundo/formato.js';
 import { type PedidoDelMenu, pedidoBlocker } from '../../src/core/mundo/partida.js';
 import { parseSeed } from '../../src/core/rng.js';
@@ -371,8 +371,9 @@ export function argumentosDelMotor(id: string): string[] {
     // necesita está en la lectura, el ejemplo y la skill.
     '--allowedTools',
     ['Read', ...escribe, `Bash(pnpm mundo validar ${id})`].join(' '),
-    // Sin el MCP «heroes» de `.mcp.json` (el del agente que juega) y sin el hook
-    // `Stop` del repo, que correría `pnpm verify` al acabar.
+    // Sin el MCP «heroes» de `.mcp.json` (el del agente que juega) y sin hooks: el
+    // `Stop` del repo, que corría `pnpm verify` al acabar, se retiró el 25-10-2026,
+    // y el que se añada tampoco tiene que correr aquí.
     '--strict-mcp-config',
     '--settings',
     '{"disableAllHooks":true}',

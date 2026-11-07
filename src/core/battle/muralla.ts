@@ -20,13 +20,14 @@
  *   batalla y no aquí): **cerrada no la cruza nadie que ande**, ni el defensor,
  *   y corta el tiro del suelo; **abierta la cruza cualquiera** y no tapa. La abre
  *   o la cierra quien defiende al principio del turno de una de sus unidades
- *   (`puertaBlocker`, en `battle.ts`). Decisión del usuario (ampliación 3): «si
+ *   (`puertaBlocker`, en `asalto.ts`). Decisión del usuario (ampliación 3): «si
  *   está abierta puede pasar cualquiera y si está cerrada no pasa nadie, es más
  *   realista». Empieza cerrada.
  *
  * Quién está arriba se deriva del hex (`nivelDe`): no hay campo que se pueda
  * quedar viejo. Lo que cambia con el nivel —el cuerpo a cuerpo, la línea de
- * tiro, la defensa del tirador— lo aplica `battle.ts` preguntando aquí.
+ * tiro, la defensa del tirador— lo aplican el motor y sus piezas (`consultas.ts`,
+ * `a-distancia.ts`, `golpe.ts`) preguntando aquí.
  *
  * Viaja con el estado tal cual —listas de hexes, sin `Set`—, así que cruza el
  * cable del espectador y un `structuredClone` sin perder nada. Los conjuntos se
@@ -35,15 +36,17 @@
  * una o dos puertas son dos o cuatro, y una caché por muralla sola se quedaría
  * vieja al abrir.
  */
-import { LIDERAZGO, MURALLA } from '../data.js';
+import murallaJson from '../../../data/muralla.json' with { type: 'json' };
+import { LIDERAZGO } from '../hero/liderazgo.js';
 import type { Hex } from '../types.js';
-import { deLaListaBlocker, problemasDeObjeto } from '../validar.js';
+import { deLaListaBlocker, esObjeto, problemasDeObjeto } from '../validar.js';
 import { isShooter } from './armas.js';
 import {
   allHexes,
   BOARD_SIZE,
   bandoDeSalida,
   codigoDeLado,
+  distanciasDesde,
   FORMA_DEL_TABLERO,
   hexKey,
   indiceDe,
@@ -53,38 +56,21 @@ import {
   reachable,
 } from './board.js';
 import { salidaDe } from './salida.js';
-import { type BattleStack, type BattleState, SIDES, type Side } from './types.js';
-
-/**
- * Una puerta: el lado que comparten `a` y `b`, dos casillas de suelo de la misma
- * fila, `b` justo al este de `a`. No ocupa ninguna de las dos.
- */
-export interface PuertaDeMuralla {
-  readonly a: Hex;
-  readonly b: Hex;
-}
-
-/**
- * De qué está hecha una muralla: la **piedra** de las ciudades y la **madera** de la
- * empalizada de los pueblos (puesto fronterizo, fase 2, 04-11-2026). Solo cambia
- * cómo se pinta y lo que se dice: las reglas del muro son las mismas (el bono de lo
- * alto, el de la arena para los dos: pregunta 5 del plan).
- */
-export type MaterialDeMuralla = (typeof MATERIALES_DE_MURALLA)[number];
-
-/** Los materiales, en el orden en que se dicen: la lista de la que sale el tipo. */
-export const MATERIALES_DE_MURALLA = ['piedra', 'madera'] as const;
+import {
+  type BattleStack,
+  type BattleState,
+  type EstadoDePuerta,
+  MATERIALES_DE_MURALLA,
+  type MaterialDeMuralla,
+  type MurallaDeBatalla,
+  type PuertaDeMuralla,
+  SIDES,
+  type Side,
+} from './types.js';
 
 /** ¿Es `x` un material de muralla? */
 export function esMaterialDeMuralla(x: unknown): x is MaterialDeMuralla {
   return MATERIALES_DE_MURALLA.includes(x as MaterialDeMuralla);
-}
-
-export interface MurallaDeBatalla {
-  readonly muros: readonly Hex[];
-  readonly puertas: readonly PuertaDeMuralla[];
-  /** De qué está hecha (`MaterialDeMuralla`): obligatorio, también en la arena (piedra). */
-  readonly material: MaterialDeMuralla;
 }
 
 /**
@@ -111,18 +97,6 @@ export function murallaVacia(material: MaterialDeMuralla): MurallaDeBatalla {
 /** Lo que pone el editor de la arena: muros en casillas, puertas entre dos. */
 export type PiezaDeMuralla = 'muro' | 'puerta';
 
-/**
- * Una puerta de la muralla en una batalla: abierta o cerrada, y el turno
- * (`TurnoDeUnidad.n`) en que se cambió por última vez, porque cada puerta se
- * cambia una vez por turno de unidad. Vive en `BattleState.puertas`, en el orden
- * de `MurallaDeBatalla.puertas`: la muralla está congelada y se guarda en cachés
- * por objeto, y esto cambia.
- */
-export interface EstadoDePuerta extends PuertaDeMuralla {
-  abierta: boolean;
-  cambiadaEn: number | null;
-}
-
 /** Las puertas de `m` como empieza la batalla: todas cerradas (decisión del usuario). */
 export function puertasAlEmpezar(m: MurallaDeBatalla): EstadoDePuerta[] {
   return m.puertas.map(({ a, b }) => ({ a, b, abierta: false, cambiadaEn: null }));
@@ -146,13 +120,6 @@ export function puertaAbierta(puertas: readonly EstadoDePuerta[], p: PuertaDeMur
 /** ¿Hay algo? Es lo que decide si se paga la regla o se va por el camino de siempre. */
 export function hayMuralla(m: MurallaDeBatalla): boolean {
   return m.muros.length > 0 || m.puertas.length > 0;
-}
-
-/** Las puertas que tocan la casilla `h`, por un lado o por el otro (el editor). */
-export function puertasDe(m: MurallaDeBatalla, h: Hex): PuertaDeMuralla[] {
-  return m.puertas.filter(
-    (p) => (p.a.col === h.col && p.a.row === h.row) || (p.b.col === h.col && p.b.row === h.row),
-  );
 }
 
 /**
@@ -484,6 +451,11 @@ function conjuntosDe(m: MurallaDeBatalla): Conjuntos {
  * pisar muro ni cruzar ninguna puerta (todas cerradas, `cortes`), de la salida
  * del atacante que de la del defensor. Y si la forma cierra: si desde la salida
  * del defensor no se llega a la del atacante.
+ *
+ * Las distancias andando son las del tablero (`distanciasDesde`, `board.ts`), desde
+ * la salida de cada bando sin sus muros: llevaba su copia del BFS hasta la fase N de
+ * la reorganización (07-11-2026). Un BFS da distancias y no caminos, así que el orden
+ * de las vecinas no cuenta.
  */
 function dentroYFuera(
   muros: ReadonlySet<string>,
@@ -492,47 +464,27 @@ function dentroYFuera(
   fuera: Uint8Array;
   cierra: boolean;
 } {
-  const alDefensor = distanciasDesde('defender', muros, cortes);
-  const alAtacante = distanciasDesde('attacker', muros, cortes);
+  // El tablero busca hacia atrás: pregunta por el paso de quien está en `n` y
+  // anda a `h`, y la copia de antes cortaba el lado de `h` a `n` (las puertas
+  // cortan los dos, `ladosDe`, pero así es el mismo paso que antes).
+  const paso = (n: number, h: number): boolean => !cortes.has(codigoDeLado(h, n));
+  const desdeLaSalida = (side: Side) =>
+    distanciasDesde(
+      allHexes().filter((h) => bandoDeSalida(h) === side && !muros.has(hexKey(h))),
+      muros,
+      paso,
+    );
+  const alDefensor = desdeLaSalida('defender');
+  const alAtacante = desdeLaSalida('attacker');
   const fuera = new Uint8Array(BOARD_SIZE);
   let cierra = true;
   for (const [i, hex] of allHexes().entries()) {
     if (muros.has(hexKey(hex))) continue;
     // Sin llegar, la distancia es `Infinity`: un empate o un hueco cerrado es dentro.
-    if ((alAtacante[i] as number) < (alDefensor[i] as number)) fuera[i] = 1;
-    if (bandoDeSalida(hex) === 'attacker' && alDefensor[i] !== Infinity) cierra = false;
+    if (alAtacante(hex) < alDefensor(hex)) fuera[i] = 1;
+    if (bandoDeSalida(hex) === 'attacker' && alDefensor(hex) !== Infinity) cierra = false;
   }
   return { fuera, cierra };
-}
-
-/** Los pasos andando de cada casilla a la salida de `side`, por índice; `Infinity` si no se llega. */
-function distanciasDesde(
-  side: Side,
-  muros: ReadonlySet<string>,
-  cortes: ReadonlySet<number>,
-): Float64Array {
-  const dist = new Float64Array(BOARD_SIZE).fill(Infinity);
-  let frente: Hex[] = [];
-  for (const [i, hex] of allHexes().entries()) {
-    if (bandoDeSalida(hex) !== side || muros.has(hexKey(hex))) continue;
-    dist[i] = 0;
-    frente.push(hex);
-  }
-  for (let d = 1; frente.length > 0; d++) {
-    const siguiente: Hex[] = [];
-    for (const h of frente) {
-      const desde = indiceDe(h);
-      for (const n of neighbours(h)) {
-        const i = indiceDe(n);
-        if (dist[i] !== Infinity || muros.has(hexKey(n)) || cortes.has(codigoDeLado(desde, i)))
-          continue;
-        dist[i] = d;
-        siguiente.push(n);
-      }
-    }
-    frente = siguiente;
-  }
-  return dist;
 }
 
 /**
@@ -603,10 +555,10 @@ const CAMPOS_DE_LA_MURALLA: readonly string[] = ['muros', 'puertas', 'material']
 const VALIDADAS = new WeakSet<MurallaDeBatalla>([SIN_MURALLA]);
 
 function puertaDeLaMuralla(p: unknown, n: number): PuertaDeMuralla {
-  if (typeof p !== 'object' || p === null || Array.isArray(p)) {
+  if (!esObjeto(p)) {
     throw new Error(`la muralla: la puerta ${n} no es un {a, b}`);
   }
-  const o = p as Record<string, unknown>;
+  const o = p;
   if ('col' in o || 'row' in o) {
     throw new Error(
       `la muralla: la puerta ${n} es una casilla, como antes; ahora una puerta va entre dos casillas vecinas en horizontal: {a, b}, con b al este de a`,
@@ -729,7 +681,7 @@ export interface PalabrasDeLaMuralla {
  * el volador, las puertas, el tiro y el bono del tirador en lo alto, con las
  * palabras de quien la lee (`PalabrasDeLaMuralla`). La leen la ayuda del editor de la
  * arena y el `_comment` de su borrador (`REGLA_DE_LA_MURALLA`) y la prosa del agente
- * (`agent.ts`): eran tres copias a mano, y dos ya se habían quedado diciendo la regla
+ * (`contract/formato.ts`): eran tres copias a mano, y dos ya se habían quedado diciendo la regla
  * del primer ciclo (QA de la muralla alta, I1). Lo que solo es de quien la lee —el
  * dentro y fuera del editor, los campos de `walls`— lo pone cada uno.
  */
@@ -746,3 +698,26 @@ export function reglaDeLaMuralla(p: PalabrasDeLaMuralla): string {
 function mayuscula(t: string): string {
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
+
+/**
+ * La muralla de la arena, de `data/muralla.json`. **Inventado y provisional**,
+ * como dice su `_comment`: en HoMM2 no hay tirador que se suba al muro.
+ */
+export interface ReglasDeLaMuralla {
+  /** Lo que suma a su defensa un tirador en lo alto de un muro (`effectiveDefense`). */
+  readonly defensaEnLoAlto: number;
+}
+
+/** Se edita a mano: una cifra que no es un entero ≥ 0 se dice al cargar, no en la batalla. */
+function defensaEnLoAlto(v: unknown): number {
+  if (!Number.isSafeInteger(v) || (v as number) < 0) {
+    throw new Error(
+      `data/muralla.json: defensaEnLoAlto tiene que ser un entero de 0 en adelante y es ${JSON.stringify(v)}`,
+    );
+  }
+  return v as number;
+}
+
+export const MURALLA: ReglasDeLaMuralla = {
+  defensaEnLoAlto: defensaEnLoAlto(murallaJson.defensaEnLoAlto),
+};

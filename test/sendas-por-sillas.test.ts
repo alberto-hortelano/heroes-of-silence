@@ -37,13 +37,15 @@
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
 import { relieve } from '../src/client/render/escenario/relieve.js';
-import { buildMap, generateMapPlan } from '../src/core/map/generate.js';
-import type { GameMap } from '../src/core/map/map.js';
+import { buildMap } from '../src/core/map/generar/construir.js';
+import { generateMapPlan } from '../src/core/map/generar/procedimental.js';
+import { pasoTorcido, soloPorUnVertice } from '../src/core/map/niveles.js';
 import { rioAnteLaCiudad } from '../src/core/map/recinto.js';
-import { pasoTorcido, soloPorUnVertice } from '../src/core/map/regiones.js';
-import { ABIERTA, abrirEsquinasTorcidas } from '../src/core/map/vestir.js';
+import type { GameMap } from '../src/core/map/tipos.js';
+import { ABIERTA } from '../src/core/map/vestir/base.js';
+import { abrirEsquinasTorcidas } from '../src/core/map/vestir/caminos.js';
 import { createRng } from '../src/core/rng.js';
-import { itLento, rango, segunPrisa } from './lento.js';
+import { conRespiro, itLento, rango, segunPrisa } from './lento.js';
 
 /** Los tramos torcidos de un mapa que no están fuera por regla, dichos. */
 function torcidasDe(map: GameMap): string[] {
@@ -247,13 +249,13 @@ describe('las sendas del procedimental no pasan por una silla ni bajan torcidas 
     expect(torcidasDe(mapaDe(semilla))).toEqual([]);
   });
 
-  itLento('en 1-200, las bajadas a una ciudad por un vértice son las que quedan', () => {
+  itLento('en 1-200, las bajadas a una ciudad por un vértice son las que quedan', async () => {
     // Medido el 09-10-2026: 570 en diagonal y 89 por la esquina de la meseta
     // (eran 905 y 37 con el vestido de antes: las que se enderezan quedan a veces
     // en cruz por la esquina). Es una medida: si sube mucho,
     // algo dejó de cobrarse al trazar o de abrirse al vestir.
     let ciudad = 0;
-    for (const s of rango(1, 200)) {
+    for await (const s of conRespiro(rango(1, 200))) {
       const map = mapaDe(s);
       const W = map.width;
       const { nivel } = relieve(analizar(map));

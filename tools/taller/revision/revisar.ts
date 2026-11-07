@@ -16,7 +16,7 @@ import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { z } from 'zod';
-import { CARPETA_DE_LAS_FIGURAS } from '../../../src/core/npcs.js';
+import { CARPETA_DE_LAS_FIGURAS } from '../../../src/core/gente/banco.js';
 import { HOJAS_DE_FIGURA, NOMBRES_DE_DIRECCION } from '../../../src/shared/arte.js';
 import { carpetaDeManiqui } from '../../art/poses.js';
 import { juzgarConCodex } from '../codex.js';

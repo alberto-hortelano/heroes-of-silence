@@ -6,20 +6,23 @@
  * reglas (`ai/lugares.ts`, que elige la primera que vale).
  *
  * Aplicar los efectos no vive aquí: escribe la crónica, y el único que escribe
- * en ella es `emit`, privado de `game.ts`. Este módulo solo pregunta. De
- * `game.ts` lee el turno y el dueño (`turnBlocker`, `playerById`) solo dentro de
- * sus funciones: `game.ts` lo importa a él, y el ciclo no se toca al cargar.
+ * en ella es `emit` (`state/cronica.ts`), que solo importan los módulos de la
+ * partida (los efectos, `state/lugares.ts`). Este módulo solo pregunta. El turno y
+ * el dueño los lee de `state/consultas.ts` (`turnBlocker`, `playerById`), que no lo
+ * importa a él.
  */
 
-import { unidadDelJuego } from '../catalogo.js';
 import { cupoDelHeroe } from '../combate.js';
-import { idsPuestos, piezaSiExiste } from '../hero/equipo.js';
-import type { Hero } from '../hero/hero.js';
+import { piezaSiExiste } from '../equipo/pieza.js';
+import { idsPuestos } from '../equipo/vestir.js';
 import { heroLeadership, troopBlocker, withTroops } from '../hero/troop.js';
-import { pointKey } from '../map/map.js';
-import { type GameState, playerById, turnBlocker } from '../state/game.js';
+import { pointKey } from '../map/geometria.js';
+import { playerById, turnBlocker } from '../state/consultas.js';
+import type { GameState } from '../state/tipos.js';
+import { conMiles, describirCoste } from '../texto.js';
 import { oroBlocker } from '../town/town.js';
-import { conMiles, describirCoste, NOMBRE_DE_FACCION, type Point } from '../types.js';
+import { type Hero, NOMBRE_DE_FACCION, type Point } from '../types.js';
+import { unidadDelJuego } from '../unidad/catalogo.js';
 import {
   batallaDe,
   type Cobro,

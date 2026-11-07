@@ -29,35 +29,29 @@ import WebSocket, { WebSocketServer } from 'ws';
 import { adaptarBatalla, adaptarEscena, sitiosDelCable } from '../src/client/espectador/adaptar.js';
 import { type Catalogo, RUTA_DEL_CATALOGO } from '../src/client/render/escenario/catalogo.js';
 import { componer } from '../src/client/render/escenario/colocar.js';
-import type { AdventureScene } from '../src/client/render/mapa.js';
+import type { AdventureScene } from '../src/client/render/mapa/mapa.js';
 import { completarCruce } from '../src/core/ai/rueda.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
-import { applyAction, createBattle, legalActions } from '../src/core/battle/battle.js';
+import { resolvePendingBattle } from '../src/core/ai/turn.js';
+import { applyAction } from '../src/core/battle/battle.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
+import { createBattle } from '../src/core/battle/montaje.js';
 import type { BattleEvent, BattleStack, BattleState } from '../src/core/battle/types.js';
-import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { figuraDelHeroe, tiposDeHeroe } from '../src/core/data.js';
-import { umbral } from '../src/core/hero/experiencia.js';
-import type { Hero } from '../src/core/hero/hero.js';
-import { aPunto, pointKey, reachableFrom } from '../src/core/map/map.js';
+import { umbral } from '../src/core/hero/rango.js';
+import { figuraDelHeroe, tiposDeHeroe } from '../src/core/hero/tipos-de-heroe.js';
+import { aPunto, pointKey } from '../src/core/map/geometria.js';
+import { reachableFrom } from '../src/core/map/map.js';
 import { isWalkable } from '../src/core/map/terrain.js';
 import { createRng } from '../src/core/rng.js';
-import { CHARACTER_BODY, createCharacter, defaultBuild } from '../src/core/rpg/character.js';
-import { combatProfile } from '../src/core/rpg/stats.js';
-import {
-  climaDeLaBatalla,
-  climaDeLaPartida,
-  climaDeLaRegion,
-  pedirClima,
-} from '../src/core/state/clima.js';
-import {
-  applyAdventureAction,
-  ascenderVeterano,
-  type GameState,
-  resolvePendingBattle,
-} from '../src/core/state/game.js';
+import { climaDeLaBatalla } from '../src/core/state/batallas.js';
+import { climaDeLaPartida, climaDeLaRegion, pedirClima } from '../src/core/state/clima.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
+import { ascenderVeterano } from '../src/core/state/heroes.js';
 import { newGame } from '../src/core/state/setup.js';
-import type { Point, UnitInfo } from '../src/core/types.js';
+import type { GameState } from '../src/core/state/tipos.js';
+import type { Hero, Point, UnitInfo } from '../src/core/types.js';
+import { unidadDelJuego, unidadesDelJuego } from '../src/core/unidad/catalogo.js';
 import { AgentLink } from '../src/server/agent-link.js';
 import { Director } from '../src/server/director.js';
 import {
@@ -66,15 +60,10 @@ import {
   type VistaHeroe,
 } from '../src/server/vista-espectador.js';
 import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
-import {
-  conCaminos,
-  costesDelAlcance,
-  forzarTurno,
-  monstruoVivo,
-  planConCiudadDeRegion,
-  sinGuarnicionDeSalida,
-  TROPA,
-} from './helpers.js';
+import { forzarTurno } from './batalla-de-prueba.js';
+import { RAIZ, TROPA } from './comun.js';
+import { conCaminos, costesDelAlcance, planConCiudadDeRegion } from './mapa-de-prueba.js';
+import { monstruoVivo, sinGuarnicionDeSalida } from './partida-de-prueba.js';
 
 const abiertos: (() => void)[] = [];
 afterEach(() => {
@@ -347,9 +336,7 @@ describe('adaptar: la vuelta del cable', () => {
     const vista: SpectatorView = JSON.parse(JSON.stringify(construirVista(state, [])));
     expect(vista.seed).toBe(7);
     const escena = adaptarEscena(vista);
-    const catalogo = JSON.parse(
-      readFileSync(join(import.meta.dirname, '..', RUTA_DEL_CATALOGO), 'utf8'),
-    ) as Catalogo;
+    const catalogo = JSON.parse(readFileSync(join(RAIZ, RUTA_DEL_CATALOGO), 'utf8')) as Catalogo;
     expect(JSON.stringify(componer(escena.map, vista.seed, catalogo))).toBe(
       JSON.stringify(componer(state.map, state.seed, catalogo)),
     );
@@ -668,7 +655,7 @@ describe('la batalla en la vista', () => {
     const batalla = state.pendingBattle!.battle;
     const ida: SpectatorView = JSON.parse(JSON.stringify(construirVista(state, [])));
     // El catálogo no viaja: las dos puntas ya lo tienen. El cuerpo del héroe
-    // (fase 1b) no está en el catálogo, así que viaja como el de un personaje.
+    // (fase 1b) no está en el catálogo, así que viaja con sus cifras.
     // Lo decide `origen`, y el origen tiene que decir la verdad: un novato del
     // catálogo lleva EXACTAMENTE la referencia del catálogo, y lo que no es del
     // catálogo no la lleva. (Un veterano del catálogo no la lleva tampoco —sus
@@ -789,28 +776,6 @@ describe('la batalla en la vista', () => {
     expect(vuelta.stacks[0]!.unit.attack).toBeGreaterThan(unidadDelJuego(TROPA).attack);
   });
 
-  it('un personaje viaja CON su `unit`, que no está en ninguna otra parte', () => {
-    const { state } = conBatalla();
-    const aren = createCharacter('aren', defaultBuild);
-    const batalla = createBattle(
-      {
-        army: [{ creature: CHARACTER_BODY, count: 1, member: aren.id }],
-        hero: null,
-        members: new Map([[aren.id, { profile: combatProfile(aren), hp: 20 }]]),
-      },
-      { army: [{ creature: 'zombi', count: 3 }], hero: null },
-      createRng(5),
-      COMBATE_COMPLETO,
-    );
-    state.pendingBattle = { ...state.pendingBattle!, battle: batalla };
-
-    const ida: SpectatorView = JSON.parse(JSON.stringify(construirVista(state, [])));
-    const [suyo, zombi] = ida.battle!.estado.stacks;
-    expect(suyo!.unit?.name).toBe('Aren');
-    expect(zombi!.unit).toBeUndefined();
-    expect(adaptarBatalla(ida.battle!)).toEqual(sinLoQueNoViaja(batalla));
-  });
-
   it('una unidad que no está en el catálogo y llega sin `unit` lanza, no se inventa', () => {
     const { state } = conBatalla();
     const vista = construirVista(state, []);
@@ -820,10 +785,10 @@ describe('la batalla en la vista', () => {
       ...vista.battle!,
       estado: {
         ...vista.battle!.estado,
-        stacks: [{ ...s, origen: { ...s.origen, unidad: CHARACTER_BODY } }],
+        stacks: [{ ...s, origen: { ...s.origen, unidad: 'no-existe' } }],
       },
     };
-    expect(() => adaptarBatalla(roto)).toThrow(/no hay ninguna unidad «character»/);
+    expect(() => adaptarBatalla(roto)).toThrow(/no hay ninguna unidad «no-existe»/);
   });
 
   it('y al acabarla vuelve a ser `null`, que es como el espectador cambia de escena', () => {

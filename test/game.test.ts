@@ -4,83 +4,67 @@ import {
   ordenDeConstruccion,
   stepTowards,
 } from '../src/core/ai/strategy.js';
-import { playAiGame, playAiTurn } from '../src/core/ai/turn.js';
-import { createBattle } from '../src/core/battle/battle.js';
+import { playAiGame, playAiTurn, resolvePendingBattle } from '../src/core/ai/turn.js';
+import { createBattle } from '../src/core/battle/montaje.js';
 import { queEs } from '../src/core/battle/types.js';
-import {
-  guarnicionDeBase,
-  guarnicionNeutral,
-  problemasDeGrupo,
-  unidadesDelJuego,
-  unidadesDeMorada,
-} from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { marchaDe } from '../src/core/cuerpo.js';
-import { crecimientoDelNivel, ECONOMIA, oroDelIndice } from '../src/core/data.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
+import { esDeGuerra } from '../src/core/equipo/manos.js';
 import { marchaALaEscala } from '../src/core/escala.js';
-import { EQUIPO_BASE, EQUIPO_DEL_JUEGO, esDeGuerra } from '../src/core/hero/equipo.js';
+import { EQUIPO_BASE } from '../src/core/hero/cuerpo-del-heroe.js';
 import {
   type GrupoQueMarcha,
-  type Hero,
   heroUnit,
   learnable,
   maxMana,
   maxMovePoints,
   slowestSpeed,
 } from '../src/core/hero/hero.js';
+import { umbral } from '../src/core/hero/rango.js';
 import { troopUnit } from '../src/core/hero/troop.js';
 import { hechizosDelGremio } from '../src/core/magia/catalogo.js';
-import { buildMap, generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';
+import { buildMap } from '../src/core/map/generar/construir.js';
+import { generateMapPlan } from '../src/core/map/generar/procedimental.js';
+import { validateMapPlan } from '../src/core/map/generar/validar.js';
+import { pointFromKey, pointKey } from '../src/core/map/geometria.js';
 import {
   blocksMovement,
+  costeEnElAlcance,
   createEmptyMap,
   findPath,
-  type MapObject,
   objectAt,
   pathFromReachable,
-  pointFromKey,
-  pointKey,
   reachableFrom,
-  stepCost,
 } from '../src/core/map/map.js';
 import { regionDescubierta, zonaDeNiebla } from '../src/core/map/niebla.js';
+import { estructura, regionDeCasilla } from '../src/core/map/regiones.js';
+import { isWalkable, ROAD_COST, TERRAIN_KINDS } from '../src/core/map/terrain.js';
 import {
   conectadoABase,
-  estructura,
   regionesQueCierra,
   regionOwner,
   territorio,
-} from '../src/core/map/regiones.js';
-import { isWalkable, ROAD_COST, TERRAIN_KINDS } from '../src/core/map/terrain.js';
-import { indiceDePoder, nivelDeUnidad } from '../src/core/nivel.js';
+} from '../src/core/map/territorio.js';
+import type { MapObject } from '../src/core/map/tipos.js';
 import { createRng, parseSeed } from '../src/core/rng.js';
 import {
-  CHARACTER_BODY,
-  type Character,
-  createCharacter,
-  defaultBuild,
-} from '../src/core/rpg/character.js';
-import { regionDeCasilla } from '../src/core/state/asaltantes.js';
-import { finDePartida } from '../src/core/state/desenlace.js';
-import {
-  alcanceDelHeroe,
-  applyAdventureAction,
   baseOf,
-  caminoHasta,
   currentPlayer,
   dayOfWeek,
-  type GameContext,
-  type GameState,
   heroById,
   heroesOf,
-  ordenDelDia,
-  resolvePendingBattle,
   townsOf,
   week,
-} from '../src/core/state/game.js';
+} from '../src/core/state/consultas.js';
+import { finDePartida } from '../src/core/state/desenlace.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
+import { alcanceDelHeroe, caminoHasta } from '../src/core/state/marcha.js';
 import { newGame } from '../src/core/state/setup.js';
-import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
+import { dueñoDeLaCiudad, guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
+import type { GameContext, GameState } from '../src/core/state/tipos.js';
+import { ordenDelDia } from '../src/core/state/turnos.js';
 import { building, buildingsOfFaction, nivelDeMorada } from '../src/core/town/buildings.js';
+import { crecimientoDelNivel, ECONOMIA, oroDelIndice } from '../src/core/town/economia.js';
 import {
   applyWeeklyGrowth,
   availableBuildings,
@@ -95,38 +79,45 @@ import {
   type Equipo,
   FACTION_IDS,
   type FactionId,
+  type Hero,
   type Point,
   SPEED_TO_MOVE_POINTS,
   type SpeedTier,
 } from '../src/core/types.js';
 import {
-  acabarPorLaBase,
-  conCaminos,
-  conSuEquipo,
-  costesDelAlcance,
-  darLaCiudad,
-  ejercito,
-  esPersonaje,
+  guarnicionDeBase,
+  guarnicionNeutral,
+  problemasDeGrupo,
+  unidadesDelJuego,
+  unidadesDeMorada,
+} from '../src/core/unidad/catalogo.js';
+import { marchaDe } from '../src/core/unidad/cuerpo.js';
+import { indiceDePoder, nivelDeUnidad } from '../src/core/unidad/nivel.js';
+import {
+  ctx,
   FACCION_A,
   FACCION_B,
+  JINETE,
+  NO_MUERTO,
+  PESADA,
+  TIRADOR,
+  TROPA_BARATA,
+} from './comun.js';
+import { conCaminos, costesDelAlcance, planDeNodos } from './mapa-de-prueba.js';
+import {
+  acabarPorLaBase,
+  conSuEquipo,
+  darLaCiudad,
+  ejercito,
   forzarBatalla,
   fueraDeSuBase,
   guarnecer,
-  guarnicionDeLaCiudad,
   hastaSuSiguienteTurno,
-  JINETE,
   monstruoVivo,
-  NO_MUERTO,
-  PESADA,
   pegadoA,
-  planDeNodos,
   ponerMonstruo,
   sinGuarnicionDeSalida,
-  TIRADOR,
-  TROPA_BARATA,
-} from './helpers.js';
-
-const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
+} from './partida-de-prueba.js';
 
 describe('maná', () => {
   it('es diez veces el conocimiento', () => {
@@ -162,10 +153,8 @@ function marchaDeSilla(): {
     if (montado <= aPie) continue;
     for (const u of unidadesDelJuego()) {
       if (u.equipo?.montura !== undefined) continue;
-      const conElla = rapidez(
-        marchaDe(troopUnit(conSuEquipo(u.id, { montura: silla.id }), undefined)),
-      );
-      const sinElla = rapidez(marchaDe(troopUnit({ creature: u.id }, undefined)));
+      const conElla = rapidez(marchaDe(troopUnit(conSuEquipo(u.id, { montura: silla.id }))));
+      const sinElla = rapidez(marchaDe(troopUnit({ creature: u.id })));
       if (conElla > sinElla && conElla > aPie) return { silla: silla.id, tropa: u.id, heroe };
     }
   }
@@ -173,7 +162,7 @@ function marchaDeSilla(): {
 }
 
 describe('la marcha del grupo: el más lento, el héroe incluido (26-10-2026)', () => {
-  const marchaDeTropa = (t: Hero['army'][number]) => marchaDe(troopUnit(t, undefined));
+  const marchaDeTropa = (t: Hero['army'][number]) => marchaDe(troopUnit(t));
   const marchaDelHeroe = (equipo: Equipo) =>
     marchaDe(heroUnit({ ...marchaDeSilla().heroe, equipo }));
 
@@ -185,24 +174,24 @@ describe('la marcha del grupo: el más lento, el héroe incluido (26-10-2026)', 
     const rapidez = (s: SpeedTier) => SPEED_TO_MOVE_POINTS[s];
 
     // La tropa a caballo y el héroe a pie: manda el héroe, que es el más lento.
-    const conElHeroeAPie = slowestSpeed({ ...heroe, army: montados, equipo: aPie }, undefined);
+    const conElHeroeAPie = slowestSpeed({ ...heroe, army: montados, equipo: aPie });
     expect(conElHeroeAPie).toBe(marchaDelHeroe(aPie));
     expect(rapidez(conElHeroeAPie)).toBeLessThan(rapidez(marchaDeTropa(montados[0]!)));
 
     // Todos a caballo: el más lento de los montados, más rápido que con el héroe a pie.
-    const todos = slowestSpeed({ ...heroe, army: montados, equipo: aCaballo }, undefined);
+    const todos = slowestSpeed({ ...heroe, army: montados, equipo: aCaballo });
     const delMasLento = [marchaDelHeroe(aCaballo), marchaDeTropa(montados[0]!)].sort(
       (a, b) => rapidez(a) - rapidez(b),
     )[0]!;
     expect(todos).toBe(delMasLento);
     expect(rapidez(todos)).toBeGreaterThan(rapidez(conElHeroeAPie));
-    expect(
-      maxMovePoints({ ...heroe, army: montados, equipo: aCaballo }, undefined),
-    ).toBeGreaterThan(maxMovePoints({ ...heroe, army: montados, equipo: aPie }, undefined));
+    expect(maxMovePoints({ ...heroe, army: montados, equipo: aCaballo })).toBeGreaterThan(
+      maxMovePoints({ ...heroe, army: montados, equipo: aPie }),
+    );
 
     // Uno de la tropa a pie: manda él, aunque el héroe y los demás vayan a caballo.
     const unoAPie = [...montados.slice(0, 2), { creature: tropa }];
-    const conUnoAPie = slowestSpeed({ ...heroe, army: unoAPie, equipo: aCaballo }, undefined);
+    const conUnoAPie = slowestSpeed({ ...heroe, army: unoAPie, equipo: aCaballo });
     expect(conUnoAPie).toBe(marchaDeTropa({ creature: tropa }));
     expect(rapidez(conUnoAPie)).toBeLessThan(rapidez(todos));
   });
@@ -224,13 +213,12 @@ describe('la marcha del grupo: el más lento, el héroe incluido (26-10-2026)', 
   it('Logística sube un 10 % por nivel lo que da el más lento, a la escala del mapa', () => {
     const { heroe, tropa } = marchaDeSilla();
     const grupo = { ...heroe, army: [{ creature: tropa }, { creature: tropa }] };
-    const sinLogistica = marchaALaEscala(SPEED_TO_MOVE_POINTS[slowestSpeed(grupo, undefined)]);
-    expect(maxMovePoints({ ...grupo, skills: {} }, undefined)).toBe(Math.round(sinLogistica));
+    const sinLogistica = marchaALaEscala(SPEED_TO_MOVE_POINTS[slowestSpeed(grupo)]);
+    expect(maxMovePoints({ ...grupo, skills: {} })).toBe(Math.round(sinLogistica));
     for (const nivel of [1, 2, 3] as const) {
-      expect(
-        maxMovePoints({ ...grupo, skills: { logistics: nivel } }, undefined),
-        `nivel ${nivel}`,
-      ).toBe(Math.round(sinLogistica * (1 + nivel / 10)));
+      expect(maxMovePoints({ ...grupo, skills: { logistics: nivel } }), `nivel ${nivel}`).toBe(
+        Math.round(sinLogistica * (1 + nivel / 10)),
+      );
     }
   });
 });
@@ -689,8 +677,10 @@ describe('movimiento de héroes', () => {
     // terreno más barato que el camino, o un modificador que reste — y sin
     // este test el héroe dejaría de dar su último paso EN SILENCIO.
     //
-    // Se mide llamando a `stepCost` y no leyendo la tabla: el coste real pasa
-    // por el camino, por el factor diagonal y por un redondeo.
+    // Se mide con el Dijkstra (`reachableFrom`, lo que se cobra) y no leyendo la
+    // tabla: el coste real pasa por el camino, por el factor diagonal y por un
+    // redondeo. En un mapa de 3 × 3 de un solo terreno, el paso directo es el más
+    // barato de los caminos que llegan a (1,1).
     let minimo = Number.POSITIVE_INFINITY;
     for (const terreno of TERRAIN_KINDS) {
       if (!isWalkable(terreno)) continue;
@@ -702,7 +692,8 @@ describe('movimiento de héroes', () => {
           { x: 0, y: 1 },
           { x: 0, y: 0 },
         ]) {
-          minimo = Math.min(minimo, stepCost(map, desde, { x: 1, y: 1 }));
+          const coste = costeEnElAlcance(reachableFrom(map, desde), { x: 1, y: 1 });
+          minimo = Math.min(minimo, coste ?? Number.POSITIVE_INFINITY);
         }
       }
     }
@@ -1446,81 +1437,6 @@ describe('el maná es un recurso (#4)', () => {
   });
 });
 
-describe('los personajes y sus heridas', () => {
-  /**
-   * Un guerrero de 34 PV en el primer slot del héroe, dado de alta en la partida,
-   * con una espada: sin arma no se combate (la rueda va con la del arma,
-   * 19-10-2026), y un personaje no lleva equipo de serie.
-   */
-  function alistar(state: GameState, hero: Hero, id = 'aren'): Character {
-    const c = createCharacter(id, { ...defaultBuild, profession: 'Guerrero' });
-    state.characters = { ...(state.characters ?? {}), [id]: c };
-    const veterania = {
-      id: `v-${id}`,
-      experiencia: 0,
-      batallas: 0,
-      bajas: 0,
-      heroes: [],
-      equipo: { arma: 'espada' },
-    };
-    hero.army = ejercito({ creature: CHARACTER_BODY, count: 1, member: id, veterania });
-    return c;
-  }
-
-  it('una partida de estrategia no tiene personajes', () => {
-    const state = newGame({ seed: 5 });
-    expect('characters' in state).toBe(false);
-  });
-
-  it('el personaje que gana vuelve con los PV que le quedaron, no con el máximo', () => {
-    const state = newGame({ seed: 32 });
-    const c = ctx(32);
-    const hero = heroesOf(state, 0)[0]!;
-    alistar(state, hero);
-    // Sin maná: con él, la flecha mágica del héroe mata a los zombis antes de
-    // que lleguen a tocarlo, y el personaje volvería sano sin probar nada.
-    hero.mana = 0;
-    ponerMonstruo(state, 'zombi', 2);
-    forzarBatalla(state, c, hero);
-    const final = state.pendingBattle!.battle;
-
-    expect(resolvePendingBattle(state, c).winner).toBe('attacker');
-    const s = final.stacks.find(esPersonaje('aren'))!;
-    const aren = state.characters!.aren!;
-    expect(aren.hp).toBe(s.topHp);
-    // El zombi contraatacó: sale herido, y con eso el test prueba algo.
-    expect(aren.hp).toBeLessThan(340);
-    expect(aren.hp).toBeGreaterThan(0);
-    // Y sigue en el ejército, con su `member`: no vuelve como un stack anónimo.
-    // Y con la experiencia de lo que pegó: el personaje también es un individuo
-    // que hace campaña.
-    const vuelto = heroById(state, hero.id).army[0]!;
-    expect(vuelto).toMatchObject({ creature: CHARACTER_BODY, member: 'aren' });
-    expect(vuelto.veterania?.experiencia).toBe(s.ganado.experiencia);
-  });
-
-  it('herido, entra a la siguiente batalla con lo que le quedó', () => {
-    const state = newGame({ seed: 31 });
-    const c = ctx(31);
-    const hero = heroesOf(state, 0)[0]!;
-    alistar(state, hero);
-    state.characters!.aren!.hp = 9;
-    ponerMonstruo(state, TROPA_BARATA, 1);
-    forzarBatalla(state, c, hero);
-    expect(state.pendingBattle!.battle.stacks.find(esPersonaje('aren'))!.topHp).toBe(9);
-  });
-
-  it('un ejército que nombra a un personaje que la partida no conoce lanza al entrar en batalla', () => {
-    const state = newGame({ seed: 31 });
-    const c = ctx(31);
-    const hero = heroesOf(state, 0)[0]!;
-    hero.army = ejercito({ creature: CHARACTER_BODY, count: 1, member: 'nadie' });
-    expect(() => forzarBatalla(state, c, hero)).toThrow(
-      /lleva en el ejército al personaje "nadie", pero la partida no lo conoce/,
-    );
-  });
-});
-
 // ---------------------------------------------------------------- mapa de nodos
 
 /** Una partida sobre el mapa de nodos escrito a mano (`planDeNodos`). */
@@ -1594,10 +1510,10 @@ describe('el mapa de nodos se juega', () => {
     hero.movePoints = 1500;
     // Lo primero que cría la base, en la morada que trae hecha.
     const recluta = dwellings(base)[0]!.creature;
-    const lento = maxMovePoints(
-      { ...hero, army: [...hero.army, ...ejercito({ creature: recluta, count: 1 })] },
-      state.characters,
-    );
+    const lento = maxMovePoints({
+      ...hero,
+      army: [...hero.army, ...ejercito({ creature: recluta, count: 1 })],
+    });
     base.available = { ...base.available, [recluta]: 5 };
     applyAdventureAction(
       state,
@@ -1955,6 +1871,12 @@ describe('el mapa de nodos se juega', () => {
     state.current = 1;
     const suyo = heroById(state, 'hero-1');
     suyo.army = ejercito({ creature: JINETE, count: 6 });
+    // Curtido, para que el asalto lo gane sin duda: desde la «Base derecha»
+    // (06-11-2026, `79b5c76b`, la muralla de toda ciudad, pegada a la salida del
+    // defensor) la IA que asalta deja a sus jinetes ante el muro y su héroe pelea solo
+    // en la puerta. Recién hecho (rango 5) caía en las 30 semillas de batalla que se
+    // probaron; con el 12 gana las 40 primeras y le quedan como poco 657 de 720 PV.
+    suyo.experience = umbral(12);
     // En la puerta del noreste: la muralla no se pisa (`recinto.ts`).
     suyo.at = { x: base.at.x + 1, y: base.at.y - 1 };
     suyo.movePoints = 9000;

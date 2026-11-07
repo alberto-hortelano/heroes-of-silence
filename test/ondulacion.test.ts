@@ -6,7 +6,7 @@
  * `tools/qa/rectitud.ts`, con sus techos en la orden lenta de `regiones.test.ts`.
  */
 import { describe, expect, it } from 'vitest';
-import { ONDULACION, ondulacion, sinPuas } from '../src/core/map/generate.js';
+import { ONDULACION, ondulacion, sinPuas } from '../src/core/map/generar/procedimental.js';
 import { createRng } from '../src/core/rng.js';
 
 describe('la ondulación de las fronteras (#229)', () => {

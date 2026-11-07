@@ -13,29 +13,24 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { galonesDe } from '../src/client/render/batalla.js';
-import { marcaDeVeterano } from '../src/client/views/panels.js';
-import {
-  applyAction,
-  type BattleSide,
-  createBattle,
-  stackById,
-} from '../src/core/battle/battle.js';
+import { galonesDe } from '../src/client/render/batalla/figura.js';
+import { marcaDeVeterano } from '../src/client/views/campo.js';
+import { resolvePendingBattle } from '../src/core/ai/turn.js';
+import { applyAction } from '../src/core/battle/battle.js';
+import { stackById } from '../src/core/battle/consultas.js';
 import { herir, stackHp } from '../src/core/battle/damage.js';
+import { type BattleSide, createBattle } from '../src/core/battle/montaje.js';
 import type { BattleHero, BattleState } from '../src/core/battle/types.js';
 import { HERO_BODY } from '../src/core/battle/types.js';
-import { cifrasDeUnidad, unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { serializeAdventureTurn, serializeBattleTurn } from '../src/core/contract/serialize.js';
+import { serializeAdventureTurn } from '../src/core/contract/aventura.js';
+import { serializeBattleTurn } from '../src/core/contract/batalla.js';
+import { HEROE } from '../src/core/hero/cuerpo-del-heroe.js';
+import { cifrasVeteranas } from '../src/core/hero/experiencia.js';
+import { cuerposDelHeroe, heroUnit } from '../src/core/hero/hero.js';
+import { LIDERAZGO } from '../src/core/hero/liderazgo.js';
 import {
-  CATALOGO_DE_HABILIDADES,
   EXPERIENCIA,
-  HEROE,
-  LIDERAZGO,
-  validarExperiencia,
-} from '../src/core/data.js';
-import {
-  cifrasVeteranas,
   EXPERIENCIA_INICIAL_DE_HEROE,
   RANGO_INICIAL_DE_HEROE,
   RANGO_MAXIMO_DE_TROPA,
@@ -44,8 +39,8 @@ import {
   siguienteUmbral,
   subidasDeRango,
   umbral,
-} from '../src/core/hero/experiencia.js';
-import { cuerposDelHeroe, heroUnit } from '../src/core/hero/hero.js';
+  validarExperiencia,
+} from '../src/core/hero/rango.js';
 import {
   elQueSeIria,
   gruposDe,
@@ -54,38 +49,30 @@ import {
   troopSummary,
 } from '../src/core/hero/troop.js';
 import { isEnterable, objectAt } from '../src/core/map/map.js';
-import { indiceDePoder, nivelDeUnidad } from '../src/core/nivel.js';
 import { createRng } from '../src/core/rng.js';
+import { settleBattle } from '../src/core/state/cierre.js';
+import { baseOf, heroById, heroesOf } from '../src/core/state/consultas.js';
 import { visibleTo } from '../src/core/state/events.js';
-import {
-  applyAdventureAction,
-  baseOf,
-  type GameContext,
-  type GameState,
-  heroById,
-  heroesOf,
-  resolvePendingBattle,
-  settleBattle,
-} from '../src/core/state/game.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import { guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
+import type { GameState } from '../src/core/state/tipos.js';
 import type { Point, Troop, Veterania } from '../src/core/types.js';
+import { cifrasDeUnidad, unidadDelJuego } from '../src/core/unidad/catalogo.js';
+import { CATALOGO_DE_HABILIDADES } from '../src/core/unidad/formato.js';
+import { indiceDePoder, nivelDeUnidad } from '../src/core/unidad/nivel.js';
+import { forzarTurno } from './batalla-de-prueba.js';
 import {
-  ejercito,
-  forzarBatalla,
-  forzarTurno,
-  guarnecer,
-  guarnicionDeLaCiudad,
+  ctx,
   JINETE,
   NO_MUERTO,
   PESADA,
-  ponerMonstruo,
   TIRADOR,
   TIRADOR_NO_MUERTO,
   TROPA,
   TROPA_BARATA,
-} from './helpers.js';
-
-const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
+} from './comun.js';
+import { ejercito, forzarBatalla, guarnecer, ponerMonstruo } from './partida-de-prueba.js';
 
 function hoja(id: string, experiencia: number, extra: Partial<Veterania> = {}): Veterania {
   return { id, experiencia, batallas: 1, bajas: 0, heroes: [], ...extra };
@@ -95,7 +82,7 @@ function veterano(creatureId: string, id: string, experiencia: number): Troop {
   return { creature: creatureId, veterania: hoja(id, experiencia) };
 }
 
-const mando = (over: Partial<BattleHero> = {}): BattleHero => ({
+const mandoConFlechaMagica = (over: Partial<BattleHero> = {}): BattleHero => ({
   name: 'Prueba',
   retreat: { blocked: 'no tienes base a la que volver' },
   spellPower: 1,
@@ -109,7 +96,7 @@ const mando = (over: Partial<BattleHero> = {}): BattleHero => ({
 const conHeroe = (army: BattleSide['army'], rango = RANGO_INICIAL_DE_HEROE): BattleSide => ({
   army,
   hero: {
-    mando: mando(),
+    mando: mandoConFlechaMagica(),
     figura: HERO_BODY,
     ...cuerposDelHeroe({
       name: 'Prueba',
@@ -461,8 +448,6 @@ describe('la veteranía vive en el individuo y lo acompaña (C3)', () => {
     expect(elQueSeIria(army, TROPA)).toBe(army[4]);
     expect(elQueSeIria([army[0]!, army[2]!], TROPA)).toBe(army[2]);
     expect(elQueSeIria(army, TIRADOR)).toBeNull();
-    // Un personaje no se licencia: no es nunca el que se iría.
-    expect(elQueSeIria([{ creature: TROPA, member: 'aren' }], TROPA)).toBeNull();
   });
 
   it('`dismiss` licencia al novato de su tipo y deja al veterano en el ejército', () => {
@@ -543,7 +528,7 @@ describe('la veteranía se ve (C7)', () => {
       { creature: TROPA },
       veterano(TROPA, 'v-2', 800_000),
     ];
-    const filas = troopSummary(army, undefined);
+    const filas = troopSummary(army);
     expect(filas.map((g) => [g.count, g.rango, g.siguiente, g.veterania?.id])).toEqual([
       [2, 1, null, undefined],
       [1, 3, umbral(4), 'v-1'],

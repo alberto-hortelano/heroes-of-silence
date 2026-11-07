@@ -9,7 +9,7 @@
  * La cámara mira desde el sur: una caída hacia abajo en pantalla enseña su cara
  * de roca; una caída hacia arriba queda de espaldas y solo se ve el reborde.
  */
-import { nivelesDelRelieve } from '@core/map/regiones.js';
+import { nivelesDelRelieve } from '@core/map/niveles.js';
 import { isWalkable, type Suelo, type TerrainKind } from '@core/map/terrain.js';
 import type { Analisis } from './analizar.js';
 import type { Caja } from './pasillo.js';

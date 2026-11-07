@@ -9,35 +9,27 @@
  * volver a preguntar hasta que vuelva».
  */
 import { describe, expect, it } from 'vitest';
-import { tipoDeHeroePorDefecto, tiposDeHeroe, validarTiposDeHeroe } from '../src/core/data.js';
+import { resolvePendingBattle } from '../src/core/ai/turn.js';
 import { porPreguntar, problemaDeTipo } from '../src/core/hero/ascenso.js';
-import { rangoDeHeroe, umbral } from '../src/core/hero/experiencia.js';
+import { rangoDeHeroe, umbral } from '../src/core/hero/rango.js';
+import {
+  tipoDeHeroePorDefecto,
+  tiposDeHeroe,
+  validarTiposDeHeroe,
+} from '../src/core/hero/tipos-de-heroe.js';
 import { isEnterable, objectAt } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
+import { baseOf, heroesOf, playerById } from '../src/core/state/consultas.js';
 import { cronicaPara } from '../src/core/state/events.js';
-import {
-  applyAdventureAction,
-  ascenderVeterano,
-  ascensoBlocker,
-  baseOf,
-  type GameState,
-  heroesOf,
-  MAX_HEROES_PER_PLAYER,
-  playerById,
-  resolvePendingBattle,
-  veteranosEnSuBase,
-} from '../src/core/state/game.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
+import { ascenderVeterano, ascensoBlocker, veteranosEnSuBase } from '../src/core/state/heroes.js';
 import { newGame } from '../src/core/state/setup.js';
-import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
+import { dueñoDeLaCiudad, guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
+import { type GameState, MAX_HEROES_PER_PLAYER } from '../src/core/state/tipos.js';
 import { FACTION_IDS, type Troop, type Veterania } from '../src/core/types.js';
 import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
-import {
-  darLaCiudad,
-  fueraDeSuBase,
-  guarnecer,
-  guarnicionDeLaCiudad,
-  TROPA_BARATA,
-} from './helpers.js';
+import { TROPA_BARATA } from './comun.js';
+import { darLaCiudad, fueraDeSuBase, guarnecer } from './partida-de-prueba.js';
 
 /**
  * El tipo de héroe `i` de la facción del jugador 1, en el orden de

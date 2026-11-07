@@ -11,7 +11,8 @@ import { describe, expect, it } from 'vitest';
 import { FIGURA } from '../src/shared/arte.js';
 import { encargosQueSiguen } from '../tools/taller/npcs.js';
 import { validar, validarElEncargo, visibleMinimo } from '../tools/taller/validar.js';
-import { FIGURA_DE_PRUEBA, raizDeNpcs } from './helpers.js';
+
+import { FIGURA_DE_PRUEBA, raizDeNpcs } from './npcs-de-prueba.js';
 
 const CELDA = 384;
 const FILAS = 3;
