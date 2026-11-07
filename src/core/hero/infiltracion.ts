@@ -20,9 +20,8 @@
  * preguntan aquí.
  */
 
-import { enumerar, hasTrait } from '../types.js';
+import { enumerar, type Hero, hasTrait } from '../types.js';
 import { unidadDelJuego } from '../unidad/catalogo.js';
-import type { Hero } from './hero.js';
 import { nombreDeTipoDeHeroe, tipoSeInfiltra } from './tipos-de-heroe.js';
 
 /** Lo que hace falta de un héroe para saber si se infiltra: su tipo y su tropa. */

@@ -25,7 +25,7 @@ import type { BattleState, Side } from '../src/core/battle/types.js';
 import { HERO_BODY, queEs } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { HEROE } from '../src/core/hero/cuerpo-del-heroe.js';
-import { type Hero, heroUnit } from '../src/core/hero/hero.js';
+import { heroUnit } from '../src/core/hero/hero.js';
 import { umbral } from '../src/core/hero/rango.js';
 import { figuraDelHeroe } from '../src/core/hero/tipos-de-heroe.js';
 import {
@@ -41,7 +41,7 @@ import { baseOf, settleBattle } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 import type { GameContext, GameState } from '../src/core/state/tipos.js';
-import type { Point, Stack } from '../src/core/types.js';
+import type { Hero, Point, Stack } from '../src/core/types.js';
 import { unidadDelJuego } from '../src/core/unidad/catalogo.js';
 import { escalonDeCasillas } from '../src/core/unidad/cuerpo.js';
 import { avanzarHasta, heroeDeBatalla, ladoDeBatalla } from './batalla-de-prueba.js';

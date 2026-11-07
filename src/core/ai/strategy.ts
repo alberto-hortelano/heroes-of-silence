@@ -12,7 +12,6 @@ import { destinoDeEquipo, equipoDe, type Portador, pedidoDeEquipo } from '../equ
 import { conEquipo } from '../equipo/vestir.js';
 import { HEROE } from '../hero/cuerpo-del-heroe.js';
 import { armyPower, fuerzaDe, poderDe, unitPower, ventajaClara } from '../hero/fuerza.js';
-import type { Hero } from '../hero/hero.js';
 import { rangoDeTropa } from '../hero/rango.js';
 import {
   capacidadDe,
@@ -61,7 +60,7 @@ import {
   tieneArmeria,
 } from '../town/town.js';
 import type { Army, Equipo, FactionId, PlayerId, Point, UnitInfo } from '../types.js';
-import { FACTION_IDS } from '../types.js';
+import { FACTION_IDS, type Hero } from '../types.js';
 import { cifrasDeUnidad, equipoPuestoDe, unidadDelJuego } from '../unidad/catalogo.js';
 import { cuerpoConSusCifras } from '../unidad/cuerpo.js';
 import { CUERPO_COMUN } from '../unidad/formato.js';

@@ -33,7 +33,6 @@ import { gruposAlTope, loNeutralAlTope } from '../hero/grupos.js';
 import {
   cuerposDelHeroe,
   empezarElDia,
-  type Hero,
   heroeRecienHecho,
   learnable,
   maxMana,
@@ -127,7 +126,7 @@ import type {
   Troop,
   Veterania,
 } from '../types.js';
-import { enumerar, type Guarnicion, type Hueco, type Raider } from '../types.js';
+import { enumerar, type Guarnicion, type Hero, type Hueco, type Raider } from '../types.js';
 import {
   equipoDelPortadorBlocker,
   equipoDeSerieDe,

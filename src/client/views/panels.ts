@@ -60,7 +60,7 @@ import { conSigno, modificadoresDePieza, textoDeModificador } from '@core/equipo
 import type { Pieza } from '@core/equipo/pieza.js';
 import { PIEZAS_DE_ARMERIA, pieza } from '@core/equipo/pieza.js';
 import { destinoDeEquipo } from '@core/equipo/portador.js';
-import { cuerpoDelHeroe, type Hero, heroUnit, maxMana, maxMovePoints } from '@core/hero/hero.js';
+import { cuerpoDelHeroe, heroUnit, maxMana, maxMovePoints } from '@core/hero/hero.js';
 import { rangoDe, rangoDeHeroe, umbral } from '@core/hero/rango.js';
 import { nombreDeTipoDeHeroe } from '@core/hero/tipos-de-heroe.js';
 import { elQueSeIria, type TroopGroup, troopSummary } from '@core/hero/troop.js';
@@ -84,7 +84,7 @@ import {
   townSpells,
 } from '@core/town/town.js';
 import type { Army, Point, UnitInfo } from '@core/types.js';
-import { conMiles, describirCoste, HUECOS, NOMBRE_DE_HUECO } from '@core/types.js';
+import { conMiles, describirCoste, type Hero, HUECOS, NOMBRE_DE_HUECO } from '@core/types.js';
 import { unidadDelJuego } from '@core/unidad/catalogo.js';
 import { nivelDeUnidad } from '@core/unidad/nivel.js';
 import { disposicionDe } from '../../shared/base.js';

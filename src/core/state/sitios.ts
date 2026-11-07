@@ -39,7 +39,6 @@ import sitiosJson from '../../../data/sitios.json' with { type: 'json' };
 import { murallaDelMapaBlocker, SIN_MURALLA, validarMuralla } from '../battle/muralla.js';
 import type { MaterialDeMuralla, MurallaDeBatalla } from '../battle/types.js';
 import { unitPower } from '../hero/fuerza.js';
-import type { Hero } from '../hero/hero.js';
 import {
   armyLeadership,
   capacidadDe,
@@ -63,6 +62,7 @@ import { oroBlocker, type Town } from '../town/town.js';
 import {
   type Army,
   type Guarnicion,
+  type Hero,
   NOMBRE_DE_FACCION,
   type PlayerId,
   type Point,

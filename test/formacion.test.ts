@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { hexEquals, hexKey } from '../src/core/battle/board.js';
 import { zonaDeSalida } from '../src/core/battle/despliegue.js';
 import type { Portador } from '../src/core/equipo/portador.js';
-import { type Hero, heroUnit } from '../src/core/hero/hero.js';
+import { heroUnit } from '../src/core/hero/hero.js';
 import { troopUnit } from '../src/core/hero/troop.js';
 import { turnBlocker } from '../src/core/state/consultas.js';
 import {
@@ -23,7 +23,7 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { AdventureAction, GameState } from '../src/core/state/tipos.js';
-import type { Hex } from '../src/core/types.js';
+import type { Hero, Hex } from '../src/core/types.js';
 import { ctx, TROPA, TROPA_BARATA } from './comun.js';
 import { conSuEquipo, forzarBatalla } from './partida-de-prueba.js';
 

@@ -19,7 +19,6 @@
  */
 import { fuerzaDe, poderDe, ventajaClara } from '../hero/fuerza.js';
 import { gruposAlTope } from '../hero/grupos.js';
-import type { Hero } from '../hero/hero.js';
 import {
   batallaDe,
   daPremio,
@@ -40,6 +39,7 @@ import {
   soloNavega,
 } from '../mundo/reglas.js';
 import type { GameState } from '../state/tipos.js';
+import type { Hero } from '../types.js';
 
 /**
  * Lo que vale para la IA ir a un lugar donde haría algo. **Inventado** (F1a,

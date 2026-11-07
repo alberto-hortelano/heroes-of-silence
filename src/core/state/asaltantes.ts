@@ -37,7 +37,6 @@
 import { deHoyALaEscala } from '../escala.js';
 import { fuerzaDe, poderDe, ventajaClara } from '../hero/fuerza.js';
 import { ASALTANTES, loNeutralAlTope } from '../hero/grupos.js';
-import type { Hero } from '../hero/hero.js';
 import { individuosDe } from '../hero/troop.js';
 import type { CasillasLeidas } from '../map/casillas.js';
 import { type GameMap, inBounds } from '../map/map.js';
@@ -51,7 +50,14 @@ import {
   VECINAS,
 } from '../map/regiones.js';
 import type { Rng } from '../rng.js';
-import type { GrupoDeTropa, Point, Raider, RaiderPlaneado, VistaAsaltante } from '../types.js';
+import type {
+  GrupoDeTropa,
+  Hero,
+  Point,
+  Raider,
+  RaiderPlaneado,
+  VistaAsaltante,
+} from '../types.js';
 import type { GameState } from './tipos.js';
 
 // ---------------------------------------------------------------- la región

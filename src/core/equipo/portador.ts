@@ -8,8 +8,7 @@
  * Era la sección «a quién» de `hero/equipo.ts`, repartido en `equipo/` en la fase N
  * de la reorganización (07-11-2026); qué es el equipo y dónde vive, en `vestir.ts`.
  */
-import type { Hero } from '../hero/hero.js';
-import type { Equipo, Troop, Veterania } from '../types.js';
+import type { Equipo, Hero, Troop, Veterania } from '../types.js';
 
 // ---------------------------------------------------------------- a quién
 

@@ -22,7 +22,7 @@ import {
   type Portador,
   pedidoDelPuesto,
 } from '@core/equipo/portador.js';
-import { type Hero, heroUnit } from '@core/hero/hero.js';
+import { heroUnit } from '@core/hero/hero.js';
 import {
   RANGO_MAXIMO_DE_TROPA,
   rangoDeHeroe,
@@ -35,6 +35,7 @@ import { type ClimaDelSitio, DESPEJADO } from '@core/state/clima.js';
 import { ponerseBlocker, stackDelPortador, unequipBlocker } from '@core/state/game.js';
 import type { GameState } from '@core/state/tipos.js';
 import {
+  type Hero,
   type Hex,
   HUECOS,
   type Hueco,

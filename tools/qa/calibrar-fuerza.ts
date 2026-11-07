@@ -38,12 +38,12 @@ import {
   poderDe,
   unitPower,
 } from '../../src/core/hero/fuerza.js';
-import { cuerposDelHeroe, type Hero, heroUnit, moraleBonus } from '../../src/core/hero/hero.js';
+import { cuerposDelHeroe, heroUnit, moraleBonus } from '../../src/core/hero/hero.js';
 import { rangoDeHeroe } from '../../src/core/hero/rango.js';
 import { ejercitoDe, troopsAsStacks } from '../../src/core/hero/troop.js';
 import { createRng } from '../../src/core/rng.js';
 import { newGame } from '../../src/core/state/setup.js';
-import type { GrupoDeTropa } from '../../src/core/types.js';
+import type { GrupoDeTropa, Hero } from '../../src/core/types.js';
 
 const PAREJAS = Number(process.argv[2] ?? 2000);
 const SEMILLAS = Number(process.argv[3] ?? 40);

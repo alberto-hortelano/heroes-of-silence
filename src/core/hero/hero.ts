@@ -2,108 +2,12 @@
 
 import { conEquipo } from '../equipo/vestir.js';
 import { marchaALaEscala } from '../escala.js';
-import type {
-  Army,
-  Equipo,
-  FactionId,
-  Hex,
-  PlayerId,
-  Point,
-  SpeedTier,
-  UnitInfo,
-} from '../types.js';
-import { SPEED_TO_MOVE_POINTS } from '../types.js';
+import type { FactionId, PlayerId, Point, SpeedTier, UnitInfo } from '../types.js';
+import { type Hero, type OrigenDelHeroe, SPEED_TO_MOVE_POINTS } from '../types.js';
 import { cuerpoConSusCifras, marchaDe } from '../unidad/cuerpo.js';
 import { type CuerpoDeTodoHeroe, EQUIPO_BASE, HEROE } from './cuerpo-del-heroe.js';
 import { rangoDeHeroe, subidasDeRango } from './rango.js';
 import { troopUnit } from './troop.js';
-
-/** Habilidades secundarias del slice. Cada una en básico/avanzado/experto. */
-export type SkillId = 'logistics' | 'pathfinding' | 'wisdom' | 'leadership';
-export type SkillLevel = 1 | 2 | 3;
-
-export interface Hero {
-  readonly id: string;
-  owner: PlayerId;
-  readonly name: string;
-  readonly faction: FactionId;
-  attack: number;
-  defense: number;
-  spellPower: number;
-  knowledge: number;
-  mana: number;
-  /** El rango se deriva de aquí (`rangoDeHeroe`): no hay un `level` que mantener al día. */
-  experience: number;
-  army: Army;
-  at: Point;
-  movePoints: number;
-  /**
-   * La marcha con que empezó su día: `maxMovePoints` al empezarlo o al
-   * contratarlo (`empezarElDia`), y no cambia en el día aunque cambie la tropa.
-   * Es lo que cuesta una casilla de barrera a quien se infiltra
-   * (`precioDeLaBarrera`, 05-11-2026): con el máximo de ahora, reclutar algo más
-   * lento a media jornada lo bajaba por debajo de lo que le quedaba y el grupo
-   * entraba con el día empezado (H1 de /simplify). El recién hecho nace con la del
-   * héroe solo y sin movimiento: su día empieza el siguiente.
-   */
-  marchaDelDia: number;
-  spells: string[];
-  skills: Partial<Record<SkillId, SkillLevel>>;
-  /**
-   * El tipo de héroe, un id de `data/tipos-de-heroe.json` de su facción. Se guarda,
-   * se ve y se serializa; da su figura (`figuraDelHeroe`) y **una sola regla**: si
-   * se infiltra (`data/infiltradores.json`, `hero/infiltracion.ts`, 05-11-2026).
-   * Las habilidades del cuaderno no, hasta que exista el motor que las aplique.
-   * El inicial de la persona lleva el que eligió en el menú (`NewGameOptions.tipoDelHeroe`);
-   * el de la IA y el contratado, el de por defecto (`tipoDeHeroePorDefecto`); el
-   * que nace de la tropa, el que eligió el narrador.
-   */
-  readonly tipo: string;
-  /**
-   * De dónde salió, solo si salió de la tropa (`ascenderVeterano`): la criatura
-   * que era y la historia que le escribió el narrador. El id de su hoja de
-   * servicios no se guarda: es la raíz de su `id` (`hero-<veterano>`). El inicial y el contratado no lo llevan, y no llevan un `null`:
-   * con `exactOptionalPropertyTypes` la ausencia ya dice «no tiene».
-   */
-  readonly origen?: OrigenDelHeroe;
-  /**
-   * Lo que lleva puesto (`equipo/vestir.ts`). **Nace lleno**: todo héroe trae de
-   * serie la pieza de armería de cada hueco (`EQUIPO_BASE`), y solo mejora con
-   * lo especial que encuentre (decisión del usuario, 02-10-2026). Se sustituye
-   * entero al equipar o desequipar, nunca se muta.
-   */
-  equipo: Equipo;
-  /**
-   * Su casilla en su formación, en el marco del atacante (la acción `formar`,
-   * 02-11-2026); sin ella, el centro de la columna del borde o el primer hueco
-   * libre (`asentar`). La de su tropa va en cada individuo (`Troop.salida`).
-   */
-  salida?: Hex;
-  /**
-   * Las piezas que lleva sin ponérselas, por id, en el orden en que llegaron:
-   * el botín, lo comprado, lo que se quita y lo que devuelve la tropa licenciada.
-   * Sin tope (decisión del usuario sobre el plan). Si el héroe cae sin base, se
-   * pierde con él.
-   */
-  mochila: readonly string[];
-  /**
-   * **Efímero**: vuelve a su base vencido o rendido desde que acabó su último turno
-   * (`volverABase`, en `state/game.ts`), y se borra al acabar el turno de su dueño
-   * (`nextPlayer`). Lo pone y lo quita solo `game.ts` (lo vigila
-   * `invariantes.test.ts`). Es lo que hace que la IA recoja de la guarnición al que
-   * vuelve en el turno del rival como al que llega (`playAiTurn`): sin él salía de
-   * casa sin la tropa que lo esperaba (H2 del QA del puesto fronterizo, 04-11-2026:
-   * 22 de 22 veces en 1-40). Ausente casi siempre: con `exactOptionalPropertyTypes`
-   * no hay un `false` que guardar.
-   */
-  vueltoACasa?: true;
-}
-
-/** Lo que el héroe nacido de la tropa recuerda de cuando era tropa. */
-export interface OrigenDelHeroe {
-  readonly creature: string;
-  readonly historia: string;
-}
 
 /**
  * Un héroe recién hecho, con las cifras del contratado: ataque, defensa, poder y

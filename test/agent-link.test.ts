@@ -7,7 +7,7 @@ import { playAiTurn } from '../src/core/ai/turn.js';
 import { activeStack, applyAction, legalActions } from '../src/core/battle/battle.js';
 import { isInside, tableroDelContrato } from '../src/core/battle/board.js';
 import type { BattleState } from '../src/core/battle/types.js';
-import { type Hero, heroUnit } from '../src/core/hero/hero.js';
+import { heroUnit } from '../src/core/hero/hero.js';
 import { umbral } from '../src/core/hero/rango.js';
 import { tiposDeHeroe } from '../src/core/hero/tipos-de-heroe.js';
 import { LADO_DEL_MAPA, type MapPlan } from '../src/core/map/generar/plan.js';
@@ -28,7 +28,7 @@ import {
   MAX_HEROES_PER_PLAYER,
 } from '../src/core/state/tipos.js';
 import type { Town } from '../src/core/town/town.js';
-import { FACTION_IDS, type FactionId, type Point } from '../src/core/types.js';
+import { FACTION_IDS, type FactionId, type Hero, type Point } from '../src/core/types.js';
 import { cifrasDeUnidad } from '../src/core/unidad/catalogo.js';
 import { nivelDeUnidad } from '../src/core/unidad/nivel.js';
 import { AgentLink } from '../src/server/agent-link.js';

@@ -12,7 +12,6 @@
 
 import { combateBlocker, type ReglasDelCombate } from '../combate.js';
 import { HEROE } from '../hero/cuerpo-del-heroe.js';
-import type { Hero } from '../hero/hero.js';
 import { hojaDeLaTropa } from '../hero/troop.js';
 import { type CatalogoDeHechizos, HECHIZOS_DEL_JUEGO } from '../magia/catalogo.js';
 import { dichoDeImpide } from '../magia/dicho.js';
@@ -34,7 +33,7 @@ import type {
   UnitInfo,
   UsoDeArma,
 } from '../types.js';
-import { hasTrait, SPEED_TO_HEXES } from '../types.js';
+import { type Hero, hasTrait, SPEED_TO_HEXES } from '../types.js';
 import {
   CATALOGO_DEL_JUEGO,
   type CatalogoDeUnidades,

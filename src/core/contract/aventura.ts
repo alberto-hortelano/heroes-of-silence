@@ -12,7 +12,7 @@ import { PIEZAS_DE_ARMERIA } from '../equipo/pieza.js';
 import { vecinosDeLaBase, vozDe } from '../gente/voces.js';
 import type { VeteranoEnBase } from '../hero/ascenso.js';
 import { fuerzaDe } from '../hero/fuerza.js';
-import { type Hero, heroUnit, maxMana, maxMovePoints } from '../hero/hero.js';
+import { heroUnit, maxMana, maxMovePoints } from '../hero/hero.js';
 import { infiltracionBlocker } from '../hero/infiltracion.js';
 import {
   RANGO_MAXIMO_DE_TROPA,
@@ -62,7 +62,7 @@ import {
   tieneArmeria,
   townSpells,
 } from '../town/town.js';
-import type { PlayerId } from '../types.js';
+import type { Hero, PlayerId } from '../types.js';
 import { cifrasDeUnidad, unidadDelJuego } from '../unidad/catalogo.js';
 import { nivelDeUnidad } from '../unidad/nivel.js';
 import { serializeKnownMap } from './mapa-conocido.js';

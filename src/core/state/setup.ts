@@ -2,13 +2,7 @@
 
 import { COMBATE_COMPLETO, cupoDelHeroe, type ReglasDelCombate } from '../combate.js';
 import { problemaDeTipo } from '../hero/ascenso.js';
-import {
-  CIFRAS_DEL_HEROE_INICIAL,
-  empezarElDia,
-  type Hero,
-  heroeRecienHecho,
-  maxMana,
-} from '../hero/hero.js';
+import { CIFRAS_DEL_HEROE_INICIAL, empezarElDia, heroeRecienHecho, maxMana } from '../hero/hero.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../hero/rango.js';
 import { tipoDeHeroePorDefecto } from '../hero/tipos-de-heroe.js';
 import { heroLeadership, troopRoom, withTroops } from '../hero/troop.js';
@@ -22,7 +16,13 @@ import {
 } from '../mundo/formato.js';
 import { createRng, hashDeTexto, type Rng } from '../rng.js';
 import { sitioDe } from '../town/sitios.js';
-import { type Controller, FACTION_IDS, type FactionId, type PlayerId } from '../types.js';
+import {
+  type Controller,
+  FACTION_IDS,
+  type FactionId,
+  type Hero,
+  type PlayerId,
+} from '../types.js';
 import { unidadesDeMorada } from '../unidad/catalogo.js';
 import { createGame } from './game.js';
 import type { GameState } from './tipos.js';

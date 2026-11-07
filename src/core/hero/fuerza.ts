@@ -14,9 +14,9 @@
  * fuera de `ai/` nadie del núcleo importa la IA.
  */
 
-import type { Army, GrupoDeTropa, UnitInfo } from '../types.js';
+import type { Army, GrupoDeTropa, Hero, UnitInfo } from '../types.js';
 import { poderBruto } from '../unidad/nivel.js';
-import { type Hero, heroUnit } from './hero.js';
+import { heroUnit } from './hero.js';
 import { ejercitoDe, troopUnit } from './troop.js';
 
 /**

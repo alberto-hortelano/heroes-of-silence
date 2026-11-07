@@ -14,7 +14,6 @@ import { marchaALaEscala } from '../src/core/escala.js';
 import { EQUIPO_BASE } from '../src/core/hero/cuerpo-del-heroe.js';
 import {
   type GrupoQueMarcha,
-  type Hero,
   heroUnit,
   learnable,
   maxMana,
@@ -83,6 +82,7 @@ import {
   type Equipo,
   FACTION_IDS,
   type FactionId,
+  type Hero,
   type Point,
   SPEED_TO_MOVE_POINTS,
   type SpeedTier,

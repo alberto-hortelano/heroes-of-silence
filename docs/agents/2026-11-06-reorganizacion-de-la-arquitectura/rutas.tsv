@@ -775,3 +775,7 @@ simbolo	src/core/hero/experiencia.ts	src/core/hero/rango.ts	EXPERIENCIA_INICIAL_
 simbolo	src/core/hero/experiencia.ts	src/core/hero/rango.ts	subidasDeRango
 simbolo	src/core/hero/experiencia.ts	src/core/hero/rango.ts	rangoDeTropa
 simbolo	src/core/hero/experiencia.ts	src/core/hero/rango.ts	siguienteUmbral
+simbolo	src/core/hero/hero.ts	src/core/types.ts	SkillId
+simbolo	src/core/hero/hero.ts	src/core/types.ts	SkillLevel
+simbolo	src/core/hero/hero.ts	src/core/types.ts	Hero
+simbolo	src/core/hero/hero.ts	src/core/types.ts	OrigenDelHeroe
