@@ -44,7 +44,8 @@ import {
   pasosAPintar,
   puntosDeLaTraza,
 } from '../../render/mapa/ruta.js';
-import type { MarchaEnPantalla, Session } from '../../sesion/partida.js';
+import type { MarchaEnPantalla } from '../../sesion/partida/marcha.js';
+import type { Session } from '../../sesion/partida.js';
 
 /** Cuántos píxeles hay que mover el puntero para que un clic pase a arrastre. */
 const UMBRAL_ARRASTRE = 8;

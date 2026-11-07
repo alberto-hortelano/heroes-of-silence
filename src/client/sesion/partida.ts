@@ -24,14 +24,13 @@ import { alcaideDe, ID_DEL_ALCAIDE, vecinosDeLaBase, vozDe } from '@core/gente/v
 import { infiltracionBlocker } from '@core/hero/infiltracion.js';
 import { figuraDelHeroe } from '@core/hero/tipos-de-heroe.js';
 import { armyLeadership, heroLeadership } from '@core/hero/troop.js';
-import { Casillas, type CasillasLeidas } from '@core/map/casillas.js';
-import type { PathStep } from '@core/map/map.js';
+import type { CasillasLeidas } from '@core/map/casillas.js';
 import type { MapObject, ObraDelPuesto } from '@core/map/tipos.js';
 import { type Lugar, lugarSiExiste, type MundoLeido } from '@core/mundo/formato.js';
 import { partidaDelMundo } from '@core/mundo/partida.js';
 import { estadoDicho, lugarEn } from '@core/mundo/reglas.js';
 import { createRng, type Rng } from '@core/rng.js';
-import { type AsaltantesALaVista, emboscadaEnLaRuta, loQueLaPara } from '@core/state/asaltantes.js';
+import { type AsaltantesALaVista, loQueLaPara } from '@core/state/asaltantes.js';
 import { type Ataque, elAtaque } from '@core/state/batallas.js';
 import { settleBattle } from '@core/state/cierre.js';
 import type { ClimaDeLaPartida, ClimaDelSitio, ClimaForzado } from '@core/state/clima.js';
@@ -54,7 +53,7 @@ import { type Desenlace, desenlaceDe, finDePartida } from '@core/state/desenlace
 import type { DefeatReason, GameEvent, GameEventDraft, Ocupante } from '@core/state/events.js';
 import { applyAdventureAction } from '@core/state/game.js';
 import { salidaPendienteBlocker } from '@core/state/heroes.js';
-import { barreraDeMañana, caminoHasta, pasosDeHoy, puedeAndarHoy } from '@core/state/marcha.js';
+import { puedeAndarHoy } from '@core/state/marcha.js';
 import { type RentaDelDia, rentaDelDia } from '@core/state/renta.js';
 import { newGame } from '@core/state/setup.js';
 import {
@@ -71,7 +70,6 @@ import {
   sitioSiExiste,
 } from '@core/state/sitios.js';
 import type { GameContext, GameState, Player } from '@core/state/tipos.js';
-import { HERO_SCOUT_RADIUS, miradasDe } from '@core/state/vision.js';
 import { building } from '@core/town/buildings.js';
 import { construidoEn, type SitioId, sitiosConstruidos } from '@core/town/sitios.js';
 import type { Town } from '@core/town/town.js';
@@ -81,7 +79,6 @@ import {
   NOMBRE_DE_FACCION,
   type PlayerId,
   type Point,
-  type VistaAsaltante,
 } from '@core/types.js';
 import { unidadDelJuego } from '@core/unidad/catalogo.js';
 import {
@@ -99,33 +96,20 @@ import { comoFrase, type TurnoPropio } from './batalla/control.js';
 import { ELIGE_EN_LA_RUEDA } from './batalla/cruce.js';
 import type { DespliegueEnPantalla } from './batalla/despliegue.js';
 import { SesionDeBatalla } from './batalla/sesion-de-batalla.js';
-import { ALaVista, type LoConocido } from './partida/a-la-vista.js';
+import { ALaVista } from './partida/a-la-vista.js';
 import { AyuntamientoEnPantalla } from './partida/ayuntamiento.js';
 import { ClimaEnPantalla } from './partida/clima.js';
-import type { DueñoDeLasPiezas, Scene } from './partida/comun.js';
+import { type DueñoDeLasPiezas, type Scene, sameTile } from './partida/comun.js';
 import { DefensaEnPantalla, type VistaDeLaDefensa } from './partida/defensa.js';
 import { EquipoEnPantalla } from './partida/equipo.js';
 import { GuarnicionEnPantalla, type VistaDeLaGuarnicion } from './partida/guarnicion.js';
 import { EnElLugar, type TrasElegir } from './partida/lugar.js';
+import { MarchaEnElMapa, type MarchaEnPantalla, type RoutePreview } from './partida/marcha.js';
 import { MoradaEnPantalla } from './partida/morada.js';
 import { TropaEnPantalla } from './partida/tropa.js';
 import type { VistaDelAyuntamiento } from './vistas/ayuntamiento.js';
-import { type NieblaDeAntes, type NieblaDeLaMarcha, nieblaDeLaMarcha } from './vistas/marcha.js';
 import type { VistaDeLaMorada } from './vistas/morada.js';
 import type { VistaDeLaTropa } from './vistas/tropa.js';
-
-/**
- * Un paso de la ruta previsualizada: `hoy` si lo alcanza el movimiento del día;
- * `peligro` desde el paso en que un grupo a la vista emboscaría al héroe —ahí se
- * para la marcha—, y ese primer paso lleva además quién (`emboscada`).
- */
-interface RoutePreview extends PathStep {
-  readonly hoy: boolean;
-  readonly peligro: boolean;
-  readonly emboscada?: VistaAsaltante;
-  /** En el primer paso de otro día, si es una barrera: por qué hoy se para antes (`barreraDeMañana`). */
-  readonly barrera?: string;
-}
 
 /**
  * El empate por días se cuenta con la misma frase en los dos sitios, y las de
@@ -592,19 +576,10 @@ export class Session extends SesionDeBatalla {
    * `ALaVista` (`sesion/partida/a-la-vista.ts`), en la que delegan estos. La marcha que
    * se enseña cambia lo que se ve, y la pieza la lee de aquí.
    */
-  private readonly aLaVista = new ALaVista({
+  private readonly aLaVista: ALaVista = new ALaVista({
     ...this.dueñoDeLasPiezas,
-    marcha: () => {
-      const m = this.marcha;
-      return m === null
-        ? null
-        : {
-            heroe: m.enPantalla.heroe,
-            pisa: m.enPantalla.pasos[m.niebla?.pisada ?? 0] as Point,
-            conocidoAlSalir: m.antes.conocido,
-          };
-    },
-    nieblaDeLaMarcha: () => this.laNieblaDeLaMarcha(),
+    marcha: () => this.marcha.queSeVe(),
+    nieblaDeLaMarcha: () => this.marcha.niebla(),
   });
 
   /** Lo explorado por la persona, o `null` si se ha pedido verlo todo (`ALaVista.explorado`). */
@@ -612,33 +587,9 @@ export class Session extends SesionDeBatalla {
     return this.aLaVista.explorado;
   }
 
-  /**
-   * La ruta ENTERA del héroe seleccionado hasta `to`, con cada paso marcado
-   * según llegue hoy o no.
-   *
-   * Antes se cortaba en `movePoints` y la pantalla solo sabía pintar lo de hoy:
-   * a quien señalaba un castillo a tres días no se le enseñaba por dónde iba a ir.
-   * El clic sigue moviendo hasta donde llegue hoy (`moveHeroTo`); lo de otro día
-   * es solo para verlo, porque un destino de varios días pediría que el núcleo
-   * lo recordara.
-   */
+  /** La ruta entera del héroe seleccionado hasta `to`, cada paso con si llega hoy (`MarchaEnElMapa.ruta`). */
   previewPath(to: Point): RoutePreview[] {
-    const hero = this.selectedHero;
-    if (hero === null || !this.isPlayersTurn) return [];
-    const camino = caminoHasta(this.state, hero, to);
-    if (camino === null) return [];
-    // Con los grupos que la persona ve y no con todos: uno que no se ve no
-    // avisa, o la ruta le contaría lo que tapa la niebla.
-    const emboscada = emboscadaEnLaRuta(this.state, hero, camino, this.asaltantesALaVista());
-    const hoy = pasosDeHoy(camino, hero);
-    const barrera = barreraDeMañana(this.state.map, camino, hoy);
-    return camino.map((paso, i) => ({
-      ...paso,
-      hoy: i < hoy,
-      peligro: emboscada !== null && i >= emboscada.paso,
-      ...(emboscada !== null && i === emboscada.paso ? { emboscada: emboscada.raider } : {}),
-      ...(barrera !== null && i === hoy ? { barrera } : {}),
-    }));
+    return this.marcha.ruta(to);
   }
 
   /** Las casillas que la persona está mirando AHORA, para la niebla de dos tonos (`ALaVista.visibles`). */
@@ -728,82 +679,58 @@ export class Session extends SesionDeBatalla {
   // ------------------------------------------------------------ aventura
 
   /**
-   * Si el mapa enseña al héroe andando su marcha (`marchaEnCurso`): lo pone la
-   * página (`main.ts`). Sin ella —los tests, el espejo de `pnpm capturas`—, lo que
-   * abre la llegada se abre en el acto, como antes.
+   * La marcha del héroe en el mapa —la ruta, mandarlo andar y la marcha que el mapa
+   * enseña mientras anda—: `MarchaEnElMapa` (`sesion/partida/marcha.ts`), en la que delegan
+   * estos. Lo que abre la llegada lo hace esta sesión (`alAcabarLaMarcha`).
    */
-  enseñarLaMarcha = false;
+  private readonly marcha: MarchaEnElMapa = new MarchaEnElMapa({
+    ...this.dueñoDeLasPiezas,
+    esTuTurno: () => this.isPlayersTurn,
+    asaltantesALaVista: () => this.asaltantesALaVista(),
+    conocido: () => this.aLaVista.conocido(),
+    todoALaVista: () => this.revealAll,
+    despertar: (heroId) => {
+      this.dormidos.delete(heroId);
+    },
+    alLlegar: (hero, ultimo) => this.alAcabarLaMarcha(hero, ultimo),
+  });
 
   /**
-   * La marcha que el mapa está enseñando (06-11-2026, «el personaje se
-   * teletransporta…»): el núcleo ya ha movido al héroe, y lo que abre la llegada
-   * —la batalla, la base, el lugar, la guarnición, la frase de la parada— espera a
-   * `acabarLaMarcha`, que llama la página al llegar o con cualquier gesto.
+   * Si el mapa enseña al héroe andando su marcha (`MarchaEnElMapa.enseñar`): lo pone la
+   * página (`main.ts`); sin ella, lo que abre la llegada se abre en el acto.
    */
-  private marcha: {
-    readonly enPantalla: MarchaEnPantalla;
-    readonly alLlegar: () => void;
-    /** Lo que se veía al salir: lo que se pinta mientras anda (`sesion/vistas/marcha.ts`). */
-    readonly antes: LoDeAntesDeLaMarcha;
-    /** La niebla con el héroe en la casilla de su marcha que pisa ahora (`pisarEnLaMarcha`). */
-    niebla: NieblaDeLaMarcha | null;
-  } | null = null;
+  get enseñarLaMarcha(): boolean {
+    return this.marcha.enseñar;
+  }
+  set enseñarLaMarcha(v: boolean) {
+    this.marcha.enseñar = v;
+  }
 
-  /** La marcha que se enseña ahora, o `null`. */
+  /** La marcha que se enseña ahora, o `null` (`MarchaEnElMapa.enCurso`). */
   get marchaEnCurso(): MarchaEnPantalla | null {
-    return this.marcha?.enPantalla ?? null;
+    return this.marcha.enCurso;
   }
 
-  /**
-   * El mapa enseña al héroe que anda en la casilla `pisada` de su marcha (el índice
-   * en `MarchaEnPantalla.pasos`): la niebla que se pinta va con él
-   * (`nieblaDeLaMarcha`). Lo llama la escena del mapa a cada fotograma; sin marcha,
-   * nada.
-   */
+  /** El mapa enseña al héroe que anda en la casilla `pisada` de su marcha (`MarchaEnElMapa.pisar`). */
   pisarEnLaMarcha(pisada: number): void {
-    const m = this.marcha;
-    if (m === null || m.niebla?.pisada === pisada) return;
-    m.niebla = nieblaDeLaMarcha(
-      this.state.map,
-      m.antes.niebla,
-      m.enPantalla.pasos,
-      pisada,
-      m.niebla,
-    );
+    this.marcha.pisar(pisada);
   }
 
-  /** La niebla de la marcha que se enseña, o `null` (sin marcha, o viéndolo todo). */
-  private laNieblaDeLaMarcha(): NieblaDeLaMarcha | null {
-    const m = this.marcha;
-    if (m === null || this.revealAll) return null;
-    if (m.niebla === null)
-      m.niebla = nieblaDeLaMarcha(this.state.map, m.antes.niebla, m.enPantalla.pasos, 0, null);
-    return m.niebla;
-  }
-
-  /**
-   * Los puntos de movimiento que enseña el panel de `hero`: mientras anda su marcha,
-   * los de antes de andar (lo que se pinta es lo de antes hasta que llega).
-   */
+  /** Los puntos de movimiento que enseña el panel de `hero` (`MarchaEnElMapa.movimientoALaVista`). */
   movimientoALaVista(hero: Hero): number {
-    const m = this.marcha;
-    return m !== null && m.enPantalla.heroe === hero.id ? m.antes.movimiento : hero.movePoints;
+    return this.marcha.movimientoALaVista(hero);
   }
 
-  /** La marcha llega (o se salta): abre lo que esperaba a la llegada. Sin marcha, nada. */
+  /** La marcha llega (o se salta): abre lo que esperaba a la llegada (`MarchaEnElMapa.acabar`). */
   acabarLaMarcha(): void {
-    const m = this.marcha;
-    if (m === null) return;
-    this.marcha = null;
-    m.alLlegar();
-    this.tocar();
+    this.marcha.acabar();
   }
 
   /** Selecciona lo que haya en la casilla, o mueve el héroe hasta ella. */
   clickTile(p: Point): void {
     // Un clic mientras el héroe anda solo lo hace llegar: lo que hubiera bajo el
     // puntero se elige con el mapa ya quieto.
-    if (this.marcha !== null) {
+    if (this.marcha.enCurso !== null) {
       this.acabarLaMarcha();
       return;
     }
@@ -853,81 +780,9 @@ export class Session extends SesionDeBatalla {
     this.moveHeroTo(heroSeleccionado.id, p);
   }
 
+  /** Manda al héroe `heroId` hacia `to` (`MarchaEnElMapa.andar`). */
   moveHeroTo(heroId: string, to: Point): void {
-    const hero = heroById(this.state, heroId);
-    // Pulsar donde ya está el héroe no es un destino sin camino: el camino es
-    // vacío porque ya ha llegado. Decía «No hay camino hasta ahí», que es falso.
-    if (sameTile(hero.at, to)) {
-      this.status = `${hero.name} ya está en esa casilla: pulsa otra para moverlo.`;
-      return;
-    }
-    const desde = hero.at;
-    const antes = this.state.log.length;
-    // Lo que se ve antes de andar, por si la marcha se enseña: es lo que se pinta
-    // mientras anda (`sesion/vistas/marcha.ts`).
-    const loDeAntes = this.enseñarLaMarcha ? this.loDeAntesDeLaMarcha(hero) : null;
-    // Se manda el destino tal cual: el núcleo anda lo que dé el día y, si no
-    // hay camino o no da ni un paso, lo dice él con su frase —quién cierra el
-    // paso, si es alguien (M2 de la 2a)—; aquí solo se le pone la mayúscula.
-    try {
-      applyAdventureAction(
-        this.state,
-        { type: 'move_hero', hero: heroId, to },
-        this.ctx,
-        this.viewer,
-      );
-      this.status = '';
-    } catch (err) {
-      this.status = comoFrase(mensajeDe(err));
-      return;
-    }
-    // Mandarlo a andar es despertarlo: si no, se queda fuera de «Siguiente
-    // héroe» después de haberlo usado, y es lo que hace el original.
-    this.dormidos.delete(heroId);
-    this.tocar();
-
-    // La parada (#130) se lee ahora: `applyAdventureAction` no devuelve nada, y el
-    // hecho es el último de la crónica porque la parada vuelve justo después de
-    // escribirlo.
-    const ultimo = this.state.log.at(-1);
-    const alLlegar = (): void => this.alAcabarLaMarcha(hero, ultimo);
-    // Lo que anduvo, casilla a casilla: un `hero_moved` por paso, también si la
-    // marcha se cortó, se paró o la emboscaron por el camino.
-    const pasos = [desde];
-    for (const e of this.state.log.slice(antes))
-      if (e.kind === 'hero_moved' && e.hero === heroId) pasos.push(e.to);
-    if (loDeAntes !== null && pasos.length > 1) {
-      this.marcha = {
-        enPantalla: { heroe: heroId, pasos },
-        alLlegar,
-        antes: loDeAntes,
-        niebla: null,
-      };
-      return;
-    }
-    alLlegar();
-  }
-
-  /**
-   * Lo que se ve justo antes de que `hero` ande (una copia: el núcleo lo cambia al
-   * moverlo): lo explorado y desde dónde se mira sin él, los objetos como se saben
-   * y sus puntos de movimiento.
-   */
-  private loDeAntesDeLaMarcha(hero: Hero): LoDeAntesDeLaMarcha {
-    const miradas = miradasDe(this.state, this.viewer);
-    const suya = miradas.findIndex(
-      (m) => m.radio === HERO_SCOUT_RADIUS && m.centro.x === hero.at.x && m.centro.y === hero.at.y,
-    );
-    if (suya >= 0) miradas.splice(suya, 1);
-    return {
-      niebla: {
-        explorado: Casillas.deIndices(this.state.map, this.jugador.fog.indices()),
-        miradas: miradas.map((m) => ({ centro: { ...m.centro }, radio: m.radio })),
-        radio: HERO_SCOUT_RADIUS,
-      },
-      conocido: structuredClone(this.aLaVista.conocido()),
-      movimiento: hero.movePoints,
-    };
+    this.marcha.andar(heroId, to);
   }
 
   /** Lo que abre la llegada de la marcha de `hero`: `ultimo`, el último hecho de su marcha. */
@@ -2008,24 +1863,4 @@ export interface VistaDelAviso {
   readonly frase: string;
   /** La casilla donde se pelea: a donde mira la cámara. */
   readonly at: Point;
-}
-
-/** Lo que se veía al salir una marcha que se enseña: lo que se pinta mientras anda. */
-interface LoDeAntesDeLaMarcha {
-  readonly niebla: NieblaDeAntes;
-  readonly conocido: LoConocido;
-  readonly movimiento: number;
-}
-
-/**
- * La marcha que el mapa enseña (`Session.marchaEnCurso`): quién anda y por qué
- * casillas, de la de donde salió a la última que pisó (sus `hero_moved`).
- */
-export interface MarchaEnPantalla {
-  readonly heroe: string;
-  readonly pasos: readonly Point[];
-}
-
-function sameTile(a: Point, b: Point): boolean {
-  return a.x === b.x && a.y === b.y;
 }

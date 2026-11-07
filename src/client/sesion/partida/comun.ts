@@ -16,7 +16,7 @@
  */
 import type { GameContext, GameState, Player } from '@core/state/tipos.js';
 import type { Town } from '@core/town/town.js';
-import type { Hero, PlayerId } from '@core/types.js';
+import type { Hero, PlayerId, Point } from '@core/types.js';
 
 /** La escena en que se está (`Session.scene`). */
 export type Scene = 'adventure' | 'town' | 'battle' | 'tropa' | 'morada' | 'ayuntamiento' | 'lugar';
@@ -67,4 +67,9 @@ export interface DueñoDeLasPiezas {
   idDeLaBaseAbierta(): string | null;
   /** La base abierta (`Session.activeTown`), o `null`. */
   baseAbierta(): Town | null;
+}
+
+/** Si `a` y `b` son la misma casilla: el clic en el mapa, la llegada de una marcha y andar. */
+export function sameTile(a: Point, b: Point): boolean {
+  return a.x === b.x && a.y === b.y;
 }
