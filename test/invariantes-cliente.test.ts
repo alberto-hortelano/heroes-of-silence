@@ -1,10 +1,10 @@
 /**
- * El cliente: sus capas (las dependencias de valor solo bajan, ninguna página carga
- * otra y el espectador no carga la sesión); la única puerta al núcleo es la sesión
- * y la del marcado, `html.ts`; las escenas de pie solo importan tipos del núcleo y toman la escala
- * del combate; lo que pinta la batalla es lo ocultado; los temas (quién escribe
- * `data-tema`, la forma en `forma.css`, sin colores fijos ni letras a mano); las
- * voces y el clima del narrador, con su único escritor.
+ * El cliente: sus capas (las dependencias solo bajan, también las de tipos; ninguna
+ * página carga ni nombra otra y el espectador no carga la sesión); la única puerta al
+ * núcleo es la sesión y la del marcado, `html.ts`; las escenas de pie solo importan
+ * tipos del núcleo y toman la escala del combate; lo que pinta la batalla es lo
+ * ocultado; los temas (quién escribe `data-tema`, la forma en `forma.css`, sin colores
+ * fijos ni letras a mano); las voces y el clima del narrador, con su único escritor.
  *
  * Los guardias de las fronteras de `CLAUDE.md` vivían en un solo
  * `invariantes.test.ts`; desde la fase T de la reorganización (06-11-2026) van en
@@ -44,33 +44,51 @@ import { bloquesCss, COLOR, hojasDelCliente } from './hojas-de-estilo.js';
 const HOJAS_CON_REGLAS = hojasDelCliente().filter((r) => r !== ruta('src/client/temas.css'));
 
 /**
- * Los `import()` de `r` (relativa a la raíz) que caen en el repositorio, resueltos
+ * Los `import('…')` de `r` (relativa a la raíz) que caen en el repositorio, resueltos
  * como los estáticos (`importacionesConLineaDe`: un `.js` que es un `.ts` en el
- * disco, el `.ts`), con su línea. Con el parser y no con una expresión regular: un
- * `typeof import('…')` es un tipo y no carga nada, y un `import()` comentado no
- * existe. Solo los relativos: el cliente no carga el suyo con el alias.
+ * disco, el `.ts`), con su línea y si nombran un tipo. Con el parser y no con una
+ * expresión regular: un `typeof import('…')` o un `import('…').X` es un tipo y no carga
+ * nada, y un `import()` comentado no existe. Solo los relativos: el cliente no carga el
+ * suyo con el alias.
  */
-function aDemandaDe(r: string): { ruta: string; linea: number }[] {
+function entreParentesisDe(r: string): { ruta: string; linea: number; deUnTipo: boolean }[] {
   // Sin `import(` en el código (sin comentarios) no hay ninguno: no se parsea.
   if (!/\bimport\s*\(/.test(codigoDe(r))) return [];
   const sf = ts.createSourceFile(r, leer(r), ts.ScriptTarget.Latest, true);
-  const out: { ruta: string; linea: number }[] = [];
+  const out: { ruta: string; linea: number; deUnTipo: boolean }[] = [];
+  const anotar = (n: ts.Node, a: ts.Node | undefined, deUnTipo: boolean): void => {
+    if (a === undefined || !ts.isStringLiteralLike(a) || !a.text.startsWith('.')) return;
+    const absoluta = join(dirname(r), a.text);
+    const conTs = absoluta.replace(/\.js$/, '.ts');
+    out.push({
+      ruta: existsSync(join(RAIZ, conTs)) ? conTs : absoluta,
+      linea: sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1,
+      deUnTipo,
+    });
+  };
   const visitar = (n: ts.Node): void => {
-    if (ts.isCallExpression(n) && n.expression.kind === ts.SyntaxKind.ImportKeyword) {
-      const a = n.arguments[0];
-      if (a !== undefined && ts.isStringLiteralLike(a) && a.text.startsWith('.')) {
-        const absoluta = join(dirname(r), a.text);
-        const conTs = absoluta.replace(/\.js$/, '.ts');
-        out.push({
-          ruta: existsSync(join(RAIZ, conTs)) ? conTs : absoluta,
-          linea: sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1,
-        });
-      }
-    }
+    if (ts.isCallExpression(n) && n.expression.kind === ts.SyntaxKind.ImportKeyword)
+      anotar(n, n.arguments[0], false);
+    else if (ts.isImportTypeNode(n) && ts.isLiteralTypeNode(n.argument))
+      anotar(n, n.argument.literal, true);
     ts.forEachChild(n, visitar);
   };
   visitar(sf);
   return out;
+}
+
+/** Lo que `r` carga a demanda, con un `import()`: lo que se evalúa cuando se llama. */
+function aDemandaDe(r: string): { ruta: string; linea: number }[] {
+  return entreParentesisDe(r).flatMap((i) =>
+    i.deUnTipo ? [] : [{ ruta: i.ruta, linea: i.linea }],
+  );
+}
+
+/** Los tipos que `r` toma de otro módulo sin importarlo: `typeof import('…')`, `import('…').X`. */
+function tiposPorImportDe(r: string): { ruta: string; linea: number }[] {
+  return entreParentesisDe(r).flatMap((i) =>
+    i.deUnTipo ? [{ ruta: i.ruta, linea: i.linea }] : [],
+  );
 }
 
 describe('invariantes del proyecto', () => {
@@ -93,26 +111,38 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo(fuera, puertas)).toEqual([]);
   });
 
-  it('las capas del cliente: comun ← render ← sesion ← views ← batalla ← las páginas; ninguna página carga otra y el espectador no carga la sesión', () => {
-    // Las dependencias de valor del cliente solo bajan (fase C de la reorganización,
+  it('las capas del cliente: comun ← render ← sesion ← views ← batalla ← las páginas, también para un tipo; ninguna página carga ni nombra otra y el espectador no carga la sesión', () => {
+    // Las dependencias del cliente solo bajan (fase C de la reorganización,
     // 07-11-2026): `comun/` (lo que comparten las tres páginas) ← `render/` (pinta en el
     // lienzo) ← `sesion/` (la puerta al núcleo) ← `views/` (el marcado común) ←
     // `batalla/` (la pelea en pantalla) ← las páginas: la partida (`partida/`, con
     // `main.ts` y `entrada.ts` de la raíz), la arena, el espectador y las herramientas
-    // de `pnpm dev` (`desarrollo/`). Ninguna página carga otra, y el espectador no
-    // carga nada de `sesion/`, ni de lejos: no aplica reglas, y la sesión le traería el
-    // motor de la partida entero. Hasta C3 subían ocho: `views/panels.ts`, que era lo
-    // común y la partida a la vez, importaba los paneles de cinco pantallas de la
-    // partida (tres lo importaban a él), los botones de la pelea y `COMO_SE_COLOCA` de
-    // `batalla/colocar.ts`, que importaba también la sesión. Y el espectador cargaba
-    // `sesion/dichos.ts` por la crónica.
+    // de `pnpm dev` (`desarrollo/`). Ninguna página carga ni nombra otra, y el
+    // espectador no carga nada de `sesion/`, ni de lejos: no aplica reglas, y la sesión
+    // le traería el motor de la partida entero. Hasta C3 subían ocho: `views/panels.ts`,
+    // que era lo común y la partida a la vez, importaba los paneles de cinco pantallas
+    // de la partida (tres lo importaban a él), los botones de la pelea y
+    // `COMO_SE_COLOCA` de `batalla/colocar.ts`, que importaba también la sesión. Y el
+    // espectador cargaba `sesion/dichos.ts` por la crónica.
     //
     // Mira lo que se carga: los `import` y `export … from` de valor y los `import 'x'`
-    // (`importacionesConLineaDe`) y los `import()` (`aDemandaDe`). Los tipos, aún no.
-    // Lo que entra en `desarrollo/` desde fuera no se mira: lo gobierna «las
+    // (`importacionesConLineaDe`) y los `import()` (`aDemandaDe`). Y, desde C3b, lo que
+    // solo se nombra: los `import type` y `export type … from` (`importacionesConLineaDe`
+    // con los tipos), y los tipos de otro módulo sin importarlo, `typeof import('…')` o
+    // `import('…').X` (`tiposPorImportDe`); un `import { type X }` ya contaba, porque se
+    // queda en el JavaScript como `import {}` y carga el módulo. Un tipo de la capa de
+    // arriba también ata: quien lo nombra no compila sin ella. Hasta C3b nombraba uno,
+    // `render/batalla.ts` (`EstadoFigura` y `Efecto`, que vivían en `batalla/anim.ts` y
+    // hoy en `render/batalla/tablero.ts`).
+    //
+    // La única excepción, escrita: `desarrollo/` puede nombrar **tipos** de `partida/`
+    // (hoy `marcas.ts` y `regiones.ts`, la `EscenaAventura` que marcan y miran): las
+    // herramientas de desarrollo son de la página de la partida y solo se cargan en
+    // ella, por sus `import()` (el de `main.ts` y el del menú de inicio). Un valor de la
+    // partida, o un tipo de otra página, no. Lo que entra en `desarrollo/` desde fuera no se mira: lo gobierna «las
     // herramientas de desarrollo solo entran por `import()` tras
-    // `HERRAMIENTAS_DE_DESARROLLO`» (invariantes-capas). Una carpeta del cliente sin
-    // capa rompe el guardia, que pide ponerla aquí.
+    // `HERRAMIENTAS_DE_DESARROLLO`» (invariantes-capas), que deja los `import type`. Una
+    // carpeta del cliente sin capa rompe el guardia, que pide ponerla aquí.
     const CLIENTE_ = `${ruta('src/client')}/`;
     const DESARROLLO = `${ruta('src/client/desarrollo')}/`;
     const CAPAS = ['comun', 'render', 'sesion', 'views', 'batalla'] as const;
@@ -132,17 +162,35 @@ describe('invariantes del proyecto', () => {
     const suben: string[] = [];
     const entrePaginas: string[] = [];
     const miradas = new Map<string, number>();
+    let deSoloTipos = 0;
     for (const de of CLIENTE) {
       const desde = capaDe(de);
-      for (const { ruta: a, linea } of [...importacionesConLineaDe(de), ...aDemandaDe(de)]) {
+      // Las de valor, por su línea: las demás de `importacionesConLineaDe` con los tipos
+      // son de solo tipos.
+      const deValor = new Set(importacionesConLineaDe(de).map((i) => `${i.linea} ${i.ruta}`));
+      const todas = [
+        ...importacionesConLineaDe(de, true).map((i) => ({
+          ...i,
+          soloTipos: !deValor.has(`${i.linea} ${i.ruta}`),
+        })),
+        ...aDemandaDe(de).map((i) => ({ ...i, soloTipos: false })),
+        ...tiposPorImportDe(de).map((i) => ({ ...i, soloTipos: true })),
+      ];
+      for (const { ruta: a, linea, soloTipos } of todas) {
         if (!a.startsWith(CLIENTE_) || !a.endsWith('.ts')) continue;
         if (a.startsWith(DESARROLLO) && !de.startsWith(DESARROLLO)) continue;
         const hacia = capaDe(a);
         const donde = hacia.pagina ?? (CAPAS[hacia.nivel] as string);
         miradas.set(donde, (miradas.get(donde) ?? 0) + 1);
-        if (hacia.nivel > desde.nivel) suben.push(`${de}:${linea} → ${a}`);
-        else if (desde.pagina !== null && hacia.pagina !== null && hacia.pagina !== desde.pagina)
-          entrePaginas.push(`${de}:${linea} → ${a}`);
+        if (soloTipos) deSoloTipos++;
+        const dicho = `${de}:${linea} → ${a}${soloTipos ? ' (solo tipos)' : ''}`;
+        if (hacia.nivel > desde.nivel) suben.push(dicho);
+        else if (desde.pagina !== null && hacia.pagina !== null && hacia.pagina !== desde.pagina) {
+          // La excepción de arriba: tipos de la partida en sus herramientas.
+          const herramientaDeLaPartida =
+            soloTipos && desde.pagina === 'desarrollo' && hacia.pagina === 'partida';
+          if (!herramientaDeLaPartida) entrePaginas.push(dicho);
+        }
       }
     }
     expect(suben).toEqual([]);
@@ -168,10 +216,12 @@ describe('invariantes del proyecto', () => {
     const SESION = `${ruta('src/client/sesion')}/`;
     expect([...deDonde.keys()].filter((m) => m.startsWith(SESION)).map(cadena)).toEqual([]);
     // Y que mire algo: cada capa y cada página recibe importaciones, también a demanda
-    // (la entrada de la partida carga su `main.ts` con un `import()`), y el espectador
-    // llega a lo común de la pelea: la crónica, el parte y el animador.
+    // (la entrada de la partida carga su `main.ts` con un `import()`), se miran las de
+    // solo tipos (cien o más: 135 al escribirlo) y el espectador llega a lo común de la
+    // pelea: la crónica, el parte y el animador.
     for (const donde of [...CAPAS, ...PAGINAS])
       expect(miradas.get(donde) ?? 0, donde).toBeGreaterThan(0);
+    expect(deSoloTipos).toBeGreaterThanOrEqual(100);
     expect(aDemandaDe(ruta('src/client/entrada.ts')).map((x) => x.ruta)).toContain(
       ruta('src/client/main.ts'),
     );
