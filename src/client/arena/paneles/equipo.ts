@@ -52,7 +52,7 @@ import { type FilaDeCifra, tablaDeCifras } from './ficha.js';
 /** Cómo dice «La llevan» de una pieza del equipo base del héroe (la Espada, el gambesón): todo héroe. */
 export const LA_LLEVA_EL_HEROE = 'todo héroe (su equipo base)';
 
-/** Lo que la vista «Editar equipo» enseña: lo da `main.ts`, que tiene las piezas y el catálogo. */
+/** Lo que la vista «Editar equipo» enseña: lo da `vista.ts`, con las piezas y el catálogo. */
 export interface VistaDeEquipo {
   /** El catálogo de equipo (`catalogoDeEquipo`), en su orden, resuelto y escrito. */
   readonly piezas: CatalogoDeEquipo;
@@ -236,7 +236,7 @@ function dondeEnPantalla(p: Pieza): Html {
  * el final lo que suma de verdad (como la tabla de cifras de una unidad). Una de
  * cuerpo a cuerpo lleva la tabla «Rueda del golpe» (`filasDeLaRueda`). Botones:
  * Duplicar, Nueva sobre esta y Borrar. Cada campo lleva `data-arena-pieza-campo`,
- * que lee `main.ts`.
+ * que lee `cambios.ts`.
  */
 function fichaDePieza(p: Pieza, v: VistaDeEquipo): Html {
   const eq = v.piezas;
@@ -332,7 +332,7 @@ function fichaDePieza(p: Pieza, v: VistaDeEquipo): Html {
 
 /**
  * Una casilla de la ficha de una pieza: su campo (`data-arena-pieza-campo`, que
- * lee `main.ts`), su rótulo, de qué parte de lo que suma sale (`de`, sobre unos
+ * lee `cambios.ts`), su rótulo, de qué parte de lo que suma sale (`de`, sobre unos
  * extras: los de su base o lo que suma entera, `extrasDe`), su rango sin base y su
  * nota.
  */

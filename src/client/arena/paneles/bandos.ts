@@ -31,7 +31,7 @@ export type Elegida =
   | { readonly kind: 'unidad'; readonly id: string }
   | { readonly kind: 'heroe'; readonly lado: Lado };
 
-/** Lo que la tarjeta de un puesto enseña: lo da `main.ts`, que sabe de dónde salen las cifras. */
+/** Lo que la tarjeta de un puesto enseña: lo da `montaje.ts`, que sabe de dónde sale cada cifra. */
 export interface DatosDePuesto {
   readonly nombre: string;
   readonly resumen: string;
@@ -164,7 +164,7 @@ const TAMAÑO_DE_FIGURA = {
 } as const satisfies Record<string, readonly [number, number]>;
 
 /**
- * El lienzo de una figura (`canvas.figura`): lo anima `main.ts` y lo tiñe del
+ * El lienzo de una figura (`canvas.figura`): lo anima `figuras.ts` y lo tiñe del
  * color de su bando por `data-lado`; sin lado, la ficha, que es la grande y
  * anima el clip que se elige (`data-ficha-clip`). Decorativo: el nombre va al
  * lado. La única forma del marcado: el puesto, el héroe del bando, la ficha y la
@@ -182,7 +182,7 @@ export function figuraEnLienzo(
 
 /**
  * El enlace de la pelea, si se copió y sigue siendo el del montaje: en un campo
- * para copiarlo a mano cuando el portapapeles no deja (`main.ts` lo intenta).
+ * para copiarlo a mano cuando el portapapeles no deja (`enlace.ts` lo intenta).
  */
 export function renderEnlace(enlace: string | null): Html {
   if (enlace === null) return NADA;

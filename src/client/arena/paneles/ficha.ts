@@ -79,7 +79,7 @@ export interface ComoDeLaFicha {
   readonly piezas: EquipoAtado;
   /**
    * Si su título es el campo del nombre (tras pulsar «✎ Editar»): lo pone
-   * `main.ts` por la clave de la ficha, y sin él el nombre se lee y no se escribe.
+   * `fichas.ts` por la clave de la ficha, y sin él el nombre se lee y no se escribe.
    */
   readonly renombrando?: boolean;
   /**
@@ -103,7 +103,7 @@ export const CAMBIO_EN_COMBATE =
 
 /**
  * El título de una ficha: el nombre de lo que enseña y, debajo, qué es. Si el
- * nombre se cambia (`campo`: el atributo con el que lo lee `main.ts`), lleva su
+ * nombre se cambia (`campo`: el atributo con el que lo lee `cambios.ts`), lleva su
  * botón «✎ Editar» (`renombrar`), y renombrando (`como.renombrando`) el nombre
  * es ese campo. Es el único sitio donde se escribe el nombre: entre las cifras
  * no va (12-10-2026, el usuario: «quita el nombre de las características y pon
@@ -256,7 +256,7 @@ export interface FilaDeCifra {
   /** Qué es, si hace falta decirlo; la nota añade el rango de la casilla. */
   readonly nota?: string;
   /**
-   * La casilla que se escribe: el atributo con que la lee `main.ts`
+   * La casilla que se escribe: el atributo con que la lee `cambios.ts`
    * (`data-campo="attack"`…), su valor y su rango. Sin ella, la cifra solo se lee.
    */
   readonly casilla?: {
@@ -337,7 +337,7 @@ export function tablaDeCifras(
  * (ataque, fuerza, agilidad y vida), cada una con lo que pelea (`final`), y las
  * que se derivan de ellas y del equipo (defensa, daño, casillas y peso; 25-10-2026,
  * `cifrasDelCuerpo`), sin casilla. `atributo`, el nombre del atributo con que la
- * lee `main.ts` (`data-campo`): el valor es el campo (`attack`, `fuerza`…). Sin
+ * lee `cambios.ts` (`data-campo`): el valor es el campo (`attack`, `fuerza`…). Sin
  * disparos ni casillas que ocupa: en la arena dispara quien lleva arma a
  * distancia, sin munición, y toda unidad ocupa una (13-10-2026).
  */

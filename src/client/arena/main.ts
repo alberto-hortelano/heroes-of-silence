@@ -6,7 +6,17 @@
  * Aquí solo se conecta: las reglas las aplica `SesionDeArena` (en
  * `sesion/sesion-de-arena.ts`, de la única puerta del cliente al núcleo, `sesion/`), el
  * ratón del tablero lo traduce `EscenaBatalla` —la misma de la partida— y el marcado
- * sale de `paneles/`.
+ * sale de `paneles/`. Lo que hace cada parte de la página vive en `arena/` desde R8 de la
+ * reorganización (07-11-2026) —el catálogo (`catalogo.ts`), el montaje (`montaje.ts`), el editor
+ * de la muralla (`editor-de-muralla.ts`), la dirección y el enlace (`enlace.ts`), las fichas
+ * (`fichas.ts`) y sus figuras (`figuras.ts`), lo que se ve (`vista.ts`), los cambios
+ * (`cambios.ts`), la pelea (`pelea.ts`), el fotograma (`dibujo.ts`), el puntero (`puntero.ts`),
+ * el clic (`clic.ts`), el teclado (`teclado.ts`), lo que se pide al servidor (`servidor.ts`) y
+ * abrirla (`abrir.ts`)—, y la página que comparten, con sus cinco estados, en `pagina.ts`.
+ * Ninguna registra un oyente ni hace nada al importarse: aquí se construye cada cosa y se instala
+ * cada parte en el orden de siempre, porque es comportamiento (dos oyentes del mismo evento en el
+ * mismo nodo corren en el orden en que se registraron) y porque lo que se lee al cargar —lo
+ * plegado de la muralla en `localStorage`, la URL— decide qué se dice primero.
  * Las cifras se guardan en el catálogo de unidades del repo a través del servidor de
  * desarrollo (`vite.config.ts`); sin él la página lo dice y sigue sirviendo para
  * pelear.
@@ -26,20 +36,12 @@ import { bucleDeDibujo } from '../comun/bucle.js';
 import { mensajeDe } from '../comun/errores.js';
 import { cargarArte } from '../render/assets.js';
 import { ajustarLienzo } from '../render/lienzo.js';
+import { abrirLaArena } from './abrir.js';
 import { instalarLosCambios } from './cambios.js';
-import {
-  arrancar,
-  catalogoDeMagia,
-  hechizosSinGuardar,
-  instalarElAvisoAlCerrar,
-  porQueNoSeMonta,
-  unidadDe,
-} from './catalogo.js';
+import { catalogoDeMagia, hechizosSinGuardar, instalarElAvisoAlCerrar } from './catalogo.js';
 import { instalarElClic } from './clic.js';
 import { dibujarFotograma } from './dibujo.js';
-import { leerAbiertas, listaPlegadaTras } from './edicion.js';
-import { arrancarMurallas } from './editor-de-muralla.js';
-import { leerLaURL, montarDelEnlace } from './enlace.js';
+import { leerLaURL } from './enlace.js';
 import { instalarElCierreDelEditor } from './fichas.js';
 import { vigiaDeLasFiguras } from './figuras.js';
 import { montarEditorDeMagia } from './magia.js';
@@ -57,19 +59,7 @@ import { caraDeLaArena } from './paneles/batalla.js';
 import { jugadaEnCurso } from './pelea.js';
 import { instalarElPuntero } from './puntero.js';
 import { instalarElTeclado } from './teclado.js';
-import {
-  avisoAlEntrar,
-  CLAVE_DE_ABIERTAS,
-  CLAVE_DE_LISTA,
-  CLAVE_DE_PLEGADO,
-  irA,
-  leerDelNavegador,
-  QUE_ABIERTAS,
-  QUE_LISTA,
-  QUE_PLEGADO,
-  repintar,
-  vistaDeLaURL,
-} from './vista.js';
+import { CLAVE_DE_PLEGADO, leerDelNavegador, QUE_PLEGADO, repintar } from './vista.js';
 
 const elementos = elementosDeLaArena();
 const { canvas, elStatus, elMagia, elRueda, elTituloDelEditor, botonCerrarEditor } = elementos;
@@ -189,12 +179,6 @@ const editorDeMuralla: EstadoDelEditorDeMuralla = {
 const parametros = new URLSearchParams(location.search);
 leerLaURL(montaje, parametros);
 
-// ---------------------------------------------------------------- arranque
-
-// ---------------------------------------------------------------- muralla
-
-// ---------------------------------------------------------------- montaje
-
 const vigiaDeFiguras = vigiaDeLasFiguras(vista, pedirFotograma);
 
 /**
@@ -206,9 +190,9 @@ const textosDelEditor = {
   cerrar: botonCerrarEditor.textContent,
 } as const;
 
+// El primer oyente de la página tras los del editor de magia: el aviso al cerrar con algo sin
+// guardar. Recibe solo el catálogo, porque la página aún no está entera.
 instalarElAvisoAlCerrar(catalogo);
-
-// ---------------------------------------------------------------- el enlace de la pelea
 
 // ---------------------------------------------------------------- batalla
 
@@ -228,7 +212,7 @@ const gestos = new GestosDeBatalla({
   pedirFotograma,
 });
 
-// ---------------------------------------------------------------- dibujo
+// ---------------------------------------------------------------- lienzo y rueda
 
 const principal = ajustarLienzo(canvas, pedirFotograma);
 cargarArte(pedirFotograma, { manifiesto: false, mapa: false, hojas: false });
@@ -271,57 +255,16 @@ const pagina: PaginaDeLaArena = {
   rueda,
 };
 
-// ---------------------------------------------------------------- gestos
+// ---------------------------------------------------------------- los oyentes, en su orden
 
+// El puntero sobre el tablero, el clic, los cambios (las teclas del campo del nombre, en la
+// captura; el foco y cada `change`), el teclado y el cierre del editor de la batalla: el orden
+// en que se registraban cuando eran sentencias de este fichero.
 instalarElPuntero(pagina);
-
 instalarElClic(pagina);
-
 instalarLosCambios(pagina);
-
 instalarElTeclado(pagina);
-
 instalarElCierreDelEditor(pagina);
 
-// Las dos lecturas no dependen una de otra: van a la vez.
-Promise.all([arrancar(pagina), arrancarMurallas(editorDeMuralla)]).then(
-  ([, avisoDeMurallas]) => {
-    const delEnlace = montarDelEnlace(pagina);
-    // Las fichas abiertas la última vez: solo las que aún se abren (la hoja está
-    // y está entera).
-    const recordadas = leerAbiertas(
-      leerDelNavegador(CLAVE_DE_ABIERTAS, QUE_ABIERTAS),
-      (f) =>
-        catalogo.unidadesDelCatalogo.has(f.id) &&
-        porQueNoSeMonta(catalogo, unidadDe(catalogo, f.id)) === null,
-    );
-    vista.abiertas = recordadas.abiertas;
-    vista.listaPlegada = listaPlegadaTras(
-      'entrar',
-      leerDelNavegador(CLAVE_DE_LISTA, QUE_LISTA) === '1',
-      vista.abiertas.length,
-    );
-    const deAbiertas = recordadas.aviso === '' ? '' : ` ${recordadas.aviso}`;
-    const pedida = vistaDeLaURL(pagina);
-    const queHacer =
-      pedida.vista === null
-        ? 'Añade unidades a los dos bandos y pulsa Luchar.'
-        : avisoAlEntrar(pagina, pedida.vista);
-    vista.aviso = delEnlace?.montado
-      ? `${delEnlace.aviso}${vista.aviso}${catalogo.avisoDeIncompletas}${avisoDeMurallas}${deAbiertas}`
-      : `${montaje.avisoDeSemilla}${delEnlace?.aviso ?? ''}${vista.aviso}${catalogo.avisoDeIncompletas}${avisoDeMurallas} ${queHacer}${deAbiertas}`;
-    vista.aviso = `${pedida.aviso}${vista.aviso}`;
-    // Recargar deja la vista donde estaba: la edición con sus fichas (recordadas
-    // arriba) o el equipo con su pieza.
-    if (pedida.vista === 'equipo') {
-      vista.piezaElegida = pedida.pieza ?? catalogo.equipo.piezas.keys().next().value ?? null;
-    }
-    irA(pagina, pedida.vista ?? 'montaje');
-    repintar(pagina);
-  },
-  (err: unknown) => {
-    console.error('[arena] no ha arrancado', err);
-    vista.aviso = `La arena no ha podido arrancar: ${mensajeDe(err)}`;
-    elStatus.textContent = vista.aviso;
-  },
-);
+// Lo último: lo de disco, el enlace, lo recordado y la vista que pide la dirección.
+abrirLaArena(pagina);

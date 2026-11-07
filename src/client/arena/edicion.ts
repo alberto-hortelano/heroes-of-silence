@@ -5,8 +5,8 @@
  * qué fichas se ven: abrir, cerrar, recordar y el marco de cada una.
  *
  * Puro, sin DOM, y por eso con tests (`test/arena-edicion.test.ts`). Las fichas
- * mismas no se pintan aquí: el cuerpo de cada una lo da `main.ts` con
- * `renderFicha`, la de siempre, sin copia.
+ * mismas no se pintan aquí: el cuerpo de cada una lo da `fichas.ts`
+ * (`fichaAbierta`) con `renderFicha`, la de siempre, sin copia.
  */
 import { type Html, html, unir } from '../comun/html.js';
 import type { Elegida } from './paneles/bandos.js';

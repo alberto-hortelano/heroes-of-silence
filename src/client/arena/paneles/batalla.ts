@@ -149,7 +149,7 @@ export function vistaPrevia(s: VistaDeArena, x: BattleStack): Html {
 /**
  * Lo que la arena pone alrededor de la figura de los dos que se cruzan en la rueda
  * (#261; la figura es la común, `figuraDelContrincante`): en la rueda para elegir, un botón
- * que abre su ficha de solo lectura (`ficha-en-la-rueda`, `main.ts`) y, al pasar
+ * que abre su ficha de solo lectura (`ficha-en-la-rueda`, `clic.ts`) y, al pasar
  * el ratón o con el foco del teclado, su vista previa (`vistaPrevia`: del estado,
  * nunca lo elegido, que va a ciegas en la sesión).
  */
