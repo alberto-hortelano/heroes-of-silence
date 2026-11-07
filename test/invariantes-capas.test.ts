@@ -456,9 +456,20 @@ describe('invariantes del proyecto', () => {
     // legible, que juzgan también las voces, el banco de NPC y un mundo, salió a
     // `core/linea.ts` (fase N, 07-11-2026). Roto a mano: `import { SLOTS } from
     // '../contract/vocabulario.js'` en `gente/banco.ts` sale rojo con su línea.
+    //
+    // Y dentro del mapa, una sola dirección (paso N9 de la misma fase): la forma y la
+    // red del mapa (`map/`) no saben cómo se viste ni cómo se genera, y el vestido
+    // (`map/vestir/`) no sabe del generador (`map/generar/`), que usa los dos. Eran
+    // `vestir.ts` y `generate.ts`, y el vestido leía la tabla de sus barreras de
+    // `generar/datos.ts` (hoy en `vestir/base.ts`): sin ciclo, pero las carpetas iban y
+    // volvían, y eso el guardia de ciclos no lo ve. Rotos a mano: un `import type` de
+    // `generar/plan.js` en `vestir/caminos.ts` y uno de `vestir/base.js` en
+    // `map/regiones.ts` salen rojos con su línea.
     const AI = `${ruta('src/core/ai')}/`;
     const CONTRATO = `${ruta('src/core/contract')}/`;
     const MAPA = `${ruta('src/core/map')}/`;
+    const VESTIDO = `${ruta('src/core/map/vestir')}/`;
+    const GENERADOR = `${ruta('src/core/map/generar')}/`;
     const SOBRE_EL_MAPA = [
       ruta('src/core/state'),
       ruta('src/core/mundo'),
@@ -474,6 +485,15 @@ describe('invariantes del proyecto', () => {
       [
         '`map/` no importa `state/`, `mundo/`, `ai/` ni `contract/`',
         (de, a) => de.startsWith(MAPA) && SOBRE_EL_MAPA.some((c) => a.startsWith(c)),
+      ],
+      [
+        'dentro del mapa, `map/` ← `map/vestir/` ← `map/generar/`',
+        (de, a) =>
+          (de.startsWith(MAPA) &&
+            !de.startsWith(VESTIDO) &&
+            !de.startsWith(GENERADOR) &&
+            (a.startsWith(VESTIDO) || a.startsWith(GENERADOR))) ||
+          (de.startsWith(VESTIDO) && a.startsWith(GENERADOR)),
       ],
     ];
     const colados: string[] = [];
@@ -493,6 +513,12 @@ describe('invariantes del proyecto', () => {
     expect(importacionesConLineaDe(ruta('src/core/ai/turn.ts'), true).map((x) => x.ruta)).toContain(
       ruta('src/core/state/tipos.ts'),
     );
+    // Y las de una subcarpeta a otra: el generador viste con el vestido.
+    expect(
+      importacionesConLineaDe(ruta('src/core/map/generar/vestir-la-red.ts'), true).map(
+        (x) => x.ruta,
+      ),
+    ).toContain(ruta('src/core/map/vestir/base.ts'));
   });
 
   it('ningún fichero que una máquina lee lleva dentro la ruta de esta máquina', () => {
