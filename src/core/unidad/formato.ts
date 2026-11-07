@@ -473,7 +473,7 @@ export const RUTA_DEL_CATALOGO_DE_UNIDADES = 'data/unidades.json';
  * edita y dice qué es el catálogo y la forma de una unidad.
  */
 export const COMENTARIO_DEL_CATALOGO_DE_UNIDADES =
-  'CATÁLOGO de unidades de las cinco facciones: un cuerpo (cuerpo: { hoja }) y su equipo (una pieza de data/equipo.json por hueco). Cifras INVENTADAS y provisionales. Lo lee src/core/catalogo.ts y lo escribe la arena al pulsar «Guardar», con la misma regla (leerCatalogos).';
+  'CATÁLOGO de unidades de las cinco facciones: un cuerpo (cuerpo: { hoja }) y su equipo (una pieza de data/equipo.json por hueco). Cifras INVENTADAS y provisionales. Lo lee src/core/unidad/catalogo.ts y lo escribe la arena al pulsar «Guardar», con la misma regla (leerCatalogos).';
 
 /** Una unidad del archivo que no pasa la regla: se cuenta por qué y se guarda tal cual. */
 export interface UnidadSinValidar {

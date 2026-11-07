@@ -1046,7 +1046,7 @@ export const RUTA_DEL_CATALOGO_DE_EQUIPO = 'data/equipo.json';
  * arena conserva el que haya en disco, que es el que se edita.
  */
 export const COMENTARIO_DEL_CATALOGO_DE_EQUIPO =
-  'CATÁLOGO de equipo, una pieza por hueco. TODO INVENTADO y PROVISIONAL (HoMM2 no tiene equipo de tropa). Lo carga src/core/data.ts (leerEquipo) y lo escribe la arena al pulsar «Guardar», con la misma regla.';
+  'CATÁLOGO de equipo, una pieza por hueco. TODO INVENTADO y PROVISIONAL (HoMM2 no tiene equipo de tropa). Lo carga src/core/equipo/pieza.ts (leerEquipo) y lo escribe la arena al pulsar «Guardar», con la misma regla.';
 
 /**
  * Lee un catálogo de equipo (`{ piezas: [...] }`) con la regla del catálogo

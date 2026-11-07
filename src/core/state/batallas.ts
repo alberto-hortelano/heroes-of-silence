@@ -331,9 +331,11 @@ function dejarPendiente(
 }
 
 /**
- * Monta el tablero de una batalla del mapa con los bandos de ahora. **La única
- * llamada a `createBattle` de `state/`** (lo vigila `test/invariantes.test.ts`): la
- * hacen la batalla que nace y la defensa que se rehace.
+ * Monta el tablero de una batalla del mapa con los bandos de ahora: la batalla que
+ * nace y la defensa que se rehace. **Una de las dos llamadas a `createBattle` de
+ * `state/`**, las dos en este fichero; la otra es la de la formación
+ * (`batallaDeLaFormacion`, que no es una batalla del mapa). Lo vigila
+ * `test/invariantes-partida.test.ts`.
  *
  * Con la muralla del sitio que se defiende (fases 2 y 3 del puesto fronterizo:
  * piedra en una ciudad, madera en un pueblo, la de su obra en un paso,

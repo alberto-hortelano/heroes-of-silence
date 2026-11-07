@@ -3,7 +3,9 @@
  *
  * Es un libro mayor y nada más: no sabe qué criaturas existen, qué rasgo pone
  * cada efecto ni quién es inmune a qué —eso son reglas del juego y las deciden el
- * motor y sus piezas (`battle.ts`, `golpe.ts`)—, así que solo importa `./types.js`.
+ * motor y sus piezas (`battle.ts`, `golpe.ts`)—, así que solo importa la forma de
+ * la batalla (`./types.js`) y lo que dice un efecto en palabras (`magia/dicho.ts`,
+ * `magia/formato.ts`, `texto.ts`).
  *
  * La regla que lo sostiene todo: **un efecto no se revierte, se filtra**. El
  * stack nunca guarda un bono ya sumado; la lista es la única verdad y el total
