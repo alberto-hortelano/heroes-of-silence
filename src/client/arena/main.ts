@@ -62,7 +62,6 @@ import {
 } from '@core/types.js';
 import { type Unidad, validarUnidad } from '@core/unidad/formato.js';
 import { unaVezEnLaURL } from '@core/validar.js';
-import { FIGURA } from '../../shared/arte.js';
 import { EscenaBatalla } from '../batalla/escena.js';
 import { GestosDeBatalla } from '../batalla/gestos.js';
 import { DialogoDeLaRueda } from '../batalla/rueda/dialogo.js';
@@ -71,26 +70,10 @@ import { mensajeDe } from '../comun/errores.js';
 import { html, pintar } from '../comun/html.js';
 import { semillaSorteada } from '../comun/semilla.js';
 import { cargarArte } from '../render/assets.js';
-import { COLOR_BANDO } from '../render/batalla/bandos.js';
 import type { CharacterClip } from '../render/figuras/character.js';
-import type { Direccion } from '../render/figuras/direccion.js';
-import {
-  claveDelDibujo,
-  colocarFigura,
-  type Figura,
-  hayFigurasAnimadas,
-  pintarFigura,
-  pintarSombraDeFigura,
-} from '../render/figuras/figura.js';
-import {
-  arteDe,
-  DIRECCION_DE_HOJA,
-  hojaDe,
-  INDICE_DE_HOJA,
-  MIRADA_DE_PRESENTACION,
-} from '../render/figuras/personajes.js';
+import { hayFigurasAnimadas } from '../render/figuras/figura.js';
+import { DIRECCION_DE_HOJA } from '../render/figuras/personajes.js';
 import { ajustarLienzo } from '../render/lienzo.js';
-import { COLOR_NEUTRO } from '../render/palette.js';
 import { type LadoDeSesion, SesionDeArena } from '../sesion/sesion-de-arena.js';
 import { pintarSiguiendoElFinal } from '../views/al-final.js';
 import { AVISO_DE_ESPERA } from '../views/cifras.js';
@@ -104,7 +87,6 @@ import {
   hechizosSinGuardar,
   instalarElAvisoAlCerrar,
   listaDeUnidades,
-  nombreDeFigura,
   piezasSinGuardar,
   porQueNoSeMonta,
   tarjetasDeLaLista,
@@ -152,6 +134,7 @@ import {
   nombreDeFicha,
   pintarEditor,
 } from './fichas.js';
+import { animarFiguras, animDe, recogerFiguras, vigiaDeLasFiguras } from './figuras.js';
 import { montarEditorDeMagia } from './magia.js';
 import {
   añadir,
@@ -164,7 +147,6 @@ import {
   quienUsaElHechizo,
 } from './montaje.js';
 import {
-  type AnimDeFicha,
   type Escena,
   type EstadoDeLaPelea,
   type EstadoDeLaVista,
@@ -303,16 +285,6 @@ const vista: EstadoDeLaVista = {
   rechazado: null,
   pendiente: null,
 };
-/** Lo que se queda quieto el último fotograma antes de repetir un clip que no va en bucle. */
-const PAUSA_DE_LA_FICHA_MS = 700;
-const ANIM_DE_PARTIDA: AnimDeFicha = {
-  clip: 'idle',
-  inicio: 0,
-  mira: INDICE_DE_HOJA[MIRADA_DE_PRESENTACION],
-};
-function animDe(clave: string): AnimDeFicha {
-  return vista.animDeFicha.get(clave) ?? ANIM_DE_PARTIDA;
-}
 
 const ROTULO_DE_ESCENA: Readonly<Record<Escena, string>> = {
   montaje: 'Montaje',
@@ -516,7 +488,7 @@ function repintarMontaje(): void {
 /** Pinta una vista (el montaje o la edición) y recoge sus figuras para animarlas. */
 function pintarVista(raiz: Element, pintarla: () => void): void {
   pintarla();
-  recogerFiguras(raiz);
+  recogerFiguras(pagina, raiz);
   pedirFotograma();
 }
 
@@ -759,46 +731,7 @@ function enfocar(foco: FocoTrasCerrar): void {
   destino.focus();
 }
 
-/**
- * Los lienzos de las figuras de la vista que se ve, y de ellos solo se pintan
- * los que están en pantalla (`enPantalla`): con cuatro fichas y la lista, la
- * mitad quedan fuera al desplazar.
- */
-function recogerFiguras(raiz: Element): void {
-  soltarFiguras();
-  for (const lienzo of raiz.querySelectorAll('canvas[data-figura]')) {
-    const ctx = lienzo instanceof HTMLCanvasElement ? lienzo.getContext('2d') : null;
-    if (ctx === null || !(lienzo instanceof HTMLCanvasElement)) continue;
-    const id = lienzo.getAttribute('data-figura') as string;
-    const lado = lienzo.getAttribute('data-lado');
-    vista.figuras.push({
-      lienzo,
-      ctx,
-      id,
-      clave: lienzo.getAttribute('data-ficha-clip') === 'si' ? claveDelElemento(lienzo) : null,
-      lado: lado === 'izquierda' || lado === 'derecha' ? lado : null,
-      rotulo: nombreDeFigura(catalogo, id).slice(0, 3),
-    });
-    vigiaDeFiguras?.observe(lienzo);
-  }
-}
-
-/** Ninguna figura que animar (se ha cerrado lo que las tenía). */
-function soltarFiguras(): void {
-  vista.figuras = [];
-  vigiaDeFiguras?.disconnect();
-  vista.enPantalla.clear();
-}
-const vigiaDeFiguras =
-  typeof IntersectionObserver === 'undefined'
-    ? null
-    : new IntersectionObserver((cambios) => {
-        for (const c of cambios) {
-          if (c.isIntersecting) vista.enPantalla.add(c.target);
-          else vista.enPantalla.delete(c.target);
-        }
-        pedirFotograma();
-      });
+const vigiaDeFiguras = vigiaDeLasFiguras(vista, pedirFotograma);
 
 /**
  * En plena pelea, un cambio entra antes en la batalla (`SesionDeArena.retocar`):
@@ -1087,90 +1020,12 @@ function render(ahora: number): boolean {
   // En la vista de equipo, también a media pelea, la barra es la de la página.
   if (pelea.sesion === null || vista.escena === 'equipo' || vista.escena === 'magia') {
     if (elStatus.textContent !== vista.aviso) elStatus.textContent = vista.aviso;
-    return animarFiguras(ahora);
+    return animarFiguras(pagina, ahora);
   }
   dibujarBatalla(ahora, pelea.sesion);
   // Las figuras de los dos de la rueda (su cabecera, `DialogoDeLaRueda.animar`).
   const enLaRueda = rueda.animar(ahora);
   return enLaRueda || hayFigurasAnimadas() || batalla.ocupada;
-}
-
-/** El instante dentro de un clip que no va en bucle, repetido con una pausa al final. */
-function repeticion(
-  ahora: number,
-  inicio: number,
-  c: { readonly frames: number; readonly fps: number },
-): number {
-  const dura = (c.frames / c.fps) * 1000;
-  return (ahora - inicio) % (dura + PAUSA_DE_LA_FICHA_MS);
-}
-
-/**
- * Las figuras animadas de lo que se ve: las miniaturas y las fichas del montaje,
- * la edición o el equipo (`recogerFiguras`; las de la rueda las anima ella,
- * `DialogoDeLaRueda.animar`). Devuelve si hay que seguir: sin ninguna —al arrancar, con
- * los bandos vacíos y sin ficha— no hay nada que repintar, y el bucle se para
- * hasta el siguiente gesto o la siguiente imagen.
- */
-function animarFiguras(ahora: number): boolean {
-  for (const [i, { lienzo, ctx, id, clave: deFicha, lado, rotulo }] of vista.figuras.entries()) {
-    if (vigiaDeFiguras !== null && !vista.enPantalla.has(lienzo)) continue;
-    const arte = arteDe(id);
-    // En la miniatura cada figura llena su marco: aquí se mira una, no se
-    // comparan. `pintarFigura` escala contra un adulto, así que se le pide el
-    // alto que deja a ESTA figura en el 80 % del marco. Se pinta como en el
-    // tablero —teñida del color de su bando, o el marcador si no ha llegado—.
-    const anim = deFicha === null ? null : animDe(deFicha);
-    const clip: CharacterClip = anim === null ? 'idle' : anim.clip;
-    // Los dos bandos se miran; la ficha, hacia donde la haya girado quien mira.
-    const mira: Direccion =
-      anim !== null
-        ? (DIRECCION_DE_HOJA[anim.mira] as Direccion)
-        : lado === 'derecha'
-          ? 'SO'
-          : MIRADA_DE_PRESENTACION;
-    // El cadáver tendido es más ancho que alto y cae por debajo de los pies
-    // —hacia la cámara, y en las hojas pintadas su fila va subida en la celda—:
-    // con la muerte la figura se achica y el suelo sube hasta que quepa la celda
-    // entera, o la ficha lo cortaba por abajo y por los lados.
-    const llena = clip === 'death' ? 0.4 : 0.8;
-    const alto = (lienzo.height * llena * FIGURA.alturaAdulto) / arte.alturaPropia;
-    const atlas = hojaDe(arte, mira);
-    const bajoLosPies =
-      clip === 'death'
-        ? ((atlas.cell - atlas.clips.death.anchor[1]) * alto) / FIGURA.alturaAdulto
-        : 8;
-    const figura: Figura = {
-      // El compás va por miniatura y no por hoja: la misma unidad puede estar
-      // en el catálogo y en los dos bandos, y no tiene por qué respirar igual.
-      id: `miniatura-${i}-${id}`,
-      body: id,
-      clip,
-      // Un clip que no va en bucle (ataque, disparo, daño, muerte) se repite en
-      // la ficha: con el reloj de siempre se quedaba en su último fotograma.
-      tiempo:
-        anim !== null && !atlas.clips[clip].loop
-          ? repeticion(ahora, anim.inicio, atlas.clips[clip])
-          : ahora,
-      x: lienzo.width / 2,
-      suelo: lienzo.height - bajoLosPies,
-      alto,
-      mira,
-      color: lado === null ? COLOR_NEUTRO : COLOR_BANDO[LADOS[lado].bando],
-      rotulo,
-    };
-    const colocada = colocarFigura(figura);
-    const clave = claveDelDibujo(colocada);
-    if (vista.pintado.get(lienzo) === clave) continue;
-    vista.pintado.set(lienzo, clave);
-    ctx.clearRect(0, 0, lienzo.width, lienzo.height);
-    pintarSombraDeFigura(ctx, colocada);
-    pintarFigura(ctx, colocada);
-  }
-  // Con alguna figura con arte en pantalla, respira: el bucle sigue. Sin arte,
-  // la imagen que llegue avisa y repinta.
-  const aLaVista = vigiaDeFiguras === null ? vista.figuras.length : vista.enPantalla.size;
-  return aLaVista > 0 && hayFigurasAnimadas();
 }
 
 function dibujarBatalla(ahora: number, s: SesionDeArena): void {
@@ -1399,7 +1254,7 @@ document.addEventListener('click', (ev) => {
       case 'clip': {
         const k = claveDeFicha(laFichaDe(el, 'el botón del clip'));
         vista.animDeFicha.set(k, {
-          ...animDe(k),
+          ...animDe(vista, k),
           clip: el.getAttribute('data-clip') as CharacterClip,
           inicio: performance.now(),
         });
@@ -1408,7 +1263,7 @@ document.addEventListener('click', (ev) => {
       }
       case 'girar': {
         const k = claveDeFicha(laFichaDe(el, 'el botón de girar'));
-        const a = animDe(k);
+        const a = animDe(vista, k);
         vista.animDeFicha.set(k, { ...a, mira: (a.mira + 1) % DIRECCION_DE_HOJA.length });
         pedirFotograma();
         return;
