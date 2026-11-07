@@ -16,7 +16,7 @@ import {
   caraHacia,
   contornoDelRecinto,
   dentroDelContorno,
-} from '../src/client/render/escenario/recinto.js';
+} from '../src/client/render/escenario/recinto/octogono.js';
 import { RESPONSE_FORMAT } from '../src/core/contract/formato.js';
 import { buildMap } from '../src/core/map/generar/construir.js';
 import { validateMapPlan } from '../src/core/map/generar/validar.js';

@@ -2,7 +2,7 @@
  * El recinto de una ciudad (la ciudad amurallada, vuelta 3, 21-10-2026).
  *
  * La ciudad del mapa se pinta como un recinto amurallado de `LADO_DEL_RECINTO`
- * casillas por lado con la ciudad en el medio (`render/escenario/recinto.ts`).
+ * casillas por lado con la ciudad en el medio (`render/escenario/recinto/`).
  * Hasta la vuelta 2 eso era solo de la escena, y el núcleo ponía cosas donde la
  * escena levantaba la muralla: dos ciudades a tres casillas, con los recintos
  * fundidos en un solo castillo (s2, cuatro en uno); un nodo entre las casas de

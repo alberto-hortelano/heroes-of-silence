@@ -24,7 +24,7 @@ import {
 import { ANCHO_DEL_TRAMO_HORIZONTAL } from '../muralla.js';
 import { type Caja, type ConImagen, cajaDeSprite } from '../pasillo.js';
 import { claveDe } from '../pintar.js';
-import { PX_POR_CASILLA_DEL_PUEBLO } from '../recinto.js';
+import { PX_POR_CASILLA_DEL_PUEBLO } from '../recinto/octogono.js';
 import { SEMIANCHO_DEL_PASILLO, SEMIANCHO_DEL_PASILLO_DE_MASA } from '../sendas.js';
 import type { Sprite } from './sprite.js';
 

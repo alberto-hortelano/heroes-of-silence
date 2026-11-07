@@ -9,7 +9,8 @@
  * Lo que se ve, con capturas del navegador.
  */
 import { describe, expect, it } from 'vitest';
-import { type Par, trazaPorLosArcos } from '../src/client/render/escenario/recinto.js';
+import type { Par } from '../src/client/render/escenario/recinto/octogono.js';
+import { trazaPorLosArcos } from '../src/client/render/escenario/recinto/sendas.js';
 import { enLaMarcha } from '../src/client/render/figuras/marcha.js';
 import { Session } from '../src/client/sesion/partida.js';
 import { PUERTAS_DE_LA_CIUDAD } from '../src/core/map/recinto.js';

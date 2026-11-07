@@ -10,7 +10,8 @@
 import type { Suelo } from '@core/map/terrain.js';
 import type { Bajada, Celda, Rampa } from '../celdas.js';
 import type { Puente } from '../puentes.js';
-import type { Cara as CaraDelRecinto, Contorno, PasoPorElArco, Rect } from '../recinto.js';
+import type { Cara as CaraDelRecinto, Contorno, Rect } from '../recinto/octogono.js';
+import type { PasoPorElArco } from '../recinto/sendas.js';
 import type { CaraDeEscena } from '../relieve.js';
 import type { Senda } from '../sendas.js';
 import type { Sprite } from './sprite.js';
@@ -93,7 +94,7 @@ export interface Escena {
   readonly luces: readonly Luz[];
   readonly sprites: readonly Sprite[];
   /**
-   * El recinto de cada ciudad (`recinto.ts`): su rectángulo y sus aberturas.
+   * El recinto de cada ciudad (`recinto/`): su rectángulo y sus aberturas.
    * El pintor pone su plaza (`pintarPlazas`) y la superficie cubre sus
    * casillas: quien está dentro va delante de todo el recinto.
    */

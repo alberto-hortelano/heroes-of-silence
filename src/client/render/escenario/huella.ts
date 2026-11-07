@@ -21,7 +21,7 @@
 import type { Suelo } from '@core/map/terrain.js';
 import type { Escena } from './colocar/escena.js';
 import type { Imagen, Lienzo } from './pintar.js';
-import { type LadoDeLaPlaza, ladosDeLaPlaza, type Rect } from './recinto.js';
+import { type LadoDeLaPlaza, ladosDeLaPlaza, type Rect } from './recinto/octogono.js';
 import { ANCHO_DE_SENDA, IRREGULARIDAD_DE_SENDA, type Senda } from './sendas.js';
 
 type Contexto = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;

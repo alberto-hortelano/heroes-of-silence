@@ -32,9 +32,9 @@ import {
 } from '../src/client/render/escenario/puentes.js';
 import {
   anilloSobreLaSenda,
-  caraHacia,
   puentesSobreElAnillo,
-} from '../src/client/render/escenario/recinto.js';
+} from '../src/client/render/escenario/recinto/guardias.js';
+import { caraHacia } from '../src/client/render/escenario/recinto/octogono.js';
 import { SEMIANCHO_DE_LA_HUELLA } from '../src/client/render/escenario/sendas.js';
 import { escenarioDe, pisada, topeDeAlejar } from '../src/client/render/escenario/superficie.js';
 import { centrarEn, mundoAPixel, TILE_INICIAL } from '../src/client/render/mapa/camara.js';

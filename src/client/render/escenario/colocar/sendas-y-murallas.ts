@@ -30,6 +30,7 @@ import {
 import { claveDe, esVolumen, ordenDeVolumenes, type PreguntaDeVolumen } from '../pintar.js';
 import type { Puente } from '../puentes.js';
 import { type DondeNoVaUnPuesto, esObra, HOLGURA_DEL_PUESTO } from '../puestos.js';
+import type { ModuloDelRecinto, ModulosDelRecinto, PiezaDelRecinto } from '../recinto/anillo.js';
 import {
   ALTO_DE_LA_PUERTA_DEL_RECINTO,
   ALTO_DE_TORRE_DEL_RECINTO,
@@ -42,16 +43,13 @@ import {
   HOJA_DEL_RECINTO,
   MODULOS_DEL_RECINTO,
   type ModuloDeLaHojaDelRecinto,
-  type ModuloDelRecinto,
-  type ModulosDelRecinto,
   type Par,
-  type PiezaDelRecinto,
   PROPORCION_DE_TORRE,
   PX_POR_CASILLA_DEL_PUEBLO,
   RADIO_DE_TORRE,
   type Rect,
   type Sitio,
-} from '../recinto.js';
+} from '../recinto/octogono.js';
 import { SEMIANCHO_DE_LA_HUELLA, type Senda } from '../sendas.js';
 import { type ModuloDeTirada, testerosAMediaTirada } from '../tirada.js';
 import { SEMIANCHO_DEL_PASO } from './pasos-y-puentes.js';

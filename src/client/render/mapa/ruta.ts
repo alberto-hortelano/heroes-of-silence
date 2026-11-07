@@ -9,7 +9,7 @@
 import type { CasillasLeidas } from '@core/map/casillas.js';
 import type { Point, VistaAsaltante } from '@core/types.js';
 import { temaDelLienzo } from '../../comun/temas.js';
-import { trazaPorLosArcos } from '../escenario/recinto.js';
+import { trazaPorLosArcos } from '../escenario/recinto/sendas.js';
 import { type Escenario, pieEn } from '../escenario/superficie.js';
 import { type CamaraMapa, mundoAPixel } from './camara.js';
 import type { VistaMapa } from './mapa.js';

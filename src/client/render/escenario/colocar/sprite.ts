@@ -17,7 +17,7 @@
  */
 import type { MapObject, MejoraDelPuesto } from '@core/map/tipos.js';
 import type { PlayerId } from '@core/types.js';
-import type { PapelEnElRecinto } from '../recinto.js';
+import type { PapelEnElRecinto } from '../recinto/anillo.js';
 
 /** Qué puede ser un sprite: de aquí salen `Sprite['clase']` y lo que valida una marca de fallo. */
 export const CLASES_DE_SPRITE = [
@@ -120,7 +120,7 @@ export interface Sprite {
    */
   readonly plano?: boolean;
   /**
-   * Qué es en el recinto de una ciudad, si es suyo (`recinto.ts`): lo pone la
+   * Qué es en el recinto de una ciudad, si es suyo (`recinto/anillo.ts`): lo pone la
    * regla y lo leen los guardias, en vez de deducirlo de su hoja o su sombra.
    */
   readonly recinto?: PapelEnElRecinto;

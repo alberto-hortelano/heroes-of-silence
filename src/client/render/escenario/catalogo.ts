@@ -166,7 +166,7 @@ export interface Modulo extends Pieza {
   /**
    * Solo en la hoja del recinto de una ciudad (`recinto`, §37), y en todos sus
    * módulos: el pie de sus dos puntas, en píxeles del módulo. `componer` las
-   * pone en los dos vértices de su cara del octógono (`recinto.ts`). Las lleva
+   * pone en los dos vértices de su cara del octógono (`recinto/octogono.ts`). Las lleva
    * de la guía `pnpm taller derivar-recinto`.
    */
   readonly junta?: readonly [Par, Par];

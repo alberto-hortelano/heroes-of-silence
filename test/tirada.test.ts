@@ -22,7 +22,7 @@ import { ALTO_DEL_TRAMO_NORTE_SUR } from '../src/client/render/escenario/muralla
 import {
   ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO,
   ESCALA_DEL_MURO_NORTE_SUR,
-} from '../src/client/render/escenario/recinto.js';
+} from '../src/client/render/escenario/recinto/octogono.js';
 import {
   FONDO_DEL_ADARVE,
   pasoEnCasillas,

@@ -22,45 +22,51 @@ import { PIES } from '../src/client/render/escenario/figuras-del-mapa.js';
 import { contornoDeLaPlaza } from '../src/client/render/escenario/huella.js';
 import { type ConImagen, pasilloDe } from '../src/client/render/escenario/pasillo.js';
 import {
-  ARRANQUE_DEL_ARCO,
-  anilloMalOrdenado,
-  anilloSobreLaSenda,
-  arcosTapados,
-  CARA_DEL_RECINTO,
-  CARAS,
   type CajaEnPantalla,
-  type Cara,
   cajaEnPantalla,
   callesDeLasPuertas,
-  casasRepetidasJuntas,
-  contornoDelRecinto,
-  crucesConElContorno,
   DENTRO_DE_LOS_CHAFLANES,
+  FONDO_DE_LA_CALLE,
+  LIBRE_BAJO_EL_HEROE,
+  MEDIA_CALLE,
+  PIE_EN_LA_PLAZA,
+  type PiezaDelRecinto,
+  pieDelHeroe,
+  recintoDe,
+  tapaElArco,
+  tapaElPieDelHeroe,
+  vanoDelArco,
+} from '../src/client/render/escenario/recinto/anillo.js';
+import {
+  anilloSobreLaSenda,
+  arcosTapados,
+  casasRepetidasJuntas,
+  huecosDelAnillo,
+} from '../src/client/render/escenario/recinto/guardias.js';
+import {
+  ARRANQUE_DEL_ARCO,
+  CARA_DEL_RECINTO,
+  CARAS,
+  type Cara,
+  contornoDelRecinto,
   dentroDelContorno,
   EJE_DE_LA_CARA,
   ESCALA_DEL_MODULO,
   enLaPlaza,
-  FONDO_DE_LA_CALLE,
   GRUESO_DEL_TORREON,
-  huecosDelAnillo,
-  LIBRE_BAJO_EL_HEROE,
   LUZ_DEL_ARCO,
-  MEDIA_CALLE,
   type Par,
-  PIE_EN_LA_PLAZA,
-  type PiezaDelRecinto,
   PLAZA_AL_SUR,
   PX_POR_CASILLA_DEL_PUEBLO,
-  pieDelHeroe,
   puertaDelEje,
   RADIO_DE_TORRE,
+} from '../src/client/render/escenario/recinto/octogono.js';
+import { anilloMalOrdenado } from '../src/client/render/escenario/recinto/orden.js';
+import {
+  crucesConElContorno,
   ROCE_DEL_RECINTO,
-  recintoDe,
   sendasSinRoces,
-  tapaElArco,
-  tapaElPieDelHeroe,
-  vanoDelArco,
-} from '../src/client/render/escenario/recinto.js';
+} from '../src/client/render/escenario/recinto/sendas.js';
 import { SEMIANCHO_DE_LA_HUELLA, type Senda } from '../src/client/render/escenario/sendas.js';
 import { recintoDeLaCiudad } from '../src/core/map/recinto.js';
 import { FRANJAS_DEL_PERFIL, siluetaDeModulo } from '../tools/taller/derivar.js';

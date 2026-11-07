@@ -57,7 +57,7 @@ import {
 import { type MensajeDelSuelo, type PeticionDelSuelo, pintarSueloA } from './pintor-del-suelo.js';
 import type { Punto } from './puentes.js';
 import { esObra, type Obra } from './puestos.js';
-import { casillasDelRecinto } from './recinto.js';
+import { casillasDelRecinto } from './recinto/octogono.js';
 
 /**
  * El catálogo de `assets/mapa/escena.json`, que rehace `pnpm taller

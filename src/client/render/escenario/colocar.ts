@@ -285,36 +285,32 @@ import {
   puestosTapados,
   sitiosDeLosPuestos,
 } from './puestos.js';
+import { callesDeLasPuertas, MEDIA_CALLE, type Recinto, recintoDe } from './recinto/anillo.js';
 import {
-  ANCHO_DEL_PUEBLO,
   type ArcoPintado,
-  anilloMalOrdenado,
   anilloSobreLaSenda,
   arcosTapados,
+  casasRepetidasJuntas,
+  huecosDelAnillo,
+  pisaElAnillo,
+  puentesSobreElAnillo,
+  puertasSinSuCamino,
+  sendasFueraDeLaPuerta,
+} from './recinto/guardias.js';
+import {
+  ANCHO_DEL_PUEBLO,
   type CaraDelContorno,
   type Cara as CaraDelRecinto,
   type Contorno,
-  callesDeLasPuertas,
-  casasRepetidasJuntas,
   casillasDelRecinto,
   contornoDelRecinto,
   enElRecinto,
   enLaPlaza,
-  huecosDelAnillo,
-  MEDIA_CALLE,
-  type PiezaPintada,
-  pasoPorElArco,
-  pisaElAnillo,
-  puentesSobreElAnillo,
   puertasDelNucleo,
-  puertasSinSuCamino,
-  type Recinto,
   type Rect,
-  recintoDe,
-  sendasFueraDeLaPuerta,
-  sendasSinRoces,
-  tendidosDeLasPuertas,
-} from './recinto.js';
+} from './recinto/octogono.js';
+import { anilloMalOrdenado, type PiezaPintada } from './recinto/orden.js';
+import { pasoPorElArco, sendasSinRoces, tendidosDeLasPuertas } from './recinto/sendas.js';
 import {
   ALTO_DE_NIVEL,
   bordeDeLadera,

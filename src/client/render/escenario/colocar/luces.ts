@@ -4,7 +4,7 @@
  * niebla del agua y de la ciénaga.
  */
 import type { Analisis } from '../analizar.js';
-import type { Rect } from '../recinto.js';
+import type { Rect } from '../recinto/octogono.js';
 import type { Luz } from './escena.js';
 
 /** El fuego de una ciudad: su radio y su clase (`luces`). */

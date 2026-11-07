@@ -101,7 +101,7 @@ import {
   esHojaDeRelieve,
 } from '../../src/client/render/escenario/catalogo.js';
 import type { Escena } from '../../src/client/render/escenario/colocar/escena.js';
-import { HOJA_DEL_RECINTO } from '../../src/client/render/escenario/recinto.js';
+import { HOJA_DEL_RECINTO } from '../../src/client/render/escenario/recinto/octogono.js';
 import { figuraDelBanco } from '../../src/core/gente/banco.js';
 import { FACTION_IDS, type FactionId } from '../../src/core/types.js';
 import { FIGURA, MARGEN_DEL_RECORTE, NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';

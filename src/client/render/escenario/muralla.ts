@@ -22,7 +22,7 @@ export type Casilla = readonly [number, number];
 /**
  * Lo que miden las piezas de la muralla en el mapa, en casillas: las de las
  * franjas de muro (`colocar.ts`) y, a `ESCALA_DEL_RECINTO`, las del recinto de
- * una ciudad (`recinto.ts`).
+ * una ciudad (`recinto/`).
  *
  * - La torre, de alto.
  * - El tramo de este a oeste, de ancho: cubre su paso de una casilla con un

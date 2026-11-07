@@ -28,7 +28,10 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import sharp from 'sharp';
 import { ALTO_DEL_TRAMO_NORTE_SUR } from '../../src/client/render/escenario/muralla.js';
-import { ESCALA_DEL_RECINTO, GRUESO_DEL_MURO } from '../../src/client/render/escenario/recinto.js';
+import {
+  ESCALA_DEL_RECINTO,
+  GRUESO_DEL_MURO,
+} from '../../src/client/render/escenario/recinto/octogono.js';
 import { FONDO_DEL_ADARVE } from '../../src/client/render/escenario/tirada.js';
 import { derivarPieza, type PiezaDerivada } from './derivar.js';
 import type { Encargo } from './encargo.js';
