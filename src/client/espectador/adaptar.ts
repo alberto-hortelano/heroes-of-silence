@@ -17,7 +17,7 @@
 
 import type { BattleStack, BattleState } from '@core/battle/types.js';
 import { Casillas } from '@core/map/casillas.js';
-import { aPunto } from '@core/map/map.js';
+import { aPunto } from '@core/map/geometria.js';
 import { RedDeCaminos, type TramoDeCamino } from '@core/map/red-de-caminos.js';
 import { BARRERAS, NIVELES, type TerrainKind } from '@core/map/terrain.js';
 import { esMejoraDelPuesto, type MapObject } from '@core/map/tipos.js';

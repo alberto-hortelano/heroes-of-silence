@@ -10,9 +10,9 @@
  */
 import { createRng, type Rng } from '../../rng.js';
 import type { Point } from '../../types.js';
-import { espejoDe, parejaDe } from '../geometria.js';
-import { aPunto, BARRERAS_DEL_PUEBLO } from '../map.js';
-import { chebyshev, SEPARACION_DE_CIUDADES } from '../recinto.js';
+import { aPunto, chebyshev, espejoDe, parejaDe } from '../geometria.js';
+import { BARRERAS_DEL_PUEBLO } from '../map.js';
+import { SEPARACION_DE_CIUDADES } from '../recinto.js';
 import { vecindad } from '../regiones.js';
 import type { Barrera } from '../terrain.js';
 import type { Estructura } from '../tipos.js';

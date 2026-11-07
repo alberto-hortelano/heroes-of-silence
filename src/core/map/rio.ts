@@ -23,8 +23,7 @@ import { type Rng, sortearPorPesos } from '../rng.js';
 import type { Point } from '../types.js';
 import { enteroDesde } from '../validar.js';
 import { Frontera } from './frontera.js';
-import { ANILLO, parejaDe, RUMBOS } from './geometria.js';
-import { inBounds } from './map.js';
+import { ANILLO, aPunto, chebyshev, inBounds, parejaDe, RUMBOS } from './geometria.js';
 import { vecindad } from './regiones.js';
 import type { Nivel } from './terrain.js';
 import type { GameMap } from './tipos.js';
@@ -99,10 +98,9 @@ export function trazarRio(
   const veta = new Uint8Array(N);
   const cercania = new Int32Array(N);
   for (let i = 0; i < N; i++) {
-    const x = i % W;
-    const y = (i - x) / W;
+    const p = aPunto(i, W);
     let d = W + H;
-    for (const s of semillas) d = Math.min(d, Math.max(Math.abs(s.x - x), Math.abs(s.y - y)));
+    for (const s of semillas) d = Math.min(d, chebyshev(s, p));
     cercania[i] = d;
     if (d <= LEJOS_DE_UNA_SEMILLA) veta[i] = 1;
     const cerca = LEJOS_DE_LAS_SEMILLAS - Math.min(d, LEJOS_DE_LAS_SEMILLAS);

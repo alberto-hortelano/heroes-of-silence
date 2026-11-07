@@ -15,10 +15,10 @@ import { problemasDeAsaltante } from '../../hero/grupos.js';
 import { primeraCiudadDe } from '../../town/town.js';
 import type { PlayerId, Point } from '../../types.js';
 import { problemasDeGrupo } from '../../unidad/catalogo.js';
-import { pointKey } from '../geometria.js';
-import { BARRERAS_DEL_PUEBLO, inBounds } from '../map.js';
+import { chebyshev, inBounds, pointKey } from '../geometria.js';
+import { BARRERAS_DEL_PUEBLO } from '../map.js';
 import { problemasDeNiveles } from '../niveles.js';
-import { chebyshev, LADO_DEL_RECINTO, problemasDeRecintos } from '../recinto.js';
+import { LADO_DEL_RECINTO, problemasDeRecintos } from '../recinto.js';
 import { estructura, problemasDeRed, regionDeCasilla, tocaUnNodo } from '../regiones.js';
 import {
   BARRERAS,
@@ -242,8 +242,7 @@ export function validateMapPlan(plan: MapPlan): string[] {
   // agente las recibe todas en su rechazo (QA de «mapas densos», vuelta 2, N4).
   // Salvo en el recinto de una ciudad: su puerta se pisa aunque debajo haya
   // barrera, y lo que un camino haga ahí lo juzga `problemasDeRecintos`.
-  const enUnRecinto = (p: Point): boolean =>
-    plan.towns.some((t) => Math.max(Math.abs(t.at.x - p.x), Math.abs(t.at.y - p.y)) <= 1);
+  const enUnRecinto = (p: Point): boolean => plan.towns.some((t) => chebyshev(t.at, p) <= 1);
   const caminosSobreBarrera: { p: Point; terreno: TerrainKind }[] = [];
   for (const p of casillasDelPlan(plan)) {
     if (!inBounds(plan, p) || enUnRecinto(p)) continue;

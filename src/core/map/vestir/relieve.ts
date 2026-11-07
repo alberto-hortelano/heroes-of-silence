@@ -8,7 +8,7 @@
  * Era parte de `map/vestir.ts` hasta la fase N de la reorganización
  * (07-11-2026).
  */
-import { aPunto } from '../map.js';
+import { aPunto } from '../geometria.js';
 import { espigasDelRelieve, type NodoDelRelieve, nivelesDelRelieve } from '../niveles.js';
 import { vecindad } from '../regiones.js';
 import type { Barrera, Nivel, TerrainKind } from '../terrain.js';

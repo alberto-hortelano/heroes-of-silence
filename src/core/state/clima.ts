@@ -30,7 +30,7 @@
  * Las cifras, inventadas, en `data/clima.json`, que solo importa este módulo.
  */
 import climaJson from '../../../data/clima.json' with { type: 'json' };
-import { inBounds } from '../map/map.js';
+import { inBounds } from '../map/geometria.js';
 import { type MapaDeRed, regionDelSitio } from '../map/regiones.js';
 import { dueñoDeLaRegion, dueñosDeLasRegiones } from '../map/territorio.js';
 import { createRng, hashDeTexto, sortearPorPesos } from '../rng.js';

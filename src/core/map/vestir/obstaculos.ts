@@ -7,8 +7,7 @@
  * (07-11-2026).
  */
 import type { Rng } from '../../rng.js';
-import { espejoDe, parejaDe, RUMBOS } from '../geometria.js';
-import { aPunto } from '../map.js';
+import { aPunto, espejoDe, parejaDe, RUMBOS } from '../geometria.js';
 import { vecindad } from '../regiones.js';
 import type { Suelo } from '../terrain.js';
 import { ABIERTA, BARRERAS_DEL_MAPA, indiceDe, ponerTipo, sortear, type Tipos } from './base.js';

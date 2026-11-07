@@ -28,8 +28,7 @@ import {
   trazarYVestir,
 } from '../src/core/map/generar/procedimental.js';
 import { basesDelPlan, validateMapPlan } from '../src/core/map/generar/validar.js';
-import { pointFromKey, pointKey } from '../src/core/map/geometria.js';
-import { aPunto } from '../src/core/map/map.js';
+import { aPunto, pointFromKey, pointKey } from '../src/core/map/geometria.js';
 import { franjasDeBarrera, nivelesDelRelieve } from '../src/core/map/niveles.js';
 import { puertaDe, rodeosParaEntrar } from '../src/core/map/puertas.js';
 import { puertasDeLaCiudad, rioAnteLaCiudad } from '../src/core/map/recinto.js';

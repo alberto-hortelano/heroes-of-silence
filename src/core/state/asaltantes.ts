@@ -43,8 +43,7 @@ import { fuerzaDe, poderDe, ventajaClara } from '../hero/fuerza.js';
 import { ASALTANTES, loNeutralAlTope } from '../hero/grupos.js';
 import { gruposDe, individuosDe } from '../hero/troop.js';
 import type { CasillasLeidas } from '../map/casillas.js';
-import { VECINAS } from '../map/geometria.js';
-import { aPunto, inBounds } from '../map/map.js';
+import { aPunto, chebyshev, inBounds, VECINAS } from '../map/geometria.js';
 import { estructura, juntoANodo, regionDeCasilla } from '../map/regiones.js';
 import { territorio } from '../map/territorio.js';
 import type { Estructura, GameMap } from '../map/tipos.js';
@@ -166,7 +165,7 @@ export function pasoDePatrulla(
       const p = aPunto(i, W);
       let cerca = Number.POSITIVE_INFINITY;
       for (const h of heroes) {
-        cerca = Math.min(cerca, Math.max(Math.abs(h.at.x - p.x), Math.abs(h.at.y - p.y)));
+        cerca = Math.min(cerca, chebyshev(h.at, p));
       }
       return cerca;
     };

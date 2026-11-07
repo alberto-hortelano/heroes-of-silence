@@ -25,8 +25,7 @@
  * esta función daría por cerrados.
  */
 import type { Point } from '../types.js';
-import { VECINAS } from './geometria.js';
-import { aPunto, inBounds } from './map.js';
+import { aPunto, inBounds, VECINAS } from './geometria.js';
 import { regionesDeLaCiudad, rioAnteLaCiudad } from './recinto.js';
 import { isWalkable, type TerrainKind } from './terrain.js';
 import type { ClaseDeNodo, Estructura, GameMap, MapObject, MapRegion, NodoDeRed } from './tipos.js';

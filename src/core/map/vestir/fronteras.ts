@@ -13,8 +13,7 @@
  * red y lo que comparten sus partes, en `base.ts`.
  */
 import type { Rng } from '../../rng.js';
-import { EJES, espejoDe, parejaDe } from '../geometria.js';
-import { aPunto } from '../map.js';
+import { aPunto, EJES, espejoDe, parejaDe } from '../geometria.js';
 import {
   APOYOS_DE_MURALLA,
   juntoACiudad,

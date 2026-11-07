@@ -11,7 +11,7 @@
  */
 import type { Point } from '../types.js';
 import { Frontera } from './frontera.js';
-import { pointKey } from './geometria.js';
+import { aPunto, inBounds, pointKey } from './geometria.js';
 import {
   enAlgunRecinto,
   FUERA,
@@ -54,12 +54,6 @@ export type CruzaSuBarrera =
 export function cruzaSuBarrera(o: MapObject): o is CruzaSuBarrera {
   return o.kind === 'node' || (o.kind === 'village' && o.barrera !== null);
 }
-
-/** La casilla de un índice plano `y*width+x`; la inversa de `p.y * width + p.x`. */
-export const aPunto = (i: number, width: number): Point => ({
-  x: i % width,
-  y: (i - (i % width)) / width,
-});
 
 /**
  * Los tramos de un camino escrito como casillas —el del plan del agente—, con
@@ -115,10 +109,6 @@ const LADOS_DE_ARISTA = [
   [1, 1],
   [-1, 1],
 ] as const;
-
-export function inBounds(map: Pick<GameMap, 'width' | 'height'>, p: Point): boolean {
-  return p.x >= 0 && p.x < map.width && p.y >= 0 && p.y < map.height;
-}
 
 export function terrainAt(map: GameMap, p: Point): TerrainKind {
   if (!inBounds(map, p)) throw new Error(`(${p.x},${p.y}) está fuera del mapa`);
@@ -270,7 +260,7 @@ export function findPath(
  * mismas tablas que el Dijkstra usa por dentro, entregadas tal cual. Antes la
  * salida se copiaba a dos `Map<string, …>` por `"x,y"` (#94): 422-461 ms de
  * ~7 000 en `pnpm banco` (2026-10-08) solo en construirlos, más el `pointKey`
- * de cada lectura. Se lee con `costeEnElAlcance` y `casillaDelIndice`.
+ * de cada lectura. Se lee con `costeEnElAlcance` y `aPunto` (con su `ancho`).
  */
 export interface Reachable {
   /** Ancho del mapa del que sale: lo que convierte una casilla en su índice. */
@@ -304,12 +294,6 @@ export function costeEnElAlcance(alcance: Reachable, p: Point): number | null {
   if (i === -1) return null;
   const c = alcance.costes[i] as number;
   return c === -1 ? null : c;
-}
-
-/** La casilla de un índice del alcance. */
-export function casillaDelIndice(alcance: Reachable, i: number): Point {
-  const x = i % alcance.ancho;
-  return { x, y: (i - x) / alcance.ancho };
 }
 
 /**
@@ -603,7 +587,7 @@ export function pathFromReachable(
   const pasos: PathStep[] = [];
   let i = destino;
   while (i !== origen) {
-    pasos.push({ at: casillaDelIndice(alcance, i), cost: alcance.costes[i] as number });
+    pasos.push({ at: aPunto(i, alcance.ancho), cost: alcance.costes[i] as number });
     const anterior = alcance.previos[i] as number;
     // Se retrocedió hasta la raíz del árbol de predecesores y no era `from`:
     // el alcance es de OTRO origen. Se dice en vez de devolver medio camino.

@@ -116,3 +116,33 @@ export const EJES: readonly (readonly [number, number])[] = [
   [1, -1],
   [1, 1],
 ];
+
+/**
+ * Lo que dista `a` de `b` en pasos de rey (Chebyshev): la medida de los recintos,
+ * de las semillas del generador y de lo que la IA ve rondar su casa. Estaba en
+ * `recinto.ts`, con seis copias escritas a mano en el generador, el río, la IA, los
+ * asaltantes y los lugares de un mundo (fase N de la reorganización, 07-11-2026).
+ */
+export const chebyshev = (a: Point, b: Point): number =>
+  Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+
+/**
+ * La casilla de un índice plano `y*width+x`; la inversa de `p.y * width + p.x`.
+ * También la de un índice del alcance del Dijkstra, con su `ancho`.
+ */
+export const aPunto = (i: number, width: number): Point => ({
+  x: i % width,
+  y: (i - (i % width)) / width,
+});
+
+/**
+ * Si `p` cae en un mapa de `width × height`. Vive aquí y no en `map.ts` porque la
+ * lee también el recinto de las ciudades, que `map.ts` importa (y llevaba su copia,
+ * `dentro`, hasta la fase N de la reorganización).
+ */
+export function inBounds(
+  map: { readonly width: number; readonly height: number },
+  p: Point,
+): boolean {
+  return p.x >= 0 && p.x < map.width && p.y >= 0 && p.y < map.height;
+}

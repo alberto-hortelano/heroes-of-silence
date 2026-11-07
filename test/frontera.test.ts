@@ -15,9 +15,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { Frontera } from '../src/core/map/frontera.js';
-import { pointKey } from '../src/core/map/geometria.js';
+import { aPunto, pointKey } from '../src/core/map/geometria.js';
 import {
-  casillaDelIndice,
   costeEnElAlcance,
   createEmptyMap,
   findPath,
@@ -342,7 +341,7 @@ function previosDelAlcance(alcance: Reachable): Map<string, Point> {
   const previos = new Map<string, Point>();
   for (const i of alcance.descubiertas) {
     const p = alcance.previos[i] as number;
-    if (p !== -1) previos.set(pointKey(casillaDelIndice(alcance, i)), casillaDelIndice(alcance, p));
+    if (p !== -1) previos.set(pointKey(aPunto(i, alcance.ancho)), aPunto(p, alcance.ancho));
   }
   return previos;
 }

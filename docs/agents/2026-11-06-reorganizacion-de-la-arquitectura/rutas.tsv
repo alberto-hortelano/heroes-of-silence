@@ -1269,3 +1269,9 @@ simbolo	src/core/map/rio.ts	src/core/map/geometria.ts	ANILLO (la misma tabla que
 simbolo	src/core/map/vestir/caminos.ts	src/core/map/geometria.ts	ANILLO (N12)
 simbolo	src/core/map/rio.ts	src/core/map/geometria.ts	RUMBOS (la misma tabla que RECTAS de ponerObstaculos; N12)
 simbolo	src/core/map/vestir/obstaculos.ts	src/core/map/geometria.ts	RECTAS, local de ponerObstaculos (→ RUMBOS; N12)
+simbolo	src/core/map/recinto.ts	src/core/map/geometria.ts	chebyshev
+simbolo	src/core/map/map.ts	src/core/map/geometria.ts	aPunto
+simbolo	src/core/map/map.ts	src/core/map/geometria.ts	inBounds
+simbolo	src/core/map/recinto.ts	src/core/map/geometria.ts	dentro, privada (→ inBounds: la misma cuenta; N12)
+simbolo	src/core/map/map.ts	(retirado)	casillaDelIndice (→ aPunto(i, alcance.ancho), de geometria.ts; N12)
+simbolo	src/core/ai/strategy.ts	(retirado)	distanciaAprox, privada (→ chebyshev, de geometria.ts; N12)

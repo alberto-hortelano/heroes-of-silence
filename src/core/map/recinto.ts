@@ -36,6 +36,7 @@
  * la ciudad estaba en el río y el recinto tierra adentro.
  */
 import type { Point } from '../types.js';
+import { chebyshev, inBounds } from './geometria.js';
 import { isWalkable, type TerrainKind } from './terrain.js';
 import type { Estructura, GameMap, MapObject, MapRegion } from './tipos.js';
 
@@ -203,12 +204,7 @@ export interface MapaConCaminos extends MapaDelRecinto {
   readonly caminos: { une(p: Point, q: Point): boolean };
 }
 
-const dentro = (map: Pick<MapaDelRecinto, 'width' | 'height'>, p: Point): boolean =>
-  p.x >= 0 && p.y >= 0 && p.x < map.width && p.y < map.height;
 const mas = (at: Point, [dx, dy]: Paso, k = 1): Point => ({ x: at.x + k * dx, y: at.y + k * dy });
-/** Lo que dista `a` de `b` en pasos de rey (Chebyshev): la medida de los recintos. */
-export const chebyshev = (a: Point, b: Point): number =>
-  Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 const casilla = (p: Point): string => `(${p.x},${p.y})`;
 
 /** Las ciudades del mapa: sus casillas. */
@@ -242,11 +238,11 @@ export interface PuenteDeLaCiudad {
  */
 export function rioAnteLaCiudad(map: MapaDelRecinto, at: Point): PuenteDeLaCiudad | null {
   const agua = (p: Point): boolean =>
-    dentro(map, p) && map.terrain[p.y * map.width + p.x] === 'water';
+    inBounds(map, p) && map.terrain[p.y * map.width + p.x] === 'water';
   for (const cara of CARAS_DEL_RIO) {
     const rumbo = RUMBO_DEL_RIO[cara];
     const acceso = mas(at, rumbo, 2);
-    if (!dentro(map, acceso)) continue;
+    if (!inBounds(map, acceso)) continue;
     if (!isWalkable(map.terrain[acceso.y * map.width + acceso.x] as TerrainKind)) continue;
     if (hayNodo(map, acceso)) continue;
     const aLoLargo: Paso = rumbo[0] === 0 ? [1, 0] : [0, 1];
@@ -277,7 +273,7 @@ export interface PuertaDeLaCiudad {
 export function puertasPosibles(map: MapaDelRecinto, at: Point): PuertaDeLaCiudad[] {
   const otras = ciudadesDe(map).filter((c) => c.x !== at.x || c.y !== at.y);
   const sirve = (p: Point): boolean =>
-    dentro(map, p) &&
+    inBounds(map, p) &&
     isWalkable(map.terrain[p.y * map.width + p.x] as TerrainKind) &&
     !hayNodo(map, p) &&
     otras.every((c) => chebyshev(c, p) > MEDIO);

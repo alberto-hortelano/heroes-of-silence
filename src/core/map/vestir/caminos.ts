@@ -11,8 +11,7 @@
  * (07-11-2026).
  */
 import { Frontera } from '../frontera.js';
-import { ANILLO, espejoDe, parejaDe } from '../geometria.js';
-import { aPunto } from '../map.js';
+import { ANILLO, aPunto, espejoDe, parejaDe } from '../geometria.js';
 import { franjasDeBarrera, type PasoTorcido, pasoTorcido } from '../niveles.js';
 import { rodeosParaEntrar } from '../puertas.js';
 import { CIUDAD, FUERA, type PasosDelRecinto, PUERTA } from '../recinto.js';

@@ -6,8 +6,8 @@
  * 06-11-2026.)
  */
 import type { PlanConCasillas } from '../src/core/map/generar/plan.js';
-import { pointFromKey, pointKey } from '../src/core/map/geometria.js';
-import { casillaDelIndice, type Reachable } from '../src/core/map/map.js';
+import { aPunto, pointFromKey, pointKey } from '../src/core/map/geometria.js';
+import type { Reachable } from '../src/core/map/map.js';
 import { RedDeCaminos } from '../src/core/map/red-de-caminos.js';
 import type { GameMap } from '../src/core/map/tipos.js';
 import type { Point } from '../src/core/types.js';
@@ -21,7 +21,7 @@ import type { Point } from '../src/core/types.js';
 export function costesDelAlcance(alcance: Reachable): Map<string, number> {
   const costes = new Map<string, number>();
   for (const i of alcance.descubiertas) {
-    costes.set(pointKey(casillaDelIndice(alcance, i)), alcance.costes[i] as number);
+    costes.set(pointKey(aPunto(i, alcance.ancho)), alcance.costes[i] as number);
   }
   return costes;
 }

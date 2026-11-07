@@ -20,6 +20,7 @@ import {
 import { RESPONSE_FORMAT } from '../src/core/contract/formato.js';
 import { buildMap } from '../src/core/map/generar/construir.js';
 import { validateMapPlan } from '../src/core/map/generar/validar.js';
+import { chebyshev } from '../src/core/map/geometria.js';
 import {
   createEmptyMap,
   findPath,
@@ -30,7 +31,6 @@ import {
 import {
   CIUDAD,
   cabeElRecinto,
-  chebyshev,
   LADO_DEL_RECINTO,
   MURO,
   muroBlocker,

@@ -9,7 +9,7 @@
  * Vivía en `regiones.ts` hasta la fase N de la reorganización (07-11-2026): lee
  * de allí la vecindad y la red, y la red no lo lee a él.
  */
-import { aPunto } from './map.js';
+import { aPunto } from './geometria.js';
 import { casilla, estructura, laMasCercana, vecindad } from './regiones.js';
 import {
   admiteLosNiveles,

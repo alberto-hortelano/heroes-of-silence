@@ -15,7 +15,8 @@
  */
 import { radioALaEscala } from '../escala.js';
 import { Casillas, type CasillasLeidas, casillasDelCuadrado } from '../map/casillas.js';
-import { inBounds, type Mirada } from '../map/map.js';
+import { inBounds } from '../map/geometria.js';
+import type { Mirada } from '../map/map.js';
 import {
   objetosDeLaZona,
   regionDescubierta,

@@ -24,14 +24,13 @@ import {
 } from '../../types.js';
 import { unidadesDelJuego } from '../../unidad/catalogo.js';
 import { nivelDeUnidad } from '../../unidad/nivel.js';
-import { espejoDe, parejaDe, VECINAS } from '../geometria.js';
-import { aPunto, createEmptyMap } from '../map.js';
+import { aPunto, chebyshev, espejoDe, parejaDe, VECINAS } from '../geometria.js';
+import { createEmptyMap } from '../map.js';
 import { murallasDeLaRejilla } from '../murallas.js';
 import { type PasoTorcido, problemasDeNiveles, tramosTorcidos } from '../niveles.js';
 import { puertaDe } from '../puertas.js';
 import {
   cabeElRecinto,
-  chebyshev,
   type MapaDelRecinto,
   ORDEN_DE_LAS_CARAS,
   PUERTAS_DE_LA_CIUDAD,

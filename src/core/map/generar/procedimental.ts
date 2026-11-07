@@ -13,9 +13,9 @@
  */
 import { createRng, type Rng } from '../../rng.js';
 import type { Point } from '../../types.js';
-import { parejaDe, VECINAS } from '../geometria.js';
-import { aPunto, createEmptyMap } from '../map.js';
-import { cabeElRecinto, chebyshev, SEPARACION_DE_CIUDADES } from '../recinto.js';
+import { aPunto, chebyshev, parejaDe, VECINAS } from '../geometria.js';
+import { createEmptyMap } from '../map.js';
+import { cabeElRecinto, SEPARACION_DE_CIUDADES } from '../recinto.js';
 import { estructura, problemasDeRed, regionesQueToca, vecindad } from '../regiones.js';
 import { FORMAS_DEL_RIO, type FormaDelRio, orillas, sortearForma, trazarRio } from '../rio.js';
 import type { Estructura, GameMap } from '../tipos.js';
@@ -423,7 +423,6 @@ export function ondulacion(rng: Rng, W: number, H: number): { dx: Int32Array; dy
 }
 /** Un intento de red fina: la red si sale válida y equilibrada, `null` si no. */
 function intentarRed(rng: Rng, W: number, H: number, forma: FormaDelRio): RedFina | null {
-  const cheb = chebyshev;
   const espejo = (p: Point): Point => ({ x: W - 1 - p.x, y: H - 1 - p.y });
   const punto = (i: number): Point => aPunto(i, W);
 
@@ -437,10 +436,10 @@ function intentarRed(rng: Rng, W: number, H: number, forma: FormaDelRio): RedFin
   for (let guarda = 0; semillas.length < 2 + pares * 2 && guarda < 1000; guarda++) {
     const p = { x: rng.int(1, W - 2), y: rng.int(1, H - 2) };
     const m = espejo(p);
-    if (cheb(p, m) < SEPARACION_DE_SEMILLAS) continue;
+    if (chebyshev(p, m) < SEPARACION_DE_SEMILLAS) continue;
     if (
       semillas.some(
-        (s) => cheb(s, p) < SEPARACION_DE_SEMILLAS || cheb(s, m) < SEPARACION_DE_SEMILLAS,
+        (s) => chebyshev(s, p) < SEPARACION_DE_SEMILLAS || chebyshev(s, m) < SEPARACION_DE_SEMILLAS,
       )
     )
       continue;
@@ -621,7 +620,8 @@ function intentarRed(rng: Rng, W: number, H: number, forma: FormaDelRio): RedFin
     }
   }
   const nodos: number[] = [];
-  const cerca = (i: number, d: number): boolean => nodos.some((n) => cheb(punto(n), punto(i)) <= d);
+  const cerca = (i: number, d: number): boolean =>
+    nodos.some((n) => chebyshev(punto(n), punto(i)) <= d);
   // Las ciudades-puente, en los cruces del río y separadas: dos casillas de un
   // mismo cruce son la misma ciudad. Van primero, así que sus índices de nodo
   // son 0..n−1 y en el orden de sus casillas.
@@ -756,12 +756,12 @@ function intentarRed(rng: Rng, W: number, H: number, forma: FormaDelRio): RedFin
   );
   if (centros.some((c) => !cabeElRecinto(c, W, H))) return null;
   for (const [k, c] of centros.entries()) {
-    if (centros.slice(k + 1).some((d) => cheb(c, d) < SEPARACION_DE_CIUDADES)) return null;
+    if (centros.slice(k + 1).some((d) => chebyshev(c, d) < SEPARACION_DE_CIUDADES)) return null;
     // Ni a dos, en la entrada de un paso (`delanteDeNodo`): con los pasos que
     // ya no se saltan junto a una ciudad de cruce (ciudades en su región, fase
     // 2), el de una pareja caía a veces a dos de la orilla de una ciudad-puente
     // y el recinto le tapaba la entrada (s11 (24,14), s25 (36,14) y (5,27)).
-    if (nodos.some((n) => cheb(punto(n), c) <= 2 && n !== nodos[enCiudad[k] as number]))
+    if (nodos.some((n) => chebyshev(punto(n), c) <= 2 && n !== nodos[enCiudad[k] as number]))
       return null;
   }
 
@@ -857,9 +857,11 @@ export function crucesConCamino(
   red: Estructura,
   ciudades: readonly { readonly nodo: number; readonly casa?: number }[],
 ): number[][] | null {
-  const cheb = (a: Point, b: Point): number => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
   const cuesta = (n: number, regiones: readonly number[]): number =>
-    regiones.reduce((t, r) => t + cheb(red.nodos[n]?.at as Point, red.regiones[r]?.at as Point), 0);
+    regiones.reduce(
+      (t, r) => t + chebyshev(red.nodos[n]?.at as Point, red.regiones[r]?.at as Point),
+      0,
+    );
   const pareja = (a: number, b: number): string => (a < b ? `${a}|${b}` : `${b}|${a}`);
   const esCiudad = new Set(ciudades.map((c) => c.nodo));
 

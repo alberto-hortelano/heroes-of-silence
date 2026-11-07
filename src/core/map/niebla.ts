@@ -16,7 +16,7 @@
  */
 
 import type { Point } from '../types.js';
-import { inBounds } from './map.js';
+import { inBounds } from './geometria.js';
 import { recintoDeLaCiudad, rioAnteLaCiudad } from './recinto.js';
 import { estructura, type MapaDeRed, regionMasCercana } from './regiones.js';
 import type { MapObject } from './tipos.js';

@@ -31,7 +31,8 @@ import { motivoDeLinea } from '../linea.js';
 import { buildMap } from '../map/generar/construir.js';
 import type { MapPlan } from '../map/generar/plan.js';
 import { basesDelPlan, validateMapPlan } from '../map/generar/validar.js';
-import { inBounds, isEnterable, terrainAt } from '../map/map.js';
+import { chebyshev, inBounds } from '../map/geometria.js';
+import { isEnterable, terrainAt } from '../map/map.js';
 import { FUERA, pasosDelMapa, queEsElObjeto } from '../map/recinto.js';
 import { regionDeCasilla } from '../map/regiones.js';
 import type { GameMap } from '../map/tipos.js';
@@ -105,15 +106,14 @@ export function lugarBlocker(
   if (regionDeCasilla(map, at) < 0) {
     return `${donde} no está dentro de ninguna región: es un paso entre dos, y un lugar va dentro de una`;
   }
-  const cerca = (p: Point): number => Math.max(Math.abs(p.x - at.x), Math.abs(p.y - at.y));
   for (const o of map.objects) {
-    const d = cerca(o.at);
+    const d = chebyshev(o.at, at);
     if (d < SEPARACION_DE_UN_LUGAR) {
       return `${donde} está a ${d} ${deLo(queEsElObjeto(o))} en (${o.at.x}, ${o.at.y}): un lugar va a ${SEPARACION_DE_UN_LUGAR} casillas o más de todo objeto del mapa`;
     }
   }
   for (const o of otros) {
-    const d = cerca(o.at);
+    const d = chebyshev(o.at, at);
     if (d < SEPARACION_DE_UN_LUGAR) {
       return `${donde} está a ${d} del lugar "${o.name}" en (${o.at.x}, ${o.at.y}): dos lugares van a ${SEPARACION_DE_UN_LUGAR} casillas o más`;
     }

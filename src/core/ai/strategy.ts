@@ -23,7 +23,8 @@ import {
   troopUnit,
   withTroops,
 } from '../hero/troop.js';
-import { casillaDelIndice, costeEnElAlcance, type Reachable } from '../map/map.js';
+import { aPunto, chebyshev } from '../map/geometria.js';
+import { costeEnElAlcance, type Reachable } from '../map/map.js';
 import {
   dueñoEnLaFoto,
   regionesQueCierra,
@@ -330,7 +331,7 @@ export function chooseHeroDestination(
   if (mios.length <= 1) {
     for (const pueblo of mios) {
       const amenaza = state.heroes.some(
-        (h) => h.owner !== hero.owner && distanciaAprox(h.at, pueblo.at) <= 6,
+        (h) => h.owner !== hero.owner && chebyshev(h.at, pueblo.at) <= 6,
       );
       if (amenaza) considerar(pueblo.at, 80000);
     }
@@ -350,11 +351,6 @@ export function destinoDeRepliegue(state: GameState, hero: Hero, alcance: Reacha
   if (base === null) return null;
   const coste = costeEnElAlcance(alcance, base.at);
   return coste === null || coste === 0 ? null : base.at;
-}
-
-/** Distancia de Chebyshev, suficiente para medir "está rondando mi casa". */
-function distanciaAprox(a: Point, b: Point): number {
-  return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 }
 
 /**
@@ -387,14 +383,14 @@ export function stepTowards(hero: Hero, destino: Point, alcance: Reachable): Poi
     i = anterior;
     const c = alcance.costes[i] as number;
     if (c === -1) {
-      const at = casillaDelIndice(alcance, i);
+      const at = aPunto(i, alcance.ancho);
       throw new Error(`el alcance no sabe qué cuesta (${at.x},${at.y})`);
     }
     coste = c;
   }
 
   // Coste 0 es el origen y solo el origen: se retrocedió el camino entero.
-  return coste === 0 ? null : casillaDelIndice(alcance, i);
+  return coste === 0 ? null : aPunto(i, alcance.ancho);
 }
 
 /**
