@@ -22,7 +22,7 @@ import { Session } from '../src/client/session.js';
 import { renderActions, renderLog, renderSide, renderTopbar } from '../src/client/views/panels.js';
 import { playAiGame } from '../src/core/ai/turn.js';
 import { isShooter } from '../src/core/battle/armas.js';
-import { terminarElDespliegue } from '../src/core/battle/battle.js';
+import { terminarElDespliegue } from '../src/core/battle/despliegue.js';
 import { isEnterable, objectAt } from '../src/core/map/map.js';
 import { heroesOf } from '../src/core/state/consultas.js';
 import type { GameEvent } from '../src/core/state/events.js';

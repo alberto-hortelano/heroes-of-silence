@@ -1132,20 +1132,24 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo([PERMITIDO], apunta)).toHaveLength(1);
   });
 
-  it('la fase de despliegue la mueve solo `battle.ts` (02-11-2026)', () => {
+  it('la fase de despliegue la mueve solo `despliegue.ts` (02-11-2026)', () => {
     // `BattleState.despliegue` dice qué tanda está abierta y quién despliega a
     // mano: quien lo escribiera por su cuenta se saltaría las tandas que pasan
     // solas, el reasiento al abrir cada una y el `beginRound` del final
     // (`seguirElDespliegue`). Se cambia con `aplicarDespliegue` y
     // `terminarElDespliegue`. Roto a mano (02-11-2026): un `battle.despliegue =
-    // null` en `server/director.ts` sale rojo con su línea.
+    // null` en `server/director.ts` sale rojo con su línea. La fase vivía en
+    // `battle.ts` hasta la fase N de la reorganización (07-11-2026), que la llevó a
+    // `despliegue.ts`; la misma sonda, y un `state.despliegue = null` en el motor
+    // (`endTurn`), salen rojos.
+    const PUERTA = ruta('src/core/battle/despliegue.ts');
     const escrituras = infractoresDeCodigo(
       [...CORE, ...CLIENTE, ...SERVIDOR],
       /\.despliegue\s*=(?!=)|\[\s*['"`]despliegue['"`]\s*\]\s*=(?!=)/,
     );
-    const ajenas = escrituras.filter((e) => !e.startsWith(`${ruta('src/core/battle/battle.ts')}:`));
+    const ajenas = escrituras.filter((e) => !e.startsWith(`${PUERTA}:`));
     expect(ajenas).toEqual([]);
-    // Y que mire algo: las de `battle.ts` tienen que salir.
+    // Y que mire algo: las de `despliegue.ts` tienen que salir.
     expect(escrituras.length).toBeGreaterThan(0);
   });
 

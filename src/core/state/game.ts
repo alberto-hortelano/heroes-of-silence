@@ -12,7 +12,8 @@
  * los lugares de un mundo (`lugares.ts`), los héroes que entran (`heroes.ts`) y el
  * equipo (`equipar.ts`).
  */
-import { aplicarDespliegue } from '../battle/battle.js';
+
+import { aplicarDespliegue } from '../battle/despliegue.js';
 import { combateBlocker, type ReglasDelCombate } from '../combate.js';
 import { ponerPieza, quitarPieza } from '../equipo/manos.js';
 import { piezaSiExiste } from '../equipo/pieza.js';

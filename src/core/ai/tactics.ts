@@ -14,7 +14,7 @@ import {
 } from '../battle/a-distancia.js';
 import { armaduraDe, isShooter } from '../battle/armas.js';
 import { escalaDesde } from '../battle/asalto.js';
-import { applyAction, MAX_JUGADAS, type Movibles, terminarElDespliegue } from '../battle/battle.js';
+import { applyAction, MAX_JUGADAS, type Movibles } from '../battle/battle.js';
 import { hexDistance, hexEquals, hexKey, indiceDe, neighbours } from '../battle/board.js';
 import { CARGA, CARGA_MINIMA, cargaEfectiva, cargaMontada } from '../battle/carga.js';
 import {
@@ -38,6 +38,7 @@ import {
   sumaDelBando,
 } from '../battle/consultas.js';
 import { type DamageOptions, expectedDamage, fraccionQueLlega, stackHp } from '../battle/damage.js';
+import { terminarElDespliegue } from '../battle/despliegue.js';
 import { roundsLeftOf } from '../battle/effects.js';
 import { opcionesDeDanio } from '../battle/golpe.js';
 import { alcanceDeLaGranada } from '../battle/granada.js';

@@ -1,9 +1,14 @@
 /**
  * El despliegue (02-11-2026, «añade al combate una fase previa de despliegue»;
  * `docs/agents/2026-11-02-fase-de-despliegue/`): dónde puede salir cada unidad,
- * en qué orden despliegan los bandos y qué casilla vale. **Solo lee**: lo que
- * coloca (`createBattle`) y lo que cambia la batalla (`aplicarDespliegue`,
- * `terminarElDespliegue`) vive en `battle.ts`, que importa esto, y no al revés.
+ * en qué orden despliegan los bandos y qué casilla vale, y la fase misma: abrir
+ * cada tanda y, cerradas todas, la ronda 1 (`seguirElDespliegue`), y lo que hace la
+ * persona (`aplicarDespliegue`) o quien juega sin mirar (`terminarElDespliegue`).
+ * **La fase la mueve solo este módulo** (`BattleState.despliegue`; lo vigila
+ * `invariantes-batalla.test.ts`): vivía en `battle.ts` hasta la fase N de la
+ * reorganización (07-11-2026). Lo coloca al montar la batalla `createBattle`
+ * (`montaje.ts`, que importa esto), y la ronda 1 la abre el motor (`beginRound`,
+ * `battle.ts`, que no importa esto).
  *
  * La zona y el momento se piden **por unidad** (`alcanceDelDespliegue`): una
  * habilidad como la infiltración amplía las columnas de una unidad («más
@@ -11,11 +16,20 @@
  * tarde») escribiendo `UnitInfo.despliegue`, sin tocar ni la batalla ni el
  * cliente.
  */
+import type { Rng } from '../rng.js';
 import type { AlcanceDelDespliegue, Hex, MomentoDeDespliegue, UnitInfo } from '../types.js';
+import { beginRound } from './battle.js';
 import { COLUMNAS_DE_SALIDA, hexEquals, hexKey, isInside } from './board.js';
+import { stackById } from './consultas.js';
 import { casillasDeMuro, SIN_MURALLA } from './muralla.js';
 import { enElMarco, noCabenEnLaSalida, zonaEnSuMarco } from './salida.js';
-import type { BattleStack, BattleState, MurallaDeBatalla, Side } from './types.js';
+import type {
+  AccionDeDespliegue,
+  BattleStack,
+  BattleState,
+  MurallaDeBatalla,
+  Side,
+} from './types.js';
 
 /**
  * Hasta cuántas columnas desde su borde puede desplegar una unidad: la mitad de
@@ -307,7 +321,7 @@ export function colocarBlocker(state: BattleState, stackId: string, at: Hex): st
  * (`alcanceDelDespliegue`) llega a la del rival y quien desplegó antes cogió esa
  * casilla, que no podía ver ocupada (`colocarBlocker`). Es `asentar` con lo de
  * cada uno pedido y las casillas de los desplegados ocupadas: la misma regla, y
- * la misma frase si no caben. Lo escribe `battle.ts` (`seguirElDespliegue`).
+ * la misma frase si no caben. Lo aplica `seguirElDespliegue` (abajo).
  */
 export function asientoAlAbrir(state: BattleState, t: number): readonly Hex[] {
   const suyos = deLaTanda(state, t);
@@ -359,4 +373,79 @@ export function firmaDelDespliegue(state: BattleState): string {
   const d = state.despliegue;
   if (d === null) return '';
   return `${d.tanda}:${state.stacks.map((s) => `${s.id}@${s.hex.col},${s.hex.row}`).join(';')}`;
+}
+
+// ---------------------------------------------------------------- la fase
+
+/**
+ * Abre la siguiente tanda del despliegue que tenga a alguien y despliegue una
+ * persona, desde `state.despliegue.tanda`; pasadas todas, cierra el despliegue y
+ * empieza la ronda 1. Las tandas que despliegan solas se quedan con lo que les
+ * dio `asentar` en `createBattle`.
+ *
+ * Al abrir cada tanda, quien tiene su casilla ocupada por alguien que ya
+ * desplegó se reasienta (`asientoAlAbrir`, el mismo `asentar`). No se tira nada:
+ * el despliegue no gasta azar.
+ */
+export function seguirElDespliegue(state: BattleState, rng: Rng): void {
+  const d = state.despliegue;
+  if (d === null) throw new Error('no hay despliegue en curso');
+  for (let t = d.tanda; t < TANDAS.length; t++) {
+    const suyos = deLaTanda(state, t);
+    if (suyos.length === 0) continue;
+    const casillas = asientoAlAbrir(state, t);
+    suyos.forEach((s, i) => {
+      s.hex = casillas[i]!;
+    });
+    if (d.aMano.includes(TANDAS[t]!.side)) {
+      state.despliegue = { tanda: t, aMano: d.aMano };
+      return;
+    }
+  }
+  state.despliegue = null;
+  beginRound(state, rng);
+}
+
+/**
+ * Lo que se hace en el despliegue, sobre el bando que despliega ahora: colocar a
+ * uno (o cambiarlo con quien esté en esa casilla, de su misma tanda) o cerrar la
+ * tanda, que abre la siguiente o, si era la última, la ronda 1. Lo ilegal lanza
+ * con la frase de `colocarBlocker`. No escribe en el registro: el despliegue es
+ * estado, como la formación del héroe.
+ */
+export function aplicarDespliegue(state: BattleState, accion: AccionDeDespliegue, rng: Rng): void {
+  if (state.finished !== null) throw new Error('la batalla ya ha terminado');
+  const d = state.despliegue;
+  switch (accion.type) {
+    case 'colocar': {
+      const noSe = colocarBlocker(state, accion.stack, accion.at);
+      if (noSe !== null) throw new Error(`no se puede colocar: ${noSe}`);
+      const s = stackById(state, accion.stack);
+      // Solo uno de su tanda se intercambia: el enemigo que aún no ha desplegado
+      // se queda donde está y se reasienta al abrir su tanda (`asientoAlAbrir`).
+      const ahi = suyoEn(state, s, accion.at);
+      if (ahi !== undefined) ahi.hex = s.hex;
+      s.hex = accion.at;
+      return;
+    }
+    case 'desplegado': {
+      if (d === null) throw new Error('no hay despliegue en curso');
+      state.despliegue = { tanda: d.tanda + 1, aMano: d.aMano };
+      seguirElDespliegue(state, rng);
+      return;
+    }
+  }
+}
+
+/**
+ * Cierra lo que quede del despliegue aceptando lo que hay: la tanda abierta tal
+ * como está y las siguientes, solas. Lo llama quien juega la batalla sin mirar
+ * (`autoResolve`: «Resolver sola», o la batalla de la persona que cierra la IA).
+ * Sin despliegue en curso, nada.
+ */
+export function terminarElDespliegue(state: BattleState, rng: Rng): void {
+  const d = state.despliegue;
+  if (d === null) return;
+  state.despliegue = { tanda: d.tanda + 1, aMano: [] };
+  seguirElDespliegue(state, rng);
 }

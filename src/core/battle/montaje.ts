@@ -6,7 +6,7 @@
  * `entradaDelHeroe`), la moral de la mezcla de facciones (`armyMorale`), el mando del
  * héroe (`mandoDe`) y el libro de la batalla (`libroDeLaBatalla`; tras un retoque de
  * la arena, `libroConElCatalogo`). Al acabar abre el despliegue
- * (`seguirElDespliegue`), que da paso a la ronda 1 del motor.
+ * (`seguirElDespliegue`, `despliegue.ts`), que da paso a la ronda 1 del motor.
  *
  * Vivía en `battle.ts` hasta la fase N de la reorganización (07-11-2026), que repartió
  * el motor de batalla por lo que hace: qué hay en cada pieza, en la cabecera de
@@ -25,9 +25,8 @@ import {
   oroDeUnidad,
 } from '../unidad/catalogo.js';
 import { quienNoEscala } from './asalto.js';
-import { seguirElDespliegue } from './battle.js';
 import { hechizoDeLaBatalla } from './consultas.js';
-import { asentar } from './despliegue.js';
+import { asentar, seguirElDespliegue } from './despliegue.js';
 import { clampMorale } from './effects.js';
 import { hayMuralla, puertasAlEmpezar, SIN_MURALLA, validarMuralla } from './muralla.js';
 import {

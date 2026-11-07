@@ -8,16 +8,18 @@
  */
 import { describe, expect, it } from 'vitest';
 import { autoResolve } from '../src/core/ai/tactics.js';
-import { aplicarDespliegue, applyAction, terminarElDespliegue } from '../src/core/battle/battle.js';
+import { applyAction } from '../src/core/battle/battle.js';
 import { espejo } from '../src/core/battle/board.js';
 import { stackById } from '../src/core/battle/consultas.js';
 import {
   alcanceDelDespliegue,
+  aplicarDespliegue,
   asentar,
   batallaALaVista,
   colocarBlocker,
   despliegueDe,
   firmaDelDespliegue,
+  terminarElDespliegue,
   zonaDeSalida,
 } from '../src/core/battle/despliegue.js';
 import { legalActions } from '../src/core/battle/legalidad.js';

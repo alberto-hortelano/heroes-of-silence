@@ -29,7 +29,7 @@ import {
   esTipoDePuerta,
   puertasBlocker,
 } from '@core/battle/asalto.js';
-import { aplicarDespliegue, applyAction, MAX_JUGADAS, soltarElGolpe } from '@core/battle/battle.js';
+import { applyAction, MAX_JUGADAS, soltarElGolpe } from '@core/battle/battle.js';
 import {
   activeStack,
   type CasillaDeCarga,
@@ -46,6 +46,7 @@ import {
 } from '@core/battle/consultas.js';
 import { armasDe } from '@core/battle/damage.js';
 import {
+  aplicarDespliegue,
   batallaALaVista,
   colocarBlocker,
   type DespliegueAhora,
