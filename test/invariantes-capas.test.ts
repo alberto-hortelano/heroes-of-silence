@@ -1,7 +1,7 @@
 /**
  * Las capas: `core` es puro (sin `node:`, sin DOM, sin conocer al servidor), sin
  * azar suelto ni coma flotante de la plataforma y sin ciclos de importación en
- * ejecución (ni donde se mide el nivel); las herramientas de desarrollo no llegan
+ * ejecución (ni donde se mide el nivel) ni de tipos entre dos carpetas; las herramientas de desarrollo no llegan
  * al build, el cliente no lee el entorno, ningún fichero que lee una máquina lleva
  * la ruta de esta, y las rutas que se escriben en cadenas (las que `tsc` no ve)
  * existen.
@@ -15,7 +15,7 @@
  */
 
 import { closeSync, openSync, readSync, statSync } from 'node:fs';
-import { extname, join } from 'node:path';
+import { dirname, extname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   CLIENTE,
@@ -134,6 +134,87 @@ function ficherosDeMaquina(): string[] {
  */
 const MATH_PERMITIDO = ['min', 'max', 'floor', 'ceil', 'abs', 'round', 'imul'] as const;
 
+/** Una importación de un fichero: a qué fichero y en qué línea empieza. */
+type Arista = { readonly ruta: string; readonly linea: number };
+
+/**
+ * Los ciclos de `aristas` que cruzan dos carpetas o más (la de cada fichero,
+ * `dirname`: la raíz de `core` cuenta como una carpeta, y una subcarpeta, como
+ * otra). Uno por componente fuerte (Tarjan) con ficheros de dos carpetas: el
+ * más corto que pasa por la primera de sus importaciones que cruza carpeta (por
+ * fichero y línea), escrito como los de arriba, `fichero:línea → … → fichero`,
+ * cada línea la del `import` que lleva al siguiente.
+ */
+function nudosEntreCarpetas(aristas: ReadonlyMap<string, readonly Arista[]>): string[] {
+  let siguiente = 0;
+  const indice = new Map<string, number>();
+  const bajo = new Map<string, number>();
+  const pila: string[] = [];
+  const enLaPila = new Set<string>();
+  const componentes: string[][] = [];
+  const fuerte = (v: string): void => {
+    indice.set(v, siguiente);
+    bajo.set(v, siguiente);
+    siguiente++;
+    pila.push(v);
+    enLaPila.add(v);
+    for (const { ruta: w } of aristas.get(v) ?? []) {
+      if (!aristas.has(w)) continue;
+      if (!indice.has(w)) {
+        fuerte(w);
+        bajo.set(v, Math.min(bajo.get(v) as number, bajo.get(w) as number));
+      } else if (enLaPila.has(w)) {
+        bajo.set(v, Math.min(bajo.get(v) as number, indice.get(w) as number));
+      }
+    }
+    if (bajo.get(v) !== indice.get(v)) return;
+    const componente: string[] = [];
+    let w: string;
+    do {
+      w = pila.pop() as string;
+      enLaPila.delete(w);
+      componente.push(w);
+    } while (w !== v);
+    componentes.push(componente);
+  };
+  for (const v of aristas.keys()) if (!indice.has(v)) fuerte(v);
+  const nudos: string[] = [];
+  for (const componente of componentes) {
+    const dentro = new Set(componente);
+    if (new Set(componente.map((r) => dirname(r))).size < 2) continue;
+    const cruces = [...componente]
+      .sort()
+      .flatMap((de) =>
+        (aristas.get(de) ?? [])
+          .filter((a) => dentro.has(a.ruta) && dirname(a.ruta) !== dirname(de))
+          .map((a) => ({ de, ...a })),
+      );
+    const cruce = cruces[0];
+    if (cruce === undefined) continue;
+    // Del destino del cruce a su origen, sin salir de la componente.
+    const previo = new Map<string, Arista & { readonly de: string }>();
+    const cola = [cruce.ruta];
+    const visto = new Set(cola);
+    while (cola.length > 0 && !visto.has(cruce.de)) {
+      const x = cola.shift() as string;
+      for (const a of aristas.get(x) ?? []) {
+        if (!dentro.has(a.ruta) || visto.has(a.ruta)) continue;
+        visto.add(a.ruta);
+        previo.set(a.ruta, { de: x, ...a });
+        cola.push(a.ruta);
+      }
+    }
+    const pasos: string[] = [];
+    for (let x = cruce.de; x !== cruce.ruta; ) {
+      const p = previo.get(x) as Arista & { readonly de: string };
+      pasos.unshift(`${p.de}:${p.linea}`);
+      x = p.de;
+    }
+    nudos.push([`${cruce.de}:${cruce.linea}`, ...pasos, cruce.de].join(' → '));
+  }
+  return nudos;
+}
+
 describe('invariantes del proyecto', () => {
   it('`core` es puro: no importa nada de node', () => {
     // Sin esto los mismos tests no valdrían para el navegador y para el
@@ -184,7 +265,7 @@ describe('invariantes del proyecto', () => {
     // `Math.pow` que hay debajo del `**`. El ciclo que abre el surtidor de
     // experiencia la pone en el camino de cada batalla, y ahí la promesa se
     // habría roto en silencio. (Esa función ya no existe: los umbrales de hoy
-    // son Fibonacci, en `hero/experiencia.ts`, y solo suman y multiplican
+    // son Fibonacci, en `hero/rango.ts`, y solo suman y multiplican
     // enteros. El guardia sigue valiendo para ellos y para el siguiente.)
     //
     // Dos mitades, y la primera es la que decide la forma:
@@ -262,7 +343,7 @@ describe('invariantes del proyecto', () => {
     expect(importa(INICIO)).toContain(ruta('src/core/battle/armas.ts'));
   });
 
-  it('`core` no tiene ciclos de importación en ejecución', () => {
+  it('`core` no tiene ciclos de importación en ejecución, ni de tipos que crucen dos carpetas', () => {
     // Un ciclo de lo que corre al cargar (`import` de valor, `export … from`,
     // `import 'x'`) funciona solo mientras lo que se ejecuta al cargarse no lea
     // del otro lado: una constante leída al cargarse da un `ReferenceError` (TDZ)
@@ -317,6 +398,40 @@ describe('invariantes del proyecto', () => {
     const importa = (de: string): string[] => (aristas.get(de) ?? []).map((x) => x.ruta);
     expect(importa(ruta('src/core/map/vestir.ts'))).toContain(ruta('src/core/map/rio.ts'));
     expect(importa(ruta('src/core/state/game.ts'))).toContain(ruta('src/core/mundo/reglas.ts'));
+
+    // **Ni de tipos que crucen dos carpetas** (paso N8 de la misma fase). Un
+    // `import type` no carga nada, pero un ciclo que pasa por él ata dos dominios:
+    // no se lee ni se mueve el uno sin el otro, y en cuanto una de sus importaciones
+    // pasa a ser de valor (un tipo que gana una constante al lado), es un ciclo en
+    // ejecución. Dentro de una carpeta los tipos sí pueden citarse; la raíz de
+    // `core` es una carpeta más. Había cuatro, cada uno con su corte: `battle/` y
+    // `unidad/` (la forma de la batalla nombraba la rueda, que importa el daño, que
+    // lee el nivel, que lee las armas, que nombran la forma de la batalla: hoy esa
+    // forma vive en `battle/types.ts` y solo nombra las hojas de la rueda);
+    // `equipo/`, `unidad/` y `hero/` (por el tipo `Hero`, hoy en `types.ts`);
+    // `state/` y `mundo/` (por el clima de una batalla, hoy junto a `lugarDelRival`
+    // en `state/game.ts`); y dentro de `map/`, el del recinto (`map/tipos.ts`,
+    // `map/red-de-caminos.ts`). Rotos a mano: un `import type { BattleStack }` de
+    // `battle/types.ts` en `hero/rango.ts` y un `import type { Hero }` de
+    // `hero/hero.ts` en `equipo/portador.ts` (el nudo de antes) salen rojos con su
+    // ciclo, y un `import type` de `battle/effects.ts` en `battle/types.ts` (dentro
+    // de `battle/`) no sale.
+    const conTipos = new Map<string, Arista[]>(
+      CORE.map((r) => [
+        r,
+        importacionesConLineaDe(r, true).filter(
+          (x) => x.ruta.startsWith('src/core/') && x.ruta.endsWith('.ts'),
+        ),
+      ]),
+    );
+    expect(nudosEntreCarpetas(conTipos)).toEqual([]);
+    // Y que vea los tipos: `battle/types.ts` nombra `magia/formato.ts` solo con
+    // `import type`, que el grafo de arriba no tiene.
+    const nombra = (de: string): string[] => (conTipos.get(de) ?? []).map((x) => x.ruta);
+    expect(nombra(ruta('src/core/battle/types.ts'))).toContain(ruta('src/core/magia/formato.ts'));
+    expect(importa(ruta('src/core/battle/types.ts'))).not.toContain(
+      ruta('src/core/magia/formato.ts'),
+    );
   });
 
   it('las capas de `core`: la IA y el contrato solo los importan ellos mismos, y el mapa no conoce la partida', () => {
