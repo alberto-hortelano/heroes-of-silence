@@ -53,7 +53,9 @@ export function barreraDe(tipos: Tipos, i: number): Barrera | null {
 /**
  * El río de cada rejilla de tipos (`conElRio`), con el ancho del mapa para
  * decir dónde. Va aparte y no dentro de `Tipos`, que es una rejilla plana que
- * leen y copian medio vestido y los tests.
+ * leen y copian medio vestido y los tests. La escribe solo `conElRio` y la leen
+ * `esDelRio`, `ponerTipo` y la búsqueda de los caminos (`Busqueda`, que es por lo
+ * que se exporta); lo vigila `invariantes-partida.test.ts`.
  */
 export const RIO_DE_LOS_TIPOS = new WeakMap<
   Tipos,

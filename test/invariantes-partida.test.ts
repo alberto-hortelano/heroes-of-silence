@@ -527,6 +527,29 @@ describe('invariantes del proyecto', () => {
     expect(escrituras).toHaveLength(1);
   });
 
+  it('el río de cada rejilla de tipos lo apunta solo `conElRio`', () => {
+    // `RIO_DE_LOS_TIPOS` (map/vestir/base.ts) dice qué casillas de una rejilla son del
+    // río, y de eso se fía `ponerTipo` para no cortarlo. Se exporta porque la lee la
+    // búsqueda de los caminos (`Busqueda`, vestir/caminos.ts), así que desde la fase N
+    // de la reorganización (07-11-2026) nada impedía escribirla desde fuera: un `set`
+    // con otro río, o un `delete`, y `ponerTipo` deja cortar el de verdad. Rotos a
+    // mano, rojos con su línea: un `RIO_DE_LOS_TIPOS.set(…)` en `vestir/caminos.ts` y
+    // un `RIO_DE_LOS_TIPOS.delete(tipos)` en `ponerTipo`.
+    const BASE = ruta('src/core/map/vestir/base.ts');
+    const escrituras = infractoresDeCodigo(
+      [...CORE, ...CLIENTE, ...SERVIDOR, ...HERRAMIENTAS],
+      /\bRIO_DE_LOS_TIPOS\s*\.\s*(?:set|delete)\s*\(/,
+    );
+    const deConElRio = lineasDeLasDeclaraciones(BASE, ['conElRio']);
+    const ajenas = escrituras.filter((e) => {
+      const m = /^(.+):(\d+) → /.exec(e);
+      return m === null || m[1] !== BASE || !deConElRio.has(Number(m[2]));
+    });
+    expect(ajenas).toEqual([]);
+    // Que mire algo: la de `conElRio` sale.
+    expect(escrituras).toHaveLength(1);
+  });
+
   it('el camino de un héroe lleva lo hostil: fuera de `state/marcha.ts` nadie llama al Dijkstra del mapa', () => {
     // Lo hostil de la partida —héroe ajeno, castillo ajeno guarnecido— se
     // alcanza y no se cruza en el camino de TODOS (la IA, la persona y el
