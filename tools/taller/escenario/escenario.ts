@@ -20,7 +20,7 @@ import type { Marca } from '../../../src/client/desarrollo/tipos.js';
 import { cajaEnPixeles } from '../../../src/client/render/camara-mapa.js';
 import { componer } from '../../../src/client/render/escenario/colocar.js';
 import { MARGEN } from '../../../src/client/render/escenario/pintar.js';
-import type { GameMap } from '../../../src/core/map/map.js';
+import type { GameMap } from '../../../src/core/map/tipos.js';
 import { newGame } from '../../../src/core/state/setup.js';
 import { leerCatalogo } from './catalogo-disco.js';
 import { paginaDeEscena } from './pintor.js';

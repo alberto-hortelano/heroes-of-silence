@@ -22,9 +22,7 @@ import { buildMap, validateMapPlan } from '../src/core/map/generate.js';
 import {
   createEmptyMap,
   findPath,
-  type GameMap,
   isEnterable,
-  RedDeCaminos,
   stepCost,
   tramosDeCasillas,
 } from '../src/core/map/map.js';
@@ -46,7 +44,9 @@ import {
   regionesDeLaCiudad,
   SEPARACION_DE_CIUDADES,
 } from '../src/core/map/recinto.js';
+import { RedDeCaminos } from '../src/core/map/red-de-caminos.js';
 import { estructura } from '../src/core/map/regiones.js';
+import type { GameMap } from '../src/core/map/tipos.js';
 import { baseOf } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { rango, segunPrisa } from './lento.js';

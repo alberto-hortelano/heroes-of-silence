@@ -13,10 +13,10 @@
 import { describe, expect, it } from 'vitest';
 import { playAiTurn } from '../src/core/ai/turn.js';
 import { Casillas } from '../src/core/map/casillas.js';
-import type { MapObject } from '../src/core/map/map.js';
 import { regionDescubierta, regionesQueDescubre, zonaDeNiebla } from '../src/core/map/niebla.js';
 import { rioAnteLaCiudad } from '../src/core/map/recinto.js';
 import { estructura, regionMasCercana } from '../src/core/map/regiones.js';
+import type { MapObject } from '../src/core/map/tipos.js';
 import { createRng } from '../src/core/rng.js';
 import { asaltantesALaVista } from '../src/core/state/asaltantes.js';
 import { heroesOf, playerById, townsOf } from '../src/core/state/consultas.js';

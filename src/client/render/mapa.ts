@@ -20,13 +20,10 @@
 import { figuraDelHeroe } from '@core/hero/tipos-de-heroe.js';
 import { individuosDe } from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
-import {
-  cruzaSuBarrera,
-  type MapObject,
-  type MapRegion,
-  type RedDeCaminos,
-} from '@core/map/map.js';
+import { cruzaSuBarrera } from '@core/map/map.js';
+import type { RedDeCaminos } from '@core/map/red-de-caminos.js';
 import type { TerrainKind } from '@core/map/terrain.js';
+import type { MapObject, MapRegion } from '@core/map/tipos.js';
 import { inicialDelNombre } from '@core/mundo/formato.js';
 import type { AsaltantesALaVista } from '@core/state/asaltantes.js';
 import type { ClimaDeLaPartida } from '@core/state/clima.js';

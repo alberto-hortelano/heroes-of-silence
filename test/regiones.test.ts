@@ -29,18 +29,12 @@ import {
   trazarYVestir,
   validateMapPlan,
 } from '../src/core/map/generate.js';
-import {
-  type GameMap,
-  pointFromKey,
-  pointKey,
-  RedDeCaminos,
-  type TramoDeCamino,
-} from '../src/core/map/map.js';
+import { pointFromKey, pointKey } from '../src/core/map/geometria.js';
+import { aPunto } from '../src/core/map/map.js';
 import { puertaDe, rodeosParaEntrar } from '../src/core/map/puertas.js';
 import { puertasDeLaCiudad, rioAnteLaCiudad } from '../src/core/map/recinto.js';
+import { RedDeCaminos, type TramoDeCamino } from '../src/core/map/red-de-caminos.js';
 import {
-  aPunto,
-  type Estructura,
   estructura,
   franjasDeBarrera,
   nivelesDelRelieve,
@@ -55,6 +49,7 @@ import {
   type Suelo,
   type TerrainKind,
 } from '../src/core/map/terrain.js';
+import type { Estructura, GameMap } from '../src/core/map/tipos.js';
 import {
   ABIERTA,
   ArbolDeCaminos,

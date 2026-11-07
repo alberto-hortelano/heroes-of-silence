@@ -9,7 +9,7 @@
  */
 
 import { armyLeadership, capacidadDe, troopBlocker, troopRoom } from '../hero/troop.js';
-import { pointKey } from '../map/map.js';
+import { pointKey } from '../map/geometria.js';
 import { recruitBlocker, recruitCost, type Town } from '../town/town.js';
 import type { Army, Hero, PlayerId } from '../types.js';
 import { unidadDelJuego } from '../unidad/catalogo.js';

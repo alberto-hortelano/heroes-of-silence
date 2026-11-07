@@ -20,7 +20,7 @@ import { renderLog } from '../src/client/views/panels.js';
 import { playAiGame, resolvePendingBattle } from '../src/core/ai/turn.js';
 import { serializeAdventureTurn } from '../src/core/contract/aventura.js';
 import type { MapPlan } from '../src/core/map/generar/plan.js';
-import type { MapObject } from '../src/core/map/map.js';
+import type { MapObject } from '../src/core/map/tipos.js';
 import { createRng } from '../src/core/rng.js';
 import { heroById } from '../src/core/state/consultas.js';
 import type { GameEvent } from '../src/core/state/events.js';

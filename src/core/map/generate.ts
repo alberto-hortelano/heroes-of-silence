@@ -46,19 +46,8 @@ import {
   type PlannedWall,
   regionesDelMapa,
 } from './generar/plan.js';
-import { espejoDe, parejaDe } from './geometria.js';
-import {
-  BARRERAS_DEL_PUEBLO,
-  createEmptyMap,
-  type GameMap,
-  inBounds,
-  type MapObject,
-  type MapRegion,
-  pointKey,
-  RedDeCaminos,
-  type TramoDeCamino,
-  tramosDeCasillas,
-} from './map.js';
+import { espejoDe, parejaDe, pointKey } from './geometria.js';
+import { aPunto, BARRERAS_DEL_PUEBLO, createEmptyMap, inBounds, tramosDeCasillas } from './map.js';
 import { murallasDeLaRejilla } from './murallas.js';
 import { puertaDe } from './puertas.js';
 import {
@@ -73,11 +62,10 @@ import {
   puertasPosibles,
   SEPARACION_DE_CIUDADES,
 } from './recinto.js';
+import { RedDeCaminos, type TramoDeCamino } from './red-de-caminos.js';
 import {
-  aPunto,
   componentesDelMapa,
   dondeEsta,
-  type Estructura,
   estructura,
   juntoANodo,
   type PasoTorcido,
@@ -118,6 +106,7 @@ import {
   type Suelo,
   type TerrainKind,
 } from './terrain.js';
+import type { Estructura, GameMap, MapObject, MapRegion } from './tipos.js';
 import {
   ABIERTA,
   abrirEsquinasTorcidas,

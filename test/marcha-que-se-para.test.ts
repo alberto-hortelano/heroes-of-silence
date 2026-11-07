@@ -16,7 +16,8 @@
 import { describe, expect, it } from 'vitest';
 import { Session } from '../src/client/session.js';
 import { fuerzaDe, poderDe, ventajaClara } from '../src/core/hero/fuerza.js';
-import { objectAt, pointFromKey, pointKey } from '../src/core/map/map.js';
+import { pointFromKey, pointKey } from '../src/core/map/geometria.js';
+import { objectAt } from '../src/core/map/map.js';
 import { regionDeCasilla } from '../src/core/map/regiones.js';
 import {
   asaltantesALaVista,

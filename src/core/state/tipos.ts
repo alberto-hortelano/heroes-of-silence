@@ -11,7 +11,7 @@ import type { BattleState } from '../battle/types.js';
 import type { ReglasDelCombate } from '../combate.js';
 import type { Portador } from '../equipo/portador.js';
 import type { Casillas } from '../map/casillas.js';
-import type { GameMap, MapObject, ObraDelPuesto } from '../map/map.js';
+import type { GameMap, MapObject, ObraDelPuesto } from '../map/tipos.js';
 import type { EstadoDelMundo } from '../mundo/formato.js';
 import type { Rng } from '../rng.js';
 import type { Town } from '../town/town.js';

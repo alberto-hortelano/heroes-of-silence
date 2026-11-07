@@ -15,13 +15,13 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { HITOS, NODOS, nodoDePaso, pasoDeNodo } from '../../src/client/render/escenario/nodos.js';
 import { pigments } from '../../src/client/render/terreno.js';
-import type { MapObject } from '../../src/core/map/map.js';
 import {
   type Barrera,
   esBarrera,
   type Suelo,
   type TerrainKind,
 } from '../../src/core/map/terrain.js';
+import type { MapObject } from '../../src/core/map/tipos.js';
 import { newGame } from '../../src/core/state/setup.js';
 import { familiasConIds, idsDe, LAMINAS, piezaDeCasilla, TEXTURAS } from './mapa-denso.js';
 import { DIR_VISTA } from './vista.js';

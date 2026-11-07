@@ -6,14 +6,10 @@
  * 06-11-2026.)
  */
 import type { PlanConCasillas } from '../src/core/map/generar/plan.js';
-import {
-  casillaDelIndice,
-  type GameMap,
-  pointFromKey,
-  pointKey,
-  type Reachable,
-  RedDeCaminos,
-} from '../src/core/map/map.js';
+import { pointFromKey, pointKey } from '../src/core/map/geometria.js';
+import { casillaDelIndice, type Reachable } from '../src/core/map/map.js';
+import { RedDeCaminos } from '../src/core/map/red-de-caminos.js';
+import type { GameMap } from '../src/core/map/tipos.js';
 import type { Point } from '../src/core/types.js';
 
 /**

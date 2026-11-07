@@ -45,8 +45,8 @@ import {
   suavizar,
   VAIVEN,
 } from '../src/client/render/escenario/sendas.js';
-import type { MapObject } from '../src/core/map/map.js';
 import type { TerrainKind } from '../src/core/map/terrain.js';
+import type { MapObject } from '../src/core/map/tipos.js';
 import { newGame } from '../src/core/state/setup.js';
 import { leerCatalogo, textoDelCatalogo } from '../tools/taller/escenario/catalogo-disco.js';
 import { RAIZ } from './comun.js';

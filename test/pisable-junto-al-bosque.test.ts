@@ -27,7 +27,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { RedDeCaminos } from '@core/map/map.js';
+import { RedDeCaminos } from '@core/map/red-de-caminos.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import { describe, expect, it } from 'vitest';
 import { analizar, type MapaDeEscena } from '../src/client/render/escenario/analizar.js';

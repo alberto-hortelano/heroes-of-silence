@@ -3,7 +3,8 @@
  * recluta, mueve a sus héroes y resuelve las batallas que provoque.
  */
 
-import { pointKey, type Reachable } from '../map/map.js';
+import { pointKey } from '../map/geometria.js';
+import type { Reachable } from '../map/map.js';
 import { ROAD_COST } from '../map/terrain.js';
 import { currentPlayer, heroesOf, playerById } from '../state/consultas.js';
 import {

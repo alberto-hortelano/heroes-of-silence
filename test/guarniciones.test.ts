@@ -19,7 +19,7 @@ import { RESPONSE_FORMAT } from '../src/core/contract/formato.js';
 import { accionDelAgente } from '../src/core/contract/vocabulario.js';
 import { armyPower } from '../src/core/hero/fuerza.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../src/core/hero/troop.js';
-import { pointFromKey, pointKey } from '../src/core/map/map.js';
+import { pointFromKey, pointKey } from '../src/core/map/geometria.js';
 import { estructura } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
 import { currentPlayer, heroesOf } from '../src/core/state/consultas.js';

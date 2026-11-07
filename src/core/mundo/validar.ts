@@ -30,9 +30,10 @@ import { problemasDeGrupoNeutral } from '../hero/grupos.js';
 import { motivoDeLinea } from '../linea.js';
 import type { MapPlan } from '../map/generar/plan.js';
 import { basesDelPlan, buildMap, validateMapPlan } from '../map/generate.js';
-import { type GameMap, inBounds, isEnterable, terrainAt } from '../map/map.js';
+import { inBounds, isEnterable, terrainAt } from '../map/map.js';
 import { FUERA, pasosDelMapa, queEsElObjeto } from '../map/recinto.js';
 import { regionDeCasilla } from '../map/regiones.js';
+import type { GameMap } from '../map/tipos.js';
 import { FACTION_IDS, type FactionId, type Point } from '../types.js';
 import { problemasDeGrupo } from '../unidad/catalogo.js';
 import {

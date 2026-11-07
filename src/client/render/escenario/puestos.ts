@@ -17,7 +17,8 @@
  *
  * Puro: sin DOM, como el resto del escenógrafo.
  */
-import { MEJORAS_DEL_PUESTO, type MejoraDelPuesto } from '@core/map/map.js';
+
+import { MEJORAS_DEL_PUESTO, type MejoraDelPuesto } from '@core/map/tipos.js';
 import type { PlayerId } from '@core/types.js';
 import { MARGEN_DEL_RECORTE } from '../../../shared/arte.js';
 import type { Pieza } from './catalogo.js';

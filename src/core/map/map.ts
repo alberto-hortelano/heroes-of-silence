@@ -3,9 +3,15 @@
  *
  * A diferencia de la batalla (hexágonos), el mapa es cuadrado y se recorre en
  * ocho direcciones, como HoMM2.
+ *
+ * Aquí, cómo se recorre: lo que se pisa, lo que cuesta y el Dijkstra. Su forma
+ * (`GameMap`, `MapObject`), en `tipos.ts`; su red de caminos, en
+ * `red-de-caminos.ts`, y la clave de una casilla (`pointKey`), en `geometria.ts`
+ * (estaban aquí hasta la fase N de la reorganización, 07-11-2026).
  */
 import type { Point } from '../types.js';
 import { Frontera } from './frontera.js';
+import { pointKey } from './geometria.js';
 import {
   enAlgunRecinto,
   FUERA,
@@ -15,40 +21,15 @@ import {
   pasosDelMapa,
   tramoDelRecinto,
 } from './recinto.js';
+import { dentroDelMapa, RedDeCaminos, type TramoDeCamino } from './red-de-caminos.js';
 import {
   type Barrera,
   costeDeEntrada,
   esBarrera,
   isWalkable,
-  type Nivel,
   type TerrainKind,
 } from './terrain.js';
-
-/**
- * Las obras de un puesto (un paso tomado), de la primera a la última: se sube de
- * una en una y no se baja (`mejorarBlocker`, `state/sitios.ts`). Qué cuesta cada una
- * y con qué muralla se pelea, en `data/sitios.json`.
- */
-export const MEJORAS_DEL_PUESTO = ['ninguna', 'empalizada', 'muralla'] as const;
-export type MejoraDelPuesto = (typeof MEJORAS_DEL_PUESTO)[number];
-
-/** Las obras que se hacen en un puesto: todas menos la de partida, la caseta. */
-export type ObraDelPuesto = Exclude<MejoraDelPuesto, 'ninguna'>;
-
-/** Las obras, en su orden (`MEJORAS_DEL_PUESTO` sin la caseta). */
-export const OBRAS_DE_UN_PUESTO: readonly ObraDelPuesto[] = MEJORAS_DEL_PUESTO.filter(
-  (m): m is ObraDelPuesto => m !== 'ninguna',
-);
-
-/**
- * La obra que sigue a cada una, o `null` tras la última: la escalera de
- * `MEJORAS_DEL_PUESTO` como tabla, que el compilador exige entera.
- */
-export const OBRA_SIGUIENTE: Readonly<Record<MejoraDelPuesto, ObraDelPuesto | null>> = {
-  ninguna: 'empalizada',
-  empalizada: 'muralla',
-  muralla: null,
-};
+import type { GameMap, MapObject } from './tipos.js';
 
 /**
  * Las barreras sobre las que puede ir un pueblo en el muro (pueblos en un nodo,
@@ -74,345 +55,11 @@ export function cruzaSuBarrera(o: MapObject): o is CruzaSuBarrera {
   return o.kind === 'node' || (o.kind === 'village' && o.barrera !== null);
 }
 
-/** Si `valor` es una de las obras de un puesto (`MEJORAS_DEL_PUESTO`). */
-export function esMejoraDelPuesto(valor: unknown): valor is MejoraDelPuesto {
-  return (MEJORAS_DEL_PUESTO as readonly unknown[]).includes(valor);
-}
-
-/**
- * Si `valor` es una obra que se hace en un puesto (`OBRAS_DE_UN_PUESTO`): lo que
- * pide `mejorar_el_puesto` y lo que lleva el botón del diálogo (`data-obra`).
- */
-export function esObraDelPuesto(valor: unknown): valor is ObraDelPuesto {
-  return (OBRAS_DE_UN_PUESTO as readonly unknown[]).includes(valor);
-}
-
-export type MapObject =
-  | {
-      /**
-       * Un paso entre regiones (`regiones.ts`). Se toma **pisándolo**, de camino
-       * o parando en él, y `owner` es el único sitio donde vive su dueño: lo
-       * escribe `tomarElNodo` y nadie más. No bloquea el paso: es un paso.
-       */
-      readonly kind: 'node';
-      readonly id: string;
-      readonly at: Point;
-      owner: number | null;
-      /**
-       * La barrera que cruza: la del muro que el plan escribe bajo el nodo y
-       * que `buildMap` abre (#145). La lee el escenógrafo para su pieza —el
-       * puente, si es agua—; antes la deducía de las ocho vecinas, y en un
-       * empate se inventaba un río (#187). No cambia qué se pisa.
-       */
-      readonly barrera: Barrera;
-      /**
-       * La obra del puesto que es el paso una vez tomado (puesto fronterizo, fase 3,
-       * 04-11-2026): `ninguna` (la caseta), `empalizada` o `muralla`, en ese orden y
-       * sin bajar. Un primitivo del objeto, como `owner`, así que la memoria de la
-       * niebla la recuerda sola (`explorar` copia el objeto) y el espectador la
-       * recibe con él. **La escribe solo `mejorarElPuesto`** (`state/sitios.ts`; lo
-       * vigila `test/invariantes.test.ts`): tomar el paso no la toca, porque es una
-       * obra y se queda con él. La lee `murallaDelSitio` para la batalla del paso.
-       */
-      mejora: MejoraDelPuesto;
-    }
-  | {
-      /**
-       * Un pueblo. Dentro de una región es de quien la tenga, y su `owner` no
-       * cuenta (se queda en `null`): el territorio se gana cerrando la región, y un
-       * dueño aquí sería una segunda copia de un hecho que ya se deriva de los
-       * nodos. **En el muro**, entre dos regiones o más, es un nodo y se toma como
-       * un paso: entonces su dueño vive aquí, y lo escribe solo `tomarElNodo`.
-       * Qué es lo dice la red (`estructura`, `sitiosDeRegion`), no un campo. Da
-       * `ECONOMIA.rentaDelPueblo` de oro al día a su dueño si está unido a su base
-       * (`rentaDelDia`).
-       */
-      readonly kind: 'village';
-      readonly id: string;
-      readonly name: string;
-      readonly at: Point;
-      owner: number | null;
-      /**
-       * La barrera del muro sobre el que está, como la de un nodo (pueblos en un
-       * nodo, fase 3, 05-11-2026): `buildMap` abre su casilla y la guarda aquí. Solo
-       * va sobre montaña, bosque o acantilado (`BARRERAS_DEL_PUEBLO`), y entonces es
-       * un nodo entre dos regiones y se entra por su eje, no por su puerta
-       * (`puertaDe`). `null` en el de dentro de una región, que va en lo que se pisa.
-       */
-      readonly barrera: Barrera | null;
-    }
-  | {
-      /**
-       * Una ciudad. Su `owner` es el dueño guardado **solo si está en el muro** (un
-       * nodo: la base, la ciudad-puente), y lo escribe solo `tomarElNodo`; dentro de
-       * una región es de quien la tenga y su `owner` se queda en `null`. El dueño de
-       * una ciudad, sea cual sea, se pregunta a `dueñoDelSitio` (`state/sitios.ts`).
-       */
-      readonly kind: 'town';
-      readonly id: string;
-      readonly at: Point;
-      owner: number | null;
-    }
-  | {
-      readonly kind: 'monster';
-      readonly id: string;
-      readonly at: Point;
-      readonly creature: string;
-      count: number;
-      defeated: boolean;
-    }
-  | {
-      readonly kind: 'chest';
-      readonly id: string;
-      readonly at: Point;
-      readonly gold: number;
-      taken: boolean;
-    }
-  | {
-      /**
-       * Un lugar de un mundo (`core/mundo/`): un sitio que se visita, con su escena
-       * lateral, su gente y sus diálogos. Lo pone `newGame` tras `buildMap`, desde la
-       * historia del mundo; el procedimental no los hace. **Estático**: lo que cambia
-       * (su estado, las marcas) vive en `GameState.mundo`, no aquí, así que la memoria
-       * de la niebla no tiene nada que recordar mal. Se pisa como un cofre y no
-       * bloquea; se entra al acabar la marcha en él.
-       */
-      readonly kind: 'lugar';
-      readonly id: string;
-      readonly at: Point;
-      readonly name: string;
-    };
-
-/**
- * Una región declarada: su id, su nombre, una casilla suya (la semilla) y su
- * nivel de altura.
- *
- * La región **no se guarda casilla a casilla**: es la componente del terreno
- * pisable, sin nodos, que contiene esa casilla, y la calcula `estructura`
- * (`regiones.ts`). Lo único que el mapa necesita recordar es cómo se llama y
- * dónde está, para poder nombrarla en un mensaje y para que dos productores de
- * mapas no tengan que ponerse de acuerdo en numerarlas.
- */
-export interface MapRegion {
-  readonly id: string;
-  readonly name: string;
-  readonly at: Point;
-  /**
-   * A qué altura está (#143). Sin efecto en las reglas: el generador lo sortea
-   * antes que las barreras —que dependen de él— y el escenógrafo lo pinta. Un
-   * plan del agente no lo declara todavía y sus regiones van todas al 1.
-   */
-  readonly nivel: Nivel;
-}
-
-export interface GameMap {
-  readonly width: number;
-  readonly height: number;
-  /**
-   * Las regiones del mapa de nodos. Vacío en un mapa que no las tiene —los de
-   * algunos tests de pathfinding—, y entonces no hay territorio que calcular.
-   */
-  readonly regions: readonly MapRegion[];
-  /** Terreno por casilla, en orden de filas. */
-  readonly terrain: TerrainKind[];
-  /**
-   * Los caminos: los tramos que se pintan y, derivadas de ellos, las casillas
-   * que abaratan el paso. Un solo campo para los dos hechos, para que no puedan
-   * discrepar (#153).
-   */
-  readonly caminos: RedDeCaminos;
-  readonly objects: MapObject[];
-}
-
-export function pointKey(p: Point): string {
-  return `${p.x},${p.y}`;
-}
-
-/**
- * La inversa de `pointKey`, escrita **una vez**.
- *
- * Estaba abierta a mano donde hacía falta —el bucle de caminos de
- * `movableCosts`, con su `indexOf(',')` y sus dos `Number`— y volvió a hacer
- * falta en cuanto `serializeKnownMap` dejó de mandarle al agente la clave de
- * almacenamiento y le mandó el punto. Dos aperturas de la misma cadena es la
- * clase de copia que se queda atrás el día que la clave deje de ser `"x,y"`.
- *
- * **Lanza** en vez de devolver un punto con `NaN`: toda clave del sistema sale
- * de `pointKey`, así que una que no se pueda leer es un fallo de programa y no
- * un dato del jugador. El único llamante que se saltaba claves lo hacía por
- * estar **fuera del mapa**, que es otra pregunta y sigue siendo suya.
- */
-export function pointFromKey(clave: string): Point {
-  const coma = clave.indexOf(',');
-  const p = { x: Number(clave.slice(0, coma)), y: Number(clave.slice(coma + 1)) };
-  // Se valida por **round-trip** y no mirando los trozos por separado: la
-  // inversa de `pointKey` es, por definición, lo que vuelve a dar la misma
-  // clave. Así cae de una vez la mitad vacía —`Number("")` es **0**, no `NaN`,
-  // así que `"3,"` colaba como (3,0)—, el `NaN` y el `"03,7"`. El `isInteger` va
-  // aparte porque `"3.5,7"` sí round-trippea consigo mismo.
-  if (coma < 0 || !Number.isInteger(p.x) || !Number.isInteger(p.y) || pointKey(p) !== clave) {
-    throw new Error(`"${clave}" no es una casilla: se esperaba "x,y" con dos enteros`);
-  }
-  return p;
-}
-
 /** La casilla de un índice plano `y*width+x`; la inversa de `p.y * width + p.x`. */
 export const aPunto = (i: number, width: number): Point => ({
   x: i % width,
   y: (i - (i % width)) / width,
 });
-
-/** Un tramo de camino: dos casillas 8-vecinas distintas. */
-export type TramoDeCamino = readonly [Point, Point];
-
-/**
- * La red de caminos de un mapa: los **tramos** son el hecho y las casillas se
- * derivan de ellos. Un camino de una sola casilla no tiene trazo: va en
- * `sueltas`, que abarata el paso pero no se pinta.
- *
- * Antes el mapa guardaba casillas y el pintor deducía los tramos por adyacencia
- * (8-vecindad, la diagonal solo si ninguna esquina es camino). Así dos radios
- * vecinos se unían solos y cerraban ~1,2 bucles por mapa que nadie había
- * trazado, y el generador tenía que comprobar lo dibujado y vestir otra vez el
- * mapa cuando un radio rozaba un nodo ajeno (#153). Con los tramos guardados lo
- * que se pinta es lo que se trazó.
- *
- * Constructor privado y campo privado: el campo hace la clase nominal, así que
- * no se puede fabricar una red con las dos caras desiguales a base de un objeto
- * literal. Se entra por `desdeTramos` o por `vacia`, que conocen el mapa: lo
- * que caiga fuera lanza aquí, y no hay que filtrarlo en cada lector.
- */
-export class RedDeCaminos {
-  private readonly claves: ReadonlySet<string>;
-  /** Una marca por índice plano: `stepCost` y el Dijkstra no abren cadenas. */
-  private readonly marca: Uint8Array;
-  /** Las casillas con camino por índice plano, en el orden de `casillas`. */
-  readonly indices: readonly number[];
-  /** Los tramos por sus dos índices planos, el menor delante (`i·N + j`): `une` no recorre la lista. */
-  private readonly unidas: ReadonlySet<number>;
-
-  private constructor(
-    readonly tramos: readonly TramoDeCamino[],
-    readonly sueltas: readonly Point[],
-    private readonly width: number,
-    private readonly height: number,
-  ) {
-    const claves = new Set<string>();
-    const indices: number[] = [];
-    const marca = new Uint8Array(width * height);
-    for (const p of [...tramos.flat(), ...sueltas]) {
-      const i = p.y * width + p.x;
-      if (marca[i] === 1) continue;
-      marca[i] = 1;
-      indices.push(i);
-      claves.add(pointKey(p));
-    }
-    this.claves = claves;
-    this.marca = marca;
-    this.indices = indices;
-    const N = width * height;
-    this.unidas = new Set(
-      tramos.map(([p, q]) => {
-        const a = p.y * width + p.x;
-        const b = q.y * width + q.x;
-        return Math.min(a, b) * N + Math.max(a, b);
-      }),
-    );
-  }
-
-  /**
-   * ¿Va un tramo de `p` a `q` (en cualquier sentido)? Es la pregunta de las
-   * puertas de una ciudad (`puertasDeLaCiudad`): hay puerta donde llega un
-   * camino. Fuera del mapa no hay tramo.
-   */
-  une(p: Point, q: Point): boolean {
-    const fuera = (r: Point) => r.x < 0 || r.x >= this.width || r.y < 0 || r.y >= this.height;
-    if (fuera(p) || fuera(q)) return false;
-    const a = p.y * this.width + p.x;
-    const b = q.y * this.width + q.x;
-    return this.unidas.has(Math.min(a, b) * this.width * this.height + Math.max(a, b));
-  }
-
-  /** Las casillas con camino, por clave "x,y": las de algún tramo y las sueltas. */
-  get casillas(): ReadonlySet<string> {
-    return this.claves;
-  }
-
-  /** ¿Hay camino en esta casilla? Fuera del mapa no lo hay. */
-  tiene(p: Point): boolean {
-    if (p.x < 0 || p.x >= this.width || p.y < 0 || p.y >= this.height) return false;
-    return this.marca[p.y * this.width + p.x] === 1;
-  }
-
-  static vacia(width: number, height: number): RedDeCaminos {
-    return new RedDeCaminos([], [], width, height);
-  }
-
-  /**
-   * **Lanza** si una casilla cae fuera del mapa, si un tramo no une dos
-   * casillas 8-vecinas distintas, si un tramo se repite o si una suelta está
-   * repetida o también en un tramo: todos son fallos de programa, porque los
-   * tramos los escribe el generador o los deriva `tramosDeCasillas`, nunca el
-   * agente, y lo que el agente escribe fuera del mapa lo rechaza antes
-   * `validateMapPlan`.
-   *
-   * Canoniza: dentro de cada tramo va primero la casilla de fila menor (y de
-   * columna menor si comparten fila), y los tramos van ordenados igual. Así el
-   * orden en que el pintor encadena las sendas no depende del orden del trazado.
-   */
-  static desdeTramos(
-    tramos: readonly TramoDeCamino[],
-    width: number,
-    height: number,
-    sueltas: readonly Point[] = [],
-  ): RedDeCaminos {
-    for (const p of [...tramos.flat(), ...sueltas]) dentroDelMapa(p, width, height);
-    const canonicos = tramos.map(([p, q]): TramoDeCamino => {
-      const lejos = Math.abs(p.x - q.x) > 1 || Math.abs(p.y - q.y) > 1;
-      if (lejos || comparaEnLectura(p, q) === 0) {
-        throw new Error(
-          `el tramo de camino de (${p.x},${p.y}) a (${q.x},${q.y}) no une dos casillas vecinas distintas`,
-        );
-      }
-      return comparaEnLectura(q, p) < 0 ? [q, p] : [p, q];
-    });
-    canonicos.sort(([a, b], [c, d]) => comparaEnLectura(a, c) || comparaEnLectura(b, d));
-    for (let k = 1; k < canonicos.length; k++) {
-      const [a, b] = canonicos[k - 1] as TramoDeCamino;
-      const [c, d] = canonicos[k] as TramoDeCamino;
-      if (comparaEnLectura(a, c) === 0 && comparaEnLectura(b, d) === 0) {
-        throw new Error(`el tramo de camino de (${a.x},${a.y}) a (${b.x},${b.y}) está repetido`);
-      }
-    }
-    const conTramo = new Set(canonicos.flat().map(pointKey));
-    for (const p of sueltas) {
-      if (conTramo.has(pointKey(p))) {
-        throw new Error(`el camino suelto de (${p.x},${p.y}) está repetido o ya va en un tramo`);
-      }
-      conTramo.add(pointKey(p));
-    }
-    return new RedDeCaminos(canonicos, sueltas, width, height);
-  }
-}
-
-/**
- * Lanza si una casilla de camino cae fuera del mapa: la red conoce el mapa. Y
- * si no es de enteros: con `NaN` todas las comparaciones de abajo dan falso y
- * la casilla se colaba (lo que llegaba de un cable con un índice de menos).
- */
-function dentroDelMapa(p: Point, width: number, height: number): void {
-  if (!Number.isInteger(p.x) || !Number.isInteger(p.y)) {
-    throw new Error(`el camino de (${p.x},${p.y}) no cae en una casilla: van de enteros`);
-  }
-  if (p.x < 0 || p.x >= width || p.y < 0 || p.y >= height) {
-    throw new Error(`el camino de (${p.x},${p.y}) cae fuera del mapa de ${width}×${height}`);
-  }
-}
-
-/** Orden de lectura: por fila y, dentro de la fila, por columna. Es el del índice plano. */
-function comparaEnLectura(p: Point, q: Point): number {
-  return p.y - q.y || p.x - q.x;
-}
 
 /**
  * Los tramos de un camino escrito como casillas —el del plan del agente—, con

@@ -38,7 +38,8 @@ import type { BattleEvent, BattleStack, BattleState } from '../src/core/battle/t
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { umbral } from '../src/core/hero/rango.js';
 import { figuraDelHeroe, tiposDeHeroe } from '../src/core/hero/tipos-de-heroe.js';
-import { aPunto, pointKey, reachableFrom } from '../src/core/map/map.js';
+import { pointKey } from '../src/core/map/geometria.js';
+import { aPunto, reachableFrom } from '../src/core/map/map.js';
 import { isWalkable } from '../src/core/map/terrain.js';
 import { createRng } from '../src/core/rng.js';
 import { climaDeLaPartida, climaDeLaRegion, pedirClima } from '../src/core/state/clima.js';

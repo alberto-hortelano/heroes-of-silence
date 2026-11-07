@@ -36,9 +36,8 @@
  * la ciudad estaba en el río y el recinto tierra adentro.
  */
 import type { Point } from '../types.js';
-import type { GameMap, MapObject, MapRegion } from './map.js';
-import type { Estructura } from './regiones.js';
 import { isWalkable, type TerrainKind } from './terrain.js';
+import type { Estructura, GameMap, MapObject, MapRegion } from './tipos.js';
 
 /**
  * Lo ancho del recinto en casillas: el 3 × 3 de la ciudad. Lo eligió el usuario

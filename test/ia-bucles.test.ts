@@ -14,7 +14,7 @@ import {
   turnosEnLaMismaCasilla,
   vueltaDelVaiven,
 } from '../src/core/ai/memoria.js';
-import { pointKey } from '../src/core/map/map.js';
+import { pointKey } from '../src/core/map/geometria.js';
 import { createRng } from '../src/core/rng.js';
 import { heroesOf } from '../src/core/state/consultas.js';
 import { alcanceDelHeroe, applyAdventureAction } from '../src/core/state/game.js';

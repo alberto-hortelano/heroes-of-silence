@@ -37,7 +37,7 @@ import type {
   TipoDeEscala,
   TipoDePuerta,
 } from '../battle/types.js';
-import type { MejoraDelPuesto } from '../map/map.js';
+import type { MejoraDelPuesto } from '../map/tipos.js';
 import { tipoDelVeterano } from '../state/sitios.js';
 import type { AdventureAction, GameState } from '../state/tipos.js';
 import {

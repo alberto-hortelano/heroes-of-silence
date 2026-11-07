@@ -13,9 +13,9 @@
  * y la medida sobre el mapa hecho (`murallasDelMapa`).
  */
 
-import type { GameMap } from './map.js';
 import { estructura } from './regiones.js';
 import { BARRERAS_DE_DESNIVEL, type Barrera, esBarrera, type TerrainKind } from './terrain.js';
+import type { GameMap } from './tipos.js';
 
 /**
  * Lo más largo que mide una muralla, en casillas: el lado mayor de la caja de

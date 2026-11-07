@@ -60,20 +60,18 @@ import {
   withTroops,
 } from '../hero/troop.js';
 import { Casillas, type CasillasLeidas, casillasDelCuadrado } from '../map/casillas.js';
+import { pointKey } from '../map/geometria.js';
 import {
   barreraEn,
   blocksMovement,
   costeEnElAlcance,
   findPath,
-  type GameMap,
   inBounds,
   isEnterable,
-  type MapObject,
   type Mirada,
   objectAt,
   type PathStep,
   pathFromReachable,
-  pointKey,
   type Reachable,
   reachableFrom,
   sePasa,
@@ -93,6 +91,7 @@ import {
   regionMasCercana,
 } from '../map/regiones.js';
 import { type Barrera, NOMBRE_DE_BARRERA } from '../map/terrain.js';
+import type { GameMap, MapObject } from '../map/tipos.js';
 import {
   batallaDe,
   type Cobro as CobroDelMundo,

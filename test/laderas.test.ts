@@ -39,7 +39,7 @@ import {
   pieDeLadera,
   TALUD_DE_LADERA,
 } from '../src/client/render/escenario/relieve.js';
-import { RedDeCaminos } from '../src/core/map/map.js';
+import { RedDeCaminos } from '../src/core/map/red-de-caminos.js';
 import type { Suelo } from '../src/core/map/terrain.js';
 import { mascaraDeGuia, registrarLadera } from '../tools/taller/derivar.js';
 import {

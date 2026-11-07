@@ -38,8 +38,8 @@ import { analizar } from '../../src/client/render/escenario/analizar.js';
 import { caidas } from '../../src/client/render/escenario/celdas.js';
 import { relieve } from '../../src/client/render/escenario/relieve.js';
 import { largoALaEscala } from '../../src/core/escala.js';
-import type { GameMap } from '../../src/core/map/map.js';
 import { esBarrera, type TerrainKind } from '../../src/core/map/terrain.js';
+import type { GameMap } from '../../src/core/map/tipos.js';
 import { newGame } from '../../src/core/state/setup.js';
 
 /** Los tramos rectos de barrera de un mapa: cuántos llegan a `minimo` y el más largo. */

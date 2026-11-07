@@ -3,13 +3,10 @@
  * `buildMap` al abrir su casilla (#145)— y en qué eje va su frontera, que sale
  * de sus ocho vecinas.
  */
-import {
-  type CruzaSuBarrera,
-  cruzaSuBarrera,
-  type MapObject,
-  type TramoDeCamino,
-} from '@core/map/map.js';
+import { type CruzaSuBarrera, cruzaSuBarrera } from '@core/map/map.js';
+import type { TramoDeCamino } from '@core/map/red-de-caminos.js';
 import { type Barrera, esBarrera, type TerrainKind } from '@core/map/terrain.js';
+import type { MapObject } from '@core/map/tipos.js';
 
 /**
  * Los nodos de paso, uno por barrera; la puerta en las dos orientaciones de la

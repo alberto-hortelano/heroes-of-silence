@@ -6,7 +6,8 @@
  * atrezo y las casas sueltas van pocos y donde tienen sentido; y la escena los
  * pone por su nombre, con las parcelas como suelo y las casas como volumen.
  */
-import { RedDeCaminos } from '@core/map/map.js';
+
+import { RedDeCaminos } from '@core/map/red-de-caminos.js';
 import { esBarrera, type TerrainKind } from '@core/map/terrain.js';
 import { describe, expect, it } from 'vitest';
 import { bajoLaCopa } from '../src/client/render/escenario/colocar.js';

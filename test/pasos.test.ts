@@ -3,8 +3,8 @@
  * muro, con camino o sin él, no queda bajo un volumen.
  */
 
-import { MEJORAS_DEL_PUESTO, type MejoraDelPuesto } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
+import { MEJORAS_DEL_PUESTO, type MejoraDelPuesto } from '@core/map/tipos.js';
 import { newGame } from '@core/state/setup.js';
 import { describe, expect, it } from 'vitest';
 import { catalogoValidado, type Pieza } from '../src/client/render/escenario/catalogo.js';

@@ -11,18 +11,14 @@
  * Es puro salvo por leer los índices de los módulos y las medidas de las piezas
  * del disco; la escena es un JSON que pinta `pintor.ts`.
  */
-import {
-  cruzaSuBarrera,
-  type MapObject,
-  MEJORAS_DEL_PUESTO,
-  type MejoraDelPuesto,
-  type TramoDeCamino,
-} from '@core/map/map.js';
+import { cruzaSuBarrera } from '@core/map/map.js';
 import { APOYOS_DE_MURALLA } from '@core/map/murallas.js';
 import { puertaDe } from '@core/map/puertas.js';
 import { LADO_DEL_RECINTO, recintoDeLaCiudad } from '@core/map/recinto.js';
+import type { TramoDeCamino } from '@core/map/red-de-caminos.js';
 import { vecindad } from '@core/map/regiones.js';
 import { type Barrera, esBarrera, type Suelo, type TerrainKind } from '@core/map/terrain.js';
+import { type MapObject, MEJORAS_DEL_PUESTO, type MejoraDelPuesto } from '@core/map/tipos.js';
 import { type Analisis, analizar, type Franja, type MapaDeEscena } from './analizar.js';
 import {
   caraDeOtroMaterial,

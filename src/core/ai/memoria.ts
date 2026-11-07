@@ -21,7 +21,7 @@
  * (`hero_hired`, `hero_promoted`) y cuándo empezó cada turno (`turn_start`).
  */
 
-import { pointFromKey, pointKey } from '../map/map.js';
+import { pointFromKey, pointKey } from '../map/geometria.js';
 import type { GameEvent } from '../state/events.js';
 import type { GameState } from '../state/tipos.js';
 import type { Hero, Point } from '../types.js';

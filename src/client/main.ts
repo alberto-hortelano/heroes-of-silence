@@ -6,7 +6,7 @@
  */
 import { combateCon, type ReglasDelCombate } from '@core/combate.js';
 import { problemaDeTipo } from '@core/hero/ascenso.js';
-import { esObraDelPuesto } from '@core/map/map.js';
+import { esObraDelPuesto } from '@core/map/tipos.js';
 import type { MundoLeido } from '@core/mundo/formato.js';
 import { parseSeed } from '@core/rng.js';
 import { faccionesDeLaSemilla } from '@core/state/setup.js';

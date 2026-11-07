@@ -8,8 +8,8 @@
  * volúmenes se pintan a cada fotograma**, solo los visibles, ordenados por
  * profundidad junto con las figuras: una figura puede quedar detrás de un árbol.
  */
-import type { MejoraDelPuesto } from '@core/map/map.js';
 import { esBarrera, type TerrainKind } from '@core/map/terrain.js';
+import type { MejoraDelPuesto } from '@core/map/tipos.js';
 import catalogoDelRepo from '../../../../assets/mapa/escena.json' with { type: 'json' };
 import {
   avisarDeArteNuevo,

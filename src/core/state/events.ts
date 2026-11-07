@@ -17,7 +17,7 @@
  */
 import type { ResumenDeBatalla } from '../battle/resumen.js';
 import type { Side } from '../battle/types.js';
-import type { ObraDelPuesto } from '../map/map.js';
+import type { ObraDelPuesto } from '../map/tipos.js';
 import type { GrupoDeTropa, PlayerId, Point } from '../types.js';
 
 /**

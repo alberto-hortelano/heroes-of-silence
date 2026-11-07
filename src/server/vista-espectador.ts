@@ -21,9 +21,9 @@
 import type { BattleStack, BattleState, Side } from '@core/battle/types.js';
 import { piezasPuestas } from '@core/equipo/vestir.js';
 import { vecinosDeLaBase, vozDe } from '@core/gente/voces.js';
-import type { MapObject, MapRegion } from '@core/map/map.js';
 import { dueñoEnLaFoto, dueñosDeLaRed } from '@core/map/regiones.js';
 import type { TerrainKind } from '@core/map/terrain.js';
+import type { MapObject, MapRegion } from '@core/map/tipos.js';
 import { type ClimaDeLaPartida, climaDeLaPartida } from '@core/state/clima.js';
 import { week } from '@core/state/consultas.js';
 import type { GameEventDraft, Ocupante } from '@core/state/events.js';

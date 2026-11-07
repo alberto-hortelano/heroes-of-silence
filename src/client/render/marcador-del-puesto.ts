@@ -19,7 +19,8 @@
  * (`objetosConocidos`, con la que se vio por última vez); y la bandera, encima de
  * todo, en su punta (`altoDelMarcador`).
  */
-import type { MejoraDelPuesto } from '@core/map/map.js';
+
+import type { MejoraDelPuesto } from '@core/map/tipos.js';
 import { pintarSombra } from './sombra.js';
 
 /** El contorno de todo el marcador: oscuro, para que se lea sobre la nieve y sobre la roca. */

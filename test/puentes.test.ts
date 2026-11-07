@@ -6,8 +6,9 @@
  * Las rejillas son a mano y las cuentas, las de las semillas 1-10; las de 1-40
  * (101 puentes) se miden con los guiones de `docs/agents/2026-10-07-puentes/`.
  */
-import { type MapObject, MEJORAS_DEL_PUESTO, RedDeCaminos } from '@core/map/map.js';
+import { RedDeCaminos } from '@core/map/red-de-caminos.js';
 import { isWalkable, type TerrainKind } from '@core/map/terrain.js';
+import { type MapObject, MEJORAS_DEL_PUESTO } from '@core/map/tipos.js';
 import { describe, expect, it } from 'vitest';
 import { EscenaAventura, focoDe } from '../src/client/escenas/aventura.js';
 import { centrarEn, mundoAPixel, TILE_INICIAL } from '../src/client/render/camara-mapa.js';

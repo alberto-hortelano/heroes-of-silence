@@ -8,7 +8,7 @@
  * `peticion-de-mapa.ts`.
  */
 import { MARGEN_CONTRA_NEUTRALES, poderDe } from '../hero/fuerza.js';
-import { pointFromKey } from '../map/map.js';
+import { pointFromKey } from '../map/geometria.js';
 import { LADO_DEL_RECINTO } from '../map/recinto.js';
 import { sitioEnUnNodo } from '../map/regiones.js';
 import { BARRERAS, costeDeEntrada, SUELOS_PISABLES } from '../map/terrain.js';

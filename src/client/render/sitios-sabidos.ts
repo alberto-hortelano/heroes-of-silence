@@ -3,7 +3,8 @@
  * derivado y quién lo ocupa. Aparte de `mapa.ts` porque lo leen la sesión de quien
  * juega y el espectador, y no tienen por qué cargar el lienzo para eso.
  */
-import type { MapObject } from '@core/map/map.js';
+
+import type { MapObject } from '@core/map/tipos.js';
 import type { PlayerId, Point } from '@core/types.js';
 
 /** Un sitio ocupado en el mapa: dónde, y de quién es el ocupante (`null`, una guarnición neutral). */

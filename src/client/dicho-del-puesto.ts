@@ -8,8 +8,7 @@
  * El material de su muralla no se escribe aquí: lo da el núcleo
  * (`LaObraDelPuesto.materiales`, de `data/sitios.json`).
  */
-import type { MejoraDelPuesto, ObraDelPuesto } from '@core/map/map.js';
-
+import type { MejoraDelPuesto, ObraDelPuesto } from '@core/map/tipos.js';
 /** Lo que se ve en el mapa en un puesto con cada obra (la petición del usuario). */
 export const SE_VE_EN_EL_PUESTO: Readonly<Record<MejoraDelPuesto, string>> = {
   ninguna: 'una caseta',

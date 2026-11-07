@@ -12,7 +12,8 @@ import { umbral } from '../src/core/hero/rango.js';
 import { tiposDeHeroe } from '../src/core/hero/tipos-de-heroe.js';
 import { LADO_DEL_MAPA, type MapPlan } from '../src/core/map/generar/plan.js';
 import { generateMapPlan, planDelAgente, validateMapPlan } from '../src/core/map/generate.js';
-import { pointKey, reachableFrom } from '../src/core/map/map.js';
+import { pointKey } from '../src/core/map/geometria.js';
+import { reachableFrom } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
 import {
   applyAdventureAction,

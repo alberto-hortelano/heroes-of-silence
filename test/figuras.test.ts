@@ -11,8 +11,9 @@
  * 1-40. Ahora la figura va delante de toda pieza que cuelga de su fila o de más
  * al norte (`delanteDeLasParedes`) y el informe lo recuenta (`pisablesTapadas`).
  */
-import { barreraEn, type MejoraDelPuesto } from '@core/map/map.js';
+import { barreraEn } from '@core/map/map.js';
 import { isWalkable, type TerrainKind } from '@core/map/terrain.js';
+import type { MejoraDelPuesto } from '@core/map/tipos.js';
 import { describe, expect, it } from 'vitest';
 import { altoDeLaSilueta, perfilesDelCatalogo } from '../src/client/render/escenario/caras.js';
 import type { Sprite } from '../src/client/render/escenario/colocar.js';

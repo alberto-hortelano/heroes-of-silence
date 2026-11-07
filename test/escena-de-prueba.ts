@@ -15,7 +15,7 @@ import {
 import { componer, type Escena } from '../src/client/render/escenario/colocar.js';
 import type { Puente } from '../src/client/render/escenario/puentes.js';
 import type { Senda } from '../src/client/render/escenario/sendas.js';
-import type { GameMap } from '../src/core/map/map.js';
+import type { GameMap } from '../src/core/map/tipos.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { Point } from '../src/core/types.js';
 import { primeraSemillaCon } from '../tools/comun/semillas.js';

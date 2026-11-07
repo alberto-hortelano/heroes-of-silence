@@ -9,7 +9,7 @@
  * reorganización, 07-11-2026).
  */
 import asaltantesJson from '../../../data/asaltantes.json' with { type: 'json' };
-import type { MapObject } from '../map/map.js';
+import type { MapObject } from '../map/tipos.js';
 import type { Army, GrupoDeTropa } from '../types.js';
 import { problemasDeTopeDeLiderazgo } from '../unidad/catalogo.js';
 import { enteroDesde } from '../validar.js';

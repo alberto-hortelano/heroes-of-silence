@@ -39,16 +39,9 @@ import { fuerzaDe, poderDe, ventajaClara } from '../hero/fuerza.js';
 import { ASALTANTES, loNeutralAlTope } from '../hero/grupos.js';
 import { individuosDe } from '../hero/troop.js';
 import type { CasillasLeidas } from '../map/casillas.js';
-import { type GameMap, inBounds } from '../map/map.js';
-import {
-  aPunto,
-  type Estructura,
-  estructura,
-  juntoANodo,
-  regionDeCasilla,
-  territorio,
-  VECINAS,
-} from '../map/regiones.js';
+import { aPunto, inBounds } from '../map/map.js';
+import { estructura, juntoANodo, regionDeCasilla, territorio, VECINAS } from '../map/regiones.js';
+import type { Estructura, GameMap } from '../map/tipos.js';
 import type { Rng } from '../rng.js';
 import type {
   GrupoDeTropa,

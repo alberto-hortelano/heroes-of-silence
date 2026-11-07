@@ -24,9 +24,10 @@ import type { Point } from '../types.js';
 import { enteroDesde } from '../validar.js';
 import { Frontera } from './frontera.js';
 import { parejaDe } from './geometria.js';
-import { type GameMap, inBounds } from './map.js';
+import { inBounds } from './map.js';
 import { vecindad } from './regiones.js';
 import type { Nivel } from './terrain.js';
+import type { GameMap } from './tipos.js';
 
 /** Lo que traza `trazarRio`: el río y sus lagos, en espejo exacto. */
 export interface TrazadoDelRio {

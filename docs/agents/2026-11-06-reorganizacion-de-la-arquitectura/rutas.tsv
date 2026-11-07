@@ -781,3 +781,26 @@ simbolo	src/core/hero/hero.ts	src/core/types.ts	Hero
 simbolo	src/core/hero/hero.ts	src/core/types.ts	OrigenDelHeroe
 simbolo	src/core/state/clima.ts	src/core/state/game.ts	regionDeLaBatalla
 simbolo	src/core/state/clima.ts	src/core/state/game.ts	climaDeLaBatalla
+simbolo	src/core/map/map.ts	src/core/map/geometria.ts	pointKey
+simbolo	src/core/map/map.ts	src/core/map/geometria.ts	pointFromKey
+simbolo	src/core/map/map.ts	src/core/map/red-de-caminos.ts	TramoDeCamino
+simbolo	src/core/map/map.ts	src/core/map/red-de-caminos.ts	RedDeCaminos
+simbolo	src/core/map/map.ts	src/core/map/red-de-caminos.ts	dentroDelMapa
+simbolo	src/core/map/map.ts	src/core/map/red-de-caminos.ts	comparaEnLectura
+simbolo	src/core/map/map.ts	src/core/map/tipos.ts	MEJORAS_DEL_PUESTO
+simbolo	src/core/map/map.ts	src/core/map/tipos.ts	MejoraDelPuesto
+simbolo	src/core/map/map.ts	src/core/map/tipos.ts	ObraDelPuesto
+simbolo	src/core/map/map.ts	src/core/map/tipos.ts	OBRAS_DE_UN_PUESTO
+simbolo	src/core/map/map.ts	src/core/map/tipos.ts	OBRA_SIGUIENTE
+simbolo	src/core/map/map.ts	src/core/map/tipos.ts	esMejoraDelPuesto
+simbolo	src/core/map/map.ts	src/core/map/tipos.ts	esObraDelPuesto
+simbolo	src/core/map/map.ts	src/core/map/tipos.ts	MapObject
+simbolo	src/core/map/map.ts	src/core/map/tipos.ts	MapRegion
+simbolo	src/core/map/map.ts	src/core/map/tipos.ts	GameMap
+simbolo	src/core/map/regiones.ts	src/core/map/tipos.ts	ClaseDeNodo
+simbolo	src/core/map/regiones.ts	src/core/map/tipos.ts	NodoDeRed
+simbolo	src/core/map/regiones.ts	src/core/map/tipos.ts	RegionDeRed
+simbolo	src/core/map/regiones.ts	src/core/map/tipos.ts	Estructura
+simbolo	src/core/unidad.ts	src/core/unidad/cuerpo.ts	AGILIDAD_DEL_CUERPO_MAX y AGILIDAD_DEL_CUERPO_MIN (reexportación retirada en N6: se importan de su módulo)
+simbolo	src/core/battle/despliegue.ts	src/core/types.ts	AlcanceDelDespliegue y MomentoDeDespliegue (reexportación retirada en N8: nadie las importaba de allí)
+simbolo	src/core/map/regiones.ts	src/core/map/map.ts	aPunto (reexportación retirada en N8: se importa de su módulo)

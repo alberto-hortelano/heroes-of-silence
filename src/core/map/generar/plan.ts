@@ -18,8 +18,9 @@ import type {
   Raider,
   RaiderPlaneado,
 } from '../../types.js';
-import type { GameMap, MapRegion, TramoDeCamino } from '../map.js';
+import type { TramoDeCamino } from '../red-de-caminos.js';
 import type { Barrera, Nivel, TerrainKind } from '../terrain.js';
+import type { GameMap, MapRegion } from '../tipos.js';
 
 /**
  * Una mancha de terreno: solo pinta, no separa nada.

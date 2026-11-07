@@ -21,7 +21,7 @@ import {
   type MejoraDelPuesto,
   OBRAS_DE_UN_PUESTO,
   type ObraDelPuesto,
-} from '../src/core/map/map.js';
+} from '../src/core/map/tipos.js';
 import { heroesOf } from '../src/core/state/consultas.js';
 import {
   applyAdventureAction,

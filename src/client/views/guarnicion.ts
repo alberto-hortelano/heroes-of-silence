@@ -23,7 +23,7 @@
  */
 
 import type { TroopGroup } from '@core/hero/troop.js';
-import { OBRAS_DE_UN_PUESTO } from '@core/map/map.js';
+import { OBRAS_DE_UN_PUESTO } from '@core/map/tipos.js';
 import type { LadoDelReparto, LaObraDelPuesto } from '@core/state/sitios.js';
 import { describirCoste } from '@core/types.js';
 import { DICHO_DE_LA_OBRA, SE_VE_EN_EL_PUESTO } from '../dicho-del-puesto.js';

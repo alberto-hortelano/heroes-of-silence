@@ -20,7 +20,8 @@ import {
   generateMapPlan,
   honduraDeLaRegion,
 } from '../src/core/map/generate.js';
-import { aPunto, pointKey } from '../src/core/map/map.js';
+import { pointKey } from '../src/core/map/geometria.js';
+import { aPunto } from '../src/core/map/map.js';
 import { puertasDeLaCiudad, rioAnteLaCiudad } from '../src/core/map/recinto.js';
 import { estructura, regionesDelSitio } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';

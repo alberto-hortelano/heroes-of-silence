@@ -10,7 +10,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import sharp from 'sharp';
 import { MEDIDAS_DEL_PUESTO, PIEZA_DEL_PUESTO } from '../../src/client/render/escenario/puestos.js';
-import { MEJORAS_DEL_PUESTO, type MejoraDelPuesto } from '../../src/core/map/map.js';
+import { MEJORAS_DEL_PUESTO, type MejoraDelPuesto } from '../../src/core/map/tipos.js';
 import { derivarPieza } from './derivar.js';
 import type { Encargo } from './encargo.js';
 import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';

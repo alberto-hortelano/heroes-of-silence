@@ -24,15 +24,13 @@ import { umbral } from '../src/core/hero/rango.js';
 import { troopUnit } from '../src/core/hero/troop.js';
 import { hechizosDelGremio } from '../src/core/magia/catalogo.js';
 import { buildMap, generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';
+import { pointFromKey, pointKey } from '../src/core/map/geometria.js';
 import {
   blocksMovement,
   createEmptyMap,
   findPath,
-  type MapObject,
   objectAt,
   pathFromReachable,
-  pointFromKey,
-  pointKey,
   reachableFrom,
   stepCost,
 } from '../src/core/map/map.js';
@@ -46,6 +44,7 @@ import {
   territorio,
 } from '../src/core/map/regiones.js';
 import { isWalkable, ROAD_COST, TERRAIN_KINDS } from '../src/core/map/terrain.js';
+import type { MapObject } from '../src/core/map/tipos.js';
 import { createRng, parseSeed } from '../src/core/rng.js';
 import {
   currentPlayer,

@@ -63,7 +63,9 @@ import {
   planDelAgente,
   validateMapPlan,
 } from '../src/core/map/generate.js';
-import { pointFromKey, pointKey, RedDeCaminos, stepCost } from '../src/core/map/map.js';
+import { pointFromKey, pointKey } from '../src/core/map/geometria.js';
+import { stepCost } from '../src/core/map/map.js';
+import { RedDeCaminos } from '../src/core/map/red-de-caminos.js';
 import { BARRERAS, costeDeEntrada, isWalkable, TERRAIN_KINDS } from '../src/core/map/terrain.js';
 import { createRng } from '../src/core/rng.js';
 import { heroesOf, townsOf } from '../src/core/state/consultas.js';

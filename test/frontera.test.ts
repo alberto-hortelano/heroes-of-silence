@@ -15,13 +15,13 @@
  */
 import { describe, expect, it } from 'vitest';
 import { Frontera } from '../src/core/map/frontera.js';
+import { pointKey } from '../src/core/map/geometria.js';
 import {
   casillaDelIndice,
   costeEnElAlcance,
   createEmptyMap,
   findPath,
   pathFromReachable,
-  pointKey,
   type Reachable,
   reachableFrom,
   stepCost,

@@ -31,7 +31,8 @@ import {
   tiposDeHeroe,
   validarInfiltradores,
 } from '../src/core/hero/tipos-de-heroe.js';
-import { barreraEn, isEnterable, objectAt, type PathStep, pointKey } from '../src/core/map/map.js';
+import { pointKey } from '../src/core/map/geometria.js';
+import { barreraEn, isEnterable, objectAt, type PathStep } from '../src/core/map/map.js';
 import { regionDescubierta, regionesQueDescubre } from '../src/core/map/niebla.js';
 import { FUERA, MURO, pasosDelMapa } from '../src/core/map/recinto.js';
 import { regionDeCasilla } from '../src/core/map/regiones.js';

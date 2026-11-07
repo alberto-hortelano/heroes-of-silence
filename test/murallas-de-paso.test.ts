@@ -19,13 +19,13 @@
  */
 import { describe, expect, it } from 'vitest';
 import { buildMap, generateMapPlan } from '../src/core/map/generate.js';
-import type { GameMap } from '../src/core/map/map.js';
 import {
   LARGO_MAXIMO_DE_MURALLA,
   lineaDeLaPuerta,
   murallasDelMapa,
   type RejillaDeMuralla,
 } from '../src/core/map/murallas.js';
+import type { GameMap } from '../src/core/map/tipos.js';
 import { createRng } from '../src/core/rng.js';
 import { itLento, rango, segunPrisa } from './lento.js';
 

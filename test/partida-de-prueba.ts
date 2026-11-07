@@ -7,8 +7,10 @@
  * 06-11-2026.)
  */
 import { Casillas } from '../src/core/map/casillas.js';
-import { findPath, isEnterable, type MapObject, objectAt, pointKey } from '../src/core/map/map.js';
+import { pointKey } from '../src/core/map/geometria.js';
+import { findPath, isEnterable, objectAt } from '../src/core/map/map.js';
 import { estructura, VECINAS } from '../src/core/map/regiones.js';
+import type { MapObject } from '../src/core/map/tipos.js';
 import { heroesOf } from '../src/core/state/consultas.js';
 import { applyAdventureAction, baseOf } from '../src/core/state/game.js';
 import { dueñoDeLaCiudad, ponerLaGuarnicion, sitioDeLaCiudad } from '../src/core/state/sitios.js';

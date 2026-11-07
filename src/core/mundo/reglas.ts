@@ -15,7 +15,7 @@ import { cupoDelHeroe } from '../combate.js';
 import { piezaSiExiste } from '../equipo/pieza.js';
 import { idsPuestos } from '../equipo/vestir.js';
 import { heroLeadership, troopBlocker, withTroops } from '../hero/troop.js';
-import { pointKey } from '../map/map.js';
+import { pointKey } from '../map/geometria.js';
 import { playerById, turnBlocker } from '../state/consultas.js';
 import type { GameState } from '../state/tipos.js';
 import { oroBlocker } from '../town/town.js';

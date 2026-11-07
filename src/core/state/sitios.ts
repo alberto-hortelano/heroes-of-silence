@@ -49,6 +49,7 @@ import {
   troopSummary,
   troopUnit,
 } from '../hero/troop.js';
+import { dueñoDeUnSitio, sitioEnUnNodo } from '../map/regiones.js';
 import {
   esObraDelPuesto,
   type MapObject,
@@ -56,8 +57,7 @@ import {
   OBRA_SIGUIENTE,
   OBRAS_DE_UN_PUESTO,
   type ObraDelPuesto,
-} from '../map/map.js';
-import { dueñoDeUnSitio, sitioEnUnNodo } from '../map/regiones.js';
+} from '../map/tipos.js';
 import { oroBlocker, type Town } from '../town/town.js';
 import {
   type Army,

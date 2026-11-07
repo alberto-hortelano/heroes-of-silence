@@ -15,7 +15,8 @@ import { ASALTANTES, problemasDeAsaltante } from '../src/core/hero/grupos.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import type { MapPlan } from '../src/core/map/generar/plan.js';
 import { buildMap, generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';
-import { isEnterable, objectAt, pointKey } from '../src/core/map/map.js';
+import { pointKey } from '../src/core/map/geometria.js';
+import { isEnterable, objectAt } from '../src/core/map/map.js';
 import {
   estructura,
   regionDeCasilla,

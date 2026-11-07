@@ -12,8 +12,8 @@
  * (`red.ts`). El clic sigue moviendo al héroe. Lo que se deriva del mapa se hace
  * una vez por mapa; a cada fotograma solo se copia.
  */
-import type { GameMap } from '@core/map/map.js';
 import { type Barrera, esBarrera, NOMBRE_DE_BARRERA } from '@core/map/terrain.js';
+import type { GameMap } from '@core/map/tipos.js';
 import type { EscenaAventura } from '../escenas/aventura.js';
 import { html, pintar } from '../html.js';
 import { type CamaraMapa, mundoAPixel } from '../render/camara-mapa.js';

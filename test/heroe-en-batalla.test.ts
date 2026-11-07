@@ -28,13 +28,8 @@ import { HEROE } from '../src/core/hero/cuerpo-del-heroe.js';
 import { heroUnit } from '../src/core/hero/hero.js';
 import { umbral } from '../src/core/hero/rango.js';
 import { figuraDelHeroe } from '../src/core/hero/tipos-de-heroe.js';
-import {
-  isEnterable,
-  objectAt,
-  pointFromKey,
-  pointKey,
-  reachableFrom,
-} from '../src/core/map/map.js';
+import { pointFromKey, pointKey } from '../src/core/map/geometria.js';
+import { isEnterable, objectAt, reachableFrom } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
 import { heroById, heroesOf, townsOf } from '../src/core/state/consultas.js';
 import { baseOf, settleBattle } from '../src/core/state/game.js';

@@ -21,6 +21,7 @@ import type { Rng } from '../rng.js';
 import { Frontera } from './frontera.js';
 import { BARRERAS_DEL_MAPA, type BarreraConPeso } from './generar/datos.js';
 import { espejoDe, parejaDe } from './geometria.js';
+import { aPunto } from './map.js';
 import {
   APOYOS_DE_MURALLA,
   juntoACiudad,
@@ -33,7 +34,6 @@ import { rodeosParaEntrar } from './puertas.js';
 import { CIUDAD, FUERA, type PasosDelRecinto, PUERTA } from './recinto.js';
 import {
   acantiladosSinCaida,
-  aPunto,
   espigasDelRelieve,
   franjasDeBarrera,
   type NodoDelRelieve,

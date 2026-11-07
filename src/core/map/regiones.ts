@@ -23,7 +23,7 @@
  * esta función daría por cerrados.
  */
 import type { PlayerId, Point } from '../types.js';
-import { aPunto, type GameMap, inBounds, type MapObject, type MapRegion } from './map.js';
+import { aPunto, inBounds } from './map.js';
 import { regionesDeLaCiudad, rioAnteLaCiudad } from './recinto.js';
 import {
   admiteLosNiveles,
@@ -34,45 +34,7 @@ import {
   isWalkable,
   type TerrainKind,
 } from './terrain.js';
-
-/**
- * Qué es un nodo de la red: un paso (un objeto `node`), o una ciudad o un pueblo
- * en el muro, entre dos regiones o más.
- */
-type ClaseDeNodo = 'paso' | 'ciudad' | 'pueblo';
-
-/** Un nodo de la red: un objeto `node`, o una ciudad o un pueblo que toca dos regiones o más. */
-interface NodoDeRed {
-  /** El id del objeto del mapa: el del paso, el de la ciudad o el del pueblo. */
-  readonly id: string;
-  readonly at: Point;
-  readonly clase: ClaseDeNodo;
-  /** Las regiones que toca, por índice y en orden ascendente. Su número es el **grado**. */
-  readonly regiones: readonly number[];
-}
-
-/** Una región declarada del mapa, con los nodos que la rodean. */
-interface RegionDeRed extends MapRegion {
-  /** Los nodos que la rodean, por índice en `Estructura.nodos`. */
-  readonly nodos: readonly number[];
-}
-
-export interface Estructura {
-  /** La región de cada casilla (índice `y*width+x`), o −1: muro, nodo o fuera de toda región. */
-  readonly regionDe: Int32Array;
-  readonly regiones: readonly RegionDeRed[];
-  readonly nodos: readonly NodoDeRed[];
-  /** El índice de cada nodo por el id de su objeto. */
-  readonly nodoPorId: ReadonlyMap<string, number>;
-  /** El índice de cada región por su id. */
-  readonly regionPorId: ReadonlyMap<string, number>;
-  /**
-   * Las ciudades y los pueblos **dentro de una región** (tocan solo esa), por el id
-   * de su objeto, con el índice de su región. No son nodos: su casilla es de su
-   * región (`regionDe`) y no cuentan para el dueño de nadie.
-   */
-  readonly sitiosDeRegion: ReadonlyMap<string, number>;
-}
+import type { ClaseDeNodo, Estructura, GameMap, MapObject, MapRegion, NodoDeRed } from './tipos.js';
 
 /** La clase de nodo que sería el objeto `o`, o `null` si no puede ser un nodo. */
 function claseDeCandidato(o: MapObject, conRegiones: boolean): ClaseDeNodo | null {
@@ -106,10 +68,6 @@ export const VECINAS: readonly (readonly [number, number])[] = [
   [0, 1],
   [1, 1],
 ];
-
-// `aPunto` vive con `pointKey` en `map.ts`; se reexporta para quien ya lo
-// importaba de aquí.
-export { aPunto };
 
 /**
  * Las ocho vecinas de cada casilla de un mapa de `width × height`, en tabla

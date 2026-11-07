@@ -18,7 +18,7 @@
  */
 import type { PeticionDeFigura } from '../gente/banco.js';
 import { type MapPlan, REGIONES_POR_BANDO } from '../map/generar/plan.js';
-import type { MapObject } from '../map/map.js';
+import type { MapObject } from '../map/tipos.js';
 import type { FactionId, GrupoDeTropa, PlayerId, Point } from '../types.js';
 import { esIdDePieza, esIdDeUnidad } from '../validar.js';
 

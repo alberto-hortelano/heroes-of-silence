@@ -9,7 +9,8 @@
 import { figuraDelHeroe } from '@core/hero/tipos-de-heroe.js';
 import { individuosDe } from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
-import { inBounds, pointKey } from '@core/map/map.js';
+import { pointKey } from '@core/map/geometria.js';
+import { inBounds } from '@core/map/map.js';
 import { heroById } from '@core/state/consultas.js';
 import { REGLA_DEL_PUEBLO } from '@core/state/renta.js';
 import type { Point } from '@core/types.js';

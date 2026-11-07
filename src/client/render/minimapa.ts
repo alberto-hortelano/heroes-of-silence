@@ -6,8 +6,9 @@
  * `casillaDelMinimapa`, que es la inversa de lo que se pinta aquí.
  */
 import type { CasillasLeidas } from '@core/map/casillas.js';
-import { cruzaSuBarrera, type MapObject } from '@core/map/map.js';
+import { cruzaSuBarrera } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
+import type { MapObject } from '@core/map/tipos.js';
 import type { Point } from '@core/types.js';
 import { temaDelLienzo } from '../temas.js';
 import type { CamaraMapa } from './camara-mapa.js';
