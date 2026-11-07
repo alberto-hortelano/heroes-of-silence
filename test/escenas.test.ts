@@ -60,6 +60,7 @@ import { Session } from '../src/client/sesion/partida.js';
 import { SesionDeArena } from '../src/client/sesion/sesion-de-arena.js';
 import { marcaDeComandante } from '../src/client/views/campo.js';
 import { AVISO_DE_ESPERA } from '../src/client/views/cifras.js';
+import { heroePorDefecto } from '../src/core/arena/heroe.js';
 import { apuntarBlocker, lanzarBlocker } from '../src/core/battle/a-distancia.js';
 import { areAdjacent, hexDistance, isInside, neighbours } from '../src/core/battle/board.js';
 import { isAlive, SIN_CARGAS, stackById, stackHexes } from '../src/core/battle/consultas.js';
@@ -67,6 +68,7 @@ import { alcanceDeLaGranada } from '../src/core/battle/granada.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import type { BattleStack, Side } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import type { Pieza } from '../src/core/equipo/pieza.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import { DESPEJADO } from '../src/core/state/clima.js';
@@ -741,7 +743,7 @@ describe('los gestos de la batalla, los mismos en la partida y la arena (R3 de l
     expect(s.battle.turno!.n).toBe(n);
   });
 
-  it('poder, arma, muralla y «Listo» tampoco juegan el segundo clic; elegir hechizo o a quién se coloca, sí', () => {
+  it('poder, arma, muralla, el hechizo y «Listo» tampoco juegan el segundo clic; elegir a quién se coloca, sí', () => {
     const hecho: string[] = [];
     const apunta = (que: string) => () => {
       hecho.push(que);
@@ -764,6 +766,7 @@ describe('los gestos de la batalla, los mismos en la partida y la arena (R3 de l
     const gestos = gestosDe(() => sesion);
     for (const accion of [
       'battle-end-turn',
+      'battle-spell',
       'battle-poder',
       'battle-arma',
       'battle-muralla',
@@ -772,13 +775,13 @@ describe('los gestos de la batalla, los mismos en la partida y la arena (R3 de l
       expect(gestos.clic(accion, boton, 2), accion).toBe(true);
     }
     expect(hecho).toEqual([]);
-    expect(gestos.clic('battle-spell', boton, 2)).toBe(true);
     expect(gestos.clic('despliegue-elegir', boton, 2)).toBe(true);
-    expect(hecho).toEqual(['hechizo', 'colocar']);
+    expect(hecho).toEqual(['colocar']);
     // Con un clic, cada uno lo suyo.
     hecho.length = 0;
     for (const accion of [
       'battle-end-turn',
+      'battle-spell',
       'battle-poder',
       'battle-arma',
       'battle-muralla',
@@ -786,7 +789,7 @@ describe('los gestos de la batalla, los mismos en la partida y la arena (R3 de l
     ]) {
       gestos.clic(accion, boton, 1);
     }
-    expect(hecho).toEqual(['terminar', 'poder', 'arma', 'muralla', 'listo']);
+    expect(hecho).toEqual(['terminar', 'hechizo', 'poder', 'arma', 'muralla', 'listo']);
     // Lo que no es de la batalla sigue a la página; y mientras se cuenta, nada se juega.
     expect(gestos.clic('end-turn', boton, 1)).toBe(false);
     expect(gestos.clic(null, boton, 1)).toBe(false);
@@ -802,6 +805,38 @@ describe('los gestos de la batalla, los mismos en la partida y la arena (R3 de l
     expect(() => gestos.clic('battle-poder', botonDePrueba({}), 1)).toThrow(
       'el botón del poder no dice cuál es',
     );
+  });
+
+  it('un doble clic en un hechizo que hay que apuntar lo elige y lo deja elegido (decisión del usuario, 07-11-2026)', () => {
+    // «Que no cuente»: `selectSpell` alterna, y el segundo clic de un doble clic soltaba lo
+    // que había elegido el primero. En la arena, con el héroe de la persona y la Flecha
+    // mágica, que se apunta a un enemigo.
+    const s = new SesionDeArena(
+      {
+        combate: COMBATE_COMPLETO,
+        izquierda: {
+          unidades: [{ unidad: unidadDeArena('templario-escudo') }],
+          heroe: { ...heroePorDefecto('izquierda'), hechizos: ['magic_arrow'] },
+          ia: false,
+        },
+        derecha: { unidades: [{ unidad: unidadDeArena('orko-dos-armas') }], heroe: null, ia: true },
+        equipo: EQUIPO_DEL_JUEGO,
+      },
+      7,
+    );
+    empezarTalCual(s);
+    expect(s.spellOptions().find((o) => o.id === 'magic_arrow')?.castable).toBe(true);
+    const gestos = gestosDe(() => s);
+    const boton = botonDePrueba({ 'data-spell': 'magic_arrow' });
+    expect(gestos.clic('battle-spell', boton, 1)).toBe(true);
+    expect(s.hechizos.selectedSpell).toBe('magic_arrow');
+    expect(gestos.clic('battle-spell', boton, 2)).toBe(true);
+    expect(s.hechizos.selectedSpell).toBe('magic_arrow');
+    // Otro clic suelto, sí: pulsar el elegido lo suelta.
+    expect(gestos.clic('battle-spell', boton, 1)).toBe(true);
+    expect(s.hechizos.selectedSpell).toBeNull();
+    // En la partida, el segundo clic ni llega a los gestos (`repartirClic`).
+    expect(repartirClic('battle-spell', 'battle', () => false, 2)).toBe('nada');
   });
 });
 

@@ -48,11 +48,16 @@ const BOTONES_DE_LA_BATALLA: ReadonlySet<string> = new Set([
 /**
  * Los que no juegan el segundo clic de un doble clic (M12 de QA de la arena): el segundo
  * caía en el botón ya repintado y jugaba en la unidad SIGUIENTE —cerraba su turno, usaba
- * su poder, cerraba la tanda del otro bando— sin que nadie lo pidiera. Elegir un hechizo
- * o a quién se coloca no juega nada: se quedan como estaban.
+ * su poder, cerraba la tanda del otro bando— sin que nadie lo pidiera. Y el hechizo
+ * (decisión del usuario, 07-11-2026: «Que no cuente»): elegir el elegido lo suelta
+ * (`selectSpell` alterna), así que un doble clic en uno que hay que apuntar lo elegía y lo
+ * soltaba; ahora lo elige y lo deja elegido. A quién se coloca sigue contando cada clic: no
+ * juega nada y elegir dos veces al mismo no lo suelta. En la partida el segundo clic no
+ * llega aquí (`repartirClic`); esta lista es la de la arena.
  */
 const DE_UN_SOLO_CLIC: ReadonlySet<string> = new Set([
   'battle-end-turn',
+  'battle-spell',
   'battle-poder',
   'battle-arma',
   'battle-muralla',
