@@ -13,7 +13,7 @@
  * visto morder.
  */
 
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { playAiGame } from '../src/core/ai/turn.js';
@@ -24,9 +24,11 @@ import {
   CLIENTE,
   CORE,
   codigoDe,
+  HERRAMIENTAS,
   importaDe,
   infractores,
   infractoresDeCodigo,
+  leer,
   lineasDeLasDeclaraciones,
   ruta,
   SERVIDOR,
@@ -78,11 +80,11 @@ describe('invariantes del proyecto', () => {
     ).toEqual([]);
   });
 
-  it('la crónica se escribe por un solo sitio: los `as` que abren el candado', () => {
+  it('la crónica se escribe por un solo sitio: `emit`, en `state/cronica.ts`, y la importan solo los módulos de la partida', () => {
     // `state.log` es de solo lectura, así que escribir en él exige un `as`
-    // VISIBLE, y esa es toda la fuerza del candado. Pero `emit` no está
-    // exportada: el día que una regla salga de `game.ts`, la salida fácil no es
-    // exportarla, es copiar el cast — y con él se pierden de golpe el
+    // VISIBLE, y esa es toda la fuerza del candado. Cuando `emit` no estaba
+    // exportada, el miedo era que el día que una regla saliera de `game.ts` la
+    // salida fácil fuera copiar el cast — y con él se pierden de golpe el
     // protagonista, el sitio y el sello, que es el bug que este ciclo cerró.
     //
     // Busca el CAST y no el `.push`, que es lo que el propio `GameState`
@@ -109,25 +111,147 @@ describe('invariantes del proyecto', () => {
     // se le escapa a las puertas 2 y 3; lo que lo tapa es la 4, porque para
     // partir así un cast hace falta escribirlo largo, y el atajo corto de
     // verdad es `as any`.
-    const fuera = [...CORE, ...CLIENTE, ...SERVIDOR].filter(
-      (r) => r !== ruta('src/core/state/cronica.ts'),
+    //
+    // **Y desde que se repartió `game.ts`** (fase N de la reorganización,
+    // 07-11-2026), `emit` vive en `state/cronica.ts` con la foto de los sitios y
+    // **se exporta**: la importan los módulos de la partida que cuentan hechos.
+    // Exportarla era justo la salida que este guardia temía, así que el candado
+    // pasa a tener cuatro mitades:
+    //
+    //  1. los cuatro `as` de arriba, con `cronica.ts` como única excepción;
+    //  2. `emit` se declara solo en `cronica.ts`, y allí el `push` del log va solo
+    //     dentro de ella: otra función de `cronica.ts` que lo escribiera se
+    //     saltaría el sello sin necesitar ningún `as` nuevo;
+    //  3. quien importa `emit` —con nombre, con `* as`, con `import()` o
+    //     reexportándola, también desde las herramientas— es exactamente la lista
+    //     de abajo: uno de más es una puerta nueva que nadie ha mirado; uno de
+    //     menos, una lista vieja que deja de vigilar;
+    //  4. y cada uno de la lista la llama: uno que la importara sin usarla tendría
+    //     el permiso sin necesitarlo.
+    //
+    // Los sitios, el clima, la renta y los asaltantes no escriben hechos: los
+    // cuenta quien los llama. Roto a mano (07-11-2026), una sonda por mitad y
+    // las cinco rojas con su fichero y su línea: `(state.log as
+    // GameEvent[]).push(…)` en `turnos.ts` (1); una `function emit` en
+    // `sitios.ts` (2); `import { emit }` en `ai/turn.ts` y, por el otro lado,
+    // quitar el de `marcha.ts` (3); `lugares.ts` importándola sin llamarla (4).
+    const CRONICA = ruta('src/core/state/cronica.ts');
+    const LA_IMPORTAN = ['turnos', 'marcha', 'batallas', 'cierre', 'lugares', 'heroes', 'game'].map(
+      (m) => ruta(`src/core/state/${m}.ts`),
     );
+    const publicado = [...CORE, ...CLIENTE, ...SERVIDOR];
+    const lineaDe = (donde: string): number => Number(/^.+?:(\d+) → /.exec(donde)?.[1]);
+    const colados: string[] = [];
+
+    // 1 · los `as` que abren el candado.
     const puertas: readonly (readonly [string, RegExp])[] = [
-      // 1 · el log casteado a algo escribible. `as const` pasa: no abre nada.
+      // el log casteado a algo escribible. `as const` pasa: no abre nada.
       ['el log casteado', /\.log\s+as\s+(?!const\b)/],
-      // 2 · casteas el ESTADO y lees `.log` de lo que sale. La de QA.
+      // casteas el ESTADO y lees `.log` de lo que sale. La de QA.
       ['un cast del que se saca `.log`', /\bas\b[^;\n]*\)\s*\.log\b/],
-      // 3 · la misma, con el tipo escrito ahí mismo: sirve aunque el `.log` se
-      //     lea tres líneas más abajo, que es lo que la 2 no alcanza.
+      // la misma, con el tipo escrito ahí mismo: sirve aunque el `.log` se lea
+      // tres líneas más abajo, que es lo que la anterior no alcanza.
       ['un cast a un tipo que redeclara `log`', /\bas\b[^;\n]*\blog\s*\??\s*:/],
-      // 4 · el cheque en blanco. No se puede acotar a lo que abre —abre todo—,
-      //     así que se prohíbe entero; hoy no hay ni uno en el código publicado.
+      // el cheque en blanco. No se puede acotar a lo que abre —abre todo—, así
+      // que se prohíbe entero; hoy no hay ni uno en el código publicado.
       ['un `as any`, que abre esa puerta y todas', /\bas\s+any\b/],
     ];
-    const colados = puertas.flatMap(([puerta, patron]) =>
-      infractores(fuera, patron).map((donde) => `[${puerta}] ${donde}`),
-    );
+    const fuera = publicado.filter((r) => r !== CRONICA);
+    for (const [puerta, patron] of puertas) {
+      for (const donde of infractores(fuera, patron)) colados.push(`[1 · ${puerta}] ${donde}`);
+    }
+
+    // 2 · `emit`, declarada solo en `cronica.ts`; el `push` del log, solo dentro de ella.
+    const declaraEmit = /\b(?:function|const|let|var|class)\s+emit\b/;
+    for (const donde of infractoresDeCodigo(fuera, declaraEmit)) {
+      colados.push(`[2 · otra \`emit\`] ${donde}`);
+    }
+    const enEmit = lineasDeLasDeclaraciones(CRONICA, ['emit']);
+    const escribeElLog = /\.log\b[^;\n]*\.push\s*\(/;
+    const pushes = infractoresDeCodigo([CRONICA], escribeElLog);
+    for (const donde of pushes) {
+      if (!enEmit.has(lineaDe(donde))) colados.push(`[2 · el log, fuera de \`emit\`] ${donde}`);
+    }
+
+    // 3 · quién la importa, resuelto (el alias `@core/` o relativo a su carpeta).
+    const aLaCronica = (espec: string, desde: string): boolean => {
+      const destino = espec.startsWith('@core/')
+        ? join('src/core', espec.slice('@core/'.length))
+        : espec.startsWith('.')
+          ? join(dirname(desde), espec)
+          : null;
+      return destino?.replace(/\.js$/, '.ts') === CRONICA;
+    };
+    const importadores = new Map<string, number>();
+    for (const r of [...publicado, ...HERRAMIENTAS]) {
+      const texto = leer(r);
+      if (!texto.includes('cronica')) continue;
+      const sf = ts.createSourceFile(r, texto, ts.ScriptTarget.Latest, true);
+      const linea = (n: ts.Node): number =>
+        sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1;
+      const visitar = (n: ts.Node): void => {
+        if (
+          ts.isImportDeclaration(n) &&
+          ts.isStringLiteral(n.moduleSpecifier) &&
+          aLaCronica(n.moduleSpecifier.text, r)
+        ) {
+          const nb = n.importClause?.namedBindings;
+          if (nb !== undefined && ts.isNamespaceImport(nb)) importadores.set(r, linea(n));
+          if (nb !== undefined && ts.isNamedImports(nb)) {
+            for (const e of nb.elements) {
+              if ((e.propertyName ?? e.name).text !== 'emit') continue;
+              importadores.set(r, linea(n));
+              if (e.propertyName !== undefined) {
+                colados.push(`[3 · \`emit\` con otro nombre] ${r}:${linea(n)} → ${e.getText(sf)}`);
+              }
+            }
+          }
+        } else if (
+          ts.isExportDeclaration(n) &&
+          n.moduleSpecifier !== undefined &&
+          ts.isStringLiteral(n.moduleSpecifier) &&
+          aLaCronica(n.moduleSpecifier.text, r)
+        ) {
+          const clausula = n.exportClause;
+          if (
+            clausula === undefined ||
+            ts.isNamespaceExport(clausula) ||
+            clausula.elements.some((e) => (e.propertyName ?? e.name).text === 'emit')
+          )
+            importadores.set(r, linea(n));
+        } else if (
+          ts.isCallExpression(n) &&
+          n.expression.kind === ts.SyntaxKind.ImportKeyword &&
+          n.arguments[0] !== undefined &&
+          ts.isStringLiteralLike(n.arguments[0]) &&
+          aLaCronica(n.arguments[0].text, r)
+        ) {
+          importadores.set(r, linea(n));
+        }
+        ts.forEachChild(n, visitar);
+      };
+      visitar(sf);
+    }
+    for (const [r, l] of importadores) {
+      if (!LA_IMPORTAN.includes(r))
+        colados.push(`[3 · una puerta nueva] ${r}:${l} importa \`emit\``);
+    }
+    for (const r of LA_IMPORTAN) {
+      if (!importadores.has(r)) colados.push(`[3 · una lista vieja] ${r} ya no importa \`emit\``);
+    }
+
+    // 4 · cada uno de la lista la llama.
+    for (const r of LA_IMPORTAN) {
+      if (!/\bemit\s*\(/.test(codigoDe(r))) colados.push(`[4 · la importa y no la llama] ${r}`);
+    }
+
     expect(colados).toEqual([]);
+    // Y que mire algo: el cast de verdad, la declaración y el `push` de verdad
+    // (dentro de `emit`), y los siete importadores, que ve el resolutor.
+    expect(infractores([CRONICA], puertas[0]![1])).toHaveLength(1);
+    expect(infractoresDeCodigo([CRONICA], declaraEmit)).toHaveLength(1);
+    expect(pushes).toHaveLength(1);
+    expect([...importadores.keys()].sort()).toEqual([...LA_IMPORTAN].sort());
   });
 
   it('nadie escribe en la crónica después de «fin de la partida»', async () => {
