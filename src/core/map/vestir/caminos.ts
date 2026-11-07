@@ -11,7 +11,7 @@
  * (07-11-2026).
  */
 import { Frontera } from '../frontera.js';
-import { espejoDe, parejaDe } from '../geometria.js';
+import { ANILLO, espejoDe, parejaDe } from '../geometria.js';
 import { aPunto } from '../map.js';
 import { franjasDeBarrera, type PasoTorcido, pasoTorcido } from '../niveles.js';
 import { rodeosParaEntrar } from '../puertas.js';
@@ -734,18 +734,6 @@ export function sinAguaEnLasEsquinas(
       ponerTipo(tipos, c, MONTAÑA);
     }
 }
-
-/** Las ocho vecinas de una casilla en orden, dando la vuelta: su anillo. */
-const ANILLO = [
-  [-1, -1],
-  [0, -1],
-  [1, -1],
-  [1, 0],
-  [1, 1],
-  [0, 1],
-  [-1, 1],
-  [-1, 0],
-] as const;
 
 /**
  * Abre a su región la esquina de cada tramo que entra torcido en un nodo o una

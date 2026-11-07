@@ -13,7 +13,7 @@
  * red y lo que comparten sus partes, en `base.ts`.
  */
 import type { Rng } from '../../rng.js';
-import { espejoDe, parejaDe } from '../geometria.js';
+import { EJES, espejoDe, parejaDe } from '../geometria.js';
 import { aPunto } from '../map.js';
 import {
   APOYOS_DE_MURALLA,
@@ -1192,17 +1192,6 @@ const EN_CRUZ: readonly (readonly [number, number])[] = [
 ];
 
 /**
- * Los ejes que se prueban para las entradas de un nodo, en orden: los rectos y
- * luego los diagonales. Cada uno con su dirección y la opuesta.
- */
-const EJES_DEL_NODO: readonly (readonly [number, number])[] = [
-  [0, 1],
-  [1, 0],
-  [1, -1],
-  [1, 1],
-];
-
-/**
  * Las dos entradas opuestas de un nodo, cada una como las casillas que hay que
  * proteger por su lado (la pegada al nodo primero, la última es de donde sigue
  * el camino), o `null` si la red fina no tiene dos vecinas opuestas pisables de
@@ -1252,9 +1241,9 @@ function ejeDelNodo(
     return null;
   };
   for (const [pleno, ejes] of [
-    [true, EJES_DEL_NODO.slice(0, 2)],
-    [true, EJES_DEL_NODO.slice(2)],
-    [false, EJES_DEL_NODO],
+    [true, EJES.slice(0, 2)],
+    [true, EJES.slice(2)],
+    [false, EJES],
   ] as const) {
     for (const [dx, dy] of ejes) {
       const a = lado(dx, dy, pleno);

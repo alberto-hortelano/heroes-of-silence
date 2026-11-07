@@ -13,10 +13,10 @@
  */
 import { createRng, type Rng } from '../../rng.js';
 import type { Point } from '../../types.js';
-import { parejaDe } from '../geometria.js';
+import { parejaDe, VECINAS } from '../geometria.js';
 import { aPunto, createEmptyMap } from '../map.js';
 import { cabeElRecinto, chebyshev, SEPARACION_DE_CIUDADES } from '../recinto.js';
-import { estructura, problemasDeRed, regionesQueToca, VECINAS, vecindad } from '../regiones.js';
+import { estructura, problemasDeRed, regionesQueToca, vecindad } from '../regiones.js';
 import { FORMAS_DEL_RIO, type FormaDelRio, orillas, sortearForma, trazarRio } from '../rio.js';
 import type { Estructura, GameMap } from '../tipos.js';
 import { conEjePleno } from '../vestir/fronteras.js';

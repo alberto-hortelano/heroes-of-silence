@@ -23,7 +23,7 @@ import { type Rng, sortearPorPesos } from '../rng.js';
 import type { Point } from '../types.js';
 import { enteroDesde } from '../validar.js';
 import { Frontera } from './frontera.js';
-import { parejaDe } from './geometria.js';
+import { ANILLO, parejaDe, RUMBOS } from './geometria.js';
 import { inBounds } from './map.js';
 import { vecindad } from './regiones.js';
 import type { Nivel } from './terrain.js';
@@ -47,14 +47,6 @@ export interface TrazadoDelRio {
   /** La casilla del marco por la que sale cada boca, de todos los ríos. */
   readonly bocas: readonly number[];
 }
-
-/** Las cuatro direcciones del cauce, en el orden del Dijkstra; la opuesta de `d` es `d ^ 1`. */
-const RUMBOS: readonly (readonly [number, number])[] = [
-  [1, 0],
-  [-1, 0],
-  [0, 1],
-  [0, -1],
-];
 
 /**
  * Hasta qué distancia (Chebyshev) a la semilla más cercana se abarata el cauce.
@@ -397,18 +389,6 @@ export function orillas(W: number, H: number, mascara: Uint8Array): Int32Array {
   }
   return banco;
 }
-
-/** Las ocho vecinas de una casilla en orden, dando la vuelta: su anillo. */
-const ANILLO: readonly (readonly [number, number])[] = [
-  [-1, -1],
-  [0, -1],
-  [1, -1],
-  [1, 0],
-  [1, 1],
-  [0, 1],
-  [-1, 1],
-  [-1, 0],
-];
 
 /**
  * A qué lado del río cae cada vecina de cada casilla suya: por casilla del río,

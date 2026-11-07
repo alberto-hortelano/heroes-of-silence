@@ -11,6 +11,12 @@
  * Y la clave de una casilla (`pointKey`) con su inversa (`pointFromKey`), que leen
  * todos: estaban en `map.ts` hasta la misma fase, y la red de caminos
  * (`red-de-caminos.ts`), que `map.ts` importa, las necesita.
+ *
+ * Y las tablas de vecinas que se recorren en un orden fijo (`VECINAS`, `ANILLO`,
+ * `RUMBOS`, `EJES`): cada una vivía en dos sitios con el mismo contenido y el mismo
+ * orden, y de ese orden cuelgan los desempates del generador. Las que recorren las
+ * vecinas en otro orden se quedan donde están (`EN_CRUZ`, `CUADRANTES`, los bucles
+ * `dy`/`dx`): cambiarles el orden sería otro mapa.
  */
 import type { Point } from '../types.js';
 
@@ -51,3 +57,62 @@ export function pointFromKey(clave: string): Point {
   }
   return p;
 }
+
+/**
+ * Las ocho vecinas, `dy` por fuera y `dx` por dentro: el mismo orden que el
+ * Dijkstra del mapa. La leen la red (`regiones.ts`), el generador, que es quien
+ * más casillas recorre, y la muralla del mapa (`murallas.ts`, que llevaba su copia
+ * hasta la fase N de la reorganización, 07-11-2026): dos copias de la 8-vecindad
+ * son dos sitios donde una región puede quedar 4-conexa por error.
+ */
+export const VECINAS: readonly (readonly [number, number])[] = [
+  [-1, -1],
+  [0, -1],
+  [1, -1],
+  [-1, 0],
+  [1, 0],
+  [-1, 1],
+  [0, 1],
+  [1, 1],
+];
+
+/**
+ * Las ocho vecinas de una casilla en orden, dando la vuelta: su anillo. La leen el
+ * río (a qué lado del cauce cae cada vecina, `ladosDelRio`) y las esquinas de agua
+ * de los caminos (`vestir/caminos.ts`).
+ */
+export const ANILLO: readonly (readonly [number, number])[] = [
+  [-1, -1],
+  [0, -1],
+  [1, -1],
+  [1, 0],
+  [1, 1],
+  [0, 1],
+  [-1, 1],
+  [-1, 0],
+];
+
+/**
+ * Las cuatro direcciones rectas: este, oeste, sur y norte, así que la opuesta de
+ * `d` es `d ^ 1`. En este orden las recorre el Dijkstra del cauce del río y las
+ * sortea el paseo de una mancha de obstáculos (`rng.pick`, que elige por posición).
+ */
+export const RUMBOS: readonly (readonly [number, number])[] = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+];
+
+/**
+ * Los cuatro ejes por los que se entra en un nodo o en la puerta de una muralla, en
+ * el orden en que se prueban: los rectos y luego los diagonales, cada uno con su
+ * dirección y la opuesta. Los leen las entradas de un nodo del generador
+ * (`ejeDelNodo`) y la línea de la puerta de una muralla (`lineaDeLaPuerta`).
+ */
+export const EJES: readonly (readonly [number, number])[] = [
+  [0, 1],
+  [1, 0],
+  [1, -1],
+  [1, 1],
+];

@@ -7,7 +7,7 @@
  * (07-11-2026).
  */
 import type { Rng } from '../../rng.js';
-import { espejoDe, parejaDe } from '../geometria.js';
+import { espejoDe, parejaDe, RUMBOS } from '../geometria.js';
 import { aPunto } from '../map.js';
 import { vecindad } from '../regiones.js';
 import type { Suelo } from '../terrain.js';
@@ -143,20 +143,14 @@ export function ponerObstaculos(e: EntradaDeObstaculos): boolean {
     return vale;
   };
 
-  /** Un paseo de casillas rectas desde un punto al azar de la región. */
-  const RECTAS = [
-    [1, 0],
-    [-1, 0],
-    [0, 1],
-    [0, -1],
-  ] as const;
+  /** Un paseo de casillas rectas (`RUMBOS`) desde un punto al azar de la región. */
   const trazar = (r: number, tamaño: number): number[] | null => {
     const libres = casillas[r]!.filter((i) => valeEn(r, i));
     if (libres.length === 0) return null;
     const hecha = [rng.pick(libres)];
     for (let guarda = 0; hecha.length < tamaño && guarda < tamaño * 6; guarda++) {
       const { x, y } = aPunto(rng.pick(hecha), W);
-      const [dx, dy] = rng.pick(RECTAS);
+      const [dx, dy] = rng.pick(RUMBOS);
       const nx = x + dx;
       const ny = y + dy;
       if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;

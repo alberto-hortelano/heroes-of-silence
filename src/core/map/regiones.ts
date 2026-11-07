@@ -25,6 +25,7 @@
  * esta función daría por cerrados.
  */
 import type { Point } from '../types.js';
+import { VECINAS } from './geometria.js';
 import { aPunto, inBounds } from './map.js';
 import { regionesDeLaCiudad, rioAnteLaCiudad } from './recinto.js';
 import { isWalkable, type TerrainKind } from './terrain.js';
@@ -45,23 +46,6 @@ function claseDeCandidato(o: MapObject, conRegiones: boolean): ClaseDeNodo | nul
       return null;
   }
 }
-
-/**
- * Las ocho vecinas, `dy` por fuera y `dx` por dentro: el mismo orden que el
- * Dijkstra del mapa. Vive aquí y la usa también el generador, que es quien
- * más casillas recorre: dos copias de la 8-vecindad son dos sitios donde una
- * región puede quedar 4-conexa por error.
- */
-export const VECINAS: readonly (readonly [number, number])[] = [
-  [-1, -1],
-  [0, -1],
-  [1, -1],
-  [-1, 0],
-  [1, 0],
-  [-1, 1],
-  [0, 1],
-  [1, 1],
-];
 
 /**
  * Las ocho vecinas de cada casilla de un mapa de `width × height`, en tabla

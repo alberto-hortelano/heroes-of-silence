@@ -1261,3 +1261,11 @@ simbolo	src/core/battle/battle.ts	src/core/battle/prevision.ts	ImpactoDeHechizo
 simbolo	src/core/battle/battle.ts	src/core/battle/despliegue.ts	seguirElDespliegue
 simbolo	src/core/battle/battle.ts	src/core/battle/despliegue.ts	aplicarDespliegue
 simbolo	src/core/battle/battle.ts	src/core/battle/despliegue.ts	terminarElDespliegue
+simbolo	src/core/map/regiones.ts	src/core/map/geometria.ts	VECINAS
+simbolo	src/core/map/murallas.ts	src/core/map/geometria.ts	OCHO (→ VECINAS: la misma tabla, en el mismo orden; N12)
+simbolo	src/core/map/murallas.ts	src/core/map/geometria.ts	EJES (la misma tabla que EJES_DEL_NODO; N12)
+simbolo	src/core/map/vestir/fronteras.ts	src/core/map/geometria.ts	EJES_DEL_NODO (→ EJES; N12)
+simbolo	src/core/map/rio.ts	src/core/map/geometria.ts	ANILLO (la misma tabla que la de vestir/caminos.ts; N12)
+simbolo	src/core/map/vestir/caminos.ts	src/core/map/geometria.ts	ANILLO (N12)
+simbolo	src/core/map/rio.ts	src/core/map/geometria.ts	RUMBOS (la misma tabla que RECTAS de ponerObstaculos; N12)
+simbolo	src/core/map/vestir/obstaculos.ts	src/core/map/geometria.ts	RECTAS, local de ponerObstaculos (→ RUMBOS; N12)

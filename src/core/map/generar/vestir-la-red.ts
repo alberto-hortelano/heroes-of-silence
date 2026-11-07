@@ -24,7 +24,7 @@ import {
 } from '../../types.js';
 import { unidadesDelJuego } from '../../unidad/catalogo.js';
 import { nivelDeUnidad } from '../../unidad/nivel.js';
-import { espejoDe, parejaDe } from '../geometria.js';
+import { espejoDe, parejaDe, VECINAS } from '../geometria.js';
 import { aPunto, createEmptyMap } from '../map.js';
 import { murallasDeLaRejilla } from '../murallas.js';
 import { type PasoTorcido, problemasDeNiveles, tramosTorcidos } from '../niveles.js';
@@ -41,7 +41,7 @@ import {
   SEPARACION_DE_CIUDADES,
 } from '../recinto.js';
 import type { TramoDeCamino } from '../red-de-caminos.js';
-import { estructura, juntoANodo, problemasDeRed, VECINAS, vecindad } from '../regiones.js';
+import { estructura, juntoANodo, problemasDeRed, vecindad } from '../regiones.js';
 import {
   ladosDelRio,
   type MapaDelRio,

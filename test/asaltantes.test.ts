@@ -17,9 +17,9 @@ import { buildMap } from '../src/core/map/generar/construir.js';
 import type { MapPlan } from '../src/core/map/generar/plan.js';
 import { generateMapPlan } from '../src/core/map/generar/procedimental.js';
 import { validateMapPlan } from '../src/core/map/generar/validar.js';
-import { pointKey } from '../src/core/map/geometria.js';
+import { pointKey, VECINAS } from '../src/core/map/geometria.js';
 import { isEnterable, objectAt } from '../src/core/map/map.js';
-import { estructura, regionDeCasilla, tocaUnNodo, VECINAS } from '../src/core/map/regiones.js';
+import { estructura, regionDeCasilla, tocaUnNodo } from '../src/core/map/regiones.js';
 import { territorio } from '../src/core/map/territorio.js';
 import { createRng } from '../src/core/rng.js';
 import {
