@@ -13,8 +13,9 @@
  *   y en el río solo hay puentes con dos orillas y ciudades-puente.
  */
 import { describe, expect, it } from 'vitest';
+import { buildMap } from '../src/core/map/generar/construir.js';
 import { LADO_DEL_MAPA } from '../src/core/map/generar/plan.js';
-import { buildMap, generateMapPlan } from '../src/core/map/generate.js';
+import { generateMapPlan } from '../src/core/map/generar/procedimental.js';
 import { chebyshev, rioAnteLaCiudad } from '../src/core/map/recinto.js';
 import { estructura } from '../src/core/map/regiones.js';
 import {

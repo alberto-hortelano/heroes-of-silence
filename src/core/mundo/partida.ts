@@ -6,7 +6,7 @@ import type { ReglasDelCombate } from '../combate.js';
 import { problemaDeTipo } from '../hero/ascenso.js';
 import { tipoDeHeroePorDefecto } from '../hero/tipos-de-heroe.js';
 import type { MapPlan } from '../map/generar/plan.js';
-import { generateMapPlan } from '../map/generate.js';
+import { generateMapPlan } from '../map/generar/procedimental.js';
 import { createRng } from '../rng.js';
 import { faccionesDeLaSemilla, newGame } from '../state/setup.js';
 import type { GameState } from '../state/tipos.js';

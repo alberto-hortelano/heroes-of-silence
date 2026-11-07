@@ -5,8 +5,8 @@
  *
  * Vivía al principio de `generate.ts`, y quien solo necesitaba la forma del plan o
  * el tamaño del mapa —el formato de un mundo, el esquema del agente— importaba el
- * generador entero (fase N de la reorganización, 07-11-2026). Es el primero de
- * `map/generar/`, donde irá el resto del generador.
+ * generador entero (fase N de la reorganización, 07-11-2026). Fue el primero de
+ * `map/generar/`, donde está hoy el resto del generador.
  */
 import { AREA_POR_REGION } from '../../escala.js';
 import type { Town } from '../../town/town.js';

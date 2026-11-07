@@ -20,8 +20,9 @@ import {
 } from '../gente/banco.js';
 import { type PersonaDeLaFaccion, personasDeLaFaccion } from '../gente/voces.js';
 import { armyLeadership, capacidadDe } from '../hero/troop.js';
+import { buildMap } from '../map/generar/construir.js';
 import type { MapPlan } from '../map/generar/plan.js';
-import { basesDelPlan, buildMap } from '../map/generate.js';
+import { basesDelPlan } from '../map/generar/validar.js';
 import { franjasDeBarrera } from '../map/niveles.js';
 import { estructura, regionDeCasilla } from '../map/regiones.js';
 import { isWalkable } from '../map/terrain.js';

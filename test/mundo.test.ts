@@ -14,8 +14,8 @@ import { marcadoDe } from '../src/client/html.js';
 import { cargarElMundoPedido, mundoDeLaUrl, mundoPedido } from '../src/client/mundo/cargar.js';
 import { hayQuePreguntar } from '../src/client/semilla.js';
 import { renderLog } from '../src/client/views/panels.js';
+import { buildMap } from '../src/core/map/generar/construir.js';
 import type { MapPlan } from '../src/core/map/generar/plan.js';
-import { buildMap } from '../src/core/map/generate.js';
 import { isEnterable } from '../src/core/map/map.js';
 import {
   CLAVES_DE_CONDICION,

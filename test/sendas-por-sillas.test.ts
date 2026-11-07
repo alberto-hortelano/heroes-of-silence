@@ -37,7 +37,8 @@
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
 import { relieve } from '../src/client/render/escenario/relieve.js';
-import { buildMap, generateMapPlan } from '../src/core/map/generate.js';
+import { buildMap } from '../src/core/map/generar/construir.js';
+import { generateMapPlan } from '../src/core/map/generar/procedimental.js';
 import { pasoTorcido, soloPorUnVertice } from '../src/core/map/niveles.js';
 import { rioAnteLaCiudad } from '../src/core/map/recinto.js';
 import type { GameMap } from '../src/core/map/tipos.js';

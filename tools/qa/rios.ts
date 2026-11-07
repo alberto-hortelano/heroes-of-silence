@@ -34,7 +34,8 @@
  *   río) por encima de ella: un cañón.
  */
 import { resolve } from 'node:path';
-import { buildMap, generateMapPlan } from '../../src/core/map/generate.js';
+import { buildMap } from '../../src/core/map/generar/construir.js';
+import { generateMapPlan } from '../../src/core/map/generar/procedimental.js';
 import { franjasDeBarrera, nivelesDelRelieve } from '../../src/core/map/niveles.js';
 import { rioAnteLaCiudad } from '../../src/core/map/recinto.js';
 import { estructura } from '../../src/core/map/regiones.js';

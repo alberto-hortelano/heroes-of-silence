@@ -18,7 +18,8 @@ import {
   LADO_MINIMO_DEL_GENERADOR,
   LADO_MINIMO_DEL_PLAN,
 } from '../src/core/map/generar/plan.js';
-import { generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';
+import { generateMapPlan } from '../src/core/map/generar/procedimental.js';
+import { validateMapPlan } from '../src/core/map/generar/validar.js';
 import { createRng } from '../src/core/rng.js';
 import { itLento, rango, segunPrisa } from './lento.js';
 

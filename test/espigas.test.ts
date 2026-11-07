@@ -21,7 +21,7 @@
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
 import { relieve } from '../src/client/render/escenario/relieve.js';
-import { generateMapPlan } from '../src/core/map/generate.js';
+import { generateMapPlan } from '../src/core/map/generar/procedimental.js';
 import { espigasDelRelieve, nivelesDelRelieve } from '../src/core/map/niveles.js';
 import type { TerrainKind } from '../src/core/map/terrain.js';
 import { createRng } from '../src/core/rng.js';

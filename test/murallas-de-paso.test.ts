@@ -18,7 +18,8 @@
  * muralla de 8 mientras se hacía esto) y la de la marca.
  */
 import { describe, expect, it } from 'vitest';
-import { buildMap, generateMapPlan } from '../src/core/map/generate.js';
+import { buildMap } from '../src/core/map/generar/construir.js';
+import { generateMapPlan } from '../src/core/map/generar/procedimental.js';
 import {
   LARGO_MAXIMO_DE_MURALLA,
   lineaDeLaPuerta,

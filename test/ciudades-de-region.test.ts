@@ -13,13 +13,10 @@
  * - `data/poblamiento.json`: el cargador lanza con lo que no vale.
  */
 import { describe, expect, it } from 'vitest';
+import { buildMap } from '../src/core/map/generar/construir.js';
 import { POBLAMIENTO, validarPoblamiento } from '../src/core/map/generar/datos.js';
-import {
-  buildMap,
-  ciudadesDeRegion,
-  generateMapPlan,
-  honduraDeLaRegion,
-} from '../src/core/map/generate.js';
+import { ciudadesDeRegion, honduraDeLaRegion } from '../src/core/map/generar/poblar.js';
+import { generateMapPlan } from '../src/core/map/generar/procedimental.js';
 import { pointKey } from '../src/core/map/geometria.js';
 import { aPunto } from '../src/core/map/map.js';
 import { puertasDeLaCiudad, rioAnteLaCiudad } from '../src/core/map/recinto.js';

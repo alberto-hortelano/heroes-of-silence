@@ -125,7 +125,7 @@ const AL_PIE_DE_LO_ALTO = 1;
  * Y por una casilla del borde del mapa, que la escena pinta medio bajo las
  * nubes: un camino pegado a él parecía salirse del mapa (auditoría, defecto 7).
  * El grueso de esos caminos no venía de aquí sino de las puertas en el borde
- * (`colocarPar`, generate.ts); esto aparta el resto donde hay sitio.
+ * (`colocarPar`, `generar/vestir-la-red.ts`); esto aparta el resto donde hay sitio.
  */
 const POR_EL_BORDE = 2;
 
@@ -600,7 +600,7 @@ function centroOMotivo(e: EntradaDeCaminos, r: number, b: Busqueda): number | st
 /**
  * La red de caminos del mapa: **radial dentro de cada región** (decisión del
  * usuario, #149). Qué nodos lleva cada región lo decide antes la red
- * (`crucesConCamino`, en `generate.ts`); aquí solo se trazan los radios.
+ * (`crucesConCamino`, en `generar/procedimental.ts`); aquí solo se trazan los radios.
  *
  * Por región:
  *

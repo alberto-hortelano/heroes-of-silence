@@ -225,7 +225,7 @@ export interface ReglasDelPoblamiento {
   /**
    * En cuántas parejas de regiones de fuera, de cada `de`, el pueblo va al paso con
    * camino de su región, en el muro (pueblos en un nodo, fase 3): una cuota por mapa,
-   * redondeada, entre las parejas que pueden (`pueblosEnElMuro`, `generate.ts`).
+   * redondeada, entre las parejas que pueden (`pueblosEnElMuro`, `poblar.ts`).
    */
   readonly pueblosEnUnNodo: { readonly uno: number; readonly de: number };
 }

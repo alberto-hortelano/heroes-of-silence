@@ -1,7 +1,7 @@
 /**
  * La puerta de un pueblo (#188): por dónde llega el camino a él. Es un hecho,
  * aquí: lo leen la búsqueda de los caminos (`Busqueda`, `vestir/caminos.ts`), quien
- * coloca los objetos (`colocarPar`, `generate.ts`) y quien mide lo pintado
+ * coloca los objetos (`colocarPar`, `generar/vestir-la-red.ts`) y quien mide lo pintado
  * (`sendasPorObjeto`, en el escenógrafo).
  *
  * La cámara mira desde el sur y la puerta del sprite está en su pie, así que

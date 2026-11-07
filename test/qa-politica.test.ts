@@ -24,7 +24,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { heroFromTroopResponseSchema, REQUEST_KINDS } from '../src/core/contract/esquemas.js';
-import { validateMapPlan } from '../src/core/map/generate.js';
+import { validateMapPlan } from '../src/core/map/generar/validar.js';
 import { decidir, FIRMA_DEL_MAPA } from '../tools/qa/politica.js';
 
 /**

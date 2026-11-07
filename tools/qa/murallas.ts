@@ -8,7 +8,9 @@
  * Una muralla es lo que la escena une en una: el muro y los nodos de muro, sus
  * puertas, 8-conexo (`murallasDelMapa`). Sus apoyos, `apoyosDeLaMuralla`.
  */
-import { buildMap, generateMapPlan } from '../../src/core/map/generate.js';
+
+import { buildMap } from '../../src/core/map/generar/construir.js';
+import { generateMapPlan } from '../../src/core/map/generar/procedimental.js';
 import { murallasDelMapa } from '../../src/core/map/murallas.js';
 import { createRng } from '../../src/core/rng.js';
 

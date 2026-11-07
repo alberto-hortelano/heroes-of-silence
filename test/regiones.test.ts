@@ -13,6 +13,7 @@
 import { describe, expect, it } from 'vitest';
 import barrerasJson from '../data/barreras.json' with { type: 'json' };
 import { mapPlanSchema } from '../src/core/contract/esquemas.js';
+import { buildMap } from '../src/core/map/generar/construir.js';
 import { BARRERAS_DEL_MAPA, POBLAMIENTO, validarBarreras } from '../src/core/map/generar/datos.js';
 import {
   LADO_DEL_MAPA,
@@ -21,14 +22,12 @@ import {
   type PlanConCasillas,
 } from '../src/core/map/generar/plan';
 import {
-  basesDelPlan,
-  buildMap,
   crucesConCamino,
   generateMapPlan,
   INTENTOS_DE_RED,
   trazarYVestir,
-  validateMapPlan,
-} from '../src/core/map/generate.js';
+} from '../src/core/map/generar/procedimental.js';
+import { basesDelPlan, validateMapPlan } from '../src/core/map/generar/validar.js';
 import { pointFromKey, pointKey } from '../src/core/map/geometria.js';
 import { aPunto } from '../src/core/map/map.js';
 import { franjasDeBarrera, nivelesDelRelieve } from '../src/core/map/niveles.js';

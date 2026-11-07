@@ -3,7 +3,7 @@
  * dentro de cada región y caminos entre lo que importa (ciclo «mapas densos»,
  * 03-10-2026). Es la carpeta `map/vestir/`, y esto es lo que comparten sus partes.
  *
- * El generador (`generate.ts`) traza la red fina de siempre —Voronoi en espejo,
+ * El generador (`map/generar/`) traza la red fina de siempre —Voronoi en espejo,
  * muro de una casilla, nodos, `problemasDeRed` y perfil de saltos— y **solo
  * después** la viste con lo de aquí. El orden es lo que hace segura la mitad
  * que más miedo daba: todo lo que hace el vestido es **convertir casillas

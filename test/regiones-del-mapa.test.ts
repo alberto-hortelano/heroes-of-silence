@@ -16,7 +16,7 @@ import {
   REGIONES_POR_BANDO,
   regionesDelMapa,
 } from '../src/core/map/generar/plan.js';
-import { generateMapPlan } from '../src/core/map/generate.js';
+import { generateMapPlan } from '../src/core/map/generar/procedimental.js';
 import { createRng } from '../src/core/rng.js';
 import { rango, segunPrisa } from './lento.js';
 

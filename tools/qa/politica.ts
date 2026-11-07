@@ -12,8 +12,9 @@
  */
 
 import { JUGADA_DE_MURALLA } from '../../src/core/contract/vocabulario.js';
+import { planDelAgente } from '../../src/core/map/generar/construir.js';
 import { LADO_MINIMO_DEL_GENERADOR } from '../../src/core/map/generar/plan.js';
-import { generateMapPlan, planDelAgente } from '../../src/core/map/generate.js';
+import { generateMapPlan } from '../../src/core/map/generar/procedimental.js';
 import { createRng } from '../../src/core/rng.js';
 
 /**

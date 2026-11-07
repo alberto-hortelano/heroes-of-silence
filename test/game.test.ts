@@ -23,7 +23,9 @@ import {
 import { umbral } from '../src/core/hero/rango.js';
 import { troopUnit } from '../src/core/hero/troop.js';
 import { hechizosDelGremio } from '../src/core/magia/catalogo.js';
-import { buildMap, generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';
+import { buildMap } from '../src/core/map/generar/construir.js';
+import { generateMapPlan } from '../src/core/map/generar/procedimental.js';
+import { validateMapPlan } from '../src/core/map/generar/validar.js';
 import { pointFromKey, pointKey } from '../src/core/map/geometria.js';
 import {
   blocksMovement,

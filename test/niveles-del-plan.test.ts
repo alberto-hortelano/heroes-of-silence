@@ -14,13 +14,10 @@ import { componer } from '../src/client/render/escenario/colocar.js';
 import { mapPlanSchema } from '../src/core/contract/esquemas.js';
 import { RESPONSE_FORMAT } from '../src/core/contract/formato.js';
 import { serializeMapRequest } from '../src/core/contract/peticion-de-mapa.js';
+import { buildMap, planDelAgente } from '../src/core/map/generar/construir.js';
 import type { MapPlan, PlanConCasillas } from '../src/core/map/generar/plan.js';
-import {
-  buildMap,
-  generateMapPlan,
-  planDelAgente,
-  validateMapPlan,
-} from '../src/core/map/generate.js';
+import { generateMapPlan } from '../src/core/map/generar/procedimental.js';
+import { validateMapPlan } from '../src/core/map/generar/validar.js';
 import { problemasDeNiveles } from '../src/core/map/niveles.js';
 import { BARRERAS_DE_DESNIVEL, type Nivel, QUE_ES_UN_NIVEL } from '../src/core/map/terrain.js';
 import { createRng } from '../src/core/rng.js';

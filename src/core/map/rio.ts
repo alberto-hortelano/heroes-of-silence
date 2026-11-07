@@ -630,7 +630,7 @@ function rumboDelRio(map: MapaDelRio, at: Point): 'eo' | 'ns' | null {
  * La orilla de una ciudad-puente (#144, paso 2), con la ciudad en el río, como
  * la deja la red del generador: la casilla de al lado, en cruz y de través al
  * río, y la de enfrente. El generador la muda a tierra con ella (`enSuOrilla`,
- * `generate.ts`: el medio de su recinto, a dos casillas del río), y en el mapa
+ * `generar/vestir-la-red.ts`: el medio de su recinto, a dos casillas del río), y en el mapa
  * hecho la casilla del río es su puente (`rioAnteLaCiudad`). La ciudad va en el cruce de tres regiones: dos a un lado del río,
  * separadas por la frontera que llega a él (la T), y la tercera enfrente. Su
  * orilla es el lado de las dos: la casilla del final de esa frontera. Se elige

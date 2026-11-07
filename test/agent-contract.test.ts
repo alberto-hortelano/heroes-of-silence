@@ -55,14 +55,10 @@ import { MARGEN_CONTRA_NEUTRALES } from '../src/core/hero/fuerza.js';
 import { ASALTANTES } from '../src/core/hero/grupos.js';
 import { tiposDeHeroe } from '../src/core/hero/tipos-de-heroe.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../src/core/hero/troop.js';
+import { buildMap, caminosDelPlan, planDelAgente } from '../src/core/map/generar/construir.js';
 import { LADO_DEL_MAPA, type MapPlan, REGIONES_POR_BANDO } from '../src/core/map/generar/plan.js';
-import {
-  buildMap,
-  caminosDelPlan,
-  generateMapPlan,
-  planDelAgente,
-  validateMapPlan,
-} from '../src/core/map/generate.js';
+import { generateMapPlan } from '../src/core/map/generar/procedimental.js';
+import { validateMapPlan } from '../src/core/map/generar/validar.js';
 import { pointFromKey, pointKey } from '../src/core/map/geometria.js';
 import { stepCost } from '../src/core/map/map.js';
 import { RedDeCaminos } from '../src/core/map/red-de-caminos.js';

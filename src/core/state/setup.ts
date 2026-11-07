@@ -6,8 +6,10 @@ import { CIFRAS_DEL_HEROE_INICIAL, empezarElDia, heroeRecienHecho, maxMana } fro
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../hero/rango.js';
 import { tipoDeHeroePorDefecto } from '../hero/tipos-de-heroe.js';
 import { heroLeadership, troopRoom, withTroops } from '../hero/troop.js';
+import { buildMap } from '../map/generar/construir.js';
 import type { MapPlan } from '../map/generar/plan.js';
-import { basesDelPlan, buildMap, generateMapPlan, validateMapPlan } from '../map/generate.js';
+import { generateMapPlan } from '../map/generar/procedimental.js';
+import { basesDelPlan, validateMapPlan } from '../map/generar/validar.js';
 import {
   type EstadoDelMundo,
   estadoInicialDelMundo,
