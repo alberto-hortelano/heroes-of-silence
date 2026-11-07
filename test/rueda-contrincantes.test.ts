@@ -11,7 +11,7 @@
  * nuevo no deja ver lo que eligió el otro.
  */
 import { describe, expect, it } from 'vitest';
-import { caraDeLaArena } from '../src/client/arena/paneles.js';
+import { caraDeLaArena } from '../src/client/arena/paneles/batalla.js';
 import { EscenaBatalla } from '../src/client/batalla/escena.js';
 import { anguloDe, medidasDeLaRueda } from '../src/client/batalla/rueda/disco.js';
 import {

@@ -15,12 +15,11 @@ import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  enElMontaje,
   guardadoEnPalabras,
   renderEquipo,
-  renderFicha,
   sinGuardarEnPalabras,
-} from '../src/client/arena/paneles.js';
+} from '../src/client/arena/paneles/equipo.js';
+import { enElMontaje, renderFicha } from '../src/client/arena/paneles/ficha.js';
 import { marcadoDe } from '../src/client/comun/html.js';
 import {
   type MontajeDelEnlace,

@@ -31,7 +31,7 @@ import { join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { type Browser, chromium, type Page } from 'playwright';
 import WebSocket from 'ws';
-import { LA_LLEVA_EL_HEROE } from '../../src/client/arena/paneles.js';
+import { LA_LLEVA_EL_HEROE } from '../../src/client/arena/paneles/equipo.js';
 import { DURACION, duracionDeLaJugada, IMPACTO } from '../../src/client/batalla/anim.js';
 import { cargaContra, EscenaBatalla, rotuloDeAngulo } from '../../src/client/batalla/escena.js';
 import { textoDePrevision } from '../../src/client/batalla/prevision.js';

@@ -18,16 +18,13 @@ import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   type DatosDePuesto,
-  enElMontaje,
   FIGURA_GENERICA,
   renderBando,
-  renderCatalogo,
-  renderFicha,
-  renderFichaDeHeroe,
-  renderPanelDeBatalla,
   resumenDeCifras,
-  tarjetasDelCatalogo,
-} from '../src/client/arena/paneles.js';
+} from '../src/client/arena/paneles/bandos.js';
+import { renderPanelDeBatalla } from '../src/client/arena/paneles/batalla.js';
+import { enElMontaje, renderFicha, renderFichaDeHeroe } from '../src/client/arena/paneles/ficha.js';
+import { renderCatalogo, tarjetasDelCatalogo } from '../src/client/arena/paneles/lista.js';
 import { BattleAnimator } from '../src/client/batalla/anim.js';
 import { renderBattleLog } from '../src/client/batalla/parte.js';
 import { marcadoDe } from '../src/client/comun/html.js';

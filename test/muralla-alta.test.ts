@@ -7,7 +7,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { renderBando, renderMuralla, renderPanelDeBatalla } from '../src/client/arena/paneles.js';
+import { renderBando } from '../src/client/arena/paneles/bandos.js';
+import { renderPanelDeBatalla } from '../src/client/arena/paneles/batalla.js';
+import { renderMuralla } from '../src/client/arena/paneles/muralla.js';
 import { BattleAnimator } from '../src/client/batalla/anim.js';
 import { EscenaBatalla } from '../src/client/batalla/escena.js';
 import { marcadoDe } from '../src/client/comun/html.js';

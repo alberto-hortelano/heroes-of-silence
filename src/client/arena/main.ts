@@ -6,7 +6,7 @@
  * Aquí solo se conecta: las reglas las aplica `SesionDeArena` (en
  * `sesion/sesion-de-arena.ts`, de la única puerta del cliente al núcleo, `sesion/`), el
  * ratón del tablero lo traduce `EscenaBatalla` —la misma de la partida— y el marcado
- * sale de `paneles.ts`.
+ * sale de `paneles/`.
  * Las cifras se guardan en el catálogo de unidades del repo a través del servidor de
  * desarrollo (`vite.config.ts`); sin él la página lo dice y sigue sirviendo para
  * pelear.
@@ -159,37 +159,40 @@ import {
 } from './edicion.js';
 import { montarEditorDeMagia } from './magia.js';
 import {
-  avisoDelCatalogoLeido,
-  avisoDeNuevaUnidad,
-  type ComoDeLaFicha,
-  caraDeLaArena,
   type DatosDePuesto,
   type Elegida,
-  enElMontaje,
   FIGURA_GENERICA,
-  type FiltroDeArena,
-  focoTrasQuitar,
+  type Puesto,
+  renderBando,
+  renderEnlace,
+  resumenDeCifras,
+} from './paneles/bandos.js';
+import { caraDeLaArena, renderPanelDeBatalla, rotuloDelTurno } from './paneles/batalla.js';
+import {
   type Guardado,
   guardadoEnPalabras,
-  type HerramientaDeMuralla,
   LA_LLEVA_EL_HEROE,
-  type ListaDeUnidades,
-  type Puesto,
-  porQueNoSeMonta as porQueNoSeMontaEntre,
-  renderBando,
-  renderCatalogo,
-  renderEnlace,
   renderEquipo,
+  sinGuardarEnPalabras,
+} from './paneles/equipo.js';
+import {
+  type ComoDeLaFicha,
+  enElMontaje,
+  focoTrasQuitar,
   renderFicha,
   renderFichaDeHeroe,
-  renderMuralla,
-  renderPanelDeBatalla,
-  resumenDeCifras,
-  rotuloDelTurno,
-  sinGuardarEnPalabras,
+} from './paneles/ficha.js';
+import {
+  avisoDelCatalogoLeido,
+  avisoDeNuevaUnidad,
+  type FiltroDeArena,
+  type ListaDeUnidades,
+  porQueNoSeMonta as porQueNoSeMontaEntre,
+  renderCatalogo,
   type TarjetaDeUnidad,
   tarjetasDelCatalogo,
-} from './paneles.js';
+} from './paneles/lista.js';
+import { type HerramientaDeMuralla, renderMuralla } from './paneles/muralla.js';
 
 const app = document.getElementById('app') as HTMLElement;
 const canvas = document.getElementById('canvas') as HTMLCanvasElement;

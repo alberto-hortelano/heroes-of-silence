@@ -7,7 +7,7 @@
  * pulsar lo oculto.
  */
 import { describe, expect, it } from 'vitest';
-import { renderPanelDeBatalla } from '../src/client/arena/paneles.js';
+import { renderPanelDeBatalla } from '../src/client/arena/paneles/batalla.js';
 import { marcadoDe } from '../src/client/comun/html.js';
 import { renderSide } from '../src/client/partida/paneles.js';
 import { centroHex, planoDeHex } from '../src/client/render/proyeccion.js';

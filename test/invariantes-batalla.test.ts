@@ -1091,9 +1091,11 @@ describe('invariantes del proyecto', () => {
     }
     expect(conMedidas).toEqual([]);
     // Y que mire algo: la proyección, el editor y el despliegue importan de `board.ts`.
+    // El editor de la muralla era `arena/paneles.ts` hasta la fase C de la
+    // reorganización (07-11-2026).
     for (const r of [
       ruta('src/client/render/proyeccion.ts'),
-      ruta('src/client/arena/paneles.ts'),
+      ruta('src/client/arena/paneles/muralla.ts'),
       ruta('src/core/battle/battle.ts'),
     ]) {
       expect(importadores, r).toContain(r);

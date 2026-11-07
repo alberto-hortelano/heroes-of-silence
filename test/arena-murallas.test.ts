@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { renderMuralla } from '../src/client/arena/paneles.js';
+import { renderMuralla } from '../src/client/arena/paneles/muralla.js';
 import { marcadoDe } from '../src/client/comun/html.js';
 import { despliegueDeArenaBlocker, finalDeArena } from '../src/core/arena/montaje.js';
 import {

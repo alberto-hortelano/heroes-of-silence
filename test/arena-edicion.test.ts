@@ -20,14 +20,12 @@ import {
   listaPlegadaTras,
   renderEdicion,
 } from '../src/client/arena/edicion.js';
+import { enElMontaje, focoTrasQuitar, renderFicha } from '../src/client/arena/paneles/ficha.js';
 import {
   avisoDelCatalogoLeido,
-  enElMontaje,
-  focoTrasQuitar,
   renderCatalogo,
-  renderFicha,
   tarjetasDelCatalogo,
-} from '../src/client/arena/paneles.js';
+} from '../src/client/arena/paneles/lista.js';
 import { html, marcadoDe } from '../src/client/comun/html.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import { UNIDADES } from '../src/core/unidad/catalogo.js';

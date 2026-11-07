@@ -15,7 +15,7 @@ import {
   caraDeLaArena,
   renderPanelDeBatalla,
   rotuloDelTurno,
-} from '../src/client/arena/paneles.js';
+} from '../src/client/arena/paneles/batalla.js';
 import { BattleAnimator, DURACION } from '../src/client/batalla/anim.js';
 import { renderBattleLog } from '../src/client/batalla/parte.js';
 import { renderEleccion, tramosDelDesenlace } from '../src/client/batalla/rueda/rueda.js';

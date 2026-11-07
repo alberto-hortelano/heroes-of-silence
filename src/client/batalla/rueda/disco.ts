@@ -2,7 +2,8 @@
  * El disco de la rueda del golpe, su geometría y sus iconos: lo comparten la rueda
  * del combate (`rueda.ts`, que elige y cuenta el desenlace, en la partida, en la
  * arena y en el espectador) y la rueda de la ficha de un arma de la arena
- * (`ruedaDeLaPieza`, solo para leer), que va en `arena/paneles.ts`.
+ * (`ruedaDeLaPieza`, solo para leer), que va en el editor de equipo
+ * (`arena/paneles/equipo.ts`).
  *
  * La geometría es de la **forma** de la rueda (`FormaDeLaRueda`: 7, 5 o 3 tipos;
  * complejidad del combate, 22-10-2026): cuántos sectores, en qué orden y si lleva

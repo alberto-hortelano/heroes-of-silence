@@ -14,7 +14,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { renderMuralla } from '../src/client/arena/paneles.js';
+import { renderMuralla } from '../src/client/arena/paneles/muralla.js';
 import { EscenaBatalla } from '../src/client/batalla/escena.js';
 import { marcadoDe } from '../src/client/comun/html.js';
 import {

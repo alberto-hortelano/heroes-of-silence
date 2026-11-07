@@ -332,19 +332,21 @@ describe('invariantes del proyecto', () => {
       ruta('src/client/batalla/poderes.ts'),
       ruta('src/client/partida/paneles.ts'),
       ruta('src/client/partida/ejercito.ts'),
-      ruta('src/client/arena/paneles.ts'),
     ];
     const PARTIDA = `${ruta('src/client/partida')}/`;
     const paneles = CLIENTE.filter(
       (r) =>
         r.startsWith(ruta('src/client/views/')) ||
+        r.startsWith(ruta('src/client/arena/paneles/')) ||
         BATALLA.includes(r) ||
         (r.startsWith(PARTIDA) && r.endsWith('/panel.ts')),
     );
     expect(infractoresDeCodigo(paneles, /\b(session|s)\.battle\b/)).toEqual([]);
-    // Y que mire algo: los seis de lo común, los seis de arriba y el de cada pantalla.
-    expect(paneles.length).toBeGreaterThanOrEqual(18);
+    // Y que mire algo: los seis de lo común, los cinco de arriba, el de cada pantalla de
+    // la partida y los seis de la arena.
+    expect(paneles.length).toBeGreaterThanOrEqual(23);
     expect(paneles).toContain(ruta('src/client/partida/mapa/panel.ts'));
+    expect(paneles).toContain(ruta('src/client/arena/paneles/batalla.ts'));
   });
 
   it('la pieza que pinta el clima no lee la sesión: le dan el clima del sitio', () => {
