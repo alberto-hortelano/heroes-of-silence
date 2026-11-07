@@ -300,13 +300,20 @@ function repintarFicha(pagina: PaginaDeLaArena, clave: string): void {
 export const EQUIPO_EN_PLENA_PELEA =
   'En plena pelea: lo que cambies vale ya para todos los que la llevan, de los dos bandos. La IA espera a que vuelvas.';
 
-/** Repinta lo que se ve: el montaje o la edición, o en la batalla el editor y el panel. */
+/**
+ * Repinta lo que se ve: el montaje, la edición, el equipo o la magia, o en la batalla el editor
+ * y el panel. Cada vista pide después un fotograma, que es quien escribe la barra
+ * (`dibujarFotograma`): la magia no lo pedía, y al abrir `?vista=magia` la barra se quedaba en
+ * «Cargando las hojas…» hasta que llegaba el arte, si llegaba después (07-11-2026).
+ */
 export function repintar(pagina: PaginaDeLaArena): void {
   const { vista, editorDeMagia, pedirFotograma, editor } = pagina;
   if (vista.escena === 'edicion') repintarEdicion(pagina);
   else if (vista.escena === 'equipo') repintarEquipo(pagina);
-  else if (vista.escena === 'magia') editorDeMagia.repintar();
-  else if (vista.escena === 'montaje') repintarMontaje(pagina);
+  else if (vista.escena === 'magia') {
+    editorDeMagia.repintar();
+    pedirFotograma();
+  } else if (vista.escena === 'montaje') repintarMontaje(pagina);
   else {
     if (editor.open) pintarEditor(pagina);
     pedirFotograma();
