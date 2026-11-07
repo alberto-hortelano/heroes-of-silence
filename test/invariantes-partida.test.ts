@@ -529,12 +529,13 @@ describe('invariantes del proyecto', () => {
 
   it('el río de cada rejilla de tipos lo apunta solo `conElRio`', () => {
     // `RIO_DE_LOS_TIPOS` (map/vestir/base.ts) dice qué casillas de una rejilla son del
-    // río, y de eso se fía `ponerTipo` para no cortarlo. Se exporta porque la lee la
-    // búsqueda de los caminos (`Busqueda`, vestir/caminos.ts), así que desde la fase N
-    // de la reorganización (07-11-2026) nada impedía escribirla desde fuera: un `set`
-    // con otro río, o un `delete`, y `ponerTipo` deja cortar el de verdad. Rotos a
-    // mano, rojos con su línea: un `RIO_DE_LOS_TIPOS.set(…)` en `vestir/caminos.ts` y
-    // un `RIO_DE_LOS_TIPOS.delete(tipos)` en `ponerTipo`.
+    // río, y de eso se fía `ponerTipo` para no cortarlo: un `set` con otro río, o un
+    // `delete`, y `ponerTipo` deja cortar el de verdad. Se exportó entera durante la
+    // fase N de la reorganización (07-11-2026), para que la leyera la búsqueda de los
+    // caminos; hoy es privada (fuera de `base.ts` se lee por `rioDeLosTipos`) y esto
+    // mira, también ahí dentro, que la escriba solo `conElRio`. Rotos a mano, rojos
+    // con su línea: un `RIO_DE_LOS_TIPOS.set(…)` en `vestir/caminos.ts` y un
+    // `RIO_DE_LOS_TIPOS.delete(tipos)` en `ponerTipo`.
     const BASE = ruta('src/core/map/vestir/base.ts');
     const escrituras = infractoresDeCodigo(
       [...CORE, ...CLIENTE, ...SERVIDOR, ...HERRAMIENTAS],

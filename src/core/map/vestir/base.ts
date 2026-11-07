@@ -53,14 +53,12 @@ export function barreraDe(tipos: Tipos, i: number): Barrera | null {
 /**
  * El río de cada rejilla de tipos (`conElRio`), con el ancho del mapa para
  * decir dónde. Va aparte y no dentro de `Tipos`, que es una rejilla plana que
- * leen y copian medio vestido y los tests. La escribe solo `conElRio` y la leen
- * `esDelRio`, `ponerTipo` y la búsqueda de los caminos (`Busqueda`, que es por lo
- * que se exporta); lo vigila `invariantes-partida.test.ts`.
+ * leen y copian medio vestido y los tests. La escribe solo `conElRio` (lo vigila
+ * `invariantes-partida.test.ts`) y la leen `esDelRio`, `ponerTipo` y, desde fuera,
+ * por `rioDeLosTipos`, la búsqueda de los caminos (`Busqueda`). Se exportaba
+ * entera para esa lectura hasta la fase N de la reorganización (07-11-2026).
  */
-export const RIO_DE_LOS_TIPOS = new WeakMap<
-  Tipos,
-  { readonly rio: Uint8Array; readonly W: number }
->();
+const RIO_DE_LOS_TIPOS = new WeakMap<Tipos, { readonly rio: Uint8Array; readonly W: number }>();
 
 /**
  * Escribe el río (`core/map/rio.ts`) en `tipos`, como agua, y lo deja fijo: de
@@ -70,6 +68,11 @@ export function conElRio(tipos: Tipos, rio: Uint8Array, W: number): void {
   const AGUA = indiceDe('water');
   for (let i = 0; i < rio.length; i++) if (rio[i] === 1) ponerTipo(tipos, i, AGUA);
   RIO_DE_LOS_TIPOS.set(tipos, { rio, W });
+}
+
+/** El río de `tipos` (`conElRio`), para leerlo, o `undefined` si aún no lo lleva. */
+export function rioDeLosTipos(tipos: Tipos): ArrayLike<number> | undefined {
+  return RIO_DE_LOS_TIPOS.get(tipos)?.rio;
 }
 
 /** Si la casilla `i` es del río de `tipos` (`conElRio`): agua que nadie cambia. */

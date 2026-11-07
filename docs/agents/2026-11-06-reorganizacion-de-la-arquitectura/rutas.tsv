@@ -1294,3 +1294,6 @@ simbolo	src/core/battle/rueda.ts	src/core/types.ts	esTipoDeGolpe, TipoDeGolpe y 
 simbolo	src/core/battle/cifras-de-la-rueda.ts	src/core/battle/formas-de-la-rueda.ts	NOMBRE_DE_GOLPE (reexportación retirada en N13)
 simbolo	src/core/battle/spells.ts	src/core/magia/formato.ts	Hechizo (reexportación retirada en N13: nadie la importaba de allí)
 simbolo	src/core/battle/battle.ts	src/core/battle/types.ts	MAX_ROUNDS (reexportación retirada en N13)
+simbolo	src/core/map/generar/validar.ts	src/core/map/recinto.ts	enUnRecinto, local de validateMapPlan (→ enAlgunRecinto; /simplify de N12-N13)
+simbolo	src/core/map/vestir/base.ts	src/core/map/vestir/base.ts	RIO_DE_LOS_TIPOS, privada desde el /simplify de N12-N13 (se lee con rioDeLosTipos)
+simbolo	src/client/render/escenario/nodos.ts	src/core/map/geometria.ts	EJES, la tercera copia (→ EJES de geometria.ts; /simplify de N12-N13)

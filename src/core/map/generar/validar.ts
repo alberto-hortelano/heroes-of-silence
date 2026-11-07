@@ -18,7 +18,7 @@ import { problemasDeGrupo } from '../../unidad/catalogo.js';
 import { chebyshev, inBounds, pointKey } from '../geometria.js';
 import { BARRERAS_DEL_PUEBLO } from '../map.js';
 import { problemasDeNiveles } from '../niveles.js';
-import { LADO_DEL_RECINTO, problemasDeRecintos } from '../recinto.js';
+import { enAlgunRecinto, LADO_DEL_RECINTO, problemasDeRecintos } from '../recinto.js';
 import { estructura, problemasDeRed, regionDeCasilla, tocaUnNodo } from '../regiones.js';
 import {
   BARRERAS,
@@ -242,10 +242,10 @@ export function validateMapPlan(plan: MapPlan): string[] {
   // agente las recibe todas en su rechazo (QA de «mapas densos», vuelta 2, N4).
   // Salvo en el recinto de una ciudad: su puerta se pisa aunque debajo haya
   // barrera, y lo que un camino haga ahí lo juzga `problemasDeRecintos`.
-  const enUnRecinto = (p: Point): boolean => plan.towns.some((t) => chebyshev(t.at, p) <= 1);
+  const ciudades = plan.towns.map((t) => t.at);
   const caminosSobreBarrera: { p: Point; terreno: TerrainKind }[] = [];
   for (const p of casillasDelPlan(plan)) {
-    if (!inBounds(plan, p) || enUnRecinto(p)) continue;
+    if (!inBounds(plan, p) || enAlgunRecinto(ciudades, p)) continue;
     const terreno = map.terrain[p.y * map.width + p.x] as TerrainKind;
     if (!isWalkable(terreno)) caminosSobreBarrera.push({ p, terreno });
   }

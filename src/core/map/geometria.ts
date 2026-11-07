@@ -108,7 +108,8 @@ export const RUMBOS: readonly (readonly [number, number])[] = [
  * Los cuatro ejes por los que se entra en un nodo o en la puerta de una muralla, en
  * el orden en que se prueban: los rectos y luego los diagonales, cada uno con su
  * dirección y la opuesta. Los leen las entradas de un nodo del generador
- * (`ejeDelNodo`) y la línea de la puerta de una muralla (`lineaDeLaPuerta`).
+ * (`ejeDelNodo`), la línea de la puerta de una muralla (`lineaDeLaPuerta`) y la
+ * escena, que rehace el eje de un paso con el mismo orden (`render/escenario/nodos.ts`).
  */
 export const EJES: readonly (readonly [number, number])[] = [
   [0, 1],

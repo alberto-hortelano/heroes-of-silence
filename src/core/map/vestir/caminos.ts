@@ -31,7 +31,7 @@ import {
   esDelRio,
   indiceDe,
   ponerTipo,
-  RIO_DE_LOS_TIPOS,
+  rioDeLosTipos,
   separadasDeCerca,
   type Tipos,
 } from './base.js';
@@ -258,7 +258,7 @@ class Busqueda {
     // estribo, con el río en la esquina de dentro, y la escena, que redondea
     // la L, la pintaba sobre el agua (s8 (37,16)).
     this.antesDelEstribo = new Int32Array(N).fill(-1);
-    const rio = RIO_DE_LOS_TIPOS.get(e.tipos)?.rio;
+    const rio = rioDeLosTipos(e.tipos);
     for (const n of e.puentes) {
       if (rio === undefined || rio[n] !== 1) continue;
       const x = n % e.W;
@@ -389,7 +389,7 @@ class Busqueda {
     const yEnLaEsquina = (k: number): number =>
       puerta[k] !== 0 ? 4 : hoja[k] === 1 && (red?.[k] === 1 || objetivo[k] === 1) ? 2 : 0;
     const AGUA = indiceDe('water');
-    const rio = RIO_DE_LOS_TIPOS.get(tipos)?.rio;
+    const rio = rioDeLosTipos(tipos);
     coste.fill(-1);
     previo.fill(-1);
     const frontera = new Frontera(W * H);
