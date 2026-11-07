@@ -529,29 +529,38 @@ describe('invariantes del proyecto', () => {
     // (07-11-2026) reexportaban `battle/rueda.ts` (las formas, las cifras y los tipos
     // de la rueda), `cifras-de-la-rueda.ts` (`NOMBRE_DE_GOLPE`), `spells.ts`
     // (`Hechizo`) y `battle.ts` (`MAX_ROUNDS`), y 63 importaciones pasaban por ellas.
-    // Mira con el parser de TypeScript las dos formas: `export … from` (también
-    // `export *` y la que va en varias líneas) y `export { x }` o `export default x`
-    // de un nombre importado. Rotos a mano, rojos con su línea: `export { hexKey }
-    // from './board.js'` en `battle.ts`, la misma en tres líneas, `export * from
-    // './board.js'`, un `export { MAX_ROUNDS }` de vuelta en `battle.ts` y el
-    // `export type { Hechizo }` de vuelta en `spells.ts`.
-    const importadosDe = (sf: ts.SourceFile): Set<string> => {
-      const nombres = new Set<string>();
+    // Con el parser de TypeScript: `export … from` (también `export *`, `export type`
+    // y el que va en varias líneas); `export { x }` o `export default x` de un nombre
+    // importado; y `export const X = x` o `export type X = x` de un importado que se
+    // llamaba `X` en su módulo, que es como volvería una fachada sin `export {`. Con
+    // otro nombre es un nombre nuevo (`APOYOS_DE_MURALLA = BARRERAS_DE_DESNIVEL`), y
+    // un `export { x }` de lo propio, también vale. Que mire algo lo dice la sonda de
+    // abajo, con cada forma escrita: vista morder también en `battle.ts` y `spells.ts`
+    // (`export { hexKey } from './board.js'`, en una y en tres líneas, `export *`, un
+    // `export { MAX_ROUNDS }` y un `export type { Hechizo }` de vuelta).
+    const reexportacionesDe = (sf: ts.SourceFile): string[] => {
+      // Lo importado: su nombre en el fichero y el que tiene en su módulo.
+      const importados = new Map<string, string>();
       for (const s of sf.statements) {
         if (!ts.isImportDeclaration(s) || s.importClause === undefined) continue;
         const { name, namedBindings } = s.importClause;
-        if (name !== undefined) nombres.add(name.text);
+        if (name !== undefined) importados.set(name.text, 'default');
         if (namedBindings === undefined) continue;
-        if (ts.isNamespaceImport(namedBindings)) nombres.add(namedBindings.name.text);
-        else for (const e of namedBindings.elements) nombres.add(e.name.text);
+        if (ts.isNamespaceImport(namedBindings)) importados.set(namedBindings.name.text, '*');
+        else
+          for (const e of namedBindings.elements)
+            importados.set(e.name.text, (e.propertyName ?? e.name).text);
       }
-      return nombres;
-    };
-    const fuente = (r: string) => ts.createSourceFile(r, leer(r), ts.ScriptTarget.Latest, true);
-    const reexportan: string[] = [];
-    for (const r of CORE) {
-      const sf = fuente(r);
-      const importados = importadosDe(sf);
+      /** Si `n` es un nombre importado (y, con `comoSeLlamaba`, si se llamaba así). */
+      const importado = (n: ts.Node | undefined, comoSeLlamaba?: string): boolean =>
+        n !== undefined &&
+        ts.isIdentifier(n) &&
+        importados.has(n.text) &&
+        (comoSeLlamaba === undefined || importados.get(n.text) === comoSeLlamaba);
+      const exportado = (s: ts.Statement): boolean =>
+        ts.canHaveModifiers(s) &&
+        (ts.getModifiers(s) ?? []).some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
+      const out: string[] = [];
       for (const s of sf.statements) {
         let reexporta = false;
         if (ts.isExportDeclaration(s)) {
@@ -561,19 +570,51 @@ describe('invariantes del proyecto', () => {
               ts.isNamedExports(s.exportClause) &&
               s.exportClause.elements.some((e) => importados.has((e.propertyName ?? e.name).text)));
         } else if (ts.isExportAssignment(s)) {
-          reexporta = ts.isIdentifier(s.expression) && importados.has(s.expression.text);
+          reexporta = importado(s.expression);
+        } else if (ts.isVariableStatement(s) && exportado(s)) {
+          reexporta = s.declarationList.declarations.some(
+            (d) => ts.isIdentifier(d.name) && importado(d.initializer, d.name.text),
+          );
+        } else if (ts.isTypeAliasDeclaration(s) && exportado(s)) {
+          reexporta =
+            ts.isTypeReferenceNode(s.type) &&
+            s.type.typeArguments === undefined &&
+            importado(s.type.typeName, s.name.text);
         }
         if (!reexporta) continue;
         const linea = sf.getLineAndCharacterOfPosition(s.getStart(sf)).line + 1;
-        reexportan.push(`${r}:${linea} → ${s.getText(sf).replace(/\s+/g, ' ')}`);
+        out.push(`${sf.fileName}:${linea} → ${s.getText(sf).replace(/\s+/g, ' ')}`);
       }
-    }
+      return out;
+    };
+    const reexportan = CORE.flatMap((r) =>
+      reexportacionesDe(ts.createSourceFile(r, leer(r), ts.ScriptTarget.Latest, true)),
+    );
     expect(reexportan).toEqual([]);
-    // Y que mire algo: todo `core`, y lo importado de cada fichero, que es lo que separa
-    // la reexportación de un nombre del `export { x }` de uno propio (el motor importa
-    // `MAX_ROUNDS`, que reexportaba).
+    // Y que mire algo: todo `core`, y cada forma, sobre una sonda escrita aquí (lo que
+    // vale, al final, no sale).
     expect(CORE.length).toBeGreaterThan(100);
-    expect(importadosDe(fuente(ruta('src/core/battle/battle.ts')))).toContain('MAX_ROUNDS');
+    const sonda = [
+      "import { a, b as c, d } from './x.js';",
+      "import type { T as U } from './x.js';",
+      "import e from './e.js';",
+      'export { a };',
+      "export { hexKey } from './board.js';",
+      "export {\n  hexKey,\n} from './board.js';",
+      "export * from './board.js';",
+      "export type { V } from './x.js';",
+      'export default e;',
+      'export const b = c;',
+      'export type T = U;',
+      'const propio = 1;',
+      'export { propio };',
+      'export const OTRO = d;',
+    ].join('\n');
+    expect(
+      reexportacionesDe(ts.createSourceFile('sonda.ts', sonda, ts.ScriptTarget.Latest, true)).map(
+        (x) => x.split(' → ')[0],
+      ),
+    ).toEqual([4, 5, 6, 9, 10, 11, 12, 13].map((n) => `sonda.ts:${n}`));
   });
 
   it('ningún fichero que una máquina lee lleva dentro la ruta de esta máquina', () => {
