@@ -22,9 +22,7 @@ import { mensajeDe } from './comun/errores.js';
 import { type Html, pintar } from './comun/html.js';
 import { aLaBarra, semillaSorteada } from './comun/semilla.js';
 import { ponerTema } from './comun/temas.js';
-import type { Desarrollo } from './desarrollo/tipos.js';
 import { renderAviso } from './partida/aviso.js';
-import { EscenaAyuntamiento } from './partida/ayuntamiento/escena.js';
 import { EscenaBase } from './partida/base/escena.js';
 import { renderConversacion } from './partida/base/panel.js';
 import {
@@ -37,11 +35,16 @@ import { renderDefensa, renderGuarnicion } from './partida/guarnicion.js';
 import { EscenaLugar } from './partida/lugar/escena.js';
 import { renderConversacionDelLugar } from './partida/lugar/panel.js';
 import { EscenaAventura } from './partida/mapa/escena.js';
-import { EscenaMorada } from './partida/morada/escena.js';
 import { mundoPedido } from './partida/mundo.js';
+import {
+  type EscenaDeDentro,
+  type EstadoDeLaPagina,
+  elementosDeLaPartida,
+  escenasDeDentro,
+  esDeDentro,
+} from './partida/pagina.js';
 import { renderActions, renderSide, renderTopbar } from './partida/paneles.js';
 import { repartirClic } from './partida/reparto-del-clic.js';
-import { EscenaTropa } from './partida/tropa/escena.js';
 import { cargarArte } from './render/assets.js';
 import { apuntarElSueloEn, escenarioListo, sueloDelMapa } from './render/escenario/superficie.js';
 import { hayFigurasAnimadas } from './render/figuras/figura.js';
@@ -57,32 +60,28 @@ import { pintarSiguiendoElFinal } from './views/al-final.js';
  */
 declare const HERRAMIENTAS_DE_DESARROLLO: boolean;
 
-const app = document.getElementById('app') as HTMLElement;
-const canvas = document.getElementById('canvas') as HTMLCanvasElement;
-const lienzo = document.getElementById('lienzo') as HTMLElement;
-const minimapa = document.getElementById('minimapa') as HTMLCanvasElement;
-
-const elDay = document.getElementById('day') as HTMLElement;
-const elResources = document.getElementById('resources') as HTMLElement;
-const elTurn = document.getElementById('turn') as HTMLElement;
-const elSide = document.getElementById('side') as HTMLElement;
-const elStatus = document.getElementById('status') as HTMLElement;
-const elActions = document.getElementById('actions') as HTMLElement;
-const elSeed = document.getElementById('seed') as HTMLElement;
-const haciaEnemigo = document.getElementById('hacia-enemigo') as HTMLElement;
-const conversacion = document.getElementById('conversacion') as HTMLDialogElement;
-/** La rueda del golpe (`batalla/rueda/dialogo.ts`): modal sobre el lienzo, mientras se elige y se cuenta un cruce. */
-const elRueda = document.getElementById('rueda') as HTMLDialogElement;
-/** «¿Volver al menú?» (botón «Menú» de la barra de arriba): «Abandonar la partida» es el `restart`. */
-const salirAlMenu = document.getElementById('salir-al-menu') as HTMLDialogElement;
-/** Dejar y recoger tropa en un sitio propio (`partida/guarnicion.ts`). */
-const elGuarnicion = document.getElementById('guarnicion') as HTMLDialogElement;
-/** Con quién se defiende el héroe atacado en su sitio (`partida/guarnicion.ts`). */
-const elDefensa = document.getElementById('defensa') as HTMLDialogElement;
-/** Quién te ataca y dónde, sobre el mapa, antes de la batalla (`partida/aviso.ts`). */
-const elAviso = document.getElementById('aviso') as HTMLDialogElement;
-const stage = document.getElementById('stage') as HTMLElement;
-const lateral = document.getElementById('lateral') as HTMLElement;
+const {
+  app,
+  canvas,
+  lienzo,
+  minimapa,
+  elDay,
+  elResources,
+  elTurn,
+  elSide,
+  elStatus,
+  elActions,
+  elSeed,
+  haciaEnemigo,
+  conversacion,
+  elRueda,
+  salirAlMenu,
+  elGuarnicion,
+  elDefensa,
+  elAviso,
+  stage,
+  lateral,
+} = elementosDeLaPartida();
 
 /**
  * El bucle de dibujo (`comun/bucle.ts`), con la red de la partida: un fallo al pintar se
@@ -334,38 +333,7 @@ const batalla = new EscenaBatalla(sesion);
 const castillo = new EscenaBase(sesion);
 /** La escena de un lugar de un mundo (`partida/lugar/escena.ts`): se entra desde el mapa, como en la tropa. */
 const lugar = new EscenaLugar(sesion);
-/**
- * Las escenas de dentro: se entra en ellas desde otra (la tropa desde el mapa, la
- * morada desde la base), abren con el lateral arriba y, al salir, reponen el de la
- * escena de la que se vino. Cada una con su escena de pie, el `data-*` que deja en
- * el lienzo para `pnpm capturas` y su salida, la de la sesión.
- */
-const DENTRO = {
-  tropa: { de: new EscenaTropa(sesion), cerrar: (s: Session) => s.cerrarLaTropa() },
-  morada: {
-    // Detrás de la fila, la base con su edificio abierto: no se sale de ella.
-    de: new EscenaMorada(sesion, (ctx, lienzo, camara, vista, ahora) =>
-      castillo.pintarLaMorada(ctx, lienzo, camara, vista.edificio, ahora),
-    ),
-    cerrar: (s: Session) => s.cerrarLaMorada(),
-  },
-  ayuntamiento: {
-    // Detrás de la fila, la base con el ayuntamiento por fuera (no tiene versión
-    // abierta) y sin quien anduvo: delante solo van los candidatos.
-    de: new EscenaAyuntamiento(sesion, (ctx, lienzo, camara, vista, ahora) =>
-      castillo.pintarLaMorada(ctx, lienzo, camara, vista.edificio, ahora, { caminante: false }),
-    ),
-    cerrar: (s: Session) => s.cerrarElAyuntamiento(),
-  },
-  // Escape cierra primero la conversación y, sin ella, sale al mapa.
-  lugar: {
-    de: lugar,
-    cerrar: (s: Session) =>
-      s.lugar.hablando !== null ? s.lugar.dejarDeHablar() : s.salirDelLugar(),
-  },
-} as const;
-type EscenaDeDentro = keyof typeof DENTRO;
-const esDeDentro = (escena: string): escena is EscenaDeDentro => escena in DENTRO;
+const dentro = escenasDeDentro(sesion, castillo, lugar);
 /**
  * La rueda del golpe de la partida, la misma de la arena (F5, 19-10-2026). De los
  * dos que se cruzan, su figura, su chapa y su nombre, y quién es «tú»
@@ -381,56 +349,6 @@ const rueda = new DialogoDeLaRueda(elRueda, {
   },
 });
 const finDeTurno = new PuertaDeFinDeTurno(() => performance.now());
-
-/**
- * Lo que la página cambia mientras vive: nueve de los diez `let` de módulo de este fichero
- * hasta R7 de la reorganización (07-11-2026). El décimo, `session`, solo se asignaba al abrir
- * la partida, y es un `const` (`abrirLaPartida`). En un objeto, para que lo lean y lo escriban
- * las piezas de la página desde sus ficheros: el `let` de un módulo no se asigna desde otro.
- */
-interface EstadoDeLaPagina {
-  /**
-   * El modo «marcar fallo» y la vista de regiones (`desarrollo/herramientas.ts`): solo en
-   * `pnpm dev`.
-   */
-  desarrollo: Desarrollo | null;
-  /**
-   * Los paneles se rehacen cuando la sesión dice que algo ha cambiado (`version`),
-   * cuando la partida es otra o
-   * cuando el tablero de batalla empieza o acaba de contar una jugada (sus botones
-   * van apagados mientras tanto, #165); la barra, además, cuando llega arte (el
-   * icono del oro). Antes se generaba su marcado en cada fotograma para
-   * compararlo con el anterior.
-   */
-  paneles: {
-    sesion: Session;
-    version: number;
-    arte: number;
-    contando: boolean;
-    base: string;
-  } | null;
-  /** Cuántas veces ha llegado arte (`cargarArte`): con cada una se repinta la barra de arriba. */
-  arteLlegado: number;
-  /** La escena del último fotograma: al cambiar, se recoloca lo que depende de ella. */
-  escenaPintada: string;
-  /**
-   * La escena de donde se entró en una de dentro (el mapa o la base) y lo bajado
-   * en su lateral, y lo que toca poner tras repintar los paneles.
-   */
-  escenaDeAntes: string;
-  lateralDeAntes: number;
-  lateralPendiente: number | null;
-  /**
-   * Tras elegir un candidato del ayuntamiento (en el lienzo o en su botón), su ficha
-   * con «Contratar» se trae a la vista si no se veía (QA H2, 22-10-2026). En un
-   * teléfono pequeño el panel va debajo del lienzo y asoma una franja: quien tocaba
-   * una figura no veía pasar nada. Se lee en el fotograma que repinta el panel, con
-   * la ficha ya nueva.
-   */
-  fichaALaVista: boolean;
-  /** La última unidad propia a la que se llevó el marco, para no pelear con el dedo. */
-  activaSeguida: string | null;
-}
 
 const estado: EstadoDeLaPagina = {
   desarrollo: null,
@@ -508,11 +426,11 @@ function dibujarFotograma(ahora: number): void {
     // encuentran su panel como lo dejaron. Se lee antes de cambiar `data-escena`
     // (con el marco de la tropa el lateral mide otra cosa y el navegador ya lo
     // recorta) y se pone después de repintar los paneles, por lo mismo.
-    if (esDeDentro(escena)) {
+    if (esDeDentro(dentro, escena)) {
       estado.escenaDeAntes = estado.escenaPintada;
       estado.lateralDeAntes = lateral.scrollTop;
       estado.lateralPendiente = 0;
-    } else if (esDeDentro(estado.escenaPintada)) {
+    } else if (esDeDentro(dentro, estado.escenaPintada)) {
       // A la escena de donde se entró, como estaba; a otra, arriba.
       estado.lateralPendiente = escena === estado.escenaDeAntes ? estado.lateralDeAntes : 0;
       estado.lateralDeAntes = 0;
@@ -533,11 +451,11 @@ function dibujarFotograma(ahora: number): void {
 
   const enCastillo = escena === 'town' && session.activeTown !== null;
   const enBatalla = escena === 'battle' && session.battle !== null;
-  const dentro = esDeDentro(escena) ? DENTRO[escena].de : null;
+  const deDentro = esDeDentro(dentro, escena) ? dentro[escena].de : null;
   // Solo el mapa tiene presupuesto de píxeles: es la única pantalla que pinta
   // miles de sprites a cada fotograma. Depende del zoom: acercando, plena.
   const rect = principal.preparar(
-    enCastillo || enBatalla || dentro !== null ? undefined : aventura.presupuesto,
+    enCastillo || enBatalla || deDentro !== null ? undefined : aventura.presupuesto,
   );
   ctx.clearRect(0, 0, rect.width, rect.height);
   // Lo abierto en la base o si se anda: lo leen la página (`canvas[data-base]`)
@@ -551,8 +469,8 @@ function dibujarFotograma(ahora: number): void {
     batalla.sincronizar(ahora);
     batalla.dibujar(ctx, rect.width, rect.height);
     seguirALaActiva();
-  } else if (dentro !== null) {
-    dentro.dibujar(ctx, rect.width, rect.height, window.devicePixelRatio || 1, ahora);
+  } else if (deDentro !== null) {
+    deDentro.dibujar(ctx, rect.width, rect.height, window.devicePixelRatio || 1, ahora);
   } else {
     aventura.dibujar(ctx, rect.width, rect.height, ahora);
     estado.desarrollo?.dibujar(ctx);
@@ -574,8 +492,8 @@ function dibujarFotograma(ahora: number): void {
   // A quién se mira en cada escena de dentro (`canvas[data-tropa]`, el id de la
   // elegida; `canvas[data-morada]`, `<edificio>:<unidad>`): por donde esperan
   // `pnpm capturas` y los tests del navegador. Fuera de ella, sin la marca.
-  for (const nombre of Object.keys(DENTRO) as EscenaDeDentro[]) {
-    const marca = escena === nombre ? DENTRO[nombre].de.marca : '';
+  for (const nombre of Object.keys(dentro) as EscenaDeDentro[]) {
+    const marca = escena === nombre ? dentro[nombre].de.marca : '';
     if (marca === '') {
       if (canvas.dataset[nombre] !== undefined) delete canvas.dataset[nombre];
     } else if (canvas.dataset[nombre] !== marca) canvas.dataset[nombre] = marca;
@@ -822,8 +740,8 @@ canvas.addEventListener('pointermove', (ev) => {
     canvas.style.cursor = castillo.mover(p.x, p.y, performance.now()) ? 'pointer' : 'default';
   } else if (session.scene === 'battle') {
     gestos.mover(p.x, p.y);
-  } else if (esDeDentro(session.scene)) {
-    canvas.style.cursor = DENTRO[session.scene].de.mover(p.x, p.y) ? 'pointer' : 'default';
+  } else if (esDeDentro(dentro, session.scene)) {
+    canvas.style.cursor = dentro[session.scene].de.mover(p.x, p.y) ? 'pointer' : 'default';
   } else {
     aventura.mover(p.x, p.y);
   }
@@ -834,9 +752,9 @@ canvas.addEventListener('pointerup', (ev) => {
   if (ev.button !== 0) return;
   const p = enLienzo(ev);
   if (session.scene === 'town') castillo.pulsar(p.x, p.y, performance.now());
-  else if (esDeDentro(session.scene)) {
+  else if (esDeDentro(dentro, session.scene)) {
     const escena = session.scene;
-    if (DENTRO[escena].de.pulsar(p.x, p.y) && escena === 'ayuntamiento') fichaTrasElClic();
+    if (dentro[escena].de.pulsar(p.x, p.y) && escena === 'ayuntamiento') fichaTrasElClic();
   } else if (session.scene === 'battle') {
     gestos.soltar(p.x, p.y);
   } else if (aventura.soltar()) {
@@ -852,7 +770,7 @@ canvas.addEventListener('pointerleave', () => {
   aventura.salir();
   gestos.salir();
   castillo.salir();
-  for (const d of Object.values(DENTRO)) d.de.salir();
+  for (const d of Object.values(dentro)) d.de.salir();
   pedirFotograma();
 });
 
@@ -912,10 +830,10 @@ function abrirLaTropa(): void {
  */
 function cerrarDentro(): void {
   const escena = session.scene;
-  if (!esDeDentro(escena)) return;
-  DENTRO[escena].de.salir();
+  if (!esDeDentro(dentro, escena)) return;
+  dentro[escena].de.salir();
   canvas.style.cursor = 'default';
-  DENTRO[escena].cerrar(session);
+  dentro[escena].cerrar(session);
 }
 
 /** «Siguiente héroe», por el botón o por la H: lo elige la sesión y aquí se le mira. */
@@ -1236,7 +1154,7 @@ document.addEventListener('keydown', (ev) => {
   // Mientras el héroe anda, una tecla solo lo hace llegar (`hastaQueLlegue`); el
   // zoom, no, que es de la cámara.
   if (ev.key !== '+' && ev.key !== '-' && hastaQueLlegue()) return;
-  if (ev.key === 'Escape' && esDeDentro(session.scene)) {
+  if (ev.key === 'Escape' && esDeDentro(dentro, session.scene)) {
     cerrarDentro();
   } else if (ev.key === 'Escape' && session.scene === 'town') {
     // Con `else`: la misma pulsación que saca de la morada a la base no la cierra
