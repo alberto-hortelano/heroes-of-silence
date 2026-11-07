@@ -13,7 +13,6 @@
  * red y lo que comparten sus partes, en `base.ts`.
  */
 import type { Rng } from '../../rng.js';
-import { BARRERAS_DEL_MAPA, type BarreraConPeso } from '../generar/datos.js';
 import { espejoDe, parejaDe } from '../geometria.js';
 import { aPunto } from '../map.js';
 import {
@@ -37,6 +36,8 @@ import {
 } from '../terrain.js';
 import {
   ABIERTA,
+  BARRERAS_DEL_MAPA,
+  type BarreraConPeso,
   barajar,
   conElRio,
   indiceDe,

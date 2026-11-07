@@ -945,3 +945,7 @@ simbolo	src/core/map/generate.ts	src/core/map/generar/poblar.ts	EntradaDeLosPueb
 simbolo	src/core/map/generate.ts	src/core/map/generar/poblar.ts	pueblosEnElMuro
 simbolo	src/core/map/generate.ts	src/core/map/generar/poblar.ts	azarDelPoblamiento
 fichero	src/core/map/generate.ts	src/core/map/generar/procedimental.ts	lo que quedó (generateMapPlan, trazarYVestir, intentarRed y la red fina, crucesConCamino, ONDULACION, ondulacion, sinPuas, INTENTOS_DE_RED, saltosDesde…) tras repartir lo demás en validar, construir, nombres, vestir-la-red y poblar
+simbolo	src/core/map/generar/datos.ts	src/core/map/vestir/base.ts	BarreraConPeso
+simbolo	src/core/map/generar/datos.ts	src/core/map/vestir/base.ts	ReglasDeBarreras
+simbolo	src/core/map/generar/datos.ts	src/core/map/vestir/base.ts	validarBarreras
+simbolo	src/core/map/generar/datos.ts	src/core/map/vestir/base.ts	BARRERAS_DEL_MAPA

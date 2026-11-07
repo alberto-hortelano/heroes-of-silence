@@ -7,12 +7,11 @@
  * (07-11-2026).
  */
 import type { Rng } from '../../rng.js';
-import { BARRERAS_DEL_MAPA } from '../generar/datos.js';
 import { espejoDe, parejaDe } from '../geometria.js';
 import { aPunto } from '../map.js';
 import { vecindad } from '../regiones.js';
 import type { Suelo } from '../terrain.js';
-import { ABIERTA, indiceDe, ponerTipo, sortear, type Tipos } from './base.js';
+import { ABIERTA, BARRERAS_DEL_MAPA, indiceDe, ponerTipo, sortear, type Tipos } from './base.js';
 
 export interface EntradaDeObstaculos {
   readonly W: number;

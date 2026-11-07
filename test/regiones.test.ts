@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest';
 import barrerasJson from '../data/barreras.json' with { type: 'json' };
 import { mapPlanSchema } from '../src/core/contract/esquemas.js';
 import { buildMap } from '../src/core/map/generar/construir.js';
-import { BARRERAS_DEL_MAPA, POBLAMIENTO, validarBarreras } from '../src/core/map/generar/datos.js';
+import { POBLAMIENTO } from '../src/core/map/generar/datos.js';
 import {
   LADO_DEL_MAPA,
   LADO_MINIMO_DEL_GENERADOR,
@@ -44,7 +44,12 @@ import {
   type TerrainKind,
 } from '../src/core/map/terrain.js';
 import type { Estructura, GameMap } from '../src/core/map/tipos.js';
-import { ABIERTA, lineasQueSeparan } from '../src/core/map/vestir/base.js';
+import {
+  ABIERTA,
+  BARRERAS_DEL_MAPA,
+  lineasQueSeparan,
+  validarBarreras,
+} from '../src/core/map/vestir/base.js';
 import {
   ArbolDeCaminos,
   centroDeRegion,

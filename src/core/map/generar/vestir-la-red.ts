@@ -51,7 +51,14 @@ import {
 import type { Barrera, Nivel, Suelo } from '../terrain.js';
 import { territorio } from '../territorio.js';
 import type { Estructura, GameMap, MapRegion } from '../tipos.js';
-import { ABIERTA, barreraDe, esDelRio, ponerTipo, type Tipos } from '../vestir/base.js';
+import {
+  ABIERTA,
+  BARRERAS_DEL_MAPA,
+  barreraDe,
+  esDelRio,
+  ponerTipo,
+  type Tipos,
+} from '../vestir/base.js';
 import {
   abrirEsquinasTorcidas,
   type EntradaDeCaminos,
@@ -64,7 +71,7 @@ import { acantiladoSinCaida, CAIDA_LARGA, caidasLargas } from '../vestir/lineas.
 import { ponerObstaculos } from '../vestir/obstaculos.js';
 import { mesasDelRelieve, nivelesDeLoEngordado } from '../vestir/relieve.js';
 import { buildMap, idDePueblo } from './construir.js';
-import { BARRERAS_DEL_MAPA, NIVEL_POR_SUELO } from './datos.js';
+import { NIVEL_POR_SUELO } from './datos.js';
 import { NOMBRES_DE_CIUDAD, NOMBRES_DE_PUEBLO, nombre } from './nombres.js';
 import type { PlanConTramos, PlannedTown, PlannedWall } from './plan.js';
 import {
