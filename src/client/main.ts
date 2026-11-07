@@ -18,6 +18,14 @@ import { combateALaURL } from './partida/combate-en-la-url.js';
 import { instalarLosDialogos } from './partida/dialogos.js';
 import { calentarElMapa, dibujarFotograma, otroFotograma } from './partida/dibujo.js';
 import { PuertaDeFinDeTurno } from './partida/fin-de-turno.js';
+import {
+  abrirLaTropa,
+  cerrarDentro,
+  hastaQueLlegue,
+  jugadaEnCurso,
+  pasarTurno,
+  siguienteHeroe,
+} from './partida/gestos.js';
 import { EscenaLugar } from './partida/lugar/escena.js';
 import { EscenaAventura } from './partida/mapa/escena.js';
 import {
@@ -93,7 +101,7 @@ const rueda = new DialogoDeLaRueda(elRueda, {
   cara: () => null,
   pedirFotograma,
   alPulsarMientrasCuenta: () => {
-    jugadaEnCurso();
+    jugadaEnCurso(pagina);
   },
 });
 const finDeTurno = new PuertaDeFinDeTurno(() => performance.now());
@@ -147,32 +155,13 @@ const ESPERA_DEL_CLIC = 400;
 instalarLosDialogos({ elGuarnicion, elAviso, elDefensa, session, pedirFotograma });
 
 /**
- * La única puerta de los gestos de batalla mientras la jugada se está contando.
- *
- * El tablero que se ve todavía no es el del estado, así que no se acepta nada:
- * ni un clic en el lienzo ni un botón ni Escape. Estaba repartida —una
- * comprobación en el clic del lienzo y otra en dos de los botones—, y por los
- * huecos se colaban «Resolver sola», el libro de hechizos, «Continuar» y Escape.
- *
- * Los botones del panel ya salen apagados mientras se cuenta (#165); por aquí
- * pasan aún el lienzo, el teclado y el clic que cae entre el gesto y el
- * fotograma que repinta el panel.
- */
-function jugadaEnCurso(): boolean {
-  if (session.scene !== 'battle') return false;
-  if (!batalla.rechazarSiOcupada(performance.now())) return false;
-  pedirFotograma();
-  return true;
-}
-
-/**
  * Los gestos de la batalla, los de la arena (`batalla/gestos.ts`): los botones del
- * panel, las teclas y el puntero sobre el tablero, con la misma puerta de arriba.
+ * panel, las teclas y el puntero sobre el tablero, con la misma puerta (`jugadaEnCurso`).
  */
 const gestos = new GestosDeBatalla({
   sesion,
   escena: batalla,
-  jugadaEnCurso,
+  jugadaEnCurso: () => jugadaEnCurso(pagina),
   pedirFotograma,
 });
 
@@ -193,22 +182,6 @@ const pagina: PaginaDeLaPartida = {
   ctx,
   estado,
 };
-
-/**
- * La puerta de los gestos del mapa mientras el héroe anda su marcha
- * (`Session.marchaEnCurso`): el gesto —un clic en el lienzo, un botón, una
- * tecla— solo lo hace llegar (`acabarLaMarcha`, que abre lo que esperaba a la
- * llegada) y no hace nada más. Sin marcha, `false` y el gesto sigue. Así nada se
- * juega con el héroe pintado a medio camino, ni con la batalla de una emboscada
- * esperando a que llegue.
- */
-function hastaQueLlegue(): boolean {
-  if (session.marchaEnCurso === null) return false;
-  session.acabarLaMarcha();
-  aventura.olvidarRuta();
-  pedirFotograma();
-  return true;
-}
 
 lienzo.addEventListener('scroll', pedirFotograma, { passive: true });
 
@@ -253,7 +226,7 @@ canvas.addEventListener('pointerup', (ev) => {
   } else if (session.scene === 'battle') {
     gestos.soltar(p.x, p.y);
   } else if (aventura.soltar()) {
-    if (hastaQueLlegue()) return;
+    if (hastaQueLlegue(pagina)) return;
     // Con el modo «marcar fallo» puesto, el clic es suyo y no mueve a nadie.
     if (estado.desarrollo?.activo === true) estado.desarrollo.clic(p.x, p.y);
     else aventura.pulsar(p.x, p.y, ev.pointerType === 'touch');
@@ -286,65 +259,13 @@ minimapa.addEventListener('pointerdown', (ev) => {
   pedirFotograma();
 });
 
-// ---------------------------------------------------------------- paneles
-
-/**
- * «Fin de turno», por el botón o por el Espacio. La puerta lo ignora fuera del
- * turno de la persona, con algo moviéndose y durante el cambio de día; `endTurn`
- * no rechaza —se traga su fallo y lo escribe en `status`—, y lo que juega el
- * rival llega cuando termina, sin gesto que pida fotograma.
- */
-function pasarTurno(confirmado = false): void {
-  const animando = session.scene === 'adventure' && aventura.arrastrando;
-  if (!finDeTurno.abierta(session, animando)) return;
-  void finDeTurno
-    .pasar(session, animando, confirmado, () => aventura.olvidarRuta())
-    .then(pedirFotograma);
-}
-
-/**
- * «Tropa», por el botón o por la T: la escena de la tropa del héroe elegido. Si no
- * se puede (sin héroe, fuera de tu turno), el motivo va a la barra.
- */
-function abrirLaTropa(): void {
-  if (session.scene !== 'adventure') return;
-  const motivo = session.tropaBlocker();
-  if (motivo !== null) {
-    session.status = motivo;
-    return;
-  }
-  aventura.salir();
-  session.abrirLaTropa();
-}
-
-/**
- * Sale de la escena de dentro en que se esté a la de donde se entró: de la tropa
- * al mapa, con el héroe elegido y la cámara del mapa como estaban; de la morada a
- * la base, con quien anduvo quieto en su puerta, porque la base no se ha cerrado
- * (`EscenaBase` no se reinicia sin otra apertura).
- */
-function cerrarDentro(): void {
-  const escena = session.scene;
-  if (!esDeDentro(dentro, escena)) return;
-  dentro[escena].de.salir();
-  canvas.style.cursor = 'default';
-  dentro[escena].cerrar(session);
-}
-
-/** «Siguiente héroe», por el botón o por la H: lo elige la sesión y aquí se le mira. */
-function siguienteHeroe(): void {
-  if (session.scene !== 'adventure' || !session.siguienteHeroe()) return;
-  aventura.olvidarRuta();
-  aventura.centrar();
-}
-
 document.addEventListener('click', (ev) => {
   const target = (ev.target as HTMLElement).closest('[data-action]');
   if (target === null) return;
   const action = target.getAttribute('data-action');
   // El segundo clic de un doble clic no cuenta en ningún botón, caiga donde caiga, salvo
   // los que suman de uno en uno (`repartirClic`; decisión del usuario, 07-11-2026).
-  const reparto = repartirClic(action, session.scene, jugadaEnCurso, ev.detail);
+  const reparto = repartirClic(action, session.scene, () => jugadaEnCurso(pagina), ev.detail);
   if (reparto === 'mirar') {
     const izquierda = haciaEnemigo.dataset.lado === 'izquierda' ? 0 : lienzo.scrollWidth;
     lienzo.scrollTo({ left: izquierda, behavior: 'smooth' });
@@ -360,7 +281,7 @@ document.addEventListener('click', (ev) => {
     pedirFotograma();
     return;
   }
-  if (reparto === 'nada' || hastaQueLlegue()) return;
+  if (reparto === 'nada' || hastaQueLlegue(pagina)) return;
   pedirFotograma();
   // Los botones de la batalla (`GestosDeBatalla`), los de la arena: su regla del doble clic
   // ya no ve un segundo clic aquí, porque `repartirClic` no deja pasar ninguno de ellos.
@@ -368,16 +289,16 @@ document.addEventListener('click', (ev) => {
 
   switch (action) {
     case 'end-turn':
-      pasarTurno();
+      pasarTurno(pagina);
       break;
     case 'end-turn-confirm':
-      pasarTurno(true);
+      pasarTurno(pagina, true);
       break;
     case 'end-turn-cancel':
       session.retirarAvisoDeFinDeTurno();
       break;
     case 'next-hero':
-      siguienteHeroe();
+      siguienteHeroe(pagina);
       break;
     case 'sleep-hero':
       session.alternarSueño(target.getAttribute('data-hero') as string);
@@ -399,12 +320,12 @@ document.addEventListener('click', (ev) => {
       castillo.salir();
       break;
     case 'abrir-tropa':
-      abrirLaTropa();
+      abrirLaTropa(pagina);
       break;
     case 'cerrar-tropa':
     case 'cerrar-morada':
     case 'cerrar-ayuntamiento':
-      cerrarDentro();
+      cerrarDentro(pagina);
       break;
     case 'abrir-ayuntamiento':
       castillo.cerrar();
@@ -421,7 +342,7 @@ document.addEventListener('click', (ev) => {
       // El botón sale del todo, hable o no: sin la conversación, `cerrarDentro`
       // (con el cursor) saca al mapa, como Escape la segunda vez.
       session.lugar.dejarDeHablar();
-      cerrarDentro();
+      cerrarDentro(pagina);
       break;
     case 'lugar-ir':
       lugar.irA(target.getAttribute('data-punto') as string, performance.now());
@@ -648,9 +569,9 @@ document.addEventListener('keydown', (ev) => {
   }
   // Mientras el héroe anda, una tecla solo lo hace llegar (`hastaQueLlegue`); el
   // zoom, no, que es de la cámara.
-  if (ev.key !== '+' && ev.key !== '-' && hastaQueLlegue()) return;
+  if (ev.key !== '+' && ev.key !== '-' && hastaQueLlegue(pagina)) return;
   if (ev.key === 'Escape' && esDeDentro(dentro, session.scene)) {
-    cerrarDentro();
+    cerrarDentro(pagina);
   } else if (ev.key === 'Escape' && session.scene === 'town') {
     // Con `else`: la misma pulsación que saca de la morada a la base no la cierra
     // también, que es lo que pasaría mirando la escena otra vez tras cambiarla.
@@ -679,7 +600,7 @@ document.addEventListener('keydown', (ev) => {
   if (ev.key === ' ' && session.scene === 'adventure') {
     ev.preventDefault();
     // Dejar el Espacio pulsado repite la tecla: eso no es pedir varios días.
-    if (!ev.repeat) pasarTurno();
+    if (!ev.repeat) pasarTurno(pagina);
   }
   // La pregunta de fin de turno (#17): Intro la confirma y Escape la retira. El
   // Espacio NO confirma: es la tecla que la hizo salir, y dos Espacios seguidos
@@ -687,16 +608,16 @@ document.addEventListener('keydown', (ev) => {
   if (session.avisoDeFinDeTurno !== null && session.scene === 'adventure') {
     if (ev.key === 'Enter' && !enUnBoton) {
       ev.preventDefault();
-      if (!ev.repeat) pasarTurno(true);
+      if (!ev.repeat) pasarTurno(pagina, true);
     }
     if (ev.key === 'Escape') session.retirarAvisoDeFinDeTurno();
   }
   const conModificador = ev.ctrlKey || ev.metaKey || ev.altKey;
   if ((ev.key === 'h' || ev.key === 'H') && !conModificador && session.scene === 'adventure') {
-    if (!ev.repeat) siguienteHeroe();
+    if (!ev.repeat) siguienteHeroe(pagina);
   }
   if ((ev.key === 't' || ev.key === 'T') && !conModificador && session.scene === 'adventure') {
-    if (!ev.repeat) abrirLaTropa();
+    if (!ev.repeat) abrirLaTropa(pagina);
   }
   if ((ev.key === '+' || ev.key === '-') && session.scene === 'adventure') {
     aventura.zoom(ev.key === '+' ? 1 : -1);
