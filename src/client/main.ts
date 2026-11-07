@@ -1,10 +1,17 @@
 /**
- * Punto de entrada del cliente: arranque, bucle de dibujo y reparto del ratón.
+ * Punto de entrada de la partida: busca los elementos de la página, abre la partida que pide la
+ * URL y monta lo demás, en orden.
  *
- * La sesión decide, `render/` pinta, `views/` monta los paneles y cada escena
- * (`escenas/`) traduce el puntero de su pantalla. Aquí solo se conecta todo.
+ * La sesión decide, `render/` pinta, los paneles salen de `partida/` y `views/`, y cada escena
+ * traduce el puntero de su pantalla. Aquí solo se conecta todo: lo que hace cada parte de la
+ * página vive en `partida/` desde R7 de la reorganización (07-11-2026) —abrir la partida
+ * (`abrir.ts`), el fotograma (`dibujo.ts`), los diálogos (`dialogos.ts`), lo que comparten los
+ * gestos (`gestos.ts`), el puntero (`puntero.ts`), el clic (`clic.ts`) y el teclado
+ * (`teclado.ts`)—, y la página que comparten, en `pagina.ts`. Ninguna registra un oyente ni hace
+ * nada al importarse: aquí se construye cada cosa y se instala cada parte en el orden de
+ * siempre, porque es comportamiento: dos oyentes del mismo evento en el mismo nodo corren en el
+ * orden en que se registraron.
  */
-import { FLECHAS_AL_COLOCAR } from './batalla/colocar.js';
 import { EscenaBatalla } from './batalla/escena.js';
 import { GestosDeBatalla } from './batalla/gestos.js';
 import { DialogoDeLaRueda } from './batalla/rueda/dialogo.js';
@@ -16,24 +23,17 @@ import { instalarElClic } from './partida/clic.js';
 import { instalarLosDialogos } from './partida/dialogos.js';
 import { calentarElMapa, dibujarFotograma, otroFotograma } from './partida/dibujo.js';
 import { PuertaDeFinDeTurno } from './partida/fin-de-turno.js';
-import {
-  abrirLaTropa,
-  cerrarDentro,
-  hastaQueLlegue,
-  jugadaEnCurso,
-  pasarTurno,
-  siguienteHeroe,
-} from './partida/gestos.js';
+import { jugadaEnCurso } from './partida/gestos.js';
 import { EscenaLugar } from './partida/lugar/escena.js';
 import { EscenaAventura } from './partida/mapa/escena.js';
 import {
   type EstadoDeLaPagina,
   elementosDeLaPartida,
   escenasDeDentro,
-  esDeDentro,
   type PaginaDeLaPartida,
 } from './partida/pagina.js';
 import { instalarElPuntero } from './partida/puntero.js';
+import { instalarElTeclado } from './partida/teclado.js';
 import { cargarArte } from './render/assets.js';
 import { apuntarElSueloEn } from './render/escenario/superficie.js';
 import { ajustarLienzo } from './render/lienzo.js';
@@ -72,7 +72,10 @@ const sesion = (): Session => session;
 const aventura = new EscenaAventura(sesion);
 const batalla = new EscenaBatalla(sesion);
 const castillo = new EscenaBase(sesion);
-/** La escena de un lugar de un mundo (`partida/lugar/escena.ts`): se entra desde el mapa, como en la tropa. */
+/**
+ * La escena de un lugar de un mundo (`partida/lugar/escena.ts`): se entra desde el mapa, como en
+ * la tropa.
+ */
 const lugar = new EscenaLugar(sesion);
 const dentro = escenasDeDentro(sesion, castillo, lugar);
 /**
@@ -91,6 +94,7 @@ const rueda = new DialogoDeLaRueda(elRueda, {
 });
 const finDeTurno = new PuertaDeFinDeTurno(() => performance.now());
 
+/** Lo que la página cambia mientras vive (`EstadoDeLaPagina`, `partida/pagina.ts`). */
 const estado: EstadoDeLaPagina = {
   desarrollo: null,
   paneles: null,
@@ -145,93 +149,11 @@ const pagina: PaginaDeLaPartida = {
   estado,
 };
 
+// Sus oyentes, en el orden de siempre: el puntero (el marco del tablero, el lienzo y el
+// minimapa), el clic y el teclado.
 instalarElPuntero(pagina);
-
 instalarElClic(pagina);
-
-document.addEventListener('keydown', (ev) => {
-  // Con la guarnición, la defensa o el aviso abiertos (modales), toda tecla es suya: Escape
-  // las cierra por su `cancel`, que llega aunque el foco se haya ido al `body` tras
-  // un clic, y aquí no debe cerrar también la base de detrás (H3 del QA de la
-  // fase 1: la guarnición se cerraba y se salía al mapa).
-  if (elGuarnicion.open || elDefensa.open || elAviso.open) return;
-  // Lo que se escribe en un campo de texto o se pulsa en un cuadro es suyo, no un
-  // atajo. Salvo Escape en la conversación: al abrirse se queda el foco (su primera
-  // opción), y sin esto Escape no la cerraba nunca, aunque la barra lo anuncia
-  // (H3 del QA de la F1a). Lo demás —Intro, espacio— sigue siendo de su botón.
-  const enLaConversacion =
-    ev.target instanceof Element && ev.target.closest('#conversacion') !== null;
-  if (enLaConversacion && ev.key !== 'Escape') return;
-  if (
-    !enLaConversacion &&
-    ev.target instanceof Element &&
-    ev.target.closest('textarea, input, dialog') !== null
-  )
-    return;
-  // Escape mantenido se repite: cada repetición cerraría un nivel más (la morada,
-  // la base…). Solo cuenta la primera pulsación (QA M5 de la morada, 20-10-2026).
-  if (ev.key === 'Escape' && ev.repeat) return;
-  if (estado.desarrollo?.tecla(ev) === true) {
-    pedirFotograma();
-    return;
-  }
-  // Mientras el héroe anda, una tecla solo lo hace llegar (`hastaQueLlegue`); el
-  // zoom, no, que es de la cámara.
-  if (ev.key !== '+' && ev.key !== '-' && hastaQueLlegue(pagina)) return;
-  if (ev.key === 'Escape' && esDeDentro(dentro, session.scene)) {
-    cerrarDentro(pagina);
-  } else if (ev.key === 'Escape' && session.scene === 'town') {
-    // Con `else`: la misma pulsación que saca de la morada a la base no la cierra
-    // también, que es lo que pasaría mirando la escena otra vez tras cambiarla.
-    // Escape cierra primero lo abierto en la base y, si no hay nada, la base.
-    if (castillo.abierto !== null) {
-      castillo.cerrar();
-    } else {
-      session.closeTown();
-      castillo.salir();
-    }
-  }
-  // Las teclas de la batalla, las de la arena (`GestosDeBatalla.tecla`): Escape suelta
-  // lo que espera el clic, las flechas mueven al elegido del despliegue, la Q alterna el
-  // arma y Espacio cierra el turno de la unidad tuya que actúa.
-  if (session.scene === 'battle') gestos.tecla(ev);
-  // En la formación de la tropa (la misma pieza que el despliegue de la batalla), las
-  // flechas mueven al elegido a la casilla de al lado (`FLECHAS_AL_COLOCAR`): lo juzga el
-  // núcleo, como el clic.
-  const flecha = FLECHAS_AL_COLOCAR[ev.key];
-  if (flecha !== undefined && session.scene === 'tropa' && session.formacion.enCurso !== null) {
-    ev.preventDefault();
-    session.formacion.mover(flecha[0], flecha[1]);
-  }
-  // Con el foco en un botón, Intro es pulsar ESE botón: no se le roba la tecla.
-  const enUnBoton = ev.target instanceof Element && ev.target.closest('button') !== null;
-  if (ev.key === ' ' && session.scene === 'adventure') {
-    ev.preventDefault();
-    // Dejar el Espacio pulsado repite la tecla: eso no es pedir varios días.
-    if (!ev.repeat) pasarTurno(pagina);
-  }
-  // La pregunta de fin de turno (#17): Intro la confirma y Escape la retira. El
-  // Espacio NO confirma: es la tecla que la hizo salir, y dos Espacios seguidos
-  // pasarían el turno sin que la pregunta se llegase a leer.
-  if (session.avisoDeFinDeTurno !== null && session.scene === 'adventure') {
-    if (ev.key === 'Enter' && !enUnBoton) {
-      ev.preventDefault();
-      if (!ev.repeat) pasarTurno(pagina, true);
-    }
-    if (ev.key === 'Escape') session.retirarAvisoDeFinDeTurno();
-  }
-  const conModificador = ev.ctrlKey || ev.metaKey || ev.altKey;
-  if ((ev.key === 'h' || ev.key === 'H') && !conModificador && session.scene === 'adventure') {
-    if (!ev.repeat) siguienteHeroe(pagina);
-  }
-  if ((ev.key === 't' || ev.key === 'T') && !conModificador && session.scene === 'adventure') {
-    if (!ev.repeat) abrirLaTropa(pagina);
-  }
-  if ((ev.key === '+' || ev.key === '-') && session.scene === 'adventure') {
-    aventura.zoom(ev.key === '+' ? 1 : -1);
-  }
-  pedirFotograma();
-});
+instalarElTeclado(pagina);
 
 // La partida empieza en la base, con el héroe dentro: salir de ella lleva al
 // mapa, y la barra dice entonces cómo se anda (`AYUDA_DEL_MAPA`).
