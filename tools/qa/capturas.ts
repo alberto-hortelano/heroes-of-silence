@@ -4019,6 +4019,17 @@ async function moradaEnEscena(browser: Browser, url: string, problemas: Problema
 // ------------------------------------------------------------------ la base a varios anchos
 
 /**
+ * La pausa de la pasada antes de un toque que cae donde cayó el de antes. El navegador cuenta
+ * dos toques en el mismo sitio a menos de 400 ms como un doble toque (el clic del segundo llega
+ * con `detail` 2; medido el 07-11-2026: a 399 ms, doble; a 415, dos sueltos), y el segundo clic
+ * de un doble clic no cuenta en ningún botón salvo los que suman de uno en uno (decisión del
+ * usuario, 07-11-2026: `repartirClic`, `partida/reparto-del-clic.ts`). En el móvil, «Volver al
+ * mapa» de la base cae donde estaba «Volver a la base» de la morada: con solo lo que espera
+ * `salirDeLaMorada`, unas veces llegaba a 399 ms y la base no se cerraba.
+ */
+const PAUSA_ANTES_DE_OTRO_TOQUE_MS = 500;
+
+/**
  * La base a todo el alto (C16 de la vuelta 2 de la morada, 20-10-2026: «al hacer
  * la pantalla más estrecha se encoge la parte donde se ve la base; eso no pasa en
  * el mapa»): a 1440, 1100 y 800 de ancho, el lienzo de la base, el de la morada y
@@ -4079,8 +4090,10 @@ async function baseAVariosAnchos(
     await salirDeLaMorada(page, espejo, movil ? 'toque' : 'escape', nombre);
     // La base, al alto del mapa, también en el móvil (QA I2 de la vuelta 2).
     const volver = page.locator('[data-action="close-town"]');
-    if (movil) await volver.tap();
-    else await volver.click();
+    if (movil) {
+      await sleep(PAUSA_ANTES_DE_OTRO_TOQUE_MS);
+      await volver.tap();
+    } else await volver.click();
     await page.waitForSelector('#app[data-escena="adventure"]', { timeout: 10_000 });
     const enElMapa = await caja(page);
     if (Math.abs(enElMapa.height - enLaBase.height) > 0.5) {
