@@ -6,8 +6,8 @@
  * el estado y porque el «mapa vivo» quiere leer la noche desde las reglas de sus
  * lugares («un comerciante que solo sale de noche», `esDeNocheEn` y `climaEn`).
  *
- * Dos fuentes, una sola lectura por región (`climaDeHoy`, que leen
- * `climaDeLaPartida` para todas y `climaEn` para una):
+ * Dos fuentes, una sola lectura por región (`climaDeHoy`, que lee
+ * `climaDeLaPartida` para todas; de ella salen `climaEn` y `esDeNocheEn`):
  *
  * - **La semilla**, sin agente o donde no pide nada: una función pura de la
  *   semilla, el día y la región, en enteros y con **su propia corriente**
@@ -32,7 +32,7 @@
 import climaJson from '../../../data/clima.json' with { type: 'json' };
 import { inBounds } from '../map/geometria.js';
 import { type MapaDeRed, regionDelSitio } from '../map/regiones.js';
-import { dueñoDeLaRegion, dueñosDeLasRegiones } from '../map/territorio.js';
+import { dueñosDeLasRegiones } from '../map/territorio.js';
 import { createRng, hashDeTexto, sortearPorPesos } from '../rng.js';
 import { FACTION_IDS, type FactionId, type PlayerId, type Point } from '../types.js';
 import { enteroDesde, esIdDeMapa, esObjeto } from '../validar.js';
@@ -348,20 +348,23 @@ export function climaDeLaPartida(state: GameState): ClimaDeLaPartida {
 }
 
 /**
- * El clima de hoy en la casilla `p`, sin hacer el de todo el mapa: solo su
- * región, con el dueño de esa región (`dueñoDeLaRegion`). Lo que lee una regla
- * de `core` sobre un sitio (el «mapa vivo»). En un mapa sin regiones, el
- * despejado; fuera del mapa, lanza.
+ * El clima de hoy en la casilla `p`: el de su región en el de toda la partida
+ * (`climaDeLaPartida`, lo que leen la página, el servidor y el espectador). Lo que
+ * leería una regla de `core` sobre un sitio (el «mapa vivo»; hoy, ninguna). En un
+ * mapa sin regiones, el despejado; fuera del mapa, lanza.
+ *
+ * Hasta la fase N de la reorganización (07-11-2026) lo calculaba aparte, con el
+ * dueño de su región por otro camino (`dueñoDeLaRegion`): dos cuentas de lo mismo,
+ * y la que se ve era la otra.
  */
 export function climaEn(state: GameState, p: Point): ClimaDelSitio {
-  const k = regionDelSitio(state.map, p);
-  if (k < 0) return DESPEJADO;
-  return climaDeHoy(state, k, faccionDe(state, dueñoDeLaRegion(state, k)));
+  return climaDelSitio(climaDeLaPartida(state), state.map, p);
 }
 
 /**
- * Si es de noche hoy en la región `regionId`: lo que lee `core` (el «mapa vivo»
- * y sus lugares). Lanza con una región que no es del mapa.
+ * Si es de noche hoy en la región `regionId`, en el clima de toda la partida
+ * (`climaDeLaPartida`, como `climaEn`): lo que leería `core` (el «mapa vivo» y sus
+ * lugares; hoy, nadie). Lanza con una región que no es del mapa.
  */
 export function esDeNocheEn(state: GameState, regionId: string): boolean {
   const k = state.map.regions.findIndex((r) => r.id === regionId);
@@ -370,7 +373,7 @@ export function esDeNocheEn(state: GameState, regionId: string): boolean {
       `en este mapa no hay "${regionId}": hay ${state.map.regions.map((r) => r.id).join(', ')}`,
     );
   }
-  return climaDeHoy(state, k, faccionDe(state, dueñoDeLaRegion(state, k))).noche;
+  return climaDeLaRegion(climaDeLaPartida(state), k).noche;
 }
 
 // --------------------------------------------------------------- el narrador

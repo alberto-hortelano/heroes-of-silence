@@ -99,7 +99,7 @@ describe('las regiones del clima', () => {
     }
   });
 
-  it('`climaEn` da lo mismo que el de toda la partida, mirando solo su región', () => {
+  it('`climaEn` es el de toda la partida en su casilla, también con lo pedido y día a día', () => {
     const s = newGame({ seed: 6 });
     const reg = s.map.regions[2];
     if (reg === undefined) throw new Error('el mapa no tiene una tercera región');
