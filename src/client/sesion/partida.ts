@@ -31,7 +31,6 @@ import { partidaDelMundo } from '@core/mundo/partida.js';
 import { estadoDicho, lugarEn } from '@core/mundo/reglas.js';
 import { createRng, type Rng } from '@core/rng.js';
 import { type AsaltantesALaVista, loQueLaPara } from '@core/state/asaltantes.js';
-import { type Ataque, elAtaque } from '@core/state/batallas.js';
 import { settleBattle } from '@core/state/cierre.js';
 import type { ClimaDeLaPartida, ClimaDelSitio, ClimaForzado } from '@core/state/clima.js';
 import {
@@ -73,13 +72,7 @@ import type { GameContext, GameState, Player } from '@core/state/tipos.js';
 import { building } from '@core/town/buildings.js';
 import { construidoEn, type SitioId, sitiosConstruidos } from '@core/town/sitios.js';
 import type { Town } from '@core/town/town.js';
-import {
-  type FactionId,
-  type Hero,
-  NOMBRE_DE_FACCION,
-  type PlayerId,
-  type Point,
-} from '@core/types.js';
+import type { FactionId, Hero, PlayerId, Point } from '@core/types.js';
 import { unidadDelJuego } from '@core/unidad/catalogo.js';
 import {
   AYUDA_DE_LA_BASE,
@@ -97,6 +90,7 @@ import { ELIGE_EN_LA_RUEDA } from './batalla/cruce.js';
 import type { DespliegueEnPantalla } from './batalla/despliegue.js';
 import { SesionDeBatalla } from './batalla/sesion-de-batalla.js';
 import { ALaVista } from './partida/a-la-vista.js';
+import { AtaqueALaPersona, type VistaDelAviso } from './partida/ataque.js';
 import { AyuntamientoEnPantalla } from './partida/ayuntamiento.js';
 import { ClimaEnPantalla } from './partida/clima.js';
 import { type DueñoDeLasPiezas, type Scene, sameTile } from './partida/comun.js';
@@ -792,7 +786,7 @@ export class Session extends SesionDeBatalla {
       const entrar = (): void => this.entrarEnLaBatalla();
       // Una emboscada no la eligió la persona: al acabar la marcha, antes de la
       // batalla, el aviso de quién y dónde, como cuando la atacan en el turno del rival.
-      if (pending.attacker.kind !== 'raider' || !this.avisar(entrar)) entrar();
+      if (pending.attacker.kind !== 'raider' || !this.ataque.avisar(entrar)) entrar();
       return;
     }
 
@@ -976,10 +970,10 @@ export class Session extends SesionDeBatalla {
     // del guardia jugando días enteros de golpe. Se pregunta por el estado.
     while (this.state.finished === null && this.state.current !== this.viewer && guard < 20) {
       // Las batallas en las que el rival ataca a la persona las juega ella
-      // (#116, `defender`). Si una se quedara a medias, la IA pelearía por ella,
+      // (#116, `AtaqueALaPersona.defender`). Si una se quedara a medias, la IA pelearía por ella,
       // pero sin rendirse: rendirse le cobra su oro y esa decisión es solo suya
       // (H-1 de la fase 1b).
-      await playAiTurn(this.state, this.ctx, { batallas: { human: () => this.defender() } });
+      await playAiTurn(this.state, this.ctx, { batallas: { human: () => this.ataque.defender() } });
       guard++;
     }
     // Si se acabó, la barra ya dice cómo (`status`).
@@ -987,109 +981,33 @@ export class Session extends SesionDeBatalla {
   }
 
   /**
-   * La persona juega las batallas en las que la atacan (#116), rueda incluida: el
-   * turno del rival se para en la batalla que acaba de nacer, la escena pasa a ella
-   * y se espera a que la persona la cierre («Continuar» o «Resolver sola», que
-   * pasan por `afterBattle`). Es el `BattleTakeover` de `playAiTurn`, el mismo
-   * contrato que el del agente: si te la quedas, la cierras. Una batalla que no va
-   * con la persona no se toca: la cierra la IA.
+   * Un ataque a la persona: el aviso en el mapa antes de su batalla y, en el turno del
+   * rival, la defensa que espera a que la cierre: `AtaqueALaPersona`
+   * (`sesion/partida/ataque.ts`), en la que delegan estos. Lo que se abre al defender lo
+   * dice la defensa (`DefensaEnPantalla.abrir`).
    */
-  private async defender(): Promise<void> {
-    if (this.miBando === null) return;
-    const cerrada = new Promise<void>((resolve) => {
-      this.alCerrarLaDefensa = resolve;
-    });
-    // Antes de la batalla, el aviso en el mapa: quién ataca, a quién y dónde, con
-    // la cámara en el sitio (arreglo 3 del 06-11-2026: saltaba a la pelea sin
-    // saber dónde). «Defender» la abre (`DefensaEnPantalla.abrir`).
-    if (!this.avisar(() => this.defensaEnPantalla.abrir())) this.defensaEnPantalla.abrir();
-    // Lo que juega el rival llega sin un gesto de la persona: quien pinta no sabría
-    // que hay algo que enseñar.
-    this.alCambiarSinGesto();
-    await cerrada;
-  }
+  private readonly ataque = new AtaqueALaPersona({
+    ...this.dueñoDeLasPiezas,
+    miBando: () => this.miBando,
+    abrirLaDefensa: () => this.defensaEnPantalla.abrir(),
+    alCambiarSinGesto: () => this.alCambiarSinGesto(),
+    resolverSola: () => this.autoResolveBattle(),
+  });
 
-  /**
-   * Pone en pantalla el aviso del ataque de la batalla pendiente, en el mapa, y
-   * guarda qué hacer al pulsar «Defender». `false` si no hay nada que avisar (lo
-   * atacado no se defiende: `elAtaque`), y quien llama entra directamente.
-   */
-  private avisar(alDefender: () => void): boolean {
-    const pending = this.state.pendingBattle;
-    const ataque = pending === null ? null : elAtaque(this.state, pending);
-    if (ataque === null) return false;
-    this.avisoEnPantalla = { ataque, alDefender };
-    this.scene = 'adventure';
-    this.status = this.vistaDelAviso(ataque).titulo;
-    return true;
-  }
-
-  /** El aviso del ataque en pantalla, o `null`. */
-  private avisoEnPantalla: { readonly ataque: Ataque; readonly alDefender: () => void } | null =
-    null;
-
-  /**
-   * El aviso de un ataque a la persona, antes de su batalla: en el turno del
-   * rival (#116) y en la emboscada de un grupo en el suyo. Lo pinta
-   * `partida/aviso.ts` en `<dialog id="aviso">`, con «Defender» y «Resolver sola»,
-   * y la cámara del mapa mira a `at` (`focoDe`).
-   */
+  /** El aviso de un ataque a la persona, antes de su batalla, o `null` (`AtaqueALaPersona.aviso`). */
   get avisoDelAtaque(): VistaDelAviso | null {
-    const a = this.avisoEnPantalla;
-    return a === null ? null : this.vistaDelAviso(a.ataque);
+    return this.ataque.aviso;
   }
 
-  private vistaDelAviso(a: Ataque): VistaDelAviso {
-    const emboscada = a.quien.kind === 'asaltantes';
-    const quien =
-      a.quien.kind === 'heroe'
-        ? `${a.quien.nombre} (${NOMBRE_DE_FACCION[a.quien.faccion]})`
-        : `Un grupo de ${a.quien.individuos} asaltantes`;
-    // Dónde, por un nombre y no por la casilla (06-11-2026: «en (11,5)» no se leía
-    // como un lugar; la cámara ya enseña cuál): el sitio y, en campo abierto, su
-    // región (`Ataque.region`); sin ninguna, nada.
-    const aQuien =
-      a.aQuien.kind === 'heroe'
-        ? a.aQuien.nombre
-        : a.sitio === null
-          ? 'la guarnición'
-          : `la guarnición ${a.sitio.delSitio}`;
-    const donde =
-      a.aQuien.kind === 'guarnicion'
-        ? ''
-        : a.sitio !== null
-          ? ` en ${a.sitio.nombre}`
-          : a.region === null
-            ? ''
-            : ` ${a.region.dentro ? 'en' : 'junto a'} ${a.region.nombre}`;
-    return {
-      titulo: emboscada
-        ? '¡Emboscada!'
-        : a.sitio === null
-          ? '¡Te atacan!'
-          : `¡Te atacan en ${a.sitio.nombre}!`,
-      frase: `${quien} ${emboscada ? 'embosca' : 'ataca'} a ${aQuien}${donde}.`,
-      at: a.at,
-    };
-  }
-
-  /** «Defender» en el aviso: se cierra y se abre la batalla. */
+  /** «Defender» en el aviso: se cierra y se abre la batalla (`AtaqueALaPersona.defenderElAtaque`). */
   defenderElAtaque(): void {
-    const a = this.avisoEnPantalla;
-    if (a === null) return;
-    this.avisoEnPantalla = null;
-    a.alDefender();
+    this.ataque.defenderElAtaque();
   }
 
-  /** «Resolver sola» en el aviso: la IA pelea por la persona, sin abrir la batalla (`autoResolveBattle`). */
+  /** «Resolver sola» en el aviso: la IA pelea por la persona (`AtaqueALaPersona.resolverElAtaqueSola`). */
   resolverElAtaqueSola(): void {
-    if (this.avisoEnPantalla === null) return;
-    this.avisoEnPantalla = null;
-    this.autoResolveBattle();
+    this.ataque.resolverElAtaqueSola();
   }
-
-  /** Quien cierra la defensa en curso y deja seguir el turno del rival, o `null`. */
-  private alCerrarLaDefensa: (() => void) | null = null;
 
   /**
    * Lo que se llama cuando algo que se ve cambia sin un gesto de la persona (una
@@ -1757,12 +1675,9 @@ export class Session extends SesionDeBatalla {
     delLugar: { readonly heroe: string } | null = null,
     antes: AntesDeCerrar | null = null,
   ): void {
-    // Cerrada sin pasar por «Defender» (`autoResolveBattle` directo), su aviso sobra.
-    this.avisoEnPantalla = null;
-    // Si era una defensa (#116), el turno del rival sigue desde aquí.
-    const defensa = this.alCerrarLaDefensa;
-    this.alCerrarLaDefensa = null;
-    defensa?.();
+    // Cerrada sin pasar por «Defender» (`autoResolveBattle` directo), su aviso sobra; y si
+    // era una defensa (#116), el turno del rival sigue desde aquí.
+    this.ataque.trasLaBatalla();
     this.scene = 'adventure';
     this.apuntados.soltar();
     if (this.selectedHero === null) {
@@ -1853,14 +1768,4 @@ interface AntesDeCerrar {
   readonly desde: number;
   /** El nombre de cada héroe antes de cerrarla, por su id. */
   readonly nombres: ReadonlyMap<string, string>;
-}
-
-/** El aviso de un ataque a la persona (`Session.avisoDelAtaque`), dicho. */
-export interface VistaDelAviso {
-  /** «¡Te atacan en Valdeluz!», «¡Te atacan!», «¡Emboscada!». */
-  readonly titulo: string;
-  /** Quién ataca a quién y dónde: «Grishnak (Orkos) ataca a Aldric en Valdeluz.». */
-  readonly frase: string;
-  /** La casilla donde se pelea: a donde mira la cámara. */
-  readonly at: Point;
 }
