@@ -6,6 +6,7 @@
  */
 import { type ClimaForzado, parseClima } from '@core/state/clima.js';
 import { unaVezEnLaURL } from '@core/validar.js';
+import { mensajeDe } from './comun/errores.js';
 
 /** Lo que pide `?clima=`, `null` si nada, o lanza con lo que no se entiende (también si va repetido). */
 export function leerElClimaDeLaURL(params: URLSearchParams): ClimaForzado | null {
@@ -14,7 +15,7 @@ export function leerElClimaDeLaURL(params: URLSearchParams): ClimaForzado | null
 
 /** La frase que dice por qué no vale lo de `?clima=` y cómo salir: la de la partida y el menú. */
 export function salidaDelClima(err: unknown): string {
-  return `${err instanceof Error ? err.message : String(err)} — quita "?clima=…" de la barra de direcciones`;
+  return `${mensajeDe(err)} — quita "?clima=…" de la barra de direcciones`;
 }
 
 /** Lo mismo, para la barra de la arena y del espectador, que siguen sin el clima. */

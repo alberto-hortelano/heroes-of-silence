@@ -14,6 +14,7 @@ import { type FactionId, parseFaccion } from '@core/types.js';
 import { unaVezEnLaURL } from '@core/validar.js';
 import { leerElClimaDeLaURL } from './clima-de-la-url.js';
 import { combateALaURL, combateDeLaURL, type ParametroDelCombate } from './combate-en-la-url.js';
+import { mensajeDe } from './comun/errores.js';
 import type { Desarrollo } from './desarrollo/tipos.js';
 import { EscenaAventura } from './escenas/aventura.js';
 import { EscenaAyuntamiento } from './escenas/ayuntamiento.js';
@@ -214,7 +215,7 @@ interface Fallo {
 function sinArrancar(fallos: readonly Fallo[]): never {
   const texto = fallos
     .map(({ motivo, salida }) => {
-      const m = motivo instanceof Error ? motivo.message : String(motivo);
+      const m = mensajeDe(motivo);
       return salida === null ? m : `${m} — ${salida}`;
     })
     .join('. ');
@@ -454,7 +455,7 @@ function render(ahora: number): void {
   try {
     dibujarFotograma(ahora);
   } catch (err) {
-    const motivo = err instanceof Error ? err.message : String(err);
+    const motivo = mensajeDe(err);
     console.error('[cliente] fallo al pintar', err);
     elStatus.textContent = `No se ha podido pintar la pantalla: ${motivo}`;
   } finally {
@@ -1363,6 +1364,6 @@ if (HERRAMIENTAS_DE_DESARROLLO) {
     })
     .catch((err: unknown) => {
       console.error('[cliente] no se han podido montar las herramientas de desarrollo', err);
-      elStatus.textContent = `No se han podido montar las herramientas de desarrollo: ${err instanceof Error ? err.message : String(err)}`;
+      elStatus.textContent = `No se han podido montar las herramientas de desarrollo: ${mensajeDe(err)}`;
     });
 }

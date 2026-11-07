@@ -85,10 +85,17 @@ describe('una página que no arranca dice por qué (H5)', () => {
       /arrancar\((?:async )?\(\) =>[\s\S]*import\('\.\/main\.js'\)[\s\S]*\);/,
     );
     // Lo que se evalúa seguro: si cargase algo del núcleo, un catálogo roto lo
-    // tumbaría antes de poder decir nada.
+    // tumbaría antes de poder decir nada. El motivo lo saca `mensajeDe`
+    // (`comun/errores.ts`, que tampoco importa nada: fase C de la reorganización).
     const dePartida = dir === ruta('src/client') ? [ruta('src/client/semilla.ts')] : [];
     expect([...cargaAlEvaluarse(entrada)].sort()).toEqual(
-      [entrada, ruta('src/client/arranque.ts'), ruta('src/client/html.ts'), ...dePartida].sort(),
+      [
+        entrada,
+        ruta('src/client/arranque.ts'),
+        ruta('src/client/comun/errores.ts'),
+        ruta('src/client/html.ts'),
+        ...dePartida,
+      ].sort(),
     );
   });
 

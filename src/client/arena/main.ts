@@ -107,6 +107,7 @@ import {
 import { unaVezEnLaURL } from '@core/validar.js';
 import { FIGURA } from '../../shared/arte.js';
 import { avisoDelClima, climaDeLaURL } from '../clima-de-la-url.js';
+import { mensajeDe } from '../comun/errores.js';
 import type { Direccion } from '../direccion.js';
 import { EscenaBatalla } from '../escenas/batalla.js';
 import { FLECHAS_AL_COLOCAR } from '../escenas/despliegue.js';
@@ -511,7 +512,7 @@ function vistaDeLaURL(): {
     }
     return { vista, pieza, aviso: '' };
   } catch (err) {
-    return { vista: null, pieza: null, aviso: `${mensaje(err)}. ` };
+    return { vista: null, pieza: null, aviso: `${mensajeDe(err)}. ` };
   }
 }
 let siguienteClave = 1;
@@ -614,7 +615,7 @@ const parametrosQueNoValen: string[] = [];
 try {
   semillaPedida = parseSeed(unaVezEnLaURL(parametros.getAll('seed'), 'seed'));
 } catch (err) {
-  avisoDeSemilla = `${mensaje(err)} — quita "?seed=…" de la barra de direcciones para sortear la semilla. `;
+  avisoDeSemilla = `${mensajeDe(err)} — quita "?seed=…" de la barra de direcciones para sortear la semilla. `;
   parametrosQueNoValen.push('seed');
 }
 
@@ -709,10 +710,6 @@ function hojasDeHeroe(): { id: string; nombre: string }[] {
   return hojas
     .filter((h) => h.heroe && h.incompleta === null)
     .map((h) => ({ id: h.id, nombre: h.nombre }));
-}
-
-function mensaje(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
 
 /** La ficha que contiene el botón de un gesto de ficha: sin ella, el marcado está mal. */
@@ -1374,7 +1371,7 @@ function cambiarCampoDePieza(
       `«${nueva.nombre}» cambiada: «Guardar» la escribe en data/equipo.json.`,
     );
   } catch (err) {
-    noSeCambia(`${mensaje(err)}.`);
+    noSeCambia(`${mensajeDe(err)}.`);
   }
 }
 
@@ -1702,7 +1699,7 @@ function cambiarHeroe(lado: Lado, cambio: (h: HeroeDeArena) => HeroeDeArena): bo
     avisoTrasCambio('');
     return true;
   } catch (err) {
-    noSeCambia(`${mensaje(err)}.`);
+    noSeCambia(`${mensajeDe(err)}.`);
     return false;
   }
 }
@@ -1726,7 +1723,7 @@ function cambiarCuerpoDeTodoHeroe(campo: 'hp' | 'fuerza' | 'agilidad', v: string
       'el cuerpo de todo héroe',
     );
   } catch (err) {
-    noSeCambia(`${mensaje(err)}.`);
+    noSeCambia(`${mensajeDe(err)}.`);
     return;
   }
   for (const lado of ['izquierda', 'derecha'] as const) {
@@ -1748,7 +1745,7 @@ function cambiarUnidad(id: string, cambio: (u: Unidad) => unknown): void {
     unidadesSinGuardar.add(id);
     avisoTrasCambio('');
   } catch (err) {
-    noSeCambia(`${mensaje(err)}.`);
+    noSeCambia(`${mensajeDe(err)}.`);
   }
 }
 
@@ -1889,7 +1886,7 @@ async function copiarEnlace(): Promise<void> {
     await navigator.clipboard.writeText(enlace);
     aviso = `Enlace de la pelea copiado (semilla ${semilla}): abrirlo monta esta misma pelea.`;
   } catch (err) {
-    aviso = `El enlace de la pelea (semilla ${semilla}) está en su campo: no se ha podido copiar solo (${mensaje(err)}).`;
+    aviso = `El enlace de la pelea (semilla ${semilla}) está en su campo: no se ha podido copiar solo (${mensajeDe(err)}).`;
   }
 }
 
@@ -1903,7 +1900,7 @@ async function copiarEnlace(): Promise<void> {
 function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string } | null {
   const noSeMonta = (err: unknown) => ({
     montado: false,
-    aviso: `El enlace de la pelea no se monta: ${mensaje(err)}. `,
+    aviso: `El enlace de la pelea no se monta: ${mensajeDe(err)}. `,
   });
   let texto: string | null;
   try {
@@ -2059,7 +2056,7 @@ function luchar(): void {
       climaDeLaArena,
     );
   } catch (err) {
-    aviso = `No se puede luchar: ${mensaje(err)}.`;
+    aviso = `No se puede luchar: ${mensajeDe(err)}.`;
     return;
   }
   aLaBarraDeLaArena((url) => url.searchParams.set('seed', String(semilla)));
@@ -2156,7 +2153,7 @@ function render(ahora: number): void {
     }
   } catch (err) {
     console.error('[arena] fallo al pintar', err);
-    elStatus.textContent = `No se ha podido pintar la pantalla: ${mensaje(err)}`;
+    elStatus.textContent = `No se ha podido pintar la pantalla: ${mensajeDe(err)}`;
   } finally {
     if (otraVez) pedirFotograma();
   }
@@ -2685,7 +2682,7 @@ document.addEventListener('click', (ev) => {
         break;
       case 'enlace':
         void copiarEnlace().then(repintarMontaje, (err: unknown) => {
-          aviso = `No se ha podido escribir el enlace de la pelea: ${mensaje(err)}.`;
+          aviso = `No se ha podido escribir el enlace de la pelea: ${mensajeDe(err)}.`;
           repintarMontaje();
         });
         return;
@@ -2721,14 +2718,14 @@ document.addEventListener('click', (ev) => {
       }
       case 'guardar-forma':
         void guardarForma().then(repintarMuralla, (err: unknown) => {
-          aviso = `No se ha guardado la muralla: ${mensaje(err)}.`;
+          aviso = `No se ha guardado la muralla: ${mensajeDe(err)}.`;
           repintarMuralla();
         });
         return;
       case 'borrar-forma': {
         const nombre = el.getAttribute('data-nombre') as string;
         void borrarForma(nombre).then(repintarMuralla, (err: unknown) => {
-          aviso = `No se ha borrado la forma «${nombre}»: ${mensaje(err)}.`;
+          aviso = `No se ha borrado la forma «${nombre}»: ${mensajeDe(err)}.`;
           repintarMuralla();
         });
         return;
@@ -2738,7 +2735,7 @@ document.addEventListener('click', (ev) => {
         void guardar().then(
           () => pedirRepintado(),
           (err: unknown) => {
-            aviso = `No se ha guardado: ${mensaje(err)}.`;
+            aviso = `No se ha guardado: ${mensajeDe(err)}.`;
             pedirRepintado();
           },
         );
@@ -2750,7 +2747,7 @@ document.addEventListener('click', (ev) => {
         return;
     }
   } catch (err) {
-    aviso = mensaje(err);
+    aviso = mensajeDe(err);
     soloLaFicha = null;
   }
   pedirRepintado(soloLaFicha);
@@ -3176,7 +3173,7 @@ Promise.all([arrancar(), arrancarMurallas()]).then(
   },
   (err: unknown) => {
     console.error('[arena] no ha arrancado', err);
-    aviso = `La arena no ha podido arrancar: ${mensaje(err)}`;
+    aviso = `La arena no ha podido arrancar: ${mensajeDe(err)}`;
     elStatus.textContent = aviso;
   },
 );

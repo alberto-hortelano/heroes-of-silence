@@ -11,13 +11,8 @@
  * **no importa nada del núcleo** (lo vigila `test/arranque.test.ts`): es lo único
  * que se evalúa seguro, y lo que cuenta el fallo de lo demás.
  */
+import { mensajeDe } from './comun/errores.js';
 import { type Html, html, pintar } from './html.js';
-
-/** El motivo para la persona: el mensaje entero, tal cual lo escribió quien lanzó. */
-export function motivoDeNoArrancar(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  return String(err);
-}
 
 /**
  * Lo que enseña la página que no arranca: qué pasa, el motivo entero (sin
@@ -27,7 +22,7 @@ export function renderNoArranca(err: unknown): Html {
   return html`<section id="no-arranca" role="alert">
     <h1>La página no arranca</h1>
     <p>Algo de lo que carga al empezar no vale:</p>
-    <pre class="motivo">${motivoDeNoArrancar(err)}</pre>
+    <pre class="motivo">${mensajeDe(err)}</pre>
     <p class="que-hacer">Arréglalo y recarga la página. Lo demás, en la consola del navegador.</p>
   </section>`;
 }

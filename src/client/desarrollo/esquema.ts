@@ -167,10 +167,6 @@ export const esquemaDeMarca = esquemaDeMarcaNueva.omit({ png: true }).extend({
   png: z.string(),
 });
 
-/** El motivo de un fallo, para la barra, la consola o la respuesta del servidor. */
-export const motivoDe = (err: unknown): string =>
-  err instanceof Error ? err.message : String(err);
-
 /** La primera frase de un fallo de zod, con el campo delante: lo que lee la persona. */
 export function fraseDe(err: z.ZodError): string {
   const [primero] = err.issues;

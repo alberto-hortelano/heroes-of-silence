@@ -214,6 +214,7 @@ import {
 } from '@core/types.js';
 import { cuerpoDe, unidadDelJuego } from '@core/unidad/catalogo.js';
 import { componerVistaDelAyuntamiento, type VistaDelAyuntamiento } from './ayuntamiento/vista.js';
+import { mensajeDe } from './comun/errores.js';
 import { quienesDe } from './desenlace.js';
 import { DICHO_DE_LA_OBRA } from './dicho-del-puesto.js';
 import { COMO_SE_COLOCA, type ColocacionEnPantalla } from './escenas/despliegue.js';
@@ -2388,7 +2389,7 @@ export class Session implements ControlDeBatalla {
       );
       this.status = '';
     } catch (err) {
-      this.status = comoFrase(mensaje(err));
+      this.status = comoFrase(mensajeDe(err));
       return;
     }
     // Mandarlo a andar es despertarlo: si no, se queda fuera de «Siguiente
@@ -2729,7 +2730,7 @@ export class Session implements ControlDeBatalla {
           vista.filas.map((f) => ({ creature: f.creature, count: f.pelean })),
         );
       } catch (err) {
-        this.status = comoFrase(mensaje(err));
+        this.status = comoFrase(mensajeDe(err));
         return;
       }
     }
@@ -2848,7 +2849,7 @@ export class Session implements ControlDeBatalla {
     try {
       applyAdventureAction(this.state, { type: 'end_turn' }, this.ctx, this.viewer);
     } catch (err) {
-      this.status = mensaje(err);
+      this.status = mensajeDe(err);
       return;
     }
     this.turnoDelRivalEnCurso = true;
@@ -2861,7 +2862,7 @@ export class Session implements ControlDeBatalla {
       // en la IA, el botón seguía deshabilitado y el fallo solo salía por la
       // consola como `unhandledrejection`. Sigue sin ser tu turno —eso no se
       // puede inventar—, pero ahora se dice por qué.
-      this.status = `El turno del rival se ha interrumpido: ${mensaje(err)}`;
+      this.status = `El turno del rival se ha interrumpido: ${mensajeDe(err)}`;
     } finally {
       // Pase lo que pase: una bandera que se queda arriba deja el juego mudo
       // para siempre, y eso es peor que el fallo que la dejó ahí.
@@ -4212,7 +4213,7 @@ export class Session implements ControlDeBatalla {
       this.status = '';
       bien = true;
     } catch (err) {
-      this.status = mensaje(err);
+      this.status = mensajeDe(err);
     }
     this.tocar();
     // Quien lo llama puede decir en la barra qué pasó si salió bien («El gambesón
@@ -4707,7 +4708,7 @@ export class CruceDeLaRueda {
     try {
       lista = this.completar(battle, accion);
     } catch (err) {
-      sesion.status = mensaje(err);
+      sesion.status = mensajeDe(err);
       return;
     }
     // Plantado, la rueda espera: el tablero cuenta la marcha y luego se abre.
@@ -4722,7 +4723,7 @@ export class CruceDeLaRueda {
     try {
       lista = this.elegir(battle, tipo);
     } catch (err) {
-      this.conductor.sesion.status = mensaje(err);
+      this.conductor.sesion.status = mensajeDe(err);
       return;
     }
     this.conductor.alMoverse();
@@ -4735,7 +4736,7 @@ export class CruceDeLaRueda {
     try {
       sesion.status = this.cancelar(battle);
     } catch (err) {
-      sesion.status = mensaje(err);
+      sesion.status = mensajeDe(err);
       return false;
     }
     this.conductor.alMoverse();
@@ -4755,7 +4756,7 @@ export class CruceDeLaRueda {
       this.conductor.alMoverse();
       sesion.status = '';
     } catch (err) {
-      sesion.status = mensaje(err);
+      sesion.status = mensajeDe(err);
       return;
     }
     sesion.apuntados.soltar();
@@ -4931,11 +4932,6 @@ export interface RuedaPendiente {
 
 function sameTile(a: Point, b: Point): boolean {
   return a.x === b.x && a.y === b.y;
-}
-
-/** Los errores del núcleo llevan un mensaje escrito para la persona. */
-function mensaje(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
 
 /** Un motivo del núcleo («no quedan puntos…») como frase de la barra. */

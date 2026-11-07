@@ -13,6 +13,7 @@
  * existen, con las frases del motor).
  */
 import { type BancoPintado, leerBanco, SIN_BANCO } from '@core/gente/banco.js';
+import { mensajeDe } from '../comun/errores.js';
 import { registrarGente } from './personajes.js';
 
 /** El banco de la página y, si no se pudo cargar, por qué (`null`: se cargó). */
@@ -50,7 +51,7 @@ async function pedir(): Promise<GenteCargada> {
   try {
     r = await fetch('/__npcs');
   } catch (err) {
-    return sinBanco(`no responde /__npcs: ${err instanceof Error ? err.message : err}`);
+    return sinBanco(`no responde /__npcs: ${mensajeDe(err)}`);
   }
   // El build lo emite como un fichero sin extensión: el tipo que diga el servidor no
   // cuenta, cuenta que sea JSON. Lo que no lo es (una página de «no está») no es banco.

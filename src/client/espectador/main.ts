@@ -23,6 +23,7 @@ import {
 import type { SpectatorSnapshotMsg } from '../../server/protocol.js';
 import type { SpectatorView } from '../../server/vista-espectador.js';
 import { avisoDelClima, climaDeLaURL } from '../clima-de-la-url.js';
+import { mensajeDe } from '../comun/errores.js';
 import { NADA } from '../html.js';
 import { cargarArte } from '../render/assets.js';
 import { alzadoDeLaMuralla, bandosSinDueño, drawBatalla } from '../render/batalla.js';
@@ -284,7 +285,7 @@ function dibujar(ahora: number): void {
       pedirFotograma();
     }
   } catch (err) {
-    const motivo = err instanceof Error ? err.message : String(err);
+    const motivo = mensajeDe(err);
     if (!fallandoAlPintar) {
       console.error('[espectador] fallo al pintar', err);
       fallandoAlPintar = true;
@@ -509,7 +510,7 @@ function aplicar(snapshot: SpectatorSnapshotMsg): void {
     nueva = adaptarEscena(snapshot.view);
     nuevos = sitiosDelCable(snapshot.view, nueva.map.objects);
   } catch (err) {
-    const motivo = err instanceof Error ? err.message : String(err);
+    const motivo = mensajeDe(err);
     console.error('[espectador] fotograma del cable que no se entiende', err);
     ilegible = motivo;
     decirQueSeMira();
@@ -606,7 +607,7 @@ function abrir(url: string, intento: { readonly n: number; readonly caida: Caida
     try {
       msg = JSON.parse(String(ev.data));
     } catch (err) {
-      elStatus.textContent = `Llegó algo que no es JSON: ${err instanceof Error ? err.message : String(err)}`;
+      elStatus.textContent = `Llegó algo que no es JSON: ${mensajeDe(err)}`;
       return;
     }
     // Lo único que se valida en ejecución, tal y como dice `vista-espectador.ts`:
@@ -624,7 +625,7 @@ function abrir(url: string, intento: { readonly n: number; readonly caida: Caida
     try {
       partida = partidaDelMensaje(msg);
     } catch (err) {
-      elStatus.textContent = `No se puede mirar ${url}: ${err instanceof Error ? err.message : String(err)}.`;
+      elStatus.textContent = `No se puede mirar ${url}: ${mensajeDe(err)}.`;
       return;
     }
     // Se reconoce AL LLEGAR y no al poner: lo que está en la cola del telón es

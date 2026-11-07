@@ -11,6 +11,7 @@
 import { esBarrera, type TerrainKind } from '@core/map/terrain.js';
 import type { MejoraDelPuesto } from '@core/map/tipos.js';
 import catalogoDelRepo from '../../../../assets/mapa/escena.json' with { type: 'json' };
+import { mensajeDe } from '../../comun/errores.js';
 import {
   avisarDeArteNuevo,
   cargarArteDeEscena,
@@ -868,7 +869,7 @@ function encargar(s: SueloDelEscenario, quien: PintorDelSuelo, resoluciones: rea
       (px) => (px === PX_DEL_ESBOZO ? s.esbozo : s.bueno?.px === px ? s.bueno : null) === null,
     );
     console.error(
-      `el suelo del mapa no se ha podido pintar aparte (${err instanceof Error ? err.message : String(err)}): se pinta en el hilo principal a ${faltan.join(' y ')} px por casilla`,
+      `el suelo del mapa no se ha podido pintar aparte (${mensajeDe(err)}): se pinta en el hilo principal a ${faltan.join(' y ')} px por casilla`,
     );
     if (suelo === s && faltan.length > 0) encargar(s, enEsteHilo, faltan);
   });

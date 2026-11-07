@@ -6,6 +6,7 @@
  * aquí devuelve `null` en vez de lanzar, y el manifiesto que falta no es un
  * error sino "todavía no se ha generado nada".
  */
+import { mensajeDe } from '../comun/errores.js';
 import { urlDeImagenSegura } from '../html.js';
 import { registrarLasHojas } from './personajes.js';
 
@@ -46,7 +47,7 @@ function cargarImagen(clave: string, url: string): Promise<void> {
     try {
       comprobada = urlDeImagenSegura(url);
     } catch (err) {
-      console.warn(`[assets] no se carga ${clave}: ${err instanceof Error ? err.message : err}`);
+      console.warn(`[assets] no se carga ${clave}: ${mensajeDe(err)}`);
       resolve();
       return;
     }
@@ -234,7 +235,7 @@ async function cargarDeEscena(src: string): Promise<void> {
   try {
     url = urlDeImagenSegura(`/mapa/${src}`);
   } catch (err) {
-    console.warn(`[assets] no se carga escena/${src}: ${err instanceof Error ? err.message : err}`);
+    console.warn(`[assets] no se carga escena/${src}: ${mensajeDe(err)}`);
     return;
   }
   try {
@@ -242,9 +243,7 @@ async function cargarDeEscena(src: string): Promise<void> {
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     deEscena.set(src, await createImageBitmap(await r.blob()));
   } catch (err) {
-    console.warn(
-      `[assets] no ha cargado escena/${src} (${url}): ${err instanceof Error ? err.message : err}`,
-    );
+    console.warn(`[assets] no ha cargado escena/${src} (${url}): ${mensajeDe(err)}`);
   }
 }
 
