@@ -46,6 +46,7 @@ import {
   BOARD_SIZE,
   bandoDeSalida,
   codigoDeLado,
+  distanciasDesde,
   FORMA_DEL_TABLERO,
   hexKey,
   indiceDe,
@@ -450,6 +451,11 @@ function conjuntosDe(m: MurallaDeBatalla): Conjuntos {
  * pisar muro ni cruzar ninguna puerta (todas cerradas, `cortes`), de la salida
  * del atacante que de la del defensor. Y si la forma cierra: si desde la salida
  * del defensor no se llega a la del atacante.
+ *
+ * Las distancias andando son las del tablero (`distanciasDesde`, `board.ts`), desde
+ * la salida de cada bando sin sus muros: llevaba su copia del BFS hasta la fase N de
+ * la reorganización (07-11-2026). Un BFS da distancias y no caminos, así que el orden
+ * de las vecinas no cuenta.
  */
 function dentroYFuera(
   muros: ReadonlySet<string>,
@@ -458,47 +464,27 @@ function dentroYFuera(
   fuera: Uint8Array;
   cierra: boolean;
 } {
-  const alDefensor = distanciasDesde('defender', muros, cortes);
-  const alAtacante = distanciasDesde('attacker', muros, cortes);
+  // El tablero busca hacia atrás: pregunta por el paso de quien está en `n` y
+  // anda a `h`, y la copia de antes cortaba el lado de `h` a `n` (las puertas
+  // cortan los dos, `ladosDe`, pero así es el mismo paso que antes).
+  const paso = (n: number, h: number): boolean => !cortes.has(codigoDeLado(h, n));
+  const desdeLaSalida = (side: Side) =>
+    distanciasDesde(
+      allHexes().filter((h) => bandoDeSalida(h) === side && !muros.has(hexKey(h))),
+      muros,
+      paso,
+    );
+  const alDefensor = desdeLaSalida('defender');
+  const alAtacante = desdeLaSalida('attacker');
   const fuera = new Uint8Array(BOARD_SIZE);
   let cierra = true;
   for (const [i, hex] of allHexes().entries()) {
     if (muros.has(hexKey(hex))) continue;
     // Sin llegar, la distancia es `Infinity`: un empate o un hueco cerrado es dentro.
-    if ((alAtacante[i] as number) < (alDefensor[i] as number)) fuera[i] = 1;
-    if (bandoDeSalida(hex) === 'attacker' && alDefensor[i] !== Infinity) cierra = false;
+    if (alAtacante(hex) < alDefensor(hex)) fuera[i] = 1;
+    if (bandoDeSalida(hex) === 'attacker' && alDefensor(hex) !== Infinity) cierra = false;
   }
   return { fuera, cierra };
-}
-
-/** Los pasos andando de cada casilla a la salida de `side`, por índice; `Infinity` si no se llega. */
-function distanciasDesde(
-  side: Side,
-  muros: ReadonlySet<string>,
-  cortes: ReadonlySet<number>,
-): Float64Array {
-  const dist = new Float64Array(BOARD_SIZE).fill(Infinity);
-  let frente: Hex[] = [];
-  for (const [i, hex] of allHexes().entries()) {
-    if (bandoDeSalida(hex) !== side || muros.has(hexKey(hex))) continue;
-    dist[i] = 0;
-    frente.push(hex);
-  }
-  for (let d = 1; frente.length > 0; d++) {
-    const siguiente: Hex[] = [];
-    for (const h of frente) {
-      const desde = indiceDe(h);
-      for (const n of neighbours(h)) {
-        const i = indiceDe(n);
-        if (dist[i] !== Infinity || muros.has(hexKey(n)) || cortes.has(codigoDeLado(desde, i)))
-          continue;
-        dist[i] = d;
-        siguiente.push(n);
-      }
-    }
-    frente = siguiente;
-  }
-  return dist;
 }
 
 /**

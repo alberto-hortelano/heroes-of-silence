@@ -1275,3 +1275,4 @@ simbolo	src/core/map/map.ts	src/core/map/geometria.ts	inBounds
 simbolo	src/core/map/recinto.ts	src/core/map/geometria.ts	dentro, privada (→ inBounds: la misma cuenta; N12)
 simbolo	src/core/map/map.ts	(retirado)	casillaDelIndice (→ aPunto(i, alcance.ancho), de geometria.ts; N12)
 simbolo	src/core/ai/strategy.ts	(retirado)	distanciaAprox, privada (→ chebyshev, de geometria.ts; N12)
+simbolo	src/core/battle/muralla.ts	src/core/battle/board.ts	distanciasDesde, la privada de la muralla (→ distanciasDesde del tablero; N12)
