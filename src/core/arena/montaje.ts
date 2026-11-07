@@ -43,7 +43,7 @@ import { despliegueBlocker } from '../battle/despliegue.js';
 import { type MurallaDeBatalla, SIN_MURALLA } from '../battle/muralla.js';
 import type { BattleState, FichaEnPalabras, Side } from '../battle/types.js';
 import type { ReglasDelCombate } from '../combate.js';
-import type { CatalogoDeEquipo, EquipoAtado } from '../hero/equipo.js';
+import type { CatalogoDeEquipo, EquipoAtado } from '../equipo/atado.js';
 import { type CatalogoDeHechizos, HECHIZOS_DEL_JUEGO } from '../magia/catalogo.js';
 import type { Rng } from '../rng.js';
 import type { UnitInfo } from '../types.js';

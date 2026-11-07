@@ -28,8 +28,8 @@ import {
 import { horquillaDeDanio } from '../src/core/battle/damage.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import type { Pieza } from '../src/core/equipo/pieza.js';
-import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
 import type { Equipo, Hex, UnitInfo } from '../src/core/types.js';
 import { cuerpoConSusCifras } from '../src/core/unidad/cuerpo.js';

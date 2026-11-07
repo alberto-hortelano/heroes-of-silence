@@ -56,15 +56,10 @@ import {
   SIDES,
   type Side,
 } from '@core/battle/types.js';
+import { conSigno, modificadoresDePieza, textoDeModificador } from '@core/equipo/dicho.js';
 import type { Pieza } from '@core/equipo/pieza.js';
-import {
-  conSigno,
-  destinoDeEquipo,
-  modificadoresDePieza,
-  PIEZAS_DE_ARMERIA,
-  pieza,
-  textoDeModificador,
-} from '@core/hero/equipo.js';
+import { PIEZAS_DE_ARMERIA, pieza } from '@core/equipo/pieza.js';
+import { destinoDeEquipo } from '@core/equipo/portador.js';
 import { rangoDe, rangoDeHeroe, umbral } from '@core/hero/experiencia.js';
 import { cuerpoDelHeroe, type Hero, heroUnit, maxMana, maxMovePoints } from '@core/hero/hero.js';
 import { nombreDeTipoDeHeroe } from '@core/hero/tipos-de-heroe.js';

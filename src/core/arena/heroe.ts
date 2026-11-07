@@ -8,8 +8,14 @@
 import { type HeroeDelBando, mandoDe } from '../battle/battle.js';
 import { duracionDeLoQueLanza } from '../battle/spells.js';
 import { HERO_BODY } from '../battle/types.js';
-import { type CuerpoDeTodoHeroe, combateDelHeroe, HEROE } from '../hero/cuerpo-del-heroe.js';
-import { EQUIPO_BASE, type EquipoAtado, idsPuestos } from '../hero/equipo.js';
+import type { EquipoAtado } from '../equipo/atado.js';
+import { idsPuestos } from '../equipo/vestir.js';
+import {
+  type CuerpoDeTodoHeroe,
+  combateDelHeroe,
+  EQUIPO_BASE,
+  HEROE,
+} from '../hero/cuerpo-del-heroe.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../hero/experiencia.js';
 import { CIFRAS_DEL_HEROE_INICIAL, cuerpoDelHeroe, maxMana } from '../hero/hero.js';
 import {

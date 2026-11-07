@@ -1,12 +1,15 @@
 /**
  * El héroe como figura del tablero, de `data/heroe.json`: el cuerpo de todo héroe
- * (el que edita la arena), el precio de rendirse y el equipo con que nace.
+ * (el que edita la arena), el precio de rendirse y el equipo con que nace
+ * (`EQUIPO_BASE`, y si vale con un catálogo, `equipoBaseBlocker`: estaban en
+ * `hero/equipo.ts` hasta la fase N de la reorganización, 07-11-2026).
  *
  * Su lector vivía en `data.ts`, con las demás tablas; desde la fase N de la
  * reorganización (07-11-2026) cada `data/*.json` lo lee el módulo de su dominio, que
  * lo valida al cargar.
  */
 import heroeJson from '../../../data/heroe.json' with { type: 'json' };
+import type { EquipoAtado } from '../equipo/atado.js';
 import { type Equipo, esHueco, HUECOS } from '../types.js';
 import { enteroBlocker, problemasDeObjeto } from '../validar.js';
 
@@ -30,8 +33,8 @@ export interface ReglasDelHeroe {
   /**
    * Con lo que nace todo héroe: un id de pieza por hueco (decisión del usuario,
    * 18-10-2026: la Espada y el gambesón). Aquí solo se comprueba que los huecos
-   * existan; que las piezas existan y casen lo comprueba `EQUIPO_BASE`
-   * (`hero/equipo.ts`) al cargar, con el catálogo de equipo.
+   * existan; que las piezas existan y casen lo comprueba `equipoBaseBlocker`
+   * (abajo) al cargar los catálogos, con el de equipo.
    */
   readonly equipoBase: Equipo;
 }
@@ -105,3 +108,22 @@ export const HEROE: ReglasDelHeroe = {
   rendicion: { ...heroeJson.rendicion },
   equipoBase: equipoBaseDelHeroe(heroeJson.equipoBase),
 };
+
+/**
+ * Por qué el equipo base del héroe (`data/heroe.json`) no vale con las piezas de
+ * `eq`, o `null`: que cada pieza exista, vaya en su hueco y las manos casen
+ * (`equipoBlocker`). La lee solo `leerCatalogos` (`unidad/formato.ts`), lo que la
+ * carga del juego, «Guardar» y el editor de equipo exigen a los catálogos juntos.
+ */
+export function equipoBaseBlocker(eq: EquipoAtado): string | null {
+  const motivo = eq.equipoBlocker(HEROE.equipoBase);
+  return motivo === null ? null : `el equipo base del héroe (data/heroe.json): ${motivo}`;
+}
+
+/**
+ * El equipo con el que nace todo héroe (decisión del usuario, 18-10-2026: la
+ * Espada y el gambesón), de `data/heroe.json`, donde se comprueba su forma; que
+ * sus piezas valgan con el catálogo lo comprueba la carga de los catálogos
+ * (`leerCatalogos`, desde `unidad/catalogo.ts`). Lo lleva también el héroe de la arena.
+ */
+export const EQUIPO_BASE: Equipo = Object.freeze({ ...HEROE.equipoBase });

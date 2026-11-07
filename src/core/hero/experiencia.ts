@@ -23,10 +23,10 @@
  * banco valga fuera de esta máquina.
  */
 import experienciaJson from '../../../data/experiencia.json' with { type: 'json' };
+import { conEquipo } from '../equipo/vestir.js';
 import type { UnitInfo, Veterania } from '../types.js';
 import { cuerpoConSusCifras } from '../unidad/cuerpo.js';
 import { enteroBlocker, enteroDesde, problemasDeObjeto } from '../validar.js';
-import { conEquipo } from './equipo.js';
 
 /**
  * Las reglas de la experiencia, de `data/experiencia.json`. **Regla nuestra y

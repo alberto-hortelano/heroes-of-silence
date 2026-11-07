@@ -19,7 +19,7 @@ import {
 } from '../src/core/battle/battle.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import { catalogoDeHechizos, hechizo } from '../src/core/magia/catalogo.js';
 import { rinde } from '../src/core/magia/formato.js';
 import { createRng, type Rng } from '../src/core/rng.js';

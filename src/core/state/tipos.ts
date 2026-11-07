@@ -9,7 +9,7 @@
  */
 import type { BattleState } from '../battle/types.js';
 import type { ReglasDelCombate } from '../combate.js';
-import type { Portador } from '../hero/equipo.js';
+import type { Portador } from '../equipo/portador.js';
 import type { Hero } from '../hero/hero.js';
 import type { Casillas } from '../map/casillas.js';
 import type { GameMap, MapObject, ObraDelPuesto } from '../map/map.js';

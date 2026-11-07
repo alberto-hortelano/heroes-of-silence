@@ -12,7 +12,8 @@
  */
 
 import { cupoDelHeroe } from '../combate.js';
-import { idsPuestos, piezaSiExiste } from '../hero/equipo.js';
+import { piezaSiExiste } from '../equipo/pieza.js';
+import { idsPuestos } from '../equipo/vestir.js';
 import type { Hero } from '../hero/hero.js';
 import { heroLeadership, troopBlocker, withTroops } from '../hero/troop.js';
 import { pointKey } from '../map/map.js';

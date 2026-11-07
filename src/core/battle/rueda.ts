@@ -28,7 +28,7 @@
  * `battle.ts`; lo leen el motor (`applyAction`, `melee`, el daño), la IA
  * (`ai/rueda.ts`), las sesiones y la rueda del cliente.
  */
-import { conSigno } from '../hero/equipo.js';
+import { conSigno } from '../equipo/dicho.js';
 import {
   conComa,
   esTipoDeGolpe,

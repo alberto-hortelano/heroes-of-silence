@@ -25,17 +25,17 @@ import { type MurallaDeBatalla, SIN_MURALLA } from '../src/core/battle/muralla.j
 import type { BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import {
+  type CatalogoDeEquipo,
+  catalogoDeEquipo,
+  EQUIPO_DEL_JUEGO,
+} from '../src/core/equipo/atado.js';
+import {
   COMENTARIO_DEL_CATALOGO_DE_EQUIPO,
   EQUIPO_ESCRITO,
   type PiezaEscrita,
   RUTA_DEL_CATALOGO_DE_EQUIPO,
 } from '../src/core/equipo/pieza.js';
 import { RUTA_DEL_HEROE } from '../src/core/hero/cuerpo-del-heroe.js';
-import {
-  type CatalogoDeEquipo,
-  catalogoDeEquipo,
-  EQUIPO_DEL_JUEGO,
-} from '../src/core/hero/equipo.js';
 import type { Rng } from '../src/core/rng.js';
 import { type CatalogoDeUnidades, UNIDADES, unidad } from '../src/core/unidad/catalogo.js';
 import type { Unidad } from '../src/core/unidad/formato.js';

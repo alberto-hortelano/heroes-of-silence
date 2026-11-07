@@ -19,17 +19,11 @@
 import ciudadesJson from '../../../data/ciudades.json' with { type: 'json' };
 import unidadesJson from '../../../data/unidades.json' with { type: 'json' };
 import type { BattleStack } from '../battle/types.js';
-import {
-  aDosManos,
-  conEquipo,
-  EQUIPO_DEL_JUEGO,
-  type EquipoAtado,
-  equipoBlocker,
-  equipoDe,
-  manosBlocker,
-  type Portador,
-  pieza,
-} from '../hero/equipo.js';
+import { EQUIPO_DEL_JUEGO, type EquipoAtado } from '../equipo/atado.js';
+import { aDosManos, equipoBlocker, manosBlocker } from '../equipo/manos.js';
+import { pieza } from '../equipo/pieza.js';
+import { equipoDe, type Portador } from '../equipo/portador.js';
+import { conEquipo } from '../equipo/vestir.js';
 import { cifrasVeteranas, rangoDeTropa } from '../hero/experiencia.js';
 import type { Hero } from '../hero/hero.js';
 import { LIDERAZGO } from '../hero/liderazgo.js';
@@ -170,7 +164,7 @@ export function equipoPuesto(id: string, propio: Equipo | undefined): Equipo {
  * suyo; un individuo del catálogo, además lo de serie de su unidad
  * (`equipoPuesto`). La leen ponerse y quitar (`equipoDelPortadorBlocker`, con lo
  * que quedaría) y la IA, que no compra lo que no mejora lo puesto. Vive aquí y no
- * junto a `equipoDe` (`hero/equipo.ts`) porque necesita el catálogo, que importa
+ * junto a `equipoDe` (`equipo/portador.ts`) porque necesita el catálogo, que importa
  * ese módulo al cargar.
  */
 export function equipoPuestoDe(

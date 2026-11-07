@@ -68,6 +68,7 @@ import {
 } from '@core/battle/muralla.js';
 import type { BattleStack } from '@core/battle/types.js';
 import { COMBATE_COMPLETO, type ReglasDelCombate } from '@core/combate.js';
+import { type CatalogoDeEquipo, catalogoDeEquipo, EQUIPO_DEL_JUEGO } from '@core/equipo/atado.js';
 import {
   conLosExtras,
   DONDE_SE_CONSIGUE,
@@ -78,13 +79,8 @@ import {
   type PiezaEscrita,
   validarPieza,
 } from '@core/equipo/pieza.js';
+import { idsPuestos } from '@core/equipo/vestir.js';
 import { type CuerpoDeTodoHeroe, combateDelHeroe, HEROE } from '@core/hero/cuerpo-del-heroe.js';
-import {
-  type CatalogoDeEquipo,
-  catalogoDeEquipo,
-  EQUIPO_DEL_JUEGO,
-  idsPuestos,
-} from '@core/hero/equipo.js';
 import {
   type CatalogoDeHechizos,
   catalogoDeHechizos,

@@ -8,8 +8,10 @@ import { playAiGame, playAiTurn, resolvePendingBattle } from '../src/core/ai/tur
 import { createBattle } from '../src/core/battle/battle.js';
 import { queEs } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
+import { esDeGuerra } from '../src/core/equipo/manos.js';
 import { marchaALaEscala } from '../src/core/escala.js';
-import { EQUIPO_BASE, EQUIPO_DEL_JUEGO, esDeGuerra } from '../src/core/hero/equipo.js';
+import { EQUIPO_BASE } from '../src/core/hero/cuerpo-del-heroe.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import {
   type GrupoQueMarcha,

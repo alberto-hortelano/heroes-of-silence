@@ -31,8 +31,8 @@ import { GRANADA } from '../battle/granada.js';
 import { reglaDeLaMuralla } from '../battle/muralla.js';
 import { HERO_BODY } from '../battle/types.js';
 import { TOPES_DE_TROPA } from '../combate.js';
+import { REGLA_DEL_ESCUDO } from '../equipo/manos.js';
 import { LARGO_DE_LINEA, LINEAS_POR_VECINO, MAX_VOCES_POR_RESPUESTA } from '../gente/voces.js';
-import { EQUIPO_BASE, REGLA_DEL_ESCUDO } from '../hero/equipo.js';
 import { RANGO_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
 import { GARRISON_LEADERSHIP } from '../hero/troop.js';
 import { hechizo } from '../magia/catalogo.js';
@@ -124,6 +124,7 @@ const VACIOS_DE_SERIE = HUECOS.filter((h) => EQUIPO_BASE[h] === undefined).map(
   (h) => `"${SLOT_DE_HUECO[h]}"`,
 );
 
+import { EQUIPO_BASE } from '../hero/cuerpo-del-heroe.js';
 import { ECONOMIA } from '../town/economia.js';
 import type { RequestKind } from './esquemas.js';
 import { COMO_SE_LEE_EL_MAPA } from './mapa-conocido.js';

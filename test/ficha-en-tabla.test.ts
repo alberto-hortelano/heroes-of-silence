@@ -19,7 +19,7 @@ import {
 } from '../src/client/arena/paneles.js';
 import { marcadoDe } from '../src/client/html.js';
 import { fichaDeHeroeDeArena, heroePorDefecto } from '../src/core/arena/heroe.js';
-import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import { unidadDeArena } from './pelea-de-arena.js';
 
 const MONTAJE = enElMontaje(EQUIPO_DEL_JUEGO);

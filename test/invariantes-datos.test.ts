@@ -115,10 +115,12 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo([ruta('src/client/arena/main.ts')], veElBorrador)).not.toEqual([]);
 
     // (b) La arena lee las piezas solo con su catálogo atado (`equipoCon`, que da
-    // `catalogoDeLaArena`): no importa las lecturas sueltas de `equipo.ts`, que
+    // `catalogoDeLaArena`): no importa las lecturas sueltas de `core/equipo/`, que
     // leen siempre las del juego, ni `heroUnit`, que viste al héroe con ellas.
     // Por IMPORTACIÓN: sin la suelta a mano, no hay llamada que se olvide de su
-    // catálogo. Roto a mano: `pieza` importada en `paneles.ts` sale rojo.
+    // catálogo. Roto a mano: `pieza` importada en `paneles.ts` sale rojo. Las sueltas
+    // eran de `hero/equipo.ts` hasta la fase N de la reorganización (07-11-2026), hoy
+    // repartido en `core/equipo/`: se mira cualquier fichero de la carpeta.
     const SUELTAS = new Set([
       'pieza',
       'piezaSiExiste',
@@ -130,7 +132,7 @@ describe('invariantes del proyecto', () => {
       'heroUnit',
     ]);
     const deEquipoOHeroe =
-      /import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*['"]([^'"]*\/hero\/(?:equipo|hero)\.js|\.\/(?:equipo|hero)\.js)['"]/g;
+      /import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*['"]([^'"]*\/equipo\/[^/'"]+\.js|[^'"]*\/hero\/hero\.js|\.\/hero\.js)['"]/g;
     const sueltas: string[] = [];
     for (const ruta of [...CORE, ...CLIENTE].filter(ARENA)) {
       for (const [, nombres] of codigoDe(ruta).matchAll(deEquipoOHeroe)) {

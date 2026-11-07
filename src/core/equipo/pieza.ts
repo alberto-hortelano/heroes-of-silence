@@ -1,8 +1,11 @@
 /**
  * Una pieza de equipo: su formato, su regla (`problemasDePieza`), las bases sobre
  * las que va (`resolverBases`, la única suma) y el catálogo escrito en
- * `data/equipo.json` (`leerEquipo`, `EQUIPO`). Lo que una pieza da puesta
- * (`conEquipo`) y el catálogo atado siguen en `hero/equipo.ts`.
+ * `data/equipo.json` (`leerEquipo`, `EQUIPO`), con el del juego por id
+ * (`PIEZAS_DEL_CATALOGO`, `pieza`) y de dónde sale una pieza (`seVende`,
+ * `PIEZAS_DE_ARMERIA`, `PIEZAS_DE_BOTIN`). Lo que una pieza da puesta (`conEquipo`)
+ * está en `vestir.ts`, y el catálogo atado, en `atado.ts` (eran `hero/equipo.ts`
+ * hasta la fase N de la reorganización, 07-11-2026).
  *
  * Su lector vivía en `data.ts`, con las demás tablas; desde la fase N de la
  * reorganización (07-11-2026) cada `data/*.json` lo lee el módulo de su dominio, que
@@ -99,8 +102,8 @@ export interface Pieza {
   /**
    * La agilidad de una montura, de 2 a 7, como la de un cuerpo (26-10-2026): de ella,
    * tras el peso, salen sus casillas (`cifrasDelCuerpo`, `marchaDe`). Solo en el
-   * hueco `montura`, y en él siempre. Lo leen solo `hero/equipo.ts` y este módulo
-   * (lo vigila `invariantes.test.ts`).
+   * hueco `montura`, y en él siempre. Lo leen solo `equipo/vestir.ts`,
+   * `equipo/dicho.ts` y este módulo (lo vigila `invariantes.test.ts`).
    */
   readonly agilidad?: number;
   /**
@@ -120,13 +123,13 @@ export interface Pieza {
    * más, y con una montura de guerra puesta su carga va con la fuerza de la montura
    * más la de la lanza (`GolpeConArma.carga`, 26-10-2026). Solo en el hueco `arma`;
    * sin el campo, no lo es. Lo
-   * leen solo `hero/equipo.ts` y este módulo (lo vigila `invariantes.test.ts`).
+   * leen solo `equipo/manos.ts` y este módulo (lo vigila `invariantes.test.ts`).
    */
   readonly lanza?: true;
   /**
    * Si es una montura de guerra (26-10-2026): se monta en batalla, carga el peso y
    * da las casillas; sin el campo, de silla, que solo sirve en el mapa. Solo en el
-   * hueco `montura`. Lo leen solo `hero/equipo.ts`, este módulo y `cuerpo.ts` (lo
+   * hueco `montura`. Lo leen solo `equipo/manos.ts`, este módulo y `unidad/cuerpo.ts` (lo
    * vigila `invariantes.test.ts`).
    */
   readonly guerra?: true;
@@ -136,7 +139,7 @@ export interface Pieza {
    * `recarga` y su propia `agilidad`, y la armadura no lo para); `granada`, se lanza
    * por encima a una casilla y explota al empezar su siguiente turno (con sus
    * `cargas`). Sin el campo, arco o ballesta. Solo en `distancia`. Lo leen solo
-   * `hero/equipo.ts`, este módulo y `battle/armas.ts` (lo vigila `invariantes.test.ts`).
+   * `equipo/vestir.ts`, este módulo y `battle/armas.ts` (lo vigila `invariantes.test.ts`).
    */
   readonly tiro?: TipoDeTiro;
   /**
@@ -999,7 +1002,7 @@ export function validarPieza(valor: unknown): PiezaEscrita {
  * Devuelve las escritas y las resueltas, en su orden, o **lanza con todos los
  * problemas a la vez**, escritos para quien edita el JSON (`donde` delante, si se
  * dice). Lo leen el cargador del fichero (`leerEquipo`) y todo catálogo que se
- * hace en memoria (`catalogoDeEquipo`, `hero/equipo.ts`): **una sola validación**
+ * hace en memoria (`catalogoDeEquipo`, `equipo/atado.ts`): **una sola validación**
  * del catálogo, la del fichero que lee el juego.
  */
 export function leerPiezas(
@@ -1083,3 +1086,63 @@ export const EQUIPO_ESCRITO: readonly PiezaEscrita[] = EQUIPO_LEIDO.escritas;
 
 /** El catálogo de equipo resuelto, en el orden del fichero: es el orden del sorteo del botín. */
 export const EQUIPO: readonly Pieza[] = EQUIPO_LEIDO.piezas;
+
+/** Las piezas que se pueden llevar, por su id. */
+export type CatalogoDePiezas = ReadonlyMap<string, Pieza>;
+
+/** El catálogo del juego: `data/equipo.json` por id, tal como se cargó. El único que ve el juego. */
+export const PIEZAS_DEL_CATALOGO: CatalogoDePiezas = new Map(EQUIPO.map((p) => [p.id, p]));
+
+/** La pieza `id`. Lanza si no existe: un id inventado en un estado es un bug, no un vacío. */
+export function pieza(id: string): Pieza {
+  return piezaDe(PIEZAS_DEL_CATALOGO, id);
+}
+
+export function piezaDe(piezas: CatalogoDePiezas, id: string): Pieza {
+  const p = piezas.get(id);
+  if (p === undefined) throw new Error(`pieza de equipo desconocida: "${id}"`);
+  return p;
+}
+
+/**
+ * Como `pieza`, pero `null` en vez de lanzar. La usan los que tienen que dar un
+ * motivo escrito a un id que viene de fuera —el agente puede mandar cualquier
+ * texto—, igual que `buildingIfExists`.
+ */
+export function piezaSiExiste(id: string): Pieza | null {
+  return PIEZAS_DEL_CATALOGO.get(id) ?? null;
+}
+
+/**
+ * Si la armería vende `p` (`Pieza.seConsigue`). **La regla de lo que se vende, en
+ * un sitio**: la leen `buyBlocker`, para rechazar, y `PIEZAS_DE_ARMERIA`, para
+ * enseñar. Escrita en los dos podían discrepar.
+ */
+export function seVende(p: Pieza): boolean {
+  return p.seConsigue.includes('armeria');
+}
+
+/** Si `p` cae como botín (`Pieza.seConsigue`): la lee `PIEZAS_DE_BOTIN`. */
+export function caeComoBotin(p: Pieza): boolean {
+  return p.seConsigue.includes('botin');
+}
+
+/**
+ * De dónde se consigue `p`, dicho para quien juega con la tabla del núcleo
+ * (`DICHO_DE_DONDE`, `SOLO_EN_KITS`): «se vende en la armería», «cae como botín»,
+ * las dos cosas o que solo la llevan las unidades que nacen con ella. Lo leen la
+ * prosa del agente y el motivo de `buyBlocker`.
+ */
+export function deDondeSale(p: Pick<Pieza, 'seConsigue'>): string {
+  if (p.seConsigue.length === 0) return SOLO_EN_KITS;
+  return p.seConsigue.map((d) => DICHO_DE_DONDE[d]).join(' y ');
+}
+
+/** Lo que vende la armería, en el orden del catálogo (`seVende`). */
+export const PIEZAS_DE_ARMERIA: readonly Pieza[] = EQUIPO.filter(seVende);
+
+/**
+ * Lo que puede caer como botín (`caeComoBotin`), en el orden del catálogo, que es
+ * el del sorteo. Que haya alguna lo garantiza el cargador (`leerEquipo`).
+ */
+export const PIEZAS_DE_BOTIN: readonly Pieza[] = EQUIPO.filter(caeComoBotin);

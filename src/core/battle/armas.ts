@@ -157,7 +157,7 @@ export function disparosDe(unit: UnitInfo): number {
 /**
  * Los puntos de armadura de `u` (`UnitInfo.puntosDeArmadura`, la suma de las
  * piezas que lleva; 0 sin ella). La única
- * lectura del campo fuera de `hero/equipo.ts`: la leen la resta (`trasLaArmadura`),
+ * lectura del campo fuera de `equipo/vestir.ts`: la leen la resta (`trasLaArmadura`),
  * la IA y la ficha.
  */
 export function armaduraDe(u: UnitInfo): number {
@@ -247,3 +247,39 @@ export function cargasDe(unit: UnitInfo): number {
   const tiro = unit.armas?.distancia?.tiro;
   return tiro?.kind === 'granada' ? tiro.cargas : 0;
 }
+
+/** Lo que dice de un uso de arma `DICHO_DEL_USO`. */
+export interface DichoDeUnUso {
+  readonly rotulo: string;
+  readonly golpe: string;
+  readonly cuando: string;
+}
+
+/**
+ * Cada uso de un arma dicho para quien juega, en la forma en que se pinta: el
+ * `rotulo` de su fila en «Armas» (la ficha y el panel de la pelea), el `golpe`
+ * con que lo dice la previsión («con Daga (cuerpo a cuerpo)», también la del
+ * contraataque), `cuando` se usa, la nota de su fila y la del hueco en el editor
+ * de equipo. Toda arma puesta se usa: el cuerpo a cuerpo siempre, la de carga al
+ * cargar (carga todo el que pega cuerpo a cuerpo) y la de distancia, que ya es
+ * disparar. Las cifras de la carga salen de `data/carga.json`
+ * (`CARGA`), no se escriben aquí. La regla la aplican `usoDelGolpe` y `armasDe`
+ * (`battle/damage.ts`); esto la cuenta.
+ */
+export const DICHO_DEL_USO: Readonly<Record<UsoDeArma, DichoDeUnUso>> = {
+  arma: {
+    rotulo: 'Cuerpo a cuerpo',
+    golpe: 'cuerpo a cuerpo',
+    cuando:
+      'Se usa al pegar cuerpo a cuerpo, al devolver un golpe y al cargar. Con dos armas, en cada cifra la mejor de las dos: ataque, fuerza y cada tipo de la rueda. Sin arma, pega con el cuerpo.',
+  },
+  distancia: {
+    rotulo: 'A distancia',
+    golpe: 'a distancia',
+    cuando:
+      'Se usa al disparar: llevarla ya es disparar, sin munición (dos tiros por disparo con Dos disparos). Un arma de fuego perfora la armadura y recarga unos turnos tras disparar; una granada no se dispara: se lanza a una casilla, explota al empezar su siguiente turno y se gasta.',
+  },
+};
+
+/** Con qué se da un golpe sin arma (`GolpeConArma.piezas` vacía), dicho para quien juega. */
+export const SIN_ARMA = 'sin arma, con el cuerpo';

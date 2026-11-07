@@ -38,7 +38,7 @@ export interface Building {
   readonly mageGuildLevel?: number;
   readonly moraleBonus?: number;
   /**
-   * Vende las piezas que se venden (`seVende`, `hero/equipo.ts`) al héroe propio que
+   * Vende las piezas que se venden (`seVende`, `equipo/pieza.ts`) al héroe propio que
    * esté dentro. Es la armería, que pidió el usuario («Edificio Armería en la
    * ciudad»); su coste es inventado y lo dice el `_comment` del JSON.
    */

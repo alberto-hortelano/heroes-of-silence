@@ -38,7 +38,7 @@ import { alAsalto, createBattle } from '../../src/core/battle/battle.js';
 import { type MurallaDeBatalla, SIN_MURALLA } from '../../src/core/battle/muralla.js';
 import type { BattleState } from '../../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../../src/core/combate.js';
-import { EQUIPO_DEL_JUEGO } from '../../src/core/hero/equipo.js';
+import { EQUIPO_DEL_JUEGO } from '../../src/core/equipo/atado.js';
 import { LIDERAZGO } from '../../src/core/hero/liderazgo.js';
 import { createRng, type Rng } from '../../src/core/rng.js';
 import { MURALLAS_DEL_MAPA } from '../../src/core/state/sitios.js';

@@ -272,7 +272,7 @@ export interface UnitInfo {
   /**
    * Los puntos de armadura que lleva puesta (#262): se restan del daño de cada
    * golpe que recibe, con mínimo 0. Lo escribe solo `conEquipo` (la suma de
-   * `Pieza.armadura`), y solo si es > 0. Fuera de `hero/equipo.ts`
+   * `Pieza.armadura`), y solo si es > 0. Fuera de `equipo/vestir.ts`
    * lo lee solo `battle/armas.ts` (`armaduraDe`, `trasLaArmadura`); lo vigila
    * `test/invariantes.test.ts`. No es el hueco `armadura`: se llama de otro modo
    * para que se encuentre buscándolo. No viaja al espectador.
@@ -509,7 +509,7 @@ export interface Veterania {
   /** Los nombres de los héroes rivales que ha derribado él. */
   readonly heroes: readonly string[];
   /**
-   * Lo que lleva puesto, si lleva algo (`hero/equipo.ts`). Vive en la hoja y no
+   * Lo que lleva puesto, si lleva algo (`equipo/vestir.ts`). Vive en la hoja y no
    * al lado de ella porque la hoja ya es «lo que distingue a ESTE individuo de
    * los demás de su tipo»: lo vivido y, desde el ciclo del equipo, lo que lleva.
    * Un novato sin hoja es fungible —cuál de tres piqueros recibe la espada no

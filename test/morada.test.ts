@@ -32,7 +32,7 @@ import { pasoDeLaBase } from '../src/client/render/proyeccion.js';
 import { AYUDA_DE_LA_BASE, AYUDA_DE_LA_MORADA, Session } from '../src/client/session.js';
 import { renderActions, renderSide } from '../src/client/views/panels.js';
 import { armaduraDe } from '../src/core/battle/armas.js';
-import { pieza } from '../src/core/hero/equipo.js';
+import { pieza } from '../src/core/equipo/pieza.js';
 import { hechizo } from '../src/core/magia/catalogo.js';
 import { nombreDelPoder } from '../src/core/magia/dicho.js';
 import { construidoEn, sitioDeEdificio, sitiosDeLaBase } from '../src/core/town/sitios.js';

@@ -50,8 +50,7 @@ import {
   JUGADAS_DE_MURALLA,
   SLOT_DE_HUECO,
 } from '../src/core/contract/vocabulario.js';
-import { EQUIPO } from '../src/core/equipo/pieza.js';
-import { deDondeSale, PIEZAS_DE_ARMERIA, seVende } from '../src/core/hero/equipo.js';
+import { deDondeSale, EQUIPO, PIEZAS_DE_ARMERIA, seVende } from '../src/core/equipo/pieza.js';
 import { MARGEN_CONTRA_NEUTRALES } from '../src/core/hero/fuerza.js';
 import { ASALTANTES } from '../src/core/hero/grupos.js';
 import { tiposDeHeroe } from '../src/core/hero/tipos-de-heroe.js';

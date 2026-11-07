@@ -48,21 +48,21 @@ import { armaduraDe, isShooter } from '../src/core/battle/armas.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import {
+  type CatalogoDeEquipo,
+  catalogoDeEquipo,
+  EQUIPO_DEL_JUEGO,
+} from '../src/core/equipo/atado.js';
+import {
   COMENTARIO_DEL_CATALOGO_DE_EQUIPO,
   EQUIPO,
   EQUIPO_ESCRITO,
   type Pieza,
   type PiezaEscrita,
+  pieza,
   RUTA_DEL_CATALOGO_DE_EQUIPO,
   validarPieza,
 } from '../src/core/equipo/pieza.js';
-import {
-  type CatalogoDeEquipo,
-  catalogoDeEquipo,
-  EQUIPO_BASE,
-  EQUIPO_DEL_JUEGO,
-  pieza,
-} from '../src/core/hero/equipo.js';
+import { EQUIPO_BASE } from '../src/core/hero/cuerpo-del-heroe.js';
 import { createRng } from '../src/core/rng.js';
 import { HUECOS, type Hueco, huecosDeLaPieza } from '../src/core/types.js';
 import {

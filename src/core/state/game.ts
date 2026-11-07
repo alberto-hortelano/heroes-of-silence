@@ -16,25 +16,19 @@ import { resumenDeBatalla } from '../battle/resumen.js';
 import type { BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
 import { SIDES } from '../battle/types.js';
 import { combateBlocker, type ReglasDelCombate } from '../combate.js';
-import { radioALaEscala } from '../escala.js';
-import { problemaDeTipo, type VeteranoEnBase, veteranosEn } from '../hero/ascenso.js';
+import { nadaEnElHueco, ponerPieza, quitarPieza } from '../equipo/manos.js';
+import { deDondeSale, PIEZAS_DE_BOTIN, pieza, piezaSiExiste, seVende } from '../equipo/pieza.js';
 import {
   conEquipoDe,
-  deDondeSale,
   destinoDeEquipo,
   equipoDe,
-  idsPuestos,
-  nadaEnElHueco,
-  PIEZAS_DE_BOTIN,
   type Portador,
-  pieza,
-  piezaSiExiste,
-  ponerPieza,
   puestoBlocker,
-  quitarPieza,
   sacarDeLaMochila,
-  seVende,
-} from '../hero/equipo.js';
+} from '../equipo/portador.js';
+import { idsPuestos } from '../equipo/vestir.js';
+import { radioALaEscala } from '../escala.js';
+import { problemaDeTipo, type VeteranoEnBase, veteranosEn } from '../hero/ascenso.js';
 import {
   EXPERIENCIA_INICIAL_DE_HEROE,
   RANGO_MAXIMO_DE_TROPA,

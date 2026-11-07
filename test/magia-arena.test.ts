@@ -13,8 +13,9 @@ import { batallaDeArena, catalogoDelMontaje } from '../src/core/arena/montaje.js
 import { piezasDelMontaje } from '../src/core/arena/piezas.js';
 import { retocarEnBatalla } from '../src/core/arena/retoque.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import { EQUIPO_ESCRITO } from '../src/core/equipo/pieza.js';
-import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
+import { EQUIPO_BASE } from '../src/core/hero/cuerpo-del-heroe.js';
 import { catalogoDeHechizos, hechizo, todosLosHechizos } from '../src/core/magia/catalogo.js';
 import {
   campoDe,

@@ -24,8 +24,8 @@ import {
   quitarEnArena,
 } from '../src/core/arena/piezas.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { type Pieza, validarPieza } from '../src/core/equipo/pieza.js';
-import { EQUIPO_DEL_JUEGO, pieza } from '../src/core/hero/equipo.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
+import { type Pieza, pieza, validarPieza } from '../src/core/equipo/pieza.js';
 import type { Unidad } from '../src/core/unidad/formato.js';
 import { catalogoCon, elCatalogoCon, unidadDeArena } from './pelea-de-arena.js';
 

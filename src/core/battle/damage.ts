@@ -7,7 +7,6 @@
  * −80 %). Las constantes viven aquí y no repartidas por el motor.
  */
 
-import { DICHO_DE_LA_CARGA, DICHO_DEL_USO, SIN_ARMA } from '../hero/equipo.js';
 import type { Rng } from '../rng.js';
 import { conComa, type GolpeConArma, hasTrait, type UnitInfo, type UsoDeArma } from '../types.js';
 import { danioConLosEfectos } from '../unidad/cuerpo.js';
@@ -15,13 +14,21 @@ import { indiceDePoder } from '../unidad/nivel.js';
 import {
   armaduraEnLaPelea,
   cifrasDelGolpe,
+  DICHO_DEL_USO,
   escudoDe,
   golpeDe,
   perforaLaArmadura,
+  SIN_ARMA,
   tiroADistanciaDe,
   trasLaArmadura,
 } from './armas.js';
-import { CARGA, type CifrasDeCarga, cargaEfectiva, dichoDeLaCarga } from './carga.js';
+import {
+  CARGA,
+  type CifrasDeCarga,
+  cargaEfectiva,
+  DICHO_DE_LA_CARGA,
+  dichoDeLaCarga,
+} from './carga.js';
 import { effectTotal } from './effects.js';
 import type { BattleStack } from './types.js';
 

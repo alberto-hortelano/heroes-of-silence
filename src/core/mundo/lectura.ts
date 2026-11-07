@@ -10,6 +10,7 @@
  * catálogo de unidades y piezas por id, para que lo que escriba exista.
  */
 
+import { PIEZAS_DEL_CATALOGO } from '../equipo/pieza.js';
 import {
   ACCIONES_DE_NPC,
   type Banco,
@@ -18,7 +19,6 @@ import {
   type FiguraDeNpc,
 } from '../gente/banco.js';
 import { type PersonaDeLaFaccion, personasDeLaFaccion } from '../gente/voces.js';
-import { PIEZAS_DEL_CATALOGO } from '../hero/equipo.js';
 import { armyLeadership, capacidadDe } from '../hero/troop.js';
 import type { MapPlan } from '../map/generar/plan.js';
 import { basesDelPlan, buildMap } from '../map/generate.js';

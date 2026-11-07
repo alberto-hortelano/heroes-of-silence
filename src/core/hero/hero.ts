@@ -1,5 +1,6 @@
 /** Héroes: atributos, ejército y movimiento diario. */
 
+import { conEquipo } from '../equipo/vestir.js';
 import { marchaALaEscala } from '../escala.js';
 import type {
   Army,
@@ -13,8 +14,7 @@ import type {
 } from '../types.js';
 import { SPEED_TO_MOVE_POINTS } from '../types.js';
 import { cuerpoConSusCifras, marchaDe } from '../unidad/cuerpo.js';
-import { type CuerpoDeTodoHeroe, HEROE } from './cuerpo-del-heroe.js';
-import { conEquipo, EQUIPO_BASE } from './equipo.js';
+import { type CuerpoDeTodoHeroe, EQUIPO_BASE, HEROE } from './cuerpo-del-heroe.js';
 import { rangoDeHeroe, subidasDeRango } from './experiencia.js';
 import { troopUnit } from './troop.js';
 
@@ -67,7 +67,7 @@ export interface Hero {
    */
   readonly origen?: OrigenDelHeroe;
   /**
-   * Lo que lleva puesto (`hero/equipo.ts`). **Nace lleno**: todo héroe trae de
+   * Lo que lleva puesto (`equipo/vestir.ts`). **Nace lleno**: todo héroe trae de
    * serie la pieza de armería de cada hueco (`EQUIPO_BASE`), y solo mejora con
    * lo especial que encuentre (decisión del usuario, 02-10-2026). Se sustituye
    * entero al equipar o desequipar, nunca se muta.

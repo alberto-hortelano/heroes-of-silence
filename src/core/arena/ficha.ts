@@ -7,7 +7,7 @@
  * reorganización (07-11-2026); lo que hace la arena y por qué, en `montaje.ts`.
  */
 import type { BattleStack, FichaEnPalabras } from '../battle/types.js';
-import type { EquipoAtado } from '../hero/equipo.js';
+import type { EquipoAtado } from '../equipo/atado.js';
 import { HECHIZOS_DEL_JUEGO, ordenDelLibro } from '../magia/catalogo.js';
 import {
   type CreatureTrait,

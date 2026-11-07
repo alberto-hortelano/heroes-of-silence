@@ -21,6 +21,11 @@ import {
   validarBorradorDeMurallas,
 } from '../../src/core/arena/murallas.js';
 import {
+  type CatalogoDeEquipo,
+  catalogoDelFichero,
+  type EquipoAtado,
+} from '../../src/core/equipo/atado.js';
+import {
   COMENTARIO_DEL_CATALOGO_DE_EQUIPO,
   type PiezaEscrita,
   RUTA_DEL_CATALOGO_DE_EQUIPO,
@@ -30,11 +35,6 @@ import {
   combateDelHeroe,
   RUTA_DEL_HEROE,
 } from '../../src/core/hero/cuerpo-del-heroe.js';
-import {
-  type CatalogoDeEquipo,
-  catalogoDelFichero,
-  type EquipoAtado,
-} from '../../src/core/hero/equipo.js';
 import { catalogoDeHechizos } from '../../src/core/magia/catalogo.js';
 import {
   COMENTARIO_DE_LOS_HECHIZOS,

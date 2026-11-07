@@ -142,7 +142,7 @@ import { cargaMontada } from '../../src/core/battle/carga.js';
 import type { BattleAction, BattleState, Side } from '../../src/core/battle/types.js';
 import { HERO_BODY, otroBando } from '../../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../../src/core/combate.js';
-import { EQUIPO_BASE } from '../../src/core/hero/equipo.js';
+import { EQUIPO_BASE } from '../../src/core/hero/cuerpo-del-heroe.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../../src/core/hero/experiencia.js';
 import { cuerposDelHeroe } from '../../src/core/hero/hero.js';
 import { hechizosDelGremio } from '../../src/core/magia/catalogo.js';

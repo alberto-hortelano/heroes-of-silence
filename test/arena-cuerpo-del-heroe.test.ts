@@ -12,13 +12,14 @@ import { type MontajeDelEnlace, montajeALaURL, montajeDeLaURL } from '../src/cor
 import { heroeDeArena, heroePorDefecto, validarHeroeDeArena } from '../src/core/arena/heroe.js';
 import { piezasDelMontaje } from '../src/core/arena/piezas.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import { EQUIPO_ESCRITO } from '../src/core/equipo/pieza.js';
 import {
   type CuerpoDeTodoHeroe,
+  EQUIPO_BASE,
   HEROE,
   RUTA_DEL_HEROE,
 } from '../src/core/hero/cuerpo-del-heroe.js';
-import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { hechizosDelGremio } from '../src/core/magia/catalogo.js';
 import {
   escribirCatalogo,

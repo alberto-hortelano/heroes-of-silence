@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import { hexEquals, hexKey } from '../src/core/battle/board.js';
 import { zonaDeSalida } from '../src/core/battle/despliegue.js';
-import type { Portador } from '../src/core/hero/equipo.js';
+import type { Portador } from '../src/core/equipo/portador.js';
 import { type Hero, heroUnit } from '../src/core/hero/hero.js';
 import { troopUnit } from '../src/core/hero/troop.js';
 import { turnBlocker } from '../src/core/state/consultas.js';

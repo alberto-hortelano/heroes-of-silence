@@ -8,8 +8,8 @@
  */
 import { type MurallaDeBatalla, validarMuralla } from '../battle/muralla.js';
 import { combateBlocker, type ReglasDelCombate } from '../combate.js';
+import { type CatalogoDeEquipo, catalogoDeEquipo } from '../equipo/atado.js';
 import { EQUIPO_ESCRITO, type PiezaEscrita, validarPieza } from '../equipo/pieza.js';
-import { type CatalogoDeEquipo, catalogoDeEquipo } from '../hero/equipo.js';
 import {
   type CatalogoDeHechizos,
   catalogoDeHechizos,

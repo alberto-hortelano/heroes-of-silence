@@ -15,13 +15,13 @@
 import { armaduraDe } from '@core/battle/armas.js';
 import type { BattleState } from '@core/battle/types.js';
 import type { Pieza } from '@core/equipo/pieza.js';
+import { pieza } from '@core/equipo/pieza.js';
 import {
   destinoDeEquipo,
   equipoDe,
   type Portador,
   pedidoDelPuesto,
-  pieza,
-} from '@core/hero/equipo.js';
+} from '@core/equipo/portador.js';
 import {
   RANGO_MAXIMO_DE_TROPA,
   rangoDeHeroe,

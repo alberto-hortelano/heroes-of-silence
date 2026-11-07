@@ -17,6 +17,7 @@
  */
 
 import { COMBATE_COMPLETO, cupoDelHeroe } from '../combate.js';
+import { piezaSiExiste } from '../equipo/pieza.js';
 import {
   type Banco,
   FIGURAS_NUEVAS_POR_MUNDO,
@@ -25,7 +26,6 @@ import {
 } from '../gente/banco.js';
 import { personasDeLaFaccion } from '../gente/voces.js';
 import { problemaDeTipo } from '../hero/ascenso.js';
-import { piezaSiExiste } from '../hero/equipo.js';
 import { problemasDeGrupoNeutral } from '../hero/grupos.js';
 import { motivoDeLinea } from '../linea.js';
 import type { MapPlan } from '../map/generar/plan.js';

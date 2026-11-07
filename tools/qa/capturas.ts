@@ -97,9 +97,9 @@ import {
   queEs,
 } from '../../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../../src/core/combate.js';
+import { EQUIPO_DEL_JUEGO } from '../../src/core/equipo/atado.js';
 import { ESCALA_DE_CIFRAS } from '../../src/core/escala.js';
-import { HEROE } from '../../src/core/hero/cuerpo-del-heroe.js';
-import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../../src/core/hero/equipo.js';
+import { EQUIPO_BASE, HEROE } from '../../src/core/hero/cuerpo-del-heroe.js';
 import {
   figuraDelHeroe,
   nombreDeTipoDeHeroe,

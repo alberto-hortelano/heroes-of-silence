@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
 import { renderSide, renderTopbar } from '../src/client/views/panels.js';
-import { conSigno } from '../src/core/hero/equipo.js';
+import { conSigno } from '../src/core/equipo/dicho.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import { heroUnit, maxMana } from '../src/core/hero/hero.js';
 import { tiposDeHeroe } from '../src/core/hero/tipos-de-heroe.js';

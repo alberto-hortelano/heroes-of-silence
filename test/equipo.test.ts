@@ -15,29 +15,22 @@ import { armaduraDe } from '../src/core/battle/armas.js';
 import { createBattle, stackById } from '../src/core/battle/battle.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { RESPONSE_FORMAT } from '../src/core/contract/formato.js';
+import { catalogoDeEquipo, EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
+import { textoDeModificador } from '../src/core/equipo/dicho.js';
+import { aDosManos } from '../src/core/equipo/manos.js';
 import {
   EQUIPO,
   EQUIPO_ESCRITO,
   leerEquipo,
+  PIEZAS_DE_ARMERIA,
+  PIEZAS_DE_BOTIN,
+  pieza,
   piezaBlocker,
   problemasDePieza,
 } from '../src/core/equipo/pieza.js';
-import {
-  aDosManos,
-  catalogoDeEquipo,
-  conEquipo,
-  destinoDeEquipo,
-  EQUIPO_BASE,
-  EQUIPO_DEL_JUEGO,
-  equipoBaseBlocker,
-  mismasCifras,
-  PIEZAS_DE_ARMERIA,
-  PIEZAS_DE_BOTIN,
-  pedidoDeEquipo,
-  pedidoDelPuesto,
-  pieza,
-  textoDeModificador,
-} from '../src/core/hero/equipo.js';
+import { destinoDeEquipo, pedidoDeEquipo, pedidoDelPuesto } from '../src/core/equipo/portador.js';
+import { conEquipo, mismasCifras } from '../src/core/equipo/vestir.js';
+import { EQUIPO_BASE, equipoBaseBlocker } from '../src/core/hero/cuerpo-del-heroe.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import { heroeRecienHecho } from '../src/core/hero/hero.js';
 import { tipoDeHeroePorDefecto } from '../src/core/hero/tipos-de-heroe.js';

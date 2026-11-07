@@ -13,8 +13,8 @@
  */
 import { armaduraDe, cargasDe, golpeDe, recargaDe } from '../battle/armas.js';
 import { alcanceDeLaGranada } from '../battle/granada.js';
-import { EQUIPO } from '../equipo/pieza.js';
-import { cifrasDePieza, deDondeSale, seVende } from '../hero/equipo.js';
+import { cifrasDePieza } from '../equipo/dicho.js';
+import { deDondeSale, EQUIPO, seVende } from '../equipo/pieza.js';
 import { troopSummary } from '../hero/troop.js';
 import { todosLosHechizos } from '../magia/catalogo.js';
 import { queHaceElHechizo } from '../magia/dicho.js';

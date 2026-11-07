@@ -8,6 +8,8 @@
  */
 import { ruedaDelArmaEnPalabras } from '../battle/rueda.js';
 import type { FichaEnPalabras } from '../battle/types.js';
+import { type CatalogoDeEquipo, catalogoDeEquipo, type EquipoAtado } from '../equipo/atado.js';
+import { aDosManos, nadaEnElHueco, quitarPieza } from '../equipo/manos.js';
 import {
   baseBlocker,
   diferenciaDe,
@@ -16,15 +18,7 @@ import {
   type PiezaEscrita,
   validarPieza,
 } from '../equipo/pieza.js';
-import {
-  aDosManos,
-  type CatalogoDeEquipo,
-  catalogoDeEquipo,
-  type EquipoAtado,
-  idsPuestos,
-  nadaEnElHueco,
-  quitarPieza,
-} from '../hero/equipo.js';
+import { idsPuestos } from '../equipo/vestir.js';
 import {
   type CifraDePieza,
   camposDelHueco,

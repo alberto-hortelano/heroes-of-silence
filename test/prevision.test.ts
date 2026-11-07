@@ -40,7 +40,7 @@ import type {
   BattleState,
 } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import type { CreatureTrait, Equipo, Hex, UnitInfo } from '../src/core/types.js';
 import { unidadDelJuego } from '../src/core/unidad/catalogo.js';

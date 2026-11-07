@@ -29,8 +29,9 @@ import {
 import { validarRueda } from '../src/core/battle/cifras-de-la-rueda.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import type { BattleAction, BattleState } from '../src/core/battle/types.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import type { Pieza, PiezaEscrita } from '../src/core/equipo/pieza.js';
-import { EQUIPO_DEL_JUEGO, pieza } from '../src/core/hero/equipo.js';
+import { pieza } from '../src/core/equipo/pieza.js';
 import { createRng } from '../src/core/rng.js';
 import type { TipoDeGolpe } from '../src/core/types.js';
 import { unidad } from '../src/core/unidad/catalogo.js';

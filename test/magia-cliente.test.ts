@@ -14,7 +14,7 @@ import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { battleActionSchema } from '../src/core/contract/esquemas.js';
 import { hechizosAlAgente } from '../src/core/contract/vistas.js';
 import { accionDeBatallaDelAgente } from '../src/core/contract/vocabulario.js';
-import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import { catalogoDeHechizos, todosLosHechizos } from '../src/core/magia/catalogo.js';
 import { UNIDADES } from '../src/core/unidad/catalogo.js';
 

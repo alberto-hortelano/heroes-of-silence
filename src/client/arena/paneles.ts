@@ -29,7 +29,7 @@ import {
   opcionesDelHueco,
   quitarBlocker,
 } from '@core/arena/piezas.js';
-import { armaduraDe } from '@core/battle/armas.js';
+import { armaduraDe, DICHO_DEL_USO, SIN_ARMA } from '@core/battle/armas.js';
 import {
   activeStack,
   ataqueYDefensaEnBatalla,
@@ -38,7 +38,7 @@ import {
   MAX_ROUNDS,
 } from '@core/battle/battle.js';
 import { FORMA_DEL_TABLERO, filasDelTablero } from '@core/battle/board.js';
-import { CARGA, dichoDeLasCifras } from '@core/battle/carga.js';
+import { CARGA, DICHO_DE_LA_CARGA, dichoDeLasCifras } from '@core/battle/carga.js';
 import { armasDe } from '@core/battle/damage.js';
 import { enRondas } from '@core/battle/effects.js';
 import {
@@ -56,9 +56,18 @@ import {
   type TipoDelAnillo,
 } from '@core/battle/rueda.js';
 import type { BattleStack, BattleState } from '@core/battle/types.js';
+import type { CatalogoDeEquipo, EquipoAtado } from '@core/equipo/atado.js';
+import {
+  cifrasDePieza,
+  conSigno,
+  DICHO_DE_LA_MONTURA,
+  textoDeModificador,
+} from '@core/equipo/dicho.js';
+import { aDosManos, esDeGuerra, esLanza, REGLA_DEL_ESCUDO } from '@core/equipo/manos.js';
 import {
   ARMADURA_MAXIMA_DE_PIEZA,
   CARGAS_MAXIMAS,
+  caeComoBotin,
   type ExtrasDePieza,
   esPiezaConBase,
   extrasDe,
@@ -66,28 +75,10 @@ import {
   RECARGA_MAXIMA,
   RUTA_DEL_CATALOGO_DE_EQUIPO,
   SOLO_EN_KITS,
-} from '@core/equipo/pieza.js';
-import { RUTA_DEL_HEROE } from '@core/hero/cuerpo-del-heroe.js';
-import {
-  aDosManos,
-  type CatalogoDeEquipo,
-  caeComoBotin,
-  cifrasDePieza,
-  conSigno,
-  DICHO_DE_LA_CARGA,
-  DICHO_DE_LA_MONTURA,
-  DICHO_DEL_USO,
-  EQUIPO_BASE,
-  type EquipoAtado,
-  esDeGuerra,
-  esLanza,
-  idsPuestos,
-  REGLA_DEL_ESCUDO,
-  SIN_ARMA,
   seVende,
-  textoDeModificador,
-  tiroDelGolpe,
-} from '@core/hero/equipo.js';
+} from '@core/equipo/pieza.js';
+import { idsPuestos, tiroDelGolpe } from '@core/equipo/vestir.js';
+import { EQUIPO_BASE, RUTA_DEL_HEROE } from '@core/hero/cuerpo-del-heroe.js';
 import {
   catalogoDeHechizos,
   HECHIZOS_DEL_JUEGO,

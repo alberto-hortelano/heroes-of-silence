@@ -83,10 +83,12 @@ import type {
   TipoDePuerta,
 } from '@core/battle/types.js';
 import type { ReglasDelCombate } from '@core/combate.js';
+import type { CatalogoDeEquipo } from '@core/equipo/atado.js';
+import { pieza } from '@core/equipo/pieza.js';
+import { type Portador, pedidoDelPuesto } from '@core/equipo/portador.js';
 import { type BancoPintado, SIN_BANCO } from '@core/gente/banco.js';
 import { figurasDeLaGente } from '@core/gente/figuras.js';
 import { alcaideDe, ID_DEL_ALCAIDE, vecinosDeLaBase, vozDe } from '@core/gente/voces.js';
-import { type CatalogoDeEquipo, type Portador, pedidoDelPuesto, pieza } from '@core/hero/equipo.js';
 import { type Hero, maxMana } from '@core/hero/hero.js';
 import { infiltracionBlocker } from '@core/hero/infiltracion.js';
 import { figuraDelHeroe } from '@core/hero/tipos-de-heroe.js';

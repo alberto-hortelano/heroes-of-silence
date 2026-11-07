@@ -5,7 +5,7 @@
  * Era parte de `core/arena.ts`, repartido en `arena/` en la fase N de la
  * reorganización (07-11-2026); lo que hace la arena y por qué, en `montaje.ts`.
  */
-import type { EquipoAtado } from '../hero/equipo.js';
+import type { EquipoAtado } from '../equipo/atado.js';
 import type { CreatureTrait, FactionId } from '../types.js';
 import { CUERPO_COMUN, ESPADA, type Hoja, type Unidad, validarUnidad } from '../unidad/formato.js';
 

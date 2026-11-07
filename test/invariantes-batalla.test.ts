@@ -735,7 +735,8 @@ describe('invariantes del proyecto', () => {
     // partes: nadie nombra `piezasDeArena`, y el motor (`core/battle/`) no lee un
     // catálogo. Rotos a mano: un `piezasDeArena?: readonly PiezaEscrita[]` en
     // `battle/types.ts` y un `import { EQUIPO_DEL_JUEGO } from '../hero/equipo.js'`
-    // en `battle.ts` salen rojos con su línea.
+    // en `battle.ts` salen rojos con su línea; desde la fase N de la reorganización
+    // (07-11-2026), de `'../equipo/atado.js'`.
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     expect(infractoresDeCodigo(todos, /\bpiezasDeArena\b|\bpiezasDeLaPelea\b/)).toEqual([]);
     const MOTOR = CORE.filter((r) => r.startsWith(ruta('src/core/battle/')));
@@ -800,7 +801,9 @@ describe('invariantes del proyecto', () => {
     // uno a mano, abajo); y «un arma a dos manos no admite escudo» es una regla,
     // `manosBlocker`, que leen el juego, el agente y la arena. Rotos a mano: un
     // `slot: 'shield' as Slot` en `serialize.ts`, un `p.manos === 2` en `arena.ts` y
-    // una `function manosBlocker` en `game.ts` salen rojos.
+    // una `function manosBlocker` en `game.ts` salen rojos. La regla vive en
+    // `equipo/manos.ts` (era `hero/equipo.ts` hasta la fase N de la reorganización,
+    // 07-11-2026).
     const TRADUCCION = ruta('src/core/contract/vocabulario.ts');
     const produceUnSlot = /\bas\s+Slot\b|<Slot>/;
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
@@ -814,7 +817,7 @@ describe('invariantes del proyecto', () => {
     // @ts-expect-error: un `Slot` no se escribe a mano: lo da `SLOT_DE_HUECO`.
     const aMano: Slot = 'melee_weapon';
     expect(SLOTS).toContain(aMano);
-    const MANOS = [ruta('src/core/hero/equipo.ts'), ruta('src/core/equipo/pieza.ts')];
+    const MANOS = [ruta('src/core/equipo/manos.ts'), ruta('src/core/equipo/pieza.ts')];
     const leeManos = /\.manos\b/;
     expect(
       infractoresDeCodigo(
@@ -822,7 +825,7 @@ describe('invariantes del proyecto', () => {
         leeManos,
       ),
     ).toEqual([]);
-    expect(infractoresDeCodigo([ruta('src/core/hero/equipo.ts')], leeManos)).not.toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/core/equipo/manos.ts')], leeManos)).not.toEqual([]);
     const define = /\bfunction\s+manosBlocker\b/;
     expect(
       infractoresDeCodigo(
@@ -837,7 +840,7 @@ describe('invariantes del proyecto', () => {
     // 13-10-2026: un arma a distancia y una de carga además de la de cuerpo a
     // cuerpo, y cada golpe va con las cifras de la suya (`UnitInfo.armas`); desde
     // el 18-10-2026, en el juego también (una sola clase de piezas). Dos partes:
-    //  (a) `armas` lo escribe solo `conEquipo` (`hero/equipo.ts`) y lo leen solo
+    //  (a) `armas` lo escribe solo `conEquipo` (`equipo/vestir.ts`) y lo leen solo
     //      él, `battle/armas.ts` (`golpeDe`) y `battle/damage.ts` (`armasDe`): un golpe que leyera
     //      `unit.armas` por su cuenta elegiría el arma con otra regla.
     //  (b) el agente los ve todos: cinco `SLOTS`, uno por hueco, y su prosa dice
@@ -847,20 +850,26 @@ describe('invariantes del proyecto', () => {
     // `s.unit.armas?.distancia` en `paneles.ts` y un `SLOT_DE_HUECO` sin `carga`
     // salen rojos.
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
-    const ESCRITOR = ruta('src/core/hero/equipo.ts');
+    const ESCRITOR = ruta('src/core/equipo/vestir.ts');
     const LECTORES = [
       ESCRITOR,
       ruta('src/core/battle/armas.ts'),
       ruta('src/core/battle/damage.ts'),
     ];
-    const escribe = /\barmas\s*:/;
+    // Lo que escribe `armas` es la clave de un objeto (`{ …, armas: … }`, o `armas:` al
+    // principio de su línea), no la palabra: desde el reparto de `hero/equipo.ts` (fase
+    // N de la reorganización, 07-11-2026) la frase «con dos armas: no queda mano…» de
+    // `equipo/manos.ts` ya no está en el fichero que escribe, y la palabra seguida de
+    // dos puntos la cazaba. `conEquipo` las pone en la unidad con su clave abreviada
+    // (`{ ...vestida, armas }`).
+    const escribe = /(?:^\s*|[{,]\s*)armas\s*:/;
     expect(
       infractoresDeCodigo(
         todos.filter((r) => r !== ESCRITOR),
         escribe,
       ),
     ).toEqual([]);
-    expect(infractoresDeCodigo([ESCRITOR], escribe)).not.toEqual([]);
+    expect(infractoresDeCodigo([ESCRITOR], /[{,]\s*armas\s*[:},]/)).not.toEqual([]);
     const lee = /\.armas\b(?!-)|(?<!\$)\{\s*armas\s*[},]/;
     expect(
       infractoresDeCodigo(
@@ -882,16 +891,18 @@ describe('invariantes del proyecto', () => {
     expect(CATALOGO_DE_EQUIPO_EN_PROSA).toMatch(/^ *daga \(melee_weapon\)/m);
   });
 
-  it('si una pieza es una lanza lo leen solo `hero/equipo.ts` y `equipo/pieza.ts`, como sus manos', () => {
+  it('si una pieza es una lanza lo leen solo `equipo/manos.ts` y `equipo/pieza.ts`, como sus manos', () => {
     // 25-10-2026, «la lanza de carga fuera, será una lanza y una regla especial de
     // la lanza cuando se carga montado»: `Pieza.lanza` lo valida y lo escribe
     // `equipo/pieza.ts` (`data.ts` hasta la fase N, 07-11-2026), y lo lee
-    // `hero/equipo.ts`, que lleva la fuerza de la mejor lanza a
-    // la cuenta del cuerpo (`fuerzaDeLaLanza`, de donde sale `GolpeConArma.carga`
-    // con una montura de guerra, 26-10-2026); quien lo enseña, `esLanza`. Una carga que mirara la pieza por su cuenta tendría su
+    // `equipo/manos.ts` (`esLanza`), con la que `equipo/vestir.ts` lleva la fuerza de
+    // la mejor lanza a la cuenta del cuerpo (`fuerzaDeLaLanza`, de donde sale
+    // `GolpeConArma.carga` con una montura de guerra, 26-10-2026); quien lo enseña,
+    // `esLanza` también. Los dos eran `hero/equipo.ts` hasta la fase N de la
+    // reorganización (07-11-2026). Una carga que mirara la pieza por su cuenta tendría su
     // propia regla. El `lanza` de la cola de la animación es quien lanza un hechizo:
     // fuera. Roto a mano: un `p.lanza` en `carga.ts` sale rojo.
-    const LEEN = [ruta('src/core/hero/equipo.ts'), ruta('src/core/equipo/pieza.ts')];
+    const LEEN = [ruta('src/core/equipo/manos.ts'), ruta('src/core/equipo/pieza.ts')];
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR].filter(
       (r) => r !== ruta('src/client/anim.ts'),
     );
@@ -902,7 +913,7 @@ describe('invariantes del proyecto', () => {
         lee,
       ),
     ).toEqual([]);
-    expect(infractoresDeCodigo([ruta('src/core/hero/equipo.ts')], lee)).not.toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/core/equipo/manos.ts')], lee)).not.toEqual([]);
   });
 
   it('las armas de fuego y las granadas: lo que tira lo leen tres módulos y la recarga y las granadas de un stack las escribe la batalla', () => {
@@ -910,7 +921,7 @@ describe('invariantes del proyecto', () => {
     // vista en rojo:
     //  (a) lo que tira una pieza o un golpe (`.tiro`: `Pieza.tiro` y
     //      `GolpeConArma.tiro`) lo leen solo `equipo/pieza.ts` (la regla de la pieza y
-    //      `lanzaGranadas`), `hero/equipo.ts` (`tiroDelGolpe`, que lo lleva a la
+    //      `lanzaGranadas`), `equipo/vestir.ts` (`tiroDelGolpe`, que lo lleva a la
     //      unidad) y `battle/armas.ts` (`perforaLaArmadura`, `recargaDe`,
     //      `cargasDe`). Una pantalla o una IA que mirara la pieza tendría su propia
     //      regla de quién perfora o cuánto recarga. Roto: un `p.tiro` en
@@ -923,7 +934,7 @@ describe('invariantes del proyecto', () => {
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     const LEEN = [
       ruta('src/core/equipo/pieza.ts'),
-      ruta('src/core/hero/equipo.ts'),
+      ruta('src/core/equipo/vestir.ts'),
       ruta('src/core/battle/armas.ts'),
     ];
     const lee = /\.tiro\b/;
@@ -950,7 +961,7 @@ describe('invariantes del proyecto', () => {
     // 26-10-2026, «vamos a separar la montura del personaje». Cuatro partes, cada
     // una rota a mano y vista en rojo:
     //  (a) `UnitInfo.montura` (las cifras de la montura puesta, `MonturaPuesta`) la
-    //      escribe solo `conEquipo` (`hero/equipo.ts`, `monturaPuesta`): quien
+    //      escribe solo `conEquipo` (`equipo/vestir.ts`, `monturaPuesta`): quien
     //      escribiera `{ ...u, montura: { fuerza: 80, … } }` daría casillas y carga
     //      sin pieza. Roto: un `montura: { id: 'x', … }` en `arena.ts`, rojo.
     //  (b) la horquilla de la carga montada la calcula solo `cifrasDelCuerpo`
@@ -960,7 +971,9 @@ describe('invariantes del proyecto', () => {
     //      señal temprana del plan: el daño normal con la fuerza del caballo).
     //      Roto: un `fuerzaDeLaLanza` en `damage.ts`, rojo.
     //  (c) si una montura es de guerra (`.guerra`) lo leen solo `equipo/pieza.ts` (la
-    //      pieza), `hero/equipo.ts` (`esDeGuerra`, que lo lleva a la unidad) y
+    //      pieza), `equipo/manos.ts` (`esDeGuerra`) y `equipo/vestir.ts` (que lo lleva a
+    //      la unidad, `monturaPuesta`, y lo compara, `mismaMontura`; los dos eran
+    //      `hero/equipo.ts` hasta la fase N de la reorganización, 07-11-2026) y
     //      `cuerpo.ts` (`montadoDeGuerra`, la regla). La agilidad de una pieza no
     //      se puede vigilar por su nombre: `.agilidad` es también la del cuerpo.
     //      Roto: un `p.guerra` en `paneles.ts`, rojo.
@@ -968,7 +981,7 @@ describe('invariantes del proyecto', () => {
     //      del catálogo; montar es llevar una montura de guerra. El «charge» de los
     //      clips de la animación (correr) es otra cosa y no se mira.
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
-    const ESCRITOR = ruta('src/core/hero/equipo.ts');
+    const ESCRITOR = ruta('src/core/equipo/vestir.ts');
     const escribe =
       /\bmontura\s*:\s*(\{\s*(id|nombre|fuerza|agilidad|peso|guerra)\b|monturaPuesta\s*\()/;
     expect(
@@ -989,7 +1002,12 @@ describe('invariantes del proyecto', () => {
     ).toEqual([]);
     expect(infractoresDeCodigo([ruta('src/core/unidad/cuerpo.ts')], lanza)).not.toEqual([]);
 
-    const LEEN = [ruta('src/core/equipo/pieza.ts'), ESCRITOR, ruta('src/core/unidad/cuerpo.ts')];
+    const LEEN = [
+      ruta('src/core/equipo/pieza.ts'),
+      ruta('src/core/equipo/manos.ts'),
+      ESCRITOR,
+      ruta('src/core/unidad/cuerpo.ts'),
+    ];
     const guerra = /\.guerra\b/;
     expect(
       infractoresDeCodigo(
@@ -1141,7 +1159,7 @@ describe('invariantes del proyecto', () => {
 describe('la armadura (#262)', () => {
   it('`puntosDeArmadura` lo escribe solo `conEquipo` y lo leen solo él y `battle/armas.ts`; ninguna pieza da PV y el agente la ve', () => {
     // 14-10-2026: las piezas dan puntos de armadura, que se restan
-    // del daño de cada golpe. La suma es de `vestir` (`hero/equipo.ts`) y la resta
+    // del daño de cada golpe. La suma es de `vestir` (`equipo/vestir.ts`) y la resta
     // de `trasLaArmadura` (`battle/armas.ts`), por donde pasa todo lo que quita
     // vida (`herir`): una pantalla o una IA que leyera `unit.puntosDeArmadura` por
     // su cuenta restaría con otra regla, y un `{ ...u, puntosDeArmadura: 3 }` fuera
@@ -1153,7 +1171,7 @@ describe('la armadura (#262)', () => {
     // en `paneles.ts`, un `hp: unit.hp + pv` en la suma y un `'pv'` en
     // `CAMPOS_DE_PIEZA` salen rojos.
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
-    const ESCRITOR = ruta('src/core/hero/equipo.ts');
+    const ESCRITOR = ruta('src/core/equipo/vestir.ts');
     const LECTORES = [ESCRITOR, ruta('src/core/battle/armas.ts'), ruta('src/core/types.ts')];
     const menciona = /\bpuntosDeArmadura\b/;
     expect(

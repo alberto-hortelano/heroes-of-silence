@@ -8,9 +8,9 @@
  * `peticion-de-mapa.ts`.
  */
 import { formaDeLaBatalla } from '../battle/formas-de-la-rueda.js';
+import { PIEZAS_DE_ARMERIA } from '../equipo/pieza.js';
 import { vecinosDeLaBase, vozDe } from '../gente/voces.js';
 import type { VeteranoEnBase } from '../hero/ascenso.js';
-import { PIEZAS_DE_ARMERIA } from '../hero/equipo.js';
 import {
   RANGO_MAXIMO_DE_TROPA,
   rangoDeHeroe,

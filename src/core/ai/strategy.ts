@@ -7,16 +7,10 @@
  */
 
 import type { Pieza } from '../equipo/pieza.js';
+import { PIEZAS_DE_ARMERIA, pieza } from '../equipo/pieza.js';
+import { destinoDeEquipo, equipoDe, type Portador, pedidoDeEquipo } from '../equipo/portador.js';
+import { conEquipo } from '../equipo/vestir.js';
 import { HEROE } from '../hero/cuerpo-del-heroe.js';
-import {
-  conEquipo,
-  destinoDeEquipo,
-  equipoDe,
-  PIEZAS_DE_ARMERIA,
-  type Portador,
-  pedidoDeEquipo,
-  pieza,
-} from '../hero/equipo.js';
 import { rangoDeTropa } from '../hero/experiencia.js';
 import { armyPower, fuerzaDe, poderDe, unitPower, ventajaClara } from '../hero/fuerza.js';
 import type { Hero } from '../hero/hero.js';

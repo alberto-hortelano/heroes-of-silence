@@ -17,7 +17,9 @@
  * `unidad/cuerpo.ts`).
  */
 import habilidadesJson from '../../../data/habilidades.json' with { type: 'json' };
-import { type EquipoAtado, equipoBaseBlocker, PIEZAS_DEL_CATALOGO } from '../hero/equipo.js';
+import type { EquipoAtado } from '../equipo/atado.js';
+import { PIEZAS_DEL_CATALOGO } from '../equipo/pieza.js';
+import { equipoBaseBlocker } from '../hero/cuerpo-del-heroe.js';
 import { type CatalogoDeHechizos, HECHIZOS_DEL_JUEGO } from '../magia/catalogo.js';
 import { esIdDeHechizo } from '../magia/formato.js';
 import { problemasComoPoder } from '../magia/validar.js';

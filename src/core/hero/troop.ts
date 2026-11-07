@@ -15,6 +15,7 @@
  */
 
 import { cupoDelHeroe } from '../combate.js';
+import { piezasPuestas } from '../equipo/vestir.js';
 import type { Army, GrupoDeTropa, Stack, Troop, UnitInfo, Veterania } from '../types.js';
 import {
   CATALOGO_DEL_JUEGO,
@@ -22,7 +23,6 @@ import {
   cifrasDeUnidad,
   unidadDelJuego,
 } from '../unidad/catalogo.js';
-import { piezasPuestas } from './equipo.js';
 import {
   RANGO_MAXIMO_DE_TROPA,
   rangoDeHeroe,
