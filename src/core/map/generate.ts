@@ -103,29 +103,23 @@ import {
 } from './terrain.js';
 import { dondeEsta, regionesDelSitio, territorio } from './territorio.js';
 import type { Estructura, GameMap, MapObject, MapRegion } from './tipos.js';
+import { ABIERTA, barajar, barreraDe, esDelRio, ponerTipo, type Tipos } from './vestir/base.js';
 import {
-  ABIERTA,
   abrirEsquinasTorcidas,
-  acantiladoSinCaida,
-  barajar,
-  barreraDe,
-  CAIDA_LARGA,
-  CASILLAS_DE_UNA_MURALLA,
-  caidasLargas,
-  conEjePleno,
   type EntradaDeCaminos,
-  engordarFronteras,
-  esDelRio,
   esquinasDeAgua,
-  mesasDelRelieve,
-  nivelesDeLoEngordado,
-  ponerObstaculos,
-  ponerTipo,
   sinAguaEnLasEsquinas,
-  TIPOS_POR_MAPA,
-  type Tipos,
   trazarCaminos,
-} from './vestir.js';
+} from './vestir/caminos.js';
+import {
+  CASILLAS_DE_UNA_MURALLA,
+  conEjePleno,
+  engordarFronteras,
+  TIPOS_POR_MAPA,
+} from './vestir/fronteras.js';
+import { acantiladoSinCaida, CAIDA_LARGA, caidasLargas } from './vestir/lineas.js';
+import { ponerObstaculos } from './vestir/obstaculos.js';
+import { mesasDelRelieve, nivelesDeLoEngordado } from './vestir/relieve.js';
 
 /** Los ids que `buildMap` les pone a los objetos que el plan no nombra. */
 const idDeNodo = (i: number): string => `node-${i}`;
@@ -846,7 +840,7 @@ const VUELTAS_DE_ESQUINAS = 3;
  * árbol —con muros rectos de BSP sí lo era, y había un solo camino de la base a
  * cada ciudad—.
  *
- * **Esa red fina se valida y solo después se viste** (`vestir.ts`, mapas densos,
+ * **Esa red fina se valida y solo después se viste** (`vestir/`, mapas densos,
  * 03-10-2026): la frontera engorda a 2-3 casillas con su barrera según los
  * suelos, cada región lleva su suelo entero, obstáculos que bloquean y caminos.
  * Vestir solo convierte casillas pisables en barrera, que nunca abre un paso, y
@@ -1897,7 +1891,7 @@ const MONSTRUOS_POSIBLES: readonly string[] = unidadesDelJuego()
   .map((u) => u.id);
 
 /**
- * Viste una red fina (`vestir.ts`): suelos, fronteras gruesas, objetos,
+ * Viste una red fina (`vestir/`): suelos, fronteras gruesas, objetos,
  * obstáculos y caminos. Todo lo que hace convierte casillas pisables en barrera,
  * y eso nunca abre un paso. Devuelve el plan, o en qué fase y por qué este
  * vestido no vale —la red sigue valiendo, y `generateMapPlan` la vuelve a vestir—.

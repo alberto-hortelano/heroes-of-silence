@@ -9,7 +9,7 @@
  * lienzo de norte a sur que acababa en una ciudad).
  *
  * Aquí está la regla, una vez, sobre una rejilla cualquiera: la leen el
- * generador al recortar cada franja de muro (`vestir.ts`, paso 7) y el guardia
+ * generador al recortar cada franja de muro (`vestir/fronteras.ts`, paso 7) y el guardia
  * y la medida sobre el mapa hecho (`murallasDelMapa`).
  */
 

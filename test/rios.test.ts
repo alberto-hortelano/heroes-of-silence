@@ -13,7 +13,7 @@ import {
   aguaALaVista,
   lineasQueSeparan,
   separadasDeCerca,
-} from '../src/core/map/vestir.js';
+} from '../src/core/map/vestir/base.js';
 import { rango } from './lento.js';
 
 /**

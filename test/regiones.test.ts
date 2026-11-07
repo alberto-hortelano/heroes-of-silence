@@ -45,17 +45,18 @@ import {
   type TerrainKind,
 } from '../src/core/map/terrain.js';
 import type { Estructura, GameMap } from '../src/core/map/tipos.js';
+import { ABIERTA, lineasQueSeparan } from '../src/core/map/vestir/base.js';
 import {
-  ABIERTA,
   ArbolDeCaminos,
-  CASILLAS_DE_UNA_MURALLA,
   centroDeRegion,
   type EntradaDeCaminos,
-  engordarFronteras,
-  lineasQueSeparan,
-  TIPOS_POR_MAPA,
   trazarCaminos as trazarOMotivo,
-} from '../src/core/map/vestir.js';
+} from '../src/core/map/vestir/caminos.js';
+import {
+  CASILLAS_DE_UNA_MURALLA,
+  engordarFronteras,
+  TIPOS_POR_MAPA,
+} from '../src/core/map/vestir/fronteras.js';
 import { createRng } from '../src/core/rng.js';
 import type { Point } from '../src/core/types.js';
 import { TROPA_BARATA } from './comun.js';

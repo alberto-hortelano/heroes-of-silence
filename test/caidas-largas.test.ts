@@ -19,13 +19,13 @@ import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
 import { relieve } from '../src/client/render/escenario/relieve.js';
 import { BARRERAS } from '../src/core/map/terrain.js';
+import { ABIERTA } from '../src/core/map/vestir/base.js';
 import {
-  ABIERTA,
   CAIDA_LARGA,
   caidasLargas,
   quebrarCaidas,
   TRECHO_DEL_QUIEBRO,
-} from '../src/core/map/vestir.js';
+} from '../src/core/map/vestir/lineas.js';
 import { newGame } from '../src/core/state/setup.js';
 import { rango, segunPrisa } from './lento.js';
 

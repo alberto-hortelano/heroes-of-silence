@@ -97,7 +97,7 @@ export function radioALaEscala(radio: number): number {
  * región, llevado al de hoy: ×√(AREA_POR_REGION / AREA_DE_REFERENCIA), **al
  * entero más cercano** (8 → 10 y 10 → 12 con 450). Lo leen los techos de
  * rectitud de #169 (`tools/qa/rectitud.ts`) y el quiebro de las caídas largas
- * (#231, `quebrarCaidas` en `map/vestir.ts`): un tramo de 8 en 34×34 es uno de
+ * (#231, `quebrarCaidas` en `map/vestir/lineas.ts`): un tramo de 8 en 34×34 es uno de
  * 10 en 42×42, las mismas fronteras más largas.
  */
 export function largoALaEscala(casillas: number): number {

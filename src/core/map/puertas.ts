@@ -1,6 +1,6 @@
 /**
  * La puerta de un pueblo (#188): por dónde llega el camino a él. Es un hecho,
- * aquí: lo leen la búsqueda de los caminos (`Busqueda`, `vestir.ts`), quien
+ * aquí: lo leen la búsqueda de los caminos (`Busqueda`, `vestir/caminos.ts`), quien
  * coloca los objetos (`colocarPar`, `generate.ts`) y quien mide lo pintado
  * (`sendasPorObjeto`, en el escenógrafo).
  *

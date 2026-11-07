@@ -394,9 +394,12 @@ describe('invariantes del proyecto', () => {
     }
     expect([...ciclos]).toEqual([]);
     // Y que mire algo: las dos importaciones que quedan de aquellos ciclos, en un
-    // solo sentido, las ve el resolutor.
+    // solo sentido, las ve el resolutor (la del vestido, desde que se repartió por
+    // `map/vestir/`, la hace el engorde, `fronteras.ts`).
     const importa = (de: string): string[] => (aristas.get(de) ?? []).map((x) => x.ruta);
-    expect(importa(ruta('src/core/map/vestir.ts'))).toContain(ruta('src/core/map/rio.ts'));
+    expect(importa(ruta('src/core/map/vestir/fronteras.ts'))).toContain(
+      ruta('src/core/map/rio.ts'),
+    );
     expect(importa(ruta('src/core/state/game.ts'))).toContain(ruta('src/core/mundo/reglas.ts'));
 
     // **Ni de tipos que crucen dos carpetas** (paso N8 de la misma fase). Un

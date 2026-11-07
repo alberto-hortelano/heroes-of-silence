@@ -19,7 +19,8 @@ import { NIVEL_POR_SUELO, validarBarreras, validarRelieve } from '../src/core/ma
 import { generateMapPlan } from '../src/core/map/generate.js';
 import { problemasDeNiveles } from '../src/core/map/niveles.js';
 import { BARRERAS_DE_DESNIVEL, SUELOS_PISABLES } from '../src/core/map/terrain.js';
-import { barrerasDeLaPareja, mesasDelRelieve } from '../src/core/map/vestir.js';
+import { barrerasDeLaPareja } from '../src/core/map/vestir/fronteras.js';
+import { mesasDelRelieve } from '../src/core/map/vestir/relieve.js';
 import { createRng } from '../src/core/rng.js';
 import { newGame } from '../src/core/state/setup.js';
 import { itLento, rango, segunPrisa } from './lento.js';

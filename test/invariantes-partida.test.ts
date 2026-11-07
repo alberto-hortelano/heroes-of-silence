@@ -370,12 +370,16 @@ describe('invariantes del proyecto', () => {
     // `tipos` en el vestido (las esquinas de las sendas, el agua derramada, las
     // orillas de las espigas…), y ninguna sabía que una casilla era del río.
     // `ponerTipo` lanza si se le pide cambiar una casilla del río; una
-    // escritura por corchetes en otro sitio se lo saltaría en silencio.
+    // escritura por corchetes en otro sitio se lo saltaría en silencio. Vive en
+    // `map/vestir/base.ts`, lo que comparten las partes del vestido (era
+    // `map/vestir.ts` hasta la fase N de la reorganización, 07-11-2026; roto a
+    // mano: `tipos[i] = ABIERTA` en `vestir/relieve.ts` sale rojo con su línea).
     const escrituras = infractoresDeCodigo(
       CORE,
       /\btipos\s*\[[^\]]+\]\s*=(?!=)|\btipos\s*\.\s*(fill|set|copyWithin)\s*\(/,
     );
-    const codigo = codigoDe(ruta('src/core/map/vestir.ts')).split('\n');
+    const BASE = ruta('src/core/map/vestir/base.ts');
+    const codigo = codigoDe(BASE).split('\n');
     const funcionDe = (linea: number): string | null => {
       for (let i = linea - 1; i >= 0; i--) {
         const m = /^export function (\w+)/.exec(codigo[i] ?? '');
@@ -384,8 +388,8 @@ describe('invariantes del proyecto', () => {
       return null;
     };
     const ajenas = escrituras.filter((e) => {
-      const m = /^src\/core\/map\/vestir\.ts:(\d+) /.exec(e);
-      return m === null || funcionDe(Number(m[1])) !== 'ponerTipo';
+      const m = /^(.+):(\d+) → /.exec(e);
+      return m === null || m[1] !== BASE || funcionDe(Number(m[2])) !== 'ponerTipo';
     });
     expect(ajenas).toEqual([]);
     // Que mire algo: la de `ponerTipo` sale.

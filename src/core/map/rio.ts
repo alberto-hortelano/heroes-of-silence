@@ -13,7 +13,7 @@
  * (`intentarRed`), y las regiones se reparten por orilla. Por construcción
  * ninguna casilla del río toca tres regiones salvo donde se quiere, el espejo es
  * exacto y nada lo parte: el vestido lo escribe como agua una vez y nadie más
- * puede escribir en él (`ponerTipo`, `vestir.ts`). Al final del vestido,
+ * puede escribir en él (`ponerTipo`, `vestir/base.ts`). Al final del vestido,
  * `rioEntero` lo comprueba y lanza: un río partido es un fallo del generador.
  *
  * Todo en enteros y con el `rng` que se pasa.

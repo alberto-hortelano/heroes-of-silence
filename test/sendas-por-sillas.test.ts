@@ -41,7 +41,8 @@ import { buildMap, generateMapPlan } from '../src/core/map/generate.js';
 import { pasoTorcido, soloPorUnVertice } from '../src/core/map/niveles.js';
 import { rioAnteLaCiudad } from '../src/core/map/recinto.js';
 import type { GameMap } from '../src/core/map/tipos.js';
-import { ABIERTA, abrirEsquinasTorcidas } from '../src/core/map/vestir.js';
+import { ABIERTA } from '../src/core/map/vestir/base.js';
+import { abrirEsquinasTorcidas } from '../src/core/map/vestir/caminos.js';
 import { createRng } from '../src/core/rng.js';
 import { itLento, rango, segunPrisa } from './lento.js';
 

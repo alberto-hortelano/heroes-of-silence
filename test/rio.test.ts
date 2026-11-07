@@ -29,7 +29,7 @@ import {
   validarRios,
 } from '../src/core/map/rio.js';
 import { BARRERAS, type Nivel } from '../src/core/map/terrain.js';
-import { ABIERTA, conElRio, esDelRio, ponerTipo } from '../src/core/map/vestir.js';
+import { ABIERTA, conElRio, esDelRio, ponerTipo } from '../src/core/map/vestir/base.js';
 import { createRng } from '../src/core/rng.js';
 import type { Point } from '../src/core/types.js';
 import { riosDelMapa } from '../tools/qa/rios.js';
