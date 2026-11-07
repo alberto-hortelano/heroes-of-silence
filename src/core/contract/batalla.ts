@@ -7,7 +7,6 @@
  * (07-11-2026) en `vistas.ts`, `mapa-conocido.ts`, `aventura.ts`, `batalla.ts` y
  * `peticion-de-mapa.ts`.
  */
-
 import { granadasQueQuedan } from '../battle/a-distancia.js';
 import { armaduraDe, isShooter, lanzaGranadas, ruedaDelGolpe } from '../battle/armas.js';
 import { tableroDelContrato } from '../battle/board.js';

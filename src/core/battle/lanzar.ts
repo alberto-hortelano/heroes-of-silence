@@ -265,6 +265,7 @@ export function castBlocker(
   const pregunta = targetId === undefined && at === undefined;
   return apuntadoBlocker(state, h, l, pregunta ? undefined : apuntadoDe(targetId, at), false);
 }
+
 // ---------------------------------------------------------------- poderes
 
 /**

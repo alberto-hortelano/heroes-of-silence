@@ -12,7 +12,6 @@
  * cae el hechizo llegan hechos de `session.ts`; dónde está cada figura en este
  * instante, del animador.
  */
-
 import {
   type CasillaDelAlcance,
   type ExplosionDeLaGranada,

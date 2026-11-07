@@ -680,6 +680,7 @@ export function previsionDelGolpeQueViene(
   }
   return porRespuesta;
 }
+
 // ---------------------------------------------------------------- lanzar
 
 /**

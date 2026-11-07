@@ -13,7 +13,6 @@
  * otro de los tuyos lo elige y pulsar su casilla, a sus pies, lo cambia con el
  * elegido.
  */
-
 import { hexEquals } from '@core/battle/board.js';
 import { isAlive, stackHexes } from '@core/battle/consultas.js';
 import { nivelDe } from '@core/battle/muralla.js';

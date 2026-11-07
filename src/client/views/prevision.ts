@@ -4,7 +4,6 @@
  * cuenta que aplica el daño); aquí solo se escriben. Lo comparten la partida y
  * la arena a través de la escena de batalla, que es una.
  */
-
 import type { Horquilla, Modificador } from '@core/battle/damage.js';
 import { curaOEfecto } from '@core/battle/effects.js';
 import type {

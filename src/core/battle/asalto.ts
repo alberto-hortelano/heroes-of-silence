@@ -158,6 +158,7 @@ export const TIPOS_DE_ESCALA: readonly TipoDeEscala[] = ['poner_escalera', 'subi
 export function esTipoDeEscala(x: string): x is TipoDeEscala {
   return (TIPOS_DE_ESCALA as readonly string[]).includes(x);
 }
+
 // ---------------------------------------------------------------- puertas
 
 /**

@@ -9,7 +9,6 @@
  * puerta no está aquí sino en `main.ts`, una sola para el lienzo, los botones y
  * el teclado: con una por sitio, «Resolver sola» y Escape se colaban.
  */
-
 import type {
   ExplosionDeLaGranada,
   LineaDelDisparo,

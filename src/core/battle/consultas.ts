@@ -751,6 +751,7 @@ function hayEnemigoA(state: BattleState, s: BattleStack, distancia: number): boo
   }
   return false;
 }
+
 // ---------------------------------------------------------- salir del contacto
 
 /**
@@ -825,6 +826,7 @@ function costesDelPaso(state: BattleState, s: BattleStack): CosteDeSalir {
 export function movableHexes(state: BattleState, s: BattleStack): Hex[] {
   return [...movableFrom(state, s).values()].map((p) => p.at);
 }
+
 // ---------------------------------------------------------------- la carga
 
 /**
@@ -961,6 +963,7 @@ export interface CasillaDeCarga {
  * sitio que la necesita.
  */
 export const SIN_CARGAS: readonly CasillaDeCarga[] = Object.freeze([]);
+
 // ------------------------------------------------------------- el contraataque
 
 /**
@@ -1020,6 +1023,7 @@ export function splashTargets(
       canReachMelee(state, otro, target),
   );
 }
+
 // -------------------------------------------------- los hechizos de la batalla
 
 /** El nombre de un hechizo de la batalla, o su id si ya no lo lleva (lo quitó la arena). */
@@ -1052,6 +1056,7 @@ export function hechizoDeLaBatalla(state: BattleState, id: string): Hechizo {
   if (h === undefined) throw new Error(`esta batalla no lleva el hechizo «${id}»`);
   return h;
 }
+
 // ---------------------------------------------------------------- la rendición
 
 /**
@@ -1114,6 +1119,7 @@ function motivoParaNoRendirse(state: BattleState, side: Side, coste: number): st
 
 /** Se escribe una vez y se lee en dos: el bloqueador y el estrechamiento. */
 export const SIN_HEROE = 'este bando no tiene héroe';
+
 // ---------------------------------------------------------------- el final
 
 /**
