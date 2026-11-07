@@ -55,7 +55,7 @@ import { LADO_DEL_MAPA, type MapPlan, REGIONES_POR_BANDO } from '../src/core/map
 import { generateMapPlan } from '../src/core/map/generar/procedimental.js';
 import { validateMapPlan } from '../src/core/map/generar/validar.js';
 import { pointFromKey, pointKey } from '../src/core/map/geometria.js';
-import { stepCost } from '../src/core/map/map.js';
+import { costeEnElAlcance, reachableFrom } from '../src/core/map/map.js';
 import { RedDeCaminos } from '../src/core/map/red-de-caminos.js';
 import { BARRERAS, costeDeEntrada, isWalkable, TERRAIN_KINDS } from '../src/core/map/terrain.js';
 import { createRng } from '../src/core/rng.js';
@@ -586,7 +586,8 @@ describe('los caminos del plan del agente: casillas, y los tramos se derivan (#1
     // Y la suelta abarata entrar en ella, como cualquier casilla de camino.
     const { map } = buildMap({ ...plan, roads });
     const sin = buildMap({ ...plan, roads: [] }).map;
-    expect(stepCost(map, en(3, 7), en(4, 7))).toBeLessThan(stepCost(sin, en(3, 7), en(4, 7)));
+    const paso = (m: typeof map) => costeEnElAlcance(reachableFrom(m, en(3, 7)), en(4, 7));
+    expect(paso(map)).toBeLessThan(paso(sin) as number);
   });
 
   it('el esquema del agente no conoce los tramos: zod los quita del plan del procedimental', () => {
@@ -1341,7 +1342,7 @@ describe('lo que ve el agente', () => {
     // reescribía a mano la fórmula de al lado —el camino que sustituye al
     // terreno, la diagonal que multiplica y redondea—, y este test la daba por
     // buena. Es el mismo criterio que `game.test.ts` ya aplica al medir un paso:
-    // «se mide llamando a `stepCost` y no leyendo la tabla».
+    // «se mide con el Dijkstra y no leyendo la tabla».
     //
     // Ahora la prosa lleva las dos columnas ya resueltas y el test las pide a la
     // misma función que se las cobra al héroe. El día que el camino deje de ser

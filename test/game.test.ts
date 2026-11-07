@@ -29,12 +29,12 @@ import { validateMapPlan } from '../src/core/map/generar/validar.js';
 import { pointFromKey, pointKey } from '../src/core/map/geometria.js';
 import {
   blocksMovement,
+  costeEnElAlcance,
   createEmptyMap,
   findPath,
   objectAt,
   pathFromReachable,
   reachableFrom,
-  stepCost,
 } from '../src/core/map/map.js';
 import { regionDescubierta, zonaDeNiebla } from '../src/core/map/niebla.js';
 import { estructura, regionDeCasilla } from '../src/core/map/regiones.js';
@@ -677,8 +677,10 @@ describe('movimiento de héroes', () => {
     // terreno más barato que el camino, o un modificador que reste — y sin
     // este test el héroe dejaría de dar su último paso EN SILENCIO.
     //
-    // Se mide llamando a `stepCost` y no leyendo la tabla: el coste real pasa
-    // por el camino, por el factor diagonal y por un redondeo.
+    // Se mide con el Dijkstra (`reachableFrom`, lo que se cobra) y no leyendo la
+    // tabla: el coste real pasa por el camino, por el factor diagonal y por un
+    // redondeo. En un mapa de 3 × 3 de un solo terreno, el paso directo es el más
+    // barato de los caminos que llegan a (1,1).
     let minimo = Number.POSITIVE_INFINITY;
     for (const terreno of TERRAIN_KINDS) {
       if (!isWalkable(terreno)) continue;
@@ -690,7 +692,8 @@ describe('movimiento de héroes', () => {
           { x: 0, y: 1 },
           { x: 0, y: 0 },
         ]) {
-          minimo = Math.min(minimo, stepCost(map, desde, { x: 1, y: 1 }));
+          const coste = costeEnElAlcance(reachableFrom(map, desde), { x: 1, y: 1 });
+          minimo = Math.min(minimo, coste ?? Number.POSITIVE_INFINITY);
         }
       }
     }

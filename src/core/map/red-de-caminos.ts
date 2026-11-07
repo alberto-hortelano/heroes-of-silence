@@ -33,7 +33,7 @@ export type TramoDeCamino = readonly [Point, Point];
  */
 export class RedDeCaminos {
   private readonly claves: ReadonlySet<string>;
-  /** Una marca por índice plano: `stepCost` y el Dijkstra no abren cadenas. */
+  /** Una marca por índice plano: el Dijkstra no abre cadenas. */
   private readonly marca: Uint8Array;
   /** Las casillas con camino por índice plano, en el orden de `casillas`. */
   readonly indices: readonly number[];

@@ -23,7 +23,6 @@ import {
   pathFromReachable,
   type Reachable,
   reachableFrom,
-  stepCost,
 } from '../src/core/map/map.js';
 import type { Point } from '../src/core/types.js';
 import { conCaminos, costesDelAlcance } from './mapa-de-prueba.js';
@@ -185,10 +184,6 @@ describe('el Dijkstra que usa la frontera, por sus dos puertas', () => {
     // Un camino sobre la montaña no la abarata.
     const conCamino = conCaminos(montaña(), '1,0');
     expect(costesDelAlcance(reachableFrom(conCamino, desde, [], null, 1500)).get('1,0')).toBe(1500);
-    // `stepCost` es la misma fórmula: con el precio, recto u oblicuo, lo mismo; sin él, lanza.
-    expect(stepCost(conCamino, desde, { x: 1, y: 0 }, 1500)).toBe(1500);
-    expect(stepCost(montaña(), desde, { x: 1, y: 1 }, 1500)).toBe(1500);
-    expect(() => stepCost(montaña(), desde, { x: 1, y: 0 })).toThrow(/una barrera no se pisa/);
     // Un precio que no es un entero positivo lanza: sería una barrera gratis.
     expect(() => reachableFrom(montaña(), desde, [], null, 0)).toThrow(/entero positivo/);
     expect(() => reachableFrom(montaña(), desde, [], null, 1.5)).toThrow(/entero positivo/);

@@ -22,10 +22,11 @@ import { buildMap } from '../src/core/map/generar/construir.js';
 import { validateMapPlan } from '../src/core/map/generar/validar.js';
 import { chebyshev } from '../src/core/map/geometria.js';
 import {
+  costeEnElAlcance,
   createEmptyMap,
   findPath,
   isEnterable,
-  stepCost,
+  reachableFrom,
   tramosDeCasillas,
 } from '../src/core/map/map.js';
 import {
@@ -137,16 +138,13 @@ describe('por dónde se entra en una ciudad (`pasoPermitido`, fase 2)', () => {
       '4,7',
       '4,8',
     ]);
-    // La puerta y la ciudad cuestan como un camino.
-    expect(stepCost(map, { x: 4, y: 2 }, { x: 4, y: 3 })).toBe(75);
+    // La puerta y la ciudad cuestan como un camino: el paso más barato que hay.
+    expect(costeEnElAlcance(reachableFrom(map, { x: 4, y: 2 }), { x: 4, y: 3 })).toBe(75);
     // A la puerta se pasa desde su acceso, no en diagonal desde al lado: de
     // (3,2) se va primero a (4,2).
     expect(
       findPath(map, { x: 3, y: 2 }, { x: 4, y: 4 })?.map((p) => `${p.at.x},${p.at.y}`),
     ).toEqual(['4,2', '4,3', '4,4']);
-    expect(() => stepCost(map, { x: 3, y: 2 }, { x: 4, y: 3 })).toThrow(
-      'no se pasa de (3,2) a (4,3): a una ciudad se entra desde un acceso de una de sus puertas, y de la puerta a ella',
-    );
     // Desde el este, a la ciudad por una puerta y sin pisar el anillo.
     const desdeElEste = findPath(map, { x: 8, y: 4 }, { x: 4, y: 4 });
     if (desdeElEste === null) throw new Error('no llega');
@@ -164,9 +162,6 @@ describe('por dónde se entra en una ciudad (`pasoPermitido`, fase 2)', () => {
       '(3,3) es la muralla de la ciudad de (4,4): a una ciudad se entra por sus puertas —la del norte y la del sur—, y el resto de su recinto no se pisa',
     );
     expect(muroBlocker(map, { x: 4, y: 3 })).toBe(null);
-    expect(() => stepCost(map, { x: 2, y: 3 }, { x: 3, y: 3 })).toThrow(
-      '(3,3) es la muralla de la ciudad de (4,4)',
-    );
     // Sin caminos, ninguna puerta: la ciudad queda cerrada.
     const cerrada = praderaConCiudad([]);
     expect(muroBlocker(cerrada, { x: 4, y: 3 })).toBe(

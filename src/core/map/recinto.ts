@@ -10,8 +10,8 @@
  * sobre los tejados. «Dos ciudades no quedan tan cerca que sus recintos se
  * toquen» y «el héroe no atraviesa la muralla» son decisiones del usuario
  * (21-10-2026), así que **el recinto es del núcleo**, y aquí, una vez: dónde está, por dónde se entra y
- * qué lo impide. Lo leen el movimiento (`map.ts`: el Dijkstra, `stepCost`,
- * `isEnterable`), la red (`regiones.ts`: las regiones de una ciudad), el
+ * qué lo impide. Lo leen el movimiento (`map.ts`: el Dijkstra, `isEnterable`,
+ * `sePasa`), la red (`regiones.ts`: las regiones de una ciudad), el
  * generador (para no poner nada dentro y trazar los caminos por las puertas),
  * la puerta de los planes (`validateMapPlan`) y la escena.
  *
@@ -500,8 +500,8 @@ function dichasLasPuertas(puertas: readonly PuertaDeLaCiudad[]): string {
 /**
  * Por qué no se pisa `hasta`, si es la muralla de una ciudad, en una frase para
  * la persona; `null` si no lo es. `nombre` dice cómo se llama la ciudad de una
- * casilla (el mapa no guarda nombres); sin él, por su casilla. Lo leen el
- * rechazo de una marcha (`porQueNoLlega`) y `stepCost`.
+ * casilla (el mapa no guarda nombres); sin él, por su casilla. Lo lee el
+ * rechazo de una marcha (`porQueNoLlega`).
  */
 export function muroBlocker(
   map: MapaConCaminos,

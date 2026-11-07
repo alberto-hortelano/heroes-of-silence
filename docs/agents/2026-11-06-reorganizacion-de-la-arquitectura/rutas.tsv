@@ -1287,3 +1287,4 @@ simbolo	src/core/battle/salida.ts	src/core/texto.ts	unaOVarias, privada (→ con
 simbolo	src/core/state/sitios.ts	src/core/validar.ts	objeto, privada (→ objetoCon con obligatorios; N12)
 simbolo	src/core/map/niveles.ts	src/core/map/terrain.ts	NOMBRE_DE_BARRERA, privada (→ NOMBRE_DE_BARRERA_EN_EL_PLAN, junto a NOMBRE_DE_BARRERA, con sus textos de hoy; N12)
 simbolo	src/core/equipo/pieza.ts	(retirado)	piezaBlocker (→ problemasDePieza(x)[0] ?? null: solo lo leían los tests; N13)
+simbolo	src/core/map/map.ts	(retirado)	stepCost (solo la leían los tests y repetía la regla del Dijkstra: los tests leen reachableFrom, pasoPermitido y muroBlocker; N13)

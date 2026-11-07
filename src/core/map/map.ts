@@ -16,7 +16,6 @@ import {
   enAlgunRecinto,
   FUERA,
   MURO,
-  muroBlocker,
   pasoPermitido,
   pasosDelMapa,
   tramoDelRecinto,
@@ -178,43 +177,6 @@ export function sePasa(map: GameMap, desde: Point, hasta: Point): boolean {
     pasos === null ||
     pasoPermitido(pasos, desde.y * map.width + desde.x, hasta.y * map.width + hasta.x)
   );
-}
-
-/**
- * Coste de entrar en `to` viniendo de `from`: la lectura legible de
- * `costeDeEntrada`, que vive con sus constantes en `terrain.ts`. El Dijkstra usa
- * la de allí directamente para precalcular sus dos tablas por casilla, y desde
- * este ciclo también la usa el contrato para decirle al agente lo que le va a
- * costar cada paso — tres lectores y una sola fórmula. Con `barrera`, la de quien
- * se infiltra: una casilla de barrera cuesta eso, recta u oblicua, como en el
- * Dijkstra (`reachableFrom(…, barrera)`).
- */
-export function stepCost(
-  map: GameMap,
-  from: Point,
-  to: Point,
-  barrera: number | null = null,
-): number {
-  const terreno = terrainAt(map, to);
-  const diagonal = from.x !== to.x && from.y !== to.y;
-  const pasos = pasosDelMapa(map);
-  if (pasos !== null) {
-    const i = from.y * map.width + from.x;
-    const j = to.y * map.width + to.x;
-    if (!pasoPermitido(pasos, i, j)) {
-      throw new Error(
-        muroBlocker(map, to) ??
-          `no se pasa de (${from.x},${from.y}) a (${to.x},${to.y}): a una ciudad se entra desde un acceso de una de sus puertas, y de la puerta a ella`,
-      );
-    }
-    // La puerta y la ciudad, como una calle, aunque debajo haya barrera.
-    if (pasos.rol[j] !== FUERA) return costeDeEntrada('grass', true, diagonal);
-  }
-  if (!isWalkable(terreno)) {
-    if (barrera !== null) return barrera;
-    throw new Error(`no se entra en (${to.x},${to.y}): es ${terreno}, y una barrera no se pisa`);
-  }
-  return costeDeEntrada(terreno, map.caminos.tiene(to), diagonal);
 }
 
 export interface PathStep {

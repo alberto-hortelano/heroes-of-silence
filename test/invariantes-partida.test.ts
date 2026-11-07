@@ -63,8 +63,8 @@ describe('invariantes del proyecto', () => {
     // `puertas.ts` volviera a nombrar la ciudad, habría dos reglas para la
     // misma puerta. Roto a mano: `town: [[0, 1]]` en `RUMBOS` sale rojo.
     expect(infractoresDeCodigo([ruta('src/core/map/puertas.ts')], /\btown\b/)).toEqual([]);
-    // Y el paso por el recinto lo lee solo `map.ts` (el Dijkstra, `stepCost`,
-    // `sePasa`): nadie más decide por su cuenta qué casilla del recinto se pisa.
+    // Y el paso por el recinto lo lee solo `map.ts` (el Dijkstra y `sePasa`):
+    // nadie más decide por su cuenta qué casilla del recinto se pisa.
     // El de la batalla (`battle/`) es otro: el de los muros de la muralla.
     const lee = /\bpasoPermitido\s*\(/;
     expect(
