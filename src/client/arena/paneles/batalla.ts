@@ -25,7 +25,7 @@ import { type Html, html, NADA } from '../../comun/html.js';
 import { nombreEnElCampo } from '../../render/batalla/distintivo.js';
 import type { SesionDeArena } from '../../sesion/sesion-de-arena.js';
 import { listaDelCampo } from '../../views/campo.js';
-import { apagadosPor, filaDeCifra } from '../../views/cifras.js';
+import { fieldsetApagado, filaDeCifra } from '../../views/cifras.js';
 import { rasgosDichos } from './bandos.js';
 import { filasDeArmas } from './ficha.js';
 
@@ -291,7 +291,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
     s.ruedaPendiente?.fase === 'respuesta'
       ? html`<p>Te toca responder en la rueda.</p>`
       : mia && activa !== null
-        ? apagadosPor(
+        ? fieldsetApagado(
             s.motivoDeLaRueda,
             accionesDeLaUnidad({
               activa,

@@ -29,7 +29,7 @@ import { DESHABILITADO, fondoDeColor, type Html, html, NADA, srcDeImagen } from 
 import { asset } from '../render/assets.js';
 import { COLOR_DEL_ORO } from '../render/palette.js';
 import type { Session } from '../sesion/partida.js';
-import { apagadosPor, motivoParaApagar } from '../views/cifras.js';
+import { fieldsetApagado, motivoParaApagar } from '../views/cifras.js';
 import { casillaSoloRuedaDelHeroe } from '../views/combate.js';
 import { nota, rotuloDeDia } from '../views/notas.js';
 import { renderPanelDelAyuntamiento } from './ayuntamiento/panel.js';
@@ -103,7 +103,7 @@ export function renderTopbar(session: Session): {
 
 /**
  * @param contandoAun si el tablero de batalla aún cuenta la última jugada: sus
- *   botones salen apagados (`apagadosPor`).
+ *   botones salen apagados (`fieldsetApagado`).
  */
 export function renderSide(
   session: Session,
@@ -164,7 +164,7 @@ export function renderActions(session: Session, contandoAun = false): Html {
       }
       // «Solo la rueda del héroe» (22-10-2026) se cambia también a media batalla
       // y vale desde el siguiente golpe: no se apaga mientras se cuenta.
-      return html`${casillaSoloRuedaDelHeroe(html`data-action="solo-rueda-del-heroe"`, session.soloRuedaDelHeroe)}${apagadosPor(
+      return html`${casillaSoloRuedaDelHeroe(html`data-action="solo-rueda-del-heroe"`, session.soloRuedaDelHeroe)}${fieldsetApagado(
         motivoParaApagar(session, contandoAun),
         html`<button data-action="auto-battle">Resolver sola</button>`,
       )}`;

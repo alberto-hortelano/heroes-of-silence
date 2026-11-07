@@ -1055,7 +1055,7 @@ antes del destino (`battle_started` con `faltan`).
   guarnición, antes de la primera jugada sale `<dialog id="defensa">` con la propuesta de la IA
   marcada y «−»/«+» por tipo, y dice que los elegidos se quedan con el héroe después de la batalla;
   lo que solo informa («pelean los 5 × … que hay») va en el tono
-  apagado (`notaDebajo`) y no en el del rechazo (`motivoDebajo`); «Defender» la rehace en el núcleo,
+  apagado (`notaDelApagado`) y no en el del rechazo (`motivoDelRechazo`); «Defender» la rehace en el núcleo,
   «Como propone la IA» o Escape la dejan, y la batalla empieza al cerrarla (hasta entonces no se
   juega nada). Con cualquiera de las dos abierta, toda tecla es suya: Escape la cierra a ella y no
   también la base de detrás (H3 del QA). `pnpm capturas` cierra
@@ -1092,7 +1092,7 @@ antes del destino (`battle_started` con `faltan`).
   perdida: …; X cae y vuelve a Valdeluz sin tropa.»). Cada batalla del turno
   del rival, el suyo; y la emboscada de un grupo en el turno propio, igual (`moveHeroTo`).
   Mientras la rueda espera, los botones de la batalla salen apagados con su motivo
-  (`apagadosPor`), y un clic mientras se cuenta una jugada dice «Espera a que termine la jugada.»
+  (`fieldsetApagado`), y un clic mientras se cuenta una jugada dice «Espera a que termine la jugada.»
   (`alPulsarMientrasCuenta`); en la partida y en la arena (vuelta 1 de QA, 19-10-2026).
 - **Niebla de quien juega** (#64): los héroes se pintan si se miran AHORA, los
   objetos como se SABEN (castillos y nodos con su último dueño visto), los grupos

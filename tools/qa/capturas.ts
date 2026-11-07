@@ -2120,8 +2120,9 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
   const uno = page.locator(`${deLaRecluta}[data-todo="no"]`);
   if ((espejo.selectedHero?.army.length ?? 0) >= 6) {
     // La morada apaga «+1» con la frase del núcleo escrita debajo cuando no cabe
-    // ni uno (`motivoParaNoReclutar`): sin `title`, que en el móvil no se ve.
-    const escrito = page.locator('#side .ficha-de-la-morada .motivo-apagado');
+    // ni uno (`motivoParaNoReclutar`): sin `title`, que en el móvil no se ve. Es un
+    // rechazo: `motivoDelRechazo`, en su color (R2 de la reorganización).
+    const escrito = page.locator('#side .ficha-de-la-morada .motivo');
     const motivo = (await escrito.count()) === 1 ? (await escrito.innerText()).trim() : null;
     const delNucleo = espejo.motivoParaNoReclutar(recluta);
     if (

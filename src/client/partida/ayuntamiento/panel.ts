@@ -15,7 +15,7 @@ import { type Army, NOMBRE_DE_RASGO } from '@core/types.js';
 import { DESHABILITADO, type Html, html, NADA, srcDeImagen } from '../../comun/html.js';
 import type { Session } from '../../sesion/partida.js';
 import type { FichaDelAyuntamiento } from '../../sesion/vistas/ayuntamiento.js';
-import { filaDeCifra, motivoApagado } from '../../views/cifras.js';
+import { filaDeCifra, motivoDelRechazo } from '../../views/cifras.js';
 import { nota } from '../../views/notas.js';
 import { renderArmy } from '../ejercito.js';
 import { botonesDeLaFila } from '../morada/panel.js';
@@ -72,7 +72,7 @@ function renderFicha(nombre: string, f: FichaDelAyuntamiento, tropa: Army | null
     <div class="reclutar">
       <button data-action="hire-hero" data-tipo="${f.tipo}" class="primary" ${apagado}>Contratar a ${f.nombreDelTipo}</button>
     </div>
-    ${motivoApagado(f.motivo)}
+    ${motivoDelRechazo(f.motivo)}
     ${conTropa}
   </section>`;
 }

@@ -12,7 +12,7 @@ import { NOMBRE_DE_HUECO } from '@core/types.js';
 import { DESHABILITADO, type Html, html, NADA, unir } from '../../comun/html.js';
 import type { Session } from '../../sesion/partida.js';
 import type { FichaDeLaMorada } from '../../sesion/vistas/morada.js';
-import { filaDeCifra, filasDeCombate, motivoApagado } from '../../views/cifras.js';
+import { filaDeCifra, filasDeCombate, motivoDelRechazo } from '../../views/cifras.js';
 import { modificadoresEnPantalla, nota } from '../../views/notas.js';
 import { mejora } from '../base/panel.js';
 import { filaLiderazgo, renderTropaLicenciable } from '../ejercito.js';
@@ -113,5 +113,5 @@ function renderReclutar(f: FichaDeLaMorada): Html {
       <button data-action="recruit" data-creature="${f.id}" data-todo="no" ${apagado}>+1</button>
       <button data-action="recruit" data-creature="${f.id}" data-todo="si" class="primary" ${apagado}>${plan === null ? 'Todo' : `Todo (${plan.maximo})`}</button>
     </div>
-    ${motivoApagado(motivo)}`;
+    ${motivoDelRechazo(motivo)}`;
 }

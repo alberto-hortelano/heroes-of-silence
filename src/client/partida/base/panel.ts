@@ -35,7 +35,7 @@ import { unidadDelJuego } from '@core/unidad/catalogo.js';
 import { disposicionDe } from '../../../shared/base.js';
 import { DESHABILITADO, type Html, html, NADA, unir } from '../../comun/html.js';
 import type { Session } from '../../sesion/partida.js';
-import { filaDeCifra } from '../../views/cifras.js';
+import { filaDeCifra, motivoDelRechazo } from '../../views/cifras.js';
 import { modificadoresEnPantalla } from '../../views/notas.js';
 import { filaLiderazgo, renderArmy, renderTropaLicenciable } from '../ejercito.js';
 import { filaHechizo, renderSpellbook, sinCobrar } from '../mapa/panel.js';
@@ -70,9 +70,7 @@ function filaDeConstruir(
   return html`<div class="stack"><span>${b.name}<span class="veterania">${describirCoste(b.cost)}</span>${
     // «Ya se ha construido hoy» lo dice la cabecera de «Ampliar» una vez: repetido
     // en cada fila tapaba los motivos que sí distinguen una de otra.
-    motivo === null || (hoyEnCabecera && town.builtToday)
-      ? NADA
-      : html`<span class="veterania motivo">${motivo}</span>`
+    hoyEnCabecera && town.builtToday ? NADA : motivoDelRechazo(motivo)
   }</span><span class="count"><button data-action="build" data-building="${id}" ${motivo === null ? NADA : DESHABILITADO} title="${motivo ?? `Construir ${b.name}`}">Construir</button></span></div>`;
 }
 

@@ -162,10 +162,12 @@ describe('el panel de la escena de la tropa', () => {
     expect(mandoble.poner).not.toBeNull();
     const fila = m.slice(m.indexOf('data-item="mandoble"'), m.indexOf('data-item="gambeson"'));
     expect(fila).toContain('disabled>Poner</button>');
-    expect(fila).toContain(`<span class="motivo-apagado">${mandoble.poner}</span>`);
+    // El motivo es un rechazo del núcleo: en su color, el de la guarnición (H5; R2 de
+    // la reorganización, 07-11-2026: hasta entonces, `motivo-apagado`, en el apagado).
+    expect(fila).toContain(`<span class="veterania motivo">${mandoble.poner}</span>`);
     // El gambesón sí se le pone: encendido y sin motivo.
     const gambeson = m.slice(m.indexOf('data-item="gambeson"'));
-    expect(gambeson).not.toContain('motivo-apagado');
+    expect(gambeson).not.toContain('class="veterania motivo"');
     expect(gambeson).toMatch(/data-action="tropa-poner" data-item="gambeson" >Poner/);
     // Lo de serie: «de serie» y ningún botón de quitar en todo su equipo (es un novato).
     expect(m).toContain('class="de-serie"');

@@ -15,11 +15,11 @@
  *    en su sitio, de su ejército y la guarnición, con la propuesta de la IA de
  *    partida y «−»/«+» por tipo.
  *
- * Lo que no se puede hacer sale apagado (`apagadoPor`, que deja leerlo y
- * enfocarlo) con su motivo debajo (`motivoDebajo`), que escribe el núcleo
+ * Lo que no se puede hacer sale apagado (`atributosDeApagado`, que deja leerlo y
+ * enfocarlo) con su motivo debajo (`motivoDelRechazo`), que escribe el núcleo
  * (`elReparto`, `defensaPorElegir`): la persona lee por qué, no un botón gris mudo,
  * como en la conversación de un lugar. Lo que solo informa (ya pelean todos) va en
- * el tono apagado (`notaDebajo`), no en el del rechazo (H5 del QA de la fase 1).
+ * el tono apagado (`notaDelApagado`), no en el del rechazo (H5 del QA de la fase 1).
  */
 
 import type { TroopGroup } from '@core/hero/troop.js';
@@ -29,7 +29,12 @@ import { describirCoste } from '@core/texto.js';
 import { DICHO_DE_LA_OBRA, SE_VE_EN_EL_PUESTO } from '../comun/dichos.js';
 import { type Html, html, NADA, unir } from '../comun/html.js';
 import type { VistaDeLaDefensa, VistaDeLaGuarnicion } from '../sesion/partida.js';
-import { apagadoPor, filaDeCifra, motivoDebajo, notaDebajo } from '../views/cifras.js';
+import {
+  atributosDeApagado,
+  filaDeCifra,
+  motivoDelRechazo,
+  notaDelApagado,
+} from '../views/cifras.js';
 import { filaDeTropa, filaLiderazgo } from './ejercito.js';
 
 /** Un botón que pasa uno del grupo `g` al otro lado del reparto (`data-hacia`). */
@@ -71,8 +76,8 @@ function seccionDeLaObra(o: LaObraDelPuesto): Html {
   return html`<section class="obra-del-puesto">
       <h4>El puesto · ${SE_VE_EN_EL_PUESTO[o.ahora]}</h4>
       <p class="cost">Hoy la batalla en el paso se pelea ${hoy === null ? 'sin muralla' : `tras una muralla de ${hoy}`}. Se mejora de una en una y no se baja: ${cadaObra}. La obra se queda con el paso si cambia de dueño.</p>
-      <div class="botones"><button data-action="mejorar-el-puesto"${queObra}${apagadoPor(o.motivo ?? o.nota)}>${boton}</button></div>
-      ${motivoDebajo(o.motivo)}${notaDebajo(o.nota)}
+      <div class="botones"><button data-action="mejorar-el-puesto"${queObra}${atributosDeApagado(o.motivo ?? o.nota)}>${boton}</button></div>
+      ${motivoDelRechazo(o.motivo)}${notaDelApagado(o.nota)}
     </section>`;
 }
 
@@ -92,12 +97,12 @@ export function renderGuarnicion(v: VistaDeLaGuarnicion): Html {
       </section>
     </div>
     ${v.obra === null ? NADA : seccionDeLaObra(v.obra)}
-    ${motivoDebajo(v.motivo)}
+    ${motivoDelRechazo(v.motivo)}
     <div class="botones">${
       v.cambia
         ? html`
       <button data-action="cerrar-guarnicion">Cancelar</button>
-      <button data-action="confirmar-reparto"${apagadoPor(v.motivo, 'primary')}>Confirmar</button>`
+      <button data-action="confirmar-reparto"${atributosDeApagado(v.motivo, 'primary')}>Confirmar</button>`
         : html`
       <button data-action="cerrar-guarnicion" class="primary">Cerrar</button>`
     }
@@ -112,10 +117,10 @@ export function renderDefensa(v: VistaDeLaDefensa): Html {
           ? NADA
           : html` <span class="veterania">(la IA: ${f.propuesta})</span>`;
       return html`<div class="stack"><span>${f.nombre}${cambio}</span><span class="count">
-          <button data-action="defensa-menos" data-creature="${f.creature}"${apagadoPor(f.motivoMenos)} aria-label="Uno menos de ${f.nombre}">−</button>
+          <button data-action="defensa-menos" data-creature="${f.creature}"${atributosDeApagado(f.motivoMenos)} aria-label="Uno menos de ${f.nombre}">−</button>
           ${f.pelean} de ${f.hay}
-          <button data-action="defensa-mas" data-creature="${f.creature}"${apagadoPor(f.motivoMas ?? f.notaMas)} aria-label="Uno más de ${f.nombre}">+</button>
-        </span></div>${motivoDebajo(f.motivoMas)}${notaDebajo(f.notaMas)}`;
+          <button data-action="defensa-mas" data-creature="${f.creature}"${atributosDeApagado(f.motivoMas ?? f.notaMas)} aria-label="Uno más de ${f.nombre}">+</button>
+        </span></div>${motivoDelRechazo(f.motivoMas)}${notaDelApagado(f.notaMas)}`;
     }),
   );
   return html`<h3 id="titulo-de-la-defensa">¡Te atacan en ${v.sitio}!</h3>
@@ -123,9 +128,9 @@ export function renderDefensa(v: VistaDeLaDefensa): Html {
     <p class="cost">Los que elijas se quedan con ${v.hero.name} después de la batalla, y los demás, en la guarnición.</p>
     ${filaDeCifra('Pelean con él', `${v.ocupa.individuos} de ${v.cabe.cupo} · liderazgo ${v.ocupa.liderazgo} de ${v.cabe.tope}`)}
     <div class="stack-list">${filas}</div>
-    ${motivoDebajo(v.motivo)}
+    ${motivoDelRechazo(v.motivo)}
     <div class="botones">
       <button data-action="defensa-de-la-ia">Como propone la IA</button>
-      <button data-action="defensa-confirmar"${apagadoPor(v.motivo, 'primary')}>Defender</button>
+      <button data-action="defensa-confirmar"${atributosDeApagado(v.motivo, 'primary')}>Defender</button>
     </div>`;
 }

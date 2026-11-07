@@ -11,7 +11,7 @@
 import { type Html, html, NADA, unir } from '../../comun/html.js';
 import type { VistaDeLaConversacion } from '../../sesion/lugar.js';
 import type { Session } from '../../sesion/partida.js';
-import { apagadoPor, motivoDebajo } from '../../views/cifras.js';
+import { atributosDeApagado, motivoDelRechazo } from '../../views/cifras.js';
 
 export function renderPanelDelLugar(session: Session): Html {
   const vista = session.lugar.vista();
@@ -42,9 +42,9 @@ export function renderConversacionDelLugar(c: VistaDeLaConversacion): Html {
   const opciones = unir(
     c.opciones.map(
       (o) =>
-        html`<li><button data-action="lugar-opcion" data-indice="${String(o.indice)}"${apagadoPor(
+        html`<li><button data-action="lugar-opcion" data-indice="${String(o.indice)}"${atributosDeApagado(
           o.motivo,
-        )}>${o.texto}${o.pelea ? html` <span class="veterania">(pelea)</span>` : NADA}</button>${motivoDebajo(
+        )}>${o.texto}${o.pelea ? html` <span class="veterania">(pelea)</span>` : NADA}</button>${motivoDelRechazo(
           o.motivo,
         )}</li>`,
     ),

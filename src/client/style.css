@@ -403,9 +403,17 @@ button.primary:hover:not(:disabled) { background: var(--boton-primario-encima); 
 .stack .quitar-equipo { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.2rem; }
 .stack .quitar-equipo button { font-size: 0.75em; padding: 0.1rem 0.4rem; }
 /* El motivo de un botón apagado va escrito debajo, no en un `title` (en el móvil
-   no hay ratón que lo enseñe): el mismo en la tropa y en la morada
-   (`motivoApagado`, `views/cifras.ts`). Y en la tropa lo de serie dice que lo es. */
-.motivo-apagado { display: block; font-size: 0.8em; color: var(--ink-dim); }
+   no hay ratón que lo enseñe), en la tropa, la morada y el ayuntamiento, con la
+   regla H5 de la guarnición (R2 de la reorganización, 07-11-2026): el rechazo en su
+   color (`motivoDelRechazo`, `views/cifras.ts`) y lo que solo informa en el apagado
+   (`notaDelApagado`). Hasta entonces, todo en el apagado. Y en la tropa lo de serie
+   dice que lo es. */
+.ficha-de-la-tropa .motivo,
+.ficha-de-la-morada .motivo,
+.ficha-del-ayuntamiento .motivo { display: block; font-size: 0.8em; color: var(--rechazo); }
+.ficha-de-la-tropa .motivo.nota,
+.ficha-de-la-morada .motivo.nota,
+.ficha-del-ayuntamiento .motivo.nota { color: var(--ink-dim); }
 .stack .de-serie { font-size: 0.78em; color: var(--ink-dim); }
 
 progress.liderazgo {
@@ -555,14 +563,14 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
    se puede elegir, apagada y con su motivo debajo. */
 .opciones-del-lugar { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
 .opciones-del-lugar button { width: 100%; text-align: left; }
-/* Lo que no se puede, apagado (`apagadoPor`) y con su motivo debajo (`motivoDebajo`):
-   las opciones de un lugar y las pantallas de la guarnición. */
+/* Lo que no se puede, apagado (`atributosDeApagado`) y con su motivo debajo
+   (`motivoDelRechazo`): las opciones de un lugar y las pantallas de la guarnición. */
 .opciones-del-lugar button[aria-disabled='true'],
 .guarnicion button[aria-disabled='true'] { opacity: 0.55; cursor: not-allowed; }
 .opciones-del-lugar .motivo,
 .guarnicion .motivo { display: block; color: var(--rechazo); margin: 0.1rem 0 0 0.4rem; }
 .guarnicion .motivo { margin-bottom: 0.2rem; font-size: 0.85em; }
-/* Lo que solo informa (`notaDebajo`): ya pelean todos. */
+/* Lo que solo informa (`notaDelApagado`): ya pelean todos. */
 .guarnicion .motivo.nota { color: var(--ink-dim); }
 .abierto-en-la-base { border-bottom: 1px solid var(--borde-oscuro); padding-bottom: 0.6rem; margin-bottom: 0.6rem; }
 .abierto-en-la-base .motivo { color: var(--rechazo); }

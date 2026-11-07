@@ -21,7 +21,12 @@ import type { SpellOption } from '../sesion/batalla/control.js';
 import type { DespliegueEnPantalla } from '../sesion/batalla/despliegue.js';
 import type { Session } from '../sesion/partida.js';
 import { listaDelCampo, marcaDeComandante, marcaDeVeterano } from '../views/campo.js';
-import { AVISO_DE_ESPERA, apagadosPor, filaDeCifra, motivoParaApagar } from '../views/cifras.js';
+import {
+  AVISO_DE_ESPERA,
+  fieldsetApagado,
+  filaDeCifra,
+  motivoParaApagar,
+} from '../views/cifras.js';
 import { renderBattleLog } from './parte.js';
 import { botonesDeArma, botonesDeMuralla, botonesDePoder } from './poderes.js';
 
@@ -79,7 +84,7 @@ export function renderBattlePanel(session: Session, contandoAun: boolean): Html 
 
   const suTurno = s !== null && s.side === mio;
   const acciones = suTurno
-    ? apagadosPor(
+    ? fieldsetApagado(
         motivoParaApagar(session, contandoAun),
         accionesDeLaUnidad({
           activa: s,
@@ -155,7 +160,7 @@ export function renderDespliegue(
       return html`<button data-action="despliegue-elegir" data-stack="${id}"${es ? html` class="primary" aria-pressed="true"` : html` aria-pressed="false"`}>${marcaDeComandante(x)}${nombreEnElCampo(battle, x)} (${x.hex.col},${x.hex.row})</button>`;
     }),
   );
-  return html`${apagadosPor(
+  return html`${fieldsetApagado(
     o.apagado,
     html`<h2>Despliegue${o.quien === null ? NADA : html` · ${o.quien}`}</h2>
     <p>${fraseDeLaTanda(ahora)}</p>

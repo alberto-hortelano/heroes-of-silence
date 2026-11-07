@@ -14,7 +14,7 @@ import { DESHABILITADO, type Html, html, NADA, unir } from '../../comun/html.js'
 import { nombreEnElCampo } from '../../render/batalla/distintivo.js';
 import type { FichaDeLaTropa, HuecoDeLaFicha, VistaDeLaTropa } from '../../sesion/vistas/tropa.js';
 import { marcaDeComandante } from '../../views/campo.js';
-import { filaDeCifra, filasDeCombate, motivoApagado } from '../../views/cifras.js';
+import { filaDeCifra, filasDeCombate, motivoDelRechazo } from '../../views/cifras.js';
 import { modificadoresEnPantalla, nota } from '../../views/notas.js';
 
 /** Lo que dice un botón de elegir: «heroe» o el puesto en la tropa. */
@@ -86,7 +86,7 @@ function filaDeHueco(h: HuecoDeLaFicha): Html {
     h.quitar === null
       ? NADA
       : html`<button data-action="tropa-quitar" data-slot="${h.hueco}" ${h.quitar.motivo === null ? NADA : DESHABILITADO} aria-label="Quitar ${h.pieza.nombre} y guardarla en la mochila">×</button>`;
-  return html`<div class="stack" data-hueco="${h.hueco}"><span>${nombre}: ${h.pieza.nombre}${serie}<span class="veterania">${modificadoresEnPantalla(h.pieza)}</span>${motivoApagado(h.quitar?.motivo ?? null)}</span><span class="count">${quitar}</span></div>`;
+  return html`<div class="stack" data-hueco="${h.hueco}"><span>${nombre}: ${h.pieza.nombre}${serie}<span class="veterania">${modificadoresEnPantalla(h.pieza)}</span>${motivoDelRechazo(h.quitar?.motivo ?? null)}</span><span class="count">${quitar}</span></div>`;
 }
 
 function renderMochila(f: FichaDeLaTropa): Html {
@@ -101,7 +101,7 @@ function renderMochila(f: FichaDeLaTropa): Html {
         segunda === undefined
           ? NADA
           : html` <button data-action="tropa-poner" data-item="${pieza.id}" data-hueco="segunda" ${segunda === null ? NADA : DESHABILITADO} title="${segunda ?? 'Ponérsela de segunda arma'}">A la segunda mano</button>`;
-      return html`<div class="stack" data-item="${pieza.id}"><span>${pieza.nombre}<span class="veterania">${NOMBRE_DE_HUECO[pieza.hueco]} · ${modificadoresEnPantalla(pieza)}</span>${motivoApagado(poner)}</span><span class="count"><button data-action="tropa-poner" data-item="${pieza.id}" ${poner === null ? NADA : DESHABILITADO}>Poner</button>${deSegunda}</span></div>`;
+      return html`<div class="stack" data-item="${pieza.id}"><span>${pieza.nombre}<span class="veterania">${NOMBRE_DE_HUECO[pieza.hueco]} · ${modificadoresEnPantalla(pieza)}</span>${motivoDelRechazo(poner)}</span><span class="count"><button data-action="tropa-poner" data-item="${pieza.id}" ${poner === null ? NADA : DESHABILITADO}>Poner</button>${deSegunda}</span></div>`;
     }),
   );
 }

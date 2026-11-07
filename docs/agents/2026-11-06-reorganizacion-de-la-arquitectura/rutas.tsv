@@ -2234,3 +2234,8 @@ simbolo	src/client/sesion/sesion-de-arena.ts	src/client/sesion/batalla/sesion-de
 simbolo	src/client/sesion/sesion-de-arena.ts	src/client/sesion/batalla/sesion-de-batalla.ts	SesionDeArena.defensaEnLoAlto (miembro de SesionDeBatalla; R1 de C4)
 simbolo	src/client/sesion/sesion-de-arena.ts	src/client/sesion/batalla/sesion-de-batalla.ts	SesionDeArena.calculo y cache (SesionDeBatalla.calculoDeBatalla y calculo; R1 de C4)
 simbolo	src/client/sesion/sesion-de-arena.ts	src/client/sesion/batalla/sesion-de-batalla.ts	SesionDeArena.avanzarIA (retirado: SesionDeBatalla.seguirLaIA, con laIAMueve; R1 de C4)
+simbolo	src/client/views/cifras.ts	src/client/views/cifras.ts	motivoApagado (retirado: motivoDelRechazo, el rechazo en su color, la regla H5 también en la tropa, la morada y el ayuntamiento; R2 de C4)
+simbolo	src/client/views/cifras.ts	src/client/views/cifras.ts	apagadoPor → atributosDeApagado (R2 de C4)
+simbolo	src/client/views/cifras.ts	src/client/views/cifras.ts	motivoDebajo → motivoDelRechazo (R2 de C4)
+simbolo	src/client/views/cifras.ts	src/client/views/cifras.ts	notaDebajo → notaDelApagado (R2 de C4)
+simbolo	src/client/views/cifras.ts	src/client/views/cifras.ts	apagadosPor → fieldsetApagado (R2 de C4)

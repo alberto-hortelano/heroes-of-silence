@@ -334,6 +334,30 @@ export async function escenas(): Promise<readonly Escena[]> {
   mochila.selectItem('espada_bendita');
   out.push({ nombre: 'aventura · mochila y pieza elegida', session: mochila });
 
+  // 19-21 · El motivo de lo que no se puede en la morada, la tropa y el ayuntamiento:
+  //      un rechazo del núcleo, en su color, con la regla H5 de la guarnición (desde R2
+  //      de la reorganización; antes, en el tono apagado de lo que solo informa).
+  const morada = new Session(12);
+  morada.openTown(morada.myTowns()[0]!.id);
+  morada.jugador.oro = 0;
+  morada.abrirLaMorada('lvl1');
+  out.push({ nombre: 'morada · sin oro para reclutar', session: morada });
+
+  const tropa = new Session(7);
+  tropa.abrirLaTropa();
+  const conMochila = tropa.selectedHero!;
+  conMochila.army = [{ creature: TROPA }];
+  conMochila.mochila = ['mandoble', 'gambeson'];
+  tropa.elegirEnLaTropa({ indice: 0 });
+  out.push({ nombre: 'tropa · una pieza que no se pone', session: tropa });
+
+  const ayuntamiento = new Session(12);
+  ayuntamiento.openTown(ayuntamiento.myTowns()[0]!.id);
+  fueraDeSuBase(ayuntamiento.state, ayuntamiento.viewer);
+  ayuntamiento.jugador.oro = 0;
+  ayuntamiento.abrirElAyuntamiento();
+  out.push({ nombre: 'ayuntamiento · sin oro para contratar', session: ayuntamiento });
+
   return out;
 }
 
