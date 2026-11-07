@@ -1,10 +1,10 @@
 /**
  * Las capas: `core` es puro (sin `node:`, sin DOM, sin conocer al servidor), sin
- * azar suelto ni coma flotante de la plataforma y sin ciclos de importación en
- * ejecución (ni donde se mide el nivel) ni de tipos entre dos carpetas; las herramientas de desarrollo no llegan
- * al build, el cliente no lee el entorno, ningún fichero que lee una máquina lleva
- * la ruta de esta, y las rutas que se escriben en cadenas (las que `tsc` no ve)
- * existen.
+ * azar suelto ni coma flotante de la plataforma; `src/` entero, sin ciclos de
+ * importación en ejecución (ni donde se mide el nivel) ni de tipos entre dos
+ * carpetas; las herramientas de desarrollo no llegan al build, el cliente no lee
+ * el entorno, ningún fichero que lee una máquina lleva la ruta de esta, y las
+ * rutas que se escriben en cadenas (las que `tsc` no ve) existen.
  *
  * Los guardias de las fronteras de `CLAUDE.md` vivían en un solo
  * `invariantes.test.ts`; desde la fase T de la reorganización (06-11-2026) van en
@@ -344,25 +344,38 @@ describe('invariantes del proyecto', () => {
     expect(importa(INICIO)).toContain(ruta('src/core/battle/armas.ts'));
   });
 
-  it('`core` no tiene ciclos de importación en ejecución, ni de tipos que crucen dos carpetas', () => {
+  it('`src/` no tiene ciclos de importación en ejecución, ni de tipos que crucen dos carpetas', () => {
     // Un ciclo de lo que corre al cargar (`import` de valor, `export … from`,
     // `import 'x'`) funciona solo mientras lo que se ejecuta al cargarse no lea
     // del otro lado: una constante leída al cargarse da un `ReferenceError` (TDZ)
     // según quién se cargue antes, y `tsc` no lo ve. `import type` no cuenta (se
     // borra al compilar) ni `import()` (va a demanda); `import { type X }` sí,
     // porque con `verbatimModuleSyntax` queda como `import {}` y carga el módulo.
-    // Había dos (fase N de la reorganización, 07-11-2026): `map/rio.ts` ↔
-    // `map/vestir.ts` (por `parejaDe`, hoy en `map/geometria.ts`) y
+    // Había dos en el núcleo (fase N de la reorganización, 07-11-2026):
+    // `map/rio.ts` ↔ `map/vestir.ts` (por `parejaDe`, hoy en `map/geometria.ts`) y
     // `mundo/reglas.ts` ↔ `state/game.ts` (por `playerById` y `turnBlocker`, hoy
     // en `state/consultas.ts`). Rotos a mano: `import { parejaDe } from
     // './vestir.js'` en `rio.ts` y `import { mundoDe } from '../mundo/reglas.js'`
     // en `state/consultas.ts` salen rojos con el ciclo entero, cada paso con la
     // línea de su `import`.
+    //
+    // Mira todo `src/` —el núcleo, el cliente, `shared` y el servidor— desde la
+    // fase C de la reorganización (C3c, 07-11-2026); hasta entonces, solo `core`.
+    // Medido antes con su mismo método (`.cache/faseC3c/ciclos-src.mts`): en el
+    // cliente quedaba uno de valor, `render/escenario/puestos.ts` ↔ `pintar.ts`
+    // (`seVeConSuNodo`, hoy en `colocar/sprite.ts`, al lado de la pieza que la
+    // nombra), y ninguno de tipos entre carpetas; en `shared` y en el servidor,
+    // ninguno. Rotos a mano en el cliente, sobre `render/escenario/colocar/
+    // sprite.ts`: `import { claveDe } from '../pintar.js'` (dos ficheros, con el
+    // pintor, que la importa a ella) e `import { hojaDelSrc } from '../bordes.js'`
+    // (tres, por el pintor, que importan los bordes) salen rojos con el ciclo
+    // entero.
+    const SRC = ficheros('src');
     const aristas = new Map<string, { ruta: string; linea: number }[]>(
-      CORE.map((r) => [
+      SRC.map((r) => [
         r,
         importacionesConLineaDe(r).filter(
-          (x) => x.ruta.startsWith('src/core/') && x.ruta.endsWith('.ts'),
+          (x) => x.ruta.startsWith('src/') && x.ruta.endsWith('.ts'),
         ),
       ]),
     );
@@ -370,7 +383,7 @@ describe('invariantes del proyecto', () => {
     // menor: cada ciclo sale una vez, con todos sus pasos (`fichero:línea` del
     // `import` que lleva al siguiente).
     const ciclos = new Set<string>();
-    for (const inicio of CORE) {
+    for (const inicio of SRC) {
       const visto = new Set<string>();
       type Paso = { readonly ruta: string; readonly linea: number };
       const buscar = (desde: string, camino: readonly Paso[]): readonly Paso[] | null => {
@@ -394,14 +407,28 @@ describe('invariantes del proyecto', () => {
       );
     }
     expect([...ciclos]).toEqual([]);
-    // Y que mire algo: las dos importaciones que quedan de aquellos ciclos, en un
-    // solo sentido, las ve el resolutor (la del vestido, desde que se repartió por
-    // `map/vestir/`, la hace el engorde, `fronteras.ts`).
+    // Y que mire algo: las importaciones que quedan de aquellos ciclos, en un solo
+    // sentido, las ve el resolutor (la del vestido, desde que se repartió por
+    // `map/vestir/`, la hace el engorde, `fronteras.ts`; de la del pintor y los
+    // puestos, el pintor importa la pieza y los puestos, al pintor); y mira las
+    // cuatro carpetas de `src/`: el pintor importa `shared` y el servidor, el núcleo.
     const importa = (de: string): string[] => (aristas.get(de) ?? []).map((x) => x.ruta);
     expect(importa(ruta('src/core/map/vestir/fronteras.ts'))).toContain(
       ruta('src/core/map/rio.ts'),
     );
     expect(importa(ruta('src/core/state/game.ts'))).toContain(ruta('src/core/mundo/reglas.ts'));
+    expect(importa(ruta('src/client/render/escenario/pintar.ts'))).toContain(
+      ruta('src/client/render/escenario/colocar/sprite.ts'),
+    );
+    expect(importa(ruta('src/client/render/escenario/puestos.ts'))).toContain(
+      ruta('src/client/render/escenario/pintar.ts'),
+    );
+    expect(importa(ruta('src/client/render/escenario/pintar.ts'))).toContain(
+      ruta('src/shared/arte.ts'),
+    );
+    expect(importa(ruta('src/server/director.ts')).some((r) => r.startsWith('src/core/'))).toBe(
+      true,
+    );
 
     // **Ni de tipos que crucen dos carpetas** (paso N8 de la misma fase). Un
     // `import type` no carga nada, pero un ciclo que pasa por él ata dos dominios:
@@ -420,22 +447,44 @@ describe('invariantes del proyecto', () => {
     // `hero/hero.ts` en `equipo/portador.ts` (el nudo de antes) salen rojos con su
     // ciclo, y un `import type` de `battle/effects.ts` en `battle/types.ts` (dentro
     // de `battle/`) no sale.
+    //
+    // En el cliente, los de solo tipos dentro de una carpeta se quedan, como en el
+    // núcleo: la vista de cada tablero (`render/batalla/`, `render/mapa/`), las
+    // piezas de la pelea en pantalla (`sesion/batalla/`), las del escenógrafo y su
+    // recinto (`render/escenario/colocar/`, `render/escenario/recinto/`) y el
+    // pintor y la huella. Al partir `colocar.ts` y `recinto.ts` en sus carpetas
+    // (C3c), la pieza de la escena (`Sprite`) va en su propio fichero, aparte de
+    // la escena entera (`Escena`), y su papel en el recinto, en el anillo, que no
+    // llega a las celdas: si no, el fichero de la pieza nombraba el relieve, las
+    // celdas o las sendas del recinto, que llegan a ella por el índice de
+    // obstáculos (`pasillo.ts`), un nudo entre tres carpetas.
+    // Roto a mano: `import type { Caja } from '../pasillo.js'` en `colocar/
+    // sprite.ts` (el índice nombra la pieza) sale rojo con el nudo, y un `import
+    // type { Recinto } from './anillo.js'` en `recinto/octogono.ts` (dentro de la
+    // carpeta) no sale.
     const conTipos = new Map<string, Arista[]>(
-      CORE.map((r) => [
+      SRC.map((r) => [
         r,
         importacionesConLineaDe(r, true).filter(
-          (x) => x.ruta.startsWith('src/core/') && x.ruta.endsWith('.ts'),
+          (x) => x.ruta.startsWith('src/') && x.ruta.endsWith('.ts'),
         ),
       ]),
     );
     expect(nudosEntreCarpetas(conTipos)).toEqual([]);
     // Y que vea los tipos: `battle/types.ts` nombra `magia/formato.ts` solo con
-    // `import type`, que el grafo de arriba no tiene.
+    // `import type`, que el grafo de arriba no tiene; y en el cliente, la figura
+    // del tablero de batalla nombra su vista (`VistaBatalla`) del tablero, que la
+    // importa a ella: un ciclo de tipos dentro de `render/batalla/`, que vale.
     const nombra = (de: string): string[] => (conTipos.get(de) ?? []).map((x) => x.ruta);
     expect(nombra(ruta('src/core/battle/types.ts'))).toContain(ruta('src/core/magia/formato.ts'));
     expect(importa(ruta('src/core/battle/types.ts'))).not.toContain(
       ruta('src/core/magia/formato.ts'),
     );
+    const TABLERO = ruta('src/client/render/batalla/tablero.ts');
+    const FIGURA = ruta('src/client/render/batalla/figura.ts');
+    expect(nombra(FIGURA)).toContain(TABLERO);
+    expect(importa(FIGURA)).not.toContain(TABLERO);
+    expect(importa(TABLERO)).toContain(FIGURA);
   });
 
   it('las capas de `core`: la IA y el contrato solo los importan ellos mismos, y el mapa no conoce la partida', () => {
