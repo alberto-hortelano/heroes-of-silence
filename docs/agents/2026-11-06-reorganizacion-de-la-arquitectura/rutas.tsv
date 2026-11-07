@@ -1285,3 +1285,4 @@ simbolo	src/core/types.ts	src/core/texto.ts	conComa
 simbolo	src/core/equipo/dicho.ts	src/core/texto.ts	conSigno
 simbolo	src/core/battle/salida.ts	src/core/texto.ts	unaOVarias, privada (→ conPlural, exportada; N12)
 simbolo	src/core/state/sitios.ts	src/core/validar.ts	objeto, privada (→ objetoCon con obligatorios; N12)
+simbolo	src/core/map/niveles.ts	src/core/map/terrain.ts	NOMBRE_DE_BARRERA, privada (→ NOMBRE_DE_BARRERA_EN_EL_PLAN, junto a NOMBRE_DE_BARRERA, con sus textos de hoy; N12)

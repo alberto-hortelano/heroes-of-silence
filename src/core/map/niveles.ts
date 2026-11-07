@@ -18,6 +18,7 @@ import {
   type Barrera,
   esBarrera,
   isWalkable,
+  NOMBRE_DE_BARRERA_EN_EL_PLAN,
   type TerrainKind,
 } from './terrain.js';
 import type { GameMap, MapRegion } from './tipos.js';
@@ -427,15 +428,6 @@ export function acantiladosSinCaida(
   return sin;
 }
 
-/** Cómo se nombra una barrera en un rechazo de niveles. */
-const NOMBRE_DE_BARRERA: Readonly<Record<Barrera, string>> = {
-  cliff: 'el acantilado ("cliff")',
-  mountain: 'la cordillera ("mountain")',
-  water: 'el agua ("water")',
-  forest: 'el bosque ("forest")',
-  wall: 'el muro ("wall")',
-};
-
 /**
  * Lo que impide pintar el relieve de un mapa, en frases para quien diseñó el
  * plan (#209). Vacío: cada franja de barrera admite los niveles de las regiones
@@ -471,7 +463,7 @@ export function problemasDeNiveles(map: GameMap): string[] {
       )
     )
       continue;
-    const donde = `${NOMBRE_DE_BARRERA[f.barrera]} que pasa por ${casilla(aPunto(f.casillas[0] as number, map.width))}`;
+    const donde = `${NOMBRE_DE_BARRERA_EN_EL_PLAN[f.barrera]} que pasa por ${casilla(aPunto(f.casillas[0] as number, map.width))}`;
     const cuales = regiones.map((r) => `"${r.id}" (nivel ${r.nivel})`).join(', ');
     if (f.barrera === 'cliff') {
       problemas.push(
