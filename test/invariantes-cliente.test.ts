@@ -23,6 +23,7 @@ import {
   CORE,
   codigoDe,
   esLaSesion,
+  ficheros,
   importacionesConLineaDe,
   importacionesDe,
   importaDe,
@@ -231,6 +232,37 @@ describe('invariantes del proyecto', () => {
       ruta('src/client/batalla/anim.ts'),
     ])
       expect(deDonde.has(r), r).toBe(true);
+  });
+
+  it('el cliente no conoce al servidor: nada de `src/client` ni de `src/shared` importa `src/server`, ni un tipo', () => {
+    // La otra cara de «`core` no conoce al servidor» (invariantes-capas). El
+    // espectador pinta lo que le manda el servidor, y hasta la fase S de la
+    // reorganización (07-11-2026) tomaba de `src/server/` lo que viaja por el cable:
+    // la vista (`vista-espectador.ts`) y el mensaje (`protocol.ts`), en seis ficheros.
+    // Eran solo tipos, pero la página no compilaba sin el servidor, y lo siguiente que
+    // se importara de allí podía ser un valor, con `ws` y `node:` detrás. El cable vive
+    // desde entonces en `src/shared/cable-del-espectador.ts`, que leen los dos lados; y
+    // `shared` tampoco importa el servidor, porque lo lee el cliente: por ahí volvería.
+    //
+    // Mira lo que se carga (`importacionesConLineaDe`, `aDemandaDe`) y lo que solo se
+    // nombra: `import type`, `export type … from` y los tipos de otro módulo sin
+    // importarlo, `typeof import('…')` o `import('…').X` (`tiposPorImportDe`), con la
+    // ruta resuelta y no escrita (un relativo a cualquier profundidad).
+    const SERVIDOR_ = `${ruta('src/server')}/`;
+    const COMPARTIDO = ficheros(ruta('src/shared'));
+    const alServidor = [...CLIENTE, ...COMPARTIDO].flatMap((de) =>
+      [...importacionesConLineaDe(de, true), ...aDemandaDe(de), ...tiposPorImportDe(de)]
+        .filter((i) => i.ruta.startsWith(SERVIDOR_))
+        .map((i) => `${de}:${i.linea} → ${i.ruta}`),
+    );
+    expect(alServidor).toEqual([]);
+    // Y que mire algo: el espectador nombra el cable en `shared`, y el servidor que lo
+    // escribe, también; `shared` está en lo mirado.
+    const cable = ruta('src/shared/cable-del-espectador.ts');
+    const nombra = (de: string): string[] => importacionesConLineaDe(de, true).map((i) => i.ruta);
+    expect(nombra(ruta('src/client/espectador/adaptar.ts'))).toContain(cable);
+    expect(nombra(ruta('src/server/vista-espectador.ts'))).toContain(cable);
+    expect(COMPARTIDO).toContain(cable);
   });
 
   it('el marcado sale por una sola puerta: solo `html.ts` convierte texto en DOM', () => {

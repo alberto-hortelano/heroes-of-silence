@@ -1,9 +1,12 @@
 /**
- * Wire entre el servidor de juego, el puente MCP y los espectadores.
+ * Wire entre el servidor de juego y el puente MCP (el agente).
  * Es la fuente de verdad del formato: si cambia aquí, cambia en los dos lados.
+ *
+ * El de los espectadores vivía también aquí hasta la fase S de la reorganización
+ * (07-11-2026); hoy es `src/shared/cable-del-espectador.ts`, que lee la página del
+ * espectador sin importar el servidor.
  */
 import type { RequestKind } from '@core/contract/esquemas.js';
-import type { SpectatorView } from './vista-espectador.js';
 
 // ------------------------------------------------------- servidor → agente
 
@@ -95,55 +98,3 @@ export interface AgentQueryMsg {
 }
 
 export type AgentToServerMsg = AgentHelloMsg | AgentResponseMsg | AgentQueryMsg;
-
-// ------------------------------------------------------- espectadores
-
-export interface SpectatorSnapshotMsg {
-  readonly type: 'snapshot';
-  /**
-   * Qué partida es: el mismo id que se le presenta al agente (`AgentLink.partida`,
-   * #118). Lo necesita el espectador desde que reconecta solo (#104): un servidor
-   * que vuelve tras un reinicio trae OTRA partida, y sin esto sus fotogramas se
-   * pintaban encima de los de la anterior como si fueran la misma —el día, la
-   * crónica y la cola del telón son de la vieja—. Con él, el espectador empieza
-   * limpio y lo dice.
-   */
-  readonly partida: string;
-  readonly day: number;
-  readonly current: number;
-  /**
-   * La partida ha terminado, y **también cuando no gana nadie**.
-   *
-   * Es `state.finished` tal cual más la nota escrita para quien lee. Nació como
-   * parche —el núcleo no sabía decir «se agotaron los días» y el espectador se
-   * quedaba mirando el último día para siempre— y la forma resultó ser la
-   * buena: sobrevive entera. Lo que se murió es el booleano que la sostenía
-   * desde fuera.
-   */
-  readonly finished: { readonly winner: number | null; readonly note: string } | null;
-  /**
-   * Estado del mapa, los jugadores y la batalla en curso, ya sin `Set` ni `Map`.
-   *
-   * Decía `unknown`, y eso obligaba a quien lo pintara a reimplementar el
-   * esquema del emisor por su cuenta: dos declaraciones de la misma cosa que
-   * nadie compara, que es el bug que acaba de morder en `MapPlan` contra
-   * `mapPlanSchema`. Ahora es un tipo, `SpectatorView`, y los dos extremos
-   * compilan contra él.
-   */
-  readonly view: SpectatorView;
-}
-
-/**
- * Un solo brazo, y por ahora es lo honesto.
- *
- * Aquí vivía un `SpectatorLogMsg` con `readonly lines: string[]` y **cero
- * emisores** (#32). No se emitió nunca porque no tiene sujeto: el snapshot ya
- * lleva `view.log` con los últimos 40 hechos ESTRUCTURADOS y `view.directorLog`
- * con lo que dice el director, así que una lista de cadenas sueltas es
- * estrictamente más pobre que lo que ya viaja. Emitirlo habría sido fabricarle
- * un motivo.
- *
- * Se borra en vez de dejarlo declarado: un tipo con cero emisores lo lee alguien
- * dentro de seis meses, se cree que funciona, y escribe el cliente que lo espera.
- */
-export type ServerToSpectatorMsg = SpectatorSnapshotMsg;

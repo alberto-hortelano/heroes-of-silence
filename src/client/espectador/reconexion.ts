@@ -9,7 +9,7 @@
  * barra dice en cada momento cuál es el siguiente y cuánto falta: un
  * «conectando…» inerte no distingue entre reintentar y estar colgado.
  */
-import type { SpectatorSnapshotMsg } from '../../server/protocol.js';
+import type { SpectatorSnapshotMsg } from '../../shared/cable-del-espectador.js';
 import { Reproductor } from './reproductor.js';
 import { FINAL_VISIBLE_MS } from './telon.js';
 

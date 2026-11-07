@@ -17,6 +17,7 @@ import { parseSeed } from '@core/rng.js';
 import { townsOf } from '@core/state/consultas.js';
 import type { PlayerId } from '@core/types.js';
 import { type WebSocket, WebSocketServer } from 'ws';
+import type { ServerToSpectatorMsg } from '../shared/cable-del-espectador.js';
 import { AgentLink } from './agent-link.js';
 import { responderConsulta } from './consultas.js';
 import { Director, type DirectorOptions } from './director.js';
@@ -29,7 +30,6 @@ import {
 } from './entorno.js';
 import { pedirMapaAlAgente } from './mapa-del-agente.js';
 import { notaFinDePartida, SIN_PARTIDA_TODAVIA } from './notas.js';
-import type { ServerToSpectatorMsg } from './protocol.js';
 import { construirVista } from './vista-espectador.js';
 
 /** La partida que se juega si nadie pide otra. */
@@ -142,8 +142,9 @@ export function arrancarPartida(opciones: OpcionesDePartida = {}): Promise<void>
         state.finished === null
           ? null
           : { winner: state.finished.winner, note: notaFinDePartida(state, SIN_BANDO) },
-      // La vista se MONTA en `vista-espectador.ts`, que es donde vive su tipo. Se
-      // escribía aquí, a mano y dentro de esta función, contra un `view: unknown`.
+      // La vista se MONTA en `vista-espectador.ts`, y su tipo es el del cable
+      // (`shared/cable-del-espectador.ts`). Se escribía aquí, a mano y dentro de esta
+      // función, contra un `view: unknown`.
       view: construirVista(state, director.log),
     };
     const raw = JSON.stringify(msg);

@@ -2308,3 +2308,17 @@ simbolo	src/client/arena/main.ts	src/client/arena/puntero.ts	enLienzo (recibe el
 simbolo	src/client/arena/main.ts	src/client/arena/clic.ts	el oyente de click de document, entero: instalarElClic; piezaDeLaFicha, enfocar, Quitada, quitadaDe, enfocarTrasQuitar, traerALaVista, traerLaPiezaALaVista, ALTO_DE_LA_FICHA_A_LA_VISTA, raizVisible y enfocarElNombre (R8 de C4)
 simbolo	src/client/arena/main.ts	src/client/arena/teclado.ts	el oyente de keydown de document: instalarElTeclado (R8 de C4)
 simbolo	src/client/arena/main.ts	src/client/arena/abrir.ts	el Promise.all del final (leer de disco, montar el enlace, recordar las fichas y la vista de la URL): abrirLaArena; main.ts queda en buscar los elementos, crear el bucle, los cinco estados, el editor de magia, la URL, el tablero con sus gestos, el lienzo, la rueda y la página, e instalar cada parte en su orden (R8 de C4)
+simbolo	src/server/vista-espectador.ts	src/shared/cable-del-espectador.ts	VistaMapa
+simbolo	src/server/vista-espectador.ts	src/shared/cable-del-espectador.ts	VistaJugador
+simbolo	src/server/vista-espectador.ts	src/shared/cable-del-espectador.ts	VistaHeroe
+simbolo	src/server/vista-espectador.ts	src/shared/cable-del-espectador.ts	VistaPueblo
+simbolo	src/server/vista-espectador.ts	src/shared/cable-del-espectador.ts	VistaSitio
+simbolo	src/server/vista-espectador.ts	src/shared/cable-del-espectador.ts	VozEnLaBase
+simbolo	src/server/vista-espectador.ts	src/shared/cable-del-espectador.ts	StackEnCable
+simbolo	src/server/vista-espectador.ts	src/shared/cable-del-espectador.ts	VeteraniaEnCable
+simbolo	src/server/vista-espectador.ts	src/shared/cable-del-espectador.ts	OrigenEnCable
+simbolo	src/server/vista-espectador.ts	src/shared/cable-del-espectador.ts	BatallaEnCable
+simbolo	src/server/vista-espectador.ts	src/shared/cable-del-espectador.ts	VistaBatalla
+simbolo	src/server/vista-espectador.ts	src/shared/cable-del-espectador.ts	SpectatorView
+simbolo	src/server/protocol.ts	src/shared/cable-del-espectador.ts	SpectatorSnapshotMsg
+simbolo	src/server/protocol.ts	src/shared/cable-del-espectador.ts	ServerToSpectatorMsg

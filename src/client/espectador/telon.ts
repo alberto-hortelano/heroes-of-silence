@@ -31,8 +31,7 @@
  * entre batallas.
  */
 
-import type { SpectatorSnapshotMsg } from '../../server/protocol.js';
-import type { BatallaEnCable } from '../../server/vista-espectador.js';
+import type { BatallaEnCable, SpectatorSnapshotMsg } from '../../shared/cable-del-espectador.js';
 
 /** Cuánto se deja quieto el final de una batalla, ya contado, antes del mapa. */
 export const FINAL_VISIBLE_MS = 2500;

@@ -29,7 +29,7 @@ import type {
   VeteraniaEnCable,
   VistaBatalla,
   VistaMapa,
-} from '../../server/vista-espectador.js';
+} from '../../shared/cable-del-espectador.js';
 import type { AdventureScene } from '../render/mapa/mapa.js';
 import { conLosDueñosSabidos } from '../render/mapa/sitios-sabidos.js';
 

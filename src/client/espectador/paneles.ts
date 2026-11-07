@@ -15,7 +15,7 @@
 import type { BattleState, Side } from '@core/battle/types.js';
 import { nombreDeTipoDeHeroe } from '@core/hero/tipos-de-heroe.js';
 import { pasoOPuebloSiExiste } from '@core/state/sitios.js';
-import type { SpectatorView } from '../../server/vista-espectador.js';
+import type { SpectatorView } from '../../shared/cable-del-espectador.js';
 import { renderBattleLog } from '../batalla/parte.js';
 import { fondoDeColor, type Html, html, NADA, unir } from '../comun/html.js';
 import { NADIE } from '../comun/quien-mira.js';

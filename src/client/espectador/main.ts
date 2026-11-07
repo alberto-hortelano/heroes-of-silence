@@ -23,8 +23,7 @@ import {
   forzarClima,
   validarForzado,
 } from '@core/state/clima.js';
-import type { SpectatorSnapshotMsg } from '../../server/protocol.js';
-import type { SpectatorView } from '../../server/vista-espectador.js';
+import type { SpectatorSnapshotMsg, SpectatorView } from '../../shared/cable-del-espectador.js';
 import { DialogoDeLaRueda, SOLO_MIRA } from '../batalla/rueda/dialogo.js';
 import { bucleDeDibujo } from '../comun/bucle.js';
 import { avisoDelClima, climaDeLaURL } from '../comun/clima-de-la-url.js';
@@ -605,7 +604,7 @@ function abrir(url: string, intento: { readonly n: number; readonly caida: Caida
       elStatus.textContent = `Llegó algo que no es JSON: ${mensajeDe(err)}`;
       return;
     }
-    // Lo único que se valida en ejecución, tal y como dice `vista-espectador.ts`:
+    // Lo único que se valida en ejecución, tal y como dice `cable-del-espectador.ts`:
     // el resto del formato lo garantiza `tsc` en los dos extremos. Lo que no
     // encaje se dice, no se ignora.
     if (

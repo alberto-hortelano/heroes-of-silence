@@ -35,7 +35,8 @@ import {
 } from '../src/core/state/sitios.js';
 import type { GameState } from '../src/core/state/tipos.js';
 import { objetosConocidos, revealEverything, visibleNow } from '../src/core/state/vision.js';
-import { construirVista, type SpectatorView } from '../src/server/vista-espectador.js';
+import { construirVista } from '../src/server/vista-espectador.js';
+import type { SpectatorView } from '../src/shared/cable-del-espectador.js';
 import { ctx, TROPA_BARATA } from './comun.js';
 import { ejercito, forzarBatalla, pegadoA, unPaso } from './partida-de-prueba.js';
 

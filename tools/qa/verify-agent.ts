@@ -49,7 +49,7 @@ import {
   SANGRIA_PROBLEMA,
   type Veredicto,
 } from '../../src/server/notas.js';
-import type { ServerToSpectatorMsg } from '../../src/server/protocol.js';
+import type { ServerToSpectatorMsg } from '../../src/shared/cable-del-espectador.js';
 import {
   contestaElArnes,
   entornoDelArnes,

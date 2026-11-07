@@ -21,8 +21,7 @@ import {
   textoDeIntento,
   textoDeRendicion,
 } from '../src/client/espectador/reconexion.js';
-import type { SpectatorSnapshotMsg } from '../src/server/protocol.js';
-import type { SpectatorView } from '../src/server/vista-espectador.js';
+import type { SpectatorSnapshotMsg, SpectatorView } from '../src/shared/cable-del-espectador.js';
 
 const URL = 'ws://localhost:3399';
 
