@@ -6,7 +6,8 @@
  *
  * Las piezas no importan la sesión (`sesion/partida.ts`), ni para un tipo: la sesión las
  * importa a ellas, y un tipo de vuelta ataría las dos carpetas en un ciclo
- * (`invariantes-capas`). Lo que comparten con ella se escribe aquí.
+ * (`invariantes-capas`). Lo que comparten con ella se escribe aquí: la escena en que se
+ * está (`Scene`, que era de `sesion/partida.ts`).
  *
  * **Todo por función**: las piezas nacen con los campos de la sesión, antes de que su
  * constructor ponga la partida y su azar, y la partida cambia (los tests ponen otra a
@@ -14,7 +15,11 @@
  * sin poner o viejo.
  */
 import type { GameContext, GameState } from '@core/state/tipos.js';
+import type { Town } from '@core/town/town.js';
 import type { Hero, PlayerId } from '@core/types.js';
+
+/** La escena en que se está (`Session.scene`). */
+export type Scene = 'adventure' | 'town' | 'battle' | 'tropa' | 'morada' | 'ayuntamiento' | 'lugar';
 
 /** Lo que las piezas leen de la sesión (`Session`), cada una con un `Pick` de lo suyo. */
 export interface DueñoDeLasPiezas {
@@ -24,8 +29,16 @@ export interface DueñoDeLasPiezas {
   ctx(): GameContext;
   /** El jugador de la persona (`Session.viewer`). */
   viewer(): PlayerId;
-  /** Algo que se ve ha cambiado: sube la versión (`Session.version`). */
+  /** Cuántas veces ha cambiado algo que se ve (`Session.version`): con ella se guardan las vistas. */
+  version(): number;
+  /** Algo que se ve ha cambiado: sube la versión. */
   tocar(): void;
+  /** Escribe la barra de estado (`Session.status`), que no sube la versión. */
+  barra(texto: string): void;
+  /** La escena en que se está. */
+  escena(): Scene;
+  /** Pasa a la escena `escena` (sube la versión). */
+  irA(escena: Scene): void;
   /**
    * Una acción de la persona con la guarda delante (`Session.run`; por defecto,
    * `bloqueoDeTurno`): la barra dice el rechazo o se vacía, y sube la versión. Verdadero
@@ -36,4 +49,6 @@ export interface DueñoDeLasPiezas {
   heroeSeleccionado(): Hero | null;
   /** El id de la base abierta (`Session.openTownId`), o `null`. */
   idDeLaBaseAbierta(): string | null;
+  /** La base abierta (`Session.activeTown`), o `null`. */
+  baseAbierta(): Town | null;
 }

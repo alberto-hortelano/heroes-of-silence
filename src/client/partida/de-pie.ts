@@ -20,7 +20,8 @@ import {
 } from '../render/figuras/de-pie.js';
 import { playerColor } from '../render/palette.js';
 import type { Tablero } from '../render/proyeccion.js';
-import type { Scene, Session } from '../sesion/partida.js';
+import type { Scene } from '../sesion/partida/comun.js';
+import type { Session } from '../sesion/partida.js';
 
 /** Lo que la escena lee de la vista que compone la sesión: quién sale y a quién se mira. */
 export interface VistaDePie {

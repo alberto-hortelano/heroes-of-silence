@@ -143,7 +143,6 @@ import {
 import { unidadDelJuego } from '@core/unidad/catalogo.js';
 import {
   AYUDA_DE_LA_BASE,
-  AYUDA_DE_LA_MORADA,
   AYUDA_DE_LA_SALIDA,
   AYUDA_DE_LA_TROPA,
   AYUDA_DEL_AYUNTAMIENTO,
@@ -162,20 +161,13 @@ import { ELIGE_EN_LA_RUEDA } from './batalla/cruce.js';
 import { DespliegueEnPantalla } from './batalla/despliegue.js';
 import { SesionDeBatalla } from './batalla/sesion-de-batalla.js';
 import { EnElLugar, type TrasElegir } from './lugar.js';
-import type { DueñoDeLasPiezas } from './partida/comun.js';
+import type { DueñoDeLasPiezas, Scene } from './partida/comun.js';
 import { EquipoEnPantalla } from './partida/equipo.js';
+import { MoradaEnPantalla } from './partida/morada.js';
 import { componerVistaDelAyuntamiento, type VistaDelAyuntamiento } from './vistas/ayuntamiento.js';
 import { type NieblaDeAntes, type NieblaDeLaMarcha, nieblaDeLaMarcha } from './vistas/marcha.js';
-import { componerVistaDeLaMorada, type VistaDeLaMorada } from './vistas/morada.js';
+import type { VistaDeLaMorada } from './vistas/morada.js';
 import { componerVistaDeLaTropa, mismoPortador, type VistaDeLaTropa } from './vistas/tropa.js';
-
-export type Scene = 'adventure' | 'town' | 'battle' | 'tropa' | 'morada' | 'ayuntamiento' | 'lugar';
-
-/** La morada de la base abierta en que se está y a quién se mira (`null`: la primera que produce). */
-interface MoradaAbierta {
-  readonly sitio: SitioId;
-  readonly elegida: string | null;
-}
 
 /**
  * Un paso de la ruta previsualizada: `hoy` si lo alcanza el movimiento del día;
@@ -268,10 +260,19 @@ export class Session extends SesionDeBatalla {
     estado: () => this.state,
     ctx: () => this.ctx,
     viewer: () => this.viewer,
+    version: () => this.version,
     tocar: () => this.tocar(),
+    barra: (texto) => {
+      this.status = texto;
+    },
+    escena: () => this.scene,
+    irA: (escena) => {
+      this.scene = escena;
+    },
     run: (fn, bloqueo) => this.run(fn, bloqueo),
     heroeSeleccionado: () => this.selectedHero,
     idDeLaBaseAbierta: () => this.openTownId,
+    baseAbierta: () => this.activeTown,
   };
 
   get scene(): Scene {
@@ -2019,88 +2020,37 @@ export class Session extends SesionDeBatalla {
   // ------------------------------------------------------------ la morada en escena
 
   /**
-   * Entra en la morada levantada en `sitio` de la base abierta, con su primera
-   * unidad elegida. Lo llama la base al llegar a su puerta (`EscenaBase`). Lanza,
-   * diciéndolo, fuera de la base o si en ese sitio no hay una morada construida
-   * (lo dice la vista, `componerVistaDeLaMorada`, que se compone antes de cambiar
-   * de escena). La base sigue abierta debajo (`openTownId` no cambia), así que
-   * reclutar va por las acciones de siempre y volver la encuentra como estaba.
+   * La morada de la base en escena: `MoradaEnPantalla` (`sesion/partida/morada.ts`), en la
+   * que delegan estos. Lo que se recluta en ella lo dice la base (`recruitPlan`,
+   * `motivoParaNoReclutar`).
    */
+  private readonly morada = new MoradaEnPantalla({
+    ...this.dueñoDeLasPiezas,
+    reclutamiento: (id) => ({
+      plan: this.recruitPlan(id),
+      motivo: this.motivoParaNoReclutar(id),
+    }),
+  });
+
+  /** Entra en la morada levantada en `sitio` de la base abierta (`MoradaEnPantalla.abrir`). */
   abrirLaMorada(sitio: SitioId): void {
-    const town = this.activeTown;
-    if (this.scene !== 'town' || town === null) {
-      throw new Error('no se puede entrar en la morada: no hay ninguna base abierta');
-    }
-    this.enLaMorada(town, { sitio, elegida: null });
-    this.scene = 'morada';
-    this.status = AYUDA_DE_LA_MORADA;
+    this.morada.abrir(sitio);
   }
 
-  /** Vuelve de la morada a la base, que sigue abierta. */
+  /** Vuelve de la morada a la base, que sigue abierta (`MoradaEnPantalla.cerrar`). */
   cerrarLaMorada(): void {
-    if (this.scene !== 'morada') {
-      throw new Error('no se puede salir de la morada: no se está en ninguna');
-    }
-    this.scene = 'town';
-    this.status = AYUDA_DE_LA_BASE;
+    this.morada.cerrar();
   }
 
-  /**
-   * Elegir una unidad de la morada (un clic en su figura o en su botón del
-   * panel). Una que no es de esta morada lanza (la vista lo dice).
-   */
+  /** Elegir una unidad de la morada (`MoradaEnPantalla.elegir`). */
   elegirEnLaMorada(id: string): void {
-    const m = this.moradaAbierta;
-    const town = this.activeTown;
-    if (this.scene !== 'morada' || town === null) {
-      throw new Error('no se puede elegir en la morada: no se está en ninguna');
-    }
-    this.tocar();
-    this.enLaMorada(town, { sitio: m.sitio, elegida: id });
+    this.morada.elegir(id);
   }
 
-  /**
-   * Dónde se está y a quién se mira en la morada (`elegida`: `null`, la primera).
-   * Vale solo con la escena en `'morada'`, que es la que manda: no se suelta al
-   * salir, se sustituye al entrar.
-   */
-  private moradaAbierta: MoradaAbierta = { sitio: 'lvl1', elegida: null };
-
-  /** Compone la vista de `m` (lanza si no vale) y solo entonces la deja abierta. */
-  private enLaMorada(town: Town, m: MoradaAbierta): void {
-    const vista = componerVistaDeLaMorada(
-      town,
-      dueñoDeLaCiudad(this.state, town),
-      m.sitio,
-      m.elegida,
-      (id) => ({
-        plan: this.recruitPlan(id),
-        motivo: this.motivoParaNoReclutar(id),
-      }),
-    );
-    this.moradaAbierta = m;
-    this.cacheDeLaMorada = { version: this.version, abierta: m, vista };
-  }
-
-  /**
-   * Lo que se ve en la escena de la morada (`sesion/vistas/morada.ts`), o `null` fuera de
-   * ella. Se rehace cuando cambia algo que se ve (`version`: reclutar, el oro) o
-   * a quién se mira, no en cada fotograma.
-   */
+  /** Lo que se ve en la escena de la morada, o `null` fuera de ella (`MoradaEnPantalla.vista`). */
   vistaDeLaMorada(): VistaDeLaMorada | null {
-    const town = this.activeTown;
-    if (this.scene !== 'morada' || town === null) return null;
-    const c = this.cacheDeLaMorada;
-    if (c === null || c.version !== this.version || c.abierta !== this.moradaAbierta) {
-      this.enLaMorada(town, this.moradaAbierta);
-    }
-    return this.cacheDeLaMorada!.vista;
+    return this.morada.vista();
   }
-  private cacheDeLaMorada: {
-    readonly version: number;
-    readonly abierta: MoradaAbierta;
-    readonly vista: VistaDeLaMorada;
-  } | null = null;
 
   // ------------------------------------------------------------ el ayuntamiento en escena
 

@@ -15,7 +15,7 @@
  *   rechaza, espera a que acabe y vuelve al mapa sin pedir un segundo clic.
  * - `gesto`: todo lo demás, con la jugada ya contada.
  */
-import type { Scene } from '../sesion/partida.js';
+import type { Scene } from '../sesion/partida/comun.js';
 
 export type RepartoDelClic = 'mirar' | 'al-acabar' | 'nada' | 'gesto';
 
