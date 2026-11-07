@@ -19,13 +19,10 @@ import { nivelDe } from '@core/battle/muralla.js';
 import type { BattleStack, BattleState, Side } from '@core/battle/types.js';
 import type { ClimaDelSitio } from '@core/state/clima.js';
 import type { Hex } from '@core/types.js';
-import {
-  cajaDeFigura,
-  dentroDeLaFigura,
-  type Punto,
-  tableroA,
-  type VistaBatalla,
-} from '../render/batalla.js';
+import { cajaDeFigura } from '../render/batalla/figura.js';
+import { type Punto, tableroA } from '../render/batalla/muralla.js';
+import type { VistaBatalla } from '../render/batalla/tablero.js';
+import { dentroDeLaFigura } from '../render/figuras/caja.js';
 import { cercaDelCentro, hexEnPixel, type Tablero } from '../render/proyeccion.js';
 import type { ColocacionEnPantalla } from '../sesion/batalla/despliegue.js';
 import type { Efecto, EstadoFigura } from './anim.js';

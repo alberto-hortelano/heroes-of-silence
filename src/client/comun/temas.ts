@@ -109,7 +109,7 @@ export function quitarTema(): void {
 
 /**
  * Lo único que el lienzo escribe con la letra de título: las cifras de daño,
- * «−12», en negrita (`render/batalla.ts`).
+ * «−12», en negrita (`render/batalla/efectos.ts`).
  */
 const CIFRAS_DE_DANIO = '−0123456789';
 

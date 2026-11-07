@@ -3,7 +3,7 @@ import { accionContra, masCercana, opcionesDeGolpe } from '../src/client/batalla
 import { EscenaBatalla, rotuloDeAngulo } from '../src/client/batalla/escena.js';
 import { marcadoDe } from '../src/client/comun/html.js';
 import { renderSide } from '../src/client/partida/paneles.js';
-import { cajaDeFigura } from '../src/client/render/batalla.js';
+import { cajaDeFigura } from '../src/client/render/batalla/figura.js';
 import { centroDeStack, centroHex, tableroPara } from '../src/client/render/proyeccion.js';
 import type { Session } from '../src/client/sesion/partida.js';
 import { isShooter } from '../src/core/battle/armas.js';

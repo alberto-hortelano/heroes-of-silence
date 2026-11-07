@@ -116,8 +116,8 @@ import { mensajeDe } from '../comun/errores.js';
 import { type Html, html, pintar } from '../comun/html.js';
 import { aLaBarra, semillaSorteada } from '../comun/semilla.js';
 import { cargarArte } from '../render/assets.js';
+import { COLOR_BANDO } from '../render/batalla/bandos.js';
 import { nombreEnElCampo } from '../render/batalla/distintivo.js';
-import { COLOR_BANDO } from '../render/batalla.js';
 import type { CharacterClip } from '../render/figuras/character.js';
 import type { Direccion } from '../render/figuras/direccion.js';
 import {

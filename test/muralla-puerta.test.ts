@@ -11,7 +11,7 @@ import {
   claveDePortada,
   portadaBajo,
   siluetaDePortada,
-} from '../src/client/render/batalla.js';
+} from '../src/client/render/batalla/muralla.js';
 import { tableroPara } from '../src/client/render/proyeccion.js';
 import { autoResolve, chooseBattleAction } from '../src/core/ai/tactics.js';
 import { puertaBlocker, puertasBlocker } from '../src/core/battle/asalto.js';

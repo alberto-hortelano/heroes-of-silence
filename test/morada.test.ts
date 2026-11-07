@@ -27,7 +27,7 @@ import {
   filaDeLosReclutas,
   SEPARACION,
 } from '../src/client/render/base/fila.js';
-import { cajaDeFiguraEn } from '../src/client/render/batalla.js';
+import { cajaDeFiguraEn } from '../src/client/render/figuras/caja.js';
 import { pasoDeLaHoja } from '../src/client/render/figuras/de-pie.js';
 import { pasoDeLaBase } from '../src/client/render/proyeccion.js';
 import { Session } from '../src/client/sesion/partida.js';

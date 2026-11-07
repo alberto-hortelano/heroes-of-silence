@@ -24,7 +24,9 @@ import {
   tableroAlColocar,
 } from '../../batalla/colocar.js';
 import { AYUDA_DE_LA_TROPA } from '../../comun/dichos.js';
-import { type CajaDeFigura, cajaDeFigura, drawBatalla } from '../../render/batalla.js';
+import { cajaDeFigura } from '../../render/batalla/figura.js';
+import { drawBatalla } from '../../render/batalla/tablero.js';
+import type { CajaDeFigura } from '../../render/figuras/caja.js';
 import { enPantalla, planoDeHex, type Tablero, tableroPara } from '../../render/proyeccion.js';
 import type { Session } from '../../sesion/partida.js';
 

@@ -10,12 +10,12 @@ import { describe, expect, it } from 'vitest';
 import { renderMuralla } from '../src/client/arena/paneles/muralla.js';
 import { EscenaBatalla } from '../src/client/batalla/escena.js';
 import { marcadoDe } from '../src/client/comun/html.js';
+import { cajaDeFigura } from '../src/client/render/batalla/figura.js';
 import {
   alzadoDeLaMuralla,
-  cajaDeFigura,
   type PiezaDelTablero,
   piezasEnOrden,
-} from '../src/client/render/batalla.js';
+} from '../src/client/render/batalla/muralla.js';
 import { altoConAlzado, planoDeHex, tableroPara } from '../src/client/render/proyeccion.js';
 import { FORMAS_DE_EJEMPLO, ladosDeLaForma } from '../src/core/arena/murallas.js';
 import { applyAction } from '../src/core/battle/battle.js';

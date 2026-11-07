@@ -15,7 +15,7 @@ import type { FactionId } from '@core/types.js';
 import { disposicionDe } from '../../../shared/base.js';
 import { AYUDA_DE_LA_MORADA } from '../../comun/dichos.js';
 import { type EncuadreDeLaMorada, encuadrarLaMorada } from '../../render/base/fila.js';
-import { cajaDeFiguraEn } from '../../render/batalla.js';
+import { cajaDeFiguraEn } from '../../render/figuras/caja.js';
 import { type CajaEn, type LienzoDePie, pintarDePie } from '../../render/figuras/de-pie.js';
 import type { LuzSobreLaFigura } from '../../render/figuras/figura.js';
 import type { Tablero } from '../../render/proyeccion.js';

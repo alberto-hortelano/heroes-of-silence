@@ -23,20 +23,18 @@ import { componerBase } from '../src/client/render/base/escena.js';
 import { dondeEsperaEnLaMorada } from '../src/client/render/base/fila.js';
 import { rachasSinArte } from '../src/client/render/base/pintar.js';
 import { dondePulsarElSitio } from '../src/client/render/base/recortes.js';
+import { bandosSinDueño, COLOR_BANDO, colorDelBando } from '../src/client/render/batalla/bandos.js';
+import { bordeDeLasCasillas } from '../src/client/render/batalla/disparos.js';
 import {
-  bandosSinDueño,
-  bordeDeLasCasillas,
-  COLOR_BANDO,
   cajaDeCorona,
   cajaDeFigura,
-  cajaDeFiguraEn,
   cajaDeNombre,
-  colorDelBando,
   pintarCorona,
   pintarSobreLaCabeza,
-} from '../src/client/render/batalla.js';
+} from '../src/client/render/batalla/figura.js';
 import { PIES } from '../src/client/render/escenario/figuras-del-mapa.js';
 import type { Volumen } from '../src/client/render/escenario/pintar.js';
+import { cajaDeFiguraEn } from '../src/client/render/figuras/caja.js';
 import { CUERPO_DE_VECINO } from '../src/client/render/figuras/cuerpo-de-gente.js';
 import { msPorCasilla } from '../src/client/render/figuras/marcha.js';
 import { casillaAPixel, centrarEn, TILE_INICIAL } from '../src/client/render/mapa/camara.js';

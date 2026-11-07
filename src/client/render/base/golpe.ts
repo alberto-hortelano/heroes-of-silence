@@ -11,7 +11,7 @@
 import type { SitioId } from '@core/town/sitios.js';
 import type { Plano } from '../../../shared/arte.js';
 import type { Disposicion } from '../../../shared/base.js';
-import { cajaDeFiguraEn, dentroDeLaFigura } from '../batalla.js';
+import { cajaDeFiguraEn, dentroDeLaFigura } from '../figuras/caja.js';
 import { planoDePixel, type Tablero } from '../proyeccion.js';
 import { type ArteDeLaBase, mascaraDe } from './arte.js';
 import type { Elemento } from './escena.js';

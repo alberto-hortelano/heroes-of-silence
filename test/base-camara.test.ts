@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import templariosJson from '../data/bases/templarios.json' with { type: 'json' };
 import { EscenaBase } from '../src/client/partida/base/escena.js';
 import { camaraDeLaBase, camaraQuieta, seguir } from '../src/client/render/base/camara.js';
-import { cajaDeFiguraEn } from '../src/client/render/batalla.js';
+import { cajaDeFiguraEn } from '../src/client/render/figuras/caja';
 import { enPantalla, pasoDeLaBase } from '../src/client/render/proyeccion.js';
 import { Session } from '../src/client/sesion/partida.js';
 import { faccionesDeLaSemilla } from '../src/core/state/setup.js';

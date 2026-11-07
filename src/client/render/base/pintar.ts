@@ -37,7 +37,6 @@ import {
   planoDelCuadro,
 } from '../../../shared/base.js';
 import { temaDelLienzo } from '../../comun/temas.js';
-import { cajaDeFiguraEn, pintarAroDeFigura } from '../batalla.js';
 import {
   campoDeEscena,
   type LuzDeNoche,
@@ -46,6 +45,7 @@ import {
 } from '../clima/clima.js';
 import { luzDeLasFiguras } from '../clima/recetas.js';
 import { CacheDeLienzos } from '../copias.js';
+import { cajaDeFiguraEn, pintarAroDeFigura } from '../figuras/caja.js';
 import { type Figura, piesDeFigura, pintarFiguraConSombra } from '../figuras/figura.js';
 import { COLOR_NEUTRO } from '../palette.js';
 import { enPantalla, type Tablero } from '../proyeccion.js';

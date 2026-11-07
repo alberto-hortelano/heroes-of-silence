@@ -87,7 +87,7 @@ export function marcaDeComandante(s: BattleStack): string {
 /**
  * El rango de un veterano detrás de su nombre en «En el campo», o nada: la fila
  * dice con palabras lo que la figura dice con galones (`galonesDe`, en
- * `render/batalla.ts`, que este módulo no importa: es puro y lo carga el
+ * `render/batalla/figura.ts`, que este módulo no importa: es puro y lo carga el
  * espectador sin lienzo).
  */
 export function marcaDeVeterano(s: BattleStack): string {

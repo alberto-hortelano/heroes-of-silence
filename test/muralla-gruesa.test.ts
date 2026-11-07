@@ -17,14 +17,14 @@ import { describe, expect, it } from 'vitest';
 import { renderMuralla } from '../src/client/arena/paneles/muralla.js';
 import { EscenaBatalla } from '../src/client/batalla/escena.js';
 import { marcadoDe } from '../src/client/comun/html.js';
+import { tapadasPorLaMuralla } from '../src/client/render/batalla/figura.js';
 import {
   alturaDeColumna,
   alzadoDeLaMuralla,
   columnasQueTapan,
   columnasTranslucidas,
   siluetaDeColumna,
-  tapadasPorLaMuralla,
-} from '../src/client/render/batalla.js';
+} from '../src/client/render/batalla/muralla.js';
 import { centroHex, hexEnPixel, planoDeHex, tableroPara } from '../src/client/render/proyeccion.js';
 import { autoResolve } from '../src/core/ai/tactics.js';
 import { FORMAS_DE_EJEMPLO, ladosDeLaForma } from '../src/core/arena/murallas.js';

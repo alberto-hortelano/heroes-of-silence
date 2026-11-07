@@ -13,7 +13,8 @@ import { renderMuralla } from '../src/client/arena/paneles/muralla.js';
 import { BattleAnimator } from '../src/client/batalla/anim.js';
 import { EscenaBatalla } from '../src/client/batalla/escena.js';
 import { marcadoDe } from '../src/client/comun/html.js';
-import { alturaDeColumna, alzadoDeLaMuralla, cajaDeFigura } from '../src/client/render/batalla.js';
+import { cajaDeFigura } from '../src/client/render/batalla/figura.js';
+import { alturaDeColumna, alzadoDeLaMuralla } from '../src/client/render/batalla/muralla.js';
 import { centroHex, hexEnPixel, planoDeHex, tableroPara } from '../src/client/render/proyeccion.js';
 import { escaleraDeArenaBlocker } from '../src/core/arena/montaje.js';
 import {

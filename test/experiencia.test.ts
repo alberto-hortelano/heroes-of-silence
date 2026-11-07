@@ -13,7 +13,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { galonesDe } from '../src/client/render/batalla.js';
+import { galonesDe } from '../src/client/render/batalla/figura.js';
 import { marcaDeVeterano } from '../src/client/views/campo.js';
 import { resolvePendingBattle } from '../src/core/ai/turn.js';
 import { applyAction } from '../src/core/battle/battle.js';

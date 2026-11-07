@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { camaraDeLaBase } from '../src/client/render/base/camara.js';
-import { cajaDeFiguraEn } from '../src/client/render/batalla.js';
+import { cajaDeFiguraEn } from '../src/client/render/figuras/caja.js';
 import {
   ANCHO_DEL_COMBATE_EN_MOVIL,
   MARCO_DE_LA_BASE,

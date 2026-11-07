@@ -2,8 +2,9 @@
  * La muralla del tablero de batalla como arte (06-11-2026, «falta arte para el
  * muro en combate, lo que hay ahora son placeholders, también para la
  * escalera»): las medidas de cada pieza y sus nombres, que leen el lienzo
- * (`render/batalla/arte-de-la-muralla.ts`, `render/batalla.ts`) y el taller (las guías
- * que se le dan a Codex y la derivación, `tools/taller/muralla-de-batalla.ts`).
+ * (`render/batalla/`: `muralla.ts`, `muralla-pintada.ts` y `arte-de-la-muralla.ts`)
+ * y el taller (las guías que se le dan a Codex y la derivación,
+ * `tools/taller/muralla-de-batalla.ts`).
  * Vive en `shared` por eso: el núcleo no pinta.
  *
  * Todo va en **pasos**, la unidad del tablero (`render/proyeccion.ts`). Un muro

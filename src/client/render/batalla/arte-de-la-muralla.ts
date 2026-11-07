@@ -6,7 +6,7 @@
  * cada imagen, las del índice derivado (`assets/batalla/muralla/indice.json`).
  *
  * Cada función devuelve `false` si su imagen no ha llegado (o no hay): quien la
- * llama (`render/batalla.ts`) pinta entonces su marcador, como siempre.
+ * llama (`muralla-pintada.ts`) pinta entonces su marcador, como siempre.
  */
 
 import type { MaterialDeMuralla } from '@core/battle/types.js';

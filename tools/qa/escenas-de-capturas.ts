@@ -14,7 +14,7 @@
  */
 import { masCercana, opcionesDeGolpe } from '../../src/client/batalla/angulo.js';
 import { focoDe, llegadaDeLaRuta } from '../../src/client/partida/mapa/escena.js';
-import { cajaDeFigura, galonesDe } from '../../src/client/render/batalla.js';
+import { cajaDeFigura, galonesDe } from '../../src/client/render/batalla/figura.js';
 import { escenarioDe, topeDeAlejar } from '../../src/client/render/escenario/superficie.js';
 import {
   casillaAPixel,

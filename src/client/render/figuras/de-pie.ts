@@ -13,12 +13,7 @@
  * el fino, en los pies.
  */
 import { COMPRESION_SUELO, FIGURA, type Plano } from '../../../shared/arte.js';
-import {
-  type CajaDeFigura,
-  cajaDeFiguraEn,
-  dentroDeLaFigura,
-  pintarAroDeFigura,
-} from '../batalla.js';
+import { type CajaDeFigura, cajaDeFiguraEn, dentroDeLaFigura, pintarAroDeFigura } from './caja.js';
 import {
   type FiguraColocada,
   type LuzSobreLaFigura,

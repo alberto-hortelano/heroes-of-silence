@@ -13,7 +13,7 @@ import {
   fotoDeEfectos,
   IMPACTO,
 } from '../src/client/batalla/anim.js';
-import { clipQueSePinta } from '../src/client/render/batalla.js';
+import { clipQueSePinta } from '../src/client/render/batalla/figura.js';
 import { msPorCasilla } from '../src/client/render/figuras/marcha.js';
 import {
   arteDe,

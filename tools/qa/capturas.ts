@@ -52,16 +52,15 @@ import { EscenaTropa } from '../../src/client/partida/tropa/escena.js';
 import { camaraDeLaBase, camaraQuieta } from '../../src/client/render/base/camara.js';
 import { dondeEsperaEnLaMorada } from '../../src/client/render/base/fila.js';
 import { dondePulsarElSitio } from '../../src/client/render/base/recortes.js';
+import { COLOR_BANDO } from '../../src/client/render/batalla/bandos.js';
 import { nombreEnElCampo } from '../../src/client/render/batalla/distintivo.js';
 import {
   ARO_DE_LA_RUEDA,
-  type CajaDeFigura,
-  COLOR_BANDO,
   cabezaDe,
   cajaDeFigura,
-  cajaDeFiguraEn,
   galonesDe,
-} from '../../src/client/render/batalla.js';
+} from '../../src/client/render/batalla/figura.js';
+import { type CajaDeFigura, cajaDeFiguraEn } from '../../src/client/render/figuras/caja.js';
 import { pasoDeLaHoja } from '../../src/client/render/figuras/de-pie.js';
 import { msPorCasilla } from '../../src/client/render/figuras/marcha.js';
 import { registrarUnidad } from '../../src/client/render/figuras/personajes.js';

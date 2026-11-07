@@ -27,16 +27,11 @@ import type {
   TipoDePuerta,
 } from '@core/battle/types.js';
 import type { Hex } from '@core/types.js';
+import { bandosSinDueño } from '../render/batalla/bandos.js';
 import { nombreEnElCampo } from '../render/batalla/distintivo.js';
-import {
-  type Angulo,
-  alzadoDeLaMuralla,
-  bandosSinDueño,
-  cajaDeFigura,
-  claveDePortada,
-  drawBatalla,
-  portadaBajo,
-} from '../render/batalla.js';
+import { cajaDeFigura } from '../render/batalla/figura.js';
+import { alzadoDeLaMuralla, claveDePortada, portadaBajo } from '../render/batalla/muralla.js';
+import { type Angulo, drawBatalla } from '../render/batalla/tablero.js';
 import {
   altoConAlzado,
   cercaDelCentro,
