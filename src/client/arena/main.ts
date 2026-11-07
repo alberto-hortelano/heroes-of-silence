@@ -65,7 +65,7 @@ import {
   murallaVacia,
   validarMuralla,
 } from '@core/battle/muralla.js';
-import type { BattleStack, MurallaDeBatalla, PuertaDeMuralla } from '@core/battle/types.js';
+import type { BattleStack, PuertaDeMuralla } from '@core/battle/types.js';
 import { COMBATE_COMPLETO, type ReglasDelCombate } from '@core/combate.js';
 import { type CatalogoDeEquipo, catalogoDeEquipo, EQUIPO_DEL_JUEGO } from '@core/equipo/atado.js';
 import {
@@ -88,7 +88,7 @@ import {
 import type { Hechizo } from '@core/magia/formato.js';
 import { leerHechizos, problemasDelHechizo } from '@core/magia/validar.js';
 import { parseSeed } from '@core/rng.js';
-import { type ClimaDelSitio, climaSinRegiones, DESPEJADO } from '@core/state/clima.js';
+import { climaSinRegiones, DESPEJADO } from '@core/state/clima.js';
 import {
   CIFRAS_DE_PIEZA,
   type CreatureTrait,
@@ -159,6 +159,16 @@ import {
 } from './edicion.js';
 import { montarEditorDeMagia } from './magia.js';
 import {
+  type AnimDeFicha,
+  type Escena,
+  type EstadoDeLaPelea,
+  type EstadoDeLaVista,
+  type EstadoDelCatalogo,
+  type EstadoDelEditorDeMuralla,
+  type EstadoDelMontaje,
+  elementosDeLaArena,
+} from './pagina.js';
+import {
   type DatosDePuesto,
   type Elegida,
   FIGURA_GENERICA,
@@ -185,7 +195,6 @@ import {
 import {
   avisoDelCatalogoLeido,
   avisoDeNuevaUnidad,
-  type FiltroDeArena,
   type ListaDeUnidades,
   porQueNoSeMonta as porQueNoSeMontaEntre,
   renderCatalogo,
@@ -194,44 +203,36 @@ import {
 } from './paneles/lista.js';
 import { type HerramientaDeMuralla, renderMuralla } from './paneles/muralla.js';
 
-const app = document.getElementById('app') as HTMLElement;
-const canvas = document.getElementById('canvas') as HTMLCanvasElement;
-const elLienzo = document.getElementById('lienzo') as HTMLElement;
-const elDay = document.getElementById('day') as HTMLElement;
-const elTurn = document.getElementById('turn') as HTMLElement;
-const elSeed = document.getElementById('seed') as HTMLElement;
-const elStatus = document.getElementById('status') as HTMLElement;
-const elBarraDeEstado = document.getElementById('statusbar') as HTMLElement;
-const elSide = document.getElementById('side') as HTMLElement;
-const elFicha = document.getElementById('ficha') as HTMLElement;
-const elCatalogo = document.getElementById('catalogo') as HTMLElement;
-const elMuralla = document.getElementById('muralla') as HTMLElement;
-/** Los selectores de la complejidad de la pelea: tope por bando y rueda. */
-const elCombate = document.getElementById('combate-de-la-arena') as HTMLElement;
-const elMontaje = document.getElementById('montaje') as HTMLElement;
-/** La vista de edición: hasta cuatro fichas abiertas a la vez (`edicion.ts`). */
-const elEdicion = document.getElementById('edicion') as HTMLElement;
-/** La vista «Editar equipo»: las piezas por hueco y la ficha de la elegida. */
-const elEquipo = document.getElementById('equipo') as HTMLElement;
-/** La vista «Editar magia» (`magia.ts`): los hechizos por entrega y la ficha del elegido. */
-const elMagia = document.getElementById('magia') as HTMLElement;
-/** El «Volver» de la vista de equipo: dice adónde vuelve (`escenaDeVuelta`). */
-const botonVolverDeEquipo = document.querySelector(
-  '[data-arena="volver-de-equipo"]',
-) as HTMLElement;
-const botonLuchar = document.querySelector('[data-arena="luchar"]') as HTMLElement;
-/** El editor de la batalla: la ficha de lo elegido, que cambia todo su tipo ya en la pelea. */
-const editor = document.getElementById('editor-en-combate') as HTMLDialogElement;
-/** La rueda del golpe (`rueda.ts`): modal sobre el lienzo, mientras se elige y se cuenta un cruce. */
-const elRueda = document.getElementById('rueda') as HTMLDialogElement;
-const elFichaDelEditor = document.getElementById('ficha-del-editor') as HTMLElement;
-const elAvisoDelEditor = document.getElementById('aviso-del-editor') as HTMLElement;
-const elTituloDelEditor = document.getElementById('titulo-del-editor') as HTMLElement;
-const botonCerrarEditor = editor.querySelector('[data-arena="cerrar-editor"]') as HTMLElement;
-const elBando: Record<Lado, HTMLElement> = {
-  izquierda: document.getElementById('bando-izquierda') as HTMLElement,
-  derecha: document.getElementById('bando-derecha') as HTMLElement,
-};
+const elementos = elementosDeLaArena();
+const {
+  app,
+  canvas,
+  elLienzo,
+  elDay,
+  elTurn,
+  elSeed,
+  elStatus,
+  elBarraDeEstado,
+  elSide,
+  elFicha,
+  elCatalogo,
+  elMuralla,
+  elCombate,
+  elMontaje,
+  elEdicion,
+  elEquipo,
+  elMagia,
+  botonVolverDeEquipo,
+  botonLuchar,
+  editor,
+  elRueda,
+  elFichaDelEditor,
+  elAvisoDelEditor,
+  elTituloDelEditor,
+  botonCerrarEditor,
+  elBando,
+  botonVolverDeMagia,
+} = elementos;
 
 /**
  * El bucle de dibujo (`comun/bucle.ts`), con la red de la arena: un fallo al pintar se
@@ -249,75 +250,6 @@ const pedirFotograma = bucleDeDibujo({
 });
 
 // ---------------------------------------------------------------- estado
-
-/**
- * El catálogo de la página y su guardado: las hojas, las unidades, el equipo, los hechizos y el
- * cuerpo de todo héroe tal como se editan aquí, lo que hay en disco (para contar lo que queda por
- * guardar) y si se puede guardar. Eran trece `let` y `const` de módulo hasta R8 de la
- * reorganización (07-11-2026): en un objeto, para que lo lean y lo escriban las partes de la
- * página desde sus ficheros (el `let` de un módulo no se asigna desde otro).
- */
-interface EstadoDelCatalogo {
-  hojas: readonly Hoja[];
-  /** Las mismas, por su id: se hace al cargarlas y lo leen todas las preguntas por una hoja. */
-  hojasPorId: ReadonlyMap<string, Hoja>;
-  /**
-   * Las cifras por TIPO de unidad, por su id: cambiar el monje cambia todos los
-   * monjes. Las de las hojas (id = la hoja) y las nuevas (`unidadNueva`). Lleva
-   * también las del catálogo cuya hoja no está —no se pueden montar—, para que
-   * «Guardar» no las tire (H2 de QA).
-   */
-  readonly unidadesDelCatalogo: Map<string, Unidad>;
-  /**
-   * El catálogo de equipo de la página, hecho (`catalogoDeEquipo`): el de
-   * `data/equipo.json` tal como lo sirve el servidor de desarrollo (sin él, el que
-   * se cargó con la página) con lo que se haya cambiado aquí y lo que traigan los
-   * enlaces abiertos, que entra como cualquier cambio sin guardar (`conPiezas`).
-   * **Uno solo**: con él se pelea, es el que enseña «Editar equipo» y el que escribe
-   * «Guardar», lo que lee el juego.
-   */
-  equipo: CatalogoDeEquipo;
-  /**
-   * El catálogo de equipo tal como está en disco: con él se cuenta lo que queda por
-   * guardar (`piezasSinGuardar`), pieza a pieza distinta, no por gestos.
-   */
-  equipoGuardado: CatalogoDeEquipo;
-  /**
-   * Los hechizos de la página (el editor de magia, 06-11-2026): los de
-   * `data/hechizos.json` tal como los sirve el servidor (sin él, los del núcleo), con
-   * lo que se haya cambiado aquí y lo que traigan los enlaces abiertos. Los que no
-   * valen se quedan en la lista (para arreglarlos) y no se pelea con ellos.
-   */
-  hechizosDeLaPagina: readonly Hechizo[];
-  /** Los de disco: con ellos se cuenta lo que queda por guardar. */
-  hechizosGuardados: readonly Hechizo[];
-  /**
-   * El cuerpo de todo héroe (`combate` de data/heroe.json): el de los dos héroes y el
-   * de quien se ponga, que la ficha de cualquiera de ellos cambia en los dos
-   * (`cambiarCuerpoDeTodoHeroe`) y «Guardar» escribe. `cuerpoGuardado`, el del disco
-   * (o el del núcleo, sin servidor): lo distinto está sin guardar.
-   */
-  cuerpoDeTodoHeroe: CuerpoDeTodoHeroe;
-  cuerpoGuardado: CuerpoDeTodoHeroe;
-  /**
-   * Las unidades con el arte a medias, dichas en la barra mientras se monta: el
-   * aviso que antes era la excepción que tumbaba la lista (#140).
-   */
-  avisoDeIncompletas: string;
-  /** Por qué no se puede guardar, o `null` si se puede. */
-  sinGuardado: string | null;
-  /**
-   * La versión en disco del catálogo que leyó esta página (`versionDelCatalogo`), que
-   * «Guardar» devuelve: el servidor rechaza el guardado si otra pestaña escribió
-   * entre medias. Tras guardar, la que dejó escrita esta.
-   */
-  versionLeida: unknown;
-  /**
-   * Lo que no se ha guardado, por id: unidades y piezas. Cerrar la página avisa, y
-   * la vista de equipo lo cuenta (`sinGuardarEnPalabras`).
-   */
-  readonly unidadesSinGuardar: Set<string>;
-}
 
 /** Los hechizos con que abre la página: los del núcleo, hasta que lleguen los de disco. */
 const hechizosDelNucleo = todosLosHechizos();
@@ -403,56 +335,6 @@ const editorDeMagia = montarEditorDeMagia(elMagia, {
   },
 });
 
-/**
- * La pelea que se monta y su enlace: los puestos y el héroe de cada lado, quién mueve cada bando,
- * la complejidad, la semilla y el clima que pide la URL (con lo que no vale de ella) y el último
- * enlace copiado. Eran diez `let` y `const` de módulo hasta R8 de la reorganización (07-11-2026).
- */
-interface EstadoDelMontaje {
-  /** Los puestos de cada lado, en su orden. */
-  readonly puestos: Record<Lado, Puesto[]>;
-  /** El héroe de cada lado, si lleva. */
-  readonly heroes: Record<Lado, HeroeDeArena | null>;
-  /**
-   * Quién mueve cada bando, entero: sus unidades y su héroe. Por defecto la
-   * izquierda la persona y la derecha la IA; se cambia con Yo / IA en su cabecera.
-   */
-  readonly iaDelBando: Record<Lado, boolean>;
-  siguienteClave: number;
-  /**
-   * La complejidad de la pelea que se monta (22-10-2026): el tope por bando y la
-   * rueda, con sus dos selectores encima del montaje (`selectoresDelCombate`). Viaja
-   * en el enlace (versión 14).
-   */
-  combate: ReglasDelCombate;
-  /**
-   * La semilla que pide la URL, o `null` para sortear una en cada pelea. La regla
-   * es la de la partida (`parseSeed`): lo que no es una semilla se dice.
-   */
-  semillaPedida: number | null;
-  /** Lo que dice la barra al abrir de lo que no vale en la URL (semilla, clima, retirados). */
-  avisoDeSemilla: string;
-  /**
-   * Los parámetros de la URL que no valen (`seed` mal, o uno de los retirados:
-   * `reglas`, `golpe`, `contacto`): un enlace de la pelea con alguno no se monta, y
-   * lo dice nombrándolos (C1 de QA de #259).
-   */
-  readonly parametrosQueNoValen: string[];
-  /**
-   * El clima de las peleas (`?clima=`, como en la partida): la arena no tiene
-   * días ni regiones, así que es el despejado salvo que se pida otro, y una región
-   * se rechaza diciéndolo. Es presentación: un clima que no vale se dice y la
-   * pelea se monta igual, con el despejado.
-   */
-  climaDeLaArena: ClimaDelSitio;
-  /**
-   * El enlace de la pelea que se copió por última vez (`?montaje=`, H6 de QA del
-   * banco), para enseñarlo en su campo mientras siga siendo el del montaje: si
-   * algo cambia después, ya no lo es y se deja de enseñar.
-   */
-  enlaceCopiado: string | null;
-}
-
 const montaje: EstadoDelMontaje = {
   puestos: { izquierda: [], derecha: [] },
   heroes: { izquierda: null, derecha: null },
@@ -469,91 +351,6 @@ const montaje: EstadoDelMontaje = {
 /** Si el cuerpo de todo héroe de la página no es el del disco. */
 function cuerpoSinGuardar(): boolean {
   return JSON.stringify(catalogo.cuerpoDeTodoHeroe) !== JSON.stringify(catalogo.cuerpoGuardado);
-}
-
-/** Una figura animada de lo que se ve (`recogerFiguras`): una miniatura o el retrato de una ficha. */
-interface FiguraDeFicha {
-  lienzo: HTMLCanvasElement;
-  ctx: CanvasRenderingContext2D;
-  id: string;
-  /** La ficha de la que es retrato (`claveDeFicha`), con su clip y su giro; `null` en una miniatura. */
-  clave: string | null;
-  /** El bando de la miniatura, que le da el color; `null` en la ficha. */
-  lado: Lado | null;
-  /** Las tres letras de su marcador sin arte, de `nombreDeFigura`. */
-  rotulo: string;
-}
-
-/**
- * Lo que se ve: la escena y de dónde se vino, la lista (su filtro, plegada o no), la ficha
- * elegida y las abiertas, la pieza elegida, lo que dice la barra mientras se monta, lo que queda
- * por repintar y las figuras animadas de lo que se ve. Eran quince `let` y `const` de módulo
- * hasta R8 de la reorganización (07-11-2026).
- */
-interface EstadoDeLaVista {
-  /** La pieza de la ficha de la vista de equipo, por su id. */
-  piezaElegida: string | null;
-  filtro: FiltroDeArena;
-  /**
-   * La ficha que enseñan el montaje y el editor de la batalla. Solo dice cuál se
-   * pinta allí: un gesto DENTRO de una ficha escribe en la ficha que lo contiene
-   * (`fichaDelElemento`), nunca en esta, que con varias abiertas en la edición
-   * sería otra.
-   */
-  elegida: Elegida | null;
-  /** La figura del retrato de cada ficha (`AnimDeFicha`), por `claveDeFicha`. */
-  readonly animDeFicha: Map<string, AnimDeFicha>;
-  /**
-   * Las fichas abiertas en la vista de edición, en su orden. Siguen al ir y volver
-   * del montaje (estado del módulo) y, de comodidad, en `localStorage`.
-   */
-  abiertas: readonly FichaEditable[];
-  /**
-   * Si la lista de la edición va plegada a su cabecera (`listaPlegadaTras`): solo
-   * la cambia su botón. Se recuerda en `localStorage` (`CLAVE_DE_LISTA`).
-   */
-  listaPlegada: boolean;
-  /**
-   * Las fichas cuyo título es ahora el campo del nombre (por su clave): tras «✎
-   * Editar», hasta que el campo pierde el foco (Intro lo guarda, Escape no).
-   */
-  readonly renombrando: Set<string>;
-  /** La escena que se ve (`Escena`): solo la cambia `irA`. */
-  escena: Escena;
-  /**
-   * Adónde vuelve «Volver» de la vista de equipo: de donde se entró. Desde la pelea
-   * la sesión sigue viva, y la IA no juega mientras tanto: solo juega tras una
-   * jugada de la persona (`SesionDeBatalla.seguirLaIA`), y aquí no se juega ninguna.
-   */
-  escenaDeVuelta: Exclude<Escena, 'equipo' | 'magia'>;
-  /** La barra mientras se monta; en la batalla manda la de la sesión. */
-  aviso: string;
-  /** Los lienzos de las miniaturas, recogidos al repintar: son los mismos hasta el siguiente. */
-  figuras: FiguraDeFicha[];
-  /**
-   * Lo último que se pintó en cada miniatura: se repinta solo si cambia su
-   * fotograma, su clip, su dirección o su hoja. Un reposo a 8 fps repintaba cada
-   * miniatura sesenta veces por segundo para enseñar ocho fotogramas distintos.
-   * Un lienzo nuevo —el montaje se rehace entero— no tiene entrada y se pinta.
-   */
-  readonly pintado: WeakMap<HTMLCanvasElement, string>;
-  /**
-   * Qué lienzos de figura se ven ahora. Lo escribe un `IntersectionObserver`, que
-   * avisa al entrar o salir uno de la pantalla (o de su región desplazable); sin
-   * él —un navegador sin la API— se pintan todos, como antes.
-   */
-  readonly enPantalla: Set<Element>;
-  /** El último aviso de un cambio rechazado (`noSeCambia`). */
-  rechazado: string | null;
-  /**
-   * Lo que queda por repintar: todo, unas fichas (por clave) o nada. Un gesto lo
-   * pide y se repinta en la tarea siguiente, una vez por muchos que lleguen:
-   * un cambio llega al salir del campo, ANTES de que el tabulador pase al
-   * siguiente, y repintar en ese momento destruía el campo de destino y el foco
-   * caía al `body`. En la tarea siguiente el foco ya está en él, y `pintar` lo
-   * conserva.
-   */
-  pendiente: 'todo' | Set<string> | null;
 }
 
 const vista: EstadoDeLaVista = {
@@ -575,18 +372,6 @@ const vista: EstadoDeLaVista = {
 };
 /** Lo que se queda quieto el último fotograma antes de repetir un clip que no va en bucle. */
 const PAUSA_DE_LA_FICHA_MS = 700;
-/**
- * La figura del retrato de cada ficha, por `claveDeFicha`: el clip, cuándo se
- * eligió (los que no van en bucle se repiten desde ahí) y hacia dónde mira, como
- * posición en `DIRECCION_DE_HOJA` («Girar» la pasa por las ocho en el orden de
- * las hojas). Por ficha y no una para todas: con cuatro abiertas, girar una no
- * gira las otras; y la misma ficha posa igual en el montaje y en la edición.
- */
-interface AnimDeFicha {
-  readonly clip: CharacterClip;
-  readonly inicio: number;
-  readonly mira: number;
-}
 const ANIM_DE_PARTIDA: AnimDeFicha = {
   clip: 'idle',
   inicio: 0,
@@ -596,11 +381,6 @@ function animDe(clave: string): AnimDeFicha {
   return vista.animDeFicha.get(clave) ?? ANIM_DE_PARTIDA;
 }
 
-/**
- * Lo que se ve: el montaje, la vista de edición, la de equipo o la pelea. Se
- * cambia solo con `irA`.
- */
-type Escena = 'montaje' | 'edicion' | 'equipo' | 'magia' | 'battle';
 const ROTULO_DE_ESCENA: Readonly<Record<Escena, string>> = {
   montaje: 'Montaje',
   edicion: 'Edición',
@@ -613,8 +393,6 @@ const VUELTA_DE_EQUIPO: Readonly<Record<Exclude<Escena, 'equipo' | 'magia'>, str
   edicion: 'Volver a la edición',
   battle: 'Volver a la pelea',
 };
-/** El «Volver» de la vista de magia, como el de equipo. */
-const botonVolverDeMagia = document.querySelector('[data-arena="volver-de-magia"]') as HTMLElement;
 
 /**
  * Cambia de escena: la variable, el `data-escena` que lee el CSS, el rótulo de la
@@ -703,36 +481,6 @@ function vistaDeLaURL(): {
   }
 }
 
-/**
- * La pelea: su sesión, mientras la hay, y lo que la página recuerda de ella entre fotogramas (los
- * paneles pintados, si toca colocar el marco) y si el editor de la batalla se abrió desde la
- * rueda. Eran cuatro `let` de módulo hasta R8 de la reorganización (07-11-2026).
- */
-interface EstadoDeLaPelea {
-  /** La pelea de «Luchar», hasta «Otra vez»; `null` en el montaje. */
-  sesion: SesionDeArena | null;
-  /**
-   * Si el editor enseña una ficha abierta desde la rueda del golpe. Con la rueda
-   * abierta no se cambia nada —la sesión tampoco lo deja, `retocar`—: la ficha es
-   * de solo lectura, y al cerrarla se vuelve a la rueda en la misma fase, sin
-   * cancelar la elección (#261).
-   */
-  fichaDeLaRueda: boolean;
-  /**
-   * Con muralla, el lienzo se alarga lo que piden lo alto de sus columnas y quien
-   * está encima (`altoDelLienzo`) y el marco se desplaza en vertical: el tablero
-   * baja en vez de encogerse (el usuario: «si se sale de la pantalla podemos mover
-   * la zona de casillas más abajo y agrandar la pantalla»). Al alargarse, el marco
-   * se coloca con el final del tablero abajo (`pieDelTablero`), tras el primer
-   * fotograma con el tamaño nuevo: con el marco abajo del todo, la cabeza de quien
-   * está en una columna de la fila de atrás quedaba fuera de la vista, y arriba
-   * del todo, la última fila. Sin muralla, el lienzo es el marco.
-   */
-  colocarElMarco: boolean;
-  /** Con qué versión de la sesión, y contando o no, se pintaron el panel y la barra de arriba. */
-  paneles: { version: string; ocupada: boolean } | null;
-}
-
 const pelea: EstadoDeLaPelea = {
   sesion: null,
   fichaDeLaRueda: false,
@@ -768,29 +516,6 @@ function guardarEnElNavegador(clave: string, valor: string, que: string): void {
  */
 const CLAVE_DE_PLEGADO = 'arena.muralla.plegada';
 const QUE_PLEGADO = 'si la muralla va plegada';
-
-/**
- * El editor de la muralla: la que se dibuja, con qué herramienta, el nombre con que se guardaría,
- * las formas guardadas y si se pueden guardar, y si va plegado (lo recordado en este navegador,
- * que se lee aquí, al cargar). Eran seis `let` de módulo hasta R8 de la reorganización
- * (07-11-2026).
- */
-interface EstadoDelEditorDeMuralla {
-  /**
-   * La muralla que se dibuja y con la que se pelea. Se rehace entera en cada clic
-   * (`validarMuralla`, la regla del núcleo), así que nunca hay una a medias.
-   */
-  muralla: MurallaDeBatalla;
-  herramienta: HerramientaDeMuralla;
-  /** El nombre con el que se guardaría: el de la forma cargada o el escrito. */
-  nombreDeForma: string;
-  /** Las formas del borrador (`data/borradores/murallas.json`), en su orden. */
-  formasGuardadas: readonly FormaDeMuralla[];
-  /** Por qué no se pueden guardar ni borrar formas, o `null` si se puede. */
-  murallasSinGuardado: string | null;
-  /** Si va plegado (`CLAVE_DE_PLEGADO`). */
-  murallaPlegada: boolean;
-}
 
 const editorDeMuralla: EstadoDelEditorDeMuralla = {
   muralla: murallaVacia('piedra'),
