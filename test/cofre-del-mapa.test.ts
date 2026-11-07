@@ -17,7 +17,7 @@ import {
   usarPintorDelSuelo,
 } from '../src/client/render/escenario/superficie.js';
 import { casillaAPixel } from '../src/client/render/mapa/camara.js';
-import { COLOR_DEL_COFRE } from '../src/client/render/mapa/cosas';
+import { COLOR_DEL_COFRE } from '../src/client/render/mapa/cosas.js';
 import { drawMapa } from '../src/client/render/mapa/mapa.js';
 import { todosALaVista } from '../src/core/state/asaltantes.js';
 import { newGame } from '../src/core/state/setup.js';

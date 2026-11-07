@@ -14,7 +14,7 @@
 
 import { describe, expect, it } from 'vitest';
 import ruedaJson from '../data/rueda.json' with { type: 'json' };
-import { caraDeLaArena } from '../src/client/arena/paneles/batalla';
+import { caraDeLaArena } from '../src/client/arena/paneles/batalla.js';
 import { renderEleccion } from '../src/client/batalla/rueda/rueda.js';
 import { marcadoDe } from '../src/client/comun/html.js';
 import { batallaDeArena } from '../src/core/arena/montaje.js';

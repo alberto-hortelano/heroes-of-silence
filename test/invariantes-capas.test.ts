@@ -629,6 +629,56 @@ describe('invariantes del proyecto', () => {
     ).toEqual([4, 5, 6, 9, 10, 11, 12, 13].map((n) => `sonda.ts:${n}`));
   });
 
+  it('toda importación relativa lleva su extensión: `./x.js`, no `./x`', () => {
+    // El repo escribe la extensión en cada importación relativa: `.js` para un `.ts`
+    // (`verbatimModuleSyntax`) y `.json` para un dato. `tsc`, con la resolución
+    // `bundler`, y vitest aceptan también la que no la lleva, así que nada la
+    // rechazaba, y la mudanza de la reorganización (el «Move to file» del servicio de
+    // lenguaje, por debajo de `partir`) dejó cuatro así en `test/` (fases N y C,
+    // 07-11-2026). Se mira el último tramo de la ruta, sin la consulta de Vite
+    // (`?raw`): si no lleva un punto, le falta la extensión. Las formas: `from '…'`,
+    // `import '…'`, `import('…')` y `vi.mock('…')`.
+    const RELATIVA =
+      /(?:\bfrom\s*|^\s*import\s*|\bimport\s*\(\s*|\bvi\.mock\(\s*)(['"])(\.{1,2}\/[^'"]*)\1/g;
+    const relativasDe = (r: string, codigo: string): { donde: string; espec: string }[] =>
+      codigo.split('\n').flatMap((linea, i) =>
+        [...linea.matchAll(RELATIVA)].map((m) => ({
+          donde: `${r}:${i + 1}`,
+          espec: m[2] as string,
+        })),
+      );
+    const sinExtension = (x: { espec: string }): boolean =>
+      !(x.espec.split('?')[0]?.split('/').pop() ?? '').includes('.');
+    const todos = [
+      ...ficheros('src'),
+      ...ficheros('test'),
+      ...HERRAMIENTAS,
+      ruta('vite.config.ts'),
+    ];
+    const relativas = todos.flatMap((r) => relativasDe(r, codigoDe(r)));
+    expect(relativas.filter(sinExtension).map((x) => `${x.donde} → ${x.espec}`)).toEqual([]);
+    // Y que mire algo: las del repo (más de 3 000 al escribirlo), y cada forma sobre
+    // una sonda escrita aquí, con la comilla aparte para que esta línea no sea una.
+    expect(relativas.length).toBeGreaterThan(3000);
+    const Q = "'";
+    const sonda = [
+      `import { a } from ${Q}./x${Q};`,
+      `import ${Q}../y${Q};`,
+      `const m = await import(${Q}./z${Q});`,
+      `vi.mock(${Q}../w${Q});`,
+      `import { b } from ${Q}./x.js${Q};`,
+      `import c from ${Q}../datos.json${Q} with { type: ${Q}json${Q} };`,
+      `import d from ${Q}./hoja.css?raw${Q};`,
+      `import { e } from ${Q}@core/types.js${Q};`,
+      `import f from ${Q}node:fs${Q};`,
+    ].join('\n');
+    expect(
+      relativasDe('sonda.ts', sonda)
+        .filter(sinExtension)
+        .map((x) => x.donde),
+    ).toEqual([1, 2, 3, 4].map((n) => `sonda.ts:${n}`));
+  });
+
   it('ningún fichero que una máquina lee lleva dentro la ruta de esta máquina', () => {
     // Una ruta absoluta en un fichero que se consume es un fichero que solo
     // vale aquí. Y no es teórico: `.mcp.json` es lo que enchufa el MCP

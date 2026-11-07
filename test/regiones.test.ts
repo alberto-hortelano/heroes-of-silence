@@ -20,7 +20,7 @@ import {
   LADO_MINIMO_DEL_GENERADOR,
   type MapPlan,
   type PlanConCasillas,
-} from '../src/core/map/generar/plan';
+} from '../src/core/map/generar/plan.js';
 import {
   crucesConCamino,
   generateMapPlan,
