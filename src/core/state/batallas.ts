@@ -563,19 +563,37 @@ export function defensaPorElegir(
 }
 
 /**
- * Por qué `player` no puede defender con `pedida`, o `null`: lo de
- * `defensaPosible` y lo que pide (`ejercitoDeLaDefensa`: los tipos, que los haya,
- * que quepan en su ejército y que lo de fuera quepa en la guarnición).
+ * Por qué `player` no puede defender con `pedida`, o `null`: la regla de la
+ * defensa (`juzgarLaDefensa`).
  */
 export function defensaBlocker(
   state: GameState,
   player: PlayerId,
   pedida: readonly LineaDeDefensa[],
 ): string | null {
+  const juicio = juzgarLaDefensa(state, player, pedida);
+  return 'motivo' in juicio ? juicio.motivo : null;
+}
+
+/**
+ * **La regla de la defensa**, con lo que la hace para que la acción no lo calcule
+ * otra vez: las dos mitades en su orden, que haya una que elegir
+ * (`defensaPosible`) y lo que pide (`ejercitoDeLaDefensa`: los tipos, que los
+ * haya, que quepan en su ejército y que lo de fuera quepa en la guarnición). La
+ * leen `defensaBlocker` y `elegirLaDefensa`, que hasta la fase N de la
+ * reorganización (07-11-2026) repetía las dos mitades.
+ */
+function juzgarLaDefensa(
+  state: GameState,
+  player: PlayerId,
+  pedida: readonly LineaDeDefensa[],
+):
+  | { readonly hero: Hero; readonly sitio: Sitio; readonly ejercito: Army }
+  | { readonly motivo: string } {
   const posible = defensaPosible(state, player);
-  if ('motivo' in posible) return posible.motivo;
+  if ('motivo' in posible) return posible;
   const ejercito = ejercitoDeLaDefensa(state, posible.hero, posible.sitio, pedida);
-  return 'motivo' in ejercito ? ejercito.motivo : null;
+  return 'motivo' in ejercito ? ejercito : { ...posible, ejercito };
 }
 
 /**
@@ -591,11 +609,9 @@ export function elegirLaDefensa(
   player: PlayerId,
   pedida: readonly LineaDeDefensa[],
 ): void {
-  const posible = defensaPosible(state, player);
-  if ('motivo' in posible) throw new Error(`no se puede elegir la defensa: ${posible.motivo}`);
-  const { hero, sitio } = posible;
-  const ejercito = ejercitoDeLaDefensa(state, hero, sitio, pedida);
-  if ('motivo' in ejercito) throw new Error(`no se puede elegir la defensa: ${ejercito.motivo}`);
+  const juicio = juzgarLaDefensa(state, player, pedida);
+  if ('motivo' in juicio) throw new Error(`no se puede elegir la defensa: ${juicio.motivo}`);
+  const { hero, sitio, ejercito } = juicio;
   const pending = state.pendingBattle as PendingBattle;
   repartir(state, hero, sitio, ejercito);
   state.pendingBattle = { ...pending, battle: montarLaBatalla(state, pending, ctx) };
