@@ -12,7 +12,7 @@
  * del QA del banco de NPC, 22-10-2026: culpaba al mundo de nombrar figuras que no
  * existen, con las frases del motor).
  */
-import { type BancoPintado, leerBanco, SIN_BANCO } from '@core/npcs.js';
+import { type BancoPintado, leerBanco, SIN_BANCO } from '@core/gente/banco.js';
 import { registrarGente } from './personajes.js';
 
 /** El banco de la página y, si no se pudo cargar, por qué (`null`: se cargó). */

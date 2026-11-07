@@ -17,7 +17,7 @@ import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import sharp from 'sharp';
 import { z } from 'zod';
-import { CARPETA_DE_LAS_FIGURAS, figuraDelBanco } from '../../../src/core/npcs.js';
+import { CARPETA_DE_LAS_FIGURAS, figuraDelBanco } from '../../../src/core/gente/banco.js';
 import {
   FIGURA,
   HOJAS_DE_FIGURA,

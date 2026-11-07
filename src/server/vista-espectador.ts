@@ -19,6 +19,7 @@
  * dos, lo que junta son dos reglas distintas bajo un solo nombre.
  */
 import type { BattleStack, BattleState, Side } from '@core/battle/types.js';
+import { vecinosDeLaBase, vozDe } from '@core/gente/voces.js';
 import { piezasPuestas } from '@core/hero/equipo.js';
 import type { MapObject, MapRegion } from '@core/map/map.js';
 import { dueñoEnLaFoto, dueñosDeLaRed } from '@core/map/regiones.js';
@@ -31,7 +32,6 @@ import { battleOwners } from '@core/state/game.js';
 import { comoEstaElSitio, sitioDelObjeto } from '@core/state/sitios.js';
 import type { GameState } from '@core/state/tipos.js';
 import type { Town } from '@core/town/town.js';
-import { vecinosDeLaBase, vozDe } from '@core/town/voces.js';
 import type {
   FactionId,
   Hex,

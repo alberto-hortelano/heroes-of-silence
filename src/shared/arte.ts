@@ -11,7 +11,7 @@
  * sabe a qué ángulo se mira el tablero, y no tiene por qué.
  */
 import { ULTIMA_FILA } from '../core/battle/board.js';
-import type { AccionesDeNpc } from '../core/npcs.js';
+import type { AccionesDeNpc } from '../core/gente/banco.js';
 /**
  * El margen con que el taller recorta a su contenido una pieza suelta del mapa,
  * en píxeles de su imagen (`recortarAlContenido`, `tools/taller/trabajador.ts`):

@@ -13,7 +13,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
-import type { FiguraDeNpc } from '../src/core/npcs.js';
+import type { FiguraDeNpc } from '../src/core/gente/banco.js';
 import { HOJAS_DE_FIGURA } from '../src/shared/arte.js';
 import { estadoDeFigura, loQueSeSirve } from '../tools/npcs/banco.js';
 import {

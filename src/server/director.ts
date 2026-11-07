@@ -33,6 +33,7 @@ import {
   accionDelAgente,
   golpeDelHit,
 } from '@core/contract/vocabulario.js';
+import { firmaDeVoces, ponerVoces, vocesCaducadas } from '@core/gente/voces.js';
 import { porPreguntar } from '@core/hero/ascenso.js';
 import { RANGO_MAXIMO_DE_TROPA, rangoDeHeroe } from '@core/hero/experiencia.js';
 import type { MapPlan } from '@core/map/generar/plan.js';
@@ -57,7 +58,6 @@ import {
 import { newGame } from '@core/state/setup.js';
 import { dueñoDeLaCiudad } from '@core/state/sitios.js';
 import type { GameContext, GameState } from '@core/state/tipos.js';
-import { firmaDeVoces, ponerVoces, vocesCaducadas } from '@core/town/voces.js';
 import type { PlayerId, TipoDeGolpe } from '@core/types.js';
 import type { AgentLink } from './agent-link.js';
 import {

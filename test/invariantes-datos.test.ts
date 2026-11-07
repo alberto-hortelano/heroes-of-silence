@@ -210,12 +210,13 @@ describe('invariantes del proyecto', () => {
     // lo importara metería el banco en el grafo de la página (y una figura nueva la
     // recargaría a media partida); quien lo abriera por su ruta se saltaría la
     // escritura atómica. La ruta se escribe una vez, `RUTA_DEL_BANCO` en
-    // `core/npcs.ts` (que la nombra en sus problemas y no la lee), y en las
+    // `core/gente/banco.ts` (que la nombra en sus problemas y no la lee), y en las
     // herramientas solo la usa la puerta. Rotos a mano: un `import b from
     // '../../data/npcs.json'` en `session.ts`, un `readFileSync('data/npcs.json')` y
     // un `jsonDe(RAIZ, RUTA_DEL_BANCO)` en `cli.ts`, salen rojos.
     const PUERTA = ruta('tools/npcs/banco.ts');
-    const NOMBRE = ruta('src/core/npcs.ts');
+    // Era `core/npcs.ts` hasta la fase N de la reorganización (07-11-2026).
+    const NOMBRE = ruta('src/core/gente/banco.ts');
     const HERRAMIENTAS = ficheros(ruta('tools'));
     expect(
       infractoresDeCodigo(

@@ -85,6 +85,9 @@ import type {
 } from '@core/battle/types.js';
 import { cuerpoDe, unidadDelJuego } from '@core/catalogo.js';
 import type { ReglasDelCombate } from '@core/combate.js';
+import { type BancoPintado, SIN_BANCO } from '@core/gente/banco.js';
+import { figurasDeLaGente } from '@core/gente/figuras.js';
+import { alcaideDe, ID_DEL_ALCAIDE, vecinosDeLaBase, vozDe } from '@core/gente/voces.js';
 import { type CatalogoDeEquipo, type Portador, pedidoDelPuesto, pieza } from '@core/hero/equipo.js';
 import { type Hero, maxMana } from '@core/hero/hero.js';
 import { infiltracionBlocker } from '@core/hero/infiltracion.js';
@@ -96,7 +99,6 @@ import type { MapObject, ObraDelPuesto, PathStep } from '@core/map/map.js';
 import { type Lugar, lugarSiExiste, type MundoLeido } from '@core/mundo/formato.js';
 import { partidaDelMundo } from '@core/mundo/partida.js';
 import { estadoDicho, lugarEn } from '@core/mundo/reglas.js';
-import { type BancoPintado, SIN_BANCO } from '@core/npcs.js';
 import { createRng, type Rng } from '@core/rng.js';
 import {
   type AsaltantesALaVista,
@@ -194,10 +196,8 @@ import type {
   Player,
 } from '@core/state/tipos.js';
 import { building } from '@core/town/buildings.js';
-import { figurasDeLaGente } from '@core/town/figuras.js';
 import { construidoEn, type SitioId, sitiosConstruidos } from '@core/town/sitios.js';
 import type { Town } from '@core/town/town.js';
-import { alcaideDe, ID_DEL_ALCAIDE, vecinosDeLaBase, vozDe } from '@core/town/voces.js';
 import {
   esHueco,
   type FactionId,

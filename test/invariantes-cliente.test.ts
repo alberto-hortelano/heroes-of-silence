@@ -267,7 +267,8 @@ describe('invariantes del proyecto', () => {
       [...CORE, ...CLIENTE, ...SERVIDOR],
       /\.voces\s*=(?!=)|\[\s*['"`]voces['"`]\s*\]\s*=(?!=)/,
     );
-    const ajenas = escrituras.filter((e) => !e.startsWith(`${ruta('src/core/town/voces.ts')}:`));
+    // `town/voces.ts` hasta la fase N de la reorganización (07-11-2026).
+    const ajenas = escrituras.filter((e) => !e.startsWith(`${ruta('src/core/gente/voces.ts')}:`));
     expect(ajenas).toEqual([]);
     // Y que mire algo: la escritura de verdad tiene que salir.
     expect(escrituras).toHaveLength(1);

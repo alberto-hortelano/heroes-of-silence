@@ -31,6 +31,7 @@ import { reglaDeLaMuralla } from '../battle/muralla.js';
 import { HERO_BODY } from '../battle/types.js';
 import { unidadesDelJuego } from '../catalogo.js';
 import { TOPES_DE_TROPA } from '../combate.js';
+import { LARGO_DE_LINEA, LINEAS_POR_VECINO, MAX_VOCES_POR_RESPUESTA } from '../gente/voces.js';
 import { EQUIPO_BASE, REGLA_DEL_ESCUDO } from '../hero/equipo.js';
 import { RANGO_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
 import { GARRISON_LEADERSHIP } from '../hero/troop.js';
@@ -51,7 +52,6 @@ import { CLIMA, PEDIDOS_QUE_SE_MIRAN, TIEMPOS } from '../state/clima.js';
 import { REGLA_DEL_PUEBLO } from '../state/renta.js';
 import { MURALLAS_DEL_MAPA, OBRAS_DEL_PUESTO } from '../state/sitios.js';
 import { MAX_HEROES_PER_PLAYER } from '../state/tipos.js';
-import { LARGO_DE_LINEA, LINEAS_POR_VECINO, MAX_VOCES_POR_RESPUESTA } from '../town/voces.js';
 import { enumerar, FACTION_IDS, HUECOS, TIPOS_FUSIONADOS, TODOS_LOS_GOLPES } from '../types.js';
 import { ID_DE_MAPA } from '../validar.js';
 import {
@@ -131,8 +131,8 @@ const VACIOS_DE_SERIE = HUECOS.filter((h) => EQUIPO_BASE[h] === undefined).map(
   (h) => `"${SLOT_DE_HUECO[h]}"`,
 );
 
+import { lineaLegible } from '../linea.js';
 import { ECONOMIA } from '../town/economia.js';
-import { lineaLegible } from './linea.js';
 import { CATALOGO_DE_EQUIPO_EN_PROSA, COMO_SE_LEE_EL_MAPA } from './serialize.js';
 
 // ---------------------------------------------------------------- respuestas

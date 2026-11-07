@@ -5,7 +5,7 @@
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { type FiguraDeNpc, RUTA_DEL_BANCO } from '../src/core/npcs.js';
+import { type FiguraDeNpc, RUTA_DEL_BANCO } from '../src/core/gente/banco.js';
 import { carpetaTemporal } from './comun.js';
 
 /**

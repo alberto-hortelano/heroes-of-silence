@@ -26,8 +26,8 @@
 import { spawnSync } from 'node:child_process';
 import { readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { CARPETA_DE_LAS_FIGURAS, figuraDelBanco } from '../../src/core/npcs.js';
-import { personasDeLaFaccion } from '../../src/core/town/voces.js';
+import { CARPETA_DE_LAS_FIGURAS, figuraDelBanco } from '../../src/core/gente/banco.js';
+import { personasDeLaFaccion } from '../../src/core/gente/voces.js';
 import { FACTION_IDS } from '../../src/core/types.js';
 import { bandera } from '../argumentos.js';
 import { colaDelTaller } from '../taller/cola.js';

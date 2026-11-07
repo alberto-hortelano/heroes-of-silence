@@ -18,10 +18,10 @@
  * `dN/atlas.json` están en disco (`pintadas`, que pasa quien lee el disco). Una
  * pedida y sin pintar es un estado legal, no una figura rota.
  */
-import { motivoDeLinea } from './contract/linea.js';
-import { hashDeTexto } from './rng.js';
-import type { FactionId } from './types.js';
-import { deLaListaBlocker, esIdDeUnidad, esObjeto, problemasDeObjeto } from './validar.js';
+import { motivoDeLinea } from '../linea.js';
+import { hashDeTexto } from '../rng.js';
+import type { FactionId } from '../types.js';
+import { deLaListaBlocker, esIdDeUnidad, esObjeto, problemasDeObjeto } from '../validar.js';
 
 /**
  * El índice del banco, relativo a la raíz del repo. El núcleo no lo lee (es puro):
@@ -199,7 +199,7 @@ const NOMBRE_DE_ETIQUETA: Readonly<Record<ClaveDeEtiqueta, string>> = {
 /**
  * Por qué `v` no es una palabra de la etiqueta `clave` (`ETIQUETAS`), diciendo
  * cuáles valen, o `null`: la regla de las etiquetas de una figura y de la gente de
- * la base (`data/vecinos.json`, `town/voces.ts`).
+ * la base (`data/vecinos.json`, `gente/voces.ts`).
  */
 export function etiquetaBlocker(clave: ClaveDeEtiqueta, v: unknown): string | null {
   const motivo = deLaListaBlocker(v, Object.keys(ETIQUETAS[clave]));

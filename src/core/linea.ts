@@ -1,7 +1,7 @@
 /**
  * La forma de un texto libre que el agente escribe para una persona: una línea
  * legible. Vive aparte de `agent.ts` para que la lean también las reglas que
- * juzgan línea a línea (las voces de la base, `town/voces.ts`) sin arrastrar el
+ * juzgan línea a línea (las voces de la base, `gente/voces.ts`) sin arrastrar el
  * contrato entero, que importa los serializadores y cerraría un ciclo.
  */
 import { z } from 'zod';

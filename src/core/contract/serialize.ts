@@ -48,6 +48,7 @@ import {
 } from '../catalogo.js';
 import { agilidadDe, marchaDe } from '../cuerpo.js';
 import { EQUIPO } from '../equipo/pieza.js';
+import { vecinosDeLaBase, vozDe } from '../gente/voces.js';
 import type { VeteranoEnBase } from '../hero/ascenso.js';
 import { cifrasDePieza, deDondeSale, PIEZAS_DE_ARMERIA, seVende } from '../hero/equipo.js';
 import {
@@ -127,7 +128,6 @@ import {
   tieneArmeria,
   townSpells,
 } from '../town/town.js';
-import { vecinosDeLaBase, vozDe } from '../town/voces.js';
 import type { Army, Equipo, PlayerId } from '../types.js';
 import { describirCoste, FACTION_IDS, HUECOS } from '../types.js';
 import {

@@ -10,6 +10,14 @@
  * catálogo de unidades y piezas por id, para que lo que escriba exista.
  */
 import { unidadesDelJuego } from '../catalogo.js';
+import {
+  ACCIONES_DE_NPC,
+  type Banco,
+  ETIQUETAS,
+  FIGURAS_NUEVAS_POR_MUNDO,
+  type FiguraDeNpc,
+} from '../gente/banco.js';
+import { type PersonaDeLaFaccion, personasDeLaFaccion } from '../gente/voces.js';
 import { PIEZAS_DEL_CATALOGO } from '../hero/equipo.js';
 import { armyLeadership, capacidadDe } from '../hero/troop.js';
 import type { MapPlan } from '../map/generar/plan.js';
@@ -22,15 +30,7 @@ import {
 } from '../map/regiones.js';
 import { isWalkable } from '../map/terrain.js';
 import { nivelDeUnidad } from '../nivel.js';
-import {
-  ACCIONES_DE_NPC,
-  type Banco,
-  ETIQUETAS,
-  FIGURAS_NUEVAS_POR_MUNDO,
-  type FiguraDeNpc,
-} from '../npcs.js';
 import { newGame } from '../state/setup.js';
-import { type PersonaDeLaFaccion, personasDeLaFaccion } from '../town/voces.js';
 import type { FactionId, PlayerId, Point } from '../types.js';
 import { type LugaresDeUnMundo, lugaresDelPlan, type Mundo, VOCABULARIO } from './formato.js';
 import { lugarBlocker } from './validar.js';

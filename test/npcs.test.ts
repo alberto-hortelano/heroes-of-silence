@@ -18,7 +18,7 @@ import {
   leerBanco,
   problemasDeFigura,
   problemasDePeticion,
-} from '../src/core/npcs.js';
+} from '../src/core/gente/banco.js';
 import { FACTION_IDS } from '../src/core/types.js';
 import { hojasDelTaller } from '../tools/arena/borrador.js';
 import {

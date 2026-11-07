@@ -9,7 +9,7 @@
  * palabras, en vez de depender de que cada encargo se acuerde.
  */
 import { z } from 'zod';
-import { esIdDeNpc } from '../../src/core/npcs.js';
+import { esIdDeNpc } from '../../src/core/gente/banco.js';
 import { FACTION_IDS } from '../../src/core/types.js';
 import {
   FIGURA,

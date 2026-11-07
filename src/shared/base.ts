@@ -32,8 +32,8 @@ import imperioJson from '../../data/bases/imperio.json' with { type: 'json' };
 import noMuertosJson from '../../data/bases/no-muertos.json' with { type: 'json' };
 import orkosJson from '../../data/bases/orkos.json' with { type: 'json' };
 import templariosJson from '../../data/bases/templarios.json' with { type: 'json' };
+import { idsDeVecinos } from '../core/gente/voces.js';
 import { SITIOS, type SitioId } from '../core/town/sitios.js';
-import { idsDeVecinos } from '../core/town/voces.js';
 import type { FactionId } from '../core/types.js';
 import {
   COMPRESION_SUELO,

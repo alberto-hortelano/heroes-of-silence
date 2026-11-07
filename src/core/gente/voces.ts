@@ -13,12 +13,12 @@
  * eso `ponerVoces` es su único escritor (lo vigila `invariantes.test.ts`).
  */
 import vecinosJson from '../../../data/vecinos.json' with { type: 'json' };
-import { motivoDeLinea } from '../contract/linea.js';
-import { type Especie, etiquetaBlocker, type Oficio, type Sexo } from '../npcs.js';
+import { motivoDeLinea } from '../linea.js';
 import { createRng, hashDeTexto } from '../rng.js';
+import { esSitio, SITIOS, type SitioId, sitiosConstruidos } from '../town/sitios.js';
+import type { Town } from '../town/town.js';
 import { FACTION_IDS, type FactionId, type PlayerId } from '../types.js';
-import { esSitio, SITIOS, type SitioId, sitiosConstruidos } from './sitios.js';
-import type { Town } from './town.js';
+import { type Especie, etiquetaBlocker, type Oficio, type Sexo } from './banco.js';
 
 /** Lo largo que puede ser una línea de un vecino. */
 export const LARGO_DE_LINEA = 160;
@@ -32,8 +32,8 @@ export const MAX_VOCES_POR_RESPUESTA = 48;
 
 /**
  * Una persona de la base. Su figura sale del banco de NPC por sus etiquetas
- * (`figurasDeLaGente`, `town/figuras.ts`), que son las del vocabulario del banco
- * (`ETIQUETAS`, `core/npcs.ts`); hasta el 22-10-2026 llevaba un `cuerpo` del
+ * (`figurasDeLaGente`, `gente/figuras.ts`), que son las del vocabulario del banco
+ * (`ETIQUETAS`, `gente/banco.ts`); hasta el 22-10-2026 llevaba un `cuerpo` del
  * catálogo que no se pintaba.
  */
 export interface Persona {

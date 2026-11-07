@@ -497,3 +497,7 @@ simbolo	src/core/data.ts	src/core/equipo/pieza.ts	EQUIPO_LEIDO
 simbolo	src/core/data.ts	src/core/equipo/pieza.ts	EQUIPO_ESCRITO
 simbolo	src/core/data.ts	src/core/equipo/pieza.ts	EQUIPO
 fichero	src/core/data.ts	(retirado)	repartido por dueño: validar (enteroDesde), types (hasTrait), hero/liderazgo, hero/cuerpo-del-heroe, battle/muralla, hero/grupos, unidad, hero/experiencia, town/economia, nivel, hero/tipos-de-heroe, equipo/pieza, map/generar/datos y map/rio, cada uno con su data/*.json
+fichero	src/core/contract/linea.ts	src/core/linea.ts	
+fichero	src/core/npcs.ts	src/core/gente/banco.ts	
+fichero	src/core/town/voces.ts	src/core/gente/voces.ts	
+fichero	src/core/town/figuras.ts	src/core/gente/figuras.ts	

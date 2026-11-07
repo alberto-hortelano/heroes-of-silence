@@ -17,9 +17,10 @@
  * parecida a ella (`figuraQueSePinta`). Esas se asignan antes que las demás, para
  * que el reparto no se las lleve.
  */
-import { type BancoPintado, figuraQueSePinta, laMasParecida } from '../npcs.js';
+
 import type { GameState } from '../state/tipos.js';
 import type { FactionId } from '../types.js';
+import { type BancoPintado, figuraQueSePinta, laMasParecida } from './banco.js';
 import { personasDeLaFaccion } from './voces.js';
 
 /**

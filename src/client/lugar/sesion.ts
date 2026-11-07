@@ -11,6 +11,7 @@
  * al núcleo (`invariantes.test.ts`). Las preguntas (qué puntos están, qué
  * opciones valen y por qué no) son las del núcleo (`core/mundo/reglas.ts`).
  */
+import { type BancoPintado, figuraQueSePinta, SIN_BANCO } from '@core/gente/banco.js';
 import { figuraDelHeroe } from '@core/hero/tipos-de-heroe.js';
 import { nombreDelPunto } from '@core/mundo/formato.js';
 import {
@@ -24,7 +25,6 @@ import {
   opcionesDe,
   puntosDe,
 } from '@core/mundo/reglas.js';
-import { type BancoPintado, figuraQueSePinta, SIN_BANCO } from '@core/npcs.js';
 import type { AdventureAction, GameState } from '@core/state/tipos.js';
 import type { FactionId, PlayerId, Point } from '@core/types.js';
 import { cuerpoDeLaPersona } from '../render/cuerpo-de-gente.js';

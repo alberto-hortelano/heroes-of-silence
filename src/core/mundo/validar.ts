@@ -17,22 +17,22 @@
  */
 import { problemasDeGrupo } from '../catalogo.js';
 import { COMBATE_COMPLETO, cupoDelHeroe } from '../combate.js';
-import { motivoDeLinea } from '../contract/linea.js';
-import { problemaDeTipo } from '../hero/ascenso.js';
-import { piezaSiExiste } from '../hero/equipo.js';
-import { problemasDeGrupoNeutral } from '../hero/grupos.js';
-import type { MapPlan } from '../map/generar/plan.js';
-import { basesDelPlan, buildMap, validateMapPlan } from '../map/generate.js';
-import { type GameMap, inBounds, isEnterable, terrainAt } from '../map/map.js';
-import { FUERA, pasosDelMapa, queEsElObjeto } from '../map/recinto.js';
-import { regionDeCasilla } from '../map/regiones.js';
 import {
   type Banco,
   FIGURAS_NUEVAS_POR_MUNDO,
   figuraDelBanco,
   problemasDePeticiones,
-} from '../npcs.js';
-import { personasDeLaFaccion } from '../town/voces.js';
+} from '../gente/banco.js';
+import { personasDeLaFaccion } from '../gente/voces.js';
+import { problemaDeTipo } from '../hero/ascenso.js';
+import { piezaSiExiste } from '../hero/equipo.js';
+import { problemasDeGrupoNeutral } from '../hero/grupos.js';
+import { motivoDeLinea } from '../linea.js';
+import type { MapPlan } from '../map/generar/plan.js';
+import { basesDelPlan, buildMap, validateMapPlan } from '../map/generate.js';
+import { type GameMap, inBounds, isEnterable, terrainAt } from '../map/map.js';
+import { FUERA, pasosDelMapa, queEsElObjeto } from '../map/recinto.js';
+import { regionDeCasilla } from '../map/regiones.js';
 import { FACTION_IDS, type FactionId, type Point } from '../types.js';
 import {
   deLaListaBlocker,
