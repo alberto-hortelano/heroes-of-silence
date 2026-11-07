@@ -108,7 +108,7 @@ export function validarClima(json: unknown, fichero = 'data/clima.json'): Reglas
       problemas.push(`${donde} tiene que ser un objeto, y es ${JSON.stringify(v)}`);
       return {};
     }
-    return v as Record<string, unknown>;
+    return v;
   };
   const sobran = (o: Record<string, unknown>, donde: string, valen: readonly string[]): void => {
     for (const k of Object.keys(o)) {
@@ -435,7 +435,7 @@ export function climaBlocker(state: GameState, entrada: EntradaDeClima): string 
   if (!esObjeto(entrada)) {
     return `cada pedido es un objeto { "at", "weather", "night", "days" }, y llega ${dicho(entrada)}`;
   }
-  const { at, weather, night, days } = entrada as Record<string, unknown>;
+  const { at, weather, night, days } = entrada;
   if (!esPunto(at)) {
     return `"at" es una casilla { "x": N, "y": N } con dos enteros, y llega ${dicho(at)}`;
   }

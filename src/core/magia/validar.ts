@@ -133,19 +133,19 @@ function problemasDeLaDuracion(
   o: Record<string, unknown>,
   aqui?: string,
 ): { readonly dura: boolean; readonly problemas: string[] } {
-  const antes = aqui === undefined ? '' : `${aqui}: `;
   const efectos = Array.isArray(o.efectos) ? o.efectos : [];
   const dura = efectos.some(
     (e) =>
       esObjeto(e) && typeof e.tipo === 'string' && !INSTANTANEOS.includes(e.tipo as TipoDeEfecto),
   );
-  const problemas: string[] = [];
+  const propias: string[] = [];
   if (dura && o.duracion === undefined) {
-    problemas.push(`${antes}deja algo que dura y no dice cuánto («duracion»)`);
+    propias.push('deja algo que dura y no dice cuánto («duracion»)');
   }
   if (!dura && o.duracion !== undefined) {
-    problemas.push(`${antes}solo hace cosas en el acto, así que no lleva «duracion»`);
+    propias.push('solo hace cosas en el acto, así que no lleva «duracion»');
   }
+  const problemas = aqui === undefined ? propias : con(aqui, propias);
   if (o.duracion !== undefined) {
     const campo = aqui === undefined ? 'duracion' : `${aqui}.duracion`;
     problemas.push(...problemasDeDuracion(o.duracion, campo, aqui !== undefined));

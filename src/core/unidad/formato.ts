@@ -264,7 +264,7 @@ export function validarUnidad(valor: unknown, eq: EquipoAtado): Unidad {
   if (!esObjeto(valor)) {
     throw new Error('una unidad de la arena tiene que ser un objeto');
   }
-  const u = valor as Record<string, unknown>;
+  const u = valor;
   const id = idValido(u.id);
   // Lo que no es un campo de la arena no se descarta callando: un `growth`
   // escrito a mano desaparecería en el siguiente «Guardar» (M14 de QA).
@@ -365,7 +365,7 @@ function cuerpoValido(valor: unknown, quien: string): CuerpoDeUnidad {
   if (!esObjeto(valor)) {
     throw new Error(`${quien}: el cuerpo tiene que ser { hoja }`);
   }
-  const c = valor as Record<string, unknown>;
+  const c = valor;
   const claves = Object.keys(c);
   if (claves.length === 1 && claves[0] === 'hoja') {
     const hoja = texto(c.hoja, 'la hoja del cuerpo', quien);
@@ -447,7 +447,7 @@ export function equipoEscrito(valor: unknown, quien: string): Equipo {
   if (!esObjeto(valor)) {
     throw new Error(`${quien}: el equipo tiene que ser un objeto por hueco ({} sin nada)`);
   }
-  const e = valor as Record<string, unknown>;
+  const e = valor;
   for (const [hueco, id] of Object.entries(e)) {
     if (!esHueco(hueco)) throw new Error(`${quien}: ${huecoDesconocido(hueco, HUECOS)}`);
     if (typeof id !== 'string')

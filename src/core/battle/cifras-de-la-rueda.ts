@@ -310,7 +310,7 @@ export function problemasDeNiveles(r: unknown, q: string): string[] {
   if (!esObjeto(r)) {
     return [`${q}: la rueda tiene que ser un objeto con un nivel por tipo`];
   }
-  const o = r as Record<string, unknown>;
+  const o = r;
   const problemas: string[] = [];
   for (const ajeno of Object.keys(o).filter((k) => !esTipoDelAnillo(k))) {
     problemas.push(fueraDelAnillo(ajeno, q));

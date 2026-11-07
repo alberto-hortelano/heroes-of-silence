@@ -18,6 +18,7 @@
 import { TIPOS_DE_LAS_RUEDAS, type TiposDeLaRueda } from './battle/formas-de-la-rueda.js';
 import { LIDERAZGO } from './hero/liderazgo.js';
 import { enumerar } from './texto.js';
+
 export interface ReglasDelCombate {
   /** Cuántos individuos por bando, como mucho, con el héroe (uno de `LIDERAZGO.topesPorBando`). */
   readonly tope: number;

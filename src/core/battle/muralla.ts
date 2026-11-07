@@ -558,7 +558,7 @@ function puertaDeLaMuralla(p: unknown, n: number): PuertaDeMuralla {
   if (!esObjeto(p)) {
     throw new Error(`la muralla: la puerta ${n} no es un {a, b}`);
   }
-  const o = p as Record<string, unknown>;
+  const o = p;
   if ('col' in o || 'row' in o) {
     throw new Error(
       `la muralla: la puerta ${n} es una casilla, como antes; ahora una puerta va entre dos casillas vecinas en horizontal: {a, b}, con b al este de a`,

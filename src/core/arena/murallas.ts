@@ -176,7 +176,7 @@ export function validarFormaDeMuralla(valor: unknown): FormaDeMuralla {
   if (!esObjeto(valor)) {
     throw new Error('una forma de muralla es { nombre, muralla }');
   }
-  const o = valor as Record<string, unknown>;
+  const o = valor;
   const ajeno = Object.keys(o).find((k) => !CAMPOS_DE_FORMA.includes(k));
   if (ajeno !== undefined) {
     throw new Error(`la forma no entiende «${ajeno}»; lleva ${CAMPOS_DE_FORMA.join(' y ')}`);

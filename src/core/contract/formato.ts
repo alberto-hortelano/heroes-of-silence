@@ -44,6 +44,7 @@ import { CLIMA, PEDIDOS_QUE_SE_MIRAN, TIEMPOS } from '../state/clima.js';
 import { REGLA_DEL_PUEBLO } from '../state/renta.js';
 import { MURALLAS_DEL_MAPA, OBRAS_DEL_PUESTO } from '../state/sitios.js';
 import { MAX_HEROES_PER_PLAYER } from '../state/tipos.js';
+import { enumerar } from '../texto.js';
 import { HUECOS, TIPOS_FUSIONADOS, TODOS_LOS_GOLPES } from '../types.js';
 import { unidadesDelJuego } from '../unidad/catalogo.js';
 import {
@@ -125,7 +126,6 @@ const VACIOS_DE_SERIE = HUECOS.filter((h) => EQUIPO_BASE[h] === undefined).map(
 
 import { EQUIPO_BASE } from '../hero/cuerpo-del-heroe.js';
 import { RANGO_MAXIMO_DE_TROPA } from '../hero/rango.js';
-import { enumerar } from '../texto.js';
 import { ECONOMIA } from '../town/economia.js';
 import type { RequestKind } from './esquemas.js';
 import { COMO_SE_LEE_EL_MAPA } from './mapa-conocido.js';

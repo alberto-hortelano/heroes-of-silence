@@ -360,7 +360,7 @@ export function problemasDePieza(bruta: unknown, quien?: string): string[] {
   if (!esObjeto(bruta)) {
     return [`${quien ?? 'la pieza'} no es un objeto`];
   }
-  const p = bruta as Record<string, unknown>;
+  const p = bruta;
   const q = quien ?? quienEsLaPieza(p, 'la pieza');
   for (const ajeno of Object.keys(p).filter((k) => !CAMPOS_DE_PIEZA.includes(k))) {
     problemas.push(
@@ -623,7 +623,7 @@ export function problemasDePiezaConBase(bruta: unknown, quien?: string): string[
   if (!esObjeto(bruta)) {
     return [`${quien ?? 'la pieza'} no es un objeto`];
   }
-  const p = bruta as Record<string, unknown>;
+  const p = bruta;
   const q = quien ?? quienEsLaPieza(p, 'la pieza');
   const problemas: string[] = [];
   for (const ajeno of Object.keys(p).filter((k) => !CAMPOS_DE_PIEZA_CON_BASE.includes(k))) {
@@ -644,7 +644,7 @@ export function problemasDePiezaConBase(bruta: unknown, quien?: string): string[
     problemas.push(`${q}: los extras tienen que ser un objeto (vacío si no suma nada)`);
     return problemas;
   }
-  const e = x as Record<string, unknown>;
+  const e = x;
   for (const ajeno of Object.keys(e).filter((k) => !CAMPOS_DE_EXTRAS.includes(k))) {
     problemas.push(
       `${q}: «${ajeno}» no es un extra de una pieza; valen ${CAMPOS_DE_EXTRAS.join(', ')}`,
