@@ -162,6 +162,8 @@ import { ELIGE_EN_LA_RUEDA } from './batalla/cruce.js';
 import { DespliegueEnPantalla } from './batalla/despliegue.js';
 import { SesionDeBatalla } from './batalla/sesion-de-batalla.js';
 import { EnElLugar, type TrasElegir } from './lugar.js';
+import type { DueñoDeLasPiezas } from './partida/comun.js';
+import { EquipoEnPantalla } from './partida/equipo.js';
 import { componerVistaDelAyuntamiento, type VistaDelAyuntamiento } from './vistas/ayuntamiento.js';
 import { type NieblaDeAntes, type NieblaDeLaMarcha, nieblaDeLaMarcha } from './vistas/marcha.js';
 import { componerVistaDeLaMorada, type VistaDeLaMorada } from './vistas/morada.js';
@@ -257,6 +259,21 @@ export class Session extends SesionDeBatalla {
     this.versionActual++;
   }
 
+  /**
+   * Lo que las piezas de la sesión (`sesion/partida/`) leen de ella, por función: la
+   * partida y su azar nacen en el constructor, después que las piezas, y la partida puede
+   * cambiar. Cada pieza toma lo suyo (`DueñoDeLasPiezas`, `sesion/partida/comun.ts`).
+   */
+  private readonly dueñoDeLasPiezas: DueñoDeLasPiezas = {
+    estado: () => this.state,
+    ctx: () => this.ctx,
+    viewer: () => this.viewer,
+    tocar: () => this.tocar(),
+    run: (fn, bloqueo) => this.run(fn, bloqueo),
+    heroeSeleccionado: () => this.selectedHero,
+    idDeLaBaseAbierta: () => this.openTownId,
+  };
+
   get scene(): Scene {
     return this.escena;
   }
@@ -272,7 +289,7 @@ export class Session extends SesionDeBatalla {
   set selectedHeroId(v: string | null) {
     // La pieza elegida es de la mochila de UN héroe: con otro delante, el panel
     // le ofrecía «Ponérsela» a quien no la lleva y el clic acababa en un rechazo.
-    if (v !== this.heroeElegido) this.piezaElegida = null;
+    if (v !== this.heroeElegido) this.equipo.soltar();
     this.heroeElegido = v;
     this.tocar();
   }
@@ -1969,83 +1986,34 @@ export class Session extends SesionDeBatalla {
   // ------------------------------------------------------------ equipo
 
   /**
-   * La pieza de la mochila que la persona ha elegido para ponérsela a alguien,
-   * o `null`. Es estado de vista, como el hechizo elegido: lo leen el panel del
-   * héroe —que enseña «Equipar» donde se puede— y el clic que la pone.
+   * La pieza de la mochila elegida y lo que se hace con el equipo desde el panel del héroe
+   * y la armería: `EquipoEnPantalla` (`sesion/partida/equipo.ts`), en la que delegan estos.
    */
+  private readonly equipo = new EquipoEnPantalla(this.dueñoDeLasPiezas);
+
+  /** La pieza de la mochila elegida para ponérsela a alguien, o `null` (`EquipoEnPantalla.elegida`). */
   get selectedItem(): string | null {
-    // Se pregunta al leer y no se apunta al cambiar: la pieza puede dejar la
-    // mochila por más caminos que un clic —el héroe muere, se la pone otro
-    // panel, la licencia…— y cada uno tendría que acordarse de soltarla.
-    const item = this.piezaElegida;
-    if (item === null) return null;
-    return this.selectedHero?.mochila.includes(item) === true ? item : null;
+    return this.equipo.elegida;
   }
-  private piezaElegida: string | null = null;
 
   /** Elegir una pieza de la mochila del héroe elegido; elegir la misma otra vez la suelta. */
   selectItem(itemId: string): void {
-    this.piezaElegida = this.selectedItem === itemId ? null : itemId;
-    this.tocar();
+    this.equipo.elegir(itemId);
   }
 
-  /**
-   * Comprar `itemId` en la armería del castillo abierto, para la mochila del
-   * héroe que está dentro. El motivo de un rechazo lo escribe el núcleo
-   * (`buyBlocker`) y sale en la barra.
-   */
+  /** Comprar `itemId` en la armería de la base abierta (`EquipoEnPantalla.comprar`). */
   buyItem(itemId: string): void {
-    if (this.openTownId === null) return;
-    this.run(() =>
-      applyAdventureAction(
-        this.state,
-        { type: 'buy_item', town: this.openTownId as string, item: itemId },
-        this.ctx,
-        this.viewer,
-      ),
-    );
+    this.equipo.comprar(itemId);
   }
 
-  /**
-   * Ponerle la pieza elegida al héroe (`a` vacío), a un individuo con hoja
-   * (`veteran`) o al primer novato sin equipar de un tipo (`creature`). Al
-   * acabar, bien o mal, la pieza deja de estar elegida.
-   */
+  /** Ponerle la pieza elegida al héroe o a uno de su tropa (`EquipoEnPantalla.poner`). */
   equip(heroId: string, a: { readonly veteran?: string; readonly creature?: string } = {}): void {
-    const item = this.selectedItem;
-    if (item === null) return;
-    this.run(() =>
-      applyAdventureAction(
-        this.state,
-        { type: 'equip', hero: heroId, item, ...a },
-        this.ctx,
-        this.viewer,
-      ),
-    );
-    this.piezaElegida = null;
-    this.tocar();
+    this.equipo.poner(heroId, a);
   }
 
-  /**
-   * Quitar la pieza del hueco `slot` al héroe o al individuo `veteran`, a la
-   * mochila. El hueco llega del marcado como texto: esta es su puerta al núcleo,
-   * y uno que no lo es sale en la barra con su motivo.
-   */
+  /** Quitar lo del hueco `slot` al héroe o a un veterano, a la mochila (`EquipoEnPantalla.quitar`). */
   unequip(heroId: string, slot: string, veteran?: string): void {
-    this.run(() => {
-      if (!esHueco(slot)) throw new Error(huecoDesconocido(slot, HUECOS));
-      applyAdventureAction(
-        this.state,
-        {
-          type: 'unequip',
-          hero: heroId,
-          slot,
-          ...(veteran === undefined ? {} : { veteran }),
-        },
-        this.ctx,
-        this.viewer,
-      );
-    });
+    this.equipo.quitar(heroId, slot, veteran);
   }
 
   // ------------------------------------------------------------ la morada en escena
