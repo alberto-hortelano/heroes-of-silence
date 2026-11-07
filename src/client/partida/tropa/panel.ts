@@ -9,7 +9,7 @@
  */
 import { conMiles } from '@core/texto.js';
 import { NOMBRE_DE_HUECO } from '@core/types.js';
-import { COMO_SE_COLOCA } from '../../batalla/colocar.js';
+import { COMO_SE_COLOCA } from '../../comun/dichos.js';
 import { DESHABILITADO, type Html, html, NADA, unir } from '../../comun/html.js';
 import { nombreEnElCampo } from '../../render/batalla/distintivo.js';
 import type { FichaDeLaTropa, HuecoDeLaFicha, VistaDeLaTropa } from '../../sesion/vistas/tropa.js';

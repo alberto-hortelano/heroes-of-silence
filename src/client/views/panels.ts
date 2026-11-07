@@ -87,8 +87,8 @@ import { esTipoDeGolpe, type Hero, HUECOS, NOMBRE_DE_HUECO } from '@core/types.j
 import { unidadDelJuego } from '@core/unidad/catalogo.js';
 import { nivelDeUnidad } from '@core/unidad/nivel.js';
 import { disposicionDe } from '../../shared/base.js';
-import { COMO_SE_COLOCA } from '../batalla/colocar.js';
 import { botonesDeArma, botonesDeMuralla, botonesDePoder } from '../batalla/poderes.js';
+import { COMO_SE_COLOCA, DICHO_DE_LA_OBRA } from '../comun/dichos.js';
 import {
   DESHABILITADO,
   fondoDeColor,
@@ -108,7 +108,6 @@ import { renderPanelDeLaTropa } from '../partida/tropa/panel.js';
 import { asset } from '../render/assets.js';
 import { nombreEnElCampo } from '../render/batalla/distintivo.js';
 import { COLOR_DEL_ORO, MARCA_DE_COMANDANTE } from '../render/palette.js';
-import { DICHO_DE_LA_OBRA } from '../sesion/dichos.js';
 import type { DespliegueEnPantalla, ModoDelArma, Session, SpellOption } from '../sesion/partida.js';
 import { filaDeCifra } from './cifras.js';
 

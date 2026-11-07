@@ -1389,3 +1389,13 @@ fichero	src/client/ayuntamiento/vista.ts	src/client/sesion/vistas/ayuntamiento.t
 fichero	src/client/vista-de-la-marcha.ts	src/client/sesion/vistas/marcha.ts	
 fichero	src/client/lugar/sesion.ts	src/client/sesion/lugar.ts	
 fichero	src/client/dicho-del-puesto.ts	src/client/sesion/dichos.ts	
+fichero	src/client/sesion/dichos.ts	src/client/comun/dichos.ts	
+simbolo	src/client/batalla/colocar.ts	src/client/comun/dichos.ts	COMO_SE_COLOCA
+simbolo	src/client/sesion/partida.ts	src/client/comun/dichos.ts	AYUDA_DEL_MAPA
+simbolo	src/client/sesion/partida.ts	src/client/comun/dichos.ts	AYUDA_DE_LA_BASE
+simbolo	src/client/sesion/partida.ts	src/client/comun/dichos.ts	AYUDA_DE_LA_TROPA
+simbolo	src/client/sesion/partida.ts	src/client/comun/dichos.ts	AYUDA_DE_LA_MORADA
+simbolo	src/client/sesion/partida.ts	src/client/comun/dichos.ts	AYUDA_DEL_AYUNTAMIENTO
+simbolo	src/client/sesion/partida.ts	src/client/comun/dichos.ts	AYUDA_DE_LA_SALIDA
+simbolo	src/client/sesion/partida.ts	src/client/comun/dichos.ts	AYUDA_DEL_LUGAR
+simbolo	src/client/sesion/partida.ts	src/client/comun/dichos.ts	AYUDA_DEL_DESPLIEGUE

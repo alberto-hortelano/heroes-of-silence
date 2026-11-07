@@ -213,56 +213,28 @@ import {
   type VistaAsaltante,
 } from '@core/types.js';
 import { cuerpoDe, unidadDelJuego } from '@core/unidad/catalogo.js';
-import { COMO_SE_COLOCA, type ColocacionEnPantalla } from '../batalla/colocar.js';
+import type { ColocacionEnPantalla } from '../batalla/colocar.js';
+import {
+  AYUDA_DE_LA_BASE,
+  AYUDA_DE_LA_MORADA,
+  AYUDA_DE_LA_SALIDA,
+  AYUDA_DE_LA_TROPA,
+  AYUDA_DEL_AYUNTAMIENTO,
+  AYUDA_DEL_DESPLIEGUE,
+  AYUDA_DEL_LUGAR,
+  AYUDA_DEL_MAPA,
+  DICHO_DE_LA_OBRA,
+} from '../comun/dichos.js';
 import { mensajeDe } from '../comun/errores.js';
 import { quienesDe } from '../comun/quien-mira.js';
 import type { VistaDeLaBase } from '../render/base/escena.js';
 import { cuerpoDeLaPersona } from '../render/figuras/cuerpo-de-gente.js';
 import { conLosDueñosSabidos, type SitioOcupado } from '../render/mapa/sitios-sabidos.js';
-import { DICHO_DE_LA_OBRA } from './dichos.js';
 import { EnElLugar, type TrasElegir } from './lugar.js';
 import { componerVistaDelAyuntamiento, type VistaDelAyuntamiento } from './vistas/ayuntamiento.js';
 import { type NieblaDeAntes, type NieblaDeLaMarcha, nieblaDeLaMarcha } from './vistas/marcha.js';
 import { componerVistaDeLaMorada, type VistaDeLaMorada } from './vistas/morada.js';
 import { componerVistaDeLaTropa, mismoPortador, type VistaDeLaTropa } from './vistas/tropa.js';
-
-/**
- * Lo que dice la barra en el mapa la primera vez: al salir de la base en que
- * empieza la partida (`abrirSuBase`).
- */
-export const AYUDA_DEL_MAPA =
-  'Haz clic en el mapa para mover a tu héroe; arrastra para mirar. Espacio pasa el turno.';
-
-/*
- * Las ayudas de la barra nombran el botón de salir y, entre paréntesis, Escape: en
- * un móvil no hay teclado (QA M7 de la morada, 20-10-2026).
- */
-
-/** Lo que dice la barra en la base cuando el ratón no señala nada. */
-export const AYUDA_DE_LA_BASE =
-  'Pulsa el suelo para andar, un edificio para entrar o a alguien para hablar. «Volver al mapa» (o Escape) sale.';
-
-/**
- * Lo que dice la barra en la escena de la tropa cuando el ratón no señala a nadie:
- * la tropa es el despliegue (02-11-2026), y se coloca como en él (`COMO_SE_COLOCA`).
- */
-export const AYUDA_DE_LA_TROPA = `Tu formación, donde sale cada uno en cada batalla: ${COMO_SE_COLOCA} Su ficha y su equipo, en el panel. «Volver al mapa» (o Escape) sale.`;
-
-/** Lo que dice la barra en la escena de una morada cuando el ratón no señala a nadie. */
-export const AYUDA_DE_LA_MORADA =
-  'Pulsa una figura para ver su ficha y reclutar. «Volver a la base» (o Escape) sale.';
-
-/** Lo que dice la barra en la escena del ayuntamiento cuando el ratón no señala a nadie. */
-export const AYUDA_DEL_AYUNTAMIENTO =
-  'Pulsa una figura para ver su ficha y su precio. «Volver a la base» (o Escape) sale.';
-
-/** Lo que dice la barra al empezar, con el héroe de salida por elegir. */
-export const AYUDA_DE_LA_SALIDA =
-  'Elige a tu héroe: pulsa una figura para ver su ficha y contrátalo. Hasta entonces no se puede hacer nada más.';
-
-/** Lo que dice la barra en la escena de un lugar cuando el ratón no señala nada. */
-export const AYUDA_DEL_LUGAR =
-  'Pulsa el suelo para andar, o a alguien o algo para hablar o mirar. «Volver al mapa» (o Escape) sale.';
 
 export type Scene = 'adventure' | 'town' | 'battle' | 'tropa' | 'morada' | 'ayuntamiento' | 'lugar';
 
@@ -1315,9 +1287,6 @@ function enLaBatalla(o: {
 
 /** La barra de quien pide colocar sin despliegue en curso. */
 const SIN_DESPLIEGUE = 'Ahora no hay nadie tuyo que desplegar.';
-
-/** Lo que dice la barra al abrirse el despliegue de la persona. */
-export const AYUDA_DEL_DESPLIEGUE = `Despliega a los tuyos: ${COMO_SE_COLOCA} «Listo» empieza la batalla.`;
 
 /**
  * Por qué no se puede jugar a distancia en la casilla de un tanteo, dicho para la

@@ -24,6 +24,7 @@ import type { FactionId } from '@core/types.js';
 import { ALTO_DE_FIGURA, type Mirada, type Plano } from '../../../shared/arte.js';
 import { alaFranja, type Disposicion, disposicionDe } from '../../../shared/base.js';
 import { porElCamino } from '../../batalla/anim.js';
+import { AYUDA_DE_LA_BASE } from '../../comun/dichos.js';
 import { abiertaDe, arteDeLaBase, conLaAbierta } from '../../render/base/arte.js';
 import { camaraDeLaBase, camaraQuieta, seguir } from '../../render/base/camara.js';
 import {
@@ -46,7 +47,7 @@ import { msPorCasilla } from '../../render/figuras/marcha.js';
 import { densidadDe } from '../../render/lienzo.js';
 import { playerColor } from '../../render/palette.js';
 import { pasoDeLaBase, type Tablero } from '../../render/proyeccion.js';
-import { AYUDA_DE_LA_BASE, type Session } from '../../sesion/partida.js';
+import type { Session } from '../../sesion/partida.js';
 import type { ClimaDeLaFila } from '../morada/escena.js';
 
 /**

@@ -9,8 +9,9 @@
 
 import { describe, expect, it } from 'vitest';
 import { renderEleccion } from '../src/client/batalla/rueda/rueda.js';
+import { AYUDA_DEL_MAPA } from '../src/client/comun/dichos.js';
 import { marcadoDe } from '../src/client/comun/html.js';
-import { AYUDA_DEL_MAPA, Session } from '../src/client/sesion/partida.js';
+import { Session } from '../src/client/sesion/partida.js';
 import { renderActions, renderSide } from '../src/client/views/panels.js';
 import { hexDistance } from '../src/core/battle/board.js';
 import { terminarElDespliegue } from '../src/core/battle/despliegue.js';

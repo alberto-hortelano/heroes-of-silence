@@ -24,6 +24,7 @@ import {
   MARGEN_DE_LA_FRANJA,
 } from '../../../shared/base.js';
 import { porElCamino } from '../../batalla/anim.js';
+import { AYUDA_DEL_LUGAR } from '../../comun/dichos.js';
 import { temaDelLienzo } from '../../comun/temas.js';
 import { arteDeLaBase } from '../../render/base/arte.js';
 import { camaraDeLaBase, camaraQuieta, seguir } from '../../render/base/camara.js';
@@ -42,7 +43,7 @@ import { densidadDe } from '../../render/lienzo.js';
 import { playerColor } from '../../render/palette.js';
 import { enPantalla, pasoDeLaBase, type Tablero } from '../../render/proyeccion.js';
 import type { PuntoALaVista, VistaDelLugar } from '../../sesion/lugar.js';
-import { AYUDA_DEL_LUGAR, type Session } from '../../sesion/partida.js';
+import type { Session } from '../../sesion/partida.js';
 import { PRISA_EN_LA_BASE, pulsaParaHablar } from '../base/escena.js';
 
 /** Cuánto por delante del borde de atrás está cada punto, en pasos: en la franja, no pegado al fondo. */

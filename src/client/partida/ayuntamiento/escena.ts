@@ -11,8 +11,10 @@
  * exterior, sin versión abierta, y sin quien anduvo delante de los candidatos. La
  * cámara es otra (`encuadrarElAyuntamiento`): enseña el edificio entero.
  */
+
+import { AYUDA_DEL_AYUNTAMIENTO } from '../../comun/dichos.js';
 import { type EncuadreDeLaMorada, encuadrarElAyuntamiento } from '../../render/base/fila.js';
-import { AYUDA_DEL_AYUNTAMIENTO, type Session } from '../../sesion/partida.js';
+import type { Session } from '../../sesion/partida.js';
 import type { VistaDelAyuntamiento } from '../../sesion/vistas/ayuntamiento.js';
 import { type DePie, EscenaDePie } from '../de-pie.js';
 import { anteUnEdificio, type FondoDeLaMorada } from '../morada/escena.js';

@@ -29,13 +29,6 @@ import {
 import { cercaDelCentro, hexEnPixel, type Tablero } from '../render/proyeccion.js';
 import type { Efecto, EstadoFigura } from './anim.js';
 
-/**
- * Cómo se coloca, dicho una vez para la barra y los paneles del despliegue y de la
- * tropa: empieza en minúscula para ir tras dos puntos.
- */
-export const COMO_SE_COLOCA =
-  'pulsa a uno de los tuyos y luego una casilla verde de su zona (pulsar a otro lo elige; su casilla, los cambia). Las flechas mueven al elegido.';
-
 // ---------------------------------------------------------------- bajo el puntero
 
 /** Lo que el puntero necesita para leer el tablero: lo que se ve, su encuadre y dónde está cada figura. */
