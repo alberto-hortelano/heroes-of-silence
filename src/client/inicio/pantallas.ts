@@ -11,7 +11,7 @@ import type { ReglasDelCombate } from '@core/combate.js';
 import { rasgoDeFaccion } from '@core/hero/tipos-de-heroe.js';
 import { nombreDeSalida } from '@core/state/setup.js';
 import { FACTION_IDS, type FactionId, NOMBRE_DE_FACCION } from '@core/types.js';
-import { type Html, html, NADA, unir } from '../html.js';
+import { type Html, html, MARCADO, NADA, unir } from '../html.js';
 import { selectoresDelCombate } from '../views/combate.js';
 
 /** Por qué «Cargar partida» no hace nada: no hay guardado (fuera de alcance, 19-10-2026). */
@@ -37,7 +37,7 @@ export function renderMenu(): Html {
 /** Una facción de la elección: su nombre, su rasgo y el héroe con que se empieza. */
 function opcionDeFaccion(f: FactionId, elegida: FactionId): Html {
   return html`<label class="opcion-de-faccion" data-faccion="${f}">
-    <input type="radio" name="faccion" value="${f}" ${f === elegida ? html`checked` : NADA} />
+    <input type="radio" name="faccion" value="${f}" ${f === elegida ? MARCADO : NADA} />
     <span class="nombre-de-faccion">${NOMBRE_DE_FACCION[f]}</span>
     <span class="rasgo-de-faccion">${rasgoDeFaccion(f)}</span>
     <span class="heroe-de-faccion">Empiezas con ${nombreDeSalida(f, 0)}</span>

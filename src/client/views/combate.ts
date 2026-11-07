@@ -16,7 +16,7 @@ import {
   type ReglasDelCombate,
   TOPES_DE_TROPA,
 } from '@core/combate.js';
-import { type Html, html, NADA, unir } from '../html.js';
+import { type Html, html, MARCADO, NADA, unir } from '../html.js';
 import { casillaSoloRuedaDelHeroe } from './panels.js';
 
 /** Qué se lee en cada tope y en cada rueda: lo que es, en pocas palabras. */
@@ -39,7 +39,7 @@ function grupo(
       ${unir(
         valores.map(
           (n) =>
-            html`<label class="opcion-del-combate"><input type="radio" name="combate-${campo}" data-combate="${campo}" value="${String(n)}" ${n === elegido ? html`checked` : NADA} /> ${dicho(n)}</label>`,
+            html`<label class="opcion-del-combate"><input type="radio" name="combate-${campo}" data-combate="${campo}" value="${String(n)}" ${n === elegido ? MARCADO : NADA} /> ${dicho(n)}</label>`,
         ),
       )}
     </fieldset>`;

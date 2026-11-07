@@ -78,6 +78,13 @@ export const NADA: Html = crudo('');
  */
 export const DESHABILITADO: Html = crudo('disabled');
 
+/**
+ * El atributo `checked`, suelto, como `DESHABILITADO`: el de una casilla o un
+ * botón de radio marcados. Lo ponen el menú de inicio, la complejidad del combate,
+ * el mundo de `pnpm dev`, la ficha de la arena y su editor de equipo.
+ */
+export const MARCADO: Html = crudo('checked');
+
 function esHtml(valor: unknown): valor is Html {
   return typeof valor === 'object' && valor !== null && MARCA in valor;
 }

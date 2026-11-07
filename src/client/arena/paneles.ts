@@ -107,7 +107,7 @@ import {
   type Unidad,
   unidadDeCombate,
 } from '@core/unidad/formato.js';
-import { type Html, html, NADA, srcDeImagen, unir } from '../html.js';
+import { DESHABILITADO, type Html, html, MARCADO, NADA, srcDeImagen, unir } from '../html.js';
 import { ruedaDeLaPieza } from '../rueda/disco.js';
 import type { CaraDeLosContrincantes } from '../rueda/rueda.js';
 import type { SesionDeArena } from '../session.js';
@@ -159,9 +159,6 @@ export interface DatosDePuesto {
 function esLaElegida(e: Elegida | null, p: Puesto): boolean {
   return e !== null && e.kind === 'unidad' && e.id === p.unidad;
 }
-
-const DESHABILITADO: Html = html`disabled`;
-const MARCADO: Html = html`checked`;
 
 const rutaDeIdentidad = (id: string): string => `/unidades/${id}/identidad.webp`;
 
@@ -1489,14 +1486,14 @@ function fichaDePieza(p: Pieza, v: VistaDeEquipo): Html {
   const lanza = !campos.conManos
     ? NADA
     : extras === null
-      ? html`<label class="casilla-de-marcar"><input type="checkbox" data-arena-pieza-campo="lanza" ${esLanza(p) ? html`checked` : NADA}> es una lanza ${nota(DICHO_DE_LA_CARGA.cuando)}</label>`
+      ? html`<label class="casilla-de-marcar"><input type="checkbox" data-arena-pieza-campo="lanza" ${esLanza(p) ? MARCADO : NADA}> es una lanza ${nota(DICHO_DE_LA_CARGA.cuando)}</label>`
       : html`<div class="row"><span class="label">Lanza ${nota('La de su base.')}</span><span>${esLanza(p) ? 'Sí' : 'No'}</span></div>`;
   // De guerra o de silla (26-10-2026): una casilla, como la lanza; con base, la de su base.
   const guerra =
     p.hueco !== 'montura'
       ? NADA
       : extras === null
-        ? html`<label class="casilla-de-marcar"><input type="checkbox" data-arena-pieza-campo="guerra" ${esDeGuerra(p) ? html`checked` : NADA}> de guerra ${nota(DICHO_DE_LA_MONTURA)}</label>`
+        ? html`<label class="casilla-de-marcar"><input type="checkbox" data-arena-pieza-campo="guerra" ${esDeGuerra(p) ? MARCADO : NADA}> de guerra ${nota(DICHO_DE_LA_MONTURA)}</label>`
         : html`<div class="row"><span class="label">De guerra ${nota('La de su base.')}</span><span>${esDeGuerra(p) ? 'Sí' : 'No'}</span></div>`;
   const tiro = tiroDelPanel(p, extras !== null);
   const cadena = cadenaDeBases(eq, p.id);
@@ -1526,7 +1523,7 @@ function fichaDePieza(p: Pieza, v: VistaDeEquipo): Html {
   const botones = html`<button data-arena="crear-pieza" title="Crea una pieza nueva igual que esta, con su base si la tiene">Duplicar</button>
       <button data-arena="crear-pieza-sobre" title="Crea una pieza nueva sobre esta: suma lo mismo y le pones extras; si esta cambia, cambia con ella">Nueva sobre esta</button>
       <button data-arena="retirar-pieza" title="La borra del catálogo; si una unidad o el héroe la lleva, o es la base de otra pieza, el núcleo te dirá qué hacer antes">Borrar</button>`;
-  const marcada = (si: boolean): Html => (si ? html`checked` : NADA);
+  const marcada = (si: boolean): Html => (si ? MARCADO : NADA);
   const seConsigue = html`<div class="row se-consigue" data-se-consigue-de-la-ficha="si"><span class="label">Se consigue ${nota(`En la partida: la vende la armería, al precio de abajo, o cae como botín de asaltantes y ciudades neutrales. Sin ninguna, ${SOLO_EN_KITS}.`)}</span>
       <label class="casilla-de-marcar"><input type="checkbox" data-arena-pieza-campo="se-consigue-armeria" ${marcada(seVende(p))}> en la armería</label>
       <label class="casilla-de-marcar"><input type="checkbox" data-arena-pieza-campo="se-consigue-botin" ${marcada(caeComoBotin(p))}> como botín</label></div>`;
