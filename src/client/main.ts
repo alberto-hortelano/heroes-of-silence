@@ -1124,8 +1124,8 @@ document.addEventListener('click', (ev) => {
       session.buyItem(target.getAttribute('data-item') as string);
       break;
     case 'battle-surrender':
-      // Rendirse y «Resolver sola» son solo de la partida, y se quedan sin la regla
-      // del doble clic (pregunta abierta de R3 de la reorganización).
+      // Rendirse y «Resolver sola» son solo de la partida; su segundo clic no cuenta
+      // (`DE_UN_SOLO_CLIC` de `reparto-del-clic.ts`, decisión del usuario del 07-11-2026).
       session.playBattleAction({ type: 'surrender' });
       break;
     case 'auto-battle':

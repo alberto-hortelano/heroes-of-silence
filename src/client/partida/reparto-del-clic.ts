@@ -48,6 +48,11 @@ const DE_UN_SOLO_CLIC: ReadonlySet<string> = new Set([
   // con su `data-obra`, y compraba la muralla (QA de la fase 3, H-F3-1, comprobado
   // en el navegador).
   'mejorar-el-puesto',
+  // Rendirse y «Resolver sola», los botones de la batalla que solo tiene la partida, como
+  // los que comparte con la arena: decisión del usuario del 07-11-2026 («Sí, también»), que
+  // R3 de la reorganización había dejado como pregunta.
+  'battle-surrender',
+  'auto-battle',
 ]);
 
 /**

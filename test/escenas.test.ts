@@ -432,6 +432,18 @@ describe('la batalla en el lienzo', () => {
     expect(preguntas).toBe(1);
   });
 
+  it('«Rendirse» y «Resolver sola» tampoco cuentan el segundo clic (decisión del usuario, 07-11-2026)', () => {
+    // Los botones de la batalla que solo tiene la partida, con la regla de los que comparte
+    // con la arena (`GestosDeBatalla`): R3 los había dejado como pregunta.
+    const libre = () => false;
+    for (const accion of ['battle-surrender', 'auto-battle']) {
+      expect(repartirClic(accion, 'battle', libre, 2), accion).toBe('nada');
+      expect(repartirClic(accion, 'battle', libre, 1), accion).toBe('gesto');
+    }
+    // Lo que cae tras ellos y hace otra cosa no se toca: «Continuar» sigue atendiéndose.
+    expect(repartirClic('finish-battle', 'battle', libre, 2)).toBe('al-acabar');
+  });
+
   it('con la jugada contándose, los botones del panel salen apagados y no piden un segundo clic (#165)', () => {
     const s = sesionEnBatalla();
     const escena = escenaDeBatalla(() => s);
