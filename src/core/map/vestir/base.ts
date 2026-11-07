@@ -31,7 +31,7 @@
  * partes, ni nada de `map/generar/`.
  */
 import barrerasJson from '../../../../data/barreras.json' with { type: 'json' };
-import type { Rng } from '../../rng.js';
+import { type Rng, sortearPorPesos } from '../../rng.js';
 import { enteroDesde } from '../../validar.js';
 import { BARRERAS, type Barrera, SUELOS_PISABLES, type Suelo } from '../terrain.js';
 
@@ -94,16 +94,12 @@ export function ponerTipo(tipos: Tipos, i: number, t: number): void {
   tipos[i] = t;
 }
 
-/** Un sorteo por pesos con el `rng` de la partida: la única forma de elegir barrera. */
+/**
+ * Un sorteo por pesos con el `rng` de la partida (`sortearPorPesos`): la única forma
+ * de elegir barrera.
+ */
 export function sortear(rng: Rng, candidatas: readonly BarreraConPeso[]): Barrera {
-  const total = candidatas.reduce((s, c) => s + c.peso, 0);
-  if (total <= 0) throw new Error('no hay barreras candidatas que sortear');
-  let tirada = rng.int(0, total - 1);
-  for (const c of candidatas) {
-    if (tirada < c.peso) return c.barrera;
-    tirada -= c.peso;
-  }
-  throw new Error('el sorteo de barrera se ha salido de la tabla');
+  return sortearPorPesos(rng, candidatas, (c) => c.peso).barrera;
 }
 
 export const indiceDe = (b: Barrera): number => BARRERAS.indexOf(b);

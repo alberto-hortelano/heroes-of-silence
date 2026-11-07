@@ -71,6 +71,12 @@ export function createRng(seed: number): Rng {
  * Uno de `items` al azar, cada uno con la probabilidad de su `peso` (enteros ≥ 0,
  * alguno mayor que 0): una sola tirada de `rng.int`, del 1 a la suma, que cae en
  * el primero cuyo peso acumulado la alcanza. Lanza si no hay nada que sortear.
+ *
+ * El único sorteo por pesos: lo leen la rueda de la IA, el tiempo del clima y los
+ * del mapa (la barrera, el nivel de una pareja de regiones y la forma del río).
+ * Esos tres llevaban su copia hasta la fase N de la reorganización (07-11-2026),
+ * con `rng.int(0, total − 1)` y `<`: la misma `next()` menos uno, así que sale el
+ * mismo elegido y el mapa de cada semilla no se mueve.
  */
 export function sortearPorPesos<T>(rng: Rng, items: readonly T[], peso: (x: T) => number): T {
   let total = 0;

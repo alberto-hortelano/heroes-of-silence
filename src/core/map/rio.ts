@@ -19,7 +19,7 @@
  * Todo en enteros y con el `rng` que se pasa.
  */
 import riosJson from '../../../data/rios.json' with { type: 'json' };
-import type { Rng } from '../rng.js';
+import { type Rng, sortearPorPesos } from '../rng.js';
 import type { Point } from '../types.js';
 import { enteroDesde } from '../validar.js';
 import { Frontera } from './frontera.js';
@@ -72,15 +72,7 @@ const CAJA_DE_CASA = 5;
 
 /** La forma del río, sorteada con los pesos de `data/rios.json`. */
 export function sortearForma(rng: Rng, datos: ReglasDelRio = RIOS): FormaDelRio {
-  const total = datos.formas.reduce((s, f) => s + f.peso, 0);
-  let tirada = rng.int(0, total - 1);
-  for (const { forma, peso } of datos.formas) {
-    if (tirada < peso) return forma;
-    tirada -= peso;
-  }
-  throw new Error(
-    `el sorteo de la forma del río se ha salido de la tabla (${FORMAS_DEL_RIO.join(', ')})`,
-  );
+  return sortearPorPesos(rng, datos.formas, (f) => f.peso).forma;
 }
 
 /**

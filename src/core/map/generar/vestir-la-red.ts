@@ -14,7 +14,7 @@
  */
 import { ASALTANTES } from '../../hero/grupos.js';
 import { LIDERAZGO } from '../../hero/liderazgo.js';
-import type { Rng } from '../../rng.js';
+import { type Rng, sortearPorPesos } from '../../rng.js';
 import {
   FACTION_IDS,
   type FactionId,
@@ -1395,12 +1395,5 @@ function abrirUnAcceso(
 
 /** El nivel de una pareja de regiones de suelo `suelo`, por los pesos de `data/relieve.json`. */
 function sortearNivel(rng: Rng, suelo: Suelo): Nivel {
-  const pesos = NIVEL_POR_SUELO[suelo];
-  const total = pesos.reduce((s, p) => s + p.peso, 0);
-  let tirada = rng.int(0, total - 1);
-  for (const p of pesos) {
-    if (tirada < p.peso) return p.nivel;
-    tirada -= p.peso;
-  }
-  throw new Error(`el sorteo del nivel del suelo ${suelo} se ha salido de la tabla`);
+  return sortearPorPesos(rng, NIVEL_POR_SUELO[suelo], (p) => p.peso).nivel;
 }
