@@ -429,11 +429,14 @@ describe('invariantes del proyecto', () => {
     // un día deja de casar (vuelta 2 del ciclo de la base).
     // La escena de la tropa (02-11-2026, el tablero de despliegue) va a la escala
     // del combate porque es el tablero de la batalla (`tableroPara`), y tampoco
-    // puede fijar su propio alto de figura.
+    // puede fijar su propio alto de figura. La cámara de la base y la zancada de quien
+    // camina por ella viven desde R5 de la reorganización (07-11-2026) en
+    // `partida/caminante.ts`, que comparten la base y los lugares.
     const base = CLIENTE.filter(
       (r) =>
         r.startsWith(ruta('src/client/render/base/')) ||
         r === ruta('src/client/partida/base/escena.ts') ||
+        r === ruta('src/client/partida/caminante.ts') ||
         r === ruta('src/client/render/figuras/de-pie.ts') ||
         r === ruta('src/client/partida/de-pie.ts') ||
         r === ruta('src/client/partida/tropa/escena.ts') ||

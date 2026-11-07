@@ -21,12 +21,10 @@
  */
 import { abreAmpliar, moradaEn, type SitioId } from '@core/town/sitios.js';
 import type { FactionId } from '@core/types.js';
-import { ALTO_DE_FIGURA, type Mirada, type Plano } from '../../../shared/arte.js';
+import type { Mirada, Plano } from '../../../shared/arte.js';
 import { alaFranja, type Disposicion, disposicionDe } from '../../../shared/base.js';
-import { porElCamino } from '../../batalla/anim.js';
 import { AYUDA_DE_LA_BASE } from '../../comun/dichos.js';
 import { abiertaDe, arteDeLaBase, conLaAbierta } from '../../render/base/arte.js';
-import { camaraDeLaBase, camaraQuieta, seguir } from '../../render/base/camara.js';
 import {
   componerBase,
   dondeEsta,
@@ -42,12 +40,11 @@ import {
 } from '../../render/base/pintar.js';
 import { luzDeLasFiguras } from '../../render/clima/recetas.js';
 import { direccionHacia } from '../../render/figuras/direccion.js';
-import { animarHasta } from '../../render/figuras/figura.js';
-import { msPorCasilla } from '../../render/figuras/marcha.js';
 import { densidadDe } from '../../render/lienzo.js';
 import { playerColor } from '../../render/palette.js';
-import { pasoDeLaBase, type Tablero } from '../../render/proyeccion.js';
+import type { Tablero } from '../../render/proyeccion.js';
 import type { Session } from '../../sesion/partida.js';
+import { Caminante } from '../caminante.js';
 import type { ClimaDeLaFila } from '../morada/escena.js';
 
 /**
@@ -88,21 +85,6 @@ export function dondeHablarCon(d: Disposicion, en: Plano): Plano {
   return alaFranja(d, { x: en.x + AL_LADO.x, y: en.y + AL_LADO.y });
 }
 
-/** Una marcha en recta de `desde` a `hasta`: donde la recta se sale por detrás, `actualizar` la recorta. */
-interface Marcha {
-  readonly desde: Plano;
-  readonly hasta: Plano;
-  /** Hacia dónde mira mientras anda (`direccionHacia`, la regla de la batalla). */
-  readonly mira: Mirada;
-  readonly empieza: number;
-  readonly dura: number;
-  readonly alLlegar: Abierto | null;
-  /** El sitio al que va, si va a uno (no al suelo ni a hablar). */
-  readonly sitio: SitioId | null;
-  /** Hacia dónde mira al llegar: al edificio o a la persona. */
-  readonly miraAlLlegar: Mirada | null;
-}
-
 /** La base abierta y su disposición. */
 interface BaseAbierta {
   readonly vista: VistaDeLaBase;
@@ -110,7 +92,8 @@ interface BaseAbierta {
 }
 
 export class EscenaBase {
-  private lienzo = { ancho: 1, alto: 1 };
+  /** Quien camina y la cámara que lo sigue (`partida/caminante.ts`), los mismos de un lugar. */
+  private readonly caminante = new Caminante({ prisa: PRISA_EN_LA_BASE, ritmoDelClip: 1 });
   /**
    * De qué sesión, qué base y qué apertura es lo de abajo: otra base, u otra
    * vez la misma, empieza en su entrada y sin nada abierto. Con solo la base,
@@ -118,17 +101,8 @@ export class EscenaBase {
    * de la morada de ayer puesto.
    */
   private de: { sesion: Session; townId: string; apertura: number } | null = null;
-  private en: Plano = { x: 0, y: 0 };
-  private mira: Mirada = 'N';
-  private quietoDesde = 0;
-  private marcha: Marcha | null = null;
   private abiertoAhora: Abierto | null = null;
   private señalado: Exclude<Golpe, { tipo: 'suelo' }> | null = null;
-  /** El paso del borde izquierdo de la vista, y cuándo se movió por última vez. */
-  private camaraX: number | null = null;
-  private camaraEn: number | null = null;
-  /** Píxeles de dispositivo por píxel CSS del último lienzo dibujado: la cámara cae en uno entero. */
-  private densidad = 1;
   constructor(
     private readonly sesion: () => Session,
     /** De dónde sale la disposición de cada facción: la de `data/bases/`, o la que pase un test. */
@@ -155,7 +129,7 @@ export class EscenaBase {
    * dice ella.
    */
   get marca(): string {
-    if (this.marcha !== null || !this.camaraLlegada(this.base())) return 'andando';
+    if (this.caminante.andando || !this.camaraLlegada(this.base())) return 'andando';
     const a = this.abiertoAhora;
     if (a === null) return 'quieto';
     return a.tipo === 'ampliar'
@@ -166,7 +140,7 @@ export class EscenaBase {
   }
 
   encuadrar(ancho: number, alto: number): void {
-    this.lienzo = { ancho, alto };
+    this.caminante.encuadrar(ancho, alto);
   }
 
   /** La base de ahora con su disposición, o `null` sin base abierta. Recoloca al cambiar de base. */
@@ -183,20 +157,15 @@ export class EscenaBase {
       this.de.apertura !== apertura
     ) {
       this.de = { sesion: s, townId: vista.townId, apertura };
-      this.en = d.entrada;
-      this.mira = 'N';
-      this.marcha = null;
+      this.caminante.empezarEn(d.entrada, 'N');
       this.abiertoAhora = null;
       this.señalado = null;
-      this.camaraX = null;
-      this.camaraEn = null;
     }
     return { vista, d };
   }
 
   private camaraLlegada(b: BaseAbierta | null): boolean {
-    if (b === null || this.camaraX === null) return true;
-    return this.camaraX === camaraQuieta(b.d, this.lienzo, this.en.x);
+    return b === null || this.caminante.camaraLlegada(b.d);
   }
 
   /**
@@ -205,54 +174,21 @@ export class EscenaBase {
    */
   camara(): Tablero | null {
     const b = this.base();
-    return b === null ? null : this.camaraDe(b);
-  }
-
-  private camaraDe(b: BaseAbierta): Tablero {
-    return camaraDeLaBase(
-      this.lienzo,
-      this.camaraX ?? camaraQuieta(b.d, this.lienzo, this.en.x),
-      pasoDeLaBase(this.lienzo.alto),
-      this.densidad,
-    );
-  }
-
-  /** Lleva la cámara hacia quien camina hasta `ahora`. */
-  private moverCamara(b: BaseAbierta, ahora: number): void {
-    const { d } = b;
-    if (this.camaraX === null || this.camaraEn === null) {
-      this.camaraX = camaraQuieta(d, this.lienzo, this.en.x);
-    } else {
-      this.camaraX = seguir(this.camaraX, this.en.x, d, this.lienzo, ahora - this.camaraEn);
-    }
-    this.camaraEn = ahora;
-    if (!this.camaraLlegada(b)) animarHasta(ahora + 50);
+    return b === null ? null : this.caminante.camara(b.d);
   }
 
   /** Dónde está quien camina, en pasos (en la entrada, al abrir una base). */
   get posicion(): Plano {
     this.base();
-    return this.en;
+    return this.caminante.en;
   }
 
-  /** Lleva la marcha hasta `ahora`: mueve a quien camina y, al llegar, abre lo suyo. */
+  /**
+   * Lleva la marcha hasta `ahora`: mueve a quien camina y, al llegar, abre lo suyo
+   * (`llegar`). La cámara no: la lleva `dibujar`.
+   */
   actualizar(ahora: number, b: BaseAbierta | null = this.base()): void {
-    const m = this.marcha;
-    if (m === null) return;
-    const t = m.dura === 0 ? 1 : (ahora - m.empieza) / m.dura;
-    if (t < 1) {
-      const en = porElCamino([m.desde, m.hasta], t);
-      // Lo que se pisa no es convexo (el borde de atrás une los umbrales del
-      // cuadro): la recta puede salirse por detrás, y la figura resbala por él.
-      this.en = b === null ? en : alaFranja(b.d, en);
-      this.mira = m.mira;
-      return;
-    }
-    this.en = m.hasta;
-    if (m.miraAlLlegar !== null) this.mira = m.miraAlLlegar;
-    this.marcha = null;
-    this.quietoDesde = ahora;
-    this.llegar(m.alLlegar, m.sitio);
+    this.caminante.avanzar(ahora, b === null ? null : b.d);
   }
 
   /**
@@ -285,32 +221,20 @@ export class EscenaBase {
     ahora: number,
     quien: { readonly gente?: boolean; readonly caminante?: boolean } = {},
   ): Elemento[] {
-    const andando = this.marcha !== null;
-    return componerBase(
-      d,
-      vista,
-      {
-        en: this.en,
-        mira: this.mira,
-        clip: andando ? 'walk' : 'idle',
-        tiempo: andando ? ahora - (this.marcha?.empieza ?? 0) : ahora - this.quietoDesde,
-      },
-      ahora,
-      quien,
-    );
+    return componerBase(d, vista, this.caminante.estado(ahora), ahora, quien);
   }
 
   dibujar(ctx: CanvasRenderingContext2D, ancho: number, alto: number, ahora: number): void {
-    this.encuadrar(ancho, alto);
-    this.densidad = densidadDe(ctx);
+    this.caminante.encuadrar(ancho, alto, densidadDe(ctx));
     const b = this.base();
     if (b === null) return;
     this.actualizar(ahora, b);
-    this.moverCamara(b, ahora);
+    // La cámara, solo aquí: un clic echa a andar (`pulsar`) y ella lo sigue al dibujar.
+    this.caminante.seguirConLaCamara(b.d, ahora);
     pintarBase(ctx, {
       d: b.d,
-      t: this.camaraDe(b),
-      lienzo: this.lienzo,
+      t: this.caminante.camara(b.d),
+      lienzo: this.caminante.lienzo,
       elementos: this.elementos(b.vista, b.d, ahora),
       arte: this.arte(b.vista),
       color: playerColor(b.vista.owner),
@@ -376,7 +300,7 @@ export class EscenaBase {
       b.d,
       this.elementos(b.vista, b.d, ahora),
       this.arte(b.vista),
-      this.camaraDe(b),
+      this.caminante.camara(b.d),
       px,
       py,
     );
@@ -473,12 +397,7 @@ export class EscenaBase {
     if (e === undefined) {
       throw new Error(`no se puede ir a "${sitio}": en esta base no hay nada construido ahí`);
     }
-    this.marcha = null;
-    this.en = alaFranja(b.d, this.adondeVa(b.d, e.sitio));
-    this.mira = 'N';
-    this.quietoDesde = ahora;
-    this.camaraX = camaraQuieta(b.d, this.lienzo, this.en.x);
-    this.camaraEn = ahora;
+    this.caminante.plantarEn(b.d, alaFranja(b.d, this.adondeVa(b.d, e.sitio)), 'N', ahora);
     this.sesion().status = AYUDA_DE_LA_BASE;
     this.llegar(abiertoAlLlegar(e.sitio), e.sitio);
   }
@@ -507,23 +426,10 @@ export class EscenaBase {
     // morada de antes no se queda puesto mientras se va a otra.
     this.abiertoAhora = null;
     // Se va en recta; donde la recta se sale por detrás, `actualizar` la recorta.
-    const desde = this.en;
-    const meta = alaFranja(d, hasta);
-    // Como en una batalla (`anim.ts`): la zancada de la figura a su alto en pasos.
-    const msPorPaso =
-      msPorCasilla(vista.caminante.cuerpo, 'walk', ALTO_DE_FIGURA) / PRISA_EN_LA_BASE;
-    const dura = Math.hypot(meta.x - desde.x, meta.y - desde.y) * msPorPaso;
-    this.marcha = {
-      desde,
-      hasta: meta,
-      mira: direccionHacia(desde, meta, this.mira),
-      empieza: ahora,
-      dura,
-      alLlegar,
-      sitio,
-      miraAlLlegar,
-    };
-    animarHasta(ahora + dura);
+    const dura = this.caminante.andar(d, vista.caminante.cuerpo, hasta, ahora, miraAlLlegar, () =>
+      this.llegar(alLlegar, sitio),
+    );
+    // Sin camino que andar se llega ya, y lo suyo se abre; la cámara, al dibujar.
     if (dura === 0) this.actualizar(ahora);
   }
 }

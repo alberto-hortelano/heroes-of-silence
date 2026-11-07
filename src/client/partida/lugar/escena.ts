@@ -9,13 +9,14 @@
  * alguien o algo, lo lleva a su lado y abre la conversación (`EnElLugar.hablar`),
  * que pinta el `<dialog id="conversacion">` de `main.ts`.
  *
- * Caminar por un escenario lateral está aquí y en `partida/base/escena.ts` dos veces: unificarlo
- * es del backlog, tras *heroe-en-la-base*, que toca la base. La cámara, la franja,
- * el pintor y el golpe son los de la base (`render/base/`), y dónde se para quien
- * va a hablar con alguien, a su lado (`dondeHablarEnElLugar`).
+ * Quien camina y la cámara que lo sigue son los de la base (`partida/caminante.ts`; hasta
+ * R5 de la reorganización, 07-11-2026, una copia de los de `partida/base/escena.ts`), con
+ * más prisa (`PRISA_EN_UN_LUGAR`). La franja, el pintor y el golpe son los de la base
+ * (`render/base/`), y dónde se para quien va a hablar con alguien, a su lado
+ * (`dondeHablarEnElLugar`).
  */
 import { inicialDelNombre } from '@core/mundo/formato.js';
-import { ALTO_DE_FIGURA, type Mirada, type Plano } from '../../../shared/arte.js';
+import type { Mirada, Plano } from '../../../shared/arte.js';
 import {
   alaFranja,
   bordeDeAtras,
@@ -23,11 +24,9 @@ import {
   disposicionDelLugar,
   MARGEN_DE_LA_FRANJA,
 } from '../../../shared/base.js';
-import { porElCamino } from '../../batalla/anim.js';
 import { AYUDA_DEL_LUGAR } from '../../comun/dichos.js';
 import { temaDelLienzo } from '../../comun/temas.js';
 import { arteDeLaBase } from '../../render/base/arte.js';
-import { camaraDeLaBase, camaraQuieta, seguir } from '../../render/base/camara.js';
 import type { Elemento } from '../../render/base/escena.js';
 import { queHayBajo } from '../../render/base/golpe.js';
 import {
@@ -36,15 +35,13 @@ import {
   pintarElSueloDeLaBase,
   pintarLasFiguras,
 } from '../../render/base/pintar.js';
-import { direccionHacia } from '../../render/figuras/direccion.js';
-import { animarHasta } from '../../render/figuras/figura.js';
-import { msPorCasilla } from '../../render/figuras/marcha.js';
 import { densidadDe } from '../../render/lienzo.js';
 import { playerColor } from '../../render/palette.js';
-import { enPantalla, pasoDeLaBase, type Tablero } from '../../render/proyeccion.js';
+import { enPantalla, type Tablero } from '../../render/proyeccion.js';
 import type { PuntoALaVista, VistaDelLugar } from '../../sesion/lugar.js';
 import type { Session } from '../../sesion/partida.js';
 import { PRISA_EN_LA_BASE, pulsaParaHablar } from '../base/escena.js';
+import { Caminante } from '../caminante.js';
 
 /** Cuánto por delante del borde de atrás está cada punto, en pasos: en la franja, no pegado al fondo. */
 const DELANTE_DEL_FONDO = 0.7;
@@ -55,7 +52,7 @@ const DENTRO_DEL_MARGEN = 0.6;
  * repartidos por dos tramos de plaza, más lejos que dos puertas de la base, y a
  * paso de base cada «Hablar» del panel hacía esperar ~6 s (de la garita a Corvo, H6
  * del QA de la F1a): con esto, ~3 s. El clip de andar se acelera lo mismo sobre
- * el de la base (`elementos`): las piernas van con el paso que se ve en la base, no
+ * el de la base (`ritmoDelClip`): las piernas van con el paso que se ve en la base, no
  * patinan más.
  */
 const PRISA_EN_UN_LUGAR = 3;
@@ -89,14 +86,10 @@ export function dondeEstaElPunto(d: Disposicion, x: number): Plano {
   return alaFranja(d, { x: px, y: bordeDeAtras(d, px) + DELANTE_DEL_FONDO });
 }
 
-interface Marcha {
-  readonly desde: Plano;
-  readonly hasta: Plano;
+/** El punto con el que se habla al llegar y hacia dónde se le mira. */
+interface HablarAlLlegar {
+  readonly punto: string;
   readonly mira: Mirada;
-  readonly empieza: number;
-  readonly dura: number;
-  /** El punto con el que se habla al llegar y hacia dónde se le mira, o `null`. */
-  readonly alLlegar: { readonly punto: string; readonly mira: Mirada } | null;
 }
 
 /** Lo que hay bajo un píxel: un punto o el suelo. */
@@ -118,8 +111,11 @@ interface Abierto {
 }
 
 export class EscenaLugar {
-  private lienzo = { ancho: 1, alto: 1 };
-  private densidad = 1;
+  /** Quien camina y la cámara que lo sigue (`partida/caminante.ts`), los mismos de la base. */
+  private readonly caminante = new Caminante({
+    prisa: PRISA_EN_UN_LUGAR,
+    ritmoDelClip: PRISA_EN_UN_LUGAR / PRISA_EN_LA_BASE,
+  });
   private de: { sesion: Session; apertura: number } | null = null;
   /**
    * Lo abierto, memorizado por la versión de la sesión (sube con todo lo que se
@@ -129,12 +125,6 @@ export class EscenaLugar {
     null;
   /** El sitio de cada punto en esta apertura: no cambia mientras se está en el lugar. */
   private sitios = new Map<string, Plano>();
-  private en: Plano = { x: 0, y: 0 };
-  private mira: Mirada = 'E';
-  private quietoDesde = 0;
-  private marcha: Marcha | null = null;
-  private camaraX: number | null = null;
-  private camaraEn: number | null = null;
   private señalado: string | null = null;
 
   constructor(private readonly sesion: () => Session) {}
@@ -160,11 +150,7 @@ export class EscenaLugar {
     if (this.de === null || this.de.sesion !== s || this.de.apertura !== vista.apertura) {
       this.de = { sesion: s, apertura: vista.apertura };
       this.sitios = new Map();
-      this.en = d.entrada;
-      this.mira = 'E';
-      this.marcha = null;
-      this.camaraX = null;
-      this.camaraEn = null;
+      this.caminante.empezarEn(d.entrada, 'E');
       this.señalado = null;
     }
     const puntos = vista.puntos
@@ -190,48 +176,18 @@ export class EscenaLugar {
   get marca(): string {
     const a = this.abierto();
     if (a === null) return '';
-    if (this.marcha !== null || !this.camaraLlegada(a.d)) return 'andando';
+    if (this.caminante.andando || !this.caminante.camaraLlegada(a.d)) return 'andando';
     const hablando = this.sesion().lugar.hablando;
     return hablando === null ? 'quieto' : `hablando:${hablando}`;
   }
 
-  private camaraLlegada(d: Disposicion): boolean {
-    return this.camaraX === null || this.camaraX === camaraQuieta(d, this.lienzo, this.en.x);
-  }
-
-  private camara(d: Disposicion): Tablero {
-    return camaraDeLaBase(
-      this.lienzo,
-      this.camaraX ?? camaraQuieta(d, this.lienzo, this.en.x),
-      pasoDeLaBase(this.lienzo.alto),
-      this.densidad,
-    );
-  }
-
+  /**
+   * Lleva la marcha hasta `ahora` y, al llegar a un punto, se habla con él; y la cámara
+   * con ella: aquí van juntas al dibujar y en cada clic.
+   */
   private actualizar(ahora: number, d: Disposicion): void {
-    const m = this.marcha;
-    if (m !== null) {
-      const t = m.dura === 0 ? 1 : (ahora - m.empieza) / m.dura;
-      if (t < 1) {
-        this.en = alaFranja(d, porElCamino([m.desde, m.hasta], t));
-        this.mira = m.mira;
-      } else {
-        this.en = m.hasta;
-        this.marcha = null;
-        this.quietoDesde = ahora;
-        if (m.alLlegar !== null) {
-          this.mira = m.alLlegar.mira;
-          this.sesion().lugar.hablar(m.alLlegar.punto);
-        }
-      }
-    }
-    if (this.camaraX === null || this.camaraEn === null) {
-      this.camaraX = camaraQuieta(d, this.lienzo, this.en.x);
-    } else {
-      this.camaraX = seguir(this.camaraX, this.en.x, d, this.lienzo, ahora - this.camaraEn);
-    }
-    this.camaraEn = ahora;
-    if (!this.camaraLlegada(d)) animarHasta(ahora + 50);
+    this.caminante.avanzar(ahora, d);
+    this.caminante.seguirConLaCamara(d, ahora);
   }
 
   /**
@@ -239,7 +195,6 @@ export class EscenaLugar {
    * orden (`Abierto.puntos`), y quien camina se mete en su sitio.
    */
   private elementos(a: Abierto, ahora: number): Elemento[] {
-    const andando = this.marcha !== null;
     const gente: Elemento[] = a.puntos.flatMap(({ p, en }): Elemento[] =>
       p.cuerpo === null
         ? []
@@ -258,19 +213,18 @@ export class EscenaLugar {
             },
           ],
     );
+    const quien = this.caminante.estado(ahora);
     const caminante: Elemento = {
       tipo: 'figura',
       id: a.vista.caminante.id,
       cuerpo: a.vista.caminante.cuerpo,
       nombre: a.vista.caminante.nombre,
-      en: this.en,
-      mira: this.mira,
-      clip: andando ? 'walk' : 'idle',
-      tiempo: andando
-        ? (ahora - (this.marcha?.empieza ?? 0)) * (PRISA_EN_UN_LUGAR / PRISA_EN_LA_BASE)
-        : ahora - this.quietoDesde,
+      en: quien.en,
+      mira: quien.mira,
+      clip: quien.clip,
+      tiempo: quien.tiempo,
       pnj: false,
-      pie: this.en.y,
+      pie: quien.en.y,
     };
     // Detrás de quien tenga el pie más abajo, como el `sort` estable de antes.
     const i = gente.findIndex((e) => e.pie > caminante.pie);
@@ -285,12 +239,11 @@ export class EscenaLugar {
     _densidad: number,
     ahora: number,
   ): void {
-    this.lienzo = { ancho, alto };
-    this.densidad = densidadDe(ctx);
+    this.caminante.encuadrar(ancho, alto, densidadDe(ctx));
     const a = this.abierto();
     if (a === null) return;
     this.actualizar(ahora, a.d);
-    const t = this.camara(a.d);
+    const t = this.caminante.camara(a.d);
     // Las cosas, debajo de las figuras: son del suelo.
     const elementos = this.elementos(a, ahora);
     // El clima de la región del lugar, como el de la base: lo de abajo (luz y
@@ -301,7 +254,7 @@ export class EscenaLugar {
     const fondo: PintadoDeLaBase = {
       d: a.d,
       t,
-      lienzo: this.lienzo,
+      lienzo: this.caminante.lienzo,
       elementos: [],
       arte: arteDeLaBase(a.vista.fondo, []),
       color: playerColor(a.vista.owner),
@@ -316,7 +269,7 @@ export class EscenaLugar {
     pintarLasFiguras(ctx, {
       d: a.d,
       t,
-      lienzo: this.lienzo,
+      lienzo: this.caminante.lienzo,
       elementos,
       arte: null,
       color: playerColor(a.vista.owner),
@@ -331,7 +284,7 @@ export class EscenaLugar {
    * pintado debajo de las figuras.
    */
   private golpe(a: Abierto, px: number, py: number, ahora = performance.now()): Golpe {
-    const t = this.camara(a.d);
+    const t = this.caminante.camara(a.d);
     const g = queHayBajo(a.d, this.elementos(a, ahora), null, t, px, py);
     if (g.tipo === 'pnj') return { tipo: 'punto', id: g.id };
     for (let i = a.puntos.length - 1; i >= 0; i--) {
@@ -401,23 +354,18 @@ export class EscenaLugar {
     d: Disposicion,
     vista: VistaDelLugar,
     hasta: Plano,
-    alLlegar: Marcha['alLlegar'],
+    alLlegar: HablarAlLlegar | null,
     ahora: number,
   ): void {
-    const desde = this.en;
-    const meta = alaFranja(d, hasta);
-    const msPorPaso =
-      msPorCasilla(vista.caminante.cuerpo, 'walk', ALTO_DE_FIGURA) / PRISA_EN_UN_LUGAR;
-    const dura = Math.hypot(meta.x - desde.x, meta.y - desde.y) * msPorPaso;
-    this.marcha = {
-      desde,
-      hasta: meta,
-      mira: direccionHacia(desde, meta, this.mira),
-      empieza: ahora,
-      dura,
-      alLlegar,
-    };
-    animarHasta(ahora + dura);
+    const dura = this.caminante.andar(
+      d,
+      vista.caminante.cuerpo,
+      hasta,
+      ahora,
+      alLlegar === null ? null : alLlegar.mira,
+      alLlegar === null ? null : () => this.sesion().lugar.hablar(alLlegar.punto),
+    );
+    // Sin camino que andar se llega ya, y se habla; la cámara, con él.
     if (dura === 0) this.actualizar(ahora, d);
   }
 }
