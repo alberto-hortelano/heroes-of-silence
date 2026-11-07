@@ -41,13 +41,12 @@ import { figuraDelHeroe, tiposDeHeroe } from '../src/core/hero/tipos-de-heroe.js
 import { aPunto, pointKey, reachableFrom } from '../src/core/map/map.js';
 import { isWalkable } from '../src/core/map/terrain.js';
 import { createRng } from '../src/core/rng.js';
+import { climaDeLaPartida, climaDeLaRegion, pedirClima } from '../src/core/state/clima.js';
 import {
+  applyAdventureAction,
+  ascenderVeterano,
   climaDeLaBatalla,
-  climaDeLaPartida,
-  climaDeLaRegion,
-  pedirClima,
-} from '../src/core/state/clima.js';
-import { applyAdventureAction, ascenderVeterano } from '../src/core/state/game.js';
+} from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { GameState } from '../src/core/state/tipos.js';
 import type { Hero, Point, UnitInfo } from '../src/core/types.js';

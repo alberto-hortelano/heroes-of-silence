@@ -85,7 +85,13 @@ import {
   zonaDeNiebla,
 } from '../map/niebla.js';
 import { muroBlocker } from '../map/recinto.js';
-import { dueñoEnLaFoto, dueñosDeLaRed, estructura, regionMasCercana } from '../map/regiones.js';
+import {
+  dueñoEnLaFoto,
+  dueñosDeLaRed,
+  estructura,
+  regionDelSitio,
+  regionMasCercana,
+} from '../map/regiones.js';
 import { type Barrera, NOMBRE_DE_BARRERA } from '../map/terrain.js';
 import {
   batallaDe,
@@ -145,6 +151,7 @@ import {
   recordarAsaltantes,
   vigiaDeLaMarcha,
 } from './asaltantes.js';
+import { type ClimaDeLaPartida, type ClimaDelSitio, climaDeLaRegion } from './clima.js';
 import {
   currentPlayer,
   dayOfWeek,
@@ -3811,4 +3818,30 @@ function applyDefenderSurvivors(state: GameState, pending: PendingBattle, army: 
       break;
     }
   }
+}
+
+// ------------------------------------------------- el clima de una batalla del mapa
+//
+// Junto a `lugarDelRival`, que lee la partida y el mundo (el encuentro de un lugar).
+// Estaban en `state/clima.ts` hasta la fase N de la reorganización (07-11-2026):
+// allí, el clima, que la forma del estado nombra (`GameState.climaPedido`), importaba
+// esta partida, que importa `mundo/reglas.ts`, que importa la forma del estado: un
+// nudo de tipos entre `state/` y `mundo/`.
+
+/**
+ * La región del clima donde se pelea una batalla del mapa: la del sitio de lo
+ * atacado (`lugarDelRival`, la casilla del defensor). Es lo que viaja al
+ * espectador (`VistaBatalla.region`), que saca de ahí el clima de su tablero.
+ */
+export function regionDeLaBatalla(state: GameState, pending: PendingBattle): number {
+  return regionDelSitio(state.map, lugarDelRival(state, pending.foe));
+}
+
+/** El clima que hereda una batalla del mapa: el de la región donde se pelea, con `clima` (lo forzado encima, si lo hay). */
+export function climaDeLaBatalla(
+  state: GameState,
+  clima: ClimaDeLaPartida,
+  pending: PendingBattle,
+): ClimaDelSitio {
+  return climaDeLaRegion(clima, regionDeLaBatalla(state, pending));
 }

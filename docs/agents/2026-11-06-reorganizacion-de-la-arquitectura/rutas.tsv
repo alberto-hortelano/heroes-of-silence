@@ -779,3 +779,5 @@ simbolo	src/core/hero/hero.ts	src/core/types.ts	SkillId
 simbolo	src/core/hero/hero.ts	src/core/types.ts	SkillLevel
 simbolo	src/core/hero/hero.ts	src/core/types.ts	Hero
 simbolo	src/core/hero/hero.ts	src/core/types.ts	OrigenDelHeroe
+simbolo	src/core/state/clima.ts	src/core/state/game.ts	regionDeLaBatalla
+simbolo	src/core/state/clima.ts	src/core/state/game.ts	climaDeLaBatalla

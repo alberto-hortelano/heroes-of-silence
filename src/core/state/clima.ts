@@ -41,8 +41,7 @@ import { createRng, hashDeTexto, sortearPorPesos } from '../rng.js';
 import { FACTION_IDS, type FactionId, type PlayerId, type Point } from '../types.js';
 import { enteroDesde, esIdDeMapa } from '../validar.js';
 import { playerById } from './consultas.js';
-import { lugarDelRival } from './game.js';
-import type { GameState, PendingBattle } from './tipos.js';
+import type { GameState } from './tipos.js';
 
 /** Los tiempos que hay, del más claro al más cerrado. Un clima nuevo es una fila más aquí y en las recetas del cliente. */
 export const TIEMPOS = ['despejado', 'niebla', 'lluvia', 'tormenta'] as const;
@@ -376,24 +375,6 @@ export function esDeNocheEn(state: GameState, regionId: string): boolean {
     );
   }
   return climaDeHoy(state, k, faccionDe(state, dueñoDeLaRegion(state, k))).noche;
-}
-
-/**
- * La región del clima donde se pelea una batalla del mapa: la del sitio de lo
- * atacado (`lugarDelRival`, la casilla del defensor). Es lo que viaja al
- * espectador (`VistaBatalla.region`), que saca de ahí el clima de su tablero.
- */
-export function regionDeLaBatalla(state: GameState, pending: PendingBattle): number {
-  return regionDelSitio(state.map, lugarDelRival(state, pending.foe));
-}
-
-/** El clima que hereda una batalla del mapa: el de la región donde se pelea, con `clima` (lo forzado encima, si lo hay). */
-export function climaDeLaBatalla(
-  state: GameState,
-  clima: ClimaDeLaPartida,
-  pending: PendingBattle,
-): ClimaDelSitio {
-  return climaDeLaRegion(clima, regionDeLaBatalla(state, pending));
 }
 
 // --------------------------------------------------------------- el narrador
