@@ -21,8 +21,9 @@
  */
 
 import { autoResolve } from '../../src/core/ai/tactics.js';
-import { causaDelFinal, MAX_ROUNDS } from '../../src/core/battle/battle.js';
+import { MAX_ROUNDS } from '../../src/core/battle/battle.js';
 import { cargaMontada } from '../../src/core/battle/carga.js';
+import { causaDelFinal } from '../../src/core/battle/consultas.js';
 import {
   montajeDeLaSemilla,
   peleaSinJugar,

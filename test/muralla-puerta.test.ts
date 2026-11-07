@@ -14,17 +14,11 @@ import {
 } from '../src/client/render/batalla.js';
 import { tableroPara } from '../src/client/render/proyeccion.js';
 import { autoResolve, chooseBattleAction } from '../src/core/ai/tactics.js';
-
-import {
-  applyAction,
-  firmaDelTurno,
-  legalActions,
-  movableFrom,
-  puertaBlocker,
-  puertasBlocker,
-  stackById,
-} from '../src/core/battle/battle.js';
+import { puertaBlocker, puertasBlocker } from '../src/core/battle/asalto.js';
+import { applyAction } from '../src/core/battle/battle.js';
 import { hexKey } from '../src/core/battle/board.js';
+import { firmaDelTurno, movableFrom, stackById } from '../src/core/battle/consultas.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
 import {
   cierra,
   claveDeAbiertas,

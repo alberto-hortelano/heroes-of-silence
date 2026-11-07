@@ -4,7 +4,9 @@
  * héroe que lo sabe y cada uno en su casilla, y cerrar turnos hasta el de alguien.
  */
 import { expect } from 'vitest';
-import { activeStack, applyAction, createBattle } from '../src/core/battle/battle.js';
+import { applyAction } from '../src/core/battle/battle.js';
+import { activeStack } from '../src/core/battle/consultas.js';
+import { createBattle } from '../src/core/battle/montaje.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import type { BattleStack, BattleState, Side } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';

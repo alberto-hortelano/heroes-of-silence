@@ -10,17 +10,11 @@
  * 06-11-2026).
  */
 import { completarCruce } from '../src/core/ai/rueda.js';
-import {
-  activeStack,
-  applyAction,
-  type BattleSide,
-  createBattle,
-  enemiesOf,
-  legalActions,
-  stackById,
-  stackHexes,
-} from '../src/core/battle/battle.js';
+import { applyAction } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
+import { activeStack, enemiesOf, stackById, stackHexes } from '../src/core/battle/consultas.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
+import { type BattleSide, createBattle } from '../src/core/battle/montaje.js';
 import { validarMuralla } from '../src/core/battle/muralla.js';
 import type {
   BattleAction,

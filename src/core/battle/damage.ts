@@ -140,7 +140,7 @@ export function effectiveDefense(stack: BattleStack, extra = 0): number {
  * El ataque de quien pega y la defensa de quien recibe, ya finales: sus cifras,
  * sus efectos, lo que da la rueda y estar en lo alto (`opts`, de
  * `opcionesDeDanio`) y el bono de defender. El único cálculo: lo cuentan el golpe
- * (`applyModifiers`) y la ficha (`ataqueYDefensaEnBatalla`, `battle.ts`).
+ * (`applyModifiers`) y la ficha (`ataqueYDefensaEnBatalla`, `golpe.ts`).
  */
 export function ataqueYDefensa(
   attacker: BattleStack,
@@ -186,7 +186,7 @@ export interface DamageResult {
   readonly perfora: boolean;
 }
 
-/** Lo que cambia el daño según de dónde y a quién se pega (`opcionesDeDanio`, `battle.ts`). */
+/** Lo que cambia el daño según de dónde y a quién se pega (`opcionesDeDanio`, `golpe.ts`). */
 export interface DamageOptions {
   readonly ranged?: boolean;
   /**

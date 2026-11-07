@@ -22,8 +22,8 @@ import {
   registrarUnidad,
 } from '../src/client/render/personajes.js';
 import { ALTO_DE_FIGURA, planoDeHex } from '../src/client/render/proyeccion.js';
-import { createBattle } from '../src/core/battle/battle.js';
 import { stackHp } from '../src/core/battle/damage.js';
+import { createBattle } from '../src/core/battle/montaje.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';

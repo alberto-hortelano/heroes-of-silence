@@ -25,8 +25,8 @@
  * cruzan (su figura, su vista previa, su ficha) llega en `CaraDeLosContrincantes`.
  */
 
-import type { DanioDeLosGolpes, GolpeEnSuPunto, GolpeQueViene } from '@core/battle/battle.js';
 import { dichoDeLaCarga } from '@core/battle/carga.js';
+import type { DanioDeLosGolpes, GolpeEnSuPunto, GolpeQueViene } from '@core/battle/prevision.js';
 import {
   cargaDelCruce,
   contraataqueDelCruce,

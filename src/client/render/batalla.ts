@@ -12,18 +12,15 @@
  * cae el hechizo llegan hechos de `session.ts`; dónde está cada figura en este
  * instante, del animador.
  */
-import { isShooter } from '@core/battle/armas.js';
+
 import {
-  activeStack,
-  type CasillaDeCarga,
   type CasillaDelAlcance,
   type ExplosionDeLaGranada,
   explosionDe,
-  isAlive,
   type LineaDelDisparo,
   lineaDelDisparo,
-  stackHexes,
-} from '@core/battle/battle.js';
+} from '@core/battle/a-distancia.js';
+import { isShooter } from '@core/battle/armas.js';
 import {
   allHexes,
   desplazamientoDeFila,
@@ -32,6 +29,7 @@ import {
   indiceDe,
   neighbours,
 } from '@core/battle/board.js';
+import { activeStack, type CasillaDeCarga, isAlive, stackHexes } from '@core/battle/consultas.js';
 import { esMuro, hayMuralla, nivelDe, puertaAbierta } from '@core/battle/muralla.js';
 import {
   type BattleStack,

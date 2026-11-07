@@ -17,23 +17,22 @@ import { marcadoDe, NADA } from '../src/client/html.js';
 import { accionesDeLaUnidad } from '../src/client/views/panels.js';
 import { autoResolve } from '../src/core/ai/tactics.js';
 import { batallaDeArena } from '../src/core/arena/montaje.js';
+import { applyAction, soltarElGolpe } from '../src/core/battle/battle.js';
+import { caminoDe, hexDistance, hexKey } from '../src/core/battle/board.js';
+import { CARGA } from '../src/core/battle/carga.js';
 import {
   activeStack,
-  applyAction,
   cargaDesde,
   contactoBlocker,
-  createBattle,
   enContactoEn,
-  legalActions,
   movableFrom,
   movimientoBlocker,
   pasosQueQuedan,
-  soltarElGolpe,
   stackById,
-} from '../src/core/battle/battle.js';
-import { caminoDe, hexDistance, hexKey } from '../src/core/battle/board.js';
-import { CARGA } from '../src/core/battle/carga.js';
+} from '../src/core/battle/consultas.js';
 import { applyEffect } from '../src/core/battle/effects.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
+import { createBattle } from '../src/core/battle/montaje.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import type { BattleEvent, BattleState, MurallaDeBatalla } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';

@@ -5,7 +5,8 @@
  * Era parte de `core/arena.ts`, repartido en `arena/` en la fase N de la
  * reorganización (07-11-2026); lo que hace la arena y por qué, en `montaje.ts`.
  */
-import { libroConElCatalogo, loADistanciaTrasElRetoque } from '../battle/battle.js';
+import { loADistanciaTrasElRetoque } from '../battle/a-distancia.js';
+import { libroConElCatalogo } from '../battle/montaje.js';
 import type {
   BattleStack,
   BattleState,

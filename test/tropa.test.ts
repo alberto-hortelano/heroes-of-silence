@@ -9,8 +9,8 @@
 
 import { describe, expect, it } from 'vitest';
 import { playAiGame } from '../src/core/ai/turn.js';
-import { createBattle } from '../src/core/battle/battle.js';
 import { allHexes, BOARD_HEIGHT, bandoDeSalida } from '../src/core/battle/board.js';
+import { createBattle } from '../src/core/battle/montaje.js';
 import { COMBATE_COMPLETO, cupoDelHeroe } from '../src/core/combate.js';
 import { LIDERAZGO } from '../src/core/hero/liderazgo.js';
 import { RANGO_INICIAL_DE_HEROE, umbral } from '../src/core/hero/rango.js';

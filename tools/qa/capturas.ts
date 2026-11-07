@@ -79,9 +79,9 @@ import { chooseBattleAction } from '../../src/core/ai/tactics.js';
 import { VERSION_DEL_ENLACE } from '../../src/core/arena/enlace.js';
 import { type HeroeDeArena, heroePorDefecto } from '../../src/core/arena/heroe.js';
 import { type FuenteDeArena, LADOS, ladoDe } from '../../src/core/arena/lados.js';
-import { isAlive, mismoTurno, stackById, stackHexes } from '../../src/core/battle/battle.js';
 import { hexDistance, hexEquals, quedanCasillas } from '../../src/core/battle/board.js';
 import { dichoDeLasCifras } from '../../src/core/battle/carga.js';
+import { isAlive, mismoTurno, stackById, stackHexes } from '../../src/core/battle/consultas.js';
 import { armasDe, stackHp, trasElGolpe } from '../../src/core/battle/damage.js';
 import {
   NOMBRE_DEL_PUNTO,

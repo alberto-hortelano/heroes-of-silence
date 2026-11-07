@@ -14,8 +14,9 @@
  * un `.join('')` sobre cadenas era justo el sitio por donde el marcado se
  * escapaba de la puerta.
  */
+
+import { granadasQueQuedan, recargaQueFalta } from '@core/battle/a-distancia.js';
 import { cargasDe, isShooter, lanzaGranadas, tiroADistanciaDe } from '@core/battle/armas.js';
-import { activeStack, granadasQueQuedan, recargaQueFalta, stackById } from '@core/battle/battle.js';
 import { quedanCasillas } from '@core/battle/board.js';
 import {
   CARGA,
@@ -27,6 +28,7 @@ import {
   dichoDeLaCarga,
   porcientoDeLaCarga,
 } from '@core/battle/carga.js';
+import { activeStack, stackById } from '@core/battle/consultas.js';
 import {
   cifraDeEfecto,
   dichoCortoDelEfecto,

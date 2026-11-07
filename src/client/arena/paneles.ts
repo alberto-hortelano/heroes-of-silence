@@ -30,11 +30,13 @@ import {
   quitarBlocker,
 } from '@core/arena/piezas.js';
 import { armaduraDe, DICHO_DEL_USO, SIN_ARMA } from '@core/battle/armas.js';
-import { activeStack, ataqueYDefensaEnBatalla, isAlive, MAX_ROUNDS } from '@core/battle/battle.js';
+import { MAX_ROUNDS } from '@core/battle/battle.js';
 import { bandoDeSalida, FORMA_DEL_TABLERO, filasDelTablero } from '@core/battle/board.js';
 import { CARGA, DICHO_DE_LA_CARGA, dichoDeLasCifras } from '@core/battle/carga.js';
+import { activeStack, isAlive } from '@core/battle/consultas.js';
 import { armasDe } from '@core/battle/damage.js';
 import { enRondas } from '@core/battle/effects.js';
+import { ataqueYDefensaEnBatalla } from '@core/battle/golpe.js';
 import { esMuro, ladoDeLaMuralla, type PiezaDeMuralla } from '@core/battle/muralla.js';
 import {
   filasDeLaRueda,

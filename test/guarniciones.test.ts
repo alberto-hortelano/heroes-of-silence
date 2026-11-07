@@ -12,7 +12,8 @@
 import { describe, expect, it } from 'vitest';
 import { Session } from '../src/client/session.js';
 import { playAiTurn, resolvePendingBattle } from '../src/core/ai/turn.js';
-import { applyAction, legalActions } from '../src/core/battle/battle.js';
+import { applyAction } from '../src/core/battle/battle.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
 import { serializeAdventureTurn } from '../src/core/contract/aventura.js';
 import { adventureActionSchema } from '../src/core/contract/esquemas.js';
 import { RESPONSE_FORMAT } from '../src/core/contract/formato.js';

@@ -17,40 +17,33 @@ import {
   type LadoDeArena,
 } from '@core/arena/montaje.js';
 import { type RetoqueDeArena, retocarEnBatalla } from '@core/arena/retoque.js';
+import {
+  aDistanciaBlocker,
+  type TanteoADistancia,
+  tanteoADistancia,
+} from '@core/battle/a-distancia.js';
 import { tiroADistanciaDe } from '@core/battle/armas.js';
 import {
-  activeStack,
-  aDistanciaBlocker,
-  aplicarDespliegue,
-  applyAction,
-  ataqueBlocker,
-  type CasillaDeCarga,
-  casillasDeCarga,
-  castBlocker,
-  contactoBlocker,
   escalaBlocker,
   esTipoDeEscala,
   esTipoDePuerta,
+  puertasBlocker,
+} from '@core/battle/asalto.js';
+import { aplicarDespliegue, applyAction, MAX_JUGADAS, soltarElGolpe } from '@core/battle/battle.js';
+import {
+  activeStack,
+  type CasillaDeCarga,
+  casillasDeCarga,
+  contactoBlocker,
   faseDelTurno,
   firmaDelTurno,
   hechizoDeLaBatalla,
-  legalActionsAndCosts,
-  MAX_JUGADAS,
   movimientoBlocker,
-  type Prevision,
   pasosQueQuedan,
-  poderBlocker,
-  previsionDe,
-  previsionDeLaRueda,
-  previsionDelGolpeQueViene,
-  puertasBlocker,
   SIN_CARGAS,
-  soltarElGolpe,
   stackById,
   surrenderBlocker,
-  type TanteoADistancia,
-  tanteoADistancia,
-} from '@core/battle/battle.js';
+} from '@core/battle/consultas.js';
 import { armasDe } from '@core/battle/damage.js';
 import {
   batallaALaVista,
@@ -63,7 +56,15 @@ import {
   TANDAS,
   zonaDe,
 } from '@core/battle/despliegue.js';
+import { castBlocker, poderBlocker } from '@core/battle/lanzar.js';
+import { ataqueBlocker, legalActionsAndCosts } from '@core/battle/legalidad.js';
 import { bonoEnLoAlto, SIN_MURALLA } from '@core/battle/muralla.js';
+import {
+  type Prevision,
+  previsionDe,
+  previsionDeLaRueda,
+  previsionDelGolpeQueViene,
+} from '@core/battle/prevision.js';
 import type { Baja } from '@core/battle/resumen.js';
 import {
   formaDeLaBatalla,

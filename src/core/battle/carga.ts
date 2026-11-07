@@ -1,7 +1,7 @@
 /**
  * Cuánto cobra una carga (#260, 14-10-2026): las cifras de `data/carga.json`, las
  * mismas para todos desde el 26-10-2026 (la montura pone su fuerza en el golpe, no
- * en lo que cobra). Cuándo hay recta lo dice `cargaDesde` (`battle.ts`);
+ * en lo que cobra). Cuándo hay recta lo dice `cargaDesde` (`consultas.ts`);
  * esto es lo que vale una vez que la hay.
  *
  * Aparte de `damage.ts` porque la leen también la ficha de la arena

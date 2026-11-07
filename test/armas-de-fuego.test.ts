@@ -7,7 +7,9 @@
  * azar (`createRng` con semilla).
  */
 import { describe, expect, it } from 'vitest';
-import { applyAction, createBattle, stackById } from '../src/core/battle/battle.js';
+import { applyAction } from '../src/core/battle/battle.js';
+import { stackById } from '../src/core/battle/consultas.js';
+import { createBattle } from '../src/core/battle/montaje.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng, type Rng } from '../src/core/rng.js';

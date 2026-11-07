@@ -24,9 +24,9 @@ import {
 } from '../src/client/rueda/rueda.js';
 import type { SesionDeArena } from '../src/client/session.js';
 import { efectoEnCurso, modificadoresEnCurso } from '../src/client/views/panels.js';
-import { stackById } from '../src/core/battle/battle.js';
 import { dichoCortoDeLaCarga, dichoDeLaCarga } from '../src/core/battle/carga.js';
 import { NIVEL_MAXIMO } from '../src/core/battle/cifras-de-la-rueda.js';
+import { stackById } from '../src/core/battle/consultas.js';
 import {
   formaDeLaBatalla,
   LAS_TRES_RUEDAS,

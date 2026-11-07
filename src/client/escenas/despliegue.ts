@@ -13,8 +13,9 @@
  * otro de los tuyos lo elige y pulsar su casilla, a sus pies, lo cambia con el
  * elegido.
  */
-import { isAlive, stackHexes } from '@core/battle/battle.js';
+
 import { hexEquals } from '@core/battle/board.js';
+import { isAlive, stackHexes } from '@core/battle/consultas.js';
 import { nivelDe } from '@core/battle/muralla.js';
 import type { BattleStack, BattleState, Side } from '@core/battle/types.js';
 import type { ClimaDelSitio } from '@core/state/clima.js';

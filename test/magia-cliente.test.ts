@@ -7,8 +7,8 @@
 import { describe, expect, it } from 'vitest';
 import { loApuntadoEnCasilla, SesionDeArena } from '../src/client/session.js';
 import { heroePorDefecto } from '../src/core/arena/heroe.js';
-import { activeStack } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
+import { activeStack } from '../src/core/battle/consultas.js';
 import { formaDeLaBatalla } from '../src/core/battle/formas-de-la-rueda.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { battleActionSchema } from '../src/core/contract/esquemas.js';

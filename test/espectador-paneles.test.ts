@@ -25,7 +25,9 @@ import {
 } from '../src/client/espectador/telon.js';
 import { marcadoDe } from '../src/client/html.js';
 import { autoResolve, chooseBattleAction } from '../src/core/ai/tactics.js';
-import { activeStack, applyAction, legalActions } from '../src/core/battle/battle.js';
+import { applyAction } from '../src/core/battle/battle.js';
+import { activeStack } from '../src/core/battle/consultas.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { ponerVoces } from '../src/core/gente/voces.js';
 import { reachableFrom } from '../src/core/map/map.js';

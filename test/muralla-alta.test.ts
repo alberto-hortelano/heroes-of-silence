@@ -19,21 +19,14 @@ import {
   FORMAS_DE_EJEMPLO,
   REGLA_DE_LA_MURALLA,
 } from '../src/core/arena/murallas.js';
-import {
-  applyAction,
-  ataqueBlocker,
-  canReachMelee,
-  createBattle,
-  escalaBlocker,
-  escaleraBlocker,
-  legalActions,
-  mismoTurno,
-  opcionesDeDanio,
-  stackById,
-  subirBlocker,
-} from '../src/core/battle/battle.js';
+import { escalaBlocker, escaleraBlocker, subirBlocker } from '../src/core/battle/asalto.js';
+import { applyAction } from '../src/core/battle/battle.js';
 import { hexKey } from '../src/core/battle/board.js';
+import { canReachMelee, mismoTurno, stackById } from '../src/core/battle/consultas.js';
 import { effectiveDefense, expectedDamage } from '../src/core/battle/damage.js';
+import { opcionesDeDanio } from '../src/core/battle/golpe.js';
+import { ataqueBlocker, legalActions } from '../src/core/battle/legalidad.js';
+import { createBattle } from '../src/core/battle/montaje.js';
 import { bonoEnLoAlto, enLoAlto, esMuro, MURALLA } from '../src/core/battle/muralla.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';

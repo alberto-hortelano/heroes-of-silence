@@ -25,30 +25,27 @@ import { completarCruce, elegirEnLaRueda, pasoDelCruce } from '../src/core/ai/ru
 import { autoResolve } from '../src/core/ai/tactics.js';
 import type { FuenteDeArena } from '../src/core/arena/lados.js';
 import { golpesDe, ruedaDelGolpe } from '../src/core/battle/armas.js';
-import {
-  activeStack,
-  applyAction,
-  type BattleSide,
-  casillasDeCarga,
-  createBattle,
-  legalActions,
-  pasosQueQuedan,
-  previsionDeLaRueda,
-  previsionDelGolpeQueViene,
-  soltarElGolpe,
-  stackById,
-} from '../src/core/battle/battle.js';
+import { applyAction, soltarElGolpe } from '../src/core/battle/battle.js';
 import {
   cifrasDeLosNiveles,
   golpesDelTipo,
   type Punto,
 } from '../src/core/battle/cifras-de-la-rueda.js';
 import {
+  activeStack,
+  casillasDeCarga,
+  pasosQueQuedan,
+  stackById,
+} from '../src/core/battle/consultas.js';
+import {
   damageMultiplier,
   effectiveAttack,
   effectiveDefense,
   stackHp,
 } from '../src/core/battle/damage.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
+import { type BattleSide, createBattle } from '../src/core/battle/montaje.js';
+import { previsionDeLaRueda, previsionDelGolpeQueViene } from '../src/core/battle/prevision.js';
 import {
   casillasQueQuitaLaFinta,
   contraataqueDelCruce,

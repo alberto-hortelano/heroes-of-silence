@@ -21,7 +21,7 @@
 import type { BattleOutcome } from '../../src/core/ai/tactics.js';
 import { autoResolve } from '../../src/core/ai/tactics.js';
 import { playAiTurn } from '../../src/core/ai/turn.js';
-import { createBattle } from '../../src/core/battle/battle.js';
+import { createBattle } from '../../src/core/battle/montaje.js';
 import { COMBATE_COMPLETO, type ReglasDelCombate } from '../../src/core/combate.js';
 import { troopsAsStacks } from '../../src/core/hero/troop.js';
 import { createRng } from '../../src/core/rng.js';

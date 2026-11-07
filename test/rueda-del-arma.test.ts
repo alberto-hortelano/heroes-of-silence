@@ -20,14 +20,11 @@ import { renderEleccion } from '../src/client/rueda/rueda.js';
 import { batallaDeArena } from '../src/core/arena/montaje.js';
 import { equiparEnArena } from '../src/core/arena/piezas.js';
 import { ruedaDelGolpe } from '../src/core/battle/armas.js';
-import {
-  activeStack,
-  applyAction,
-  previsionDeLaRueda,
-  stackById,
-} from '../src/core/battle/battle.js';
+import { applyAction } from '../src/core/battle/battle.js';
 import { validarRueda } from '../src/core/battle/cifras-de-la-rueda.js';
+import { activeStack, stackById } from '../src/core/battle/consultas.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
+import { previsionDeLaRueda } from '../src/core/battle/prevision.js';
 import type { BattleAction, BattleState } from '../src/core/battle/types.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import type { Pieza, PiezaEscrita } from '../src/core/equipo/pieza.js';

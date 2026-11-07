@@ -5,7 +5,7 @@
  * Era parte de `core/arena.ts`, repartido en `arena/` en la fase N de la
  * reorganización (07-11-2026); lo que hace la arena y por qué, en `montaje.ts`.
  */
-import { mandoDe } from '../battle/battle.js';
+import { mandoDe } from '../battle/montaje.js';
 import { duracionDeLoQueLanza } from '../battle/spells.js';
 import { HERO_BODY, type HeroeDelBando } from '../battle/types.js';
 import type { EquipoAtado } from '../equipo/atado.js';

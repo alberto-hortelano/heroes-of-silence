@@ -20,13 +20,14 @@
  *   batalla y no aquí): **cerrada no la cruza nadie que ande**, ni el defensor,
  *   y corta el tiro del suelo; **abierta la cruza cualquiera** y no tapa. La abre
  *   o la cierra quien defiende al principio del turno de una de sus unidades
- *   (`puertaBlocker`, en `battle.ts`). Decisión del usuario (ampliación 3): «si
+ *   (`puertaBlocker`, en `asalto.ts`). Decisión del usuario (ampliación 3): «si
  *   está abierta puede pasar cualquiera y si está cerrada no pasa nadie, es más
  *   realista». Empieza cerrada.
  *
  * Quién está arriba se deriva del hex (`nivelDe`): no hay campo que se pueda
  * quedar viejo. Lo que cambia con el nivel —el cuerpo a cuerpo, la línea de
- * tiro, la defensa del tirador— lo aplica `battle.ts` preguntando aquí.
+ * tiro, la defensa del tirador— lo aplican el motor y sus piezas (`consultas.ts`,
+ * `a-distancia.ts`, `golpe.ts`) preguntando aquí.
  *
  * Viaja con el estado tal cual —listas de hexes, sin `Set`—, así que cruza el
  * cable del espectador y un `structuredClone` sin perder nada. Los conjuntos se

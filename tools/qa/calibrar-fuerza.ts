@@ -28,7 +28,7 @@
 
 import { autoResolve } from '../../src/core/ai/tactics.js';
 import { playAiTurn } from '../../src/core/ai/turn.js';
-import { type BattleSide, createBattle } from '../../src/core/battle/battle.js';
+import { type BattleSide, createBattle } from '../../src/core/battle/montaje.js';
 import { HERO_BODY } from '../../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../../src/core/combate.js';
 import {

@@ -13,8 +13,9 @@
  * Vivía en `game.ts` hasta la fase N de la reorganización (07-11-2026), que lo
  * repartió por lo que hace.
  */
-import { alAsalto, type BattleSide, createBattle, mandoDe } from '../battle/battle.js';
+
 import { colocarBlocker } from '../battle/despliegue.js';
+import { alAsalto, type BattleSide, createBattle, mandoDe } from '../battle/montaje.js';
 import type { BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
 import { type Portador, puestoBlocker } from '../equipo/portador.js';
 import { gruposAlTope } from '../hero/grupos.js';

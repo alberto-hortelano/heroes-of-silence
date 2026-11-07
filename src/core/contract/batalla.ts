@@ -7,25 +7,26 @@
  * (07-11-2026) en `vistas.ts`, `mapa-conocido.ts`, `aventura.ts`, `batalla.ts` y
  * `peticion-de-mapa.ts`.
  */
+
+import { granadasQueQuedan } from '../battle/a-distancia.js';
 import { armaduraDe, isShooter, lanzaGranadas, ruedaDelGolpe } from '../battle/armas.js';
+import { tableroDelContrato } from '../battle/board.js';
+import type { CifrasDeLaRueda } from '../battle/cifras-de-la-rueda.js';
 import {
   activeStack,
   casillasDeCarga,
-  granadasQueQuedan,
-  legalActionsAndCosts,
   pasosQueQuedan,
-  previsionDeLaRueda,
   stackById,
   stackHexes,
   stackSpeed,
-} from '../battle/battle.js';
-import { tableroDelContrato } from '../battle/board.js';
-import type { CifrasDeLaRueda } from '../battle/cifras-de-la-rueda.js';
+} from '../battle/consultas.js';
 import { stackHp } from '../battle/damage.js';
 import { dichoDelEfecto } from '../battle/effects.js';
 import { formaDeLaBatalla } from '../battle/formas-de-la-rueda.js';
 import { alcanceDeLaGranada } from '../battle/granada.js';
+import { legalActionsAndCosts } from '../battle/legalidad.js';
 import { hayMuralla } from '../battle/muralla.js';
+import { previsionDeLaRueda } from '../battle/prevision.js';
 import { efectoDeGolpe } from '../battle/rueda.js';
 import {
   type BattleStack,

@@ -8,16 +8,9 @@
  */
 import { describe, expect, it } from 'vitest';
 import { autoResolve } from '../src/core/ai/tactics.js';
-import {
-  aplicarDespliegue,
-  applyAction,
-  type BattleSide,
-  createBattle,
-  legalActions,
-  stackById,
-  terminarElDespliegue,
-} from '../src/core/battle/battle.js';
+import { aplicarDespliegue, applyAction, terminarElDespliegue } from '../src/core/battle/battle.js';
 import { espejo } from '../src/core/battle/board.js';
+import { stackById } from '../src/core/battle/consultas.js';
 import {
   alcanceDelDespliegue,
   asentar,
@@ -27,6 +20,8 @@ import {
   firmaDelDespliegue,
   zonaDeSalida,
 } from '../src/core/battle/despliegue.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
+import { type BattleSide, createBattle } from '../src/core/battle/montaje.js';
 import { SIN_MURALLA, validarMuralla } from '../src/core/battle/muralla.js';
 import type { BattleState, MurallaDeBatalla } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';

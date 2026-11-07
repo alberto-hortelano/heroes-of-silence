@@ -20,19 +20,18 @@
 import { describe, expect, it } from 'vitest';
 import { FORMAS_DE_EJEMPLO } from '../src/core/arena/murallas.js';
 import { armaduraDe } from '../src/core/battle/armas.js';
+import { applyAction } from '../src/core/battle/battle.js';
+import { hexEquals } from '../src/core/battle/board.js';
+import { stackById } from '../src/core/battle/consultas.js';
+import type { Horquilla } from '../src/core/battle/damage.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
+import { type BattleSide, createBattle } from '../src/core/battle/montaje.js';
+import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import {
-  applyAction,
-  type BattleSide,
-  createBattle,
-  legalActions,
   type Prevision,
   type PrevisionDeGolpe,
   previsionDe,
-  stackById,
-} from '../src/core/battle/battle.js';
-import { hexEquals } from '../src/core/battle/board.js';
-import type { Horquilla } from '../src/core/battle/damage.js';
-import { SIN_MURALLA } from '../src/core/battle/muralla.js';
+} from '../src/core/battle/prevision.js';
 import type {
   BattleAction,
   BattleEvent,

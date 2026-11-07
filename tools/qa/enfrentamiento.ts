@@ -119,6 +119,12 @@
  * individuo, que nunca llega a los 12 PV del umbral ni a los 20 de la Flecha.
  * Lanzados por la IA nueva: 22 027 Flechas y ningún otro hechizo.
  *
+ * **`--contra` no llega a antes del paso N11 de la reorganización** (07-11-2026): el
+ * motor de batalla se repartió (`battle.ts` en `montaje.ts`, `consultas.ts`,
+ * `legalidad.ts`…), y la `tactics.ts` de un commit anterior importa de `battle.js`
+ * nombres que ya no están allí. Con una referencia así la tanda lanza al cargar su
+ * táctica (`tacticaDe`): no mide.
+ *
  * Uso: npx tsx tools/qa/enfrentamiento.ts [parejas=1000] [--carga] [--contra <ref>] [--magia] [--espejo]
  */
 
@@ -128,16 +134,10 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { completarCruce } from '../../src/core/ai/rueda.js';
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';
-import {
-  activeStack,
-  applyAction,
-  type BattleSide,
-  createBattle,
-  MAX_JUGADAS,
-  MAX_ROUNDS,
-  seHaMovido,
-} from '../../src/core/battle/battle.js';
+import { applyAction, MAX_JUGADAS, MAX_ROUNDS } from '../../src/core/battle/battle.js';
 import { cargaMontada } from '../../src/core/battle/carga.js';
+import { activeStack, seHaMovido } from '../../src/core/battle/consultas.js';
+import { type BattleSide, createBattle } from '../../src/core/battle/montaje.js';
 import type { BattleAction, BattleState, Side } from '../../src/core/battle/types.js';
 import { HERO_BODY, type HeroeDelBando, otroBando } from '../../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../../src/core/combate.js';

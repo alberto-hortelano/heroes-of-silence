@@ -27,15 +27,10 @@ import { pasosAPintar } from '../../src/client/render/mapa.js';
 import { centroDeStack, tableroPara } from '../../src/client/render/proyeccion.js';
 import { Session } from '../../src/client/session.js';
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';
-import {
-  activeStack,
-  applyAction,
-  isAlive,
-  legalActions,
-  mismoTurno,
-  stackHexes,
-} from '../../src/core/battle/battle.js';
+import { applyAction } from '../../src/core/battle/battle.js';
 import { hexEquals } from '../../src/core/battle/board.js';
+import { activeStack, isAlive, mismoTurno, stackHexes } from '../../src/core/battle/consultas.js';
+import { legalActions } from '../../src/core/battle/legalidad.js';
 import type { BattleAction, BattleStack, BattleState } from '../../src/core/battle/types.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
 import { createRng } from '../../src/core/rng.js';

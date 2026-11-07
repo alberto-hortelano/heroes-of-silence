@@ -19,13 +19,11 @@ import {
   VERSION_DEL_ENLACE,
 } from '../src/core/arena/enlace.js';
 import { equiparEnArena, piezaNueva, piezasDelMontaje } from '../src/core/arena/piezas.js';
-import {
-  applyAction,
-  createBattle,
-  opcionesDeDanio,
-  stackById,
-} from '../src/core/battle/battle.js';
+import { applyAction } from '../src/core/battle/battle.js';
+import { stackById } from '../src/core/battle/consultas.js';
 import { expectedDamage } from '../src/core/battle/damage.js';
+import { opcionesDeDanio } from '../src/core/battle/golpe.js';
+import { createBattle } from '../src/core/battle/montaje.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';

@@ -2,8 +2,8 @@
  * Efectos temporales sobre un stack: lo que dura unas rondas y luego se va.
  *
  * Es un libro mayor y nada más: no sabe qué criaturas existen, qué rasgo pone
- * cada efecto ni quién es inmune a qué —eso son reglas del juego y las decide
- * `battle.ts`—, así que solo importa `./types.js`.
+ * cada efecto ni quién es inmune a qué —eso son reglas del juego y las deciden el
+ * motor y sus piezas (`battle.ts`, `golpe.ts`)—, así que solo importa `./types.js`.
  *
  * La regla que lo sostiene todo: **un efecto no se revierte, se filtra**. El
  * stack nunca guarda un bono ya sumado; la lista es la única verdad y el total

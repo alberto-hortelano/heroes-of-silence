@@ -10,13 +10,11 @@
 import { describe, expect, it } from 'vitest';
 import { type HeroeDeArena, heroePorDefecto } from '../src/core/arena/heroe.js';
 import { batallaDeArena } from '../src/core/arena/montaje.js';
-import {
-  activeStack,
-  applyAction,
-  legalActions,
-  poderBlocker,
-  previsionDe,
-} from '../src/core/battle/battle.js';
+import { applyAction } from '../src/core/battle/battle.js';
+import { activeStack } from '../src/core/battle/consultas.js';
+import { poderBlocker } from '../src/core/battle/lanzar.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
+import { previsionDe } from '../src/core/battle/prevision.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';

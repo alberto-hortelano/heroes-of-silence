@@ -320,7 +320,7 @@ const VERTICES: readonly (readonly [number, number])[] = [
  * hasta el borde del tablero (01-11-2026, decisión del usuario: «no debe acabar en
  * la casilla apuntada, en las siguientes también da»). La recta es la de los dos
  * centros (ver arriba) y el empate, del bando que tira. La leen el disparo, la IA y
- * lo que se pinta (`lineaDelDisparo`, `battle.ts`).
+ * lo que se pinta (`lineaDelDisparo`, `a-distancia.ts`).
  */
 export function lineaDeTiro(desde: Hex, hasta: Hex, side: Side): readonly Hex[] {
   // Geometría pura de las dos casillas y el bando: se recuerda por el par
@@ -619,8 +619,8 @@ export function reachable(
  * casillas']`. Lo escriben el panel («Le queda 1 casilla»), las notas del agente
  * («le quedan 3 casillas») y las frases del motor (`movimientoBlocker`,
  * `fraseDelContacto`); antes cada uno ponía su plural, y la del contacto decía
- * «le queda 1» sin la casilla. Aquí y no en `battle.ts` para que la lea
- * `contacto.ts`, que no importa el motor.
+ * «le queda 1» sin la casilla. Aquí y no junto a `movimientoBlocker`
+ * (`consultas.ts`) para que la lea `contacto.ts`, que no importa las consultas.
  */
 export function quedanCasillas(n: number): readonly [verbo: string, casillas: string] {
   return n === 1 ? ['queda', '1 casilla'] : ['quedan', `${n} casillas`];

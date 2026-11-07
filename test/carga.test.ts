@@ -9,14 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import cargaJson from '../data/carga.json' with { type: 'json' };
 import { batallaDeArena } from '../src/core/arena/montaje.js';
-import {
-  applyAction,
-  casillasDeCarga,
-  createBattle,
-  soltarElGolpe,
-  stackById,
-  stackSpeed,
-} from '../src/core/battle/battle.js';
+import { applyAction, soltarElGolpe } from '../src/core/battle/battle.js';
 import {
   CARGA,
   CARGA_MINIMA,
@@ -25,7 +18,9 @@ import {
   dichoDeLaCarga,
   validarCarga,
 } from '../src/core/battle/carga.js';
+import { casillasDeCarga, stackById, stackSpeed } from '../src/core/battle/consultas.js';
 import { horquillaDeDanio } from '../src/core/battle/damage.js';
+import { createBattle } from '../src/core/battle/montaje.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';

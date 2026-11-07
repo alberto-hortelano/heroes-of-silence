@@ -10,13 +10,13 @@ import { tiroADistanciaDe } from '@core/battle/armas.js';
 import {
   esTipoDeEscala,
   esTipoDePuerta,
-  type Prevision,
   quienNoAbre,
   quienNoEscala,
   TIPOS_DE_ESCALA,
   TIPOS_DE_PUERTA,
-} from '@core/battle/battle.js';
+} from '@core/battle/asalto.js';
 import { hayMuralla } from '@core/battle/muralla.js';
+import type { Prevision } from '@core/battle/prevision.js';
 import type {
   BattleAction,
   BattleStack,

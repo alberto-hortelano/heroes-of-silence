@@ -62,15 +62,9 @@ import {
   renderActions,
   renderSide,
 } from '../src/client/views/panels.js';
-import {
-  apuntarBlocker,
-  isAlive,
-  lanzarBlocker,
-  SIN_CARGAS,
-  stackById,
-  stackHexes,
-} from '../src/core/battle/battle.js';
+import { apuntarBlocker, lanzarBlocker } from '../src/core/battle/a-distancia.js';
 import { areAdjacent, hexDistance, isInside, neighbours } from '../src/core/battle/board.js';
+import { isAlive, SIN_CARGAS, stackById, stackHexes } from '../src/core/battle/consultas.js';
 import { alcanceDeLaGranada } from '../src/core/battle/granada.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import type { BattleStack, Side } from '../src/core/battle/types.js';

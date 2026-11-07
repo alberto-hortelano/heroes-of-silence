@@ -53,7 +53,7 @@ export function lanzaGranadas(c: UnitInfo): boolean {
 /**
  * Si `a` y `b` tiran a distancia de la misma clase: nada, arco o ballesta, arma de
  * fuego o granada. Lo pregunta un retoque de la arena a media pelea
- * (`loADistanciaTrasElRetoque`, `battle.ts`): con otra clase, lo pendiente no vale.
+ * (`loADistanciaTrasElRetoque`, `a-distancia.ts`): con otra clase, lo pendiente no vale.
  */
 export function mismoTiro(a: UnitInfo, b: UnitInfo): boolean {
   const clase = (u: UnitInfo): string | null =>
@@ -96,7 +96,7 @@ export function cifrasDelGolpe(
  * Las cifras de la rueda con que da `unit` un golpe de `uso`: las de los niveles de
  * su arma (`golpeDe(unit, uso).rueda`, que escribe `conEquipo`;
  * `cifrasDeLosNiveles`). **La única lectura del arma en la rueda**: la piden el
- * golpe, el contraataque y la previsión (`battle.ts`). Sin arma con rueda
+ * golpe, el contraataque y la previsión (`golpe.ts`). Sin arma con rueda
  * **lanza**: toda unidad del catálogo la lleva (`armaDeCuerpoBlocker`) y el héroe,
  * la Espada; si se llega aquí sin ella, es un fallo, no un golpe con cifras
  * inventadas.
@@ -241,7 +241,7 @@ export function recargaDe(unit: UnitInfo): number {
 /**
  * Las granadas que lleva `unit` a cada batalla (`Pieza.cargas`), o 0 si no lleva
  * granada. Lo gastado lo cuenta el stack (`BattleStack.granadasLanzadas`), y lo que
- * queda se deriva (`granadasQueQuedan`, `battle.ts`).
+ * queda se deriva (`granadasQueQuedan`, `a-distancia.ts`).
  */
 export function cargasDe(unit: UnitInfo): number {
   const tiro = unit.armas?.distancia?.tiro;

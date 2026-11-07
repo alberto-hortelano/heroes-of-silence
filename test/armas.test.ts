@@ -15,9 +15,12 @@
 
 import { describe, expect, it } from 'vitest';
 import { golpeDe } from '../src/core/battle/armas.js';
-import { applyAction, createBattle, legalActions, stackById } from '../src/core/battle/battle.js';
+import { applyAction } from '../src/core/battle/battle.js';
 import { hexEquals } from '../src/core/battle/board.js';
+import { stackById } from '../src/core/battle/consultas.js';
 import { usoDelGolpe } from '../src/core/battle/damage.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
+import { createBattle } from '../src/core/battle/montaje.js';
 import type { BattleAction, BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';

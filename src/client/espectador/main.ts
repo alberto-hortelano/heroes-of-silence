@@ -10,7 +10,7 @@
  * crónica de `views/panels`. Lo único duplicado es el bucle de dibujo, y es más
  * corto que el del cliente que juega porque aquí no hay ratón ni sesión.
  */
-import { SIN_CARGAS } from '@core/battle/battle.js';
+import { SIN_CARGAS } from '@core/battle/consultas.js';
 import { todosALaVista } from '@core/state/asaltantes.js';
 import {
   type ClimaDeLaPartida,

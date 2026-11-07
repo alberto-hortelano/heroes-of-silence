@@ -5,29 +5,22 @@ import { renderSide } from '../src/client/views/panels.js';
 import { completarCruce } from '../src/core/ai/rueda.js';
 import { chooseBattleAction, chooseBattleActionAndCosts } from '../src/core/ai/tactics.js';
 import { armaduraDe } from '../src/core/battle/armas.js';
+import { applyAction, MAX_ROUNDS } from '../src/core/battle/battle.js';
+import * as board from '../src/core/battle/board.js';
+import { CARGA } from '../src/core/battle/carga.js';
 import {
   activeStack,
-  applyAction,
-  armyMorale,
-  ataqueBlocker,
-  type BattleSide,
   cargaDesde,
   casillasDeCarga,
-  createBattle,
   enemiesOf,
   firmaDelTurno,
   isAlive,
-  legalActions,
-  legalActionsAndCosts,
-  MAX_ROUNDS,
   movableFrom,
   movableHexes,
   stackById,
   stackHexes,
   stackSpeed,
-} from '../src/core/battle/battle.js';
-import * as board from '../src/core/battle/board.js';
-import { CARGA } from '../src/core/battle/carga.js';
+} from '../src/core/battle/consultas.js';
 import {
   computeDamage,
   damageMultiplier,
@@ -36,6 +29,8 @@ import {
   stackHp,
 } from '../src/core/battle/damage.js';
 import { applyEffect, effectTotal, tickEffects } from '../src/core/battle/effects.js';
+import { ataqueBlocker, legalActions, legalActionsAndCosts } from '../src/core/battle/legalidad.js';
+import { armyMorale, type BattleSide, createBattle } from '../src/core/battle/montaje.js';
 import type {
   BattleAction,
   BattleEvent,

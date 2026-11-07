@@ -8,17 +8,12 @@ import {
 } from '../src/core/ai/strategy.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { playAiTurn, resolvePendingBattle } from '../src/core/ai/turn.js';
-import {
-  activeStack,
-  alAsalto,
-  applyAction,
-  type BattleSide,
-  createBattle,
-  legalActions,
-  stackById,
-} from '../src/core/battle/battle.js';
+import { applyAction } from '../src/core/battle/battle.js';
 import { FORMA_DEL_TABLERO, tableroDelContrato } from '../src/core/battle/board.js';
+import { activeStack, stackById } from '../src/core/battle/consultas.js';
 import { LAS_TRES_RUEDAS, RUEDAS } from '../src/core/battle/formas-de-la-rueda.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
+import { alAsalto, type BattleSide, createBattle } from '../src/core/battle/montaje.js';
 import type { BattleAction } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { serializeAdventureTurn } from '../src/core/contract/aventura.js';

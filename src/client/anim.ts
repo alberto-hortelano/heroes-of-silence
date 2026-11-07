@@ -25,7 +25,7 @@
  * primera vez. El registro dice a dónde fue cada unidad, no de dónde venía, así
  * que la primera lectura de una batalla toma las posiciones tal y como están.
  */
-import { isAlive, stackHexes } from '@core/battle/battle.js';
+import { isAlive, stackHexes } from '@core/battle/consultas.js';
 import { stackHp, trasElGolpe } from '@core/battle/damage.js';
 import { nivelDe } from '@core/battle/muralla.js';
 import type { HechoDelCruce } from '@core/battle/rueda.js';

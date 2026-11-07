@@ -28,13 +28,9 @@ import {
 import { centroHex, hexEnPixel, planoDeHex, tableroPara } from '../src/client/render/proyeccion.js';
 import { autoResolve } from '../src/core/ai/tactics.js';
 import { FORMAS_DE_EJEMPLO, ladosDeLaForma } from '../src/core/arena/murallas.js';
-import {
-  createBattle,
-  movableHexes,
-  movimientoBlocker,
-  stackById,
-} from '../src/core/battle/battle.js';
 import { allHexes, anchoDeFila, hexKey, neighbours } from '../src/core/battle/board.js';
+import { movableHexes, movimientoBlocker, stackById } from '../src/core/battle/consultas.js';
+import { createBattle } from '../src/core/battle/montaje.js';
 import {
   cierra,
   esMuro,

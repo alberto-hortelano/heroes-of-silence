@@ -6,7 +6,8 @@
  * simultánea. Por eso `elegirEnLaRueda` no recibe ni la acción ni el estado: lo
  * único que sabe es si golpea o responde. Una IA que «lea» al rival es otra tarea.
  */
-import { activeStack, plantarse, stackById } from '../battle/battle.js';
+import { plantarse } from '../battle/battle.js';
+import { activeStack, stackById } from '../battle/consultas.js';
 import {
   type FormaDeLaRueda,
   formaDeLaBatalla,

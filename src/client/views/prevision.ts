@@ -4,6 +4,9 @@
  * cuenta que aplica el daño); aquí solo se escriben. Lo comparten la partida y
  * la arena a través de la escena de batalla, que es una.
  */
+
+import type { Horquilla, Modificador } from '@core/battle/damage.js';
+import { curaOEfecto } from '@core/battle/effects.js';
 import type {
   ImpactoDeHechizo,
   Prevision,
@@ -11,9 +14,7 @@ import type {
   PrevisionDeGolpe,
   PrevisionDeGranada,
   PrevisionDeLanzar,
-} from '@core/battle/battle.js';
-import type { Horquilla, Modificador } from '@core/battle/damage.js';
-import { curaOEfecto } from '@core/battle/effects.js';
+} from '@core/battle/prevision.js';
 import { type LibroDeHechizos, nombreDeHechizo } from '@core/magia/catalogo.js';
 import { conComa } from '@core/types.js';
 

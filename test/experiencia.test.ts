@@ -16,13 +16,10 @@ import { describe, expect, it } from 'vitest';
 import { galonesDe } from '../src/client/render/batalla.js';
 import { marcaDeVeterano } from '../src/client/views/panels.js';
 import { resolvePendingBattle } from '../src/core/ai/turn.js';
-import {
-  applyAction,
-  type BattleSide,
-  createBattle,
-  stackById,
-} from '../src/core/battle/battle.js';
+import { applyAction } from '../src/core/battle/battle.js';
+import { stackById } from '../src/core/battle/consultas.js';
 import { herir, stackHp } from '../src/core/battle/damage.js';
+import { type BattleSide, createBattle } from '../src/core/battle/montaje.js';
 import type { BattleHero, BattleState } from '../src/core/battle/types.js';
 import { HERO_BODY } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';

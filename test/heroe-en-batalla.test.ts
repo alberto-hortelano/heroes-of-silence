@@ -13,14 +13,10 @@
 import { describe, expect, it } from 'vitest';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { resolvePendingBattle } from '../src/core/ai/turn.js';
-import {
-  activeStack,
-  applyAction,
-  createBattle,
-  legalActions,
-  stackById,
-  surrenderBlocker,
-} from '../src/core/battle/battle.js';
+import { applyAction } from '../src/core/battle/battle.js';
+import { activeStack, stackById, surrenderBlocker } from '../src/core/battle/consultas.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
+import { createBattle } from '../src/core/battle/montaje.js';
 import type { BattleState, Side } from '../src/core/battle/types.js';
 import { HERO_BODY, queEs } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';

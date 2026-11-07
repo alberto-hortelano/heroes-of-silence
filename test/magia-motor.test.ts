@@ -6,22 +6,22 @@
  */
 import { describe, expect, it } from 'vitest';
 import { armaduraEnLaPelea } from '../src/core/battle/armas.js';
+import { applyAction } from '../src/core/battle/battle.js';
 import {
   activeStack,
-  applyAction,
-  castBlocker,
-  legalActions,
   movimientoBlocker,
-  previsionDe,
   stackById,
   stackSpeed,
-} from '../src/core/battle/battle.js';
+} from '../src/core/battle/consultas.js';
 import {
   danioPorIndividuo,
   effectiveAttack,
   effectiveDefense,
   stackHp,
 } from '../src/core/battle/damage.js';
+import { castBlocker } from '../src/core/battle/lanzar.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
+import { previsionDe } from '../src/core/battle/prevision.js';
 import { hechizo } from '../src/core/magia/catalogo.js';
 import { de, montar, turnoDeId } from './magia-de-prueba.js';
 

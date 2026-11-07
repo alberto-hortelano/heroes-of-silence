@@ -34,7 +34,7 @@ import {
   type MontajeDeArena,
 } from '../../src/core/arena/montaje.js';
 import { quitarEnArena } from '../../src/core/arena/piezas.js';
-import { alAsalto, createBattle } from '../../src/core/battle/battle.js';
+import { alAsalto, createBattle } from '../../src/core/battle/montaje.js';
 import { SIN_MURALLA } from '../../src/core/battle/muralla.js';
 import type { BattleState, MurallaDeBatalla } from '../../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../../src/core/combate.js';

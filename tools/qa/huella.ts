@@ -83,7 +83,7 @@ import {
 import { componer } from '../../src/client/render/escenario/colocar.js';
 import { Session } from '../../src/client/session.js';
 import { autoResolve } from '../../src/core/ai/tactics.js';
-import { causaDelFinal } from '../../src/core/battle/battle.js';
+import { causaDelFinal } from '../../src/core/battle/consultas.js';
 import { LADO_DEL_MAPA, LADO_MINIMO_DEL_GENERADOR } from '../../src/core/map/generar/plan.js';
 import { partidaDelMundo } from '../../src/core/mundo/partida.js';
 import { newGame } from '../../src/core/state/setup.js';

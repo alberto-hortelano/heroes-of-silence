@@ -4,8 +4,10 @@
  * reacciones con cargas y al morir. Reglas, no jugabilidad.
  */
 import { describe, expect, it } from 'vitest';
-import { applyAction, ataqueBlocker, legalActions, stackById } from '../src/core/battle/battle.js';
+import { applyAction } from '../src/core/battle/battle.js';
+import { stackById } from '../src/core/battle/consultas.js';
 import { danioPorIndividuo, effectiveAttack, stackHp } from '../src/core/battle/damage.js';
+import { ataqueBlocker, legalActions } from '../src/core/battle/legalidad.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { hechizo } from '../src/core/magia/catalogo.js';
 import type { Rng } from '../src/core/rng.js';

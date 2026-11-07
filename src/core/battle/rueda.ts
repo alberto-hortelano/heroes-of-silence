@@ -25,7 +25,7 @@
  * cuántos golpes da cada tipo y sus cifras, con sus notas para la persona. Las
  * formas de las tres ruedas (7, 5 y 3: qué sectores, cómo se cruzan, sus
  * nombres), en `formas-de-la-rueda.ts`, que se reexporta aquí. Puro: no importa
- * `battle.ts`; lo leen el motor (`applyAction`, `melee`, el daño), la IA
+ * `battle.ts` ni sus piezas; lo leen el motor (`applyAction`, `melee`, el daño), la IA
  * (`ai/rueda.ts`), las sesiones y la rueda del cliente.
  */
 import { conSigno } from '../equipo/dicho.js';
@@ -401,7 +401,7 @@ export function casillasQueQuitaLaFinta(p: Punto, e: EfectoDelTipo, quedan: numb
  * golpe o el contraataque de la respuesta) con las cifras de su arma `c`
  * (`ruedaDelGolpe`), en los números que lee `damage.ts`.
  * La única traducción: la piden `opcionesDeDanio` y la previsión de la rueda
- * (`battle.ts`).
+ * (`conElGolpe`, `golpe.ts`).
  */
 export function cruceDelGolpe(
   tipo: TipoDeGolpe,

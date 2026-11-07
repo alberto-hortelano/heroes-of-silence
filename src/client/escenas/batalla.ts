@@ -9,17 +9,15 @@
  * puerta no está aquí sino en `main.ts`, una sola para el lienzo, los botones y
  * el teclado: con una por sitio, «Resolver sola» y Escape se colaban.
  */
-import {
-  type CasillaDeCarga,
-  type ExplosionDeLaGranada,
-  esTipoDeEscala,
-  esTipoDePuerta,
-  isAlive,
-  type LineaDelDisparo,
-  SIN_CARGAS,
-  type TanteoADistancia,
-} from '@core/battle/battle.js';
+
+import type {
+  ExplosionDeLaGranada,
+  LineaDelDisparo,
+  TanteoADistancia,
+} from '@core/battle/a-distancia.js';
+import { esTipoDeEscala, esTipoDePuerta } from '@core/battle/asalto.js';
 import { hexEquals, hexKey, ULTIMA_FILA } from '@core/battle/board.js';
+import { type CasillaDeCarga, isAlive, SIN_CARGAS } from '@core/battle/consultas.js';
 import { mismaPuerta } from '@core/battle/muralla.js';
 import type {
   BattleAction,

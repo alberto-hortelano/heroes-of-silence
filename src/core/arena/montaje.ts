@@ -31,14 +31,10 @@
  * murallas. Era un solo `core/arena.ts` (y `arena-murallas.ts`) hasta la fase N de
  * la reorganización (07-11-2026).
  */
-import {
-  type BattleSide,
-  type CausaDelFinal,
-  causaDelFinal,
-  createBattle,
-  quienNoEscala,
-} from '../battle/battle.js';
+import { quienNoEscala } from '../battle/asalto.js';
+import { type CausaDelFinal, causaDelFinal } from '../battle/consultas.js';
 import { despliegueBlocker } from '../battle/despliegue.js';
+import { type BattleSide, createBattle } from '../battle/montaje.js';
 import { SIN_MURALLA } from '../battle/muralla.js';
 import type {
   BattleState,

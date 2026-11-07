@@ -5,7 +5,7 @@ import {
   stepTowards,
 } from '../src/core/ai/strategy.js';
 import { playAiGame, playAiTurn, resolvePendingBattle } from '../src/core/ai/turn.js';
-import { createBattle } from '../src/core/battle/battle.js';
+import { createBattle } from '../src/core/battle/montaje.js';
 import { queEs } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';

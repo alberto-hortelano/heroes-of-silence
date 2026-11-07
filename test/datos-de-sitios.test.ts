@@ -18,15 +18,11 @@ import { Session } from '../src/client/session.js';
 import { renderSide } from '../src/client/views/panels.js';
 import { resolvePendingBattle } from '../src/core/ai/turn.js';
 import { columna } from '../src/core/arena/murallas.js';
-import {
-  alAsalto,
-  applyAction,
-  createBattle,
-  legalActions,
-  MAX_ROUNDS,
-  stackById,
-} from '../src/core/battle/battle.js';
+import { applyAction, MAX_ROUNDS } from '../src/core/battle/battle.js';
 import { allHexes, bandoDeSalida, hexKey } from '../src/core/battle/board.js';
+import { stackById } from '../src/core/battle/consultas.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
+import { alAsalto, createBattle } from '../src/core/battle/montaje.js';
 import {
   ladoDeLaMuralla,
   murallaDelMapaBlocker,

@@ -17,7 +17,7 @@ import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { armaduraEnLaPelea, trasLaArmadura } from '../src/core/battle/armas.js';
-import { stackSpeed } from '../src/core/battle/battle.js';
+import { stackSpeed } from '../src/core/battle/consultas.js';
 import { danioPorIndividuo, effectiveAttack, effectiveDefense } from '../src/core/battle/damage.js';
 import { applyEffect, disparadoresDe, impedidoPor } from '../src/core/battle/effects.js';
 import { formaDeLaBatalla } from '../src/core/battle/formas-de-la-rueda.js';
@@ -275,9 +275,12 @@ describe('invariantes del proyecto', () => {
     // `golpeEnCurso:` como clave de un objeto solo está ahí (y en la interfaz).
     // Quien montara otra batalla a mano —con otras reglas, o con un campo de más—
     // tendría que escribirlo. Roto a mano (19-10-2026): un `{ golpeEnCurso: null }`
-    // en `state/game.ts` sale rojo con su línea.
+    // en `state/game.ts` sale rojo con su línea. `createBattle` vive en
+    // `battle/montaje.ts` desde la fase N de la reorganización (07-11-2026; antes, en
+    // `battle.ts`): la sonda, en `state/batallas.ts`, y la misma clave en otra
+    // función de `montaje.ts` salen rojas.
     const PERMITIDOS: Readonly<Record<string, readonly string[]>> = {
-      [ruta('src/core/battle/battle.ts')]: ['createBattle'],
+      [ruta('src/core/battle/montaje.ts')]: ['createBattle'],
     };
     const escribeElEstado = /(?:^\s*|[{,]\s*)golpeEnCurso\s*:/;
     const fuera: string[] = [];
@@ -651,16 +654,31 @@ describe('invariantes del proyecto', () => {
     // medida antes de andar o dejaría un turno colgado. Y Escape lo suelta por la
     // sesión de la arena, nadie más. Roto a mano: un `this.battle.golpeEnCurso = null` en
     // `session.ts` y un `soltarElGolpe(` en `arena/main.ts` salen rojos con su línea.
+    //
+    // Fuera del motor lo escribe solo `createBattle`, que monta la batalla con el golpe
+    // sin plantar: vive en `montaje.ts` desde la fase N de la reorganización
+    // (07-11-2026; antes, en `battle.ts`, como el motor), y cualquier otra línea de
+    // `montaje.ts` es ajena. Roto a mano (07-11-2026): un `{ golpeEnCurso: null }` en
+    // `state/batallas.ts` y un `state.golpeEnCurso = null` en `libroConElCatalogo`
+    // (`montaje.ts`) salen rojos con su línea.
     const PUERTA = ruta('src/core/battle/battle.ts');
+    const MONTAJE = ruta('src/core/battle/montaje.ts');
+    const alMontar = lineasDeLasDeclaraciones(MONTAJE, ['createBattle']);
+    const enCreateBattle = (e: string): boolean => {
+      const m = /^(.+):(\d+) → /.exec(e);
+      return m !== null && m[1] === MONTAJE && alMontar.has(Number(m[2]));
+    };
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     const escribe = /\.golpeEnCurso\s*=(?!=)|\bgolpeEnCurso\s*:(?!\s*GolpeEnCurso\b)/;
     expect(
       infractoresDeCodigo(
         todos.filter((r) => r !== PUERTA),
         escribe,
-      ),
+      ).filter((e) => !enCreateBattle(e)),
     ).toEqual([]);
     expect(infractoresDeCodigo([PUERTA], escribe)).not.toEqual([]);
+    // Y que mire algo en el montaje: la de `createBattle`, una.
+    expect(infractoresDeCodigo([MONTAJE], escribe).filter(enCreateBattle)).toHaveLength(1);
     const suelta = /\bsoltarElGolpe\b/;
     const quienes = infractoresDeCodigo(todos, suelta).map((e) => e.split(':')[0]);
     expect([...new Set(quienes)].sort()).toEqual([ruta('src/client/session.ts'), PUERTA]);

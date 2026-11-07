@@ -19,14 +19,14 @@ import {
 } from '../src/client/render/batalla.js';
 import { altoConAlzado, planoDeHex, tableroPara } from '../src/client/render/proyeccion.js';
 import { FORMAS_DE_EJEMPLO, ladosDeLaForma } from '../src/core/arena/murallas.js';
+import { applyAction } from '../src/core/battle/battle.js';
+import { caminoDe, hexKey, neighbours } from '../src/core/battle/board.js';
 import {
-  applyAction,
   movableFrom,
   movableHexes,
   movimientoBlocker,
   stackById,
-} from '../src/core/battle/battle.js';
-import { caminoDe, hexKey, neighbours } from '../src/core/battle/board.js';
+} from '../src/core/battle/consultas.js';
 import { cierra, esMuro, ladoDeLaMuralla, SIN_MURALLA } from '../src/core/battle/muralla.js';
 import type { BattleStack, BattleState, MurallaDeBatalla } from '../src/core/battle/types.js';
 

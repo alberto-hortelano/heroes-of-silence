@@ -8,13 +8,10 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  type BattleSide,
-  createBattle,
-  opcionesDeDanio,
-  stackById,
-} from '../src/core/battle/battle.js';
+import { stackById } from '../src/core/battle/consultas.js';
 import { damageMultiplier, expectedDamage } from '../src/core/battle/damage.js';
+import { opcionesDeDanio } from '../src/core/battle/golpe.js';
+import { type BattleSide, createBattle } from '../src/core/battle/montaje.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng, type Rng } from '../src/core/rng.js';
