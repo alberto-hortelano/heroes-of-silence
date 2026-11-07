@@ -5288,7 +5288,6 @@ export function formasDeLasParedes(
   });
 }
 
-/** Lo que mira `vaDelante` de un sprite: dónde, su clave y si es un volumen. */
 /** Una pieza de una tirada de muralla de norte a sur (`tiradaDelMapa`) y el paso de la tirada al que va. */
 interface PiezaDeTirada {
   readonly tramo: Sprite;
@@ -5303,6 +5302,7 @@ interface PiezasDeLaLinea {
   readonly tiradas: ReadonlyMap<readonly Paso[], readonly PiezaDeTirada[] | null>;
 }
 
+/** Lo que mira `vaDelante` de un sprite: dónde, su clave y si es un volumen. */
 type Delante = Pick<Sprite, 'x' | 'y' | 'clave'> & PreguntaDeVolumen;
 
 /** Si `s` se pinta después de lo que está en `t` y, por tanto, lo taparía. */
@@ -7364,7 +7364,6 @@ export function bajadasSobreNodo(
   return fuera;
 }
 
-/** Ruido de valor suave, de 0 a 1, con celdas de `escala` casillas: dónde hay mancha. */
 /**
  * Los dos ruidos de los macizos de la escena de `semilla`: el de la cresta,
  * dónde una cumbre y dónde un collado, y el de los grupos, dónde se junta la
@@ -7381,6 +7380,7 @@ export function ruidosDelMacizo(semilla: number): {
   };
 }
 
+/** Ruido de valor suave, de 0 a 1, con celdas de `escala` casillas: dónde hay mancha. */
 export function ruidoSuave(semilla: number, escala: number): (x: number, y: number) => number {
   const valor = (ix: number, iy: number) => {
     let h =
@@ -7423,7 +7423,6 @@ function ordenadoEn(s: Sprite, y: number): Sprite {
   return { ...s, clave: y };
 }
 
-/** `s` en su sitio, por detrás de `delante` si no lo estaba ya: el muro que cae en la reserva de un objeto. */
 /**
  * Los tramos de norte a sur de la escena que enseñan su testero a media tirada
  * (`testerosAMediaTirada`): lo que tapa una junta son las torres de la hoja
@@ -7445,6 +7444,7 @@ export function testerosDeLaEscena(sprites: readonly Sprite[], catalogo: Catalog
   );
 }
 
+/** `s` en su sitio, por detrás de `delante` si no lo estaba ya: el muro que cae en la reserva de un objeto. */
 function detrasDe(s: Sprite, delante: Sprite, antes = 0): Sprite {
   return claveDe(s) < claveDe(delante) ? s : ordenadoEn(s, claveDe(delante) - 0.01 - antes);
 }
