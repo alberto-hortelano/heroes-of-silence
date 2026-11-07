@@ -206,6 +206,20 @@ async function consultar(what: string, args: Record<string, unknown> = {}): Prom
 const server = new McpServer({ name: 'heroes', version: '0.1.0' });
 
 /**
+ * Lo que devuelve una herramienta: un texto, y si es un error. Las ocho herramientas
+ * lo envolvían a mano, catorce veces, hasta la fase S de la reorganización
+ * (07-11-2026).
+ */
+function texto(text: string, esError = false) {
+  return { content: [{ type: 'text' as const, text }], ...(esError ? { isError: true } : {}) };
+}
+
+/** Lo que devuelve una consulta: el dato en JSON con sangría de dos, que es como lo lee el agente. */
+function json(dato: unknown) {
+  return texto(JSON.stringify(dato, null, 2));
+}
+
+/**
  * Con la partida terminada y el canal muerto, mira si el servidor ha vuelto con
  * otra.
  *
@@ -234,24 +248,15 @@ server.tool('heroes_listen', LISTEN_DESCRIPTION, {}, async () => {
 
   const recogida = buzon.enCurso;
   if (recogida !== null) {
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text:
-            `Tienes la petición ${recogida} recogida y sin contestar. ` +
-            'Responde con heroes_respond antes de volver a escuchar.',
-        },
-      ],
-      isError: true,
-    };
+    return texto(
+      `Tienes la petición ${recogida} recogida y sin contestar. ` +
+        'Responde con heroes_respond antes de volver a escuchar.',
+      true,
+    );
   }
 
-  const { texto, esError } = textoDeEscucha(await buzon.espera(), veredictos);
-  return {
-    content: [{ type: 'text' as const, text: texto }],
-    ...(esError ? { isError: true } : {}),
-  };
+  const escucha = textoDeEscucha(await buzon.espera(), veredictos);
+  return texto(escucha.texto, escucha.esError);
 });
 
 server.tool(
@@ -262,45 +267,26 @@ server.tool(
   },
   async ({ response }) => {
     if (buzon.haTerminado) {
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text:
-              'La partida ya ha terminado: no queda nadie esperando esta respuesta y no ' +
-              'se va a aplicar. Llama a heroes_listen si quieres releer cómo acabó.',
-          },
-        ],
-        isError: true,
-      };
+      return texto(
+        'La partida ya ha terminado: no queda nadie esperando esta respuesta y no ' +
+          'se va a aplicar. Llama a heroes_listen si quieres releer cómo acabó.',
+        true,
+      );
     }
 
     const enviado = buzon.enCurso;
     if (enviado === null) {
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: 'No hay ninguna petición pendiente. Llama antes a heroes_listen.',
-          },
-        ],
-        isError: true,
-      };
+      return texto('No hay ninguna petición pendiente. Llama antes a heroes_listen.', true);
     }
 
     let data: unknown;
     try {
       data = JSON.parse(response);
     } catch (err) {
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: `Ese texto no es JSON válido (${err instanceof Error ? err.message : String(err)}). Vuelve a enviarlo bien formado.`,
-          },
-        ],
-        isError: true,
-      };
+      return texto(
+        `Ese texto no es JSON válido (${err instanceof Error ? err.message : String(err)}). Vuelve a enviarlo bien formado.`,
+        true,
+      );
     }
 
     try {
@@ -310,29 +296,16 @@ server.tool(
       // igualmente: retenerla dejaría al agente atascado en el guardia de
       // `heroes_listen`, que es la forma tonta de volver a colgarlo.
       buzon.suelta();
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text:
-              `Tu respuesta a ${enviado} no ha llegado a salir: ` +
-              `${err instanceof Error ? err.message : String(err)}. ` +
-              `Esa decisión la ${LA_JUEGA_LA_IA}. Vuelve a heroes_listen: ` +
-              'si el servidor sigue vivo, el puente se reconecta solo.',
-          },
-        ],
-        isError: true,
-      };
+      return texto(
+        `Tu respuesta a ${enviado} no ha llegado a salir: ` +
+          `${err instanceof Error ? err.message : String(err)}. ` +
+          `Esa decisión la ${LA_JUEGA_LA_IA}. Vuelve a heroes_listen: ` +
+          'si el servidor sigue vivo, el puente se reconecta solo.',
+        true,
+      );
     }
     buzon.suelta();
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: `Respuesta a ${enviado} entregada. Vuelve a heroes_listen.`,
-        },
-      ],
-    };
+    return texto(`Respuesta a ${enviado} entregada. Vuelve a heroes_listen.`);
   },
 );
 
@@ -366,7 +339,7 @@ server.tool(
   { player: z.number().int().optional().describe(PARAMETRO_JUGADOR) },
   async ({ player }) => {
     const data = await consultar('game_state', jugador(player));
-    return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
+    return json(data);
   },
 );
 
@@ -384,7 +357,7 @@ server.tool(
   { player: z.number().int().optional().describe(PARAMETRO_JUGADOR) },
   async ({ player }) => {
     const data = await consultar('battle_state', jugador(player));
-    return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
+    return json(data);
   },
 );
 
@@ -423,7 +396,7 @@ server.tool(
   { player: z.number().int().optional().describe(PARAMETRO_JUGADOR) },
   async ({ player }) => {
     const data = await consultar('map', jugador(player));
-    return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
+    return json(data);
   },
 );
 
@@ -437,22 +410,22 @@ server.tool(
   ({ creature: id, faction }) => {
     if (id !== undefined) {
       const ficha = fichaDeCriatura(unidadDelJuego(id));
-      return { content: [{ type: 'text' as const, text: JSON.stringify(ficha, null, 2) }] };
+      return json(ficha);
     }
     const lista = (faction === undefined ? unidadesDelJuego() : unidadesDeFaccion(faction)).map(
       fichaDeCriatura,
     );
-    return { content: [{ type: 'text' as const, text: JSON.stringify(lista, null, 2) }] };
+    return json(lista);
   },
 );
 
-server.tool('spell_list', 'Los hechizos del juego con su coste y efecto.', {}, () => ({
-  content: [{ type: 'text' as const, text: JSON.stringify(hechizosAlAgente(), null, 2) }],
-}));
+server.tool('spell_list', 'Los hechizos del juego con su coste y efecto.', {}, () =>
+  json(hechizosAlAgente()),
+);
 
-server.tool('building_list', 'Los edificios de castillo con su coste y requisitos.', {}, () => ({
-  content: [{ type: 'text' as const, text: JSON.stringify(allBuildings(), null, 2) }],
-}));
+server.tool('building_list', 'Los edificios de castillo con su coste y requisitos.', {}, () =>
+  json(allBuildings()),
+);
 
 // ---------------------------------------------------------------- arranque
 
