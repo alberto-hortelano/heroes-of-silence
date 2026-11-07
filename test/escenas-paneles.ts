@@ -1,11 +1,13 @@
 /**
  * Las escenas con las que se ancla el marcado de los paneles.
  *
- * No es un test: es el andamio que comparten `test/paneles.test.ts` —que compara
- * contra `test/fixtures/paneles.txt`— y `tools/qa/ancla-paneles.ts`, que escribe
- * ese fichero. Están separadas del test a propósito: si el generador y el
- * comparador montaran las escenas por su cuenta, el ancla dejaría de anclar en
- * cuanto una de las dos copias se moviera.
+ * No es un test: es el andamio de `tools/qa/ancla-paneles.ts`, que las vuelca en
+ * `test/fixtures/paneles.txt`. Ningún test compara contra ese fichero desde el
+ * 03-11-2026 (`b0e0ba5f`, que sacó los tests que fijan cifras del catálogo, por
+ * decisión del usuario: el volcado lleva las del catálogo de verdad, y un retoque
+ * válido de `data/` lo ponía rojo). El ancla se comprueba a mano: se regenera y se
+ * mira `git diff test/fixtures/`; un cambio que se quería va en el commit que lo
+ * justifica. De aquí, `test/paneles.test.ts` solo toma una escena (`meAtacan`).
  *
  * Todo sale de semillas fijas y de `createRng` por debajo, así que el volcado es
  * el mismo en cualquier máquina. La única pieza que no es determinista por sí

@@ -345,9 +345,10 @@ import { FONDO_DEL_ADARVE, tiradaNorteSur } from './tirada.js';
  * reorden pasa en verde. Lo que no depende de su estado ya está fuera, en
  * `colocar/`. Para partirlo un día:
  *
- * 1. fijar la huella de la escena como test, como `test/fixtures/paneles.txt` fija
- *    los paneles: la sección «escena» de `tools/qa/huella.ts`, `componer` en las
- *    semillas 1-40 y en los mundos `prueba` y `ejemplo`, con su informe;
+ * 1. fijar la huella de la escena como test: la sección «escena» de
+ *    `tools/qa/huella.ts`, `componer` en las semillas 1-40 y en los mundos `prueba`
+ *    y `ejemplo`, con su informe (el ancla de los paneles, `test/fixtures/paneles.txt`,
+ *    ya no lo es: desde el 03-11-2026 se comprueba a mano);
  * 2. hacer de `azar` un objeto `Corriente` explícito, que cada paso reciba (y
  *    `conCorriente` le cambie), en vez del `let` que se reasigna;
  * 3. sacar un paso por commit a una función sobre un contexto con las colecciones,
