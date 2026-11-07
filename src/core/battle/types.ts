@@ -430,7 +430,7 @@ export type BattleEvent =
    * ni gasta turno ni lo mueve; queda en el registro para que el parte lo cuente
    * y para que quien guarda por el registro se entere. `cambios`, qué campo de la
    * ficha cambió, ya en palabras («ataque 3 → 10», «hechizos: − Prisa»;
-   * `cambiosDeLaFicha`, `arena.ts`). Nunca vacío: un retoque que deja la ficha
+   * `cambiosDeLaFicha`, `arena/ficha.ts`). Nunca vacío: un retoque que deja la ficha
    * como estaba no escribe ninguno.
    */
   | { kind: 'retoque'; nombre: string; stacks: readonly string[]; cambios: readonly string[] }
@@ -641,7 +641,7 @@ export interface BattleState {
   golpeEnCurso: GolpeEnCurso | null;
   /**
    * La ficha de cada tipo y de cada héroe tal como pelea ahora, dicha en
-   * palabras campo a campo (`fichaEnPalabras`, `arena.ts`): lo que escribe la
+   * palabras campo a campo (`fichaEnPalabras`, `arena/ficha.ts`): lo que escribe la
    * persona, no las cifras del cuerpo. Solo la arena la pone al montar y la pone
    * al día al retocar: el parte del retoque dice qué campo cambió comparando la
    * de antes con la nueva (N1 y N2 de QA), y un retoque que no cambia nada no

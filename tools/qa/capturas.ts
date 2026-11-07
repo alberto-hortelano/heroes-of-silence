@@ -76,14 +76,9 @@ import { nombreEnElCampo } from '../../src/client/views/distintivo.js';
 import { AVISO_DE_ESPERA, explicacionDeFin, rotuloDeDia } from '../../src/client/views/panels.js';
 import { textoDePrevision } from '../../src/client/views/prevision.js';
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';
-import {
-  type FuenteDeArena,
-  type HeroeDeArena,
-  heroePorDefecto,
-  LADOS,
-  ladoDe,
-  VERSION_DEL_ENLACE,
-} from '../../src/core/arena.js';
+import { VERSION_DEL_ENLACE } from '../../src/core/arena/enlace.js';
+import { type HeroeDeArena, heroePorDefecto } from '../../src/core/arena/heroe.js';
+import { type FuenteDeArena, LADOS, ladoDe } from '../../src/core/arena/lados.js';
 import { isAlive, mismoTurno, stackById, stackHexes } from '../../src/core/battle/battle.js';
 import { hexDistance, hexEquals, quedanCasillas } from '../../src/core/battle/board.js';
 import { dichoDeLasCifras } from '../../src/core/battle/carga.js';

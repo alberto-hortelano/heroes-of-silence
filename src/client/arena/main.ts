@@ -12,46 +12,50 @@
  */
 
 import {
-  cambioDePiezas,
-  conBase,
-  conPiezas,
-  despliegueDeArenaBlocker,
-  enElHueco,
-  equiparEnArena,
-  escaleraDeArenaBlocker,
-  escritaDe,
-  type FuenteDeArena,
-  type HeroeDeArena,
   hechizosDelMontaje,
-  heroeDeArena,
-  heroePorDefecto,
   IA_POR_DEFECTO,
-  LADOS,
-  type Lado,
-  laLlevaElHeroe,
-  type MontajeDeArena,
   type MontajeDelEnlace,
-  mismaPieza,
   montajeALaURL,
   montajeDeLaURL,
   type PuestoDelEnlace,
-  piezaNueva,
-  piezaSobre,
-  piezasDelMontaje,
-  quitarEnArena,
-  type RetoqueDeArena,
   retiradosDeLaURL,
-  tipoDelStack,
-  topeDelBandoBlocker,
-  unidadNueva,
+} from '@core/arena/enlace.js';
+import { tipoDelStack } from '@core/arena/ficha.js';
+import {
+  type HeroeDeArena,
+  heroeDeArena,
+  heroePorDefecto,
+  laLlevaElHeroe,
   validarHeroeDeArena,
-} from '@core/arena.js';
+} from '@core/arena/heroe.js';
+import { type FuenteDeArena, LADOS, type Lado } from '@core/arena/lados.js';
+import {
+  despliegueDeArenaBlocker,
+  escaleraDeArenaBlocker,
+  type MontajeDeArena,
+  topeDelBandoBlocker,
+} from '@core/arena/montaje.js';
 import {
   esFormaDeEjemplo,
   FORMAS_DE_EJEMPLO,
   type FormaDeMuralla,
   validarFormaDeMuralla,
-} from '@core/arena-murallas.js';
+} from '@core/arena/murallas.js';
+import {
+  cambioDePiezas,
+  conBase,
+  conPiezas,
+  enElHueco,
+  equiparEnArena,
+  escritaDe,
+  mismaPieza,
+  piezaNueva,
+  piezaSobre,
+  piezasDelMontaje,
+  quitarEnArena,
+} from '@core/arena/piezas.js';
+import type { RetoqueDeArena } from '@core/arena/retoque.js';
+import { unidadNueva } from '@core/arena/unidad-nueva.js';
 import { hexEquals, isInside } from '@core/battle/board.js';
 import {
   esMuro,

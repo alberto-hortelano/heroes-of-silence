@@ -489,7 +489,7 @@ describe('invariantes del proyecto', () => {
         'la salida de un encargo va sin extensión: el taller escribe `cofre.webp` y su procedencia',
       'tools/marcas/almacen.ts → docs/revision/marcas':
         'la bandeja de las marcas: ignorada por git, la crea la primera marca',
-      'src/core/arena-murallas.ts → data/borradores/murallas.json':
+      'src/core/arena/murallas.ts → data/borradores/murallas.json':
         'el borrador de murallas de quien usa la arena: ignorado por git, lo crea «Guardar»',
     };
     const faltan: string[] = [];

@@ -18,7 +18,7 @@ import {
   piezasEnOrden,
 } from '../src/client/render/batalla.js';
 import { altoConAlzado, planoDeHex, tableroPara } from '../src/client/render/proyeccion.js';
-import { FORMAS_DE_EJEMPLO, ladosDeLaForma } from '../src/core/arena-murallas.js';
+import { FORMAS_DE_EJEMPLO, ladosDeLaForma } from '../src/core/arena/murallas.js';
 import {
   applyAction,
   movableFrom,

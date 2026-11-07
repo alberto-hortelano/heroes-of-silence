@@ -26,14 +26,14 @@
  */
 
 import { resolve } from 'node:path';
+import { heroePorDefecto } from '../../src/core/arena/heroe.js';
+import type { Lado } from '../../src/core/arena/lados.js';
 import {
   bandosDeArena,
   batallaDeArena,
-  heroePorDefecto,
-  type Lado,
   type MontajeDeArena,
-  quitarEnArena,
-} from '../../src/core/arena.js';
+} from '../../src/core/arena/montaje.js';
+import { quitarEnArena } from '../../src/core/arena/piezas.js';
 import { alAsalto, createBattle } from '../../src/core/battle/battle.js';
 import { type MurallaDeBatalla, SIN_MURALLA } from '../../src/core/battle/muralla.js';
 import type { BattleState } from '../../src/core/battle/types.js';

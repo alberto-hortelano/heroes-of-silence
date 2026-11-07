@@ -23,7 +23,7 @@ import { SesionDeArena } from '../src/client/session.js';
 import { renderBattleLog } from '../src/client/views/panels.js';
 import { completarCruce, elegirEnLaRueda, pasoDelCruce } from '../src/core/ai/rueda.js';
 import { autoResolve } from '../src/core/ai/tactics.js';
-import type { FuenteDeArena } from '../src/core/arena.js';
+import type { FuenteDeArena } from '../src/core/arena/lados.js';
 import { golpesDe, ruedaDelGolpe } from '../src/core/battle/armas.js';
 import {
   activeStack,

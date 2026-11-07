@@ -8,7 +8,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { batallaDeArena, type HeroeDeArena, heroePorDefecto } from '../src/core/arena.js';
+import { type HeroeDeArena, heroePorDefecto } from '../src/core/arena/heroe.js';
+import { batallaDeArena } from '../src/core/arena/montaje.js';
 import {
   activeStack,
   applyAction,

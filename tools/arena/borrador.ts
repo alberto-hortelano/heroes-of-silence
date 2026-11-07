@@ -19,7 +19,7 @@ import {
   RUTA_DE_MURALLAS,
   revisarBorradorDeMurallas,
   validarBorradorDeMurallas,
-} from '../../src/core/arena-murallas.js';
+} from '../../src/core/arena/murallas.js';
 import {
   COMENTARIO_DEL_CATALOGO_DE_EQUIPO,
   type PiezaEscrita,

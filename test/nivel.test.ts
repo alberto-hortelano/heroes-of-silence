@@ -11,7 +11,7 @@
  * (19-10-2026, F3).
  */
 import { describe, expect, it } from 'vitest';
-import { piezaNueva } from '../src/core/arena.js';
+import { piezaNueva } from '../src/core/arena/piezas.js';
 import { cifrasDeUnidad, unidad, unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
 import { restaDelPeso } from '../src/core/cuerpo.js';
 import { EQUIPO, type Pieza } from '../src/core/equipo/pieza.js';

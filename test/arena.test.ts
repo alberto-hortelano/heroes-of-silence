@@ -37,27 +37,21 @@ import { renderBattleLog } from '../src/client/views/panels.js';
 import { completarCruce } from '../src/core/ai/rueda.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import {
-  equiparEnArena,
-  type FuenteDeArena,
-  finalDeArena,
-  type HeroeDeArena,
-  heroeDeArena,
-  heroePorDefecto,
-  type IdsOcupados,
-  idsLlevados,
-  lecturaDelNivel,
   type MontajeDelEnlace,
   montajeALaURL,
   montajeDeArenaDelEnlace,
   montajeDeLaURL,
-  piezasDelMontaje,
   retiradosDeLaURL,
-  retocarEnBatalla,
-  tipoDelStack,
-  unidadNueva,
   VERSION_DEL_ENLACE,
-} from '../src/core/arena.js';
-import { FORMAS_DE_EJEMPLO, validarFormaDeMuralla } from '../src/core/arena-murallas.js';
+} from '../src/core/arena/enlace.js';
+import { lecturaDelNivel, tipoDelStack } from '../src/core/arena/ficha.js';
+import { type HeroeDeArena, heroeDeArena, heroePorDefecto } from '../src/core/arena/heroe.js';
+import type { FuenteDeArena } from '../src/core/arena/lados.js';
+import { finalDeArena } from '../src/core/arena/montaje.js';
+import { FORMAS_DE_EJEMPLO, validarFormaDeMuralla } from '../src/core/arena/murallas.js';
+import { equiparEnArena, idsLlevados, piezasDelMontaje } from '../src/core/arena/piezas.js';
+import { retocarEnBatalla } from '../src/core/arena/retoque.js';
+import { type IdsOcupados, unidadNueva } from '../src/core/arena/unidad-nueva.js';
 import { activeStack, applyAction, MAX_ROUNDS, stackHexes } from '../src/core/battle/battle.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';

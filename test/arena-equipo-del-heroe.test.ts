@@ -6,24 +6,22 @@
  * borra una pieza que lleva puesta.
  */
 import { describe, expect, it } from 'vitest';
+import { type MontajeDelEnlace, montajeALaURL, montajeDeLaURL } from '../src/core/arena/enlace.js';
+import { type HeroeDeArena, heroeDeArena, heroePorDefecto } from '../src/core/arena/heroe.js';
 import {
   batallaDeArena,
-  cambioDePiezas,
   catalogoDelMontaje,
-  equiparEnArena,
-  type HeroeDeArena,
-  heroeDeArena,
-  heroePorDefecto,
   type MontajeDeArena,
-  type MontajeDelEnlace,
-  montajeALaURL,
-  montajeDeLaURL,
+} from '../src/core/arena/montaje.js';
+import {
+  cambioDePiezas,
+  equiparEnArena,
   opcionesDelHueco,
   piezasDelMontaje,
   quitarBlocker,
   quitarEnArena,
-  retocarEnBatalla,
-} from '../src/core/arena.js';
+} from '../src/core/arena/piezas.js';
+import { retocarEnBatalla } from '../src/core/arena/retoque.js';
 import { armaduraDe } from '../src/core/battle/armas.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
 import { UNIDADES, unidad } from '../src/core/catalogo.js';

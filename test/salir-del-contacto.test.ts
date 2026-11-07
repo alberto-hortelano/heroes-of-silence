@@ -16,7 +16,7 @@ import { describe, expect, it } from 'vitest';
 import { marcadoDe, NADA } from '../src/client/html.js';
 import { accionesDeLaUnidad } from '../src/client/views/panels.js';
 import { autoResolve } from '../src/core/ai/tactics.js';
-import { batallaDeArena } from '../src/core/arena.js';
+import { batallaDeArena } from '../src/core/arena/montaje.js';
 import {
   activeStack,
   applyAction,

@@ -7,17 +7,11 @@
 import { readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import {
-  batallaDeArena,
-  catalogoDelMontaje,
-  type HeroeDeArena,
-  heroePorDefecto,
-  type MontajeDelEnlace,
-  montajeALaURL,
-  montajeDeLaURL,
-  piezasDelMontaje,
-  retocarEnBatalla,
-} from '../src/core/arena.js';
+import { type MontajeDelEnlace, montajeALaURL, montajeDeLaURL } from '../src/core/arena/enlace.js';
+import { type HeroeDeArena, heroePorDefecto } from '../src/core/arena/heroe.js';
+import { batallaDeArena, catalogoDelMontaje } from '../src/core/arena/montaje.js';
+import { piezasDelMontaje } from '../src/core/arena/piezas.js';
+import { retocarEnBatalla } from '../src/core/arena/retoque.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { EQUIPO_ESCRITO } from '../src/core/equipo/pieza.js';
 import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';

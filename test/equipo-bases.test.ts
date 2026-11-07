@@ -12,15 +12,17 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  equiparEnArena,
   type MontajeDelEnlace,
   montajeALaURL,
   montajeDeLaURL,
+  VERSION_DEL_ENLACE,
+} from '../src/core/arena/enlace.js';
+import {
+  equiparEnArena,
   piezaNueva,
   piezasDelMontaje,
   quitarEnArena,
-  VERSION_DEL_ENLACE,
-} from '../src/core/arena.js';
+} from '../src/core/arena/piezas.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { type Pieza, validarPieza } from '../src/core/equipo/pieza.js';
 import { EQUIPO_DEL_JUEGO, pieza } from '../src/core/hero/equipo.js';

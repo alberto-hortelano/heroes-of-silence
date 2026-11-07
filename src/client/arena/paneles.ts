@@ -7,28 +7,28 @@
  * habilidades del cuaderno van por huecos de texto o de atributo; las imágenes
  * por `srcDeImagen`.
  */
+import { lecturaDelNivel } from '@core/arena/ficha.js';
 import {
-  baseDe,
-  basesPosibles,
   CIFRA_MAXIMA_DE_HEROE,
-  cadenaDeBases,
-  escritaDe,
   fichaDeHeroeDeArena,
-  finalDeArena,
   type HeroeDeArena,
-  LADOS,
-  type Lado,
-  ladoDe,
-  lecturaDelNivel,
-  opcionesDelHueco,
-  quitarBlocker,
-} from '@core/arena.js';
+} from '@core/arena/heroe.js';
+import { LADOS, type Lado, ladoDe } from '@core/arena/lados.js';
+import { finalDeArena } from '@core/arena/montaje.js';
 import {
   type FormaDeMuralla,
   ladosDeLaForma,
   NOMBRE_MAXIMO_DE_FORMA,
   REGLA_DE_LA_MURALLA,
-} from '@core/arena-murallas.js';
+} from '@core/arena/murallas.js';
+import {
+  baseDe,
+  basesPosibles,
+  cadenaDeBases,
+  escritaDe,
+  opcionesDelHueco,
+  quitarBlocker,
+} from '@core/arena/piezas.js';
 import { armaduraDe } from '@core/battle/armas.js';
 import {
   activeStack,

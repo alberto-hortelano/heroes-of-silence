@@ -18,7 +18,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { FORMAS_DE_EJEMPLO } from '../src/core/arena-murallas.js';
+import { FORMAS_DE_EJEMPLO } from '../src/core/arena/murallas.js';
 import { armaduraDe } from '../src/core/battle/armas.js';
 import {
   applyAction,

@@ -27,7 +27,7 @@ import {
 } from '../src/client/render/batalla.js';
 import { centroHex, hexEnPixel, planoDeHex, tableroPara } from '../src/client/render/proyeccion.js';
 import { autoResolve } from '../src/core/ai/tactics.js';
-import { FORMAS_DE_EJEMPLO, ladosDeLaForma } from '../src/core/arena-murallas.js';
+import { FORMAS_DE_EJEMPLO, ladosDeLaForma } from '../src/core/arena/murallas.js';
 import {
   createBattle,
   movableHexes,

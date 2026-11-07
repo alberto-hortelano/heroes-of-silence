@@ -12,14 +12,14 @@
 import { copyFileSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { FuenteDeArena } from '../src/core/arena/lados.js';
 import {
   batallaDeArena,
   type CatalogoDeLaArena,
   catalogoDeLaPelea,
-  conPiezas,
-  type FuenteDeArena,
   type MontajeDeArena,
-} from '../src/core/arena.js';
+} from '../src/core/arena/montaje.js';
+import { conPiezas } from '../src/core/arena/piezas.js';
 import { type BattleSide, createBattle, type StackDeBatalla } from '../src/core/battle/battle.js';
 import { type MurallaDeBatalla, SIN_MURALLA } from '../src/core/battle/muralla.js';
 import type { BattleState } from '../src/core/battle/types.js';

@@ -4,10 +4,10 @@
  * el arte con que se pinta, y las cifras que escribe) más su equipo, y pelea con
  * las dos cosas (`unidadDeCombate` → `conEquipo`).
  *
- * Aparte de `core/arena.ts` (simplify de F1, 18-10-2026): el catálogo del juego
+ * Aparte de la arena (`core/arena/`; simplify de F1, 18-10-2026): el catálogo del juego
  * (`core/catalogo.ts`) valida con esta regla al cargar, y si la importaba de la
  * arena arrastraba el montador de batallas (la frontera de importación de
- * `core/arena.ts`, que vigila `test/invariantes.test.ts`). La arena importa de
+ * `core/arena/`, que vigila `test/invariantes.test.ts`). La arena importa de
  * aquí.
  *
  * Los campos de las cifras se llaman como en `UnitInfo` —`attack`, `fuerza`,

@@ -7,7 +7,7 @@
  * los ejemplos que trae la arena de salida.
  */
 
-import { espejo, FORMA_DEL_TABLERO, isInside, ULTIMA_FILA } from './battle/board.js';
+import { espejo, FORMA_DEL_TABLERO, isInside, ULTIMA_FILA } from '../battle/board.js';
 import {
   cierra,
   hayMuralla,
@@ -15,9 +15,9 @@ import {
   type PuertaDeMuralla,
   reglaDeLaMuralla,
   validarMuralla,
-} from './battle/muralla.js';
-import type { Hex } from './types.js';
-import { lista, revisarLista, texto, todasValidas } from './validar.js';
+} from '../battle/muralla.js';
+import type { Hex } from '../types.js';
+import { lista, revisarLista, texto, todasValidas } from '../validar.js';
 
 export interface FormaDeMuralla {
   readonly nombre: string;

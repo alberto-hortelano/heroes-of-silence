@@ -14,7 +14,7 @@
  */
 
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { armaduraEnLaPelea, trasLaArmadura } from '../src/core/battle/armas.js';
 import { stackSpeed } from '../src/core/battle/battle.js';
@@ -61,17 +61,21 @@ import {
 } from './codigo-del-repo.js';
 import { RAIZ, TROPA } from './comun.js';
 
-/** Dónde se puede nombrar lo de la arena sin permiso, y todo lo que se mira. */
+/**
+ * Dónde se puede nombrar lo de la arena sin permiso, y todo lo que se mira. El
+ * montador es la carpeta `core/arena/` (era `core/arena.ts` hasta la fase N de la
+ * reorganización, 07-11-2026).
+ */
 const RUTAS_DE_LA_ARENA = {
   enTodoElFichero: (r: string): boolean =>
     r.startsWith(ruta('src/core/battle/')) ||
-    r === ruta('src/core/arena.ts') ||
+    r.startsWith(ruta('src/core/arena/')) ||
     r.startsWith(ruta('src/client/arena/')),
   todas: (): string[] => [...CORE, ...CLIENTE, ...SERVIDOR, ...ficheros(ruta('tools'))],
 };
 
 /**
- * Quién usa el montador de la arena (`core/arena.ts`) fuera de ella, y en qué
+ * Quién usa el montador de la arena (`core/arena/`) fuera de ella, y en qué
  * declaraciones: la sesión de la arena (la clase, no el resto de `session.ts`,
  * que es la partida), las pasadas de la arena de `pnpm capturas`, que juegan su
  * espejo, y la medida de la IA contra la IA en la arena (#259, #260, #262). Lo lee
@@ -293,19 +297,31 @@ describe('invariantes del proyecto', () => {
     }
     expect(fuera).toEqual([]);
 
-    // Y el montador de la arena (`core/arena.ts`: el montaje, la ficha, el retoque
-    // y el enlace) es de la arena: solo la arena (página, disco y taller), la
+    // Y el montador de la arena (`core/arena/`: el montaje, la ficha, el retoque
+    // y el enlace; un solo `core/arena.ts` hasta la fase N) es de la arena: solo la arena (página, disco y taller), la
     // sesión y `pnpm capturas` lo importan; y en la sesión y en `capturas.ts`, lo
     // importado de allí solo se usa dentro de sus declaraciones con permiso
     // (`PERMISOS_DE_LA_ARENA`). Sin excepciones en el núcleo (simplify de F1,
     // 18-10-2026): el formato de la unidad y del catálogo vive en `core/unidad.ts`.
     // Roto a mano (19-10-2026): un `import type` de `./arena.js` en
     // `core/catalogo.ts` y un `batallaDeArena` usado en `session.ts` fuera de
-    // `SesionDeArena` salen rojos con su línea.
+    // `SesionDeArena` salen rojos con su línea; con la carpeta (07-11-2026), un
+    // `import { batallaDeArena } from './arena/montaje.js'` en `core/catalogo.ts`
+    // también, y el `../arena/borrador.js` de `capturas.ts` no.
     const { enTodoElFichero } = RUTAS_DE_LA_ARENA;
     const porDeclaracion = PERMISOS_DE_LA_ARENA;
-    const deLaArena =
-      /\bfrom\s+['"](?:@core\/|(?:\.\.?\/)+(?:(?:src\/)?core\/)?)arena(?:\.js)?['"]/;
+    // Si el especificador de `fichero` cae en `core/arena/`: resuelto (el alias
+    // `@core/` o relativo a su carpeta), no con una expresión regular, que con la
+    // carpeta casaría también `../arena/borrador.js` de `tools/qa/capturas.ts`.
+    const ARENA = `${ruta('src/core/arena')}/`;
+    const deLaArena = (espec: string, fichero: string): boolean => {
+      const destino = espec.startsWith('@core/')
+        ? join('src/core', espec.slice('@core/'.length))
+        : espec.startsWith('.')
+          ? join(dirname(fichero), espec)
+          : null;
+      return destino?.startsWith(ARENA) ?? false;
+    };
     const puedeImportarla = (r: string): boolean =>
       enTodoElFichero(r) ||
       r.startsWith(ruta('tools/arena/')) ||
@@ -321,9 +337,9 @@ describe('invariantes del proyecto', () => {
       // un tipo no monta ninguna batalla.
       const traidos: string[] = [];
       for (const bloque of texto.matchAll(
-        /^import\s+(type\s+)?\{([^}]*)\}\s*from\s+(['"][^'"]+['"])/gm,
+        /^import\s+(type\s+)?\{([^}]*)\}\s*from\s+['"]([^'"]+)['"]/gm,
       )) {
-        if (!deLaArena.test(`from ${bloque[3]}`)) continue;
+        if (!deLaArena(bloque[3] as string, ruta)) continue;
         if (bloque[1]) continue;
         for (const nombre of (bloque[2] ?? '').split(',')) {
           if (/^\s*type\s/.test(nombre)) continue;
@@ -337,8 +353,9 @@ describe('invariantes del proyecto', () => {
       const usaLaArena = traidos.length ? new RegExp(`\\b(?:${traidos.join('|')})\\b`) : null;
       for (const [i, linea] of codigo.entries()) {
         if (imports.has(i + 1)) {
-          if (deLaArena.test(linea) && !puedeImportarla(ruta))
-            colados.push(`${ruta}:${i + 1} importa de core/arena.ts`);
+          const espec = /\bfrom\s+['"]([^'"]+)['"]/.exec(linea)?.[1];
+          if (espec !== undefined && deLaArena(espec, ruta) && !puedeImportarla(ruta))
+            colados.push(`${ruta}:${i + 1} importa de core/arena/`);
           continue;
         }
         if (conPermiso.has(i + 1)) continue;
@@ -684,7 +701,10 @@ describe('invariantes del proyecto', () => {
     // escriben aparte. Roto a mano: un `state.stacks[0] = s` en `battle.ts`, un
     // `fichasDeArena: {}` en `state/game.ts`, un `{ ...c, poderes }` en `data.ts` y
     // un `poderes: c.poderes` en `contract/serialize.ts` salen rojos con su línea.
-    const PUERTA = ruta('src/core/arena.ts');
+    // El retoque (`arena/retoque.ts`) y el montaje (`arena/montaje.ts`), que eran
+    // `core/arena.ts` hasta la fase N de la reorganización (07-11-2026).
+    const PUERTA = ruta('src/core/arena/retoque.ts');
+    const MONTAJE = ruta('src/core/arena/montaje.ts');
     const fuera = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== PUERTA);
     const sustituyeUnStack = /\bstacks\[[^\]]+\]\s*=(?!=)/;
     expect(infractoresDeCodigo(fuera, sustituyeUnStack)).toEqual([]);
@@ -693,8 +713,9 @@ describe('invariantes del proyecto', () => {
     // cambió, también: las pone ella al montar y al retocar.
     const escribeTipos =
       /\bfichasDeArena\s*[:=](?!\s*readonly)|\.fichasDeArena\b(?:\s+as\b[^;]*)?\)?\[[^\]]+\]\s*=(?!=)/;
-    const sinElTipo = fuera.filter((r) => r !== ruta('src/core/battle/types.ts'));
+    const sinElTipo = fuera.filter((r) => r !== ruta('src/core/battle/types.ts') && r !== MONTAJE);
     expect(infractoresDeCodigo(sinElTipo, escribeTipos)).toEqual([]);
+    expect(infractoresDeCodigo([MONTAJE], escribeTipos)).not.toEqual([]);
     expect(infractoresDeCodigo([PUERTA], escribeTipos)).not.toEqual([]);
     // Los poderes los pone `unidadDeCombate`, que vive con el formato de la unidad
     // (`core/unidad.ts`, simplify de F1).
@@ -720,7 +741,8 @@ describe('invariantes del proyecto', () => {
     const leeUnCatalogo =
       /\b(?:EQUIPO_DEL_JUEGO|catalogoDeEquipo|equipoCon|PIEZAS_DEL_CATALOGO|CatalogoDeEquipo|EquipoAtado)\b/;
     expect(infractoresDeCodigo(MOTOR, leeUnCatalogo)).toEqual([]);
-    expect(infractoresDeCodigo([ruta('src/core/arena.ts')], leeUnCatalogo)).not.toEqual([]);
+    const LA_ARENA = CORE.filter((r) => r.startsWith(ruta('src/core/arena/')));
+    expect(infractoresDeCodigo(LA_ARENA, leeUnCatalogo)).not.toEqual([]);
   });
 
   it('los tiros de un disparo los cuenta solo `disparosDe`', () => {
@@ -1040,7 +1062,8 @@ describe('invariantes del proyecto', () => {
     const bordes = infractoresDeCodigo(
       [
         ...CORE.filter(
-          (r) => /^src\/core\/(?:battle|ai|contract)\//.test(r) || r === ruta('src/core/arena.ts'),
+          (r) =>
+            /^src\/core\/(?:battle|ai|contract)\//.test(r) || r.startsWith(ruta('src/core/arena/')),
         ),
         ...CLIENTE,
         ...SERVIDOR,
@@ -1218,7 +1241,7 @@ describe('las bases y la rueda del arma (18-10-2026)', () => {
     const extras = /\.extras\b/;
     const leenExtras = (r: string): boolean =>
       r === ruta('src/core/equipo/pieza.ts') ||
-      r === ruta('src/core/arena.ts') ||
+      r.startsWith(ruta('src/core/arena/')) ||
       r.startsWith(ruta('src/client/arena/'));
     expect(
       infractoresDeCodigo(

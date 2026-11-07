@@ -7,7 +7,7 @@
  * (`enteroBlocker`, `problemasDeObjeto`, `listaBlocker`, `deLaListaBlocker`), y la
  * que lanza la envuelve: la frase es la misma.
  *
- * Sin dependencias: las usan la arena (`arena.ts`, `arena-murallas.ts`), los
+ * Sin dependencias: las usan la arena (`arena/`), los
  * poderes (`battle/poderes.ts`) y la rueda del golpe (`battle/rueda.ts`), que
  * antes llevaban cada uno su copia.
  */
@@ -114,8 +114,8 @@ export function repetidoEn<T>(lista: readonly T[]): T | undefined {
 /**
  * Si `id` tiene la forma de un id de la arena: minúsculas, cifras y guiones, la
  * de una carpeta de `assets/unidades/`. La leen el id de una unidad, el cuerpo de
- * una hoja y la figura de un héroe (`core/arena.ts`) y el registro de una hoja
- * para pintarla (`render/personajes.ts`). Aquí y no en `core/arena.ts` porque el
+ * una hoja y la figura de un héroe (`core/arena/`) y el registro de una hoja
+ * para pintarla (`render/personajes.ts`). Aquí y no en `core/arena/` porque el
  * cliente fuera de la arena no importa de allí (`invariantes.test.ts`).
  */
 export function esIdDeUnidad(id: string): boolean {
@@ -234,7 +234,7 @@ export function todasValidas<T>(r: {
  * si no está. Repetido se rechaza diciéndolo, como lo que no es una semilla:
  * quedarse con el primero en silencio repetía otra pelea que la que dice la URL
  * (H4 de QA del banco). Vive aquí, sin dependencias, porque la leen la arena y la
- * partida (`?seed=`, `?faccion=`), y la partida no importa `core/arena.ts`.
+ * partida (`?seed=`, `?faccion=`), y la partida no importa `core/arena/`.
  */
 export function unaVezEnLaURL(valores: readonly string[], nombre: string): string | null {
   if (valores.length > 1) {

@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { autoResolve, chooseBattleAction } from '../src/core/ai/tactics.js';
-import { columna } from '../src/core/arena-murallas.js';
+import { columna } from '../src/core/arena/murallas.js';
 import {
   applyAction,
   type BattleSide,

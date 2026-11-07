@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 import cargaJson from '../data/carga.json' with { type: 'json' };
-import { batallaDeArena } from '../src/core/arena.js';
+import { batallaDeArena } from '../src/core/arena/montaje.js';
 import {
   applyAction,
   casillasDeCarga,

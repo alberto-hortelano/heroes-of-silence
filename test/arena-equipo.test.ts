@@ -23,26 +23,27 @@ import {
 } from '../src/client/arena/paneles.js';
 import { marcadoDe } from '../src/client/html.js';
 import {
-  cambioDePiezas,
-  conPiezas,
-  enElHueco,
-  equiparEnArena,
-  type HeroeDeArena,
-  heroePorDefecto,
-  idsLlevados,
-  type MontajeDeArena,
   type MontajeDelEnlace,
   montajeALaURL,
   montajeDeArenaDelEnlace,
   montajeDeLaURL,
+  VERSION_DEL_ENLACE,
+} from '../src/core/arena/enlace.js';
+import { type HeroeDeArena, heroePorDefecto } from '../src/core/arena/heroe.js';
+import type { MontajeDeArena } from '../src/core/arena/montaje.js';
+import {
+  cambioDePiezas,
+  conPiezas,
+  enElHueco,
+  equiparEnArena,
+  idsLlevados,
   piezaNueva,
   piezasDelMontaje,
   quitarBlocker,
   quitarEnArena,
-  retocarEnBatalla,
-  unidadNueva,
-  VERSION_DEL_ENLACE,
-} from '../src/core/arena.js';
+} from '../src/core/arena/piezas.js';
+import { retocarEnBatalla } from '../src/core/arena/retoque.js';
+import { unidadNueva } from '../src/core/arena/unidad-nueva.js';
 import { armaduraDe, isShooter } from '../src/core/battle/armas.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';

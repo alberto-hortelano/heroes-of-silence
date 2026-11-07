@@ -108,9 +108,7 @@ describe('invariantes del proyecto', () => {
     ).toEqual([]);
     expect(infractoresDeCodigo([PUERTA], importa)).not.toEqual([]);
     const ARENA = (r: string): boolean =>
-      r === ruta('src/core/arena.ts') ||
-      r === ruta('src/core/arena-murallas.ts') ||
-      r.startsWith(ruta('src/client/arena/'));
+      r.startsWith(ruta('src/core/arena/')) || r.startsWith(ruta('src/client/arena/'));
     const veElBorrador = /data\/borradores|tools\/arena\//;
     const fuera = todos.filter((r) => !ARENA(r));
     expect(infractoresDeCodigo(fuera, veElBorrador)).toEqual([]);

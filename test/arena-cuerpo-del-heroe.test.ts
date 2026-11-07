@@ -8,15 +8,9 @@
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import {
-  heroeDeArena,
-  heroePorDefecto,
-  type MontajeDelEnlace,
-  montajeALaURL,
-  montajeDeLaURL,
-  piezasDelMontaje,
-  validarHeroeDeArena,
-} from '../src/core/arena.js';
+import { type MontajeDelEnlace, montajeALaURL, montajeDeLaURL } from '../src/core/arena/enlace.js';
+import { heroeDeArena, heroePorDefecto, validarHeroeDeArena } from '../src/core/arena/heroe.js';
+import { piezasDelMontaje } from '../src/core/arena/piezas.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { EQUIPO_ESCRITO } from '../src/core/equipo/pieza.js';
 import {

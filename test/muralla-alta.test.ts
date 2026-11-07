@@ -13,12 +13,12 @@ import { EscenaBatalla } from '../src/client/escenas/batalla.js';
 import { marcadoDe } from '../src/client/html.js';
 import { alturaDeColumna, alzadoDeLaMuralla, cajaDeFigura } from '../src/client/render/batalla.js';
 import { centroHex, hexEnPixel, planoDeHex, tableroPara } from '../src/client/render/proyeccion.js';
-import { escaleraDeArenaBlocker } from '../src/core/arena.js';
+import { escaleraDeArenaBlocker } from '../src/core/arena/montaje.js';
 import {
   COMENTARIO_DEL_BORRADOR_DE_MURALLAS,
   FORMAS_DE_EJEMPLO,
   REGLA_DE_LA_MURALLA,
-} from '../src/core/arena-murallas.js';
+} from '../src/core/arena/murallas.js';
 import {
   applyAction,
   ataqueBlocker,

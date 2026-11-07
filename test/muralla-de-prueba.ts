@@ -6,7 +6,7 @@
  * reorganización, 06-11-2026).
  */
 
-import { FORMAS_DE_EJEMPLO } from '../src/core/arena-murallas.js';
+import { FORMAS_DE_EJEMPLO } from '../src/core/arena/murallas.js';
 import { type BattleSide, createBattle, stackById } from '../src/core/battle/battle.js';
 import { hexKey } from '../src/core/battle/board.js';
 import type { MurallaDeBatalla } from '../src/core/battle/muralla.js';

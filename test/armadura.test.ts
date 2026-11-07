@@ -13,14 +13,12 @@ import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
 import { renderBattleLog } from '../src/client/views/panels.js';
 import {
-  equiparEnArena,
   type MontajeDelEnlace,
   montajeALaURL,
   montajeDeLaURL,
-  piezaNueva,
-  piezasDelMontaje,
   VERSION_DEL_ENLACE,
-} from '../src/core/arena.js';
+} from '../src/core/arena/enlace.js';
+import { equiparEnArena, piezaNueva, piezasDelMontaje } from '../src/core/arena/piezas.js';
 import {
   applyAction,
   createBattle,

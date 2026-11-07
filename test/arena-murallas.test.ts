@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { renderMuralla } from '../src/client/arena/paneles.js';
 import { marcadoDe } from '../src/client/html.js';
-import { despliegueDeArenaBlocker, finalDeArena } from '../src/core/arena.js';
+import { despliegueDeArenaBlocker, finalDeArena } from '../src/core/arena/montaje.js';
 import {
   COMENTARIO_DEL_BORRADOR_DE_MURALLAS,
   columna,
@@ -18,7 +18,7 @@ import {
   revisarBorradorDeMurallas,
   validarBorradorDeMurallas,
   validarFormaDeMuralla,
-} from '../src/core/arena-murallas.js';
+} from '../src/core/arena/murallas.js';
 import { FORMA_DEL_TABLERO, hexKey } from '../src/core/battle/board.js';
 import { LIDERAZGO } from '../src/core/hero/liderazgo.js';
 import { createRng } from '../src/core/rng.js';

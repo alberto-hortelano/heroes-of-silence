@@ -8,16 +8,15 @@
 import { type LaIAElige, pasoDelCruce } from '@core/ai/rueda.js';
 import { chooseBattleAction } from '@core/ai/tactics.js';
 import { playAiTurn, resolvePendingBattle } from '@core/ai/turn.js';
+import { LADOS } from '@core/arena/lados.js';
 import {
   batallaDeArena,
   type CatalogoDeLaArena,
   catalogoDelMontaje,
   conUnidad,
-  LADOS,
   type LadoDeArena,
-  type RetoqueDeArena,
-  retocarEnBatalla,
-} from '@core/arena.js';
+} from '@core/arena/montaje.js';
+import { type RetoqueDeArena, retocarEnBatalla } from '@core/arena/retoque.js';
 import { tiroADistanciaDe } from '@core/battle/armas.js';
 import {
   activeStack,

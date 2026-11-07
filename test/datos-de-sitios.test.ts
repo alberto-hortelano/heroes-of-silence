@@ -17,7 +17,7 @@ import { centroHex, tableroPara } from '../src/client/render/proyeccion.js';
 import { Session } from '../src/client/session.js';
 import { renderSide } from '../src/client/views/panels.js';
 import { resolvePendingBattle } from '../src/core/ai/turn.js';
-import { columna } from '../src/core/arena-murallas.js';
+import { columna } from '../src/core/arena/murallas.js';
 import {
   alAsalto,
   applyAction,
