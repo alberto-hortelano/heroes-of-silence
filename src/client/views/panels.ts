@@ -108,7 +108,10 @@ import { renderPanelDeLaTropa } from '../partida/tropa/panel.js';
 import { asset } from '../render/assets.js';
 import { nombreEnElCampo } from '../render/batalla/distintivo.js';
 import { COLOR_DEL_ORO, MARCA_DE_COMANDANTE } from '../render/palette.js';
-import type { DespliegueEnPantalla, ModoDelArma, Session, SpellOption } from '../sesion/partida.js';
+import type { ModoDelArma } from '../sesion/batalla/arma.js';
+import type { SpellOption } from '../sesion/batalla/control.js';
+import type { DespliegueEnPantalla } from '../sesion/batalla/despliegue.js';
+import type { Session } from '../sesion/partida.js';
 import { filaDeCifra } from './cifras.js';
 
 /** Lo que dice la barra a quien pulsa mientras la jugada se cuenta. */

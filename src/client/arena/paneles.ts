@@ -112,7 +112,7 @@ import { ruedaDeLaPieza } from '../batalla/rueda/disco.js';
 import type { CaraDeLosContrincantes } from '../batalla/rueda/rueda.js';
 import { DESHABILITADO, type Html, html, MARCADO, NADA, srcDeImagen, unir } from '../comun/html.js';
 import { nombreEnElCampo } from '../render/batalla/distintivo.js';
-import type { SesionDeArena } from '../sesion/partida.js';
+import type { SesionDeArena } from '../sesion/sesion-de-arena.js';
 import { filaDeCifra } from '../views/cifras.js';
 import {
   accionesDeLaUnidad,

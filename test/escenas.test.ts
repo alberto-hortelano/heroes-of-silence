@@ -54,7 +54,8 @@ import {
   type Tablero,
   tableroPara,
 } from '../src/client/render/proyeccion.js';
-import { SesionDeArena, Session } from '../src/client/sesion/partida.js';
+import { Session } from '../src/client/sesion/partida.js';
+import { SesionDeArena } from '../src/client/sesion/sesion-de-arena.js';
 import {
   AVISO_DE_ESPERA,
   marcaDeComandante,

@@ -5,7 +5,8 @@
  * `cast` con `at` y lee lo que hace (`spell_list`).
  */
 import { describe, expect, it } from 'vitest';
-import { loApuntadoEnCasilla, SesionDeArena } from '../src/client/sesion/partida.js';
+import { loApuntadoEnCasilla } from '../src/client/sesion/batalla/libro.js';
+import { SesionDeArena } from '../src/client/sesion/sesion-de-arena.js';
 import { heroePorDefecto } from '../src/core/arena/heroe.js';
 import { hexDistance } from '../src/core/battle/board.js';
 import { activeStack } from '../src/core/battle/consultas.js';

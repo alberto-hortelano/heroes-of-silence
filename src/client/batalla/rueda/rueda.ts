@@ -49,7 +49,7 @@ import type { TipoDeGolpe } from '@core/types.js';
 import { type Html, html, NADA, unir } from '../../comun/html.js';
 import { nombreEnElCampo } from '../../render/batalla/distintivo.js';
 import { COLOR_BANDO } from '../../render/batalla.js';
-import type { RuedaPendiente } from '../../sesion/partida.js';
+import type { RuedaPendiente } from '../../sesion/batalla/cruce.js';
 import { modificadoresEnCurso, nota } from '../../views/panels.js';
 import { type CruceEnCurso, DURACION } from '../anim.js';
 import { horquilla } from '../prevision.js';

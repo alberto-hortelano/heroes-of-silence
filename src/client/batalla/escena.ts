@@ -49,9 +49,9 @@ import {
   type Apuntado,
   type ControlDeBatalla,
   esDeLoApuntado,
-  loApuntadoEnCasilla,
   rechazoDelTanteo,
-} from '../sesion/partida.js';
+} from '../sesion/batalla/control.js';
+import { loApuntadoEnCasilla } from '../sesion/batalla/libro.js';
 import { AVISO_DE_ESPERA } from '../views/panels.js';
 import { accionContra, golpeEnPixel } from './angulo.js';
 import { BattleAnimator, type CruceEnCurso } from './anim.js';

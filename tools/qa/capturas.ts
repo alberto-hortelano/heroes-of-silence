@@ -74,7 +74,9 @@ import {
   type Tablero,
   tableroPara,
 } from '../../src/client/render/proyeccion.js';
-import { type ControlDeBatalla, SesionDeArena, Session } from '../../src/client/sesion/partida.js';
+import type { ControlDeBatalla } from '../../src/client/sesion/batalla/control.js';
+import { Session } from '../../src/client/sesion/partida.js';
+import { SesionDeArena } from '../../src/client/sesion/sesion-de-arena.js';
 import type { VistaDeLaMorada } from '../../src/client/sesion/vistas/morada.js';
 import { AVISO_DE_ESPERA, explicacionDeFin, rotuloDeDia } from '../../src/client/views/panels.js';
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';

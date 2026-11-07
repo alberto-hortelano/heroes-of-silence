@@ -27,6 +27,7 @@ import {
   type VistaBatalla,
 } from '../render/batalla.js';
 import { cercaDelCentro, hexEnPixel, type Tablero } from '../render/proyeccion.js';
+import type { ColocacionEnPantalla } from '../sesion/batalla/despliegue.js';
 import type { Efecto, EstadoFigura } from './anim.js';
 
 // ---------------------------------------------------------------- bajo el puntero
@@ -96,19 +97,6 @@ export function unidadBajo(
 }
 
 // ---------------------------------------------------------------- colocar
-
-/** Lo que la escena necesita de quien coloca: `DespliegueEnPantalla` (la batalla y la formación de la tropa). */
-export interface ColocacionEnPantalla {
-  /** A quién se coloca ahora, o `null` si no hay nadie. */
-  readonly elegido: BattleStack | null;
-  /** Dónde puede salir el elegido, en el marco del tablero. */
-  readonly zona: readonly Hex[];
-  esColocable(id: string): boolean;
-  elegir(id: string): void;
-  colocarEn(at: Hex): void;
-  /** Lo que haría colocar al elegido en `at`, o por qué no: para la barra. */
-  dichoDeColocar(at: Hex): string;
-}
 
 /** Lo que haría un clic en el tablero mientras se coloca. */
 export type ClicAlColocar =

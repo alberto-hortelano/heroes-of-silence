@@ -28,7 +28,9 @@ import { queHaceElHechizo } from '@core/magia/dicho.js';
 import type { PoderId } from '@core/types.js';
 import { type Html, html, NADA, unir } from '../comun/html.js';
 import { nombreEnElCampo } from '../render/batalla/distintivo.js';
-import type { Apuntado, ModoDelArma, MurallaDeLaActiva } from '../sesion/partida.js';
+import type { ModoDelArma } from '../sesion/batalla/arma.js';
+import type { Apuntado } from '../sesion/batalla/control.js';
+import type { MurallaDeLaActiva } from '../sesion/batalla/muralla.js';
 import { textoDePrevision } from './prevision.js';
 
 /** Lo que piden los botones de los poderes a la sesión: la de la partida y la de la arena. */

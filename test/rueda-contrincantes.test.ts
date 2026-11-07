@@ -21,7 +21,7 @@ import {
   sitioEnLaRueda,
 } from '../src/client/batalla/rueda/rueda.js';
 import { marcadoDe } from '../src/client/comun/html.js';
-import type { SesionDeArena } from '../src/client/sesion/partida.js';
+import type { SesionDeArena } from '../src/client/sesion/sesion-de-arena.js';
 import { efectoEnCurso, modificadoresEnCurso } from '../src/client/views/panels.js';
 import { dichoCortoDeLaCarga, dichoDeLaCarga } from '../src/core/battle/carga.js';
 import { NIVEL_MAXIMO } from '../src/core/battle/cifras-de-la-rueda.js';
