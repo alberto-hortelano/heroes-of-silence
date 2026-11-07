@@ -1,7 +1,7 @@
 /**
  * El espectador: mira la partida del servidor y no juega.
  *
- * **No manda ni un intent, no aplica ni una regla y no importa `session.ts`**
+ * **No manda ni un intent, no aplica ni una regla y no importa `sesion/partida.ts`**
  * (criterio 7). Solo abre el WebSocket, lee snapshots y pinta. Que no aplique
  * reglas lo vigila además `invariantes.test.ts`, que corre sobre `src/client`
  * entero: esta carpeta cae dentro y por eso vive aquí y no en otra parte.

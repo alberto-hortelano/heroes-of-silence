@@ -99,7 +99,6 @@ import {
   unir,
 } from '../comun/html.js';
 import { quienesDe } from '../comun/quien-mira.js';
-import { DICHO_DE_LA_OBRA } from '../dicho-del-puesto.js';
 import { renderPanelDelAyuntamiento } from '../partida/ayuntamiento/panel.js';
 import type { Abierto } from '../partida/base/escena.js';
 import { renderAbierto } from '../partida/base/panel.js';
@@ -109,7 +108,8 @@ import { renderPanelDeLaTropa } from '../partida/tropa/panel.js';
 import { asset } from '../render/assets.js';
 import { nombreEnElCampo } from '../render/batalla/distintivo.js';
 import { COLOR_DEL_ORO, MARCA_DE_COMANDANTE } from '../render/palette.js';
-import type { DespliegueEnPantalla, ModoDelArma, Session, SpellOption } from '../session.js';
+import { DICHO_DE_LA_OBRA } from '../sesion/dichos.js';
+import type { DespliegueEnPantalla, ModoDelArma, Session, SpellOption } from '../sesion/partida.js';
 import { filaDeCifra } from './cifras.js';
 
 /** Lo que dice la barra a quien pulsa mientras la jugada se cuenta. */

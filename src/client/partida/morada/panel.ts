@@ -4,14 +4,14 @@
  * van por las acciones de siempre (`recruit`), y su ficha (solo lectura).
  *
  * Sin reglas: cuánto cabe y por qué no se puede ya vienen del núcleo en la vista
- * (`morada/vista.ts`), y el motivo va **escrito debajo** de los botones, no en un
+ * (`sesion/vistas/morada.ts`), y el motivo va **escrito debajo** de los botones, no en un
  * `title`: en el móvil no hay ratón que lo enseñe. Debajo, la mejora de la morada
  * si le queda alguna (`mejora`, la de la base).
  */
 import { NOMBRE_DE_HUECO } from '@core/types.js';
 import { DESHABILITADO, type Html, html, NADA, unir } from '../../comun/html.js';
-import type { FichaDeLaMorada } from '../../morada/vista.js';
-import type { Session } from '../../session.js';
+import type { Session } from '../../sesion/partida.js';
+import type { FichaDeLaMorada } from '../../sesion/vistas/morada.js';
 import { filaDeCifra, filasDeCombate, motivoApagado } from '../../views/cifras.js';
 import {
   filaLiderazgo,

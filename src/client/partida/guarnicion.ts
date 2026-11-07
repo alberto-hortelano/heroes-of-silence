@@ -27,8 +27,8 @@ import { OBRAS_DE_UN_PUESTO } from '@core/map/tipos.js';
 import type { LadoDelReparto, LaObraDelPuesto } from '@core/state/sitios.js';
 import { describirCoste } from '@core/texto.js';
 import { type Html, html, NADA, unir } from '../comun/html.js';
-import { DICHO_DE_LA_OBRA, SE_VE_EN_EL_PUESTO } from '../dicho-del-puesto.js';
-import type { VistaDeLaDefensa, VistaDeLaGuarnicion } from '../session.js';
+import { DICHO_DE_LA_OBRA, SE_VE_EN_EL_PUESTO } from '../sesion/dichos.js';
+import type { VistaDeLaDefensa, VistaDeLaGuarnicion } from '../sesion/partida.js';
 import { apagadoPor, filaDeCifra, motivoDebajo, notaDebajo } from '../views/cifras.js';
 import { filaDeTropa, filaLiderazgo } from '../views/panels.js';
 

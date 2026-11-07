@@ -12,7 +12,7 @@
  * por bando y los rivales. Y, a diferencia de aquel, **no decide nada**: no busca
  * caminos ni calcula lo que se ve —la rama llamaba a `findPath` y a
  * `visibleFrom` desde el lienzo—. La ruta y las casillas visibles llegan hechas
- * de `session.ts`, que es la puerta al núcleo.
+ * de la sesión (`sesion/partida.ts`), que es la puerta al núcleo.
  *
  * Solo pinta: ni guarda estado de la partida ni escucha al ratón.
  */

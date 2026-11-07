@@ -32,7 +32,7 @@ import { BattleAnimator } from '../src/client/batalla/anim.js';
 import { marcadoDe } from '../src/client/comun/html.js';
 import { nombreEnElCampo } from '../src/client/render/batalla/distintivo.js';
 import { arteDe, juegosDelYBot, registrarUnidad } from '../src/client/render/figuras/personajes.js';
-import { type LadoDeSesion, SesionDeArena } from '../src/client/session.js';
+import { type LadoDeSesion, SesionDeArena } from '../src/client/sesion/partida.js';
 import { renderBattleLog } from '../src/client/views/panels.js';
 import { completarCruce } from '../src/core/ai/rueda.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';

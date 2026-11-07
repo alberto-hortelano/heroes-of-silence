@@ -12,7 +12,7 @@
 import { describe, expect, it } from 'vitest';
 import { EscenaAventura } from '../src/client/partida/mapa/escena.js';
 import { casillaAPixel, centrarEn, TILE_INICIAL } from '../src/client/render/mapa/camara.js';
-import { Session } from '../src/client/session.js';
+import { Session } from '../src/client/sesion/partida.js';
 import { serializeAdventureTurn } from '../src/core/contract/aventura.js';
 import { heroesOf } from '../src/core/state/consultas.js';
 import { sinSello, visibleTo } from '../src/core/state/events.js';

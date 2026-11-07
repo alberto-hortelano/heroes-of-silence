@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { queHayEn } from '../src/client/desarrollo/inspeccion.js';
 import type { MarcaNueva } from '../src/client/desarrollo/tipos.js';
 import { escenarioDe } from '../src/client/render/escenario/superficie.js';
-import { Session } from '../src/client/session.js';
+import { Session } from '../src/client/sesion/partida.js';
 import { newGame } from '../src/core/state/setup.js';
 import {
   CARPETA_DE_MARCAS,

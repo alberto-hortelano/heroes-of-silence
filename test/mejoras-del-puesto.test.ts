@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/comun/html.js';
 import { adaptarEscena } from '../src/client/espectador/adaptar.js';
 import { renderGuarnicion } from '../src/client/partida/guarnicion.js';
-import { Session } from '../src/client/session.js';
+import { Session } from '../src/client/sesion/partida.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import { serializeKnownMap } from '../src/core/contract/mapa-conocido.js';
 import {

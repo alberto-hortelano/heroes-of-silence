@@ -5,7 +5,7 @@
  * su facción, y con un mundo, la historia manda en la base de quien juega.
  */
 import { describe, expect, it } from 'vitest';
-import { Session } from '../src/client/session.js';
+import { Session } from '../src/client/sesion/partida.js';
 import { type Banco, type FiguraDeNpc, laMasParecida, leerBanco } from '../src/core/gente/banco.js';
 import { figurasDeLaGente } from '../src/core/gente/figuras.js';
 import { personasDeLaFaccion } from '../src/core/gente/voces.js';

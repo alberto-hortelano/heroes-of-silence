@@ -9,7 +9,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { EscenaTropa } from '../src/client/partida/tropa/escena.js';
-import { AYUDA_DE_LA_TROPA, Session } from '../src/client/session.js';
+import { AYUDA_DE_LA_TROPA, Session } from '../src/client/sesion/partida.js';
 import { zonaDeSalida } from '../src/core/battle/despliegue.js';
 import { aDosManos } from '../src/core/equipo/manos.js';
 import { EQUIPO, pieza } from '../src/core/equipo/pieza.js';

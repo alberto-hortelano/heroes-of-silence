@@ -10,7 +10,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/comun/html.js';
-import { Session } from '../src/client/session.js';
+import { Session } from '../src/client/sesion/partida.js';
 import { renderSide, renderTopbar } from '../src/client/views/panels.js';
 import { resolvePendingBattle } from '../src/core/ai/turn.js';
 import { estructura } from '../src/core/map/regiones.js';

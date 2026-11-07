@@ -18,7 +18,7 @@ import { html, pintar } from '../comun/html.js';
 import type { EscenaAventura } from '../partida/mapa/escena.js';
 import { type CamaraMapa, mundoAPixel } from '../render/mapa/camara.js';
 import { playerColor } from '../render/palette.js';
-import type { Session } from '../session.js';
+import type { Session } from '../sesion/partida.js';
 import { type RedPintada, redPintada } from './red.js';
 import type { Desarrollo } from './tipos.js';
 

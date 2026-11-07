@@ -145,6 +145,18 @@ export const CLIENTE = ficheros('src/client');
 export const SERVIDOR = ficheros('src/server');
 export const HERRAMIENTAS = ficheros('tools');
 
+/**
+ * Si `r` es de la puerta del cliente al núcleo: la carpeta `src/client/sesion/` salvo
+ * sus vistas (`sesion/vistas/`), que solo leen. Era un fichero, `src/client/session.ts`,
+ * hasta la fase C de la reorganización (07-11-2026). La leen los guardias de «el
+ * cliente no aplica reglas», de la batalla ya ocultada y de qué se ve de un objeto.
+ */
+export function esLaSesion(r: string): boolean {
+  return (
+    r.startsWith(ruta('src/client/sesion/')) && !r.startsWith(ruta('src/client/sesion/vistas/'))
+  );
+}
+
 const CACHE = new Map<string, string>();
 const CACHE_SIN_COMENTARIOS = new Map<string, string>();
 /** El código de `r` sin comentarios (`sinComentarios`), una vez por fichero, como `leer`. */

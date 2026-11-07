@@ -12,7 +12,7 @@ import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
 import { bandaDeCara } from '../src/client/render/escenario/relieve.js';
 import { escenarioDe } from '../src/client/render/escenario/superficie.js';
 import { cajaEnPixeles, mundoAPixel, pixelAMundo } from '../src/client/render/mapa/camara.js';
-import { Session } from '../src/client/session.js';
+import { Session } from '../src/client/sesion/partida.js';
 import { primeraSemillaCon } from '../tools/comun/semillas.js';
 import { puenteSobreElAgua } from './escena-de-prueba.js';
 

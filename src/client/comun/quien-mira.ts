@@ -13,9 +13,9 @@
  * pregunta ya es de dos —`clase(mio, false)` no pinta nada si no es tuyo— y un
  * centinela que nunca casa contesta bien por accidente.
  *
- * Vive en su propio módulo y no en `session.ts` por el espectador: `renderLog`
+ * Vive en su propio módulo y no en `sesion/partida.ts` por el espectador: `renderLog`
  * lo comparten las dos páginas, y hacer que `views/panels.ts` importe un valor
- * de `session.ts` arrastraría el motor de la partida entero al paquete de quien
+ * de `sesion/partida.ts` arrastraría el motor de la partida entero al paquete de quien
  * solo mira — que es justo la frontera que el espectador existe para no cruzar.
  */
 import type { PlayerId } from '@core/types.js';

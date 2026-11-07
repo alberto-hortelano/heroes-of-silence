@@ -4,7 +4,7 @@ import { EscenaBatalla, rotuloDeAngulo } from '../src/client/batalla/escena.js';
 import { marcadoDe } from '../src/client/comun/html.js';
 import { cajaDeFigura } from '../src/client/render/batalla.js';
 import { centroDeStack, centroHex, tableroPara } from '../src/client/render/proyeccion.js';
-import type { Session } from '../src/client/session.js';
+import type { Session } from '../src/client/sesion/partida.js';
 import { renderSide } from '../src/client/views/panels.js';
 import { isShooter } from '../src/core/battle/armas.js';
 import { hexDistance } from '../src/core/battle/board.js';

@@ -18,6 +18,7 @@ import {
   CLIENTE,
   CORE,
   codigoDe,
+  esLaSesion,
   importaDe,
   infractoresDeCodigo,
   leer,
@@ -36,7 +37,7 @@ import { bloquesCss, COLOR, hojasDelCliente } from './hojas-de-estilo.js';
 const HOJAS_CON_REGLAS = hojasDelCliente().filter((r) => r !== ruta('src/client/temas.css'));
 
 describe('invariantes del proyecto', () => {
-  it('el cliente no aplica reglas: la única puerta al núcleo es session.ts', () => {
+  it('el cliente no aplica reglas: la única puerta al núcleo es la sesión (`sesion/`)', () => {
     // El cliente pinta y manda intenciones. Cuando la partida se juegue por
     // WebSocket, lo que cambia es esa capa y solo esa — pero solo si nadie más
     // ha abierto una puerta lateral mientras tanto.
@@ -47,10 +48,11 @@ describe('invariantes del proyecto', () => {
     // `import` no vive en un comentario, y `sinComentarios` deja las cadenas,
     // así que un acceso por nombre (`s['newGame']`) sigue cayendo. Roto a mano:
     // una llamada a `newGame` en `desenlace.ts` sale roja; un comentario que la
-    // nombra, no.
+    // nombra, no. La puerta era `session.ts` hasta la fase C de la reorganización
+    // (07-11-2026); ahora es la carpeta `sesion/` sin sus vistas (`esLaSesion`).
     const puertas =
       /\b(applyAdventureAction|applyAction|resolvePendingBattle|settleBattle|playAiTurn|chooseBattleAction|newGame|retocarEnBatalla)\b/;
-    const fuera = CLIENTE.filter((r) => r !== ruta('src/client/session.ts'));
+    const fuera = CLIENTE.filter((r) => !esLaSesion(r));
     expect(infractoresDeCodigo(fuera, puertas)).toEqual([]);
   });
 
@@ -304,7 +306,7 @@ describe('invariantes del proyecto', () => {
     // línea, y `renderBattlePanel` leyendo `session.battle`, también.
     const ESCENA = ruta('src/client/batalla/escena.ts');
     const lecturas = infractoresDeCodigo(
-      CLIENTE.filter((r) => r !== ruta('src/client/session.ts')),
+      CLIENTE.filter((r) => !esLaSesion(r)),
       /\.batallaEntera\b/,
     );
     const permitidas = lineasDeLasDeclaraciones(ESCENA, ['EscenaBatalla']);
@@ -337,10 +339,11 @@ describe('invariantes del proyecto', () => {
     // (la base, la morada y las del «mapa vivo»): si leyera la sesión de la
     // partida, la arena y el espectador, que no la tienen, no podrían usarla.
     // Roto a mano: un `import type { Session } from '../../session.js'` en
-    // `render/clima/clima.ts` sale rojo.
+    // `render/clima/clima.ts` sale rojo. Desde la fase C de la reorganización
+    // (07-11-2026) la sesión es la carpeta `sesion/`: el patrón casa las dos.
     const pieza = CLIENTE.filter((r) => r.startsWith(ruta('src/client/render/clima/')));
     expect(pieza.length).toBeGreaterThanOrEqual(4);
-    expect(infractoresDeCodigo(pieza, importaDe(/[^'"]*session(?:\.js)?/))).toEqual([]);
+    expect(infractoresDeCodigo(pieza, importaDe(/[^'"]*sess?i[oó]n/))).toEqual([]);
   });
 
   it('el tema de la interfaz lo pone `ponerTema`: nadie más escribe `data-tema`', () => {

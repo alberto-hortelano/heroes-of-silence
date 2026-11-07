@@ -46,7 +46,7 @@ import { msPorCasilla } from '../../render/figuras/marcha.js';
 import { densidadDe } from '../../render/lienzo.js';
 import { playerColor } from '../../render/palette.js';
 import { pasoDeLaBase, type Tablero } from '../../render/proyeccion.js';
-import { AYUDA_DE_LA_BASE, type Session } from '../../session.js';
+import { AYUDA_DE_LA_BASE, type Session } from '../../sesion/partida.js';
 import type { ClimaDeLaFila } from '../morada/escena.js';
 
 /**

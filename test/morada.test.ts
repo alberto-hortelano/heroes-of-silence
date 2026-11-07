@@ -11,7 +11,6 @@
  */
 import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/comun/html.js';
-import { componerVistaDeLaMorada } from '../src/client/morada/vista.js';
 import { EscenaBase } from '../src/client/partida/base/escena.js';
 import { cajasDeLaMorada, EscenaMorada } from '../src/client/partida/morada/escena.js';
 import {
@@ -29,7 +28,8 @@ import {
 import { cajaDeFiguraEn } from '../src/client/render/batalla.js';
 import { pasoDeLaHoja } from '../src/client/render/figuras/de-pie.js';
 import { pasoDeLaBase } from '../src/client/render/proyeccion.js';
-import { AYUDA_DE_LA_BASE, AYUDA_DE_LA_MORADA, Session } from '../src/client/session.js';
+import { AYUDA_DE_LA_BASE, AYUDA_DE_LA_MORADA, Session } from '../src/client/sesion/partida.js';
+import { componerVistaDeLaMorada } from '../src/client/sesion/vistas/morada.js';
 import { renderActions, renderSide } from '../src/client/views/panels.js';
 import { armaduraDe } from '../src/core/battle/armas.js';
 import { pieza } from '../src/core/equipo/pieza.js';

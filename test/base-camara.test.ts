@@ -11,7 +11,7 @@ import { EscenaBase } from '../src/client/partida/base/escena.js';
 import { camaraDeLaBase, camaraQuieta, seguir } from '../src/client/render/base/camara.js';
 import { cajaDeFiguraEn } from '../src/client/render/batalla.js';
 import { enPantalla, pasoDeLaBase } from '../src/client/render/proyeccion.js';
-import { Session } from '../src/client/session.js';
+import { Session } from '../src/client/sesion/partida.js';
 import { faccionesDeLaSemilla } from '../src/core/state/setup.js';
 import {
   alaFranja,

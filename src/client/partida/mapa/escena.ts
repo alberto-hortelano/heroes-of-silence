@@ -1,6 +1,6 @@
 /**
  * La escena del mapa: cámara, ratón y dedo. Lo que se pinta lo decide
- * `render/mapa/mapa.ts`; lo que se hace al pulsar, `session.ts`.
+ * `render/mapa/mapa.ts`; lo que se hace al pulsar, `sesion/partida.ts`.
  *
  * Guarda solo estado de píxel —dónde mira la cámara, qué casilla está señalada,
  * si se está arrastrando—, igual que hacía `main.ts` antes de partirse.
@@ -42,7 +42,7 @@ import {
   type VistaMapa,
 } from '../../render/mapa/mapa.js';
 import { casillaDelMinimapa, drawMinimapa } from '../../render/mapa/minimapa.js';
-import type { MarchaEnPantalla, Session } from '../../session.js';
+import type { MarchaEnPantalla, Session } from '../../sesion/partida.js';
 
 /** Cuántos píxeles hay que mover el puntero para que un clic pase a arrastre. */
 const UMBRAL_ARRASTRE = 8;

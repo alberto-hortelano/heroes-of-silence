@@ -25,7 +25,7 @@ import {
 } from '../../src/client/render/mapa/camara.js';
 import { pasosAPintar } from '../../src/client/render/mapa/mapa.js';
 import { centroDeStack, tableroPara } from '../../src/client/render/proyeccion.js';
-import { Session } from '../../src/client/session.js';
+import { Session } from '../../src/client/sesion/partida.js';
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';
 import { applyAction } from '../../src/core/battle/battle.js';
 import { hexEquals } from '../../src/core/battle/board.js';

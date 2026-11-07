@@ -10,7 +10,7 @@
  * héroe que pierde en su sitio, que lo entrega con lo que no eligió.
  */
 import { describe, expect, it } from 'vitest';
-import { Session } from '../src/client/session.js';
+import { Session } from '../src/client/sesion/partida.js';
 import { playAiTurn, resolvePendingBattle } from '../src/core/ai/turn.js';
 import { applyAction } from '../src/core/battle/battle.js';
 import { legalActions } from '../src/core/battle/legalidad.js';

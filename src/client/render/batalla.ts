@@ -9,7 +9,7 @@
  * individuos, hasta 7 por bando (el héroe incluido).
  *
  * Solo pinta. Qué hexes se pueden pisar, a quién se puede atacar y sobre quién
- * cae el hechizo llegan hechos de `session.ts`; dónde está cada figura en este
+ * cae el hechizo llegan hechos de `sesion/partida.ts`; dónde está cada figura en este
  * instante, del animador.
  */
 import {

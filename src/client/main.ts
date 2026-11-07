@@ -45,7 +45,7 @@ import { apuntarElSueloEn, escenarioListo, sueloDelMapa } from './render/escenar
 import { hayFigurasAnimadas } from './render/figuras/figura.js';
 import { genteCargada } from './render/figuras/gente.js';
 import { ajustarLienzo } from './render/lienzo.js';
-import { Session } from './session.js';
+import { Session } from './sesion/partida.js';
 import { pintarSiguiendoElFinal } from './views/al-final.js';
 import { renderActions, renderSide, renderTopbar } from './views/panels.js';
 

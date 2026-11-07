@@ -25,7 +25,7 @@ import {
 } from '../../batalla/colocar.js';
 import { type CajaDeFigura, cajaDeFigura, drawBatalla } from '../../render/batalla.js';
 import { enPantalla, planoDeHex, type Tablero, tableroPara } from '../../render/proyeccion.js';
-import { AYUDA_DE_LA_TROPA, type Session } from '../../session.js';
+import { AYUDA_DE_LA_TROPA, type Session } from '../../sesion/partida.js';
 
 const NINGUN_BANDO: ReadonlySet<never> = new Set();
 

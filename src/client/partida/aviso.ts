@@ -7,7 +7,7 @@
  * de `elAtaque`); aquí solo se pinta.
  */
 import { type Html, html } from '../comun/html.js';
-import type { VistaDelAviso } from '../session.js';
+import type { VistaDelAviso } from '../sesion/partida.js';
 
 export function renderAviso(v: VistaDelAviso): Html {
   return html`<h3 id="titulo-del-aviso">${v.titulo}</h3>

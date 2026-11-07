@@ -70,13 +70,13 @@ const RUTAS_DE_LA_ARENA = {
 
 /**
  * Quién usa el montador de la arena (`core/arena/`) fuera de ella, y en qué
- * declaraciones: la sesión de la arena (la clase, no el resto de `session.ts`,
+ * declaraciones: la sesión de la arena (la clase, no el resto de `sesion/partida.ts`,
  * que es la partida), las pasadas de la arena de `pnpm capturas`, que juegan su
  * espejo, y la medida de la IA contra la IA en la arena (#259, #260, #262). Lo lee
  * el guardia de la puerta de las batallas.
  */
 const PERMISOS_DE_LA_ARENA: Readonly<Record<string, readonly string[]>> = {
-  [ruta('src/client/session.ts')]: ['SesionDeArena'],
+  [ruta('src/client/sesion/partida.ts')]: ['SesionDeArena'],
   [ruta('tools/qa/capturas.ts')]: [
     'espejoDeLaArena',
     'todoIA',
@@ -398,12 +398,14 @@ describe('invariantes del proyecto', () => {
     // `Session.playBattleAction` y un `plantarse(battle, a, rng)` en
     // `server/partida.ts` salen rojos con su línea.
     const llama = /\b(?:completarCruce|pasoDelCruce|plantarse|soltarElGolpe)\s*\(/;
-    const conPermiso = lineasDeLasDeclaraciones(ruta('src/client/session.ts'), ['CruceDeLaRueda']);
+    const conPermiso = lineasDeLasDeclaraciones(ruta('src/client/sesion/partida.ts'), [
+      'CruceDeLaRueda',
+    ]);
     const fuera: string[] = [];
     for (const fichero of [...CLIENTE, ...SERVIDOR]) {
       if (fichero === ruta('src/server/director.ts')) continue;
       for (const [i, linea] of codigoDe(fichero).split('\n').entries()) {
-        if (fichero === ruta('src/client/session.ts') && conPermiso.has(i + 1)) continue;
+        if (fichero === ruta('src/client/sesion/partida.ts') && conPermiso.has(i + 1)) continue;
         if (llama.test(linea)) fuera.push(`${fichero}:${i + 1} → ${linea.trim()}`);
       }
     }
@@ -681,7 +683,7 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo([MONTAJE], escribe).filter(enCreateBattle)).toHaveLength(1);
     const suelta = /\bsoltarElGolpe\b/;
     const quienes = infractoresDeCodigo(todos, suelta).map((e) => e.split(':')[0]);
-    expect([...new Set(quienes)].sort()).toEqual([ruta('src/client/session.ts'), PUERTA]);
+    expect([...new Set(quienes)].sort()).toEqual([ruta('src/client/sesion/partida.ts'), PUERTA]);
   });
 
   it('el tramo de la Finta lo abre solo el golpe (`melee`, en battle.ts)', () => {
@@ -1117,7 +1119,7 @@ describe('invariantes del proyecto', () => {
     // fuera solo se suelta (`soltar`). Roto a mano (04-11-2026): un
     // `this.apuntados.apuntar({ kind: 'muralla', id: 'subir' })` en `Session` sale rojo
     // con su línea.
-    const PERMITIDO = ruta('src/client/session.ts');
+    const PERMITIDO = ruta('src/client/sesion/partida.ts');
     const conPermiso = lineasDeLasDeclaraciones(PERMITIDO, ['MurallaDeLaActiva']);
     const apunta = /\{\s*kind:\s*'muralla'/;
     const escrituras: string[] = [];

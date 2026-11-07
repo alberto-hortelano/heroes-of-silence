@@ -41,7 +41,7 @@ import { revealAround } from './vision.js';
 /**
  * Por qué ese héroe no puede licenciar `count` × `creature` ahora, o `null`.
  * La frase es para la persona: la lanza la acción, y de ahí la leen la barra
- * del castillo (`session.ts` enseña el error del núcleo, no redacta) y el
+ * del castillo (`sesion/partida.ts` enseña el error del núcleo, no redacta) y el
  * agente en su veredicto.
  *
  * Solo en un castillo propio —la base u otro—: licenciar en mitad del camino

@@ -7,7 +7,7 @@
  * `docs/revision/marcas/` (plugin `marcas` de `vite.config.ts`). Con
  * `?seed=N&marca=<id>` la página vuelve a mirar ese sitio a ese zoom.
  *
- * No aplica ninguna regla ni pasa por `session.ts` más que para leer el estado y
+ * No aplica ninguna regla ni pasa por `sesion/partida.ts` más que para leer el estado y
  * escribir en la barra: es una herramienta para quien revisa el escenógrafo, no
  * parte del juego. Llega por un `import()` detrás de
  * `HERRAMIENTAS_DE_DESARROLLO`, y en `vite build` no queda (`sinDesarrollo`).
@@ -18,7 +18,7 @@ import { html, pintar } from '../comun/html.js';
 import type { EscenaAventura } from '../partida/mapa/escena.js';
 import { escenarioListo } from '../render/escenario/superficie.js';
 import { type CamaraMapa, cajaEnPixeles, mundoAPixel, pixelAMundo } from '../render/mapa/camara.js';
-import type { Session } from '../session.js';
+import type { Session } from '../sesion/partida.js';
 import { queHayEn } from './inspeccion.js';
 import type { Desarrollo, Marca, MarcaNueva, Punto2 } from './tipos.js';
 

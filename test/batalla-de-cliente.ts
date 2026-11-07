@@ -20,7 +20,7 @@ import { type FotoDeEfectos, fotoDeEfectos } from '../src/client/batalla/anim.js
 import { EscenaBatalla } from '../src/client/batalla/escena.js';
 import { type CaraDeLosContrincantes, renderDesenlace } from '../src/client/batalla/rueda/rueda.js';
 import { marcadoDe } from '../src/client/comun/html.js';
-import { type ControlDeBatalla, SesionDeArena, Session } from '../src/client/session.js';
+import { type ControlDeBatalla, SesionDeArena, Session } from '../src/client/sesion/partida.js';
 import { hexDistance } from '../src/core/battle/board.js';
 import { formaDeLaBatalla, golpeNeutro } from '../src/core/battle/formas-de-la-rueda.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';

@@ -24,6 +24,7 @@ import {
   CLIENTE,
   CORE,
   codigoDe,
+  esLaSesion,
   HERRAMIENTAS,
   importaDe,
   infractores,
@@ -657,7 +658,7 @@ describe('invariantes del proyecto', () => {
     // sesión (que es la puerta), el espectador (lo ve todo), el escenógrafo (lee
     // DÓNDE está cada objeto, que no cambia, nunca su estado) y lo de desarrollo.
     const fuera = (r: string) =>
-      r === ruta('src/client/session.ts') ||
+      esLaSesion(r) ||
       r.startsWith(ruta('src/client/espectador/')) ||
       r.startsWith(ruta('src/client/render/escenario/')) ||
       r.startsWith(ruta('src/client/desarrollo/'));

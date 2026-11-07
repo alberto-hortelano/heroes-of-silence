@@ -4,7 +4,7 @@
  * elegido (solo lectura) y su equipo, con la mochila del héroe para repartirla.
  *
  * Sin reglas: lo que no se puede poner o quitar ya viene apagado de la vista con
- * el motivo del núcleo (`tropa/vista.ts`), y el motivo va **escrito debajo**, no
+ * el motivo del núcleo (`sesion/vistas/tropa.ts`), y el motivo va **escrito debajo**, no
  * en un `title`: en el móvil no hay ratón que lo enseñe.
  */
 import { conMiles } from '@core/texto.js';
@@ -12,7 +12,7 @@ import { NOMBRE_DE_HUECO } from '@core/types.js';
 import { COMO_SE_COLOCA } from '../../batalla/colocar.js';
 import { DESHABILITADO, type Html, html, NADA, unir } from '../../comun/html.js';
 import { nombreEnElCampo } from '../../render/batalla/distintivo.js';
-import type { FichaDeLaTropa, HuecoDeLaFicha, VistaDeLaTropa } from '../../tropa/vista.js';
+import type { FichaDeLaTropa, HuecoDeLaFicha, VistaDeLaTropa } from '../../sesion/vistas/tropa.js';
 import { filaDeCifra, filasDeCombate, motivoApagado } from '../../views/cifras.js';
 import { marcaDeComandante, modificadoresEnPantalla, nota } from '../../views/panels.js';
 

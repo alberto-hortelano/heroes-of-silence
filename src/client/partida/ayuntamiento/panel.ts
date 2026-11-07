@@ -12,9 +12,9 @@
 import { BARRERAS, NOMBRE_DE_BARRERA } from '@core/map/terrain.js';
 import { describirCoste, enumerar } from '@core/texto.js';
 import { type Army, NOMBRE_DE_RASGO } from '@core/types.js';
-import type { FichaDelAyuntamiento } from '../../ayuntamiento/vista.js';
 import { DESHABILITADO, type Html, html, NADA, srcDeImagen } from '../../comun/html.js';
-import type { Session } from '../../session.js';
+import type { Session } from '../../sesion/partida.js';
+import type { FichaDelAyuntamiento } from '../../sesion/vistas/ayuntamiento.js';
 import { filaDeCifra, motivoApagado } from '../../views/cifras.js';
 import { nota, renderArmy } from '../../views/panels.js';
 import { botonesDeLaFila } from '../morada/panel.js';

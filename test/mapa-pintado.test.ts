@@ -43,7 +43,7 @@ import {
 } from '../src/client/render/escenario/superficie.js';
 import { TILE_MAX } from '../src/client/render/mapa/camara.js';
 import { drawMapa, recortadoArriba } from '../src/client/render/mapa/mapa.js';
-import { Session } from '../src/client/session.js';
+import { Session } from '../src/client/sesion/partida.js';
 import { Casillas, type CasillasLeidas } from '../src/core/map/casillas.js';
 import { LADO_DEL_MAPA } from '../src/core/map/generar/plan.js';
 import { inBounds } from '../src/core/map/geometria.js';

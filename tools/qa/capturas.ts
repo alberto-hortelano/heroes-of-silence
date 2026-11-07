@@ -43,7 +43,6 @@ import {
   sitioEnLaRueda as sitioEnLaRuedaDe,
   teclaDe as teclaEnLaRueda,
 } from '../../src/client/batalla/rueda/rueda.js';
-import type { VistaDeLaMorada } from '../../src/client/morada/vista.js';
 import { EscenaAyuntamiento } from '../../src/client/partida/ayuntamiento/escena.js';
 import { dondeHablarCon } from '../../src/client/partida/base/escena.js';
 import { EscenaAventura } from '../../src/client/partida/mapa/escena.js';
@@ -75,7 +74,8 @@ import {
   type Tablero,
   tableroPara,
 } from '../../src/client/render/proyeccion.js';
-import { type ControlDeBatalla, SesionDeArena, Session } from '../../src/client/session.js';
+import { type ControlDeBatalla, SesionDeArena, Session } from '../../src/client/sesion/partida.js';
+import type { VistaDeLaMorada } from '../../src/client/sesion/vistas/morada.js';
 import { AVISO_DE_ESPERA, explicacionDeFin, rotuloDeDia } from '../../src/client/views/panels.js';
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';
 import { VERSION_DEL_ENLACE } from '../../src/core/arena/enlace.js';

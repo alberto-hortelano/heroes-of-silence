@@ -61,7 +61,7 @@ import {
   topeDeAlejar,
 } from '../src/client/render/escenario/superficie.js';
 import { centrarEn, mundoAPixel, TILE_INICIAL } from '../src/client/render/mapa/camara.js';
-import { Session } from '../src/client/session.js';
+import { Session } from '../src/client/sesion/partida.js';
 import { primeraSemillaCon } from '../tools/comun/semillas.js';
 import { catalogoDelDisco, partidaDe, puenteSobreElAgua } from './escena-de-prueba.js';
 import { conRespiro, LENTO, rango, segunPrisa } from './lento.js';

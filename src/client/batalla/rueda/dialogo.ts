@@ -19,7 +19,7 @@ import { formaDeLaBatalla } from '@core/battle/formas-de-la-rueda.js';
 import type { HechoDelCruce } from '@core/battle/rueda.js';
 import type { BattleState, Side } from '@core/battle/types.js';
 import { pintar } from '../../comun/html.js';
-import type { RuedaPendiente } from '../../session.js';
+import type { RuedaPendiente } from '../../sesion/partida.js';
 import type { CruceEnCurso } from '../anim.js';
 import { FigurasDeLaRueda } from './figuras.js';
 import {

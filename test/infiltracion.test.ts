@@ -17,7 +17,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { llegadaDeLaRuta } from '../src/client/partida/mapa/escena.js';
-import { Session } from '../src/client/session.js';
+import { Session } from '../src/client/sesion/partida.js';
 import { empezarElDia, heroeRecienHecho, maxMovePoints } from '../src/core/hero/hero.js';
 import {
   infiltracionBlocker,

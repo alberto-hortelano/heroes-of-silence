@@ -3,7 +3,7 @@
  * cinco facciones, se cambian sus cifras, se elige quién mueve cada unidad y se
  * pelea con el mismo tablero y los mismos controles que la partida.
  *
- * Aquí solo se conecta: las reglas las aplica `SesionDeArena` (en `session.ts`,
+ * Aquí solo se conecta: las reglas las aplica `SesionDeArena` (en `sesion/partida.ts`,
  * la única puerta del cliente al núcleo), el ratón del tablero lo traduce
  * `EscenaBatalla` —la misma de la partida— y el marcado sale de `paneles.ts`.
  * Las cifras se guardan en el catálogo de unidades del repo a través del servidor de
@@ -137,7 +137,7 @@ import {
 } from '../render/figuras/personajes.js';
 import { ajustarLienzo } from '../render/lienzo.js';
 import { COLOR_NEUTRO } from '../render/palette.js';
-import { type LadoDeSesion, SesionDeArena } from '../session.js';
+import { type LadoDeSesion, SesionDeArena } from '../sesion/partida.js';
 import { pintarSiguiendoElFinal } from '../views/al-final.js';
 import { leerElCombate, selectoresDelCombate } from '../views/combate.js';
 import { AVISO_DE_ESPERA } from '../views/panels.js';

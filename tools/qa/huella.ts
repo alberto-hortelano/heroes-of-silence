@@ -81,7 +81,7 @@ import {
   RUTA_DEL_CATALOGO,
 } from '../../src/client/render/escenario/catalogo.js';
 import { componer } from '../../src/client/render/escenario/colocar.js';
-import { Session } from '../../src/client/session.js';
+import { Session } from '../../src/client/sesion/partida.js';
 import { autoResolve } from '../../src/core/ai/tactics.js';
 import { causaDelFinal } from '../../src/core/battle/consultas.js';
 import { LADO_DEL_MAPA, LADO_MINIMO_DEL_GENERADOR } from '../../src/core/map/generar/plan.js';

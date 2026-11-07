@@ -1382,3 +1382,10 @@ fichero	src/client/views/morada.ts	src/client/partida/morada/panel.ts
 fichero	src/client/views/tropa.ts	src/client/partida/tropa/panel.ts	
 fichero	src/client/views/ayuntamiento.ts	src/client/partida/ayuntamiento/panel.ts	
 fichero	src/client/views/lugar.ts	src/client/partida/lugar/panel.ts	
+fichero	src/client/session.ts	src/client/sesion/partida.ts	
+fichero	src/client/tropa/vista.ts	src/client/sesion/vistas/tropa.ts	
+fichero	src/client/morada/vista.ts	src/client/sesion/vistas/morada.ts	
+fichero	src/client/ayuntamiento/vista.ts	src/client/sesion/vistas/ayuntamiento.ts	
+fichero	src/client/vista-de-la-marcha.ts	src/client/sesion/vistas/marcha.ts	
+fichero	src/client/lugar/sesion.ts	src/client/sesion/lugar.ts	
+fichero	src/client/dicho-del-puesto.ts	src/client/sesion/dichos.ts	

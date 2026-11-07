@@ -13,13 +13,13 @@
 import type { SitioId } from '@core/town/sitios.js';
 import type { FactionId } from '@core/types.js';
 import { disposicionDe } from '../../../shared/base.js';
-import type { VistaDeLaMorada } from '../../morada/vista.js';
 import { type EncuadreDeLaMorada, encuadrarLaMorada } from '../../render/base/fila.js';
 import { cajaDeFiguraEn } from '../../render/batalla.js';
 import { type CajaEn, type LienzoDePie, pintarDePie } from '../../render/figuras/de-pie.js';
 import type { LuzSobreLaFigura } from '../../render/figuras/figura.js';
 import type { Tablero } from '../../render/proyeccion.js';
-import { AYUDA_DE_LA_MORADA, type Session } from '../../session.js';
+import { AYUDA_DE_LA_MORADA, type Session } from '../../sesion/partida.js';
+import type { VistaDeLaMorada } from '../../sesion/vistas/morada.js';
 import { type DePie, EscenaDePie, type VistaDePie } from '../de-pie.js';
 
 /** La caja de cada figura de la morada con la cámara `t`: la de combate, sin hondo. */

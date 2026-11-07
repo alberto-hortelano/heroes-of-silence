@@ -213,22 +213,18 @@ import {
   type VistaAsaltante,
 } from '@core/types.js';
 import { cuerpoDe, unidadDelJuego } from '@core/unidad/catalogo.js';
-import { componerVistaDelAyuntamiento, type VistaDelAyuntamiento } from './ayuntamiento/vista.js';
-import { COMO_SE_COLOCA, type ColocacionEnPantalla } from './batalla/colocar.js';
-import { mensajeDe } from './comun/errores.js';
-import { quienesDe } from './comun/quien-mira.js';
-import { DICHO_DE_LA_OBRA } from './dicho-del-puesto.js';
-import { EnElLugar, type TrasElegir } from './lugar/sesion.js';
-import { componerVistaDeLaMorada, type VistaDeLaMorada } from './morada/vista.js';
-import type { VistaDeLaBase } from './render/base/escena.js';
-import { cuerpoDeLaPersona } from './render/figuras/cuerpo-de-gente.js';
-import { conLosDueñosSabidos, type SitioOcupado } from './render/mapa/sitios-sabidos.js';
-import { componerVistaDeLaTropa, mismoPortador, type VistaDeLaTropa } from './tropa/vista.js';
-import {
-  type NieblaDeAntes,
-  type NieblaDeLaMarcha,
-  nieblaDeLaMarcha,
-} from './vista-de-la-marcha.js';
+import { COMO_SE_COLOCA, type ColocacionEnPantalla } from '../batalla/colocar.js';
+import { mensajeDe } from '../comun/errores.js';
+import { quienesDe } from '../comun/quien-mira.js';
+import type { VistaDeLaBase } from '../render/base/escena.js';
+import { cuerpoDeLaPersona } from '../render/figuras/cuerpo-de-gente.js';
+import { conLosDueñosSabidos, type SitioOcupado } from '../render/mapa/sitios-sabidos.js';
+import { DICHO_DE_LA_OBRA } from './dichos.js';
+import { EnElLugar, type TrasElegir } from './lugar.js';
+import { componerVistaDelAyuntamiento, type VistaDelAyuntamiento } from './vistas/ayuntamiento.js';
+import { type NieblaDeAntes, type NieblaDeLaMarcha, nieblaDeLaMarcha } from './vistas/marcha.js';
+import { componerVistaDeLaMorada, type VistaDeLaMorada } from './vistas/morada.js';
+import { componerVistaDeLaTropa, mismoPortador, type VistaDeLaTropa } from './vistas/tropa.js';
 
 /**
  * Lo que dice la barra en el mapa la primera vez: al salir de la base en que
@@ -1772,7 +1768,7 @@ export class Session implements ControlDeBatalla {
 
   /**
    * El lugar de un mundo en que se está y la conversación abierta
-   * (`lugar/sesion.ts`): estado del cliente; lo que cambia la partida lo aplica
+   * (`sesion/lugar.ts`): estado del cliente; lo que cambia la partida lo aplica
    * esta sesión por su puerta (`aplicarEnElLugar`).
    */
   readonly lugar: EnElLugar = new EnElLugar(
@@ -2013,7 +2009,7 @@ export class Session implements ControlDeBatalla {
   /** Lo explorado por la persona, o `null` si se ha pedido verlo todo. */
   get explorado(): CasillasLeidas | null {
     if (this.revealAll) return null;
-    // Mientras el héroe anda, la niebla va con él (`vista-de-la-marcha.ts`).
+    // Mientras el héroe anda, la niebla va con él (`sesion/vistas/marcha.ts`).
     return this.laNieblaDeLaMarcha()?.explorado ?? this.jugador.fog;
   }
 
@@ -2254,7 +2250,7 @@ export class Session implements ControlDeBatalla {
   private marcha: {
     readonly enPantalla: MarchaEnPantalla;
     readonly alLlegar: () => void;
-    /** Lo que se veía al salir: lo que se pinta mientras anda (`vista-de-la-marcha.ts`). */
+    /** Lo que se veía al salir: lo que se pinta mientras anda (`sesion/vistas/marcha.ts`). */
     readonly antes: LoDeAntesDeLaMarcha;
     /** La niebla con el héroe en la casilla de su marcha que pisa ahora (`pisarEnLaMarcha`). */
     niebla: NieblaDeLaMarcha | null;
@@ -2375,7 +2371,7 @@ export class Session implements ControlDeBatalla {
     const desde = hero.at;
     const antes = this.state.log.length;
     // Lo que se ve antes de andar, por si la marcha se enseña: es lo que se pinta
-    // mientras anda (`vista-de-la-marcha.ts`).
+    // mientras anda (`sesion/vistas/marcha.ts`).
     const loDeAntes = this.enseñarLaMarcha ? this.loDeAntesDeLaMarcha(hero) : null;
     // Se manda el destino tal cual: el núcleo anda lo que dé el día y, si no
     // hay camino o no da ni un paso, lo dice él con su frase —quién cierra el
@@ -3469,7 +3465,7 @@ export class Session implements ControlDeBatalla {
   }
 
   /**
-   * Lo que se ve en la escena de la morada (`morada/vista.ts`), o `null` fuera de
+   * Lo que se ve en la escena de la morada (`sesion/vistas/morada.ts`), o `null` fuera de
    * ella. Se rehace cuando cambia algo que se ve (`version`: reclutar, el oro) o
    * a quién se mira, no en cada fotograma.
    */
@@ -3562,7 +3558,7 @@ export class Session implements ControlDeBatalla {
   }
 
   /**
-   * Lo que se ve en la escena del ayuntamiento (`ayuntamiento/vista.ts`), o `null`
+   * Lo que se ve en la escena del ayuntamiento (`sesion/vistas/ayuntamiento.ts`), o `null`
    * fuera de ella. Se rehace cuando cambia algo que se ve (`version`: el oro, el
    * turno, a quién se mira).
    */
@@ -3646,7 +3642,7 @@ export class Session implements ControlDeBatalla {
   }
 
   /**
-   * Lo que se ve en la escena de la tropa (`tropa/vista.ts`), o `null` fuera de
+   * Lo que se ve en la escena de la tropa (`sesion/vistas/tropa.ts`), o `null` fuera de
    * ella. Se rehace cuando cambia algo que se ve (`version`) o el turno, no en
    * cada fotograma.
    */
@@ -4266,8 +4262,9 @@ export type LadoDeSesion = LadoDeArena & { readonly ia: boolean };
  * unidad decide la persona o la IA. Las reglas son las del juego (`createBattle`),
  * las mismas para los dos lados.
  *
- * Vive aquí porque `session.ts` es la única puerta del cliente al núcleo —lo
- * vigila `invariantes.test.ts`—, y la arena aplica reglas igual que la partida.
+ * Vive aquí porque la sesión (`sesion/`) es la única puerta del cliente al núcleo
+ * —lo vigila `invariantes-cliente.test.ts`—, y la arena aplica reglas igual que la
+ * partida.
  * Qué bandos lleva la IA se decide al montar y no cambia. Cuál es el «bando de
  * la persona» se deriva de la unidad activa, porque la persona puede llevar los
  * dos lados.

@@ -51,7 +51,7 @@ import {
   esDeLoApuntado,
   loApuntadoEnCasilla,
   rechazoDelTanteo,
-} from '../session.js';
+} from '../sesion/partida.js';
 import { AVISO_DE_ESPERA } from '../views/panels.js';
 import { accionContra, golpeEnPixel } from './angulo.js';
 import { BattleAnimator, type CruceEnCurso } from './anim.js';

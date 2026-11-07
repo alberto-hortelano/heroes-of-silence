@@ -38,7 +38,7 @@ import {
 import { SEMIANCHO_DE_LA_HUELLA } from '../src/client/render/escenario/sendas.js';
 import { escenarioDe, pisada, topeDeAlejar } from '../src/client/render/escenario/superficie.js';
 import { centrarEn, mundoAPixel, TILE_INICIAL } from '../src/client/render/mapa/camara.js';
-import { Session } from '../src/client/session.js';
+import { Session } from '../src/client/sesion/partida.js';
 import { partidaDe } from './escena-de-prueba.js';
 import { conRespiro, rango, segunPrisa } from './lento.js';
 import { fueraDeSuBase } from './partida-de-prueba.js';
