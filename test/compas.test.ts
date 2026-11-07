@@ -13,7 +13,7 @@ import {
   MIRADA_DE_PRESENTACION,
   registrarUnidad,
 } from '../src/client/render/personajes.js';
-import { ALTO_DE_FIGURA } from '../src/client/render/proyeccion.js';
+import { ALTO_DE_FIGURA } from '../src/shared/arte.js';
 import { hojaDeLaArena } from './hojas-de-la-arena.js';
 
 /** Ids como los que se pintan de verdad: stacks, objetos del mapa, héroes, miniaturas. */

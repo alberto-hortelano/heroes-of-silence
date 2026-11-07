@@ -10,7 +10,7 @@
  * una.
  */
 import type { PlayerId } from '@core/types.js';
-import type { Plano } from '../../shared/base.js';
+import type { Plano } from '../../shared/arte.js';
 import {
   type CajaEn,
   type FiguraEnLaEscena,

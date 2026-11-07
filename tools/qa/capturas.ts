@@ -65,9 +65,8 @@ import {
   type Tablero,
   tableroPara,
 } from '../../src/client/render/proyeccion.js';
+import { anguloDe as anguloEnLaRueda, medidasDeLaRueda } from '../../src/client/rueda/disco.js';
 import {
-  anguloDe as anguloEnLaRueda,
-  medidasDeLaRueda,
   sitioEnLaRueda as sitioEnLaRuedaDe,
   teclaDe as teclaEnLaRueda,
 } from '../../src/client/rueda/rueda.js';
@@ -132,13 +131,8 @@ import type {
   AgentResponseMsg,
   ServerToAgentMsg,
 } from '../../src/server/protocol.js';
-import { COMPRESION_SUELO } from '../../src/shared/arte.js';
-import {
-  type Disposicion,
-  disposicionDe,
-  FONDO_DE_LA_FRANJA,
-  type Plano,
-} from '../../src/shared/base.js';
+import { COMPRESION_SUELO, type Plano } from '../../src/shared/arte.js';
+import { type Disposicion, disposicionDe, FONDO_DE_LA_FRANJA } from '../../src/shared/base.js';
 import { FICHEROS_DEL_CATALOGO, hojasDelTaller, leerCatalogo } from '../arena/borrador.js';
 import { cifrasCortadas } from './cifras-de-la-ficha.js';
 import {

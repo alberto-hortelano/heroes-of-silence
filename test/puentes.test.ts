@@ -30,7 +30,11 @@ import {
   puentesTapados,
   type Sprite,
 } from '../src/client/render/escenario/colocar.js';
-import { cajaDelHeroeEn, pieDeFigura } from '../src/client/render/escenario/figuras-del-mapa.js';
+import {
+  cajaDelHeroeEn,
+  PIES,
+  pieDeFigura,
+} from '../src/client/render/escenario/figuras-del-mapa.js';
 import {
   cajaDeSprite,
   Obstaculos,
@@ -57,7 +61,6 @@ import {
   pisada,
   topeDeAlejar,
 } from '../src/client/render/escenario/superficie.js';
-import { PIES } from '../src/client/render/mapa.js';
 import { Session } from '../src/client/session.js';
 import { primeraSemillaCon } from '../tools/comun/semillas.js';
 import { catalogoDelDisco, partidaDe, puenteSobreElAgua } from './escena-de-prueba.js';

@@ -7450,8 +7450,6 @@ function detrasDe(s: Sprite, delante: Sprite, antes = 0): Sprite {
   return claveDe(s) < claveDe(delante) ? s : ordenadoEn(s, claveDe(delante) - 0.01 - antes);
 }
 
-export type { Analisis };
-
 /**
  * Dónde hay luz y dónde niebla. Las ciudades y pueblos llevan su resplandor; la
  * lava, una brasa de cada tantas casillas; el agua y lo más bajo, jirones de

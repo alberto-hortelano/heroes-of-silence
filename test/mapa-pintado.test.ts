@@ -18,6 +18,7 @@ import {
   empezarFotogramaDeCopias,
   PIXELES_NUEVOS_POR_FOTOGRAMA,
 } from '../src/client/render/copias.js';
+import { PIES } from '../src/client/render/escenario/figuras-del-mapa.js';
 import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
 import { pintarSprite } from '../src/client/render/escenario/pintar.js';
 import {
@@ -41,7 +42,7 @@ import {
   topeDeAlejar,
   usarPintorDelSuelo,
 } from '../src/client/render/escenario/superficie.js';
-import { drawMapa, PIES, recortadoArriba } from '../src/client/render/mapa.js';
+import { drawMapa, recortadoArriba } from '../src/client/render/mapa.js';
 import { Session } from '../src/client/session.js';
 import { Casillas, type CasillasLeidas } from '../src/core/map/casillas.js';
 import { LADO_DEL_MAPA } from '../src/core/map/generar/plan.js';

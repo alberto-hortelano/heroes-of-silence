@@ -17,12 +17,11 @@
  * cabeza queda por debajo de los pies de los reclutas.
  */
 import type { SitioId } from '@core/town/sitios.js';
-import { COMPRESION_SUELO, MARGEN_ABAJO } from '../../../shared/arte.js';
+import { COMPRESION_SUELO, MARGEN_ABAJO, type Plano } from '../../../shared/arte.js';
 import {
   alaFranja,
   type Disposicion,
   FONDO_DE_LA_FRANJA,
-  type Plano,
   planoDelCuadro,
   TRAMO,
 } from '../../../shared/base.js';

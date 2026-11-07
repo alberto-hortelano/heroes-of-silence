@@ -14,7 +14,7 @@ import { BattleAnimator, DURACION, porElCamino } from '../src/client/anim.js';
 import { type Direccion, direccionHacia } from '../src/client/direccion.js';
 import { msPorCasilla } from '../src/client/marcha.js';
 import { arteDe, hojaDe, INDICE_DE_HOJA } from '../src/client/render/personajes.js';
-import { ALTO_DE_FIGURA, planoDeHex } from '../src/client/render/proyeccion.js';
+import { planoDeHex } from '../src/client/render/proyeccion.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { areAdjacent, hexEquals, hexKey } from '../src/core/battle/board.js';
 import { activeStack, isAlive, stackHexes } from '../src/core/battle/consultas.js';
@@ -24,7 +24,7 @@ import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
 import { createRng } from '../src/core/rng.js';
 import { hasTrait } from '../src/core/types.js';
-import { NOMBRES_DE_DIRECCION } from '../src/shared/arte.js';
+import { ALTO_DE_FIGURA, NOMBRES_DE_DIRECCION } from '../src/shared/arte.js';
 import { aCiegas } from './batalla-de-prueba.js';
 import { ejercito } from './partida-de-prueba.js';
 

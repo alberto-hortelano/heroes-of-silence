@@ -34,19 +34,18 @@ import {
 } from '../src/client/render/batalla.js';
 import { casillaAPixel, centrarEn, TILE_INICIAL } from '../src/client/render/camara-mapa.js';
 import { CUERPO_DE_VECINO } from '../src/client/render/cuerpo-de-gente.js';
+import { PIES } from '../src/client/render/escenario/figuras-del-mapa.js';
 import type { Volumen } from '../src/client/render/escenario/pintar.js';
 import {
   asientoDeLaInicial,
   type CuerpoDeFigura,
   fundirPorProfundidad,
-  PIES,
   pasosAPintar,
   SITIOS_DE_LA_INICIAL,
 } from '../src/client/render/mapa.js';
 import { dondeEsperaEnLaMorada } from '../src/client/render/morada/fila.js';
 import { COLOR_SIN_DUEÑO, MARCA_DE_COMANDANTE, playerColor } from '../src/client/render/palette.js';
 import {
-  ALTO_DE_FIGURA,
   centroDeStack,
   centroHex,
   enPantalla,
@@ -77,13 +76,8 @@ import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 import { building } from '../src/core/town/buildings.js';
 import type { Hex } from '../src/core/types.js';
 import type { Unidad } from '../src/core/unidad/formato.js';
-import {
-  bordeDeAtras,
-  type Disposicion,
-  disposicionDe,
-  enLaFranja,
-  type Plano,
-} from '../src/shared/base.js';
+import { ALTO_DE_FIGURA, type Plano } from '../src/shared/arte.js';
+import { bordeDeAtras, type Disposicion, disposicionDe, enLaFranja } from '../src/shared/base.js';
 import { primeraSemillaCon } from '../tools/comun/semillas.js';
 import {
   destinoDeHoy,

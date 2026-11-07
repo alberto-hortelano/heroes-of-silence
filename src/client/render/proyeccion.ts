@@ -18,16 +18,12 @@
 import { desplazamientoDeFila, EXTENSION_HORIZONTAL, isInside } from '@core/battle/board.js';
 import type { Hex } from '@core/types.js';
 import {
-  ALTO_DE_FIGURA,
   ALTO_DE_FILA,
   COMPRESION_SUELO,
   FONDO_DEL_COMBATE,
   MARGEN_ABAJO,
   type Plano,
 } from '../../shared/arte.js';
-
-export type { Plano };
-export { ALTO_DE_FIGURA, FONDO_DEL_COMBATE };
 
 export interface Tablero {
   /** Ancho de un hex en píxeles. */

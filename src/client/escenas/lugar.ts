@@ -15,14 +15,13 @@
  * va a hablar con alguien, a su lado (`dondeHablarEnElLugar`).
  */
 import { inicialDelNombre } from '@core/mundo/formato.js';
+import { ALTO_DE_FIGURA, type Mirada, type Plano } from '../../shared/arte.js';
 import {
   alaFranja,
   bordeDeAtras,
   type Disposicion,
   disposicionDelLugar,
   MARGEN_DE_LA_FRANJA,
-  type Mirada,
-  type Plano,
 } from '../../shared/base.js';
 import { porElCamino } from '../anim.js';
 import { direccionHacia } from '../direccion.js';
@@ -41,7 +40,7 @@ import {
 import { animarHasta } from '../render/figura.js';
 import { densidadDe } from '../render/lienzo.js';
 import { playerColor } from '../render/palette.js';
-import { ALTO_DE_FIGURA, enPantalla, pasoDeLaBase, type Tablero } from '../render/proyeccion.js';
+import { enPantalla, pasoDeLaBase, type Tablero } from '../render/proyeccion.js';
 import { AYUDA_DEL_LUGAR, type Session } from '../session.js';
 import { temaDelLienzo } from '../temas.js';
 import { PRISA_EN_LA_BASE, pulsaParaHablar } from './castillo.js';

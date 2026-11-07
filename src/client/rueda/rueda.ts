@@ -68,9 +68,6 @@ import {
 } from './disco.js';
 import { figuraDelContrincante } from './figuras.js';
 
-// Las medidas y el ángulo de cada sector se leen desde aquí (`pnpm capturas`, los tests).
-export { anguloDe, medidasDeLaRueda } from './disco.js';
-
 /**
  * Dónde va el «ⓘ» de cada sector del anillo: cerca del borde de fuera y a un
  * lado del centro, donde no pisa el rótulo: un tercio del ancho del sector (20°

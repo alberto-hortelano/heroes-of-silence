@@ -43,7 +43,7 @@ import {
 import { createRng, hashDeTexto } from '@core/rng.js';
 import { type ClimaDelSitio, DESPEJADO } from '@core/state/clima.js';
 import type { Hex, PlayerId } from '@core/types.js';
-import { ALTO_DE_FILA, COMPRESION_SUELO } from '../../shared/arte.js';
+import { ALTO_DE_FIGURA, ALTO_DE_FILA, COMPRESION_SUELO, type Plano } from '../../shared/arte.js';
 import { ALTO_DE_MURALLA, ESCALERA, PORTADA } from '../../shared/muralla-de-batalla.js';
 import type { Efecto, EstadoFigura } from '../anim.js';
 import { temaDelLienzo } from '../temas.js';
@@ -80,15 +80,7 @@ import {
 import { densidadDe } from './lienzo.js';
 import { COLOR_DE_COMANDANTE, COLOR_SIN_DUEÑO, MARCA_DE_COMANDANTE } from './palette.js';
 import { arteDe, hojaDe } from './personajes.js';
-import {
-  ALTO_DE_FIGURA,
-  centroHex,
-  enPantalla,
-  type Plano,
-  planoDeHex,
-  type Tablero,
-  verticesHex,
-} from './proyeccion.js';
+import { centroHex, enPantalla, planoDeHex, type Tablero, verticesHex } from './proyeccion.js';
 
 /** Los colores de los dos bandos: tiñen el Y Bot y pintan el aro. */
 export const COLOR_BANDO: Readonly<Record<Side, string>> = {
@@ -1246,9 +1238,6 @@ interface EstiloDeCasilla {
   readonly ancho: number;
   readonly trazo: string;
 }
-
-/** Lo que mide una columna de la muralla, en pasos (`shared/muralla-de-batalla.ts`). */
-export { ALTO_DE_MURALLA };
 
 /**
  * Los pasos que el tablero pide de más encima de su fila de atrás para que lo

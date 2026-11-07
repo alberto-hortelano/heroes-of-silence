@@ -24,6 +24,7 @@ import {
   FIGURA,
   pisablesTapadas,
 } from '../src/client/render/escenario/figuras.js';
+import { PIES } from '../src/client/render/escenario/figuras-del-mapa.js';
 import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
 import {
   type DeNodo,
@@ -31,7 +32,6 @@ import {
   seVeConSuNodo,
 } from '../src/client/render/escenario/puestos.js';
 import { claveDeFigura, escenarioDe, pisada } from '../src/client/render/escenario/superficie.js';
-import { PIES } from '../src/client/render/mapa.js';
 import { catalogoDelDisco, partidaDe } from './escena-de-prueba.js';
 import { LENTO, rango } from './lento.js';
 

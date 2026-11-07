@@ -21,13 +21,8 @@
  */
 import { abreAmpliar, moradaEn, type SitioId } from '@core/town/sitios.js';
 import type { FactionId } from '@core/types.js';
-import {
-  alaFranja,
-  type Disposicion,
-  disposicionDe,
-  type Mirada,
-  type Plano,
-} from '../../shared/base.js';
+import { ALTO_DE_FIGURA, type Mirada, type Plano } from '../../shared/arte.js';
+import { alaFranja, type Disposicion, disposicionDe } from '../../shared/base.js';
 import { porElCamino } from '../anim.js';
 import { direccionHacia } from '../direccion.js';
 import { msPorCasilla } from '../marcha.js';
@@ -46,7 +41,7 @@ import { animarHasta } from '../render/figura.js';
 import { densidadDe } from '../render/lienzo.js';
 import { dondeEsperaEnLaMorada } from '../render/morada/fila.js';
 import { playerColor } from '../render/palette.js';
-import { ALTO_DE_FIGURA, pasoDeLaBase, type Tablero } from '../render/proyeccion.js';
+import { pasoDeLaBase, type Tablero } from '../render/proyeccion.js';
 import { AYUDA_DE_LA_BASE, type Session } from '../session.js';
 import type { ClimaDeLaFila } from './morada.js';
 

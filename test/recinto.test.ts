@@ -18,6 +18,7 @@ import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import { type CatalogoEnBruto, catalogoValidado } from '../src/client/render/escenario/catalogo.js';
 import { modulosDelRecinto } from '../src/client/render/escenario/colocar.js';
+import { PIES } from '../src/client/render/escenario/figuras-del-mapa.js';
 import { contornoDeLaPlaza } from '../src/client/render/escenario/huella.js';
 import { type ConImagen, pasilloDe } from '../src/client/render/escenario/pasillo.js';
 import {
@@ -61,7 +62,6 @@ import {
   vanoDelArco,
 } from '../src/client/render/escenario/recinto.js';
 import { SEMIANCHO_DE_LA_HUELLA, type Senda } from '../src/client/render/escenario/sendas.js';
-import { PIES } from '../src/client/render/mapa.js';
 import { recintoDeLaCiudad } from '../src/core/map/recinto.js';
 import { FRANJAS_DEL_PERFIL, siluetaDeModulo } from '../tools/taller/derivar.js';
 import { catalogoDelDisco, recta } from './escena-de-prueba.js';

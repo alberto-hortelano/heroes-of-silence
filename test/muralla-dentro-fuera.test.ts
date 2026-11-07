@@ -11,7 +11,6 @@ import { renderMuralla } from '../src/client/arena/paneles.js';
 import { EscenaBatalla } from '../src/client/escenas/batalla.js';
 import { marcadoDe } from '../src/client/html.js';
 import {
-  ALTO_DE_MURALLA,
   alzadoDeLaMuralla,
   cajaDeFigura,
   type PiezaDelTablero,
@@ -32,6 +31,7 @@ import type { BattleStack, BattleState, MurallaDeBatalla } from '../src/core/bat
 
 import { createRng } from '../src/core/rng.js';
 import type { Hex } from '../src/core/types.js';
+import { ALTO_DE_MURALLA } from '../src/shared/muralla-de-batalla.js';
 import { empezarTalCual, sesionDeArena } from './batalla-de-cliente.js';
 import { abrirPuertas, muralla } from './batalla-de-prueba.js';
 import { PESADA, TIRADOR, TROPA } from './comun.js';

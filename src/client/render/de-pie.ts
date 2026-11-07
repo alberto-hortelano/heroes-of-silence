@@ -12,8 +12,7 @@
  * a la de detrás. La elegida lleva el aro dorado grueso y la que señala el ratón,
  * el fino, en los pies.
  */
-import { COMPRESION_SUELO, FIGURA } from '../../shared/arte.js';
-import type { Plano } from '../../shared/base.js';
+import { COMPRESION_SUELO, FIGURA, type Plano } from '../../shared/arte.js';
 import {
   type CajaDeFigura,
   cajaDeFiguraEn,

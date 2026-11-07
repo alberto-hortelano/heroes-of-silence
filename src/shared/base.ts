@@ -44,8 +44,6 @@ import {
   type Plano,
 } from './arte.js';
 
-export type { Mirada, Plano };
-
 /**
  * Lo que mide de fondo la franja por la que se camina: la mitad de la rejilla
  * de combate (`FONDO_DEL_COMBATE`, 6,93 pasos), a medio paso: 3,5. Con la mitad

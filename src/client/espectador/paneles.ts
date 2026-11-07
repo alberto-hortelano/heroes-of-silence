@@ -31,20 +31,6 @@ import {
 } from '../views/panels.js';
 import { adaptarBatalla } from './adaptar.js';
 
-/**
- * Quien mira no es ningún jugador, así que no tiene un «tú».
- *
- * `renderLog` escribe «Tú» para los hechos de `viewer`; con un id que no es de
- * nadie la crónica entera se lee en tercera persona —«El jugador 0 construye…»—,
- * que es lo correcto para quien ve la partida desde fuera. Lo mismo hace el parte
- * de guerra con `mio: null`: sin bando propio no pinta victorias ni derrotas.
- *
- * Se re-exporta y no se declara: el dueño es `desenlace.ts`, que es el único
- * sitio donde «no tienes bando» y «no es tu bando» dan respuestas distintas.
- * Declararlo aquí y compararlo allí eran dos `-1` que nadie comparaba.
- */
-export { NADIE };
-
 /** Cómo terminó la partida, tal y como llega en el snapshot. */
 export interface FinDePartida {
   readonly winner: number | null;

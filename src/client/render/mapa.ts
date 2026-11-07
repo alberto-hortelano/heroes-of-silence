@@ -646,9 +646,6 @@ function fuegosDe(esc: Escenario): readonly { x: number; y: number; r: number }[
  */
 const MARGEN_DE_COSA: Margen = { lados: 2, arriba: 2, abajo: 2 };
 
-/** Dónde apoya los pies cada figura (`escenario/figuras.ts`, que lee también la escena). */
-export { PIES };
-
 /**
  * Dónde se ordena el rombo de un lugar: por detrás de quien está en él. Con el pie
  * de lo suelto tapaba al héroe y solo se veía su chapa (H4 del QA de la F1a); el

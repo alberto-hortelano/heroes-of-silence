@@ -31,11 +31,12 @@ import { nivelDe } from '@core/battle/muralla.js';
 import type { HechoDelCruce } from '@core/battle/rueda.js';
 import type { BattleEvent, BattleStack, BattleState, StackEffect } from '@core/battle/types.js';
 import type { Hex } from '@core/types.js';
+import { ALTO_DE_FIGURA, type Plano } from '../shared/arte.js';
 import { type Direccion, direccionHacia } from './direccion.js';
 import { msDeSuelta, msPorCasilla } from './marcha.js';
 import type { CharacterClip } from './render/character.js';
 import { type ArteDeFigura, arteDe } from './render/personajes.js';
-import { ALTO_DE_FIGURA, centroDeStack, type Plano, planoDeHex } from './render/proyeccion.js';
+import { centroDeStack, planoDeHex } from './render/proyeccion.js';
 
 /**
  * Lo que dura en pantalla cada paso de la cola, en milisegundos. El de andar no

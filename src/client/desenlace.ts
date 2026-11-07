@@ -24,6 +24,15 @@ import type { PlayerId } from '@core/types.js';
  * Quien mira sin llevar bando. **No es el id de nadie**: es el hueco donde iría
  * uno, y por eso `quienesDe` lo convierte a propósito en «nadie» en vez de dejar
  * que caiga por el `!==` de un ganador.
+ *
+ * Es el `viewer` del espectador, que no tiene un «tú»: `renderLog` escribe «Tú»
+ * para los hechos de `viewer`, y con un id que no es de nadie la crónica entera se
+ * lee en tercera persona —«El jugador 0 construye…»—, que es lo correcto para
+ * quien ve la partida desde fuera. Lo mismo hace el parte de guerra con `mio:
+ * null`: sin bando propio no pinta victorias ni derrotas. (El espectador lo
+ * reexportaba hasta la fase C de la reorganización, 07-11-2026: ahora lo importa
+ * de aquí, que es el único sitio donde «no tienes bando» y «no es tu bando» dan
+ * respuestas distintas.)
  */
 export const NADIE = -1;
 

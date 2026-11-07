@@ -42,7 +42,6 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import sharp, { type OverlayOptions } from 'sharp';
-import { ALTO_DE_FIGURA } from '../../src/client/render/proyeccion.js';
 import {
   SITIOS,
   type SitioId,
@@ -51,6 +50,7 @@ import {
   sitiosDeLaBase,
 } from '../../src/core/town/sitios.js';
 import type { FactionId } from '../../src/core/types.js';
+import { ALTO_DE_FIGURA } from '../../src/shared/arte.js';
 import {
   columnasALaVista,
   type Disposicion,
