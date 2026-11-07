@@ -14,6 +14,7 @@
  * media prueba, `s.state = …`), así que una pieza que copiara algo al nacer lo tendría
  * sin poner o viejo.
  */
+import type { Desenlace } from '@core/state/desenlace.js';
 import type { GameContext, GameState, Player } from '@core/state/tipos.js';
 import type { Town } from '@core/town/town.js';
 import type { Hero, PlayerId, Point } from '@core/types.js';
@@ -59,6 +60,10 @@ export interface DueñoDeLasPiezas {
   oro(): number;
   /** El jugador de la persona (`Session.jugador`): su oro y su niebla. */
   jugador(): Player;
+  /** Los héroes de la persona (`Session.myHeroes`). */
+  misHeroes(): readonly Hero[];
+  /** Cómo acabó la partida para quien mira (`Session.desenlace`), o `null` si sigue viva. */
+  desenlace(): Desenlace | null;
   /** El héroe elegido (`Session.selectedHero`), o `null`. */
   heroeSeleccionado(): Hero | null;
   /** Elige al héroe `id` (`Session.selectedHeroId`: suelta la pieza elegida y sube la versión). */

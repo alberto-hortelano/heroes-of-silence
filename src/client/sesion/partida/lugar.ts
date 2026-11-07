@@ -148,6 +148,17 @@ export class EnElLugar {
     this.dueño.barra(AYUDA_DEL_LUGAR);
   }
 
+  /**
+   * Vuelve a la escena del lugar donde está el héroe `heroId` tras una batalla en él, ya en
+   * su estado nuevo (P-d del usuario): sin otra apertura (`abrir`, sin `deNuevo`). Lo pide
+   * el cierre de la batalla (`CierreDeLaBatalla`).
+   */
+  volver(heroId: string): void {
+    this.abrir(heroId, false);
+    this.dueño.irA('lugar');
+    this.dueño.barra(AYUDA_DEL_LUGAR);
+  }
+
   /** Sale del lugar al mapa, con la ayuda del mapa en la barra (M8 de la vuelta 2: quedaba en blanco). */
   salir(): void {
     this.cerrar();
