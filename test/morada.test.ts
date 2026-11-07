@@ -35,9 +35,9 @@ import { armaduraDe } from '../src/core/battle/armas.js';
 import { pieza } from '../src/core/equipo/pieza.js';
 import { hechizo } from '../src/core/magia/catalogo.js';
 import { nombreDelPoder } from '../src/core/magia/dicho.js';
+import { conMiles } from '../src/core/texto.js';
 import { construidoEn, sitioDeEdificio, sitiosDeLaBase } from '../src/core/town/sitios.js';
 import {
-  conMiles,
   FACTION_IDS,
   type FactionId,
   HUECOS,

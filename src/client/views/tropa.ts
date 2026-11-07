@@ -7,7 +7,8 @@
  * el motivo del núcleo (`tropa/vista.ts`), y el motivo va **escrito debajo**, no
  * en un `title`: en el móvil no hay ratón que lo enseñe.
  */
-import { conMiles, NOMBRE_DE_HUECO } from '@core/types.js';
+import { conMiles } from '@core/texto.js';
+import { NOMBRE_DE_HUECO } from '@core/types.js';
 import { COMO_SE_COLOCA } from '../escenas/despliegue.js';
 import { DESHABILITADO, type Html, html, NADA, unir } from '../html.js';
 import type { FichaDeLaTropa, HuecoDeLaFicha, VistaDeLaTropa } from '../tropa/vista.js';

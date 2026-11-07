@@ -57,7 +57,7 @@ import {
   type Side,
   type StackEffect,
 } from '@core/battle/types.js';
-import { conSigno, modificadoresDePieza, textoDeModificador } from '@core/equipo/dicho.js';
+import { modificadoresDePieza, textoDeModificador } from '@core/equipo/dicho.js';
 import type { Pieza } from '@core/equipo/pieza.js';
 import { PIEZAS_DE_ARMERIA, pieza } from '@core/equipo/pieza.js';
 import { destinoDeEquipo } from '@core/equipo/portador.js';
@@ -74,6 +74,7 @@ import { buyBlocker } from '@core/state/equipar.js';
 import type { DefeatReason, GameEventDraft } from '@core/state/events.js';
 import type { RentaDelDia } from '@core/state/renta.js';
 import { delSitio, guarnicionDeLaCiudad, nombreDelSitio, type Sitio } from '@core/state/sitios.js';
+import { conMiles, conSigno, describirCoste } from '@core/texto.js';
 import { building } from '@core/town/buildings.js';
 import { ECONOMIA } from '@core/town/economia.js';
 import {
@@ -85,7 +86,7 @@ import {
   townSpells,
 } from '@core/town/town.js';
 import type { Army, Point, UnitInfo } from '@core/types.js';
-import { conMiles, describirCoste, type Hero, HUECOS, NOMBRE_DE_HUECO } from '@core/types.js';
+import { type Hero, HUECOS, NOMBRE_DE_HUECO } from '@core/types.js';
 import { unidadDelJuego } from '@core/unidad/catalogo.js';
 import { nivelDeUnidad } from '@core/unidad/nivel.js';
 import { disposicionDe } from '../../shared/base.js';

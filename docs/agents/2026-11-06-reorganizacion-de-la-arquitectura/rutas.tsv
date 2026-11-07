@@ -1278,3 +1278,9 @@ simbolo	src/core/ai/strategy.ts	(retirado)	distanciaAprox, privada (→ chebyshe
 simbolo	src/core/battle/muralla.ts	src/core/battle/board.ts	distanciasDesde, la privada de la muralla (→ distanciasDesde del tablero; N12)
 simbolo	src/core/state/sitios.ts	src/core/state/consultas.ts	castilloSuyoDelHeroe
 simbolo	src/core/state/sitios.ts	src/core/hero/troop.ts	porTipo, privada (→ contarPorTipo, exportada: la lee también mundo/lectura.ts; N12)
+simbolo	src/core/types.ts	src/core/texto.ts	describirCoste
+simbolo	src/core/types.ts	src/core/texto.ts	enumerar
+simbolo	src/core/types.ts	src/core/texto.ts	conMiles
+simbolo	src/core/types.ts	src/core/texto.ts	conComa
+simbolo	src/core/equipo/dicho.ts	src/core/texto.ts	conSigno
+simbolo	src/core/battle/salida.ts	src/core/texto.ts	unaOVarias, privada (→ conPlural, exportada; N12)

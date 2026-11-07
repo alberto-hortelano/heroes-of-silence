@@ -19,10 +19,10 @@ import {
   validarPieza,
 } from '../equipo/pieza.js';
 import { idsPuestos } from '../equipo/vestir.js';
+import { describirCoste } from '../texto.js';
 import {
   type CifraDePieza,
   camposDelHueco,
-  describirCoste,
   type Equipo,
   type Hueco,
   type HuecoDePieza,

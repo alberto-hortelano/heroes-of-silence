@@ -16,11 +16,11 @@ import { pieza } from '@core/equipo/pieza.js';
 import { hechizo } from '@core/magia/catalogo.js';
 import { nombreDelPoder } from '@core/magia/dicho.js';
 import type { RecruitCapacity } from '@core/state/consultas.js';
+import { describirCoste } from '@core/texto.js';
 import { building } from '@core/town/buildings.js';
 import { moradaEn, type SitioId } from '@core/town/sitios.js';
 import { recruitCost, type Town } from '@core/town/town.js';
 import {
-  describirCoste,
   type FactionId,
   HUECOS,
   type Hueco,

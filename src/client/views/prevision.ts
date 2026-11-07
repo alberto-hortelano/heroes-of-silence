@@ -15,7 +15,7 @@ import type {
   PrevisionDeLanzar,
 } from '@core/battle/prevision.js';
 import { type LibroDeHechizos, nombreDeHechizo } from '@core/magia/catalogo.js';
-import { conComa } from '@core/types.js';
+import { conComa } from '@core/texto.js';
 
 /** Un número con coma decimal y dos decimales como mucho. */
 function decimal(n: number): string {

@@ -13,6 +13,7 @@
  *
  * Vivía en `battle.ts` hasta la fase N de la reorganización (07-11-2026).
  */
+import { conPlural } from '../texto.js';
 import type { Hex, UnitInfo } from '../types.js';
 import { cargasDe, isShooter, lanzaGranadas, mismoTiro } from './armas.js';
 import {
@@ -127,7 +128,7 @@ export function lanzarBlocker(state: BattleState, at?: Hex): string | null {
   const alcance = alcanceDeLaGranada(s.unit);
   const d = hexDistance(s.hex, at);
   if (d > alcance) {
-    return `${s.unit.name} lanza hasta ${alcance} ${alcance === 1 ? 'casilla' : 'casillas'} (su fuerza), y (${at.col},${at.row}) está a ${d}`;
+    return `${s.unit.name} lanza hasta ${conPlural(alcance, 'casilla')} (su fuerza), y (${at.col},${at.row}) está a ${d}`;
   }
   return null;
 }

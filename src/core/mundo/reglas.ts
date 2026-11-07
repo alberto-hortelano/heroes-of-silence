@@ -19,8 +19,9 @@ import { heroLeadership, troopBlocker, withTroops } from '../hero/troop.js';
 import { pointKey } from '../map/geometria.js';
 import { playerById, turnBlocker } from '../state/consultas.js';
 import type { GameState } from '../state/tipos.js';
+import { conMiles, describirCoste } from '../texto.js';
 import { oroBlocker } from '../town/town.js';
-import { conMiles, describirCoste, type Hero, NOMBRE_DE_FACCION, type Point } from '../types.js';
+import { type Hero, NOMBRE_DE_FACCION, type Point } from '../types.js';
 import { unidadDelJuego } from '../unidad/catalogo.js';
 import {
   batallaDe,

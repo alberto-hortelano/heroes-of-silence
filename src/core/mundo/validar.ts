@@ -36,6 +36,7 @@ import { isEnterable, terrainAt } from '../map/map.js';
 import { FUERA, pasosDelMapa, queEsElObjeto } from '../map/recinto.js';
 import { regionDeCasilla } from '../map/regiones.js';
 import type { GameMap } from '../map/tipos.js';
+import { conPlural } from '../texto.js';
 import { FACTION_IDS, type FactionId, type Point } from '../types.js';
 import { problemasDeGrupo } from '../unidad/catalogo.js';
 import {
@@ -312,7 +313,7 @@ export function leerMundo(crudos: CrudosDelMundo, idEsperado: string, banco: Ban
   const { problemas, leido } = juzgarMundo(crudos, idEsperado, banco);
   if (leido === null) {
     throw new Error(
-      `el mundo "${idEsperado}" no se puede jugar (${problemas.length} problema${problemas.length === 1 ? '' : 's'}):\n- ${problemas.join('\n- ')}`,
+      `el mundo "${idEsperado}" no se puede jugar (${conPlural(problemas.length, 'problema')}):\n- ${problemas.join('\n- ')}`,
     );
   }
   return leido;

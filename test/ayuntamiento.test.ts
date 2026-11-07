@@ -13,9 +13,9 @@ import { dondePulsarElSitio } from '../src/client/render/base/recortes.js';
 import { AYUDA_DE_LA_SALIDA, Session } from '../src/client/session.js';
 import { renderActions, renderSide } from '../src/client/views/panels.js';
 import { figuraDelHeroe, tipoDeHeroePorDefecto } from '../src/core/hero/tipos-de-heroe.js';
+import { describirCoste } from '../src/core/texto.js';
 import { ECONOMIA } from '../src/core/town/economia.js';
 import { oroBlocker } from '../src/core/town/town.js';
-import { describirCoste } from '../src/core/types.js';
 import { disposicionDe } from '../src/shared/base.js';
 
 /** La persona con el héroe de salida por elegir, en su base, como abre `main.ts` sin `?heroe=`. */

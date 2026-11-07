@@ -10,10 +10,10 @@
  * escribe el núcleo (`buildBlocker`). Las acciones salen por `data-action` y las
  * reparte `main.ts`, como todos los botones.
  */
+import { describirCoste } from '@core/texto.js';
 import { building } from '@core/town/buildings.js';
 import { construidoEn, moradaEn, SITIOS, type SitioId, siguienteDe } from '@core/town/sitios.js';
 import { buildBlocker, type Town } from '@core/town/town.js';
-import { describirCoste } from '@core/types.js';
 import type { Abierto } from '../escenas/castillo.js';
 import { DESHABILITADO, type Html, html, NADA, unir } from '../html.js';
 import type { Session } from '../session.js';

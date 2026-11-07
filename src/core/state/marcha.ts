@@ -28,7 +28,8 @@ import {
 import { muroBlocker } from '../map/recinto.js';
 import { type Barrera, NOMBRE_DE_BARRERA } from '../map/terrain.js';
 import type { GameMap } from '../map/tipos.js';
-import { enumerar, type Hero, type PlayerId, type Point } from '../types.js';
+import { enumerar } from '../texto.js';
+import type { Hero, PlayerId, Point } from '../types.js';
 import {
   casillasPeligrosas,
   dejarAsaltante,

@@ -13,8 +13,8 @@
  * Solo importa `types.ts`: lo leen `nivel.ts` (los pesos del índice, con la rueda
  * de referencia) y `cifras-de-la-rueda.ts`, que `rueda.ts` no puede ser.
  */
+import { enumerar } from '../texto.js';
 import {
-  enumerar,
   esTipoDeGolpe,
   type NivelesDeLaRueda,
   TIPOS_DEL_ANILLO,

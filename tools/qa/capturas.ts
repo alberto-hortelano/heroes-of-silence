@@ -114,15 +114,10 @@ import { pasosDeLaPatrulla } from '../../src/core/state/asaltantes.js';
 import { baseOf, heroesOf } from '../../src/core/state/consultas.js';
 import { faccionesDeLaSemilla } from '../../src/core/state/setup.js';
 import { visibleNow } from '../../src/core/state/vision.js';
+import { describirCoste } from '../../src/core/texto.js';
 import { ECONOMIA } from '../../src/core/town/economia.js';
 import type { SitioId } from '../../src/core/town/sitios.js';
-import {
-  describirCoste,
-  FACTION_IDS,
-  type FactionId,
-  type Hex,
-  type Point,
-} from '../../src/core/types.js';
+import { FACTION_IDS, type FactionId, type Hex, type Point } from '../../src/core/types.js';
 import { UNIDADES, unidad, unidadDelJuego } from '../../src/core/unidad/catalogo.js';
 import {
   RUTA_DEL_CATALOGO_DE_UNIDADES,

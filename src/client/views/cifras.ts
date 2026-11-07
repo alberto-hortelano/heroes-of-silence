@@ -4,7 +4,8 @@
  * morada (`views/morada.ts`), para que una unidad se lea igual al reclutarla que
  * al repartirle equipo.
  */
-import { conMiles, SPEED_TO_HEXES, type UnitInfo } from '@core/types.js';
+import { conMiles } from '@core/texto.js';
+import { SPEED_TO_HEXES, type UnitInfo } from '@core/types.js';
 import { type Html, html, NADA } from '../html.js';
 
 /** Una fila de la ficha: el rótulo a la izquierda y el valor (texto, o marcado con su nota) a la derecha. */

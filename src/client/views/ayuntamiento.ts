@@ -10,7 +10,8 @@
  * morada: en el móvil no hay ratón que enseñe un `title`.
  */
 import { BARRERAS, NOMBRE_DE_BARRERA } from '@core/map/terrain.js';
-import { type Army, describirCoste, enumerar, NOMBRE_DE_RASGO } from '@core/types.js';
+import { describirCoste, enumerar } from '@core/texto.js';
+import { type Army, NOMBRE_DE_RASGO } from '@core/types.js';
 import type { FichaDelAyuntamiento } from '../ayuntamiento/vista.js';
 import { DESHABILITADO, type Html, html, NADA, srcDeImagen } from '../html.js';
 import type { Session } from '../session.js';

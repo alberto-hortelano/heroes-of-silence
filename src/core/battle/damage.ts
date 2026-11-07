@@ -8,7 +8,8 @@
  */
 
 import type { Rng } from '../rng.js';
-import { conComa, type GolpeConArma, hasTrait, type UnitInfo, type UsoDeArma } from '../types.js';
+import { conComa } from '../texto.js';
+import { type GolpeConArma, hasTrait, type UnitInfo, type UsoDeArma } from '../types.js';
 import { danioConLosEfectos } from '../unidad/cuerpo.js';
 import { indiceDePoder } from '../unidad/nivel.js';
 import {

@@ -20,6 +20,7 @@
 
 import { dichoDeImpide } from '../magia/dicho.js';
 import type { CuandoSalta, Impedible } from '../magia/formato.js';
+import { conPlural } from '../texto.js';
 import type { BattleStack } from './types.js';
 import {
   CIFRAS_DE_EFECTO,
@@ -176,7 +177,7 @@ export function cifraDeEfecto(kind: EffectKind, amount: number): string {
  * la ficha del héroe de la arena, que decía «1 rondas» (H5 de QA del banco).
  */
 export function enRondas(n: number): string {
-  return `${n} ${n === 1 ? 'ronda' : 'rondas'}`;
+  return conPlural(n, 'ronda');
 }
 
 /** Cuándo salta un disparador, en corto: la pastilla (el entero va en su nota). */

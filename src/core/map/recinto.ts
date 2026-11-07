@@ -35,6 +35,7 @@
  * puente, `rioAnteLaCiudad`): el acceso de su puerta del río. Hasta la fase 2
  * la ciudad estaba en el río y el recinto tierra adentro.
  */
+import { enumerar } from '../texto.js';
 import type { Point } from '../types.js';
 import { chebyshev, inBounds } from './geometria.js';
 import { isWalkable, type TerrainKind } from './terrain.js';
@@ -493,8 +494,7 @@ const laPuerta = (cara: CaraDeLaPuerta): string =>
 /** Las puertas de una lista, dichas: «la del norte y la del sureste». */
 function dichasLasPuertas(puertas: readonly PuertaDeLaCiudad[]): string {
   const nombres = puertas.map((p) => NOMBRE_DE_CARA[p.cara] + (p.delRio ? ', la del puente' : ''));
-  if (nombres.length <= 1) return nombres[0] ?? 'ninguna';
-  return `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`;
+  return nombres.length === 0 ? 'ninguna' : enumerar(nombres);
 }
 
 /**

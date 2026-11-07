@@ -20,7 +20,8 @@
  * preguntan aquí.
  */
 
-import { enumerar, type Hero, hasTrait } from '../types.js';
+import { enumerar } from '../texto.js';
+import { type Hero, hasTrait } from '../types.js';
 import { unidadDelJuego } from '../unidad/catalogo.js';
 import { nombreDeTipoDeHeroe, tipoSeInfiltra } from './tipos-de-heroe.js';
 

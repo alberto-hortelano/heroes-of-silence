@@ -16,6 +16,7 @@
  * (`casillasDeMuro`), no como muralla, para que `muralla.ts` pueda importarla sin
  * un ciclo.
  */
+import { conPlural } from '../texto.js';
 import type { Hex } from '../types.js';
 import { COLUMNAS_DE_SALIDA, espejo, hexKey, isInside } from './board.js';
 import type { Side } from './types.js';
@@ -71,12 +72,7 @@ export function salidaDe(
  */
 export function noCabenEnLaSalida(huecos: number, side: Side, cuantos: number): string {
   const lado = side === 'attacker' ? 'la izquierda' : 'la derecha';
-  return `la muralla deja ${unaOVarias(huecos, 'casilla')} de salida a ${lado} y ${haceFalta(cuantos)}`;
-}
-
-/** «1 casilla», «0 casillas», «3 casillas»: QA vio «deja 1 filas de salida» (M6). */
-function unaOVarias(n: number, palabra: string): string {
-  return `${n} ${palabra}${n === 1 ? '' : 's'}`;
+  return `la muralla deja ${conPlural(huecos, 'casilla')} de salida a ${lado} y ${haceFalta(cuantos)}`;
 }
 
 function haceFalta(n: number): string {

@@ -6,6 +6,7 @@
  * Era parte de `hero/equipo.ts`, repartido en `equipo/` en la fase N de la
  * reorganización (07-11-2026); qué es el equipo y dónde vive, en `vestir.ts`.
  */
+import { conPlural, conSigno } from '../texto.js';
 import {
   CIFRAS_DE_PIEZA,
   type CifraDePieza,
@@ -108,13 +109,8 @@ const DICHO_DE_LA_MARCA: Readonly<
  */
 export function dichoDelTiro(t: TiroDelGolpe): string {
   return t.kind === 'fuego'
-    ? `arma de fuego: perfora la armadura, recarga ${t.recarga} ${t.recarga === 1 ? 'turno' : 'turnos'}`
+    ? `arma de fuego: perfora la armadura, recarga ${conPlural(t.recarga, 'turno')}`
     : `granada: ${t.cargas} por batalla`;
-}
-
-/** Un número con su signo siempre: «+2», «−1» (el menos tipográfico), «+0». */
-export function conSigno(n: number): string {
-  return n < 0 ? `−${-n}` : `+${n}`;
 }
 
 /**

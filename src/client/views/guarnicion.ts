@@ -25,7 +25,7 @@
 import type { TroopGroup } from '@core/hero/troop.js';
 import { OBRAS_DE_UN_PUESTO } from '@core/map/tipos.js';
 import type { LadoDelReparto, LaObraDelPuesto } from '@core/state/sitios.js';
-import { describirCoste } from '@core/types.js';
+import { describirCoste } from '@core/texto.js';
 import { DICHO_DE_LA_OBRA, SE_VE_EN_EL_PUESTO } from '../dicho-del-puesto.js';
 import { type Html, html, NADA, unir } from '../html.js';
 import type { VistaDeLaDefensa, VistaDeLaGuarnicion } from '../session.js';

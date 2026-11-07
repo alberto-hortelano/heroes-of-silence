@@ -20,6 +20,7 @@
  */
 import { motivoDeLinea } from '../linea.js';
 import { hashDeTexto } from '../rng.js';
+import { conPlural } from '../texto.js';
 import type { FactionId } from '../types.js';
 import { deLaListaBlocker, esIdDeUnidad, esObjeto, problemasDeObjeto } from '../validar.js';
 
@@ -343,7 +344,7 @@ export function leerBanco(crudo: unknown): Banco {
   const problemas = problemasDelBanco(crudo);
   if (problemas.length > 0) {
     throw new Error(
-      `el banco de figuras de NPC no vale (${problemas.length} problema${problemas.length === 1 ? '' : 's'}):\n- ${problemas.join('\n- ')}`,
+      `el banco de figuras de NPC no vale (${conPlural(problemas.length, 'problema')}):\n- ${problemas.join('\n- ')}`,
     );
   }
   const { figuras } = crudo as { figuras: FiguraDeNpc[] };

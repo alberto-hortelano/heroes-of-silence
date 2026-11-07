@@ -28,9 +28,8 @@
  * `battle.ts` ni sus piezas; lo leen el motor (`applyAction`, `melee`, el daño), la IA
  * (`ai/rueda.ts`), las sesiones y la rueda del cliente.
  */
-import { conSigno } from '../equipo/dicho.js';
+import { conComa, conSigno } from '../texto.js';
 import {
-  conComa,
   esTipoDeGolpe,
   type NivelesDeLaRueda,
   TIPOS_DEL_ANILLO,

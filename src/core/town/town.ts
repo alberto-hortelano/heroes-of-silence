@@ -2,8 +2,8 @@
 
 import { hechizosDelGremio } from '../magia/catalogo.js';
 import type { Hechizo } from '../magia/formato.js';
+import { conMiles, describirCoste } from '../texto.js';
 import type { FactionId, PlayerId, Point } from '../types.js';
-import { conMiles, describirCoste } from '../types.js';
 import { unidadDelJuego, unidadesDeMorada } from '../unidad/catalogo.js';
 import { building, buildingIfExists, buildingsOfFaction, prebuiltBuildings } from './buildings.js';
 

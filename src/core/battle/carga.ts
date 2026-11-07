@@ -10,6 +10,7 @@
  * por debajo de la recta más corta no se notaría en ningún golpe.
  */
 import cargaJson from '../../../data/carga.json' with { type: 'json' };
+import { conPlural } from '../texto.js';
 import type { UnitInfo } from '../types.js';
 import { entero, objetoCon, porcentaje } from '../validar.js';
 import { type DichoDeUnUso, golpeDe } from './armas.js';
@@ -81,7 +82,7 @@ export function porcientoDeLaCarga(casillas: number, cifras: CifrasDeCarga): num
  * factor detrás; con él, el parte de guerra.
  */
 export function dichoDeLaCarga(casillas: number, montada: boolean, conLoQueSuma = true): string {
-  const causa = `carga de ${casillas} ${casillas === 1 ? 'casilla' : 'casillas'}${montada ? ' montada' : ''}`;
+  const causa = `carga de ${conPlural(casillas, 'casilla')}${montada ? ' montada' : ''}`;
   return conLoQueSuma ? `${causa}, ${loQueSuma(casillas)}` : causa;
 }
 

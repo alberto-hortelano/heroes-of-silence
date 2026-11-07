@@ -13,6 +13,7 @@
  */
 import { HECHIZOS_DEL_JUEGO } from '../magia/catalogo.js';
 import { areaDe, type Duracion, type Hechizo } from '../magia/formato.js';
+import { conPlural } from '../texto.js';
 import type { Hex, PoderId } from '../types.js';
 import { lineaDelDisparo } from './a-distancia.js';
 import { hexDistance, hexEquals, isInside } from './board.js';
@@ -140,7 +141,7 @@ function distanciaBlocker(h: Hechizo, l: Lanzador, at: Hex): string | null {
   }
   const tope = e.tipo === 'alcance' ? e.casillas : e.tipo === 'proyectil' ? e.casillas : undefined;
   if (tope !== undefined && d > tope) {
-    return `«${h.nombre}» llega a ${tope} ${tope === 1 ? 'casilla' : 'casillas'}, y eso está a ${d}`;
+    return `«${h.nombre}» llega a ${conPlural(tope, 'casilla')}, y eso está a ${d}`;
   }
   return null;
 }

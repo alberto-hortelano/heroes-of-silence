@@ -48,12 +48,7 @@ import {
 } from '@core/battle/rueda.js';
 import type { BattleStack, BattleState, MurallaDeBatalla } from '@core/battle/types.js';
 import type { CatalogoDeEquipo, EquipoAtado } from '@core/equipo/atado.js';
-import {
-  cifrasDePieza,
-  conSigno,
-  DICHO_DE_LA_MONTURA,
-  textoDeModificador,
-} from '@core/equipo/dicho.js';
+import { cifrasDePieza, DICHO_DE_LA_MONTURA, textoDeModificador } from '@core/equipo/dicho.js';
 import { aDosManos, esDeGuerra, esLanza, REGLA_DEL_ESCUDO } from '@core/equipo/manos.js';
 import {
   ARMADURA_MAXIMA_DE_PIEZA,
@@ -79,13 +74,12 @@ import {
 import { nombreDelPoder, queHaceElHechizo } from '@core/magia/dicho.js';
 import { type Hechizo, RUTA_DE_LOS_HECHIZOS } from '@core/magia/formato.js';
 import { problemasComoPoder } from '@core/magia/validar.js';
+import { conComa, conSigno, describirCoste } from '@core/texto.js';
 import {
   type CifraDePieza,
   CREATURE_TRAITS,
   type CreatureTrait,
   camposDelHueco,
-  conComa,
-  describirCoste,
   esArmaPorUso,
   FACTION_IDS,
   HUECOS,
