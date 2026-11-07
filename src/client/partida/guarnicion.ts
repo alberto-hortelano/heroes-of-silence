@@ -28,8 +28,8 @@ import type { LadoDelReparto, LaObraDelPuesto } from '@core/state/sitios.js';
 import { describirCoste } from '@core/texto.js';
 import { DICHO_DE_LA_OBRA, SE_VE_EN_EL_PUESTO } from '../comun/dichos.js';
 import { type Html, html, NADA, unir } from '../comun/html.js';
+import type { VistaDeLaDefensa } from '../sesion/partida/defensa.js';
 import type { VistaDeLaGuarnicion } from '../sesion/partida/guarnicion.js';
-import type { VistaDeLaDefensa } from '../sesion/partida.js';
 import {
   atributosDeApagado,
   filaDeCifra,

@@ -41,9 +41,7 @@ import {
 import {
   type Ataque,
   batallaDeLaFormacion,
-  defensaPorElegir,
   elAtaque,
-  elegirLaDefensa,
   portadorDelStack,
   stackDelPortador,
 } from '@core/state/batallas.js';
@@ -81,9 +79,7 @@ import {
   ciudadQueMandaBlocker,
   cupoDeLaGuarnicion,
   dueñoDeLaCiudad,
-  type FilaDeLaDefensa,
   guarnicionDe,
-  type LaDefensa,
   nombreDelSitio,
   ocupanteDe,
   ocupanteDicho,
@@ -136,6 +132,7 @@ import { EnElLugar, type TrasElegir } from './lugar.js';
 import { AyuntamientoEnPantalla } from './partida/ayuntamiento.js';
 import { ClimaEnPantalla } from './partida/clima.js';
 import type { DueñoDeLasPiezas, Scene } from './partida/comun.js';
+import { DefensaEnPantalla, type VistaDeLaDefensa } from './partida/defensa.js';
 import { EquipoEnPantalla } from './partida/equipo.js';
 import { GuarnicionEnPantalla, type VistaDeLaGuarnicion } from './partida/guarnicion.js';
 import { MoradaEnPantalla } from './partida/morada.js';
@@ -308,9 +305,9 @@ export class Session extends SesionDeBatalla {
     return quien.side !== this.miBando || (this.soloRuedaDelHeroe && quien.origen.kind !== 'heroe');
   }
 
-  /** Con la pantalla de la defensa abierta no se juega nada de la batalla (`eligiendoLaDefensa`). */
+  /** Con la pantalla de la defensa abierta no se juega nada de la batalla (`DefensaEnPantalla.eligiendo`). */
   protected override frenoDeLaDefensa(): boolean {
-    return this.eligiendoLaDefensa();
+    return this.defensaEnPantalla.eligiendo();
   }
 
   /**
@@ -1187,100 +1184,33 @@ export class Session extends SesionDeBatalla {
   // ------------------------------------------------------------ la defensa
 
   /**
-   * Con cuántos de cada tipo defiende la persona, mientras elige (`<dialog
-   * id="defensa">`), o `null` si no elige nada: solo lo que ha cambiado, sobre la
-   * propuesta de la IA (la de `defensaDeLaIA`, ya repartida al nacer la batalla).
+   * La defensa de la persona: abrir la batalla en que la atacan y elegir con quién
+   * defiende: `DefensaEnPantalla` (`sesion/partida/defensa.ts`), en la que delegan estos.
    */
-  private defensaEnPantalla: Map<string, number> | null = null;
+  private readonly defensaEnPantalla = new DefensaEnPantalla({
+    ...this.dueñoDeLasPiezas,
+    desplegando: () => this.despliegue.enCurso !== null,
+    queMuevaLaIA: () => this.advanceEnemyTurns(),
+  });
 
-  /**
-   * La pantalla de la defensa, o `null`: lo que hay, lo que pelea y por qué no
-   * más ni menos, todo del núcleo (`defensaPorElegir`); aquí solo los nombres.
-   */
+  /** La pantalla de la defensa, o `null` (`DefensaEnPantalla.vista`). */
   get defensa(): VistaDeLaDefensa | null {
-    const elegida = this.defensaEnPantalla;
-    if (elegida === null) return null;
-    const pedida = [...elegida].map(([creature, count]) => ({ creature, count }));
-    const d = defensaPorElegir(this.state, this.viewer, pedida);
-    if (d === null) return null;
-    return {
-      ...d,
-      sitio: nombreDelSitio(d.sitio),
-      filas: d.filas.map((f) => ({ ...f, nombre: unidadDelJuego(f.creature).name })),
-    };
+    return this.defensaEnPantalla.vista;
   }
 
-  /** Uno más (o uno menos) de `creature` en la defensa que se elige. */
+  /** Uno más (o uno menos) de `creature` en la defensa que se elige (`DefensaEnPantalla.cambiar`). */
   cambiarLaDefensa(creature: string, cambio: 1 | -1): void {
-    const vista = this.defensa;
-    const fila = vista?.filas.find((f) => f.creature === creature);
-    if (vista === null || fila === undefined) return;
-    const motivo = cambio === 1 ? (fila.motivoMas ?? fila.notaMas) : fila.motivoMenos;
-    if (motivo !== null) {
-      this.status = comoFrase(motivo);
-      return;
-    }
-    this.defensaEnPantalla?.set(creature, fila.pelean + cambio);
-    this.status = '';
-    this.tocar();
+    this.defensaEnPantalla.cambiar(creature, cambio);
   }
 
-  /**
-   * «Defender»: si la persona cambió la propuesta, el núcleo reparte y vuelve a
-   * montar la batalla (`elegirLaDefensa`); con ella o sin cambios, empieza la
-   * batalla (si la iniciativa es del rival, mueve él). Un rechazo se queda en la
-   * pantalla con su motivo.
-   */
+  /** «Defender» (`DefensaEnPantalla.confirmar`). */
   confirmarLaDefensa(): void {
-    const vista = this.defensa;
-    if (vista === null) return;
-    if (vista.motivo !== null) {
-      this.status = comoFrase(vista.motivo);
-      return;
-    }
-    if (vista.filas.some((f) => f.pelean !== f.propuesta)) {
-      try {
-        elegirLaDefensa(
-          this.state,
-          this.ctx,
-          this.viewer,
-          vista.filas.map((f) => ({ creature: f.creature, count: f.pelean })),
-        );
-      } catch (err) {
-        this.status = comoFrase(mensajeDe(err));
-        return;
-      }
-    }
-    this.empezarLaDefensa();
+    this.defensaEnPantalla.confirmar();
   }
 
-  /**
-   * Si la pantalla de la defensa está abierta: hasta cerrarla no se juega nada de
-   * la batalla, y la barra lo dice. La compuerta de jugar y de «Resolver sola».
-   */
-  private eligiendoLaDefensa(): boolean {
-    if (this.defensaEnPantalla === null) return false;
-    this.status = 'Antes de nada, elige con quién defiendes.';
-    return true;
-  }
-
-  /** Escape o «Como propone la IA»: se defiende con la propuesta, sin cambiarla. */
+  /** Escape o «Como propone la IA»: se defiende con la propuesta (`DefensaEnPantalla.dejarLaDeLaIA`). */
   dejarLaDefensaDeLaIA(): void {
-    if (this.defensaEnPantalla === null) return;
-    this.empezarLaDefensa();
-  }
-
-  /**
-   * Cierra la pantalla de la defensa y empieza la batalla. Sin `alCambiarSinGesto`:
-   * lo cierra un gesto (un clic o Escape), que ya pide fotograma, y quien espera
-   * esa señal para saber que hay una defensa nueva (`pnpm capturas`) la tomaría por
-   * otra.
-   */
-  private empezarLaDefensa(): void {
-    this.defensaEnPantalla = null;
-    this.status = this.fraseDeLaDefensa();
-    this.advanceEnemyTurns();
-    this.tocar();
+    this.defensaEnPantalla.dejarLaDeLaIA();
   }
 
   // ------------------------------------------------------------ lugares
@@ -1421,30 +1351,12 @@ export class Session extends SesionDeBatalla {
     });
     // Antes de la batalla, el aviso en el mapa: quién ataca, a quién y dónde, con
     // la cámara en el sitio (arreglo 3 del 06-11-2026: saltaba a la pelea sin
-    // saber dónde). «Defender» la abre (`abrirLaDefensa`).
-    if (!this.avisar(() => this.abrirLaDefensa())) this.abrirLaDefensa();
+    // saber dónde). «Defender» la abre (`DefensaEnPantalla.abrir`).
+    if (!this.avisar(() => this.defensaEnPantalla.abrir())) this.defensaEnPantalla.abrir();
     // Lo que juega el rival llega sin un gesto de la persona: quien pinta no sabría
     // que hay algo que enseñar.
     this.alCambiarSinGesto();
     await cerrada;
-  }
-
-  /**
-   * La batalla de la defensa, en pantalla. Con el héroe en un sitio suyo con
-   * guarnición, antes de la primera jugada se elige con quién defiende (D1 del
-   * puesto fronterizo): la batalla empieza al confirmar (`confirmarLaDefensa`) o
-   * al dejar la propuesta de la IA, y empieza desplegando (`empezarLaDefensa`).
-   */
-  private abrirLaDefensa(): void {
-    this.scene = 'battle';
-    if (defensaPorElegir(this.state, this.viewer) !== null) {
-      this.defensaEnPantalla = new Map();
-      this.status = '¡Te atacan! Elige con quién defiendes.';
-      return;
-    }
-    this.status = this.fraseDeLaDefensa();
-    // Si la iniciativa la tiene el rival, mueve él primero (tras el despliegue, al pulsar «Listo»).
-    this.advanceEnemyTurns();
   }
 
   /**
@@ -1524,18 +1436,6 @@ export class Session extends SesionDeBatalla {
     if (this.avisoEnPantalla === null) return;
     this.avisoEnPantalla = null;
     this.autoResolveBattle();
-  }
-
-  /**
-   * Lo que dice la barra al empezar una defensa: la defensa empieza desplegando,
-   * sin ver al rival (decisión del usuario, 02-11-2026: «el despliegue lo hace
-   * primero el atacado, sin los enemigos»), también tras elegir con quién se
-   * defiende, que vuelve a montar la batalla.
-   */
-  private fraseDeLaDefensa(): string {
-    return this.despliegue.enCurso === null
-      ? '¡Te atacan! Defiéndete.'
-      : '¡Te atacan! Despliega a los tuyos: aún no ves al enemigo. «Listo» empieza la batalla.';
   }
 
   /** Quien cierra la defensa en curso y deja seguir el turno del rival, o `null`. */
@@ -2217,7 +2117,7 @@ export class Session extends SesionDeBatalla {
   /** Resuelve el resto de la batalla con la IA en ambos bandos. */
   autoResolveBattle(): void {
     if (this.state.pendingBattle === null) return;
-    if (this.eligiendoLaDefensa()) return;
+    if (this.defensaEnPantalla.eligiendo()) return;
     // Con un golpe plantado ante la rueda, la IA no sabría qué hacer con él.
     if (this.rueda.pendiente !== null) {
       this.status = comoFrase(ELIGE_EN_LA_RUEDA);
@@ -2446,13 +2346,6 @@ export interface VistaDelAviso {
   readonly frase: string;
   /** La casilla donde se pelea: a donde mira la cámara. */
   readonly at: Point;
-}
-
-/** La pantalla de la defensa (`Session.defensa`): la del núcleo, con los nombres. */
-export interface VistaDeLaDefensa extends Omit<LaDefensa, 'filas'> {
-  readonly hero: Hero;
-  readonly sitio: string;
-  readonly filas: readonly (FilaDeLaDefensa & { readonly nombre: string })[];
 }
 
 /** Lo que se veía al salir una marcha que se enseña: lo que se pinta mientras anda. */
