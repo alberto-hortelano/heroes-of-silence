@@ -450,13 +450,7 @@ export function climaBlocker(state: GameState, entrada: EntradaDeClima): string 
   if (night !== undefined && typeof night !== 'boolean') {
     return `"night" va true o false, y llega ${dicho(night)}`;
   }
-  if (
-    days !== undefined &&
-    (typeof days !== 'number' ||
-      !Number.isSafeInteger(days) ||
-      days < 1 ||
-      days > CLIMA.diasMaximos)
-  ) {
+  if (days !== undefined && (!enteroDesde(days, 1) || days > CLIMA.diasMaximos)) {
     return `days ${dicho(days)}: un entero de 1 a ${CLIMA.diasMaximos} días`;
   }
   return null;

@@ -94,8 +94,8 @@ export function dueñosDeLasRegiones(state: Pick<EstadoDeRed, 'map'>): readonly 
 
 /**
  * El dueño de la región `k` (su índice en `map.regions`), preguntando solo por
- * sus nodos: lo que mira una sola región (`regionOwner`, la noche de un sitio)
- * sin hacer la foto entera. La misma regla, `dueñoComun`.
+ * sus nodos: lo que mira una sola región (`regionOwner`, el dueño de un sitio de
+ * dentro de ella) sin hacer la foto entera. La misma regla, `dueñoComun`.
  */
 export function dueñoDeLaRegion(state: Pick<EstadoDeRed, 'map'>, k: number): PlayerId | null {
   const red = estructura(state.map);

@@ -1297,3 +1297,5 @@ simbolo	src/core/battle/battle.ts	src/core/battle/types.ts	MAX_ROUNDS (reexporta
 simbolo	src/core/map/generar/validar.ts	src/core/map/recinto.ts	enUnRecinto, local de validateMapPlan (→ enAlgunRecinto; /simplify de N12-N13)
 simbolo	src/core/map/vestir/base.ts	src/core/map/vestir/base.ts	RIO_DE_LOS_TIPOS, privada desde el /simplify de N12-N13 (se lee con rioDeLosTipos)
 simbolo	src/client/render/escenario/nodos.ts	src/core/map/geometria.ts	EJES, la tercera copia (→ EJES de geometria.ts; /simplify de N12-N13)
+simbolo	src/core/state/sitios.ts	src/core/types.ts	TropaMovida (→ GrupoDeTropa, la misma forma; /simplify de N12-N13)
+simbolo	src/core/state/heroes.ts	src/core/state/heroes.ts	ascensoPosible, privada (→ juzgarAscenso, que la absorbe; /simplify de N12-N13)

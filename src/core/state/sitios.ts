@@ -62,6 +62,7 @@ import {
 import { oroBlocker, type Town } from '../town/town.js';
 import {
   type Army,
+  type GrupoDeTropa,
   type Guarnicion,
   type Hero,
   NOMBRE_DE_FACCION,
@@ -1020,12 +1021,6 @@ export type LineaDelReparto =
   | { readonly creature: string; readonly count: number }
   | { readonly veterano: string };
 
-/** Cuántos de cada tipo, en orden de primera aparición: lo que cuenta el hecho de un reparto. */
-export interface TropaMovida {
-  readonly creature: string;
-  readonly count: number;
-}
-
 /**
  * Las líneas que describen `army` tal cual: de donde parte la pantalla de la
  * guarnición, que las edita.
@@ -1190,8 +1185,8 @@ export function repartirTropa(
 ): {
   readonly hero: Hero;
   readonly sitio: Sitio;
-  readonly deja: readonly TropaMovida[];
-  readonly recoge: readonly TropaMovida[];
+  readonly deja: readonly GrupoDeTropa[];
+  readonly recoge: readonly GrupoDeTropa[];
 } {
   const r = elRepartoPedido(state, player, pedido);
   if ('motivo' in r) throw new Error(`no se puede repartir la tropa: ${r.motivo}`);

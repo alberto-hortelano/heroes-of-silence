@@ -226,8 +226,8 @@ type Cuerpo =
       kind: 'troops_exchanged';
       hero: string;
       site: string;
-      left: readonly { readonly creature: string; readonly count: number }[];
-      taken: readonly { readonly creature: string; readonly count: number }[];
+      left: readonly GrupoDeTropa[];
+      taken: readonly GrupoDeTropa[];
     }
   /**
    * Un héroe hace la siguiente obra del puesto donde está (`mejorar_el_puesto`):

@@ -312,7 +312,7 @@ export function troopSummary(army: Army): TroopGroup[] {
  * y la lectura de un mundo llevaba su copia, hasta la fase N de la reorganización
  * (07-11-2026).
  */
-export function contarPorTipo(army: Army): { readonly creature: string; readonly count: number }[] {
+export function contarPorTipo(army: Army): GrupoDeTropa[] {
   const cuenta = new Map<string, number>();
   for (const t of army) cuenta.set(t.creature, (cuenta.get(t.creature) ?? 0) + 1);
   return [...cuenta].map(([creature, count]) => ({ creature, count }));

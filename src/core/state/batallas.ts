@@ -529,7 +529,9 @@ export type DefensaPorElegir = LaDefensa & { readonly hero: Hero; readonly sitio
 function defensaPosible(
   state: GameState,
   player: PlayerId,
-): { readonly hero: Hero; readonly sitio: Sitio } | { readonly motivo: string } {
+):
+  | { readonly hero: Hero; readonly sitio: Sitio; readonly pending: PendingBattle }
+  | { readonly motivo: string } {
   const pending = state.pendingBattle;
   if (pending === null) return { motivo: 'no hay ninguna batalla pendiente' };
   if (pending.foe.kind !== 'hero') return { motivo: 'en esta batalla no defiende ningún héroe' };
@@ -543,7 +545,7 @@ function defensaPosible(
   if (!batallaSinEmpezar(pending.battle)) {
     return { motivo: 'la batalla ya ha empezado: la defensa se elige antes de la primera jugada' };
   }
-  return { hero, sitio: sitioPorId(state, pending.defensa.sitio) };
+  return { hero, sitio: sitioPorId(state, pending.defensa.sitio), pending };
 }
 
 /**
@@ -590,7 +592,12 @@ function juzgarLaDefensa(
   player: PlayerId,
   pedida: readonly LineaDeDefensa[],
 ):
-  | { readonly hero: Hero; readonly sitio: Sitio; readonly ejercito: Army }
+  | {
+      readonly hero: Hero;
+      readonly sitio: Sitio;
+      readonly pending: PendingBattle;
+      readonly ejercito: Army;
+    }
   | { readonly motivo: string } {
   const posible = defensaPosible(state, player);
   if ('motivo' in posible) return posible;
@@ -613,8 +620,7 @@ export function elegirLaDefensa(
 ): void {
   const juicio = juzgarLaDefensa(state, player, pedida);
   if ('motivo' in juicio) throw new Error(`no se puede elegir la defensa: ${juicio.motivo}`);
-  const { hero, sitio, ejercito } = juicio;
-  const pending = state.pendingBattle as PendingBattle;
+  const { hero, sitio, pending, ejercito } = juicio;
   repartir(state, hero, sitio, ejercito);
   state.pendingBattle = { ...pending, battle: montarLaBatalla(state, pending, ctx) };
   contarLaDefensa(state, { hero: hero.id, sitio: idDelSitio(sitio) });
