@@ -103,7 +103,7 @@ describe('invariantes del proyecto', () => {
     // carga nada de `sesion/`, ni de lejos: no aplica reglas, y la sesión le traería el
     // motor de la partida entero. Hasta C3 subían ocho: `views/panels.ts`, que era lo
     // común y la partida a la vez, importaba los paneles de cinco pantallas de la
-    // partida (que lo importaban a él), los botones de la pelea y `COMO_SE_COLOCA` de
+    // partida (tres lo importaban a él), los botones de la pelea y `COMO_SE_COLOCA` de
     // `batalla/colocar.ts`, que importaba también la sesión. Y el espectador cargaba
     // `sesion/dichos.ts` por la crónica.
     //
