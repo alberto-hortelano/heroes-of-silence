@@ -1,10 +1,12 @@
 /**
  * El espectador: mira la partida del servidor y no juega.
  *
- * **No manda ni un intent, no aplica ni una regla y no importa `sesion/partida.ts`**
- * (criterio 7). Solo abre el WebSocket, lee snapshots y pinta. Que no aplique
- * reglas lo vigila además `invariantes.test.ts`, que corre sobre `src/client`
- * entero: esta carpeta cae dentro y por eso vive aquí y no en otra parte.
+ * **No manda ni un intent, no aplica ni una regla y no carga nada de `sesion/`**
+ * (criterio 7), ni de lejos: lo vigila «las capas del cliente»
+ * (`invariantes-cliente.test.ts`, fase C de la reorganización, 07-11-2026). Solo abre
+ * el WebSocket, lee snapshots y pinta. Que no aplique reglas lo vigila además «el
+ * cliente no aplica reglas», que corre sobre `src/client` entero: esta carpeta cae
+ * dentro y por eso vive aquí y no en otra parte.
  *
  * Reutiliza sin copiar los lienzos de `render/`, el animador de batalla y la
  * crónica (`views/cronica.ts`). Lo único duplicado es el bucle de dibujo, y es más

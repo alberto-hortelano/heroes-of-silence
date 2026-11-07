@@ -1,6 +1,7 @@
 /**
- * El cliente: la única puerta al núcleo es la sesión y la del marcado,
- * `html.ts`; las escenas de pie solo importan tipos del núcleo y toman la escala
+ * El cliente: sus capas (las dependencias de valor solo bajan, ninguna página carga
+ * otra y el espectador no carga la sesión); la única puerta al núcleo es la sesión
+ * y la del marcado, `html.ts`; las escenas de pie solo importan tipos del núcleo y toman la escala
  * del combate; lo que pinta la batalla es lo ocultado; los temas (quién escribe
  * `data-tema`, la forma en `forma.css`, sin colores fijos ni letras a mano); las
  * voces y el clima del narrador, con su único escritor.
@@ -13,12 +14,17 @@
  * visto morder.
  */
 
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import {
   CLIENTE,
   CORE,
   codigoDe,
   esLaSesion,
+  importacionesConLineaDe,
+  importacionesDe,
   importaDe,
   infractoresDeCodigo,
   leer,
@@ -26,6 +32,7 @@ import {
   ruta,
   SERVIDOR,
 } from './codigo-del-repo.js';
+import { RAIZ } from './comun.js';
 import { bloquesCss, COLOR, hojasDelCliente } from './hojas-de-estilo.js';
 
 /**
@@ -35,6 +42,36 @@ import { bloquesCss, COLOR, hojasDelCliente } from './hojas-de-estilo.js';
  * libra sin que nadie lo note.
  */
 const HOJAS_CON_REGLAS = hojasDelCliente().filter((r) => r !== ruta('src/client/temas.css'));
+
+/**
+ * Los `import()` de `r` (relativa a la raíz) que caen en el repositorio, resueltos
+ * como los estáticos (`importacionesConLineaDe`: un `.js` que es un `.ts` en el
+ * disco, el `.ts`), con su línea. Con el parser y no con una expresión regular: un
+ * `typeof import('…')` es un tipo y no carga nada, y un `import()` comentado no
+ * existe. Solo los relativos: el cliente no carga el suyo con el alias.
+ */
+function aDemandaDe(r: string): { ruta: string; linea: number }[] {
+  // Sin `import(` en el código (sin comentarios) no hay ninguno: no se parsea.
+  if (!/\bimport\s*\(/.test(codigoDe(r))) return [];
+  const sf = ts.createSourceFile(r, leer(r), ts.ScriptTarget.Latest, true);
+  const out: { ruta: string; linea: number }[] = [];
+  const visitar = (n: ts.Node): void => {
+    if (ts.isCallExpression(n) && n.expression.kind === ts.SyntaxKind.ImportKeyword) {
+      const a = n.arguments[0];
+      if (a !== undefined && ts.isStringLiteralLike(a) && a.text.startsWith('.')) {
+        const absoluta = join(dirname(r), a.text);
+        const conTs = absoluta.replace(/\.js$/, '.ts');
+        out.push({
+          ruta: existsSync(join(RAIZ, conTs)) ? conTs : absoluta,
+          linea: sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1,
+        });
+      }
+    }
+    ts.forEachChild(n, visitar);
+  };
+  visitar(sf);
+  return out;
+}
 
 describe('invariantes del proyecto', () => {
   it('el cliente no aplica reglas: la única puerta al núcleo es la sesión (`sesion/`)', () => {
@@ -54,6 +91,96 @@ describe('invariantes del proyecto', () => {
       /\b(applyAdventureAction|applyAction|resolvePendingBattle|settleBattle|playAiTurn|chooseBattleAction|newGame|retocarEnBatalla)\b/;
     const fuera = CLIENTE.filter((r) => !esLaSesion(r));
     expect(infractoresDeCodigo(fuera, puertas)).toEqual([]);
+  });
+
+  it('las capas del cliente: comun ← render ← sesion ← views ← batalla ← las páginas; ninguna página carga otra y el espectador no carga la sesión', () => {
+    // Las dependencias de valor del cliente solo bajan (fase C de la reorganización,
+    // 07-11-2026): `comun/` (lo que comparten las tres páginas) ← `render/` (pinta en el
+    // lienzo) ← `sesion/` (la puerta al núcleo) ← `views/` (el marcado común) ←
+    // `batalla/` (la pelea en pantalla) ← las páginas: la partida (`partida/`, con
+    // `main.ts` y `entrada.ts` de la raíz), la arena, el espectador y las herramientas
+    // de `pnpm dev` (`desarrollo/`). Ninguna página carga otra, y el espectador no
+    // carga nada de `sesion/`, ni de lejos: no aplica reglas, y la sesión le traería el
+    // motor de la partida entero. Hasta C3 subían ocho: `views/panels.ts`, que era lo
+    // común y la partida a la vez, importaba los paneles de cinco pantallas de la
+    // partida (que lo importaban a él), los botones de la pelea y `COMO_SE_COLOCA` de
+    // `batalla/colocar.ts`, que importaba también la sesión. Y el espectador cargaba
+    // `sesion/dichos.ts` por la crónica.
+    //
+    // Mira lo que se carga: los `import` y `export … from` de valor y los `import 'x'`
+    // (`importacionesConLineaDe`) y los `import()` (`aDemandaDe`). Los tipos, aún no.
+    // Lo que entra en `desarrollo/` desde fuera no se mira: lo gobierna «las
+    // herramientas de desarrollo solo entran por `import()` tras
+    // `HERRAMIENTAS_DE_DESARROLLO`» (invariantes-capas). Una carpeta del cliente sin
+    // capa rompe el guardia, que pide ponerla aquí.
+    const CLIENTE_ = `${ruta('src/client')}/`;
+    const DESARROLLO = `${ruta('src/client/desarrollo')}/`;
+    const CAPAS = ['comun', 'render', 'sesion', 'views', 'batalla'] as const;
+    const PAGINAS: readonly string[] = ['partida', 'arena', 'espectador', 'desarrollo'];
+    /** Su capa (0, la de abajo; las páginas, encima de todas) y su página, si es de una. */
+    const capaDe = (r: string): { readonly nivel: number; readonly pagina: string | null } => {
+      const resto = r.slice(CLIENTE_.length);
+      // `main.ts` y `entrada.ts`, en la raíz: la partida, que es la página de la raíz.
+      const carpeta = resto.includes('/') ? (resto.split('/')[0] as string) : 'partida';
+      const nivel = (CAPAS as readonly string[]).indexOf(carpeta);
+      if (nivel >= 0) return { nivel, pagina: null };
+      if (PAGINAS.includes(carpeta)) return { nivel: CAPAS.length, pagina: carpeta };
+      throw new Error(
+        `${r}: la carpeta «${carpeta}» del cliente no tiene capa: dile a este guardia en cuál va`,
+      );
+    };
+    const suben: string[] = [];
+    const entrePaginas: string[] = [];
+    const miradas = new Map<string, number>();
+    for (const de of CLIENTE) {
+      const desde = capaDe(de);
+      for (const { ruta: a, linea } of [...importacionesConLineaDe(de), ...aDemandaDe(de)]) {
+        if (!a.startsWith(CLIENTE_) || !a.endsWith('.ts')) continue;
+        if (a.startsWith(DESARROLLO) && !de.startsWith(DESARROLLO)) continue;
+        const hacia = capaDe(a);
+        const donde = hacia.pagina ?? (CAPAS[hacia.nivel] as string);
+        miradas.set(donde, (miradas.get(donde) ?? 0) + 1);
+        if (hacia.nivel > desde.nivel) suben.push(`${de}:${linea} → ${a}`);
+        else if (desde.pagina !== null && hacia.pagina !== null && hacia.pagina !== desde.pagina)
+          entrePaginas.push(`${de}:${linea} → ${a}`);
+      }
+    }
+    expect(suben).toEqual([]);
+    expect(entrePaginas).toEqual([]);
+    // El espectador, ni de lejos: lo que carga su página desde su entrada, al
+    // evaluarse (`importacionesDe`) y a demanda (su `main.ts` va por un `import()`).
+    const ENTRADA = ruta('src/client/espectador/entrada.ts');
+    const deDonde = new Map<string, string | null>([[ENTRADA, null]]);
+    const pendientes = [ENTRADA];
+    while (pendientes.length > 0) {
+      const actual = pendientes.shift() as string;
+      for (const m of [...importacionesDe(actual), ...aDemandaDe(actual).map((x) => x.ruta)]) {
+        if (!m.endsWith('.ts') || deDonde.has(m)) continue;
+        deDonde.set(m, actual);
+        pendientes.push(m);
+      }
+    }
+    const cadena = (m: string): string => {
+      const pasos: string[] = [];
+      for (let x: string | null | undefined = m; x != null; x = deDonde.get(x)) pasos.unshift(x);
+      return pasos.join(' → ');
+    };
+    const SESION = `${ruta('src/client/sesion')}/`;
+    expect([...deDonde.keys()].filter((m) => m.startsWith(SESION)).map(cadena)).toEqual([]);
+    // Y que mire algo: cada capa y cada página recibe importaciones, también a demanda
+    // (la entrada de la partida carga su `main.ts` con un `import()`), y el espectador
+    // llega a lo común de la pelea: la crónica, el parte y el animador.
+    for (const donde of [...CAPAS, ...PAGINAS])
+      expect(miradas.get(donde) ?? 0, donde).toBeGreaterThan(0);
+    expect(aDemandaDe(ruta('src/client/entrada.ts')).map((x) => x.ruta)).toContain(
+      ruta('src/client/main.ts'),
+    );
+    for (const r of [
+      ruta('src/client/views/cronica.ts'),
+      ruta('src/client/batalla/parte.ts'),
+      ruta('src/client/batalla/anim.ts'),
+    ])
+      expect(deDonde.has(r), r).toBe(true);
   });
 
   it('el marcado sale por una sola puerta: solo `html.ts` convierte texto en DOM', () => {
