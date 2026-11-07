@@ -253,8 +253,12 @@ function sinArrancar(fallos: readonly Fallo[]): never {
   });
 }
 
-let session: Session;
-{
+/**
+ * La partida que pide la URL, abierta; si no se puede, lanza diciendo por qué
+ * (`sinArrancar`). Se abre una vez, al cargarse la página: era el bloque que
+ * asignaba el `let session` de módulo hasta R7 de la reorganización.
+ */
+function abrirLaPartida(): Session {
   // Lo que pide la URL, leído entero antes de decir nada: cada parámetro que no
   // vale, con su salida, y todos a la vez.
   const fallos: Fallo[] = [];
@@ -279,10 +283,11 @@ let session: Session;
     ...(tope === null ? [] : (['tropa'] as const)),
     ...(rueda === null ? [] : (['rueda'] as const)),
   ];
+  let abierta: Session;
   if (mundo !== null) {
     if (fallos.length > 0) sinArrancar(fallos);
     try {
-      session = abrePartidaDelMundo(mundo, combateCon(tope, rueda), soloHeroe);
+      abierta = abrePartidaDelMundo(mundo, combateCon(tope, rueda), soloHeroe);
     } catch (motivo) {
       sinArrancar([{ motivo, salida: salidaDe(delCombate) }]);
     }
@@ -298,7 +303,7 @@ let session: Session;
         : leer('heroe', () => heroeDeLaUrl(faccionesDeLaSemilla(seed, faccion ?? undefined)[0]));
     if (fallos.length > 0) sinArrancar(fallos);
     try {
-      session = abrePartida(seed, faccion, heroe, combateCon(tope, rueda), soloHeroe);
+      abierta = abrePartida(seed, faccion, heroe, combateCon(tope, rueda), soloHeroe);
     } catch (motivo) {
       // Lo que no abre partida es lo que pidió la URL, y la salida es quitar eso.
       // Sin nada pedido no hay salida que dar.
@@ -315,12 +320,14 @@ let session: Session;
   // hay, y la salida es quitar solo `?clima=`: la semilla está bien, y quitarla
   // cambiaría la partida (H6 del QA del clima, 22-10-2026).
   leer('clima', () => {
-    session.fijarElClima(clima);
+    abierta.fijarElClima(clima);
     return null;
   });
   if (fallos.length > 0) sinArrancar(fallos);
+  return abierta;
 }
 
+const session = abrirLaPartida();
 const sesion = (): Session => session;
 const aventura = new EscenaAventura(sesion);
 const batalla = new EscenaBatalla(sesion);
@@ -374,8 +381,68 @@ const rueda = new DialogoDeLaRueda(elRueda, {
   },
 });
 const finDeTurno = new PuertaDeFinDeTurno(() => performance.now());
-/** El modo «marcar fallo» y la vista de regiones (`desarrollo/herramientas.ts`): solo en `pnpm dev`. */
-let desarrollo: Desarrollo | null = null;
+
+/**
+ * Lo que la página cambia mientras vive: nueve de los diez `let` de módulo de este fichero
+ * hasta R7 de la reorganización (07-11-2026). El décimo, `session`, solo se asignaba al abrir
+ * la partida, y es un `const` (`abrirLaPartida`). En un objeto, para que lo lean y lo escriban
+ * las piezas de la página desde sus ficheros: el `let` de un módulo no se asigna desde otro.
+ */
+interface EstadoDeLaPagina {
+  /**
+   * El modo «marcar fallo» y la vista de regiones (`desarrollo/herramientas.ts`): solo en
+   * `pnpm dev`.
+   */
+  desarrollo: Desarrollo | null;
+  /**
+   * Los paneles se rehacen cuando la sesión dice que algo ha cambiado (`version`),
+   * cuando la partida es otra o
+   * cuando el tablero de batalla empieza o acaba de contar una jugada (sus botones
+   * van apagados mientras tanto, #165); la barra, además, cuando llega arte (el
+   * icono del oro). Antes se generaba su marcado en cada fotograma para
+   * compararlo con el anterior.
+   */
+  paneles: {
+    sesion: Session;
+    version: number;
+    arte: number;
+    contando: boolean;
+    base: string;
+  } | null;
+  /** Cuántas veces ha llegado arte (`cargarArte`): con cada una se repinta la barra de arriba. */
+  arteLlegado: number;
+  /** La escena del último fotograma: al cambiar, se recoloca lo que depende de ella. */
+  escenaPintada: string;
+  /**
+   * La escena de donde se entró en una de dentro (el mapa o la base) y lo bajado
+   * en su lateral, y lo que toca poner tras repintar los paneles.
+   */
+  escenaDeAntes: string;
+  lateralDeAntes: number;
+  lateralPendiente: number | null;
+  /**
+   * Tras elegir un candidato del ayuntamiento (en el lienzo o en su botón), su ficha
+   * con «Contratar» se trae a la vista si no se veía (QA H2, 22-10-2026). En un
+   * teléfono pequeño el panel va debajo del lienzo y asoma una franja: quien tocaba
+   * una figura no veía pasar nada. Se lee en el fotograma que repinta el panel, con
+   * la ficha ya nueva.
+   */
+  fichaALaVista: boolean;
+  /** La última unidad propia a la que se llevó el marco, para no pelear con el dedo. */
+  activaSeguida: string | null;
+}
+
+const estado: EstadoDeLaPagina = {
+  desarrollo: null,
+  paneles: null,
+  arteLlegado: 0,
+  escenaPintada: '',
+  escenaDeAntes: '',
+  lateralDeAntes: 0,
+  lateralPendiente: null,
+  fichaALaVista: false,
+  activaSeguida: null,
+};
 
 // ---------------------------------------------------------------- dibujo
 
@@ -391,7 +458,7 @@ let desarrollo: Desarrollo | null = null;
  * vuelve al mapa en `batalla.sincronizar`—: este fotograma pintó la de antes.
  */
 function otroFotograma(): boolean {
-  return hayAnimacion() || session.scene !== escenaPintada;
+  return hayAnimacion() || session.scene !== estado.escenaPintada;
 }
 
 function hayAnimacion(): boolean {
@@ -403,45 +470,11 @@ function hayAnimacion(): boolean {
 const principal = ajustarLienzo(canvas, pedirFotograma);
 const ctx = principal.ctx;
 
-/**
- * Los paneles se rehacen cuando la sesión dice que algo ha cambiado (`version`),
- * cuando la partida es otra o
- * cuando el tablero de batalla empieza o acaba de contar una jugada (sus botones
- * van apagados mientras tanto, #165); la barra, además, cuando llega arte (el
- * icono del oro). Antes se generaba su marcado en cada fotograma para
- * compararlo con el anterior.
- */
-let paneles: {
-  sesion: Session;
-  version: number;
-  arte: number;
-  contando: boolean;
-  base: string;
-} | null = null;
-let arteLlegado = 0;
 cargarArte(() => {
-  arteLlegado++;
+  estado.arteLlegado++;
   pedirFotograma();
 });
 apuntarElSueloEn(app);
-
-let escenaPintada = '';
-/**
- * La escena de donde se entró en una de dentro (el mapa o la base) y lo bajado
- * en su lateral, y lo que toca poner tras repintar los paneles.
- */
-let escenaDeAntes = '';
-let lateralDeAntes = 0;
-let lateralPendiente: number | null = null;
-
-/**
- * Tras elegir un candidato del ayuntamiento (en el lienzo o en su botón), su ficha
- * con «Contratar» se trae a la vista si no se veía (QA H2, 22-10-2026). En un
- * teléfono pequeño el panel va debajo del lienzo y asoma una franja: quien tocaba
- * una figura no veía pasar nada. Se lee en el fotograma que repinta el panel, con
- * la ficha ya nueva.
- */
-let fichaALaVista = false;
 
 /**
  * `fichaALaVista` tras el `click` que el navegador saca de este mismo toque, que
@@ -456,7 +489,7 @@ function fichaTrasElClic(): void {
     if (hecho) return;
     hecho = true;
     window.removeEventListener('click', traer, true);
-    fichaALaVista = true;
+    estado.fichaALaVista = true;
     pedirFotograma();
   };
   // En la captura: el `click` ya tiene su blanco y el desplazamiento llega en el
@@ -468,7 +501,7 @@ const ESPERA_DEL_CLIC = 400;
 
 function dibujarFotograma(ahora: number): void {
   const escena = session.scene;
-  if (escena !== escenaPintada) {
+  if (escena !== estado.escenaPintada) {
     // El lateral se desplaza solo, y la tropa heredaba lo bajado en el panel del
     // mapa: abría con la lista de a quién elegir por encima de la vista (QA, H3).
     // La tropa y la morada abren arriba, y al volver el mapa o la base se
@@ -476,13 +509,13 @@ function dibujarFotograma(ahora: number): void {
     // (con el marco de la tropa el lateral mide otra cosa y el navegador ya lo
     // recorta) y se pone después de repintar los paneles, por lo mismo.
     if (esDeDentro(escena)) {
-      escenaDeAntes = escenaPintada;
-      lateralDeAntes = lateral.scrollTop;
-      lateralPendiente = 0;
-    } else if (esDeDentro(escenaPintada)) {
+      estado.escenaDeAntes = estado.escenaPintada;
+      estado.lateralDeAntes = lateral.scrollTop;
+      estado.lateralPendiente = 0;
+    } else if (esDeDentro(estado.escenaPintada)) {
       // A la escena de donde se entró, como estaba; a otra, arriba.
-      lateralPendiente = escena === escenaDeAntes ? lateralDeAntes : 0;
-      lateralDeAntes = 0;
+      estado.lateralPendiente = escena === estado.escenaDeAntes ? estado.lateralDeAntes : 0;
+      estado.lateralDeAntes = 0;
     }
     app.dataset.escena = escena;
     principal.remedir();
@@ -495,7 +528,7 @@ function dibujarFotograma(ahora: number): void {
     // lista de castillos, que está debajo del lienzo, la pantalla nueva se
     // quedaba donde estaba el botón, con medio lienzo fuera de la vista.
     stage.scrollTop = 0;
-    escenaPintada = escena;
+    estado.escenaPintada = escena;
   }
 
   const enCastillo = escena === 'town' && session.activeTown !== null;
@@ -522,7 +555,7 @@ function dibujarFotograma(ahora: number): void {
     dentro.dibujar(ctx, rect.width, rect.height, window.devicePixelRatio || 1, ahora);
   } else {
     aventura.dibujar(ctx, rect.width, rect.height, ahora);
-    desarrollo?.dibujar(ctx);
+    estado.desarrollo?.dibujar(ctx);
     aventura.dibujarMinimapa(minimapa);
   }
   señalarEnemigo(enBatalla);
@@ -553,16 +586,16 @@ function dibujarFotograma(ahora: number): void {
   // Lo abierto en la base cambia el panel sin cambiar la partida: al llegar a
   // una puerta se abre su panel, y eso no sube la versión de la sesión.
   const cambiaLaPartida =
-    paneles === null ||
-    paneles.sesion !== session ||
-    paneles.version !== session.version ||
-    paneles.contando !== contando ||
-    paneles.base !== base;
+    estado.paneles === null ||
+    estado.paneles.sesion !== session ||
+    estado.paneles.version !== session.version ||
+    estado.paneles.contando !== contando ||
+    estado.paneles.base !== base;
   // El arte que llega solo cambia la barra (el icono del oro). El lateral
   // y las acciones no lo leen, y repintarlos con cada hoja o tramo que llegaba
   // perdía el toque que caía en medio: el botón tocado ya no existía al llegar
   // su clic (1 de cada 10 en la morada del móvil, 21-10-2026).
-  if (cambiaLaPartida || paneles?.arte !== arteLlegado) {
+  if (cambiaLaPartida || estado.paneles?.arte !== estado.arteLlegado) {
     const top = renderTopbar(session);
     elDay.textContent = top.day;
     pintar(elResources, top.resources);
@@ -577,13 +610,19 @@ function dibujarFotograma(ahora: number): void {
     mostrarConversacion(enCastillo, escena === 'lugar');
     mostrarLaGuarnicion();
   }
-  paneles = { sesion: session, version: session.version, arte: arteLlegado, contando, base };
-  if (lateralPendiente !== null) {
-    lateral.scrollTop = lateralPendiente;
-    lateralPendiente = null;
+  estado.paneles = {
+    sesion: session,
+    version: session.version,
+    arte: estado.arteLlegado,
+    contando,
+    base,
+  };
+  if (estado.lateralPendiente !== null) {
+    lateral.scrollTop = estado.lateralPendiente;
+    estado.lateralPendiente = null;
   }
-  if (fichaALaVista) {
-    fichaALaVista = false;
+  if (estado.fichaALaVista) {
+    estado.fichaALaVista = false;
     llevarLaFichaALaVista();
   }
   if (elStatus.textContent !== session.status) elStatus.textContent = session.status;
@@ -712,9 +751,6 @@ function hastaQueLlegue(): boolean {
   return true;
 }
 
-/** La última unidad propia a la que se llevó el marco, para no pelear con el dedo. */
-let activaSeguida: string | null = null;
-
 /**
  * En el móvil el tablero se desplaza dentro de su marco: cuando le toca a otra
  * unidad tuya, el marco va hasta ella. Una sola vez por unidad, para que quien
@@ -723,8 +759,8 @@ let activaSeguida: string | null = null;
 function seguirALaActiva(): void {
   if (lienzo.scrollWidth <= lienzo.clientWidth) return;
   const activa = batalla.activaPropia();
-  if (activa === null || activa.id === activaSeguida) return;
-  activaSeguida = activa.id;
+  if (activa === null || activa.id === estado.activaSeguida) return;
+  estado.activaSeguida = activa.id;
   lienzo.scrollLeft = Math.max(0, activa.x - lienzo.clientWidth / 2);
 }
 
@@ -806,7 +842,7 @@ canvas.addEventListener('pointerup', (ev) => {
   } else if (aventura.soltar()) {
     if (hastaQueLlegue()) return;
     // Con el modo «marcar fallo» puesto, el clic es suyo y no mueve a nadie.
-    if (desarrollo?.activo === true) desarrollo.clic(p.x, p.y);
+    if (estado.desarrollo?.activo === true) estado.desarrollo.clic(p.x, p.y);
     else aventura.pulsar(p.x, p.y, ev.pointerType === 'touch');
   }
   pedirFotograma();
@@ -965,7 +1001,7 @@ document.addEventListener('click', (ev) => {
       const tipo = target.getAttribute('data-tipo');
       if (tipo === null) throw new Error('el botón del ayuntamiento no dice qué héroe elige');
       session.elegirEnElAyuntamiento(tipo);
-      fichaALaVista = true;
+      estado.fichaALaVista = true;
       break;
     }
     case 'salir-del-lugar':
@@ -1193,7 +1229,7 @@ document.addEventListener('keydown', (ev) => {
   // Escape mantenido se repite: cada repetición cerraría un nivel más (la morada,
   // la base…). Solo cuenta la primera pulsación (QA M5 de la morada, 20-10-2026).
   if (ev.key === 'Escape' && ev.repeat) return;
-  if (desarrollo?.tecla(ev) === true) {
+  if (estado.desarrollo?.tecla(ev) === true) {
     pedirFotograma();
     return;
   }
@@ -1286,7 +1322,7 @@ calentarElMapa();
 if (HERRAMIENTAS_DE_DESARROLLO) {
   void import('./desarrollo/herramientas.js')
     .then((m) => {
-      desarrollo = m.montar({
+      estado.desarrollo = m.montar({
         sesion,
         aventura,
         canvas,
