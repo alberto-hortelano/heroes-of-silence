@@ -87,16 +87,26 @@ export function townsOf(state: GameState, player: PlayerId): Town[] {
 
 /**
  * El héroe del dueño de `town` que está en su casilla, o `undefined` si no hay
- * ninguno (o el pueblo no tiene dueño). **Una regla con dos lectores**: a quién
- * va un recluta (`destinoDeRecluta`) y de qué tropa salen los veteranos de la
- * base (`veteranosEnSuBase`). Escrita en cada uno, el día que cambie —un héroe
- * de al lado que también cuente, por ejemplo— el veterano que el narrador ve en
- * la base no sería el que se puede reclutar con.
+ * ninguno (o el pueblo no tiene dueño): `heroeEnLaBase` con el dueño de la ciudad.
+ * **Una regla con varios lectores**: a quién va un recluta (`destinoDeRecluta`), de
+ * qué tropa salen los veteranos de la base (`veteranosEnSuBase`) y a quién va lo
+ * que se compra en la armería (`buyBlocker`, `buy_item` y la IA). Escrita en cada
+ * uno, el día que cambie —un héroe de al lado que también cuente, por ejemplo— el
+ * veterano que el narrador ve en la base no sería el que se puede reclutar con.
  */
 export function heroeEnElPueblo(state: GameState, town: Town): Hero | undefined {
   const dueño = dueñoDeLaCiudad(state, town);
-  if (dueño === null) return undefined;
-  return heroesOf(state, dueño).find((h) => pointKey(h.at) === pointKey(town.at));
+  return dueño === null ? undefined : (heroeEnLaBase(state, dueño, town) ?? undefined);
+}
+
+/**
+ * La ciudad **de su bando** en la que está `hero`, o `undefined`: donde se licencia
+ * tropa y con cuya muralla y moral defiende. Sin la guarnición suya en una ajena:
+ * para eso, `sitioDelHeroe`.
+ */
+export function castilloSuyoDelHeroe(state: GameState, hero: Hero): Town | undefined {
+  const town = state.towns.find((t) => t.at.x === hero.at.x && t.at.y === hero.at.y);
+  return town !== undefined && dueñoDeLaCiudad(state, town) === hero.owner ? town : undefined;
 }
 
 /**

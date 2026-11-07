@@ -1307,16 +1307,6 @@ export function sitioDelHeroe(state: GameState, hero: Hero): Sitio | null {
 }
 
 /**
- * La ciudad **de su bando** en la que está `hero`, o `undefined`: donde se licencia
- * tropa y con cuya muralla y moral defiende. Sin la guarnición suya en una ajena:
- * para eso, `sitioDelHeroe`.
- */
-export function castilloSuyoDelHeroe(state: GameState, hero: Hero): Town | undefined {
-  const town = state.towns.find((t) => t.at.x === hero.at.x && t.at.y === hero.at.y);
-  return town !== undefined && dueñoDeLaCiudad(state, town) === hero.owner ? town : undefined;
-}
-
-/**
  * El objeto del mapa del sitio: el paso y el pueblo lo son; la ciudad, el `town` de
  * su id. Es donde vive el dueño guardado de un sitio del muro (`tomarElNodo`).
  */

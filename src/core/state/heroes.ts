@@ -20,6 +20,7 @@ import { unidadDelJuegoSiExiste } from '../unidad/catalogo.js';
 import {
   baseOf,
   casillaDeVuelta,
+  castilloSuyoDelHeroe,
   hayHuecoDeHeroe,
   heroById,
   heroeEnElPueblo,
@@ -29,7 +30,6 @@ import {
 import { emit } from './cronica.js';
 import { aLaMochila } from './equipar.js';
 import {
-  castilloSuyoDelHeroe,
   ciudadQueMandaBlocker,
   guarnicionDe,
   ponerLaGuarnicion,

@@ -31,12 +31,18 @@ import { moraleFromBuildings } from '../town/town.js';
 import type { Army, FactionId, Hero, Hex, PlayerId, Point, Raider } from '../types.js';
 import { raiderById } from './asaltantes.js';
 import { type ClimaDeLaPartida, type ClimaDelSitio, climaDeLaRegion } from './clima.js';
-import { baseOf, battleOwners, heroById, heroeSuyo, playerById } from './consultas.js';
+import {
+  baseOf,
+  battleOwners,
+  castilloSuyoDelHeroe,
+  heroById,
+  heroeSuyo,
+  playerById,
+} from './consultas.js';
 import { emit } from './cronica.js';
 import type { Atacante, BattleFoe } from './events.js';
 import {
   casillaDelSitio,
-  castilloSuyoDelHeroe,
   defensaDeLaIA,
   delSitio,
   ejercitoDeLaDefensa,
