@@ -83,7 +83,7 @@ import {
   type Ocupante,
 } from '@core/state/events.js';
 import { applyAdventureAction } from '@core/state/game.js';
-import { candidatosAHeroe, salidaPendienteBlocker } from '@core/state/heroes.js';
+import { salidaPendienteBlocker } from '@core/state/heroes.js';
 import { barreraDeMañana, caminoHasta, pasosDeHoy, puedeAndarHoy } from '@core/state/marcha.js';
 import { type RentaDelDia, rentaDelDia } from '@core/state/renta.js';
 import { newGame } from '@core/state/setup.js';
@@ -143,9 +143,7 @@ import {
 import { unidadDelJuego } from '@core/unidad/catalogo.js';
 import {
   AYUDA_DE_LA_BASE,
-  AYUDA_DE_LA_SALIDA,
   AYUDA_DE_LA_TROPA,
-  AYUDA_DEL_AYUNTAMIENTO,
   AYUDA_DEL_DESPLIEGUE,
   AYUDA_DEL_LUGAR,
   AYUDA_DEL_MAPA,
@@ -161,10 +159,11 @@ import { ELIGE_EN_LA_RUEDA } from './batalla/cruce.js';
 import { DespliegueEnPantalla } from './batalla/despliegue.js';
 import { SesionDeBatalla } from './batalla/sesion-de-batalla.js';
 import { EnElLugar, type TrasElegir } from './lugar.js';
+import { AyuntamientoEnPantalla } from './partida/ayuntamiento.js';
 import type { DueñoDeLasPiezas, Scene } from './partida/comun.js';
 import { EquipoEnPantalla } from './partida/equipo.js';
 import { MoradaEnPantalla } from './partida/morada.js';
-import { componerVistaDelAyuntamiento, type VistaDelAyuntamiento } from './vistas/ayuntamiento.js';
+import type { VistaDelAyuntamiento } from './vistas/ayuntamiento.js';
 import { type NieblaDeAntes, type NieblaDeLaMarcha, nieblaDeLaMarcha } from './vistas/marcha.js';
 import type { VistaDeLaMorada } from './vistas/morada.js';
 import { componerVistaDeLaTropa, mismoPortador, type VistaDeLaTropa } from './vistas/tropa.js';
@@ -270,7 +269,11 @@ export class Session extends SesionDeBatalla {
       this.scene = escena;
     },
     run: (fn, bloqueo) => this.run(fn, bloqueo),
+    turnoAjeno: () => this.turnoAjeno(),
     heroeSeleccionado: () => this.selectedHero,
+    seleccionarHeroe: (id) => {
+      this.selectedHeroId = id;
+    },
     idDeLaBaseAbierta: () => this.openTownId,
     baseAbierta: () => this.activeTown,
   };
@@ -2063,86 +2066,42 @@ export class Session extends SesionDeBatalla {
   }
 
   /**
-   * Entra en la escena del ayuntamiento de la base abierta, con el primer
-   * candidato elegido: el héroe de salida si está pendiente, o uno que contratar
-   * («Contratar héroe» del panel de la base, D3). Lanza, diciéndolo, fuera de la
-   * base o si no se puede componer (sin ayuntamiento), sin cambiar nada. La base
-   * sigue abierta debajo, como con la morada.
+   * El ayuntamiento de la base en escena y contratar: `AyuntamientoEnPantalla`
+   * (`sesion/partida/ayuntamiento.ts`), en la que delegan estos.
    */
+  private readonly ayuntamiento = new AyuntamientoEnPantalla({
+    ...this.dueñoDeLasPiezas,
+    heroeDeSalidaPendiente: () => this.heroeDeSalidaPendiente,
+    heroeEnLaBase: () => this.heroeEnLaBase(),
+  });
+
+  /** Entra en la escena del ayuntamiento de la base abierta (`AyuntamientoEnPantalla.abrir`). */
   abrirElAyuntamiento(): void {
-    const town = this.activeTown;
-    if (this.scene !== 'town' || town === null) {
-      throw new Error('no se puede entrar en el ayuntamiento: no hay ninguna base abierta');
-    }
-    // Se compone antes de cambiar nada (si lanza, se sigue en la base) y se guarda
-    // con la versión de después: entrar no la compone otra vez.
-    const vista = this.componerElAyuntamiento(town, null);
-    this.elegidoEnElAyuntamiento = null;
-    this.scene = 'ayuntamiento';
-    this.status = this.heroeDeSalidaPendiente ? AYUDA_DE_LA_SALIDA : AYUDA_DEL_AYUNTAMIENTO;
-    this.cacheDelAyuntamiento = { version: this.version, vista };
+    this.ayuntamiento.abrir();
   }
 
-  /**
-   * Vuelve del ayuntamiento a la base, que sigue abierta: también con el de
-   * salida pendiente (no se encierra a nadie; lo demás sale apagado con su motivo).
-   */
+  /** Vuelve del ayuntamiento a la base, que sigue abierta (`AyuntamientoEnPantalla.cerrar`). */
   cerrarElAyuntamiento(): void {
-    if (this.scene !== 'ayuntamiento') {
-      throw new Error('no se puede salir del ayuntamiento: no se está en él');
-    }
-    this.scene = 'town';
-    this.status = AYUDA_DE_LA_BASE;
+    this.ayuntamiento.cerrar();
   }
 
-  /** Elegir un candidato (un clic en su figura o en su botón del panel). Uno que no lo es lanza. */
+  /** Elegir un candidato del ayuntamiento (`AyuntamientoEnPantalla.elegir`). */
   elegirEnElAyuntamiento(tipo: string): void {
-    const town = this.activeTown;
-    if (this.scene !== 'ayuntamiento' || town === null) {
-      throw new Error('no se puede elegir en el ayuntamiento: no se está en él');
-    }
-    // Compuesta primero: un tipo que no vale lanza sin dejarlo elegido.
-    const vista = this.componerElAyuntamiento(town, tipo);
-    this.elegidoEnElAyuntamiento = tipo;
-    this.tocar();
-    this.cacheDelAyuntamiento = { version: this.version, vista };
+    this.ayuntamiento.elegir(tipo);
   }
 
-  /** El tipo elegido en el ayuntamiento (`null`: el primero). Lo sustituye cada entrada. */
-  private elegidoEnElAyuntamiento: string | null = null;
-
-  /**
-   * La vista con `elegido`; lanza si no vale. Contratar solo espera al turno: lo
-   * demás de no poder jugar (el de salida pendiente) es justo lo que se elige aquí.
-   */
-  private componerElAyuntamiento(town: Town, elegido: string | null): VistaDelAyuntamiento {
-    return componerVistaDelAyuntamiento(
-      town,
-      dueñoDeLaCiudad(this.state, town),
-      candidatosAHeroe(this.state, this.viewer, town.id),
-      elegido,
-      this.turnoAjeno(),
-    );
-  }
-
-  /**
-   * Lo que se ve en la escena del ayuntamiento (`sesion/vistas/ayuntamiento.ts`), o `null`
-   * fuera de ella. Se rehace cuando cambia algo que se ve (`version`: el oro, el
-   * turno, a quién se mira).
-   */
+  /** Lo que se ve en la escena del ayuntamiento, o `null` fuera de ella (`AyuntamientoEnPantalla.vista`). */
   vistaDelAyuntamiento(): VistaDelAyuntamiento | null {
-    const town = this.activeTown;
-    if (this.scene !== 'ayuntamiento' || town === null) return null;
-    const c = this.cacheDelAyuntamiento;
-    if (c !== null && c.version === this.version) return c.vista;
-    const vista = this.componerElAyuntamiento(town, this.elegidoEnElAyuntamiento);
-    this.cacheDelAyuntamiento = { version: this.version, vista };
-    return vista;
+    return this.ayuntamiento.vista();
   }
-  private cacheDelAyuntamiento: {
-    readonly version: number;
-    readonly vista: VistaDelAyuntamiento;
-  } | null = null;
+
+  /**
+   * Contrata en la base abierta un héroe del tipo `tipo`, o elige y paga el de salida
+   * (`AyuntamientoEnPantalla.contratar`).
+   */
+  hireHero(tipo?: string): void {
+    this.ayuntamiento.contratar(tipo);
+  }
 
   // ------------------------------------------------------------ la tropa en escena
 
@@ -2344,38 +2303,6 @@ export class Session extends SesionDeBatalla {
     this.ultimaDeLaTropa = { jugada, quien, version: this.version };
   }
   private ultimaDeLaTropa: { jugada: string; quien: Portador; version: number } | null = null;
-
-  /**
-   * Contrata en la base abierta un héroe del tipo `tipo` (sin él, el de por
-   * defecto), o elige y paga el de salida si está pendiente: la misma acción
-   * (`hire_hero`), la misma regla. Si sale bien, vuelve del ayuntamiento a la base
-   * con el héroe nuevo elegido, que es quien camina en ella.
-   */
-  hireHero(tipo?: string): void {
-    if (this.openTownId === null) return;
-    // Solo espera al turno: con el de salida pendiente, contratar es elegirlo.
-    const bien = this.run(
-      () =>
-        applyAdventureAction(
-          this.state,
-          {
-            type: 'hire_hero',
-            town: this.openTownId as string,
-            ...(tipo === undefined ? {} : { tipo }),
-          },
-          this.ctx,
-          this.viewer,
-        ),
-      this.turnoAjeno(),
-    );
-    if (!bien) return;
-    if (this.scene === 'ayuntamiento') this.cerrarElAyuntamiento();
-    const nuevo = this.heroeEnLaBase();
-    if (nuevo !== null) {
-      this.selectedHeroId = nuevo.id;
-      this.status = `${nuevo.name} se une a ti.`;
-    }
-  }
 
   // ------------------------------------------------------------ batalla
 

@@ -45,8 +45,15 @@ export interface DueñoDeLasPiezas {
    * si salió bien.
    */
   run(fn: () => void, bloqueo?: string | null): boolean;
+  /**
+   * Por qué no es el turno de la persona (`Session.turnoAjeno`, la frase del núcleo), o
+   * `null`: la guarda de contratar, que con el héroe de salida pendiente es lo que se hace.
+   */
+  turnoAjeno(): string | null;
   /** El héroe elegido (`Session.selectedHero`), o `null`. */
   heroeSeleccionado(): Hero | null;
+  /** Elige al héroe `id` (`Session.selectedHeroId`: suelta la pieza elegida y sube la versión). */
+  seleccionarHeroe(id: string | null): void;
   /** El id de la base abierta (`Session.openTownId`), o `null`. */
   idDeLaBaseAbierta(): string | null;
   /** La base abierta (`Session.activeTown`), o `null`. */
