@@ -2345,3 +2345,4 @@ simbolo	src/server/mcp/buzon.ts	src/server/mcp/escucha.ts	Aviso
 simbolo	test/invariantes-cliente.test.ts	test/codigo-del-repo.ts	entreParentesisDe, aDemandaDe, tiposPorImportDe (los dos últimos, exportados: los leen también los guardias de que el cliente no conoce al servidor y de que el puente MCP es una hoja)
 simbolo	src/server/mcp/server.ts	src/server/mcp/escucha.ts	LISTEN_DESCRIPTION, exportada; su lista de peticiones sale de REQUEST_KINDS con DICHO_DE_LA_PETICION (nuevo, Record<RequestKind, string>), y entra battle_response (cambio declarado de S2b)
 simbolo	src/server/mcp/server.ts	src/server/entorno.ts	puertoDelServidor, dentro de servidorDelPuente (nuevo: lee y valida HEROES_SERVER, que el puente leía sin validar)
+simbolo	src/server/entorno.ts	tools/mundo/motor.ts	ordenDelMotor (su único lector; lee la variable por textoDelEntorno de entorno.ts), y su test, de test/entorno.test.ts a test/motor-de-mundos.test.ts

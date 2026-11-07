@@ -33,6 +33,7 @@ import {
   llamadasAlValidador,
   MODELO_DEL_MOTOR,
   motivoDelFallo,
+  ordenDelMotor,
   progresoDe,
   respuestaDelValidador,
   sinRutas,
@@ -52,6 +53,18 @@ describe('el motor de mundos', () => {
     );
     expect(a).toContain('--strict-mcp-config');
     expect(a[a.indexOf('--settings') + 1]).toBe('{"disableAllHooks":true}');
+  });
+
+  it('el motor de mundos es claude, otra orden si se pide, y nunca una línea de shell', () => {
+    try {
+      expect(ordenDelMotor()).toBe('claude');
+      process.env.HEROES_MOTOR = 'false';
+      expect(ordenDelMotor()).toBe('false');
+      process.env.HEROES_MOTOR = 'claude --dangerously-skip-permissions';
+      expect(() => ordenDelMotor()).toThrow(/HEROES_MOTOR=.* no es una orden/);
+    } finally {
+      delete process.env.HEROES_MOTOR;
+    }
   });
 
   it('cuenta en una línea lo que hace el motor, sin rutas ni lo que se le deniega', () => {

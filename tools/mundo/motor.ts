@@ -23,7 +23,7 @@ import { idDeMundoBlocker } from '../../src/core/mundo/formato.js';
 import { type PedidoDelMenu, pedidoBlocker } from '../../src/core/mundo/partida.js';
 import { parseSeed } from '../../src/core/rng.js';
 import { parseFaccion } from '../../src/core/types.js';
-import { ordenDelMotor } from '../../src/server/entorno.js';
+import { textoDelEntorno } from '../../src/server/entorno.js';
 import { aceptarElMundo } from '../npcs/banco.js';
 import { matarGrupo } from '../qa/grupo.js';
 import {
@@ -342,6 +342,28 @@ export function lanzarElTaller(): string {
   p.unref();
   taller = p;
   return `el taller pinta en segundo plano (pid ${p.pid}, grupo propio); su registro, ${relative(RAIZ, log)}`;
+}
+
+/**
+ * La orden que lanza el motor de narrativa al generar un mundo desde el menú de
+ * `pnpm dev`: `claude` por defecto, Claude Code con la
+ * suscripción. `HEROES_MOTOR=false` lo hace fallar a propósito (la orden `false`
+ * sale 1): así se prueba la pantalla del fallo sin gastar nada. Un texto con
+ * espacios no vale: es una orden, no una línea de shell (no se interpreta).
+ *
+ * Vivía en `src/server/entorno.ts` hasta la fase S de la reorganización
+ * (07-11-2026), y su único lector es este fichero; lee la variable por la lectura
+ * de todas, `textoDelEntorno`.
+ */
+export function ordenDelMotor(): string {
+  const valor = textoDelEntorno('HEROES_MOTOR');
+  if (valor === undefined) return 'claude';
+  if (/\s/.test(valor.trim())) {
+    throw new Error(
+      `HEROES_MOTOR="${valor}" no es una orden: tiene que ser un ejecutable sin argumentos, como claude o /ruta/a/claude`,
+    );
+  }
+  return valor.trim();
 }
 
 /** Los argumentos de `claude -p` para un mundo: la skill, sus permisos y nada más. */

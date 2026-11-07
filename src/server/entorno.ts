@@ -48,7 +48,8 @@ export const ESPERA_AL_AGENTE_POR_DEFECTO = 120_000;
  * pedido: sin variable, o con la variable en blanco, no hay nada que rechazar (la
  * regla de `parseSeed`, abajo). Es la lectura de toda variable de aquí: los enteros
  * (`enteroDelEntorno`) y los textos, que dicen ellos qué vale y lo rechazan con su
- * frase (`servidorDelPuente`, `ordenDelMotor`).
+ * frase (`servidorDelPuente`; y fuera de aquí, la orden del motor de mundos,
+ * `ordenDelMotor`, en `tools/mundo/motor.ts`).
  */
 export function textoDelEntorno(nombre: string): string | undefined {
   const valor = process.env[nombre];
@@ -188,22 +189,4 @@ export function combateDelEntorno(): ReglasDelCombate {
     }
   };
   return combateCon(leer('HEROES_TROPA', parseTope), leer('HEROES_RUEDA', parseRueda));
-}
-
-/**
- * La orden que lanza el motor de narrativa al generar un mundo desde el menú de
- * `pnpm dev` (`tools/mundo/motor.ts`): `claude` por defecto, Claude Code con la
- * suscripción. `HEROES_MOTOR=false` lo hace fallar a propósito (la orden `false`
- * sale 1): así se prueba la pantalla del fallo sin gastar nada. Un texto con
- * espacios no vale: es una orden, no una línea de shell (no se interpreta).
- */
-export function ordenDelMotor(): string {
-  const valor = textoDelEntorno('HEROES_MOTOR');
-  if (valor === undefined) return 'claude';
-  if (/\s/.test(valor.trim())) {
-    throw new Error(
-      `HEROES_MOTOR="${valor}" no es una orden: tiene que ser un ejecutable sin argumentos, como claude o /ruta/a/claude`,
-    );
-  }
-  return valor.trim();
 }
