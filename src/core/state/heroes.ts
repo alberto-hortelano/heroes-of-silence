@@ -279,8 +279,9 @@ export function veteranosEnSuBase(state: GameState, player: PlayerId): VeteranoE
 /**
  * El veterano `veteranoId` de `player`, si puede hacerse héroe sea del tipo que
  * sea, o por qué no: la base, el nivel y el hueco de héroe. **La única búsqueda
- * del veterano**, que leen `ascensoBlocker` para la frase y `ascenderVeterano`
- * para el resultado, sin volver a buscarlo.
+ * del veterano**, la primera mitad de la regla del ascenso (`juzgarAscenso`), que
+ * da la frase a `ascensoBlocker` y el resultado a `ascenderVeterano`, sin volver a
+ * buscarlo.
  *
  * «No está en tu base» cubre también al que ya se hizo héroe: al ascender sale
  * de la tropa, así que un segundo intento con el mismo id no lo encuentra. Es lo
@@ -311,9 +312,9 @@ function ascensoPosible(
 
 /**
  * Por qué el veterano `veteranoId` de `player` no puede hacerse héroe de tipo
- * `heroType`, o `null` si puede. **La única que lo decide**: la lee
- * `ascenderVeterano` para lanzar, y su frase es la que el director le devuelve
- * al narrador. Por eso está escrita para que la lea él.
+ * `heroType`, o `null` si puede: la regla del ascenso (`juzgarAscenso`). Su frase
+ * es la que el director le devuelve al narrador cuando `ascenderVeterano` lanza con
+ * ella, así que está escrita para que la lea él.
  */
 export function ascensoBlocker(
   state: GameState,
@@ -321,9 +322,28 @@ export function ascensoBlocker(
   veteranoId: string,
   heroType: string,
 ): string | null {
+  const juicio = juzgarAscenso(state, player, veteranoId, heroType);
+  return 'motivo' in juicio ? juicio.motivo : null;
+}
+
+/**
+ * **La única que decide si un veterano se hace héroe**, con el veterano que lo
+ * hace para que la acción no lo busque otra vez: las dos mitades en su orden, el
+ * veterano (`ascensoPosible`: la base, el nivel y el hueco de héroe) y el tipo que
+ * pidió el narrador (`problemaDeTipo`). La leen `ascensoBlocker` y
+ * `ascenderVeterano`, que hasta la fase N de la reorganización (07-11-2026)
+ * repetía las dos mitades.
+ */
+function juzgarAscenso(
+  state: GameState,
+  player: PlayerId,
+  veteranoId: string,
+  heroType: string,
+): VeteranoEnBase | { readonly motivo: string } {
   const posible = ascensoPosible(state, player, veteranoId);
-  if ('motivo' in posible) return posible.motivo;
-  return problemaDeTipo(playerById(state, player).faction, heroType);
+  if ('motivo' in posible) return posible;
+  const tipoMalo = problemaDeTipo(playerById(state, player).faction, heroType);
+  return tipoMalo === null ? posible : { motivo: tipoMalo };
 }
 
 /**
@@ -345,7 +365,7 @@ export function ascensoBlocker(
  * el individuo sale de la tropa al ascender; el de `hireHero` es
  * `hero-<jugador>-c<n>`, con su propio contador (`siguienteHeroe`).
  *
- * Lanza con la frase de `ascensoBlocker` si no puede.
+ * Lanza con la frase de `ascensoBlocker` (`juzgarAscenso`) si no puede.
  */
 export function ascenderVeterano(
   state: GameState,
@@ -353,11 +373,8 @@ export function ascenderVeterano(
   veteranoId: string,
   eleccion: { readonly name: string; readonly story: string; readonly heroType: string },
 ): Hero {
-  // Las dos mitades de `ascensoBlocker`, en su orden, sin buscar dos veces.
-  const v = ascensoPosible(state, player, veteranoId);
+  const v = juzgarAscenso(state, player, veteranoId, eleccion.heroType);
   if ('motivo' in v) throw new Error(`no se puede hacer héroe: ${v.motivo}`);
-  const tipoMalo = problemaDeTipo(playerById(state, player).faction, eleccion.heroType);
-  if (tipoMalo !== null) throw new Error(`no se puede hacer héroe: ${tipoMalo}`);
 
   const fuera = (army: Army): Army => army.filter((t) => t.veterania?.id !== veteranoId);
   if (v.heroe === null) {
