@@ -11,35 +11,27 @@ import { GestosDeBatalla } from './batalla/gestos.js';
 import { DialogoDeLaRueda } from './batalla/rueda/dialogo.js';
 import { bucleDeDibujo } from './comun/bucle.js';
 import { mensajeDe } from './comun/errores.js';
-import { pintar } from './comun/html.js';
 import { aLaBarra } from './comun/semilla.js';
 import { abrirLaPartida } from './partida/abrir.js';
 import { EscenaBase } from './partida/base/escena.js';
 import { combateALaURL } from './partida/combate-en-la-url.js';
-import {
-  instalarLosDialogos,
-  mostrarConversacion,
-  mostrarLaGuarnicion,
-} from './partida/dialogos.js';
+import { instalarLosDialogos } from './partida/dialogos.js';
+import { calentarElMapa, dibujarFotograma, otroFotograma } from './partida/dibujo.js';
 import { PuertaDeFinDeTurno } from './partida/fin-de-turno.js';
 import { EscenaLugar } from './partida/lugar/escena.js';
 import { EscenaAventura } from './partida/mapa/escena.js';
 import {
-  type EscenaDeDentro,
   type EstadoDeLaPagina,
   elementosDeLaPartida,
   escenasDeDentro,
   esDeDentro,
   type PaginaDeLaPartida,
 } from './partida/pagina.js';
-import { renderActions, renderSide, renderTopbar } from './partida/paneles.js';
 import { repartirClic } from './partida/reparto-del-clic.js';
 import { cargarArte } from './render/assets.js';
-import { apuntarElSueloEn, escenarioListo, sueloDelMapa } from './render/escenario/superficie.js';
-import { hayFigurasAnimadas } from './render/figuras/figura.js';
+import { apuntarElSueloEn } from './render/escenario/superficie.js';
 import { ajustarLienzo } from './render/lienzo.js';
 import type { Session } from './sesion/partida.js';
-import { pintarSiguiendoElFinal } from './views/al-final.js';
 
 /**
  * `true` en `pnpm dev` y `false` en `vite build` (`define` de `vite.config.ts`):
@@ -54,12 +46,7 @@ const {
   canvas,
   lienzo,
   minimapa,
-  elDay,
-  elResources,
-  elTurn,
-  elSide,
   elStatus,
-  elActions,
   elSeed,
   haciaEnemigo,
   elRueda,
@@ -67,25 +54,23 @@ const {
   elGuarnicion,
   elDefensa,
   elAviso,
-  stage,
-  lateral,
 } = elementos;
 
 /**
  * El bucle de dibujo (`comun/bucle.ts`), con la red de la partida: un fallo al pintar se
  * escribe en la barra, y el siguiente fotograma se vuelve a pedir si hace falta, también
  * tras un fallo (`otroFotograma`). Va aquí arriba porque lo recogen desde el principio la
- * sesión (`alCambiarSinGesto`) y la rueda; lo que pinta, en «dibujo».
+ * sesión (`alCambiarSinGesto`) y la rueda; lo que pinta, en `partida/dibujo.ts`.
  */
 const pedirFotograma = bucleDeDibujo({
   pintar: (ahora) => {
-    dibujarFotograma(ahora);
-    return otroFotograma();
+    dibujarFotograma(pagina, ahora);
+    return otroFotograma(pagina);
   },
   alFallar: (motivo) => {
     console.error('[cliente] fallo al pintar', motivo);
     elStatus.textContent = `No se ha podido pintar la pantalla: ${mensajeDe(motivo)}`;
-    return otroFotograma();
+    return otroFotograma(pagina);
   },
 });
 
@@ -125,29 +110,6 @@ const estado: EstadoDeLaPagina = {
   activaSeguida: null,
 };
 
-// ---------------------------------------------------------------- dibujo
-
-/**
- * Cuándo se pinta, que es la mitad del trabajo (el bucle, `pedirFotograma`, arriba).
- *
- * El lienzo pide fotograma solo mientras hay algo que se mueve: figuras que
- * respiran (con su arte cargado), la cola del animador de batalla o un arrastre
- * del mapa. Fuera de eso, se pinta cuando algo pasa —un gesto, el fin del turno
- * del rival, un cambio de tamaño, arte que llega— y se para. Tras pintar un
- * fotograma, o fallar al pintarlo, se pide otro si algo se mueve, y también si la
- * escena cambió mientras se pintaba —un «Continuar» que esperaba a la jugada
- * vuelve al mapa en `batalla.sincronizar`—: este fotograma pintó la de antes.
- */
-function otroFotograma(): boolean {
-  return hayAnimacion() || session.scene !== estado.escenaPintada;
-}
-
-function hayAnimacion(): boolean {
-  if (hayFigurasAnimadas()) return true;
-  if (session.scene === 'battle') return batalla.ocupada;
-  return session.scene === 'adventure' && (aventura.arrastrando || session.marchaEnCurso !== null);
-}
-
 const principal = ajustarLienzo(canvas, pedirFotograma);
 const ctx = principal.ctx;
 
@@ -179,147 +141,6 @@ function fichaTrasElClic(): void {
   setTimeout(traer, ESPERA_DEL_CLIC);
 }
 const ESPERA_DEL_CLIC = 400;
-
-function dibujarFotograma(ahora: number): void {
-  const escena = session.scene;
-  if (escena !== estado.escenaPintada) {
-    // El lateral se desplaza solo, y la tropa heredaba lo bajado en el panel del
-    // mapa: abría con la lista de a quién elegir por encima de la vista (QA, H3).
-    // La tropa y la morada abren arriba, y al volver el mapa o la base se
-    // encuentran su panel como lo dejaron. Se lee antes de cambiar `data-escena`
-    // (con el marco de la tropa el lateral mide otra cosa y el navegador ya lo
-    // recorta) y se pone después de repintar los paneles, por lo mismo.
-    if (esDeDentro(dentro, escena)) {
-      estado.escenaDeAntes = estado.escenaPintada;
-      estado.lateralDeAntes = lateral.scrollTop;
-      estado.lateralPendiente = 0;
-    } else if (esDeDentro(dentro, estado.escenaPintada)) {
-      // A la escena de donde se entró, como estaba; a otra, arriba.
-      estado.lateralPendiente = escena === estado.escenaDeAntes ? estado.lateralDeAntes : 0;
-      estado.lateralDeAntes = 0;
-    }
-    app.dataset.escena = escena;
-    principal.remedir();
-    // El tablero de batalla es más ancho que un móvil: se empieza mirando el
-    // centro, que es donde se encuentran los dos bandos. El de la tropa, por su
-    // borde: la formación es la del atacante, a la izquierda.
-    lienzo.scrollLeft =
-      escena === 'tropa' ? 0 : Math.max(0, (lienzo.scrollWidth - lienzo.clientWidth) / 2);
-    // En el móvil lo que se desplaza es `#stage`: al abrir la base desde la
-    // lista de castillos, que está debajo del lienzo, la pantalla nueva se
-    // quedaba donde estaba el botón, con medio lienzo fuera de la vista.
-    stage.scrollTop = 0;
-    estado.escenaPintada = escena;
-  }
-
-  const enCastillo = escena === 'town' && session.activeTown !== null;
-  const enBatalla = escena === 'battle' && session.battle !== null;
-  const deDentro = esDeDentro(dentro, escena) ? dentro[escena].de : null;
-  // Solo el mapa tiene presupuesto de píxeles: es la única pantalla que pinta
-  // miles de sprites a cada fotograma. Depende del zoom: acercando, plena.
-  const rect = principal.preparar(
-    enCastillo || enBatalla || deDentro !== null ? undefined : aventura.presupuesto,
-  );
-  ctx.clearRect(0, 0, rect.width, rect.height);
-  // Lo abierto en la base o si se anda: lo leen la página (`canvas[data-base]`)
-  // y los paneles. Una lectura por fotograma, después de dibujar.
-  let base = '';
-  if (enCastillo) {
-    castillo.dibujar(ctx, rect.width, rect.height, ahora);
-    base = castillo.marca;
-    if (canvas.dataset.base !== base) canvas.dataset.base = base;
-  } else if (enBatalla) {
-    batalla.sincronizar(ahora);
-    batalla.dibujar(ctx, rect.width, rect.height);
-    seguirALaActiva();
-  } else if (deDentro !== null) {
-    deDentro.dibujar(ctx, rect.width, rect.height, window.devicePixelRatio || 1, ahora);
-  } else {
-    aventura.dibujar(ctx, rect.width, rect.height, ahora);
-    estado.desarrollo?.dibujar(ctx);
-    aventura.dibujarMinimapa(minimapa);
-  }
-  señalarEnemigo(enBatalla);
-  // Fuera de la batalla, cerrada (`pintar` la cierra si no hay batalla). Sus dos
-  // figuras respiran con las del tablero (`hayFigurasAnimadas` pide el siguiente).
-  rueda.pintar();
-  rueda.animar(ahora);
-
-  if (!enCastillo && canvas.dataset.base !== undefined) delete canvas.dataset.base;
-  // El héroe que anda su marcha (`#app[data-marcha]`, su id): `pnpm capturas` espera
-  // a que llegue antes de mirar lo que abre la llegada.
-  const andando = session.marchaEnCurso?.heroe;
-  if (andando === undefined) {
-    if (app.dataset.marcha !== undefined) delete app.dataset.marcha;
-  } else if (app.dataset.marcha !== andando) app.dataset.marcha = andando;
-  // A quién se mira en cada escena de dentro (`canvas[data-tropa]`, el id de la
-  // elegida; `canvas[data-morada]`, `<edificio>:<unidad>`): por donde esperan
-  // `pnpm capturas` y los tests del navegador. Fuera de ella, sin la marca.
-  for (const nombre of Object.keys(dentro) as EscenaDeDentro[]) {
-    const marca = escena === nombre ? dentro[nombre].de.marca : '';
-    if (marca === '') {
-      if (canvas.dataset[nombre] !== undefined) delete canvas.dataset[nombre];
-    } else if (canvas.dataset[nombre] !== marca) canvas.dataset[nombre] = marca;
-  }
-
-  // Después de `batalla.sincronizar`: es la cola de ESTE fotograma.
-  const contando = enBatalla && batalla.ocupada;
-  // Lo abierto en la base cambia el panel sin cambiar la partida: al llegar a
-  // una puerta se abre su panel, y eso no sube la versión de la sesión.
-  const cambiaLaPartida =
-    estado.paneles === null ||
-    estado.paneles.sesion !== session ||
-    estado.paneles.version !== session.version ||
-    estado.paneles.contando !== contando ||
-    estado.paneles.base !== base;
-  // El arte que llega solo cambia la barra (el icono del oro). El lateral
-  // y las acciones no lo leen, y repintarlos con cada hoja o tramo que llegaba
-  // perdía el toque que caía en medio: el botón tocado ya no existía al llegar
-  // su clic (1 de cada 10 en la morada del móvil, 21-10-2026).
-  if (cambiaLaPartida || estado.paneles?.arte !== estado.arteLlegado) {
-    const top = renderTopbar(session);
-    elDay.textContent = top.day;
-    pintar(elResources, top.resources);
-    elTurn.textContent = top.turn;
-  }
-  if (cambiaLaPartida) {
-    pintarSiguiendoElFinal(
-      elSide,
-      renderSide(session, contando, enCastillo ? castillo.abierto : null),
-    );
-    pintar(elActions, renderActions(session, contando));
-    mostrarConversacion(pagina, enCastillo, escena === 'lugar');
-    mostrarLaGuarnicion(pagina);
-  }
-  estado.paneles = {
-    sesion: session,
-    version: session.version,
-    arte: estado.arteLlegado,
-    contando,
-    base,
-  };
-  if (estado.lateralPendiente !== null) {
-    lateral.scrollTop = estado.lateralPendiente;
-    estado.lateralPendiente = null;
-  }
-  if (estado.fichaALaVista) {
-    estado.fichaALaVista = false;
-    llevarLaFichaALaVista();
-  }
-  if (elStatus.textContent !== session.status) elStatus.textContent = session.status;
-}
-
-/** Trae a la vista la ficha del elegido del ayuntamiento y su «Contratar» (`fichaALaVista`). */
-function llevarLaFichaALaVista(): void {
-  const ficha = elSide.querySelector('.ficha-del-ayuntamiento');
-  const contratar = ficha?.querySelector('[data-action="hire-hero"]');
-  if (ficha == null || contratar == null) return;
-  // Primero la ficha desde arriba y luego el botón: si la ficha entera no cabe,
-  // manda que se vea «Contratar». `nearest` no mueve nada si ya se ve (el
-  // escritorio, con el panel al lado).
-  ficha.scrollIntoView({ block: 'nearest' });
-  contratar.scrollIntoView({ block: 'nearest' });
-}
 
 // Antes que los gestos de la batalla, como siempre: con lo que leen, que la página aún no
 // está entera.
@@ -387,52 +208,6 @@ function hastaQueLlegue(): boolean {
   aventura.olvidarRuta();
   pedirFotograma();
   return true;
-}
-
-/**
- * En el móvil el tablero se desplaza dentro de su marco: cuando le toca a otra
- * unidad tuya, el marco va hasta ella. Una sola vez por unidad, para que quien
- * desplaza a mano para mirar no vea el marco volver solo a cada fotograma.
- */
-function seguirALaActiva(): void {
-  if (lienzo.scrollWidth <= lienzo.clientWidth) return;
-  const activa = batalla.activaPropia();
-  if (activa === null || activa.id === estado.activaSeguida) return;
-  estado.activaSeguida = activa.id;
-  lienzo.scrollLeft = Math.max(0, activa.x - lienzo.clientWidth / 2);
-}
-
-/**
- * La pista del borde: en el móvil el marco empieza en tu unidad, y el enemigo
- * —al otro lado de un tablero de 860 px— quedaba entero fuera de la vista sin
- * que nada dijera que el tablero seguía. Si hay enemigos fuera, un botón en ese
- * borde lo dice con cuántos son, y pulsarlo lleva el marco hasta allí.
- */
-function señalarEnemigo(enBatalla: boolean): void {
-  const fuera =
-    enBatalla && lienzo.scrollWidth > lienzo.clientWidth
-      ? batalla.enemigosFuera(lienzo.scrollLeft, lienzo.scrollLeft + lienzo.clientWidth)
-      : { izquierda: 0, derecha: 0 };
-  // A la derecha primero: es donde está el enemigo cuando la persona ataca.
-  const lado = fuera.derecha > 0 ? 'derecha' : fuera.izquierda > 0 ? 'izquierda' : '';
-  const cuantos = lado === 'derecha' ? fuera.derecha : fuera.izquierda;
-  const texto =
-    lado === 'derecha'
-      ? `Enemigo (${cuantos}) ▸`
-      : lado === 'izquierda'
-        ? `◂ Enemigo (${cuantos})`
-        : '';
-  if (haciaEnemigo.dataset.lado !== lado) haciaEnemigo.dataset.lado = lado;
-  if (haciaEnemigo.textContent !== texto) haciaEnemigo.textContent = texto;
-  haciaEnemigo.hidden = lado === '';
-  // El botón vive dentro del marco que se desplaza: se recoloca en su borde.
-  if (lado !== '') {
-    const izquierda =
-      lado === 'derecha'
-        ? lienzo.scrollLeft + lienzo.clientWidth - haciaEnemigo.offsetWidth - 8
-        : lienzo.scrollLeft + 8;
-    haciaEnemigo.style.left = `${izquierda}px`;
-  }
 }
 
 lienzo.addEventListener('scroll', pedirFotograma, { passive: true });
@@ -929,33 +704,11 @@ document.addEventListener('keydown', (ev) => {
   pedirFotograma();
 });
 
-/**
- * Compone el escenario del mapa y encarga su suelo mientras se está en la base,
- * cuando el hilo quede libre: el suelo lo pinta un Worker en 2-12 s y, si se
- * encargaba al salir de la base, el mapa se veía ese rato con el sucedáneo o el
- * esbozo. Son las mismas llamadas que hace el primer fotograma del mapa
- * (`escenarioListo`, `sueloDelMapa`), así que lo que se adelanta es lo que luego
- * se pinta.
- */
-function calentarElMapa(): void {
-  const cuandoQuedeLibre = (fn: () => void): void => {
-    if (typeof requestIdleCallback === 'function') requestIdleCallback(fn, { timeout: 1000 });
-    else setTimeout(fn, 100);
-  };
-  const paso = (): void => {
-    const esc = escenarioListo(session.state.map, session.state.seed);
-    // Se compone en una tarea aparte: hasta que esté, otra vuelta.
-    if (esc === null) cuandoQuedeLibre(paso);
-    else sueloDelMapa(esc, 1, devicePixelRatio);
-  };
-  cuandoQuedeLibre(paso);
-}
-
 // La partida empieza en la base, con el héroe dentro: salir de ella lleva al
 // mapa, y la barra dice entonces cómo se anda (`AYUDA_DEL_MAPA`).
 session.abrirSuBase();
 pedirFotograma();
-calentarElMapa();
+calentarElMapa(session);
 
 if (HERRAMIENTAS_DE_DESARROLLO) {
   void import('./desarrollo/herramientas.js')
@@ -966,7 +719,7 @@ if (HERRAMIENTAS_DE_DESARROLLO) {
         canvas,
         herramientas: document.getElementById('herramientas') as HTMLElement,
         pedirFotograma,
-        pintarYa: () => dibujarFotograma(performance.now()),
+        pintarYa: () => dibujarFotograma(pagina, performance.now()),
       });
       pedirFotograma();
     })
