@@ -15,9 +15,9 @@ import { EscenaAventura, focoDe, llegadaDeLaRuta } from '../src/client/escenas/a
 import { EscenaBatalla } from '../src/client/escenas/batalla.js';
 import { EscenaBase } from '../src/client/escenas/castillo.js';
 import { PAUSA_TRAS_EL_RIVAL, PuertaDeFinDeTurno } from '../src/client/fin-de-turno.js';
-import { msPorCasilla } from '../src/client/marcha.js';
 import { camaraDeLaBase, camaraQuieta } from '../src/client/render/base/camara.js';
 import { componerBase } from '../src/client/render/base/escena.js';
+import { dondeEsperaEnLaMorada } from '../src/client/render/base/fila.js';
 import { rachasSinArte } from '../src/client/render/base/pintar.js';
 import { dondePulsarElSitio } from '../src/client/render/base/recortes.js';
 import {
@@ -32,18 +32,18 @@ import {
   pintarCorona,
   pintarSobreLaCabeza,
 } from '../src/client/render/batalla.js';
-import { casillaAPixel, centrarEn, TILE_INICIAL } from '../src/client/render/camara-mapa.js';
-import { CUERPO_DE_VECINO } from '../src/client/render/cuerpo-de-gente.js';
 import { PIES } from '../src/client/render/escenario/figuras-del-mapa.js';
 import type { Volumen } from '../src/client/render/escenario/pintar.js';
+import { CUERPO_DE_VECINO } from '../src/client/render/figuras/cuerpo-de-gente.js';
+import { msPorCasilla } from '../src/client/render/figuras/marcha.js';
+import { casillaAPixel, centrarEn, TILE_INICIAL } from '../src/client/render/mapa/camara.js';
 import {
   asientoDeLaInicial,
   type CuerpoDeFigura,
   fundirPorProfundidad,
   pasosAPintar,
   SITIOS_DE_LA_INICIAL,
-} from '../src/client/render/mapa.js';
-import { dondeEsperaEnLaMorada } from '../src/client/render/morada/fila.js';
+} from '../src/client/render/mapa/mapa.js';
 import { COLOR_SIN_DUEÑO, MARCA_DE_COMANDANTE, playerColor } from '../src/client/render/palette.js';
 import {
   centroDeStack,

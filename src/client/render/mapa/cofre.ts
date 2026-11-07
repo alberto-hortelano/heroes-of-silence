@@ -6,10 +6,10 @@
  * se importa tal cual: las cifras no se copian aquí (#120). Sin la imagen no se
  * pinta nada y quien llama pone su marcador.
  */
-import cofre from '../../../assets/mapa/cofre.json' with { type: 'json' };
-import { asset, type PiezaDelMapa } from './assets.js';
-import { copiaReducida } from './copias.js';
-import { densidadDe } from './lienzo.js';
+import cofre from '../../../../assets/mapa/cofre.json' with { type: 'json' };
+import { asset, type PiezaDelMapa } from '../assets.js';
+import { copiaReducida } from '../copias.js';
+import { densidadDe } from '../lienzo.js';
 
 interface Medidas {
   readonly ancho: number;

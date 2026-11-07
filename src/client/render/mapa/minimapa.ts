@@ -10,10 +10,10 @@ import { cruzaSuBarrera } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import type { MapObject } from '@core/map/tipos.js';
 import type { Point } from '@core/types.js';
-import { temaDelLienzo } from '../comun/temas.js';
-import type { CamaraMapa } from './camara-mapa.js';
+import { temaDelLienzo } from '../../comun/temas.js';
+import { playerColor } from '../palette.js';
+import type { CamaraMapa } from './camara.js';
 import type { AdventureScene, HeroeEnElMapa } from './mapa.js';
-import { playerColor } from './palette.js';
 import { pigments } from './terreno.js';
 
 /** Los pigmentos de la superficie del mapa grande: el minimapa es el mismo suelo, pequeño. */

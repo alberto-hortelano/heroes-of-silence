@@ -13,14 +13,14 @@ import {
   fotoDeEfectos,
   IMPACTO,
 } from '../src/client/anim.js';
-import { msPorCasilla } from '../src/client/marcha.js';
 import { clipQueSePinta } from '../src/client/render/batalla.js';
+import { msPorCasilla } from '../src/client/render/figuras/marcha.js';
 import {
   arteDe,
   hojaDe,
   MIRADA_DE_PRESENTACION,
   registrarUnidad,
-} from '../src/client/render/personajes.js';
+} from '../src/client/render/figuras/personajes.js';
 import { planoDeHex } from '../src/client/render/proyeccion.js';
 import { stackHp } from '../src/core/battle/damage.js';
 import { createBattle } from '../src/core/battle/montaje.js';

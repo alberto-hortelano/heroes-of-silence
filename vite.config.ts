@@ -274,7 +274,7 @@ function arena(): Plugin {
  * El banco de figuras de NPC (`/__npcs`): el banco crudo de `data/npcs.json` y, por
  * figura, sus ocho `dN/atlas.json` si está pintada o por qué aún no
  * (`tools/npcs/banco.ts`, `loQueSeSirve`). La página lo juzga con la regla del
- * núcleo (`leerBanco`) y registra las pintadas (`render/gente.ts`).
+ * núcleo (`leerBanco`) y registra las pintadas (`render/figuras/gente.ts`).
  *
  * Una lista del disco (`listaDelDisco`), como la de hojas de la arena: se olvida al
  * cambiar el banco, el atlas de una dirección (`dN/atlas.json` o `atlas.webp`, lo

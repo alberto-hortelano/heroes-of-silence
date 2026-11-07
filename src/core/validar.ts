@@ -120,7 +120,7 @@ export function repetidoEn<T>(lista: readonly T[]): T | undefined {
  * Si `id` tiene la forma de un id de la arena: minúsculas, cifras y guiones, la
  * de una carpeta de `assets/unidades/`. La leen el id de una unidad, el cuerpo de
  * una hoja y la figura de un héroe (`core/arena/`) y el registro de una hoja
- * para pintarla (`render/personajes.ts`). Aquí y no en `core/arena/` porque el
+ * para pintarla (`render/figuras/personajes.ts`). Aquí y no en `core/arena/` porque el
  * cliente fuera de la arena no importa de allí (`invariantes.test.ts`).
  */
 export function esIdDeUnidad(id: string): boolean {

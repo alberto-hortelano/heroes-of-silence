@@ -11,13 +11,13 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import cofre from '../assets/mapa/cofre.json' with { type: 'json' };
 import { arteCargando, cargarArte } from '../src/client/render/assets.js';
-import { casillaAPixel } from '../src/client/render/camara-mapa.js';
 import {
   escenarioDe,
   sueloDelMapa,
   usarPintorDelSuelo,
 } from '../src/client/render/escenario/superficie.js';
-import { COLOR_DEL_COFRE, drawMapa } from '../src/client/render/mapa.js';
+import { casillaAPixel } from '../src/client/render/mapa/camara.js';
+import { COLOR_DEL_COFRE, drawMapa } from '../src/client/render/mapa/mapa.js';
 import { todosALaVista } from '../src/core/state/asaltantes.js';
 import { newGame } from '../src/core/state/setup.js';
 

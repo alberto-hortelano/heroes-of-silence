@@ -25,9 +25,7 @@ import {
 } from '../../shared/base.js';
 import { porElCamino } from '../anim.js';
 import { temaDelLienzo } from '../comun/temas.js';
-import { direccionHacia } from '../direccion.js';
 import type { PuntoALaVista, VistaDelLugar } from '../lugar/sesion.js';
-import { msPorCasilla } from '../marcha.js';
 import { arteDeLaBase } from '../render/base/arte.js';
 import { camaraDeLaBase, camaraQuieta, seguir } from '../render/base/camara.js';
 import type { Elemento } from '../render/base/escena.js';
@@ -38,7 +36,9 @@ import {
   pintarElSueloDeLaBase,
   pintarLasFiguras,
 } from '../render/base/pintar.js';
-import { animarHasta } from '../render/figura.js';
+import { direccionHacia } from '../render/figuras/direccion.js';
+import { animarHasta } from '../render/figuras/figura.js';
+import { msPorCasilla } from '../render/figuras/marcha.js';
 import { densidadDe } from '../render/lienzo.js';
 import { playerColor } from '../render/palette.js';
 import { enPantalla, pasoDeLaBase, type Tablero } from '../render/proyeccion.js';

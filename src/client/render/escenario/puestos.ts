@@ -165,7 +165,7 @@ function sinImagen(a: AlrededorDelPie): Pick<Sprite, 'src' | 'nw' | 'nh' | 'ax' 
  * La pieza de la obra `mejora` en el sitio de su puesto: su imagen a la escala de
  * su guía (`Pieza.puesto`) o, sin pieza en el catálogo, una sin imagen del tamaño
  * de su guía. Sin imagen —aún no ha llegado, o no hay— el mapa pinta en su lugar
- * el marcador de la obra a su escala (`render/marcador-del-puesto.ts`).
+ * el marcador de la obra a su escala (`render/mapa/marcador-del-puesto.ts`).
  */
 export function obraDelPuesto(
   id: string,

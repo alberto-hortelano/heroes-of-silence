@@ -39,9 +39,9 @@ import { cargaContra, EscenaBatalla, rotuloDeAngulo } from '../../src/client/esc
 import { dondeHablarCon } from '../../src/client/escenas/castillo.js';
 import { cajasDeLaMorada, EscenaMorada } from '../../src/client/escenas/morada.js';
 import { EscenaTropa } from '../../src/client/escenas/tropa.js';
-import { msPorCasilla } from '../../src/client/marcha.js';
 import type { VistaDeLaMorada } from '../../src/client/morada/vista.js';
 import { camaraDeLaBase, camaraQuieta } from '../../src/client/render/base/camara.js';
+import { dondeEsperaEnLaMorada } from '../../src/client/render/base/fila.js';
 import { dondePulsarElSitio } from '../../src/client/render/base/recortes.js';
 import {
   ARO_DE_LA_RUEDA,
@@ -52,11 +52,11 @@ import {
   cajaDeFiguraEn,
   galonesDe,
 } from '../../src/client/render/batalla.js';
-import { casillaAPixel, centrarEn, type Encuadre } from '../../src/client/render/camara-mapa.js';
-import { pasoDeLaHoja } from '../../src/client/render/de-pie.js';
-import { ALTO_DEL_GRUPO, pasosAPintar } from '../../src/client/render/mapa.js';
-import { dondeEsperaEnLaMorada } from '../../src/client/render/morada/fila.js';
-import { registrarUnidad } from '../../src/client/render/personajes.js';
+import { pasoDeLaHoja } from '../../src/client/render/figuras/de-pie.js';
+import { msPorCasilla } from '../../src/client/render/figuras/marcha.js';
+import { registrarUnidad } from '../../src/client/render/figuras/personajes.js';
+import { casillaAPixel, centrarEn, type Encuadre } from '../../src/client/render/mapa/camara.js';
+import { ALTO_DEL_GRUPO, pasosAPintar } from '../../src/client/render/mapa/mapa.js';
 import {
   centroDeStack,
   centroHex,

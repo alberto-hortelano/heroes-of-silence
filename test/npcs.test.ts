@@ -8,8 +8,8 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import vecinos from '../data/vecinos.json' with { type: 'json' };
-import { CUERPO_DE_VECINO, cuerpoDeGente } from '../src/client/render/cuerpo-de-gente.js';
-import { arteDe, arteParaPintar, registrarGente } from '../src/client/render/personajes.js';
+import { CUERPO_DE_VECINO, cuerpoDeGente } from '../src/client/render/figuras/cuerpo-de-gente.js';
+import { arteDe, arteParaPintar, registrarGente } from '../src/client/render/figuras/personajes.js';
 import {
   ETIQUETAS,
   figuraDelBanco,

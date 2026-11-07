@@ -221,8 +221,8 @@ import { COMO_SE_COLOCA, type ColocacionEnPantalla } from './escenas/despliegue.
 import { EnElLugar, type TrasElegir } from './lugar/sesion.js';
 import { componerVistaDeLaMorada, type VistaDeLaMorada } from './morada/vista.js';
 import type { VistaDeLaBase } from './render/base/escena.js';
-import { cuerpoDeLaPersona } from './render/cuerpo-de-gente.js';
-import { conLosDueñosSabidos, type SitioOcupado } from './render/sitios-sabidos.js';
+import { cuerpoDeLaPersona } from './render/figuras/cuerpo-de-gente.js';
+import { conLosDueñosSabidos, type SitioOcupado } from './render/mapa/sitios-sabidos.js';
 import { componerVistaDeLaTropa, mismoPortador, type VistaDeLaTropa } from './tropa/vista.js';
 import {
   type NieblaDeAntes,
@@ -1796,7 +1796,7 @@ export class Session implements ControlDeBatalla {
    *   de siempre (7 / 7). Una que no vale la rechaza el núcleo (`createGame`).
    * @param soloRuedaDelHeroe si la persona lleva solo la rueda de su héroe
    *   (`?solo-heroe=1`); se puede cambiar en la batalla (`soloRuedaDelHeroe`).
-   * @param gente el banco de figuras de NPC y lo pintado de él (`render/gente.ts`):
+   * @param gente el banco de figuras de NPC y lo pintado de él (`render/figuras/gente.ts`):
    *   de ahí sale la figura de la gente de la base y de los lugares; sin él, el Y Bot.
    */
   constructor(

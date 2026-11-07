@@ -24,8 +24,6 @@ import type { FactionId } from '@core/types.js';
 import { ALTO_DE_FIGURA, type Mirada, type Plano } from '../../shared/arte.js';
 import { alaFranja, type Disposicion, disposicionDe } from '../../shared/base.js';
 import { porElCamino } from '../anim.js';
-import { direccionHacia } from '../direccion.js';
-import { msPorCasilla } from '../marcha.js';
 import { abiertaDe, arteDeLaBase, conLaAbierta } from '../render/base/arte.js';
 import { camaraDeLaBase, camaraQuieta, seguir } from '../render/base/camara.js';
 import {
@@ -34,12 +32,14 @@ import {
   type Elemento,
   type VistaDeLaBase,
 } from '../render/base/escena.js';
+import { dondeEsperaEnLaMorada } from '../render/base/fila.js';
 import { type Golpe, queHayBajo } from '../render/base/golpe.js';
 import { type PintadoDeLaBase, pintarBase, pintarElAireDeLaBase } from '../render/base/pintar.js';
 import { luzDeLasFiguras } from '../render/clima/recetas.js';
-import { animarHasta } from '../render/figura.js';
+import { direccionHacia } from '../render/figuras/direccion.js';
+import { animarHasta } from '../render/figuras/figura.js';
+import { msPorCasilla } from '../render/figuras/marcha.js';
 import { densidadDe } from '../render/lienzo.js';
-import { dondeEsperaEnLaMorada } from '../render/morada/fila.js';
 import { playerColor } from '../render/palette.js';
 import { pasoDeLaBase, type Tablero } from '../render/proyeccion.js';
 import { AYUDA_DE_LA_BASE, type Session } from '../session.js';

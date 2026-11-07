@@ -21,7 +21,7 @@
  */
 
 import type { MejoraDelPuesto } from '@core/map/tipos.js';
-import { pintarSombra } from './sombra.js';
+import { pintarSombra } from '../figuras/sombra.js';
 
 /** El contorno de todo el marcador: oscuro, para que se lea sobre la nieve y sobre la roca. */
 const CONTORNO = 'rgba(28, 20, 12, 0.9)';

@@ -27,7 +27,7 @@ import {
 } from '@core/mundo/reglas.js';
 import type { AdventureAction, GameState } from '@core/state/tipos.js';
 import type { FactionId, PlayerId, Point } from '@core/types.js';
-import { cuerpoDeLaPersona } from '../render/cuerpo-de-gente.js';
+import { cuerpoDeLaPersona } from '../render/figuras/cuerpo-de-gente.js';
 
 /** Un punto de interés como lo pinta la escena y lo lista el panel. */
 export interface PuntoALaVista {

@@ -9,7 +9,7 @@
  * nadie que lee un clip pregunta si está. `ArteDeFigura.dispara` dice si el
  * disparo es suyo.
  */
-import type { ClipDeFigura } from '../../shared/arte.js';
+import type { ClipDeFigura } from '../../../shared/arte.js';
 
 /** Las siete acciones que se pintan: las seis de toda figura y el disparo. */
 export type CharacterClip = ClipDeFigura;

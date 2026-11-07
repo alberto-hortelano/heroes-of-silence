@@ -14,7 +14,7 @@
  * la marca el hecho, y su final lo leen otros (`clipEnCurso`, `fotogramaDeCaida`)
  * con el mismo reloj sin desplazar.
  */
-import { type ClipInfo, msDelClip } from './render/character.js';
+import { type ClipInfo, msDelClip } from './character.js';
 
 /**
  * Cuánto se aparta como mucho la velocidad de una figura de la del atlas, por

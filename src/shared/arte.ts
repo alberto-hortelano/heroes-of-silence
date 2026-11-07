@@ -105,7 +105,7 @@ export interface Plano {
 
 /**
  * Las ocho miradas de una figura, en el sentido contrario a las agujas desde el
- * este: las de la regla (`client/direccion.ts`) y las que escribe
+ * este: las de la regla (`client/render/figuras/direccion.ts`) y las que escribe
  * `data/bases/<f>.json` para cada vecino.
  */
 export const MIRADAS = ['E', 'NE', 'N', 'NO', 'O', 'SO', 'S', 'SE'] as const;
@@ -187,7 +187,7 @@ export const FIGURA_8D = {
  * gira al maniquí `rotation.y = 2π·d/8` y la 0 mira a la cámara. Cada nombre
  * dice hacia dónde mira la figura en pantalla. Lo leen el taller —que encarga
  * cada dirección por su nombre— y el cliente, que elige la hoja de la dirección
- * en la que mira la figura (`DIRECCION_DE_HOJA`, en `render/personajes.ts`).
+ * en la que mira la figura (`DIRECCION_DE_HOJA`, en `render/figuras/personajes.ts`).
  *
  * Su `length` es el número de direcciones de una figura para el taller y el
  * cliente; `core` no puede importar de aquí y escribe el 8 al lado de un

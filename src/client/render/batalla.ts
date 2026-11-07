@@ -48,7 +48,6 @@ import { ALTO_DE_MURALLA, ESCALERA, PORTADA } from '../../shared/muralla-de-bata
 import type { Efecto, EstadoFigura } from '../anim.js';
 import { temaDelLienzo } from '../comun/temas.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
-import { aroDeFigura, type PiesDeLaFigura } from './aro.js';
 import {
   type CaraConArte,
   caraDe,
@@ -60,7 +59,6 @@ import {
   rellenoDeLaTapa,
 } from './arte-de-la-muralla.js';
 import { asset } from './assets.js';
-import { type CharacterClip, clipEnCurso } from './character.js';
 import {
   campoDeEscena,
   hornearElVelo,
@@ -69,6 +67,8 @@ import {
   sinElVelo,
 } from './clima/clima.js';
 import { cieloDe, EFECTOS, luzDeLasFiguras, type Receta } from './clima/recetas.js';
+import { aroDeFigura, type PiesDeLaFigura } from './figuras/aro.js';
+import { type CharacterClip, clipEnCurso } from './figuras/character.js';
 import {
   colocarFigura,
   type Figura,
@@ -76,10 +76,10 @@ import {
   pintarFiguraConSombra,
   pintarSombraDeFigura,
   precargarDisparo,
-} from './figura.js';
+} from './figuras/figura.js';
+import { arteDe, hojaDe } from './figuras/personajes.js';
 import { densidadDe } from './lienzo.js';
 import { COLOR_DE_COMANDANTE, COLOR_SIN_DUEÑO, MARCA_DE_COMANDANTE } from './palette.js';
-import { arteDe, hojaDe } from './personajes.js';
 import { centroHex, enPantalla, planoDeHex, type Tablero, verticesHex } from './proyeccion.js';
 
 /** Los colores de los dos bandos: tiñen el Y Bot y pintan el aro. */

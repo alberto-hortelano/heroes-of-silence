@@ -22,7 +22,6 @@ import { isWalkable, type TerrainKind } from '@core/map/terrain.js';
 import { alcanceDelHeroe } from '@core/state/marcha.js';
 import { describe, expect, it } from 'vitest';
 import { EscenaAventura, focoDe } from '../src/client/escenas/aventura.js';
-import { centrarEn, mundoAPixel, TILE_INICIAL } from '../src/client/render/camara-mapa.js';
 import { analizar } from '../src/client/render/escenario/analizar.js';
 import { PIES } from '../src/client/render/escenario/figuras-del-mapa.js';
 import { claveDe } from '../src/client/render/escenario/pintar.js';
@@ -38,6 +37,7 @@ import {
 } from '../src/client/render/escenario/recinto.js';
 import { SEMIANCHO_DE_LA_HUELLA } from '../src/client/render/escenario/sendas.js';
 import { escenarioDe, pisada, topeDeAlejar } from '../src/client/render/escenario/superficie.js';
+import { centrarEn, mundoAPixel, TILE_INICIAL } from '../src/client/render/mapa/camara.js';
 import { Session } from '../src/client/session.js';
 import { partidaDe } from './escena-de-prueba.js';
 import { conRespiro, rango, segunPrisa } from './lento.js';

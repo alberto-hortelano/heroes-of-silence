@@ -24,7 +24,7 @@ import {
   aroDeFigura,
   type PiesDeLaFigura,
   piesEn,
-} from '../src/client/render/aro.js';
+} from '../src/client/render/figuras/aro.js';
 import { FIGURA } from '../src/shared/arte.js';
 import { RAIZ } from './comun.js';
 import { segunPrisa } from './lento.js';

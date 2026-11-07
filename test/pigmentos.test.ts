@@ -9,8 +9,8 @@
  * color tiene que bastar solo —es lo que lee el minimapa—.
  */
 import { describe, expect, it } from 'vitest';
-import { FONDO_INEXPLORADO } from '../src/client/render/minimapa.js';
-import { pigments } from '../src/client/render/terreno.js';
+import { FONDO_INEXPLORADO } from '../src/client/render/mapa/minimapa.js';
+import { pigments } from '../src/client/render/mapa/terreno.js';
 import { BARRERAS, SUELOS_PISABLES } from '../src/core/map/terrain.js';
 
 type Rgb = readonly [number, number, number];

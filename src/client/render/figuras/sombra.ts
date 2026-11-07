@@ -6,7 +6,7 @@
  * Se pinta ANTES de la figura y cae hacia donde dice la luz, que es una para
  * todas: no depende de hacia dónde mire nadie.
  */
-import { colorDeSombra, sombraDeFigura } from '../../shared/arte.js';
+import { colorDeSombra, sombraDeFigura } from '../../../shared/arte.js';
 
 /**
  * El fundido de la sombra, uno por opacidad. Se dibuja en coordenadas propias

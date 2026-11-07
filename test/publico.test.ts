@@ -9,7 +9,7 @@ import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { juegosDelYBot, registrarUnidad } from '../src/client/render/personajes.js';
+import { juegosDelYBot, registrarUnidad } from '../src/client/render/figuras/personajes.js';
 import { FACTION_IDS } from '../src/core/types.js';
 import { NOMBRES_DE_DIRECCION } from '../src/shared/arte.js';
 import { copiarPublico, seCopiaAlBuild } from '../tools/build/publico.js';

@@ -32,10 +32,10 @@ import type { HechoDelCruce } from '@core/battle/rueda.js';
 import type { BattleEvent, BattleStack, BattleState, StackEffect } from '@core/battle/types.js';
 import type { Hex } from '@core/types.js';
 import { ALTO_DE_FIGURA, type Plano } from '../shared/arte.js';
-import { type Direccion, direccionHacia } from './direccion.js';
-import { msDeSuelta, msPorCasilla } from './marcha.js';
-import type { CharacterClip } from './render/character.js';
-import { type ArteDeFigura, arteDe } from './render/personajes.js';
+import type { CharacterClip } from './render/figuras/character.js';
+import { type Direccion, direccionHacia } from './render/figuras/direccion.js';
+import { msDeSuelta, msPorCasilla } from './render/figuras/marcha.js';
+import { type ArteDeFigura, arteDe } from './render/figuras/personajes.js';
 import { centroDeStack, planoDeHex } from './render/proyeccion.js';
 
 /**

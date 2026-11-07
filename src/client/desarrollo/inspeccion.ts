@@ -6,13 +6,13 @@
  * Pura —ni lienzo ni DOM—: lee el `Escenario` que ya se compuso para pintar,
  * así que dice lo que se pintó y no lo que saldría de componer otra vez.
  */
-import type { CaraAhi, QueHay, SpriteAhi } from '../../desarrollo/tipos.js';
-import { columnasDeCara } from './caras.js';
-import { type Catalogo, esHojaDeLadera } from './catalogo.js';
-import { type Caja, cajaDeSprite } from './pasillo.js';
-import { puenteEnElTerreno } from './puentes.js';
-import { bandaDeCara, type CaraDeEscena } from './relieve.js';
-import type { Escenario } from './superficie.js';
+import { columnasDeCara } from '../render/escenario/caras.js';
+import { type Catalogo, esHojaDeLadera } from '../render/escenario/catalogo.js';
+import { type Caja, cajaDeSprite } from '../render/escenario/pasillo.js';
+import { puenteEnElTerreno } from '../render/escenario/puentes.js';
+import { bandaDeCara, type CaraDeEscena } from '../render/escenario/relieve.js';
+import type { Escenario } from '../render/escenario/superficie.js';
+import type { CaraAhi, QueHay, SpriteAhi } from './tipos.js';
 
 /** De qué hoja y módulo, o de qué pieza suelta, sale una `src` del catálogo. */
 type Origen = { hoja: string | null; modulo: string | null; pieza: string | null };

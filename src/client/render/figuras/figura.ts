@@ -11,12 +11,12 @@
  * **No se espeja nunca**: cada dirección tiene su hoja, y con la luz fija a la
  * izquierda el espejo la traería de la derecha.
  */
-import { colorDeSombra, FIGURA, PROYECCION_DE_SOMBRA } from '../../shared/arte.js';
-import { relojDeFigura } from '../compas.js';
-import { temaDelLienzo } from '../comun/temas.js';
-import type { Direccion } from '../direccion.js';
+import { colorDeSombra, FIGURA, PROYECCION_DE_SOMBRA } from '../../../shared/arte.js';
+import { temaDelLienzo } from '../../comun/temas.js';
+import { cargarHojaDeFigura, figuraEnCamino, hayFiguraCargada, imagenDeFigura } from '../assets.js';
+import { CacheDeLienzos } from '../copias.js';
+import { densidadDe } from '../lienzo.js';
 import { type PiesDeLaFigura, piesEn } from './aro.js';
-import { cargarHojaDeFigura, figuraEnCamino, hayFiguraCargada, imagenDeFigura } from './assets.js';
 import {
   type AtlasQueSePinta,
   type CharacterClip,
@@ -26,8 +26,8 @@ import {
   fotogramaDeCaida,
   infoDelClip,
 } from './character.js';
-import { CacheDeLienzos } from './copias.js';
-import { densidadDe } from './lienzo.js';
+import { relojDeFigura } from './compas.js';
+import type { Direccion } from './direccion.js';
 import {
   type ArteQueSePinta,
   arteDe,

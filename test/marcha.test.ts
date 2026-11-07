@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
-import { ZANCADA } from '../src/client/marcha.js';
+import { ZANCADA } from '../src/client/render/figuras/marcha.js';
 import { FIGURA } from '../src/shared/arte.js';
 import { indicesDeClip } from '../tools/art/poses.js';
 import { RAIZ } from './comun.js';

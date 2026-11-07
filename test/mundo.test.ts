@@ -853,7 +853,7 @@ describe('el mundo en la URL', () => {
       vi.restoreAllMocks();
     });
     vi.resetModules();
-    const { cargarLaGente } = await import('../src/client/render/gente.js');
+    const { cargarLaGente } = await import('../src/client/render/figuras/gente.js');
     const gente = cargarLaGente();
     expect((await gente).sinBanco).toBe('/__npcs responde 500 y no es JSON');
     // El aviso de la consola no dice lo contrario que la página: la base, con el Y Bot; un mundo, no.

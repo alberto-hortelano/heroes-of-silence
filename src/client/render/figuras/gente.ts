@@ -13,7 +13,7 @@
  * existen, con las frases del motor).
  */
 import { type BancoPintado, leerBanco, SIN_BANCO } from '@core/gente/banco.js';
-import { mensajeDe } from '../comun/errores.js';
+import { mensajeDe } from '../../comun/errores.js';
 import { registrarGente } from './personajes.js';
 
 /** El banco de la página y, si no se pudo cargar, por qué (`null`: se cargó). */

@@ -13,9 +13,9 @@
  * Del mismo reloj sale cuándo suelta la cuerda quien dispara (`msDeSuelta`).
  */
 import type { Point } from '@core/types.js';
+import { type CharacterClip, infoDelClip, msDelClip } from './character.js';
 import { type Direccion, direccionEnPantalla } from './direccion.js';
-import { type CharacterClip, infoDelClip, msDelClip } from './render/character.js';
-import { arteDe, arteParaPintar, hojaDe, MIRADA_DE_PRESENTACION } from './render/personajes.js';
+import { arteDe, arteParaPintar, hojaDe, MIRADA_DE_PRESENTACION } from './personajes.js';
 
 /**
  * Lo que avanza el Y Bot en un ciclo de su marcha y de su carga, en alturas de

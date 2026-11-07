@@ -25,9 +25,15 @@ import {
   planoDelCuadro,
   TRAMO,
 } from '../../../shared/base.js';
-import { camaraDeLaBase, camaraQuieta } from '../base/camara.js';
-import { type LienzoDePie, MARGEN, pasoDeLaHoja, SEPARACION_MINIMA, UNA } from '../de-pie.js';
+import {
+  type LienzoDePie,
+  MARGEN,
+  pasoDeLaHoja,
+  SEPARACION_MINIMA,
+  UNA,
+} from '../figuras/de-pie.js';
 import { pasoDeLaBase, type Tablero } from '../proyeccion.js';
+import { camaraDeLaBase, camaraQuieta } from './camara.js';
 
 /**
  * La separación entre dos vecinas de la fila, en pasos: con más de 1,2 la fila ya

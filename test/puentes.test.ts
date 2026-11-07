@@ -11,7 +11,6 @@ import { isWalkable, type TerrainKind } from '@core/map/terrain.js';
 import { type MapObject, MEJORAS_DEL_PUESTO } from '@core/map/tipos.js';
 import { describe, expect, it } from 'vitest';
 import { EscenaAventura, focoDe } from '../src/client/escenas/aventura.js';
-import { centrarEn, mundoAPixel, TILE_INICIAL } from '../src/client/render/camara-mapa.js';
 import {
   analizar,
   type MapaDeEscena,
@@ -61,6 +60,7 @@ import {
   pisada,
   topeDeAlejar,
 } from '../src/client/render/escenario/superficie.js';
+import { centrarEn, mundoAPixel, TILE_INICIAL } from '../src/client/render/mapa/camara.js';
 import { Session } from '../src/client/session.js';
 import { primeraSemillaCon } from '../tools/comun/semillas.js';
 import { catalogoDelDisco, partidaDe, puenteSobreElAgua } from './escena-de-prueba.js';

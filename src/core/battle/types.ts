@@ -94,7 +94,7 @@ export interface Ganado {
  * Qué es el héroe para quien cuenta una batalla —la crónica (`resumenDeBatalla`),
  * el agente (`creature` de su stack, el `target` de un hechizo)— y su figura
  * genérica: la de la arena cuando no se elige ninguna (`FIGURA_GENERICA`), el
- * Y Bot de espada y escudo (`render/personajes.ts`).
+ * Y Bot de espada y escudo (`render/figuras/personajes.ts`).
  *
  * No está en el catálogo a propósito: un lector que lo buscara en él
  * (`unidadDelJuego`) lanza en vez de leer cifras prestadas. Las cifras del héroe salen de

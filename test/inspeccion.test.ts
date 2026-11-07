@@ -6,12 +6,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { queHayEn } from '../src/client/desarrollo/inspeccion.js';
 import { EscenaAventura } from '../src/client/escenas/aventura.js';
-import { cajaEnPixeles, mundoAPixel, pixelAMundo } from '../src/client/render/camara-mapa.js';
-import { queHayEn } from '../src/client/render/escenario/inspeccion.js';
 import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
 import { bandaDeCara } from '../src/client/render/escenario/relieve.js';
 import { escenarioDe } from '../src/client/render/escenario/superficie.js';
+import { cajaEnPixeles, mundoAPixel, pixelAMundo } from '../src/client/render/mapa/camara.js';
 import { Session } from '../src/client/session.js';
 import { primeraSemillaCon } from '../tools/comun/semillas.js';
 import { puenteSobreElAgua } from './escena-de-prueba.js';

@@ -8,7 +8,7 @@
  */
 import { mensajeDe } from '../comun/errores.js';
 import { urlDeImagenSegura } from '../comun/html.js';
-import { registrarLasHojas } from './personajes.js';
+import { registrarLasHojas } from './figuras/personajes.js';
 
 interface AssetManifest {
   readonly generatedAt: string;
@@ -98,7 +98,7 @@ export const ARTE_RPG = {
  * Las piezas sueltas que el juego pinta él (`assets/mapa/`), por el nombre con el
  * que se piden a `asset('mapa', …)`: el cofre, que se recoge en la
  * partida y no se hornean en la escena. Se colocan por su `ancla`, que viene en el `.json` de
- * al lado y lee `render/piezas.ts`. Todo lo demás del mapa lo pone el
+ * al lado y lee `render/mapa/cofre.ts`. Todo lo demás del mapa lo pone el
  * escenógrafo (`cargarArteDeEscena`).
  */
 export const PIEZAS_DEL_MAPA = ['cofre'] as const;

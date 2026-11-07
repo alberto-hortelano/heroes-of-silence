@@ -12,7 +12,7 @@
  * cámara es otra (`encuadrarElAyuntamiento`): enseña el edificio entero.
  */
 import type { VistaDelAyuntamiento } from '../ayuntamiento/vista.js';
-import { type EncuadreDeLaMorada, encuadrarElAyuntamiento } from '../render/morada/fila.js';
+import { type EncuadreDeLaMorada, encuadrarElAyuntamiento } from '../render/base/fila.js';
 import { AYUDA_DEL_AYUNTAMIENTO, type Session } from '../session.js';
 import { type DePie, EscenaDePie } from './de-pie.js';
 import { anteUnEdificio, type FondoDeLaMorada } from './morada.js';

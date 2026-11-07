@@ -11,7 +11,6 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { EscenaAventura } from '../src/client/escenas/aventura.js';
 import { arteCargando, imagenDeEscena } from '../src/client/render/assets.js';
-import { TILE_MAX } from '../src/client/render/camara-mapa.js';
 import {
   copiaReducida,
   copiaReducidaSiCabe,
@@ -42,7 +41,8 @@ import {
   topeDeAlejar,
   usarPintorDelSuelo,
 } from '../src/client/render/escenario/superficie.js';
-import { drawMapa, recortadoArriba } from '../src/client/render/mapa.js';
+import { TILE_MAX } from '../src/client/render/mapa/camara.js';
+import { drawMapa, recortadoArriba } from '../src/client/render/mapa/mapa.js';
 import { Session } from '../src/client/session.js';
 import { Casillas, type CasillasLeidas } from '../src/core/map/casillas.js';
 import { LADO_DEL_MAPA } from '../src/core/map/generar/plan.js';

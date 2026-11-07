@@ -4,15 +4,19 @@
  * dure lo que pidió el usuario al verlo andar.
  */
 import { describe, expect, it } from 'vitest';
-import { compasDe, RUIDO_DE_VELOCIDAD, relojDeFigura } from '../src/client/compas.js';
-import { msPorCasilla, PRISA_DE_LA_MARCHA } from '../src/client/marcha.js';
-import type { ClipInfo } from '../src/client/render/character.js';
-import { clipFrame } from '../src/client/render/character.js';
+import type { ClipInfo } from '../src/client/render/figuras/character.js';
+import { clipFrame } from '../src/client/render/figuras/character.js';
+import {
+  compasDe,
+  RUIDO_DE_VELOCIDAD,
+  relojDeFigura,
+} from '../src/client/render/figuras/compas.js';
+import { msPorCasilla, PRISA_DE_LA_MARCHA } from '../src/client/render/figuras/marcha.js';
 import {
   hojaDe,
   MIRADA_DE_PRESENTACION,
   registrarUnidad,
-} from '../src/client/render/personajes.js';
+} from '../src/client/render/figuras/personajes.js';
 import { ALTO_DE_FIGURA } from '../src/shared/arte.js';
 import { hojaDeLaArena } from './hojas-de-la-arena.js';
 

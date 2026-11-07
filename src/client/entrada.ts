@@ -2,7 +2,7 @@
  * La entrada de la página: si la URL no pide partida, pregunta cuál (la pantalla
  * de inicio, `inicio/inicio.ts`); luego carga `main.ts`. Con `?seed=`, `?faccion=`
  * o `?heroe=` va directa a `main.ts`, sin cargar el menú; antes, el banco de figuras
- * de NPC (`render/gente.ts`) y, con `?mundo=`, ese mundo. Si algo no carga, lo dice (`arranque.ts`).
+ * de NPC (`render/figuras/gente.ts`) y, con `?mundo=`, ese mundo. Si algo no carga, lo dice (`arranque.ts`).
  */
 import { arrancar } from './comun/arranque.js';
 import { hayQuePreguntar, pideMundo } from './comun/semilla.js';
@@ -17,7 +17,7 @@ arrancar(async () => {
   // pinta `arranque.ts`, como un mundo roto con todos sus problemas. `main.ts` lee
   // los dos ya hechos (`genteCargada`, `mundoPedido`) al abrir la partida, que es al
   // cargarse: por eso va después.
-  const gente = import('./render/gente.js').then((g) => g.cargarLaGente());
+  const gente = import('./render/figuras/gente.js').then((g) => g.cargarLaGente());
   await Promise.all([
     gente,
     pideMundo(location.search) &&

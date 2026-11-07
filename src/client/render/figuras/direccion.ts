@@ -4,12 +4,12 @@
  * Es la REGLA, y no sabe nada del arte: sale del vector en pantalla hacia la
  * casilla siguiente del camino o hacia el objetivo, y la guarda el animador
  * (`anim.ts`). Qué hoja pinta cada dirección es otra tabla, del lado de pintar
- * (`INDICE_DE_HOJA`, en `render/personajes.ts`): toda figura tiene sus ocho
+ * (`INDICE_DE_HOJA`, en `render/figuras/personajes.ts`): toda figura tiene sus ocho
  * direcciones y ninguna se espeja. El arte de perfil, que solo sabía mirar a la
  * derecha o espejado, se retiró el 03-10-2026 con la llegada del Y Bot en 8
  * direcciones como respaldo de toda figura.
  */
-import { COMPRESION_SUELO, MIRADAS, type Mirada, type Plano } from '../shared/arte.js';
+import { COMPRESION_SUELO, MIRADAS, type Mirada, type Plano } from '../../../shared/arte.js';
 
 /** Los ocho sectores, en el sentido contrario a las agujas desde el este: las `MIRADAS` del contrato visual. */
 export const DIRECCIONES = MIRADAS;

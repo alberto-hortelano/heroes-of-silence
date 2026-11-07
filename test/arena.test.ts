@@ -30,7 +30,7 @@ import {
   tarjetasDelCatalogo,
 } from '../src/client/arena/paneles.js';
 import { marcadoDe } from '../src/client/comun/html.js';
-import { arteDe, juegosDelYBot, registrarUnidad } from '../src/client/render/personajes.js';
+import { arteDe, juegosDelYBot, registrarUnidad } from '../src/client/render/figuras/personajes.js';
 import { type LadoDeSesion, SesionDeArena } from '../src/client/session.js';
 import { nombreEnElCampo } from '../src/client/views/distintivo.js';
 import { renderBattleLog } from '../src/client/views/panels.js';

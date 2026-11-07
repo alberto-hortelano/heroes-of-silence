@@ -15,15 +15,15 @@
 import { masCercana, opcionesDeGolpe } from '../../src/client/escenas/angulo.js';
 import { focoDe, llegadaDeLaRuta } from '../../src/client/escenas/aventura.js';
 import { cajaDeFigura, galonesDe } from '../../src/client/render/batalla.js';
+import { escenarioDe, topeDeAlejar } from '../../src/client/render/escenario/superficie.js';
 import {
   casillaAPixel,
   centrarEn,
   type Encuadre,
   TILE_INICIAL,
   zoom,
-} from '../../src/client/render/camara-mapa.js';
-import { escenarioDe, topeDeAlejar } from '../../src/client/render/escenario/superficie.js';
-import { pasosAPintar } from '../../src/client/render/mapa.js';
+} from '../../src/client/render/mapa/camara.js';
+import { pasosAPintar } from '../../src/client/render/mapa/mapa.js';
 import { centroDeStack, tableroPara } from '../../src/client/render/proyeccion.js';
 import { Session } from '../../src/client/session.js';
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';

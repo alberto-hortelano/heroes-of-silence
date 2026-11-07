@@ -7,7 +7,6 @@
  * `docs/agents/2026-10-07-cumbres/`; aquí, las reglas que lo sostienen.
  */
 import { describe, expect, it } from 'vitest';
-import { PX_AL_ZOOM_MAXIMO } from '../src/client/render/camara-mapa.js';
 import { analizar } from '../src/client/render/escenario/analizar.js';
 import { sueloDeLaMeseta } from '../src/client/render/escenario/bordes.js';
 import { ruidosDelMacizo, VECINO_IGUAL } from '../src/client/render/escenario/colocar.js';
@@ -25,6 +24,7 @@ import {
   UMBRAL_DEL_CLARO,
 } from '../src/client/render/escenario/macizo.js';
 import { relieve } from '../src/client/render/escenario/relieve.js';
+import { PX_AL_ZOOM_MAXIMO } from '../src/client/render/mapa/camara.js';
 import type { Suelo } from '../src/core/map/terrain.js';
 import { escenaDe, partidaDe } from './escena-de-prueba.js';
 import { conRespiro, LENTO, rango, segunPrisa } from './lento.js';

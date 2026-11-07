@@ -29,24 +29,14 @@ import type { AsaltantesALaVista } from '@core/state/asaltantes.js';
 import type { ClimaDeLaPartida } from '@core/state/clima.js';
 import type { FactionId, Point, VistaAsaltante } from '@core/types.js';
 import { hojaDeUnidad } from '@core/unidad/catalogo.js';
-import { temaDelLienzo } from '../comun/temas.js';
-import { type Direccion, direccionEnPantalla } from '../direccion.js';
-import { msPorCasilla, PRISA_EN_EL_MAPA } from '../marcha.js';
-import { imagenDeEscena } from './assets.js';
-import {
-  type CamaraMapa,
-  casillaAPixel,
-  MARGEN_DE_VOLUMEN,
-  type Margen,
-  mundoAPixel,
-  ventanaDeCasillas,
-} from './camara-mapa.js';
-import { pintarClimaDelMapa } from './clima/clima.js';
-import { empezarFotogramaDeCopias } from './copias.js';
-import type { Sprite } from './escenario/colocar.js';
-import { FIGURA_DEL_HEROE, PIES } from './escenario/figuras-del-mapa.js';
-import { seHornea } from './escenario/horneado.js';
-import { cajaDeSprite } from './escenario/pasillo.js';
+import { temaDelLienzo } from '../../comun/temas.js';
+import { imagenDeEscena } from '../assets.js';
+import { pintarClimaDelMapa } from '../clima/clima.js';
+import { empezarFotogramaDeCopias } from '../copias.js';
+import type { Sprite } from '../escenario/colocar.js';
+import { FIGURA_DEL_HEROE, PIES } from '../escenario/figuras-del-mapa.js';
+import { seHornea } from '../escenario/horneado.js';
+import { cajaDeSprite } from '../escenario/pasillo.js';
 import {
   claveDe,
   type Imagen,
@@ -55,15 +45,15 @@ import {
   pintarSombraAlPie,
   pintarSprite,
   type Volumen,
-} from './escenario/pintar.js';
+} from '../escenario/pintar.js';
 import {
   cajaDeLaObra,
   esObra,
   type NodoQueSeSabe,
   type Obra,
   seVeConSuNodo,
-} from './escenario/puestos.js';
-import { trazaPorLosArcos } from './escenario/recinto.js';
+} from '../escenario/puestos.js';
+import { trazaPorLosArcos } from '../escenario/recinto.js';
 import {
   claveDeFigura,
   copiaDeVolumen,
@@ -73,14 +63,29 @@ import {
   pisada,
   sueloDelMapa,
   type VolumenDelMapa,
-} from './escenario/superficie.js';
+} from '../escenario/superficie.js';
+import { type Direccion, direccionEnPantalla } from '../figuras/direccion.js';
 import {
   animarHasta,
   colocarFigura,
   type Figura,
   type FiguraColocada,
   pintarFiguraConSombra,
-} from './figura.js';
+} from '../figuras/figura.js';
+import { msPorCasilla, PRISA_EN_EL_MAPA } from '../figuras/marcha.js';
+import { MIRADA_DE_PRESENTACION } from '../figuras/personajes.js';
+import { pintarSombra } from '../figuras/sombra.js';
+import { densidadDe } from '../lienzo.js';
+import { COLOR_SIN_DUEÑO, playerColor } from '../palette.js';
+import {
+  type CamaraMapa,
+  casillaAPixel,
+  MARGEN_DE_VOLUMEN,
+  type Margen,
+  mundoAPixel,
+  ventanaDeCasillas,
+} from './camara.js';
+import { pintarPieza } from './cofre.js';
 import {
   aplicar,
   type ColoresDeLoTapado,
@@ -90,13 +95,8 @@ import {
   type PintarEnLaMascara,
   pintarLoTapadoDeLaFigura,
 } from './figura-tapada.js';
-import { densidadDe } from './lienzo.js';
 import { altoDelMarcador, pintarMarcadorDelPuesto } from './marcador-del-puesto.js';
-import { COLOR_SIN_DUEÑO, playerColor } from './palette.js';
-import { MIRADA_DE_PRESENTACION } from './personajes.js';
-import { pintarPieza } from './piezas.js';
 import type { SitioOcupado } from './sitios-sabidos.js';
-import { pintarSombra } from './sombra.js';
 
 /**
  * Lo que este lienzo necesita de una partida, y **nada más**.

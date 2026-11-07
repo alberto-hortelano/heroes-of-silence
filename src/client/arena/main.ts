@@ -110,12 +110,12 @@ import { avisoDelClima, climaDeLaURL } from '../comun/clima-de-la-url.js';
 import { mensajeDe } from '../comun/errores.js';
 import { type Html, html, pintar } from '../comun/html.js';
 import { aLaBarra, semillaSorteada } from '../comun/semilla.js';
-import type { Direccion } from '../direccion.js';
 import { EscenaBatalla } from '../escenas/batalla.js';
 import { FLECHAS_AL_COLOCAR } from '../escenas/despliegue.js';
 import { cargarArte } from '../render/assets.js';
 import { COLOR_BANDO } from '../render/batalla.js';
-import type { CharacterClip } from '../render/character.js';
+import type { CharacterClip } from '../render/figuras/character.js';
+import type { Direccion } from '../render/figuras/direccion.js';
 import {
   claveDelDibujo,
   colocarFigura,
@@ -123,9 +123,7 @@ import {
   hayFigurasAnimadas,
   pintarFigura,
   pintarSombraDeFigura,
-} from '../render/figura.js';
-import { ajustarLienzo } from '../render/lienzo.js';
-import { COLOR_NEUTRO } from '../render/palette.js';
+} from '../render/figuras/figura.js';
 import {
   arteDe,
   DIRECCION_DE_HOJA,
@@ -133,7 +131,9 @@ import {
   INDICE_DE_HOJA,
   MIRADA_DE_PRESENTACION,
   registrarLasHojas,
-} from '../render/personajes.js';
+} from '../render/figuras/personajes.js';
+import { ajustarLienzo } from '../render/lienzo.js';
+import { COLOR_NEUTRO } from '../render/palette.js';
 import { DialogoDeLaRueda } from '../rueda/dialogo.js';
 import { type LadoDeSesion, SesionDeArena } from '../session.js';
 import { pintarSiguiendoElFinal } from '../views/al-final.js';

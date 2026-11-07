@@ -28,7 +28,7 @@
  * (`GuardarLoTapado`) y se rehace solo cuando cambia algo de lo que sale: otro
  * fotograma de su animación, otro sitio respecto a lo que la tapa u otro zoom.
  */
-import { celdaDeLaFigura, type FiguraColocada } from './figura.js';
+import { celdaDeLaFigura, type FiguraColocada } from '../figuras/figura.js';
 
 /** Los colores de lo tapado. */
 export interface ColoresDeLoTapado {

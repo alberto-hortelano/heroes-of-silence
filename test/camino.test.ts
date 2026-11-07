@@ -11,9 +11,9 @@
 
 import { describe, expect, it } from 'vitest';
 import { BattleAnimator, DURACION, porElCamino } from '../src/client/anim.js';
-import { type Direccion, direccionHacia } from '../src/client/direccion.js';
-import { msPorCasilla } from '../src/client/marcha.js';
-import { arteDe, hojaDe, INDICE_DE_HOJA } from '../src/client/render/personajes.js';
+import { type Direccion, direccionHacia } from '../src/client/render/figuras/direccion.js';
+import { msPorCasilla } from '../src/client/render/figuras/marcha.js';
+import { arteDe, hojaDe, INDICE_DE_HOJA } from '../src/client/render/figuras/personajes.js';
 import { planoDeHex } from '../src/client/render/proyeccion.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { areAdjacent, hexEquals, hexKey } from '../src/core/battle/board.js';

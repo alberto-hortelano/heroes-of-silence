@@ -213,17 +213,19 @@ describe('invariantes del proyecto', () => {
     // ella (`Session.formacion`); el semicírculo de `render/tropa/` se fue. Roto a
     // mano: un `import { hexEquals } from '@core/battle/board.js'` en
     // `escenas/tropa.ts`, rojo.
+    // La fila de la morada (`render/base/fila.ts`) era `render/morada/fila.ts` hasta la
+    // fase C de la reorganización (07-11-2026): entra con `render/base/`.
     const base = CLIENTE.filter(
       (r) =>
         r.startsWith(ruta('src/client/render/base/')) ||
-        r.startsWith(ruta('src/client/render/morada/')) ||
-        r === ruta('src/client/render/de-pie.ts') ||
+        r === ruta('src/client/render/figuras/de-pie.ts') ||
         r === ruta('src/client/escenas/de-pie.ts') ||
         r === ruta('src/client/escenas/tropa.ts') ||
         r === ruta('src/client/escenas/morada.ts'),
     );
     expect(base.filter((r) => r.includes('tropa'))).toEqual([ruta('src/client/escenas/tropa.ts')]);
-    expect(base.filter((r) => r.includes('morada') || r.includes('de-pie')).length).toBe(4);
+    expect(base.filter((r) => r.includes('morada') || r.includes('de-pie')).length).toBe(3);
+    expect(base).toContain(ruta('src/client/render/base/fila.ts'));
     const colados: string[] = [];
     for (const ruta of base) {
       const codigo = codigoDe(ruta);
@@ -250,8 +252,7 @@ describe('invariantes del proyecto', () => {
       (r) =>
         r.startsWith(ruta('src/client/render/base/')) ||
         r === ruta('src/client/escenas/castillo.ts') ||
-        r.startsWith(ruta('src/client/render/morada/')) ||
-        r === ruta('src/client/render/de-pie.ts') ||
+        r === ruta('src/client/render/figuras/de-pie.ts') ||
         r === ruta('src/client/escenas/de-pie.ts') ||
         r === ruta('src/client/escenas/tropa.ts') ||
         r === ruta('src/client/escenas/morada.ts'),

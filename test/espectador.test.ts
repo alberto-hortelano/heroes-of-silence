@@ -29,7 +29,7 @@ import WebSocket, { WebSocketServer } from 'ws';
 import { adaptarBatalla, adaptarEscena, sitiosDelCable } from '../src/client/espectador/adaptar.js';
 import { type Catalogo, RUTA_DEL_CATALOGO } from '../src/client/render/escenario/catalogo.js';
 import { componer } from '../src/client/render/escenario/colocar.js';
-import type { AdventureScene } from '../src/client/render/mapa.js';
+import type { AdventureScene } from '../src/client/render/mapa/mapa.js';
 import { completarCruce } from '../src/core/ai/rueda.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { resolvePendingBattle } from '../src/core/ai/turn.js';

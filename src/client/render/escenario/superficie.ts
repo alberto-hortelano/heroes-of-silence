@@ -20,6 +20,7 @@ import {
   tandaDeArte,
   volverAPedirArteDeEscena,
 } from '../assets.js';
+import { copiaReducidaSiCabe } from '../copias.js';
 import {
   type ConteoDeVolumenes,
   contarVolumenes,
@@ -27,9 +28,8 @@ import {
   PX_AL_ZOOM_MAXIMO,
   TILE_MAX,
   tileMinimo,
-} from '../camara-mapa.js';
-import { copiaReducidaSiCabe } from '../copias.js';
-import { pigments } from '../terreno.js';
+} from '../mapa/camara.js';
+import { pigments } from '../mapa/terreno.js';
 import type { MapaDeEscena } from './analizar.js';
 import { type PerfilDe, perfilesDelCatalogo } from './caras.js';
 import { type Catalogo, catalogoValidado } from './catalogo.js';

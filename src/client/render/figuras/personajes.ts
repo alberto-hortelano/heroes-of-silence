@@ -29,7 +29,7 @@
 import { HERO_BODY } from '@core/battle/types.js';
 import { type Hoja, validarHojas } from '@core/unidad/formato.js';
 import { esIdDeUnidad } from '@core/validar.js';
-import atlasDePoses from '../../../assets/unidades/_poses/atlas-8d.json';
+import atlasDePoses from '../../../../assets/unidades/_poses/atlas-8d.json';
 import {
   type CLIPS_DE_FIGURA,
   CLIPS_OPCIONALES,
@@ -39,10 +39,10 @@ import {
   hojasDeLasAcciones,
   JUEGO_POR_DEFECTO,
   NOMBRES_DE_DIRECCION,
-} from '../../shared/arte.js';
-import type { Direccion } from '../direccion.js';
+} from '../../../shared/arte.js';
 import type { AtlasQueSePinta, CharacterAtlas, CharacterClip, ClipInfo } from './character.js';
 import { CUERPO_DE_VECINO, cuerpoDeGente, esCuerpoDeGente } from './cuerpo-de-gente.js';
+import type { Direccion } from './direccion.js';
 
 /**
  * Una figura entera: sus ocho direcciones y con qué se escala. `A`, el atlas de

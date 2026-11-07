@@ -46,7 +46,7 @@ import {
 } from '../clima/clima.js';
 import { luzDeLasFiguras } from '../clima/recetas.js';
 import { CacheDeLienzos } from '../copias.js';
-import { type Figura, piesDeFigura, pintarFiguraConSombra } from '../figura.js';
+import { type Figura, piesDeFigura, pintarFiguraConSombra } from '../figuras/figura.js';
 import { COLOR_NEUTRO } from '../palette.js';
 import { enPantalla, type Tablero } from '../proyeccion.js';
 import { type ArteDeLaBase, CIELO_SIN_ARTE } from './arte.js';

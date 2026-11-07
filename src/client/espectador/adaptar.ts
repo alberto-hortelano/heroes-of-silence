@@ -30,8 +30,8 @@ import type {
   VistaBatalla,
   VistaMapa,
 } from '../../server/vista-espectador.js';
-import type { AdventureScene } from '../render/mapa.js';
-import { conLosDueñosSabidos } from '../render/sitios-sabidos.js';
+import type { AdventureScene } from '../render/mapa/mapa.js';
+import { conLosDueñosSabidos } from '../render/mapa/sitios-sabidos.js';
 
 /**
  * El terreno del fotograma anterior, para devolver EL MISMO array si no ha

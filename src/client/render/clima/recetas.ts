@@ -17,7 +17,7 @@
  *   (oscura, quieta y por casillas).
  */
 import type { ClimaDelSitio, Tiempo } from '@core/state/clima.js';
-import type { LuzSobreLaFigura } from '../figura.js';
+import type { LuzSobreLaFigura } from '../figuras/figura.js';
 
 /** Un color sin opacidad, de 0 a 255: el de la luz que se multiplica. */
 export type Rgb = readonly [number, number, number];

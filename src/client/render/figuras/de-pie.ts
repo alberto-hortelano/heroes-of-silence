@@ -1,7 +1,7 @@
 /**
  * Figuras de pie mirando a la cámara, con la elegida y la señalada por su aro:
  * lo que comparten las escenas de la morada y del ayuntamiento
- * (`render/morada/`), con el aire de su encuadre. Cada escena dice dónde cae la
+ * (`render/base/fila.ts`), con el aire de su encuadre. Cada escena dice dónde cae la
  * caja de cada figura, y de aquí salen el orden de pintar, el clic y el pintado.
  * La escena que las conduce es `escenas/de-pie.ts`. (La tropa fue una escena de
  * pie, en semicírculo, hasta el 02-11-2026: ahora es el tablero de despliegue.)
@@ -12,13 +12,13 @@
  * a la de detrás. La elegida lleva el aro dorado grueso y la que señala el ratón,
  * el fino, en los pies.
  */
-import { COMPRESION_SUELO, FIGURA, type Plano } from '../../shared/arte.js';
+import { COMPRESION_SUELO, FIGURA, type Plano } from '../../../shared/arte.js';
 import {
   type CajaDeFigura,
   cajaDeFiguraEn,
   dentroDeLaFigura,
   pintarAroDeFigura,
-} from './batalla.js';
+} from '../batalla.js';
 import {
   type FiguraColocada,
   type LuzSobreLaFigura,

@@ -19,15 +19,15 @@ import {
   conLaAbierta,
   type RecorteDeLaBase,
 } from '../src/client/render/base/arte.js';
-import { cajaDeFiguraEn } from '../src/client/render/batalla.js';
-import { pasoDeLaHoja } from '../src/client/render/de-pie.js';
 import {
   DELANTE_DE_LA_PUERTA,
   dondeEsperaEnLaMorada,
   encuadrarLaMorada,
   filaDeLosReclutas,
   SEPARACION,
-} from '../src/client/render/morada/fila.js';
+} from '../src/client/render/base/fila.js';
+import { cajaDeFiguraEn } from '../src/client/render/batalla.js';
+import { pasoDeLaHoja } from '../src/client/render/figuras/de-pie.js';
 import { pasoDeLaBase } from '../src/client/render/proyeccion.js';
 import { AYUDA_DE_LA_BASE, AYUDA_DE_LA_MORADA, Session } from '../src/client/session.js';
 import { renderActions, renderSide } from '../src/client/views/panels.js';

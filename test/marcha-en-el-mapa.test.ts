@@ -9,8 +9,8 @@
  * Lo que se ve, con capturas del navegador.
  */
 import { describe, expect, it } from 'vitest';
-import { enLaMarcha } from '../src/client/marcha.js';
 import { type Par, trazaPorLosArcos } from '../src/client/render/escenario/recinto.js';
+import { enLaMarcha } from '../src/client/render/figuras/marcha.js';
 import { Session } from '../src/client/session.js';
 import { PUERTAS_DE_LA_CIUDAD } from '../src/core/map/recinto.js';
 import { caminoHasta } from '../src/core/state/marcha.js';

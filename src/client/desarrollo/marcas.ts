@@ -16,10 +16,10 @@ import { objectAt } from '@core/map/map.js';
 import { mensajeDe } from '../comun/errores.js';
 import { html, pintar } from '../comun/html.js';
 import type { EscenaAventura } from '../escenas/aventura.js';
-import { type CamaraMapa, cajaEnPixeles, mundoAPixel, pixelAMundo } from '../render/camara-mapa.js';
-import { queHayEn } from '../render/escenario/inspeccion.js';
 import { escenarioListo } from '../render/escenario/superficie.js';
+import { type CamaraMapa, cajaEnPixeles, mundoAPixel, pixelAMundo } from '../render/mapa/camara.js';
 import type { Session } from '../session.js';
+import { queHayEn } from './inspeccion.js';
 import type { Desarrollo, Marca, MarcaNueva, Punto2 } from './tipos.js';
 
 /** Las casillas que cubre el recorte de cada lado del punto: 9×9 en total. */

@@ -6,7 +6,7 @@
  * La escena solo traduce el puntero: a quién se elige lo guarda la sesión, que es
  * de donde lo leen el panel y la vista, y lo demás va por los botones del panel a
  * la sesión, como siempre. Lo único suyo es a quién señala el ratón. Cómo se
- * colocan y se pintan las figuras es de `render/de-pie.ts` y del encuadre de cada
+ * colocan y se pintan las figuras es de `render/figuras/de-pie.ts` y del encuadre de cada
  * una.
  */
 import type { PlayerId } from '@core/types.js';
@@ -17,7 +17,7 @@ import {
   figuraBajo,
   type LienzoDePie,
   type PintadoDePie,
-} from '../render/de-pie.js';
+} from '../render/figuras/de-pie.js';
 import { playerColor } from '../render/palette.js';
 import type { Tablero } from '../render/proyeccion.js';
 import type { Scene, Session } from '../session.js';
