@@ -29,13 +29,8 @@ import {
   laLlevaElHeroe,
   validarHeroeDeArena,
 } from '@core/arena/heroe.js';
-import { type FuenteDeArena, LADOS, type Lado } from '@core/arena/lados.js';
-import {
-  despliegueDeArenaBlocker,
-  escaleraDeArenaBlocker,
-  type MontajeDeArena,
-  topeDelBandoBlocker,
-} from '@core/arena/montaje.js';
+import { LADOS, type Lado } from '@core/arena/lados.js';
+import { despliegueDeArenaBlocker, topeDelBandoBlocker } from '@core/arena/montaje.js';
 import {
   esFormaDeEjemplo,
   FORMAS_DE_EJEMPLO,
@@ -55,7 +50,6 @@ import {
   quitarEnArena,
 } from '@core/arena/piezas.js';
 import type { RetoqueDeArena } from '@core/arena/retoque.js';
-import { unidadNueva } from '@core/arena/unidad-nueva.js';
 import { hexEquals, isInside } from '@core/battle/board.js';
 import {
   esMuro,
@@ -135,7 +129,6 @@ import {
   guardar,
   hechizosQueValen,
   hechizosSinGuardar,
-  hojaPorId,
   hojasDeHeroe,
   idsQueCambian,
   instalarElAvisoAlCerrar,
@@ -163,6 +156,17 @@ import {
 } from './edicion.js';
 import { montarEditorDeMagia } from './magia.js';
 import {
+  añadir,
+  crearUnidad,
+  describir,
+  fuenteDeArena,
+  heroesDeLaPagina,
+  montajeDeArena,
+  ocupados,
+  puestoPorClave,
+  quienUsaElHechizo,
+} from './montaje.js';
+import {
   type AnimDeFicha,
   type Escena,
   type EstadoDeLaPelea,
@@ -173,14 +177,7 @@ import {
   elementosDeLaArena,
   type PaginaDeLaArena,
 } from './pagina.js';
-import {
-  type DatosDePuesto,
-  type Elegida,
-  type Puesto,
-  renderBando,
-  renderEnlace,
-  resumenDeCifras,
-} from './paneles/bandos.js';
+import { type Elegida, renderBando, renderEnlace } from './paneles/bandos.js';
 import { caraDeLaArena, renderPanelDeBatalla, rotuloDelTurno } from './paneles/batalla.js';
 import { LA_LLEVA_EL_HEROE, renderEquipo, sinGuardarEnPalabras } from './paneles/equipo.js';
 import {
@@ -190,7 +187,7 @@ import {
   renderFicha,
   renderFichaDeHeroe,
 } from './paneles/ficha.js';
-import { avisoDeNuevaUnidad, renderCatalogo } from './paneles/lista.js';
+import { renderCatalogo } from './paneles/lista.js';
 import { type HerramientaDeMuralla, renderMuralla } from './paneles/muralla.js';
 import { type FalloAlGuardar, leerDelServidor, mandarAlServidor } from './servidor.js';
 
@@ -260,18 +257,6 @@ const catalogo: EstadoDelCatalogo = {
   unidadesSinGuardar: new Set(),
 };
 
-/** Quién usa el hechizo `id`: los héroes de los bandos (su libro) y las unidades (su poder). */
-function quienUsaElHechizo(id: string): readonly string[] {
-  return [
-    ...heroesDeLaPagina()
-      .filter((h) => h.hechizos.includes(id))
-      .map((h) => h.nombre),
-    ...[...catalogo.unidadesDelCatalogo.values()]
-      .filter((u) => (u.hechizos ?? []).includes(id))
-      .map((u) => u.name),
-  ];
-}
-
 /**
  * El editor de magia: lo que cambia, la página lo adopta y, en plena pelea, la
  * batalla también (`retocarEnBatalla`, `kind: 'hechizos'`).
@@ -293,7 +278,7 @@ const editorDeMagia = montarEditorDeMagia(elMagia, {
     pedirFotograma();
   },
   sinGuardar: () => hechizosSinGuardar(catalogo),
-  quienLoUsa: quienUsaElHechizo,
+  quienLoUsa: (id) => quienUsaElHechizo(pagina, id),
   poder: () => montaje.heroes.izquierda?.poder ?? 1,
   avisar: (texto) => {
     vista.aviso = texto;
@@ -544,73 +529,11 @@ function aLaBarraDeLaArena(cambiar: (url: URL) => void): void {
   });
 }
 
-/** De dónde sale un puesto al pelear: la unidad con sus cifras del catálogo, y su escalera. */
-function fuenteDeArena(p: Puesto): FuenteDeArena {
-  return { unidad: unidadDe(catalogo, p.unidad), escalera: p.escalera };
-}
-
-/** El montaje de ahora, como lo pelearía el núcleo: lo leen «Luchar» y el aviso de la muralla. */
-function montajeDeArena(): MontajeDeArena {
-  const lado = (l: Lado) => ({
-    unidades: montaje.puestos[l].map(fuenteDeArena),
-    heroe: montaje.heroes[l],
-  });
-  return {
-    izquierda: lado('izquierda'),
-    derecha: lado('derecha'),
-    muralla: editorDeMuralla.muralla,
-    equipo: catalogo.equipo,
-    combate: montaje.combate,
-    hechizos: catalogoDeMagia(catalogo),
-  };
-}
-
-/** Lo que la tarjeta de un puesto de `lado` enseña. */
-function describir(p: Puesto, lado: Lado): DatosDePuesto {
-  const u = unidadDe(catalogo, p.unidad);
-  return {
-    nombre: u.name,
-    resumen: resumenDeCifras(u, catalogo.equipo),
-    figura: u.cuerpo.hoja,
-    noEscala: escaleraDeArenaBlocker(fuenteDeArena(p), lado, catalogo.equipo),
-  };
-}
-
 /** La ficha que contiene el botón de un gesto de ficha: sin ella, el marcado está mal. */
 function laFichaDe(el: Element, que: string): Elegida {
   const f = fichaDelElemento(el);
   if (f === null) throw new Error(`${que} no está dentro de ninguna ficha`);
   return f;
-}
-
-/**
- * Crea una unidad nueva con el cuerpo elegido (el id de su hoja), la mete en el
- * catálogo y la deja elegida; en la edición, además, abre su ficha.
- */
-function crearUnidad(valor: string): string | null {
-  if (valor === '') {
-    vista.aviso = 'Elige primero un cuerpo para la unidad nueva.';
-    return null;
-  }
-  const h = hojaPorId(catalogo, valor);
-  if (h.incompleta !== null) throw new Error(`${h.nombre} no se monta: ${h.incompleta}`);
-  const u = unidadNueva(
-    h,
-    {
-      validas: [...catalogo.unidadesDelCatalogo.keys()],
-      hojas: [...catalogo.hojasPorId.keys()],
-    },
-    catalogo.equipo,
-  );
-  catalogo.unidadesDelCatalogo.set(u.id, u);
-  catalogo.unidadesSinGuardar.add(u.id);
-  vista.elegida = { kind: 'unidad', id: u.id };
-  vista.aviso = avisoDeNuevaUnidad(
-    u,
-    vista.escena === 'edicion' ? 'edicion' : 'montaje',
-    catalogo.equipo,
-  );
-  return u.id;
 }
 
 // ---------------------------------------------------------------- arranque
@@ -759,7 +682,7 @@ async function borrarForma(nombre: string): Promise<void> {
  * cambia con ellas.
  */
 function pintarMuralla(): void {
-  const despliegue = despliegueDeArenaBlocker(montajeDeArena());
+  const despliegue = despliegueDeArenaBlocker(montajeDeArena(pagina));
   pintar(
     elMuralla,
     renderMuralla({
@@ -791,11 +714,11 @@ function repintarMontaje(): void {
         renderBando(
           lado,
           montaje.puestos[lado],
-          (p) => describir(p, lado),
+          (p) => describir(catalogo, p, lado),
           vista.elegida,
           montaje.combate.tope,
           montaje.heroes[lado],
-          ocupados(lado),
+          ocupados(montaje, lado),
           montaje.iaDelBando[lado],
         ),
       );
@@ -877,15 +800,10 @@ function quienesLaLlevan(id: string): string[] {
       .filter((u) => idsPuestos(u.equipo).includes(id))
       .map((u) => u.name),
     ...(laLlevaElHeroe(id) ? [LA_LLEVA_EL_HEROE] : []),
-    ...heroesDeLaPagina()
+    ...heroesDeLaPagina(montaje)
       .filter((h) => idsPuestos(h.equipo).includes(id))
       .map((h) => h.nombre),
   ];
-}
-
-/** Los héroes puestos en los bandos, izquierda primero. */
-function heroesDeLaPagina(): HeroeDeArena[] {
-  return [montaje.heroes.izquierda, montaje.heroes.derecha].filter((h) => h !== null);
 }
 
 /**
@@ -902,7 +820,7 @@ function cambiarPiezas(id: string, nueva: PiezaEscrita | null, texto: string): b
     catalogo.equipo,
     nueva === null ? escritas.filter((p) => p.id !== id) : conPiezas(escritas, [nueva]),
     [...catalogo.unidadesDelCatalogo.values()],
-    heroesDeLaPagina(),
+    heroesDeLaPagina(montaje),
   );
   if ('motivo' in cambio) {
     noSeCambia(`${cambio.motivo}.`);
@@ -1133,15 +1051,6 @@ function fichaDelElemento(el: Element): Elegida | null {
   return clave === null ? null : fichaDeClave(clave);
 }
 
-function puestoPorClave(clave: number): { lado: Lado; i: number; p: Puesto } {
-  for (const lado of ['izquierda', 'derecha'] as const) {
-    const i = montaje.puestos[lado].findIndex((p) => p.clave === clave);
-    const p = montaje.puestos[lado][i];
-    if (p !== undefined) return { lado, i, p };
-  }
-  throw new Error(`no hay ningún puesto ${clave} en el montaje`);
-}
-
 /**
  * La ficha de lo elegido: una unidad o el héroe de un lado. `enCombate`: la del editor de la batalla, sin figura animada (el bucle
  * de las miniaturas no corre en la batalla) y diciendo que el cambio vale ya.
@@ -1288,33 +1197,6 @@ function repintarLoPendiente(): void {
   else for (const k of que ?? []) repintarFicha(k);
 }
 
-/** Los que lleva ya un lado: sus puestos y su héroe, que cuenta como uno más. */
-function ocupados(lado: Lado): number {
-  return montaje.puestos[lado].length + (montaje.heroes[lado] === null ? 0 : 1);
-}
-
-function añadir(lado: Lado, id: string, escalera = false): void {
-  const adjetivo = LADOS[lado].adjetivo;
-  if (ocupados(lado) >= montaje.combate.tope) {
-    vista.aviso = `El bando ${adjetivo} ya lleva ${montaje.combate.tope}: no cabe ninguna más.`;
-    return;
-  }
-  const u = unidadDe(catalogo, id);
-  const motivo = porQueNoSeMonta(catalogo, u);
-  if (motivo !== null) {
-    vista.aviso = `${u.name} no se monta: ${motivo}.`;
-    return;
-  }
-  // La unidad entra en el catálogo al montarla: es lo que se probó y lo que se guarda.
-  if (!catalogo.unidadesDelCatalogo.has(u.id)) {
-    catalogo.unidadesDelCatalogo.set(u.id, u);
-    catalogo.unidadesSinGuardar.add(u.id);
-  }
-  vista.elegida = { kind: 'unidad', id: u.id };
-  montaje.puestos[lado].push({ clave: montaje.siguienteClave++, unidad: id, escalera });
-  vista.aviso = `${describir({ clave: 0, unidad: id, escalera }, lado).nombre} entra en el bando ${adjetivo}.`;
-}
-
 /** Cambia el héroe de un lado, comprobado. */
 function cambiarHeroe(lado: Lado, cambio: (h: HeroeDeArena) => HeroeDeArena): boolean {
   const h = montaje.heroes[lado];
@@ -1441,10 +1323,10 @@ function montajeDelEnlace(): MontajeDelEnlace {
     unidades,
     piezas: piezasDelMontaje(
       unidades,
-      heroesDeLaPagina().map((h) => h.equipo),
+      heroesDeLaPagina(montaje).map((h) => h.equipo),
       [...catalogo.equipo.escritas.values()],
     ),
-    hechizos: hechizosDelMontaje(unidades, heroesDeLaPagina(), catalogoDeMagia(catalogo)),
+    hechizos: hechizosDelMontaje(unidades, heroesDeLaPagina(montaje), catalogoDeMagia(catalogo)),
     izquierda: lado('izquierda'),
     derecha: lado('derecha'),
     muralla: hayMuralla(editorDeMuralla.muralla) ? editorDeMuralla.muralla : null,
@@ -1616,7 +1498,7 @@ const batalla = new EscenaBatalla(() => {
 
 function luchar(): void {
   const lado = (l: Lado): LadoDeSesion => ({
-    unidades: montaje.puestos[l].map(fuenteDeArena),
+    unidades: montaje.puestos[l].map((p) => fuenteDeArena(catalogo, p)),
     heroe: montaje.heroes[l],
     ia: montaje.iaDelBando[l],
   });
@@ -1936,7 +1818,7 @@ document.addEventListener('click', (ev) => {
         break;
       case 'añadir': {
         const lado = el.getAttribute('data-lado') as Lado;
-        añadir(lado, unidad as string);
+        añadir(pagina, lado, unidad as string);
         break;
       }
       case 'editar':
@@ -1948,7 +1830,7 @@ document.addEventListener('click', (ev) => {
         if (select === null || select === undefined) {
           throw new Error('el botón «Crear» no está junto a su selector de cuerpo');
         }
-        const id = crearUnidad(valorDe(select));
+        const id = crearUnidad(pagina, valorDe(select));
         if (id !== null && vista.escena === 'edicion') {
           const f: FichaEditable = { kind: 'unidad', id };
           const r = abrirFicha(vista.abiertas, f, nombreDeFicha(f));
@@ -1986,7 +1868,7 @@ document.addEventListener('click', (ev) => {
         return;
       case 'poner-heroe': {
         const lado = el.getAttribute('data-lado') as Lado;
-        if (ocupados(lado) >= montaje.combate.tope) {
+        if (ocupados(montaje, lado) >= montaje.combate.tope) {
           vista.aviso = `El bando ${LADOS[lado].adjetivo} ya lleva ${montaje.combate.tope}: no cabe el héroe.`;
           break;
         }
@@ -2010,17 +1892,17 @@ document.addEventListener('click', (ev) => {
           el.getAttribute('data-ia') === 'si';
         break;
       case 'duplicar': {
-        const { lado, p } = puestoPorClave(clave);
-        añadir(lado, p.unidad, p.escalera);
+        const { lado, p } = puestoPorClave(montaje, clave);
+        añadir(pagina, lado, p.unidad, p.escalera);
         break;
       }
       case 'escalera': {
-        const { lado, i, p } = puestoPorClave(clave);
+        const { lado, i, p } = puestoPorClave(montaje, clave);
         montaje.puestos[lado][i] = { ...p, escalera: !p.escalera };
         break;
       }
       case 'quitar': {
-        const { lado, i } = puestoPorClave(clave);
+        const { lado, i } = puestoPorClave(montaje, clave);
         montaje.puestos[lado].splice(i, 1);
         break;
       }
