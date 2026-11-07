@@ -101,6 +101,7 @@ import { caraDeLaArena } from './paneles/batalla.js';
 import { focoTrasQuitar } from './paneles/ficha.js';
 import type { HerramientaDeMuralla } from './paneles/muralla.js';
 import { jugadaEnCurso, luchar, volverAlMontaje } from './pelea.js';
+import { instalarElPuntero } from './puntero.js';
 import {
   avisoAlEntrar,
   CLAVE_DE_ABIERTAS,
@@ -360,29 +361,7 @@ const pagina: PaginaDeLaArena = {
 
 // ---------------------------------------------------------------- gestos
 
-function enLienzo(ev: { clientX: number; clientY: number }): { x: number; y: number } {
-  const r = canvas.getBoundingClientRect();
-  return { x: ev.clientX - r.left, y: ev.clientY - r.top };
-}
-
-canvas.addEventListener('pointermove', (ev) => {
-  if (pelea.sesion === null) return;
-  const p = enLienzo(ev);
-  gestos.mover(p.x, p.y);
-  pedirFotograma();
-});
-
-canvas.addEventListener('pointerup', (ev) => {
-  if (ev.button !== 0 || pelea.sesion === null) return;
-  const p = enLienzo(ev);
-  gestos.soltar(p.x, p.y);
-  pedirFotograma();
-});
-
-canvas.addEventListener('pointerleave', () => {
-  gestos.salir();
-  pedirFotograma();
-});
+instalarElPuntero(pagina);
 
 document.addEventListener('click', (ev) => {
   // Los botones de la batalla, los de la partida (`GestosDeBatalla.clic`): el libro, el
