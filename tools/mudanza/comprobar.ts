@@ -7,7 +7,8 @@
  * importar en qué fichero estén. Cada una, normalizada: reimpresa por el compilador
  * sin comentarios (así no cuentan el formato ni los saltos de línea que Biome
  * mueve), sin el `export` delante (mover a otro fichero exporta lo que antes era
- * local), sin comas finales y con las rutas de las cadenas cambiadas por `«ruta»`
+ * local), sin comas finales ni blancos junto a un paréntesis, un corchete o una
+ * llave, y con las rutas de las cadenas cambiadas por `«ruta»`
  * (el `RAIZ` de un fichero que cambia de profundidad, la ruta que vigila un
  * guardia). La fontanería —`import`, `export … from`, `export { … }`— no cuenta:
  * es lo que una mudanza reescribe.
@@ -64,10 +65,16 @@ const IMPRESORA = ts.createPrinter({ removeComments: true });
 const CADENA = /(['"`])((?:\\.|(?!\1)[^\\\n])*)\1/g;
 
 function normalizar(texto: string): { readonly clave: string; readonly conRutas: string } {
+  // Sin el blanco de dentro de un paréntesis, un corchete o una llave: el compilador
+  // imprime en varias líneas la lista o el objeto que el fuente tenía en varias, y
+  // Biome parte en varias la que, con el `export` que le pone la mudanza, pasa de
+  // 100 columnas (`SITIOS_DE_RELLENO`, fase C3c: `[0.125, …]` salía `[ 0.125, …]`).
   const conRutas = texto
     .replace(/^export\s+(default\s+)?/, '')
     .replace(/\s+/g, ' ')
     .replace(/,\s*([)\]}>])/g, '$1')
+    .replace(/([[({])\s+/g, '$1')
+    .replace(/\s+([)\]}])/g, '$1')
     .trim();
   const clave = conRutas.replace(CADENA, (todo, comilla: string, dentro: string) =>
     esRuta(dentro) ? `${comilla}«ruta»${comilla}` : todo,
