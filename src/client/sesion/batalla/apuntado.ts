@@ -43,7 +43,7 @@ export class LoApuntado {
     return this.valor?.kind === 'muralla' ? this.valor.id : null;
   }
 
-  /** Lo que espera, dicho como clave: lo leen las cachés y la versión de la sesión. */
+  /** Lo que espera, dicho como clave: lo leen la caché y la versión de la sesión. */
   get clave(): string {
     return this.valor === null ? '' : `${this.valor.kind}:${this.valor.id}`;
   }

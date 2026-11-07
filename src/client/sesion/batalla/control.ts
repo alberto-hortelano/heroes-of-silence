@@ -3,7 +3,7 @@
  * las dos sesiones que la juegan —la de la partida (`Session`) y la de la arena
  * (`SesionDeArena`)— calculan con la misma regla: lo que se ofrece a la persona y lo
  * que se pinta con ello (`accionesDeBatalla`, `opcionesDeHechizo`, `CalculoDeBatalla`),
- * la clave de sus cachés (`claveDeBatalla`, `claveConMagia`), el motivo del núcleo
+ * la clave de su caché (`claveDeBatalla`, `claveConMagia`), el motivo del núcleo
  * dicho para la barra (`motivoExigido`, `motivoDeLaActiva`, `comoFrase`…) y el único
  * bucle de «juega la IA hasta que te toque» (`jugarIAMientras`).
  *
@@ -230,8 +230,8 @@ export function accionesDeBatalla(
 /**
  * «¿Se ha movido la batalla?»: toda acción aplicada deja una línea en el
  * registro y mueve el turno (`firmaDelTurno`: su ordinal, lo gastado en él o lo
- * que le quitó la Finta). Es la clave de las
- * cachés de las dos sesiones y la versión de la arena. Plantarse sin andar (la
+ * que le quitó la Finta). Es la clave de la caché de las dos sesiones
+ * (`SesionDeBatalla`) y la versión de la arena. Plantarse sin andar (la
  * carga, que se elige antes de correr, o el golpe ya pegado) no deja línea ni
  * gasta, pero cambia la firma: lleva el golpe plantado. Y colocar en el despliegue
  * tampoco deja línea: sin `firmaDelDespliegue`, la figura colocada no se movía
@@ -242,11 +242,11 @@ export function claveDeBatalla(b: BattleState): string {
 }
 
 /**
- * La clave de las cachés del cálculo de batalla de las dos sesiones: la de
- * `claveDeBatalla` con el maná y el «ya lanzó» de los dos héroes. Van en la clave
- * aunque hoy solo cambien con un `cast` (que ya deja línea): son lo único de lo
- * que dependen los hechizos que no pasa por el registro, y un test que los toca a
- * mano vería una lista vieja.
+ * La clave de la caché del cálculo de batalla de las dos sesiones
+ * (`SesionDeBatalla`): la de `claveDeBatalla` con el maná y el «ya lanzó» de los
+ * dos héroes. Van en la clave aunque hoy solo cambien con un `cast` (que ya deja
+ * línea): son lo único de lo que dependen los hechizos que no pasa por el
+ * registro, y un test que los toca a mano vería una lista vieja.
  */
 export function claveConMagia(b: BattleState): string {
   const { attacker: ha, defender: hd } = b.heroes;

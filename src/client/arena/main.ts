@@ -423,7 +423,7 @@ let escena: Escena = 'montaje';
 /**
  * Adónde vuelve «Volver» de la vista de equipo: de donde se entró. Desde la pelea
  * la sesión sigue viva, y la IA no juega mientras tanto: solo juega tras una
- * jugada de la persona (`SesionDeArena.avanzarIA`), y aquí no se juega ninguna.
+ * jugada de la persona (`SesionDeBatalla.seguirLaIA`), y aquí no se juega ninguna.
  */
 let escenaDeVuelta: Exclude<Escena, 'equipo' | 'magia'> = 'montaje';
 const VUELTA_DE_EQUIPO: Readonly<Record<Exclude<Escena, 'equipo' | 'magia'>, string>> = {

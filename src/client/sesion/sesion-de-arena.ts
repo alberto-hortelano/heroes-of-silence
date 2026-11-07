@@ -1,10 +1,11 @@
 /**
  * La sesión de la arena (`/arena/`, `SesionDeArena`): la batalla de un montaje sin
- * partida alrededor, con las reglas del juego y las mismas piezas de la pelea que la
- * partida (`sesion/batalla/`). Es de la puerta del cliente al núcleo (`sesion/`), y la
- * única de ella que monta y retoca con el montador de la arena (`core/arena/`: lo
- * vigila `invariantes-batalla.test.ts`). Era parte de `sesion/partida.ts` hasta la
- * fase C de la reorganización (07-11-2026).
+ * partida alrededor, con las reglas del juego y la misma pelea en pantalla que la
+ * partida (`SesionDeBatalla`, `sesion/batalla/`). Es de la puerta del cliente al núcleo
+ * (`sesion/`), y la única de ella que monta y retoca con el montador de la arena
+ * (`core/arena/`: lo vigila `invariantes-batalla.test.ts`). Era parte de
+ * `sesion/partida.ts` hasta la fase C de la reorganización (07-11-2026), y desde R1
+ * lleva solo lo suyo: el montaje, quién mueve cada bando, «Luchar» y el retoque.
  */
 import { LADOS } from '@core/arena/lados.js';
 import {
@@ -15,63 +16,26 @@ import {
   type LadoDeArena,
 } from '@core/arena/montaje.js';
 import { type RetoqueDeArena, retocarEnBatalla } from '@core/arena/retoque.js';
-import {
-  activeStack,
-  type CasillaDeCarga,
-  contactoBlocker,
-  faseDelTurno,
-  pasosQueQuedan,
-  stackById,
-} from '@core/battle/consultas.js';
-import { bonoEnLoAlto, SIN_MURALLA } from '@core/battle/muralla.js';
-import type { Prevision } from '@core/battle/prevision.js';
-import type {
-  BattleAction,
-  BattleHero,
-  BattleStack,
-  BattleState,
-  MurallaDeBatalla,
-  Side,
-} from '@core/battle/types.js';
+import { activeStack, stackById } from '@core/battle/consultas.js';
+import { SIN_MURALLA } from '@core/battle/muralla.js';
+import type { BattleStack, BattleState, MurallaDeBatalla, Side } from '@core/battle/types.js';
 import type { ReglasDelCombate } from '@core/combate.js';
 import type { CatalogoDeEquipo } from '@core/equipo/atado.js';
-import { maxMana } from '@core/hero/hero.js';
 import type { CatalogoDeHechizos } from '@core/magia/catalogo.js';
 import { createRng, type Rng } from '@core/rng.js';
 import { type ClimaDelSitio, DESPEJADO } from '@core/state/clima.js';
-import type { Hex, PoderId, UnitInfo } from '@core/types.js';
+import type { UnitInfo } from '@core/types.js';
 import { cuerpoDe } from '@core/unidad/catalogo.js';
 import { AYUDA_DEL_DESPLIEGUE } from '../comun/dichos.js';
-import { LoApuntado, rechazoDeLoApuntado } from './batalla/apuntado.js';
-import { ArmaDeLaActiva } from './batalla/arma.js';
 import {
-  type Apuntado,
-  accionesDeBatalla,
-  type CalculoDeBatalla,
-  type ControlDeBatalla,
-  claveConMagia,
   claveDeBatalla,
   comoFrase,
   esDeLoApuntado,
-  jugarIAMientras,
-  motivoContra,
-  motivoDeMovimiento,
   nombreDeLoApuntado,
-  opcionesDeHechizo,
-  previsionPropia,
-  type SpellOption,
   type TurnoPropio,
 } from './batalla/control.js';
-import {
-  CruceDeLaRueda,
-  ELIGE_EN_LA_RUEDA,
-  motivoDeLaRueda,
-  type RuedaPendiente,
-} from './batalla/cruce.js';
-import { type DespliegueEnPantalla, enLaBatalla } from './batalla/despliegue.js';
-import { LibroDeBatalla } from './batalla/libro.js';
-import { MurallaDeLaActiva } from './batalla/muralla.js';
-import { PoderesDeLaActiva } from './batalla/poderes.js';
+import { ELIGE_EN_LA_RUEDA } from './batalla/cruce.js';
+import { SesionDeBatalla } from './batalla/sesion-de-batalla.js';
 
 /**
  * Un lado del montaje para la sesión: sus unidades y su héroe (`LadoDeArena`) y
@@ -99,10 +63,14 @@ export type LadoDeSesion = LadoDeArena & { readonly ia: boolean };
  * todas las unidades en IA, solo se veía el final (H1 de QA).
  *
  * La magia es la de la partida (`LibroDeBatalla`): lanza el héroe del lado de la
- * unidad que mueve la persona, con su maná y una vez por ronda.
+ * unidad que mueve la persona, con su maná y una vez por ronda. La pelea en pantalla
+ * entera —las piezas, la caché, la rueda y la IA detrás de cada jugada— es la de la
+ * partida (`SesionDeBatalla`); aquí, lo que la arena pone: qué bandos mueve la IA, su
+ * azar y la batalla, siempre montada.
  */
-export class SesionDeArena implements ControlDeBatalla {
-  readonly battle: BattleState;
+export class SesionDeArena extends SesionDeBatalla {
+  /** La batalla del montaje: en la arena existe siempre, también antes de «Luchar». */
+  override readonly battle: BattleState;
   readonly semilla: number;
   /**
    * El catálogo con que se pelea: las unidades del montaje y sus piezas
@@ -111,37 +79,11 @@ export class SesionDeArena implements ControlDeBatalla {
    * de cada stack (`cuerpoDe`).
    */
   private catalogo: CatalogoDeLaArena;
-  /** Lo que apunta el siguiente clic, uno solo (la versión lo lee de aquí). */
-  readonly apuntados = new LoApuntado();
-  readonly hechizos: LibroDeBatalla = new LibroDeBatalla(this, this.apuntados);
-  /** El poder de la activa que espera el clic en un aliado (`PoderesDeLaActiva`). */
-  readonly poderes = new PoderesDeLaActiva(this, this.apuntados);
-  /** El selector de arma de la activa (`ArmaDeLaActiva`): la versión lo lee de aquí. */
-  readonly arma = new ArmaDeLaActiva(this);
-  /**
-   * El despliegue de los bandos «Yo» (`DespliegueEnPantalla`, el de la partida),
-   * como en el juego: primero el derecho, que defiende, y después el izquierdo;
-   * el de la IA, solo. Desde que empieza la pelea (`empezar`).
-   */
-  readonly despliegue: DespliegueEnPantalla = enLaBatalla({
-    batalla: () => this.battle,
-    // Antes de «Luchar» el montaje se ve entero y no se coloca nada.
-    enMarcha: () => this.empezada,
-    barra: (texto) => {
-      this.status = texto;
-    },
-    // Los campos se inician antes que el constructor, que pone `rng`.
-    rng: () => this.rng,
-    trasCerrar: () => this.avanzarIA(),
-    alCambiar: () => {},
-  });
   /** En la arena los bandos no son de ningún jugador: los dos llevan su color de bando. */
-  readonly dueños = null;
+  override readonly dueños = null;
   private readonly rng: Rng;
   /** Qué bandos mueve la IA, enteros: sus unidades y su héroe. */
   private readonly iaDelBando: Readonly<Record<Side, boolean>>;
-  /** El golpe que espera la rueda: la IA elige por sus bandos y la persona por los suyos. */
-  private readonly rueda: CruceDeLaRueda;
   private empezada = false;
 
   /**
@@ -153,37 +95,8 @@ export class SesionDeArena implements ControlDeBatalla {
     return `${claveDeBatalla(this.battle)}|${this.apuntados.clave}|${this.arma.modo}|${this.rueda.pendiente?.fase ?? ''}|${this.despliegue.clave}`;
   }
 
-  /**
-   * El golpe que espera la rueda, si lo hay (`CruceDeLaRueda`, el mismo de la
-   * partida): la fase, quién pega a quién, qué bando elige y lo que daría cada
-   * tipo, sin lo que eligió el otro.
-   */
-  get ruedaPendiente(): RuedaPendiente | null {
-    return this.rueda.pendiente;
-  }
-
-  /** Lo mismo que en `Session` (`motivoDeLaRueda`). */
-  get motivoDeLaRueda(): string | null {
-    return motivoDeLaRueda(this.ruedaPendiente);
-  }
-
   /** No es parte de la versión, por lo mismo que en `Session`: la reescribe el puntero. */
-  status = '';
-
-  /** La muralla de la activa (`MurallaDeLaActiva`, la misma de la partida). */
-  readonly muralla = new MurallaDeLaActiva(this, this.apuntados);
-  get apuntado(): Apuntado | null {
-    return this.apuntados.actual;
-  }
-
-  /** Escape: suelta lo que espera el clic —hechizo, poder, muro o puerta— y limpia la barra que lo pedía. */
-  soltarLoApuntado(): void {
-    if (this.apuntados.soltar()) this.status = '';
-  }
-
-  rechazoDeLoApuntado(targetId: string): string {
-    return rechazoDeLoApuntado(this.hechizos, this.poderes, this.apuntado, targetId);
-  }
+  override status = '';
 
   /**
    * El cuerpo de `s` sin lo que lleva, con el catálogo de esta pelea (`cuerpoDe`):
@@ -208,8 +121,9 @@ export class SesionDeArena implements ControlDeBatalla {
     },
     semilla: number,
     /** La arena no tiene regiones ni días: el despejado, o lo que pida `?clima=` (`arena/main.ts`). */
-    readonly climaDeLaBatalla: ClimaDelSitio = DESPEJADO,
+    override readonly climaDeLaBatalla: ClimaDelSitio = DESPEJADO,
   ) {
+    super();
     this.semilla = semilla;
     this.rng = createRng(semilla);
     const delMontaje = {
@@ -228,11 +142,25 @@ export class SesionDeArena implements ControlDeBatalla {
     // Los lados «Yo» despliegan en pantalla; los de la IA, solos.
     const aMano = new Set((['izquierda', 'derecha'] as const).filter((l) => !montaje[l].ia));
     this.battle = batallaDeArena(delMontaje, this.rng, aMano);
-    this.rueda = new CruceDeLaRueda(
-      { sesion: this, alMoverse: () => {}, seguirLaIA: () => this.avanzarIA() },
-      this.rng,
-      (quien) => this.iaDelBando[quien.side],
-    );
+  }
+
+  protected override azar(): Rng {
+    return this.rng;
+  }
+
+  /** Los bandos de la IA, enteros. */
+  protected override laIAMueve(): (s: BattleStack) => boolean {
+    return (s) => this.iaDelBando[s.side];
+  }
+
+  /** La IA elige en la rueda por sus bandos y la persona por los suyos. */
+  protected override laIAEligePor(quien: BattleStack): boolean {
+    return this.iaDelBando[quien.side];
+  }
+
+  /** Antes de «Luchar» el montaje se ve entero, no se coloca nada y no hay turno propio. */
+  protected override enMarcha(): boolean {
+    return this.empezada;
   }
 
   /**
@@ -244,19 +172,19 @@ export class SesionDeArena implements ControlDeBatalla {
     if (this.empezada) throw new Error('esta batalla de la arena ya ha empezado');
     this.empezada = true;
     if (this.despliegue.enCurso !== null) this.status = AYUDA_DEL_DESPLIEGUE;
-    this.avanzarIA();
+    this.seguirLaIA();
   }
 
   /**
    * Lo que ve la persona: en el despliegue, desde el bando que despliega (con los
    * dos «Yo», cada tanda sin el rival que aún no desplegó); con todos en la IA, todo.
    */
-  get batallaALaVista(): BattleState {
+  override get batallaALaVista(): BattleState {
     return this.despliegue.aLaVista() ?? this.battle;
   }
 
-  /** La batalla entera, para el animador (`ControlDeBatalla.batallaEntera`). */
-  get batallaEntera(): BattleState {
+  /** La batalla entera, para el animador: la de la arena existe siempre. */
+  override get batallaEntera(): BattleState {
     return this.battle;
   }
 
@@ -265,7 +193,7 @@ export class SesionDeArena implements ControlDeBatalla {
     return this.iaDelBando[stackById(this.battle, stackId).side];
   }
 
-  get turnoPropio(): TurnoPropio | null {
+  override get turnoPropio(): TurnoPropio | null {
     const battle = this.battle;
     if (!this.empezada || battle.finished !== null) return null;
     const stack = activeStack(battle);
@@ -273,7 +201,7 @@ export class SesionDeArena implements ControlDeBatalla {
     return { battle, stack, side: stack.side };
   }
 
-  get miBando(): Side | null {
+  override get miBando(): Side | null {
     return this.turnoPropio?.side ?? null;
   }
 
@@ -282,101 +210,9 @@ export class SesionDeArena implements ControlDeBatalla {
    * persona si lleva uno solo; con los dos suyos (o ninguno), `null`, y la rueda
    * los dice por su lado del campo.
    */
-  get quienMira(): Side | null {
+  override get quienMira(): Side | null {
     const suyos = (['attacker', 'defender'] as const).filter((b) => !this.iaDelBando[b]);
     return suyos.length === 1 ? (suyos[0] as Side) : null;
-  }
-
-  /** Como en `Session`, guardado por jugada: la escena lo pide en cada fotograma. */
-  private calculo(): CalculoDeBatalla {
-    const modo = this.arma.modo;
-    const clave = `${claveConMagia(this.battle)}|${this.empezada}|${modo}`;
-    if (this.cache !== null && this.cache.clave === clave) return this.cache.valor;
-    const turno = this.turnoPropio;
-    const comunes = accionesDeBatalla(this.battle, turno, modo);
-    const valor = { ...comunes, opciones: opcionesDeHechizo(turno, comunes.acciones) };
-    this.cache = { clave, valor };
-    return valor;
-  }
-  private cache: { clave: string; valor: CalculoDeBatalla } | null = null;
-
-  battleLegalActions(): readonly BattleAction[] {
-    return this.calculo().acciones;
-  }
-
-  battleMovable(): readonly Hex[] {
-    return this.calculo().movibles;
-  }
-
-  battleCharges(): readonly CasillaDeCarga[] {
-    return this.calculo().cargas;
-  }
-
-  /** El libro del héroe del lado que mueve la persona, como en la partida. */
-  spellOptions(): readonly SpellOption[] {
-    return this.calculo().opciones;
-  }
-
-  /**
-   * El héroe del lado de la unidad activa de la persona, con su maná máximo
-   * (`maxMana`, la regla del núcleo), o `null`.
-   */
-  get heroeEnJuego(): { readonly mando: BattleHero; readonly manaMaximo: number } | null {
-    const turno = this.turnoPropio;
-    const mando = turno === null ? null : this.battle.heroes[turno.side];
-    return mando === null ? null : { mando, manaMaximo: maxMana(mando) };
-  }
-
-  /** Las casillas que le quedan este turno a la unidad activa, si es de la persona. */
-  battleStepsLeft(): number | null {
-    const turno = this.turnoPropio;
-    return turno === null ? null : pasosQueQuedan(turno.battle, turno.stack);
-  }
-
-  /**
-   * Por qué la unidad activa de la persona no puede salir de su casilla
-   * (`contactoBlocker`: rodeada, lo que le queda no paga salir), como frase, o
-   * `null`. El panel lo dice sin que se señale ninguna casilla.
-   */
-  sinSalida(): string | null {
-    const turno = this.turnoPropio;
-    const motivo = turno === null ? null : contactoBlocker(turno.battle, turno.stack);
-    return motivo === null ? null : comoFrase(motivo);
-  }
-
-  /**
-   * Si la unidad activa de la persona ha golpeado con Finta y le queda solo el
-   * tramo de andar (`faseDelTurno`): el panel lo dice en vez de invitar a golpear
-   * (R2 de QA de #263).
-   */
-  trasLaFinta(): boolean {
-    const turno = this.turnoPropio;
-    return turno !== null && faseDelTurno(turno.battle) === 'trasLaFinta';
-  }
-
-  attackRejection(targetId: string): string {
-    return motivoContra(this.turnoPropio, targetId);
-  }
-
-  prevision(action: BattleAction): Prevision | null {
-    return previsionPropia(this.turnoPropio, action);
-  }
-
-  moveRejection(hex: Hex): string {
-    return motivoDeMovimiento(this.turnoPropio, hex);
-  }
-
-  /** Lo que suma a la defensa de `s` estar en lo alto (`bonoEnLoAlto`), para la ficha. */
-  defensaEnLoAlto(s: BattleStack): number {
-    return bonoEnLoAlto(this.battle, s);
-  }
-
-  /**
-   * Por qué la unidad activa —tuya— no puede usar ese poder sobre nadie
-   * (`poderBlocker`), como frase; `null` si puede. Lo pinta el botón deshabilitado.
-   */
-  motivoDePoder(p: PoderId): string | null {
-    return this.poderes.motivo(p);
   }
 
   /**
@@ -424,39 +260,5 @@ export class SesionDeArena implements ControlDeBatalla {
     if (a === null || this.battleLegalActions().some((x) => esDeLoApuntado(a, x))) return null;
     this.apuntados.soltar();
     return nombreDeLoApuntado(a);
-  }
-
-  /**
-   * Aplica la jugada de la persona y deja a la IA mover las suyas hasta la
-   * siguiente. Con la rueda, un golpe cuerpo a cuerpo sin elegir no se da: quien
-   * pega anda hasta su objetivo y la rueda (`ruedaPendiente`) espera su elección.
-   */
-  playBattleAction(action: BattleAction): void {
-    this.rueda.jugar(this.battle, action);
-  }
-
-  /** Lo que elige en la rueda quien le toca (`CruceDeLaRueda.elegirYJugar`). */
-  elegirEnLaRueda(tipo: string): void {
-    this.rueda.elegirYJugar(this.battle, tipo);
-  }
-
-  /** Escape en la rueda (`CruceDeLaRueda.cancelarGolpe`). Devuelve si se canceló. */
-  cancelarGolpe(): boolean {
-    return this.rueda.cancelarGolpe(this.battle);
-  }
-
-  /**
-   * Con todas en IA la batalla se juega entera aquí, de una vez: el animador la
-   * cuenta después. Con la rueda, la IA elige su golpe a ciegas; si golpea a una
-   * unidad de la persona, se para y la rueda pide la respuesta.
-   */
-  private avanzarIA(): void {
-    jugarIAMientras(
-      this.battle,
-      this.rng,
-      (s) => this.iaDelBando[s.side],
-      (accion) => this.rueda.completar(this.battle, accion),
-    );
-    if (this.battle.finished !== null) this.status = 'La batalla ha terminado.';
   }
 }

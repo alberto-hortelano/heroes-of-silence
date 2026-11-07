@@ -74,9 +74,13 @@ export class CruceDeLaRueda {
     readonly pendiente: RuedaPendiente;
   } | null = null;
 
+  /**
+   * `rng`, por función: el cruce nace con los campos de la sesión de batalla común
+   * (`SesionDeBatalla`), antes que el azar de la partida, que pone su constructor.
+   */
   constructor(
     private readonly conductor: ConductorDelCruce,
-    private readonly rng: Rng,
+    private readonly rng: () => Rng,
     private readonly laLlevaLaIA: LaIAElige,
   ) {}
 
@@ -146,7 +150,7 @@ export class CruceDeLaRueda {
   private aplicar(battle: BattleState, accion: BattleAction): void {
     const { sesion } = this.conductor;
     try {
-      applyAction(battle, accion, this.rng);
+      applyAction(battle, accion, this.rng());
       this.conductor.alMoverse();
       sesion.status = '';
     } catch (err) {
@@ -174,7 +178,7 @@ export class CruceDeLaRueda {
    * del núcleo si plantarse no vale: uno que no se puede dar no mueve a nadie.
    */
   completar(battle: BattleState, accion: BattleAction): BattleAction | null {
-    const paso = pasoDelCruce(battle, accion, this.rng, this.laLlevaLaIA);
+    const paso = pasoDelCruce(battle, accion, this.rng(), this.laLlevaLaIA);
     if ('lista' in paso) return paso.lista;
     const atacante = activeStack(battle);
     if (atacante === null) throw new Error('la rueda espera un golpe y no le toca a nadie');
@@ -231,7 +235,7 @@ export class CruceDeLaRueda {
       );
     }
     this.cruce = null;
-    soltarElGolpe(battle, this.rng);
+    soltarElGolpe(battle, this.rng());
     return 'Golpe cancelado.';
   }
 }
