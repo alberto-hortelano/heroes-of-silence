@@ -11,7 +11,7 @@ import { espejo, FORMA_DEL_TABLERO, isInside, ULTIMA_FILA } from '../battle/boar
 import { cierra, hayMuralla, reglaDeLaMuralla, validarMuralla } from '../battle/muralla.js';
 import type { MurallaDeBatalla, PuertaDeMuralla } from '../battle/types.js';
 import type { Hex } from '../types.js';
-import { lista, revisarLista, texto, todasValidas } from '../validar.js';
+import { esObjeto, lista, revisarLista, texto, todasValidas } from '../validar.js';
 
 export interface FormaDeMuralla {
   readonly nombre: string;
@@ -173,7 +173,7 @@ const CAMPOS_DE_FORMA: readonly string[] = ['nombre', 'muralla'];
 
 /** Una forma del archivo, o excepción con lo que no se entiende. */
 export function validarFormaDeMuralla(valor: unknown): FormaDeMuralla {
-  if (typeof valor !== 'object' || valor === null || Array.isArray(valor)) {
+  if (!esObjeto(valor)) {
     throw new Error('una forma de muralla es { nombre, muralla }');
   }
   const o = valor as Record<string, unknown>;

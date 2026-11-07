@@ -11,7 +11,7 @@
 import heroeJson from '../../../data/heroe.json' with { type: 'json' };
 import type { EquipoAtado } from '../equipo/atado.js';
 import { type Equipo, esHueco, HUECOS } from '../types.js';
-import { enteroBlocker, problemasDeObjeto } from '../validar.js';
+import { enteroBlocker, esObjeto, problemasDeObjeto } from '../validar.js';
 
 /**
  * El héroe como figura del tablero y el precio de rendirse, de
@@ -41,7 +41,7 @@ export interface ReglasDelHeroe {
 
 /** El equipo base de `data/heroe.json`, con sus huecos comprobados. */
 function equipoBaseDelHeroe(valor: unknown): Equipo {
-  if (typeof valor !== 'object' || valor === null || Array.isArray(valor)) {
+  if (!esObjeto(valor)) {
     throw new Error(
       'data/heroe.json: equipoBase tiene que ser un objeto con un id de pieza por hueco',
     );

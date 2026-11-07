@@ -39,7 +39,7 @@
 import murallaJson from '../../../data/muralla.json' with { type: 'json' };
 import { LIDERAZGO } from '../hero/liderazgo.js';
 import type { Hex } from '../types.js';
-import { deLaListaBlocker, problemasDeObjeto } from '../validar.js';
+import { deLaListaBlocker, esObjeto, problemasDeObjeto } from '../validar.js';
 import { isShooter } from './armas.js';
 import {
   allHexes,
@@ -555,7 +555,7 @@ const CAMPOS_DE_LA_MURALLA: readonly string[] = ['muros', 'puertas', 'material']
 const VALIDADAS = new WeakSet<MurallaDeBatalla>([SIN_MURALLA]);
 
 function puertaDeLaMuralla(p: unknown, n: number): PuertaDeMuralla {
-  if (typeof p !== 'object' || p === null || Array.isArray(p)) {
+  if (!esObjeto(p)) {
     throw new Error(`la muralla: la puerta ${n} no es un {a, b}`);
   }
   const o = p as Record<string, unknown>;

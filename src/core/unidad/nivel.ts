@@ -36,7 +36,7 @@ import type { CifrasDeLaRueda } from '../battle/cifras-de-la-rueda.js';
 import { type GolpeDeReferencia, RUEDA_DE_REFERENCIA } from '../battle/formas-de-la-rueda.js';
 import { raizEntera } from '../escala.js';
 import { SPEED_TO_HEXES, type TipoDeGolpe, type UnitInfo, type UsoDeArma } from '../types.js';
-import { enteroDesde } from '../validar.js';
+import { enteroDesde, esObjeto } from '../validar.js';
 
 /**
  * El poder bruto de unas cifras: la media geométrica de lo que pega y lo que
@@ -380,11 +380,9 @@ export function validarPoder(json: unknown, fichero = 'data/poder.json'): Reglas
   }
   const pesos = j.pesosDeLaRueda;
   const sonPesos =
-    typeof pesos === 'object' &&
-    pesos !== null &&
-    !Array.isArray(pesos) &&
+    esObjeto(pesos) &&
     Object.keys(pesos).length === GOLPES_DE_LA_MEDIDA.length &&
-    GOLPES_DE_LA_MEDIDA.every((t) => enteroDesde((pesos as Record<string, unknown>)[t], 0));
+    GOLPES_DE_LA_MEDIDA.every((t) => enteroDesde(pesos[t], 0));
   if (!sonPesos) {
     problemas.push(
       `pesosDeLaRueda tiene que ser un entero ≥ 0 por cada tipo de la rueda de referencia (${GOLPES_DE_LA_MEDIDA.join(', ')}), y es ${JSON.stringify(pesos)}`,

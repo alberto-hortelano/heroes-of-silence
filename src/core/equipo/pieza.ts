@@ -33,7 +33,7 @@ import {
   TIPOS_DEL_ANILLO,
 } from '../types.js';
 import { AGILIDAD_DEL_CUERPO_MAX, AGILIDAD_DEL_CUERPO_MIN } from '../unidad/cuerpo.js';
-import { enteroBlocker, enteroDesde, esIdDePieza, revisarLista } from '../validar.js';
+import { enteroBlocker, enteroDesde, esIdDePieza, esObjeto, revisarLista } from '../validar.js';
 
 /**
  * De dónde se consigue una pieza en la partida (18-10-2026, una sola clase de
@@ -361,7 +361,7 @@ function problemasDeDondeSeConsigue(v: unknown, q: string): string[] {
  */
 export function problemasDePieza(bruta: unknown, quien?: string): string[] {
   const problemas: string[] = [];
-  if (typeof bruta !== 'object' || bruta === null || Array.isArray(bruta)) {
+  if (!esObjeto(bruta)) {
     return [`${quien ?? 'la pieza'} no es un objeto`];
   }
   const p = bruta as Record<string, unknown>;
@@ -600,7 +600,7 @@ function problemasDeIdYNombre(p: Record<string, unknown>, q: string): string[] {
  * pieza resuelta (`problemasDeNiveles`, desde `problemasDePieza`).
  */
 function problemasDeRueda(rueda: unknown, q: string): string[] {
-  if (typeof rueda !== 'object' || rueda === null || Array.isArray(rueda)) {
+  if (!esObjeto(rueda)) {
     return [`${q}: la rueda tiene que ser un objeto con un número por tipo de golpe`];
   }
   const problemas: string[] = [];
@@ -624,7 +624,7 @@ function problemasDeRueda(rueda: unknown, q: string): string[] {
  * resuelta valga, `resolverBases`.
  */
 export function problemasDePiezaConBase(bruta: unknown, quien?: string): string[] {
-  if (typeof bruta !== 'object' || bruta === null || Array.isArray(bruta)) {
+  if (!esObjeto(bruta)) {
     return [`${quien ?? 'la pieza'} no es un objeto`];
   }
   const p = bruta as Record<string, unknown>;
@@ -644,7 +644,7 @@ export function problemasDePiezaConBase(bruta: unknown, quien?: string): string[
     problemas.push(suPropiaBase(q));
   }
   const x = p.extras;
-  if (typeof x !== 'object' || x === null || Array.isArray(x)) {
+  if (!esObjeto(x)) {
     problemas.push(`${q}: los extras tienen que ser un objeto (vacío si no suma nada)`);
     return problemas;
   }
@@ -967,7 +967,7 @@ function piezaEscrita(
   valor: unknown,
   quien?: string,
 ): { readonly pieza: PiezaEscrita } | { readonly problemas: readonly string[] } {
-  if (typeof valor !== 'object' || valor === null || Array.isArray(valor)) {
+  if (!esObjeto(valor)) {
     return { problemas: [`${quien ?? 'la pieza'} no es un objeto`] };
   }
   const conBase = 'base' in valor;

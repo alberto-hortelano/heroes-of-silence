@@ -70,7 +70,7 @@ import {
   type Troop,
 } from '../types.js';
 import { unidadDelJuego, unidadDelJuegoSiExiste } from '../unidad/catalogo.js';
-import { deLaLista, entero, esObjeto, problemasDeObjeto } from '../validar.js';
+import { deLaLista, entero, esObjeto, objetoCon } from '../validar.js';
 import type { Ocupante } from './events.js';
 import type { AdventureAction, GameState } from './tipos.js';
 
@@ -419,7 +419,10 @@ const USOS = [...SITIOS_CON_MURALLA, ...OBRAS_DE_UN_PUESTO];
  * dé ficheros rotos a propósito; el juego la llama una vez, al cargar.
  */
 export function leerSitios(valor: unknown, fichero = 'data/sitios.json'): LosSitios {
-  const enLaRaiz = objeto(valor, ['_comment', 'murallas', 'usos'], ['murallas', 'usos'], fichero);
+  const enLaRaiz = objetoCon(valor, ['_comment', 'murallas', 'usos'], fichero, [
+    'murallas',
+    'usos',
+  ]);
   const formas = new Map<string, MurallaDeBatalla>();
   const crudas = enLaRaiz.murallas;
   if (!esObjeto(crudas)) throw new Error(`${fichero}: «murallas» tiene que ser un objeto`);
@@ -436,11 +439,11 @@ export function leerSitios(valor: unknown, fichero = 'data/sitios.json'): LosSit
     formas.set(nombre, m);
   }
   const nombres = [...formas.keys()];
-  const usos = objeto(enLaRaiz.usos, USOS, USOS, `${fichero}: «usos»`);
+  const usos = objetoCon(enLaRaiz.usos, USOS, `${fichero}: «usos»`, USOS);
   /** La forma que nombra el uso `uso`, que tiene los campos `campos`. */
   const formaDe = (uso: string, campos: readonly string[]) => {
     const quien = `${fichero}: el uso «${uso}»`;
-    const crudo = objeto(usos[uso], campos, campos, quien);
+    const crudo = objetoCon(usos[uso], campos, quien, campos);
     const muralla = formas.get(deLaLista(crudo.muralla, nombres, '«muralla»', quien));
     return { crudo, quien, muralla: muralla as MurallaDeBatalla };
   };
@@ -457,18 +460,6 @@ export function leerSitios(valor: unknown, fichero = 'data/sitios.json'): LosSit
     obras[obra] = { precio: entero(crudo.precio, '«precio»', quien, 1), muralla };
   }
   return { murallas: Object.freeze(murallas), obras: Object.freeze(obras) };
-}
-
-/** `valor` como objeto con los campos `campos` (y `obligatorios`), o lanza con `quien` delante. */
-function objeto(
-  valor: unknown,
-  campos: readonly string[],
-  obligatorios: readonly string[],
-  quien: string,
-): Readonly<Record<string, unknown>> {
-  const [motivo] = problemasDeObjeto(valor, campos, obligatorios);
-  if (motivo !== undefined) throw new Error(`${quien}: ${motivo}`);
-  return valor as Readonly<Record<string, unknown>>;
 }
 
 const SITIOS = leerSitios(sitiosJson);

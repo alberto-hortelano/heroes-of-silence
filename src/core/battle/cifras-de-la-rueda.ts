@@ -18,7 +18,7 @@ import {
   type TipoDelAnillo,
   TODOS_LOS_GOLPES,
 } from '../types.js';
-import { entero, objetoCon } from '../validar.js';
+import { entero, esObjeto, objetoCon } from '../validar.js';
 import { esFusionado, LAS_TRES_RUEDAS, NOMBRE_DE_GOLPE, PARTES } from './formas-de-la-rueda.js';
 
 // La tabla de nombres vive con las formas de la rueda (`nombreEnLaRueda`); aquí se
@@ -311,7 +311,7 @@ const CIFRAS_POR_NIVELES = new WeakMap<NivelesDeLaRueda, CifrasDeLaRueda>();
  * pieza. Lo lee la regla de una pieza (`problemasDePieza`).
  */
 export function problemasDeNiveles(r: unknown, q: string): string[] {
-  if (typeof r !== 'object' || r === null || Array.isArray(r)) {
+  if (!esObjeto(r)) {
     return [`${q}: la rueda tiene que ser un objeto con un nivel por tipo`];
   }
   const o = r as Record<string, unknown>;

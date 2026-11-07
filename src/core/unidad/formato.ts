@@ -40,6 +40,7 @@ import {
   deLaLista,
   entero,
   esIdDeUnidad,
+  esObjeto,
   lista,
   revisarLista,
   sinRepetir,
@@ -260,7 +261,7 @@ export function agilidadValida(valor: unknown, quien: string): number {
  * queremos mantener compatibilidad hacia atrás»).
  */
 export function validarUnidad(valor: unknown, eq: EquipoAtado): Unidad {
-  if (typeof valor !== 'object' || valor === null || Array.isArray(valor)) {
+  if (!esObjeto(valor)) {
     throw new Error('una unidad de la arena tiene que ser un objeto');
   }
   const u = valor as Record<string, unknown>;
@@ -361,7 +362,7 @@ function idValido(valor: unknown): string {
  * 5 que hay en la arena»).
  */
 function cuerpoValido(valor: unknown, quien: string): CuerpoDeUnidad {
-  if (typeof valor !== 'object' || valor === null || Array.isArray(valor)) {
+  if (!esObjeto(valor)) {
     throw new Error(`${quien}: el cuerpo tiene que ser { hoja }`);
   }
   const c = valor as Record<string, unknown>;
@@ -443,7 +444,7 @@ export function equipoDeUnidadBlocker(
  * una unidad y el héroe de la arena (`validarHeroeDeArena`).
  */
 export function equipoEscrito(valor: unknown, quien: string): Equipo {
-  if (typeof valor !== 'object' || valor === null || Array.isArray(valor)) {
+  if (!esObjeto(valor)) {
     throw new Error(`${quien}: el equipo tiene que ser un objeto por hueco ({} sin nada)`);
   }
   const e = valor as Record<string, unknown>;

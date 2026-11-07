@@ -35,7 +35,7 @@ import { type MapaDeRed, regionDelSitio } from '../map/regiones.js';
 import { dueñoDeLaRegion, dueñosDeLasRegiones } from '../map/territorio.js';
 import { createRng, hashDeTexto, sortearPorPesos } from '../rng.js';
 import { FACTION_IDS, type FactionId, type PlayerId, type Point } from '../types.js';
-import { enteroDesde, esIdDeMapa } from '../validar.js';
+import { enteroDesde, esIdDeMapa, esObjeto } from '../validar.js';
 import { playerById } from './consultas.js';
 import type { GameState } from './tipos.js';
 
@@ -104,7 +104,7 @@ const DUEÑOS: readonly DueñoDelClima[] = ['neutral', ...FACTION_IDS];
 export function validarClima(json: unknown, fichero = 'data/clima.json'): ReglasDelClima {
   const problemas: string[] = [];
   const objeto = (v: unknown, donde: string): Record<string, unknown> => {
-    if (v === null || typeof v !== 'object' || Array.isArray(v)) {
+    if (!esObjeto(v)) {
       problemas.push(`${donde} tiene que ser un objeto, y es ${JSON.stringify(v)}`);
       return {};
     }
@@ -429,7 +429,7 @@ const esPunto = (v: unknown): v is Point =>
  * cuántos van ni si la región se repite: eso es de `pedirClima`.
  */
 export function climaBlocker(state: GameState, entrada: EntradaDeClima): string | null {
-  if (typeof entrada !== 'object' || entrada === null || Array.isArray(entrada)) {
+  if (!esObjeto(entrada)) {
     return `cada pedido es un objeto { "at", "weather", "night", "days" }, y llega ${dicho(entrada)}`;
   }
   const { at, weather, night, days } = entrada as Record<string, unknown>;

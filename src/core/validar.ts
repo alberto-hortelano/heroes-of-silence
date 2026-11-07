@@ -83,13 +83,18 @@ export function problemasDeObjeto(
   ];
 }
 
-/** Un objeto con solo los campos `campos` (no mira si están todos), o lanza diciendo cuál sobra. */
+/**
+ * Un objeto con solo los campos `campos` y, de ellos, todos los `obligatorios` (por
+ * defecto ninguno: no mira si están todos), o lanza con `quien` delante diciendo el
+ * primero que sobra o falta (`problemasDeObjeto`).
+ */
 export function objetoCon(
   valor: unknown,
   campos: readonly string[],
   quien: string,
+  obligatorios: readonly string[] = [],
 ): Record<string, unknown> {
-  const [motivo] = problemasDeObjeto(valor, campos);
+  const [motivo] = problemasDeObjeto(valor, campos, obligatorios);
   if (motivo !== undefined) throw new Error(`${quien}: ${motivo}`);
   return valor as Record<string, unknown>;
 }
@@ -254,5 +259,5 @@ export function unaVezEnLaURL(valores: readonly string[], nombre: string): strin
  * entero y no se puede sumar.
  */
 export function enteroDesde(v: unknown, desde: number): v is number {
-  return typeof v === 'number' && Number.isSafeInteger(v) && v >= desde;
+  return enteroBlocker(v, desde) === null;
 }
