@@ -963,9 +963,10 @@ function elIntercambio(
 /**
  * Por qué `player` no puede dejar (`dejar_tropa`) o recoger (`recoger_tropa`) esa
  * tropa entre su héroe y la guarnición del sitio donde está, o `null`. **La regla
- * de dejar y recoger**, una vez: la leen las dos acciones (que lanzan con ella), los
- * botones de la pantalla de la guarnición y el veredicto del agente. No mira el
- * turno (`turnBlocker`).
+ * de dejar y recoger**, una vez (`elIntercambio`): las dos acciones lanzan con su
+ * frase (`moverTropa`), que es la que le llega al agente en el veredicto. La
+ * pantalla de la guarnición no la pregunta: reparte de una vez (`repartir_tropa`,
+ * `elReparto`). No mira el turno (`turnBlocker`).
  *
  * En el orden en que se entiende: quién, dónde, de quién es el sitio, qué se pide,
  * si lo hay y si cabe donde va (`troopBlocker`, que dice cuántos caben, y después

@@ -410,7 +410,7 @@ function aplicar(
     case 'dejar_tropa':
     case 'recoger_tropa': {
       const player = currentPlayer(state);
-      // Lanza con `intercambioBlocker`, la regla que leen también la pantalla y el agente.
+      // Lanza con la frase de `intercambioBlocker`, la que le llega al agente en el veredicto.
       const { hero, sitio, creature, count } = moverTropa(state, player.id, action.type, action);
       emit(state, {
         kind: action.type === 'dejar_tropa' ? 'troops_left' : 'troops_taken',

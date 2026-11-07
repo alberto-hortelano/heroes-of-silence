@@ -23,7 +23,8 @@ import type {
 
 /**
  * Por qué la unidad activa no puede poner su escalera contra el muro `muro`, o
- * `null` si puede. La escribe el núcleo; la leen `legalActions` y `applyAction`.
+ * `null` si puede. La lee `applyAction`; la lista (`legalActions`, por `escalasA`)
+ * y el botón (`escalaBlocker`) preguntan a la misma regla, `escalaDesde`.
  */
 export function escaleraBlocker(state: BattleState, muro: Hex): string | null {
   return escalaDeLaActiva(state, 'poner_escalera', muro);
