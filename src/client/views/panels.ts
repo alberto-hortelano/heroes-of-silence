@@ -395,7 +395,7 @@ function renderFinDePartida(desenlace: Desenlace, causa: DefeatReason | null): H
  * parecía reclutar menos de lo que había por capricho.
  */
 export function filaLiderazgo({ ocupado, tope }: { ocupado: number; tope: number }): Html {
-  return html`<div class="row"><span class="label">Liderazgo</span><span>${ocupado} / ${tope}</span></div>
+  return html`${filaDeCifra('Liderazgo', `${ocupado} / ${tope}`)}
     <progress class="liderazgo" max="${tope}" value="${Math.min(ocupado, tope)}"></progress>`;
 }
 
@@ -448,12 +448,12 @@ function renderAdventurePanel(session: Session): Html {
             : NADA
         }
         ${filaLiderazgo(session.liderazgo({ heroe: hero.id }))}
-        <div class="row"><span class="label">Movimiento</span><span>${session.movimientoALaVista(hero)} / ${maxMovePoints(hero)}</span></div>
+        ${filaDeCifra('Movimiento', `${session.movimientoALaVista(hero)} / ${maxMovePoints(hero)}`)}
         ${filaDeInfiltracion(session.infiltracion(hero))}
-        <div class="row"><span class="label">Maná</span><span>${hero.mana} / ${maxMana(hero)}</span></div>
-        <div class="row"><span class="label">Ataque / Defensa</span><span>${ataqueYDefensa(cuerpoDelHeroe(hero), puesto)}</span></div>
-        <div class="row"><span class="label">Poder / Conocimiento</span><span>${hero.spellPower} / ${hero.knowledge}</span></div>
-        <div class="row"><span class="label">Experiencia</span><span>${experienciaDeHeroe(hero.experience)}</span></div>
+        ${filaDeCifra('Maná', `${hero.mana} / ${maxMana(hero)}`)}
+        ${filaDeCifra('Ataque / Defensa', ataqueYDefensa(cuerpoDelHeroe(hero), puesto))}
+        ${filaDeCifra('Poder / Conocimiento', `${hero.spellPower} / ${hero.knowledge}`)}
+        ${filaDeCifra('Experiencia', experienciaDeHeroe(hero.experience))}
         <h3>Hechizos</h3>
         ${renderSpellbook(hero.spells)}
         ${renderEquipoDelHeroe(hero, session.selectedItem)}
@@ -823,8 +823,8 @@ function renderTownPanel(session: Session, abierto: Abierto | null): Html {
     <h2>${town.name}</h2>
     ${ocupada === null ? NADA : html`<p class="cost lose">${ocupada}</p>`}
     <div class="row"><span class="label">Ingresos</span><span${noCobra === null ? NADA : html` title="${noCobra.motivo}"`}>${conMiles(dailyIncome(town))} oro/día${noCobra === null ? '' : ` · ${noCobra.dicho}`}</span></div>
-    <div class="row"><span class="label">Gremio de magia</span><span>${mageGuildLevel(town) || '—'}</span></div>
-    <div class="row"><span class="label">Construir hoy</span><span>${construirHoy}</span></div>
+    ${filaDeCifra('Gremio de magia', String(mageGuildLevel(town) || '—'))}
+    ${filaDeCifra('Construir hoy', construirHoy)}
     <p class="cost">${session.heroeDeSalidaPendiente ? 'Pulsa el ayuntamiento para elegir a tu héroe; hasta entonces no se amplía ni se recluta.' : ocupada !== null ? 'Mientras no mandes en ella no se amplía ni se recluta: pulsa un edificio para ver lo suyo o a alguien para hablar.' : 'Pulsa el ayuntamiento para ampliar la base, una morada para reclutar, un edificio para ver lo suyo o a alguien para hablar.'}</p>
 
     <h3>Edificios</h3>
@@ -971,9 +971,9 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
     s === null
       ? html`<p>Sin unidad activa.</p>`
       : html`<h2>${nombreEnElCampo(battle, s)}</h2>
-        <div class="row"><span class="label">Bando</span><span>${s.side === mio ? 'Tú' : 'Enemigo'}</span></div>
-        <div class="row"><span class="label">Efectivos</span><span>${s.count}</span></div>
-        <div class="row"><span class="label">Moral</span><span>${s.morale}</span></div>`;
+        ${filaDeCifra('Bando', s.side === mio ? 'Tú' : 'Enemigo')}
+        ${filaDeCifra('Efectivos', String(s.count))}
+        ${filaDeCifra('Moral', String(s.morale))}`;
 
   const suTurno = s !== null && s.side === mio;
   const acciones = suTurno
@@ -1007,7 +1007,7 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
   const orden = listaDelCampo(battle, fila);
 
   return html`${activo}
-    <div class="row"><span class="label">Ronda</span><span>${battle.round}</span></div>
+    ${filaDeCifra('Ronda', String(battle.round))}
     ${mana}
     ${acciones}
     <h3>En el campo</h3><div class="stack-list">${orden}</div>
@@ -1073,9 +1073,7 @@ export function renderDespliegue(
  */
 function filaManaDeBatalla(session: Session): Html {
   const heroe = session.battleHero;
-  return heroe === null
-    ? NADA
-    : html`<div class="row"><span class="label">Maná</span><span>${heroe.mana} / ${maxMana(heroe)}</span></div>`;
+  return heroe === null ? NADA : filaDeCifra('Maná', `${heroe.mana} / ${maxMana(heroe)}`);
 }
 
 /**
@@ -1147,7 +1145,7 @@ export function accionesDeLaUnidad(o: {
          o pasa el ratón por un enemigo y elige desde qué casilla golpearlo.
          ${ayudaDeCarga(o.carga)}${tiro !== null ? html` Q cambia de arma.` : NADA}`;
   return html`<h3>Acciones</h3>
-       ${quedan === null ? NADA : html`<div class="row"><span class="label">Le ${quedan[0]}</span><span>${quedan[1]}</span></div>`}${filaADistancia(o.activa)}${sinSalida}
+       ${quedan === null ? NADA : filaDeCifra(`Le ${quedan[0]}`, quedan[1])}${filaADistancia(o.activa)}${sinSalida}
        <div class="stack-list">
          <button data-action="battle-end-turn">Terminar turno</button>
          ${o.rendicion}${o.muralla}${o.poderes}

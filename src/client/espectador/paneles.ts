@@ -19,6 +19,7 @@ import type { SpectatorView } from '../../server/vista-espectador.js';
 import { NADIE } from '../desenlace.js';
 import { fondoDeColor, type Html, html, NADA, unir } from '../html.js';
 import { playerColor } from '../render/palette.js';
+import { filaDeCifra } from '../views/cifras.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
 import {
   estadoADistancia,
@@ -110,8 +111,8 @@ function jugadores(v: SpectatorView): Html {
           <span>${bandera(p.id)} jugador ${p.id} · ${p.faction}</span>
           <span class="count">${estado}</span>
         </div>
-        <div class="row"><span class="label">oro</span><span>${p.oro}</span></div>
-        <div class="row"><span class="label">explorado</span><span>${p.fog.length} casillas</span></div>
+        ${filaDeCifra('oro', String(p.oro))}
+        ${filaDeCifra('explorado', `${p.fog.length} casillas`)}
         ${unir(
           v.heroes
             .filter((h) => h.owner === p.id)
@@ -167,8 +168,8 @@ export function batalla(v: SpectatorView, contandoAun = false): Html {
   };
   return html`<h3>Batalla · ronda ${estado.round}</h3>
     ${desenlaceDeLaBatalla(estado)}
-    <div class="row"><span class="label">atacante</span><span>${deQuien('attacker')}</span></div>
-    <div class="row"><span class="label">defensor</span><span>${deQuien('defender')}</span></div>
+    ${filaDeCifra('atacante', deQuien('attacker'))}
+    ${filaDeCifra('defensor', deQuien('defender'))}
     <div class="stack-list">${unir(
       estado.stacks
         .filter((s) => s.count > 0)

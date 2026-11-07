@@ -111,6 +111,7 @@ import { DESHABILITADO, type Html, html, MARCADO, NADA, srcDeImagen, unir } from
 import { ruedaDeLaPieza } from '../rueda/disco.js';
 import type { CaraDeLosContrincantes } from '../rueda/rueda.js';
 import type { SesionDeArena } from '../session.js';
+import { filaDeCifra } from '../views/cifras.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
 import {
   accionesDeLaUnidad,
@@ -1207,12 +1208,7 @@ export function renderFichaDeHeroe(
         html`<label class="rasgo"><input type="checkbox" data-heroe-hechizo="${s.id}" ${h.hechizos.includes(s.id) ? MARCADO : NADA}> ${s.nombre} (${s.mana})</label>`,
     ),
   );
-  const rinde = unir(
-    ficha.hechizos.map(
-      (x) =>
-        html`<div class="row"><span class="label">${x.nombre} (${x.coste})</span><span>${x.hace}</span></div>`,
-    ),
-  );
+  const rinde = unir(ficha.hechizos.map((x) => filaDeCifra(`${x.nombre} (${x.coste})`, x.hace)));
   return html`<div class="ficha" data-clave-de-ficha="${claveDeFicha({ kind: 'heroe', lado })}">
       ${tituloDeFicha(
         h.nombre,
@@ -1278,7 +1274,7 @@ export function renderFichaDeHeroe(
       <h3>En la pelea</h3>
       <div class="efectivos">
         <div class="row" data-mana-de-la-ficha="${ficha.mana}"><span class="label">Maná ${nota('10 × Conocimiento.')}</span><span>${ficha.mana}</span></div>
-        <div class="row"><span class="label">Duración de lo que lanza ${nota('Tantas rondas como su Poder.')}</span><span>${enRondas(ficha.duracion)}</span></div>
+        ${filaDeCifra(html`Duración de lo que lanza ${nota('Tantas rondas como su Poder.')}`, enRondas(ficha.duracion))}
         ${rinde}
       </div>
     </div>`;
@@ -1480,21 +1476,21 @@ function fichaDePieza(p: Pieza, v: VistaDeEquipo): Html {
   const escrita = escritaDe(eq, p.id);
   const extras = esPiezaConBase(escrita) ? escrita.extras : null;
   const campos = camposDelHueco(p.hueco);
-  const hueco = html`<div class="row"><span class="label">Hueco${notaDelHueco(p.hueco)}</span><span>${NOMBRE_DE_HUECO[p.hueco]}</span></div>`;
+  const hueco = filaDeCifra(html`Hueco${notaDelHueco(p.hueco)}`, NOMBRE_DE_HUECO[p.hueco]);
   // La lanza (25-10-2026): un arma de cuerpo a cuerpo que, montado, da la carga del
   // jinete. Una casilla, como «Se consigue»; con base, la de su base.
   const lanza = !campos.conManos
     ? NADA
     : extras === null
       ? html`<label class="casilla-de-marcar"><input type="checkbox" data-arena-pieza-campo="lanza" ${esLanza(p) ? MARCADO : NADA}> es una lanza ${nota(DICHO_DE_LA_CARGA.cuando)}</label>`
-      : html`<div class="row"><span class="label">Lanza ${nota('La de su base.')}</span><span>${esLanza(p) ? 'Sí' : 'No'}</span></div>`;
+      : filaDeCifra(html`Lanza ${nota('La de su base.')}`, esLanza(p) ? 'Sí' : 'No');
   // De guerra o de silla (26-10-2026): una casilla, como la lanza; con base, la de su base.
   const guerra =
     p.hueco !== 'montura'
       ? NADA
       : extras === null
         ? html`<label class="casilla-de-marcar"><input type="checkbox" data-arena-pieza-campo="guerra" ${esDeGuerra(p) ? MARCADO : NADA}> de guerra ${nota(DICHO_DE_LA_MONTURA)}</label>`
-        : html`<div class="row"><span class="label">De guerra ${nota('La de su base.')}</span><span>${esDeGuerra(p) ? 'Sí' : 'No'}</span></div>`;
+        : filaDeCifra(html`De guerra ${nota('La de su base.')}`, esDeGuerra(p) ? 'Sí' : 'No');
   const tiro = tiroDelPanel(p, extras !== null);
   const cadena = cadenaDeBases(eq, p.id);
   const suBase = baseDe(eq, p.id);
@@ -1517,7 +1513,10 @@ function fichaDePieza(p: Pieza, v: VistaDeEquipo): Html {
             <option value="2" ${aDosManos(p) ? html`selected` : NADA}>Dos manos</option>
           </select></label>`
       : campos.conManos
-        ? html`<div class="row"><span class="label">Manos ${nota('Las de su base.')}</span><span>${aDosManos(p) ? 'Dos manos' : 'Una mano'}</span></div>`
+        ? filaDeCifra(
+            html`Manos ${nota('Las de su base.')}`,
+            aDosManos(p) ? 'Dos manos' : 'Una mano',
+          )
         : NADA;
   const llevan = v.llevan(p.id);
   const botones = html`<button data-arena="crear-pieza" title="Crea una pieza nueva igual que esta, con su base si la tiene">Duplicar</button>
@@ -1534,7 +1533,7 @@ function fichaDePieza(p: Pieza, v: VistaDeEquipo): Html {
       </header>
       ${v.rechazo === null ? NADA : html`<p class="aviso-de-pieza rechazo" role="status">${v.rechazo}</p>`}
       <div class="row resumen-de-pieza" data-resumen-de-pieza="si"><span class="label">Suma</span>${modificadoresEnPantalla(p, 'nada')}</div>
-      <div class="row"><span class="label">Precio</span><span>${describirCoste(p.precio)}</span></div>
+      ${filaDeCifra('Precio', describirCoste(p.precio))}
       <div class="row" data-la-llevan="si"><span class="label">La llevan</span><span>${llevan.length === 0 ? 'ninguna unidad del catálogo' : llevan.join(', ')}</span></div>
       ${seConsigue}
       <div class="botones">${botones}</div>
@@ -1672,7 +1671,7 @@ function tiroDelPanel(p: Pieza, conBase: boolean): Html {
   if (conBase) {
     const dicho =
       t === undefined ? 'Arco o ballesta' : textoDeModificador({ kind: 'tiro', cual: t });
-    return html`<div class="row"><span class="label">Tiro ${nota('El de su base, con su recarga o sus cargas.')}</span><span>${dicho}</span></div>`;
+    return filaDeCifra(html`Tiro ${nota('El de su base, con su recarga o sus cargas.')}`, dicho);
   }
   const opcion = (valor: string, rotulo: string, si: boolean): Html =>
     html`<option value="${valor}" ${si ? html`selected` : NADA}>${rotulo}</option>`;
@@ -1930,12 +1929,12 @@ export function filasDelStack(
   const danio =
     conArmas && u.equipo !== undefined
       ? filasDeArmas(u, (uso) => ataqueYDefensaEnBatalla(b, x, uso).ataque)
-      : html`<div class="row"><span class="label">Daño</span><span>${u.damage[0]}–${u.damage[1]}${delEquipo(u, cuerpo, 'danio')}</span></div>`;
-  return html`<div class="row"><span class="label">Vida</span><span>${isAlive(x) ? x.topHp : 0} / ${u.hp} PV</span></div>
-        <div class="row"><span class="label">Ataque / Defensa</span><span>${ataqueYDefensa(b, x, s.defensaEnLoAlto(x))}${delEquipo(u, cuerpo, 'ataque')}${delEquipo(u, cuerpo, 'defensa')}</span></div>
-        ${armaduraDe(u) === 0 ? NADA : html`<div class="row"><span class="label">${NOMBRE_DE_CIFRA.armadura}</span><span>${armaduraDe(u)}</span></div>`}
+      : filaDeCifra('Daño', html`${u.damage[0]}–${u.damage[1]}${delEquipo(u, cuerpo, 'danio')}`);
+  return html`${filaDeCifra('Vida', `${isAlive(x) ? x.topHp : 0} / ${u.hp} PV`)}
+        ${filaDeCifra('Ataque / Defensa', html`${ataqueYDefensa(b, x, s.defensaEnLoAlto(x))}${delEquipo(u, cuerpo, 'ataque')}${delEquipo(u, cuerpo, 'defensa')}`)}
+        ${armaduraDe(u) === 0 ? NADA : filaDeCifra(NOMBRE_DE_CIFRA.armadura, String(armaduraDe(u)))}
         ${danio}
-        <div class="row"><span class="label">Velocidad</span><span>${SPEED_TO_HEXES[u.speed]} casillas${delEquipo(u, cuerpo, 'casillas')}</span></div>`;
+        ${filaDeCifra('Velocidad', html`${SPEED_TO_HEXES[u.speed]} casillas${delEquipo(u, cuerpo, 'casillas')}`)}`;
 }
 
 /**
@@ -2040,7 +2039,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
   // llegue —con todo en IA, la pelea entera—. Se calla todo hasta que el tablero
   // alcanza al estado.
   if (contandoAun) {
-    return html`<div class="row"><span class="label">Ronda</span><span>…</span></div>
+    return html`${filaDeCifra('Ronda', '…')}
       <p>Contando la jugada…</p>`;
   }
   if (b.finished !== null) {
@@ -2075,10 +2074,10 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
     activa === null
       ? NADA
       : html`<h2>${nombreEnElCampo(b, activa)} ${botonDeEditar(activa, nombreEnElCampo(b, activa))}</h2>
-        <div class="row"><span class="label">Bando</span><span>${LADOS[ladoDe(activa.side)].rotulo}</span></div>
-        <div class="row"><span class="label">La mueve</span><span>${s.laLlevaLaIA(activa.id) ? 'la IA' : 'tú'}</span></div>
+        ${filaDeCifra('Bando', LADOS[ladoDe(activa.side)].rotulo)}
+        ${filaDeCifra('La mueve', s.laLlevaLaIA(activa.id) ? 'la IA' : 'tú')}
         ${filasDelStack(s, activa, true)}
-        ${rasgos === '' ? NADA : html`<div class="row"><span class="label">Rasgos</span><span>${rasgos}</span></div>`}`;
+        ${rasgos === '' ? NADA : filaDeCifra('Rasgos', rasgos)}`;
   const heroe = s.heroeEnJuego;
   // Con la rueda en la respuesta, lo que se juega es eso (la activa es quien
   // pega, y puede ser de la IA): ni sus botones ni «Mueve la IA».
@@ -2107,10 +2106,10 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
   const mana =
     heroe === null
       ? NADA
-      : html`<div class="row"><span class="label">Maná de ${heroe.mando.name}</span><span>${heroe.mando.mana} / ${heroe.manaMaximo}</span></div>`;
+      : filaDeCifra(`Maná de ${heroe.mando.name}`, `${heroe.mando.mana} / ${heroe.manaMaximo}`);
   const campo = listaDelCampo(b, (x) => fila(x, true));
   return html`${ficha}
-    <div class="row"><span class="label">Ronda</span><span>${b.round}</span></div>
+    ${filaDeCifra('Ronda', String(b.round))}
     ${mana}
     <div class="botones-de-la-pelea"><button data-arena="ir-a-equipo" title="Cambia una pieza de equipo: vale ya para todos los que la llevan, de los dos bandos">Editar equipo</button></div>
     ${acciones}

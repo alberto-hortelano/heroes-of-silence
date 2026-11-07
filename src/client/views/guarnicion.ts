@@ -29,7 +29,7 @@ import { describirCoste } from '@core/texto.js';
 import { DICHO_DE_LA_OBRA, SE_VE_EN_EL_PUESTO } from '../dicho-del-puesto.js';
 import { type Html, html, NADA, unir } from '../html.js';
 import type { VistaDeLaDefensa, VistaDeLaGuarnicion } from '../session.js';
-import { apagadoPor, motivoDebajo, notaDebajo } from './cifras.js';
+import { apagadoPor, filaDeCifra, motivoDebajo, notaDebajo } from './cifras.js';
 import { filaDeTropa, filaLiderazgo } from './panels.js';
 
 /** Un botón que pasa uno del grupo `g` al otro lado del reparto (`data-hacia`). */
@@ -121,7 +121,7 @@ export function renderDefensa(v: VistaDeLaDefensa): Html {
   return html`<h3 id="titulo-de-la-defensa">¡Te atacan en ${v.sitio}!</h3>
     <p class="cost">${v.hero.name} pelea siempre. Elige quién pelea con él, de su tropa y de la guarnición; lo que no pelea se queda fuera y, si pierde, se pierde con el sitio. Viene marcado lo que propone la IA: lo más fuerte que cabe.</p>
     <p class="cost">Los que elijas se quedan con ${v.hero.name} después de la batalla, y los demás, en la guarnición.</p>
-    <div class="row"><span class="label">Pelean con él</span><span>${v.ocupa.individuos} de ${v.cabe.cupo} · liderazgo ${v.ocupa.liderazgo} de ${v.cabe.tope}</span></div>
+    ${filaDeCifra('Pelean con él', `${v.ocupa.individuos} de ${v.cabe.cupo} · liderazgo ${v.ocupa.liderazgo} de ${v.cabe.tope}`)}
     <div class="stack-list">${filas}</div>
     ${motivoDebajo(v.motivo)}
     <div class="botones">

@@ -62,7 +62,7 @@ function renderFicha(f: FichaDeLaTropa): Html {
     <h2>${f.nombre}</h2>
     ${filaDeCifra('Nivel', `Índice ${f.indice} · nivel ${f.nivel}`)}
     ${filaDeCifra('Rango', String(f.rango))}
-    <div class="row"><span class="label">Experiencia ${nota('La que lleva y, detrás, la que pide el rango siguiente: se gana quitando vida en batalla.')}</span><span>${experiencia}</span></div>
+    ${filaDeCifra(html`Experiencia ${nota('La que lleva y, detrás, la que pide el rango siguiente: se gana quitando vida en batalla.')}`, experiencia)}
     ${servicio}
     <h3>Características ${nota('Las de pelear, con lo de serie de su unidad y lo suyo puesto: cambian al momento al equipar o quitar.')}</h3>
     ${filasDeCombate(f.cifras, f.armadura)}

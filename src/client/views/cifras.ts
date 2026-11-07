@@ -8,8 +8,13 @@ import { conMiles } from '@core/texto.js';
 import { SPEED_TO_HEXES, type UnitInfo } from '@core/types.js';
 import { type Html, html, NADA } from '../html.js';
 
-/** Una fila de la ficha: el rótulo a la izquierda y el valor (texto, o marcado con su nota) a la derecha. */
-export function filaDeCifra(rotulo: string, valor: string | Html): Html {
+/**
+ * Una fila de la ficha: el rótulo a la izquierda y el valor a la derecha, cada uno
+ * texto o marcado (con su nota). Es la única forma de escribir una fila de rótulo
+ * y valor del cliente: la ficha de la tropa, la morada, el ayuntamiento, el panel
+ * del héroe, de la base y de la batalla, la defensa, la arena y el espectador.
+ */
+export function filaDeCifra(rotulo: string | Html, valor: string | Html): Html {
   return html`<div class="row"><span class="label">${rotulo}</span><span>${valor}</span></div>`;
 }
 
