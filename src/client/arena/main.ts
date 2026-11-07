@@ -399,26 +399,80 @@ const editorDeMagia = montarEditorDeMagia(elMagia, {
   },
   sinGuardar: hechizosSinGuardar,
   quienLoUsa: quienUsaElHechizo,
-  poder: () => heroes.izquierda?.poder ?? 1,
+  poder: () => montaje.heroes.izquierda?.poder ?? 1,
   avisar: (texto) => {
     aviso = texto;
     pedirFotograma();
   },
 });
 
-const montaje: Record<Lado, Puesto[]> = { izquierda: [], derecha: [] };
-/** El héroe de cada lado, si lleva. */
-const heroes: Record<Lado, HeroeDeArena | null> = { izquierda: null, derecha: null };
+/**
+ * La pelea que se monta y su enlace: los puestos y el héroe de cada lado, quién mueve cada bando,
+ * la complejidad, la semilla y el clima que pide la URL (con lo que no vale de ella) y el último
+ * enlace copiado. Eran diez `let` y `const` de módulo hasta R8 de la reorganización (07-11-2026).
+ */
+interface EstadoDelMontaje {
+  /** Los puestos de cada lado, en su orden. */
+  readonly puestos: Record<Lado, Puesto[]>;
+  /** El héroe de cada lado, si lleva. */
+  readonly heroes: Record<Lado, HeroeDeArena | null>;
+  /**
+   * Quién mueve cada bando, entero: sus unidades y su héroe. Por defecto la
+   * izquierda la persona y la derecha la IA; se cambia con Yo / IA en su cabecera.
+   */
+  readonly iaDelBando: Record<Lado, boolean>;
+  siguienteClave: number;
+  /**
+   * La complejidad de la pelea que se monta (22-10-2026): el tope por bando y la
+   * rueda, con sus dos selectores encima del montaje (`selectoresDelCombate`). Viaja
+   * en el enlace (versión 14).
+   */
+  combate: ReglasDelCombate;
+  /**
+   * La semilla que pide la URL, o `null` para sortear una en cada pelea. La regla
+   * es la de la partida (`parseSeed`): lo que no es una semilla se dice.
+   */
+  semillaPedida: number | null;
+  /** Lo que dice la barra al abrir de lo que no vale en la URL (semilla, clima, retirados). */
+  avisoDeSemilla: string;
+  /**
+   * Los parámetros de la URL que no valen (`seed` mal, o uno de los retirados:
+   * `reglas`, `golpe`, `contacto`): un enlace de la pelea con alguno no se monta, y
+   * lo dice nombrándolos (C1 de QA de #259).
+   */
+  readonly parametrosQueNoValen: string[];
+  /**
+   * El clima de las peleas (`?clima=`, como en la partida): la arena no tiene
+   * días ni regiones, así que es el despejado salvo que se pida otro, y una región
+   * se rechaza diciéndolo. Es presentación: un clima que no vale se dice y la
+   * pelea se monta igual, con el despejado.
+   */
+  climaDeLaArena: ClimaDelSitio;
+  /**
+   * El enlace de la pelea que se copió por última vez (`?montaje=`, H6 de QA del
+   * banco), para enseñarlo en su campo mientras siga siendo el del montaje: si
+   * algo cambia después, ya no lo es y se deja de enseñar.
+   */
+  enlaceCopiado: string | null;
+}
+
+const montaje: EstadoDelMontaje = {
+  puestos: { izquierda: [], derecha: [] },
+  heroes: { izquierda: null, derecha: null },
+  iaDelBando: { ...IA_POR_DEFECTO },
+  siguienteClave: 1,
+  combate: COMBATE_COMPLETO,
+  semillaPedida: null,
+  avisoDeSemilla: '',
+  parametrosQueNoValen: [],
+  climaDeLaArena: DESPEJADO,
+  enlaceCopiado: null,
+};
 
 /** Si el cuerpo de todo héroe de la página no es el del disco. */
 function cuerpoSinGuardar(): boolean {
   return JSON.stringify(catalogo.cuerpoDeTodoHeroe) !== JSON.stringify(catalogo.cuerpoGuardado);
 }
-/**
- * Quién mueve cada bando, entero: sus unidades y su héroe. Por defecto la
- * izquierda la persona y la derecha la IA; se cambia con Yo / IA en su cabecera.
- */
-const iaDelBando: Record<Lado, boolean> = { ...IA_POR_DEFECTO };
 let filtro: FiltroDeArena = 'todas';
 /**
  * La ficha que enseñan el montaje y el editor de la batalla. Solo dice cuál se
@@ -578,16 +632,9 @@ function vistaDeLaURL(): {
     return { vista: null, pieza: null, aviso: `${mensajeDe(err)}. ` };
   }
 }
-let siguienteClave = 1;
 let sesion: SesionDeArena | null = null;
 /** La barra mientras se monta; en la batalla manda la de la sesión. */
 let aviso = 'Cargando las hojas…';
-/**
- * La complejidad de la pelea que se monta (22-10-2026): el tope por bando y la
- * rueda, con sus dos selectores encima del montaje (`selectoresDelCombate`). Viaja
- * en el enlace (versión 14).
- */
-let combate: ReglasDelCombate = COMBATE_COMPLETO;
 
 /**
  * La muralla que se dibuja y con la que se pelea. Se rehace entera en cada clic
@@ -645,39 +692,23 @@ const CLAVE_DE_LISTA = 'arena.edicion.lista-plegada';
 const QUE_LISTA = 'si la lista de la edición va plegada';
 
 /**
- * La semilla que pide la URL, o `null` para sortear una en cada pelea. La regla
- * es la de la partida (`parseSeed`): lo que no es una semilla se dice.
+ * Lo que pide la URL al abrir: la semilla (o sortear una en cada pelea), el clima y lo que no vale
+ * (`montaje.semillaPedida`, `climaDeLaArena`, `avisoDeSemilla`, `parametrosQueNoValen`).
  */
 const parametros = new URLSearchParams(location.search);
-let semillaPedida: number | null = null;
-let avisoDeSemilla = '';
-/**
- * Los parámetros de la URL que no valen (`seed` mal, o uno de los retirados:
- * `reglas`, `golpe`, `contacto`): un enlace de la pelea con alguno no se monta, y
- * lo dice nombrándolos (C1 de QA de #259).
- */
-const parametrosQueNoValen: string[] = [];
 try {
-  semillaPedida = parseSeed(unaVezEnLaURL(parametros.getAll('seed'), 'seed'));
+  montaje.semillaPedida = parseSeed(unaVezEnLaURL(parametros.getAll('seed'), 'seed'));
 } catch (err) {
-  avisoDeSemilla = `${mensajeDe(err)} — quita "?seed=…" de la barra de direcciones para sortear la semilla. `;
-  parametrosQueNoValen.push('seed');
+  montaje.avisoDeSemilla = `${mensajeDe(err)} — quita "?seed=…" de la barra de direcciones para sortear la semilla. `;
+  montaje.parametrosQueNoValen.push('seed');
 }
-
-/**
- * El clima de las peleas (`?clima=`, como en la partida): la arena no tiene
- * días ni regiones, así que es el despejado salvo que se pida otro, y una región
- * se rechaza diciéndolo. Es presentación: un clima que no vale se dice y la
- * pelea se monta igual, con el despejado.
- */
-let climaDeLaArena: ClimaDelSitio = DESPEJADO;
 {
   const pedido = climaDeLaURL(parametros);
-  avisoDeSemilla += pedido.aviso;
+  montaje.avisoDeSemilla += pedido.aviso;
   try {
-    climaDeLaArena = climaSinRegiones(pedido.forzado, 'la arena');
+    montaje.climaDeLaArena = climaSinRegiones(pedido.forzado, 'la arena');
   } catch (err) {
-    avisoDeSemilla += avisoDelClima(err);
+    montaje.avisoDeSemilla += avisoDelClima(err);
   }
 }
 
@@ -687,16 +718,9 @@ let climaDeLaArena: ClimaDelSitio = DESPEJADO;
  * (`retiradosDeLaURL`), y el enlace que los trae no se monta.
  */
 for (const { nombre, motivo } of retiradosDeLaURL(parametros.keys())) {
-  avisoDeSemilla += `${motivo}. `;
-  parametrosQueNoValen.push(nombre);
+  montaje.avisoDeSemilla += `${motivo}. `;
+  montaje.parametrosQueNoValen.push(nombre);
 }
-
-/**
- * El enlace de la pelea que se copió por última vez (`?montaje=`, H6 de QA del
- * banco), para enseñarlo en su campo mientras siga siendo el del montaje: si
- * algo cambia después, ya no lo es y se deja de enseñar.
- */
-let enlaceCopiado: string | null = null;
 
 /**
  * Escribe en la barra la dirección de ahora con lo que ponga `cambiar` (la
@@ -720,15 +744,15 @@ function fuenteDeArena(p: Puesto): FuenteDeArena {
 /** El montaje de ahora, como lo pelearía el núcleo: lo leen «Luchar» y el aviso de la muralla. */
 function montajeDeArena(): MontajeDeArena {
   const lado = (l: Lado) => ({
-    unidades: montaje[l].map(fuenteDeArena),
-    heroe: heroes[l],
+    unidades: montaje.puestos[l].map(fuenteDeArena),
+    heroe: montaje.heroes[l],
   });
   return {
     izquierda: lado('izquierda'),
     derecha: lado('derecha'),
     muralla,
     equipo: catalogo.equipo,
-    combate,
+    combate: montaje.combate,
     hechizos: catalogoDeMagia(),
   };
 }
@@ -1184,18 +1208,18 @@ function repintarMontaje(): void {
         elBando[lado],
         renderBando(
           lado,
-          montaje[lado],
+          montaje.puestos[lado],
           (p) => describir(p, lado),
           elegida,
-          combate.tope,
-          heroes[lado],
+          montaje.combate.tope,
+          montaje.heroes[lado],
           ocupados(lado),
-          iaDelBando[lado],
+          montaje.iaDelBando[lado],
         ),
       );
     }
     pintar(elFicha, fichaElegida());
-    pintar(elCombate, selectoresDelCombate(combate));
+    pintar(elCombate, selectoresDelCombate(montaje.combate));
     pintar(
       elCatalogo,
       html`${renderEnlace(enlaceVigente())}${renderCatalogo(
@@ -1279,7 +1303,7 @@ function quienesLaLlevan(id: string): string[] {
 
 /** Los héroes puestos en los bandos, izquierda primero. */
 function heroesDeLaPagina(): HeroeDeArena[] {
-  return [heroes.izquierda, heroes.derecha].filter((h) => h !== null);
+  return [montaje.heroes.izquierda, montaje.heroes.derecha].filter((h) => h !== null);
 }
 
 /**
@@ -1536,8 +1560,8 @@ function fichaDelElemento(el: Element): Elegida | null {
 
 function puestoPorClave(clave: number): { lado: Lado; i: number; p: Puesto } {
   for (const lado of ['izquierda', 'derecha'] as const) {
-    const i = montaje[lado].findIndex((p) => p.clave === clave);
-    const p = montaje[lado][i];
+    const i = montaje.puestos[lado].findIndex((p) => p.clave === clave);
+    const p = montaje.puestos[lado][i];
     if (p !== undefined) return { lado, i, p };
   }
   throw new Error(`no hay ningún puesto ${clave} en el montaje`);
@@ -1569,7 +1593,7 @@ function fichaDe(e: Elegida | null, como0: ComoDeLaFicha): Html {
       return renderFicha(u, arteDe(u.cuerpo.hoja).dispara, como);
     }
     case 'heroe': {
-      const h = heroes[e.lado];
+      const h = montaje.heroes[e.lado];
       if (h === null) return renderFicha(null, false, como0);
       return renderFichaDeHeroe(e.lado, h, como, hojasDeHeroe());
     }
@@ -1707,13 +1731,13 @@ function repintarLoPendiente(): void {
 
 /** Los que lleva ya un lado: sus puestos y su héroe, que cuenta como uno más. */
 function ocupados(lado: Lado): number {
-  return montaje[lado].length + (heroes[lado] === null ? 0 : 1);
+  return montaje.puestos[lado].length + (montaje.heroes[lado] === null ? 0 : 1);
 }
 
 function añadir(lado: Lado, id: string, escalera = false): void {
   const adjetivo = LADOS[lado].adjetivo;
-  if (ocupados(lado) >= combate.tope) {
-    aviso = `El bando ${adjetivo} ya lleva ${combate.tope}: no cabe ninguna más.`;
+  if (ocupados(lado) >= montaje.combate.tope) {
+    aviso = `El bando ${adjetivo} ya lleva ${montaje.combate.tope}: no cabe ninguna más.`;
     return;
   }
   const u = unidadDe(id);
@@ -1728,13 +1752,13 @@ function añadir(lado: Lado, id: string, escalera = false): void {
     catalogo.unidadesSinGuardar.add(u.id);
   }
   elegida = { kind: 'unidad', id: u.id };
-  montaje[lado].push({ clave: siguienteClave++, unidad: id, escalera });
+  montaje.puestos[lado].push({ clave: montaje.siguienteClave++, unidad: id, escalera });
   aviso = `${describir({ clave: 0, unidad: id, escalera }, lado).nombre} entra en el bando ${adjetivo}.`;
 }
 
 /** Cambia el héroe de un lado, comprobado. */
 function cambiarHeroe(lado: Lado, cambio: (h: HeroeDeArena) => HeroeDeArena): boolean {
-  const h = heroes[lado];
+  const h = montaje.heroes[lado];
   if (h === null) return true;
   try {
     const nuevo = validarHeroeDeArena(cambio(h));
@@ -1746,7 +1770,7 @@ function cambiarHeroe(lado: Lado, cambio: (h: HeroeDeArena) => HeroeDeArena): bo
       noSeCambia(motivo);
       return false;
     }
-    heroes[lado] = nuevo;
+    montaje.heroes[lado] = nuevo;
     avisoTrasCambio('');
     return true;
   } catch (err) {
@@ -1886,12 +1910,14 @@ window.addEventListener('beforeunload', (ev) => {
  * lado y las cifras de cada unidad montada (guardadas o no).
  */
 function montajeDelEnlace(): MontajeDelEnlace {
-  const todos = [...montaje.izquierda, ...montaje.derecha];
+  const todos = [...montaje.puestos.izquierda, ...montaje.puestos.derecha];
   const unidadesMontadas = [...new Set(todos.map((p) => p.unidad))];
   const lado = (l: Lado) => ({
-    ia: iaDelBando[l],
-    puestos: montaje[l].map((p): PuestoDelEnlace => ({ unidad: p.unidad, escalera: p.escalera })),
-    heroe: heroes[l],
+    ia: montaje.iaDelBando[l],
+    puestos: montaje.puestos[l].map(
+      (p): PuestoDelEnlace => ({ unidad: p.unidad, escalera: p.escalera }),
+    ),
+    heroe: montaje.heroes[l],
   });
   const unidades = unidadesMontadas.map(unidadDe);
   return {
@@ -1905,7 +1931,7 @@ function montajeDelEnlace(): MontajeDelEnlace {
     izquierda: lado('izquierda'),
     derecha: lado('derecha'),
     muralla: hayMuralla(muralla) ? muralla : null,
-    combate,
+    combate: montaje.combate,
   };
 }
 
@@ -1919,8 +1945,8 @@ function enlaceDe(semilla: number): string {
 
 /** El enlace copiado, si sigue siendo el de este montaje; si no, `null`. */
 function enlaceVigente(): string | null {
-  if (enlaceCopiado === null || semillaPedida === null) return null;
-  return enlaceDe(semillaPedida) === enlaceCopiado ? enlaceCopiado : null;
+  if (montaje.enlaceCopiado === null || montaje.semillaPedida === null) return null;
+  return enlaceDe(montaje.semillaPedida) === montaje.enlaceCopiado ? montaje.enlaceCopiado : null;
 }
 
 /**
@@ -1930,11 +1956,11 @@ function enlaceVigente(): string | null {
  * la pelea que se lucha aquí después es la del enlace.
  */
 async function copiarEnlace(): Promise<void> {
-  const semilla = semillaPedida ?? semillaSorteada();
+  const semilla = montaje.semillaPedida ?? semillaSorteada();
   const enlace = enlaceDe(semilla);
-  semillaPedida = semilla;
+  montaje.semillaPedida = semilla;
   aLaBarraDeLaArena((url) => url.searchParams.set('seed', String(semilla)));
-  enlaceCopiado = enlace;
+  montaje.enlaceCopiado = enlace;
   try {
     await navigator.clipboard.writeText(enlace);
     aviso = `Enlace de la pelea copiado (semilla ${semilla}): abrirlo monta esta misma pelea.`;
@@ -1964,10 +1990,10 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
   if (texto === null) return null;
   try {
     // Con la semilla mal o un interruptor retirado, el montaje pelearía otra pelea.
-    if (parametrosQueNoValen.length > 0) {
-      const cuales = parametrosQueNoValen.map((p) => `«?${p}=»`).join(', ');
+    if (montaje.parametrosQueNoValen.length > 0) {
+      const cuales = montaje.parametrosQueNoValen.map((p) => `«?${p}=»`).join(', ');
       throw new Error(
-        parametrosQueNoValen.length === 1
+        montaje.parametrosQueNoValen.length === 1
           ? `${cuales} del enlace no vale`
           : `${cuales} del enlace no valen`,
       );
@@ -1999,21 +2025,21 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
     for (const u of m.unidades) catalogo.unidadesDelCatalogo.set(u.id, u);
     for (const u of distintas) catalogo.unidadesSinGuardar.add(u.id);
     for (const l of ['izquierda', 'derecha'] as const) {
-      montaje[l] = m[l].puestos.map((p) => ({
-        clave: siguienteClave++,
+      montaje.puestos[l] = m[l].puestos.map((p) => ({
+        clave: montaje.siguienteClave++,
         unidad: p.unidad,
         escalera: p.escalera,
       }));
-      heroes[l] = m[l].heroe;
-      iaDelBando[l] = m[l].ia;
+      montaje.heroes[l] = m[l].heroe;
+      montaje.iaDelBando[l] = m[l].ia;
     }
     // El cuerpo de sus héroes (el mismo en los dos: `montajeDeLaURL`) es el de todo
     // héroe de la página, como sus piezas: sin guardar si no es el del disco.
-    const conCuerpo = heroes.izquierda ?? heroes.derecha;
+    const conCuerpo = montaje.heroes.izquierda ?? montaje.heroes.derecha;
     if (conCuerpo !== null) catalogo.cuerpoDeTodoHeroe = conCuerpo.cuerpo;
     // La muralla del enlace sustituye a la dibujada; sin ella, el tablero va limpio.
     muralla = m.muralla ?? murallaVacia('piedra');
-    combate = m.combate;
+    montaje.combate = m.combate;
     nombreDeForma = '';
     // La barra se queda con la semilla: el montaje, si cambia, ya no sería el del
     // enlace.
@@ -2025,7 +2051,7 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
       (cuerpoSinGuardar() ? ' El cuerpo de todo héroe es el del enlace, sin guardar.' : '');
     return {
       montado: true,
-      aviso: `Montada la pelea del enlace${semillaPedida === null ? '' : ` (semilla ${semillaPedida})`}: pulsa Luchar.${cifras}${piezasDichas} `,
+      aviso: `Montada la pelea del enlace${montaje.semillaPedida === null ? '' : ` (semilla ${montaje.semillaPedida})`}: pulsa Luchar.${cifras}${piezasDichas} `,
     };
   } catch (err) {
     return noSeMonta(err);
@@ -2088,14 +2114,14 @@ const batalla = new EscenaBatalla(() => {
 
 function luchar(): void {
   const lado = (l: Lado): LadoDeSesion => ({
-    unidades: montaje[l].map(fuenteDeArena),
-    heroe: heroes[l],
-    ia: iaDelBando[l],
+    unidades: montaje.puestos[l].map(fuenteDeArena),
+    heroe: montaje.heroes[l],
+    ia: montaje.iaDelBando[l],
   });
   // Una pelea nueva sortea su semilla, salvo que la URL fije una; y la URL la
   // lleva siempre, como en la partida: un resultado raro se repite copiando la
   // barra de direcciones (M6 de QA).
-  const semilla = semillaPedida ?? semillaSorteada();
+  const semilla = montaje.semillaPedida ?? semillaSorteada();
   let nueva: SesionDeArena;
   try {
     nueva = new SesionDeArena(
@@ -2104,11 +2130,11 @@ function luchar(): void {
         derecha: lado('derecha'),
         muralla,
         equipo: catalogo.equipo,
-        combate,
+        combate: montaje.combate,
         hechizos: catalogoDeMagia(),
       },
       semilla,
-      climaDeLaArena,
+      montaje.climaDeLaArena,
     );
   } catch (err) {
     aviso = `No se puede luchar: ${mensajeDe(err)}.`;
@@ -2445,11 +2471,11 @@ document.addEventListener('click', (ev) => {
         return;
       case 'poner-heroe': {
         const lado = el.getAttribute('data-lado') as Lado;
-        if (ocupados(lado) >= combate.tope) {
-          aviso = `El bando ${LADOS[lado].adjetivo} ya lleva ${combate.tope}: no cabe el héroe.`;
+        if (ocupados(lado) >= montaje.combate.tope) {
+          aviso = `El bando ${LADOS[lado].adjetivo} ya lleva ${montaje.combate.tope}: no cabe el héroe.`;
           break;
         }
-        heroes[lado] = heroePorDefecto(lado, catalogo.cuerpoDeTodoHeroe);
+        montaje.heroes[lado] = heroePorDefecto(lado, catalogo.cuerpoDeTodoHeroe);
         elegida = { kind: 'heroe', lado };
         aviso = `El bando ${LADOS[lado].adjetivo} lleva héroe: cambia sus cifras y su libro en la ficha.`;
         break;
@@ -2460,12 +2486,13 @@ document.addEventListener('click', (ev) => {
         break;
       case 'quitar-heroe': {
         const lado = el.getAttribute('data-lado') as Lado;
-        heroes[lado] = null;
+        montaje.heroes[lado] = null;
         if (elegida?.kind === 'heroe' && elegida.lado === lado) elegida = null;
         break;
       }
       case 'manda':
-        iaDelBando[el.getAttribute('data-lado') as Lado] = el.getAttribute('data-ia') === 'si';
+        montaje.iaDelBando[el.getAttribute('data-lado') as Lado] =
+          el.getAttribute('data-ia') === 'si';
         break;
       case 'duplicar': {
         const { lado, p } = puestoPorClave(clave);
@@ -2474,12 +2501,12 @@ document.addEventListener('click', (ev) => {
       }
       case 'escalera': {
         const { lado, i, p } = puestoPorClave(clave);
-        montaje[lado][i] = { ...p, escalera: !p.escalera };
+        montaje.puestos[lado][i] = { ...p, escalera: !p.escalera };
         break;
       }
       case 'quitar': {
         const { lado, i } = puestoPorClave(clave);
-        montaje[lado].splice(i, 1);
+        montaje.puestos[lado].splice(i, 1);
         break;
       }
       case 'clip': {
@@ -2914,7 +2941,7 @@ document.addEventListener('focusout', (ev) => {
 document.addEventListener('change', (ev) => {
   const el = ev.target as Element;
   // La complejidad de la pelea: no es de ninguna unidad.
-  const delCombate = leerElCombate(el, combate);
+  const delCombate = leerElCombate(el, montaje.combate);
   if (delCombate !== null) {
     cambiarElCombate(delCombate);
     return;
@@ -2946,8 +2973,8 @@ function cambiarElCombate(nuevo: ReglasDelCombate): void {
     .map((l) =>
       topeDelBandoBlocker(
         `El bando ${LADOS[l].adjetivo}`,
-        montaje[l].length,
-        heroes[l] !== null,
+        montaje.puestos[l].length,
+        montaje.heroes[l] !== null,
         nuevo.tope,
       ),
     )
@@ -2955,8 +2982,8 @@ function cambiarElCombate(nuevo: ReglasDelCombate): void {
   if (noCabe !== undefined && noCabe !== null) {
     aviso = `${noCabe} antes de bajar el tope a ${nuevo.tope}.`;
   } else {
-    combate = nuevo;
-    aviso = `La pelea será con ${combate.tope} por bando y la rueda de ${combate.rueda}.`;
+    montaje.combate = nuevo;
+    aviso = `La pelea será con ${montaje.combate.tope} por bando y la rueda de ${montaje.combate.rueda}.`;
   }
   pedirRepintado();
 }
@@ -3119,7 +3146,7 @@ Promise.all([arrancar(), arrancarMurallas()]).then(
         : avisoAlEntrar(pedida.vista);
     aviso = delEnlace?.montado
       ? `${delEnlace.aviso}${aviso}${catalogo.avisoDeIncompletas}${avisoDeMurallas}${deAbiertas}`
-      : `${avisoDeSemilla}${delEnlace?.aviso ?? ''}${aviso}${catalogo.avisoDeIncompletas}${avisoDeMurallas} ${queHacer}${deAbiertas}`;
+      : `${montaje.avisoDeSemilla}${delEnlace?.aviso ?? ''}${aviso}${catalogo.avisoDeIncompletas}${avisoDeMurallas} ${queHacer}${deAbiertas}`;
     aviso = `${pedida.aviso}${aviso}`;
     // Recargar deja la vista donde estaba: la edición con sus fichas (recordadas
     // arriba) o el equipo con su pieza.
