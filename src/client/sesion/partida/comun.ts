@@ -14,7 +14,7 @@
  * media prueba, `s.state = …`), así que una pieza que copiara algo al nacer lo tendría
  * sin poner o viejo.
  */
-import type { GameContext, GameState } from '@core/state/tipos.js';
+import type { GameContext, GameState, Player } from '@core/state/tipos.js';
 import type { Town } from '@core/town/town.js';
 import type { Hero, PlayerId } from '@core/types.js';
 
@@ -57,6 +57,8 @@ export interface DueñoDeLasPiezas {
   bloqueoDeTurno(): string | null;
   /** El oro de la persona (`Session.oro`). */
   oro(): number;
+  /** El jugador de la persona (`Session.jugador`): su oro y su niebla. */
+  jugador(): Player;
   /** El héroe elegido (`Session.selectedHero`), o `null`. */
   heroeSeleccionado(): Hero | null;
   /** Elige al héroe `id` (`Session.selectedHeroId`: suelta la pieza elegida y sube la versión). */

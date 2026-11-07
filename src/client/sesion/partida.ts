@@ -31,12 +31,7 @@ import { type Lugar, lugarSiExiste, type MundoLeido } from '@core/mundo/formato.
 import { partidaDelMundo } from '@core/mundo/partida.js';
 import { estadoDicho, lugarEn } from '@core/mundo/reglas.js';
 import { createRng, type Rng } from '@core/rng.js';
-import {
-  type AsaltantesALaVista,
-  asaltantesALaVista,
-  emboscadaEnLaRuta,
-  loQueLaPara,
-} from '@core/state/asaltantes.js';
+import { type AsaltantesALaVista, emboscadaEnLaRuta, loQueLaPara } from '@core/state/asaltantes.js';
 import { type Ataque, elAtaque } from '@core/state/batallas.js';
 import { settleBattle } from '@core/state/cierre.js';
 import type { ClimaDeLaPartida, ClimaDelSitio, ClimaForzado } from '@core/state/clima.js';
@@ -56,13 +51,7 @@ import {
   week,
 } from '@core/state/consultas.js';
 import { type Desenlace, desenlaceDe, finDePartida } from '@core/state/desenlace.js';
-import {
-  cronicaPara,
-  type DefeatReason,
-  type GameEvent,
-  type GameEventDraft,
-  type Ocupante,
-} from '@core/state/events.js';
+import type { DefeatReason, GameEvent, GameEventDraft, Ocupante } from '@core/state/events.js';
 import { applyAdventureAction } from '@core/state/game.js';
 import { salidaPendienteBlocker } from '@core/state/heroes.js';
 import { barreraDeMañana, caminoHasta, pasosDeHoy, puedeAndarHoy } from '@core/state/marcha.js';
@@ -82,13 +71,7 @@ import {
   sitioSiExiste,
 } from '@core/state/sitios.js';
 import type { GameContext, GameState, Player } from '@core/state/tipos.js';
-import {
-  HERO_SCOUT_RADIUS,
-  heroesALaVista,
-  miradasDe,
-  objetosConocidos,
-  visibleNow,
-} from '@core/state/vision.js';
+import { HERO_SCOUT_RADIUS, miradasDe } from '@core/state/vision.js';
 import { building } from '@core/town/buildings.js';
 import { construidoEn, type SitioId, sitiosConstruidos } from '@core/town/sitios.js';
 import type { Town } from '@core/town/town.js';
@@ -111,11 +94,12 @@ import { mensajeDe } from '../comun/errores.js';
 import { quienesDe } from '../comun/quien-mira.js';
 import type { VistaDeLaBase } from '../render/base/escena.js';
 import { cuerpoDeLaPersona } from '../render/figuras/cuerpo-de-gente.js';
-import { conLosDueñosSabidos, type SitioOcupado } from '../render/mapa/sitios-sabidos.js';
+import type { SitioOcupado } from '../render/mapa/sitios-sabidos.js';
 import { comoFrase, type TurnoPropio } from './batalla/control.js';
 import { ELIGE_EN_LA_RUEDA } from './batalla/cruce.js';
 import type { DespliegueEnPantalla } from './batalla/despliegue.js';
 import { SesionDeBatalla } from './batalla/sesion-de-batalla.js';
+import { ALaVista, type LoConocido } from './partida/a-la-vista.js';
 import { AyuntamientoEnPantalla } from './partida/ayuntamiento.js';
 import { ClimaEnPantalla } from './partida/clima.js';
 import type { DueñoDeLasPiezas, Scene } from './partida/comun.js';
@@ -234,6 +218,7 @@ export class Session extends SesionDeBatalla {
     turnoAjeno: () => this.turnoAjeno(),
     bloqueoDeTurno: () => this.bloqueoDeTurno(),
     oro: () => this.oro,
+    jugador: () => this.jugador,
     heroeSeleccionado: () => this.selectedHero,
     seleccionarHeroe: (id) => {
       this.selectedHeroId = id;
@@ -308,14 +293,13 @@ export class Session extends SesionDeBatalla {
   }
   private puebloAbierto: string | null = null;
 
+  /** «Ver mapa entero» (`ALaVista.todo`): cambiarlo sube la versión. */
   get revealAll(): boolean {
-    return this.todoALaVista;
+    return this.aLaVista.todo;
   }
   set revealAll(v: boolean) {
-    this.todoALaVista = v;
-    this.tocar();
+    this.aLaVista.todo = v;
   }
-  private todoALaVista = false;
 
   /**
    * La barra de estado. Es lo único que NO sube la versión, y a propósito: se
@@ -602,11 +586,30 @@ export class Session extends SesionDeBatalla {
   }
   private cacheDeLaRenta: { readonly version: number; readonly renta: RentaDelDia } | null = null;
 
-  /** Lo explorado por la persona, o `null` si se ha pedido verlo todo. */
+  /**
+   * Lo que la persona ve del mapa —la niebla, los grupos, los héroes, los objetos como
+   * los sabe, lo que le consta de la crónica— y lo que se guarda entre fotogramas:
+   * `ALaVista` (`sesion/partida/a-la-vista.ts`), en la que delegan estos. La marcha que
+   * se enseña cambia lo que se ve, y la pieza la lee de aquí.
+   */
+  private readonly aLaVista = new ALaVista({
+    ...this.dueñoDeLasPiezas,
+    marcha: () => {
+      const m = this.marcha;
+      return m === null
+        ? null
+        : {
+            heroe: m.enPantalla.heroe,
+            pisa: m.enPantalla.pasos[m.niebla?.pisada ?? 0] as Point,
+            conocidoAlSalir: m.antes.conocido,
+          };
+    },
+    nieblaDeLaMarcha: () => this.laNieblaDeLaMarcha(),
+  });
+
+  /** Lo explorado por la persona, o `null` si se ha pedido verlo todo (`ALaVista.explorado`). */
   get explorado(): CasillasLeidas | null {
-    if (this.revealAll) return null;
-    // Mientras el héroe anda, la niebla va con él (`sesion/vistas/marcha.ts`).
-    return this.laNieblaDeLaMarcha()?.explorado ?? this.jugador.fog;
+    return this.aLaVista.explorado;
   }
 
   /**
@@ -638,140 +641,30 @@ export class Session extends SesionDeBatalla {
     }));
   }
 
-  /**
-   * Las casillas que la persona está mirando AHORA, para la niebla de dos tonos.
-   *
-   * `visibleNow` recorre héroes, castillos y nodos; se pide en cada fotograma, así que se
-   * guarda mientras no cambie nada que la mueva: la crónica crece con cada
-   * movimiento y captura, y el turno cambia al pasar de día.
-   */
+  /** Las casillas que la persona está mirando AHORA, para la niebla de dos tonos (`ALaVista.visibles`). */
   visibles(): CasillasLeidas {
-    const marcha = this.laNieblaDeLaMarcha();
-    if (marcha !== null) return marcha.visibles;
-    const clave = `${this.state.log.length}|${this.state.day}|${this.state.current}`;
-    if (this.cacheVisibles === null || this.cacheVisibles.clave !== clave) {
-      this.cacheVisibles = { clave, casillas: visibleNow(this.state, this.viewer) };
-    }
-    return this.cacheVisibles.casillas;
+    return this.aLaVista.visibles();
   }
-  private cacheVisibles: { clave: string; casillas: CasillasLeidas } | null = null;
 
-  /**
-   * Los grupos de asaltantes que la persona ve: los que pinta el lienzo, lee la
-   * barra y avisan en la ruta. La regla es del núcleo (`asaltantesALaVista`:
-   * si se mira su casilla). Con «Ver mapa entero», todos y sin caché.
-   */
+  /** Los grupos de asaltantes que la persona ve (`ALaVista.asaltantes`). */
   asaltantesALaVista(): AsaltantesALaVista {
-    if (this.revealAll) return asaltantesALaVista(this.state, null);
-    // Se guarda mientras `visibles()` devuelva las mismas casillas: los grupos se
-    // mueven al pasar de día y se van con un hecho de la crónica, que son justo
-    // las dos cosas que lo renuevan.
-    const mirando = this.visibles();
-    if (this.cacheAsaltantes?.mirando !== mirando) {
-      this.cacheAsaltantes = { mirando, grupos: asaltantesALaVista(this.state, mirando) };
-    }
-    return this.cacheAsaltantes.grupos;
+    return this.aLaVista.asaltantes();
   }
-  private cacheAsaltantes: {
-    mirando: CasillasLeidas;
-    grupos: AsaltantesALaVista;
-  } | null = null;
 
-  /**
-   * Los héroes que la persona ve: los suyos y los rivales que está mirando
-   * AHORA. La regla es del núcleo (`heroesALaVista`, la del `enemyHeroes` del
-   * agente); la leen el lienzo, el minimapa y la barra. Antes pintaban
-   * `state.heroes` recortado por `fog`, y el rival se veía andar por cualquier
-   * casilla pisada alguna vez (#64). Son unos pocos: no se guarda.
-   */
+  /** Los héroes que la persona ve: los suyos y los rivales que mira ahora (`ALaVista.heroes`). */
   heroesALaVista(): readonly Hero[] {
-    const heroes = heroesALaVista(this.state, this.viewer, this.revealAll ? null : this.visibles());
-    // Mientras anda, el héroe está en la casilla de su marcha que pisa (el minimapa,
-    // la barra), no en la de llegada.
-    const m = this.marcha;
-    if (m === null) return heroes;
-    const at = m.enPantalla.pasos[m.niebla?.pisada ?? 0] as Point;
-    return heroes.map((h) => (h.id === m.enPantalla.heroe ? { ...h, at } : h));
+    return this.aLaVista.heroes();
   }
 
-  /**
-   * Los objetos del mapa como los sabe la persona: vivos donde mira ahora y,
-   * en lo demás explorado, como los vio por última vez (`objetosConocidos`, la
-   * misma regla que el `knownMap` del agente). La bandera de un castillo o un
-   * nodo lejano es la de su último dueño visto, no la de hoy (#64).
-   *
-   * Se guarda mientras `visibles()` devuelva las mismas casillas y no se mueva
-   * `version`: el recuerdo crece al explorar, que es andar, y lo vivo cambia con
-   * una acción; las dos cosas renuevan una de las dos llaves. El lienzo lo pide a
-   * cada fotograma, y el minimapa rehace su fondo cuando cambia este array.
-   */
+  /** Los objetos del mapa como los sabe la persona (`ALaVista.objetos`). */
   objetosConocidos(): readonly MapObject[] {
-    return this.loConocido().objetos;
+    return this.aLaVista.objetos();
   }
 
-  /**
-   * Las ciudades y los pueblos que la persona sabe ocupados (`ocupanteDe`, como
-   * los vio): dónde y de quién es el ocupante (`null`, una guarnición neutral). Lo
-   * pinta el lienzo con la marca de la ocupación, del color del ocupante (tarea 2).
-   */
+  /** Las ciudades y los pueblos que la persona sabe ocupados (`ALaVista.ocupados`). */
   ocupados(): readonly SitioOcupado[] {
-    return this.loConocido().ocupados;
+    return this.aLaVista.ocupados();
   }
-
-  /**
-   * Lo que se sabe de los objetos, una vez por llave: los objetos, cada ciudad y
-   * cada pueblo con el dueño que se sabe (`RememberedObject.sitio`), y los sitios
-   * ocupados (`conLosDueñosSabidos`). Es una copia: el estado no se toca.
-   */
-  private loConocido(): ReturnType<typeof conLosDueñosSabidos> {
-    const m = this.marcha;
-    if (m !== null) return this.loConocidoEnLaMarcha(m.antes.conocido);
-    const mirando = this.revealAll ? null : this.visibles();
-    const c = this.cacheObjetos;
-    if (c !== null && c.mirando === mirando && c.version === this.version) return c.conocido;
-    const conocido = conLosDueñosSabidos(objetosConocidos(this.state, this.viewer, mirando));
-    this.cacheObjetos = { mirando, version: this.version, conocido };
-    return conocido;
-  }
-  private cacheObjetos: {
-    mirando: CasillasLeidas | null;
-    version: number;
-    conocido: ReturnType<typeof conLosDueñosSabidos>;
-  } | null = null;
-
-  /**
-   * Lo que se sabe de los objetos mientras el héroe anda: como se sabían al salir
-   * (`antes`), y lo que no se sabía —lo de una región que descubre por el camino—,
-   * como lo sabe el núcleo. Así el cofre que coge, el paso que toma o el castillo
-   * que conquista cambian al llegar, como el panel.
-   */
-  private loConocidoEnLaMarcha(
-    antes: ReturnType<typeof conLosDueñosSabidos>,
-  ): ReturnType<typeof conLosDueñosSabidos> {
-    const mirando = this.revealAll ? null : this.visibles();
-    const c = this.cacheObjetosEnLaMarcha;
-    if (c !== null && c.mirando === mirando && c.antes === antes) return c.conocido;
-    const deAntes = new Map(antes.objetos.map((o) => [o.id, o] as const));
-    const ahora = conLosDueñosSabidos(objetosConocidos(this.state, this.viewer, mirando));
-    // Lo que no se sabía, solo si ya se ha descubierto por donde va: el recuerdo
-    // del núcleo ya trae lo de toda la marcha.
-    const explorado = this.explorado;
-    const conocido = {
-      objetos: ahora.objetos.flatMap((o) => {
-        const antesDeAndar = deAntes.get(o.id);
-        if (antesDeAndar !== undefined) return [antesDeAndar];
-        return explorado === null || explorado.has(o.at) ? [o] : [];
-      }),
-      ocupados: antes.ocupados,
-    };
-    this.cacheObjetosEnLaMarcha = { mirando, antes, conocido };
-    return conocido;
-  }
-  private cacheObjetosEnLaMarcha: {
-    mirando: CasillasLeidas | null;
-    antes: ReturnType<typeof conLosDueñosSabidos>;
-    conocido: ReturnType<typeof conLosDueñosSabidos>;
-  } | null = null;
 
   /**
    * Por qué quien juega no manda hoy en la ciudad `town` (`ciudadQueMandaBlocker`:
@@ -793,18 +686,9 @@ export class Session extends SesionDeBatalla {
     return ocupante === null ? null : { ocupante, quien: ocupanteDicho(this.state, ocupante) };
   }
 
-  /**
-   * La crónica que le consta a la persona: lo suyo, el reloj y lo que estaba
-   * mirando cuando pasó (`cronicaPara`, la misma regla que la del agente). Iba
-   * entera a propósito mientras el lienzo pintaba con `fog`, para que no se
-   * viera al rival en el mapa sin una línea que lo contara; con el lienzo en
-   * `visibleNow` (#64) iría al revés, contando lo que el mapa calla. Con «Ver
-   * mapa entero», entera.
-   */
+  /** La crónica que le consta a la persona; con «Ver mapa entero», entera (`ALaVista.cronica`). */
   cronica(cuantos: number): readonly GameEventDraft[] {
-    return this.revealAll
-      ? this.state.log.slice(-cuantos)
-      : cronicaPara(this.state, this.viewer, cuantos);
+    return this.aLaVista.cronica(cuantos);
   }
 
   /**
@@ -1041,7 +925,7 @@ export class Session extends SesionDeBatalla {
         miradas: miradas.map((m) => ({ centro: { ...m.centro }, radio: m.radio })),
         radio: HERO_SCOUT_RADIUS,
       },
-      conocido: structuredClone(this.loConocido()),
+      conocido: structuredClone(this.aLaVista.conocido()),
       movimiento: hero.movePoints,
     };
   }
@@ -2129,7 +2013,7 @@ export interface VistaDelAviso {
 /** Lo que se veía al salir una marcha que se enseña: lo que se pinta mientras anda. */
 interface LoDeAntesDeLaMarcha {
   readonly niebla: NieblaDeAntes;
-  readonly conocido: ReturnType<typeof conLosDueñosSabidos>;
+  readonly conocido: LoConocido;
   readonly movimiento: number;
 }
 
