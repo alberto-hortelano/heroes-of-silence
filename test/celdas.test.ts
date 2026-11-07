@@ -34,16 +34,16 @@ import {
   bajadasSobreNodo,
   bajadasTapadas,
   celdasMalCubiertas,
-  componer,
   filosColocados,
   hojaDeBajada,
   hojaDeDiagonal,
   marcadorDeBajada,
   marcadorDeDiagonal,
-  type Sprite,
   spriteDeBajada,
   spriteDeDiagonal,
-} from '../src/client/render/escenario/colocar.js';
+} from '../src/client/render/escenario/colocar/relieve.js';
+import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
+import { componer } from '../src/client/render/escenario/colocar.js';
 import type { Suelo } from '../src/core/map/terrain.js';
 import { newGame } from '../src/core/state/setup.js';
 import { catalogoDelDisco, recta } from './escena-de-prueba.js';

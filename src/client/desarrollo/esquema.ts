@@ -9,7 +9,7 @@
 
 import { TERRAIN_KINDS } from '@core/map/terrain.js';
 import { z } from 'zod';
-import { CLASES_DE_SPRITE } from '../render/escenario/colocar.js';
+import { CLASES_DE_SPRITE } from '../render/escenario/colocar/sprite.js';
 import { CLASES_DE_PUENTE, EJES_DE_PUENTE } from '../render/escenario/puentes.js';
 
 /** Lo que es un id de marca: `AAAAMMDD-HHMMSS-s<semilla>-<x>-<y>`. Ni barras ni puntos. */

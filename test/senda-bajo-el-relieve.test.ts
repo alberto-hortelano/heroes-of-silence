@@ -21,9 +21,9 @@ import type { Modulo } from '../src/client/render/escenario/catalogo.js';
 import {
   COLOR_DE_BAJADA,
   SENDA_CORTADA,
-  type Sprite,
   sendaBajoElRelieve,
-} from '../src/client/render/escenario/colocar.js';
+} from '../src/client/render/escenario/colocar/relieve.js';
+import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
 import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
 import { ANCHO_DE_SENDA } from '../src/client/render/escenario/sendas.js';
 import { catalogoDelDisco, escenaDe } from './escena-de-prueba.js';

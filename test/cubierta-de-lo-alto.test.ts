@@ -13,7 +13,8 @@
 import type { Suelo } from '@core/map/terrain.js';
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
-import { cubiertaDeOtroNivel, type Sprite } from '../src/client/render/escenario/colocar.js';
+import { cubiertaDeOtroNivel } from '../src/client/render/escenario/colocar/pisable.js';
+import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
 import { partidaDe } from './escena-de-prueba.js';
 import { LENTO, rango } from './lento.js';
 

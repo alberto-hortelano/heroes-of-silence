@@ -8,7 +8,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
-import { alrededorDeMurallas, sendaParaLaMuralla } from '../src/client/render/escenario/colocar.js';
+import {
+  alrededorDeMurallas,
+  sendaParaLaMuralla,
+} from '../src/client/render/escenario/colocar/sendas-y-murallas.js';
 import { ejeDe, type Paso } from '../src/client/render/escenario/esqueleto.js';
 import {
   type Alrededor,

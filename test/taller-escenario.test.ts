@@ -12,20 +12,26 @@ import { carasLisas, perfilesDelCatalogo } from '../src/client/render/escenario/
 import { RUTA_DEL_CATALOGO } from '../src/client/render/escenario/catalogo.js';
 import { caidas, rampasDesviadas } from '../src/client/render/escenario/celdas.js';
 import {
-  APARTE,
+  laderasEnfrentadas,
+  modulosDeLadera,
+} from '../src/client/render/escenario/colocar/laderas.js';
+import { sendasPorObjeto } from '../src/client/render/escenario/colocar/pasos-y-puentes.js';
+import {
   bajadasSinPieza,
   bajadasTapadas,
   COLOR_DE_BAJADA,
   COLOR_DE_DIAGONAL,
   celdasMalCubiertas,
+} from '../src/client/render/escenario/colocar/relieve.js';
+import {
   envolturaDelRecinto,
-  laderasEnfrentadas,
-  modulosDeLadera,
   RADIO_DEL_RECINTO,
+} from '../src/client/render/escenario/colocar/sendas-y-murallas.js';
+import {
+  APARTE,
   radioDeLaReserva,
   SEMIANCHO_DE_PARED,
-  sendasPorObjeto,
-} from '../src/client/render/escenario/colocar.js';
+} from '../src/client/render/escenario/colocar/tablas.js';
 import { azarDe, esparcir } from '../src/client/render/escenario/esparcir.js';
 import {
   type ConImagen,

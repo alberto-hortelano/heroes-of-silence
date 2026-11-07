@@ -19,7 +19,7 @@
  * translúcida no se oscurece donde dos sendas se juntan.
  */
 import type { Suelo } from '@core/map/terrain.js';
-import type { Escena } from './colocar.js';
+import type { Escena } from './colocar/escena.js';
 import type { Imagen, Lienzo } from './pintar.js';
 import { type LadoDeLaPlaza, ladosDeLaPlaza, type Rect } from './recinto.js';
 import { ANCHO_DE_SENDA, IRREGULARIDAD_DE_SENDA, type Senda } from './sendas.js';

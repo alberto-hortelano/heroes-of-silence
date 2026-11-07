@@ -31,23 +31,25 @@ import { RedDeCaminos } from '@core/map/red-de-caminos.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import { describe, expect, it } from 'vitest';
 import { analizar, type MapaDeEscena } from '../src/client/render/escenario/analizar.js';
+import type { Escena } from '../src/client/render/escenario/colocar/escena.js';
+import {
+  altoPorLosLados,
+  altoSobreLosPasillos,
+  bosqueSinArbol,
+  MARGEN_SOBRE_LO_PISABLE,
+  pasillosEstrechos,
+  sobreLoPisable,
+  TAPADO_DEL_PASILLO,
+} from '../src/client/render/escenario/colocar/pisable.js';
+import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
 import {
   APARTE,
   ARBOLES,
   ARBOLES_DE_LA_CUBIERTA,
-  altoPorLosLados,
-  altoSobreLosPasillos,
-  bosqueSinArbol,
-  componer,
-  type Escena,
   esArbol,
   FUERA_DE_LO_QUE_SE_PISA,
-  MARGEN_SOBRE_LO_PISABLE,
-  pasillosEstrechos,
-  type Sprite,
-  sobreLoPisable,
-  TAPADO_DEL_PASILLO,
-} from '../src/client/render/escenario/colocar.js';
+} from '../src/client/render/escenario/colocar/tablas.js';
+import { componer } from '../src/client/render/escenario/colocar.js';
 import { nivelPintado, SOTOBOSQUE, sotobosqueDe } from '../src/client/render/escenario/escalon.js';
 import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
 import { trozosConAlfa } from '../src/client/render/escenario/pintar.js';
@@ -109,7 +111,7 @@ function entraEn(s: Sprite, c: number): number {
 /**
  * Lo que la caja de `s` pisa, en la fila de su pie, de lo que no se tapa de
  * alguna casilla que se pisa (de `c + M` a `c + 1 − M`): recontado a mano, sin
- * la regla de `colocar.ts`.
+ * la regla de `colocar/pisable.ts`.
  */
 function pisaDeLoPisable(s: Sprite, franjaDe: ArrayLike<number>, W: number): number {
   const fila = Math.floor(s.y);

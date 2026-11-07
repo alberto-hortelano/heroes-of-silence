@@ -16,7 +16,8 @@ import {
   catalogoValidado,
   esTramoNorteSur,
 } from '../src/client/render/escenario/catalogo.js';
-import { type Sprite, testerosDeLaEscena } from '../src/client/render/escenario/colocar.js';
+import { testerosDeLaEscena } from '../src/client/render/escenario/colocar/sendas-y-murallas.js';
+import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
 import { ALTO_DEL_TRAMO_NORTE_SUR } from '../src/client/render/escenario/muralla.js';
 import {
   ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO,

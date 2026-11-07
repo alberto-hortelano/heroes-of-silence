@@ -19,9 +19,9 @@ import { analizar } from '../src/client/render/escenario/analizar.js';
 import {
   cubiertaComoLaBarrera,
   HUELLA_DE_LO_PISABLE,
-  type Sprite,
-  tumbado,
-} from '../src/client/render/escenario/colocar.js';
+} from '../src/client/render/escenario/colocar/pisable.js';
+import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
+import { tumbado } from '../src/client/render/escenario/colocar/tablas.js';
 import { partidaDe } from './escena-de-prueba.js';
 import { LENTO, rango } from './lento.js';
 

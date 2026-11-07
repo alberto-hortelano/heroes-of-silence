@@ -10,7 +10,7 @@
 import { RedDeCaminos } from '@core/map/red-de-caminos.js';
 import { esBarrera, type TerrainKind } from '@core/map/terrain.js';
 import { describe, expect, it } from 'vitest';
-import { bajoLaCopa } from '../src/client/render/escenario/colocar.js';
+import { bajoLaCopa } from '../src/client/render/escenario/colocar/tablas.js';
 import {
   APARTAN_LA_LABRANZA,
   ATREZO,

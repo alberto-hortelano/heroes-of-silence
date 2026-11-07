@@ -28,13 +28,12 @@ import {
 import { perfilesDelCatalogo } from '../src/client/render/escenario/caras.js';
 import { caidas, celdas as celdasDe } from '../src/client/render/escenario/celdas.js';
 import {
-  ANCHO_DE_MESA,
   casillasDeLaHuella,
-  esMesa,
   formasDeLasParedes,
   type Medible,
-  type Sprite,
-} from '../src/client/render/escenario/colocar.js';
+} from '../src/client/render/escenario/colocar/sendas-y-murallas.js';
+import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
+import { ANCHO_DE_MESA, esMesa } from '../src/client/render/escenario/colocar/tablas.js';
 import { Obstaculos } from '../src/client/render/escenario/pasillo.js';
 import { recintoDeLaCiudad } from '../src/core/map/recinto.js';
 import { esBarrera, isWalkable, type Suelo, type TerrainKind } from '../src/core/map/terrain.js';

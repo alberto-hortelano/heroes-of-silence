@@ -33,7 +33,9 @@ import { pigments } from '../mapa/terreno.js';
 import type { MapaDeEscena } from './analizar.js';
 import { type PerfilDe, perfilesDelCatalogo } from './caras.js';
 import { type Catalogo, catalogoValidado } from './catalogo.js';
-import { componer, type Escena, type Sprite } from './colocar.js';
+import type { Escena } from './colocar/escena.js';
+import type { Sprite } from './colocar/sprite.js';
+import { componer } from './colocar.js';
 import {
   delanteDeLasParedes,
   type LoQueTapaEnUnaBarrera,

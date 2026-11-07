@@ -14,12 +14,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
-import {
-  ALTO_DE_LO_ALTO,
-  acantiladosLisos,
-  casillasDeLaHuella,
-  type Sprite,
-} from '../src/client/render/escenario/colocar.js';
+import { acantiladosLisos } from '../src/client/render/escenario/colocar/relieve.js';
+import { casillasDeLaHuella } from '../src/client/render/escenario/colocar/sendas-y-murallas.js';
+import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
+import { ALTO_DE_LO_ALTO } from '../src/client/render/escenario/colocar/tablas.js';
 import { recintoDeLaCiudad } from '../src/core/map/recinto.js';
 import type { TerrainKind } from '../src/core/map/terrain.js';
 import { partidaDe } from './escena-de-prueba.js';

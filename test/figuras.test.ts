@@ -16,7 +16,7 @@ import { isWalkable, type TerrainKind } from '@core/map/terrain.js';
 import type { MejoraDelPuesto } from '@core/map/tipos.js';
 import { describe, expect, it } from 'vitest';
 import { altoDeLaSilueta, perfilesDelCatalogo } from '../src/client/render/escenario/caras.js';
-import type { Sprite } from '../src/client/render/escenario/colocar.js';
+import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
 import {
   cajaDeFigura,
   delanteDeLasParedes,

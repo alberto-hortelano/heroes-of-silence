@@ -13,7 +13,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
-import { casillasDeLaHuella, nodosSinRampa } from '../src/client/render/escenario/colocar.js';
+import { nodosSinRampa } from '../src/client/render/escenario/colocar/rampas.js';
+import { casillasDeLaHuella } from '../src/client/render/escenario/colocar/sendas-y-murallas.js';
 import {
   desnivelesSinBarrera,
   nivelFueraDeSuRegion,

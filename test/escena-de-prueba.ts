@@ -12,7 +12,8 @@ import {
   catalogoValidado,
   RUTA_DEL_CATALOGO,
 } from '../src/client/render/escenario/catalogo.js';
-import { componer, type Escena } from '../src/client/render/escenario/colocar.js';
+import type { Escena } from '../src/client/render/escenario/colocar/escena.js';
+import { componer } from '../src/client/render/escenario/colocar.js';
 import type { Puente } from '../src/client/render/escenario/puentes.js';
 import type { Senda } from '../src/client/render/escenario/sendas.js';
 import type { GameMap } from '../src/core/map/tipos.js';

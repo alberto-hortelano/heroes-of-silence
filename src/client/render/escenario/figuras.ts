@@ -23,7 +23,7 @@
  */
 import { isWalkable, type TerrainKind } from '@core/map/terrain.js';
 import { altoDeLaSilueta, type PerfilDe } from './caras.js';
-import type { Sprite } from './colocar.js';
+import type { Sprite } from './colocar/sprite.js';
 import { PIES } from './figuras-del-mapa.js';
 import { type Caja, cajaDeSprite } from './pasillo.js';
 import { separar, type Volumen } from './pintar.js';

@@ -10,7 +10,7 @@
 import type { CasillasLeidas } from '@core/map/casillas.js';
 import { imagenDeEscena } from '../assets.js';
 import { empezarFotogramaDeCopias } from '../copias.js';
-import type { Sprite } from '../escenario/colocar.js';
+import type { Sprite } from '../escenario/colocar/sprite.js';
 import { cajaDeSprite } from '../escenario/pasillo.js';
 import {
   imagenCargada,

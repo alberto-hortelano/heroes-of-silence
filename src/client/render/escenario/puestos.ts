@@ -22,7 +22,7 @@ import { MEJORAS_DEL_PUESTO, type MejoraDelPuesto } from '@core/map/tipos.js';
 import type { PlayerId } from '@core/types.js';
 import { MARGEN_DEL_RECORTE } from '../../../shared/arte.js';
 import type { Pieza } from './catalogo.js';
-import type { Sprite } from './colocar.js';
+import type { Sprite } from './colocar/sprite.js';
 import { PIES } from './figuras-del-mapa.js';
 import { type Caja, cajaDeSprite, seTocan } from './pasillo.js';
 import { separar } from './pintar.js';

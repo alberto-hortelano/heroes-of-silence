@@ -9,15 +9,15 @@ import { newGame } from '@core/state/setup.js';
 import { describe, expect, it } from 'vitest';
 import { catalogoValidado, type Pieza } from '../src/client/render/escenario/catalogo.js';
 import {
-  componer,
   formaDeLosPasos,
   pasosAtravesados,
   pasosTapados,
   puentesTapados,
   SEMIANCHO_DEL_PASO,
-  type Sprite,
-  sobreLaSenda,
-} from '../src/client/render/escenario/colocar.js';
+} from '../src/client/render/escenario/colocar/pasos-y-puentes.js';
+import { sobreLaSenda } from '../src/client/render/escenario/colocar/sendas-y-murallas.js';
+import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
+import { componer } from '../src/client/render/escenario/colocar.js';
 import {
   cajaDelHeroeEn,
   PIES,

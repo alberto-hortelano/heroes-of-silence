@@ -14,7 +14,7 @@
  *
  * Puro: sin DOM, como el resto del escenógrafo.
  */
-import type { Sprite } from './colocar.js';
+import type { Sprite } from './colocar/sprite.js';
 import type { Senda } from './sendas.js';
 
 /** Un rectángulo en casillas: `[x0, y0, x1, y1]`. */

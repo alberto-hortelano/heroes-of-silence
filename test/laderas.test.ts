@@ -20,17 +20,17 @@ import {
 import { caidas } from '../src/client/render/escenario/celdas.js';
 import {
   colocarLadera,
-  componer,
   hojaDeLadera,
   juegoDeLadera,
   juntasColocadas,
   laderasEnfrentadas,
-  materialDeCara,
   modulosDeLadera,
   type PiezaDeLadera,
   piezasDeLadera,
-  type Sprite,
-} from '../src/client/render/escenario/colocar.js';
+} from '../src/client/render/escenario/colocar/laderas.js';
+import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
+import { materialDeCara } from '../src/client/render/escenario/colocar/tablas.js';
+import { componer } from '../src/client/render/escenario/colocar.js';
 import { azarDe } from '../src/client/render/escenario/esparcir.js';
 import {
   ALTO_DE_NIVEL,

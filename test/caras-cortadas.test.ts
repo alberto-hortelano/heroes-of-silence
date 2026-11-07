@@ -30,7 +30,7 @@ import {
   carasCortadas,
 } from '../src/client/render/escenario/caras.js';
 import type { Modulo } from '../src/client/render/escenario/catalogo.js';
-import type { Sprite } from '../src/client/render/escenario/colocar.js';
+import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
 import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
 import { claveDe } from '../src/client/render/escenario/pintar.js';
 import { bandaDeCara, type Cara } from '../src/client/render/escenario/relieve.js';

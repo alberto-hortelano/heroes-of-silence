@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
 import { sueloDeLaMeseta } from '../src/client/render/escenario/bordes.js';
-import { ruidosDelMacizo, VECINO_IGUAL } from '../src/client/render/escenario/colocar.js';
+import { ruidosDelMacizo, VECINO_IGUAL } from '../src/client/render/escenario/colocar/tablas.js';
 import {
   ALTO_DE_CUMBRE,
   ALTO_DE_FALDA,

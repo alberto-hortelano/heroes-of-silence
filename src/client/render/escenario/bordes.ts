@@ -12,7 +12,7 @@ import { esBarrera, isWalkable, type Suelo, type TerrainKind } from '@core/map/t
 import type { Franja } from './analizar.js';
 import { bajoLaSilueta, type PerfilDe } from './caras.js';
 import type { Celda } from './celdas.js';
-import type { Sprite } from './colocar.js';
+import type { Sprite } from './colocar/sprite.js';
 import { type Caja, cajaDeSprite } from './pasillo.js';
 import { ordenDeVolumenes } from './pintar.js';
 import { CARA_DE_SUELO } from './relieve.js';

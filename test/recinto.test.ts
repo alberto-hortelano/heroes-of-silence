@@ -17,7 +17,7 @@
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import { type CatalogoEnBruto, catalogoValidado } from '../src/client/render/escenario/catalogo.js';
-import { modulosDelRecinto } from '../src/client/render/escenario/colocar.js';
+import { modulosDelRecinto } from '../src/client/render/escenario/colocar/sendas-y-murallas.js';
 import { PIES } from '../src/client/render/escenario/figuras-del-mapa.js';
 import { contornoDeLaPlaza } from '../src/client/render/escenario/huella.js';
 import { type ConImagen, pasilloDe } from '../src/client/render/escenario/pasillo.js';

@@ -21,12 +21,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { celdasDeLaRampa, claveDeCelda } from '../src/client/render/escenario/celdas.js';
-import {
-  componer,
-  luzDelRecinto,
-  puntosDeCelda,
-  type Sprite,
-} from '../src/client/render/escenario/colocar.js';
+import { luzDelRecinto } from '../src/client/render/escenario/colocar/luces.js';
+import { puntosDeCelda } from '../src/client/render/escenario/colocar/relieve.js';
+import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
+import { componer } from '../src/client/render/escenario/colocar.js';
 import { claveDe } from '../src/client/render/escenario/pintar.js';
 import {
   ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO,

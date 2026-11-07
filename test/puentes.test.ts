@@ -24,11 +24,11 @@ import {
 import { caidas, celdas } from '../src/client/render/escenario/celdas.js';
 import {
   celdasBajoLosPuentes,
-  componer,
-  formasDeLosTableros,
   puentesTapados,
-  type Sprite,
-} from '../src/client/render/escenario/colocar.js';
+} from '../src/client/render/escenario/colocar/pasos-y-puentes.js';
+import { formasDeLosTableros } from '../src/client/render/escenario/colocar/sendas-y-murallas.js';
+import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
+import { componer } from '../src/client/render/escenario/colocar.js';
 import {
   cajaDelHeroeEn,
   PIES,

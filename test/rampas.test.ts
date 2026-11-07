@@ -19,13 +19,13 @@ import {
   rampasDeFrente,
 } from '../src/client/render/escenario/celdas.js';
 import {
-  componer,
   hojaDeRampa,
   piezasDeRampa,
   rampasSinSusPiezas,
-  type Sprite,
   spriteDeRampa,
-} from '../src/client/render/escenario/colocar.js';
+} from '../src/client/render/escenario/colocar/rampas.js';
+import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
+import { componer } from '../src/client/render/escenario/colocar.js';
 import { newGame } from '../src/core/state/setup.js';
 import { catalogoDelDisco } from './escena-de-prueba.js';
 

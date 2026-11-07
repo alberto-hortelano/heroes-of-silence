@@ -18,7 +18,7 @@
  */
 import { mensajeDe } from '../../comun/errores.js';
 import { urlDeImagenSegura } from '../../comun/html.js';
-import type { Escena } from './colocar.js';
+import type { Escena } from './colocar/escena.js';
 import { horneado } from './horneado.js';
 import {
   type EscenaSeparada,
