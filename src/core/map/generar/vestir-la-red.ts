@@ -3,8 +3,11 @@
  * (`map/vestir/`), ciudades y pueblos, objetos, monstruos y asaltantes,
  * obstáculos y caminos, hasta el plan del procedimental, o en qué fase y por
  * qué ese vestido no vale. La red que se viste (`RedFina`) la traza
- * `procedimental.ts`, que prueba vestidos sobre ella; de sus opciones
- * (`ProceduralOptions`) casi todas las lee el vestido.
+ * `procedimental.ts`, que prueba vestidos sobre ella. Las opciones del
+ * generador (`ProceduralOptions`) también viven aquí, en el módulo más bajo que
+ * las lee (el vestido, las facciones y los monstruos), y no junto a
+ * `generateMapPlan`, que las recibe: así la carpeta no tiene ningún nudo, ni de
+ * tipos.
  *
  * Era parte de `map/generate.ts` hasta la fase N de la reorganización
  * (07-11-2026).

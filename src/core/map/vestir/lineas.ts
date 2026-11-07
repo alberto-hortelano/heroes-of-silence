@@ -4,7 +4,9 @@
  * una ciudad en una muesca (`puertasSinMuesca`, #222) ni se queda sin caída
  * (`sinAcantiladoLlano`, `acantiladoSinCaida`); y las caídas largas al sur,
  * partidas a trechos (`quebrarCaidas`, #231). Abrir una casilla de una línea a
- * su región es `abrirLinea`. Lo llama el engorde (`fronteras.ts`), por vueltas.
+ * su región es `abrirLinea`. Lo llama el engorde (`fronteras.ts`), por vueltas,
+ * y el generador mira con `acantiladoSinCaida` y `caidasLargas` el vestido ya
+ * acabado.
  *
  * Era parte de `map/vestir.ts` hasta la fase N de la reorganización
  * (07-11-2026).
