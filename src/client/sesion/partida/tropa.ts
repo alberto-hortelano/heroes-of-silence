@@ -214,7 +214,10 @@ export class TropaEnPantalla {
     if (bien) this.recordarLaJugada(clave, quien, dicho);
   }
 
-  /** Quitarle al elegido de la tropa lo suyo del hueco `slot`, a la mochila del héroe, por `unequip`. */
+  /**
+   * Quitarle al elegido de la tropa lo suyo del hueco `slot`, a la mochila del héroe, por
+   * `unequip`.
+   */
   quitar(slot: string): void {
     const hero = this.heroe();
     const quien = this.elegido;

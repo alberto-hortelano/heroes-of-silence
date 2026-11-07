@@ -42,7 +42,10 @@ interface DueñoDelCierre
   > {
   /** La batalla pendiente (`Session.battle`), o `null`. */
   batalla(): BattleState | null;
-  /** Si la pantalla de la defensa está abierta, y entonces la barra lo dice (`DefensaEnPantalla.eligiendo`). */
+  /**
+   * Si la pantalla de la defensa está abierta, y entonces la barra lo dice
+   * (`DefensaEnPantalla.eligiendo`).
+   */
   eligiendoLaDefensa(): boolean;
   /** Si hay un golpe plantado esperando la rueda (`CruceDeLaRueda.pendiente`). */
   golpePlantado(): boolean;
@@ -50,9 +53,14 @@ interface DueñoDelCierre
   lugarDeLaBatalla(): { readonly heroe: string } | null;
   /** Suelta lo que esperaba el clic, sin tocar la barra (`LoApuntado.soltar`). */
   soltarLosApuntados(): void;
-  /** Suelta el aviso y deja seguir el turno del rival, si era una defensa (`AtaqueALaPersona.trasLaBatalla`). */
+  /**
+   * Suelta el aviso y deja seguir el turno del rival, si era una defensa
+   * (`AtaqueALaPersona.trasLaBatalla`).
+   */
   trasLaBatalla(): void;
-  /** Vuelve a la escena del lugar del héroe `heroId`, ya en su estado nuevo (`EnElLugar.volver`). */
+  /**
+   * Vuelve a la escena del lugar del héroe `heroId`, ya en su estado nuevo (`EnElLugar.volver`).
+   */
   volverAlLugar(heroId: string): void;
 }
 

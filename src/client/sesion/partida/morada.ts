@@ -17,7 +17,9 @@ import {
 } from '../vistas/morada.js';
 import type { DueñoDeLasPiezas } from './comun.js';
 
-/** La morada de la base abierta en que se está y a quién se mira (`null`: la primera que produce). */
+/**
+ * La morada de la base abierta en que se está y a quién se mira (`null`: la primera que produce).
+ */
 interface MoradaAbierta {
   readonly sitio: SitioId;
   readonly elegida: string | null;

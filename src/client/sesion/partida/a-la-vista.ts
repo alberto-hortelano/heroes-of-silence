@@ -34,7 +34,10 @@ interface DueñoDeLoQueSeVe
     readonly pisa: Point;
     readonly conocidoAlSalir: LoConocido;
   } | null;
-  /** La niebla de la marcha que se enseña (`sesion/vistas/marcha.ts`), o `null` sin marcha o viéndolo todo. */
+  /**
+   * La niebla de la marcha que se enseña (`sesion/vistas/marcha.ts`), o `null` sin marcha o
+   * viéndolo todo.
+   */
   nieblaDeLaMarcha(): NieblaDeLaMarcha | null;
 }
 

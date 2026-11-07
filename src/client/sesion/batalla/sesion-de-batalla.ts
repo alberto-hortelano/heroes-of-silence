@@ -99,7 +99,7 @@ export abstract class SesionDeBatalla implements ControlDeBatalla {
 
   /**
    * Si algo frena la jugada de la persona antes de mirarla, y entonces la barra dice
-   * qué (la partida, con la defensa por elegir: `eligiendoLaDefensa`). La arena, nada.
+   * qué (la partida, con la defensa por elegir: `DefensaEnPantalla.eligiendo`). La arena, nada.
    */
   protected frenoDeLaDefensa(): boolean {
     return false;

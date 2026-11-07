@@ -32,7 +32,10 @@ export interface RoutePreview extends PathStep {
   readonly hoy: boolean;
   readonly peligro: boolean;
   readonly emboscada?: VistaAsaltante;
-  /** En el primer paso de otro día, si es una barrera: por qué hoy se para antes (`barreraDeMañana`). */
+  /**
+   * En el primer paso de otro día, si es una barrera: por qué hoy se para antes
+   * (`barreraDeMañana`).
+   */
   readonly barrera?: string;
 }
 
@@ -58,7 +61,9 @@ interface DueñoDeLaMarcha
     DueñoDeLasPiezas,
     'estado' | 'ctx' | 'viewer' | 'tocar' | 'barra' | 'jugador' | 'heroeSeleccionado'
   > {
-  /** Si es el turno de la persona (`Session.isPlayersTurn`): fuera de él no hay ruta que enseñar. */
+  /**
+   * Si es el turno de la persona (`Session.isPlayersTurn`): fuera de él no hay ruta que enseñar.
+   */
   esTuTurno(): boolean;
   /** Los grupos que la persona ve (`ALaVista.asaltantes`): solo esos avisan en la ruta. */
   asaltantesALaVista(): AsaltantesALaVista;

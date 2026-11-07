@@ -159,7 +159,10 @@ export class EnElLugar {
     this.dueño.barra(AYUDA_DEL_LUGAR);
   }
 
-  /** Sale del lugar al mapa, con la ayuda del mapa en la barra (M8 de la vuelta 2: quedaba en blanco). */
+  /**
+   * Sale del lugar al mapa, con la ayuda del mapa en la barra (M8 de la vuelta 2: quedaba en
+   * blanco).
+   */
   salir(): void {
     this.cerrar();
     this.dueño.irA('adventure');
@@ -179,7 +182,10 @@ export class EnElLugar {
     return 'motivo' in a ? null : a;
   }
 
-  /** La casilla del lugar abierto, o `null`: lo que lee su clima en cada fotograma, sin la vista entera. */
+  /**
+   * La casilla del lugar abierto, o `null`: lo que lee su clima en cada fotograma, sin la vista
+   * entera.
+   */
   casilla(): Point | null {
     return this.ante()?.lugar.at ?? null;
   }

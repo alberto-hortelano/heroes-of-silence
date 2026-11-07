@@ -11,6 +11,18 @@
  * fase C de la reorganización (07-11-2026). Desde R1, las dos extienden la sesión de
  * batalla común (`SesionDeBatalla`), que lleva las piezas, la caché y la jugada de la
  * persona; aquí queda lo que la partida pone en ella.
+ *
+ * Desde R6 (07-11-2026), lo de cada pantalla de la partida es una pieza de
+ * `sesion/partida/`, con su estado y lo que hace: el equipo, la morada, el ayuntamiento, el
+ * clima, la guarnición (con el puesto), la defensa, el lugar, la tropa, lo que se ve del
+ * mapa, la marcha, el ataque a la persona y el cierre de la batalla. Cada una lee la sesión
+ * por su `Dueño…`, de lo común (`DueñoDeLasPiezas`, `sesion/partida/comun.ts`) y de lo
+ * suyo, siempre por función, y no la importa. Esta clase es su fachada: cada miembro
+ * público que se usa fuera delega en su pieza, y aquí queda lo que las une —la partida y
+ * su azar, la versión, la escena, la barra, la guarda de las acciones (`run`,
+ * `bloqueoDeTurno`), el héroe elegido y el clic en el mapa, lo que abre la llegada de una
+ * marcha y pasar el turno— y lo que no es de ninguna: la base, los héroes en espera, las
+ * consultas y lo que la partida pone en la sesión de batalla.
  */
 import { playAiTurn } from '@core/ai/turn.js';
 import { activeStack, surrenderBlocker } from '@core/battle/consultas.js';
@@ -250,7 +262,10 @@ export class Session extends SesionDeBatalla {
     return quien.side !== this.miBando || (this.soloRuedaDelHeroe && quien.origen.kind !== 'heroe');
   }
 
-  /** Con la pantalla de la defensa abierta no se juega nada de la batalla (`DefensaEnPantalla.eligiendo`). */
+  /**
+   * Con la pantalla de la defensa abierta no se juega nada de la batalla
+   * (`DefensaEnPantalla.eligiendo`).
+   */
   protected override frenoDeLaDefensa(): boolean {
     return this.defensaEnPantalla.eligiendo();
   }
@@ -574,12 +589,18 @@ export class Session extends SesionDeBatalla {
     return this.aLaVista.explorado;
   }
 
-  /** La ruta entera del héroe seleccionado hasta `to`, cada paso con si llega hoy (`MarchaEnElMapa.ruta`). */
+  /**
+   * La ruta entera del héroe seleccionado hasta `to`, cada paso con si llega hoy
+   * (`MarchaEnElMapa.ruta`).
+   */
   previewPath(to: Point): RoutePreview[] {
     return this.marcha.ruta(to);
   }
 
-  /** Las casillas que la persona está mirando AHORA, para la niebla de dos tonos (`ALaVista.visibles`). */
+  /**
+   * Las casillas que la persona está mirando AHORA, para la niebla de dos tonos
+   * (`ALaVista.visibles`).
+   */
   visibles(): CasillasLeidas {
     return this.aLaVista.visibles();
   }
@@ -698,12 +719,16 @@ export class Session extends SesionDeBatalla {
     return this.marcha.enCurso;
   }
 
-  /** El mapa enseña al héroe que anda en la casilla `pisada` de su marcha (`MarchaEnElMapa.pisar`). */
+  /**
+   * El mapa enseña al héroe que anda en la casilla `pisada` de su marcha (`MarchaEnElMapa.pisar`).
+   */
   pisarEnLaMarcha(pisada: number): void {
     this.marcha.pisar(pisada);
   }
 
-  /** Los puntos de movimiento que enseña el panel de `hero` (`MarchaEnElMapa.movimientoALaVista`). */
+  /**
+   * Los puntos de movimiento que enseña el panel de `hero` (`MarchaEnElMapa.movimientoALaVista`).
+   */
   movimientoALaVista(hero: Hero): number {
     return this.marcha.movimientoALaVista(hero);
   }
@@ -821,7 +846,10 @@ export class Session extends SesionDeBatalla {
     return this.guarnicion.abierta;
   }
 
-  /** Abre la pantalla de repartir la tropa del sitio suyo donde está `heroId` (`GuarnicionEnPantalla.abrir`). */
+  /**
+   * Abre la pantalla de repartir la tropa del sitio suyo donde está `heroId`
+   * (`GuarnicionEnPantalla.abrir`).
+   */
   abrirLaGuarnicion(heroId: string): void {
     this.guarnicion.abrir(heroId);
   }
@@ -836,7 +864,9 @@ export class Session extends SesionDeBatalla {
     return this.guarnicion.vista();
   }
 
-  /** «Levantar la empalizada» o «Amurallar» del diálogo del puesto (`GuarnicionEnPantalla.mejorar`). */
+  /**
+   * «Levantar la empalizada» o «Amurallar» del diálogo del puesto (`GuarnicionEnPantalla.mejorar`).
+   */
   mejorarElPuesto(obra: ObraDelPuesto): void {
     this.guarnicion.mejorar(obra);
   }
@@ -846,7 +876,10 @@ export class Session extends SesionDeBatalla {
     this.guarnicion.mover(hacia, creature, veterano);
   }
 
-  /** «Confirmar»: manda el reparto al núcleo y cierra la pantalla (`GuarnicionEnPantalla.confirmar`). */
+  /**
+   * «Confirmar»: manda el reparto al núcleo y cierra la pantalla
+   * (`GuarnicionEnPantalla.confirmar`).
+   */
   confirmarElReparto(): void {
     this.guarnicion.confirmar();
   }
@@ -868,7 +901,9 @@ export class Session extends SesionDeBatalla {
     return this.defensaEnPantalla.vista;
   }
 
-  /** Uno más (o uno menos) de `creature` en la defensa que se elige (`DefensaEnPantalla.cambiar`). */
+  /**
+   * Uno más (o uno menos) de `creature` en la defensa que se elige (`DefensaEnPantalla.cambiar`).
+   */
   cambiarLaDefensa(creature: string, cambio: 1 | -1): void {
     this.defensaEnPantalla.cambiar(creature, cambio);
   }
@@ -878,7 +913,10 @@ export class Session extends SesionDeBatalla {
     this.defensaEnPantalla.confirmar();
   }
 
-  /** Escape o «Como propone la IA»: se defiende con la propuesta (`DefensaEnPantalla.dejarLaDeLaIA`). */
+  /**
+   * Escape o «Como propone la IA»: se defiende con la propuesta
+   * (`DefensaEnPantalla.dejarLaDeLaIA`).
+   */
   dejarLaDefensaDeLaIA(): void {
     this.defensaEnPantalla.dejarLaDeLaIA();
   }
@@ -962,9 +1000,9 @@ export class Session extends SesionDeBatalla {
     // ese getter es falso mientras corre esto, y el bucle daría las 20 vueltas
     // del guardia jugando días enteros de golpe. Se pregunta por el estado.
     while (this.state.finished === null && this.state.current !== this.viewer && guard < 20) {
-      // Las batallas en las que el rival ataca a la persona las juega ella
-      // (#116, `AtaqueALaPersona.defender`). Si una se quedara a medias, la IA pelearía por ella,
-      // pero sin rendirse: rendirse le cobra su oro y esa decisión es solo suya
+      // Las batallas en las que el rival ataca a la persona las juega ella (#116,
+      // `AtaqueALaPersona.defender`). Si una se quedara a medias, la IA pelearía por
+      // ella, pero sin rendirse: rendirse le cobra su oro y esa decisión es solo suya
       // (H-1 de la fase 1b).
       await playAiTurn(this.state, this.ctx, { batallas: { human: () => this.ataque.defender() } });
       guard++;
@@ -987,17 +1025,24 @@ export class Session extends SesionDeBatalla {
     resolverSola: () => this.autoResolveBattle(),
   });
 
-  /** El aviso de un ataque a la persona, antes de su batalla, o `null` (`AtaqueALaPersona.aviso`). */
+  /**
+   * El aviso de un ataque a la persona, antes de su batalla, o `null` (`AtaqueALaPersona.aviso`).
+   */
   get avisoDelAtaque(): VistaDelAviso | null {
     return this.ataque.aviso;
   }
 
-  /** «Defender» en el aviso: se cierra y se abre la batalla (`AtaqueALaPersona.defenderElAtaque`). */
+  /**
+   * «Defender» en el aviso: se cierra y se abre la batalla (`AtaqueALaPersona.defenderElAtaque`).
+   */
   defenderElAtaque(): void {
     this.ataque.defenderElAtaque();
   }
 
-  /** «Resolver sola» en el aviso: la IA pelea por la persona (`AtaqueALaPersona.resolverElAtaqueSola`). */
+  /**
+   * «Resolver sola» en el aviso: la IA pelea por la persona
+   * (`AtaqueALaPersona.resolverElAtaqueSola`).
+   */
   resolverElAtaqueSola(): void {
     this.ataque.resolverElAtaqueSola();
   }
@@ -1089,7 +1134,10 @@ export class Session extends SesionDeBatalla {
     casillaDelLugar: () => this.lugar.casilla(),
   });
 
-  /** Fija lo que fuerza `?clima=`; lanza con una región que este mapa no tiene (`ClimaEnPantalla.fijar`). */
+  /**
+   * Fija lo que fuerza `?clima=`; lanza con una región que este mapa no tiene
+   * (`ClimaEnPantalla.fijar`).
+   */
   fijarElClima(forzado: ClimaForzado | null): void {
     this.climaEnPantalla.fijar(forzado);
   }
@@ -1281,7 +1329,9 @@ export class Session extends SesionDeBatalla {
    */
   private readonly equipo = new EquipoEnPantalla(this.dueñoDeLasPiezas);
 
-  /** La pieza de la mochila elegida para ponérsela a alguien, o `null` (`EquipoEnPantalla.elegida`). */
+  /**
+   * La pieza de la mochila elegida para ponérsela a alguien, o `null` (`EquipoEnPantalla.elegida`).
+   */
   get selectedItem(): string | null {
     return this.equipo.elegida;
   }
@@ -1301,7 +1351,9 @@ export class Session extends SesionDeBatalla {
     this.equipo.poner(heroId, a);
   }
 
-  /** Quitar lo del hueco `slot` al héroe o a un veterano, a la mochila (`EquipoEnPantalla.quitar`). */
+  /**
+   * Quitar lo del hueco `slot` al héroe o a un veterano, a la mochila (`EquipoEnPantalla.quitar`).
+   */
   unequip(heroId: string, slot: string, veteran?: string): void {
     this.equipo.quitar(heroId, slot, veteran);
   }
@@ -1376,7 +1428,10 @@ export class Session extends SesionDeBatalla {
     this.ayuntamiento.elegir(tipo);
   }
 
-  /** Lo que se ve en la escena del ayuntamiento, o `null` fuera de ella (`AyuntamientoEnPantalla.vista`). */
+  /**
+   * Lo que se ve en la escena del ayuntamiento, o `null` fuera de ella
+   * (`AyuntamientoEnPantalla.vista`).
+   */
   vistaDelAyuntamiento(): VistaDelAyuntamiento | null {
     return this.ayuntamiento.vista();
   }
@@ -1405,7 +1460,9 @@ export class Session extends SesionDeBatalla {
     return this.tropa.formacion;
   }
 
-  /** Por qué no se puede abrir ahora la escena de la tropa, o `null` (`TropaEnPantalla.blocker`). */
+  /**
+   * Por qué no se puede abrir ahora la escena de la tropa, o `null` (`TropaEnPantalla.blocker`).
+   */
   tropaBlocker(): string | null {
     return this.tropa.blocker();
   }
@@ -1560,7 +1617,9 @@ export class Session extends SesionDeBatalla {
     volverAlLugar: (heroId) => this.lugar.volver(heroId),
   });
 
-  /** Resuelve el resto de la batalla con la IA en ambos bandos (`CierreDeLaBatalla.resolverSola`). */
+  /**
+   * Resuelve el resto de la batalla con la IA en ambos bandos (`CierreDeLaBatalla.resolverSola`).
+   */
   autoResolveBattle(): void {
     this.cierre.resolverSola();
   }

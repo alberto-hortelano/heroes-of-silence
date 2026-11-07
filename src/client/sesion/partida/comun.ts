@@ -30,7 +30,9 @@ export interface DueñoDeLasPiezas {
   ctx(): GameContext;
   /** El jugador de la persona (`Session.viewer`). */
   viewer(): PlayerId;
-  /** Cuántas veces ha cambiado algo que se ve (`Session.version`): con ella se guardan las vistas. */
+  /**
+   * Cuántas veces ha cambiado algo que se ve (`Session.version`): con ella se guardan las vistas.
+   */
   version(): number;
   /** Algo que se ve ha cambiado: sube la versión. */
   tocar(): void;

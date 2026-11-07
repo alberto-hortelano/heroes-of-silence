@@ -25,7 +25,9 @@ export interface VistaDeLaDefensa extends Omit<LaDefensa, 'filas'> {
 /** Lo que la pieza de la defensa lee de la sesión. */
 interface DueñoDeLaDefensa
   extends Pick<DueñoDeLasPiezas, 'estado' | 'ctx' | 'viewer' | 'tocar' | 'barra' | 'irA'> {
-  /** Si la batalla pendiente está desplegando la tanda de la persona (`SesionDeBatalla.despliegue`). */
+  /**
+   * Si la batalla pendiente está desplegando la tanda de la persona (`SesionDeBatalla.despliegue`).
+   */
   desplegando(): boolean;
   /** Que la IA mueva si la iniciativa es del rival (`Session.advanceEnemyTurns`). */
   queMuevaLaIA(): void;
