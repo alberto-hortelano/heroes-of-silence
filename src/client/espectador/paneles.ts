@@ -21,7 +21,7 @@ import { fondoDeColor, type Html, html, NADA, unir } from '../comun/html.js';
 import { NADIE } from '../comun/quien-mira.js';
 import { nombreEnElCampo } from '../render/batalla/distintivo.js';
 import { playerColor } from '../render/palette.js';
-import { estadoADistancia, marcaDeComandante, marcaDeVeterano } from '../views/campo.js';
+import { listaDelCampo, marcaDeComandante, marcaDeVeterano } from '../views/campo.js';
 import { filaDeCifra } from '../views/cifras.js';
 import { renderLog } from '../views/cronica.js';
 import { historiaDelHeroe } from '../views/notas.js';
@@ -139,6 +139,12 @@ function fondoDelJugador(id: number | null): Html {
   return fondoDeColor(playerColor(id));
 }
 
+/**
+ * La batalla que se mira: la ronda, cómo acabó, de quién es cada bando y «En el campo»
+ * con la forma de las otras dos páginas (`listaDelCampo`): cada uno con el color de su
+ * dueño, sus marcas y lo que lleva colgado (desde R2 de la reorganización, 07-11-2026:
+ * hasta entonces, una copia sin los efectos); y el parte.
+ */
 export function batalla(v: SpectatorView, contandoAun = false): Html {
   if (v.battle === null) return NADA;
   const { dueños } = v.battle;
@@ -148,20 +154,16 @@ export function batalla(v: SpectatorView, contandoAun = false): Html {
     const id = dueños[side];
     return id === null ? html`neutral` : html`${bandera(id)} jugador ${id}`;
   };
+  const campo = listaDelCampo(estado, (s) => ({
+    flecha: bandera(dueños[s.side]),
+    nombre: `${marcaDeComandante(s)}${nombreEnElCampo(estado, s)}${marcaDeVeterano(s)}`,
+    cuenta: s.count,
+  }));
   return html`<h3>Batalla · ronda ${estado.round}</h3>
     ${desenlaceDeLaBatalla(estado)}
     ${filaDeCifra('atacante', deQuien('attacker'))}
     ${filaDeCifra('defensor', deQuien('defender'))}
-    <div class="stack-list">${unir(
-      estado.stacks
-        .filter((s) => s.count > 0)
-        .map(
-          (s) => html`<div class="stack${s.id === estado.turno?.stack ? '' : ' empty'}">
-            <span>${bandera(dueños[s.side])} ${marcaDeComandante(s)}${nombreEnElCampo(estado, s)}${marcaDeVeterano(s)}${estadoADistancia(s)}</span>
-            <span class="count">${s.count}</span>
-          </div>`,
-        ),
-    )}</div>
+    <div class="stack-list">${campo}</div>
     ${parteDeGuerra(estado)}`;
 }
 

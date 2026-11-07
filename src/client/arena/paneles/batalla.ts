@@ -1,59 +1,49 @@
 /**
- * El panel de la batalla de la arena (`renderPanelDeBatalla`): lo que solo tiene la
- * arena —quién mueve cada unidad, el resultado por lados, «Editar»— sobre las piezas
- * de la partida (`batalla/panel.ts`, `views/campo.ts`); lo que dice la barra de quién
- * mueve (`rotuloDelTurno`) y lo que la arena pone alrededor de los que se cruzan en la
- * rueda (`caraDeLaArena`, con su vista previa). Parte del marcado de la arena
+ * El panel de la batalla de la arena (`renderPanelDeBatalla`): lo que la arena pone en
+ * el panel de la batalla de las dos páginas (`panelDeBatalla`, `batalla/panel.ts`, desde
+ * R2 de la reorganización, 07-11-2026) —quién mueve cada unidad, el resultado por
+ * lados, «Editar», «Editar equipo»—; lo que dice la barra de quién mueve
+ * (`rotuloDelTurno`) y lo que la arena pone alrededor de los que se cruzan en la rueda
+ * (`caraDeLaArena`, con su vista previa). Parte del marcado de la arena
  * (`arena/paneles/`, puro y sin DOM: ver `lista.ts`); era `arena/paneles.ts` hasta la
- * fase C de la reorganización (07-11-2026).
+ * fase C de la reorganización.
  */
 import { LADOS, ladoDe } from '@core/arena/lados.js';
 import { finalDeArena } from '@core/arena/montaje.js';
 import { armaduraDe } from '@core/battle/armas.js';
-import { CARGA } from '@core/battle/carga.js';
-import { activeStack, isAlive } from '@core/battle/consultas.js';
+import { isAlive } from '@core/battle/consultas.js';
 import { ataqueYDefensaEnBatalla } from '@core/battle/golpe.js';
 import { type BattleStack, type BattleState, MAX_ROUNDS } from '@core/battle/types.js';
 import { textoDeModificador } from '@core/equipo/dicho.js';
 import { conComa, conSigno } from '@core/texto.js';
 import { NOMBRE_DE_CIFRA, SPEED_TO_HEXES, type UnitInfo } from '@core/types.js';
-import { accionesDeLaUnidad, renderDespliegue, renderSpells } from '../../batalla/panel.js';
+import { panelDeBatalla, type SesionDelPanel } from '../../batalla/panel.js';
 import { renderBattleLog } from '../../batalla/parte.js';
-import { botonesDeArma, botonesDeMuralla, botonesDePoder } from '../../batalla/poderes.js';
 import type { CaraDeLosContrincantes } from '../../batalla/rueda/rueda.js';
 import { type Html, html, NADA } from '../../comun/html.js';
 import { nombreEnElCampo } from '../../render/batalla/distintivo.js';
 import type { SesionDeArena } from '../../sesion/sesion-de-arena.js';
-import { listaDelCampo } from '../../views/campo.js';
-import { fieldsetApagado, filaDeCifra } from '../../views/cifras.js';
+import { filaDeCifra } from '../../views/cifras.js';
 import { rasgosDichos } from './bandos.js';
 import { filasDeArmas } from './ficha.js';
 
-/** Lo que el panel de la batalla lee de la sesión: la sesión misma, sin copiar su forma. */
-export type VistaDeArena = Pick<
-  SesionDeArena,
-  | 'batallaALaVista'
-  | 'despliegue'
-  | 'semilla'
-  | 'laLlevaLaIA'
-  | 'turnoPropio'
-  | 'battleLegalActions'
-  | 'battleStepsLeft'
-  | 'sinSalida'
-  | 'trasLaFinta'
-  | 'spellOptions'
-  | 'heroeEnJuego'
-  | 'hechizos'
-  | 'muralla'
-  | 'defensaEnLoAlto'
-  | 'motivoDePoder'
-  | 'arma'
-  | 'apuntado'
-  | 'prevision'
-  | 'ruedaPendiente'
-  | 'motivoDeLaRueda'
-  | 'cuerpoDe'
->;
+/**
+ * Lo que el panel de la batalla lee de la sesión: la sesión misma, sin copiar su forma;
+ * lo de las dos páginas (`SesionDelPanel`) y lo de la arena.
+ */
+export type VistaDeArena = SesionDelPanel &
+  Pick<
+    SesionDeArena,
+    | 'batallaALaVista'
+    | 'despliegue'
+    | 'semilla'
+    | 'laLlevaLaIA'
+    | 'turnoPropio'
+    | 'heroeEnJuego'
+    | 'defensaEnLoAlto'
+    | 'ruedaPendiente'
+    | 'cuerpoDe'
+  >;
 
 /**
  * Lo que dice la barra de arriba de quién mueve. Con la rueda esperando la
@@ -228,18 +218,15 @@ function rotuloDelGanador(battle: BattleState): string {
 }
 
 /**
- * El panel lateral de la batalla. Las acciones, su ayuda —la de la carga
- * incluida— y la lista del campo son las piezas de la partida (`batalla/panel.ts`,
- * `views/campo.ts`); lo de aquí es lo que solo tiene la arena: quién mueve cada
- * unidad y el resultado por lados.
+ * El panel lateral de la batalla: el de las dos páginas (`panelDeBatalla`), con lo que
+ * solo tiene la arena: quién mueve cada unidad, el resultado por lados, «Editar» y
+ * «Editar equipo».
  *
  * @param contandoAun si el tablero aún cuenta la última jugada: con la batalla
  *   ya resuelta en el estado, el resultado se calla hasta que el tablero llega a
  *   él, como en el espectador.
  */
 export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Html {
-  // Lo que se ve (`batallaALaVista`): en el despliegue, sin el rival que aún no desplegó.
-  const b = s.batallaALaVista;
   // Mientras el tablero cuenta, el estado ya va por delante de lo que se ve: el
   // parte, las vidas y la ficha de la activa contarían el final antes de que
   // llegue —con todo en IA, la pelea entera—. Se calla todo hasta que el tablero
@@ -248,14 +235,8 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
     return html`${filaDeCifra('Ronda', '…')}
       <p>Contando la jugada…</p>`;
   }
-  if (b.finished !== null) {
-    return html`<h2>${rotuloDelGanador(b)}</h2>
-      <p>Ronda ${b.round}. Semilla ${s.semilla}.</p>
-      <div class="stack-list"><button data-arena="otra-vez" class="primary">Otra vez</button></div>
-      <h3>Parte de guerra</h3>${renderBattleLog(b, null)}`;
-  }
   // Cada uno en el campo: en el despliegue, sin «Editar» (aún no se pelea).
-  const fila = (x: BattleStack, conBoton: boolean) => {
+  const fila = (b: BattleState, x: BattleStack, conBoton: boolean) => {
     const nombre = nombreEnElCampo(b, x);
     return {
       flecha: x.side === LADOS.izquierda.bando ? '▶' : '◀',
@@ -264,61 +245,33 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
       ...(conBoton ? { boton: botonDeEditar(x, nombre) } : {}),
     };
   };
-  // El despliegue de un bando «Yo»: el panel de la partida (`renderDespliegue`).
-  const desplegando = s.despliegue.enCurso;
-  if (desplegando !== null) {
-    return renderDespliegue(s.despliegue, b, {
-      quien: `bando ${LADOS[ladoDe(desplegando.side)].adjetivo}`,
-      apagado: null,
-      fila: (x) => fila(x, false),
-    });
-  }
-  const activa = activeStack(b);
-  const mia = s.turnoPropio !== null;
-  const rasgos = activa === null ? '' : rasgosDichos(activa.unit.traits);
-  const ficha =
-    activa === null
-      ? NADA
-      : html`<h2>${nombreEnElCampo(b, activa)} ${botonDeEditar(activa, nombreEnElCampo(b, activa))}</h2>
+  return panelDeBatalla(s, false, {
+    final: (b) => html`<h2>${rotuloDelGanador(b)}</h2>
+      <p>Ronda ${b.round}. Semilla ${s.semilla}.</p>
+      <div class="stack-list"><button data-arena="otra-vez" class="primary">Otra vez</button></div>
+      <h3>Parte de guerra</h3>${renderBattleLog(b, null)}`,
+    // El despliegue de un bando «Yo»: con los dos de la persona, se dice cuál.
+    quienDespliega: (side) => `bando ${LADOS[ladoDe(side)].adjetivo}`,
+    ficha: (b, activa) => {
+      if (activa === null) return NADA;
+      const rasgos = rasgosDichos(activa.unit.traits);
+      return html`<h2>${nombreEnElCampo(b, activa)} ${botonDeEditar(activa, nombreEnElCampo(b, activa))}</h2>
         ${filaDeCifra('Bando', LADOS[ladoDe(activa.side)].rotulo)}
         ${filaDeCifra('La mueve', s.laLlevaLaIA(activa.id) ? 'la IA' : 'tú')}
         ${filasDelStack(s, activa, true)}
         ${rasgos === '' ? NADA : filaDeCifra('Rasgos', rasgos)}`;
-  const heroe = s.heroeEnJuego;
-  // Con la rueda en la respuesta, lo que se juega es eso (la activa es quien
-  // pega, y puede ser de la IA): ni sus botones ni «Mueve la IA».
-  const acciones =
-    s.ruedaPendiente?.fase === 'respuesta'
-      ? html`<p>Te toca responder en la rueda.</p>`
-      : mia && activa !== null
-        ? fieldsetApagado(
-            s.motivoDeLaRueda,
-            accionesDeLaUnidad({
-              activa,
-              carga: CARGA,
-              legales: s.battleLegalActions(),
-              pasos: s.battleStepsLeft(),
-              sinSalida: s.sinSalida(),
-              trasLaFinta: s.trasLaFinta(),
-              modo: s.arma.modo,
-              rendicion: NADA,
-              poderes: html`${botonesDeArma(s, activa)}${botonesDePoder(s, activa)}`,
-              hechizos:
-                heroe === null ? NADA : renderSpells(s.hechizos.selectedSpell, s.spellOptions()),
-              muralla: botonesDeMuralla(s, b, activa),
-            }),
-          )
-        : html`<p>Mueve la IA…</p>`;
-  const mana =
-    heroe === null
-      ? NADA
-      : filaDeCifra(`Maná de ${heroe.mando.name}`, `${heroe.mando.mana} / ${heroe.manaMaximo}`);
-  const campo = listaDelCampo(b, (x) => fila(x, true));
-  return html`${ficha}
-    ${filaDeCifra('Ronda', String(b.round))}
-    ${mana}
-    <div class="botones-de-la-pelea"><button data-arena="ir-a-equipo" title="Cambia una pieza de equipo: vale ya para todos los que la llevan, de los dos bandos">Editar equipo</button></div>
-    ${acciones}
-    <h3>En el campo</h3><div class="stack-list">${campo}</div>
-    <h3>Parte de guerra</h3>${renderBattleLog(b, null)}`;
+    },
+    fila,
+    mana: () => {
+      const heroe = s.heroeEnJuego;
+      return heroe === null
+        ? NADA
+        : filaDeCifra(`Maná de ${heroe.mando.name}`, `${heroe.mando.mana} / ${heroe.manaMaximo}`);
+    },
+    botones: html`<div class="botones-de-la-pelea"><button data-arena="ir-a-equipo" title="Cambia una pieza de equipo: vale ya para todos los que la llevan, de los dos bandos">Editar equipo</button></div>`,
+    rendicion: () => NADA,
+    sinHeroe: NADA,
+    turnoAjeno: html`<p>Mueve la IA…</p>`,
+    mio: null,
+  });
 }

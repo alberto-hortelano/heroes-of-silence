@@ -1,9 +1,17 @@
 /**
- * El panel de la batalla de la partida (`renderBattlePanel`) y lo que comparte con el de
- * la arena (`arena/paneles`): el despliegue (`renderDespliegue`), lo que puede hacer la
- * unidad activa (`accionesDeLaUnidad`) y el libro de hechizos (`renderSpells`). Los dos
- * paneles aún no son uno (R2 de la reorganización). Era parte de `views/panels.ts`
- * hasta la fase C de la reorganización (07-11-2026).
+ * El panel de la batalla, uno para la partida y la arena (`panelDeBatalla`; R2 de la
+ * reorganización, 07-11-2026): el esqueleto —el final, el despliegue, la ficha de la
+ * activa, la ronda, el maná, lo que puede hacer la unidad activa (`accionesDeLaUnidad`),
+ * «En el campo» y el parte— es este, y cada página pone lo suyo (`LoDeLaPagina`): cómo
+ * acaba, la ficha de la activa, cómo dice a cada uno en el campo, su maná, sus botones y
+ * lo que dice cuando mueve el otro. Lo de la partida vive en `partida/batalla/panel.ts`
+ * y lo de la arena en `arena/paneles/batalla.ts`. Hasta R2 cada una llevaba su copia, y
+ * ya divergían: lo que la arena decía de la activa —tras una Finta, que solo anda; rodeada,
+ * que no sale; respondiendo en la rueda, que le toca responder— la partida no lo decía, y
+ * tras una Finta invitaba a golpear sin poder (R2 de QA de #263). Lo de la arena es lo de
+ * las dos.
+ *
+ * Era parte de `views/panels.ts` hasta la fase C de la reorganización (07-11-2026).
  */
 import { granadasQueQuedan, recargaQueFalta } from '@core/battle/a-distancia.js';
 import { lanzaGranadas, tiroADistanciaDe } from '@core/battle/armas.js';
@@ -11,16 +19,21 @@ import { quedanCasillas } from '@core/battle/board.js';
 import { CARGA, CARGA_MINIMA, type CifrasDeCarga } from '@core/battle/carga.js';
 import { activeStack, stackById } from '@core/battle/consultas.js';
 import { alcanceDeLaGranada } from '@core/battle/granada.js';
-import type { BattleAction, BattleStack, BattleState } from '@core/battle/types.js';
-import { maxMana } from '@core/hero/hero.js';
+import type {
+  BattleAction,
+  BattleFinish,
+  BattleStack,
+  BattleState,
+  Side,
+} from '@core/battle/types.js';
 import { COMO_SE_COLOCA } from '../comun/dichos.js';
 import { DESHABILITADO, type Html, html, NADA, unir } from '../comun/html.js';
 import { nombreEnElCampo } from '../render/batalla/distintivo.js';
 import type { ModoDelArma } from '../sesion/batalla/arma.js';
 import type { SpellOption } from '../sesion/batalla/control.js';
 import type { DespliegueEnPantalla } from '../sesion/batalla/despliegue.js';
-import type { Session } from '../sesion/partida.js';
-import { listaDelCampo, marcaDeComandante, marcaDeVeterano } from '../views/campo.js';
+import type { SesionDeBatalla } from '../sesion/batalla/sesion-de-batalla.js';
+import { type FilaDelCampo, listaDelCampo, marcaDeComandante } from '../views/campo.js';
 import {
   AVISO_DE_ESPERA,
   fieldsetApagado,
@@ -30,95 +43,130 @@ import {
 import { renderBattleLog } from './parte.js';
 import { botonesDeArma, botonesDeMuralla, botonesDePoder } from './poderes.js';
 
-export function renderBattlePanel(session: Session, contandoAun: boolean): Html {
-  // Lo que se ve (`batallaALaVista`): en el despliegue, sin el rival que aún no ha
-  // desplegado; el defensor despliega sin ver la lista del atacante.
-  const battle = session.batallaALaVista;
+/**
+ * Lo que el panel lee de la sesión, la de la partida o la de la arena: la batalla que
+ * se ve, el despliegue, el turno propio, la rueda y lo que ofrece la activa con sus
+ * piezas (`SesionDeBatalla`).
+ */
+export type SesionDelPanel = Pick<
+  SesionDeBatalla,
+  | 'batallaALaVista'
+  | 'despliegue'
+  | 'turnoPropio'
+  | 'ruedaPendiente'
+  | 'motivoDeLaRueda'
+  | 'battleLegalActions'
+  | 'battleStepsLeft'
+  | 'sinSalida'
+  | 'trasLaFinta'
+  | 'arma'
+  | 'hechizos'
+  | 'spellOptions'
+  | 'muralla'
+  | 'apuntado'
+  | 'motivoDePoder'
+  | 'prevision'
+>;
+
+/**
+ * Lo que cada página pone en el panel de la batalla (`panelDeBatalla`): la partida
+ * (`partida/batalla/panel.ts`) y la arena (`arena/paneles/batalla.ts`). Las funciones,
+ * porque lo que no se pinta no se pregunta: la rendición, sin turno propio.
+ */
+export interface LoDeLaPagina {
+  /**
+   * El panel de la batalla terminada (`fin`): la partida, «Victoria» o «Derrota»; la
+   * arena, quién gana y «Otra vez».
+   */
+  final(battle: BattleState, fin: BattleFinish): Html;
+  /** Cómo se dice el bando que despliega (la arena, con los dos de la persona), o `null`. */
+  quienDespliega(side: Side): string | null;
+  /** La ficha de la activa, o lo que se dice sin ella. */
+  ficha(battle: BattleState, activa: BattleStack | null): Html;
+  /**
+   * Cómo dice a cada uno «En el campo»: en el despliegue (`enLaPelea` falso) y en la
+   * pelea, donde la arena le pone su «Editar».
+   */
+  fila(battle: BattleState, x: BattleStack, enLaPelea: boolean): FilaDelCampo;
+  /** La fila del maná, o nada. */
+  mana(): Html;
+  /** Los botones de la página bajo el maná (la arena, «Editar equipo»), o nada. */
+  readonly botones: Html;
+  /** El botón de rendirse, o nada (la arena no se rinde). */
+  rendicion(): Html;
+  /** Lo que va en lugar de los hechizos si el bando de la activa no tiene héroe. */
+  readonly sinHeroe: Html;
+  /** Cuando la activa no es de la persona: «Turno del enemigo…», «Mueve la IA…». */
+  readonly turnoAjeno: Html;
+  /** El bando de quien lee el parte de guerra, o `null` si no lleva uno (la arena). */
+  readonly mio: Side | null;
+}
+
+/**
+ * El panel de la batalla de una página (`LoDeLaPagina`), con lo que se ve
+ * (`batallaALaVista`): en el despliegue, sin el rival que aún no ha desplegado; el
+ * defensor despliega sin ver la lista del atacante. Con la rueda en la respuesta, lo que
+ * se juega es eso: la activa es quien pega, y puede ser del rival. `contandoAun`: el
+ * tablero aún cuenta la última jugada y los botones salen apagados.
+ *
+ * Las líneas de la plantilla conservan la sangría de cuando vivían dentro de
+ * `renderBattlePanel`: es marcado que el ancla de `test/fixtures/paneles.txt` compara
+ * byte a byte.
+ */
+export function panelDeBatalla(s: SesionDelPanel, contandoAun: boolean, p: LoDeLaPagina): Html {
+  const battle = s.batallaALaVista;
   if (battle === null) return NADA;
-
-  // El bando de la persona lo DERIVA la sesión del dueño de la batalla; aquí no
-  // se supone. Decir «Tú» al atacante era la misma suposición que el ciclo de
-  // #29 quitó del servidor, y le habría cantado «Victoria» a quien acababa de
-  // perder el castillo el primer día que la persona defienda.
-  const mio = session.miBando;
-
-  if (battle.finished !== null) {
-    const gane = battle.finished.winner === mio;
-    // Rendirse no es caer: el héroe vuelve a la base con la tropa que salvó.
-    // Quien se rinde es siempre el que pierde, así que en la derrota basta con
-    // saber si hubo rendición.
-    const rendicion = battle.finished.surrender;
-    const derrota =
-      rendicion === undefined
-        ? 'Tu héroe ha caído.'
-        : `Te has rendido por ${rendicion.gold} de oro: tu héroe vuelve a la base con la tropa viva.`;
-    return html`<h2>${gane ? 'Victoria' : 'Derrota'}</h2>
-      <p>${gane ? 'El campo es tuyo.' : derrota}</p>
-      ${gane || rendicion !== undefined ? filaManaDeBatalla(session) : NADA}
-      <h3>Parte de guerra</h3>${renderBattleLog(battle, mio)}`;
-  }
-
-  const fila = (x: BattleStack) => ({
-    flecha: x.side === mio ? '▶' : '◀',
-    nombre: `${marcaDeComandante(x)}${nombreEnElCampo(battle, x)}${marcaDeVeterano(x)}`,
-    cuenta: x.count,
-  });
+  if (battle.finished !== null) return p.final(battle, battle.finished);
 
   // El despliegue: lo propio y el rival que ya desplegó, nunca el que aún no.
-  if (session.despliegue.enCurso !== null) {
-    return renderDespliegue(session.despliegue, battle, {
-      quien: null,
+  const desplegando = s.despliegue.enCurso;
+  if (desplegando !== null) {
+    return renderDespliegue(s.despliegue, battle, {
+      quien: p.quienDespliega(desplegando.side),
       apagado: contandoAun ? AVISO_DE_ESPERA : null,
-      fila,
+      fila: (x) => p.fila(battle, x, false),
     });
   }
 
-  const s = activeStack(battle);
-  const activo =
-    s === null
-      ? html`<p>Sin unidad activa.</p>`
-      : html`<h2>${nombreEnElCampo(battle, s)}</h2>
-        ${filaDeCifra('Bando', s.side === mio ? 'Tú' : 'Enemigo')}
-        ${filaDeCifra('Efectivos', String(s.count))}
-        ${filaDeCifra('Moral', String(s.morale))}`;
+  const activa = activeStack(battle);
+  const acciones =
+    s.ruedaPendiente?.fase === 'respuesta'
+      ? html`<p>Te toca responder en la rueda.</p>`
+      : activa !== null && s.turnoPropio !== null
+        ? fieldsetApagado(
+            motivoParaApagar(s, contandoAun),
+            accionesDeLaUnidad({
+              activa,
+              carga: CARGA,
+              legales: s.battleLegalActions(),
+              pasos: s.battleStepsLeft(),
+              sinSalida: s.sinSalida(),
+              trasLaFinta: s.trasLaFinta(),
+              modo: s.arma.modo,
+              rendicion: p.rendicion(),
+              // Un bando sin héroe (una base que se defiende sola, #116) no tiene libro
+              // que enseñar: «Este héroe no conoce ninguno» hablaría de uno que no está.
+              hechizos:
+                battle.heroes[activa.side] === null
+                  ? p.sinHeroe
+                  : renderSpells(s.hechizos.selectedSpell, s.spellOptions()),
+              // La de la ciudad o el pueblo (fase 2 del puesto fronterizo) o la de la
+              // arena: escalera y subir al que ataca, la puerta al que defiende; sin
+              // muralla, nada.
+              muralla: botonesDeMuralla(s, battle, activa),
+              poderes: html`${botonesDeArma(s, activa)}${botonesDePoder(s, activa)}`,
+            }),
+          )
+        : p.turnoAjeno;
 
-  const suTurno = s !== null && s.side === mio;
-  const acciones = suTurno
-    ? fieldsetApagado(
-        motivoParaApagar(session, contandoAun),
-        accionesDeLaUnidad({
-          activa: s,
-          carga: CARGA,
-          legales: session.battleLegalActions(),
-          pasos: session.battleStepsLeft(),
-          rendicion: renderRendicion(session),
-          // Una base que se defiende sola (#116) no tiene héroe: no hay libro que
-          // enseñar, y «Este héroe no conoce ninguno» hablaba de uno que no está.
-          hechizos:
-            battle.heroes[s.side] === null
-              ? SIN_HEROE_EN_LA_BATALLA
-              : renderSpells(session.hechizos.selectedSpell, session.spellOptions()),
-          // La de la ciudad o el pueblo (fase 2 del puesto fronterizo): escalera y
-          // subir al que ataca, la puerta al que defiende; sin muralla, nada.
-          muralla: botonesDeMuralla(session, battle, s),
-          poderes: html`${botonesDeArma(session, s)}${botonesDePoder(session, s)}`,
-          modo: session.arma.modo,
-        }),
-      )
-    : html`<p>Turno del enemigo…</p>`;
-
-  // El maná del héroe, junto a la ficha de la unidad activa: es un recurso de la
+  // El maná del héroe va junto a la ficha de la unidad activa: es un recurso de la
   // batalla entera, no del stack, y sin verlo no se decide si lanzar.
-  const mana = filaManaDeBatalla(session);
-
-  const orden = listaDelCampo(battle, fila);
-
-  return html`${activo}
+  return html`${p.ficha(battle, activa)}
     ${filaDeCifra('Ronda', String(battle.round))}
-    ${mana}
+    ${p.mana()}${p.botones}
     ${acciones}
-    <h3>En el campo</h3><div class="stack-list">${orden}</div>
-    <h3>Parte de guerra</h3>${renderBattleLog(battle, mio)}`;
+    <h3>En el campo</h3><div class="stack-list">${listaDelCampo(battle, (x) => p.fila(battle, x, true))}</div>
+    <h3>Parte de guerra</h3>${renderBattleLog(battle, p.mio)}`;
 }
 
 /** Lo que se dice de cada tanda del despliegue, por su bando y su momento (`TANDAS`). */
@@ -147,7 +195,7 @@ export function renderDespliegue(
   o: {
     readonly quien: string | null;
     readonly apagado: string | null;
-    readonly fila: Parameters<typeof listaDelCampo>[1];
+    readonly fila: (x: BattleStack) => FilaDelCampo;
   },
 ): Html {
   const ahora = d.enCurso;
@@ -173,22 +221,10 @@ export function renderDespliegue(
 }
 
 /**
- * La fila de Maná del héroe de la persona en la batalla, o nada si no lleva.
- * Sale también al terminar, si el héroe sigue en pie (ganó o se rindió): ese
- * número es el que decide si toca volver al castillo a dormir, y la fila
- * desaparecía justo entonces (#54). Con el héroe caído no hay nada que decidir.
- */
-function filaManaDeBatalla(session: Session): Html {
-  const heroe = session.battleHero;
-  return heroe === null ? NADA : filaDeCifra('Maná', `${heroe.mana} / ${maxMana(heroe)}`);
-}
-
-/**
  * Lo que puede hacer la unidad activa de la persona: las casillas que le quedan,
- * los tres botones —valen o no según la lista legal, no una regla copiada aquí:
- * tras moverse ya no se defiende ni se espera (decisión del usuario)— y la
- * ayuda, con la de la carga si la unidad carga. Lo comparten la partida y la
- * arena; la partida añade la rendición y el libro, que la arena no tiene.
+ * los botones —valen o no según la lista legal, no una regla copiada aquí— y la
+ * ayuda, con la de la carga si la unidad carga. Lo pinta el panel de las dos
+ * páginas (`panelDeBatalla`); la partida añade la rendición.
  *
  * Las líneas de la plantilla conservan su sangría de cuando vivían dentro de
  * `renderBattlePanel`: es marcado que el ancla de `test/fixtures/paneles.txt`
@@ -206,7 +242,7 @@ export function accionesDeLaUnidad(o: {
   readonly poderes: Html;
   /**
    * Los botones de la muralla —«Abrir puerta» y «Cerrar puerta», «Poner
-   * escalera» y «Subir»—, donde la hay (la arena); si no, `NADA`.
+   * escalera» y «Subir»—, donde la hay (la ciudad, el pueblo, la arena); si no, `NADA`.
    */
   readonly muralla: Html;
   /**
@@ -217,8 +253,8 @@ export function accionesDeLaUnidad(o: {
    */
   readonly sinSalida?: string | null;
   /**
-   * Si ha golpeado con Finta y le queda solo el tramo de andar (la rueda de la
-   * arena): la ayuda lo dice en vez de invitar a golpear (R2 de QA de #263).
+   * Si ha golpeado con Finta y le queda solo el tramo de andar: la ayuda lo dice en
+   * vez de invitar a golpear (R2 de QA de #263).
    */
   readonly trasLaFinta?: boolean;
   /**
@@ -277,24 +313,6 @@ function filaADistancia(s: BattleStack): Html {
   }
   return html`<div class="row" data-a-distancia><span class="label">A distancia</span><span>${dicho}</span></div>`;
 }
-
-/**
- * El botón de rendirse, con su precio. Apagado y con el motivo en el `title`
- * cuando no se puede —sin base, defendiéndola o sin oro—, igual que un hechizo:
- * la frase la escribe el núcleo (`surrenderBlocker`).
- */
-function renderRendicion(session: Session): Html {
-  const opcion = session.surrenderOption();
-  if (opcion === null) return NADA;
-  const rotulo = `Rendirse (${opcion.coste} oro)`;
-  return opcion.motivo === null
-    ? html`<button data-action="battle-surrender">${rotulo}</button>`
-    : html`<button data-action="battle-surrender" ${DESHABILITADO} title="${opcion.motivo}">${rotulo}</button>`;
-}
-
-/** La sección de hechizos de un bando sin héroe en la batalla: nadie lanza. */
-const SIN_HEROE_EN_LA_BATALLA = html`<h3>Hechizos</h3>
-  <div class="stack-list"><div class="stack empty">Sin héroe en esta batalla: nadie lanza hechizos</div></div>`;
 
 /**
  * El libro de hechizos durante la batalla.

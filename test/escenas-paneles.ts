@@ -23,6 +23,8 @@ import { Session } from '../src/client/sesion/partida.js';
 import { renderLog } from '../src/client/views/cronica.js';
 import { playAiGame } from '../src/core/ai/turn.js';
 import { isShooter } from '../src/core/battle/armas.js';
+import { hexEquals, neighbours } from '../src/core/battle/board.js';
+import { activeStack } from '../src/core/battle/consultas.js';
 import { terminarElDespliegue } from '../src/core/battle/despliegue.js';
 import { isEnterable, objectAt } from '../src/core/map/map.js';
 import { heroesOf } from '../src/core/state/consultas.js';
@@ -334,7 +336,52 @@ export async function escenas(): Promise<readonly Escena[]> {
   mochila.selectItem('espada_bendita');
   out.push({ nombre: 'aventura · mochila y pieza elegida', session: mochila });
 
-  // 19-21 · El motivo de lo que no se puede en la morada, la tropa y el ayuntamiento:
+  // 19-21 · Lo que el panel de la batalla dice de la activa y hasta R2 de la
+  //      reorganización (07-11-2026) solo decía la arena, el mismo panel desde
+  //      entonces: rodeada, que no sale; tras la Finta, que solo anda; y con la rueda
+  //      pidiendo la respuesta, que le toca responder (antes, «Turno del enemigo…»).
+  //      El de la escena 5, con la activa de la persona tocada a mano.
+  const rodeada = meAtacan(7);
+  rodeada.advanceEnemyTurns();
+  const campoRodeado = rodeada.battle;
+  const yo = campoRodeado === null ? null : activeStack(campoRodeado);
+  if (campoRodeado === null || yo === null || campoRodeado.turno === null) {
+    throw new Error('la batalla no le da el turno a la persona');
+  }
+  const libre = neighbours(yo.hex).find(
+    (h) => !campoRodeado.stacks.some((x) => x.count > 0 && hexEquals(x.hex, h)),
+  );
+  const enemigo = campoRodeado.stacks.find((x) => x.side !== yo.side && x.count > 0);
+  if (libre === undefined || enemigo === undefined) throw new Error('no hay a quién poner al lado');
+  // Uno al lado y una casilla por andar: salir le costaría dos.
+  enemigo.hex = libre;
+  campoRodeado.turno.gastado = rodeada.battleStepsLeft()! - 1;
+  out.push({ nombre: 'batalla · sin salida', session: rodeada });
+
+  const tras = meAtacan(7);
+  tras.advanceEnemyTurns();
+  const campoTras = tras.battle;
+  if (campoTras?.turno == null) throw new Error('la batalla no le da el turno a la persona');
+  // La Finta le resta dos al tramo de andar que le queda (`fintaEn`).
+  campoTras.turno.finta = 2;
+  out.push({ nombre: 'batalla · tras la Finta', session: tras });
+
+  let respondiendo: Session | undefined;
+  for (let semilla = 7; semilla < 47 && respondiendo === undefined; semilla++) {
+    const s = meAtacan(semilla);
+    s.advanceEnemyTurns();
+    // La persona termina cada turno hasta que la IA la golpea cuerpo a cuerpo.
+    for (let i = 0; i < 200 && s.ruedaPendiente === null && s.turnoPropio !== null; i++) {
+      s.playBattleAction({ type: 'end_turn' });
+    }
+    if (s.ruedaPendiente?.fase === 'respuesta') respondiendo = s;
+  }
+  if (respondiendo === undefined) {
+    throw new Error('en ninguna de cuarenta semillas la rueda pide la respuesta de la persona');
+  }
+  out.push({ nombre: 'batalla · respondiendo en la rueda', session: respondiendo });
+
+  // 22-24 · El motivo de lo que no se puede en la morada, la tropa y el ayuntamiento:
   //      un rechazo del núcleo, en su color, con la regla H5 de la guarnición (desde R2
   //      de la reorganización; antes, en el tono apagado de lo que solo informa).
   const morada = new Session(12);

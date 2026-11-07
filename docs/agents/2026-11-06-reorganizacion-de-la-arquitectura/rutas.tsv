@@ -2239,3 +2239,7 @@ simbolo	src/client/views/cifras.ts	src/client/views/cifras.ts	apagadoPor → atr
 simbolo	src/client/views/cifras.ts	src/client/views/cifras.ts	motivoDebajo → motivoDelRechazo (R2 de C4)
 simbolo	src/client/views/cifras.ts	src/client/views/cifras.ts	notaDebajo → notaDelApagado (R2 de C4)
 simbolo	src/client/views/cifras.ts	src/client/views/cifras.ts	apagadosPor → fieldsetApagado (R2 de C4)
+simbolo	src/client/batalla/panel.ts	src/client/partida/batalla/panel.ts	renderBattlePanel (lo de la partida sobre panelDeBatalla, el esqueleto de las dos páginas que se queda en batalla/panel.ts; R2 de C4)
+simbolo	src/client/batalla/panel.ts	src/client/partida/batalla/panel.ts	filaManaDeBatalla (R2 de C4)
+simbolo	src/client/batalla/panel.ts	src/client/partida/batalla/panel.ts	renderRendicion (R2 de C4)
+simbolo	src/client/batalla/panel.ts	src/client/partida/batalla/panel.ts	SIN_HEROE_EN_LA_BATALLA (R2 de C4)

@@ -809,6 +809,194 @@
         </button>
 ### aventura · mochila y pieza elegida · renderLog
 <div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
+### batalla · sin salida · renderTopbar.resources
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">25 500</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan u ocupan deja de darte oro." data-nota="si">ⓘ</span></li>
+### batalla · sin salida · renderSide
+<h2>Aldo de Valdeluz</h2>
+        <div class="row"><span class="label">Bando</span><span>Tú</span></div>
+        <div class="row"><span class="label">Efectivos</span><span>1</span></div>
+        <div class="row"><span class="label">Moral</span><span>1</span></div>
+    <div class="row"><span class="label">Ronda</span><span>1</span></div>
+    <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
+    <h3>Acciones</h3>
+       <div class="row"><span class="label">Le queda</span><span>1 casilla</span></div><p class="cost" data-sin-salida>Rodeado: con 1 enemigo al lado, salir de su casilla le cuesta 2 y le queda 1 casilla.</p>
+       <div class="stack-list">
+         <button data-action="battle-end-turn">Terminar turno</button>
+         <button data-action="battle-surrender">Rendirse (180 oro)</button>
+       </div>
+       <h3>Hechizos</h3><div class="stack-list"><button data-action="battle-spell" data-spell="magic_arrow"
+        class="stack"
+        
+        title="Cuesta 3 de maná">
+        <span>Flecha mágica</span><span class="count">3</span>
+      </button></div>
+    
+       <p class="cost" style="margin-top:.5rem">
+         Pasa el ratón por un enemigo a su lado para golpearlo.
+         Espacio termina el turno de la unidad.
+       </p>
+    <h3>En el campo</h3><div class="stack-list"><div class="stack empty">
+          <span>◀ Esqueleto guerrero A</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>◀ Esqueleto guerrero B</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>◀ Esqueleto guerrero C</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>◀ Esqueleto guerrero D</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>◀ Esqueleto arquero A</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>◀ Esqueleto arquero B</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>◀ ♛ Serena la Pálida</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ Guardia del temple A</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ Guardia del temple B</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ Escudero A</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ Escudero B</span>
+          <span class="count">1</span>
+        </div><div class="stack">
+          <span>▶ ♛ Aldo de Valdeluz</span>
+          <span class="count">1</span>
+        </div></div>
+    <h3>Parte de guerra</h3><div class="log" data-al-final="parte"><div>— Ronda 1 —</div><div>El enemigo lanza Flecha mágica sobre Aldo de Valdeluz: 59 de daño (−1 armadura), 0 bajas</div></div>
+### batalla · sin salida · renderActions
+<span class="solo-heroe"><label><input type="checkbox" data-action="solo-rueda-del-heroe" /> Solo la rueda del héroe</label><span class="nota" tabindex="0" role="note" aria-label="La rueda se te abre solo cuando tu héroe golpea o responde; la de tu tropa la elige la IA a ciegas, como la del rival." data-nota="si">ⓘ</span></span><button data-action="auto-battle">Resolver sola</button>
+### batalla · sin salida · renderLog
+<div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
+### batalla · tras la Finta · renderTopbar.resources
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">25 500</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan u ocupan deja de darte oro." data-nota="si">ⓘ</span></li>
+### batalla · tras la Finta · renderSide
+<h2>Aldo de Valdeluz</h2>
+        <div class="row"><span class="label">Bando</span><span>Tú</span></div>
+        <div class="row"><span class="label">Efectivos</span><span>1</span></div>
+        <div class="row"><span class="label">Moral</span><span>1</span></div>
+    <div class="row"><span class="label">Ronda</span><span>1</span></div>
+    <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
+    <h3>Acciones</h3>
+       <div class="row"><span class="label">Le quedan</span><span>2 casillas</span></div>
+       <div class="stack-list">
+         <button data-action="battle-end-turn">Terminar turno</button>
+         <button data-action="battle-surrender" disabled title="tras golpear con Finta solo puede andar o terminar el turno">Rendirse (180 oro)</button>
+       </div>
+       <h3>Hechizos</h3><div class="stack-list"><button data-action="battle-spell" data-spell="magic_arrow"
+        class="stack"
+        disabled
+        title="tras golpear con Finta solo puede andar o terminar el turno">
+        <span>Flecha mágica</span><span class="count">3</span>
+      </button></div>
+    
+       <p class="cost" style="margin-top:.5rem" data-tras-la-finta>
+         Finta: puede andar 2 casillas; andar termina el turno.
+         Espacio termina el turno de la unidad.
+       </p>
+    <h3>En el campo</h3><div class="stack-list"><div class="stack empty">
+          <span>◀ Esqueleto guerrero A</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>◀ Esqueleto guerrero B</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>◀ Esqueleto guerrero C</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>◀ Esqueleto guerrero D</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>◀ Esqueleto arquero A</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>◀ Esqueleto arquero B</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>◀ ♛ Serena la Pálida</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ Guardia del temple A</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ Guardia del temple B</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ Escudero A</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ Escudero B</span>
+          <span class="count">1</span>
+        </div><div class="stack">
+          <span>▶ ♛ Aldo de Valdeluz</span>
+          <span class="count">1</span>
+        </div></div>
+    <h3>Parte de guerra</h3><div class="log" data-al-final="parte"><div>— Ronda 1 —</div><div>El enemigo lanza Flecha mágica sobre Aldo de Valdeluz: 59 de daño (−1 armadura), 0 bajas</div></div>
+### batalla · tras la Finta · renderActions
+<span class="solo-heroe"><label><input type="checkbox" data-action="solo-rueda-del-heroe" /> Solo la rueda del héroe</label><span class="nota" tabindex="0" role="note" aria-label="La rueda se te abre solo cuando tu héroe golpea o responde; la de tu tropa la elige la IA a ciegas, como la del rival." data-nota="si">ⓘ</span></span><button data-action="auto-battle">Resolver sola</button>
+### batalla · tras la Finta · renderLog
+<div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
+### batalla · respondiendo en la rueda · renderTopbar.resources
+<li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">25 500</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan u ocupan deja de darte oro." data-nota="si">ⓘ</span></li>
+### batalla · respondiendo en la rueda · renderSide
+<h2>Serena la Pálida</h2>
+        <div class="row"><span class="label">Bando</span><span>Enemigo</span></div>
+        <div class="row"><span class="label">Efectivos</span><span>1</span></div>
+        <div class="row"><span class="label">Moral</span><span>-1</span></div>
+    <div class="row"><span class="label">Ronda</span><span>3</span></div>
+    <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
+    <p>Te toca responder en la rueda.</p>
+    <h3>En el campo</h3><div class="stack-list"><div class="stack empty">
+          <span>◀ Esqueleto guerrero A</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>◀ Esqueleto guerrero B</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>◀ Esqueleto guerrero C</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>◀ Esqueleto guerrero D</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>◀ Esqueleto arquero A</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>◀ Esqueleto arquero B</span>
+          <span class="count">1</span>
+        </div><div class="stack">
+          <span>◀ ♛ Serena la Pálida</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ Guardia del temple A</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ Guardia del temple B</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ Escudero A</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ Escudero B</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ ♛ Aldo de Valdeluz</span>
+          <span class="count">1</span>
+        </div></div>
+    <h3>Parte de guerra</h3><div class="log" data-al-final="parte"><div>— Ronda 1 —</div><div>El enemigo lanza Flecha mágica sobre Aldo de Valdeluz: 59 de daño (−1 armadura), 0 bajas</div><div>Esqueleto arquero A, del enemigo apunta a (11,2): dispara al empezar su siguiente turno</div><div>Esqueleto arquero B, del enemigo apunta a (11,6): dispara al empezar su siguiente turno</div><div>— Ronda 2 —</div><div>El enemigo lanza Flecha mágica sobre Aldo de Valdeluz: 59 de daño (−1 armadura), 0 bajas</div><div>Esqueleto arquero A → Esqueleto guerrero C (disparo a (11,2)): 7 de daño, 0 bajas</div><div>Esqueleto arquero B → Esqueleto guerrero D (disparo a (11,6)): 7 de daño, 0 bajas</div><div>— Ronda 3 —</div><div>El enemigo lanza Flecha mágica sobre Aldo de Valdeluz: 59 de daño (−1 armadura), 0 bajas</div></div>
+### batalla · respondiendo en la rueda · renderActions
+<span class="solo-heroe"><label><input type="checkbox" data-action="solo-rueda-del-heroe" /> Solo la rueda del héroe</label><span class="nota" tabindex="0" role="note" aria-label="La rueda se te abre solo cuando tu héroe golpea o responde; la de tu tropa la elige la IA a ciegas, como la del rival." data-nota="si">ⓘ</span></span><fieldset class="contando" disabled title="Elige antes en la rueda del golpe."><button data-action="auto-battle">Resolver sola</button></fieldset>
+### batalla · respondiendo en la rueda · renderLog
+<div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### morada · sin oro para reclutar · renderTopbar.resources
 <li data-abre-nota><span class="swatch" style="background:#d9a441"></span><span class="oro">0</span><span class="renta">+500/día</span><span class="nota" tabindex="0" role="note" aria-label="Oro al día: cobras Valdeluz 500. Cobran las ciudades y los pueblos unidos a tu base; uno que cortan u ocupan deja de darte oro." data-nota="si">ⓘ</span></li>
 ### morada · sin oro para reclutar · renderSide

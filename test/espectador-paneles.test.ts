@@ -13,6 +13,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/comun/html.js';
+import { adaptarBatalla } from '../src/client/espectador/adaptar.js';
 import { batalla, panelDelEspectador, vocesDeLasBases } from '../src/client/espectador/paneles.js';
 import { Reproductor } from '../src/client/espectador/reproductor.js';
 import {
@@ -24,9 +25,10 @@ import {
   ritmoDeReproduccion,
   TelonDeBatalla,
 } from '../src/client/espectador/telon.js';
+import { nombreEnElCampo } from '../src/client/render/batalla/distintivo.js';
 import { autoResolve, chooseBattleAction } from '../src/core/ai/tactics.js';
 import { applyAction } from '../src/core/battle/battle.js';
-import { activeStack } from '../src/core/battle/consultas.js';
+import { activeStack, stackById } from '../src/core/battle/consultas.js';
 import { legalActions } from '../src/core/battle/legalidad.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { ponerVoces } from '../src/core/gente/voces.js';
@@ -133,6 +135,38 @@ describe('el panel de batalla del espectador', () => {
     // Sin bando propio: «del atacante», no «tuya» ni «enemiga».
     expect(salida).toMatch(/<div>Aniquilada la unidad [^<]+, del atacante<\/div>/);
     expect(salida).toContain('<div>Fin: gana el atacante</div>');
+  });
+});
+
+describe('«En el campo» del espectador, la forma de las otras dos páginas (R2 de la reorganización)', () => {
+  it('cada fila lleva lo que tiene colgado su unidad, y las demás, como siempre', () => {
+    // Hasta R2 (07-11-2026) el espectador pintaba su lista con su copia, sin los
+    // efectos que la partida y la arena ponen en cada fila (`modificadoresEnCurso`):
+    // ahora la pinta `listaDelCampo`, con el color del dueño delante del nombre.
+    const vista = contraUnHeroe(5);
+    const estado = vista.battle?.estado as BattleState;
+    const sin = marcadoDe(batalla(vista));
+    expect(sin).not.toContain('modificadores en-curso');
+    expect(sin).not.toContain('con-efectos');
+    const alcanzado = estado.stacks.find((x) => x.count > 0);
+    if (alcanzado === undefined) throw new Error('una batalla sin nadie en pie');
+    alcanzado.effects.push({ kind: 'speed', amount: -2, source: 'slow', roundsLeft: 3 });
+    const con = marcadoDe(batalla(vista));
+    expect(con.match(/modificadores en-curso/g)).toHaveLength(1);
+    expect(con.match(/ con-efectos/g)).toHaveLength(1);
+    // En su fila, la primera de la lista, detrás de la cuenta; con el color de su dueño.
+    const filas = con.split('<div class="stack').slice(1);
+    const adaptada = adaptarBatalla(vista.battle!);
+    const suya = filas.find((f) =>
+      f.includes(nombreEnElCampo(adaptada, stackById(adaptada, alcanzado.id))),
+    );
+    expect(suya).toMatch(/^ empty con-efectos">/);
+    expect(suya).toContain('class="swatch"');
+    expect(suya).toMatch(
+      /<span class="count">1<\/span><span class="modificadores en-curso"><span class="modificador" data-efecto="speed" data-signo="−">velocidad -2<\/span>/,
+    );
+    // Las demás, como siempre: sin pastillas.
+    expect(filas.filter((f) => f.includes('data-efecto='))).toHaveLength(1);
   });
 });
 

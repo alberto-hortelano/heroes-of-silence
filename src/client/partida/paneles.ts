@@ -24,7 +24,6 @@
 import type { RentaDelDia } from '@core/state/renta.js';
 import { conMiles } from '@core/texto.js';
 import type { Hero } from '@core/types.js';
-import { renderBattlePanel } from '../batalla/panel.js';
 import { DESHABILITADO, fondoDeColor, type Html, html, NADA, srcDeImagen } from '../comun/html.js';
 import { asset } from '../render/assets.js';
 import { COLOR_DEL_ORO } from '../render/palette.js';
@@ -35,6 +34,7 @@ import { nota, rotuloDeDia } from '../views/notas.js';
 import { renderPanelDelAyuntamiento } from './ayuntamiento/panel.js';
 import type { Abierto } from './base/escena.js';
 import { renderTownPanel } from './base/panel.js';
+import { renderBattlePanel } from './batalla/panel.js';
 import { renderPanelDelLugar } from './lugar/panel.js';
 import { ROTULO_DE_FIN, renderAdventurePanel } from './mapa/panel.js';
 import { renderPanelDeLaMorada } from './morada/panel.js';
