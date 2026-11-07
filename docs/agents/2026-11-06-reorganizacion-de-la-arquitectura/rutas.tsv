@@ -1718,3 +1718,5 @@ simbolo	src/client/render/batalla.ts	src/client/render/batalla/fondo.ts	pintarNu
 simbolo	src/client/render/batalla.ts	src/client/render/batalla/fondo.ts	pintarAstros
 simbolo	src/client/render/batalla.ts	src/client/render/batalla/efectos.ts	pintarEfecto
 fichero	src/client/render/batalla.ts	(retirado)	repartido por lectores en render/batalla/: el tablero (drawBatalla y VistaBatalla) a tablero.ts, y lo que pinta a bandos, casillas, disparos, muralla (la geometría), muralla-pintada, figura, fondo y efectos; la caja de una figura de pie, a render/figuras/caja.ts; su cabecera, puesta al día, abre render/batalla/tablero.ts
+simbolo	src/client/batalla/anim.ts	src/client/render/batalla/tablero.ts	EstadoFigura
+simbolo	src/client/batalla/anim.ts	src/client/render/batalla/tablero.ts	Efecto

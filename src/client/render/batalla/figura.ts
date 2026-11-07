@@ -11,7 +11,6 @@ import { hexKey } from '@core/battle/board.js';
 import { hayMuralla } from '@core/battle/muralla.js';
 import { type BattleStack, type BattleState, rangoDeVeterania } from '@core/battle/types.js';
 import type { Plano } from '../../../shared/arte.js';
-import type { EstadoFigura } from '../../batalla/anim.js';
 import { temaDelLienzo } from '../../comun/temas.js';
 import { luzDeLasFiguras } from '../clima/recetas.js';
 import { type CajaDeFigura, cajaDeFiguraEn } from '../figuras/caja.js';
@@ -38,7 +37,7 @@ import {
   siluetaDePortada,
   tableroA,
 } from './muralla.js';
-import type { VistaBatalla } from './tablero.js';
+import type { EstadoFigura, VistaBatalla } from './tablero.js';
 
 /**
  * Dónde está la figura en pantalla: el centro de sus pies, el suelo y su altura.

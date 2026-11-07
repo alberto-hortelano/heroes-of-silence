@@ -14,10 +14,12 @@
  * en este instante, del animador.
  *
  * Era `render/batalla.ts` hasta la fase C de la reorganización (07-11-2026). Aquí queda
- * el tablero (`drawBatalla`, con lo que pinta: `VistaBatalla`); lo que pinta en él vive
- * al lado, en `render/batalla/`: los bandos, las casillas, los disparos y las granadas,
- * la muralla (lo que tapa y cómo se pinta), las figuras, el fondo y los efectos. La caja
- * de una figura de pie, en `render/figuras/caja.ts`.
+ * el tablero (`drawBatalla`, con lo que pinta: `VistaBatalla`, y lo que el animador le
+ * dice de cada figura y de lo que vuela, `EstadoFigura` y `Efecto`, que hasta entonces
+ * vivían en `batalla/anim.ts` y eran lo único que el lienzo nombraba de una pantalla);
+ * lo que pinta en él vive al lado, en `render/batalla/`: los bandos, las casillas, los
+ * disparos y las granadas, la muralla (lo que tapa y cómo se pinta), las figuras, el
+ * fondo y los efectos. La caja de una figura de pie, en `render/figuras/caja.ts`.
  */
 import type { ExplosionDeLaGranada, LineaDelDisparo } from '@core/battle/a-distancia.js';
 import { hexKey, indiceDe } from '@core/battle/board.js';
@@ -26,7 +28,7 @@ import { hayMuralla, nivelDe, puertaAbierta } from '@core/battle/muralla.js';
 import type { BattleStack, BattleState, Side } from '@core/battle/types.js';
 import type { ClimaDelSitio } from '@core/state/clima.js';
 import type { Hex } from '@core/types.js';
-import type { Efecto, EstadoFigura } from '../../batalla/anim.js';
+import type { Plano } from '../../../shared/arte.js';
 import { temaDelLienzo } from '../../comun/temas.js';
 import {
   campoDeEscena,
@@ -34,6 +36,8 @@ import {
   pintarSueloDelClima,
   sinElVelo,
 } from '../clima/clima.js';
+import type { CharacterClip } from '../figuras/character.js';
+import type { Direccion } from '../figuras/direccion.js';
 import { centroHex, type Tablero } from '../proyeccion.js';
 import { caraDe, pedirElArteDe } from './arte-de-la-muralla.js';
 import { type CasillaPintada, type EstiloDeCasilla, hexesDe } from './casillas.js';
@@ -170,6 +174,76 @@ export interface VistaBatalla {
    */
   readonly granadaTanteada: ExplosionDeLaGranada | null;
 }
+
+/** Lo que el lienzo necesita de una figura en este instante. */
+export interface EstadoFigura {
+  /** Dónde está, en el plano del tablero (centro de la figura, no del hex de cabeza). */
+  readonly en: Plano;
+  readonly clip: CharacterClip;
+  /** Milisegundos desde que empezó su clip actual. */
+  readonly tiempo: number;
+  /** 0 si no le están pegando; de 0 a 1 mientras dura el golpe que recibe. */
+  readonly golpe: number;
+  /** Se pinta aunque el estado diga que ha caído: su caída aún no se ha visto. */
+  readonly visible: boolean;
+  /**
+   * La opacidad del aro, la barra, el nombre y la corona: lo que se funde
+   * cuando cae. La figura con arte no se funde —se queda de cadáver—; sin arte,
+   * su marcador va con el aro (`Figura.alfaSinArte`).
+   */
+  readonly alfaDelAro: number;
+  /**
+   * Cuánto lleva caída, en ms, si ya se vio caer —o desde antes de que la
+   * batalla se viera—: el lienzo deja el cadáver en su casilla hasta el final
+   * (`fotogramaDeCaida`). `null` mientras esté en pie o cayendo en la cola.
+   */
+  readonly caida: number | null;
+  /**
+   * Lo alto que está: 0 en el suelo, 1 en lo alto de un muro, y lo de en medio
+   * mientras sube o baja. El lienzo lo multiplica por lo que mide una columna.
+   */
+  readonly elevacion: number;
+  /**
+   * Hacia dónde mira, en ocho sectores (`direccion.ts`): anda mirando a la
+   * casilla siguiente, golpea mirando a su objetivo y se queda mirando a donde
+   * miró la última vez. Es estado del animador, no del núcleo.
+   */
+  readonly mira: Direccion;
+  /**
+   * Los PV que se ven en su barra: los de su último impacto ya contado, no los
+   * del estado, que ya trae lo que la cola aún no ha enseñado. Con nada suyo por
+   * contar, los del estado.
+   */
+  readonly pv: number;
+  /**
+   * La casilla de cabeza en la que se la ve quieta —la de antes de un tramo que
+   * aún no ha andado—, o `null` mientras anda: el resaltado del activo va donde
+   * está la figura, no donde la deja el estado.
+   */
+  readonly casilla: Hex | null;
+}
+
+/** Un efecto suelto encima del tablero: un proyectil o una cifra de daño. */
+export type Efecto =
+  | {
+      readonly tipo: 'proyectil';
+      readonly desde: Plano;
+      readonly hasta: Plano;
+      readonly t: number;
+      /** Lo alto de quien tira y de su blanco (`EstadoFigura.elevacion`): la flecha sale de la columna. */
+      readonly altoDesde: number;
+      readonly altoHasta: number;
+    }
+  | {
+      readonly tipo: 'danio';
+      readonly en: Plano;
+      readonly alto: number;
+      readonly cifra: number;
+      readonly t: number;
+    }
+  /** Un golpe que la armadura paró entero (#262): en vez de «−0», «parado». */
+  | { readonly tipo: 'parado'; readonly en: Plano; readonly alto: number; readonly t: number }
+  | { readonly tipo: 'hechizo'; readonly en: Plano; readonly alto: number; readonly t: number };
 
 export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): void {
   const { battle, tablero } = v;

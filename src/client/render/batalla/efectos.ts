@@ -4,10 +4,10 @@
  * la altura de quien tira y de su blanco. Era parte de `render/batalla.ts` hasta la fase
  * C de la reorganización (07-11-2026).
  */
-import type { Efecto } from '../../batalla/anim.js';
 import { temaDelLienzo } from '../../comun/temas.js';
 import { enPantalla, type Tablero } from '../proyeccion.js';
 import { tableroA } from './muralla.js';
+import type { Efecto } from './tablero.js';
 
 export function pintarEfecto(ctx: CanvasRenderingContext2D, t: Tablero, e: Efecto): void {
   const alto = t.paso * 0.9;

@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { DURACION, type EstadoFigura } from '../src/client/batalla/anim.js';
+import { DURACION } from '../src/client/batalla/anim.js';
 import { EscenaBatalla } from '../src/client/batalla/escena.js';
 import { marcadoDe } from '../src/client/comun/html.js';
 import { EscenaBase } from '../src/client/partida/base/escena.js';
@@ -32,6 +32,7 @@ import {
   pintarCorona,
   pintarSobreLaCabeza,
 } from '../src/client/render/batalla/figura.js';
+import type { EstadoFigura } from '../src/client/render/batalla/tablero.js';
 import { PIES } from '../src/client/render/escenario/figuras-del-mapa.js';
 import type { Volumen } from '../src/client/render/escenario/pintar.js';
 import { cajaDeFiguraEn } from '../src/client/render/figuras/caja.js';

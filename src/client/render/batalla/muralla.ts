@@ -18,8 +18,8 @@ import type {
 import type { Hex } from '@core/types.js';
 import { ALTO_DE_FILA, COMPRESION_SUELO, type Plano } from '../../../shared/arte.js';
 import { ALTO_DE_MURALLA, PORTADA } from '../../../shared/muralla-de-batalla.js';
-import type { EstadoFigura } from '../../batalla/anim.js';
 import { centroHex, planoDeHex, type Tablero, verticesHex } from '../proyeccion.js';
+import type { EstadoFigura } from './tablero.js';
 
 /** Lo que se pinta en la pasada ordenada por profundidad (`piezasEnOrden`). */
 export type PiezaDelTablero =
