@@ -30,13 +30,8 @@ import {
   validarHeroeDeArena,
 } from '@core/arena/heroe.js';
 import { LADOS, type Lado } from '@core/arena/lados.js';
-import { despliegueDeArenaBlocker, topeDelBandoBlocker } from '@core/arena/montaje.js';
-import {
-  esFormaDeEjemplo,
-  FORMAS_DE_EJEMPLO,
-  type FormaDeMuralla,
-  validarFormaDeMuralla,
-} from '@core/arena/murallas.js';
+import { topeDelBandoBlocker } from '@core/arena/montaje.js';
+import { esFormaDeEjemplo } from '@core/arena/murallas.js';
 import {
   cambioDePiezas,
   conBase,
@@ -50,15 +45,8 @@ import {
   quitarEnArena,
 } from '@core/arena/piezas.js';
 import type { RetoqueDeArena } from '@core/arena/retoque.js';
-import { hexEquals, isInside } from '@core/battle/board.js';
-import {
-  esMuro,
-  hayMuralla,
-  mismaPuerta,
-  murallaVacia,
-  validarMuralla,
-} from '@core/battle/muralla.js';
-import type { BattleStack, PuertaDeMuralla } from '@core/battle/types.js';
+import { hayMuralla, murallaVacia } from '@core/battle/muralla.js';
+import type { BattleStack } from '@core/battle/types.js';
 import { COMBATE_COMPLETO, type ReglasDelCombate } from '@core/combate.js';
 import { type CatalogoDeEquipo, EQUIPO_DEL_JUEGO } from '@core/equipo/atado.js';
 import {
@@ -82,7 +70,6 @@ import {
   esHueco,
   esHuecoDePieza,
   esTipoDelAnillo,
-  type Hex,
   type HuecoDePieza,
 } from '@core/types.js';
 import { type Unidad, validarUnidad } from '@core/unidad/formato.js';
@@ -154,6 +141,15 @@ import {
   listaPlegadaTras,
   renderEdicion,
 } from './edicion.js';
+import {
+  arrancarMurallas,
+  borrarForma,
+  formaPorNombre,
+  guardarForma,
+  pintarMuralla,
+  repintarMuralla,
+  tocarHex,
+} from './editor-de-muralla.js';
 import { montarEditorDeMagia } from './magia.js';
 import {
   añadir,
@@ -161,7 +157,6 @@ import {
   describir,
   fuenteDeArena,
   heroesDeLaPagina,
-  montajeDeArena,
   ocupados,
   puestoPorClave,
   quienUsaElHechizo,
@@ -188,8 +183,7 @@ import {
   renderFichaDeHeroe,
 } from './paneles/ficha.js';
 import { renderCatalogo } from './paneles/lista.js';
-import { type HerramientaDeMuralla, renderMuralla } from './paneles/muralla.js';
-import { type FalloAlGuardar, leerDelServidor, mandarAlServidor } from './servidor.js';
+import type { HerramientaDeMuralla } from './paneles/muralla.js';
 
 const elementos = elementosDeLaArena();
 const {
@@ -204,14 +198,12 @@ const {
   elSide,
   elFicha,
   elCatalogo,
-  elMuralla,
   elCombate,
   elMontaje,
   elEdicion,
   elEquipo,
   elMagia,
   botonVolverDeEquipo,
-  botonLuchar,
   editor,
   elRueda,
   elFichaDelEditor,
@@ -538,173 +530,9 @@ function laFichaDe(el: Element, que: string): Elegida {
 
 // ---------------------------------------------------------------- arranque
 
-/**
- * Las formas de muralla guardadas, si hay servidor de desarrollo. Devuelve lo
- * que hay que añadir a la barra: las que no valen o el archivo ilegible. Las
- * que no valen se conservan al guardar, como las unidades.
- */
-async function arrancarMurallas(): Promise<string> {
-  const { cuerpo, sinGuardado: porQue } = await leerDelServidor(
-    '/__arena/murallas',
-    'las formas de muralla',
-  );
-  editorDeMuralla.murallasSinGuardado = porQue;
-  if (!cuerpo.guardado) return '';
-  if (cuerpo.ilegible !== undefined) return ` No se puede leer ${cuerpo.ruta}: ${cuerpo.ilegible}.`;
-  editorDeMuralla.formasGuardadas = (Array.isArray(cuerpo.formas) ? cuerpo.formas : []).map(
-    validarFormaDeMuralla,
-  );
-  const invalidas = cuerpo.invalidas ?? [];
-  return invalidas.length === 0
-    ? ''
-    : ` Formas de muralla que no valen y se conservan tal cual: ${invalidas
-        .map((i) => `${i.nombre ?? '(sin nombre)'} (${i.motivo})`)
-        .join('; ')}.`;
-}
-
 // ---------------------------------------------------------------- muralla
 
-/**
- * Un clic en la rejilla: pone la pieza de la herramienta, o la quita si ya
- * estaba. El muro va en la casilla, y quita las puertas que la tocaban. La
- * puerta va entre la casilla y su vecina del este (las dos que resalta el
- * puntero) y quita el muro de las dos, que son suelo. La goma quita el muro de
- * la casilla y las puertas que la tocan.
- */
-function tocarHex(hex: Hex): void {
-  // El clic despeja la barra, salvo lo que sigue siendo verdad: si no se puede
-  // guardar, se dice hasta que se pueda (QA, M4: el primer clic lo borraba).
-  vista.aviso =
-    editorDeMuralla.murallasSinGuardado === null
-      ? ''
-      : `No se pueden guardar ni borrar formas: ${editorDeMuralla.murallasSinGuardado}.`;
-  const toca = (p: PuertaDeMuralla, h: Hex): boolean => hexEquals(p.a, h) || hexEquals(p.b, h);
-  if (editorDeMuralla.herramienta === 'puerta') {
-    const este = { col: hex.col + 1, row: hex.row };
-    if (!isInside(este)) {
-      vista.aviso = `La puerta va entre una casilla y la de su este: (${hex.col},${hex.row}) es la última de su fila y no tiene.`;
-      return;
-    }
-    const nueva = { a: hex, b: este };
-    const estaba = editorDeMuralla.muralla.puertas.some((p) => mismaPuerta(p, nueva));
-    editorDeMuralla.muralla = validarMuralla({
-      muros: editorDeMuralla.muralla.muros.filter((h) => !hexEquals(h, hex) && !hexEquals(h, este)),
-      puertas: estaba
-        ? editorDeMuralla.muralla.puertas.filter((p) => !mismaPuerta(p, nueva))
-        : [...editorDeMuralla.muralla.puertas, nueva],
-      material: editorDeMuralla.muralla.material,
-    });
-    return;
-  }
-  const habia = esMuro(editorDeMuralla.muralla, hex);
-  const muros = editorDeMuralla.muralla.muros.filter((h) => !hexEquals(h, hex));
-  if (editorDeMuralla.herramienta === 'muro' && !habia) muros.push(hex);
-  const puertas =
-    editorDeMuralla.herramienta === 'muro' && habia
-      ? editorDeMuralla.muralla.puertas
-      : editorDeMuralla.muralla.puertas.filter((p) => !toca(p, hex));
-  editorDeMuralla.muralla = validarMuralla({
-    muros,
-    puertas,
-    material: editorDeMuralla.muralla.material,
-  });
-}
-
-function formaPorNombre(nombre: string): FormaDeMuralla {
-  const f = [...FORMAS_DE_EJEMPLO, ...editorDeMuralla.formasGuardadas].find(
-    (x) => x.nombre === nombre,
-  );
-  if (f === undefined) throw new Error(`no hay ninguna forma de muralla «${nombre}»`);
-  return f;
-}
-
-/**
- * Manda la lista entera de formas al servidor —guardar es mandarla con una más
- * o con una cambiada; borrar, sin ella— y, si la acepta, es la nueva lista.
- */
-async function escribirFormas(
-  formas: readonly FormaDeMuralla[],
-  fallo: FalloAlGuardar,
-): Promise<boolean> {
-  const hecho = await mandarAlServidor(
-    vista,
-    '/__arena/murallas',
-    { formas },
-    editorDeMuralla.murallasSinGuardado,
-    fallo,
-  );
-  if (hecho === null) return false;
-  editorDeMuralla.formasGuardadas = formas;
-  return true;
-}
-
-async function guardarForma(): Promise<void> {
-  // La regla del nombre y de la muralla es la del núcleo: aquí solo se le pasa.
-  const forma = validarFormaDeMuralla({
-    nombre: editorDeMuralla.nombreDeForma,
-    muralla: editorDeMuralla.muralla,
-  });
-  const yaEstaba = editorDeMuralla.formasGuardadas.some((f) => f.nombre === forma.nombre);
-  const formas = yaEstaba
-    ? editorDeMuralla.formasGuardadas.map((f) => (f.nombre === forma.nombre ? forma : f))
-    : [...editorDeMuralla.formasGuardadas, forma];
-  const fallo = {
-    noSePuede: 'No se puede guardar la muralla',
-    noSeHa: 'No se ha guardado la muralla',
-  };
-  if (await escribirFormas(formas, fallo)) {
-    editorDeMuralla.nombreDeForma = forma.nombre;
-    vista.aviso = `${yaEstaba ? 'Cambiada' : 'Guardada'} la forma «${forma.nombre}» en data/borradores/murallas.json.`;
-  }
-}
-
-async function borrarForma(nombre: string): Promise<void> {
-  const fallo = {
-    noSePuede: `No se puede borrar la forma «${nombre}»`,
-    noSeHa: `No se ha borrado la forma «${nombre}»`,
-  };
-  if (
-    await escribirFormas(
-      editorDeMuralla.formasGuardadas.filter((f) => f.nombre !== nombre),
-      fallo,
-    )
-  ) {
-    vista.aviso = `Borrada la forma «${nombre}».`;
-  }
-}
-
 // ---------------------------------------------------------------- montaje
-
-/**
- * El editor de la muralla y lo que depende de él: si el montaje cabe con ella
- * (el aviso del editor y «Luchar», deshabilitado con el motivo). Las acciones de
- * la muralla repintan solo esto (`repintarMuralla`); el resto del montaje no
- * cambia con ellas.
- */
-function pintarMuralla(): void {
-  const despliegue = despliegueDeArenaBlocker(montajeDeArena(pagina));
-  pintar(
-    elMuralla,
-    renderMuralla({
-      muralla: editorDeMuralla.muralla,
-      herramienta: editorDeMuralla.herramienta,
-      nombre: editorDeMuralla.nombreDeForma,
-      ejemplos: FORMAS_DE_EJEMPLO,
-      guardadas: editorDeMuralla.formasGuardadas,
-      sinGuardado: editorDeMuralla.murallasSinGuardado,
-      despliegue,
-      plegado: editorDeMuralla.murallaPlegada,
-    }),
-  );
-  botonLuchar.toggleAttribute('disabled', despliegue !== null);
-  botonLuchar.title = despliegue === null ? '' : `No se puede luchar: ${despliegue}.`;
-}
-
-/** Solo el editor de la muralla, y la barra de estado en el siguiente fotograma. */
-function repintarMuralla(): void {
-  pintarMuralla();
-  pedirFotograma();
-}
 
 function repintarMontaje(): void {
   pintarVista(elMontaje, () => {
@@ -734,7 +562,7 @@ function repintarMontaje(): void {
         listaDeUnidades(catalogo),
       )}`,
     );
-    pintarMuralla();
+    pintarMuralla(pagina);
   });
 }
 
@@ -2115,15 +1943,15 @@ document.addEventListener('click', (ev) => {
         });
         return;
       case 'hex-muralla':
-        tocarHex({
+        tocarHex(pagina, {
           col: Number(el.getAttribute('data-col')),
           row: Number(el.getAttribute('data-row')),
         });
-        repintarMuralla();
+        repintarMuralla(pagina);
         return;
       case 'herramienta-muralla':
         editorDeMuralla.herramienta = el.getAttribute('data-herramienta') as HerramientaDeMuralla;
-        repintarMuralla();
+        repintarMuralla(pagina);
         return;
       case 'plegar-muralla':
         editorDeMuralla.murallaPlegada = !editorDeMuralla.murallaPlegada;
@@ -2132,34 +1960,40 @@ document.addEventListener('click', (ev) => {
           editorDeMuralla.murallaPlegada ? '1' : '0',
           QUE_PLEGADO,
         );
-        repintarMuralla();
+        repintarMuralla(pagina);
         return;
       case 'vaciar-muralla':
         editorDeMuralla.muralla = murallaVacia('piedra');
         vista.aviso = 'Muralla vacía: la pelea será a campo abierto.';
-        repintarMuralla();
+        repintarMuralla(pagina);
         return;
       case 'cargar-forma': {
-        const f = formaPorNombre(el.getAttribute('data-nombre') as string);
+        const f = formaPorNombre(editorDeMuralla, el.getAttribute('data-nombre') as string);
         editorDeMuralla.muralla = f.muralla;
         // Una de ejemplo no se guarda con su nombre: se deja el campo para otro.
         editorDeMuralla.nombreDeForma = esFormaDeEjemplo(f.nombre) ? '' : f.nombre;
         vista.aviso = `Cargada la forma «${f.nombre}».`;
-        repintarMuralla();
+        repintarMuralla(pagina);
         return;
       }
       case 'guardar-forma':
-        void guardarForma().then(repintarMuralla, (err: unknown) => {
-          vista.aviso = `No se ha guardado la muralla: ${mensajeDe(err)}.`;
-          repintarMuralla();
-        });
+        void guardarForma(pagina).then(
+          () => repintarMuralla(pagina),
+          (err: unknown) => {
+            vista.aviso = `No se ha guardado la muralla: ${mensajeDe(err)}.`;
+            repintarMuralla(pagina);
+          },
+        );
         return;
       case 'borrar-forma': {
         const nombre = el.getAttribute('data-nombre') as string;
-        void borrarForma(nombre).then(repintarMuralla, (err: unknown) => {
-          vista.aviso = `No se ha borrado la forma «${nombre}»: ${mensajeDe(err)}.`;
-          repintarMuralla();
-        });
+        void borrarForma(pagina, nombre).then(
+          () => repintarMuralla(pagina),
+          (err: unknown) => {
+            vista.aviso = `No se ha borrado la forma «${nombre}»: ${mensajeDe(err)}.`;
+            repintarMuralla(pagina);
+          },
+        );
         return;
       }
       case 'guardar':
@@ -2538,7 +2372,7 @@ editor.addEventListener('close', () => {
 });
 
 // Las dos lecturas no dependen una de otra: van a la vez.
-Promise.all([arrancar(pagina), arrancarMurallas()]).then(
+Promise.all([arrancar(pagina), arrancarMurallas(editorDeMuralla)]).then(
   ([, avisoDeMurallas]) => {
     const delEnlace = montarDelEnlace();
     // Las fichas abiertas la última vez: solo las que aún se abren (la hoja está

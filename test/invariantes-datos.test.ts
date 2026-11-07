@@ -112,7 +112,11 @@ describe('invariantes del proyecto', () => {
     const veElBorrador = /data\/borradores|tools\/arena\//;
     const fuera = todos.filter((r) => !ARENA(r));
     expect(infractoresDeCodigo(fuera, veElBorrador)).toEqual([]);
-    expect(infractoresDeCodigo([ruta('src/client/arena/main.ts')], veElBorrador)).not.toEqual([]);
+    // Y que mire algo: el editor de la muralla, que escribe el borrador (era `arena/main.ts`
+    // hasta R8 de la reorganización, 07-11-2026).
+    expect(
+      infractoresDeCodigo([ruta('src/client/arena/editor-de-muralla.ts')], veElBorrador),
+    ).not.toEqual([]);
 
     // (b) La arena lee las piezas solo con su catálogo atado (`equipoCon`, que da
     // `catalogoDeLaArena`): no importa las lecturas sueltas de `core/equipo/`, que
