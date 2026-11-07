@@ -17,12 +17,12 @@
  * clima, la guarnición (con el puesto), la defensa, el lugar, la tropa, lo que se ve del
  * mapa, la marcha, el ataque a la persona y el cierre de la batalla. Cada una lee la sesión
  * por su `Dueño…`, de lo común (`DueñoDeLasPiezas`, `sesion/partida/comun.ts`) y de lo
- * suyo, siempre por función, y no la importa. Esta clase es su fachada: cada miembro
- * público que se usa fuera delega en su pieza, y aquí queda lo que las une —la partida y
- * su azar, la versión, la escena, la barra, la guarda de las acciones (`run`,
- * `bloqueoDeTurno`), el héroe elegido y el clic en el mapa, lo que abre la llegada de una
- * marcha y pasar el turno— y lo que no es de ninguna: la base, los héroes en espera, las
- * consultas y lo que la partida pone en la sesión de batalla.
+ * suyo, siempre por función, y no la importa. Esta clase es su fachada: lo de una pieza que
+ * se usa fuera sigue siendo un miembro público de aquí, que delega en ella con una línea. Y
+ * aquí queda lo que las une —la partida y su azar, la versión, la escena, la barra, la
+ * guarda de las acciones (`run`, `bloqueoDeTurno`), el héroe elegido y el clic en el mapa,
+ * lo que abre la llegada de una marcha y pasar el turno— y lo que no es de ninguna: la base,
+ * los héroes en espera, las consultas y lo que la partida pone en la sesión de batalla.
  */
 import { playAiTurn } from '@core/ai/turn.js';
 import { activeStack, surrenderBlocker } from '@core/battle/consultas.js';
