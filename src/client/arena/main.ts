@@ -386,8 +386,8 @@ const editorDeMagia = montarEditorDeMagia(elMagia, {
   cambiar: (lista, elegido) => {
     catalogo.hechizosDeLaPagina = lista;
     editorDeMagia.elegir(elegido);
-    if (sesion !== null) {
-      const motivo = sesion.retocar({ kind: 'hechizos', hechizos: catalogoDeMagia() });
+    if (pelea.sesion !== null) {
+      const motivo = pelea.sesion.retocar({ kind: 'hechizos', hechizos: catalogoDeMagia() });
       vista.aviso =
         motivo === null ? 'Cambiado: vale ya en esta pelea.' : `No entra en esta pelea: ${motivo}`;
     }
@@ -660,7 +660,7 @@ function vistaALaBarra(): void {
 /** Lo que dice la barra al entrar en la edición o en el equipo, con su botón o al recargar. */
 function avisoAlEntrar(v: VistaEnLaURL): string {
   if (v === 'magia') {
-    return sesion === null
+    return pelea.sesion === null
       ? 'Elige un hechizo para cambiarlo, o crea uno: «Guardar» lo escribe en data/hechizos.json. El héroe lo lleva si lo marcas en su libro; una unidad, como poder en su ficha.'
       : 'En plena pelea: lo que cambies vale ya para quien lo lleve (lo ya echado sigue como se echó).';
   }
@@ -669,7 +669,7 @@ function avisoAlEntrar(v: VistaEnLaURL): string {
       ? 'Abre las fichas que quieras desde la lista: se añaden debajo. Lo que cambies vale para el montaje.'
       : 'Lo que cambies aquí vale para el montaje; «Volver al montaje» lo enseña allí.';
   }
-  return sesion === null
+  return pelea.sesion === null
     ? 'Elige una pieza para cambiarla, o crea una nueva en su hueco: «Guardar» la escribe en data/equipo.json, el catálogo del juego.'
     : EQUIPO_EN_PLENA_PELEA;
 }
@@ -702,7 +702,43 @@ function vistaDeLaURL(): {
     return { vista: null, pieza: null, aviso: `${mensajeDe(err)}. ` };
   }
 }
-let sesion: SesionDeArena | null = null;
+
+/**
+ * La pelea: su sesión, mientras la hay, y lo que la página recuerda de ella entre fotogramas (los
+ * paneles pintados, si toca colocar el marco) y si el editor de la batalla se abrió desde la
+ * rueda. Eran cuatro `let` de módulo hasta R8 de la reorganización (07-11-2026).
+ */
+interface EstadoDeLaPelea {
+  /** La pelea de «Luchar», hasta «Otra vez»; `null` en el montaje. */
+  sesion: SesionDeArena | null;
+  /**
+   * Si el editor enseña una ficha abierta desde la rueda del golpe. Con la rueda
+   * abierta no se cambia nada —la sesión tampoco lo deja, `retocar`—: la ficha es
+   * de solo lectura, y al cerrarla se vuelve a la rueda en la misma fase, sin
+   * cancelar la elección (#261).
+   */
+  fichaDeLaRueda: boolean;
+  /**
+   * Con muralla, el lienzo se alarga lo que piden lo alto de sus columnas y quien
+   * está encima (`altoDelLienzo`) y el marco se desplaza en vertical: el tablero
+   * baja en vez de encogerse (el usuario: «si se sale de la pantalla podemos mover
+   * la zona de casillas más abajo y agrandar la pantalla»). Al alargarse, el marco
+   * se coloca con el final del tablero abajo (`pieDelTablero`), tras el primer
+   * fotograma con el tamaño nuevo: con el marco abajo del todo, la cabeza de quien
+   * está en una columna de la fila de atrás quedaba fuera de la vista, y arriba
+   * del todo, la última fila. Sin muralla, el lienzo es el marco.
+   */
+  colocarElMarco: boolean;
+  /** Con qué versión de la sesión, y contando o no, se pintaron el panel y la barra de arriba. */
+  paneles: { version: string; ocupada: boolean } | null;
+}
+
+const pelea: EstadoDeLaPelea = {
+  sesion: null,
+  fichaDeLaRueda: false,
+  colocarElMarco: false,
+  paneles: null,
+};
 
 /**
  * La muralla que se dibuja y con la que se pelea. Se rehace entera en cada clic
@@ -1326,7 +1362,7 @@ function repintarEquipo(): void {
         elegida: vista.piezaElegida,
         llevan: quienesLaLlevan,
         rechazo: vista.aviso === vista.rechazado ? vista.aviso : null,
-        enCombate: sesion !== null,
+        enCombate: pelea.sesion !== null,
         sinGuardar: sinGuardarEnPalabras(
           piezasSinGuardar().length,
           catalogo.unidadesSinGuardar.size,
@@ -1620,7 +1656,7 @@ function puestoPorClave(clave: number): { lado: Lado; i: number; p: Puesto } {
  */
 function fichaElegida(enCombate = false): Html {
   const como =
-    enCombate && sesion !== null
+    enCombate && pelea.sesion !== null
       ? { enCombate, piezas: catalogo.equipo, hechizos: hechizosQueValen() }
       : enElMontaje(catalogo.equipo, hechizosQueValen());
   return fichaDe(vista.elegida, como);
@@ -1653,7 +1689,7 @@ function fichaDe(e: Elegida | null, como0: ComoDeLaFicha): Html {
  * héroe—; `null` si ha entrado o si no hay pelea que retocar.
  */
 function retocarLaPelea(r: RetoqueDeArena): string | null {
-  return sesion === null ? null : sesion.retocar(r);
+  return pelea.sesion === null ? null : pelea.sesion.retocar(r);
 }
 
 /**
@@ -1668,7 +1704,7 @@ function noSeCambia(motivo: string): void {
   // En plena pelea la barra de abajo es la de la sesión: se quedaba con el
   // «Cambiado: vale ya en esta pelea.» del cambio anterior, justo lo contrario
   // de lo que decía el editor (H5 de QA del ciclo 2).
-  if (sesion !== null) sesion.status = vista.aviso;
+  if (pelea.sesion !== null) pelea.sesion.status = vista.aviso;
 }
 /** La barra de la vista de equipo a media pelea, hasta el primer cambio. */
 const EQUIPO_EN_PLENA_PELEA =
@@ -1679,7 +1715,9 @@ const EQUIPO_EN_PLENA_PELEA =
  * lo que dice la sesión al retocar (`retocar`: si ha soltado algo).
  */
 function avisoTrasCambio(texto: string): void {
-  vista.aviso = [texto, sesion === null ? '' : sesion.status].filter((t) => t !== '').join(' ');
+  vista.aviso = [texto, pelea.sesion === null ? '' : pelea.sesion.status]
+    .filter((t) => t !== '')
+    .join(' ');
 }
 
 /**
@@ -1691,7 +1729,9 @@ function pintarEditor(): void {
   const ficha = fichaElegida(true);
   pintar(
     elFichaDelEditor,
-    fichaDeLaRueda ? html`<fieldset disabled class="solo-lectura">${ficha}</fieldset>` : ficha,
+    pelea.fichaDeLaRueda
+      ? html`<fieldset disabled class="solo-lectura">${ficha}</fieldset>`
+      : ficha,
   );
   elAvisoDelEditor.textContent = vista.aviso;
   elAvisoDelEditor.classList.toggle('rechazo', vista.aviso === vista.rechazado);
@@ -1707,14 +1747,6 @@ const TEXTOS_DEL_EDITOR = {
 } as const;
 
 /**
- * Si el editor enseña una ficha abierta desde la rueda del golpe. Con la rueda
- * abierta no se cambia nada —la sesión tampoco lo deja, `retocar`—: la ficha es
- * de solo lectura, y al cerrarla se vuelve a la rueda en la misma fase, sin
- * cancelar la elección (#261).
- */
-let fichaDeLaRueda = false;
-
-/**
  * Abre el editor de la batalla con la ficha del tipo de `st` (`tipoDelStack`: la
  * unidad de la que sale, o el héroe de su lado): para cambiarla, o desde la rueda
  * (`soloLectura`), para mirarla. Encima de la rueda: `showModal` apila los dos en
@@ -1723,7 +1755,7 @@ let fichaDeLaRueda = false;
 function abrirEditor(s: SesionDeArena, st: BattleStack, soloLectura: boolean): void {
   vista.elegida = tipoDelStack(st);
   const nombre = nombreEnElCampo(s.battle, st);
-  fichaDeLaRueda = soloLectura;
+  pelea.fichaDeLaRueda = soloLectura;
   elTituloDelEditor.textContent = soloLectura ? `Ficha de ${nombre}` : TEXTOS_DEL_EDITOR.titulo;
   botonCerrarEditor.textContent = soloLectura ? 'Volver a la rueda' : TEXTOS_DEL_EDITOR.cerrar;
   vista.aviso = soloLectura
@@ -2143,8 +2175,8 @@ function idsQueCambian(antes: CatalogoDeEquipo, despues: CatalogoDeEquipo): stri
 // ---------------------------------------------------------------- batalla
 
 const batalla = new EscenaBatalla(() => {
-  if (sesion === null) throw new Error('la escena de batalla se ha usado sin batalla');
-  return sesion;
+  if (pelea.sesion === null) throw new Error('la escena de batalla se ha usado sin batalla');
+  return pelea.sesion;
 });
 
 function luchar(): void {
@@ -2176,11 +2208,11 @@ function luchar(): void {
     return;
   }
   aLaBarraDeLaArena((url) => url.searchParams.set('seed', String(semilla)));
-  sesion = nueva;
+  pelea.sesion = nueva;
   elSeed.textContent = `semilla ${semilla}`;
   irA('battle');
   principal.remedir();
-  paneles = null;
+  pelea.paneles = null;
   // El animador mira el tablero de salida ANTES de que la IA juegue: así cuenta
   // lo que juega, también con todas las unidades en IA (H1 de QA).
   batalla.sincronizar(performance.now());
@@ -2190,28 +2222,16 @@ function luchar(): void {
 function volverAlMontaje(): void {
   if (editor.open) editor.close();
   rueda.cerrar();
-  sesion = null;
+  pelea.sesion = null;
   irA('montaje');
   vista.aviso = 'De vuelta al montaje: todo sigue como estaba.';
   repintarMontaje();
 }
 
-/**
- * Con muralla, el lienzo se alarga lo que piden lo alto de sus columnas y quien
- * está encima (`altoDelLienzo`) y el marco se desplaza en vertical: el tablero
- * baja en vez de encogerse (el usuario: «si se sale de la pantalla podemos mover
- * la zona de casillas más abajo y agrandar la pantalla»). Al alargarse, el marco
- * se coloca con el final del tablero abajo (`pieDelTablero`), tras el primer
- * fotograma con el tamaño nuevo: con el marco abajo del todo, la cabeza de quien
- * está en una columna de la fila de atrás quedaba fuera de la vista, y arriba
- * del todo, la última fila. Sin muralla, el lienzo es el marco.
- */
-let colocarElMarco = false;
-
 function alargarLienzo(): void {
   const visible = elLienzo.clientHeight;
   const pide = (): number =>
-    sesion === null ? visible : batalla.altoDelLienzo(elLienzo.clientWidth, visible);
+    pelea.sesion === null ? visible : batalla.altoDelLienzo(elLienzo.clientWidth, visible);
   // Dos veces: con el marco desplazable, la barra le quita ancho, y el alto que
   // pide el tablero sale de ese ancho.
   app.toggleAttribute('data-muralla', pide() > visible + 0.5);
@@ -2221,19 +2241,19 @@ function alargarLienzo(): void {
   const alargado = canvas.style.height === '';
   canvas.style.height = css;
   principal.remedir();
-  if (alargado && css !== '') colocarElMarco = true;
+  if (alargado && css !== '') pelea.colocarElMarco = true;
 }
 
 /** Tras pintar con el lienzo alargado: el final del tablero, al pie del marco. */
 function colocarMarco(): void {
-  if (!colocarElMarco) return;
-  colocarElMarco = false;
+  if (!pelea.colocarElMarco) return;
+  pelea.colocarElMarco = false;
   elLienzo.scrollTop = Math.max(0, batalla.pieDelTablero() - elLienzo.clientHeight);
 }
 
 /** La puerta de los gestos mientras se cuenta la jugada, como en la partida. */
 function jugadaEnCurso(): boolean {
-  if (sesion === null) return true;
+  if (pelea.sesion === null) return true;
   if (!batalla.rechazarSiOcupada(performance.now())) return false;
   pedirFotograma();
   return true;
@@ -2244,7 +2264,7 @@ function jugadaEnCurso(): boolean {
  * panel, las teclas y el puntero sobre el tablero, con la misma puerta de arriba.
  */
 const gestos = new GestosDeBatalla({
-  sesion: () => sesion,
+  sesion: () => pelea.sesion,
   escena: batalla,
   jugadaEnCurso,
   pedirFotograma,
@@ -2255,16 +2275,14 @@ const gestos = new GestosDeBatalla({
 const principal = ajustarLienzo(canvas, pedirFotograma);
 cargarArte(pedirFotograma, { manifiesto: false, mapa: false, hojas: false });
 
-let paneles: { version: string; ocupada: boolean } | null = null;
-
 /** Un fotograma del bucle (`pedirFotograma`): lo pinta y dice si se pide otro. */
 function render(ahora: number): boolean {
   // En la vista de equipo, también a media pelea, la barra es la de la página.
-  if (sesion === null || vista.escena === 'equipo' || vista.escena === 'magia') {
+  if (pelea.sesion === null || vista.escena === 'equipo' || vista.escena === 'magia') {
     if (elStatus.textContent !== vista.aviso) elStatus.textContent = vista.aviso;
     return animarFiguras(ahora);
   }
-  dibujarBatalla(ahora, sesion);
+  dibujarBatalla(ahora, pelea.sesion);
   // Las figuras de los dos de la rueda (su cabecera, `DialogoDeLaRueda.animar`).
   const enLaRueda = rueda.animar(ahora);
   return enLaRueda || hayFigurasAnimadas() || batalla.ocupada;
@@ -2357,8 +2375,12 @@ function dibujarBatalla(ahora: number, s: SesionDeArena): void {
   colocarMarco();
   const ocupada = batalla.ocupada;
   const version = s.version;
-  if (paneles === null || paneles.version !== version || paneles.ocupada !== ocupada) {
-    paneles = { version, ocupada };
+  if (
+    pelea.paneles === null ||
+    pelea.paneles.version !== version ||
+    pelea.paneles.ocupada !== ocupada
+  ) {
+    pelea.paneles = { version, ocupada };
     // El parte se lee de arriba abajo y lo último queda al fondo: sigue ahí, o
     // al acabar no se veía lo que acababa de pasar (M11 de QA), salvo que la
     // persona haya subido a leer (#198).
@@ -2387,9 +2409,9 @@ function dibujarBatalla(ahora: number, s: SesionDeArena): void {
  * (`caraDeLaArena`).
  */
 const rueda = new DialogoDeLaRueda(elRueda, {
-  sesion: () => sesion,
+  sesion: () => pelea.sesion,
   escena: batalla,
-  cara: () => (sesion === null ? null : caraDeLaArena(sesion)),
+  cara: () => (pelea.sesion === null ? null : caraDeLaArena(pelea.sesion)),
   pedirFotograma,
   alPulsarMientrasCuenta: () => {
     jugadaEnCurso();
@@ -2404,14 +2426,14 @@ function enLienzo(ev: { clientX: number; clientY: number }): { x: number; y: num
 }
 
 canvas.addEventListener('pointermove', (ev) => {
-  if (sesion === null) return;
+  if (pelea.sesion === null) return;
   const p = enLienzo(ev);
   gestos.mover(p.x, p.y);
   pedirFotograma();
 });
 
 canvas.addEventListener('pointerup', (ev) => {
-  if (ev.button !== 0 || sesion === null) return;
+  if (ev.button !== 0 || pelea.sesion === null) return;
   const p = enLienzo(ev);
   gestos.soltar(p.x, p.y);
   pedirFotograma();
@@ -2489,16 +2511,16 @@ document.addEventListener('click', (ev) => {
       }
       case 'editar-en-combate':
       case 'ficha-en-la-rueda': {
-        if (sesion === null) return;
+        if (pelea.sesion === null) return;
         const id = el.getAttribute('data-stack');
-        const st = sesion.battle.stacks.find((x) => x.id === id);
+        const st = pelea.sesion.battle.stacks.find((x) => x.id === id);
         if (st === undefined) {
           const boton = que === 'editar-en-combate' ? 'el botón «Editar»' : 'la figura de la rueda';
           throw new Error(`${boton} trae «${String(id)}», que no está en la pelea`);
         }
         // Lo que se edita es el TIPO: la unidad de la que sale, o el héroe de su
         // lado (`tipoDelStack`, por su origen). Desde la rueda, solo se mira.
-        abrirEditor(sesion, st, que === 'ficha-en-la-rueda');
+        abrirEditor(pelea.sesion, st, que === 'ficha-en-la-rueda');
         return;
       }
       case 'cerrar-editor':
@@ -2585,10 +2607,12 @@ document.addEventListener('click', (ev) => {
         break;
       case 'volver-de-magia': {
         const vuelta =
-          vista.escenaDeVuelta === 'battle' && sesion === null ? 'montaje' : vista.escenaDeVuelta;
+          vista.escenaDeVuelta === 'battle' && pelea.sesion === null
+            ? 'montaje'
+            : vista.escenaDeVuelta;
         irA(vuelta);
         if (vuelta === 'battle') {
-          paneles = null;
+          pelea.paneles = null;
           principal.remedir();
         }
         vista.aviso = 'De vuelta, con los hechizos que hayas cambiado.';
@@ -2618,11 +2642,13 @@ document.addEventListener('click', (ev) => {
         break;
       case 'volver-de-equipo': {
         const vuelta =
-          vista.escenaDeVuelta === 'battle' && sesion === null ? 'montaje' : vista.escenaDeVuelta;
+          vista.escenaDeVuelta === 'battle' && pelea.sesion === null
+            ? 'montaje'
+            : vista.escenaDeVuelta;
         irA(vuelta);
         if (vuelta === 'battle') {
           // El panel se rehace con las cifras nuevas; la barra, la de la sesión.
-          paneles = null;
+          pelea.paneles = null;
           principal.remedir();
         }
         vista.aviso = 'De vuelta, con las piezas que hayas cambiado.';
@@ -2633,7 +2659,7 @@ document.addEventListener('click', (ev) => {
         piezaTrasElGesto = vista.piezaElegida;
         // En plena pelea la barra sigue recordando qué pasa al cambiar (M4 de QA:
         // al elegir la primera pieza se quedaba en blanco).
-        vista.aviso = sesion === null ? '' : EQUIPO_EN_PLENA_PELEA;
+        vista.aviso = pelea.sesion === null ? '' : EQUIPO_EN_PLENA_PELEA;
         break;
       case 'crear-pieza':
       case 'crear-pieza-sobre': {
@@ -3159,8 +3185,8 @@ document.addEventListener('keydown', (ev) => {
 // rueda, vuelve a ella (seguía abierta debajo, en su fase), y el editor recobra
 // su título y su botón de cambiar cifras.
 editor.addEventListener('close', () => {
-  if (fichaDeLaRueda) {
-    fichaDeLaRueda = false;
+  if (pelea.fichaDeLaRueda) {
+    pelea.fichaDeLaRueda = false;
     elTituloDelEditor.textContent = TEXTOS_DEL_EDITOR.titulo;
     botonCerrarEditor.textContent = TEXTOS_DEL_EDITOR.cerrar;
   }
