@@ -110,6 +110,7 @@ import { FIGURA } from '../../shared/arte.js';
 import { EscenaBatalla } from '../batalla/escena.js';
 import { GestosDeBatalla } from '../batalla/gestos.js';
 import { DialogoDeLaRueda } from '../batalla/rueda/dialogo.js';
+import { bucleDeDibujo } from '../comun/bucle.js';
 import { avisoDelClima, climaDeLaURL } from '../comun/clima-de-la-url.js';
 import { mensajeDe } from '../comun/errores.js';
 import { type Html, html, pintar } from '../comun/html.js';
@@ -231,6 +232,21 @@ const elBando: Record<Lado, HTMLElement> = {
   izquierda: document.getElementById('bando-izquierda') as HTMLElement,
   derecha: document.getElementById('bando-derecha') as HTMLElement,
 };
+
+/**
+ * El bucle de dibujo (`comun/bucle.ts`), con la red de la arena: un fallo al pintar se
+ * escribe en la barra y no se pide otro fotograma hasta el siguiente gesto. Va aquí arriba
+ * porque lo recogen desde el principio los gestos y la rueda; lo que pinta, `render`, en
+ * «dibujo».
+ */
+const pedirFotograma = bucleDeDibujo({
+  pintar: render,
+  alFallar: (motivo) => {
+    console.error('[arena] fallo al pintar', motivo);
+    elStatus.textContent = `No se ha podido pintar la pantalla: ${mensajeDe(motivo)}`;
+    return false;
+  },
+});
 
 // ---------------------------------------------------------------- estado
 
@@ -2139,38 +2155,22 @@ const gestos = new GestosDeBatalla({
 
 // ---------------------------------------------------------------- dibujo
 
-let fotogramaPedido = false;
-function pedirFotograma(): void {
-  if (fotogramaPedido) return;
-  fotogramaPedido = true;
-  requestAnimationFrame(render);
-}
-
 const principal = ajustarLienzo(canvas, pedirFotograma);
 cargarArte(pedirFotograma, { manifiesto: false, mapa: false, hojas: false });
 
 let paneles: { version: string; ocupada: boolean } | null = null;
 
-function render(ahora: number): void {
-  fotogramaPedido = false;
-  let otraVez = false;
-  try {
-    // En la vista de equipo, también a media pelea, la barra es la de la página.
-    if (sesion === null || escena === 'equipo' || escena === 'magia') {
-      if (elStatus.textContent !== aviso) elStatus.textContent = aviso;
-      otraVez = animarFiguras(ahora);
-    } else {
-      dibujarBatalla(ahora, sesion);
-      // Las figuras de los dos de la rueda (su cabecera, `DialogoDeLaRueda.animar`).
-      const enLaRueda = rueda.animar(ahora);
-      otraVez = enLaRueda || hayFigurasAnimadas() || batalla.ocupada;
-    }
-  } catch (err) {
-    console.error('[arena] fallo al pintar', err);
-    elStatus.textContent = `No se ha podido pintar la pantalla: ${mensajeDe(err)}`;
-  } finally {
-    if (otraVez) pedirFotograma();
+/** Un fotograma del bucle (`pedirFotograma`): lo pinta y dice si se pide otro. */
+function render(ahora: number): boolean {
+  // En la vista de equipo, también a media pelea, la barra es la de la página.
+  if (sesion === null || escena === 'equipo' || escena === 'magia') {
+    if (elStatus.textContent !== aviso) elStatus.textContent = aviso;
+    return animarFiguras(ahora);
   }
+  dibujarBatalla(ahora, sesion);
+  // Las figuras de los dos de la rueda (su cabecera, `DialogoDeLaRueda.animar`).
+  const enLaRueda = rueda.animar(ahora);
+  return enLaRueda || hayFigurasAnimadas() || batalla.ocupada;
 }
 
 /** El instante dentro de un clip que no va en bucle, repetido con una pausa al final. */

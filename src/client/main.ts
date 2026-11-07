@@ -16,6 +16,7 @@ import { FLECHAS_AL_COLOCAR } from './batalla/colocar.js';
 import { EscenaBatalla } from './batalla/escena.js';
 import { GestosDeBatalla } from './batalla/gestos.js';
 import { DialogoDeLaRueda } from './batalla/rueda/dialogo.js';
+import { bucleDeDibujo } from './comun/bucle.js';
 import { leerElClimaDeLaURL } from './comun/clima-de-la-url.js';
 import { mensajeDe } from './comun/errores.js';
 import { type Html, pintar } from './comun/html.js';
@@ -82,6 +83,24 @@ const elDefensa = document.getElementById('defensa') as HTMLDialogElement;
 const elAviso = document.getElementById('aviso') as HTMLDialogElement;
 const stage = document.getElementById('stage') as HTMLElement;
 const lateral = document.getElementById('lateral') as HTMLElement;
+
+/**
+ * El bucle de dibujo (`comun/bucle.ts`), con la red de la partida: un fallo al pintar se
+ * escribe en la barra, y el siguiente fotograma se vuelve a pedir si hace falta, también
+ * tras un fallo (`otroFotograma`). Va aquí arriba porque lo recogen desde el principio la
+ * sesión (`alCambiarSinGesto`) y la rueda; lo que pinta, en «dibujo».
+ */
+const pedirFotograma = bucleDeDibujo({
+  pintar: (ahora) => {
+    dibujarFotograma(ahora);
+    return otroFotograma();
+  },
+  alFallar: (motivo) => {
+    console.error('[cliente] fallo al pintar', motivo);
+    elStatus.textContent = `No se ha podido pintar la pantalla: ${mensajeDe(motivo)}`;
+    return otroFotograma();
+  },
+});
 
 /**
  * La semilla que pide la URL, o `null` si no pide ninguna. Lanza si pide una
@@ -361,19 +380,18 @@ let desarrollo: Desarrollo | null = null;
 // ---------------------------------------------------------------- dibujo
 
 /**
- * Cuándo se pinta, que es la mitad del trabajo.
+ * Cuándo se pinta, que es la mitad del trabajo (el bucle, `pedirFotograma`, arriba).
  *
  * El lienzo pide fotograma solo mientras hay algo que se mueve: figuras que
  * respiran (con su arte cargado), la cola del animador de batalla o un arrastre
  * del mapa. Fuera de eso, se pinta cuando algo pasa —un gesto, el fin del turno
- * del rival, un cambio de tamaño, arte que llega— y se para. Antes era un
- * `requestAnimationFrame` perpetuo que lo rehacía todo, paneles incluidos.
+ * del rival, un cambio de tamaño, arte que llega— y se para. Tras pintar un
+ * fotograma, o fallar al pintarlo, se pide otro si algo se mueve, y también si la
+ * escena cambió mientras se pintaba —un «Continuar» que esperaba a la jugada
+ * vuelve al mapa en `batalla.sincronizar`—: este fotograma pintó la de antes.
  */
-let fotogramaPedido = false;
-function pedirFotograma(): void {
-  if (fotogramaPedido) return;
-  fotogramaPedido = true;
-  requestAnimationFrame(render);
+function otroFotograma(): boolean {
+  return hayAnimacion() || session.scene !== escenaPintada;
 }
 
 function hayAnimacion(): boolean {
@@ -447,28 +465,6 @@ function fichaTrasElClic(): void {
   setTimeout(traer, ESPERA_DEL_CLIC);
 }
 const ESPERA_DEL_CLIC = 400;
-
-/**
- * El bucle de dibujo, con red: el fallo se escribe en la barra y el siguiente
- * fotograma se vuelve a pedir si hace falta. Desde que el marcado sale por
- * `pintar`, dentro hay funciones que lanzan, y con el `requestAnimationFrame` en
- * la última línea una sola excepción congelaba el tablero sin decir nada.
- */
-function render(ahora: number): void {
-  fotogramaPedido = false;
-  try {
-    dibujarFotograma(ahora);
-  } catch (err) {
-    const motivo = mensajeDe(err);
-    console.error('[cliente] fallo al pintar', err);
-    elStatus.textContent = `No se ha podido pintar la pantalla: ${motivo}`;
-  } finally {
-    // También si la escena cambió mientras se pintaba —un «Continuar» que
-    // esperaba a la jugada vuelve al mapa en `batalla.sincronizar`—: este
-    // fotograma pintó la de antes.
-    if (hayAnimacion() || session.scene !== escenaPintada) pedirFotograma();
-  }
-}
 
 function dibujarFotograma(ahora: number): void {
   const escena = session.scene;

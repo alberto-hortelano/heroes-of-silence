@@ -8,9 +8,10 @@
  * cliente no aplica reglas», que corre sobre `src/client` entero: esta carpeta cae
  * dentro y por eso vive aquí y no en otra parte.
  *
- * Reutiliza sin copiar los lienzos de `render/`, el animador de batalla y la
- * crónica (`views/cronica.ts`). Lo único duplicado es el bucle de dibujo, y es más
- * corto que el del cliente que juega porque aquí no hay ratón ni sesión.
+ * Reutiliza sin copiar los lienzos de `render/`, el animador de batalla, la
+ * crónica (`views/cronica.ts`) y el bucle de dibujo (`comun/bucle.ts`); lo suyo es
+ * qué pinta cada fotograma y su red, más corta que la del cliente que juega porque
+ * aquí no hay ratón ni sesión.
  */
 import { SIN_CARGAS } from '@core/battle/consultas.js';
 import { todosALaVista } from '@core/state/asaltantes.js';
@@ -25,6 +26,7 @@ import {
 import type { SpectatorSnapshotMsg } from '../../server/protocol.js';
 import type { SpectatorView } from '../../server/vista-espectador.js';
 import { DialogoDeLaRueda } from '../batalla/rueda/dialogo.js';
+import { bucleDeDibujo } from '../comun/bucle.js';
 import { avisoDelClima, climaDeLaURL } from '../comun/clima-de-la-url.js';
 import { mensajeDe } from '../comun/errores.js';
 import { NADA } from '../comun/html.js';
@@ -62,6 +64,13 @@ const elTurn = document.getElementById('turn') as HTMLElement;
 const elSide = document.getElementById('side') as HTMLElement;
 const elStatus = document.getElementById('status') as HTMLElement;
 const elSeed = document.getElementById('seed') as HTMLElement;
+
+/**
+ * El bucle de dibujo (`comun/bucle.ts`), con la red del espectador (`alFallarAlPintar`): el
+ * fallo se dice una vez y no se pide otro fotograma hasta que llegue algo por el cable. Va
+ * aquí arriba, como en la partida y la arena; lo que pinta, `dibujar`, más abajo.
+ */
+const pedirFotograma = bucleDeDibujo({ pintar: dibujar, alFallar: alFallarAlPintar });
 
 /**
  * El puerto del canal de espectadores, sin escribirlo a mano (criterio 20).
@@ -231,13 +240,6 @@ const rueda = new DialogoDeLaRueda(document.getElementById('rueda') as HTMLDialo
   pedirFotograma: () => pedirFotograma(),
 });
 
-let fotogramaPedido = false;
-function pedirFotograma(): void {
-  if (fotogramaPedido) return;
-  fotogramaPedido = true;
-  requestAnimationFrame(dibujar);
-}
-
 const principal = ajustarLienzo(canvas, pedirFotograma);
 const ctx = principal.ctx;
 
@@ -249,7 +251,30 @@ const ctx = principal.ctx;
 let fallandoAlPintar = false;
 
 /**
- * El bucle de dibujo, con red.
+ * Un fotograma del bucle (`pedirFotograma`): pone lo que haya llegado por el cable,
+ * lo pinta y dice si se pide otro. Mientras todo va bien, se repinta solo mientras
+ * algo se mueve: las figuras que respiran o la cola del animador.
+ */
+function dibujar(ahora: number): boolean {
+  // Lo que no es el último no se llega a ver en pantalla —no traía nada que
+  // contar, ver `paso`—, así que solo el último se adapta para pintar.
+  const llegado = mirada.reproductor.paso(ahora).at(-1);
+  if (llegado !== undefined) aplicar(llegado);
+  pintarTodo(ahora);
+  if (fallandoAlPintar) {
+    fallandoAlPintar = false;
+    decirQueSeMira();
+  }
+  // El telón también pide fotogramas: mientras retiene un final, el reloj que
+  // lo suelta solo avanza si alguien vuelve a mirar.
+  return (
+    mirada.reproductor.pendiente ||
+    (vista !== null && (hayFigurasAnimadas() || mirada.reproductor.animador.busy))
+  );
+}
+
+/**
+ * La red del bucle del espectador, cuando `dibujar` lanza.
  *
  * Este ciclo ha metido en el bucle tres funciones que **lanzan** —`pintar`,
  * `srcDeImagen` y `fondoDeColor`— donde antes solo había asignaciones a
@@ -261,43 +286,20 @@ let fallandoAlPintar = false;
  *
  * Dos decisiones, y las dos son de esta casa:
  *
- *  - el fallo **se dice**, con su motivo, en la barra. El `catch` no está vacío
- *    ni se traga nada;
+ *  - el fallo **se dice**, con su motivo, en la barra. No se traga nada;
  *  - y tras un fallo no se pide otro fotograma: se vuelve a intentar cuando
  *    llegue otro fotograma del servidor, en vez de repetir el mismo fallo
- *    sesenta veces por segundo. Mientras todo va bien, se repinta solo mientras
- *    algo se mueve: las figuras que respiran o la cola del animador.
+ *    sesenta veces por segundo.
  */
-function dibujar(ahora: number): void {
-  fotogramaPedido = false;
-  try {
-    // Lo que no es el último no se llega a ver en pantalla —no traía nada que
-    // contar, ver `paso`—, así que solo el último se adapta para pintar.
-    const llegado = mirada.reproductor.paso(ahora).at(-1);
-    if (llegado !== undefined) aplicar(llegado);
-    pintarTodo(ahora);
-    if (fallandoAlPintar) {
-      fallandoAlPintar = false;
-      decirQueSeMira();
-    }
-    // El telón también pide fotogramas: mientras retiene un final, el reloj que
-    // lo suelta solo avanza si alguien vuelve a mirar.
-    if (
-      mirada.reproductor.pendiente ||
-      (vista !== null && (hayFigurasAnimadas() || mirada.reproductor.animador.busy))
-    ) {
-      pedirFotograma();
-    }
-  } catch (err) {
-    const motivo = mensajeDe(err);
-    if (!fallandoAlPintar) {
-      console.error('[espectador] fallo al pintar', err);
-      fallandoAlPintar = true;
-      elStatus.textContent =
-        `No se ha podido pintar este fotograma: ${motivo}. ` +
-        'Se sigue escuchando; el siguiente que llegue vuelve a intentarlo.';
-    }
+function alFallarAlPintar(motivo: unknown): boolean {
+  if (!fallandoAlPintar) {
+    console.error('[espectador] fallo al pintar', motivo);
+    fallandoAlPintar = true;
+    elStatus.textContent =
+      `No se ha podido pintar este fotograma: ${mensajeDe(motivo)}. ` +
+      'Se sigue escuchando; el siguiente que llegue vuelve a intentarlo.';
   }
+  return false;
 }
 
 /**
