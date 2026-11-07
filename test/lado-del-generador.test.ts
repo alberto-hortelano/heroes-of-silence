@@ -10,7 +10,7 @@
  * `regiones.test.ts` ya roza el minuto sin ellos.
  */
 import { describe, expect, it } from 'vitest';
-import { mapPlanSchema } from '../src/core/contract/agent.js';
+import { mapPlanSchema } from '../src/core/contract/esquemas.js';
 import {
   LADO_DEL_MAPA,
   LADO_MAXIMO_DEL_GENERADOR,

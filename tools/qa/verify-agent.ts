@@ -34,8 +34,8 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import WebSocket from 'ws';
 import { unidadDelJuego } from '../../src/core/catalogo.js';
-import { PROSA_DE_LA_MURALLA } from '../../src/core/contract/agent.js';
-import { COMO_SE_LEE_EL_MAPA } from '../../src/core/contract/serialize.js';
+import { PROSA_DE_LA_MURALLA } from '../../src/core/contract/formato.js';
+import { COMO_SE_LEE_EL_MAPA } from '../../src/core/contract/mapa-conocido.js';
 import { esUpgrade, JUGADAS_DE_MURALLA } from '../../src/core/contract/vocabulario.js';
 import {
   CABECERA_ESTADO,

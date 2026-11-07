@@ -19,7 +19,7 @@ import { marcadoDe } from '../src/client/html.js';
 import { renderLog } from '../src/client/views/panels.js';
 import { playAiGame, resolvePendingBattle } from '../src/core/ai/turn.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
-import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
+import { serializeAdventureTurn } from '../src/core/contract/aventura.js';
 import type { MapPlan } from '../src/core/map/generar/plan.js';
 import type { MapObject } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';

@@ -17,8 +17,8 @@
  * sin empezar a merced de un agente que no acierta.
  */
 
-import type { MapGenerateResponse } from '@core/contract/agent.js';
-import { type MapRequestOptions, serializeMapRequest } from '@core/contract/serialize.js';
+import type { MapGenerateResponse } from '@core/contract/esquemas.js';
+import { type MapRequestOptions, serializeMapRequest } from '@core/contract/peticion-de-mapa.js';
 import type { MapPlan } from '@core/map/generar/plan.js';
 import { basesDelPlan, validateMapPlan } from '@core/map/generate.js';
 import type { AgentAnswer, AgentLink } from './agent-link.js';

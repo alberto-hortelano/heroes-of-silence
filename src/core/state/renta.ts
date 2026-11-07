@@ -1,7 +1,7 @@
 /**
  * La renta del día: el oro que cobra un jugador al empezar su turno. **Un
  * hecho, un sitio**: lo suman `startTurn`, lo cuentan
- * al agente (`serialize.ts`, `you.income`) y lo enseña la barra (`Session`), y
+ * al agente (`contract/aventura.ts`, `you.income`) y lo enseña la barra (`Session`), y
  * los tres lo leen de aquí.
  *
  * **Lo que está unido a la base, y nada más** (fase 2a; el usuario corrigió el
@@ -37,7 +37,7 @@ import type { GameState } from './tipos.js';
 
 /**
  * La regla del pueblo dicha para la persona y para el agente: la leen la prosa
- * del contrato (`agent.ts`, `serialize.ts`) y el cliente, como `REGLA_DEL_ESCUDO`.
+ * del contrato (`formato.ts`, `mapa-conocido.ts` y `peticion-de-mapa.ts`) y el cliente, como `REGLA_DEL_ESCUDO`.
  */
 export const REGLA_DEL_PUEBLO = `da ${ECONOMIA.rentaDelPueblo} de oro al día a quien lo tenga unido a su base (dentro de una región, a quien tenga la región), salvo si está ocupado`;
 

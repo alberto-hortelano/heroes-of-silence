@@ -107,7 +107,7 @@ export function mageGuildLevel(town: Town): number {
  * un `Town.spellBook` sería estado nuevo, serialización nueva y una segunda
  * fuente de verdad para una decisión que no existe. El día que #26 traiga
  * contenido de sobra, el sorteo se rellena DENTRO de esta función: la firma es
- * la que ven el panel, `serialize.ts` y el aprendizaje, así que ninguno se
+ * la que ven el panel, el contrato (`contract/aventura.ts`) y el aprendizaje, así que ninguno se
  * entera. Sin tirada, el `createRng` de `CLAUDE.md` no aplica todavía.
  */
 export function townSpells(town: Town): readonly Hechizo[] {

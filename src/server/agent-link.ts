@@ -7,7 +7,8 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { formatoDeLaRespuesta, type RequestKind, responseSchemas } from '@core/contract/agent.js';
+import { type RequestKind, responseSchemas } from '@core/contract/esquemas.js';
+import { formatoDeLaRespuesta } from '@core/contract/formato.js';
 import type { WebSocket } from 'ws';
 import { notaRespuestaInvalida, notaSinRespuesta } from './notas.js';
 import type {

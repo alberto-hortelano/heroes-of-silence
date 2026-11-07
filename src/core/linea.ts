@@ -1,8 +1,9 @@
 /**
  * La forma de un texto libre que el agente escribe para una persona: una línea
- * legible. Vive aparte de `agent.ts` para que la lean también las reglas que
- * juzgan línea a línea (las voces de la base, `gente/voces.ts`) sin arrastrar el
- * contrato entero, que importa los serializadores y cerraría un ciclo.
+ * legible. Vive fuera del contrato (era `contract/linea.ts` hasta la fase N de la
+ * reorganización, 07-11-2026) para que la lean también las reglas que juzgan línea
+ * a línea (las voces de la base, `gente/voces.ts`; el banco de NPC; un mundo) sin
+ * importar el contrato, que fuera de `contract/` no importa nadie del núcleo.
  */
 import { z } from 'zod';
 

@@ -2,7 +2,7 @@
  * Wire entre el servidor de juego, el puente MCP y los espectadores.
  * Es la fuente de verdad del formato: si cambia aquí, cambia en los dos lados.
  */
-import type { RequestKind } from '@core/contract/agent.js';
+import type { RequestKind } from '@core/contract/esquemas.js';
 import type { SpectatorView } from './vista-espectador.js';
 
 // ------------------------------------------------------- servidor → agente

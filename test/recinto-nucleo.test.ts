@@ -17,7 +17,7 @@ import {
   contornoDelRecinto,
   dentroDelContorno,
 } from '../src/client/render/escenario/recinto.js';
-import { RESPONSE_FORMAT } from '../src/core/contract/agent.js';
+import { RESPONSE_FORMAT } from '../src/core/contract/formato.js';
 import { buildMap, validateMapPlan } from '../src/core/map/generate.js';
 import {
   createEmptyMap,

@@ -27,7 +27,8 @@ import type { BattleHero, BattleState } from '../src/core/battle/types.js';
 import { HERO_BODY } from '../src/core/battle/types.js';
 import { cifrasDeUnidad, unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { serializeAdventureTurn, serializeBattleTurn } from '../src/core/contract/serialize.js';
+import { serializeAdventureTurn } from '../src/core/contract/aventura.js';
+import { serializeBattleTurn } from '../src/core/contract/batalla.js';
 import { HEROE } from '../src/core/hero/cuerpo-del-heroe.js';
 import {
   cifrasVeteranas,

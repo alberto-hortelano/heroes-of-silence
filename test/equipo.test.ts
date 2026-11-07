@@ -21,7 +21,7 @@ import {
   unidadDelJuego,
 } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { RESPONSE_FORMAT } from '../src/core/contract/agent.js';
+import { RESPONSE_FORMAT } from '../src/core/contract/formato.js';
 import {
   EQUIPO,
   EQUIPO_ESCRITO,

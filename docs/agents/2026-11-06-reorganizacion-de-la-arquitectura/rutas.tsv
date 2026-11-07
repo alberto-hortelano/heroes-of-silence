@@ -501,3 +501,65 @@ fichero	src/core/contract/linea.ts	src/core/linea.ts
 fichero	src/core/npcs.ts	src/core/gente/banco.ts	
 fichero	src/core/town/voces.ts	src/core/gente/voces.ts	
 fichero	src/core/town/figuras.ts	src/core/gente/figuras.ts	
+fichero	src/core/contract/agent.ts	src/core/contract/formato.ts	
+simbolo	src/core/contract/formato.ts	src/core/contract/esquemas.ts	pointSchema
+simbolo	src/core/contract/formato.ts	src/core/contract/esquemas.ts	hexSchema
+simbolo	src/core/contract/formato.ts	src/core/contract/esquemas.ts	gateSchema
+simbolo	src/core/contract/formato.ts	src/core/contract/esquemas.ts	adventureActionSchema
+simbolo	src/core/contract/formato.ts	src/core/contract/esquemas.ts	retirada
+simbolo	src/core/contract/formato.ts	src/core/contract/esquemas.ts	battleActionSchema
+simbolo	src/core/contract/formato.ts	src/core/contract/esquemas.ts	battleResponseResponseSchema
+simbolo	src/core/contract/formato.ts	src/core/contract/esquemas.ts	adventureTurnResponseSchema
+simbolo	src/core/contract/formato.ts	src/core/contract/esquemas.ts	battleTurnResponseSchema
+simbolo	src/core/contract/formato.ts	src/core/contract/esquemas.ts	terrainSchema
+simbolo	src/core/contract/formato.ts	src/core/contract/esquemas.ts	idDeMapa
+simbolo	src/core/contract/formato.ts	src/core/contract/esquemas.ts	nombreDeMapa
+simbolo	src/core/contract/formato.ts	src/core/contract/esquemas.ts	mapPlanSchema
+simbolo	src/core/contract/formato.ts	src/core/contract/esquemas.ts	mapGenerateResponseSchema
+simbolo	src/core/contract/formato.ts	src/core/contract/esquemas.ts	heroFromTroopResponseSchema
+simbolo	src/core/contract/formato.ts	src/core/contract/esquemas.ts	townVoicesResponseSchema
+simbolo	src/core/contract/formato.ts	src/core/contract/esquemas.ts	REQUEST_KINDS
+simbolo	src/core/contract/formato.ts	src/core/contract/esquemas.ts	RequestKind
+simbolo	src/core/contract/formato.ts	src/core/contract/esquemas.ts	responseSchemas
+simbolo	src/core/contract/formato.ts	src/core/contract/esquemas.ts	MapGenerateResponse
+simbolo	src/core/contract/serialize.ts	src/core/contract/vistas.ts	armyView
+simbolo	src/core/contract/serialize.ts	src/core/contract/vistas.ts	equipoView
+simbolo	src/core/contract/serialize.ts	src/core/contract/vistas.ts	CATALOGO_DE_EQUIPO_EN_PROSA
+simbolo	src/core/contract/serialize.ts	src/core/contract/vistas.ts	ocupanteView
+simbolo	src/core/contract/serialize.ts	src/core/contract/vistas.ts	fichaDeCriatura
+simbolo	src/core/contract/serialize.ts	src/core/contract/vistas.ts	tiroDe
+simbolo	src/core/contract/serialize.ts	src/core/contract/vistas.ts	chargeDamageDe
+simbolo	src/core/contract/serialize.ts	src/core/contract/vistas.ts	objetivoAlAgente
+simbolo	src/core/contract/serialize.ts	src/core/contract/vistas.ts	hechizosAlAgente
+simbolo	src/core/contract/serialize.ts	src/core/contract/mapa-conocido.ts	knownObjects
+simbolo	src/core/contract/serialize.ts	src/core/contract/mapa-conocido.ts	serializeKnownMap
+simbolo	src/core/contract/serialize.ts	src/core/contract/mapa-conocido.ts	COSTE_POR_TERRENO
+simbolo	src/core/contract/serialize.ts	src/core/contract/mapa-conocido.ts	BARRERAS_EN_PROSA
+simbolo	src/core/contract/serialize.ts	src/core/contract/mapa-conocido.ts	COSTE_CON_CAMINO
+simbolo	src/core/contract/serialize.ts	src/core/contract/mapa-conocido.ts	COMO_SE_LEE_EL_MAPA
+simbolo	src/core/contract/serialize.ts	src/core/contract/aventura.ts	infiltracionVista
+simbolo	src/core/contract/serialize.ts	src/core/contract/aventura.ts	incomeView
+simbolo	src/core/contract/serialize.ts	src/core/contract/aventura.ts	veteranosEsperando
+simbolo	src/core/contract/serialize.ts	src/core/contract/aventura.ts	climaALaVista
+simbolo	src/core/contract/serialize.ts	src/core/contract/aventura.ts	KIND_DEL_SITIO
+simbolo	src/core/contract/serialize.ts	src/core/contract/aventura.ts	guarnicionesView
+simbolo	src/core/contract/serialize.ts	src/core/contract/aventura.ts	serializeAdventureTurn
+simbolo	src/core/contract/serialize.ts	src/core/contract/aventura.ts	serializeHeroFromTroop
+simbolo	src/core/contract/serialize.ts	src/core/contract/aventura.ts	serializeTownVoices
+simbolo	src/core/contract/serialize.ts	src/core/contract/batalla.ts	VistaDeBatalla
+simbolo	src/core/contract/serialize.ts	src/core/contract/batalla.ts	marcaDelOrigen
+simbolo	src/core/contract/serialize.ts	src/core/contract/batalla.ts	serializeBattleTurn
+simbolo	src/core/contract/serialize.ts	src/core/contract/batalla.ts	delTurnoPropio
+simbolo	src/core/contract/serialize.ts	src/core/contract/batalla.ts	golpesAlAgente
+simbolo	src/core/contract/serialize.ts	src/core/contract/batalla.ts	stacksVistos
+simbolo	src/core/contract/serialize.ts	src/core/contract/batalla.ts	registroVisto
+simbolo	src/core/contract/serialize.ts	src/core/contract/batalla.ts	stackView
+simbolo	src/core/contract/serialize.ts	src/core/contract/batalla.ts	murallaVista
+simbolo	src/core/contract/serialize.ts	src/core/contract/batalla.ts	serializeBattleResponse
+simbolo	src/core/contract/serialize.ts	src/core/contract/batalla.ts	chargeFrom
+simbolo	src/core/contract/serialize.ts	src/core/contract/peticion-de-mapa.ts	MapRequestOptions
+simbolo	src/core/contract/serialize.ts	src/core/contract/peticion-de-mapa.ts	comoRepartePorRegiones
+simbolo	src/core/contract/serialize.ts	src/core/contract/peticion-de-mapa.ts	comoRepartenLosNiveles
+simbolo	src/core/contract/serialize.ts	src/core/contract/peticion-de-mapa.ts	NIVEL_MAXIMO_DE_GUARDIA
+simbolo	src/core/contract/serialize.ts	src/core/contract/peticion-de-mapa.ts	serializeMapRequest
+fichero	src/core/contract/serialize.ts	(retirado)	repartido en contract/vistas, mapa-conocido, aventura, batalla y peticion-de-mapa

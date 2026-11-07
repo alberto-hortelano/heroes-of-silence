@@ -6,11 +6,9 @@
  * su batalla con sus ojos era sacarlas de allí. `ws-server.ts` se queda con el
  * cableado, que es lo que no se puede probar de todos modos.
  */
-import {
-  serializeAdventureTurn,
-  serializeBattleTurn,
-  serializeKnownMap,
-} from '@core/contract/serialize.js';
+import { serializeAdventureTurn } from '@core/contract/aventura.js';
+import { serializeBattleTurn } from '@core/contract/batalla.js';
+import { serializeKnownMap } from '@core/contract/mapa-conocido.js';
 import { playerById } from '@core/state/consultas.js';
 import { sidesOwnedBy } from '@core/state/game.js';
 import type { GameState } from '@core/state/tipos.js';

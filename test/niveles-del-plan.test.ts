@@ -11,8 +11,9 @@
  */
 import { describe, expect, it } from 'vitest';
 import { componer } from '../src/client/render/escenario/colocar.js';
-import { mapPlanSchema, RESPONSE_FORMAT } from '../src/core/contract/agent.js';
-import { serializeMapRequest } from '../src/core/contract/serialize.js';
+import { mapPlanSchema } from '../src/core/contract/esquemas.js';
+import { RESPONSE_FORMAT } from '../src/core/contract/formato.js';
+import { serializeMapRequest } from '../src/core/contract/peticion-de-mapa.js';
 import type { MapPlan, PlanConCasillas } from '../src/core/map/generar/plan.js';
 import {
   buildMap,

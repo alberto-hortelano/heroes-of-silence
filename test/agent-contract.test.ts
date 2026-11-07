@@ -22,27 +22,24 @@ import { LAS_TRES_RUEDAS, RUEDAS } from '../src/core/battle/formas-de-la-rueda.j
 import type { BattleAction } from '../src/core/battle/types.js';
 import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
+import { serializeAdventureTurn } from '../src/core/contract/aventura.js';
+import { serializeBattleResponse, serializeBattleTurn } from '../src/core/contract/batalla.js';
 import {
   adventureActionSchema,
   battleActionSchema,
   battleTurnResponseSchema,
-  formatoDeLaRespuesta,
   mapPlanSchema,
-  PROSA_DE_LA_MURALLA,
   REQUEST_KINDS,
-  RESPONSE_FORMAT,
   responseSchemas,
-} from '../src/core/contract/agent.js';
+} from '../src/core/contract/esquemas.js';
 import {
-  CATALOGO_DE_EQUIPO_EN_PROSA,
-  COMO_SE_LEE_EL_MAPA,
-  fichaDeCriatura,
-  serializeAdventureTurn,
-  serializeBattleResponse,
-  serializeBattleTurn,
-  serializeKnownMap,
-  serializeMapRequest,
-} from '../src/core/contract/serialize.js';
+  formatoDeLaRespuesta,
+  PROSA_DE_LA_MURALLA,
+  RESPONSE_FORMAT,
+} from '../src/core/contract/formato.js';
+import { COMO_SE_LEE_EL_MAPA, serializeKnownMap } from '../src/core/contract/mapa-conocido.js';
+import { serializeMapRequest } from '../src/core/contract/peticion-de-mapa.js';
+import { CATALOGO_DE_EQUIPO_EN_PROSA, fichaDeCriatura } from '../src/core/contract/vistas.js';
 import {
   accionAlAgente,
   accionDeBatallaDelAgente,

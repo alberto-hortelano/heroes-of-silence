@@ -14,7 +14,7 @@ import { marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
 import { renderGuarnicion } from '../src/client/views/guarnicion.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
-import { serializeKnownMap } from '../src/core/contract/serialize.js';
+import { serializeKnownMap } from '../src/core/contract/mapa-conocido.js';
 import {
   type MapObject,
   MEJORAS_DEL_PUESTO,

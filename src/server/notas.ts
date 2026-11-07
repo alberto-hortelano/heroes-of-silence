@@ -22,7 +22,7 @@
 import { quedanCasillas } from '@core/battle/board.js';
 import { type HechoDelCruce, NOMBRE_DEL_PUNTO } from '@core/battle/rueda.js';
 import type { BattleAction } from '@core/battle/types.js';
-import type { RequestKind } from '@core/contract/agent.js';
+import type { RequestKind } from '@core/contract/esquemas.js';
 import {
   type AccionDelAgente,
   HIT_DE_GOLPE,

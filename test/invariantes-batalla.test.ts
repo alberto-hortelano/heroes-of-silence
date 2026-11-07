@@ -30,11 +30,10 @@ import {
 import { formaDeLaBatalla } from '../src/core/battle/formas-de-la-rueda.js';
 import type { BattleStack } from '../src/core/battle/types.js';
 import { UNIDADES, unidadDelJuego } from '../src/core/catalogo.js';
-import { battleActionSchema, RESPONSE_FORMAT } from '../src/core/contract/agent.js';
-import {
-  CATALOGO_DE_EQUIPO_EN_PROSA,
-  serializeBattleResponse,
-} from '../src/core/contract/serialize.js';
+import { serializeBattleResponse } from '../src/core/contract/batalla.js';
+import { battleActionSchema } from '../src/core/contract/esquemas.js';
+import { RESPONSE_FORMAT } from '../src/core/contract/formato.js';
+import { CATALOGO_DE_EQUIPO_EN_PROSA } from '../src/core/contract/vistas.js';
 import {
   HIT_DE_GOLPE,
   hitsDeLaRueda,

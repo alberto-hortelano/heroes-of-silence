@@ -21,11 +21,10 @@ import type { BattleAction, BattleState, Side, TurnoDeUnidad } from '@core/battl
 import type { ReglasDelCombate } from '@core/combate.js';
 import {
   serializeAdventureTurn,
-  serializeBattleResponse,
-  serializeBattleTurn,
   serializeHeroFromTroop,
   serializeTownVoices,
-} from '@core/contract/serialize.js';
+} from '@core/contract/aventura.js';
+import { serializeBattleResponse, serializeBattleTurn } from '@core/contract/batalla.js';
 import {
   type AccionDeBatallaDelAgente,
   type AccionDelAgente,

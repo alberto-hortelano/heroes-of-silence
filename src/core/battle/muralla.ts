@@ -723,7 +723,7 @@ export interface PalabrasDeLaMuralla {
  * el volador, las puertas, el tiro y el bono del tirador en lo alto, con las
  * palabras de quien la lee (`PalabrasDeLaMuralla`). La leen la ayuda del editor de la
  * arena y el `_comment` de su borrador (`REGLA_DE_LA_MURALLA`) y la prosa del agente
- * (`agent.ts`): eran tres copias a mano, y dos ya se habían quedado diciendo la regla
+ * (`contract/formato.ts`): eran tres copias a mano, y dos ya se habían quedado diciendo la regla
  * del primer ciclo (QA de la muralla alta, I1). Lo que solo es de quien la lee —el
  * dentro y fuera del editor, los campos de `walls`— lo pone cada uno.
  */

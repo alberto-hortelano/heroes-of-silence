@@ -6,7 +6,9 @@
  * el formato entre turnos ni consultar documentación aparte.
  *
  * Todo lo que llega del agente se valida con zod ANTES de tocar el estado. Una
- * respuesta mal formada se rechaza con un mensaje que dice qué falta.
+ * respuesta mal formada se rechaza con un mensaje que dice qué falta. Los esquemas
+ * están en `esquemas.ts`: los dos eran `agent.ts` hasta la fase N de la
+ * reorganización (07-11-2026), y aquí queda lo que se le embebe al agente.
  *
  * En los hechos de la crónica que se le entregan (`recentEvents`), **el
  * protagonista es siempre `actor`**, y no hay ningún otro campo que diga lo
@@ -15,7 +17,6 @@
  * en `battle_ended`, donde significa otra cosa — el bando que gana la batalla,
  * `attacker` o `defender`, no un jugador.
  */
-import { z } from 'zod';
 import { FORMA_DEL_TABLERO } from '../battle/board.js';
 import { CARGA, CARGA_MINIMA } from '../battle/carga.js';
 import {
@@ -40,20 +41,12 @@ import { queHaceElHechizo } from '../magia/dicho.js';
 import { LADO_MAXIMO_DEL_PLAN, LADO_MINIMO_DEL_PLAN } from '../map/generar/plan.js';
 import { BARRERAS_DEL_PUEBLO } from '../map/map.js';
 import { LADO_DEL_RECINTO, SEPARACION_DE_CIUDADES } from '../map/recinto.js';
-import {
-  BARRERAS,
-  BARRERAS_DE_DESNIVEL,
-  esNivel,
-  NIVELES,
-  QUE_ES_UN_NIVEL,
-  TERRAIN_KINDS,
-} from '../map/terrain.js';
+import { BARRERAS, BARRERAS_DE_DESNIVEL, NIVELES } from '../map/terrain.js';
 import { CLIMA, PEDIDOS_QUE_SE_MIRAN, TIEMPOS } from '../state/clima.js';
 import { REGLA_DEL_PUEBLO } from '../state/renta.js';
 import { MURALLAS_DEL_MAPA, OBRAS_DEL_PUESTO } from '../state/sitios.js';
 import { MAX_HEROES_PER_PLAYER } from '../state/tipos.js';
-import { enumerar, FACTION_IDS, HUECOS, TIPOS_FUSIONADOS, TODOS_LOS_GOLPES } from '../types.js';
-import { ID_DE_MAPA } from '../validar.js';
+import { enumerar, HUECOS, TIPOS_FUSIONADOS, TODOS_LOS_GOLPES } from '../types.js';
 import {
   CRUCE_AL_AGENTE,
   HIT_DE_GOLPE,
@@ -131,355 +124,10 @@ const VACIOS_DE_SERIE = HUECOS.filter((h) => EQUIPO_BASE[h] === undefined).map(
   (h) => `"${SLOT_DE_HUECO[h]}"`,
 );
 
-import { lineaLegible } from '../linea.js';
 import { ECONOMIA } from '../town/economia.js';
-import { CATALOGO_DE_EQUIPO_EN_PROSA, COMO_SE_LEE_EL_MAPA } from './serialize.js';
-
-// ---------------------------------------------------------------- respuestas
-
-export const pointSchema = z.object({ x: z.number().int(), y: z.number().int() });
-export const hexSchema = z.object({ col: z.number().int(), row: z.number().int() });
-
-/** Una puerta de la muralla: el lado entre dos casillas de una fila, `b` al este de `a`. */
-export const gateSchema = z.object({ a: hexSchema, b: hexSchema });
-
-export const adventureActionSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('move_hero'), hero: z.string(), to: pointSchema }),
-  z.object({ type: z.literal('hire_hero'), town: z.string() }),
-  z.object({ type: z.literal('build'), town: z.string(), building: z.string() }),
-  z.object({
-    type: z.literal('recruit'),
-    town: z.string(),
-    creature: z.string(),
-    count: z.number().int().positive(),
-  }),
-  z.object({
-    type: z.literal('dismiss'),
-    hero: z.string(),
-    creature: z.string(),
-    count: z.number().int().positive(),
-  }),
-  // Dejar y recoger tropa en la guarnición del sitio tuyo donde está el héroe
-  // (04-11-2026). Texto libre en `creature` y `veteran`, como en `dismiss` y `equip`:
-  // lo juzga el núcleo (`intercambioBlocker`) y el motivo va al veredicto.
-  // Las dos son la misma forma: un miembro con las dos palabras.
-  z.object({
-    type: z.enum(['leave_troops', 'take_troops']),
-    hero: z.string(),
-    creature: z.string(),
-    count: z.number().int().positive(),
-    veteran: z.string().optional(),
-  }),
-  // `item`, `veteran` y `creature` van como texto libre: que existan, que sean
-  // suyos y que quepan lo dice el núcleo (`buyBlocker`, `equipBlocker`), y el
-  // motivo viaja en el veredicto como el de cualquier acción descartada. El hueco
-  // sí se acota aquí, porque es una lista cerrada que no depende de la partida.
-  z.object({ type: z.literal('buy_item'), town: z.string(), item: z.string() }),
-  z.object({
-    type: z.literal('equip'),
-    hero: z.string(),
-    item: z.string(),
-    veteran: z.string().optional(),
-    creature: z.string().optional(),
-    // En qué hueco, como en `unequip` (texto: lo traduce `accionDelAgente`); sin él,
-    // el de la pieza. Un arma va también en el de la segunda (25-10-2026).
-    slot: z.string().max(32).optional(),
-  }),
-  z.object({
-    type: z.literal('unequip'),
-    hero: z.string(),
-    // Texto, como `item` y `creature`: lo valida el núcleo (`unequipBlocker`) y un
-    // hueco mal escrito descarta esta acción con su motivo, no el turno entero.
-    slot: z.string(),
-    veteran: z.string().optional(),
-  }),
-  z.object({ type: z.literal('end_turn') }),
-]);
-
-/** Una jugada que ya no existe: su `type` no vale nunca, con la frase que dice qué mandar. */
-function retirada<T extends string>(type: T, verbo: string) {
-  return z.object({
-    type: z.literal(type).refine(() => false, {
-      message: `ya no hay "${type}": ${verbo} se retiró de la batalla; para cerrar el turno de la unidad sin hacer nada, manda { "type": "end_turn" }`,
-    }),
-  });
-}
-
-export const battleActionSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('move'), to: hexSchema }),
-  // `hit`, el golpe de la rueda, va como texto y no como `z.enum`: uno mal
-  // escrito descarta ESTA jugada con su motivo (`golpeDelHit`, en el director),
-  // no la batalla entera. Sin él, lo elige la IA a ciegas por ti.
-  z.object({
-    type: z.literal('attack'),
-    target: z.string(),
-    from: hexSchema.optional(),
-    hit: z.string().max(32).optional(),
-  }),
-  // El disparo diferido (25-10-2026): apuntar a una casilla cierra el turno y el
-  // disparo sale al empezar el siguiente (`apuntarBlocker`, `lineaDelDisparo`).
-  z.object({ type: z.literal('aim'), at: hexSchema }),
-  // La granada (02-11-2026): lanzarla a una casilla a su alcance cierra el turno y
-  // explota al empezar el siguiente (`lanzarBlocker`, `explosionDe`).
-  z.object({ type: z.literal('throw'), at: hexSchema }),
-  // Retiradas el 26-10-2026 (decisión del usuario): se rechazan diciéndolo y
-  // diciendo qué mandar, en vez de un «discriminador inválido» que no explica
-  // nada. La batalla sigue: se descarta esa jugada, como cualquier otra mala.
-  retirada('wait', 'esperar'),
-  retirada('defend', 'defenderse'),
-  // El hechizo del héroe: a una unidad (`target`), a una casilla (`at`) o, sobre sí o
-  // el tablero, a nada (el editor de magia, 06-11-2026).
-  z.object({
-    type: z.literal('cast'),
-    spell: z.string(),
-    target: z.string().optional(),
-    at: hexSchema.optional(),
-  }),
-  // El poder de la unidad activa (`UnitInfo.poderes`, un hechizo suyo): el turno entero.
-  z.object({
-    type: z.literal('power'),
-    power: z.string(),
-    target: z.string().optional(),
-    at: hexSchema.optional(),
-  }),
-  // `gold` es opcional: viene puesto en `legalActions` y devolverla tal cual
-  // vale; si se manda, tiene que ser el precio de ahora (`applyAction`).
-  z.object({ type: z.literal('surrender'), gold: z.number().int().nonnegative().optional() }),
-  z.object({ type: z.literal('end_turn') }),
-  // La muralla (fase 2 del puesto fronterizo, 04-11-2026): toda batalla contra
-  // una ciudad o un pueblo la lleva. El núcleo las nombra en español
-  // (`JUGADA_DE_MURALLA`); el agente, así. Cada una se juzga con su `*Blocker`.
-  z.object({ type: z.literal(JUGADA_DE_MURALLA.poner_escalera), wall: hexSchema }),
-  z.object({ type: z.literal(JUGADA_DE_MURALLA.subir), wall: hexSchema }),
-  z.object({ type: z.literal(JUGADA_DE_MURALLA.abrir_puerta), gate: gateSchema }),
-  z.object({ type: z.literal(JUGADA_DE_MURALLA.cerrar_puerta), gate: gateSchema }),
-]);
-
-/**
- * La respuesta de la rueda cuando golpean a una unidad del agente
- * (`battle_response`). Texto y no `z.enum`, por lo mismo que `hit`: una que no
- * es un golpe se dice en el veredicto y la elige la IA a ciegas por él, sin
- * quitarle la batalla.
- */
-export const battleResponseResponseSchema = z.object({
-  response: z.string().max(32),
-  reasoning: z.string().max(2000).optional(),
-});
-
-export const adventureTurnResponseSchema = z.object({
-  /** Acciones en orden. No hace falta terminar con `end_turn`: se añade solo. */
-  actions: z.array(adventureActionSchema).max(200),
-  /**
-   * Opcional: el clima que el narrador pide por región (`pedirClima`). **Sin
-   * tipar aquí**: lo juzga entrada a entrada `climaBlocker`, y una mal escrita
-   * (un tiempo de 18 letras, `days: 1.5`, `night: "si"`, una entrada de más)
-   * descarta ese pedido con su motivo, no el turno: con los tipos y los topes en
-   * el esquema, la respuesta entera fallaba y el turno lo jugaba la IA (H1 del
-   * QA del clima, 22-10-2026). La forma la dice la prosa (CLIMA).
-   */
-  weather: z.unknown().optional(),
-  /** Opcional: por qué. Se guarda en la crónica, no afecta a las reglas. */
-  reasoning: z.string().max(2000).optional(),
-});
-
-export const battleTurnResponseSchema = z.object({
-  action: battleActionSchema,
-  reasoning: z.string().max(2000).optional(),
-});
-
-/**
- * Los terrenos, **derivados de `TERRAIN_KINDS`** y no copiados.
- *
- * Eran tres declaraciones de la misma lista de ocho —la constante, este esquema
- * y `palette.terrains`— y la barrera que lo justificaba desapareció en este
- * mismo ciclo, cuando el contrato empezó a importar `terrain.js` para derivar
- * los costes. Con las tres a mano, el día que entre un terreno la prosa le dice
- * al agente lo que cuesta pisarlo, el esquema le rechaza el plan si lo dibuja y
- * la paleta no se lo ofrece: tres comportamientos incoherentes con un cambio y
- * ningún test rojo.
- */
-export const terrainSchema = z.enum(TERRAIN_KINDS);
-
-/**
- * Un id que el motor usa VERBATIM —en el `MapObject`, en el `Town`, en los
- * mensajes y en la consulta `map`—, así que es un contrato acotado: una `id`
- * con un salto de línea dentro se llevaba por delante el bloque de veredictos,
- * que se parsea línea a línea (`notas.ts`). NO es defensa contra XSS: eso es
- * `html.ts`.
- */
-const idDeMapa = (que: string) =>
-  z
-    .string()
-    .min(1)
-    .max(32)
-    .regex(
-      ID_DE_MAPA,
-      `un id de ${que} va en minúsculas y solo lleva letras, dígitos, guion y guion bajo, empezando por letra o dígito (p. ej. "town-0")`,
-    );
-const nombreDeMapa = (que: string) => lineaLegible(40, `el nombre de ${que}`);
-
-export const mapPlanSchema = z.object({
-  width: z.number().int().min(LADO_MINIMO_DEL_PLAN).max(LADO_MAXIMO_DEL_PLAN),
-  height: z.number().int().min(LADO_MINIMO_DEL_PLAN).max(LADO_MAXIMO_DEL_PLAN),
-  baseTerrain: terrainSchema,
-  patches: z.array(
-    z.object({ terrain: terrainSchema, center: pointSchema, radius: z.number().min(1).max(40) }),
-  ),
-  regions: z.array(
-    z.object({
-      id: idDeMapa('región'),
-      name: nombreDeMapa('una región'),
-      at: pointSchema,
-      // Cualquier terreno en el esquema; que sea un suelo y no una barrera lo
-      // dice `validateMapPlan`, con su frase, para los dos productores.
-      terrain: terrainSchema.optional(),
-      // Acotado aquí con la misma lista que mira `validateMapPlan` (#209): el
-      // tipo del plan es `Nivel`, y un número suelto no casaría con él.
-      nivel: z.number().refine(esNivel, QUE_ES_UN_NIVEL).optional(),
-    }),
-  ),
-  // Derivado de la lista que valida `validateMapPlan`, no copiado: el esquema y
-  // la validación de los dos productores dicen lo mismo porque es lo mismo.
-  walls: z.array(z.object({ terrain: z.enum(BARRERAS), from: pointSchema, to: pointSchema })),
-  nodes: z.array(pointSchema),
-  towns: z.array(
-    z.object({
-      id: idDeMapa('ciudad'),
-      name: nombreDeMapa('una ciudad'),
-      faction: z.enum(FACTION_IDS),
-      at: pointSchema,
-      owner: z.number().int().nullable(),
-    }),
-  ),
-  // Retirado el 19-10-2026: el héroe nace en su base. Se rechaza diciéndolo en
-  // vez de dejar que zod lo quite en silencio, que es lo que hace con un campo
-  // que no conoce: el agente que aún lo mande creería que sus inicios valen.
-  heroStarts: z
-    .never({
-      message:
-        'ya no hay "heroStarts": el héroe de cada jugador empieza dentro de su base (su primera ciudad en "towns"); quita el campo',
-    })
-    .optional(),
-  // No hay minas ni más recurso que el oro: un plan que los trae se rechaza
-  // diciéndolo, como `heroStarts`.
-  mines: z
-    .never({
-      message:
-        'ya no hay minas: el oro sale de las ciudades y de los pueblos ("villages") de las regiones unidas a la base; quita el campo "mines"',
-    })
-    .optional(),
-  villages: z.array(z.object({ name: nombreDeMapa('un pueblo'), at: pointSchema })),
-  resources: z
-    .never({
-      message:
-        'ya no hay montones de recursos: el único recurso es el oro, y del mapa solo sale de los cofres ("chests"); quita el campo "resources"',
-    })
-    .optional(),
-  monsters: z.array(
-    z.object({ at: pointSchema, creature: z.string(), count: z.number().int().positive() }),
-  ),
-  chests: z.array(z.object({ at: pointSchema, gold: z.number().int().positive() })),
-  roads: z.array(pointSchema).optional(),
-  // Las criaturas van como `z.string()` y no como `z.enum`, igual que las de
-  // `monsters`: quien las valida es `validateMapPlan`, la puerta de los dos
-  // productores de planes, y su rechazo nombra las que valen.
-  raiders: z
-    .array(
-      z.object({
-        at: pointSchema,
-        troops: z
-          .array(z.object({ creature: z.string(), count: z.number().int().positive() }))
-          .min(
-            1,
-            'un grupo de asaltantes es de 1 individuo en adelante: "troops" no puede ir vacío',
-          ),
-      }),
-    )
-    .optional(),
-});
-
-export const mapGenerateResponseSchema = z.object({
-  plan: mapPlanSchema,
-  reasoning: z.string().max(2000).optional(),
-});
-
-/**
- * Lo que el narrador devuelve cuando un veterano se hace héroe.
- *
- * `name` se acota como los nombres de un plan de mapa (#97): acaba en la crónica,
- * en el panel y en el bloque de veredictos, que se parsea línea a línea. `story`
- * igual, con más sitio. `heroType` va como texto libre y NO como `z.enum`, igual
- * que la criatura de `monsters`: quien lo valida es `ascensoBlocker`, que sabe la
- * facción del jugador y nombra los que valen en el rechazo; un enum de todas las
- * facciones aceptaría el tipo de la otra.
- */
-export const heroFromTroopResponseSchema = z.object({
-  name: nombreDeMapa('un héroe'),
-  story: lineaLegible(280, 'la historia del héroe'),
-  heroType: z.string(),
-  reasoning: z.string().max(2000).optional(),
-});
-
-/**
- * Lo que el narrador devuelve para la gente de sus bases (`town_voices`).
- *
- * Las líneas van como texto suelto y NO como `lineaLegible`: el criterio es que
- * cada línea se rechace sola, con su motivo, y una línea mala en el esquema
- * tiraría la respuesta entera. Quien las juzga una a una es `ponerVoces`, con la
- * misma regla (`motivoDeLinea`). Lo que sí acota el esquema es la forma: de 1 a
- * `LINEAS_POR_VECINO` líneas por vecino y no más voces de las que caben.
- */
-export const townVoicesResponseSchema = z.object({
-  voices: z
-    .array(
-      z.object({
-        town: z.string().max(64),
-        npc: z.string().max(64),
-        lines: z.array(z.string().max(2000)).min(1).max(LINEAS_POR_VECINO),
-      }),
-    )
-    .max(MAX_VOCES_POR_RESPUESTA),
-  reasoning: z.string().max(2000).optional(),
-});
-
-// ---------------------------------------------------------------- peticiones
-
-export const REQUEST_KINDS = [
-  'adventure_turn',
-  'battle_turn',
-  'battle_response',
-  'map_generate',
-  'hero_from_troop',
-  'town_voices',
-] as const;
-
-export type RequestKind = (typeof REQUEST_KINDS)[number];
-
-export const responseSchemas = {
-  adventure_turn: adventureTurnResponseSchema,
-  battle_turn: battleTurnResponseSchema,
-  battle_response: battleResponseResponseSchema,
-  map_generate: mapGenerateResponseSchema,
-  hero_from_troop: heroFromTroopResponseSchema,
-  town_voices: townVoicesResponseSchema,
-} as const;
-
-/**
- * Aquí había tres alias y dos no los importaba nadie. El criterio con el que se
- * decide el siguiente, escrito para quien lo lea y no enterrado en un commit:
- *
- * **Se exportan los esquemas**, que es lo que valida y de lo que todo se
- * deriva. **Un alias de `z.infer` se escribe donde se usa** —`agent-link.ts` ya
- * tipa `ask()` con `z.infer<(typeof responseSchemas)[K]>` en el sitio, que es el
- * único consumidor real del contrato—. Y **un tipo que ningún `import` nombra se
- * borra**: este paquete es `"private": true`, así que el cliente de fuera del
- * repo que justificaría «es API pública» no existe, y esta casa lleva varios
- * ciclos destruyendo capas que solo sostenía un consumidor hipotético.
- *
- * `MapGenerateResponse` se queda porque tiene uno (`mapa-del-agente.ts:53`), no
- * porque sea más importante.
- */
-export type MapGenerateResponse = z.infer<typeof mapGenerateResponseSchema>;
+import type { RequestKind } from './esquemas.js';
+import { COMO_SE_LEE_EL_MAPA } from './mapa-conocido.js';
+import { CATALOGO_DE_EQUIPO_EN_PROSA } from './vistas.js';
 
 /**
  * Descripción del formato de respuesta que viaja DENTRO de cada petición.

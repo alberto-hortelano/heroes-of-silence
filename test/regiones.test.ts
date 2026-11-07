@@ -12,7 +12,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import barrerasJson from '../data/barreras.json' with { type: 'json' };
-import { mapPlanSchema } from '../src/core/contract/agent.js';
+import { mapPlanSchema } from '../src/core/contract/esquemas.js';
 import { BARRERAS_DEL_MAPA, POBLAMIENTO, validarBarreras } from '../src/core/map/generar/datos.js';
 import {
   LADO_DEL_MAPA,
