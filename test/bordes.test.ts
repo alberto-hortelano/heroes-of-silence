@@ -41,7 +41,7 @@ import { esBarrera, isWalkable, type Suelo, type TerrainKind } from '../src/core
 import { primeraSemillaCon } from '../tools/comun/semillas.js';
 import { RAIZ } from './comun.js';
 import { catalogoDelDisco, partidaDe } from './escena-de-prueba.js';
-import { itLento, rango } from './lento.js';
+import { conRespiro, itLento, rango } from './lento.js';
 
 const nunca = () => false;
 
@@ -275,8 +275,8 @@ describe('en los mapas reales', () => {
 
   itLento(
     '1-40: ninguna espalda sin reborde, ninguna cima de otra roca, ninguna mesa en la cordillera',
-    () => {
-      for (const s of rango(1, 40)) {
+    async () => {
+      for await (const s of conRespiro(rango(1, 40))) {
         const { informe } = partidaDe(s).escena;
         expect(espaldasDe(s), `s${s}`).toEqual([]);
         expect([

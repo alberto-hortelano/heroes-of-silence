@@ -23,7 +23,7 @@ import {
 import { recintoDeLaCiudad } from '../src/core/map/recinto.js';
 import type { TerrainKind } from '../src/core/map/terrain.js';
 import { partidaDe } from './escena-de-prueba.js';
-import { itLento, rango } from './lento.js';
+import { conRespiro, itLento, rango } from './lento.js';
 
 /** Un sprite de clase `clase` y `alto` con el pie en `(x, y)`. */
 const piezaSinArte = (clase: Sprite['clase'], x: number, y: number, alto: number) => ({
@@ -192,11 +192,12 @@ describe('en los mapas reales', () => {
     expect(acantiladosLisos(sin, map.terrain, e.W, () => false)).toContain(i);
   });
 
-  itLento(`1-40: no más de ${TECHO_EN_1_40} casillas de acantilado lisas en total`, () => {
-    const total = rango(1, 40).reduce((n, s) => {
+  itLento(`1-40: no más de ${TECHO_EN_1_40} casillas de acantilado lisas en total`, async () => {
+    let total = 0;
+    for await (const s of conRespiro(rango(1, 40))) {
       expect(partidaDe(s).escena.informe.acantiladosLisos).toBe(lisosDe(s).length);
-      return n + lisosDe(s).length;
-    }, 0);
+      total += lisosDe(s).length;
+    }
     expect(total).toBeLessThanOrEqual(TECHO_EN_1_40);
   });
 });

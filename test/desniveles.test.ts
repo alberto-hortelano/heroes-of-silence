@@ -24,7 +24,7 @@ import { barrerasDeLaPareja } from '../src/core/map/vestir/fronteras.js';
 import { mesasDelRelieve } from '../src/core/map/vestir/relieve.js';
 import { createRng } from '../src/core/rng.js';
 import { newGame } from '../src/core/state/setup.js';
-import { itLento, rango, segunPrisa } from './lento.js';
+import { conRespiro, itLento, rango, segunPrisa } from './lento.js';
 
 describe('el desnivel lo explica una barrera (#143)', () => {
   // s1, la de las marcas; 3 y 4, donde una barrera de un cruce de tres
@@ -44,9 +44,9 @@ describe('el desnivel lo explica una barrera (#143)', () => {
     expect(map.regions[1]?.nivel).toBe(1);
   });
 
-  itLento('en 1-200 sale más de un nivel y hay acantilados, montañas y agua', () => {
+  itLento('en 1-200 sale más de un nivel y hay acantilados, montañas y agua', async () => {
     const cuenta = new Map<string, number>();
-    for (const s of rango(1, 200)) {
+    for await (const s of conRespiro(rango(1, 200))) {
       const plan = generateMapPlan(createRng(s));
       for (const r of plan.regions)
         cuenta.set(`nivel ${r.nivel}`, (cuenta.get(`nivel ${r.nivel}`) ?? 0) + 1);
@@ -66,7 +66,7 @@ describe('el desnivel lo explica una barrera (#143)', () => {
   });
   itLento(
     'el reparto de suelos no cambia: cada suelo de fuera, entre el 10 y el 18 % de las regiones de 1-200',
-    () => {
+    async () => {
       // Un sorteo de barreras filtrado por niveles podía tirar más vestidos de
       // unas parejas de suelos que de otras y sesgar el mapa (los de arena roja de
       // s1 y s9 se miraron así: es azar). Medido el 08-10-2026, de la 1 a la 200:
@@ -89,7 +89,7 @@ describe('el desnivel lo explica una barrera (#143)', () => {
       // azar de las 200, no un sesgo), y el techo pasa de 17 a 18. El
       // porqué y las cifras, en docs/historia.md.
       const cuenta = new Map<string, number>();
-      for (const s of rango(1, 200))
+      for await (const s of conRespiro(rango(1, 200)))
         for (const r of generateMapPlan(createRng(s)).regions)
           cuenta.set(r.terrain ?? '', (cuenta.get(r.terrain ?? '') ?? 0) + 1);
       const total = [...cuenta.values()].reduce((a, b) => a + b, 0);

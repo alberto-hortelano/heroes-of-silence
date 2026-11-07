@@ -27,7 +27,7 @@ import {
   TRECHO_DEL_QUIEBRO,
 } from '../src/core/map/vestir/lineas.js';
 import { newGame } from '../src/core/state/setup.js';
-import { rango, segunPrisa } from './lento.js';
+import { conRespiro, rango, segunPrisa } from './lento.js';
 
 const CORTADO = BARRERAS.indexOf('cliff');
 const AGUA = BARRERAS.indexOf('water');
@@ -159,9 +159,9 @@ describe('las caídas largas al sur (#231)', () => {
     [154, 232, 503, 1361],
     [...rango(1, 200), 264, 441, 503, 559, 701, 788, 992, 1026, 1075, 1361, 1415, 2726],
   );
-  it(`en ${semillas.length} semillas, ninguna caída al sur del relieve de la escena llega a ${CAIDA_LARGA}`, () => {
+  it(`en ${semillas.length} semillas, ninguna caída al sur del relieve de la escena llega a ${CAIDA_LARGA}`, async () => {
     const largas: string[] = [];
-    for (const s of semillas) {
+    for await (const s of conRespiro(semillas)) {
       const { map } = newGame({ seed: s });
       const { nivel } = relieve(analizar(map));
       for (const c of caidasLargas(map.width, map.height, nivel))

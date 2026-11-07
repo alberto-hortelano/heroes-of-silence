@@ -27,7 +27,7 @@ import {
 import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
 import { ANCHO_DE_SENDA } from '../src/client/render/escenario/sendas.js';
 import { catalogoDelDisco, escenaDe } from './escena-de-prueba.js';
-import { rango, segunPrisa } from './lento.js';
+import { conRespiro, rango, segunPrisa } from './lento.js';
 
 const catalogo = catalogoDelDisco();
 
@@ -168,7 +168,7 @@ describe('la senda bajo el relieve (#189)', () => {
     ).toEqual([]);
   });
 
-  it(`en los mapas del procedimental, de media no pasa de ${TECHO_POR_MAPA} tramos por mapa`, () => {
+  it(`en los mapas del procedimental, de media no pasa de ${TECHO_POR_MAPA} tramos por mapa`, async () => {
     // La muestra: las que más tienen de 1-40 con los vestidos que se repiten
     // por una silla (#224: 9, 28, 8 y 20, con 4, 4, 3 y 3; con el acantilado
     // en línea, #215, eran 1, 6, 20 y 22; con menos mesetas, #210, 5, 8 y 26;
@@ -197,7 +197,9 @@ describe('la senda bajo el relieve (#189)', () => {
     // 5, 3, 3 y 3 (media 3,5; la 34 se queda en 0). Con los pueblos en un nodo
     // (fase 3, 05-11-2026), 26, 19, 7 y 28, con 5, 4, 3 y 3 (la 24 se queda en 0).
     const semillas = segunPrisa([26, 19, 7, 28], rango(1, 40));
-    const cuentas = semillas.map((s) => escenaDe(s).informe.sendaBajoElRelieve);
+    const cuentas: number[] = [];
+    for await (const s of conRespiro(semillas))
+      cuentas.push(escenaDe(s).informe.sendaBajoElRelieve);
     // Que mire algo: en ninguna semilla de la muestra rápida es 0. En 1-40,
     // con menos mesetas (#210), la mitad se queda en 0: 20 de 40 y 1,2 de
     // media (4,5 antes; 08-10-2026). Con #224, 16 de 40 y 1,25 (09-10-2026).

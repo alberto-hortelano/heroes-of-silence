@@ -64,7 +64,7 @@ import {
 import { createRng } from '../src/core/rng.js';
 import type { Point } from '../src/core/types.js';
 import { TROPA_BARATA } from './comun.js';
-import { itLento, rango, segunPrisa } from './lento.js';
+import { conRespiro, itLento, rango, segunPrisa } from './lento.js';
 import {
   grafoDeCaminos,
   piezaDeCaminos,
@@ -790,7 +790,7 @@ function aspas(map: GameMap): string[] {
 }
 
 describe('el generador hace redes como las pidió el usuario', () => {
-  it(`200 semillas en ${LADO_DEL_MAPA}×${LADO_DEL_MAPA} y 20 en 48×48: válidas, ciudades en su sitio (en un nodo o en su región), equilibradas, con dos caminos y densas`, () => {
+  it(`200 semillas en ${LADO_DEL_MAPA}×${LADO_DEL_MAPA} y 20 en 48×48: válidas, ciudades en su sitio (en un nodo o en su región), equilibradas, con dos caminos y densas`, async () => {
     const fallos: string[] = [];
     const fronteraTotal = new Set<string>();
     const conCamino: number[] = [];
@@ -806,7 +806,7 @@ describe('el generador hace redes como las pidió el usuario', () => {
       [LADO_DEL_MAPA, [...segunPrisa(rango(1, 3), rango(1, 200)), ...deQA]],
       [48, segunPrisa([1], rango(1, 20))],
     ] as const) {
-      for (const s of semillas) {
+      for await (const s of conRespiro(semillas)) {
         const plan = generateMapPlan(createRng(s), { width: lado, height: lado });
         const dondeFalla = (f: string) => `${lado}×${lado} semilla ${s}: ${f}`;
         fallos.push(...validateMapPlan(plan).map(dondeFalla));
@@ -1119,11 +1119,10 @@ describe('el generador hace redes como las pidió el usuario', () => {
     'ninguna aspa fuera de un nodo en las semillas 1-1000 (auditoría 3, §7)',
     async () => {
       const fallos: string[] = [];
-      for (const s of rango(1, 1000)) {
-        // Es el primero que llena `delGenerador` con las mil: sin soltar el
-        // hilo de vez en cuando, el trabajador de vitest no contesta a tiempo
-        // («Timeout calling onTaskUpdate») aunque el test pase.
-        if (s % 50 === 0) await new Promise((r) => setTimeout(r, 0));
+      // Es el primero que llena `delGenerador` con las mil: sin soltar el hilo
+      // de vez en cuando (`conRespiro`), el trabajador de vitest no contesta a
+      // tiempo («Timeout calling onTaskUpdate») aunque el test pase.
+      for await (const s of conRespiro(rango(1, 1000))) {
         const { map } = delGenerador(s);
         fallos.push(...aspas(map).map((f) => `semilla ${s}: ${f}`));
       }
@@ -1753,13 +1752,15 @@ describe('el camino se aparta del pie de lo alto y del borde del mapa (#189)', (
         (p.y === map.height - 1 && q.y === map.height - 1),
     ).length;
 
-  it('el camino apenas corre por el borde del mapa: ni puertas en él ni atajos por él', () => {
+  it('el camino apenas corre por el borde del mapa: ni puertas en él ni atajos por él', async () => {
     // Medido con `newGame` en 1-100 (08-10-2026): 8,4 tramos por mapa antes,
     // 5,4 de ellos al pie de la puerta de una mina o un pueblo; ahora, 2,0, en
     // pasillos de una casilla entre el borde y una barrera. Sin la puerta fuera
     // del borde (`colocarPar`) y sin el coste, aquí salen 11,9 en 1-20 (2,0 con ellos).
     const semillas = segunPrisa(rango(1, 20), rango(1, 100));
-    const tramos = semillas.map((s) => porElBorde(buildMap(generateMapPlan(createRng(s))).map));
+    const tramos: number[] = [];
+    for await (const s of conRespiro(semillas))
+      tramos.push(porElBorde(buildMap(generateMapPlan(createRng(s))).map));
     expect(tramos.reduce((x, y) => x + y, 0) / semillas.length).toBeLessThanOrEqual(3);
   });
 });

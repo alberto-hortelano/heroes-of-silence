@@ -61,7 +61,7 @@ import { PIES } from '../src/client/render/mapa.js';
 import { Session } from '../src/client/session.js';
 import { primeraSemillaCon } from '../tools/comun/semillas.js';
 import { catalogoDelDisco, partidaDe, puenteSobreElAgua } from './escena-de-prueba.js';
-import { LENTO, rango, segunPrisa } from './lento.js';
+import { conRespiro, LENTO, rango, segunPrisa } from './lento.js';
 
 /**
  * Las semillas de los recuentos: 1-10 en la orden lenta, 15 puentes desde #169
@@ -241,8 +241,8 @@ describe('la casilla del nodo de agua es agua (#157)', () => {
     expect(caras.some((c) => c.y === 2 && c.x0 <= 2.5 && c.x1 + 1 >= 2.5)).toBe(false);
   });
 
-  it('en las semillas 1-10, toda casilla de puente está en el agua de la escena', () => {
-    for (const s of SEMILLAS) {
+  it('en las semillas 1-10, toda casilla de puente está en el agua de la escena', async () => {
+    for await (const s of conRespiro(SEMILLAS)) {
       const { escena: e } = partidaDe(s);
       const agua = new Set(e.agua);
       for (const pu of e.puentes) {
@@ -609,8 +609,8 @@ describe('la marca del dueño va sobre el tablero, no en el río', () => {
 });
 
 describe('el asiento de la marca es siempre un punto', () => {
-  it('en las semillas 1-10: todo lo horneado lo tiene; el centro de su casilla, o en un puente el tablero con el óvalo centrado en él', () => {
-    for (const s of SEMILLAS) {
+  it('en las semillas 1-10: todo lo horneado lo tiene; el centro de su casilla, o en un puente el tablero con el óvalo centrado en él', async () => {
+    for await (const s of conRespiro(SEMILLAS)) {
       const { map } = partidaDe(s);
       const esc = escenarioDe(map, s);
       const puentes = new Map(esc.escena.puentes.map((p) => [p.id, p.asiento]));
@@ -682,13 +682,13 @@ describe('pulsar el puente lleva a su nodo (H2 del QA de #157)', () => {
     expect(sobreTierra).toBeGreaterThan(0);
   });
 
-  it('en las semillas 1-40, el medio del tablero cae en la casilla del nodo', () => {
+  it('en las semillas 1-40, el medio del tablero cae en la casilla del nodo', async () => {
     // El medio alzado fuera de la casilla del nodo: 26 de 101 antes del arreglo
     // de H2, y 4 después (quebrados que `asentar` corría). Con las entradas en
     // eje (#161) ningún puente de 1-40 es quebrado, y ninguno cae fuera. En
     // `pnpm verify`, una muestra (#167).
     let puentes = 0;
-    for (const s of segunPrisa(SEMILLAS, rango(1, 40))) {
+    for await (const s of conRespiro(segunPrisa(SEMILLAS, rango(1, 40)))) {
       const { map, escena } = partidaDe(s);
       for (const pu of escena.puentes) {
         // El de una ciudad-puente no es de ningún objeto: su ciudad lleva la
@@ -831,9 +831,9 @@ describe('pulsar el puente lleva a su nodo (H2 del QA de #157)', () => {
 });
 
 describe('el puesto de un nodo, donde lo reservó la escena (puesto fronterizo, fases 3 y 4)', () => {
-  it('en las semillas 1-10: en tierra junto al puente, sin tocar su tablero, a quien lo pisa ni, si va antes, su pieza', () => {
+  it('en las semillas 1-10: en tierra junto al puente, sin tocar su tablero, a quien lo pisa ni, si va antes, su pieza', async () => {
     let enPuentes = 0;
-    for (const s of SEMILLAS) {
+    for await (const s of conRespiro(SEMILLAS)) {
       const { map } = partidaDe(s);
       const esc = escenarioDe(map, s);
       const W = esc.escena.W;
@@ -879,8 +879,8 @@ describe('el puesto de un nodo, donde lo reservó la escena (puesto fronterizo, 
 });
 
 describe('quien pisa un puente se pinta en su tablero (H3 del QA de #157)', () => {
-  it('en las semillas 1-10: en la casilla del nodo, los pies en el asiento y después del puente', () => {
-    for (const s of SEMILLAS) {
+  it('en las semillas 1-10: en la casilla del nodo, los pies en el asiento y después del puente', async () => {
+    for await (const s of conRespiro(SEMILLAS)) {
       const { map } = partidaDe(s);
       const esc = escenarioDe(map, s);
       for (const pu of esc.escena.puentes) {

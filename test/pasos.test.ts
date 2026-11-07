@@ -39,7 +39,7 @@ import {
   sitiosDeLosPuestos,
 } from '../src/client/render/escenario/puestos.js';
 import { catalogoDelDisco, partidaDe } from './escena-de-prueba.js';
-import { rango, segunPrisa } from './lento.js';
+import { conRespiro, rango, segunPrisa } from './lento.js';
 
 /** Un terreno de `filas` (`#` montaña, `.` hierba), en orden de filas. */
 function terreno(...filas: string[]): { W: number; t: TerrainKind[] } {
@@ -229,9 +229,9 @@ describe('el paso de montaña lo abre la cordillera, sin pieza (#203)', () => {
     expect(pasosAtravesados([deNodo('nodo-puerta-ancho.webp', 300, 260)], muro)).toEqual([]);
   });
 
-  it(`semillas ${segunPrisa('1, 9 y 443', '1-40 y 443')}: ningún nodo de montaña lleva pieza`, () => {
+  it(`semillas ${segunPrisa('1, 9 y 443', '1-40 y 443')}: ningún nodo de montaña lleva pieza`, async () => {
     let montana = 0;
-    for (const s of segunPrisa([1, 9, 443], [...rango(1, 40), 443])) {
+    for await (const s of conRespiro(segunPrisa([1, 9, 443], [...rango(1, 40), 443]))) {
       const { map, escena } = partidaDe(s);
       const pasos = pasosALaVista(map, new Set(escena.puentes.map((p) => p.id)));
       // Los pasos de montaña: los nodos, sin el pueblo del muro (fase 3), que
@@ -478,10 +478,10 @@ describe('el puesto de un nodo (puesto fronterizo, fase 4)', () => {
     expect(puestos).toBeGreaterThanOrEqual(segunPrisa(30, 500));
   });
 
-  it(`64×64, semillas ${segunPrisa('1 y 3', '1-6')}: todo nodo con sitio y nada lo tapa (QA de la fase 4, H-F4-3)`, () => {
+  it(`64×64, semillas ${segunPrisa('1 y 3', '1-6')}: todo nodo con sitio y nada lo tapa (QA de la fase 4, H-F4-3)`, async () => {
     // s1 node-17 (19,31) no tenía sitio a 3 casillas (lo tiene a 3,01), y en s3
     // node-33 (35,59) la pieza de una bajada que subió de clave tapaba las tres obras.
-    for (const s of segunPrisa([1, 3], rango(1, 6))) {
+    for await (const s of conRespiro(segunPrisa([1, 3], rango(1, 6)))) {
       const map = newGame({ seed: s, width: 64, height: 64 }).map;
       const { informe } = componer(map, s, catalogoDelDisco());
       expect(

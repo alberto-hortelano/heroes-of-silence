@@ -34,7 +34,7 @@ import { ABIERTA, conElRio, esDelRio, ponerTipo } from '../src/core/map/vestir/b
 import { createRng } from '../src/core/rng.js';
 import type { Point } from '../src/core/types.js';
 import { riosDelMapa } from '../tools/qa/rios.js';
-import { rango, segunPrisa } from './lento.js';
+import { conRespiro, rango, segunPrisa } from './lento.js';
 
 const W = LADO_DEL_MAPA;
 const H = LADO_DEL_MAPA;
@@ -255,11 +255,11 @@ describe('el río de los mapas del juego, entero (el guardia de continuidad)', (
   // En el bucle rápido, 1-40; en la orden lenta, 1-200. Muerde: con
   // `sinAguaEnLasEsquinas` escribiendo sin `ponerTipo` y sin el `rioEntero` del
   // generador, la esquina que pasa a montaña corta el río (implementacion.md).
-  it('cada río del trazado sigue entero en el mapa hecho, con su boca; en él, solo puentes y ciudades-puente, ninguna base; y fuera, ni agua de frontera', () => {
+  it('cada río del trazado sigue entero en el mapa hecho, con su boca; en él, solo puentes y ciudades-puente, ninguna base; y fuera, ni agua de frontera', async () => {
     const malos: string[] = [];
     const formas = new Map<string, number>();
     // La 83, en las dos: su río de lago medía 7 casillas del lago al borde.
-    for (const s of segunPrisa([...rango(1, 40), 83], rango(1, 200))) {
+    for await (const s of conRespiro(segunPrisa([...rango(1, 40), 83], rango(1, 200)))) {
       let trazado: TrazadoDelRio | undefined;
       const plan = generateMapPlan(createRng(s), {
         alTrazarElRio: (t) => {

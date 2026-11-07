@@ -12,6 +12,9 @@
  *
  * El `setImmediate` se guarda al cargar: un test con temporizadores falsos no
  * debe dejar colgado el `afterEach` de todos.
+ *
+ * Dentro de un test que tiene el hilo más de unos segundos, la misma vuelta la
+ * dan `respirar` y `conRespiro` (`lento.ts`).
  */
 import { afterEach } from 'vitest';
 

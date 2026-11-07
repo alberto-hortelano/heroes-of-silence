@@ -27,7 +27,7 @@ import { ABIERTA } from '../src/core/map/vestir/base.js';
 import { adelgazarAcantilados } from '../src/core/map/vestir/lineas.js';
 import { createRng } from '../src/core/rng.js';
 import { newGame } from '../src/core/state/setup.js';
-import { rango, segunPrisa } from './lento.js';
+import { conRespiro, rango, segunPrisa } from './lento.js';
 
 const CORTADO = BARRERAS.indexOf('cliff');
 
@@ -173,7 +173,7 @@ function sinCaidaEn(map: ReturnType<typeof newGame>['map']): string[] {
 }
 
 describe('en los mapas del procedimental, todo acantilado tiene lo bajo al lado (#215)', () => {
-  it(`el mapa del juego, ${segunPrisa('tres con mucho acantilado', '1-200')}: ninguna casilla sin caída`, () => {
+  it(`el mapa del juego, ${segunPrisa('tres con mucho acantilado', '1-200')}: ninguna casilla sin caída`, async () => {
     // En `verify` eran las de la auditoría con acantilado (1, 34 y 80: 80, 60 y
     // 44 casillas sin caída antes de #215, en 34×34) y la 148. Desde #226 el
     // mapa es de 42×42 y la 1 y la 34 no llevan acantilado: van las tres de
@@ -184,7 +184,7 @@ describe('en los mapas del procedimental, todo acantilado tiene lo bajo al lado 
     // las puertas de las ciudades (la ciudad amurallada, fase 2), 28, 58 y 7
     // (114, 112 y 104, 21-10-2026).
     let casillas = 0;
-    for (const semilla of segunPrisa([28, 58, 7], rango(1, 200))) {
+    for await (const semilla of conRespiro(segunPrisa([28, 58, 7], rango(1, 200)))) {
       const { map } = newGame({ seed: semilla });
       casillas += map.terrain.filter((t) => t === 'cliff').length;
       expect(sinCaidaEn(map), `s${semilla}`).toEqual([]);
@@ -199,8 +199,7 @@ describe('en los mapas del procedimental, todo acantilado tiene lo bajo al lado 
     // En 64×64, s74 dejaba (33,37) a 1 en el generador y a 2 en la escena: el
     // nivel del engorde ponía la barrera bajo la ciudad de al lado.
     for (const lado of [LADO_MINIMO_DEL_GENERADOR, 64])
-      for (const semilla of segunPrisa([1, 74], rango(1, 40))) {
-        await new Promise((r) => setTimeout(r, 0));
+      for await (const semilla of conRespiro(segunPrisa([1, 74], rango(1, 40)))) {
         const { map } = buildMap(
           generateMapPlan(createRng(semilla), { width: lado, height: lado }),
         );
@@ -208,8 +207,8 @@ describe('en los mapas del procedimental, todo acantilado tiene lo bajo al lado 
       }
     // Un 64×64 cuesta ~1 s desde #224: con más ciudades, más vestidos se
     // repiten por una silla (272 → 990 ms de media en 1-10, 09-10-2026). Por
-    // eso suelta el hilo entre mapa y mapa: si no, el trabajador de vitest no
-    // contesta a tiempo («Timeout calling onTaskUpdate»).
+    // eso suelta el hilo entre mapa y mapa (`conRespiro`): si no, el
+    // trabajador de vitest no contesta a tiempo («Timeout calling onTaskUpdate»).
   }, 180_000);
 
   it('y muerde en un mapa real: una casilla de la meseta pegada a la línea, hecha acantilado, cuenta', () => {
