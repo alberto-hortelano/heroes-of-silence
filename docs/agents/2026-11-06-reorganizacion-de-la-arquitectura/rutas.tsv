@@ -2305,3 +2305,4 @@ simbolo	src/client/arena/main.ts	src/client/arena/cambios.ts	retocarLaPelea (rec
 simbolo	src/client/arena/main.ts	src/client/arena/pelea.ts	luchar, volverAlMontaje y jugadaEnCurso (reciben la página) (R8 de C4)
 simbolo	src/client/arena/main.ts	src/client/arena/dibujo.ts	render, que es dibujarFotograma, dibujarBatalla, alargarLienzo y colocarMarco (reciben la página) (R8 de C4)
 simbolo	src/client/arena/main.ts	src/client/arena/puntero.ts	enLienzo (recibe el lienzo) y los oyentes de pointermove, pointerup y pointerleave del lienzo: instalarElPuntero (R8 de C4)
+simbolo	src/client/arena/main.ts	src/client/arena/clic.ts	el oyente de click de document, entero: instalarElClic; piezaDeLaFicha, enfocar, Quitada, quitadaDe, enfocarTrasQuitar, traerALaVista, traerLaPiezaALaVista, ALTO_DE_LA_FICHA_A_LA_VISTA, raizVisible y enfocarElNombre (R8 de C4)
