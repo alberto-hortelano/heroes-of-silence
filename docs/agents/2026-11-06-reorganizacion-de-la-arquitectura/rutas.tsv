@@ -742,3 +742,23 @@ simbolo	src/core/hero/equipo.ts	src/core/equipo/portador.ts	sacarDeLaMochila
 simbolo	src/core/hero/equipo.ts	src/core/hero/cuerpo-del-heroe.ts	equipoBaseBlocker
 simbolo	src/core/hero/equipo.ts	src/core/hero/cuerpo-del-heroe.ts	EQUIPO_BASE
 fichero	src/core/hero/equipo.ts	(retirado)	repartido en equipo/pieza (el catálogo del juego y de dónde sale una pieza), manos, vestir (con la cabecera), atado, dicho y portador; los dichos de un uso, en battle/armas y battle/carga; el equipo base del héroe, en hero/cuerpo-del-heroe
+simbolo	src/core/battle/board.ts	src/core/battle/types.ts	Paso
+simbolo	src/core/battle/muralla.ts	src/core/battle/types.ts	PuertaDeMuralla
+simbolo	src/core/battle/muralla.ts	src/core/battle/types.ts	MaterialDeMuralla
+simbolo	src/core/battle/muralla.ts	src/core/battle/types.ts	MATERIALES_DE_MURALLA
+simbolo	src/core/battle/muralla.ts	src/core/battle/types.ts	MurallaDeBatalla
+simbolo	src/core/battle/muralla.ts	src/core/battle/types.ts	EstadoDePuerta
+simbolo	src/core/battle/effects.ts	src/core/battle/types.ts	EFFECT_KINDS
+simbolo	src/core/battle/effects.ts	src/core/battle/types.ts	EffectKind
+simbolo	src/core/battle/effects.ts	src/core/battle/types.ts	CIFRAS_DE_EFECTO
+simbolo	src/core/battle/effects.ts	src/core/battle/types.ts	CifraDeEfecto
+simbolo	src/core/battle/effects.ts	src/core/battle/types.ts	ComunDelEfecto
+simbolo	src/core/battle/effects.ts	src/core/battle/types.ts	EfectoDeCifra
+simbolo	src/core/battle/effects.ts	src/core/battle/types.ts	EfectoQueImpide
+simbolo	src/core/battle/effects.ts	src/core/battle/types.ts	EfectoDeEscudo
+simbolo	src/core/battle/effects.ts	src/core/battle/types.ts	EfectoDisparador
+simbolo	src/core/battle/effects.ts	src/core/battle/types.ts	StackEffect
+simbolo	src/core/battle/effects.ts	src/core/battle/types.ts	EfectoResuelto
+simbolo	src/core/battle/effects.ts	src/core/battle/types.ts	DisparadorResuelto
+simbolo	src/core/battle/effects.ts	src/core/battle/types.ts	HastaElTurno
+simbolo	src/core/battle/effects.ts	src/core/battle/types.ts	CuandoVence

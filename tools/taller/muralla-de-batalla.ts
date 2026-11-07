@@ -21,7 +21,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import sharp from 'sharp';
-import type { MaterialDeMuralla } from '../../src/core/battle/muralla.js';
+import type { MaterialDeMuralla } from '../../src/core/battle/types.js';
 import {
   ALTO_DE_MURALLA,
   CARPETA_DE_LA_MURALLA,

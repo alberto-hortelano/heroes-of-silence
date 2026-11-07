@@ -28,12 +28,10 @@ import {
   porcientoDeLaCarga,
 } from '@core/battle/carga.js';
 import {
-  type CuandoVence,
   cifraDeEfecto,
   dichoCortoDelEfecto,
   dichoDelEfecto,
   enRondas,
-  type StackEffect,
   signoDelEfecto,
 } from '@core/battle/effects.js';
 import { alcanceDeLaGranada } from '@core/battle/granada.js';
@@ -50,11 +48,13 @@ import {
   type BattleAction,
   type BattleStack,
   type BattleState,
+  type CuandoVence,
   HERO_BODY,
   MAX_ROUNDS,
   rangoDeVeterania,
   SIDES,
   type Side,
+  type StackEffect,
 } from '@core/battle/types.js';
 import { conSigno, modificadoresDePieza, textoDeModificador } from '@core/equipo/dicho.js';
 import type { Pieza } from '@core/equipo/pieza.js';

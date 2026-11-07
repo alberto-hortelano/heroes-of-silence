@@ -34,8 +34,8 @@ import {
 import { caminoDe, hexDistance, hexKey } from '../src/core/battle/board.js';
 import { CARGA } from '../src/core/battle/carga.js';
 import { applyEffect } from '../src/core/battle/effects.js';
-import { type MurallaDeBatalla, SIN_MURALLA } from '../src/core/battle/muralla.js';
-import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
+import { SIN_MURALLA } from '../src/core/battle/muralla.js';
+import type { BattleEvent, BattleState, MurallaDeBatalla } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex, Stack, UnitInfo } from '../src/core/types.js';

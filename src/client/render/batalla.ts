@@ -32,19 +32,14 @@ import {
   indiceDe,
   neighbours,
 } from '@core/battle/board.js';
-import {
-  type EstadoDePuerta,
-  esMuro,
-  hayMuralla,
-  type MaterialDeMuralla,
-  type MurallaDeBatalla,
-  nivelDe,
-  type PuertaDeMuralla,
-  puertaAbierta,
-} from '@core/battle/muralla.js';
+import { esMuro, hayMuralla, nivelDe, puertaAbierta } from '@core/battle/muralla.js';
 import {
   type BattleStack,
   type BattleState,
+  type EstadoDePuerta,
+  type MaterialDeMuralla,
+  type MurallaDeBatalla,
+  type PuertaDeMuralla,
   rangoDeVeterania,
   type Side,
 } from '@core/battle/types.js';

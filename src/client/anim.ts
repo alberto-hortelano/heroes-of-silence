@@ -27,10 +27,9 @@
  */
 import { isAlive, stackHexes } from '@core/battle/battle.js';
 import { stackHp, trasElGolpe } from '@core/battle/damage.js';
-import type { StackEffect } from '@core/battle/effects.js';
 import { nivelDe } from '@core/battle/muralla.js';
 import type { HechoDelCruce } from '@core/battle/rueda.js';
-import type { BattleEvent, BattleStack, BattleState } from '@core/battle/types.js';
+import type { BattleEvent, BattleStack, BattleState, StackEffect } from '@core/battle/types.js';
 import type { Hex } from '@core/types.js';
 import { type Direccion, direccionHacia } from './direccion.js';
 import { msDeSuelta, msPorCasilla } from './marcha.js';

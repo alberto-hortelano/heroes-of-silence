@@ -27,8 +27,8 @@ import {
   firmaDelDespliegue,
   zonaDeSalida,
 } from '../src/core/battle/despliegue.js';
-import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from '../src/core/battle/muralla.js';
-import type { BattleState } from '../src/core/battle/types.js';
+import { SIN_MURALLA, validarMuralla } from '../src/core/battle/muralla.js';
+import type { BattleState, MurallaDeBatalla } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
 import type { AlcanceDelDespliegue, Hex } from '../src/core/types.js';

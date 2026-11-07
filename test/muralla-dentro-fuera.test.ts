@@ -27,14 +27,8 @@ import {
   stackById,
 } from '../src/core/battle/battle.js';
 import { caminoDe, hexKey, neighbours } from '../src/core/battle/board.js';
-import {
-  cierra,
-  esMuro,
-  ladoDeLaMuralla,
-  type MurallaDeBatalla,
-  SIN_MURALLA,
-} from '../src/core/battle/muralla.js';
-import type { BattleStack, BattleState } from '../src/core/battle/types.js';
+import { cierra, esMuro, ladoDeLaMuralla, SIN_MURALLA } from '../src/core/battle/muralla.js';
+import type { BattleStack, BattleState, MurallaDeBatalla } from '../src/core/battle/types.js';
 
 import { createRng } from '../src/core/rng.js';
 import type { Hex } from '../src/core/types.js';

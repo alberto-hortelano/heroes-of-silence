@@ -19,16 +19,10 @@ import { describe, expect, it } from 'vitest';
 import { armaduraEnLaPelea, trasLaArmadura } from '../src/core/battle/armas.js';
 import { stackSpeed } from '../src/core/battle/battle.js';
 import { danioPorIndividuo, effectiveAttack, effectiveDefense } from '../src/core/battle/damage.js';
-import {
-  applyEffect,
-  type CifraDeEfecto,
-  disparadoresDe,
-  EFFECT_KINDS,
-  impedidoPor,
-  type StackEffect,
-} from '../src/core/battle/effects.js';
+import { applyEffect, disparadoresDe, impedidoPor } from '../src/core/battle/effects.js';
 import { formaDeLaBatalla } from '../src/core/battle/formas-de-la-rueda.js';
 import type { BattleStack } from '../src/core/battle/types.js';
+import { type CifraDeEfecto, EFFECT_KINDS, type StackEffect } from '../src/core/battle/types.js';
 import { serializeBattleResponse } from '../src/core/contract/batalla.js';
 import { battleActionSchema } from '../src/core/contract/esquemas.js';
 import { RESPONSE_FORMAT } from '../src/core/contract/formato.js';

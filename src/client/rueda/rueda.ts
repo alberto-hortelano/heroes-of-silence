@@ -27,7 +27,6 @@
 
 import type { DanioDeLosGolpes, GolpeEnSuPunto, GolpeQueViene } from '@core/battle/battle.js';
 import { dichoDeLaCarga } from '@core/battle/carga.js';
-import type { StackEffect } from '@core/battle/effects.js';
 import {
   cargaDelCruce,
   contraataqueDelCruce,
@@ -45,7 +44,7 @@ import {
   puntosDeLaForma,
   type TipoDeGolpe,
 } from '@core/battle/rueda.js';
-import type { BattleStack, BattleState, Side } from '@core/battle/types.js';
+import type { BattleStack, BattleState, Side, StackEffect } from '@core/battle/types.js';
 import { type CruceEnCurso, DURACION } from '../anim.js';
 import { type Html, html, NADA, unir } from '../html.js';
 import { COLOR_BANDO } from '../render/batalla.js';

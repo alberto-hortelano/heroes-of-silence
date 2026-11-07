@@ -8,14 +8,8 @@
  */
 
 import { espejo, FORMA_DEL_TABLERO, isInside, ULTIMA_FILA } from '../battle/board.js';
-import {
-  cierra,
-  hayMuralla,
-  type MurallaDeBatalla,
-  type PuertaDeMuralla,
-  reglaDeLaMuralla,
-  validarMuralla,
-} from '../battle/muralla.js';
+import { cierra, hayMuralla, reglaDeLaMuralla, validarMuralla } from '../battle/muralla.js';
+import type { MurallaDeBatalla, PuertaDeMuralla } from '../battle/types.js';
 import type { Hex } from '../types.js';
 import { lista, revisarLista, texto, todasValidas } from '../validar.js';
 

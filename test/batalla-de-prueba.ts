@@ -22,19 +22,19 @@ import {
   stackHexes,
 } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
-import {
-  type MaterialDeMuralla,
-  type MurallaDeBatalla,
-  type PuertaDeMuralla,
-  validarMuralla,
-} from '../src/core/battle/muralla.js';
+import { validarMuralla } from '../src/core/battle/muralla.js';
 import type {
   BattleAction,
   BattleEvent,
   BattleHero,
   BattleState,
 } from '../src/core/battle/types.js';
-import { HERO_BODY } from '../src/core/battle/types.js';
+import {
+  HERO_BODY,
+  type MaterialDeMuralla,
+  type MurallaDeBatalla,
+  type PuertaDeMuralla,
+} from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO, type ReglasDelCombate } from '../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import type { Pieza } from '../src/core/equipo/pieza.js';

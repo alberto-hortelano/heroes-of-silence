@@ -29,10 +29,9 @@ import {
   cierra,
   claveDeAbiertas,
   ladoDeLaMuralla,
-  type PuertaDeMuralla,
   SIN_MURALLA,
 } from '../src/core/battle/muralla.js';
-import type { BattleAction } from '../src/core/battle/types.js';
+import type { BattleAction, PuertaDeMuralla } from '../src/core/battle/types.js';
 
 import { createRng } from '../src/core/rng.js';
 import type { Hex } from '../src/core/types.js';

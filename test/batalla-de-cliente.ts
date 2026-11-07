@@ -23,9 +23,9 @@ import { type CaraDeLosContrincantes, renderDesenlace } from '../src/client/rued
 import { type ControlDeBatalla, SesionDeArena, Session } from '../src/client/session.js';
 import { hexDistance } from '../src/core/battle/board.js';
 import { formaDeLaBatalla, golpeNeutro } from '../src/core/battle/formas-de-la-rueda.js';
-import { type MurallaDeBatalla, SIN_MURALLA } from '../src/core/battle/muralla.js';
+import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import type { HechoDelCruce } from '../src/core/battle/rueda.js';
-import type { BattleState } from '../src/core/battle/types.js';
+import type { BattleState, MurallaDeBatalla } from '../src/core/battle/types.js';
 import type { ReglasDelCombate } from '../src/core/combate.js';
 import { objectAt } from '../src/core/map/map.js';
 import type { Point, TipoDeGolpe } from '../src/core/types.js';

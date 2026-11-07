@@ -36,13 +36,8 @@
  * de un sitio lo pregunta a la red (`dueñoDeUnSitio`, `map/regiones.ts`).
  */
 import sitiosJson from '../../../data/sitios.json' with { type: 'json' };
-import {
-  type MaterialDeMuralla,
-  type MurallaDeBatalla,
-  murallaDelMapaBlocker,
-  SIN_MURALLA,
-  validarMuralla,
-} from '../battle/muralla.js';
+import { murallaDelMapaBlocker, SIN_MURALLA, validarMuralla } from '../battle/muralla.js';
+import type { MaterialDeMuralla, MurallaDeBatalla } from '../battle/types.js';
 import { unitPower } from '../hero/fuerza.js';
 import type { Hero } from '../hero/hero.js';
 import {

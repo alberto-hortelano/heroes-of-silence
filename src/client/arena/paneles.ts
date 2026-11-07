@@ -41,12 +41,7 @@ import { FORMA_DEL_TABLERO, filasDelTablero } from '@core/battle/board.js';
 import { CARGA, DICHO_DE_LA_CARGA, dichoDeLasCifras } from '@core/battle/carga.js';
 import { armasDe } from '@core/battle/damage.js';
 import { enRondas } from '@core/battle/effects.js';
-import {
-  esMuro,
-  ladoDeLaMuralla,
-  type MurallaDeBatalla,
-  type PiezaDeMuralla,
-} from '@core/battle/muralla.js';
+import { esMuro, ladoDeLaMuralla, type PiezaDeMuralla } from '@core/battle/muralla.js';
 import {
   filasDeLaRueda,
   NIVEL_MAXIMO,
@@ -55,7 +50,7 @@ import {
   ruedaDelArmaEnPalabras,
   type TipoDelAnillo,
 } from '@core/battle/rueda.js';
-import type { BattleStack, BattleState } from '@core/battle/types.js';
+import type { BattleStack, BattleState, MurallaDeBatalla } from '@core/battle/types.js';
 import type { CatalogoDeEquipo, EquipoAtado } from '@core/equipo/atado.js';
 import {
   cifrasDePieza,

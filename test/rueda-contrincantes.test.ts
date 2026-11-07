@@ -27,14 +27,13 @@ import { efectoEnCurso, modificadoresEnCurso } from '../src/client/views/panels.
 import { stackById } from '../src/core/battle/battle.js';
 import { dichoCortoDeLaCarga, dichoDeLaCarga } from '../src/core/battle/carga.js';
 import { NIVEL_MAXIMO } from '../src/core/battle/cifras-de-la-rueda.js';
-import type { StackEffect } from '../src/core/battle/effects.js';
 import {
   formaDeLaBatalla,
   LAS_TRES_RUEDAS,
   RUEDA_DE_REFERENCIA,
   type TipoDeGolpe,
 } from '../src/core/battle/rueda.js';
-import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
+import type { BattleEvent, BattleState, StackEffect } from '../src/core/battle/types.js';
 import { TIPOS_DEL_ANILLO } from '../src/core/types.js';
 import { desenlaceDe, empezarTalCual, hastaLaRueda, sesionDeArena } from './batalla-de-cliente.js';
 import { conManosDePrueba, todoA } from './batalla-de-prueba.js';

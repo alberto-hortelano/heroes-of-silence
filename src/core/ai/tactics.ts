@@ -40,28 +40,15 @@ import {
   sumaDelBando,
   terminarElDespliegue,
 } from '../battle/battle.js';
-import {
-  hexDistance,
-  hexEquals,
-  hexKey,
-  indiceDe,
-  neighbours,
-  type Paso,
-} from '../battle/board.js';
+import { hexDistance, hexEquals, hexKey, indiceDe, neighbours } from '../battle/board.js';
 import { CARGA, CARGA_MINIMA, cargaEfectiva, cargaMontada } from '../battle/carga.js';
 import { type DamageOptions, expectedDamage, fraccionQueLlega, stackHp } from '../battle/damage.js';
-import { roundsLeftOf, type StackEffect } from '../battle/effects.js';
+import { roundsLeftOf } from '../battle/effects.js';
 import { alcanceDeLaGranada } from '../battle/granada.js';
-import {
-  claveDeAbiertas,
-  enLoAlto,
-  esMuro,
-  mismaPuerta,
-  type PuertaDeMuralla,
-} from '../battle/muralla.js';
+import { claveDeAbiertas, enLoAlto, esMuro, mismaPuerta } from '../battle/muralla.js';
 import { soloCura } from '../battle/spells.js';
 import type { BattleAction, BattleStack, BattleState, Side } from '../battle/types.js';
-import { otroBando } from '../battle/types.js';
+import { otroBando, type Paso, type PuertaDeMuralla, type StackEffect } from '../battle/types.js';
 import { ESCALA_DE_CIFRAS } from '../escala.js';
 import type { Rng } from '../rng.js';
 import type { Hex } from '../types.js';

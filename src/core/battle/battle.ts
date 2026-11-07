@@ -71,7 +71,6 @@ import {
   lineaDeTiro,
   neighbours,
   octavosHastaLaRecta,
-  type Paso,
   type PasoPermitido,
   quedanCasillas,
   reachable,
@@ -112,16 +111,12 @@ import {
 } from './despliegue.js';
 import {
   applyEffect,
-  type CuandoVence,
   clampMorale,
-  type DisparadorResuelto,
   dichoDelEfecto,
   disparadoresDe,
-  type EfectoResuelto,
   effectTotal,
   esCifraDeEfecto,
   impedidoPor,
-  type StackEffect,
   tickEffects,
 } from './effects.js';
 import { alcanceDeLaGranada, casillasDeLaExplosion } from './granada.js';
@@ -135,12 +130,10 @@ import {
   esMuro,
   hayMuralla,
   ladoDeLaMuralla,
-  type MurallaDeBatalla,
   mismaPuerta,
   mismoNivel,
   nivelDe,
   nombreDePuerta,
-  type PuertaDeMuralla,
   pasoAlAndar,
   pasoPorPuertas,
   puertasAlEmpezar,
@@ -198,7 +191,18 @@ import type {
   TipoDePuerta,
   TurnoDeUnidad,
 } from './types.js';
-import { MAX_ROUNDS, otroBando, SIDES } from './types.js';
+import {
+  type CuandoVence,
+  type DisparadorResuelto,
+  type EfectoResuelto,
+  MAX_ROUNDS,
+  type MurallaDeBatalla,
+  otroBando,
+  type Paso,
+  type PuertaDeMuralla,
+  SIDES,
+  type StackEffect,
+} from './types.js';
 
 export interface BattleSide {
   /**

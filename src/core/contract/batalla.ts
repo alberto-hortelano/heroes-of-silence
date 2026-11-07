@@ -19,7 +19,7 @@ import {
   stackHexes,
   stackSpeed,
 } from '../battle/battle.js';
-import { type Paso, tableroDelContrato } from '../battle/board.js';
+import { tableroDelContrato } from '../battle/board.js';
 import type { CifrasDeLaRueda } from '../battle/cifras-de-la-rueda.js';
 import { stackHp } from '../battle/damage.js';
 import { dichoDelEfecto } from '../battle/effects.js';
@@ -31,6 +31,7 @@ import {
   type BattleStack,
   type BattleState,
   type OrigenDelStack,
+  type Paso,
   queEs,
   rangoDeVeterania,
   type Side,

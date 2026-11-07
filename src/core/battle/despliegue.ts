@@ -13,11 +13,9 @@
  */
 import type { AlcanceDelDespliegue, Hex, MomentoDeDespliegue, UnitInfo } from '../types.js';
 import { COLUMNAS_DE_SALIDA, hexEquals, hexKey, isInside } from './board.js';
-import { casillasDeMuro, type MurallaDeBatalla, SIN_MURALLA } from './muralla.js';
+import { casillasDeMuro, SIN_MURALLA } from './muralla.js';
 import { enElMarco, noCabenEnLaSalida, zonaEnSuMarco } from './salida.js';
-import type { BattleStack, BattleState, Side } from './types.js';
-
-export type { AlcanceDelDespliegue, MomentoDeDespliegue } from '../types.js';
+import type { BattleStack, BattleState, MurallaDeBatalla, Side } from './types.js';
 
 /**
  * Hasta cuántas columnas desde su borde puede desplegar una unidad: la mitad de

@@ -29,11 +29,11 @@ import {
   type FormaDeLaRueda,
   tipoDeGolpeBlocker,
 } from '../battle/formas-de-la-rueda.js';
-import type { PuertaDeMuralla } from '../battle/muralla.js';
 import type {
   BattleAction,
   BattleEvent,
   JugadaDeMuralla,
+  PuertaDeMuralla,
   TipoDeEscala,
   TipoDePuerta,
 } from '../battle/types.js';

@@ -29,8 +29,7 @@
  *
  * Sin la imagen, cada pieza pinta su marcador de siempre (`ACABADO_DEL_MURO`).
  */
-import type { MaterialDeMuralla } from '../core/battle/muralla.js';
-
+import type { MaterialDeMuralla } from '../core/battle/types.js';
 /**
  * Lo que mide una columna de la muralla, en pasos: la figura que está arriba se
  * pinta así de alta. Era 0,42 —algo menos de media figura, para que la de detrás

@@ -6,7 +6,8 @@
  * Era parte de `core/arena.ts`, repartido en `arena/` en la fase N de la
  * reorganización (07-11-2026); lo que hace la arena y por qué, en `montaje.ts`.
  */
-import { type MurallaDeBatalla, validarMuralla } from '../battle/muralla.js';
+import { validarMuralla } from '../battle/muralla.js';
+import type { MurallaDeBatalla } from '../battle/types.js';
 import { combateBlocker, type ReglasDelCombate } from '../combate.js';
 import { type CatalogoDeEquipo, catalogoDeEquipo } from '../equipo/atado.js';
 import { EQUIPO_ESCRITO, type PiezaEscrita, validarPieza } from '../equipo/pieza.js';

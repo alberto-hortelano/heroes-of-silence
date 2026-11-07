@@ -32,12 +32,13 @@ import {
 } from '../src/core/battle/battle.js';
 import { hexEquals } from '../src/core/battle/board.js';
 import type { Horquilla } from '../src/core/battle/damage.js';
-import { type MurallaDeBatalla, SIN_MURALLA } from '../src/core/battle/muralla.js';
+import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import type {
   BattleAction,
   BattleEvent,
   BattleHero,
   BattleState,
+  MurallaDeBatalla,
 } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';

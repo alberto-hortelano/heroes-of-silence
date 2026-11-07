@@ -63,7 +63,7 @@ import {
   TANDAS,
   zonaDe,
 } from '@core/battle/despliegue.js';
-import { bonoEnLoAlto, type MurallaDeBatalla, SIN_MURALLA } from '@core/battle/muralla.js';
+import { bonoEnLoAlto, SIN_MURALLA } from '@core/battle/muralla.js';
 import type { Baja } from '@core/battle/resumen.js';
 import {
   formaDeLaBatalla,
@@ -78,6 +78,7 @@ import type {
   BattleStack,
   BattleState,
   JugadaDeMuralla,
+  MurallaDeBatalla,
   Side,
   TipoDeEscala,
   TipoDePuerta,

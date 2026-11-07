@@ -60,13 +60,11 @@ import { hexEquals, isInside } from '@core/battle/board.js';
 import {
   esMuro,
   hayMuralla,
-  type MurallaDeBatalla,
   mismaPuerta,
   murallaVacia,
-  type PuertaDeMuralla,
   validarMuralla,
 } from '@core/battle/muralla.js';
-import type { BattleStack } from '@core/battle/types.js';
+import type { BattleStack, MurallaDeBatalla, PuertaDeMuralla } from '@core/battle/types.js';
 import { COMBATE_COMPLETO, type ReglasDelCombate } from '@core/combate.js';
 import { type CatalogoDeEquipo, catalogoDeEquipo, EQUIPO_DEL_JUEGO } from '@core/equipo/atado.js';
 import {

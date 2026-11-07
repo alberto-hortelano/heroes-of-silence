@@ -9,7 +9,7 @@
  * llama (`render/batalla.ts`) pinta entonces su marcador, como siempre.
  */
 
-import type { MaterialDeMuralla } from '@core/battle/muralla.js';
+import type { MaterialDeMuralla } from '@core/battle/types.js';
 import indiceJson from '../../../assets/batalla/muralla/indice.json' with { type: 'json' };
 import {
   ALTO_DE_MURALLA,

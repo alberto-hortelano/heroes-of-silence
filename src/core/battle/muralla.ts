@@ -54,38 +54,21 @@ import {
   reachable,
 } from './board.js';
 import { salidaDe } from './salida.js';
-import { type BattleStack, type BattleState, SIDES, type Side } from './types.js';
-
-/**
- * Una puerta: el lado que comparten `a` y `b`, dos casillas de suelo de la misma
- * fila, `b` justo al este de `a`. No ocupa ninguna de las dos.
- */
-export interface PuertaDeMuralla {
-  readonly a: Hex;
-  readonly b: Hex;
-}
-
-/**
- * De qué está hecha una muralla: la **piedra** de las ciudades y la **madera** de la
- * empalizada de los pueblos (puesto fronterizo, fase 2, 04-11-2026). Solo cambia
- * cómo se pinta y lo que se dice: las reglas del muro son las mismas (el bono de lo
- * alto, el de la arena para los dos: pregunta 5 del plan).
- */
-export type MaterialDeMuralla = (typeof MATERIALES_DE_MURALLA)[number];
-
-/** Los materiales, en el orden en que se dicen: la lista de la que sale el tipo. */
-export const MATERIALES_DE_MURALLA = ['piedra', 'madera'] as const;
+import {
+  type BattleStack,
+  type BattleState,
+  type EstadoDePuerta,
+  MATERIALES_DE_MURALLA,
+  type MaterialDeMuralla,
+  type MurallaDeBatalla,
+  type PuertaDeMuralla,
+  SIDES,
+  type Side,
+} from './types.js';
 
 /** ¿Es `x` un material de muralla? */
 export function esMaterialDeMuralla(x: unknown): x is MaterialDeMuralla {
   return MATERIALES_DE_MURALLA.includes(x as MaterialDeMuralla);
-}
-
-export interface MurallaDeBatalla {
-  readonly muros: readonly Hex[];
-  readonly puertas: readonly PuertaDeMuralla[];
-  /** De qué está hecha (`MaterialDeMuralla`): obligatorio, también en la arena (piedra). */
-  readonly material: MaterialDeMuralla;
 }
 
 /**
@@ -111,18 +94,6 @@ export function murallaVacia(material: MaterialDeMuralla): MurallaDeBatalla {
 
 /** Lo que pone el editor de la arena: muros en casillas, puertas entre dos. */
 export type PiezaDeMuralla = 'muro' | 'puerta';
-
-/**
- * Una puerta de la muralla en una batalla: abierta o cerrada, y el turno
- * (`TurnoDeUnidad.n`) en que se cambió por última vez, porque cada puerta se
- * cambia una vez por turno de unidad. Vive en `BattleState.puertas`, en el orden
- * de `MurallaDeBatalla.puertas`: la muralla está congelada y se guarda en cachés
- * por objeto, y esto cambia.
- */
-export interface EstadoDePuerta extends PuertaDeMuralla {
-  abierta: boolean;
-  cambiadaEn: number | null;
-}
 
 /** Las puertas de `m` como empieza la batalla: todas cerradas (decisión del usuario). */
 export function puertasAlEmpezar(m: MurallaDeBatalla): EstadoDePuerta[] {

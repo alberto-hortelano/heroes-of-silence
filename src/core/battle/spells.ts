@@ -23,8 +23,16 @@ import {
 } from '../magia/formato.js';
 import type { Hex } from '../types.js';
 import { allHexes, hexDistance } from './board.js';
-import type { DisparadorResuelto, EfectoResuelto, HastaElTurno, StackEffect } from './effects.js';
-import { type BattleHero, type BattleStack, MAX_ROUNDS, type Side } from './types.js';
+import {
+  type BattleHero,
+  type BattleStack,
+  type DisparadorResuelto,
+  type EfectoResuelto,
+  type HastaElTurno,
+  MAX_ROUNDS,
+  type Side,
+  type StackEffect,
+} from './types.js';
 
 export type { Hechizo };
 

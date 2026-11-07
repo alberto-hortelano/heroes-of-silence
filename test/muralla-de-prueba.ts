@@ -9,8 +9,7 @@
 import { FORMAS_DE_EJEMPLO } from '../src/core/arena/murallas.js';
 import { type BattleSide, createBattle, stackById } from '../src/core/battle/battle.js';
 import { hexKey } from '../src/core/battle/board.js';
-import type { MurallaDeBatalla } from '../src/core/battle/muralla.js';
-import type { BattleAction, BattleState } from '../src/core/battle/types.js';
+import type { BattleAction, BattleState, MurallaDeBatalla } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex, Stack, UnitInfo } from '../src/core/types.js';

@@ -53,7 +53,6 @@ import {
   type Punto,
 } from './cifras-de-la-rueda.js';
 import { type CruceDelGolpe, tiradaEnCuartos } from './damage.js';
-import type { CuandoVence } from './effects.js';
 import {
   cicloDe,
   esFusionado,
@@ -62,7 +61,7 @@ import {
   PARTES,
   tipoDeGolpeBlocker,
 } from './formas-de-la-rueda.js';
-import type { BattleAction, BattleEvent } from './types.js';
+import type { BattleAction, BattleEvent, CuandoVence } from './types.js';
 
 export {
   type CifrasDeLaRueda,

@@ -39,11 +39,10 @@ import {
   cierra,
   esMuro,
   ladoDeLaMuralla,
-  type MurallaDeBatalla,
   nivelDe,
   SIN_MURALLA,
 } from '../src/core/battle/muralla.js';
-import type { BattleState } from '../src/core/battle/types.js';
+import type { BattleState, MurallaDeBatalla } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex } from '../src/core/types.js';
