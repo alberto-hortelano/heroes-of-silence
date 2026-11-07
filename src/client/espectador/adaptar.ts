@@ -16,7 +16,6 @@
  */
 
 import type { BattleStack, BattleState } from '@core/battle/types.js';
-import { cifrasDeUnidad, oroDeUnidad } from '@core/catalogo.js';
 import { Casillas } from '@core/map/casillas.js';
 import {
   aPunto,
@@ -27,6 +26,7 @@ import {
 } from '@core/map/map.js';
 import { BARRERAS, NIVELES, type TerrainKind } from '@core/map/terrain.js';
 import type { UnitInfo, Veterania } from '@core/types.js';
+import { cifrasDeUnidad, oroDeUnidad } from '@core/unidad/catalogo.js';
 import type {
   SpectatorView,
   StackEnCable,

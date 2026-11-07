@@ -1,5 +1,5 @@
 /** Arranque de partida: del plan de mapa a un `GameState` listo para jugar. */
-import { unidadesDeMorada } from '../catalogo.js';
+
 import { COMBATE_COMPLETO, cupoDelHeroe, type ReglasDelCombate } from '../combate.js';
 import { problemaDeTipo } from '../hero/ascenso.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../hero/experiencia.js';
@@ -23,6 +23,7 @@ import {
 import { createRng, hashDeTexto, type Rng } from '../rng.js';
 import { sitioDe } from '../town/sitios.js';
 import { type Controller, FACTION_IDS, type FactionId, type PlayerId } from '../types.js';
+import { unidadesDeMorada } from '../unidad/catalogo.js';
 import { createGame } from './game.js';
 import type { GameState } from './tipos.js';
 

@@ -5,7 +5,7 @@
  * las dos cosas (`unidadDeCombate` → `conEquipo`).
  *
  * Aparte de la arena (`core/arena/`; simplify de F1, 18-10-2026): el catálogo del juego
- * (`core/catalogo.ts`) valida con esta regla al cargar, y si la importaba de la
+ * (`unidad/catalogo.ts`) valida con esta regla al cargar, y si la importaba de la
  * arena arrastraba el montador de batallas (la frontera de importación de
  * `core/arena/`, que vigila `test/invariantes.test.ts`). La arena importa de
  * aquí.
@@ -14,15 +14,13 @@
  * `agilidad`, `hp`— y el tipo los toma de allí, así que una cifra que cambie de
  * forma en el motor deja de compilar aquí. La defensa, el daño y las casillas no
  * se escriben (25-10-2026): se derivan del cuerpo y su equipo (`cifrasDelCuerpo`,
- * `core/cuerpo.ts`).
+ * `unidad/cuerpo.ts`).
  */
-import habilidadesJson from '../../data/habilidades.json' with { type: 'json' };
-import { AGILIDAD_DEL_CUERPO_MAX, AGILIDAD_DEL_CUERPO_MIN, cuerpoConSusCifras } from './cuerpo.js';
-import { type EquipoAtado, equipoBaseBlocker, PIEZAS_DEL_CATALOGO } from './hero/equipo.js';
-import { type CatalogoDeHechizos, HECHIZOS_DEL_JUEGO } from './magia/catalogo.js';
-import { esIdDeHechizo } from './magia/formato.js';
-import { problemasComoPoder } from './magia/validar.js';
-import { medidaBlocker } from './nivel.js';
+import habilidadesJson from '../../../data/habilidades.json' with { type: 'json' };
+import { type EquipoAtado, equipoBaseBlocker, PIEZAS_DEL_CATALOGO } from '../hero/equipo.js';
+import { type CatalogoDeHechizos, HECHIZOS_DEL_JUEGO } from '../magia/catalogo.js';
+import { esIdDeHechizo } from '../magia/formato.js';
+import { problemasComoPoder } from '../magia/validar.js';
 import {
   CREATURE_TRAITS,
   type CreatureTrait,
@@ -35,7 +33,7 @@ import {
   type NivelesDeLaRueda,
   NOMBRE_DE_HUECO,
   type UnitInfo,
-} from './types.js';
+} from '../types.js';
 import {
   deLaLista,
   entero,
@@ -44,7 +42,9 @@ import {
   revisarLista,
   sinRepetir,
   texto,
-} from './validar.js';
+} from '../validar.js';
+import { AGILIDAD_DEL_CUERPO_MAX, AGILIDAD_DEL_CUERPO_MIN, cuerpoConSusCifras } from './cuerpo.js';
+import { medidaBlocker } from './nivel.js';
 
 /** Los nombres del catálogo de habilidades, en el orden del cuaderno. */
 export const CATALOGO_DE_HABILIDADES: readonly string[] = habilidadesJson.habilidades.map(
@@ -231,7 +231,6 @@ export const KIT_DEL_PERFIL: Readonly<Record<PerfilDeUnidad, KitDelPerfil>> = {
 
 // La agilidad que puede escribir un cuerpo, de 2 a 7, vive en `cuerpo.ts`: la
 // juzga también la pieza de montura (`problemasDePieza`).
-export { AGILIDAD_DEL_CUERPO_MAX, AGILIDAD_DEL_CUERPO_MIN } from './cuerpo.js';
 
 /** Una agilidad de cuerpo que vale (`AGILIDAD_DEL_CUERPO_MIN` a `…_MAX`), o se lanza diciendo de quién. */
 export function agilidadValida(valor: unknown, quien: string): number {
@@ -459,7 +458,7 @@ export function equipoEscrito(valor: unknown, quien: string): Equipo {
 
 /**
  * Dónde vive el catálogo de unidades, relativo a la raíz del repo: lo leen
- * `core/catalogo.ts` y la arena (`tools/arena/borrador.ts`). Aquí y no en
+ * `unidad/catalogo.ts` y la arena (`tools/arena/borrador.ts`). Aquí y no en
  * `catalogo.ts` porque aquel lo valida al cargarse, y la arena tiene que poder
  * abrirlo roto para arreglarlo.
  */
@@ -537,7 +536,7 @@ function listaDelCatalogo(valor: unknown): readonly unknown[] {
  * dos veces el mismo id —el catálogo es por tipo, y dos fichas del mismo id
  * querrían decir dos cifras para una unidad—. Lanza con el motivo de la primera
  * que no vale **nombrando el fichero**. Una sola función: la usan la carga del
- * juego (`core/catalogo.ts`) y «Guardar» de la arena (`tools/arena/borrador.ts`),
+ * juego (`unidad/catalogo.ts`) y «Guardar» de la arena (`tools/arena/borrador.ts`),
  * las dos con las piezas de `data/equipo.json`; exportada con el JSON de argumento
  * para que un test la vea morder.
  */
@@ -558,7 +557,7 @@ export function validarCatalogo(valor: unknown, eq: EquipoAtado): readonly Unida
  * `catalogoDeEquipo`/`leerEquipo`), el equipo base del héroe con esas piezas
  * (`equipoBaseBlocker`) y el de unidades (`validarCatalogo`, `{ unidades: [...] }`).
  * Devuelve las unidades o lanza nombrando el fichero que no vale. **Una sola
- * función**: la llaman la carga del juego (`core/catalogo.ts`), «Guardar» de la
+ * función**: la llaman la carga del juego (`unidad/catalogo.ts`), «Guardar» de la
  * arena (`tools/arena/borrador.ts`) y su editor de equipo (`cambioDePiezas`),
  * que no deja hacer un cambio con el que el juego no cargaría.
  */

@@ -4,7 +4,7 @@
  * disco de la arena y, con él, el taller: un test que no las pide no lo carga.
  * (De `test/helpers.ts`, fase T, 06-11-2026.)
  */
-import type { Hoja } from '../src/core/unidad.js';
+import type { Hoja } from '../src/core/unidad/formato.js';
 import { hojasDelTaller } from '../tools/arena/borrador.js';
 import { RAIZ } from './comun.js';
 

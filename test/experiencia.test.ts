@@ -25,7 +25,6 @@ import {
 import { herir, stackHp } from '../src/core/battle/damage.js';
 import type { BattleHero, BattleState } from '../src/core/battle/types.js';
 import { HERO_BODY } from '../src/core/battle/types.js';
-import { cifrasDeUnidad, unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { serializeAdventureTurn } from '../src/core/contract/aventura.js';
 import { serializeBattleTurn } from '../src/core/contract/batalla.js';
@@ -53,7 +52,6 @@ import {
   troopSummary,
 } from '../src/core/hero/troop.js';
 import { isEnterable, objectAt } from '../src/core/map/map.js';
-import { indiceDePoder, nivelDeUnidad } from '../src/core/nivel.js';
 import { createRng } from '../src/core/rng.js';
 import { heroById, heroesOf } from '../src/core/state/consultas.js';
 import { visibleTo } from '../src/core/state/events.js';
@@ -62,7 +60,9 @@ import { newGame } from '../src/core/state/setup.js';
 import { guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import type { GameState } from '../src/core/state/tipos.js';
 import type { Point, Troop, Veterania } from '../src/core/types.js';
-import { CATALOGO_DE_HABILIDADES } from '../src/core/unidad.js';
+import { cifrasDeUnidad, unidadDelJuego } from '../src/core/unidad/catalogo.js';
+import { CATALOGO_DE_HABILIDADES } from '../src/core/unidad/formato.js';
+import { indiceDePoder, nivelDeUnidad } from '../src/core/unidad/nivel.js';
 import { forzarTurno } from './batalla-de-prueba.js';
 import {
   ctx,

@@ -24,13 +24,13 @@ import {
 import { retocarEnBatalla } from '../src/core/arena/retoque.js';
 import { armaduraDe } from '../src/core/battle/armas.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
-import { UNIDADES, unidad } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { EQUIPO_ESCRITO } from '../src/core/equipo/pieza.js';
 import { HEROE } from '../src/core/hero/cuerpo-del-heroe.js';
 import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { hechizosDelGremio } from '../src/core/magia/catalogo.js';
 import { createRng } from '../src/core/rng.js';
+import { UNIDADES, unidad } from '../src/core/unidad/catalogo.js';
 import { delBorrador } from './pelea-de-arena.js';
 
 const eq = EQUIPO_DEL_JUEGO;

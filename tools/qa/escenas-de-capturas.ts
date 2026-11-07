@@ -37,12 +37,12 @@ import {
 } from '../../src/core/battle/battle.js';
 import { hexEquals } from '../../src/core/battle/board.js';
 import type { BattleAction, BattleStack, BattleState } from '../../src/core/battle/types.js';
-import { unidadesDeMorada } from '../../src/core/catalogo.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
 import { createRng } from '../../src/core/rng.js';
 import { casillasPeligrosas } from '../../src/core/state/asaltantes.js';
 import { sitioDe } from '../../src/core/town/sitios.js';
 import type { FactionId, Point } from '../../src/core/types.js';
+import { unidadesDeMorada } from '../../src/core/unidad/catalogo.js';
 
 /**
  * Pasa el turno en el espejo y dice si el rival atacó a la persona por el camino

@@ -10,9 +10,8 @@ import { isShooter } from '../src/core/battle/armas.js';
 import { isAlive, stackHexes } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
 import { CARGA } from '../src/core/battle/carga.js';
-import { unidadDelJuego } from '../src/core/catalogo.js';
-
 import type { Hex, UnitInfo } from '../src/core/types.js';
+import { unidadDelJuego } from '../src/core/unidad/catalogo.js';
 import { sesionContraMonstruo } from './batalla-de-cliente.js';
 import { PESADA } from './comun.js';
 

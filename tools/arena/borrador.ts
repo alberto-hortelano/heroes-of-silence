@@ -53,7 +53,7 @@ import {
   type UnidadSinValidar,
   validarCatalogo,
   validarHojas,
-} from '../../src/core/unidad.js';
+} from '../../src/core/unidad/formato.js';
 import { type AEscribir, comentarioDe, escribirAtomico, jsonDe } from '../json.js';
 import { direccionesDe } from '../taller/arte-en-disco.js';
 import { HEROES, juegoDelYBot, perfilDeUnidad, UNIDADES } from '../taller/unidades.js';

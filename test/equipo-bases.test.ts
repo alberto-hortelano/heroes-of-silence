@@ -26,7 +26,7 @@ import {
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { type Pieza, validarPieza } from '../src/core/equipo/pieza.js';
 import { EQUIPO_DEL_JUEGO, pieza } from '../src/core/hero/equipo.js';
-import type { Unidad } from '../src/core/unidad.js';
+import type { Unidad } from '../src/core/unidad/formato.js';
 import { catalogoCon, elCatalogoCon, unidadDeArena } from './pelea-de-arena.js';
 
 const ESPADA = pieza('espada');

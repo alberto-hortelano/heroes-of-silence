@@ -56,15 +56,6 @@ import {
   type TipoDelAnillo,
 } from '@core/battle/rueda.js';
 import type { BattleStack, BattleState } from '@core/battle/types.js';
-import { costeDeUnaUnidad } from '@core/catalogo.js';
-import {
-  agilidadDe,
-  CASILLAS_MAX,
-  marchaDe,
-  montadoDeGuerra,
-  restaALaMontura,
-  restaDelPesoDe,
-} from '@core/cuerpo.js';
 import {
   ARMADURA_MAXIMA_DE_PIEZA,
   CARGAS_MAXIMAS,
@@ -126,15 +117,24 @@ import {
   type UnitInfo,
   type UsoDeArma,
 } from '@core/types.js';
+import { costeDeUnaUnidad } from '@core/unidad/catalogo.js';
 import {
   AGILIDAD_DEL_CUERPO_MAX,
   AGILIDAD_DEL_CUERPO_MIN,
+  agilidadDe,
+  CASILLAS_MAX,
+  marchaDe,
+  montadoDeGuerra,
+  restaALaMontura,
+  restaDelPesoDe,
+} from '@core/unidad/cuerpo.js';
+import {
   cuerpoDeCombate,
   HABILIDADES,
   type Hoja,
   type Unidad,
   unidadDeCombate,
-} from '@core/unidad.js';
+} from '@core/unidad/formato.js';
 import { type Html, html, NADA, srcDeImagen, unir } from '../html.js';
 import { ruedaDeLaPieza } from '../rueda/disco.js';
 import type { CaraDeLosContrincantes } from '../rueda/rueda.js';

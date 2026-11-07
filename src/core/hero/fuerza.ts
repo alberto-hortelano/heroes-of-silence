@@ -13,15 +13,16 @@
  * es una regla del juego, que leen la emboscada, los sitios y el contrato, y
  * fuera de `ai/` nadie del núcleo importa la IA.
  */
-import { poderBruto } from '../nivel.js';
+
 import type { Army, GrupoDeTropa, UnitInfo } from '../types.js';
+import { poderBruto } from '../unidad/nivel.js';
 import { type Hero, heroUnit } from './hero.js';
 import { ejercitoDe, troopUnit } from './troop.js';
 
 /**
  * Fuerza bruta de un individuo: lo que pega por lo que aguanta, **con todo lo que
  * lleva** (#129, #250, 19-10-2026): el cuadrado del poder bruto del índice
- * (`poderBruto`, `core/nivel.ts`), que mide cada arma por su uso, la rueda, la
+ * (`poderBruto`, `unidad/nivel.ts`), que mide cada arma por su uso, la rueda, la
  * carga, ataque y defensa, la armadura y lo que corre. Antes era daño medio × PV,
  * y con las unidades de la arena —el mismo cuerpo, lo distinto en el equipo— la IA
  * decidía a ciegas: no veía ni la armadura ni el arma.

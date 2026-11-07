@@ -15,7 +15,7 @@
  * de zod salen en inglés y el trozo de la página no lo necesita. Las piezas son
  * las del núcleo que devuelven el motivo (`core/validar.ts`), que aquí se acumula.
  */
-import { problemasDeGrupo } from '../catalogo.js';
+
 import { COMBATE_COMPLETO, cupoDelHeroe } from '../combate.js';
 import {
   type Banco,
@@ -34,6 +34,7 @@ import { type GameMap, inBounds, isEnterable, terrainAt } from '../map/map.js';
 import { FUERA, pasosDelMapa, queEsElObjeto } from '../map/recinto.js';
 import { regionDeCasilla } from '../map/regiones.js';
 import { FACTION_IDS, type FactionId, type Point } from '../types.js';
+import { problemasDeGrupo } from '../unidad/catalogo.js';
 import {
   deLaListaBlocker,
   enteroBlocker,

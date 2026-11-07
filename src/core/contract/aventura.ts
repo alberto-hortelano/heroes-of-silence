@@ -8,7 +8,6 @@
  * `peticion-de-mapa.ts`.
  */
 import { formaDeLaBatalla } from '../battle/formas-de-la-rueda.js';
-import { cifrasDeUnidad, unidadDelJuego } from '../catalogo.js';
 import { vecinosDeLaBase, vozDe } from '../gente/voces.js';
 import type { VeteranoEnBase } from '../hero/ascenso.js';
 import { PIEZAS_DE_ARMERIA } from '../hero/equipo.js';
@@ -24,7 +23,6 @@ import { infiltracionBlocker } from '../hero/infiltracion.js';
 import { tiposDeHeroe } from '../hero/tipos-de-heroe.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../hero/troop.js';
 import { sitioEnUnNodo } from '../map/regiones.js';
-import { nivelDeUnidad } from '../nivel.js';
 import { climaDeLaPartida, pedidoVigente } from '../state/clima.js';
 import {
   hayHuecoDeHeroe,
@@ -65,6 +63,8 @@ import {
   townSpells,
 } from '../town/town.js';
 import type { PlayerId } from '../types.js';
+import { cifrasDeUnidad, unidadDelJuego } from '../unidad/catalogo.js';
+import { nivelDeUnidad } from '../unidad/nivel.js';
 import { serializeKnownMap } from './mapa-conocido.js';
 import { armyView, equipoView } from './vistas.js';
 import { ruedaAlAgente, SLOT_DE_HUECO } from './vocabulario.js';

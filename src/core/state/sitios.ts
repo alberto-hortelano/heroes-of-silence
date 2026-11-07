@@ -43,7 +43,6 @@ import {
   SIN_MURALLA,
   validarMuralla,
 } from '../battle/muralla.js';
-import { unidadDelJuego, unidadDelJuegoSiExiste } from '../catalogo.js';
 import { unitPower } from '../hero/fuerza.js';
 import type { Hero } from '../hero/hero.js';
 import {
@@ -74,6 +73,7 @@ import {
   type Point,
   type Troop,
 } from '../types.js';
+import { unidadDelJuego, unidadDelJuegoSiExiste } from '../unidad/catalogo.js';
 import { deLaLista, entero, esObjeto, problemasDeObjeto } from '../validar.js';
 import type { Ocupante } from './events.js';
 import type { AdventureAction, GameState } from './tipos.js';

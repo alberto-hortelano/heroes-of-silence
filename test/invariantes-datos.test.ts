@@ -148,7 +148,7 @@ describe('invariantes del proyecto', () => {
 
   it('el nivel de una unidad se deriva de sus cifras con su equipo: nadie lo escribe, ni su coste, ni el cuerpo sin equipo', () => {
     // Un solo nivel (12-10-2026): la primera cifra del índice de poder de sus
-    // cifras (`core/nivel.ts`), **con el equipo puesto** desde el 18-10-2026 («el
+    // cifras (`core/unidad/nivel.ts`), **con el equipo puesto** desde el 18-10-2026 («el
     // nivel ve el equipo»). Había un `UnitInfo.nivel` que escribían cinco
     // constructores y un `level` en el catálogo que era la morada con otro
     // nombre: el mismo hecho, a mano, en seis sitios. Y desde F3 (19-10-2026) lo
@@ -170,26 +170,32 @@ describe('invariantes del proyecto', () => {
     if (unitInfo === undefined) throw new Error('no encuentro `interface UnitInfo` en types.ts');
     expect(unitInfo).not.toMatch(/\b(?:nivel|level)\??\s*:/);
     expect(infractoresDeCodigo([...CORE, ...CLIENTE, ...SERVIDOR], /\bsinEquipo\b/)).toEqual([]);
-    // Y el índice y el nivel los calcula `nivel.ts`, y nadie más.
+    // Y el índice y el nivel los calcula `unidad/nivel.ts` (`core/nivel.ts` hasta la
+    // fase N de la reorganización, 07-11-2026), y nadie más.
     const calcula = /\bfunction\s+(?:indiceDePoder|nivelDeUnidad|nivelDelIndice|poderBruto)\b/;
-    const otros = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== ruta('src/core/nivel.ts'));
+    const otros = [...CORE, ...CLIENTE, ...SERVIDOR].filter(
+      (r) => r !== ruta('src/core/unidad/nivel.ts'),
+    );
     expect(infractoresDeCodigo(otros, calcula)).toEqual([]);
-    expect(infractoresDeCodigo([ruta('src/core/nivel.ts')], calcula)).not.toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/core/unidad/nivel.ts')], calcula)).not.toEqual([]);
     // Con sus pesos (`PODER.pesosDeLaRueda`), no los de la IA: retocar cómo elige
     // la IA no mueve índices (simplify de F1). Roto a mano: un
     // `PESOS_DE_LA_RUEDA.golpe` en `ofensaDelAtaque` sale rojo.
-    expect(infractoresDeCodigo([ruta('src/core/nivel.ts')], /\bPESOS_DE_LA_RUEDA\b/)).toEqual([]);
+    expect(
+      infractoresDeCodigo([ruta('src/core/unidad/nivel.ts')], /\bPESOS_DE_LA_RUEDA\b/),
+    ).toEqual([]);
   });
 
-  it('el catálogo de unidades lo importa solo `core/catalogo.ts`, que lo valida al cargar', () => {
+  it('el catálogo de unidades lo importa solo `core/unidad/catalogo.ts`, que lo valida al cargar', () => {
     // F1 de 2026-10-18: `data/unidades.json` es la lista entera de las cinco
     // facciones. Quien lo importara por su cuenta se saltaría la validación de
     // `catalogo.ts` (una unidad rota tumba la carga diciendo cuál) o lo leería
     // con otras piezas. La arena lo lee y escribe en disco, por su ruta
     // (`RUTA_DEL_CATALOGO_DE_UNIDADES`), no importándolo: así lo abre aunque esté
     // roto. Roto a mano: un `import u from '../../data/unidades.json'` en
-    // `arena.ts` sale rojo.
-    const PUERTA = ruta('src/core/catalogo.ts');
+    // `arena.ts` sale rojo. Era `core/catalogo.ts` hasta la fase N de la
+    // reorganización (07-11-2026).
+    const PUERTA = ruta('src/core/unidad/catalogo.ts');
     const importa = importaDe(/[^'"]*data\/unidades\.json/);
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     expect(

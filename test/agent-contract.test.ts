@@ -20,7 +20,6 @@ import {
 import { FORMA_DEL_TABLERO, tableroDelContrato } from '../src/core/battle/board.js';
 import { LAS_TRES_RUEDAS, RUEDAS } from '../src/core/battle/formas-de-la-rueda.js';
 import type { BattleAction } from '../src/core/battle/types.js';
-import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { serializeAdventureTurn } from '../src/core/contract/aventura.js';
 import { serializeBattleResponse, serializeBattleTurn } from '../src/core/contract/batalla.js';
@@ -88,6 +87,7 @@ import {
 import { ECONOMIA } from '../src/core/town/economia.js';
 import { mageGuildLevel, townSpells } from '../src/core/town/town.js';
 import { SPEED_TO_HEXES } from '../src/core/types.js';
+import { unidadDelJuego } from '../src/core/unidad/catalogo.js';
 import { batallaConDos, forzarTurno } from './batalla-de-prueba.js';
 import { JINETE, NO_MUERTO, PESADA, TIRADOR, TROPA, TROPA_BARATA } from './comun.js';
 import { conCaminos, planConCiudadDeRegion, planDeNodos } from './mapa-de-prueba.js';

@@ -11,13 +11,13 @@ import {
   loADistanciaTrasElRetoque,
 } from '../battle/battle.js';
 import type { BattleStack, BattleState, FichaEnPalabras, OrigenDelStack } from '../battle/types.js';
-import { cuerpoDe } from '../catalogo.js';
 import { esPiezaConBase } from '../equipo/pieza.js';
 import { type CatalogoDeEquipo, idsPuestos, mismasCifras } from '../hero/equipo.js';
 import { cifrasDelIndividuo } from '../hero/experiencia.js';
 import { maxMana } from '../hero/hero.js';
 import { type CatalogoDeHechizos, HECHIZOS_DEL_JUEGO } from '../magia/catalogo.js';
 import type { Equipo, UnitInfo } from '../types.js';
+import { cuerpoDe } from '../unidad/catalogo.js';
 import {
   cambiosDeLaFicha,
   claveDeFicha,

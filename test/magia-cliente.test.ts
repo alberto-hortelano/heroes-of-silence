@@ -10,13 +10,13 @@ import { heroePorDefecto } from '../src/core/arena/heroe.js';
 import { activeStack } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
 import { formaDeLaBatalla } from '../src/core/battle/formas-de-la-rueda.js';
-import { UNIDADES } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { battleActionSchema } from '../src/core/contract/esquemas.js';
 import { hechizosAlAgente } from '../src/core/contract/vistas.js';
 import { accionDeBatallaDelAgente } from '../src/core/contract/vocabulario.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { catalogoDeHechizos, todosLosHechizos } from '../src/core/magia/catalogo.js';
+import { UNIDADES } from '../src/core/unidad/catalogo.js';
 
 function unidad(id: string) {
   const u = UNIDADES.find((x) => x.id === id);

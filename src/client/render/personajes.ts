@@ -27,7 +27,7 @@
  */
 
 import { HERO_BODY } from '@core/battle/types.js';
-import { type Hoja, validarHojas } from '@core/unidad.js';
+import { type Hoja, validarHojas } from '@core/unidad/formato.js';
 import { esIdDeUnidad } from '@core/validar.js';
 import atlasDePoses from '../../../assets/unidades/_poses/atlas-8d.json';
 import {

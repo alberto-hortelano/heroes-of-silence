@@ -12,20 +12,25 @@
  */
 import { describe, expect, it } from 'vitest';
 import { piezaNueva } from '../src/core/arena/piezas.js';
-import { cifrasDeUnidad, unidad, unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
-import { restaDelPeso } from '../src/core/cuerpo.js';
 import { EQUIPO, type Pieza } from '../src/core/equipo/pieza.js';
 import { conEquipo, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { umbral } from '../src/core/hero/experiencia.js';
+import { type NivelesDeLaRueda, SPEED_TIERS, type UnitInfo } from '../src/core/types.js';
+import {
+  cifrasDeUnidad,
+  unidad,
+  unidadDelJuego,
+  unidadesDelJuego,
+} from '../src/core/unidad/catalogo.js';
+import { restaDelPeso } from '../src/core/unidad/cuerpo.js';
+import { cuerpoDeCombate, unidadDeCombate } from '../src/core/unidad/formato.js';
 import {
   indiceDePoder,
   medidaBlocker,
   nivelDeUnidad,
   poderBruto,
   validarPoder,
-} from '../src/core/nivel.js';
-import { type NivelesDeLaRueda, SPEED_TIERS, type UnitInfo } from '../src/core/types.js';
-import { cuerpoDeCombate, unidadDeCombate } from '../src/core/unidad.js';
+} from '../src/core/unidad/nivel.js';
 import { todoA } from './batalla-de-prueba.js';
 import { JINETE, PESADA, TROPA } from './comun.js';
 import { catalogoCon } from './pelea-de-arena.js';

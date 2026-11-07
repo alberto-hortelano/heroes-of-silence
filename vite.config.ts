@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { defineConfig, type Plugin, type Rollup, type ViteDevServer } from 'vite';
 import { RUTA_DE_MURALLAS } from './src/core/arena/murallas.js';
 import { CARPETA_DE_LAS_FIGURAS, RUTA_DEL_BANCO } from './src/core/gente/banco.js';
-import { RUTA_DEL_CATALOGO_DE_UNIDADES } from './src/core/unidad.js';
+import { RUTA_DEL_CATALOGO_DE_UNIDADES } from './src/core/unidad/formato.js';
 import { puertoEspectadores } from './src/server/entorno.js';
 import { copiarPublico } from './tools/build/publico.js';
 

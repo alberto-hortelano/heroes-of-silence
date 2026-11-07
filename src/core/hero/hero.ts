@@ -1,5 +1,5 @@
 /** Héroes: atributos, ejército y movimiento diario. */
-import { cuerpoConSusCifras, marchaDe } from '../cuerpo.js';
+
 import { marchaALaEscala } from '../escala.js';
 import type {
   Army,
@@ -12,6 +12,7 @@ import type {
   UnitInfo,
 } from '../types.js';
 import { SPEED_TO_MOVE_POINTS } from '../types.js';
+import { cuerpoConSusCifras, marchaDe } from '../unidad/cuerpo.js';
 import { type CuerpoDeTodoHeroe, HEROE } from './cuerpo-del-heroe.js';
 import { conEquipo, EQUIPO_BASE } from './equipo.js';
 import { rangoDeHeroe, subidasDeRango } from './experiencia.js';

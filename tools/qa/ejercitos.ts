@@ -4,9 +4,10 @@
  * población de enfrentamiento» quiera decir siempre lo mismo (la medía también
  * `asiento.ts`, retirada el 06-11-2026 sin usuarios).
  */
-import { unidadesDeFaccion } from '../../src/core/catalogo.js';
+
 import type { Rng } from '../../src/core/rng.js';
 import type { FactionId, Stack } from '../../src/core/types.js';
+import { unidadesDeFaccion } from '../../src/core/unidad/catalogo.js';
 
 /** Efectivos por stack. Ancho a propósito: un banco de batallas clavadas no mide. */
 const EFECTIVOS = [5, 25] as const;

@@ -3,7 +3,7 @@
  * partida (`/arena/`, decisión del usuario del 02-10-2026).
  *
  * Las hojas de las cinco facciones (`assets/unidades/`) tienen arte, y sus cifras
- * viven en el catálogo de unidades (`data/unidades.json`, `core/catalogo.ts`), que
+ * viven en el catálogo de unidades (`data/unidades.json`, `unidad/catalogo.ts`), que
  * es el del juego desde el 19-10-2026 (sustituyó a `data/creatures.json`): la
  * persona las ajusta aquí y la página las guarda en él.
  *
@@ -22,7 +22,7 @@
  * arnés es de más nivel que uno con espada. El porqué del cuerpo común, en la
  * entrada «Nueva unidad» de `docs/historia.md`.
  *
- * **El formato de la unidad y su regla no viven aquí** sino en `core/unidad.ts`,
+ * **El formato de la unidad y su regla no viven aquí** sino en `unidad/formato.ts`,
  * sin batalla, para que el catálogo del juego los lea sin traerse este montador
  * (simplify de F1, 18-10-2026). En `arena/` está lo que la arena hace con ellas:
  * los lados (`lados.ts`), la unidad nueva, las piezas, el héroe, la ficha, el
@@ -42,13 +42,13 @@ import {
 import { despliegueBlocker } from '../battle/despliegue.js';
 import { type MurallaDeBatalla, SIN_MURALLA } from '../battle/muralla.js';
 import type { BattleState, FichaEnPalabras, Side } from '../battle/types.js';
-import type { CatalogoDeUnidades } from '../catalogo.js';
 import type { ReglasDelCombate } from '../combate.js';
 import type { CatalogoDeEquipo, EquipoAtado } from '../hero/equipo.js';
 import { type CatalogoDeHechizos, HECHIZOS_DEL_JUEGO } from '../magia/catalogo.js';
 import type { Rng } from '../rng.js';
 import type { UnitInfo } from '../types.js';
-import { type Unidad, unidadDeCombate, validarUnidad } from '../unidad.js';
+import type { CatalogoDeUnidades } from '../unidad/catalogo.js';
+import { type Unidad, unidadDeCombate, validarUnidad } from '../unidad/formato.js';
 import { claveDeFicha, fichaDelHeroe, fichaEnPalabras, tipoDeLaFuente } from './ficha.js';
 import { type HeroeDeArena, heroeDeArena } from './heroe.js';
 import { type FuenteDeArena, LADOS, type Lado, ladoDe } from './lados.js';

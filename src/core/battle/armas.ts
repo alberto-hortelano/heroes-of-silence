@@ -2,7 +2,7 @@
  * Con qué arma y con qué cifras pega una unidad, y cuánto le para su armadura:
  * **las lecturas puras de una `UnitInfo`** que comparten el combate (`damage.ts`,
  * `rueda.ts`, `battle.ts`), la IA, la ficha y la medida del nivel
- * (`core/nivel.ts`).
+ * (`unidad/nivel.ts`).
  *
  * Aparte, y sin importar nada que importe `nivel.ts`, porque el nivel las lee
  * para medir y el combate lee el nivel para la experiencia (`herir`): con ellas

@@ -30,7 +30,6 @@ import {
 import { GRANADA } from '../battle/granada.js';
 import { reglaDeLaMuralla } from '../battle/muralla.js';
 import { HERO_BODY } from '../battle/types.js';
-import { unidadesDelJuego } from '../catalogo.js';
 import { TOPES_DE_TROPA } from '../combate.js';
 import { LARGO_DE_LINEA, LINEAS_POR_VECINO, MAX_VOCES_POR_RESPUESTA } from '../gente/voces.js';
 import { EQUIPO_BASE, REGLA_DEL_ESCUDO } from '../hero/equipo.js';
@@ -47,6 +46,7 @@ import { REGLA_DEL_PUEBLO } from '../state/renta.js';
 import { MURALLAS_DEL_MAPA, OBRAS_DEL_PUESTO } from '../state/sitios.js';
 import { MAX_HEROES_PER_PLAYER } from '../state/tipos.js';
 import { enumerar, HUECOS, TIPOS_FUSIONADOS, TODOS_LOS_GOLPES } from '../types.js';
+import { unidadesDelJuego } from '../unidad/catalogo.js';
 import {
   CRUCE_AL_AGENTE,
   HIT_DE_GOLPE,

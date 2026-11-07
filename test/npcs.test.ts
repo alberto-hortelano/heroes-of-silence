@@ -10,7 +10,6 @@ import { describe, expect, it } from 'vitest';
 import vecinos from '../data/vecinos.json' with { type: 'json' };
 import { CUERPO_DE_VECINO, cuerpoDeGente } from '../src/client/render/cuerpo-de-gente.js';
 import { arteDe, arteParaPintar, registrarGente } from '../src/client/render/personajes.js';
-import { hojaDeUnidad, UNIDADES } from '../src/core/catalogo.js';
 import {
   ETIQUETAS,
   figuraDelBanco,
@@ -20,6 +19,7 @@ import {
   problemasDePeticion,
 } from '../src/core/gente/banco.js';
 import { FACTION_IDS } from '../src/core/types.js';
+import { hojaDeUnidad, UNIDADES } from '../src/core/unidad/catalogo.js';
 import { hojasDelTaller } from '../tools/arena/borrador.js';
 import {
   aceptarElMundo,

@@ -29,8 +29,8 @@ import {
   tarjetasDelCatalogo,
 } from '../src/client/arena/paneles.js';
 import { html, marcadoDe } from '../src/client/html.js';
-import { UNIDADES } from '../src/core/catalogo.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
+import { UNIDADES } from '../src/core/unidad/catalogo.js';
 import { hojasDeLaArena } from './hojas-de-la-arena.js';
 import { unidadDeArena } from './pelea-de-arena.js';
 

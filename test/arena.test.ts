@@ -56,7 +56,6 @@ import { activeStack, applyAction, MAX_ROUNDS, stackHexes } from '../src/core/ba
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
 import { HERO_BODY } from '../src/core/battle/types.js';
-import { UNIDADES as CATALOGO, cuerpoDe } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { EQUIPO_ESCRITO } from '../src/core/equipo/pieza.js';
 import { HEROE } from '../src/core/hero/cuerpo-del-heroe.js';
@@ -64,9 +63,9 @@ import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { LIDERAZGO } from '../src/core/hero/liderazgo.js';
 import { hechizo, hechizosDelGremio } from '../src/core/magia/catalogo.js';
 import { rinde } from '../src/core/magia/formato.js';
-import { indiceDePoder } from '../src/core/nivel.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import { CREATURE_TRAITS } from '../src/core/types.js';
+import { UNIDADES as CATALOGO, cuerpoDe } from '../src/core/unidad/catalogo.js';
 import {
   armaDeCuerpoBlocker,
   CATALOGO_DE_HABILIDADES,
@@ -83,7 +82,8 @@ import {
   validarCatalogo,
   validarHojas,
   validarUnidad,
-} from '../src/core/unidad.js';
+} from '../src/core/unidad/formato.js';
+import { indiceDePoder } from '../src/core/unidad/nivel.js';
 import { unaVezEnLaURL } from '../src/core/validar.js';
 import { NOMBRES_DE_DIRECCION } from '../src/shared/arte.js';
 import {

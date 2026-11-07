@@ -13,7 +13,7 @@ import { enteroDesde } from '../validar.js';
 /**
  * Lo que cuestan y crecen las unidades y sus moradas, de `data/economia.json`.
  * **Inventado y provisional** (19-10-2026): nada se escribe por unidad, sale de
- * su índice de poder (`core/catalogo.ts`, `town/buildings.ts`).
+ * su índice de poder (`unidad/catalogo.ts`, `town/buildings.ts`).
  */
 export interface ReglasDeLaEconomia {
   /** Una unidad cuesta `índice² / divisor` en oro, redondeado a la decena. */

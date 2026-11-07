@@ -22,7 +22,7 @@ import {
 import { queHaceElHechizo } from '../magia/dicho.js';
 import { esIdDeHechizo, GREMIO_MAXIMO } from '../magia/formato.js';
 import type { Equipo, UnitInfo } from '../types.js';
-import { equipoDeUnidadBlocker, equipoEscrito } from '../unidad.js';
+import { equipoDeUnidadBlocker, equipoEscrito } from '../unidad/formato.js';
 import { entero, esIdDeUnidad, lista, sinRepetir, texto } from '../validar.js';
 import { LADOS, type Lado } from './lados.js';
 

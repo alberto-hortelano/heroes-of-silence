@@ -15,7 +15,6 @@ import {
   NOMBRE_DE_GOLPE,
   problemasDeNiveles,
 } from '../battle/cifras-de-la-rueda.js';
-import { AGILIDAD_DEL_CUERPO_MAX, AGILIDAD_DEL_CUERPO_MIN } from '../cuerpo.js';
 import {
   CIFRAS_DE_PIEZA,
   type CifraDePieza,
@@ -30,6 +29,7 @@ import {
   NOMBRE_DE_HUECO,
   TIPOS_DEL_ANILLO,
 } from '../types.js';
+import { AGILIDAD_DEL_CUERPO_MAX, AGILIDAD_DEL_CUERPO_MIN } from '../unidad/cuerpo.js';
 import { enteroBlocker, enteroDesde, esIdDePieza, revisarLista } from '../validar.js';
 
 /**
@@ -105,7 +105,7 @@ export interface Pieza {
   readonly agilidad?: number;
   /**
    * Lo que pesa (25-10-2026: «todo tiene un peso»): la suma de lo puesto que pase
-   * de la fuerza del cuerpo resta agilidad (`restaDelPeso`, `core/cuerpo.ts`).
+   * de la fuerza del cuerpo resta agilidad (`restaDelPeso`, `unidad/cuerpo.ts`).
    * Toda pieza lo dice, ≥ 0. Ninguna pieza resta movimiento: lo hace el peso.
    */
   readonly peso: number;

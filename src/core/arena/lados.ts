@@ -6,7 +6,7 @@
  * reorganización (07-11-2026); lo que hace la arena y por qué, en `montaje.ts`.
  */
 import type { Side } from '../battle/types.js';
-import type { Unidad } from '../unidad.js';
+import type { Unidad } from '../unidad/formato.js';
 
 /**
  * Los dos lados del montaje y lo que el motor sabe de ellos: la izquierda ataca

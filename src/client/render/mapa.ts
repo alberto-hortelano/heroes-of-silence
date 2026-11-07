@@ -17,7 +17,6 @@
  * Solo pinta: ni guarda estado de la partida ni escucha al ratón.
  */
 
-import { hojaDeUnidad } from '@core/catalogo.js';
 import { figuraDelHeroe } from '@core/hero/tipos-de-heroe.js';
 import { individuosDe } from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
@@ -32,6 +31,7 @@ import { inicialDelNombre } from '@core/mundo/formato.js';
 import type { AsaltantesALaVista } from '@core/state/asaltantes.js';
 import type { ClimaDeLaPartida } from '@core/state/clima.js';
 import type { FactionId, Point, VistaAsaltante } from '@core/types.js';
+import { hojaDeUnidad } from '@core/unidad/catalogo.js';
 import { type Direccion, direccionEnPantalla } from '../direccion.js';
 import { msPorCasilla, PRISA_EN_EL_MAPA } from '../marcha.js';
 import { temaDelLienzo } from '../temas.js';

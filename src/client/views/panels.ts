@@ -56,7 +56,6 @@ import {
   SIDES,
   type Side,
 } from '@core/battle/types.js';
-import { unidadDelJuego } from '@core/catalogo.js';
 import type { Pieza } from '@core/equipo/pieza.js';
 import {
   conSigno,
@@ -73,7 +72,6 @@ import { elQueSeIria, type TroopGroup, troopSummary } from '@core/hero/troop.js'
 import { enOrdenDelLibro, nombreDeHechizo } from '@core/magia/catalogo.js';
 import type { Hechizo } from '@core/magia/formato.js';
 import type { Lugar } from '@core/mundo/formato.js';
-import { nivelDeUnidad } from '@core/nivel.js';
 import { loQueLaPara } from '@core/state/asaltantes.js';
 import { type Desenlace, desenlaceDe } from '@core/state/desenlace.js';
 import type { DefeatReason, GameEventDraft } from '@core/state/events.js';
@@ -92,6 +90,8 @@ import {
 } from '@core/town/town.js';
 import type { Army, Point, UnitInfo } from '@core/types.js';
 import { conMiles, describirCoste, HUECOS, NOMBRE_DE_HUECO } from '@core/types.js';
+import { unidadDelJuego } from '@core/unidad/catalogo.js';
+import { nivelDeUnidad } from '@core/unidad/nivel.js';
 import { disposicionDe } from '../../shared/base.js';
 import { quienesDe } from '../desenlace.js';
 import { DICHO_DE_LA_OBRA } from '../dicho-del-puesto.js';

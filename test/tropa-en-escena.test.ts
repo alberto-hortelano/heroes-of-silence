@@ -11,13 +11,11 @@ import { describe, expect, it } from 'vitest';
 import { EscenaTropa } from '../src/client/escenas/tropa.js';
 import { AYUDA_DE_LA_TROPA, Session } from '../src/client/session.js';
 import { zonaDeSalida } from '../src/core/battle/despliegue.js';
-import { UNIDADES } from '../src/core/catalogo.js';
 import { EQUIPO } from '../src/core/equipo/pieza.js';
 import { aDosManos, pieza } from '../src/core/hero/equipo.js';
 import { rangoDeHeroe, umbral } from '../src/core/hero/experiencia.js';
 import { heroUnit } from '../src/core/hero/hero.js';
 import { troopUnit } from '../src/core/hero/troop.js';
-import { indiceDePoder, nivelDeUnidad } from '../src/core/nivel.js';
 import { turnBlocker } from '../src/core/state/consultas.js';
 import {
   formacionDe,
@@ -26,6 +24,8 @@ import {
   unequipBlocker,
 } from '../src/core/state/game.js';
 import type { Hex } from '../src/core/types.js';
+import { UNIDADES } from '../src/core/unidad/catalogo.js';
+import { indiceDePoder, nivelDeUnidad } from '../src/core/unidad/nivel.js';
 import { sesionAntesDelMonstruo } from './batalla-de-cliente.js';
 import { TROPA_BARATA } from './comun.js';
 

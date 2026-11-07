@@ -9,7 +9,6 @@
 import type { BattleStack, FichaEnPalabras } from '../battle/types.js';
 import type { EquipoAtado } from '../hero/equipo.js';
 import { HECHIZOS_DEL_JUEGO, ordenDelLibro } from '../magia/catalogo.js';
-import { indiceDePoder, nivelDelIndice } from '../nivel.js';
 import {
   type CreatureTrait,
   type Equipo,
@@ -19,7 +18,8 @@ import {
   NOMBRE_DE_RASGO,
   type UnitInfo,
 } from '../types.js';
-import { validarUnidad } from '../unidad.js';
+import { validarUnidad } from '../unidad/formato.js';
+import { indiceDePoder, nivelDelIndice } from '../unidad/nivel.js';
 import { type HeroeDeArena, validarHeroeDeArena } from './heroe.js';
 import { type FuenteDeArena, type Lado, ladoDe } from './lados.js';
 

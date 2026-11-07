@@ -7,14 +7,12 @@ import { playAiTurn } from '../src/core/ai/turn.js';
 import { activeStack, applyAction, legalActions } from '../src/core/battle/battle.js';
 import { isInside, tableroDelContrato } from '../src/core/battle/board.js';
 import type { BattleState } from '../src/core/battle/types.js';
-import { cifrasDeUnidad } from '../src/core/catalogo.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import { type Hero, heroUnit } from '../src/core/hero/hero.js';
 import { tiposDeHeroe } from '../src/core/hero/tipos-de-heroe.js';
 import { LADO_DEL_MAPA, type MapPlan } from '../src/core/map/generar/plan.js';
 import { generateMapPlan, planDelAgente, validateMapPlan } from '../src/core/map/generate.js';
 import { pointKey, reachableFrom } from '../src/core/map/map.js';
-import { nivelDeUnidad } from '../src/core/nivel.js';
 import { createRng } from '../src/core/rng.js';
 import {
   applyAdventureAction,
@@ -31,6 +29,8 @@ import {
 } from '../src/core/state/tipos.js';
 import type { Town } from '../src/core/town/town.js';
 import { FACTION_IDS, type FactionId, type Point } from '../src/core/types.js';
+import { cifrasDeUnidad } from '../src/core/unidad/catalogo.js';
+import { nivelDeUnidad } from '../src/core/unidad/nivel.js';
 import { AgentLink } from '../src/server/agent-link.js';
 import { responderConsulta } from '../src/server/consultas.js';
 import { Director } from '../src/server/director.js';

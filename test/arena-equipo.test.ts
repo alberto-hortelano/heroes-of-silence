@@ -70,7 +70,7 @@ import {
   type Unidad,
   unidadDeCombate,
   validarUnidad,
-} from '../src/core/unidad.js';
+} from '../src/core/unidad/formato.js';
 import { escribirCatalogo, leerCatalogo } from '../tools/arena/borrador.js';
 import { todoA } from './batalla-de-prueba.js';
 import { hojaDeLaArena, hojasDeLaArena } from './hojas-de-la-arena.js';

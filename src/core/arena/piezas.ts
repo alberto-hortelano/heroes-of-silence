@@ -8,7 +8,6 @@
  */
 import { ruedaDelArmaEnPalabras } from '../battle/rueda.js';
 import type { FichaEnPalabras } from '../battle/types.js';
-import { AGILIDAD_DEL_CUERPO_MIN } from '../cuerpo.js';
 import {
   baseBlocker,
   diferenciaDe,
@@ -37,6 +36,7 @@ import {
   NOMBRE_DE_HUECO,
   type UnitInfo,
 } from '../types.js';
+import { AGILIDAD_DEL_CUERPO_MIN } from '../unidad/cuerpo.js';
 import {
   CUERPO_COMUN,
   cuerpoDeCombate,
@@ -44,7 +44,7 @@ import {
   leerCatalogos,
   nivelesDeLaEspada,
   type Unidad,
-} from '../unidad.js';
+} from '../unidad/formato.js';
 import { cuerpoDelHeroeDeArena, type HeroeDeArena } from './heroe.js';
 
 /**

@@ -13,13 +13,6 @@ import { describe, expect, it } from 'vitest';
 import { resolvePendingBattle } from '../src/core/ai/turn.js';
 import { armaduraDe } from '../src/core/battle/armas.js';
 import { createBattle, stackById } from '../src/core/battle/battle.js';
-import {
-  cifrasDeUnidad,
-  equipoPuestoDe,
-  UNIDADES,
-  unidad,
-  unidadDelJuego,
-} from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { RESPONSE_FORMAT } from '../src/core/contract/formato.js';
 import {
@@ -70,7 +63,14 @@ import {
   type Troop,
   type Veterania,
 } from '../src/core/types.js';
-import { cuerpoDeCombate } from '../src/core/unidad.js';
+import {
+  cifrasDeUnidad,
+  equipoPuestoDe,
+  UNIDADES,
+  unidad,
+  unidadDelJuego,
+} from '../src/core/unidad/catalogo.js';
+import { cuerpoDeCombate } from '../src/core/unidad/formato.js';
 import { ctx, NO_MUERTO, PESADA, RAIZ, TROPA, TROPA_BARATA } from './comun.js';
 import {
   darLaCiudad,

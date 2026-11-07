@@ -18,7 +18,7 @@ import {
 } from '../magia/catalogo.js';
 import type { Hechizo } from '../magia/formato.js';
 import { problemasDeLaLista } from '../magia/validar.js';
-import { type Unidad, validarUnidad } from '../unidad.js';
+import { type Unidad, validarUnidad } from '../unidad/formato.js';
 import { lista, sinRepetir, texto } from '../validar.js';
 import { type HeroeDeArena, heroeDeArena, validarHeroeDeArena } from './heroe.js';
 import { type FuenteDeArena, LADOS, type Lado } from './lados.js';

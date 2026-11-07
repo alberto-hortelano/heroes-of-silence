@@ -7,7 +7,7 @@
  * lanza diciendo cuál.
  */
 import { describe, expect, it } from 'vitest';
-import { UNIDADES } from '../src/core/catalogo.js';
+import { UNIDADES } from '../src/core/unidad/catalogo.js';
 import { leerCatalogo } from '../tools/arena/borrador.js';
 import { RAIZ } from './comun.js';
 import { hojasDeLaArena } from './hojas-de-la-arena.js';

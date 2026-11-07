@@ -19,8 +19,9 @@
  * `invariantes.test.ts`): la búsqueda de caminos, la ficha y el contrato le
  * preguntan aquí.
  */
-import { unidadDelJuego } from '../catalogo.js';
+
 import { enumerar, hasTrait } from '../types.js';
+import { unidadDelJuego } from '../unidad/catalogo.js';
 import type { Hero } from './hero.js';
 import { nombreDeTipoDeHeroe, tipoSeInfiltra } from './tipos-de-heroe.js';
 

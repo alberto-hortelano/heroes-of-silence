@@ -6,8 +6,6 @@
  * a su alcance. Es el listón que el agente tiene que superar.
  */
 
-import { cifrasDeUnidad, equipoPuestoDe, unidadDelJuego } from '../catalogo.js';
-import { cuerpoConSusCifras } from '../cuerpo.js';
 import type { Pieza } from '../equipo/pieza.js';
 import { HEROE } from '../hero/cuerpo-del-heroe.js';
 import {
@@ -36,7 +34,6 @@ import { casillaDelIndice, costeEnElAlcance, type MapObject, type Reachable } fr
 import { dueñoEnLaFoto, regionesQueCierra, type Territorio, territorio } from '../map/regiones.js';
 import { lugarDe } from '../mundo/formato.js';
 import { mundoDe } from '../mundo/reglas.js';
-import { indiceDePoder } from '../nivel.js';
 import {
   destinoDeRecluta,
   heroById,
@@ -71,7 +68,10 @@ import {
 } from '../town/town.js';
 import type { Army, Equipo, FactionId, PlayerId, Point, UnitInfo } from '../types.js';
 import { FACTION_IDS } from '../types.js';
-import { CUERPO_COMUN } from '../unidad.js';
+import { cifrasDeUnidad, equipoPuestoDe, unidadDelJuego } from '../unidad/catalogo.js';
+import { cuerpoConSusCifras } from '../unidad/cuerpo.js';
+import { CUERPO_COMUN } from '../unidad/formato.js';
+import { indiceDePoder } from '../unidad/nivel.js';
 import { hariaAlgoEn, VALOR_DE_LUGAR } from './lugares.js';
 
 /** Lo que vale tomar una ciudad ajena que no es la base de nadie. */

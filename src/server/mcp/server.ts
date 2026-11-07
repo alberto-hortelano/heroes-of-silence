@@ -7,12 +7,12 @@
  * exactamente una vez; después vuelve a `heroes_listen`. Y así toda la partida.
  */
 
-import { unidadDelJuego, unidadesDeFaccion, unidadesDelJuego } from '@core/catalogo.js';
 import { COMO_SE_LEE_EL_MAPA } from '@core/contract/mapa-conocido.js';
 import { fichaDeCriatura, hechizosAlAgente } from '@core/contract/vistas.js';
 import { RANGO_MAXIMO_DE_TROPA } from '@core/hero/experiencia.js';
 import { allBuildings } from '@core/town/buildings.js';
 import { FACTION_IDS } from '@core/types.js';
+import { unidadDelJuego, unidadesDeFaccion, unidadesDelJuego } from '@core/unidad/catalogo.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import WebSocket from 'ws';

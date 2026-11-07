@@ -18,7 +18,7 @@
  * redondear distinto en otra máquina. La calibración y su porqué, en
  * `data/poder.json`.
  */
-import poderJson from '../../data/poder.json' with { type: 'json' };
+import poderJson from '../../../data/poder.json' with { type: 'json' };
 import {
   cifrasDelGolpe,
   disparosDe,
@@ -30,13 +30,13 @@ import {
   ruedaDelGolpe,
   tiroADistanciaDe,
   trasLaArmadura,
-} from './battle/armas.js';
-import { CARGA, porcientoDeLaCarga } from './battle/carga.js';
-import type { CifrasDeLaRueda } from './battle/cifras-de-la-rueda.js';
-import { type GolpeDeReferencia, RUEDA_DE_REFERENCIA } from './battle/formas-de-la-rueda.js';
-import { raizEntera } from './escala.js';
-import { SPEED_TO_HEXES, type TipoDeGolpe, type UnitInfo, type UsoDeArma } from './types.js';
-import { enteroDesde } from './validar.js';
+} from '../battle/armas.js';
+import { CARGA, porcientoDeLaCarga } from '../battle/carga.js';
+import type { CifrasDeLaRueda } from '../battle/cifras-de-la-rueda.js';
+import { type GolpeDeReferencia, RUEDA_DE_REFERENCIA } from '../battle/formas-de-la-rueda.js';
+import { raizEntera } from '../escala.js';
+import { SPEED_TO_HEXES, type TipoDeGolpe, type UnitInfo, type UsoDeArma } from '../types.js';
+import { enteroDesde } from '../validar.js';
 
 /**
  * El poder bruto de unas cifras: la media geométrica de lo que pega y lo que
@@ -289,7 +289,7 @@ export function nivelDelIndice(indice: number): number {
 }
 
 /**
- * Las cifras del índice de poder, de `data/poder.json` (`core/nivel.ts`).
+ * Las cifras del índice de poder, de `data/poder.json` (`unidad/nivel.ts`).
  * **Inventadas y provisionales**, como dice su `_comment`: es la calibración que
  * deja cada criatura del catálogo en el nivel de su morada o en el contiguo.
  */
@@ -300,11 +300,11 @@ export interface ReglasDelPoder {
   readonly razon: readonly [number, number];
   /**
    * La armadura con la que se mide cuánto aguanta una unidad que la lleva: el
-   * golpe de referencia (`core/nivel.ts`). Entero ≥ 1.
+   * golpe de referencia (`unidad/nivel.ts`). Entero ≥ 1.
    */
   readonly armaduraDeReferencia: number;
   /**
-   * Cuánto pesa cada tipo de la rueda en lo que pega una unidad (`core/nivel.ts`):
+   * Cuánto pesa cada tipo de la rueda en lo que pega una unidad (`unidad/nivel.ts`):
    * uno por tipo de la rueda de referencia (`GOLPES_DE_LA_MEDIDA`, con la que se mide
    * todo índice), enteros ≥ 0 y al menos uno > 0. Propios de la medida, no los de
    * la IA (`PESOS_DE_LA_RUEDA`): retocar cómo elige la IA no mueve índices.

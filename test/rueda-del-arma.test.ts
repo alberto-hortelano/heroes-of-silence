@@ -29,12 +29,12 @@ import {
 import { validarRueda } from '../src/core/battle/cifras-de-la-rueda.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import type { BattleAction, BattleState } from '../src/core/battle/types.js';
-import { unidad } from '../src/core/catalogo.js';
 import type { Pieza, PiezaEscrita } from '../src/core/equipo/pieza.js';
 import { EQUIPO_DEL_JUEGO, pieza } from '../src/core/hero/equipo.js';
 import { createRng } from '../src/core/rng.js';
 import type { TipoDeGolpe } from '../src/core/types.js';
-import { cuerpoDeCombate, nivelesDeLaEspada, type Unidad } from '../src/core/unidad.js';
+import { unidad } from '../src/core/unidad/catalogo.js';
+import { cuerpoDeCombate, nivelesDeLaEspada, type Unidad } from '../src/core/unidad/formato.js';
 import { empezarTalCual, hastaLaRueda, sesionDeArena } from './batalla-de-cliente.js';
 import { type Ataque, ataquesDe, golpeConLaRueda } from './batalla-de-prueba.js';
 import { TROPA } from './comun.js';

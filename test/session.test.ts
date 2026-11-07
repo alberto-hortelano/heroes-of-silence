@@ -14,7 +14,6 @@ import { AYUDA_DEL_MAPA, Session } from '../src/client/session.js';
 import { renderActions, renderSide } from '../src/client/views/panels.js';
 import { poderBlocker, terminarElDespliegue } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
-import { unidadesDelJuego } from '../src/core/catalogo.js';
 import { combateCon } from '../src/core/combate.js';
 import { armyLeadership, GARRISON_LEADERSHIP } from '../src/core/hero/troop.js';
 import { Casillas } from '../src/core/map/casillas.js';
@@ -26,6 +25,7 @@ import { newGame } from '../src/core/state/setup.js';
 import { guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import { dwellings } from '../src/core/town/town.js';
 import type { Hex, UnitInfo } from '../src/core/types.js';
+import { unidadesDelJuego } from '../src/core/unidad/catalogo.js';
 import { primeraSemillaCon } from '../tools/comun/semillas.js';
 import {
   sesionAntesDelMonstruo,

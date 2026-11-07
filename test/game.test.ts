@@ -7,15 +7,7 @@ import {
 import { playAiGame, playAiTurn, resolvePendingBattle } from '../src/core/ai/turn.js';
 import { createBattle } from '../src/core/battle/battle.js';
 import { queEs } from '../src/core/battle/types.js';
-import {
-  guarnicionDeBase,
-  guarnicionNeutral,
-  problemasDeGrupo,
-  unidadesDelJuego,
-  unidadesDeMorada,
-} from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { marchaDe } from '../src/core/cuerpo.js';
 import { marchaALaEscala } from '../src/core/escala.js';
 import { EQUIPO_BASE, EQUIPO_DEL_JUEGO, esDeGuerra } from '../src/core/hero/equipo.js';
 import { umbral } from '../src/core/hero/experiencia.js';
@@ -53,7 +45,6 @@ import {
   territorio,
 } from '../src/core/map/regiones.js';
 import { isWalkable, ROAD_COST, TERRAIN_KINDS } from '../src/core/map/terrain.js';
-import { indiceDePoder, nivelDeUnidad } from '../src/core/nivel.js';
 import { createRng, parseSeed } from '../src/core/rng.js';
 import {
   currentPlayer,
@@ -94,6 +85,15 @@ import {
   SPEED_TO_MOVE_POINTS,
   type SpeedTier,
 } from '../src/core/types.js';
+import {
+  guarnicionDeBase,
+  guarnicionNeutral,
+  problemasDeGrupo,
+  unidadesDelJuego,
+  unidadesDeMorada,
+} from '../src/core/unidad/catalogo.js';
+import { marchaDe } from '../src/core/unidad/cuerpo.js';
+import { indiceDePoder, nivelDeUnidad } from '../src/core/unidad/nivel.js';
 import {
   ctx,
   FACCION_A,

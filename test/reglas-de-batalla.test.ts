@@ -16,11 +16,11 @@ import {
 } from '../src/core/battle/battle.js';
 import { damageMultiplier, expectedDamage } from '../src/core/battle/damage.js';
 import type { BattleState } from '../src/core/battle/types.js';
-import { unidad } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import type { UnitInfo } from '../src/core/types.js';
-import { cuerpoDeCombate } from '../src/core/unidad.js';
+import { unidad } from '../src/core/unidad/catalogo.js';
+import { cuerpoDeCombate } from '../src/core/unidad/formato.js';
 import { bando, conCifrasAMano, mando } from './batalla-de-prueba.js';
 import { PESADA } from './comun.js';
 

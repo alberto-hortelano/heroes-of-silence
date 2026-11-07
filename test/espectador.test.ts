@@ -35,7 +35,6 @@ import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { resolvePendingBattle } from '../src/core/ai/turn.js';
 import { applyAction, createBattle, legalActions } from '../src/core/battle/battle.js';
 import type { BattleEvent, BattleStack, BattleState } from '../src/core/battle/types.js';
-import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import type { Hero } from '../src/core/hero/hero.js';
@@ -53,6 +52,7 @@ import { applyAdventureAction, ascenderVeterano } from '../src/core/state/game.j
 import { newGame } from '../src/core/state/setup.js';
 import type { GameState } from '../src/core/state/tipos.js';
 import type { Point, UnitInfo } from '../src/core/types.js';
+import { unidadDelJuego, unidadesDelJuego } from '../src/core/unidad/catalogo.js';
 import { AgentLink } from '../src/server/agent-link.js';
 import { Director } from '../src/server/director.js';
 import {

@@ -11,7 +11,6 @@
  * sus funciones: `game.ts` lo importa a él, y el ciclo no se toca al cargar.
  */
 
-import { unidadDelJuego } from '../catalogo.js';
 import { cupoDelHeroe } from '../combate.js';
 import { idsPuestos, piezaSiExiste } from '../hero/equipo.js';
 import type { Hero } from '../hero/hero.js';
@@ -21,6 +20,7 @@ import { playerById, turnBlocker } from '../state/consultas.js';
 import type { GameState } from '../state/tipos.js';
 import { oroBlocker } from '../town/town.js';
 import { conMiles, describirCoste, NOMBRE_DE_FACCION, type Point } from '../types.js';
+import { unidadDelJuego } from '../unidad/catalogo.js';
 import {
   batallaDe,
   type Cobro,

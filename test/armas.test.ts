@@ -20,10 +20,10 @@ import { hexEquals } from '../src/core/battle/board.js';
 import { usoDelGolpe } from '../src/core/battle/damage.js';
 import type { BattleAction, BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { cuerpoConSusCifras } from '../src/core/cuerpo.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex, UnitInfo } from '../src/core/types.js';
-import { armaDeCuerpoBlocker, CUERPO_COMUN } from '../src/core/unidad.js';
+import { cuerpoConSusCifras } from '../src/core/unidad/cuerpo.js';
+import { armaDeCuerpoBlocker, CUERPO_COMUN } from '../src/core/unidad/formato.js';
 import { bandoDe, dadoCargado, MANOS_DE_PRUEBA } from './batalla-de-prueba.js';
 import { catalogoCon } from './pelea-de-arena.js';
 

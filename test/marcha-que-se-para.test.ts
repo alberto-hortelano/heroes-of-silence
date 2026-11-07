@@ -15,7 +15,6 @@
  */
 import { describe, expect, it } from 'vitest';
 import { Session } from '../src/client/session.js';
-import { unidadesDelJuego } from '../src/core/catalogo.js';
 import { fuerzaDe, poderDe, ventajaClara } from '../src/core/hero/fuerza.js';
 import { objectAt, pointFromKey, pointKey } from '../src/core/map/map.js';
 import { regionDeCasilla } from '../src/core/map/regiones.js';
@@ -36,6 +35,7 @@ import {
 import { newGame } from '../src/core/state/setup.js';
 import type { GameState } from '../src/core/state/tipos.js';
 import type { GrupoDeTropa, Point } from '../src/core/types.js';
+import { unidadesDelJuego } from '../src/core/unidad/catalogo.js';
 import { ctx } from './comun.js';
 import { costesDelAlcance } from './mapa-de-prueba.js';
 import { copiaDePartida, fueraDeSuBase, guarnecer } from './partida-de-prueba.js';

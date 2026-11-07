@@ -241,8 +241,9 @@ describe('invariantes del proyecto', () => {
     // Ahora viven en `battle/armas.ts`, que no importa nada que importe el nivel
     // (simplify de F1, 18-10-2026). Solo cuenta lo que corre: `import type` no.
     // Roto a mano: `golpeDe` importado de `./battle/damage.js` en `nivel.ts` sale
-    // rojo con el ciclo entero.
-    const INICIO = ruta('src/core/nivel.ts');
+    // rojo con el ciclo entero; y en su sitio de hoy, `unidad/nivel.ts` (`core/nivel.ts`
+    // hasta la fase N de la reorganización, 07-11-2026), de `../battle/damage.js`.
+    const INICIO = ruta('src/core/unidad/nivel.ts');
     // El resolutor de los guardias, el de `arranque.test.ts` (fase T, 06-11-2026).
     const importa = importacionesDe;
     const visto = new Set<string>();

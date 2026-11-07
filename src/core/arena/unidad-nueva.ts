@@ -7,7 +7,7 @@
  */
 import type { EquipoAtado } from '../hero/equipo.js';
 import type { CreatureTrait, FactionId } from '../types.js';
-import { CUERPO_COMUN, ESPADA, type Hoja, type Unidad, validarUnidad } from '../unidad.js';
+import { CUERPO_COMUN, ESPADA, type Hoja, type Unidad, validarUnidad } from '../unidad/formato.js';
 
 /** Los rasgos con los que nace un cuerpo: `undead` si es de los no muertos, y ninguno más. */
 function rasgosDelCuerpo(faccion: FactionId): readonly CreatureTrait[] {

@@ -39,13 +39,13 @@ import type {
   BattleHero,
   BattleState,
 } from '../src/core/battle/types.js';
-import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { cuerpoConSusCifras } from '../src/core/cuerpo.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import type { CreatureTrait, Equipo, Hex, UnitInfo } from '../src/core/types.js';
-import { CUERPO_COMUN, KIT_DEL_PERFIL } from '../src/core/unidad.js';
+import { unidadDelJuego } from '../src/core/unidad/catalogo.js';
+import { cuerpoConSusCifras } from '../src/core/unidad/cuerpo.js';
+import { CUERPO_COMUN, KIT_DEL_PERFIL } from '../src/core/unidad/formato.js';
 import {
   aMano,
   bando,

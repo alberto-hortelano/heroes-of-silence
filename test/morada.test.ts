@@ -32,11 +32,9 @@ import { pasoDeLaBase } from '../src/client/render/proyeccion.js';
 import { AYUDA_DE_LA_BASE, AYUDA_DE_LA_MORADA, Session } from '../src/client/session.js';
 import { renderActions, renderSide } from '../src/client/views/panels.js';
 import { armaduraDe } from '../src/core/battle/armas.js';
-import { hojaDeUnidad, unidadDelJuego, unidadesDeMorada } from '../src/core/catalogo.js';
 import { pieza } from '../src/core/hero/equipo.js';
 import { hechizo } from '../src/core/magia/catalogo.js';
 import { nombreDelPoder } from '../src/core/magia/dicho.js';
-import { indiceDePoder, nivelDeUnidad } from '../src/core/nivel.js';
 import { construidoEn, sitioDeEdificio, sitiosDeLaBase } from '../src/core/town/sitios.js';
 import {
   conMiles,
@@ -47,6 +45,8 @@ import {
   NOMBRE_DE_RASGO,
   SPEED_TO_HEXES,
 } from '../src/core/types.js';
+import { hojaDeUnidad, unidadDelJuego, unidadesDeMorada } from '../src/core/unidad/catalogo.js';
+import { indiceDePoder, nivelDeUnidad } from '../src/core/unidad/nivel.js';
 import { disposicionDe, enLaFranja, planoDelCuadro } from '../src/shared/base.js';
 import { fueraDeSuBase } from './partida-de-prueba.js';
 

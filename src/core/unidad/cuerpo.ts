@@ -33,7 +33,7 @@ import {
   SPEED_TO_HEXES,
   type SpeedTier,
   type UnitInfo,
-} from './types.js';
+} from '../types.js';
 
 /** La agilidad efectiva no baja de aquí, pese lo que pese. */
 const AGILIDAD_MINIMA = 1;
@@ -44,7 +44,7 @@ export const CASILLAS_MAX = Math.max(...SPEED_TIERS.map((t) => SPEED_TO_HEXES[t]
 /**
  * La agilidad que puede escribir un cuerpo o una montura, de 2 a 7: la escala de
  * las casillas de antes (decisión del usuario, 25-10-2026). Con el peso encima baja
- * hasta 1 (`AGILIDAD_MINIMA`), pero ninguno nace así. Aquí y no en `unidad.ts`
+ * hasta 1 (`AGILIDAD_MINIMA`), pero ninguno nace así. Aquí y no en `formato.ts`
  * porque la juzgan la unidad y la pieza de montura (`problemasDePieza`, `equipo/pieza.ts`).
  */
 export const AGILIDAD_DEL_CUERPO_MIN = 2;

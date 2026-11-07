@@ -82,7 +82,6 @@ import type {
   TipoDeEscala,
   TipoDePuerta,
 } from '@core/battle/types.js';
-import { cuerpoDe, unidadDelJuego } from '@core/catalogo.js';
 import type { ReglasDelCombate } from '@core/combate.js';
 import { type BancoPintado, SIN_BANCO } from '@core/gente/banco.js';
 import { figurasDeLaGente } from '@core/gente/figuras.js';
@@ -211,6 +210,7 @@ import {
   type UnitInfo,
   type VistaAsaltante,
 } from '@core/types.js';
+import { cuerpoDe, unidadDelJuego } from '@core/unidad/catalogo.js';
 import { componerVistaDelAyuntamiento, type VistaDelAyuntamiento } from './ayuntamiento/vista.js';
 import { quienesDe } from './desenlace.js';
 import { DICHO_DE_LA_OBRA } from './dicho-del-puesto.js';

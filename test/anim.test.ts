@@ -25,10 +25,10 @@ import { ALTO_DE_FIGURA, planoDeHex } from '../src/client/render/proyeccion.js';
 import { createBattle } from '../src/core/battle/battle.js';
 import { stackHp } from '../src/core/battle/damage.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
-import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
 import { createRng } from '../src/core/rng.js';
+import { unidadDelJuego } from '../src/core/unidad/catalogo.js';
 import { NO_MUERTO, TIRADOR, TROPA_BARATA } from './comun.js';
 import { ejercito } from './partida-de-prueba.js';
 

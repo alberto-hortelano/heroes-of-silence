@@ -65,7 +65,7 @@ export function conComa(n: number, decimales: number): string {
  * el orden de iniciativa en batalla y los puntos de movimiento del héroe en
  * el mapa (que los marca la criatura MÁS LENTA del ejército).
  *
- * Salen de la agilidad efectiva (`cifrasDelCuerpo`, `core/cuerpo.ts`), que el peso
+ * Salen de la agilidad efectiva (`cifrasDelCuerpo`, `unidad/cuerpo.ts`), que el peso
  * puede bajar hasta 1: por eso `crawling` (1 casilla), **regla nuestra**
  * (25-10-2026), que fheroes2 no tiene; en el mapa anda como `very_slow`.
  */
@@ -215,7 +215,7 @@ export interface UnitInfo {
   /**
    * La fuerza del cuerpo (25-10-2026, «aparecen las características fuerza y
    * agilidad»): el daño mínimo, con la del arma encima, y lo que aguanta el peso
-   * sin restar agilidad (`core/cuerpo.ts`).
+   * sin restar agilidad (`unidad/cuerpo.ts`).
    */
   readonly fuerza: number;
   /** La agilidad del cuerpo, sin lo que le reste el peso: de ella salen la defensa, el daño máximo y las casillas. */
@@ -227,7 +227,7 @@ export interface UnitInfo {
   readonly defensaPropia: number;
   /**
    * **Derivadas**: `defense`, `damage` y `speed` salen de las de arriba y del
-   * equipo, y las escribe solo `cifrasDelCuerpo` (`core/cuerpo.ts`; lo vigila
+   * equipo, y las escribe solo `cifrasDelCuerpo` (`unidad/cuerpo.ts`; lo vigila
    * `test/invariantes.test.ts`). El motor, la IA y el contrato las leen tal cual.
    */
   readonly defense: number;
@@ -628,7 +628,7 @@ export const HUECOS_DE_CUERPO_A_CUERPO = ['arma', 'segunda'] as const satisfies 
  * **Ninguna da PV** (18-10-2026: la armadura protege restando de cada golpe,
  * `trasLaArmadura`): `pv` no es una cifra de pieza. **Ninguna resta movimiento**
  * (25-10-2026): todo pesa (`peso`), y el peso que pasa de la fuerza resta agilidad
- * (`restaDelPeso`, `core/cuerpo.ts`). Un arma suma `fuerza` al daño en vez de una
+ * (`restaDelPeso`, `unidad/cuerpo.ts`). Un arma suma `fuerza` al daño en vez de una
  * horquilla. La montura escribe `fuerza` y `agilidad`, que son suyas y no se suman
  * a las del jinete (`camposDelHueco`, `cifrasDelCuerpo`).
  */

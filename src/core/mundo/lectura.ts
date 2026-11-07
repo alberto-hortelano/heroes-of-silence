@@ -9,7 +9,7 @@
  * motor no puede comprobar. Con el vocabulario cerrado (`VOCABULARIO`) y el
  * catálogo de unidades y piezas por id, para que lo que escriba exista.
  */
-import { unidadesDelJuego } from '../catalogo.js';
+
 import {
   ACCIONES_DE_NPC,
   type Banco,
@@ -29,9 +29,10 @@ import {
   regionesDelSitio,
 } from '../map/regiones.js';
 import { isWalkable } from '../map/terrain.js';
-import { nivelDeUnidad } from '../nivel.js';
 import { newGame } from '../state/setup.js';
 import type { FactionId, PlayerId, Point } from '../types.js';
+import { unidadesDelJuego } from '../unidad/catalogo.js';
+import { nivelDeUnidad } from '../unidad/nivel.js';
 import { type LugaresDeUnMundo, lugaresDelPlan, type Mundo, VOCABULARIO } from './formato.js';
 import { lugarBlocker } from './validar.js';
 

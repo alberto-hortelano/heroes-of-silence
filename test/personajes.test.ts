@@ -18,7 +18,7 @@ import {
   registrarUnidad,
 } from '../src/client/render/personajes.js';
 import { HERO_BODY } from '../src/core/battle/types.js';
-import { hojaDeUnidad, UNIDADES } from '../src/core/catalogo.js';
+import { hojaDeUnidad, UNIDADES } from '../src/core/unidad/catalogo.js';
 import {
   CLIPS_DE_FIGURA,
   FILAS_DEL_ATLAS,

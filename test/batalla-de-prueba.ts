@@ -35,12 +35,6 @@ import type {
   BattleState,
 } from '../src/core/battle/types.js';
 import { HERO_BODY } from '../src/core/battle/types.js';
-import {
-  type CatalogoDeUnidades,
-  unidad,
-  unidadDelJuego,
-  unidadDelJuegoSiExiste,
-} from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO, type ReglasDelCombate } from '../src/core/combate.js';
 import type { Pieza } from '../src/core/equipo/pieza.js';
 import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
@@ -57,7 +51,13 @@ import {
   type TipoDeGolpe,
   type UnitInfo,
 } from '../src/core/types.js';
-import { cuerpoDeCombate, nivelesDeLaEspada, type Unidad } from '../src/core/unidad.js';
+import {
+  type CatalogoDeUnidades,
+  unidad,
+  unidadDelJuego,
+  unidadDelJuegoSiExiste,
+} from '../src/core/unidad/catalogo.js';
+import { cuerpoDeCombate, nivelesDeLaEspada, type Unidad } from '../src/core/unidad/formato.js';
 import { NO_MUERTO, TROPA } from './comun.js';
 import { catalogoCon } from './pelea-de-arena.js';
 

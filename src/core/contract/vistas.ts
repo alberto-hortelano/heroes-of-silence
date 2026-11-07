@@ -13,17 +13,17 @@
  */
 import { armaduraDe, cargasDe, golpeDe, recargaDe } from '../battle/armas.js';
 import { alcanceDeLaGranada } from '../battle/granada.js';
-import type { UnidadDelJuego } from '../catalogo.js';
-import { marchaDe } from '../cuerpo.js';
 import { EQUIPO } from '../equipo/pieza.js';
 import { cifrasDePieza, deDondeSale, seVende } from '../hero/equipo.js';
 import { troopSummary } from '../hero/troop.js';
 import { todosLosHechizos } from '../magia/catalogo.js';
 import { queHaceElHechizo } from '../magia/dicho.js';
 import type { Hechizo } from '../magia/formato.js';
-import { indiceDePoder, nivelDeUnidad } from '../nivel.js';
 import type { Ocupante } from '../state/events.js';
 import { type Army, describirCoste, type Equipo, HUECOS } from '../types.js';
+import type { UnidadDelJuego } from '../unidad/catalogo.js';
+import { marchaDe } from '../unidad/cuerpo.js';
+import { indiceDePoder, nivelDeUnidad } from '../unidad/nivel.js';
 import { SLOT_DE_HUECO, type Slot } from './vocabulario.js';
 
 /**
@@ -112,7 +112,7 @@ export function ocupanteView(ocupante: Ocupante | null) {
  * (`creature_stats`): sus cifras con su equipo de serie puesto, su `dwelling` (el
  * edificio que la produce, `null` si ninguno), lo que lleva (`equipment`, por
  * hueco del contrato, y `armor`, los puntos que resta de cada golpe) y lo que se
- * deriva de las cifras, su `level` y su `powerIndex` (`core/nivel.ts`). Las armas
+ * deriva de las cifras, su `level` y su `powerIndex` (`unidad/nivel.ts`). Las armas
  * por uso y la rueda de cada una no viajan: el agente las lee de las piezas
  * (`equipment` y el catálogo de equipo de su prosa).
  */

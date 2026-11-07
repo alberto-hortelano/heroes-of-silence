@@ -665,3 +665,7 @@ simbolo	src/core/arena.ts	src/core/arena/enlace.ts	ladoDelEnlace
 simbolo	src/core/arena.ts	src/core/arena/enlace.ts	montajeALaURL
 simbolo	src/core/arena.ts	src/core/arena/enlace.ts	textoDelMontaje
 fichero	src/core/arena.ts	(retirado)	repartido en arena/lados, unidad-nueva, piezas, heroe, montaje (con la cabecera), ficha, retoque y enlace
+fichero	src/core/cuerpo.ts	src/core/unidad/cuerpo.ts	
+fichero	src/core/unidad.ts	src/core/unidad/formato.ts	
+fichero	src/core/catalogo.ts	src/core/unidad/catalogo.ts	
+fichero	src/core/nivel.ts	src/core/unidad/nivel.ts	

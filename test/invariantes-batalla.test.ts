@@ -29,7 +29,6 @@ import {
 } from '../src/core/battle/effects.js';
 import { formaDeLaBatalla } from '../src/core/battle/formas-de-la-rueda.js';
 import type { BattleStack } from '../src/core/battle/types.js';
-import { UNIDADES, unidadDelJuego } from '../src/core/catalogo.js';
 import { serializeBattleResponse } from '../src/core/contract/batalla.js';
 import { battleActionSchema } from '../src/core/contract/esquemas.js';
 import { RESPONSE_FORMAT } from '../src/core/contract/formato.js';
@@ -44,6 +43,7 @@ import {
 import { CAMPOS_DE_PIEZA, EQUIPO } from '../src/core/equipo/pieza.js';
 import { createRng } from '../src/core/rng.js';
 import { CREATURE_TRAITS, HUECOS } from '../src/core/types.js';
+import { UNIDADES, unidadDelJuego } from '../src/core/unidad/catalogo.js';
 import { batallaConDos } from './batalla-de-prueba.js';
 import {
   CLIENTE,
@@ -695,9 +695,9 @@ describe('invariantes del proyecto', () => {
     // lectura, y nadie más cambia un stack por otro (el motor los muta por campo,
     // y quien busca uno lo busca por id). Y los poderes
     // (`UnitInfo.poderes`) solo los escribe el formato de la unidad
-    // (`core/unidad.ts`, de sus habilidades): desde F3 (19-10-2026) también en el
+    // (`core/unidad/formato.ts`, de sus habilidades): desde F3 (19-10-2026) también en el
     // juego, cuyo catálogo es el de la arena (el monje trae Curar).
-    // Ni el catálogo en partida (`catalogo.ts`) ni la ficha del agente los
+    // Ni el catálogo en partida (`unidad/catalogo.ts`) ni la ficha del agente los
     // escriben aparte. Roto a mano: un `state.stacks[0] = s` en `battle.ts`, un
     // `fichasDeArena: {}` en `state/game.ts`, un `{ ...c, poderes }` en `data.ts` y
     // un `poderes: c.poderes` en `contract/serialize.ts` salen rojos con su línea.
@@ -718,8 +718,9 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo([MONTAJE], escribeTipos)).not.toEqual([]);
     expect(infractoresDeCodigo([PUERTA], escribeTipos)).not.toEqual([]);
     // Los poderes los pone `unidadDeCombate`, que vive con el formato de la unidad
-    // (`core/unidad.ts`, simplify de F1).
-    const PONE_PODERES = ruta('src/core/unidad.ts');
+    // (`core/unidad/formato.ts`, simplify de F1; `core/unidad.ts` hasta la fase N de
+    // la reorganización, 07-11-2026).
+    const PONE_PODERES = ruta('src/core/unidad/formato.ts');
     const escribePoderes = /\bpoderes\s*:(?!\s*readonly)|\{\s*poderes\s*\}|\.poderes\s*=(?!=)/;
     const ni = [...CORE, ...SERVIDOR].filter((r) => r !== PONE_PODERES);
     expect(infractoresDeCodigo(ni, escribePoderes)).toEqual([]);
@@ -762,13 +763,15 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo([PUERTA], cuenta)).not.toEqual([]);
   });
 
-  it('la defensa, el daño y las casillas de un cuerpo las saca de su fuerza, su agilidad y su peso solo `core/cuerpo.ts`', () => {
+  it('la defensa, el daño y las casillas de un cuerpo las saca de su fuerza, su agilidad y su peso solo `core/unidad/cuerpo.ts`', () => {
     // 25-10-2026, «aparecen las características fuerza y agilidad»: lo que resta el
     // peso (`restaDelPeso`) y las cifras derivadas (`cifrasDelCuerpo`) se declaran en
     // un sitio, y el escalón de velocidad de unas casillas (`escalonDeCasillas`) solo
     // lo pide él: si otro lo pidiera, unas casillas escritas a mano se saltarían el
-    // peso. Roto a mano: un `escalonDeCasillas(` en `unidad.ts` sale rojo.
-    const CUERPO = ruta('src/core/cuerpo.ts');
+    // peso. Roto a mano: un `escalonDeCasillas(` en `unidad.ts` sale rojo; desde la
+    // fase N de la reorganización (07-11-2026), en `unidad/formato.ts`, junto a
+    // `unidad/cuerpo.ts` (era `core/cuerpo.ts`).
+    const CUERPO = ruta('src/core/unidad/cuerpo.ts');
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     const declara = /\bfunction\s+(restaDelPeso|cifrasDelCuerpo|escalonDeCasillas)\b/;
     expect(
@@ -976,7 +979,7 @@ describe('invariantes del proyecto', () => {
     ).toEqual([]);
     expect(infractoresDeCodigo([ESCRITOR], escribe)).not.toEqual([]);
 
-    const CUENTA = [ruta('src/core/cuerpo.ts'), ESCRITOR];
+    const CUENTA = [ruta('src/core/unidad/cuerpo.ts'), ESCRITOR];
     const lanza = /\bfuerzaDeLaLanza\b/;
     expect(
       infractoresDeCodigo(
@@ -984,9 +987,9 @@ describe('invariantes del proyecto', () => {
         lanza,
       ),
     ).toEqual([]);
-    expect(infractoresDeCodigo([ruta('src/core/cuerpo.ts')], lanza)).not.toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/core/unidad/cuerpo.ts')], lanza)).not.toEqual([]);
 
-    const LEEN = [ruta('src/core/equipo/pieza.ts'), ESCRITOR, ruta('src/core/cuerpo.ts')];
+    const LEEN = [ruta('src/core/equipo/pieza.ts'), ESCRITOR, ruta('src/core/unidad/cuerpo.ts')];
     const guerra = /\.guerra\b/;
     expect(
       infractoresDeCodigo(
@@ -994,7 +997,7 @@ describe('invariantes del proyecto', () => {
         guerra,
       ),
     ).toEqual([]);
-    expect(infractoresDeCodigo([ruta('src/core/cuerpo.ts')], guerra)).not.toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/core/unidad/cuerpo.ts')], guerra)).not.toEqual([]);
 
     expect(CREATURE_TRAITS as readonly string[]).not.toContain('charge');
     expect(UNIDADES.filter((u) => (u.traits as readonly string[]).includes('charge'))).toEqual([]);

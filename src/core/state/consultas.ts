@@ -7,12 +7,13 @@
  * `mundo/reglas.ts` se importaban el uno al otro, un ciclo de importación en
  * ejecución (fase N de la reorganización, 07-11-2026).
  */
-import { unidadDelJuego } from '../catalogo.js';
+
 import type { Hero } from '../hero/hero.js';
 import { armyLeadership, capacidadDe, troopBlocker, troopRoom } from '../hero/troop.js';
 import { pointKey } from '../map/map.js';
 import { recruitBlocker, recruitCost, type Town } from '../town/town.js';
 import type { Army, PlayerId } from '../types.js';
+import { unidadDelJuego } from '../unidad/catalogo.js';
 import { cupoDeLaGuarnicion, dueñoDeLaCiudad, guarnicionDe, sitioDeLaCiudad } from './sitios.js';
 import { type GameState, MAX_HEROES_PER_PLAYER, type Player } from './tipos.js';
 

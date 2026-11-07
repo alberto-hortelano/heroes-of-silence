@@ -12,7 +12,7 @@
  * **Rango y nivel son dos cosas** (decisión del usuario, 12-10-2026): la
  * experiencia da RANGOS (1-5 la tropa; el héroe, del 5 sin tope) y cada rango
  * suma cifras (`cifrasVeteranas`); el NIVEL es la primera cifra del índice de
- * poder de esas cifras (`nivelDeUnidad`, `core/nivel.ts`) y no se escribe aquí. Sustituye a la tabla de 40 filas de fheroes2
+ * poder de esas cifras (`nivelDeUnidad`, `unidad/nivel.ts`) y no se escribe aquí. Sustituye a la tabla de 40 filas de fheroes2
  * (`GetExperienceFromLevel`) y a sus +500 por héroe y por asedio, que siguen en
  * el historial de git con su lección: aquella tabla se citó mal una vez, y por
  * eso esta no cita a nadie.
@@ -23,8 +23,8 @@
  * banco valga fuera de esta máquina.
  */
 import experienciaJson from '../../../data/experiencia.json' with { type: 'json' };
-import { cuerpoConSusCifras } from '../cuerpo.js';
 import type { UnitInfo, Veterania } from '../types.js';
+import { cuerpoConSusCifras } from '../unidad/cuerpo.js';
 import { enteroBlocker, enteroDesde, problemasDeObjeto } from '../validar.js';
 import { conEquipo } from './equipo.js';
 
@@ -270,7 +270,7 @@ export function cifrasVeteranas<U extends UnitInfo>(unit: U, rango: number): U {
  * Las cifras de un individuo sobre las de un cuerpo dado: su veteranía y lo que
  * lleva puesto. Lo llama el retoque de la arena (`aplicarAlTipo`), que pone las
  * cifras nuevas de un tipo a cada stack con su hoja encima. La de una unidad del
- * catálogo es `cifrasDeUnidad` (`core/catalogo.ts`), que suma lo de serie y lo
+ * catálogo es `cifrasDeUnidad` (`unidad/catalogo.ts`), que suma lo de serie y lo
  * suyo de una vez.
  *
  * Sin hoja, o con una de rango 1 y sin piezas, devuelve **la misma referencia**.

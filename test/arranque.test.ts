@@ -1,6 +1,6 @@
 /**
  * **Una página con el núcleo roto dice por qué** (H5 de QA, 19-10-2026): una
- * unidad que no vale en `data/unidades.json` tumba `core/catalogo.ts` al
+ * unidad que no vale en `data/unidades.json` tumba `core/unidad/catalogo.ts` al
  * importarse, y con `main.ts` de entrada la arena se quedaba en «Cargando las
  * hojas…», la partida en blanco y `pnpm dev` ni arrancaba. Se vigilan las tres
  * cosas que lo arreglan: el motivo llega entero a la página (`arranque.ts`), la
@@ -53,7 +53,7 @@ describe('una página que no arranca dice por qué (H5)', () => {
     const rota = { ...unidadesJson, unidades: [{ ...primera, nivelInventado: 3 }, ...resto] };
     vi.doMock('../data/unidades.json', () => ({ default: rota }));
     vi.resetModules();
-    const err = await import('../src/core/catalogo.js').then(
+    const err = await import('../src/core/unidad/catalogo.js').then(
       () => null,
       (e: unknown) => e,
     );
@@ -97,7 +97,8 @@ describe('una página que no arranca dice por qué (H5)', () => {
     // El recorrido llega al núcleo: la muralla de la arena trae el tablero de batalla
     // (era `src/core/data.ts` hasta la fase N de la reorganización, 07-11-2026).
     expect(carga.has(ruta('src/core/battle/board.ts'))).toBe(true);
-    expect(carga.has(ruta('src/core/catalogo.ts'))).toBe(false);
+    // El catálogo (era `src/core/catalogo.ts` hasta la fase N de la reorganización, 07-11-2026).
+    expect(carga.has(ruta('src/core/unidad/catalogo.ts'))).toBe(false);
     expect(carga.has(ruta('tools/arena/borrador.ts'))).toBe(false);
   });
 });

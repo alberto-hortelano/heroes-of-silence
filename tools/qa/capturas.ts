@@ -96,7 +96,6 @@ import {
   type BattleState,
   queEs,
 } from '../../src/core/battle/types.js';
-import { UNIDADES, unidad, unidadDelJuego } from '../../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../../src/core/combate.js';
 import { ESCALA_DE_CIFRAS } from '../../src/core/escala.js';
 import { HEROE } from '../../src/core/hero/cuerpo-del-heroe.js';
@@ -110,7 +109,6 @@ import {
 import { troopSummary } from '../../src/core/hero/troop.js';
 import { hechizosDelGremio } from '../../src/core/magia/catalogo.js';
 import { regionDeCasilla } from '../../src/core/map/regiones.js';
-import { nivelDeUnidad } from '../../src/core/nivel.js';
 import { parseSeed } from '../../src/core/rng.js';
 import { pasosDeLaPatrulla } from '../../src/core/state/asaltantes.js';
 import { heroesOf } from '../../src/core/state/consultas.js';
@@ -125,11 +123,13 @@ import {
   type Hex,
   type Point,
 } from '../../src/core/types.js';
+import { UNIDADES, unidad, unidadDelJuego } from '../../src/core/unidad/catalogo.js';
 import {
   RUTA_DEL_CATALOGO_DE_UNIDADES,
   type Unidad,
   unidadDeCombate,
-} from '../../src/core/unidad.js';
+} from '../../src/core/unidad/formato.js';
+import { nivelDeUnidad } from '../../src/core/unidad/nivel.js';
 import type {
   AgentHelloMsg,
   AgentResponseMsg,

@@ -15,13 +15,6 @@ import { colocarBlocker } from '../battle/despliegue.js';
 import { resumenDeBatalla } from '../battle/resumen.js';
 import type { BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
 import { SIDES } from '../battle/types.js';
-import {
-  equipoDelPortadorBlocker,
-  equipoDeSerieDe,
-  equipoPuestoDe,
-  unidadDelJuego,
-  unidadDelJuegoSiExiste,
-} from '../catalogo.js';
 import { combateBlocker, type ReglasDelCombate } from '../combate.js';
 import { radioALaEscala } from '../escala.js';
 import { problemaDeTipo, type VeteranoEnBase, veteranosEn } from '../hero/ascenso.js';
@@ -141,6 +134,13 @@ import type {
   Veterania,
 } from '../types.js';
 import { enumerar, type Guarnicion, type Hueco, type Raider } from '../types.js';
+import {
+  equipoDelPortadorBlocker,
+  equipoDeSerieDe,
+  equipoPuestoDe,
+  unidadDelJuego,
+  unidadDelJuegoSiExiste,
+} from '../unidad/catalogo.js';
 import {
   type AsaltanteRecordado,
   casillasPeligrosas,

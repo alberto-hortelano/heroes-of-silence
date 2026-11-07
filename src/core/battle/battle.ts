@@ -10,14 +10,7 @@
  * nunca dar un turno extra»): es una cifra sin efecto hasta que haya huida.
  */
 
-import {
-  CATALOGO_DEL_JUEGO,
-  type CatalogoDeUnidades,
-  cifrasDeUnidad,
-  oroDeUnidad,
-} from '../catalogo.js';
 import { combateBlocker, type ReglasDelCombate } from '../combate.js';
-import { montadoDeGuerra } from '../cuerpo.js';
 import { HEROE } from '../hero/cuerpo-del-heroe.js';
 import type { Hero } from '../hero/hero.js';
 import { hojaDeLaTropa } from '../hero/troop.js';
@@ -42,6 +35,13 @@ import type {
   UsoDeArma,
 } from '../types.js';
 import { hasTrait, SPEED_TO_HEXES } from '../types.js';
+import {
+  CATALOGO_DEL_JUEGO,
+  type CatalogoDeUnidades,
+  cifrasDeUnidad,
+  oroDeUnidad,
+} from '../unidad/catalogo.js';
+import { montadoDeGuerra } from '../unidad/cuerpo.js';
 import {
   cargasDe,
   disparosDe,

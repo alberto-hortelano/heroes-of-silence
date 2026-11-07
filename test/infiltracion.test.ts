@@ -18,7 +18,6 @@
 import { describe, expect, it } from 'vitest';
 import { llegadaDeLaRuta } from '../src/client/escenas/aventura.js';
 import { Session } from '../src/client/session.js';
-import { unidadDelJuego, unidadesDeFaccion } from '../src/core/catalogo.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../src/core/hero/experiencia.js';
 import { empezarElDia, heroeRecienHecho, maxMovePoints } from '../src/core/hero/hero.js';
 import {
@@ -51,6 +50,7 @@ import { rentaDelDia } from '../src/core/state/renta.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { GameState } from '../src/core/state/tipos.js';
 import { FACTION_IDS, type FactionId, hasTrait, type Point } from '../src/core/types.js';
+import { unidadDelJuego, unidadesDeFaccion } from '../src/core/unidad/catalogo.js';
 import { primeraSemillaCon } from '../tools/comun/semillas.js';
 import { ctx, JINETE, TROPA } from './comun.js';
 import { conSuEquipo, ejercito, hastaSuSiguienteTurno } from './partida-de-prueba.js';

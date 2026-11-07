@@ -46,13 +46,13 @@ import type {
   TurnoDeUnidad,
 } from '../src/core/battle/types.js';
 import { HERO_BODY } from '../src/core/battle/types.js';
-import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import { heroUnit } from '../src/core/hero/hero.js';
 import type { Rng } from '../src/core/rng.js';
 import { createRng } from '../src/core/rng.js';
 import type { CreatureTrait, Hex, Stack, UnitInfo } from '../src/core/types.js';
+import { unidadDelJuego } from '../src/core/unidad/catalogo.js';
 import {
   aCiegas,
   agresiva,

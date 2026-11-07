@@ -23,9 +23,7 @@ import {
 } from '../src/core/battle/battle.js';
 import type { BattleState, Side } from '../src/core/battle/types.js';
 import { HERO_BODY, queEs } from '../src/core/battle/types.js';
-import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { escalonDeCasillas } from '../src/core/cuerpo.js';
 import { HEROE } from '../src/core/hero/cuerpo-del-heroe.js';
 import { umbral } from '../src/core/hero/experiencia.js';
 import { type Hero, heroUnit } from '../src/core/hero/hero.js';
@@ -44,6 +42,8 @@ import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 import type { GameContext, GameState } from '../src/core/state/tipos.js';
 import type { Point, Stack } from '../src/core/types.js';
+import { unidadDelJuego } from '../src/core/unidad/catalogo.js';
+import { escalonDeCasillas } from '../src/core/unidad/cuerpo.js';
 import { avanzarHasta, heroeDeBatalla, ladoDeBatalla } from './batalla-de-prueba.js';
 import { ctx, JINETE, NO_MUERTO, PESADA, TIRADOR_NO_MUERTO, TROPA, TROPA_BARATA } from './comun.js';
 import { costesDelAlcance } from './mapa-de-prueba.js';

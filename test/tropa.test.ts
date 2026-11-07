@@ -11,7 +11,6 @@ import { describe, expect, it } from 'vitest';
 import { playAiGame } from '../src/core/ai/turn.js';
 import { createBattle } from '../src/core/battle/battle.js';
 import { allHexes, BOARD_HEIGHT, bandoDeSalida } from '../src/core/battle/board.js';
-import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO, cupoDelHeroe } from '../src/core/combate.js';
 import { RANGO_INICIAL_DE_HEROE, umbral } from '../src/core/hero/experiencia.js';
 import { LIDERAZGO } from '../src/core/hero/liderazgo.js';
@@ -34,6 +33,7 @@ import { newGame, startingArmy } from '../src/core/state/setup.js';
 import { guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import { dwellings } from '../src/core/town/town.js';
 import { FACTION_IDS } from '../src/core/types.js';
+import { unidadDelJuego, unidadesDelJuego } from '../src/core/unidad/catalogo.js';
 import { ctx, JINETE, TROPA_BARATA } from './comun.js';
 import {
   copiaDePartida,

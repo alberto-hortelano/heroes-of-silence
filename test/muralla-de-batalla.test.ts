@@ -28,10 +28,10 @@ import { allHexes, FORMA_DEL_TABLERO, hexKey } from '../src/core/battle/board.js
 import { despliegueBlocker } from '../src/core/battle/despliegue.js';
 import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from '../src/core/battle/muralla.js';
 import type { BattleState } from '../src/core/battle/types.js';
-import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex } from '../src/core/types.js';
+import { unidadDelJuego } from '../src/core/unidad/catalogo.js';
 import { abrirPuertas, aMano } from './batalla-de-prueba.js';
 import { JINETE, NO_MUERTO, PESADA, TIRADOR, TROPA, TROPA_BARATA } from './comun.js';
 import { CON_PUERTA, claves, duelo, forma, LINEA, lado } from './muralla-de-prueba.js';

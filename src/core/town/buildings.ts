@@ -1,10 +1,10 @@
 /** Catálogo de edificios del castillo. */
 import buildingsJson from '../../../data/buildings.json' with { type: 'json' };
-import { UNIDADES, unidadesDeMorada } from '../catalogo.js';
-import { nivelDeUnidad } from '../nivel.js';
 import type { FactionId } from '../types.js';
 import { FACTION_IDS } from '../types.js';
-import type { Unidad } from '../unidad.js';
+import { UNIDADES, unidadesDeMorada } from '../unidad/catalogo.js';
+import type { Unidad } from '../unidad/formato.js';
+import { nivelDeUnidad } from '../unidad/nivel.js';
 import { entero, objetoCon, texto } from '../validar.js';
 import { ECONOMIA } from './economia.js';
 
@@ -124,7 +124,7 @@ for (const [i, crudo] of (buildingsJson.buildings as readonly unknown[]).entries
  * (1 a 6) que no repite otra. **Lo que la carga del juego exige** a los dos juntos;
  * lo lee también «Guardar» de la arena (`tools/arena/borrador.ts`), para no
  * escribir un catálogo con el que la partida no arrancaría. Aquí y no en
- * `unidad.ts` porque desde allí leer los edificios cerraría un ciclo.
+ * `unidad/formato.ts` porque desde allí leer los edificios cerraría un ciclo.
  */
 export function moradasBlocker(unidades: readonly Unidad[]): string | null {
   for (const u of unidades) {

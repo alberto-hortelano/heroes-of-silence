@@ -82,7 +82,7 @@ import { faccionesDeLaSemilla } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 import { building } from '../src/core/town/buildings.js';
 import type { Hex } from '../src/core/types.js';
-import type { Unidad } from '../src/core/unidad.js';
+import type { Unidad } from '../src/core/unidad/formato.js';
 import {
   bordeDeAtras,
   type Disposicion,

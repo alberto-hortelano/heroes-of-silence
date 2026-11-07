@@ -67,12 +67,12 @@ import {
   tiradaDelPunto,
 } from '../src/core/battle/rueda.js';
 import type { BattleAction, BattleEvent, BattleState } from '../src/core/battle/types.js';
-import { unidad } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO, combateCon, type ReglasDelCombate } from '../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { createRng, type Rng, sortearPorPesos } from '../src/core/rng.js';
 import type { Hex, NivelesDeLaRueda, Stack, UnitInfo } from '../src/core/types.js';
-import { cuerpoDeCombate, nivelesDeLaEspada, type Unidad } from '../src/core/unidad.js';
+import { unidad } from '../src/core/unidad/catalogo.js';
+import { cuerpoDeCombate, nivelesDeLaEspada, type Unidad } from '../src/core/unidad/formato.js';
 import { desenlaceDe, empezarTalCual, hastaLaRueda, sesionDeArena } from './batalla-de-cliente.js';
 import {
   type Ataque,

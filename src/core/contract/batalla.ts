@@ -35,7 +35,7 @@ import {
   rangoDeVeterania,
   type Side,
 } from '../battle/types.js';
-import { agilidadDe } from '../cuerpo.js';
+import { agilidadDe } from '../unidad/cuerpo.js';
 import {
   accionAlAgente,
   escaleraAlAgente,

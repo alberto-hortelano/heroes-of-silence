@@ -16,9 +16,9 @@
  * ninguna página (la partida, la arena ni el espectador), y cada una lo dice en
  * pantalla con ese motivo (`client/arranque.ts`): se arregla a mano.
  */
-import ciudadesJson from '../../data/ciudades.json' with { type: 'json' };
-import unidadesJson from '../../data/unidades.json' with { type: 'json' };
-import type { BattleStack } from './battle/types.js';
+import ciudadesJson from '../../../data/ciudades.json' with { type: 'json' };
+import unidadesJson from '../../../data/unidades.json' with { type: 'json' };
+import type { BattleStack } from '../battle/types.js';
 import {
   aDosManos,
   conEquipo,
@@ -29,22 +29,22 @@ import {
   manosBlocker,
   type Portador,
   pieza,
-} from './hero/equipo.js';
-import { cifrasVeteranas, rangoDeTropa } from './hero/experiencia.js';
-import type { Hero } from './hero/hero.js';
-import { LIDERAZGO } from './hero/liderazgo.js';
-import { indiceDePoder, nivelDelIndice } from './nivel.js';
-import { crecimientoDelNivel, oroDelIndice } from './town/economia.js';
-import type { Equipo, FactionId, Hueco, UnitInfo, Veterania } from './types.js';
-import { FACTION_IDS, type GrupoDeTropa, huecoBlocker } from './types.js';
+} from '../hero/equipo.js';
+import { cifrasVeteranas, rangoDeTropa } from '../hero/experiencia.js';
+import type { Hero } from '../hero/hero.js';
+import { LIDERAZGO } from '../hero/liderazgo.js';
+import { crecimientoDelNivel, oroDelIndice } from '../town/economia.js';
+import type { Equipo, FactionId, Hueco, UnitInfo, Veterania } from '../types.js';
+import { FACTION_IDS, type GrupoDeTropa, huecoBlocker } from '../types.js';
+import { enteroDesde } from '../validar.js';
 import {
   armaDeCuerpoBlocker,
   cuerpoDeCombate,
   leerCatalogos,
   RUTA_DEL_CATALOGO_DE_UNIDADES,
   type Unidad,
-} from './unidad.js';
-import { enteroDesde } from './validar.js';
+} from './formato.js';
+import { indiceDePoder, nivelDelIndice } from './nivel.js';
 
 /**
  * Todas las unidades del catálogo, en su orden: el de las hojas del taller y las

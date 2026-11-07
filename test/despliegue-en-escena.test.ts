@@ -17,12 +17,12 @@ import { hexEquals, hexKey } from '../src/core/battle/board.js';
 import { zonaDeSalida } from '../src/core/battle/despliegue.js';
 import { type MurallaDeBatalla, validarMuralla } from '../src/core/battle/muralla.js';
 import type { BattleState, Side } from '../src/core/battle/types.js';
-import { unidadesDelJuego } from '../src/core/catalogo.js';
 import { fuerzaDe, poderDe, ventajaClara } from '../src/core/hero/fuerza.js';
 import { isEnterable, objectAt, pointKey } from '../src/core/map/map.js';
 import { estructura, regionDeCasilla } from '../src/core/map/regiones.js';
 import { baseOf, caminoHasta } from '../src/core/state/game.js';
 import type { Point, Raider } from '../src/core/types.js';
+import { unidadesDelJuego } from '../src/core/unidad/catalogo.js';
 import {
   escenaDeBatalla,
   sesionContraMonstruoAlDesplegar,

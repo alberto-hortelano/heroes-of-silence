@@ -23,7 +23,6 @@ import { conPiezas } from '../src/core/arena/piezas.js';
 import { type BattleSide, createBattle, type StackDeBatalla } from '../src/core/battle/battle.js';
 import { type MurallaDeBatalla, SIN_MURALLA } from '../src/core/battle/muralla.js';
 import type { BattleState } from '../src/core/battle/types.js';
-import { type CatalogoDeUnidades, UNIDADES, unidad } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import {
   COMENTARIO_DEL_CATALOGO_DE_EQUIPO,
@@ -38,7 +37,8 @@ import {
   EQUIPO_DEL_JUEGO,
 } from '../src/core/hero/equipo.js';
 import type { Rng } from '../src/core/rng.js';
-import type { Unidad } from '../src/core/unidad.js';
+import { type CatalogoDeUnidades, UNIDADES, unidad } from '../src/core/unidad/catalogo.js';
+import type { Unidad } from '../src/core/unidad/formato.js';
 import { RAIZ } from './comun.js';
 
 const MONTAJES = new WeakMap<BattleState, MontajeDeArena>();

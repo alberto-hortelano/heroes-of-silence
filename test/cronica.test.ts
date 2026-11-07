@@ -18,7 +18,6 @@ import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
 import { renderLog } from '../src/client/views/panels.js';
 import { playAiGame, resolvePendingBattle } from '../src/core/ai/turn.js';
-import { unidadDelJuego } from '../src/core/catalogo.js';
 import { serializeAdventureTurn } from '../src/core/contract/aventura.js';
 import type { MapPlan } from '../src/core/map/generar/plan.js';
 import type { MapObject } from '../src/core/map/map.js';
@@ -37,6 +36,7 @@ import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad, sitioSiExiste } from '../src/core/state/sitios.js';
 import type { GameContext, GameState } from '../src/core/state/tipos.js';
 import type { Point } from '../src/core/types.js';
+import { unidadDelJuego } from '../src/core/unidad/catalogo.js';
 import { FACCION_A, FACCION_B, NO_MUERTO, PESADA, TROPA, TROPA_BARATA } from './comun.js';
 import { ejercito, sinGuarnicionDeSalida } from './partida-de-prueba.js';
 

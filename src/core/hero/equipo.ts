@@ -22,7 +22,6 @@
  */
 
 import { CARGA, CARGA_MINIMA } from '../battle/carga.js';
-import { cifrasDelCuerpo } from '../cuerpo.js';
 import {
   DICHO_DE_DONDE,
   EQUIPO,
@@ -60,6 +59,7 @@ import {
   NOMBRE_DE_HUECO,
   TIPOS_DEL_ANILLO,
 } from '../types.js';
+import { cifrasDelCuerpo } from '../unidad/cuerpo.js';
 import { HEROE } from './cuerpo-del-heroe.js';
 import type { Hero } from './hero.js';
 
@@ -228,7 +228,7 @@ export const DICHO_DE_LA_CARGA: DichoDeUnUso = {
 /**
  * La montura dicha para quien juega (26-10-2026): la nota de su hueco y de su
  * sección en el editor de equipo y la de la ficha. La regla la aplican
- * `cifrasDelCuerpo` y `marchaDe` (`core/cuerpo.ts`); esto la cuenta.
+ * `cifrasDelCuerpo` y `marchaDe` (`unidad/cuerpo.ts`); esto la cuenta.
  */
 export const DICHO_DE_LA_MONTURA =
   'La montura tiene su fuerza, su agilidad y su peso, que no se suman a las de quien monta. De guerra, se monta en batalla: lo que pesa el equipo del jinete y ella se mide contra su fuerza, las casillas son las suyas tras ese peso y el jinete pelea con su agilidad entera; con una lanza, la carga pega con la fuerza de la montura más la de la lanza. De silla, no entra en batalla: allí se pelea a pie. En el mapa cada uno anda lo de su montura, de guerra o de silla, o lo suyo a pie, y manda el más lento del grupo, el héroe incluido.';
@@ -273,7 +273,7 @@ export const PIEZAS_DE_BOTIN: readonly Pieza[] = EQUIPO.filter(caeComoBotin);
 /**
  * Por qué el equipo base del héroe (`data/heroe.json`) no vale con las piezas de
  * `eq`, o `null`: que cada pieza exista, vaya en su hueco y las manos casen
- * (`equipoBlocker`). La lee solo `leerCatalogos` (`core/unidad.ts`), lo que la
+ * (`equipoBlocker`). La lee solo `leerCatalogos` (`unidad/formato.ts`), lo que la
  * carga del juego, «Guardar» y el editor de equipo exigen a los catálogos juntos.
  */
 export function equipoBaseBlocker(eq: EquipoAtado): string | null {
@@ -285,7 +285,7 @@ export function equipoBaseBlocker(eq: EquipoAtado): string | null {
  * El equipo con el que nace todo héroe (decisión del usuario, 18-10-2026: la
  * Espada y el gambesón), de `data/heroe.json`, donde se comprueba su forma; que
  * sus piezas valgan con el catálogo lo comprueba la carga de los catálogos
- * (`leerCatalogos`, desde `core/catalogo.ts`). Lo lleva también el héroe de la arena.
+ * (`leerCatalogos`, desde `unidad/catalogo.ts`). Lo lleva también el héroe de la arena.
  */
 export const EQUIPO_BASE: Equipo = Object.freeze({ ...HEROE.equipoBase });
 

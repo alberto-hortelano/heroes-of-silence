@@ -11,12 +11,10 @@
  * (`vistaDeLaMorada`, cacheada por su `version`) y lo pintan el lienzo y el panel.
  */
 import { armaduraDe } from '@core/battle/armas.js';
-import { hojaDeUnidad, unidadDelJuego, unidadesDeMorada } from '@core/catalogo.js';
 import type { Pieza } from '@core/equipo/pieza.js';
 import { pieza } from '@core/hero/equipo.js';
 import { hechizo } from '@core/magia/catalogo.js';
 import { nombreDelPoder } from '@core/magia/dicho.js';
-import { indiceDePoder, nivelDeUnidad } from '@core/nivel.js';
 import type { RecruitCapacity } from '@core/state/consultas.js';
 import { building } from '@core/town/buildings.js';
 import { moradaEn, type SitioId } from '@core/town/sitios.js';
@@ -30,6 +28,8 @@ import {
   type PlayerId,
   type UnitInfo,
 } from '@core/types.js';
+import { hojaDeUnidad, unidadDelJuego, unidadesDeMorada } from '@core/unidad/catalogo.js';
+import { indiceDePoder, nivelDeUnidad } from '@core/unidad/nivel.js';
 
 /** Una figura de la fila: una unidad de la morada. */
 export interface FiguraDeLaMorada {

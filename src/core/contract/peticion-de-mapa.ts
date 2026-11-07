@@ -6,16 +6,17 @@
  * (07-11-2026) en `vistas.ts`, `mapa-conocido.ts`, `aventura.ts`, `batalla.ts` y
  * `peticion-de-mapa.ts`.
  */
-import { unidadesDeFaccion } from '../catalogo.js';
+
 import { ASALTANTES } from '../hero/grupos.js';
 import { LIDERAZGO } from '../hero/liderazgo.js';
 import { NIVEL_POR_SUELO } from '../map/generar/datos.js';
 import { regionesDelMapa } from '../map/generar/plan.js';
 import { LADO_DEL_RECINTO, SEPARACION_DE_CIUDADES } from '../map/recinto.js';
 import { BARRERAS, BARRERAS_DE_DESNIVEL, SUELOS_PISABLES, TERRAIN_KINDS } from '../map/terrain.js';
-import { nivelDeUnidad } from '../nivel.js';
 import { REGLA_DEL_PUEBLO } from '../state/renta.js';
 import { FACTION_IDS, type PlayerId } from '../types.js';
+import { unidadesDeFaccion } from '../unidad/catalogo.js';
+import { nivelDeUnidad } from '../unidad/nivel.js';
 
 export interface MapRequestOptions {
   readonly width: number;

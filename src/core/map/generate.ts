@@ -9,16 +9,9 @@
  * **es una red de nodos** (`problemasDeRed`).
  */
 
-import {
-  guarnicionDeBase,
-  guarnicionNeutral,
-  problemasDeGrupo,
-  unidadesDelJuego,
-} from '../catalogo.js';
 import { ASALTANTES, problemasDeAsaltante } from '../hero/grupos.js';
 import { LIDERAZGO } from '../hero/liderazgo.js';
 import { ejercitoDe } from '../hero/troop.js';
-import { nivelDeUnidad } from '../nivel.js';
 import { createRng, type Rng } from '../rng.js';
 import { createTown, primeraCiudadDe } from '../town/town.js';
 import {
@@ -30,6 +23,13 @@ import {
   type Point,
   type RaiderPlaneado,
 } from '../types.js';
+import {
+  guarnicionDeBase,
+  guarnicionNeutral,
+  problemasDeGrupo,
+  unidadesDelJuego,
+} from '../unidad/catalogo.js';
+import { nivelDeUnidad } from '../unidad/nivel.js';
 import { BARRERAS_DEL_MAPA, NIVEL_POR_SUELO, POBLAMIENTO } from './generar/datos.js';
 import {
   type BuiltMap,

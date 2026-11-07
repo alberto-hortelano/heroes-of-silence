@@ -67,7 +67,6 @@ import {
   validarMuralla,
 } from '@core/battle/muralla.js';
 import type { BattleStack } from '@core/battle/types.js';
-import { UNIDADES } from '@core/catalogo.js';
 import { COMBATE_COMPLETO, type ReglasDelCombate } from '@core/combate.js';
 import {
   conLosExtras,
@@ -104,12 +103,13 @@ import {
   type Hex,
   type HuecoDePieza,
 } from '@core/types.js';
+import { UNIDADES } from '@core/unidad/catalogo.js';
 import {
   type Hoja,
   RUTA_DEL_CATALOGO_DE_UNIDADES,
   type Unidad,
   validarUnidad,
-} from '@core/unidad.js';
+} from '@core/unidad/formato.js';
 import { unaVezEnLaURL } from '@core/validar.js';
 import { FIGURA } from '../../shared/arte.js';
 import { avisoDelClima, climaDeLaURL } from '../clima-de-la-url.js';

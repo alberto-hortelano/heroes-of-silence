@@ -18,13 +18,13 @@ import {
   previsionDe,
 } from '../src/core/battle/battle.js';
 import type { BattleState } from '../src/core/battle/types.js';
-import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
 import { catalogoDeHechizos, hechizo } from '../src/core/magia/catalogo.js';
 import { rinde } from '../src/core/magia/formato.js';
 import { createRng, type Rng } from '../src/core/rng.js';
-import { hechizosDeUnidadesBlocker } from '../src/core/unidad.js';
+import { unidadDelJuego, unidadesDelJuego } from '../src/core/unidad/catalogo.js';
+import { hechizosDeUnidadesBlocker } from '../src/core/unidad/formato.js';
 import { avanzarHasta } from './batalla-de-prueba.js';
 import { SANADOR } from './comun.js';
 import { delBorrador, unidadDeArena as unidad } from './pelea-de-arena.js';

@@ -29,10 +29,10 @@ import {
 } from '../src/core/battle/despliegue.js';
 import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from '../src/core/battle/muralla.js';
 import type { BattleState } from '../src/core/battle/types.js';
-import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
 import type { AlcanceDelDespliegue, Hex } from '../src/core/types.js';
+import { unidadDelJuego } from '../src/core/unidad/catalogo.js';
 import { conCifrasAMano, heroeDeBatalla, ladoDeBatalla } from './batalla-de-prueba.js';
 import { TROPA_BARATA } from './comun.js';
 
