@@ -82,12 +82,12 @@ const PSEUDOS = ['', '::before', '::after', '::marker'] as const;
  */
 const OCULTOS_SIN_TEMA = ['.adornos-del-mapa'];
 /**
- * Lo que existe ahora y no en un `ref` de antes del tema por ejército (#ejercito,
- * el selector de la arena, que sí se ve; y lo de arriba): sin su regla, su alto
- * movía la barra y todo lo de detrás. Se oculta en las dos pasadas: no es neutro
- * ni tema, es nuevo.
+ * Lo que existe ahora y no en un `ref` de antes del tema por ejército (lo de
+ * arriba): se oculta en las dos pasadas, porque no es neutro ni tema, es nuevo.
+ * Llevaba también `.selector-de-la-barra`, el desplegable de la barra, hasta que
+ * se fue su regla sin nadie que la usara (fase C de la reorganización, 07-11-2026).
  */
-const NUEVOS = ['.selector-de-la-barra', ...OCULTOS_SIN_TEMA];
+const NUEVOS = [...OCULTOS_SIN_TEMA];
 
 /** Una hoja del cliente en el disco o en un `ref`, con sus `@import` relativos dentro. */
 function hoja(ruta: string, ref: string | null): string {

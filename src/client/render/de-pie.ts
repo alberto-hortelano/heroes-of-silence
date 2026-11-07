@@ -29,24 +29,9 @@ import {
 
 /**
  * El aire del encuadre de las dos escenas, en partes del lienzo: encima de la
- * cabeza más alta, debajo de los pies de delante (y además su aro, `AL_PIE`) y a
- * cada lado.
+ * cabeza más alta, debajo de los pies de delante (y además su aro) y a cada lado.
  */
 export const MARGEN = { arriba: 0.07, abajo: 0.04, lados: 0.04 } as const;
-/** Lo que el aro y la sombra bajan de los pies, en partes del alto de la figura. */
-export const AL_PIE = 0.12;
-/**
- * Lo que sobra de alto con las figuras a la escala del combate, cuánto va debajo
- * de los pies de delante: el resto queda encima, en el fondo del campo.
- */
-export const LIBRE_DEBAJO = 0.35;
-/**
- * Sin otro fondo que el campo del combate, su horizonte, desde la cabeza de la
- * figura del fondo hacia abajo, en partes de su alto: detrás de los hombros. Así
- * el grupo pisa suelo de punta a punta y lo de arriba es la linde del bosque del
- * campo, no cielo.
- */
-export const HORIZONTE_EN_LA_FIGURA = 0.3;
 /**
  * Lo menos que se separan dos vecinas, en pasos: la caja de una figura mide 0,40
  * de ancho y con 0,43 queda un dedo entre las dos. Lo más, cada escena el suyo.

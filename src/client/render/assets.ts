@@ -93,8 +93,6 @@ export const ARTE_RPG = {
   campo: '/rpg/campo.webp',
 } as const;
 
-export type NombreDeArte = keyof typeof ARTE_RPG;
-
 /**
  * Las piezas sueltas que el juego pinta él (`assets/mapa/`), por el nombre con el
  * que se piden a `asset('mapa', …)`: el cofre, que se recoge en la

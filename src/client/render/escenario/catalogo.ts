@@ -152,9 +152,6 @@ export interface JuntasDeRampa {
   readonly rumbo: 's';
 }
 
-/** Las juntas de cualquier pieza del relieve: una ladera, una diagonal, una bajada o una rampa. */
-export type JuntasDeRelieve = JuntasDeLadera | JuntasDeDiagonal | JuntasDeBajada | JuntasDeRampa;
-
 export interface Modulo extends Pieza {
   /** El nombre del módulo dentro de su hoja (`1`, `torre-redonda`…). */
   readonly nombre: string;

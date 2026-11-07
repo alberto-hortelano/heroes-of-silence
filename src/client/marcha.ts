@@ -43,8 +43,6 @@ import { arteDe, arteParaPintar, hojaDe, MIRADA_DE_PRESENTACION } from './render
  */
 export const ZANCADA = { walk: 112 / 160, charge: 186 / 160 } as const;
 
-export type ClipDeMarcha = keyof typeof ZANCADA;
-
 /**
  * Cuánto más deprisa avanza la figura de lo que dicen sus pies: la duración de
  * cada casilla se divide por esta cifra, y es **la única** que hay que tocar para

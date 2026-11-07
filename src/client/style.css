@@ -264,17 +264,6 @@ html, body {
 /* La obra del puesto, bajo el reparto de un paso (fase 3 del puesto fronterizo). */
 .obra-del-puesto { margin-top: 0.6rem; padding-top: 0.4rem; border-top: 1px solid var(--boton-borde); }
 
-/* Un desplegable de la barra de arriba (`selectorDeLaBarra`): «Ejército» en la
-   partida y «Tema» en la arena, con la letra de la barra. */
-.selector-de-la-barra { color: var(--ink-dim); }
-.selector-de-la-barra select {
-  font: 12px var(--letra-ui);
-  color: var(--ink);
-  background: var(--fondo-campo);
-  border: 1px solid var(--boton-borde);
-  padding: 0.1rem 0.25rem;
-}
-
 #resources { display: flex; gap: 0.9rem; margin: 0; padding: 0; list-style: none; flex-wrap: wrap; }
 /* La muestra de color y el icono ocupan la misma caja de 1,15rem: cuando llega el
    icono, la barra de arriba no crece y el lienzo no se mueve (lo daba por movido
@@ -531,8 +520,6 @@ progress.liderazgo::-moz-progress-bar { background: var(--barra); }
   .atlas-panel { max-width: 150px; }
   #statusbar { flex-wrap: wrap; padding: 0.4rem 0.6rem; }
   #actions button { min-height: 44px; }
-  /* Un dedo no acierta en 19 px (H7 de QA): lo mismo que los botones de abajo. */
-  .selector-de-la-barra select { min-height: 44px; }
 }
 
 /* Dormir o despertar al héroe (#17): pequeño, bajo su nombre. */
