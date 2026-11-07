@@ -39,7 +39,7 @@
 import { colorDeSombra } from '../../../shared/arte.js';
 import { columnasDeCara } from './caras.js';
 import type { Escena, Luz } from './colocar/escena.js';
-import type { Sprite } from './colocar/sprite.js';
+import { type Sprite, seVeConSuNodo } from './colocar/sprite.js';
 import {
   aguasDeLaEscena,
   cantoDeLasEspaldas,
@@ -64,7 +64,6 @@ import {
   type Variante,
 } from './parches.js';
 import { cajaDeSprite } from './pasillo.js';
-import { seVeConSuNodo } from './puestos.js';
 import { bandaDeCara, type CaraDeEscena } from './relieve.js';
 import { ANCHO_DEL_VADO, ANCHO_DEL_VADO_EN_EL_BARRO, SEMIANCHO_DEL_PASILLO } from './sendas.js';
 

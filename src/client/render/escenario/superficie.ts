@@ -34,7 +34,7 @@ import type { MapaDeEscena } from './analizar.js';
 import { type PerfilDe, perfilesDelCatalogo } from './caras.js';
 import { type Catalogo, catalogoValidado } from './catalogo.js';
 import type { Escena } from './colocar/escena.js';
-import type { Sprite } from './colocar/sprite.js';
+import { type NodoQueSeSabe, type Sprite, seVeConSuNodo } from './colocar/sprite.js';
 import { componer } from './colocar.js';
 import {
   delanteDeLasParedes,
@@ -56,7 +56,7 @@ import {
 } from './pintar.js';
 import { type MensajeDelSuelo, type PeticionDelSuelo, pintarSueloA } from './pintor-del-suelo.js';
 import type { Punto } from './puentes.js';
-import { esObra, type NodoQueSeSabe, type Obra, seVeConSuNodo } from './puestos.js';
+import { esObra, type Obra } from './puestos.js';
 import { casillasDelRecinto } from './recinto.js';
 
 /**

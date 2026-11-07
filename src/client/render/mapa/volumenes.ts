@@ -10,7 +10,7 @@
 import type { CasillasLeidas } from '@core/map/casillas.js';
 import { imagenDeEscena } from '../assets.js';
 import { empezarFotogramaDeCopias } from '../copias.js';
-import type { Sprite } from '../escenario/colocar/sprite.js';
+import { type NodoQueSeSabe, type Sprite, seVeConSuNodo } from '../escenario/colocar/sprite.js';
 import { cajaDeSprite } from '../escenario/pasillo.js';
 import {
   imagenCargada,
@@ -19,13 +19,7 @@ import {
   pintarSprite,
   type Volumen,
 } from '../escenario/pintar.js';
-import {
-  cajaDeLaObra,
-  esObra,
-  type NodoQueSeSabe,
-  type Obra,
-  seVeConSuNodo,
-} from '../escenario/puestos.js';
+import { cajaDeLaObra, esObra, type Obra } from '../escenario/puestos.js';
 import { copiaDeVolumen, type Escenario, type VolumenDelMapa } from '../escenario/superficie.js';
 import { animarHasta, colocarFigura, type FiguraColocada } from '../figuras/figura.js';
 import { densidadDe } from '../lienzo.js';

@@ -1,16 +1,22 @@
 /**
  * Una pieza de la escena (`Sprite`): una imagen apoyada por su ancla en `(x, y)`,
- * en casillas, con lo que dice qué es, cómo se mide y en qué orden se pinta.
+ * en casillas, con lo que dice qué es, cómo se mide y en qué orden se pinta; y
+ * cuándo se pinta la de un nodo (`DeNodo`, `seVeConSuNodo`: su hito mientras no
+ * se le sabe dueño, la obra de su puesto cuando se le sabe).
  *
  * Va aparte de la escena entera (`escena.ts`) y por debajo de todo el
  * escenógrafo: la leen el índice de obstáculos (`pasillo.ts`), los guardias de lo
- * pintado y el pintor. Con la escena en el mismo fichero, el tipo de una pieza
- * tiraba de los del relieve, las sendas y los recintos, que tiran del índice de
- * obstáculos, que tira de él: un ciclo entre carpetas. Hasta la fase C de la
- * reorganización (07-11-2026) vivía en `colocar.ts`.
+ * pintado, el pintor y el mapa, y del escenario no importa más que el papel de
+ * una pieza en el recinto de una ciudad. Con la escena en el mismo fichero, el
+ * tipo de una pieza tiraba de los del relieve, las sendas y los recintos, que
+ * tiran del índice de obstáculos, que tira de él: un ciclo entre carpetas. Hasta
+ * la fase C de la reorganización (07-11-2026) `Sprite` vivía en `colocar.ts` y lo
+ * de un nodo en `puestos.ts`, que importaba al pintor (`separar`) mientras el
+ * pintor lo importaba a él por `seVeConSuNodo`: el último ciclo de importación
+ * en ejecución del cliente.
  */
-import type { MapObject } from '@core/map/tipos.js';
-import type { DeNodo } from '../puestos.js';
+import type { MapObject, MejoraDelPuesto } from '@core/map/tipos.js';
+import type { PlayerId } from '@core/types.js';
 import type { PapelEnElRecinto } from '../recinto.js';
 
 /** Qué puede ser un sprite: de aquí salen `Sprite['clase']` y lo que valida una marca de fallo. */
@@ -118,4 +124,29 @@ export interface Sprite {
    * regla y lo leen los guardias, en vez de deducirlo de su hoja o su sombra.
    */
   readonly recinto?: PapelEnElRecinto;
+}
+
+/** Cuándo se pinta una pieza de un nodo: neutral (su hito) o con una obra de su dueño. */
+export type CuandoSePinta = MejoraDelPuesto | 'neutral';
+
+/** Lo que dice `Sprite.deNodo`: de qué nodo es la pieza y cuándo se pinta. */
+export interface DeNodo {
+  readonly id: string;
+  readonly cuando: CuandoSePinta;
+}
+
+/** Lo que se sabe de un nodo para elegir lo que se pinta en él. */
+export interface NodoQueSeSabe {
+  readonly owner: PlayerId | null;
+  readonly mejora: MejoraDelPuesto;
+}
+
+/**
+ * Si la pieza de un nodo se pinta con lo que se sabe de él: el hito, mientras no
+ * se le sabe dueño (tampoco si no se sabe nada: la niebla lo tapa); la obra, si se
+ * le sabe dueño y esa mejora. La única regla de lo que se pinta en un nodo.
+ */
+export function seVeConSuNodo(d: DeNodo, nodo: NodoQueSeSabe | undefined): boolean {
+  if (d.cuando === 'neutral') return nodo === undefined || nodo.owner === null;
+  return nodo !== undefined && nodo.owner !== null && nodo.mejora === d.cuando;
 }

@@ -16,7 +16,12 @@ import { isWalkable, type TerrainKind } from '@core/map/terrain.js';
 import type { MejoraDelPuesto } from '@core/map/tipos.js';
 import { describe, expect, it } from 'vitest';
 import { altoDeLaSilueta, perfilesDelCatalogo } from '../src/client/render/escenario/caras.js';
-import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
+import {
+  type DeNodo,
+  type NodoQueSeSabe,
+  type Sprite,
+  seVeConSuNodo,
+} from '../src/client/render/escenario/colocar/sprite.js';
 import {
   cajaDeFigura,
   delanteDeLasParedes,
@@ -26,11 +31,6 @@ import {
 } from '../src/client/render/escenario/figuras.js';
 import { PIES } from '../src/client/render/escenario/figuras-del-mapa.js';
 import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
-import {
-  type DeNodo,
-  type NodoQueSeSabe,
-  seVeConSuNodo,
-} from '../src/client/render/escenario/puestos.js';
 import { claveDeFigura, escenarioDe, pisada } from '../src/client/render/escenario/superficie.js';
 import { catalogoDelDisco, partidaDe } from './escena-de-prueba.js';
 import { LENTO, rango } from './lento.js';

@@ -19,10 +19,9 @@
  */
 
 import { MEJORAS_DEL_PUESTO, type MejoraDelPuesto } from '@core/map/tipos.js';
-import type { PlayerId } from '@core/types.js';
 import { MARGEN_DEL_RECORTE } from '../../../shared/arte.js';
 import type { Pieza } from './catalogo.js';
-import type { Sprite } from './colocar/sprite.js';
+import type { CuandoSePinta, Sprite } from './colocar/sprite.js';
 import { PIES } from './figuras-del-mapa.js';
 import { type Caja, cajaDeSprite, seTocan } from './pasillo.js';
 import { separar } from './pintar.js';
@@ -50,31 +49,6 @@ export const PIEZA_DEL_PUESTO: Readonly<Record<MejoraDelPuesto, string>> = {
   empalizada: 'puesto-torreta',
   muralla: 'puesto-torre',
 };
-
-/** Cuándo se pinta una pieza de un nodo: neutral (su hito) o con una obra de su dueño. */
-export type CuandoSePinta = MejoraDelPuesto | 'neutral';
-
-/** Lo que dice `Sprite.deNodo`: de qué nodo es la pieza y cuándo se pinta. */
-export interface DeNodo {
-  readonly id: string;
-  readonly cuando: CuandoSePinta;
-}
-
-/** Lo que se sabe de un nodo para elegir lo que se pinta en él. */
-export interface NodoQueSeSabe {
-  readonly owner: PlayerId | null;
-  readonly mejora: MejoraDelPuesto;
-}
-
-/**
- * Si la pieza de un nodo se pinta con lo que se sabe de él: el hito, mientras no
- * se le sabe dueño (tampoco si no se sabe nada: la niebla lo tapa); la obra, si se
- * le sabe dueño y esa mejora. La única regla de lo que se pinta en un nodo.
- */
-export function seVeConSuNodo(d: DeNodo, nodo: NodoQueSeSabe | undefined): boolean {
-  if (d.cuando === 'neutral') return nodo === undefined || nodo.owner === null;
-  return nodo !== undefined && nodo.owner !== null && nodo.mejora === d.cuando;
-}
 
 /**
  * Lo que ocupa una obra alrededor de su pie, en casillas: hacia el oeste y el

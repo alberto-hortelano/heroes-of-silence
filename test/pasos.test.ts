@@ -16,7 +16,7 @@ import {
   SEMIANCHO_DEL_PASO,
 } from '../src/client/render/escenario/colocar/pasos-y-puentes.js';
 import { sobreLaSenda } from '../src/client/render/escenario/colocar/sendas-y-murallas.js';
-import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
+import { type Sprite, seVeConSuNodo } from '../src/client/render/escenario/colocar/sprite.js';
 import { componer } from '../src/client/render/escenario/colocar.js';
 import {
   cajaDelHeroeEn,
@@ -35,7 +35,6 @@ import {
   puestosQueTapan,
   puestosSobreElHeroe,
   puestosTapados,
-  seVeConSuNodo,
   sitiosDeLosPuestos,
 } from '../src/client/render/escenario/puestos.js';
 import { catalogoDelDisco, partidaDe } from './escena-de-prueba.js';

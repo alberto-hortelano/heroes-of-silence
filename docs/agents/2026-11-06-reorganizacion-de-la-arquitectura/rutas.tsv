@@ -2023,3 +2023,7 @@ simbolo	src/client/render/escenario/colocar.ts	src/client/render/escenario/coloc
 simbolo	src/client/render/escenario/colocar.ts	src/client/render/escenario/colocar/luces.ts	LUZ_DE_LA_CIUDAD
 simbolo	src/client/render/escenario/colocar.ts	src/client/render/escenario/colocar/luces.ts	luzDelRecinto
 simbolo	src/client/render/escenario/colocar.ts	src/client/render/escenario/colocar/luces.ts	luces
+simbolo	src/client/render/escenario/puestos.ts	src/client/render/escenario/colocar/sprite.ts	CuandoSePinta
+simbolo	src/client/render/escenario/puestos.ts	src/client/render/escenario/colocar/sprite.ts	DeNodo
+simbolo	src/client/render/escenario/puestos.ts	src/client/render/escenario/colocar/sprite.ts	NodoQueSeSabe
+simbolo	src/client/render/escenario/puestos.ts	src/client/render/escenario/colocar/sprite.ts	seVeConSuNodo
