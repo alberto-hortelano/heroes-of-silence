@@ -25,6 +25,7 @@ import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../hero/tro
 import { sitioEnUnNodo } from '../map/territorio.js';
 import { climaDeLaPartida, pedidoVigente } from '../state/clima.js';
 import {
+  baseOf,
   hayHuecoDeHeroe,
   heroeEnLaBase,
   heroesOf,
@@ -33,13 +34,7 @@ import {
   week,
 } from '../state/consultas.js';
 import { cronicaPara } from '../state/events.js';
-import {
-  baseOf,
-  heroesALaVista,
-  ordenDelDia,
-  veteranosEnSuBase,
-  visibleNow,
-} from '../state/game.js';
+import { heroesALaVista, ordenDelDia, veteranosEnSuBase, visibleNow } from '../state/game.js';
 import { type RentaDelDia, rentaDelDia } from '../state/renta.js';
 import {
   casillaDelSitio,

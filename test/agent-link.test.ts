@@ -17,12 +17,8 @@ import { validateMapPlan } from '../src/core/map/generar/validar.js';
 import { pointKey } from '../src/core/map/geometria.js';
 import { reachableFrom } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
-import {
-  applyAdventureAction,
-  baseOf,
-  caminoHasta,
-  revealEverything,
-} from '../src/core/state/game.js';
+import { baseOf } from '../src/core/state/consultas.js';
+import { applyAdventureAction, caminoHasta, revealEverything } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad, guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import {

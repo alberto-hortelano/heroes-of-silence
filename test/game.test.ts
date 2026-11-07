@@ -48,6 +48,7 @@ import {
 import type { MapObject } from '../src/core/map/tipos.js';
 import { createRng, parseSeed } from '../src/core/rng.js';
 import {
+  baseOf,
   currentPlayer,
   dayOfWeek,
   heroById,
@@ -59,7 +60,6 @@ import { finDePartida } from '../src/core/state/desenlace.js';
 import {
   alcanceDelHeroe,
   applyAdventureAction,
-  baseOf,
   caminoHasta,
   ordenDelDia,
 } from '../src/core/state/game.js';

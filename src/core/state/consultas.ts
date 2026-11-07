@@ -1,20 +1,38 @@
 /**
  * Lo que se pregunta a una partida sin cambiarla: el día y la semana, quién juega,
- * de quién es cada héroe y cada ciudad, a dónde va un recluta y si es tu turno.
+ * de quién es cada héroe y cada ciudad, a dónde va un recluta y si es tu turno; la
+ * base de cada jugador y a qué casilla de ella vuelve un héroe; de quién es cada
+ * bando de una batalla, y por quién no se rinde la IA.
  *
  * Vivía en `game.ts`, que la usa, y la regla de un lugar (`mundo/reglas.ts`)
  * pregunta de quién es el turno: con las dos en el mismo fichero, `game.ts` y
  * `mundo/reglas.ts` se importaban el uno al otro, un ciclo de importación en
- * ejecución (fase N de la reorganización, 07-11-2026).
+ * ejecución (fase N de la reorganización, 07-11-2026). Lo de la base y de los
+ * bandos llegó al repartir `game.ts` (paso N10 de la misma fase): lo preguntan
+ * varios de los módulos en que se partió.
  */
 
+import { SIDES, type Side } from '../battle/types.js';
 import { armyLeadership, capacidadDe, troopBlocker, troopRoom } from '../hero/troop.js';
 import { pointKey } from '../map/geometria.js';
+import { blocksMovement, isEnterable, objectAt, sePasa } from '../map/map.js';
 import { recruitBlocker, recruitCost, type Town } from '../town/town.js';
-import type { Army, Hero, PlayerId } from '../types.js';
+import type { Army, Hero, PlayerId, Point } from '../types.js';
 import { unidadDelJuego } from '../unidad/catalogo.js';
-import { cupoDeLaGuarnicion, dueñoDeLaCiudad, guarnicionDe, sitioDeLaCiudad } from './sitios.js';
-import { type GameState, MAX_HEROES_PER_PLAYER, type Player } from './tipos.js';
+import {
+  cupoDeLaGuarnicion,
+  dueñoDeLaCiudad,
+  guarnicionDe,
+  laGuarnicion,
+  sitioDeLaCiudad,
+} from './sitios.js';
+import {
+  type Enfrentamiento,
+  type GameState,
+  MAX_HEROES_PER_PLAYER,
+  type PendingBattle,
+  type Player,
+} from './tipos.js';
 
 // ---------------------------------------------------------------- consultas
 
@@ -219,4 +237,143 @@ export function turnBlocker(state: GameState, quien: PlayerId): string | null {
  */
 export function describePlayer(state: GameState, id: PlayerId): string {
   return `jugador ${id} (${playerById(state, id).faction})`;
+}
+
+/** El héroe `heroId`, si existe y es de `player`; o por qué no. */
+export function heroeSuyo(
+  state: GameState,
+  player: PlayerId,
+  heroId: string,
+): Hero | { readonly motivo: string } {
+  const hero = state.heroes.find((h) => h.id === heroId);
+  if (hero === undefined) return { motivo: `no existe ningún héroe "${heroId}"` };
+  if (hero.owner !== player) return { motivo: `${hero.name} no es de tu bando` };
+  return hero;
+}
+
+/**
+ * La base de un jugador, si todavía es suya; `null` si no la tuvo nunca o la
+ * ha perdido. El dueño se pregunta a `dueñoDeLaCiudad` (la base está en el muro:
+ * el de su objeto, que escribe `tomarElNodo`).
+ */
+export function baseOf(state: GameState, player: PlayerId): Town | null {
+  const id = playerById(state, player).base;
+  if (id === null) return null;
+  const town = townById(state, id);
+  return dueñoDeLaCiudad(state, town) === player ? town : null;
+}
+
+/**
+ * La casilla del castillo, o si la ocupa otro héroe la primera libre —que se
+ * pueda pisar, sin objeto y sin héroe— de una búsqueda en anchura desde el
+ * castillo que **para en cuanto la encuentra**.
+ *
+ * Antes era el orden de descubrimiento de un `reachableFrom` del mapa entero
+ * —un Dijkstra completo para mirar, casi siempre, las ocho vecinas—. Las dos
+ * dan la misma casilla siempre que alguna vecina del castillo esté libre: el
+ * Dijkstra descubre las ocho de golpe al sacar el origen, en el mismo orden de
+ * `dy` por fuera y `dx` por dentro que se usa aquí. Si las ocho estuvieran
+ * ocupadas, esta da la más cercana en pasos y aquella la más cercana en coste.
+ * Comprobado ejecutando las dos a la vez en cada vuelta: 1 491 en las 200
+ * partidas del banco y 8 894 en 1 200 partidas, 0 distintas. Con una salvedad
+ * que hay que saber: en ninguna de ellas estaba ocupado el castillo —la IA no
+ * contrata un segundo héroe mientras tiene uno—, así que la rama de la búsqueda
+ * solo la ejercen los tests.
+ */
+export function casillaDeVuelta(state: GameState, hero: Hero, base: Town): Point {
+  const ocupada = (p: Point): boolean =>
+    state.heroes.some((h) => h.id !== hero.id && pointKey(h.at) === pointKey(p)) ||
+    state.raiders.some((r) => pointKey(r.at) === pointKey(p));
+  if (!ocupada(base.at)) return base.at;
+  const vistas = new Set<string>([pointKey(base.at)]);
+  const cola: Point[] = [base.at];
+  for (let i = 0; i < cola.length; i++) {
+    const desde = cola[i]!;
+    // Como en el Dijkstra del mapa: de una casilla con objeto que bloquea no se
+    // sigue, salvo del origen, que es el propio castillo.
+    const objeto = objectAt(state.map, desde);
+    if (i > 0 && objeto !== undefined && blocksMovement(objeto)) continue;
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        const p = { x: desde.x + dx, y: desde.y + dy };
+        if (!isEnterable(state.map, p) || !sePasa(state.map, desde, p) || vistas.has(pointKey(p)))
+          continue;
+        vistas.add(pointKey(p));
+        if (!ocupada(p) && objectAt(state.map, p) === undefined) return p;
+        cola.push(p);
+      }
+    }
+  }
+  throw new Error(`${hero.name} no tiene casilla libre a la que volver junto a ${base.name}`);
+}
+
+/**
+ * De quién es cada bando de una batalla pendiente.
+ *
+ * Borra dos constantes cableadas que decían `'attacker'` porque el único camino
+ * que existía a una batalla era el ataque del agente: el del director y el de la
+ * consulta `battle_state`. El defensor es `null` cuando enfrente hay un
+ * monstruo, que no tiene dueño; un pueblo lo tiene igual que un héroe, y por eso
+ * el agente también defiende su castillo.
+ */
+export function battleOwners(
+  state: GameState,
+  pending: Enfrentamiento,
+): Readonly<Record<Side, PlayerId | null>> {
+  const foe = pending.foe;
+  let defender: PlayerId | null;
+  switch (foe.kind) {
+    case 'monster':
+    case 'raider':
+    case 'lugar':
+      defender = null;
+      break;
+    case 'hero':
+      defender = heroById(state, foe.heroId).owner;
+      break;
+    case 'garrison':
+      // La tropa defiende por su dueño, no por el del sitio (P1): la neutral, por
+      // nadie; la que ocupa un sitio ajeno, por quien la dejó.
+      defender = laGuarnicion(state, foe.site)?.dueño ?? null;
+      break;
+  }
+  // Un grupo de asaltantes no es de nadie: cuando embosca, el atacante es
+  // `null` igual que un monstruo cuando defiende.
+  const attacker =
+    pending.attacker.kind === 'hero' ? heroById(state, pending.attacker.heroId).owner : null;
+  return { attacker, defender };
+}
+
+/**
+ * Qué bandos de una batalla lleva alguno de `jugadores`. Vacío: no va con ellos.
+ *
+ * Es el compañero que le faltaba a `battleOwners`, y faltaba de verdad: el
+ * director y la consulta `battle_state` derivaban esto cada uno por su cuenta y
+ * **ya no coincidían** cuando un jugador llevaba los dos bandos —uno devolvía
+ * los dos y el otro se quedaba con `attacker` por ser el primero del array—. Ese
+ * caso existe desde que `agentPlayers` acepta varios jugadores.
+ */
+export function sidesOwnedBy(
+  state: GameState,
+  pending: PendingBattle,
+  jugadores: Iterable<PlayerId>,
+): ReadonlySet<Side> {
+  const suyos = new Set(jugadores);
+  const dueños = battleOwners(state, pending);
+  const bandos = new Set<Side>();
+  for (const bando of SIDES) {
+    const dueño = dueños[bando];
+    if (dueño !== null && suyos.has(dueño)) bandos.add(bando);
+  }
+  return bandos;
+}
+
+/**
+ * Los jugadores que no lleva la IA de reglas (`Player.controller`: la persona y
+ * el agente). Por sus bandos pelea la IA cuando le toca resolver, pero no se
+ * rinde: rendirse les cuesta oro y esa decisión es solo de su dueño.
+ */
+export function sinLaIA(state: GameState): ReadonlySet<PlayerId> {
+  return new Set(state.players.filter((p) => p.controller !== 'ai').map((p) => p.id));
 }

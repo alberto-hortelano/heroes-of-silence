@@ -40,18 +40,18 @@ import { pointKey } from '@core/map/geometria.js';
 import { createRng } from '@core/rng.js';
 import { pedirClima } from '@core/state/clima.js';
 import {
+  battleOwners,
   currentPlayer,
   hayHuecoDeHeroe,
   playerById,
+  sidesOwnedBy,
   townsOf,
   week,
 } from '@core/state/consultas.js';
 import {
   applyAdventureAction,
   ascenderVeterano,
-  battleOwners,
   settleBattle,
-  sidesOwnedBy,
   veteranosEnSuBase,
 } from '@core/state/game.js';
 import { newGame } from '@core/state/setup.js';

@@ -21,7 +21,8 @@ import { fuerzaDe, poderDe, ventajaClara } from '../src/core/hero/fuerza.js';
 import { pointKey } from '../src/core/map/geometria.js';
 import { isEnterable, objectAt } from '../src/core/map/map.js';
 import { estructura, regionDeCasilla } from '../src/core/map/regiones.js';
-import { baseOf, caminoHasta } from '../src/core/state/game.js';
+import { baseOf } from '../src/core/state/consultas.js';
+import { caminoHasta } from '../src/core/state/game.js';
 import type { Point, Raider } from '../src/core/types.js';
 import { unidadesDelJuego } from '../src/core/unidad/catalogo.js';
 import {

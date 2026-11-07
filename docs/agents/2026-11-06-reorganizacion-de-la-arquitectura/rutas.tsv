@@ -949,3 +949,11 @@ simbolo	src/core/map/generar/datos.ts	src/core/map/vestir/base.ts	BarreraConPeso
 simbolo	src/core/map/generar/datos.ts	src/core/map/vestir/base.ts	ReglasDeBarreras
 simbolo	src/core/map/generar/datos.ts	src/core/map/vestir/base.ts	validarBarreras
 simbolo	src/core/map/generar/datos.ts	src/core/map/vestir/base.ts	BARRERAS_DEL_MAPA
+simbolo	src/core/state/game.ts	src/core/state/consultas.ts	heroeSuyo
+simbolo	src/core/state/game.ts	src/core/state/consultas.ts	baseOf
+simbolo	src/core/state/game.ts	src/core/state/consultas.ts	casillaDeVuelta
+simbolo	src/core/state/game.ts	src/core/state/consultas.ts	battleOwners
+simbolo	src/core/state/game.ts	src/core/state/consultas.ts	sidesOwnedBy
+simbolo	src/core/state/game.ts	src/core/state/consultas.ts	sinLaIA
+simbolo	src/core/state/game.ts	src/core/state/asaltantes.ts	dejarAsaltante
+simbolo	src/core/state/game.ts	src/core/state/asaltantes.ts	raiderById

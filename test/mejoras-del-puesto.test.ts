@@ -22,10 +22,9 @@ import {
   OBRAS_DE_UN_PUESTO,
   type ObraDelPuesto,
 } from '../src/core/map/tipos.js';
-import { heroesOf } from '../src/core/state/consultas.js';
+import { baseOf, heroesOf } from '../src/core/state/consultas.js';
 import {
   applyAdventureAction,
-  baseOf,
   objetosConocidos,
   revealEverything,
   visibleNow,

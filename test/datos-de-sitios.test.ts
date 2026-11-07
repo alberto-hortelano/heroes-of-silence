@@ -36,8 +36,7 @@ import {
 import type { BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
-import { heroesOf } from '../src/core/state/consultas.js';
-import { baseOf } from '../src/core/state/game.js';
+import { baseOf, heroesOf } from '../src/core/state/consultas.js';
 import { newGame } from '../src/core/state/setup.js';
 import {
   dueñoDeLaCiudad,

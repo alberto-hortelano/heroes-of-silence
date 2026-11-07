@@ -34,6 +34,7 @@ import type { MapObject } from '../map/tipos.js';
 import { lugarDe } from '../mundo/formato.js';
 import { mundoDe } from '../mundo/reglas.js';
 import {
+  baseOf,
   destinoDeRecluta,
   heroById,
   heroeEnElPueblo,
@@ -41,7 +42,7 @@ import {
   recruitCapacity,
   townsOf,
 } from '../state/consultas.js';
-import { baseOf, contratarBlocker, ponerseBlocker, visibleNowAt } from '../state/game.js';
+import { contratarBlocker, ponerseBlocker, visibleNowAt } from '../state/game.js';
 import { rentaDeLaRegion } from '../state/renta.js';
 import {
   ciudadQueMandaBlocker,

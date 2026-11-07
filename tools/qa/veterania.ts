@@ -23,7 +23,7 @@
  */
 import { heroUnit } from '../../src/core/hero/hero.js';
 import { RANGO_MAXIMO_DE_TROPA, rangoDeHeroe, rangoDeTropa } from '../../src/core/hero/rango.js';
-import { baseOf } from '../../src/core/state/game.js';
+import { baseOf } from '../../src/core/state/consultas.js';
 import { guarnicionDeLaCiudad } from '../../src/core/state/sitios.js';
 import type { GameState } from '../../src/core/state/tipos.js';
 import type { Army } from '../../src/core/types.js';

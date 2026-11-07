@@ -23,12 +23,13 @@ import {
 } from '../src/core/hero/troop.js';
 import { createRng } from '../src/core/rng.js';
 import {
+  baseOf,
   destinoDeRecluta,
   heroesOf,
   recruitCapacity,
   townsOf,
 } from '../src/core/state/consultas.js';
-import { applyAdventureAction, baseOf } from '../src/core/state/game.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
 import { newGame, startingArmy } from '../src/core/state/setup.js';
 import { guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import { dwellings } from '../src/core/town/town.js';

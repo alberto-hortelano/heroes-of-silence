@@ -39,11 +39,10 @@ import { pointKey } from '../src/core/map/geometria.js';
 import { isEnterable, objectAt } from '../src/core/map/map.js';
 import { regionDeCasilla, tocaUnNodo, VECINAS } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
-import { heroById, heroesOf } from '../src/core/state/consultas.js';
+import { baseOf, heroById, heroesOf } from '../src/core/state/consultas.js';
 import {
   applyAdventureAction,
   ascenderVeterano,
-  baseOf,
   equipBlocker,
   settleBattle,
 } from '../src/core/state/game.js';

@@ -15,14 +15,9 @@ import { renderSide, renderTopbar } from '../src/client/views/panels.js';
 import { resolvePendingBattle } from '../src/core/ai/turn.js';
 import { estructura } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
-import { dayOfWeek, heroesOf, townById } from '../src/core/state/consultas.js';
+import { baseOf, dayOfWeek, heroesOf, townById } from '../src/core/state/consultas.js';
 import type { GameEvent } from '../src/core/state/events.js';
-import {
-  applyAdventureAction,
-  baseOf,
-  buyBlocker,
-  contratarBlocker,
-} from '../src/core/state/game.js';
+import { applyAdventureAction, buyBlocker, contratarBlocker } from '../src/core/state/game.js';
 import { rentaDelDia } from '../src/core/state/renta.js';
 import { newGame } from '../src/core/state/setup.js';
 import {

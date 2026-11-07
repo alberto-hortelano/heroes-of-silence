@@ -22,11 +22,10 @@ import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../src/core
 import { pointFromKey, pointKey } from '../src/core/map/geometria.js';
 import { estructura } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
-import { currentPlayer, heroesOf } from '../src/core/state/consultas.js';
+import { baseOf, currentPlayer, heroesOf } from '../src/core/state/consultas.js';
 import {
   alcanceDelHeroe,
   applyAdventureAction,
-  baseOf,
   caminoHasta,
   casillasHostiles,
   defensaBlocker,

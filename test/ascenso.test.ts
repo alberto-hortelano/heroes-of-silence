@@ -19,13 +19,12 @@ import {
 } from '../src/core/hero/tipos-de-heroe.js';
 import { isEnterable, objectAt } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
-import { heroesOf, playerById } from '../src/core/state/consultas.js';
+import { baseOf, heroesOf, playerById } from '../src/core/state/consultas.js';
 import { cronicaPara } from '../src/core/state/events.js';
 import {
   applyAdventureAction,
   ascenderVeterano,
   ascensoBlocker,
-  baseOf,
   veteranosEnSuBase,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';

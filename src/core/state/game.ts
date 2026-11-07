@@ -14,7 +14,6 @@ import {
 import { colocarBlocker } from '../battle/despliegue.js';
 import { resumenDeBatalla } from '../battle/resumen.js';
 import type { BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
-import { SIDES } from '../battle/types.js';
 import { combateBlocker, type ReglasDelCombate } from '../combate.js';
 import { nadaEnElHueco, ponerPieza, quitarPieza } from '../equipo/manos.js';
 import { deDondeSale, PIEZAS_DE_BOTIN, pieza, piezaSiExiste, seVende } from '../equipo/pieza.js';
@@ -51,30 +50,20 @@ import {
   tipoSeInfiltra,
   tiposDeHeroe,
 } from '../hero/tipos-de-heroe.js';
-import {
-  ejercitoDe,
-  gruposDe,
-  individuosDe,
-  licenciar,
-  troopsAsStacks,
-  withTroops,
-} from '../hero/troop.js';
+import { ejercitoDe, individuosDe, licenciar, troopsAsStacks, withTroops } from '../hero/troop.js';
 import { Casillas, type CasillasLeidas, casillasDelCuadrado } from '../map/casillas.js';
 import { pointKey } from '../map/geometria.js';
 import {
   barreraEn,
-  blocksMovement,
   costeEnElAlcance,
   findPath,
   inBounds,
-  isEnterable,
   type Mirada,
   objectAt,
   type PathStep,
   pathFromReachable,
   type Reachable,
   reachableFrom,
-  sePasa,
 } from '../map/map.js';
 import {
   objetosDeLaZona,
@@ -137,16 +126,21 @@ import {
 import {
   type AsaltanteRecordado,
   casillasPeligrosas,
+  dejarAsaltante,
   dispersados,
   dondeBrotan,
   emboscador,
   mascaraDeOcupacion,
   pasoDePatrulla,
+  raiderById,
   recordarAsaltantes,
   vigiaDeLaMarcha,
 } from './asaltantes.js';
 import { type ClimaDeLaPartida, type ClimaDelSitio, climaDeLaRegion } from './clima.js';
 import {
+  baseOf,
+  battleOwners,
+  casillaDeVuelta,
   currentPlayer,
   dayOfWeek,
   describePlayer,
@@ -154,6 +148,7 @@ import {
   hayHuecoDeHeroe,
   heroById,
   heroeEnElPueblo,
+  heroeSuyo,
   heroesOf,
   playerById,
   reclutarBlocker,
@@ -1617,18 +1612,6 @@ export function buyBlocker(
   return sinOro === null ? null : `${pieza.nombre}: ${sinOro}`;
 }
 
-/** El héroe `heroId`, si existe y es de `player`; o por qué no. */
-function heroeSuyo(
-  state: GameState,
-  player: PlayerId,
-  heroId: string,
-): Hero | { readonly motivo: string } {
-  const hero = state.heroes.find((h) => h.id === heroId);
-  if (hero === undefined) return { motivo: `no existe ningún héroe "${heroId}"` };
-  if (hero.owner !== player) return { motivo: `${hero.name} no es de tu bando` };
-  return hero;
-}
-
 /**
  * Por qué no se puede hacer ese `equip`, o `null`. Se equipa **en cualquier
  * sitio fuera de batalla** —el botín cae en el camino— y de la mochila del héroe
@@ -2704,18 +2687,6 @@ function tomarElNodo(state: GameState, sitio: Sitio, player: PlayerId): void {
 // ---------------------------------------------------------------- batallas
 
 /**
- * La base de un jugador, si todavía es suya; `null` si no la tuvo nunca o la
- * ha perdido. El dueño se pregunta a `dueñoDeLaCiudad` (la base está en el muro:
- * el de su objeto, que escribe `tomarElNodo`).
- */
-export function baseOf(state: GameState, player: PlayerId): Town | null {
-  const id = playerById(state, player).base;
-  if (id === null) return null;
-  const town = townById(state, id);
-  return dueñoDeLaCiudad(state, town) === player ? town : null;
-}
-
-/**
  * Si el héroe puede rendirse, y con cuánto oro; o por qué no. Rendirse es
  * volver a la base, así que sin base no hay rendición, y defendiéndola
  * tampoco: no hay a dónde huir.
@@ -2827,23 +2798,6 @@ function ladoDeAsaltante(state: GameState, id: string): BattleSide {
   return { army: troopsAsStacks(ejercitoDe(raiderById(state, id).troops)), hero: null };
 }
 
-/**
- * Lo que le queda en pie a un grupo después de una batalla, o nada: un grupo
- * sin nadie deja de existir. La única escritura de la tropa de un grupo y el
- * único sitio que lo borra, gane, pierda o se disperse.
- */
-function dejarAsaltante(state: GameState, id: string, army: Army): void {
-  if (army.length > 0) raiderById(state, id).troops = gruposDe(army);
-  else state.raiders = state.raiders.filter((r) => r.id !== id);
-}
-
-/** El grupo de asaltantes con ese id; lanza si ya no está. */
-function raiderById(state: GameState, id: string): Raider {
-  const r = state.raiders.find((x) => x.id === id);
-  if (r === undefined) throw new Error(`grupo de asaltantes desconocido: "${id}"`);
-  return r;
-}
-
 /** El bando que ataca: el héroe con su tropa, o el grupo que embosca. */
 function attackerSide(state: GameState, atacante: Atacante): BattleSide {
   switch (atacante.kind) {
@@ -2852,43 +2806,6 @@ function attackerSide(state: GameState, atacante: Atacante): BattleSide {
     case 'raider':
       return ladoDeAsaltante(state, atacante.raiderId);
   }
-}
-
-/**
- * De quién es cada bando de una batalla pendiente.
- *
- * Borra dos constantes cableadas que decían `'attacker'` porque el único camino
- * que existía a una batalla era el ataque del agente: el del director y el de la
- * consulta `battle_state`. El defensor es `null` cuando enfrente hay un
- * monstruo, que no tiene dueño; un pueblo lo tiene igual que un héroe, y por eso
- * el agente también defiende su castillo.
- */
-export function battleOwners(
-  state: GameState,
-  pending: Enfrentamiento,
-): Readonly<Record<Side, PlayerId | null>> {
-  const foe = pending.foe;
-  let defender: PlayerId | null;
-  switch (foe.kind) {
-    case 'monster':
-    case 'raider':
-    case 'lugar':
-      defender = null;
-      break;
-    case 'hero':
-      defender = heroById(state, foe.heroId).owner;
-      break;
-    case 'garrison':
-      // La tropa defiende por su dueño, no por el del sitio (P1): la neutral, por
-      // nadie; la que ocupa un sitio ajeno, por quien la dejó.
-      defender = laGuarnicion(state, foe.site)?.dueño ?? null;
-      break;
-  }
-  // Un grupo de asaltantes no es de nadie: cuando embosca, el atacante es
-  // `null` igual que un monstruo cuando defiende.
-  const attacker =
-    pending.attacker.kind === 'hero' ? heroById(state, pending.attacker.heroId).owner : null;
-  return { attacker, defender };
 }
 
 /**
@@ -2922,30 +2839,6 @@ export function lugarDelRival(state: GameState, foe: BattleFoe): Point {
     case 'lugar':
       return encuentroDe(state, foe).lugar.at;
   }
-}
-
-/**
- * Qué bandos de una batalla lleva alguno de `jugadores`. Vacío: no va con ellos.
- *
- * Es el compañero que le faltaba a `battleOwners`, y faltaba de verdad: el
- * director y la consulta `battle_state` derivaban esto cada uno por su cuenta y
- * **ya no coincidían** cuando un jugador llevaba los dos bandos —uno devolvía
- * los dos y el otro se quedaba con `attacker` por ser el primero del array—. Ese
- * caso existe desde que `agentPlayers` acepta varios jugadores.
- */
-export function sidesOwnedBy(
-  state: GameState,
-  pending: PendingBattle,
-  jugadores: Iterable<PlayerId>,
-): ReadonlySet<Side> {
-  const suyos = new Set(jugadores);
-  const dueños = battleOwners(state, pending);
-  const bandos = new Set<Side>();
-  for (const bando of SIDES) {
-    const dueño = dueños[bando];
-    if (dueño !== null && suyos.has(dueño)) bandos.add(bando);
-  }
-  return bandos;
 }
 
 /**
@@ -3305,15 +3198,6 @@ export function elegirLaDefensa(
   contarLaDefensa(state, { hero: hero.id, sitio: idDelSitio(sitio) });
 }
 
-/**
- * Los jugadores que no lleva la IA de reglas (`Player.controller`: la persona y
- * el agente). Por sus bandos pelea la IA cuando le toca resolver, pero no se
- * rinde: rendirse les cuesta oro y esa decisión es solo de su dueño.
- */
-export function sinLaIA(state: GameState): ReadonlySet<PlayerId> {
-  return new Set(state.players.filter((p) => p.controller !== 'ai').map((p) => p.id));
-}
-
 /** Reparte las consecuencias de una batalla ya terminada. */
 export function settleBattle(state: GameState, _ctx: GameContext): void {
   const pending = state.pendingBattle;
@@ -3547,51 +3431,6 @@ function volverABase(state: GameState, hero: Hero, base: Town, precio: number | 
       ? { ...comun, surrendered: false, ...origen }
       : { ...comun, surrendered: true, gold: precio, ...origen },
   );
-}
-
-/**
- * La casilla del castillo, o si la ocupa otro héroe la primera libre —que se
- * pueda pisar, sin objeto y sin héroe— de una búsqueda en anchura desde el
- * castillo que **para en cuanto la encuentra**.
- *
- * Antes era el orden de descubrimiento de un `reachableFrom` del mapa entero
- * —un Dijkstra completo para mirar, casi siempre, las ocho vecinas—. Las dos
- * dan la misma casilla siempre que alguna vecina del castillo esté libre: el
- * Dijkstra descubre las ocho de golpe al sacar el origen, en el mismo orden de
- * `dy` por fuera y `dx` por dentro que se usa aquí. Si las ocho estuvieran
- * ocupadas, esta da la más cercana en pasos y aquella la más cercana en coste.
- * Comprobado ejecutando las dos a la vez en cada vuelta: 1 491 en las 200
- * partidas del banco y 8 894 en 1 200 partidas, 0 distintas. Con una salvedad
- * que hay que saber: en ninguna de ellas estaba ocupado el castillo —la IA no
- * contrata un segundo héroe mientras tiene uno—, así que la rama de la búsqueda
- * solo la ejercen los tests.
- */
-function casillaDeVuelta(state: GameState, hero: Hero, base: Town): Point {
-  const ocupada = (p: Point): boolean =>
-    state.heroes.some((h) => h.id !== hero.id && pointKey(h.at) === pointKey(p)) ||
-    state.raiders.some((r) => pointKey(r.at) === pointKey(p));
-  if (!ocupada(base.at)) return base.at;
-  const vistas = new Set<string>([pointKey(base.at)]);
-  const cola: Point[] = [base.at];
-  for (let i = 0; i < cola.length; i++) {
-    const desde = cola[i]!;
-    // Como en el Dijkstra del mapa: de una casilla con objeto que bloquea no se
-    // sigue, salvo del origen, que es el propio castillo.
-    const objeto = objectAt(state.map, desde);
-    if (i > 0 && objeto !== undefined && blocksMovement(objeto)) continue;
-    for (let dy = -1; dy <= 1; dy++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        if (dx === 0 && dy === 0) continue;
-        const p = { x: desde.x + dx, y: desde.y + dy };
-        if (!isEnterable(state.map, p) || !sePasa(state.map, desde, p) || vistas.has(pointKey(p)))
-          continue;
-        vistas.add(pointKey(p));
-        if (!ocupada(p) && objectAt(state.map, p) === undefined) return p;
-        cola.push(p);
-      }
-    }
-  }
-  throw new Error(`${hero.name} no tiene casilla libre a la que volver junto a ${base.name}`);
 }
 
 /** Un individuo que cruza un rango en esta batalla: un `troop_rank_up` por rango. */

@@ -119,6 +119,7 @@ import {
   validarForzado,
 } from '@core/state/clima.js';
 import {
+  battleOwners,
   destinoDeRecluta,
   heroById,
   heroeEnLaBase,
@@ -126,6 +127,7 @@ import {
   type RecruitCapacity,
   reclutarBlocker,
   recruitCapacity,
+  sidesOwnedBy,
   townById,
   townsOf,
   turnBlocker,
@@ -144,7 +146,6 @@ import {
   applyAdventureAction,
   barreraDeMañana,
   batallaDeLaFormacion,
-  battleOwners,
   caminoHasta,
   candidatosAHeroe,
   climaDeLaBatalla,
@@ -160,7 +161,6 @@ import {
   puedeAndarHoy,
   salidaPendienteBlocker,
   settleBattle,
-  sidesOwnedBy,
   stackDelPortador,
   visibleNow,
 } from '@core/state/game.js';

@@ -24,12 +24,11 @@ import {
   emboscadaEnLaRuta,
   loQueLaPara,
 } from '../src/core/state/asaltantes.js';
-import { heroById, heroesOf } from '../src/core/state/consultas.js';
+import { baseOf, heroById, heroesOf } from '../src/core/state/consultas.js';
 import { cronicaPara } from '../src/core/state/events.js';
 import {
   alcanceDelHeroe,
   applyAdventureAction,
-  baseOf,
   caminoHasta,
   visibleNow,
 } from '../src/core/state/game.js';

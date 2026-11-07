@@ -48,7 +48,7 @@ import {
 import { RedDeCaminos } from '../src/core/map/red-de-caminos.js';
 import { estructura } from '../src/core/map/regiones.js';
 import type { GameMap } from '../src/core/map/tipos.js';
-import { baseOf } from '../src/core/state/game.js';
+import { baseOf } from '../src/core/state/consultas.js';
 import { newGame } from '../src/core/state/setup.js';
 import { rango, segunPrisa } from './lento.js';
 import { planDeNodos } from './mapa-de-prueba.js';

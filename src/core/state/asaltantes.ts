@@ -7,7 +7,8 @@
  * **Este módulo decide y no escribe la crónica**: dice a dónde se mueve un
  * grupo, quién embosca a quién, dónde brota uno nuevo y cuáles se dispersan.
  * Lo aplica `game.ts`, que es el único que llama a `emit` —el candado de
- * `state.log`— y el único que muta la partida.
+ * `state.log`—. De la partida solo escribe lo que queda de un grupo tras una
+ * batalla o al dispersarse (`dejarAsaltante`, la única escritura de su tropa).
  *
  * Un asaltante es un **actor**, como un héroe, y no un objeto del mapa como el
  * monstruo. La diferencia no es de gusto: la niebla **copia** los objetos a
@@ -37,7 +38,7 @@
 import { deHoyALaEscala } from '../escala.js';
 import { fuerzaDe, poderDe, ventajaClara } from '../hero/fuerza.js';
 import { ASALTANTES, loNeutralAlTope } from '../hero/grupos.js';
-import { individuosDe } from '../hero/troop.js';
+import { gruposDe, individuosDe } from '../hero/troop.js';
 import type { CasillasLeidas } from '../map/casillas.js';
 import { aPunto, inBounds } from '../map/map.js';
 import { estructura, juntoANodo, regionDeCasilla, VECINAS } from '../map/regiones.js';
@@ -45,6 +46,7 @@ import { territorio } from '../map/territorio.js';
 import type { Estructura, GameMap } from '../map/tipos.js';
 import type { Rng } from '../rng.js';
 import type {
+  Army,
   GrupoDeTropa,
   Hero,
   Point,
@@ -532,4 +534,23 @@ export function dondeBrotan(state: GameState, rng: Rng): RaiderPlaneado[] {
   }
   // En el tope de tropa de la partida, como los que nacen con el mapa.
   return loNeutralAlTope({ raiders: out }, state.combate.tope).raiders;
+}
+
+// ---------------------------------------------------------------- el grupo en la partida
+
+/**
+ * Lo que le queda en pie a un grupo después de una batalla, o nada: un grupo
+ * sin nadie deja de existir. La única escritura de la tropa de un grupo y el
+ * único sitio que lo borra, gane, pierda o se disperse.
+ */
+export function dejarAsaltante(state: GameState, id: string, army: Army): void {
+  if (army.length > 0) raiderById(state, id).troops = gruposDe(army);
+  else state.raiders = state.raiders.filter((r) => r.id !== id);
+}
+
+/** El grupo de asaltantes con ese id; lanza si ya no está. */
+export function raiderById(state: GameState, id: string): Raider {
+  const r = state.raiders.find((x) => x.id === id);
+  if (r === undefined) throw new Error(`grupo de asaltantes desconocido: "${id}"`);
+  return r;
 }

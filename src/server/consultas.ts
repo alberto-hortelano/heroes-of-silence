@@ -9,8 +9,7 @@
 import { serializeAdventureTurn } from '@core/contract/aventura.js';
 import { serializeBattleTurn } from '@core/contract/batalla.js';
 import { serializeKnownMap } from '@core/contract/mapa-conocido.js';
-import { playerById } from '@core/state/consultas.js';
-import { sidesOwnedBy } from '@core/state/game.js';
+import { playerById, sidesOwnedBy } from '@core/state/consultas.js';
 import type { GameState } from '@core/state/tipos.js';
 import type { PlayerId } from '@core/types.js';
 
