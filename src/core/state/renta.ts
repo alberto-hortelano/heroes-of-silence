@@ -22,7 +22,7 @@
  * detrás a la vez, sin que nadie tenga que apuntar nada.
  */
 import { dondeEsta, dueñoEnLaFoto, type Territorio, territorio } from '../map/territorio.js';
-import type { Estructura, GameMap, MapObject } from '../map/tipos.js';
+import type { Estructura, GameMap } from '../map/tipos.js';
 import { ECONOMIA } from '../town/economia.js';
 import { dailyIncome, type Town } from '../town/town.js';
 import type { PlayerId } from '../types.js';
@@ -90,25 +90,27 @@ export interface RentaDelDia {
   readonly pueblos: readonly PuebloDeLaRenta[];
 }
 
-type PueblosPorRegion = ReadonlyMap<number, readonly Extract<MapObject, { kind: 'village' }>[]>;
+type PueblosPorRegion = ReadonlyMap<number, readonly Sitio[]>;
 
 const pueblosCache = new WeakMap<Estructura, PueblosPorRegion>();
 
 /**
- * Los pueblos de dentro de cada región de la red, por su índice. Se cuentan una
- * vez por mapa, como la red misma (`estructura`): los pueblos no se mueven.
+ * El sitio de cada pueblo de dentro de cada región de la red, por su índice. Se
+ * hacen una vez por mapa, como la red misma (`estructura`): los pueblos no se
+ * mueven.
  */
 function pueblosPorRegion(map: GameMap, red: Estructura): PueblosPorRegion {
   const hecho = pueblosCache.get(red);
   if (hecho !== undefined) return hecho;
-  const porRegion = new Map<number, Extract<MapObject, { kind: 'village' }>[]>();
+  const porRegion = new Map<number, Sitio[]>();
   for (const o of map.objects) {
     if (o.kind !== 'village') continue;
     const r = red.sitiosDeRegion.get(o.id);
     if (r === undefined) continue;
+    const sitio: Sitio = { kind: 'pueblo', pueblo: o };
     const lista = porRegion.get(r);
-    if (lista === undefined) porRegion.set(r, [o]);
-    else lista.push(o);
+    if (lista === undefined) porRegion.set(r, [sitio]);
+    else lista.push(sitio);
   }
   pueblosCache.set(red, porRegion);
   return porRegion;
@@ -125,8 +127,8 @@ export function rentaDeLaRegion(
   region: number,
 ): number {
   let oro = 0;
-  for (const pueblo of pueblosPorRegion(state.map, red).get(region) ?? []) {
-    oro += rentaDelSitio({ kind: 'pueblo', pueblo });
+  for (const sitio of pueblosPorRegion(state.map, red).get(region) ?? []) {
+    oro += rentaDelSitio(sitio);
   }
   for (const t of state.towns) {
     if (red.sitiosDeRegion.get(t.id) === region) oro += rentaDelSitio(sitioDeLaCiudad(t));
@@ -148,14 +150,18 @@ export function rentaDelDia(
     if (donde === null) return false;
     return donde.en === 'muro' ? conexion.nodos.has(id) : conexion.regiones.has(donde.region);
   };
+  // Lo que cobra hoy un sitio suyo: lo que da (`rentaDelSitio`) si está unido a la
+  // base y no está ocupado; si no, nada, con la frase de la ocupación si la hay.
+  const cobro = (sitio: Sitio, esUnido: boolean) => {
+    const ocupada = ocupadoBlocker(state, sitio, jugador);
+    return { oro: esUnido && ocupada === null ? rentaDelSitio(sitio) : 0, ocupada };
+  };
   let total = 0;
   const ciudades: CiudadDeLaRenta[] = [];
   for (const t of state.towns) {
     if (dueñoEnLaFoto(foto, t.id) !== jugador) continue;
     const unida = unido(t.id);
-    const sitio = sitioDeLaCiudad(t);
-    const ocupada = ocupadoBlocker(state, sitio, jugador);
-    const oro = unida && ocupada === null ? rentaDelSitio(sitio) : 0;
+    const { oro, ocupada } = cobro(sitioDeLaCiudad(t), unida);
     total += oro;
     ciudades.push({ id: t.id, nombre: t.name, oro, unida, ocupada });
   }
@@ -163,9 +169,7 @@ export function rentaDelDia(
   for (const o of state.map.objects) {
     if (o.kind !== 'village' || dueñoEnLaFoto(foto, o.id) !== jugador) continue;
     const esUnido = unido(o.id);
-    const sitio = sitioDelObjeto(state, o);
-    const ocupada = ocupadoBlocker(state, sitio, jugador);
-    const oro = esUnido && ocupada === null ? rentaDelSitio(sitio) : 0;
+    const { oro, ocupada } = cobro(sitioDelObjeto(state, o), esUnido);
     total += oro;
     pueblos.push({ id: o.id, nombre: o.name, oro, unido: esUnido, ocupada });
   }

@@ -136,8 +136,7 @@ function objectValue(
       // (backlog).
       if (!enUnNodo(state, sitio)) {
         if (dueño !== player) return 0;
-        const rinde = rentaDelSitio(sitio);
-        const recuperar = valorDeRecuperar(state, sitio, player, miPoder, rinde);
+        const recuperar = valorDeRecuperar(state, sitio, player, miPoder);
         if (sitio.kind !== 'ciudad' || recuperar !== 0) return recuperar;
       }
       // El pueblo en el muro, como un paso: vale por lo que cierra.
@@ -209,7 +208,7 @@ function valorDeUnNodo(
 
 /**
  * Lo que vale ir a recuperar un sitio mío de dentro de una región que está
- * ocupado (`ocupanteDe`), que rinde `rinde` al día: los días de esa renta, si le
+ * ocupado (`ocupanteDe`): los días de lo que rinde (`rentaDelSitio`), si le
  * saco ventaja clara al ocupante (`ventajaClara`: un héroe por su fuerza, una
  * guarnición por la suya); sin ella, `-1`, no se va. Sin ocupante, 0 (tarea 2,
  * 05-11-2026: «recupera lo suyo si tiene ventajaClara»). Quien llama ya sabe que es
@@ -220,7 +219,6 @@ function valorDeRecuperar(
   sitio: Sitio,
   player: PlayerId,
   miPoder: number,
-  rinde: number,
 ): number {
   const ocupante = ocupanteDe(state, sitio, player);
   if (ocupante === null) return 0;
@@ -228,7 +226,7 @@ function valorDeRecuperar(
     ocupante.kind === 'heroe'
       ? fuerzaDe(heroById(state, ocupante.heroId))
       : armyPower(guarnicionDe(state, sitio));
-  return ventajaClara(miPoder, suyo) ? DIAS_DE_RENTA * rinde : -1;
+  return ventajaClara(miPoder, suyo) ? DIAS_DE_RENTA * rentaDelSitio(sitio) : -1;
 }
 
 /** Sin veto: todo candidato vale. */
