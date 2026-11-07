@@ -42,10 +42,10 @@ import { casillaAPixel, centrarEn, TILE_INICIAL } from '../src/client/render/map
 import {
   asientoDeLaInicial,
   type CuerpoDeFigura,
-  fundirPorProfundidad,
-  pasosAPintar,
   SITIOS_DE_LA_INICIAL,
-} from '../src/client/render/mapa/mapa.js';
+} from '../src/client/render/mapa/rotulos.js';
+import { pasosAPintar } from '../src/client/render/mapa/ruta.js';
+import { fundirPorProfundidad } from '../src/client/render/mapa/volumenes.js';
 import { COLOR_SIN_DUEÑO, MARCA_DE_COMANDANTE, playerColor } from '../src/client/render/palette.js';
 import {
   centroDeStack,

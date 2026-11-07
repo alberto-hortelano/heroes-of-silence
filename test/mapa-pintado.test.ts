@@ -42,7 +42,8 @@ import {
   usarPintorDelSuelo,
 } from '../src/client/render/escenario/superficie.js';
 import { TILE_MAX } from '../src/client/render/mapa/camara.js';
-import { drawMapa, recortadoArriba } from '../src/client/render/mapa/mapa.js';
+import { drawMapa } from '../src/client/render/mapa/mapa.js';
+import { recortadoArriba } from '../src/client/render/mapa/volumenes.js';
 import { Session } from '../src/client/sesion/partida.js';
 import { Casillas, type CasillasLeidas } from '../src/core/map/casillas.js';
 import { LADO_DEL_MAPA } from '../src/core/map/generar/plan.js';

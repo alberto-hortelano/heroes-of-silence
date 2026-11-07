@@ -34,14 +34,16 @@ import {
 import {
   drawMapa,
   type HeroeQueAnda,
-  type PasoDeRuta,
-  type PuntoDeLaTrazaEnElMapa,
-  pasosAPintar,
   presupuestoConHolgura,
-  puntosDeLaTraza,
   type VistaMapa,
 } from '../../render/mapa/mapa.js';
 import { casillaDelMinimapa, drawMinimapa } from '../../render/mapa/minimapa.js';
+import {
+  type PasoDeRuta,
+  type PuntoDeLaTrazaEnElMapa,
+  pasosAPintar,
+  puntosDeLaTraza,
+} from '../../render/mapa/ruta.js';
 import type { MarchaEnPantalla, Session } from '../../sesion/partida.js';
 
 /** Cuántos píxeles hay que mover el puntero para que un clic pase a arrastre. */

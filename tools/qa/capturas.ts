@@ -64,8 +64,9 @@ import { type CajaDeFigura, cajaDeFiguraEn } from '../../src/client/render/figur
 import { pasoDeLaHoja } from '../../src/client/render/figuras/de-pie.js';
 import { msPorCasilla } from '../../src/client/render/figuras/marcha.js';
 import { registrarUnidad } from '../../src/client/render/figuras/personajes.js';
+import { ALTO_DEL_GRUPO } from '../../src/client/render/mapa/asaltantes.js';
 import { casillaAPixel, centrarEn, type Encuadre } from '../../src/client/render/mapa/camara.js';
-import { ALTO_DEL_GRUPO, pasosAPintar } from '../../src/client/render/mapa/mapa.js';
+import { pasosAPintar } from '../../src/client/render/mapa/ruta.js';
 import {
   centroDeStack,
   centroHex,

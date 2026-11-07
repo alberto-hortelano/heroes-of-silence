@@ -23,7 +23,7 @@ import {
   TILE_INICIAL,
   zoom,
 } from '../../src/client/render/mapa/camara.js';
-import { pasosAPintar } from '../../src/client/render/mapa/mapa.js';
+import { pasosAPintar } from '../../src/client/render/mapa/ruta.js';
 import { centroDeStack, tableroPara } from '../../src/client/render/proyeccion.js';
 import { Session } from '../../src/client/sesion/partida.js';
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';
