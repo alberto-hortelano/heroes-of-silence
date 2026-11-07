@@ -19,7 +19,7 @@ import {
   type FiguraDeNpc,
 } from '../gente/banco.js';
 import { type PersonaDeLaFaccion, personasDeLaFaccion } from '../gente/voces.js';
-import { armyLeadership, capacidadDe } from '../hero/troop.js';
+import { armyLeadership, capacidadDe, contarPorTipo } from '../hero/troop.js';
 import { buildMap } from '../map/generar/construir.js';
 import type { MapPlan } from '../map/generar/plan.js';
 import { basesDelPlan } from '../map/generar/validar.js';
@@ -87,14 +87,12 @@ function tropaDeSalida(mundo: Mundo, plan: MapPlan): TropaDeSalida {
   const partida = newGame({ seed: mundo.semilla, plan, tipoDelHeroe: mundo.jugador.heroe });
   const hero = partida.heroes.find((h) => h.owner === 0);
   if (hero === undefined) throw new Error('la partida del mundo no tiene héroe del jugador 0');
-  const lleva = new Map<string, number>();
-  for (const t of hero.army) lleva.set(t.creature, (lleva.get(t.creature) ?? 0) + 1);
   // La de la partida de ese mundo sin complejidad pedida (`newGame`, 7 / 7).
   const { tope, cupo } = capacidadDe(hero, partida.combate.tope);
   const individuos = hero.army.length;
   const liderazgo = armyLeadership(hero.army);
   return {
-    lleva: [...lleva].map(([unidad, n]) => ({ unidad, n })),
+    lleva: contarPorTipo(hero.army).map(({ creature, count }) => ({ unidad: creature, n: count })),
     individuos,
     cupo,
     liderazgo,

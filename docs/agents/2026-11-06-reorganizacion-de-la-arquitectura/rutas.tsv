@@ -1277,3 +1277,4 @@ simbolo	src/core/map/map.ts	(retirado)	casillaDelIndice (→ aPunto(i, alcance.a
 simbolo	src/core/ai/strategy.ts	(retirado)	distanciaAprox, privada (→ chebyshev, de geometria.ts; N12)
 simbolo	src/core/battle/muralla.ts	src/core/battle/board.ts	distanciasDesde, la privada de la muralla (→ distanciasDesde del tablero; N12)
 simbolo	src/core/state/sitios.ts	src/core/state/consultas.ts	castilloSuyoDelHeroe
+simbolo	src/core/state/sitios.ts	src/core/hero/troop.ts	porTipo, privada (→ contarPorTipo, exportada: la lee también mundo/lectura.ts; N12)

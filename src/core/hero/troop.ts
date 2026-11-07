@@ -266,9 +266,11 @@ export interface TroopGroup {
  * veterano en su propia fila, porque es uno y tiene historia: tres piqueros de
  * rango 1, 3 y 4 no son «3 × piquero».
  *
- * **Es el único sitio que agrupa.** Lo leen la vista del agente, el panel del
- * cliente y el resumen del servidor; si cada uno agrupara por su cuenta, el
- * día que cambie la regla dos de ellos la contarían de otra manera.
+ * **Es la única agrupación que se enseña.** La leen la vista del agente, el panel
+ * del cliente y el resumen del servidor; si cada uno agrupara por su cuenta, el
+ * día que cambie la regla dos de ellos la contarían de otra manera. Contar por tipo
+ * sin apartar a los veteranos es otra regla, `contarPorTipo`, y las líneas de un
+ * reparto, otra (`lineasDelEjercito`, `state/sitios.ts`).
  */
 export function troopSummary(army: Army): TroopGroup[] {
   const grupos: TroopGroup[] = [];
@@ -301,6 +303,19 @@ export function troopSummary(army: Army): TroopGroup[] {
     }
   }
   return grupos;
+}
+
+/**
+ * `army` contado por tipo, en orden de primera aparición, con cada veterano entre
+ * los de su tipo: lo que cuentan el hecho de un reparto (`repartirTropa`) y la tropa
+ * de salida de un mundo (`mundo/lectura.ts`). Vivía en `state/sitios.ts` (`porTipo`),
+ * y la lectura de un mundo llevaba su copia, hasta la fase N de la reorganización
+ * (07-11-2026).
+ */
+export function contarPorTipo(army: Army): { readonly creature: string; readonly count: number }[] {
+  const cuenta = new Map<string, number>();
+  for (const t of army) cuenta.set(t.creature, (cuenta.get(t.creature) ?? 0) + 1);
+  return [...cuenta].map(([creature, count]) => ({ creature, count }));
 }
 
 /**

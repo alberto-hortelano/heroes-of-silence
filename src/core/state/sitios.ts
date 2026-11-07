@@ -42,6 +42,7 @@ import { unitPower } from '../hero/fuerza.js';
 import {
   armyLeadership,
   capacidadDe,
+  contarPorTipo,
   GARRISON_LEADERSHIP,
   licenciar,
   type TroopGroup,
@@ -1110,13 +1111,6 @@ function elegidosDelReparto(
   return elegidos;
 }
 
-/** `army` contado por tipo, en orden de primera aparición (los veteranos, con los de su tipo). */
-function porTipo(army: Army): TropaMovida[] {
-  const cuenta = new Map<string, number>();
-  for (const t of army) cuenta.set(t.creature, (cuenta.get(t.creature) ?? 0) + 1);
-  return [...cuenta].map(([creature, count]) => ({ creature, count }));
-}
-
 /** Lo que pide un reparto: el héroe y las líneas de lo que va con él (`LineaDelReparto`). */
 export interface PedidoDeReparto {
   readonly hero: string;
@@ -1210,7 +1204,12 @@ export function repartirTropa(
   const r = elRepartoPedido(state, player, pedido);
   if ('motivo' in r) throw new Error(`no se puede repartir la tropa: ${r.motivo}`);
   repartir(state, r.hero, r.sitio, r.ejercito);
-  return { hero: r.hero, sitio: r.sitio, deja: porTipo(r.deja), recoge: porTipo(r.recoge) };
+  return {
+    hero: r.hero,
+    sitio: r.sitio,
+    deja: contarPorTipo(r.deja),
+    recoge: contarPorTipo(r.recoge),
+  };
 }
 
 /** Lo que ocupa un lado del reparto frente a lo que cabe en él. */
