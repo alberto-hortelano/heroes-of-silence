@@ -1,14 +1,20 @@
 /**
  * La página de la partida, para las piezas que la montan (R7 de la reorganización,
- * 07-11-2026): los elementos que se buscan al cargarla, las escenas de dentro y lo que la
- * página cambia mientras vive. `main.ts` lo construye todo en el orden de siempre y cada pieza
- * de `partida/` recibe lo que lee de ello.
+ * 07-11-2026): los elementos que se buscan al cargarla, las escenas de dentro, lo que la
+ * página cambia mientras vive y la página entera (`PaginaDeLaPartida`). `main.ts` lo construye
+ * todo en el orden de siempre y cada pieza de `partida/` recibe lo que lee de ello.
  */
+import type { EscenaBatalla } from '../batalla/escena.js';
+import type { GestosDeBatalla } from '../batalla/gestos.js';
+import type { DialogoDeLaRueda } from '../batalla/rueda/dialogo.js';
 import type { Desarrollo } from '../desarrollo/tipos.js';
+import type { ajustarLienzo } from '../render/lienzo.js';
 import type { Session } from '../sesion/partida.js';
 import { EscenaAyuntamiento } from './ayuntamiento/escena.js';
 import type { EscenaBase } from './base/escena.js';
+import type { PuertaDeFinDeTurno } from './fin-de-turno.js';
 import type { EscenaLugar } from './lugar/escena.js';
+import type { EscenaAventura } from './mapa/escena.js';
 import { EscenaMorada } from './morada/escena.js';
 import { EscenaTropa } from './tropa/escena.js';
 
@@ -161,4 +167,35 @@ export interface EstadoDeLaPagina {
   fichaALaVista: boolean;
   /** La última unidad propia a la que se llevó el marco, para no pelear con el dedo. */
   activaSeguida: string | null;
+}
+
+/**
+ * La página de la partida, entera: lo que `main.ts` monta al cargarla —los elementos, la
+ * partida abierta, sus escenas, la rueda del golpe, los gestos de la batalla, la puerta de
+ * «Fin de turno», el lienzo— y lo que cambia mientras vive. Las piezas de `partida/` (`dibujo`,
+ * `dialogos`, `gestos`, `puntero`, `clic`, `teclado`) la reciben, o lo que leen de ella con un
+ * `Pick`, y ninguna registra nada ni hace nada al importarse: `main.ts` las instala en el orden
+ * de siempre, que es comportamiento (dos oyentes del mismo evento en el mismo nodo corren en el
+ * orden en que se registraron).
+ */
+export interface PaginaDeLaPartida extends ElementosDeLaPartida {
+  /** La partida abierta (`abrirLaPartida`): una por página, porque «Partida nueva» recarga. */
+  readonly session: Session;
+  /** Pide un fotograma (el bucle de dibujo de `main.ts`, `comun/bucle.ts`). */
+  readonly pedirFotograma: () => void;
+  readonly aventura: EscenaAventura;
+  readonly batalla: EscenaBatalla;
+  readonly castillo: EscenaBase;
+  /** La escena de un lugar de un mundo: se entra desde el mapa, como en la tropa. */
+  readonly lugar: EscenaLugar;
+  readonly dentro: EscenasDeDentro;
+  /** La rueda del golpe de la partida, la misma de la arena (`batalla/rueda/dialogo.ts`). */
+  readonly rueda: DialogoDeLaRueda;
+  /** Los gestos de la batalla, los de la arena (`batalla/gestos.ts`). */
+  readonly gestos: GestosDeBatalla;
+  readonly finDeTurno: PuertaDeFinDeTurno;
+  /** El lienzo a la medida de su caja (`ajustarLienzo`) y su contexto. */
+  readonly principal: ReturnType<typeof ajustarLienzo>;
+  readonly ctx: CanvasRenderingContext2D;
+  readonly estado: EstadoDeLaPagina;
 }

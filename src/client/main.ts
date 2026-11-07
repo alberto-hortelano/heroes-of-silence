@@ -11,17 +11,18 @@ import { GestosDeBatalla } from './batalla/gestos.js';
 import { DialogoDeLaRueda } from './batalla/rueda/dialogo.js';
 import { bucleDeDibujo } from './comun/bucle.js';
 import { mensajeDe } from './comun/errores.js';
-import { type Html, pintar } from './comun/html.js';
+import { pintar } from './comun/html.js';
 import { aLaBarra } from './comun/semilla.js';
 import { abrirLaPartida } from './partida/abrir.js';
-import { renderAviso } from './partida/aviso.js';
 import { EscenaBase } from './partida/base/escena.js';
-import { renderConversacion } from './partida/base/panel.js';
 import { combateALaURL } from './partida/combate-en-la-url.js';
+import {
+  instalarLosDialogos,
+  mostrarConversacion,
+  mostrarLaGuarnicion,
+} from './partida/dialogos.js';
 import { PuertaDeFinDeTurno } from './partida/fin-de-turno.js';
-import { renderDefensa, renderGuarnicion } from './partida/guarnicion.js';
 import { EscenaLugar } from './partida/lugar/escena.js';
-import { renderConversacionDelLugar } from './partida/lugar/panel.js';
 import { EscenaAventura } from './partida/mapa/escena.js';
 import {
   type EscenaDeDentro,
@@ -29,6 +30,7 @@ import {
   elementosDeLaPartida,
   escenasDeDentro,
   esDeDentro,
+  type PaginaDeLaPartida,
 } from './partida/pagina.js';
 import { renderActions, renderSide, renderTopbar } from './partida/paneles.js';
 import { repartirClic } from './partida/reparto-del-clic.js';
@@ -46,6 +48,7 @@ import { pintarSiguiendoElFinal } from './views/al-final.js';
  */
 declare const HERRAMIENTAS_DE_DESARROLLO: boolean;
 
+const elementos = elementosDeLaPartida();
 const {
   app,
   canvas,
@@ -59,7 +62,6 @@ const {
   elActions,
   elSeed,
   haciaEnemigo,
-  conversacion,
   elRueda,
   salirAlMenu,
   elGuarnicion,
@@ -67,7 +69,7 @@ const {
   elAviso,
   stage,
   lateral,
-} = elementosDeLaPartida();
+} = elementos;
 
 /**
  * El bucle de dibujo (`comun/bucle.ts`), con la red de la partida: un fallo al pintar se
@@ -286,8 +288,8 @@ function dibujarFotograma(ahora: number): void {
       renderSide(session, contando, enCastillo ? castillo.abierto : null),
     );
     pintar(elActions, renderActions(session, contando));
-    mostrarConversacion(enCastillo, escena === 'lugar');
-    mostrarLaGuarnicion();
+    mostrarConversacion(pagina, enCastillo, escena === 'lugar');
+    mostrarLaGuarnicion(pagina);
   }
   estado.paneles = {
     sesion: session,
@@ -319,70 +321,9 @@ function llevarLaFichaALaVista(): void {
   contratar.scrollIntoView({ block: 'nearest' });
 }
 
-/**
- * La conversación con una persona de la base: un `<dialog>` no modal sobre el
- * lienzo, que se abre cuando quien camina llega a su lado y se cierra con
- * «Seguir», con Escape o con un clic en el suelo. Se rellena por la puerta del
- * marcado, como los paneles: el nombre y la línea los puede escribir el agente.
- */
-function mostrarConversacion(enCastillo: boolean, enUnLugar: boolean): void {
-  // La de un lugar de un mundo: su árbol, con las opciones (`partida/lugar/panel.ts`).
-  if (enUnLugar) {
-    const c = session.lugar.conversacion();
-    if (c === null) {
-      if (conversacion.open) conversacion.close();
-      return;
-    }
-    pintar(conversacion, renderConversacionDelLugar(c));
-    if (!conversacion.open) conversacion.show();
-    return;
-  }
-  const a = enCastillo ? castillo.abierto : null;
-  if (a === null || a.tipo !== 'pnj') {
-    if (conversacion.open) conversacion.close();
-    return;
-  }
-  pintar(conversacion, renderConversacion(session, a.id));
-  if (!conversacion.open) conversacion.show();
-}
-
-/**
- * Las dos pantallas de la guarnición, modales: la de dejar y recoger (la abre la
- * sesión al parar en un sitio propio o con el botón) y la de la defensa (al ser
- * atacado en él). Se pintan desde la sesión, como la conversación; Escape las
- * cierra por su `cancel` (la defensa, con la propuesta de la IA).
- */
-function mostrarLaGuarnicion(): void {
-  const vista = session.vistaDeLaGuarnicion();
-  mostrarModal(elGuarnicion, vista === null ? null : renderGuarnicion(vista));
-  const defensa = session.defensa;
-  mostrarModal(elDefensa, defensa === null ? null : renderDefensa(defensa));
-  const aviso = session.avisoDelAtaque;
-  mostrarModal(elAviso, aviso === null ? null : renderAviso(aviso));
-}
-
-/** Un `<dialog>` modal con `contenido`, o cerrado si no hay nada que enseñar. */
-function mostrarModal(el: HTMLDialogElement, contenido: Html | null): void {
-  if (contenido === null) {
-    if (el.open) el.close();
-    return;
-  }
-  pintar(el, contenido);
-  if (!el.open) el.showModal();
-}
-
-elGuarnicion.addEventListener('cancel', (ev) => {
-  ev.preventDefault();
-  session.cerrarLaGuarnicion();
-  pedirFotograma();
-});
-// El aviso no se despide con Escape: la batalla llega igual, y se elige cómo.
-elAviso.addEventListener('cancel', (ev) => ev.preventDefault());
-elDefensa.addEventListener('cancel', (ev) => {
-  ev.preventDefault();
-  session.dejarLaDefensaDeLaIA();
-  pedirFotograma();
-});
+// Antes que los gestos de la batalla, como siempre: con lo que leen, que la página aún no
+// está entera.
+instalarLosDialogos({ elGuarnicion, elAviso, elDefensa, session, pedirFotograma });
 
 /**
  * La única puerta de los gestos de batalla mientras la jugada se está contando.
@@ -413,6 +354,24 @@ const gestos = new GestosDeBatalla({
   jugadaEnCurso,
   pedirFotograma,
 });
+
+/** La página entera (`partida/pagina.ts`): lo que leen las piezas de `partida/`. */
+const pagina: PaginaDeLaPartida = {
+  ...elementos,
+  session,
+  pedirFotograma,
+  aventura,
+  batalla,
+  castillo,
+  lugar,
+  dentro,
+  rueda,
+  gestos,
+  finDeTurno,
+  principal,
+  ctx,
+  estado,
+};
 
 /**
  * La puerta de los gestos del mapa mientras el héroe anda su marcha
