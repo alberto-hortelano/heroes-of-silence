@@ -5372,6 +5372,13 @@ async function esperarBarra(
 
 /** La arena con `query` (`?seed=…`), con la lista de unidades ya pintada. */
 async function abrirLaArena(page: Page, url: string, query: string): Promise<void> {
+  // Lo que se pidió lo cuentan `jugarArena` y `edicionDeLaArena` con Resource Timing,
+  // cuyo búfer es de 250 entradas, y en vite dev cada módulo es una. Desde la fase N
+  // de la reorganización la arena carga 247 módulos y el búfer se llenaba antes de
+  // pedir las hojas de las figuras: «no se cargaron las hojas que se pintan» con las
+  // tres pedidas (medido el 07-11-2026: 226 entradas en `ae15843b`, 250 y el búfer
+  // lleno en `c98bd8b1`), y «ya estaba pedida antes de girar» no podía morder.
+  await page.addInitScript(() => performance.setResourceTimingBufferSize(5000));
   await page.goto(`${url}/arena/${query}`, { waitUntil: 'networkidle' });
   await page.locator('[data-unidad-catalogo]').first().waitFor({ timeout: 5000 });
 }
