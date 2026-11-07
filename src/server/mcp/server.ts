@@ -16,32 +16,18 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import WebSocket from 'ws';
 import { z } from 'zod';
-import { puertoAgente } from '../entorno.js';
+import { servidorDelPuente } from '../entorno.js';
 import { LA_JUEGA_LA_IA } from '../notas.js';
 import type { AgentToServerMsg, ServerToAgentMsg } from '../protocol.js';
 import { Buzon } from './buzon.js';
 import { LISTEN_DESCRIPTION, textoDeEscucha } from './escucha.js';
 import { ColaDeVeredictos } from './veredictos.js';
 
-const SERVER_URL = process.env.HEROES_SERVER ?? `ws://localhost:${puertoDelServidor()}`;
-
 /**
- * A dónde conectarse cuando nadie ha dicho `HEROES_SERVER`.
- *
- * Sigue a `HEROES_AGENT_PORT` para que cambiar el puerto del servidor no deje
- * al puente llamando al de por defecto. Lo que no puede hacer es adivinar: con
- * `0` el puerto lo elige el sistema al arrancar y desde aquí no hay forma de
- * saber cuál tocó, así que se dice en vez de intentar `ws://localhost:0`.
+ * A dónde se conecta el puente: `HEROES_SERVER` o el puerto del agente, leídos y
+ * validados al arrancar (`servidorDelPuente`, en `entorno.ts`, con su test).
  */
-function puertoDelServidor(): number {
-  const p = puertoAgente();
-  if (p === 0) {
-    throw new Error(
-      'HEROES_AGENT_PORT=0 deja que el puerto lo elija el sistema: dile al puente a dónde conectarse con HEROES_SERVER=ws://localhost:<puerto>',
-    );
-  }
-  return p;
-}
+const SERVER_URL = servidorDelPuente();
 
 // ---------------------------------------------------------------- conexión
 
