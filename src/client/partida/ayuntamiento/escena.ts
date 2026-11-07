@@ -11,11 +11,11 @@
  * exterior, sin versión abierta, y sin quien anduvo delante de los candidatos. La
  * cámara es otra (`encuadrarElAyuntamiento`): enseña el edificio entero.
  */
-import type { VistaDelAyuntamiento } from '../ayuntamiento/vista.js';
-import { type EncuadreDeLaMorada, encuadrarElAyuntamiento } from '../render/base/fila.js';
-import { AYUDA_DEL_AYUNTAMIENTO, type Session } from '../session.js';
-import { type DePie, EscenaDePie } from './de-pie.js';
-import { anteUnEdificio, type FondoDeLaMorada } from './morada.js';
+import type { VistaDelAyuntamiento } from '../../ayuntamiento/vista.js';
+import { type EncuadreDeLaMorada, encuadrarElAyuntamiento } from '../../render/base/fila.js';
+import { AYUDA_DEL_AYUNTAMIENTO, type Session } from '../../session.js';
+import { type DePie, EscenaDePie } from '../de-pie.js';
+import { anteUnEdificio, type FondoDeLaMorada } from '../morada/escena.js';
 
 /** Lo que va detrás de la fila: la base con la cámara del ayuntamiento. */
 export type FondoDelAyuntamiento = FondoDeLaMorada<VistaDelAyuntamiento>;

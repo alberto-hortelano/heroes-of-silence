@@ -13,12 +13,12 @@ import { inBounds, pointKey } from '@core/map/geometria.js';
 import { heroById } from '@core/state/consultas.js';
 import { REGLA_DEL_PUEBLO } from '@core/state/renta.js';
 import type { Point } from '@core/types.js';
-import { FIGURA_DEL_HEROE, PIES } from '../render/escenario/figuras-del-mapa.js';
-import { puenteEnElTerreno } from '../render/escenario/puentes.js';
-import { escenarioListo, topeDeAlejar } from '../render/escenario/superficie.js';
-import { animarHasta } from '../render/figuras/figura.js';
-import { enLaMarcha, msPorCasilla, PRISA_EN_EL_MAPA } from '../render/figuras/marcha.js';
-import { type Medida, pixelesDe } from '../render/lienzo.js';
+import { FIGURA_DEL_HEROE, PIES } from '../../render/escenario/figuras-del-mapa.js';
+import { puenteEnElTerreno } from '../../render/escenario/puentes.js';
+import { escenarioListo, topeDeAlejar } from '../../render/escenario/superficie.js';
+import { animarHasta } from '../../render/figuras/figura.js';
+import { enLaMarcha, msPorCasilla, PRISA_EN_EL_MAPA } from '../../render/figuras/marcha.js';
+import { type Medida, pixelesDe } from '../../render/lienzo.js';
 import {
   acotar,
   arrastrar,
@@ -30,7 +30,7 @@ import {
   TILE_INICIAL,
   topeDe,
   zoom,
-} from '../render/mapa/camara.js';
+} from '../../render/mapa/camara.js';
 import {
   drawMapa,
   type HeroeQueAnda,
@@ -40,9 +40,9 @@ import {
   presupuestoConHolgura,
   puntosDeLaTraza,
   type VistaMapa,
-} from '../render/mapa/mapa.js';
-import { casillaDelMinimapa, drawMinimapa } from '../render/mapa/minimapa.js';
-import type { MarchaEnPantalla, Session } from '../session.js';
+} from '../../render/mapa/mapa.js';
+import { casillaDelMinimapa, drawMinimapa } from '../../render/mapa/minimapa.js';
+import type { MarchaEnPantalla, Session } from '../../session.js';
 
 /** Cuántos píxeles hay que mover el puntero para que un clic pase a arrastre. */
 const UMBRAL_ARRASTRE = 8;

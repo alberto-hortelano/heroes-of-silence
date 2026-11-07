@@ -12,12 +12,12 @@
 import { BARRERAS, NOMBRE_DE_BARRERA } from '@core/map/terrain.js';
 import { describirCoste, enumerar } from '@core/texto.js';
 import { type Army, NOMBRE_DE_RASGO } from '@core/types.js';
-import type { FichaDelAyuntamiento } from '../ayuntamiento/vista.js';
-import { DESHABILITADO, type Html, html, NADA, srcDeImagen } from '../comun/html.js';
-import type { Session } from '../session.js';
-import { filaDeCifra, motivoApagado } from './cifras.js';
-import { botonesDeLaFila } from './morada.js';
-import { nota, renderArmy } from './panels.js';
+import type { FichaDelAyuntamiento } from '../../ayuntamiento/vista.js';
+import { DESHABILITADO, type Html, html, NADA, srcDeImagen } from '../../comun/html.js';
+import type { Session } from '../../session.js';
+import { filaDeCifra, motivoApagado } from '../../views/cifras.js';
+import { nota, renderArmy } from '../../views/panels.js';
+import { botonesDeLaFila } from '../morada/panel.js';
 
 /**
  * Lo que hace un tipo que se infiltra, para su nota: el rasgo y las barreras

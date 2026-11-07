@@ -23,12 +23,12 @@
 import type { ReglasDelCombate } from '@core/combate.js';
 import { heroePorDefectoDeLaSemilla } from '@core/state/setup.js';
 import { esFaccion, FACTION_IDS, type FactionId } from '@core/types.js';
+import { leerElClimaDeLaURL, salidaDelClima } from '../../comun/clima-de-la-url.js';
+import { pintar } from '../../comun/html.js';
+import { aLaBarra, semillaSorteada } from '../../comun/semilla.js';
+import { ponerTema, quitarTema } from '../../comun/temas.js';
+import { leerElCombate, leerSoloHeroe } from '../../views/combate.js';
 import { combateALaURL, combateParaElMenu } from '../combate-en-la-url.js';
-import { leerElClimaDeLaURL, salidaDelClima } from '../comun/clima-de-la-url.js';
-import { pintar } from '../comun/html.js';
-import { aLaBarra, semillaSorteada } from '../comun/semilla.js';
-import { ponerTema, quitarTema } from '../comun/temas.js';
-import { leerElCombate, leerSoloHeroe } from '../views/combate.js';
 import { renderEleccion, renderMenu } from './pantallas.js';
 
 /**
@@ -176,7 +176,7 @@ export function pedirPartida(): Promise<void> {
           combate: { reglas: combate, soloHeroe },
         };
         if (HERRAMIENTAS_DE_DESARROLLO) {
-          void import('../desarrollo/mundo.js').then((m) => {
+          void import('../../desarrollo/mundo.js').then((m) => {
             pantalla = 'mundo';
             delMundo = new AbortController();
             m.elegirMundo(

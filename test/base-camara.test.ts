@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from 'vitest';
 import templariosJson from '../data/bases/templarios.json' with { type: 'json' };
-import { EscenaBase } from '../src/client/escenas/castillo.js';
+import { EscenaBase } from '../src/client/partida/base/escena.js';
 import { camaraDeLaBase, camaraQuieta, seguir } from '../src/client/render/base/camara.js';
 import { cajaDeFiguraEn } from '../src/client/render/batalla.js';
 import { enPantalla, pasoDeLaBase } from '../src/client/render/proyeccion.js';

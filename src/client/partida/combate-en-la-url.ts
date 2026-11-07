@@ -1,7 +1,7 @@
 /**
  * La complejidad del combate en la URL de la partida (22-10-2026): `?tropa=`,
  * `?rueda=` y `?solo-heroe=1`. **El único sitio que la lee y la escribe**: la
- * escriben «Nuevo juego» (`inicio/inicio.ts`), la partida al abrirse y la casilla
+ * escriben «Nuevo juego» (`partida/inicio/inicio.ts`), la partida al abrirse y la casilla
  * de la batalla (`main.ts`), y la leen `main.ts` y el menú (`combateParaElMenu`),
  * así que una recarga, un enlace o el menú abierto desde él juegan lo mismo. Qué vale lo dice el núcleo (`parseTope`, `parseRueda`); aquí
  * solo se lee y se escribe la barra. Pequeño a propósito, junto a `semilla.ts`:

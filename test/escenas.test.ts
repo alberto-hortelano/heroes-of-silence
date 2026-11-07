@@ -12,9 +12,11 @@ import { describe, expect, it } from 'vitest';
 import { DURACION, type EstadoFigura } from '../src/client/batalla/anim.js';
 import { EscenaBatalla } from '../src/client/batalla/escena.js';
 import { marcadoDe } from '../src/client/comun/html.js';
-import { EscenaAventura, focoDe, llegadaDeLaRuta } from '../src/client/escenas/aventura.js';
-import { EscenaBase } from '../src/client/escenas/castillo.js';
-import { PAUSA_TRAS_EL_RIVAL, PuertaDeFinDeTurno } from '../src/client/fin-de-turno.js';
+import { EscenaBase } from '../src/client/partida/base/escena.js';
+import { renderConversacion } from '../src/client/partida/base/panel.js';
+import { PAUSA_TRAS_EL_RIVAL, PuertaDeFinDeTurno } from '../src/client/partida/fin-de-turno.js';
+import { EscenaAventura, focoDe, llegadaDeLaRuta } from '../src/client/partida/mapa/escena.js';
+import { repartirClic } from '../src/client/partida/reparto-del-clic.js';
 import { camaraDeLaBase, camaraQuieta } from '../src/client/render/base/camara.js';
 import { componerBase } from '../src/client/render/base/escena.js';
 import { dondeEsperaEnLaMorada } from '../src/client/render/base/fila.js';
@@ -52,9 +54,7 @@ import {
   type Tablero,
   tableroPara,
 } from '../src/client/render/proyeccion.js';
-import { repartirClic } from '../src/client/reparto-del-clic.js';
 import { SesionDeArena, Session } from '../src/client/session.js';
-import { renderConversacion } from '../src/client/views/base.js';
 import {
   AVISO_DE_ESPERA,
   marcaDeComandante,

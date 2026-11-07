@@ -539,7 +539,7 @@ export function pintarElSueloDeLaBase(
 
 /**
  * Solo las figuras de `v.elementos`, sin la plaza, y el aire del clima encima
- * (salvo con `sinAire`): la escena de un lugar (`escenas/lugar.ts`) pinta entre
+ * (salvo con `sinAire`): la escena de un lugar (`partida/lugar/escena.ts`) pinta entre
  * el fondo y la gente el mojón de sus cosas.
  */
 export function pintarLasFiguras(ctx: CanvasRenderingContext2D, v: PintadoDeLaBase): void {

@@ -2,7 +2,7 @@
  * El minimapa del lateral: lo explorado en su color, los castillos y los héroes
  * de su dueño, y el rectángulo de lo que enseña el lienzo grande.
  *
- * Pulsarlo mueve la vista; eso lo decide `escenas/aventura.ts` con
+ * Pulsarlo mueve la vista; eso lo decide `partida/mapa/escena.ts` con
  * `casillaDelMinimapa`, que es la inversa de lo que se pinta aquí.
  */
 import type { CasillasLeidas } from '@core/map/casillas.js';

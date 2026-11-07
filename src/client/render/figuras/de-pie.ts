@@ -3,7 +3,7 @@
  * lo que comparten las escenas de la morada y del ayuntamiento
  * (`render/base/fila.ts`), con el aire de su encuadre. Cada escena dice dónde cae la
  * caja de cada figura, y de aquí salen el orden de pintar, el clic y el pintado.
- * La escena que las conduce es `escenas/de-pie.ts`. (La tropa fue una escena de
+ * La escena que las conduce es `partida/de-pie.ts`. (La tropa fue una escena de
  * pie, en semicírculo, hasta el 02-11-2026: ahora es el tablero de despliegue.)
  *
  * Las figuras son las de siempre (`pintarFiguraConSombra`): de pie, mirando a la

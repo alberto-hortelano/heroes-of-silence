@@ -11,9 +11,9 @@
  */
 import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/comun/html.js';
-import { EscenaBase } from '../src/client/escenas/castillo.js';
-import { cajasDeLaMorada, EscenaMorada } from '../src/client/escenas/morada.js';
 import { componerVistaDeLaMorada } from '../src/client/morada/vista.js';
+import { EscenaBase } from '../src/client/partida/base/escena.js';
+import { cajasDeLaMorada, EscenaMorada } from '../src/client/partida/morada/escena.js';
 import {
   type ArteDeLaBase,
   conLaAbierta,

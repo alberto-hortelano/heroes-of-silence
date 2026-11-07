@@ -100,17 +100,17 @@ import {
 } from '../comun/html.js';
 import { quienesDe } from '../comun/quien-mira.js';
 import { DICHO_DE_LA_OBRA } from '../dicho-del-puesto.js';
-import type { Abierto } from '../escenas/castillo.js';
+import { renderPanelDelAyuntamiento } from '../partida/ayuntamiento/panel.js';
+import type { Abierto } from '../partida/base/escena.js';
+import { renderAbierto } from '../partida/base/panel.js';
+import { renderPanelDelLugar } from '../partida/lugar/panel.js';
+import { renderPanelDeLaMorada } from '../partida/morada/panel.js';
+import { renderPanelDeLaTropa } from '../partida/tropa/panel.js';
 import { asset } from '../render/assets.js';
 import { nombreEnElCampo } from '../render/batalla/distintivo.js';
 import { COLOR_DEL_ORO, MARCA_DE_COMANDANTE } from '../render/palette.js';
 import type { DespliegueEnPantalla, ModoDelArma, Session, SpellOption } from '../session.js';
-import { renderPanelDelAyuntamiento } from './ayuntamiento.js';
-import { renderAbierto } from './base.js';
 import { filaDeCifra } from './cifras.js';
-import { renderPanelDelLugar } from './lugar.js';
-import { renderPanelDeLaMorada } from './morada.js';
-import { renderPanelDeLaTropa } from './tropa.js';
 
 /** Lo que dice la barra a quien pulsa mientras la jugada se cuenta. */
 export const AVISO_DE_ESPERA = 'Espera a que termine la jugada.';
@@ -768,7 +768,7 @@ function renderArmeria(session: Session, town: Town): Html {
 // ---------------------------------------------------------------- castillo
 
 /**
- * El panel del castillo: lo que se abrió en la base (`views/base.ts`) arriba y
+ * El panel del castillo: lo que se abrió en la base (`partida/base/panel.ts`) arriba y
  * lo general debajo. Contratar héroe va en lo general, con taberna o sin ella:
  * `hireHero` no la pide, y atarlo a un edificio sería una regla escrita en la
  * pantalla (crítica del ciclo de la base caminable).

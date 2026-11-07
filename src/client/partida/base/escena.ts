@@ -6,7 +6,7 @@
  * cercano dentro: `alaFranja`), resbalando por el borde de atrás, que sigue los
  * umbrales pintados y no es convexo; un clic en un edificio lo lleva a su puerta y, al llegar, abre lo
  * suyo —el ayuntamiento y el castillo, «Ampliar»; una morada, su escena, donde se
- * recluta (`Session.abrirLaMorada`, `escenas/morada.ts`)—;
+ * recluta (`Session.abrirLaMorada`, `partida/morada/escena.ts`)—;
  * un clic en una persona lo lleva a su lado y abre la conversación. Un clic en
  * el suelo cierra lo abierto. Desde la lista de edificios del panel (`irA`) se
  * llega a una puerta sin cruzar la plaza: el escenario mide 58 pasos y a la vista
@@ -21,29 +21,33 @@
  */
 import { abreAmpliar, moradaEn, type SitioId } from '@core/town/sitios.js';
 import type { FactionId } from '@core/types.js';
-import { ALTO_DE_FIGURA, type Mirada, type Plano } from '../../shared/arte.js';
-import { alaFranja, type Disposicion, disposicionDe } from '../../shared/base.js';
-import { porElCamino } from '../batalla/anim.js';
-import { abiertaDe, arteDeLaBase, conLaAbierta } from '../render/base/arte.js';
-import { camaraDeLaBase, camaraQuieta, seguir } from '../render/base/camara.js';
+import { ALTO_DE_FIGURA, type Mirada, type Plano } from '../../../shared/arte.js';
+import { alaFranja, type Disposicion, disposicionDe } from '../../../shared/base.js';
+import { porElCamino } from '../../batalla/anim.js';
+import { abiertaDe, arteDeLaBase, conLaAbierta } from '../../render/base/arte.js';
+import { camaraDeLaBase, camaraQuieta, seguir } from '../../render/base/camara.js';
 import {
   componerBase,
   dondeEsta,
   type Elemento,
   type VistaDeLaBase,
-} from '../render/base/escena.js';
-import { dondeEsperaEnLaMorada } from '../render/base/fila.js';
-import { type Golpe, queHayBajo } from '../render/base/golpe.js';
-import { type PintadoDeLaBase, pintarBase, pintarElAireDeLaBase } from '../render/base/pintar.js';
-import { luzDeLasFiguras } from '../render/clima/recetas.js';
-import { direccionHacia } from '../render/figuras/direccion.js';
-import { animarHasta } from '../render/figuras/figura.js';
-import { msPorCasilla } from '../render/figuras/marcha.js';
-import { densidadDe } from '../render/lienzo.js';
-import { playerColor } from '../render/palette.js';
-import { pasoDeLaBase, type Tablero } from '../render/proyeccion.js';
-import { AYUDA_DE_LA_BASE, type Session } from '../session.js';
-import type { ClimaDeLaFila } from './morada.js';
+} from '../../render/base/escena.js';
+import { dondeEsperaEnLaMorada } from '../../render/base/fila.js';
+import { type Golpe, queHayBajo } from '../../render/base/golpe.js';
+import {
+  type PintadoDeLaBase,
+  pintarBase,
+  pintarElAireDeLaBase,
+} from '../../render/base/pintar.js';
+import { luzDeLasFiguras } from '../../render/clima/recetas.js';
+import { direccionHacia } from '../../render/figuras/direccion.js';
+import { animarHasta } from '../../render/figuras/figura.js';
+import { msPorCasilla } from '../../render/figuras/marcha.js';
+import { densidadDe } from '../../render/lienzo.js';
+import { playerColor } from '../../render/palette.js';
+import { pasoDeLaBase, type Tablero } from '../../render/proyeccion.js';
+import { AYUDA_DE_LA_BASE, type Session } from '../../session.js';
+import type { ClimaDeLaFila } from '../morada/escena.js';
 
 /**
  * Cuánto más deprisa se anda en la base que en una batalla. Con el paso del
@@ -321,7 +325,7 @@ export class EscenaBase {
   }
 
   /**
-   * La base detrás de la morada de `edificio` (`escenas/morada.ts`), con la cámara
+   * La base detrás de la morada de `edificio` (`partida/morada/escena.ts`), con la cámara
    * de la morada (`encuadrarLaMorada`): la plaza de siempre, ese edificio cambiado
    * por su versión abierta si la hay (`conLaAbierta`; si no, su exterior), quien
    * anduvo quieto en su puerta (salvo con `caminante: false`, el ayuntamiento) y

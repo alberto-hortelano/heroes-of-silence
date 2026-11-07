@@ -11,7 +11,7 @@
  * Vive fuera de `main.ts` porque `main.ts` toca el DOM al importarse y esto
  * tiene que tener test.
  */
-import type { Session } from './session.js';
+import type { Session } from '../session.js';
 
 /** Lo que dura el cambio de día, en milisegundos: la pausa tras volver el turno. */
 export const PAUSA_TRAS_EL_RIVAL = 600;

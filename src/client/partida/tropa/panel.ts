@@ -9,12 +9,12 @@
  */
 import { conMiles } from '@core/texto.js';
 import { NOMBRE_DE_HUECO } from '@core/types.js';
-import { COMO_SE_COLOCA } from '../batalla/colocar.js';
-import { DESHABILITADO, type Html, html, NADA, unir } from '../comun/html.js';
-import { nombreEnElCampo } from '../render/batalla/distintivo.js';
-import type { FichaDeLaTropa, HuecoDeLaFicha, VistaDeLaTropa } from '../tropa/vista.js';
-import { filaDeCifra, filasDeCombate, motivoApagado } from './cifras.js';
-import { marcaDeComandante, modificadoresEnPantalla, nota } from './panels.js';
+import { COMO_SE_COLOCA } from '../../batalla/colocar.js';
+import { DESHABILITADO, type Html, html, NADA, unir } from '../../comun/html.js';
+import { nombreEnElCampo } from '../../render/batalla/distintivo.js';
+import type { FichaDeLaTropa, HuecoDeLaFicha, VistaDeLaTropa } from '../../tropa/vista.js';
+import { filaDeCifra, filasDeCombate, motivoApagado } from '../../views/cifras.js';
+import { marcaDeComandante, modificadoresEnPantalla, nota } from '../../views/panels.js';
 
 /** Lo que dice un botón de elegir: «heroe» o el puesto en la tropa. */
 export function claveDeQuien(q: { readonly heroe: true } | { readonly indice: number }): string {

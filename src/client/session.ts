@@ -2952,7 +2952,7 @@ export class Session implements ControlDeBatalla {
   /**
    * El aviso de un ataque a la persona, antes de su batalla: en el turno del
    * rival (#116) y en la emboscada de un grupo en el suyo. Lo pinta
-   * `views/aviso.ts` en `<dialog id="aviso">`, con «Defender» y «Resolver sola»,
+   * `partida/aviso.ts` en `<dialog id="aviso">`, con «Defender» y «Resolver sola»,
    * y la cámara del mapa mira a `at` (`focoDe`).
    */
   get avisoDelAtaque(): VistaDelAviso | null {

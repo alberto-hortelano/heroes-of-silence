@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/comun/html.js';
-import { EscenaBase } from '../src/client/escenas/castillo.js';
+import { EscenaBase } from '../src/client/partida/base/escena.js';
 import { componerBase } from '../src/client/render/base/escena.js';
 import { dondePulsarElSitio } from '../src/client/render/base/recortes.js';
 import { AYUDA_DE_LA_SALIDA, Session } from '../src/client/session.js';

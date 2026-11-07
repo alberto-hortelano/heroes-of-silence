@@ -9,12 +9,17 @@
  * si le queda alguna (`mejora`, la de la base).
  */
 import { NOMBRE_DE_HUECO } from '@core/types.js';
-import { DESHABILITADO, type Html, html, NADA, unir } from '../comun/html.js';
-import type { FichaDeLaMorada } from '../morada/vista.js';
-import type { Session } from '../session.js';
-import { mejora } from './base.js';
-import { filaDeCifra, filasDeCombate, motivoApagado } from './cifras.js';
-import { filaLiderazgo, modificadoresEnPantalla, nota, renderTropaLicenciable } from './panels.js';
+import { DESHABILITADO, type Html, html, NADA, unir } from '../../comun/html.js';
+import type { FichaDeLaMorada } from '../../morada/vista.js';
+import type { Session } from '../../session.js';
+import { filaDeCifra, filasDeCombate, motivoApagado } from '../../views/cifras.js';
+import {
+  filaLiderazgo,
+  modificadoresEnPantalla,
+  nota,
+  renderTropaLicenciable,
+} from '../../views/panels.js';
+import { mejora } from '../base/panel.js';
 
 export function renderPanelDeLaMorada(session: Session): Html {
   const vista = session.vistaDeLaMorada();

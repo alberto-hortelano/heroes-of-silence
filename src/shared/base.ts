@@ -217,7 +217,7 @@ const CRUDOS: Readonly<Record<FactionId, unknown>> = {
  * El borde de atrás de lo que se pisa en `x`: la recta a trozos que une los
  * umbrales de las puertas, plana más allá de las de los extremos. Lo que se pisa
  * ya no es convexo: quien camina en recta resbala por él (`alaFranja` en cada
- * fotograma de la marcha, `escenas/castillo.ts`).
+ * fotograma de la marcha, `partida/base/escena.ts`).
  */
 export function bordeDeAtras(d: Pick<Disposicion, 'umbrales'>, x: number): number {
   const u = d.umbrales;
@@ -531,7 +531,7 @@ export interface IndiceDeLaBase {
    * La versión abierta de cada morada que la tiene, por el id de su edificio: el
    * mismo edificio sin la pared de delante, con su sala dentro (la «casa de
    * muñecas», 20-10-2026), que sustituye a su recorte mientras se recluta en ella
-   * (`escenas/morada.ts`, `conLaAbierta`). Se recorta como cualquier edición, por
+   * (`partida/morada/escena.ts`, `conLaAbierta`). Se recorta como cualquier edición, por
    * la diferencia con la placa en la región de su sitio, y va en la raíz de la
    * base (`abierta-<id>.webp`).
    */

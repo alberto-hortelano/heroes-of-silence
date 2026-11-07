@@ -21,7 +21,7 @@ import { orillaDeLaCiudad } from '@core/map/rio.js';
 import { isWalkable, type TerrainKind } from '@core/map/terrain.js';
 import { alcanceDelHeroe } from '@core/state/marcha.js';
 import { describe, expect, it } from 'vitest';
-import { EscenaAventura, focoDe } from '../src/client/escenas/aventura.js';
+import { EscenaAventura, focoDe } from '../src/client/partida/mapa/escena.js';
 import { analizar } from '../src/client/render/escenario/analizar.js';
 import { PIES } from '../src/client/render/escenario/figuras-del-mapa.js';
 import { claveDe } from '../src/client/render/escenario/pintar.js';

@@ -8,10 +8,10 @@
  * leerla y enfocarla) con su motivo debajo, que escribe el núcleo
  * (`motivoDeLaOpcion`): la persona lee por qué, no un botón gris mudo.
  */
-import { type Html, html, NADA, unir } from '../comun/html.js';
-import type { VistaDeLaConversacion } from '../lugar/sesion.js';
-import type { Session } from '../session.js';
-import { apagadoPor, motivoDebajo } from './cifras.js';
+import { type Html, html, NADA, unir } from '../../comun/html.js';
+import type { VistaDeLaConversacion } from '../../lugar/sesion.js';
+import type { Session } from '../../session.js';
+import { apagadoPor, motivoDebajo } from '../../views/cifras.js';
 
 export function renderPanelDelLugar(session: Session): Html {
   const vista = session.lugar.vista();

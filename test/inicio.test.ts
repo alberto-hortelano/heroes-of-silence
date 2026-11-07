@@ -5,10 +5,10 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { combateParaElMenu } from '../src/client/combate-en-la-url.js';
 import { marcadoDe } from '../src/client/comun/html.js';
 import { hayQuePreguntar } from '../src/client/comun/semilla.js';
-import { renderEleccion, renderMenu } from '../src/client/inicio/pantallas.js';
+import { combateParaElMenu } from '../src/client/partida/combate-en-la-url.js';
+import { renderEleccion, renderMenu } from '../src/client/partida/inicio/pantallas.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { rasgoDeFaccion } from '../src/core/hero/tipos-de-heroe.js';
 import { nombreDeSalida } from '../src/core/state/setup.js';

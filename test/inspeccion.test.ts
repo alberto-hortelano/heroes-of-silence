@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { queHayEn } from '../src/client/desarrollo/inspeccion.js';
-import { EscenaAventura } from '../src/client/escenas/aventura.js';
+import { EscenaAventura } from '../src/client/partida/mapa/escena.js';
 import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
 import { bandaDeCara } from '../src/client/render/escenario/relieve.js';
 import { escenarioDe } from '../src/client/render/escenario/superficie.js';

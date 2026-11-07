@@ -16,33 +16,37 @@ import { FLECHAS_AL_COLOCAR } from './batalla/colocar.js';
 import { EscenaBatalla } from './batalla/escena.js';
 import { jugadaDelBotonDeMuralla, modoDelBoton } from './batalla/poderes.js';
 import { DialogoDeLaRueda } from './batalla/rueda/dialogo.js';
-import { combateALaURL, combateDeLaURL, type ParametroDelCombate } from './combate-en-la-url.js';
 import { leerElClimaDeLaURL } from './comun/clima-de-la-url.js';
 import { mensajeDe } from './comun/errores.js';
 import { type Html, pintar } from './comun/html.js';
 import { aLaBarra, semillaSorteada } from './comun/semilla.js';
 import { ponerTema } from './comun/temas.js';
 import type { Desarrollo } from './desarrollo/tipos.js';
-import { EscenaAventura } from './escenas/aventura.js';
-import { EscenaAyuntamiento } from './escenas/ayuntamiento.js';
-import { EscenaBase } from './escenas/castillo.js';
-import { EscenaLugar } from './escenas/lugar.js';
-import { EscenaMorada } from './escenas/morada.js';
-import { EscenaTropa } from './escenas/tropa.js';
-import { PuertaDeFinDeTurno } from './fin-de-turno.js';
-import { mundoPedido } from './mundo/cargar.js';
+import { renderAviso } from './partida/aviso.js';
+import { EscenaAyuntamiento } from './partida/ayuntamiento/escena.js';
+import { EscenaBase } from './partida/base/escena.js';
+import { renderConversacion } from './partida/base/panel.js';
+import {
+  combateALaURL,
+  combateDeLaURL,
+  type ParametroDelCombate,
+} from './partida/combate-en-la-url.js';
+import { PuertaDeFinDeTurno } from './partida/fin-de-turno.js';
+import { renderDefensa, renderGuarnicion } from './partida/guarnicion.js';
+import { EscenaLugar } from './partida/lugar/escena.js';
+import { renderConversacionDelLugar } from './partida/lugar/panel.js';
+import { EscenaAventura } from './partida/mapa/escena.js';
+import { EscenaMorada } from './partida/morada/escena.js';
+import { mundoPedido } from './partida/mundo.js';
+import { repartirClic } from './partida/reparto-del-clic.js';
+import { EscenaTropa } from './partida/tropa/escena.js';
 import { cargarArte } from './render/assets.js';
 import { apuntarElSueloEn, escenarioListo, sueloDelMapa } from './render/escenario/superficie.js';
 import { hayFigurasAnimadas } from './render/figuras/figura.js';
 import { genteCargada } from './render/figuras/gente.js';
 import { ajustarLienzo } from './render/lienzo.js';
-import { repartirClic } from './reparto-del-clic.js';
 import { Session } from './session.js';
 import { pintarSiguiendoElFinal } from './views/al-final.js';
-import { renderAviso } from './views/aviso.js';
-import { renderConversacion } from './views/base.js';
-import { renderDefensa, renderGuarnicion } from './views/guarnicion.js';
-import { renderConversacionDelLugar } from './views/lugar.js';
 import { renderActions, renderSide, renderTopbar } from './views/panels.js';
 
 /**
@@ -70,11 +74,11 @@ const conversacion = document.getElementById('conversacion') as HTMLDialogElemen
 const elRueda = document.getElementById('rueda') as HTMLDialogElement;
 /** «¿Volver al menú?» (botón «Menú» de la barra de arriba): «Abandonar la partida» es el `restart`. */
 const salirAlMenu = document.getElementById('salir-al-menu') as HTMLDialogElement;
-/** Dejar y recoger tropa en un sitio propio (`views/guarnicion.ts`). */
+/** Dejar y recoger tropa en un sitio propio (`partida/guarnicion.ts`). */
 const elGuarnicion = document.getElementById('guarnicion') as HTMLDialogElement;
-/** Con quién se defiende el héroe atacado en su sitio (`views/guarnicion.ts`). */
+/** Con quién se defiende el héroe atacado en su sitio (`partida/guarnicion.ts`). */
 const elDefensa = document.getElementById('defensa') as HTMLDialogElement;
-/** Quién te ataca y dónde, sobre el mapa, antes de la batalla (`views/aviso.ts`). */
+/** Quién te ataca y dónde, sobre el mapa, antes de la batalla (`partida/aviso.ts`). */
 const elAviso = document.getElementById('aviso') as HTMLDialogElement;
 const stage = document.getElementById('stage') as HTMLElement;
 const lateral = document.getElementById('lateral') as HTMLElement;
@@ -174,7 +178,7 @@ function prepararLaPartida(abierta: Session, rotulo: string): Session {
 
 /**
  * Abre la partida de un mundo (`?mundo=`, ya cargado y validado por
- * `mundo/cargar.ts`): su semilla, su facción y su héroe son los suyos. La URL ya
+ * `partida/mundo.ts`): su semilla, su facción y su héroe son los suyos. La URL ya
  * es la que la repite: `?mundo=` solo, que `mundoDeLaUrl` no deja ir con nada de
  * eso, más la complejidad del combate, que es de quien juega y no del mundo.
  */
@@ -302,7 +306,7 @@ const sesion = (): Session => session;
 const aventura = new EscenaAventura(sesion);
 const batalla = new EscenaBatalla(sesion);
 const castillo = new EscenaBase(sesion);
-/** La escena de un lugar de un mundo (`escenas/lugar.ts`): se entra desde el mapa, como en la tropa. */
+/** La escena de un lugar de un mundo (`partida/lugar/escena.ts`): se entra desde el mapa, como en la tropa. */
 const lugar = new EscenaLugar(sesion);
 /**
  * Las escenas de dentro: se entra en ellas desde otra (la tropa desde el mapa, la
@@ -608,7 +612,7 @@ function llevarLaFichaALaVista(): void {
  * marcado, como los paneles: el nombre y la línea los puede escribir el agente.
  */
 function mostrarConversacion(enCastillo: boolean, enUnLugar: boolean): void {
-  // La de un lugar de un mundo: su árbol, con las opciones (`views/lugar.ts`).
+  // La de un lugar de un mundo: su árbol, con las opciones (`partida/lugar/panel.ts`).
   if (enUnLugar) {
     const c = session.lugar.conversacion();
     if (c === null) {

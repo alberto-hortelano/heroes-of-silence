@@ -148,7 +148,7 @@ describe('la pantalla cuenta lo que hizo la magia (#54)', () => {
 
 describe('el panel de la escena de la tropa', () => {
   it('cada «Poner» apagado lleva su motivo escrito debajo, y lo de serie no lleva ×', async () => {
-    const { renderPanelDeLaTropa } = await import('../src/client/views/tropa.js');
+    const { renderPanelDeLaTropa } = await import('../src/client/partida/tropa/panel.js');
     const { TROPA } = await import('./comun.js');
     const s = new Session(7);
     s.abrirLaTropa();

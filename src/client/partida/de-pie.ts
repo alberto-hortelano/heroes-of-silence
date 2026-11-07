@@ -1,6 +1,6 @@
 /**
  * Una escena de figuras de pie que se eligen con el puntero: la de la morada
- * (`escenas/morada.ts`) y la del ayuntamiento (`escenas/ayuntamiento.ts`) son dos
+ * (`partida/morada/escena.ts`) y la del ayuntamiento (`partida/ayuntamiento/escena.ts`) son dos
  * configuraciones de esta (`DePie`).
  *
  * La escena solo traduce el puntero: a quién se elige lo guarda la sesión, que es

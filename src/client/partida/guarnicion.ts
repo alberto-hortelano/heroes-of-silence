@@ -29,8 +29,8 @@ import { describirCoste } from '@core/texto.js';
 import { type Html, html, NADA, unir } from '../comun/html.js';
 import { DICHO_DE_LA_OBRA, SE_VE_EN_EL_PUESTO } from '../dicho-del-puesto.js';
 import type { VistaDeLaDefensa, VistaDeLaGuarnicion } from '../session.js';
-import { apagadoPor, filaDeCifra, motivoDebajo, notaDebajo } from './cifras.js';
-import { filaDeTropa, filaLiderazgo } from './panels.js';
+import { apagadoPor, filaDeCifra, motivoDebajo, notaDebajo } from '../views/cifras.js';
+import { filaDeTropa, filaLiderazgo } from '../views/panels.js';
 
 /** Un botón que pasa uno del grupo `g` al otro lado del reparto (`data-hacia`). */
 function botonDeMover(hacia: 'heroe' | 'guarnicion', g: TroopGroup): Html {

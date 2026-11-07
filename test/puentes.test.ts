@@ -10,7 +10,7 @@ import { RedDeCaminos } from '@core/map/red-de-caminos.js';
 import { isWalkable, type TerrainKind } from '@core/map/terrain.js';
 import { type MapObject, MEJORAS_DEL_PUESTO } from '@core/map/tipos.js';
 import { describe, expect, it } from 'vitest';
-import { EscenaAventura, focoDe } from '../src/client/escenas/aventura.js';
+import { EscenaAventura, focoDe } from '../src/client/partida/mapa/escena.js';
 import {
   analizar,
   type MapaDeEscena,

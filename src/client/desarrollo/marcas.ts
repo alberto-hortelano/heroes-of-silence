@@ -15,7 +15,7 @@
 import { objectAt } from '@core/map/map.js';
 import { mensajeDe } from '../comun/errores.js';
 import { html, pintar } from '../comun/html.js';
-import type { EscenaAventura } from '../escenas/aventura.js';
+import type { EscenaAventura } from '../partida/mapa/escena.js';
 import { escenarioListo } from '../render/escenario/superficie.js';
 import { type CamaraMapa, cajaEnPixeles, mundoAPixel, pixelAMundo } from '../render/mapa/camara.js';
 import type { Session } from '../session.js';

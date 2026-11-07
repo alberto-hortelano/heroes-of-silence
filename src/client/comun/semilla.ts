@@ -6,7 +6,7 @@
 
 /**
  * La semilla de una partida o una pelea que nadie ha pedido: la de hoy a esta
- * hora. Una sola, para la partida (`main.ts`), el menú (`inicio/inicio.ts`) y la
+ * hora. Una sola, para la partida (`main.ts`), el menú (`partida/inicio/inicio.ts`) y la
  * arena (`arena/main.ts`): si cambia cómo se sortea, cambia en todas. Vive en el
  * cliente y no en `core` porque lee el reloj, y el núcleo no puede.
  */
@@ -46,7 +46,7 @@ export function pide(search: string, nombre: string): boolean {
 
 /**
  * Si la URL pide un mundo (`?mundo=<id>`, F1a del mapa vivo): entonces `entrada.ts`
- * lo carga antes que la partida (`mundo/cargar.ts`), que dice por qué si no vale.
+ * lo carga antes que la partida (`partida/mundo.ts`), que dice por qué si no vale.
  */
 export function pideMundo(search: string): boolean {
   return pide(search, 'mundo');

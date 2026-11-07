@@ -3,7 +3,7 @@
  * edificio abierto (sin la pared de delante, con su sala) y, delante, en el
  * empedrado, una figura por unidad que produce, en fila y mirando a la cámara.
  * Pulsar una la elige (`elegirEnLaMorada`) y el panel enseña su ficha y su
- * reclutamiento. Es una escena de pie (`escenas/de-pie.ts`) con la fila y la
+ * reclutamiento. Es una escena de pie (`partida/de-pie.ts`) con la fila y la
  * cámara de `render/base/fila.ts`.
  *
  * El fondo es la base misma (`FondoDeLaMorada`, que en la página pinta
@@ -12,15 +12,15 @@
  */
 import type { SitioId } from '@core/town/sitios.js';
 import type { FactionId } from '@core/types.js';
-import { disposicionDe } from '../../shared/base.js';
-import type { VistaDeLaMorada } from '../morada/vista.js';
-import { type EncuadreDeLaMorada, encuadrarLaMorada } from '../render/base/fila.js';
-import { cajaDeFiguraEn } from '../render/batalla.js';
-import { type CajaEn, type LienzoDePie, pintarDePie } from '../render/figuras/de-pie.js';
-import type { LuzSobreLaFigura } from '../render/figuras/figura.js';
-import type { Tablero } from '../render/proyeccion.js';
-import { AYUDA_DE_LA_MORADA, type Session } from '../session.js';
-import { type DePie, EscenaDePie, type VistaDePie } from './de-pie.js';
+import { disposicionDe } from '../../../shared/base.js';
+import type { VistaDeLaMorada } from '../../morada/vista.js';
+import { type EncuadreDeLaMorada, encuadrarLaMorada } from '../../render/base/fila.js';
+import { cajaDeFiguraEn } from '../../render/batalla.js';
+import { type CajaEn, type LienzoDePie, pintarDePie } from '../../render/figuras/de-pie.js';
+import type { LuzSobreLaFigura } from '../../render/figuras/figura.js';
+import type { Tablero } from '../../render/proyeccion.js';
+import { AYUDA_DE_LA_MORADA, type Session } from '../../session.js';
+import { type DePie, EscenaDePie, type VistaDePie } from '../de-pie.js';
 
 /** La caja de cada figura de la morada con la cámara `t`: la de combate, sin hondo. */
 export function cajasDeLaMorada(t: Tablero): CajaEn {
@@ -40,7 +40,7 @@ export interface ClimaDeLaFila {
  * abierto (`EscenaBase.pintarLaMorada`). Devuelve el clima de la fila (la luz
  * sobre las figuras y lo que va delante de ellas), o `null`. En `pnpm capturas`,
  * que encuadra en Node, nada. Lo usa también el ayuntamiento
- * (`escenas/ayuntamiento.ts`), con su vista.
+ * (`partida/ayuntamiento/escena.ts`), con su vista.
  */
 export type FondoDeLaMorada<V extends { readonly edificio: string } = VistaDeLaMorada> = (
   ctx: CanvasRenderingContext2D,

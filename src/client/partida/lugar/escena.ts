@@ -9,41 +9,41 @@
  * alguien o algo, lo lleva a su lado y abre la conversación (`EnElLugar.hablar`),
  * que pinta el `<dialog id="conversacion">` de `main.ts`.
  *
- * Caminar por un escenario lateral está aquí y en `castillo.ts` dos veces: unificarlo
+ * Caminar por un escenario lateral está aquí y en `partida/base/escena.ts` dos veces: unificarlo
  * es del backlog, tras *heroe-en-la-base*, que toca la base. La cámara, la franja,
  * el pintor y el golpe son los de la base (`render/base/`), y dónde se para quien
  * va a hablar con alguien, a su lado (`dondeHablarEnElLugar`).
  */
 import { inicialDelNombre } from '@core/mundo/formato.js';
-import { ALTO_DE_FIGURA, type Mirada, type Plano } from '../../shared/arte.js';
+import { ALTO_DE_FIGURA, type Mirada, type Plano } from '../../../shared/arte.js';
 import {
   alaFranja,
   bordeDeAtras,
   type Disposicion,
   disposicionDelLugar,
   MARGEN_DE_LA_FRANJA,
-} from '../../shared/base.js';
-import { porElCamino } from '../batalla/anim.js';
-import { temaDelLienzo } from '../comun/temas.js';
-import type { PuntoALaVista, VistaDelLugar } from '../lugar/sesion.js';
-import { arteDeLaBase } from '../render/base/arte.js';
-import { camaraDeLaBase, camaraQuieta, seguir } from '../render/base/camara.js';
-import type { Elemento } from '../render/base/escena.js';
-import { queHayBajo } from '../render/base/golpe.js';
+} from '../../../shared/base.js';
+import { porElCamino } from '../../batalla/anim.js';
+import { temaDelLienzo } from '../../comun/temas.js';
+import type { PuntoALaVista, VistaDelLugar } from '../../lugar/sesion.js';
+import { arteDeLaBase } from '../../render/base/arte.js';
+import { camaraDeLaBase, camaraQuieta, seguir } from '../../render/base/camara.js';
+import type { Elemento } from '../../render/base/escena.js';
+import { queHayBajo } from '../../render/base/golpe.js';
 import {
   type PintadoDeLaBase,
   pintarBase,
   pintarElSueloDeLaBase,
   pintarLasFiguras,
-} from '../render/base/pintar.js';
-import { direccionHacia } from '../render/figuras/direccion.js';
-import { animarHasta } from '../render/figuras/figura.js';
-import { msPorCasilla } from '../render/figuras/marcha.js';
-import { densidadDe } from '../render/lienzo.js';
-import { playerColor } from '../render/palette.js';
-import { enPantalla, pasoDeLaBase, type Tablero } from '../render/proyeccion.js';
-import { AYUDA_DEL_LUGAR, type Session } from '../session.js';
-import { PRISA_EN_LA_BASE, pulsaParaHablar } from './castillo.js';
+} from '../../render/base/pintar.js';
+import { direccionHacia } from '../../render/figuras/direccion.js';
+import { animarHasta } from '../../render/figuras/figura.js';
+import { msPorCasilla } from '../../render/figuras/marcha.js';
+import { densidadDe } from '../../render/lienzo.js';
+import { playerColor } from '../../render/palette.js';
+import { enPantalla, pasoDeLaBase, type Tablero } from '../../render/proyeccion.js';
+import { AYUDA_DEL_LUGAR, type Session } from '../../session.js';
+import { PRISA_EN_LA_BASE, pulsaParaHablar } from '../base/escena.js';
 
 /** Cuánto por delante del borde de atrás está cada punto, en pasos: en la franja, no pegado al fondo. */
 const DELANTE_DEL_FONDO = 0.7;

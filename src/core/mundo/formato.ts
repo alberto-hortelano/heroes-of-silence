@@ -62,7 +62,7 @@ export function parseMundo(texto: string | null | undefined): string | null {
 /**
  * Por qué un fichero del mundo no se lee: no es JSON, con lo que dice el parser.
  * **La única frase**: la dicen `pnpm mundo validar` (`tools/mundo/disco.ts`) y la
- * página (`client/mundo/cargar.ts`), que antes enseñaba solo el error del parser,
+ * página (`client/partida/mundo.ts`), que antes enseñaba solo el error del parser,
  * sin decir qué fichero (H5 del QA de la F1a).
  */
 export function noEsJson(fichero: string, err: unknown): string {

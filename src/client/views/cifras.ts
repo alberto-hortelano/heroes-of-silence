@@ -1,7 +1,7 @@
 /**
  * Las cifras de pelear de una unidad en filas de rótulo y valor, y el motivo de un
- * botón apagado: los comparten la ficha de la tropa (`views/tropa.ts`) y la de la
- * morada (`views/morada.ts`), para que una unidad se lea igual al reclutarla que
+ * botón apagado: los comparten la ficha de la tropa (`partida/tropa/panel.ts`) y la de la
+ * morada (`partida/morada/panel.ts`), para que una unidad se lea igual al reclutarla que
  * al repartirle equipo.
  */
 import { conMiles } from '@core/texto.js';

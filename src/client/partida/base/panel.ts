@@ -1,7 +1,7 @@
 /**
  * El panel de lo que se abre en la base: «Ampliar» en los sitios que lo abren
  * (`abreAmpliar`: el ayuntamiento y el castillo) y lo suyo en cada edificio de
- * villa. Una morada no se abre aquí: es su escena (`views/morada.ts`).
+ * villa. Una morada no se abre aquí: es su escena (`partida/morada/panel.ts`).
  * Va encima de lo general del castillo (`renderTownPanel`), que sigue debajo.
  *
  * Sustituye a los solares vacíos y a la franja de recluta del cuadro viejo:
@@ -14,9 +14,9 @@ import { describirCoste } from '@core/texto.js';
 import { building } from '@core/town/buildings.js';
 import { construidoEn, moradaEn, SITIOS, type SitioId, siguienteDe } from '@core/town/sitios.js';
 import { buildBlocker, type Town } from '@core/town/town.js';
-import { DESHABILITADO, type Html, html, NADA, unir } from '../comun/html.js';
-import type { Abierto } from '../escenas/castillo.js';
-import type { Session } from '../session.js';
+import { DESHABILITADO, type Html, html, NADA, unir } from '../../comun/html.js';
+import type { Session } from '../../session.js';
+import type { Abierto } from './escena.js';
 
 /** Lo del gremio y la armería lo pinta `panels.ts`: se pasa hecho para no importarlo de vuelta. */
 export interface PiezasDelCastillo {

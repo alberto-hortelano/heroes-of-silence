@@ -12,7 +12,7 @@
  *   que esto solo lo ve el clic que cae antes del fotograma que los apaga.
  * - `gesto`: todo lo demás, con la jugada ya contada.
  */
-import type { Scene } from './session.js';
+import type { Scene } from '../session.js';
 
 export type RepartoDelClic = 'mirar' | 'al-acabar' | 'nada' | 'gesto';
 

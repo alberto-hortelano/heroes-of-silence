@@ -1245,7 +1245,7 @@ export interface PuntoDeLaTraza {
  * salvo la de la puerta de un recinto que se cruza viniendo de la ciudad o de un
  * acceso de esa puerta (`PUERTAS_DE_LA_CIUDAD`) o yendo a ellos, que es su paso
  * por el arco (`pasoPorElArco`: el de la senda pintada). **La única regla** de los
- * dos, la marcha (`escenas/aventura.ts`) y la línea (`render/mapa/mapa.ts`). La
+ * dos, la marcha (`partida/mapa/escena.ts`) y la línea (`render/mapa/mapa.ts`). La
  * puerta del río de una ciudad-puente no lleva: su puente cruza de frente.
  */
 export function trazaPorLosArcos(

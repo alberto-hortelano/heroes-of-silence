@@ -11,8 +11,8 @@ import type { ReglasDelCombate } from '@core/combate.js';
 import { rasgoDeFaccion } from '@core/hero/tipos-de-heroe.js';
 import { nombreDeSalida } from '@core/state/setup.js';
 import { FACTION_IDS, type FactionId, NOMBRE_DE_FACCION } from '@core/types.js';
-import { type Html, html, MARCADO, NADA, unir } from '../comun/html.js';
-import { selectoresDelCombate } from '../views/combate.js';
+import { type Html, html, MARCADO, NADA, unir } from '../../comun/html.js';
+import { selectoresDelCombate } from '../../views/combate.js';
 
 /** Por qué «Cargar partida» no hace nada: no hay guardado (fuera de alcance, 19-10-2026). */
 const SIN_PARTIDAS = 'Aún no hay partidas guardadas.';

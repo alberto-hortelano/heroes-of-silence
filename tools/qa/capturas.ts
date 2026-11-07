@@ -43,12 +43,12 @@ import {
   sitioEnLaRueda as sitioEnLaRuedaDe,
   teclaDe as teclaEnLaRueda,
 } from '../../src/client/batalla/rueda/rueda.js';
-import { EscenaAventura } from '../../src/client/escenas/aventura.js';
-import { EscenaAyuntamiento } from '../../src/client/escenas/ayuntamiento.js';
-import { dondeHablarCon } from '../../src/client/escenas/castillo.js';
-import { cajasDeLaMorada, EscenaMorada } from '../../src/client/escenas/morada.js';
-import { EscenaTropa } from '../../src/client/escenas/tropa.js';
 import type { VistaDeLaMorada } from '../../src/client/morada/vista.js';
+import { EscenaAyuntamiento } from '../../src/client/partida/ayuntamiento/escena.js';
+import { dondeHablarCon } from '../../src/client/partida/base/escena.js';
+import { EscenaAventura } from '../../src/client/partida/mapa/escena.js';
+import { cajasDeLaMorada, EscenaMorada } from '../../src/client/partida/morada/escena.js';
+import { EscenaTropa } from '../../src/client/partida/tropa/escena.js';
 import { camaraDeLaBase, camaraQuieta } from '../../src/client/render/base/camara.js';
 import { dondeEsperaEnLaMorada } from '../../src/client/render/base/fila.js';
 import { dondePulsarElSitio } from '../../src/client/render/base/recortes.js';

@@ -9,7 +9,7 @@
  * su marcador de color, que es justo lo que se reconoce en el registro.
  */
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { EscenaAventura } from '../src/client/escenas/aventura.js';
+import { EscenaAventura } from '../src/client/partida/mapa/escena.js';
 import { arteCargando, imagenDeEscena } from '../src/client/render/assets.js';
 import {
   copiaReducida,

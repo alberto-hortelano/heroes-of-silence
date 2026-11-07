@@ -14,7 +14,7 @@
  */
 import type { BattleState } from '@core/battle/types.js';
 import type { Hex } from '@core/types.js';
-import { BattleAnimator } from '../batalla/anim.js';
+import { BattleAnimator } from '../../batalla/anim.js';
 import {
   type ClicAlColocar,
   clicAlColocar,
@@ -22,10 +22,10 @@ import {
   señalarAlColocar,
   type TableroBajoElPuntero,
   tableroAlColocar,
-} from '../batalla/colocar.js';
-import { type CajaDeFigura, cajaDeFigura, drawBatalla } from '../render/batalla.js';
-import { enPantalla, planoDeHex, type Tablero, tableroPara } from '../render/proyeccion.js';
-import { AYUDA_DE_LA_TROPA, type Session } from '../session.js';
+} from '../../batalla/colocar.js';
+import { type CajaDeFigura, cajaDeFigura, drawBatalla } from '../../render/batalla.js';
+import { enPantalla, planoDeHex, type Tablero, tableroPara } from '../../render/proyeccion.js';
+import { AYUDA_DE_LA_TROPA, type Session } from '../../session.js';
 
 const NINGUN_BANDO: ReadonlySet<never> = new Set();
 

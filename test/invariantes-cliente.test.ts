@@ -213,17 +213,20 @@ describe('invariantes del proyecto', () => {
     // ella (`Session.formacion`); el semicírculo de `render/tropa/` se fue. Roto a
     // mano: un `import { hexEquals } from '@core/battle/board.js'` en
     // `escenas/tropa.ts`, rojo.
-    // La fila de la morada (`render/base/fila.ts`) era `render/morada/fila.ts` hasta la
-    // fase C de la reorganización (07-11-2026): entra con `render/base/`.
+    // Hasta la fase C de la reorganización (07-11-2026), las escenas eran
+    // `escenas/{de-pie,tropa,morada}.ts`, lo que pinta las de pie, `render/de-pie.ts`, y
+    // la fila de la morada, `render/morada/fila.ts`; ahora la fila entra con `render/base/`.
     const base = CLIENTE.filter(
       (r) =>
         r.startsWith(ruta('src/client/render/base/')) ||
         r === ruta('src/client/render/figuras/de-pie.ts') ||
-        r === ruta('src/client/escenas/de-pie.ts') ||
-        r === ruta('src/client/escenas/tropa.ts') ||
-        r === ruta('src/client/escenas/morada.ts'),
+        r === ruta('src/client/partida/de-pie.ts') ||
+        r === ruta('src/client/partida/tropa/escena.ts') ||
+        r === ruta('src/client/partida/morada/escena.ts'),
     );
-    expect(base.filter((r) => r.includes('tropa'))).toEqual([ruta('src/client/escenas/tropa.ts')]);
+    expect(base.filter((r) => r.includes('tropa'))).toEqual([
+      ruta('src/client/partida/tropa/escena.ts'),
+    ]);
     expect(base.filter((r) => r.includes('morada') || r.includes('de-pie')).length).toBe(3);
     expect(base).toContain(ruta('src/client/render/base/fila.ts'));
     const colados: string[] = [];
@@ -251,11 +254,11 @@ describe('invariantes del proyecto', () => {
     const base = CLIENTE.filter(
       (r) =>
         r.startsWith(ruta('src/client/render/base/')) ||
-        r === ruta('src/client/escenas/castillo.ts') ||
+        r === ruta('src/client/partida/base/escena.ts') ||
         r === ruta('src/client/render/figuras/de-pie.ts') ||
-        r === ruta('src/client/escenas/de-pie.ts') ||
-        r === ruta('src/client/escenas/tropa.ts') ||
-        r === ruta('src/client/escenas/morada.ts'),
+        r === ruta('src/client/partida/de-pie.ts') ||
+        r === ruta('src/client/partida/tropa/escena.ts') ||
+        r === ruta('src/client/partida/morada/escena.ts'),
     );
     expect(base.length).toBeGreaterThan(11);
     expect(

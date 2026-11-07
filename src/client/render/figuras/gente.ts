@@ -8,7 +8,7 @@
  * un catálogo roto. **Sin respuesta**, la página sigue con el banco vacío y lo dice en
  * la consola: el juego se juega sin arte, y la gente sale con el Y Bot. Un mundo, no:
  * sus personas nombran figuras del banco y se validan contra él, así que sin banco no
- * se juega, y lo dice con este motivo (`GenteCargada.sinBanco`, `mundo/cargar.ts`; H3
+ * se juega, y lo dice con este motivo (`GenteCargada.sinBanco`, `partida/mundo.ts`; H3
  * del QA del banco de NPC, 22-10-2026: culpaba al mundo de nombrar figuras que no
  * existen, con las frases del motor).
  */
