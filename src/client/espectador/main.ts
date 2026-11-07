@@ -25,7 +25,7 @@ import {
 } from '@core/state/clima.js';
 import type { SpectatorSnapshotMsg } from '../../server/protocol.js';
 import type { SpectatorView } from '../../server/vista-espectador.js';
-import { DialogoDeLaRueda } from '../batalla/rueda/dialogo.js';
+import { DialogoDeLaRueda, SOLO_MIRA } from '../batalla/rueda/dialogo.js';
 import { bucleDeDibujo } from '../comun/bucle.js';
 import { avisoDelClima, climaDeLaURL } from '../comun/clima-de-la-url.js';
 import { mensajeDe } from '../comun/errores.js';
@@ -208,16 +208,6 @@ const mirada = new Mirada();
 /** Sin objetivos ni hexes atacables: el espectador no mueve nada. */
 const NINGUNO: ReadonlySet<string> = new Set();
 
-/** Lo que pone el espectador donde la rueda espera una sesión: no elige ni cancela. */
-const SOLO_MIRA = {
-  ruedaPendiente: null,
-  quienMira: null,
-  elegirEnLaRueda(): void {
-    throw new Error('el espectador no elige en la rueda: solo la mira');
-  },
-  cancelarGolpe: (): boolean => false,
-} as const;
-
 /**
  * La rueda del golpe, que aquí solo CUENTA (F6, 19-10-2026): mientras el
  * animador cuenta un cruce, su desenlace —el mismo diálogo de la partida y la
@@ -359,16 +349,15 @@ function pintarTodo(ahora: number): void {
         hoverHex: null,
         hoverStack: null,
         puntero: null,
-        figura: (s) => mirada.reproductor.animador.figura(s),
-        activo: mirada.reproductor.animador.activo(enCurso),
+        // Lo que cuenta el animador, el mismo de la partida: quién está dónde, quién
+        // actúa, lo que vuela y lo apuntado de cada tirador, que pinta el tablero.
+        ...mirada.reproductor.animador.loQueCuenta(enCurso),
         // Los dos del cruce que se cuenta, con su aro (#261), como en la partida.
         enLaRueda: mirada.reproductor.animador.losDelCruce(),
-        efectos: mirada.reproductor.animador.efectos(enCurso),
         sinDueño: bandosSinDueño(mirada.reproductor.dueños),
         clima: { sitio: climaDelTablero(vista), ahora },
-        // Lo apuntado de cada tirador lo pinta el tablero; tantear, nadie.
+        // Tantear, nadie.
         tanteo: null,
-        ...mirada.reproductor.animador.aDistancia(enCurso),
         granadaTanteada: null,
       });
       apuntarLoQueSePinta(true);

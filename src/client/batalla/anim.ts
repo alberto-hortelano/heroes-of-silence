@@ -32,7 +32,7 @@ import type { HechoDelCruce } from '@core/battle/rueda.js';
 import type { BattleEvent, BattleStack, BattleState, StackEffect } from '@core/battle/types.js';
 import type { Hex } from '@core/types.js';
 import { ALTO_DE_FIGURA, type Plano } from '../../shared/arte.js';
-import type { Efecto, EstadoFigura } from '../render/batalla/tablero.js';
+import type { Efecto, EstadoFigura, VistaBatalla } from '../render/batalla/tablero.js';
 import type { CharacterClip } from '../render/figuras/character.js';
 import { type Direccion, direccionHacia } from '../render/figuras/direccion.js';
 import { msDeSuelta, msPorCasilla } from '../render/figuras/marcha.js';
@@ -508,6 +508,18 @@ function miradaDeSalida(s: BattleStack): Direccion {
   return s.side === 'defender' ? 'O' : 'E';
 }
 
+/**
+ * Lo que el animador dice del tablero que se pinta (`VistaBatalla`), al ritmo de su cola:
+ * dónde y cómo está cada figura, con la vida de su último impacto visto (`figura`), quién
+ * actúa (`activo`), lo que vuela y la cifra del golpe (`efectos`) y lo pendiente a distancia
+ * (`apuntados`, `granadas`). Lo leen igual el tablero de la partida y la arena
+ * (`EscenaBatalla`) y el del espectador (R4 de la reorganización, 07-11-2026).
+ */
+export type LoQueCuentaElAnimador = Pick<
+  VistaBatalla,
+  'figura' | 'activo' | 'efectos' | 'apuntados' | 'granadas'
+>;
+
 export class BattleAnimator {
   /** Qué batalla se está contando: la da quien observa (ver `observe`). */
   private identidad: unknown = null;
@@ -917,6 +929,19 @@ export class BattleAnimator {
       for (const paso of this.cola) ver(paso, false, false);
     }
     return { apuntados: r.apuntado, granadas: r.granada };
+  }
+
+  /**
+   * Lo que cuenta del tablero de `battle`, de una vez (`LoQueCuentaElAnimador`): lo que la
+   * escena de batalla y el espectador le pedían campo a campo, cada uno con su copia.
+   */
+  loQueCuenta(battle: BattleState): LoQueCuentaElAnimador {
+    return {
+      figura: (s) => this.figura(s),
+      activo: this.activo(battle),
+      efectos: this.efectos(battle),
+      ...this.aDistancia(battle),
+    };
   }
 
   /** ¿Queda algo por enseñar? Mientras sí, se repinta y no se aceptan clics. */

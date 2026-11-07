@@ -340,17 +340,14 @@ export class EscenaBatalla {
       hoverHex: this.hoverHex,
       hoverStack: this.hoverStack,
       puntero: this.puntero,
-      figura: (st) => this.animador.figura(st),
       // La vida y quién actúa, al ritmo de la cola: mientras gira la rueda o se
       // cuenta la jugada de la IA, los de antes de lo que aún no se ha visto.
-      activo: this.animador.activo(battle),
+      ...this.animador.loQueCuenta(battle),
       enLaRueda: this.enLaRueda(),
-      efectos: this.animador.efectos(battle),
       sinDueño: s.dueños === null ? NINGUN_BANDO : bandosSinDueño(s.dueños),
       // El de su sitio: la región donde se pelea, o el de la arena.
       clima: { sitio: s.climaDeLaBatalla, ahora: performance.now() },
       tanteo: rectaDe(tanteado),
-      ...this.animador.aDistancia(battle),
       granadaTanteada: explosionDe(tanteado),
     });
   }

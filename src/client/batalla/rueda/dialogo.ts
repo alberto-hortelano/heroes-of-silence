@@ -46,6 +46,21 @@ export interface SesionConRueda {
   cancelarGolpe(): boolean;
 }
 
+/**
+ * Lo que pone donde la rueda espera una sesión quien solo la mira, el espectador: no elige
+ * ni cancela, y nadie es «tú». Con él, la rueda solo cuenta el desenlace del cruce que
+ * cuenta el animador (desde R4 de la reorganización, 07-11-2026, junto a lo que suple;
+ * vivía en `espectador/main.ts`).
+ */
+export const SOLO_MIRA: Omit<SesionConRueda, 'battle'> = {
+  ruedaPendiente: null,
+  quienMira: null,
+  elegirEnLaRueda(): void {
+    throw new Error('el espectador no elige en la rueda: solo la mira');
+  },
+  cancelarGolpe: (): boolean => false,
+};
+
 /** Lo que la rueda pide de la escena de batalla (`EscenaBatalla`): si cuenta, y qué cruce. */
 export interface QuienCuentaElCruce {
   readonly ocupada: boolean;
