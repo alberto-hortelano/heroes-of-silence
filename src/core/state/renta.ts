@@ -22,11 +22,11 @@
  * detrás a la vez, sin que nadie tenga que apuntar nada.
  */
 import { dondeEsta, dueñoEnLaFoto, type Territorio, territorio } from '../map/territorio.js';
-import type { Estructura, GameMap } from '../map/tipos.js';
+import type { Estructura, GameMap, MapObject } from '../map/tipos.js';
 import { ECONOMIA } from '../town/economia.js';
 import { dailyIncome, type Town } from '../town/town.js';
 import type { PlayerId } from '../types.js';
-import { ocupadoBlocker, sitioDeLaCiudad, sitioDelObjeto } from './sitios.js';
+import { ocupadoBlocker, type Sitio, sitioDeLaCiudad, sitioDelObjeto } from './sitios.js';
 import type { GameState } from './tipos.js';
 
 /**
@@ -34,6 +34,24 @@ import type { GameState } from './tipos.js';
  * del contrato (`formato.ts`, `mapa-conocido.ts` y `peticion-de-mapa.ts`) y el cliente, como `REGLA_DEL_ESCUDO`.
  */
 export const REGLA_DEL_PUEBLO = `da ${ECONOMIA.rentaDelPueblo} de oro al día a quien lo tenga unido a su base (dentro de una región, a quien tenga la región), salvo si está ocupado`;
+
+/**
+ * Lo que da un sitio al día, sin mirar si está unido a la base ni ocupado: una
+ * ciudad, su ayuntamiento (`dailyIncome`); un pueblo, `ECONOMIA.rentaDelPueblo`; un
+ * paso, nada. **Un hecho, un sitio**: lo leen la renta del día, la de una región y
+ * la IA (`valorDeRecuperar`), que hasta la fase N de la reorganización (07-11-2026)
+ * lo escribían cada una.
+ */
+export function rentaDelSitio(sitio: Sitio): number {
+  switch (sitio.kind) {
+    case 'ciudad':
+      return dailyIncome(sitio.town);
+    case 'pueblo':
+      return ECONOMIA.rentaDelPueblo;
+    case 'paso':
+      return 0;
+  }
+}
 
 /** Una ciudad propia en la renta: lo que da hoy y si cobra. */
 export interface CiudadDeLaRenta {
@@ -72,10 +90,7 @@ export interface RentaDelDia {
   readonly pueblos: readonly PuebloDeLaRenta[];
 }
 
-type PueblosPorRegion = ReadonlyMap<
-  number,
-  readonly { readonly id: string; readonly nombre: string }[]
->;
+type PueblosPorRegion = ReadonlyMap<number, readonly Extract<MapObject, { kind: 'village' }>[]>;
 
 const pueblosCache = new WeakMap<Estructura, PueblosPorRegion>();
 
@@ -86,14 +101,14 @@ const pueblosCache = new WeakMap<Estructura, PueblosPorRegion>();
 function pueblosPorRegion(map: GameMap, red: Estructura): PueblosPorRegion {
   const hecho = pueblosCache.get(red);
   if (hecho !== undefined) return hecho;
-  const porRegion = new Map<number, { id: string; nombre: string }[]>();
+  const porRegion = new Map<number, Extract<MapObject, { kind: 'village' }>[]>();
   for (const o of map.objects) {
     if (o.kind !== 'village') continue;
     const r = red.sitiosDeRegion.get(o.id);
     if (r === undefined) continue;
     const lista = porRegion.get(r);
-    if (lista === undefined) porRegion.set(r, [{ id: o.id, nombre: o.name }]);
-    else lista.push({ id: o.id, nombre: o.name });
+    if (lista === undefined) porRegion.set(r, [o]);
+    else lista.push(o);
   }
   pueblosCache.set(red, porRegion);
   return porRegion;
@@ -109,8 +124,13 @@ export function rentaDeLaRegion(
   red: Estructura,
   region: number,
 ): number {
-  let oro = (pueblosPorRegion(state.map, red).get(region)?.length ?? 0) * ECONOMIA.rentaDelPueblo;
-  for (const t of state.towns) if (red.sitiosDeRegion.get(t.id) === region) oro += dailyIncome(t);
+  let oro = 0;
+  for (const pueblo of pueblosPorRegion(state.map, red).get(region) ?? []) {
+    oro += rentaDelSitio({ kind: 'pueblo', pueblo });
+  }
+  for (const t of state.towns) {
+    if (red.sitiosDeRegion.get(t.id) === region) oro += rentaDelSitio(sitioDeLaCiudad(t));
+  }
   return oro;
 }
 
@@ -133,8 +153,9 @@ export function rentaDelDia(
   for (const t of state.towns) {
     if (dueñoEnLaFoto(foto, t.id) !== jugador) continue;
     const unida = unido(t.id);
-    const ocupada = ocupadoBlocker(state, sitioDeLaCiudad(t), jugador);
-    const oro = unida && ocupada === null ? dailyIncome(t) : 0;
+    const sitio = sitioDeLaCiudad(t);
+    const ocupada = ocupadoBlocker(state, sitio, jugador);
+    const oro = unida && ocupada === null ? rentaDelSitio(sitio) : 0;
     total += oro;
     ciudades.push({ id: t.id, nombre: t.name, oro, unida, ocupada });
   }
@@ -142,8 +163,9 @@ export function rentaDelDia(
   for (const o of state.map.objects) {
     if (o.kind !== 'village' || dueñoEnLaFoto(foto, o.id) !== jugador) continue;
     const esUnido = unido(o.id);
-    const ocupada = ocupadoBlocker(state, sitioDelObjeto(state, o), jugador);
-    const oro = esUnido && ocupada === null ? ECONOMIA.rentaDelPueblo : 0;
+    const sitio = sitioDelObjeto(state, o);
+    const ocupada = ocupadoBlocker(state, sitio, jugador);
+    const oro = esUnido && ocupada === null ? rentaDelSitio(sitio) : 0;
     total += oro;
     pueblos.push({ id: o.id, nombre: o.name, oro, unido: esUnido, ocupada });
   }

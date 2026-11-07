@@ -45,7 +45,7 @@ import {
 } from '../state/consultas.js';
 import { ponerseBlocker } from '../state/equipar.js';
 import { contratarBlocker } from '../state/heroes.js';
-import { rentaDeLaRegion } from '../state/renta.js';
+import { rentaDeLaRegion, rentaDelSitio } from '../state/renta.js';
 import {
   ciudadQueMandaBlocker,
   enUnNodo,
@@ -63,7 +63,6 @@ import { building, buildingsOfFaction, nivelDeMorada } from '../town/buildings.j
 import { ECONOMIA } from '../town/economia.js';
 import {
   availableBuildings,
-  dailyIncome,
   dwellings,
   recruitCost,
   type Town,
@@ -137,7 +136,7 @@ function objectValue(
       // (backlog).
       if (!enUnNodo(state, sitio)) {
         if (dueño !== player) return 0;
-        const rinde = sitio.kind === 'ciudad' ? dailyIncome(sitio.town) : ECONOMIA.rentaDelPueblo;
+        const rinde = rentaDelSitio(sitio);
         const recuperar = valorDeRecuperar(state, sitio, player, miPoder, rinde);
         if (sitio.kind !== 'ciudad' || recuperar !== 0) return recuperar;
       }
