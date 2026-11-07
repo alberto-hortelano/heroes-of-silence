@@ -400,6 +400,38 @@ describe('la batalla en el lienzo', () => {
     expect(repartirClic('finish-battle', 'adventure', () => false)).toBe('gesto');
   });
 
+  it('el segundo clic de un doble clic no cuenta en los botones de un solo clic de la partida, y se mira tras la jugada en curso', () => {
+    // Una sola lista en `reparto-del-clic.ts` (hasta el 07-11-2026, un `if` en cada caso
+    // de `main.ts`): el segundo clic caía en lo repintado por el primero y jugaba otra vez.
+    const libre = () => false;
+    for (const accion of [
+      'lugar-ir',
+      'lugar-al-principio',
+      'lugar-opcion',
+      'tropa-poner',
+      'tropa-quitar',
+      'ir-a-sitio',
+      'hire-hero',
+      'mejorar-el-puesto',
+    ]) {
+      expect(repartirClic(accion, 'town', libre, 2), accion).toBe('nada');
+      expect(repartirClic(accion, 'town', libre, 1), accion).toBe('gesto');
+    }
+    // El reparto de la guarnición cuenta cada clic, a propósito (H-V2-1 del QA).
+    expect(repartirClic('mover-en-el-reparto', 'adventure', libre, 2)).toBe('gesto');
+    // «Continuar» se atiende antes, también con el segundo clic: espera a la jugada.
+    expect(repartirClic('finish-battle', 'battle', libre, 2)).toBe('al-acabar');
+    // Y la jugada en curso se mira antes que el segundo clic, como en los botones de la
+    // batalla de la partida: se rechaza, con su aviso, aunque sea el segundo.
+    let preguntas = 0;
+    const enCurso = () => {
+      preguntas++;
+      return true;
+    };
+    expect(repartirClic('mejorar-el-puesto', 'battle', enCurso, 2)).toBe('nada');
+    expect(preguntas).toBe(1);
+  });
+
   it('con la jugada contándose, los botones del panel salen apagados y no piden un segundo clic (#165)', () => {
     const s = sesionEnBatalla();
     const escena = escenaDeBatalla(() => s);

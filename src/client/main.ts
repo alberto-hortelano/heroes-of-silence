@@ -893,7 +893,7 @@ document.addEventListener('click', (ev) => {
   const target = (ev.target as HTMLElement).closest('[data-action]');
   if (target === null) return;
   const action = target.getAttribute('data-action');
-  const reparto = repartirClic(action, session.scene, jugadaEnCurso);
+  const reparto = repartirClic(action, session.scene, jugadaEnCurso, ev.detail);
   if (reparto === 'mirar') {
     const izquierda = haciaEnemigo.dataset.lado === 'izquierda' ? 0 : lienzo.scrollWidth;
     lienzo.scrollTo({ left: izquierda, behavior: 'smooth' });
@@ -972,16 +972,12 @@ document.addEventListener('click', (ev) => {
       cerrarDentro();
       break;
     case 'lugar-ir':
-      if (ev.detail > 1) break;
       lugar.irA(target.getAttribute('data-punto') as string, performance.now());
       break;
     case 'lugar-al-principio':
-      if (ev.detail > 1) break;
       session.lugar.alPrincipio();
       break;
     case 'lugar-opcion': {
-      // El segundo clic de un doble clic cae ya en el nodo siguiente: solo el primero.
-      if (ev.detail > 1) break;
       // Apagada: su motivo ya se lee debajo; el clic no hace nada.
       if (target.getAttribute('aria-disabled') === 'true') break;
       session.elegirEnElLugar(Number(target.getAttribute('data-indice')));
@@ -994,16 +990,12 @@ document.addEventListener('click', (ev) => {
       break;
     }
     case 'tropa-poner':
-      // El segundo clic de un doble clic cae ya en el panel repintado, a menudo sobre
-      // OTRO «Poner» (la mochila tiene una fila menos y el panel baja): solo cuenta el primero.
-      if (ev.detail > 1) break;
       session.ponerALaElegida(
         target.getAttribute('data-item') as string,
         target.getAttribute('data-hueco') ?? undefined,
       );
       break;
     case 'tropa-quitar':
-      if (ev.detail > 1) break;
       // El hueco lo valida la sesión (`esHueco`), como en `unequip`.
       session.quitarALaElegida(target.getAttribute('data-slot') as string);
       break;
@@ -1014,9 +1006,6 @@ document.addEventListener('click', (ev) => {
       break;
     }
     case 'ir-a-sitio':
-      // El segundo clic de un doble clic cae ya en la morada que abrió el primero
-      // (QA I3 de la vuelta 2): solo cuenta el primero, como en «Poner».
-      if (ev.detail > 1) break;
       castillo.irA(target.getAttribute('data-sitio') as string, performance.now());
       break;
     case 'build':
@@ -1033,8 +1022,6 @@ document.addEventListener('click', (ev) => {
       castillo.cerrar();
       break;
     case 'hire-hero': {
-      // Solo cuenta el primer clic: el segundo de un doble clic caería en la base.
-      if (ev.detail > 1) break;
       const tipo = target.getAttribute('data-tipo');
       if (tipo === null) throw new Error('el botón de contratar no dice qué héroe contrata');
       const eraElDeSalida = session.heroeDeSalidaPendiente;
@@ -1072,10 +1059,6 @@ document.addEventListener('click', (ev) => {
       session.confirmarElReparto();
       break;
     case 'mejorar-el-puesto': {
-      // El segundo clic de un doble clic de persona (150 ms) cae ya en el botón
-      // repintado como «Amurallar», con su `data-obra`, y compraba la muralla (QA de
-      // la fase 3, H-F3-1, comprobado en el navegador): solo cuenta el primero.
-      if (ev.detail > 1) break;
       // Apagado: su motivo ya se lee debajo.
       if (target.getAttribute('aria-disabled') === 'true') break;
       // La obra que decía el botón pulsado: si el diálogo ya ofrece otra (el clic
