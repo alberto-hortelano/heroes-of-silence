@@ -56,6 +56,7 @@ import {
 import { caraDeLaArena } from './paneles/batalla.js';
 import { jugadaEnCurso } from './pelea.js';
 import { instalarElPuntero } from './puntero.js';
+import { instalarElTeclado } from './teclado.js';
 import {
   avisoAlEntrar,
   CLAVE_DE_ABIERTAS,
@@ -71,8 +72,7 @@ import {
 } from './vista.js';
 
 const elementos = elementosDeLaArena();
-const { canvas, elStatus, elMagia, editor, elRueda, elTituloDelEditor, botonCerrarEditor } =
-  elementos;
+const { canvas, elStatus, elMagia, elRueda, elTituloDelEditor, botonCerrarEditor } = elementos;
 
 /**
  * El bucle de dibujo (`comun/bucle.ts`), con la red de la arena: un fallo al pintar se
@@ -279,19 +279,7 @@ instalarElClic(pagina);
 
 instalarLosCambios(pagina);
 
-document.addEventListener('keydown', (ev) => {
-  // Con el editor abierto, las teclas son suyas: Escape lo cierra (el `<dialog>`)
-  // sin soltar lo elegido, y un espacio en un campo no cierra el turno. Con la
-  // rueda, igual: son suyas.
-  if (editor.open || elRueda.open) return;
-  // Fuera del tablero —la vista de equipo a media pelea— las teclas no juegan:
-  // un espacio en un campo de pieza cerraba el turno de tu unidad.
-  if (vista.escena !== 'battle') return;
-  // Las teclas de la batalla, las de la partida (`GestosDeBatalla.tecla`): Escape suelta
-  // lo que espera el clic, las flechas mueven al elegido del despliegue, la Q alterna el
-  // arma y Espacio cierra el turno de tu unidad activa.
-  gestos.tecla(ev);
-});
+instalarElTeclado(pagina);
 
 instalarElCierreDelEditor(pagina);
 
