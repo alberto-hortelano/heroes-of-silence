@@ -46,13 +46,13 @@ import {
 } from '@core/battle/rueda.js';
 import type { BattleStack, BattleState, Side, StackEffect } from '@core/battle/types.js';
 import type { TipoDeGolpe } from '@core/types.js';
+import { type Html, html, NADA, unir } from '../../comun/html.js';
+import { nombreEnElCampo } from '../../render/batalla/distintivo.js';
+import { COLOR_BANDO } from '../../render/batalla.js';
+import type { RuedaPendiente } from '../../session.js';
+import { modificadoresEnCurso, nota } from '../../views/panels.js';
 import { type CruceEnCurso, DURACION } from '../anim.js';
-import { type Html, html, NADA, unir } from '../comun/html.js';
-import { COLOR_BANDO } from '../render/batalla.js';
-import type { RuedaPendiente } from '../session.js';
-import { nombreEnElCampo } from '../views/distintivo.js';
-import { modificadoresEnCurso, nota } from '../views/panels.js';
-import { horquilla } from '../views/prevision.js';
+import { horquilla } from '../prevision.js';
 import {
   anchoDelSector,
   anguloDe,

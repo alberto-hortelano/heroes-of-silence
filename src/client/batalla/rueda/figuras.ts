@@ -6,18 +6,18 @@
  * `CaraDeLosContrincantes` alrededor de esta figura.
  */
 import type { BattleStack } from '@core/battle/types.js';
-import { FIGURA } from '../../shared/arte.js';
-import { type Html, html } from '../comun/html.js';
-import { COLOR_BANDO } from '../render/batalla.js';
-import type { Direccion } from '../render/figuras/direccion.js';
+import { FIGURA } from '../../../shared/arte.js';
+import { type Html, html } from '../../comun/html.js';
+import { COLOR_BANDO } from '../../render/batalla.js';
+import type { Direccion } from '../../render/figuras/direccion.js';
 import {
   claveDelDibujo,
   colocarFigura,
   hayFigurasAnimadas,
   pintarFigura,
   pintarSombraDeFigura,
-} from '../render/figuras/figura.js';
-import { arteDe, MIRADA_DE_PRESENTACION } from '../render/figuras/personajes.js';
+} from '../../render/figuras/figura.js';
+import { arteDe, MIRADA_DE_PRESENTACION } from '../../render/figuras/personajes.js';
 
 /** Lo que mide el lienzo de una figura de la cabecera, en píxeles. */
 const TAMAÑO = { ancho: 80, alto: 96 } as const;

@@ -15,8 +15,8 @@
 import { describe, expect, it } from 'vitest';
 import ruedaJson from '../data/rueda.json' with { type: 'json' };
 import { caraDeLaArena } from '../src/client/arena/paneles.js';
+import { renderEleccion } from '../src/client/batalla/rueda/rueda.js';
 import { marcadoDe } from '../src/client/comun/html.js';
-import { renderEleccion } from '../src/client/rueda/rueda.js';
 import { batallaDeArena } from '../src/core/arena/montaje.js';
 import { equiparEnArena } from '../src/core/arena/piezas.js';
 import { ruedaDelGolpe } from '../src/core/battle/armas.js';

@@ -12,7 +12,7 @@
 import type { BattleState, Side } from '@core/battle/types.js';
 import type { PlayerId } from '@core/types.js';
 import type { SpectatorSnapshotMsg } from '../../server/protocol.js';
-import { BattleAnimator } from '../anim.js';
+import { BattleAnimator } from '../batalla/anim.js';
 import { adaptarBatalla } from './adaptar.js';
 import {
   batallaTerminada,

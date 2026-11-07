@@ -27,7 +27,7 @@ import type {
   TipoDePuerta,
 } from '@core/battle/types.js';
 import type { Hex } from '@core/types.js';
-import { BattleAnimator, type CruceEnCurso } from '../anim.js';
+import { nombreEnElCampo } from '../render/batalla/distintivo.js';
 import {
   type Angulo,
   alzadoDeLaMuralla,
@@ -52,10 +52,9 @@ import {
   loApuntadoEnCasilla,
   rechazoDelTanteo,
 } from '../session.js';
-import { nombreEnElCampo } from '../views/distintivo.js';
 import { AVISO_DE_ESPERA } from '../views/panels.js';
-import { textoDePrevision } from '../views/prevision.js';
 import { accionContra, golpeEnPixel } from './angulo.js';
+import { BattleAnimator, type CruceEnCurso } from './anim.js';
 import {
   casillaBajo,
   clicAlColocar,
@@ -67,7 +66,8 @@ import {
   tableroAlColocar,
   tableroDe,
   unidadBajo,
-} from './despliegue.js';
+} from './colocar.js';
+import { textoDePrevision } from './prevision.js';
 
 const SIN_NADA: ReadonlySet<string> = new Set();
 
@@ -400,7 +400,7 @@ export class EscenaBatalla {
   }
 
   /**
-   * El tablero bajo el puntero (`escenas/despliegue.ts`, el mismo de la tropa):
+   * El tablero bajo el puntero (`batalla/colocar.ts`, el mismo de la tropa):
    * lo que se ve, su encuadre y dónde se pinta cada figura.
    */
   private bajoElPuntero(): TableroBajoElPuntero {

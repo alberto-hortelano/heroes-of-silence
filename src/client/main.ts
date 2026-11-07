@@ -12,6 +12,10 @@ import { parseSeed } from '@core/rng.js';
 import { faccionesDeLaSemilla } from '@core/state/setup.js';
 import { type FactionId, parseFaccion } from '@core/types.js';
 import { unaVezEnLaURL } from '@core/validar.js';
+import { FLECHAS_AL_COLOCAR } from './batalla/colocar.js';
+import { EscenaBatalla } from './batalla/escena.js';
+import { jugadaDelBotonDeMuralla, modoDelBoton } from './batalla/poderes.js';
+import { DialogoDeLaRueda } from './batalla/rueda/dialogo.js';
 import { combateALaURL, combateDeLaURL, type ParametroDelCombate } from './combate-en-la-url.js';
 import { leerElClimaDeLaURL } from './comun/clima-de-la-url.js';
 import { mensajeDe } from './comun/errores.js';
@@ -21,9 +25,7 @@ import { ponerTema } from './comun/temas.js';
 import type { Desarrollo } from './desarrollo/tipos.js';
 import { EscenaAventura } from './escenas/aventura.js';
 import { EscenaAyuntamiento } from './escenas/ayuntamiento.js';
-import { EscenaBatalla } from './escenas/batalla.js';
 import { EscenaBase } from './escenas/castillo.js';
-import { FLECHAS_AL_COLOCAR } from './escenas/despliegue.js';
 import { EscenaLugar } from './escenas/lugar.js';
 import { EscenaMorada } from './escenas/morada.js';
 import { EscenaTropa } from './escenas/tropa.js';
@@ -35,7 +37,6 @@ import { hayFigurasAnimadas } from './render/figuras/figura.js';
 import { genteCargada } from './render/figuras/gente.js';
 import { ajustarLienzo } from './render/lienzo.js';
 import { repartirClic } from './reparto-del-clic.js';
-import { DialogoDeLaRueda } from './rueda/dialogo.js';
 import { Session } from './session.js';
 import { pintarSiguiendoElFinal } from './views/al-final.js';
 import { renderAviso } from './views/aviso.js';
@@ -43,7 +44,6 @@ import { renderConversacion } from './views/base.js';
 import { renderDefensa, renderGuarnicion } from './views/guarnicion.js';
 import { renderConversacionDelLugar } from './views/lugar.js';
 import { renderActions, renderSide, renderTopbar } from './views/panels.js';
-import { jugadaDelBotonDeMuralla, modoDelBoton } from './views/poderes.js';
 
 /**
  * `true` en `pnpm dev` y `false` en `vite build` (`define` de `vite.config.ts`):
@@ -66,7 +66,7 @@ const elActions = document.getElementById('actions') as HTMLElement;
 const elSeed = document.getElementById('seed') as HTMLElement;
 const haciaEnemigo = document.getElementById('hacia-enemigo') as HTMLElement;
 const conversacion = document.getElementById('conversacion') as HTMLDialogElement;
-/** La rueda del golpe (`rueda/dialogo.ts`): modal sobre el lienzo, mientras se elige y se cuenta un cruce. */
+/** La rueda del golpe (`batalla/rueda/dialogo.ts`): modal sobre el lienzo, mientras se elige y se cuenta un cruce. */
 const elRueda = document.getElementById('rueda') as HTMLDialogElement;
 /** «¿Volver al menú?» (botón «Menú» de la barra de arriba): «Abandonar la partida» es el `restart`. */
 const salirAlMenu = document.getElementById('salir-al-menu') as HTMLDialogElement;

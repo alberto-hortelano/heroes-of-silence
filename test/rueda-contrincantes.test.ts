@@ -12,10 +12,15 @@
  */
 import { describe, expect, it } from 'vitest';
 import { caraDeLaArena } from '../src/client/arena/paneles.js';
+import { EscenaBatalla } from '../src/client/batalla/escena.js';
+import { anguloDe, medidasDeLaRueda } from '../src/client/batalla/rueda/disco.js';
+import {
+  haciaDe,
+  idDeLaForma,
+  renderEleccion,
+  sitioEnLaRueda,
+} from '../src/client/batalla/rueda/rueda.js';
 import { marcadoDe } from '../src/client/comun/html.js';
-import { EscenaBatalla } from '../src/client/escenas/batalla.js';
-import { anguloDe, medidasDeLaRueda } from '../src/client/rueda/disco.js';
-import { haciaDe, idDeLaForma, renderEleccion, sitioEnLaRueda } from '../src/client/rueda/rueda.js';
 import type { SesionDeArena } from '../src/client/session.js';
 import { efectoEnCurso, modificadoresEnCurso } from '../src/client/views/panels.js';
 import { dichoCortoDeLaCarga, dichoDeLaCarga } from '../src/core/battle/carga.js';

@@ -7,8 +7,8 @@
 
 import { describe, expect, it } from 'vitest';
 import { type Html, html, marcadoDe, unir } from '../src/client/comun/html.js';
+import { nombreEnElCampo } from '../src/client/render/batalla/distintivo.js';
 import { desplazamientoTrasPintar, pintarSiguiendoElFinal } from '../src/client/views/al-final.js';
-import { nombreEnElCampo } from '../src/client/views/distintivo.js';
 import { renderBattleLog } from '../src/client/views/panels.js';
 import { activeStack } from '../src/core/battle/consultas.js';
 import { createBattle } from '../src/core/battle/montaje.js';

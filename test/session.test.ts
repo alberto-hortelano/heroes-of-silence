@@ -8,8 +8,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { renderEleccion } from '../src/client/batalla/rueda/rueda.js';
 import { marcadoDe } from '../src/client/comun/html.js';
-import { renderEleccion } from '../src/client/rueda/rueda.js';
 import { AYUDA_DEL_MAPA, Session } from '../src/client/session.js';
 import { renderActions, renderSide } from '../src/client/views/panels.js';
 import { hexDistance } from '../src/core/battle/board.js';

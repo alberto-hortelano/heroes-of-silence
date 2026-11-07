@@ -45,9 +45,9 @@ import { type ClimaDelSitio, DESPEJADO } from '@core/state/clima.js';
 import type { Hex, PlayerId } from '@core/types.js';
 import { ALTO_DE_FIGURA, ALTO_DE_FILA, COMPRESION_SUELO, type Plano } from '../../shared/arte.js';
 import { ALTO_DE_MURALLA, ESCALERA, PORTADA } from '../../shared/muralla-de-batalla.js';
-import type { Efecto, EstadoFigura } from '../anim.js';
+import type { Efecto, EstadoFigura } from '../batalla/anim.js';
 import { temaDelLienzo } from '../comun/temas.js';
-import { nombreEnElCampo } from '../views/distintivo.js';
+import { asset } from './assets.js';
 import {
   type CaraConArte,
   caraDe,
@@ -57,8 +57,8 @@ import {
   pintarPortadaConArte,
   pintarRemateConArte,
   rellenoDeLaTapa,
-} from './arte-de-la-muralla.js';
-import { asset } from './assets.js';
+} from './batalla/arte-de-la-muralla.js';
+import { nombreEnElCampo } from './batalla/distintivo.js';
 import {
   campoDeEscena,
   hornearElVelo,
@@ -1267,7 +1267,7 @@ export function alturaDeColumna(t: Tablero): number {
  * El tablero de lo que está a `elevacion` (0 en el suelo, 1 en lo alto de un
  * muro, y lo de en medio al subir): el mismo, subido `alturaDeColumna`. LA
  * forma de subir en pantalla: la leen la figura (`cajaDeFigura`), los efectos y
- * el clic sobre las columnas (`escenas/batalla.ts`).
+ * el clic sobre las columnas (`batalla/escena.ts`).
  */
 export function tableroA(t: Tablero, elevacion: number): Tablero {
   return elevacion === 0 ? t : { ...t, origenY: t.origenY - elevacion * alturaDeColumna(t) };

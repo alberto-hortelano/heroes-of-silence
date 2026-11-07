@@ -100,7 +100,7 @@
   --letra-cuerpo: Georgia, 'Times New Roman', serif;
   --letra-ui: system-ui, sans-serif;
 
-  /* La rueda del golpe (`rueda/rueda.css`): madera, latón y el verde de la mesa.
+  /* La rueda del golpe (`batalla/rueda/rueda.css`): madera, latón y el verde de la mesa.
      Con tema, cada una se deriva de las suyas en el común de `temas.css`. */
   --rueda-caja: color-mix(in srgb, var(--panel) 90%, transparent);
   --rueda-sombra: 0 8px 22px #000b;

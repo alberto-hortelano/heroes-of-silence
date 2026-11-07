@@ -254,12 +254,15 @@ describe('invariantes del proyecto', () => {
     // `arteDe`, lo que leen la batalla y el animador, lanza con ella (lo prueba
     // `npcs.test.ts`), y la pinta solo quien la pinta de pie (`arteParaPintar`,
     // `colocarFigura`). Aquí, que ninguna pantalla de pelea la nombre siquiera. Roto
-    // a mano: un `cuerpoDeGente` en `render/batalla.ts` sale rojo.
+    // a mano: un `cuerpoDeGente` en `render/batalla.ts` sale rojo. Desde la fase C de
+    // la reorganización (07-11-2026) la pelea son carpetas enteras: `batalla/` (el
+    // animador, la escena, la rueda, el despliegue, los poderes…) y `render/batalla/`;
+    // antes, `anim.ts` y `rueda/`, y la escena y lo demás no se miraban.
     const PELEA = CLIENTE.filter(
       (r) =>
         r === ruta('src/client/render/batalla.ts') ||
-        r === ruta('src/client/anim.ts') ||
-        r.startsWith(ruta('src/client/rueda/')) ||
+        r.startsWith(ruta('src/client/render/batalla/')) ||
+        r.startsWith(ruta('src/client/batalla/')) ||
         r.startsWith(ruta('src/client/arena/')) ||
         r.startsWith(ruta('src/client/espectador/')),
     );

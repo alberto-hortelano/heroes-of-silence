@@ -11,14 +11,14 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { BattleAnimator, DURACION } from '../src/client/anim.js';
 import {
   caraDeLaArena,
   renderPanelDeBatalla,
   rotuloDelTurno,
 } from '../src/client/arena/paneles.js';
+import { BattleAnimator, DURACION } from '../src/client/batalla/anim.js';
+import { renderEleccion, tramosDelDesenlace } from '../src/client/batalla/rueda/rueda.js';
 import { marcadoDe } from '../src/client/comun/html.js';
-import { renderEleccion, tramosDelDesenlace } from '../src/client/rueda/rueda.js';
 import { SesionDeArena } from '../src/client/session.js';
 import { renderBattleLog } from '../src/client/views/panels.js';
 import { completarCruce, elegirEnLaRueda, pasoDelCruce } from '../src/core/ai/rueda.js';

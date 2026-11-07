@@ -31,11 +31,20 @@ import { join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { type Browser, chromium, type Page } from 'playwright';
 import WebSocket from 'ws';
-import { DURACION, duracionDeLaJugada, IMPACTO } from '../../src/client/anim.js';
 import { LA_LLEVA_EL_HEROE } from '../../src/client/arena/paneles.js';
+import { DURACION, duracionDeLaJugada, IMPACTO } from '../../src/client/batalla/anim.js';
+import { cargaContra, EscenaBatalla, rotuloDeAngulo } from '../../src/client/batalla/escena.js';
+import { textoDePrevision } from '../../src/client/batalla/prevision.js';
+import {
+  anguloDe as anguloEnLaRueda,
+  medidasDeLaRueda,
+} from '../../src/client/batalla/rueda/disco.js';
+import {
+  sitioEnLaRueda as sitioEnLaRuedaDe,
+  teclaDe as teclaEnLaRueda,
+} from '../../src/client/batalla/rueda/rueda.js';
 import { EscenaAventura } from '../../src/client/escenas/aventura.js';
 import { EscenaAyuntamiento } from '../../src/client/escenas/ayuntamiento.js';
-import { cargaContra, EscenaBatalla, rotuloDeAngulo } from '../../src/client/escenas/batalla.js';
 import { dondeHablarCon } from '../../src/client/escenas/castillo.js';
 import { cajasDeLaMorada, EscenaMorada } from '../../src/client/escenas/morada.js';
 import { EscenaTropa } from '../../src/client/escenas/tropa.js';
@@ -43,6 +52,7 @@ import type { VistaDeLaMorada } from '../../src/client/morada/vista.js';
 import { camaraDeLaBase, camaraQuieta } from '../../src/client/render/base/camara.js';
 import { dondeEsperaEnLaMorada } from '../../src/client/render/base/fila.js';
 import { dondePulsarElSitio } from '../../src/client/render/base/recortes.js';
+import { nombreEnElCampo } from '../../src/client/render/batalla/distintivo.js';
 import {
   ARO_DE_LA_RUEDA,
   type CajaDeFigura,
@@ -65,15 +75,8 @@ import {
   type Tablero,
   tableroPara,
 } from '../../src/client/render/proyeccion.js';
-import { anguloDe as anguloEnLaRueda, medidasDeLaRueda } from '../../src/client/rueda/disco.js';
-import {
-  sitioEnLaRueda as sitioEnLaRuedaDe,
-  teclaDe as teclaEnLaRueda,
-} from '../../src/client/rueda/rueda.js';
 import { type ControlDeBatalla, SesionDeArena, Session } from '../../src/client/session.js';
-import { nombreEnElCampo } from '../../src/client/views/distintivo.js';
 import { AVISO_DE_ESPERA, explicacionDeFin, rotuloDeDia } from '../../src/client/views/panels.js';
-import { textoDePrevision } from '../../src/client/views/prevision.js';
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';
 import { VERSION_DEL_ENLACE } from '../../src/core/arena/enlace.js';
 import { type HeroeDeArena, heroePorDefecto } from '../../src/core/arena/heroe.js';

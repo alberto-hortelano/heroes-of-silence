@@ -577,7 +577,7 @@ describe('invariantes del proyecto', () => {
       ),
     ).toEqual([]);
     expect(infractoresDeCodigo(CLIENTE, /\bTODOS_LOS_GOLPES\b/)).toEqual([]);
-    const FICHA = ruta('src/client/rueda/disco.ts');
+    const FICHA = ruta('src/client/batalla/rueda/disco.ts');
     const fija = /\bRUEDA_DE_REFERENCIA\b/;
     expect(
       infractoresDeCodigo(
@@ -916,7 +916,7 @@ describe('invariantes del proyecto', () => {
     // fuera. Roto a mano: un `p.lanza` en `carga.ts` sale rojo.
     const LEEN = [ruta('src/core/equipo/manos.ts'), ruta('src/core/equipo/pieza.ts')];
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR].filter(
-      (r) => r !== ruta('src/client/anim.ts'),
+      (r) => r !== ruta('src/client/batalla/anim.ts'),
     );
     const lee = /\.lanza\b/;
     expect(

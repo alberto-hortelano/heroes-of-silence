@@ -87,6 +87,8 @@ import { esTipoDeGolpe, type Hero, HUECOS, NOMBRE_DE_HUECO } from '@core/types.j
 import { unidadDelJuego } from '@core/unidad/catalogo.js';
 import { nivelDeUnidad } from '@core/unidad/nivel.js';
 import { disposicionDe } from '../../shared/base.js';
+import { COMO_SE_COLOCA } from '../batalla/colocar.js';
+import { botonesDeArma, botonesDeMuralla, botonesDePoder } from '../batalla/poderes.js';
 import {
   DESHABILITADO,
   fondoDeColor,
@@ -99,17 +101,15 @@ import {
 import { quienesDe } from '../comun/quien-mira.js';
 import { DICHO_DE_LA_OBRA } from '../dicho-del-puesto.js';
 import type { Abierto } from '../escenas/castillo.js';
-import { COMO_SE_COLOCA } from '../escenas/despliegue.js';
 import { asset } from '../render/assets.js';
+import { nombreEnElCampo } from '../render/batalla/distintivo.js';
 import { COLOR_DEL_ORO, MARCA_DE_COMANDANTE } from '../render/palette.js';
 import type { DespliegueEnPantalla, ModoDelArma, Session, SpellOption } from '../session.js';
 import { renderPanelDelAyuntamiento } from './ayuntamiento.js';
 import { renderAbierto } from './base.js';
 import { filaDeCifra } from './cifras.js';
-import { nombreEnElCampo } from './distintivo.js';
 import { renderPanelDelLugar } from './lugar.js';
 import { renderPanelDeLaMorada } from './morada.js';
-import { botonesDeArma, botonesDeMuralla, botonesDePoder } from './poderes.js';
 import { renderPanelDeLaTropa } from './tropa.js';
 
 /** Lo que dice la barra a quien pulsa mientras la jugada se cuenta. */

@@ -8,8 +8,8 @@
 
 import { describe, expect, it } from 'vitest';
 import { renderMuralla } from '../src/client/arena/paneles.js';
+import { EscenaBatalla } from '../src/client/batalla/escena.js';
 import { marcadoDe } from '../src/client/comun/html.js';
-import { EscenaBatalla } from '../src/client/escenas/batalla.js';
 import {
   alzadoDeLaMuralla,
   cajaDeFigura,

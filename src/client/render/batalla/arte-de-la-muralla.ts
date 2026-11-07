@@ -10,7 +10,7 @@
  */
 
 import type { MaterialDeMuralla } from '@core/battle/types.js';
-import indiceJson from '../../../assets/batalla/muralla/indice.json' with { type: 'json' };
+import indiceJson from '../../../../assets/batalla/muralla/indice.json' with { type: 'json' };
 import {
   ALTO_DE_MURALLA,
   CARPETA_DE_LA_MURALLA,
@@ -22,11 +22,11 @@ import {
   PIEZAS_DE_LA_MURALLA,
   PORTADA,
   RODAJAS_DE_LA_CARA,
-} from '../../shared/muralla-de-batalla.js';
-import { asset, pedirArteDeLaMuralla } from './assets.js';
-import { copiaReducida } from './copias.js';
-import { densidadDe } from './lienzo.js';
-import type { Tablero } from './proyeccion.js';
+} from '../../../shared/muralla-de-batalla.js';
+import { asset, pedirArteDeLaMuralla } from '../assets.js';
+import { copiaReducida } from '../copias.js';
+import { densidadDe } from '../lienzo.js';
+import type { Tablero } from '../proyeccion.js';
 
 const INDICE: IndiceDeLaMuralla = leerIndiceDeLaMuralla(indiceJson);
 

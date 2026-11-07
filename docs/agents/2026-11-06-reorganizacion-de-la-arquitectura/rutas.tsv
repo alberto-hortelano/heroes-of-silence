@@ -1349,3 +1349,16 @@ fichero	src/client/render/terreno.ts	src/client/render/mapa/terreno.ts
 fichero	src/client/render/piezas.ts	src/client/render/mapa/cofre.ts	
 fichero	src/client/render/morada/fila.ts	src/client/render/base/fila.ts	
 fichero	src/client/render/escenario/inspeccion.ts	src/client/desarrollo/inspeccion.ts	
+fichero	src/client/anim.ts	src/client/batalla/anim.ts	
+fichero	src/client/escenas/batalla.ts	src/client/batalla/escena.ts	
+fichero	src/client/escenas/angulo.ts	src/client/batalla/angulo.ts	
+fichero	src/client/escenas/despliegue.ts	src/client/batalla/colocar.ts	
+fichero	src/client/views/poderes.ts	src/client/batalla/poderes.ts	
+fichero	src/client/views/prevision.ts	src/client/batalla/prevision.ts	
+fichero	src/client/rueda/dialogo.ts	src/client/batalla/rueda/dialogo.ts	
+fichero	src/client/rueda/disco.ts	src/client/batalla/rueda/disco.ts	
+fichero	src/client/rueda/figuras.ts	src/client/batalla/rueda/figuras.ts	
+fichero	src/client/rueda/rueda.ts	src/client/batalla/rueda/rueda.ts	
+fichero	src/client/views/distintivo.ts	src/client/render/batalla/distintivo.ts	
+fichero	src/client/render/arte-de-la-muralla.ts	src/client/render/batalla/arte-de-la-muralla.ts	
+fichero	src/client/rueda/rueda.css	src/client/batalla/rueda/rueda.css	

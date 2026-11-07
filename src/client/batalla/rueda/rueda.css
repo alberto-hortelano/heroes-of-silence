@@ -1,5 +1,5 @@
 /*
- * La rueda del golpe (`rueda/rueda.ts`, en la batalla de la partida y en la de la
+ * La rueda del golpe (`batalla/rueda/rueda.ts`, en la batalla de la partida y en la de la
  * arena; la enlazan las dos páginas): un diálogo modal sobre
  * el lienzo, sin fondo: la rueda flota sobre el tablero. Sus colores son los de
  * la casa (madera, latón, verde de mesa), que son fichas del tema (`--rueda-*`: en
@@ -10,7 +10,7 @@
  * llegan en atributos (`COLOR_BANDO`): no se copian aquí.
  *
  * El desenlace lo cuenta `data-tramo` en el diálogo («giro marcas arco rotulo»,
- * acumulado: `tramosDelDesenlace`), que pone `rueda/dialogo.ts` al ritmo del animador; cada
+ * acumulado: `tramosDelDesenlace`), que pone `batalla/rueda/dialogo.ts` al ritmo del animador; cada
  * animación vive dentro de su tramo y se queda en su final (`both`). Sus
  * duraciones son fracciones de `--cruce`, el paso entero (`DURACION.cruce`, que
  * pone `ajustarLaRueda`): un solo reloj. Los tramos empiezan en 0, 0,33, 0,45 y
@@ -303,7 +303,7 @@
 /* Con `data-quieta` (la rueda recién pintada, con el puntero aún donde estaba),
    el `:hover` no enciende nada: el sector de debajo es el que pulsó quien eligió
    antes, y con los dos bandos «Yo» se lo enseñaba al otro (H1 de QA). Lo quita el
-   primer movimiento del puntero o una pulsación (`rueda/dialogo.ts`); una tecla no (H1b):
+   primer movimiento del puntero o una pulsación (`batalla/rueda/dialogo.ts`); una tecla no (H1b):
    el teclado enciende por `:focus-visible`. El fondo va aparte y siempre: el
    `button:hover` de style.css pintaba un óvalo. */
 .sector-de-rueda button:hover:not(:disabled) { background: transparent; }

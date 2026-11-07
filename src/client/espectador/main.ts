@@ -22,6 +22,7 @@ import {
 } from '@core/state/clima.js';
 import type { SpectatorSnapshotMsg } from '../../server/protocol.js';
 import type { SpectatorView } from '../../server/vista-espectador.js';
+import { DialogoDeLaRueda } from '../batalla/rueda/dialogo.js';
 import { avisoDelClima, climaDeLaURL } from '../comun/clima-de-la-url.js';
 import { mensajeDe } from '../comun/errores.js';
 import { NADA } from '../comun/html.js';
@@ -33,7 +34,6 @@ import { ajustarLienzo, pixelesDe } from '../render/lienzo.js';
 import { type CamaraMapa, centrarEn, TILE_LEGIBLE } from '../render/mapa/camara.js';
 import { type AdventureScene, drawMapa, presupuestoConHolgura } from '../render/mapa/mapa.js';
 import { tableroPara } from '../render/proyeccion.js';
-import { DialogoDeLaRueda } from '../rueda/dialogo.js';
 import { pintarSiguiendoElFinal } from '../views/al-final.js';
 import { rotuloDeDia } from '../views/panels.js';
 import { adaptarEscena, centroDeLaEscena, sitiosDelCable } from './adaptar.js';

@@ -12,7 +12,7 @@
  * Todo es puro salvo la caja del lienzo, que la mide la página: lo que «se ve»
  * depende de ella, y es la misma cuenta que hace `Mapa` en el guion.
  */
-import { masCercana, opcionesDeGolpe } from '../../src/client/escenas/angulo.js';
+import { masCercana, opcionesDeGolpe } from '../../src/client/batalla/angulo.js';
 import { focoDe, llegadaDeLaRuta } from '../../src/client/escenas/aventura.js';
 import { cajaDeFigura, galonesDe } from '../../src/client/render/batalla.js';
 import { escenarioDe, topeDeAlejar } from '../../src/client/render/escenario/superficie.js';

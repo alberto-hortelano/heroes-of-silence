@@ -23,7 +23,7 @@ import {
   disposicionDelLugar,
   MARGEN_DE_LA_FRANJA,
 } from '../../shared/base.js';
-import { porElCamino } from '../anim.js';
+import { porElCamino } from '../batalla/anim.js';
 import { temaDelLienzo } from '../comun/temas.js';
 import type { PuntoALaVista, VistaDelLugar } from '../lugar/sesion.js';
 import { arteDeLaBase } from '../render/base/arte.js';

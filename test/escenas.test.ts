@@ -9,10 +9,10 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { DURACION, type EstadoFigura } from '../src/client/anim.js';
+import { DURACION, type EstadoFigura } from '../src/client/batalla/anim.js';
+import { EscenaBatalla } from '../src/client/batalla/escena.js';
 import { marcadoDe } from '../src/client/comun/html.js';
 import { EscenaAventura, focoDe, llegadaDeLaRuta } from '../src/client/escenas/aventura.js';
-import { EscenaBatalla } from '../src/client/escenas/batalla.js';
 import { EscenaBase } from '../src/client/escenas/castillo.js';
 import { PAUSA_TRAS_EL_RIVAL, PuertaDeFinDeTurno } from '../src/client/fin-de-turno.js';
 import { camaraDeLaBase, camaraQuieta } from '../src/client/render/base/camara.js';

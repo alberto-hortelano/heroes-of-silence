@@ -107,12 +107,13 @@ import {
   type Unidad,
   unidadDeCombate,
 } from '@core/unidad/formato.js';
+import { botonesDeArma, botonesDeMuralla, botonesDePoder } from '../batalla/poderes.js';
+import { ruedaDeLaPieza } from '../batalla/rueda/disco.js';
+import type { CaraDeLosContrincantes } from '../batalla/rueda/rueda.js';
 import { DESHABILITADO, type Html, html, MARCADO, NADA, srcDeImagen, unir } from '../comun/html.js';
-import { ruedaDeLaPieza } from '../rueda/disco.js';
-import type { CaraDeLosContrincantes } from '../rueda/rueda.js';
+import { nombreEnElCampo } from '../render/batalla/distintivo.js';
 import type { SesionDeArena } from '../session.js';
 import { filaDeCifra } from '../views/cifras.js';
-import { nombreEnElCampo } from '../views/distintivo.js';
 import {
   accionesDeLaUnidad,
   apagadosPor,
@@ -123,7 +124,6 @@ import {
   renderDespliegue,
   renderSpells,
 } from '../views/panels.js';
-import { botonesDeArma, botonesDeMuralla, botonesDePoder } from '../views/poderes.js';
 import { abrirFichaBlocker, claveDeFicha, estaAbierta, type FichaEditable } from './edicion.js';
 
 /**

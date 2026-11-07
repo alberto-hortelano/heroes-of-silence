@@ -10,8 +10,8 @@
  * forma rota a propósito y su frase.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
+import { EscenaBatalla } from '../src/client/batalla/escena.js';
 import { marcadoDe } from '../src/client/comun/html.js';
-import { EscenaBatalla } from '../src/client/escenas/batalla.js';
 import { alturaDeColumna, alzadoDeLaMuralla } from '../src/client/render/batalla.js';
 import { centroHex, tableroPara } from '../src/client/render/proyeccion.js';
 import { Session } from '../src/client/session.js';

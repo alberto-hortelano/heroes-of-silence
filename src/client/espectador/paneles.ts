@@ -18,9 +18,9 @@ import { pasoOPuebloSiExiste } from '@core/state/sitios.js';
 import type { SpectatorView } from '../../server/vista-espectador.js';
 import { fondoDeColor, type Html, html, NADA, unir } from '../comun/html.js';
 import { NADIE } from '../comun/quien-mira.js';
+import { nombreEnElCampo } from '../render/batalla/distintivo.js';
 import { playerColor } from '../render/palette.js';
 import { filaDeCifra } from '../views/cifras.js';
-import { nombreEnElCampo } from '../views/distintivo.js';
 import {
   estadoADistancia,
   historiaDelHeroe,

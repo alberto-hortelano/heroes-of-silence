@@ -3,7 +3,7 @@
  * formación (02-11-2026, «la vista de tropa pasa a ser la de despliegue»). Se ve
  * y se maneja como el despliegue de una batalla, solo con lo propio: el mismo
  * pintado (`tableroAlColocar`) y el mismo clic (`clicAlColocar`) de
- * `escenas/despliegue.ts`, sobre la batalla de la formación
+ * `batalla/colocar.ts`, sobre la batalla de la formación
  * (`VistaDeLaTropa.batalla`), y quién está bajo el puntero, también de allí.
  * Pulsar a uno lo elige —su ficha y su equipo, en el panel—; pulsar una casilla
  * verde lo pone ahí, o lo cambia con quien salga en ella (`Session.formacion`, el
@@ -14,10 +14,7 @@
  */
 import type { BattleState } from '@core/battle/types.js';
 import type { Hex } from '@core/types.js';
-import { BattleAnimator } from '../anim.js';
-import { type CajaDeFigura, cajaDeFigura, drawBatalla } from '../render/batalla.js';
-import { enPantalla, planoDeHex, type Tablero, tableroPara } from '../render/proyeccion.js';
-import { AYUDA_DE_LA_TROPA, type Session } from '../session.js';
+import { BattleAnimator } from '../batalla/anim.js';
 import {
   type ClicAlColocar,
   clicAlColocar,
@@ -25,7 +22,10 @@ import {
   señalarAlColocar,
   type TableroBajoElPuntero,
   tableroAlColocar,
-} from './despliegue.js';
+} from '../batalla/colocar.js';
+import { type CajaDeFigura, cajaDeFigura, drawBatalla } from '../render/batalla.js';
+import { enPantalla, planoDeHex, type Tablero, tableroPara } from '../render/proyeccion.js';
+import { AYUDA_DE_LA_TROPA, type Session } from '../session.js';
 
 const NINGUN_BANDO: ReadonlySet<never> = new Set();
 
@@ -160,7 +160,7 @@ export class EscenaTropa {
     return t === null ? null : clicAlColocar(this.sesion().formacion, t, px, py);
   }
 
-  /** El tablero bajo el puntero (`escenas/despliegue.ts`, el de la batalla), o `null` fuera de la escena. */
+  /** El tablero bajo el puntero (`batalla/colocar.ts`, el de la batalla), o `null` fuera de la escena. */
   private bajoElPuntero(): TableroBajoElPuntero | null {
     const vista = this.sesion().vistaDeLaTropa();
     if (vista === null) return null;

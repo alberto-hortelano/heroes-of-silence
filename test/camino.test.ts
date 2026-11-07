@@ -10,7 +10,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { BattleAnimator, DURACION, porElCamino } from '../src/client/anim.js';
+import { BattleAnimator, DURACION, porElCamino } from '../src/client/batalla/anim.js';
 import { type Direccion, direccionHacia } from '../src/client/render/figuras/direccion.js';
 import { msPorCasilla } from '../src/client/render/figuras/marcha.js';
 import { arteDe, hojaDe, INDICE_DE_HOJA } from '../src/client/render/figuras/personajes.js';

@@ -110,7 +110,7 @@ const murallaPedida = new Set<string>();
 
 /**
  * Pide, una vez, las piezas de la muralla del tablero de batalla
- * (`assets/batalla/muralla/<pieza>.webp`, `render/arte-de-la-muralla.ts`), en una
+ * (`assets/batalla/muralla/<pieza>.webp`, `render/batalla/arte-de-la-muralla.ts`), en una
  * tanda: se piden con la primera batalla que lleva muralla, no al arrancar. Se
  * leen con `asset('muralla', pieza)`; lo que no llega se queda en su marcador.
  */

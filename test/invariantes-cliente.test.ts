@@ -299,7 +299,7 @@ describe('invariantes del proyecto', () => {
     // `EscenaBatalla.batallaQueSeCuenta`, para el animador. Roto a mano
     // (02-11-2026): un `this.sesion().batallaEntera` en `unidadEn` sale rojo con su
     // línea, y `renderBattlePanel` leyendo `session.battle`, también.
-    const ESCENA = ruta('src/client/escenas/batalla.ts');
+    const ESCENA = ruta('src/client/batalla/escena.ts');
     const lecturas = infractoresDeCodigo(
       CLIENTE.filter((r) => r !== ruta('src/client/session.ts')),
       /\.batallaEntera\b/,
@@ -322,7 +322,7 @@ describe('invariantes del proyecto', () => {
         [
           ruta('src/client/views/panels.ts'),
           ruta('src/client/arena/paneles.ts'),
-          ruta('src/client/views/poderes.ts'),
+          ruta('src/client/batalla/poderes.ts'),
         ],
         /\b(session|s)\.battle\b/,
       ),

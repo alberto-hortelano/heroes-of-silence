@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { accionContra, masCercana, opcionesDeGolpe } from '../src/client/batalla/angulo.js';
+import { EscenaBatalla, rotuloDeAngulo } from '../src/client/batalla/escena.js';
 import { marcadoDe } from '../src/client/comun/html.js';
-import { accionContra, masCercana, opcionesDeGolpe } from '../src/client/escenas/angulo.js';
-import { EscenaBatalla, rotuloDeAngulo } from '../src/client/escenas/batalla.js';
 import { cajaDeFigura } from '../src/client/render/batalla.js';
 import { centroDeStack, centroHex, tableroPara } from '../src/client/render/proyeccion.js';
 import type { Session } from '../src/client/session.js';

@@ -106,13 +106,16 @@ import {
 } from '@core/unidad/formato.js';
 import { unaVezEnLaURL } from '@core/validar.js';
 import { FIGURA } from '../../shared/arte.js';
+import { FLECHAS_AL_COLOCAR } from '../batalla/colocar.js';
+import { EscenaBatalla } from '../batalla/escena.js';
+import { jugadaDelBotonDeMuralla, modoDelBoton } from '../batalla/poderes.js';
+import { DialogoDeLaRueda } from '../batalla/rueda/dialogo.js';
 import { avisoDelClima, climaDeLaURL } from '../comun/clima-de-la-url.js';
 import { mensajeDe } from '../comun/errores.js';
 import { type Html, html, pintar } from '../comun/html.js';
 import { aLaBarra, semillaSorteada } from '../comun/semilla.js';
-import { EscenaBatalla } from '../escenas/batalla.js';
-import { FLECHAS_AL_COLOCAR } from '../escenas/despliegue.js';
 import { cargarArte } from '../render/assets.js';
+import { nombreEnElCampo } from '../render/batalla/distintivo.js';
 import { COLOR_BANDO } from '../render/batalla.js';
 import type { CharacterClip } from '../render/figuras/character.js';
 import type { Direccion } from '../render/figuras/direccion.js';
@@ -134,13 +137,10 @@ import {
 } from '../render/figuras/personajes.js';
 import { ajustarLienzo } from '../render/lienzo.js';
 import { COLOR_NEUTRO } from '../render/palette.js';
-import { DialogoDeLaRueda } from '../rueda/dialogo.js';
 import { type LadoDeSesion, SesionDeArena } from '../session.js';
 import { pintarSiguiendoElFinal } from '../views/al-final.js';
 import { leerElCombate, selectoresDelCombate } from '../views/combate.js';
-import { nombreEnElCampo } from '../views/distintivo.js';
 import { AVISO_DE_ESPERA } from '../views/panels.js';
-import { jugadaDelBotonDeMuralla, modoDelBoton } from '../views/poderes.js';
 import {
   abiertasATexto,
   abrirFicha,
@@ -2271,7 +2271,7 @@ function dibujarBatalla(ahora: number, s: SesionDeArena): void {
 }
 
 /**
- * La rueda del golpe (`rueda/dialogo.ts`, la misma de la partida): la arena pone
+ * La rueda del golpe (`batalla/rueda/dialogo.ts`, la misma de la partida): la arena pone
  * alrededor de la figura de los dos que se cruzan su ficha y su vista previa
  * (`caraDeLaArena`).
  */

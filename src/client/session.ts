@@ -214,10 +214,10 @@ import {
 } from '@core/types.js';
 import { cuerpoDe, unidadDelJuego } from '@core/unidad/catalogo.js';
 import { componerVistaDelAyuntamiento, type VistaDelAyuntamiento } from './ayuntamiento/vista.js';
+import { COMO_SE_COLOCA, type ColocacionEnPantalla } from './batalla/colocar.js';
 import { mensajeDe } from './comun/errores.js';
 import { quienesDe } from './comun/quien-mira.js';
 import { DICHO_DE_LA_OBRA } from './dicho-del-puesto.js';
-import { COMO_SE_COLOCA, type ColocacionEnPantalla } from './escenas/despliegue.js';
 import { EnElLugar, type TrasElegir } from './lugar/sesion.js';
 import { componerVistaDeLaMorada, type VistaDeLaMorada } from './morada/vista.js';
 import type { VistaDeLaBase } from './render/base/escena.js';
@@ -1059,7 +1059,7 @@ const SIN_FOTO: FotoDelDespliegue = { enCurso: null, elegido: null, zona: [] };
  * «Listo». Las reglas son del núcleo (`colocarBlocker`, `aplicarDespliegue`,
  * `formar`): aquí solo se elige a quién, se escribe la barra y se pide lo que se ve
  * (`batallaALaVista`). Lo pintan y lo pulsan las escenas por
- * `escenas/despliegue.ts`.
+ * `batalla/colocar.ts`.
  */
 export class DespliegueEnPantalla implements ColocacionEnPantalla {
   /** El elegido con el clic o su botón, atado a la batalla en que se eligió (sin `dueño.elegido`). */

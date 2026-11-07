@@ -12,7 +12,7 @@ import {
   duracionDeLaJugada,
   fotoDeEfectos,
   IMPACTO,
-} from '../src/client/anim.js';
+} from '../src/client/batalla/anim.js';
 import { clipQueSePinta } from '../src/client/render/batalla.js';
 import { msPorCasilla } from '../src/client/render/figuras/marcha.js';
 import {

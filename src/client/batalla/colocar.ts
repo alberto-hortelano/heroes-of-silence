@@ -19,7 +19,6 @@ import { nivelDe } from '@core/battle/muralla.js';
 import type { BattleStack, BattleState, Side } from '@core/battle/types.js';
 import type { ClimaDelSitio } from '@core/state/clima.js';
 import type { Hex } from '@core/types.js';
-import type { Efecto, EstadoFigura } from '../anim.js';
 import {
   cajaDeFigura,
   dentroDeLaFigura,
@@ -28,6 +27,7 @@ import {
   type VistaBatalla,
 } from '../render/batalla.js';
 import { cercaDelCentro, hexEnPixel, type Tablero } from '../render/proyeccion.js';
+import type { Efecto, EstadoFigura } from './anim.js';
 
 /**
  * Cómo se coloca, dicho una vez para la barra y los paneles del despliegue y de la
