@@ -2,11 +2,15 @@
  * Las cifras de pelear de una unidad en filas de rótulo y valor, y el motivo de un
  * botón apagado: los comparten la ficha de la tropa (`partida/tropa/panel.ts`) y la de la
  * morada (`partida/morada/panel.ts`), para que una unidad se lea igual al reclutarla que
- * al repartirle equipo.
+ * al repartirle equipo. Y los botones de la batalla apagados mientras se cuenta una
+ * jugada o espera la rueda (`apagadosPor`, `motivoParaApagar`, `AVISO_DE_ESPERA`), de la
+ * partida y la arena, que eran de `views/panels.ts` hasta la fase C de la
+ * reorganización (07-11-2026).
  */
 import { conMiles } from '@core/texto.js';
 import { SPEED_TO_HEXES, type UnitInfo } from '@core/types.js';
 import { type Html, html, NADA } from '../comun/html.js';
+import type { Session } from '../sesion/partida.js';
 
 /**
  * Una fila de la ficha: el rótulo a la izquierda y el valor a la derecha, cada uno
@@ -61,4 +65,32 @@ export function motivoDebajo(motivo: string | null): Html {
  */
 export function notaDebajo(nota: string | null): Html {
   return nota === null ? NADA : html`<span class="veterania motivo nota">${nota}</span>`;
+}
+
+/** Lo que dice la barra a quien pulsa mientras la jugada se cuenta. */
+export const AVISO_DE_ESPERA = 'Espera a que termine la jugada.';
+
+/**
+ * Los botones de la batalla apagados con `motivo` en el `title`, o tal cual con
+ * `null`. Mientras el tablero aún cuenta la última jugada (#165), con el aviso de
+ * espera: no se ofrecen para luego rechazarlos. Antes salían encendidos —el estado
+ * ya va por delante de lo que se ve— y el clic daba el aviso y pedía pulsar otra vez.
+ * Y mientras la rueda espera una elección (`motivoDeLaRueda` de la sesión): con el
+ * diálogo modal encima, «Terminar turno» y «Resolver sola» se veían encendidos y
+ * el clic no llegaba (H3 de QA, 19-10-2026).
+ *
+ * No se aplazan: un botón pulsado durante la jugada se haría sobre una unidad
+ * que todavía no se ve actuar, y un doble clic jugaba el segundo en la
+ * SIGUIENTE (M12 de QA de la arena). Un `fieldset` apagado apaga todo lo que
+ * lleva dentro, el botón que se añada mañana también: una regla, un sitio.
+ */
+export function apagadosPor(motivo: string | null, botones: Html): Html {
+  return motivo === null
+    ? botones
+    : html`<fieldset class="contando" disabled title="${motivo}">${botones}</fieldset>`;
+}
+
+/** Lo que apaga los botones de la batalla: la jugada que se cuenta o la rueda que espera. */
+export function motivoParaApagar(session: Session, contandoAun: boolean): string | null {
+  return contandoAun ? AVISO_DE_ESPERA : session.motivoDeLaRueda;
 }

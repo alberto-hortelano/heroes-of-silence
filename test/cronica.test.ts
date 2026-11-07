@@ -16,7 +16,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/comun/html.js';
-import { renderLog } from '../src/client/views/panels.js';
+import { renderLog } from '../src/client/views/cronica.js';
 import { playAiGame, resolvePendingBattle } from '../src/core/ai/turn.js';
 import { serializeAdventureTurn } from '../src/core/contract/aventura.js';
 import type { MapPlan } from '../src/core/map/generar/plan.js';

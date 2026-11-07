@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/comun/html.js';
+import { renderSide, renderTopbar } from '../src/client/partida/paneles.js';
 import { Session } from '../src/client/sesion/partida.js';
-import { renderSide, renderTopbar } from '../src/client/views/panels.js';
 import { heroUnit, maxMana } from '../src/core/hero/hero.js';
 import { umbral } from '../src/core/hero/rango.js';
 import { tiposDeHeroe } from '../src/core/hero/tipos-de-heroe.js';

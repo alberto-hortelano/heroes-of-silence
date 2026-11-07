@@ -16,6 +16,7 @@ import { EscenaBase } from '../src/client/partida/base/escena.js';
 import { renderConversacion } from '../src/client/partida/base/panel.js';
 import { PAUSA_TRAS_EL_RIVAL, PuertaDeFinDeTurno } from '../src/client/partida/fin-de-turno.js';
 import { EscenaAventura, focoDe, llegadaDeLaRuta } from '../src/client/partida/mapa/escena.js';
+import { renderActions, renderSide } from '../src/client/partida/paneles.js';
 import { repartirClic } from '../src/client/partida/reparto-del-clic.js';
 import { camaraDeLaBase, camaraQuieta } from '../src/client/render/base/camara.js';
 import { componerBase } from '../src/client/render/base/escena.js';
@@ -56,12 +57,8 @@ import {
 } from '../src/client/render/proyeccion.js';
 import { Session } from '../src/client/sesion/partida.js';
 import { SesionDeArena } from '../src/client/sesion/sesion-de-arena.js';
-import {
-  AVISO_DE_ESPERA,
-  marcaDeComandante,
-  renderActions,
-  renderSide,
-} from '../src/client/views/panels.js';
+import { marcaDeComandante } from '../src/client/views/campo.js';
+import { AVISO_DE_ESPERA } from '../src/client/views/cifras.js';
 import { apuntarBlocker, lanzarBlocker } from '../src/core/battle/a-distancia.js';
 import { areAdjacent, hexDistance, isInside, neighbours } from '../src/core/battle/board.js';
 import { isAlive, SIN_CARGAS, stackById, stackHexes } from '../src/core/battle/consultas.js';

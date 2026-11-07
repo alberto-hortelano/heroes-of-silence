@@ -6,10 +6,10 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { renderBattleLog } from '../src/client/batalla/parte.js';
 import { type Html, html, marcadoDe, unir } from '../src/client/comun/html.js';
 import { nombreEnElCampo } from '../src/client/render/batalla/distintivo.js';
 import { desplazamientoTrasPintar, pintarSiguiendoElFinal } from '../src/client/views/al-final.js';
-import { renderBattleLog } from '../src/client/views/panels.js';
 import { activeStack } from '../src/core/battle/consultas.js';
 import { createBattle } from '../src/core/battle/montaje.js';
 import type { BattleState, Side } from '../src/core/battle/types.js';

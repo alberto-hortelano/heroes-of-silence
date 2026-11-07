@@ -30,7 +30,7 @@ import { DICHO_DE_LA_OBRA, SE_VE_EN_EL_PUESTO } from '../comun/dichos.js';
 import { type Html, html, NADA, unir } from '../comun/html.js';
 import type { VistaDeLaDefensa, VistaDeLaGuarnicion } from '../sesion/partida.js';
 import { apagadoPor, filaDeCifra, motivoDebajo, notaDebajo } from '../views/cifras.js';
-import { filaDeTropa, filaLiderazgo } from '../views/panels.js';
+import { filaDeTropa, filaLiderazgo } from './ejercito.js';
 
 /** Un botón que pasa uno del grupo `g` al otro lado del reparto (`data-hacia`). */
 function botonDeMover(hacia: 'heroe' | 'guarnicion', g: TroopGroup): Html {

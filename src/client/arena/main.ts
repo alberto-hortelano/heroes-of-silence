@@ -140,8 +140,8 @@ import { ajustarLienzo } from '../render/lienzo.js';
 import { COLOR_NEUTRO } from '../render/palette.js';
 import { type LadoDeSesion, SesionDeArena } from '../sesion/sesion-de-arena.js';
 import { pintarSiguiendoElFinal } from '../views/al-final.js';
+import { AVISO_DE_ESPERA } from '../views/cifras.js';
 import { leerElCombate, selectoresDelCombate } from '../views/combate.js';
-import { AVISO_DE_ESPERA } from '../views/panels.js';
 import {
   abiertasATexto,
   abrirFicha,

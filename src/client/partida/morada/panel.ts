@@ -13,13 +13,9 @@ import { DESHABILITADO, type Html, html, NADA, unir } from '../../comun/html.js'
 import type { Session } from '../../sesion/partida.js';
 import type { FichaDeLaMorada } from '../../sesion/vistas/morada.js';
 import { filaDeCifra, filasDeCombate, motivoApagado } from '../../views/cifras.js';
-import {
-  filaLiderazgo,
-  modificadoresEnPantalla,
-  nota,
-  renderTropaLicenciable,
-} from '../../views/panels.js';
+import { modificadoresEnPantalla, nota } from '../../views/notas.js';
 import { mejora } from '../base/panel.js';
+import { filaLiderazgo, renderTropaLicenciable } from '../ejercito.js';
 
 export function renderPanelDeLaMorada(session: Session): Html {
   const vista = session.vistaDeLaMorada();

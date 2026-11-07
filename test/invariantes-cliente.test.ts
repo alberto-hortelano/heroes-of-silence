@@ -321,17 +321,30 @@ describe('invariantes del proyecto', () => {
       .reverse()
       .find((l) => /^ {2}(private )?\w+\(/.test(l));
     expect(metodo).toMatch(/batallaQueSeCuenta\(/);
-    // Los paneles de la batalla (partida y arena) no leen la batalla de la sesión.
-    expect(
-      infractoresDeCodigo(
-        [
-          ruta('src/client/views/panels.ts'),
-          ruta('src/client/arena/paneles.ts'),
-          ruta('src/client/batalla/poderes.ts'),
-        ],
-        /\b(session|s)\.battle\b/,
-      ),
-    ).toEqual([]);
+    // Los paneles de la partida y de la arena no leen la batalla de la sesión. Eran
+    // `views/panels.ts` y `arena/paneles.ts` hasta la fase C de la reorganización
+    // (07-11-2026); desde entonces se miran todos: lo común (`views/`), el panel, el
+    // parte y los botones de la batalla (`batalla/`), los de la partida (`paneles.ts`,
+    // `ejercito.ts` y el `panel.ts` de cada pantalla) y los de la arena.
+    const BATALLA = [
+      ruta('src/client/batalla/panel.ts'),
+      ruta('src/client/batalla/parte.ts'),
+      ruta('src/client/batalla/poderes.ts'),
+      ruta('src/client/partida/paneles.ts'),
+      ruta('src/client/partida/ejercito.ts'),
+      ruta('src/client/arena/paneles.ts'),
+    ];
+    const PARTIDA = `${ruta('src/client/partida')}/`;
+    const paneles = CLIENTE.filter(
+      (r) =>
+        r.startsWith(ruta('src/client/views/')) ||
+        BATALLA.includes(r) ||
+        (r.startsWith(PARTIDA) && r.endsWith('/panel.ts')),
+    );
+    expect(infractoresDeCodigo(paneles, /\b(session|s)\.battle\b/)).toEqual([]);
+    // Y que mire algo: los seis de lo común, los seis de arriba y el de cada pantalla.
+    expect(paneles.length).toBeGreaterThanOrEqual(18);
+    expect(paneles).toContain(ruta('src/client/partida/mapa/panel.ts'));
   });
 
   it('la pieza que pinta el clima no lee la sesión: le dan el clima del sitio', () => {

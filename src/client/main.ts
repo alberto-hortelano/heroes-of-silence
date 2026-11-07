@@ -38,6 +38,7 @@ import { renderConversacionDelLugar } from './partida/lugar/panel.js';
 import { EscenaAventura } from './partida/mapa/escena.js';
 import { EscenaMorada } from './partida/morada/escena.js';
 import { mundoPedido } from './partida/mundo.js';
+import { renderActions, renderSide, renderTopbar } from './partida/paneles.js';
 import { repartirClic } from './partida/reparto-del-clic.js';
 import { EscenaTropa } from './partida/tropa/escena.js';
 import { cargarArte } from './render/assets.js';
@@ -47,7 +48,6 @@ import { genteCargada } from './render/figuras/gente.js';
 import { ajustarLienzo } from './render/lienzo.js';
 import { Session } from './sesion/partida.js';
 import { pintarSiguiendoElFinal } from './views/al-final.js';
-import { renderActions, renderSide, renderTopbar } from './views/panels.js';
 
 /**
  * `true` en `pnpm dev` y `false` en `vite build` (`define` de `vite.config.ts`):

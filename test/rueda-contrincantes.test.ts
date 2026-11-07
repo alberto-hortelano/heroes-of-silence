@@ -22,7 +22,7 @@ import {
 } from '../src/client/batalla/rueda/rueda.js';
 import { marcadoDe } from '../src/client/comun/html.js';
 import type { SesionDeArena } from '../src/client/sesion/sesion-de-arena.js';
-import { efectoEnCurso, modificadoresEnCurso } from '../src/client/views/panels.js';
+import { efectoEnCurso, modificadoresEnCurso } from '../src/client/views/notas.js';
 import { dichoCortoDeLaCarga, dichoDeLaCarga } from '../src/core/battle/carga.js';
 import { NIVEL_MAXIMO } from '../src/core/battle/cifras-de-la-rueda.js';
 import { stackById } from '../src/core/battle/consultas.js';

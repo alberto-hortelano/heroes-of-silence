@@ -13,8 +13,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { accionesDeLaUnidad } from '../src/client/batalla/panel.js';
 import { marcadoDe, NADA } from '../src/client/comun/html.js';
-import { accionesDeLaUnidad } from '../src/client/views/panels.js';
 import { autoResolve } from '../src/core/ai/tactics.js';
 import { batallaDeArena } from '../src/core/arena/montaje.js';
 import { applyAction, soltarElGolpe } from '../src/core/battle/battle.js';

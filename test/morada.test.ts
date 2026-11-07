@@ -14,6 +14,7 @@ import { AYUDA_DE_LA_BASE, AYUDA_DE_LA_MORADA } from '../src/client/comun/dichos
 import { marcadoDe } from '../src/client/comun/html.js';
 import { EscenaBase } from '../src/client/partida/base/escena.js';
 import { cajasDeLaMorada, EscenaMorada } from '../src/client/partida/morada/escena.js';
+import { renderActions, renderSide } from '../src/client/partida/paneles.js';
 import {
   type ArteDeLaBase,
   conLaAbierta,
@@ -31,7 +32,6 @@ import { pasoDeLaHoja } from '../src/client/render/figuras/de-pie.js';
 import { pasoDeLaBase } from '../src/client/render/proyeccion.js';
 import { Session } from '../src/client/sesion/partida.js';
 import { componerVistaDeLaMorada } from '../src/client/sesion/vistas/morada.js';
-import { renderActions, renderSide } from '../src/client/views/panels.js';
 import { armaduraDe } from '../src/core/battle/armas.js';
 import { pieza } from '../src/core/equipo/pieza.js';
 import { hechizo } from '../src/core/magia/catalogo.js';

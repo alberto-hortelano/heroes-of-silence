@@ -14,7 +14,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { galonesDe } from '../src/client/render/batalla.js';
-import { marcaDeVeterano } from '../src/client/views/panels.js';
+import { marcaDeVeterano } from '../src/client/views/campo.js';
 import { resolvePendingBattle } from '../src/core/ai/turn.js';
 import { applyAction } from '../src/core/battle/battle.js';
 import { stackById } from '../src/core/battle/consultas.js';

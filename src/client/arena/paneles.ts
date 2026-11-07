@@ -107,23 +107,17 @@ import {
   type Unidad,
   unidadDeCombate,
 } from '@core/unidad/formato.js';
+import { accionesDeLaUnidad, renderDespliegue, renderSpells } from '../batalla/panel.js';
+import { renderBattleLog } from '../batalla/parte.js';
 import { botonesDeArma, botonesDeMuralla, botonesDePoder } from '../batalla/poderes.js';
 import { ruedaDeLaPieza } from '../batalla/rueda/disco.js';
 import type { CaraDeLosContrincantes } from '../batalla/rueda/rueda.js';
 import { DESHABILITADO, type Html, html, MARCADO, NADA, srcDeImagen, unir } from '../comun/html.js';
 import { nombreEnElCampo } from '../render/batalla/distintivo.js';
 import type { SesionDeArena } from '../sesion/sesion-de-arena.js';
-import { filaDeCifra } from '../views/cifras.js';
-import {
-  accionesDeLaUnidad,
-  apagadosPor,
-  listaDelCampo,
-  modificadoresEnPantalla,
-  nota,
-  renderBattleLog,
-  renderDespliegue,
-  renderSpells,
-} from '../views/panels.js';
+import { listaDelCampo } from '../views/campo.js';
+import { apagadosPor, filaDeCifra } from '../views/cifras.js';
+import { modificadoresEnPantalla, nota } from '../views/notas.js';
 import { abrirFichaBlocker, claveDeFicha, estaAbierta, type FichaEditable } from './edicion.js';
 
 /**
@@ -2023,9 +2017,9 @@ function rotuloDelGanador(battle: BattleState): string {
 
 /**
  * El panel lateral de la batalla. Las acciones, su ayuda —la de la carga
- * incluida— y la lista del campo son las piezas de la partida
- * (`views/panels.ts`); lo de aquí es lo que solo tiene la arena: quién mueve
- * cada unidad y el resultado por lados.
+ * incluida— y la lista del campo son las piezas de la partida (`batalla/panel.ts`,
+ * `views/campo.ts`); lo de aquí es lo que solo tiene la arena: quién mueve cada
+ * unidad y el resultado por lados.
  *
  * @param contandoAun si el tablero aún cuenta la última jugada: con la batalla
  *   ya resuelta en el estado, el resultado se calla hasta que el tablero llega a

@@ -18,8 +18,9 @@
  */
 
 import { type Html, marcadoDe } from '../src/client/comun/html.js';
+import { renderActions, renderSide, renderTopbar } from '../src/client/partida/paneles.js';
 import { Session } from '../src/client/sesion/partida.js';
-import { renderActions, renderLog, renderSide, renderTopbar } from '../src/client/views/panels.js';
+import { renderLog } from '../src/client/views/cronica.js';
 import { playAiGame } from '../src/core/ai/turn.js';
 import { isShooter } from '../src/core/battle/armas.js';
 import { terminarElDespliegue } from '../src/core/battle/despliegue.js';

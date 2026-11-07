@@ -10,8 +10,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { renderBattleLog } from '../src/client/batalla/parte.js';
 import { marcadoDe } from '../src/client/comun/html.js';
-import { renderBattleLog } from '../src/client/views/panels.js';
 import {
   type MontajeDelEnlace,
   montajeALaURL,

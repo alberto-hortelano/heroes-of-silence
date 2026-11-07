@@ -16,19 +16,15 @@ import type { BattleState, Side } from '@core/battle/types.js';
 import { nombreDeTipoDeHeroe } from '@core/hero/tipos-de-heroe.js';
 import { pasoOPuebloSiExiste } from '@core/state/sitios.js';
 import type { SpectatorView } from '../../server/vista-espectador.js';
+import { renderBattleLog } from '../batalla/parte.js';
 import { fondoDeColor, type Html, html, NADA, unir } from '../comun/html.js';
 import { NADIE } from '../comun/quien-mira.js';
 import { nombreEnElCampo } from '../render/batalla/distintivo.js';
 import { playerColor } from '../render/palette.js';
+import { estadoADistancia, marcaDeComandante, marcaDeVeterano } from '../views/campo.js';
 import { filaDeCifra } from '../views/cifras.js';
-import {
-  estadoADistancia,
-  historiaDelHeroe,
-  marcaDeComandante,
-  marcaDeVeterano,
-  renderBattleLog,
-  renderLog,
-} from '../views/panels.js';
+import { renderLog } from '../views/cronica.js';
+import { historiaDelHeroe } from '../views/notas.js';
 import { adaptarBatalla } from './adaptar.js';
 
 /** Cómo terminó la partida, tal y como llega en el snapshot. */

@@ -14,8 +14,8 @@
  * centinela que nunca casa contesta bien por accidente.
  *
  * Vive en su propio módulo y no en `sesion/partida.ts` por el espectador: `renderLog`
- * lo comparten las dos páginas, y hacer que `views/panels.ts` importe un valor
- * de `sesion/partida.ts` arrastraría el motor de la partida entero al paquete de quien
+ * lo comparten las dos páginas, y hacer que la crónica (`views/cronica.ts`) importe un
+ * valor de `sesion/partida.ts` arrastraría el motor de la partida entero al paquete de quien
  * solo mira — que es justo la frontera que el espectador existe para no cruzar.
  */
 import type { PlayerId } from '@core/types.js';

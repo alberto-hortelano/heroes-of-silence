@@ -16,7 +16,8 @@ import { DESHABILITADO, type Html, html, NADA, srcDeImagen } from '../../comun/h
 import type { Session } from '../../sesion/partida.js';
 import type { FichaDelAyuntamiento } from '../../sesion/vistas/ayuntamiento.js';
 import { filaDeCifra, motivoApagado } from '../../views/cifras.js';
-import { nota, renderArmy } from '../../views/panels.js';
+import { nota } from '../../views/notas.js';
+import { renderArmy } from '../ejercito.js';
 import { botonesDeLaFila } from '../morada/panel.js';
 
 /**

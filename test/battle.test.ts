@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { marcadoDe } from '../src/client/comun/html.js';
+import { renderSide } from '../src/client/partida/paneles.js';
 import { Session } from '../src/client/sesion/partida.js';
-import { renderSide } from '../src/client/views/panels.js';
 import { completarCruce } from '../src/core/ai/rueda.js';
 import { chooseBattleAction, chooseBattleActionAndCosts } from '../src/core/ai/tactics.js';
 import { armaduraDe } from '../src/core/battle/armas.js';

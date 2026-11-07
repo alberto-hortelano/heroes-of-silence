@@ -7,7 +7,7 @@
  * entero: esta carpeta cae dentro y por eso vive aquí y no en otra parte.
  *
  * Reutiliza sin copiar los lienzos de `render/`, el animador de batalla y la
- * crónica de `views/panels`. Lo único duplicado es el bucle de dibujo, y es más
+ * crónica (`views/cronica.ts`). Lo único duplicado es el bucle de dibujo, y es más
  * corto que el del cliente que juega porque aquí no hay ratón ni sesión.
  */
 import { SIN_CARGAS } from '@core/battle/consultas.js';
@@ -35,7 +35,7 @@ import { type CamaraMapa, centrarEn, TILE_LEGIBLE } from '../render/mapa/camara.
 import { type AdventureScene, drawMapa, presupuestoConHolgura } from '../render/mapa/mapa.js';
 import { tableroPara } from '../render/proyeccion.js';
 import { pintarSiguiendoElFinal } from '../views/al-final.js';
-import { rotuloDeDia } from '../views/panels.js';
+import { rotuloDeDia } from '../views/notas.js';
 import { adaptarEscena, centroDeLaEscena, sitiosDelCable } from './adaptar.js';
 import { type FinDePartida, panelDelEspectador } from './paneles.js';
 import {

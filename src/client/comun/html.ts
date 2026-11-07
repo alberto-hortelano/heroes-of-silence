@@ -165,7 +165,7 @@ const NOMBRE = /[A-Za-z0-9_:.-]/;
 function comoSeEscribio(estaticas: readonly string[]): string {
   // El hueco se dibuja como se escribe en el código —con el dólar escapado para
   // que aquí no lo sea— y no con un símbolo inventado: así el motivo del fallo
-  // se puede buscar tal cual en `panels.ts`.
+  // se puede buscar tal cual en el panel que lo pinta.
   return estaticas.join(`\${…}`);
 }
 

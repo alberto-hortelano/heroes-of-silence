@@ -17,10 +17,10 @@ import {
   rotuloDelTurno,
 } from '../src/client/arena/paneles.js';
 import { BattleAnimator, DURACION } from '../src/client/batalla/anim.js';
+import { renderBattleLog } from '../src/client/batalla/parte.js';
 import { renderEleccion, tramosDelDesenlace } from '../src/client/batalla/rueda/rueda.js';
 import { marcadoDe } from '../src/client/comun/html.js';
 import { SesionDeArena } from '../src/client/sesion/sesion-de-arena.js';
-import { renderBattleLog } from '../src/client/views/panels.js';
 import { completarCruce, elegirEnLaRueda, pasoDelCruce } from '../src/core/ai/rueda.js';
 import { autoResolve } from '../src/core/ai/tactics.js';
 import type { FuenteDeArena } from '../src/core/arena/lados.js';

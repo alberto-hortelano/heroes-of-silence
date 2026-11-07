@@ -12,10 +12,10 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { EscenaBatalla } from '../src/client/batalla/escena.js';
 import { marcadoDe } from '../src/client/comun/html.js';
+import { renderSide } from '../src/client/partida/paneles.js';
 import { alturaDeColumna, alzadoDeLaMuralla } from '../src/client/render/batalla.js';
 import { centroHex, tableroPara } from '../src/client/render/proyeccion.js';
 import { Session } from '../src/client/sesion/partida.js';
-import { renderSide } from '../src/client/views/panels.js';
 import { resolvePendingBattle } from '../src/core/ai/turn.js';
 import { columna } from '../src/core/arena/murallas.js';
 import { applyAction } from '../src/core/battle/battle.js';

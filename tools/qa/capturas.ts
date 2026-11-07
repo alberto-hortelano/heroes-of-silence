@@ -46,6 +46,7 @@ import {
 import { EscenaAyuntamiento } from '../../src/client/partida/ayuntamiento/escena.js';
 import { dondeHablarCon } from '../../src/client/partida/base/escena.js';
 import { EscenaAventura } from '../../src/client/partida/mapa/escena.js';
+import { explicacionDeFin } from '../../src/client/partida/mapa/panel.js';
 import { cajasDeLaMorada, EscenaMorada } from '../../src/client/partida/morada/escena.js';
 import { EscenaTropa } from '../../src/client/partida/tropa/escena.js';
 import { camaraDeLaBase, camaraQuieta } from '../../src/client/render/base/camara.js';
@@ -78,7 +79,8 @@ import type { ControlDeBatalla } from '../../src/client/sesion/batalla/control.j
 import { Session } from '../../src/client/sesion/partida.js';
 import { SesionDeArena } from '../../src/client/sesion/sesion-de-arena.js';
 import type { VistaDeLaMorada } from '../../src/client/sesion/vistas/morada.js';
-import { AVISO_DE_ESPERA, explicacionDeFin, rotuloDeDia } from '../../src/client/views/panels.js';
+import { AVISO_DE_ESPERA } from '../../src/client/views/cifras.js';
+import { rotuloDeDia } from '../../src/client/views/notas.js';
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';
 import { VERSION_DEL_ENLACE } from '../../src/core/arena/enlace.js';
 import { type HeroeDeArena, heroePorDefecto } from '../../src/core/arena/heroe.js';

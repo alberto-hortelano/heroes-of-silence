@@ -9,9 +9,9 @@
 import { describe, expect, it } from 'vitest';
 import { renderPanelDeBatalla } from '../src/client/arena/paneles.js';
 import { marcadoDe } from '../src/client/comun/html.js';
+import { renderSide } from '../src/client/partida/paneles.js';
 import { centroHex, planoDeHex } from '../src/client/render/proyeccion.js';
 import { Session } from '../src/client/sesion/partida.js';
-import { renderSide } from '../src/client/views/panels.js';
 import { hexEquals, hexKey } from '../src/core/battle/board.js';
 import { activeStack } from '../src/core/battle/consultas.js';
 import { zonaDeSalida } from '../src/core/battle/despliegue.js';
