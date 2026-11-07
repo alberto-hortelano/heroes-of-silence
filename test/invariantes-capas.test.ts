@@ -522,13 +522,18 @@ describe('invariantes del proyecto', () => {
     ).toContain(ruta('src/core/map/vestir/base.ts'));
   });
 
-  it('`core` no reexporta: cada importador pide el nombre al módulo que lo declara', () => {
+  it('`src/` no reexporta: cada importador pide el nombre al módulo que lo declara', () => {
     // Una fachada es un segundo sitio donde está un nombre: quien lee el importador
     // cree que vive allí, y un guardia que mira quién importa algo de un módulo no
     // ve a quien lo trae por la fachada. Hasta el paso N13 de la reorganización
     // (07-11-2026) reexportaban `battle/rueda.ts` (las formas, las cifras y los tipos
     // de la rueda), `cifras-de-la-rueda.ts` (`NOMBRE_DE_GOLPE`), `spells.ts`
     // (`Hechizo`) y `battle.ts` (`MAX_ROUNDS`), y 63 importaciones pasaban por ellas.
+    // Hasta el paso C1 (fase C, el mismo día), siete del cliente (`rueda/rueda.ts`,
+    // `render/proyeccion.ts`, `render/batalla.ts`, `render/mapa.ts`,
+    // `escenario/colocar.ts`, `espectador/paneles.ts`) y una de `shared/base.ts`;
+    // desde entonces el guardia mira todo `src/`: el núcleo, el cliente, `shared` y
+    // el servidor, que no tenía ninguna.
     // Con el parser de TypeScript: `export … from` (también `export *`, `export type`
     // y el que va en varias líneas); `export { x }` o `export default x` de un nombre
     // importado; y `export const X = x` o `export type X = x` de un importado que se
@@ -587,13 +592,20 @@ describe('invariantes del proyecto', () => {
       }
       return out;
     };
-    const reexportan = CORE.flatMap((r) =>
+    const todo = ficheros('src');
+    const reexportan = todo.flatMap((r) =>
       reexportacionesDe(ts.createSourceFile(r, leer(r), ts.ScriptTarget.Latest, true)),
     );
     expect(reexportan).toEqual([]);
-    // Y que mire algo: todo `core`, y cada forma, sobre una sonda escrita aquí (lo que
-    // vale, al final, no sale).
+    // Y que mire algo: todo `src/`, cada una de sus cuatro carpetas, y cada forma,
+    // sobre una sonda escrita aquí (lo que vale, al final, no sale).
     expect(CORE.length).toBeGreaterThan(100);
+    expect(CLIENTE.length).toBeGreaterThan(100);
+    for (const carpeta of ['src/core/', 'src/client/', 'src/shared/', 'src/server/'])
+      expect(
+        todo.some((r) => r.startsWith(ruta(carpeta))),
+        carpeta,
+      ).toBe(true);
     const sonda = [
       "import { a, b as c, d } from './x.js';",
       "import type { T as U } from './x.js';",
