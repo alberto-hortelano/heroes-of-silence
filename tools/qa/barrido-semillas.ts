@@ -26,7 +26,7 @@
  * una; `core/combate.ts`), con la misma regla que `?tropa=` y `?rueda=`: sin
  * ellas, 7 / 7.
  */
-import { MAX_ROUNDS } from '../../src/core/battle/battle.js';
+import { MAX_ROUNDS } from '../../src/core/battle/types.js';
 import { COMBATE_COMPLETO, parseRueda, parseTope } from '../../src/core/combate.js';
 import { duracion } from './estadistica.js';
 import {

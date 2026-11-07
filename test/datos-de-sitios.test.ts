@@ -18,7 +18,7 @@ import { Session } from '../src/client/session.js';
 import { renderSide } from '../src/client/views/panels.js';
 import { resolvePendingBattle } from '../src/core/ai/turn.js';
 import { columna } from '../src/core/arena/murallas.js';
-import { applyAction, MAX_ROUNDS } from '../src/core/battle/battle.js';
+import { applyAction } from '../src/core/battle/battle.js';
 import { allHexes, bandoDeSalida, hexKey } from '../src/core/battle/board.js';
 import { stackById } from '../src/core/battle/consultas.js';
 import { legalActions } from '../src/core/battle/legalidad.js';
@@ -30,6 +30,7 @@ import {
   validarMuralla,
 } from '../src/core/battle/muralla.js';
 import type { BattleState } from '../src/core/battle/types.js';
+import { MAX_ROUNDS } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
 import { baseOf, heroesOf } from '../src/core/state/consultas.js';

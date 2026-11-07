@@ -15,7 +15,8 @@
  * no hay marcha que esperar: se elige antes de correr (31-10-2026), y la carrera
  * llega en el registro tras el cruce.
  */
-import { formaDeLaBatalla, type HechoDelCruce } from '@core/battle/rueda.js';
+import { formaDeLaBatalla } from '@core/battle/formas-de-la-rueda.js';
+import type { HechoDelCruce } from '@core/battle/rueda.js';
 import type { BattleState, Side } from '@core/battle/types.js';
 import type { CruceEnCurso } from '../anim.js';
 import { pintar } from '../html.js';

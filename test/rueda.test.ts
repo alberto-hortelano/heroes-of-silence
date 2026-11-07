@@ -28,6 +28,7 @@ import { golpesDe, ruedaDelGolpe } from '../src/core/battle/armas.js';
 import { applyAction, soltarElGolpe } from '../src/core/battle/battle.js';
 import {
   cifrasDeLosNiveles,
+  efectoDelTipo,
   golpesDelTipo,
   type Punto,
 } from '../src/core/battle/cifras-de-la-rueda.js';
@@ -43,6 +44,13 @@ import {
   effectiveDefense,
   stackHp,
 } from '../src/core/battle/damage.js';
+import {
+  dichoDelCruce,
+  type FormaDeLaRueda,
+  nombreEnLaRueda,
+  RUEDAS,
+  TIPOS_DE_LAS_RUEDAS,
+} from '../src/core/battle/formas-de-la-rueda.js';
 import { legalActions } from '../src/core/battle/legalidad.js';
 import { type BattleSide, createBattle } from '../src/core/battle/montaje.js';
 import { previsionDeLaRueda, previsionDelGolpeQueViene } from '../src/core/battle/prevision.js';
@@ -50,24 +58,17 @@ import {
   casillasQueQuitaLaFinta,
   contraataqueDelCruce,
   dichoDelCiclo,
-  dichoDelCruce,
   efectoDeGolpe,
-  efectoDelTipo,
-  type FormaDeLaRueda,
-  nombreEnLaRueda,
   puntoDelContraataque,
   puntoDelCruce as puntoDelCruceEn,
   puntosDeLaForma,
-  RUEDAS,
-  TIPOS_DE_LAS_RUEDAS,
-  type TipoDeGolpe,
   tiradaDelPunto,
 } from '../src/core/battle/rueda.js';
 import type { BattleAction, BattleEvent, BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO, combateCon, type ReglasDelCombate } from '../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import { createRng, type Rng, sortearPorPesos } from '../src/core/rng.js';
-import type { Hex, NivelesDeLaRueda, Stack, UnitInfo } from '../src/core/types.js';
+import type { Hex, NivelesDeLaRueda, Stack, TipoDeGolpe, UnitInfo } from '../src/core/types.js';
 import { unidad } from '../src/core/unidad/catalogo.js';
 import { cuerpoDeCombate, nivelesDeLaEspada, type Unidad } from '../src/core/unidad/formato.js';
 import { desenlaceDe, empezarTalCual, hastaLaRueda, sesionDeArena } from './batalla-de-cliente.js';

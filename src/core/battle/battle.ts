@@ -31,7 +31,7 @@
 import { HECHIZOS_DEL_JUEGO } from '../magia/catalogo.js';
 import { areaDe, type CuandoSalta, esDiferido, type Hechizo } from '../magia/formato.js';
 import type { Rng } from '../rng.js';
-import type { Hex } from '../types.js';
+import type { Hex, TipoDeGolpe } from '../types.js';
 import { hasTrait } from '../types.js';
 import {
   apuntarBlocker,
@@ -44,6 +44,7 @@ import {
 import { disparosDe, golpesDe, recargaDe } from './armas.js';
 import { escaleraBlocker, puertaBlocker, subirBlocker } from './asalto.js';
 import { caminoDe, hexKey } from './board.js';
+import { type CifrasDeLaRueda, efectoDelTipo, type Punto } from './cifras-de-la-rueda.js';
 import {
   activeStack,
   bandoVencido,
@@ -77,6 +78,7 @@ import {
   impedidoPor,
   tickEffects,
 } from './effects.js';
+import { formaDeLaBatalla } from './formas-de-la-rueda.js';
 import {
   deLaRueda,
   enElPunto,
@@ -100,17 +102,12 @@ import {
 import { quedaAlgoQueHacer } from './legalidad.js';
 import { claveDeAbiertas, mismaPuerta } from './muralla.js';
 import {
-  type CifrasDeLaRueda,
   casillasQueQuitaLaFinta,
   type EfectoDeLaRueda,
-  efectoDelTipo,
   efectosDeLaRueda,
-  formaDeLaBatalla,
   type HechoDelCruce,
-  type Punto,
   puntoDelContraataque,
   puntoDelCruce,
-  type TipoDeGolpe,
 } from './rueda.js';
 import {
   type Apuntado,
@@ -211,9 +208,6 @@ function initiativeOrder(state: BattleState): string[] {
   const enSuOrden = vivos.slice().sort((a, b) => stackSpeed(b) - stackSpeed(a) || a.slot - b.slot);
   return intercalar(state, enSuOrden, preferidoEnElEmpate(state));
 }
-
-/** Tope de rondas: una batalla que no converge se cierra, no se cuelga (`types.ts`). */
-export { MAX_ROUNDS };
 
 /**
  * Tope de jugadas de una batalla, para los bucles que la juegan acción a acción:

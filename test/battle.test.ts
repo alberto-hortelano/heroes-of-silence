@@ -5,7 +5,7 @@ import { renderSide } from '../src/client/views/panels.js';
 import { completarCruce } from '../src/core/ai/rueda.js';
 import { chooseBattleAction, chooseBattleActionAndCosts } from '../src/core/ai/tactics.js';
 import { armaduraDe } from '../src/core/battle/armas.js';
-import { applyAction, MAX_ROUNDS } from '../src/core/battle/battle.js';
+import { applyAction } from '../src/core/battle/battle.js';
 import * as board from '../src/core/battle/board.js';
 import { CARGA } from '../src/core/battle/carga.js';
 import {
@@ -40,7 +40,7 @@ import type {
   Side,
   TurnoDeUnidad,
 } from '../src/core/battle/types.js';
-import { HERO_BODY } from '../src/core/battle/types.js';
+import { HERO_BODY, MAX_ROUNDS } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { heroUnit } from '../src/core/hero/hero.js';
 import { umbral } from '../src/core/hero/rango.js';

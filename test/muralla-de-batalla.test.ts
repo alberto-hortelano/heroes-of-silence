@@ -10,7 +10,7 @@
 import { describe, expect, it } from 'vitest';
 import { autoResolve, chooseBattleAction } from '../src/core/ai/tactics.js';
 import { columna } from '../src/core/arena/murallas.js';
-import { applyAction, MAX_ROUNDS } from '../src/core/battle/battle.js';
+import { applyAction } from '../src/core/battle/battle.js';
 import { allHexes, bandoDeSalida, FORMA_DEL_TABLERO, hexKey } from '../src/core/battle/board.js';
 import {
   cargaDesde,
@@ -25,6 +25,7 @@ import { legalActions } from '../src/core/battle/legalidad.js';
 import { type BattleSide, createBattle } from '../src/core/battle/montaje.js';
 import { SIN_MURALLA, validarMuralla } from '../src/core/battle/muralla.js';
 import type { BattleState, MurallaDeBatalla } from '../src/core/battle/types.js';
+import { MAX_ROUNDS } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex } from '../src/core/types.js';

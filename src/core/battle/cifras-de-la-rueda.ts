@@ -21,10 +21,6 @@ import {
 import { entero, esObjeto, objetoCon } from '../validar.js';
 import { esFusionado, LAS_TRES_RUEDAS, NOMBRE_DE_GOLPE, PARTES } from './formas-de-la-rueda.js';
 
-// La tabla de nombres vive con las formas de la rueda (`nombreEnLaRueda`); aquí se
-// reexporta para la ficha de un arma, que la lee tal cual.
-export { NOMBRE_DE_GOLPE };
-
 /** El punto del cruce, del mínimo (0) al máximo (4). */
 export type Punto = 0 | 1 | 2 | 3 | 4;
 

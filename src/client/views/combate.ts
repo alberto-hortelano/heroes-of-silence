@@ -8,7 +8,7 @@
  * la arena, a su montaje).
  */
 
-import { TIPOS_DE_LAS_RUEDAS } from '@core/battle/rueda.js';
+import { TIPOS_DE_LAS_RUEDAS } from '@core/battle/formas-de-la-rueda.js';
 import {
   combateCon,
   parseRueda,

@@ -34,8 +34,6 @@ import {
   type StackEffect,
 } from './types.js';
 
-export type { Hechizo };
-
 /**
  * Quien lanza un hechizo, en lo que el hechizo necesita de él: dónde está (el
  * stack que lo lanza: el cuerpo del héroe o la unidad), su bando y su poder

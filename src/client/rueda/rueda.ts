@@ -26,25 +26,26 @@
  */
 
 import { dichoDeLaCarga } from '@core/battle/carga.js';
+import type { PapelEnLaRueda, Punto } from '@core/battle/cifras-de-la-rueda.js';
+import {
+  dichoDelCruce,
+  type FormaDeLaRueda,
+  formaDeLaBatalla,
+  golpeNeutro,
+  nombreEnLaRueda,
+} from '@core/battle/formas-de-la-rueda.js';
 import type { DanioDeLosGolpes, GolpeEnSuPunto, GolpeQueViene } from '@core/battle/prevision.js';
 import {
   cargaDelCruce,
   contraataqueDelCruce,
   dichoDelCiclo,
-  dichoDelCruce,
   efectoDeGolpe,
-  type FormaDeLaRueda,
-  formaDeLaBatalla,
-  golpeNeutro,
   type HechoDelCruce,
   NOMBRE_DEL_PUNTO,
-  nombreEnLaRueda,
-  type PapelEnLaRueda,
-  type Punto,
   puntosDeLaForma,
-  type TipoDeGolpe,
 } from '@core/battle/rueda.js';
 import type { BattleStack, BattleState, Side, StackEffect } from '@core/battle/types.js';
+import type { TipoDeGolpe } from '@core/types.js';
 import { type CruceEnCurso, DURACION } from '../anim.js';
 import { type Html, html, NADA, unir } from '../html.js';
 import { COLOR_BANDO } from '../render/batalla.js';

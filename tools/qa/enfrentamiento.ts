@@ -134,12 +134,17 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { completarCruce } from '../../src/core/ai/rueda.js';
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';
-import { applyAction, MAX_JUGADAS, MAX_ROUNDS } from '../../src/core/battle/battle.js';
+import { applyAction, MAX_JUGADAS } from '../../src/core/battle/battle.js';
 import { cargaMontada } from '../../src/core/battle/carga.js';
 import { activeStack, seHaMovido } from '../../src/core/battle/consultas.js';
 import { type BattleSide, createBattle } from '../../src/core/battle/montaje.js';
 import type { BattleAction, BattleState, Side } from '../../src/core/battle/types.js';
-import { HERO_BODY, type HeroeDelBando, otroBando } from '../../src/core/battle/types.js';
+import {
+  HERO_BODY,
+  type HeroeDelBando,
+  MAX_ROUNDS,
+  otroBando,
+} from '../../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../../src/core/combate.js';
 import { EQUIPO_BASE } from '../../src/core/hero/cuerpo-del-heroe.js';
 import { cuerposDelHeroe } from '../../src/core/hero/hero.js';

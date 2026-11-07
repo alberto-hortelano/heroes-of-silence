@@ -11,7 +11,8 @@ import { chooseBattleAction } from '@core/ai/tactics.js';
 import { type BattleTakeover, playAiTurn, resolvePendingBattle } from '@core/ai/turn.js';
 import { applyAction, MAX_JUGADAS } from '@core/battle/battle.js';
 import { activeStack, mismoTurno, pasosQueQuedan } from '@core/battle/consultas.js';
-import { formaDeLaBatalla, type HechoDelCruce } from '@core/battle/rueda.js';
+import { formaDeLaBatalla } from '@core/battle/formas-de-la-rueda.js';
+import type { HechoDelCruce } from '@core/battle/rueda.js';
 import type { BattleAction, BattleState, Side, TurnoDeUnidad } from '@core/battle/types.js';
 import type { ReglasDelCombate } from '@core/combate.js';
 import {

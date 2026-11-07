@@ -83,12 +83,8 @@ import { hexDistance, hexEquals, quedanCasillas } from '../../src/core/battle/bo
 import { dichoDeLasCifras } from '../../src/core/battle/carga.js';
 import { isAlive, mismoTurno, stackById, stackHexes } from '../../src/core/battle/consultas.js';
 import { armasDe, stackHp, trasElGolpe } from '../../src/core/battle/damage.js';
-import {
-  NOMBRE_DEL_PUNTO,
-  nombreEnLaRueda,
-  RUEDA_DE_REFERENCIA,
-  type TipoDeGolpe,
-} from '../../src/core/battle/rueda.js';
+import { nombreEnLaRueda, RUEDA_DE_REFERENCIA } from '../../src/core/battle/formas-de-la-rueda.js';
+import { NOMBRE_DEL_PUNTO } from '../../src/core/battle/rueda.js';
 import {
   type BattleAction,
   type BattleEvent,
@@ -117,7 +113,13 @@ import { visibleNow } from '../../src/core/state/vision.js';
 import { describirCoste } from '../../src/core/texto.js';
 import { ECONOMIA } from '../../src/core/town/economia.js';
 import type { SitioId } from '../../src/core/town/sitios.js';
-import { FACTION_IDS, type FactionId, type Hex, type Point } from '../../src/core/types.js';
+import {
+  FACTION_IDS,
+  type FactionId,
+  type Hex,
+  type Point,
+  type TipoDeGolpe,
+} from '../../src/core/types.js';
 import { UNIDADES, unidad, unidadDelJuego } from '../../src/core/unidad/catalogo.js';
 import {
   RUTA_DEL_CATALOGO_DE_UNIDADES,

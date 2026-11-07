@@ -30,23 +30,18 @@ import {
   quitarBlocker,
 } from '@core/arena/piezas.js';
 import { armaduraDe, DICHO_DEL_USO, SIN_ARMA } from '@core/battle/armas.js';
-import { MAX_ROUNDS } from '@core/battle/battle.js';
 import { bandoDeSalida, FORMA_DEL_TABLERO, filasDelTablero } from '@core/battle/board.js';
 import { CARGA, DICHO_DE_LA_CARGA, dichoDeLasCifras } from '@core/battle/carga.js';
+import { NIVEL_MAXIMO, NORMAL_SIN_NIVEL } from '@core/battle/cifras-de-la-rueda.js';
 import { activeStack, isAlive } from '@core/battle/consultas.js';
 import { armasDe } from '@core/battle/damage.js';
 import { enRondas } from '@core/battle/effects.js';
+import { NOMBRE_DE_GOLPE } from '@core/battle/formas-de-la-rueda.js';
 import { ataqueYDefensaEnBatalla } from '@core/battle/golpe.js';
 import { esMuro, ladoDeLaMuralla, type PiezaDeMuralla } from '@core/battle/muralla.js';
-import {
-  filasDeLaRueda,
-  NIVEL_MAXIMO,
-  NOMBRE_DE_GOLPE,
-  NORMAL_SIN_NIVEL,
-  ruedaDelArmaEnPalabras,
-  type TipoDelAnillo,
-} from '@core/battle/rueda.js';
+import { filasDeLaRueda, ruedaDelArmaEnPalabras } from '@core/battle/rueda.js';
 import type { BattleStack, BattleState, MurallaDeBatalla } from '@core/battle/types.js';
+import { MAX_ROUNDS } from '@core/battle/types.js';
 import type { CatalogoDeEquipo, EquipoAtado } from '@core/equipo/atado.js';
 import { cifrasDePieza, DICHO_DE_LA_MONTURA, textoDeModificador } from '@core/equipo/dicho.js';
 import { aDosManos, esDeGuerra, esLanza, REGLA_DEL_ESCUDO } from '@core/equipo/manos.js';
@@ -90,6 +85,7 @@ import {
   NOMBRE_DE_HUECO,
   NOMBRE_DE_RASGO,
   SPEED_TO_HEXES,
+  type TipoDelAnillo,
   type UnitInfo,
   type UsoDeArma,
 } from '@core/types.js';

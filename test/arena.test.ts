@@ -52,11 +52,11 @@ import { FORMAS_DE_EJEMPLO, validarFormaDeMuralla } from '../src/core/arena/mura
 import { equiparEnArena, idsLlevados, piezasDelMontaje } from '../src/core/arena/piezas.js';
 import { retocarEnBatalla } from '../src/core/arena/retoque.js';
 import { type IdsOcupados, unidadNueva } from '../src/core/arena/unidad-nueva.js';
-import { applyAction, MAX_ROUNDS } from '../src/core/battle/battle.js';
+import { applyAction } from '../src/core/battle/battle.js';
 import { activeStack, stackHexes } from '../src/core/battle/consultas.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
-import { HERO_BODY } from '../src/core/battle/types.js';
+import { HERO_BODY, MAX_ROUNDS } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import { EQUIPO_ESCRITO } from '../src/core/equipo/pieza.js';

@@ -31,10 +31,9 @@ import {
   formaDeLaBatalla,
   LAS_TRES_RUEDAS,
   RUEDA_DE_REFERENCIA,
-  type TipoDeGolpe,
-} from '../src/core/battle/rueda.js';
+} from '../src/core/battle/formas-de-la-rueda.js';
 import type { BattleEvent, BattleState, StackEffect } from '../src/core/battle/types.js';
-import { TIPOS_DEL_ANILLO } from '../src/core/types.js';
+import { TIPOS_DEL_ANILLO, type TipoDeGolpe } from '../src/core/types.js';
 import { desenlaceDe, empezarTalCual, hastaLaRueda, sesionDeArena } from './batalla-de-cliente.js';
 import { conManosDePrueba, todoA } from './batalla-de-prueba.js';
 import { PESADA, TROPA } from './comun.js';

@@ -13,15 +13,13 @@
  */
 
 import {
-  type FilaDeLaRueda,
   type FormaDeLaRueda,
-  NORMAL_EN_LA_FICHA,
   nombreEnLaRueda,
   PARTES,
   RUEDA_DE_REFERENCIA,
-  type TipoDeGolpe,
-  type TipoDelAnillo,
-} from '@core/battle/rueda.js';
+} from '@core/battle/formas-de-la-rueda.js';
+import { type FilaDeLaRueda, NORMAL_EN_LA_FICHA } from '@core/battle/rueda.js';
+import type { TipoDeGolpe, TipoDelAnillo } from '@core/types.js';
 import { type Html, html, unir } from '../html.js';
 
 /**

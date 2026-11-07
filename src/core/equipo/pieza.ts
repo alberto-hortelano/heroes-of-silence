@@ -12,12 +12,8 @@
  * lo valida al cargar.
  */
 import equipoJson from '../../../data/equipo.json' with { type: 'json' };
-import {
-  fueraDelAnillo,
-  NIVEL_MAXIMO,
-  NOMBRE_DE_GOLPE,
-  problemasDeNiveles,
-} from '../battle/cifras-de-la-rueda.js';
+import { fueraDelAnillo, NIVEL_MAXIMO, problemasDeNiveles } from '../battle/cifras-de-la-rueda.js';
+import { NOMBRE_DE_GOLPE } from '../battle/formas-de-la-rueda.js';
 import {
   CIFRAS_DE_PIEZA,
   type CifraDePieza,

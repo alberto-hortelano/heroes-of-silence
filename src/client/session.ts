@@ -30,6 +30,7 @@ import {
   puertasBlocker,
 } from '@core/battle/asalto.js';
 import { applyAction, MAX_JUGADAS, soltarElGolpe } from '@core/battle/battle.js';
+import type { PapelEnLaRueda } from '@core/battle/cifras-de-la-rueda.js';
 import {
   activeStack,
   type CasillaDeCarga,
@@ -57,6 +58,7 @@ import {
   TANDAS,
   zonaDe,
 } from '@core/battle/despliegue.js';
+import { formaDeLaBatalla, tipoDeGolpeBlocker } from '@core/battle/formas-de-la-rueda.js';
 import { castBlocker, poderBlocker } from '@core/battle/lanzar.js';
 import { ataqueBlocker, legalActionsAndCosts } from '@core/battle/legalidad.js';
 import { bonoEnLoAlto, SIN_MURALLA } from '@core/battle/muralla.js';
@@ -67,12 +69,6 @@ import {
   previsionDelGolpeQueViene,
 } from '@core/battle/prevision.js';
 import type { Baja } from '@core/battle/resumen.js';
-import {
-  formaDeLaBatalla,
-  type PapelEnLaRueda,
-  type TipoDeGolpe,
-  tipoDeGolpeBlocker,
-} from '@core/battle/rueda.js';
 import { queSeApunta } from '@core/battle/spells.js';
 import type {
   BattleAction,
@@ -212,6 +208,7 @@ import {
   type PlayerId,
   type PoderId,
   type Point,
+  type TipoDeGolpe,
   type UnitInfo,
   type VistaAsaltante,
 } from '@core/types.js';

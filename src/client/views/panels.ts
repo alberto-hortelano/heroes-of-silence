@@ -35,16 +35,13 @@ import {
   enRondas,
   signoDelEfecto,
 } from '@core/battle/effects.js';
-import { alcanceDeLaGranada } from '@core/battle/granada.js';
 import {
-  contraataqueDelCruce,
-  duracion,
-  esTipoDeGolpe,
   type FormaDeLaRueda,
   formaDeLaBatalla,
-  NOMBRE_DEL_PUNTO,
   nombreEnLaRueda,
-} from '@core/battle/rueda.js';
+} from '@core/battle/formas-de-la-rueda.js';
+import { alcanceDeLaGranada } from '@core/battle/granada.js';
+import { contraataqueDelCruce, duracion, NOMBRE_DEL_PUNTO } from '@core/battle/rueda.js';
 import {
   type BattleAction,
   type BattleStack,
@@ -86,7 +83,7 @@ import {
   townSpells,
 } from '@core/town/town.js';
 import type { Army, Point, UnitInfo } from '@core/types.js';
-import { type Hero, HUECOS, NOMBRE_DE_HUECO } from '@core/types.js';
+import { esTipoDeGolpe, type Hero, HUECOS, NOMBRE_DE_HUECO } from '@core/types.js';
 import { unidadDelJuego } from '@core/unidad/catalogo.js';
 import { nivelDeUnidad } from '@core/unidad/nivel.js';
 import { disposicionDe } from '../../shared/base.js';
