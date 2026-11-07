@@ -1129,9 +1129,12 @@ describe('el generador hace redes como las pidió el usuario', () => {
       }
       expect(fallos).toEqual([]);
       // Mil mapas: ~55 s con la máquina cargada desde #224, que repite los
-      // vestidos con una silla (34×34: 36 → 55 ms de media, 09-10-2026).
+      // vestidos con una silla (34×34: 36 → 55 ms de media, 09-10-2026). El
+      // 07-11-2026, 50 s solo en local, y en el CI, con otros ficheros a la vez,
+      // pasó de los 180 s y se llevó por delante los demás tests del fichero:
+      // el tope, 600 s.
     },
-    180_000,
+    600_000,
   );
 
   it('el plan del generador pasa el esquema del agente: los dos productores hablan igual', () => {

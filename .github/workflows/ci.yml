@@ -84,9 +84,8 @@ jobs:
 
   lento:
     runs-on: ubuntu-latest
-    # Treinta minutos: aquí aún no se ha medido entera (el 13-10-2026, tras
-    # `verify`, tardó 7 min 11 s, y la suite ha crecido desde entonces). Con la
-    # primera medida se baja al doble de lo que tarde.
+    # Treinta minutos, casi el doble de lo que tarda (07-11-2026: 14 min 12 s la
+    # orden y 16 min el job).
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
