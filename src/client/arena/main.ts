@@ -741,19 +741,6 @@ const pelea: EstadoDeLaPelea = {
 };
 
 /**
- * La muralla que se dibuja y con la que se pelea. Se rehace entera en cada clic
- * (`validarMuralla`, la regla del núcleo), así que nunca hay una a medias.
- */
-let muralla: MurallaDeBatalla = murallaVacia('piedra');
-let herramienta: HerramientaDeMuralla = 'muro';
-/** El nombre con el que se guardaría: el de la forma cargada o el escrito. */
-let nombreDeForma = '';
-/** Las formas del borrador (`data/borradores/murallas.json`), en su orden. */
-let formasGuardadas: readonly FormaDeMuralla[] = [];
-/** Por qué no se pueden guardar ni borrar formas, o `null` si se puede. */
-let murallasSinGuardado: string | null = null;
-
-/**
  * Lo recordado en este navegador: comodidades de quien mira, no datos. Sin
  * `localStorage` —ventana privada, datos bloqueados— se lee `null` y se avisa en
  * consola, y lo que se cambie dura lo que la página.
@@ -781,7 +768,38 @@ function guardarEnElNavegador(clave: string, valor: string, que: string): void {
  */
 const CLAVE_DE_PLEGADO = 'arena.muralla.plegada';
 const QUE_PLEGADO = 'si la muralla va plegada';
-let murallaPlegada = leerDelNavegador(CLAVE_DE_PLEGADO, QUE_PLEGADO) === '1';
+
+/**
+ * El editor de la muralla: la que se dibuja, con qué herramienta, el nombre con que se guardaría,
+ * las formas guardadas y si se pueden guardar, y si va plegado (lo recordado en este navegador,
+ * que se lee aquí, al cargar). Eran seis `let` de módulo hasta R8 de la reorganización
+ * (07-11-2026).
+ */
+interface EstadoDelEditorDeMuralla {
+  /**
+   * La muralla que se dibuja y con la que se pelea. Se rehace entera en cada clic
+   * (`validarMuralla`, la regla del núcleo), así que nunca hay una a medias.
+   */
+  muralla: MurallaDeBatalla;
+  herramienta: HerramientaDeMuralla;
+  /** El nombre con el que se guardaría: el de la forma cargada o el escrito. */
+  nombreDeForma: string;
+  /** Las formas del borrador (`data/borradores/murallas.json`), en su orden. */
+  formasGuardadas: readonly FormaDeMuralla[];
+  /** Por qué no se pueden guardar ni borrar formas, o `null` si se puede. */
+  murallasSinGuardado: string | null;
+  /** Si va plegado (`CLAVE_DE_PLEGADO`). */
+  murallaPlegada: boolean;
+}
+
+const editorDeMuralla: EstadoDelEditorDeMuralla = {
+  muralla: murallaVacia('piedra'),
+  herramienta: 'muro',
+  nombreDeForma: '',
+  formasGuardadas: [],
+  murallasSinGuardado: null,
+  murallaPlegada: leerDelNavegador(CLAVE_DE_PLEGADO, QUE_PLEGADO) === '1',
+};
 
 /** Las fichas abiertas de la edición, en su orden. */
 const CLAVE_DE_ABIERTAS = 'arena.fichas-abiertas';
@@ -854,7 +872,7 @@ function montajeDeArena(): MontajeDeArena {
   return {
     izquierda: lado('izquierda'),
     derecha: lado('derecha'),
-    muralla,
+    muralla: editorDeMuralla.muralla,
     equipo: catalogo.equipo,
     combate: montaje.combate,
     hechizos: catalogoDeMagia(),
@@ -1150,10 +1168,12 @@ async function arrancarMurallas(): Promise<string> {
     '/__arena/murallas',
     'las formas de muralla',
   );
-  murallasSinGuardado = porQue;
+  editorDeMuralla.murallasSinGuardado = porQue;
   if (!cuerpo.guardado) return '';
   if (cuerpo.ilegible !== undefined) return ` No se puede leer ${cuerpo.ruta}: ${cuerpo.ilegible}.`;
-  formasGuardadas = (Array.isArray(cuerpo.formas) ? cuerpo.formas : []).map(validarFormaDeMuralla);
+  editorDeMuralla.formasGuardadas = (Array.isArray(cuerpo.formas) ? cuerpo.formas : []).map(
+    validarFormaDeMuralla,
+  );
   const invalidas = cuerpo.invalidas ?? [];
   return invalidas.length === 0
     ? ''
@@ -1175,39 +1195,45 @@ function tocarHex(hex: Hex): void {
   // El clic despeja la barra, salvo lo que sigue siendo verdad: si no se puede
   // guardar, se dice hasta que se pueda (QA, M4: el primer clic lo borraba).
   vista.aviso =
-    murallasSinGuardado === null
+    editorDeMuralla.murallasSinGuardado === null
       ? ''
-      : `No se pueden guardar ni borrar formas: ${murallasSinGuardado}.`;
+      : `No se pueden guardar ni borrar formas: ${editorDeMuralla.murallasSinGuardado}.`;
   const toca = (p: PuertaDeMuralla, h: Hex): boolean => hexEquals(p.a, h) || hexEquals(p.b, h);
-  if (herramienta === 'puerta') {
+  if (editorDeMuralla.herramienta === 'puerta') {
     const este = { col: hex.col + 1, row: hex.row };
     if (!isInside(este)) {
       vista.aviso = `La puerta va entre una casilla y la de su este: (${hex.col},${hex.row}) es la última de su fila y no tiene.`;
       return;
     }
     const nueva = { a: hex, b: este };
-    const estaba = muralla.puertas.some((p) => mismaPuerta(p, nueva));
-    muralla = validarMuralla({
-      muros: muralla.muros.filter((h) => !hexEquals(h, hex) && !hexEquals(h, este)),
+    const estaba = editorDeMuralla.muralla.puertas.some((p) => mismaPuerta(p, nueva));
+    editorDeMuralla.muralla = validarMuralla({
+      muros: editorDeMuralla.muralla.muros.filter((h) => !hexEquals(h, hex) && !hexEquals(h, este)),
       puertas: estaba
-        ? muralla.puertas.filter((p) => !mismaPuerta(p, nueva))
-        : [...muralla.puertas, nueva],
-      material: muralla.material,
+        ? editorDeMuralla.muralla.puertas.filter((p) => !mismaPuerta(p, nueva))
+        : [...editorDeMuralla.muralla.puertas, nueva],
+      material: editorDeMuralla.muralla.material,
     });
     return;
   }
-  const habia = esMuro(muralla, hex);
-  const muros = muralla.muros.filter((h) => !hexEquals(h, hex));
-  if (herramienta === 'muro' && !habia) muros.push(hex);
+  const habia = esMuro(editorDeMuralla.muralla, hex);
+  const muros = editorDeMuralla.muralla.muros.filter((h) => !hexEquals(h, hex));
+  if (editorDeMuralla.herramienta === 'muro' && !habia) muros.push(hex);
   const puertas =
-    herramienta === 'muro' && habia
-      ? muralla.puertas
-      : muralla.puertas.filter((p) => !toca(p, hex));
-  muralla = validarMuralla({ muros, puertas, material: muralla.material });
+    editorDeMuralla.herramienta === 'muro' && habia
+      ? editorDeMuralla.muralla.puertas
+      : editorDeMuralla.muralla.puertas.filter((p) => !toca(p, hex));
+  editorDeMuralla.muralla = validarMuralla({
+    muros,
+    puertas,
+    material: editorDeMuralla.muralla.material,
+  });
 }
 
 function formaPorNombre(nombre: string): FormaDeMuralla {
-  const f = [...FORMAS_DE_EJEMPLO, ...formasGuardadas].find((x) => x.nombre === nombre);
+  const f = [...FORMAS_DE_EJEMPLO, ...editorDeMuralla.formasGuardadas].find(
+    (x) => x.nombre === nombre,
+  );
   if (f === undefined) throw new Error(`no hay ninguna forma de muralla «${nombre}»`);
   return f;
 }
@@ -1220,25 +1246,33 @@ async function escribirFormas(
   formas: readonly FormaDeMuralla[],
   fallo: FalloAlGuardar,
 ): Promise<boolean> {
-  const hecho = await mandarAlServidor('/__arena/murallas', { formas }, murallasSinGuardado, fallo);
+  const hecho = await mandarAlServidor(
+    '/__arena/murallas',
+    { formas },
+    editorDeMuralla.murallasSinGuardado,
+    fallo,
+  );
   if (hecho === null) return false;
-  formasGuardadas = formas;
+  editorDeMuralla.formasGuardadas = formas;
   return true;
 }
 
 async function guardarForma(): Promise<void> {
   // La regla del nombre y de la muralla es la del núcleo: aquí solo se le pasa.
-  const forma = validarFormaDeMuralla({ nombre: nombreDeForma, muralla });
-  const yaEstaba = formasGuardadas.some((f) => f.nombre === forma.nombre);
+  const forma = validarFormaDeMuralla({
+    nombre: editorDeMuralla.nombreDeForma,
+    muralla: editorDeMuralla.muralla,
+  });
+  const yaEstaba = editorDeMuralla.formasGuardadas.some((f) => f.nombre === forma.nombre);
   const formas = yaEstaba
-    ? formasGuardadas.map((f) => (f.nombre === forma.nombre ? forma : f))
-    : [...formasGuardadas, forma];
+    ? editorDeMuralla.formasGuardadas.map((f) => (f.nombre === forma.nombre ? forma : f))
+    : [...editorDeMuralla.formasGuardadas, forma];
   const fallo = {
     noSePuede: 'No se puede guardar la muralla',
     noSeHa: 'No se ha guardado la muralla',
   };
   if (await escribirFormas(formas, fallo)) {
-    nombreDeForma = forma.nombre;
+    editorDeMuralla.nombreDeForma = forma.nombre;
     vista.aviso = `${yaEstaba ? 'Cambiada' : 'Guardada'} la forma «${forma.nombre}» en data/borradores/murallas.json.`;
   }
 }
@@ -1250,7 +1284,7 @@ async function borrarForma(nombre: string): Promise<void> {
   };
   if (
     await escribirFormas(
-      formasGuardadas.filter((f) => f.nombre !== nombre),
+      editorDeMuralla.formasGuardadas.filter((f) => f.nombre !== nombre),
       fallo,
     )
   ) {
@@ -1271,14 +1305,14 @@ function pintarMuralla(): void {
   pintar(
     elMuralla,
     renderMuralla({
-      muralla,
-      herramienta,
-      nombre: nombreDeForma,
+      muralla: editorDeMuralla.muralla,
+      herramienta: editorDeMuralla.herramienta,
+      nombre: editorDeMuralla.nombreDeForma,
       ejemplos: FORMAS_DE_EJEMPLO,
-      guardadas: formasGuardadas,
-      sinGuardado: murallasSinGuardado,
+      guardadas: editorDeMuralla.formasGuardadas,
+      sinGuardado: editorDeMuralla.murallasSinGuardado,
       despliegue,
-      plegado: murallaPlegada,
+      plegado: editorDeMuralla.murallaPlegada,
     }),
   );
   botonLuchar.toggleAttribute('disabled', despliegue !== null);
@@ -1997,7 +2031,7 @@ function montajeDelEnlace(): MontajeDelEnlace {
     hechizos: hechizosDelMontaje(unidades, heroesDeLaPagina(), catalogoDeMagia()),
     izquierda: lado('izquierda'),
     derecha: lado('derecha'),
-    muralla: hayMuralla(muralla) ? muralla : null,
+    muralla: hayMuralla(editorDeMuralla.muralla) ? editorDeMuralla.muralla : null,
     combate: montaje.combate,
   };
 }
@@ -2105,9 +2139,9 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
     const conCuerpo = montaje.heroes.izquierda ?? montaje.heroes.derecha;
     if (conCuerpo !== null) catalogo.cuerpoDeTodoHeroe = conCuerpo.cuerpo;
     // La muralla del enlace sustituye a la dibujada; sin ella, el tablero va limpio.
-    muralla = m.muralla ?? murallaVacia('piedra');
+    editorDeMuralla.muralla = m.muralla ?? murallaVacia('piedra');
     montaje.combate = m.combate;
-    nombreDeForma = '';
+    editorDeMuralla.nombreDeForma = '';
     // La barra se queda con la semilla: el montaje, si cambia, ya no sería el del
     // enlace.
     aLaBarraDeLaArena((url) => url.searchParams.delete('montaje'));
@@ -2195,7 +2229,7 @@ function luchar(): void {
       {
         izquierda: lado('izquierda'),
         derecha: lado('derecha'),
-        muralla,
+        muralla: editorDeMuralla.muralla,
         equipo: catalogo.equipo,
         combate: montaje.combate,
         hechizos: catalogoDeMagia(),
@@ -2782,24 +2816,28 @@ document.addEventListener('click', (ev) => {
         repintarMuralla();
         return;
       case 'herramienta-muralla':
-        herramienta = el.getAttribute('data-herramienta') as HerramientaDeMuralla;
+        editorDeMuralla.herramienta = el.getAttribute('data-herramienta') as HerramientaDeMuralla;
         repintarMuralla();
         return;
       case 'plegar-muralla':
-        murallaPlegada = !murallaPlegada;
-        guardarEnElNavegador(CLAVE_DE_PLEGADO, murallaPlegada ? '1' : '0', QUE_PLEGADO);
+        editorDeMuralla.murallaPlegada = !editorDeMuralla.murallaPlegada;
+        guardarEnElNavegador(
+          CLAVE_DE_PLEGADO,
+          editorDeMuralla.murallaPlegada ? '1' : '0',
+          QUE_PLEGADO,
+        );
         repintarMuralla();
         return;
       case 'vaciar-muralla':
-        muralla = murallaVacia('piedra');
+        editorDeMuralla.muralla = murallaVacia('piedra');
         vista.aviso = 'Muralla vacía: la pelea será a campo abierto.';
         repintarMuralla();
         return;
       case 'cargar-forma': {
         const f = formaPorNombre(el.getAttribute('data-nombre') as string);
-        muralla = f.muralla;
+        editorDeMuralla.muralla = f.muralla;
         // Una de ejemplo no se guarda con su nombre: se deja el campo para otro.
-        nombreDeForma = esFormaDeEjemplo(f.nombre) ? '' : f.nombre;
+        editorDeMuralla.nombreDeForma = esFormaDeEjemplo(f.nombre) ? '' : f.nombre;
         vista.aviso = `Cargada la forma «${f.nombre}».`;
         repintarMuralla();
         return;
@@ -3025,7 +3063,7 @@ document.addEventListener('change', (ev) => {
   }
   // El nombre de la forma no es de ninguna unidad: se apunta y nada más.
   if (el.getAttribute('data-muralla-nombre') !== null) {
-    nombreDeForma = valorDe(el);
+    editorDeMuralla.nombreDeForma = valorDe(el);
     return;
   }
   // Escribe en la ficha que contiene el campo, no en `elegida`: en la edición hay
