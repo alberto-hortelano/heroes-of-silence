@@ -38,12 +38,8 @@ import { bucleDeDibujo } from '../comun/bucle.js';
 import { mensajeDe } from '../comun/errores.js';
 import { cargarArte } from '../render/assets.js';
 import type { CharacterClip } from '../render/figuras/character.js';
-import { hayFigurasAnimadas } from '../render/figuras/figura.js';
 import { DIRECCION_DE_HOJA } from '../render/figuras/personajes.js';
 import { ajustarLienzo } from '../render/lienzo.js';
-import type { SesionDeArena } from '../sesion/sesion-de-arena.js';
-import { pintarSiguiendoElFinal } from '../views/al-final.js';
-import { AVISO_DE_ESPERA } from '../views/cifras.js';
 import {
   cambiarCampoDePieza,
   cambiarHeroe,
@@ -62,6 +58,7 @@ import {
   porQueNoSeMonta,
   unidadDe,
 } from './catalogo.js';
+import { dibujarFotograma } from './dibujo.js';
 import {
   abrirFicha,
   cerrarFicha,
@@ -88,7 +85,7 @@ import {
   laFichaDe,
   nombreDeFicha,
 } from './fichas.js';
-import { animarFiguras, animDe, vigiaDeLasFiguras } from './figuras.js';
+import { animDe, vigiaDeLasFiguras } from './figuras.js';
 import { montarEditorDeMagia } from './magia.js';
 import { añadir, crearUnidad, ocupados, puestoPorClave, quienUsaElHechizo } from './montaje.js';
 import {
@@ -100,7 +97,7 @@ import {
   elementosDeLaArena,
   type PaginaDeLaArena,
 } from './pagina.js';
-import { caraDeLaArena, renderPanelDeBatalla, rotuloDelTurno } from './paneles/batalla.js';
+import { caraDeLaArena } from './paneles/batalla.js';
 import { focoTrasQuitar } from './paneles/ficha.js';
 import type { HerramientaDeMuralla } from './paneles/muralla.js';
 import { jugadaEnCurso, luchar, volverAlMontaje } from './pelea.js';
@@ -126,14 +123,9 @@ import {
 
 const elementos = elementosDeLaArena();
 const {
-  app,
   canvas,
-  elLienzo,
-  elDay,
-  elTurn,
   elStatus,
   elBarraDeEstado,
-  elSide,
   elFicha,
   elEdicion,
   elEquipo,
@@ -148,11 +140,11 @@ const {
 /**
  * El bucle de dibujo (`comun/bucle.ts`), con la red de la arena: un fallo al pintar se
  * escribe en la barra y no se pide otro fotograma hasta el siguiente gesto. Va aquí arriba
- * porque lo recogen desde el principio los gestos y la rueda; lo que pinta, `render`, en
- * «dibujo».
+ * porque lo recogen desde el principio los gestos y la rueda; lo que pinta, `dibujarFotograma`,
+ * en `dibujo.ts`, con la página, que se monta más abajo (el primer fotograma llega después).
  */
 const pedirFotograma = bucleDeDibujo({
-  pintar: render,
+  pintar: (ahora) => dibujarFotograma(pagina, ahora),
   alFallar: (motivo) => {
     console.error('[arena] fallo al pintar', motivo);
     elStatus.textContent = `No se ha podido pintar la pantalla: ${mensajeDe(motivo)}`;
@@ -312,29 +304,6 @@ const batalla = new EscenaBatalla(() => {
   return pelea.sesion;
 });
 
-function alargarLienzo(): void {
-  const visible = elLienzo.clientHeight;
-  const pide = (): number =>
-    pelea.sesion === null ? visible : batalla.altoDelLienzo(elLienzo.clientWidth, visible);
-  // Dos veces: con el marco desplazable, la barra le quita ancho, y el alto que
-  // pide el tablero sale de ese ancho.
-  app.toggleAttribute('data-muralla', pide() > visible + 0.5);
-  const alto = pide();
-  const css = alto > visible + 0.5 ? `${Math.ceil(alto)}px` : '';
-  if (canvas.style.height === css) return;
-  const alargado = canvas.style.height === '';
-  canvas.style.height = css;
-  principal.remedir();
-  if (alargado && css !== '') pelea.colocarElMarco = true;
-}
-
-/** Tras pintar con el lienzo alargado: el final del tablero, al pie del marco. */
-function colocarMarco(): void {
-  if (!pelea.colocarElMarco) return;
-  pelea.colocarElMarco = false;
-  elLienzo.scrollTop = Math.max(0, batalla.pieDelTablero() - elLienzo.clientHeight);
-}
-
 /**
  * Los gestos de la batalla, los de la partida (`batalla/gestos.ts`): los botones del
  * panel, las teclas y el puntero sobre el tablero, con la misma puerta de arriba.
@@ -350,56 +319,6 @@ const gestos = new GestosDeBatalla({
 
 const principal = ajustarLienzo(canvas, pedirFotograma);
 cargarArte(pedirFotograma, { manifiesto: false, mapa: false, hojas: false });
-
-/** Un fotograma del bucle (`pedirFotograma`): lo pinta y dice si se pide otro. */
-function render(ahora: number): boolean {
-  // En la vista de equipo, también a media pelea, la barra es la de la página.
-  if (pelea.sesion === null || vista.escena === 'equipo' || vista.escena === 'magia') {
-    if (elStatus.textContent !== vista.aviso) elStatus.textContent = vista.aviso;
-    return animarFiguras(pagina, ahora);
-  }
-  dibujarBatalla(ahora, pelea.sesion);
-  // Las figuras de los dos de la rueda (su cabecera, `DialogoDeLaRueda.animar`).
-  const enLaRueda = rueda.animar(ahora);
-  return enLaRueda || hayFigurasAnimadas() || batalla.ocupada;
-}
-
-function dibujarBatalla(ahora: number, s: SesionDeArena): void {
-  alargarLienzo();
-  const rect = principal.preparar();
-  principal.ctx.clearRect(0, 0, rect.width, rect.height);
-  batalla.sincronizar(ahora);
-  batalla.dibujar(principal.ctx, rect.width, rect.height);
-  colocarMarco();
-  const ocupada = batalla.ocupada;
-  const version = s.version;
-  if (
-    pelea.paneles === null ||
-    pelea.paneles.version !== version ||
-    pelea.paneles.ocupada !== ocupada
-  ) {
-    pelea.paneles = { version, ocupada };
-    // El parte se lee de arriba abajo y lo último queda al fondo: sigue ahí, o
-    // al acabar no se veía lo que acababa de pasar (M11 de QA), salvo que la
-    // persona haya subido a leer (#198).
-    pintarSiguiendoElFinal(elSide, renderPanelDeBatalla(s, ocupada));
-    // La barra de arriba, igual que el panel: mientras se cuenta no adelanta ni
-    // la ronda ni el final.
-    elDay.textContent = ocupada
-      ? 'Batalla'
-      : s.battle.despliegue !== null
-        ? 'Batalla · despliegue'
-        : `Batalla · ronda ${s.battle.round}`;
-    elTurn.textContent = rotuloDelTurno(s, ocupada);
-  }
-  // «La batalla ha terminado» espera a que el tablero llegue al final; el aviso de
-  // espera no: un clic durante el último desenlace de la rueda se perdía sin decir
-  // nada (H4 de QA, 19-10-2026), y el aviso no adelanta el final.
-  const estado =
-    ocupada && s.battle.finished !== null && s.status !== AVISO_DE_ESPERA ? '' : s.status;
-  if (elStatus.textContent !== estado) elStatus.textContent = estado;
-  rueda.pintar();
-}
 
 /**
  * La rueda del golpe (`batalla/rueda/dialogo.ts`, la misma de la partida): la arena pone
