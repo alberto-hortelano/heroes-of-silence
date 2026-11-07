@@ -26,7 +26,6 @@ import {
   PIEZAS_DE_ARMERIA,
   PIEZAS_DE_BOTIN,
   pieza,
-  piezaBlocker,
   problemasDePieza,
 } from '../src/core/equipo/pieza.js';
 import { destinoDeEquipo, pedidoDeEquipo, pedidoDelPuesto } from '../src/core/equipo/portador.js';
@@ -218,39 +217,39 @@ describe('el catálogo de equipo, en datos (C2)', () => {
     expect(problemasDePieza({ ...pieza('espada'), tiro: 'fuego' })).toContain(
       '"espada" va en el hueco arma y dice tiro: solo una pieza a distancia tira',
     );
-    expect(piezaBlocker({ ...arcabuz, tiro: 'rayo' })).toBe(
+    expect(problemasDePieza({ ...arcabuz, tiro: 'rayo' })[0]).toBe(
       '"arcabuz": tiro es fuego o granada, o no se escribe (un arco o una ballesta), y es rayo',
     );
     // El arma de fuego dice su recarga y su agilidad, dentro de sus rangos.
     const { recarga: _r, ...sinRecarga } = arcabuz;
-    expect(piezaBlocker(sinRecarga)).toBe(
+    expect(problemasDePieza(sinRecarga)[0]).toBe(
       '"arcabuz" es un arma de fuego y no dice su recarga: los turnos de 1 a 9 que pasa sin apuntar tras disparar',
     );
-    expect(piezaBlocker({ ...arcabuz, recarga: 0 })).toBe(
+    expect(problemasDePieza({ ...arcabuz, recarga: 0 })[0]).toBe(
       '"arcabuz": la recarga va de 1 a 9 turnos y es 0',
     );
-    expect(piezaBlocker({ ...arcabuz, agilidad: 0 })).toBe(
+    expect(problemasDePieza({ ...arcabuz, agilidad: 0 })[0]).toBe(
       '"arcabuz": la agilidad de un arma de fuego va de 1 a 7 y es 0',
     );
     const { agilidad: _a, ...sinAgilidad } = arcabuz;
-    expect(piezaBlocker(sinAgilidad)).toBe(
+    expect(problemasDePieza(sinAgilidad)[0]).toBe(
       '"arcabuz" es un arma de fuego y no dice su agilidad: un entero de 1 a 7, el de su horquilla [F, F × agilidad]',
     );
     // Un arco no lleva agilidad ni recarga; la granada, ni recarga, y dice sus cargas.
-    expect(piezaBlocker({ ...pieza('arco'), agilidad: 3 })).toBe(
+    expect(problemasDePieza({ ...pieza('arco'), agilidad: 3 })[0]).toBe(
       '"arco" dice agilidad: a distancia solo la lleva un arma de fuego (tiro: fuego)',
     );
-    expect(piezaBlocker({ ...pieza('arco'), recarga: 1 })).toBe(
+    expect(problemasDePieza({ ...pieza('arco'), recarga: 1 })[0]).toBe(
       '"arco" dice recarga: solo un arma de fuego recarga',
     );
-    expect(piezaBlocker({ ...granada, recarga: 1 })).toBe(
+    expect(problemasDePieza({ ...granada, recarga: 1 })[0]).toBe(
       '"granada" dice recarga: solo un arma de fuego recarga',
     );
     const { cargas: _c, ...sinCargas } = granada;
-    expect(piezaBlocker(sinCargas)).toBe(
+    expect(problemasDePieza(sinCargas)[0]).toBe(
       '"granada" es una granada y no dice sus cargas: las que lleva a cada batalla, de 1 a 9',
     );
-    expect(piezaBlocker({ ...arcabuz, cargas: 2 })).toBe(
+    expect(problemasDePieza({ ...arcabuz, cargas: 2 })[0]).toBe(
       '"arcabuz" dice cargas: solo una granada se gasta',
     );
   });
@@ -260,21 +259,20 @@ describe('el catálogo de equipo, en datos (C2)', () => {
     // mismo texto, para que la arena pregunte por una pieza suelta.
     const escudo = { ...pieza('escudo') };
     expect(problemasDePieza(escudo)).toEqual([]);
-    expect(piezaBlocker(escudo)).toBeNull();
-    expect(piezaBlocker({ ...escudo, velocidad: 0 })).toBe(
+    expect(problemasDePieza({ ...escudo, velocidad: 0 })[0]).toBe(
       '"escudo" dice velocidad: ninguna pieza resta movimiento, lo hace su peso («peso»)',
     );
     // Un escudo que no pesa vale: el peso es 0 o más.
-    expect(piezaBlocker({ ...escudo, peso: 0 })).toBeNull();
+    expect(problemasDePieza({ ...escudo, peso: 0 })).toEqual([]);
     expect(problemasDePieza({ ...pieza('brigantina'), manos: 2, ataque: -1 })).toEqual([
       '"brigantina": ataque tiene que ser un entero ≥ 0 y es -1',
       '"brigantina" va en el hueco armadura, que no suma ataque: en él una pieza suma armadura, peso',
       '"brigantina" va en el hueco armadura y dice manos: solo un arma se lleva a dos manos',
     ]);
-    expect(piezaBlocker({ ...pieza('espada'), danio: [30, 10] })).toBe(
+    expect(problemasDePieza({ ...pieza('espada'), danio: [30, 10] })[0]).toBe(
       '"espada" dice daño: un arma suma fuerza («fuerza») y el daño sale de la fuerza y la agilidad',
     );
-    expect(piezaBlocker(7)).toBe('la pieza no es un objeto');
+    expect(problemasDePieza(7)[0]).toBe('la pieza no es un objeto');
     // Repetida es del catálogo entero: la dice el cargador, no la pieza.
     const dos = { piezas: [...EQUIPO, { ...pieza('maza') }] };
     expect(() => leerEquipo(dos).piezas).toThrow('"maza" está dos veces en el catálogo');

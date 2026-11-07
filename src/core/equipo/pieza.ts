@@ -356,7 +356,7 @@ function problemasDeDondeSeConsigue(v: unknown, q: string): string[] {
  * cada arma que golpea en ella (`problemasDeNiveles`) y el precio, solo en oro.
  * **La regla de una pieza, en un sitio**: la leen el cargador del catálogo
  * (`leerPiezas`, que añade las reglas de conjunto), la arena, que edita piezas una
- * a una (`validarPieza`, `piezaBlocker`), y la suma de una base
+ * a una (`validarPieza`), y la suma de una base
  * (`resolverBases`), que la juzga resuelta.
  */
 export function problemasDePieza(bruta: unknown, quien?: string): string[] {
@@ -678,11 +678,6 @@ export function problemasDePiezaConBase(bruta: unknown, quien?: string): string[
  */
 function comoSeLee(x: unknown): string {
   return typeof x === 'number' && Number.isFinite(x) ? `es ${x}` : 'no es un número';
-}
-
-/** Por qué una pieza no vale, la primera cosa (`problemasDePieza`), o `null` si vale. */
-export function piezaBlocker(bruta: unknown): string | null {
-  return problemasDePieza(bruta)[0] ?? null;
 }
 
 /** Los extras de una rueda sin los tipos que no cambian, o `undefined` si no cambia ninguno. */
