@@ -318,7 +318,7 @@ describe('invariantes del proyecto', () => {
     expect(importa(ruta('src/core/state/game.ts'))).toContain(ruta('src/core/mundo/reglas.ts'));
   });
 
-  it('las capas de `core`: la IA solo la importa la IA, y el mapa no conoce la partida', () => {
+  it('las capas de `core`: la IA y el contrato solo los importan ellos mismos, y el mapa no conoce la partida', () => {
     // La IA de reglas lee y propone: si una regla de la partida la importara, un
     // cambio de cómo decide la IA cambiaría el juego. Y el mapa (su forma, su red,
     // el generador) va debajo de la partida, del mundo y del contrato: el mapa de
@@ -331,7 +331,14 @@ describe('invariantes del proyecto', () => {
     // `hero/grupos.ts` y `map/regiones.ts`). Rotos a mano: `import { autoResolve }
     // from '../ai/tactics.js'` en `state/game.ts` e `import type { GameState } from
     // '../state/tipos.js'` en `map/generate.ts` salen rojos con su línea.
+    //
+    // Y el contrato del agente (`contract/`) es una traducción para el agente: si
+    // una regla lo importara, cambiar lo que se le dice cambiaría el juego. La línea
+    // legible, que juzgan también las voces, el banco de NPC y un mundo, salió a
+    // `core/linea.ts` (fase N, 07-11-2026). Roto a mano: `import { SLOTS } from
+    // '../contract/vocabulario.js'` en `gente/banco.ts` sale rojo con su línea.
     const AI = `${ruta('src/core/ai')}/`;
+    const CONTRATO = `${ruta('src/core/contract')}/`;
     const MAPA = `${ruta('src/core/map')}/`;
     const SOBRE_EL_MAPA = [
       ruta('src/core/state'),
@@ -341,6 +348,10 @@ describe('invariantes del proyecto', () => {
     ].map((c) => `${c}/`);
     const capas: readonly (readonly [string, (de: string, a: string) => boolean])[] = [
       ['fuera de `ai/`, nadie importa `ai/`', (de, a) => !de.startsWith(AI) && a.startsWith(AI)],
+      [
+        'fuera de `contract/`, nadie importa `contract/`',
+        (de, a) => !de.startsWith(CONTRATO) && a.startsWith(CONTRATO),
+      ],
       [
         '`map/` no importa `state/`, `mundo/`, `ai/` ni `contract/`',
         (de, a) => de.startsWith(MAPA) && SOBRE_EL_MAPA.some((c) => a.startsWith(c)),
