@@ -80,24 +80,15 @@ import { newGame } from '@core/state/setup.js';
 import {
   ciudadQueMandaBlocker,
   cupoDeLaGuarnicion,
-  delSitio,
   dueñoDeLaCiudad,
-  type ElReparto,
-  elReparto,
   type FilaDeLaDefensa,
   guarnicionDe,
   type LaDefensa,
-  type LaObraDelPuesto,
-  type LineaDelReparto,
-  laObraDelPuesto,
-  lineasDelEjercito,
-  mejorarBlocker,
   nombreDelSitio,
   ocupanteDe,
   ocupanteDicho,
   type Sitio,
   sitioDeLaCiudad,
-  sitioDelHeroe,
   sitioPorId,
   sitioSiExiste,
 } from '@core/state/sitios.js';
@@ -131,7 +122,6 @@ import {
   AYUDA_DEL_DESPLIEGUE,
   AYUDA_DEL_LUGAR,
   AYUDA_DEL_MAPA,
-  DICHO_DE_LA_OBRA,
 } from '../comun/dichos.js';
 import { mensajeDe } from '../comun/errores.js';
 import { quienesDe } from '../comun/quien-mira.js';
@@ -147,6 +137,7 @@ import { AyuntamientoEnPantalla } from './partida/ayuntamiento.js';
 import { ClimaEnPantalla } from './partida/clima.js';
 import type { DueñoDeLasPiezas, Scene } from './partida/comun.js';
 import { EquipoEnPantalla } from './partida/equipo.js';
+import { GuarnicionEnPantalla, type VistaDeLaGuarnicion } from './partida/guarnicion.js';
 import { MoradaEnPantalla } from './partida/morada.js';
 import type { VistaDelAyuntamiento } from './vistas/ayuntamiento.js';
 import { type NieblaDeAntes, type NieblaDeLaMarcha, nieblaDeLaMarcha } from './vistas/marcha.js';
@@ -255,6 +246,8 @@ export class Session extends SesionDeBatalla {
     },
     run: (fn, bloqueo) => this.run(fn, bloqueo),
     turnoAjeno: () => this.turnoAjeno(),
+    bloqueoDeTurno: () => this.bloqueoDeTurno(),
+    oro: () => this.oro,
     heroeSeleccionado: () => this.selectedHero,
     seleccionarHeroe: (id) => {
       this.selectedHeroId = id;
@@ -888,6 +881,19 @@ export class Session extends SesionDeBatalla {
     };
   }
 
+  /**
+   * Por qué el grupo de `hero` no se infiltra (`infiltracionBlocker`), o `null`
+   * si cruza barreras a un día por casilla. Lo lee el panel del héroe.
+   */
+  infiltracion(hero: Hero): string | null {
+    return infiltracionBlocker(hero);
+  }
+
+  /** El sitio de un hecho de la crónica por su id, para nombrarlo (`renderLog`), o `null`. */
+  sitioDeLaCronica(id: string): Sitio | null {
+    return sitioSiExiste(this.state, id);
+  }
+
   // ------------------------------------------------------------ aventura
 
   /**
@@ -1133,190 +1139,49 @@ export class Session extends SesionDeBatalla {
   // ------------------------------------------------------------ guarnición
 
   /**
-   * Por qué el grupo de `hero` no se infiltra (`infiltracionBlocker`), o `null`
-   * si cruza barreras a un día por casilla. Lo lee el panel del héroe.
+   * La guarnición en pantalla, el reparto de la tropa y la obra del puesto:
+   * `GuarnicionEnPantalla` (`sesion/partida/guarnicion.ts`), en la que delegan estos.
    */
-  infiltracion(hero: Hero): string | null {
-    return infiltracionBlocker(hero);
-  }
+  private readonly guarnicion = new GuarnicionEnPantalla(this.dueñoDeLasPiezas);
 
-  /** Si `hero` está en un paso o un pueblo suyo (la ciudad tiene su base). */
+  /** Si `hero` está en un paso o un pueblo suyo (`GuarnicionEnPantalla.enSuPasoOPueblo`). */
   enSuPasoOPueblo(hero: Hero): boolean {
-    const sitio = sitioDelHeroe(this.state, hero);
-    return sitio !== null && sitio.kind !== 'ciudad';
+    return this.guarnicion.enSuPasoOPueblo(hero);
   }
 
   /** El héroe cuya guarnición está abierta (`<dialog id="guarnicion">`), o `null`. */
   get guarnicionAbierta(): string | null {
-    return this.repartoEnPantalla?.hero ?? null;
+    return this.guarnicion.abierta;
   }
-  /**
-   * La guarnición abierta: de qué héroe y el reparto que se edita (`LineaDelReparto`:
-   * lo que iría con él), o `null`. Nace como están (`lineasDelEjercito`) y nada pasa
-   * al núcleo hasta «Confirmar»: Escape y «Cancelar» lo descartan.
-   */
-  private repartoEnPantalla: { readonly hero: string; lineas: LineaDelReparto[] } | null = null;
 
-  /**
-   * Abre la pantalla de repartir la tropa del sitio suyo donde está `heroId`: una
-   * ciudad (desde su base), un paso o un pueblo (al parar en él, o pulsándolo con el
-   * héroe dentro). Fuera de un sitio suyo no se abre, y la barra dice por qué.
-   */
+  /** Abre la pantalla de repartir la tropa del sitio suyo donde está `heroId` (`GuarnicionEnPantalla.abrir`). */
   abrirLaGuarnicion(heroId: string): void {
-    const hero = heroById(this.state, heroId);
-    if (hero.owner !== this.viewer || sitioDelHeroe(this.state, hero) === null) {
-      this.status = `${hero.name} no está en ningún sitio tuyo: la tropa se deja y se recoge en una ciudad, un paso o un pueblo tuyos.`;
-      return;
-    }
-    this.repartoEnPantalla = { hero: heroId, lineas: lineasDelEjercito(hero.army) };
-    this.tocar();
+    this.guarnicion.abrir(heroId);
   }
 
   /** Escape o «Cancelar»: se cierra y lo editado se descarta. */
   cerrarLaGuarnicion(): void {
-    if (this.repartoEnPantalla === null) return;
-    this.repartoEnPantalla = null;
-    this.tocar();
+    this.guarnicion.cerrar();
   }
 
-  /**
-   * Lo que enseña la pantalla de la guarnición: cómo quedarían el héroe y la
-   * guarnición con lo editado, agrupados y con sus cupos, y el motivo del núcleo para
-   * no confirmarlo (`elReparto`; antes, el turno). `null` si no hay ninguna abierta o
-   * el héroe ya no está en su sitio.
-   */
+  /** Lo que enseña la pantalla de la guarnición, o `null` (`GuarnicionEnPantalla.vista`). */
   vistaDeLaGuarnicion(): VistaDeLaGuarnicion | null {
-    const abierto = this.repartoEnPantalla;
-    const hero =
-      abierto === null ? undefined : this.state.heroes.find((h) => h.id === abierto.hero);
-    if (abierto === null || hero === undefined) return null;
-    const sitio = sitioDelHeroe(this.state, hero);
-    if (sitio === null) return null;
-    const reparto = elReparto(this.state, this.viewer, hero, abierto.lineas);
-    return {
-      ...reparto,
-      hero,
-      delSitio: delSitio(sitio),
-      motivo: reparto.cambia ? (this.bloqueoDeTurno() ?? reparto.motivo) : null,
-      obra: this.obraDelPuesto(hero),
-    };
+    return this.guarnicion.vista();
   }
 
-  /**
-   * La obra del puesto donde está `hero` (`laObraDelPuesto`), con el turno en su
-   * motivo: fuera de turno no se mejora, pero «ya está amurallado» es una nota y
-   * sigue siéndolo. La lee la vista de la guarnición.
-   */
-  private obraDelPuesto(hero: Hero): LaObraDelPuesto | null {
-    const obra = laObraDelPuesto(this.state, this.viewer, hero, this.oro);
-    if (obra === null || obra.nota !== null) return obra;
-    return { ...obra, motivo: this.bloqueoDeTurno() ?? obra.motivo };
-  }
-
-  /**
-   * «Levantar la empalizada» o «Amurallar» del diálogo del puesto: manda al núcleo
-   * la obra `obra`, la que decía el botón pulsado (`mejorar_el_puesto`, que juzga
-   * `mejorarBlocker`: si ya no es la que toca, se rechaza sin cobrar), y deja el
-   * diálogo abierto, con la obra nueva y el oro que queda; lo editado del reparto
-   * sigue como estaba (la obra no toca la tropa). Con un rechazo, su motivo en la
-   * barra.
-   */
+  /** «Levantar la empalizada» o «Amurallar» del diálogo del puesto (`GuarnicionEnPantalla.mejorar`). */
   mejorarElPuesto(obra: ObraDelPuesto): void {
-    const abierto = this.repartoEnPantalla;
-    const hero =
-      abierto === null ? undefined : this.state.heroes.find((h) => h.id === abierto.hero);
-    if (hero === undefined) return;
-    const motivo =
-      this.bloqueoDeTurno() ?? mejorarBlocker(this.state, this.viewer, hero.id, obra, this.oro);
-    if (motivo !== null) {
-      this.status = comoFrase(motivo);
-      this.tocar();
-      return;
-    }
-    const hecho = this.run(() =>
-      applyAdventureAction(
-        this.state,
-        { type: 'mejorar_el_puesto', hero: hero.id, obra },
-        this.ctx,
-        this.viewer,
-      ),
-    );
-    const sitio = sitioDelHeroe(this.state, hero);
-    if (hecho && sitio !== null) {
-      this.status = DICHO_DE_LA_OBRA[obra].hecho(delSitio(sitio));
-      this.tocar();
-    }
+    this.guarnicion.mejorar(obra);
   }
 
-  /**
-   * Pasa uno del grupo de `creature` —o el veterano `veterano`— al otro lado del
-   * reparto que se edita: `hacia` el héroe o la guarnición. Solo cambia la pantalla;
-   * lo que no cabría lo dice «Confirmar».
-   */
+  /** Pasa uno al otro lado del reparto que se edita (`GuarnicionEnPantalla.mover`). */
   moverEnElReparto(hacia: 'heroe' | 'guarnicion', creature: string, veterano?: string): void {
-    const abierto = this.repartoEnPantalla;
-    const vista = this.vistaDeLaGuarnicion();
-    if (abierto === null || vista === null) return;
-    // El grupo tiene que estar en el lado del que sale: así no se pide uno que no hay.
-    const origen = hacia === 'heroe' ? vista.guarnicion : vista.heroe;
-    const fila = origen.filas.find((g) =>
-      veterano === undefined
-        ? g.creature === creature && g.veterania === undefined
-        : g.veterania?.id === veterano,
-    );
-    if (fila === undefined) {
-      this.status = `no queda ningún ${unidadDelJuego(creature).name} ${hacia === 'heroe' ? 'en la guarnición' : `con ${vista.hero.name}`}`;
-      this.tocar();
-      return;
-    }
-    if (veterano !== undefined) {
-      abierto.lineas =
-        hacia === 'heroe'
-          ? [...abierto.lineas, { veterano }]
-          : abierto.lineas.filter((l) => !('veterano' in l && l.veterano === veterano));
-    } else {
-      const antes = abierto.lineas.find(
-        (l): l is { creature: string; count: number } => 'creature' in l && l.creature === creature,
-      );
-      const count = (antes?.count ?? 0) + (hacia === 'heroe' ? 1 : -1);
-      abierto.lineas = [...abierto.lineas.filter((l) => l !== antes), { creature, count }];
-    }
-    this.status = '';
-    this.tocar();
+    this.guarnicion.mover(hacia, creature, veterano);
   }
 
-  /**
-   * «Confirmar»: manda el reparto al núcleo (`repartir_tropa`, que juzga solo el
-   * reparto final) y cierra la pantalla. Sin cambios, la cierra sin más; con un
-   * rechazo, se queda abierta con su motivo en la barra.
-   */
+  /** «Confirmar»: manda el reparto al núcleo y cierra la pantalla (`GuarnicionEnPantalla.confirmar`). */
   confirmarElReparto(): void {
-    const abierto = this.repartoEnPantalla;
-    const vista = this.vistaDeLaGuarnicion();
-    if (abierto === null || vista === null) return;
-    if (!vista.cambia) {
-      this.cerrarLaGuarnicion();
-      return;
-    }
-    if (vista.motivo !== null) {
-      this.status = comoFrase(vista.motivo);
-      this.tocar();
-      return;
-    }
-    const hecho = this.run(() =>
-      applyAdventureAction(
-        this.state,
-        { type: 'repartir_tropa', hero: abierto.hero, enElHeroe: abierto.lineas },
-        this.ctx,
-        this.viewer,
-      ),
-    );
-    if (hecho) this.cerrarLaGuarnicion();
-  }
-
-  /** El sitio de un hecho de la crónica por su id, para nombrarlo (`renderLog`), o `null`. */
-  sitioDeLaCronica(id: string): Sitio | null {
-    return sitioSiExiste(this.state, id);
+    this.guarnicion.confirmar();
   }
 
   // ------------------------------------------------------------ la defensa
@@ -2563,21 +2428,6 @@ export class Session extends SesionDeBatalla {
       turnBlocker(this.state, this.viewer) ?? 'Espera: el turno del rival aún se está resolviendo.'
     );
   }
-}
-
-/**
- * La pantalla de repartir la tropa (`Session.vistaDeLaGuarnicion`): la del núcleo
- * (`elReparto`), con el héroe y el nombre del sitio, y en `motivo` también el turno.
- */
-export interface VistaDeLaGuarnicion extends ElReparto {
-  readonly hero: Hero;
-  /** «del paso de montaña de (3,4)», «de Villarreal». */
-  readonly delSitio: string;
-  /**
-   * La obra del puesto, si el sitio es un paso (`laObraDelPuesto`; la ciudad y el
-   * pueblo no se mejoran), con el turno en su motivo.
-   */
-  readonly obra: LaObraDelPuesto | null;
 }
 
 /** Lo que la sesión guarda al cerrar una batalla para contarla después (`fraseTrasLaBatalla`). */

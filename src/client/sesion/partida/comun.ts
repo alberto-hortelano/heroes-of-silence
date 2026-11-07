@@ -50,6 +50,13 @@ export interface DueñoDeLasPiezas {
    * `null`: la guarda de contratar, que con el héroe de salida pendiente es lo que se hace.
    */
   turnoAjeno(): string | null;
+  /**
+   * Por qué no se puede jugar ahora (`Session.bloqueoDeTurno`: el turno y el héroe de
+   * salida por elegir), o `null`: la compuerta de toda acción de la persona.
+   */
+  bloqueoDeTurno(): string | null;
+  /** El oro de la persona (`Session.oro`). */
+  oro(): number;
   /** El héroe elegido (`Session.selectedHero`), o `null`. */
   heroeSeleccionado(): Hero | null;
   /** Elige al héroe `id` (`Session.selectedHeroId`: suelta la pieza elegida y sube la versión). */
