@@ -804,3 +804,43 @@ simbolo	src/core/map/regiones.ts	src/core/map/tipos.ts	Estructura
 simbolo	src/core/unidad.ts	src/core/unidad/cuerpo.ts	AGILIDAD_DEL_CUERPO_MAX y AGILIDAD_DEL_CUERPO_MIN (reexportación retirada en N6: se importan de su módulo)
 simbolo	src/core/battle/despliegue.ts	src/core/types.ts	AlcanceDelDespliegue y MomentoDeDespliegue (reexportación retirada en N8: nadie las importaba de allí)
 simbolo	src/core/map/regiones.ts	src/core/map/map.ts	aPunto (reexportación retirada en N8: se importa de su módulo)
+simbolo	src/core/map/regiones.ts	src/core/map/niveles.ts	Franja
+simbolo	src/core/map/regiones.ts	src/core/map/niveles.ts	franjasDeBarrera
+simbolo	src/core/map/regiones.ts	src/core/map/niveles.ts	nivelesDelRelieve
+simbolo	src/core/map/regiones.ts	src/core/map/niveles.ts	NodoDelRelieve
+simbolo	src/core/map/regiones.ts	src/core/map/niveles.ts	sinEspiga
+simbolo	src/core/map/regiones.ts	src/core/map/niveles.ts	nivelDelNodo
+simbolo	src/core/map/regiones.ts	src/core/map/niveles.ts	PasoTorcido
+simbolo	src/core/map/regiones.ts	src/core/map/niveles.ts	pasoTorcido
+simbolo	src/core/map/regiones.ts	src/core/map/niveles.ts	soloPorUnVertice
+simbolo	src/core/map/regiones.ts	src/core/map/niveles.ts	tramosTorcidos
+simbolo	src/core/map/regiones.ts	src/core/map/niveles.ts	espigasDelRelieve
+simbolo	src/core/map/regiones.ts	src/core/map/niveles.ts	acantiladosSinCaida
+simbolo	src/core/map/regiones.ts	src/core/map/niveles.ts	NOMBRE_DE_BARRERA
+simbolo	src/core/map/regiones.ts	src/core/map/niveles.ts	problemasDeNiveles
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	EstadoDeRed
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	Conexion
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	Territorio
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	territorio
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	dueñosDe
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	DueñosDeLaRed
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	dueñosDeLaRed
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	dueñosDeLasRegiones
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	dueñoDeLaRegion
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	ObjetoConDueño
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	objetosConDueño
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	objetoConDueño
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	dueñoDelNodo
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	dueñosDeNodos
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	dueñoDeUnSitio
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	dueñoEnLaFoto
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	sinSitio
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	DondeEsta
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	dondeEsta
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	regionesDelSitio
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	sitioEnUnNodo
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	dueñoComun
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	conexionDe
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	regionesQueCierra
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	regionOwner
+simbolo	src/core/map/regiones.ts	src/core/map/territorio.ts	conectadoABase

@@ -83,14 +83,9 @@ import {
   zonaDeNiebla,
 } from '../map/niebla.js';
 import { muroBlocker } from '../map/recinto.js';
-import {
-  dueñoEnLaFoto,
-  dueñosDeLaRed,
-  estructura,
-  regionDelSitio,
-  regionMasCercana,
-} from '../map/regiones.js';
+import { estructura, regionDelSitio, regionMasCercana } from '../map/regiones.js';
 import { type Barrera, NOMBRE_DE_BARRERA } from '../map/terrain.js';
+import { dueñoEnLaFoto, dueñosDeLaRed } from '../map/territorio.js';
 import type { GameMap, MapObject } from '../map/tipos.js';
 import {
   batallaDe,

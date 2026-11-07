@@ -21,7 +21,7 @@
  * `territorio`), y por eso cortar un nodo se nota en todo lo que colgaba
  * detrás a la vez, sin que nadie tenga que apuntar nada.
  */
-import { dondeEsta, dueñoEnLaFoto, type Territorio, territorio } from '../map/regiones.js';
+import { dondeEsta, dueñoEnLaFoto, type Territorio, territorio } from '../map/territorio.js';
 import type { Estructura, GameMap } from '../map/tipos.js';
 import { ECONOMIA } from '../town/economia.js';
 import { dailyIncome, type Town } from '../town/town.js';

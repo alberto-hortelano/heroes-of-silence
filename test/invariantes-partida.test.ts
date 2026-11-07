@@ -292,7 +292,10 @@ describe('invariantes del proyecto', () => {
     // cliente y el espectador lo reescriben en su copia con el dueño derivado, pero
     // en el núcleo un `town.owner` nuevo daría `null` sin avisar en cuanto la ciudad
     // fuera de una región. La regla del sitio es `dueñoDeUnSitio` (la red) y
-    // `dueñoDelSitio` (`state/sitios.ts`).
+    // `dueñoDelSitio` (`state/sitios.ts`). La red que lo lee, y la única exención,
+    // es `map/territorio.ts`, los dueños de la red (era `map/regiones.ts` hasta la
+    // fase N de la reorganización, 07-11-2026; roto a mano: `return o.owner`
+    // copiado a `regiones.ts` sale rojo).
     //
     // No se puede ver por el texto: `o.owner` es igual en un paso, un héroe o una
     // ciudad. Se pregunta al compilador el tipo de lo que va antes del punto, y
@@ -327,7 +330,7 @@ describe('invariantes del proyecto', () => {
     const lecturas: string[] = [];
     for (const fuente of programa.getSourceFiles()) {
       const fichero = fuente.fileName.slice(RAIZ.length).replace(/^\//, '');
-      if (!fichero.startsWith(ruta('src/core/')) || fichero === ruta('src/core/map/regiones.ts'))
+      if (!fichero.startsWith(ruta('src/core/')) || fichero === ruta('src/core/map/territorio.ts'))
         continue;
       const visitar = (n: ts.Node): void => {
         let de: ts.Node | null = null;

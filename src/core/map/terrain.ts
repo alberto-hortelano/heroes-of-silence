@@ -85,7 +85,7 @@ export type Barrera = (typeof BARRERAS)[number];
 /**
  * Cómo se nombra cada barrera en una frase para la persona: la ficha del
  * ayuntamiento (qué cruza quien se infiltra) y el mapa de regiones de las
- * herramientas de desarrollo. El rechazo de niveles (`regiones.ts`) la nombra
+ * herramientas de desarrollo. El rechazo de niveles (`niveles.ts`) la nombra
  * con artículo y su id: es otra frase.
  */
 export const NOMBRE_DE_BARRERA: Readonly<Record<Barrera, string>> = {

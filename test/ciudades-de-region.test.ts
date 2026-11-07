@@ -23,7 +23,8 @@ import {
 import { pointKey } from '../src/core/map/geometria.js';
 import { aPunto } from '../src/core/map/map.js';
 import { puertasDeLaCiudad, rioAnteLaCiudad } from '../src/core/map/recinto.js';
-import { estructura, regionesDelSitio } from '../src/core/map/regiones.js';
+import { estructura } from '../src/core/map/regiones.js';
+import { regionesDelSitio } from '../src/core/map/territorio.js';
 import { createRng } from '../src/core/rng.js';
 import { rango, segunPrisa } from './lento.js';
 import { grafoDeCaminos, piezaDeCaminos } from './mapa-de-prueba.js';

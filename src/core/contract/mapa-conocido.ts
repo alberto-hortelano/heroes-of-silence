@@ -10,8 +10,8 @@
 import { MARGEN_CONTRA_NEUTRALES, poderDe } from '../hero/fuerza.js';
 import { pointFromKey } from '../map/geometria.js';
 import { LADO_DEL_RECINTO } from '../map/recinto.js';
-import { sitioEnUnNodo } from '../map/regiones.js';
 import { BARRERAS, costeDeEntrada, SUELOS_PISABLES } from '../map/terrain.js';
+import { sitioEnUnNodo } from '../map/territorio.js';
 import { asaltantesALaVista } from '../state/asaltantes.js';
 import { playerById } from '../state/consultas.js';
 import {

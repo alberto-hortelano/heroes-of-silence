@@ -17,13 +17,8 @@ import type { MapPlan } from '../src/core/map/generar/plan.js';
 import { buildMap, generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';
 import { pointKey } from '../src/core/map/geometria.js';
 import { isEnterable, objectAt } from '../src/core/map/map.js';
-import {
-  estructura,
-  regionDeCasilla,
-  territorio,
-  tocaUnNodo,
-  VECINAS,
-} from '../src/core/map/regiones.js';
+import { estructura, regionDeCasilla, tocaUnNodo, VECINAS } from '../src/core/map/regiones.js';
+import { territorio } from '../src/core/map/territorio.js';
 import { createRng } from '../src/core/rng.js';
 import {
   type AsaltanteRecordado,

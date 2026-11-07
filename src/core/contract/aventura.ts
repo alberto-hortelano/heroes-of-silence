@@ -22,7 +22,7 @@ import {
 } from '../hero/rango.js';
 import { tiposDeHeroe } from '../hero/tipos-de-heroe.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../hero/troop.js';
-import { sitioEnUnNodo } from '../map/regiones.js';
+import { sitioEnUnNodo } from '../map/territorio.js';
 import { climaDeLaPartida, pedidoVigente } from '../state/clima.js';
 import {
   hayHuecoDeHeroe,

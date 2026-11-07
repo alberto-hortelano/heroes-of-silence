@@ -35,15 +35,14 @@ import {
   stepCost,
 } from '../src/core/map/map.js';
 import { regionDescubierta, zonaDeNiebla } from '../src/core/map/niebla.js';
+import { estructura, regionDeCasilla } from '../src/core/map/regiones.js';
+import { isWalkable, ROAD_COST, TERRAIN_KINDS } from '../src/core/map/terrain.js';
 import {
   conectadoABase,
-  estructura,
-  regionDeCasilla,
   regionesQueCierra,
   regionOwner,
   territorio,
-} from '../src/core/map/regiones.js';
-import { isWalkable, ROAD_COST, TERRAIN_KINDS } from '../src/core/map/terrain.js';
+} from '../src/core/map/territorio.js';
 import type { MapObject } from '../src/core/map/tipos.js';
 import { createRng, parseSeed } from '../src/core/rng.js';
 import {

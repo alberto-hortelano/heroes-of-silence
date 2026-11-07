@@ -20,7 +20,7 @@ import { analizar } from '../src/client/render/escenario/analizar.js';
 import { relieve } from '../src/client/render/escenario/relieve.js';
 import { LADO_MINIMO_DEL_GENERADOR } from '../src/core/map/generar/plan.js';
 import { buildMap, generateMapPlan } from '../src/core/map/generate.js';
-import { acantiladosSinCaida } from '../src/core/map/regiones.js';
+import { acantiladosSinCaida } from '../src/core/map/niveles.js';
 import { BARRERAS, esBarrera, type Nivel } from '../src/core/map/terrain.js';
 import { ABIERTA, adelgazarAcantilados } from '../src/core/map/vestir.js';
 import { createRng } from '../src/core/rng.js';

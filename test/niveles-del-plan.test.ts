@@ -21,7 +21,7 @@ import {
   planDelAgente,
   validateMapPlan,
 } from '../src/core/map/generate.js';
-import { problemasDeNiveles } from '../src/core/map/regiones.js';
+import { problemasDeNiveles } from '../src/core/map/niveles.js';
 import { BARRERAS_DE_DESNIVEL, type Nivel, QUE_ES_UN_NIVEL } from '../src/core/map/terrain.js';
 import { createRng } from '../src/core/rng.js';
 import { catalogoDelDisco } from './escena-de-prueba.js';

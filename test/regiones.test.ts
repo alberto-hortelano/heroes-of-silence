@@ -31,16 +31,11 @@ import {
 } from '../src/core/map/generate.js';
 import { pointFromKey, pointKey } from '../src/core/map/geometria.js';
 import { aPunto } from '../src/core/map/map.js';
+import { franjasDeBarrera, nivelesDelRelieve } from '../src/core/map/niveles.js';
 import { puertaDe, rodeosParaEntrar } from '../src/core/map/puertas.js';
 import { puertasDeLaCiudad, rioAnteLaCiudad } from '../src/core/map/recinto.js';
 import { RedDeCaminos, type TramoDeCamino } from '../src/core/map/red-de-caminos.js';
-import {
-  estructura,
-  franjasDeBarrera,
-  nivelesDelRelieve,
-  rellenar,
-  vecindad,
-} from '../src/core/map/regiones.js';
+import { estructura, rellenar, vecindad } from '../src/core/map/regiones.js';
 import {
   BARRERAS,
   type Barrera,

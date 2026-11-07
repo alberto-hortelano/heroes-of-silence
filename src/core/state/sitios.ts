@@ -33,7 +33,7 @@
  *    acción, en `game.ts`, como toda compra.
  *
  * No importa nada de `game.ts` (sus tipos, de `tipos.ts`): `game.ts` lo importa a él. El dueño
- * de un sitio lo pregunta a la red (`dueñoDeUnSitio`, `map/regiones.ts`).
+ * de un sitio lo pregunta a la red (`dueñoDeUnSitio`, `map/territorio.ts`).
  */
 import sitiosJson from '../../../data/sitios.json' with { type: 'json' };
 import { murallaDelMapaBlocker, SIN_MURALLA, validarMuralla } from '../battle/muralla.js';
@@ -49,7 +49,7 @@ import {
   troopSummary,
   troopUnit,
 } from '../hero/troop.js';
-import { dueñoDeUnSitio, sitioEnUnNodo } from '../map/regiones.js';
+import { dueñoDeUnSitio, sitioEnUnNodo } from '../map/territorio.js';
 import {
   esObraDelPuesto,
   type MapObject,

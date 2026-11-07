@@ -31,12 +31,8 @@
  */
 import climaJson from '../../../data/clima.json' with { type: 'json' };
 import { inBounds } from '../map/map.js';
-import {
-  dueñoDeLaRegion,
-  dueñosDeLasRegiones,
-  type MapaDeRed,
-  regionDelSitio,
-} from '../map/regiones.js';
+import { type MapaDeRed, regionDelSitio } from '../map/regiones.js';
+import { dueñoDeLaRegion, dueñosDeLasRegiones } from '../map/territorio.js';
 import { createRng, hashDeTexto, sortearPorPesos } from '../rng.js';
 import { FACTION_IDS, type FactionId, type PlayerId, type Point } from '../types.js';
 import { enteroDesde, esIdDeMapa } from '../validar.js';

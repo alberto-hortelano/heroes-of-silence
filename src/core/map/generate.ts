@@ -49,6 +49,7 @@ import {
 import { espejoDe, parejaDe, pointKey } from './geometria.js';
 import { aPunto, BARRERAS_DEL_PUEBLO, createEmptyMap, inBounds, tramosDeCasillas } from './map.js';
 import { murallasDeLaRejilla } from './murallas.js';
+import { type PasoTorcido, problemasDeNiveles, tramosTorcidos } from './niveles.js';
 import { puertaDe } from './puertas.js';
 import {
   cabeElRecinto,
@@ -65,18 +66,12 @@ import {
 import { RedDeCaminos, type TramoDeCamino } from './red-de-caminos.js';
 import {
   componentesDelMapa,
-  dondeEsta,
   estructura,
   juntoANodo,
-  type PasoTorcido,
-  problemasDeNiveles,
   problemasDeRed,
   regionDeCasilla,
-  regionesDelSitio,
   regionesQueToca,
-  territorio,
   tocaUnNodo,
-  tramosTorcidos,
   VECINAS,
   vecindad,
 } from './regiones.js';
@@ -106,6 +101,7 @@ import {
   type Suelo,
   type TerrainKind,
 } from './terrain.js';
+import { dondeEsta, regionesDelSitio, territorio } from './territorio.js';
 import type { Estructura, GameMap, MapObject, MapRegion } from './tipos.js';
 import {
   ABIERTA,
@@ -2671,7 +2667,7 @@ function vestirRed(
   // la esquina de la meseta: el vestido no vale (#224). La bajada a una ciudad
   // sí, salvo por una silla: donde se juntan tres regiones o más, solo una le
   // llega en cruz, porque dos casillas de regiones distintas no se tocan ni por
-  // un vértice (`soloPorUnVertice`, en `regiones.ts`). Los puentes, fuera: el
+  // un vértice (`soloPorUnVertice`, en `niveles.ts`). Los puentes, fuera: el
   // puente es su paso.
   // Por el recinto de una ciudad y el puente de una ciudad-puente, igual: lo de
   // dentro lo tapa la muralla y no se mira, y lo que llega a una puerta solo

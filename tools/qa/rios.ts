@@ -35,8 +35,9 @@
  */
 import { resolve } from 'node:path';
 import { buildMap, generateMapPlan } from '../../src/core/map/generate.js';
+import { franjasDeBarrera, nivelesDelRelieve } from '../../src/core/map/niveles.js';
 import { rioAnteLaCiudad } from '../../src/core/map/recinto.js';
-import { estructura, franjasDeBarrera, nivelesDelRelieve } from '../../src/core/map/regiones.js';
+import { estructura } from '../../src/core/map/regiones.js';
 import { rioEntero, type TrazadoDelRio } from '../../src/core/map/rio.js';
 import type { TerrainKind } from '../../src/core/map/terrain.js';
 import type { GameMap } from '../../src/core/map/tipos.js';

@@ -24,7 +24,12 @@ import {
   withTroops,
 } from '../hero/troop.js';
 import { casillaDelIndice, costeEnElAlcance, type Reachable } from '../map/map.js';
-import { dueñoEnLaFoto, regionesQueCierra, type Territorio, territorio } from '../map/regiones.js';
+import {
+  dueñoEnLaFoto,
+  regionesQueCierra,
+  type Territorio,
+  territorio,
+} from '../map/territorio.js';
 import type { MapObject } from '../map/tipos.js';
 import { lugarDe } from '../mundo/formato.js';
 import { mundoDe } from '../mundo/reglas.js';

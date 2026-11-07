@@ -30,8 +30,6 @@ import {
   muroDeLaLinea,
   type RejillaDeMuralla,
 } from './murallas.js';
-import { rodeosParaEntrar } from './puertas.js';
-import { CIUDAD, FUERA, type PasosDelRecinto, PUERTA } from './recinto.js';
 import {
   acantiladosSinCaida,
   espigasDelRelieve,
@@ -40,9 +38,10 @@ import {
   nivelesDelRelieve,
   type PasoTorcido,
   pasoTorcido,
-  rellenar,
-  vecindad,
-} from './regiones.js';
+} from './niveles.js';
+import { rodeosParaEntrar } from './puertas.js';
+import { CIUDAD, FUERA, type PasosDelRecinto, PUERTA } from './recinto.js';
+import { rellenar, vecindad } from './regiones.js';
 import { alOtroLado } from './rio.js';
 import {
   admiteLosNiveles,
