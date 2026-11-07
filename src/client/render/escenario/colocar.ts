@@ -2970,7 +2970,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     const otro = SUELO_DE_LA_ROCA[material];
     if (otro === undefined)
       throw new Error(
-        `no hay suelo para la roca «${material}»: añádelo a SUELO_DE_LA_ROCA (colocar.ts)`,
+        `no hay suelo para la roca «${material}»: añádelo a SUELO_DE_LA_ROCA (colocar/tablas.ts)`,
       );
     return otro;
   }

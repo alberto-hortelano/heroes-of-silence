@@ -685,7 +685,7 @@ export function materialDeCara(material: string): MaterialDeCara {
   const m = MATERIAL_DE_CARA[material];
   if (m === undefined)
     throw new Error(
-      `no hay paredes para el material de cara «${material}»: añádelo a MATERIAL_DE_CARA (colocar.ts)`,
+      `no hay paredes para el material de cara «${material}»: añádelo a MATERIAL_DE_CARA (colocar/tablas.ts)`,
     );
   return m;
 }
