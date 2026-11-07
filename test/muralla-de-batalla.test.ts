@@ -13,7 +13,6 @@ import { columna } from '../src/core/arena/murallas.js';
 import {
   applyAction,
   type BattleSide,
-  bandoDeSalida,
   cargaDesde,
   createBattle,
   distanciaACaminar,
@@ -24,7 +23,7 @@ import {
   movimientoBlocker,
   stackById,
 } from '../src/core/battle/battle.js';
-import { allHexes, FORMA_DEL_TABLERO, hexKey } from '../src/core/battle/board.js';
+import { allHexes, bandoDeSalida, FORMA_DEL_TABLERO, hexKey } from '../src/core/battle/board.js';
 import { despliegueBlocker } from '../src/core/battle/despliegue.js';
 import { SIN_MURALLA, validarMuralla } from '../src/core/battle/muralla.js';
 import type { BattleState, MurallaDeBatalla } from '../src/core/battle/types.js';

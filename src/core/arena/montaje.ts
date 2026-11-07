@@ -37,11 +37,16 @@ import {
   causaDelFinal,
   createBattle,
   quienNoEscala,
-  type StackDeBatalla,
 } from '../battle/battle.js';
 import { despliegueBlocker } from '../battle/despliegue.js';
 import { SIN_MURALLA } from '../battle/muralla.js';
-import type { BattleState, FichaEnPalabras, MurallaDeBatalla, Side } from '../battle/types.js';
+import type {
+  BattleState,
+  FichaEnPalabras,
+  MurallaDeBatalla,
+  Side,
+  StackDeBatalla,
+} from '../battle/types.js';
 import type { ReglasDelCombate } from '../combate.js';
 import type { CatalogoDeEquipo, EquipoAtado } from '../equipo/atado.js';
 import { type CatalogoDeHechizos, HECHIZOS_DEL_JUEGO } from '../magia/catalogo.js';

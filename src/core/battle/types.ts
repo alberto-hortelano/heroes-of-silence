@@ -10,7 +10,7 @@ import type {
   Impedible,
   SeAcabaSiMuere,
 } from '../magia/formato.js';
-import type { Hex, PoderId, TipoDeGolpe, UnitInfo, Veterania } from '../types.js';
+import type { Hex, PoderId, Stack, TipoDeGolpe, UnitInfo, Veterania } from '../types.js';
 import type { Punto } from './cifras-de-la-rueda.js';
 import type { TiposDeLaRueda } from './formas-de-la-rueda.js';
 
@@ -958,3 +958,56 @@ export interface HastaElTurno {
  * rueda y su nota.
  */
 export type CuandoVence = 'empezar' | 'terminar';
+
+// ------------------------------------------------- lo que entra de cada bando
+//
+// La tropa (`StackDeBatalla`) y el héroe (`HeroeDelBando`) de un bando tal como los
+// recibe `createBattle`. Vivían en `battle.ts` hasta la fase N de la reorganización
+// (07-11-2026). `BattleSide`, que los junta, sigue junto a `createBattle`: lleva el
+// catálogo de su tropa (`CatalogoDeUnidades`), y `unidad/catalogo.ts` lee de aquí la
+// forma de un stack, así que nombrarlo aquí cerraría un ciclo de tipos entre dos
+// carpetas.
+
+/**
+ * Un stack de la tropa tal como entra: el del ejército y, si lleva, su escalera
+ * para subir a la muralla (`poner_escalera`). La ponen la arena (por puesto) y
+ * la batalla del mapa con muralla (a todo el bando atacante, `alAsalto`), y
+ * no llega al tablero si no la puede usar (`quienNoEscala`).
+ */
+export type StackDeBatalla = Stack & { readonly escalera?: boolean };
+
+/**
+ * El héroe de un bando, tal como entra: lo que el motor guarda en
+ * `BattleState.heroes` (`mando`: su magia y su rendición) y las cifras con las
+ * que pisa el tablero (`cuerpo`, de `heroUnit`). Van juntos para que no pueda
+ * haber héroe sin cuerpo ni cuerpo sin héroe; el cuerpo se queda en su stack
+ * y no se copia al estado, que nadie lo leería allí.
+ */
+export interface HeroeDelBando {
+  readonly mando: BattleHero;
+  readonly cuerpo: UnitInfo;
+  /**
+   * El mismo cuerpo sin el equipo (`cuerpoDelHeroe`): va a su origen
+   * (`OrigenDelStack.desnudo`), de donde `cuerpoDe` lo lee.
+   */
+  readonly desnudo: UnitInfo;
+  /**
+   * El id del ARTE con el que pisa el tablero (`BattleStack.body`): en la partida,
+   * la hoja de su tipo (`figuraDelHeroe`); en la arena, la que se elija entre las
+   * hojas de héroe o la genérica (`HERO_BODY`). Sin opcional: con un `?? HERO_BODY`
+   * aquí, la partida pintó al héroe con el Y Bot sin que nada lo dijera («la imagen
+   * es el y_bot», 19-10-2026). Lo que el héroe ES para la crónica no sale de aquí
+   * (`queEs`).
+   */
+  readonly figura: string;
+  /**
+   * Si entra con escalera (`poner_escalera`): solo el héroe que ataca una muralla
+   * del mapa (`alAsalto`). La arena no se la da: allí la escalera es de un puesto.
+   */
+  readonly escalera?: boolean;
+  /**
+   * Su casilla en la formación (`Hero.salida`, en el marco del atacante): la
+   * pide al asentar (`asentar`), como la tropa la suya (`Troop.salida`).
+   */
+  readonly salida?: Hex;
+}

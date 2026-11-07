@@ -5,12 +5,14 @@
  * Era parte de `core/arena.ts`, repartido en `arena/` en la fase N de la
  * reorganización (07-11-2026); lo que hace la arena y por qué, en `montaje.ts`.
  */
-import {
-  type HeroeDelBando,
-  libroConElCatalogo,
-  loADistanciaTrasElRetoque,
-} from '../battle/battle.js';
-import type { BattleStack, BattleState, FichaEnPalabras, OrigenDelStack } from '../battle/types.js';
+import { libroConElCatalogo, loADistanciaTrasElRetoque } from '../battle/battle.js';
+import type {
+  BattleStack,
+  BattleState,
+  FichaEnPalabras,
+  HeroeDelBando,
+  OrigenDelStack,
+} from '../battle/types.js';
 import type { CatalogoDeEquipo } from '../equipo/atado.js';
 import { esPiezaConBase } from '../equipo/pieza.js';
 import { idsPuestos, mismasCifras } from '../equipo/vestir.js';

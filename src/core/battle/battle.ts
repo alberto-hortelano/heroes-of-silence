@@ -24,15 +24,7 @@ import {
   type Impedible,
 } from '../magia/formato.js';
 import type { Rng } from '../rng.js';
-import type {
-  CreatureTrait,
-  FactionId,
-  Hex,
-  PoderId,
-  Stack,
-  UnitInfo,
-  UsoDeArma,
-} from '../types.js';
+import type { CreatureTrait, FactionId, Hex, PoderId, UnitInfo, UsoDeArma } from '../types.js';
 import { type Hero, hasTrait, SPEED_TO_HEXES } from '../types.js';
 import {
   CATALOGO_DEL_JUEGO,
@@ -194,12 +186,14 @@ import {
   type CuandoVence,
   type DisparadorResuelto,
   type EfectoResuelto,
+  type HeroeDelBando,
   MAX_ROUNDS,
   type MurallaDeBatalla,
   otroBando,
   type Paso,
   type PuertaDeMuralla,
   SIDES,
+  type StackDeBatalla,
   type StackEffect,
 } from './types.js';
 
@@ -229,14 +223,6 @@ export interface BattleSide {
 }
 
 /**
- * Un stack de la tropa tal como entra: el del ejército y, si lleva, su escalera
- * para subir a la muralla (`poner_escalera`). La ponen la arena (por puesto) y
- * la batalla del mapa con muralla (a todo el bando atacante, `alAsalto`), y
- * no llega al tablero si no la puede usar (`quienNoEscala`).
- */
-export type StackDeBatalla = Stack & { readonly escalera?: boolean };
-
-/**
  * El bando atacante `lado` listo para pelear contra `muralla`: **con muralla, una
  * escalera para cada uno, el héroe incluido** (D8 del puesto fronterizo, 04-11-2026,
  * decisión del usuario: «Todo el atacante»; sin comprarla, una por stack, y se gasta
@@ -257,42 +243,6 @@ function conEscaleras(lado: BattleSide): BattleSide {
     army: lado.army.map((s) => ({ ...s, escalera: true })),
     hero: lado.hero === null ? null : { ...lado.hero, escalera: true },
   };
-}
-
-/**
- * El héroe de un bando, tal como entra: lo que el motor guarda en
- * `BattleState.heroes` (`mando`: su magia y su rendición) y las cifras con las
- * que pisa el tablero (`cuerpo`, de `heroUnit`). Van juntos para que no pueda
- * haber héroe sin cuerpo ni cuerpo sin héroe; el cuerpo se queda en su stack
- * y no se copia al estado, que nadie lo leería allí.
- */
-export interface HeroeDelBando {
-  readonly mando: BattleHero;
-  readonly cuerpo: UnitInfo;
-  /**
-   * El mismo cuerpo sin el equipo (`cuerpoDelHeroe`): va a su origen
-   * (`OrigenDelStack.desnudo`), de donde `cuerpoDe` lo lee.
-   */
-  readonly desnudo: UnitInfo;
-  /**
-   * El id del ARTE con el que pisa el tablero (`BattleStack.body`): en la partida,
-   * la hoja de su tipo (`figuraDelHeroe`); en la arena, la que se elija entre las
-   * hojas de héroe o la genérica (`HERO_BODY`). Sin opcional: con un `?? HERO_BODY`
-   * aquí, la partida pintó al héroe con el Y Bot sin que nada lo dijera («la imagen
-   * es el y_bot», 19-10-2026). Lo que el héroe ES para la crónica no sale de aquí
-   * (`queEs`).
-   */
-  readonly figura: string;
-  /**
-   * Si entra con escalera (`poner_escalera`): solo el héroe que ataca una muralla
-   * del mapa (`alAsalto`). La arena no se la da: allí la escalera es de un puesto.
-   */
-  readonly escalera?: boolean;
-  /**
-   * Su casilla en la formación (`Hero.salida`, en el marco del atacante): la
-   * pide al asentar (`asentar`), como la tropa la suya (`Troop.salida`).
-   */
-  readonly salida?: Hex;
 }
 
 /**
@@ -317,11 +267,6 @@ export function mandoDe(
     spells: heroe.spells,
   };
 }
-
-// La zona de salida vive en `board.ts`: la lee también la muralla, que dice qué
-// es dentro y qué es fuera desde la del defensor. Dónde sale cada uno, en
-// `despliegue.ts` (`asentar`).
-export { bandoDeSalida } from './board.js';
 
 /**
  * Moral del ejército por su composición, copiada de fheroes2

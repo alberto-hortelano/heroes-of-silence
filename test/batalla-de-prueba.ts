@@ -16,7 +16,6 @@ import {
   type BattleSide,
   createBattle,
   enemiesOf,
-  type HeroeDelBando,
   legalActions,
   stackById,
   stackHexes,
@@ -31,6 +30,7 @@ import type {
 } from '../src/core/battle/types.js';
 import {
   HERO_BODY,
+  type HeroeDelBando,
   type MaterialDeMuralla,
   type MurallaDeBatalla,
   type PuertaDeMuralla,

@@ -133,14 +133,13 @@ import {
   applyAction,
   type BattleSide,
   createBattle,
-  type HeroeDelBando,
   MAX_JUGADAS,
   MAX_ROUNDS,
   seHaMovido,
 } from '../../src/core/battle/battle.js';
 import { cargaMontada } from '../../src/core/battle/carga.js';
 import type { BattleAction, BattleState, Side } from '../../src/core/battle/types.js';
-import { HERO_BODY, otroBando } from '../../src/core/battle/types.js';
+import { HERO_BODY, type HeroeDelBando, otroBando } from '../../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../../src/core/combate.js';
 import { EQUIPO_BASE } from '../../src/core/hero/cuerpo-del-heroe.js';
 import { cuerposDelHeroe } from '../../src/core/hero/hero.js';

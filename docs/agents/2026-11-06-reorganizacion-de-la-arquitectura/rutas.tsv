@@ -1076,3 +1076,6 @@ simbolo	src/core/state/game.ts	src/core/state/cierre.ts	ganarExperiencia
 simbolo	src/core/state/game.ts	src/core/state/cierre.ts	applyVictory
 simbolo	src/core/state/game.ts	src/core/state/cierre.ts	repartirBotin
 simbolo	src/core/state/game.ts	src/core/state/cierre.ts	applyDefenderSurvivors
+simbolo	src/core/battle/battle.ts	src/core/battle/types.ts	StackDeBatalla
+simbolo	src/core/battle/battle.ts	src/core/battle/types.ts	HeroeDelBando
+simbolo	src/core/battle/battle.ts	src/core/battle/board.ts	bandoDeSalida (reexportación retirada en N11: se importa de su módulo)
