@@ -36,13 +36,12 @@ import { GestosDeBatalla } from '../batalla/gestos.js';
 import { DialogoDeLaRueda } from '../batalla/rueda/dialogo.js';
 import { bucleDeDibujo } from '../comun/bucle.js';
 import { mensajeDe } from '../comun/errores.js';
-import { semillaSorteada } from '../comun/semilla.js';
 import { cargarArte } from '../render/assets.js';
 import type { CharacterClip } from '../render/figuras/character.js';
 import { hayFigurasAnimadas } from '../render/figuras/figura.js';
 import { DIRECCION_DE_HOJA } from '../render/figuras/personajes.js';
 import { ajustarLienzo } from '../render/lienzo.js';
-import { type LadoDeSesion, SesionDeArena } from '../sesion/sesion-de-arena.js';
+import type { SesionDeArena } from '../sesion/sesion-de-arena.js';
 import { pintarSiguiendoElFinal } from '../views/al-final.js';
 import { AVISO_DE_ESPERA } from '../views/cifras.js';
 import {
@@ -81,7 +80,7 @@ import {
   repintarMuralla,
   tocarHex,
 } from './editor-de-muralla.js';
-import { aLaBarraDeLaArena, copiarEnlace, leerLaURL, montarDelEnlace } from './enlace.js';
+import { copiarEnlace, leerLaURL, montarDelEnlace } from './enlace.js';
 import {
   abrirEditor,
   campoDelNombre,
@@ -91,14 +90,7 @@ import {
 } from './fichas.js';
 import { animarFiguras, animDe, vigiaDeLasFiguras } from './figuras.js';
 import { montarEditorDeMagia } from './magia.js';
-import {
-  añadir,
-  crearUnidad,
-  fuenteDeArena,
-  ocupados,
-  puestoPorClave,
-  quienUsaElHechizo,
-} from './montaje.js';
+import { añadir, crearUnidad, ocupados, puestoPorClave, quienUsaElHechizo } from './montaje.js';
 import {
   type EstadoDeLaPelea,
   type EstadoDeLaVista,
@@ -111,6 +103,7 @@ import {
 import { caraDeLaArena, renderPanelDeBatalla, rotuloDelTurno } from './paneles/batalla.js';
 import { focoTrasQuitar } from './paneles/ficha.js';
 import type { HerramientaDeMuralla } from './paneles/muralla.js';
+import { jugadaEnCurso, luchar, volverAlMontaje } from './pelea.js';
 import {
   avisoAlEntrar,
   CLAVE_DE_ABIERTAS,
@@ -138,7 +131,6 @@ const {
   elLienzo,
   elDay,
   elTurn,
-  elSeed,
   elStatus,
   elBarraDeEstado,
   elSide,
@@ -320,55 +312,6 @@ const batalla = new EscenaBatalla(() => {
   return pelea.sesion;
 });
 
-function luchar(): void {
-  const lado = (l: Lado): LadoDeSesion => ({
-    unidades: montaje.puestos[l].map((p) => fuenteDeArena(catalogo, p)),
-    heroe: montaje.heroes[l],
-    ia: montaje.iaDelBando[l],
-  });
-  // Una pelea nueva sortea su semilla, salvo que la URL fije una; y la URL la
-  // lleva siempre, como en la partida: un resultado raro se repite copiando la
-  // barra de direcciones (M6 de QA).
-  const semilla = montaje.semillaPedida ?? semillaSorteada();
-  let nueva: SesionDeArena;
-  try {
-    nueva = new SesionDeArena(
-      {
-        izquierda: lado('izquierda'),
-        derecha: lado('derecha'),
-        muralla: editorDeMuralla.muralla,
-        equipo: catalogo.equipo,
-        combate: montaje.combate,
-        hechizos: catalogoDeMagia(catalogo),
-      },
-      semilla,
-      montaje.climaDeLaArena,
-    );
-  } catch (err) {
-    vista.aviso = `No se puede luchar: ${mensajeDe(err)}.`;
-    return;
-  }
-  aLaBarraDeLaArena((url) => url.searchParams.set('seed', String(semilla)));
-  pelea.sesion = nueva;
-  elSeed.textContent = `semilla ${semilla}`;
-  irA(pagina, 'battle');
-  principal.remedir();
-  pelea.paneles = null;
-  // El animador mira el tablero de salida ANTES de que la IA juegue: así cuenta
-  // lo que juega, también con todas las unidades en IA (H1 de QA).
-  batalla.sincronizar(performance.now());
-  nueva.empezar();
-}
-
-function volverAlMontaje(): void {
-  if (editor.open) editor.close();
-  rueda.cerrar();
-  pelea.sesion = null;
-  irA(pagina, 'montaje');
-  vista.aviso = 'De vuelta al montaje: todo sigue como estaba.';
-  repintarMontaje(pagina);
-}
-
 function alargarLienzo(): void {
   const visible = elLienzo.clientHeight;
   const pide = (): number =>
@@ -392,14 +335,6 @@ function colocarMarco(): void {
   elLienzo.scrollTop = Math.max(0, batalla.pieDelTablero() - elLienzo.clientHeight);
 }
 
-/** La puerta de los gestos mientras se cuenta la jugada, como en la partida. */
-function jugadaEnCurso(): boolean {
-  if (pelea.sesion === null) return true;
-  if (!batalla.rechazarSiOcupada(performance.now())) return false;
-  pedirFotograma();
-  return true;
-}
-
 /**
  * Los gestos de la batalla, los de la partida (`batalla/gestos.ts`): los botones del
  * panel, las teclas y el puntero sobre el tablero, con la misma puerta de arriba.
@@ -407,7 +342,7 @@ function jugadaEnCurso(): boolean {
 const gestos = new GestosDeBatalla({
   sesion: () => pelea.sesion,
   escena: batalla,
-  jugadaEnCurso,
+  jugadaEnCurso: () => jugadaEnCurso(pagina),
   pedirFotograma,
 });
 
@@ -477,7 +412,7 @@ const rueda = new DialogoDeLaRueda(elRueda, {
   cara: () => (pelea.sesion === null ? null : caraDeLaArena(pelea.sesion)),
   pedirFotograma,
   alPulsarMientrasCuenta: () => {
-    jugadaEnCurso();
+    jugadaEnCurso(pagina);
   },
 });
 
@@ -852,7 +787,7 @@ document.addEventListener('click', (ev) => {
         break;
       }
       case 'luchar':
-        luchar();
+        luchar(pagina);
         break;
       case 'enlace':
         void copiarEnlace(pagina).then(
@@ -928,7 +863,7 @@ document.addEventListener('click', (ev) => {
         );
         return;
       case 'otra-vez':
-        volverAlMontaje();
+        volverAlMontaje(pagina);
         return;
       default:
         return;
