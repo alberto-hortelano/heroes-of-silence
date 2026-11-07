@@ -107,9 +107,8 @@ import {
 } from '@core/unidad/formato.js';
 import { unaVezEnLaURL } from '@core/validar.js';
 import { FIGURA } from '../../shared/arte.js';
-import { FLECHAS_AL_COLOCAR } from '../batalla/colocar.js';
 import { EscenaBatalla } from '../batalla/escena.js';
-import { jugadaDelBotonDeMuralla, modoDelBoton } from '../batalla/poderes.js';
+import { GestosDeBatalla } from '../batalla/gestos.js';
 import { DialogoDeLaRueda } from '../batalla/rueda/dialogo.js';
 import { avisoDelClima, climaDeLaURL } from '../comun/clima-de-la-url.js';
 import { mensajeDe } from '../comun/errores.js';
@@ -2127,6 +2126,17 @@ function jugadaEnCurso(): boolean {
   return true;
 }
 
+/**
+ * Los gestos de la batalla, los de la partida (`batalla/gestos.ts`): los botones del
+ * panel, las teclas y el puntero sobre el tablero, con la misma puerta de arriba.
+ */
+const gestos = new GestosDeBatalla({
+  sesion: () => sesion,
+  escena: batalla,
+  jugadaEnCurso,
+  pedirFotograma,
+});
+
 // ---------------------------------------------------------------- dibujo
 
 let fotogramaPedido = false;
@@ -2299,87 +2309,31 @@ function enLienzo(ev: { clientX: number; clientY: number }): { x: number; y: num
 canvas.addEventListener('pointermove', (ev) => {
   if (sesion === null) return;
   const p = enLienzo(ev);
-  batalla.mover(p.x, p.y);
+  gestos.mover(p.x, p.y);
   pedirFotograma();
 });
 
 canvas.addEventListener('pointerup', (ev) => {
   if (ev.button !== 0 || sesion === null) return;
   const p = enLienzo(ev);
-  batalla.mover(p.x, p.y);
-  if (!jugadaEnCurso()) batalla.pulsar(p.x, p.y);
+  gestos.soltar(p.x, p.y);
   pedirFotograma();
 });
 
 canvas.addEventListener('pointerleave', () => {
-  if (sesion !== null) batalla.salir();
+  gestos.salir();
   pedirFotograma();
 });
 
-/** Los botones de la batalla, los mismos de la partida (`accionesDeLaUnidad`). */
-const JUGADA_DE_BOTON = {
-  'battle-end-turn': 'end_turn',
-} as const;
-
 document.addEventListener('click', (ev) => {
+  // Los botones de la batalla, los de la partida (`GestosDeBatalla.clic`): el libro, el
+  // arma, los poderes, la muralla, el despliegue y «Terminar turno», con la regla del
+  // doble clic (M12 de QA: el segundo no es otra jugada).
   const conAccion = (ev.target as Element).closest('[data-action]');
-  const accion = conAccion?.getAttribute('data-action');
-  // El libro, como en la partida: elegir el hechizo no es una jugada, apuntar sí.
   if (
-    accion === 'battle-spell' &&
-    sesion !== null &&
     conAccion !== null &&
-    conAccion !== undefined
+    gestos.clic(conAccion.getAttribute('data-action'), conAccion, ev.detail)
   ) {
-    if (!jugadaEnCurso())
-      sesion.hechizos.selectSpell(conAccion.getAttribute('data-spell') as string);
-    pedirFotograma();
-    return;
-  }
-  if (accion === 'battle-arma' && conAccion !== null && conAccion !== undefined) {
-    if (ev.detail > 1 || sesion === null || jugadaEnCurso()) return;
-    sesion.arma.elegir(modoDelBoton(conAccion));
-    pedirFotograma();
-    return;
-  }
-  // El despliegue de los bandos «Yo», como en la partida (`DespliegueEnPantalla`).
-  if (accion === 'despliegue-elegir' && conAccion !== null && conAccion !== undefined) {
-    if (sesion === null || jugadaEnCurso()) return;
-    const id = conAccion.getAttribute('data-stack');
-    if (id === null) throw new Error('el botón del despliegue no dice a quién');
-    sesion.despliegue.elegir(id);
-    pedirFotograma();
-    return;
-  }
-  if (accion === 'desplegado') {
-    // Un doble clic no cierra dos tandas: con los dos bandos «Yo», el segundo
-    // cerraba la del otro sin que lo viera (como M12 de QA con «Terminar turno»).
-    if (ev.detail > 1 || sesion === null || jugadaEnCurso()) return;
-    sesion.despliegue.listo();
-    pedirFotograma();
-    return;
-  }
-  if (accion === 'battle-poder') {
-    if (ev.detail > 1 || sesion === null || jugadaEnCurso()) return;
-    const id = (ev.target as Element).closest('[data-poder]')?.getAttribute('data-poder');
-    if (id === null || id === undefined) throw new Error('el botón del poder no dice cuál es');
-    sesion.poderes.usar(id);
-    pedirFotograma();
-    return;
-  }
-  if (accion !== undefined && accion !== null && accion in JUGADA_DE_BOTON) {
-    // Un doble clic no son dos jugadas: el segundo caía en el botón ya repintado
-    // y cerraba el turno de la SIGUIENTE unidad tuya sin que nadie lo pidiera
-    // (M12 de QA). `detail` cuenta los clics seguidos.
-    if (ev.detail > 1 || sesion === null || jugadaEnCurso()) return;
-    sesion.playBattleAction({ type: JUGADA_DE_BOTON[accion as keyof typeof JUGADA_DE_BOTON] });
-    pedirFotograma();
-    return;
-  }
-  if (accion === 'battle-muralla' && conAccion) {
-    if (ev.detail > 1 || sesion === null || jugadaEnCurso()) return;
-    sesion.muralla.elegir(jugadaDelBotonDeMuralla(conAccion));
-    pedirFotograma();
     return;
   }
   const el = (ev.target as Element).closest('[data-arena]');
@@ -3086,46 +3040,10 @@ document.addEventListener('keydown', (ev) => {
   // Fuera del tablero —la vista de equipo a media pelea— las teclas no juegan:
   // un espacio en un campo de pieza cerraba el turno de tu unidad.
   if (escena !== 'battle') return;
-  // Escape suelta lo que espera el clic, como en la partida: hechizo, poder, muro o puerta.
-  if (ev.key === 'Escape' && sesion !== null && !jugadaEnCurso()) {
-    sesion.soltarLoApuntado();
-    pedirFotograma();
-    return;
-  }
-  // En el despliegue, las flechas mueven al elegido, como en la partida.
-  const flecha = FLECHAS_AL_COLOCAR[ev.key];
-  if (
-    flecha !== undefined &&
-    sesion !== null &&
-    sesion.despliegue.enCurso !== null &&
-    !jugadaEnCurso()
-  ) {
-    ev.preventDefault();
-    sesion.despliegue.mover(flecha[0], flecha[1]);
-    pedirFotograma();
-    return;
-  }
-  // Q alterna el arma del tirador activo, como en la partida (`ArmaDeLaActiva`).
-  if (
-    (ev.key === 'q' || ev.key === 'Q') &&
-    !(ev.ctrlKey || ev.metaKey || ev.altKey) &&
-    sesion !== null &&
-    !jugadaEnCurso() &&
-    sesion.arma.conSelector
-  ) {
-    sesion.arma.alternar();
-    pedirFotograma();
-    return;
-  }
-  // Espacio cierra el turno de tu unidad activa, como en la partida; con el foco
-  // en un botón, Espacio pulsa ese botón.
-  const enUnBoton = ev.target instanceof Element && ev.target.closest('button') !== null;
-  if (ev.key !== ' ' || sesion === null || enUnBoton) return;
-  ev.preventDefault();
-  if (!ev.repeat && sesion.turnoPropio !== null && !jugadaEnCurso()) {
-    sesion.playBattleAction({ type: 'end_turn' });
-  }
-  pedirFotograma();
+  // Las teclas de la batalla, las de la partida (`GestosDeBatalla.tecla`): Escape suelta
+  // lo que espera el clic, las flechas mueven al elegido del despliegue, la Q alterna el
+  // arma y Espacio cierra el turno de tu unidad activa.
+  gestos.tecla(ev);
 });
 
 // Cerrar el editor (su botón o Escape) vuelve a la batalla tal como estaba: no

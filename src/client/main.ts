@@ -14,7 +14,7 @@ import { type FactionId, parseFaccion } from '@core/types.js';
 import { unaVezEnLaURL } from '@core/validar.js';
 import { FLECHAS_AL_COLOCAR } from './batalla/colocar.js';
 import { EscenaBatalla } from './batalla/escena.js';
-import { jugadaDelBotonDeMuralla, modoDelBoton } from './batalla/poderes.js';
+import { GestosDeBatalla } from './batalla/gestos.js';
 import { DialogoDeLaRueda } from './batalla/rueda/dialogo.js';
 import { leerElClimaDeLaURL } from './comun/clima-de-la-url.js';
 import { mensajeDe } from './comun/errores.js';
@@ -690,6 +690,17 @@ function jugadaEnCurso(): boolean {
 }
 
 /**
+ * Los gestos de la batalla, los de la arena (`batalla/gestos.ts`): los botones del
+ * panel, las teclas y el puntero sobre el tablero, con la misma puerta de arriba.
+ */
+const gestos = new GestosDeBatalla({
+  sesion,
+  escena: batalla,
+  jugadaEnCurso,
+  pedirFotograma,
+});
+
+/**
  * La puerta de los gestos del mapa mientras el héroe anda su marcha
  * (`Session.marchaEnCurso`): el gesto —un clic en el lienzo, un botón, una
  * tecla— solo lo hace llegar (`acabarLaMarcha`, que abre lo que esperaba a la
@@ -778,7 +789,7 @@ canvas.addEventListener('pointermove', (ev) => {
   if (session.scene === 'town') {
     canvas.style.cursor = castillo.mover(p.x, p.y, performance.now()) ? 'pointer' : 'default';
   } else if (session.scene === 'battle') {
-    batalla.mover(p.x, p.y);
+    gestos.mover(p.x, p.y);
   } else if (esDeDentro(session.scene)) {
     canvas.style.cursor = DENTRO[session.scene].de.mover(p.x, p.y) ? 'pointer' : 'default';
   } else {
@@ -795,8 +806,7 @@ canvas.addEventListener('pointerup', (ev) => {
     const escena = session.scene;
     if (DENTRO[escena].de.pulsar(p.x, p.y) && escena === 'ayuntamiento') fichaTrasElClic();
   } else if (session.scene === 'battle') {
-    batalla.mover(p.x, p.y);
-    if (!jugadaEnCurso()) batalla.pulsar(p.x, p.y);
+    gestos.soltar(p.x, p.y);
   } else if (aventura.soltar()) {
     if (hastaQueLlegue()) return;
     // Con el modo «marcar fallo» puesto, el clic es suyo y no mueve a nadie.
@@ -808,7 +818,7 @@ canvas.addEventListener('pointerup', (ev) => {
 
 canvas.addEventListener('pointerleave', () => {
   aventura.salir();
-  batalla.salir();
+  gestos.salir();
   castillo.salir();
   for (const d of Object.values(DENTRO)) d.de.salir();
   pedirFotograma();
@@ -905,6 +915,8 @@ document.addEventListener('click', (ev) => {
   }
   if (reparto === 'nada' || hastaQueLlegue()) return;
   pedirFotograma();
+  // Los botones de la batalla (`GestosDeBatalla`): con la regla del doble clic de la arena.
+  if (gestos.clic(action, target, ev.detail)) return;
 
   switch (action) {
     case 'end-turn':
@@ -1132,48 +1144,13 @@ document.addEventListener('click', (ev) => {
     case 'buy-item':
       session.buyItem(target.getAttribute('data-item') as string);
       break;
-    case 'battle-end-turn':
-      session.playBattleAction({ type: 'end_turn' });
-      break;
     case 'battle-surrender':
+      // Rendirse y «Resolver sola» son solo de la partida, y se quedan sin la regla
+      // del doble clic (pregunta abierta de R3 de la reorganización).
       session.playBattleAction({ type: 'surrender' });
-      break;
-    case 'battle-spell':
-      session.hechizos.selectSpell(target.getAttribute('data-spell') as string);
-      break;
-    case 'battle-poder': {
-      // Un poder de la unidad activa (`PoderesDeLaActiva`, el de la arena):
-      // con un aliado posible, ya; con varios, el clic en el tablero elige.
-      const id = target.getAttribute('data-poder');
-      if (id === null) throw new Error('el botón del poder no dice cuál es');
-      session.poderes.usar(id);
-      break;
-    }
-    case 'battle-arma':
-      // El selector de arma del tirador activo (`ArmaDeLaActiva`, el de la arena).
-      session.arma.elegir(modoDelBoton(target));
-      break;
-    case 'battle-muralla':
-      // La muralla de la ciudad o del pueblo (`MurallaDeLaActiva`, la de la arena):
-      // con un muro o una puerta posibles, ya; con varios, el clic en el tablero elige.
-      session.muralla.elegir(jugadaDelBotonDeMuralla(target));
       break;
     case 'auto-battle':
       session.autoResolveBattle();
-      break;
-    case 'despliegue-elegir': {
-      // Elegir en el despliegue a quién se coloca (el teclado, sin el lienzo).
-      const id = target.getAttribute('data-stack');
-      if (id === null) throw new Error('el botón del despliegue no dice a quién');
-      session.despliegue.elegir(id);
-      break;
-    }
-    case 'desplegado':
-      // «Listo»: cierra el despliegue de la persona; si la iniciativa es del
-      // rival, mueve él (`Session.despliegue`, `advanceEnemyTurns`). El segundo clic
-      // de un doble clic no cierra nada más (como en la arena).
-      if (ev.detail > 1) break;
-      session.despliegue.listo();
       break;
     case 'solo-rueda-del-heroe':
       // La casilla de la batalla: vale desde el siguiente golpe, y la URL la
@@ -1252,51 +1229,20 @@ document.addEventListener('keydown', (ev) => {
       castillo.salir();
     }
   }
-  // Escape suelta lo que espera el clic: el hechizo, el poder, el muro o la puerta.
-  if (ev.key === 'Escape' && session.scene === 'battle' && !jugadaEnCurso()) {
-    session.soltarLoApuntado();
-  }
-  // Al colocar —el despliegue de la batalla o la formación de la tropa, la misma
-  // pieza—, las flechas mueven al elegido a la casilla de al lado
-  // (`FLECHAS_AL_COLOCAR`): lo juzga el núcleo, como el clic.
+  // Las teclas de la batalla, las de la arena (`GestosDeBatalla.tecla`): Escape suelta
+  // lo que espera el clic, las flechas mueven al elegido del despliegue, la Q alterna el
+  // arma y Espacio cierra el turno de la unidad tuya que actúa.
+  if (session.scene === 'battle') gestos.tecla(ev);
+  // En la formación de la tropa (la misma pieza que el despliegue de la batalla), las
+  // flechas mueven al elegido a la casilla de al lado (`FLECHAS_AL_COLOCAR`): lo juzga el
+  // núcleo, como el clic.
   const flecha = FLECHAS_AL_COLOCAR[ev.key];
-  const colocando =
-    session.scene === 'battle'
-      ? session.despliegue
-      : session.scene === 'tropa'
-        ? session.formacion
-        : null;
-  if (
-    flecha !== undefined &&
-    colocando !== null &&
-    colocando.enCurso !== null &&
-    !jugadaEnCurso()
-  ) {
+  if (flecha !== undefined && session.scene === 'tropa' && session.formacion.enCurso !== null) {
     ev.preventDefault();
-    colocando.mover(flecha[0], flecha[1]);
+    session.formacion.mover(flecha[0], flecha[1]);
   }
-  // Q alterna el arma del tirador activo (`ArmaDeLaActiva`): cuerpo a cuerpo o a distancia.
-  if (
-    (ev.key === 'q' || ev.key === 'Q') &&
-    !(ev.ctrlKey || ev.metaKey || ev.altKey) &&
-    session.scene === 'battle' &&
-    !jugadaEnCurso() &&
-    session.arma.conSelector
-  ) {
-    session.arma.alternar();
-  }
-  // En batalla, Espacio cierra el turno de la unidad tuya que está actuando: con
-  // el movimiento en tramos es lo que más se pulsa. Pasa por la misma puerta que
-  // el lienzo y los botones, y sin turno propio no hace nada.
-  // Con el foco en un botón, Espacio es pulsar ESE botón —Rendirse, Continuar—,
-  // que es lo que el navegador hace con él: no se le roba la tecla.
+  // Con el foco en un botón, Intro es pulsar ESE botón: no se le roba la tecla.
   const enUnBoton = ev.target instanceof Element && ev.target.closest('button') !== null;
-  if (ev.key === ' ' && session.scene === 'battle' && !enUnBoton) {
-    ev.preventDefault();
-    if (!ev.repeat && session.turnoPropio !== null && !jugadaEnCurso()) {
-      session.playBattleAction({ type: 'end_turn' });
-    }
-  }
   if (ev.key === ' ' && session.scene === 'adventure') {
     ev.preventDefault();
     // Dejar el Espacio pulsado repite la tecla: eso no es pedir varios días.

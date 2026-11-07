@@ -2243,3 +2243,6 @@ simbolo	src/client/batalla/panel.ts	src/client/partida/batalla/panel.ts	renderBa
 simbolo	src/client/batalla/panel.ts	src/client/partida/batalla/panel.ts	filaManaDeBatalla (R2 de C4)
 simbolo	src/client/batalla/panel.ts	src/client/partida/batalla/panel.ts	renderRendicion (R2 de C4)
 simbolo	src/client/batalla/panel.ts	src/client/partida/batalla/panel.ts	SIN_HEROE_EN_LA_BATALLA (R2 de C4)
+simbolo	src/client/arena/main.ts	(retirado)	JUGADA_DE_BOTON (los botones de la batalla los atiende GestosDeBatalla.clic, en batalla/gestos.ts; R3 de C4)
+simbolo	src/client/arena/main.ts	src/client/batalla/gestos.ts	los botones de la batalla del clic (battle-*, despliegue-elegir, desplegado), las teclas de la batalla (Escape, flechas, Q, Espacio) y el puntero sobre el tablero: GestosDeBatalla.clic, tecla, mover, soltar y salir (R3 de C4)
+simbolo	src/client/main.ts	src/client/batalla/gestos.ts	los casos battle-end-turn, battle-spell, battle-poder, battle-arma, battle-muralla, despliegue-elegir y desplegado del clic, las teclas de la batalla y el puntero sobre el tablero: GestosDeBatalla (R3 de C4; battle-surrender y auto-battle se quedan en main.ts)

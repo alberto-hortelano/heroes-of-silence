@@ -11,6 +11,7 @@
 import { describe, expect, it } from 'vitest';
 import { DURACION } from '../src/client/batalla/anim.js';
 import { EscenaBatalla } from '../src/client/batalla/escena.js';
+import { GestosDeBatalla, type PaginaDeLaBatalla } from '../src/client/batalla/gestos.js';
 import { marcadoDe } from '../src/client/comun/html.js';
 import { EscenaBase } from '../src/client/partida/base/escena.js';
 import { renderConversacion } from '../src/client/partida/base/panel.js';
@@ -78,14 +79,17 @@ import { bordeDeAtras, type Disposicion, disposicionDe, enLaFranja } from '../sr
 import { primeraSemillaCon } from '../tools/comun/semillas.js';
 import {
   destinoDeHoy,
+  empezarTalCual,
   enElCampo,
   escenaDeBatalla,
   sesionContraMonstruo,
+  sesionDeArena,
+  unoDeLaRueda,
 } from './batalla-de-cliente.js';
 import { agresiva, MANOS_DE_PRUEBA } from './batalla-de-prueba.js';
 import { hojasDeLaArena } from './hojas-de-la-arena.js';
 import { anteLaBase, fueraDeSuBase } from './partida-de-prueba.js';
-import { catalogoCon } from './pelea-de-arena.js';
+import { catalogoCon, unidadDeArena } from './pelea-de-arena.js';
 
 /**
  * Una batalla en la que la persona ATACA a un monstruo: la busca
@@ -483,6 +487,162 @@ describe('la batalla en el lienzo', () => {
     expect(escena.enemigosFuera(496, 860)).toEqual({ izquierda: 0, derecha: 0 });
     // Y si el marco no ve nada, los cuenta a la izquierda.
     expect(escena.enemigosFuera(2000, 2400).izquierda).toBe(enemigos);
+  });
+});
+
+/**
+ * Un botón del panel para los gestos, sin DOM (`vitest` corre en `node`): lo que leen de
+ * él, sus atributos y `closest`, que en el botón de la muralla da él mismo.
+ */
+function botonDePrueba(atributos: Readonly<Record<string, string>>): Element {
+  const boton = {
+    getAttribute: (nombre: string): string | null => atributos[nombre] ?? null,
+    closest: () => boton,
+  };
+  return boton as unknown as Element;
+}
+
+/** Los gestos de una página sobre `sesion`, con el tablero quieto y la jugada contada. */
+function gestosDe(
+  sesion: PaginaDeLaBatalla['sesion'],
+  jugadaEnCurso: () => boolean = () => false,
+): GestosDeBatalla {
+  return new GestosDeBatalla({
+    sesion,
+    escena: { mover: () => {}, pulsar: () => {}, salir: () => {} },
+    jugadaEnCurso,
+    pedirFotograma: () => {},
+  });
+}
+
+/**
+ * Juega «Terminar turno» con un clic (`gestos.clic`) hasta que tras él le toque a otra
+ * unidad de la persona sin que la IA juegue entre medias —dos suyas seguidas—, y
+ * devuelve la que tiene el turno; contesta la rueda si la IA la golpea.
+ */
+function hastaDosSuyasSeguidas(s: Session | SesionDeArena, gestos: GestosDeBatalla): string {
+  const terminar = botonDePrueba({ 'data-action': 'battle-end-turn' });
+  for (let i = 0; i < 80; i++) {
+    const b = s.battle;
+    if (b === null || b.finished !== null) break;
+    if (s.ruedaPendiente !== null) {
+      s.elegirEnLaRueda(unoDeLaRueda(b));
+      continue;
+    }
+    const antes = s.turnoPropio;
+    if (antes === null || b.turno === null)
+      throw new Error('ni le toca a la persona ni espera la rueda');
+    const n = b.turno.n;
+    expect(gestos.clic('battle-end-turn', terminar, 1)).toBe(true);
+    const ahora = s.turnoPropio;
+    if (ahora !== null && b.turno?.n === n + 1 && ahora.stack.id !== antes.stack.id) {
+      return ahora.stack.id;
+    }
+  }
+  throw new Error('en ochenta turnos no le tocan dos unidades seguidas a la persona');
+}
+
+describe('los gestos de la batalla, los mismos en la partida y la arena (R3 de la reorganización)', () => {
+  it('el segundo clic de un doble clic en «Terminar turno» no cierra el turno de la unidad tuya siguiente, en la partida', () => {
+    // La regla M12 de la arena, también en la partida: allí solo la tenía «Listo», y un
+    // doble clic en «Terminar turno» cerraba también el de la unidad suya que seguía.
+    const s = sesionEnBatalla();
+    const gestos = gestosDe(() => s);
+    const siguiente = hastaDosSuyasSeguidas(s, gestos);
+    const n = s.battle!.turno!.n;
+    const largo = s.battle!.log.length;
+    const terminar = botonDePrueba({ 'data-action': 'battle-end-turn' });
+    // El segundo clic (`detail` 2): se atiende y no juega nada.
+    expect(gestos.clic('battle-end-turn', terminar, 2)).toBe(true);
+    expect(s.turnoPropio?.stack.id).toBe(siguiente);
+    expect(s.battle!.turno!.n).toBe(n);
+    expect(s.battle!.log.length).toBe(largo);
+    // Un clic suelto, sí.
+    expect(gestos.clic('battle-end-turn', terminar, 1)).toBe(true);
+    expect(s.battle!.turno!.n).not.toBe(n);
+  });
+
+  it('y en la arena, como antes', () => {
+    const pique = unidadDeArena('templario-escudo');
+    const s = sesionDeArena(
+      [
+        { unidad: pique, ia: false },
+        { unidad: pique, ia: false },
+        { unidad: pique, ia: false },
+      ],
+      [{ unidad: pique, ia: true }],
+      3,
+    );
+    empezarTalCual(s);
+    const gestos = gestosDe(() => s);
+    const siguiente = hastaDosSuyasSeguidas(s, gestos);
+    const n = s.battle.turno!.n;
+    expect(gestos.clic('battle-end-turn', botonDePrueba({}), 2)).toBe(true);
+    expect(s.turnoPropio?.stack.id).toBe(siguiente);
+    expect(s.battle.turno!.n).toBe(n);
+  });
+
+  it('poder, arma, muralla y «Listo» tampoco juegan el segundo clic; elegir hechizo o a quién se coloca, sí', () => {
+    const hecho: string[] = [];
+    const apunta = (que: string) => () => {
+      hecho.push(que);
+    };
+    const sesion = {
+      playBattleAction: apunta('terminar'),
+      hechizos: { selectSpell: apunta('hechizo') },
+      poderes: { usar: apunta('poder') },
+      arma: { elegir: apunta('arma') },
+      muralla: { elegir: apunta('muralla') },
+      despliegue: { elegir: apunta('colocar'), listo: apunta('listo') },
+    } as unknown as SesionDeArena;
+    const boton = botonDePrueba({
+      'data-spell': 'magic_arrow',
+      'data-poder': 'curar',
+      'data-arma': 'distancia',
+      'data-jugada': 'subir',
+      'data-stack': 'attacker-0',
+    });
+    const gestos = gestosDe(() => sesion);
+    for (const accion of [
+      'battle-end-turn',
+      'battle-poder',
+      'battle-arma',
+      'battle-muralla',
+      'desplegado',
+    ]) {
+      expect(gestos.clic(accion, boton, 2), accion).toBe(true);
+    }
+    expect(hecho).toEqual([]);
+    expect(gestos.clic('battle-spell', boton, 2)).toBe(true);
+    expect(gestos.clic('despliegue-elegir', boton, 2)).toBe(true);
+    expect(hecho).toEqual(['hechizo', 'colocar']);
+    // Con un clic, cada uno lo suyo.
+    hecho.length = 0;
+    for (const accion of [
+      'battle-end-turn',
+      'battle-poder',
+      'battle-arma',
+      'battle-muralla',
+      'desplegado',
+    ]) {
+      gestos.clic(accion, boton, 1);
+    }
+    expect(hecho).toEqual(['terminar', 'poder', 'arma', 'muralla', 'listo']);
+    // Lo que no es de la batalla sigue a la página; y mientras se cuenta, nada se juega.
+    expect(gestos.clic('end-turn', boton, 1)).toBe(false);
+    expect(gestos.clic(null, boton, 1)).toBe(false);
+    hecho.length = 0;
+    expect(
+      gestosDe(
+        () => sesion,
+        () => true,
+      ).clic('battle-end-turn', boton, 1),
+    ).toBe(true);
+    expect(hecho).toEqual([]);
+    // Un botón sin lo que dice es un fallo del marcado, y se dice.
+    expect(() => gestos.clic('battle-poder', botonDePrueba({}), 1)).toThrow(
+      'el botón del poder no dice cuál es',
+    );
   });
 });
 
