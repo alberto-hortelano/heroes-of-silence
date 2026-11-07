@@ -187,7 +187,7 @@ export const terrainSchema = z.enum(TERRAIN_KINDS);
  * Un id que el motor usa VERBATIM —en el `MapObject`, en el `Town`, en los
  * mensajes y en la consulta `map`—, así que es un contrato acotado: una `id`
  * con un salto de línea dentro se llevaba por delante el bloque de veredictos,
- * que se parsea línea a línea (`notas.ts`). NO es defensa contra XSS: eso es
+ * que se parsea línea a línea (`server/mcp/escucha.ts`). NO es defensa contra XSS: eso es
  * `html.ts`.
  */
 const idDeMapa = (que: string) =>

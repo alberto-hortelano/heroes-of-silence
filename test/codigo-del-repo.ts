@@ -242,6 +242,56 @@ export function importacionesConLineaDe(
   return out;
 }
 
+/**
+ * Los `import('…')` de `r` (relativa a la raíz) que caen en el repositorio, resueltos
+ * como los estáticos (`importacionesConLineaDe`: un `.js` que es un `.ts` en el
+ * disco, el `.ts`), con su línea y si nombran un tipo. Con el parser y no con una
+ * expresión regular: un `typeof import('…')` o un `import('…').X` es un tipo y no carga
+ * nada, y un `import()` comentado no existe. Solo los relativos: nadie en `src/` carga a
+ * demanda con el alias. Los leen los guardias de las capas del cliente, de que el cliente
+ * no conoce al servidor y de que el puente MCP es una hoja; vivían en
+ * `invariantes-cliente.test.ts` hasta la fase S de la reorganización (07-11-2026).
+ */
+function entreParentesisDe(r: string): { ruta: string; linea: number; deUnTipo: boolean }[] {
+  // Sin `import(` en el código (sin comentarios) no hay ninguno: no se parsea.
+  if (!/\bimport\s*\(/.test(codigoDe(r))) return [];
+  const sf = ts.createSourceFile(r, leer(r), ts.ScriptTarget.Latest, true);
+  const out: { ruta: string; linea: number; deUnTipo: boolean }[] = [];
+  const anotar = (n: ts.Node, a: ts.Node | undefined, deUnTipo: boolean): void => {
+    if (a === undefined || !ts.isStringLiteralLike(a) || !a.text.startsWith('.')) return;
+    const absoluta = join(dirname(r), a.text);
+    const conTs = absoluta.replace(/\.js$/, '.ts');
+    out.push({
+      ruta: existsSync(join(RAIZ, conTs)) ? conTs : absoluta,
+      linea: sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1,
+      deUnTipo,
+    });
+  };
+  const visitar = (n: ts.Node): void => {
+    if (ts.isCallExpression(n) && n.expression.kind === ts.SyntaxKind.ImportKeyword)
+      anotar(n, n.arguments[0], false);
+    else if (ts.isImportTypeNode(n) && ts.isLiteralTypeNode(n.argument))
+      anotar(n, n.argument.literal, true);
+    ts.forEachChild(n, visitar);
+  };
+  visitar(sf);
+  return out;
+}
+
+/** Lo que `r` carga a demanda, con un `import()`: lo que se evalúa cuando se llama. */
+export function aDemandaDe(r: string): { ruta: string; linea: number }[] {
+  return entreParentesisDe(r).flatMap((i) =>
+    i.deUnTipo ? [] : [{ ruta: i.ruta, linea: i.linea }],
+  );
+}
+
+/** Los tipos que `r` toma de otro módulo sin importarlo: `typeof import('…')`, `import('…').X`. */
+export function tiposPorImportDe(r: string): { ruta: string; linea: number }[] {
+  return entreParentesisDe(r).flatMap((i) =>
+    i.deUnTipo ? [{ ruta: i.ruta, linea: i.linea }] : [],
+  );
+}
+
 /** Ficheros que incumplen, con la línea que lo hace: el mensaje del fallo. */
 export function infractores(rutas: string[], patron: RegExp): string[] {
   const out: string[] = [];

@@ -15,7 +15,7 @@ import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import { type WebSocket, WebSocketServer } from 'ws';
 import { AgentLink } from '../src/server/agent-link.js';
-import { CABECERA_VEREDICTOS, PREFIJO_FIN } from '../src/server/notas.js';
+import { CABECERA_VEREDICTOS, PREFIJO_FIN } from '../src/server/mcp/escucha.js';
 
 /**
  * Lo que se le da al puente para salir tras el EOF. Sin el arreglo no sale

@@ -2322,3 +2322,24 @@ simbolo	src/server/vista-espectador.ts	src/shared/cable-del-espectador.ts	VistaB
 simbolo	src/server/vista-espectador.ts	src/shared/cable-del-espectador.ts	SpectatorView
 simbolo	src/server/protocol.ts	src/shared/cable-del-espectador.ts	SpectatorSnapshotMsg
 simbolo	src/server/protocol.ts	src/shared/cable-del-espectador.ts	ServerToSpectatorMsg
+simbolo	src/server/notas.ts	src/server/mcp/escucha.ts	PREFIJO_FIN
+simbolo	src/server/notas.ts	src/server/mcp/escucha.ts	PREFIJO_CORTE
+simbolo	src/server/notas.ts	src/server/mcp/escucha.ts	PREFIJO_RELEVO
+simbolo	src/server/notas.ts	src/server/mcp/escucha.ts	CABECERA_VEREDICTOS
+simbolo	src/server/notas.ts	src/server/mcp/escucha.ts	MARCA_OK
+simbolo	src/server/notas.ts	src/server/mcp/escucha.ts	MARCA_FALLO
+simbolo	src/server/notas.ts	src/server/mcp/escucha.ts	SANGRIA_PROBLEMA
+simbolo	src/server/notas.ts	src/server/mcp/escucha.ts	MARCA_KIND
+simbolo	src/server/notas.ts	src/server/mcp/escucha.ts	CABECERA_ESTADO
+simbolo	src/server/notas.ts	src/server/mcp/escucha.ts	CABECERA_RESPUESTA
+simbolo	src/server/notas.ts	src/server/mcp/escucha.ts	Veredicto
+simbolo	src/server/notas.ts	src/server/mcp/escucha.ts	lineaDeVeredicto
+simbolo	src/server/notas.ts	src/server/mcp/escucha.ts	unaLinea
+simbolo	src/server/notas.ts	src/server/mcp/escucha.ts	leeVeredictos
+simbolo	src/server/notas.ts	src/server/mcp/escucha.ts	textoDeFin
+simbolo	src/server/notas.ts	src/server/mcp/escucha.ts	textoDeRelevo
+simbolo	src/server/notas.ts	src/server/mcp/escucha.ts	textoDeCorte
+simbolo	src/server/notas.ts	src/server/mcp/escucha.ts	TextoDeEscucha
+simbolo	src/server/notas.ts	src/server/mcp/escucha.ts	textoDeEscucha
+simbolo	src/server/mcp/buzon.ts	src/server/mcp/escucha.ts	Aviso
+simbolo	test/invariantes-cliente.test.ts	test/codigo-del-repo.ts	entreParentesisDe, aDemandaDe, tiposPorImportDe (los dos últimos, exportados: los leen también los guardias de que el cliente no conoce al servidor y de que el puente MCP es una hoja)

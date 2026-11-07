@@ -19,6 +19,7 @@ import { dirname, extname, join } from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import {
+  aDemandaDe,
   CLIENTE,
   CORE,
   codigoDe,
@@ -36,6 +37,7 @@ import {
   rutasDelRepo,
   rutasEscritasEn,
   SERVIDOR,
+  tiposPorImportDe,
 } from './codigo-del-repo.js';
 import { RAIZ } from './comun.js';
 
@@ -242,6 +244,37 @@ describe('invariantes del proyecto', () => {
     expect(
       infractores(CORE, importaDe(/@server\/|[^'"]*\.\.?\/server\/|[^'"]*\/src\/server\//)),
     ).toEqual([]);
+  });
+
+  it('el puente MCP es una hoja: fuera de `src/server/mcp/`, nada de `src/` lo importa, ni un tipo', () => {
+    // `src/server/mcp/` es el puente: el proceso que lanza Claude Code (`.mcp.json`, por
+    // su `server.ts`) y que habla con la partida por el WebSocket del agente. La partida
+    // no lo conoce: le manda lo que dice `protocol.ts` y las notas de `notas.ts`, y el
+    // puente compone con ellas lo que entrega `heroes_listen`. Hasta la fase S de la
+    // reorganización (07-11-2026) esa composición (`textoDeEscucha`) vivía en `notas.ts`,
+    // del servidor, que tomaba por ella un tipo del puente (`Aviso`, de `mcp/buzon.ts`);
+    // hoy vive con él, en `mcp/escucha.ts`. Y un `import()` del puente desde la partida
+    // abriría su transporte de stdio dentro del servidor: `server.ts` lo abre al
+    // importarse.
+    //
+    // Solo `src/`: los tests y `pnpm qa` (`tools/qa/verify-agent.ts`) leen el puente a
+    // propósito para probarlo —sus piezas sin stdio, y las marcas y el parser de la
+    // escucha, que es el texto que reciben—. Mira lo que se carga y lo que solo se
+    // nombra, con la ruta resuelta: `import`, `import type`, `export … from`, `import()`
+    // y `typeof import('…')`.
+    const MCP = `${ruta('src/server/mcp')}/`;
+    const alPuente = ficheros(ruta('src'))
+      .filter((r) => !r.startsWith(MCP))
+      .flatMap((de) =>
+        [...importacionesConLineaDe(de, true), ...aDemandaDe(de), ...tiposPorImportDe(de)]
+          .filter((i) => i.ruta.startsWith(MCP))
+          .map((i) => `${de}:${i.linea} → ${i.ruta}`),
+      );
+    expect(alPuente).toEqual([]);
+    // Y que mire algo: dentro del puente sí se importan, y el resolutor lo ve.
+    expect(
+      importacionesConLineaDe(ruta('src/server/mcp/server.ts'), true).map((i) => i.ruta),
+    ).toContain(ruta('src/server/mcp/escucha.ts'));
   });
 
   it('toda tirada pasa por createRng: no hay Math.random suelto', () => {

@@ -18,18 +18,18 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import WebSocket from 'ws';
 import { z } from 'zod';
 import { puertoAgente } from '../entorno.js';
+import { LA_JUEGA_LA_IA } from '../notas.js';
+import type { AgentToServerMsg, ServerToAgentMsg } from '../protocol.js';
+import { Buzon } from './buzon.js';
 import {
   CABECERA_VEREDICTOS,
-  LA_JUEGA_LA_IA,
   MARCA_FALLO,
   MARCA_OK,
   PREFIJO_CORTE,
   PREFIJO_FIN,
   PREFIJO_RELEVO,
   textoDeEscucha,
-} from '../notas.js';
-import type { AgentToServerMsg, ServerToAgentMsg } from '../protocol.js';
-import { Buzon } from './buzon.js';
+} from './escucha.js';
 import { ColaDeVeredictos } from './veredictos.js';
 
 const SERVER_URL = process.env.HEROES_SERVER ?? `ws://localhost:${puertoDelServidor()}`;

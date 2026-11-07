@@ -14,11 +14,9 @@
  * visto morder.
  */
 
-import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import {
+  aDemandaDe,
   CLIENTE,
   CORE,
   codigoDe,
@@ -32,8 +30,8 @@ import {
   lineasDeLasDeclaraciones,
   ruta,
   SERVIDOR,
+  tiposPorImportDe,
 } from './codigo-del-repo.js';
-import { RAIZ } from './comun.js';
 import { bloquesCss, COLOR, hojasDelCliente } from './hojas-de-estilo.js';
 
 /**
@@ -43,54 +41,6 @@ import { bloquesCss, COLOR, hojasDelCliente } from './hojas-de-estilo.js';
  * libra sin que nadie lo note.
  */
 const HOJAS_CON_REGLAS = hojasDelCliente().filter((r) => r !== ruta('src/client/temas.css'));
-
-/**
- * Los `import('…')` de `r` (relativa a la raíz) que caen en el repositorio, resueltos
- * como los estáticos (`importacionesConLineaDe`: un `.js` que es un `.ts` en el
- * disco, el `.ts`), con su línea y si nombran un tipo. Con el parser y no con una
- * expresión regular: un `typeof import('…')` o un `import('…').X` es un tipo y no carga
- * nada, y un `import()` comentado no existe. Solo los relativos: el cliente no carga el
- * suyo con el alias.
- */
-function entreParentesisDe(r: string): { ruta: string; linea: number; deUnTipo: boolean }[] {
-  // Sin `import(` en el código (sin comentarios) no hay ninguno: no se parsea.
-  if (!/\bimport\s*\(/.test(codigoDe(r))) return [];
-  const sf = ts.createSourceFile(r, leer(r), ts.ScriptTarget.Latest, true);
-  const out: { ruta: string; linea: number; deUnTipo: boolean }[] = [];
-  const anotar = (n: ts.Node, a: ts.Node | undefined, deUnTipo: boolean): void => {
-    if (a === undefined || !ts.isStringLiteralLike(a) || !a.text.startsWith('.')) return;
-    const absoluta = join(dirname(r), a.text);
-    const conTs = absoluta.replace(/\.js$/, '.ts');
-    out.push({
-      ruta: existsSync(join(RAIZ, conTs)) ? conTs : absoluta,
-      linea: sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1,
-      deUnTipo,
-    });
-  };
-  const visitar = (n: ts.Node): void => {
-    if (ts.isCallExpression(n) && n.expression.kind === ts.SyntaxKind.ImportKeyword)
-      anotar(n, n.arguments[0], false);
-    else if (ts.isImportTypeNode(n) && ts.isLiteralTypeNode(n.argument))
-      anotar(n, n.argument.literal, true);
-    ts.forEachChild(n, visitar);
-  };
-  visitar(sf);
-  return out;
-}
-
-/** Lo que `r` carga a demanda, con un `import()`: lo que se evalúa cuando se llama. */
-function aDemandaDe(r: string): { ruta: string; linea: number }[] {
-  return entreParentesisDe(r).flatMap((i) =>
-    i.deUnTipo ? [] : [{ ruta: i.ruta, linea: i.linea }],
-  );
-}
-
-/** Los tipos que `r` toma de otro módulo sin importarlo: `typeof import('…')`, `import('…').X`. */
-function tiposPorImportDe(r: string): { ruta: string; linea: number }[] {
-  return entreParentesisDe(r).flatMap((i) =>
-    i.deUnTipo ? [{ ruta: i.ruta, linea: i.linea }] : [],
-  );
-}
 
 describe('invariantes del proyecto', () => {
   it('el cliente no aplica reglas: la única puerta al núcleo es la sesión (`sesion/`)', () => {

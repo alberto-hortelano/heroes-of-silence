@@ -17,6 +17,7 @@
  * transporte de stdio en cuanto se importa.
  */
 import type { AgentRequestMsg } from '../protocol.js';
+import type { Aviso } from './escucha.js';
 
 /**
  * Cuánto se espera la respuesta a una consulta antes de rendirse.
@@ -29,20 +30,6 @@ import type { AgentRequestMsg } from '../protocol.js';
  * tarda medio minuto, no va a llegar.
  */
 export const PLAZO_CONSULTA_MS = 30_000;
-
-/**
- * Lo que puede recibir quien espera en `heroes_listen`. Nunca «nada».
- *
- * `relevo` y `corte` son clases distintas porque son hechos distintos: en el
- * relevo el canal está vivo y solo sobraba una llamada; en el corte el cable se
- * ha muerto. Compartían clase, y el agente leía «se ha perdido la conexión con
- * la partida» de algo que no había perdido nada.
- */
-export type Aviso =
-  | { readonly clase: 'peticion'; readonly msg: AgentRequestMsg }
-  | { readonly clase: 'fin'; readonly nota: string }
-  | { readonly clase: 'relevo' }
-  | { readonly clase: 'corte'; readonly motivo: string };
 
 export interface RespuestaConsulta {
   readonly ok: boolean;

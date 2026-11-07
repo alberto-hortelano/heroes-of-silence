@@ -41,14 +41,14 @@ import {
   CABECERA_ESTADO,
   CABECERA_RESPUESTA,
   leeVeredictos,
-  leQuedan,
   MARCA_KIND,
   PREFIJO_CORTE,
   PREFIJO_FIN,
   PREFIJO_RELEVO,
   SANGRIA_PROBLEMA,
   type Veredicto,
-} from '../../src/server/notas.js';
+} from '../../src/server/mcp/escucha.js';
+import { leQuedan } from '../../src/server/notas.js';
 import type { ServerToSpectatorMsg } from '../../src/shared/cable-del-espectador.js';
 import {
   contestaElArnes,
@@ -62,7 +62,7 @@ import { FIRMA_DEL_MAPA } from './politica.js';
 import { arrancarServidor, type ServidorDePartida } from './servidor.js';
 
 const TURNOS = TURNOS_DEL_ARNES;
-/** El kind de la petición, leído por el marcador que lo escribe `notas.ts`. */
+/** El kind de la petición, leído por el marcador que lo escribe `mcp/escucha.ts`. */
 const RE_KIND = new RegExp(`${MARCA_KIND}(\\w+)`);
 /** El número de la petición, que es por el que se busca después su veredicto. */
 const RE_PETICION = /^Petición (\S+) ·/;
@@ -1232,7 +1232,7 @@ function textoDe(resultado: unknown): string {
   return content.map((c) => c.text ?? '').join('\n');
 }
 
-/** El estado viaja entre las dos cabeceras que escribe `notas.ts`. */
+/** El estado viaja entre las dos cabeceras que escribe `mcp/escucha.ts`. */
 function extraerEstado(texto: string): any | null {
   const desde = texto.indexOf(CABECERA_ESTADO);
   const hasta = texto.indexOf(CABECERA_RESPUESTA);
