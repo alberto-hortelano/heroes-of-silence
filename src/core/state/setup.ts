@@ -2,7 +2,6 @@
 
 import { COMBATE_COMPLETO, cupoDelHeroe, type ReglasDelCombate } from '../combate.js';
 import { problemaDeTipo } from '../hero/ascenso.js';
-import { EXPERIENCIA_INICIAL_DE_HEROE } from '../hero/experiencia.js';
 import {
   CIFRAS_DEL_HEROE_INICIAL,
   empezarElDia,
@@ -10,6 +9,7 @@ import {
   heroeRecienHecho,
   maxMana,
 } from '../hero/hero.js';
+import { EXPERIENCIA_INICIAL_DE_HEROE } from '../hero/rango.js';
 import { tipoDeHeroePorDefecto } from '../hero/tipos-de-heroe.js';
 import { heroLeadership, troopRoom, withTroops } from '../hero/troop.js';
 import type { MapPlan } from '../map/generar/plan.js';

@@ -15,7 +15,7 @@ import type {
 import { SPEED_TO_MOVE_POINTS } from '../types.js';
 import { cuerpoConSusCifras, marchaDe } from '../unidad/cuerpo.js';
 import { type CuerpoDeTodoHeroe, EQUIPO_BASE, HEROE } from './cuerpo-del-heroe.js';
-import { rangoDeHeroe, subidasDeRango } from './experiencia.js';
+import { rangoDeHeroe, subidasDeRango } from './rango.js';
 import { troopUnit } from './troop.js';
 
 /** Habilidades secundarias del slice. Cada una en básico/avanzado/experto. */

@@ -18,13 +18,13 @@
 import { describe, expect, it } from 'vitest';
 import { llegadaDeLaRuta } from '../src/client/escenas/aventura.js';
 import { Session } from '../src/client/session.js';
-import { EXPERIENCIA_INICIAL_DE_HEROE } from '../src/core/hero/experiencia.js';
 import { empezarElDia, heroeRecienHecho, maxMovePoints } from '../src/core/hero/hero.js';
 import {
   infiltracionBlocker,
   precioDeLaBarrera,
   seInfiltra,
 } from '../src/core/hero/infiltracion.js';
+import { EXPERIENCIA_INICIAL_DE_HEROE } from '../src/core/hero/rango.js';
 import {
   tipoDeHeroePorDefecto,
   tipoSeInfiltra,

@@ -762,3 +762,16 @@ simbolo	src/core/battle/effects.ts	src/core/battle/types.ts	EfectoResuelto
 simbolo	src/core/battle/effects.ts	src/core/battle/types.ts	DisparadorResuelto
 simbolo	src/core/battle/effects.ts	src/core/battle/types.ts	HastaElTurno
 simbolo	src/core/battle/effects.ts	src/core/battle/types.ts	CuandoVence
+simbolo	src/core/hero/experiencia.ts	src/core/hero/rango.ts	ReglasDeExperiencia
+simbolo	src/core/hero/experiencia.ts	src/core/hero/rango.ts	validarExperiencia
+simbolo	src/core/hero/experiencia.ts	src/core/hero/rango.ts	EXPERIENCIA
+simbolo	src/core/hero/experiencia.ts	src/core/hero/rango.ts	UMBRALES
+simbolo	src/core/hero/experiencia.ts	src/core/hero/rango.ts	umbral
+simbolo	src/core/hero/experiencia.ts	src/core/hero/rango.ts	rangoDe
+simbolo	src/core/hero/experiencia.ts	src/core/hero/rango.ts	RANGO_MAXIMO_DE_TROPA
+simbolo	src/core/hero/experiencia.ts	src/core/hero/rango.ts	RANGO_INICIAL_DE_HEROE
+simbolo	src/core/hero/experiencia.ts	src/core/hero/rango.ts	rangoDeHeroe
+simbolo	src/core/hero/experiencia.ts	src/core/hero/rango.ts	EXPERIENCIA_INICIAL_DE_HEROE
+simbolo	src/core/hero/experiencia.ts	src/core/hero/rango.ts	subidasDeRango
+simbolo	src/core/hero/experiencia.ts	src/core/hero/rango.ts	rangoDeTropa
+simbolo	src/core/hero/experiencia.ts	src/core/hero/rango.ts	siguienteUmbral

@@ -15,7 +15,7 @@ import { piezaNueva } from '../src/core/arena/piezas.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import { EQUIPO, type Pieza } from '../src/core/equipo/pieza.js';
 import { conEquipo } from '../src/core/equipo/vestir.js';
-import { umbral } from '../src/core/hero/experiencia.js';
+import { umbral } from '../src/core/hero/rango.js';
 import { type NivelesDeLaRueda, SPEED_TIERS, type UnitInfo } from '../src/core/types.js';
 import {
   cifrasDeUnidad,

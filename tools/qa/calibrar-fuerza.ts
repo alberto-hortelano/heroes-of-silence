@@ -31,7 +31,6 @@ import { playAiTurn } from '../../src/core/ai/turn.js';
 import { type BattleSide, createBattle } from '../../src/core/battle/battle.js';
 import { HERO_BODY } from '../../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../../src/core/combate.js';
-import { rangoDeHeroe } from '../../src/core/hero/experiencia.js';
 import {
   armyPower,
   MARGEN_CONTRA_NEUTRALES,
@@ -40,6 +39,7 @@ import {
   unitPower,
 } from '../../src/core/hero/fuerza.js';
 import { cuerposDelHeroe, type Hero, heroUnit, moraleBonus } from '../../src/core/hero/hero.js';
+import { rangoDeHeroe } from '../../src/core/hero/rango.js';
 import { ejercitoDe, troopsAsStacks } from '../../src/core/hero/troop.js';
 import { createRng } from '../../src/core/rng.js';
 import { newGame } from '../../src/core/state/setup.js';

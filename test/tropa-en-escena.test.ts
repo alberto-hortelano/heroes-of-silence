@@ -13,8 +13,8 @@ import { AYUDA_DE_LA_TROPA, Session } from '../src/client/session.js';
 import { zonaDeSalida } from '../src/core/battle/despliegue.js';
 import { aDosManos } from '../src/core/equipo/manos.js';
 import { EQUIPO, pieza } from '../src/core/equipo/pieza.js';
-import { rangoDeHeroe, umbral } from '../src/core/hero/experiencia.js';
 import { heroUnit } from '../src/core/hero/hero.js';
+import { rangoDeHeroe, umbral } from '../src/core/hero/rango.js';
 import { troopUnit } from '../src/core/hero/troop.js';
 import { turnBlocker } from '../src/core/state/consultas.js';
 import {

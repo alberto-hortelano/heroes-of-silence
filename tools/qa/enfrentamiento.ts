@@ -143,8 +143,8 @@ import type { BattleAction, BattleState, Side } from '../../src/core/battle/type
 import { HERO_BODY, otroBando } from '../../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../../src/core/combate.js';
 import { EQUIPO_BASE } from '../../src/core/hero/cuerpo-del-heroe.js';
-import { EXPERIENCIA_INICIAL_DE_HEROE } from '../../src/core/hero/experiencia.js';
 import { cuerposDelHeroe } from '../../src/core/hero/hero.js';
+import { EXPERIENCIA_INICIAL_DE_HEROE } from '../../src/core/hero/rango.js';
 import { hechizosDelGremio } from '../../src/core/magia/catalogo.js';
 import { createRng, type Rng } from '../../src/core/rng.js';
 import { FACTION_IDS, type Stack, type UnitInfo } from '../../src/core/types.js';

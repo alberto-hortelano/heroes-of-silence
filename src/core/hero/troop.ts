@@ -23,14 +23,14 @@ import {
   cifrasDeUnidad,
   unidadDelJuego,
 } from '../unidad/catalogo.js';
+import { LIDERAZGO } from './liderazgo.js';
 import {
   RANGO_MAXIMO_DE_TROPA,
   rangoDeHeroe,
   rangoDeTropa,
   siguienteUmbral,
   subidasDeRango,
-} from './experiencia.js';
-import { LIDERAZGO } from './liderazgo.js';
+} from './rango.js';
 
 /**
  * Las cifras de un individuo: las de su unidad del catálogo con su veteranía y

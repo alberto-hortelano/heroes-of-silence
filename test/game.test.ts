@@ -12,7 +12,6 @@ import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import { esDeGuerra } from '../src/core/equipo/manos.js';
 import { marchaALaEscala } from '../src/core/escala.js';
 import { EQUIPO_BASE } from '../src/core/hero/cuerpo-del-heroe.js';
-import { umbral } from '../src/core/hero/experiencia.js';
 import {
   type GrupoQueMarcha,
   type Hero,
@@ -22,6 +21,7 @@ import {
   maxMovePoints,
   slowestSpeed,
 } from '../src/core/hero/hero.js';
+import { umbral } from '../src/core/hero/rango.js';
 import { troopUnit } from '../src/core/hero/troop.js';
 import { hechizosDelGremio } from '../src/core/magia/catalogo.js';
 import { buildMap, generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';

@@ -25,8 +25,8 @@ import type { BattleState, Side } from '../src/core/battle/types.js';
 import { HERO_BODY, queEs } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { HEROE } from '../src/core/hero/cuerpo-del-heroe.js';
-import { umbral } from '../src/core/hero/experiencia.js';
 import { type Hero, heroUnit } from '../src/core/hero/hero.js';
+import { umbral } from '../src/core/hero/rango.js';
 import { figuraDelHeroe } from '../src/core/hero/tipos-de-heroe.js';
 import {
   isEnterable,

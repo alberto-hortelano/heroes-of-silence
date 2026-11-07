@@ -1,4 +1,4 @@
-import { rangoDeTropa } from '../hero/experiencia.js';
+import { rangoDeTropa } from '../hero/rango.js';
 import type {
   Afecta,
   AQuien,

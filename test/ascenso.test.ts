@@ -11,7 +11,7 @@
 import { describe, expect, it } from 'vitest';
 import { resolvePendingBattle } from '../src/core/ai/turn.js';
 import { porPreguntar, problemaDeTipo } from '../src/core/hero/ascenso.js';
-import { rangoDeHeroe, umbral } from '../src/core/hero/experiencia.js';
+import { rangoDeHeroe, umbral } from '../src/core/hero/rango.js';
 import {
   tipoDeHeroePorDefecto,
   tiposDeHeroe,

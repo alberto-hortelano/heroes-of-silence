@@ -31,8 +31,8 @@ import {
 import { destinoDeEquipo, pedidoDeEquipo, pedidoDelPuesto } from '../src/core/equipo/portador.js';
 import { conEquipo, mismasCifras } from '../src/core/equipo/vestir.js';
 import { EQUIPO_BASE, equipoBaseBlocker } from '../src/core/hero/cuerpo-del-heroe.js';
-import { umbral } from '../src/core/hero/experiencia.js';
 import { heroeRecienHecho } from '../src/core/hero/hero.js';
+import { umbral } from '../src/core/hero/rango.js';
 import { tipoDeHeroePorDefecto } from '../src/core/hero/tipos-de-heroe.js';
 import { troopUnit } from '../src/core/hero/troop.js';
 import { isEnterable, objectAt, pointKey } from '../src/core/map/map.js';

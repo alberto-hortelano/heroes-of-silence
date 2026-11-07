@@ -16,8 +16,8 @@ import {
   EQUIPO_BASE,
   HEROE,
 } from '../hero/cuerpo-del-heroe.js';
-import { EXPERIENCIA_INICIAL_DE_HEROE } from '../hero/experiencia.js';
 import { CIFRAS_DEL_HEROE_INICIAL, cuerpoDelHeroe, maxMana } from '../hero/hero.js';
+import { EXPERIENCIA_INICIAL_DE_HEROE } from '../hero/rango.js';
 import {
   type CatalogoDeHechizos,
   HECHIZOS_DEL_JUEGO,

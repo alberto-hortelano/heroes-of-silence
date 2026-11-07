@@ -29,8 +29,10 @@ import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { serializeAdventureTurn } from '../src/core/contract/aventura.js';
 import { serializeBattleTurn } from '../src/core/contract/batalla.js';
 import { HEROE } from '../src/core/hero/cuerpo-del-heroe.js';
+import { cifrasVeteranas } from '../src/core/hero/experiencia.js';
+import { cuerposDelHeroe, heroUnit } from '../src/core/hero/hero.js';
+import { LIDERAZGO } from '../src/core/hero/liderazgo.js';
 import {
-  cifrasVeteranas,
   EXPERIENCIA,
   EXPERIENCIA_INICIAL_DE_HEROE,
   RANGO_INICIAL_DE_HEROE,
@@ -41,9 +43,7 @@ import {
   subidasDeRango,
   umbral,
   validarExperiencia,
-} from '../src/core/hero/experiencia.js';
-import { cuerposDelHeroe, heroUnit } from '../src/core/hero/hero.js';
-import { LIDERAZGO } from '../src/core/hero/liderazgo.js';
+} from '../src/core/hero/rango.js';
 import {
   elQueSeIria,
   gruposDe,

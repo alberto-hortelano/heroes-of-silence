@@ -17,8 +17,8 @@
  */
 import type { Town } from '../town/town.js';
 import type { FactionId, Veterania } from '../types.js';
-import { RANGO_MAXIMO_DE_TROPA, rangoDeTropa } from './experiencia.js';
 import type { Hero } from './hero.js';
+import { RANGO_MAXIMO_DE_TROPA, rangoDeTropa } from './rango.js';
 import { tipoDeHeroe, tiposDeHeroe } from './tipos-de-heroe.js';
 
 /**

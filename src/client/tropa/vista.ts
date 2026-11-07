@@ -22,13 +22,13 @@ import {
   type Portador,
   pedidoDelPuesto,
 } from '@core/equipo/portador.js';
+import { type Hero, heroUnit } from '@core/hero/hero.js';
 import {
   RANGO_MAXIMO_DE_TROPA,
   rangoDeHeroe,
   rangoDeTropa,
   siguienteUmbral,
-} from '@core/hero/experiencia.js';
-import { type Hero, heroUnit } from '@core/hero/hero.js';
+} from '@core/hero/rango.js';
 import { nombreDeTipoDeHeroe } from '@core/hero/tipos-de-heroe.js';
 import { troopUnit } from '@core/hero/troop.js';
 import { type ClimaDelSitio, DESPEJADO } from '@core/state/clima.js';

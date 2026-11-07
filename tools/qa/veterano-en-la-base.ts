@@ -7,7 +7,8 @@
  * importarse: así lo pueden usar también los tests. No es una puerta de trampas
  * de la partida: no lo llama nada de `src/`.
  */
-import { EXPERIENCIA_INICIAL_DE_HEROE } from '../../src/core/hero/experiencia.js';
+
+import { EXPERIENCIA_INICIAL_DE_HEROE } from '../../src/core/hero/rango.js';
 import { baseOf } from '../../src/core/state/game.js';
 import { guarnicionDe, ponerLaGuarnicion, sitioDeLaCiudad } from '../../src/core/state/sitios.js';
 import type { GameState } from '../../src/core/state/tipos.js';

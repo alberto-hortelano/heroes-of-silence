@@ -39,8 +39,8 @@ import { COMBATE_COMPLETO, type ReglasDelCombate } from '../src/core/combate.js'
 import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import type { Pieza } from '../src/core/equipo/pieza.js';
 import { EQUIPO_BASE } from '../src/core/hero/cuerpo-del-heroe.js';
-import { EXPERIENCIA_INICIAL_DE_HEROE, umbral } from '../src/core/hero/experiencia.js';
 import { cuerposDelHeroe } from '../src/core/hero/hero.js';
+import { EXPERIENCIA_INICIAL_DE_HEROE, umbral } from '../src/core/hero/rango.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
 import type { Rng } from '../src/core/rng.js';
 import {

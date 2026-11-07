@@ -15,9 +15,9 @@
 
 import { armaduraDe } from '../../src/core/battle/armas.js';
 import { armasDe } from '../../src/core/battle/damage.js';
-import { EXPERIENCIA_INICIAL_DE_HEROE } from '../../src/core/hero/experiencia.js';
 import { unitPower } from '../../src/core/hero/fuerza.js';
 import { heroeRecienHecho, heroUnit } from '../../src/core/hero/hero.js';
+import { EXPERIENCIA_INICIAL_DE_HEROE } from '../../src/core/hero/rango.js';
 import { SPEED_TO_HEXES, type UnitInfo } from '../../src/core/types.js';
 import { costeDeUnaUnidad, unidadesDelJuego } from '../../src/core/unidad/catalogo.js';
 import { agilidadDe, restaDelPesoDe } from '../../src/core/unidad/cuerpo.js';

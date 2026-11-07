@@ -34,7 +34,7 @@ import {
 } from '@core/contract/vocabulario.js';
 import { firmaDeVoces, ponerVoces, vocesCaducadas } from '@core/gente/voces.js';
 import { porPreguntar } from '@core/hero/ascenso.js';
-import { RANGO_MAXIMO_DE_TROPA, rangoDeHeroe } from '@core/hero/experiencia.js';
+import { RANGO_MAXIMO_DE_TROPA, rangoDeHeroe } from '@core/hero/rango.js';
 import type { MapPlan } from '@core/map/generar/plan.js';
 import { pointKey } from '@core/map/map.js';
 import { createRng } from '@core/rng.js';

@@ -29,12 +29,6 @@ import {
 import { idsPuestos } from '../equipo/vestir.js';
 import { radioALaEscala } from '../escala.js';
 import { problemaDeTipo, type VeteranoEnBase, veteranosEn } from '../hero/ascenso.js';
-import {
-  EXPERIENCIA_INICIAL_DE_HEROE,
-  RANGO_MAXIMO_DE_TROPA,
-  rangoDeHeroe,
-  rangoDeTropa,
-} from '../hero/experiencia.js';
 import { gruposAlTope, loNeutralAlTope } from '../hero/grupos.js';
 import {
   cuerposDelHeroe,
@@ -46,6 +40,12 @@ import {
   moraleBonus,
 } from '../hero/hero.js';
 import { infiltracionBlocker, precioDeLaBarrera } from '../hero/infiltracion.js';
+import {
+  EXPERIENCIA_INICIAL_DE_HEROE,
+  RANGO_MAXIMO_DE_TROPA,
+  rangoDeHeroe,
+  rangoDeTropa,
+} from '../hero/rango.js';
 import {
   figuraDelHeroe,
   tipoDeHeroePorDefecto,

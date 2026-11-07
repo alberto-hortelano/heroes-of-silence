@@ -11,15 +11,15 @@ import { formaDeLaBatalla } from '../battle/formas-de-la-rueda.js';
 import { PIEZAS_DE_ARMERIA } from '../equipo/pieza.js';
 import { vecinosDeLaBase, vozDe } from '../gente/voces.js';
 import type { VeteranoEnBase } from '../hero/ascenso.js';
+import { fuerzaDe } from '../hero/fuerza.js';
+import { type Hero, heroUnit, maxMana, maxMovePoints } from '../hero/hero.js';
+import { infiltracionBlocker } from '../hero/infiltracion.js';
 import {
   RANGO_MAXIMO_DE_TROPA,
   rangoDeHeroe,
   rangoDeTropa,
   siguienteUmbral,
-} from '../hero/experiencia.js';
-import { fuerzaDe } from '../hero/fuerza.js';
-import { type Hero, heroUnit, maxMana, maxMovePoints } from '../hero/hero.js';
-import { infiltracionBlocker } from '../hero/infiltracion.js';
+} from '../hero/rango.js';
 import { tiposDeHeroe } from '../hero/tipos-de-heroe.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../hero/troop.js';
 import { sitioEnUnNodo } from '../map/regiones.js';

@@ -9,7 +9,7 @@
 
 import { COMO_SE_LEE_EL_MAPA } from '@core/contract/mapa-conocido.js';
 import { fichaDeCriatura, hechizosAlAgente } from '@core/contract/vistas.js';
-import { RANGO_MAXIMO_DE_TROPA } from '@core/hero/experiencia.js';
+import { RANGO_MAXIMO_DE_TROPA } from '@core/hero/rango.js';
 import { allBuildings } from '@core/town/buildings.js';
 import { FACTION_IDS } from '@core/types.js';
 import { unidadDelJuego, unidadesDeFaccion, unidadesDelJuego } from '@core/unidad/catalogo.js';
