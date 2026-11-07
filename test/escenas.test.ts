@@ -16,6 +16,7 @@ import { marcadoDe } from '../src/client/comun/html.js';
 import { EscenaBase } from '../src/client/partida/base/escena.js';
 import { renderConversacion } from '../src/client/partida/base/panel.js';
 import { PAUSA_TRAS_EL_RIVAL, PuertaDeFinDeTurno } from '../src/client/partida/fin-de-turno.js';
+import { renderDefensa, renderGuarnicion } from '../src/client/partida/guarnicion.js';
 import { EscenaAventura, focoDe, llegadaDeLaRuta } from '../src/client/partida/mapa/escena.js';
 import { renderActions, renderSide } from '../src/client/partida/paneles.js';
 import { repartirClic } from '../src/client/partida/reparto-del-clic.js';
@@ -69,6 +70,7 @@ import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import type { Pieza } from '../src/core/equipo/pieza.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import { DESPEJADO } from '../src/core/state/clima.js';
+import { baseOf, heroesOf } from '../src/core/state/consultas.js';
 import { faccionesDeLaSemilla } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 import { building } from '../src/core/town/buildings.js';
@@ -87,8 +89,9 @@ import {
   unoDeLaRueda,
 } from './batalla-de-cliente.js';
 import { agresiva, MANOS_DE_PRUEBA } from './batalla-de-prueba.js';
+import { PESADA, TROPA_BARATA } from './comun.js';
 import { hojasDeLaArena } from './hojas-de-la-arena.js';
-import { anteLaBase, fueraDeSuBase } from './partida-de-prueba.js';
+import { anteLaBase, ejercito, fueraDeSuBase, guarnecer, pegadoA } from './partida-de-prueba.js';
 import { catalogoCon, unidadDeArena } from './pelea-de-arena.js';
 
 /**
@@ -334,6 +337,50 @@ describe('«Fin de turno»', () => {
   });
 });
 
+/**
+ * Una muestra de los botones de la partida (`data-action`) para el reparto del clic:
+ * los que ya no contaban el segundo clic de un doble clic (`DE_UN_SOLO_CLIC`, hasta el
+ * 07-11-2026), los que lo contaban —el que sigue a «Resolver sola» en el mapa, «+1» de la
+ * morada, «Comprar» de la armería, el zoom…— y los de la batalla que comparte con la arena.
+ */
+const BOTONES_DE_MUESTRA = [
+  'lugar-ir',
+  'lugar-al-principio',
+  'lugar-opcion',
+  'tropa-poner',
+  'tropa-quitar',
+  'ir-a-sitio',
+  'hire-hero',
+  'mejorar-el-puesto',
+  'battle-surrender',
+  'auto-battle',
+  'end-turn',
+  'end-turn-confirm',
+  'recruit',
+  'buy-item',
+  'build',
+  'dismiss',
+  'select-item',
+  'equip',
+  'unequip',
+  'next-hero',
+  'sleep-hero',
+  'toggle-fog',
+  'zoom-in',
+  'zoom-out',
+  'confirmar-reparto',
+  'defensa-confirmar',
+  'aviso-defender',
+  'aviso-resolver-sola',
+  'battle-end-turn',
+  'battle-spell',
+  'battle-poder',
+  'battle-arma',
+  'battle-muralla',
+  'despliegue-elegir',
+  'desplegado',
+] as const;
+
 describe('la batalla en el lienzo', () => {
   it('el aviso de espera se borra solo cuando acaba la jugada', () => {
     const s = sesionEnBatalla();
@@ -400,48 +447,116 @@ describe('la batalla en el lienzo', () => {
     expect(repartirClic('finish-battle', 'adventure', () => false)).toBe('gesto');
   });
 
-  it('el segundo clic de un doble clic no cuenta en los botones de un solo clic de la partida, y se mira tras la jugada en curso', () => {
-    // Una sola lista en `reparto-del-clic.ts` (hasta el 07-11-2026, un `if` en cada caso
-    // de `main.ts`): el segundo clic caía en lo repintado por el primero y jugaba otra vez.
-    const libre = () => false;
-    for (const accion of [
-      'lugar-ir',
-      'lugar-al-principio',
-      'lugar-opcion',
-      'tropa-poner',
-      'tropa-quitar',
-      'ir-a-sitio',
-      'hire-hero',
-      'mejorar-el-puesto',
-    ]) {
-      expect(repartirClic(accion, 'town', libre, 2), accion).toBe('nada');
-      expect(repartirClic(accion, 'town', libre, 1), accion).toBe('gesto');
-    }
-    // El reparto de la guarnición cuenta cada clic, a propósito (H-V2-1 del QA).
-    expect(repartirClic('mover-en-el-reparto', 'adventure', libre, 2)).toBe('gesto');
-    // «Continuar» se atiende antes, también con el segundo clic: espera a la jugada.
-    expect(repartirClic('finish-battle', 'battle', libre, 2)).toBe('al-acabar');
-    // Y la jugada en curso se mira antes que el segundo clic, como en los botones de la
-    // batalla de la partida: se rechaza, con su aviso, aunque sea el segundo.
+  it('el segundo clic de un doble clic no cuenta en ningún botón de la partida, caiga donde caiga, y se mira antes que nada (decisión del usuario, 07-11-2026)', () => {
+    // «Ningún botón cuenta»: el repintado llega entre los dos clics de una persona y el
+    // segundo caía en lo que había pintado el primero —en «Fin de turno» tras «Resolver
+    // sola», que pasaba el día; en otro «+1»; en otro «Comprar»—. Hasta ese día era una
+    // lista de los botones que no lo contaban (`DE_UN_SOLO_CLIC`), y se quedaba corta.
     let preguntas = 0;
-    const enCurso = () => {
+    const libre = () => {
       preguntas++;
-      return true;
+      return false;
     };
-    expect(repartirClic('mejorar-el-puesto', 'battle', enCurso, 2)).toBe('nada');
-    expect(preguntas).toBe(1);
+    for (const escena of ['adventure', 'town', 'battle'] as const) {
+      for (const accion of BOTONES_DE_MUESTRA) {
+        expect(repartirClic(accion, escena, libre, 2), `${accion} en ${escena}`).toBe('nada');
+      }
+      // También «Ver al enemigo» y «Continuar», que se atienden antes que la jugada en curso.
+      expect(repartirClic('ver-enemigo', escena, libre, 2)).toBe('nada');
+      expect(repartirClic('finish-battle', escena, libre, 2)).toBe('nada');
+    }
+    // Y sin preguntar por la jugada, que ya pondría el aviso de espera en la barra: un
+    // segundo clic que no cuenta no hace nada.
+    expect(preguntas).toBe(0);
   });
 
-  it('«Rendirse» y «Resolver sola» tampoco cuentan el segundo clic (decisión del usuario, 07-11-2026)', () => {
-    // Los botones de la batalla que solo tiene la partida, con la regla de los que comparte
-    // con la arena (`GestosDeBatalla`): R3 los había dejado como pregunta.
-    const libre = () => false;
-    for (const accion of ['battle-surrender', 'auto-battle']) {
-      expect(repartirClic(accion, 'battle', libre, 2), accion).toBe('nada');
-      expect(repartirClic(accion, 'battle', libre, 1), accion).toBe('gesto');
+  it('el segundo clic cuenta solo en los que suman de uno en uno y se confirman al final; con un clic, todo como antes', () => {
+    // «Dejar ›» y «‹ Recoger» de la guarnición y «−» y «+» de la defensa: solo editan lo
+    // que se ve hasta «Confirmar» o «Defender», y un doble clic mueve dos (H-V2-1 del QA).
+    for (const accion of ['mover-en-el-reparto', 'defensa-menos', 'defensa-mas']) {
+      expect(
+        repartirClic(accion, 'adventure', () => false, 2),
+        accion,
+      ).toBe('gesto');
+      expect(
+        repartirClic(accion, 'battle', () => false, 3),
+        accion,
+      ).toBe('gesto');
+      // La jugada en curso los frena, como a todos.
+      expect(
+        repartirClic(accion, 'battle', () => true, 2),
+        accion,
+      ).toBe('nada');
     }
-    // Lo que cae tras ellos y hace otra cosa no se toca: «Continuar» sigue atendiéndose.
-    expect(repartirClic('finish-battle', 'battle', libre, 2)).toBe('al-acabar');
+    // Con un clic (y con el de un teclado, `detail` 0), cada botón lo suyo.
+    for (const clics of [1, 0]) {
+      for (const accion of BOTONES_DE_MUESTRA) {
+        expect(
+          repartirClic(accion, 'town', () => false, clics),
+          accion,
+        ).toBe('gesto');
+      }
+      expect(repartirClic('ver-enemigo', 'battle', () => true, clics)).toBe('mirar');
+      expect(repartirClic('finish-battle', 'battle', () => true, clics)).toBe('al-acabar');
+      expect(repartirClic('finish-battle', 'adventure', () => false, clics)).toBe('gesto');
+      expect(repartirClic(null, 'town', () => false, clics)).toBe('nada');
+    }
+  });
+
+  it('los que cuentan cada clic son «Dejar ›» y «‹ Recoger» de la guarnición y «−» y «+» de la defensa, y ningún otro de sus pantallas', async () => {
+    // La lista de `reparto-del-clic.ts` dice acciones; lo que la persona pulsa son botones.
+    // Si uno de estos cambiara su `data-action`, su doble clic dejaría de mover dos sin
+    // que nada lo dijera.
+    const botones = (m: string) =>
+      [...m.matchAll(/<button data-action="([^"]+)"[^>]*>([^<]*)<\/button>/g)].map(
+        ([, accion, texto]) => ({ accion: accion as string, texto: (texto as string).trim() }),
+      );
+    const cuentan = (m: string): string[] => [
+      ...new Set(
+        botones(m)
+          .filter((b) => repartirClic(b.accion, 'adventure', () => false, 2) === 'gesto')
+          .map((b) => b.texto),
+      ),
+    ];
+    const noCuentan = (m: string): string[] =>
+      botones(m)
+        .filter((b) => repartirClic(b.accion, 'adventure', () => false, 2) === 'nada')
+        .map((b) => b.texto);
+    // La guarnición de la base, con el héroe de salida dentro (y la guarnición con que nace
+    // la base) y uno ya dejado: Cancelar y Confirmar a la vista.
+    const s = new Session(7);
+    const heroe = s.myHeroes()[0]!;
+    s.abrirLaGuarnicion(heroe.id);
+    s.moverEnElReparto('guarnicion', heroe.army[0]!.creature);
+    const guarnicion = marcadoDe(renderGuarnicion(s.vistaDeLaGuarnicion()!));
+    expect(cuentan(guarnicion).sort()).toEqual(['Dejar ›', '‹ Recoger']);
+    expect(noCuentan(guarnicion).sort()).toEqual(['Cancelar', 'Confirmar']);
+    // La defensa: atacado en su base con guarnición (la receta de `guarniciones.test.ts`).
+    const d = new Session(37);
+    const base = baseOf(d.state, 0)!;
+    const mio = heroesOf(d.state, 0)[0]!;
+    mio.at = { ...base.at };
+    mio.army = ejercito({ creature: TROPA_BARATA, count: 1 });
+    guarnecer(d.state, base, ejercito({ creature: TROPA_BARATA, count: 3 }));
+    const rival = heroesOf(d.state, 1)[0]!;
+    rival.at = pegadoA(d.state, base.at);
+    rival.army = ejercito({ creature: PESADA, count: 6 });
+    rival.movePoints = 100_000;
+    let defensa = '';
+    d.alCambiarSinGesto = () => {
+      if (d.avisoDelAtaque !== null) d.defenderElAtaque();
+      const v = d.defensa;
+      if (v !== null && defensa === '') {
+        defensa = marcadoDe(renderDefensa(v));
+        d.dejarLaDefensaDeLaIA();
+      }
+      if (d.battle !== null && d.defensa === null && d.ruedaPendiente === null) {
+        d.autoResolveBattle();
+      }
+    };
+    for (let n = 0; n < 4 && defensa === '' && d.state.finished === null; n++) await d.endTurn();
+    expect(cuentan(defensa).sort()).toEqual(['+', '−']);
+    expect(noCuentan(defensa).sort()).toEqual(['Como propone la IA', 'Defender']);
   });
 
   it('con la jugada contándose, los botones del panel salen apagados y no piden un segundo clic (#165)', () => {

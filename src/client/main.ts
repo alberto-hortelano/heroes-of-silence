@@ -893,6 +893,8 @@ document.addEventListener('click', (ev) => {
   const target = (ev.target as HTMLElement).closest('[data-action]');
   if (target === null) return;
   const action = target.getAttribute('data-action');
+  // El segundo clic de un doble clic no cuenta en ningún botón, caiga donde caiga, salvo
+  // los que suman de uno en uno (`repartirClic`; decisión del usuario, 07-11-2026).
   const reparto = repartirClic(action, session.scene, jugadaEnCurso, ev.detail);
   if (reparto === 'mirar') {
     const izquierda = haciaEnemigo.dataset.lado === 'izquierda' ? 0 : lienzo.scrollWidth;
@@ -911,7 +913,8 @@ document.addEventListener('click', (ev) => {
   }
   if (reparto === 'nada' || hastaQueLlegue()) return;
   pedirFotograma();
-  // Los botones de la batalla (`GestosDeBatalla`): con la regla del doble clic de la arena.
+  // Los botones de la batalla (`GestosDeBatalla`), los de la arena: su regla del doble clic
+  // ya no ve un segundo clic aquí, porque `repartirClic` no deja pasar ninguno de ellos.
   if (gestos.clic(action, target, ev.detail)) return;
 
   switch (action) {
@@ -1041,7 +1044,8 @@ document.addEventListener('click', (ev) => {
       break;
     case 'mover-en-el-reparto': {
       // Apagado: su nota ya se lee debajo; el clic no hace nada (como en un lugar). Cada clic
-      // solo edita el reparto, así que un doble clic mueve dos (H-V2-1 del QA).
+      // solo edita el reparto, así que un doble clic mueve dos (H-V2-1 del QA): es de los
+      // que cuentan cada clic (`CUENTAN_CADA_CLIC` de `reparto-del-clic.ts`), como «−» y «+».
       if (target.getAttribute('aria-disabled') === 'true') break;
       const hacia = target.getAttribute('data-hacia');
       if (hacia !== 'heroe' && hacia !== 'guarnicion') {
@@ -1072,6 +1076,7 @@ document.addEventListener('click', (ev) => {
     }
     case 'defensa-mas':
     case 'defensa-menos':
+      // Cuentan cada clic, como «Dejar ›» y «‹ Recoger»: solo editan hasta «Defender».
       if (target.getAttribute('aria-disabled') === 'true') break;
       session.cambiarLaDefensa(
         target.getAttribute('data-creature') as string,
@@ -1124,8 +1129,8 @@ document.addEventListener('click', (ev) => {
       session.buyItem(target.getAttribute('data-item') as string);
       break;
     case 'battle-surrender':
-      // Rendirse y «Resolver sola» son solo de la partida; su segundo clic no cuenta
-      // (`DE_UN_SOLO_CLIC` de `reparto-del-clic.ts`, decisión del usuario del 07-11-2026).
+      // Rendirse y «Resolver sola» son solo de la partida; su segundo clic no cuenta, como
+      // el de ningún botón (`repartirClic`, decisiones del usuario del 07-11-2026).
       session.playBattleAction({ type: 'surrender' });
       break;
     case 'auto-battle':

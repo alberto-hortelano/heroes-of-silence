@@ -6,9 +6,9 @@
  * acepta nada mientras se cuenta la jugada (`jugadaEnCurso`, su única puerta, que pone en
  * la barra que se espere) y pide el fotograma; lo que solo tiene una página —rendirse,
  * «Resolver sola», «Continuar», «Solo la rueda del héroe», la formación de la tropa, el
- * editor de la arena— se queda en ella (el segundo clic de rendirse y de «Resolver sola»
- * tampoco cuenta, desde el 07-11-2026, en la lista de la partida: `DE_UN_SOLO_CLIC` de
- * `partida/reparto-del-clic.ts`).
+ * editor de la arena— se queda en ella. En la partida, desde el 07-11-2026 (decisión del
+ * usuario), el segundo clic de un doble clic no cuenta en ningún botón salvo los que suman
+ * de uno en uno, y no llega aquí: lo para antes `repartirClic` (`partida/reparto-del-clic.ts`).
  *
  * Hasta R3 cada página llevaba su copia, y ya divergían: la arena no jugaba el segundo
  * clic de un doble clic (M12 de su QA) en «Terminar turno», los poderes, el arma, la
