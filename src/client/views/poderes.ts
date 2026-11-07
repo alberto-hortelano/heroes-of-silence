@@ -26,7 +26,7 @@ import type {
 import { hechizo } from '@core/magia/catalogo.js';
 import { queHaceElHechizo } from '@core/magia/dicho.js';
 import type { PoderId } from '@core/types.js';
-import { type Html, html, NADA, unir } from '../html.js';
+import { type Html, html, NADA, unir } from '../comun/html.js';
 import type { Apuntado, ModoDelArma, MurallaDeLaActiva } from '../session.js';
 import { nombreEnElCampo } from './distintivo.js';
 import { textoDePrevision } from './prevision.js';

@@ -22,9 +22,9 @@ import {
 } from '@core/state/clima.js';
 import type { SpectatorSnapshotMsg } from '../../server/protocol.js';
 import type { SpectatorView } from '../../server/vista-espectador.js';
-import { avisoDelClima, climaDeLaURL } from '../clima-de-la-url.js';
+import { avisoDelClima, climaDeLaURL } from '../comun/clima-de-la-url.js';
 import { mensajeDe } from '../comun/errores.js';
-import { NADA } from '../html.js';
+import { NADA } from '../comun/html.js';
 import { cargarArte } from '../render/assets.js';
 import { alzadoDeLaMuralla, bandosSinDueño, drawBatalla } from '../render/batalla.js';
 import { type CamaraMapa, centrarEn, TILE_LEGIBLE } from '../render/camara-mapa.js';

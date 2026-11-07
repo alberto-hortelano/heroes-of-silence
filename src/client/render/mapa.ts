@@ -29,9 +29,9 @@ import type { AsaltantesALaVista } from '@core/state/asaltantes.js';
 import type { ClimaDeLaPartida } from '@core/state/clima.js';
 import type { FactionId, Point, VistaAsaltante } from '@core/types.js';
 import { hojaDeUnidad } from '@core/unidad/catalogo.js';
+import { temaDelLienzo } from '../comun/temas.js';
 import { type Direccion, direccionEnPantalla } from '../direccion.js';
 import { msPorCasilla, PRISA_EN_EL_MAPA } from '../marcha.js';
-import { temaDelLienzo } from '../temas.js';
 import { imagenDeEscena } from './assets.js';
 import {
   type CamaraMapa,

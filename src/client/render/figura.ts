@@ -13,8 +13,8 @@
  */
 import { colorDeSombra, FIGURA, PROYECCION_DE_SOMBRA } from '../../shared/arte.js';
 import { relojDeFigura } from '../compas.js';
+import { temaDelLienzo } from '../comun/temas.js';
 import type { Direccion } from '../direccion.js';
-import { temaDelLienzo } from '../temas.js';
 import { type PiesDeLaFigura, piesEn } from './aro.js';
 import { cargarHojaDeFigura, figuraEnCamino, hayFiguraCargada, imagenDeFigura } from './assets.js';
 import {

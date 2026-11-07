@@ -11,8 +11,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import unidadesJson from '../data/unidades.json' with { type: 'json' };
-import { renderNoArranca } from '../src/client/arranque.js';
-import { html, marcadoDe } from '../src/client/html.js';
+import { renderNoArranca } from '../src/client/comun/arranque.js';
+import { html, marcadoDe } from '../src/client/comun/html.js';
 import { importacionesDe, ruta } from './codigo-del-repo.js';
 import { RAIZ } from './comun.js';
 
@@ -87,13 +87,13 @@ describe('una página que no arranca dice por qué (H5)', () => {
     // Lo que se evalúa seguro: si cargase algo del núcleo, un catálogo roto lo
     // tumbaría antes de poder decir nada. El motivo lo saca `mensajeDe`
     // (`comun/errores.ts`, que tampoco importa nada: fase C de la reorganización).
-    const dePartida = dir === ruta('src/client') ? [ruta('src/client/semilla.ts')] : [];
+    const dePartida = dir === ruta('src/client') ? [ruta('src/client/comun/semilla.ts')] : [];
     expect([...cargaAlEvaluarse(entrada)].sort()).toEqual(
       [
         entrada,
-        ruta('src/client/arranque.ts'),
+        ruta('src/client/comun/arranque.ts'),
         ruta('src/client/comun/errores.ts'),
-        ruta('src/client/html.ts'),
+        ruta('src/client/comun/html.ts'),
         ...dePartida,
       ].sort(),
     );

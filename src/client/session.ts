@@ -215,7 +215,7 @@ import {
 import { cuerpoDe, unidadDelJuego } from '@core/unidad/catalogo.js';
 import { componerVistaDelAyuntamiento, type VistaDelAyuntamiento } from './ayuntamiento/vista.js';
 import { mensajeDe } from './comun/errores.js';
-import { quienesDe } from './desenlace.js';
+import { quienesDe } from './comun/quien-mira.js';
 import { DICHO_DE_LA_OBRA } from './dicho-del-puesto.js';
 import { COMO_SE_COLOCA, type ColocacionEnPantalla } from './escenas/despliegue.js';
 import { EnElLugar, type TrasElegir } from './lugar/sesion.js';

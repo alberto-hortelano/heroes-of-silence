@@ -17,7 +17,7 @@ function rasgosDelCuerpo(faccion: FactionId): readonly CreatureTrait[] {
 /**
  * Los ids que una unidad nueva no puede tomar, por separado para que nadie se
  * deje un grupo. El catálogo no trae unidades que no validan: con una, el núcleo
- * no carga y la página lo dice (`client/arranque.ts`).
+ * no carga y la página lo dice (`client/comun/arranque.ts`).
  */
 export interface IdsOcupados {
   /** Las unidades del catálogo, las nuevas incluidas. */

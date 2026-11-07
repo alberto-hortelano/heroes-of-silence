@@ -17,8 +17,8 @@
  * pinta del desenlace de un cruce y de «En el campo».
  */
 import { type FotoDeEfectos, fotoDeEfectos } from '../src/client/anim.js';
+import { marcadoDe } from '../src/client/comun/html.js';
 import { EscenaBatalla } from '../src/client/escenas/batalla.js';
-import { marcadoDe } from '../src/client/html.js';
 import { type CaraDeLosContrincantes, renderDesenlace } from '../src/client/rueda/rueda.js';
 import { type ControlDeBatalla, SesionDeArena, Session } from '../src/client/session.js';
 import { hexDistance } from '../src/core/battle/board.js';

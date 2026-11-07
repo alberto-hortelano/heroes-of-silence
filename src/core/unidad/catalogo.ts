@@ -14,7 +14,7 @@
  * con que guarda la arena) y las piezas de `data/equipo.json`: una unidad que no
  * vale tumba la carga diciendo el fichero, cuál y por qué. Con ella no arranca
  * ninguna página (la partida, la arena ni el espectador), y cada una lo dice en
- * pantalla con ese motivo (`client/arranque.ts`): se arregla a mano.
+ * pantalla con ese motivo (`client/comun/arranque.ts`): se arregla a mano.
  */
 import ciudadesJson from '../../../data/ciudades.json' with { type: 'json' };
 import unidadesJson from '../../../data/unidades.json' with { type: 'json' };

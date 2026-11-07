@@ -106,12 +106,13 @@ import {
 } from '@core/unidad/formato.js';
 import { unaVezEnLaURL } from '@core/validar.js';
 import { FIGURA } from '../../shared/arte.js';
-import { avisoDelClima, climaDeLaURL } from '../clima-de-la-url.js';
+import { avisoDelClima, climaDeLaURL } from '../comun/clima-de-la-url.js';
 import { mensajeDe } from '../comun/errores.js';
+import { type Html, html, pintar } from '../comun/html.js';
+import { aLaBarra, semillaSorteada } from '../comun/semilla.js';
 import type { Direccion } from '../direccion.js';
 import { EscenaBatalla } from '../escenas/batalla.js';
 import { FLECHAS_AL_COLOCAR } from '../escenas/despliegue.js';
-import { type Html, html, pintar } from '../html.js';
 import { cargarArte } from '../render/assets.js';
 import { COLOR_BANDO } from '../render/batalla.js';
 import type { CharacterClip } from '../render/character.js';
@@ -134,7 +135,6 @@ import {
   registrarLasHojas,
 } from '../render/personajes.js';
 import { DialogoDeLaRueda } from '../rueda/dialogo.js';
-import { aLaBarra, semillaSorteada } from '../semilla.js';
 import { type LadoDeSesion, SesionDeArena } from '../session.js';
 import { pintarSiguiendoElFinal } from '../views/al-final.js';
 import { leerElCombate, selectoresDelCombate } from '../views/combate.js';

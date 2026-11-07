@@ -28,7 +28,7 @@ import {
   renderFicha,
   tarjetasDelCatalogo,
 } from '../src/client/arena/paneles.js';
-import { html, marcadoDe } from '../src/client/html.js';
+import { html, marcadoDe } from '../src/client/comun/html.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import { UNIDADES } from '../src/core/unidad/catalogo.js';
 import { hojasDeLaArena } from './hojas-de-la-arena.js';

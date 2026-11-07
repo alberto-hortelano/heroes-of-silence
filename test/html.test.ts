@@ -20,7 +20,7 @@ import {
   pintar,
   srcDeImagen,
   unir,
-} from '../src/client/html.js';
+} from '../src/client/comun/html.js';
 
 /** El nombre de pueblo que el agente podría escribir y hoy ejecutaría. */
 const MALO = '<img src=x onerror=alert(1)>';

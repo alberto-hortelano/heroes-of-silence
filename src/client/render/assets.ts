@@ -7,7 +7,7 @@
  * error sino "todavía no se ha generado nada".
  */
 import { mensajeDe } from '../comun/errores.js';
-import { urlDeImagenSegura } from '../html.js';
+import { urlDeImagenSegura } from '../comun/html.js';
 import { registrarLasHojas } from './personajes.js';
 
 interface AssetManifest {

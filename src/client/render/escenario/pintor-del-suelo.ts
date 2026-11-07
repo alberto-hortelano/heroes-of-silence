@@ -17,7 +17,7 @@
  * que un Worker vivo no soltaba antes de pintar la siguiente.
  */
 import { mensajeDe } from '../../comun/errores.js';
-import { urlDeImagenSegura } from '../../html.js';
+import { urlDeImagenSegura } from '../../comun/html.js';
 import type { Escena } from './colocar.js';
 import { horneado } from './horneado.js';
 import {

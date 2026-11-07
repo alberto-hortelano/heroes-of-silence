@@ -201,7 +201,7 @@ export interface GameState {
    * El `null` de dentro es ese empate por tiempo, y obliga a decidir qué se
    * enseña. Lo que **no** obliga es `tsc`: `finished.winner === viewer` con un
    * `null` delante compila y contesta «has perdido», así que la clasificación
-   * de tres se escribe una vez por lector —`client/desenlace.ts`— y no en cada
+   * de tres se escribe una vez por lector —`client/comun/quien-mira.ts`— y no en cada
    * ternario.
    */
   finished: GameOutcome | null;

@@ -107,7 +107,7 @@ import {
   type Unidad,
   unidadDeCombate,
 } from '@core/unidad/formato.js';
-import { DESHABILITADO, type Html, html, MARCADO, NADA, srcDeImagen, unir } from '../html.js';
+import { DESHABILITADO, type Html, html, MARCADO, NADA, srcDeImagen, unir } from '../comun/html.js';
 import { ruedaDeLaPieza } from '../rueda/disco.js';
 import type { CaraDeLosContrincantes } from '../rueda/rueda.js';
 import type { SesionDeArena } from '../session.js';

@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { renderMuralla } from '../src/client/arena/paneles.js';
-import { marcadoDe } from '../src/client/html.js';
+import { marcadoDe } from '../src/client/comun/html.js';
 import { despliegueDeArenaBlocker, finalDeArena } from '../src/core/arena/montaje.js';
 import {
   COMENTARIO_DEL_BORRADOR_DE_MURALLAS,

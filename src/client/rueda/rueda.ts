@@ -47,7 +47,7 @@ import {
 import type { BattleStack, BattleState, Side, StackEffect } from '@core/battle/types.js';
 import type { TipoDeGolpe } from '@core/types.js';
 import { type CruceEnCurso, DURACION } from '../anim.js';
-import { type Html, html, NADA, unir } from '../html.js';
+import { type Html, html, NADA, unir } from '../comun/html.js';
 import { COLOR_BANDO } from '../render/batalla.js';
 import type { RuedaPendiente } from '../session.js';
 import { nombreEnElCampo } from '../views/distintivo.js';

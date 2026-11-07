@@ -11,7 +11,7 @@
  * **no importa nada del núcleo** (lo vigila `test/arranque.test.ts`): es lo único
  * que se evalúa seguro, y lo que cuenta el fallo de lo demás.
  */
-import { mensajeDe } from './comun/errores.js';
+import { mensajeDe } from './errores.js';
 import { type Html, html, pintar } from './html.js';
 
 /**

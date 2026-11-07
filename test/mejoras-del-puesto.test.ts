@@ -9,8 +9,8 @@
  * código: cada rechazo con su frase.
  */
 import { describe, expect, it } from 'vitest';
+import { marcadoDe } from '../src/client/comun/html.js';
 import { adaptarEscena } from '../src/client/espectador/adaptar.js';
-import { marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
 import { renderGuarnicion } from '../src/client/views/guarnicion.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';

@@ -20,7 +20,7 @@ import {
 } from '@core/battle/formas-de-la-rueda.js';
 import { type FilaDeLaRueda, NORMAL_EN_LA_FICHA } from '@core/battle/rueda.js';
 import type { TipoDeGolpe, TipoDelAnillo } from '@core/types.js';
-import { type Html, html, unir } from '../html.js';
+import { type Html, html, unir } from '../comun/html.js';
 
 /**
  * Los iconos, dibujados (sin arte generado): trazos en una caja de 24, con el

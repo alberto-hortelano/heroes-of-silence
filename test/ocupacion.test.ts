@@ -9,7 +9,7 @@
  * batalla para recuperar tras la muralla del sitio (P3) y la crónica.
  */
 import { describe, expect, it } from 'vitest';
-import { marcadoDe } from '../src/client/html.js';
+import { marcadoDe } from '../src/client/comun/html.js';
 import { Session } from '../src/client/session.js';
 import { renderSide, renderTopbar } from '../src/client/views/panels.js';
 import { resolvePendingBattle } from '../src/core/ai/turn.js';

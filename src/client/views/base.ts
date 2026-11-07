@@ -14,8 +14,8 @@ import { describirCoste } from '@core/texto.js';
 import { building } from '@core/town/buildings.js';
 import { construidoEn, moradaEn, SITIOS, type SitioId, siguienteDe } from '@core/town/sitios.js';
 import { buildBlocker, type Town } from '@core/town/town.js';
+import { DESHABILITADO, type Html, html, NADA, unir } from '../comun/html.js';
 import type { Abierto } from '../escenas/castillo.js';
-import { DESHABILITADO, type Html, html, NADA, unir } from '../html.js';
 import type { Session } from '../session.js';
 
 /** Lo del gremio y la armería lo pinta `panels.ts`: se pasa hecho para no importarlo de vuelta. */

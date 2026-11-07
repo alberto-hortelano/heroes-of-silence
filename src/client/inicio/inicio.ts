@@ -23,11 +23,11 @@
 import type { ReglasDelCombate } from '@core/combate.js';
 import { heroePorDefectoDeLaSemilla } from '@core/state/setup.js';
 import { esFaccion, FACTION_IDS, type FactionId } from '@core/types.js';
-import { leerElClimaDeLaURL, salidaDelClima } from '../clima-de-la-url.js';
 import { combateALaURL, combateParaElMenu } from '../combate-en-la-url.js';
-import { pintar } from '../html.js';
-import { aLaBarra, semillaSorteada } from '../semilla.js';
-import { ponerTema, quitarTema } from '../temas.js';
+import { leerElClimaDeLaURL, salidaDelClima } from '../comun/clima-de-la-url.js';
+import { pintar } from '../comun/html.js';
+import { aLaBarra, semillaSorteada } from '../comun/semilla.js';
+import { ponerTema, quitarTema } from '../comun/temas.js';
 import { leerElCombate, leerSoloHeroe } from '../views/combate.js';
 import { renderEleccion, renderMenu } from './pantallas.js';
 

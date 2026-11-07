@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { type Html, html, marcadoDe, unir } from '../src/client/html.js';
+import { type Html, html, marcadoDe, unir } from '../src/client/comun/html.js';
 import { desplazamientoTrasPintar, pintarSiguiendoElFinal } from '../src/client/views/al-final.js';
 import { nombreEnElCampo } from '../src/client/views/distintivo.js';
 import { renderBattleLog } from '../src/client/views/panels.js';

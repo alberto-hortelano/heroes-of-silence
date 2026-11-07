@@ -9,7 +9,7 @@
  * si le queda alguna (`mejora`, la de la base).
  */
 import { NOMBRE_DE_HUECO } from '@core/types.js';
-import { DESHABILITADO, type Html, html, NADA, unir } from '../html.js';
+import { DESHABILITADO, type Html, html, NADA, unir } from '../comun/html.js';
 import type { FichaDeLaMorada } from '../morada/vista.js';
 import type { Session } from '../session.js';
 import { mejora } from './base.js';

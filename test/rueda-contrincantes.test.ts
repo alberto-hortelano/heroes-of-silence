@@ -12,8 +12,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { caraDeLaArena } from '../src/client/arena/paneles.js';
+import { marcadoDe } from '../src/client/comun/html.js';
 import { EscenaBatalla } from '../src/client/escenas/batalla.js';
-import { marcadoDe } from '../src/client/html.js';
 import { anguloDe, medidasDeLaRueda } from '../src/client/rueda/disco.js';
 import { haciaDe, idDeLaForma, renderEleccion, sitioEnLaRueda } from '../src/client/rueda/rueda.js';
 import type { SesionDeArena } from '../src/client/session.js';

@@ -17,7 +17,7 @@ import {
   renderPanelDeBatalla,
   rotuloDelTurno,
 } from '../src/client/arena/paneles.js';
-import { marcadoDe } from '../src/client/html.js';
+import { marcadoDe } from '../src/client/comun/html.js';
 import { renderEleccion, tramosDelDesenlace } from '../src/client/rueda/rueda.js';
 import { SesionDeArena } from '../src/client/session.js';
 import { renderBattleLog } from '../src/client/views/panels.js';

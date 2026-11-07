@@ -6,7 +6,7 @@
  */
 import { conMiles } from '@core/texto.js';
 import { SPEED_TO_HEXES, type UnitInfo } from '@core/types.js';
-import { type Html, html, NADA } from '../html.js';
+import { type Html, html, NADA } from '../comun/html.js';
 
 /**
  * Una fila de la ficha: el rótulo a la izquierda y el valor a la derecha, cada uno

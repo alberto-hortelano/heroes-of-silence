@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { marcadoDe } from '../src/client/html.js';
+import { marcadoDe } from '../src/client/comun/html.js';
 import { Session } from '../src/client/session.js';
 import { renderSide } from '../src/client/views/panels.js';
 import { completarCruce } from '../src/core/ai/rueda.js';

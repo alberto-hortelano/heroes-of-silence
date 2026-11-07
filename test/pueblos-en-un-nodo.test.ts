@@ -15,7 +15,7 @@
  * - Se entra por su eje: sin puerta (`puertaDe`).
  */
 import { describe, expect, it } from 'vitest';
-import { marcadoDe } from '../src/client/html.js';
+import { marcadoDe } from '../src/client/comun/html.js';
 import { renderLog } from '../src/client/views/panels.js';
 import { buildMap } from '../src/core/map/generar/construir.js';
 import { POBLAMIENTO, validarPoblamiento } from '../src/core/map/generar/datos.js';

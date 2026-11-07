@@ -87,11 +87,19 @@ import { esTipoDeGolpe, type Hero, HUECOS, NOMBRE_DE_HUECO } from '@core/types.j
 import { unidadDelJuego } from '@core/unidad/catalogo.js';
 import { nivelDeUnidad } from '@core/unidad/nivel.js';
 import { disposicionDe } from '../../shared/base.js';
-import { quienesDe } from '../desenlace.js';
+import {
+  DESHABILITADO,
+  fondoDeColor,
+  type Html,
+  html,
+  NADA,
+  srcDeImagen,
+  unir,
+} from '../comun/html.js';
+import { quienesDe } from '../comun/quien-mira.js';
 import { DICHO_DE_LA_OBRA } from '../dicho-del-puesto.js';
 import type { Abierto } from '../escenas/castillo.js';
 import { COMO_SE_COLOCA } from '../escenas/despliegue.js';
-import { DESHABILITADO, fondoDeColor, type Html, html, NADA, srcDeImagen, unir } from '../html.js';
 import { asset } from '../render/assets.js';
 import { COLOR_DEL_ORO, MARCA_DE_COMANDANTE } from '../render/palette.js';
 import type { DespliegueEnPantalla, ModoDelArma, Session, SpellOption } from '../session.js';

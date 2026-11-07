@@ -5,8 +5,8 @@
  * marcado de la barra de abajo.
  */
 import { describe, expect, it } from 'vitest';
+import { marcadoDe } from '../src/client/comun/html.js';
 import { PuertaDeFinDeTurno } from '../src/client/fin-de-turno.js';
-import { marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
 import { renderActions, renderSide } from '../src/client/views/panels.js';
 import { alcanceDelHeroe, puedeAndarHoy } from '../src/core/state/marcha.js';

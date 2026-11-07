@@ -14,8 +14,8 @@
  */
 import { type Barrera, esBarrera, NOMBRE_DE_BARRERA } from '@core/map/terrain.js';
 import type { GameMap } from '@core/map/tipos.js';
+import { html, pintar } from '../comun/html.js';
 import type { EscenaAventura } from '../escenas/aventura.js';
-import { html, pintar } from '../html.js';
 import { type CamaraMapa, mundoAPixel } from '../render/camara-mapa.js';
 import { playerColor } from '../render/palette.js';
 import type { Session } from '../session.js';

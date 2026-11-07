@@ -6,7 +6,7 @@
  * y de una emboscada. Lo que dice lo escribe la sesión (`Session.avisoDelAtaque`,
  * de `elAtaque`); aquí solo se pinta.
  */
-import { type Html, html } from '../html.js';
+import { type Html, html } from '../comun/html.js';
 import type { VistaDelAviso } from '../session.js';
 
 export function renderAviso(v: VistaDelAviso): Html {

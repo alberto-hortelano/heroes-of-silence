@@ -10,9 +10,9 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
-import { marcadoDe } from '../src/client/html.js';
+import { marcadoDe } from '../src/client/comun/html.js';
+import { hayQuePreguntar } from '../src/client/comun/semilla.js';
 import { cargarElMundoPedido, mundoDeLaUrl, mundoPedido } from '../src/client/mundo/cargar.js';
-import { hayQuePreguntar } from '../src/client/semilla.js';
 import { renderLog } from '../src/client/views/panels.js';
 import { buildMap } from '../src/core/map/generar/construir.js';
 import type { MapPlan } from '../src/core/map/generar/plan.js';

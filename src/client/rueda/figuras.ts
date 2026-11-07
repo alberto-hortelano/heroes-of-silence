@@ -7,8 +7,8 @@
  */
 import type { BattleStack } from '@core/battle/types.js';
 import { FIGURA } from '../../shared/arte.js';
+import { type Html, html } from '../comun/html.js';
 import type { Direccion } from '../direccion.js';
-import { type Html, html } from '../html.js';
 import { COLOR_BANDO } from '../render/batalla.js';
 import {
   claveDelDibujo,

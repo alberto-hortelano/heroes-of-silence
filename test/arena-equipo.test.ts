@@ -21,7 +21,7 @@ import {
   renderFicha,
   sinGuardarEnPalabras,
 } from '../src/client/arena/paneles.js';
-import { marcadoDe } from '../src/client/html.js';
+import { marcadoDe } from '../src/client/comun/html.js';
 import {
   type MontajeDelEnlace,
   montajeALaURL,

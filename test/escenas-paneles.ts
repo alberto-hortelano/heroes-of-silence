@@ -17,7 +17,7 @@
  * una rama que el ancla no puede defender.
  */
 
-import { type Html, marcadoDe } from '../src/client/html.js';
+import { type Html, marcadoDe } from '../src/client/comun/html.js';
 import { Session } from '../src/client/session.js';
 import { renderActions, renderLog, renderSide, renderTopbar } from '../src/client/views/panels.js';
 import { playAiGame } from '../src/core/ai/turn.js';

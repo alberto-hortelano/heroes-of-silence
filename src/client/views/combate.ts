@@ -16,7 +16,7 @@ import {
   type ReglasDelCombate,
   TOPES_DE_TROPA,
 } from '@core/combate.js';
-import { type Html, html, MARCADO, NADA, unir } from '../html.js';
+import { type Html, html, MARCADO, NADA, unir } from '../comun/html.js';
 import { casillaSoloRuedaDelHeroe } from './panels.js';
 
 /** Qué se lee en cada tope y en cada rueda: lo que es, en pocas palabras. */

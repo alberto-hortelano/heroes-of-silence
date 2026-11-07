@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { marcadoDe } from '../src/client/html.js';
+import { marcadoDe } from '../src/client/comun/html.js';
 import { Session } from '../src/client/session.js';
 import { renderSide, renderTopbar } from '../src/client/views/panels.js';
 import { heroUnit, maxMana } from '../src/core/hero/hero.js';

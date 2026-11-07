@@ -10,11 +10,11 @@
 
 import { describe, expect, it } from 'vitest';
 import { DURACION, type EstadoFigura } from '../src/client/anim.js';
+import { marcadoDe } from '../src/client/comun/html.js';
 import { EscenaAventura, focoDe, llegadaDeLaRuta } from '../src/client/escenas/aventura.js';
 import { EscenaBatalla } from '../src/client/escenas/batalla.js';
 import { EscenaBase } from '../src/client/escenas/castillo.js';
 import { PAUSA_TRAS_EL_RIVAL, PuertaDeFinDeTurno } from '../src/client/fin-de-turno.js';
-import { marcadoDe } from '../src/client/html.js';
 import { msPorCasilla } from '../src/client/marcha.js';
 import { camaraDeLaBase, camaraQuieta } from '../src/client/render/base/camara.js';
 import { componerBase } from '../src/client/render/base/escena.js';

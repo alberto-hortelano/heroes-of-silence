@@ -9,8 +9,8 @@
 import { type MundoLeido, noEsJson, parseMundo } from '@core/mundo/formato.js';
 import { leerMundo } from '@core/mundo/validar.js';
 import { unaVezEnLaURL } from '@core/validar.js';
+import { pide } from '../comun/semilla.js';
 import type { GenteCargada } from '../render/gente.js';
-import { pide } from '../semilla.js';
 
 /** Lo que trae un mundo y no puede ir con él en la URL: lo fija el mundo. */
 const LO_QUE_FIJA_EL_MUNDO = ['seed', 'faccion', 'heroe'] as const;

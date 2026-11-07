@@ -12,7 +12,7 @@
  */
 import { TAMAÑO_POR_DEFECTO, TAMAÑOS_DE_UN_MUNDO } from '@core/mundo/formato.js';
 import type { FactionId } from '@core/types.js';
-import { type Html, html, MARCADO, NADA, pintar, unir } from '../html.js';
+import { type Html, html, MARCADO, NADA, pintar, unir } from '../comun/html.js';
 import { type Fase, type Progreso, terminada } from './progreso.js';
 
 /** Por qué los rivales están fijos en 1. */

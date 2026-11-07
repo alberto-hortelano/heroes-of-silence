@@ -10,9 +10,9 @@
  * de siempre con el motivo del núcleo escrito debajo (C4, C5).
  */
 import { describe, expect, it } from 'vitest';
+import { marcadoDe } from '../src/client/comun/html.js';
 import { EscenaBase } from '../src/client/escenas/castillo.js';
 import { cajasDeLaMorada, EscenaMorada } from '../src/client/escenas/morada.js';
-import { marcadoDe } from '../src/client/html.js';
 import { componerVistaDeLaMorada } from '../src/client/morada/vista.js';
 import {
   type ArteDeLaBase,

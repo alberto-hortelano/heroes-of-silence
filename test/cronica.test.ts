@@ -15,7 +15,7 @@
  * que pasa en una región hay que haberla pisado (`explorarLaVega`).
  */
 import { describe, expect, it } from 'vitest';
-import { marcadoDe } from '../src/client/html.js';
+import { marcadoDe } from '../src/client/comun/html.js';
 import { renderLog } from '../src/client/views/panels.js';
 import { playAiGame, resolvePendingBattle } from '../src/core/ai/turn.js';
 import { serializeAdventureTurn } from '../src/core/contract/aventura.js';

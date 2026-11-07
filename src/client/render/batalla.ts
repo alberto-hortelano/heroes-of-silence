@@ -46,7 +46,7 @@ import type { Hex, PlayerId } from '@core/types.js';
 import { ALTO_DE_FIGURA, ALTO_DE_FILA, COMPRESION_SUELO, type Plano } from '../../shared/arte.js';
 import { ALTO_DE_MURALLA, ESCALERA, PORTADA } from '../../shared/muralla-de-batalla.js';
 import type { Efecto, EstadoFigura } from '../anim.js';
-import { temaDelLienzo } from '../temas.js';
+import { temaDelLienzo } from '../comun/temas.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
 import { aroDeFigura, type PiesDeLaFigura } from './aro.js';
 import {

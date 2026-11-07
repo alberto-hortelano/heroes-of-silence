@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { renderPanelDeBatalla } from '../src/client/arena/paneles.js';
-import { marcadoDe } from '../src/client/html.js';
+import { marcadoDe } from '../src/client/comun/html.js';
 import { centroHex, planoDeHex } from '../src/client/render/proyeccion.js';
 import { Session } from '../src/client/session.js';
 import { renderSide } from '../src/client/views/panels.js';

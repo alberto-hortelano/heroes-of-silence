@@ -36,7 +36,7 @@ import {
   FONDO_DE_LA_FRANJA,
   planoDelCuadro,
 } from '../../../shared/base.js';
-import { temaDelLienzo } from '../../temas.js';
+import { temaDelLienzo } from '../../comun/temas.js';
 import { cajaDeFiguraEn, pintarAroDeFigura } from '../batalla.js';
 import {
   campoDeEscena,

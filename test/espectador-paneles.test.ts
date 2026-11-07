@@ -12,6 +12,7 @@
  * Ahora el panel es puro y esto es lo que lo guarda.
  */
 import { describe, expect, it } from 'vitest';
+import { marcadoDe } from '../src/client/comun/html.js';
 import { batalla, panelDelEspectador, vocesDeLasBases } from '../src/client/espectador/paneles.js';
 import { Reproductor } from '../src/client/espectador/reproductor.js';
 import {
@@ -23,7 +24,6 @@ import {
   ritmoDeReproduccion,
   TelonDeBatalla,
 } from '../src/client/espectador/telon.js';
-import { marcadoDe } from '../src/client/html.js';
 import { autoResolve, chooseBattleAction } from '../src/core/ai/tactics.js';
 import { applyAction } from '../src/core/battle/battle.js';
 import { activeStack } from '../src/core/battle/consultas.js';

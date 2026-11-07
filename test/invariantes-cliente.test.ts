@@ -125,7 +125,7 @@ describe('invariantes del proyecto', () => {
     // compuerta **pasando** por encima de la primera redacción, que era una
     // lista negra corta.
     const fuera = [...CORE, ...CLIENTE, ...SERVIDOR].filter(
-      (r) => r !== ruta('src/client/html.ts'),
+      (r) => r !== ruta('src/client/comun/html.ts'),
     );
     /**
      * Los únicos tipos del DOM que el cliente nombra. Cerrado y comprobado.
@@ -149,7 +149,10 @@ describe('invariantes del proyecto', () => {
      * Los dos sitios que pueden meter un atributo interpretado en el DOM sin
      * pasar por una plantilla. Cerrado y comprobado: cualquier otro es rojo.
      */
-    const SITIOS_CON_PERMISO = [ruta('src/client/html.ts'), ruta('src/client/render/assets.ts')];
+    const SITIOS_CON_PERMISO = [
+      ruta('src/client/comun/html.ts'),
+      ruta('src/client/render/assets.ts'),
+    ];
     const porSitio: readonly (readonly [string, RegExp])[] = [
       // `setAttribute` acepta CUALQUIER nombre de atributo, incluido `onerror`,
       // así que no se puede acotar por el nombre: se acota por quién la llama.
@@ -345,10 +348,10 @@ describe('invariantes del proyecto', () => {
     const escribeElTema =
       /dataset\s*(?:\.\s*tema|\[\s*['"`]tema['"`]\s*\])\s*=(?!=)|delete\s+[\w.]*dataset\s*\.\s*tema\b|['"`]data-tema['"`]/;
     const fuera = [...CORE, ...CLIENTE, ...SERVIDOR].filter(
-      (r) => r !== ruta('src/client/temas.ts'),
+      (r) => r !== ruta('src/client/comun/temas.ts'),
     );
     expect(infractoresDeCodigo(fuera, escribeElTema)).toEqual([]);
-    expect(infractoresDeCodigo([ruta('src/client/temas.ts')], escribeElTema)).not.toEqual([]);
+    expect(infractoresDeCodigo([ruta('src/client/comun/temas.ts')], escribeElTema)).not.toEqual([]);
   });
 
   it('la forma de los temas vive en forma.css y toda regla suya empieza por `:root[data-tema]`', () => {

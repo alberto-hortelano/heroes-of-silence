@@ -9,8 +9,8 @@
 import { describe, expect, it } from 'vitest';
 import { BattleAnimator } from '../src/client/anim.js';
 import { renderBando, renderMuralla, renderPanelDeBatalla } from '../src/client/arena/paneles.js';
+import { marcadoDe } from '../src/client/comun/html.js';
 import { EscenaBatalla } from '../src/client/escenas/batalla.js';
-import { marcadoDe } from '../src/client/html.js';
 import { alturaDeColumna, alzadoDeLaMuralla, cajaDeFigura } from '../src/client/render/batalla.js';
 import { centroHex, hexEnPixel, planoDeHex, tableroPara } from '../src/client/render/proyeccion.js';
 import { escaleraDeArenaBlocker } from '../src/core/arena/montaje.js';

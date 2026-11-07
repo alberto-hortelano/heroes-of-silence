@@ -4,8 +4,8 @@
  * o `?heroe=` va directa a `main.ts`, sin cargar el menú; antes, el banco de figuras
  * de NPC (`render/gente.ts`) y, con `?mundo=`, ese mundo. Si algo no carga, lo dice (`arranque.ts`).
  */
-import { arrancar } from './arranque.js';
-import { hayQuePreguntar, pideMundo } from './semilla.js';
+import { arrancar } from './comun/arranque.js';
+import { hayQuePreguntar, pideMundo } from './comun/semilla.js';
 
 arrancar(async () => {
   if (hayQuePreguntar(location.search)) {

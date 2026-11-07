@@ -1322,3 +1322,9 @@ simbolo	src/client/render/mapa.ts	src/client/render/escenario/figuras-del-mapa.t
 simbolo	src/client/render/proyeccion.ts	src/shared/arte.ts	Plano, ALTO_DE_FIGURA y FONDO_DEL_COMBATE (reexportación retirada en C1)
 simbolo	src/client/rueda/rueda.ts	src/client/rueda/disco.ts	anguloDe y medidasDeLaRueda (reexportación retirada en C1)
 simbolo	src/shared/base.ts	src/shared/arte.ts	Mirada y Plano (reexportación de tipo retirada en C1)
+fichero	src/client/html.ts	src/client/comun/html.ts	
+fichero	src/client/arranque.ts	src/client/comun/arranque.ts	
+fichero	src/client/semilla.ts	src/client/comun/semilla.ts	
+fichero	src/client/clima-de-la-url.ts	src/client/comun/clima-de-la-url.ts	
+fichero	src/client/temas.ts	src/client/comun/temas.ts	
+fichero	src/client/desenlace.ts	src/client/comun/quien-mira.ts	
