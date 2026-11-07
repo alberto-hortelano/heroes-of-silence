@@ -9,7 +9,6 @@
 
 import { COMO_SE_LEE_EL_MAPA } from '@core/contract/mapa-conocido.js';
 import { fichaDeCriatura, hechizosAlAgente } from '@core/contract/vistas.js';
-import { RANGO_MAXIMO_DE_TROPA } from '@core/hero/rango.js';
 import { allBuildings } from '@core/town/buildings.js';
 import { FACTION_IDS } from '@core/types.js';
 import { unidadDelJuego, unidadesDeFaccion, unidadesDelJuego } from '@core/unidad/catalogo.js';
@@ -21,15 +20,7 @@ import { puertoAgente } from '../entorno.js';
 import { LA_JUEGA_LA_IA } from '../notas.js';
 import type { AgentToServerMsg, ServerToAgentMsg } from '../protocol.js';
 import { Buzon } from './buzon.js';
-import {
-  CABECERA_VEREDICTOS,
-  MARCA_FALLO,
-  MARCA_OK,
-  PREFIJO_CORTE,
-  PREFIJO_FIN,
-  PREFIJO_RELEVO,
-  textoDeEscucha,
-} from './escucha.js';
+import { LISTEN_DESCRIPTION, textoDeEscucha } from './escucha.js';
 import { ColaDeVeredictos } from './veredictos.js';
 
 const SERVER_URL = process.env.HEROES_SERVER ?? `ws://localhost:${puertoDelServidor()}`;
@@ -227,51 +218,6 @@ async function consultar(what: string, args: Record<string, unknown> = {}): Prom
 // ---------------------------------------------------------------- servidor
 
 const server = new McpServer({ name: 'heroes', version: '0.1.0' });
-
-const LISTEN_DESCRIPTION = `Espera bloqueado hasta que la partida te pida una decisión, y te la entrega.
-
-Es la mitad de un ciclo: llama a heroes_listen para recibir una petición,
-decide, llama a heroes_respond UNA sola vez con tu respuesta, y vuelve a
-heroes_listen. Repite durante toda la partida.
-
-Cada mensaje que devuelve empieza por un campo "kind" y trae EMBEBIDO el
-formato exacto de respuesta para ese kind: léelo ahí, no hace falta que lo
-recuerdes entre turnos.
-
-Y trae, cuando lo hay, un bloque "${CABECERA_VEREDICTOS}" con el veredicto de
-CADA respuesta tuya que se haya aplicado desde la última vez que escuchaste:
-"${MARCA_OK}" es que entró y "${MARCA_FALLO}" que no, con el motivo. Se informa
-siempre, también cuando salió bien: no tienes que deducir de un silencio si coló
-o si el mensaje se perdió.
-
-Tipos de petición que puedes recibir:
-- "adventure_turn" → te toca el turno en el mapa: mueve héroes, construye,
-  recluta. Devuelves una lista de acciones.
-- "battle_turn"    → una unidad tuya espera órdenes en la batalla. Devuelves
-  UNA acción. La petición incluye "legalActions" con todo lo que se puede
-  hacer: elegir de ahí nunca falla. Puedes ser el atacante o el DEFENSOR: mira
-  "yourSide" en cada petición y no des por hecho que atacas.
-- "map_generate"   → diseña un mapa. No dibujas nada: devuelves un plan
-  declarativo y el motor lo construye y lo valida.
-- "hero_from_troop" → un veterano de rango ${RANGO_MAXIMO_DE_TROPA} está en tu base y se hace héroe:
-  le das nombre, historia y tipo. Llega antes de tu "adventure_turn".
-- "town_voices"    → pon voz a la gente de tus bases (una línea por persona y
-  día) cuando empieza semana o se levanta un edificio en un sitio vacío. Es
-  presentación: no cambia el juego. Llega antes de tu "adventure_turn".
-
-El ciclo tiene final y te avisa de él: cuando la partida termina recibes un
-mensaje que empieza por "${PREFIJO_FIN}" y te dice quién ganó. Ahí se para
-el bucle. Y si el canal con la partida se muere, recibes uno que empieza por
-"${PREFIJO_CORTE}" con lo que se sabe y lo que puedes intentar. En
-ninguno de los dos casos te quedas esperando a ciegas.
-
-Llama de una en una: si dos heroes_listen se solapan, la primera vuelve con
-"${PREFIJO_RELEVO}" —el canal sigue vivo y no se pierde nada, pero esa
-llamada ya no trae decisión: la trae la que la relevó—.
-
-Aparte de responder, puedes consultar el estado en cualquier momento con
-game_state, battle_state, map, creature_stats, spell_list y building_list, sin
-volcarte la partida entera en el contexto.`;
 
 /**
  * Con la partida terminada y el canal muerto, mira si el servidor ha vuelto con

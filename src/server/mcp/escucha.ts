@@ -19,6 +19,8 @@
  * veredictos con `leeVeredictos`.
  */
 
+import { REQUEST_KINDS, type RequestKind } from '@core/contract/esquemas.js';
+import { RANGO_MAXIMO_DE_TROPA } from '@core/hero/rango.js';
 import type { AgentRequestMsg } from '../protocol.js';
 
 /** Por dónde empieza el aviso de fin de partida. El agente lo reconoce así. */
@@ -253,3 +255,75 @@ export function textoDeEscucha(aviso: Aviso, veredictos: { recoge(): string }): 
       `${CABECERA_RESPUESTA}\n${msg.responseFormat}`,
   };
 }
+
+// ------------------------------------------------- la descripción de la herramienta
+
+/**
+ * Qué es cada petición, dicho al agente en la descripción de `heroes_listen`: una
+ * frase por `RequestKind`, y la lista sale de `REQUEST_KINDS`, en su orden. Con
+ * `Record<RequestKind, …>`, una petición nueva sin su frase no compila.
+ *
+ * Era una lista escrita a mano dentro de la descripción (en `server.ts`), y le faltó
+ * `battle_response` desde que el agente elige en la rueda (19-10-2026) hasta la fase S
+ * de la reorganización (07-11-2026): la recibía sin que la descripción le dijera que
+ * podía llegar. Las frases van partidas en líneas como iban, con la sangría de la
+ * lista; `puente-mcp.test.ts` mira que cada petición salga en la que publica el
+ * puente.
+ */
+const DICHO_DE_LA_PETICION: Readonly<Record<RequestKind, string>> = {
+  adventure_turn: `te toca el turno en el mapa: mueve héroes, construye,
+  recluta. Devuelves una lista de acciones.`,
+  battle_turn: `una unidad tuya espera órdenes en la batalla. Devuelves
+  UNA acción. La petición incluye "legalActions" con todo lo que se puede
+  hacer: elegir de ahí nunca falla. Puedes ser el atacante o el DEFENSOR: mira
+  "yourSide" en cada petición y no des por hecho que atacas.`,
+  battle_response: `el rival golpea cuerpo a cuerpo a una unidad tuya y
+  eliges tu respuesta en la rueda del golpe, a la vez que él su golpe y sin
+  verlo. Devuelves UNA respuesta: si no vale o no llega, la elige la IA solo
+  para ese golpe, y la batalla sigue siendo tuya.`,
+  map_generate: `diseña un mapa. No dibujas nada: devuelves un plan
+  declarativo y el motor lo construye y lo valida.`,
+  hero_from_troop: `un veterano de rango ${RANGO_MAXIMO_DE_TROPA} está en tu base y se hace héroe:
+  le das nombre, historia y tipo. Llega antes de tu "adventure_turn".`,
+  town_voices: `pon voz a la gente de tus bases (una línea por persona y
+  día) cuando empieza semana o se levanta un edificio en un sitio vacío. Es
+  presentación: no cambia el juego. Llega antes de tu "adventure_turn".`,
+};
+
+/**
+ * La descripción de `heroes_listen`, que publica `server.ts`: cómo es el ciclo, qué
+ * trae cada mensaje (con las marcas de aquí, las mismas que escribe la escucha) y
+ * qué peticiones pueden llegar (`DICHO_DE_LA_PETICION`).
+ */
+export const LISTEN_DESCRIPTION = `Espera bloqueado hasta que la partida te pida una decisión, y te la entrega.
+
+Es la mitad de un ciclo: llama a heroes_listen para recibir una petición,
+decide, llama a heroes_respond UNA sola vez con tu respuesta, y vuelve a
+heroes_listen. Repite durante toda la partida.
+
+Cada mensaje que devuelve empieza por un campo "kind" y trae EMBEBIDO el
+formato exacto de respuesta para ese kind: léelo ahí, no hace falta que lo
+recuerdes entre turnos.
+
+Y trae, cuando lo hay, un bloque "${CABECERA_VEREDICTOS}" con el veredicto de
+CADA respuesta tuya que se haya aplicado desde la última vez que escuchaste:
+"${MARCA_OK}" es que entró y "${MARCA_FALLO}" que no, con el motivo. Se informa
+siempre, también cuando salió bien: no tienes que deducir de un silencio si coló
+o si el mensaje se perdió.
+
+Tipos de petición que puedes recibir:
+${REQUEST_KINDS.map((k) => `- "${k}" → ${DICHO_DE_LA_PETICION[k]}`).join('\n')}
+
+El ciclo tiene final y te avisa de él: cuando la partida termina recibes un
+mensaje que empieza por "${PREFIJO_FIN}" y te dice quién ganó. Ahí se para
+el bucle. Y si el canal con la partida se muere, recibes uno que empieza por
+"${PREFIJO_CORTE}" con lo que se sabe y lo que puedes intentar. En
+ninguno de los dos casos te quedas esperando a ciegas.
+
+Llama de una en una: si dos heroes_listen se solapan, la primera vuelve con
+"${PREFIJO_RELEVO}" —el canal sigue vivo y no se pierde nada, pero esa
+llamada ya no trae decisión: la trae la que la relevó—.
+
+Aparte de responder, puedes consultar el estado en cualquier momento con
+game_state, battle_state, map, creature_stats, spell_list y building_list, sin
+volcarte la partida entera en el contexto.`;
