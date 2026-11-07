@@ -1,17 +1,23 @@
 /**
  * El lugar de un mundo en que está la persona (F1a del mapa vivo): cuál, con qué
- * héroe y, si habla con alguien, en qué nodo de la conversación va.
+ * héroe y, si habla con alguien, en qué nodo de la conversación va; entrar en su escena
+ * y salir de ella, y elegir en la conversación, que puede abrir una batalla.
  *
  * Guarda solo con qué héroe: el lugar es el de su casilla (`anteDelHeroe`), así
  * que no hay dos sitios que puedan decir cosas distintas.
  *
  * Es estado del cliente y no del núcleo, como dónde está la figura en la base:
  * navegar por un árbol de diálogo no cambia la partida. Lo que sí la cambia —una
- * opción con efectos— sale por `aplicar`, que le da `Session`: la única puerta
- * al núcleo (`invariantes.test.ts`). Las preguntas (qué puntos están, qué
+ * opción con efectos— es una acción de la persona (`elegir_en_lugar`), con la guarda
+ * del turno de la sesión (`run`). Las preguntas (qué puntos están, qué
  * opciones valen y por qué no) son las del núcleo (`core/mundo/reglas.ts`).
+ *
+ * Es una pieza de la sesión de la partida desde R6 de la reorganización (07-11-2026):
+ * vivía en `sesion/lugar.ts` (antes, `lugar/sesion.ts`) con lo que leía de la sesión
+ * en cuatro funciones sueltas, y entrar, salir y lo de después de elegir, en `Session`,
+ * que delega en ella.
  */
-import { type BancoPintado, figuraQueSePinta, SIN_BANCO } from '@core/gente/banco.js';
+import { type BancoPintado, figuraQueSePinta } from '@core/gente/banco.js';
 import { figuraDelHeroe } from '@core/hero/tipos-de-heroe.js';
 import { nombreDelPunto } from '@core/mundo/formato.js';
 import {
@@ -19,15 +25,20 @@ import {
   anteDelHeroe,
   estadoDicho,
   inicioDe,
+  lugarEn,
   nodoDe,
   nodoDeEntrada,
   type OpcionALaVista,
   opcionesDe,
   puntosDe,
 } from '@core/mundo/reglas.js';
-import type { AdventureAction, GameState } from '@core/state/tipos.js';
+import { heroById } from '@core/state/consultas.js';
+import { applyAdventureAction } from '@core/state/game.js';
+import type { AdventureAction } from '@core/state/tipos.js';
 import type { FactionId, PlayerId, Point } from '@core/types.js';
-import { cuerpoDeLaPersona } from '../render/figuras/cuerpo-de-gente.js';
+import { AYUDA_DEL_LUGAR, AYUDA_DEL_MAPA } from '../../comun/dichos.js';
+import { cuerpoDeLaPersona } from '../../render/figuras/cuerpo-de-gente.js';
+import type { DueñoDeLasPiezas } from './comun.js';
 
 /** Un punto de interés como lo pinta la escena y lo lista el panel. */
 export interface PuntoALaVista {
@@ -75,21 +86,25 @@ export interface VistaDeLaConversacion {
 /** Lo que pasó al elegir una opción. */
 export type TrasElegir = 'sigue' | 'cerrada' | 'batalla' | 'apagada';
 
+/** Lo que la pieza del lugar lee de la sesión. */
+interface DueñoDelLugar
+  extends Pick<
+    DueñoDeLasPiezas,
+    'estado' | 'ctx' | 'viewer' | 'tocar' | 'barra' | 'irA' | 'run' | 'seleccionarHeroe'
+  > {
+  /** El banco de figuras de NPC y lo pintado de él (`Session.gente`): la figura de cada persona. */
+  gente(): BancoPintado;
+  /** Pasa a la batalla que acaba de abrirse, como desde el mapa (`Session.entrarEnLaBatalla`). */
+  entrarEnLaBatalla(): void;
+}
+
 export class EnElLugar {
   /** El héroe que está en el lugar abierto, o `null`. */
   private heroe: string | null = null;
   private conversando: { readonly punto: string; nodo: string } | null = null;
   private aperturas = 0;
 
-  constructor(
-    private readonly estado: () => GameState,
-    /** Aplica una acción del núcleo; `false` si la rechazó (el motivo ya está en la barra). */
-    private readonly aplicar: (a: AdventureAction) => boolean,
-    /** Avisa de que algo que se ve ha cambiado (sube la versión de la sesión). */
-    private readonly tocar: () => void,
-    /** El banco de figuras de NPC y lo pintado de él: la figura de cada persona. */
-    private readonly gente: () => BancoPintado = () => SIN_BANCO,
-  ) {}
+  constructor(private readonly dueño: DueñoDelLugar) {}
 
   /** Cuántas veces se ha abierto un lugar: lo que cambia al empezar de nuevo. */
   get apertura(): number {
@@ -110,18 +125,46 @@ export class EnElLugar {
     this.heroe = heroe;
     this.conversando = null;
     if (deNuevo) this.aperturas++;
-    this.tocar();
+    this.dueño.tocar();
   }
 
   cerrar(): void {
     this.heroe = null;
     this.conversando = null;
-    this.tocar();
+    this.dueño.tocar();
+  }
+
+  /** Entra en la escena del lugar donde está el héroe `heroId`, con él elegido. */
+  entrar(heroId: string): void {
+    const hero = heroById(this.dueño.estado(), heroId);
+    const l = lugarEn(this.dueño.estado(), hero.at);
+    if (l === null) {
+      this.dueño.barra(`${hero.name} no está en ningún lugar.`);
+      return;
+    }
+    this.dueño.seleccionarHeroe(heroId);
+    this.abrir(heroId);
+    this.dueño.irA('lugar');
+    this.dueño.barra(AYUDA_DEL_LUGAR);
+  }
+
+  /** Sale del lugar al mapa, con la ayuda del mapa en la barra (M8 de la vuelta 2: quedaba en blanco). */
+  salir(): void {
+    this.cerrar();
+    this.dueño.irA('adventure');
+    this.dueño.barra(AYUDA_DEL_MAPA);
+  }
+
+  /** El lugar y el héroe de la batalla pendiente, si es de un lugar: al cerrarla se vuelve a él. */
+  deLaBatalla(): { readonly heroe: string } | null {
+    const p = this.dueño.estado().pendingBattle;
+    if (p === null || p.foe.kind !== 'lugar' || p.attacker.kind !== 'hero') return null;
+    return { heroe: p.attacker.heroId };
   }
 
   private ante(): Ante | null {
     if (this.heroe === null) return null;
-    const a = anteDelHeroe(this.estado(), this.heroe);
+    const a = anteDelHeroe(this.dueño.estado(), this.heroe);
     return 'motivo' in a ? null : a;
   }
 
@@ -134,7 +177,7 @@ export class EnElLugar {
     const a = this.ante();
     if (a === null) return null;
     const l = a.lugar;
-    const gente = this.gente();
+    const gente = this.dueño.gente();
     return {
       lugar: l.id,
       nombre: l.nombre,
@@ -154,7 +197,7 @@ export class EnElLugar {
                 figuraQueSePinta(
                   gente,
                   p.persona.figura,
-                  `${this.estado().seed}|${l.id}|${p.id}`,
+                  `${this.dueño.estado().seed}|${l.id}|${p.id}`,
                   a.mundo.historia.figuras,
                 ),
               ),
@@ -173,7 +216,7 @@ export class EnElLugar {
     const p = a === null ? undefined : puntosDe(a).find((x) => x.id === punto);
     if (a === null || p === undefined) return;
     this.conversando = { punto, nodo: nodoDeEntrada(a, p) };
-    this.tocar();
+    this.dueño.tocar();
   }
 
   /**
@@ -186,13 +229,13 @@ export class EnElLugar {
     const p = a === null || c === null ? undefined : a.lugar.puntos.find((x) => x.id === c.punto);
     if (a === null || c === null || p === undefined) return;
     c.nodo = inicioDe(a, p);
-    this.tocar();
+    this.dueño.tocar();
   }
 
   dejarDeHablar(): void {
     if (this.conversando === null) return;
     this.conversando = null;
-    this.tocar();
+    this.dueño.tocar();
   }
 
   conversacion(): VistaDeLaConversacion | null {
@@ -214,10 +257,26 @@ export class EnElLugar {
   }
 
   /**
+   * Elige la opción `i` de la conversación abierta (`elegirLaOpcion`); si abre
+   * una batalla, se pasa a ella como desde el mapa.
+   */
+  elegir(i: number): TrasElegir {
+    const tras = this.elegirLaOpcion(i);
+    if (tras === 'batalla') {
+      this.dueño.entrarEnLaBatalla();
+    } else if (tras !== 'apagada') {
+      // La acción deja la barra en blanco (`run`) y en el lugar no se mueve el
+      // ratón por el lienzo mientras se elige: lo que toca allí (M8 de la vuelta 2).
+      this.dueño.barra(AYUDA_DEL_LUGAR);
+    }
+    return tras;
+  }
+
+  /**
    * Elige la opción `i` del nodo de ahora: si hace algo, lo aplica el núcleo; luego
    * va a su nodo o cierra. Una apagada no hace nada (su motivo ya se lee debajo).
    */
-  elegir(i: number): TrasElegir {
+  private elegirLaOpcion(i: number): TrasElegir {
     const a = this.ante();
     const c = this.conversando;
     if (a === null || c === null) return 'cerrada';
@@ -236,19 +295,26 @@ export class EnElLugar {
         opcion: i,
       });
       if (!hecho) return 'apagada';
-      if (this.estado().pendingBattle !== null) {
+      if (this.dueño.estado().pendingBattle !== null) {
         this.conversando = null;
-        this.tocar();
+        this.dueño.tocar();
         return 'batalla';
       }
     }
     if (op.ir === null) {
       this.conversando = null;
-      this.tocar();
+      this.dueño.tocar();
       return 'cerrada';
     }
     c.nodo = op.ir;
-    this.tocar();
+    this.dueño.tocar();
     return 'sigue';
+  }
+
+  /** Una opción con efectos, por la puerta de la sesión: con la guarda de turno (`run`). */
+  private aplicar(a: AdventureAction): boolean {
+    return this.dueño.run(() =>
+      applyAdventureAction(this.dueño.estado(), a, this.dueño.ctx(), this.dueño.viewer()),
+    );
   }
 }

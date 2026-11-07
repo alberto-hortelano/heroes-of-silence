@@ -38,7 +38,7 @@ import {
 import { densidadDe } from '../../render/lienzo.js';
 import { playerColor } from '../../render/palette.js';
 import { enPantalla, type Tablero } from '../../render/proyeccion.js';
-import type { PuntoALaVista, VistaDelLugar } from '../../sesion/lugar.js';
+import type { PuntoALaVista, VistaDelLugar } from '../../sesion/partida/lugar.js';
 import type { Session } from '../../sesion/partida.js';
 import { PRISA_EN_LA_BASE, pulsaParaHablar } from '../base/escena.js';
 import { Caminante } from '../caminante.js';

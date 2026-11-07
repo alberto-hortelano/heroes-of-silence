@@ -9,7 +9,7 @@
  * (`motivoDeLaOpcion`): la persona lee por qué, no un botón gris mudo.
  */
 import { type Html, html, NADA, unir } from '../../comun/html.js';
-import type { VistaDeLaConversacion } from '../../sesion/lugar.js';
+import type { VistaDeLaConversacion } from '../../sesion/partida/lugar.js';
 import type { Session } from '../../sesion/partida.js';
 import { atributosDeApagado, motivoDelRechazo } from '../../views/cifras.js';
 

@@ -1,6 +1,6 @@
 /**
  * Los cuerpos con que se pinta la gente —la de la base y la de los lugares—, sin
- * nada más: los lee la sesión (`vistaDeLaBase`, `sesion/lugar.ts`) para decir con qué
+ * nada más: los lee la sesión (`vistaDeLaBase`, `sesion/partida/lugar.ts`) para decir con qué
  * cuerpo va cada persona sin cargar la tabla de figuras (`personajes.ts`, que lleva
  * las anclas del Y Bot y su validación).
  */

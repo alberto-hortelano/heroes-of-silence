@@ -88,7 +88,7 @@ import {
   sitioPorId,
   sitioSiExiste,
 } from '@core/state/sitios.js';
-import type { AdventureAction, GameContext, GameState, Player } from '@core/state/tipos.js';
+import type { GameContext, GameState, Player } from '@core/state/tipos.js';
 import {
   HERO_SCOUT_RADIUS,
   heroesALaVista,
@@ -128,13 +128,13 @@ import { comoFrase, type TurnoPropio } from './batalla/control.js';
 import { ELIGE_EN_LA_RUEDA } from './batalla/cruce.js';
 import { DespliegueEnPantalla } from './batalla/despliegue.js';
 import { SesionDeBatalla } from './batalla/sesion-de-batalla.js';
-import { EnElLugar, type TrasElegir } from './lugar.js';
 import { AyuntamientoEnPantalla } from './partida/ayuntamiento.js';
 import { ClimaEnPantalla } from './partida/clima.js';
 import type { DueñoDeLasPiezas, Scene } from './partida/comun.js';
 import { DefensaEnPantalla, type VistaDeLaDefensa } from './partida/defensa.js';
 import { EquipoEnPantalla } from './partida/equipo.js';
 import { GuarnicionEnPantalla, type VistaDeLaGuarnicion } from './partida/guarnicion.js';
+import { EnElLugar, type TrasElegir } from './partida/lugar.js';
 import { MoradaEnPantalla } from './partida/morada.js';
 import type { VistaDelAyuntamiento } from './vistas/ayuntamiento.js';
 import { type NieblaDeAntes, type NieblaDeLaMarcha, nieblaDeLaMarcha } from './vistas/marcha.js';
@@ -425,16 +425,17 @@ export class Session extends SesionDeBatalla {
   }
 
   /**
-   * El lugar de un mundo en que se está y la conversación abierta
-   * (`sesion/lugar.ts`): estado del cliente; lo que cambia la partida lo aplica
-   * esta sesión por su puerta (`aplicarEnElLugar`).
+   * El lugar de un mundo en que se está y la conversación abierta, entrar y salir de su
+   * escena y elegir en ella (`EnElLugar`, `sesion/partida/lugar.ts`): estado del cliente;
+   * lo que cambia la partida es una acción de la persona, con la guarda de esta sesión
+   * (`run`). La página lee la conversación de él, y lo demás, por los de abajo
+   * («lugares»), que delegan en él.
    */
-  readonly lugar: EnElLugar = new EnElLugar(
-    () => this.state,
-    (a) => this.aplicarEnElLugar(a),
-    () => this.tocar(),
-    () => this.gente,
-  );
+  readonly lugar: EnElLugar = new EnElLugar({
+    ...this.dueñoDeLasPiezas,
+    gente: () => this.gente,
+    entrarEnLaBatalla: () => this.entrarEnLaBatalla(),
+  });
 
   /**
    * @param faccion la de la persona (la elegida en el menú o la de `?faccion=`);
@@ -1100,13 +1101,7 @@ export class Session extends SesionDeBatalla {
   private alAcabarLaMarcha(hero: Hero, ultimo: GameEvent | undefined): void {
     const pending = this.state.pendingBattle;
     if (pending !== null) {
-      const entrar = (): void => {
-        this.scene = 'battle';
-        this.status = this.alEntrarEnLaBatalla('¡Batalla!');
-        // Si la iniciativa la tiene el enemigo, mueve él primero: sin esto la
-        // batalla se quedaba esperando a una persona que no podía hacer nada.
-        this.advanceEnemyTurns();
-      };
+      const entrar = (): void => this.entrarEnLaBatalla();
       // Una emboscada no la eligió la persona: al acabar la marcha, antes de la
       // batalla, el aviso de quién y dónde, como cuando la atacan en el turno del rival.
       if (pending.attacker.kind !== 'raider' || !this.avisar(entrar)) entrar();
@@ -1233,55 +1228,22 @@ export class Session extends SesionDeBatalla {
     return m === undefined || l === null ? null : estadoDicho(m, l);
   }
 
-  /** Entra en la escena del lugar donde está el héroe `heroId`. */
+  /** Entra en la escena del lugar donde está el héroe `heroId` (`EnElLugar.entrar`). */
   abrirElLugar(heroId: string): void {
-    const hero = heroById(this.state, heroId);
-    const l = lugarEn(this.state, hero.at);
-    if (l === null) {
-      this.status = `${hero.name} no está en ningún lugar.`;
-      return;
-    }
-    this.selectedHeroId = heroId;
-    this.lugar.abrir(heroId);
-    this.scene = 'lugar';
-    this.status = AYUDA_DEL_LUGAR;
+    this.lugar.entrar(heroId);
   }
 
-  /** Sale del lugar al mapa, con la ayuda del mapa en la barra (M8 de la vuelta 2: quedaba en blanco). */
+  /** Sale del lugar al mapa (`EnElLugar.salir`). */
   salirDelLugar(): void {
-    this.lugar.cerrar();
-    this.scene = 'adventure';
-    this.status = AYUDA_DEL_MAPA;
+    this.lugar.salir();
   }
 
   /**
-   * Elige la opción `i` de la conversación abierta (`EnElLugar.elegir`); si abre
-   * una batalla, se pasa a ella como desde el mapa.
+   * Elige la opción `i` de la conversación abierta; si abre una batalla, se pasa a ella
+   * como desde el mapa (`EnElLugar.elegir`).
    */
   elegirEnElLugar(i: number): TrasElegir {
-    const tras = this.lugar.elegir(i);
-    if (tras === 'batalla') {
-      this.scene = 'battle';
-      this.status = this.alEntrarEnLaBatalla('¡Batalla!');
-      this.advanceEnemyTurns();
-    } else if (tras !== 'apagada') {
-      // La acción deja la barra en blanco (`run`) y en el lugar no se mueve el
-      // ratón por el lienzo mientras se elige: lo que toca allí (M8 de la vuelta 2).
-      this.status = AYUDA_DEL_LUGAR;
-    }
-    return tras;
-  }
-
-  /** La puerta del lugar al núcleo: una opción con efectos, con la guarda de turno. */
-  private aplicarEnElLugar(a: AdventureAction): boolean {
-    return this.run(() => applyAdventureAction(this.state, a, this.ctx, this.viewer));
-  }
-
-  /** El lugar y el héroe de la batalla pendiente, si es de un lugar: al cerrarla se vuelve a él. */
-  private lugarDeLaBatalla(): { readonly heroe: string } | null {
-    const p = this.state.pendingBattle;
-    if (p === null || p.foe.kind !== 'lugar' || p.attacker.kind !== 'hero') return null;
-    return { heroe: p.attacker.heroId };
+    return this.lugar.elegir(i);
   }
 
   /** La frase de la barra al acabarse el mapa, por la causa que selló el núcleo. */
@@ -2042,6 +2004,18 @@ export class Session extends SesionDeBatalla {
   }
 
   /**
+   * Pasa a la batalla que acaba de abrirse: la de la marcha que acaba en ella y la de una
+   * opción de un lugar (`EnElLugar.elegir`).
+   */
+  private entrarEnLaBatalla(): void {
+    this.scene = 'battle';
+    this.status = this.alEntrarEnLaBatalla('¡Batalla!');
+    // Si la iniciativa la tiene el enemigo, mueve él primero: sin esto la
+    // batalla se quedaba esperando a una persona que no podía hacer nada.
+    this.advanceEnemyTurns();
+  }
+
+  /**
    * El bando de la persona en la batalla pendiente, DERIVADO del dueño.
    *
    * Suponer `attacker` colaba mientras la persona solo jugaba las batallas que
@@ -2124,7 +2098,7 @@ export class Session extends SesionDeBatalla {
       return;
     }
     // Delegar la batalla no es delegar el oro: la IA no se rinde por la persona.
-    const delLugar = this.lugarDeLaBatalla();
+    const delLugar = this.lugar.deLaBatalla();
     const antes = this.antesDeCerrar();
     resolvePendingBattle(this.state, this.ctx);
     this.afterBattle(delLugar, antes);
@@ -2134,7 +2108,7 @@ export class Session extends SesionDeBatalla {
   finishBattle(): void {
     const battle = this.battle;
     if (battle === null || battle.finished === null) return;
-    const delLugar = this.lugarDeLaBatalla();
+    const delLugar = this.lugar.deLaBatalla();
     const antes = this.antesDeCerrar();
     settleBattle(this.state, this.ctx);
     this.afterBattle(delLugar, antes);
