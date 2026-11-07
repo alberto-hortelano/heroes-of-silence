@@ -16,13 +16,9 @@ import { EQUIPO, pieza } from '../src/core/equipo/pieza.js';
 import { heroUnit } from '../src/core/hero/hero.js';
 import { rangoDeHeroe, umbral } from '../src/core/hero/rango.js';
 import { troopUnit } from '../src/core/hero/troop.js';
+import { formacionDe, formarBlocker } from '../src/core/state/batallas.js';
 import { turnBlocker } from '../src/core/state/consultas.js';
-import {
-  formacionDe,
-  formarBlocker,
-  ponerseBlocker,
-  unequipBlocker,
-} from '../src/core/state/game.js';
+import { ponerseBlocker, unequipBlocker } from '../src/core/state/equipar.js';
 import type { Hex } from '../src/core/types.js';
 import { UNIDADES } from '../src/core/unidad/catalogo.js';
 import { indiceDePoder, nivelDeUnidad } from '../src/core/unidad/nivel.js';

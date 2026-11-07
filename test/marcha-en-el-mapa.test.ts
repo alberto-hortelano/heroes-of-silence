@@ -13,7 +13,7 @@ import { enLaMarcha } from '../src/client/marcha.js';
 import { type Par, trazaPorLosArcos } from '../src/client/render/escenario/recinto.js';
 import { Session } from '../src/client/session.js';
 import { PUERTAS_DE_LA_CIUDAD } from '../src/core/map/recinto.js';
-import { caminoHasta } from '../src/core/state/game.js';
+import { caminoHasta } from '../src/core/state/marcha.js';
 import { sesionAntesDelMonstruo } from './batalla-de-cliente.js';
 import { partidaDe } from './escena-de-prueba.js';
 

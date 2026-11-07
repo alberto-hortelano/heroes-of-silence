@@ -22,17 +22,15 @@ import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../src/core
 import { pointFromKey, pointKey } from '../src/core/map/geometria.js';
 import { estructura } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
+import { defensaBlocker, defensaPorElegir, elegirLaDefensa } from '../src/core/state/batallas.js';
 import { baseOf, currentPlayer, heroesOf } from '../src/core/state/consultas.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
 import {
   alcanceDelHeroe,
-  applyAdventureAction,
   caminoHasta,
   casillasHostiles,
-  defensaBlocker,
-  defensaPorElegir,
-  elegirLaDefensa,
   pasosDeHoy,
-} from '../src/core/state/game.js';
+} from '../src/core/state/marcha.js';
 import { newGame } from '../src/core/state/setup.js';
 import {
   defensaDeLaIA,

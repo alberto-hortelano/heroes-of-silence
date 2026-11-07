@@ -31,8 +31,9 @@ import {
 } from '@core/hero/rango.js';
 import { nombreDeTipoDeHeroe } from '@core/hero/tipos-de-heroe.js';
 import { troopUnit } from '@core/hero/troop.js';
+import { stackDelPortador } from '@core/state/batallas.js';
 import { type ClimaDelSitio, DESPEJADO } from '@core/state/clima.js';
-import { ponerseBlocker, stackDelPortador, unequipBlocker } from '@core/state/game.js';
+import { ponerseBlocker, unequipBlocker } from '@core/state/equipar.js';
 import type { GameState } from '@core/state/tipos.js';
 import {
   type Hero,

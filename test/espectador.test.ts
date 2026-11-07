@@ -42,12 +42,10 @@ import { pointKey } from '../src/core/map/geometria.js';
 import { aPunto, reachableFrom } from '../src/core/map/map.js';
 import { isWalkable } from '../src/core/map/terrain.js';
 import { createRng } from '../src/core/rng.js';
+import { climaDeLaBatalla } from '../src/core/state/batallas.js';
 import { climaDeLaPartida, climaDeLaRegion, pedirClima } from '../src/core/state/clima.js';
-import {
-  applyAdventureAction,
-  ascenderVeterano,
-  climaDeLaBatalla,
-} from '../src/core/state/game.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
+import { ascenderVeterano } from '../src/core/state/heroes.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { GameState } from '../src/core/state/tipos.js';
 import type { Hero, Point, UnitInfo } from '../src/core/types.js';

@@ -13,7 +13,7 @@
  * panel.
  */
 import { figuraDelHeroe } from '@core/hero/tipos-de-heroe.js';
-import type { CandidatoAHeroe, EleccionDeHeroe } from '@core/state/game.js';
+import type { CandidatoAHeroe, EleccionDeHeroe } from '@core/state/heroes.js';
 import { building } from '@core/town/buildings.js';
 import { construidoEn, type SitioId } from '@core/town/sitios.js';
 import type { Town } from '@core/town/town.js';

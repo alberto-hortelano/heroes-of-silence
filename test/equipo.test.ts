@@ -39,13 +39,11 @@ import { pointKey } from '../src/core/map/geometria.js';
 import { isEnterable, objectAt } from '../src/core/map/map.js';
 import { regionDeCasilla, tocaUnNodo, VECINAS } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
+import { settleBattle } from '../src/core/state/cierre.js';
 import { baseOf, heroById, heroesOf } from '../src/core/state/consultas.js';
-import {
-  applyAdventureAction,
-  ascenderVeterano,
-  equipBlocker,
-  settleBattle,
-} from '../src/core/state/game.js';
+import { equipBlocker } from '../src/core/state/equipar.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
+import { ascenderVeterano } from '../src/core/state/heroes.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad, enUnNodo, guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import type { AdventureAction, GameContext, GameState } from '../src/core/state/tipos.js';

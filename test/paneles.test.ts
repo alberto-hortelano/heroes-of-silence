@@ -6,7 +6,7 @@ import { conSigno } from '../src/core/equipo/dicho.js';
 import { heroUnit, maxMana } from '../src/core/hero/hero.js';
 import { umbral } from '../src/core/hero/rango.js';
 import { tiposDeHeroe } from '../src/core/hero/tipos-de-heroe.js';
-import { ascenderVeterano } from '../src/core/state/game.js';
+import { ascenderVeterano } from '../src/core/state/heroes.js';
 import { conMiles } from '../src/core/types.js';
 import { nivelDeUnidad } from '../src/core/unidad/nivel.js';
 import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';

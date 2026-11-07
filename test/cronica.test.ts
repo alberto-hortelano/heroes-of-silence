@@ -25,16 +25,16 @@ import { createRng } from '../src/core/rng.js';
 import { heroById } from '../src/core/state/consultas.js';
 import type { GameEvent } from '../src/core/state/events.js';
 import { visibleTo } from '../src/core/state/events.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
+import { newGame } from '../src/core/state/setup.js';
+import { dueñoDeLaCiudad, sitioSiExiste } from '../src/core/state/sitios.js';
+import type { GameContext, GameState } from '../src/core/state/tipos.js';
 import {
-  applyAdventureAction,
   HERO_SCOUT_RADIUS,
   objetosConocidos,
   visibleNow,
   visibleNowAt,
-} from '../src/core/state/game.js';
-import { newGame } from '../src/core/state/setup.js';
-import { dueñoDeLaCiudad, sitioSiExiste } from '../src/core/state/sitios.js';
-import type { GameContext, GameState } from '../src/core/state/tipos.js';
+} from '../src/core/state/vision.js';
 import type { Point } from '../src/core/types.js';
 import { unidadDelJuego } from '../src/core/unidad/catalogo.js';
 import { FACCION_A, FACCION_B, NO_MUERTO, PESADA, TROPA, TROPA_BARATA } from './comun.js';

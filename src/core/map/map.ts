@@ -475,7 +475,7 @@ function dijkstra(
   // Lo hostil de la partida —un héroe ajeno, un castillo ajeno guarnecido— se
   // trata igual que un monstruo en pie: se llega, no se cruza. El mapa no sabe
   // de héroes ni de guarniciones, así que se lo dice quien sí (`casillasHostiles`
-  // en `game.ts`). Solo cambia `bloqueada`: el orden de descubrimiento y la
+  // en `state/marcha.ts`). Solo cambia `bloqueada`: el orden de descubrimiento y la
   // frontera son los de siempre, y el desempate no se entera.
   for (const p of hostiles) {
     if (inBounds(map, p)) bloqueada[p.y * ancho + p.x] = 1;

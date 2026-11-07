@@ -38,6 +38,7 @@ import { RANGO_MAXIMO_DE_TROPA, rangoDeHeroe } from '@core/hero/rango.js';
 import type { MapPlan } from '@core/map/generar/plan.js';
 import { pointKey } from '@core/map/geometria.js';
 import { createRng } from '@core/rng.js';
+import { settleBattle } from '@core/state/cierre.js';
 import { pedirClima } from '@core/state/clima.js';
 import {
   battleOwners,
@@ -48,12 +49,8 @@ import {
   townsOf,
   week,
 } from '@core/state/consultas.js';
-import {
-  applyAdventureAction,
-  ascenderVeterano,
-  settleBattle,
-  veteranosEnSuBase,
-} from '@core/state/game.js';
+import { applyAdventureAction } from '@core/state/game.js';
+import { ascenderVeterano, veteranosEnSuBase } from '@core/state/heroes.js';
 import { newGame } from '@core/state/setup.js';
 import { dueñoDeLaCiudad } from '@core/state/sitios.js';
 import type { GameContext, GameState } from '@core/state/tipos.js';

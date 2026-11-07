@@ -893,8 +893,8 @@ export interface Hero {
   mochila: readonly string[];
   /**
    * **Efímero**: vuelve a su base vencido o rendido desde que acabó su último turno
-   * (`volverABase`, en `state/game.ts`), y se borra al acabar el turno de su dueño
-   * (`nextPlayer`). Lo pone y lo quita solo `game.ts` (lo vigila
+   * (`volverABase`, en `state/cierre.ts`), y se borra al acabar el turno de su dueño
+   * (`nextPlayer`, en `state/turnos.ts`). Lo ponen y lo quitan solo esas dos (lo vigila
    * `invariantes.test.ts`). Es lo que hace que la IA recoja de la guarnición al que
    * vuelve en el turno del rival como al que llega (`playAiTurn`): sin él salía de
    * casa sin la tropa que lo esperaba (H2 del QA del puesto fronterizo, 04-11-2026:

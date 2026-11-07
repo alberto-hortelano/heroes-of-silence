@@ -21,12 +21,8 @@ import { isEnterable, objectAt } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
 import { baseOf, heroesOf, playerById } from '../src/core/state/consultas.js';
 import { cronicaPara } from '../src/core/state/events.js';
-import {
-  applyAdventureAction,
-  ascenderVeterano,
-  ascensoBlocker,
-  veteranosEnSuBase,
-} from '../src/core/state/game.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
+import { ascenderVeterano, ascensoBlocker, veteranosEnSuBase } from '../src/core/state/heroes.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad, guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import { type GameState, MAX_HEROES_PER_PLAYER } from '../src/core/state/tipos.js';

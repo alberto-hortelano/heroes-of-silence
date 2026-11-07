@@ -4,9 +4,10 @@
  * Vivía dentro de `strategy.ts` y salió de ahí cuando la regla tuvo **tres
  * lectores**: la IA que decide si ataca a un monstruo, la IA que decide si
  * ataca a un asaltante, y el asaltante que decide si embosca a un héroe
- * (`state/asaltantes.ts`). Ese tercero lo llama `game.ts`, y `game.ts` no puede
- * importar `strategy.ts` —que importa `game.ts`— sin cerrar un ciclo. Este
- * módulo no importa el estado: solo el catálogo y la tropa.
+ * (`state/asaltantes.ts`). Ese tercero lo llamaba `game.ts` (hoy, la marcha,
+ * `state/marcha.ts`), y `game.ts` no podía importar `strategy.ts` —que importaba
+ * `game.ts`— sin cerrar un ciclo. Este módulo no importa el estado: solo el
+ * catálogo y la tropa.
  *
  * Vivía en `ai/` (`ai/fuerza.ts`) y pasó a `hero/` en la fase N de la
  * reorganización (07-11-2026): cuándo se pelea con un neutral (`ventajaClara`)

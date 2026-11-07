@@ -34,7 +34,7 @@ import {
   week,
 } from '../state/consultas.js';
 import { cronicaPara } from '../state/events.js';
-import { heroesALaVista, ordenDelDia, veteranosEnSuBase, visibleNow } from '../state/game.js';
+import { veteranosEnSuBase } from '../state/heroes.js';
 import { type RentaDelDia, rentaDelDia } from '../state/renta.js';
 import {
   casillaDelSitio,
@@ -47,6 +47,8 @@ import {
   sitioPorId,
 } from '../state/sitios.js';
 import { type GameState, MAX_HEROES_PER_PLAYER } from '../state/tipos.js';
+import { ordenDelDia } from '../state/turnos.js';
+import { heroesALaVista, visibleNow } from '../state/vision.js';
 import { building } from '../town/buildings.js';
 import { construidoEn } from '../town/sitios.js';
 import {

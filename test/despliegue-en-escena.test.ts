@@ -22,7 +22,7 @@ import { pointKey } from '../src/core/map/geometria.js';
 import { isEnterable, objectAt } from '../src/core/map/map.js';
 import { estructura, regionDeCasilla } from '../src/core/map/regiones.js';
 import { baseOf } from '../src/core/state/consultas.js';
-import { caminoHasta } from '../src/core/state/game.js';
+import { caminoHasta } from '../src/core/state/marcha.js';
 import type { Point, Raider } from '../src/core/types.js';
 import { unidadesDelJuego } from '../src/core/unidad/catalogo.js';
 import {

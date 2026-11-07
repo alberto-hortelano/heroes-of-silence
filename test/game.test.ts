@@ -57,15 +57,12 @@ import {
   week,
 } from '../src/core/state/consultas.js';
 import { finDePartida } from '../src/core/state/desenlace.js';
-import {
-  alcanceDelHeroe,
-  applyAdventureAction,
-  caminoHasta,
-  ordenDelDia,
-} from '../src/core/state/game.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
+import { alcanceDelHeroe, caminoHasta } from '../src/core/state/marcha.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad, guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import type { GameContext, GameState } from '../src/core/state/tipos.js';
+import { ordenDelDia } from '../src/core/state/turnos.js';
 import { building, buildingsOfFaction, nivelDeMorada } from '../src/core/town/buildings.js';
 import { crecimientoDelNivel, ECONOMIA, oroDelIndice } from '../src/core/town/economia.js';
 import {

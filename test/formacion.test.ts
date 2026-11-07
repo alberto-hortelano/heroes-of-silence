@@ -12,14 +12,10 @@ import { zonaDeSalida } from '../src/core/battle/despliegue.js';
 import type { Portador } from '../src/core/equipo/portador.js';
 import { heroUnit } from '../src/core/hero/hero.js';
 import { troopUnit } from '../src/core/hero/troop.js';
+import { batallaDeLaFormacion, formacionDe, formarBlocker } from '../src/core/state/batallas.js';
 import { baseOf, turnBlocker } from '../src/core/state/consultas.js';
-import {
-  applyAdventureAction,
-  batallaDeLaFormacion,
-  formacionDe,
-  formarBlocker,
-  salidaPendienteBlocker,
-} from '../src/core/state/game.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
+import { salidaPendienteBlocker } from '../src/core/state/heroes.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { AdventureAction, GameState } from '../src/core/state/tipos.js';
 import type { Hero, Hex } from '../src/core/types.js';

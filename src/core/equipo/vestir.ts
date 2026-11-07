@@ -27,8 +27,9 @@
  * (`manos.ts`), lo que suma lo puesto (aquí), el catálogo atado (`atado.ts`), a quién
  * se le pone (`portador.ts`) y cómo se dice (`dicho.ts`); el equipo base del héroe,
  * con su cuerpo (`hero/cuerpo-del-heroe.ts`). Son puros y no importan el estado: las
- * acciones que equipan, compran y reparten botín viven en `game.ts`, que es el único
- * que escribe la crónica.
+ * acciones que equipan y compran viven en `state/game.ts` (con sus reglas en
+ * `state/equipar.ts`) y el botín, en el cierre de una batalla (`state/cierre.ts`),
+ * que son de los que escriben la crónica.
  */
 
 import {

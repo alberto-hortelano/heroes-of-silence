@@ -26,14 +26,11 @@ import {
 } from '../src/core/state/asaltantes.js';
 import { baseOf, heroById, heroesOf } from '../src/core/state/consultas.js';
 import { cronicaPara } from '../src/core/state/events.js';
-import {
-  alcanceDelHeroe,
-  applyAdventureAction,
-  caminoHasta,
-  visibleNow,
-} from '../src/core/state/game.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
+import { alcanceDelHeroe, caminoHasta } from '../src/core/state/marcha.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { GameState } from '../src/core/state/tipos.js';
+import { visibleNow } from '../src/core/state/vision.js';
 import type { GrupoDeTropa, Point } from '../src/core/types.js';
 import { unidadesDelJuego } from '../src/core/unidad/catalogo.js';
 import { ctx } from './comun.js';

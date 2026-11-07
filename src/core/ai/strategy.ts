@@ -42,7 +42,8 @@ import {
   recruitCapacity,
   townsOf,
 } from '../state/consultas.js';
-import { contratarBlocker, ponerseBlocker, visibleNowAt } from '../state/game.js';
+import { ponerseBlocker } from '../state/equipar.js';
+import { contratarBlocker } from '../state/heroes.js';
 import { rentaDeLaRegion } from '../state/renta.js';
 import {
   ciudadQueMandaBlocker,
@@ -56,6 +57,7 @@ import {
   sitioDelObjeto,
 } from '../state/sitios.js';
 import type { AdventureAction, GameState } from '../state/tipos.js';
+import { visibleNowAt } from '../state/vision.js';
 import { building, buildingsOfFaction, nivelDeMorada } from '../town/buildings.js';
 import { ECONOMIA } from '../town/economia.js';
 import {

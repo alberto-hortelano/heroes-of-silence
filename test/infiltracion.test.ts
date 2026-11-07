@@ -39,17 +39,17 @@ import { regionDeCasilla } from '../src/core/map/regiones.js';
 import { NOMBRE_DE_BARRERA, type TerrainKind } from '../src/core/map/terrain.js';
 import { emboscador } from '../src/core/state/asaltantes.js';
 import { heroesOf } from '../src/core/state/consultas.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
 import {
-  applyAdventureAction,
   barreraDeMañana,
   caminoHasta,
   pasosDeHoy,
   porQueNoLlega,
-  visibleNow,
-} from '../src/core/state/game.js';
+} from '../src/core/state/marcha.js';
 import { rentaDelDia } from '../src/core/state/renta.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { GameState } from '../src/core/state/tipos.js';
+import { visibleNow } from '../src/core/state/vision.js';
 import { FACTION_IDS, type FactionId, hasTrait, type Point } from '../src/core/types.js';
 import { unidadDelJuego, unidadesDeFaccion } from '../src/core/unidad/catalogo.js';
 import { primeraSemillaCon } from '../tools/comun/semillas.js';

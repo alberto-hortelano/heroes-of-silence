@@ -48,9 +48,9 @@ import { LADO_DEL_MAPA } from '../src/core/map/generar/plan.js';
 import { barreraEn, inBounds, isEnterable, objectAt } from '../src/core/map/map.js';
 import { todosALaVista } from '../src/core/state/asaltantes.js';
 import { heroesOf } from '../src/core/state/consultas.js';
-import { HERO_SCOUT_RADIUS, revealEverything, visibleNow } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
+import { HERO_SCOUT_RADIUS, revealEverything, visibleNow } from '../src/core/state/vision.js';
 import type { Point } from '../src/core/types.js';
 
 /**

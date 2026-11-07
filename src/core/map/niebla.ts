@@ -8,8 +8,8 @@
  * una cordillera ni un río. Ahora el negro sigue el borde de las regiones: se
  * descubre la región que se pisa y, sobre un paso —un nodo, una ciudad o el
  * puente de una ciudad-puente—, todas las que ese paso une. Lo que se mira AHORA
- * (el radio de los héroes, castillos y nodos propios) lo decide `game.ts`
- * (`visibleNow`), y solo sobre lo que esto ya descubrió.
+ * (el radio de los héroes, castillos y nodos propios) lo decide
+ * `state/vision.ts` (`visibleNow`), y solo sobre lo que esto ya descubrió.
  *
  * Puro y derivado del mapa, como `estructura`: el terreno y los nodos no cambian
  * en una partida, así que todo se calcula una vez por mapa y se memoriza.

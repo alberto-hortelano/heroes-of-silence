@@ -6,9 +6,10 @@
  * reglas (`ai/lugares.ts`, que elige la primera que vale).
  *
  * Aplicar los efectos no vive aquí: escribe la crónica, y el único que escribe
- * en ella es `emit`, privado de `game.ts`. Este módulo solo pregunta. De
- * `game.ts` lee el turno y el dueño (`turnBlocker`, `playerById`) solo dentro de
- * sus funciones: `game.ts` lo importa a él, y el ciclo no se toca al cargar.
+ * en ella es `emit` (`state/cronica.ts`), que solo importan los módulos de la
+ * partida (los efectos, `state/lugares.ts`). Este módulo solo pregunta. El turno y
+ * el dueño los lee de `state/consultas.ts` (`turnBlocker`, `playerById`), que no lo
+ * importa a él.
  */
 
 import { cupoDelHeroe } from '../combate.js';

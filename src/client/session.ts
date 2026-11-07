@@ -109,6 +109,17 @@ import {
   loQueLaPara,
 } from '@core/state/asaltantes.js';
 import {
+  type Ataque,
+  batallaDeLaFormacion,
+  climaDeLaBatalla,
+  defensaPorElegir,
+  elAtaque,
+  elegirLaDefensa,
+  portadorDelStack,
+  stackDelPortador,
+} from '@core/state/batallas.js';
+import { settleBattle } from '@core/state/cierre.js';
+import {
   type ClimaDeLaPartida,
   type ClimaDelSitio,
   type ClimaForzado,
@@ -141,29 +152,9 @@ import {
   type GameEventDraft,
   type Ocupante,
 } from '@core/state/events.js';
-import {
-  type Ataque,
-  applyAdventureAction,
-  barreraDeMañana,
-  batallaDeLaFormacion,
-  caminoHasta,
-  candidatosAHeroe,
-  climaDeLaBatalla,
-  defensaPorElegir,
-  elAtaque,
-  elegirLaDefensa,
-  HERO_SCOUT_RADIUS,
-  heroesALaVista,
-  miradasDe,
-  objetosConocidos,
-  pasosDeHoy,
-  portadorDelStack,
-  puedeAndarHoy,
-  salidaPendienteBlocker,
-  settleBattle,
-  stackDelPortador,
-  visibleNow,
-} from '@core/state/game.js';
+import { applyAdventureAction } from '@core/state/game.js';
+import { candidatosAHeroe, salidaPendienteBlocker } from '@core/state/heroes.js';
+import { barreraDeMañana, caminoHasta, pasosDeHoy, puedeAndarHoy } from '@core/state/marcha.js';
 import { type RentaDelDia, rentaDelDia } from '@core/state/renta.js';
 import { newGame } from '@core/state/setup.js';
 import {
@@ -197,6 +188,13 @@ import type {
   PendingBattle,
   Player,
 } from '@core/state/tipos.js';
+import {
+  HERO_SCOUT_RADIUS,
+  heroesALaVista,
+  miradasDe,
+  objetosConocidos,
+  visibleNow,
+} from '@core/state/vision.js';
 import { building } from '@core/town/buildings.js';
 import { construidoEn, type SitioId, sitiosConstruidos } from '@core/town/sitios.js';
 import type { Town } from '@core/town/town.js';

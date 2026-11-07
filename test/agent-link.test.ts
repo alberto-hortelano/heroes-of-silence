@@ -18,7 +18,8 @@ import { pointKey } from '../src/core/map/geometria.js';
 import { reachableFrom } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
 import { baseOf } from '../src/core/state/consultas.js';
-import { applyAdventureAction, caminoHasta, revealEverything } from '../src/core/state/game.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
+import { caminoHasta } from '../src/core/state/marcha.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad, guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import {
@@ -26,6 +27,7 @@ import {
   type GameState,
   MAX_HEROES_PER_PLAYER,
 } from '../src/core/state/tipos.js';
+import { revealEverything } from '../src/core/state/vision.js';
 import type { Town } from '../src/core/town/town.js';
 import { FACTION_IDS, type FactionId, type Hero, type Point } from '../src/core/types.js';
 import { cifrasDeUnidad } from '../src/core/unidad/catalogo.js';

@@ -6,6 +6,7 @@
 import { pointKey } from '../map/geometria.js';
 import type { Reachable } from '../map/map.js';
 import { ROAD_COST } from '../map/terrain.js';
+import { settleBattle } from '../state/cierre.js';
 import {
   baseOf,
   battleOwners,
@@ -15,7 +16,8 @@ import {
   sidesOwnedBy,
   sinLaIA,
 } from '../state/consultas.js';
-import { alcanceDelHeroe, applyAdventureAction, settleBattle } from '../state/game.js';
+import { applyAdventureAction } from '../state/game.js';
+import { alcanceDelHeroe } from '../state/marcha.js';
 import type { GameContext, GameOutcome, GameState } from '../state/tipos.js';
 import type { Controller, Hero, Point } from '../types.js';
 import { jugadaEnElLugar, MAX_JUGADAS_EN_UN_LUGAR } from './lugares.js';

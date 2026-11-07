@@ -32,15 +32,12 @@ import {
   recordarAsaltantes,
 } from '../src/core/state/asaltantes.js';
 import { heroesOf } from '../src/core/state/consultas.js';
-import {
-  applyAdventureAction,
-  caminoHasta,
-  visibleNow,
-  visibleNowAt,
-} from '../src/core/state/game.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
+import { caminoHasta } from '../src/core/state/marcha.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
 import type { GameState } from '../src/core/state/tipos.js';
+import { visibleNow, visibleNowAt } from '../src/core/state/vision.js';
 import type { Point, Raider } from '../src/core/types.js';
 import { JINETE, PESADA, TROPA_BARATA } from './comun.js';
 import { segunPrisa } from './lento.js';

@@ -636,7 +636,7 @@ function centroOMotivo(e: EntradaDeCaminos, r: number, b: Busqueda): number | st
  * pasar por él.
  *
  * Es un Dijkstra sobre la rejilla provisional del generador, no el del mapa: el
- * invariante que guarda que nadie llame a `findPath` fuera de `game.ts` es por
+ * invariante que guarda que nadie llame a `findPath` fuera de `state/marcha.ts` es por
  * lo hostil de una partida, que aquí no existe todavía. Comparte con aquel la
  * `Frontera`, y con ella el desempate por orden de descubrimiento. No tira del
  * `rng`: cambiar los caminos no mueve nada más del mapa.

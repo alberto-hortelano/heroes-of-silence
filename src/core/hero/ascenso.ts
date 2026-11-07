@@ -8,12 +8,13 @@
  * crea la IA en base al personaje». Y la acotó: **solo con narrador**. Sin
  * agente no pasa nada, así que el núcleo no decide nunca un ascenso: dice quién
  * podría (`veteranosEn`) y lo aplica cuando alguien se lo pide
- * (`ascenderVeterano`, en `game.ts`, que es el único que escribe la crónica).
+ * (`ascenderVeterano`, en `state/heroes.ts`, que es de los que escriben la
+ * crónica).
  *
- * Lo que vive en `game.ts` y no aquí —`veteranosEnSuBase`, `ascensoBlocker`,
- * `heroeEnElPueblo`— lo hace porque necesita `baseOf`, `heroesOf` y el tope de
- * héroes, y este módulo importándolos cerraría un ciclo con el que lo importa a
- * él.
+ * Lo que vive en la partida y no aquí —`veteranosEnSuBase` y `ascensoBlocker`
+ * (`state/heroes.ts`), `heroeEnElPueblo` (`state/consultas.ts`)— lo hace porque
+ * necesita `baseOf`, `heroesOf` y el tope de héroes, y este módulo importándolos
+ * cerraría un ciclo con el que lo importa a él.
  */
 import type { Town } from '../town/town.js';
 import type { FactionId, Hero, Veterania } from '../types.js';

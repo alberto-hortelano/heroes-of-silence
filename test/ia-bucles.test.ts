@@ -17,7 +17,8 @@ import {
 import { pointKey } from '../src/core/map/geometria.js';
 import { createRng } from '../src/core/rng.js';
 import { heroesOf } from '../src/core/state/consultas.js';
-import { alcanceDelHeroe, applyAdventureAction } from '../src/core/state/game.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
+import { alcanceDelHeroe } from '../src/core/state/marcha.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { GameContext, GameState } from '../src/core/state/tipos.js';
 import type { Hero, Point } from '../src/core/types.js';

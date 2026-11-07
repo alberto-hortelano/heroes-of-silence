@@ -19,7 +19,7 @@ import { puertasDeLaCiudad, recintoDeLaCiudad, rioAnteLaCiudad } from '@core/map
 import { estructura } from '@core/map/regiones.js';
 import { orillaDeLaCiudad } from '@core/map/rio.js';
 import { isWalkable, type TerrainKind } from '@core/map/terrain.js';
-import { alcanceDelHeroe } from '@core/state/game.js';
+import { alcanceDelHeroe } from '@core/state/marcha.js';
 import { describe, expect, it } from 'vitest';
 import { EscenaAventura, focoDe } from '../src/client/escenas/aventura.js';
 import { centrarEn, mundoAPixel, TILE_INICIAL } from '../src/client/render/camara-mapa.js';

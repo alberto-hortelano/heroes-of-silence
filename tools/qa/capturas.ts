@@ -112,8 +112,8 @@ import { regionDeCasilla } from '../../src/core/map/regiones.js';
 import { parseSeed } from '../../src/core/rng.js';
 import { pasosDeLaPatrulla } from '../../src/core/state/asaltantes.js';
 import { baseOf, heroesOf } from '../../src/core/state/consultas.js';
-import { visibleNow } from '../../src/core/state/game.js';
 import { faccionesDeLaSemilla } from '../../src/core/state/setup.js';
+import { visibleNow } from '../../src/core/state/vision.js';
 import { ECONOMIA } from '../../src/core/town/economia.js';
 import type { SitioId } from '../../src/core/town/sitios.js';
 import {

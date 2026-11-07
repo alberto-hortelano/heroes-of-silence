@@ -6,9 +6,12 @@
  *
  * **Este módulo decide y no escribe la crónica**: dice a dónde se mueve un
  * grupo, quién embosca a quién, dónde brota uno nuevo y cuáles se dispersan.
- * Lo aplica `game.ts`, que es el único que llama a `emit` —el candado de
- * `state.log`—. De la partida solo escribe lo que queda de un grupo tras una
- * batalla o al dispersarse (`dejarAsaltante`, la única escritura de su tropa).
+ * Lo aplican los módulos de la partida que llaman a `emit` —el candado de
+ * `state.log`, en `cronica.ts`—: el reloj (`turnos.ts`: la patrulla y el brote),
+ * la marcha (`marcha.ts`: la emboscada, la parada y el grupo que se dispersa) y el
+ * cierre de una batalla (`cierre.ts`). De la partida solo escribe lo que queda de
+ * un grupo tras una batalla o al dispersarse (`dejarAsaltante`, la única escritura
+ * de su tropa).
  *
  * Un asaltante es un **actor**, como un héroe, y no un objeto del mapa como el
  * monstruo. La diferencia no es de gusto: la niebla **copia** los objetos a
@@ -77,7 +80,7 @@ function casillaLibre(
 /**
  * Lo que ocupa casilla para un grupo, marcado con un 1 (índice `y*width+x`):
  * objetos, héroes y grupos. Se hace UNA vez por día y quien mueve los grupos
- * la tiene al día al moverlos (`game.ts`): rehacerla por grupo eran un `Set`
+ * la tiene al día al moverlos (`turnos.ts`): rehacerla por grupo eran un `Set`
  * de cadenas por grupo y por día, la mitad del tiempo de la patrulla.
  */
 export function mascaraDeOcupacion(state: GameState): Uint8Array {

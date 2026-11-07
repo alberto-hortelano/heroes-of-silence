@@ -14,14 +14,14 @@ import { BARRERAS, costeDeEntrada, SUELOS_PISABLES } from '../map/terrain.js';
 import { sitioEnUnNodo } from '../map/territorio.js';
 import { asaltantesALaVista } from '../state/asaltantes.js';
 import { playerById } from '../state/consultas.js';
+import { REGLA_DEL_PUEBLO } from '../state/renta.js';
+import type { GameState } from '../state/tipos.js';
 import {
   HERO_SCOUT_RADIUS,
   NODE_SCOUT_RADIUS,
   objetosConocidos,
   visibleNow,
-} from '../state/game.js';
-import { REGLA_DEL_PUEBLO } from '../state/renta.js';
-import type { GameState } from '../state/tipos.js';
+} from '../state/vision.js';
 import type { PlayerId } from '../types.js';
 import { ocupanteView } from './vistas.js';
 import { UPGRADE_DE_MEJORA } from './vocabulario.js';

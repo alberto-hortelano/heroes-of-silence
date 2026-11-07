@@ -65,15 +65,9 @@ import { RedDeCaminos } from '../src/core/map/red-de-caminos.js';
 import { BARRERAS, costeDeEntrada, isWalkable, TERRAIN_KINDS } from '../src/core/map/terrain.js';
 import { createRng } from '../src/core/rng.js';
 import { heroesOf, townsOf } from '../src/core/state/consultas.js';
+import { unequipBlocker } from '../src/core/state/equipar.js';
 import { cronicaPara } from '../src/core/state/events.js';
-import {
-  applyAdventureAction,
-  HERO_SCOUT_RADIUS,
-  NODE_SCOUT_RADIUS,
-  revealEverything,
-  unequipBlocker,
-  visibleNow,
-} from '../src/core/state/game.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
 import { REGLA_DEL_PUEBLO } from '../src/core/state/renta.js';
 import { newGame } from '../src/core/state/setup.js';
 import {
@@ -81,6 +75,12 @@ import {
   guarnicionDeLaCiudad,
   MURALLAS_DEL_MAPA,
 } from '../src/core/state/sitios.js';
+import {
+  HERO_SCOUT_RADIUS,
+  NODE_SCOUT_RADIUS,
+  revealEverything,
+  visibleNow,
+} from '../src/core/state/vision.js';
 import { ECONOMIA } from '../src/core/town/economia.js';
 import { mageGuildLevel, townSpells } from '../src/core/town/town.js';
 import { SPEED_TO_HEXES } from '../src/core/types.js';

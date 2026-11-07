@@ -1,11 +1,11 @@
 /**
  * Los hechos de una partida, cada uno con protagonista y sitio.
  *
- * Vive aparte de `game.ts` por dos motivos. El primero es que no depende de
- * nada —solo de `types.ts`—, así que `game.ts` lo importa y él no importa a
- * `game.ts`: no hay ciclo. El segundo es que la regla de reparto —quién se
- * entera de qué— es del núcleo y de nadie más, y aquí queda pegada al tipo que
- * la hace posible.
+ * Vive aparte de la partida (`game.ts` y los módulos de `state/` que la aplican)
+ * por dos motivos. El primero es que no depende de nada —solo de `types.ts`—, así
+ * que la partida lo importa y él no la importa a ella: no hay ciclo. El segundo es
+ * que la regla de reparto —quién se entera de qué— es del núcleo y de nadie más, y
+ * aquí queda pegada al tipo que la hace posible.
  *
  * `actor` y `at` son **obligatorios en toda variante**, y eso es el diseño, no
  * un descuido de ergonomía: con `actor?` el compilador deja de forzar y el

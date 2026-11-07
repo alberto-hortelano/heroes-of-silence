@@ -9,12 +9,12 @@
  */
 import { describe, expect, it } from 'vitest';
 import { tipoDeHeroePorDefecto } from '../src/core/hero/tipos-de-heroe.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
 import {
-  applyAdventureAction,
   candidatosAHeroe,
   contratarBlocker,
   salidaPendienteBlocker,
-} from '../src/core/state/game.js';
+} from '../src/core/state/heroes.js';
 import { newGame } from '../src/core/state/setup.js';
 import { guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import type { AdventureAction, GameState } from '../src/core/state/tipos.js';

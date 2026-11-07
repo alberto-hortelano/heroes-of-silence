@@ -110,7 +110,7 @@ describe('invariantes del proyecto', () => {
     // partir así un cast hace falta escribirlo largo, y el atajo corto de
     // verdad es `as any`.
     const fuera = [...CORE, ...CLIENTE, ...SERVIDOR].filter(
-      (r) => r !== ruta('src/core/state/game.ts'),
+      (r) => r !== ruta('src/core/state/cronica.ts'),
     );
     const puertas: readonly (readonly [string, RegExp])[] = [
       // 1 · el log casteado a algo escribible. `as const` pasa: no abre nada.
@@ -260,23 +260,30 @@ describe('invariantes del proyecto', () => {
     // tiene una sola cara, su objeto del mapa, como el paso: `Town.owner` se fue y
     // `captureNode` y `captureTown` son una, `tomarElNodo`. Roto a mano
     // (05-11-2026): un `obj.owner = player.id` en `collectAt`, junto a la llamada a
-    // `tomarElNodo`, sale rojo con su línea.
+    // `tomarElNodo`, sale rojo con su línea. Vive en `state/marcha.ts` desde que se
+    // repartió `game.ts` (fase N de la reorganización, 07-11-2026), sin exportar: sus
+    // dos llamadas, la marcha y la entrega de un sitio, son de ese módulo. La
+    // función de cada línea se busca también tras un `export`: en `marcha.ts` casi
+    // todo se exporta, y una escritura en una función exportada justo debajo de
+    // `tomarElNodo` se le atribuía a ella (sonda del 07-11-2026: solo la cazaba la
+    // cuenta de abajo; ahora sale con su línea).
+    const MARCHA = ruta('src/core/state/marcha.ts');
     const escrituras = infractoresDeCodigo(
       [...CORE, ...CLIENTE, ...SERVIDOR],
       /\.owner\s*=(?!=)|\[\s*['"`]owner['"`]\s*\]\s*=(?!=)/,
     );
-    const codigo = codigoDe(ruta('src/core/state/game.ts')).split('\n');
+    const codigo = codigoDe(MARCHA).split('\n');
     const funcionDe = (linea: number): string | null => {
       for (let i = linea - 1; i >= 0; i--) {
-        const m = /^function (\w+)/.exec(codigo[i] ?? '');
+        const m = /^(?:export )?function (\w+)/.exec(codigo[i] ?? '');
         if (m !== null) return m[1] ?? null;
       }
       return null;
     };
     const ajenas = escrituras.filter((e) => {
-      const m = /^src\/core\/state\/game\.ts:(\d+) /.exec(e);
-      if (m === null) return true;
-      const fn = funcionDe(Number(m[1]));
+      const m = /^(.+):(\d+) → /.exec(e);
+      if (m === null || m[1] !== MARCHA) return true;
+      const fn = funcionDe(Number(m[2]));
       return fn !== 'tomarElNodo';
     });
     expect(ajenas).toEqual([]);
@@ -326,7 +333,7 @@ describe('invariantes del proyecto', () => {
           (l) => l.isStringLiteral() && (l.value === 'town' || l.value === 'village'),
         );
       });
-    const tomar = lineasDeLasDeclaraciones(ruta('src/core/state/game.ts'), ['tomarElNodo']);
+    const tomar = lineasDeLasDeclaraciones(ruta('src/core/state/marcha.ts'), ['tomarElNodo']);
     const lecturas: string[] = [];
     for (const fuente of programa.getSourceFiles()) {
       const fichero = fuente.fileName.slice(RAIZ.length).replace(/^\//, '');
@@ -349,7 +356,7 @@ describe('invariantes del proyecto', () => {
           de = n.parent;
         if (de !== null && esUnSitio(tipos.getTypeAtLocation(de))) {
           const linea = fuente.getLineAndCharacterOfPosition(n.getStart()).line + 1;
-          if (!(fichero === ruta('src/core/state/game.ts') && tomar.has(linea)))
+          if (!(fichero === ruta('src/core/state/marcha.ts') && tomar.has(linea)))
             lecturas.push(`${fichero}:${linea} → ${n.getText()}`);
         }
         ts.forEachChild(n, visitar);
@@ -359,7 +366,7 @@ describe('invariantes del proyecto', () => {
     expect(lecturas).toEqual([]);
     // Y que mire algo: `tomarElNodo` lo lee (y lo escribe). Sin esto, un tipo que
     // el compilador no resolviera pasaría por vacío.
-    const enTomar = codigoDe(ruta('src/core/state/game.ts'))
+    const enTomar = codigoDe(ruta('src/core/state/marcha.ts'))
       .split('\n')
       .filter((l, i) => tomar.has(i + 1) && /\.owner\b/.test(l));
     expect(enTomar.length).toBeGreaterThan(0);
@@ -396,14 +403,17 @@ describe('invariantes del proyecto', () => {
     expect(escrituras).toHaveLength(1);
   });
 
-  it('el camino de un héroe lleva lo hostil: fuera de game.ts nadie llama al Dijkstra del mapa', () => {
+  it('el camino de un héroe lleva lo hostil: fuera de `state/marcha.ts` nadie llama al Dijkstra del mapa', () => {
     // Lo hostil de la partida —héroe ajeno, castillo ajeno guarnecido— se
     // alcanza y no se cruza en el camino de TODOS (la IA, la persona y el
     // agente), y eso solo lo sabe quien tiene la partida: `alcanceDelHeroe` y
-    // `caminoHasta`, en `game.ts`. Un `findPath` o un `reachableFrom` a pelo en
+    // `caminoHasta`, en `state/marcha.ts` (en `game.ts` hasta la fase N de la
+    // reorganización, 07-11-2026). Un `findPath` o un `reachableFrom` a pelo en
     // la IA o en el cliente volvería a cruzar por encima de una guarnición en
     // un paso estrecho sin que nada se pusiera rojo: el parámetro es opcional
-    // porque el mapa, solo, no sabe de héroes.
+    // porque el mapa, solo, no sabe de héroes. Roto a mano (07-11-2026): un
+    // `findPath(` en `ai/strategy.ts` sale rojo con su línea.
+    const MARCHA = ruta('src/core/state/marcha.ts');
     const llamadas = infractoresDeCodigo(
       [...CORE, ...CLIENTE, ...SERVIDOR],
       /\b(?:findPath|reachableFrom)\s*\(/,
@@ -411,16 +421,17 @@ describe('invariantes del proyecto', () => {
     // `battle/` se salta por nombre y no por despiste: su `findPath` es el del
     // tablero de hexes, otra función con el mismo nombre y sin mapa.
     const ajenas = llamadas.filter(
-      (e) => !/^src\/core\/(?:map\/map\.ts|state\/game\.ts|battle\/)/.test(e),
+      (e) =>
+        !e.startsWith(`${ruta('src/core/map/map.ts')}:`) &&
+        !e.startsWith(`${MARCHA}:`) &&
+        !e.startsWith(ruta('src/core/battle/')),
     );
     expect(ajenas).toEqual([]);
-    // Y que mire algo: las dos de `game.ts` tienen que salir. Los asaltantes
+    // Y que mire algo: las dos de `marcha.ts` tienen que salir. Los asaltantes
     // trajeron una tercera —el alcance prudente de la IA— y volvió a ser una
     // opción de `alcanceDelHeroe` (`evitarEmboscadas`): el mismo Dijkstra con
     // una marca más no es una segunda puerta.
-    expect(llamadas.filter((e) => e.startsWith(`${ruta('src/core/state/game.ts')}:`))).toHaveLength(
-      2,
-    );
+    expect(llamadas.filter((e) => e.startsWith(`${MARCHA}:`))).toHaveLength(2);
   });
 
   it('qué grupo de asaltantes se ve lo decide `asaltantesALaVista`, nadie más', () => {
@@ -467,20 +478,24 @@ describe('invariantes del proyecto', () => {
     // Quien marcara `fog` a trozos —el cuadrado de un héroe, como antes— dejaría
     // regiones a medias que la niebla daría por enteras o por vírgenes, y
     // refrescaría `memory` desde lejos. Escribir es marcar o borrar en un `fog`.
+    // Los dos viven en `state/vision.ts` (en `game.ts` hasta la fase N de la
+    // reorganización, 07-11-2026). Roto a mano (07-11-2026): un
+    // `player.fog.marcarIndices(…)` en `moveHero` (`state/marcha.ts`) sale rojo con
+    // su línea.
     const escritura =
       /\bfog\s*\.\s*(?:add|delete|marcarCuadrado|marcarCuadradoDentroDe|marcarIndices)\s*\(/;
-    const conPermiso = lineasDeLasDeclaraciones(ruta('src/core/state/game.ts'), [
+    const conPermiso = lineasDeLasDeclaraciones(ruta('src/core/state/vision.ts'), [
       'descubrir',
       'revealEverything',
     ]);
     const fuera = infractoresDeCodigo([...CORE, ...CLIENTE, ...SERVIDOR], escritura).filter((l) => {
       const [fichero, linea] = l.split(' → ')[0]!.split(':');
-      return !(fichero === ruta('src/core/state/game.ts') && conPermiso.has(Number(linea)));
+      return !(fichero === ruta('src/core/state/vision.ts') && conPermiso.has(Number(linea)));
     });
     expect(fuera).toEqual([]);
     // Y que mire algo: los dos escriben.
     expect(
-      infractoresDeCodigo([ruta('src/core/state/game.ts')], escritura).length,
+      infractoresDeCodigo([ruta('src/core/state/vision.ts')], escritura).length,
     ).toBeGreaterThanOrEqual(3);
   });
 
@@ -528,12 +543,15 @@ describe('invariantes del proyecto', () => {
     // `ocupanteDe`); un `applyWeeklyGrowth` suelto en otro sitio haría crecer la
     // ocupada sin que nadie lo notara. Roto a mano (05-11-2026): un
     // `for (const t of state.towns) applyWeeklyGrowth(t)` en `advanceDay`, en lugar
-    // de `crecerLasMoradas`, sale rojo con su línea.
+    // de `crecerLasMoradas`, sale rojo con su línea. Los dos viven en
+    // `state/turnos.ts` (en `game.ts` hasta la fase N de la reorganización,
+    // 07-11-2026), y la sonda, vuelta a poner allí, mordió igual.
+    const TURNOS = ruta('src/core/state/turnos.ts');
     const llamadas = infractoresDeCodigo(
       [...CORE, ...CLIENTE, ...SERVIDOR],
       /\bapplyWeeklyGrowth\s*\(/,
     );
-    const codigo = codigoDe(ruta('src/core/state/game.ts')).split('\n');
+    const codigo = codigoDe(TURNOS).split('\n');
     const funcionDe = (linea: number): string | null => {
       for (let i = linea - 1; i >= 0; i--) {
         const m = /^(?:export )?function (\w+)/.exec(codigo[i] ?? '');
@@ -544,15 +562,13 @@ describe('invariantes del proyecto', () => {
     const ajenas = llamadas.filter((e) => {
       if (e.startsWith(`${ruta('src/core/town/town.ts')}:`))
         return !/export function applyWeeklyGrowth/.test(e);
-      const m = /^src\/core\/state\/game\.ts:(\d+) /.exec(e);
-      return m === null || funcionDe(Number(m[1])) !== 'crecerLasMoradas';
+      const m = /^(.+):(\d+) → /.exec(e);
+      return m === null || m[1] !== TURNOS || funcionDe(Number(m[2])) !== 'crecerLasMoradas';
     });
     expect(ajenas).toEqual([]);
     // Y que mire algo: la llamada de verdad.
-    expect(llamadas.filter((e) => e.startsWith(`${ruta('src/core/state/game.ts')}:`))).toHaveLength(
-      1,
-    );
-    expect(codigoDe(ruta('src/core/state/game.ts'))).toMatch(
+    expect(llamadas.filter((e) => e.startsWith(`${TURNOS}:`))).toHaveLength(1);
+    expect(codigoDe(TURNOS)).toMatch(
       /function crecerLasMoradas[\s\S]*?ocupanteDe\(state, sitioDeLaCiudad\(town\)\)/,
     );
   });
@@ -598,21 +614,27 @@ describe('invariantes del proyecto', () => {
     // (H2 del QA del puesto fronterizo). Escrita en otro sitio duraría de más (la IA
     // recogería cada turno) o de menos (saldría sin la tropa). Roto a mano
     // (04-11-2026): un `hero.vueltoACasa = true` en `hireHero` y un `delete
-    // hero.vueltoACasa` en `ai/turn.ts` salen rojos con su línea.
-    const PERMITIDO = ruta('src/core/state/game.ts');
-    const conPermiso = lineasDeLasDeclaraciones(PERMITIDO, ['volverABase', 'nextPlayer']);
+    // hero.vueltoACasa` en `ai/turn.ts` salen rojos con su línea. Desde que se
+    // repartió `game.ts` (fase N de la reorganización, 07-11-2026), cada una en su
+    // módulo: `volverABase` en `state/cierre.ts` y `nextPlayer` en `state/turnos.ts`;
+    // las dos sondas, vueltas a poner (`hireHero` ya en `state/heroes.ts`), mordieron.
+    const PERMITIDOS: Readonly<Record<string, readonly string[]>> = {
+      [ruta('src/core/state/cierre.ts')]: ['volverABase'],
+      [ruta('src/core/state/turnos.ts')]: ['nextPlayer'],
+    };
+    const escribe = /\.vueltoACasa\s*=(?!=)|\bdelete\s+[\w.]*\.vueltoACasa\b/;
     const escrituras: string[] = [];
     for (const ruta of [...CORE, ...CLIENTE, ...SERVIDOR]) {
+      const conPermiso = lineasDeLasDeclaraciones(ruta, PERMITIDOS[ruta] ?? []);
       for (const [i, linea] of codigoDe(ruta).split('\n').entries()) {
-        if (!/\.vueltoACasa\s*=(?!=)|\bdelete\s+[\w.]*\.vueltoACasa\b/.test(linea)) continue;
-        if (ruta === PERMITIDO && conPermiso.has(i + 1)) continue;
+        if (!escribe.test(linea)) continue;
+        if (conPermiso.has(i + 1)) continue;
         escrituras.push(`${ruta}:${i + 1} → ${linea.trim()}`);
       }
     }
     expect(escrituras).toEqual([]);
-    expect(
-      infractoresDeCodigo([PERMITIDO], /\.vueltoACasa\s*=(?!=)|\bdelete\s+[\w.]*\.vueltoACasa\b/),
-    ).toHaveLength(2);
+    // Y que mire algo: la que la pone y la que la quita, una en cada módulo.
+    expect(infractoresDeCodigo(Object.keys(PERMITIDOS), escribe)).toHaveLength(2);
   });
 
   it('la obra de un puesto (`node.mejora`) la escribe solo `mejorarElPuesto`', () => {
@@ -644,8 +666,10 @@ describe('invariantes del proyecto', () => {
     // (04-11-2026): un `createBattle(...)` en `elegirLaDefensa` sale rojo. La otra
     // llamada, `batallaDeLaFormacion` (la fase de despliegue de `main`, fusionada el
     // 05-11-2026), no es una batalla del mapa: es la vista de la formación de un
-    // héroe contra nadie, que no nace ni se pelea.
-    const PERMITIDO = ruta('src/core/state/game.ts');
+    // héroe contra nadie, que no nace ni se pelea. Las dos viven en
+    // `state/batallas.ts` (en `game.ts` hasta la fase N de la reorganización,
+    // 07-11-2026), y la sonda, vuelta a poner en `elegirLaDefensa`, mordió igual.
+    const PERMITIDO = ruta('src/core/state/batallas.ts');
     const conPermiso = lineasDeLasDeclaraciones(PERMITIDO, [
       'montarLaBatalla',
       'batallaDeLaFormacion',

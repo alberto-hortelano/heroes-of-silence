@@ -23,12 +23,7 @@ import {
   type ObraDelPuesto,
 } from '../src/core/map/tipos.js';
 import { baseOf, heroesOf } from '../src/core/state/consultas.js';
-import {
-  applyAdventureAction,
-  objetosConocidos,
-  revealEverything,
-  visibleNow,
-} from '../src/core/state/game.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import {
   leerSitios,
@@ -39,6 +34,7 @@ import {
   sitioPorId,
 } from '../src/core/state/sitios.js';
 import type { GameState } from '../src/core/state/tipos.js';
+import { objetosConocidos, revealEverything, visibleNow } from '../src/core/state/vision.js';
 import { construirVista, type SpectatorView } from '../src/server/vista-espectador.js';
 import { ctx, TROPA_BARATA } from './comun.js';
 import { ejercito, forzarBatalla, pegadoA, unPaso } from './partida-de-prueba.js';

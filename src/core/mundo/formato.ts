@@ -10,7 +10,8 @@
  * el motor, y lo juzga `problemasDelMundo` (`validar.ts`).
  *
  * El vocabulario de condiciones y efectos es **cerrado**: cada palabra es una regla
- * del núcleo, con su `*Blocker` y su hecho en la crónica (`reglas.ts`, `game.ts`).
+ * del núcleo, con su `*Blocker` y su hecho en la crónica (`reglas.ts`,
+ * `state/lugares.ts`).
  * El texto libre va solo en lo que es presentación (nombres, líneas, descripciones).
  * Por eso las palabras se declaran aquí una vez, con su frase para el motor
  * (`VOCABULARIO`), y la lectura que se le da (`lectura.ts`) sale de ellas y no de la

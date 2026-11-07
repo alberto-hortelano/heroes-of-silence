@@ -9,7 +9,7 @@ import { PuertaDeFinDeTurno } from '../src/client/fin-de-turno.js';
 import { marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
 import { renderActions, renderSide } from '../src/client/views/panels.js';
-import { alcanceDelHeroe, puedeAndarHoy } from '../src/core/state/game.js';
+import { alcanceDelHeroe, puedeAndarHoy } from '../src/core/state/marcha.js';
 import { fueraDeSuBase } from './partida-de-prueba.js';
 
 /** Una sesión con dos héroes propios: el inicial y uno contratado en la base. */
