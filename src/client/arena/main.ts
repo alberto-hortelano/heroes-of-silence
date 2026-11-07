@@ -250,52 +250,105 @@ const pedirFotograma = bucleDeDibujo({
 
 // ---------------------------------------------------------------- estado
 
-let hojas: readonly Hoja[] = [];
-/** Las mismas, por su id: se hace al cargarlas y lo leen todas las preguntas por una hoja. */
-let hojasPorId: ReadonlyMap<string, Hoja> = new Map();
 /**
- * Las cifras por TIPO de unidad, por su id: cambiar el monje cambia todos los
- * monjes. Las de las hojas (id = la hoja) y las nuevas (`unidadNueva`). Lleva
- * también las del catálogo cuya hoja no está —no se pueden montar—, para que
- * «Guardar» no las tire (H2 de QA).
+ * El catálogo de la página y su guardado: las hojas, las unidades, el equipo, los hechizos y el
+ * cuerpo de todo héroe tal como se editan aquí, lo que hay en disco (para contar lo que queda por
+ * guardar) y si se puede guardar. Eran trece `let` y `const` de módulo hasta R8 de la
+ * reorganización (07-11-2026): en un objeto, para que lo lean y lo escriban las partes de la
+ * página desde sus ficheros (el `let` de un módulo no se asigna desde otro).
  */
-const unidadesDelCatalogo = new Map<string, Unidad>();
-/**
- * El catálogo de equipo de la página, hecho (`catalogoDeEquipo`): el de
- * `data/equipo.json` tal como lo sirve el servidor de desarrollo (sin él, el que
- * se cargó con la página) con lo que se haya cambiado aquí y lo que traigan los
- * enlaces abiertos, que entra como cualquier cambio sin guardar (`conPiezas`).
- * **Uno solo**: con él se pelea, es el que enseña «Editar equipo» y el que escribe
- * «Guardar», lo que lee el juego.
- */
-let equipo: CatalogoDeEquipo = EQUIPO_DEL_JUEGO;
-/**
- * El catálogo de equipo tal como está en disco: con él se cuenta lo que queda por
- * guardar (`piezasSinGuardar`), pieza a pieza distinta, no por gestos.
- */
-let equipoGuardado: CatalogoDeEquipo = EQUIPO_DEL_JUEGO;
+interface EstadoDelCatalogo {
+  hojas: readonly Hoja[];
+  /** Las mismas, por su id: se hace al cargarlas y lo leen todas las preguntas por una hoja. */
+  hojasPorId: ReadonlyMap<string, Hoja>;
+  /**
+   * Las cifras por TIPO de unidad, por su id: cambiar el monje cambia todos los
+   * monjes. Las de las hojas (id = la hoja) y las nuevas (`unidadNueva`). Lleva
+   * también las del catálogo cuya hoja no está —no se pueden montar—, para que
+   * «Guardar» no las tire (H2 de QA).
+   */
+  readonly unidadesDelCatalogo: Map<string, Unidad>;
+  /**
+   * El catálogo de equipo de la página, hecho (`catalogoDeEquipo`): el de
+   * `data/equipo.json` tal como lo sirve el servidor de desarrollo (sin él, el que
+   * se cargó con la página) con lo que se haya cambiado aquí y lo que traigan los
+   * enlaces abiertos, que entra como cualquier cambio sin guardar (`conPiezas`).
+   * **Uno solo**: con él se pelea, es el que enseña «Editar equipo» y el que escribe
+   * «Guardar», lo que lee el juego.
+   */
+  equipo: CatalogoDeEquipo;
+  /**
+   * El catálogo de equipo tal como está en disco: con él se cuenta lo que queda por
+   * guardar (`piezasSinGuardar`), pieza a pieza distinta, no por gestos.
+   */
+  equipoGuardado: CatalogoDeEquipo;
+  /**
+   * Los hechizos de la página (el editor de magia, 06-11-2026): los de
+   * `data/hechizos.json` tal como los sirve el servidor (sin él, los del núcleo), con
+   * lo que se haya cambiado aquí y lo que traigan los enlaces abiertos. Los que no
+   * valen se quedan en la lista (para arreglarlos) y no se pelea con ellos.
+   */
+  hechizosDeLaPagina: readonly Hechizo[];
+  /** Los de disco: con ellos se cuenta lo que queda por guardar. */
+  hechizosGuardados: readonly Hechizo[];
+  /**
+   * El cuerpo de todo héroe (`combate` de data/heroe.json): el de los dos héroes y el
+   * de quien se ponga, que la ficha de cualquiera de ellos cambia en los dos
+   * (`cambiarCuerpoDeTodoHeroe`) y «Guardar» escribe. `cuerpoGuardado`, el del disco
+   * (o el del núcleo, sin servidor): lo distinto está sin guardar.
+   */
+  cuerpoDeTodoHeroe: CuerpoDeTodoHeroe;
+  cuerpoGuardado: CuerpoDeTodoHeroe;
+  /**
+   * Las unidades con el arte a medias, dichas en la barra mientras se monta: el
+   * aviso que antes era la excepción que tumbaba la lista (#140).
+   */
+  avisoDeIncompletas: string;
+  /** Por qué no se puede guardar, o `null` si se puede. */
+  sinGuardado: string | null;
+  /**
+   * La versión en disco del catálogo que leyó esta página (`versionDelCatalogo`), que
+   * «Guardar» devuelve: el servidor rechaza el guardado si otra pestaña escribió
+   * entre medias. Tras guardar, la que dejó escrita esta.
+   */
+  versionLeida: unknown;
+  /**
+   * Lo que no se ha guardado, por id: unidades y piezas. Cerrar la página avisa, y
+   * la vista de equipo lo cuenta (`sinGuardarEnPalabras`).
+   */
+  readonly unidadesSinGuardar: Set<string>;
+}
+
+/** Los hechizos con que abre la página: los del núcleo, hasta que lleguen los de disco. */
+const hechizosDelNucleo = todosLosHechizos();
+const catalogo: EstadoDelCatalogo = {
+  hojas: [],
+  hojasPorId: new Map(),
+  unidadesDelCatalogo: new Map(),
+  equipo: EQUIPO_DEL_JUEGO,
+  equipoGuardado: EQUIPO_DEL_JUEGO,
+  hechizosDeLaPagina: hechizosDelNucleo,
+  hechizosGuardados: hechizosDelNucleo,
+  cuerpoDeTodoHeroe: HEROE.combate,
+  cuerpoGuardado: HEROE.combate,
+  avisoDeIncompletas: '',
+  sinGuardado: null,
+  versionLeida: null,
+  unidadesSinGuardar: new Set(),
+};
+
 /** La pieza de la ficha de la vista de equipo, por su id. */
 let piezaElegida: string | null = null;
 
 /** Los ids de las piezas que «Guardar» cambiaría en disco: lo que de verdad queda sin guardar. */
 function piezasSinGuardar(): readonly string[] {
-  return idsQueCambian(equipoGuardado, equipo);
+  return idsQueCambian(catalogo.equipoGuardado, catalogo.equipo);
 }
-
-/**
- * Los hechizos de la página (el editor de magia, 06-11-2026): los de
- * `data/hechizos.json` tal como los sirve el servidor (sin él, los del núcleo), con
- * lo que se haya cambiado aquí y lo que traigan los enlaces abiertos. Los que no
- * valen se quedan en la lista (para arreglarlos) y no se pelea con ellos.
- */
-let hechizosDeLaPagina: readonly Hechizo[] = todosLosHechizos();
-/** Los de disco: con ellos se cuenta lo que queda por guardar. */
-let hechizosGuardados: readonly Hechizo[] = hechizosDeLaPagina;
 
 /** Los hechizos de la página que valen, y con los que se pelea. */
 function hechizosQueValen(): readonly Hechizo[] {
   const vistos = new Set<string>();
-  return hechizosDeLaPagina.filter((h) => {
+  return catalogo.hechizosDeLaPagina.filter((h) => {
     if (vistos.has(h.id) || problemasDelHechizo(h).length > 0) return false;
     vistos.add(h.id);
     return true;
@@ -309,8 +362,8 @@ function catalogoDeMagia(): CatalogoDeHechizos {
 
 /** Los ids de los hechizos que «Guardar» cambiaría en disco. */
 function hechizosSinGuardar(): readonly string[] {
-  const antes = new Map(hechizosGuardados.map((h) => [h.id, JSON.stringify(h)]));
-  const ahora = new Map(hechizosDeLaPagina.map((h) => [h.id, JSON.stringify(h)]));
+  const antes = new Map(catalogo.hechizosGuardados.map((h) => [h.id, JSON.stringify(h)]));
+  const ahora = new Map(catalogo.hechizosDeLaPagina.map((h) => [h.id, JSON.stringify(h)]));
   const ids = new Set([...antes.keys(), ...ahora.keys()]);
   return [...ids].filter((id) => antes.get(id) !== ahora.get(id));
 }
@@ -321,7 +374,7 @@ function quienUsaElHechizo(id: string): readonly string[] {
     ...heroesDeLaPagina()
       .filter((h) => h.hechizos.includes(id))
       .map((h) => h.nombre),
-    ...[...unidadesDelCatalogo.values()]
+    ...[...catalogo.unidadesDelCatalogo.values()]
       .filter((u) => (u.hechizos ?? []).includes(id))
       .map((u) => u.name),
   ];
@@ -332,9 +385,9 @@ function quienUsaElHechizo(id: string): readonly string[] {
  * batalla también (`retocarEnBatalla`, `kind: 'hechizos'`).
  */
 const editorDeMagia = montarEditorDeMagia(elMagia, {
-  hechizos: () => hechizosDeLaPagina,
+  hechizos: () => catalogo.hechizosDeLaPagina,
   cambiar: (lista, elegido) => {
-    hechizosDeLaPagina = lista;
+    catalogo.hechizosDeLaPagina = lista;
     editorDeMagia.elegir(elegido);
     if (sesion !== null) {
       const motivo = sesion.retocar({ kind: 'hechizos', hechizos: catalogoDeMagia() });
@@ -357,18 +410,9 @@ const montaje: Record<Lado, Puesto[]> = { izquierda: [], derecha: [] };
 /** El héroe de cada lado, si lleva. */
 const heroes: Record<Lado, HeroeDeArena | null> = { izquierda: null, derecha: null };
 
-/**
- * El cuerpo de todo héroe (`combate` de data/heroe.json): el de los dos héroes y el
- * de quien se ponga, que la ficha de cualquiera de ellos cambia en los dos
- * (`cambiarCuerpoDeTodoHeroe`) y «Guardar» escribe. `cuerpoGuardado`, el del disco
- * (o el del núcleo, sin servidor): lo distinto está sin guardar.
- */
-let cuerpoDeTodoHeroe: CuerpoDeTodoHeroe = HEROE.combate;
-let cuerpoGuardado: CuerpoDeTodoHeroe = HEROE.combate;
-
 /** Si el cuerpo de todo héroe de la página no es el del disco. */
 function cuerpoSinGuardar(): boolean {
-  return JSON.stringify(cuerpoDeTodoHeroe) !== JSON.stringify(cuerpoGuardado);
+  return JSON.stringify(catalogo.cuerpoDeTodoHeroe) !== JSON.stringify(catalogo.cuerpoGuardado);
 }
 /**
  * Quién mueve cada bando, entero: sus unidades y su héroe. Por defecto la
@@ -525,7 +569,7 @@ function vistaDeLaURL(): {
       );
     }
     if (pieza === null || vista !== 'equipo') return { vista, pieza: null, aviso: '' };
-    if (!equipo.piezas.has(pieza)) {
+    if (!catalogo.equipo.piezas.has(pieza)) {
       const aviso = `La pieza «${pieza}» de la dirección no está en el catálogo de equipo. `;
       return { vista, pieza: null, aviso };
     }
@@ -538,24 +582,6 @@ let siguienteClave = 1;
 let sesion: SesionDeArena | null = null;
 /** La barra mientras se monta; en la batalla manda la de la sesión. */
 let aviso = 'Cargando las hojas…';
-/**
- * Las unidades con el arte a medias, dichas en la barra mientras se monta: el
- * aviso que antes era la excepción que tumbaba la lista (#140).
- */
-let avisoDeIncompletas = '';
-/** Por qué no se puede guardar, o `null` si se puede. */
-let sinGuardado: string | null = null;
-/**
- * La versión en disco del catálogo que leyó esta página (`versionDelCatalogo`), que
- * «Guardar» devuelve: el servidor rechaza el guardado si otra pestaña escribió
- * entre medias. Tras guardar, la que dejó escrita esta.
- */
-let versionLeida: unknown = null;
-/**
- * Lo que no se ha guardado, por id: unidades y piezas. Cerrar la página avisa, y
- * la vista de equipo lo cuenta (`sinGuardarEnPalabras`).
- */
-const unidadesSinGuardar = new Set<string>();
 /**
  * La complejidad de la pelea que se monta (22-10-2026): el tope por bando y la
  * rueda, con sus dos selectores encima del montaje (`selectoresDelCombate`). Viaja
@@ -701,7 +727,7 @@ function montajeDeArena(): MontajeDeArena {
     izquierda: lado('izquierda'),
     derecha: lado('derecha'),
     muralla,
-    equipo,
+    equipo: catalogo.equipo,
     combate,
     hechizos: catalogoDeMagia(),
   };
@@ -712,9 +738,9 @@ function describir(p: Puesto, lado: Lado): DatosDePuesto {
   const u = unidadDe(p.unidad);
   return {
     nombre: u.name,
-    resumen: resumenDeCifras(u, equipo),
+    resumen: resumenDeCifras(u, catalogo.equipo),
     figura: u.cuerpo.hoja,
-    noEscala: escaleraDeArenaBlocker(fuenteDeArena(p), lado, equipo),
+    noEscala: escaleraDeArenaBlocker(fuenteDeArena(p), lado, catalogo.equipo),
   };
 }
 
@@ -726,7 +752,7 @@ function nombreDeFigura(id: string): string {
 
 /** Las hojas de héroe completas, para elegir la figura del héroe. */
 function hojasDeHeroe(): { id: string; nombre: string }[] {
-  return hojas
+  return catalogo.hojas
     .filter((h) => h.heroe && h.incompleta === null)
     .map((h) => ({ id: h.id, nombre: h.nombre }));
 }
@@ -739,7 +765,7 @@ function laFichaDe(el: Element, que: string): Elegida {
 }
 
 function hojaPorId(id: string): Hoja {
-  const h = hojasPorId.get(id);
+  const h = catalogo.hojasPorId.get(id);
   if (h === undefined) throw new Error(`no hay ninguna hoja «${id}» en assets/unidades/`);
   return h;
 }
@@ -750,7 +776,7 @@ function hojaPorId(id: string): Hoja {
  * una que no está es un fallo del gesto, no una unidad con cifras inventadas.
  */
 function unidadDe(id: string): Unidad {
-  const u = unidadesDelCatalogo.get(id);
+  const u = catalogo.unidadesDelCatalogo.get(id);
   if (u === undefined) throw new Error(`no hay ninguna unidad «${id}» en el catálogo de unidades`);
   return u;
 }
@@ -762,12 +788,12 @@ function unidadDe(id: string): Unidad {
  * ofrece todas.
  */
 function tarjetasDeLaLista(): readonly TarjetaDeUnidad[] {
-  return tarjetasDelCatalogo(unidadesDelCatalogo.values(), hojas);
+  return tarjetasDelCatalogo(catalogo.unidadesDelCatalogo.values(), catalogo.hojas);
 }
 
 /** Por qué la unidad `u` no se monta con las hojas de la página (`porQueNoSeMontaEntre`). */
 function porQueNoSeMonta(u: Unidad): string | null {
-  return porQueNoSeMontaEntre(u, hojasPorId);
+  return porQueNoSeMontaEntre(u, catalogo.hojasPorId);
 }
 
 /**
@@ -776,7 +802,7 @@ function porQueNoSeMonta(u: Unidad): string | null {
  */
 function listaDeUnidades(): ListaDeUnidades {
   return {
-    cuerpos: hojas
+    cuerpos: catalogo.hojas
       .filter((h) => h.incompleta === null)
       .map((h) => ({ id: h.id, nombre: h.nombre })),
   };
@@ -796,15 +822,15 @@ function crearUnidad(valor: string): string | null {
   const u = unidadNueva(
     h,
     {
-      validas: [...unidadesDelCatalogo.keys()],
-      hojas: [...hojasPorId.keys()],
+      validas: [...catalogo.unidadesDelCatalogo.keys()],
+      hojas: [...catalogo.hojasPorId.keys()],
     },
-    equipo,
+    catalogo.equipo,
   );
-  unidadesDelCatalogo.set(u.id, u);
-  unidadesSinGuardar.add(u.id);
+  catalogo.unidadesDelCatalogo.set(u.id, u);
+  catalogo.unidadesSinGuardar.add(u.id);
   elegida = { kind: 'unidad', id: u.id };
-  aviso = avisoDeNuevaUnidad(u, escena === 'edicion' ? 'edicion' : 'montaje', equipo);
+  aviso = avisoDeNuevaUnidad(u, escena === 'edicion' ? 'edicion' : 'montaje', catalogo.equipo);
   return u.id;
 }
 
@@ -902,18 +928,18 @@ async function mandarAlServidor(
 async function arrancar(): Promise<void> {
   // Una hoja incompleta no se registra: `arteDe` la pintaría con el Y Bot por
   // defecto, que es justo lo que no puede pasar en silencio (#140).
-  hojas = await registrarLasHojas();
-  hojasPorId = new Map(hojas.map((h) => [h.id, h]));
-  const incompletas = hojas.filter((h) => h.incompleta !== null);
+  catalogo.hojas = await registrarLasHojas();
+  catalogo.hojasPorId = new Map(catalogo.hojas.map((h) => [h.id, h]));
+  const incompletas = catalogo.hojas.filter((h) => h.incompleta !== null);
   if (incompletas.length > 0) {
-    avisoDeIncompletas = ` A medias en el taller (se listan y no se montan): ${incompletas
+    catalogo.avisoDeIncompletas = ` A medias en el taller (se listan y no se montan): ${incompletas
       .map((h) => h.incompleta)
       .join('; ')}.`;
-    console.warn(`[arena]${avisoDeIncompletas}`);
+    console.warn(`[arena]${catalogo.avisoDeIncompletas}`);
   }
   const leido = await leerDelServidor('/__arena/unidades', 'el catálogo de unidades');
   const cuerpo = leido.cuerpo;
-  sinGuardado = leido.sinGuardado;
+  catalogo.sinGuardado = leido.sinGuardado;
   if (!cuerpo.guardado) {
     aviso = `${delCatalogoDelNucleo()} Sin el servidor de desarrollo (pnpm arena) no se guarda: las cifras que cambies aquí se pierden al cerrar.`;
     return;
@@ -922,27 +948,33 @@ async function arrancar(): Promise<void> {
     aviso = `No se puede leer ${RUTA_DEL_CATALOGO_DE_UNIDADES}: ${cuerpo.ilegible}. No hay unidades que montar ni se guarda hasta que se arregle; «Nueva unidad» sí crea.`;
     return;
   }
-  versionLeida = cuerpo.version ?? null;
+  catalogo.versionLeida = cuerpo.version ?? null;
   if (cuerpo.heroe === undefined) {
     throw new Error('el servidor no ha mandado el cuerpo del héroe con las unidades');
   }
-  cuerpoDeTodoHeroe = combateDelHeroe(cuerpo.heroe, 'el cuerpo del héroe que manda el servidor');
-  cuerpoGuardado = cuerpoDeTodoHeroe;
+  catalogo.cuerpoDeTodoHeroe = combateDelHeroe(
+    cuerpo.heroe,
+    'el cuerpo del héroe que manda el servidor',
+  );
+  catalogo.cuerpoGuardado = catalogo.cuerpoDeTodoHeroe;
   // Las piezas antes que las unidades: una unidad puede llevar una nueva.
   cargarPiezas(cuerpo);
   if (cuerpo.hechizos !== undefined) {
-    hechizosDeLaPagina = leerHechizos({ hechizos: cuerpo.hechizos }, 'los hechizos del servidor');
-    hechizosGuardados = hechizosDeLaPagina;
+    catalogo.hechizosDeLaPagina = leerHechizos(
+      { hechizos: cuerpo.hechizos },
+      'los hechizos del servidor',
+    );
+    catalogo.hechizosGuardados = catalogo.hechizosDeLaPagina;
   }
   const unidades = Array.isArray(cuerpo.unidades) ? cuerpo.unidades : [];
   const sinHoja: string[] = [];
   for (const crudo of unidades) {
-    const u = validarUnidad(crudo, equipo);
-    unidadesDelCatalogo.set(u.id, u);
+    const u = validarUnidad(crudo, catalogo.equipo);
+    catalogo.unidadesDelCatalogo.set(u.id, u);
     const motivo = porQueNoSeMonta(u);
     if (motivo !== null) sinHoja.push(`${u.id} (${motivo})`);
   }
-  aviso = avisoDelCatalogoLeido(RUTA_DEL_CATALOGO_DE_UNIDADES, unidadesDelCatalogo.size);
+  aviso = avisoDelCatalogoLeido(RUTA_DEL_CATALOGO_DE_UNIDADES, catalogo.unidadesDelCatalogo.size);
   // Las que no tienen hoja se quedan en el catálogo y se vuelven a guardar; solo
   // no se pueden montar.
   if (sinHoja.length > 0) aviso += ` No se pueden montar: ${sinHoja.join(', ')}.`;
@@ -955,7 +987,7 @@ async function arrancar(): Promise<void> {
  * frase de la barra.
  */
 function delCatalogoDelNucleo(): string {
-  for (const u of UNIDADES) unidadesDelCatalogo.set(u.id, u);
+  for (const u of UNIDADES) catalogo.unidadesDelCatalogo.set(u.id, u);
   return `Cargado ${RUTA_DEL_CATALOGO_DE_UNIDADES}: ${UNIDADES.length} unidades.`;
 }
 
@@ -969,8 +1001,8 @@ function cargarPiezas(cuerpo: RespuestaDeBorrador): void {
   if (!Array.isArray(cuerpo.piezas)) {
     throw new Error('el servidor no ha mandado el catálogo de equipo con las unidades');
   }
-  equipo = catalogoDeEquipo(cuerpo.piezas);
-  equipoGuardado = equipo;
+  catalogo.equipo = catalogoDeEquipo(cuerpo.piezas);
+  catalogo.equipoGuardado = catalogo.equipo;
 }
 
 /**
@@ -1189,7 +1221,7 @@ function fichaAbierta(f: FichaEditable): FichaAbierta {
   return {
     clave: claveDeFicha(f),
     titulo: nombreDeFicha(f),
-    cuerpo: fichaDe(f, enElMontaje(equipo, hechizosQueValen())),
+    cuerpo: fichaDe(f, enElMontaje(catalogo.equipo, hechizosQueValen())),
   };
 }
 
@@ -1212,14 +1244,14 @@ function repintarEquipo(): void {
     pintar(
       elEquipo,
       renderEquipo({
-        piezas: equipo,
+        piezas: catalogo.equipo,
         elegida: piezaElegida,
         llevan: quienesLaLlevan,
         rechazo: aviso === rechazado ? aviso : null,
         enCombate: sesion !== null,
         sinGuardar: sinGuardarEnPalabras(
           piezasSinGuardar().length,
-          unidadesSinGuardar.size,
+          catalogo.unidadesSinGuardar.size,
           cuerpoSinGuardar(),
         ),
       }),
@@ -1235,7 +1267,7 @@ function repintarEquipo(): void {
  */
 function quienesLaLlevan(id: string): string[] {
   return [
-    ...[...unidadesDelCatalogo.values()]
+    ...[...catalogo.unidadesDelCatalogo.values()]
       .filter((u) => idsPuestos(u.equipo).includes(id))
       .map((u) => u.name),
     ...(laLlevaElHeroe(id) ? [LA_LLEVA_EL_HEROE] : []),
@@ -1259,11 +1291,11 @@ function heroesDeLaPagina(): HeroeDeArena[] {
  * cambio de unidad en plena pelea (`cambiarUnidad`).
  */
 function cambiarPiezas(id: string, nueva: PiezaEscrita | null, texto: string): boolean {
-  const escritas = [...equipo.escritas.values()];
+  const escritas = [...catalogo.equipo.escritas.values()];
   const cambio = cambioDePiezas(
-    equipo,
+    catalogo.equipo,
     nueva === null ? escritas.filter((p) => p.id !== id) : conPiezas(escritas, [nueva]),
-    [...unidadesDelCatalogo.values()],
+    [...catalogo.unidadesDelCatalogo.values()],
     heroesDeLaPagina(),
   );
   if ('motivo' in cambio) {
@@ -1275,7 +1307,7 @@ function cambiarPiezas(id: string, nueva: PiezaEscrita | null, texto: string): b
     noSeCambia(enLaPelea);
     return false;
   }
-  equipo = cambio.equipo;
+  catalogo.equipo = cambio.equipo;
   avisoTrasCambio(texto);
   return true;
 }
@@ -1382,7 +1414,7 @@ function cambiarCampoDePieza(
     throw new Error('un campo de pieza fuera de la ficha de una pieza');
   }
   try {
-    const eq = equipo;
+    const eq = catalogo.equipo;
     const nueva = validarPieza(conCampoDePieza(escritaDe(eq, id), campo, valor, eq));
     cambiarPiezas(
       id,
@@ -1397,7 +1429,7 @@ function cambiarCampoDePieza(
 /** La pieza de la ficha de equipo: la elegida, o lanza si no hay ninguna (el botón no estaría). */
 function piezaDeLaFicha(): Pieza {
   if (piezaElegida === null) throw new Error('no hay ninguna pieza elegida en la ficha');
-  return equipo.pieza(piezaElegida);
+  return catalogo.equipo.pieza(piezaElegida);
 }
 
 /**
@@ -1518,8 +1550,8 @@ function puestoPorClave(clave: number): { lado: Lado; i: number; p: Puesto } {
 function fichaElegida(enCombate = false): Html {
   const como =
     enCombate && sesion !== null
-      ? { enCombate, piezas: equipo, hechizos: hechizosQueValen() }
-      : enElMontaje(equipo, hechizosQueValen());
+      ? { enCombate, piezas: catalogo.equipo, hechizos: hechizosQueValen() }
+      : enElMontaje(catalogo.equipo, hechizosQueValen());
   return fichaDe(elegida, como);
 }
 
@@ -1691,9 +1723,9 @@ function añadir(lado: Lado, id: string, escalera = false): void {
     return;
   }
   // La unidad entra en el catálogo al montarla: es lo que se probó y lo que se guarda.
-  if (!unidadesDelCatalogo.has(u.id)) {
-    unidadesDelCatalogo.set(u.id, u);
-    unidadesSinGuardar.add(u.id);
+  if (!catalogo.unidadesDelCatalogo.has(u.id)) {
+    catalogo.unidadesDelCatalogo.set(u.id, u);
+    catalogo.unidadesSinGuardar.add(u.id);
   }
   elegida = { kind: 'unidad', id: u.id };
   montaje[lado].push({ clave: siguienteClave++, unidad: id, escalera });
@@ -1708,7 +1740,7 @@ function cambiarHeroe(lado: Lado, cambio: (h: HeroeDeArena) => HeroeDeArena): bo
     const nuevo = validarHeroeDeArena(cambio(h));
     // Lo que lleva, con la regla de su ficha (sin arma de cuerpo a cuerpo no se
     // combate): fuera de la pelea no lo mira nadie más.
-    heroeDeArena(nuevo, equipo);
+    heroeDeArena(nuevo, catalogo.equipo);
     const motivo = retocarLaPelea({ kind: 'heroe', lado, datos: nuevo });
     if (motivo !== null) {
       noSeCambia(motivo);
@@ -1730,7 +1762,7 @@ function cambiarHeroe(lado: Lado, cambio: (h: HeroeDeArena) => HeroeDeArena): bo
  */
 function cambiarCuerpoDeTodoHeroe(campo: 'hp' | 'fuerza' | 'agilidad', v: string): void {
   const n = v.trim() === '' ? Number.NaN : Number(v);
-  const c = cuerpoDeTodoHeroe;
+  const c = catalogo.cuerpoDeTodoHeroe;
   let nuevo: CuerpoDeTodoHeroe;
   try {
     nuevo = combateDelHeroe(
@@ -1748,20 +1780,20 @@ function cambiarCuerpoDeTodoHeroe(campo: 'hp' | 'fuerza' | 'agilidad', v: string
   for (const lado of ['izquierda', 'derecha'] as const) {
     if (!cambiarHeroe(lado, (h) => ({ ...h, cuerpo: nuevo }))) return;
   }
-  cuerpoDeTodoHeroe = nuevo;
+  catalogo.cuerpoDeTodoHeroe = nuevo;
 }
 
 /** Aplica un cambio a la unidad de un tipo, validado: lo que no cuadra se dice y no entra. */
 function cambiarUnidad(id: string, cambio: (u: Unidad) => unknown): void {
   try {
-    const nueva = validarUnidad(cambio(unidadDe(id)), equipo);
+    const nueva = validarUnidad(cambio(unidadDe(id)), catalogo.equipo);
     const motivo = retocarLaPelea({ kind: 'tipo', fuente: { unidad: nueva } });
     if (motivo !== null) {
       noSeCambia(motivo);
       return;
     }
-    unidadesDelCatalogo.set(id, nueva);
-    unidadesSinGuardar.add(id);
+    catalogo.unidadesDelCatalogo.set(id, nueva);
+    catalogo.unidadesSinGuardar.add(id);
     avisoTrasCambio('');
   } catch (err) {
     noSeCambia(`${mensajeDe(err)}.`);
@@ -1803,32 +1835,34 @@ function marcadoDe(el: Element): boolean {
  * (`escribirCatalogo`): si algo no vale no se escribe nada y se dice por qué.
  */
 async function guardar(): Promise<void> {
-  const orden = hojas.map((h) => h.id);
+  const orden = catalogo.hojas.map((h) => h.id);
   // Las nuevas y las que no tienen hoja (`indexOf` −1) van al final, en el orden
   // en que llegaron.
   const puesto = (id: string): number => {
     const i = orden.indexOf(id);
     return i < 0 ? orden.length : i;
   };
-  const unidades = [...unidadesDelCatalogo.values()].sort((a, b) => puesto(a.id) - puesto(b.id));
-  const guardado = equipo;
+  const unidades = [...catalogo.unidadesDelCatalogo.values()].sort(
+    (a, b) => puesto(a.id) - puesto(b.id),
+  );
+  const guardado = catalogo.equipo;
   const piezas = [...guardado.escritas.values()];
   // Con la versión que se leyó: si otra pestaña guardó entre medias, el servidor
   // lo rechaza en vez de pisarlo (`guardarCatalogo`).
-  const heroe = cuerpoDeTodoHeroe;
-  const hechizos = hechizosDeLaPagina;
+  const heroe = catalogo.cuerpoDeTodoHeroe;
+  const hechizos = catalogo.hechizosDeLaPagina;
   const hecho = await mandarAlServidor(
     '/__arena/unidades',
-    { unidades, piezas, heroe, hechizos, version: versionLeida },
-    sinGuardado,
+    { unidades, piezas, heroe, hechizos, version: catalogo.versionLeida },
+    catalogo.sinGuardado,
     { noSePuede: 'No se puede guardar', noSeHa: 'No se ha guardado' },
   );
   if (hecho === null) return;
-  versionLeida = hecho.version ?? null;
-  unidadesSinGuardar.clear();
-  equipoGuardado = guardado;
-  cuerpoGuardado = heroe;
-  hechizosGuardados = hechizos;
+  catalogo.versionLeida = hecho.version ?? null;
+  catalogo.unidadesSinGuardar.clear();
+  catalogo.equipoGuardado = guardado;
+  catalogo.cuerpoGuardado = heroe;
+  catalogo.hechizosGuardados = hechizos;
   aviso = guardadoEnPalabras(hecho as Guardado);
 }
 
@@ -1840,9 +1874,9 @@ function nombresDe(piezas: readonly Pieza[]): string {
 // Cerrar o recargar con cifras sin guardar las perdía sin decir nada (M5 de QA).
 window.addEventListener('beforeunload', (ev) => {
   const algo =
-    unidadesSinGuardar.size + piezasSinGuardar().length + hechizosSinGuardar().length > 0 ||
-    cuerpoSinGuardar();
-  if (algo && sinGuardado === null) ev.preventDefault();
+    catalogo.unidadesSinGuardar.size + piezasSinGuardar().length + hechizosSinGuardar().length >
+      0 || cuerpoSinGuardar();
+  if (algo && catalogo.sinGuardado === null) ev.preventDefault();
 });
 
 // ---------------------------------------------------------------- el enlace de la pelea
@@ -1865,7 +1899,7 @@ function montajeDelEnlace(): MontajeDelEnlace {
     piezas: piezasDelMontaje(
       unidades,
       heroesDeLaPagina().map((h) => h.equipo),
-      [...equipo.escritas.values()],
+      [...catalogo.equipo.escritas.values()],
     ),
     hechizos: hechizosDelMontaje(unidades, heroesDeLaPagina(), catalogoDeMagia()),
     izquierda: lado('izquierda'),
@@ -1952,18 +1986,18 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
       }
     }
     const distintas = m.unidades.filter(
-      (u) => JSON.stringify(unidadesDelCatalogo.get(u.id) ?? null) !== JSON.stringify(u),
+      (u) => JSON.stringify(catalogo.unidadesDelCatalogo.get(u.id) ?? null) !== JSON.stringify(u),
     );
     const { despues, dicho: piezasDichas } = equipoAlAbrir(m);
-    equipo = despues;
+    catalogo.equipo = despues;
     // Los hechizos del enlace entran en los de la página, como sus piezas: los que
     // son otros, sin guardar.
-    hechizosDeLaPagina = [
-      ...hechizosDeLaPagina.map((h) => m.hechizos.find((x) => x.id === h.id) ?? h),
-      ...m.hechizos.filter((x) => !hechizosDeLaPagina.some((h) => h.id === x.id)),
+    catalogo.hechizosDeLaPagina = [
+      ...catalogo.hechizosDeLaPagina.map((h) => m.hechizos.find((x) => x.id === h.id) ?? h),
+      ...m.hechizos.filter((x) => !catalogo.hechizosDeLaPagina.some((h) => h.id === x.id)),
     ];
-    for (const u of m.unidades) unidadesDelCatalogo.set(u.id, u);
-    for (const u of distintas) unidadesSinGuardar.add(u.id);
+    for (const u of m.unidades) catalogo.unidadesDelCatalogo.set(u.id, u);
+    for (const u of distintas) catalogo.unidadesSinGuardar.add(u.id);
     for (const l of ['izquierda', 'derecha'] as const) {
       montaje[l] = m[l].puestos.map((p) => ({
         clave: siguienteClave++,
@@ -1976,7 +2010,7 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
     // El cuerpo de sus héroes (el mismo en los dos: `montajeDeLaURL`) es el de todo
     // héroe de la página, como sus piezas: sin guardar si no es el del disco.
     const conCuerpo = heroes.izquierda ?? heroes.derecha;
-    if (conCuerpo !== null) cuerpoDeTodoHeroe = conCuerpo.cuerpo;
+    if (conCuerpo !== null) catalogo.cuerpoDeTodoHeroe = conCuerpo.cuerpo;
     // La muralla del enlace sustituye a la dibujada; sin ella, el tablero va limpio.
     muralla = m.muralla ?? murallaVacia('piedra');
     combate = m.combate;
@@ -2011,14 +2045,16 @@ function equipoAlAbrir(m: MontajeDelEnlace): {
   readonly despues: CatalogoDeEquipo;
   readonly dicho: string;
 } {
-  const unidades = new Map(unidadesDelCatalogo);
+  const unidades = new Map(catalogo.unidadesDelCatalogo);
   for (const u of m.unidades) unidades.set(u.id, u);
-  const cambio = cambioDePiezas(equipo, conPiezas([...equipo.escritas.values()], m.piezas), [
-    ...unidades.values(),
-  ]);
+  const cambio = cambioDePiezas(
+    catalogo.equipo,
+    conPiezas([...catalogo.equipo.escritas.values()], m.piezas),
+    [...unidades.values()],
+  );
   if ('motivo' in cambio) throw new Error(`sus piezas no entran en las tuyas: ${cambio.motivo}`);
   const despues = cambio.equipo;
-  const cambian = idsQueCambian(equipo, despues).map((id) => despues.pieza(id));
+  const cambian = idsQueCambian(catalogo.equipo, despues).map((id) => despues.pieza(id));
   return {
     despues,
     dicho:
@@ -2067,7 +2103,7 @@ function luchar(): void {
         izquierda: lado('izquierda'),
         derecha: lado('derecha'),
         muralla,
-        equipo,
+        equipo: catalogo.equipo,
         combate,
         hechizos: catalogoDeMagia(),
       },
@@ -2413,7 +2449,7 @@ document.addEventListener('click', (ev) => {
           aviso = `El bando ${LADOS[lado].adjetivo} ya lleva ${combate.tope}: no cabe el héroe.`;
           break;
         }
-        heroes[lado] = heroePorDefecto(lado, cuerpoDeTodoHeroe);
+        heroes[lado] = heroePorDefecto(lado, catalogo.cuerpoDeTodoHeroe);
         elegida = { kind: 'heroe', lado };
         aviso = `El bando ${LADOS[lado].adjetivo} lleva héroe: cambia sus cifras y su libro en la ficha.`;
         break;
@@ -2514,7 +2550,7 @@ document.addEventListener('click', (ev) => {
       case 'ir-a-equipo':
         if (escena === 'equipo') break;
         irA('equipo');
-        piezaElegida ??= equipo.piezas.keys().next().value ?? null;
+        piezaElegida ??= catalogo.equipo.piezas.keys().next().value ?? null;
         aviso = avisoAlEntrar('equipo');
         break;
       case 'volver-de-equipo': {
@@ -2547,8 +2583,8 @@ document.addEventListener('click', (ev) => {
         else throw new Error(`«+ Nueva pieza» trae «${hueco}», que no es un hueco`);
         const p =
           sobre && typeof desde !== 'string'
-            ? piezaSobre(desde, equipo)
-            : piezaNueva(desde, equipo);
+            ? piezaSobre(desde, catalogo.equipo)
+            : piezaNueva(desde, catalogo.equipo);
         const dicho =
           typeof desde === 'string'
             ? `Nueva pieza «${p.nombre}»: cambia sus cifras en la ficha, y di si se vende o cae como botín.`
@@ -2978,7 +3014,7 @@ function cambiarDeLaUnidad(id: string, el: Element): void {
     // (`manosBlocker`) y sale en la barra.
     if (!esHueco(hueco)) throw new Error(`«${hueco}» no es un hueco`);
     const puesta = valorDe(el);
-    if (puesta !== '') cambiarUnidad(id, (u) => equiparEnArena(u, puesta, equipo, hueco));
+    if (puesta !== '') cambiarUnidad(id, (u) => equiparEnArena(u, puesta, catalogo.equipo, hueco));
   } else if (el.getAttribute('data-arena-rasgo') !== null) {
     añadirRasgo({ kind: 'unidad', id }, el);
   } else if (el.getAttribute('data-arena-habilidad') !== null) {
@@ -2999,7 +3035,7 @@ function cambiarDelHeroe(lado: Lado, el: Element): void {
     // Ponerle una pieza, como a una unidad: lo que no se puede lo dice el núcleo.
     if (!esHueco(hueco)) throw new Error(`«${hueco}» no es un hueco`);
     const puesta = valorDe(el);
-    if (puesta !== '') cambiarHeroe(lado, (h) => equiparEnArena(h, puesta, equipo, hueco));
+    if (puesta !== '') cambiarHeroe(lado, (h) => equiparEnArena(h, puesta, catalogo.equipo, hueco));
   } else if (campo === 'hp' || campo === 'fuerza' || campo === 'agilidad') {
     cambiarCuerpoDeTodoHeroe(campo, valorDe(el));
   } else if (campo !== null) {
@@ -3067,7 +3103,7 @@ Promise.all([arrancar(), arrancarMurallas()]).then(
     // y está entera).
     const recordadas = leerAbiertas(
       leerDelNavegador(CLAVE_DE_ABIERTAS, QUE_ABIERTAS),
-      (f) => unidadesDelCatalogo.has(f.id) && porQueNoSeMonta(unidadDe(f.id)) === null,
+      (f) => catalogo.unidadesDelCatalogo.has(f.id) && porQueNoSeMonta(unidadDe(f.id)) === null,
     );
     abiertas = recordadas.abiertas;
     listaPlegada = listaPlegadaTras(
@@ -3082,13 +3118,13 @@ Promise.all([arrancar(), arrancarMurallas()]).then(
         ? 'Añade unidades a los dos bandos y pulsa Luchar.'
         : avisoAlEntrar(pedida.vista);
     aviso = delEnlace?.montado
-      ? `${delEnlace.aviso}${aviso}${avisoDeIncompletas}${avisoDeMurallas}${deAbiertas}`
-      : `${avisoDeSemilla}${delEnlace?.aviso ?? ''}${aviso}${avisoDeIncompletas}${avisoDeMurallas} ${queHacer}${deAbiertas}`;
+      ? `${delEnlace.aviso}${aviso}${catalogo.avisoDeIncompletas}${avisoDeMurallas}${deAbiertas}`
+      : `${avisoDeSemilla}${delEnlace?.aviso ?? ''}${aviso}${catalogo.avisoDeIncompletas}${avisoDeMurallas} ${queHacer}${deAbiertas}`;
     aviso = `${pedida.aviso}${aviso}`;
     // Recargar deja la vista donde estaba: la edición con sus fichas (recordadas
     // arriba) o el equipo con su pieza.
     if (pedida.vista === 'equipo') {
-      piezaElegida = pedida.pieza ?? equipo.piezas.keys().next().value ?? null;
+      piezaElegida = pedida.pieza ?? catalogo.equipo.piezas.keys().next().value ?? null;
     }
     irA(pedida.vista ?? 'montaje');
     repintar();
