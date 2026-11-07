@@ -16,6 +16,7 @@
 
 import { closeSync, openSync, readSync, statSync } from 'node:fs';
 import { dirname, extname, join } from 'node:path';
+import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import {
   CLIENTE,
@@ -519,6 +520,60 @@ describe('invariantes del proyecto', () => {
         (x) => x.ruta,
       ),
     ).toContain(ruta('src/core/map/vestir/base.ts'));
+  });
+
+  it('`core` no reexporta: cada importador pide el nombre al módulo que lo declara', () => {
+    // Una fachada es un segundo sitio donde está un nombre: quien lee el importador
+    // cree que vive allí, y un guardia que mira quién importa algo de un módulo no
+    // ve a quien lo trae por la fachada. Hasta el paso N13 de la reorganización
+    // (07-11-2026) reexportaban `battle/rueda.ts` (las formas, las cifras y los tipos
+    // de la rueda), `cifras-de-la-rueda.ts` (`NOMBRE_DE_GOLPE`), `spells.ts`
+    // (`Hechizo`) y `battle.ts` (`MAX_ROUNDS`), y 63 importaciones pasaban por ellas.
+    // Mira con el parser de TypeScript las dos formas: `export … from` (también
+    // `export *` y la que va en varias líneas) y `export { x }` o `export default x`
+    // de un nombre importado. Rotos a mano, rojos con su línea: `export { hexKey }
+    // from './board.js'` en `battle.ts`, la misma en tres líneas, `export * from
+    // './board.js'`, un `export { MAX_ROUNDS }` de vuelta en `battle.ts` y el
+    // `export type { Hechizo }` de vuelta en `spells.ts`.
+    const importadosDe = (sf: ts.SourceFile): Set<string> => {
+      const nombres = new Set<string>();
+      for (const s of sf.statements) {
+        if (!ts.isImportDeclaration(s) || s.importClause === undefined) continue;
+        const { name, namedBindings } = s.importClause;
+        if (name !== undefined) nombres.add(name.text);
+        if (namedBindings === undefined) continue;
+        if (ts.isNamespaceImport(namedBindings)) nombres.add(namedBindings.name.text);
+        else for (const e of namedBindings.elements) nombres.add(e.name.text);
+      }
+      return nombres;
+    };
+    const fuente = (r: string) => ts.createSourceFile(r, leer(r), ts.ScriptTarget.Latest, true);
+    const reexportan: string[] = [];
+    for (const r of CORE) {
+      const sf = fuente(r);
+      const importados = importadosDe(sf);
+      for (const s of sf.statements) {
+        let reexporta = false;
+        if (ts.isExportDeclaration(s)) {
+          reexporta =
+            s.moduleSpecifier !== undefined ||
+            (s.exportClause !== undefined &&
+              ts.isNamedExports(s.exportClause) &&
+              s.exportClause.elements.some((e) => importados.has((e.propertyName ?? e.name).text)));
+        } else if (ts.isExportAssignment(s)) {
+          reexporta = ts.isIdentifier(s.expression) && importados.has(s.expression.text);
+        }
+        if (!reexporta) continue;
+        const linea = sf.getLineAndCharacterOfPosition(s.getStart(sf)).line + 1;
+        reexportan.push(`${r}:${linea} → ${s.getText(sf).replace(/\s+/g, ' ')}`);
+      }
+    }
+    expect(reexportan).toEqual([]);
+    // Y que mire algo: todo `core`, y lo importado de cada fichero, que es lo que separa
+    // la reexportación de un nombre del `export { x }` de uno propio (el motor importa
+    // `MAX_ROUNDS`, que reexportaba).
+    expect(CORE.length).toBeGreaterThan(100);
+    expect(importadosDe(fuente(ruta('src/core/battle/battle.ts')))).toContain('MAX_ROUNDS');
   });
 
   it('ningún fichero que una máquina lee lleva dentro la ruta de esta máquina', () => {
