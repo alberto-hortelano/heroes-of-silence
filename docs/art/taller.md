@@ -18,6 +18,11 @@ pnpm taller devolver <id>                   # de en-curso/ o fallido/ otra vez a
 pnpm taller derivar assets/unidades/<id>/atlas.webp
 ```
 
+Las órdenes son una tabla, `ORDENES` (`tools/taller/trabajador.ts`), de la que salen la ayuda y
+el «orden desconocida»; el cuerpo de cada una vive en `tools/taller/ordenes/`, por familia (la
+cola, encolar, derivar, los temas, el maniquí, la revisión, la base, el mapa y las vistas), y lo
+que se hace con cada encargo, en `tools/taller/proceso.ts`.
+
 ## La cola
 
 `tools/taller/cola/{pendiente,en-curso,hecho,fallido}/<id>.json`, fuera de git.

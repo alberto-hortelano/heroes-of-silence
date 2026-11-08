@@ -413,7 +413,7 @@ describe('una figura no se queda a medias para siempre (QA del banco de NPC, H2)
       rescatar(VECINA, r),
     ]);
     expect(rescate.status).toBe('fulfilled');
-    // El que llega tarde del trabajador lanza `NoEstaEn`, y su bucle lo dice y sigue (`trabajador.ts`).
+    // El que llega tarde del trabajador lanza `NoEstaEn`, y su bucle lo dice y sigue (`ordenes/cola.ts`).
     if (vez.status === 'rejected') expect(String(vez.reason)).toMatch(/no está en fallido\//);
     expect(await cola.estado()).toMatchObject({
       pendiente: ['npc-vecina-de-prueba-identidad'],

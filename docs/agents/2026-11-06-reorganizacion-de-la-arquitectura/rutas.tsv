@@ -2413,3 +2413,29 @@ simbolo	tools/taller/empaquetar.ts	tools/taller/cuerpo.ts	enLaVentana
 simbolo	tools/taller/empaquetar.ts	tools/taller/cuerpo.ts	cuerpoDe
 simbolo	tools/taller/mapa-denso.ts	tools/taller/estilo-del-mapa.ts	REFERENCIA_DE_MAPAS
 simbolo	tools/taller/mapa-denso.ts	tools/taller/estilo-del-mapa.ts	ESTILO_DEL_MAPA
+simbolo	tools/taller/trabajador.ts	tools/taller/ordenes/orden.ts	Orden
+simbolo	tools/taller/trabajador.ts	tools/taller/ordenes/orden.ts	faccionDe
+simbolo	tools/taller/trabajador.ts	tools/taller/ordenes/orden.ts	COLA
+simbolo	tools/taller/trabajador.ts	tools/taller/proceso.ts	sinHome
+simbolo	tools/taller/trabajador.ts	tools/taller/proceso.ts	FalloTrasGenerar
+simbolo	tools/taller/trabajador.ts	tools/taller/proceso.ts	procesar
+simbolo	tools/taller/trabajador.ts	tools/taller/proceso.ts	postprocesar
+simbolo	tools/taller/trabajador.ts	tools/taller/relieve.ts	encargosDelRelieve
+simbolo	tools/taller/trabajador.ts	tools/taller/relieve.ts	escribirRelieveDerivado
+simbolo	tools/taller/trabajador.ts	tools/taller/ordenes/cola.ts	trabajar
+simbolo	tools/taller/trabajador.ts	tools/taller/ordenes/cola.ts	reprocesar
+simbolo	tools/taller/trabajador.ts	tools/taller/ordenes/cola.ts	corregir
+simbolo	tools/taller/trabajador.ts	tools/taller/ordenes/cola.ts	ORDENES_DE_LA_COLA
+simbolo	tools/taller/trabajador.ts	tools/taller/ordenes/encolar.ts	encolarConSolo
+simbolo	tools/taller/trabajador.ts	tools/taller/ordenes/encolar.ts	encolar
+simbolo	tools/taller/trabajador.ts	tools/taller/ordenes/encolar.ts	ORDENES_DE_ENCOLAR
+simbolo	tools/taller/trabajador.ts	tools/taller/ordenes/derivados.ts	ORDENES_DE_DERIVAR
+simbolo	tools/taller/trabajador.ts	tools/taller/ordenes/temas.ts	ORDENES_DE_LOS_TEMAS
+simbolo	tools/taller/trabajador.ts	tools/taller/ordenes/maniqui.ts	renderizarElManiquiCivil
+simbolo	tools/taller/trabajador.ts	tools/taller/ordenes/maniqui.ts	sacarElEsqueleto
+simbolo	tools/taller/trabajador.ts	tools/taller/ordenes/maniqui.ts	ORDENES_DEL_MANIQUI
+simbolo	tools/taller/trabajador.ts	tools/taller/ordenes/base.ts	ORDENES_DE_LA_BASE
+simbolo	tools/taller/trabajador.ts	tools/taller/ordenes/mapa.ts	ORDENES_DEL_MAPA
+simbolo	tools/taller/trabajador.ts	tools/taller/ordenes/vistas.ts	ORDENES_DE_LAS_VISTAS
+simbolo	tools/taller/trabajador.ts	tools/taller/ordenes/revision.ts	hojaDeLosArgumentos (a mano: el refactor no importa lo que se nombra en una propiedad abreviada, `{ unir, arbitrar, cruzar }`)
+simbolo	tools/taller/trabajador.ts	tools/taller/ordenes/revision.ts	ORDENES_DE_LA_REVISION (a mano, por lo mismo)

@@ -14,7 +14,7 @@ import { ULTIMA_FILA } from '../core/battle/board.js';
 import type { AccionesDeNpc } from '../core/gente/banco.js';
 /**
  * El margen con que el taller recorta a su contenido una pieza suelta del mapa,
- * en píxeles de su imagen (`recortarAlContenido`, `tools/taller/trabajador.ts`):
+ * en píxeles de su imagen (`recortarAlContenido`, `tools/taller/proceso.ts`):
  * lo transparente que la imagen lleva alrededor de lo pintado. Lo lee también el
  * escenógrafo, que mide lo que se ve de una obra del puesto sin él.
  */

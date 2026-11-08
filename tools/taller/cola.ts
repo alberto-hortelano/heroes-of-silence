@@ -115,7 +115,7 @@ const temporalDe = (raiz: string, id: string): string =>
 
 const comoJson = (ficha: Ficha): string => textoJson(ficha, 2);
 
-/** La cola del taller de una raíz: la del repo (`COLA`, `trabajador.ts`) o una temporal en los tests. */
+/** La cola del taller de una raíz: la del repo (`COLA`, `ordenes/orden.ts`) o una temporal en los tests. */
 export function colaDelTaller(raiz: string): Cola {
   return new Cola(join(raiz, 'tools/taller/cola'));
 }

@@ -13,7 +13,7 @@
  * **El reintento** (QA del banco de NPC, H2, 22-10-2026: «se encadena sola» y «llegan
  * después»): un encargo de una figura que falla se vuelve a encolar solo hasta
  * `REINTENTOS_DE_NPC` veces, contadas en su ficha (`Ficha.fallos`), no en la memoria de un
- * trabajador; lo hacen el trabajador al fallar (`trabajador.ts`) y `pnpm npcs trabajar`
+ * trabajador; lo hacen el trabajador al fallar (`taller/ordenes/cola.ts`) y `pnpm npcs trabajar`
  * al arrancar (`rescatar`, `tools/taller/npcs.ts`). Pasado el tope queda fallido, y el
  * estado lo dice con la orden que lo arregla.
  */
