@@ -52,7 +52,7 @@ export function horizonteDelCampo(t: Tablero): number {
  * el mismo campo y pone el suyo detrás del héroe.
  */
 export function pintarFondo(ctx: CanvasRenderingContext2D, v: LienzoDelCampo): void {
-  const campo = asset('rpg', 'campo');
+  const campo = asset('fijo', 'campo');
   const dpr = densidadDe(ctx);
   const clima = v.clima ?? DESPEJADO;
   const clave = `${v.ancho}|${v.alto}|${dpr}|${v.horizonte}|${clima.tiempo}|${clima.noche}`;

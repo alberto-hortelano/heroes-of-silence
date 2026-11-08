@@ -81,16 +81,19 @@ export async function imagenDeLaBase(url: string): Promise<HTMLImageElement | nu
 }
 
 /**
- * El arte fijo del cliente nuevo, por el nombre con el que se pide a `asset('rpg',
+ * El arte fijo del cliente nuevo, por el nombre con el que se pide a `asset('fijo',
  * …)`: el fondo de la batalla. El atlas del mapa ya no se pide: el cofre, lo
  * último que salía de él, es una pieza suelta (#147). Las
  * figuras ya no están aquí: son de 8 direcciones y se cargan a demanda, hoja a
  * hoja, la primera vez que se pinta cada una (`cargarHojaDeFigura`).
  *
  * Va aparte del manifiesto de `generated/` porque no es arte generado: es el
- * arte aprobado que se rescató de la rama `archivo/gpt-rpg`.
+ * arte aprobado que se rescató de la rama `archivo/gpt-rpg`. Por eso vive en `assets/rpg/`: lo
+ * citan así las procedencias de las piezas de la muralla de batalla, que se pintaron con él de
+ * referencia de estilo, y el taller (QA de la reorganización, H7: se renombró la constante, que
+ * era `ARTE_RPG`, y no la carpeta).
  */
-export const ARTE_RPG = {
+export const ARTE_FIJO = {
   campo: '/rpg/campo.webp',
 } as const;
 
@@ -192,9 +195,9 @@ export function tandaDeArte(carga: Promise<unknown>): void {
 }
 
 /** El arte fijo y, si se pinta el mapa, sus piezas. Nunca lanza: lo que no llegue se queda en su marcador. */
-function loadRpgArt(mapa: boolean): Promise<unknown> {
+function cargarElArteFijo(mapa: boolean): Promise<unknown> {
   return Promise.all([
-    ...Object.entries(ARTE_RPG).map(([nombre, url]) => cargarImagen(`rpg/${nombre}`, url)),
+    ...Object.entries(ARTE_FIJO).map(([nombre, url]) => cargarImagen(`fijo/${nombre}`, url)),
     ...(mapa
       ? PIEZAS_DEL_MAPA.map((nombre) => cargarImagen(`mapa/${nombre}`, `/mapa/${nombre}.webp`))
       : []),
@@ -350,7 +353,7 @@ export function cargarArte(
   }
   // La arena no pinta el mapa de aventura: sus piezas serían nueve peticiones
   // para nada.
-  tandaDeArte(loadRpgArt(mapa));
+  tandaDeArte(cargarElArteFijo(mapa));
 }
 
 /** Imagen ya cargada, o `null` si ese asset todavía no existe. */

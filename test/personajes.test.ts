@@ -8,7 +8,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { ARTE_RPG } from '../src/client/render/assets.js';
+import { ARTE_FIJO } from '../src/client/render/assets.js';
 import { CUERPO_DE_VECINO } from '../src/client/render/figuras/cuerpo-de-gente.js';
 import {
   arteDe,
@@ -135,7 +135,7 @@ describe('las figuras a 25°, en 8 direcciones', () => {
     for (const cuerpo of Object.keys(JUEGO_SIN_HOJA)) {
       for (const url of arteDe(cuerpo).imagenes) expect(existsSync(enDisco(url)), url).toBe(true);
     }
-    for (const [nombre, url] of Object.entries(ARTE_RPG)) {
+    for (const [nombre, url] of Object.entries(ARTE_FIJO)) {
       expect(existsSync(enDisco(url)), nombre).toBe(true);
     }
   });
