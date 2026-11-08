@@ -99,15 +99,14 @@ import { componer } from '../../src/client/render/escenario/colocar.js';
 import { Session } from '../../src/client/sesion/partida.js';
 import { autoResolve } from '../../src/core/ai/tactics.js';
 import { causaDelFinal } from '../../src/core/battle/consultas.js';
-import { LADO_DEL_MAPA, LADO_MINIMO_DEL_GENERADOR } from '../../src/core/map/generar/plan.js';
+import { LADO_MINIMO_DEL_GENERADOR } from '../../src/core/map/generar/plan.js';
 import { partidaDelMundo } from '../../src/core/mundo/partida.js';
 import { parseClima } from '../../src/core/state/clima.js';
 import { baseOf, heroesOf } from '../../src/core/state/consultas.js';
 import { newGame } from '../../src/core/state/setup.js';
 import type { GameState } from '../../src/core/state/tipos.js';
 import { AgentLink } from '../../src/server/agent-link.js';
-import { Director } from '../../src/server/director.js';
-import { pedirMapaAlAgente } from '../../src/server/mapa-del-agente.js';
+import { partidaConElMapaDelAgente } from '../../src/server/mapa-del-agente.js';
 import type { ServerToAgentMsg } from '../../src/server/protocol.js';
 import { destinoDeHoy, sesionContraMonstruo } from '../../test/batalla-de-cliente.js';
 import { agresiva } from '../../test/batalla-de-prueba.js';
@@ -272,19 +271,14 @@ async function mensajesAlAgente(semilla: number): Promise<readonly ServerToAgent
   const socket = new SocketQueLoGuarda(semilla);
   const link = new AgentLink();
   link.attach(socket as unknown as WebSocket);
-  const { plan, motivo } = await pedirMapaAlAgente(link, {
-    width: LADO_DEL_MAPA,
-    height: LADO_DEL_MAPA,
-    players: [0, 1],
-  });
-  if (plan === null) throw new Error(`semilla ${semilla}: se rechaza el plan del arnés: ${motivo}`);
-  const director = new Director(link, {
-    seed: semilla,
-    plan,
-    agentPlayers: [1],
-    maxDays: DIAS_DEL_ARNES,
-    preparar: prepararPartidaDelArnes,
-  });
+  const director = await partidaConElMapaDelAgente(
+    link,
+    { seed: semilla, maxDays: DIAS_DEL_ARNES, preparar: prepararPartidaDelArnes },
+    ({ plan, motivo }) => {
+      if (plan === null)
+        throw new Error(`semilla ${semilla}: se rechaza el plan del arnés: ${motivo}`);
+    },
+  );
   while (director.desenlace === null) await director.playTurn();
   return socket.mensajes;
 }

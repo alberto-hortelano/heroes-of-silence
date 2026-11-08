@@ -77,9 +77,8 @@ export interface DirectorOptions {
    *
    * El director sigue siendo síncrono y sigue sin saber que existe un agente al
    * que pedirle cosas: recibe un plan o no lo recibe. Quien lo pide es
-   * `ws-server.ts`, que es el único que sabe que hay alguien al otro lado del
-   * cable — y el único módulo de este directorio que nadie puede probar de
-   * todos modos.
+   * `partidaConElMapaDelAgente` (`mapa-del-agente.ts`), que lo pide y después
+   * monta el director con él.
    */
   readonly plan?: MapPlan;
   /** Jugadores cuyo turno decide el agente. */

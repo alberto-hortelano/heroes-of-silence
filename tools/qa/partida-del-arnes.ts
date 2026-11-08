@@ -23,12 +23,10 @@
 import { EventEmitter } from 'node:events';
 import type { WebSocket } from 'ws';
 import { JUGADAS_DE_MURALLA } from '../../src/core/contract/vocabulario.js';
-import { LADO_DEL_MAPA } from '../../src/core/map/generar/plan.js';
 import { parseSeed } from '../../src/core/rng.js';
 import { AgentLink } from '../../src/server/agent-link.js';
-import { Director } from '../../src/server/director.js';
 import { combateDelEntorno } from '../../src/server/entorno.js';
-import { pedirMapaAlAgente } from '../../src/server/mapa-del-agente.js';
+import { partidaConElMapaDelAgente } from '../../src/server/mapa-del-agente.js';
 import type { ServerToAgentMsg } from '../../src/server/protocol.js';
 import { decidir } from './politica.js';
 import { prepararPartidaDelArnes } from './veterano-en-la-base.js';
@@ -179,23 +177,22 @@ export async function jugarPartidaDelArnes(
   const socket = new SocketDelArnes(semilla);
   const link = new AgentLink();
   link.attach(socket as unknown as WebSocket);
-  const { plan, motivo } = await pedirMapaAlAgente(link, {
-    width: LADO_DEL_MAPA,
-    height: LADO_DEL_MAPA,
-    players: [0, 1],
-  });
-  // Un plan rechazado no es una semilla sin escena: es el arnés roto, y `pnpm qa`
-  // lo pondría rojo por la firma. Se dice aquí, antes de buscar más.
-  if (plan === null)
-    throw new Error(`semilla ${semilla}: el servidor rechaza el plan del arnés: ${motivo}`);
-  const director = new Director(link, {
-    seed: semilla,
-    plan,
-    agentPlayers: [1],
-    maxDays: DIAS_DEL_ARNES,
-    combate: combateDelEntorno(),
-    preparar: prepararPartidaDelArnes,
-  });
+  // El mapa que se pide y los jugadores del agente, los del servidor.
+  const director = await partidaConElMapaDelAgente(
+    link,
+    {
+      seed: semilla,
+      maxDays: DIAS_DEL_ARNES,
+      combate: combateDelEntorno(),
+      preparar: prepararPartidaDelArnes,
+    },
+    ({ plan, motivo }) => {
+      // Un plan rechazado no es una semilla sin escena: es el arnés roto, y `pnpm qa`
+      // lo pondría rojo por la firma. Se dice aquí, antes de buscar más.
+      if (plan === null)
+        throw new Error(`semilla ${semilla}: el servidor rechaza el plan del arnés: ${motivo}`);
+    },
+  );
   const deMapa = () => socket.peticiones.filter((p) => p.kind === 'adventure_turn').length;
   while (director.desenlace === null && deMapa() < turnos) await director.playTurn();
   return socket.peticiones;
