@@ -4,8 +4,9 @@
  *
  *     npx tsx tools/qa/navegador/temas-con-piezas.ts [carpeta de capturas]
  *
- * En la partida (`?seed=42644`), con cada tema puesto desde la página
- * (`ponerTema`: el juego solo tiene caballero y nigromante) y sin tema, mide:
+ * En el mapa de la partida (`?seed=42644` con su héroe, `urlDePartida`; se sale de la
+ * base, donde abre), con cada tema puesto desde la página (`ponerTema`: los cinco en
+ * la misma partida) y sin tema, mide:
  *
  * 1. **El rótulo de cada barra de sección sobre su pieza**: el contraste WCAG de
  *    la tinta (`color` computado) sobre los píxeles de la barra **bajo cada
@@ -51,19 +52,24 @@ import { RAIZ } from '../../comun/raiz.js';
 import { urlDePartida } from './url-de-partida.js';
 
 /**
- * La caja de `#canvas` [x, y, ancho, alto] que no se mueve, con tema y sin él: la
- * de la tanda B del 13-10-2026 (la 390 y la 1440, en el criterio 6 de
- * `docs/agents/2026-10-13-temas-de-las-laminas/qa.md`) y, la vertical y la de 2560,
- * la del neutro del 18-10-2026. En el escritorio, el ancho es el de la ventana menos 360
+ * La caja de `#canvas` [x, y, ancho, alto] que no se mueve, con tema y sin él, medida
+ * en el neutro el 08-11-2026. En el escritorio, el ancho es el de la ventana menos 360
  * (el panel de 19rem, el relleno, el hueco y el borde del mapa).
+ *
+ * Eran las de la tanda B del 13-10-2026 y el neutro del 18-10-2026 (y = 58 en el
+ * escritorio, 127 en el móvil). Cambió la barra de arriba, no el lienzo: el botón
+ * «Menú» (19-10-2026) mide 34 px y sube la barra de 39 a 51 (y = 70, 14 px menos de
+ * alto), y con «solo oro» (21-10-2026) los recursos del móvil ya no ocupan varias
+ * filas: su barra baja a 78 (y = 91, el mismo alto). Lo que vigila esto —que ningún
+ * tema mueva el lienzo— no cambió.
  */
 const LIENZO: Record<string, number[]> = {
-  '390x844': [13, 127, 364, 513],
-  '1440x900': [21, 58, 1080, 770],
-  '1820x1000': [21, 58, 1460, 870],
-  '1920x1080': [21, 58, 1560, 950],
-  '1080x1920': [21, 58, 720, 1790],
-  '2560x1440': [21, 58, 2200, 1310],
+  '390x844': [13, 91, 364, 513],
+  '1440x900': [21, 70, 1080, 756],
+  '1820x1000': [21, 70, 1460, 856],
+  '1920x1080': [21, 70, 1560, 936],
+  '1080x1920': [21, 70, 720, 1776],
+  '2560x1440': [21, 70, 2200, 1296],
 };
 /**
  * Lo que pueden tapar del mapa, en px CSS desde el borde de lo que se ve: el
@@ -363,6 +369,13 @@ try {
       if (r.status() >= 400) errores.push(`${ventana}: ${r.status()} ${r.url()}`);
     });
     await page.goto(`${vite.url}${urlDePartida(42644)}`);
+    // Desde el 19-10-2026 la partida abre en la base, con el héroe dentro: lo que se
+    // mide aquí (el lienzo, el marco y el margen) es el del mapa, así que se sale a él.
+    // Sin salir, se medía la escena de la base (otra caja y otra luz en el margen) y
+    // fallaba en todas las ventanas (08-11-2026).
+    await page.locator('#app[data-escena="town"]').waitFor({ timeout: 60_000 });
+    await page.click('[data-action="close-town"]');
+    await page.locator('#app[data-escena="adventure"]').waitFor({ timeout: 15_000 });
     await esperarElSuelo(page, ventana, 180_000, log);
     // El del neutro en esta misma página: con tema, el lienzo es ese y el anotado.
     let delNeutro: string | null = null;
