@@ -67,6 +67,10 @@ jobs:
       # rojo dice «verify» y hay que abrir el log para ver si fue tsc, biome o
       # vitest—; sale más barato que dos definiciones que se separan solas.
       - run: pnpm verify
+      # Nada exportado sin lector (fase D de la reorganización, 08-11-2026): lo mira el
+      # comprobador de tipos sobre todo el repo, ~7 s, más de lo que se da a un guardia de
+      # vitest, así que va como orden. Sale 1 con cada exportación que nadie de fuera lee.
+      - run: npx tsx tools/qa/exportaciones.ts
       # `vite build` a secas, no `pnpm build`: ese encadena un `tsc -b --noEmit`
       # que NO es incremental y repite el typecheck que acaba de hacer `verify`.
       - run: npx vite build

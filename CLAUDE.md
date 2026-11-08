@@ -1569,6 +1569,7 @@ ocupado por algo ajeno no se libera: se reporta.**
 | `pnpm verify:lento` | ~75 s | lo corre CI; a mano, entero no: los ficheros lentos de lo que se toca (`HEROES_LENTO=1 pnpm vitest run test/<x>.test.ts`), con su porqué. **El arte de una unidad, no** (23-10-2026, decisión del usuario: «no se pueden lanzar los tests todo el rato sin pensar»): una vez, cuando lo visual está dado por bueno, solo los tests que lo leen: `HEROES_LENTO=1 pnpm vitest run test/taller-8d.test.ts -t <id>` (el atlas de cada dirección sale de sus hojas) y `pnpm vitest run test/clips-por-unidad.test.ts` (su maniquí lleva los clips que declara); con su identidad o su giro, también `test/arte-hojas.test.ts -t <id>` |
 | El navegador / el espectador | minutos | si el cambio se ve, o tocas `comun/html.ts`, `espectador/` o el canal |
 | `pnpm qa` | ~3 s | si tocas `src/server/` o el contrato |
+| `npx tsx tools/qa/exportaciones.ts` | ~7 s | si añades o dejas de leer una exportación: nada exportado sin lector (lo corre CI); lo que se lee sin que `tsc` lo vea (un `import()` calculado), en su lista blanca, `SE_LEEN_SIN_TSC` |
 | `pnpm capturas` | ~245 s | si el cambio se ve; sale 1 con un error en consola |
 | `barrido-semillas.ts` | ~1 s | si tocas la IA o la economía: 4 semillas; una sola sin terminar es regresión |
 | `pnpm banco` | ~2 s | si tocas el núcleo sin querer cambiar el juego: 20 partidas (eran 200; decisión del usuario, 21-10-2026: «estamos en pleno desarrollo»); para medir más, `pnpm banco 200` |
