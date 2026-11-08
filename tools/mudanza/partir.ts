@@ -41,7 +41,7 @@
  *   perder un comentario.
  */
 import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import ts from 'typescript';
 import { RAIZ } from '../comun/raiz.js';
 import { especificadorNuevo } from './cadenas.js';
@@ -652,6 +652,62 @@ export function partir(todos: readonly string[]): void {
   }
   for (const d of destinos) {
     conSuEstilo(p, d, d.startsWith(join(RAIZ, 'src/core/')) ? 'relativo' : estiloDelOrigen, null);
+  }
+
+  // 7b. Lo que el refactor importó como tipo y se usa como valor. Con
+  // `preferTypeOnlyAutoImports` mira el primer uso: una clase que lo movido nombra
+  // primero en una anotación y luego en un `new` o un `instanceof` le salía en un
+  // `import type` (H5, `capturas.ts`: `Session`, `SesionDeArena`, `EscenaTropa`…). Se
+  // saca de él a un `import` de valor del mismo módulo; biome junta los dos después.
+  for (const f of new Set([...tocados, ...destinos])) {
+    const fsf = p.fuente(f);
+    const comoValor = new Set<string>();
+    for (const d of p.servicio.getSemanticDiagnostics(resolve(f))) {
+      if (d.code !== 1361 || d.start === undefined) continue;
+      const m = /^\s*[\w$]+/.exec(fsf.text.slice(d.start));
+      if (m) comoValor.add(m[0].trim());
+    }
+    if (comoValor.size === 0) continue;
+    const cambios: ts.TextChange[] = [];
+    for (const s of fsf.statements) {
+      if (!ts.isImportDeclaration(s) || s.importClause === undefined) continue;
+      const ic = s.importClause;
+      const desde = { start: s.getStart(fsf), length: s.end - s.getStart(fsf) };
+      // `import type X from 'm'` (un `default`): fuera el `type`.
+      if (ic.isTypeOnly && ic.name !== undefined && comoValor.has(ic.name.text)) {
+        cambios.push({
+          span: desde,
+          newText: s.getText(fsf).replace(/^import\s+type\s+/, 'import '),
+        });
+        continue;
+      }
+      // `import { type X } from 'm'`: fuera el `type` de ese nombre.
+      if (!ic.isTypeOnly && ic.namedBindings !== undefined && ts.isNamedImports(ic.namedBindings)) {
+        for (const e of ic.namedBindings.elements) {
+          if (!e.isTypeOnly || !comoValor.has(e.name.text)) continue;
+          const t = e.getText(fsf);
+          cambios.push({
+            span: { start: e.getStart(fsf), length: t.length },
+            newText: t.replace(/^type\s+/, ''),
+          });
+        }
+        continue;
+      }
+      if (!ic.isTypeOnly) continue;
+      const nb = ic.namedBindings;
+      if (nb === undefined || !ts.isNamedImports(nb)) continue;
+      const sacar = nb.elements.filter((e) => comoValor.has(e.name.text));
+      if (sacar.length === 0) continue;
+      const quedan = nb.elements.filter((e) => !comoValor.has(e.name.text));
+      const modulo = s.moduleSpecifier.getText(fsf);
+      const valor = `import { ${sacar.map((e) => e.getText(fsf)).join(', ')} } from ${modulo};`;
+      const tipo =
+        quedan.length === 0
+          ? ''
+          : `import type { ${quedan.map((e) => e.getText(fsf)).join(', ')} } from ${modulo};\n`;
+      cambios.push({ span: desde, newText: `${tipo}${valor}` });
+    }
+    p.aplicar([{ fileName: f, textChanges: cambios }]);
   }
 
   // 8. Las comprobaciones, en memoria.
