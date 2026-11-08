@@ -2360,3 +2360,14 @@ simbolo	tools/{art/montura,art/poses,fuentes/bajar,qa/huella,taller/trabajador,t
 simbolo	test/comun.ts	tools/comun/hash.ts	sha256 (de un fichero) → sha256DeFichero
 simbolo	tools/qa/temas-con-piezas.ts	tools/comun/estadistica.ts	mediana (copia idéntica; las de taller/derivar, taller/empaquetar, qa/rios y taller/temas/piezas se quedan: difieren con la lista vacía o la ordenan en su sitio)
 simbolo	tools/qa/cifras-del-catalogo.ts	src/shared/base.ts	mediana (interpolada: el mismo cuerpo que la de shared/base)
+simbolo	tools/taller/temas/paleta.ts	tools/comun/color.ts	Rgb
+simbolo	tools/taller/temas/paleta.ts	tools/comun/color.ts	hex
+simbolo	tools/taller/temas/paleta.ts	tools/comun/color.ts	deHex
+simbolo	tools/taller/temas/paleta.ts	tools/comun/color.ts	lineal
+simbolo	tools/taller/temas/paleta.ts	tools/comun/color.ts	gamma
+simbolo	tools/taller/temas/paleta.ts	tools/comun/color.ts	aOklab
+simbolo	tools/taller/temas/paleta.ts	tools/comun/color.ts	deOklab
+simbolo	tools/taller/temas/paleta.ts	tools/comun/color.ts	deltaE
+simbolo	tools/taller/temas/paleta.ts	tools/comun/color.ts	sobre
+simbolo	tools/taller/temas/paleta.ts	tools/comun/color.ts	luminancia
+simbolo	tools/taller/temas/paleta.ts	tools/comun/color.ts	contraste
