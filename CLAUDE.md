@@ -190,8 +190,8 @@ nacen en verde.
 
 ## Puertas únicas
 
-Cada hecho tiene un sitio; la ruta, relativa a `src/core/` o `src/client/` salvo que diga otra
-cosa. El porqué, las fechas y lo que leen de cada una, en el doc de su área.
+Cada hecho tiene un sitio; la ruta, relativa a `src/core/` o `src/client/` (a `src/` si empieza por
+`core/`, `client/`, `server/` o `shared/`) salvo que diga otra cosa. El porqué, las fechas y lo que leen de cada una, en el doc de su área.
 
 ### La partida
 
@@ -233,12 +233,12 @@ cosa. El porqué, las fechas y lo que leen de cada una, en el doc de su área.
 
 | Qué | Dónde |
 |---|---|
-| Validar un plan de mapa | `validateMapPlan` → `problemasDeRed`; las bases, `basesDelPlan` (`generar/validar.ts`) |
-| Qué barrera cruza un nodo | `MapObject.barrera`, que pone `buildMap` (`generar/construir.ts`); el procedimental, `queCruzaElNodo` |
-| Dónde pone el generador ciudades y pueblos | `ciudadesDeRegion`, `pueblosEnElMuro` (`generar/poblar.ts`) |
-| El río del procedimental | `trazarRio`, `rioEntero` (`map/rio.ts`); la única escritura de la rejilla del vestido, `ponerTipo` (`vestir/base.ts`) |
-| Qué línea deja dos regiones a dos pasos | `lineasQueSeparan`, `separadasDeCerca`, `aguaALaVista` (`vestir/base.ts`) |
-| Caminos de un plan al mapa | `caminosDelPlan` (`generar/construir.ts`) |
+| Validar un plan de mapa | `validateMapPlan` → `problemasDeRed`; las bases, `basesDelPlan` (`map/generar/validar.ts`) |
+| Qué barrera cruza un nodo | `MapObject.barrera`, que pone `buildMap` (`map/generar/construir.ts`); el procedimental, `queCruzaElNodo` |
+| Dónde pone el generador ciudades y pueblos | `ciudadesDeRegion`, `pueblosEnElMuro` (`map/generar/poblar.ts`) |
+| El río del procedimental | `trazarRio`, `rioEntero` (`map/rio.ts`); la única escritura de la rejilla del vestido, `ponerTipo` (`map/vestir/base.ts`) |
+| Qué línea deja dos regiones a dos pasos | `lineasQueSeparan`, `separadasDeCerca`, `aguaALaVista` (`map/vestir/base.ts`) |
+| Caminos de un plan al mapa | `caminosDelPlan` (`map/generar/construir.ts`) |
 | Lo explorado: la niebla por regiones | `zonaDeNiebla`, `regionesQueDescubre` (`map/niebla.ts`); la única escritura de `fog`, `descubrir` (`state/vision.ts`) |
 | Por dónde se entra en un pueblo | `puertaDe`, `rodeosParaEntrar` (`map/puertas.ts`) |
 | El recinto de una ciudad, en el núcleo | `recintoDeLaCiudad`, `pasosDelRecinto`, `problemasDeRecintos` (`map/recinto.ts`) |
@@ -251,18 +251,18 @@ cosa. El porqué, las fechas y lo que leen de cada una, en el doc de su área.
 | Qué | Dónde |
 |---|---|
 | Componer la escena | `componer` (`render/escenario/colocar.ts`): el orden de sus tiradas es el contrato |
-| Qué es un árbol | `esArbol` (`colocar/tablas.ts`) |
-| Lo que la copa de la masa no tapa de lo que se pisa | `topeDeLoPisable` (`colocar/pisable.ts`) |
-| Los módulos de cubierta que no van en lo que se pisa | `FUERA_DE_LO_QUE_SE_PISA` (`colocar/tablas.ts`) |
+| Qué es un árbol | `esArbol` (`render/escenario/colocar/tablas.ts`) |
+| Lo que la copa de la masa no tapa de lo que se pisa | `topeDeLoPisable` (`render/escenario/colocar/pisable.ts`) |
+| Los módulos de cubierta que no van en lo que se pisa | `FUERA_DE_LO_QUE_SE_PISA` (`render/escenario/colocar/tablas.ts`) |
 | Lo que no se tapa (senda, tableros, reservas) | `Obstaculos` (`render/escenario/pasillo.ts`) |
 | La labranza | `labranzaDe` (`render/escenario/labranza.ts`) |
-| La ciudad del mapa: su recinto | `recintoDe` (`recinto/anillo.ts`), `contornoDelRecinto` (`recinto/octogono.ts`) |
-| El orden de pintado del anillo de una ciudad | `ordenDelAnillo` (`recinto/orden.ts`) |
-| Material de una cara | `materialDeCara` (`colocar/tablas.ts`) |
+| La ciudad del mapa: su recinto | `recintoDe` (`render/escenario/recinto/anillo.ts`), `contornoDelRecinto` (`render/escenario/recinto/octogono.ts`) |
+| El orden de pintado del anillo de una ciudad | `ordenDelAnillo` (`render/escenario/recinto/orden.ts`) |
+| Material de una cara | `materialDeCara` (`render/escenario/colocar/tablas.ts`) |
 | Roca de lo alto y suelo de la meseta | `materialDeLaCima`, `sueloDeLaMeseta` (`render/escenario/bordes.ts`) |
 | Muralla de una franja de muro | `trazaDeMuralla`, `torresDe` (`render/escenario/muralla.ts`) |
 | Un muro de norte a sur | `tiradaNorteSur` (`render/escenario/tirada.ts`) |
-| El puesto en la escena | `seVeConSuNodo` (`colocar/sprite.ts`), `sitiosDeLosPuestos` (`render/escenario/puestos.ts`) |
+| El puesto en la escena | `seVeConSuNodo` (`render/escenario/colocar/sprite.ts`), `sitiosDeLosPuestos` (`render/escenario/puestos.ts`) |
 | La resolución del suelo, que pinta un Worker | `resolucionDelSuelo` (`render/escenario/superficie.ts`) |
 
 ### La batalla

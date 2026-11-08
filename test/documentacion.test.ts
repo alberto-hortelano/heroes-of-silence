@@ -286,6 +286,23 @@ describe('la documentación dice lo que hay', () => {
     }
   });
 
+  it('las rutas de «Puertas únicas» se leen desde `src/core/` o `src/client/` (o `src/`), como dice su cabecera', () => {
+    // El guardia de arriba acepta una ruta si algún fichero acaba igual, y así pasaban
+    // `colocar/tablas.ts` y `generar/poblar.ts`, relativas a una subcarpeta: quien siga la regla
+    // escrita no las encuentra a la primera (H5 del QA de la reorganización, 08-11-2026).
+    const { ficheros, carpetas } = delRepo();
+    const desde = ['', 'src/', 'src/core/', 'src/client/'];
+    const resuelve = (c: string): boolean =>
+      desde.some((d) => {
+        const r = `${d}${c.replace(/\/$/, '')}`;
+        return ficheros.has(r) || carpetas.has(r);
+      });
+    const malas = filasDePuertas(claude)
+      .flatMap((f) => citas(f).map((c) => c.cita))
+      .filter((c) => esRuta(c) && c.includes('/') && !(c in NO_SON_RUTAS_DEL_REPO) && !resuelve(c));
+    expect(malas).toEqual([]);
+  });
+
   it('todo símbolo que cita CLAUDE.md está en src/, tools/ o test/', () => {
     expect(simbolosQueNoExisten(claude)).toEqual([]);
   });
