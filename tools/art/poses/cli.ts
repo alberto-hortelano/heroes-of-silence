@@ -31,12 +31,21 @@ import { componerGiro, renderizarOchoDirecciones, renderizarPerfil } from './ren
 const esScript = process.argv[1] !== undefined && resolve(process.argv[1]) === import.meta.filename;
 if (esScript) {
   const arg = process.argv[2];
+  const todos = Object.keys(PERFILES) as Perfil[];
+  const juegos = Object.keys(JUEGOS_DE_ARMAS).join(', ');
+  // Sin argumento decía «perfil desconocido «undefined»» (H8 del QA de la reorganización).
+  if (arg === undefined) {
+    throw new Error(
+      `falta el perfil: npx tsx tools/art/poses/cli.ts <perfil>, con uno de ${todos.join(', ')}; o --todos, o --giro <juego>, o --8d <juego> [dirección]`,
+    );
+  }
   if (arg === '--giro' || arg === '--8d') {
-    const juego = process.argv[3] as JuegoDeArmas;
+    const juego = process.argv[3] as JuegoDeArmas | undefined;
+    if (juego === undefined) {
+      throw new Error(`falta el juego de armas tras ${arg}: hay ${juegos}`);
+    }
     if (!(juego in JUEGOS_DE_ARMAS)) {
-      throw new Error(
-        `juego de armas desconocido «${juego}». Hay: ${Object.keys(JUEGOS_DE_ARMAS).join(', ')}`,
-      );
+      throw new Error(`juego de armas desconocido «${juego}». Hay: ${juegos}`);
     }
     console.log(
       arg === '--giro'
@@ -45,7 +54,6 @@ if (esScript) {
     );
     process.exit(0);
   }
-  const todos = Object.keys(PERFILES) as Perfil[];
   const pedidos = arg === '--todos' ? todos : [arg as Perfil];
   for (const p of pedidos) {
     if (!(p in PERFILES)) {
