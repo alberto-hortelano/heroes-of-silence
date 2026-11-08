@@ -7,7 +7,7 @@
  * como la escribió el usuario (con sus erratas: corregirla sería teclearla).
  *
  * `NuevaJugabilidad.md` **no se commitea**; el JSON sí, y es contra él contra
- * quien comprueba `data.ts` al cargar. Se corre a mano cuando el cuaderno cambie:
+ * quien comprueba `hero/tipos-de-heroe.ts` al cargar. Se corre a mano cuando el cuaderno cambie:
  *
  *   npx tsx tools/datos/facciones.ts [ruta de NuevaJugabilidad.md]
  *

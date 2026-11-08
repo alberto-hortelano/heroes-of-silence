@@ -1245,7 +1245,7 @@ describe('la base caminable (escenas/castillo.ts)', () => {
     expect(escena.abierto).toBeNull();
     // No en la puerta: delante, más lejos de la casa que la fila de los reclutas.
     expect(escena.posicion).toEqual(dondeEsperaEnLaMorada(d, 'lvl1'));
-    // El panel de la base ya no recluta: lo hace la escena (`views/morada.ts`).
+    // El panel de la base ya no recluta: lo hace la escena (`partida/morada/escena.ts`).
     expect(marcadoDe(renderSide(s, false, null))).toContain('data-action="morada-elegir"');
     s.cerrarLaMorada();
     expect(s.scene).toBe('town');

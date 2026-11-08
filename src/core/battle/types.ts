@@ -158,7 +158,7 @@ export interface BattleStack {
    * Las cifras de combate, resueltas UNA vez en `createBattle`. Es la única
    * fuente: para una criatura novata es la misma referencia del catálogo, para
    * el héroe las de su cuerpo. Ninguna lectura de batalla vuelve a
-   * `creature(...)`, y lo vigila `test/invariantes.test.ts`.
+   * `creature(...)`, y lo vigila `test/invariantes-batalla.test.ts`.
    *
    * La arena cambia las cifras de un tipo a media pelea (`retocarEnBatalla`)
    * sustituyendo el stack entero en `BattleState.stacks`, no escribiendo aquí.
@@ -228,7 +228,7 @@ export interface BattleStack {
    * Los turnos que le faltan para volver a apuntar con su arma de fuego (02-11-2026,
    * `recargaDe`): lo pone el disparo, contando el turno en que sale, y lo baja el
    * cierre de cada turno suyo (`endTurn`). 0, puede apuntar. Lo escribe solo
-   * `battle.ts` (lo vigila `invariantes.test.ts`); viaja al espectador.
+   * `battle.ts` (lo vigila `invariantes-batalla.test.ts`); viaja al espectador.
    */
   recargando: number;
   /**
@@ -516,7 +516,7 @@ export interface TurnoDeUnidad {
    * Tras golpear con Finta (la rueda del golpe): las casillas que
    * resta de lo que le queda por andar (`casillasQueQuitaLaFinta`). Puesto, el
    * resto del turno es un tramo **solo de andar** (`faseDelTurno`, `faseBlocker`): andar o
-   * terminar. Lo pone solo `melee` (lo vigila `test/invariantes.test.ts`), y no
+   * terminar. Lo pone solo `melee` (lo vigila `test/invariantes-batalla.test.ts`), y no
    * hay que quitarlo: el turno siguiente es otro objeto.
    */
   finta?: number;
@@ -823,7 +823,7 @@ export interface EstadoDePuerta extends PuertaDeMuralla {
 
 /**
  * Los tipos de efecto que existen. Es una lista de valores y no solo un tipo
- * porque `test/invariantes.test.ts` la recorre para exigir que cada uno tenga
+ * porque `test/invariantes-batalla.test.ts` la recorre para exigir que cada uno tenga
  * quien lo lea: un tipo que nadie suma se colgaría del stack sin hacer nada.
  * `'defense'` lo suma `effectiveDefense` (`damage.ts`); lo ponen Defensivo y
  * Romper guardia de la rueda del golpe y los hechizos. Las cifras que añadió la

@@ -175,7 +175,7 @@ export class Casillas implements CasillasLeidas {
   /**
    * Sale por `JSON.stringify` como sus índices, que es lo que `deIndices` lee.
    * Un `Set` salía como `{}` sin decir nada (lo cuenta el guardia de la crónica
-   * en `invariantes.test.ts`).
+   * en `invariantes-partida.test.ts`).
    */
   toJSON(): number[] {
     return this.indices();

@@ -1113,7 +1113,7 @@ describe('partida completa', () => {
     expect(state.finished).toEqual({ winner: null });
     // `game_over` con `actor: null` es exacto: no lo protagoniza ningún
     // jugador. Y va el ÚLTIMO —nadie escribe detrás de él—, que es lo que
-    // vigila `invariantes.test.ts` sobre las veinte primeras semillas.
+    // vigila `invariantes-partida.test.ts` sobre las veinte primeras semillas.
     expect(state.log.at(-1)).toMatchObject({ kind: 'game_over', actor: null });
     expect(state.log.filter((e) => e.kind === 'day_start').map((e) => e.day)).toEqual([1, 2]);
     // Y nadie está eliminado: la partida no se acabó por eso.

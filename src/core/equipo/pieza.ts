@@ -99,7 +99,8 @@ export interface Pieza {
    * La agilidad de una montura, de 2 a 7, como la de un cuerpo (26-10-2026): de ella,
    * tras el peso, salen sus casillas (`cifrasDelCuerpo`, `marchaDe`). Solo en el
    * hueco `montura`, y en él siempre. Lo leen solo `equipo/vestir.ts`,
-   * `equipo/dicho.ts` y este módulo (lo vigila `invariantes.test.ts`).
+   * `equipo/dicho.ts` y este módulo (ningún guardia lo puede mirar por el nombre:
+   * `.agilidad` es también la del cuerpo; lo dice `invariantes-batalla.test.ts`).
    */
   readonly agilidad?: number;
   /**
@@ -119,14 +120,14 @@ export interface Pieza {
    * más, y con una montura de guerra puesta su carga va con la fuerza de la montura
    * más la de la lanza (`GolpeConArma.carga`, 26-10-2026). Solo en el hueco `arma`;
    * sin el campo, no lo es. Lo
-   * leen solo `equipo/manos.ts` y este módulo (lo vigila `invariantes.test.ts`).
+   * leen solo `equipo/manos.ts` y este módulo (lo vigila `invariantes-batalla.test.ts`).
    */
   readonly lanza?: true;
   /**
    * Si es una montura de guerra (26-10-2026): se monta en batalla, carga el peso y
    * da las casillas; sin el campo, de silla, que solo sirve en el mapa. Solo en el
    * hueco `montura`. Lo leen solo `equipo/manos.ts`, este módulo y `unidad/cuerpo.ts` (lo
-   * vigila `invariantes.test.ts`).
+   * vigila `invariantes-batalla.test.ts`).
    */
   readonly guerra?: true;
   /**
@@ -135,7 +136,7 @@ export interface Pieza {
    * `recarga` y su propia `agilidad`, y la armadura no lo para); `granada`, se lanza
    * por encima a una casilla y explota al empezar su siguiente turno (con sus
    * `cargas`). Sin el campo, arco o ballesta. Solo en `distancia`. Lo leen solo
-   * `equipo/vestir.ts`, este módulo y `battle/armas.ts` (lo vigila `invariantes.test.ts`).
+   * `equipo/vestir.ts`, este módulo y `battle/armas.ts` (lo vigila `invariantes-batalla.test.ts`).
    */
   readonly tiro?: TipoDeTiro;
   /**
@@ -895,7 +896,7 @@ interface ResolucionDePiezas {
 /**
  * Cada pieza de `escritas` (un catálogo entero, por id) resuelta: la entera, tal
  * cual; la que tiene base, su base resuelta más sus extras (`sumarBase`), en
- * cadena. **La única suma de una base** (lo vigila `test/invariantes.test.ts`): la
+ * cadena. **La única suma de una base** (lo vigila `test/invariantes-batalla.test.ts`): la
  * llama solo el cargador del catálogo (`leerPiezas`), por el que pasan el fichero,
  * el catálogo de la arena y las piezas de una pelea. No vale (con su motivo):
  * la base que no puede ser (`baseBlocker`) y la pieza resuelta que no cumple la

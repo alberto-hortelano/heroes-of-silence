@@ -4,7 +4,7 @@
  * «Fin de turno», el día en su cartela, el panel lateral (pergamino en templarios
  * y elfos) y el marco del mapa, todo con CSS y leyendo las fichas del tema.
  *
- * **Toda regla empieza por `:root[data-tema]`** (lo vigila `invariantes.test.ts`):
+ * **Toda regla empieza por `:root[data-tema]`** (lo vigila `invariantes-cliente.test.ts`):
  * gana en especificidad a la de `style.css` que corrige, y sin tema (el
  * espectador) no se aplica ninguna. Por eso el neutro se queda como estaba, cosa
  * que mide `tools/qa/navegador/neutro.ts` contra HEAD.

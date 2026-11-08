@@ -13,7 +13,7 @@
  * `engordarFronteras`): corre un trozo una fila hacia lo bajo (el acantilado o
  * la montaña bajan, y 7a adelgaza lo de arriba) o muerde lo alto con el agua.
  * Junto a un nodo no toca nada, y lo que queda —o lo que une después el agua de
- * las esquinas que pasa a montaña— tira el vestido (`generate.ts`).
+ * las esquinas que pasa a montaña— tira el vestido (`map/generar/vestir-la-red.ts`).
  */
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';

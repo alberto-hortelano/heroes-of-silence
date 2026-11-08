@@ -295,7 +295,7 @@ describe('invariantes del proyecto', () => {
     // sesión y `pnpm capturas` lo importan; y en la sesión y en las pasadas de capturas, lo
     // importado de allí solo se usa dentro de sus declaraciones con permiso
     // (`PERMISOS_DE_LA_ARENA`). Sin excepciones en el núcleo (simplify de F1,
-    // 18-10-2026): el formato de la unidad y del catálogo vive en `core/unidad.ts`.
+    // 18-10-2026): el formato de la unidad y del catálogo vive en `core/unidad/formato.ts`.
     // Roto a mano (19-10-2026): un `import type` de `./arena.js` en
     // `core/catalogo.ts` y un `batallaDeArena` usado en `session.ts` fuera de
     // `SesionDeArena` salen rojos con su línea; con la carpeta (07-11-2026), un
@@ -469,7 +469,7 @@ describe('invariantes del proyecto', () => {
     //    columnas—. Ahora se busca el paréntesis de cierre emparejado y se mira
     //    el argumento con sus saltos de línea, por `.body`, `?.body` o
     //    `['body']`.
-    // 2. **`creature` como valor**, fuera de `data.ts` que la declara:
+    // 2. **`creature` como valor**, fuera de quien la declaraba (`data.ts`, hasta la fase N):
     //    `[s.body].map(creature)`, `.then(creature)`, `const f = creature`. No
     //    hay ni un uso legítimo, y cada uno es una llamada que la mitad 1 no ve.
     //    Solo en los ficheros que la importan de `data`, porque en

@@ -9,7 +9,7 @@
  * Las piezas son materiales que el lienzo lleva a su sitio, no una columna
  * pintada (el tablero cambia de elevación de cámara): por eso se piden **de
  * frente y sin perspectiva**, como un alzado, y el lienzo las pone con una afín
- * sobre cada cara (`render/arte-de-la-muralla.ts`).
+ * sobre cada cara (`render/batalla/arte-de-la-muralla.ts`).
  *
  *   pnpm taller encolar --muralla-batalla [--solo=cara-piedra,…] [--rehacer]
  *   pnpm taller derivar-muralla-batalla     rehace assets/batalla/muralla/indice.json

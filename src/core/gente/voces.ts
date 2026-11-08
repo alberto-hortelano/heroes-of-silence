@@ -10,7 +10,7 @@
  *
  * **Es presentación, nunca regla**: nada de aquí cambia el juego ni escribe en la
  * crónica. Por eso `Town.voces` es un campo opcional que el banco no ve, y por
- * eso `ponerVoces` es su único escritor (lo vigila `invariantes.test.ts`).
+ * eso `ponerVoces` es su único escritor (lo vigila `invariantes-cliente.test.ts`).
  */
 import vecinosJson from '../../../data/vecinos.json' with { type: 'json' };
 import { motivoDeLinea } from '../linea.js';

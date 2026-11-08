@@ -76,7 +76,7 @@ let cargaDeLetras: Promise<void> = Promise.resolve();
 
 /**
  * El tema que manda en la página. Es lo único que escribe `data-tema` (lo vigila
- * `invariantes.test.ts`), y por `dataset`: `setAttribute` solo lo usa la puerta
+ * `invariantes-cliente.test.ts`), y por `dataset`: `setAttribute` solo lo usa la puerta
  * del marcado. Borra lo leído para el lienzo, que en el siguiente fotograma
  * vuelve a leer las fichas; el mismo tema otra vez no toca nada.
  *

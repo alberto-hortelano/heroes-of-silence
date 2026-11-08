@@ -21,7 +21,7 @@
  * - **versión abierta** (`fuentes/abierta-<id>`): el cuadro de una morada editado
  *   con ese edificio abierto como una casa de muñecas, sin la pared de delante y
  *   con su sala dentro (vuelta 2 de la morada, 20-10-2026). Se ve mientras se
- *   recluta en ella (`escenas/morada.ts`).
+ *   recluta en ella (`partida/morada/escena.ts`).
  *
  * Cada edificio se recorta luego por la diferencia con la placa, en su región
  * (`recorte-base.ts`). La geometría no se impone: dónde quedó cada puerta se mide

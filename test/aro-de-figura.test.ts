@@ -5,7 +5,7 @@
  *
  * El apoyo de una hoja es la fila opaca más baja: la suela del pie que va delante.
  * El aro se centra en los pies medidos en el fotograma (`piesEn`, `aroDeFigura`,
- * `render/aro.ts`); aquí se miden con la misma regla sobre el arte del disco y se
+ * `render/figuras/aro.ts`); aquí se miden con la misma regla sobre el arte del disco y se
  * exige que los dos pies caigan dentro del aro. Con el aro de antes —centrado en
  * el apoyo y siempre del mismo tamaño— se sale algún pie en 38 de las 50 hojas;
  * con un número fijo por encima del apoyo (el 0,07 del medio de lo medido), en 20.

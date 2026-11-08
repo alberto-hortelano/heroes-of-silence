@@ -1,7 +1,7 @@
 /**
  * El servidor de la partida, arrancado por un arnés y parado por él.
  *
- * Lo comparten `verify-agent.ts` (`pnpm qa`) y `capturas.ts`. Cada uno lo
+ * Lo comparten `verify-agent.ts` (`pnpm qa`) y `pnpm capturas`. Cada uno lo
  * arrancaba a su manera —uno con `npx tsx`, el otro con `tsx`; uno esperaba solo
  * el canal del agente, el otro los dos— y las dos copias ya se habían separado.
  *

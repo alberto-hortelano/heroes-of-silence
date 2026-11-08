@@ -448,7 +448,7 @@ export function familiasPara(barrera: Barrera, suelo: Suelo, uso: Uso) {
  * (o dentro de) ese suelo para ese uso, y la variante por el azar de la casilla.
  * Para un tramo con orientación, la del eje de la frontera. `null` si no hay.
  *
- * Es la regla que se propone a la sesión de reglas para `render/mapa.ts`, y la
+ * Es la regla que se propone a la sesión de reglas para `render/mapa/mapa.ts`, y la
  * que usa la composición de prueba.
  */
 export function piezaDeCasilla(

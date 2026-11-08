@@ -13,7 +13,7 @@
  *  - **la guarnición de cada sitio** (`guarnicionDe`): la de una ciudad, un paso o
  *    un pueblo, en `GameState.guarniciones`, por id del sitio, con su dueño (`null`,
  *    la neutral de una ciudad). **Este módulo es el único que escribe
- *    `guarniciones`** (lo vigila `test/invariantes.test.ts`);
+ *    `guarniciones`** (lo vigila `test/invariantes-partida.test.ts`);
  *  - **la única puerta que mueve tropa entre un héroe y la guarnición de su sitio**,
  *    `repartir`: la usan dejar y recoger (`dejar_tropa`, `recoger_tropa`) y la
  *    defensa (`defensaDeLaIA` al nacer la batalla, `elegirLaDefensa` si la rehace la
@@ -23,13 +23,13 @@
  *    aquí (`laDefensa`);
  *  - **la muralla de cada sitio** en la batalla (fase 2): la piedra de la ciudad y
  *    la madera del pueblo, de `data/sitios.json`, que **solo importa este módulo**
- *    (lo vigila `test/invariantes.test.ts`) y que se juzga al cargar
+ *    (lo vigila `test/invariantes-datos.test.ts`) y que se juzga al cargar
  *    (`murallaDelMapaBlocker`): una forma rota no llega a ninguna partida;
  *  - **las obras de un puesto** (fase 3): la empalizada y la muralla de un paso
  *    tomado, con su precio y la forma que nombran en `data/sitios.json`
  *    (`OBRAS_DEL_PUESTO`; el fichero entero lo lee `leerSitios`), la regla de
  *    hacerlas (`mejorarBlocker`) y **la única escritura de `node.mejora`**
- *    (`mejorarElPuesto`; lo vigila `test/invariantes.test.ts`). El oro lo cobra la
+ *    (`mejorarElPuesto`; lo vigila `test/invariantes-partida.test.ts`). El oro lo cobra la
  *    acción, en `game.ts`, como toda compra.
  *
  * No importa nada de `game.ts` (sus tipos, de `tipos.ts`): `game.ts` lo importa a él. El dueño
@@ -596,7 +596,7 @@ export function mejorarBlocker(
 /**
  * Hace la obra `obra` —la siguiente— en el puesto donde está el héroe `heroId`, o
  * lanza con `mejorarBlocker`. **La única escritura de `node.mejora`** (lo vigila
- * `test/invariantes.test.ts`). No cobra: cobra la acción, con el jugador que ya
+ * `test/invariantes-partida.test.ts`). No cobra: cobra la acción, con el jugador que ya
  * tiene, como toda compra. Devuelve qué obra, dónde y por cuánto.
  */
 export function mejorarElPuesto(

@@ -266,7 +266,7 @@ export interface GameState {
    * dueño (`state/sitios.ts`): quien la dejó, el de la base al nacer, o `null`, la
    * neutral de una ciudad neutral. Sin entrada, el sitio no guarda nada. **Solo la
    * escribe `sitios.ts`** (dejar, recoger, reclutar sin héroe, la defensa y lo que
-   * sobrevive o se pierde en una batalla; lo vigila `test/invariantes.test.ts`).
+   * sobrevive o se pierde en una batalla; lo vigila `test/invariantes-partida.test.ts`).
    */
   guarniciones: Record<string, Guarnicion>;
 }

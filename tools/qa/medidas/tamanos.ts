@@ -1,7 +1,7 @@
 /**
  * Tamaños de mapa: ¿cuánto dura una partida, y cómo se llega a la base rival?
  *
- Es la medida con la que se elige `REGIONES_POR_BANDO` (`map/generate.ts`,
+ Es la medida con la que se elige `REGIONES_POR_BANDO` (`map/generar/plan.ts`,
  * #195): el número de regiones es el dato del mapa y el lado sale de él
  * (`ladoDelMapa`). Antes medía lados y elegía `LADO_DEL_MAPA`. La regla es la
  * de siempre: **el menor número con mediana ≥ 8 días, p90 ≤ 20 y 0 partidas sin

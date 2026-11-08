@@ -165,7 +165,7 @@ function rueda<T extends TipoDeGolpe>(
  * con ella se mide el índice de poder (lo que vale un arma no depende del nivel
  * que se juegue; `nivel.ts`) y se pinta la ficha de un arma, que tiene
  * un nivel por tipo del anillo (`disco.ts`). Nadie más la toma fija: el combate
- * juega la de su batalla (`formaDeLaBatalla`; lo vigila `invariantes.test.ts`).
+ * juega la de su batalla (`formaDeLaBatalla`; lo vigila `invariantes-batalla.test.ts`).
  */
 export const RUEDA_DE_REFERENCIA: FormaDeLaRueda<TipoDelAnillo> = rueda(
   TIPOS_DEL_ANILLO,
@@ -181,7 +181,7 @@ export type GolpeDeReferencia = (typeof RUEDA_DE_REFERENCIA.golpes)[number];
  * Defensivo-finta > Ofensivo-fuerte, con Normal en el centro; la de 3: Ofensivo >
  * Rápido > Defensivo > Ofensivo, sin centro (decisión del usuario: «defensivo gana
  * a ofensivo, ofensivo a rápido y rápido a defensivo»). **Privada en la práctica**:
- * fuera de aquí nadie la indexa (`formaDeLaBatalla`; lo vigila `invariantes.test.ts`).
+ * fuera de aquí nadie la indexa (`formaDeLaBatalla`; lo vigila `invariantes-batalla.test.ts`).
  */
 export const RUEDAS: Readonly<Record<TiposDeLaRueda, FormaDeLaRueda>> = {
   7: RUEDA_DE_REFERENCIA,

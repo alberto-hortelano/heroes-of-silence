@@ -71,7 +71,7 @@ function log(msg: string): void {
   console.log(`\x1b[36m[qa]\x1b[0m ${msg}`);
 }
 
-/** El servidor de la partida: lo arranca y lo para `servidor.ts`, el mismo de `capturas.ts`. */
+/** El servidor de la partida: lo arranca y lo para `servidor.ts`, el mismo de `pnpm capturas`. */
 let servidor: ServidorDePartida | null = null;
 /** El cliente MCP, aquí fuera para poder cerrarlo desde `terminar`. */
 let cliente: Client | null = null;

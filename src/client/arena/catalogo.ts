@@ -189,7 +189,7 @@ export async function arrancar(pagina: PaginaDeLaArena): Promise<void> {
 
 /**
  * La arena construida (sin servidor de desarrollo) pelea con el catálogo del
- * núcleo (`core/catalogo.ts`), el mismo que lee el juego. Un catálogo roto no
+ * núcleo (`core/unidad/catalogo.ts`), el mismo que lee el juego. Un catálogo roto no
  * llega aquí: lanza al cargarse el núcleo y lo dice `arranque.ts`. Devuelve la
  * frase de la barra.
  */

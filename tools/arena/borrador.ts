@@ -1,7 +1,7 @@
 /**
  * El lado de disco de la arena (`/arena/`): qué hojas hay, los catálogos de
- * unidades (`data/unidades.json`, el que lee `core/catalogo.ts`) y de equipo
- * (`data/equipo.json`, el que carga `core/data.ts`) y el borrador de las formas de
+ * unidades (`data/unidades.json`, el que lee `core/unidad/catalogo.ts`) y de equipo
+ * (`data/equipo.json`, el que carga `core/equipo/pieza.ts`) y el borrador de las formas de
  * muralla. Lo sirve el servidor de desarrollo (`tools/vite/arena.ts`) y nada más: el
  * navegador no puede escribir en el repo. La partida no lee el borrador.
  *

@@ -468,7 +468,7 @@ async function sigueTrasSoltar(
   return `Escape deja a ${id} en (${s.hex.col},${s.hex.row}), con su turno`;
 }
 
-/** Los colores de la barra de vida (`pintarVida`, `render/batalla.ts`): sana, a medias, roja. */
+/** Los colores de la barra de vida (`pintarVida`, `render/batalla/figura.ts`): sana, a medias, roja. */
 const COLORES_DE_LA_VIDA: readonly (readonly [number, number, number])[] = [
   [0x9f, 0xc4, 0x9a],
   [0xe0, 0xc0, 0x60],
@@ -565,7 +565,8 @@ async function muestrasDeLaBarra(
   return await page.evaluate(
     async ({ x, y, ancho, colores, masAlla, tope }) => {
       const lienzo = document.getElementById('canvas') as HTMLCanvasElement;
-      // Por selector y no por id: el literal del modo es una puerta (`invariantes.test.ts`).
+      // Por selector y no por id: de cuando el literal `'rueda'` era la puerta del modo del
+      // golpe, que se fue con los interruptores el 19-10-2026.
       const rueda = document.querySelector('dialog#rueda') as HTMLDialogElement;
       const ctx = lienzo.getContext('2d');
       if (ctx === null) throw new Error('el lienzo de la batalla no tiene contexto 2d');

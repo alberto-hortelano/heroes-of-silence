@@ -5,7 +5,7 @@
  * Sirve para juzgar el arte en su sitio —un bosque nevado tiene que leerse
  * como muro al lado de la nieve, no en una lámina— y para proponer a la sesión
  * de reglas cómo elegir la pieza de cada casilla (`piezaDeCasilla`,
- * `nodoDePaso`). No es el render del juego: `render/mapa.ts` no se toca.
+ * `nodoDePaso`). No es el render del juego: `render/mapa/mapa.ts` no se toca.
  *
  * Lo que aún no existe se pinta con su pigmento, así que la página vale desde
  * el primer encargo.

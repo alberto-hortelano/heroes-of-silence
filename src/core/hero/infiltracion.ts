@@ -16,7 +16,7 @@
  *   el Dijkstra dejaría de ser de un solo coste (`critica.md`).
  *
  * Es **el único módulo que lee el rasgo** `'infiltrarse'` (lo vigila
- * `invariantes.test.ts`): la búsqueda de caminos, la ficha y el contrato le
+ * `invariantes-partida.test.ts`): la búsqueda de caminos, la ficha y el contrato le
  * preguntan aquí.
  */
 

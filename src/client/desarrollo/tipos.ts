@@ -6,7 +6,7 @@
  * vale `false`, y el plugin `sinDesarrollo` de `tools/vite/sin-desarrollo.ts` rompe el build
  * si algo se cuela. Este fichero se puede importar desde fuera, pero **solo con
  * `import type`**: un tipo no deja rastro en el bundle (lo vigila
- * `invariantes.test.ts`).
+ * `invariantes-capas.test.ts`).
  *
  * Los de la marca salen de sus esquemas (`esquema.ts`): la forma se escribe una vez.
  */

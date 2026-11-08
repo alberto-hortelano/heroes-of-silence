@@ -226,7 +226,7 @@ export function renderLog(
     // El `switch` de dentro cubre la unión entera de `e.kind` y NO tiene
     // `default`: un `kind` al que nadie le haya escrito su frase tiene que
     // ponerse rojo, no colarse por la rama de abajo. Quien lo pone rojo es el
-    // `never` del final, igual que en `serialize.ts`.
+    // `never` del final, igual que en `contract/mapa-conocido.ts`.
     .map((e): Html => {
       const mio = e.actor === viewer;
       // Dónde (#18): «Paso tomado» no decía cuál, y con once nodos por bando

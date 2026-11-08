@@ -7,7 +7,7 @@
  *
  * Con `--medianas`, además, la mediana del poder bruto del catálogo y la de su
  * cuadrado: las dos varas con que se re-escalan el umbral del nivel 2
- * (`data/poder.json`) y `DIVISOR_DEL_PODER` (`src/core/ai/fuerza.ts`) cuando cambia
+ * (`data/poder.json`) y `DIVISOR_DEL_PODER` (`src/core/hero/fuerza.ts`) cuando cambia
  * la escala de las cifras (25-10-2026, 26-10-2026).
  *
  * Uso: npx tsx tools/qa/medidas/cifras-del-catalogo.ts [--medianas]

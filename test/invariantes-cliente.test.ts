@@ -217,7 +217,7 @@ describe('invariantes del proyecto', () => {
 
   it('el marcado sale por una sola puerta: solo `html.ts` convierte texto en DOM', () => {
     // El cerrojo de verdad de #63 es de TIPOS: `pintar` solo acepta `Html` y las
-    // funciones de `views/panels.ts` lo devuelven, así que una nueva que
+    // funciones de `views/` y de cada página lo devuelven, así que una nueva que
     // devuelva `string` no compila. Este guardia cierra las dos puertas que el
     // compilador no puede: escribir en el DOM sin pasar por `pintar`, y fabricar
     // un `Html` desde fuera con un cast.
@@ -271,7 +271,7 @@ describe('invariantes del proyecto', () => {
     // infractor, se llame como se llame.
     //
     // Mira el CÓDIGO y no el fichero, como el de la coma flotante: los
-    // docstrings de `html.ts`, de `main.ts` y de `contract/agent.ts` nombran
+    // docstrings de `html.ts`, de `main.ts` y de `contract/formato.ts` nombran
     // `innerHTML` para explicarse, y un guardia que caza su propia explicación
     // se ignora desde el primer día.
     //

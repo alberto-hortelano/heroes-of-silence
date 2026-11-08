@@ -1,5 +1,5 @@
 /**
- * Un solo nivel, derivado de las cifras (`core/nivel.ts`, 12-10-2026), **con el
+ * Un solo nivel, derivado de las cifras (`core/unidad/nivel.ts`, 12-10-2026), **con el
  * equipo puesto** (18-10-2026, decisión del usuario: «el nivel ve el equipo»).
  *
  * Los criterios salen de los de aceptación de `docs/agents/2026-10-12-nivel-unico/requisitos.md`

@@ -122,7 +122,7 @@ function guarnicionesAjenas(state: GameState, player: PlayerId): Point[] {
  * endurece —se llega a menos sitios, nunca a más—, así que lo hostil sigue sin
  * cruzarse. Es una opción y no una segunda función porque es
  * el mismo Dijkstra con una marca más, y el Dijkstra del mapa solo se lanza
- * desde aquí (`test/invariantes.test.ts`).
+ * desde aquí (`test/invariantes-partida.test.ts`).
  */
 export function alcanceDelHeroe(
   state: GameState,
@@ -538,7 +538,7 @@ export function entregarElSitio(state: GameState, sitio: Sitio, ganador: PlayerI
 /**
  * Cambia de dueño un sitio del muro: un paso, una ciudad o un pueblo en un nodo.
  * **El único escritor del `owner` de un objeto del mapa** (lo vigila
- * `test/invariantes.test.ts`): es la regla de «un hecho, un sitio», y desde la
+ * `test/invariantes-partida.test.ts`): es la regla de «un hecho, un sitio», y desde la
  * tarea 2 (05-11-2026) la ciudad tiene una sola cara —su objeto— como el paso:
  * `Town.owner` se fue, y con él las dos copias que divergían en la primera captura
  * (#47: la IA veía enemigo su propio castillo y se pasaba la partida entrando en

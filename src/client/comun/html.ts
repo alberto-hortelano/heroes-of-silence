@@ -14,7 +14,7 @@
  *  1. `Html` es una interfaz con una propiedad de símbolo **privado de este
  *     módulo**: fuera de aquí ese símbolo no se puede nombrar, así que fabricar
  *     un `Html` exige un `as unknown as` visible — y ese cast solo puede
- *     aparecer en este fichero, que es lo que vigila `invariantes.test.ts`.
+ *     aparecer en este fichero, que es lo que vigila `invariantes-cliente.test.ts`.
  *  2. Un valor que YA es `Html` se inserta **crudo**, y se detecta por el
  *     símbolo y no por su tipo, que en ejecución no existe. Sin esto, la llamada
  *     anidada —`${renderArmy(...)}` dentro de otro panel— saldría escapada dos
@@ -423,7 +423,7 @@ export function unir(partes: readonly Html[]): Html {
 }
 
 /**
- * El ÚNICO `innerHTML` del repositorio, y lo vigila `invariantes.test.ts`.
+ * El ÚNICO `innerHTML` del repositorio, y lo vigila `invariantes-cliente.test.ts`.
  *
  * Que solo acepte `Html` es el cerrojo que hace que olvidarse no compile: en
  * cuanto los paneles devuelven `Html`, cualquiera nuevo que devuelva `string`

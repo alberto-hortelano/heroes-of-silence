@@ -4,7 +4,7 @@
  * imágenes y se juzga al cargarse; las guías no van al build.
  *
  * Por qué mira esto: el lienzo pone cada pieza por su caja y cada cara por su
- * cuerpo (`render/arte-de-la-muralla.ts`). Una imagen repintada sin rederivar
+ * cuerpo (`render/batalla/arte-de-la-muralla.ts`). Una imagen repintada sin rederivar
  * el índice se pintaría corrida o cortada sin que nada fallara, y un índice
  * tocado a mano, a medias.
  */

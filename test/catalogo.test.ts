@@ -1,5 +1,5 @@
 /**
- * El catálogo de unidades (`data/unidades.json`, `core/catalogo.ts`), F1 de
+ * El catálogo de unidades (`data/unidades.json`, `core/unidad/catalogo.ts`), F1 de
  * `docs/agents/2026-10-18-combate-y-ejercitos-en-el-juego/`: la lista
  * entera de las cinco facciones, que `core` lee sin pasar por `tools/` y que la
  * arena escribe. Los criterios salen de su `requisitos.md`, no del código: una unidad por hoja de tropa, la

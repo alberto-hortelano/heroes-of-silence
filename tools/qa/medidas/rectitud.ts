@@ -113,7 +113,7 @@ function carasEnFila(map: GameMap, minimo: number): number {
  * tramos de ≥ 8 y 43 mapas con uno de ≥ 10; a escala, 75 de ≥ 10 y 8 mapas con
  * uno de ≥ 12. Los bisectores de Voronoi son rectos, y un mapa mayor los alarga:
  * el umbral absoluto cruza la raya de muchos que en 34×34 se quedaban en 6-7.
- * Con la ondulación del reparto (#229, `ONDULACION` en `map/generate.ts`), 64
+ * Con la ondulación del reparto (#229, `ONDULACION` en `map/generar/procedimental.ts`), 64
  * tramos de ≥ 10, 5 filas de caras y 2 mapas.
  */
 
@@ -143,7 +143,7 @@ function carasEnFila(map: GameMap, minimo: number): number {
  *
  * **Desde #231** las caras ≥ 10 son 0 por construcción: el engorde parte las
  * caídas al sur de `CAIDA_LARGA` (`quebrarCaidas`) y el vestido que aún deja
- * una no vale (`generate.ts`); la cara pintada es una casilla más corta que la
+ * una no vale (`map/generar/vestir-la-red.ts`); la cara pintada es una casilla más corta que la
  * caída. Los techos son lo medido más el mismo margen: 153 / 3 / 15. El de
  * tramos es justo: la perturbación neutra de arriba movía el total hasta 21, y
  * un cambio que mueva el azar del vestido puede pasarlo sin hacer nada peor;

@@ -382,7 +382,7 @@ export async function escribirAtlasDePoses(): Promise<AtlasDePoses> {
   }
   const atlas: AtlasDePoses = {
     _comment:
-      'Derivado de los PNG de _poses/<juego>-8d con `pnpm taller derivar-poses`: no se edita a mano. Lo lee el cliente (render/personajes.ts).',
+      'Derivado de los PNG de _poses/<juego>-8d con `pnpm taller derivar-poses`: no se edita a mano. Lo lee el cliente (render/figuras/personajes.ts).',
     derivadoPor: 'tools/taller/poses-8d.ts',
     juegos,
   };

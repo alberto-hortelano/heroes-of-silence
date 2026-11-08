@@ -13,7 +13,7 @@
  *   `ranged_weapon` y no `ranged`, que es una opción del daño: dos cosas con el
  *   mismo nombre no se distinguirían en el cable. Un hueco del contrato es
  *   un `Slot`, que **solo produce este módulo**: el tipo lleva una marca que nadie
- *   más puede poner sin un `as Slot`, y eso lo vigila `test/invariantes.test.ts`.
+ *   más puede poner sin un `as Slot`, y eso lo vigila `test/invariantes-batalla.test.ts`.
  * - **La rueda del golpe y los poderes** (F6, 19-10-2026): el agente elige su golpe
  *   al atacar (`hit`) y su respuesta cuando le golpean (`battle_response`), y usa
  *   los poderes de sus unidades con la jugada `power`, que se llama como la del

@@ -209,7 +209,7 @@ declare const aLaVista: unique symbol;
  * fabrican `asaltantesALaVista` y, para quien lo ve todo, `todosALaVista`: así
  * lo que enseña grupos —el lienzo, la ruta— no compila con `state.raiders` a
  * secas ni con un `.filter` encima, que devuelve un array sin la marca. Es lo
- * que el guardia de `invariantes.test.ts`, un grep, no podía ver: `escena:
+ * que el guardia de `invariantes-partida.test.ts`, un grep, no podía ver: `escena:
  * state` pintando todos los grupos.
  */
 export type AsaltantesALaVista<T extends VistaAsaltante = Raider> = readonly T[] & {

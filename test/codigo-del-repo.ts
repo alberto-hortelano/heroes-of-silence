@@ -65,7 +65,7 @@
  * batería de sondas, no la confianza**.
  *
  * El catorceavo es el de #63: `pintar` es el único `innerHTML` del repositorio y
- * un `Html` solo se fabrica dentro de `src/client/html.ts`. Nace en verde **en
+ * un `Html` solo se fabrica dentro de `src/client/comun/html.ts`. Nace en verde **en
  * el commit que reescribe `views/panels.ts`** y no en el que escribe la puerta,
  * donde habría nacido rojo con los tres `innerHTML` que `main.ts` tenía
  * entonces. También se rompió a mano, copiando uno de vuelta a `main.ts`.
@@ -166,6 +166,25 @@ export function codigoDe(r: string): string {
   const codigo = sinComentarios(leer(r));
   CACHE_SIN_COMENTARIOS.set(r, codigo);
   return codigo;
+}
+
+/**
+ * Los COMENTARIOS de `r` y nada más, línea a línea: lo que `codigoDe` pone en blanco. Cada
+ * carácter de código queda como un `\0`, para que una cita no se pegue a lo que tiene al lado,
+ * y la línea `i` del resultado es la `i` del fichero. Lo lee el guardia de las rutas citadas en
+ * los comentarios (`documentacion.test.ts`).
+ */
+export function comentariosDe(r: string): string[] {
+  const codigo = codigoDe(r).split('\n');
+  return leer(r)
+    .split('\n')
+    .map((l, i) => {
+      const c = codigo[i] ?? '';
+      let out = '';
+      for (let j = 0; j < l.length; j++)
+        out += l[j] === c[j] && /\S/.test(c[j] ?? '') ? '\0' : l[j];
+      return out;
+    });
 }
 
 /** El texto de `r` (relativa a la raíz), una vez por fichero. */

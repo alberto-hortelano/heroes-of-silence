@@ -72,7 +72,7 @@ function cargarImagen(clave: string, url: string): Promise<void> {
  * Una imagen de la base caminable (`render/base/arte.ts`), por su URL, cuando
  * llega; `null` si no llega. Pasa por la misma carga que el resto del arte —la
  * URL comprobada por `urlDeImagenSegura`, el fallo dicho en consola—: este
- * módulo es el único sitio que asigna un `src` (lo vigila `invariantes.test.ts`).
+ * módulo es el único sitio que asigna un `src` (lo vigila `invariantes-cliente.test.ts`).
  */
 export async function imagenDeLaBase(url: string): Promise<HTMLImageElement | null> {
   const clave = `base:${url}`;

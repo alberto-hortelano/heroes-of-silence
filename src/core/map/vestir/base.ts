@@ -86,7 +86,7 @@ export function esDelRio(tipos: Tipos, i: number): boolean {
  * escribían en la rejilla sin saber que una casilla era suya (las esquinas de
  * las sendas, el agua derramada, las orillas de las espigas…). La pasada que
  * querría tocarlo salta esa casilla o elige otra; si ni así, su vestido no vale.
- * Lo vigila `invariantes.test.ts`: nadie más escribe `tipos[…] =`.
+ * Lo vigila `invariantes-partida.test.ts`: nadie más escribe `tipos[…] =`.
  */
 export function ponerTipo(tipos: Tipos, i: number, t: number): void {
   const delRio = RIO_DE_LOS_TIPOS.get(tipos);

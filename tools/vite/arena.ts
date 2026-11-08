@@ -63,7 +63,7 @@ function servirBorrador(b: {
  * saca la lista de hojas y un `__arena/unidades` que dice `guardado: false`, así
  * que la página lee un campo explícito en vez de deducir del tipo de una
  * respuesta si hay servidor detrás; las unidades, la arena construida las lee
- * del catálogo del núcleo (`core/catalogo.ts`), que ya va en el bundle.
+ * del catálogo del núcleo (`core/unidad/catalogo.ts`), que ya va en el bundle.
  *
  * **«Guardar» no recarga la página**: `data/equipo.json` lo importa el núcleo, así
  * que está en el grafo de módulos de la arena y de la partida, y vite recargaba la

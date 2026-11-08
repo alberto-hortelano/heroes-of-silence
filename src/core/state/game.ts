@@ -279,7 +279,7 @@ export function applyAdventureAction(
   // la partida» y DEBAJO «El jugador 1 aprende: Prisa, Lentitud», que además se
   // pinta así en pantalla. La regla que rompía está escrita en `settleBattle`
   // —`game_over` es el ÚLTIMO hecho del registro— y no la vigilaba nadie;
-  // ahora sí (`test/invariantes.test.ts`).
+  // ahora sí (`test/invariantes-partida.test.ts`).
   if (state.finished === null) syncSpellbooks(state, actor);
 }
 

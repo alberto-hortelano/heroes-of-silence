@@ -61,7 +61,7 @@ export function catalogoDe(b: BattleState, eq: CatalogoDeEquipo): CatalogoDeLaAr
 }
 
 /**
- * Una unidad del catálogo (`data/unidades.json`, `core/catalogo.ts`) con los
+ * Una unidad del catálogo (`data/unidades.json`, `core/unidad/catalogo.ts`) con los
  * cambios que diga el test: la misma fuente de cifras que la arena y el juego.
  */
 export function unidadDeArena(id: string, cambios: Partial<Unidad> = {}): Unidad {

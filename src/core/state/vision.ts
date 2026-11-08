@@ -128,7 +128,7 @@ export function revealAroundNode(
  * si se volviera a apuntar, el recuerdo de sus objetos se refrescaría desde lejos.
  *
  * **El único escritor de `fog`** con `revealEverything` (lo vigila
- * `invariantes.test.ts`). Un mapa sin regiones (los de los tests de pathfinding)
+ * `invariantes-partida.test.ts`). Un mapa sin regiones (los de los tests de pathfinding)
  * no tiene por dónde partirse: es una sola zona, y se descubre entero.
  */
 function descubrir(state: GameState, player: Player, sitio: Point): void {

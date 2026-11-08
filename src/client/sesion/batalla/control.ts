@@ -91,7 +91,7 @@ export interface ControlDeBatalla {
    * La batalla entera, también lo que la persona aún no ve. **Solo para el
    * animador** (`EscenaBatalla.sincronizar`): al cerrar el despliegue, el rival que
    * aparece tiene que estar ya en su casilla para que su primera jugada se cuente
-   * andando desde ella, y con la vista no lo estaría. Lo vigila `invariantes.test.ts`.
+   * andando desde ella, y con la vista no lo estaría. Lo vigila `invariantes-cliente.test.ts`.
    */
   readonly batallaEntera: BattleState | null;
   /** El despliegue de la persona en pantalla: a quién se coloca, dónde, y «Listo». */

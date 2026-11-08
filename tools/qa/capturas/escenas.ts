@@ -1,5 +1,5 @@
 /**
- * Las escenas que `capturas.ts` necesita encontrar en una partida, buscadas en
+ * Las escenas que `pnpm capturas` necesita encontrar en una partida, buscadas en
  * el ESPEJO —una `Session` por semilla, sin navegador— en vez de escritas a mano.
  *
  * Por qué existe: la semilla y el destino de la emboscada avisada y la semilla de

@@ -4,7 +4,7 @@
  * tiene un peso»): de la fuerza y la agilidad del cuerpo, con lo que pesa y suma
  * su equipo, salen la defensa, el daño y las casillas. **La única cuenta**: las
  * derivadas de `UnitInfo` (`defense`, `damage`, `speed`) las escribe solo
- * `cifrasDelCuerpo`, y lo vigila `test/invariantes.test.ts`.
+ * `cifrasDelCuerpo`, y lo vigila `test/invariantes-batalla.test.ts`.
  *
  * - El peso hasta la fuerza no resta; por encima, −1 de agilidad por cada fuerza
  *   entera, o parte de ella, que lo pase (31-10-2026, decisión del usuario: «resta
@@ -24,7 +24,7 @@
  * carga va con la fuerza de la montura. La de silla no cambia nada en batalla: solo
  * la marcha del mapa (`marchaDe`).
  *
- * Puro y en enteros: sin coma flotante (`test/invariantes.test.ts`). No importa
+ * Puro y en enteros: sin coma flotante (`test/invariantes-capas.test.ts`). No importa
  * nada del núcleo salvo los escalones de velocidad.
  */
 import {

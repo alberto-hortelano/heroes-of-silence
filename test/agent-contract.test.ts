@@ -351,7 +351,7 @@ describe('contrato con el agente', () => {
   });
 
   it('el agente no puede encender un interruptor de reglas: el esquema no los lleva', () => {
-    // Las reglas de la batalla (`battle/reglas.ts`) solo las cambia la arena. Lo
+    // Los interruptores de reglas se fueron el 19-10-2026 (`battle/reglas.ts`). Lo
     // que el agente manda pasa por estos esquemas, y un `reglas` colado se cae
     // al parsear: no llega a ningún sitio que lo pudiera leer.
     const conReglas = {
@@ -1285,7 +1285,7 @@ describe('lo que ve el agente', () => {
   });
 
   it('y nombra el terreno y los caminos, o el dato viaja y no se mira (#85)', () => {
-    // La regla de la casa, escrita en `serialize.ts` a cuenta de `level`: un
+    // La regla de la casa, escrita en el contrato (`contract/`) a cuenta de `level`: un
     // dato nuevo que el contrato no nombra es un dato que el agente no mira.
     const prosa = RESPONSE_FORMAT.adventure_turn;
     expect(prosa).toContain('"knownMap"');

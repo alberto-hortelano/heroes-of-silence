@@ -356,7 +356,7 @@ function trazarLaRecta(desde: Hex, hasta: Hex, side: Side): Hex[] {
   const cruz = (uq: number, ur: number): number => dq * ur - dr * uq;
   const escalar = (uq: number, ur: number): number => 2 * dq * uq + dq * ur + dr * uq + 2 * dr * ur;
   // Hacia qué lado se empuja la recta en un empate: el signo de su producto
-  // vectorial (a mano: `core` no admite `Math.sign`, `invariantes.test.ts`).
+  // vectorial (a mano: `core` no admite `Math.sign`, `invariantes-capas.test.ts`).
   const [primero, segundo] =
     side === 'attacker'
       ? [EMPUJON_DEL_RAYO, ESPEJO_DEL_EMPUJON]

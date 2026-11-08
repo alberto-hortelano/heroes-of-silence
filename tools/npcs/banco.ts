@@ -1,7 +1,7 @@
 /**
  * El banco de figuras de NPC en disco: **el único que lee y escribe
- * `data/npcs.json`** (lo vigila `invariantes.test.ts`). La forma, el vocabulario y
- * la validación son del núcleo (`src/core/npcs.ts`); aquí, el fichero y el arte.
+ * `data/npcs.json`** (lo vigila `invariantes-datos.test.ts`). La forma, el vocabulario y
+ * la validación son del núcleo (`src/core/gente/banco.ts`); aquí, el fichero y el arte.
  *
  * Si una figura está pintada **no se escribe**: se deriva de si sus ocho
  * `dN/atlas.json` están en `assets/npcs/<id>/` (`estadoDeFigura`), y la que no lo está

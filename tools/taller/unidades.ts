@@ -45,7 +45,7 @@ import { type Encargo, figuraDelGiro } from './encargo.js';
 
 interface Unidad {
   readonly id: string;
-  /** Las cinco facciones se declaran en `src/core/arena.ts`, que es quien las valida al guardar. */
+  /** Las cinco facciones se declaran en `src/core/types.ts` (`FACTION_IDS`) y las valida al guardar `validarUnidad` (`src/core/unidad/formato.ts`). */
   readonly faccion: FactionId;
   /** El nombre en `NuevaJugabilidad.md`. */
   readonly nombre: string;

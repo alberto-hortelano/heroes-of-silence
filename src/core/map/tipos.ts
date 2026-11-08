@@ -78,7 +78,7 @@ export type MapObject =
        * sin bajar. Un primitivo del objeto, como `owner`, así que la memoria de la
        * niebla la recuerda sola (`explorar` copia el objeto) y el espectador la
        * recibe con él. **La escribe solo `mejorarElPuesto`** (`state/sitios.ts`; lo
-       * vigila `test/invariantes.test.ts`): tomar el paso no la toca, porque es una
+       * vigila `test/invariantes-partida.test.ts`): tomar el paso no la toca, porque es una
        * obra y se queda con él. La lee `murallaDelSitio` para la batalla del paso.
        */
       mejora: MejoraDelPuesto;

@@ -191,7 +191,7 @@ export const FIGURA_8D = {
  *
  * Su `length` es el número de direcciones de una figura para el taller y el
  * cliente; `core` no puede importar de aquí y escribe el 8 al lado de un
- * comentario que lo ata a esta lista (`src/core/arena.ts`).
+ * comentario que lo ata a esta lista (`DIRECCIONES_DE_FIGURA`, `src/core/unidad/formato.ts`).
  */
 export const NOMBRES_DE_DIRECCION = [
   'frente',

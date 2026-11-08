@@ -339,7 +339,7 @@ declare const MARCA_DE_LEIDO: unique symbol;
  * Un mundo leído y juzgado entero: sus tres ficheros y la facción de quien juega
  * (la de la base del jugador 0 del plan). **Solo lo produce la lectura**
  * (`leerMundo`): el tipo lleva una marca que nadie más pone sin un `as`, y eso lo
- * vigila `test/invariantes.test.ts`. Por eso `newGame` lo juega sin juzgarlo otra
+ * vigila `test/invariantes-datos.test.ts`. Por eso `newGame` lo juega sin juzgarlo otra
  * vez: lo que lleva la marca ya pasó por `problemasDelMundo`.
  */
 export interface MundoLeido {

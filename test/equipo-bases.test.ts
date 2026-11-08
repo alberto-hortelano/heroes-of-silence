@@ -4,7 +4,7 @@
  * extras»): una pieza escrita sobre otra de su hueco suma lo de la base más sus
  * extras, en cadena, y el vínculo es vivo —cambiar la Espada cambia la de
  * herrería, la bendita y a quien las lleve, también a media pelea—. La suma la
- * hace solo `resolverBases` (privada de `data.ts`, lo vigila `invariantes.test.ts`).
+ * hace solo `resolverBases` (privada de `equipo/pieza.ts`, lo vigila `invariantes-batalla.test.ts`).
  *
  * Escritos desde los criterios del plan (`docs/agents/2026-10-18-equipo-por-tipos-y-bases/`):
  * cada regla con su caso rechazado, con su frase.

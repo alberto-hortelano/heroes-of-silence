@@ -95,7 +95,7 @@ export function parseFaccion(texto: string | null | undefined): FactionId | null
  * Rasgos especiales de criatura.
  *
  * Es una constante recorrible, y no solo una unión de literales, porque hay un
- * test que la recorre: `test/invariantes.test.ts` exige que cada rasgo
+ * test que la recorre: `test/invariantes-batalla.test.ts` exige que cada rasgo
  * declarado aparezca leído en algún sitio de `src/core`. Durante mucho tiempo
  * cuatro de estos once estuvieron escritos aquí y en `data/creatures.json` sin
  * que el motor los mirara: el jugador —y el agente, que los recibe en cada
@@ -123,7 +123,7 @@ export type CreatureTrait = (typeof CREATURE_TRAITS)[number];
  * Qué hace cada rasgo del motor, dicho en corto: la casilla de la ficha de la
  * arena, el parte y la ficha de la morada. Vive junto a los rasgos y no en
  * `core/arena/` porque la partida también los nombra, y la arena no la importa
- * nadie más (`invariantes.test.ts`).
+ * nadie más (`invariantes-batalla.test.ts`).
  */
 export const NOMBRE_DE_RASGO: Readonly<Record<CreatureTrait, string>> = {
   undead: 'no-muerto',
@@ -170,7 +170,7 @@ export interface UnitInfo {
   /**
    * **Derivadas**: `defense`, `damage` y `speed` salen de las de arriba y del
    * equipo, y las escribe solo `cifrasDelCuerpo` (`unidad/cuerpo.ts`; lo vigila
-   * `test/invariantes.test.ts`). El motor, la IA y el contrato las leen tal cual.
+   * `test/invariantes-batalla.test.ts`). El motor, la IA y el contrato las leen tal cual.
    */
   readonly defense: number;
   /** [mínimo, máximo] de daño por efectivo: [fuerza, fuerza × agilidad efectiva], con la del arma. */
@@ -187,7 +187,7 @@ export interface UnitInfo {
    * cifras, que no se suman a las del jinete. La de guerra carga el peso de lo que
    * lleva el jinete y da las casillas en batalla; la de silla, solo la marcha del
    * mapa (`marchaDe`). La escribe solo `conEquipo` y no viaja al espectador (lo
-   * vigila `test/invariantes.test.ts`); el peso de arriba no la lleva.
+   * vigila `test/invariantes-batalla.test.ts`); el peso de arriba no la lleva.
    */
   readonly montura?: MonturaPuesta;
   /**
@@ -206,7 +206,7 @@ export interface UnitInfo {
    * con algo en un hueco de arma por uso (`esArmaPorUso`) o un arma de cuerpo a
    * cuerpo, que dice su rueda. Lo escribe solo `conEquipo` y lo leen solo
    * `battle/armas.ts` (`cifrasDelGolpe`, la única lectura de las cifras de un golpe)
-   * y su lista para la ficha (`armasDe`); lo vigila `test/invariantes.test.ts`.
+   * y su lista para la ficha (`armasDe`); lo vigila `test/invariantes-batalla.test.ts`.
    * Arriba quedan las cifras del cuerpo a cuerpo. Sin el campo, todo golpe va con
    * las de arriba. No viaja al espectador.
    */
@@ -216,13 +216,13 @@ export interface UnitInfo {
    * golpe que recibe, con mínimo 0. Lo escribe solo `conEquipo` (la suma de
    * `Pieza.armadura`), y solo si es > 0. Fuera de `equipo/vestir.ts`
    * lo lee solo `battle/armas.ts` (`armaduraDe`, `trasLaArmadura`); lo vigila
-   * `test/invariantes.test.ts`. No es el hueco `armadura`: se llama de otro modo
+   * `test/invariantes-batalla.test.ts`. No es el hueco `armadura`: se llama de otro modo
    * para que se encuentre buscándolo. No viaja al espectador.
    */
   readonly puntosDeArmadura?: number;
   readonly traits?: readonly CreatureTrait[];
   /**
-   * Los poderes que usa en su turno (`battle/poderes.ts`): Curar. Los pone
+   * Los poderes que usa en su turno (`Unidad.hechizos`, `magia/`): Curar. Los pone
    * solo `unidadDeCombate`, por sus habilidades; los usan la persona, la IA y el
    * agente, con la jugada `power` (`contract/vocabulario.ts`).
    */
@@ -395,7 +395,7 @@ export type ArmasDeLaUnidad = { readonly arma: GolpeConArma } & Readonly<
 /**
  * El id de un poder de unidad: un hechizo de `data/hechizos.json` que la unidad
  * usa con su turno (`Unidad.hechizos`, `curar`). Vive aquí y no en
- * `battle/poderes.ts` porque lo nombran `UnitInfo` y la jugada `poder`, y este
+ * `magia/` porque lo nombran `UnitInfo` y la jugada `poder`, y este
  * fichero no importa de nadie.
  */
 export type PoderId = string;
@@ -837,7 +837,7 @@ export interface Hero {
    * **Efímero**: vuelve a su base vencido o rendido desde que acabó su último turno
    * (`volverABase`, en `state/cierre.ts`), y se borra al acabar el turno de su dueño
    * (`nextPlayer`, en `state/turnos.ts`). Lo ponen y lo quitan solo esas dos (lo vigila
-   * `invariantes.test.ts`). Es lo que hace que la IA recoja de la guarnición al que
+   * `invariantes-partida.test.ts`). Es lo que hace que la IA recoja de la guarnición al que
    * vuelve en el turno del rival como al que llega (`playAiTurn`): sin él salía de
    * casa sin la tropa que lo esperaba (H2 del QA del puesto fronterizo, 04-11-2026:
    * 22 de 22 veces en 1-40). Ausente casi siempre: con `exactOptionalPropertyTypes`

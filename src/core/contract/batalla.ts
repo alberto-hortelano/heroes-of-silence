@@ -315,7 +315,7 @@ function murallaVista(battle: BattleState) {
  * ids y nada más, así que no lo puede filtrar aunque quien la llame ya lo sepa
  * (la IA elige el suyo antes de preguntar). La previsión se cuenta con un
  * `attack` sin elecciones (`previsionDeLaRueda` no las lee). Lo vigila
- * `invariantes.test.ts`.
+ * `invariantes-batalla.test.ts`.
  *
  * `responses` lleva por cada tipo lo que daría su contraataque y lo que hace; si
  * no devolverá el golpe, `noCounterattack` con el motivo del núcleo y solo el

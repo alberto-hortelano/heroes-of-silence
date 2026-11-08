@@ -43,7 +43,7 @@
  *   respuesta, cada veredicto) en la partida del arnés de `pnpm qa` (el `Director`
  *   con la política de `politica.ts`, sin servidor ni puertos), semillas 1-20 hasta
  *   el final: el turno de aventura, los de batalla, las respuestas de la rueda, el
- *   mapa que se le pide, las voces y el ascenso pasan por `contract/serialize.ts`.
+ *   mapa que se le pide, las voces y el ascenso pasan por `contract/`.
  * - **escena**: lo que compone el escenógrafo del cliente (`componer`) en las
  *   semillas 1-40 y en los mundos `prueba` y `ejemplo` de `assets/mundos/`, con el
  *   catálogo del disco como lo carga el juego.

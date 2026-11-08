@@ -226,7 +226,7 @@ const LEIDA = validarRueda(ruedaJson);
  * La tabla de `data/rueda.json`. **Privada**: la lee solo `cifrasDeLosNiveles`
  * (y los golpes del Rápido, `GOLPES_DEL_RAPIDO`), así que una cifra de la rueda
  * sale siempre de los niveles del arma del golpe. Lo vigila
- * `test/invariantes.test.ts`.
+ * `test/invariantes-batalla.test.ts`.
  */
 const TABLA: TablaDeLaRueda = LEIDA.tabla;
 
@@ -393,7 +393,7 @@ export function efectoDelTipo(tipo: TipoDeGolpe, c: CifrasDeLaRueda): EfectoDelT
   const m = (neutro: number, v: number): number => (media ? aMedias(neutro, v) : v);
   const e: { -readonly [K in keyof EfectoDelTipo]: EfectoDelTipo[K] } = { ...NEUTRO };
   // La Finta va aparte y entra al final: el campo de un turno con Finta lo
-  // escribe solo el golpe (`melee`; lo vigila `invariantes.test.ts`).
+  // escribe solo el golpe (`melee`; lo vigila `invariantes-batalla.test.ts`).
   let finta: EfectoDelTipo['finta'] = null;
   for (const parte of PARTES[tipo]) {
     switch (parte) {

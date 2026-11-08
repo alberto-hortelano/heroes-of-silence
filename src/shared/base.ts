@@ -3,7 +3,7 @@
  * camina delante y, detrás, la plaza pintada en un solo cuadro. La leen el
  * cliente (la escena) y el taller (las guías que se le dan a Codex y el
  * recorte), y por eso vive en `shared`: el núcleo no la lee nunca —un sitio no
- * tiene coordenadas en las reglas— y lo vigila `invariantes.test.ts`.
+ * tiene coordenadas en las reglas— y lo vigila `invariantes-partida.test.ts`.
  *
  * Todo va en **pasos**, la unidad del tablero de combate (`render/proyeccion.ts`):
  * la escena comparte con él el tamaño de la figura, así que un adulto mide en la

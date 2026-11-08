@@ -11,7 +11,7 @@
  * caballeros y nigromantes, Imperio, Elfos y Orkos se extraen como las otras dos.
  *
  * `NuevaJugabilidad.md` **no se commitea**; el JSON sí, y es contra él contra
- * quien comprueba `data.ts`. Se corre a mano cuando el cuaderno cambie:
+ * quien comprueba `hero/tipos-de-heroe.ts`. Se corre a mano cuando el cuaderno cambie:
  *
  *   npx tsx tools/datos/tipos-de-heroe.ts [ruta de NuevaJugabilidad.md]
  *

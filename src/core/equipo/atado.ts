@@ -28,7 +28,7 @@ import { puestasDe, type SumaDeEquipo, sumaDe, vestir } from './vestir.js';
  * (`PIEZAS_DEL_CATALOGO`, el fichero tal como se cargó); la arena edita el catálogo en memoria antes de
  * guardarlo y pelea con él (`catalogoDeEquipo`), y solo entra por aquí: así no hay
  * lectura que se olvide de su catálogo y resuelva en silencio con la pieza que se
- * cargó. Que la arena no importe las sueltas lo vigila `test/invariantes.test.ts`.
+ * cargó. Que la arena no importe las sueltas lo vigila `test/invariantes-datos.test.ts`.
  */
 export interface EquipoAtado {
   readonly piezas: CatalogoDePiezas;

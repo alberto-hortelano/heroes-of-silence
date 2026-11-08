@@ -22,7 +22,7 @@
  * `rangoDeHeroe`: estaban aquí hasta la fase N de la reorganización, 07-11-2026);
  * aquí queda lo que suma cada rango a unas cifras (`cifrasVeteranas`). Solo hay
  * cuentas enteras: sumas y productos de enteros, nada de `**` ni
- * de `Math.pow`, que es lo que vigila `test/invariantes.test.ts` para que el
+ * de `Math.pow`, que es lo que vigila `test/invariantes-capas.test.ts` para que el
  * banco valga fuera de esta máquina.
  */
 import { conEquipo } from '../equipo/vestir.js';

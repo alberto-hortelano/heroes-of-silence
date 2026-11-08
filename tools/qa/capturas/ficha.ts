@@ -5,7 +5,7 @@
  * cabeceras se partían («Cuerp/o», «Fina/l»). El recorrido de entonces medía
  * cajas que se salen, no texto cortado dentro de un `<input>`, y no lo vio.
  *
- * Se pasa tal cual a `page.evaluate` (lo usan `capturas.ts` y el recorrido de la
+ * Se pasa tal cual a `page.evaluate` (lo usan `pnpm capturas` y el recorrido de la
  * tarea): por eso no declara funciones dentro, que tsx les pone `__name`, y esa
  * función no existe en la página. Devuelve los fallos de cada tabla visible bajo
  * `raiz`: una cabecera o un rótulo en más de una línea, una casilla en la que no

@@ -138,7 +138,7 @@ export function abrirEditor(
 
 /**
  * El campo del nombre (`input.renombrar`) visto por lo que se usa de él. Sin el
- * tipo del DOM a propósito: los nombres con `HTML` los vigila `invariantes.test.ts`.
+ * tipo del DOM a propósito: los nombres con `HTML` los vigila `invariantes-cliente.test.ts`.
  */
 type CampoDelNombre = Element & {
   value: string;

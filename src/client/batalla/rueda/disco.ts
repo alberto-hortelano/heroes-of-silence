@@ -10,7 +10,7 @@
  * centro. La rueda del combate pinta la de su batalla (`formaDeLaBatalla`); la
  * ficha de un arma, la de referencia (`RUEDA_DE_REFERENCIA`, la de 7), que es donde
  * el arma tiene un nivel por tipo: **la única rueda fija del cliente**, solo en
- * `ruedaDeLaPieza` (lo vigila `invariantes.test.ts`).
+ * `ruedaDeLaPieza` (lo vigila `invariantes-batalla.test.ts`).
  */
 
 import {

@@ -43,7 +43,7 @@ const FRASES_DE_LA_MURALLA = {
  * no anda ni golpea** (QF2-1: con «Poner escalera» esperando, un clic en una casilla
  * de andar movía y le quitaba la escalera de ese turno). `muroPorElegir` y
  * `puertaPorElegir` son de solo lectura (se derivan de lo que espera; lo vigila
- * `test/invariantes.test.ts`).
+ * `test/invariantes-batalla.test.ts`).
  */
 export class MurallaDeLaActiva {
   constructor(

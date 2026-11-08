@@ -4,7 +4,7 @@
  *
  * El núcleo valida sus datos al importarse y lanza con un mensaje para la
  * persona: una unidad que no vale en `data/unidades.json` (editada a mano;
- * «Guardar» no la deja pasar) tumba `core/catalogo.ts`, y con él todo lo que lo
+ * «Guardar» no la deja pasar) tumba `core/unidad/catalogo.ts`, y con él todo lo que lo
  * importa, que es casi todo. Con `main.ts` de entrada, eso pasaba antes de que la
  * página pintase nada: la arena se quedaba en «Cargando las hojas…», la partida
  * en blanco y el motivo solo en la consola (H5 de QA, 19-10-2026). Por eso esto

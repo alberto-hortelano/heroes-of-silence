@@ -29,7 +29,7 @@ import { notaMapaAceptado, notaMapaRechazado } from './notas.js';
 
 // Lo que el servidor pide es el `MapRequestOptions` del contrato, y se usa ese
 // tipo directamente: un alias no lo importaría nadie, y el criterio que este
-// mismo ciclo escribió en `agent.ts` dice que eso se borra. `players` son **los
+// mismo ciclo escribió en `contract/agent.ts` (hoy `contract/formato.ts`) dice que eso se borra. `players` son **los
 // ids** y no cuántos (#101), así que el agente lee qué jugadores colocar en vez
 // de deducirlo de una convención en prosa.
 

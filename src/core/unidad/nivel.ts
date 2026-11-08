@@ -13,7 +13,7 @@
  * experiencia, y saldrán la morada, el coste y el crecimiento. Lo que la regla
  * anterior medía sin equipo lo cuenta `docs/historia.md`.
  *
- * Todo en enteros: ni `Math.sqrt` ni `**` (`test/invariantes.test.ts`). La raíz
+ * Todo en enteros: ni `Math.sqrt` ni `**` (`test/invariantes-capas.test.ts`). La raíz
  * es `raizEntera`; si el producto no cabe en un entero seguro, lanza en vez de
  * redondear distinto en otra máquina. La calibración y su porqué, en
  * `data/poder.json`.

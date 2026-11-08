@@ -68,7 +68,7 @@ describe('el catálogo de los mapas densos', () => {
     expect(Object.keys(TEXTURAS).sort()).toEqual([...SUELOS_PISABLES].sort());
     for (const e of encargosDeTexturas()) {
       expect(e.tipo).toBe('textura');
-      // Las reglas de `prompts.ts`: el agua no se nombra en un suelo, que alucina ríos.
+      // Las reglas de `tools/taller/encargo.ts`: el agua no se nombra en un suelo, que alucina ríos.
       expect(e.descripcion).not.toMatch(/\bagua|río|lago/i);
       expect(promptDe(e)).toMatch(/90 grados/);
     }

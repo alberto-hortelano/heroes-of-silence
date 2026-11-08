@@ -1,5 +1,5 @@
 /**
- * La gente de la base y lo que dice (`core/town/voces.ts`): quién hay, cuándo
+ * La gente de la base y lo que dice (`core/gente/voces.ts`): quién hay, cuándo
  * caducan sus voces, el respaldo determinista sin agente y cómo entran las
  * voces que escribe el narrador, cada una sola y cada línea sola.
  */

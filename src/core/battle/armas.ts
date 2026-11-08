@@ -8,7 +8,7 @@
  * para medir y el combate lee el nivel para la experiencia (`herir`): con ellas
  * dentro de `damage.ts` y `rueda.ts`, `nivel.ts` quedaba en un ciclo de
  * importación que solo funcionaba porque lo que corre al cargar usa declaraciones
- * de función (simplify de F1, 18-10-2026). Lo vigila `test/invariantes.test.ts`.
+ * de función (simplify de F1, 18-10-2026). Lo vigila `test/invariantes-capas.test.ts`.
  */
 import type { GolpeConArma, NivelesDeLaRueda, TipoDeGolpe, UnitInfo, UsoDeArma } from '../types.js';
 import { hasTrait } from '../types.js';

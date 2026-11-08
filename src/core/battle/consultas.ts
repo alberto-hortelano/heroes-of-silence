@@ -1082,7 +1082,7 @@ function oroDeCatalogo(s: BattleStack): number {
     case 'catalogo':
       // El precio viaja en el origen: `unit` ya no es siempre la referencia
       // del catálogo —la de un veterano es una copia con sus cifras—, y volver
-      // a `creature(body)` es lo que prohíbe `test/invariantes.test.ts`. Un
+      // a `creature(body)` es lo que prohíbe `test/invariantes-batalla.test.ts`. Un
       // veterano cuesta lo mismo que un novato: rendirse paga la tropa, no su
       // historia.
       return s.origen.oro * s.count;

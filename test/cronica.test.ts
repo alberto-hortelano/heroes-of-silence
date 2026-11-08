@@ -345,7 +345,7 @@ describe('la crónica pasa por la niebla', () => {
     // aparezca un tercero haya que ponerlo aquí a mano.
     //
     // En 48×48 y no en el mapa de siempre, por el mismo motivo que el guardia
-    // hermano de `invariantes.test.ts`: cuadrada la economía, la partida de
+    // hermano de `invariantes-partida.test.ts`: cuadrada la economía, la partida de
     // 24×24 acaba el día 6 y se queda en quince tipos —no le da tiempo a
     // aprender un hechizo—, así que este test recorría un evento menos.
     // Bajarle el umbral habría sido dejarlo mirando quince para siempre; en

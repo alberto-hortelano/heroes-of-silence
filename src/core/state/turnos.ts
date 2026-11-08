@@ -158,7 +158,7 @@ function advanceDay(state: GameState, ctx: GameContext): void {
  * El crecimiento de la semana de cada ciudad, **salvo la ocupada** (P4 de la tarea
  * 2, 05-11-2026: «tampoco crecen sus moradas»; y la semana se pierde, no se
  * aplaza, pregunta 4). **El único que llama a `applyWeeklyGrowth`** (lo vigila
- * `test/invariantes.test.ts`): al nacer la partida y cada lunes.
+ * `test/invariantes-partida.test.ts`): al nacer la partida y cada lunes.
  */
 export function crecerLasMoradas(state: GameState): void {
   for (const town of state.towns) {

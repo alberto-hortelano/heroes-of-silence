@@ -8,7 +8,7 @@
  * que lanza la envuelve: la frase es la misma.
  *
  * Sin dependencias: las usan la arena (`arena/`), los
- * poderes (`battle/poderes.ts`) y la rueda del golpe (`battle/rueda.ts`), que
+ * hechizos (`magia/`) y la rueda del golpe (`battle/rueda.ts`), que
  * antes llevaban cada uno su copia.
  */
 
@@ -121,7 +121,7 @@ export function repetidoEn<T>(lista: readonly T[]): T | undefined {
  * de una carpeta de `assets/unidades/`. La leen el id de una unidad, el cuerpo de
  * una hoja y la figura de un héroe (`core/arena/`) y el registro de una hoja
  * para pintarla (`render/figuras/personajes.ts`). Aquí y no en `core/arena/` porque el
- * cliente fuera de la arena no importa de allí (`invariantes.test.ts`).
+ * cliente fuera de la arena no importa de allí (`invariantes-batalla.test.ts`).
  */
 export function esIdDeUnidad(id: string): boolean {
   return /^[a-z0-9-]+$/.test(id);

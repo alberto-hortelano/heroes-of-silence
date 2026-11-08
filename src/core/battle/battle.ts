@@ -1336,7 +1336,7 @@ function saltarUno(
 /**
  * La muerte de `s`, **la única escritura de `perished`**: se anota, se va con él lo
  * que dejó con «se acaba si muere» (de cualquier stack), se pierde su hechizo en el
- * aire y saltan sus disparadores `alMorir`. Lo vigila `invariantes.test.ts`.
+ * aire y saltan sus disparadores `alMorir`. Lo vigila `invariantes-batalla.test.ts`.
  */
 function anotarLaMuerte(state: BattleState, s: BattleStack): void {
   state.log.push({ kind: 'perished', stack: s.id });

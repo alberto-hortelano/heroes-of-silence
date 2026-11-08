@@ -1,6 +1,6 @@
 /**
  * Leer una hoja de estilo en un test: lo comparten el guardia de colores fijos
- * (`invariantes.test.ts`), el de las fichas de los temas (`temas.test.ts`), el de
+ * (`invariantes-cliente.test.ts`), el de las fichas de los temas (`temas.test.ts`), el de
  * la paleta medida de las láminas (`paleta-de-las-laminas.test.ts`), el de las
  * letras (`fuentes.test.ts`) y el de las piezas (`piezas-de-tema.test.ts`). Un
  * solo analizador: `bloquesCss`.

@@ -16,7 +16,7 @@
  * `hornearElVelo` y `sinElVelo`).
  *
  * No toca el DOM ni recibe clics: pinta en el lienzo que le dan. No lee la
- * sesión (`invariantes.test.ts`): le dan el clima del sitio. No mira
+ * sesión (`invariantes-cliente.test.ts`): le dan el clima del sitio. No mira
  * `prefers-reduced-motion`: es para leer una página, no para un juego (el
  * usuario, 22-10-2026); la lluvia y el rayo van siempre.
  *
@@ -36,7 +36,7 @@
  *   para 1 200 gotas; las de 1 px, 1 ms), y en el mapa cada una pregunta si
  *   llueve donde cae.
  *
- * Nada de `Math.random` (`invariantes.test.ts`): las gotas salen de un hash de
+ * Nada de `Math.random` (`invariantes-capas.test.ts`): las gotas salen de un hash de
  * su número y del reloj, y el rayo, de un hash de su sitio y de su ciclo.
  */
 import type { MapaDeRed } from '@core/map/regiones.js';

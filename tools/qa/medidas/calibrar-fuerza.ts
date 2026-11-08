@@ -18,7 +18,7 @@
  *     log-pérdida. Con el grupo da además lo que mira `ventajaClara`: de las
  *     batallas en que un bando le saca el margen al otro, cuántas pierde.
  *
- * Lo que dice hoy está escrito en `PESO_DEL_CUERPO` (`src/core/ai/fuerza.ts`),
+ * Lo que dice hoy está escrito en `PESO_DEL_CUERPO` (`src/core/hero/fuerza.ts`),
  * con su fecha. Todo es determinista: misma orden, misma salida.
  *
  * `node:*` aquí vale: esto es `tools/`, no `core`.

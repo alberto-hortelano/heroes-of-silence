@@ -248,7 +248,7 @@ export function palabrasDe(texto: string): number {
  * Lo que le falta a la biblia de un mundo (`biblia.md`, la trama en prosa que el
  * motor escribe antes que `historia.json`), o `null` si vale. `texto` es lo que hay
  * en el fichero, `null` si no está, o por qué no se lee (`NoSeLee`). Solo en disco: el juego no la lee, la página
- * no la carga (`client/mundo/cargar.ts`) y ningún mundo va al build; la piden
+ * no la carga (`client/partida/mundo.ts`) y ningún mundo va al build; la piden
  * `pnpm mundo validar` y el servidor que genera, por `validarEnDisco`.
  */
 export function problemaDeLaBiblia(texto: string | null | NoSeLee, id: string): string | null {
