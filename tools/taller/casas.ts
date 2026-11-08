@@ -33,8 +33,8 @@ import { sha256 } from '../comun/hash.js';
 import { aRaster, type Raster } from '../comun/imagen.js';
 import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
+import { ALFA_FIGURA } from './cuerpo.js';
 import { derivarPieza } from './derivar.js';
-import { ALFA_FIGURA } from './empaquetar.js';
 import type { Modulo } from './escenario/modulos.js';
 
 const MODULOS = join(RAIZ, 'assets/mapa/modulos');

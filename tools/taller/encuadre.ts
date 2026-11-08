@@ -20,8 +20,7 @@
  * Puro: no lee ficheros ni el maniquí; recibe las celdas ya colocadas y dónde
  * espera la cadera cada una. Lo llama `empaquetar`.
  */
-// El ciclo con `empaquetar` es solo de valores que se leen al llamar: no muerde.
-import { ALFA_FIGURA, type Cuerpo, cuerpoDe } from './empaquetar.js';
+import { ALFA_FIGURA, type Cuerpo, cuerpoDe } from './cuerpo.js';
 
 /** Una celda RGBA de `lado`×`lado`. */
 export interface CeldaRgba {

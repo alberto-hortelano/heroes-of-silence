@@ -15,7 +15,8 @@ import { dirname, join } from 'node:path';
 import sharp from 'sharp';
 import { sha256 } from '../../comun/hash.js';
 import type { Raster } from '../../comun/imagen.js';
-import { ALFA_FIGURA, type Caja, componentes, enFilas } from '../empaquetar.js';
+import { ALFA_FIGURA } from '../cuerpo.js';
+import { type Caja, componentes, enFilas } from '../empaquetar.js';
 import type { Encargo } from '../encargo.js';
 import { REFERENCIA_DE_MAPAS } from '../mapa-denso.js';
 

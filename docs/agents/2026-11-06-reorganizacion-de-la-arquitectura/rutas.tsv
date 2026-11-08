@@ -2405,3 +2405,9 @@ simbolo	tools/taller/paredes-puentes.ts	tools/taller/guias.ts	ARRIBA
 simbolo	tools/taller/paredes-puentes.ts	tools/taller/guias.ts	FRENTE
 simbolo	tools/taller/paredes-puentes.ts	tools/taller/guias.ts	SOMBRA
 simbolo	tools/taller/paredes-puentes.ts	tools/taller/guias.ts	MATAS
+simbolo	tools/taller/empaquetar.ts	tools/taller/cuerpo.ts	ALFA_FIGURA
+simbolo	tools/taller/empaquetar.ts	tools/taller/cuerpo.ts	GROSOR_DE_LO_FINO
+simbolo	tools/taller/empaquetar.ts	tools/taller/cuerpo.ts	Cuerpo
+simbolo	tools/taller/empaquetar.ts	tools/taller/cuerpo.ts	sumasDe
+simbolo	tools/taller/empaquetar.ts	tools/taller/cuerpo.ts	enLaVentana
+simbolo	tools/taller/empaquetar.ts	tools/taller/cuerpo.ts	cuerpoDe

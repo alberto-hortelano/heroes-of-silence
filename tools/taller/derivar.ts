@@ -33,7 +33,8 @@ import { sha256 } from '../comun/hash.js';
 import { aRaster } from '../comun/imagen.js';
 import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
-import { ALFA_FIGURA, apoyoEn } from './empaquetar.js';
+import { ALFA_FIGURA } from './cuerpo.js';
+import { apoyoEn } from './empaquetar.js';
 import { esFondoDeGuia, type P2 } from './guias.js';
 import type { GeometriaDeLadera } from './laderas.js';
 

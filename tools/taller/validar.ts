@@ -5,7 +5,7 @@
  */
 import { FIGURA } from '../../src/shared/arte.js';
 import { aRaster } from '../comun/imagen.js';
-import { ALFA_FIGURA } from './empaquetar.js';
+import { ALFA_FIGURA } from './cuerpo.js';
 import { type Encargo, filasDeAtlas } from './encargo.js';
 import { UMBRALES } from './recorte.js';
 
