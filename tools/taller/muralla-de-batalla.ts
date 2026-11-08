@@ -40,7 +40,7 @@ import { aRaster } from '../comun/imagen.js';
 import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import type { Encargo } from './encargo.js';
-import { ARRIBA, FONDO, FRENTE, SOMBRA } from './paredes-puentes.js';
+import { ARRIBA, FONDO, FRENTE, SOMBRA } from './guias.js';
 
 /** Dónde van las piezas, dentro del repo. */
 export const DIR_DE_LA_MURALLA = `assets/${CARPETA_DE_LA_MURALLA}`;

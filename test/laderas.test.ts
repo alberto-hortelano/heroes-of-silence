@@ -43,6 +43,7 @@ import { RedDeCaminos } from '../src/core/map/red-de-caminos.js';
 import type { Suelo } from '../src/core/map/terrain.js';
 import { sha256DeFichero } from '../tools/comun/hash.js';
 import { mascaraDeGuia, registrarLadera } from '../tools/taller/derivar.js';
+import { DIR_GUIAS } from '../tools/taller/guias.js';
 import {
   encargosDeLaderas,
   type GeometriaDeLadera,
@@ -50,7 +51,6 @@ import {
   PIEZAS,
   papelDe,
 } from '../tools/taller/laderas.js';
-import { DIR_GUIAS } from '../tools/taller/paredes-puentes.js';
 import { RAIZ } from './comun.js';
 import { catalogoDelDisco } from './escena-de-prueba.js';
 

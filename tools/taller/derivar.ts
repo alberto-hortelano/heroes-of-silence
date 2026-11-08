@@ -34,8 +34,8 @@ import { aRaster } from '../comun/imagen.js';
 import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { ALFA_FIGURA, apoyoEn } from './empaquetar.js';
+import { esFondoDeGuia, type P2 } from './guias.js';
 import type { GeometriaDeLadera } from './laderas.js';
-import { esFondoDeGuia, type P2 } from './paredes-puentes.js';
 
 /** Las filas de una hoja del taller, en orden, con su reloj. El reloj no sale de la imagen. */
 export const RELOJ = {

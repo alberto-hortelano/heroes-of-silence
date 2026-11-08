@@ -37,7 +37,6 @@ import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { derivarPieza, type PiezaDerivada } from './derivar.js';
 import type { Encargo } from './encargo.js';
-import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
 import {
   ARRIBA,
   DIR_GUIAS,
@@ -47,7 +46,8 @@ import {
   type P2,
   type P3,
   SOMBRA,
-} from './paredes-puentes.js';
+} from './guias.js';
+import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
 
 /** Las piezas de norte a sur, las que llevan su paso. */
 export const MUROS_NORTE_SUR = ['muro-ns-1', 'muro-ns-2'] as const;

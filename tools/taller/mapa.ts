@@ -15,8 +15,6 @@ import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { derivarPieza } from './derivar.js';
 import type { Encargo } from './encargo.js';
-import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
-import { encargosDelMuroNorteSur } from './muros.js';
 import {
   ARRIBA,
   DIR_GUIAS,
@@ -27,7 +25,9 @@ import {
   type P2,
   type P3,
   SOMBRA,
-} from './paredes-puentes.js';
+} from './guias.js';
+import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
+import { encargosDelMuroNorteSur } from './muros.js';
 
 /** Lo que tiene que existir en el mapa nuevo, según `NuevaJugabilidad.md`. */
 export const PIEZAS_DE_MAPA = [

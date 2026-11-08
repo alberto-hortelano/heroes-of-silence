@@ -2391,3 +2391,17 @@ simbolo	vite.config.ts	tools/vite/sin-desarrollo.ts	sinDesarrollo
 simbolo	vite.config.ts	tools/vite/publico.ts	publico (junto a seCopiaAlBuild y copiarPublico)
 simbolo	vite.config.ts (motivoDe)	src/client/comun/errores.ts	mensajeDe (H2a: la copia local se va)
 carpeta	assets/mapa/guias/	assets/mapa/_guias/	(H3a: las guías de geometría del mapa, con la convención de toda guía; 89 JSON reescritos)
+simbolo	tools/taller/paredes-puentes.ts	tools/taller/guias.ts	DIR_GUIAS
+simbolo	tools/taller/paredes-puentes.ts	tools/taller/guias.ts	NIVEL
+simbolo	tools/taller/paredes-puentes.ts	tools/taller/guias.ts	P2
+simbolo	tools/taller/paredes-puentes.ts	tools/taller/guias.ts	P3
+simbolo	tools/taller/paredes-puentes.ts	tools/taller/guias.ts	Guia
+simbolo	tools/taller/paredes-puentes.ts	tools/taller/guias.ts	encajar
+simbolo	tools/taller/paredes-puentes.ts	tools/taller/guias.ts	escribirGuia
+simbolo	tools/taller/paredes-puentes.ts	tools/taller/guias.ts	FONDO
+simbolo	tools/taller/paredes-puentes.ts	tools/taller/guias.ts	gris
+simbolo	tools/taller/paredes-puentes.ts	tools/taller/guias.ts	esFondoDeGuia
+simbolo	tools/taller/paredes-puentes.ts	tools/taller/guias.ts	ARRIBA
+simbolo	tools/taller/paredes-puentes.ts	tools/taller/guias.ts	FRENTE
+simbolo	tools/taller/paredes-puentes.ts	tools/taller/guias.ts	SOMBRA
+simbolo	tools/taller/paredes-puentes.ts	tools/taller/guias.ts	MATAS

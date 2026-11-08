@@ -30,20 +30,20 @@ import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { mascaraDeGuia, registrarPieza } from './derivar.js';
 import type { Encargo } from './encargo.js';
-import { azarDe, bloque, MATERIAL, MESETA, mata, type Niveles } from './laderas.js';
-import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
 import {
   ARRIBA,
   DIR_GUIAS,
   escribirGuia,
   FRENTE,
   Guia,
-  type Material,
   NIVEL,
   type P2,
   type P3,
   SOMBRA,
-} from './paredes-puentes.js';
+} from './guias.js';
+import { azarDe, bloque, MATERIAL, MESETA, mata, type Niveles } from './laderas.js';
+import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
+import type { Material } from './paredes-puentes.js';
 
 /** Los rumbos de la hoja, en su orden de lectura: cuatro en la primera fila y el oeste debajo. */
 export const RUMBOS: readonly RumboDeBajada[] = ['s', 'se', 'so', 'e', 'o'];

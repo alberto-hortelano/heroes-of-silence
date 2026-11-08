@@ -37,19 +37,10 @@ import { RAIZ } from '../comun/raiz.js';
 import { registrarConEscala } from './derivar.js';
 import { ALFA_FIGURA } from './empaquetar.js';
 import type { Encargo } from './encargo.js';
+import { ARRIBA, DIR_GUIAS, FRENTE, Guia, NIVEL, type P2, type P3, SOMBRA } from './guias.js';
 import { azarDe, MATERIAL, MESETA, type Niveles } from './laderas.js';
 import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
-import {
-  ARRIBA,
-  DIR_GUIAS,
-  FRENTE,
-  Guia,
-  type Material,
-  NIVEL,
-  type P2,
-  type P3,
-  SOMBRA,
-} from './paredes-puentes.js';
+import type { Material } from './paredes-puentes.js';
 
 /**
  * La geometría de la rampa en el mundo de la guía, en casillas desde el borde

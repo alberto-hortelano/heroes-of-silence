@@ -52,22 +52,20 @@ import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { mascaraDeGuia, registrarLadera } from './derivar.js';
 import type { Encargo } from './encargo.js';
-import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
 import {
   ARRIBA,
   DIR_GUIAS,
   escribirGuia,
   FRENTE,
   Guia,
-  type Lado,
   MATAS,
-  MATERIALES,
-  type Material,
   NIVEL,
   type P2,
   type P3,
   SOMBRA,
-} from './paredes-puentes.js';
+} from './guias.js';
+import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
+import { type Lado, MATERIALES, type Material } from './paredes-puentes.js';
 
 export type Niveles = 1 | 2 | 3;
 
