@@ -2371,3 +2371,4 @@ simbolo	tools/taller/temas/paleta.ts	tools/comun/color.ts	deltaE
 simbolo	tools/taller/temas/paleta.ts	tools/comun/color.ts	sobre
 simbolo	tools/taller/temas/paleta.ts	tools/comun/color.ts	luminancia
 simbolo	tools/taller/temas/paleta.ts	tools/comun/color.ts	contraste
+simbolo	tools/qa/temas-con-piezas.ts y tools/comun/color.ts (contraste)	tools/comun/color.ts	contrasteDeLuces (nueva: el cociente WCAG de dos luminancias; lineal y luminancia de temas-con-piezas se quedan: umbral 0,03928 frente a 0,04045)

@@ -38,6 +38,7 @@ import { join, resolve } from 'node:path';
 import { chromium, type Page } from 'playwright';
 import sharp from 'sharp';
 import { FACTION_IDS, type FactionId } from '../../src/core/types.js';
+import { contrasteDeLuces } from '../comun/color.js';
 import { mediana } from '../comun/estadistica.js';
 import { matarGrupo } from '../comun/procesos.js';
 import { RAIZ } from '../comun/raiz.js';
@@ -82,14 +83,14 @@ const LUZ_DEL_MARGEN: Record<FactionId, readonly [number, number]> = {
 };
 
 const luma = (r: number, g: number, b: number): number => 0.2126 * r + 0.7152 * g + 0.0722 * b;
+// El umbral del texto de WCAG 2.0 (0,03928), no el del sRGB de `comun/color.ts` (0,04045): con
+// bytes enteros dan lo mismo, pero el color del rótulo sale de `getComputedStyle` y no se juntan.
 const lineal = (c: number): number => {
   const s = c / 255;
   return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
 };
 const luminancia = (r: number, g: number, b: number): number =>
   0.2126 * lineal(r) + 0.7152 * lineal(g) + 0.0722 * lineal(b);
-const contraste = (a: number, b: number): number =>
-  (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 const percentil = (xs: number[], p: number): number => {
   const s = [...xs].sort((a, b) => a - b);
   return s[Math.floor(s.length * p)] ?? Number.NaN;
@@ -186,7 +187,10 @@ async function rotulos(page: Page): Promise<{ texto: string; mediana: number; pe
       // Solo el cuerpo de la letra: lo que cambia mucho (el borde suavizado, no).
       if (d < 60) continue;
       cs.push(
-        contraste(lt, luminancia(sin.data[i] ?? 0, sin.data[i + 1] ?? 0, sin.data[i + 2] ?? 0)),
+        contrasteDeLuces(
+          lt,
+          luminancia(sin.data[i] ?? 0, sin.data[i + 1] ?? 0, sin.data[i + 2] ?? 0),
+        ),
       );
     }
     if (cs.length === 0) throw new Error(`el rótulo «${texto}» no pinta ni un píxel`);

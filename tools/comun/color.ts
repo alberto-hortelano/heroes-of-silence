@@ -1,11 +1,8 @@
 /**
  * Color de las herramientas: sRGB de 8 bits, OKLab y contraste WCAG. Lo leen la paleta de los
- * temas (`taller/temas/paleta.ts`, que mide las láminas) y sus tests (`temas`,
- * `paleta-de-las-laminas`).
+ * temas (`taller/temas/paleta.ts`, que mide las láminas), sus tests (`temas`,
+ * `paleta-de-las-laminas`) y el contraste de los rótulos de `qa/temas-con-piezas.ts`.
  */
-
-// ---------------------------------------------------------------------------
-// Color: sRGB de 8 bits, OKLab y contraste WCAG.
 
 export type Rgb = readonly [number, number, number];
 
@@ -87,7 +84,10 @@ export function luminancia(c: Rgb): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
+/** El contraste WCAG de dos luminancias relativas (de 0 a 1), en cualquier orden. */
+export const contrasteDeLuces = (la: number, lb: number): number =>
+  (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+
 export function contraste(x: string, y: string): number {
-  const [la, lb] = [luminancia(deHex(x)), luminancia(deHex(y))];
-  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+  return contrasteDeLuces(luminancia(deHex(x)), luminancia(deHex(y)));
 }
