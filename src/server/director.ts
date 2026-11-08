@@ -71,7 +71,12 @@ import {
 } from './notas.js';
 
 export interface DirectorOptions {
-  readonly seed?: number;
+  /**
+   * La semilla de la partida. Obligatoria, como `agentPlayers`: la de por defecto
+   * es del servidor (`SEED_POR_DEFECTO`, `partida.ts`), y una copia aquí jugaba
+   * otra partida en cuanto una de las dos cambiara.
+   */
+  readonly seed: number;
   /**
    * El mapa ya diseñado, si alguien lo trae hecho.
    *
@@ -81,8 +86,11 @@ export interface DirectorOptions {
    * monta el director con él.
    */
   readonly plan?: MapPlan;
-  /** Jugadores cuyo turno decide el agente. */
-  readonly agentPlayers?: readonly PlayerId[];
+  /**
+   * Jugadores cuyo turno decide el agente. Los de la partida del servidor, en
+   * `mapa-del-agente.ts` (`JUGADORES_DEL_AGENTE`).
+   */
+  readonly agentPlayers: readonly PlayerId[];
   /**
    * El último día que se juega. Se le pasa tal cual a `newGame`.
    *
@@ -147,10 +155,10 @@ export class Director {
 
   constructor(
     private readonly link: AgentLink,
-    options: DirectorOptions = {},
+    options: DirectorOptions,
   ) {
-    const seed = options.seed ?? 20260823;
-    this.agentPlayers = new Set(options.agentPlayers ?? [1]);
+    const seed = options.seed;
+    this.agentPlayers = new Set(options.agentPlayers);
     this.state = newGame({
       seed,
       ...(options.plan === undefined ? {} : { plan: options.plan }),
