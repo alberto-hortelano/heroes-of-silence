@@ -16,6 +16,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import WebSocket from 'ws';
 import { z } from 'zod';
+import { mensajeDe } from '../../shared/errores.js';
 import { servidorDelPuente } from '../entorno.js';
 import { LA_JUEGA_LA_IA } from '../notas.js';
 import type { AgentToServerMsg, ServerToAgentMsg } from '../protocol.js';
@@ -284,7 +285,7 @@ server.tool(
       data = JSON.parse(response);
     } catch (err) {
       return texto(
-        `Ese texto no es JSON válido (${err instanceof Error ? err.message : String(err)}). Vuelve a enviarlo bien formado.`,
+        `Ese texto no es JSON válido (${mensajeDe(err)}). Vuelve a enviarlo bien formado.`,
         true,
       );
     }
@@ -298,7 +299,7 @@ server.tool(
       buzon.suelta();
       return texto(
         `Tu respuesta a ${enviado} no ha llegado a salir: ` +
-          `${err instanceof Error ? err.message : String(err)}. ` +
+          `${mensajeDe(err)}. ` +
           `Esa decisión la ${LA_JUEGA_LA_IA}. Vuelve a heroes_listen: ` +
           'si el servidor sigue vivo, el puente se reconecta solo.',
         true,

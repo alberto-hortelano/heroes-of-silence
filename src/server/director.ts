@@ -51,6 +51,7 @@ import { newGame } from '@core/state/setup.js';
 import { dueñoDeLaCiudad } from '@core/state/sitios.js';
 import type { GameContext, GameState } from '@core/state/tipos.js';
 import type { PlayerId, TipoDeGolpe } from '@core/types.js';
+import { mensajeDe } from '../shared/errores.js';
 import type { AgentLink } from './agent-link.js';
 import {
   describeAccion,
@@ -204,7 +205,7 @@ export class Director {
     try {
       this.mirador();
     } catch (err) {
-      const motivo = err instanceof Error ? err.message : String(err);
+      const motivo = mensajeDe(err);
       this.mirador = null;
       this.note(`El espectador ha fallado y se deja de retransmitir (${motivo}).`);
     }
@@ -252,7 +253,7 @@ export class Director {
     try {
       return await this.playAgentTurn(player.id);
     } catch (err) {
-      const motivo = err instanceof Error ? err.message : String(err);
+      const motivo = mensajeDe(err);
       this.note(`El agente no pudo jugar el turno (${motivo}); toma el relevo la IA de reglas.`);
       // La partida no se detiene por un fallo del agente. Y sin takeover: si
       // acaba de fallar, no se le vuelve a preguntar dentro del mismo turno.
@@ -317,9 +318,7 @@ export class Director {
       const respuesta = await this.link
         .ask('hero_from_troop', serializeHeroFromTroop(this.state, player, v))
         .catch((err: unknown) => {
-          this.note(
-            `El veterano ${id} no se hace héroe: ${err instanceof Error ? err.message : String(err)}`,
-          );
+          this.note(`El veterano ${id} no se hace héroe: ${mensajeDe(err)}`);
           return null;
         });
       if (respuesta === null) continue;
@@ -338,7 +337,7 @@ export class Director {
           }),
         );
       } catch (err) {
-        const motivo = err instanceof Error ? err.message : String(err);
+        const motivo = mensajeDe(err);
         this.note(`El veterano ${id} no se hace héroe: ${motivo}`);
         this.link.report(respuesta.requestId, false, [motivo], notaAscensoRechazado(id));
       }
@@ -367,7 +366,7 @@ export class Director {
       .ask('town_voices', serializeTownVoices(this.state, player, caducadas))
       .catch((err: unknown) => {
         this.note(
-          `Las voces de ${caducadas.map((t) => t.name).join(', ')} no llegan: ${err instanceof Error ? err.message : String(err)}`,
+          `Las voces de ${caducadas.map((t) => t.name).join(', ')} no llegan: ${mensajeDe(err)}`,
         );
         return null;
       });
@@ -476,7 +475,7 @@ export class Director {
       } catch (err) {
         // Una acción ilegal se descarta y se le cuenta al agente, tal y como
         // promete el contrato; las siguientes siguen aplicándose.
-        problems.push(`${describeAccion(a)}: ${err instanceof Error ? err.message : String(err)}`);
+        problems.push(`${describeAccion(a)}: ${mensajeDe(err)}`);
         continue;
       }
       // Si la marcha se quedó sin llegar lo dice el núcleo con un hecho —le
@@ -579,9 +578,7 @@ export class Director {
           serializeBattleTurn(battle, s.side, 'propia', this.oroDe(dueños[s.side])),
         )
         .catch((err: unknown) => {
-          this.note(
-            `El agente falló en la batalla (${err instanceof Error ? err.message : String(err)}); la termina la IA.`,
-          );
+          this.note(`El agente falló en la batalla (${mensajeDe(err)}); la termina la IA.`);
           return null;
         });
       if (respuesta === null) break;
@@ -612,7 +609,7 @@ export class Director {
           ),
         );
       } catch (err) {
-        const motivo = err instanceof Error ? err.message : String(err);
+        const motivo = mensajeDe(err);
         this.note(`Acción de batalla rechazada: ${motivo}`);
         // Para no bloquear el turno se juega la de la heurística — y se MIDE lo
         // que cuesta antes de contárselo: un `cast` sustituto no consume el
@@ -723,7 +720,7 @@ export class Director {
       .ask('battle_response', serializeBattleResponse(battle, { atacante, objetivo }))
       .catch((err: unknown) => {
         this.note(
-          `La respuesta de ${objetivo} no llega (${err instanceof Error ? err.message : String(err)}); la elige la IA a ciegas.`,
+          `La respuesta de ${objetivo} no llega (${mensajeDe(err)}); la elige la IA a ciegas.`,
         );
         return null;
       });
@@ -742,7 +739,7 @@ export class Director {
         motivo: null,
       };
     } catch (err) {
-      const motivo = err instanceof Error ? err.message : String(err);
+      const motivo = mensajeDe(err);
       this.note(`Respuesta de la rueda rechazada: ${motivo}`);
       return {
         tipo: elegirEnLaRueda('respuesta', rng, formaDeLaBatalla(battle)),

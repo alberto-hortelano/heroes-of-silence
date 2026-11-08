@@ -6,6 +6,7 @@
 import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { mensajeDe } from '../../../src/shared/errores.js';
 import { RAIZ } from '../../comun/raiz.js';
 import { esEncargoDeNpc, REINTENTOS_DE_NPC, reintentarSiQueda } from '../../npcs/en-el-taller.js';
 import { FalloDeCodex } from '../codex.js';
@@ -54,7 +55,7 @@ async function trabajar(soloNpc = false): Promise<void> {
         process.exitCode = 2;
         break;
       }
-      const motivo = err instanceof Error ? err.message : String(err);
+      const motivo = mensajeDe(err);
       await COLA.cerrar(encargo.id, 'fallido', {
         cuando: new Date().toISOString(),
         motivo,
@@ -69,9 +70,7 @@ async function trabajar(soloNpc = false): Promise<void> {
       try {
         vez = await reintentarSiQueda(COLA, encargo.id);
       } catch (err) {
-        console.log(
-          `  ! no se reintenta ${encargo.id}: ${err instanceof Error ? err.message : String(err)}`,
-        );
+        console.log(`  ! no se reintenta ${encargo.id}: ${mensajeDe(err)}`);
       }
       if (vez !== null) {
         console.log(
@@ -118,7 +117,7 @@ async function reprocesar(id: string): Promise<void> {
     await COLA.cerrar(id, 'hecho', { cuando: new Date().toISOString(), ...r });
     console.log(`  ✔ ${r.salida}`);
   } catch (err) {
-    const motivo = err instanceof Error ? err.message : String(err);
+    const motivo = mensajeDe(err);
     await COLA.cerrar(id, 'fallido', { cuando: new Date().toISOString(), motivo, hilo, crudo });
     console.log(`  ✘ ${motivo}`);
     process.exitCode = 1;
@@ -224,9 +223,7 @@ pnpm taller reprocesar <unidad> --adoptadas
           try {
             await reprocesar(encargo);
           } catch (err) {
-            console.log(
-              `  ✘ d${d}-${h} (${encargo}): ${err instanceof Error ? err.message : String(err)}`,
-            );
+            console.log(`  ✘ d${d}-${h} (${encargo}): ${mensajeDe(err)}`);
             process.exitCode = 1;
             continue;
           }

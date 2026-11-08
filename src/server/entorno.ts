@@ -35,6 +35,7 @@
 // Relativo y no `@core/…`: `vite.config.ts` importa este módulo para los puertos,
 // y al cargar la configuración el alias no existe.
 import { combateCon, parseRueda, parseTope, type ReglasDelCombate } from '../core/combate.js';
+import { mensajeDe } from '../shared/errores.js';
 
 /** Puerto del canal con el puente MCP (el agente). */
 export const AGENT_PORT_POR_DEFECTO = 9881;
@@ -185,7 +186,7 @@ export function combateDelEntorno(): ReglasDelCombate {
     try {
       return parse(process.env[nombre]);
     } catch (err) {
-      throw new Error(`${nombre}: ${err instanceof Error ? err.message : String(err)}`);
+      throw new Error(`${nombre}: ${mensajeDe(err)}`);
     }
   };
   return combateCon(leer('HEROES_TROPA', parseTope), leer('HEROES_RUEDA', parseRueda));

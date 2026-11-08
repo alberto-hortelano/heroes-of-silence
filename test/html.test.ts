@@ -21,6 +21,7 @@ import {
   srcDeImagen,
   unir,
 } from '../src/client/comun/html.js';
+import { mensajeDe } from '../src/shared/errores.js';
 
 /** El nombre de pueblo que el agente podría escribir y hoy ejecutaría. */
 const MALO = '<img src=x onerror=alert(1)>';
@@ -174,7 +175,7 @@ describe('la puerta de escapar: lo que el analizador NO adivina', () => {
     try {
       html`<a class="x" href="${'y'}">ir</a>`;
     } catch (err) {
-      motivo = err instanceof Error ? err.message : String(err);
+      motivo = mensajeDe(err);
     }
     expect(motivo).toContain('<a class="x" href="');
     expect(motivo).toContain(`\${…}`);

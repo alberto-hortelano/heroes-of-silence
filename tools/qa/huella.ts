@@ -108,6 +108,7 @@ import type { GameState } from '../../src/core/state/tipos.js';
 import { AgentLink } from '../../src/server/agent-link.js';
 import { partidaConElMapaDelAgente } from '../../src/server/mapa-del-agente.js';
 import type { ServerToAgentMsg } from '../../src/server/protocol.js';
+import { mensajeDe } from '../../src/shared/errores.js';
 import { destinoDeHoy, sesionContraMonstruo } from '../../test/batalla-de-cliente.js';
 import { agresiva } from '../../test/batalla-de-prueba.js';
 import { PESADA, TROPA_BARATA } from '../../test/comun.js';
@@ -436,13 +437,13 @@ class PasosDeLosFlujos {
     try {
       r = f();
     } catch (err) {
-      r = { lanzo: err instanceof Error ? err.message : String(err) };
+      r = { lanzo: mensajeDe(err) };
     }
     let e: unknown = null;
     try {
       e = ver === undefined ? null : ver();
     } catch (err) {
-      e = { lanzoAlMirar: err instanceof Error ? err.message : String(err) };
+      e = { lanzoAlMirar: mensajeDe(err) };
     }
     this.foto(s, accion, { r: r === undefined ? null : r, e });
   }

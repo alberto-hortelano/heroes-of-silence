@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto';
 import { type RequestKind, responseSchemas } from '@core/contract/esquemas.js';
 import { formatoDeLaRespuesta } from '@core/contract/formato.js';
 import type { WebSocket } from 'ws';
+import { mensajeDe } from '../shared/errores.js';
 import { notaRespuestaInvalida, notaSinRespuesta } from './notas.js';
 import type {
   AgentGameOverMsg,
@@ -204,7 +205,7 @@ export class AgentLink {
             type: 'query_result',
             queryId: msg.queryId,
             ok: false,
-            error: err instanceof Error ? err.message : String(err),
+            error: mensajeDe(err),
           });
         }
         return;

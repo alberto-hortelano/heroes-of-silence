@@ -17,6 +17,7 @@ import { townsOf } from '@core/state/consultas.js';
 import type { PlayerId } from '@core/types.js';
 import { type WebSocket, WebSocketServer } from 'ws';
 import type { ServerToSpectatorMsg } from '../shared/cable-del-espectador.js';
+import { mensajeDe } from '../shared/errores.js';
 import { AgentLink } from './agent-link.js';
 import { responderConsulta } from './consultas.js';
 import type { Director, DirectorOptions } from './director.js';
@@ -338,7 +339,7 @@ export function arrancarPartida(opciones: OpcionesDePartida = {}): Promise<void>
     // sabe que hubo un fallo y puede contarlo.
     link.gameOver(
       null,
-      `La partida se ha interrumpido por un fallo del servidor: ${err instanceof Error ? err.message : String(err)}`,
+      `La partida se ha interrumpido por un fallo del servidor: ${mensajeDe(err)}`,
     );
     process.exitCode = 1;
   });

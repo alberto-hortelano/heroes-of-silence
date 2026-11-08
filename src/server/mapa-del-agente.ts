@@ -22,6 +22,7 @@ import { type MapRequestOptions, serializeMapRequest } from '@core/contract/peti
 import { LADO_DEL_MAPA, type MapPlan } from '@core/map/generar/plan.js';
 import { basesDelPlan, validateMapPlan } from '@core/map/generar/validar.js';
 import type { PlayerId } from '@core/types.js';
+import { mensajeDe } from '../shared/errores.js';
 import type { AgentAnswer, AgentLink } from './agent-link.js';
 import { Director, type DirectorOptions } from './director.js';
 import { notaMapaAceptado, notaMapaRechazado } from './notas.js';
@@ -116,7 +117,7 @@ export async function pedirMapaAlAgente(
     // valida llevan su nota, y desde este ciclo esa nota ya no le promete que
     // «ese turno lo juega la IA de reglas», que para un mapa era falso. Aquí
     // solo queda contarlo en la consola.
-    return { plan: null, motivo: err instanceof Error ? err.message : String(err) };
+    return { plan: null, motivo: mensajeDe(err) };
   }
 
   const plan = respuesta.data.plan;

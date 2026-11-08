@@ -11,6 +11,7 @@ import type {
   AgentResponseMsg,
   ServerToAgentMsg,
 } from '../../../../src/server/protocol.js';
+import { mensajeDe } from '../../../../src/shared/errores.js';
 import { esperarElSuelo } from '../../../comun/navegador.js';
 import { entornoDelArnes, semillaDelEspectador } from '../../agente/partida-del-arnes.js';
 import { decidir } from '../../agente/politica.js';
@@ -285,7 +286,7 @@ export async function espectador(
                 await captura(page, 'espectador-00-heroe-nacido');
               })
               .catch((err: unknown) => {
-                heroeSinVer = err instanceof Error ? err.message : String(err);
+                heroeSinVer = mensajeDe(err);
               });
           }
         })().catch(mal);

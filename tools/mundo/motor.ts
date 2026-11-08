@@ -24,6 +24,7 @@ import { type PedidoDelMenu, pedidoBlocker } from '../../src/core/mundo/partida.
 import { parseSeed } from '../../src/core/rng.js';
 import { parseFaccion } from '../../src/core/types.js';
 import { textoDelEntorno } from '../../src/server/entorno.js';
+import { mensajeDe } from '../../src/shared/errores.js';
 import { matarGrupo } from '../comun/procesos.js';
 import { RAIZ } from '../comun/raiz.js';
 import { aceptarElMundo } from '../npcs/banco.js';
@@ -267,8 +268,7 @@ async function generar(
     }
     poner(g, { fase: 'fallido', problemas, motivo: motivoDelFallo(salida) });
   } catch (err) {
-    if (!g.cancelado)
-      poner(g, { fase: 'fallido', motivo: err instanceof Error ? err.message : String(err) });
+    if (!g.cancelado) poner(g, { fase: 'fallido', motivo: mensajeDe(err) });
   } finally {
     // Cancelada, no deja nada: quien cancela no quiere ese mundo, tenga historia o no
     // (M7 de la vuelta 2). Fallida, deja lo que escribió el motor para mirarlo —la

@@ -18,6 +18,7 @@ import { esHojaDeRampa, esHojaDeRelieve } from '../../src/client/render/escenari
 import { HOJA_DEL_RECINTO } from '../../src/client/render/escenario/recinto/octogono.js';
 import { figuraDelBanco } from '../../src/core/gente/banco.js';
 import { FIGURA, MARGEN_DEL_RECORTE } from '../../src/shared/arte.js';
+import { mensajeDe } from '../../src/shared/errores.js';
 import { sha256 } from '../comun/hash.js';
 import { dePng } from '../comun/imagen.js';
 import { textoJson } from '../comun/json.js';
@@ -101,11 +102,7 @@ export async function procesar(
       return await postprocesar(encargo, gen, prompt, referencias);
     } catch (err) {
       if (err instanceof FalloTrasGenerar) throw err;
-      throw new FalloTrasGenerar(
-        err instanceof Error ? err.message : String(err),
-        gen.hilo,
-        gen.crudo,
-      );
+      throw new FalloTrasGenerar(mensajeDe(err), gen.hilo, gen.crudo);
     }
   } finally {
     await rm(temporal, { recursive: true, force: true });
