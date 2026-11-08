@@ -1,8 +1,9 @@
 /**
- * Lo que comparten los arneses de navegador (`pnpm capturas`,
- * `tools/qa/neutro.ts`): un vite propio, en un puerto que elige el sistema y en
- * su propio grupo de procesos, para matarlo entero sin tocar el vite de nadie más
- * (la máquina es compartida); el Chromium que haya, y la espera del suelo del mapa.
+ * Lo que comparten los arneses de navegador (`pnpm capturas`, `qa/clima`, `qa/neutro`,
+ * `qa/temas-con-piezas`) y el taller que abre un Chromium (`art/montura`,
+ * `taller/escenario`): un vite propio, en un puerto que elige el sistema y en su propio grupo de
+ * procesos, para matarlo entero sin tocar el vite de nadie más (la máquina es compartida); el
+ * Chromium que haya; la espera del suelo del mapa, y la consola vigilada.
  */
 import { type ChildProcess, spawn } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
@@ -117,4 +118,16 @@ export async function esperarElSuelo(
       );
     });
   log(`${quien}: suelo ${hasta} en ${((Date.now() - desde) / 1000).toFixed(1)} s`);
+}
+
+/**
+ * Apunta en `errores` cada error de la consola de `page` y cada excepción suya, con quién la dio
+ * delante («1440x900: …»). Lo que se hace con la lista (fallar al acabar, decir cuáles) es de cada
+ * arnés; `pnpm capturas` y el taller filtran lo que esperan y llevan su propia vigilancia.
+ */
+export function vigilarLaConsola(page: Page, quien: string, errores: string[]): void {
+  page.on('console', (m) => {
+    if (m.type() === 'error') errores.push(`${quien}: ${m.text()}`);
+  });
+  page.on('pageerror', (e) => errores.push(`${quien}: ${e.message}`));
 }

@@ -40,7 +40,12 @@ import sharp from 'sharp';
 import { FACTION_IDS, type FactionId } from '../../src/core/types.js';
 import { contrasteDeLuces } from '../comun/color.js';
 import { mediana } from '../comun/estadistica.js';
-import { arrancarVite, chromiumInstalado, esperarElSuelo } from '../comun/navegador.js';
+import {
+  arrancarVite,
+  chromiumInstalado,
+  esperarElSuelo,
+  vigilarLaConsola,
+} from '../comun/navegador.js';
 import { matarGrupo } from '../comun/procesos.js';
 import { RAIZ } from '../comun/raiz.js';
 import { urlDePartida } from './url-de-partida.js';
@@ -352,10 +357,7 @@ try {
     const page = await ctx.newPage();
     // tsx mete `__name` en las funciones con nombre que viajan a `evaluate`.
     await page.addInitScript('globalThis.__name = (f) => f');
-    page.on('console', (m) => {
-      if (m.type() === 'error') errores.push(`${ventana}: ${m.text()}`);
-    });
-    page.on('pageerror', (e) => errores.push(`${ventana}: ${e.message}`));
+    vigilarLaConsola(page, ventana, errores);
     page.on('response', (r) => {
       if (r.status() >= 400) errores.push(`${ventana}: ${r.status()} ${r.url()}`);
     });

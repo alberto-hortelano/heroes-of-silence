@@ -2378,3 +2378,5 @@ simbolo	tools/taller/recorte.ts	tools/comun/imagen.ts	dePng
 simbolo	tools/taller/{muralla-de-batalla,mapa,pose-del-encargo,ajustes,rampas,temas/piezas,paredes-puentes,validar,derivar}.ts, art/poses.ts, qa/clima.ts, test/{marcha,aro-de-figura}	tools/comun/imagen.ts	aRaster (18 lecturas a mano sharp(x).ensureAlpha().raw(); aRaster acepta también una ruta)
 simbolo	tools/taller/{ajustes,empaquetar,vista-base}.ts, art/poses.ts, test/{taller,taller-ajustes,taller-validar}	tools/comun/imagen.ts	dePng (8 escrituras a mano de un raster RGBA a PNG)
 fichero	tools/qa/vite-propio.ts	tools/comun/navegador.ts	
+simbolo	tools/art/montura.ts (ejecutable) y tools/taller/escenario/escenario.ts (chromiumInstalado)	tools/comun/navegador.ts	chromiumInstalado (la regla de vite-propio manda: el de Playwright si está; si no, el más nuevo de la caché por número, dicho por log)
+simbolo	tools/qa/clima.ts (vigilar) y tools/qa/temas-con-piezas.ts	tools/comun/navegador.ts	vigilarLaConsola (nueva: errores de consola y excepciones con quién delante)

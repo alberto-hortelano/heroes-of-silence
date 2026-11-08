@@ -18,11 +18,10 @@
  * El caballo: `tools/art/modelos/caballo-quaternius.glb` (CC0, ver `LICENCIA.md`).
  * El jinete: el `y_bot` y `sitting_idle` de ne-fan, como en `poses.ts`.
  */
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { homedir } from 'node:os';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { chromium } from 'playwright';
 import sharp from 'sharp';
@@ -34,6 +33,7 @@ import {
   luzEnElMundo,
 } from '../../src/shared/arte.js';
 import { sha256 } from '../comun/hash.js';
+import { chromiumInstalado } from '../comun/navegador.js';
 import { RAIZ } from '../comun/raiz.js';
 import {
   clipDeDisparoDe,
@@ -132,22 +132,6 @@ function servir(): Promise<Server> {
   return new Promise((ok) => servidor.listen(0, '127.0.0.1', () => ok(servidor)));
 }
 
-/** El Chromium de Playwright: el que pide, o el más reciente de los que hay (como `capturas.ts`). */
-function ejecutable(): string | undefined {
-  if (existsSync(chromium.executablePath())) return undefined;
-  const cache = join(homedir(), '.cache', 'ms-playwright');
-  const hay = existsSync(cache)
-    ? readdirSync(cache)
-        .filter((d) => /^chromium-\d+$/.test(d))
-        .sort((a, b) => Number(b.split('-')[1]) - Number(a.split('-')[1]))
-        .map((d) => join(cache, d, 'chrome-linux64', 'chrome'))
-        .filter((p) => existsSync(p))
-    : [];
-  if (hay[0] === undefined)
-    throw new Error('no hay Chromium de Playwright: `npx playwright install chromium`');
-  return hay[0];
-}
-
 export async function renderizarMontura(prueba: boolean): Promise<string> {
   for (const [que, ruta] of [
     ['el caballo', CABALLO],
@@ -160,7 +144,7 @@ export async function renderizarMontura(prueba: boolean): Promise<string> {
   }
   const servidor = await servir();
   const puerto = (servidor.address() as AddressInfo).port;
-  const exe = ejecutable();
+  const exe = chromiumInstalado(console.log);
   const navegador = await chromium.launch({
     ...(exe === undefined ? {} : { executablePath: exe }),
     args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
@@ -365,7 +349,7 @@ export async function renderizarMontura8d(
   const juego: JuegoMontado = `montado-${arma}`;
   const servidor = await servir();
   const puerto = (servidor.address() as AddressInfo).port;
-  const exe = ejecutable();
+  const exe = chromiumInstalado(console.log);
   const navegador = await chromium.launch({
     ...(exe === undefined ? {} : { executablePath: exe }),
     args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'],

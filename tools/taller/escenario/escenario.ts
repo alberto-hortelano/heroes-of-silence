@@ -9,11 +9,9 @@
  *   - `<semilla>.json`, el informe: suelo desnudo, murallas partidas, bases
  *     sobre una reserva, casillas de barrera sin formación y módulos que faltan.
  */
-import { globSync } from 'node:fs';
 import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { chromium, type Page } from 'playwright';
 import type { Marca } from '../../../src/client/desarrollo/tipos.js';
@@ -23,18 +21,12 @@ import { cajaEnPixeles } from '../../../src/client/render/mapa/camara.js';
 import type { GameMap } from '../../../src/core/map/tipos.js';
 import { newGame } from '../../../src/core/state/setup.js';
 import { textoJson } from '../../comun/json.js';
+import { chromiumInstalado } from '../../comun/navegador.js';
 import { RAIZ } from '../../comun/raiz.js';
 import { leerCatalogo } from './catalogo-disco.js';
 import { paginaDeEscena } from './pintor.js';
 
 export const DIR_ESCENARIO = join(RAIZ, '.cache/taller/escenario');
-
-/** El Chromium que instaló Playwright, o el suyo por defecto si no se encuentra. */
-function chromiumInstalado(): string | undefined {
-  return globSync(join(homedir(), '.cache/ms-playwright/chromium-*/chrome-linux*/chrome'))
-    .sort()
-    .at(-1);
-}
 
 const TIPOS: Readonly<Record<string, string>> = {
   '.html': 'text/html; charset=utf-8',
@@ -98,7 +90,7 @@ async function conPaginasDeEscena<T>(
   ) => Promise<T>,
 ): Promise<T> {
   await mkdir(DIR_ESCENARIO, { recursive: true });
-  const ejecutable = chromiumInstalado();
+  const ejecutable = chromiumInstalado(console.log);
   const navegador = await chromium.launch(
     ejecutable === undefined ? {} : { executablePath: ejecutable },
   );

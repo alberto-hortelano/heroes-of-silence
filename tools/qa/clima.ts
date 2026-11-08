@@ -38,7 +38,12 @@ import type {
 } from '../../src/server/protocol.js';
 import { mediana } from '../comun/estadistica.js';
 import { aRaster } from '../comun/imagen.js';
-import { arrancarVite, chromiumInstalado, esperarElSuelo } from '../comun/navegador.js';
+import {
+  arrancarVite,
+  chromiumInstalado,
+  esperarElSuelo,
+  vigilarLaConsola,
+} from '../comun/navegador.js';
 import { matarGrupo } from '../comun/procesos.js';
 import { RAIZ } from '../comun/raiz.js';
 import { entornoDelArnes } from './partida-del-arnes.js';
@@ -101,12 +106,6 @@ const nombreDe = (clima: string): string =>
       : clima.replace(/,dia$/, '').replace(',', '-');
 
 const errores: string[] = [];
-function vigilar(page: Page, quien: string): void {
-  page.on('console', (m) => {
-    if (m.type() === 'error') errores.push(`${quien}: ${m.text()}`);
-  });
-  page.on('pageerror', (e) => errores.push(`${quien}: ${e.message}`));
-}
 
 async function guardar(page: Page, nombre: string): Promise<Buffer> {
   const ruta = join(CARPETA, `${nombre}.png`);
@@ -173,7 +172,7 @@ async function capturas(browser: Browser, url: string): Promise<void> {
     const n = nombreDe(clima);
     log(`clima «${clima}»`);
     const page = await ctx.newPage();
-    vigilar(page, n);
+    vigilarLaConsola(page, n, errores);
     await abrirLaPartida(page, url, clima);
     await guardar(page, `base-${n}`);
     if (n === 'noche' || n === 'lluvia') {
@@ -233,7 +232,7 @@ async function capturas(browser: Browser, url: string): Promise<void> {
     await page.close();
 
     const arena = await ctx.newPage();
-    vigilar(arena, `arena ${n}`);
+    vigilarLaConsola(arena, `arena ${n}`, errores);
     await abrirLaBatalla(arena, url, clima);
     await guardar(arena, `batalla-${n}`);
     await arena.close();
@@ -249,7 +248,7 @@ async function capturas(browser: Browser, url: string): Promise<void> {
 async function rayo(browser: Browser, url: string): Promise<void> {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await ctx.newPage();
-  vigilar(page, 'rayo');
+  vigilarLaConsola(page, 'rayo', errores);
   await abrirLaBatalla(page, url, 'tormenta');
   const lienzo = await page.locator('#canvas').boundingBox();
   if (lienzo === null) throw new Error('rayo: no hay lienzo');
@@ -315,11 +314,11 @@ async function espectador(browser: Browser, url: string): Promise<void> {
     const puerto = servidor.espectador;
     const libre = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     paginas.push(libre);
-    vigilar(libre, 'espectador');
+    vigilarLaConsola(libre, 'espectador', errores);
     await libre.goto(`${url}/espectador/?puerto=${puerto}`);
     const forzado = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     paginas.push(forzado);
-    vigilar(forzado, 'espectador forzado');
+    vigilarLaConsola(forzado, 'espectador forzado', errores);
     await forzado.goto(`${url}/espectador/?puerto=${puerto}&clima=lluvia`);
     const conectado = new WebSocket(`ws://localhost:${servidor.agente}`);
     agente = conectado;
@@ -463,7 +462,7 @@ async function fps(browser: Browser, url: string): Promise<void> {
   ): Promise<Medida[]> => {
     const ctx = await browser.newContext({ viewport: { width: ancho, height: alto } });
     const page = await ctx.newPage();
-    vigilar(page, `fps ${escena} ${nombreDe(clima)}`);
+    vigilarLaConsola(page, `fps ${escena} ${nombreDe(clima)}`, errores);
     const r = await hacer(page);
     await ctx.close();
     log(
