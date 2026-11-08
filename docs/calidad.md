@@ -80,9 +80,12 @@ cambio del generador antes, y la 97 había caído ya dos veces.
 ## Arrancar: la build, CI y las sesiones
 
 - **`vite build` copia `assets/` sin lo que solo lee el taller**: de cada
-  `unidades/<id>/dN/`, solo `atlas.webp`; ninguna carpeta `fuentes/` ni `_guias/`, a cualquier altura;
-  y nada de `art/` (láminas y referencias de estilo) (`seCopiaAlBuild`, `tools/vite/publico.ts`,
-  #137). Por eso las letras de los temas viven en `assets/letras/`.
+  `unidades/<id>/dN/` y `npcs/<id>/dN/`, solo `atlas.webp`; ninguna carpeta `fuentes/` ni `_guias/`, a
+  cualquier altura; nada de `art/` (láminas y referencias de estilo) ni de `mundos/`; ni los maniquíes de
+  las unidades y de la gente (`unidades/_poses/unidades/` y `_poses/gente/`, ~300 MB: del Y Bot la página
+  pide solo `_poses/<juego>-8d/`; H1 del QA de la reorganización, 08-11-2026), ni el esqueleto de una
+  hoja del maniquí (`*.huesos.json`) (`seCopiaAlBuild`, `tools/vite/publico.ts`, #137). Por eso las
+  letras de los temas viven en `assets/letras/`.
 
 - **CI** (`.github/workflows/ci.yml`): `pnpm verify`, `pnpm test:lento`, `pnpm banco`,
   `vite build` y `pnpm qa`. No gasta un céntimo: no llama a ningún servicio de pago.

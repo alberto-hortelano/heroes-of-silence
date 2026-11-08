@@ -130,14 +130,30 @@ describe('la carpeta pública en el build', () => {
 
   // El esqueleto del maniquí (la revisión de animaciones, 30-10-2026): ~11 MB que
   // solo leen la revisión y la compuerta del trabajador.
-  it('el esqueleto de cada hoja del maniquí no va, y su hoja sí', () => {
-    expect(
-      seCopiaAlBuild('unidades/_poses/unidades/caballero-de-la-muerte-8d/d0-a.huesos.json'),
-    ).toBe(false);
-    expect(seCopiaAlBuild('unidades/_poses/gente/civil-8d/d3-a.huesos.json')).toBe(false);
-    expect(
-      seCopiaAlBuild('unidades/_poses/unidades/caballero-de-la-muerte-8d/d0-a.profundidad.png'),
-    ).toBe(true);
+  it('el esqueleto de una hoja del Y Bot no va, y su hoja sí', () => {
+    expect(seCopiaAlBuild('unidades/_poses/espada-escudo-8d/d0-a.huesos.json')).toBe(false);
+    expect(seCopiaAlBuild('unidades/_poses/espada-escudo-8d/d0-a.png')).toBe(true);
+  });
+
+  // Los maniquíes de cada unidad y de la gente (~300 MB, H1 del QA de la
+  // reorganización, 08-11-2026): el taller pinta sobre ellos; la página pide del Y Bot
+  // solo `_poses/<juego>-8d/`, y lo comprueba el primer caso de arriba con las URL de
+  // las figuras.
+  it('los maniquíes de las unidades y de la gente no van, ni sus carpetas', () => {
+    for (const r of [
+      'unidades/_poses/unidades',
+      'unidades/_poses/unidades/caballero-de-la-muerte-8d/d0-a.png',
+      'unidades/_poses/unidades/caballero-de-la-muerte-8d/d0-a.profundidad.png',
+      'unidades/_poses/unidades/caballero-de-la-muerte-8d/giro.png',
+      'unidades/_poses/unidades/caballero-de-la-muerte-8d/poses.json',
+      'unidades/_poses/gente',
+      'unidades/_poses/gente/civil-8d/d3-a.png',
+    ]) {
+      expect(seCopiaAlBuild(r), r).toBe(false);
+    }
+    // Ni una unidad que se llamara como ellas: solo las de `_poses/`.
+    expect(seCopiaAlBuild('unidades/gente/d0/atlas.webp')).toBe(true);
+    expect(seCopiaAlBuild('unidades/_poses/civil-8d/d0-a.png')).toBe(true);
   });
 
   it('lo demás va entero: la identidad y el giro de la unidad, las poses del Y Bot, el resto del arte', () => {
@@ -170,6 +186,8 @@ describe('la carpeta pública en el build', () => {
         'unidades/u/d0/atlas.json',
         'unidades/u/identidad.webp',
         'unidades/_poses/baston-8d/d0-a.png',
+        'unidades/_poses/unidades/u-8d/d0-a.png',
+        'unidades/_poses/gente/civil-8d/d0-a.png',
         'iconos/oro.png',
       ];
       for (const f of ficheros) {
@@ -187,6 +205,8 @@ describe('la carpeta pública en el build', () => {
         .filter((e) => e.isFile())
         .map((e) => relative(destino, join(e.parentPath, e.name)))
         .sort();
+      // Ni las carpetas de los maniquíes, vacías.
+      expect(readdirSync(join(destino, 'unidades/_poses')).sort()).toEqual(['baston-8d']);
       expect(copiados).toEqual(
         [
           'iconos/oro.png',

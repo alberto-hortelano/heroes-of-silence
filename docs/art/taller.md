@@ -261,7 +261,8 @@ fotograma es el cadáver (`cadaver` en el JSON).
      un escudo, un arcabuz y no una ballesta, una rodela, una alabarda—, la
      unidad declara su `maniqui` en `tools/taller/unidades.ts` y
      `pnpm taller maniqui <id>` lo renderiza en `_poses/unidades/<id>-8d/` con
-     los clips de su juego. Sus hojas se pintan sobre él. El juego de
+     los clips de su juego. Sus hojas se pintan sobre él, y no va al build
+     (`seCopiaAlBuild`: tampoco el de la gente, `_poses/gente/`). El juego de
      `JUEGO_DEL_YBOT` sigue siendo el respaldo del cliente mientras no hay arte.
      El atrezo nuevo: `daga` en la izquierda, `rodela`, `remate` `esfera` y
      `hacha`, y la ballesta con `palas: 0`, que es un arma de fuego.

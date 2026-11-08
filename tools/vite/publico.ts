@@ -21,9 +21,20 @@ import type { Plugin } from 'vite';
  * - En una carpeta de dirección de una unidad o de una figura del banco de NPC
  *   (`npcs/<id>/dN/`, cuyos `atlas.json` llegan en `/__npcs`), todo menos su atlas. La página
  *   lee `unidades/<id>/dN/atlas.webp` (`registrarUnidad`,
- *   `src/client/render/personajes.ts`) y nada más de esa carpeta: los
+ *   `src/client/render/figuras/personajes.ts`) y nada más de esa carpeta: los
  *   `atlas.json` le llegan dentro de la lista de hojas (`/__arena/hojas`). Las
- *   poses del Y Bot (`_poses/`) no viven en carpetas `dN/` y van enteras.
+ *   poses del Y Bot (`_poses/<juego>-8d/`) no viven en carpetas `dN/` y van enteras.
+ * - Los maniquíes de cada unidad y de la gente (`unidades/_poses/unidades/` y
+ *   `unidades/_poses/gente/`, ~300 MB): el Y Bot posado para una unidad o una figura
+ *   del banco de NPC, con su profundidad, su giro y sus poses, del que el taller pinta
+ *   la hoja (`pnpm taller maniqui`, `--civil`). La página pide del Y Bot solo
+ *   `/unidades/_poses/<juego>-8d/dN-{a,b,c}.png` de los juegos de `atlas-8d.json`
+ *   (`YBOT`, en `personajes.ts`), y la gente sin figura va con el `civil` de esos
+ *   juegos (`CUERPO_DE_VECINO`), no con su maniquí. Comprobado en `pnpm dev` el
+ *   08-11-2026 con las peticiones de red de las pasadas «arranque», «escritorio»
+ *   (la partida y una batalla del mapa), «morada», «espectador» y «arena» de
+ *   `pnpm capturas`: 1 013 URL distintas, ninguna en esas dos carpetas (QA de la
+ *   reorganización, H1).
  * - Toda carpeta `fuentes/` o `_guias/`, a cualquier altura: las fuentes de las
  *   que el taller saca lo que la página pide (maestros, ediciones e identidades
  *   de la base, `bases/<f>/fuentes/`), las guías de corte de las piezas de los
@@ -43,7 +54,7 @@ import type { Plugin } from 'vite';
  * vacía.
  */
 const SOLO_DEL_TALLER =
-  /^(?:unidades|npcs)\/[^/]+\/d[0-7]\/(?!atlas\.webp$)[^/]+$|(?:^|\/)(?:fuentes|_guias)(?:\/|$)|^(?:art|mundos)(?:\/|$)|\.huesos\.json$/;
+  /^(?:unidades|npcs)\/[^/]+\/d[0-7]\/(?!atlas\.webp$)[^/]+$|(?:^|\/)(?:fuentes|_guias)(?:\/|$)|^(?:art|mundos)(?:\/|$)|^unidades\/_poses\/(?:unidades|gente)(?:\/|$)|\.huesos\.json$/;
 
 /** ¿Va a `dist/` este fichero, con su ruta relativa a `assets/`? */
 export function seCopiaAlBuild(relativa: string): boolean {
