@@ -15,7 +15,7 @@ import { previsionDeLaRueda, previsionDelGolpeQueViene } from '@core/battle/prev
 import type { BattleAction, BattleStack, BattleState, Side } from '@core/battle/types.js';
 import type { Rng } from '@core/rng.js';
 import type { TipoDeGolpe } from '@core/types.js';
-import { mensajeDe } from '../../comun/errores.js';
+import { mensajeDe } from '../../../shared/errores.js';
 import type { LoApuntado } from './apuntado.js';
 import { comoFrase, NINGUNA_TUYA, type TurnoPropio } from './control.js';
 

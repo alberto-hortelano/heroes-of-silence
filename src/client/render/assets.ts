@@ -6,7 +6,7 @@
  * aquí devuelve `null` en vez de lanzar, y el manifiesto que falta no es un
  * error sino "todavía no se ha generado nada".
  */
-import { mensajeDe } from '../comun/errores.js';
+import { mensajeDe } from '../../shared/errores.js';
 import { urlDeImagenSegura } from '../comun/html.js';
 import { registrarLasHojas } from './figuras/personajes.js';
 

@@ -7,6 +7,9 @@
  * servidor de las marcas. Hasta la fase C de la reorganización (07-11-2026) cada
  * sitio lo escribía a mano, y había tres funciones con su nombre (`mensaje` en la
  * sesión y en la arena, `motivoDe` en las marcas).
+ *
+ * Vive en `shared` desde la fase Z (08-11-2026): era `client/comun/errores.ts`, y
+ * las herramientas (las marcas y los plugins de vite) lo importaban del cliente.
  */
 export function mensajeDe(err: unknown): string {
   return err instanceof Error ? err.message : String(err);

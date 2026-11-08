@@ -2,9 +2,9 @@ import { readFileSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { resolve } from 'node:path';
 import type { Plugin } from 'vite';
-import { mensajeDe } from '../../src/client/comun/errores.js';
 import { RUTA_DE_MURALLAS } from '../../src/core/arena/murallas.js';
 import { RUTA_DEL_CATALOGO_DE_UNIDADES } from '../../src/core/unidad/formato.js';
+import { mensajeDe } from '../../src/shared/errores.js';
 import { leerCuerpo, listaDelDisco, responder } from './http.js';
 
 /** El lado de disco de la arena (`tools/arena/borrador.ts`), que esto carga a demanda. */

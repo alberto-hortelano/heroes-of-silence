@@ -17,7 +17,7 @@ import { applyAdventureAction } from '@core/state/game.js';
 import { barreraDeMañana, caminoHasta, pasosDeHoy } from '@core/state/marcha.js';
 import { HERO_SCOUT_RADIUS, miradasDe } from '@core/state/vision.js';
 import type { Hero, Point, VistaAsaltante } from '@core/types.js';
-import { mensajeDe } from '../../comun/errores.js';
+import { mensajeDe } from '../../../shared/errores.js';
 import { comoFrase } from '../batalla/control.js';
 import { type NieblaDeAntes, type NieblaDeLaMarcha, nieblaDeLaMarcha } from '../vistas/marcha.js';
 import type { LoConocido } from './a-la-vista.js';

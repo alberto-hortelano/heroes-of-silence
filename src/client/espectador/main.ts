@@ -24,10 +24,10 @@ import {
   validarForzado,
 } from '@core/state/clima.js';
 import type { SpectatorSnapshotMsg, SpectatorView } from '../../shared/cable-del-espectador.js';
+import { mensajeDe } from '../../shared/errores.js';
 import { DialogoDeLaRueda, SOLO_MIRA } from '../batalla/rueda/dialogo.js';
 import { bucleDeDibujo } from '../comun/bucle.js';
 import { avisoDelClima, climaDeLaURL } from '../comun/clima-de-la-url.js';
-import { mensajeDe } from '../comun/errores.js';
 import { NADA } from '../comun/html.js';
 import { cargarArte } from '../render/assets.js';
 import { bandosSinDueño } from '../render/batalla/bandos.js';

@@ -16,7 +16,7 @@
  * `superficie.ts`): con él se va la memoria de las texturas y de las máscaras,
  * que un Worker vivo no soltaba antes de pintar la siguiente.
  */
-import { mensajeDe } from '../../comun/errores.js';
+import { mensajeDe } from '../../../shared/errores.js';
 import { urlDeImagenSegura } from '../../comun/html.js';
 import type { Escena } from './colocar/escena.js';
 import { horneado } from './horneado.js';

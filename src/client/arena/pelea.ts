@@ -5,7 +5,7 @@
  * (07-11-2026).
  */
 import type { Lado } from '@core/arena/lados.js';
-import { mensajeDe } from '../comun/errores.js';
+import { mensajeDe } from '../../shared/errores.js';
 import { semillaSorteada } from '../comun/semilla.js';
 import { type LadoDeSesion, SesionDeArena } from '../sesion/sesion-de-arena.js';
 import { catalogoDeMagia } from './catalogo.js';

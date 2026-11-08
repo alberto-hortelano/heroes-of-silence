@@ -2722,3 +2722,4 @@ simbolo	tools/qa/capturas/main.ts	tools/qa/capturas/pasadas/contrincantes.ts	con
 simbolo	tools/qa/capturas/main.ts	tools/qa/capturas/pasadas/contrincantes.ts	contrincantesEnElMovil
 simbolo	tools/qa/capturas/main.ts	tools/qa/capturas/pasadas/contrincantes.ts	contrincantesDeLaRueda
 texto	tools/qa/capturas/pagina.ts	docs/calidad.md	(H5e: el historial de semillas de capturas, el comentario de DESTINO, tal cual sin « * » ni «// »)
+fichero	src/client/comun/errores.ts	src/shared/errores.ts	(Z3: lo leen el cliente, el servidor y las herramientas)

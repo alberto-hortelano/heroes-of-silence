@@ -13,7 +13,7 @@
  * `HERRAMIENTAS_DE_DESARROLLO`, y en `vite build` no queda (`sinDesarrollo`).
  */
 import { objectAt } from '@core/map/map.js';
-import { mensajeDe } from '../comun/errores.js';
+import { mensajeDe } from '../../shared/errores.js';
 import { html, pintar } from '../comun/html.js';
 import type { EscenaAventura } from '../partida/mapa/escena.js';
 import { escenarioListo } from '../render/escenario/superficie.js';

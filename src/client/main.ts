@@ -12,11 +12,12 @@
  * siempre, porque es comportamiento: dos oyentes del mismo evento en el mismo nodo corren en el
  * orden en que se registraron.
  */
+
+import { mensajeDe } from '../shared/errores.js';
 import { EscenaBatalla } from './batalla/escena.js';
 import { GestosDeBatalla } from './batalla/gestos.js';
 import { DialogoDeLaRueda } from './batalla/rueda/dialogo.js';
 import { bucleDeDibujo } from './comun/bucle.js';
-import { mensajeDe } from './comun/errores.js';
 import { abrirLaPartida } from './partida/abrir.js';
 import { EscenaBase } from './partida/base/escena.js';
 import { instalarElClic } from './partida/clic.js';

@@ -4,7 +4,7 @@
  * recordado en este navegador y la vista que pide la dirección, con lo que dice la barra al
  * acabar. Nada se hace al importarse: lo llama `main.ts`, lo último.
  */
-import { mensajeDe } from '../comun/errores.js';
+import { mensajeDe } from '../../shared/errores.js';
 import { arrancar, porQueNoSeMonta, unidadDe } from './catalogo.js';
 import { leerAbiertas, listaPlegadaTras } from './edicion.js';
 import { arrancarMurallas } from './editor-de-muralla.js';

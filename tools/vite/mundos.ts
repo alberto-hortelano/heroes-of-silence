@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { resolve } from 'node:path';
 import type { Plugin } from 'vite';
-import { mensajeDe } from '../../src/client/comun/errores.js';
+import { mensajeDe } from '../../src/shared/errores.js';
 import { leerCuerpo, responder } from './http.js';
 
 /**

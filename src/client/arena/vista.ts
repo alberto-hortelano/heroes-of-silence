@@ -8,7 +8,7 @@
 import { laLlevaElHeroe } from '@core/arena/heroe.js';
 import { idsPuestos } from '@core/equipo/vestir.js';
 import { unaVezEnLaURL } from '@core/validar.js';
-import { mensajeDe } from '../comun/errores.js';
+import { mensajeDe } from '../../shared/errores.js';
 import { html, pintar } from '../comun/html.js';
 import { selectoresDelCombate } from '../views/combate.js';
 import {

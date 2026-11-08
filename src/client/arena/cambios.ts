@@ -38,7 +38,7 @@ import {
   esTipoDelAnillo,
 } from '@core/types.js';
 import { type Unidad, validarUnidad } from '@core/unidad/formato.js';
-import { mensajeDe } from '../comun/errores.js';
+import { mensajeDe } from '../../shared/errores.js';
 import { leerElCombate } from '../views/combate.js';
 import { hechizosQueValen, unidadDe } from './catalogo.js';
 import { claveDeFicha } from './edicion.js';

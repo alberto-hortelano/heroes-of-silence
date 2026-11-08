@@ -24,7 +24,7 @@
  */
 import type { FactionId } from '@core/types.js';
 import { INDICE_VACIO, type IndiceDeLaBase, type RecorteEnElIndice } from '../../../shared/base.js';
-import { mensajeDe } from '../../comun/errores.js';
+import { mensajeDe } from '../../../shared/errores.js';
 import { imagenDeLaBase, tandaDeArte } from '../assets.js';
 
 /** A qué fracción de su tamaño se guarda la máscara de un recorte. */

@@ -11,7 +11,7 @@
 import { esBarrera, type TerrainKind } from '@core/map/terrain.js';
 import type { MejoraDelPuesto } from '@core/map/tipos.js';
 import catalogoDelRepo from '../../../../assets/mapa/escena.json' with { type: 'json' };
-import { mensajeDe } from '../../comun/errores.js';
+import { mensajeDe } from '../../../shared/errores.js';
 import {
   avisarDeArteNuevo,
   cargarArteDeEscena,

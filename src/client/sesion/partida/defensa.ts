@@ -11,7 +11,7 @@ import { defensaPorElegir, elegirLaDefensa } from '@core/state/batallas.js';
 import { type FilaDeLaDefensa, type LaDefensa, nombreDelSitio } from '@core/state/sitios.js';
 import type { Hero } from '@core/types.js';
 import { unidadDelJuego } from '@core/unidad/catalogo.js';
-import { mensajeDe } from '../../comun/errores.js';
+import { mensajeDe } from '../../../shared/errores.js';
 import { comoFrase } from '../batalla/control.js';
 import type { DueñoDeLasPiezas } from './comun.js';
 

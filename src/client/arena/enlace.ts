@@ -21,8 +21,8 @@ import type { Pieza } from '@core/equipo/pieza.js';
 import { parseSeed } from '@core/rng.js';
 import { climaSinRegiones } from '@core/state/clima.js';
 import { unaVezEnLaURL } from '@core/validar.js';
+import { mensajeDe } from '../../shared/errores.js';
 import { avisoDelClima, climaDeLaURL } from '../comun/clima-de-la-url.js';
-import { mensajeDe } from '../comun/errores.js';
 import { aLaBarra, semillaSorteada } from '../comun/semilla.js';
 import {
   catalogoDeMagia,

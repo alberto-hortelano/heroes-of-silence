@@ -86,13 +86,15 @@ describe('una página que no arranca dice por qué (H5)', () => {
     );
     // Lo que se evalúa seguro: si cargase algo del núcleo, un catálogo roto lo
     // tumbaría antes de poder decir nada. El motivo lo saca `mensajeDe`
-    // (`comun/errores.ts`, que tampoco importa nada: fase C de la reorganización).
+    // (`shared/errores.ts`, que tampoco importa nada: de la fase C de la
+    // reorganización, 07-11-2026, y en `shared` desde la Z, que lo leen también el
+    // servidor y las herramientas).
     const dePartida = dir === ruta('src/client') ? [ruta('src/client/comun/semilla.ts')] : [];
     expect([...cargaAlEvaluarse(entrada)].sort()).toEqual(
       [
         entrada,
         ruta('src/client/comun/arranque.ts'),
-        ruta('src/client/comun/errores.ts'),
+        ruta('src/shared/errores.ts'),
         ruta('src/client/comun/html.ts'),
         ...dePartida,
       ].sort(),

@@ -20,7 +20,7 @@ import {
   esTipoDelAnillo,
   type HuecoDePieza,
 } from '@core/types.js';
-import { mensajeDe } from '../comun/errores.js';
+import { mensajeDe } from '../../shared/errores.js';
 import type { CharacterClip } from '../render/figuras/character.js';
 import { DIRECCION_DE_HOJA } from '../render/figuras/personajes.js';
 import {

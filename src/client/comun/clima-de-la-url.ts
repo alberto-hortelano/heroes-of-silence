@@ -6,7 +6,7 @@
  */
 import { type ClimaForzado, parseClima } from '@core/state/clima.js';
 import { unaVezEnLaURL } from '@core/validar.js';
-import { mensajeDe } from './errores.js';
+import { mensajeDe } from '../../shared/errores.js';
 
 /** Lo que pide `?clima=`, `null` si nada, o lanza con lo que no se entiende (también si va repetido). */
 export function leerElClimaDeLaURL(params: URLSearchParams): ClimaForzado | null {
