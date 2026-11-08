@@ -9,7 +9,7 @@ import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import { SUELOS_PISABLES } from '../src/core/map/terrain.js';
 import { sha256 } from '../tools/comun/hash.js';
-import { aRaster } from '../tools/taller/recorte.js';
+import { aRaster } from '../tools/comun/imagen.js';
 import {
   costura,
   hacerTeselable,

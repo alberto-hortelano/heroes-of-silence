@@ -19,6 +19,7 @@
  */
 import sharp, { type OverlayOptions } from 'sharp';
 import { FIGURA } from '../../src/shared/arte.js';
+import { aRaster, type Raster } from '../comun/imagen.js';
 import {
   absolutosDe,
   type EstimarTroncos,
@@ -26,7 +27,7 @@ import {
   recolocarConElSuelo,
   recolocarConLosPies,
 } from './encuadre.js';
-import { aRaster, quitarHalo, type Raster } from './recorte.js';
+import { quitarHalo } from './recorte.js';
 
 /** Umbral de alfa para decir «aquí hay figura». */
 export const ALFA_FIGURA = 64;

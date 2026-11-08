@@ -28,9 +28,9 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import { HOJAS_DE_FIGURA, NOMBRES_DE_DIRECCION } from '../../../src/shared/arte.js';
 import { sha256 } from '../../comun/hash.js';
+import { aRaster } from '../../comun/imagen.js';
 import type { Cola } from '../cola.js';
 import { type Encargo, esDePose } from '../encargo.js';
-import { aRaster } from '../recorte.js';
 import { leerSiHay } from './esquemas.js';
 import type { CasoDelVisor } from './vision.js';
 

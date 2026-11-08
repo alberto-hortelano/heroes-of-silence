@@ -9,13 +9,13 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { sha256DeFichero } from '../tools/comun/hash.js';
+import { aRaster } from '../tools/comun/imagen.js';
 import {
   CASAS_DE_LOS_PUEBLOS,
   cajaDelGrupo,
   particion,
   pueblosPartidos,
 } from '../tools/taller/casas.js';
-import { aRaster } from '../tools/taller/recorte.js';
 import { RAIZ } from './comun.js';
 
 const MODULOS = join(RAIZ, 'assets', 'mapa', 'modulos');

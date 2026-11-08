@@ -14,10 +14,10 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import sharp from 'sharp';
 import { sha256 } from '../../comun/hash.js';
+import type { Raster } from '../../comun/imagen.js';
 import { ALFA_FIGURA, type Caja, componentes, enFilas } from '../empaquetar.js';
 import type { Encargo } from '../encargo.js';
 import { REFERENCIA_DE_MAPAS } from '../mapa-denso.js';
-import type { Raster } from '../recorte.js';
 
 /** El estilo, dicho con palabras: el de la referencia (ver `ESTILO_DEL_MAPA`). */
 const ESTILO =

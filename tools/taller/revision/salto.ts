@@ -9,9 +9,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { FIGURA } from '../../../src/shared/arte.js';
+import { aRaster } from '../../comun/imagen.js';
 import { RELOJ } from '../derivar.js';
 import { type CeldaRgba, type Salto, saltoDelClip } from '../encuadre.js';
-import { aRaster } from '../recorte.js';
 import { type HuesosDeHoja, troncoDe } from './maniqui.js';
 
 /** Desde cuántos píxeles un salto del cuerpo se nota jugando (a ojo, en la celda de 384). */

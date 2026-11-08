@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import sharp from 'sharp';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { FIGURA } from '../src/shared/arte.js';
+import type { Raster } from '../tools/comun/imagen.js';
 import { leerEventos } from '../tools/taller/codex.js';
 import { Cola, NoEstaEn, trabajadorDe, YaEnLaCola } from '../tools/taller/cola.js';
 import { derivarAtlas } from '../tools/taller/derivar.js';
@@ -24,7 +25,7 @@ import {
 } from '../tools/taller/empaquetar.js';
 import { encargoSchema, promptDe } from '../tools/taller/encargo.js';
 import { cuerpoDeLaCelda } from '../tools/taller/encuadre.js';
-import { quitarHalo, type Raster } from '../tools/taller/recorte.js';
+import { quitarHalo } from '../tools/taller/recorte.js';
 import {
   EN_OCHO_DIRECCIONES,
   encargoDeIdentidad,

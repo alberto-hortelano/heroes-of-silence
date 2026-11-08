@@ -118,6 +118,7 @@ import {
 } from '../art/poses.js';
 import { bandera, soloDe } from '../comun/argumentos.js';
 import { sha256 } from '../comun/hash.js';
+import { dePng } from '../comun/imagen.js';
 import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { leerBancoDeDisco } from '../npcs/banco.js';
@@ -191,7 +192,7 @@ import { escalaDePose } from './pose-del-encargo.js';
 import { escribirAtlasDePoses, RUTA_DEL_ATLAS_8D, ritmoDelEncargo } from './poses-8d.js';
 import { encargosDeRampas, escribirGuiasDeRampas, escribirRampasDerivadas } from './rampas.js';
 import { encargoDelRecinto, escribirGuiaDelRecinto, escribirRecintoDerivado } from './recinto.js';
-import { dePng, recortar, UMBRALES } from './recorte.js';
+import { recortar, UMBRALES } from './recorte.js';
 import { medirLaBase, recortarLaBase } from './recorte-base.js';
 import { arbitrar, cruzar, unir } from './revision/jurado.js';
 import {
