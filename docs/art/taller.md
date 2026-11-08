@@ -11,6 +11,7 @@ pnpm taller encolar templario-escudo --atlas
 pnpm taller
 pnpm taller corregir templario-escudo-atlas "el escudo va en el brazo izquierdo"
 pnpm taller estado
+pnpm taller ayuda                           # cómo se escribe cada orden (sale de su tabla, `ORDENES`)
 pnpm taller encolar --rehacer templario-escudo   # vuelve a pedir lo ya hecho
 pnpm taller retirar <id>                    # borra un pendiente que ya no vale
 pnpm taller devolver <id>                   # de en-curso/ o fallido/ otra vez a pendiente/

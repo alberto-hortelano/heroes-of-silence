@@ -1,82 +1,10 @@
 /**
- * `pnpm taller`: el trabajador de la cola de imágenes.
+ * `pnpm taller`: el trabajador de la cola de imágenes y las órdenes del taller.
  *
- *   pnpm taller                          trabaja hasta vaciar la cola
- *   pnpm taller encolar <unidad|fichero.json>…
- *                                        una unidad de `unidades.ts` encola su
- *                                        identidad, su giro con `--giro` o sus
- *                                        16 hojas de 8 direcciones con `--ocho`
- *                                        (24 si dispara: la C es el disparo);
- *                                        `--rehacer` olvida el encargo cerrado de antes
- *   pnpm taller corregir <encargo> "<corrección>"
- *                                        reabre el hilo de Codex de un encargo hecho
- *   pnpm taller estado
- *   pnpm taller devolver <id>            de en-curso/ o fallido/ a pendiente/
- *   pnpm taller retirar <id>…            borra pendientes que ya no valen
- *   pnpm taller reprocesar <id>          rehace el post-proceso sobre el crudo ya generado
- *   pnpm taller reprocesar <unidad> --adoptadas  reempaqueta desde su crudo las hojas adoptadas de versiones y las vuelve a adoptar
- *   pnpm taller derivar <hoja.webp>…     reescribe el JSON de una hoja
- *   pnpm taller derivar-poses            reescribe `_poses/atlas-8d.json`, las anclas del Y Bot
- *   pnpm taller maniqui <unidad>…        el maniquí propio de una unidad, con su profundidad, en `_poses/unidades/<id>-8d/`
- *   pnpm taller maniqui <unidad>… --huesos  (o `--civil --huesos`) el esqueleto de cada hoja, junto a ella: lo
- *                                        renderiza aparte y lanza si sus hojas no salen idénticas a las de `assets/`
- *
- *   La revisión de animaciones (`revision/`, la skill `/revisar-animaciones`):
- *   pnpm taller vision-instalar          el entorno de visión (`.cache/vision/.venv`, desde `revision/requirements.txt`)
- *   pnpm taller revisar-maniqui <unidad>…  si anda hacia atrás, si el reposo baila, si el arma no se lee
- *   pnpm taller revisar <unidad> [dN…] [--sin-juez] [--clips=…]  los paneles de cada clip y el juicio de ChatGPT
- *   pnpm taller jurado unir|arbitrar|cruzar <unidad> [dN…]  la unión de los jurados, los árbitros, el veredicto
- *   pnpm taller visor <unidad>           lo que está en disputa y las versiones que elegir, para la persona
- *   pnpm taller visor-maniqui <unidad>   su maniquí animado de tres cuartos, de lado y de espaldas, con sus avisos
- *   pnpm taller versiones <unidad> <dN> <h>  encola otra tirada, «esqueleto» y «todo» de una hoja
- *   pnpm taller elegir <unidad> <dN> <h>     las compara a ciegas con la de ahora, en los dos órdenes
- *   pnpm taller adoptar <unidad> <dN> <h>    la ganadora, si la persona la prefirió (o ganó claro su torneo), a `assets/`
- *   pnpm taller adoptar <unidad> --todas     todas las que se pueden; dice cuáles quedan para el visor
- *   pnpm taller versiones <unidad> --rechazadas  otra vez las hojas rechazadas en el vistazo final
- *   pnpm taller encolar --hitos          los hitos de los nodos sin pieza de paso (#176, `mapa.ts`)
- *   pnpm taller encolar --cofre          el cofre del mapa, pieza suelta (#147, `mapa.ts`)
- *   pnpm taller encolar --puestos [--solo=caseta,torreta,torre]
- *                                        la caseta, la torreta y la torre del puesto fronterizo, con su guía (`mapa.ts`)
- *   pnpm taller encolar --tablillas | --muralla-ns [--solo=…]
- *                                        las tablillas por rumbo y la muralla norte-sur (§29, `mapa.ts`; los tramos, con su guía, `muros.ts`)
- *   pnpm taller encolar --texturas-suelo | --muestras-densas | --piezas-densas [--solo=…]
- *                                        el arte de los mapas densos (`mapa-denso.ts`)
- *   pnpm taller vista-mapa [semilla]     un mapa denso del generador pintado con ese arte
- *   pnpm taller encolar --modulos | --texturas-relieve [--solo=…]
- *                                        las hojas de módulos del escenógrafo
- *   pnpm taller encolar --paredes-puentes [--solo=…]
- *                                        los puentes (§17), con su guía
- *   pnpm taller encolar --laderas [--solo=roca-este-1,…]
- *                                        las laderas que encadenan (§20, `laderas.ts`), con su guía
- *   pnpm taller encolar --relieve [--solo=diagonales-roca-se-1,bajadas-roca-1,…]
- *                                        las diagonales y las bajadas del relieve por celdas (§23), con su guía
- *   pnpm taller encolar --rampas [--solo=rampa-roca-1,…]
- *                                        las rampas que abren la pared (§35, `rampas.ts`), con su guía
- *   pnpm taller encolar --recinto [--rehacer]
- *                                        las puertas y los tramos en diagonal del recinto de una ciudad (§37, `recinto.ts`), con su guía
- *   pnpm taller encolar --muralla-batalla [--solo=cara-piedra,…] [--rehacer]
- *                                        la muralla del tablero de batalla: caras, tapas, portadas y escalera, con su guía (`muralla-de-batalla.ts`)
- *   pnpm taller derivar-muralla-batalla  rehace el índice de cajas de esas piezas (`assets/batalla/muralla/indice.json`)
- *   pnpm taller derivar-recinto          apunta el pie de las dos puntas de cada módulo del recinto desde su guía
- *   pnpm taller guias                    escribe las guías de geometría de `paredes-puentes.ts`, `laderas.ts`, `diagonales.ts`, `bajadas.ts`, `rampas.ts` y `recinto.ts`
- *   pnpm taller derivar-puentes <puente.webp>…  rehace su ancla (centro del tablero) y su casilla
- *   pnpm taller derivar-puestos <puesto.webp>…  rehace la casilla de una obra del puesto, desde su guía
- *   pnpm taller derivar-muros            el paso de la tirada de los tramos de norte a sur (`muros.ts`)
- *   pnpm taller escenario [semilla…] [--px=N]  el escenógrafo: compone, pinta, captura y mide
- *   pnpm taller derivar-relieve [hoja…]  apunta las juntas de cada módulo del relieve desde su guía: laderas (§20), diagonales y bajadas (§23); corta las rampas (§35)
- *   pnpm taller derivar-casas [--vista]  recorta las casas sueltas de la labranza de la hoja de pueblos (`casas.ts`); con --vista, cada casa teñida y numerada
- *   pnpm taller catalogo-escena          rehace assets/mapa/escena.json, el catálogo que lee el juego
- *   pnpm taller piezas-de-tema [--guias] rehace `src/client/piezas-de-tema.css` con las piezas de
- *                                        tema que hay en disco (`temas/piezas.ts`); con `--guias`,
- *                                        también las guías de su corte (`assets/temas/_guias/`)
- *   pnpm taller encolar --base templarios [--solo=maestro-t1,placa-t1,…]
- *                                        la plaza de la base en un solo cuadro (vuelta 3, `base.ts`): maestro, placa y ediciones de cada tramo
- *                                        y, con `--solo=retoque-<id>,abierta-<id>`, el retoque de un edificio y la versión abierta de cada morada
- *   pnpm taller recortar-base templarios     deriva los tramos (lo de encima del pie), el suelo, cada recorte y cada versión abierta, y rehace el índice (`recorte-base.ts`)
- *   pnpm taller medir-base templarios [n]    propone las regiones de un tramo, para `data/bases/templarios.json`
- *   pnpm taller vista-base templarios [dir]  la revisión: tramos, máscaras, compuesta, costuras y eslabones
- *   pnpm taller vista-ejercitos          una página con todos los ejércitos, para elegir o comparar
- *   pnpm taller vista-8d [unidad|juego]  el visor de 8 direcciones de las unidades y las poses
+ *   pnpm taller                 trabaja hasta vaciar la cola
+ *   pnpm taller ayuda           cómo se escribe cada orden y qué hace
+ *   pnpm taller <orden> …       una de la tabla `ORDENES`, de la que salen la ayuda y
+ *                               la lista del «orden desconocida»
  *
  * Por cada encargo: lanza Codex con las referencias en su orden, recorta el
  * halo, empaqueta (si es un atlas), valida con sharp, escribe la imagen, su
@@ -1071,487 +999,746 @@ function hojaDeLosArgumentos(
   return { id, d: Number(dir.slice(1)), h };
 }
 
-const [orden, ...resto] = process.argv.slice(2);
-switch (orden) {
-  case undefined:
-  case 'trabajar':
-    await trabajar(resto.includes('--npcs'));
-    break;
-  case 'encolar':
-    await encolar(resto);
-    break;
-  case 'corregir':
-    if (resto[0] === undefined || resto[1] === undefined) {
-      throw new Error('uso: pnpm taller corregir <encargo> "<corrección>"');
-    }
-    await corregir(resto[0], resto[1]);
-    break;
-  case 'estado':
-    for (const [e, ids] of Object.entries(await COLA.estado())) {
-      console.log(`${e.padEnd(10)} ${ids.length}  ${ids.join(' ')}`);
-    }
-    break;
-  case 'devolver': {
-    const id = resto[0];
-    if (id === undefined) throw new Error('uso: pnpm taller devolver <id>');
-    const estado = await COLA.estado();
-    const desde = estado['en-curso'].includes(id) ? 'en-curso' : 'fallido';
-    await COLA.devolver(id, desde);
-    console.log(`${id}: de ${desde}/ a pendiente/`);
-    break;
-  }
-  case 'retirar':
-    for (const id of resto)
-      console.log(`${id}: ${(await COLA.retirar(id)) ? 'retirado' : 'no estaba pendiente'}`);
-    break;
-  case 'reprocesar':
-    if (resto.length === 0)
-      throw new Error('uso: pnpm taller reprocesar <encargo>… | <unidad> --adoptadas');
-    // Con `--adoptadas`, las hojas de una unidad que vinieron de una versión: cada una
-    // se reempaqueta desde su crudo (sin repintar) y se vuelve a llevar a `assets/`,
-    // diciendo cuánto cambió su encuadre (repintado del 30-10-2026, el piquero).
-    if (resto.includes('--adoptadas')) {
-      const [id] = resto.filter((r) => !r.startsWith('--'));
-      if (id === undefined) throw new Error('uso: pnpm taller reprocesar <unidad> --adoptadas');
-      const f = figura(id);
-      const hojas = versionesAdoptadas(f);
-      if (hojas.length === 0) {
-        console.log(`${id}: ninguna hoja de assets/ viene de una versión`);
-        process.exitCode = 1;
-        break;
+/**
+ * Una orden de `pnpm taller`: cómo se escribe, que es su ayuda (una línea o varias,
+ * `pnpm taller <orden> …` y lo que hace), y qué hace con lo que la sigue.
+ */
+interface Orden {
+  readonly uso: string;
+  readonly correr: (resto: readonly string[]) => Promise<void> | void;
+}
+
+/** La cola: vaciarla, mirarla y arreglar lo que se quedó a medias. */
+const ORDENES_DE_LA_COLA: Readonly<Record<string, Orden>> = {
+  trabajar: {
+    uso: `pnpm taller [trabajar] [--npcs]
+    trabaja hasta vaciar la cola; con --npcs, solo los encargos del banco de NPC (lo que lanza «pnpm npcs trabajar»)`,
+    correr: async (resto) => {
+      await trabajar(resto.includes('--npcs'));
+    },
+  },
+  corregir: {
+    uso: `pnpm taller corregir <encargo> "<corrección>"
+    reabre el hilo de Codex de un encargo hecho`,
+    correr: async (resto) => {
+      if (resto[0] === undefined || resto[1] === undefined) {
+        throw new Error('uso: pnpm taller corregir <encargo> "<corrección>"');
       }
-      for (const { d, h, encargo } of hojas) {
-        const huesos = leerHuesos(join(RAIZ, f.maniqui), d, h);
-        const hoja = join(RAIZ, f.arte, `d${d}`, `hoja-${h}.webp`);
-        const medir = async () =>
-          huesos === null ? 0 : mayorSalto(await saltosDeLaHoja(hoja, huesos));
-        const antes = await medir();
-        const fallidoAntes = (await COLA.estado()).fallido.includes(encargo);
-        try {
-          await reprocesar(encargo);
-        } catch (err) {
-          console.log(
-            `  ✘ d${d}-${h} (${encargo}): ${err instanceof Error ? err.message : String(err)}`,
-          );
+      await corregir(resto[0], resto[1]);
+    },
+  },
+  estado: {
+    uso: `pnpm taller estado
+    cuántos encargos hay en cada carpeta de la cola, y cuáles`,
+    correr: async () => {
+      for (const [e, ids] of Object.entries(await COLA.estado())) {
+        console.log(`${e.padEnd(10)} ${ids.length}  ${ids.join(' ')}`);
+      }
+    },
+  },
+  devolver: {
+    uso: `pnpm taller devolver <id>
+    de en-curso/ o fallido/ a pendiente/`,
+    correr: async (resto) => {
+      const id = resto[0];
+      if (id === undefined) throw new Error('uso: pnpm taller devolver <id>');
+      const estado = await COLA.estado();
+      const desde = estado['en-curso'].includes(id) ? 'en-curso' : 'fallido';
+      await COLA.devolver(id, desde);
+      console.log(`${id}: de ${desde}/ a pendiente/`);
+    },
+  },
+  retirar: {
+    uso: `pnpm taller retirar <id>…
+    borra pendientes que ya no valen`,
+    correr: async (resto) => {
+      for (const id of resto)
+        console.log(`${id}: ${(await COLA.retirar(id)) ? 'retirado' : 'no estaba pendiente'}`);
+    },
+  },
+  reprocesar: {
+    uso: `pnpm taller reprocesar <id>…
+    rehace el post-proceso sobre el crudo ya generado
+pnpm taller reprocesar <unidad> --adoptadas
+    reempaqueta desde su crudo las hojas adoptadas de versiones y las vuelve a adoptar`,
+    correr: async (resto) => {
+      if (resto.length === 0)
+        throw new Error('uso: pnpm taller reprocesar <encargo>… | <unidad> --adoptadas');
+      // Con `--adoptadas`, las hojas de una unidad que vinieron de una versión: cada una
+      // se reempaqueta desde su crudo (sin repintar) y se vuelve a llevar a `assets/`,
+      // diciendo cuánto cambió su encuadre (repintado del 30-10-2026, el piquero).
+      if (resto.includes('--adoptadas')) {
+        const [id] = resto.filter((r) => !r.startsWith('--'));
+        if (id === undefined) throw new Error('uso: pnpm taller reprocesar <unidad> --adoptadas');
+        const f = figura(id);
+        const hojas = versionesAdoptadas(f);
+        if (hojas.length === 0) {
+          console.log(`${id}: ninguna hoja de assets/ viene de una versión`);
           process.exitCode = 1;
-          continue;
+          return;
         }
-        if (!fallidoAntes && (await COLA.estado()).fallido.includes(encargo)) continue;
-        console.log(`  · d${d}-${h}: ${await readoptar(f, d, h)}`);
-        console.log(`    el cuerpo saltaba ${antes} px y ahora ${await medir()} px`);
+        for (const { d, h, encargo } of hojas) {
+          const huesos = leerHuesos(join(RAIZ, f.maniqui), d, h);
+          const hoja = join(RAIZ, f.arte, `d${d}`, `hoja-${h}.webp`);
+          const medir = async () =>
+            huesos === null ? 0 : mayorSalto(await saltosDeLaHoja(hoja, huesos));
+          const antes = await medir();
+          const fallidoAntes = (await COLA.estado()).fallido.includes(encargo);
+          try {
+            await reprocesar(encargo);
+          } catch (err) {
+            console.log(
+              `  ✘ d${d}-${h} (${encargo}): ${err instanceof Error ? err.message : String(err)}`,
+            );
+            process.exitCode = 1;
+            continue;
+          }
+          if (!fallidoAntes && (await COLA.estado()).fallido.includes(encargo)) continue;
+          console.log(`  · d${d}-${h}: ${await readoptar(f, d, h)}`);
+          console.log(`    el cuerpo saltaba ${antes} px y ahora ${await medir()} px`);
+        }
+        return;
       }
-      break;
-    }
-    for (const id of resto) await reprocesar(id);
-    break;
-  case 'vista-ejercitos':
-    console.log(`→ ${await vistaEjercitos()}`);
-    break;
-  case 'vista-base': {
-    const uso = 'pnpm taller vista-base templarios [carpeta-de-salida [prefijo]]';
-    console.log(await vistaBase(faccionDe(resto[0], uso), resto[1], resto[2]));
-    break;
-  }
-  case 'recortar-base': {
-    const faccion = faccionDe(resto[0], 'pnpm taller recortar-base templarios');
-    const { indice, avisos } = await recortarLaBase(faccion);
-    for (const [id, e] of Object.entries(indice.edificios))
-      console.log(`${id}: tramo ${e.tramo}, en (${e.en.join(', ')}), ${e.ancho}×${e.alto}`);
-    console.log(
-      `placas: ${indice.tramos.map((t, i) => `T${i + 1} ${t === null ? 'falta' : 'sí'}`).join(' · ')}`,
-    );
-    for (const a of avisos) console.log(`aviso: ${a}`);
-    break;
-  }
-  case 'encoger-base': {
-    const uso = 'pnpm taller encoger-base <facción> [tramo]';
-    const faccion = faccionDe(resto[0], uso);
-    const tramos =
-      resto[1] === undefined
-        ? Object.keys(ARTE_DE_LA_BASE[faccion].encoger).map(Number)
-        : [Number(resto[1])];
-    for (const n of tramos) console.log(`→ ${await encogerElTramo(faccion, n)}`);
-    break;
-  }
-  case 'medir-base': {
-    const faccion = faccionDe(resto[0], 'pnpm taller medir-base templarios [tramo]');
-    const tramos =
-      resto[1] === undefined
-        ? Array.from({ length: disposicionDe(faccion).tramos }, (_, i) => i + 1)
-        : [Number(resto[1])];
-    for (const n of tramos) {
-      try {
-        for (const l of await medirLaBase(faccion, n)) console.log(`T${n} ${l}`);
-      } catch (err) {
-        console.log(`T${n}: ${err instanceof Error ? err.message : err}`);
+      for (const id of resto) await reprocesar(id);
+    },
+  },
+};
+
+/** Lo que entra en la cola. */
+const ORDENES_DE_ENCOLAR: Readonly<Record<string, Orden>> = {
+  encolar: {
+    uso: `pnpm taller encolar <unidad|fichero.json>… [--rehacer]
+    una unidad de \`unidades.ts\` encola su identidad, su giro con \`--giro\` o sus 16 hojas de
+    8 direcciones con \`--ocho\` (24 si dispara: la C es el disparo; \`--solo=d0-a,d3-a\`, solo
+    esas); \`--rehacer\` olvida el encargo cerrado de antes
+pnpm taller encolar --hitos            los hitos de los nodos sin pieza de paso (#176, \`mapa.ts\`)
+pnpm taller encolar --cofre            el cofre del mapa, pieza suelta (#147, \`mapa.ts\`)
+pnpm taller encolar --piezas-mapa | --muestras-mapa
+    las piezas sueltas y las láminas de muestra del mapa del 01-10 (\`mapa.ts\`)
+pnpm taller encolar --puestos [--solo=caseta,torreta,torre]
+    la caseta, la torreta y la torre del puesto fronterizo, con su guía (\`mapa.ts\`)
+pnpm taller encolar --tablillas | --muralla-ns [--solo=…]
+    las tablillas por rumbo y la muralla norte-sur (§29, \`mapa.ts\`; los tramos, con su guía, \`muros.ts\`)
+pnpm taller encolar --texturas-suelo | --muestras-densas | --piezas-densas [--solo=…]
+    el arte de los mapas densos (\`mapa-denso.ts\`)
+pnpm taller encolar --modulos | --texturas-relieve [--solo=…]
+    las hojas de módulos del escenógrafo
+pnpm taller encolar --paredes-puentes [--solo=…]
+    los puentes (§17), con su guía
+pnpm taller encolar --laderas [--solo=roca-este-1,…]
+    las laderas que encadenan (§20, \`laderas.ts\`), con su guía
+pnpm taller encolar --relieve [--solo=diagonales-roca-se-1,bajadas-roca-1,…]
+    las diagonales y las bajadas del relieve por celdas (§23), con su guía
+pnpm taller encolar --rampas [--solo=rampa-roca-1,…]
+    las rampas que abren la pared (§35, \`rampas.ts\`), con su guía
+pnpm taller encolar --recinto [--rehacer]
+    las puertas y los tramos en diagonal del recinto de una ciudad (§37, \`recinto.ts\`), con su guía
+pnpm taller encolar --muralla-batalla [--solo=cara-piedra,…] [--rehacer]
+    la muralla del tablero de batalla: caras, tapas, portadas y escalera, con su guía (\`muralla-de-batalla.ts\`)
+pnpm taller encolar --base templarios [--solo=maestro-t1,placa-t1,…]
+    la plaza de la base en un solo cuadro (vuelta 3, \`base.ts\`): maestro, placa y ediciones de
+    cada tramo y, con \`--solo=retoque-<id>,abierta-<id>\`, el retoque de un edificio y la
+    versión abierta de cada morada`,
+    correr: async (resto) => {
+      await encolar(resto);
+    },
+  },
+};
+
+/** Lo que se deriva de lo que ya está en disco: JSON, guías y catálogos. */
+const ORDENES_DE_DERIVAR: Readonly<Record<string, Orden>> = {
+  derivar: {
+    uso: `pnpm taller derivar <hoja.webp>…
+    reescribe el JSON de una hoja`,
+    correr: async (resto) => {
+      for (const r of resto) {
+        // Con la derivación de su carpeta (`derivacionDeLaCarpeta`): la suelta y el
+        // ritmo de su unidad, o las hojas de las acciones de una figura del banco de
+        // NPC. `derivarAtlas` lanza si la hoja no tiene la fila del disparo que la
+        // unidad dispara, o al revés.
+        const d = await escribirDerivado(r, await derivacionDeLaCarpeta(dirname(r)).derivar());
+        console.log(
+          `${r}: altura ${d.altura}, fotogramas ${Object.values(d.clips)
+            .map((c) => c.frames)
+            .join('/')}`,
+        );
       }
-    }
-    break;
-  }
-  case 'vista-mapa': {
-    const semilla = resto[0] === undefined ? 1 : Number(resto[0]);
-    if (!Number.isSafeInteger(semilla))
-      throw new Error(`«${resto[0]}» no es una semilla: un entero`);
-    console.log(`→ ${await vistaMapa(semilla)}`);
-    break;
-  }
-  case 'escenario': {
-    // pnpm taller escenario [semilla…] [--px=N]: a N px por casilla (48 si no se da),
-    // para medir el pintor a la resolución del juego (120) como en #217.
-    const opcion = resto.find((r) => r.startsWith('--px='));
-    const px = opcion === undefined ? 48 : Number(opcion.slice('--px='.length));
-    if (!Number.isSafeInteger(px) || px <= 0)
-      throw new Error(`«${opcion}» no vale: los píxeles por casilla son un entero positivo`);
-    const sueltas = resto.filter((r) => r !== opcion);
-    const semillas = sueltas.length === 0 ? [1] : sueltas.map(Number);
-    if (semillas.some((n) => !Number.isSafeInteger(n))) throw new Error('las semillas son enteros');
-    for (const r of await escenario(semillas, px)) {
-      // El de `componer`, más lo que mide la página del taller.
-      const i = r.informe as Escena['informe'] & {
-        desnudo: number;
-        errores: string[];
-        aguaEnLoAlto: number;
-        espaldasSinLabio: number;
-        espaldasSinCanto: number;
-        sendaSobreElAgua: number;
-        msPintar: number;
-      };
-      console.log(`→ ${r.png}`);
+    },
+  },
+  'derivar-poses': {
+    uso: `pnpm taller derivar-poses
+    reescribe \`_poses/atlas-8d.json\`, las anclas del Y Bot`,
+    correr: async () => {
+      const { juegos } = await escribirAtlasDePoses();
+      console.log(`→ ${relative(RAIZ, RUTA_DEL_ATLAS_8D)}: ${Object.keys(juegos).join(', ')}`);
+    },
+  },
+  guias: {
+    uso: `pnpm taller guias
+    escribe las guías de geometría (\`guias.ts\`) de los puentes, las laderas, las diagonales, las
+    bajadas, las rampas, el recinto y el muro de norte a sur`,
+    correr: async () => {
+      for (const g of [
+        ...(await escribirGuias()),
+        ...(await escribirGuiasDeLaderas()),
+        ...(await escribirGuiasDeDiagonales()),
+        ...(await escribirGuiasDeBajadas()),
+        ...(await escribirGuiasDeRampas()),
+        await escribirGuiaDelRecinto(),
+        await escribirGuiaDelMuro(),
+      ])
+        console.log(`→ ${g}`);
+    },
+  },
+  'derivar-relieve': {
+    uso: `pnpm taller derivar-relieve [hoja…]
+    apunta las juntas de cada módulo del relieve desde su guía: laderas (§20), diagonales y
+    bajadas (§23); corta las rampas (§35)`,
+    correr: async (resto) => {
+      // Las juntas de cada módulo del relieve, desde su guía: laderas (§20),
+      // diagonales y bajadas (§23). Sin hojas, todas las que hay en disco.
+      for (const f of await escribirRelieveDerivado(resto.length === 0 ? undefined : resto))
+        console.log(`→ ${f}`);
+    },
+  },
+  'derivar-puentes': {
+    uso: `pnpm taller derivar-puentes <puente.webp>…
+    rehace su ancla (centro del tablero) y su casilla`,
+    correr: async (resto) => {
+      // El ancla y la casilla de cada puente pintado, otra vez desde su guía.
+      for (const f of resto) {
+        await escribirPuenteDerivado(resolve(f));
+        console.log(`→ ${f.replace(/\.webp$/, '.json')}`);
+      }
+    },
+  },
+  'derivar-puestos': {
+    uso: `pnpm taller derivar-puestos <puesto.webp>…
+    rehace la casilla de una obra del puesto, desde su guía`,
+    correr: async (resto) => {
+      // La casilla de cada obra del puesto pintada, otra vez desde su guía.
+      for (const f of resto) {
+        await escribirPuestoDerivado(resolve(f));
+        console.log(`→ ${f.replace(/\.webp$/, '.json')}`);
+      }
+    },
+  },
+  'derivar-muros': {
+    uso: `pnpm taller derivar-muros
+    el paso de la tirada de los tramos de norte a sur (\`muros.ts\`)`,
+    correr: async () => {
+      // El paso con que una pieza de norte a sur va detrás de otra sin enseñar su testero.
+      for (const f of await escribirMurosDerivados()) console.log(`→ ${f}`);
+    },
+  },
+  'derivar-muralla-batalla': {
+    uso: `pnpm taller derivar-muralla-batalla
+    rehace el índice de cajas de las piezas de la muralla de batalla (\`assets/batalla/muralla/indice.json\`)`,
+    correr: async () => {
+      // Las cajas de cada pieza de la muralla del tablero de batalla, otra vez.
+      console.log(`→ ${await escribirIndiceDeLaMuralla()}`);
+    },
+  },
+  'derivar-recinto': {
+    uso: `pnpm taller derivar-recinto
+    apunta el pie de las dos puntas de cada módulo del recinto desde su guía`,
+    correr: async () => {
+      // El pie de las dos puntas de cada puerta y tramo del recinto, desde su guía.
+      console.log(`→ ${await escribirRecintoDerivado()}`);
+    },
+  },
+  'derivar-casas': {
+    uso: `pnpm taller derivar-casas [--vista]
+    recorta las casas sueltas de la labranza de la hoja de pueblos (\`casas.ts\`); con --vista,
+    cada casa teñida y numerada`,
+    correr: async (resto) => {
+      // Las casas sueltas de la labranza, de la hoja de pueblos: con --vista, las
+      // casas teñidas y numeradas; sin él, las recorta (`CASAS_DE_LOS_PUEBLOS`).
       console.log(
-        `  suelo desnudo ${(i.desnudo * 100).toFixed(1)} % · pintar ${i.msPintar} ms · árboles sobre lo pisable ${i.arbolesSobreLoPisable} · masa sobre lo pisable ${i.masaSobreLoPisable} · pasillos tapados ${i.pasillosTapados} · cumbres sobre lo pisable ${i.cumbresSobreLoPisable} (medida) · bosque sin árbol ${i.bosqueSinArbol} · murallas partidas ${i.murallasPartidas} · muralla incoherente ${i.murallaIncoherente} · torres apiladas ${i.torresApiladas} · muralla sobre la senda ${i.murallaSobreSenda} · bases sobre reserva ${i.basesSobreReserva} · barrera sin formación ${i.casillasDeBarreraSinFormacion} · sprites sobre la senda ${i.spritesSobreSenda} · celdas mal cubiertas ${i.celdasMalCubiertas} · bajadas sin pieza ${i.bajadasSinPieza} · bajadas tapadas ${i.bajadasTapadas} · pasos tapados ${i.pasosTapados} · pasos atravesados ${i.pasosAtravesados} · pisables tapadas ${i.pisablesTapadas} · rampas desviadas ${i.rampasDesviadas} · rampas sin sus piezas ${i.rampasSinSusPiezas} · sendas por objeto ${i.sendasPorObjeto} · acantilados lisos ${i.acantiladosLisos} · espaldas sin reborde ${i.espaldasSinReborde} · cima de otro material ${i.cimaDeOtroMaterial} · cubierta de otro nivel ${i.cubiertaDeOtroNivel} · cara de otro material ${i.caraDeOtroMaterial} · paredes tapadas ${i.paredesTapadas} · caras cortadas ${i.carasCortadas} · mesas en la cordillera ${i.mesasEnLaCordillera} · senda bajo el relieve ${i.sendaBajoElRelieve} (techo de media 5) · agua en lo alto ${i.aguaEnLoAlto} · espaldas sin labio ${i.espaldasSinLabio} · espaldas sin canto ${i.espaldasSinCanto} · senda sobre el agua ${i.sendaSobreElAgua}` +
-          (i.modulosQueFaltan.length > 0 ? ` · faltan ${i.modulosQueFaltan.join(', ')}` : '') +
-          (i.errores.length > 0 ? ` · ERRORES: ${i.errores.join(' | ')}` : ''),
+        `→ ${
+          resto.includes('--vista')
+            ? await vistaDeLasCasas(join(RAIZ, '.cache/taller/casas-de-los-pueblos.png'))
+            : await escribirCasas()
+        }`,
       );
-    }
-    break;
-  }
-  case 'recorte': {
-    // pnpm taller recorte <semilla> <x0> <y0> <x1> <y1> <salida.png> [px por casilla = 96]
-    const [semilla, x0, y0, x1, y1, salida, px] = resto;
-    const n = [semilla, x0, y0, x1, y1].map(Number);
-    if (salida === undefined || n.some((v) => !Number.isFinite(v)))
-      throw new Error('uso: pnpm taller recorte <semilla> <x0> <y0> <x1> <y1> <salida.png> [px]');
-    const [s, ...caja] = n as [number, number, number, number, number];
-    await recortesDeSemilla(s, px === undefined ? 96 : Number(px), [
-      { caja: caja as [number, number, number, number], salida: resolve(salida) },
-    ]);
-    console.log(`→ ${salida}`);
-    break;
-  }
-  case 'guias':
-    for (const g of [
-      ...(await escribirGuias()),
-      ...(await escribirGuiasDeLaderas()),
-      ...(await escribirGuiasDeDiagonales()),
-      ...(await escribirGuiasDeBajadas()),
-      ...(await escribirGuiasDeRampas()),
-      await escribirGuiaDelRecinto(),
-      await escribirGuiaDelMuro(),
-    ])
-      console.log(`→ ${g}`);
-    break;
-  case 'derivar-puentes':
-    // El ancla y la casilla de cada puente pintado, otra vez desde su guía.
-    for (const f of resto) {
-      await escribirPuenteDerivado(resolve(f));
-      console.log(`→ ${f.replace(/\.webp$/, '.json')}`);
-    }
-    break;
-  case 'derivar-puestos':
-    // La casilla de cada obra del puesto pintada, otra vez desde su guía.
-    for (const f of resto) {
-      await escribirPuestoDerivado(resolve(f));
-      console.log(`→ ${f.replace(/\.webp$/, '.json')}`);
-    }
-    break;
-  case 'derivar-muros':
-    // El paso con que una pieza de norte a sur va detrás de otra sin enseñar su testero.
-    for (const f of await escribirMurosDerivados()) console.log(`→ ${f}`);
-    break;
-  case 'derivar-relieve':
-    // Las juntas de cada módulo del relieve, desde su guía: laderas (§20),
-    // diagonales y bajadas (§23). Sin hojas, todas las que hay en disco.
-    for (const f of await escribirRelieveDerivado(resto.length === 0 ? undefined : resto))
-      console.log(`→ ${f}`);
-    break;
-  case 'derivar-muralla-batalla':
-    // Las cajas de cada pieza de la muralla del tablero de batalla, otra vez.
-    console.log(`→ ${await escribirIndiceDeLaMuralla()}`);
-    break;
-  case 'derivar-recinto':
-    // El pie de las dos puntas de cada puerta y tramo del recinto, desde su guía.
-    console.log(`→ ${await escribirRecintoDerivado()}`);
-    break;
-  case 'derivar-casas':
-    // Las casas sueltas de la labranza, de la hoja de pueblos: con --vista, las
-    // casas teñidas y numeradas; sin él, las recorta (`CASAS_DE_LOS_PUEBLOS`).
-    console.log(
-      `→ ${
-        resto.includes('--vista')
-          ? await vistaDeLasCasas(join(RAIZ, '.cache/taller/casas-de-los-pueblos.png'))
-          : await escribirCasas()
-      }`,
-    );
-    break;
-  case 'catalogo-escena': {
-    const c = await escribirCatalogo();
-    console.log(
-      `→ assets/mapa/escena.json: ${Object.keys(c.hojas).length} hojas, ${Object.keys(c.piezas).length} piezas`,
-    );
-    break;
-  }
-  case 'piezas-de-tema': {
-    // La hoja de fichas de las piezas de tema, desde lo que hay en disco. La cabecera
-    // de la hoja nombra esta orden, que no existió hasta el 06-11-2026: 21189b8a
-    // trajo las funciones y no la orden.
-    const sobran = resto.filter((r) => r !== '--guias');
-    if (sobran.length > 0)
-      throw new Error(
-        `uso: pnpm taller piezas-de-tema [--guias] (no se entiende ${sobran.join(' ')})`,
-      );
-    if (resto.includes('--guias'))
-      for (const g of await escribirGuiasDeTemas()) console.log(`→ ${g}`);
-    const { ruta, piezas } = await escribirPiezasDeTema();
-    console.log(`→ ${ruta}: ${piezas} piezas en disco`);
-    break;
-  }
-  case 'vista-8d':
-    // Un solo visor con todas: el argumento solo elige con cuál se abre.
-    console.log(`→ ${await vista8d(resto[0])}`);
-    break;
-  case 'maniqui':
-    // El de la gente (el banco de NPC): el juego civil del Y Bot, sin armas, con
-    // su profundidad y la pose sola de la identidad.
-    if (resto.includes('--civil')) {
+    },
+  },
+  'catalogo-escena': {
+    uso: `pnpm taller catalogo-escena
+    rehace assets/mapa/escena.json, el catálogo que lee el juego`,
+    correr: async () => {
+      const c = await escribirCatalogo();
       console.log(
-        `→ ${relative(RAIZ, await renderizarElManiquiCivil(resto.includes('--huesos')))}`,
+        `→ assets/mapa/escena.json: ${Object.keys(c.hojas).length} hojas, ${Object.keys(c.piezas).length} piezas`,
       );
-      break;
-    }
-    // El maniquí propio de cada unidad que lo declara (`maniqui` en unidades.ts).
-    for (const id of resto.filter((r) => !r.startsWith('--'))) {
+    },
+  },
+};
+
+/** Los temas de la interfaz. */
+const ORDENES_DE_LOS_TEMAS: Readonly<Record<string, Orden>> = {
+  'piezas-de-tema': {
+    uso: `pnpm taller piezas-de-tema [--guias]
+    rehace \`src/client/piezas-de-tema.css\` con las piezas de tema que hay en disco
+    (\`temas/piezas.ts\`); con \`--guias\`, también las guías de su corte (\`assets/temas/_guias/\`)`,
+    correr: async (resto) => {
+      // La hoja de fichas de las piezas de tema, desde lo que hay en disco. La cabecera
+      // de la hoja nombra esta orden, que no existió hasta el 06-11-2026: 21189b8a
+      // trajo las funciones y no la orden.
+      const sobran = resto.filter((r) => r !== '--guias');
+      if (sobran.length > 0)
+        throw new Error(
+          `uso: pnpm taller piezas-de-tema [--guias] (no se entiende ${sobran.join(' ')})`,
+        );
+      if (resto.includes('--guias'))
+        for (const g of await escribirGuiasDeTemas()) console.log(`→ ${g}`);
+      const { ruta, piezas } = await escribirPiezasDeTema();
+      console.log(`→ ${ruta}: ${piezas} piezas en disco`);
+    },
+  },
+};
+
+/** El maniquí del Y Bot sobre el que se pinta. */
+const ORDENES_DEL_MANIQUI: Readonly<Record<string, Orden>> = {
+  maniqui: {
+    uso: `pnpm taller maniqui <unidad>… [--fotogramas]
+    el maniquí propio de una unidad, con su profundidad, en \`_poses/unidades/<id>-8d/\`
+pnpm taller maniqui --civil
+    el de la gente del banco de NPC: el juego civil del Y Bot, sin armas
+pnpm taller maniqui <unidad>… --huesos  (o \`--civil --huesos\`)
+    el esqueleto de cada hoja, junto a ella: lo renderiza aparte y lanza si sus hojas no
+    salen idénticas a las de \`assets/\``,
+    correr: async (resto) => {
+      // El de la gente (el banco de NPC): el juego civil del Y Bot, sin armas, con
+      // su profundidad y la pose sola de la identidad.
+      if (resto.includes('--civil')) {
+        console.log(
+          `→ ${relative(RAIZ, await renderizarElManiquiCivil(resto.includes('--huesos')))}`,
+        );
+        return;
+      }
+      // El maniquí propio de cada unidad que lo declara (`maniqui` en unidades.ts).
+      for (const id of resto.filter((r) => !r.startsWith('--'))) {
+        const u = unidad(id);
+        const juego = juegoDelYBot(u);
+        if (u.maniqui === undefined)
+          throw new Error(`${id} no declara maniquí propio: usa el de «${juego}»`);
+        if (!(juego in JUEGOS_DE_ARMAS))
+          throw new Error(
+            `${id}: el maniquí propio parte de un juego del Y Bot a pie, no de «${juego}»`,
+          );
+        const atrezo = u.maniqui;
+        const opciones = (huesos: boolean) => ({
+          id,
+          huesos,
+          atrezo,
+          ...(u.clipsDelManiqui === undefined ? {} : { clips: u.clipsDelManiqui }),
+          // Además, sus hojas en profundidad: la pose que se pinta.
+          profundidad: true,
+          // Y los fotogramas enteros de cada clip, para mirarlos (`carpetaDeFotogramas`).
+          ...(resto.includes('--fotogramas') ? { fotogramas: carpetaDeFotogramas(id) } : {}),
+        });
+        // Con `--huesos`, solo el esqueleto de cada hoja, junto a ella: la verdad con que
+        // la revisión mide lo pintado y la compuerta del trabajador. Las hojas no se tocan.
+        const carpeta = resto.includes('--huesos')
+          ? await sacarElEsqueleto(carpetaDeManiqui(id), (temporal) =>
+              renderizarOchoDirecciones(juego as JuegoDeArmas, temporal, opciones(true)),
+            )
+          : await renderizarOchoDirecciones(juego as JuegoDeArmas, DIR_MANIQUIES, opciones(false));
+        console.log(`→ ${relative(RAIZ, carpeta)}`);
+      }
+    },
+  },
+  muestrario: {
+    uso: `pnpm taller muestrario <unidad> [clip…] [--fotogramas]
+    los clips candidatos de una unidad, con su atrezo, para elegir sus acciones
+    (\`.cache/taller/muestrario/<unidad>.png\`)`,
+    correr: async (resto) => {
+      // Los clips candidatos de una unidad, con su atrezo, para elegir sus acciones.
+      const [id, ...clips] = resto.filter((r) => !r.startsWith('--'));
+      if (id === undefined) throw new Error('pnpm taller muestrario <unidad> [clip…]');
       const u = unidad(id);
       const juego = juegoDelYBot(u);
-      if (u.maniqui === undefined)
-        throw new Error(`${id} no declara maniquí propio: usa el de «${juego}»`);
-      if (!(juego in JUEGOS_DE_ARMAS))
-        throw new Error(
-          `${id}: el maniquí propio parte de un juego del Y Bot a pie, no de «${juego}»`,
-        );
-      const atrezo = u.maniqui;
-      const opciones = (huesos: boolean) => ({
-        id,
-        huesos,
-        atrezo,
-        ...(u.clipsDelManiqui === undefined ? {} : { clips: u.clipsDelManiqui }),
-        // Además, sus hojas en profundidad: la pose que se pinta.
-        profundidad: true,
-        // Y los fotogramas enteros de cada clip, para mirarlos (`carpetaDeFotogramas`).
-        ...(resto.includes('--fotogramas') ? { fotogramas: carpetaDeFotogramas(id) } : {}),
+      if (!(juego in JUEGOS_DE_ARMAS)) throw new Error(`${id}: el muestrario es de juegos a pie`);
+      const destino = join(RAIZ, '.cache/taller/muestrario', `${id}.png`);
+      await mkdir(dirname(destino), { recursive: true });
+      await renderizarMuestrario(
+        clips.length > 0 ? clips : CANDIDATOS_DEL_MUESTRARIO,
+        u.maniqui ?? JUEGOS_DE_ARMAS[juego as JuegoDeArmas].atrezo,
+        destino,
+        160,
+        // Con `--fotogramas`, cada clip entero (el visor del maniquí los anima).
+        resto.includes('--fotogramas') ? join(RAIZ, '.cache/taller/muestrario', id) : undefined,
+      );
+      console.log(`→ ${relative(RAIZ, destino)}`);
+    },
+  },
+};
+
+/** La revisión de las animaciones (`revision/`, la skill `/revisar-animaciones`). */
+const ORDENES_DE_LA_REVISION: Readonly<Record<string, Orden>> = {
+  'vision-instalar': {
+    uso: `pnpm taller vision-instalar
+    el entorno de visión (\`.cache/vision/.venv\`, desde \`revision/requirements.txt\`)`,
+    correr: () => {
+      instalar();
+    },
+  },
+  'revisar-maniqui': {
+    uso: `pnpm taller revisar-maniqui <unidad>… | --civil
+    si anda hacia atrás, si el reposo baila, si el arma no se lee`,
+    correr: async (resto) => {
+      // Lo que no se ve juzgando lo pintado: el maniquí mismo (C2 de la revisión).
+      let conSentido = false;
+      const ids = resto.filter((r) => !r.startsWith('--'));
+      if (ids.length === 0 && !resto.includes('--civil'))
+        throw new Error('uso: pnpm taller revisar-maniqui <unidad>… | --civil');
+      // El civil (el de la gente del banco de NPC), que también mira la compuerta.
+      const carpetas = [
+        ...(resto.includes('--civil')
+          ? [{ id: 'civil', maniqui: DIR_DEL_MANIQUI_CIVIL, arte: null }]
+          : []),
+        ...ids.map((id) => figura(id)),
+      ];
+      for (const f of carpetas) {
+        const { avisos } = await revisarElManiqui(join(RAIZ, f.maniqui));
+        console.log(`${f.id}: ${avisos.length === 0 ? 'sin avisos' : `${avisos.length} avisos`}`);
+        for (const a of avisos) console.log(`  ${a.tipo === 'sentido' ? '✘' : '!'} ${a.texto}`);
+        conSentido ||= avisos.some((a) => a.tipo === 'sentido');
+        if (f.arte === null) continue;
+        const repintar = hojasSobreOtroManiqui(RAIZ, f.arte);
+        if (repintar.length > 0)
+          console.log(
+            `  ⚠ ${repintar.length} hojas pintadas sobre OTRO maniquí (${repintar.map((r) => r.hoja).join(', ')}): no se juzgan como un fallo del pintor; van directas a «pnpm taller versiones ${f.id} <dN> <h>» (el jurado sobre ellas solo da instrucciones), y \`elegir\` las compara entre sí, no con la de ahora`,
+          );
+      }
+      // Una marcha hacia atrás no se manda a pintar: el arreglo va en el maniquí.
+      if (conSentido) process.exitCode = 1;
+    },
+  },
+  revisar: {
+    uso: `pnpm taller revisar <unidad> [dN…] [--sin-juez] [--clips=idle,walk]
+    los paneles de cada clip y el juicio de ChatGPT`,
+    correr: async (resto) => {
+      const [id] = resto.filter((r) => !r.startsWith('--') && !/^d[0-7]$/.test(r));
+      if (id === undefined)
+        throw new Error('uso: pnpm taller revisar <unidad> [dN…] [--sin-juez] [--clips=idle,walk]');
+      const clips = bandera(resto, 'clips')?.split(',');
+      await revisar(id, direccionesDe(resto), {
+        sinJuez: resto.includes('--sin-juez'),
+        ...(clips === undefined ? {} : { clips }),
       });
-      // Con `--huesos`, solo el esqueleto de cada hoja, junto a ella: la verdad con que
-      // la revisión mide lo pintado y la compuerta del trabajador. Las hojas no se tocan.
-      const carpeta = resto.includes('--huesos')
-        ? await sacarElEsqueleto(carpetaDeManiqui(id), (temporal) =>
-            renderizarOchoDirecciones(juego as JuegoDeArmas, temporal, opciones(true)),
-          )
-        : await renderizarOchoDirecciones(juego as JuegoDeArmas, DIR_MANIQUIES, opciones(false));
-      console.log(`→ ${relative(RAIZ, carpeta)}`);
-    }
-    break;
-  case 'vision-instalar':
-    instalar();
-    break;
-  case 'revisar-maniqui': {
-    // Lo que no se ve juzgando lo pintado: el maniquí mismo (C2 de la revisión).
-    let conSentido = false;
-    const ids = resto.filter((r) => !r.startsWith('--'));
-    if (ids.length === 0 && !resto.includes('--civil'))
-      throw new Error('uso: pnpm taller revisar-maniqui <unidad>… | --civil');
-    // El civil (el de la gente del banco de NPC), que también mira la compuerta.
-    const carpetas = [
-      ...(resto.includes('--civil')
-        ? [{ id: 'civil', maniqui: DIR_DEL_MANIQUI_CIVIL, arte: null }]
-        : []),
-      ...ids.map((id) => figura(id)),
-    ];
-    for (const f of carpetas) {
-      const { avisos } = await revisarElManiqui(join(RAIZ, f.maniqui));
-      console.log(`${f.id}: ${avisos.length === 0 ? 'sin avisos' : `${avisos.length} avisos`}`);
-      for (const a of avisos) console.log(`  ${a.tipo === 'sentido' ? '✘' : '!'} ${a.texto}`);
-      conSentido ||= avisos.some((a) => a.tipo === 'sentido');
-      if (f.arte === null) continue;
-      const repintar = hojasSobreOtroManiqui(RAIZ, f.arte);
-      if (repintar.length > 0)
-        console.log(
-          `  ⚠ ${repintar.length} hojas pintadas sobre OTRO maniquí (${repintar.map((r) => r.hoja).join(', ')}): no se juzgan como un fallo del pintor; van directas a «pnpm taller versiones ${f.id} <dN> <h>» (el jurado sobre ellas solo da instrucciones), y \`elegir\` las compara entre sí, no con la de ahora`,
+    },
+  },
+  jurado: {
+    uso: `pnpm taller jurado unir|arbitrar|cruzar <unidad> [dN…] [--clips=idle,walk]
+    la unión de los jurados, los árbitros, el veredicto`,
+    correr: async (resto) => {
+      const [paso, id] = resto.filter((r) => !r.startsWith('--') && !/^d[0-7]$/.test(r));
+      const pasos = { unir, arbitrar, cruzar } as const;
+      if (paso === undefined || !(paso in pasos) || id === undefined)
+        throw new Error(
+          'uso: pnpm taller jurado unir|arbitrar|cruzar <unidad> [dN…] [--clips=idle,walk]',
         );
-    }
-    // Una marcha hacia atrás no se manda a pintar: el arreglo va en el maniquí.
-    if (conSentido) process.exitCode = 1;
-    break;
-  }
-  case 'revisar': {
-    const [id] = resto.filter((r) => !r.startsWith('--') && !/^d[0-7]$/.test(r));
-    if (id === undefined)
-      throw new Error('uso: pnpm taller revisar <unidad> [dN…] [--sin-juez] [--clips=idle,walk]');
-    const clips = bandera(resto, 'clips')?.split(',');
-    await revisar(id, direccionesDe(resto), {
-      sinJuez: resto.includes('--sin-juez'),
-      ...(clips === undefined ? {} : { clips }),
-    });
-    break;
-  }
-  case 'jurado': {
-    const [paso, id] = resto.filter((r) => !r.startsWith('--') && !/^d[0-7]$/.test(r));
-    const pasos = { unir, arbitrar, cruzar } as const;
-    if (paso === undefined || !(paso in pasos) || id === undefined)
-      throw new Error(
-        'uso: pnpm taller jurado unir|arbitrar|cruzar <unidad> [dN…] [--clips=idle,walk]',
-      );
-    const clipsDelJurado = bandera(resto, 'clips')?.split(',');
-    comprobarClips(clipsDelJurado);
-    await pasos[paso as keyof typeof pasos](figura(id), direccionesDe(resto), clipsDelJurado);
-    break;
-  }
-  case 'visor': {
-    const [id] = resto;
-    if (id === undefined) throw new Error('uso: pnpm taller visor <unidad>');
-    const f = figura(id);
-    const { casos, clave } = await casosDelVisor(f);
-    if (casos.length === 0) {
-      console.log(
-        `${id}: nada que enseñar (ni disputas sin mirar ni versiones que elegir); el maniquí, con «pnpm taller visor-maniqui ${id}»`,
-      );
-      process.exitCode = 1;
-      break;
-    }
-    await escribirClave(f, clave);
-    console.log(`${id}: ${casos.length} casos`);
-    await visor(join(RAIZ, f.revision, 'visor'), casos);
-    break;
-  }
-  case 'visor-maniqui': {
-    // El visor del maniquí (paso 1 de la skill): sus clips animados de tres cuartos,
-    // de lado y de espaldas, con los avisos de `revisar-maniqui`.
-    const [id] = resto;
-    if (id === undefined) throw new Error('uso: pnpm taller visor-maniqui <unidad>');
-    const f = figura(id);
-    const fps = Object.fromEntries(Object.entries(RELOJ).map(([c, r]) => [c, r.fps]));
-    const casos = await casosDelManiqui(f, RAIZ, fps);
-    console.log(`${id}: ${casos.length} clips del maniquí`);
-    await visor(join(RAIZ, f.revision, 'visor-maniqui'), casos);
-    break;
-  }
-  case 'versiones': {
-    // Con `--rechazadas`, las hojas que la persona rechazó en el vistazo final,
-    // otra vez y olvidando las de antes (decisión del usuario del 30-10-2026).
-    if (resto.includes('--rechazadas')) {
-      const [id] = resto.filter((r) => !r.startsWith('--'));
-      if (id === undefined) throw new Error('uso: pnpm taller versiones <unidad> --rechazadas');
+      const clipsDelJurado = bandera(resto, 'clips')?.split(',');
+      comprobarClips(clipsDelJurado);
+      await pasos[paso as keyof typeof pasos](figura(id), direccionesDe(resto), clipsDelJurado);
+    },
+  },
+  visor: {
+    uso: `pnpm taller visor <unidad>
+    lo que está en disputa y las versiones que elegir, para la persona`,
+    correr: async (resto) => {
+      const [id] = resto;
+      if (id === undefined) throw new Error('uso: pnpm taller visor <unidad>');
       const f = figura(id);
-      const hojas = await rechazadas(f);
-      if (hojas.length === 0) {
+      const { casos, clave } = await casosDelVisor(f);
+      if (casos.length === 0) {
         console.log(
-          `${id}: ninguna hoja rechazada en el vistazo final (o aún no se ha mirado: «pnpm taller visor ${id}»)`,
+          `${id}: nada que enseñar (ni disputas sin mirar ni versiones que elegir); el maniquí, con «pnpm taller visor-maniqui ${id}»`,
         );
         process.exitCode = 1;
-        break;
+        return;
       }
-      for (const { d, h } of hojas)
-        for (const e of await prepararVersiones(f, d, h)) {
-          await COLA.olvidar(e.id);
-          try {
-            console.log(`encolado ${(await COLA.encolar(e)).id}`);
-          } catch (err) {
-            // Ya pedida (a mano, o por otra pasada) y aún sin pintar: no se pide dos veces.
-            if (!(err instanceof YaEnLaCola)) throw err;
-            console.log(`  · ${e.id} ya estaba en la cola (${err.message})`);
-          }
+      await escribirClave(f, clave);
+      console.log(`${id}: ${casos.length} casos`);
+      await visor(join(RAIZ, f.revision, 'visor'), casos);
+    },
+  },
+  'visor-maniqui': {
+    uso: `pnpm taller visor-maniqui <unidad>
+    su maniquí animado de tres cuartos, de lado y de espaldas, con sus avisos`,
+    correr: async (resto) => {
+      // El visor del maniquí (paso 1 de la skill): sus clips animados de tres cuartos,
+      // de lado y de espaldas, con los avisos de `revisar-maniqui`.
+      const [id] = resto;
+      if (id === undefined) throw new Error('uso: pnpm taller visor-maniqui <unidad>');
+      const f = figura(id);
+      const fps = Object.fromEntries(Object.entries(RELOJ).map(([c, r]) => [c, r.fps]));
+      const casos = await casosDelManiqui(f, RAIZ, fps);
+      console.log(`${id}: ${casos.length} clips del maniquí`);
+      await visor(join(RAIZ, f.revision, 'visor-maniqui'), casos);
+    },
+  },
+  versiones: {
+    uso: `pnpm taller versiones <unidad> <dN> <h> [--rehacer]
+    encola otra tirada, «esqueleto» y «todo» de una hoja
+pnpm taller versiones <unidad> --rechazadas
+    otra vez las hojas rechazadas en el vistazo final`,
+    correr: async (resto) => {
+      // Con `--rechazadas`, las hojas que la persona rechazó en el vistazo final,
+      // otra vez y olvidando las de antes (decisión del usuario del 30-10-2026).
+      if (resto.includes('--rechazadas')) {
+        const [id] = resto.filter((r) => !r.startsWith('--'));
+        if (id === undefined) throw new Error('uso: pnpm taller versiones <unidad> --rechazadas');
+        const f = figura(id);
+        const hojas = await rechazadas(f);
+        if (hojas.length === 0) {
+          console.log(
+            `${id}: ninguna hoja rechazada en el vistazo final (o aún no se ha mirado: «pnpm taller visor ${id}»)`,
+          );
+          process.exitCode = 1;
+          return;
         }
-      break;
-    }
-    const { id, d, h } = hojaDeLosArgumentos(
-      resto,
-      'pnpm taller versiones <unidad> <dN> <h> | <unidad> --rechazadas',
-    );
-    for (const e of await prepararVersiones(figura(id), d, h)) {
-      if (resto.includes('--rehacer')) await COLA.olvidar(e.id);
-      console.log(`encolado ${(await COLA.encolar(e)).id}`);
-    }
-    break;
-  }
-  case 'elegir': {
-    const { id, d, h } = hojaDeLosArgumentos(resto, 'pnpm taller elegir <unidad> <dN> <h>');
-    const e = await elegir(figura(id), d, h);
-    console.log(`d${d}-${h}: ${e.motivo}`);
-    break;
-  }
-  case 'adoptar': {
-    // Con `--todas`, lo que se puede de la unidad: las ganadoras claras de un torneo
-    // solas, y lo que eligió la persona (decisión del usuario del 30-10-2026).
-    if (resto.includes('--todas')) {
-      const [id] = resto.filter((r) => !r.startsWith('--'));
-      if (id === undefined) throw new Error('uso: pnpm taller adoptar <unidad> --todas');
-      const { adoptadas, quedan } = await adoptarTodas(figura(id));
-      console.log(
-        `${id}: ${adoptadas.length} adoptadas${adoptadas.length > 0 ? ` (${adoptadas.join(', ')})` : ''}`,
-      );
-      for (const q of quedan) console.log(`  · queda ${q.hoja}: ${q.motivo}`);
-      if (adoptadas.length === 0 && quedan.length === 0) {
-        console.log('  nada que adoptar: ninguna elección pendiente («pnpm taller elegir»)');
-        process.exitCode = 1;
+        for (const { d, h } of hojas)
+          for (const e of await prepararVersiones(f, d, h)) {
+            await COLA.olvidar(e.id);
+            try {
+              console.log(`encolado ${(await COLA.encolar(e)).id}`);
+            } catch (err) {
+              // Ya pedida (a mano, o por otra pasada) y aún sin pintar: no se pide dos veces.
+              if (!(err instanceof YaEnLaCola)) throw err;
+              console.log(`  · ${e.id} ya estaba en la cola (${err.message})`);
+            }
+          }
+        return;
       }
-      break;
-    }
-    const { id, d, h } = hojaDeLosArgumentos(
-      resto,
-      'pnpm taller adoptar <unidad> <dN> <h> | <unidad> --todas',
-    );
-    console.log(`d${d}-${h}: ${await adoptar(figura(id), d, h)}`);
-    break;
-  }
-  case 'muestrario': {
-    // Los clips candidatos de una unidad, con su atrezo, para elegir sus acciones.
-    const [id, ...clips] = resto.filter((r) => !r.startsWith('--'));
-    if (id === undefined) throw new Error('pnpm taller muestrario <unidad> [clip…]');
-    const u = unidad(id);
-    const juego = juegoDelYBot(u);
-    if (!(juego in JUEGOS_DE_ARMAS)) throw new Error(`${id}: el muestrario es de juegos a pie`);
-    const destino = join(RAIZ, '.cache/taller/muestrario', `${id}.png`);
-    await mkdir(dirname(destino), { recursive: true });
-    await renderizarMuestrario(
-      clips.length > 0 ? clips : CANDIDATOS_DEL_MUESTRARIO,
-      u.maniqui ?? JUEGOS_DE_ARMAS[juego as JuegoDeArmas].atrezo,
-      destino,
-      160,
-      // Con `--fotogramas`, cada clip entero (el visor del maniquí los anima).
-      resto.includes('--fotogramas') ? join(RAIZ, '.cache/taller/muestrario', id) : undefined,
-    );
-    console.log(`→ ${relative(RAIZ, destino)}`);
-    break;
-  }
-  case 'derivar-poses': {
-    const { juegos } = await escribirAtlasDePoses();
-    console.log(`→ ${relative(RAIZ, RUTA_DEL_ATLAS_8D)}: ${Object.keys(juegos).join(', ')}`);
-    break;
-  }
-  case 'derivar':
-    for (const r of resto) {
-      // Con la derivación de su carpeta (`derivacionDeLaCarpeta`): la suelta y el
-      // ritmo de su unidad, o las hojas de las acciones de una figura del banco de
-      // NPC. `derivarAtlas` lanza si la hoja no tiene la fila del disparo que la
-      // unidad dispara, o al revés.
-      const d = await escribirDerivado(r, await derivacionDeLaCarpeta(dirname(r)).derivar());
-      console.log(
-        `${r}: altura ${d.altura}, fotogramas ${Object.values(d.clips)
-          .map((c) => c.frames)
-          .join('/')}`,
+      const { id, d, h } = hojaDeLosArgumentos(
+        resto,
+        'pnpm taller versiones <unidad> <dN> <h> | <unidad> --rechazadas',
       );
-    }
-    break;
-  default:
-    throw new Error(
-      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, derivar-relieve, derivar-muros, derivar-puestos, derivar-muralla-batalla, derivar-casas, maniqui, muestrario, vision-instalar, revisar-maniqui, revisar, jurado, visor, visor-maniqui, versiones, elegir, adoptar, vista-base, recortar-base, medir-base, vista-ejercitos, vista-8d, vista-mapa, escenario, catalogo-escena, piezas-de-tema`,
-    );
-}
+      for (const e of await prepararVersiones(figura(id), d, h)) {
+        if (resto.includes('--rehacer')) await COLA.olvidar(e.id);
+        console.log(`encolado ${(await COLA.encolar(e)).id}`);
+      }
+    },
+  },
+  elegir: {
+    uso: `pnpm taller elegir <unidad> <dN> <h>
+    las compara a ciegas con la de ahora, en los dos órdenes`,
+    correr: async (resto) => {
+      const { id, d, h } = hojaDeLosArgumentos(resto, 'pnpm taller elegir <unidad> <dN> <h>');
+      const e = await elegir(figura(id), d, h);
+      console.log(`d${d}-${h}: ${e.motivo}`);
+    },
+  },
+  adoptar: {
+    uso: `pnpm taller adoptar <unidad> <dN> <h>
+    la ganadora, si la persona la prefirió (o ganó claro su torneo), a \`assets/\`
+pnpm taller adoptar <unidad> --todas
+    todas las que se pueden; dice cuáles quedan para el visor`,
+    correr: async (resto) => {
+      // Con `--todas`, lo que se puede de la unidad: las ganadoras claras de un torneo
+      // solas, y lo que eligió la persona (decisión del usuario del 30-10-2026).
+      if (resto.includes('--todas')) {
+        const [id] = resto.filter((r) => !r.startsWith('--'));
+        if (id === undefined) throw new Error('uso: pnpm taller adoptar <unidad> --todas');
+        const { adoptadas, quedan } = await adoptarTodas(figura(id));
+        console.log(
+          `${id}: ${adoptadas.length} adoptadas${adoptadas.length > 0 ? ` (${adoptadas.join(', ')})` : ''}`,
+        );
+        for (const q of quedan) console.log(`  · queda ${q.hoja}: ${q.motivo}`);
+        if (adoptadas.length === 0 && quedan.length === 0) {
+          console.log('  nada que adoptar: ninguna elección pendiente («pnpm taller elegir»)');
+          process.exitCode = 1;
+        }
+        return;
+      }
+      const { id, d, h } = hojaDeLosArgumentos(
+        resto,
+        'pnpm taller adoptar <unidad> <dN> <h> | <unidad> --todas',
+      );
+      console.log(`d${d}-${h}: ${await adoptar(figura(id), d, h)}`);
+    },
+  },
+};
+
+/** La base caminable. */
+const ORDENES_DE_LA_BASE: Readonly<Record<string, Orden>> = {
+  'recortar-base': {
+    uso: `pnpm taller recortar-base templarios
+    deriva los tramos (lo de encima del pie), el suelo, cada recorte y cada versión abierta, y
+    rehace el índice (\`recorte-base.ts\`)`,
+    correr: async (resto) => {
+      const faccion = faccionDe(resto[0], 'pnpm taller recortar-base templarios');
+      const { indice, avisos } = await recortarLaBase(faccion);
+      for (const [id, e] of Object.entries(indice.edificios))
+        console.log(`${id}: tramo ${e.tramo}, en (${e.en.join(', ')}), ${e.ancho}×${e.alto}`);
+      console.log(
+        `placas: ${indice.tramos.map((t, i) => `T${i + 1} ${t === null ? 'falta' : 'sí'}`).join(' · ')}`,
+      );
+      for (const a of avisos) console.log(`aviso: ${a}`);
+    },
+  },
+  'encoger-base': {
+    uso: `pnpm taller encoger-base <facción> [tramo]
+    encoge sobre la placa lo que Codex pintó grande, con la puerta y el pie quietos
+    (\`encoger-base.ts\`, los factores en \`ARTE_DE_LA_BASE[f].encoger\`)`,
+    correr: async (resto) => {
+      const uso = 'pnpm taller encoger-base <facción> [tramo]';
+      const faccion = faccionDe(resto[0], uso);
+      const tramos =
+        resto[1] === undefined
+          ? Object.keys(ARTE_DE_LA_BASE[faccion].encoger).map(Number)
+          : [Number(resto[1])];
+      for (const n of tramos) console.log(`→ ${await encogerElTramo(faccion, n)}`);
+    },
+  },
+  'medir-base': {
+    uso: `pnpm taller medir-base templarios [tramo]
+    propone las regiones de un tramo, para \`data/bases/templarios.json\``,
+    correr: async (resto) => {
+      const faccion = faccionDe(resto[0], 'pnpm taller medir-base templarios [tramo]');
+      const tramos =
+        resto[1] === undefined
+          ? Array.from({ length: disposicionDe(faccion).tramos }, (_, i) => i + 1)
+          : [Number(resto[1])];
+      for (const n of tramos) {
+        try {
+          for (const l of await medirLaBase(faccion, n)) console.log(`T${n} ${l}`);
+        } catch (err) {
+          console.log(`T${n}: ${err instanceof Error ? err.message : err}`);
+        }
+      }
+    },
+  },
+  'vista-base': {
+    uso: `pnpm taller vista-base templarios [carpeta-de-salida [prefijo]]
+    la revisión: tramos, máscaras, compuesta, costuras y eslabones`,
+    correr: async (resto) => {
+      const uso = 'pnpm taller vista-base templarios [carpeta-de-salida [prefijo]]';
+      console.log(await vistaBase(faccionDe(resto[0], uso), resto[1], resto[2]));
+    },
+  },
+};
+
+/** El mapa: el escenógrafo y lo que pinta. */
+const ORDENES_DEL_MAPA: Readonly<Record<string, Orden>> = {
+  escenario: {
+    uso: `pnpm taller escenario [semilla…] [--px=N]
+    el escenógrafo: compone, pinta, captura y mide (a N px por casilla; 48 si no se da)`,
+    correr: async (resto) => {
+      // pnpm taller escenario [semilla…] [--px=N]: a N px por casilla (48 si no se da),
+      // para medir el pintor a la resolución del juego (120) como en #217.
+      const opcion = resto.find((r) => r.startsWith('--px='));
+      const px = opcion === undefined ? 48 : Number(opcion.slice('--px='.length));
+      if (!Number.isSafeInteger(px) || px <= 0)
+        throw new Error(`«${opcion}» no vale: los píxeles por casilla son un entero positivo`);
+      const sueltas = resto.filter((r) => r !== opcion);
+      const semillas = sueltas.length === 0 ? [1] : sueltas.map(Number);
+      if (semillas.some((n) => !Number.isSafeInteger(n)))
+        throw new Error('las semillas son enteros');
+      for (const r of await escenario(semillas, px)) {
+        // El de `componer`, más lo que mide la página del taller.
+        const i = r.informe as Escena['informe'] & {
+          desnudo: number;
+          errores: string[];
+          aguaEnLoAlto: number;
+          espaldasSinLabio: number;
+          espaldasSinCanto: number;
+          sendaSobreElAgua: number;
+          msPintar: number;
+        };
+        console.log(`→ ${r.png}`);
+        console.log(
+          `  suelo desnudo ${(i.desnudo * 100).toFixed(1)} % · pintar ${i.msPintar} ms · árboles sobre lo pisable ${i.arbolesSobreLoPisable} · masa sobre lo pisable ${i.masaSobreLoPisable} · pasillos tapados ${i.pasillosTapados} · cumbres sobre lo pisable ${i.cumbresSobreLoPisable} (medida) · bosque sin árbol ${i.bosqueSinArbol} · murallas partidas ${i.murallasPartidas} · muralla incoherente ${i.murallaIncoherente} · torres apiladas ${i.torresApiladas} · muralla sobre la senda ${i.murallaSobreSenda} · bases sobre reserva ${i.basesSobreReserva} · barrera sin formación ${i.casillasDeBarreraSinFormacion} · sprites sobre la senda ${i.spritesSobreSenda} · celdas mal cubiertas ${i.celdasMalCubiertas} · bajadas sin pieza ${i.bajadasSinPieza} · bajadas tapadas ${i.bajadasTapadas} · pasos tapados ${i.pasosTapados} · pasos atravesados ${i.pasosAtravesados} · pisables tapadas ${i.pisablesTapadas} · rampas desviadas ${i.rampasDesviadas} · rampas sin sus piezas ${i.rampasSinSusPiezas} · sendas por objeto ${i.sendasPorObjeto} · acantilados lisos ${i.acantiladosLisos} · espaldas sin reborde ${i.espaldasSinReborde} · cima de otro material ${i.cimaDeOtroMaterial} · cubierta de otro nivel ${i.cubiertaDeOtroNivel} · cara de otro material ${i.caraDeOtroMaterial} · paredes tapadas ${i.paredesTapadas} · caras cortadas ${i.carasCortadas} · mesas en la cordillera ${i.mesasEnLaCordillera} · senda bajo el relieve ${i.sendaBajoElRelieve} (techo de media 5) · agua en lo alto ${i.aguaEnLoAlto} · espaldas sin labio ${i.espaldasSinLabio} · espaldas sin canto ${i.espaldasSinCanto} · senda sobre el agua ${i.sendaSobreElAgua}` +
+            (i.modulosQueFaltan.length > 0 ? ` · faltan ${i.modulosQueFaltan.join(', ')}` : '') +
+            (i.errores.length > 0 ? ` · ERRORES: ${i.errores.join(' | ')}` : ''),
+        );
+      }
+    },
+  },
+  recorte: {
+    uso: `pnpm taller recorte <semilla> <x0> <y0> <x1> <y1> <salida.png> [px por casilla = 96]
+    un trozo de la escena de una semilla, de casilla a casilla`,
+    correr: async (resto) => {
+      // pnpm taller recorte <semilla> <x0> <y0> <x1> <y1> <salida.png> [px por casilla = 96]
+      const [semilla, x0, y0, x1, y1, salida, px] = resto;
+      const n = [semilla, x0, y0, x1, y1].map(Number);
+      if (salida === undefined || n.some((v) => !Number.isFinite(v)))
+        throw new Error('uso: pnpm taller recorte <semilla> <x0> <y0> <x1> <y1> <salida.png> [px]');
+      const [s, ...caja] = n as [number, number, number, number, number];
+      await recortesDeSemilla(s, px === undefined ? 96 : Number(px), [
+        { caja: caja as [number, number, number, number], salida: resolve(salida) },
+      ]);
+      console.log(`→ ${salida}`);
+    },
+  },
+  'vista-mapa': {
+    uso: `pnpm taller vista-mapa [semilla]
+    un mapa denso del generador pintado con ese arte (\`.cache/taller/vista/mapa-denso.html\`)`,
+    correr: async (resto) => {
+      const semilla = resto[0] === undefined ? 1 : Number(resto[0]);
+      if (!Number.isSafeInteger(semilla))
+        throw new Error(`«${resto[0]}» no es una semilla: un entero`);
+      console.log(`→ ${await vistaMapa(semilla)}`);
+    },
+  },
+};
+
+/** Las vistas de las unidades. */
+const ORDENES_DE_LAS_VISTAS: Readonly<Record<string, Orden>> = {
+  'vista-ejercitos': {
+    uso: `pnpm taller vista-ejercitos
+    una página con todos los ejércitos, para elegir o comparar`,
+    correr: async () => {
+      console.log(`→ ${await vistaEjercitos()}`);
+    },
+  },
+  'vista-8d': {
+    uso: `pnpm taller vista-8d [unidad|juego]
+    el visor de 8 direcciones de las unidades y las poses`,
+    correr: async (resto) => {
+      // Un solo visor con todas: el argumento solo elige con cuál se abre.
+      console.log(`→ ${await vista8d(resto[0])}`);
+    },
+  },
+};
+
+/**
+ * Todas las órdenes, en el orden de la ayuda. De aquí salen la ayuda y la lista del
+ * «orden desconocida»: hasta el 08-11-2026 eran un `switch` y una lista escrita
+ * aparte en el error, que olvidaba cinco (encoger-base, recorte, guias,
+ * derivar-puentes y derivar-recinto).
+ */
+const ORDENES: Readonly<Record<string, Orden>> = {
+  ...ORDENES_DE_LA_COLA,
+  ...ORDENES_DE_ENCOLAR,
+  ...ORDENES_DE_DERIVAR,
+  ...ORDENES_DE_LOS_TEMAS,
+  ...ORDENES_DEL_MANIQUI,
+  ...ORDENES_DE_LA_REVISION,
+  ...ORDENES_DE_LA_BASE,
+  ...ORDENES_DEL_MAPA,
+  ...ORDENES_DE_LAS_VISTAS,
+  ayuda: {
+    uso: `pnpm taller ayuda
+    esta lista`,
+    correr: () => {
+      console.log(
+        Object.values(ORDENES)
+          .map((o) => o.uso)
+          .join('\n'),
+      );
+    },
+  },
+};
+
+const [orden = 'trabajar', ...resto] = process.argv.slice(2);
+// `Object.hasOwn`: «constructor» o «toString» no son órdenes aunque el objeto los herede.
+const laOrden = Object.hasOwn(ORDENES, orden) ? ORDENES[orden] : undefined;
+if (laOrden === undefined)
+  throw new Error(
+    `orden desconocida «${orden}»: hay ${Object.keys(ORDENES).join(', ')} («pnpm taller ayuda» dice cómo se escribe cada una)`,
+  );
+await laOrden.correr(resto);
