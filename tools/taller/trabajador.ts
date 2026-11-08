@@ -117,7 +117,7 @@ import {
   renderizarMuestrario,
   renderizarOchoDirecciones,
 } from '../art/poses.js';
-import { bandera } from '../comun/argumentos.js';
+import { bandera, soloDe } from '../comun/argumentos.js';
 import { RAIZ } from '../comun/raiz.js';
 import { leerBancoDeDisco } from '../npcs/banco.js';
 import { esEncargoDeNpc, REINTENTOS_DE_NPC, reintentarSiQueda } from '../npcs/en-el-taller.js';
@@ -668,10 +668,7 @@ async function encolarConSolo(
   corto: (id: string) => string,
   tambien: (nombre: string) => boolean = () => false,
 ): Promise<void> {
-  const solo = args
-    .find((x) => x.startsWith('--solo='))
-    ?.slice('--solo='.length)
-    .split(',');
+  const solo = soloDe(args);
   const desconocidos = (solo ?? []).filter(
     (s) => !todos.some((e) => corto(e.id) === s) && !tambien(s),
   );
@@ -779,10 +776,7 @@ async function encolar(args: readonly string[]): Promise<void> {
   // Los puentes (§17, `paredes-puentes.ts`): primero las guías.
   if (args.includes('--paredes-puentes')) {
     await escribirGuias();
-    const solo = args
-      .find((x) => x.startsWith('--solo='))
-      ?.slice('--solo='.length)
-      .split(',');
+    const solo = soloDe(args);
     const sinPrefijo = (id: string) => id.replace(/^(mapa|modulos)-/, '');
     const todos = encargosDeParedesYPuentes();
     const lista = todos.filter((e) => solo === undefined || solo.includes(sinPrefijo(e.id)));
@@ -797,10 +791,7 @@ async function encolar(args: readonly string[]): Promise<void> {
   // Las laderas que encadenan (§20, `laderas.ts`): primero las guías.
   if (args.includes('--laderas')) {
     await escribirGuiasDeLaderas();
-    const solo = args
-      .find((x) => x.startsWith('--solo='))
-      ?.slice('--solo='.length)
-      .split(',');
+    const solo = soloDe(args);
     const sinPrefijo = (id: string) => id.replace(/^modulos-laderas-/, '');
     const todos = encargosDeLaderas();
     const lista = todos.filter((e) => solo === undefined || solo.includes(sinPrefijo(e.id)));
@@ -823,10 +814,7 @@ async function encolar(args: readonly string[]): Promise<void> {
   // Las rampas (§35): primero su guía.
   if (args.includes('--rampas')) {
     await escribirGuiasDeRampas();
-    const solo = args
-      .find((x) => x.startsWith('--solo='))
-      ?.slice('--solo='.length)
-      .split(',');
+    const solo = soloDe(args);
     const todos = encargosDeRampas();
     const lista = todos.filter((e) => solo === undefined || solo.includes(e.id));
     if (solo !== undefined && lista.length !== solo.length)
@@ -841,10 +829,7 @@ async function encolar(args: readonly string[]): Promise<void> {
   if (args.includes('--relieve')) {
     await escribirGuiasDeDiagonales();
     await escribirGuiasDeBajadas();
-    const solo = args
-      .find((x) => x.startsWith('--solo='))
-      ?.slice('--solo='.length)
-      .split(',');
+    const solo = soloDe(args);
     const sinPrefijo = (id: string) => id.replace(/^modulos-/, '');
     const todos = encargosDelRelieve();
     const lista = todos.filter((e) => solo === undefined || solo.includes(sinPrefijo(e.id)));
@@ -861,10 +846,7 @@ async function encolar(args: readonly string[]): Promise<void> {
     const todos = args.includes('--modulos')
       ? encargosDeModulos()
       : TEXTURAS_DE_RELIEVE.map(encargoDeTexturaDeRelieve);
-    const solo = args
-      .find((x) => x.startsWith('--solo='))
-      ?.slice('--solo='.length)
-      .split(',');
+    const solo = soloDe(args);
     const lista = todos.filter(
       (e) => solo === undefined || solo.includes(e.id.replace(/^(modulos|textura)-/, '')),
     );
@@ -884,10 +866,7 @@ async function encolar(args: readonly string[]): Promise<void> {
         ? encargosDePiezasDensas()
         : null;
   if (densas !== null) {
-    const solo = args
-      .find((x) => x.startsWith('--solo='))
-      ?.slice('--solo='.length)
-      .split(',');
+    const solo = soloDe(args);
     const sinPrefijo = (id: string) => id.replace(/^(suelo|mapa-denso-lamina|mapa)-/, '');
     const lista = densas.filter((e) => solo === undefined || solo.includes(sinPrefijo(e.id)));
     if (solo !== undefined && lista.length !== solo.length) {
@@ -914,10 +893,7 @@ async function encolar(args: readonly string[]): Promise<void> {
     for (const a of args.filter((x) => !x.startsWith('--'))) {
       const u = unidad(a);
       // `--solo d0-a,d3-a`: solo esas hojas, para rehacer las que fallan.
-      const solo = args
-        .find((x) => x.startsWith('--solo='))
-        ?.slice('--solo='.length)
-        .split(',');
+      const solo = soloDe(args);
       const lista = args.includes('--giro')
         ? [encargoDeGiro(u)]
         : encargosDeOchoDirecciones(u).filter(

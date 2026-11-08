@@ -65,9 +65,6 @@ export async function arrancarVite(): Promise<{ proceso: ChildProcess; url: stri
   return { proceso, url };
 }
 
-/** Matarlo, por su grupo: lo comparte con el motor de mundos (`grupo.ts`). */
-export { matarGrupo } from '../comun/procesos.js';
-
 /**
  * El Chromium que haya. Playwright pide una revisión concreta y la descarga si
  * falta; aquí no se descarga nada: si la suya no está, se usa la más reciente

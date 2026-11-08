@@ -26,9 +26,10 @@ import type { AddressInfo } from 'node:net';
 import { dirname, join, normalize } from 'node:path';
 import { chromium, type Page } from 'playwright';
 import { WebSocketServer } from 'ws';
+import { matarGrupo } from '../comun/procesos.js';
 import { RAIZ } from '../comun/raiz.js';
 import { urlDePartida } from './url-de-partida.js';
-import { arrancarVite, chromiumInstalado, esperarElSuelo, matarGrupo } from './vite-propio.js';
+import { arrancarVite, chromiumInstalado, esperarElSuelo } from './vite-propio.js';
 
 /** Lo que se compara de cada elemento: color, fondo, bordes, letra, sombras y medidas. */
 const PROPIEDADES = [

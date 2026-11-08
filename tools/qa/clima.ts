@@ -37,11 +37,12 @@ import type {
   ServerToAgentMsg,
 } from '../../src/server/protocol.js';
 import { mediana } from '../comun/estadistica.js';
+import { matarGrupo } from '../comun/procesos.js';
 import { RAIZ } from '../comun/raiz.js';
 import { entornoDelArnes } from './partida-del-arnes.js';
 import { decidir } from './politica.js';
 import { arrancarServidor, type ServidorDePartida } from './servidor.js';
-import { arrancarVite, chromiumInstalado, esperarElSuelo, matarGrupo } from './vite-propio.js';
+import { arrancarVite, chromiumInstalado, esperarElSuelo } from './vite-propio.js';
 
 const args = process.argv.slice(2);
 const CARPETA = resolve(args.find((a) => !a.startsWith('--')) ?? join(RAIZ, '.cache/clima'));

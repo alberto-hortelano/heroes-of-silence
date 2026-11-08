@@ -2353,3 +2353,5 @@ fichero	tools/qa/grupo.ts	tools/comun/procesos.ts
 fichero	tools/json.ts	tools/comun/json.ts	
 fichero	tools/argumentos.ts	tools/comun/argumentos.ts	
 fichero	tools/qa/estadistica.ts	tools/comun/estadistica.ts	
+simbolo	tools/taller/trabajador.ts (8 copias)	tools/comun/argumentos.ts	soloDe (nueva: los nombres de --solo=, que el taller leía a mano en ocho órdenes de encolar)
+simbolo	tools/qa/vite-propio.ts	tools/comun/procesos.ts	matarGrupo (se va su reexportación: capturas, clima, neutro y temas-con-piezas la piden al módulo real)
