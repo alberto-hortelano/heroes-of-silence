@@ -78,25 +78,16 @@ const RUTAS_DE_LA_ARENA = {
  */
 const PERMISOS_DE_LA_ARENA: Readonly<Record<string, readonly string[]>> = {
   [ruta('src/client/sesion/sesion-de-arena.ts')]: ['SesionDeArena'],
-  [ruta('tools/qa/capturas/main.ts')]: [
-    'espejoDeLaArena',
-    'todoIA',
-    'espejoDelBanco',
-    'jugarArena',
-    'espejoDeLosPoderes',
-    'poderesEnLaArena',
-    'ataqueEnLaPelea',
-    'espejoDeLaRueda',
-    'jugarLaRueda',
-    'todoEnIAConLaRueda',
-    'espejoDeLasArmas',
-    // Yo contra Yo con la rueda, de uno o de tres por bando (los contrincantes, #261).
-    'espejoYoContraYo',
-    'hastaLaRuedaYoContraYo',
-    // El enlace de la versión anterior se escribe con la de hoy menos uno
-    // (`VERSION_DEL_ENLACE`): no monta nada.
-    'enlaceDeLaPelea',
-  ],
+  // Las pasadas de la arena de `pnpm capturas` (H5 de la reorganización, 08-11-2026: era
+  // un solo `capturas.ts` con trece declaraciones de permiso, y se parte por fichero): lo
+  // que monta o lee el montador, en la declaración que lo usa. `capturas/arena.ts` solo
+  // trae un tipo (`FuenteDeArena`, la de `delBorrador`).
+  [ruta('tools/qa/capturas/arena.ts')]: ['delBorrador'],
+  // La pelea entera en IA, la de la página contra su espejo, y el enlace de la versión
+  // anterior, que se escribe con la de hoy menos uno (`VERSION_DEL_ENLACE`): no monta nada.
+  [ruta('tools/qa/capturas/pasadas/arena.ts')]: ['todoIA', 'jugarArena', 'enlaceDeLaPelea'],
+  // El monje del espejo de los poderes, con el héroe por defecto de la arena.
+  [ruta('tools/qa/capturas/pasadas/poderes.ts')]: ['espejoDeLosPoderes', 'poderesEnLaArena'],
   // La IA contra la IA en la arena (#259, #260, #262): sus tandas y la pelea, también
   // la de las murallas del mapa, con los bandos de la arena (fase 2 del puesto fronterizo).
   // Las montan `tandas-de-la-arena.ts`, que comparten `arena-ia.ts` y la huella.
@@ -301,7 +292,7 @@ describe('invariantes del proyecto', () => {
 
     // Y el montador de la arena (`core/arena/`: el montaje, la ficha, el retoque
     // y el enlace; un solo `core/arena.ts` hasta la fase N) es de la arena: solo la arena (página, disco y taller), la
-    // sesión y `pnpm capturas` lo importan; y en la sesión y en `capturas.ts`, lo
+    // sesión y `pnpm capturas` lo importan; y en la sesión y en las pasadas de capturas, lo
     // importado de allí solo se usa dentro de sus declaraciones con permiso
     // (`PERMISOS_DE_LA_ARENA`). Sin excepciones en el núcleo (simplify de F1,
     // 18-10-2026): el formato de la unidad y del catálogo vive en `core/unidad.ts`.
@@ -314,7 +305,7 @@ describe('invariantes del proyecto', () => {
     const porDeclaracion = PERMISOS_DE_LA_ARENA;
     // Si el especificador de `fichero` cae en `core/arena/`: resuelto (el alias
     // `@core/` o relativo a su carpeta), no con una expresión regular, que con la
-    // carpeta casaría también `../arena/borrador.js` de `tools/qa/capturas/main.ts`.
+    // carpeta casaría también el `../../arena/borrador.js` de `tools/qa/capturas/arena.ts`.
     const ARENA = `${ruta('src/core/arena')}/`;
     const deLaArena = (espec: string, fichero: string): boolean => {
       const destino = espec.startsWith('@core/')
