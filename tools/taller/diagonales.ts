@@ -31,6 +31,7 @@ import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { mascaraDeGuia, registrarPieza } from './derivar.js';
 import type { Encargo } from './encargo.js';
+import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './estilo-del-mapa.js';
 import { DIR_GUIAS, escribirGuia, FRENTE, Guia, NIVEL, type P2, type P3, SOMBRA } from './guias.js';
 import {
   azarDe,
@@ -45,7 +46,6 @@ import {
   onda,
   ROTURA,
 } from './laderas.js';
-import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
 import type { Material } from './paredes-puentes.js';
 
 const PI = Math.PI;

@@ -18,7 +18,7 @@ import type { Raster } from '../../comun/imagen.js';
 import { ALFA_FIGURA } from '../cuerpo.js';
 import { type Caja, componentes, enFilas } from '../empaquetar.js';
 import type { Encargo } from '../encargo.js';
-import { REFERENCIA_DE_MAPAS } from '../mapa-denso.js';
+import { REFERENCIA_DE_MAPAS } from '../estilo-del-mapa.js';
 
 /** El estilo, dicho con palabras: el de la referencia (ver `ESTILO_DEL_MAPA`). */
 const ESTILO =

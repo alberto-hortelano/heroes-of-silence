@@ -56,6 +56,7 @@ import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { registrarConEscala } from './derivar.js';
 import type { Encargo } from './encargo.js';
+import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './estilo-del-mapa.js';
 import {
   ARRIBA,
   DIR_GUIAS,
@@ -66,7 +67,6 @@ import {
   type P3,
   SOMBRA,
 } from './guias.js';
-import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
 
 /**
  * Las medidas del muro en la guía, en casillas, a la escala del recinto: el
