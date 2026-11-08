@@ -524,6 +524,45 @@ describe('invariantes del proyecto', () => {
     expect(importa(ruta('tools/taller/empaquetar.ts'))).toContain(ruta('tools/taller/encuadre.ts'));
   });
 
+  it('las tablas de las poses del Y Bot no cargan three, sharp ni playwright', () => {
+    // Casi todo el que lee las poses (el taller, quince tests) quiere los juegos de
+    // armas, los clips y las carpetas, y con `tools/art/poses.ts` entero arrastraba
+    // sharp y el render de sprite-forge. Se partió en `poses/` (H4 de la
+    // reorganización, 08-11-2026): las tablas en `juegos.ts` y `clips.ts`, y el
+    // JavaScript de la página, que es texto, en `three.ts`; el render, que lleva
+    // sharp, en `render.ts`. Se mira todo lo que cargan al evaluarse, no solo su
+    // primera línea de `import`: colgar de las tablas un módulo que lee una imagen
+    // (`comun/imagen.ts`) las devolvía a cargar sharp. Rotos a mano en `clips.ts`:
+    // `import sharp from 'sharp'` con un uso, y `import { aRaster } from
+    // '../../comun/imagen.js'` con otro (sharp por debajo), salen rojos con el camino.
+    const TABLAS = ['juegos', 'clips', 'three'].map((n) => ruta(`tools/art/poses/${n}.ts`));
+    // Sin comillas en el patrón: `sinComentarios` tomaría una por el principio de una
+    // cadena y dejaría a la vista los comentarios de los demás guardias.
+    const PESADO = importaDe(
+      /(?:three|sharp|playwright|playwright-core|@playwright\/test)(?![\w-])/,
+    );
+    const infractores: string[] = [];
+    for (const tabla of TABLAS) {
+      // A lo ancho, con el camino de la tabla a cada fichero que carga.
+      const camino = new Map<string, string[]>([[tabla, [tabla]]]);
+      const cola = [tabla];
+      for (let f = cola.shift(); f !== undefined; f = cola.shift()) {
+        const linea = codigoDe(f)
+          .split('\n')
+          .findIndex((l) => PESADO.test(l));
+        if (linea >= 0) infractores.push(`${(camino.get(f) ?? []).join(' → ')}:${linea + 1}`);
+        for (const g of importacionesDe(f).filter((x) => x.endsWith('.ts'))) {
+          if (camino.has(g)) continue;
+          camino.set(g, [...(camino.get(f) ?? []), g]);
+          cola.push(g);
+        }
+      }
+    }
+    expect(infractores).toEqual([]);
+    // Y que mire algo: el render sí lo carga, y las tablas son las que existen.
+    expect(codigoDe(ruta('tools/art/poses/render.ts'))).toMatch(PESADO);
+  });
+
   it('las capas de `core`: la IA y el contrato solo los importan ellos mismos, y el mapa no conoce la partida', () => {
     // La IA de reglas lee y propone: si una regla de la partida la importara, un
     // cambio de cómo decide la IA cambiaría el juego. Y el mapa (su forma, su red,
