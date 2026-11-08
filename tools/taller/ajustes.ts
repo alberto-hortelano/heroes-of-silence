@@ -10,9 +10,9 @@
  * juntar lanza diciéndolo, en vez de mover una hoja que nadie miró.
  */
 import { existsSync, readFileSync } from 'node:fs';
-import sharp from 'sharp';
 import { z } from 'zod';
 import { FIGURA, HOJAS_DE_FIGURA, type HojaDeFigura } from '../../src/shared/arte.js';
+import { aRaster, dePng } from '../comun/imagen.js';
 
 const Desplazamiento = z.tuple([z.number().int(), z.number().int()]);
 
@@ -57,8 +57,8 @@ export async function aplicarAjustes(
   hoja: HojaDeFigura,
   ajustes: Ajustes,
 ): Promise<Buffer> {
-  const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-  const celda = info.width / FIGURA.columnas;
+  const { data, width, height } = await aRaster(png);
+  const celda = width / FIGURA.columnas;
   const fuera = Buffer.from(data);
   const clips: readonly string[] = HOJAS_DE_FIGURA[hoja];
   for (const [clip, ds] of Object.entries(ajustes.fotogramas)) {
@@ -71,20 +71,16 @@ export async function aplicarAjustes(
         for (let x = 0; x < celda; x++) {
           const sx = x - dx;
           const sy = y - dy;
-          const o = ((y0 + y) * info.width + x0 + x) * 4;
+          const o = ((y0 + y) * width + x0 + x) * 4;
           if (sx < 0 || sy < 0 || sx >= celda || sy >= celda) {
             fuera.fill(0, o, o + 4);
             continue;
           }
-          const s = ((y0 + sy) * info.width + x0 + sx) * 4;
+          const s = ((y0 + sy) * width + x0 + sx) * 4;
           data.copy(fuera, o, s, s + 4);
         }
       }
     }
   }
-  return sharp(fuera, {
-    raw: { width: info.width, height: info.height, channels: 4 },
-  })
-    .png()
-    .toBuffer();
+  return dePng({ data: fuera, width, height });
 }

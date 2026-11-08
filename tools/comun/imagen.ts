@@ -11,7 +11,7 @@ export interface Raster {
   readonly height: number;
 }
 
-export async function aRaster(entrada: Buffer): Promise<Raster> {
+export async function aRaster(entrada: Buffer | string): Promise<Raster> {
   const { data, info } = await sharp(entrada)
     .ensureAlpha()
     .raw()

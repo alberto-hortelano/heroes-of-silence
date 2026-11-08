@@ -34,6 +34,7 @@ import {
   luzEnElMundo,
 } from '../../src/shared/arte.js';
 import { sha256 } from '../comun/hash.js';
+import { aRaster, dePng } from '../comun/imagen.js';
 import { RAIZ } from '../comun/raiz.js';
 import {
   type ClipDeDisparo,
@@ -2097,9 +2098,9 @@ export async function renderizarOchoDirecciones(
  * `escalaDePose`.
  */
 export async function hojaDeProfundidad(color: Buffer, profundidad: Buffer): Promise<Buffer> {
-  const c = await sharp(color).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-  const p = await sharp(profundidad).ensureAlpha().raw().toBuffer();
-  const { width, height } = c.info;
+  const c = await aRaster(color);
+  const p = (await aRaster(profundidad)).data;
+  const { width, height } = c;
   if (p.length !== c.data.length)
     throw new Error(`la hoja de profundidad no mide lo que la de color (${width}×${height})`);
   const { de, recorte } = PROFUNDIDAD_DEL_MANIQUI;
@@ -2132,9 +2133,7 @@ export async function hojaDeProfundidad(color: Buffer, profundidad: Buffer): Pro
       }
     }
   }
-  return sharp(gris, { raw: { width, height, channels: 4 } })
-    .png()
-    .toBuffer();
+  return dePng({ data: gris, width, height });
 }
 
 const esScript = process.argv[1] !== undefined && resolve(process.argv[1]) === import.meta.filename;

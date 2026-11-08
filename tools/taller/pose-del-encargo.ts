@@ -5,9 +5,9 @@
  * para que lo use quien empaqueta fuera de la cola (una medida, una prueba).
  */
 import { join } from 'node:path';
-import sharp from 'sharp';
 import { type ClipDeFigura, FIGURA, HOJAS_DE_FIGURA } from '../../src/shared/arte.js';
 import { OCHO_DIRECCIONES } from '../art/poses.js';
+import { aRaster } from '../comun/imagen.js';
 import { RAIZ } from '../comun/raiz.js';
 import { ELEVACION_DEL_CADAVER } from './derivar.js';
 import { apoyoEn, type EscalaDePose } from './empaquetar.js';
@@ -23,14 +23,11 @@ import { hojaDePose, huesosVigentes, poseDelEncargo, troncoDe } from './revision
 export async function escalaDePose(e: Encargo): Promise<EscalaDePose> {
   const celda: number = e.celda ?? FIGURA.celda;
   const medir = async (ruta: string) => {
-    const { data, info } = await sharp(join(RAIZ, ruta))
-      .ensureAlpha()
-      .raw()
-      .toBuffer({ resolveWithObject: true });
-    const filas = info.height / celda;
-    const columnas = info.width / celda;
+    const { data, width, height } = await aRaster(join(RAIZ, ruta));
+    const filas = height / celda;
+    const columnas = width / celda;
     const alfa = (f: number, c: number) => (x: number, y: number) =>
-      data[((f * celda + y) * info.width + c * celda + x) * 4 + 3] as number;
+      data[((f * celda + y) * width + c * celda + x) * 4 + 3] as number;
     const celdas = Array.from({ length: filas }, (_, f) =>
       Array.from({ length: columnas }, (_, c) => {
         let x0 = celda;

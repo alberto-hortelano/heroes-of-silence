@@ -37,6 +37,7 @@ import type {
   ServerToAgentMsg,
 } from '../../src/server/protocol.js';
 import { mediana } from '../comun/estadistica.js';
+import { aRaster } from '../comun/imagen.js';
 import { matarGrupo } from '../comun/procesos.js';
 import { RAIZ } from '../comun/raiz.js';
 import { entornoDelArnes } from './partida-del-arnes.js';
@@ -147,8 +148,8 @@ async function abrirLaBatalla(page: Page, url: string, clima: string): Promise<v
 
 /** Los píxeles RGBA de una captura PNG. */
 async function pixeles(png: Buffer): Promise<{ data: Buffer; w: number; h: number }> {
-  const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-  return { data, w: info.width, h: info.height };
+  const { data, width, height } = await aRaster(png);
+  return { data, w: width, h: height };
 }
 
 const [NEGRO_R, NEGRO_G, NEGRO_B] = FONDO_INEXPLORADO;

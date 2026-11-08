@@ -19,7 +19,7 @@
  */
 import sharp, { type OverlayOptions } from 'sharp';
 import { FIGURA } from '../../src/shared/arte.js';
-import { aRaster, type Raster } from '../comun/imagen.js';
+import { aRaster, dePng, type Raster } from '../comun/imagen.js';
 import {
   absolutosDe,
   type EstimarTroncos,
@@ -969,11 +969,7 @@ export async function empaquetar(
   }
   const escala = Math.min(pedida, cabe);
 
-  const fuente = await sharp(deDonde.data, {
-    raw: { width: deDonde.width, height: deDonde.height, channels: 4 },
-  })
-    .png()
-    .toBuffer();
+  const fuente = await dePng(deDonde);
   const capas: OverlayOptions[] = [];
   const apoyoPorFila: [number, number][] = [];
   const encuadre: ((readonly [number, number])[] | null)[] = [];
@@ -1135,11 +1131,7 @@ export async function empaquetar(
     .toBuffer();
   // El remuestreo vuelve a dejar cantos tenues sueltos: otra pasada del recorte.
   const limpio = quitarHalo({ data: crudo, width: columnas * celda, height: filas * celda });
-  const png = await sharp(limpio.data, {
-    raw: { width: limpio.width, height: limpio.height, channels: 4 },
-  })
-    .png()
-    .toBuffer();
+  const png = await dePng(limpio);
   return {
     png,
     escala,

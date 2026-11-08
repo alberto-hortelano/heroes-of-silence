@@ -2375,3 +2375,5 @@ simbolo	tools/qa/temas-con-piezas.ts y tools/comun/color.ts (contraste)	tools/co
 simbolo	tools/taller/recorte.ts	tools/comun/imagen.ts	Raster
 simbolo	tools/taller/recorte.ts	tools/comun/imagen.ts	aRaster
 simbolo	tools/taller/recorte.ts	tools/comun/imagen.ts	dePng
+simbolo	tools/taller/{muralla-de-batalla,mapa,pose-del-encargo,ajustes,rampas,temas/piezas,paredes-puentes,validar,derivar}.ts, art/poses.ts, qa/clima.ts, test/{marcha,aro-de-figura}	tools/comun/imagen.ts	aRaster (18 lecturas a mano sharp(x).ensureAlpha().raw(); aRaster acepta también una ruta)
+simbolo	tools/taller/{ajustes,empaquetar,vista-base}.ts, art/poses.ts, test/{taller,taller-ajustes,taller-validar}	tools/comun/imagen.ts	dePng (8 escrituras a mano de un raster RGBA a PNG)

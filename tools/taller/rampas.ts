@@ -31,6 +31,7 @@ import {
 } from '../../src/client/render/escenario/catalogo.js';
 import { TRAMO_DE_PIEZA_DE_RAMPA } from '../../src/client/render/escenario/celdas.js';
 import { sha256 } from '../comun/hash.js';
+import { aRaster } from '../comun/imagen.js';
 import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { registrarConEscala } from './derivar.js';
@@ -544,10 +545,7 @@ export async function escribirRampasDerivadas(hoja: string): Promise<string> {
   const entera = join(dir, `${hoja}.webp`);
   const { llevar } = await registrarConEscala(entera, `${guia}.png`, g.caja, hoja);
   const cortes = g.cortes.map(llevar);
-  const { data, info } = await sharp(await readFile(entera))
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
+  const { data, width, height } = await aRaster(await readFile(entera));
   const salida = join(dir, hoja);
   await rm(salida, { recursive: true, force: true });
   await mkdir(salida, { recursive: true });
@@ -563,13 +561,13 @@ export async function escribirRampasDerivadas(hoja: string): Promise<string> {
     // franja queda debajo de la pieza vecina, que se pinta después, y la arista
     // del corte no se ve.
     const x0 = Math.max(0, Math.round(a[0] - (k === 0 ? SOLAPE * porCasilla : 0)));
-    const x1 = Math.min(info.width, Math.round(b[0] + (k === ultima ? SOLAPE * porCasilla : 0)));
+    const x1 = Math.min(width, Math.round(b[0] + (k === ultima ? SOLAPE * porCasilla : 0)));
     // En alto, lo opaco de su franja.
-    let y0 = info.height;
+    let y0 = height;
     let y1 = -1;
-    for (let y = 0; y < info.height; y++)
+    for (let y = 0; y < height; y++)
       for (let x = x0; x < x1; x++)
-        if ((data[(y * info.width + x) * 4 + 3] as number) >= ALFA_FIGURA) {
+        if ((data[(y * width + x) * 4 + 3] as number) >= ALFA_FIGURA) {
           y0 = Math.min(y0, y);
           y1 = Math.max(y1, y);
         }
@@ -585,11 +583,11 @@ export async function escribirRampasDerivadas(hoja: string): Promise<string> {
       for (let y = y0; y <= y1; y++)
         for (let d = 0; d < funde; d++) {
           const x = lado === 'oeste' ? x0 + d : x1 - 1 - d;
-          const i = (y * info.width + x) * 4 + 3;
+          const i = (y * width + x) * 4 + 3;
           data[i] = Math.round((data[i] as number) * (d / funde));
         }
     const bytes = await sharp(data, {
-      raw: { width: info.width, height: info.height, channels: 4 },
+      raw: { width, height, channels: 4 },
     })
       .extract({ left: x0, top: y0, width: ancho, height: alto })
       .webp({ quality: 90, alphaQuality: 100, effort: 6 })

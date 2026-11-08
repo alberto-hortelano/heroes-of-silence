@@ -36,6 +36,7 @@ import {
   RODAJAS_DE_LA_CARA,
   TODAS_LAS_PIEZAS_DE_LA_MURALLA,
 } from '../../src/shared/muralla-de-batalla.js';
+import { aRaster } from '../comun/imagen.js';
 import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import type { Encargo } from './encargo.js';
@@ -424,11 +425,7 @@ export function encargosDeLaMurallaDeBatalla(): { encargos: Encargo[]; esperan: 
 
 /** Lo opaco de una imagen (alfa ≥ 128) y, por fila, cuánto de su ancho. */
 async function medir(ruta: string, esCara: boolean): Promise<MedidaDePieza> {
-  const { data, info } = await sharp(ruta)
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  const { width: w, height: h } = info;
+  const { data, width: w, height: h } = await aRaster(ruta);
   let [x0, y0, x1, y1] = [w, h, -1, -1];
   for (let y = 0; y < h; y++)
     for (let x = 0; x < w; x++)

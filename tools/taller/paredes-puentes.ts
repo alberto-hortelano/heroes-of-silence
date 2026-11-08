@@ -17,6 +17,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import sharp from 'sharp';
+import { aRaster } from '../comun/imagen.js';
 import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { derivarPieza } from './derivar.js';
@@ -741,17 +742,14 @@ export async function cajaDeGuia(png: Buffer): Promise<[number, number, number, 
  */
 export async function derivarPuente(rutaImagen: string, rutaGeometria: string, eje: Eje) {
   const geo = JSON.parse(await readFile(rutaGeometria, 'utf8')) as GeometriaDeGuia;
-  const { data, info } = await sharp(rutaImagen)
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  let x0 = info.width;
-  let y0 = info.height;
+  const { data, width, height } = await aRaster(rutaImagen);
+  let x0 = width;
+  let y0 = height;
   let x1 = -1;
   let y1 = -1;
-  for (let y = 0; y < info.height; y++)
-    for (let x = 0; x < info.width; x++)
-      if ((data[(y * info.width + x) * 4 + 3] as number) >= 128) {
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++)
+      if ((data[(y * width + x) * 4 + 3] as number) >= 128) {
         if (x < x0) x0 = x;
         if (x > x1) x1 = x;
         if (y < y0) y0 = y;
@@ -765,8 +763,8 @@ export async function derivarPuente(rutaImagen: string, rutaGeometria: string, e
     Math.round(y0 + (geo.centro[1] - gy0) * sy),
   ];
   return {
-    ancho: info.width,
-    alto: info.height,
+    ancho: width,
+    alto: height,
     ancla,
     anclaEs: 'el centro del tablero (§17), llevado desde la guía de geometría por las cajas',
     // La casilla se mide A LO LARGO del puente, donde la luz es una casilla: a lo

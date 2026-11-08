@@ -30,6 +30,7 @@ import {
   type HojaDeFigura,
 } from '../../src/shared/arte.js';
 import { sha256 } from '../comun/hash.js';
+import { aRaster } from '../comun/imagen.js';
 import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { ALFA_FIGURA, apoyoEn } from './empaquetar.js';
@@ -255,14 +256,11 @@ export async function derivarAtlas(
       throw new Error(`${rutaImagen}: el ritmo de «${clip}» es ${fps} fps; va de más de 0 a 30`);
   }
   const bytes = await readFile(rutaImagen);
-  const { data, info } = await sharp(bytes)
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
+  const { data, width, height } = await aRaster(bytes);
   // La celda sale de la imagen: 256 a pie, 384 las monturas; las columnas son siempre las de FIGURA.
   const { columnas } = FIGURA;
-  const lado = info.width / columnas;
-  const filas = info.height / lado;
+  const lado = width / columnas;
+  const filas = height / lado;
   const pedidas =
     hojas === undefined
       ? null
@@ -273,7 +271,7 @@ export async function derivarAtlas(
   if (pedidas !== null) {
     if (!Number.isInteger(lado) || filas !== pedidas.clips.length) {
       throw new Error(
-        `${rutaImagen} mide ${info.width}×${info.height}: con las hojas ${pedidas.hojas} son ${columnas} columnas por ${pedidas.clips.length} filas (${pedidas.clips.join(', ')}), de celdas cuadradas`,
+        `${rutaImagen} mide ${width}×${height}: con las hojas ${pedidas.hojas} son ${columnas} columnas por ${pedidas.clips.length} filas (${pedidas.clips.join(', ')}), de celdas cuadradas`,
       );
     }
   } else if (
@@ -281,7 +279,7 @@ export async function derivarAtlas(
     (filas !== FILAS_SIN_DISPARO && filas !== FILAS_CON_DISPARO)
   ) {
     throw new Error(
-      `${rutaImagen} mide ${info.width}×${info.height}: una hoja del taller son ${columnas} columnas ` +
+      `${rutaImagen} mide ${width}×${height}: una hoja del taller son ${columnas} columnas ` +
         `por ${FILAS_SIN_DISPARO} filas, o ${FILAS_CON_DISPARO} con el disparo (una dirección de 8), de celdas cuadradas`,
     );
   }
@@ -304,7 +302,7 @@ export async function derivarAtlas(
   let altura = 0;
   for (const [fila, def] of relojes.entries()) {
     const celdas = Array.from({ length: columnas }, (_, col) =>
-      celda(data, info.width, col, fila, lado),
+      celda(data, width, col, fila, lado),
     );
     const esDisparo = def.clip === 'shoot';
     let frames: number = columnas;
@@ -409,15 +407,12 @@ export interface PiezaDerivada {
 
 export async function derivarPieza(rutaImagen: string): Promise<PiezaDerivada> {
   const bytes = await readFile(rutaImagen);
-  const { data, info } = await sharp(bytes)
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  const alfa = (x: number, y: number): number => data[(y * info.width + x) * 4 + 3] as number;
+  const { data, width, height } = await aRaster(bytes);
+  const alfa = (x: number, y: number): number => data[(y * width + x) * 4 + 3] as number;
   let y1 = -1;
-  let y0 = info.height;
-  for (let y = 0; y < info.height; y++) {
-    for (let x = 0; x < info.width; x++) {
+  let y0 = height;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
       if (alfa(x, y) >= ALFA_FIGURA) {
         if (y < y0) y0 = y;
         y1 = y;
@@ -429,14 +424,14 @@ export async function derivarPieza(rutaImagen: string): Promise<PiezaDerivada> {
   const franja = Math.max(2, Math.round((y1 - y0 + 1) * 0.15));
   const xs: number[] = [];
   for (let y = y1 - franja + 1; y <= y1; y++) {
-    for (let x = 0; x < info.width; x++) if (alfa(x, y) >= ALFA_FIGURA) xs.push(x);
+    for (let x = 0; x < width; x++) if (alfa(x, y) >= ALFA_FIGURA) xs.push(x);
   }
   xs.sort((a, b) => a - b);
   return {
     imagen: basename(rutaImagen),
     sha256: sha256(bytes),
-    ancho: info.width,
-    alto: info.height,
+    ancho: width,
+    alto: height,
     ancla: [xs[Math.floor(xs.length / 2)] as number, y1],
     derivadoPor: 'tools/taller/derivar.ts',
   };
@@ -458,11 +453,7 @@ export const FRANJAS_DEL_PERFIL = 32;
  * la caja, la cara lisa asomaba ahí con su borde recto (#159).
  */
 export async function perfilDeModulo(rutaImagen: string): Promise<number[]> {
-  const { data, info } = await sharp(await readFile(rutaImagen))
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  const { width: w, height: h } = info;
+  const { data, width: w, height: h } = await aRaster(await readFile(rutaImagen));
   const primera = new Array<number>(w).fill(h);
   for (let x = 0; x < w; x++)
     for (let y = 0; y < h; y++)
@@ -492,11 +483,7 @@ export async function perfilDeModulo(rutaImagen: string): Promise<number[]> {
  * empieza, lo que nunca asoma, y el tejado de una casa sube en punta.
  */
 export async function siluetaDeModulo(rutaImagen: string): Promise<[number, number][]> {
-  const { data, info } = await sharp(await readFile(rutaImagen))
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  const { width: w, height: h } = info;
+  const { data, width: w, height: h } = await aRaster(await readFile(rutaImagen));
   const arriba = new Array<number>(w).fill(h);
   const abajo = new Array<number>(w).fill(0);
   for (let x = 0; x < w; x++)
@@ -633,15 +620,12 @@ export async function registrarPieza(
   guia: MascaraDeGuia,
   pieza: Pick<PiezaDeGuia, 'nombre' | 'caja'>,
 ): Promise<(p: readonly [number, number]) => [number, number]> {
-  const { data, info } = await sharp(await readFile(rutaModulo))
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
+  const { data, width, height } = await aRaster(await readFile(rutaModulo));
   const [cx0, cy0, cx1, cy1] = pieza.caja;
   const cw = cx1 - cx0 + 1;
   const ch = cy1 - cy0 + 1;
-  const W = potencia(cw + info.width - 1);
-  const H = potencia(ch + info.height - 1);
+  const W = potencia(cw + width - 1);
+  const H = potencia(ch + height - 1);
   const gr = new Float64Array(W * H);
   const gi = new Float64Array(W * H);
   const mr = new Float64Array(W * H);
@@ -657,9 +641,9 @@ export async function registrarPieza(
       }
     }
   if (!algo) throw new Error(`la pieza «${pieza.nombre}» no tiene silueta en su caja de la guía`);
-  for (let y = 0; y < info.height; y++)
-    for (let x = 0; x < info.width; x++)
-      if ((data[(y * info.width + x) * 4 + 3] as number) >= ALFA_FIGURA) mr[y * W + x] = 1;
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++)
+      if ((data[(y * width + x) * 4 + 3] as number) >= ALFA_FIGURA) mr[y * W + x] = 1;
   fft2(gr, gi, W, H, false);
   fft2(mr, mi, W, H, false);
   // G · conj(M): la correlación c[o] = Σ G[p + o] · M[p].
@@ -681,9 +665,9 @@ export async function registrarPieza(
   let n = 0;
   let sx = 0;
   let sy = 0;
-  for (let oy = -info.height + 1; oy < ch; oy++) {
+  for (let oy = -height + 1; oy < ch; oy++) {
     const iy = oy < 0 ? oy + H : oy;
-    for (let ox = -info.width + 1; ox < cw; ox++) {
+    for (let ox = -width + 1; ox < cw; ox++) {
       const ix = ox < 0 ? ox + W : ox;
       const v = Math.round((gr[iy * W + ix] as number) / (W * H));
       if (v > max) {

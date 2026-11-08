@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import sharp from 'sharp';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { FIGURA } from '../src/shared/arte.js';
-import type { Raster } from '../tools/comun/imagen.js';
+import { dePng, type Raster } from '../tools/comun/imagen.js';
 import { leerEventos } from '../tools/taller/codex.js';
 import { Cola, NoEstaEn, trabajadorDe, YaEnLaCola } from '../tools/taller/cola.js';
 import { derivarAtlas } from '../tools/taller/derivar.js';
@@ -516,9 +516,7 @@ describe('el empaquetado y la derivación', () => {
       const fila = y * info.width * 4;
       data.copy(data, fila + 6 * celda * 4, fila + 5 * celda * 4, fila + 6 * celda * 4);
     }
-    const hoja = await sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
-      .png()
-      .toBuffer();
+    const hoja = await dePng({ data, width: info.width, height: info.height });
     const ruta = join(dir, 'repetida.png');
     await writeFile(ruta, hoja);
     const d = await derivarAtlas(ruta);

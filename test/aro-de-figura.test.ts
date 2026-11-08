@@ -16,7 +16,6 @@
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import {
   ARO_DE_FIGURA,
@@ -26,6 +25,7 @@ import {
   piesEn,
 } from '../src/client/render/figuras/aro.js';
 import { FIGURA } from '../src/shared/arte.js';
+import { aRaster } from '../tools/comun/imagen.js';
 import { RAIZ } from './comun.js';
 import { segunPrisa } from './lento.js';
 
@@ -50,14 +50,11 @@ async function piesDe(hoja: string): Promise<PiesDeLaFigura> {
     cell: number;
     clips: { idle: { row: number; anchor: [number, number] } };
   };
-  const { data, info } = await sharp(`${UNIDADES}${hoja}/d0/atlas.webp`)
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
+  const { data, width } = await aRaster(`${UNIDADES}${hoja}/d0/atlas.webp`);
   const { cell } = atlas;
   const { row, anchor } = atlas.clips.idle;
   const pies = piesEn(
-    (x, y) => data[((row * cell + y) * info.width + x) * 4 + 3] as number,
+    (x, y) => data[((row * cell + y) * width + x) * 4 + 3] as number,
     cell,
     anchor,
     FIGURA.alturaAdulto,

@@ -8,9 +8,9 @@
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
-import sharp from 'sharp';
 import { MEDIDAS_DEL_PUESTO, PIEZA_DEL_PUESTO } from '../../src/client/render/escenario/puestos.js';
 import { MEJORAS_DEL_PUESTO, type MejoraDelPuesto } from '../../src/core/map/tipos.js';
+import { aRaster } from '../comun/imagen.js';
 import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { derivarPieza } from './derivar.js';
@@ -615,14 +615,11 @@ export async function puestoDerivado(rutaImagen: string): Promise<Record<string,
     );
   const rutaGuia = join(DIR_GUIAS, `${nombreDeLaGuia(mejora)}.json`);
   const geo = JSON.parse(await readFile(join(RAIZ, rutaGuia), 'utf8')) as GeometriaDelPuesto;
-  const { data, info } = await sharp(rutaImagen)
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  let [x0, y0, x1, y1] = [info.width, info.height, -1, -1];
-  for (let y = 0; y < info.height; y++)
-    for (let x = 0; x < info.width; x++)
-      if ((data[(y * info.width + x) * 4 + 3] as number) >= 128) {
+  const { data, width, height } = await aRaster(rutaImagen);
+  let [x0, y0, x1, y1] = [width, height, -1, -1];
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++)
+      if ((data[(y * width + x) * 4 + 3] as number) >= 128) {
         x0 = Math.min(x0, x);
         x1 = Math.max(x1, x);
         y0 = Math.min(y0, y);

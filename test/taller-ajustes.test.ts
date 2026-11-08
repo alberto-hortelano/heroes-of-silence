@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import { sha256 } from '../tools/comun/hash.js';
+import { dePng } from '../tools/comun/imagen.js';
 import { ajustesDe, aplicarAjustes } from '../tools/taller/ajustes.js';
 import { carpetaTemporal } from './comun.js';
 
@@ -20,11 +21,7 @@ async function hojaB(): Promise<Buffer> {
         ((f * CELDA + 2) * 7 * CELDA + c * CELDA + 2) * 4,
         ((f * CELDA + 2) * 7 * CELDA + c * CELDA + 3) * 4,
       );
-  return sharp(data, {
-    raw: { width: 7 * CELDA, height: 3 * CELDA, channels: 4 },
-  })
-    .png()
-    .toBuffer();
+  return dePng({ data, width: 7 * CELDA, height: 3 * CELDA });
 }
 const alfa = async (png: Buffer, x: number, y: number) => {
   const { data, info } = await sharp(png).raw().toBuffer({ resolveWithObject: true });

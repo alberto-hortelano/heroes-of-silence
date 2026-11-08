@@ -33,6 +33,7 @@ import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { FACTION_IDS, type FactionId } from '../../../src/core/types.js';
+import { aRaster } from '../../comun/imagen.js';
 import { RAIZ } from '../../comun/raiz.js';
 import type { Rect } from './paleta.js';
 
@@ -435,12 +436,7 @@ const APARTE_DEL_HUECO = 30;
  * imperio) cuenta como banda. Lanza si la banda no parece una banda.
  */
 export async function corteDeMarco(ruta: string): Promise<CorteMedido> {
-  const { data, info } = await sharp(ruta)
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  const W = info.width;
-  const H = info.height;
+  const { data, width: W, height: H } = await aRaster(ruta);
   if (W !== H) throw new Error(`${ruta}: un marco es cuadrado, y este mide ${W}×${H}`);
   const px = (x: number, y: number): readonly number[] => {
     const i = (y * W + x) * 4;
