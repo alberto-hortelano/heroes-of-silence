@@ -18,7 +18,6 @@
  * El caballo: `tools/art/modelos/caballo-quaternius.glb` (CC0, ver `LICENCIA.md`).
  * El jinete: el `y_bot` y `sitting_idle` de ne-fan, como en `poses.ts`.
  */
-import { createHash } from 'node:crypto';
 import { existsSync, readdirSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
@@ -34,6 +33,7 @@ import {
   hojasDeFigura,
   luzEnElMundo,
 } from '../../src/shared/arte.js';
+import { sha256 } from '../comun/hash.js';
 import { RAIZ } from '../comun/raiz.js';
 import {
   clipDeDisparoDe,
@@ -147,8 +147,6 @@ function ejecutable(): string | undefined {
     throw new Error('no hay Chromium de Playwright: `npx playwright install chromium`');
   return hay[0];
 }
-
-const sha256 = (b: Buffer): string => createHash('sha256').update(b).digest('hex');
 
 export async function renderizarMontura(prueba: boolean): Promise<string> {
   for (const [que, ruta] of [

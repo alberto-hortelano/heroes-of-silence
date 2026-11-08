@@ -2356,3 +2356,5 @@ fichero	tools/qa/estadistica.ts	tools/comun/estadistica.ts
 simbolo	tools/taller/trabajador.ts (8 copias)	tools/comun/argumentos.ts	soloDe (nueva: los nombres de --solo=, que el taller leía a mano en ocho órdenes de encolar)
 simbolo	tools/qa/vite-propio.ts	tools/comun/procesos.ts	matarGrupo (se va su reexportación: capturas, clima, neutro y temas-con-piezas la piden al módulo real)
 simbolo	tools/**/*.ts (40 escrituras)	tools/comun/json.ts	textoJson (nueva: `${JSON.stringify(v, null, n)}\n` con la sangría de cada fichero, 12 a 1 y 28 a 2; marcas/cli y escenario/catalogo-disco se quedan, no son esa forma)
+simbolo	tools/{art/montura,art/poses,fuentes/bajar,qa/huella,taller/trabajador,taller/poses-8d}.ts y las sumas en línea de tools/ y test/	tools/comun/hash.ts	sha256 (las seis copias; la exportada de poses-8d la leían ocho)
+simbolo	test/comun.ts	tools/comun/hash.ts	sha256 (de un fichero) → sha256DeFichero

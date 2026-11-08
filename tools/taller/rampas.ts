@@ -21,7 +21,6 @@
  *   pnpm taller derivar-relieve rampa-roca-1
  */
 
-import { createHash } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import sharp from 'sharp';
@@ -31,6 +30,7 @@ import {
   type PiezaDeRampa,
 } from '../../src/client/render/escenario/catalogo.js';
 import { TRAMO_DE_PIEZA_DE_RAMPA } from '../../src/client/render/escenario/celdas.js';
+import { sha256 } from '../comun/hash.js';
 import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { registrarConEscala } from './derivar.js';
@@ -599,7 +599,7 @@ export async function escribirRampasDerivadas(hoja: string): Promise<string> {
     const enLaPieza = (p: P2): P2 => [Math.round(p[0] - x0), Math.round(p[1] - y0)];
     modulos.push({
       imagen,
-      sha256: createHash('sha256').update(bytes).digest('hex'),
+      sha256: sha256(bytes),
       ancho,
       alto,
       ancla: [Math.round(ancho / 2), alto - 1],

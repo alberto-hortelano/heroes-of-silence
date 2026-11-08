@@ -17,7 +17,6 @@
  * mismo JSON, así que un número tocado a mano —o una imagen cambiada sin volver a
  * derivar— se pone rojo.
  */
-import { createHash } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import sharp from 'sharp';
@@ -30,6 +29,7 @@ import {
   FILAS_DEL_ATLAS,
   type HojaDeFigura,
 } from '../../src/shared/arte.js';
+import { sha256 } from '../comun/hash.js';
 import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { ALFA_FIGURA, apoyoEn } from './empaquetar.js';
@@ -369,7 +369,7 @@ export async function derivarAtlas(
 
   return {
     imagen: basename(rutaImagen),
-    sha256: createHash('sha256').update(bytes).digest('hex'),
+    sha256: sha256(bytes),
     cell: lado,
     columns: columnas,
     altura,
@@ -434,7 +434,7 @@ export async function derivarPieza(rutaImagen: string): Promise<PiezaDerivada> {
   xs.sort((a, b) => a - b);
   return {
     imagen: basename(rutaImagen),
-    sha256: createHash('sha256').update(bytes).digest('hex'),
+    sha256: sha256(bytes),
     ancho: info.width,
     alto: info.height,
     ancla: [xs[Math.floor(xs.length / 2)] as number, y1],

@@ -34,9 +34,9 @@
  *
  * Uso: pnpm banco [semillas=20] [dias=300] [--dump <fichero>]
  */
-import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { duracion, mediana } from '../comun/estadistica.js';
+import { sha256 } from '../comun/hash.js';
 import {
   batallaDeSemilla,
   DIAS_POR_DEFECTO,
@@ -1505,7 +1505,7 @@ for (let semilla = 1; semilla <= SEMILLAS; semilla++) {
 const msPartidas = performance.now() - t0;
 
 const volcado = `${lineas.join('\n')}\n`;
-const sha = createHash('sha256').update(volcado).digest('hex');
+const sha = sha256(volcado);
 if (fichero !== null) writeFileSync(fichero, volcado);
 
 console.log(`partidas:      ${SEMILLAS} semillas × ${DIAS} días → ${msPartidas.toFixed(0)} ms`);

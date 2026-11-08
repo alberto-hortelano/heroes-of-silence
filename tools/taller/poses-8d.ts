@@ -18,7 +18,6 @@
  * render crudo la tiene donde la pone el maniquí, y con la elevación el cadáver
  * del Y Bot se hundiría 64 px en el suelo.
  */
-import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -45,6 +44,7 @@ import {
   type JuegoEn8d,
   OCHO_DIRECCIONES,
 } from '../art/poses.js';
+import { sha256 } from '../comun/hash.js';
 import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { ajustesDe, aplicarAjustes } from './ajustes.js';
@@ -86,8 +86,6 @@ export interface DireccionDePoses extends Omit<AtlasDerivado, 'imagen' | 'sha256
  */
 export const rutaJunta = (juegoOUnidad: string, d: number): string =>
   join(DIR_JUNTAS, `${juegoOUnidad}-d${d}.png`);
-
-export const sha256 = (b: Buffer): string => createHash('sha256').update(b).digest('hex');
 
 /** Una hoja de una dirección, leída: cuál es, de dónde sale y sus bytes. */
 export interface HojaLeida {

@@ -3,8 +3,8 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
+import { sha256 } from '../tools/comun/hash.js';
 import { ajustesDe, aplicarAjustes } from '../tools/taller/ajustes.js';
-import { sha256 } from '../tools/taller/poses-8d.js';
 import { carpetaTemporal } from './comun.js';
 
 // El encuadre a mano (`ajustes.ts`): mueve el fotograma que dice y nada más, y no se

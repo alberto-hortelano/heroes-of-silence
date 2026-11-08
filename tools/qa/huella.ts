@@ -112,6 +112,7 @@ import { destinoDeHoy, sesionContraMonstruo } from '../../test/batalla-de-client
 import { agresiva } from '../../test/batalla-de-prueba.js';
 import { PESADA, TROPA_BARATA } from '../../test/comun.js';
 import { ejercito, guarnecer, pegadoA } from '../../test/partida-de-prueba.js';
+import { sha256 } from '../comun/hash.js';
 import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { leerMundoDeDisco } from '../mundo/disco.js';
@@ -168,8 +169,6 @@ function estable(x: unknown): string {
     return v;
   });
 }
-
-const sha256 = (texto: string): string => createHash('sha256').update(texto).digest('hex');
 
 // ------------------------------------------------------------------ secciones
 

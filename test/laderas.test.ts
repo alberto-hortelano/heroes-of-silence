@@ -41,6 +41,7 @@ import {
 } from '../src/client/render/escenario/relieve.js';
 import { RedDeCaminos } from '../src/core/map/red-de-caminos.js';
 import type { Suelo } from '../src/core/map/terrain.js';
+import { sha256DeFichero } from '../tools/comun/hash.js';
 import { mascaraDeGuia, registrarLadera } from '../tools/taller/derivar.js';
 import {
   encargosDeLaderas,
@@ -49,7 +50,7 @@ import {
   PIEZAS,
   papelDe,
 } from '../tools/taller/laderas.js';
-import { RAIZ, sha256 } from './comun.js';
+import { RAIZ } from './comun.js';
 import { catalogoDelDisco } from './escena-de-prueba.js';
 
 /** Las caídas por celdas de una rejilla de niveles escrita a mano, una cifra por casilla. */
@@ -380,7 +381,9 @@ describe('las juntas de cada ladera salen de su guía (`pnpm taller derivar-reli
     // Un módulo repintado sin volver a derivar se queda con las juntas del viejo.
     for (const hoja of hojas)
       for (const mod of indice(hoja).modulos)
-        expect(sha256(join(MODULOS, hoja, mod.imagen)), `${hoja}/${mod.imagen}`).toBe(mod.sha256);
+        expect(sha256DeFichero(join(MODULOS, hoja, mod.imagen)), `${hoja}/${mod.imagen}`).toBe(
+          mod.sha256,
+        );
   });
 
   it('volver a registrar el módulo más pequeño da lo apuntado', async () => {

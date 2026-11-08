@@ -20,6 +20,7 @@ import { join } from 'node:path';
 import sharp, { type OverlayOptions } from 'sharp';
 import type { FactionId } from '../../src/core/types.js';
 import { disposicionDe, TRAMO } from '../../src/shared/base.js';
+import { sha256 } from '../comun/hash.js';
 import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import {
@@ -29,7 +30,6 @@ import {
   placaDelTramo,
   sitiosPintados,
 } from './base.js';
-import { sha256 } from './poses-8d.js';
 import { lineaDelPie, mascaraDeLaDiferencia, mascaraDelPie } from './recorte-base.js';
 
 async function rgbDe(ruta: string): Promise<Uint8Array> {

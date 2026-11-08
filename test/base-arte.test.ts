@@ -10,7 +10,6 @@
  * recorte retocado a mano o una fuente sustituida sin recortar otra vez: un
  * tramo y un recorte en `pnpm verify`, todos y el suelo en `pnpm verify:lento`.
  */
-import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp from 'sharp';
@@ -19,6 +18,7 @@ import { ALFA_QUE_TOCA } from '../src/client/render/base/golpe.js';
 import { sitioDe, sitioDeEdificio, sitiosDeLaBase } from '../src/core/town/sitios.js';
 import { FACTION_IDS } from '../src/core/types.js';
 import { disposicionDe, type IndiceDeLaBase, SOLAPE, TRAMO } from '../src/shared/base.js';
+import { sha256, sha256DeFichero } from '../tools/comun/hash.js';
 import {
   ARTE_DE_LA_BASE,
   abiertaPintada,
@@ -50,7 +50,7 @@ import {
   placasDeLaBase,
   tramoDelSuelo,
 } from '../tools/taller/recorte-base.js';
-import { RAIZ, sha256 } from './comun.js';
+import { RAIZ } from './comun.js';
 import { itLento, segunPrisa } from './lento.js';
 
 const FACCIONES = FACTION_IDS;
@@ -80,7 +80,9 @@ describe('el arte de la base', () => {
       expect(indiceDe(f).tramos, f).toHaveLength(disposicionDe(f).tramos);
       for (const t of indiceDe(f).tramos)
         if (t !== null)
-          expect(sha256(join(RAIZ, dirDeLaBase(f), t.imagen)), `${f}/${t.imagen}`).toBe(t.sha256);
+          expect(sha256DeFichero(join(RAIZ, dirDeLaBase(f), t.imagen)), `${f}/${t.imagen}`).toBe(
+            t.sha256,
+          );
       // Con alguna placa hay suelo y cielo; sin ninguna, no.
       expect(indiceDe(f).suelo !== null, f).toBe(placasDeLaBase(f).some(Boolean));
       expect(indiceDe(f).cielo !== null, f).toBe(placasDeLaBase(f).some(Boolean));
@@ -96,7 +98,7 @@ describe('el arte de la base', () => {
         expect(e.tramo, `${f}/${id}`).toBe(sitio.tramo);
         expect(indice.tramos[e.tramo - 1], `${f}/${id}: su tramo no tiene placa`).not.toBeNull();
         expect(
-          sha256(join(RAIZ, dirDeLaBase(f), e.imagen)),
+          sha256DeFichero(join(RAIZ, dirDeLaBase(f), e.imagen)),
           `${f}/${id}: la imagen cambió sin recortar`,
         ).toBe(e.sha256);
         expect(e.en[0], `${f}/${id}`).toBeGreaterThanOrEqual(sitio.region.x0);
@@ -152,7 +154,7 @@ describe('el arte de la base', () => {
         expect(moradas, `${f}/${id} no es una morada de su base`).toContain(id);
         expect(e.imagen, `${f}/${id}`).toBe(`abierta-${id}.webp`);
         expect(
-          sha256(join(RAIZ, dirDeLaBase(f), e.imagen)),
+          sha256DeFichero(join(RAIZ, dirDeLaBase(f), e.imagen)),
           `${f}/${id}: la versión abierta cambió sin recortarla`,
         ).toBe(e.sha256);
         expect(existsSync(join(RAIZ, `${abiertaPintada(f, id)}.webp`)), `${f}/${id}`).toBe(true);
@@ -363,7 +365,7 @@ describe('el arte de la base', () => {
       const t = await derivarTramo('templarios', n);
       expect({ ancho: t.ancho, alto: t.alto }).toEqual({ ancho: e.ancho, alto: e.alto });
       expect(
-        createHash('sha256').update(t.rgba).digest('hex'),
+        sha256(t.rgba),
         'el tramo no es el de su placa: pnpm taller recortar-base templarios',
       ).toBe(e.origen);
       // Por encima del pie, opaco; por debajo del fundido, nada.
@@ -391,7 +393,7 @@ describe('el arte de la base', () => {
     expect(s.tramo).toBe(await tramoDelSuelo('templarios'));
     const r = await derivarSuelo('templarios', s.tramo);
     expect({ ancho: r.ancho, alto: r.alto }).toEqual({ ancho: s.ancho, alto: s.alto });
-    expect(createHash('sha256').update(r.v).digest('hex')).toBe(s.origen);
+    expect(sha256(r.v)).toBe(s.origen);
   });
 
   /**
@@ -416,7 +418,7 @@ describe('el arte de la base', () => {
         alto: e.alto,
       });
       expect(
-        createHash('sha256').update(r.rgba).digest('hex'),
+        sha256(r.rgba),
         'el recorte no es el de sus fuentes: pnpm taller recortar-base templarios',
       ).toBe(e.origen);
     },
@@ -438,7 +440,7 @@ describe('el arte de la base', () => {
         alto: e.alto,
       });
       expect(
-        createHash('sha256').update(r.rgba).digest('hex'),
+        sha256(r.rgba),
         'la versión abierta no es la de sus fuentes: pnpm taller recortar-base templarios',
       ).toBe(e.origen);
     },

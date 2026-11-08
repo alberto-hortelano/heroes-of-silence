@@ -3,12 +3,12 @@
  * (`hacerTeselable`), no se le pide a ChatGPT. Con imágenes sintéticas.
  */
 
-import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import { SUELOS_PISABLES } from '../src/core/map/terrain.js';
+import { sha256 } from '../tools/comun/hash.js';
 import { aRaster } from '../tools/taller/recorte.js';
 import {
   costura,
@@ -88,7 +88,7 @@ describe('las texturas del taller', () => {
         readFileSync(join(dir, f.replace(/\.webp$/, '.procedencia.json')), 'utf8'),
       );
       expect(proc.tipo).toBe('textura');
-      expect(proc.salida.sha256).toBe(createHash('sha256').update(bytes).digest('hex'));
+      expect(proc.salida.sha256).toBe(sha256(bytes));
       expect(proc.herramienta.nombre).toMatch(/^codex exec/);
     });
   }

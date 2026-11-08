@@ -40,6 +40,7 @@ import {
   SOLAPE,
   TRAMO,
 } from '../../src/shared/base.js';
+import { sha256 } from '../comun/hash.js';
 import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import {
@@ -55,7 +56,6 @@ import {
   sueloDeLaBase,
   tramoDelJuego,
 } from './base.js';
-import { sha256 } from './poses-8d.js';
 
 /**
  * Píxeles de `ancho × alto`, fila a fila, con sus canales intercalados: uno en

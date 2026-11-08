@@ -12,11 +12,12 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { sha256DeFichero } from '../tools/comun/hash.js';
 import { derivarPieza, rutaDelJson } from '../tools/taller/derivar.js';
 import { puestoDerivado } from '../tools/taller/mapa.js';
 import { muroDerivado } from '../tools/taller/muros.js';
 import { puenteDerivado } from '../tools/taller/paredes-puentes.js';
-import { RAIZ, sha256 } from './comun.js';
+import { RAIZ } from './comun.js';
 import { segunPrisa } from './lento.js';
 
 const UNIDADES = join(RAIZ, 'assets/unidades');
@@ -67,7 +68,9 @@ const leer = (r: string): any => JSON.parse(readFileSync(r, 'utf8'));
 describe('las hojas del taller', () => {
   it.each(hojas)('%s: lleva su procedencia', (h) => {
     const p = leer(h.replace(/\.webp$/, '.procedencia.json'));
-    expect(p.salida.sha256, 'la imagen cambió sin registrar de dónde sale').toBe(sha256(h));
+    expect(p.salida.sha256, 'la imagen cambió sin registrar de dónde sale').toBe(
+      sha256DeFichero(h),
+    );
     expect(p.hilo).toMatch(/^[0-9a-f-]{36}$/);
     expect(p.prompt.length).toBeGreaterThan(100);
     for (const r of p.referencias) expect(r.sha256).toMatch(/^[0-9a-f]{64}$/);
@@ -115,7 +118,7 @@ describe('las piezas del mapa', () => {
 
   it.each(piezas)('%s: el JSON es lo que mide la imagen', async (p) => {
     const json = leer(rutaDelJson(p));
-    expect(json.sha256, 'la imagen cambió sin volver a derivar su JSON').toBe(sha256(p));
+    expect(json.sha256, 'la imagen cambió sin volver a derivar su JSON').toBe(sha256DeFichero(p));
     if (!derivadas.has(p)) return;
     const esperado = esPuente(p)
       ? await puenteDerivado(p)
@@ -129,7 +132,9 @@ describe('las piezas del mapa', () => {
 
   it.each([...piezas, ...muestras])('%s: lleva su procedencia', (p) => {
     const pr = leer(p.replace(/\.webp$/, '.procedencia.json'));
-    expect(pr.salida.sha256, 'la imagen cambió sin registrar de dónde sale').toBe(sha256(p));
+    expect(pr.salida.sha256, 'la imagen cambió sin registrar de dónde sale').toBe(
+      sha256DeFichero(p),
+    );
     expect(pr.hilo).toMatch(/^[0-9a-f-]{36}$/);
     for (const r of pr.referencias) expect(r.sha256).toMatch(/^[0-9a-f]{64}$/);
   });

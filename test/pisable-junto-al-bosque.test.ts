@@ -24,7 +24,6 @@
  * H9): al tope de alejar se leía como la sierra.
  */
 
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { RedDeCaminos } from '@core/map/red-de-caminos.js';
@@ -54,6 +53,7 @@ import { nivelPintado, SOTOBOSQUE, sotobosqueDe } from '../src/client/render/esc
 import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
 import { trozosConAlfa } from '../src/client/render/escenario/pintar.js';
 import { enElRecinto } from '../src/client/render/escenario/recinto/octogono.js';
+import { sha256 } from '../tools/comun/hash.js';
 import { RAIZ } from './comun.js';
 import { catalogoDelDisco, partidaDe } from './escena-de-prueba.js';
 import { LENTO, rango } from './lento.js';
@@ -226,10 +226,7 @@ describe('los árboles de la cubierta, mirados uno a uno', () => {
         modulos: { imagen: string; sha256: string }[];
       };
       const lineas = modulos.map((m) => `${m.imagen} ${m.sha256}`).sort();
-      expect(
-        createHash('sha256').update(lineas.join('\n')).digest('hex'),
-        `${hoja}: vuelve a mirar sus módulos`,
-      ).toBe(suma);
+      expect(sha256(lineas.join('\n')), `${hoja}: vuelve a mirar sus módulos`).toBe(suma);
     }
   });
 

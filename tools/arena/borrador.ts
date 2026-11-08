@@ -8,10 +8,8 @@
  * Aparte de `vite.config.ts` para que los tests lo ejerzan contra una carpeta
  * temporal sin arrancar vite.
  */
-import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-
 import {
   COMENTARIO_DEL_BORRADOR_DE_MURALLAS,
   type FormaDeMuralla,
@@ -54,6 +52,7 @@ import {
   validarCatalogo,
   validarHojas,
 } from '../../src/core/unidad/formato.js';
+import { sha256DeFichero } from '../comun/hash.js';
 import { type AEscribir, comentarioDe, escribirAtomico, jsonDe } from '../comun/json.js';
 import { direccionesDe } from '../taller/arte-en-disco.js';
 import { HEROES, juegoDelYBot, perfilDeUnidad, UNIDADES } from '../taller/unidades.js';
@@ -407,7 +406,7 @@ export function versionDelCatalogo(raiz: string): VersionDelCatalogo {
     FICHEROS_DEL_CATALOGO.map((ruta) => {
       const donde = join(raiz, ruta);
       if (!existsSync(donde)) return [ruta, 'falta'];
-      return [ruta, createHash('sha256').update(readFileSync(donde)).digest('hex')];
+      return [ruta, sha256DeFichero(donde)];
     }),
   );
 }

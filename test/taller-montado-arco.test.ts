@@ -4,7 +4,6 @@
  * un `if` por nombre: dispara con la curva del arco a pie, pelea con el tajo de
  * espada desde la silla y tiene sus 8 direcciones en `atlas-8d.json`.
  */
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -17,6 +16,7 @@ import {
   JUEGOS_MONTADOS,
   type JuegoMontado,
 } from '../tools/art/poses.js';
+import { sha256 } from '../tools/comun/hash.js';
 import { JUEGOS_EN_8D } from '../tools/taller/unidades.js';
 import { RAIZ } from './comun.js';
 
@@ -78,9 +78,7 @@ describe('el juego montado-arco', () => {
       Math.round((JUEGOS_MONTADOS['montado-arco'].duracionDelDisparo ?? 0) * 24),
     );
     for (const [nombre, sha] of Object.entries(poses.sha256)) {
-      const hecho = createHash('sha256')
-        .update(readFileSync(join(carpeta, nombre)))
-        .digest('hex');
+      const hecho = sha256(readFileSync(join(carpeta, nombre)));
       expect(hecho, nombre).toBe(sha);
     }
   });

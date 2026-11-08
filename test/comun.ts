@@ -1,7 +1,7 @@
 /**
  * Lo que comparten los tests sin ser de un área: la raíz del repositorio, el
  * contexto de una partida (`ctx`), las unidades por el papel que hacen en una
- * prueba, el sha256 de un fichero y una carpeta temporal que se borra sola.
+ * prueba, y una carpeta temporal que se borra sola.
  *
  * Un solo sitio para cada cosa (fase T de la reorganización de la arquitectura,
  * 06-11-2026): cada test llevaba su copia de la raíz (25) y del contexto (13), y
@@ -10,8 +10,7 @@
  * test del núcleo lo importa sin arrastrar nada.
  */
 
-import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createRng } from '../src/core/rng.js';
@@ -88,7 +87,3 @@ export const TIRADOR_NO_MUERTO = 'esqueleto-arquero';
 export const TROPA_BARATA = 'goblin-lancero';
 /** Tirador sin rasgos (elfos): dispara con su arco, sin munición que contar. */
 export const TIRADOR = 'elfo-arquero';
-
-/** El sha256 de un fichero, en hexadecimal. */
-export const sha256 = (ruta: string): string =>
-  createHash('sha256').update(readFileSync(ruta)).digest('hex');

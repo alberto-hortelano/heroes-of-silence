@@ -9,6 +9,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { FACTION_IDS } from '@core/types.js';
 import { describe, expect, it } from 'vitest';
+import { sha256DeFichero } from '../tools/comun/hash.js';
 import {
   CARPETA_DE_LETRAS,
   COMMIT,
@@ -16,7 +17,7 @@ import {
   FUENTES,
   HOJA_DE_LETRAS,
 } from '../tools/fuentes/bajar.js';
-import { RAIZ, sha256 } from './comun.js';
+import { RAIZ } from './comun.js';
 import {
   bloquesCss,
   hojasDelCliente,
@@ -44,7 +45,7 @@ describe('las letras de los temas', () => {
       expect(procedencia.commit).toBe(COMMIT);
       for (const fichero of [...fuente.ficheros, fuente.licencia]) {
         const ruta = join(carpeta, fichero.local);
-        expect(sha256(ruta), ruta).toBe(fichero.sha256);
+        expect(sha256DeFichero(ruta), ruta).toBe(fichero.sha256);
         expect(procedencia.ficheros.find((x) => x.local === fichero.local)?.sha256, ruta).toBe(
           fichero.sha256,
         );

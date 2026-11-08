@@ -22,10 +22,10 @@
  *
  *     npx tsx tools/fuentes/bajar.ts      baja lo que falte y reescribe `fuentes.css`
  */
-import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { FactionId } from '../../src/core/types.js';
+import { sha256 } from '../comun/hash.js';
 import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 
@@ -158,9 +158,6 @@ export const FUENTES: readonly Fuente[] = [
 export const CARPETA_DE_LETRAS = join(RAIZ, 'assets/letras');
 /** La hoja de los `@font-face`, generada de `FUENTES`, relativa a la raíz. */
 export const HOJA_DE_LETRAS = 'src/client/fuentes.css';
-
-export const sha256 = (datos: Uint8Array): string =>
-  createHash('sha256').update(datos).digest('hex');
 
 /** La URL de un fichero en el origen, con los corchetes de `Cinzel[wght]` escapados. */
 export const urlDe = (f: Fuente, fichero: Fichero): string =>

@@ -10,10 +10,10 @@
  * —no se reescala como un icono—, así que el tamaño relativo dentro de una hoja
  * se conserva, y lleva su ancla en la base, como las piezas del mapa.
  */
-import { createHash } from 'node:crypto';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import sharp from 'sharp';
+import { sha256 } from '../../comun/hash.js';
 import { ALFA_FIGURA, type Caja, componentes, enFilas } from '../empaquetar.js';
 import type { Encargo } from '../encargo.js';
 import { REFERENCIA_DE_MAPAS } from '../mapa-denso.js';
@@ -442,7 +442,7 @@ export async function escribirModulos(
     await writeFile(join(dir, imagen), bytes);
     indice.push({
       imagen,
-      sha256: createHash('sha256').update(bytes).digest('hex'),
+      sha256: sha256(bytes),
       ancho: m.width,
       alto: m.height,
       ancla: anclaDe(m),

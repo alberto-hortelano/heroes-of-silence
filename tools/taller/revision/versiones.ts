@@ -24,6 +24,7 @@ import {
   type HojaDeFigura,
   NOMBRES_DE_DIRECCION,
 } from '../../../src/shared/arte.js';
+import { sha256 } from '../../comun/hash.js';
 import { textoJson } from '../../comun/json.js';
 import { RAIZ } from '../../comun/raiz.js';
 import { leerBancoDeDisco } from '../../npcs/banco.js';
@@ -32,7 +33,6 @@ import { RELOJ } from '../derivar.js';
 import type { Encargo } from '../encargo.js';
 import { alAcabarUnaHoja } from '../juntar.js';
 import { encargoDeHoja } from '../npcs.js';
-import { sha256 } from '../poses-8d.js';
 import { encargosDeOchoDirecciones, unidad } from '../unidades.js';
 import { type Comparacion, comparacionSchema, validarCon } from './esquemas.js';
 import { casoDeDisputa, OPCIONES_DE_DISPUTA, respuestasDe, type Veredicto } from './jurado.js';

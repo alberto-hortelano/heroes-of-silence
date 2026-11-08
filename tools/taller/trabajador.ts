@@ -88,7 +88,6 @@
  * encargo es un `rename` atómico (ver `cola.ts`).
  */
 import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
@@ -118,6 +117,7 @@ import {
   renderizarOchoDirecciones,
 } from '../art/poses.js';
 import { bandera, soloDe } from '../comun/argumentos.js';
+import { sha256 } from '../comun/hash.js';
 import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { leerBancoDeDisco } from '../npcs/banco.js';
@@ -239,8 +239,6 @@ function faccionDe(arg: string | undefined, uso: string): FactionId {
   return f;
 }
 export const COLA = colaDelTaller(RAIZ);
-
-const sha256 = (b: Buffer): string => createHash('sha256').update(b).digest('hex');
 
 /** La ruta de un fichero de `~/.codex` sin el home: la procedencia no lleva rutas de esta máquina. */
 const sinHome = (r: string): string => r.replace(homedir(), '~');

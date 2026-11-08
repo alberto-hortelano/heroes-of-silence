@@ -19,7 +19,6 @@
  * `SPRITE_FORGE_ASSETS`; por defecto, los repos hermanos de este checkout.
  */
 import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -34,6 +33,7 @@ import {
   hojasDeFigura,
   luzEnElMundo,
 } from '../../src/shared/arte.js';
+import { sha256 } from '../comun/hash.js';
 import { RAIZ } from '../comun/raiz.js';
 import {
   type ClipDeDisparo,
@@ -120,10 +120,6 @@ export function indicesDeClip(total: number, columnas: number, enBucle: boolean)
       ? Math.floor((i * total) / columnas)
       : Math.round((i * (total - 1)) / Math.max(1, columnas - 1)),
   );
-}
-
-function sha256(datos: Buffer | string): string {
-  return createHash('sha256').update(datos).digest('hex');
 }
 
 /** Cómo se encuadra el render: el alto del encuadre en metros y a qué altura mira. */
