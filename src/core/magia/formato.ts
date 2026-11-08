@@ -11,9 +11,15 @@
  * frase para la persona y el agente (`VOCABULARIO_DE_LA_MAGIA`): una palabra nueva
  * sin frase no compila.
  *
+ * Cada hechizo es de una facción o de varias (`facciones`, 08-11-2026; petición del
+ * usuario: «que cada hechizo pueda pertenecer a una o varias facciones»): el gremio
+ * de una ciudad enseña solo los de la suya (`hechizosDelGremio`) y una unidad solo
+ * usa como poder los de la suya (`poderDeUnidadBlocker`, `unidad/formato.ts`).
+ *
  * El tipo es el JSON tal cual: lo que se lee es lo que se escribe («Guardar» de la
  * arena), sin forma intermedia. Lo valida `problemasDelHechizo` (`validar.ts`).
  */
+import type { FactionId } from '../types.js';
 
 /** Cómo llega un hechizo. */
 export const ENTREGAS = [
@@ -151,6 +157,11 @@ export interface Hechizo {
   readonly mana: number;
   /** El nivel del gremio de magia que lo enseña, o `null` (ninguno: la arena y los poderes). */
   readonly gremio: number | null;
+  /**
+   * De qué facciones es: una o varias, sin repetir, en el orden de `FACTION_IDS`
+   * cuando lo escribe el editor. Lo leen el gremio y los poderes de unidad.
+   */
+  readonly facciones: readonly FactionId[];
   readonly entrega: Entrega;
   /** Ausente con `sobreSi` y `tablero`. */
   readonly objetivo?: Objetivo;
@@ -196,7 +207,7 @@ export const RUTA_DE_LOS_HECHIZOS = 'data/hechizos.json';
 
 /** El comentario del fichero si no tuviera uno (se conserva el del disco). */
 export const COMENTARIO_DE_LOS_HECHIZOS =
-  'Hechizos (el editor de magia de la arena, 06-11-2026). REGLA NUESTRA: el formato y su validación en src/core/magia/; lo escribe «Guardar» de la arena. Cifras y costes a mano.';
+  'Hechizos (el editor de magia de la arena, 06-11-2026). REGLA NUESTRA: el formato y su validación en src/core/magia/; lo escribe «Guardar» de la arena. Cifras, costes y facciones a mano; el gremio de una ciudad enseña solo los de su facción y una unidad usa como poder solo los de la suya.';
 
 // ---------------------------------------------------------------- límites
 

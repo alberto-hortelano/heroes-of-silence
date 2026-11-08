@@ -21,6 +21,7 @@ import {
   RUTA_DEL_HEROE,
 } from '../src/core/hero/cuerpo-del-heroe.js';
 import { hechizosDelGremio } from '../src/core/magia/catalogo.js';
+import { FACTION_IDS } from '../src/core/types.js';
 import {
   escribirCatalogo,
   guardarCatalogo,
@@ -65,7 +66,7 @@ describe('el cuerpo de todo héroe en la arena', () => {
   const enlace = (izq: CuerpoDeTodoHeroe, der: CuerpoDeTodoHeroe): MontajeDelEnlace => ({
     unidades: [],
     piezas: piezasDelMontaje([], [EQUIPO_BASE], EQUIPO_ESCRITO),
-    hechizos: hechizosDelGremio(5),
+    hechizos: hechizosDelGremio(5, FACTION_IDS),
     izquierda: lado(izq),
     derecha: { ...lado(der), ia: true },
     muralla: null,

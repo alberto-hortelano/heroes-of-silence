@@ -31,7 +31,6 @@ import {
 } from '@core/magia/catalogo.js';
 import { nombreDelPoder, queHaceElHechizo } from '@core/magia/dicho.js';
 import type { Hechizo } from '@core/magia/formato.js';
-import { problemasComoPoder } from '@core/magia/validar.js';
 import { conComa } from '@core/texto.js';
 import {
   CREATURE_TRAITS,
@@ -59,6 +58,7 @@ import {
 import {
   cuerpoDeCombate,
   HABILIDADES,
+  poderDeUnidadBlocker,
   type Unidad,
   unidadDeCombate,
 } from '@core/unidad/formato.js';
@@ -589,15 +589,15 @@ export function renderFicha(u: Unidad | null, dispara: boolean, como: ComoDeLaFi
             )} ${nota(que)}</div>`;
           }),
         );
-  // Solo los que una unidad puede usar (sin poder mágico): los demás se ofrecen apagados.
+  // Solo los que esta unidad puede usar (sin poder mágico y de su facción,
+  // `poderDeUnidadBlocker`): los demás se ofrecen apagados, con su motivo.
   const poderesLibres = unir(
     deLaPagina
       .filter((h) => !hechizos.includes(h.id))
       .map((h) => {
-        const [motivo] = problemasComoPoder(h);
-        return motivo === undefined
-          ? html`<option value="${h.id}">${h.nombre}</option>`
-          : html`<option value="${h.id}" disabled title="${motivo}">${h.nombre} (crece con el poder)</option>`;
+        const no = poderDeUnidadBlocker(u, h);
+        if (no === null) return html`<option value="${h.id}">${h.nombre}</option>`;
+        return html`<option value="${h.id}" disabled title="${no.motivo}">${h.nombre} (${no.corto})</option>`;
       }),
   );
   const puestas =

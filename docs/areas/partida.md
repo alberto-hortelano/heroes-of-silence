@@ -214,7 +214,9 @@ lo marca el más lento del grupo, **el héroe incluido** (26-10-2026, decisión 
   (2 000); en 1-100 la IA iba a por un monstruo solo cuando no llegaba a ninguna ciudad ajena (32 de
   32 veces), y eso pasaba en el 11,5 % de los turnos de héroe y ahora en el 0,3 % (`docs/historia.md`).
 
-- **Magia**: el gremio enseña por derivación (`townSpells`, los de `gremio` de su nivel o menos),
+- **Magia**: el gremio enseña por derivación (`townSpells`, los de `gremio` de su nivel o menos y
+  de la facción de la ciudad: `hechizosDelGremio(nivel, [town.faction])`, 08-11-2026, «Sí, por
+  facción»; `FACTION_IDS`, los de todas, solo lo pasan el héroe de la arena, las medidas y las capturas),
   `syncSpellbooks` aprende al final de cada acción, `cast` no consume el turno, `castBlocker`
   escribe el motivo. El formato de un hechizo, en la fila «Magia» de las reglas.
 

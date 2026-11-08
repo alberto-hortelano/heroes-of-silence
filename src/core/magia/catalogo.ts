@@ -7,6 +7,7 @@
  * (`BattleState.libro`), así que la arena pelea con hechizos sin guardar.
  */
 import hechizosJson from '../../../data/hechizos.json' with { type: 'json' };
+import type { FactionId } from '../types.js';
 import type { Hechizo } from './formato.js';
 import { leerHechizos } from './validar.js';
 
@@ -67,13 +68,23 @@ export function enOrdenDelLibro(ids: readonly string[], libro?: LibroDeHechizos)
   return ids.map((id) => libro?.[id] ?? hechizo(id)).sort(ordenDelLibro);
 }
 
-/** Los hechizos que enseña un gremio de nivel `nivel`: los de su nivel o menos, en orden. */
+/**
+ * Los hechizos que enseña un gremio de nivel `nivel` a `facciones`: los de su nivel
+ * o menos que sean de alguna de ellas (08-11-2026, «Sí, por facción»), en orden.
+ * Las facciones son obligatorias para que cada lector decida: la partida pasa la
+ * de la ciudad (`townSpells`); quien no tiene ninguna (el héroe de la arena, las
+ * medidas y las capturas), `FACTION_IDS`.
+ */
 export function hechizosDelGremio(
   nivel: number,
+  facciones: readonly FactionId[],
   cat: CatalogoDeHechizos = HECHIZOS_DEL_JUEGO,
 ): readonly Hechizo[] {
   if (nivel === 0) return [];
   return todosLosHechizos(cat)
-    .filter((h) => h.gremio !== null && h.gremio <= nivel)
+    .filter(
+      (h) =>
+        h.gremio !== null && h.gremio <= nivel && h.facciones.some((f) => facciones.includes(f)),
+    )
     .sort(ordenDelLibro);
 }

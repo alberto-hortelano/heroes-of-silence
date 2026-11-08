@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  catalogoDeHechizos,
   HECHIZOS_DEL_JUEGO,
   hechizo,
   hechizosDelGremio,
@@ -18,6 +19,7 @@ import {
   problemasDeLaLista,
   problemasDelHechizo,
 } from '../src/core/magia/validar.js';
+import { FACTION_IDS } from '../src/core/types.js';
 
 /** Un hechizo mínimo que vale, para romperlo campo a campo. */
 const BASE: Hechizo = {
@@ -26,6 +28,7 @@ const BASE: Hechizo = {
   descripcion: 'Un hechizo de prueba.',
   mana: 3,
   gremio: null,
+  facciones: ['templarios'],
   entrega: { tipo: 'libre' },
   objetivo: 'enemigo',
   efectos: [{ tipo: 'danio', cantidad: 10, armadura: true }],
@@ -42,15 +45,53 @@ describe('el catálogo de data/hechizos.json', () => {
   });
 
   it('el gremio enseña solo los cinco de siempre, en el orden del libro', () => {
-    expect(hechizosDelGremio(5).map((h) => h.id)).toEqual([
+    expect(hechizosDelGremio(5, FACTION_IDS).map((h) => h.id)).toEqual([
       'haste',
       'magic_arrow',
       'slow',
       'cure',
       'lightning_bolt',
     ]);
-    expect(hechizosDelGremio(1).map((h) => h.id)).toEqual(['haste', 'magic_arrow', 'slow']);
-    expect(hechizosDelGremio(0)).toEqual([]);
+    expect(hechizosDelGremio(1, FACTION_IDS).map((h) => h.id)).toEqual([
+      'haste',
+      'magic_arrow',
+      'slow',
+    ]);
+    expect(hechizosDelGremio(0, FACTION_IDS)).toEqual([]);
+    // Los cinco son de las cinco facciones (08-11-2026): el gremio de cada una enseña lo mismo.
+    for (const f of FACTION_IDS) {
+      expect(hechizosDelGremio(5, [f]), f).toEqual(hechizosDelGremio(5, FACTION_IDS));
+    }
+  });
+
+  it('el gremio de una facción enseña solo los suyos; con todas, los de todas', () => {
+    const deElfos: Hechizo = {
+      ...BASE,
+      id: 'elfico',
+      nombre: 'Élfico',
+      gremio: 1,
+      facciones: ['elfos'],
+    };
+    const deTodas: Hechizo = {
+      ...BASE,
+      id: 'comun',
+      nombre: 'Común',
+      gremio: 1,
+      facciones: [...FACTION_IDS],
+    };
+    const cat = catalogoDeHechizos([deElfos, deTodas]);
+    expect(hechizosDelGremio(5, ['orkos'], cat).map((h) => h.id)).toEqual(['comun']);
+    expect(hechizosDelGremio(5, ['elfos'], cat).map((h) => h.id)).toEqual(['comun', 'elfico']);
+    expect(hechizosDelGremio(5, FACTION_IDS, cat).map((h) => h.id)).toEqual(['comun', 'elfico']);
+  });
+
+  it('las facciones de hoy, a ojo: Curar de los templarios, el Zombi de los no muertos, los demás de las cinco', () => {
+    expect(hechizo('curar').facciones).toEqual(['templarios']);
+    expect(hechizo('zombi_pegajoso').facciones).toEqual(['no-muertos']);
+    for (const h of todosLosHechizos()) {
+      if (h.id === 'curar' || h.id === 'zombi_pegajoso') continue;
+      expect(h.facciones, h.id).toEqual(FACTION_IDS);
+    }
   });
 
   it('los tres del usuario están', () => {
@@ -244,6 +285,19 @@ describe('cada regla del hechizo muerde', () => {
       /«yAlLanzarse» solo vale con/,
     ],
     ['seAcabaSiMuere sin duración', { seAcabaSiMuere: 'lanzador' }, /solo con algo que dura/],
+    ['facciones que no es una lista', { facciones: 'elfos' }, /facciones tiene que ser una lista/],
+    ['facciones sin valor', { facciones: undefined }, /facciones tiene que ser una lista/],
+    [
+      'facciones vacía',
+      { facciones: [] },
+      /facciones está vacía: un hechizo es de una facción o de varias/,
+    ],
+    [
+      'una facción que no existe',
+      { facciones: ['elfos', 'enanos'] },
+      /facciones: "enanos" no existe; valen templarios, no-muertos, imperio, elfos, orkos/,
+    ],
+    ['una facción repetida', { facciones: ['elfos', 'elfos'] }, /facciones: «elfos» va dos veces/],
     [
       'cantidad 0 con 0',
       { efectos: [{ tipo: 'danio', cantidad: { base: 0, porPoder: 0 }, armadura: true }] },
@@ -258,6 +312,16 @@ describe('cada regla del hechizo muerde', () => {
       expect(p.every((x) => x.startsWith('«Prueba»: '))).toBe(true);
     });
   }
+
+  it('sin facciones no vale: no hay hechizos de antes', () => {
+    const { facciones: _fuera, ...sin } = BASE;
+    expect(problemasDelHechizo(sin)).toEqual(['«Prueba»: falta «facciones»']);
+  });
+
+  it('de varias facciones vale', () => {
+    expect(problemas({ facciones: ['elfos', 'orkos'] })).toEqual([]);
+    expect(problemas({ facciones: [...FACTION_IDS] })).toEqual([]);
+  });
 
   it('dice todos los problemas a la vez', () => {
     expect(problemas({ mana: -1, gremio: 9, efectos: [] }).length).toBe(3);

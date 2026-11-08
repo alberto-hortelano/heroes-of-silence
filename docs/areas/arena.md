@@ -24,7 +24,7 @@ El detalle que vivía en `CLAUDE.md` hasta la fase Doc de la reorganización de 
 
 ### El editor de magia (arena)
 
-`client/arena/magia.ts` (`montarEditorDeMagia`, la vista `?vista=magia`); la arena pelea con los de la página (`MontajeDeArena.hechizos`), los cambia a media pelea con el retoque `hechizos` y los lleva en el enlace (`hechizosDelMontaje`, versión 21); «Guardar» escribe `data/hechizos.json` (`escribirCatalogo`, en `FICHEROS_DEL_CATALOGO`)
+`client/arena/magia.ts` (`montarEditorDeMagia`, la vista `?vista=magia`); la arena pelea con los de la página (`MontajeDeArena.hechizos`), los cambia a media pelea con el retoque `hechizos` y los lleva en el enlace (`hechizosDelMontaje`, versión 22: la 21 no traía las facciones); «Guardar» escribe `data/hechizos.json` (`escribirCatalogo`, en `FICHEROS_DEL_CATALOGO`). **Las facciones de cada hechizo** (08-11-2026, `docs/agents/2026-11-08-facciones-de-los-hechizos/`): una casilla por facción en la ficha, bajo «Gremio» (`data-magia-faccion`; el cambio, `conFaccion`, `core/magia/editar.ts`, en el orden de `FACTION_IDS` y sin mover la clave); quitar la última se deja y se ve como problema («facciones está vacía»), y «Guardar» no la escribe; un hechizo nuevo nace de las cinco (`hechizoNuevo`) y una copia conserva las suyas (`copiaDe`). Quitar a un hechizo la facción de una unidad que lo usa como poder lo rechaza «Guardar» («no es de su facción»); la ficha de magia no lo adelanta (backlog). En la ficha de la unidad, un poder de otra facción se ofrece apagado, con su motivo en el `title` y «(de otra facción)» (`poderDeUnidadBlocker`)
 
 ### Cambiar cifras a media pelea (arena)
 
@@ -79,7 +79,7 @@ diciéndolo («la arena pelea con las reglas del juego: quita «?reglas=» de la
 media pelea y que quién mueve es del **bando entero** (Yo / IA en su cabecera; con un solo bando
 de la persona, la rueda dice «Tu golpe»). Monta sus unidades como stacks del catálogo de la pelea
 (`catalogoDelMontaje`; dos unidades distintas con el mismo id lanzan). «Copiar enlace de la
-pelea» escribe el montaje entero (`?montaje=`, versión 20 desde el material de la muralla, 04-11-2026, sobre la 19 del equipo del héroe, `VERSION_DEL_ENLACE`, leída estricta:
+pelea» escribe el montaje entero (`?montaje=`, versión 22 desde las facciones de los hechizos, 08-11-2026, sobre la 21 de los hechizos enteros y la 20 del material de la muralla, `VERSION_DEL_ENLACE`, leída estricta:
 unidades con cuerpo y equipo, puestos `{ unidad }` y todas las piezas que lleva lo montado con sus
 bases en cadena, `piezasDelMontaje`); al abrirlo, sus piezas entran en el catálogo de la página
 como cambios sin guardar, con la regla de editarlas a mano (`conPiezas`, `cambioDePiezas`), y la

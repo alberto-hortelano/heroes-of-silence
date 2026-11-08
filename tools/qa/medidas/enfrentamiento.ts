@@ -273,9 +273,10 @@ function ejercitosDe(semilla: number): Record<Side, Stack[]> {
 /**
  * El libro del héroe en `--magia`: todo lo que enseña un gremio de nivel 2, que
  * es el tope que se construye hoy en partida (sin `mage_guild_3` no hay nivel
- * 3), con la Flecha del héroe inicial dentro.
+ * 3), con la Flecha del héroe inicial dentro. De todas las facciones (`FACTION_IDS`): la
+ * medida compara dos IA de batalla, no facciones.
  */
-const LIBRO_DE_LA_MAGIA = hechizosDelGremio(2).map((s) => s.id);
+const LIBRO_DE_LA_MAGIA = hechizosDelGremio(2, FACTION_IDS).map((s) => s.id);
 
 /**
  * Un héroe como el inicial de una partida (`newGame`): ataque y defensa 2,

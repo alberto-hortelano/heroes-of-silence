@@ -101,7 +101,8 @@ export function mageGuildLevel(town: Town): number {
 }
 
 /**
- * Los hechizos que enseña el gremio de este pueblo, ordenados por nivel.
+ * Los hechizos que enseña el gremio de este pueblo, ordenados por nivel: los de su
+ * facción (`Town.faction`, 08-11-2026; `hechizosDelGremio`).
  *
  * Se DERIVAN del nivel del gremio, no se guardan: con tres hechizos de nivel 1
  * y ninguno de nivel 2 para los huecos que hay no queda nada que sortear, así que
@@ -112,7 +113,7 @@ export function mageGuildLevel(town: Town): number {
  * entera. Sin tirada, el `createRng` de `CLAUDE.md` no aplica todavía.
  */
 export function townSpells(town: Town): readonly Hechizo[] {
-  return hechizosDelGremio(mageGuildLevel(town));
+  return hechizosDelGremio(mageGuildLevel(town), [town.faction]);
 }
 
 export function moraleFromBuildings(town: Town): number {

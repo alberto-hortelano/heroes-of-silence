@@ -27,7 +27,7 @@ import {
 } from '../magia/catalogo.js';
 import { queHaceElHechizo } from '../magia/dicho.js';
 import { esIdDeHechizo, GREMIO_MAXIMO } from '../magia/formato.js';
-import type { Equipo, UnitInfo } from '../types.js';
+import { type Equipo, FACTION_IDS, type UnitInfo } from '../types.js';
 import { equipoDeUnidadBlocker, equipoEscrito } from '../unidad/formato.js';
 import { entero, esIdDeUnidad, lista, sinRepetir, texto } from '../validar.js';
 import { LADOS, type Lado } from './lados.js';
@@ -88,8 +88,9 @@ export function heroePorDefecto(
     poder: CIFRAS_DEL_HEROE_INICIAL.spellPower,
     conocimiento: CIFRAS_DEL_HEROE_INICIAL.knowledge,
     // Los que enseña el gremio (los de antes del editor de magia): los demás se
-    // ponen en su libro desde la ficha.
-    hechizos: hechizosDelGremio(GREMIO_MAXIMO).map((x) => x.id),
+    // ponen en su libro desde la ficha. De todas las facciones (`FACTION_IDS`): el héroe
+    // de la arena no tiene ninguna y su libro se edita a mano (08-11-2026).
+    hechizos: hechizosDelGremio(GREMIO_MAXIMO, FACTION_IDS).map((x) => x.id),
   };
 }
 

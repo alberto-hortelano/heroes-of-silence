@@ -20,6 +20,7 @@ import { COMBATE_COMPLETO } from '../../../../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../../../../src/core/equipo/atado.js';
 import { EQUIPO_BASE, HEROE } from '../../../../src/core/hero/cuerpo-del-heroe.js';
 import { hechizosDelGremio } from '../../../../src/core/magia/catalogo.js';
+import { FACTION_IDS } from '../../../../src/core/types.js';
 import { UNIDADES } from '../../../../src/core/unidad/catalogo.js';
 import { RUTA_DEL_CATALOGO_DE_UNIDADES, type Unidad } from '../../../../src/core/unidad/formato.js';
 import { hojasDelTaller, leerCatalogo } from '../../../arena/borrador.js';
@@ -453,7 +454,7 @@ const HEROE_DEL_BANCO: HeroeDeArena = {
   defensa: 2,
   poder: 3,
   conocimiento: 3,
-  hechizos: hechizosDelGremio(5).map((s) => s.id),
+  hechizos: hechizosDelGremio(5, FACTION_IDS).map((s) => s.id),
 };
 
 /**
@@ -749,7 +750,7 @@ async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problem
     await page.locator(`[data-arena="manda"][data-lado="${lado}"][data-ia="si"]`).click();
   }
   const montado = await bandosDichos(page);
-  if (!montado.includes(`${hechizosDelGremio(5).length - 1} hechizos`)) {
+  if (!montado.includes(`${hechizosDelGremio(5, FACTION_IDS).length - 1} hechizos`)) {
     throw new Error(`enlace: los héroes no llevan el libro sin el Rayo: «${montado}»`);
   }
   if (!/IA/.test(montado) || /catálogo/i.test(montado)) {

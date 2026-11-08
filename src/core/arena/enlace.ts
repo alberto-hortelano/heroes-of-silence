@@ -71,8 +71,9 @@ export interface MontajeDelEnlace {
   readonly piezas: readonly PiezaEscrita[];
   /**
    * Los hechizos que usa lo montado (el libro de cada héroe y los poderes de las
-   * unidades), tal como los tenía quien lo copió (versión 21, el editor de magia):
-   * al abrirlo entran en los de quien lo abre como cambios sin guardar.
+   * unidades), tal como los tenía quien lo copió (versión 21, el editor de magia;
+   * 22, sus facciones): al abrirlo entran en los de quien lo abre como cambios sin
+   * guardar.
    */
   readonly hechizos: readonly Hechizo[];
   readonly izquierda: LadoDelEnlace;
@@ -125,9 +126,12 @@ export function retiradosDeLaURL(
  * (`HeroeDeArena.cuerpo`: PV, fuerza y agilidad, que la arena edita); la 19
  * (04-11-2026), lo que lleva puesto cada héroe (`HeroeDeArena.equipo`); la 20
  * (04-11-2026, puesto fronterizo, fase 2; fusionada el 05-11-2026), el material
- * de la muralla (`MurallaDeBatalla.material`: piedra o madera).
+ * de la muralla (`MurallaDeBatalla.material`: piedra o madera); la 21
+ * (06-11-2026), los hechizos de lo montado, enteros (el editor de magia); la 22
+ * (08-11-2026), las facciones de cada hechizo (`Hechizo.facciones`): un hechizo de
+ * la 21 diría «falta facciones» en vez de pedir que se vuelva a copiar.
  */
-export const VERSION_DEL_ENLACE = 21;
+export const VERSION_DEL_ENLACE = 22;
 
 const CAMPOS_DEL_ENLACE = [
   'v',

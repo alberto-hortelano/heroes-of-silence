@@ -6,6 +6,7 @@
  * enseña entero. Así el editor puede pasar por estados a medias (un disparador sin
  * efectos todavía) y decir qué falta.
  */
+import { FACTION_IDS, type FactionId } from '../types.js';
 import {
   type Efecto,
   type Hechizo,
@@ -57,7 +58,7 @@ function nombreLibre(base: string, ocupados: ReadonlySet<string>): string {
   }
 }
 
-/** Un hechizo nuevo que vale: libre a un enemigo, 10 de daño, sin gremio. */
+/** Un hechizo nuevo que vale: libre a un enemigo, 10 de daño, sin gremio, de las cinco facciones. */
 export function hechizoNuevo(lista: readonly Hechizo[]): Hechizo {
   return {
     id: idLibre('hechizo', new Set(lista.map((h) => h.id))),
@@ -65,6 +66,7 @@ export function hechizoNuevo(lista: readonly Hechizo[]): Hechizo {
     descripcion: 'Describe aquí lo que hace.',
     mana: 3,
     gremio: null,
+    facciones: [...FACTION_IDS],
     entrega: { tipo: 'libre' },
     objetivo: 'enemigo',
     efectos: [efectoNuevo('danio')],
@@ -77,6 +79,19 @@ export function copiaDe(h: Hechizo, lista: readonly Hechizo[]): Hechizo {
     ...h,
     id: idLibre(`${h.id}_copia`, new Set(lista.map((x) => x.id))),
     nombre: nombreLibre(`${h.nombre} (copia)`, new Set(lista.map((x) => x.nombre))),
+  };
+}
+
+/**
+ * `h` con la facción `f` marcada o no. Las facciones quedan en el orden de
+ * `FACTION_IDS` (marcar y desmarcar devuelve el mismo JSON, sin «•» falso) y la
+ * clave en su sitio, no al final como con `conCampo`. Puede quedar vacía: lo dice
+ * `problemasDelHechizo`, como cualquier estado a medias del editor.
+ */
+export function conFaccion(h: Hechizo, f: FactionId, marcada: boolean): Hechizo {
+  return {
+    ...h,
+    facciones: FACTION_IDS.filter((x) => (x === f ? marcada : h.facciones.includes(x))),
   };
 }
 

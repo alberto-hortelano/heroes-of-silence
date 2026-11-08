@@ -269,7 +269,7 @@ describe('el enlace de la pelea lleva las piezas de lo montado', () => {
   };
 
   it('va y vuelve con todas las piezas que lleva, y monta con ellas en el catálogo de quien lo abre', () => {
-    expect(VERSION_DEL_ENLACE).toBe(21);
+    expect(VERSION_DEL_ENLACE).toBe(22);
     // Lo que llevan el guerrero (la nueva, la brigantina, el escudo) y el arquero
     // (daga, arco, jubón): todas, no solo las cambiadas.
     expect(ENLACE.piezas.map((p) => p.id).sort()).toEqual(

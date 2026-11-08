@@ -21,7 +21,7 @@ import type { EquipoAtado } from '../equipo/atado.js';
 import { PIEZAS_DEL_CATALOGO } from '../equipo/pieza.js';
 import { equipoBaseBlocker } from '../hero/cuerpo-del-heroe.js';
 import { type CatalogoDeHechizos, HECHIZOS_DEL_JUEGO } from '../magia/catalogo.js';
-import { esIdDeHechizo } from '../magia/formato.js';
+import { esIdDeHechizo, type Hechizo } from '../magia/formato.js';
 import { problemasComoPoder } from '../magia/validar.js';
 import {
   CREATURE_TRAITS,
@@ -33,6 +33,7 @@ import {
   HUECOS,
   huecoDesconocido,
   type NivelesDeLaRueda,
+  NOMBRE_DE_FACCION,
   NOMBRE_DE_HUECO,
   type UnitInfo,
 } from '../types.js';
@@ -578,9 +579,32 @@ export function leerCatalogos(
 }
 
 /**
+ * Por qué la unidad `u` no puede usar `h` como poder, o `null`: que una unidad lo
+ * pueda usar (`problemasComoPoder`: sin poder mágico) y que sea de su facción
+ * (08-11-2026, «Sí, se rechaza»). **La única pregunta**: la leen la carga del juego
+ * y «Guardar» (`hechizosDeUnidadesBlocker`) y la ficha de la arena, que ofrece
+ * apagado lo que no vale con este motivo y, al lado del nombre, su rótulo corto.
+ */
+export function poderDeUnidadBlocker(
+  u: Pick<Unidad, 'faction'>,
+  h: Hechizo,
+): { readonly motivo: string; readonly corto: string } | null {
+  const [problema] = problemasComoPoder(h);
+  if (problema !== undefined) return { motivo: problema, corto: 'crece con el poder' };
+  if (!h.facciones.includes(u.faction)) {
+    const de = h.facciones.map((f) => NOMBRE_DE_FACCION[f]).join(', ');
+    return {
+      motivo: `«${h.nombre}» no es de su facción (${NOMBRE_DE_FACCION[u.faction]}): es de ${de}`,
+      corto: 'de otra facción',
+    };
+  }
+  return null;
+}
+
+/**
  * Por qué los hechizos que usan las unidades como poder no valen con el catálogo
- * de hechizos `cat`, o `null`: que existan y que una unidad los pueda usar
- * (`problemasComoPoder`: sin poder mágico). La leen la carga del juego y «Guardar».
+ * de hechizos `cat`, o `null`: que existan y que cada unidad los pueda usar
+ * (`poderDeUnidadBlocker`). La leen la carga del juego y «Guardar».
  */
 export function hechizosDeUnidadesBlocker(
   unidades: readonly Unidad[],
@@ -590,8 +614,8 @@ export function hechizosDeUnidadesBlocker(
     for (const id of u.hechizos ?? []) {
       const h = cat.get(id);
       if (h === undefined) return `la unidad «${u.name}» usa el hechizo «${id}», que no existe`;
-      const [problema] = problemasComoPoder(h);
-      if (problema !== undefined) return `la unidad «${u.name}»: ${problema}`;
+      const problema = poderDeUnidadBlocker(u, h);
+      if (problema !== null) return `la unidad «${u.name}»: ${problema.motivo}`;
     }
   }
   return null;

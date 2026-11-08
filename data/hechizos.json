@@ -1,5 +1,5 @@
 {
-  "_comment": "Hechizos (06-11-2026, el editor de magia de la arena; docs/agents/2026-11-06-editor-de-magia/). REGLA NUESTRA. El formato y su validación, en src/core/magia/ (formato.ts, validar.ts); lo edita la arena («Editar magia») y lo escribe «Guardar». Los cinco del gremio son los de antes (ids de siempre; daño y cura: base + porPoder × poder mágico, ×0,3 desde la escala baja del 26-10-2026, a ojo). «curar» es el poder Curar del monje (12 PV, inventado). Los demás, ejemplos con cifras INVENTADAS y a ojo, sin medir: gremio null = no los enseña ningún gremio (decisión por defecto, P3 del plan), solo la arena y los poderes. Coste (maná) a mano: no se sistematiza (decisión del usuario).",
+  "_comment": "Hechizos (06-11-2026, el editor de magia de la arena; docs/agents/2026-11-06-editor-de-magia/). REGLA NUESTRA. El formato y su validación, en src/core/magia/ (formato.ts, validar.ts); lo edita la arena («Editar magia») y lo escribe «Guardar». Los cinco del gremio son los de antes (ids de siempre; daño y cura: base + porPoder × poder mágico, ×0,3 desde la escala baja del 26-10-2026, a ojo). «curar» es el poder Curar del monje (12 PV, inventado). Los demás, ejemplos con cifras INVENTADAS y a ojo, sin medir: gremio null = no los enseña ningún gremio (decisión por defecto, P3 del plan), solo la arena y los poderes. Coste (maná) a mano: no se sistematiza (decisión del usuario). Facciones (08-11-2026, docs/agents/2026-11-08-facciones-de-los-hechizos/): a ojo, todos de las cinco salvo «curar», de los templarios (es el poder del monje), y «zombi_pegajoso», de los no muertos (decisión del usuario). El gremio de una ciudad enseña solo los de su facción y una unidad solo usa como poder los de la suya.",
   "hechizos": [
     {
       "id": "magic_arrow",
@@ -7,6 +7,13 @@
       "descripcion": "Un dardo de energía que hiere a un enemigo.",
       "mana": 3,
       "gremio": 1,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "libre"
       },
@@ -28,6 +35,13 @@
       "descripcion": "El aliado anda más deprisa.",
       "mana": 3,
       "gremio": 1,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "libre"
       },
@@ -49,6 +63,13 @@
       "descripcion": "El enemigo se arrastra.",
       "mana": 3,
       "gremio": 1,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "libre"
       },
@@ -70,6 +91,13 @@
       "descripcion": "Un rayo cae sobre un enemigo.",
       "mana": 7,
       "gremio": 3,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "libre"
       },
@@ -91,6 +119,13 @@
       "descripcion": "Cierra las heridas de un aliado.",
       "mana": 6,
       "gremio": 3,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "libre"
       },
@@ -111,6 +146,9 @@
       "descripcion": "El monje cura a un aliado herido, incluido él mismo.",
       "mana": 0,
       "gremio": null,
+      "facciones": [
+        "templarios"
+      ],
       "entrega": {
         "tipo": "libre"
       },
@@ -128,6 +166,9 @@
       "descripcion": "Se unta al zombi con una costra que se pega a quien lo golpea: el enemigo que le ataque cuerpo a cuerpo no podrá atacar hasta el siguiente turno del zombi, salvo que el zombi caiga antes.",
       "mana": 4,
       "gremio": null,
+      "facciones": [
+        "no-muertos"
+      ],
       "entrega": {
         "tipo": "contacto"
       },
@@ -161,6 +202,13 @@
       "descripcion": "El aliado brilla con una luz que ciega a los enemigos que tiene cerca: atacan peor mientras dure.",
       "mana": 5,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "libre"
       },
@@ -196,6 +244,13 @@
       "descripcion": "El aliado entra en furia: cada turno se desangra sin que la armadura lo pare, pero pega con más fuerza.",
       "mana": 4,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "libre"
       },
@@ -229,6 +284,13 @@
       "descripcion": "Una saeta que vuela recta desde el lanzador y se clava en el primero que encuentra, amigo o enemigo; lo deja clavado al suelo.",
       "mana": 5,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "proyectil"
       },
@@ -261,6 +323,13 @@
       "descripcion": "Estalla en una casilla a la vista, a 5 o menos del lanzador, y quema todo lo que hay en ella y alrededor.",
       "mana": 9,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "alcance",
         "casillas": 5
@@ -285,6 +354,13 @@
       "descripcion": "Se invoca sobre una casilla y cae al empezar el siguiente turno del lanzador; la armadura no lo para. Quien se aparte a tiempo se salva.",
       "mana": 10,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "alcance",
         "casillas": 6,
@@ -310,6 +386,13 @@
       "descripcion": "Una onda sale del lanzador y golpea a los enemigos pegados a él.",
       "mana": 6,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "sobreSi"
       },
@@ -329,6 +412,13 @@
       "descripcion": "Un toque que congela: hiere sin armadura a un enemigo pegado al lanzador.",
       "mana": 3,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "contacto"
       },
@@ -347,6 +437,13 @@
       "descripcion": "Granizo sobre un círculo amplio: hiere poco y frena a todos los que pilla.",
       "mana": 12,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "alcance",
         "casillas": 8
@@ -376,6 +473,13 @@
       "descripcion": "Un haz que atraviesa a todos los de la recta hasta un muro o el borde.",
       "mana": 9,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "proyectil"
       },
@@ -396,6 +500,13 @@
       "descripcion": "El lanzador grita y los aliados a 2 casillas o menos (él incluido) atacan mejor.",
       "mana": 5,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "sobreSi"
       },
@@ -418,6 +529,13 @@
       "descripcion": "Todo el ejército se siente protegido.",
       "mana": 12,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "tablero"
       },
@@ -439,6 +557,13 @@
       "descripcion": "La piel del aliado se vuelve piedra: le para más los golpes, pero le pesa.",
       "mana": 5,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "libre"
       },
@@ -465,6 +590,13 @@
       "descripcion": "Tocando al aliado, le da la fuerza de un oso (más daño y aguanta más peso).",
       "mana": 4,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "contacto"
       },
@@ -486,6 +618,13 @@
       "descripcion": "El aliado se mueve como un gato: esquiva, anda y pega con más variación.",
       "mana": 4,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "libre"
       },
@@ -507,6 +646,13 @@
       "descripcion": "Un enemigo a 4 casillas o menos pierde fuerza.",
       "mana": 4,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "alcance",
         "casillas": 4
@@ -529,6 +675,13 @@
       "descripcion": "La armadura del enemigo se pudre.",
       "mana": 5,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "libre"
       },
@@ -550,6 +703,13 @@
       "descripcion": "El lanzador se enfurece: pega más y se defiende peor.",
       "mana": 2,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "sobreSi"
       },
@@ -575,6 +735,13 @@
       "descripcion": "Cura a los aliados en una casilla y alrededor.",
       "mana": 10,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "libre"
       },
@@ -597,6 +764,13 @@
       "descripcion": "Las heridas del aliado se cierran solas al empezar cada turno suyo.",
       "mana": 6,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "libre"
       },
@@ -624,6 +798,13 @@
       "descripcion": "Un escudo que se come el daño (tras la armadura) hasta que se rompe.",
       "mana": 6,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "libre"
       },
@@ -645,6 +826,13 @@
       "descripcion": "Cada golpe que da el aliado le devuelve vida.",
       "mana": 5,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "libre"
       },
@@ -672,6 +860,13 @@
       "descripcion": "El enemigo se queda rígido: no hace nada hasta acabar su siguiente turno.",
       "mana": 8,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "alcance",
         "casillas": 3
@@ -700,6 +895,13 @@
       "descripcion": "Las raíces sujetan los pies del enemigo.",
       "mana": 4,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "libre"
       },
@@ -722,6 +924,13 @@
       "descripcion": "Ni hechizos ni poderes. Sobre el cuerpo de un héroe, su libro queda cerrado.",
       "mana": 5,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "libre"
       },
@@ -744,6 +953,13 @@
       "descripcion": "Con un toque, el enemigo suelta el arma hasta el siguiente turno del lanzador: ni golpea ni devuelve golpes.",
       "mana": 4,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "contacto"
       },
@@ -768,6 +984,13 @@
       "descripcion": "Una red lanzada en recta que atrapa al primero que encuentra.",
       "mana": 3,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "proyectil",
         "casillas": 5
@@ -798,6 +1021,13 @@
       "descripcion": "Quien golpee al aliado cuerpo a cuerpo se pincha (la armadura no lo para).",
       "mana": 5,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "libre"
       },
@@ -826,6 +1056,13 @@
       "descripcion": "La primera vez que golpeen al aliado, devuelve un tajo arcano.",
       "mana": 4,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "libre"
       },
@@ -855,6 +1092,13 @@
       "descripcion": "Al empezar cada turno suyo, el enemigo sufre el veneno sin que la armadura lo pare.",
       "mana": 4,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "alcance",
         "casillas": 3
@@ -884,6 +1128,13 @@
       "descripcion": "Marca a un enemigo: se defiende peor mientras viva quien lo marcó.",
       "mana": 3,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "libre"
       },
@@ -904,6 +1155,13 @@
       "descripcion": "El aliado jura por su señor: pelea mejor mientras el lanzador siga en pie.",
       "mana": 6,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "libre"
       },
@@ -929,6 +1187,13 @@
       "descripcion": "Si el aliado cae, estalla y hiere sin armadura a los enemigos pegados a él.",
       "mana": 6,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "libre"
       },
@@ -957,6 +1222,13 @@
       "descripcion": "Mientras dure, los enemigos a 2 casillas del lanzador tiemblan y atacan peor.",
       "mana": 7,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "sobreSi"
       },
@@ -991,6 +1263,13 @@
       "descripcion": "El aliado se hace un corte (sin armadura) y a cambio pega más fuerte el resto de la pelea.",
       "mana": 2,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "libre"
       },
@@ -1015,6 +1294,13 @@
       "descripcion": "Quita de una unidad todo lo que le echó la magia del otro bando.",
       "mana": 4,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "libre"
       },
@@ -1032,6 +1318,13 @@
       "descripcion": "Los aliados alrededor del lanzador se quitan lo que les echó el enemigo.",
       "mana": 6,
       "gremio": null,
+      "facciones": [
+        "templarios",
+        "no-muertos",
+        "imperio",
+        "elfos",
+        "orkos"
+      ],
       "entrega": {
         "tipo": "sobreSi"
       },

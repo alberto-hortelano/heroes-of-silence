@@ -18,11 +18,11 @@ import { previsionDe } from '../src/core/battle/prevision.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
-import { catalogoDeHechizos, hechizo } from '../src/core/magia/catalogo.js';
+import { catalogoDeHechizos, HECHIZOS_DEL_JUEGO, hechizo } from '../src/core/magia/catalogo.js';
 import { rinde } from '../src/core/magia/formato.js';
 import { createRng, type Rng } from '../src/core/rng.js';
-import { unidadDelJuego, unidadesDelJuego } from '../src/core/unidad/catalogo.js';
-import { hechizosDeUnidadesBlocker } from '../src/core/unidad/formato.js';
+import { UNIDADES, unidadDelJuego, unidadesDelJuego } from '../src/core/unidad/catalogo.js';
+import { hechizosDeUnidadesBlocker, poderDeUnidadBlocker } from '../src/core/unidad/formato.js';
 import { avanzarHasta } from './batalla-de-prueba.js';
 import { SANADOR } from './comun.js';
 import { delBorrador, unidadDeArena as unidad } from './pelea-de-arena.js';
@@ -146,5 +146,26 @@ describe('los poderes son hechizos de la unidad (Unidad.hechizos, 06-11-2026)', 
     expect(hechizosDeUnidadesBlocker([{ ...monje, hechizos: ['cure'] }], cat)).toMatch(
       /«porPoder» no sumaría nada/,
     );
+  });
+
+  it('un poder de otra facción no vale: el monje templario con el Zombi pegajoso (08-11-2026)', () => {
+    const monje = unidad('templario-monje');
+    const zombi = hechizo('zombi_pegajoso');
+    expect(poderDeUnidadBlocker(monje, hechizo('curar'))).toBeNull();
+    expect(poderDeUnidadBlocker(monje, zombi)).toEqual({
+      motivo: '«Zombi pegajoso» no es de su facción (Templarios): es de No muertos',
+      corto: 'de otra facción',
+    });
+    // Uno que crece con el poder lo dice antes que la facción: es lo primero que hay que arreglar.
+    const cure = poderDeUnidadBlocker({ faction: 'orkos' }, hechizo('cure'));
+    expect(cure?.motivo).toMatch(/«porPoder»/);
+    expect(cure?.corto).toBe('crece con el poder');
+    // Lo mismo dice la carga, con la unidad delante.
+    const cat = catalogoDeHechizos([hechizo('curar'), zombi]);
+    expect(hechizosDeUnidadesBlocker([{ ...monje, hechizos: ['zombi_pegajoso'] }], cat)).toBe(
+      'la unidad «Monje»: «Zombi pegajoso» no es de su facción (Templarios): es de No muertos',
+    );
+    // Y el catálogo del juego carga: nadie lleva un poder ajeno.
+    expect(hechizosDeUnidadesBlocker(UNIDADES, HECHIZOS_DEL_JUEGO)).toBeNull();
   });
 });

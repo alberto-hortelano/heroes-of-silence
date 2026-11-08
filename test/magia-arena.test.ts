@@ -22,11 +22,13 @@ import {
   conCampo,
   conEfecto,
   conEntrega,
+  conFaccion,
   copiaDe,
   hechizoNuevo,
 } from '../src/core/magia/editar.js';
 import { problemasDelHechizo } from '../src/core/magia/validar.js';
 import { createRng } from '../src/core/rng.js';
+import { FACTION_IDS } from '../src/core/types.js';
 import { escribirCatalogo, leerCatalogo } from '../tools/arena/borrador.js';
 import { carpetaDeLaArena, catalogoEntero } from './pelea-de-arena.js';
 
@@ -39,6 +41,34 @@ describe('editar un hechizo (core/magia/editar.ts)', () => {
     expect(c.id).not.toBe(h.id);
     expect(c.nombre).not.toBe(h.nombre);
     expect(problemasDelHechizo(c)).toEqual([]);
+  });
+
+  it('uno nuevo nace de las cinco facciones, y la copia conserva las suyas (08-11-2026)', () => {
+    const lista = todosLosHechizos();
+    expect(hechizoNuevo(lista).facciones).toEqual(FACTION_IDS);
+    const copia = copiaDe(hechizo('curar'), lista);
+    expect(copia.facciones).toEqual(['templarios']);
+    expect(problemasDelHechizo(copia)).toEqual([]);
+  });
+
+  it('marcar y desmarcar una facción: en su orden, puede vaciarse y no mueve la clave', () => {
+    const h = hechizo('haste');
+    const sinElfos = conFaccion(h, 'elfos', false);
+    expect(sinElfos.facciones).toEqual(['templarios', 'no-muertos', 'imperio', 'orkos']);
+    // Volver a marcarla la pone en su sitio, no al final: el mismo JSON, sin «•» falso.
+    expect(JSON.stringify(conFaccion(sinElfos, 'elfos', true))).toBe(JSON.stringify(h));
+    // Marcada dos veces no se repite.
+    expect(conFaccion(h, 'orkos', true).facciones).toEqual(FACTION_IDS);
+    // Vaciarla se deja (el editor pasa por estados a medias) y lo dice la validación.
+    const vacia = FACTION_IDS.reduce((x, f) => conFaccion(x, f, false), h);
+    expect(vacia.facciones).toEqual([]);
+    expect(problemasDelHechizo(vacia)).toEqual([
+      '«Prisa»: facciones está vacía: un hechizo es de una facción o de varias',
+    ]);
+    // Desde vacía, lo que se marca, en el orden de FACTION_IDS y no en el de los clics.
+    const dos = conFaccion(conFaccion(vacia, 'orkos', true), 'templarios', true);
+    expect(dos.facciones).toEqual(['templarios', 'orkos']);
+    expect(Object.keys(dos)).toEqual(Object.keys(h));
   });
 
   it('un campo por su ruta, también dentro de un disparador; undefined lo quita', () => {
@@ -129,6 +159,11 @@ describe('la arena pelea con los hechizos de la página', () => {
     expect(() =>
       montajeDeLaURL(montajeALaURL({ ...m, hechizos: [NUEVO, hechizo('haste')] })),
     ).toThrow(/trae el hechizo «Prisa» y no lo usa nadie/);
+    // Un hechizo sin facciones (los de la versión 21) no entra en silencio.
+    const { facciones: _fuera, ...sinFacciones } = NUEVO;
+    expect(() =>
+      montajeDeLaURL(montajeALaURL({ ...m, hechizos: [sinFacciones as typeof NUEVO] })),
+    ).toThrow(/falta «facciones»/);
   });
 });
 
@@ -163,6 +198,45 @@ describe('«Guardar» escribe data/hechizos.json', () => {
         hechizos: [...todosLosHechizos(), { ...NUEVO, mana: -1 }],
       }),
     ).toThrow(/no se guarda la magia:[\s\S]*el maná/);
+    expect(readFileSync(join(dir, 'data/hechizos.json'), 'utf8')).toBe(antes);
+  });
+
+  it('las facciones van al disco y vuelven; vacías no se guardan (08-11-2026)', () => {
+    dir = carpetaDeLaArena('arena-magia-');
+    const conElfos = todosLosHechizos().map((h) =>
+      h.id === 'haste' ? { ...h, facciones: ['elfos'] as const } : h,
+    );
+    escribirCatalogo(dir, {
+      unidades: catalogoEntero(),
+      piezas: EQUIPO_ESCRITO,
+      hechizos: conElfos,
+    });
+    expect(leerCatalogo(dir).hechizos.find((h) => h.id === 'haste')?.facciones).toEqual(['elfos']);
+
+    const antes = readFileSync(join(dir, 'data/hechizos.json'), 'utf8');
+    expect(() =>
+      escribirCatalogo(dir as string, {
+        unidades: catalogoEntero(),
+        piezas: EQUIPO_ESCRITO,
+        hechizos: todosLosHechizos().map((h) => (h.id === 'haste' ? { ...h, facciones: [] } : h)),
+      }),
+    ).toThrow(/no se guarda la magia:[\s\S]*facciones está vacía/);
+    expect(readFileSync(join(dir, 'data/hechizos.json'), 'utf8')).toBe(antes);
+  });
+
+  it('Curar sin los templarios no se guarda: es el poder del monje', () => {
+    dir = carpetaDeLaArena('arena-magia-');
+    const antes = readFileSync(join(dir, 'data/hechizos.json'), 'utf8');
+    expect(() =>
+      escribirCatalogo(dir as string, {
+        unidades: catalogoEntero(),
+        piezas: EQUIPO_ESCRITO,
+        // De los elfos y no de los templarios: vale como hechizo, pero ya no como poder del monje.
+        hechizos: todosLosHechizos().map((h) =>
+          h.id === 'curar' ? conFaccion(conFaccion(h, 'elfos', true), 'templarios', false) : h,
+        ),
+      }),
+    ).toThrow(/«Curar» no es de su facción \(Templarios\): es de Elfos/);
     expect(readFileSync(join(dir, 'data/hechizos.json'), 'utf8')).toBe(antes);
   });
 

@@ -62,7 +62,7 @@ import { LIDERAZGO } from '../src/core/hero/liderazgo.js';
 import { hechizo, hechizosDelGremio } from '../src/core/magia/catalogo.js';
 import { rinde } from '../src/core/magia/formato.js';
 import { createRng, type Rng } from '../src/core/rng.js';
-import { CREATURE_TRAITS } from '../src/core/types.js';
+import { CREATURE_TRAITS, FACTION_IDS } from '../src/core/types.js';
 import { UNIDADES as CATALOGO, cuerpoDe } from '../src/core/unidad/catalogo.js';
 import {
   armaDeCuerpoBlocker,
@@ -1074,7 +1074,7 @@ const MAGO: HeroeDeArena = {
   defensa: 1,
   poder: 3,
   conocimiento: 4,
-  hechizos: hechizosDelGremio(5).map((s) => s.id),
+  hechizos: hechizosDelGremio(5, FACTION_IDS).map((s) => s.id),
 };
 
 /** Juega la batalla entera con la IA en los dos bandos, como `autoResolve`. */
@@ -1218,7 +1218,7 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
     unidades: UNIDADES_DEL_ENLACE,
     // Todas las piezas que lleva lo montado, la tropa y los héroes.
     piezas: piezasDelMontaje(UNIDADES_DEL_ENLACE, [EQUIPO_BASE], EQUIPO_ESCRITO),
-    hechizos: hechizosDelGremio(5),
+    hechizos: hechizosDelGremio(5, FACTION_IDS),
     izquierda: {
       ia: false,
       puestos: [

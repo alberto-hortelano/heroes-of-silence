@@ -316,9 +316,14 @@ function renderLibroEnElCastillo(session: Session, heroe: Hero, town: Town): Htm
  * sabe qué nivel enseña qué.
  */
 function renderTownSpells(town: Town): Html {
+  if (mageGuildLevel(town) === 0) {
+    return html`<p class="cost">Sin gremio: construye uno para que tus héroes aprendan magia aquí.</p>`;
+  }
+  // Con gremio puede no enseñar nada: solo enseña los de la facción de la ciudad
+  // (08-11-2026, `hechizosDelGremio`).
   const hechizos = townSpells(town);
   if (hechizos.length === 0) {
-    return html`<p class="cost">Sin gremio: construye uno para que tus héroes aprendan magia aquí.</p>`;
+    return html`<p class="cost">Este gremio no enseña ningún hechizo de su facción.</p>`;
   }
   const filas = unir(hechizos.map((s) => filaHechizo(s, true)));
   return html`<h3>Enseña</h3><div class="stack-list">${filas}</div>

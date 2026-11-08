@@ -4,6 +4,8 @@
  * Cada frase dice dónde («efectos[0] (disparador): …»). Lo que no se juzga: si el
  * hechizo tiene sentido (un Berserker que hiere al aliado vale) ni su coste.
  */
+
+import { FACTION_IDS } from '../types.js';
 import {
   deLaListaBlocker,
   enteroBlocker,
@@ -46,6 +48,7 @@ const CAMPOS = [
   'descripcion',
   'mana',
   'gremio',
+  'facciones',
   'entrega',
   'objetivo',
   'area',
@@ -54,7 +57,16 @@ const CAMPOS = [
   'seAcabaSiMuere',
   'efectos',
 ] as const;
-const OBLIGATORIOS = ['id', 'nombre', 'descripcion', 'mana', 'gremio', 'entrega', 'efectos'];
+const OBLIGATORIOS = [
+  'id',
+  'nombre',
+  'descripcion',
+  'mana',
+  'gremio',
+  'facciones',
+  'entrega',
+  'efectos',
+];
 
 /** Junta un prefijo con cada problema de una lista. */
 function con(prefijo: string, problemas: readonly string[]): string[] {
@@ -79,6 +91,27 @@ function texto(v: unknown, campo: string, largo: number): string[] {
 
 function booleano(v: unknown, campo: string): string[] {
   return v === undefined || typeof v === 'boolean' ? [] : [`${campo} tiene que ser true o false`];
+}
+
+/**
+ * Lo que no vale de una lista de uno o varios de `valen`, sin repetir: la de lo
+ * que impide un efecto y la de las facciones de un hechizo. `vacia` es la frase
+ * de la lista sin nada.
+ */
+function problemasDeSubconjunto(
+  v: unknown,
+  valen: readonly string[],
+  campo: string,
+  vacia: string,
+): string[] {
+  const m = listaBlocker(v);
+  if (m !== null) return [`${campo} ${m}`];
+  const lista = v as readonly unknown[];
+  if (lista.length === 0) return [`${campo} ${vacia}`];
+  const out = lista.flatMap((x) => deLaLista(x, valen, campo));
+  const rep = repetidoEn(lista);
+  if (rep !== undefined) out.push(`${campo}: «${String(rep)}» va dos veces`);
+  return out;
 }
 
 /** Lo que no vale de una cantidad: un entero de 1 en adelante o `{ base, porPoder }`. */
@@ -223,16 +256,8 @@ function problemasDelEfecto(v: unknown, campo: string, dentro: boolean): string[
       if (v.valor === 0) out.push(`${aqui}.valor no puede ser 0: no haría nada`);
       return out;
     }
-    case 'impide': {
-      const m = listaBlocker(v.que);
-      if (m !== null) return [`${aqui}.que ${m}`];
-      const que = v.que as readonly unknown[];
-      if (que.length === 0) return [`${aqui}.que no impide nada`];
-      const out = que.flatMap((q) => deLaLista(q, IMPEDIBLES, `${aqui}.que`));
-      const rep = repetidoEn(que);
-      if (rep !== undefined) out.push(`${aqui}.que: «${String(rep)}» va dos veces`);
-      return out;
-    }
+    case 'impide':
+      return problemasDeSubconjunto(v.que, IMPEDIBLES, `${aqui}.que`, 'no impide nada');
     case 'escudo':
       return problemasDeCantidad(v.absorbe, `${aqui}.absorbe`);
     case 'disparador':
@@ -360,6 +385,20 @@ export function problemasDelHechizo(crudo: unknown, cual = 'el hechizo'): string
   out.push(...texto(h.descripcion, 'la descripción', LARGO_DE_LA_DESCRIPCION));
   out.push(...entero(h.mana, 0, MANA_MAXIMO, 'el maná'));
   if (h.gremio !== null) out.push(...entero(h.gremio, 1, GREMIO_MAXIMO, 'el gremio'));
+  // Con `in` y no `!== undefined`: un `"facciones": undefined` se dice como «no es
+  // una lista»; la clave ausente ya la dice `problemasDeObjeto` («falta»). Vacía no
+  // vale: un hechizo «de ninguna» no lo enseñaría ningún gremio ni lo usaría ninguna
+  // unidad (08-11-2026).
+  if ('facciones' in h) {
+    out.push(
+      ...problemasDeSubconjunto(
+        h.facciones,
+        FACTION_IDS,
+        'facciones',
+        'está vacía: un hechizo es de una facción o de varias',
+      ),
+    );
+  }
   out.push(...problemasDelAlcance(h));
   out.push(...problemasDeEfectos(h.efectos, 'efectos', false));
   const { dura, problemas } = problemasDeLaDuracion(h);

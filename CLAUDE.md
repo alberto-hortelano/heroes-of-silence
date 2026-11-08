@@ -321,6 +321,7 @@ Cada hecho tiene un sitio; la ruta, relativa a `src/core/` o `src/client/` (a `s
 | La regla de una pieza | `problemasDePieza`, `leerPiezas` (`equipo/pieza.ts`) |
 | Sumar una base | `resolverBases` (`equipo/pieza.ts`), privada: la única suma |
 | El equipo de una unidad | `equipoDeUnidadBlocker` (`unidad/formato.ts`); el del héroe, `EQUIPO_BASE` (`hero/cuerpo-del-heroe.ts`) |
+| Un poder de unidad (y de su facción) | `poderDeUnidadBlocker` (`unidad/formato.ts`); el gremio de una facción, `hechizosDelGremio` (`magia/catalogo.ts`) |
 | Lo de antes | no se lee: `validarUnidad` (`unidad/formato.ts`), `validarPieza` (`equipo/pieza.ts`) |
 | La escala de las cifras | `ESCALA_DE_CIFRAS`, `marchaALaEscala`, `radioALaEscala` (`core/escala.ts`) |
 
@@ -398,7 +399,7 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra». El detalle, con 
 | Carga | todo el que pega cuerpo a cuerpo carga en recta, +5 %/casilla, tope 5 | nuestra |
 | `fear` | ataque −2 durante 2 rondas (divergencia deliberada) | nuestra |
 | Victoria | perder la base elimina en el acto | nuestra |
-| Magia (hechizos) | un hechizo es datos: entrega, efectos y duración (`data/hechizos.json`) | nuestra |
+| Magia (hechizos) | un hechizo es datos: entrega, efectos, duración y facciones; el gremio y los poderes, solo de la suya | nuestra |
 | Infiltración | cada casilla de barrera cuesta el día entero; parado en ella, intocable | nuestra |
 | Guarnición y defensa | todo sitio guarda tropa; no se recoge sola; defiende el héroe con lo elegido | nuestra |
 | Ocupación | un sitio de dentro de una región es de quien la tenga; con tropa ajena, no rinde | nuestra |

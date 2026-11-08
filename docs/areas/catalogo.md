@@ -20,7 +20,7 @@ El detalle que vivía en `CLAUDE.md` hasta la fase Doc de la reorganización de 
 
 ### El catálogo de unidades (el juego y la arena)
 
-`data/unidades.json`, que importa solo `core/unidad/catalogo.ts` (lo vigila `invariantes-datos.test.ts`): `UNIDADES`, `unidad`, `unidadDelJuego`, `unidadesDelJuego`, `unidadesDeFaccion`, `unidadesDeMorada`, `hojaDeUnidad` (la hoja con que se pinta, `cuerpo.hoja`); el formato, `validarUnidad` y `validarCatalogo` (`core/unidad/formato.ts`); lo que el juego exige a los dos catálogos juntos (equipo base del héroe, unidades y moradas), `leerCatalogos`, que llaman la carga, «Guardar» y el editor de equipo; la forma de un id, `esIdDeUnidad` (`core/validar.ts`)
+`data/unidades.json`, que importa solo `core/unidad/catalogo.ts` (lo vigila `invariantes-datos.test.ts`): `UNIDADES`, `unidad`, `unidadDelJuego`, `unidadesDelJuego`, `unidadesDeFaccion`, `unidadesDeMorada`, `hojaDeUnidad` (la hoja con que se pinta, `cuerpo.hoja`); el formato, `validarUnidad` y `validarCatalogo` (`core/unidad/formato.ts`); lo que el juego exige a los dos catálogos juntos (equipo base del héroe, unidades y moradas), `leerCatalogos`, que llaman la carga, «Guardar» y el editor de equipo; la forma de un id, `esIdDeUnidad` (`core/validar.ts`). **Un poder de unidad** (08-11-2026, «Sí, se rechaza», decisión del usuario): `poderDeUnidadBlocker` (`core/unidad/formato.ts`), la única pregunta: que una unidad lo pueda usar (`problemasComoPoder`) y que sea de su facción (`Hechizo.facciones`); la leen la carga y «Guardar» (`hechizosDeUnidadesBlocker`, «la unidad «Monje»: «Zombi pegajoso» no es de su facción (Templarios): es de No muertos») y la ficha de la arena, que ofrece apagado lo que no vale
 
 ### Moradas: qué producen y qué cuestan
 

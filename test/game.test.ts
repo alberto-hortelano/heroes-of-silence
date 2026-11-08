@@ -22,7 +22,8 @@ import {
 } from '../src/core/hero/hero.js';
 import { umbral } from '../src/core/hero/rango.js';
 import { troopUnit } from '../src/core/hero/troop.js';
-import { hechizosDelGremio } from '../src/core/magia/catalogo.js';
+import { HECHIZOS_DEL_JUEGO, hechizo, hechizosDelGremio } from '../src/core/magia/catalogo.js';
+import type { Hechizo } from '../src/core/magia/formato.js';
 import { buildMap } from '../src/core/map/generar/construir.js';
 import { generateMapPlan } from '../src/core/map/generar/procedimental.js';
 import { validateMapPlan } from '../src/core/map/generar/validar.js';
@@ -72,6 +73,7 @@ import {
   buildBlocker,
   createTown,
   dwellings,
+  mageGuildLevel,
   type Town,
   townSpells,
 } from '../src/core/town/town.js';
@@ -1353,7 +1355,7 @@ describe('el gremio enseña (#2)', () => {
     // Los dos de nivel 3 existen en el catálogo y hoy no hay gremio que los
     // ofrezca, así que esta es la prueba de que `maxSpellLevel()` se lee: sin
     // Sabiduría quedan fuera, con Sabiduría entran.
-    const oferta = hechizosDelGremio(5);
+    const oferta = hechizosDelGremio(5, FACTION_IDS);
     const sinSabiduria = learnable({ spells: [], skills: {} }, oferta);
     expect(sinSabiduria).toContain('haste');
     expect(sinSabiduria).not.toContain('lightning_bolt');
@@ -1385,6 +1387,48 @@ describe('el gremio enseña (#2)', () => {
     expect([...nivel2].sort()).toEqual(['haste', 'magic_arrow', 'slow']);
     // No hay `mage_guild_3`, así que los de nivel 3 no los ofrece nadie.
     expect(nivel2).not.toContain('lightning_bolt');
+  });
+
+  it('el gremio de un pueblo enseña los de su facción (08-11-2026)', () => {
+    // `townSpells` pasa la facción del pueblo, no todas: con los datos de hoy los
+    // cinco del gremio son de las cinco, así que cada facción aprende lo mismo.
+    for (const f of FACTION_IDS) {
+      const pueblo = createTown(`t-${f}`, 'Prueba', f, { x: 0, y: 0 });
+      pueblo.buildings = [...pueblo.buildings, 'mage_guild_1', 'mage_guild_2'];
+      expect(townSpells(pueblo), f).toEqual(hechizosDelGremio(mageGuildLevel(pueblo), [f]));
+      expect(
+        townSpells(pueblo)
+          .map((s) => s.id)
+          .sort(),
+        f,
+      ).toEqual(['haste', 'magic_arrow', 'slow']);
+    }
+  });
+
+  it('un hechizo de gremio de una sola facción lo enseña solo el gremio de esa facción', () => {
+    // Con los datos de hoy no hay ninguno, así que se mete uno de los elfos en el
+    // catálogo del juego mientras dura el test: es lo que distingue que `townSpells`
+    // pase `town.faction` de que pase `null` (roto a mano, 08-11-2026: con `null`
+    // los orkos lo aprenderían y sale rojo).
+    const cat = HECHIZOS_DEL_JUEGO as Map<string, Hechizo>;
+    const elfico: Hechizo = {
+      ...hechizo('haste'),
+      id: 'elfico',
+      nombre: 'Élfico',
+      facciones: ['elfos'],
+    };
+    cat.set(elfico.id, elfico);
+    try {
+      const deLos = (f: FactionId): string[] => {
+        const pueblo = createTown(`t-${f}`, 'Prueba', f, { x: 0, y: 0 });
+        pueblo.buildings = [...pueblo.buildings, 'mage_guild_1'];
+        return townSpells(pueblo).map((s) => s.id);
+      };
+      expect(deLos('elfos')).toContain('elfico');
+      expect(deLos('orkos')).not.toContain('elfico');
+    } finally {
+      cat.delete(elfico.id);
+    }
   });
 
   it('un héroe recién contratado deja de estar condenado a no lanzar nada', () => {

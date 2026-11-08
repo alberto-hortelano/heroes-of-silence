@@ -126,6 +126,21 @@ describe('la clave de una ficha', () => {
       'class="ficha" data-clave-de-ficha="unidad:templario-monje"',
     );
   });
+
+  it('un poder de otra facción se ofrece apagado, con su motivo (08-11-2026)', () => {
+    const m = marcadoDe(
+      renderFicha(unidadDeArena('templario-monje'), false, enElMontaje(EQUIPO_DEL_JUEGO)),
+    );
+    expect(m).toContain(
+      '<option value="zombi_pegajoso" disabled title="«Zombi pegajoso» no es de su facción (Templarios): es de No muertos">Zombi pegajoso (de otra facción)</option>',
+    );
+    // El de la suya que crece con el poder sigue diciendo eso, no la facción.
+    expect(m).toMatch(
+      /<option value="cure" disabled title="[^"]*«porPoder»[^"]*">Curación \(crece con el poder\)<\/option>/,
+    );
+    // Y uno de las cinco que vale como poder, encendido.
+    expect(m).toContain('<option value="luz_cegadora">Luz cegadora</option>');
+  });
 });
 
 describe('recordar las abiertas', () => {

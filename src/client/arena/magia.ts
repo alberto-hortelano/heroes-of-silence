@@ -3,7 +3,8 @@
  * usuario: «Crear un editor de magia en la arena para que pueda crear hechizos»):
  * la lista de hechizos por su entrega y la ficha del elegido, con su descripción,
  * su coste, su entrega, a quién va, cuánto dura y sus efectos, la frase de lo que
- * hace y **todos sus problemas a la vez** (`problemasDelHechizo`).
+ * hace y **todos sus problemas a la vez** (`problemasDelHechizo`). Desde el
+ * 08-11-2026, también sus facciones: una casilla por cada una.
  *
  * Lo que se edita es la lista de la página (`PaginaDeMagia`): «Guardar» la escribe
  * en `data/hechizos.json` con todo lo demás, y en plena pelea cambia ya la de la
@@ -16,6 +17,7 @@ import {
   conCampo,
   conEfecto,
   conEntrega,
+  conFaccion,
   conTipoDeEfecto,
   copiaDe,
   hechizoNuevo,
@@ -41,6 +43,7 @@ import {
   VOCABULARIO_DE_LA_MAGIA as V,
 } from '@core/magia/formato.js';
 import { problemasDeLaLista, problemasDelHechizo } from '@core/magia/validar.js';
+import { esFaccion, FACTION_IDS, NOMBRE_DE_FACCION } from '@core/types.js';
 import { estaMarcado } from '../comun/campos.js';
 import { type Html, html, NADA, pintar, unir } from '../comun/html.js';
 import { nota } from '../views/notas.js';
@@ -117,6 +120,24 @@ function opcion(valor: string, texto: string, actual: string): Html {
 /** Una fila de la ficha: rótulo con su nota y el campo. */
 function fila(rotulo: string, ayuda: string, campo: Html): Html {
   return html`<label class="fila-magia"><span class="rotulo">${rotulo} ${nota(ayuda)}</span>${campo}</label>`;
+}
+
+/**
+ * La fila de las facciones: un grupo y no un `label` (`fila`), que no admite otros
+ * `label` dentro. Una casilla por facción, cada una con su `data-*`, la identidad
+ * con que `pintar` le guarda el foco.
+ */
+function filaDeFacciones(h: Hechizo): Html {
+  const rotulo = 'Facciones';
+  const ayuda =
+    'De qué facciones es. El gremio de una ciudad enseña solo los de su facción, y una unidad solo usa como poder los de la suya.';
+  const casillas = unir(
+    FACTION_IDS.map(
+      (f) =>
+        html`<label class="rasgo"><input type="checkbox" data-magia-faccion="${f}"${h.facciones.includes(f) ? html` checked` : NADA}> ${NOMBRE_DE_FACCION[f]}</label>`,
+    ),
+  );
+  return html`<div class="fila-magia" role="group" aria-label="${rotulo}"><span class="rotulo">${rotulo} ${nota(ayuda)}</span><span class="facciones">${casillas}</span></div>`;
 }
 
 function campoDeTexto(ruta: string, valor: string, largo = false): Html {
@@ -299,6 +320,7 @@ function fichaDe(h: Hechizo, p: PaginaDeMagia, problemas: readonly string[]): Ht
     ${fila('Descripción', 'El campo para describirlo: lo leen quien juega y el agente.', campoDeTexto('descripcion', h.descripcion, true))}
     ${fila('Maná', 'Lo que cuesta al héroe, puesto a mano. Una unidad que lo usa como poder no paga.', campoEntero('mana', h.mana, 0, 99))}
     ${fila('Gremio', 'El nivel del gremio de magia que lo enseña en la partida; «ninguno», solo la arena y los poderes.', desplegable('gremio', 'enteroONulo', h.gremio === null ? '' : String(h.gremio), [['', 'ninguno'], ...Array.from({ length: GREMIO_MAXIMO }, (_, i) => [String(i + 1), `nivel ${i + 1}`] as const)]))}
+    ${filaDeFacciones(h)}
     <h3>Alcance</h3>
     ${fila('Entrega', V.entregas[e.tipo], html`<select data-magia-entrega>${unir(ENTREGAS.map((t) => opcion(t, NOMBRE_DE_ENTREGA[t], e.tipo)))}</select>`)}
     ${conCasillas ? fila('Casillas', 'Hasta cuántas casillas de quien lo lanza (en el proyectil, vacío: sin tope).', html`<input type="number" data-magia-ruta="entrega.casillas" data-magia-como="enteroOVacio" value="${e.casillas ?? ''}" min="1" max="12" step="1">`) : NADA}
@@ -405,6 +427,13 @@ export function montarEditorDeMagia(
     if (anadir !== null) {
       if (valor === '') return;
       cambiarElElegido((h) => conEfecto(h, anadir, valor as TipoDeEfecto));
+      return;
+    }
+    const faccion = t.getAttribute('data-magia-faccion');
+    if (faccion !== null) {
+      if (!esFaccion(faccion))
+        throw new Error(`la casilla de la facción «${faccion}» no es de ninguna`);
+      cambiarElElegido((h) => conFaccion(h, faccion, estaMarcado(t)));
       return;
     }
     const impide = t.getAttribute('data-magia-impide');

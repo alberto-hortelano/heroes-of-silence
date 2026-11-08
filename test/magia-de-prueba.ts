@@ -14,7 +14,7 @@ import { catalogoDeHechizos } from '../src/core/magia/catalogo.js';
 import type { Hechizo } from '../src/core/magia/formato.js';
 import { problemasDelHechizo } from '../src/core/magia/validar.js';
 import { createRng, type Rng } from '../src/core/rng.js';
-import type { Hex } from '../src/core/types.js';
+import { FACTION_IDS, type Hex } from '../src/core/types.js';
 import { bando, mando } from './batalla-de-prueba.js';
 
 /** Un hechizo de prueba: lo que se le dé encima de uno libre a un enemigo que hiere 10. */
@@ -28,6 +28,7 @@ export function de(
     descripcion: 'de prueba',
     mana: 1,
     gremio: null,
+    facciones: [...FACTION_IDS],
     entrega: { tipo: 'libre' },
     objetivo: 'enemigo',
     efectos: [{ tipo: 'danio', cantidad: 10, armadura: true }],

@@ -616,6 +616,8 @@ canvas.figura { background: var(--fondo-figura); border: 1px solid var(--borde-t
 #magia .fila-magia textarea, #magia .fila-magia input[type='text'] { width: 100%; box-sizing: border-box; }
 #magia .fila-magia input[type='number'] { width: 4.5rem; }
 #magia .cantidad input[type='number'] { width: 4rem; }
+/* Las casillas de las facciones, en fila: una por línea ocupaba cinco filas de la ficha. */
+#magia .facciones { display: flex; flex-wrap: wrap; gap: 0.15rem 0.9rem; }
 #magia .efecto { border: 1px solid var(--borde-tenue); background: var(--panel-alt); padding: 0.35rem 0.5rem; margin: 0.35rem 0; }
 #magia .cabecera-efecto { display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.25rem; }
 #magia .cabecera-efecto button { margin-left: auto; }
