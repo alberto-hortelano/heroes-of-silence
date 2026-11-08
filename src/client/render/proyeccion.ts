@@ -85,7 +85,7 @@ export const ANCHO_DEL_COMBATE_EN_MOVIL = 860;
  * muralla (`alzadoDeLaMuralla`)—; sin él, el de siempre. La base no lo pasa: su
  * escala es la de una batalla sin muralla.
  */
-export function escalaDelCombate(
+function escalaDelCombate(
   ancho: number,
   alto: number,
   alzado = 0,

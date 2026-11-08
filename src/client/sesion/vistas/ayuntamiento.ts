@@ -20,10 +20,10 @@ import type { Town } from '@core/town/town.js';
 import type { Army, FactionId, PlayerId } from '@core/types.js';
 
 /** El sitio de la base ante el que se eligen los héroes. */
-export const SITIO_DEL_AYUNTAMIENTO: SitioId = 'hall';
+const SITIO_DEL_AYUNTAMIENTO: SitioId = 'hall';
 
 /** Una figura de la fila: un tipo de héroe. */
-export interface FiguraDelAyuntamiento {
+interface FiguraDelAyuntamiento {
   /** El id del tipo: para su compás y para `canvas[data-ayuntamiento]`. */
   readonly id: string;
   /** El nombre del tipo: lo que dice la barra al señalarlo. */

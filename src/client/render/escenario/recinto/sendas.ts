@@ -371,7 +371,7 @@ export function pasoPorElArco(
 }
 
 /** Un recinto como lo mira quien anda de casilla en casilla: su 3 × 3 y el paso por el arco de cada puerta (sin la del río). */
-export interface ArcosDeUnRecinto {
+interface ArcosDeUnRecinto {
   readonly rect: Rect;
   readonly porElArco: readonly PasoPorElArco[];
 }
@@ -382,7 +382,7 @@ export interface ArcosDeUnRecinto {
  * (la línea de la ruta, en su centro; el héroe, a sus pies); y de qué casilla
  * del camino es, por su índice.
  */
-export interface PuntoDeLaTraza {
+interface PuntoDeLaTraza {
   readonly en: Par | null;
   readonly paso: number;
 }

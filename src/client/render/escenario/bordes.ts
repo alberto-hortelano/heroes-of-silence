@@ -331,7 +331,7 @@ export function caraDeOtroMaterial<C extends Pick<Celda, 'vx' | 'vy' | 'desde' |
 }
 
 /** Cada cuánto, en casillas, se mira si una masa tapa una pared (`paredesTapadasPorLaMasa`). */
-export const PASO_DE_LA_PARED_TAPADA = 0.1;
+const PASO_DE_LA_PARED_TAPADA = 0.1;
 
 /**
  * Una pared del desnivel (frontal, ladera o diagonal): una pieza con su fila

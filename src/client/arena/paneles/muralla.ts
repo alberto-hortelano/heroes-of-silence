@@ -26,7 +26,7 @@ const NOMBRE_DE_HERRAMIENTA: Readonly<Record<HerramientaDeMuralla, string>> = {
 };
 
 /** Lo que el editor de la muralla necesita: la que se dibuja y las formas a mano. */
-export interface EditorDeMuralla {
+interface EditorDeMuralla {
   readonly muralla: MurallaDeBatalla;
   readonly herramienta: HerramientaDeMuralla;
   /** El nombre con el que se guardaría: el de la forma cargada o lo escrito. */

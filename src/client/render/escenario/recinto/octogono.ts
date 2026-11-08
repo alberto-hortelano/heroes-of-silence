@@ -95,7 +95,7 @@ export const PX_POR_CASILLA_DEL_PUEBLO = 364 / ANCHO_DEL_PUEBLO;
  * lados (`pintarPlazas`): la muralla se apoya en tierra de la ciudad, no en el
  * suelo de fuera, y por ahí la tapa.
  */
-export const PLAZA_FUERA = 0.12;
+const PLAZA_FUERA = 0.12;
 
 /**
  * Lo que la plaza pasa, como mucho, del pie de las caras de delante del
@@ -203,7 +203,7 @@ export const MARCO_DEL_EJE: Readonly<Record<EjeDelRecinto, { u: Par; v: Par }>> 
 export const HOJA_DEL_RECINTO = 'recinto';
 
 /** Los ejes con tramo liso en la hoja `recinto`: el este y el oeste van con la tirada de norte a sur. */
-export type EjeConTramo = Exclude<EjeDelRecinto, 'e-o'>;
+type EjeConTramo = Exclude<EjeDelRecinto, 'e-o'>;
 
 /** La puerta de cada eje (`puerta-n-s`…) y el tramo liso de los demás (`tramo-n-s`, `tramo-ne-so`). */
 export const puertaDelEje = (eje: EjeDelRecinto) => `puerta-${eje}` as const;
@@ -254,7 +254,7 @@ const DENTRO_DEL_BORDE = 0.02;
 export const CARA_DEL_RECINTO = (LADO_DEL_RECINTO - 2 * DENTRO_DEL_BORDE) * (Math.SQRT2 - 1);
 
 /** Lo que se corta cada esquina del cuadrado, por cada lado: (lado − cara) / 2 (0,867). */
-export const CHAFLAN = (LADO_DEL_RECINTO - 2 * DENTRO_DEL_BORDE - CARA_DEL_RECINTO) / 2;
+const CHAFLAN = (LADO_DEL_RECINTO - 2 * DENTRO_DEL_BORDE - CARA_DEL_RECINTO) / 2;
 
 /**
  * La luz del arco de una puerta, en casillas: la senda mide 0,32

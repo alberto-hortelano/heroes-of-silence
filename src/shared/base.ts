@@ -277,7 +277,7 @@ export function disposicionDe(faccion: FactionId): Disposicion {
 const CACHE = new Map<FactionId, Disposicion>();
 
 /** Cuántos tramos de la plaza de una base sirven de fondo a la escena de un lugar. */
-export const TRAMOS_DE_UN_LUGAR = 2;
+const TRAMOS_DE_UN_LUGAR = 2;
 
 /**
  * La disposición del fondo de la escena de un lugar de un mundo (F1a del mapa

@@ -39,7 +39,7 @@ export const CARA_DE_SUELO: Readonly<Record<Suelo, string>> = {
  * El nivel de altura de cada casilla. Las paredes que salen de él las da el
  * relieve por celdas (`celdas.ts`, R4): una por vértice y umbral, de junta a junta.
  */
-export interface Relieve {
+interface Relieve {
   readonly nivel: Int8Array;
 }
 

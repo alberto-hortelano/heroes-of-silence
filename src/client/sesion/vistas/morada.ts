@@ -32,7 +32,7 @@ import { hojaDeUnidad, unidadDelJuego, unidadesDeMorada } from '@core/unidad/cat
 import { indiceDePoder, nivelDeUnidad } from '@core/unidad/nivel.js';
 
 /** Una figura de la fila: una unidad de la morada. */
-export interface FiguraDeLaMorada {
+interface FiguraDeLaMorada {
   /** El id de la unidad: para su compás y para `canvas[data-morada]`. */
   readonly id: string;
   readonly nombre: string;

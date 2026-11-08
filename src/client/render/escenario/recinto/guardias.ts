@@ -64,7 +64,7 @@ export function arcosTapados(
 }
 
 /** Lo que el cruce de una senda con el anillo puede apartarse del medio del arco: media luz y la holgura de las rampas. */
-export const HOLGURA_DEL_ARCO = LUZ_DEL_ARCO / 2 + 0.06;
+const HOLGURA_DEL_ARCO = LUZ_DEL_ARCO / 2 + 0.06;
 
 /**
  * Los cruces de las sendas pintadas con el octógono de un recinto que no caen en
@@ -119,7 +119,7 @@ const NOMBRE_DE_LA_CARA: Readonly<Record<Cara, string>> = {
 };
 
 /** Un recinto tal como lo mira `puertasSinSuCamino`: lo pintado y lo del núcleo. */
-export interface PuertasPintadas {
+interface PuertasPintadas {
   readonly id: string;
   readonly contorno: Contorno;
   /** Las caras de las puertas que se pintaron (`Recinto.arcos`). */

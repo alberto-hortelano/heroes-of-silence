@@ -18,7 +18,7 @@ import { filaDeCifra, filasDeCombate, motivoDelRechazo } from '../../views/cifra
 import { modificadoresEnPantalla, nota } from '../../views/notas.js';
 
 /** Lo que dice un botón de elegir: «heroe» o el puesto en la tropa. */
-export function claveDeQuien(q: { readonly heroe: true } | { readonly indice: number }): string {
+function claveDeQuien(q: { readonly heroe: true } | { readonly indice: number }): string {
   return 'heroe' in q ? 'heroe' : String(q.indice);
 }
 

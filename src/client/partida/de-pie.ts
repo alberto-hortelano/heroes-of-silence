@@ -37,7 +37,7 @@ export interface VistaDePie {
 }
 
 /** Lo que la escena lee del encuadre: la cámara y dónde pisa cada figura, en el orden de la vista. */
-export interface EncuadreDePie {
+interface EncuadreDePie {
   readonly camara: Tablero;
   readonly en: readonly Plano[];
 }

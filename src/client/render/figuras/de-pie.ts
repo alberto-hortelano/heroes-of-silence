@@ -70,7 +70,7 @@ export interface FiguraEnLaEscena {
 export type CajaEn = (en: Plano) => CajaDeFigura;
 
 /** De atrás adelante: el orden en que se pintan (y, al revés, en que se pulsan). */
-export function deAtrasAdelante(figuras: readonly FiguraEnLaEscena[]): number[] {
+function deAtrasAdelante(figuras: readonly FiguraEnLaEscena[]): number[] {
   return figuras.map((_, i) => i).sort((a, b) => figuras[a]!.en.y - figuras[b]!.en.y || a - b);
 }
 

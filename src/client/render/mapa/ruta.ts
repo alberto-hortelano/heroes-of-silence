@@ -61,7 +61,7 @@ export interface PasoDeRuta {
 export const COLOR_EMBOSCADA = '#d8332a';
 
 /** Cómo se pinta un paso: el destino y la parada de hoy van más grandes. */
-export interface PasoPintado extends PasoDeRuta {
+interface PasoPintado extends PasoDeRuta {
   readonly marca: 'destino' | 'parada' | 'paso';
 }
 

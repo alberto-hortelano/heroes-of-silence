@@ -58,7 +58,7 @@ function tarjetaDeUnidad(t: TarjetaDeUnidad, modo: ModoDelCatalogo): Html {
  * Una hoja a medias no se ofrece (#140), y las criaturas del catálogo del juego no
  * entran en la arena (13-10-2026).
  */
-export interface CuerpoDeLaNueva {
+interface CuerpoDeLaNueva {
   readonly id: string;
   readonly nombre: string;
 }
@@ -131,7 +131,7 @@ function renderNuevaUnidad(cuerpos: readonly CuerpoDeLaNueva[]): Html {
  * Para qué se enseña la lista: en el montaje, cada tarjeta se añade a un bando;
  * en la vista de edición, abre su ficha (`abiertas`: las que ya lo están).
  */
-export type ModoDelCatalogo =
+type ModoDelCatalogo =
   | { readonly kind: 'montaje' }
   | {
       readonly kind: 'edicion';

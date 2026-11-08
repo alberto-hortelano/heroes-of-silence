@@ -98,7 +98,7 @@ export function enElMontaje(piezas: EquipoAtado, hechizos?: readonly Hechizo[]):
  * Lo que dice la ficha al pie en el editor de la batalla: a quién alcanza el
  * cambio y qué pasa con lo gastado (`retocarEnBatalla`).
  */
-export const CAMBIO_EN_COMBATE =
+const CAMBIO_EN_COMBATE =
   'En plena pelea: el cambio vale ya para todas las de este tipo en el campo, de los dos bandos, y para la pelea siguiente. Lo gastado sigue gastado: la herida y el maná que ya se fueron se restan de las cifras nuevas (subir la vida no cura). La velocidad nueva cuenta en el orden desde la ronda siguiente y la moral no cambia. La figura del héroe solo se cambia en el montaje.';
 
 /**

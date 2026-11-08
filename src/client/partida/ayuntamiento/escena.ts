@@ -20,7 +20,7 @@ import { type DePie, EscenaDePie } from '../de-pie.js';
 import { anteUnEdificio, type FondoDeLaMorada } from '../morada/escena.js';
 
 /** Lo que va detrás de la fila: la base con la cámara del ayuntamiento. */
-export type FondoDelAyuntamiento = FondoDeLaMorada<VistaDelAyuntamiento>;
+type FondoDelAyuntamiento = FondoDeLaMorada<VistaDelAyuntamiento>;
 
 function delAyuntamiento(
   fondo: FondoDelAyuntamiento,

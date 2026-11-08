@@ -86,7 +86,7 @@ export const ESCALERA = { ancho: 0.34, largo: 2.2 } as const;
 export const CARPETA_DE_LA_MURALLA = 'batalla/muralla';
 
 /** Las piezas de un material: su cara, su tapa y la portada abierta y cerrada. */
-export interface PiezasDeUnMaterial {
+interface PiezasDeUnMaterial {
   readonly cara: string;
   readonly tapa: string;
   readonly abierta: string;

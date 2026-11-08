@@ -15,7 +15,7 @@ import { unaVezEnLaURL } from '@core/validar.js';
 export type ParametroDelCombate = 'tropa' | 'rueda' | 'solo-heroe';
 
 /** Lo que pide una URL: `null` en lo que no pide (el de siempre). */
-export interface CombateDeLaURL {
+interface CombateDeLaURL {
   readonly tope: number | null;
   readonly rueda: TiposDeLaRueda | null;
   readonly soloHeroe: boolean;

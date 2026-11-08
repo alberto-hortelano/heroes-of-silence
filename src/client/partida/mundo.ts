@@ -79,7 +79,7 @@ export async function cargarElMundoPedido(
  * Por qué no se juega un mundo sin el banco de figuras de NPC: sus personas nombran
  * figuras del banco y se validan contra él. Sin `?mundo=`, la partida sí se juega.
  */
-export function mundoSinBanco(id: string, motivo: string): string {
+function mundoSinBanco(id: string, motivo: string): string {
   return `el mundo "${id}" no se puede jugar: no se pudo cargar el banco de figuras de NPC (${motivo}), y las personas del mundo llevan figuras de ese banco. Sin «?mundo=» la partida se juega, con la gente en el Y Bot`;
 }
 

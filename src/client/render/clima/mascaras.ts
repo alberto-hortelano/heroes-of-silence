@@ -33,7 +33,7 @@ const AMPLITUD_DEL_FRENTE = 1.4;
 const BLANDURA_DEL_FRENTE = 4;
 
 /** La región del clima bajo un punto del mundo (casillas con decimales), o −1 fuera. */
-export type RegionEnElFrente = (x: number, y: number) => number;
+type RegionEnElFrente = (x: number, y: number) => number;
 
 type Terreno = MapaDeRed['terrain'];
 
@@ -99,12 +99,12 @@ export function casillaDelRayo(
 }
 
 /** Dónde llueve con una lluvia: una casilla de máscara por byte (1, llueve), o `null` si llueve en todo el mapa. */
-export interface DondeLlueve {
+interface DondeLlueve {
   readonly lluvia: Lluvia;
   readonly dentro: Uint8Array | null;
 }
 
-export interface MascarasDelMapa {
+interface MascarasDelMapa {
   /** Píxeles por casilla de las máscaras, y su tamaño. */
   readonly px: number;
   readonly ancho: number;

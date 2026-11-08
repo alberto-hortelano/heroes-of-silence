@@ -12,7 +12,7 @@
 import { COMPRESION_SUELO, MIRADAS, type Mirada, type Plano } from '../../../shared/arte.js';
 
 /** Los ocho sectores, en el sentido contrario a las agujas desde el este: las `MIRADAS` del contrato visual. */
-export const DIRECCIONES = MIRADAS;
+const DIRECCIONES = MIRADAS;
 export type Direccion = Mirada;
 
 /**

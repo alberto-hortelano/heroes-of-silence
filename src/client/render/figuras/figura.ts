@@ -417,7 +417,7 @@ export function pintarFigura(ctx: CanvasRenderingContext2D, c: FiguraColocada): 
 }
 
 /** La celda de una figura con arte, lista para copiarla: la misma que pinta `pintarFigura`. */
-export interface CeldaDeLaFigura {
+interface CeldaDeLaFigura {
   /** El lienzo guardado de la celda (`celdaEnPantalla`), de `w` píxeles de lado. */
   readonly fuente: HTMLCanvasElement;
   readonly w: number;

@@ -48,7 +48,7 @@ import { equipoPuestoDe, unidadDelJuego } from '@core/unidad/catalogo.js';
 import { indiceDePoder, nivelDeUnidad } from '@core/unidad/nivel.js';
 
 /** Uno de la formación, en el orden del ejército: el héroe primero. */
-export interface FiguraDeLaTropa {
+interface FiguraDeLaTropa {
   readonly quien: Portador;
   /** Su stack en la batalla de la formación (`stackDelPortador`), y `canvas[data-tropa]` del elegido. */
   readonly id: string;
@@ -72,7 +72,7 @@ export interface HuecoDeLaFicha {
 }
 
 /** Una pieza de la mochila del héroe, con el motivo para no ponérsela al elegido o `null`. */
-export interface PiezaDeLaMochila {
+interface PiezaDeLaMochila {
   readonly pieza: Pieza;
   readonly poner: string | null;
   /**

@@ -115,7 +115,7 @@ export const COLOR_DE_BAJADA = '#3fb8d8';
  * Hasta qué caída hay arte de diagonales y bajadas: la 3 y las mayores llevan
  * la pieza de 2 estirada en alto (decisión del usuario, 07-10-2026).
  */
-export const caidaDeArte = (caida: number): 1 | 2 => (caida <= 1 ? 1 : 2);
+const caidaDeArte = (caida: number): 1 | 2 => (caida <= 1 ? 1 : 2);
 
 /** Lo que se estira en alto una pieza de `caidaDeArte` puesta en una caída mayor. */
 const estiramiento = (caida: number) => Math.max(1, caida / caidaDeArte(caida));

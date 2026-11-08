@@ -30,7 +30,7 @@ import { type Html, html, unir } from '../../comun/html.js';
  * escudo partido rompe la guardia, la espada ataca y la balanza no se inclina. Un
  * fusionado no tiene icono propio: lleva los de sus partes (`icono`).
  */
-export const ICONO: Readonly<Record<TipoDelAnillo | 'normal', readonly string[]>> = {
+const ICONO: Readonly<Record<TipoDelAnillo | 'normal', readonly string[]>> = {
   rapido: ['M13.5 2 5 13.5h6L9.5 22 19 9.5h-6.2z'],
   defensivo: [
     'M12 2.5 4.5 5.5v5.8c0 4.6 3.1 8.4 7.5 10.2 4.4-1.8 7.5-5.6 7.5-10.2V5.5z',
@@ -52,7 +52,7 @@ export const ICONO: Readonly<Record<TipoDelAnillo | 'normal', readonly string[]>
 };
 
 /** Los trazos de un tipo, en la caja de 24: los suyos o, en un fusionado, los de sus partes. */
-export function trazosDe(tipo: TipoDeGolpe): Html {
+function trazosDe(tipo: TipoDeGolpe): Html {
   const partes = PARTES[tipo];
   const caminos = (t: TipoDelAnillo | 'normal'): Html =>
     unir(ICONO[t].map((d) => html`<path d="${d}"/>`));
@@ -101,8 +101,8 @@ export function xy(r: number, grados: number): string {
 }
 
 /** Radios del anillo, en la caja de −110 a 110. */
-export const DENTRO = 45;
-export const FUERA = 100;
+const DENTRO = 45;
+const FUERA = 100;
 export const BORDE = 104;
 /** El radio del círculo de Normal: el que se pinta, el que se tiñe y el que recibe el clic. */
 export const RADIO_DEL_CENTRO = DENTRO - 4;
@@ -112,7 +112,7 @@ export const SITIO_DEL_ROTULO = 73;
 /** Lo que mide de lado la caja de la rueda, de −110 a 110. */
 export const LADO_DE_LA_CAJA = 220;
 /** Medio sector de `forma`, menos la junta entre dos. */
-export function medioSector(forma: FormaDeLaRueda): number {
+function medioSector(forma: FormaDeLaRueda): number {
   return anchoDelSector(forma) / 2 - 1.2;
 }
 
@@ -160,7 +160,7 @@ export function radios(forma: FormaDeLaRueda): Html {
  * fila (`filasDeLaRueda`): su nivel (el tinte, `data-nivel`), lo que da entero (su
  * `<title>`) y en pocas letras (lo que se lee en el sector).
  */
-export type TipoEnLaFicha = Pick<FilaDeLaRueda, 'tipo' | 'nivel' | 'final' | 'corto'>;
+type TipoEnLaFicha = Pick<FilaDeLaRueda, 'tipo' | 'nivel' | 'final' | 'corto'>;
 
 /**
  * La rueda de un arma en su ficha, solo para leer (18-10-2026, decisión del

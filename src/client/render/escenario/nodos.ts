@@ -235,7 +235,7 @@ export interface PasoALaVista {
  * bosque y la montaña están aunque ya no tengan pieza (#196, #203): su paso es
  * justo ese hueco.
  */
-export const BARRERAS_CON_PASO_A_LA_VISTA: readonly Barrera[] = ['wall', 'mountain', 'forest'];
+const BARRERAS_CON_PASO_A_LA_VISTA: readonly Barrera[] = ['wall', 'mountain', 'forest'];
 
 /**
  * Los nodos de paso que tienen que verse, con su eje (`BARRERAS_CON_PASO_A_LA_VISTA`):

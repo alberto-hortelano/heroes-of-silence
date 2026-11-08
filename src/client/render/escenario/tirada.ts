@@ -32,7 +32,7 @@ export interface ModuloDeTirada {
 }
 
 /** Una pieza de una tirada: su pie (`y`, el de su ancla) y su x (la del medio de la imagen). */
-export interface PiezaDeTirada {
+interface PiezaDeTirada {
   readonly x: number;
   readonly y: number;
 }

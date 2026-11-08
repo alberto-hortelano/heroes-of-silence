@@ -790,7 +790,7 @@ export function torresObligadas(pasos: readonly Paso[]): Casilla[] {
 }
 
 /** Las esquinas de una línea que juntan dos tramos o más: una punta no es junta. */
-export function juntasDe(pasos: readonly Paso[]): Casilla[] {
+function juntasDe(pasos: readonly Paso[]): Casilla[] {
   const grado = new Map<string, number>();
   for (const p of pasos)
     for (const c of [p.a, p.b]) grado.set(clave(c), (grado.get(clave(c)) ?? 0) + 1);

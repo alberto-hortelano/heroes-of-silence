@@ -26,7 +26,7 @@ const CADA_MS = 1500;
  * elige en la base (22-10-2026) el menú no lo pregunta, y el mundo nuevo lleva el
  * de por defecto de la facción (`mundoNuevo`), pagado como todo héroe.
  */
-export interface AlElegirMundo {
+interface AlElegirMundo {
   readonly faccion: FactionId;
   /** Juega el procedimental de siempre con esta facción (el héroe, en la base). */
   readonly sinHistoria: () => void;

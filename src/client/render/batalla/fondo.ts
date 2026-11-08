@@ -26,7 +26,7 @@ let fondo: {
 } | null = null;
 
 /** Lo que mira el fondo del campo: el tamaño del lienzo y dónde cae su horizonte, en píxeles. */
-export interface LienzoDelCampo {
+interface LienzoDelCampo {
   readonly ancho: number;
   readonly alto: number;
   readonly horizonte: number;

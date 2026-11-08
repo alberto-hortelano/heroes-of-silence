@@ -43,7 +43,7 @@ export interface MapaDeEscena {
 }
 
 /** Una mancha interior tiene a lo sumo este tamaño; lo que pasa de ahí es frontera. */
-export const MANCHA_MAXIMA = 6;
+const MANCHA_MAXIMA = 6;
 
 export interface Franja {
   readonly id: number;

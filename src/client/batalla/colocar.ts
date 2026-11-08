@@ -101,7 +101,7 @@ export type ClicAlColocar =
   | { readonly kind: 'nada' };
 
 /** Lo que el tablero pinta mientras se coloca: la zona del elegido en verde y su aro. */
-export function vistaAlColocar(c: ColocacionEnPantalla): {
+function vistaAlColocar(c: ColocacionEnPantalla): {
   readonly movibles: readonly Hex[];
   readonly activo: string | null;
 } {
@@ -110,7 +110,7 @@ export function vistaAlColocar(c: ColocacionEnPantalla): {
 }
 
 /** Lo que cambia de una escena a otra al pintar el tablero mientras se coloca. */
-export interface TableroAlColocar {
+interface TableroAlColocar {
   /** Lo que se ve: en la batalla, `batallaALaVista`; en la tropa, la batalla de la formación. */
   readonly battle: BattleState;
   readonly tablero: Tablero;
@@ -186,7 +186,7 @@ export function clicAlColocar(
 }
 
 /** Lo que dice la barra con el puntero encima: lo que haría el clic. */
-export function dichoAlColocar(c: ColocacionEnPantalla, clic: ClicAlColocar): string | null {
+function dichoAlColocar(c: ColocacionEnPantalla, clic: ClicAlColocar): string | null {
   switch (clic.kind) {
     case 'colocar':
       return c.dichoDeColocar(clic.at);

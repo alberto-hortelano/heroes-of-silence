@@ -61,7 +61,7 @@ export interface VistaMapa {
   readonly regions: readonly MapRegion[];
 }
 
-export interface VistaJugador {
+interface VistaJugador {
   readonly id: PlayerId;
   readonly faction: FactionId;
   /** Su oro, el único recurso. */
@@ -98,7 +98,7 @@ export interface VistaHeroe {
   readonly equipo: readonly string[];
 }
 
-export interface VistaPueblo {
+interface VistaPueblo {
   readonly id: string;
   /** De quién es (`dueñoDeLaCiudad`): el de su objeto en el muro, el de su región dentro. */
   readonly owner: PlayerId | null;
@@ -119,7 +119,7 @@ export interface VistaPueblo {
  * partida), si está en el muro y quién lo ocupa (`ocupanteDe`). Lo leen su mapa
  * (la bandera y la marca de la ocupación) y sus paneles (tarea 2, 05-11-2026).
  */
-export interface VistaSitio {
+interface VistaSitio {
   readonly id: string;
   readonly at: Point;
   readonly owner: PlayerId | null;
@@ -169,7 +169,7 @@ export type VeteraniaEnCable = Pick<Veterania, 'id' | 'experiencia' | 'equipo'>;
  * tal cual si la trae: es un par de números, y así la vuelta sigue siendo la
  * inversa exacta.
  */
-export type OrigenEnCable =
+type OrigenEnCable =
   | {
       readonly kind: 'catalogo';
       readonly unidad: string;

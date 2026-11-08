@@ -69,7 +69,7 @@ const AL_LADO_EN_UN_LUGAR = 1;
  * mira al llegar: a su izquierda, mirando al este, salvo que el borde no le deje
  * sitio; entonces a su derecha, mirando al oeste.
  */
-export function dondeHablarEnElLugar(d: Disposicion, en: Plano): { en: Plano; mira: Mirada } {
+function dondeHablarEnElLugar(d: Disposicion, en: Plano): { en: Plano; mira: Mirada } {
   const y = en.y + 0.05;
   const izq = alaFranja(d, { x: en.x - AL_LADO_EN_UN_LUGAR, y });
   if (en.x - izq.x >= AL_LADO_EN_UN_LUGAR * 0.9) return { en: izq, mira: 'E' };
@@ -80,7 +80,7 @@ export function dondeHablarEnElLugar(d: Disposicion, en: Plano): { en: Plano; mi
 const MOJON = { ancho: 0.42, alto: 0.62 } as const;
 
 /** Dónde está un punto en el escenario: su `x` de 0 a 1 entre los márgenes, un poco por delante del fondo. */
-export function dondeEstaElPunto(d: Disposicion, x: number): Plano {
+function dondeEstaElPunto(d: Disposicion, x: number): Plano {
   const margen = MARGEN_DE_LA_FRANJA + DENTRO_DEL_MARGEN;
   const px = margen + x * (d.ancho - 2 * margen);
   return alaFranja(d, { x: px, y: bordeDeAtras(d, px) + DELANTE_DEL_FONDO });

@@ -45,7 +45,7 @@ const COLOR_DE_BARRERA: Readonly<Record<Barrera, readonly [number, number, numbe
  * El color de la región `k`: tonos separados por el ángulo áureo, para que dos
  * índices seguidos —que suelen ser vecinas— no se parezcan.
  */
-export function colorDeRegion(k: number): readonly [number, number, number] {
+function colorDeRegion(k: number): readonly [number, number, number] {
   const h = (k * 137.508) % 360;
   // HSL → RGB con s = 0,75 y l = 0,55.
   const s = 0.75;
@@ -231,7 +231,7 @@ function dibujarCapa(ctx: CanvasRenderingContext2D, capa: Capa, cam: CamaraMapa)
   ctx.restore();
 }
 
-export interface DependenciasDeRegiones {
+interface DependenciasDeRegiones {
   readonly sesion: () => Session;
   readonly aventura: EscenaAventura;
   readonly herramientas: HTMLElement;

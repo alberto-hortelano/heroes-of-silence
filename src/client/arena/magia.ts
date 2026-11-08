@@ -45,7 +45,7 @@ import { type Html, html, NADA, pintar, unir } from '../comun/html.js';
 import { nota } from '../views/notas.js';
 
 /** Lo que la vista necesita de la página. */
-export interface PaginaDeMagia {
+interface PaginaDeMagia {
   /** Los hechizos de la página, guardados o no, en su orden. */
   hechizos(): readonly Hechizo[];
   /** Cambia la lista (y el elegido): la página la adopta, la pelea también y repinta. */

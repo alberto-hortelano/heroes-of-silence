@@ -18,7 +18,7 @@
  */
 
 /** Lo que una página pone en su bucle de dibujo. */
-export interface DibujoDeLaPagina {
+interface DibujoDeLaPagina {
   /** Pinta el fotograma de `ahora` y dice si hay que pedir otro: algo se sigue moviendo. */
   readonly pintar: (ahora: number) => boolean;
   /**

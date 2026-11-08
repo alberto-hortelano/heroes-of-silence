@@ -113,7 +113,7 @@ export function escenasDeDentro(sesion: () => Session, castillo: EscenaBase, lug
     },
   } as const;
 }
-export type EscenasDeDentro = ReturnType<typeof escenasDeDentro>;
+type EscenasDeDentro = ReturnType<typeof escenasDeDentro>;
 export type EscenaDeDentro = keyof EscenasDeDentro;
 /** Si la escena es una de dentro. */
 export const esDeDentro = (dentro: EscenasDeDentro, escena: string): escena is EscenaDeDentro =>

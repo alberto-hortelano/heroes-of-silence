@@ -68,7 +68,7 @@ export const DURACION = {
 export const IMPACTO = 0.55;
 
 /** Lo que vuela el proyectil de un disparo con suelta, de la suelta al impacto. */
-export const VUELO_MS = 340;
+const VUELO_MS = 340;
 /** Lo que se ve tras el impacto de un disparo con suelta: el temblor y la cifra. */
 const TRAS_EL_IMPACTO_MS = 280;
 
@@ -89,7 +89,7 @@ interface Reloj {
  * acaba `TRAS_EL_IMPACTO_MS` después del impacto. Sin ella, sale en 0 y el paso
  * dura `DURACION.shoot`, con el impacto en `IMPACTO`.
  */
-export function relojDelDisparo(body: string): Reloj {
+function relojDelDisparo(body: string): Reloj {
   const suelta = msDeSuelta(body);
   if (suelta === null) return { dura: DURACION.shoot, impacto: IMPACTO, suelta: 0 };
   const dura = suelta + VUELO_MS + TRAS_EL_IMPACTO_MS;
@@ -322,7 +322,7 @@ export function porElCamino(camino: readonly Plano[], t: number): Plano {
 }
 
 /** Lo alto que va la figura en la fracción `t` del camino: el mismo reparto que `porElCamino`. */
-export function alturaEnElCamino(alturas: readonly number[], t: number): number {
+function alturaEnElCamino(alturas: readonly number[], t: number): number {
   const tramos = alturas.length - 1;
   if (tramos <= 0) return alturas[0] ?? 0;
   const recorrido = Math.min(1, Math.max(0, t)) * tramos;
@@ -349,7 +349,7 @@ function largoDe(camino: readonly Plano[]): number {
  * si va corriendo (`vaCorriendo`). Antes eran 520 ms para cualquier tramo, de
  * una casilla o de seis.
  */
-export function duracionDelPaso(p: Paso): number {
+function duracionDelPaso(p: Paso): number {
   if (p.tipo !== 'move') return p.dura;
   return largoDe(p.camino) * msPorCasilla(p.body, p.corre === true ? 'charge' : 'walk', p.alto);
 }
@@ -361,7 +361,7 @@ export function duracionDelPaso(p: Paso): number {
  * caminando. La única lectura de las dos marcas: la leen la cola del animador y
  * lo que tarda una jugada.
  */
-export function vaCorriendo(e: BattleEvent & { kind: 'move' }): boolean {
+function vaCorriendo(e: BattleEvent & { kind: 'move' }): boolean {
   return e.charge === true || e.corre === true;
 }
 
@@ -515,7 +515,7 @@ function miradaDeSalida(s: BattleStack): Direccion {
  * (`apuntados`, `granadas`). Lo leen igual el tablero de la partida y la arena
  * (`EscenaBatalla`) y el del espectador (R4 de la reorganización, 07-11-2026).
  */
-export type LoQueCuentaElAnimador = Pick<
+type LoQueCuentaElAnimador = Pick<
   VistaBatalla,
   'figura' | 'activo' | 'efectos' | 'apuntados' | 'granadas'
 >;

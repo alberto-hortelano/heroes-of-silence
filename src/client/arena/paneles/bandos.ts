@@ -70,7 +70,7 @@ export function resumenDeCifras(u: Unidad, piezas: EquipoAtado): string {
  * casillas y rasgos. Sin tiros ni casillas que ocupa: en la arena no hay munición y toda
  * unidad ocupa una (13-10-2026).
  */
-export function resumenDeUnidad(u: UnitInfo): string {
+function resumenDeUnidad(u: UnitInfo): string {
   const rasgos = (u.traits ?? []).length === 0 ? '' : ` · ${rasgosDichos(u.traits)}`;
   // La armadura (#262), solo si la lleva: sin ella la línea es la de siempre.
   const armadura = armaduraDe(u) === 0 ? '' : ` · ${armaduraDe(u)} armadura`;

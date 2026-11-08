@@ -101,7 +101,7 @@ export const ARTE_RPG = {
  * al lado y lee `render/mapa/cofre.ts`. Todo lo demás del mapa lo pone el
  * escenógrafo (`cargarArteDeEscena`).
  */
-export const PIEZAS_DEL_MAPA = ['cofre'] as const;
+const PIEZAS_DEL_MAPA = ['cofre'] as const;
 
 export type PiezaDelMapa = (typeof PIEZAS_DEL_MAPA)[number];
 

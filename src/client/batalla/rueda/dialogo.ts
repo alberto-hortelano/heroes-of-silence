@@ -32,7 +32,7 @@ import {
 } from './rueda.js';
 
 /** Lo que la rueda pide de la sesión: la de la partida, la de la arena y la del espectador. */
-export interface SesionConRueda {
+interface SesionConRueda {
   readonly battle: BattleState | null;
   readonly ruedaPendiente: RuedaPendiente | null;
   /**
@@ -62,12 +62,12 @@ export const SOLO_MIRA: Omit<SesionConRueda, 'battle'> = {
 };
 
 /** Lo que la rueda pide de la escena de batalla (`EscenaBatalla`): si cuenta, y qué cruce. */
-export interface QuienCuentaElCruce {
+interface QuienCuentaElCruce {
   readonly ocupada: boolean;
   cruceEnCurso(): CruceEnCurso | null;
 }
 
-export interface OpcionesDeLaRueda {
+interface OpcionesDeLaRueda {
   /** La sesión de ahora, o `null` si no hay batalla. */
   readonly sesion: () => SesionConRueda | null;
   readonly escena: QuienCuentaElCruce;

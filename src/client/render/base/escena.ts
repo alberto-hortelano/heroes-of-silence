@@ -15,14 +15,14 @@ import type { FactionId, PlayerId } from '@core/types.js';
 import type { Mirada, Plano } from '../../../shared/arte.js';
 import { type Disposicion, planoDelCuadro } from '../../../shared/base.js';
 
-export interface EdificioEnLaBase {
+interface EdificioEnLaBase {
   readonly sitio: SitioId;
   /** El último eslabón construido en ese sitio. */
   readonly edificio: string;
   readonly nombre: string;
 }
 
-export interface PersonaEnLaBase {
+interface PersonaEnLaBase {
   readonly id: string;
   readonly nombre: string;
   readonly papel: string;

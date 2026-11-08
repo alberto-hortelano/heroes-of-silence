@@ -17,7 +17,7 @@
  */
 import type { Scene } from '../sesion/partida/comun.js';
 
-export type RepartoDelClic = 'mirar' | 'al-acabar' | 'nada' | 'gesto';
+type RepartoDelClic = 'mirar' | 'al-acabar' | 'nada' | 'gesto';
 
 /**
  * Los únicos botones de la partida que cuentan el segundo clic de un doble clic: los

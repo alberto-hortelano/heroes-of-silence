@@ -70,7 +70,7 @@ export function abrirFichaBlocker(
 }
 
 /** Lo que queda abierto tras un gesto, y lo que se le dice a quien lo hizo. */
-export interface Abiertas {
+interface Abiertas {
   readonly abiertas: readonly FichaEditable[];
   readonly aviso: string;
 }
@@ -118,7 +118,7 @@ export function focoTrasCerrar(antes: readonly FichaEditable[], clave: string): 
 }
 
 /** Lo que pliega o despliega la lista de la edición. */
-export type GestoDeLaLista = 'entrar' | 'abrir' | 'cerrar' | 'alternar';
+type GestoDeLaLista = 'entrar' | 'abrir' | 'cerrar' | 'alternar';
 
 /**
  * Si la lista de la edición va plegada tras `gesto`, con `abiertas` fichas

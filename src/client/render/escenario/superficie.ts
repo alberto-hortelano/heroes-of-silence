@@ -106,7 +106,7 @@ export const PX_DEL_ESBOZO = 60;
 export const BYTES_DEL_SUELO_BUENO = 126_000_000;
 
 /** A cuánto se pinta el suelo bueno en una pantalla (`resolucionDelSuelo`). */
-export interface ResolucionDelSuelo {
+interface ResolucionDelSuelo {
   /** Píxeles por casilla del suelo bueno. */
   readonly px: number;
   /** Los que pide la casilla del zoom máximo en esa pantalla: si pasan de `px`, el tope lo deja corto. */
@@ -235,7 +235,7 @@ let memo: { semilla: number; escenario: Escenario } | null = null;
 export const OVALO_BAJO_EL_ASIENTO = 0.45 * 0.4;
 
 /** Lo que lee `claveDeFigura` de la escena: se pide antes de tener el `Escenario` entero. */
-export type Profundidad = Pick<Escenario, 'escena' | 'cubiertas' | 'delanteDeParedes'>;
+type Profundidad = Pick<Escenario, 'escena' | 'cubiertas' | 'delanteDeParedes'>;
 
 /** Las obras del puesto de cada nodo (`Escenario.puestoDeNodo`), de los volúmenes de la escena. */
 function puestosDe(volumenes: readonly Volumen[]): Map<string, Record<MejoraDelPuesto, Obra>> {
@@ -578,7 +578,7 @@ export function topeDeAlejar(esc: Escenario, ancho: number, alto: number): numbe
 // ------------------------------------------------------------ el suelo
 
 /** La superficie del suelo, a `px` píxeles por casilla. */
-export interface SueloPintado {
+interface SueloPintado {
   readonly lienzo: Imagen;
   readonly px: number;
 }
@@ -595,7 +595,7 @@ export interface AvisosDelSuelo {
  * Un encargo de pintar el suelo: `hecho` se cumple tras la última superficie, o
  * falla con el motivo; `terminar` lo para, y entonces se cumple sin más.
  */
-export interface EncargoDelSuelo {
+interface EncargoDelSuelo {
   readonly hecho: Promise<void>;
   terminar(): void;
 }

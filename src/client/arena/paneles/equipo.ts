@@ -53,7 +53,7 @@ import { type FilaDeCifra, tablaDeCifras } from './ficha.js';
 export const LA_LLEVA_EL_HEROE = 'todo héroe (su equipo base)';
 
 /** Lo que la vista «Editar equipo» enseña: lo da `vista.ts`, con las piezas y el catálogo. */
-export interface VistaDeEquipo {
+interface VistaDeEquipo {
   /** El catálogo de equipo (`catalogoDeEquipo`), en su orden, resuelto y escrito. */
   readonly piezas: CatalogoDeEquipo;
   /** La pieza de la ficha, por su id, o `null`. */

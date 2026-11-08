@@ -55,7 +55,7 @@ export const DELANTE_DE_LA_PUERTA = 0.7;
  * figura con su aro (0,95 + 0,11): su cabeza no tapa el aro de la elegida (QA M2 de
  * la vuelta 2: a 0,3, el casco lo tapaba con una sola unidad).
  */
-export const DONDE_ESPERA = FONDO_DE_LA_FRANJA;
+const DONDE_ESPERA = FONDO_DE_LA_FRANJA;
 
 /** La hondura de la fila de los reclutas de la morada de `sitio`: delante de su puerta. */
 export function filaDeLosReclutas(d: Disposicion, sitio: SitioId): number {
@@ -75,7 +75,7 @@ export function dondeEsperaEnLaMorada(d: Disposicion, sitio: SitioId): Plano {
  * a la escala de la hoja, solo se veían el empedrado y el pie del hogar); la fila
  * de los reclutas, que va delante, cabe con ella.
  */
-export const ALTO_DE_LA_SALA = 2.2;
+const ALTO_DE_LA_SALA = 2.2;
 
 /**
  * El aire de la fila a cada lado de la vista, en pasos, desde el centro de la de

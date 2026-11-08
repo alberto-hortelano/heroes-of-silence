@@ -58,7 +58,7 @@ export function listaDelCampo(battle: BattleState, fila: (x: BattleStack) => Fil
  * campo» (`listaDelCampo`), en las tres páginas; el panel de la activa lo dice en su
  * fila (`filaADistancia`).
  */
-export function estadoADistancia(s: BattleStack): Html {
+function estadoADistancia(s: BattleStack): Html {
   const pastillas: Html[] = [];
   if (s.recargando > 0) {
     pastillas.push(

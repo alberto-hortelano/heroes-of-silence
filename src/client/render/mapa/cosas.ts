@@ -43,7 +43,7 @@ export const COLOR_DEL_COFRE = '#a8762c';
  * El rombo de un lugar de un mundo (F1a del mapa vivo), sin arte nuevo (P5): la
  * pieza del exterior va con el arte bajo demanda (F2), que la hornea en la escena.
  */
-export const COLOR_DEL_LUGAR = '#d8b25a';
+const COLOR_DEL_LUGAR = '#d8b25a';
 
 /**
  * Cuántas casillas fuera de la cámara se sigue pintando una figura: lo más ancho

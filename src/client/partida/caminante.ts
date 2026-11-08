@@ -40,7 +40,7 @@ interface Marcha {
 }
 
 /** Lo que distingue el paso de una escena: cuánto se anda y a qué ritmo va el clip de andar. */
-export interface PasoDelCaminante {
+interface PasoDelCaminante {
   /**
    * Cuánto más deprisa se anda que en una batalla, donde la zancada de la figura a su alto
    * casa con lo que avanza (`msPorCasilla`, como `anim.ts`).

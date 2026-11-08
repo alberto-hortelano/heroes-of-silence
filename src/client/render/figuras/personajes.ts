@@ -120,7 +120,7 @@ export const MIRADA_DE_PRESENTACION: Direccion = 'SE';
  * Una dirección tal como la trae su JSON, comprobada: las seis acciones de toda
  * figura y el disparo solo si lo pinta. `figuraDe` la completa.
  */
-export interface DireccionComprobada extends Omit<CharacterAtlas, 'clips'> {
+interface DireccionComprobada extends Omit<CharacterAtlas, 'clips'> {
   readonly clips: Readonly<Record<(typeof CLIPS_DE_FIGURA)[number], ClipInfo>> &
     Readonly<Partial<Record<(typeof CLIPS_OPCIONALES)[number], ClipInfo>>>;
   readonly altura: number;
@@ -290,7 +290,7 @@ function dePelea(arte: ArteQueSePinta, quien: string): ArteDeFigura {
 }
 
 /** Los juegos de armas con Y Bot en 8 direcciones: las claves de `atlas-8d.json`. */
-export type JuegoDelYBot = keyof typeof atlasDePoses.juegos;
+type JuegoDelYBot = keyof typeof atlasDePoses.juegos;
 
 /** El Y Bot de cada juego de armas, con sus 8 direcciones. */
 const YBOT: ReadonlyMap<string, ArteDeFigura> = new Map(

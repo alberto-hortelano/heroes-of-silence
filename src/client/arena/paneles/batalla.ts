@@ -31,7 +31,7 @@ import { filasDeArmas } from './ficha.js';
  * Lo que el panel de la batalla lee de la sesión: la sesión misma, sin copiar su forma;
  * lo de las dos páginas (`SesionDelPanel`) y lo de la arena.
  */
-export type VistaDeArena = SesionDelPanel &
+type VistaDeArena = SesionDelPanel &
   Pick<
     SesionDeArena,
     | 'batallaALaVista'
@@ -114,7 +114,7 @@ function delEquipo(u: UnitInfo, cuerpo: UnitInfo, cifra: CifraQueCambiaElEquipo)
  * arma (`filasDeArmas`, el panel); si no, el del cuerpo a cuerpo, que es el de
  * la rueda, en una fila y sin notas (el bocadillo no se puede señalar).
  */
-export function filasDelStack(
+function filasDelStack(
   s: Pick<VistaDeArena, 'batallaALaVista' | 'defensaEnLoAlto' | 'cuerpoDe'>,
   x: BattleStack,
   conArmas: boolean,
@@ -140,7 +140,7 @@ export function filasDelStack(
  * sesión. Lo que lleva colgado no va aquí: lo dice la cabecera de la rueda justo
  * al lado de su figura (`modificadoresEnCurso`, con lo que le queda en su nota).
  */
-export function vistaPrevia(s: VistaDeArena, x: BattleStack): Html {
+function vistaPrevia(s: VistaDeArena, x: BattleStack): Html {
   return html`<strong class="nombre-de-la-previa">${nombreEnElCampo(s.batallaALaVista, x)}</strong>
     ${filasDelStack(s, x, false)}
     <div class="row"><span class="label">Contraataque</span><span data-contraataco="${x.retaliated ? 'si' : 'no'}">${x.retaliated ? 'ya devolvió un golpe esta ronda' : 'aún puede devolver uno esta ronda'}</span></div>`;

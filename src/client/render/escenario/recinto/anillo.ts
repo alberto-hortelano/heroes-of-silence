@@ -119,7 +119,7 @@ export interface ModulosDelRecinto<M extends ModuloDelRecinto> {
   readonly casas: readonly M[];
 }
 
-export interface EntradaDeRecinto<M extends ModuloDelRecinto> {
+interface EntradaDeRecinto<M extends ModuloDelRecinto> {
   readonly id: string;
   readonly rect: Rect;
   readonly semilla: number;
@@ -167,7 +167,7 @@ const ULTIMA_FILA = 0.15;
  * la muralla, y en los chaflanes, que cortan las esquinas, la fila empieza más
  * adentro (`filaDelContorno`).
  */
-export const DENTRO_DE_LA_MURALLA = 0.15;
+const DENTRO_DE_LA_MURALLA = 0.15;
 
 /**
  * Lo mismo en los chaflanes: el muro en diagonal no tapa el pie de lo que tiene

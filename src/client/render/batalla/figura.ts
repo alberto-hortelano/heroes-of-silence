@@ -257,7 +257,7 @@ function pintarGalones(
 }
 
 /** Un rectángulo en píxeles del lienzo: lo que ocupa algo pintado. */
-export interface Caja {
+interface Caja {
   readonly x: number;
   readonly y: number;
   readonly ancho: number;
@@ -420,7 +420,7 @@ export function tapadasPorLaMuralla(
 }
 
 /** Una columna o portada que tapa a una figura: su clave y lo que ocupa en el lienzo. */
-export interface Tapa {
+interface Tapa {
   readonly clave: string;
   readonly silueta: readonly Punto[];
 }

@@ -26,7 +26,7 @@ export const SE_VE_EN_EL_PUESTO: Readonly<Record<MejoraDelPuesto, string>> = {
 };
 
 /** Cómo se dice una obra. */
-export interface DichoDeLaObra {
+interface DichoDeLaObra {
   /** Su nombre en una frase: «la empalizada». */
   readonly nombre: string;
   /** El botón que la hace, sin el precio. */

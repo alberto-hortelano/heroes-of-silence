@@ -73,7 +73,7 @@ export type SesionDelPanel = Pick<
  * (`partida/batalla/panel.ts`) y la arena (`arena/paneles/batalla.ts`). Las funciones,
  * porque lo que no se pinta no se pregunta: la rendición, sin turno propio.
  */
-export interface LoDeLaPagina {
+interface LoDeLaPagina {
   /**
    * El panel de la batalla terminada (`fin`): la partida, «Victoria» o «Derrota»; la
    * arena, quién gana y «Otra vez».
@@ -189,7 +189,7 @@ function fraseDeLaTanda(d: NonNullable<DespliegueEnPantalla['enCurso']>): string
  * `null`; `apagado`, el motivo para apagar los botones (la jugada que se cuenta);
  * `fila`, cómo dice cada página a cada uno en el campo.
  */
-export function renderDespliegue(
+function renderDespliegue(
   d: DespliegueEnPantalla,
   battle: BattleState,
   o: {
@@ -322,7 +322,7 @@ function filaADistancia(s: BattleStack): Html {
  * Ni el `castable` ni el motivo se deciden aquí — los da `spellOptions()` de la
  * sesión, la partida o la arena; `elegido` es el hechizo de su libro.
  */
-export function renderSpells(elegido: string | null, opciones: readonly SpellOption[]): Html {
+function renderSpells(elegido: string | null, opciones: readonly SpellOption[]): Html {
   if (opciones.length === 0) {
     return html`<h3>Hechizos</h3>
       <div class="stack-list"><div class="stack empty">Este héroe no conoce ninguno</div></div>`;

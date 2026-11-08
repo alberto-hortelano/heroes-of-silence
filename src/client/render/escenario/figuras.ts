@@ -157,7 +157,7 @@ export function delanteDeLasParedes(
  * Cuánto de la figura tapa una pared para que la casilla cuente como tapada
  * (`pisablesTapadas`): un cuarto de su caja.
  */
-export const TAPADA_DESDE = 0.25;
+const TAPADA_DESDE = 0.25;
 
 /**
  * Las casillas pisables cuya figura tapan en más de `TAPADA_DESDE` las piezas

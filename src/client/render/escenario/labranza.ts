@@ -52,7 +52,7 @@ export const PARCELAS: Readonly<Record<Cultivo, readonly string[]>> = {
 
 /** El atrezo de la labranza, por su módulo de `cubierta-dirt`. El resto (12-16), piedras y matas. */
 export const ATREZO = { cerca: '9', almiar: '10', carreta: '11' } as const;
-export type Atrezo = keyof typeof ATREZO;
+type Atrezo = keyof typeof ATREZO;
 
 /**
  * Los módulos de `cubierta-dirt` que no salen al azar del esparcido ni como

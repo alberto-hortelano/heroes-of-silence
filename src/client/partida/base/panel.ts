@@ -47,7 +47,7 @@ import type { Abierto } from './escena.js';
  * `views/panels.ts` hasta la fase C de la reorganización (07-11-2026), y así este
  * fichero no lo importaba de vuelta.
  */
-export interface PiezasDelCastillo {
+interface PiezasDelCastillo {
   readonly hechizos: Html;
   readonly armeria: Html;
   readonly contratar: Html;
@@ -122,7 +122,7 @@ function edificio(session: Session, town: Town, sitio: SitioId, piezas: PiezasDe
 }
 
 /** Lo que se abrió en la base, o nada. */
-export function renderAbierto(
+function renderAbierto(
   session: Session,
   town: Town,
   abierto: Abierto | null,

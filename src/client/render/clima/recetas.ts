@@ -24,7 +24,7 @@ export type Rgb = readonly [number, number, number];
 /** Un color con su opacidad: la bruma se pinta encima, hacia ese color. */
 export type Rgba = readonly [number, number, number, number];
 /** El cielo de detrás de la batalla, de arriba al horizonte. */
-export type Cielo = readonly [string, string, string];
+type Cielo = readonly [string, string, string];
 
 export interface Lluvia {
   /** Gotas por cada 10 000 px² (CSS) de pantalla. */
@@ -171,7 +171,7 @@ export const css = (c: Rgb | Rgba, alfa = (c as readonly number[])[3] ?? 1): str
  * 22-10-2026) y se sigan leyendo enteras. En el mapa el clima va encima de todo
  * lo que tiene altura, y la luz cae entera.
  */
-export const LUZ_EN_LAS_FIGURAS = 0.7;
+const LUZ_EN_LAS_FIGURAS = 0.7;
 
 const luzDeLasFigurasHecha = new Map<string, LuzSobreLaFigura | undefined>();
 

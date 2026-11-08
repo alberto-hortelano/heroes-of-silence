@@ -16,7 +16,7 @@ export interface Medida {
  * Cuántos píxeles de dispositivo se pintan como mucho en una caja de `medida` a
  * la densidad `dpr` de la pantalla, o `undefined` si todos los que tenga.
  */
-export type Presupuesto = (medida: Medida, dpr: number) => number | undefined;
+type Presupuesto = (medida: Medida, dpr: number) => number | undefined;
 
 interface Lienzo {
   readonly ctx: CanvasRenderingContext2D;

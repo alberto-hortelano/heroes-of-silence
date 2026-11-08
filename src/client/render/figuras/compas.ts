@@ -24,7 +24,7 @@ import { type ClipInfo, msDelClip } from './character.js';
  */
 export const RUIDO_DE_VELOCIDAD = 0.08;
 
-export interface Compas {
+interface Compas {
   /** Dónde arranca su ciclo, como fracción de él: de 0 (incluido) a 1 (excluido). */
   readonly desfase: number;
   /** Por cuánto se multiplica su reloj: de `1 − RUIDO` a `1 + RUIDO`. */

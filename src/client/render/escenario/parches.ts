@@ -34,7 +34,7 @@ export const RADIO_DEL_PARCHE = PASO_DEL_PARCHE;
  * Cuántos trozos distintos de cada textura: cada uno es una estampa que el
  * pintor tiene viva mientras pinta esa textura (a 120 px, 360² px, ~0,5 MB).
  */
-export const VARIANTES_POR_TEXTURA = 12;
+const VARIANTES_POR_TEXTURA = 12;
 
 /** Un trozo de la textura: lo que se ve en el centro del parche, y si va espejado. */
 export interface Variante {
@@ -44,7 +44,7 @@ export interface Variante {
   readonly espejo: boolean;
 }
 
-export interface Parche {
+interface Parche {
   /** Centro, en casillas. */
   readonly x: number;
   readonly y: number;

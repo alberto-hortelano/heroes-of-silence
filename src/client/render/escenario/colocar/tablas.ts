@@ -387,7 +387,7 @@ export const ENCOGER_LA_PARCELA = [1, 0.85, 0.7] as const;
  * fila al norte de un bosque); con 0,2, 45,9 %, y ya sin trigo bajo los pinos
  * de la s19.
  */
-export const MARGEN_BAJO_LA_COPA = 0.2;
+const MARGEN_BAJO_LA_COPA = 0.2;
 
 /**
  * Si la caja de una pieza se mete en la de un árbol de la masa de `sprites`
@@ -816,7 +816,7 @@ export const LADO_DEL_LUGAR = 0.5;
  * casillas de al lado llegan a los flancos del nodo y lo que queda libre es el
  * eje (`pasosALaVista`) y el hito: una garganta.
  */
-export const RADIO_DEL_PASO_SIN_PIEZA = 0.5;
+const RADIO_DEL_PASO_SIN_PIEZA = 0.5;
 
 /** Las barreras de masa cuyo nodo lleva hito y no pieza: su reserva es `RADIO_DEL_PASO_SIN_PIEZA`. */
 const PASOS_SIN_PIEZA: readonly Barrera[] = ['forest', 'mountain'];

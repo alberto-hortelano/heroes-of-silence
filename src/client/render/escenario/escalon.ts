@@ -48,7 +48,7 @@ import type { Senda } from './sendas.js';
 export const PX_DEL_ESCALON = 16;
 
 /** Lo que el escalón lee de la escena. */
-export interface Rejilla {
+interface Rejilla {
   readonly W: number;
   readonly H: number;
   readonly nivel: readonly number[];
@@ -173,7 +173,7 @@ export function desenfocar(
 }
 
 /** El nivel de cada punto del suelo, a `R` píxeles por casilla (`nivelPintado`). */
-export interface NivelPintado {
+interface NivelPintado {
   readonly ancho: number;
   readonly alto: number;
   readonly R: number;
@@ -195,7 +195,7 @@ const OCTAVAS_DE_LA_ORILLA: readonly (readonly [number, number])[] = [
 ];
 
 /** El nivel de cada punto, el de su casilla tal cual: sin orilla. */
-export function nivelPorCasilla(e: Rejilla, R = PX_DEL_ESCALON): NivelPintado {
+function nivelPorCasilla(e: Rejilla, R = PX_DEL_ESCALON): NivelPintado {
   const { W, H, nivel } = e;
   const ancho = W * R;
   const alto = H * R;
@@ -393,7 +393,7 @@ export function aguaEnLoAlto(
 const AGUA_SOBRE_LA_SENDA = 64;
 
 /** Las máscaras del agua que pinta el paso 4 del pintor. */
-export interface AguasDeLaEscena {
+interface AguasDeLaEscena {
   /** La orilla: una franja fina de barro al pie del agua. */
   readonly barro: Mascara;
   readonly agua: Mascara;
@@ -416,7 +416,7 @@ export interface AguasDeLaEscena {
  * borde: el barro, una franja fina al pie; lo que el agua deja en una casilla
  * alta lleva el suelo de esa casilla (`nivelPintado` y las fronteras).
  */
-export const ORILLA_DEL_AGUA = {
+const ORILLA_DEL_AGUA = {
   entra: 0.15,
   barro: 0.08,
   esquinas: 0.15,

@@ -28,7 +28,7 @@ import type { FiltroDeArena } from './paneles/lista.js';
 import type { HerramientaDeMuralla } from './paneles/muralla.js';
 
 /** Los elementos de la página (`index.html`) que se buscan al cargarla. */
-export interface ElementosDeLaArena {
+interface ElementosDeLaArena {
   readonly app: HTMLElement;
   readonly canvas: HTMLCanvasElement;
   readonly elLienzo: HTMLElement;

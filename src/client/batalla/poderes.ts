@@ -34,7 +34,7 @@ import type { MurallaDeLaActiva } from '../sesion/batalla/muralla.js';
 import { textoDePrevision } from './prevision.js';
 
 /** Lo que piden los botones de los poderes a la sesión: la de la partida y la de la arena. */
-export interface ControlDePoderes {
+interface ControlDePoderes {
   /** Lo que se ve de la batalla (`ControlDeBatalla.batallaALaVista`). */
   readonly batallaALaVista: BattleState | null;
   readonly apuntado: Apuntado | null;
@@ -51,7 +51,7 @@ export interface ControlDePoderes {
  * el `title`. `ayuda`, el `title` cuando se puede. `dato`, el atributo que dice
  * cuál (`data-escala="subir"`), que lee quien atiende el clic.
  */
-export function botonDeElegir(o: {
+function botonDeElegir(o: {
   readonly accion: string;
   readonly dato: Html;
   readonly clase: string;
@@ -127,7 +127,7 @@ function previsionDelUnico(s: ControlDePoderes, accion: BattleAction | undefined
 }
 
 /** Lo que pide el selector de arma a la sesión: el de la activa (`ArmaDeLaActiva`). */
-export interface ControlDeArma {
+interface ControlDeArma {
   readonly arma: {
     readonly modo: ModoDelArma;
     motivo(modo: ModoDelArma): string | null;
@@ -186,7 +186,7 @@ export function modoDelBoton(boton: Element): ModoDelArma {
 }
 
 /** Lo que piden los botones de la muralla a la sesión: su pieza común (`MurallaDeLaActiva`). */
-export interface ControlDeMuralla {
+interface ControlDeMuralla {
   readonly muralla: Pick<MurallaDeLaActiva, 'motivo' | 'porElegir'>;
 }
 

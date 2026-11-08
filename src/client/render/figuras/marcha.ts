@@ -98,7 +98,7 @@ export const PRISA_EN_EL_MAPA = 2;
  * caminando»): por qué tramo de su traza (del punto `tramo` al `tramo + 1`), cuánto
  * lleva de él (`t`, de 0 a 1), dónde pisa (`x`, `y`, en casillas) y hacia dónde mira.
  */
-export interface EnLaMarcha {
+interface EnLaMarcha {
   readonly tramo: number;
   readonly t: number;
   readonly x: number;

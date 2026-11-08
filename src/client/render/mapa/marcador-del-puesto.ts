@@ -60,7 +60,7 @@ const ANCHO_DEL_MARCADOR: Readonly<Record<MejoraDelPuesto, number>> = {
 };
 
 /** Lo que se ve de una obra, en casillas: de ancho y de su pie a lo alto. */
-export interface CajaDeObra {
+interface CajaDeObra {
   readonly ancho: number;
   readonly alto: number;
 }

@@ -21,7 +21,7 @@ import type { FactionId } from '@core/types.js';
  * colores de jugador y de bando, los de la vida, los aros y el terreno no
  * entran: son información, no decoración, y no cambian con el tema.
  */
-export interface TemaDelLienzo {
+interface TemaDelLienzo {
   /** Fondo (opaco) de las chapas: la cifra de un grupo y el nombre en la batalla. */
   readonly chapaFondo: string;
   readonly chapaBorde: string;

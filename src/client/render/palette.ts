@@ -32,7 +32,7 @@ export const COLOR_NEUTRO = '#cbb780';
 export const COLOR_SIN_DUEÑO = '#7d7364';
 
 /** Color de cada jugador, por índice. */
-export const PLAYER_COLORS = ['#d94f4f', '#4f7fd9', '#4fd97f', '#d9c14f'] as const;
+const PLAYER_COLORS = ['#d94f4f', '#4f7fd9', '#4fd97f', '#d9c14f'] as const;
 
 /**
  * El color de un jugador. `null` es «de nadie»: el gris de lo neutral.

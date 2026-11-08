@@ -19,7 +19,7 @@ export interface SitioOcupado {
  * ocupa. Es la forma del recuerdo de la niebla (`RememberedObject`) y la del cable
  * del espectador.
  */
-export interface ObjetoSabido {
+interface ObjetoSabido {
   readonly object: MapObject;
   readonly sitio?: {
     readonly dueño: PlayerId | null;

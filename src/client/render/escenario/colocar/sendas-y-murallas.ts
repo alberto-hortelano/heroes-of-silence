@@ -225,7 +225,7 @@ export function formasDeLosTableros(
  * casillas: algo más que la mitad del hueco entre dos columnas del perfil (32
  * por módulo, ~0,06 en una frontal de 2), para que no se cuele entre ellas.
  */
-export const MARGEN_DE_LA_PARED = 0.05;
+const MARGEN_DE_LA_PARED = 0.05;
 
 const MEDIDA_DE_LA_PARED: Medida = { radio: MARGEN_DE_LA_PARED, soloElPie: false };
 

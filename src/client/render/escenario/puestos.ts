@@ -55,7 +55,7 @@ export const PIEZA_DEL_PUESTO: Readonly<Record<MejoraDelPuesto, string>> = {
  * este, hacia arriba y hacia abajo. La caja de su imagen (`cajaDeSprite`), con el
  * margen transparente del recorte, como se mide todo lo de la escena.
  */
-export interface AlrededorDelPie {
+interface AlrededorDelPie {
   readonly oeste: number;
   readonly este: number;
   readonly arriba: number;
@@ -180,7 +180,7 @@ export function envolturaDelPuesto(id: string, pie: Punto, envoltura: AlrededorD
 }
 
 /** Un nodo al que se busca sitio para su puesto. */
-export interface NodoConPuesto {
+interface NodoConPuesto {
   readonly id: string;
   /** El punto desde el que se mide lo cerca: el centro de su casilla (en un puente, su tablero). */
   readonly centro: Punto;
