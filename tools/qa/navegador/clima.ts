@@ -49,6 +49,7 @@ import { RAIZ } from '../../comun/raiz.js';
 import { entornoDelArnes } from '../agente/partida-del-arnes.js';
 import { decidir } from '../agente/politica.js';
 import { arrancarServidor, type ServidorDePartida } from '../agente/servidor.js';
+import { urlDePartida } from './url-de-partida.js';
 
 const args = process.argv.slice(2);
 const CARPETA = resolve(args.find((a) => !a.startsWith('--')) ?? join(RAIZ, '.cache/clima'));
@@ -114,9 +115,14 @@ async function guardar(page: Page, nombre: string): Promise<Buffer> {
   return png;
 }
 
-/** La partida con `clima`, ya en su base. */
+/**
+ * La partida con `clima`, ya en su base y con el héroe de salida dentro: con
+ * `urlDePartida`, como `pnpm capturas`. Con `?seed=` solo, desde el 22-10-2026 la
+ * página abre ante el ayuntamiento eligiendo el héroe (`data-escena="ayuntamiento"`)
+ * y aquí se esperaba la base en vano (arreglado el 08-11-2026).
+ */
 async function abrirLaPartida(page: Page, url: string, clima: string): Promise<void> {
-  await page.goto(`${url}/?seed=${SEMILLA}&clima=${encodeURIComponent(clima)}`, {
+  await page.goto(`${url}${urlDePartida(SEMILLA)}&clima=${encodeURIComponent(clima)}`, {
     waitUntil: 'networkidle',
   });
   await page.waitForSelector('#app[data-escena="town"]', { timeout: 60_000 });
