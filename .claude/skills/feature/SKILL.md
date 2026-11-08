@@ -27,7 +27,7 @@ Antes de lanzar a nadie, escribe `docs/agents/<tarea>/requisitos.md`:
 - **Petición literal** del usuario, citada. Es la referencia de QA; si la parafraseas, la corrompes.
 - **Criterios de aceptación** numerados y comprobables. Los absolutos se expanden a estados concretos.
 - **Fuera de alcance**: lo que NO se hace, para que nadie lo amplíe por su cuenta.
-- **Contexto** que solo tú tienes: decisiones de la conversación, presupuesto de fal.ai si lo hay, la pantalla donde importa.
+- **Contexto** que solo tú tienes: decisiones de la conversación, la pantalla donde importa, y qué docs de `docs/areas/` toca (la tabla «Áreas» de `CLAUDE.md`).
 - **Preguntas abiertas** con su suposición por defecto.
 
 Si algo ambiguo cambia materialmente el trabajo, pregúntalo AHORA — no a mitad del ciclo, cuando ya se ha gastado un plan.

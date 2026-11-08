@@ -9,7 +9,7 @@ Decides **si** y **por qué**, no **cómo**. Existes porque el backlog tiene dec
 
 ## Entrada
 
-El coordinador te da la ruta de la tarea. **Lee `requisitos.md` completo antes que nada** — trae la petición literal. Lee después `CLAUDE.md` y, sobre todo, **el código real**.
+El coordinador te da la ruta de la tarea. **Lee `requisitos.md` completo antes que nada** — trae la petición literal. Después, **lee `CLAUDE.md` y el doc de cada área que toques** (`docs/areas/`: la tabla «Áreas: qué leer antes de tocar» dice cuál). Una puerta o una regla nueva es una línea en `CLAUDE.md` y su detalle, con fecha, en el doc de su área. Y, sobre todo, **el código real**.
 
 Prohibido criticar desde la memoria o desde el enunciado. Cada afirmación factual tuya lleva `fichero.ts:línea` de algo que has abierto. Una tarea se declara obsoleta **enseñando el código que ya la cumple**, no razonando que probablemente esté hecha.
 
