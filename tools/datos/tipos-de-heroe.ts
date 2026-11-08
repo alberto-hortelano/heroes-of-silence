@@ -11,7 +11,7 @@
  * caballeros y nigromantes, Imperio, Elfos y Orkos se extraen como las otras dos.
  *
  * `NuevaJugabilidad.md` **no se commitea**; el JSON sí, y es contra él contra
- * quien comprueba `data.ts`. Se corre a mano cuando el cuaderno cambie:
+ * quien comprueba `hero/tipos-de-heroe.ts`. Se corre a mano cuando el cuaderno cambie:
  *
  *   npx tsx tools/datos/tipos-de-heroe.ts [ruta de NuevaJugabilidad.md]
  *
@@ -22,16 +22,17 @@
  * cada test y no solo cuando alguien regenera el fichero.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import type { TipoDeHeroe } from '../../src/core/data.js';
+import { join, relative } from 'node:path';
+import type { TipoDeHeroe } from '../../src/core/hero/tipos-de-heroe.js';
 import { type FactionId, NOMBRE_DE_FACCION } from '../../src/core/types.js';
+import { textoJson } from '../comun/json.js';
+import { RAIZ } from '../comun/raiz.js';
 import { seccionDelCuaderno } from './cuaderno.js';
 
-const RAIZ = fileURLToPath(new URL('../../', import.meta.url));
 // El cuaderno vive en la copia principal del repo, sin commitear: desde un
 // worktree se le pasa la ruta (`npx tsx tools/datos/tipos-de-heroe.ts <ruta>`).
-const ORIGEN = process.argv[2] ?? `${RAIZ}NuevaJugabilidad.md`;
-const DESTINO = `${RAIZ}data/tipos-de-heroe.json`;
+const ORIGEN = process.argv[2] ?? join(RAIZ, 'NuevaJugabilidad.md');
+const DESTINO = join(RAIZ, 'data/tipos-de-heroe.json');
 
 /** La sección del cuaderno de cada facción del motor. Lo único tecleado. */
 /** El título de la sección de cada facción en el cuaderno: su nombre en el juego. */
@@ -41,7 +42,7 @@ const texto = readFileSync(ORIGEN, 'utf8');
 
 /**
  * El id de un tipo: lo que va antes del primer paréntesis, sin tildes, en
- * minúsculas y con guion bajo, como los ids de criatura (`bone_dragon`).
+ * minúsculas y con guion bajo.
  * «Monje (Abad)» → `monje`; «Caballero de la muerte» → `caballero_de_la_muerte`.
  */
 function idDe(nombre: string): string {
@@ -87,8 +88,8 @@ const json = {
     'GENERADO por tools/datos/tipos-de-heroe.ts a partir de las secciones «Templarios», «No muertos», «Imperio», «Elfos» y «Orkos» de NuevaJugabilidad.md (el cuaderno de diseño del usuario, que no se commitea), con una expresión regular y sin teclear ningún nombre. No se edita a mano: se regenera. id = lo que va antes del primer paréntesis, sin tildes y con guion bajo; nombre = sin «(nuevo)»; el primero de cada facción es el tipo por defecto: el del héroe inicial que nadie eligió (la partida rápida, la IA) y el del contratado. Los tipos todavía NO tienen efecto en las reglas (no hay motor de habilidades): se guardan en el héroe, se ven, se serializan y dan su figura (data/figuras-de-heroe.json).',
   tipos,
 };
-writeFileSync(DESTINO, `${JSON.stringify(json, null, 2)}\n`);
+writeFileSync(DESTINO, textoJson(json, 2));
 const cuenta = Object.entries(tipos)
   .map(([f, l]) => `${f} ${l.length}`)
   .join(', ');
-console.log(`tipos de héroe (${cuenta}) → ${DESTINO.slice(RAIZ.length)}`);
+console.log(`tipos de héroe (${cuenta}) → ${relative(RAIZ, DESTINO)}`);

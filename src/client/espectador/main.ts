@@ -1,16 +1,19 @@
 /**
  * El espectador: mira la partida del servidor y no juega.
  *
- * **No manda ni un intent, no aplica ni una regla y no importa `session.ts`**
- * (criterio 7). Solo abre el WebSocket, lee snapshots y pinta. Que no aplique
- * reglas lo vigila además `invariantes.test.ts`, que corre sobre `src/client`
- * entero: esta carpeta cae dentro y por eso vive aquí y no en otra parte.
+ * **No manda ni un intent, no aplica ni una regla y no carga nada de `sesion/`**
+ * (criterio 7), ni de lejos: lo vigila «las capas del cliente»
+ * (`invariantes-cliente.test.ts`, fase C de la reorganización, 07-11-2026). Solo abre
+ * el WebSocket, lee snapshots y pinta. Que no aplique reglas lo vigila además «el
+ * cliente no aplica reglas», que corre sobre `src/client` entero: esta carpeta cae
+ * dentro y por eso vive aquí y no en otra parte.
  *
- * Reutiliza sin copiar los lienzos de `render/`, el animador de batalla y la
- * crónica de `views/panels`. Lo único duplicado es el bucle de dibujo, y es más
- * corto que el del cliente que juega porque aquí no hay ratón ni sesión.
+ * Reutiliza sin copiar los lienzos de `render/`, el animador de batalla, la
+ * crónica (`views/cronica.ts`) y el bucle de dibujo (`comun/bucle.ts`); lo suyo es
+ * qué pinta cada fotograma y su red, más corta que la del cliente que juega porque
+ * aquí no hay ratón ni sesión.
  */
-import { SIN_CARGAS } from '@core/battle/battle.js';
+import { SIN_CARGAS } from '@core/battle/consultas.js';
 import { todosALaVista } from '@core/state/asaltantes.js';
 import {
   type ClimaDeLaPartida,
@@ -20,21 +23,24 @@ import {
   forzarClima,
   validarForzado,
 } from '@core/state/clima.js';
-import type { SpectatorSnapshotMsg } from '../../server/protocol.js';
-import type { SpectatorView } from '../../server/vista-espectador.js';
-import { avisoDelClima, climaDeLaURL } from '../clima-de-la-url.js';
-import { NADA } from '../html.js';
+import type { SpectatorSnapshotMsg, SpectatorView } from '../../shared/cable-del-espectador.js';
+import { mensajeDe } from '../../shared/errores.js';
+import { DialogoDeLaRueda, SOLO_MIRA } from '../batalla/rueda/dialogo.js';
+import { bucleDeDibujo } from '../comun/bucle.js';
+import { avisoDelClima, climaDeLaURL } from '../comun/clima-de-la-url.js';
+import { NADA } from '../comun/html.js';
 import { cargarArte } from '../render/assets.js';
-import { alzadoDeLaMuralla, bandosSinDueño, drawBatalla } from '../render/batalla.js';
-import { type CamaraMapa, centrarEn, TILE_LEGIBLE } from '../render/camara-mapa.js';
+import { bandosSinDueño } from '../render/batalla/bandos.js';
+import { alzadoDeLaMuralla } from '../render/batalla/muralla.js';
+import { drawBatalla } from '../render/batalla/tablero.js';
 import { apuntarElSueloEn, escenarioListo, topeDeAlejar } from '../render/escenario/superficie.js';
-import { hayFigurasAnimadas } from '../render/figura.js';
+import { hayFigurasAnimadas } from '../render/figuras/figura.js';
 import { ajustarLienzo, pixelesDe } from '../render/lienzo.js';
-import { type AdventureScene, drawMapa, presupuestoConHolgura } from '../render/mapa.js';
+import { type CamaraMapa, centrarEn, TILE_LEGIBLE } from '../render/mapa/camara.js';
+import { type AdventureScene, drawMapa, presupuestoConHolgura } from '../render/mapa/mapa.js';
 import { tableroPara } from '../render/proyeccion.js';
-import { DialogoDeLaRueda } from '../rueda/dialogo.js';
 import { pintarSiguiendoElFinal } from '../views/al-final.js';
-import { rotuloDeDia } from '../views/panels.js';
+import { rotuloDeDia } from '../views/notas.js';
 import { adaptarEscena, centroDeLaEscena, sitiosDelCable } from './adaptar.js';
 import { type FinDePartida, panelDelEspectador } from './paneles.js';
 import {
@@ -57,6 +63,13 @@ const elTurn = document.getElementById('turn') as HTMLElement;
 const elSide = document.getElementById('side') as HTMLElement;
 const elStatus = document.getElementById('status') as HTMLElement;
 const elSeed = document.getElementById('seed') as HTMLElement;
+
+/**
+ * El bucle de dibujo (`comun/bucle.ts`), con la red del espectador (`alFallarAlPintar`): el
+ * fallo se dice una vez y no se pide otro fotograma hasta que llegue algo por el cable. Va
+ * aquí arriba, como en la partida y la arena; lo que pinta, `dibujar`, más abajo.
+ */
+const pedirFotograma = bucleDeDibujo({ pintar: dibujar, alFallar: alFallarAlPintar });
 
 /**
  * El puerto del canal de espectadores, sin escribirlo a mano (criterio 20).
@@ -194,16 +207,6 @@ const mirada = new Mirada();
 /** Sin objetivos ni hexes atacables: el espectador no mueve nada. */
 const NINGUNO: ReadonlySet<string> = new Set();
 
-/** Lo que pone el espectador donde la rueda espera una sesión: no elige ni cancela. */
-const SOLO_MIRA = {
-  ruedaPendiente: null,
-  quienMira: null,
-  elegirEnLaRueda(): void {
-    throw new Error('el espectador no elige en la rueda: solo la mira');
-  },
-  cancelarGolpe: (): boolean => false,
-} as const;
-
 /**
  * La rueda del golpe, que aquí solo CUENTA (F6, 19-10-2026): mientras el
  * animador cuenta un cruce, su desenlace —el mismo diálogo de la partida y la
@@ -226,13 +229,6 @@ const rueda = new DialogoDeLaRueda(document.getElementById('rueda') as HTMLDialo
   pedirFotograma: () => pedirFotograma(),
 });
 
-let fotogramaPedido = false;
-function pedirFotograma(): void {
-  if (fotogramaPedido) return;
-  fotogramaPedido = true;
-  requestAnimationFrame(dibujar);
-}
-
 const principal = ajustarLienzo(canvas, pedirFotograma);
 const ctx = principal.ctx;
 
@@ -244,7 +240,30 @@ const ctx = principal.ctx;
 let fallandoAlPintar = false;
 
 /**
- * El bucle de dibujo, con red.
+ * Un fotograma del bucle (`pedirFotograma`): pone lo que haya llegado por el cable,
+ * lo pinta y dice si se pide otro. Mientras todo va bien, se repinta solo mientras
+ * algo se mueve: las figuras que respiran o la cola del animador.
+ */
+function dibujar(ahora: number): boolean {
+  // Lo que no es el último no se llega a ver en pantalla —no traía nada que
+  // contar, ver `paso`—, así que solo el último se adapta para pintar.
+  const llegado = mirada.reproductor.paso(ahora).at(-1);
+  if (llegado !== undefined) aplicar(llegado);
+  pintarTodo(ahora);
+  if (fallandoAlPintar) {
+    fallandoAlPintar = false;
+    decirQueSeMira();
+  }
+  // El telón también pide fotogramas: mientras retiene un final, el reloj que
+  // lo suelta solo avanza si alguien vuelve a mirar.
+  return (
+    mirada.reproductor.pendiente ||
+    (vista !== null && (hayFigurasAnimadas() || mirada.reproductor.animador.busy))
+  );
+}
+
+/**
+ * La red del bucle del espectador, cuando `dibujar` lanza.
  *
  * Este ciclo ha metido en el bucle tres funciones que **lanzan** —`pintar`,
  * `srcDeImagen` y `fondoDeColor`— donde antes solo había asignaciones a
@@ -256,43 +275,20 @@ let fallandoAlPintar = false;
  *
  * Dos decisiones, y las dos son de esta casa:
  *
- *  - el fallo **se dice**, con su motivo, en la barra. El `catch` no está vacío
- *    ni se traga nada;
+ *  - el fallo **se dice**, con su motivo, en la barra. No se traga nada;
  *  - y tras un fallo no se pide otro fotograma: se vuelve a intentar cuando
  *    llegue otro fotograma del servidor, en vez de repetir el mismo fallo
- *    sesenta veces por segundo. Mientras todo va bien, se repinta solo mientras
- *    algo se mueve: las figuras que respiran o la cola del animador.
+ *    sesenta veces por segundo.
  */
-function dibujar(ahora: number): void {
-  fotogramaPedido = false;
-  try {
-    // Lo que no es el último no se llega a ver en pantalla —no traía nada que
-    // contar, ver `paso`—, así que solo el último se adapta para pintar.
-    const llegado = mirada.reproductor.paso(ahora).at(-1);
-    if (llegado !== undefined) aplicar(llegado);
-    pintarTodo(ahora);
-    if (fallandoAlPintar) {
-      fallandoAlPintar = false;
-      decirQueSeMira();
-    }
-    // El telón también pide fotogramas: mientras retiene un final, el reloj que
-    // lo suelta solo avanza si alguien vuelve a mirar.
-    if (
-      mirada.reproductor.pendiente ||
-      (vista !== null && (hayFigurasAnimadas() || mirada.reproductor.animador.busy))
-    ) {
-      pedirFotograma();
-    }
-  } catch (err) {
-    const motivo = err instanceof Error ? err.message : String(err);
-    if (!fallandoAlPintar) {
-      console.error('[espectador] fallo al pintar', err);
-      fallandoAlPintar = true;
-      elStatus.textContent =
-        `No se ha podido pintar este fotograma: ${motivo}. ` +
-        'Se sigue escuchando; el siguiente que llegue vuelve a intentarlo.';
-    }
+function alFallarAlPintar(motivo: unknown): boolean {
+  if (!fallandoAlPintar) {
+    console.error('[espectador] fallo al pintar', motivo);
+    fallandoAlPintar = true;
+    elStatus.textContent =
+      `No se ha podido pintar este fotograma: ${mensajeDe(motivo)}. ` +
+      'Se sigue escuchando; el siguiente que llegue vuelve a intentarlo.';
   }
+  return false;
 }
 
 /**
@@ -352,16 +348,15 @@ function pintarTodo(ahora: number): void {
         hoverHex: null,
         hoverStack: null,
         puntero: null,
-        figura: (s) => mirada.reproductor.animador.figura(s),
-        activo: mirada.reproductor.animador.activo(enCurso),
+        // Lo que cuenta el animador, el mismo de la partida: quién está dónde, quién
+        // actúa, lo que vuela y lo apuntado de cada tirador, que pinta el tablero.
+        ...mirada.reproductor.animador.loQueCuenta(enCurso),
         // Los dos del cruce que se cuenta, con su aro (#261), como en la partida.
         enLaRueda: mirada.reproductor.animador.losDelCruce(),
-        efectos: mirada.reproductor.animador.efectos(enCurso),
         sinDueño: bandosSinDueño(mirada.reproductor.dueños),
         clima: { sitio: climaDelTablero(vista), ahora },
-        // Lo apuntado de cada tirador lo pinta el tablero; tantear, nadie.
+        // Tantear, nadie.
         tanteo: null,
-        ...mirada.reproductor.animador.aDistancia(enCurso),
         granadaTanteada: null,
       });
       apuntarLoQueSePinta(true);
@@ -509,7 +504,7 @@ function aplicar(snapshot: SpectatorSnapshotMsg): void {
     nueva = adaptarEscena(snapshot.view);
     nuevos = sitiosDelCable(snapshot.view, nueva.map.objects);
   } catch (err) {
-    const motivo = err instanceof Error ? err.message : String(err);
+    const motivo = mensajeDe(err);
     console.error('[espectador] fotograma del cable que no se entiende', err);
     ilegible = motivo;
     decirQueSeMira();
@@ -606,10 +601,10 @@ function abrir(url: string, intento: { readonly n: number; readonly caida: Caida
     try {
       msg = JSON.parse(String(ev.data));
     } catch (err) {
-      elStatus.textContent = `Llegó algo que no es JSON: ${err instanceof Error ? err.message : String(err)}`;
+      elStatus.textContent = `Llegó algo que no es JSON: ${mensajeDe(err)}`;
       return;
     }
-    // Lo único que se valida en ejecución, tal y como dice `vista-espectador.ts`:
+    // Lo único que se valida en ejecución, tal y como dice `cable-del-espectador.ts`:
     // el resto del formato lo garantiza `tsc` en los dos extremos. Lo que no
     // encaje se dice, no se ignora.
     if (
@@ -624,7 +619,7 @@ function abrir(url: string, intento: { readonly n: number; readonly caida: Caida
     try {
       partida = partidaDelMensaje(msg);
     } catch (err) {
-      elStatus.textContent = `No se puede mirar ${url}: ${err instanceof Error ? err.message : String(err)}.`;
+      elStatus.textContent = `No se puede mirar ${url}: ${mensajeDe(err)}.`;
       return;
     }
     // Se reconoce AL LLEGAR y no al poner: lo que está en la cola del telón es

@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { camaraDeLaBase } from '../src/client/render/base/camara.js';
-import { cajaDeFiguraEn } from '../src/client/render/batalla.js';
+import { cajaDeFiguraEn } from '../src/client/render/figuras/caja.js';
 import {
   ANCHO_DEL_COMBATE_EN_MOVIL,
   MARCO_DE_LA_BASE,
@@ -18,6 +18,7 @@ import {
   tableroPara,
 } from '../src/client/render/proyeccion.js';
 import { disposicionDe } from '../src/shared/base.js';
+import { RAIZ } from './comun.js';
 
 describe('la escala de la base: la del combate en un marco 20:11 de su alto', () => {
   it('con el mismo alto, el mismo paso a cualquier ancho', () => {
@@ -51,14 +52,24 @@ describe('la escala de la base: la del combate en un marco 20:11 de su alto', ()
   });
 
   it('el 860 de la hoja de estilos es `ANCHO_DEL_COMBATE_EN_MOVIL`', () => {
-    const css = readFileSync(join(import.meta.dirname, '../src/client/style.css'), 'utf8');
-    const regla = /#app\[data-escena='battle'\] #canvas \{ width: (\d+)px; \}/.exec(css);
-    expect(regla, 'no encuentro el ancho del lienzo de batalla en el móvil').not.toBeNull();
-    expect(Number(regla?.[1])).toBe(ANCHO_DEL_COMBATE_EN_MOVIL);
+    const css = readFileSync(join(RAIZ, 'src/client/style.css'), 'utf8');
+    // La regla del lienzo de batalla, lleve los selectores que lleve: desde la fase de
+    // despliegue (02-11-2026) la comparte la tropa, que es el mismo tablero
+    // (`#app[data-escena='battle'] #canvas, #app[data-escena='tropa'] #canvas`).
+    const sinComentarios = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    const regla = sinComentarios
+      .split('}')
+      .map((r) => r.split('{'))
+      .find(([selectores]) =>
+        selectores?.split(',').some((s) => s.trim() === "#app[data-escena='battle'] #canvas"),
+      );
+    const ancho = /^\s*width: (\d+)px;\s*$/.exec(regla?.at(-1) ?? '');
+    expect(ancho, 'no encuentro el ancho del lienzo de batalla en el móvil').not.toBeNull();
+    expect(Number(ancho?.[1])).toBe(ANCHO_DEL_COMBATE_EN_MOVIL);
   });
 
   it('el marco de la base no lleva proporción propia en la hoja de estilos: va a todo el alto, como el mapa', () => {
-    const css = readFileSync(join(import.meta.dirname, '../src/client/style.css'), 'utf8');
+    const css = readFileSync(join(RAIZ, 'src/client/style.css'), 'utf8');
     const reglas = css.split('}').filter((r) => /data-escena='town'/.test(r));
     for (const r of reglas) expect(r, r).not.toMatch(/aspect-ratio|align-self/);
   });

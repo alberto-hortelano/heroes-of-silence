@@ -13,46 +13,35 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { marcadoDe, NADA } from '../src/client/html.js';
-import { accionesDeLaUnidad } from '../src/client/views/panels.js';
+import { accionesDeLaUnidad } from '../src/client/batalla/panel.js';
+import { marcadoDe, NADA } from '../src/client/comun/html.js';
 import { autoResolve } from '../src/core/ai/tactics.js';
-import { batallaDeArena } from '../src/core/arena.js';
+import { batallaDeArena } from '../src/core/arena/montaje.js';
+import { applyAction, soltarElGolpe } from '../src/core/battle/battle.js';
+import { caminoDe, hexDistance, hexKey } from '../src/core/battle/board.js';
+import { CARGA } from '../src/core/battle/carga.js';
 import {
   activeStack,
-  applyAction,
   cargaDesde,
   contactoBlocker,
-  createBattle,
   enContactoEn,
-  legalActions,
   movableFrom,
   movimientoBlocker,
   pasosQueQuedan,
-  soltarElGolpe,
   stackById,
-} from '../src/core/battle/battle.js';
-import { caminoDe, hexDistance, hexKey } from '../src/core/battle/board.js';
-import { CARGA } from '../src/core/battle/carga.js';
+} from '../src/core/battle/consultas.js';
 import { applyEffect } from '../src/core/battle/effects.js';
-import { type MurallaDeBatalla, SIN_MURALLA } from '../src/core/battle/muralla.js';
-import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
-import { unidadDelJuego } from '../src/core/catalogo.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
+import { createBattle } from '../src/core/battle/montaje.js';
+import { SIN_MURALLA } from '../src/core/battle/muralla.js';
+import type { BattleEvent, BattleState, MurallaDeBatalla } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng } from '../src/core/rng.js';
 import type { Hex, Stack, UnitInfo } from '../src/core/types.js';
-import { bando } from './batalla-de-prueba.js';
-import {
-  aMano,
-  aPelear,
-  conCifrasAMano,
-  forzarTurno,
-  JINETE,
-  montajeDePrueba,
-  muralla,
-  NO_MUERTO,
-  TROPA,
-  unidadDeArena,
-} from './helpers.js';
+import { unidadDelJuego } from '../src/core/unidad/catalogo.js';
+import { aMano, bando, conCifrasAMano, forzarTurno, muralla } from './batalla-de-prueba.js';
+import { JINETE, NO_MUERTO, TROPA } from './comun.js';
+import { aPelear, montajeDePrueba, unidadDeArena } from './pelea-de-arena.js';
 
 const h = (col: number, row: number): Hex => ({ col, row });
 

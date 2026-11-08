@@ -12,7 +12,7 @@ import { esBarrera, isWalkable, type Suelo, type TerrainKind } from '@core/map/t
 import type { Franja } from './analizar.js';
 import { bajoLaSilueta, type PerfilDe } from './caras.js';
 import type { Celda } from './celdas.js';
-import type { Sprite } from './colocar.js';
+import type { Sprite } from './colocar/sprite.js';
 import { type Caja, cajaDeSprite } from './pasillo.js';
 import { ordenDeVolumenes } from './pintar.js';
 import { CARA_DE_SUELO } from './relieve.js';
@@ -331,7 +331,7 @@ export function caraDeOtroMaterial<C extends Pick<Celda, 'vx' | 'vy' | 'desde' |
 }
 
 /** Cada cuánto, en casillas, se mira si una masa tapa una pared (`paredesTapadasPorLaMasa`). */
-export const PASO_DE_LA_PARED_TAPADA = 0.1;
+const PASO_DE_LA_PARED_TAPADA = 0.1;
 
 /**
  * Una pared del desnivel (frontal, ladera o diagonal): una pieza con su fila

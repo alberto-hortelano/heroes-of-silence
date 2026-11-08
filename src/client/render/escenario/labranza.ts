@@ -30,8 +30,9 @@
  * sprites ni de la escena; `componer` la pone con `poner`, que guarda el
  * pasillo de la senda y las reservas de los objetos.
  */
-import type { MapObject, RedDeCaminos } from '@core/map/map.js';
-import { VECINAS } from '@core/map/regiones.js';
+import { VECINAS } from '@core/map/geometria.js';
+import type { RedDeCaminos } from '@core/map/red-de-caminos.js';
+import type { MapObject } from '@core/map/tipos.js';
 import { azarDe, barajar } from './esparcir.js';
 
 /** Los cultivos, por la hoja `cubierta-dirt`. */
@@ -51,7 +52,7 @@ export const PARCELAS: Readonly<Record<Cultivo, readonly string[]>> = {
 
 /** El atrezo de la labranza, por su módulo de `cubierta-dirt`. El resto (12-16), piedras y matas. */
 export const ATREZO = { cerca: '9', almiar: '10', carreta: '11' } as const;
-export type Atrezo = keyof typeof ATREZO;
+type Atrezo = keyof typeof ATREZO;
 
 /**
  * Los módulos de `cubierta-dirt` que no salen al azar del esparcido ni como

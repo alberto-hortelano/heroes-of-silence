@@ -8,9 +8,9 @@
  *
  * Aquí están lo que cuesta salir con N enemigos al lado y la frase de quien no
  * puede salir. Lo que cuenta los enemigos y recorre el tablero con costes vive en
- * `battle.ts` (`enContactoEn`, `movableFrom`) y en `board.ts`
- * (`alcanceConCostes`): necesita `canReachMelee`, y ningún módulo de `battle/`
- * importa `battle.ts`.
+ * `consultas.ts` (`enContactoEn`, `movableFrom`) y en `board.ts`
+ * (`alcanceConCostes`): necesita `canReachMelee`, y `consultas.ts` importa este
+ * módulo.
  */
 import { quedanCasillas } from './board.js';
 
@@ -22,7 +22,7 @@ export function salirCuesta(enContacto: number): number {
 /**
  * La frase de quien no puede salir de su casilla: cuántos la cierran, lo que
  * cuesta salir y lo que le queda, diciendo si fue la Finta la que se comió lo que
- * falta (`trasLaFinta`). La escribe `contactoBlocker` (`battle.ts`) y la leen
+ * falta (`trasLaFinta`). La escribe `contactoBlocker` (`consultas.ts`) y la leen
  * `movimientoBlocker` y el panel de la arena.
  */
 export function fraseDelContacto(enContacto: number, quedan: number, trasLaFinta: boolean): string {

@@ -3,12 +3,13 @@
  * el paquete en disco y `newGame`.
  */
 import type { ReglasDelCombate } from '../combate.js';
-import { tipoDeHeroePorDefecto } from '../data.js';
 import { problemaDeTipo } from '../hero/ascenso.js';
-import { generateMapPlan, type MapPlan } from '../map/generate.js';
+import { tipoDeHeroePorDefecto } from '../hero/tipos-de-heroe.js';
+import type { MapPlan } from '../map/generar/plan.js';
+import { generateMapPlan } from '../map/generar/procedimental.js';
 import { createRng } from '../rng.js';
-import type { GameState } from '../state/game.js';
 import { faccionesDeLaSemilla, newGame } from '../state/setup.js';
+import type { GameState } from '../state/tipos.js';
 import type { Controller, FactionId, PlayerId } from '../types.js';
 import {
   type Mundo,

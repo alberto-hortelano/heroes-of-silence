@@ -9,7 +9,7 @@
  * Las piezas son materiales que el lienzo lleva a su sitio, no una columna
  * pintada (el tablero cambia de elevación de cámara): por eso se piden **de
  * frente y sin perspectiva**, como un alzado, y el lienzo las pone con una afín
- * sobre cada cara (`render/arte-de-la-muralla.ts`).
+ * sobre cada cara (`render/batalla/arte-de-la-muralla.ts`).
  *
  *   pnpm taller encolar --muralla-batalla [--solo=cara-piedra,…] [--rehacer]
  *   pnpm taller derivar-muralla-batalla     rehace assets/batalla/muralla/indice.json
@@ -19,9 +19,9 @@
  */
 import { existsSync } from 'node:fs';
 import { mkdir, readdir, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import sharp from 'sharp';
-import type { MaterialDeMuralla } from '../../src/core/battle/muralla.js';
+import type { MaterialDeMuralla } from '../../src/core/battle/types.js';
 import {
   ALTO_DE_MURALLA,
   CARPETA_DE_LA_MURALLA,
@@ -36,17 +36,18 @@ import {
   RODAJAS_DE_LA_CARA,
   TODAS_LAS_PIEZAS_DE_LA_MURALLA,
 } from '../../src/shared/muralla-de-batalla.js';
+import { aRaster } from '../comun/imagen.js';
+import { textoJson } from '../comun/json.js';
+import { RAIZ } from '../comun/raiz.js';
 import type { Encargo } from './encargo.js';
-import { ARRIBA, FONDO, FRENTE, SOMBRA } from './paredes-puentes.js';
-
-const RAIZ = resolve(import.meta.dirname, '../..');
+import { ARRIBA, FONDO, FRENTE, SOMBRA } from './guias.js';
 
 /** Dónde van las piezas, dentro del repo. */
-export const DIR_DE_LA_MURALLA = `assets/${CARPETA_DE_LA_MURALLA}`;
+const DIR_DE_LA_MURALLA = `assets/${CARPETA_DE_LA_MURALLA}`;
 /** Las guías: fuera del build (`seCopiaAlBuild` deja fuera toda carpeta `_guias/`). */
-export const DIR_DE_SUS_GUIAS = `${DIR_DE_LA_MURALLA}/_guias`;
+const DIR_DE_SUS_GUIAS = `${DIR_DE_LA_MURALLA}/_guias`;
 /** El índice que lee el lienzo: las cajas de cada pieza pintada. */
-export const INDICE_DE_LA_MURALLA = `${DIR_DE_LA_MURALLA}/indice.json`;
+const INDICE_DE_LA_MURALLA = `${DIR_DE_LA_MURALLA}/indice.json`;
 
 /** El estilo: el fondo del campo de batalla, sobre el que se pinta la muralla. */
 const ESTILO_DE_LA_BATALLA = 'assets/rpg/campo.webp';
@@ -424,11 +425,7 @@ export function encargosDeLaMurallaDeBatalla(): { encargos: Encargo[]; esperan: 
 
 /** Lo opaco de una imagen (alfa ≥ 128) y, por fila, cuánto de su ancho. */
 async function medir(ruta: string, esCara: boolean): Promise<MedidaDePieza> {
-  const { data, info } = await sharp(ruta)
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  const { width: w, height: h } = info;
+  const { data, width: w, height: h } = await aRaster(ruta);
   let [x0, y0, x1, y1] = [w, h, -1, -1];
   for (let y = 0; y < h; y++)
     for (let x = 0; x < w; x++)
@@ -474,10 +471,7 @@ export async function medirLaMuralla(): Promise<IndiceDeLaMuralla> {
 
 /** Escribe el índice que lee el lienzo (`INDICE_DE_LA_MURALLA`) con lo que mide `medirLaMuralla`. */
 export async function escribirIndiceDeLaMuralla(): Promise<string> {
-  await writeFile(
-    join(RAIZ, INDICE_DE_LA_MURALLA),
-    `${JSON.stringify(await medirLaMuralla(), null, 1)}\n`,
-  );
+  await writeFile(join(RAIZ, INDICE_DE_LA_MURALLA), textoJson(await medirLaMuralla(), 1));
   return INDICE_DE_LA_MURALLA;
 }
 

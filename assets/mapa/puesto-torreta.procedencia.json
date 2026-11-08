@@ -20,7 +20,7 @@
       "sha256": "012f188aacc2776e9d8026b4528ec6b95b161da573e2146fe4cfc0094b5b37ec"
     },
     {
-      "ruta": "assets/mapa/guias/puesto-torreta.png",
+      "ruta": "assets/mapa/_guias/puesto-torreta.png",
       "papel": "guia",
       "sha256": "055e53dcdc7e78a76e800f308e2d0473cb6d189de116fc2a0aa60903ff17265a"
     }

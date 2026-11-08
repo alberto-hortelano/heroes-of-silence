@@ -102,7 +102,7 @@
   /* El rótulo de una barra de sección con su pieza en imagen encima (afinado,
      18-10-2026): la tinta y el adorno de siempre en tres temas; los elfos y los
      orkos la escriben, porque su barra no es del tono que había detrás del rótulo
-     (la vigila `tools/qa/temas-con-piezas.ts`, sobre los píxeles de la pieza). */
+     (la vigila `tools/qa/navegador/temas-con-piezas.ts`, sobre los píxeles de la pieza). */
   --seccion-tinta: var(--lateral-rotulo);
   --seccion-adorno: var(--adorno-tinta);
   /* El lema, partido a los lados del remate como en las láminas de los templarios

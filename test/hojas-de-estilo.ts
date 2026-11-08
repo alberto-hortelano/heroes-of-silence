@@ -1,14 +1,14 @@
 /**
  * Leer una hoja de estilo en un test: lo comparten el guardia de colores fijos
- * (`invariantes.test.ts`), el de las fichas de los temas (`temas.test.ts`), el de
+ * (`invariantes-cliente.test.ts`), el de las fichas de los temas (`temas.test.ts`), el de
  * la paleta medida de las láminas (`paleta-de-las-laminas.test.ts`), el de las
  * letras (`fuentes.test.ts`) y el de las piezas (`piezas-de-tema.test.ts`). Un
  * solo analizador: `bloquesCss`.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { extname, join, relative } from 'node:path';
+import { RAIZ } from './comun.js';
 
-const RAIZ = join(import.meta.dirname, '..');
 const CLIENTE = join(RAIZ, 'src/client');
 
 /** Una hoja de `src/client/`, por su ruta relativa. */
@@ -44,7 +44,7 @@ export function sinComentariosCss(css: string): string {
 }
 
 /** Las fichas de un bloque, por nombre: `--x: valor;`. */
-export function fichasDe(cuerpo: string): Map<string, string> {
+function fichasDe(cuerpo: string): Map<string, string> {
   const fichas = new Map<string, string>();
   for (const decl of cuerpo.split(';')) {
     const m = /^\s*(--[a-z0-9-]+)\s*:\s*([\s\S]+?)\s*$/.exec(decl);
@@ -125,7 +125,7 @@ export interface Declaracion {
 }
 
 /** Un bloque de una hoja: su selector, los de fuera (`@media`…), su línea y lo que declara. */
-export interface BloqueCss {
+interface BloqueCss {
   readonly selector: string;
   readonly padres: readonly string[];
   readonly linea: number;

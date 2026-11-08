@@ -20,7 +20,7 @@
       "sha256": "8b68d2843604978ecb9c5ad221fe52be3c8556a54c17074eb222708f2f207402"
     },
     {
-      "ruta": "assets/mapa/guias/puesto-torre.png",
+      "ruta": "assets/mapa/_guias/puesto-torre.png",
       "papel": "guia",
       "sha256": "3ac740ef304cd11e4a7c0b6f78e705d6b9e50faa405ab30b0bb581c71137974f"
     }

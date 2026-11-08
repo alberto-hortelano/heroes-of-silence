@@ -1,5 +1,5 @@
 /**
- * El relieve por celdas de vértice (R4, *dual grid*, `docs/agents/2026-10-07-relieve-esquinas/plan.md`).
+ * El relieve por celdas de vértice (R4, *dual grid*, `docs/agents/2026-10-07-relieve-esquinas/requisitos.md`).
  *
  * Las caídas se salían por arista y por fila: una frontera en diagonal era una
  * escalera de frontal y ladera, y las esquinas se arreglaban caso a caso. Aquí
@@ -30,7 +30,7 @@ import type { Senda } from './sendas.js';
  * diagonales `SE` y `SO`, en esquina (convexa, la punta de una meseta) o en
  * rincón (cóncava). Las que miran al norte quedan de espaldas.
  */
-export type TipoDeCelda =
+type TipoDeCelda =
   | 'S'
   | 'N'
   | 'E'
@@ -45,7 +45,7 @@ export type TipoDeCelda =
   | 'NO-concava';
 
 /** Los tipos que se ven desde la cámara del sur: el resto es espalda (el reborde). */
-export const TIPOS_VISTOS = [
+const TIPOS_VISTOS = [
   'S',
   'E',
   'O',
@@ -81,10 +81,10 @@ const TIPOS: Readonly<Record<number, readonly TipoDeCelda[]>> = {
 };
 
 /** De qué clase es una junta: la de un lado horizontal (`S`) o vertical (`E`, `O`). */
-export type ClaseDeJunta = 'S' | 'E' | 'O' | 'N';
+type ClaseDeJunta = 'S' | 'E' | 'O' | 'N';
 
 /** Una junta de una celda: el punto del filo, relativo al vértice, y su clase. */
-export type Junta = readonly [number, number, ClaseDeJunta];
+type Junta = readonly [number, number, ClaseDeJunta];
 
 /**
  * Las dos juntas de cada tipo, relativas al vértice (las casillas en ±0,5), en
@@ -286,7 +286,7 @@ export function vecinaEn(
 }
 
 /** Una cadena de laderas por celdas, con sus remates (`piezasDeLadera`). */
-export interface LaderaDeCeldas extends Ladera {
+interface LaderaDeCeldas extends Ladera {
   /** Si remata al norte con un `inicio` y al sur con un `fin`: donde sigue de espaldas o con una caída menor. */
   readonly inicio: boolean;
   readonly fin: boolean;
@@ -320,7 +320,7 @@ export interface Caidas {
  * Las paredes de un barranco de una casilla (`Caidas.barrancos`): la E de un
  * vértice y la O del de su este con algún umbral en común.
  */
-export function sinBarrancos(cs: readonly Celda[]): {
+function sinBarrancos(cs: readonly Celda[]): {
   readonly quedan: Celda[];
   readonly barrancos: Celda[];
 } {
@@ -468,9 +468,7 @@ export function rebordesDe(nivel: ArrayLike<number>, W: number, H: number): [num
  * centrado en la casilla de la esquina que comparten sus juntas (el de la guía,
  * `tools/taller/diagonales.ts`).
  */
-export function filoSignado(
-  c: Pick<Celda, 'vx' | 'vy' | 'tipo'>,
-): (x: number, y: number) => number {
+function filoSignado(c: Pick<Celda, 'vx' | 'vy' | 'tipo'>): (x: number, y: number) => number {
   if (c.tipo === 'S' || c.tipo === 'N') return (_x, y) => y - c.vy;
   if (c.tipo === 'E' || c.tipo === 'O') return (x) => x - c.vx;
   const [a, b] = JUNTAS[c.tipo];
@@ -504,7 +502,7 @@ export interface Bajada {
 }
 
 /** El rumbo de bajada de un paso de casilla a casilla, o null si baja al norte (de espaldas). */
-export function rumboDe(dx: number, dy: number): RumboDeBajada | null {
+function rumboDe(dx: number, dy: number): RumboDeBajada | null {
   if (dy < 0) return null;
   if (dy > 0) return dx > 0 ? 'se' : dx < 0 ? 'so' : 's';
   return dx > 0 ? 'e' : dx < 0 ? 'o' : null;
@@ -978,7 +976,7 @@ const VENTAJA_DEL_RUMBO_DEL_TRAMO = 0.03;
  * recta 1,7 casillas al sur y la senda se iba al suroeste en la casilla de
  * abajo (#192). Solo los que `admite` (el pie de la rampa, #214), si hay alguno.
  */
-export function rumboPintado(
+function rumboPintado(
   l: Senda,
   arriba: Punto,
   bajo: Punto,
@@ -1011,7 +1009,7 @@ export function rumboPintado(
 }
 
 /** Lo que se aparta como poco del pie de una rampa (y de su filo) el punto por el que la senda vuelve a su trazo, en casillas. */
-export const ENLACE_DE_RAMPA = 0.6;
+const ENLACE_DE_RAMPA = 0.6;
 
 /**
  * Hasta dónde se busca por la senda el punto de vuelta (`delanteDe`), en
@@ -1091,7 +1089,7 @@ function delanteDe(
 /**
  * Un tramo recto por el que tiene que pasar la senda que se pinta, de `p0` a
  * `p1` en el rumbo `t`: la rampa de una bajada (`tendidoDeBajada`) o el paso por
- * el arco de la puerta de un recinto (`tendidosDeLasPuertas`, `recinto.ts`).
+ * el arco de la puerta de un recinto (`tendidosDeLasPuertas`, `recinto/sendas.ts`).
  */
 export interface TendidoDeSenda {
   /** La senda que lo lleva, por su índice; sin él, la que pasa por `cerca` (a media casilla como mucho). */
@@ -1216,7 +1214,7 @@ export function sendasPorLosTendidos(
 }
 
 /** Lo que puede apartarse la rampa de una bajada de la senda pintada, en casillas. */
-export const HOLGURA_DE_RAMPA = 0.05;
+const HOLGURA_DE_RAMPA = 0.05;
 
 /**
  * Las bajadas cuya rampa (`rampaDe`, mirada cada décima de casilla, del filo al

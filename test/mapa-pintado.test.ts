@@ -9,15 +9,15 @@
  * su marcador de color, que es justo lo que se reconoce en el registro.
  */
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { EscenaAventura } from '../src/client/escenas/aventura.js';
+import { EscenaAventura } from '../src/client/partida/mapa/escena.js';
 import { arteCargando, imagenDeEscena } from '../src/client/render/assets.js';
-import { TILE_MAX } from '../src/client/render/camara-mapa.js';
 import {
   copiaReducida,
   copiaReducidaSiCabe,
   empezarFotogramaDeCopias,
   PIXELES_NUEVOS_POR_FOTOGRAMA,
 } from '../src/client/render/copias.js';
+import { PIES } from '../src/client/render/escenario/figuras-del-mapa.js';
 import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
 import { pintarSprite } from '../src/client/render/escenario/pintar.js';
 import {
@@ -41,20 +41,19 @@ import {
   topeDeAlejar,
   usarPintorDelSuelo,
 } from '../src/client/render/escenario/superficie.js';
-import { drawMapa, PIES, recortadoArriba } from '../src/client/render/mapa.js';
-import { Session } from '../src/client/session.js';
+import { TILE_MAX } from '../src/client/render/mapa/camara.js';
+import { drawMapa } from '../src/client/render/mapa/mapa.js';
+import { recortadoArriba } from '../src/client/render/mapa/volumenes.js';
+import { Session } from '../src/client/sesion/partida.js';
 import { Casillas, type CasillasLeidas } from '../src/core/map/casillas.js';
-import { LADO_DEL_MAPA } from '../src/core/map/generate.js';
-import { barreraEn, inBounds, isEnterable, objectAt } from '../src/core/map/map.js';
+import { LADO_DEL_MAPA } from '../src/core/map/generar/plan.js';
+import { inBounds } from '../src/core/map/geometria.js';
+import { barreraEn, isEnterable, objectAt } from '../src/core/map/map.js';
 import { todosALaVista } from '../src/core/state/asaltantes.js';
-import {
-  HERO_SCOUT_RADIUS,
-  heroesOf,
-  revealEverything,
-  visibleNow,
-} from '../src/core/state/game.js';
+import { heroesOf } from '../src/core/state/consultas.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
+import { HERO_SCOUT_RADIUS, revealEverything, visibleNow } from '../src/core/state/vision.js';
 import type { Point } from '../src/core/types.js';
 
 /**

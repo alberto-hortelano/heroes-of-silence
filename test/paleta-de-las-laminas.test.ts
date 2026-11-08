@@ -10,7 +10,8 @@
  */
 import { FACTION_IDS } from '@core/types.js';
 import { describe, expect, it } from 'vitest';
-import { deltaE, type FichaMedida, medirPaleta } from '../tools/taller/temas/paleta.js';
+import { deltaE } from '../tools/comun/color.js';
+import { type FichaMedida, medirPaleta } from '../tools/taller/temas/paleta.js';
 import { resuelta, temas } from './hojas-de-estilo.js';
 
 const TOLERANCIA = 0.03;

@@ -13,19 +13,20 @@
  * (`intentarRed`), y las regiones se reparten por orilla. Por construcción
  * ninguna casilla del río toca tres regiones salvo donde se quiere, el espejo es
  * exacto y nada lo parte: el vestido lo escribe como agua una vez y nadie más
- * puede escribir en él (`ponerTipo`, `vestir.ts`). Al final del vestido,
+ * puede escribir en él (`ponerTipo`, `vestir/base.ts`). Al final del vestido,
  * `rioEntero` lo comprueba y lanza: un río partido es un fallo del generador.
  *
  * Todo en enteros y con el `rng` que se pasa.
  */
-import { FORMAS_DEL_RIO, type FormaDelRio, type ReglasDelRio, RIOS } from '../data.js';
-import type { Rng } from '../rng.js';
+import riosJson from '../../../data/rios.json' with { type: 'json' };
+import { type Rng, sortearPorPesos } from '../rng.js';
 import type { Point } from '../types.js';
+import { enteroDesde } from '../validar.js';
 import { Frontera } from './frontera.js';
-import { type GameMap, inBounds } from './map.js';
+import { ANILLO, aPunto, chebyshev, inBounds, parejaDe, RUMBOS } from './geometria.js';
 import { vecindad } from './regiones.js';
 import type { Nivel } from './terrain.js';
-import { parejaDe } from './vestir.js';
+import type { GameMap } from './tipos.js';
 
 /** Lo que traza `trazarRio`: el río y sus lagos, en espejo exacto. */
 export interface TrazadoDelRio {
@@ -46,14 +47,6 @@ export interface TrazadoDelRio {
   readonly bocas: readonly number[];
 }
 
-/** Las cuatro direcciones del cauce, en el orden del Dijkstra; la opuesta de `d` es `d ^ 1`. */
-const RUMBOS: readonly (readonly [number, number])[] = [
-  [1, 0],
-  [-1, 0],
-  [0, 1],
-  [0, -1],
-];
-
 /**
  * Hasta qué distancia (Chebyshev) a la semilla más cercana se abarata el cauce.
  * Más allá, todo cuesta lo mismo: lejos de toda semilla es por donde va la
@@ -70,15 +63,7 @@ const CAJA_DE_CASA = 5;
 
 /** La forma del río, sorteada con los pesos de `data/rios.json`. */
 export function sortearForma(rng: Rng, datos: ReglasDelRio = RIOS): FormaDelRio {
-  const total = datos.formas.reduce((s, f) => s + f.peso, 0);
-  let tirada = rng.int(0, total - 1);
-  for (const { forma, peso } of datos.formas) {
-    if (tirada < peso) return forma;
-    tirada -= peso;
-  }
-  throw new Error(
-    `el sorteo de la forma del río se ha salido de la tabla (${FORMAS_DEL_RIO.join(', ')})`,
-  );
+  return sortearPorPesos(rng, datos.formas, (f) => f.peso).forma;
 }
 
 /**
@@ -113,10 +98,9 @@ export function trazarRio(
   const veta = new Uint8Array(N);
   const cercania = new Int32Array(N);
   for (let i = 0; i < N; i++) {
-    const x = i % W;
-    const y = (i - x) / W;
+    const p = aPunto(i, W);
     let d = W + H;
-    for (const s of semillas) d = Math.min(d, Math.max(Math.abs(s.x - x), Math.abs(s.y - y)));
+    for (const s of semillas) d = Math.min(d, chebyshev(s, p));
     cercania[i] = d;
     if (d <= LEJOS_DE_UNA_SEMILLA) veta[i] = 1;
     const cerca = LEJOS_DE_LAS_SEMILLAS - Math.min(d, LEJOS_DE_LAS_SEMILLAS);
@@ -404,18 +388,6 @@ export function orillas(W: number, H: number, mascara: Uint8Array): Int32Array {
   return banco;
 }
 
-/** Las ocho vecinas de una casilla en orden, dando la vuelta: su anillo. */
-const ANILLO: readonly (readonly [number, number])[] = [
-  [-1, -1],
-  [0, -1],
-  [1, -1],
-  [1, 0],
-  [1, 1],
-  [0, 1],
-  [-1, 1],
-  [-1, 0],
-];
-
 /**
  * A qué lado del río cae cada vecina de cada casilla suya: por casilla del río,
  * ocho números (en el orden de `ANILLO`), −1 en el río o fuera del mapa, y un
@@ -628,7 +600,7 @@ function rumboDelRio(map: MapaDelRio, at: Point): 'eo' | 'ns' | null {
  * La orilla de una ciudad-puente (#144, paso 2), con la ciudad en el río, como
  * la deja la red del generador: la casilla de al lado, en cruz y de través al
  * río, y la de enfrente. El generador la muda a tierra con ella (`enSuOrilla`,
- * `generate.ts`: el medio de su recinto, a dos casillas del río), y en el mapa
+ * `generar/vestir-la-red.ts`: el medio de su recinto, a dos casillas del río), y en el mapa
  * hecho la casilla del río es su puente (`rioAnteLaCiudad`). La ciudad va en el cruce de tres regiones: dos a un lado del río,
  * separadas por la frontera que llega a él (la T), y la tercera enfrente. Su
  * orilla es el lado de las dos: la casilla del final de esa frontera. Se elige
@@ -674,3 +646,85 @@ export function orillaDeLaCiudad(
         : a.menor <= b.menor;
   return primero ? { orilla: a.medio, enfrente: b.medio } : { orilla: b.medio, enfrente: a.medio };
 }
+
+/**
+ * Las formas del río del generador (#144, río continuo; `core/map/rio.ts`):
+ * **frontera**, de un borde a un lago central y al borde de enfrente, entre las
+ * dos bases; **esquina**, de un borde a otro por la esquina sin base, y su
+ * espejo; **lago**, de un borde a un lago de dentro, y su espejo.
+ */
+export const FORMAS_DEL_RIO = ['frontera', 'esquina', 'lago'] as const;
+
+export type FormaDelRio = (typeof FORMAS_DEL_RIO)[number];
+
+/** Lo que se lee de `data/rios.json`. */
+interface ReglasDelRio {
+  /** El peso de cada forma en el sorteo, en el orden de `FORMAS_DEL_RIO`. */
+  readonly formas: readonly { readonly forma: FormaDelRio; readonly peso: number }[];
+  /** Cuántas casillas seguidas en recta lleva el río como mucho. */
+  readonly tramoMaximo: number;
+  /** Cuántas casillas del borde no pisa salvo en su boca. */
+  readonly marco: number;
+  /** El radio de sus lagos. */
+  readonly radioDelLago: number;
+  /** Cuántas casillas mide como poco el río de la forma lago, del lago al borde. */
+  readonly cursoDelLago: number;
+}
+
+/**
+ * Valida `data/rios.json` (**inventado**, como dice su `_comment`). Lanza con
+ * todos los problemas a la vez; con el JSON de argumento para que el guardia
+ * se pueda ver morder con un fichero roto.
+ */
+export function validarRios(json: unknown, fichero = 'data/rios.json'): ReglasDelRio {
+  const problemas: string[] = [];
+  const j = (json ?? {}) as Record<string, unknown>;
+  for (const clave of Object.keys(j)) {
+    if (
+      !['_comment', 'formas', 'tramoMaximo', 'marco', 'radioDelLago', 'cursoDelLago'].includes(
+        clave,
+      )
+    )
+      problemas.push(`sobra la clave "${clave}"`);
+  }
+  const formas: { forma: FormaDelRio; peso: number }[] = [];
+  const bruta = j.formas;
+  if (bruta === null || typeof bruta !== 'object') {
+    problemas.push('no trae "formas"');
+  } else {
+    for (const f of Object.keys(bruta)) {
+      if (!(FORMAS_DEL_RIO as readonly string[]).includes(f))
+        problemas.push(
+          `"formas" trae "${f}", que no es una forma; valen ${FORMAS_DEL_RIO.join(', ')}`,
+        );
+    }
+    for (const forma of FORMAS_DEL_RIO) {
+      const peso = (bruta as Record<string, unknown>)[forma];
+      if (!enteroDesde(peso, 0))
+        problemas.push(
+          `"formas.${forma}" pesa ${JSON.stringify(peso)}: tiene que ser un entero ≥ 0`,
+        );
+      else formas.push({ forma, peso });
+    }
+    if (formas.length === FORMAS_DEL_RIO.length && formas.every((f) => f.peso === 0))
+      problemas.push('"formas" pesan todas 0: no habría río que sortear');
+  }
+  const entero = (clave: string, desde: number, hasta: number): number => {
+    const v = j[clave];
+    if (!enteroDesde(v, desde) || v > hasta) {
+      problemas.push(
+        `"${clave}" tiene que ser un entero de ${desde} a ${hasta}, y lleva ${JSON.stringify(v)}`,
+      );
+      return desde;
+    }
+    return v;
+  };
+  const tramoMaximo = entero('tramoMaximo', 2, 64);
+  const marco = entero('marco', 1, 8);
+  const radioDelLago = entero('radioDelLago', 1, 5);
+  const cursoDelLago = entero('cursoDelLago', 1, 64);
+  if (problemas.length > 0) throw new Error(`${fichero}: ${problemas.join('; ')}`);
+  return { formas, tramoMaximo, marco, radioDelLago, cursoDelLago };
+}
+
+export const RIOS: ReglasDelRio = validarRios(riosJson);

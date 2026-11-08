@@ -22,13 +22,14 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { link, mkdir, readdir, readFile, rename, rm, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { textoJson } from '../comun/json.js';
 import { type Encargo, encargoSchema } from './encargo.js';
 
-export const ESTADOS = ['pendiente', 'en-curso', 'hecho', 'fallido'] as const;
-export type Estado = (typeof ESTADOS)[number];
+const ESTADOS = ['pendiente', 'en-curso', 'hecho', 'fallido'] as const;
+type Estado = (typeof ESTADOS)[number];
 
 /** Lo que el taller apunta en el encargo al cerrarlo. */
-export interface Resultado {
+interface Resultado {
   readonly cuando: string;
   readonly hilo?: string;
   readonly salida?: string;
@@ -112,9 +113,9 @@ let temporales = 0;
 const temporalDe = (raiz: string, id: string): string =>
   join(raiz, `.${id}.${process.pid}-${++temporales}.json`);
 
-const comoJson = (ficha: Ficha): string => `${JSON.stringify(ficha, null, 2)}\n`;
+const comoJson = (ficha: Ficha): string => textoJson(ficha, 2);
 
-/** La cola del taller de una raíz: la del repo (`COLA`, `trabajador.ts`) o una temporal en los tests. */
+/** La cola del taller de una raíz: la del repo (`COLA`, `ordenes/orden.ts`) o una temporal en los tests. */
 export function colaDelTaller(raiz: string): Cola {
   return new Cola(join(raiz, 'tools/taller/cola'));
 }

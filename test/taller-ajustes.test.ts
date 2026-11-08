@@ -1,10 +1,12 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFileSync } from 'node:fs';
+
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
+import { sha256 } from '../tools/comun/hash.js';
+import { dePng } from '../tools/comun/imagen.js';
 import { ajustesDe, aplicarAjustes } from '../tools/taller/ajustes.js';
-import { sha256 } from '../tools/taller/poses-8d.js';
+import { carpetaTemporal } from './comun.js';
 
 // El encuadre a mano (`ajustes.ts`): mueve el fotograma que dice y nada más, y no se
 // aplica a una hoja distinta de la que se miró.
@@ -19,11 +21,7 @@ async function hojaB(): Promise<Buffer> {
         ((f * CELDA + 2) * 7 * CELDA + c * CELDA + 2) * 4,
         ((f * CELDA + 2) * 7 * CELDA + c * CELDA + 3) * 4,
       );
-  return sharp(data, {
-    raw: { width: 7 * CELDA, height: 3 * CELDA, channels: 4 },
-  })
-    .png()
-    .toBuffer();
+  return dePng({ data, width: 7 * CELDA, height: 3 * CELDA });
 }
 const alfa = async (png: Buffer, x: number, y: number) => {
   const { data, info } = await sharp(png).raw().toBuffer({ resolveWithObject: true });
@@ -52,7 +50,7 @@ describe('el encuadre a mano', () => {
 
   it('no vale para otra hoja ni para un clip que la hoja no lleva', async () => {
     const png = await hojaB();
-    const dir = mkdtempSync(join(tmpdir(), 'ajustes-'));
+    const dir = carpetaTemporal('ajustes-');
     const ruta = join(dir, 'hoja-b.webp');
     const escribir = (a: unknown) =>
       writeFileSync(join(dir, 'hoja-b.ajustes.json'), JSON.stringify(a));

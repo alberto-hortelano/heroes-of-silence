@@ -6,15 +6,12 @@
  *
  * Es puro: un mapa entra y un análisis sale, sin DOM y sin ficheros.
  */
-import {
-  cruzaSuBarrera,
-  type MapObject,
-  type MapRegion,
-  type RedDeCaminos,
-} from '@core/map/map.js';
+import { cruzaSuBarrera } from '@core/map/map.js';
 import { type CaraDelRio, rioAnteLaCiudad } from '@core/map/recinto.js';
-import { type Estructura, estructura } from '@core/map/regiones.js';
+import type { RedDeCaminos } from '@core/map/red-de-caminos.js';
+import { estructura } from '@core/map/regiones.js';
 import { type Barrera, esBarrera, type Suelo, type TerrainKind } from '@core/map/terrain.js';
+import type { Estructura, MapObject, MapRegion } from '@core/map/tipos.js';
 import type { Point } from '@core/types.js';
 import { type PasoDeNodo, pasaElCamino, pasoDeNodo } from './nodos.js';
 
@@ -46,7 +43,7 @@ export interface MapaDeEscena {
 }
 
 /** Una mancha interior tiene a lo sumo este tamaño; lo que pasa de ahí es frontera. */
-export const MANCHA_MAXIMA = 6;
+const MANCHA_MAXIMA = 6;
 
 export interface Franja {
   readonly id: number;

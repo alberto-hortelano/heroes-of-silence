@@ -13,7 +13,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
-import type { FiguraDeNpc } from '../src/core/npcs.js';
+import type { FiguraDeNpc } from '../src/core/gente/banco.js';
 import { HOJAS_DE_FIGURA } from '../src/shared/arte.js';
 import { estadoDeFigura, loQueSeSirve } from '../tools/npcs/banco.js';
 import {
@@ -28,9 +28,8 @@ import { derivarAtlas } from '../tools/taller/derivar.js';
 import { encargoSchema } from '../tools/taller/encargo.js';
 import { juntarDireccion } from '../tools/taller/juntar.js';
 import { encargosQueSiguen, encolarLoQueSigue, rescatar } from '../tools/taller/npcs.js';
-import { FIGURA_DE_PRUEBA, raizDeNpcs } from './helpers.js';
-
-const RAIZ = join(import.meta.dirname, '..');
+import { RAIZ } from './comun.js';
+import { FIGURA_DE_PRUEBA, raizDeNpcs } from './npcs-de-prueba.js';
 
 const VECINA: FiguraDeNpc = {
   ...FIGURA_DE_PRUEBA,
@@ -414,7 +413,7 @@ describe('una figura no se queda a medias para siempre (QA del banco de NPC, H2)
       rescatar(VECINA, r),
     ]);
     expect(rescate.status).toBe('fulfilled');
-    // El que llega tarde del trabajador lanza `NoEstaEn`, y su bucle lo dice y sigue (`trabajador.ts`).
+    // El que llega tarde del trabajador lanza `NoEstaEn`, y su bucle lo dice y sigue (`ordenes/cola.ts`).
     if (vez.status === 'rejected') expect(String(vez.reason)).toMatch(/no está en fallido\//);
     expect(await cola.estado()).toMatchObject({
       pendiente: ['npc-vecina-de-prueba-identidad'],

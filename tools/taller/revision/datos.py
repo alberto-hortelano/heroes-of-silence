@@ -21,6 +21,12 @@ from PIL import Image
 
 import esqueleto
 
+# La raíz del repositorio, con la profundidad de esta carpeta escrita: si el fichero se
+# mueve, hay que cambiar el «../../..». El guardia «la raíz del repositorio se calcula en
+# dos sitios» (`test/invariantes-capas.test.ts`) solo mira el TypeScript, y esto es Python:
+# no puede importar `RAIZ` de `tools/comun/raiz.ts`. Pasársela por el entorno no la quitaría
+# de aquí: `calibracion/corpus.py` también importa este módulo y se lanza a mano, sin el
+# taller que se la daría.
 RAIZ = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
 
 # Las filas de cada hoja: `HOJAS_DE_FIGURA` de `src/shared/arte.ts`, que el taller pasa

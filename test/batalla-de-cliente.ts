@@ -9,11 +9,29 @@
  * monstruo que pelea cuerpo a cuerpo y al que el héroe llega el día 1 sin que
  * lo embosquen por el camino.
  * Lo que los tests miran es la batalla, no el mapa, así que da igual cuál salga.
+ *
+ * Y la batalla de la arena en el cliente (de `test/helpers.ts`, fase T de la
+ * reorganización, 06-11-2026): la sesión con unidades del borrador
+ * (`sesionDeArena`, `empezarTalCual`), la escena de batalla (`escenaDeBatalla`),
+ * la rueda jugada hasta que pide algo (`hastaLaRueda`, `unoDeLaRueda`) y lo que se
+ * pinta del desenlace de un cruce y de «En el campo».
  */
-import { Session } from '../src/client/session.js';
+import { type FotoDeEfectos, fotoDeEfectos } from '../src/client/batalla/anim.js';
+import { EscenaBatalla } from '../src/client/batalla/escena.js';
+import { type CaraDeLosContrincantes, renderDesenlace } from '../src/client/batalla/rueda/rueda.js';
+import { marcadoDe } from '../src/client/comun/html.js';
+import type { ControlDeBatalla } from '../src/client/sesion/batalla/control.js';
+import { Session } from '../src/client/sesion/partida.js';
+import { SesionDeArena } from '../src/client/sesion/sesion-de-arena.js';
+import { hexDistance } from '../src/core/battle/board.js';
+import { formaDeLaBatalla, golpeNeutro } from '../src/core/battle/formas-de-la-rueda.js';
+import { SIN_MURALLA } from '../src/core/battle/muralla.js';
+import type { HechoDelCruce } from '../src/core/battle/rueda.js';
+import type { BattleState, MurallaDeBatalla } from '../src/core/battle/types.js';
 import type { ReglasDelCombate } from '../src/core/combate.js';
 import { objectAt } from '../src/core/map/map.js';
-import type { Point } from '../src/core/types.js';
+import type { Point, TipoDeGolpe } from '../src/core/types.js';
+import { delBorrador, MONTAJE, type PuestoDeLaPelea } from './pelea-de-arena.js';
 
 /** Cómo se abre la sesión: la complejidad del combate y «Solo la rueda del héroe». */
 interface ComoSeJuega {
@@ -81,7 +99,7 @@ export function sesionAntesDelMonstruo(): { readonly s: Session; readonly at: Po
  * Todas las batallas de ese tipo, en orden de semilla: para el test que busca
  * una situación concreta dentro de la batalla y no la encuentra en la primera.
  */
-export function* sesionesContraMonstruo(): Generator<{
+function* sesionesContraMonstruo(): Generator<{
   readonly semilla: number;
   readonly at: Point;
   readonly s: Session;
@@ -124,4 +142,128 @@ export function destinoDeHoy(s: Session, sinPeligro = true): Point {
     }
   }
   throw new Error(`nada a menos de 6 casillas de (${h.at.x},${h.at.y}) se alcanza hoy sin peligro`);
+}
+
+/** El primer cruce de la rueda del registro de `b`; lanza si no hay ninguno. */
+function primerCruce(b: BattleState): HechoDelCruce {
+  const e = b.log.find((x) => x.kind === 'cruce');
+  if (e?.kind !== 'cruce') throw new Error('sin cruce en el registro');
+  return e;
+}
+
+/**
+ * El desenlace del primer cruce de `b`, pintado sin animador (`renderDesenlace`):
+ * con `cara` y con lo que llevaba colgado cada uno antes del cruce, `efectos`
+ * (por defecto, lo de ahora: `fotoDeEfectos`, la del animador).
+ */
+export function desenlaceDe(
+  b: BattleState,
+  cara: CaraDeLosContrincantes | null = null,
+  efectos: FotoDeEfectos = fotoDeEfectos(b),
+): string {
+  return marcadoDe(renderDesenlace(b, { evento: primerCruce(b), efectos }, null, cara));
+}
+
+/** Lo que pone «En el campo» en el marcado de un lateral (de su título al del parte). */
+export function enElCampo(m: string): string {
+  return m.slice(m.indexOf('<h3>En el campo</h3>'), m.indexOf('<h3>Parte de guerra</h3>'));
+}
+
+/**
+ * Empieza la pelea de la arena y acepta el despliegue de los bandos «Yo» tal como
+ * sale (la regla de hoy): los tests que miran la pelea la quieren ya empezada,
+ * como antes de la fase de despliegue (02-11-2026). La que mira el despliegue
+ * llama a `empezar` y coloca.
+ */
+export function empezarTalCual(s: SesionDeArena): void {
+  s.empezar();
+  s.despliegue.listoTalCual();
+}
+
+/** La escena de batalla de la sesión, encuadrada y con su primera lectura hecha, que no anima. */
+export function escenaDeBatalla(sesion: () => ControlDeBatalla): EscenaBatalla {
+  const escena = new EscenaBatalla(sesion);
+  escena.encuadrar(1086, 778);
+  escena.sincronizar(0);
+  return escena;
+}
+
+/**
+ * Una sesión de la arena con unidades del borrador, sin héroes, sin empezar. Quién
+ * mueve va en cada puesto por comodidad, pero la sesión mueve cada bando entero:
+ * un bando con puestos de los dos es un error del test. En `o`, la muralla del
+ * tablero.
+ */
+export function sesionDeArena(
+  izquierda: readonly (PuestoDeLaPelea & { readonly ia: boolean })[],
+  derecha: readonly (PuestoDeLaPelea & { readonly ia: boolean })[],
+  semilla: number,
+  o: { readonly muralla?: MurallaDeBatalla; readonly combate?: ReglasDelCombate } = {},
+): SesionDeArena {
+  const lado = (puestos: readonly (PuestoDeLaPelea & { readonly ia: boolean })[]) => {
+    const ia = puestos.every((p) => p.ia);
+    if (puestos.some((p) => p.ia !== ia)) throw new Error('la sesión mueve cada bando entero');
+    return {
+      unidades: puestos.map(({ unidad, escalera }) => delBorrador(unidad, escalera === true)),
+      heroe: null,
+      ia,
+    };
+  };
+  return new SesionDeArena(
+    {
+      izquierda: lado(izquierda),
+      derecha: lado(derecha),
+      ...MONTAJE,
+      combate: o.combate ?? MONTAJE.combate,
+      muralla: o.muralla ?? SIN_MURALLA,
+    },
+    semilla,
+  );
+}
+
+/**
+ * Un tipo que vale en la rueda de `battle`, para los bucles que la contestan por
+ * contestarla: Normal si la lleva (lo de siempre en estas pruebas); en la de 3, el
+ * primero de su anillo. Con `'normal'` a mano, un bucle con la rueda de 3 se
+ * quedaba contestando un tipo que no es suyo.
+ */
+export function unoDeLaRueda(battle: { readonly rueda: BattleState['rueda'] }): TipoDeGolpe {
+  const forma = formaDeLaBatalla(battle);
+  return golpeNeutro(forma) ?? (forma.golpes[0] as TipoDeGolpe);
+}
+
+/**
+ * Juega la sesión hasta que la rueda le pide algo a la persona (`fase`, si se
+ * dice; la otra se contesta con `unoDeLaRueda` y se sigue): si `golpea`, golpea en cuanto
+ * puede y si no se acerca al enemigo más cercano; si no, se defiende. Siempre
+ * igual con la misma semilla. Lo usan las pruebas de la rueda.
+ */
+export function hastaLaRueda(
+  s: SesionDeArena,
+  golpea: boolean,
+  fase?: 'golpe' | 'respuesta',
+): void {
+  for (let i = 0; i < 300 && s.battle.finished === null; i++) {
+    const pendiente = s.ruedaPendiente;
+    if (pendiente !== null && (fase === undefined || pendiente.fase === fase)) return;
+    if (pendiente !== null) {
+      s.elegirEnLaRueda(unoDeLaRueda(s.battle));
+      continue;
+    }
+    const turno = s.turnoPropio;
+    if (turno === null) throw new Error('la sesión devuelve el control sin turno ni rueda');
+    const legales = s.battleLegalActions();
+    const ataque = legales.find((a) => a.type === 'attack');
+    const enemigos = s.battle.stacks.filter((x) => x.side !== turno.side && x.count > 0);
+    const cerca = (h: { col: number; row: number }): number =>
+      Math.min(...enemigos.map((e) => hexDistance(h, e.hex)));
+    const acercarse = legales
+      .flatMap((a) => (a.type === 'move' ? [a] : []))
+      .sort((a, b) => cerca(a.to) - cerca(b.to))[0];
+    if (golpea && ataque !== undefined) s.playBattleAction(ataque);
+    else if (golpea && acercarse !== undefined && turno.battle.turno?.gastado === 0)
+      s.playBattleAction(acercarse);
+    else s.playBattleAction({ type: 'end_turn' });
+  }
+  throw new Error('la rueda no pide nada');
 }

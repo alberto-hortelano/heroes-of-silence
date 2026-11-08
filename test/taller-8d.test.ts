@@ -2,7 +2,6 @@
  * Las hojas de 8 direcciones: 6 filas —7 con el disparo de quien dispara— y el
  * último fotograma de la muerte como cadáver.
  */
-import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -17,18 +16,21 @@ import {
   primeraFilaDe,
 } from '../src/shared/arte.js';
 import {
-  type Atrezo,
-  clipDeDisparoDe,
   columnaDeSuelta,
-  cuerpoACuerpoDe,
   fpsATiempoReal,
   hojasDe,
   indicesDeClip,
+  OCHO_DIRECCIONES,
+} from '../tools/art/poses/clips.js';
+import {
+  type Atrezo,
+  clipDeDisparoDe,
+  cuerpoACuerpoDe,
   JUEGOS_DE_ARMAS,
   type JuegoDeArmas,
   type JuegoEn8d,
-  OCHO_DIRECCIONES,
-} from '../tools/art/poses.js';
+} from '../tools/art/poses/juegos.js';
+import { sha256, sha256DeFichero } from '../tools/comun/hash.js';
 import { derivarAtlas, ELEVACION_DEL_CADAVER } from '../tools/taller/derivar.js';
 import { type Encargo, encargoSchema, PAPELES_DE_POSE, promptDe } from '../tools/taller/encargo.js';
 import { juntarDireccion } from '../tools/taller/juntar.js';
@@ -47,9 +49,8 @@ import {
   JUEGOS_EN_8D,
   unidad,
 } from '../tools/taller/unidades.js';
+import { RAIZ } from './comun.js';
 import { segunPrisa } from './lento.js';
-
-const RAIZ = join(import.meta.dirname, '..');
 
 const C = OCHO_DIRECCIONES.celda;
 
@@ -262,9 +263,7 @@ describe('los encargos de 8 direcciones', () => {
     // montado no cambia. Re-anclada el 01-11-2026: la orientación por escrito,
     // el reposo quieto y, del giro, solo la figura de su dirección.
     const huella = (id: string): string =>
-      createHash('sha256')
-        .update(JSON.stringify(encargosDeOchoDirecciones(unidad(id)).map((e) => [e, promptDe(e)])))
-        .digest('hex');
+      sha256(JSON.stringify(encargosDeOchoDirecciones(unidad(id)).map((e) => [e, promptDe(e)])));
     expect(huella('templario-escudo')).toBe(
       '50eeff3a428793020bb86cd208e652b2460ccac7ae5517d3675378c04a104e59',
     );
@@ -422,7 +421,7 @@ describe('juntar las hojas pintadas de una dirección', () => {
 
 describe('las direcciones del arte', () => {
   const UNIDADES = join(RAIZ, 'assets/unidades');
-  const sha = (r: string): string => createHash('sha256').update(readFileSync(r)).digest('hex');
+  const sha = (r: string): string => sha256DeFichero(r);
   const leer = (r: string): any => JSON.parse(readFileSync(r, 'utf8'));
   const todas = readdirSync(UNIDADES)
     .filter((u) => !u.startsWith('_'))
@@ -496,7 +495,7 @@ describe('las direcciones del arte', () => {
 describe('las anclas del Y Bot en 8 direcciones (`_poses/atlas-8d.json`)', () => {
   const RUTA = join(RAIZ, 'assets/unidades/_poses/atlas-8d.json');
   const atlas = JSON.parse(readFileSync(RUTA, 'utf8')) as AtlasDePoses;
-  const sha = (r: string): string => createHash('sha256').update(readFileSync(r)).digest('hex');
+  const sha = (r: string): string => sha256DeFichero(r);
 
   it('trae todos los juegos, ocho direcciones cada uno, las 6 acciones con su cadáver y el disparo de quien dispara', () => {
     expect(Object.keys(atlas.juegos).sort()).toEqual([...JUEGOS_EN_8D].sort());

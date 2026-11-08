@@ -35,6 +35,7 @@
 // Relativo y no `@core/…`: `vite.config.ts` importa este módulo para los puertos,
 // y al cargar la configuración el alias no existe.
 import { combateCon, parseRueda, parseTope, type ReglasDelCombate } from '../core/combate.js';
+import { mensajeDe } from '../shared/errores.js';
 
 /** Puerto del canal con el puente MCP (el agente). */
 export const AGENT_PORT_POR_DEFECTO = 9881;
@@ -44,6 +45,19 @@ export const SPECTATOR_PORT_POR_DEFECTO = 9880;
 export const ESPERA_AL_AGENTE_POR_DEFECTO = 120_000;
 
 /**
+ * Lo que se pidió en la variable `nombre`, tal cual, o `undefined` si no se ha
+ * pedido: sin variable, o con la variable en blanco, no hay nada que rechazar (la
+ * regla de `parseSeed`, abajo). Es la lectura de toda variable de aquí: los enteros
+ * (`enteroDelEntorno`) y los textos, que dicen ellos qué vale y lo rechazan con su
+ * frase (`servidorDelPuente`; y fuera de aquí, la orden del motor de mundos,
+ * `ordenDelMotor`, en `tools/mundo/motor.ts`).
+ */
+export function textoDelEntorno(nombre: string): string | undefined {
+  const valor = process.env[nombre];
+  return valor === undefined || valor.trim() === '' ? undefined : valor;
+}
+
+/**
  * Un entero del entorno, o `undefined` si no se ha pedido.
  *
  * `queEs` y `comoTieneQueSer` no son adorno ni se derivan del rango: un mensaje
@@ -51,7 +65,7 @@ export const ESPERA_AL_AGENTE_POR_DEFECTO = 120_000;
  * necesita saber quien lo lee, que en el puerto es que **el 0 significa algo** y
  * en el plazo que el 0 es no esperar a nadie. Cada variable escribe su frase.
  */
-export function enteroDelEntorno(
+function enteroDelEntorno(
   nombre: string,
   regla: {
     readonly queEs: string;
@@ -60,8 +74,8 @@ export function enteroDelEntorno(
     readonly max?: number;
   },
 ): number | undefined {
-  const valor = process.env[nombre];
-  if (valor === undefined || valor.trim() === '') return undefined;
+  const valor = textoDelEntorno(nombre);
+  if (valor === undefined) return undefined;
   const n = Number(valor);
   // `isSafeInteger` y no `isInteger`, y la diferencia la encontró QA: `1e21`
   // pasa el segundo —es entero— y produce **exactamente la partida que no
@@ -91,6 +105,45 @@ export function puertoAgente(): number {
 
 export function puertoEspectadores(): number {
   return enteroDelEntorno('HEROES_SPECTATOR_PORT', REGLA_DE_PUERTO) ?? SPECTATOR_PORT_POR_DEFECTO;
+}
+
+/**
+ * A dónde se conecta el puente MCP (`mcp/server.ts`): `HEROES_SERVER`, la dirección
+ * del canal del agente de una partida (`ws://localhost:9881`); sin ella, el de esta
+ * máquina en `HEROES_AGENT_PORT`.
+ *
+ * Se leía en el puente sin validar (`process.env.HEROES_SERVER ?? …`, hasta la fase S
+ * de la reorganización, 07-11-2026), y lo que no era una dirección no fallaba al
+ * arrancar: arrancaba el puente y cada herramienta que habla con la partida devolvía
+ * «Invalid URL», o el error de `ws` con los protocolos que admite; y en blanco se
+ * tomaba por una dirección, la vacía, en vez de por no pedir nada. Ahora se rechaza
+ * al arrancar, diciendo la variable y qué vale. Solo `ws:` y `wss:`: es un
+ * WebSocket, aunque `ws` cambiara un `http:` por su cuenta.
+ *
+ * Sin `HEROES_SERVER` sigue a `HEROES_AGENT_PORT`, para que cambiar el puerto del
+ * servidor no deje al puente llamando al de por defecto. Lo que no puede hacer es
+ * adivinar: con `0` el puerto lo elige el sistema al arrancar y desde aquí no hay
+ * forma de saber cuál tocó, así que se dice en vez de intentar `ws://localhost:0`.
+ */
+export function servidorDelPuente(): string {
+  const valor = textoDelEntorno('HEROES_SERVER');
+  if (valor === undefined) {
+    const p = puertoAgente();
+    if (p === 0) {
+      throw new Error(
+        'HEROES_AGENT_PORT=0 deja que el puerto lo elija el sistema: dile al puente a dónde conectarse con HEROES_SERVER=ws://localhost:<puerto>',
+      );
+    }
+    return `ws://localhost:${p}`;
+  }
+  const direccion = valor.trim();
+  const url = URL.canParse(direccion) ? new URL(direccion) : null;
+  if (url === null || (url.protocol !== 'ws:' && url.protocol !== 'wss:') || url.hostname === '') {
+    throw new Error(
+      `HEROES_SERVER="${valor}" no es la dirección de una partida: tiene que ser una URL ws:// o wss://, como ws://localhost:${AGENT_PORT_POR_DEFECTO}`,
+    );
+  }
+  return direccion;
 }
 
 /**
@@ -133,26 +186,8 @@ export function combateDelEntorno(): ReglasDelCombate {
     try {
       return parse(process.env[nombre]);
     } catch (err) {
-      throw new Error(`${nombre}: ${err instanceof Error ? err.message : String(err)}`);
+      throw new Error(`${nombre}: ${mensajeDe(err)}`);
     }
   };
   return combateCon(leer('HEROES_TROPA', parseTope), leer('HEROES_RUEDA', parseRueda));
-}
-
-/**
- * La orden que lanza el motor de narrativa al generar un mundo desde el menú de
- * `pnpm dev` (`tools/mundo/motor.ts`): `claude` por defecto, Claude Code con la
- * suscripción. `HEROES_MOTOR=false` lo hace fallar a propósito (la orden `false`
- * sale 1): así se prueba la pantalla del fallo sin gastar nada. Un texto con
- * espacios no vale: es una orden, no una línea de shell (no se interpreta).
- */
-export function ordenDelMotor(): string {
-  const valor = process.env.HEROES_MOTOR;
-  if (valor === undefined || valor.trim() === '') return 'claude';
-  if (/\s/.test(valor.trim())) {
-    throw new Error(
-      `HEROES_MOTOR="${valor}" no es una orden: tiene que ser un ejecutable sin argumentos, como claude o /ruta/a/claude`,
-    );
-  }
-  return valor.trim();
 }

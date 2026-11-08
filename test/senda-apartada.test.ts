@@ -9,7 +9,7 @@ import {
   apartarDeLoQueTapa,
   type Senda,
 } from '../src/client/render/escenario/sendas.js';
-import { recta } from './helpers.js';
+import { recta } from './escena-de-prueba.js';
 
 /** Una senda de oeste a este por el medio de la fila 5, de x = 2 a x = 12. */
 const senda: Senda = recta([2, 5.5], [12, 5.5]);

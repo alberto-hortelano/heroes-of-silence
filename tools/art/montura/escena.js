@@ -24,7 +24,7 @@
  * hermano de carga pero sin escudo, y el arco a la espalda. En el disparo
  * suelta la lanza y las riendas: el arco en la izquierda, extendida hacia
  * delante, y la derecha tensa la cuerda hasta la mejilla y suelta, con la curva
- * del arco a pie. El arco es el de `poses.ts` (palas curvas y cuerda), con las
+ * del arco a pie. El arco es el de `poses/three.ts` (palas curvas y cuerda), con las
  * medidas que le pasa quien conduce.
  */
 import * as THREE from 'three';
@@ -261,7 +261,7 @@ async function montar(o) {
   espada.rotation.set(...o.ajuste.espadaGiro);
   hueso(ybot, `${prefijoHueso}RightHand`).add(espada);
 
-  // El arco, como `crearArco` de `poses.ts`: la empuñadura en el origen, el eje
+  // El arco, como `crearArco` de `poses/three.ts`: la empuñadura en el origen, el eje
   // largo en y, la panza hacia +x y las palas curvándose hacia -x, que es el
   // lado de la cuerda. La cuerda son dos tramos de las puntas a donde tire.
   const arco = o.arco ? crearArco(o.arco) : null;

@@ -13,13 +13,14 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
-import { ZANCADA } from '../src/client/marcha.js';
+import { ZANCADA } from '../src/client/render/figuras/marcha.js';
 import { FIGURA } from '../src/shared/arte.js';
-import { indicesDeClip } from '../tools/art/poses.js';
+import { indicesDeClip } from '../tools/art/poses/clips.js';
+import { aRaster } from '../tools/comun/imagen.js';
+import { RAIZ } from './comun.js';
 
-const CARPETA = join(import.meta.dirname, '../assets/unidades/_poses/espada-escudo-8d');
+const CARPETA = join(RAIZ, 'assets/unidades/_poses/espada-escudo-8d');
 const CELDA = 384;
 
 async function avancePorCiclo(clip: 'walk' | 'charge'): Promise<number> {
@@ -32,17 +33,14 @@ async function avancePorCiclo(clip: 'walk' | 'charge'): Promise<number> {
   const indices = indicesDeClip(total, FIGURA.columnas, true);
   const velocidades: number[] = [];
   for (const d of [2, 6]) {
-    const { data, info } = await sharp(join(CARPETA, `d${d}-a.png`))
-      .ensureAlpha()
-      .raw()
-      .toBuffer({ resolveWithObject: true });
+    const { data, width } = await aRaster(join(CARPETA, `d${d}-a.png`));
     for (const color of ['roja', 'azul'] as const) {
       const pies = indices.map((_, col) => {
         let yMax = -1;
         const puntos: [number, number][] = [];
         for (let y = fila * CELDA; y < (fila + 1) * CELDA; y++) {
           for (let x = col * CELDA; x < (col + 1) * CELDA; x++) {
-            const i = (y * info.width + x) * 4;
+            const i = (y * width + x) * 4;
             const [r, g, b, a] = [data[i], data[i + 1], data[i + 2], data[i + 3]] as number[];
             const es =
               (a as number) > 200 &&

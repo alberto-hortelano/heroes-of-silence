@@ -9,7 +9,7 @@
  * palabras, en vez de depender de que cada encargo se acuerde.
  */
 import { z } from 'zod';
-import { esIdDeNpc } from '../../src/core/npcs.js';
+import { esIdDeNpc } from '../../src/core/gente/banco.js';
 import { FACTION_IDS } from '../../src/core/types.js';
 import {
   FIGURA,
@@ -22,7 +22,7 @@ import {
 const LETRAS_DE_HOJA = Object.keys(HOJAS_DE_FIGURA) as [HojaDeFigura, ...HojaDeFigura[]];
 
 /** Lo que cada referencia aporta, y nada más. */
-export const PAPELES = {
+const PAPELES = {
   pose: 'es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente',
   identidad:
     'es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía, la pose ni hacia dónde mira',
@@ -64,13 +64,13 @@ export const PAPELES = {
     'es la REFERENCIA DE POSE: el MAPA DE PROFUNDIDAD del maniquí Y Bot (cámara ortográfica elevada 25 grados; más claro, más cerca; el negro es fondo) con su ESQUELETO dibujado encima: los huesos del lado IZQUIERDO del personaje en AZUL, los del DERECHO en ROJO, el tronco y la cabeza en BLANCO y el eje del arma en AMARILLO. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación siguiendo el esqueleto (dónde está cada codo, cada mano, cada rodilla y cada pie, y hacia dónde apunta el arma). El arma que se pinta es la del PERSONAJE (la de su identidad), por el eje amarillo. NO pintes el esqueleto, sus colores, el gris ni el fondo negro: el resultado va sobre transparente',
   guia: 'es la GUÍA DE GEOMETRÍA: un volumen gris sin acabado, dibujado con la cámara del juego. Manda en la ORIENTACIÓN, la forma, las proporciones, el tamaño y la posición de cada pieza dentro de la imagen: cópialas con exactitud, sin girar ni torcer nada. NO copies su gris liso, sus aristas de esquema ni su fondo plano: el material, el detalle y la luz son los de la imagen de estilo',
 } as const;
-export type Papel = keyof typeof PAPELES;
+type Papel = keyof typeof PAPELES;
 
 /**
  * Los papeles que son la referencia de pose de un atlas: el maniquí en color, en
  * profundidad o en profundidad con su esqueleto encima. Un solo sitio para la
- * pregunta «¿es esta referencia la pose?» (el esquema, el aplanado del trabajador,
- * fal.ai y la revisión del maniquí).
+ * pregunta «¿es esta referencia la pose?» (el esquema, el aplanado del trabajador
+ * y la revisión del maniquí).
  */
 export const PAPELES_DE_POSE = ['pose', 'pose-profundidad', 'pose-esqueleto'] as const;
 export const esDePose = (papel: string): papel is (typeof PAPELES_DE_POSE)[number] =>
@@ -82,7 +82,7 @@ export const esDePose = (papel: string): papel is (typeof PAPELES_DE_POSE)[numbe
  * pierden el atrezo negro y el lado en sombra; el gris claro se confundía con el
  * maniquí).
  */
-export const FONDO_DE_POSE = '#00b140';
+const FONDO_DE_POSE = '#00b140';
 
 /**
  * Sobre qué fondo se aplana una referencia antes de enseñarla: la pose en color,
@@ -94,18 +94,6 @@ export function fondoDeReferencia(papel: Papel): string | null {
   if (papel === 'pose-profundidad' || papel === 'pose-esqueleto') return '#000000';
   return null;
 }
-
-/**
- * La rejilla de una lámina de iconos según cuántos lleva: hasta cuatro, una
- * fila; más, filas de cuatro (y entonces tienen que ser múltiplo de cuatro).
- */
-export function rejillaDeIconos(n: number): { filas: number; columnas: number } {
-  if (n >= 1 && n <= 4) return { filas: 1, columnas: n };
-  if (n > 4 && n % 4 === 0) return { filas: n / 4, columnas: 4 };
-  throw new Error(`una lámina de ${n} iconos no cabe en una rejilla: hasta 4, o múltiplos de 4`);
-}
-/** Un efecto animado son 6 fotogramas en 3 columnas por 2 filas. */
-export const REJILLA_DE_EFECTO = { columnas: 3, filas: 2 } as const;
 
 const ruta = z
   .string()
@@ -129,16 +117,7 @@ const referencia = z.object({
 export const encargoSchema = z
   .object({
     id: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'el id va en kebab-case'),
-    tipo: z.enum([
-      'identidad',
-      'giro',
-      'atlas',
-      'imagen',
-      'iconos',
-      'efecto',
-      'textura',
-      'modulos',
-    ]),
+    tipo: z.enum(['identidad', 'giro', 'atlas', 'imagen', 'textura', 'modulos']),
     /** El contenido: quién es, qué lleva. Las reglas de cámara y fondo las pone el taller. */
     descripcion: z.string().min(20),
     referencias: z.array(referencia),
@@ -200,44 +179,10 @@ export const encargoSchema = z
       .optional(),
     /** Módulos del escenario: cuántos lleva la hoja, en filas de 4. */
     cuantos: z.number().int().min(4).max(16).optional(),
-    /** Iconos: el nombre de cada uno, en el orden de lectura de la lámina de 4×4. */
+    /** Módulos: el nombre de cada uno, en el orden de lectura de la hoja. */
     nombres: z.array(z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/)).optional(),
-    /**
-     * Otro modelo que el de ChatGPT por la suscripción: un endpoint de fal.ai
-     * (las pruebas del 10-10-2026, `MOTORES` en `experimento.ts`, retirado el 30-10-2026). Sin él, codex.
-     */
-    motor: z
-      .object({
-        nombre: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/),
-        endpoint: z.string().regex(/^[a-z0-9-]+(\/[a-z0-9.-]+)+$/),
-        /** Lo que se le pasa además del prompt y las imágenes: tamaño, calidad… */
-        params: z.record(z.string(), z.unknown()).default({}),
-        /** Lo que cuesta una llamada, en dólares (de la página de fal; estimado si cobra por tokens). */
-        coste: z.number().positive(),
-        /** Si devuelve alfa, o un fondo liso que el taller recorta (`cutoutBackground`). */
-        fondo: z.enum(['transparente', 'liso']),
-        /** La pose va como ControlNet (la primera referencia) y el resto, solo por texto. */
-        control: z.literal(true).optional(),
-        /** El prompt en otro idioma, si el modelo no entiende bien el español (FLUX.1). */
-        prompt: z.string().min(20).optional(),
-        /**
-         * Un modelo de vídeo de transferencia de movimiento (`video.ts`): una
-         * llamada por acción con el vídeo del maniquí; `coste` es por segundo.
-         */
-        video: z.literal(true).optional(),
-        /** Otra tirada del mismo encargo: entra en la clave de la caché de fal (si no, sale la misma imagen). */
-        intento: z.number().int().min(2).optional(),
-      })
-      .optional(),
   })
   .superRefine((e, ctx) => {
-    if (e.tipo === 'iconos') {
-      try {
-        rejillaDeIconos(e.nombres?.length ?? 0);
-      } catch (err) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: (err as Error).message });
-      }
-    }
     if (e.tipo === 'atlas' && e.ocho === undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -279,7 +224,7 @@ export type Encargo = z.infer<typeof encargoSchema>;
 const NUMERALES = ['1', '2', '3', '4', '5'];
 
 /** «La imagen 1 es…, la imagen 2 es…»: el papel de cada adjunto, en su orden. */
-export function prefacioDeReferencias(referencias: Encargo['referencias']): string {
+function prefacioDeReferencias(referencias: Encargo['referencias']): string {
   return referencias
     .map((r, i) => `La imagen ${NUMERALES[i] ?? i + 1} ${PAPELES[r.papel]}.`)
     .join('\n');
@@ -292,15 +237,6 @@ export function prefacioDeReferencias(referencias: Encargo['referencias']): stri
  */
 const SIN_FONDO =
   'Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.';
-
-/** El fondo que se pide a un motor que no da alfa: liso, para recortarlo (`cutoutBackground`). */
-const FONDO_LISO =
-  'Fondo LISO de un solo color gris medio uniforme (#808080), sin degradado, sin suelo, sin sombra pintada, sin halo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.';
-
-/** Las reglas con el fondo que da el motor del encargo: el alfa de siempre, o liso. */
-function conFondo(e: Encargo, texto: string): string {
-  return e.motor?.fondo === 'liso' ? texto.replace(SIN_FONDO, FONDO_LISO) : texto;
-}
 
 /**
  * Hacia dónde mira el personaje en cada una de las 8 direcciones, dicho con
@@ -322,7 +258,7 @@ const ORIENTACIONES = [
 ] as const satisfies readonly string[] & { length: typeof NOMBRES_DE_DIRECCION.length };
 
 /** La orientación de una hoja, por escrito: la del maniquí, en todas las celdas. */
-export function orientacionEscrita(d: number): string {
+function orientacionEscrita(d: number): string {
   return `ORIENTACIÓN, la misma en TODAS las celdas: ${ORIENTACIONES[d]} Es la del maniquí de la imagen 1; el personaje no se vuelve hacia la cámara en ninguna celda.`;
 }
 
@@ -411,24 +347,6 @@ function reglasDeGiro(): string {
   ].join('\n');
 }
 
-function reglasDeIconos(e: Encargo): string {
-  const n = e.nombres?.length ?? 0;
-  const { filas, columnas } = rejillaDeIconos(n);
-  return [
-    `Rejilla de EXACTAMENTE ${filas} fila${filas > 1 ? 's' : ''} por ${columnas} columnas: ${n} iconos del mismo tamaño, cada uno compacto y entero, con mucho aire alrededor; ningún icono toca a otro.`,
-    SIN_FONDO,
-  ].join('\n');
-}
-
-function reglasDeEfecto(): string {
-  const { columnas, filas } = REJILLA_DE_EFECTO;
-  return [
-    `Hoja de animación de EXACTAMENTE ${columnas * filas} fotogramas del mismo efecto, en ${columnas} columnas por ${filas} filas, en orden de lectura: del inicio al final del efecto.`,
-    'Cada fotograma ocupa su celda de una rejilla imaginaria igual para todos, centrado en el mismo punto de su celda y a la misma escala; nada cruza el borde de su celda.',
-    SIN_FONDO,
-  ].join('\n');
-}
-
 function reglas(e: Encargo): string {
   switch (e.tipo) {
     case 'atlas':
@@ -437,10 +355,6 @@ function reglas(e: Encargo): string {
       return reglasDeIdentidad();
     case 'giro':
       return reglasDeGiro();
-    case 'iconos':
-      return reglasDeIconos(e);
-    case 'efecto':
-      return reglasDeEfecto();
     case 'imagen':
       return reglasDeImagen(e);
     case 'textura':
@@ -451,10 +365,10 @@ function reglas(e: Encargo): string {
 }
 
 /**
- * Las reglas de `tools/gen/prompts.ts`, aprendidas en los laboratorios de
- * ne-fan: un material visto a 90°, nunca un lugar (pedir «suelo» mete
- * perspectiva); liso, porque un motivo único canta al repetirse; y sin nombrar
- * el agua, que alucina ríos. La costura la fabrica el taller (`textura.ts`):
+ * Las reglas de las texturas, aprendidas en los laboratorios de ne-fan: un
+ * material visto a 90°, nunca un lugar (pedir «suelo» mete perspectiva); liso,
+ * porque un motivo único canta al repetirse; y sin nombrar el agua, que alucina
+ * ríos. La costura la fabrica el taller (`textura.ts`):
  * aquí solo se pide que no haya nada que la estropee.
  */
 const REGLAS_DE_TEXTURA = [
@@ -490,23 +404,11 @@ export function promptDe(e: Encargo): string {
       reglas(e),
     ].join('\n\n');
   }
-  if (e.motor?.prompt !== undefined) return e.motor.prompt;
-  // Por API no hay herramienta integrada que nombrar; con ControlNet la pose la
-  // pone el control y las demás referencias no viajan: sin prefacio ni lo que
-  // las nombra.
-  const control = e.motor?.control === true;
   return [
-    e.motor !== undefined
-      ? 'Genera UNA imagen.'
-      : 'Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.',
-    control ? '' : prefacioDeReferencias(e.referencias),
-    control
-      ? e.descripcion
-          .split('\n')
-          .filter((l) => !/\(imagen \d\)/.test(l))
-          .join('\n')
-      : e.descripcion,
-    conFondo(e, reglas(e)),
+    'Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.',
+    prefacioDeReferencias(e.referencias),
+    e.descripcion,
+    reglas(e),
   ]
     .filter((p) => p.length > 0)
     .join('\n\n');

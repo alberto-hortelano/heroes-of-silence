@@ -10,20 +10,21 @@
  * —no se reescala como un icono—, así que el tamaño relativo dentro de una hoja
  * se conserva, y lleva su ancla en la base, como las piezas del mapa.
  */
-import { createHash } from 'node:crypto';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import sharp from 'sharp';
-import { ALFA_FIGURA, type Caja, componentes, enFilas } from '../empaquetar.js';
+import { sha256 } from '../../comun/hash.js';
+import type { Raster } from '../../comun/imagen.js';
+import { ALFA_FIGURA } from '../cuerpo.js';
+import { type Caja, componentes, enFilas } from '../empaquetar.js';
 import type { Encargo } from '../encargo.js';
-import { REFERENCIA_DE_MAPAS } from '../mapa-denso.js';
-import type { Raster } from '../recorte.js';
+import { REFERENCIA_DE_MAPAS } from '../estilo-del-mapa.js';
 
 /** El estilo, dicho con palabras: el de la referencia (ver `ESTILO_DEL_MAPA`). */
 const ESTILO =
   'Estilo de la imagen de estilo: fantasía medieval oscura, pintura digital muy detallada como una maqueta en miniatura, paleta apagada y poco saturada (verdes oliva y musgo oscuros, grises pizarra, pardos, rojos óxido), sombras profundas, luz tenue desde arriba a la izquierda.';
 
-export interface HojaDeModulos {
+interface HojaDeModulos {
   readonly id: string;
   /** Qué hay en la hoja, en una frase. */
   readonly describe: string;
@@ -43,7 +44,7 @@ const LAMINA_A = 'assets/mapa/muestras/denso-a.webp';
 const LAMINA_B = 'assets/mapa/muestras/denso-b.webp';
 
 /** Las piezas del muro, en el orden de la rejilla de 4×2. */
-export const PIEZAS_DE_MURO = [
+const PIEZAS_DE_MURO = [
   'horizontal',
   'profundidad',
   'diagonal-baja',
@@ -65,7 +66,7 @@ const MURO_DESCRIBE = [
   '8. un contrafuerte bajo de piedra',
 ].join('; ');
 
-export const HOJAS: readonly HojaDeModulos[] = [
+const HOJAS: readonly HojaDeModulos[] = [
   // Árboles: un árbol (o un grupo de dos) por módulo, para apretarlos a cientos.
   {
     id: 'pinos',
@@ -252,14 +253,7 @@ export const HOJAS: readonly HojaDeModulos[] = [
   },
 ];
 
-export function hoja(id: string): HojaDeModulos {
-  const h = HOJAS.find((x) => x.id === id);
-  if (h === undefined)
-    throw new Error(`no hay hoja de módulos «${id}». Hay: ${HOJAS.map((x) => x.id).join(', ')}`);
-  return h;
-}
-
-export function encargoDeModulos(h: HojaDeModulos): Encargo {
+function encargoDeModulos(h: HojaDeModulos): Encargo {
   return {
     id: `modulos-${h.id}`,
     tipo: 'modulos',
@@ -342,7 +336,7 @@ export interface Modulo {
 const MARGEN = 4;
 
 /** El ancla de un recorte: la mediana de x de la franja baja (15 %) y la fila más baja. */
-export function anclaDe(r: Raster): [number, number] {
+function anclaDe(r: Raster): [number, number] {
   const { data, width, height } = r;
   let y1 = -1;
   let y0 = height;
@@ -364,7 +358,7 @@ export function anclaDe(r: Raster): [number, number] {
 }
 
 /** Recorta una caja de un raster, con margen, a su tamaño nativo. */
-export function recortarCaja(r: Raster, c: Caja, margen = MARGEN): Raster {
+function recortarCaja(r: Raster, c: Caja, margen = MARGEN): Raster {
   const x0 = Math.max(0, c.x0 - margen);
   const y0 = Math.max(0, c.y0 - margen);
   const x1 = Math.min(r.width - 1, c.x1 + margen);
@@ -378,7 +372,7 @@ export function recortarCaja(r: Raster, c: Caja, margen = MARGEN): Raster {
 }
 
 /** Cuántos módulos lleva cada fila de una hoja de `n`: de cuatro en cuatro, y la última con lo que quede. */
-export function modulosPorFila(n: number): number[] {
+function modulosPorFila(n: number): number[] {
   return Array.from({ length: Math.ceil(n / 4) }, (_, f) => Math.min(4, n - 4 * f));
 }
 
@@ -387,7 +381,7 @@ export function modulosPorFila(n: number): number[] {
  * no sale); sin ellos, todas las figuras, en orden de lectura, y al menos la
  * mitad de las pedidas.
  */
-export function cajasDeModulos(r: Raster, cuantos: number, nombres?: readonly string[]): Caja[] {
+function cajasDeModulos(r: Raster, cuantos: number, nombres?: readonly string[]): Caja[] {
   // Por píxeles conexos y no por cajas: en una hoja apretada las cajas de dos
   // módulos se solapan aunque sus píxeles no se toquen, y \`figuras\` las fundía.
   const figs = componentes(r);
@@ -449,7 +443,7 @@ export async function escribirModulos(
     await writeFile(join(dir, imagen), bytes);
     indice.push({
       imagen,
-      sha256: createHash('sha256').update(bytes).digest('hex'),
+      sha256: sha256(bytes),
       ancho: m.width,
       alto: m.height,
       ancla: anclaDe(m),

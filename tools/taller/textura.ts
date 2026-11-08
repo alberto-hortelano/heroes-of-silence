@@ -13,7 +13,7 @@
  * copia asoma en mitad del borde izquierdo.
  */
 import sharp from 'sharp';
-import type { Raster } from './recorte.js';
+import type { Raster } from '../comun/imagen.js';
 
 /** El lado de la textura que sale del taller. */
 export const LADO_DE_TEXTURA = 512;

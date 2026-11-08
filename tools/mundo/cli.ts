@@ -16,10 +16,10 @@
  *       niveles de su conversación (el inicio es el 1). Una medida, no una regla: no exige la biblia,
  *       para medir también los mundos de antes
  */
-import { REGIONES_POR_BANDO } from '../../src/core/map/generate.js';
+import { REGIONES_POR_BANDO } from '../../src/core/map/generar/plan.js';
 import { parseSeed } from '../../src/core/rng.js';
 import { parseFaccion } from '../../src/core/types.js';
-import { bandera } from '../argumentos.js';
+import { bandera } from '../comun/argumentos.js';
 import {
   escribirLectura,
   escribirMundoNuevo,

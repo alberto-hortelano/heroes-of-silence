@@ -25,7 +25,7 @@
       "sha256": "70e29169085c7c4acd0ea6da6cd1dabb406230467b77dba88f17920c88f90213"
     },
     {
-      "ruta": "assets/mapa/guias/diagonales-so-2.png",
+      "ruta": "assets/mapa/_guias/diagonales-so-2.png",
       "papel": "guia",
       "sha256": "32ad9102a40c7b5c1c88ad4848acc7e393829df37d95c3992f6c28356f7f3931"
     }

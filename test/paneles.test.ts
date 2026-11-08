@@ -1,15 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { marcadoDe } from '../src/client/html.js';
-import { Session } from '../src/client/session.js';
-import { renderSide, renderTopbar } from '../src/client/views/panels.js';
-import { tiposDeHeroe } from '../src/core/data.js';
-import { conSigno } from '../src/core/hero/equipo.js';
-import { umbral } from '../src/core/hero/experiencia.js';
+import { marcadoDe } from '../src/client/comun/html.js';
+import { renderSide, renderTopbar } from '../src/client/partida/paneles.js';
+import { Session } from '../src/client/sesion/partida.js';
 import { heroUnit, maxMana } from '../src/core/hero/hero.js';
-import { nivelDeUnidad } from '../src/core/nivel.js';
-import { ascenderVeterano } from '../src/core/state/game.js';
-import { conMiles } from '../src/core/types.js';
-import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
+import { umbral } from '../src/core/hero/rango.js';
+import { tiposDeHeroe } from '../src/core/hero/tipos-de-heroe.js';
+import { ascenderVeterano } from '../src/core/state/heroes.js';
+import { conMiles, conSigno } from '../src/core/texto.js';
+import { nivelDeUnidad } from '../src/core/unidad/nivel.js';
+import { ponVeteranoEnLaBase } from '../tools/qa/agente/veterano-en-la-base.js';
 import { meAtacan } from './escenas-paneles.js';
 
 /** «(+2)» o «(−1)»: lo que cambia el equipo una cifra del héroe, como lo dice la ficha. */
@@ -73,7 +72,7 @@ describe('el héroe nacido de la tropa en el panel del cliente', () => {
 describe('la ficha del héroe cuenta lo que lleva puesto (I4)', () => {
   it('ataque y defensa enseñan la suma del equipo con la que pelea, y desnudo no', () => {
     // La ficha enseñaba «2 / 2» a un héroe que entraba en batalla con +3/+3 de
-    // serie. El «(+N)» sale de `sumaDeEquipo`, la misma suma que aplica
+    // serie. El «(+N)» es lo que le suma el equipo, la misma suma que aplica
     // `heroUnit`: aquí se comprueba contra el cuerpo con el que pelea.
     const session = new Session(12);
     const heroe = session.myHeroes()[0]!;
@@ -149,8 +148,8 @@ describe('la pantalla cuenta lo que hizo la magia (#54)', () => {
 
 describe('el panel de la escena de la tropa', () => {
   it('cada «Poner» apagado lleva su motivo escrito debajo, y lo de serie no lleva ×', async () => {
-    const { renderPanelDeLaTropa } = await import('../src/client/views/tropa.js');
-    const { TROPA } = await import('./helpers.js');
+    const { renderPanelDeLaTropa } = await import('../src/client/partida/tropa/panel.js');
+    const { TROPA } = await import('./comun.js');
     const s = new Session(7);
     s.abrirLaTropa();
     const hero = s.selectedHero!;
@@ -163,10 +162,12 @@ describe('el panel de la escena de la tropa', () => {
     expect(mandoble.poner).not.toBeNull();
     const fila = m.slice(m.indexOf('data-item="mandoble"'), m.indexOf('data-item="gambeson"'));
     expect(fila).toContain('disabled>Poner</button>');
-    expect(fila).toContain(`<span class="motivo-apagado">${mandoble.poner}</span>`);
+    // El motivo es un rechazo del núcleo: en su color, el de la guarnición (H5; R2 de
+    // la reorganización, 07-11-2026: hasta entonces, `motivo-apagado`, en el apagado).
+    expect(fila).toContain(`<span class="veterania motivo">${mandoble.poner}</span>`);
     // El gambesón sí se le pone: encendido y sin motivo.
     const gambeson = m.slice(m.indexOf('data-item="gambeson"'));
-    expect(gambeson).not.toContain('motivo-apagado');
+    expect(gambeson).not.toContain('class="veterania motivo"');
     expect(gambeson).toMatch(/data-action="tropa-poner" data-item="gambeson" >Poner/);
     // Lo de serie: «de serie» y ningún botón de quitar en todo su equipo (es un novato).
     expect(m).toContain('class="de-serie"');

@@ -4,7 +4,7 @@
  * en un commit fijo y servida tal cual desde `assets/letras/<carpeta>/`, con su
  * `OFL.txt` y su `procedencia.json` al lado. `assets/letras/` y no
  * `assets/fuentes/`: en el taller, `<x>/fuentes/` es lo que solo él lee, y el
- * build lo deja fuera (`tools/build/publico.ts`).
+ * build lo deja fuera (`tools/vite/publico.ts`).
  *
  * La tabla (`FUENTES`) es la única fuente: de ella sale también
  * `src/client/fuentes.css` (`cssDeLetras`), un `@font-face` por fichero, que
@@ -22,16 +22,18 @@
  *
  *     npx tsx tools/fuentes/bajar.ts      baja lo que falte y reescribe `fuentes.css`
  */
-import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { FactionId } from '../../src/core/types.js';
+import { sha256 } from '../comun/hash.js';
+import { textoJson } from '../comun/json.js';
+import { RAIZ } from '../comun/raiz.js';
 
 /** El commit de `google/fonts` del que salen todas (`git ls-remote`, 13-10-2026). */
 export const COMMIT = '66928797f271fed5ee428544e7229685e2d90127';
-export const ORIGEN = `https://raw.githubusercontent.com/google/fonts/${COMMIT}/ofl`;
+const ORIGEN = `https://raw.githubusercontent.com/google/fonts/${COMMIT}/ofl`;
 
-export interface Fichero {
+interface Fichero {
   /** Nombre en el repositorio de origen. */
   readonly origen: string;
   /** Nombre en `assets/letras/<carpeta>/`: sin corchetes, que en una URL piden escaparse. */
@@ -40,11 +42,11 @@ export interface Fichero {
 }
 
 /** Un TrueType de la familia, con el grosor que cubre (`font-weight`; una variable, un tramo). */
-export interface Cara extends Fichero {
+interface Cara extends Fichero {
   readonly peso: string;
 }
 
-export interface Fuente {
+interface Fuente {
   readonly familia: string;
   /** La carpeta de `ofl/` en el origen, y la de `assets/letras/`. */
   readonly carpeta: string;
@@ -153,16 +155,12 @@ export const FUENTES: readonly Fuente[] = [
   },
 ];
 
-const RAIZ = resolve(import.meta.dirname, '../..');
 export const CARPETA_DE_LETRAS = join(RAIZ, 'assets/letras');
 /** La hoja de los `@font-face`, generada de `FUENTES`, relativa a la raíz. */
 export const HOJA_DE_LETRAS = 'src/client/fuentes.css';
 
-export const sha256 = (datos: Uint8Array): string =>
-  createHash('sha256').update(datos).digest('hex');
-
 /** La URL de un fichero en el origen, con los corchetes de `Cinzel[wght]` escapados. */
-export const urlDe = (f: Fuente, fichero: Fichero): string =>
+const urlDe = (f: Fuente, fichero: Fichero): string =>
   `${ORIGEN}/${f.carpeta}/${encodeURIComponent(fichero.origen)}`;
 
 async function bajar(url: string, esperado: string): Promise<Uint8Array> {
@@ -181,7 +179,7 @@ function yaEsta(ruta: string, esperado: string): boolean {
 }
 
 /** Baja las que falten, las comprueba y solo entonces escribe; rehace la hoja. */
-export async function bajarFuentes(): Promise<string[]> {
+async function bajarFuentes(): Promise<string[]> {
   const listas: { ruta: string; datos: Uint8Array | string }[] = [];
   for (const f of FUENTES) {
     const carpeta = join(CARPETA_DE_LETRAS, f.carpeta);
@@ -206,7 +204,7 @@ export async function bajarFuentes(): Promise<string[]> {
     };
     listas.push({
       ruta: join(carpeta, 'procedencia.json'),
-      datos: `${JSON.stringify(procedencia, null, 2)}\n`,
+      datos: textoJson(procedencia, 2),
     });
   }
   listas.push({ ruta: join(RAIZ, HOJA_DE_LETRAS), datos: cssDeLetras() });

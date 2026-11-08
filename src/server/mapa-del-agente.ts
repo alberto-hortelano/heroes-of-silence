@@ -17,19 +17,71 @@
  * sin empezar a merced de un agente que no acierta.
  */
 
-import type { MapGenerateResponse } from '@core/contract/agent.js';
-import { type MapRequestOptions, serializeMapRequest } from '@core/contract/serialize.js';
-import { basesDelPlan, type MapPlan, validateMapPlan } from '@core/map/generate.js';
+import type { MapGenerateResponse } from '@core/contract/esquemas.js';
+import { type MapRequestOptions, serializeMapRequest } from '@core/contract/peticion-de-mapa.js';
+import { LADO_DEL_MAPA, type MapPlan } from '@core/map/generar/plan.js';
+import { basesDelPlan, validateMapPlan } from '@core/map/generar/validar.js';
+import type { PlayerId } from '@core/types.js';
+import { mensajeDe } from '../shared/errores.js';
 import type { AgentAnswer, AgentLink } from './agent-link.js';
+import { Director, type DirectorOptions } from './director.js';
 import { notaMapaAceptado, notaMapaRechazado } from './notas.js';
 
 // Lo que el servidor pide es el `MapRequestOptions` del contrato, y se usa ese
 // tipo directamente: un alias no lo importaría nadie, y el criterio que este
-// mismo ciclo escribió en `agent.ts` dice que eso se borra. `players` son **los
+// mismo ciclo escribió en `contract/agent.ts` (hoy `contract/formato.ts`) dice que eso se borra. `players` son **los
 // ids** y no cuántos (#101), así que el agente lee qué jugadores colocar en vez
 // de deducirlo de una convención en prosa.
 
-export interface MapaDelAgente {
+/**
+ * El mapa que se le pide al agente, y el que sale del procedimental si no lo da.
+ *
+ * El lado es el de por defecto de `generateMapPlan`, que sale de las regiones por
+ * bando (`REGIONES_POR_BANDO`, #195), **leído y no copiado**: estuvo
+ * escrito a mano como `24` y, al cambiar el generador de tamaño, la
+ * partida con agente y la que sale sin él habrían dejado de jugarse en mapas
+ * comparables sin que nada se pusiera rojo. Los jugadores, en el orden en que
+ * los numera `newGame`.
+ *
+ * Vive aquí y no en `partida.ts` porque el servidor no era el único que lo
+ * escribía: la partida del arnés de `pnpm qa` y la huella lo copiaban, y si el
+ * servidor cambiaba su petición, la búsqueda de semilla del arnés habría jugado
+ * otra partida que la de `pnpm qa`. `partida.ts` no vale de casa común: lee el
+ * entorno al importarse.
+ */
+const MAPA_DE_LA_PARTIDA: MapRequestOptions = {
+  width: LADO_DEL_MAPA,
+  height: LADO_DEL_MAPA,
+  players: [0, 1],
+};
+/** Los jugadores cuyo turno decide el agente. */
+const JUGADORES_DEL_AGENTE: readonly PlayerId[] = [1];
+
+/**
+ * La partida con agente: le pide el mapa (`MAPA_DE_LA_PARTIDA`) y monta el
+ * `Director` con sus jugadores y con el plan si lo hay; sin plan, el
+ * procedimental de la semilla.
+ *
+ * `alSaberElMapa` corre entre las dos cosas, y por eso es un parámetro y no una
+ * lectura de lo devuelto: el servidor dice ahí de dónde salió el mapa, y lo dice
+ * ANTES de que el `preparar` de `pnpm qa` escriba sus líneas; el arnés y la
+ * huella lanzan ahí si el plan no vale, sin montar una partida para nada.
+ */
+export async function partidaConElMapaDelAgente(
+  link: AgentLink,
+  opciones: Omit<DirectorOptions, 'plan' | 'agentPlayers'>,
+  alSaberElMapa: (mapa: MapaDelAgente) => void,
+): Promise<Director> {
+  const mapa = await pedirMapaAlAgente(link, MAPA_DE_LA_PARTIDA);
+  alSaberElMapa(mapa);
+  return new Director(link, {
+    ...opciones,
+    agentPlayers: JUGADORES_DEL_AGENTE,
+    ...(mapa.plan === null ? {} : { plan: mapa.plan }),
+  });
+}
+
+interface MapaDelAgente {
   /** El plan si sirve; `null` si no hay agente, no contestó o no era jugable. */
   readonly plan: MapPlan | null;
   /** De dónde salió el mapa, o por qué no salió de él. Lo lee una persona. */
@@ -65,7 +117,7 @@ export async function pedirMapaAlAgente(
     // valida llevan su nota, y desde este ciclo esa nota ya no le promete que
     // «ese turno lo juega la IA de reglas», que para un mapa era falso. Aquí
     // solo queda contarlo en la consola.
-    return { plan: null, motivo: err instanceof Error ? err.message : String(err) };
+    return { plan: null, motivo: mensajeDe(err) };
   }
 
   const plan = respuesta.data.plan;

@@ -11,38 +11,33 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { BattleAnimator, DURACION } from '../src/client/anim.js';
 import {
   caraDeLaArena,
   renderPanelDeBatalla,
   rotuloDelTurno,
-} from '../src/client/arena/paneles.js';
-import { marcadoDe } from '../src/client/html.js';
-import { renderEleccion, tramosDelDesenlace } from '../src/client/rueda/rueda.js';
-import { SesionDeArena } from '../src/client/session.js';
-import { renderBattleLog } from '../src/client/views/panels.js';
+} from '../src/client/arena/paneles/batalla.js';
+import { BattleAnimator, DURACION } from '../src/client/batalla/anim.js';
+import { renderBattleLog } from '../src/client/batalla/parte.js';
+import { renderEleccion, tramosDelDesenlace } from '../src/client/batalla/rueda/rueda.js';
+import { marcadoDe } from '../src/client/comun/html.js';
+import { SesionDeArena } from '../src/client/sesion/sesion-de-arena.js';
 import { completarCruce, elegirEnLaRueda, pasoDelCruce } from '../src/core/ai/rueda.js';
 import { autoResolve } from '../src/core/ai/tactics.js';
-import type { FuenteDeArena } from '../src/core/arena.js';
+import type { FuenteDeArena } from '../src/core/arena/lados.js';
 import { golpesDe, ruedaDelGolpe } from '../src/core/battle/armas.js';
-import {
-  activeStack,
-  applyAction,
-  type BattleSide,
-  casillasDeCarga,
-  createBattle,
-  legalActions,
-  pasosQueQuedan,
-  previsionDeLaRueda,
-  previsionDelGolpeQueViene,
-  soltarElGolpe,
-  stackById,
-} from '../src/core/battle/battle.js';
+import { applyAction, soltarElGolpe } from '../src/core/battle/battle.js';
 import {
   cifrasDeLosNiveles,
+  efectoDelTipo,
   golpesDelTipo,
   type Punto,
 } from '../src/core/battle/cifras-de-la-rueda.js';
+import {
+  activeStack,
+  casillasDeCarga,
+  pasosQueQuedan,
+  stackById,
+} from '../src/core/battle/consultas.js';
 import {
   damageMultiplier,
   effectiveAttack,
@@ -50,49 +45,45 @@ import {
   stackHp,
 } from '../src/core/battle/damage.js';
 import {
+  dichoDelCruce,
+  type FormaDeLaRueda,
+  nombreEnLaRueda,
+  RUEDAS,
+  TIPOS_DE_LAS_RUEDAS,
+} from '../src/core/battle/formas-de-la-rueda.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
+import { type BattleSide, createBattle } from '../src/core/battle/montaje.js';
+import { previsionDeLaRueda, previsionDelGolpeQueViene } from '../src/core/battle/prevision.js';
+import {
   casillasQueQuitaLaFinta,
   contraataqueDelCruce,
   dichoDelCiclo,
-  dichoDelCruce,
   efectoDeGolpe,
-  efectoDelTipo,
-  type FormaDeLaRueda,
-  nombreEnLaRueda,
   puntoDelContraataque,
   puntoDelCruce as puntoDelCruceEn,
   puntosDeLaForma,
-  RUEDAS,
-  TIPOS_DE_LAS_RUEDAS,
-  type TipoDeGolpe,
   tiradaDelPunto,
 } from '../src/core/battle/rueda.js';
 import type { BattleAction, BattleEvent, BattleState } from '../src/core/battle/types.js';
-import { unidad } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO, combateCon, type ReglasDelCombate } from '../src/core/combate.js';
-import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import { createRng, type Rng, sortearPorPesos } from '../src/core/rng.js';
-import type { Hex, NivelesDeLaRueda, Stack, UnitInfo } from '../src/core/types.js';
-import { cuerpoDeCombate, nivelesDeLaEspada, type Unidad } from '../src/core/unidad.js';
-import { bando } from './batalla-de-prueba.js';
+import type { Hex, NivelesDeLaRueda, Stack, TipoDeGolpe, UnitInfo } from '../src/core/types.js';
+import { unidad } from '../src/core/unidad/catalogo.js';
+import { cuerpoDeCombate, nivelesDeLaEspada, type Unidad } from '../src/core/unidad/formato.js';
+import { desenlaceDe, empezarTalCual, hastaLaRueda, sesionDeArena } from './batalla-de-cliente.js';
 import {
   type Ataque,
   ataquesDe,
+  bando,
   conCifrasAMano,
   conManosDePrueba,
-  delBorrador,
-  desenlaceDe,
-  empezarTalCual,
   golpeConLaRueda,
-  hastaLaRueda,
-  JINETE,
-  NO_MUERTO,
   NORMAL,
-  PESADA,
-  sesionDeArena,
-  TROPA,
   todoA,
-  unidadDeArena,
-} from './helpers.js';
+} from './batalla-de-prueba.js';
+import { JINETE, NO_MUERTO, PESADA, TROPA } from './comun.js';
+import { delBorrador, unidadDeArena } from './pelea-de-arena.js';
 
 /** La rueda de 7, la de siempre: con la que pelean las batallas de estos tests. */
 const RUEDA_DE_7 = RUEDAS[7];

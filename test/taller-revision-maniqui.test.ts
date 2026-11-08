@@ -5,14 +5,14 @@
  * maniquíes del piloto no anden hacia atrás; y que la compuerta del trabajador mande
  * a `fallido/`, con su motivo, el encargo cuyo maniquí no vale.
  */
-import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { carpetaDeManiqui } from '../tools/art/poses.js';
+import { carpetaDeManiqui } from '../tools/art/poses/juegos.js';
+import { sha256 } from '../tools/comun/hash.js';
 import { Cola } from '../tools/taller/cola.js';
 import type { Encargo } from '../tools/taller/encargo.js';
 import {
@@ -194,9 +194,7 @@ describe('la compuerta del trabajador', () => {
     await writeFile(join(dir, 'd0-a.png'), png);
     await writeFile(join(dir, 'd0-a.profundidad.png'), png);
     if (paso === null) return;
-    const sha = createHash('sha256')
-      .update(otroRender ? Buffer.from('otro') : png)
-      .digest('hex');
+    const sha = sha256(otroRender ? Buffer.from('otro') : png);
     const huesos = {
       hoja: { png: sha, profundidad: sha },
       celda: 384,

@@ -7,7 +7,7 @@
  * escenario` y `pnpm capturas`.
  */
 import { existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
 import { componer } from '../src/client/render/escenario/colocar.js';
@@ -31,15 +31,16 @@ import {
   UMBRAL_DE_VOLUMEN,
 } from '../src/client/render/escenario/pintar.js';
 import { playAiTurn } from '../src/core/ai/turn.js';
-import type { MapPlan } from '../src/core/map/generate.js';
+import type { MapPlan } from '../src/core/map/generar/plan.js';
 import { createRng } from '../src/core/rng.js';
 import { newGame } from '../src/core/state/setup.js';
-import { semillaDelArnes } from '../tools/qa/partida-del-arnes.js';
-import { decidir } from '../tools/qa/politica.js';
-import { catalogoDelDisco, escenaDe, partidaDe, primeraSemillaCon } from './helpers.js';
-import { rango, segunPrisa } from './lento.js';
+import { primeraSemillaCon } from '../tools/comun/semillas.js';
+import { semillaDelArnes } from '../tools/qa/agente/partida-del-arnes.js';
+import { decidir } from '../tools/qa/agente/politica.js';
+import { RAIZ } from './comun.js';
+import { catalogoDelDisco, escenaDe, partidaDe } from './escena-de-prueba.js';
+import { conRespiro, rango, segunPrisa } from './lento.js';
 
-const RAIZ = resolve(import.meta.dirname, '..');
 const catalogo = catalogoDelDisco();
 
 /** Cuántas rachas de dos o más columnas pintadas tiene una cara: los trozos de su contorno. */
@@ -357,11 +358,11 @@ describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () 
     expect(() => varianteDeId('n0', 0)).toThrow(/al menos una/);
   });
 
-  it('en las semillas 1-40 salen los tres, y ninguno domina', () => {
+  it('en las semillas 1-40 salen los tres, y ninguno domina', async () => {
     const cuenta = new Map<string, number>(HITOS.map((h) => [h, 0]));
     // Las tablillas cuentan juntas, apunten adonde apunten.
     const familia = (h: string) => (h.startsWith(TABLILLAS.este) ? TABLILLAS.este : h);
-    for (let s = 1; s <= 40; s++)
+    for await (const s of conRespiro(rango(1, 40)))
       for (const h of hitosDe(s).values())
         cuenta.set(familia(h), (cuenta.get(familia(h)) ?? 0) + 1);
     const total = [...cuenta.values()].reduce((a, b) => a + b, 0);
@@ -425,10 +426,10 @@ describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () 
     expect(() => tablillaDelEje('n0', eje([1, 1], [1, 1]))).toThrow(/no va a ningún lado/);
   });
 
-  it('ninguna tablilla de la escena apunta de través a su paso, y salen todos los rumbos (§29)', () => {
+  it('ninguna tablilla de la escena apunta de través a su paso, y salen todos los rumbos (§29)', async () => {
     // 7 y 13 llevan los cinco desde los pueblos en un nodo (05-11-2026, fase 3; 6 y 12 desde las ciudades en su región, 05-11-2026; 1 y 20 desde las puertas de las ciudades, fase 2, 21-10-2026; 1 y 9 desde el recinto de las ciudades del núcleo, vuelta 3; 16 y 13 desde el río de lago de 20 casillas, 17-10-2026; 4 y 16 sin agua de frontera fuera del río, QA del río continuo, H3; 1 y 7 desde el río continuo, #144; 3 y 35 desde #144, los ríos; 33 y 36 desde #230, las dos puertas de la mina; 3 y 22 desde #229, las fronteras onduladas; 2 y 7 desde #226, el mapa de 42×42; 3 y 5 hasta entonces; 20 y 24 hasta #224; 1 y 2 hasta #215; 8 y 10 hasta #210; 8, 20 y 36 hasta #143; 20, 21 y 36 hasta #195; 15, 31 y 36 hasta #189); la orden lenta, 1-40.
     const vistos = new Set<string>();
-    for (const semilla of segunPrisa([7, 13], rango(1, 40))) {
+    for await (const semilla of conRespiro(segunPrisa([7, 13], rango(1, 40)))) {
       const { map, escena } = partidaDe(semilla);
       for (const o of map.objects) {
         const pieza = escena.sprites

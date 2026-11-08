@@ -9,82 +9,59 @@
  * datos: la economía la define el usuario.
  *
  * Este módulo es la ÚNICA puerta para tres preguntas que antes se contestaban
- * cada una en su sitio, y que con un personaje en el ejército dejaban de
- * tener respuesta: de dónde salen las cifras de un individuo (`troopUnit`),
- * cuánto ocupa (`troopLeadership`) y cómo se ve agrupado (`troopSummary`).
- * Mientras cada lector llamaba a `creature(stack.creature)` por su cuenta, un
- * héroe con un personaje no podía ni pasar de día: `maxMovePoints` lanzaba
- * «criatura desconocida: "character"» en el `advanceDay`.
+ * cada una en su sitio: de dónde salen las cifras de un individuo
+ * (`troopUnit`), cuánto ocupa (`troopLeadership`) y cómo se ve agrupado
+ * (`troopSummary`).
  */
+
+import { cupoDelHeroe } from '../combate.js';
+import { piezasPuestas } from '../equipo/vestir.js';
+import type { Army, GrupoDeTropa, Stack, Troop, UnitInfo, Veterania } from '../types.js';
 import {
   CATALOGO_DEL_JUEGO,
   type CatalogoDeUnidades,
   cifrasDeUnidad,
   unidadDelJuego,
-} from '../catalogo.js';
-import { cupoDelHeroe } from '../combate.js';
-import { type GrupoDeTropa, LIDERAZGO } from '../data.js';
-import type { Character } from '../rpg/character.js';
-import { combatProfile } from '../rpg/stats.js';
-import type { Army, Stack, Troop, UnitInfo, Veterania } from '../types.js';
-import { piezasPuestas } from './equipo.js';
+} from '../unidad/catalogo.js';
+import { LIDERAZGO } from './liderazgo.js';
 import {
-  cifrasDelIndividuo,
   RANGO_MAXIMO_DE_TROPA,
   rangoDeHeroe,
   rangoDeTropa,
   siguienteUmbral,
   subidasDeRango,
-} from './experiencia.js';
-
-/** Los personajes de la partida, si los hay: `GameState.characters`. */
-export type Personajes = Readonly<Record<string, Character>> | undefined;
+} from './rango.js';
 
 /**
- * La puerta para buscar un personaje por id. Lanza diciendo el id si la partida
- * no lo conoce: sería un individuo sin cifras, y adivinárselas es justo lo que
- * no se hace. `quien` dice desde dónde se le buscaba —«Gustav lleva en el
- * ejército», «la batalla devuelve»—, para que la frase lo cuente.
- */
-export function characterOf(characters: Personajes, id: string, quien: string): Character {
-  const c = characters?.[id];
-  if (c === undefined) {
-    throw new Error(`${quien} al personaje "${id}", pero la partida no lo conoce`);
-  }
-  return c;
-}
-
-/**
- * Las cifras de un individuo: del catálogo, o del perfil de su personaje.
+ * Las cifras de un individuo: las de su unidad del catálogo con su veteranía y
+ * su equipo (`cifrasDeUnidad`).
  *
  * Es lo que leen la velocidad del héroe, la fuerza que calcula la IA y las
- * vistas del ejército. El motor de batalla tiene su propia resolución
- * (`resolveUnit`), que además trae los PV con los que entra un herido.
+ * vistas del ejército. El motor de batalla resuelve lo suyo en `resolveUnit`,
+ * con la misma regla.
  */
-export function troopUnit(t: Troop, characters: Personajes): UnitInfo {
+export function troopUnit(t: Troop): UnitInfo {
   // La veteranía se suma aquí y en `resolveUnit` con las MISMAS funciones: un
   // test exige que las dos puertas den lo mismo para un veterano.
-  if (t.member === undefined) return cifrasDeUnidad(t.creature, t.veterania);
-  const perfil = combatProfile(characterOf(characters, t.member, 'el ejército lleva'));
-  return cifrasDelIndividuo(perfil.unit, t.veterania, perfil.equipo);
+  return cifrasDeUnidad(t.creature, t.veterania);
 }
 
 /**
  * La hoja con que se pinta un individuo: la de su unidad en el catálogo
- * (`cuerpo.hoja`) o, un personaje, la de su cuerpo (`creature`, que en él es la
- * hoja). La leen el tablero (`resolveUnit`, que la pone en `body`) y la escena de
- * la tropa: escrita en los dos, un día uno pintaría al piquero con otra hoja.
+ * (`cuerpo.hoja`). La leen el tablero (`resolveUnit`, que la pone en `body`) y la
+ * escena de la tropa: escrita en los dos, un día uno pintaría al piquero con otra
+ * hoja.
  */
 export function hojaDeLaTropa(
-  t: Pick<Troop, 'creature' | 'member'>,
+  t: Pick<Troop, 'creature'>,
   cat: CatalogoDeUnidades = CATALOGO_DEL_JUEGO,
 ): string {
-  return t.member === undefined ? cat.unidad(t.creature).cuerpo.hoja : t.creature;
+  return cat.unidad(t.creature).cuerpo.hoja;
 }
 
 /** Lo que ocupa un individuo en el liderazgo. */
 function troopLeadership(t: Troop): number {
-  return t.member === undefined ? unidadDelJuego(t.creature).leadership : LIDERAZGO.personaje;
+  return unidadDelJuego(t.creature).leadership;
 }
 
 /** Lo que ocupa el ejército entero. */
@@ -203,19 +180,13 @@ export function ejercitoDe(grupos: readonly GrupoDeTropa[]): Army {
 
 /**
  * La inversa de `ejercitoDe`: un ejército de criaturas del catálogo, agrupado
- * en su orden (`troopSummary`). Lanza con un personaje dentro, que es uno y
- * tiene nombre: no se escribe como «1 × character». Y con un veterano, que en
- * «3 × piquero» perdería su experiencia sin que nadie lo dijera: hoy solo lo
- * llaman los asaltantes, que no acumulan, y el día que acumulen tendrán que
- * guardarse como `Army` y no como grupos.
+ * en su orden (`troopSummary`). Lanza con un veterano, que en «3 × piquero»
+ * perdería su experiencia sin que nadie lo dijera: hoy solo lo llaman los
+ * asaltantes, que no acumulan, y el día que acumulen tendrán que guardarse como
+ * `Army` y no como grupos.
  */
 export function gruposDe(army: Army): GrupoDeTropa[] {
-  return troopSummary(army, undefined).map((g) => {
-    if (g.member !== undefined) {
-      throw new Error(
-        `el personaje ${g.member} no cabe en unos grupos de tropa: es uno y tiene nombre`,
-      );
-    }
+  return troopSummary(army).map((g) => {
     if (g.veterania !== undefined) {
       throw new Error(
         `el ${g.unit.name} veterano ${g.veterania.id} no cabe en unos grupos de tropa: perdería su experiencia`,
@@ -277,7 +248,6 @@ export function troopsAsStacks(army: Army): Stack[] {
 /** Una fila del ejército agrupado: lo que se pinta y lo que viaja al agente. */
 export interface TroopGroup {
   readonly creature: string;
-  readonly member?: string;
   readonly unit: UnitInfo;
   readonly count: number;
   /** Un veterano va solo en su fila, con su hoja y su rango. */
@@ -293,31 +263,27 @@ export interface TroopGroup {
 
 /**
  * El ejército agrupado por criatura, en orden de primera aparición; cada
- * personaje y cada veterano en su propia fila, porque es uno y tiene nombre o
- * historia: tres piqueros de rango 1, 3 y 4 no son «3 × piquero».
+ * veterano en su propia fila, porque es uno y tiene historia: tres piqueros de
+ * rango 1, 3 y 4 no son «3 × piquero».
  *
- * **Es el único sitio que agrupa.** Lo leen la vista del agente, el panel del
- * cliente y el resumen del servidor; si cada uno agrupara por su cuenta, el
- * día que un personaje aparezca en uno de ellos los otros dos lo contarían como
- * «3 × character».
+ * **Es la única agrupación que se enseña.** La leen la vista del agente, el panel
+ * del cliente y el resumen del servidor; si cada uno agrupara por su cuenta, el
+ * día que cambie la regla dos de ellos la contarían de otra manera. Contar por tipo
+ * sin apartar a los veteranos es otra regla, `contarPorTipo`, y las líneas de un
+ * reparto, otra (`lineasDelEjercito`, `state/sitios.ts`).
  */
-export function troopSummary(army: Army, characters: Personajes): TroopGroup[] {
+export function troopSummary(army: Army): TroopGroup[] {
   const grupos: TroopGroup[] = [];
   const porCriatura = new Map<string, number>();
   for (const t of army) {
-    if (t.member !== undefined || t.veterania !== undefined) {
-      const rango = rangoDeTropa(t.veterania);
+    if (t.veterania !== undefined) {
       grupos.push({
         creature: t.creature,
-        ...(t.member === undefined ? {} : { member: t.member }),
-        ...(t.veterania === undefined ? {} : { veterania: t.veterania }),
-        unit: troopUnit(t, characters),
+        veterania: t.veterania,
+        unit: troopUnit(t),
         count: 1,
-        rango,
-        siguiente:
-          t.veterania === undefined
-            ? null
-            : siguienteUmbral(t.veterania.experiencia, RANGO_MAXIMO_DE_TROPA),
+        rango: rangoDeTropa(t.veterania),
+        siguiente: siguienteUmbral(t.veterania.experiencia, RANGO_MAXIMO_DE_TROPA),
       });
       continue;
     }
@@ -340,15 +306,28 @@ export function troopSummary(army: Army, characters: Personajes): TroopGroup[] {
 }
 
 /**
+ * `army` contado por tipo, en orden de primera aparición, con cada veterano entre
+ * los de su tipo: lo que cuentan el hecho de un reparto (`repartirTropa`) y la tropa
+ * de salida de un mundo (`mundo/lectura.ts`). Vivía en `state/sitios.ts` (`porTipo`),
+ * y la lectura de un mundo llevaba su copia, hasta la fase N de la reorganización
+ * (07-11-2026).
+ */
+export function contarPorTipo(army: Army): GrupoDeTropa[] {
+  const cuenta = new Map<string, number>();
+  for (const t of army) cuenta.set(t.creature, (cuenta.get(t.creature) ?? 0) + 1);
+  return [...cuenta].map(([creature, count]) => ({ creature, count }));
+}
+
+/**
  * El índice del individuo de `creatureId` que se iría primero al licenciar uno
- * de ese tipo, o −1 si no hay ninguno. Los personajes no cuentan: no se licencian.
+ * de ese tipo, o −1 si no hay ninguno.
  */
 function indiceDelQueSeIria(army: Army, creatureId: string): number {
   let elegido = -1;
   let menos = Number.POSITIVE_INFINITY;
   let menosPiezas = Number.POSITIVE_INFINITY;
   army.forEach((t, i) => {
-    if (t.creature !== creatureId || t.member !== undefined) return;
+    if (t.creature !== creatureId) return;
     const exp = t.veterania?.experiencia ?? 0;
     const piezas = piezasPuestas(t.veterania?.equipo).length;
     // `<=` y no `<`: a igual experiencia y equipo gana el de más atrás. Y a igual

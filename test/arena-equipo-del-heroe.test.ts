@@ -6,33 +6,32 @@
  * borra una pieza que lleva puesta.
  */
 import { describe, expect, it } from 'vitest';
+import { type MontajeDelEnlace, montajeALaURL, montajeDeLaURL } from '../src/core/arena/enlace.js';
+import { type HeroeDeArena, heroeDeArena, heroePorDefecto } from '../src/core/arena/heroe.js';
 import {
   batallaDeArena,
-  cambioDePiezas,
   catalogoDelMontaje,
-  equiparEnArena,
-  type HeroeDeArena,
-  heroeDeArena,
-  heroePorDefecto,
   type MontajeDeArena,
-  type MontajeDelEnlace,
-  montajeALaURL,
-  montajeDeLaURL,
+} from '../src/core/arena/montaje.js';
+import {
+  cambioDePiezas,
+  equiparEnArena,
   opcionesDelHueco,
   piezasDelMontaje,
   quitarBlocker,
   quitarEnArena,
-  retocarEnBatalla,
-} from '../src/core/arena.js';
+} from '../src/core/arena/piezas.js';
+import { retocarEnBatalla } from '../src/core/arena/retoque.js';
 import { armaduraDe } from '../src/core/battle/armas.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
-import { UNIDADES, unidad } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { EQUIPO_ESCRITO, HEROE } from '../src/core/data.js';
-import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
+import { EQUIPO_ESCRITO } from '../src/core/equipo/pieza.js';
+import { EQUIPO_BASE, HEROE } from '../src/core/hero/cuerpo-del-heroe.js';
 import { hechizosDelGremio } from '../src/core/magia/catalogo.js';
 import { createRng } from '../src/core/rng.js';
-import { delBorrador } from './helpers.js';
+import { UNIDADES, unidad } from '../src/core/unidad/catalogo.js';
+import { delBorrador } from './pelea-de-arena.js';
 
 const eq = EQUIPO_DEL_JUEGO;
 const izquierdo = (): HeroeDeArena => heroePorDefecto('izquierda');

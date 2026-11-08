@@ -20,7 +20,7 @@
       "sha256": "8b68d2843604978ecb9c5ad221fe52be3c8556a54c17074eb222708f2f207402"
     },
     {
-      "ruta": "assets/mapa/guias/muro-ns.png",
+      "ruta": "assets/mapa/_guias/muro-ns.png",
       "papel": "guia",
       "sha256": "eb0170566302aef4aa8b0993d86e89f15272b52a1df6ffbca6cbc8051aed334c"
     }

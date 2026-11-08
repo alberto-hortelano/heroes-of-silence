@@ -1,17 +1,15 @@
 /**
  * El lado de disco de la arena (`/arena/`): qué hojas hay, los catálogos de
- * unidades (`data/unidades.json`, el que lee `core/catalogo.ts`) y de equipo
- * (`data/equipo.json`, el que carga `core/data.ts`) y el borrador de las formas de
- * muralla. Lo sirve el servidor de desarrollo (`vite.config.ts`) y nada más: el
+ * unidades (`data/unidades.json`, el que lee `core/unidad/catalogo.ts`) y de equipo
+ * (`data/equipo.json`, el que carga `core/equipo/pieza.ts`) y el borrador de las formas de
+ * muralla. Lo sirve el servidor de desarrollo (`tools/vite/arena.ts`) y nada más: el
  * navegador no puede escribir en el repo. La partida no lee el borrador.
  *
- * Aparte de `vite.config.ts` para que los tests lo ejerzan contra una carpeta
+ * Aparte de `tools/vite/arena.ts` para que los tests lo ejerzan contra una carpeta
  * temporal sin arrancar vite.
  */
-import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-
 import {
   COMENTARIO_DEL_BORRADOR_DE_MURALLAS,
   type FormaDeMuralla,
@@ -19,20 +17,22 @@ import {
   RUTA_DE_MURALLAS,
   revisarBorradorDeMurallas,
   validarBorradorDeMurallas,
-} from '../../src/core/arena-murallas.js';
-import {
-  COMENTARIO_DEL_CATALOGO_DE_EQUIPO,
-  type CuerpoDeTodoHeroe,
-  combateDelHeroe,
-  type PiezaEscrita,
-  RUTA_DEL_CATALOGO_DE_EQUIPO,
-  RUTA_DEL_HEROE,
-} from '../../src/core/data.js';
+} from '../../src/core/arena/murallas.js';
 import {
   type CatalogoDeEquipo,
   catalogoDelFichero,
   type EquipoAtado,
-} from '../../src/core/hero/equipo.js';
+} from '../../src/core/equipo/atado.js';
+import {
+  COMENTARIO_DEL_CATALOGO_DE_EQUIPO,
+  type PiezaEscrita,
+  RUTA_DEL_CATALOGO_DE_EQUIPO,
+} from '../../src/core/equipo/pieza.js';
+import {
+  type CuerpoDeTodoHeroe,
+  combateDelHeroe,
+  RUTA_DEL_HEROE,
+} from '../../src/core/hero/cuerpo-del-heroe.js';
 import { catalogoDeHechizos } from '../../src/core/magia/catalogo.js';
 import {
   COMENTARIO_DE_LOS_HECHIZOS,
@@ -51,8 +51,9 @@ import {
   type UnidadSinValidar,
   validarCatalogo,
   validarHojas,
-} from '../../src/core/unidad.js';
-import { type AEscribir, comentarioDe, escribirAtomico, jsonDe } from '../json.js';
+} from '../../src/core/unidad/formato.js';
+import { sha256DeFichero } from '../comun/hash.js';
+import { type AEscribir, comentarioDe, escribirAtomico, jsonDe } from '../comun/json.js';
 import { direccionesDe } from '../taller/arte-en-disco.js';
 import { HEROES, juegoDelYBot, perfilDeUnidad, UNIDADES } from '../taller/unidades.js';
 import { AGILIDAD_DEL_CUERPO } from './velocidades.js';
@@ -390,7 +391,7 @@ export function escribirCatalogo(
  * texto, o `"falta"` si no está. La página la recibe al leer el catálogo y la
  * devuelve al guardar (`guardarCatalogo`).
  */
-export type VersionDelCatalogo = Readonly<Record<string, string>>;
+type VersionDelCatalogo = Readonly<Record<string, string>>;
 
 /** Los ficheros que escribe «Guardar», en el orden en que se dice cuál cambió. */
 export const FICHEROS_DEL_CATALOGO = [
@@ -405,7 +406,7 @@ export function versionDelCatalogo(raiz: string): VersionDelCatalogo {
     FICHEROS_DEL_CATALOGO.map((ruta) => {
       const donde = join(raiz, ruta);
       if (!existsSync(donde)) return [ruta, 'falta'];
-      return [ruta, createHash('sha256').update(readFileSync(donde)).digest('hex')];
+      return [ruta, sha256DeFichero(donde)];
     }),
   );
 }

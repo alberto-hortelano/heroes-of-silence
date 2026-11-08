@@ -10,6 +10,6 @@
 import { arrancarPartida } from './partida.js';
 
 // El cuerpo vive en `partida.ts`, que es una función y se puede llamar con algo
-// que preparar (`tools/qa/partida-con-veterano.ts`). Esto la llama sin nada:
+// que preparar (`tools/qa/agente/partida-con-veterano.ts`). Esto la llama sin nada:
 // la partida de siempre.
 void arrancarPartida();

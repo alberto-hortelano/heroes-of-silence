@@ -4,7 +4,7 @@
  * extras»): una pieza escrita sobre otra de su hueco suma lo de la base más sus
  * extras, en cadena, y el vínculo es vivo —cambiar la Espada cambia la de
  * herrería, la bendita y a quien las lleve, también a media pelea—. La suma la
- * hace solo `resolverBases` (privada de `data.ts`, lo vigila `invariantes.test.ts`).
+ * hace solo `resolverBases` (privada de `equipo/pieza.ts`, lo vigila `invariantes-batalla.test.ts`).
  *
  * Escritos desde los criterios del plan (`docs/agents/2026-10-18-equipo-por-tipos-y-bases/`):
  * cada regla con su caso rechazado, con su frase.
@@ -12,20 +12,22 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  equiparEnArena,
   type MontajeDelEnlace,
   montajeALaURL,
   montajeDeLaURL,
+  VERSION_DEL_ENLACE,
+} from '../src/core/arena/enlace.js';
+import {
+  equiparEnArena,
   piezaNueva,
   piezasDelMontaje,
   quitarEnArena,
-  VERSION_DEL_ENLACE,
-} from '../src/core/arena.js';
+} from '../src/core/arena/piezas.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { type Pieza, validarPieza } from '../src/core/data.js';
-import { EQUIPO_DEL_JUEGO, pieza } from '../src/core/hero/equipo.js';
-import type { Unidad } from '../src/core/unidad.js';
-import { catalogoCon, elCatalogoCon, unidadDeArena } from './helpers.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
+import { type Pieza, pieza, validarPieza } from '../src/core/equipo/pieza.js';
+import type { Unidad } from '../src/core/unidad/formato.js';
+import { catalogoCon, elCatalogoCon, unidadDeArena } from './pelea-de-arena.js';
 
 const ESPADA = pieza('espada');
 /** La Espada cambiada en el catálogo: +3 de ataque. */

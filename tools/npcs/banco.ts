@@ -1,7 +1,7 @@
 /**
  * El banco de figuras de NPC en disco: **el único que lee y escribe
- * `data/npcs.json`** (lo vigila `invariantes.test.ts`). La forma, el vocabulario y
- * la validación son del núcleo (`src/core/npcs.ts`); aquí, el fichero y el arte.
+ * `data/npcs.json`** (lo vigila `invariantes-datos.test.ts`). La forma, el vocabulario y
+ * la validación son del núcleo (`src/core/gente/banco.ts`); aquí, el fichero y el arte.
  *
  * Si una figura está pintada **no se escribe**: se deriva de si sus ocho
  * `dN/atlas.json` están en `assets/npcs/<id>/` (`estadoDeFigura`), y la que no lo está
@@ -10,12 +10,12 @@
  * cola (pedida en otro clon, o la cola se borró) se vuelve a encolar con
  * `pnpm npcs encolar`.
  *
- * Lo lee también `pnpm dev` para servir `/__npcs` (`vite.config.ts`), así que el
+ * Lo lee también `pnpm dev` para servir `/__npcs` (`tools/vite/npcs.ts`), así que el
  * taller (pesado: Codex, sharp, el maniquí) se carga a demanda solo al encolar.
  */
 import { existsSync, readdirSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import {
   type Banco,
   CARPETA_DE_LAS_FIGURAS,
@@ -25,16 +25,15 @@ import {
   type PeticionDeFigura,
   problemasDePeticiones,
   RUTA_DEL_BANCO,
-} from '../../src/core/npcs.js';
-import { comentarioDe, escribirAtomico, jsonDe } from '../json.js';
+} from '../../src/core/gente/banco.js';
+import { comentarioDe, escribirAtomico, jsonDe, textoJson } from '../comun/json.js';
+import { RAIZ } from '../comun/raiz.js';
 import {
   arteEnOchoDirecciones,
   type CarpetaDeArte,
   direccionesDe,
 } from '../taller/arte-en-disco.js';
 import { type EnElTaller, fotoDelTaller, fraseDelTaller } from './en-el-taller.js';
-
-export const RAIZ = resolve(import.meta.dirname, '../..');
 
 /**
  * El arte de la figura `id` en disco, con lo que se dice si está a medias: lo que hace el
@@ -91,7 +90,7 @@ export function estadoDeFigura(
 }
 
 /** Las hojas del banco como las lee la página: por id, sus direcciones o por qué aún no. */
-export interface HojaDeNpc {
+interface HojaDeNpc {
   readonly direcciones: readonly unknown[] | null;
   /** Por qué no se pinta aún: pendiente o a medias. `null`, pintada. */
   readonly incompleta: string | null;
@@ -194,7 +193,7 @@ export async function aceptarElMundo(
   const hecho = await aceptarPeticiones(historia.figuras ?? {}, id, raiz, FIGURAS_NUEVAS_POR_MUNDO);
   if (historia.figuras !== undefined) {
     const { figuras: _ya, ...sin } = historia;
-    await writeFile(ruta, `${JSON.stringify(sin, null, 2)}\n`);
+    await writeFile(ruta, textoJson(sin, 2));
   }
   return hecho;
 }

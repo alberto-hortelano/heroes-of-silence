@@ -17,54 +17,60 @@
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import { type CatalogoEnBruto, catalogoValidado } from '../src/client/render/escenario/catalogo.js';
-import { modulosDelRecinto } from '../src/client/render/escenario/colocar.js';
+import { modulosDelRecinto } from '../src/client/render/escenario/colocar/sendas-y-murallas.js';
+import { PIES } from '../src/client/render/escenario/figuras-del-mapa.js';
 import { contornoDeLaPlaza } from '../src/client/render/escenario/huella.js';
 import { type ConImagen, pasilloDe } from '../src/client/render/escenario/pasillo.js';
 import {
-  ARRANQUE_DEL_ARCO,
-  anilloMalOrdenado,
-  anilloSobreLaSenda,
-  arcosTapados,
-  CARA_DEL_RECINTO,
-  CARAS,
   type CajaEnPantalla,
-  type Cara,
   cajaEnPantalla,
   callesDeLasPuertas,
-  casasRepetidasJuntas,
-  contornoDelRecinto,
-  crucesConElContorno,
   DENTRO_DE_LOS_CHAFLANES,
+  FONDO_DE_LA_CALLE,
+  LIBRE_BAJO_EL_HEROE,
+  MEDIA_CALLE,
+  PIE_EN_LA_PLAZA,
+  type PiezaDelRecinto,
+  pieDelHeroe,
+  recintoDe,
+  tapaElArco,
+  tapaElPieDelHeroe,
+  vanoDelArco,
+} from '../src/client/render/escenario/recinto/anillo.js';
+import {
+  anilloSobreLaSenda,
+  arcosTapados,
+  casasRepetidasJuntas,
+  huecosDelAnillo,
+} from '../src/client/render/escenario/recinto/guardias.js';
+import {
+  ARRANQUE_DEL_ARCO,
+  CARA_DEL_RECINTO,
+  CARAS,
+  type Cara,
+  contornoDelRecinto,
   dentroDelContorno,
   EJE_DE_LA_CARA,
   ESCALA_DEL_MODULO,
   enLaPlaza,
-  FONDO_DE_LA_CALLE,
   GRUESO_DEL_TORREON,
-  huecosDelAnillo,
-  LIBRE_BAJO_EL_HEROE,
   LUZ_DEL_ARCO,
-  MEDIA_CALLE,
   type Par,
-  PIE_EN_LA_PLAZA,
-  type PiezaDelRecinto,
   PLAZA_AL_SUR,
   PX_POR_CASILLA_DEL_PUEBLO,
-  pieDelHeroe,
   puertaDelEje,
   RADIO_DE_TORRE,
+} from '../src/client/render/escenario/recinto/octogono.js';
+import { anilloMalOrdenado } from '../src/client/render/escenario/recinto/orden.js';
+import {
+  crucesConElContorno,
   ROCE_DEL_RECINTO,
-  recintoDe,
   sendasSinRoces,
-  tapaElArco,
-  tapaElPieDelHeroe,
-  vanoDelArco,
-} from '../src/client/render/escenario/recinto.js';
+} from '../src/client/render/escenario/recinto/sendas.js';
 import { SEMIANCHO_DE_LA_HUELLA, type Senda } from '../src/client/render/escenario/sendas.js';
-import { PIES } from '../src/client/render/mapa.js';
 import { recintoDeLaCiudad } from '../src/core/map/recinto.js';
 import { FRANJAS_DEL_PERFIL, siluetaDeModulo } from '../tools/taller/derivar.js';
-import { catalogoDelDisco, recta } from './helpers.js';
+import { catalogoDelDisco, recta } from './escena-de-prueba.js';
 
 const faltan = new Set<string>();
 const MODULOS = modulosDelRecinto(catalogoDelDisco(), faltan);

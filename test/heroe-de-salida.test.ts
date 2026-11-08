@@ -8,27 +8,26 @@
  * la partida; el de la persona sin `?heroe=`, pendiente hasta que lo elige.
  */
 import { describe, expect, it } from 'vitest';
-import { ECONOMIA, tipoDeHeroePorDefecto, validarEconomia } from '../src/core/data.js';
-import { createRng } from '../src/core/rng.js';
+import { tipoDeHeroePorDefecto } from '../src/core/hero/tipos-de-heroe.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
 import {
-  type AdventureAction,
-  applyAdventureAction,
   candidatosAHeroe,
   contratarBlocker,
-  type GameState,
   salidaPendienteBlocker,
-} from '../src/core/state/game.js';
+} from '../src/core/state/heroes.js';
 import { newGame } from '../src/core/state/setup.js';
+import { guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
+import type { AdventureAction, GameState } from '../src/core/state/tipos.js';
+import { ECONOMIA, validarEconomia } from '../src/core/town/economia.js';
 import { oroBlocker } from '../src/core/town/town.js';
-import { guarnicionDeLaCiudad } from './helpers.js';
+import { ctx } from './comun.js';
 
-const ctx = () => ({ rng: createRng(7) });
 const baseDe = (state: GameState, jugador = 0) => {
   const id = state.players.find((p) => p.id === jugador)!.base!;
   return state.towns.find((t) => t.id === id)!;
 };
 const accion = (state: GameState, a: AdventureAction, quien = 0) =>
-  applyAdventureAction(state, a, ctx(), quien);
+  applyAdventureAction(state, a, ctx(7), quien);
 
 describe('el precio de todo héroe', () => {
   it('newGame por defecto da a cada jugador su héroe ya pagado', () => {

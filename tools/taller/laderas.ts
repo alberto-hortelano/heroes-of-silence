@@ -41,33 +41,31 @@
  *   pnpm taller encolar --laderas [--solo=roca-este-1,roca-este-2]
  */
 import { readFile, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import {
   esHojaDeLadera,
   type JuntasDeLadera,
   type PapelDeLadera,
 } from '../../src/client/render/escenario/catalogo.js';
 import { TALUD_DE_LADERA } from '../../src/client/render/escenario/relieve.js';
+import { textoJson } from '../comun/json.js';
+import { RAIZ } from '../comun/raiz.js';
 import { mascaraDeGuia, registrarLadera } from './derivar.js';
 import type { Encargo } from './encargo.js';
-import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
+import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './estilo-del-mapa.js';
 import {
   ARRIBA,
   DIR_GUIAS,
   escribirGuia,
   FRENTE,
   Guia,
-  type Lado,
   MATAS,
-  MATERIALES,
-  type Material,
   NIVEL,
   type P2,
   type P3,
   SOMBRA,
-} from './paredes-puentes.js';
-
-const RAIZ = resolve(import.meta.dirname, '../..');
+} from './guias.js';
+import { type Lado, MATERIALES, type Material } from './paredes-puentes.js';
 
 export type Niveles = 1 | 2 | 3;
 
@@ -109,7 +107,7 @@ const CONO = 0.26;
 export const DERRUBIO = '#8e8e8e';
 
 /** Una pieza de la familia. */
-export interface Pieza {
+interface Pieza {
   readonly nombre: string;
   /** Casillas de norte a sur. */
   readonly largo: 1 | 2;
@@ -197,7 +195,7 @@ export const PIEZAS: readonly Pieza[] = [
 ];
 
 /** Qué piezas lleva la hoja de cada caída, en orden de lectura (filas de cuatro). */
-export const PIEZAS_DE_LADERA: Readonly<Record<Niveles, readonly string[]>> = {
+const PIEZAS_DE_LADERA: Readonly<Record<Niveles, readonly string[]>> = {
   1: ['inicio', 'medio-a', 'medio-b', 'medio-c', 'largo-a', 'largo-b', 'fin', 'esquina'],
   2: ['inicio', 'medio-a', 'medio-b', 'medio-c', 'largo-a', 'largo-b', 'fin', 'esquina'],
   3: ['inicio', 'medio-a', 'medio-b', 'fin', 'largo-a', 'medio-c', 'largo-b', 'esquina'],
@@ -577,7 +575,7 @@ function geometria(
  * La guía de una hoja: las piezas en filas de cuatro, con el pie de cada fila
  * en la misma línea y la casilla tan grande como quepa.
  */
-export function guiaDeLaderas(
+function guiaDeLaderas(
   lado: Lado,
   niveles: Niveles,
 ): { guia: Guia; piezas: GeometriaDeLadera[]; casilla: number } {
@@ -680,7 +678,7 @@ const NOMBRES_DICHOS: Readonly<Record<string, string>> = {
     'ESQUINA (una casilla): la ladera baja del fondo y, abajo, dobla redondeada en un trozo corto de pared FRONTAL que mira a la cámara, con el color, el relieve y el detalle de las paredes de la imagen 3 (ahí puede verse la roca como en ellas), nunca una losa lisa, sin junta entre las dos: es la misma roca doblando la esquina. Por ARRIBA, abierta como los tramos; el extremo de la frontal, abierto también: sigue en otros módulos frontales.',
 };
 
-export function encargoDeLaderas(material: Material, lado: Lado, niveles: Niveles): Encargo {
+function encargoDeLaderas(material: Material, lado: Lado, niveles: Niveles): Encargo {
   const nombres = PIEZAS_DE_LADERA[niveles];
   const hacia = lado === 'este' ? 'la DERECHA' : 'la IZQUIERDA';
   const arriba = lado === 'este' ? 'izquierda' : 'derecha';
@@ -724,7 +722,7 @@ export function encargoDeLaderas(material: Material, lado: Lado, niveles: Nivele
   };
 }
 
-export const NIVELES: readonly Niveles[] = [1, 2, 3];
+const NIVELES: readonly Niveles[] = [1, 2, 3];
 
 export function encargosDeLaderas(): Encargo[] {
   const lados: Lado[] = ['este', 'oeste'];
@@ -806,7 +804,7 @@ export async function escribirLaderasDerivadas(hojas?: readonly string[]): Promi
       const { filo, pie } = await registrarLadera(join(dir, hoja, mod.imagen), mascara, geometria);
       mod.ladera = { filo, pie, largo: p.largo, papel: papelDe(p) };
     }
-    await writeFile(ruta, `${JSON.stringify(indice, null, 2)}\n`);
+    await writeFile(ruta, textoJson(indice, 2));
     escritas.push(ruta.replace(`${RAIZ}/`, ''));
   }
   return escritas;

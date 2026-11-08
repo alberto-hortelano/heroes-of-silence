@@ -6,20 +6,23 @@
  * reglas (`ai/lugares.ts`, que elige la primera que vale).
  *
  * Aplicar los efectos no vive aquí: escribe la crónica, y el único que escribe
- * en ella es `emit`, privado de `game.ts`. Este módulo solo pregunta. De
- * `game.ts` lee el turno y el dueño (`turnBlocker`, `playerById`) solo dentro de
- * sus funciones: `game.ts` lo importa a él, y el ciclo no se toca al cargar.
+ * en ella es `emit` (`state/cronica.ts`), que solo importan los módulos de la
+ * partida (los efectos, `state/lugares.ts`). Este módulo solo pregunta. El turno y
+ * el dueño los lee de `state/consultas.ts` (`turnBlocker`, `playerById`), que no lo
+ * importa a él.
  */
 
-import { unidadDelJuego } from '../catalogo.js';
 import { cupoDelHeroe } from '../combate.js';
-import { idsPuestos, piezaSiExiste } from '../hero/equipo.js';
-import type { Hero } from '../hero/hero.js';
+import { piezaSiExiste } from '../equipo/pieza.js';
+import { idsPuestos } from '../equipo/vestir.js';
 import { heroLeadership, troopBlocker, withTroops } from '../hero/troop.js';
-import { pointKey } from '../map/map.js';
-import { type GameState, playerById, turnBlocker } from '../state/game.js';
+import { pointKey } from '../map/geometria.js';
+import { playerById, turnBlocker } from '../state/consultas.js';
+import type { GameState } from '../state/tipos.js';
+import { conMiles, describirCoste } from '../texto.js';
 import { oroBlocker } from '../town/town.js';
-import { conMiles, describirCoste, NOMBRE_DE_FACCION, type Point } from '../types.js';
+import { type Hero, NOMBRE_DE_FACCION, type Point } from '../types.js';
+import { unidadDelJuego } from '../unidad/catalogo.js';
 import {
   batallaDe,
   type Cobro,
@@ -91,7 +94,7 @@ function nombreDeEstado(lugar: Lugar, estado: string): string {
 }
 
 /** Por qué no se cumple `c`, o `null`. Las frases son para la persona y van debajo de la opción. */
-export function condicionBlocker(a: Ante, c: Condicion): string | null {
+function condicionBlocker(a: Ante, c: Condicion): string | null {
   if ('estado' in c) {
     const ahora = a.mundo.estados[a.lugar.id];
     return ahora === c.estado
@@ -241,12 +244,12 @@ function loQuePidenSusEfectos(a: Ante, opcion: Opcion): string | null {
 }
 
 /** Si el punto está en la escena del lugar ahora (su `si`). */
-export function puntoVisible(a: Ante, punto: Punto): boolean {
+function puntoVisible(a: Ante, punto: Punto): boolean {
   return condicionesBlocker(a, punto.si) === null;
 }
 
 /** Un héroe, el lugar donde está y su mundo, o por qué no: lo que se ve de un lugar desde dentro. */
-export function anteDelLugar(
+function anteDelLugar(
   state: GameState,
   heroId: string,
   lugarId: string,
@@ -406,7 +409,7 @@ export function opcionesDe(a: Ante, punto: Punto, nodo: string): readonly Opcion
  * de una referencia: la leen la pregunta (`opcionBlocker`) y la acción
  * (`opcionDe`). Si se puede elegir lo dice `motivoAlElegir`.
  */
-export function resolverOpcion(
+function resolverOpcion(
   a: Ante,
   ref: RefDeOpcion,
 ): { readonly punto: Punto; readonly opcion: Opcion } | { readonly motivo: string } {

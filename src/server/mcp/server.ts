@@ -7,53 +7,28 @@
  * exactamente una vez; después vuelve a `heroes_listen`. Y así toda la partida.
  */
 
-import { unidadDelJuego, unidadesDeFaccion, unidadesDelJuego } from '@core/catalogo.js';
-import {
-  COMO_SE_LEE_EL_MAPA,
-  fichaDeCriatura,
-  hechizosAlAgente,
-} from '@core/contract/serialize.js';
-import { RANGO_MAXIMO_DE_TROPA } from '@core/hero/experiencia.js';
+import { COMO_SE_LEE_EL_MAPA } from '@core/contract/mapa-conocido.js';
+import { fichaDeCriatura, hechizosAlAgente } from '@core/contract/vistas.js';
 import { allBuildings } from '@core/town/buildings.js';
 import { FACTION_IDS } from '@core/types.js';
+import { unidadDelJuego, unidadesDeFaccion, unidadesDelJuego } from '@core/unidad/catalogo.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import WebSocket from 'ws';
 import { z } from 'zod';
-import { puertoAgente } from '../entorno.js';
-import {
-  CABECERA_VEREDICTOS,
-  LA_JUEGA_LA_IA,
-  MARCA_FALLO,
-  MARCA_OK,
-  PREFIJO_CORTE,
-  PREFIJO_FIN,
-  PREFIJO_RELEVO,
-  textoDeEscucha,
-} from '../notas.js';
+import { mensajeDe } from '../../shared/errores.js';
+import { servidorDelPuente } from '../entorno.js';
+import { LA_JUEGA_LA_IA } from '../notas.js';
 import type { AgentToServerMsg, ServerToAgentMsg } from '../protocol.js';
 import { Buzon } from './buzon.js';
+import { LISTEN_DESCRIPTION, textoDeEscucha } from './escucha.js';
 import { ColaDeVeredictos } from './veredictos.js';
 
-const SERVER_URL = process.env.HEROES_SERVER ?? `ws://localhost:${puertoDelServidor()}`;
-
 /**
- * A dónde conectarse cuando nadie ha dicho `HEROES_SERVER`.
- *
- * Sigue a `HEROES_AGENT_PORT` para que cambiar el puerto del servidor no deje
- * al puente llamando al de por defecto. Lo que no puede hacer es adivinar: con
- * `0` el puerto lo elige el sistema al arrancar y desde aquí no hay forma de
- * saber cuál tocó, así que se dice en vez de intentar `ws://localhost:0`.
+ * A dónde se conecta el puente: `HEROES_SERVER` o el puerto del agente, leídos y
+ * validados al arrancar (`servidorDelPuente`, en `entorno.ts`, con su test).
  */
-function puertoDelServidor(): number {
-  const p = puertoAgente();
-  if (p === 0) {
-    throw new Error(
-      'HEROES_AGENT_PORT=0 deja que el puerto lo elija el sistema: dile al puente a dónde conectarse con HEROES_SERVER=ws://localhost:<puerto>',
-    );
-  }
-  return p;
-}
+const SERVER_URL = servidorDelPuente();
 
 // ---------------------------------------------------------------- conexión
 
@@ -231,50 +206,19 @@ async function consultar(what: string, args: Record<string, unknown> = {}): Prom
 
 const server = new McpServer({ name: 'heroes', version: '0.1.0' });
 
-const LISTEN_DESCRIPTION = `Espera bloqueado hasta que la partida te pida una decisión, y te la entrega.
+/**
+ * Lo que devuelve una herramienta: un texto, y si es un error. Las ocho herramientas
+ * lo envolvían a mano, catorce veces, hasta la fase S de la reorganización
+ * (07-11-2026).
+ */
+function texto(text: string, esError = false) {
+  return { content: [{ type: 'text' as const, text }], ...(esError ? { isError: true } : {}) };
+}
 
-Es la mitad de un ciclo: llama a heroes_listen para recibir una petición,
-decide, llama a heroes_respond UNA sola vez con tu respuesta, y vuelve a
-heroes_listen. Repite durante toda la partida.
-
-Cada mensaje que devuelve empieza por un campo "kind" y trae EMBEBIDO el
-formato exacto de respuesta para ese kind: léelo ahí, no hace falta que lo
-recuerdes entre turnos.
-
-Y trae, cuando lo hay, un bloque "${CABECERA_VEREDICTOS}" con el veredicto de
-CADA respuesta tuya que se haya aplicado desde la última vez que escuchaste:
-"${MARCA_OK}" es que entró y "${MARCA_FALLO}" que no, con el motivo. Se informa
-siempre, también cuando salió bien: no tienes que deducir de un silencio si coló
-o si el mensaje se perdió.
-
-Tipos de petición que puedes recibir:
-- "adventure_turn" → te toca el turno en el mapa: mueve héroes, construye,
-  recluta. Devuelves una lista de acciones.
-- "battle_turn"    → una unidad tuya espera órdenes en la batalla. Devuelves
-  UNA acción. La petición incluye "legalActions" con todo lo que se puede
-  hacer: elegir de ahí nunca falla. Puedes ser el atacante o el DEFENSOR: mira
-  "yourSide" en cada petición y no des por hecho que atacas.
-- "map_generate"   → diseña un mapa. No dibujas nada: devuelves un plan
-  declarativo y el motor lo construye y lo valida.
-- "hero_from_troop" → un veterano de rango ${RANGO_MAXIMO_DE_TROPA} está en tu base y se hace héroe:
-  le das nombre, historia y tipo. Llega antes de tu "adventure_turn".
-- "town_voices"    → pon voz a la gente de tus bases (una línea por persona y
-  día) cuando empieza semana o se levanta un edificio en un sitio vacío. Es
-  presentación: no cambia el juego. Llega antes de tu "adventure_turn".
-
-El ciclo tiene final y te avisa de él: cuando la partida termina recibes un
-mensaje que empieza por "${PREFIJO_FIN}" y te dice quién ganó. Ahí se para
-el bucle. Y si el canal con la partida se muere, recibes uno que empieza por
-"${PREFIJO_CORTE}" con lo que se sabe y lo que puedes intentar. En
-ninguno de los dos casos te quedas esperando a ciegas.
-
-Llama de una en una: si dos heroes_listen se solapan, la primera vuelve con
-"${PREFIJO_RELEVO}" —el canal sigue vivo y no se pierde nada, pero esa
-llamada ya no trae decisión: la trae la que la relevó—.
-
-Aparte de responder, puedes consultar el estado en cualquier momento con
-game_state, battle_state, map, creature_stats, spell_list y building_list, sin
-volcarte la partida entera en el contexto.`;
+/** Lo que devuelve una consulta: el dato en JSON con sangría de dos, que es como lo lee el agente. */
+function json(dato: unknown) {
+  return texto(JSON.stringify(dato, null, 2));
+}
 
 /**
  * Con la partida terminada y el canal muerto, mira si el servidor ha vuelto con
@@ -305,24 +249,15 @@ server.tool('heroes_listen', LISTEN_DESCRIPTION, {}, async () => {
 
   const recogida = buzon.enCurso;
   if (recogida !== null) {
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text:
-            `Tienes la petición ${recogida} recogida y sin contestar. ` +
-            'Responde con heroes_respond antes de volver a escuchar.',
-        },
-      ],
-      isError: true,
-    };
+    return texto(
+      `Tienes la petición ${recogida} recogida y sin contestar. ` +
+        'Responde con heroes_respond antes de volver a escuchar.',
+      true,
+    );
   }
 
-  const { texto, esError } = textoDeEscucha(await buzon.espera(), veredictos);
-  return {
-    content: [{ type: 'text' as const, text: texto }],
-    ...(esError ? { isError: true } : {}),
-  };
+  const escucha = textoDeEscucha(await buzon.espera(), veredictos);
+  return texto(escucha.texto, escucha.esError);
 });
 
 server.tool(
@@ -333,45 +268,26 @@ server.tool(
   },
   async ({ response }) => {
     if (buzon.haTerminado) {
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text:
-              'La partida ya ha terminado: no queda nadie esperando esta respuesta y no ' +
-              'se va a aplicar. Llama a heroes_listen si quieres releer cómo acabó.',
-          },
-        ],
-        isError: true,
-      };
+      return texto(
+        'La partida ya ha terminado: no queda nadie esperando esta respuesta y no ' +
+          'se va a aplicar. Llama a heroes_listen si quieres releer cómo acabó.',
+        true,
+      );
     }
 
     const enviado = buzon.enCurso;
     if (enviado === null) {
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: 'No hay ninguna petición pendiente. Llama antes a heroes_listen.',
-          },
-        ],
-        isError: true,
-      };
+      return texto('No hay ninguna petición pendiente. Llama antes a heroes_listen.', true);
     }
 
     let data: unknown;
     try {
       data = JSON.parse(response);
     } catch (err) {
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: `Ese texto no es JSON válido (${err instanceof Error ? err.message : String(err)}). Vuelve a enviarlo bien formado.`,
-          },
-        ],
-        isError: true,
-      };
+      return texto(
+        `Ese texto no es JSON válido (${mensajeDe(err)}). Vuelve a enviarlo bien formado.`,
+        true,
+      );
     }
 
     try {
@@ -381,29 +297,16 @@ server.tool(
       // igualmente: retenerla dejaría al agente atascado en el guardia de
       // `heroes_listen`, que es la forma tonta de volver a colgarlo.
       buzon.suelta();
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text:
-              `Tu respuesta a ${enviado} no ha llegado a salir: ` +
-              `${err instanceof Error ? err.message : String(err)}. ` +
-              `Esa decisión la ${LA_JUEGA_LA_IA}. Vuelve a heroes_listen: ` +
-              'si el servidor sigue vivo, el puente se reconecta solo.',
-          },
-        ],
-        isError: true,
-      };
+      return texto(
+        `Tu respuesta a ${enviado} no ha llegado a salir: ` +
+          `${mensajeDe(err)}. ` +
+          `Esa decisión la ${LA_JUEGA_LA_IA}. Vuelve a heroes_listen: ` +
+          'si el servidor sigue vivo, el puente se reconecta solo.',
+        true,
+      );
     }
     buzon.suelta();
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: `Respuesta a ${enviado} entregada. Vuelve a heroes_listen.`,
-        },
-      ],
-    };
+    return texto(`Respuesta a ${enviado} entregada. Vuelve a heroes_listen.`);
   },
 );
 
@@ -437,7 +340,7 @@ server.tool(
   { player: z.number().int().optional().describe(PARAMETRO_JUGADOR) },
   async ({ player }) => {
     const data = await consultar('game_state', jugador(player));
-    return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
+    return json(data);
   },
 );
 
@@ -455,7 +358,7 @@ server.tool(
   { player: z.number().int().optional().describe(PARAMETRO_JUGADOR) },
   async ({ player }) => {
     const data = await consultar('battle_state', jugador(player));
-    return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
+    return json(data);
   },
 );
 
@@ -494,7 +397,7 @@ server.tool(
   { player: z.number().int().optional().describe(PARAMETRO_JUGADOR) },
   async ({ player }) => {
     const data = await consultar('map', jugador(player));
-    return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
+    return json(data);
   },
 );
 
@@ -508,22 +411,22 @@ server.tool(
   ({ creature: id, faction }) => {
     if (id !== undefined) {
       const ficha = fichaDeCriatura(unidadDelJuego(id));
-      return { content: [{ type: 'text' as const, text: JSON.stringify(ficha, null, 2) }] };
+      return json(ficha);
     }
     const lista = (faction === undefined ? unidadesDelJuego() : unidadesDeFaccion(faction)).map(
       fichaDeCriatura,
     );
-    return { content: [{ type: 'text' as const, text: JSON.stringify(lista, null, 2) }] };
+    return json(lista);
   },
 );
 
-server.tool('spell_list', 'Los hechizos del juego con su coste y efecto.', {}, () => ({
-  content: [{ type: 'text' as const, text: JSON.stringify(hechizosAlAgente(), null, 2) }],
-}));
+server.tool('spell_list', 'Los hechizos del juego con su coste y efecto.', {}, () =>
+  json(hechizosAlAgente()),
+);
 
-server.tool('building_list', 'Los edificios de castillo con su coste y requisitos.', {}, () => ({
-  content: [{ type: 'text' as const, text: JSON.stringify(allBuildings(), null, 2) }],
-}));
+server.tool('building_list', 'Los edificios de castillo con su coste y requisitos.', {}, () =>
+  json(allBuildings()),
+);
 
 // ---------------------------------------------------------------- arranque
 

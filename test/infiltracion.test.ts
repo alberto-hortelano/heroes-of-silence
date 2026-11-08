@@ -1,9 +1,8 @@
 /**
- * La infiltración, fase A (05-11-2026, `docs/agents/2026-11-05-infiltrados-y-robo/plan.md`
- * §7): un grupo en que lleva el rasgo todo el mundo, héroe incluido, cruza las
+ * La infiltración, fase A (05-11-2026, `docs/agents/2026-11-05-infiltrados-y-robo/`): un grupo en que lleva el rasgo todo el mundo, héroe incluido, cruza las
  * barreras a un día entero por casilla.
  *
- * Escritos desde los criterios del plan y de `requisitos.md` (I1, I7, I8), no desde
+ * Escritos desde los criterios de aceptación de su `requisitos.md` (I1, I7, I8), no desde
  * el código: quién se infiltra y por qué no; lo que cuesta la barrera (el día
  * entero, también tras reclutar algo más lento); los datos (uno por facción, nunca
  * el tipo por defecto, y el validador que muerde con cada problema); la marcha de
@@ -14,55 +13,47 @@
  * entera y la niebla es la de una barrera (la región más cercana, y su cuadrado sobre
  * lo explorado: rehecho al fusionar con la niebla por regiones, 05-11-2026).
  */
+
 import { describe, expect, it } from 'vitest';
-import { llegadaDeLaRuta } from '../src/client/escenas/aventura.js';
-import { Session } from '../src/client/session.js';
-import { unidadDelJuego, unidadesDeFaccion } from '../src/core/catalogo.js';
-import {
-  hasTrait,
-  tipoDeHeroePorDefecto,
-  tipoSeInfiltra,
-  tiposDeHeroe,
-  validarInfiltradores,
-} from '../src/core/data.js';
-import { EXPERIENCIA_INICIAL_DE_HEROE } from '../src/core/hero/experiencia.js';
+import { llegadaDeLaRuta } from '../src/client/partida/mapa/escena.js';
+import { Session } from '../src/client/sesion/partida.js';
 import { empezarElDia, heroeRecienHecho, maxMovePoints } from '../src/core/hero/hero.js';
 import {
   infiltracionBlocker,
   precioDeLaBarrera,
   seInfiltra,
 } from '../src/core/hero/infiltracion.js';
-import { barreraEn, isEnterable, objectAt, type PathStep, pointKey } from '../src/core/map/map.js';
+import { EXPERIENCIA_INICIAL_DE_HEROE } from '../src/core/hero/rango.js';
+import {
+  tipoDeHeroePorDefecto,
+  tipoSeInfiltra,
+  tiposDeHeroe,
+  validarInfiltradores,
+} from '../src/core/hero/tipos-de-heroe.js';
+import { pointKey } from '../src/core/map/geometria.js';
+import { barreraEn, isEnterable, objectAt, type PathStep } from '../src/core/map/map.js';
 import { regionDescubierta, regionesQueDescubre } from '../src/core/map/niebla.js';
 import { FUERA, MURO, pasosDelMapa } from '../src/core/map/recinto.js';
+import { regionDeCasilla } from '../src/core/map/regiones.js';
 import { NOMBRE_DE_BARRERA, type TerrainKind } from '../src/core/map/terrain.js';
-import { createRng } from '../src/core/rng.js';
-import { CHARACTER_BODY } from '../src/core/rpg/character.js';
-import { emboscador, regionDeCasilla } from '../src/core/state/asaltantes.js';
+import { emboscador } from '../src/core/state/asaltantes.js';
+import { heroesOf } from '../src/core/state/consultas.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
 import {
-  applyAdventureAction,
   barreraDeMañana,
   caminoHasta,
-  type GameContext,
-  type GameState,
-  heroesOf,
   pasosDeHoy,
   porQueNoLlega,
-  visibleNow,
-} from '../src/core/state/game.js';
+} from '../src/core/state/marcha.js';
 import { rentaDelDia } from '../src/core/state/renta.js';
 import { newGame } from '../src/core/state/setup.js';
-import { FACTION_IDS, type FactionId, type Point } from '../src/core/types.js';
-import {
-  conSuEquipo,
-  ejercito,
-  hastaSuSiguienteTurno,
-  JINETE,
-  primeraSemillaCon,
-  TROPA,
-} from './helpers.js';
-
-const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
+import type { GameState } from '../src/core/state/tipos.js';
+import { visibleNow } from '../src/core/state/vision.js';
+import { FACTION_IDS, type FactionId, hasTrait, type Point } from '../src/core/types.js';
+import { unidadDelJuego, unidadesDeFaccion } from '../src/core/unidad/catalogo.js';
+import { primeraSemillaCon } from '../tools/comun/semillas.js';
+import { ctx, JINETE, TROPA } from './comun.js';
+import { conSuEquipo, ejercito, hastaSuSiguienteTurno } from './partida-de-prueba.js';
 
 /**
  * Cómo se llama `TROPA` en el catálogo: se lee de él y no se escribe, que el
@@ -82,7 +73,7 @@ function partidaDelGoblin(seed: number, count = 3): GameState {
   const state = newGame({ seed, faccionDelJugador: 'orkos', tipoDelHeroe: 'goblin' });
   const hero = heroesOf(state, 0)[0]!;
   hero.army = ejercito({ creature: GOBLIN, count });
-  empezarElDia(hero, state.characters);
+  empezarElDia(hero);
   state.raiders = [];
   return state;
 }
@@ -229,23 +220,13 @@ describe('quién se infiltra', () => {
     ).toBe(`no se infiltra: no lo llevan su tipo (Caballero) ni ${NOMBRE_DE_TROPA}`);
     expect(seInfiltra(caballero)).toBe(false);
   });
-
-  it('un personaje de la tropa no se infiltra, y no lanza aunque la partida no lo conozca', () => {
-    const hero = {
-      faction: 'orkos' as const,
-      tipo: 'goblin',
-      army: [{ creature: CHARACTER_BODY, member: 'nadie' }],
-    };
-    expect(infiltracionBlocker(hero)).toBe('no se infiltra: no lo lleva el personaje de su tropa');
-    expect(seInfiltra(hero)).toBe(false);
-  });
 });
 
 describe('lo que cuesta una barrera', () => {
   it('nada para quien no se infiltra; el día entero, la marcha con que lo empezó, para quien sí', () => {
     const state = partidaDelGoblin(SEMILLA);
     const hero = heroesOf(state, 0)[0]!;
-    expect(hero.marchaDelDia).toBe(maxMovePoints(hero, state.characters));
+    expect(hero.marchaDelDia).toBe(maxMovePoints(hero));
     expect(precioDeLaBarrera(hero)).toBe(hero.marchaDelDia);
     hero.army = ejercito({ creature: TROPA, count: 1 });
     expect(precioDeLaBarrera(hero)).toBeNull();
@@ -257,14 +238,14 @@ describe('lo que cuesta una barrera', () => {
     const delDia = hero.marchaDelDia;
     // Un goblin a pie anda menos que el héroe solo: el máximo baja, el precio no.
     hero.army = ejercito({ creature: GOBLIN, count: 1 });
-    expect(maxMovePoints(hero, state.characters)).toBeLessThan(delDia);
+    expect(maxMovePoints(hero)).toBeLessThan(delDia);
     expect(precioDeLaBarrera(hero)).toBe(delDia);
     // Y al revés: el día empezado con el goblin, licenciarlo sube el máximo y no
     // el precio, que sigue siendo lo que tiene (aún no anduvo: puede entrar).
-    empezarElDia(hero, state.characters);
+    empezarElDia(hero);
     const conElGoblin = hero.marchaDelDia;
     hero.army = [];
-    expect(maxMovePoints(hero, state.characters)).toBeGreaterThan(conElGoblin);
+    expect(maxMovePoints(hero)).toBeGreaterThan(conElGoblin);
     expect(precioDeLaBarrera(hero)).toBe(conElGoblin);
     expect(hero.movePoints).toBe(conElGoblin);
   });
@@ -281,7 +262,7 @@ describe('lo que cuesta una barrera', () => {
       tipo: 'goblin',
     });
     expect(recien.movePoints).toBe(0);
-    expect(recien.marchaDelDia).toBe(maxMovePoints(recien, state.characters));
+    expect(recien.marchaDelDia).toBe(maxMovePoints(recien));
     // Sin ella el Dijkstra lanzaría (un precio de 0 no es un precio): la ruta sale
     // y el día de hoy no da ni un paso.
     const ruta = caminoHasta(state, recien, TRAVESIA.t1) as PathStep[];
@@ -339,7 +320,7 @@ describe('cruzar barreras', () => {
   it('N casillas, N días: anda al borde, entra con el día entero, y la ruta dice lo mismo que la marcha', () => {
     const { state, hero } = enLaTravesia(TRAVESIA.antes);
     const destino = TRAVESIA.despues;
-    const max = maxMovePoints(hero, state.characters);
+    const max = maxMovePoints(hero);
 
     // Día 1: la ruta lleva lo de hoy hasta el borde; la marcha anda eso y lo dice.
     const ruta = caminoHasta(state, hero, destino) as PathStep[];
@@ -407,7 +388,7 @@ describe('cruzar barreras', () => {
     const s = new Session(SEMILLA, 'orkos', 'goblin');
     const hero = s.selectedHero!;
     hero.army = ejercito({ creature: GOBLIN, count: 3 });
-    empezarElDia(hero, s.state.characters);
+    empezarElDia(hero);
     s.state.raiders = [];
     hero.at = TRAVESIA.antes;
     const ruta = s.previewPath(TRAVESIA.despues);
@@ -440,13 +421,13 @@ describe('cruzar barreras', () => {
     // goblin a pie frena a la marcha menos de lo que cuesta el paso de `antes` a
     // `borde`, y la coraza lo deja muy por debajo de lo que le queda.
     hero.army = [conSuEquipo(GOBLIN, { armadura: 'barda' })];
-    expect(maxMovePoints(hero, state.characters)).toBeLessThan(delDia);
+    expect(maxMovePoints(hero)).toBeLessThan(delDia);
     marchar(state, hero.id, TRAVESIA.borde);
     expect(hero.at).toEqual(TRAVESIA.borde);
     // Lo que le queda aún pasa del máximo nuevo: con «el mayor de los dos» de
     // precio, la barrera costaba justo lo que le quedaba y entraba con el día
     // empezado, contra I7.
-    expect(hero.movePoints).toBeGreaterThan(maxMovePoints(hero, state.characters));
+    expect(hero.movePoints).toBeGreaterThan(maxMovePoints(hero));
     expect(hero.movePoints).toBeLessThan(delDia);
     expect(() => marchar(state, hero.id, TRAVESIA.t1)).toThrow(/el día entero/);
     expect(hero.at).toEqual(TRAVESIA.borde);
@@ -505,7 +486,7 @@ describe('parado en una barrera (I8)', () => {
     const { state, hero } = enLaTravesia(TRAVESIA.t1);
     // Solo, para que el grupo le saque el margen; con el día de un héroe solo.
     hero.army = [];
-    empezarElDia(hero, state.characters);
+    empezarElDia(hero);
     state.raiders = [
       { id: 'raider-x', at: TRAVESIA.despues, troops: [{ creature: JINETE, count: 6 }] },
     ];
@@ -525,7 +506,7 @@ describe('parado en una barrera (I8)', () => {
     const rival = heroesOf(state, 1)[0]!;
     rival.at = TRAVESIA.borde;
     rival.army = [];
-    empezarElDia(rival, state.characters);
+    empezarElDia(rival);
     state.current = 1;
     expect(caminoHasta(state, rival, hero.at)).toBeNull();
     expect(porQueNoLlega(state, rival, hero.at)).toMatch(/solo la cruza un grupo que se infiltra/);

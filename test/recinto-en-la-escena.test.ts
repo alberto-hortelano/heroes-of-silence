@@ -21,16 +21,15 @@
  */
 import { describe, expect, it } from 'vitest';
 import { celdasDeLaRampa, claveDeCelda } from '../src/client/render/escenario/celdas.js';
-import {
-  componer,
-  luzDelRecinto,
-  puntosDeCelda,
-  type Sprite,
-} from '../src/client/render/escenario/colocar.js';
+import { luzDelRecinto } from '../src/client/render/escenario/colocar/luces.js';
+import { puntosDeCelda } from '../src/client/render/escenario/colocar/relieve.js';
+import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
+import { componer } from '../src/client/render/escenario/colocar.js';
 import { claveDe } from '../src/client/render/escenario/pintar.js';
+import { tapaElPieDelHeroe } from '../src/client/render/escenario/recinto/anillo.js';
+import { arcosTapados } from '../src/client/render/escenario/recinto/guardias.js';
 import {
   ALTO_DEL_TRAMO_NORTE_SUR_DEL_RECINTO,
-  arcosTapados,
   type Cara,
   type CaraDelContorno,
   casillasDelRecinto,
@@ -39,11 +38,10 @@ import {
   enElRecinto,
   puertaDelEje,
   RADIO_DE_TORRE,
-  tapaElPieDelHeroe,
-} from '../src/client/render/escenario/recinto.js';
+} from '../src/client/render/escenario/recinto/octogono.js';
 import { claveDeFigura, escenarioDe } from '../src/client/render/escenario/superficie.js';
 import { puertasDeLaCiudad, recintoDeLaCiudad } from '../src/core/map/recinto.js';
-import { catalogoDelDisco, partidaDe } from './helpers.js';
+import { catalogoDelDisco, partidaDe } from './escena-de-prueba.js';
 import { rango, segunPrisa } from './lento.js';
 
 // Y s21, s25 y s32: la salida recta de una puerta pisaba la barrera de al lado.

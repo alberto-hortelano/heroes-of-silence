@@ -35,7 +35,19 @@
 import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import sharp, { type OverlayOptions } from 'sharp';
-import { conComa, esFaccion, FACTION_IDS, type FactionId } from '../../../src/core/types.js';
+import { conComa } from '../../../src/core/texto.js';
+import { esFaccion, FACTION_IDS, type FactionId } from '../../../src/core/types.js';
+import {
+  aOklab,
+  contraste,
+  deHex,
+  deOklab,
+  hex,
+  lineal,
+  luminancia,
+  type Rgb,
+} from '../../comun/color.js';
+import { RAIZ } from '../../comun/raiz.js';
 
 export interface Rect {
   readonly x: number;
@@ -44,7 +56,7 @@ export interface Rect {
   readonly h: number;
 }
 
-export type Muestra =
+type Muestra =
   | {
       readonly que: 'liso' | 'fondo' | 'tinta';
       readonly en: Rect;
@@ -60,7 +72,7 @@ const rectsDe = (m: Muestra): readonly Rect[] => (m.que === 'zonas' ? m.en : [m.
  * Las fichas que se miden en todas las láminas. Las demás de `temas.css` se
  * derivan de estas con `var()` o `rgb(from …)`, o son de forma.
  */
-export const FICHAS_MEDIDAS = [
+const FICHAS_MEDIDAS = [
   '--bg',
   '--panel',
   '--ink',
@@ -85,7 +97,7 @@ export const FICHAS_MEDIDAS = [
 ] as const;
 
 /** Las que solo dice alguna lámina: el día en cartela (templarios). */
-export const FICHAS_DE_ALGUNAS = ['--dia-fondo', '--dia-tinta'] as const;
+const FICHAS_DE_ALGUNAS = ['--dia-fondo', '--dia-tinta'] as const;
 
 export type FichaMedida = (typeof FICHAS_MEDIDAS)[number] | (typeof FICHAS_DE_ALGUNAS)[number];
 
@@ -149,7 +161,7 @@ function par<F extends FichaMedida, T extends FichaMedida>(
  * recortes con rejilla). Las láminas son la misma pantalla, pero cada tema la
  * viste con otro marco y los textos no caen en el mismo píxel.
  */
-export const MUESTRAS: Readonly<Record<FactionId, Muestras>> = {
+const MUESTRAS: Readonly<Record<FactionId, Muestras>> = {
   templarios: {
     '--bg': liso(872, 700, 10, 150, 'la hendidura oscura entre el mapa y la columna de piedra'),
     ...par(
@@ -356,94 +368,6 @@ export const PAREJAS: readonly (readonly [string, string])[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Color: sRGB de 8 bits, OKLab y contraste WCAG.
-
-export type Rgb = readonly [number, number, number];
-
-export function hex(c: Rgb): string {
-  return `#${c
-    .map((v) =>
-      Math.round(Math.min(255, Math.max(0, v)))
-        .toString(16)
-        .padStart(2, '0'),
-    )
-    .join('')}`;
-}
-
-export function deHex(color: string): Rgb {
-  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color);
-  if (m === null) throw new Error(`"${color}" no es un color opaco #rgb o #rrggbb`);
-  const h =
-    (m[1] as string).length === 3
-      ? [...(m[1] as string)].map((c) => c + c).join('')
-      : (m[1] as string);
-  return [0, 2, 4].map((i) => Number.parseInt(h.slice(i, i + 2), 16)) as unknown as Rgb;
-}
-
-const lineal = (v: number): number => {
-  const c = v / 255;
-  return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-};
-const gamma = (c: number): number =>
-  255 * (c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055);
-
-export function aOklab(c: Rgb): [number, number, number] {
-  const [r, g, b] = c.map(lineal) as [number, number, number];
-  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
-  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
-  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
-  return [
-    0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
-    1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
-    0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
-  ];
-}
-
-export function deOklab([L, a, b]: readonly [number, number, number]): Rgb {
-  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
-  const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
-  const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
-  return [
-    gamma(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
-    gamma(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
-    gamma(-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s),
-  ];
-}
-
-/** Distancia en OKLab: 0,02 apenas se ve al lado; 0,1 ya es otro color. */
-export function deltaE(x: string, y: string): number {
-  const [a, b] = [aOklab(deHex(x)), aOklab(deHex(y))];
-  return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
-}
-
-/**
- * Un color con transparencia (`#rrggbbaa`) puesto sobre otro opaco, como lo ve
- * quien mira: la barra de abajo del neutro (`#26362ef5`) deja ver la página.
- * Un color opaco sale tal cual.
- */
-export function sobre(color: string, debajo: string): string {
-  const m = /^#([0-9a-f]{6})([0-9a-f]{2})$/i.exec(color);
-  if (m === null) return hex(deHex(color));
-  const alfa = Number.parseInt(m[2] as string, 16) / 255;
-  const [arriba, abajo] = [deHex(`#${m[1]}`), deHex(debajo)];
-  return hex(
-    [0, 1, 2].map(
-      (i) => (arriba[i] as number) * alfa + (abajo[i] as number) * (1 - alfa),
-    ) as unknown as Rgb,
-  );
-}
-
-export function luminancia(c: Rgb): number {
-  const [r, g, b] = c.map(lineal) as [number, number, number];
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
-
-export function contraste(x: string, y: string): number {
-  const [la, lb] = [luminancia(deHex(x)), luminancia(deHex(y))];
-  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
-}
-
-// ---------------------------------------------------------------------------
 // Medir, sobre el `Buffer` de la lámina y sin un array por píxel: la mediana de
 // cada canal por histograma de 256 cubos y la luz de cada píxel calculada una
 // sola vez. Con una tupla por píxel, ordenarlos y `luminancia` en cada
@@ -588,7 +512,7 @@ function dosGrupos(t: Trozo, borde: Rgb): { fondo: number[]; letra: number[]; ce
     : { fondo: gb, letra: ga, centroFondo: b };
 }
 
-const LAMINAS = resolve(import.meta.dirname, '../../../assets/art/temas');
+const LAMINAS = join(RAIZ, 'assets/art/temas');
 
 /** Los píxeles RGB de la lámina de un tema (sin alfa). */
 async function pixeles(tema: FactionId): Promise<{ datos: Buffer; ancho: number; alto: number }> {
@@ -656,7 +580,7 @@ function delMedioPorLuz(t: Trozo): number[] {
   return medio;
 }
 
-export interface Paleta {
+interface Paleta {
   readonly fichas: Readonly<Partial<Record<FichaMedida, string>>>;
   /** Las tintas movidas para leerse: «--x: #a → #b (L 0,52 → 0,47), sobre --y 4,50». */
   readonly ajustes: readonly string[];

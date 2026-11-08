@@ -5,7 +5,7 @@
  *
  * El apoyo de una hoja es la fila opaca más baja: la suela del pie que va delante.
  * El aro se centra en los pies medidos en el fotograma (`piesEn`, `aroDeFigura`,
- * `render/aro.ts`); aquí se miden con la misma regla sobre el arte del disco y se
+ * `render/figuras/aro.ts`); aquí se miden con la misma regla sobre el arte del disco y se
  * exige que los dos pies caigan dentro del aro. Con el aro de antes —centrado en
  * el apoyo y siempre del mismo tamaño— se sale algún pie en 38 de las 50 hojas;
  * con un número fijo por encima del apoyo (el 0,07 del medio de lo medido), en 20.
@@ -15,8 +15,7 @@
  * `pnpm verify:lento`, todas.
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import sharp from 'sharp';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   ARO_DE_FIGURA,
@@ -24,11 +23,13 @@ import {
   aroDeFigura,
   type PiesDeLaFigura,
   piesEn,
-} from '../src/client/render/aro.js';
+} from '../src/client/render/figuras/aro.js';
 import { FIGURA } from '../src/shared/arte.js';
+import { aRaster } from '../tools/comun/imagen.js';
+import { RAIZ } from './comun.js';
 import { segunPrisa } from './lento.js';
 
-const UNIDADES = fileURLToPath(new URL('../assets/unidades/', import.meta.url));
+const UNIDADES = join(RAIZ, 'assets/unidades/');
 
 /** Las hojas con reposo de frente: las de la tropa y los héroes. */
 const TODAS = readdirSync(UNIDADES)
@@ -49,14 +50,11 @@ async function piesDe(hoja: string): Promise<PiesDeLaFigura> {
     cell: number;
     clips: { idle: { row: number; anchor: [number, number] } };
   };
-  const { data, info } = await sharp(`${UNIDADES}${hoja}/d0/atlas.webp`)
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
+  const { data, width } = await aRaster(`${UNIDADES}${hoja}/d0/atlas.webp`);
   const { cell } = atlas;
   const { row, anchor } = atlas.clips.idle;
   const pies = piesEn(
-    (x, y) => data[((row * cell + y) * info.width + x) * 4 + 3] as number,
+    (x, y) => data[((row * cell + y) * width + x) * 4 + 3] as number,
     cell,
     anchor,
     FIGURA.alturaAdulto,

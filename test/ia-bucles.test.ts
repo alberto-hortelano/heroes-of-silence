@@ -14,19 +14,16 @@ import {
   turnosEnLaMismaCasilla,
   vueltaDelVaiven,
 } from '../src/core/ai/memoria.js';
-import type { Hero } from '../src/core/hero/hero.js';
-import { pointKey } from '../src/core/map/map.js';
+import { pointKey } from '../src/core/map/geometria.js';
 import { createRng } from '../src/core/rng.js';
-import {
-  alcanceDelHeroe,
-  applyAdventureAction,
-  type GameContext,
-  type GameState,
-  heroesOf,
-} from '../src/core/state/game.js';
+import { heroesOf } from '../src/core/state/consultas.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
+import { alcanceDelHeroe } from '../src/core/state/marcha.js';
 import { newGame } from '../src/core/state/setup.js';
-import type { Point } from '../src/core/types.js';
-import { costesDelAlcance, hastaSuSiguienteTurno } from './helpers.js';
+import type { GameContext, GameState } from '../src/core/state/tipos.js';
+import type { Hero, Point } from '../src/core/types.js';
+import { costesDelAlcance } from './mapa-de-prueba.js';
+import { hastaSuSiguienteTurno } from './partida-de-prueba.js';
 
 /** Anda `hero` hasta `to` con puntos de sobra: lo que importa es dónde acaba. */
 function andar(state: GameState, ctx: GameContext, hero: Hero, to: Point): void {

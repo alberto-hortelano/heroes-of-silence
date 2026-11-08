@@ -14,8 +14,9 @@ import { once } from 'node:events';
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import { type WebSocket, WebSocketServer } from 'ws';
+import { REQUEST_KINDS } from '../src/core/contract/esquemas.js';
 import { AgentLink } from '../src/server/agent-link.js';
-import { CABECERA_VEREDICTOS, PREFIJO_FIN } from '../src/server/notas.js';
+import { CABECERA_VEREDICTOS, PREFIJO_FIN } from '../src/server/mcp/escucha.js';
 
 /**
  * Lo que se le da al puente para salir tras el EOF. Sin el arreglo no sale
@@ -222,9 +223,14 @@ const RESPUESTA_MALA = '{"nada": true}';
  * Pide una decisión de batalla y se queda con el error que acabará dando. El
  * rechazo se recoge YA: esperarlo después de `heroes_respond` lo dejaba un rato
  * sin manejar y vitest lo cuenta como error.
+ *
+ * Con `walls: null`, una batalla sin muralla: desde el 05-11-2026 (`4f101eb3`) el
+ * formato de un `battle_turn` depende de ella y `formatoDeLaRespuesta` lanza sin
+ * ella (la pone siempre `serializeBattleTurn`). Sin el campo, `ask` lanzaba antes de
+ * mandar nada y la escucha del puente esperaba hasta el plazo del test.
  */
 function pedir(link: AgentLink, payload: object): Promise<unknown> {
-  return link.ask('battle_turn', payload).then(
+  return link.ask('battle_turn', { walls: null, ...payload }).then(
     () => 'aceptada',
     (err: unknown) => err,
   );
@@ -337,5 +343,28 @@ describe('puente MCP entre dos partidas (#118)', () => {
 
     await llamar(p, 'heroes_respond', { response: RESPUESTA_MALA });
     expect(String(await pide2)).toMatch(/respuesta inválida/);
+  }, 15_000);
+});
+
+describe('la descripción de heroes_listen', () => {
+  it('nombra cada petición que puede llegar (`REQUEST_KINDS`), tal como la publica el puente', async () => {
+    // La lista de peticiones de la descripción estaba escrita a mano, y le faltó
+    // `battle_response` del 19-10-2026, cuando el agente empezó a elegir en la rueda,
+    // a la fase S de la reorganización (07-11-2026): el agente la recibía sin que la
+    // descripción le dijera que podía llegar. Hoy sale de `REQUEST_KINDS`
+    // (`DICHO_DE_LA_PETICION`, en `mcp/escucha.ts`). Se mira la que publica el puente
+    // de verdad, por `tools/list`, y no la constante: es la que lee el agente. La
+    // conexión con la partida es perezosa, así que no hace falta ninguna.
+    const p = await arrancarPuente('ws://127.0.0.1:1');
+    const vuelta = respuesta(p, 2);
+    escribir(p, { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} });
+    const { result } = (await vuelta) as {
+      result: { tools: { name: string; description?: string }[] };
+    };
+    const descripcion = result.tools.find((t) => t.name === 'heroes_listen')?.description ?? '';
+    expect(descripcion).toContain('Tipos de petición que puedes recibir:');
+    // Cada una en su viñeta, con la flecha alineada o no.
+    for (const kind of REQUEST_KINDS)
+      expect(descripcion, kind).toMatch(new RegExp(`^- "${kind}" +→ `, 'm'));
   }, 15_000);
 });

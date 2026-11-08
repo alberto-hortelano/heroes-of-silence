@@ -4,12 +4,21 @@
  * dure lo que pidió el usuario al verlo andar.
  */
 import { describe, expect, it } from 'vitest';
-import { compasDe, RUIDO_DE_VELOCIDAD, relojDeFigura } from '../src/client/compas.js';
-import { msPorCasilla, PRISA_DE_LA_MARCHA } from '../src/client/marcha.js';
-import type { ClipInfo } from '../src/client/render/character.js';
-import { clipFrame } from '../src/client/render/character.js';
-import { arteDe, hojaDe, MIRADA_DE_PRESENTACION } from '../src/client/render/personajes.js';
-import { ALTO_DE_FIGURA } from '../src/client/render/proyeccion.js';
+import type { ClipInfo } from '../src/client/render/figuras/character.js';
+import { clipFrame } from '../src/client/render/figuras/character.js';
+import {
+  compasDe,
+  RUIDO_DE_VELOCIDAD,
+  relojDeFigura,
+} from '../src/client/render/figuras/compas.js';
+import { msPorCasilla, PRISA_DE_LA_MARCHA } from '../src/client/render/figuras/marcha.js';
+import {
+  hojaDe,
+  MIRADA_DE_PRESENTACION,
+  registrarUnidad,
+} from '../src/client/render/figuras/personajes.js';
+import { ALTO_DE_FIGURA } from '../src/shared/arte.js';
+import { hojaDeLaArena } from './hojas-de-la-arena.js';
 
 /** Ids como los que se pintan de verdad: stacks, objetos del mapa, héroes, miniaturas. */
 const IDS = [
@@ -73,6 +82,8 @@ describe('el compás de cada figura', () => {
   });
 
   it('dos figuras en reposo con el mismo reloj no pintan el mismo fotograma a la vez', () => {
+    // Un reposo que se mueve: con uno quieto coinciden siempre y no hay compás que mirar.
+    expect(hojaDe(QUE_RESPIRA, MIRADA_DE_PRESENTACION).clips.idle.frames).toBeGreaterThan(1);
     // A lo largo de diez segundos, cuántas veces coinciden s1 y s2 en el
     // fotograma del reposo. Sin compás coincidirían siempre.
     let iguales = 0;
@@ -98,8 +109,19 @@ describe('el compás de cada figura', () => {
   });
 });
 
+/**
+ * Una figura cuyo reposo respira: la hoja propia del goblin lancero (siete
+ * fotogramas a 5 fps), registrada como la registra la partida al arrancar
+ * (`registrarLasHojas`). Antes la prueba leía `arteDe('goblin-lancero')` sin
+ * registrar, que es el Y Bot por defecto, y ese reposa quieto desde el 04-11-2026
+ * (un fotograma: «El reposo del Y Bot de espada y escudo, quieto», `1770e066`):
+ * coincidían siempre y la prueba no miraba el compás. Con otro id, para no cambiar
+ * el arte de `goblin-lancero` que lee «la prisa de la marcha», abajo.
+ */
+const QUE_RESPIRA = registrarUnidad('compas-goblin-lancero', hojaDeLaArena('goblin-lancero'));
+
 function clipFrameDe(id: string, t: number): number {
-  const atlas = hojaDe(arteDe('goblin-lancero'), MIRADA_DE_PRESENTACION);
+  const atlas = hojaDe(QUE_RESPIRA, MIRADA_DE_PRESENTACION);
   return clipFrame(atlas, 'idle', relojDeFigura(atlas.clips.idle, t, id));
 }
 

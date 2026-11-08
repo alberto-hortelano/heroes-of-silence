@@ -19,7 +19,7 @@
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { CARPETA_DE_LAS_FIGURAS, type FiguraDeNpc } from '../../src/core/npcs.js';
+import { CARPETA_DE_LAS_FIGURAS, type FiguraDeNpc } from '../../src/core/gente/banco.js';
 import {
   type HojaDeFigura,
   hojasDeLasAcciones,
@@ -41,7 +41,7 @@ export const DIR_DEL_MANIQUI_CIVIL = 'assets/unidades/_poses/gente/civil-8d';
 export const POSE_DE_LA_IDENTIDAD = `${DIR_DEL_MANIQUI_CIVIL}/identidad.png`;
 
 /** La carpeta de una figura del banco, relativa a la raíz. */
-export const carpetaDeNpc = (id: string): string => `${CARPETA_DE_LAS_FIGURAS}/${id}`;
+const carpetaDeNpc = (id: string): string => `${CARPETA_DE_LAS_FIGURAS}/${id}`;
 
 /** Lo que se le dice al pintor de toda figura del banco, además de su descripción. */
 const DE_LA_GENTE =

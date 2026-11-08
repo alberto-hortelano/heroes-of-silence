@@ -7,7 +7,7 @@
  * como la escribió el usuario (con sus erratas: corregirla sería teclearla).
  *
  * `NuevaJugabilidad.md` **no se commitea**; el JSON sí, y es contra él contra
- * quien comprueba `data.ts` al cargar. Se corre a mano cuando el cuaderno cambie:
+ * quien comprueba `hero/tipos-de-heroe.ts` al cargar. Se corre a mano cuando el cuaderno cambie:
  *
  *   npx tsx tools/datos/facciones.ts [ruta de NuevaJugabilidad.md]
  *
@@ -15,15 +15,16 @@
  * sin rasgo.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { join, relative } from 'node:path';
 import { FACTION_IDS, NOMBRE_DE_FACCION } from '../../src/core/types.js';
+import { textoJson } from '../comun/json.js';
+import { RAIZ } from '../comun/raiz.js';
 import { seccionDelCuaderno } from './cuaderno.js';
 
-const RAIZ = fileURLToPath(new URL('../../', import.meta.url));
 // El cuaderno vive en la copia principal del repo, sin commitear: desde un
 // worktree se le pasa la ruta (`npx tsx tools/datos/facciones.ts <ruta>`).
-const ORIGEN = process.argv[2] ?? `${RAIZ}NuevaJugabilidad.md`;
-const DESTINO = `${RAIZ}data/facciones.json`;
+const ORIGEN = process.argv[2] ?? join(RAIZ, 'NuevaJugabilidad.md');
+const DESTINO = join(RAIZ, 'data/facciones.json');
 
 const texto = readFileSync(ORIGEN, 'utf8');
 
@@ -45,5 +46,5 @@ const json = {
     'GENERADO por tools/datos/facciones.ts a partir de las secciones «Templarios», «No muertos», «Imperio», «Elfos» y «Orkos» de NuevaJugabilidad.md (el cuaderno de diseño del usuario, que no se commitea): el rasgo de cada facción es la primera línea con texto bajo su título, tal cual, con una expresión regular y sin teclear nada. No se edita a mano: se regenera. Lo enseña la elección de facción del menú.',
   rasgos,
 };
-writeFileSync(DESTINO, `${JSON.stringify(json, null, 2)}\n`);
-console.log(`rasgos de ${FACTION_IDS.length} facciones → ${DESTINO.slice(RAIZ.length)}`);
+writeFileSync(DESTINO, textoJson(json, 2));
+console.log(`rasgos de ${FACTION_IDS.length} facciones → ${relative(RAIZ, DESTINO)}`);

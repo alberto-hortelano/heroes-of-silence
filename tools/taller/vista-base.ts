@@ -34,6 +34,8 @@ import {
   SOLAPE,
   TRAMO,
 } from '../../src/shared/base.js';
+import { dePng } from '../comun/imagen.js';
+import { RAIZ } from '../comun/raiz.js';
 import {
   ADULTO_EN_EL_CUADRO,
   APARTE,
@@ -46,7 +48,6 @@ import {
 } from './base.js';
 import { indiceEscrito, pieDelTramo } from './recorte-base.js';
 
-const RAIZ = resolve(import.meta.dirname, '../..');
 /** Dónde van los PNG si no se dice: fuera del repo (`.cache/` no se commitea). */
 const POR_DEFECTO = '.cache/vista-base';
 
@@ -156,9 +157,7 @@ export async function vistaBase(
       }
     }
   }
-  const plaza = await sharp(plazaRaw, { raw: { width: ANCHO, height: ALTO, channels: 4 } })
-    .png()
-    .toBuffer();
+  const plaza = await dePng({ data: plazaRaw, width: ANCHO, height: ALTO });
   // Qué eslabón de cada sitio se pone encima: ninguno, el primero o el último de su cadena.
   const lienzoEntero = async (eslabon: 'ninguno' | 'primero' | 'ultimo'): Promise<Buffer> => {
     const capas: OverlayOptions[] = [];

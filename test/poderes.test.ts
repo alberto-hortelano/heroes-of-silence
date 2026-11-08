@@ -1,30 +1,31 @@
 /**
  * Los poderes de unidad de la arena (docs/agents/2026-10-11-poderes-y-edicion-en-combate/):
  * el monje cura a un aliado en su turno, con la regla escrita una vez en el
- * núcleo (`poderBlocker`) y las cifras de `data/poderes.json`.
+ * núcleo (`poderBlocker`) y las cifras de su hechizo (`data/hechizos.json`).
  *
  * Escritos desde los criterios del plan: A1 (Curar), A5 (cada motivo del rechazo), la lista legal, la previsión, el
  * cargador y A4 (la IA los usa).
  */
 
 import { describe, expect, it } from 'vitest';
-import { batallaDeArena, type HeroeDeArena, heroePorDefecto } from '../src/core/arena.js';
-import {
-  activeStack,
-  applyAction,
-  legalActions,
-  poderBlocker,
-  previsionDe,
-} from '../src/core/battle/battle.js';
+import { type HeroeDeArena, heroePorDefecto } from '../src/core/arena/heroe.js';
+import { batallaDeArena } from '../src/core/arena/montaje.js';
+import { applyAction } from '../src/core/battle/battle.js';
+import { activeStack } from '../src/core/battle/consultas.js';
+import { poderBlocker } from '../src/core/battle/lanzar.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
+import { previsionDe } from '../src/core/battle/prevision.js';
 import type { BattleState } from '../src/core/battle/types.js';
-import { unidadDelJuego, unidadesDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import { catalogoDeHechizos, hechizo } from '../src/core/magia/catalogo.js';
 import { rinde } from '../src/core/magia/formato.js';
 import { createRng, type Rng } from '../src/core/rng.js';
-import { hechizosDeUnidadesBlocker } from '../src/core/unidad.js';
-import { avanzarHasta, delBorrador, SANADOR, unidadDeArena as unidad } from './helpers.js';
+import { unidadDelJuego, unidadesDelJuego } from '../src/core/unidad/catalogo.js';
+import { hechizosDeUnidadesBlocker } from '../src/core/unidad/formato.js';
+import { avanzarHasta } from './batalla-de-prueba.js';
+import { SANADOR } from './comun.js';
+import { delBorrador, unidadDeArena as unidad } from './pelea-de-arena.js';
 
 /** El monje y el escudero a la izquierda contra un orco, con la semilla que se pida. */
 function pelea(rng: Rng, heroe: HeroeDeArena | null = null): BattleState {
@@ -51,7 +52,7 @@ function stack(b: BattleState, slot: number, side: 'attacker' | 'defender' = 'at
 }
 
 /** Cierra turnos hasta que le toca a `id`: el resto no hace nada. */
-function hastaSuTurno(b: BattleState, id: string, rng: Rng): void {
+function hastaSuTurnoEn50(b: BattleState, id: string, rng: Rng): void {
   if (!avanzarHasta(b, rng, id, () => ({ type: 'end_turn' }), 50)) {
     throw new Error(`a ${id} no le llega el turno`);
   }
@@ -67,7 +68,7 @@ function enElTurnoDelMonje(
   const monje = stack(b, 0);
   const escudero = stack(b, 1);
   const orco = stack(b, 0, 'defender');
-  hastaSuTurno(b, monje.id, rng);
+  hastaSuTurnoEn50(b, monje.id, rng);
   escudero.topHp = escudero.unit.hp - herida;
   return { b, rng, monje, escudero, orco };
 }

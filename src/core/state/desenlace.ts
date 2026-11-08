@@ -14,7 +14,7 @@
  */
 import type { PlayerId } from '../types.js';
 import type { DefeatReason } from './events.js';
-import type { GameState } from './game.js';
+import type { GameState } from './tipos.js';
 
 export type Desenlace = 'ganada' | 'perdida' | 'sin resolver' | 'ajena';
 
@@ -51,7 +51,7 @@ function conGanador(
  * ganador la causa siempre está, y el tipo lo dice, así que quien indexa una
  * tabla por `causa` y `desenlace` no necesita ni un `!` ni un ternario.
  */
-export type FinDePartida =
+type FinDePartida =
   | { readonly desenlace: 'sin resolver'; readonly ganador: null; readonly causa: null }
   | {
       readonly desenlace: Exclude<Desenlace, 'sin resolver'>;

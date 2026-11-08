@@ -4,22 +4,22 @@
  * Con la tecla `M` o el botón «Marcar», un clic en el mapa no mueve al héroe:
  * recorta la pantalla alrededor del punto, reúne qué hay ahí (`queHayEn`) y
  * abre un cuadro para la nota. Al guardar, el servidor de Vite lo escribe en
- * `docs/revision/marcas/` (plugin `marcas` de `vite.config.ts`). Con
+ * `docs/revision/marcas/` (plugin `marcas` de `tools/vite/marcas.ts`). Con
  * `?seed=N&marca=<id>` la página vuelve a mirar ese sitio a ese zoom.
  *
- * No aplica ninguna regla ni pasa por `session.ts` más que para leer el estado y
+ * No aplica ninguna regla ni pasa por `sesion/partida.ts` más que para leer el estado y
  * escribir en la barra: es una herramienta para quien revisa el escenógrafo, no
  * parte del juego. Llega por un `import()` detrás de
  * `HERRAMIENTAS_DE_DESARROLLO`, y en `vite build` no queda (`sinDesarrollo`).
  */
 import { objectAt } from '@core/map/map.js';
-import type { EscenaAventura } from '../escenas/aventura.js';
-import { html, pintar } from '../html.js';
-import { type CamaraMapa, cajaEnPixeles, mundoAPixel, pixelAMundo } from '../render/camara-mapa.js';
-import { queHayEn } from '../render/escenario/inspeccion.js';
+import { mensajeDe } from '../../shared/errores.js';
+import { html, pintar } from '../comun/html.js';
+import type { EscenaAventura } from '../partida/mapa/escena.js';
 import { escenarioListo } from '../render/escenario/superficie.js';
-import type { Session } from '../session.js';
-import { motivoDe } from './esquema.js';
+import { type CamaraMapa, cajaEnPixeles, mundoAPixel, pixelAMundo } from '../render/mapa/camara.js';
+import type { Session } from '../sesion/partida.js';
+import { queHayEn } from './inspeccion.js';
 import type { Desarrollo, Marca, MarcaNueva, Punto2 } from './tipos.js';
 
 /** Las casillas que cubre el recorte de cada lado del punto: 9×9 en total. */
@@ -140,7 +140,7 @@ export function montar(d: DependenciasDeMarcas): Desarrollo {
       decir(`Marca guardada: ${cuerpo.id}`);
     } catch (err) {
       console.error('[marcas] no se ha guardado la marca', err);
-      decir(`No se ha guardado la marca: ${motivoDe(err)}`);
+      decir(`No se ha guardado la marca: ${mensajeDe(err)}`);
     }
   }
 
@@ -241,7 +241,7 @@ export function montar(d: DependenciasDeMarcas): Desarrollo {
       );
     } catch (err) {
       console.error('[marcas] no se ha podido reproducir la marca', err);
-      decir(`No se ha podido reproducir la marca ${id}: ${motivoDe(err)}`);
+      decir(`No se ha podido reproducir la marca ${id}: ${mensajeDe(err)}`);
     }
   }
 
@@ -296,7 +296,7 @@ export function montar(d: DependenciasDeMarcas): Desarrollo {
       marcar(px, py).catch((err: unknown) => {
         pendiente = null;
         console.error('[marcas] no se ha podido marcar', err);
-        decir(`No se ha podido marcar: ${motivoDe(err)}`);
+        decir(`No se ha podido marcar: ${mensajeDe(err)}`);
       });
     },
   };

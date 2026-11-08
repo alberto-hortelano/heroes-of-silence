@@ -63,10 +63,10 @@ const esPiezaDePuente = (id: string): boolean => /^puente-(piedra|troncos)-/.tes
 export const esPiezaDePuesto = (id: string): boolean => /^puesto-/.test(id);
 
 /** Un punto `[x, y]` en píxeles de una imagen. */
-export type Par = readonly [number, number];
+type Par = readonly [number, number];
 
 /** Qué hace un módulo en la cadena de una ladera (§20): rematarla, seguirla o doblar la esquina. */
-export const PAPELES_DE_LADERA = ['inicio', 'medio', 'largo', 'fin', 'esquina'] as const;
+const PAPELES_DE_LADERA = ['inicio', 'medio', 'largo', 'fin', 'esquina'] as const;
 export type PapelDeLadera = (typeof PAPELES_DE_LADERA)[number];
 
 /**
@@ -86,7 +86,7 @@ export interface JuntasDeLadera {
 }
 
 /** Qué es una diagonal del relieve (R4, §23): la esquina de una meseta o el rincón. */
-export const PAPELES_DE_DIAGONAL = ['convexa', 'concava'] as const;
+const PAPELES_DE_DIAGONAL = ['convexa', 'concava'] as const;
 export type PapelDeDiagonal = (typeof PAPELES_DE_DIAGONAL)[number];
 
 /**
@@ -103,7 +103,7 @@ export interface JuntasDeDiagonal {
 }
 
 /** Hacia dónde baja una bajada (R5, §23): las que se ven, de cara a la cámara o de lado. */
-export const RUMBOS_DE_BAJADA = ['s', 'se', 'so', 'e', 'o'] as const;
+const RUMBOS_DE_BAJADA = ['s', 'se', 'so', 'e', 'o'] as const;
 export type RumboDeBajada = (typeof RUMBOS_DE_BAJADA)[number];
 
 /**
@@ -122,7 +122,7 @@ export interface JuntasDeBajada {
  * un tramo de cinco casillas, y la de la muesca (§36), la casilla baja entre dos
  * altas por la que baja el camino (el nodo o la ciudad en la línea del acantilado).
  */
-export const FORMAS_DE_RAMPA = ['recta', 'muesca'] as const;
+const FORMAS_DE_RAMPA = ['recta', 'muesca'] as const;
 export type FormaDeRampa = (typeof FORMAS_DE_RAMPA)[number];
 
 /**
@@ -136,7 +136,7 @@ export const PIEZAS_DE_LA_FORMA = {
   recta: ['costado-izq', 'cuerpo', 'costado-der'],
   muesca: ['muesca'],
 } as const satisfies Readonly<Record<FormaDeRampa, readonly string[]>>;
-export const PIEZAS_DE_RAMPA = [...PIEZAS_DE_LA_FORMA.recta, ...PIEZAS_DE_LA_FORMA.muesca] as const;
+const PIEZAS_DE_RAMPA = [...PIEZAS_DE_LA_FORMA.recta, ...PIEZAS_DE_LA_FORMA.muesca] as const;
 export type PiezaDeRampa = (typeof PIEZAS_DE_RAMPA)[number];
 
 /**
@@ -152,9 +152,6 @@ export interface JuntasDeRampa {
   readonly rumbo: 's';
 }
 
-/** Las juntas de cualquier pieza del relieve: una ladera, una diagonal, una bajada o una rampa. */
-export type JuntasDeRelieve = JuntasDeLadera | JuntasDeDiagonal | JuntasDeBajada | JuntasDeRampa;
-
 export interface Modulo extends Pieza {
   /** El nombre del módulo dentro de su hoja (`1`, `torre-redonda`…). */
   readonly nombre: string;
@@ -169,7 +166,7 @@ export interface Modulo extends Pieza {
   /**
    * Solo en la hoja del recinto de una ciudad (`recinto`, §37), y en todos sus
    * módulos: el pie de sus dos puntas, en píxeles del módulo. `componer` las
-   * pone en los dos vértices de su cara del octógono (`recinto.ts`). Las lleva
+   * pone en los dos vértices de su cara del octógono (`recinto/octogono.ts`). Las lleva
    * de la guía `pnpm taller derivar-recinto`.
    */
   readonly junta?: readonly [Par, Par];
@@ -236,7 +233,7 @@ export const formaDeHoja = (hoja: string): FormaDeRampa =>
   hoja.startsWith('rampa-muesca-') ? 'muesca' : 'recta';
 
 /** Si una hoja es la del recinto de una ciudad (`recinto`, §37): sus módulos llevan el pie de sus dos puntas. */
-export const esHojaDelRecinto = (hoja: string): boolean => hoja === 'recinto';
+const esHojaDelRecinto = (hoja: string): boolean => hoja === 'recinto';
 
 /** Si una hoja es del relieve y sus módulos llevan juntas: laderas, diagonales, bajadas o rampas. */
 export const esHojaDeRelieve = (hoja: string): boolean =>

@@ -11,8 +11,9 @@
  */
 import { FACTION_IDS } from '@core/types.js';
 import { describe, expect, it } from 'vitest';
-import { FICHAS_DEL_LIENZO, LIENZO_NEUTRO, temaDelLienzo } from '../src/client/temas.js';
-import { contraste, PAREJAS, sobre } from '../tools/taller/temas/paleta.js';
+import { FICHAS_DEL_LIENZO, LIENZO_NEUTRO, temaDelLienzo } from '../src/client/comun/temas.js';
+import { contraste, sobre } from '../tools/comun/color.js';
+import { PAREJAS } from '../tools/taller/temas/paleta.js';
 import {
   bloquesCss,
   type Declaracion,

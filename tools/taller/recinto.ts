@@ -34,7 +34,7 @@
  *   pnpm taller derivar-recinto
  */
 import { readFile, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import {
   ALTO_DE_LA_PUERTA_DEL_RECINTO,
   ALTO_DEL_MURO_DEL_RECINTO,
@@ -51,10 +51,12 @@ import {
   MODULOS_DEL_RECINTO,
   puertaDelEje,
   tramoDelEje,
-} from '../../src/client/render/escenario/recinto.js';
+} from '../../src/client/render/escenario/recinto/octogono.js';
+import { textoJson } from '../comun/json.js';
+import { RAIZ } from '../comun/raiz.js';
 import { registrarConEscala } from './derivar.js';
 import type { Encargo } from './encargo.js';
-import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
+import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './estilo-del-mapa.js';
 import {
   ARRIBA,
   DIR_GUIAS,
@@ -64,9 +66,7 @@ import {
   type P2,
   type P3,
   SOMBRA,
-} from './paredes-puentes.js';
-
-const RAIZ = resolve(import.meta.dirname, '../..');
+} from './guias.js';
 
 /**
  * Las medidas del muro en la guía, en casillas, a la escala del recinto: el
@@ -304,7 +304,7 @@ function dibujarPieza(g: Guia, nombre: (typeof MODULOS_DEL_RECINTO)[number]): vo
 }
 
 /** La geometría que cuenta de cada pieza de la guía, en píxeles de la guía. */
-export interface GeometriaDelRecinto {
+interface GeometriaDelRecinto {
   readonly nombre: (typeof MODULOS_DEL_RECINTO)[number];
   /** El pie de sus dos puntas: el vértice de su cara a cada lado, a ras de suelo. */
   readonly junta: readonly [P2, P2];
@@ -320,7 +320,7 @@ const LIENZO: readonly [number, number] = [1536, 1024];
 const HUECO_ENTRE_PIEZAS = 0.45;
 
 /** La guía de la hoja del recinto, con las piezas en filas y el pie de cada fila en la misma línea. */
-export function guiaDelRecinto(): { guia: Guia; piezas: GeometriaDelRecinto[]; casilla: number } {
+function guiaDelRecinto(): { guia: Guia; piezas: GeometriaDelRecinto[]; casilla: number } {
   const [ancho, alto] = LIENZO;
   const medida = (n: (typeof MODULOS_DEL_RECINTO)[number]) => {
     const m = new Guia(ancho, alto, 1, 0, 0);
@@ -483,6 +483,6 @@ export async function escribirRecintoDerivado(): Promise<string> {
       );
     mod.junta = [r(g.junta[0]), r(g.junta[1])];
   }
-  await writeFile(ruta, `${JSON.stringify(indice, null, 2)}\n`);
+  await writeFile(ruta, textoJson(indice, 2));
   return ruta.replace(`${RAIZ}/`, '');
 }

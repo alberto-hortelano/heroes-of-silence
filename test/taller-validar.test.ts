@@ -6,12 +6,12 @@
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import { FIGURA } from '../src/shared/arte.js';
+import { dePng } from '../tools/comun/imagen.js';
 import { encargosQueSiguen } from '../tools/taller/npcs.js';
 import { validar, validarElEncargo, visibleMinimo } from '../tools/taller/validar.js';
-import { FIGURA_DE_PRUEBA, raizDeNpcs } from './helpers.js';
+import { FIGURA_DE_PRUEBA, raizDeNpcs } from './npcs-de-prueba.js';
 
 const CELDA = 384;
 const FILAS = 3;
@@ -31,9 +31,7 @@ async function hoja(alto: number, ancho: number): Promise<Buffer> {
       for (let y = y0; y < y0 + alto; y++)
         for (let x = x0; x < x0 + ancho; x++) data.fill(255, (y * w + x) * 4, (y * w + x) * 4 + 4);
     }
-  return sharp(data, { raw: { width: w, height: h, channels: 4 } })
-    .png()
-    .toBuffer();
+  return dePng({ data, width: w, height: h });
 }
 
 /** La figura de talla `t`: su alto, el del adulto por la talla, y su ancho, una proporción de él. */

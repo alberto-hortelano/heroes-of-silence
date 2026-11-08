@@ -36,8 +36,7 @@ import {
   FONDO_DE_LA_FRANJA,
   planoDelCuadro,
 } from '../../../shared/base.js';
-import { temaDelLienzo } from '../../temas.js';
-import { cajaDeFiguraEn, pintarAroDeFigura } from '../batalla.js';
+import { temaDelLienzo } from '../../comun/temas.js';
 import {
   campoDeEscena,
   type LuzDeNoche,
@@ -46,7 +45,8 @@ import {
 } from '../clima/clima.js';
 import { luzDeLasFiguras } from '../clima/recetas.js';
 import { CacheDeLienzos } from '../copias.js';
-import { type Figura, piesDeFigura, pintarFiguraConSombra } from '../figura.js';
+import { cajaDeFiguraEn, pintarAroDeFigura } from '../figuras/caja.js';
+import { type Figura, piesDeFigura, pintarFiguraConSombra } from '../figuras/figura.js';
 import { COLOR_NEUTRO } from '../palette.js';
 import { enPantalla, type Tablero } from '../proyeccion.js';
 import { type ArteDeLaBase, CIELO_SIN_ARTE } from './arte.js';
@@ -539,7 +539,7 @@ export function pintarElSueloDeLaBase(
 
 /**
  * Solo las figuras de `v.elementos`, sin la plaza, y el aire del clima encima
- * (salvo con `sinAire`): la escena de un lugar (`escenas/lugar.ts`) pinta entre
+ * (salvo con `sinAire`): la escena de un lugar (`partida/lugar/escena.ts`) pinta entre
  * el fondo y la gente el mojón de sus cosas.
  */
 export function pintarLasFiguras(ctx: CanvasRenderingContext2D, v: PintadoDeLaBase): void {

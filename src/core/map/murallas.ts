@@ -9,13 +9,14 @@
  * lienzo de norte a sur que acababa en una ciudad).
  *
  * Aquí está la regla, una vez, sobre una rejilla cualquiera: la leen el
- * generador al recortar cada franja de muro (`vestir.ts`, paso 7) y el guardia
+ * generador al recortar cada franja de muro (`vestir/fronteras.ts`, paso 7) y el guardia
  * y la medida sobre el mapa hecho (`murallasDelMapa`).
  */
 
-import type { GameMap } from './map.js';
+import { EJES, VECINAS } from './geometria.js';
 import { estructura } from './regiones.js';
 import { BARRERAS_DE_DESNIVEL, type Barrera, esBarrera, type TerrainKind } from './terrain.js';
+import type { GameMap } from './tipos.js';
 
 /**
  * Lo más largo que mide una muralla, en casillas: el lado mayor de la caja de
@@ -36,28 +37,6 @@ export const LARGO_MAXIMO_DE_MURALLA = 6;
  */
 export const APOYOS_DE_MURALLA: readonly Barrera[] = BARRERAS_DE_DESNIVEL;
 
-/**
- * Los ejes de una puerta, en el orden en que se prueban: los rectos y luego los
- * diagonales, como `ejeDelNodo` en el generador.
- */
-const EJES: readonly (readonly [number, number])[] = [
-  [0, 1],
-  [1, 0],
-  [1, -1],
-  [1, 1],
-];
-
-const OCHO: readonly (readonly [number, number])[] = [
-  [-1, -1],
-  [0, -1],
-  [1, -1],
-  [-1, 0],
-  [1, 0],
-  [-1, 1],
-  [0, 1],
-  [1, 1],
-];
-
 export interface RejillaDeMuralla {
   readonly W: number;
   readonly H: number;
@@ -70,7 +49,7 @@ export interface RejillaDeMuralla {
 }
 
 /** La línea de una puerta: ella y sus dos brazos, cada uno hasta su apoyo. */
-export interface LineaDeMuralla {
+interface LineaDeMuralla {
   /** Las casillas, la puerta primero. */
   readonly casillas: readonly number[];
   /** El lado mayor de su caja. */
@@ -115,7 +94,7 @@ export function lineaDeLaPuerta(r: RejillaDeMuralla, puerta: number): LineaDeMur
     const c = cola[q] as number;
     const cx = c % W;
     const cy = (c - cx) / W;
-    for (const [dx, dy] of OCHO) {
+    for (const [dx, dy] of VECINAS) {
       const x = cx + dx;
       const y = cy + dy;
       const fuera = x < 0 || y < 0 || x >= W || y >= H;
@@ -199,7 +178,7 @@ export function juntoACiudad(W: number, H: number, ciudades: readonly number[]):
 }
 
 /** Una muralla del mapa hecho, con lo que le falta para ser el cierre de un paso. */
-export interface MurallaDelMapa {
+interface MurallaDelMapa {
   /** Sus casillas: el muro y sus puertas, 8-conexo. */
   readonly casillas: readonly number[];
   /** Las casillas de sus puertas: los nodos de muro. */
@@ -214,7 +193,7 @@ export interface MurallaDelMapa {
  * Las murallas de un mapa como las une la escena —el muro y los nodos de muro,
  * 8-conexo— y, de cada una, por qué no es el cierre de un paso: sin puerta, una
  * puerta sin sus dos apoyos a `LARGO_MAXIMO_DE_MURALLA`, junto a una ciudad
- * (`juntoACiudad`) o la muralla entera más larga que eso. Es el guardia de #232 y su medida (`tools/qa/murallas.ts`).
+ * (`juntoACiudad`) o la muralla entera más larga que eso. Es el guardia de #232 y su medida (`tools/qa/medidas/murallas.ts`).
  */
 export function murallasDelMapa(map: GameMap): MurallaDelMapa[] {
   const W = map.width;
@@ -261,7 +240,7 @@ export function murallasDeLaRejilla(
     const casillas = [i];
     for (let q = 0; q < casillas.length; q++) {
       const c = casillas[q] as number;
-      for (const [dx, dy] of OCHO) {
+      for (const [dx, dy] of VECINAS) {
         const x = (c % W) + dx;
         const y = Math.floor(c / W) + dy;
         if (x < 0 || y < 0 || x >= W || y >= H) continue;

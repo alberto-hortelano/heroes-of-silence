@@ -24,10 +24,11 @@
  */
 import type { FactionId } from '@core/types.js';
 import { INDICE_VACIO, type IndiceDeLaBase, type RecorteEnElIndice } from '../../../shared/base.js';
+import { mensajeDe } from '../../../shared/errores.js';
 import { imagenDeLaBase, tandaDeArte } from '../assets.js';
 
 /** A qué fracción de su tamaño se guarda la máscara de un recorte. */
-export const MASCARA = 1 / 4;
+const MASCARA = 1 / 4;
 
 /** El cielo sin arte, o con un índice sin placas. */
 export const CIELO_SIN_ARTE = 'rgb(0, 0, 0)';
@@ -40,7 +41,7 @@ export interface RecorteDeLaBase extends MedidasDelRecorte {
 }
 
 /** El alfa de un recorte a `MASCARA` de resolución, fila a fila. */
-export interface MascaraDelRecorte {
+interface MascaraDelRecorte {
   readonly ancho: number;
   readonly alto: number;
   readonly alfa: Uint8ClampedArray;
@@ -88,7 +89,7 @@ async function cargar(f: FactionId, construidos: readonly string[]): Promise<voi
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     indice = (await r.json()) as IndiceDeLaBase;
   } catch (err) {
-    console.warn(`[base] sin índice del arte de ${f}: ${err instanceof Error ? err.message : err}`);
+    console.warn(`[base] sin índice del arte de ${f}: ${mensajeDe(err)}`);
     cargado.set(f, {
       indice: INDICE_VACIO,
       arte: { tramos: [], suelo: null, cielo: CIELO_SIN_ARTE, edificios: new Map() },

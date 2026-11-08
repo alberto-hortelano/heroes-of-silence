@@ -9,13 +9,14 @@
  * Lo que se ve, con capturas del navegador.
  */
 import { describe, expect, it } from 'vitest';
-import { enLaMarcha } from '../src/client/marcha.js';
-import { type Par, trazaPorLosArcos } from '../src/client/render/escenario/recinto.js';
-import { Session } from '../src/client/session.js';
+import type { Par } from '../src/client/render/escenario/recinto/octogono.js';
+import { trazaPorLosArcos } from '../src/client/render/escenario/recinto/sendas.js';
+import { enLaMarcha } from '../src/client/render/figuras/marcha.js';
+import { Session } from '../src/client/sesion/partida.js';
 import { PUERTAS_DE_LA_CIUDAD } from '../src/core/map/recinto.js';
-import { caminoHasta } from '../src/core/state/game.js';
+import { caminoHasta } from '../src/core/state/marcha.js';
 import { sesionAntesDelMonstruo } from './batalla-de-cliente.js';
-import { partidaDe } from './helpers.js';
+import { partidaDe } from './escena-de-prueba.js';
 
 describe('enLaMarcha: por dónde va quien anda', () => {
   const pasos = [

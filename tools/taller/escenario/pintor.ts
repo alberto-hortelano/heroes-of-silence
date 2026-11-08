@@ -4,9 +4,10 @@
  * también desde `file://` (entonces pinta pero no mide). El empaquetado lo hace
  * Vite, una vez por proceso.
  */
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { build } from 'vite';
-import type { Escena } from '../../../src/client/render/escenario/colocar.js';
+import type { Escena } from '../../../src/client/render/escenario/colocar/escena.js';
+import { RAIZ } from '../../comun/raiz.js';
 
 let guion: Promise<string> | undefined;
 
@@ -18,7 +19,7 @@ function guionDeLaPagina(): Promise<string> {
       logLevel: 'silent',
       // El pintor importa lo que importa el escenógrafo, y eso alcanza `@core/…`
       // (`relieve.ts` lee `isWalkable`): el mismo alias que `vite.config.ts`.
-      resolve: { alias: { '@core': resolve(import.meta.dirname, '../../../src/core') } },
+      resolve: { alias: { '@core': join(RAIZ, 'src/core') } },
       build: {
         write: false,
         minify: false,

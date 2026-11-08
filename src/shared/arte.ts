@@ -11,10 +11,10 @@
  * sabe a qué ángulo se mira el tablero, y no tiene por qué.
  */
 import { ULTIMA_FILA } from '../core/battle/board.js';
-import type { AccionesDeNpc } from '../core/npcs.js';
+import type { AccionesDeNpc } from '../core/gente/banco.js';
 /**
  * El margen con que el taller recorta a su contenido una pieza suelta del mapa,
- * en píxeles de su imagen (`recortarAlContenido`, `tools/taller/trabajador.ts`):
+ * en píxeles de su imagen (`recortarAlContenido`, `tools/taller/proceso.ts`):
  * lo transparente que la imagen lleva alrededor de lo pintado. Lo lee también el
  * escenógrafo, que mide lo que se ve de una obra del puesto sin él.
  */
@@ -105,7 +105,7 @@ export interface Plano {
 
 /**
  * Las ocho miradas de una figura, en el sentido contrario a las agujas desde el
- * este: las de la regla (`client/direccion.ts`) y las que escribe
+ * este: las de la regla (`client/render/figuras/direccion.ts`) y las que escribe
  * `data/bases/<f>.json` para cada vecino.
  */
 export const MIRADAS = ['E', 'NE', 'N', 'NO', 'O', 'SO', 'S', 'SE'] as const;
@@ -187,11 +187,11 @@ export const FIGURA_8D = {
  * gira al maniquí `rotation.y = 2π·d/8` y la 0 mira a la cámara. Cada nombre
  * dice hacia dónde mira la figura en pantalla. Lo leen el taller —que encarga
  * cada dirección por su nombre— y el cliente, que elige la hoja de la dirección
- * en la que mira la figura (`DIRECCION_DE_HOJA`, en `render/personajes.ts`).
+ * en la que mira la figura (`DIRECCION_DE_HOJA`, en `render/figuras/personajes.ts`).
  *
  * Su `length` es el número de direcciones de una figura para el taller y el
  * cliente; `core` no puede importar de aquí y escribe el 8 al lado de un
- * comentario que lo ata a esta lista (`src/core/arena.ts`).
+ * comentario que lo ata a esta lista (`DIRECCIONES_DE_FIGURA`, `src/core/unidad/formato.ts`).
  */
 export const NOMBRES_DE_DIRECCION = [
   'frente',
@@ -207,7 +207,7 @@ export const NOMBRES_DE_DIRECCION = [
 /**
  * Cómo se reparten las acciones de una figura en las hojas que se pintan por
  * dirección, en el orden de sus filas. Es el ÚNICO sitio que lo dice: de aquí
- * leen el maniquí (`tools/art/poses.ts`, `montura.ts`), el taller (encargos,
+ * leen el maniquí (`tools/art/poses/`, `montura.ts`), el taller (encargos,
  * empaquetado, derivado) y el cliente, que resuelve cada fila a su imagen.
  *
  *  - **A**: reposo, marcha y carga: la locomoción.

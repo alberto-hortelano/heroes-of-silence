@@ -6,8 +6,9 @@
  * aquí devuelve `null` en vez de lanzar, y el manifiesto que falta no es un
  * error sino "todavía no se ha generado nada".
  */
-import { urlDeImagenSegura } from '../html.js';
-import { registrarLasHojas } from './personajes.js';
+import { mensajeDe } from '../../shared/errores.js';
+import { urlDeImagenSegura } from '../comun/html.js';
+import { registrarLasHojas } from './figuras/personajes.js';
 
 interface AssetManifest {
   readonly generatedAt: string;
@@ -46,7 +47,7 @@ function cargarImagen(clave: string, url: string): Promise<void> {
     try {
       comprobada = urlDeImagenSegura(url);
     } catch (err) {
-      console.warn(`[assets] no se carga ${clave}: ${err instanceof Error ? err.message : err}`);
+      console.warn(`[assets] no se carga ${clave}: ${mensajeDe(err)}`);
       resolve();
       return;
     }
@@ -71,7 +72,7 @@ function cargarImagen(clave: string, url: string): Promise<void> {
  * Una imagen de la base caminable (`render/base/arte.ts`), por su URL, cuando
  * llega; `null` si no llega. Pasa por la misma carga que el resto del arte —la
  * URL comprobada por `urlDeImagenSegura`, el fallo dicho en consola—: este
- * módulo es el único sitio que asigna un `src` (lo vigila `invariantes.test.ts`).
+ * módulo es el único sitio que asigna un `src` (lo vigila `invariantes-cliente.test.ts`).
  */
 export async function imagenDeLaBase(url: string): Promise<HTMLImageElement | null> {
   const clave = `base:${url}`;
@@ -80,29 +81,30 @@ export async function imagenDeLaBase(url: string): Promise<HTMLImageElement | nu
 }
 
 /**
- * El arte fijo del cliente nuevo, por el nombre con el que se pide a `asset('rpg',
+ * El arte fijo del cliente nuevo, por el nombre con el que se pide a `asset('fijo',
  * …)`: el fondo de la batalla. El atlas del mapa ya no se pide: el cofre, lo
  * último que salía de él, es una pieza suelta (#147). Las
  * figuras ya no están aquí: son de 8 direcciones y se cargan a demanda, hoja a
  * hoja, la primera vez que se pinta cada una (`cargarHojaDeFigura`).
  *
- * Va aparte del manifiesto de `generated/` porque no lo produce `tools/gen`: es
- * el arte aprobado que se rescató de la rama `archivo/gpt-rpg`.
+ * Va aparte del manifiesto de `generated/` porque no es arte generado: es el
+ * arte aprobado que se rescató de la rama `archivo/gpt-rpg`. Por eso vive en `assets/rpg/`: lo
+ * citan así las procedencias de las piezas de la muralla de batalla, que se pintaron con él de
+ * referencia de estilo, y el taller (QA de la reorganización, H7: se renombró la constante, que
+ * era `ARTE_RPG`, y no la carpeta).
  */
-export const ARTE_RPG = {
+export const ARTE_FIJO = {
   campo: '/rpg/campo.webp',
 } as const;
-
-export type NombreDeArte = keyof typeof ARTE_RPG;
 
 /**
  * Las piezas sueltas que el juego pinta él (`assets/mapa/`), por el nombre con el
  * que se piden a `asset('mapa', …)`: el cofre, que se recoge en la
  * partida y no se hornean en la escena. Se colocan por su `ancla`, que viene en el `.json` de
- * al lado y lee `render/piezas.ts`. Todo lo demás del mapa lo pone el
+ * al lado y lee `render/mapa/cofre.ts`. Todo lo demás del mapa lo pone el
  * escenógrafo (`cargarArteDeEscena`).
  */
-export const PIEZAS_DEL_MAPA = ['cofre'] as const;
+const PIEZAS_DEL_MAPA = ['cofre'] as const;
 
 export type PiezaDelMapa = (typeof PIEZAS_DEL_MAPA)[number];
 
@@ -111,7 +113,7 @@ const murallaPedida = new Set<string>();
 
 /**
  * Pide, una vez, las piezas de la muralla del tablero de batalla
- * (`assets/batalla/muralla/<pieza>.webp`, `render/arte-de-la-muralla.ts`), en una
+ * (`assets/batalla/muralla/<pieza>.webp`, `render/batalla/arte-de-la-muralla.ts`), en una
  * tanda: se piden con la primera batalla que lleva muralla, no al arrancar. Se
  * leen con `asset('muralla', pieza)`; lo que no llega se queda en su marcador.
  */
@@ -193,9 +195,9 @@ export function tandaDeArte(carga: Promise<unknown>): void {
 }
 
 /** El arte fijo y, si se pinta el mapa, sus piezas. Nunca lanza: lo que no llegue se queda en su marcador. */
-function loadRpgArt(mapa: boolean): Promise<unknown> {
+function cargarElArteFijo(mapa: boolean): Promise<unknown> {
   return Promise.all([
-    ...Object.entries(ARTE_RPG).map(([nombre, url]) => cargarImagen(`rpg/${nombre}`, url)),
+    ...Object.entries(ARTE_FIJO).map(([nombre, url]) => cargarImagen(`fijo/${nombre}`, url)),
     ...(mapa
       ? PIEZAS_DEL_MAPA.map((nombre) => cargarImagen(`mapa/${nombre}`, `/mapa/${nombre}.webp`))
       : []),
@@ -203,11 +205,11 @@ function loadRpgArt(mapa: boolean): Promise<unknown> {
 }
 
 /**
- * Los grupos del manifiesto que se pintan: el icono del oro. Ni
- * `creatures` —la batalla es de figuras a 25°— ni `terrains`: el suelo del mapa
- * lo pinta el escenógrafo con sus texturas. Los edificios y el fondo del
- * castillo de fal.ai se retiraron con la base caminable: su arte es el del
- * taller (`assets/bases/`, `render/base/arte.ts`).
+ * Los grupos del manifiesto que se pintan: el icono del oro, que es lo único que
+ * lleva (las texturas `terrains` se retiraron el 06-11-2026 a
+ * `assets/art/retirado/`: el suelo del mapa lo pinta el escenógrafo con las
+ * suyas). Los edificios y el fondo del castillo se retiraron con la base
+ * caminable: su arte es el del taller (`assets/bases/`, `render/base/arte.ts`).
  */
 const GRUPOS_QUE_SE_PINTAN: ReadonlySet<string> = new Set(['icons']);
 
@@ -236,7 +238,7 @@ async function cargarDeEscena(src: string): Promise<void> {
   try {
     url = urlDeImagenSegura(`/mapa/${src}`);
   } catch (err) {
-    console.warn(`[assets] no se carga escena/${src}: ${err instanceof Error ? err.message : err}`);
+    console.warn(`[assets] no se carga escena/${src}: ${mensajeDe(err)}`);
     return;
   }
   try {
@@ -244,9 +246,7 @@ async function cargarDeEscena(src: string): Promise<void> {
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     deEscena.set(src, await createImageBitmap(await r.blob()));
   } catch (err) {
-    console.warn(
-      `[assets] no ha cargado escena/${src} (${url}): ${err instanceof Error ? err.message : err}`,
-    );
+    console.warn(`[assets] no ha cargado escena/${src} (${url}): ${mensajeDe(err)}`);
   }
 }
 
@@ -353,7 +353,7 @@ export function cargarArte(
   }
   // La arena no pinta el mapa de aventura: sus piezas serían nueve peticiones
   // para nada.
-  tandaDeArte(loadRpgArt(mapa));
+  tandaDeArte(cargarElArteFijo(mapa));
 }
 
 /** Imagen ya cargada, o `null` si ese asset todavía no existe. */

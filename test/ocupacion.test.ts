@@ -9,24 +9,17 @@
  * batalla para recuperar tras la muralla del sitio (P3) y la crónica.
  */
 import { describe, expect, it } from 'vitest';
-import { marcadoDe } from '../src/client/html.js';
-import { Session } from '../src/client/session.js';
-import { renderSide, renderTopbar } from '../src/client/views/panels.js';
+import { marcadoDe } from '../src/client/comun/html.js';
+import { renderSide, renderTopbar } from '../src/client/partida/paneles.js';
+import { Session } from '../src/client/sesion/partida.js';
+import { resolvePendingBattle } from '../src/core/ai/turn.js';
 import { estructura } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
+import { baseOf, dayOfWeek, heroesOf, townById } from '../src/core/state/consultas.js';
+import { buyBlocker } from '../src/core/state/equipar.js';
 import type { GameEvent } from '../src/core/state/events.js';
-import {
-  type AdventureAction,
-  applyAdventureAction,
-  baseOf,
-  buyBlocker,
-  contratarBlocker,
-  dayOfWeek,
-  type GameState,
-  heroesOf,
-  resolvePendingBattle,
-  townById,
-} from '../src/core/state/game.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
+import { contratarBlocker } from '../src/core/state/heroes.js';
 import { rentaDelDia } from '../src/core/state/renta.js';
 import { newGame } from '../src/core/state/setup.js';
 import {
@@ -34,18 +27,16 @@ import {
   dueñoDeLaCiudad,
   dueñoDelSitio,
   enUnNodo,
+  guarnicionDeLaCiudad,
   ocupadoBlocker,
   ocupanteDe,
   sitioPorId,
 } from '../src/core/state/sitios.js';
+import type { AdventureAction, GameState } from '../src/core/state/tipos.js';
 import type { Point } from '../src/core/types.js';
-import {
-  ejercito,
-  guarnicionDeLaCiudad,
-  PESADA,
-  planConCiudadDeRegion,
-  TROPA_BARATA,
-} from './helpers.js';
+import { PESADA, TROPA_BARATA } from './comun.js';
+import { planConCiudadDeRegion } from './mapa-de-prueba.js';
+import { ejercito } from './partida-de-prueba.js';
 
 const SEMILLA = 1;
 const ctx = { rng: createRng(SEMILLA) };

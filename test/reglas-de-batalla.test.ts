@@ -8,21 +8,18 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  type BattleSide,
-  createBattle,
-  opcionesDeDanio,
-  stackById,
-} from '../src/core/battle/battle.js';
+import { stackById } from '../src/core/battle/consultas.js';
 import { damageMultiplier, expectedDamage } from '../src/core/battle/damage.js';
+import { opcionesDeDanio } from '../src/core/battle/golpe.js';
+import { type BattleSide, createBattle } from '../src/core/battle/montaje.js';
 import type { BattleState } from '../src/core/battle/types.js';
-import { unidad } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import type { UnitInfo } from '../src/core/types.js';
-import { cuerpoDeCombate } from '../src/core/unidad.js';
-import { bando, mando } from './batalla-de-prueba.js';
-import { conCifrasAMano, PESADA } from './helpers.js';
+import { unidad } from '../src/core/unidad/catalogo.js';
+import { cuerpoDeCombate } from '../src/core/unidad/formato.js';
+import { bando, conCifrasAMano, mando } from './batalla-de-prueba.js';
+import { PESADA } from './comun.js';
 
 function batalla(
   izquierda: BattleSide,

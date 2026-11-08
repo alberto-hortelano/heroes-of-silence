@@ -18,10 +18,9 @@
  * render crudo la tiene donde la pone el maniquí, y con la elevación el cadáver
  * del Y Bot se hundiría 64 px en el suelo.
  */
-import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import sharp, { type Sharp } from 'sharp';
 import {
   type ClipDeFigura,
@@ -35,16 +34,21 @@ import {
   primeraFilaDe,
 } from '../../src/shared/arte.js';
 import {
+  columnaDeSuelta,
+  type FilaDePose,
+  fpsATiempoReal,
+  OCHO_DIRECCIONES,
+} from '../art/poses/clips.js';
+import {
   carpetaDeManiqui,
   carpetaDePoses,
   clipDeDisparoDe,
-  columnaDeSuelta,
   DIR_POSES,
-  type FilaDePose,
-  fpsATiempoReal,
   type JuegoEn8d,
-  OCHO_DIRECCIONES,
-} from '../art/poses.js';
+} from '../art/poses/juegos.js';
+import { sha256 } from '../comun/hash.js';
+import { textoJson } from '../comun/json.js';
+import { RAIZ } from '../comun/raiz.js';
 import { ajustesDe, aplicarAjustes } from './ajustes.js';
 import {
   type AtlasDerivado,
@@ -56,7 +60,6 @@ import {
 import type { Encargo } from './encargo.js';
 import { EN_OCHO_DIRECCIONES, JUEGOS_EN_8D, unidad } from './unidades.js';
 
-const RAIZ = resolve(import.meta.dirname, '../..');
 /** Donde se juntan las hojas de cada dirección para medirlas: no se versiona. */
 const DIR_JUNTAS = join(RAIZ, '.cache/taller/poses-8d');
 export const RUTA_DEL_ATLAS_8D = join(DIR_POSES, 'atlas-8d.json');
@@ -70,7 +73,7 @@ interface HojaDePoses {
  * Una dirección del Y Bot: sus hojas con su sha256 y el atlas medido, de 6
  * filas o de 7 con el disparo. Las filas se reparten como `HOJAS_DE_FIGURA`.
  */
-export interface DireccionDePoses extends Omit<AtlasDerivado, 'imagen' | 'sha256' | 'derivadoPor'> {
+interface DireccionDePoses extends Omit<AtlasDerivado, 'imagen' | 'sha256' | 'derivadoPor'> {
   readonly hojas: {
     readonly a: HojaDePoses;
     readonly b: HojaDePoses;
@@ -86,10 +89,8 @@ export interface DireccionDePoses extends Omit<AtlasDerivado, 'imagen' | 'sha256
 export const rutaJunta = (juegoOUnidad: string, d: number): string =>
   join(DIR_JUNTAS, `${juegoOUnidad}-d${d}.png`);
 
-export const sha256 = (b: Buffer): string => createHash('sha256').update(b).digest('hex');
-
 /** Una hoja de una dirección, leída: cuál es, de dónde sale y sus bytes. */
-export interface HojaLeida {
+interface HojaLeida {
   readonly hoja: HojaDeFigura;
   readonly ruta: string;
   readonly png: Buffer;
@@ -199,7 +200,7 @@ export async function derivarDireccionDePoses(
  * reloj. `null` si el juego no dispara. Es el único cálculo de la suelta: lo
  * usan el Y Bot, el trabajador al juntar un atlas pintado y sus tests.
  */
-export async function sueltaDe(carpeta: string, juego: JuegoEn8d): Promise<number | null> {
+async function sueltaDe(carpeta: string, juego: JuegoEn8d): Promise<number | null> {
   const clip = clipDeDisparoDe(juego);
   if (clip === null) return null;
   const ruta = join(carpeta, 'poses.json');
@@ -269,7 +270,7 @@ export function ritmoDeUnidad(id: string): Ritmo | null {
  * la hoja), o `null`. Lo guarda la procedencia de la hoja al pintarla: es el del
  * maniquí sobre el que se pinta.
  */
-export function ritmoDeLaHoja(id: string, h: HojaDeFigura): Ritmo | null {
+function ritmoDeLaHoja(id: string, h: HojaDeFigura): Ritmo | null {
   const ritmo = ritmoDeUnidad(id);
   if (ritmo === null) return null;
   const clips: readonly ClipDeFigura[] = HOJAS_DE_FIGURA[h];
@@ -381,11 +382,11 @@ export async function escribirAtlasDePoses(): Promise<AtlasDePoses> {
   }
   const atlas: AtlasDePoses = {
     _comment:
-      'Derivado de los PNG de _poses/<juego>-8d con `pnpm taller derivar-poses`: no se edita a mano. Lo lee el cliente (render/personajes.ts).',
+      'Derivado de los PNG de _poses/<juego>-8d con `pnpm taller derivar-poses`: no se edita a mano. Lo lee el cliente (render/figuras/personajes.ts).',
     derivadoPor: 'tools/taller/poses-8d.ts',
     juegos,
   };
-  await writeFile(RUTA_DEL_ATLAS_8D, `${JSON.stringify(atlas, null, 2)}\n`);
+  await writeFile(RUTA_DEL_ATLAS_8D, textoJson(atlas, 2));
   return atlas;
 }
 

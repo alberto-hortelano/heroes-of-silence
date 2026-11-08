@@ -1,9 +1,10 @@
 /** Castillos: construcción, moradas y reclutamiento. */
-import { unidadDelJuego, unidadesDeMorada } from '../catalogo.js';
+
 import { hechizosDelGremio } from '../magia/catalogo.js';
 import type { Hechizo } from '../magia/formato.js';
+import { conMiles, describirCoste } from '../texto.js';
 import type { FactionId, PlayerId, Point } from '../types.js';
-import { conMiles, describirCoste } from '../types.js';
+import { unidadDelJuego, unidadesDeMorada } from '../unidad/catalogo.js';
 import { building, buildingIfExists, buildingsOfFaction, prebuiltBuildings } from './buildings.js';
 
 /**
@@ -34,7 +35,7 @@ export interface Town {
 }
 
 /** Las líneas narradas de los vecinos de una base, con la firma de cuándo se pidieron. */
-export interface VocesDeLaBase {
+interface VocesDeLaBase {
   /** `firmaDeVoces` del momento: la semana y los sitios levantados. */
   readonly firma: string;
   /** Por id de vecino (`vecinosDeLaBase`), de 1 a 3 líneas. */
@@ -107,15 +108,11 @@ export function mageGuildLevel(town: Town): number {
  * un `Town.spellBook` sería estado nuevo, serialización nueva y una segunda
  * fuente de verdad para una decisión que no existe. El día que #26 traiga
  * contenido de sobra, el sorteo se rellena DENTRO de esta función: la firma es
- * la que ven el panel, `serialize.ts` y el aprendizaje, así que ninguno se
+ * la que ven el panel, el contrato (`contract/aventura.ts`) y el aprendizaje, así que ninguno se
  * entera. Sin tirada, el `createRng` de `CLAUDE.md` no aplica todavía.
  */
 export function townSpells(town: Town): readonly Hechizo[] {
   return hechizosDelGremio(mageGuildLevel(town));
-}
-
-export function hasWalls(town: Town): boolean {
-  return town.buildings.some((id) => building(id).grantsWalls === true);
 }
 
 export function moraleFromBuildings(town: Town): number {
@@ -152,7 +149,7 @@ export function buildBlocker(town: Town, buildingId: string, oro: number): strin
   return oroBlocker(b.cost, oro);
 }
 
-export function canBuild(town: Town, buildingId: string, oro: number): boolean {
+function canBuild(town: Town, buildingId: string, oro: number): boolean {
   return buildBlocker(town, buildingId, oro) === null;
 }
 

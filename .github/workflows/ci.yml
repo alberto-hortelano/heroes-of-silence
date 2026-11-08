@@ -1,15 +1,22 @@
 # Lo que comprueba el repo cuando sale de la máquina de quien lo escribe.
 #
-# Dos jobs a propósito: `verify` es el bucle rápido (lo mismo que corre el hook
-# `Stop`, más `build`), y `qa` es la única prueba del circuito entero del
-# agente. `qa` no está dentro de `pnpm verify` porque abre los puertos fijos
-# 9880/9881 y sale 1 con EADDRINUSE si hay un `pnpm partida` levantado, que es la
-# forma documentada de jugar con el agente: el hook se pondría rojo por tener el
-# juego abierto. Aquí no hay ese problema — cada job es una máquina propia.
+# Tres jobs a propósito, en paralelo: `verify` es el bucle rápido (la suite
+# entera, que ninguna sesión corre en local desde el 25-10-2026, más `build` y el
+# banco), `lento` la orden lenta y `qa` la única prueba del circuito entero del
+# agente. `qa` no está dentro de `pnpm verify` porque abría los puertos fijos
+# 9880/9881 y salía 1 con EADDRINUSE si había un `pnpm partida` levantado, que es
+# la forma documentada de jugar con el agente. Aquí no hay ese problema — cada
+# job es una máquina propia.
 #
-# NO SE GASTA UN CÉNTIMO: no se invoca nada de `tools/gen/`, que es lo único que
-# llama a fal.ai, ni se declara ninguna credencial. `permissions` es de solo
-# lectura para que tampoco pueda escribir en el repo. La comprobación es un grep
+# `lento` va en su máquina desde el 07-11-2026: con `verify` en la misma, los dos
+# pasaban del tope de 10 minutos (el 13-10-2026 ya tardaban 9 min 56 s; el
+# 06-11-2026 `verify` tardó 5 min y la orden lenta se cortó a los 4): del
+# 17-10-2026 al 26-10-2026, 16 CI de main salieron cancelados a media orden
+# lenta, con `verify` ya en verde.
+#
+# NO SE GASTA UN CÉNTIMO: no se llama a ningún servicio de pago ni se declara
+# ninguna credencial. `permissions` es de solo lectura para que tampoco pueda
+# escribir en el repo. La comprobación es un grep
 # de las palabras que delatarían lo contrario, y este fichero está escrito para
 # no contener ninguna.
 name: CI
@@ -33,7 +40,9 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Quince minutos, el doble de lo que tarda (06-11-2026: 1 min de checkout y
+    # 5 de `pnpm verify`; el build y el banco, segundos).
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       # La versión de pnpm sale de `packageManager` en package.json: una sola
@@ -41,7 +50,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       # La versión de Node sale de `.node-version`, exacta y no `24` (#163): la
       # tabla Unicode cambia entre menores (v24.11.1 trae Unicode 16; v24.14,
-      # 17) y `lineaLegible` (src/core/contract/agent.ts) la lee en `\p{M}` y
+      # 17) y `lineaLegible` (src/core/linea.ts) la lee en `\p{M}` y
       # `\p{Cf}`. Con `24` a secas, el mismo commit podía pasar hoy y fallar
       # mañana sin tocar nada. Es también el suelo de `engines`: CI prueba la
       # más vieja que se soporta. En local corre la que haya (hoy 26.10, con
@@ -58,12 +67,10 @@ jobs:
       # rojo dice «verify» y hay que abrir el log para ver si fue tsc, biome o
       # vitest—; sale más barato que dos definiciones que se separan solas.
       - run: pnpm verify
-      # La orden lenta (#167): los mismos tests con todas las semillas y todo el
-      # arte vuelto a derivar, que en el bucle rápido van con una muestra
-      # (`test/lento.ts`). Solo los tests: el typecheck y Biome ya los pasó
-      # `verify`. Va además de él y no en su lugar porque algunos tests
-      # comprueban cifras distintas con la muestra que con todas.
-      - run: pnpm test:lento
+      # Nada exportado sin lector (fase D de la reorganización, 08-11-2026): lo mira el
+      # comprobador de tipos sobre todo el repo, ~7 s, más de lo que se da a un guardia de
+      # vitest, así que va como orden. Sale 1 con cada exportación que nadie de fuera lee.
+      - run: npx tsx tools/qa/exportaciones.ts
       # `vite build` a secas, no `pnpm build`: ese encadena un `tsc -b --noEmit`
       # que NO es incremental y repite el typecheck que acaba de hacer `verify`.
       - run: npx vite build
@@ -78,6 +85,26 @@ jobs:
       # floor, ceil, abs, round e imul — todas exactas por especificación. Ni
       # `Math.pow`, ni trigonometría, ni `Intl`.
       - run: pnpm banco
+
+  lento:
+    runs-on: ubuntu-latest
+    # Treinta minutos, casi el doble de lo que tarda (07-11-2026: 14 min 12 s la
+    # orden y 16 min el job).
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # La orden lenta (#167): los mismos tests con todas las semillas y todo el
+      # arte vuelto a derivar, que en el bucle rápido van con una muestra
+      # (`test/lento.ts`). Solo los tests: el typecheck y Biome los pasa
+      # `verify`. Va además de él y no en su lugar porque algunos tests
+      # comprueban cifras distintas con la muestra que con todas.
+      - run: pnpm test:lento
 
   qa:
     runs-on: ubuntu-latest

@@ -8,36 +8,36 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { marcadoDe } from '../src/client/html.js';
-import { renderEleccion } from '../src/client/rueda/rueda.js';
-import { AYUDA_DEL_MAPA, Session } from '../src/client/session.js';
-import { renderActions, renderSide } from '../src/client/views/panels.js';
-import { poderBlocker, terminarElDespliegue } from '../src/core/battle/battle.js';
+import { renderEleccion } from '../src/client/batalla/rueda/rueda.js';
+import { AYUDA_DEL_MAPA } from '../src/client/comun/dichos.js';
+import { marcadoDe } from '../src/client/comun/html.js';
+import { renderActions, renderSide } from '../src/client/partida/paneles.js';
+import { Session } from '../src/client/sesion/partida.js';
 import { hexDistance } from '../src/core/battle/board.js';
-import { unidadesDelJuego } from '../src/core/catalogo.js';
+import { terminarElDespliegue } from '../src/core/battle/despliegue.js';
+import { poderBlocker } from '../src/core/battle/lanzar.js';
 import { combateCon } from '../src/core/combate.js';
 import { armyLeadership, GARRISON_LEADERSHIP } from '../src/core/hero/troop.js';
 import { Casillas } from '../src/core/map/casillas.js';
-import { pointFromKey, reachableFrom } from '../src/core/map/map.js';
+import { pointFromKey } from '../src/core/map/geometria.js';
+import { reachableFrom } from '../src/core/map/map.js';
 import { puertasDeLaCiudad } from '../src/core/map/recinto.js';
-import { applyAdventureAction, HERO_SCOUT_RADIUS, heroesOf } from '../src/core/state/game.js';
+import { heroesOf } from '../src/core/state/consultas.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import { guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
+import { HERO_SCOUT_RADIUS } from '../src/core/state/vision.js';
 import { dwellings } from '../src/core/town/town.js';
 import type { Hex, UnitInfo } from '../src/core/types.js';
-import { sesionAntesDelMonstruo, sesionContraMonstruo } from './batalla-de-cliente.js';
+import { unidadesDelJuego } from '../src/core/unidad/catalogo.js';
+import { primeraSemillaCon } from '../tools/comun/semillas.js';
 import {
-  anteLaBase,
-  costesDelAlcance,
-  ejercito,
-  fueraDeSuBase,
-  guarnecer,
-  guarnicionDeLaCiudad,
-  hastaQue,
-  pegadoA,
-  planDeNodos,
-  primeraSemillaCon,
+  sesionAntesDelMonstruo,
+  sesionContraMonstruo,
   unoDeLaRueda,
-} from './helpers.js';
+} from './batalla-de-cliente.js';
+import { costesDelAlcance, planDeNodos } from './mapa-de-prueba.js';
+import { anteLaBase, ejercito, fueraDeSuBase, guarnecer, pegadoA } from './partida-de-prueba.js';
 
 describe('sesión del cliente: el turno del rival', () => {
   it('mientras juega el rival no es tu turno, y pulsar otra vez no hace nada', async () => {
@@ -952,3 +952,12 @@ describe('«Solo la rueda del héroe» (complejidad del combate, 22-10-2026)', (
     expect(cruces()).toBeGreaterThan(0);
   });
 });
+
+/**
+ * Deja correr el turno del rival hasta que se cumpla `cond` (una defensa que se
+ * abre a media jugada suya), o lanza: el turno es asíncrono y no avisa.
+ */
+async function hastaQue(cond: () => boolean): Promise<void> {
+  for (let i = 0; i < 100 && !cond(); i++) await new Promise((r) => setTimeout(r, 0));
+  if (!cond()) throw new Error('el turno del rival no llegó a lo que se esperaba');
+}

@@ -8,7 +8,9 @@
  *
  * Las cuatro variables se prueban **aquí** y no donde se usan porque
  * `ws-server.ts` arranca el servidor al importarlo: dos de las cuatro vivían
- * allí y por eso no las probaba nadie.
+ * allí y por eso no las probaba nadie. Lo mismo `HEROES_SERVER`, la del puente
+ * MCP, que abre su transporte de stdio al importarse y la leía sin validar hasta
+ * la fase S de la reorganización (07-11-2026).
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
@@ -18,10 +20,11 @@ import {
   ESPERA_AL_AGENTE_POR_DEFECTO,
   esperaAlAgente,
   maxDiasDelEntorno,
-  ordenDelMotor,
   puertoAgente,
   puertoEspectadores,
   SPECTATOR_PORT_POR_DEFECTO,
+  servidorDelPuente,
+  textoDelEntorno,
 } from '../src/server/entorno.js';
 
 const VARIABLES = [
@@ -31,7 +34,7 @@ const VARIABLES = [
   'HEROES_WAIT_AGENT_MS',
   'HEROES_TROPA',
   'HEROES_RUEDA',
-  'HEROES_MOTOR',
+  'HEROES_SERVER',
 ] as const;
 
 afterEach(() => {
@@ -39,14 +42,6 @@ afterEach(() => {
 });
 
 describe('la configuración de entorno del servidor', () => {
-  it('el motor de mundos es claude, otra orden si se pide, y nunca una línea de shell', () => {
-    expect(ordenDelMotor()).toBe('claude');
-    process.env.HEROES_MOTOR = 'false';
-    expect(ordenDelMotor()).toBe('false');
-    process.env.HEROES_MOTOR = 'claude --dangerously-skip-permissions';
-    expect(() => ordenDelMotor()).toThrow(/HEROES_MOTOR=.* no es una orden/);
-  });
-
   it('sin variable son los de siempre: quien no sepa que esto existe no nota nada', () => {
     expect(puertoAgente()).toBe(9881);
     expect(puertoEspectadores()).toBe(9880);
@@ -96,6 +91,68 @@ describe('la configuración de entorno del servidor', () => {
     process.env.HEROES_SPECTATOR_PORT = 'ochomil';
     expect(() => puertoEspectadores()).toThrow(/HEROES_SPECTATOR_PORT/);
   });
+});
+
+describe('lo pedido en una variable (textoDelEntorno)', () => {
+  it('sin variable, o en blanco, no se ha pedido nada; si no, lo pedido tal cual', () => {
+    expect(textoDelEntorno('HEROES_SERVER')).toBeUndefined();
+    process.env.HEROES_SERVER = '';
+    expect(textoDelEntorno('HEROES_SERVER')).toBeUndefined();
+    process.env.HEROES_SERVER = '  \t ';
+    expect(textoDelEntorno('HEROES_SERVER')).toBeUndefined();
+    // Tal cual, con su blanco: el mensaje que la rechace dice lo que se escribió.
+    process.env.HEROES_SERVER = ' ws://localhost:1 ';
+    expect(textoDelEntorno('HEROES_SERVER')).toBe(' ws://localhost:1 ');
+  });
+});
+
+describe('el servidor del puente (HEROES_SERVER)', () => {
+  it('sin variable, o en blanco, el canal del agente de esta máquina: el de HEROES_AGENT_PORT', () => {
+    expect(servidorDelPuente()).toBe('ws://localhost:9881');
+    // En blanco era la dirección vacía, y cada herramienta que habla con la partida
+    // fallaba con «Invalid URL»: no pedir no es un error.
+    process.env.HEROES_SERVER = '   ';
+    expect(servidorDelPuente()).toBe('ws://localhost:9881');
+    process.env.HEROES_AGENT_PORT = '9999';
+    expect(servidorDelPuente()).toBe('ws://localhost:9999');
+  });
+
+  it('con el puerto del agente a 0 no adivina: pide HEROES_SERVER', () => {
+    process.env.HEROES_AGENT_PORT = '0';
+    expect(() => servidorDelPuente()).toThrow(
+      'HEROES_AGENT_PORT=0 deja que el puerto lo elija el sistema: dile al puente a dónde conectarse con HEROES_SERVER=ws://localhost:<puerto>',
+    );
+    process.env.HEROES_SERVER = 'ws://localhost:4567';
+    expect(servidorDelPuente()).toBe('ws://localhost:4567');
+  });
+
+  it('una dirección ws:// o wss:// se respeta, sin el blanco de los lados', () => {
+    process.env.HEROES_SERVER = 'ws://127.0.0.1:4567';
+    expect(servidorDelPuente()).toBe('ws://127.0.0.1:4567');
+    process.env.HEROES_SERVER = ' wss://partida.example/agente ';
+    expect(servidorDelPuente()).toBe('wss://partida.example/agente');
+  });
+
+  it.each([
+    'ochomil',
+    '9881',
+    'localhost:9881',
+    'http://localhost:9881',
+    'ws://',
+    'ws://:9881',
+    'ws://localhost:99999',
+    'ws+unix:/tmp/partida',
+  ])(
+    'lo que no es la dirección de una partida se rechaza al arrancar, diciendo la variable: %s',
+    (malo) => {
+      // Se leía sin validar: el puente arrancaba igual y cada escucha y cada consulta
+      // devolvían «Invalid URL» o el error de `ws` con los protocolos que admite.
+      process.env.HEROES_SERVER = malo;
+      expect(() => servidorDelPuente()).toThrow(
+        `HEROES_SERVER="${malo}" no es la dirección de una partida: tiene que ser una URL ws:// o wss://, como ws://localhost:9881`,
+      );
+    },
+  );
 });
 
 describe('el tope de días', () => {

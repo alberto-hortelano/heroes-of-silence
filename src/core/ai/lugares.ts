@@ -17,8 +17,8 @@
  * El agente no entra en los lugares (F4): esto es solo de la IA de reglas. Sin
  * mundo no hay lugares y nada de aquí cambia una partida del banco.
  */
-import { gruposAlTope } from '../combate.js';
-import type { Hero } from '../hero/hero.js';
+import { fuerzaDe, poderDe, ventajaClara } from '../hero/fuerza.js';
+import { gruposAlTope } from '../hero/grupos.js';
 import {
   batallaDe,
   daPremio,
@@ -38,8 +38,8 @@ import {
   type RefDeOpcion,
   soloNavega,
 } from '../mundo/reglas.js';
-import type { GameState } from '../state/game.js';
-import { fuerzaDe, poderDe, ventajaClara } from './fuerza.js';
+import type { GameState } from '../state/tipos.js';
+import type { Hero } from '../types.js';
 
 /**
  * Lo que vale para la IA ir a un lugar donde haría algo. **Inventado** (F1a,
@@ -57,7 +57,7 @@ export const MAX_JUGADAS_EN_UN_LUGAR = 8;
  * Cuántas elecciones sin premio prueba la IA antes de dar con uno: las de una
  * historia corta (marca, peaje y arcón). Una red, no una regla, como el tope.
  */
-export const PASOS_HACIA_UN_PREMIO = 3;
+const PASOS_HACIA_UN_PREMIO = 3;
 
 /** Las opciones con efectos que se pueden elegir ahora en `a`, en el orden en que se leen. */
 function elegibles(a: Ante): { readonly ref: RefDeOpcion; readonly opcion: Opcion }[] {
@@ -135,7 +135,7 @@ export function jugadaEnElLugar(state: GameState, hero: Hero): RefDeOpcion | nul
   const mundo = state.mundo;
   const lugar = lugarEn(state, hero.at);
   if (mundo === undefined || lugar === null) return null;
-  return primera({ state, mundo, hero, lugar }, fuerzaDe(hero, state.characters));
+  return primera({ state, mundo, hero, lugar }, fuerzaDe(hero));
 }
 
 /**

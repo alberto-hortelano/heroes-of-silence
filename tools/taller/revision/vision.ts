@@ -12,17 +12,18 @@ import { execFileSync, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, relative, resolve } from 'node:path';
+import { join, relative } from 'node:path';
 import sharp from 'sharp';
+import { textoJson } from '../../comun/json.js';
+import { RAIZ } from '../../comun/raiz.js';
 
-const RAIZ = resolve(import.meta.dirname, '../../..');
-export const ENTORNO = join(RAIZ, '.cache/vision/.venv');
+const ENTORNO = join(RAIZ, '.cache/vision/.venv');
 const PYTHON = join(ENTORNO, 'bin/python');
 const VISION = join(RAIZ, 'tools/taller/revision/vision.py');
 const REQUISITOS = join(RAIZ, 'tools/taller/revision/requirements.txt');
 
 /** Lo que se le pide a `vision.py paneles`: los paneles de los clips de una dirección. */
-export interface TrabajoDePaneles {
+interface TrabajoDePaneles {
   readonly unidad: string;
   readonly direccion: number;
   /** `assets/unidades/<id>` o `assets/npcs/<id>`: de ahí el atlas, las hojas y el giro. */
@@ -37,7 +38,7 @@ export interface TrabajoDePaneles {
 }
 
 /** Lo que se le pide a `vision.py comparacion`: A y B de una misma hoja, un panel por clip. */
-export interface TrabajoDeComparacion extends Omit<TrabajoDePaneles, 'clips'> {
+interface TrabajoDeComparacion extends Omit<TrabajoDePaneles, 'clips'> {
   readonly hoja: string;
   /** El ritmo de cada clip (el del atlas de la dirección). */
   readonly fps: Readonly<Record<string, number>>;
@@ -45,7 +46,7 @@ export interface TrabajoDeComparacion extends Omit<TrabajoDePaneles, 'clips'> {
 }
 
 /** Una animación de un caso del visor: un clip pintado (del atlas o de una hoja) o su maniquí. */
-export interface AnimacionDelVisor {
+interface AnimacionDelVisor {
   readonly rotulo: string;
   readonly unidad: string;
   readonly direccion: number;
@@ -106,7 +107,7 @@ export const comparacion = (t: TrabajoDeComparacion): Promise<void> => correr('c
 export async function visor(carpeta: string, casos: readonly CasoDelVisor[]): Promise<never> {
   comprobarEntorno();
   await mkdir(carpeta, { recursive: true });
-  await writeFile(join(carpeta, 'casos.json'), `${JSON.stringify(casos, null, 1)}\n`);
+  await writeFile(join(carpeta, 'casos.json'), textoJson(casos, 1));
   const hijo = spawn(PYTHON, ['-I', VISION, 'visor', carpeta, '0'], {
     cwd: RAIZ,
     stdio: 'inherit',

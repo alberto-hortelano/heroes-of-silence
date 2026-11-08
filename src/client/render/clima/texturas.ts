@@ -2,7 +2,7 @@
  * Las texturas del clima, hechas una vez y en caché: los bancos de niebla, una
  * baldosa que se repite sin costura. Con el ruido del suelo (`ruidoDe` y `fbm`,
  * `escenario/fronteras.ts`), que da la vuelta, y no con `Math.random`
- * (`invariantes.test.ts`): la misma en cada página y en cada carga.
+ * (`invariantes-capas.test.ts`): la misma en cada página y en cada carga.
  */
 import { hashDeTexto } from '@core/rng.js';
 import { fbm, ruidoDe } from '../escenario/fronteras.js';

@@ -13,36 +13,19 @@
  * texto ajeno más ancho que hay en el cable.
  */
 import type { BattleState, Side } from '@core/battle/types.js';
-import { nombreDeTipoDeHeroe } from '@core/data.js';
+import { nombreDeTipoDeHeroe } from '@core/hero/tipos-de-heroe.js';
 import { pasoOPuebloSiExiste } from '@core/state/sitios.js';
-import type { SpectatorView } from '../../server/vista-espectador.js';
-import { NADIE } from '../desenlace.js';
-import { fondoDeColor, type Html, html, NADA, unir } from '../html.js';
+import type { SpectatorView } from '../../shared/cable-del-espectador.js';
+import { renderBattleLog } from '../batalla/parte.js';
+import { fondoDeColor, type Html, html, NADA, unir } from '../comun/html.js';
+import { NADIE } from '../comun/quien-mira.js';
+import { nombreEnElCampo } from '../render/batalla/distintivo.js';
 import { playerColor } from '../render/palette.js';
-import { nombreEnElCampo } from '../views/distintivo.js';
-import {
-  estadoADistancia,
-  historiaDelHeroe,
-  marcaDeComandante,
-  marcaDeVeterano,
-  renderBattleLog,
-  renderLog,
-} from '../views/panels.js';
+import { listaDelCampo, marcaDeComandante, marcaDeVeterano } from '../views/campo.js';
+import { filaDeCifra } from '../views/cifras.js';
+import { renderLog } from '../views/cronica.js';
+import { historiaDelHeroe } from '../views/notas.js';
 import { adaptarBatalla } from './adaptar.js';
-
-/**
- * Quien mira no es ningún jugador, así que no tiene un «tú».
- *
- * `renderLog` escribe «Tú» para los hechos de `viewer`; con un id que no es de
- * nadie la crónica entera se lee en tercera persona —«El jugador 0 construye…»—,
- * que es lo correcto para quien ve la partida desde fuera. Lo mismo hace el parte
- * de guerra con `mio: null`: sin bando propio no pinta victorias ni derrotas.
- *
- * Se re-exporta y no se declara: el dueño es `desenlace.ts`, que es el único
- * sitio donde «no tienes bando» y «no es tu bando» dan respuestas distintas.
- * Declararlo aquí y compararlo allí eran dos `-1` que nadie comparaba.
- */
-export { NADIE };
 
 /** Cómo terminó la partida, tal y como llega en el snapshot. */
 export interface FinDePartida {
@@ -110,8 +93,8 @@ function jugadores(v: SpectatorView): Html {
           <span>${bandera(p.id)} jugador ${p.id} · ${p.faction}</span>
           <span class="count">${estado}</span>
         </div>
-        <div class="row"><span class="label">oro</span><span>${p.oro}</span></div>
-        <div class="row"><span class="label">explorado</span><span>${p.fog.length} casillas</span></div>
+        ${filaDeCifra('oro', String(p.oro))}
+        ${filaDeCifra('explorado', `${p.fog.length} casillas`)}
         ${unir(
           v.heroes
             .filter((h) => h.owner === p.id)
@@ -156,6 +139,12 @@ function fondoDelJugador(id: number | null): Html {
   return fondoDeColor(playerColor(id));
 }
 
+/**
+ * La batalla que se mira: la ronda, cómo acabó, de quién es cada bando y «En el campo»
+ * con la forma de las otras dos páginas (`listaDelCampo`): cada uno con el color de su
+ * dueño, sus marcas y lo que lleva colgado (desde R2 de la reorganización, 07-11-2026:
+ * hasta entonces, una copia sin los efectos); y el parte.
+ */
 export function batalla(v: SpectatorView, contandoAun = false): Html {
   if (v.battle === null) return NADA;
   const { dueños } = v.battle;
@@ -165,20 +154,16 @@ export function batalla(v: SpectatorView, contandoAun = false): Html {
     const id = dueños[side];
     return id === null ? html`neutral` : html`${bandera(id)} jugador ${id}`;
   };
+  const campo = listaDelCampo(estado, (s) => ({
+    flecha: bandera(dueños[s.side]),
+    nombre: `${marcaDeComandante(s)}${nombreEnElCampo(estado, s)}${marcaDeVeterano(s)}`,
+    cuenta: s.count,
+  }));
   return html`<h3>Batalla · ronda ${estado.round}</h3>
     ${desenlaceDeLaBatalla(estado)}
-    <div class="row"><span class="label">atacante</span><span>${deQuien('attacker')}</span></div>
-    <div class="row"><span class="label">defensor</span><span>${deQuien('defender')}</span></div>
-    <div class="stack-list">${unir(
-      estado.stacks
-        .filter((s) => s.count > 0)
-        .map(
-          (s) => html`<div class="stack${s.id === estado.turno?.stack ? '' : ' empty'}">
-            <span>${bandera(dueños[s.side])} ${marcaDeComandante(s)}${nombreEnElCampo(estado, s)}${marcaDeVeterano(s)}${estadoADistancia(s)}</span>
-            <span class="count">${s.count}</span>
-          </div>`,
-        ),
-    )}</div>
+    ${filaDeCifra('atacante', deQuien('attacker'))}
+    ${filaDeCifra('defensor', deQuien('defender'))}
+    <div class="stack-list">${campo}</div>
     ${parteDeGuerra(estado)}`;
 }
 

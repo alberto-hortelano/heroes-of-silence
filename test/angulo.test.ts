@@ -1,20 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { accionContra, masCercana, opcionesDeGolpe } from '../src/client/escenas/angulo.js';
-import { EscenaBatalla, rotuloDeAngulo } from '../src/client/escenas/batalla.js';
-import { marcadoDe } from '../src/client/html.js';
-import { cajaDeFigura } from '../src/client/render/batalla.js';
+import { accionContra, masCercana, opcionesDeGolpe } from '../src/client/batalla/angulo.js';
+import { EscenaBatalla, rotuloDeAngulo } from '../src/client/batalla/escena.js';
+import { marcadoDe } from '../src/client/comun/html.js';
+import { renderSide } from '../src/client/partida/paneles.js';
+import { cajaDeFigura } from '../src/client/render/batalla/figura.js';
 import { centroDeStack, centroHex, tableroPara } from '../src/client/render/proyeccion.js';
-import type { Session } from '../src/client/session.js';
-import { renderSide } from '../src/client/views/panels.js';
+import type { Session } from '../src/client/sesion/partida.js';
 import { isShooter } from '../src/core/battle/armas.js';
-import { isAlive, stackHexes } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
 import { CARGA } from '../src/core/battle/carga.js';
-import { unidadDelJuego } from '../src/core/catalogo.js';
-
+import { isAlive, stackHexes } from '../src/core/battle/consultas.js';
 import type { Hex, UnitInfo } from '../src/core/types.js';
+import { unidadDelJuego } from '../src/core/unidad/catalogo.js';
 import { sesionContraMonstruo } from './batalla-de-cliente.js';
-import { PESADA } from './helpers.js';
+import { PESADA } from './comun.js';
 
 /**
  * Elegir desde dónde golpear (decisión del usuario, 02-10-2026): al pasar por un

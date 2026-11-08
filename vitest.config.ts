@@ -1,5 +1,5 @@
-import { defineConfig } from 'vitest/config';
 import { resolve } from 'node:path';
+import { defineConfig } from 'vitest/config';
 
 // Config propia: `vite.config.ts` tiene root en src/client (el cliente), y
 // vitest heredaría esa raíz y no encontraría ni los tests ni el core.

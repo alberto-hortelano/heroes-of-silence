@@ -1,21 +1,27 @@
 # El taller de imágenes
 
 Genera el arte con **ChatGPT por la suscripción**, a través de Codex CLI. Nunca
-fal.ai, nunca `pnpm gen -- --go`, nunca una API de pago.
+una API de pago (fal.ai y su `pnpm gen` se retiraron el 06-11-2026, en la reorganización).
 
 ```bash
-npx tsx tools/art/poses.ts --todos          # referencias de pose del Y Bot (render local)
+npx tsx tools/art/poses/cli.ts --todos      # referencias de pose del Y Bot (render local)
 pnpm taller encolar templario-escudo        # la lámina de identidad
 pnpm taller                                 # trabaja hasta vaciar la cola
 pnpm taller encolar templario-escudo --atlas
 pnpm taller
 pnpm taller corregir templario-escudo-atlas "el escudo va en el brazo izquierdo"
 pnpm taller estado
+pnpm taller ayuda                           # cómo se escribe cada orden (sale de su tabla, `ORDENES`)
 pnpm taller encolar --rehacer templario-escudo   # vuelve a pedir lo ya hecho
 pnpm taller retirar <id>                    # borra un pendiente que ya no vale
 pnpm taller devolver <id>                   # de en-curso/ o fallido/ otra vez a pendiente/
 pnpm taller derivar assets/unidades/<id>/atlas.webp
 ```
+
+Las órdenes son una tabla, `ORDENES` (`tools/taller/trabajador.ts`), de la que salen la ayuda y
+el «orden desconocida»; el cuerpo de cada una vive en `tools/taller/ordenes/`, por familia (la
+cola, encolar, derivar, los temas, el maniquí, la revisión, la base, el mapa y las vistas), y lo
+que se hace con cada encargo, en `tools/taller/proceso.ts`.
 
 ## La cola
 
@@ -63,7 +69,7 @@ El atlas de Liora ya no es referencia de nada.
 
 ## Las referencias de pose
 
-`tools/art/poses.ts` renderiza el rig `y_bot` con sprite-forge a la cámara del
+`tools/art/poses/render.ts` renderiza el rig `y_bot` con sprite-forge a la cámara del
 juego (`tactical_25`: ortográfica, 25° hacia abajo, dirección 2 de 8). Un perfil
 es qué clip hace de ataque:
 
@@ -76,6 +82,12 @@ es qué clip hace de ataque:
 | `ballesta` | las mismas, encarando el arma al hombro |
 
 `liora-walk-v2` está rechazado: no se usa como referencia.
+
+La orden es `tools/art/poses/cli.ts`; lo que lee casi todo el taller son tablas sin
+three, sharp ni playwright: los perfiles, los juegos de armas y su atrezo en
+`poses/juegos.ts`, y los clips, las ocho direcciones y las filas de cada hoja en
+`poses/clips.ts`. El JavaScript que se pega en la página de sprite-forge (el atrezo,
+las piernas de color, los huesos) está en `poses/three.ts`.
 
 ## La luz (02-10-2026)
 
@@ -121,8 +133,8 @@ la suya de la lámina. Las referencias de estilo son la muestra elegida
   cruzan.
 - **Los obstáculos** son versiones de una casilla de una pieza de la lámina, para
   componer las manchas de 3-6.
-- **Las texturas** son el tipo `textura`, con las reglas de `tools/gen/prompts.ts`
-  en español: material a 90°, liso y sin nombrar el agua. La costura no se le pide
+- **Las texturas** son el tipo `textura`, con las reglas que eran de `tools/gen/` (hoy en
+  `tools/taller/mapa-denso.ts`), en español: material a 90°, liso y sin nombrar el agua. La costura no se le pide
   a ChatGPT, la fabrica `textura.ts`:
   - cada eje se mezcla con su copia desplazada medio lado, con un peso que vale 1
     en el centro y 0 en el borde;
@@ -198,7 +210,7 @@ semilla 3 roza el objetivo por los claros de prado, que son a propósito.
 ## Paredes laterales y puentes (§16-§17 de `peticiones.md`, 06-10-2026)
 
 ```bash
-pnpm taller guias                                   # las guías de geometría, en assets/mapa/guias/
+pnpm taller guias                                   # las guías de geometría, en assets/mapa/_guias/
 pnpm taller encolar --paredes-puentes [--solo=…]    # puentes y hojas de paredes laterales
 pnpm taller derivar-puentes assets/mapa/puente-*.webp
 ```
@@ -215,7 +227,7 @@ La unidad definitiva tiene 8 direcciones y 6 acciones: quieto, andando, carga,
 ataque, daño y muerte. La muerte arranca de la pose final del daño y su último
 fotograma es el cadáver (`cadaver` en el JSON).
 
-1. **Las poses**, por juego de armas: `npx tsx tools/art/poses.ts --8d` escribe
+1. **Las poses**, por juego de armas: `npx tsx tools/art/poses/cli.ts --8d <juego>` escribe
    `assets/unidades/_poses/<juego>-8d/`, con dos hojas de 3 filas por dirección
    (`d<n>-a`: quieto, andando y carga; `d<n>-b`: ataque, daño y muerte) y el giro
    (`giro.png`, el reposo de las 8). El maniquí:
@@ -249,7 +261,8 @@ fotograma es el cadáver (`cadaver` en el JSON).
      un escudo, un arcabuz y no una ballesta, una rodela, una alabarda—, la
      unidad declara su `maniqui` en `tools/taller/unidades.ts` y
      `pnpm taller maniqui <id>` lo renderiza en `_poses/unidades/<id>-8d/` con
-     los clips de su juego. Sus hojas se pintan sobre él. El juego de
+     los clips de su juego. Sus hojas se pintan sobre él, y no va al build
+     (`seCopiaAlBuild`: tampoco el de la gente, `_poses/gente/`). El juego de
      `JUEGO_DEL_YBOT` sigue siendo el respaldo del cliente mientras no hay arte.
      El atrezo nuevo: `daga` en la izquierda, `rodela`, `remate` `esfera` y
      `hacha`, y la ballesta con `palas: 0`, que es un arma de fuego.
@@ -302,7 +315,7 @@ Ninguna se espeja, porque la luz vendría del otro lado.
 ### La revisión (30-10-2026)
 
 El evaluador de siluetas (`pnpm taller evaluar`, con el borde rojo de la vista 8d) y las
-pruebas de `experimento.ts` se retiraron: los sustituye la revisión de animaciones, que
+pruebas de experimento.ts se retiraron: los sustituye la revisión de animaciones, que
 conduce la skill `/revisar-animaciones <id>` (`.claude/skills/revisar-animaciones/`). Lo
 medido que la justifica, en `docs/agents/2026-10-30-evaluar-animaciones/experimentos.md`.
 

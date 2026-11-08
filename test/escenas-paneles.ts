@@ -1,11 +1,13 @@
 /**
  * Las escenas con las que se ancla el marcado de los paneles.
  *
- * No es un test: es el andamio que comparten `test/paneles.test.ts` —que compara
- * contra `test/fixtures/paneles.txt`— y `tools/qa/ancla-paneles.ts`, que escribe
- * ese fichero. Están separadas del test a propósito: si el generador y el
- * comparador montaran las escenas por su cuenta, el ancla dejaría de anclar en
- * cuanto una de las dos copias se moviera.
+ * No es un test: es el andamio de `tools/qa/ancla-paneles.ts`, que las vuelca en
+ * `test/fixtures/paneles.txt`. Ningún test compara contra ese fichero desde el
+ * 03-11-2026 (`b0e0ba5f`, que sacó los tests que fijan cifras del catálogo, por
+ * decisión del usuario: el volcado lleva las del catálogo de verdad, y un retoque
+ * válido de `data/` lo ponía rojo). El ancla se comprueba a mano: se regenera y se
+ * mira `git diff test/fixtures/`; un cambio que se quería va en el commit que lo
+ * justifica. De aquí, `test/paneles.test.ts` solo toma una escena (`meAtacan`).
  *
  * Todo sale de semillas fijas y de `createRng` por debajo, así que el volcado es
  * el mismo en cualquier máquina. La única pieza que no es determinista por sí
@@ -17,24 +19,30 @@
  * una rama que el ancla no puede defender.
  */
 
-import { type Html, marcadoDe } from '../src/client/html.js';
-import { Session } from '../src/client/session.js';
-import { renderActions, renderLog, renderSide, renderTopbar } from '../src/client/views/panels.js';
+import { type Html, marcadoDe } from '../src/client/comun/html.js';
+import { renderActions, renderSide, renderTopbar } from '../src/client/partida/paneles.js';
+import { Session } from '../src/client/sesion/partida.js';
+import { renderLog } from '../src/client/views/cronica.js';
 import { playAiGame } from '../src/core/ai/turn.js';
 import { isShooter } from '../src/core/battle/armas.js';
-import { terminarElDespliegue } from '../src/core/battle/battle.js';
+import { hexEquals, neighbours } from '../src/core/battle/board.js';
+import { activeStack } from '../src/core/battle/consultas.js';
+import { terminarElDespliegue } from '../src/core/battle/despliegue.js';
 import { isEnterable, objectAt } from '../src/core/map/map.js';
+import { heroesOf } from '../src/core/state/consultas.js';
 import type { GameEvent } from '../src/core/state/events.js';
-import { applyAdventureAction, heroesOf } from '../src/core/state/game.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
 import type { Army, Point, Veterania } from '../src/core/types.js';
-import { aCiegas, agresiva, avanzarHasta, fueraDeSuBase, TIRADOR, TROPA } from './helpers.js';
+import { aCiegas, agresiva, avanzarHasta } from './batalla-de-prueba.js';
+import { TIRADOR, TROPA } from './comun.js';
+import { fueraDeSuBase } from './partida-de-prueba.js';
 
 /** Una hoja de servicios de prueba: lo justo para que el panel la pinte. */
 function hoja(id: string, experiencia: number): Veterania {
   return { id, experiencia, batallas: 2, bajas: 1, heroes: [] };
 }
 
-export interface Escena {
+interface Escena {
   readonly nombre: string;
   readonly session: Session;
 }
@@ -82,7 +90,7 @@ export function meAtacan(semilla: number, ejercitoMio?: Army): Session {
   return s;
 }
 
-export async function escenas(): Promise<readonly Escena[]> {
+async function escenas(): Promise<readonly Escena[]> {
   const out: Escena[] = [];
 
   // 1 · Aventura, con dos días jugados para que la crónica tenga qué contar.
@@ -329,6 +337,75 @@ export async function escenas(): Promise<readonly Escena[]> {
   ];
   mochila.selectItem('espada_bendita');
   out.push({ nombre: 'aventura · mochila y pieza elegida', session: mochila });
+
+  // 19-21 · Lo que el panel de la batalla dice de la activa y hasta R2 de la
+  //      reorganización (07-11-2026) solo decía la arena, el mismo panel desde
+  //      entonces: rodeada, que no sale; tras la Finta, que solo anda; y con la rueda
+  //      pidiendo la respuesta, que le toca responder (antes, «Turno del enemigo…»).
+  //      El de la escena 5, con la activa de la persona tocada a mano.
+  const rodeada = meAtacan(7);
+  rodeada.advanceEnemyTurns();
+  const campoRodeado = rodeada.battle;
+  const yo = campoRodeado === null ? null : activeStack(campoRodeado);
+  if (campoRodeado === null || yo === null || campoRodeado.turno === null) {
+    throw new Error('la batalla no le da el turno a la persona');
+  }
+  const libre = neighbours(yo.hex).find(
+    (h) => !campoRodeado.stacks.some((x) => x.count > 0 && hexEquals(x.hex, h)),
+  );
+  const enemigo = campoRodeado.stacks.find((x) => x.side !== yo.side && x.count > 0);
+  if (libre === undefined || enemigo === undefined) throw new Error('no hay a quién poner al lado');
+  // Uno al lado y una casilla por andar: salir le costaría dos.
+  enemigo.hex = libre;
+  campoRodeado.turno.gastado = rodeada.battleStepsLeft()! - 1;
+  out.push({ nombre: 'batalla · sin salida', session: rodeada });
+
+  const tras = meAtacan(7);
+  tras.advanceEnemyTurns();
+  const campoTras = tras.battle;
+  if (campoTras?.turno == null) throw new Error('la batalla no le da el turno a la persona');
+  // La Finta le resta dos al tramo de andar que le queda (`fintaEn`).
+  campoTras.turno.finta = 2;
+  out.push({ nombre: 'batalla · tras la Finta', session: tras });
+
+  let respondiendo: Session | undefined;
+  for (let semilla = 7; semilla < 47 && respondiendo === undefined; semilla++) {
+    const s = meAtacan(semilla);
+    s.advanceEnemyTurns();
+    // La persona termina cada turno hasta que la IA la golpea cuerpo a cuerpo.
+    for (let i = 0; i < 200 && s.ruedaPendiente === null && s.turnoPropio !== null; i++) {
+      s.playBattleAction({ type: 'end_turn' });
+    }
+    if (s.ruedaPendiente?.fase === 'respuesta') respondiendo = s;
+  }
+  if (respondiendo === undefined) {
+    throw new Error('en ninguna de cuarenta semillas la rueda pide la respuesta de la persona');
+  }
+  out.push({ nombre: 'batalla · respondiendo en la rueda', session: respondiendo });
+
+  // 22-24 · El motivo de lo que no se puede en la morada, la tropa y el ayuntamiento:
+  //      un rechazo del núcleo, en su color, con la regla H5 de la guarnición (desde R2
+  //      de la reorganización; antes, en el tono apagado de lo que solo informa).
+  const morada = new Session(12);
+  morada.openTown(morada.myTowns()[0]!.id);
+  morada.jugador.oro = 0;
+  morada.abrirLaMorada('lvl1');
+  out.push({ nombre: 'morada · sin oro para reclutar', session: morada });
+
+  const tropa = new Session(7);
+  tropa.abrirLaTropa();
+  const conMochila = tropa.selectedHero!;
+  conMochila.army = [{ creature: TROPA }];
+  conMochila.mochila = ['mandoble', 'gambeson'];
+  tropa.elegirEnLaTropa({ indice: 0 });
+  out.push({ nombre: 'tropa · una pieza que no se pone', session: tropa });
+
+  const ayuntamiento = new Session(12);
+  ayuntamiento.openTown(ayuntamiento.myTowns()[0]!.id);
+  fueraDeSuBase(ayuntamiento.state, ayuntamiento.viewer);
+  ayuntamiento.jugador.oro = 0;
+  ayuntamiento.abrirElAyuntamiento();
+  out.push({ nombre: 'ayuntamiento · sin oro para contratar', session: ayuntamiento });
 
   return out;
 }

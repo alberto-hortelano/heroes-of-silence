@@ -6,23 +6,19 @@
 import { existsSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve } from 'node:path';
-import { CARPETA_DE_LAS_FIGURAS, figuraDelBanco } from '../../src/core/npcs.js';
+import { CARPETA_DE_LAS_FIGURAS, figuraDelBanco } from '../../src/core/gente/banco.js';
 import {
   HOJAS_DE_FIGURA,
   type HojaDeFigura,
   hojasDeFigura,
   hojasDeLasAcciones,
 } from '../../src/shared/arte.js';
-import { clipDeDisparoDe } from '../art/poses.js';
+import { clipDeDisparoDe } from '../art/poses/juegos.js';
+import { sha256 } from '../comun/hash.js';
+import { RAIZ } from '../comun/raiz.js';
 import { leerBancoDeDisco } from '../npcs/banco.js';
 import { escribirDerivado, type OpcionesDeDerivar } from './derivar.js';
-import {
-  apilarHojas,
-  conElRitmoDeSusHojas,
-  derivacionDeUnidad,
-  juegoEn8dDe,
-  sha256,
-} from './poses-8d.js';
+import { apilarHojas, conElRitmoDeSusHojas, derivacionDeUnidad, juegoEn8dDe } from './poses-8d.js';
 
 /**
  * Qué hojas se juntan en la carpeta de una dirección (`…/<id>/dN/`) y con qué se
@@ -111,5 +107,5 @@ export async function alAcabarUnaHoja(dir: string): Promise<string> {
   const junta = await juntarDireccion(dir);
   return junta === null
     ? 'media dirección: se junta con la otra hoja cuando esté'
-    : `dirección completa: ${relative(resolve(import.meta.dirname, '../..'), junta)}`;
+    : `dirección completa: ${relative(RAIZ, junta)}`;
 }

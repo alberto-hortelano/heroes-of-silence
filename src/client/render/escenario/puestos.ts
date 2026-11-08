@@ -17,11 +17,11 @@
  *
  * Puro: sin DOM, como el resto del escenógrafo.
  */
-import { MEJORAS_DEL_PUESTO, type MejoraDelPuesto } from '@core/map/map.js';
-import type { PlayerId } from '@core/types.js';
+
+import { MEJORAS_DEL_PUESTO, type MejoraDelPuesto } from '@core/map/tipos.js';
 import { MARGEN_DEL_RECORTE } from '../../../shared/arte.js';
 import type { Pieza } from './catalogo.js';
-import type { Sprite } from './colocar.js';
+import type { CuandoSePinta, Sprite } from './colocar/sprite.js';
 import { PIES } from './figuras-del-mapa.js';
 import { type Caja, cajaDeSprite, seTocan } from './pasillo.js';
 import { separar } from './pintar.js';
@@ -50,37 +50,12 @@ export const PIEZA_DEL_PUESTO: Readonly<Record<MejoraDelPuesto, string>> = {
   muralla: 'puesto-torre',
 };
 
-/** Cuándo se pinta una pieza de un nodo: neutral (su hito) o con una obra de su dueño. */
-export type CuandoSePinta = MejoraDelPuesto | 'neutral';
-
-/** Lo que dice `Sprite.deNodo`: de qué nodo es la pieza y cuándo se pinta. */
-export interface DeNodo {
-  readonly id: string;
-  readonly cuando: CuandoSePinta;
-}
-
-/** Lo que se sabe de un nodo para elegir lo que se pinta en él. */
-export interface NodoQueSeSabe {
-  readonly owner: PlayerId | null;
-  readonly mejora: MejoraDelPuesto;
-}
-
-/**
- * Si la pieza de un nodo se pinta con lo que se sabe de él: el hito, mientras no
- * se le sabe dueño (tampoco si no se sabe nada: la niebla lo tapa); la obra, si se
- * le sabe dueño y esa mejora. La única regla de lo que se pinta en un nodo.
- */
-export function seVeConSuNodo(d: DeNodo, nodo: NodoQueSeSabe | undefined): boolean {
-  if (d.cuando === 'neutral') return nodo === undefined || nodo.owner === null;
-  return nodo !== undefined && nodo.owner !== null && nodo.mejora === d.cuando;
-}
-
 /**
  * Lo que ocupa una obra alrededor de su pie, en casillas: hacia el oeste y el
  * este, hacia arriba y hacia abajo. La caja de su imagen (`cajaDeSprite`), con el
  * margen transparente del recorte, como se mide todo lo de la escena.
  */
-export interface AlrededorDelPie {
+interface AlrededorDelPie {
   readonly oeste: number;
   readonly este: number;
   readonly arriba: number;
@@ -164,7 +139,7 @@ function sinImagen(a: AlrededorDelPie): Pick<Sprite, 'src' | 'nw' | 'nh' | 'ax' 
  * La pieza de la obra `mejora` en el sitio de su puesto: su imagen a la escala de
  * su guía (`Pieza.puesto`) o, sin pieza en el catálogo, una sin imagen del tamaño
  * de su guía. Sin imagen —aún no ha llegado, o no hay— el mapa pinta en su lugar
- * el marcador de la obra a su escala (`render/marcador-del-puesto.ts`).
+ * el marcador de la obra a su escala (`render/mapa/marcador-del-puesto.ts`).
  */
 export function obraDelPuesto(
   id: string,
@@ -205,7 +180,7 @@ export function envolturaDelPuesto(id: string, pie: Punto, envoltura: AlrededorD
 }
 
 /** Un nodo al que se busca sitio para su puesto. */
-export interface NodoConPuesto {
+interface NodoConPuesto {
   readonly id: string;
   /** El punto desde el que se mide lo cerca: el centro de su casilla (en un puente, su tablero). */
   readonly centro: Punto;

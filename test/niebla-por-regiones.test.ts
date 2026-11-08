@@ -13,25 +13,23 @@
 import { describe, expect, it } from 'vitest';
 import { playAiTurn } from '../src/core/ai/turn.js';
 import { Casillas } from '../src/core/map/casillas.js';
-import type { MapObject } from '../src/core/map/map.js';
 import { regionDescubierta, regionesQueDescubre, zonaDeNiebla } from '../src/core/map/niebla.js';
 import { rioAnteLaCiudad } from '../src/core/map/recinto.js';
 import { estructura, regionMasCercana } from '../src/core/map/regiones.js';
+import type { MapObject } from '../src/core/map/tipos.js';
 import { createRng } from '../src/core/rng.js';
 import { asaltantesALaVista } from '../src/core/state/asaltantes.js';
+import { heroesOf, playerById, townsOf } from '../src/core/state/consultas.js';
+import { newGame } from '../src/core/state/setup.js';
+import type { GameState } from '../src/core/state/tipos.js';
 import {
-  type GameState,
   HERO_SCOUT_RADIUS,
   heroesALaVista,
-  heroesOf,
   NODE_SCOUT_RADIUS,
-  playerById,
   revealEverything,
-  townsOf,
   visibleNow,
   visibleNowAt,
-} from '../src/core/state/game.js';
-import { newGame } from '../src/core/state/setup.js';
+} from '../src/core/state/vision.js';
 import type { PlayerId, Point } from '../src/core/types.js';
 
 const aPunto = (i: number, W: number): Point => ({ x: i % W, y: Math.floor(i / W) });

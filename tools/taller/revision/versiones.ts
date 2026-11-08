@@ -17,20 +17,22 @@ import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import sharp from 'sharp';
 import { z } from 'zod';
-import { CARPETA_DE_LAS_FIGURAS, figuraDelBanco } from '../../../src/core/npcs.js';
+import { CARPETA_DE_LAS_FIGURAS, figuraDelBanco } from '../../../src/core/gente/banco.js';
 import {
   FIGURA,
   HOJAS_DE_FIGURA,
   type HojaDeFigura,
   NOMBRES_DE_DIRECCION,
 } from '../../../src/shared/arte.js';
+import { sha256 } from '../../comun/hash.js';
+import { textoJson } from '../../comun/json.js';
+import { RAIZ } from '../../comun/raiz.js';
 import { leerBancoDeDisco } from '../../npcs/banco.js';
 import { juzgarConCodex } from '../codex.js';
 import { RELOJ } from '../derivar.js';
 import type { Encargo } from '../encargo.js';
 import { alAcabarUnaHoja } from '../juntar.js';
 import { encargoDeHoja } from '../npcs.js';
-import { sha256 } from '../poses-8d.js';
 import { encargosDeOchoDirecciones, unidad } from '../unidades.js';
 import { type Comparacion, comparacionSchema, validarCon } from './esquemas.js';
 import { casoDeDisputa, OPCIONES_DE_DISPUTA, respuestasDe, type Veredicto } from './jurado.js';
@@ -41,13 +43,13 @@ import {
   leerHuesos,
   seMiraElArma,
 } from './maniqui.js';
-import { apuntarHuella, type Figura, juicioVigente, RAIZ } from './revisar.js';
+import { apuntarHuella, type Figura, juicioVigente } from './revisar.js';
 import { avisosDelSalto, mayorSalto, saltosDeLaHoja, UMBRAL_DEL_SALTO } from './salto.js';
 import { type CasoDelVisor, comparacion } from './vision.js';
 
 /** Las versiones que se piden de cada hoja, en el orden en que desempatan. */
-export const VARIANTES = ['tirada', 'esqueleto', 'todo'] as const;
-export type Variante = (typeof VARIANTES)[number];
+const VARIANTES = ['tirada', 'esqueleto', 'todo'] as const;
+type Variante = (typeof VARIANTES)[number];
 
 /**
  * El aviso de que la postura del giro no cuenta. La fuga de pose del giro es
@@ -63,7 +65,7 @@ export const SIN_POSE_DEL_GIRO =
  * (`esqueleto.py`). Izquierda del personaje en azul, derecha en rojo, como las
  * piernas del maniquí.
  */
-export const COLORES_DEL_ESQUELETO = {
+const COLORES_DEL_ESQUELETO = {
   tronco: '#ffffff',
   izquierda: '#2878ff',
   derecha: '#ff3232',
@@ -100,12 +102,7 @@ const hojaDelManiqui = (f: Figura, d: number, h: string) => join(RAIZ, f.maniqui
  * esqueleto encima (cada hueso y el eje del arma, en sus colores). Se dibuja con
  * SVG sobre la hoja; el fondo transparente queda transparente.
  */
-export async function poseConEsqueleto(
-  f: Figura,
-  d: number,
-  h: string,
-  salida: string,
-): Promise<void> {
+async function poseConEsqueleto(f: Figura, d: number, h: string, salida: string): Promise<void> {
   const huesos = leerHuesos(join(RAIZ, f.maniqui), d, h);
   if (huesos === null)
     throw new Error(
@@ -139,7 +136,7 @@ export async function poseConEsqueleto(
 }
 
 /** Las carpetas de las versiones de una hoja. */
-export const rutaDeVersion = (f: Figura, d: number, h: string, v: Variante): string =>
+const rutaDeVersion = (f: Figura, d: number, h: string, v: Variante): string =>
   `${f.revision}/d${d}/versiones/${v}/hoja-${h}`;
 const rutaDeLaPoseConEsqueleto = (f: Figura, d: number, h: string): string =>
   `${f.revision}/d${d}/versiones/pose-esqueleto-${h}.png`;
@@ -153,7 +150,7 @@ function bloqueDeInstrucciones(texto: string): string {
  * celdas el maniquí la lleva de punta o detrás del cuerpo, y el pintor la inventaba
  * o la quitaba (experimentos §5).
  */
-export async function notasDelArma(f: Figura, d: number, h: string): Promise<string | null> {
+async function notasDelArma(f: Figura, d: number, h: string): Promise<string | null> {
   const huesos = leerHuesos(join(RAIZ, f.maniqui), d, h);
   if (huesos === null) return null;
   const prof = `${hojaDelManiqui(f, d, h)}.profundidad.png`;
@@ -259,7 +256,7 @@ export interface ResultadoDeClip {
  * primera A es la de ahora y B la versión; en la segunda, al revés. Solo cuenta lo
  * que se dice igual en los dos órdenes.
  */
-export function resultadoDelClip(
+function resultadoDelClip(
   clip: string,
   primera: Comparacion,
   segunda: Comparacion,
@@ -271,7 +268,7 @@ export function resultadoDelClip(
   return { clip, resultado: 'no_coincide', confianza: 0 };
 }
 
-export interface Eleccion {
+interface Eleccion {
   readonly ganadora: string | null;
   readonly motivo: string;
   readonly cuentas: Readonly<
@@ -421,7 +418,7 @@ export function elegirEnTorneo(
 }
 
 /** El prompt de la comparación a ciegas de un clip. */
-export function promptDeComparacion(clip: string, bucle: boolean, id: string): string {
+function promptDeComparacion(clip: string, bucle: boolean, id: string): string {
   return `Eres el revisor de animaciones de un juego de estrategia de fantasía. Cada personaje se
 pinta fotograma a fotograma copiando la pose de un maniquí 3D (cámara ortográfica
 elevada 25°). Te enseño DOS versiones, A y B, del mismo clip «${clip}» (${FIGURA.columnas} fotogramas,
@@ -577,10 +574,7 @@ export async function elegir(f: Figura, d: number, h: string): Promise<Eleccion>
       ...eleccion,
       motivo: `${eleccion.motivo}; ojo: ${ganadora} salta ${saltos[ganadora]} px de un fotograma a otro (más de ${UMBRAL_DEL_SALTO}): ¿reprocesarla?`,
     };
-  await writeFile(
-    rutaDeLaEleccion(f, d, h),
-    `${JSON.stringify({ ...eleccion, saltos, detalle }, null, 1)}\n`,
-  );
+  await writeFile(rutaDeLaEleccion(f, d, h), textoJson({ ...eleccion, saltos, detalle }, 1));
   return eleccion;
 }
 
@@ -594,7 +588,7 @@ const eleccionSchema = z
   .passthrough();
 const claveSchema = z.record(z.string(), z.record(z.string(), z.string()));
 /** El id del caso del visor de una elección. */
-export const casoDeEleccion = (d: number, h: string): string => `eleccion-d${d}-${h}`;
+const casoDeEleccion = (d: number, h: string): string => `eleccion-d${d}-${h}`;
 const rutaDeLaClave = (f: Figura) => join(RAIZ, f.revision, 'visor', 'clave.json');
 
 /**
@@ -640,7 +634,7 @@ export function adoptarBlocker(
 }
 
 /** La respuesta del visor con que la persona dice que las dos le valen. */
-export const IGUALES = 'iguales';
+const IGUALES = 'iguales';
 
 /**
  * La versión que se adopta: la ganadora; en un torneo sin ella, la que eligió la
@@ -763,7 +757,7 @@ export async function adoptarTodas(
 }
 
 /** Lo que se puede contestar en el vistazo final de una dirección, y qué hojas rechaza cada respuesta. */
-export const OPCIONES_DEL_VISTAZO = {
+const OPCIONES_DEL_VISTAZO = {
   bien: [],
   'rehacer la hoja A': ['a'],
   'rehacer la hoja B': ['b'],
@@ -813,7 +807,7 @@ export const hojasRechazadas = (valor: string | undefined): readonly string[] =>
     : [];
 
 /** La respuesta de una elección dudosa con que la persona dice que no vale ninguna. */
-export const NINGUNA_VALE = 'ninguna vale';
+const NINGUNA_VALE = 'ninguna vale';
 
 const rutaDeLasRechazadas = (f: Figura) => join(RAIZ, f.revision, 'visor', 'rechazadas.json');
 
@@ -860,7 +854,7 @@ export async function rechazadas(f: Figura): Promise<{ d: number; h: string }[]>
   }
   for (const { d, h } of fuera) await rm(rutaDeLaEleccion(f, d, h), { force: true });
   await mkdir(dirname(rutaDeLasRechazadas(f)), { recursive: true });
-  await writeFile(rutaDeLasRechazadas(f), `${JSON.stringify([...hechas], null, 1)}\n`);
+  await writeFile(rutaDeLasRechazadas(f), textoJson([...hechas], 1));
   return fuera;
 }
 
@@ -1006,7 +1000,7 @@ export async function escribirClave(
   const ruta = rutaDeLaClave(f);
   const antes = existsSync(ruta) ? validarCon(claveSchema, readFileSync(ruta, 'utf8'), ruta) : {};
   await mkdir(dirname(ruta), { recursive: true });
-  await writeFile(ruta, `${JSON.stringify({ ...antes, ...clave }, null, 1)}\n`);
+  await writeFile(ruta, textoJson({ ...antes, ...clave }, 1));
 }
 
 /**

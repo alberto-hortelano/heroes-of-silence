@@ -9,13 +9,13 @@ import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { juegosDelYBot, registrarUnidad } from '../src/client/render/personajes.js';
+import { juegosDelYBot, registrarUnidad } from '../src/client/render/figuras/personajes.js';
 import { FACTION_IDS } from '../src/core/types.js';
 import { NOMBRES_DE_DIRECCION } from '../src/shared/arte.js';
-import { copiarPublico, seCopiaAlBuild } from '../tools/build/publico.js';
 import { direccionesDe } from '../tools/taller/arte-en-disco.js';
+import { copiarPublico, seCopiaAlBuild } from '../tools/vite/publico.js';
+import { RAIZ } from './comun.js';
 
-const RAIZ = join(import.meta.dirname, '..');
 /** Una URL del navegador (`/unidades/…`) a su ruta dentro de `assets/`. */
 const deLaUrl = (url: string): string => url.replace(/^\//, '');
 
@@ -106,6 +106,15 @@ describe('la carpeta pública en el build', () => {
     }
   });
 
+  it('deja fuera las guías de geometría del mapa: solo las lee el taller al encargar y derivar', () => {
+    // Estaban en `mapa/guias/` y se copiaban al build (3,6 MB) hasta que pasaron a
+    // la carpeta de toda guía, `_guias/` (H3 de la reorganización, 08-11-2026).
+    for (const f of ['mapa/_guias/laderas-este-1.png', 'mapa/_guias/puente-piedra-ns.json']) {
+      expect(seCopiaAlBuild(f), f).toBe(false);
+    }
+    expect(seCopiaAlBuild('mapa/puente-piedra-ns.json')).toBe(true);
+  });
+
   it('deja fuera las hojas, sus procedencias y los JSON del corte de cada dirección', () => {
     for (const f of [
       'hoja-a.webp',
@@ -121,14 +130,30 @@ describe('la carpeta pública en el build', () => {
 
   // El esqueleto del maniquí (la revisión de animaciones, 30-10-2026): ~11 MB que
   // solo leen la revisión y la compuerta del trabajador.
-  it('el esqueleto de cada hoja del maniquí no va, y su hoja sí', () => {
-    expect(
-      seCopiaAlBuild('unidades/_poses/unidades/caballero-de-la-muerte-8d/d0-a.huesos.json'),
-    ).toBe(false);
-    expect(seCopiaAlBuild('unidades/_poses/gente/civil-8d/d3-a.huesos.json')).toBe(false);
-    expect(
-      seCopiaAlBuild('unidades/_poses/unidades/caballero-de-la-muerte-8d/d0-a.profundidad.png'),
-    ).toBe(true);
+  it('el esqueleto de una hoja del Y Bot no va, y su hoja sí', () => {
+    expect(seCopiaAlBuild('unidades/_poses/espada-escudo-8d/d0-a.huesos.json')).toBe(false);
+    expect(seCopiaAlBuild('unidades/_poses/espada-escudo-8d/d0-a.png')).toBe(true);
+  });
+
+  // Los maniquíes de cada unidad y de la gente (~300 MB, H1 del QA de la
+  // reorganización, 08-11-2026): el taller pinta sobre ellos; la página pide del Y Bot
+  // solo `_poses/<juego>-8d/`, y lo comprueba el primer caso de arriba con las URL de
+  // las figuras.
+  it('los maniquíes de las unidades y de la gente no van, ni sus carpetas', () => {
+    for (const r of [
+      'unidades/_poses/unidades',
+      'unidades/_poses/unidades/caballero-de-la-muerte-8d/d0-a.png',
+      'unidades/_poses/unidades/caballero-de-la-muerte-8d/d0-a.profundidad.png',
+      'unidades/_poses/unidades/caballero-de-la-muerte-8d/giro.png',
+      'unidades/_poses/unidades/caballero-de-la-muerte-8d/poses.json',
+      'unidades/_poses/gente',
+      'unidades/_poses/gente/civil-8d/d3-a.png',
+    ]) {
+      expect(seCopiaAlBuild(r), r).toBe(false);
+    }
+    // Ni una unidad que se llamara como ellas: solo las de `_poses/`.
+    expect(seCopiaAlBuild('unidades/gente/d0/atlas.webp')).toBe(true);
+    expect(seCopiaAlBuild('unidades/_poses/civil-8d/d0-a.png')).toBe(true);
   });
 
   it('lo demás va entero: la identidad y el giro de la unidad, las poses del Y Bot, el resto del arte', () => {
@@ -161,6 +186,8 @@ describe('la carpeta pública en el build', () => {
         'unidades/u/d0/atlas.json',
         'unidades/u/identidad.webp',
         'unidades/_poses/baston-8d/d0-a.png',
+        'unidades/_poses/unidades/u-8d/d0-a.png',
+        'unidades/_poses/gente/civil-8d/d0-a.png',
         'iconos/oro.png',
       ];
       for (const f of ficheros) {
@@ -178,6 +205,8 @@ describe('la carpeta pública en el build', () => {
         .filter((e) => e.isFile())
         .map((e) => relative(destino, join(e.parentPath, e.name)))
         .sort();
+      // Ni las carpetas de los maniquíes, vacías.
+      expect(readdirSync(join(destino, 'unidades/_poses')).sort()).toEqual(['baston-8d']);
       expect(copiados).toEqual(
         [
           'iconos/oro.png',

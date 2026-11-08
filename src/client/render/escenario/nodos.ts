@@ -3,13 +3,11 @@
  * `buildMap` al abrir su casilla (#145)— y en qué eje va su frontera, que sale
  * de sus ocho vecinas.
  */
-import {
-  type CruzaSuBarrera,
-  cruzaSuBarrera,
-  type MapObject,
-  type TramoDeCamino,
-} from '@core/map/map.js';
+import { EJES } from '@core/map/geometria.js';
+import { type CruzaSuBarrera, cruzaSuBarrera } from '@core/map/map.js';
+import type { TramoDeCamino } from '@core/map/red-de-caminos.js';
 import { type Barrera, esBarrera, type TerrainKind } from '@core/map/terrain.js';
+import type { MapObject } from '@core/map/tipos.js';
 
 /**
  * Los nodos de paso, uno por barrera; la puerta en las dos orientaciones de la
@@ -179,17 +177,6 @@ export function pasaElCamino(
 }
 
 /**
- * Los ejes que se prueban, en el orden de `ejeDelNodo` (`vestir.ts`): los rectos
- * y luego los diagonales, cada uno con su opuesto.
- */
-const EJES: readonly (readonly [number, number])[] = [
-  [0, 1],
-  [1, 0],
-  [1, -1],
-  [1, 1],
-];
-
-/**
  * El eje de un nodo de paso, como línea por centros de casilla: de la segunda
  * casilla de una entrada, por el nodo, a la segunda de la opuesta. Es lo que
  * protege el vestido (`ejeDelNodo`, #161: dos entradas opuestas, hasta la
@@ -248,7 +235,7 @@ export interface PasoALaVista {
  * bosque y la montaña están aunque ya no tengan pieza (#196, #203): su paso es
  * justo ese hueco.
  */
-export const BARRERAS_CON_PASO_A_LA_VISTA: readonly Barrera[] = ['wall', 'mountain', 'forest'];
+const BARRERAS_CON_PASO_A_LA_VISTA: readonly Barrera[] = ['wall', 'mountain', 'forest'];
 
 /**
  * Los nodos de paso que tienen que verse, con su eje (`BARRERAS_CON_PASO_A_LA_VISTA`):

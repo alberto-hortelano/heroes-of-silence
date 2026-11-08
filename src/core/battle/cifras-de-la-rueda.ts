@@ -3,8 +3,9 @@
  * nivel de un arma en cada tipo (`Pieza.rueda`, vuelta 2 del 18-10-2026): leerlas,
  * traducir unos niveles a cifras y decir lo que no vale. **Sin dependencias** del
  * resto del núcleo (solo `types.ts`, `validar.ts` y el JSON): la regla de una
- * pieza (`problemasDePieza`, `data.ts`) juzga con ellas la rueda de un arma al
- * cargar `data/equipo.json`, y `data.ts` no puede importar `rueda.ts`, que lo lee.
+ * pieza (`problemasDePieza`, `equipo/pieza.ts`) juzga con ellas la rueda de un arma
+ * al cargar `data/equipo.json`, y `equipo/pieza.ts` no puede importar `rueda.ts`,
+ * que lo lee.
  * El resto de la rueda —el cruce, los efectos, las notas— está en `rueda.ts`, que
  * reexporta lo de aquí.
  */
@@ -17,12 +18,8 @@ import {
   type TipoDelAnillo,
   TODOS_LOS_GOLPES,
 } from '../types.js';
-import { entero, objetoCon } from '../validar.js';
+import { entero, esObjeto, objetoCon } from '../validar.js';
 import { esFusionado, LAS_TRES_RUEDAS, NOMBRE_DE_GOLPE, PARTES } from './formas-de-la-rueda.js';
-
-// La tabla de nombres vive con las formas de la rueda (`nombreEnLaRueda`); aquí se
-// reexporta para la ficha de un arma, que la lee tal cual.
-export { NOMBRE_DE_GOLPE };
 
 /** El punto del cruce, del mínimo (0) al máximo (4). */
 export type Punto = 0 | 1 | 2 | 3 | 4;
@@ -57,9 +54,7 @@ export interface CifrasDeLaRueda {
 }
 
 /** La mezcla de la IA al elegir en la rueda, por papel: un peso por tipo. */
-export type PesosDeLaRueda = Readonly<
-  Record<PapelEnLaRueda, Readonly<Record<TipoDeGolpe, number>>>
->;
+type PesosDeLaRueda = Readonly<Record<PapelEnLaRueda, Readonly<Record<TipoDeGolpe, number>>>>;
 
 /**
  * El nivel más alto de un tipo (el más bajo es 0): siete niveles, del 0 al 6
@@ -78,7 +73,7 @@ export const NORMAL_SIN_NIVEL = 'Normal no tiene nivel: siempre ×1';
 /**
  * Lo que no vale de una clave de la rueda de `q` que no es un tipo del anillo:
  * Normal, que no tiene nivel, o un tipo que no existe. La leen los niveles de un
- * arma (`problemasDeNiveles`) y los extras de una pieza con base (`data.ts`).
+ * arma (`problemasDeNiveles`) y los extras de una pieza con base (`equipo/pieza.ts`).
  */
 export function fueraDelAnillo(clave: string, q: string): string {
   return clave === 'normal'
@@ -231,7 +226,7 @@ const LEIDA = validarRueda(ruedaJson);
  * La tabla de `data/rueda.json`. **Privada**: la lee solo `cifrasDeLosNiveles`
  * (y los golpes del Rápido, `GOLPES_DEL_RAPIDO`), así que una cifra de la rueda
  * sale siempre de los niveles del arma del golpe. Lo vigila
- * `test/invariantes.test.ts`.
+ * `test/invariantes-batalla.test.ts`.
  */
 const TABLA: TablaDeLaRueda = LEIDA.tabla;
 
@@ -239,7 +234,7 @@ const TABLA: TablaDeLaRueda = LEIDA.tabla;
  * Por cuánto multiplica Rápido los golpes: no depende del nivel (el arma cambia el
  * daño de cada golpe, no cuántos). Lo lee `golpesDe`.
  */
-export const GOLPES_DEL_RAPIDO: number = TABLA.golpesDelRapido;
+const GOLPES_DEL_RAPIDO: number = TABLA.golpesDelRapido;
 
 /**
  * La mezcla de la IA al elegir en la rueda, por papel (`ai/rueda.ts`): no depende
@@ -310,10 +305,10 @@ const CIFRAS_POR_NIVELES = new WeakMap<NivelesDeLaRueda, CifrasDeLaRueda>();
  * pieza. Lo lee la regla de una pieza (`problemasDePieza`).
  */
 export function problemasDeNiveles(r: unknown, q: string): string[] {
-  if (typeof r !== 'object' || r === null || Array.isArray(r)) {
+  if (!esObjeto(r)) {
     return [`${q}: la rueda tiene que ser un objeto con un nivel por tipo`];
   }
-  const o = r as Record<string, unknown>;
+  const o = r;
   const problemas: string[] = [];
   for (const ajeno of Object.keys(o).filter((k) => !esTipoDelAnillo(k))) {
     problemas.push(fueraDelAnillo(ajeno, q));
@@ -382,7 +377,7 @@ const NEUTRO: EfectoDelTipo = {
  * Sin `Math.sign`: en `core`, solo las funciones de `Math` que no dependen de la
  * plataforma.
  */
-export function aMedias(neutro: number, v: number): number {
+function aMedias(neutro: number, v: number): number {
   const d = v - neutro;
   return d < 0 ? neutro - Math.floor(-d / 2) : neutro + Math.floor(d / 2);
 }
@@ -398,7 +393,7 @@ export function efectoDelTipo(tipo: TipoDeGolpe, c: CifrasDeLaRueda): EfectoDelT
   const m = (neutro: number, v: number): number => (media ? aMedias(neutro, v) : v);
   const e: { -readonly [K in keyof EfectoDelTipo]: EfectoDelTipo[K] } = { ...NEUTRO };
   // La Finta va aparte y entra al final: el campo de un turno con Finta lo
-  // escribe solo el golpe (`melee`; lo vigila `invariantes.test.ts`).
+  // escribe solo el golpe (`melee`; lo vigila `invariantes-batalla.test.ts`).
   let finta: EfectoDelTipo['finta'] = null;
   for (const parte of PARTES[tipo]) {
     switch (parte) {

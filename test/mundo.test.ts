@@ -10,11 +10,12 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
-import { marcadoDe } from '../src/client/html.js';
-import { cargarElMundoPedido, mundoDeLaUrl, mundoPedido } from '../src/client/mundo/cargar.js';
-import { hayQuePreguntar } from '../src/client/semilla.js';
-import { renderLog } from '../src/client/views/panels.js';
-import { buildMap, type MapPlan } from '../src/core/map/generate.js';
+import { marcadoDe } from '../src/client/comun/html.js';
+import { hayQuePreguntar } from '../src/client/comun/semilla.js';
+import { cargarElMundoPedido, mundoDeLaUrl, mundoPedido } from '../src/client/partida/mundo.js';
+import { renderLog } from '../src/client/views/cronica.js';
+import { buildMap } from '../src/core/map/generar/construir.js';
+import type { MapPlan } from '../src/core/map/generar/plan.js';
 import { isEnterable } from '../src/core/map/map.js';
 import {
   CLAVES_DE_CONDICION,
@@ -40,15 +41,13 @@ import {
   problemasDelMundo,
 } from '../src/core/mundo/validar.js';
 import { createRng } from '../src/core/rng.js';
-import {
-  type AdventureAction,
-  applyAdventureAction,
-  type GameState,
-  settleBattle,
-} from '../src/core/state/game.js';
-import { leerCrudos, RAIZ, validarEnDisco } from '../tools/mundo/disco.js';
+import { settleBattle } from '../src/core/state/cierre.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
+import type { AdventureAction, GameState } from '../src/core/state/tipos.js';
+import { leerCrudos, validarEnDisco } from '../tools/mundo/disco.js';
 import { medirMundo } from '../tools/mundo/medida.js';
 import { leerBancoDeDisco } from '../tools/npcs/banco.js';
+import { RAIZ } from './comun.js';
 
 /** El banco de figuras de NPC del repo: contra él se miran las figuras de los mundos. */
 const BANCO = leerBancoDeDisco();
@@ -845,7 +844,7 @@ describe('el mundo en la URL', () => {
     vi.stubGlobal('fetch', async (url: string) =>
       url === '/__npcs'
         ? new Response('<h1>500</h1>', { status: 500 })
-        : new Response(readFileSync(join(import.meta.dirname, '../assets', url)), {
+        : new Response(readFileSync(join(RAIZ, 'assets', url)), {
             headers: { 'content-type': 'application/json' },
           }),
     );
@@ -854,7 +853,7 @@ describe('el mundo en la URL', () => {
       vi.restoreAllMocks();
     });
     vi.resetModules();
-    const { cargarLaGente } = await import('../src/client/render/gente.js');
+    const { cargarLaGente } = await import('../src/client/render/figuras/gente.js');
     const gente = cargarLaGente();
     expect((await gente).sinBanco).toBe('/__npcs responde 500 y no es JSON');
     // El aviso de la consola no dice lo contrario que la página: la base, con el Y Bot; un mundo, no.

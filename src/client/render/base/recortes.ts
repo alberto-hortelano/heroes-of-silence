@@ -19,10 +19,10 @@ import { enPantalla, type Tablero } from '../proyeccion.js';
 import type { ArteDeLaBase, MedidasDelRecorte, RecorteDeLaBase } from './arte.js';
 
 /** El alto del bloque de un edificio sin arte, en pasos; de ancho, la banda de su región. */
-export const BLOQUE = { alto: 2.4, margen: 0.12 } as const;
+const BLOQUE = { alto: 2.4, margen: 0.12 } as const;
 
 /** Algo del cuadro en pantalla: su caja y cuántos píxeles de pantalla vale uno del tramo. */
-export interface EnPantalla {
+interface EnPantalla {
   readonly x: number;
   readonly y: number;
   readonly ancho: number;
@@ -45,7 +45,7 @@ export function colocarLaPlaca(
 }
 
 /** El recorte de un edificio en pantalla, en su sitio del cuadro. */
-export function colocarEnElCuadro(
+function colocarEnElCuadro(
   t: Tablero,
   d: Pick<Disposicion, 'bajar' | 'fuera'>,
   r: MedidasDelRecorte,
@@ -56,7 +56,7 @@ export function colocarEnElCuadro(
 }
 
 /** El bloque de un edificio sin arte: la banda de su región, de su pie a `BLOQUE.alto` pasos. */
-export function bloqueDelSitio(
+function bloqueDelSitio(
   t: Tablero,
   d: Pick<Disposicion, 'bajar' | 'fuera'>,
   sitio: Pick<SitioEnLaPlaza, 'tramo' | 'region'>,

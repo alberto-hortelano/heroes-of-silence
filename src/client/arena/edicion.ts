@@ -5,11 +5,11 @@
  * qué fichas se ven: abrir, cerrar, recordar y el marco de cada una.
  *
  * Puro, sin DOM, y por eso con tests (`test/arena-edicion.test.ts`). Las fichas
- * mismas no se pintan aquí: el cuerpo de cada una lo da `main.ts` con
- * `renderFicha`, la de siempre, sin copia.
+ * mismas no se pintan aquí: el cuerpo de cada una lo da `fichas.ts`
+ * (`fichaAbierta`) con `renderFicha`, la de siempre, sin copia.
  */
-import { type Html, html, unir } from '../html.js';
-import type { Elegida } from './paneles.js';
+import { type Html, html, unir } from '../comun/html.js';
+import type { Elegida } from './paneles/bandos.js';
 
 /** Lo que se abre en la vista de edición: una unidad (los héroes, no). */
 export type FichaEditable = Extract<Elegida, { readonly kind: 'unidad' }>;
@@ -70,7 +70,7 @@ export function abrirFichaBlocker(
 }
 
 /** Lo que queda abierto tras un gesto, y lo que se le dice a quien lo hizo. */
-export interface Abiertas {
+interface Abiertas {
   readonly abiertas: readonly FichaEditable[];
   readonly aviso: string;
 }
@@ -118,7 +118,7 @@ export function focoTrasCerrar(antes: readonly FichaEditable[], clave: string): 
 }
 
 /** Lo que pliega o despliega la lista de la edición. */
-export type GestoDeLaLista = 'entrar' | 'abrir' | 'cerrar' | 'alternar';
+type GestoDeLaLista = 'entrar' | 'abrir' | 'cerrar' | 'alternar';
 
 /**
  * Si la lista de la edición va plegada tras `gesto`, con `abiertas` fichas

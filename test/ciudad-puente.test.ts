@@ -19,11 +19,11 @@ import { puertasDeLaCiudad, recintoDeLaCiudad, rioAnteLaCiudad } from '@core/map
 import { estructura } from '@core/map/regiones.js';
 import { orillaDeLaCiudad } from '@core/map/rio.js';
 import { isWalkable, type TerrainKind } from '@core/map/terrain.js';
-import { alcanceDelHeroe } from '@core/state/game.js';
+import { alcanceDelHeroe } from '@core/state/marcha.js';
 import { describe, expect, it } from 'vitest';
-import { EscenaAventura, focoDe } from '../src/client/escenas/aventura.js';
-import { centrarEn, mundoAPixel, TILE_INICIAL } from '../src/client/render/camara-mapa.js';
+import { EscenaAventura, focoDe } from '../src/client/partida/mapa/escena.js';
 import { analizar } from '../src/client/render/escenario/analizar.js';
+import { PIES } from '../src/client/render/escenario/figuras-del-mapa.js';
 import { claveDe } from '../src/client/render/escenario/pintar.js';
 import {
   ejesDeLosPuentes,
@@ -32,15 +32,16 @@ import {
 } from '../src/client/render/escenario/puentes.js';
 import {
   anilloSobreLaSenda,
-  caraHacia,
   puentesSobreElAnillo,
-} from '../src/client/render/escenario/recinto.js';
+} from '../src/client/render/escenario/recinto/guardias.js';
+import { caraHacia } from '../src/client/render/escenario/recinto/octogono.js';
 import { SEMIANCHO_DE_LA_HUELLA } from '../src/client/render/escenario/sendas.js';
 import { escenarioDe, pisada, topeDeAlejar } from '../src/client/render/escenario/superficie.js';
-import { PIES } from '../src/client/render/mapa.js';
-import { Session } from '../src/client/session.js';
-import { fueraDeSuBase, partidaDe } from './helpers.js';
-import { rango, segunPrisa } from './lento.js';
+import { centrarEn, mundoAPixel, TILE_INICIAL } from '../src/client/render/mapa/camara.js';
+import { Session } from '../src/client/sesion/partida.js';
+import { partidaDe } from './escena-de-prueba.js';
+import { conRespiro, rango, segunPrisa } from './lento.js';
+import { fueraDeSuBase } from './partida-de-prueba.js';
 
 describe('la orilla de una ciudad-puente en la red del generador (`orillaDeLaCiudad`)', () => {
   // 5×5: el río de este a oeste por la fila 2; arriba, las regiones 0 y 1 con la
@@ -129,9 +130,9 @@ describe('la ciudad-puente en los mapas del juego', () => {
   // su región, 05-11-2026: eran 44 en 21, con las de cruce).
   const semillas = segunPrisa([12, 14], rango(1, 40));
 
-  it('la ciudad está en tierra; su puente se pisa, es de la orilla de enfrente y lleva la puerta del río', () => {
+  it('la ciudad está en tierra; su puente se pisa, es de la orilla de enfrente y lleva la puerta del río', async () => {
     let vistas = 0;
-    for (const s of semillas) {
+    for await (const s of conRespiro(semillas)) {
       const { map } = partidaDe(s);
       const W = map.width;
       const red = estructura(map);
@@ -162,9 +163,9 @@ describe('la ciudad-puente en los mapas del juego', () => {
     expect(vistas).toBeGreaterThanOrEqual(segunPrisa(4, 22));
   });
 
-  it('su puente es agua en la escena y cruza de frente hasta el pie de su cara, no más allá', () => {
+  it('su puente es agua en la escena y cruza de frente hasta el pie de su cara, no más allá', async () => {
     let alSur = 0;
-    for (const s of semillas) {
+    for await (const s of conRespiro(semillas)) {
       const { map, escena: e } = partidaDe(s);
       const a = analizar(map);
       const esc = escenarioDe(map, s);

@@ -7,7 +7,7 @@
  * facción puede dejar sitios de morada vacíos: su cadena va vacía. Dónde cae
  * cada sitio en el fondo de la escena es presentación y vive en
  * `data/bases/<facción>.json`, que este módulo no lee (lo vigila
- * `invariantes.test.ts`): aquí solo está qué se levanta en cada uno, que lo leen
+ * `invariantes-partida.test.ts`): aquí solo está qué se levanta en cada uno, que lo leen
  * el panel de «Ampliar», la validación de las voces y el agente.
  *
  * Vivía en el cliente (`render/town.ts`, `townPlots`) con sus coordenadas de un
@@ -39,7 +39,7 @@ export function esSitio(x: string): x is SitioId {
   return (SITIOS as readonly string[]).includes(x);
 }
 
-export interface Sitio {
+interface Sitio {
   readonly id: SitioId;
   /** Los edificios que se levantan aquí, en orden de mejora. */
   readonly cadena: readonly string[];

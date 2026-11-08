@@ -19,20 +19,20 @@ import {
   rampasDeFrente,
 } from '../src/client/render/escenario/celdas.js';
 import {
-  componer,
   hojaDeRampa,
   piezasDeRampa,
   rampasSinSusPiezas,
-  type Sprite,
   spriteDeRampa,
-} from '../src/client/render/escenario/colocar.js';
+} from '../src/client/render/escenario/colocar/rampas.js';
+import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
+import { componer } from '../src/client/render/escenario/colocar.js';
 import { newGame } from '../src/core/state/setup.js';
-import { catalogoDelDisco } from './helpers.js';
+import { catalogoDelDisco } from './escena-de-prueba.js';
 
 const catalogo = catalogoDelDisco();
 
 /** Las paredes que se ven de una rejilla de niveles escrita a mano, una cifra por casilla. */
-function deRejilla(filas: readonly string[]) {
+function celdasVistasDeRejilla(filas: readonly string[]) {
   const W = (filas[0] as string).length;
   const H = filas.length;
   const nivel = filas.flatMap((f) => [...f].map(Number));
@@ -50,7 +50,7 @@ const conArte = () => true;
 
 describe('las rampas: dónde se abre la pared (#225)', () => {
   // Una meseta de 2 con el borde recto en la fila 1 de la columna 0 a la 8.
-  const recta = deRejilla(['222222222', '222222222', '111111111', '111111111']);
+  const recta = celdasVistasDeRejilla(['222222222', '222222222', '111111111', '111111111']);
 
   it('un camino que baja de frente por un borde recto de cinco casillas abre una rampa', () => {
     const rs = rampasDeFrente(recta.nivel, recta.W, recta.vistas, [bajando(4, 1)], conArte);
@@ -82,7 +82,7 @@ describe('las rampas: dónde se abre la pared (#225)', () => {
       [],
     );
     // Un rincón a la derecha del hueco (s55, (30, 15)): la casilla (6, 2) es alta.
-    const rincon = deRejilla(['222222222', '222222222', '111111222', '111111111']);
+    const rincon = celdasVistasDeRejilla(['222222222', '222222222', '111111222', '111111111']);
     expect(rampasDeFrente(rincon.nivel, rincon.W, rincon.vistas, [bajando(4, 1)], conArte)).toEqual(
       [],
     );
@@ -93,12 +93,12 @@ describe('las rampas: dónde se abre la pared (#225)', () => {
       rampasDeFrente(recta.nivel, recta.W, recta.vistas, [bajando(4, 1)], conArte, () => false),
     ).toEqual([]);
     // Lo alto al sur: baja hacia el norte, de espaldas.
-    const espaldas = deRejilla(['111111111', '111111111', '222222222', '222222222']);
+    const espaldas = celdasVistasDeRejilla(['111111111', '111111111', '222222222', '222222222']);
     expect(
       rampasDeFrente(espaldas.nivel, espaldas.W, espaldas.vistas, [bajando(4, 1)], conArte),
     ).toEqual([]);
     // Dos caídas en el mismo filo (de 3 a 1) no son una pared de caída 1: tampoco el piloto.
-    const dos = deRejilla(['333333333', '333333333', '111111111', '111111111']);
+    const dos = celdasVistasDeRejilla(['333333333', '333333333', '111111111', '111111111']);
     expect(
       rampasDeFrente(dos.nivel, dos.W, dos.vistas, [bajando(4, 1)], (_f, _m, c) => c === 1),
     ).toEqual([]);
@@ -106,7 +106,13 @@ describe('las rampas: dónde se abre la pared (#225)', () => {
 
   it('la muesca de una de hondo (la casilla baja entre dos altas) abre una rampa de muesca (§36)', () => {
     // El hueco en (4, 2), entre (3, 2) y (5, 2), y lo bajo delante.
-    const muesca = deRejilla(['222222222', '222222222', '222212222', '111111111', '111111111']);
+    const muesca = celdasVistasDeRejilla([
+      '222222222',
+      '222222222',
+      '222212222',
+      '111111111',
+      '111111111',
+    ]);
     const rs = rampasDeFrente(muesca.nivel, muesca.W, muesca.vistas, [bajando(4, 1)], conArte);
     expect(rs).toEqual([
       { forma: 'muesca', x: 4, y: 1, caida: 1, desde: 2, material: 'cara-roca' },
@@ -125,7 +131,13 @@ describe('las rampas: dónde se abre la pared (#225)', () => {
       rampasDeFrente(muesca.nivel, muesca.W, muesca.vistas, [bajando(4, 1)], (f) => f === 'recta'),
     ).toEqual([]);
     // Con un lado que sigue al sur (una ladera debajo de la esquina): no es esta forma.
-    const sigue = deRejilla(['222222222', '222222222', '222212222', '111211111', '111111111']);
+    const sigue = celdasVistasDeRejilla([
+      '222222222',
+      '222222222',
+      '222212222',
+      '111211111',
+      '111111111',
+    ]);
     expect(rampasDeFrente(sigue.nivel, sigue.W, sigue.vistas, [bajando(4, 1)], conArte)).toEqual(
       [],
     );
@@ -136,7 +148,12 @@ describe('las rampas: dónde se abre la pared (#225)', () => {
   });
 
   it('dos rampas que se pisarían: va la primera', () => {
-    const ancha = deRejilla(['22222222222', '22222222222', '11111111111', '11111111111']);
+    const ancha = celdasVistasDeRejilla([
+      '22222222222',
+      '22222222222',
+      '11111111111',
+      '11111111111',
+    ]);
     const rs = rampasDeFrente(
       ancha.nivel,
       ancha.W,

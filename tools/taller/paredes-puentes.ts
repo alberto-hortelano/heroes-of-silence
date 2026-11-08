@@ -1,6 +1,6 @@
 /**
- * Puentes que casan con el río (`docs/art/peticiones.md` §17), y la guía de
- * geometría que comparten con las laderas (`laderas.ts`).
+ * Puentes que casan con el río (`docs/art/peticiones.md` §17), sobre la guía de
+ * geometría que comparten con las laderas (`guias.ts`).
  *
  * Lo que las piezas de antes no consiguieron con palabras es la ORIENTACIÓN: el
  * puente `ancho` salió torcido 20° y el `hondo` en escorzo. Así que cada encargo
@@ -8,143 +8,36 @@
  * (`papel: 'guia'`): un volumen gris dibujado con la proyección del mapa —el
  * suelo en casillas cuadradas y lo alto hacia arriba de pantalla, un nivel
  * (`ALTO_DE_NIVEL`) = 0,6 casillas—, que dice dónde va cada cosa. Las guías se
- * escriben aquí (SVG → PNG con sharp), en `assets/mapa/guias/`, y la geometría
+ * escriben con `guias.ts` (SVG → PNG con sharp), en `assets/mapa/_guias/`, y la geometría
  * de cada una se guarda en su `.json`: de ahí sale el ancla del puente (el
  * centro del tablero) y cuántos píxeles mide una casilla en la pieza pintada.
  *
  *   pnpm taller encolar --paredes-puentes [--solo=puente-piedra-ns,puente-troncos-eo]
  */
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 import sharp from 'sharp';
+import { aRaster } from '../comun/imagen.js';
+import { textoJson } from '../comun/json.js';
+import { RAIZ } from '../comun/raiz.js';
 import { derivarPieza } from './derivar.js';
 import type { Encargo } from './encargo.js';
-import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
+import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './estilo-del-mapa.js';
+import {
+  ARRIBA,
+  DIR_GUIAS,
+  encajar,
+  esFondoDeGuia,
+  FRENTE,
+  type Guia,
+  MATAS,
+  NIVEL,
+  type P2,
+  type P3,
+  SOMBRA,
+} from './guias.js';
 
-const RAIZ = resolve(import.meta.dirname, '../..');
-export const DIR_GUIAS = 'assets/mapa/guias';
-
-/** Lo que mide en pantalla un nivel de altura, en casillas (`ALTO_DE_NIVEL` del escenógrafo). */
-export const NIVEL = 0.6;
-
-// ------------------------------------------------------------------ la guía
-
-export type P2 = readonly [number, number];
-export type P3 = readonly [number, number, number];
-
-/** Un lienzo de guía: casilla de `t` px y el origen del mundo en `(ox, oy)`. */
-export class Guia {
-  private readonly capas: string[] = [];
-  /** La caja de lo dibujado, en píxeles: para encajar la guía en su lienzo (`encajar`). */
-  readonly caja = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
-  constructor(
-    readonly ancho: number,
-    readonly alto: number,
-    public t: number,
-    /** El origen del mundo; una hoja de módulos lo mueve de celda en celda. */
-    public ox: number,
-    public oy: number,
-  ) {}
-  /** Lo que sube el terreno bajo un punto: un puente entre orillas a distinto nivel. */
-  subida: (x: number, y: number) => number = () => 0;
-  /** Entre qué alturas se reparte la subida: el pie no sube, el tablero sube entero. */
-  rangoDeSubida: readonly [number, number] = [0, 1];
-  /** La proyección del mapa: el suelo tal cual, lo alto hacia arriba. */
-  p([x, y, z]: P3): P2 {
-    const [z0, z1] = this.rangoDeSubida;
-    const k = Math.min(1, Math.max(0, (z - z0) / (z1 - z0)));
-    return [this.ox + x * this.t, this.oy + (y - z - k * this.subida(x, y)) * this.t];
-  }
-  private medir(x: number, y: number): void {
-    this.caja.x0 = Math.min(this.caja.x0, x);
-    this.caja.y0 = Math.min(this.caja.y0, y);
-    this.caja.x1 = Math.max(this.caja.x1, x);
-    this.caja.y1 = Math.max(this.caja.y1, y);
-  }
-  poligono(puntos: readonly P3[], relleno: string): void {
-    const pp = puntos.map((q) => this.p(q));
-    for (const [x, y] of pp) this.medir(x, y);
-    const d = pp.map((q) => q.map((v) => v.toFixed(1)).join(',')).join(' ');
-    this.capas.push(
-      `<polygon points="${d}" fill="${relleno}" stroke="#262626" stroke-width="2" stroke-linejoin="round"/>`,
-    );
-  }
-  elipse(c: P3, rx: number, ry: number, relleno: string): void {
-    const [x, y] = this.p(c);
-    this.medir(x - rx * this.t, y - ry * this.t);
-    this.medir(x + rx * this.t, y + ry * this.t);
-    this.capas.push(
-      `<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="${(rx * this.t).toFixed(1)}" ry="${(ry * this.t).toFixed(1)}" fill="${relleno}" stroke="#262626" stroke-width="2"/>`,
-    );
-  }
-  svg(): string {
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${this.ancho}" height="${this.alto}"><rect width="100%" height="100%" fill="${FONDO}"/>${this.capas.join('')}</svg>`;
-  }
-}
-
-/**
- * Dibuja dos veces: una a escala 1 para medir lo que ocupa, y otra con la
- * casilla y el origen que lo dejan centrado y ocupando el `lleno` del lienzo.
- */
-export function encajar(
-  ancho: number,
-  alto: number,
-  lleno: number,
-  dibujar: (g: Guia) => void,
-): Guia {
-  const m = new Guia(ancho, alto, 1, 0, 0);
-  dibujar(m);
-  const w = m.caja.x1 - m.caja.x0;
-  const h = m.caja.y1 - m.caja.y0;
-  const t = Math.floor(Math.min((ancho * lleno) / w, (alto * lleno) / h));
-  const g = new Guia(
-    ancho,
-    alto,
-    t,
-    ancho / 2 - ((m.caja.x0 + m.caja.x1) / 2) * t,
-    alto / 2 - ((m.caja.y0 + m.caja.y1) / 2) * t,
-  );
-  dibujar(g);
-  return g;
-}
-
-/**
- * Escribe la guía `nombre` en `assets/mapa/guias/` (`<nombre>.png`) y su
- * geometría al lado (`<nombre>.json`: el lienzo y lo que se registre sobre ella),
- * y devuelve la ruta de la imagen. La de las laderas, las diagonales, las
- * bajadas, el muro de norte a sur, el recinto y los puestos; los puentes llevan
- * además la caja medida en la imagen (`escribirGuias`).
- */
-export async function escribirGuia(nombre: string, guia: Guia, geometria: object): Promise<string> {
-  await writeFile(
-    join(RAIZ, DIR_GUIAS, `${nombre}.png`),
-    await sharp(Buffer.from(guia.svg())).png().toBuffer(),
-  );
-  await writeFile(
-    join(RAIZ, DIR_GUIAS, `${nombre}.json`),
-    `${JSON.stringify({ ancho: guia.ancho, alto: guia.alto, ...geometria }, null, 1)}\n`,
-  );
-  return `${DIR_GUIAS}/${nombre}.png`;
-}
-
-/** El gris de fondo de toda guía: lo demás es dibujo. */
-export const FONDO = '#7d7d7d';
-const gris = Number.parseInt(FONDO.slice(1, 3), 16);
-/**
- * Si un píxel de una guía es fondo: a una distancia (suma por canal) de 6 o
- * menos del gris. El suavizado de los bordes deja píxeles a 5 o 6. Lo leen la
- * caja de una guía (`cajaDeGuia`) y su silueta (`mascaraDeGuia`): con dos
- * umbrales, cada una decía otra cosa del mismo borde.
- */
-export function esFondoDeGuia(r: number, g: number, b: number): boolean {
-  return Math.abs(r - gris) + Math.abs(g - gris) + Math.abs(b - gris) <= 6;
-}
-/** Lo que mira arriba, lo que mira a la cámara (iluminado), y lo que queda en sombra. */
-export const ARRIBA = '#dcdcdc';
-export const FRENTE = '#b0b0b0';
-export const SOMBRA = '#5e5e5e';
 const HUECO = '#2c2c2c';
-export const MATAS = '#c9cfbf';
 /** La tierra del estribo (talud y rampa): parda, para que no se lea como sillar. */
 const TIERRA = '#9a9080';
 const RAMPA = '#bdb4a2';
@@ -160,8 +53,8 @@ function penasco(g: Guia, x: number, y: number, r: number, alto: number, z = 0):
 
 // ---------------------------------------------------------------- los puentes
 
-export type Eje = 'ns' | 'eo' | 'ne-so' | 'no-se';
-export type Clase = 'piedra' | 'troncos';
+type Eje = 'ns' | 'eo' | 'ne-so' | 'no-se';
+type Clase = 'piedra' | 'troncos';
 
 /**
  * Medidas del puente, en casillas: la luz es UNA casilla de agua y el arco la
@@ -197,7 +90,7 @@ const PUENTE = {
  * casilla, en píxeles de la guía. Con esto y la caja de lo pintado se llega al
  * ancla y la escala de la pieza.
  */
-export interface GeometriaDeGuia {
+interface GeometriaDeGuia {
   readonly ancho: number;
   readonly alto: number;
   /** El centro del tablero, en píxeles de la guía. */
@@ -668,7 +561,7 @@ function encargoDePuente(clase: Clase, eje: Eje, sube = false): Encargo {
   };
 }
 
-export const EJES: readonly Eje[] = ['ns', 'eo', 'ne-so', 'no-se'];
+const EJES: readonly Eje[] = ['ns', 'eo', 'ne-so', 'no-se'];
 export const MATERIALES: readonly Material[] = ['roca', 'arenisca', 'basalto', 'nevadas'];
 
 /** En el orden en que importan: lo que más se ve primero (§16-§17 y el encargo del usuario). */
@@ -697,10 +590,7 @@ export async function escribirGuias(): Promise<string[]> {
     await writeFile(join(dir, `${nombre}.png`), png);
     if (geo !== undefined) {
       const caja = await cajaDeGuia(png);
-      await writeFile(
-        join(dir, `${nombre}.json`),
-        `${JSON.stringify({ ...geo, caja }, null, 2)}\n`,
-      );
+      await writeFile(join(dir, `${nombre}.json`), textoJson({ ...geo, caja }, 2));
     }
     escritas.push(`${DIR_GUIAS}/${nombre}.png`);
   };
@@ -717,7 +607,7 @@ export async function escribirGuias(): Promise<string[]> {
 }
 
 /** La caja de lo que no es fondo en una guía. */
-export async function cajaDeGuia(png: Buffer): Promise<[number, number, number, number]> {
+async function cajaDeGuia(png: Buffer): Promise<[number, number, number, number]> {
   const { data, info } = await sharp(png).raw().toBuffer({ resolveWithObject: true });
   let x0 = info.width;
   let y0 = info.height;
@@ -741,19 +631,16 @@ export async function cajaDeGuia(png: Buffer): Promise<[number, number, number, 
  * por sus cajas: la pieza sigue la guía en forma, así que la caja de lo pintado
  * es la caja de la guía escalada.
  */
-export async function derivarPuente(rutaImagen: string, rutaGeometria: string, eje: Eje) {
+async function derivarPuente(rutaImagen: string, rutaGeometria: string, eje: Eje) {
   const geo = JSON.parse(await readFile(rutaGeometria, 'utf8')) as GeometriaDeGuia;
-  const { data, info } = await sharp(rutaImagen)
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  let x0 = info.width;
-  let y0 = info.height;
+  const { data, width, height } = await aRaster(rutaImagen);
+  let x0 = width;
+  let y0 = height;
   let x1 = -1;
   let y1 = -1;
-  for (let y = 0; y < info.height; y++)
-    for (let x = 0; x < info.width; x++)
-      if ((data[(y * info.width + x) * 4 + 3] as number) >= 128) {
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++)
+      if ((data[(y * width + x) * 4 + 3] as number) >= 128) {
         if (x < x0) x0 = x;
         if (x > x1) x1 = x;
         if (y < y0) y0 = y;
@@ -767,8 +654,8 @@ export async function derivarPuente(rutaImagen: string, rutaGeometria: string, e
     Math.round(y0 + (geo.centro[1] - gy0) * sy),
   ];
   return {
-    ancho: info.width,
-    alto: info.height,
+    ancho: width,
+    alto: height,
     ancla,
     anclaEs: 'el centro del tablero (§17), llevado desde la guía de geometría por las cajas',
     // La casilla se mide A LO LARGO del puente, donde la luz es una casilla: a lo
@@ -808,5 +695,5 @@ export async function puenteDerivado(rutaImagen: string): Promise<Record<string,
 export async function escribirPuenteDerivado(rutaImagen: string): Promise<void> {
   const json = rutaImagen.replace(/\.webp$/, '.json');
   await mkdir(dirname(json), { recursive: true });
-  await writeFile(json, `${JSON.stringify(await puenteDerivado(rutaImagen), null, 2)}\n`);
+  await writeFile(json, textoJson(await puenteDerivado(rutaImagen), 2));
 }

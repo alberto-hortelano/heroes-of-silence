@@ -9,12 +9,11 @@
  * Sale 1 con una orden desconocida o un id que no existe, diciéndolo.
  */
 import { existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import { motivoDe } from '../../src/client/desarrollo/esquema.js';
-import { urlDePartida } from '../qa/url-de-partida.js';
+import { join } from 'node:path';
+import { mensajeDe } from '../../src/shared/errores.js';
+import { RAIZ } from '../comun/raiz.js';
+import { urlDePartida } from '../qa/navegador/url-de-partida.js';
 import { CARPETA_DE_MARCAS, leerMarca, listarMarcas, resolverMarca } from './almacen.js';
-
-const RAIZ = resolve(import.meta.dirname, '../..');
 
 /**
  * Lo que se pega en la barra de direcciones de `pnpm dev` para volver a mirar la
@@ -91,6 +90,6 @@ async function main(argv: readonly string[]): Promise<void> {
 }
 
 main(process.argv.slice(2)).catch((err: unknown) => {
-  console.error(motivoDe(err));
+  console.error(mensajeDe(err));
   process.exit(1);
 });

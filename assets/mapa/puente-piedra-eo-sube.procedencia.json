@@ -20,7 +20,7 @@
       "sha256": "b3436de156ba7506bccf1f9ceaf6cf721b424beab724f65944388846076bcbf4"
     },
     {
-      "ruta": "assets/mapa/guias/puente-piedra-eo-sube.png",
+      "ruta": "assets/mapa/_guias/puente-piedra-eo-sube.png",
       "papel": "guia",
       "sha256": "87de831bcd9c0368626a524c59568ab4b1617c4814bdbc73db4314937afdb7bd"
     }

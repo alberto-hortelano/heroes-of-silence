@@ -12,24 +12,26 @@ import {
   duracionDeLaJugada,
   fotoDeEfectos,
   IMPACTO,
-} from '../src/client/anim.js';
-import { msPorCasilla } from '../src/client/marcha.js';
-import { clipQueSePinta } from '../src/client/render/batalla.js';
+} from '../src/client/batalla/anim.js';
+import { clipQueSePinta } from '../src/client/render/batalla/figura.js';
+import { msPorCasilla } from '../src/client/render/figuras/marcha.js';
 import {
   arteDe,
   hojaDe,
   MIRADA_DE_PRESENTACION,
   registrarUnidad,
-} from '../src/client/render/personajes.js';
-import { ALTO_DE_FIGURA, planoDeHex } from '../src/client/render/proyeccion.js';
-import { createBattle } from '../src/core/battle/battle.js';
+} from '../src/client/render/figuras/personajes.js';
+import { planoDeHex } from '../src/client/render/proyeccion.js';
 import { stackHp } from '../src/core/battle/damage.js';
+import { createBattle } from '../src/core/battle/montaje.js';
 import type { BattleEvent, BattleState } from '../src/core/battle/types.js';
-import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
 import { createRng } from '../src/core/rng.js';
-import { ejercito, NO_MUERTO, TIRADOR, TROPA_BARATA } from './helpers.js';
+import { unidadDelJuego } from '../src/core/unidad/catalogo.js';
+import { ALTO_DE_FIGURA } from '../src/shared/arte.js';
+import { NO_MUERTO, TIRADOR, TROPA_BARATA } from './comun.js';
+import { ejercito } from './partida-de-prueba.js';
 
 /**
  * Cuerpos de prueba, cada uno con el Y Bot de un juego de armas y sin arte

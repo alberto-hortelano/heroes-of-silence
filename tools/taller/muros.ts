@@ -28,11 +28,16 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import sharp from 'sharp';
 import { ALTO_DEL_TRAMO_NORTE_SUR } from '../../src/client/render/escenario/muralla.js';
-import { ESCALA_DEL_RECINTO, GRUESO_DEL_MURO } from '../../src/client/render/escenario/recinto.js';
+import {
+  ESCALA_DEL_RECINTO,
+  GRUESO_DEL_MURO,
+} from '../../src/client/render/escenario/recinto/octogono.js';
 import { FONDO_DEL_ADARVE } from '../../src/client/render/escenario/tirada.js';
+import { textoJson } from '../comun/json.js';
+import { RAIZ } from '../comun/raiz.js';
 import { derivarPieza, type PiezaDerivada } from './derivar.js';
 import type { Encargo } from './encargo.js';
-import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
+import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './estilo-del-mapa.js';
 import {
   ARRIBA,
   DIR_GUIAS,
@@ -42,13 +47,11 @@ import {
   type P2,
   type P3,
   SOMBRA,
-} from './paredes-puentes.js';
-
-const RAIZ = join(import.meta.dirname, '../..');
+} from './guias.js';
 
 /** Las piezas de norte a sur, las que llevan su paso. */
-export const MUROS_NORTE_SUR = ['muro-ns-1', 'muro-ns-2'] as const;
-export type MuroNorteSur = (typeof MUROS_NORTE_SUR)[number];
+const MUROS_NORTE_SUR = ['muro-ns-1', 'muro-ns-2'] as const;
+type MuroNorteSur = (typeof MUROS_NORTE_SUR)[number];
 
 // ------------------------------------------------------------------ la guía
 
@@ -134,7 +137,7 @@ function dibujarTramo(g: Guia): void {
 }
 
 /** La geometría de la guía que cuenta, en sus píxeles. */
-export interface GeometriaDelMuro {
+interface GeometriaDelMuro {
   /** El pie de las dos juntas, en el eje del muro y a ras de suelo: la de atrás y la de delante. */
   readonly junta: readonly [P2, P2];
   readonly caja: readonly [number, number, number, number];
@@ -147,7 +150,7 @@ const LIENZO: readonly [number, number] = [1024, 1536];
 const LLENO = 0.8;
 
 /** El nombre de la guía del tramo, en `DIR_GUIAS`. */
-export const GUIA_DEL_MURO = 'muro-ns';
+const GUIA_DEL_MURO = 'muro-ns';
 
 /** La guía del tramo: centrada en el lienzo y a `LLENO` de su alto. */
 export function guiaDelMuroNorteSur(): { guia: Guia; geometria: GeometriaDelMuro } {
@@ -190,7 +193,7 @@ const VARIANTE: Readonly<Record<MuroNorteSur, string>> = {
 };
 
 /** El encargo de un tramo de norte a sur, con su guía. */
-export function encargoDelMuroNorteSur(id: MuroNorteSur): Encargo {
+function encargoDelMuroNorteSur(id: MuroNorteSur): Encargo {
   return {
     id: `mapa-${id}`,
     tipo: 'imagen',
@@ -508,7 +511,7 @@ export async function escribirMurosDerivados(
     const ruta = join(RAIZ, 'assets/mapa', `${id}.webp`);
     const json = ruta.replace(/\.webp$/, '.json');
     await mkdir(dirname(json), { recursive: true });
-    await writeFile(json, `${JSON.stringify(await muroDerivado(ruta), null, 2)}\n`);
+    await writeFile(json, textoJson(await muroDerivado(ruta), 2));
     hechos.push(json);
   }
   return hechos;

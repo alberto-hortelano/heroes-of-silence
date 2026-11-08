@@ -9,12 +9,12 @@
  * IA y el contrato; aquí solo se ponen en forma de dibujo.
  */
 
-import type { GameMap, MapObject } from '@core/map/map.js';
 import { estructura } from '@core/map/regiones.js';
+import type { GameMap, MapObject } from '@core/map/tipos.js';
 import type { Point } from '@core/types.js';
 
 /** Una región lista para pintar. */
-export interface RegionPintada {
+interface RegionPintada {
   readonly id: string;
   readonly nombre: string;
   readonly nivel: number;
@@ -26,7 +26,7 @@ export interface RegionPintada {
 }
 
 /** Un nodo de la red (un objeto `node` o una ciudad) listo para pintar. */
-export interface NodoPintado {
+interface NodoPintado {
   readonly id: string;
   /** El centro de su casilla. */
   readonly centro: Point;

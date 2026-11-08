@@ -4,6 +4,8 @@
  * puede pintar.
  */
 import { describe, expect, it, vi } from 'vitest';
+import { escenarioDe, topeDeAlejar } from '../src/client/render/escenario/superficie.js';
+import { ajustarLienzo, densidadConPresupuesto, pixelesDe } from '../src/client/render/lienzo.js';
 import {
   acotar,
   arrastrar,
@@ -20,15 +22,13 @@ import {
   volumenesALoSumo,
   volumenesEn,
   zoom,
-} from '../src/client/render/camara-mapa.js';
-import { escenarioDe, topeDeAlejar } from '../src/client/render/escenario/superficie.js';
-import { ajustarLienzo, densidadConPresupuesto, pixelesDe } from '../src/client/render/lienzo.js';
+} from '../src/client/render/mapa/camara.js';
 import {
   PIXELES_AL_ACERCAR,
   PIXELES_DEL_MAPA,
   presupuestoConHolgura,
   presupuestoDelMapa,
-} from '../src/client/render/mapa.js';
+} from '../src/client/render/mapa/mapa.js';
 import { newGame } from '../src/core/state/setup.js';
 
 const E: Encuadre = { ancho: 1000, alto: 700, mapaAncho: 24, mapaAlto: 24 };

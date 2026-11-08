@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { MARGEN_CONTRA_NEUTRALES } from '../src/core/ai/fuerza.js';
 import {
   planBuildings,
   planHires,
@@ -8,42 +7,33 @@ import {
   siguienteDeEquipo,
 } from '../src/core/ai/strategy.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
-import { playAiTurn } from '../src/core/ai/turn.js';
-import {
-  activeStack,
-  alAsalto,
-  applyAction,
-  type BattleSide,
-  createBattle,
-  legalActions,
-  stackById,
-} from '../src/core/battle/battle.js';
+import { playAiTurn, resolvePendingBattle } from '../src/core/ai/turn.js';
+import { applyAction } from '../src/core/battle/battle.js';
 import { FORMA_DEL_TABLERO, tableroDelContrato } from '../src/core/battle/board.js';
+import { activeStack, stackById } from '../src/core/battle/consultas.js';
 import { LAS_TRES_RUEDAS, RUEDAS } from '../src/core/battle/formas-de-la-rueda.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
+import { alAsalto, type BattleSide, createBattle } from '../src/core/battle/montaje.js';
 import type { BattleAction } from '../src/core/battle/types.js';
-import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
+import { serializeAdventureTurn } from '../src/core/contract/aventura.js';
+import { serializeBattleResponse, serializeBattleTurn } from '../src/core/contract/batalla.js';
 import {
   adventureActionSchema,
   battleActionSchema,
   battleTurnResponseSchema,
-  formatoDeLaRespuesta,
   mapPlanSchema,
-  PROSA_DE_LA_MURALLA,
   REQUEST_KINDS,
-  RESPONSE_FORMAT,
   responseSchemas,
-} from '../src/core/contract/agent.js';
+} from '../src/core/contract/esquemas.js';
 import {
-  CATALOGO_DE_EQUIPO_EN_PROSA,
-  COMO_SE_LEE_EL_MAPA,
-  fichaDeCriatura,
-  serializeAdventureTurn,
-  serializeBattleResponse,
-  serializeBattleTurn,
-  serializeKnownMap,
-  serializeMapRequest,
-} from '../src/core/contract/serialize.js';
+  formatoDeLaRespuesta,
+  PROSA_DE_LA_MURALLA,
+  RESPONSE_FORMAT,
+} from '../src/core/contract/formato.js';
+import { COMO_SE_LEE_EL_MAPA, serializeKnownMap } from '../src/core/contract/mapa-conocido.js';
+import { serializeMapRequest } from '../src/core/contract/peticion-de-mapa.js';
+import { CATALOGO_DE_EQUIPO_EN_PROSA, fichaDeCriatura } from '../src/core/contract/vistas.js';
 import {
   accionAlAgente,
   accionDeBatallaDelAgente,
@@ -55,54 +45,45 @@ import {
   JUGADAS_DE_MURALLA,
   SLOT_DE_HUECO,
 } from '../src/core/contract/vocabulario.js';
-import { ASALTANTES, ECONOMIA, EQUIPO, tiposDeHeroe } from '../src/core/data.js';
-import { deDondeSale, PIEZAS_DE_ARMERIA, seVende } from '../src/core/hero/equipo.js';
+import { deDondeSale, EQUIPO, PIEZAS_DE_ARMERIA, seVende } from '../src/core/equipo/pieza.js';
+import { MARGEN_CONTRA_NEUTRALES } from '../src/core/hero/fuerza.js';
+import { ASALTANTES } from '../src/core/hero/grupos.js';
+import { tiposDeHeroe } from '../src/core/hero/tipos-de-heroe.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../src/core/hero/troop.js';
-import {
-  buildMap,
-  caminosDelPlan,
-  generateMapPlan,
-  LADO_DEL_MAPA,
-  type MapPlan,
-  planDelAgente,
-  REGIONES_POR_BANDO,
-  validateMapPlan,
-} from '../src/core/map/generate.js';
-import { pointFromKey, pointKey, RedDeCaminos, stepCost } from '../src/core/map/map.js';
+import { buildMap, caminosDelPlan, planDelAgente } from '../src/core/map/generar/construir.js';
+import { LADO_DEL_MAPA, type MapPlan, REGIONES_POR_BANDO } from '../src/core/map/generar/plan.js';
+import { generateMapPlan } from '../src/core/map/generar/procedimental.js';
+import { validateMapPlan } from '../src/core/map/generar/validar.js';
+import { pointFromKey, pointKey } from '../src/core/map/geometria.js';
+import { costeEnElAlcance, reachableFrom } from '../src/core/map/map.js';
+import { RedDeCaminos } from '../src/core/map/red-de-caminos.js';
 import { BARRERAS, costeDeEntrada, isWalkable, TERRAIN_KINDS } from '../src/core/map/terrain.js';
 import { createRng } from '../src/core/rng.js';
+import { heroesOf, townsOf } from '../src/core/state/consultas.js';
+import { unequipBlocker } from '../src/core/state/equipar.js';
 import { cronicaPara } from '../src/core/state/events.js';
-import {
-  applyAdventureAction,
-  HERO_SCOUT_RADIUS,
-  heroesOf,
-  NODE_SCOUT_RADIUS,
-  resolvePendingBattle,
-  revealEverything,
-  townsOf,
-  unequipBlocker,
-  visibleNow,
-} from '../src/core/state/game.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
 import { REGLA_DEL_PUEBLO } from '../src/core/state/renta.js';
 import { newGame } from '../src/core/state/setup.js';
-import { dueñoDeLaCiudad, MURALLAS_DEL_MAPA } from '../src/core/state/sitios.js';
+import {
+  dueñoDeLaCiudad,
+  guarnicionDeLaCiudad,
+  MURALLAS_DEL_MAPA,
+} from '../src/core/state/sitios.js';
+import {
+  HERO_SCOUT_RADIUS,
+  NODE_SCOUT_RADIUS,
+  revealEverything,
+  visibleNow,
+} from '../src/core/state/vision.js';
+import { ECONOMIA } from '../src/core/town/economia.js';
 import { mageGuildLevel, townSpells } from '../src/core/town/town.js';
 import { SPEED_TO_HEXES } from '../src/core/types.js';
-import {
-  batallaConDos,
-  conCaminos,
-  forzarBatalla,
-  forzarTurno,
-  guarnicionDeLaCiudad,
-  JINETE,
-  NO_MUERTO,
-  PESADA,
-  planConCiudadDeRegion,
-  planDeNodos,
-  TIRADOR,
-  TROPA,
-  TROPA_BARATA,
-} from './helpers.js';
+import { unidadDelJuego } from '../src/core/unidad/catalogo.js';
+import { batallaConDos, forzarTurno } from './batalla-de-prueba.js';
+import { JINETE, NO_MUERTO, PESADA, TIRADOR, TROPA, TROPA_BARATA } from './comun.js';
+import { conCaminos, planConCiudadDeRegion, planDeNodos } from './mapa-de-prueba.js';
+import { forzarBatalla } from './partida-de-prueba.js';
 
 describe('contrato con el agente', () => {
   it('cada tipo de petición tiene esquema y formato de respuesta', () => {
@@ -370,7 +351,7 @@ describe('contrato con el agente', () => {
   });
 
   it('el agente no puede encender un interruptor de reglas: el esquema no los lleva', () => {
-    // Las reglas de la batalla (`battle/reglas.ts`) solo las cambia la arena. Lo
+    // Los interruptores de reglas se fueron el 19-10-2026 (`battle/reglas.ts`). Lo
     // que el agente manda pasa por estos esquemas, y un `reglas` colado se cae
     // al parsear: no llega a ningún sitio que lo pudiera leer.
     const conReglas = {
@@ -605,7 +586,8 @@ describe('los caminos del plan del agente: casillas, y los tramos se derivan (#1
     // Y la suelta abarata entrar en ella, como cualquier casilla de camino.
     const { map } = buildMap({ ...plan, roads });
     const sin = buildMap({ ...plan, roads: [] }).map;
-    expect(stepCost(map, en(3, 7), en(4, 7))).toBeLessThan(stepCost(sin, en(3, 7), en(4, 7)));
+    const paso = (m: typeof map) => costeEnElAlcance(reachableFrom(m, en(3, 7)), en(4, 7));
+    expect(paso(map)).toBeLessThan(paso(sin) as number);
   });
 
   it('el esquema del agente no conoce los tramos: zod los quita del plan del procedimental', () => {
@@ -1303,7 +1285,7 @@ describe('lo que ve el agente', () => {
   });
 
   it('y nombra el terreno y los caminos, o el dato viaja y no se mira (#85)', () => {
-    // La regla de la casa, escrita en `serialize.ts` a cuenta de `level`: un
+    // La regla de la casa, escrita en el contrato (`contract/`) a cuenta de `level`: un
     // dato nuevo que el contrato no nombra es un dato que el agente no mira.
     const prosa = RESPONSE_FORMAT.adventure_turn;
     expect(prosa).toContain('"knownMap"');
@@ -1360,7 +1342,7 @@ describe('lo que ve el agente', () => {
     // reescribía a mano la fórmula de al lado —el camino que sustituye al
     // terreno, la diagonal que multiplica y redondea—, y este test la daba por
     // buena. Es el mismo criterio que `game.test.ts` ya aplica al medir un paso:
-    // «se mide llamando a `stepCost` y no leyendo la tabla».
+    // «se mide con el Dijkstra y no leyendo la tabla».
     //
     // Ahora la prosa lleva las dos columnas ya resueltas y el test las pide a la
     // misma función que se las cobra al héroe. El día que el camino deje de ser

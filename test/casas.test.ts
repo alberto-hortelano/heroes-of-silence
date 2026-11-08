@@ -8,16 +8,17 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { sha256DeFichero } from '../tools/comun/hash.js';
+import { aRaster } from '../tools/comun/imagen.js';
 import {
   CASAS_DE_LOS_PUEBLOS,
   cajaDelGrupo,
   particion,
   pueblosPartidos,
 } from '../tools/taller/casas.js';
-import { aRaster } from '../tools/taller/recorte.js';
-import { sha256 } from './helpers.js';
+import { RAIZ } from './comun.js';
 
-const MODULOS = join(import.meta.dirname, '..', 'assets', 'mapa', 'modulos');
+const MODULOS = join(RAIZ, 'assets', 'mapa', 'modulos');
 const leer = (f: string): any => JSON.parse(readFileSync(join(MODULOS, f), 'utf8'));
 
 describe('las casas sueltas de la labranza', () => {
@@ -30,7 +31,8 @@ describe('las casas sueltas de la labranza', () => {
 
   it('una por casa de la tabla, y cada imagen es la del índice', () => {
     expect(indice.modulos.length).toBe(CASAS_DE_LOS_PUEBLOS.flatMap((c) => c.casas).length);
-    for (const m of indice.modulos) expect(m.sha256).toBe(sha256(join(MODULOS, 'casas', m.imagen)));
+    for (const m of indice.modulos)
+      expect(m.sha256).toBe(sha256DeFichero(join(MODULOS, 'casas', m.imagen)));
   });
 
   it('los pueblos son los que se miraron, y partirlos otra vez da las mismas cajas', async () => {

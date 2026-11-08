@@ -28,10 +28,12 @@ import {
   piezaDeCasilla,
   TEXTURAS,
 } from '../tools/taller/mapa-denso.js';
+import { RAIZ } from './comun.js';
 
-const barreras = JSON.parse(
-  readFileSync(join(import.meta.dirname, '../data/barreras.json'), 'utf8'),
-) as Record<'frontera' | 'obstaculos', Record<Suelo, Partial<Record<Barrera, number>>>>;
+const barreras = JSON.parse(readFileSync(join(RAIZ, 'data/barreras.json'), 'utf8')) as Record<
+  'frontera' | 'obstaculos',
+  Record<Suelo, Partial<Record<Barrera, number>>>
+>;
 
 function parejas(tabla: 'frontera' | 'obstaculos'): [Barrera, Suelo][] {
   return Object.entries(barreras[tabla]).flatMap(([suelo, pesos]) =>
@@ -66,7 +68,7 @@ describe('el catálogo de los mapas densos', () => {
     expect(Object.keys(TEXTURAS).sort()).toEqual([...SUELOS_PISABLES].sort());
     for (const e of encargosDeTexturas()) {
       expect(e.tipo).toBe('textura');
-      // Las reglas de `prompts.ts`: el agua no se nombra en un suelo, que alucina ríos.
+      // Las reglas de `tools/taller/encargo.ts`: el agua no se nombra en un suelo, que alucina ríos.
       expect(e.descripcion).not.toMatch(/\bagua|río|lago/i);
       expect(promptDe(e)).toMatch(/90 grados/);
     }

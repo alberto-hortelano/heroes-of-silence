@@ -6,16 +6,13 @@
  * simultánea. Por eso `elegirEnLaRueda` no recibe ni la acción ni el estado: lo
  * único que sabe es si golpea o responde. Una IA que «lea» al rival es otra tarea.
  */
-import { activeStack, plantarse, stackById } from '../battle/battle.js';
-import {
-  type FormaDeLaRueda,
-  formaDeLaBatalla,
-  type PapelEnLaRueda,
-  PESOS_DE_LA_RUEDA,
-  type TipoDeGolpe,
-} from '../battle/rueda.js';
+import { plantarse } from '../battle/battle.js';
+import { type PapelEnLaRueda, PESOS_DE_LA_RUEDA } from '../battle/cifras-de-la-rueda.js';
+import { activeStack, stackById } from '../battle/consultas.js';
+import { type FormaDeLaRueda, formaDeLaBatalla } from '../battle/formas-de-la-rueda.js';
 import type { BattleAction, BattleStack, BattleState, Side } from '../battle/types.js';
 import { type Rng, sortearPorPesos } from '../rng.js';
+import type { TipoDeGolpe } from '../types.js';
 
 /**
  * Un tipo al azar de la rueda `forma`, con los pesos de su papel: una tirada de
@@ -44,7 +41,7 @@ export type LaIAElige = (quien: BattleStack, papel: PapelEnLaRueda) => boolean;
  * (`falta: null`), o la que espera la elección de otro (`falta`, su papel), con
  * lo de la IA ya elegido.
  */
-export type CruceCompletado =
+type CruceCompletado =
   | { readonly falta: null; readonly accion: BattleAction }
   | { readonly falta: PapelEnLaRueda; readonly accion: AtaqueEnLaRueda };
 

@@ -5,18 +5,19 @@
  * `cast` con `at` y lee lo que hace (`spell_list`).
  */
 import { describe, expect, it } from 'vitest';
-import { loApuntadoEnCasilla, SesionDeArena } from '../src/client/session.js';
-import { heroePorDefecto } from '../src/core/arena.js';
-import { activeStack } from '../src/core/battle/battle.js';
+import { loApuntadoEnCasilla } from '../src/client/sesion/batalla/libro.js';
+import { SesionDeArena } from '../src/client/sesion/sesion-de-arena.js';
+import { heroePorDefecto } from '../src/core/arena/heroe.js';
 import { hexDistance } from '../src/core/battle/board.js';
+import { activeStack } from '../src/core/battle/consultas.js';
 import { formaDeLaBatalla } from '../src/core/battle/formas-de-la-rueda.js';
-import { UNIDADES } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { battleActionSchema } from '../src/core/contract/agent.js';
-import { hechizosAlAgente } from '../src/core/contract/serialize.js';
+import { battleActionSchema } from '../src/core/contract/esquemas.js';
+import { hechizosAlAgente } from '../src/core/contract/vistas.js';
 import { accionDeBatallaDelAgente } from '../src/core/contract/vocabulario.js';
-import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import { catalogoDeHechizos, todosLosHechizos } from '../src/core/magia/catalogo.js';
+import { UNIDADES } from '../src/core/unidad/catalogo.js';
 
 function unidad(id: string) {
   const u = UNIDADES.find((x) => x.id === id);

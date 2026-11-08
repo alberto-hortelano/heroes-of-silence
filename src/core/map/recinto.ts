@@ -2,7 +2,7 @@
  * El recinto de una ciudad (la ciudad amurallada, vuelta 3, 21-10-2026).
  *
  * La ciudad del mapa se pinta como un recinto amurallado de `LADO_DEL_RECINTO`
- * casillas por lado con la ciudad en el medio (`render/escenario/recinto.ts`).
+ * casillas por lado con la ciudad en el medio (`render/escenario/recinto/`).
  * Hasta la vuelta 2 eso era solo de la escena, y el núcleo ponía cosas donde la
  * escena levantaba la muralla: dos ciudades a tres casillas, con los recintos
  * fundidos en un solo castillo (s2, cuatro en uno); un nodo entre las casas de
@@ -10,8 +10,8 @@
  * sobre los tejados. «Dos ciudades no quedan tan cerca que sus recintos se
  * toquen» y «el héroe no atraviesa la muralla» son decisiones del usuario
  * (21-10-2026), así que **el recinto es del núcleo**, y aquí, una vez: dónde está, por dónde se entra y
- * qué lo impide. Lo leen el movimiento (`map.ts`: el Dijkstra, `stepCost`,
- * `isEnterable`), la red (`regiones.ts`: las regiones de una ciudad), el
+ * qué lo impide. Lo leen el movimiento (`map.ts`: el Dijkstra, `isEnterable`,
+ * `sePasa`), la red (`regiones.ts`: las regiones de una ciudad), el
  * generador (para no poner nada dentro y trazar los caminos por las puertas),
  * la puerta de los planes (`validateMapPlan`) y la escena.
  *
@@ -35,10 +35,11 @@
  * puente, `rioAnteLaCiudad`): el acceso de su puerta del río. Hasta la fase 2
  * la ciudad estaba en el río y el recinto tierra adentro.
  */
+import { enumerar } from '../texto.js';
 import type { Point } from '../types.js';
-import type { GameMap, MapObject, MapRegion } from './map.js';
-import type { Estructura } from './regiones.js';
+import { chebyshev, inBounds } from './geometria.js';
 import { isWalkable, type TerrainKind } from './terrain.js';
+import type { Estructura, GameMap, MapObject, MapRegion } from './tipos.js';
 
 /**
  * Lo ancho del recinto en casillas: el 3 × 3 de la ciudad. Lo eligió el usuario
@@ -90,11 +91,11 @@ export function recintoDeLaCiudad(at: Point, W: number, H: number): RectDelRecin
 }
 
 /** Si la casilla `p` cae en el recinto `r`. */
-export const enElRecintoDeLaCiudad = (r: RectDelRecinto, p: Point): boolean =>
+const enElRecintoDeLaCiudad = (r: RectDelRecinto, p: Point): boolean =>
   p.x >= r.i0 && p.x <= r.i1 && p.y >= r.j0 && p.y <= r.j1;
 
 /** Las caras del recinto que pueden llevar puerta: la del este y la del oeste, nunca (decisión del usuario, 21-10-2026). */
-export type CaraConPuerta = 'n' | 'ne' | 'se' | 's' | 'so' | 'no';
+type CaraConPuerta = 'n' | 'ne' | 'se' | 's' | 'so' | 'no';
 
 /** Las caras por las que puede pasar el puente de una ciudad-puente: las cuatro en cruz. */
 export type CaraDelRio = 'n' | 'e' | 's' | 'o';
@@ -104,7 +105,7 @@ export type CaraDelRio = 'n' | 'e' | 's' | 'o';
  * una ciudad-puente delante, la del este o la del oeste (decisión del usuario,
  * 21-10-2026: «esa cara lleva `puerta-e-o` solo ahí»).
  */
-export type CaraDeLaPuerta = CaraConPuerta | 'e' | 'o';
+type CaraDeLaPuerta = CaraConPuerta | 'e' | 'o';
 
 /** Un desplazamiento en casillas desde el medio del recinto. */
 type Paso = readonly [number, number];
@@ -204,12 +205,7 @@ export interface MapaConCaminos extends MapaDelRecinto {
   readonly caminos: { une(p: Point, q: Point): boolean };
 }
 
-const dentro = (map: Pick<MapaDelRecinto, 'width' | 'height'>, p: Point): boolean =>
-  p.x >= 0 && p.y >= 0 && p.x < map.width && p.y < map.height;
 const mas = (at: Point, [dx, dy]: Paso, k = 1): Point => ({ x: at.x + k * dx, y: at.y + k * dy });
-/** Lo que dista `a` de `b` en pasos de rey (Chebyshev): la medida de los recintos. */
-export const chebyshev = (a: Point, b: Point): number =>
-  Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 const casilla = (p: Point): string => `(${p.x},${p.y})`;
 
 /** Las ciudades del mapa: sus casillas. */
@@ -223,7 +219,7 @@ const hayNodo = (map: MapaDelRecinto, p: Point): boolean =>
   );
 
 /** Lo que se sabe del puente de una ciudad-puente. */
-export interface PuenteDeLaCiudad {
+interface PuenteDeLaCiudad {
   /** La cara por la que entra: la que mira al río. */
   readonly cara: CaraDelRio;
   /** La casilla del río que se pisa: el puente, y el acceso de la puerta del río. */
@@ -243,11 +239,11 @@ export interface PuenteDeLaCiudad {
  */
 export function rioAnteLaCiudad(map: MapaDelRecinto, at: Point): PuenteDeLaCiudad | null {
   const agua = (p: Point): boolean =>
-    dentro(map, p) && map.terrain[p.y * map.width + p.x] === 'water';
+    inBounds(map, p) && map.terrain[p.y * map.width + p.x] === 'water';
   for (const cara of CARAS_DEL_RIO) {
     const rumbo = RUMBO_DEL_RIO[cara];
     const acceso = mas(at, rumbo, 2);
-    if (!dentro(map, acceso)) continue;
+    if (!inBounds(map, acceso)) continue;
     if (!isWalkable(map.terrain[acceso.y * map.width + acceso.x] as TerrainKind)) continue;
     if (hayNodo(map, acceso)) continue;
     const aLoLargo: Paso = rumbo[0] === 0 ? [1, 0] : [0, 1];
@@ -258,7 +254,7 @@ export function rioAnteLaCiudad(map: MapaDelRecinto, at: Point): PuenteDeLaCiuda
 }
 
 /** Una puerta de una ciudad: su cara, su casilla en el anillo y los accesos que la llevan. */
-export interface PuertaDeLaCiudad {
+interface PuertaDeLaCiudad {
   readonly cara: CaraDeLaPuerta;
   readonly casilla: Point;
   /** Las casillas de fuera desde las que se entra por ella: se pisan, no son nodo ni caen en otro recinto. */
@@ -278,7 +274,7 @@ export interface PuertaDeLaCiudad {
 export function puertasPosibles(map: MapaDelRecinto, at: Point): PuertaDeLaCiudad[] {
   const otras = ciudadesDe(map).filter((c) => c.x !== at.x || c.y !== at.y);
   const sirve = (p: Point): boolean =>
-    dentro(map, p) &&
+    inBounds(map, p) &&
     isWalkable(map.terrain[p.y * map.width + p.x] as TerrainKind) &&
     !hayNodo(map, p) &&
     otras.every((c) => chebyshev(c, p) > MEDIO);
@@ -498,15 +494,14 @@ const laPuerta = (cara: CaraDeLaPuerta): string =>
 /** Las puertas de una lista, dichas: «la del norte y la del sureste». */
 function dichasLasPuertas(puertas: readonly PuertaDeLaCiudad[]): string {
   const nombres = puertas.map((p) => NOMBRE_DE_CARA[p.cara] + (p.delRio ? ', la del puente' : ''));
-  if (nombres.length <= 1) return nombres[0] ?? 'ninguna';
-  return `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`;
+  return nombres.length === 0 ? 'ninguna' : enumerar(nombres);
 }
 
 /**
  * Por qué no se pisa `hasta`, si es la muralla de una ciudad, en una frase para
  * la persona; `null` si no lo es. `nombre` dice cómo se llama la ciudad de una
- * casilla (el mapa no guarda nombres); sin él, por su casilla. Lo leen el
- * rechazo de una marcha (`porQueNoLlega`) y `stepCost`.
+ * casilla (el mapa no guarda nombres); sin él, por su casilla. Lo lee el
+ * rechazo de una marcha (`porQueNoLlega`).
  */
 export function muroBlocker(
   map: MapaConCaminos,
@@ -525,14 +520,14 @@ export function muroBlocker(
 }
 
 /** Una ciudad, para decirla: su id, su nombre y su casilla. */
-export interface CiudadConNombre {
+interface CiudadConNombre {
   readonly id: string;
   readonly name: string;
   readonly at: Point;
 }
 
 /** Algo que ocupa una casilla y no es un objeto del mapa (un grupo de asaltantes), dicho para la persona. */
-export interface OcupaUnaCasilla {
+interface OcupaUnaCasilla {
   readonly quien: string;
   readonly at: Point;
 }

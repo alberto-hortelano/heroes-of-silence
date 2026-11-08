@@ -350,7 +350,7 @@ function vertice(semilla: number, i: number, j: number): number {
  * cuatro vértices por octava y por punto eran la mitad del tiempo del pintor
  * (~0,2 s por superficie en Node; más en un Worker recién arrancado).
  */
-export interface Ruido {
+interface Ruido {
   readonly octavas: readonly {
     readonly onda: number;
     readonly amplitud: number;

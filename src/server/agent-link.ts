@@ -7,8 +7,10 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { formatoDeLaRespuesta, type RequestKind, responseSchemas } from '@core/contract/agent.js';
+import { type RequestKind, responseSchemas } from '@core/contract/esquemas.js';
+import { formatoDeLaRespuesta } from '@core/contract/formato.js';
 import type { WebSocket } from 'ws';
+import { mensajeDe } from '../shared/errores.js';
 import { notaRespuestaInvalida, notaSinRespuesta } from './notas.js';
 import type {
   AgentGameOverMsg,
@@ -17,7 +19,7 @@ import type {
   ServerToAgentMsg,
 } from './protocol.js';
 
-export interface PendingRequest {
+interface PendingRequest {
   readonly requestId: string;
   readonly kind: RequestKind;
   resolve: (data: unknown) => void;
@@ -25,7 +27,7 @@ export interface PendingRequest {
   timer: ReturnType<typeof setTimeout>;
 }
 
-export type QueryHandler = (what: string, args: Record<string, unknown>) => unknown;
+type QueryHandler = (what: string, args: Record<string, unknown>) => unknown;
 
 /**
  * La respuesta del agente **con el número de petición que la provocó**.
@@ -203,7 +205,7 @@ export class AgentLink {
             type: 'query_result',
             queryId: msg.queryId,
             ok: false,
-            error: err instanceof Error ? err.message : String(err),
+            error: mensajeDe(err),
           });
         }
         return;

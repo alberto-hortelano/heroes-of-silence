@@ -2,11 +2,11 @@
  * Las marcas de fallo en disco: `docs/revision/marcas/<id>.json` y su `<id>.png`.
  *
  * Las escribe el servidor de Vite de `pnpm dev` (plugin `marcas` de
- * `vite.config.ts`) cuando alguien marca un fallo en el mapa, y las leen y
+ * `tools/vite/marcas.ts`) cuando alguien marca un fallo en el mapa, y las leen y
  * resuelven `pnpm marcas` y el coordinador. La carpeta no se commitea: es una
  * bandeja de entrada, no documentación.
  *
- * Aparte de `vite.config.ts` para que los tests lo ejerzan contra una carpeta
+ * Aparte de `tools/vite/marcas.ts` para que los tests lo ejerzan contra una carpeta
  * temporal sin arrancar vite, como `tools/arena/borrador.ts`.
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -18,6 +18,7 @@ import {
   fraseDe,
 } from '../../src/client/desarrollo/esquema.js';
 import type { Marca } from '../../src/client/desarrollo/tipos.js';
+import { textoJson } from '../comun/json.js';
 
 /** Dónde viven las marcas, relativo a la raíz del repo (ignorado por git). */
 export const CARPETA_DE_MARCAS = 'docs/revision/marcas';
@@ -75,7 +76,7 @@ export function guardarMarca(
   };
   // El PNG primero: un JSON sin su recorte sería una marca rota en la lista.
   escribirNuevo(rutaPng, Buffer.from(png, 'base64'));
-  escribirNuevo(json, `${JSON.stringify(marca, null, 2)}\n`);
+  escribirNuevo(json, textoJson(marca, 2));
   return { id, json, png: rutaPng };
 }
 
@@ -121,6 +122,6 @@ export function resolverMarca(raiz: string, id: string, ref: string, ahora = new
     ...marca,
     resuelta: { ref: limpia, fecha: ahora.toISOString() },
   };
-  writeFileSync(rutaDe(raiz, id, '.json'), `${JSON.stringify(resuelta, null, 2)}\n`);
+  writeFileSync(rutaDe(raiz, id, '.json'), textoJson(resuelta, 2));
   return resuelta;
 }

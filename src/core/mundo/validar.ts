@@ -15,23 +15,30 @@
  * de zod salen en inglés y el trozo de la página no lo necesita. Las piezas son
  * las del núcleo que devuelven el motivo (`core/validar.ts`), que aquí se acumula.
  */
-import { problemasDeGrupo } from '../catalogo.js';
+
 import { COMBATE_COMPLETO, cupoDelHeroe } from '../combate.js';
-import { motivoDeLinea } from '../contract/linea.js';
-import { problemaDeTipo } from '../hero/ascenso.js';
-import { piezaSiExiste } from '../hero/equipo.js';
-import { basesDelPlan, buildMap, type MapPlan, validateMapPlan } from '../map/generate.js';
-import { type GameMap, inBounds, isEnterable, type MapObject, terrainAt } from '../map/map.js';
-import { FUERA, pasosDelMapa, queEsElObjeto } from '../map/recinto.js';
+import { piezaSiExiste } from '../equipo/pieza.js';
 import {
   type Banco,
   FIGURAS_NUEVAS_POR_MUNDO,
   figuraDelBanco,
   problemasDePeticiones,
-} from '../npcs.js';
-import { problemasDeGrupoNeutral, regionDeCasilla } from '../state/asaltantes.js';
-import { personasDeLaFaccion } from '../town/voces.js';
+} from '../gente/banco.js';
+import { personasDeLaFaccion } from '../gente/voces.js';
+import { problemaDeTipo } from '../hero/ascenso.js';
+import { problemasDeGrupoNeutral } from '../hero/grupos.js';
+import { motivoDeLinea } from '../linea.js';
+import { buildMap } from '../map/generar/construir.js';
+import type { MapPlan } from '../map/generar/plan.js';
+import { basesDelPlan, validateMapPlan } from '../map/generar/validar.js';
+import { chebyshev, inBounds } from '../map/geometria.js';
+import { isEnterable, terrainAt } from '../map/map.js';
+import { FUERA, pasosDelMapa, queEsElObjeto } from '../map/recinto.js';
+import { regionDeCasilla } from '../map/regiones.js';
+import type { GameMap } from '../map/tipos.js';
+import { conPlural } from '../texto.js';
 import { FACTION_IDS, type FactionId, type Point } from '../types.js';
+import { problemasDeGrupo } from '../unidad/catalogo.js';
 import {
   deLaListaBlocker,
   enteroBlocker,
@@ -47,11 +54,9 @@ import {
   EFECTOS_AL_GANAR,
   EFECTOS_AL_PERDER,
   type Efecto,
-  type EstadoDelMundo,
   esIdDeHistoria,
   type Historia,
   idDeMundoBlocker,
-  type Lugar,
   type Mundo,
   type MundoLeido,
   trasLosEfectos,
@@ -60,12 +65,12 @@ import {
 import { recorrido } from './reglas.js';
 
 /** A cuántas casillas (Chebyshev) va un lugar, como poco, de todo objeto del mapa y de otro lugar. */
-export const SEPARACION_DE_UN_LUGAR = 3;
+const SEPARACION_DE_UN_LUGAR = 3;
 /** Cuántos lugares lleva un mundo como mucho. */
-export const LUGARES_MAXIMOS = 8;
+const LUGARES_MAXIMOS = 8;
 
 /** Lo largo de cada texto de una historia, en caracteres. */
-export const LARGO = {
+const LARGO = {
   titulo: 80,
   resumen: 400,
   nombre: 60,
@@ -102,15 +107,14 @@ export function lugarBlocker(
   if (regionDeCasilla(map, at) < 0) {
     return `${donde} no está dentro de ninguna región: es un paso entre dos, y un lugar va dentro de una`;
   }
-  const cerca = (p: Point): number => Math.max(Math.abs(p.x - at.x), Math.abs(p.y - at.y));
   for (const o of map.objects) {
-    const d = cerca(o.at);
+    const d = chebyshev(o.at, at);
     if (d < SEPARACION_DE_UN_LUGAR) {
       return `${donde} está a ${d} ${deLo(queEsElObjeto(o))} en (${o.at.x}, ${o.at.y}): un lugar va a ${SEPARACION_DE_UN_LUGAR} casillas o más de todo objeto del mapa`;
     }
   }
   for (const o of otros) {
-    const d = cerca(o.at);
+    const d = chebyshev(o.at, at);
     if (d < SEPARACION_DE_UN_LUGAR) {
       return `${donde} está a ${d} del lugar "${o.name}" en (${o.at.x}, ${o.at.y}): dos lugares van a ${SEPARACION_DE_UN_LUGAR} casillas o más`;
     }
@@ -309,7 +313,7 @@ export function leerMundo(crudos: CrudosDelMundo, idEsperado: string, banco: Ban
   const { problemas, leido } = juzgarMundo(crudos, idEsperado, banco);
   if (leido === null) {
     throw new Error(
-      `el mundo "${idEsperado}" no se puede jugar (${problemas.length} problema${problemas.length === 1 ? '' : 's'}):\n- ${problemas.join('\n- ')}`,
+      `el mundo "${idEsperado}" no se puede jugar (${conPlural(problemas.length, 'problema')}):\n- ${problemas.join('\n- ')}`,
     );
   }
   return leido;
@@ -1044,28 +1048,4 @@ function efecto(
       }
       return { batalla: x };
   }
-}
-
-// ---------------------------------------------------------------- en la partida
-
-/** Los objetos del mapa de los lugares de una historia ya validada. */
-export function objetosDeLosLugares(historia: Historia): MapObject[] {
-  return historia.lugares.map((l: Lugar) => ({
-    kind: 'lugar',
-    id: l.id,
-    at: l.at,
-    name: l.nombre,
-  }));
-}
-
-/** El estado con que empieza una partida de ese mundo: cada lugar en su estado inicial, sin marcas ni nada cobrado. */
-export function estadoInicialDelMundo(historia: Historia): EstadoDelMundo {
-  return {
-    historia,
-    estados: Object.fromEntries(historia.lugares.map((l) => [l.id, l.estadoInicial])),
-    marcas: [],
-    cobradas: {},
-    vencidos: {},
-    conversaciones: {},
-  };
 }

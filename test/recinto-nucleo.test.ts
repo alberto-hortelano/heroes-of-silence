@@ -16,16 +16,17 @@ import {
   caraHacia,
   contornoDelRecinto,
   dentroDelContorno,
-} from '../src/client/render/escenario/recinto.js';
-import { RESPONSE_FORMAT } from '../src/core/contract/agent.js';
-import { buildMap, validateMapPlan } from '../src/core/map/generate.js';
+} from '../src/client/render/escenario/recinto/octogono.js';
+import { RESPONSE_FORMAT } from '../src/core/contract/formato.js';
+import { buildMap } from '../src/core/map/generar/construir.js';
+import { validateMapPlan } from '../src/core/map/generar/validar.js';
+import { chebyshev } from '../src/core/map/geometria.js';
 import {
+  costeEnElAlcance,
   createEmptyMap,
   findPath,
-  type GameMap,
   isEnterable,
-  RedDeCaminos,
-  stepCost,
+  reachableFrom,
   tramosDeCasillas,
 } from '../src/core/map/map.js';
 import {
@@ -45,14 +46,13 @@ import {
   regionesDeLaCiudad,
   SEPARACION_DE_CIUDADES,
 } from '../src/core/map/recinto.js';
+import { RedDeCaminos } from '../src/core/map/red-de-caminos.js';
 import { estructura } from '../src/core/map/regiones.js';
-import { baseOf } from '../src/core/state/game.js';
+import type { GameMap } from '../src/core/map/tipos.js';
+import { baseOf } from '../src/core/state/consultas.js';
 import { newGame } from '../src/core/state/setup.js';
-import { planDeNodos } from './helpers.js';
 import { rango, segunPrisa } from './lento.js';
-
-const cheb = (a: { x: number; y: number }, b: { x: number; y: number }) =>
-  Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+import { planDeNodos } from './mapa-de-prueba.js';
 
 describe('el 3 × 3 de una ciudad (`recintoDeLaCiudad`)', () => {
   it('es el 3 × 3 con la ciudad en el medio', () => {
@@ -138,21 +138,18 @@ describe('por dónde se entra en una ciudad (`pasoPermitido`, fase 2)', () => {
       '4,7',
       '4,8',
     ]);
-    // La puerta y la ciudad cuestan como un camino.
-    expect(stepCost(map, { x: 4, y: 2 }, { x: 4, y: 3 })).toBe(75);
+    // La puerta y la ciudad cuestan como un camino: el paso más barato que hay.
+    expect(costeEnElAlcance(reachableFrom(map, { x: 4, y: 2 }), { x: 4, y: 3 })).toBe(75);
     // A la puerta se pasa desde su acceso, no en diagonal desde al lado: de
     // (3,2) se va primero a (4,2).
     expect(
       findPath(map, { x: 3, y: 2 }, { x: 4, y: 4 })?.map((p) => `${p.at.x},${p.at.y}`),
     ).toEqual(['4,2', '4,3', '4,4']);
-    expect(() => stepCost(map, { x: 3, y: 2 }, { x: 4, y: 3 })).toThrow(
-      'no se pasa de (3,2) a (4,3): a una ciudad se entra desde un acceso de una de sus puertas, y de la puerta a ella',
-    );
     // Desde el este, a la ciudad por una puerta y sin pisar el anillo.
     const desdeElEste = findPath(map, { x: 8, y: 4 }, { x: 4, y: 4 });
     if (desdeElEste === null) throw new Error('no llega');
     for (const { at } of desdeElEste.slice(0, -2))
-      expect(cheb(at, { x: 4, y: 4 }), `(${at.x},${at.y})`).toBeGreaterThan(1);
+      expect(chebyshev(at, { x: 4, y: 4 }), `(${at.x},${at.y})`).toBeGreaterThan(1);
     expect(['4,3', '4,5']).toContain(`${desdeElEste.at(-2)?.at.x},${desdeElEste.at(-2)?.at.y}`);
   });
 
@@ -165,9 +162,6 @@ describe('por dónde se entra en una ciudad (`pasoPermitido`, fase 2)', () => {
       '(3,3) es la muralla de la ciudad de (4,4): a una ciudad se entra por sus puertas —la del norte y la del sur—, y el resto de su recinto no se pisa',
     );
     expect(muroBlocker(map, { x: 4, y: 3 })).toBe(null);
-    expect(() => stepCost(map, { x: 2, y: 3 }, { x: 3, y: 3 })).toThrow(
-      '(3,3) es la muralla de la ciudad de (4,4)',
-    );
     // Sin caminos, ninguna puerta: la ciudad queda cerrada.
     const cerrada = praderaConCiudad([]);
     expect(muroBlocker(cerrada, { x: 4, y: 3 })).toBe(
@@ -192,11 +186,11 @@ describe('las puertas de una ciudad (`PUERTAS_DE_LA_CIUDAD`)', () => {
     for (const [cara, { casilla, accesos }] of Object.entries(PUERTAS_DE_LA_CIUDAD)) {
       const puerta = { x: casilla[0], y: casilla[1] };
       // La puerta, en el anillo; sus accesos, fuera, pegados a ella.
-      expect(cheb(puerta, { x: 0, y: 0 }), cara).toBe(1);
+      expect(chebyshev(puerta, { x: 0, y: 0 }), cara).toBe(1);
       expect(accesos.length, cara).toBe(cara === 'n' || cara === 's' ? 1 : 3);
       for (const [x, y] of accesos) {
-        expect(cheb({ x, y }, { x: 0, y: 0 }), `${cara} (${x},${y})`).toBe(2);
-        expect(cheb({ x, y }, puerta), `${cara} (${x},${y})`).toBe(1);
+        expect(chebyshev({ x, y }, { x: 0, y: 0 }), `${cara} (${x},${y})`).toBe(2);
+        expect(chebyshev({ x, y }, puerta), `${cara} (${x},${y})`).toBe(1);
       }
     }
   });

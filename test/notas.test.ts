@@ -4,7 +4,9 @@
  * Son las dos mitades de #31: la prosa que escribe el director (`notas.ts`) y la
  * cola que la entrega el puente (`mcp/veredictos.ts`). Las dos vivían muertas
  * por motivos distintos y las dos se prueban aquí leyendo lo que dicen, que es
- * la única forma de comprobar una nota escrita para que la lea un modelo.
+ * la única forma de comprobar una nota escrita para que la lea un modelo. Y el
+ * texto que compone el puente con ellas, la escucha (`mcp/escucha.ts`), que vivía
+ * en `notas.ts` hasta la fase S de la reorganización (07-11-2026).
  */
 import { describe, expect, it } from 'vitest';
 import type { BattleAction } from '../src/core/battle/types.js';
@@ -12,10 +14,18 @@ import { createRng } from '../src/core/rng.js';
 import type { GameEvent } from '../src/core/state/events.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { PlayerId } from '../src/core/types.js';
+import {
+  leeVeredictos,
+  PREFIJO_CORTE,
+  PREFIJO_FIN,
+  PREFIJO_RELEVO,
+  textoDeCorte,
+  textoDeEscucha,
+  textoDeFin,
+} from '../src/server/mcp/escucha.js';
 import { ColaDeVeredictos } from '../src/server/mcp/veredictos.js';
 import {
   describeAccion,
-  leeVeredictos,
   MOTIVO_PARTIDA_TERMINADA,
   notaAccionAceptada,
   notaAccionSustituida,
@@ -29,16 +39,10 @@ import {
   notaSinRespuesta,
   notaTurnoAventura,
   notaVoces,
-  PREFIJO_CORTE,
-  PREFIJO_FIN,
-  PREFIJO_RELEVO,
   paradaDeLaMarcha,
-  textoDeCorte,
-  textoDeEscucha,
-  textoDeFin,
 } from '../src/server/notas.js';
 import type { AgentRequestMsg } from '../src/server/protocol.js';
-import { acabarPorLaBase } from './helpers.js';
+import { acabarPorLaBase } from './partida-de-prueba.js';
 
 /** Una petición cualquiera, para mirar cómo se compone la escucha. */
 const PETICION: AgentRequestMsg = {

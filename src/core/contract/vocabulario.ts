@@ -1,8 +1,8 @@
 /**
  * **El vocabulario del contrato del agente**: lo que el agente lee y escribe en
  * inglés y el núcleo nombra en español, traducido en un solo sitio. Lo leen el
- * esquema y la prosa del contrato (`agent.ts`), lo que se le manda
- * (`serialize.ts`) y lo que manda él (el director). Tres familias:
+ * esquema y la prosa del contrato (`esquemas.ts`, `formato.ts`), lo que se le
+ * manda (las vistas y las peticiones) y lo que manda él (el director). Tres familias:
  *
  * - **Los huecos de equipo** (decisión del usuario, 12-10-2026: «los huecos van en
  *   inglés en el contrato del agente ya»), **simétricos por uso** (simplify de F2):
@@ -13,7 +13,7 @@
  *   `ranged_weapon` y no `ranged`, que es una opción del daño: dos cosas con el
  *   mismo nombre no se distinguirían en el cable. Un hueco del contrato es
  *   un `Slot`, que **solo produce este módulo**: el tipo lleva una marca que nadie
- *   más puede poner sin un `as Slot`, y eso lo vigila `test/invariantes.test.ts`.
+ *   más puede poner sin un `as Slot`, y eso lo vigila `test/invariantes-batalla.test.ts`.
  * - **La rueda del golpe y los poderes** (F6, 19-10-2026): el agente elige su golpe
  *   al atacar (`hit`) y su respuesta cuando le golpean (`battle_response`), y usa
  *   los poderes de sus unidades con la jugada `power`, que se llama como la del
@@ -29,17 +29,17 @@ import {
   type FormaDeLaRueda,
   tipoDeGolpeBlocker,
 } from '../battle/formas-de-la-rueda.js';
-import type { PuertaDeMuralla } from '../battle/muralla.js';
 import type {
   BattleAction,
   BattleEvent,
   JugadaDeMuralla,
+  PuertaDeMuralla,
   TipoDeEscala,
   TipoDePuerta,
 } from '../battle/types.js';
-import type { MejoraDelPuesto } from '../map/map.js';
-import type { AdventureAction, GameState } from '../state/game.js';
+import type { MejoraDelPuesto } from '../map/tipos.js';
 import { tipoDelVeterano } from '../state/sitios.js';
+import type { AdventureAction, GameState } from '../state/tipos.js';
 import {
   type Hex,
   HUECOS,
@@ -63,10 +63,10 @@ export const UPGRADE_DE_MEJORA = {
 } as const satisfies Readonly<Record<MejoraDelPuesto, string>>;
 
 /** Lo que puede valer el `upgrade` de un nodo en el contrato. */
-export type Upgrade = (typeof UPGRADE_DE_MEJORA)[MejoraDelPuesto];
+type Upgrade = (typeof UPGRADE_DE_MEJORA)[MejoraDelPuesto];
 
 /** Los tres, en el orden de la tabla: lo que el arnés de QA admite en un nodo. */
-export const UPGRADES: readonly Upgrade[] = Object.values(UPGRADE_DE_MEJORA);
+const UPGRADES: readonly Upgrade[] = Object.values(UPGRADE_DE_MEJORA);
 
 /** Si `valor` es un `upgrade` del contrato (`UPGRADES`). */
 export function esUpgrade(valor: unknown): valor is Upgrade {
@@ -98,7 +98,7 @@ export const SLOTS: readonly Slot[] = HUECOS.map((h) => SLOT_DE_HUECO[h]);
  * devuelve `null`: quien la llama (`accionDelAgente`) está dentro del `try` del
  * director, que descarta esa acción con este motivo y sigue con las demás.
  */
-export function huecoDelSlot(slot: string): Hueco {
+function huecoDelSlot(slot: string): Hueco {
   const hueco = HUECOS.find((h) => SLOT_DE_HUECO[h] === slot);
   if (hueco === undefined) {
     throw new Error(huecoDesconocido(slot, SLOTS));
@@ -265,7 +265,7 @@ type DeLaMuralla = Extract<BattleAction, { type: JugadaDeMuralla }>;
  * `wall` y la puerta en `gate`. Hasta esta fase el `default` de `accionAlAgente`
  * las dejaba pasar en español, y no se veía porque el mapa no llevaba muralla. **La
  * tabla**: de ella salen la inversa (`JUGADA_DEL_AGENTE`), el esquema y la prosa
- * (`agent.ts`) y lo que el arnés de QA exige ver cruzar (`JUGADAS_DE_MURALLA`).
+ * (`esquemas.ts`, `formato.ts`) y lo que el arnés de QA exige ver cruzar (`JUGADAS_DE_MURALLA`).
  */
 export const JUGADA_DE_MURALLA = {
   poner_escalera: 'place_ladder',
@@ -396,7 +396,7 @@ type DeLaTraduccion = 'cruce' | 'ladder_placed' | 'gate_opened' | 'gate_closed';
  * con sus nombres del contrato, y los demás tal cual. Escrito, y no inferido, para que
  * un hecho nuevo del núcleo sin su caso no compile (la función no tiene `default`).
  */
-export type HechoAlAgente =
+type HechoAlAgente =
   | Exclude<BattleEvent, { kind: DeLaTraduccion }>
   | (Omit<Extract<BattleEvent, { kind: 'cruce' }>, 'golpe' | 'respuesta'> & {
       readonly hit: Hit;

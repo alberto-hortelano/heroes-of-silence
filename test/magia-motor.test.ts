@@ -6,19 +6,24 @@
  */
 import { describe, expect, it } from 'vitest';
 import { armaduraEnLaPelea } from '../src/core/battle/armas.js';
+import { applyAction } from '../src/core/battle/battle.js';
 import {
   activeStack,
-  applyAction,
-  castBlocker,
-  legalActions,
   movimientoBlocker,
-  previsionDe,
   stackById,
   stackSpeed,
-} from '../src/core/battle/battle.js';
-import { danioPorIndividuo, effectiveAttack, effectiveDefense } from '../src/core/battle/damage.js';
+} from '../src/core/battle/consultas.js';
+import {
+  danioPorIndividuo,
+  effectiveAttack,
+  effectiveDefense,
+  stackHp,
+} from '../src/core/battle/damage.js';
+import { castBlocker } from '../src/core/battle/lanzar.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
+import { previsionDe } from '../src/core/battle/prevision.js';
 import { hechizo } from '../src/core/magia/catalogo.js';
-import { de, montar, turnoDeId, vida } from './magia-de-prueba.js';
+import { de, montar, turnoDeId } from './magia-de-prueba.js';
 
 describe('las entregas', () => {
   it('en contacto: a una casilla del lanzador sí; a dos, no, y lo dice', () => {
@@ -57,11 +62,11 @@ describe('las entregas', () => {
     });
     const { b, rng } = montar([saeta, lanza]);
     const aliado = stackById(b, 'attacker-0');
-    const antes = vida(aliado);
+    const antes = stackHp(aliado);
     // El aliado, en (3,4), está en la recta del héroe al orco de (6,4).
     applyAction(b, { type: 'cast', spell: 'saeta', at: { col: 6, row: 4 } }, rng);
-    expect(vida(aliado)).toBeLessThan(antes);
-    expect(vida(stackById(b, 'defender-0'))).toBe(stackById(b, 'defender-0').unit.hp);
+    expect(stackHp(aliado)).toBeLessThan(antes);
+    expect(stackHp(stackById(b, 'defender-0'))).toBe(stackById(b, 'defender-0').unit.hp);
     // Una por ronda: la previsión del segundo lanza con el motivo del núcleo.
     expect(() => previsionDe(b, { type: 'cast', spell: 'lanza', at: { col: 6, row: 4 } })).toThrow(
       /ya lanzó un hechizo esta ronda/,
@@ -97,7 +102,7 @@ describe('las entregas', () => {
       'defender-0',
       'defender-1',
     ]);
-    expect(vida(stackById(b, 'attacker-0'))).toBe(stackById(b, 'attacker-0').unit.hp);
+    expect(stackHp(stackById(b, 'attacker-0'))).toBe(stackById(b, 'attacker-0').unit.hp);
   });
 
   it('sobre sí, con área: alrededor de quien lo lanza; al tablero, a todos los que dice', () => {
@@ -142,7 +147,7 @@ describe('las entregas', () => {
     const orco = stackById(b, 'defender-0');
     applyAction(b, { type: 'cast', spell: 'meteoro', at: orco.hex }, rng);
     expect(b.log.at(-1)).toMatchObject({ kind: 'cast', spell: 'meteoro', diferido: true });
-    expect(vida(orco)).toBe(orco.unit.hp);
+    expect(stackHp(orco)).toBe(orco.unit.hp);
     expect(stackById(b, 'attacker-heroe').hechizoEnElAire).toMatchObject({ hechizo: 'meteoro' });
     // Hasta que le toca al héroe otra vez, no cae; el orco se queda quieto.
     turnoDeId(b, 'attacker-heroe', rng);
@@ -220,13 +225,13 @@ describe('los efectos', () => {
     const s = stackById(b, 'attacker-1');
     applyAction(b, { type: 'cast', spell: 'escudo', target: s.id }, rng);
     b.heroes.attacker!.castThisRound = false;
-    const antes = vida(s);
+    const antes = stackHp(s);
     applyAction(b, { type: 'cast', spell: 'rayo', target: s.id }, rng);
-    expect(vida(s)).toBe(antes);
+    expect(stackHp(s)).toBe(antes);
     expect(s.effects.find((e) => e.kind === 'escudo')).toMatchObject({ queda: 2 });
     b.heroes.attacker!.castThisRound = false;
     applyAction(b, { type: 'cast', spell: 'rayo', target: s.id }, rng);
-    expect(vida(s)).toBe(antes - 1);
+    expect(stackHp(s)).toBe(antes - 1);
     expect(s.effects.some((e) => e.kind === 'escudo')).toBe(false);
   });
 

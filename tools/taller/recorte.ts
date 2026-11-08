@@ -17,10 +17,11 @@
  *
  * Si la imagen llega SIN alfa (fondo plano pintado), cae a `cutoutBackground`.
  */
-import sharp from 'sharp';
-import { cutoutBackground } from '../gen/cutout.js';
 
-export interface UmbralesDeHalo {
+import { aRaster, type Raster } from '../comun/imagen.js';
+import { cutoutBackground } from './fondo.js';
+
+interface UmbralesDeHalo {
   /** Por debajo, y conectado al borde, es halo. */
   readonly halo: number;
   /** Por encima, es cuerpo y se vuelve opaco. */
@@ -28,29 +29,8 @@ export interface UmbralesDeHalo {
 }
 export const UMBRALES: UmbralesDeHalo = { halo: 96, cuerpo: 200 };
 
-export interface Raster {
-  readonly data: Buffer;
-  readonly width: number;
-  readonly height: number;
-}
-
-export async function aRaster(entrada: Buffer): Promise<Raster> {
-  const { data, info } = await sharp(entrada)
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  if (info.channels !== 4) throw new Error(`esperaba RGBA y llegaron ${info.channels} canales`);
-  return { data, width: info.width, height: info.height };
-}
-
-export function dePng(r: Raster): Promise<Buffer> {
-  return sharp(r.data, { raw: { width: r.width, height: r.height, channels: 4 } })
-    .png()
-    .toBuffer();
-}
-
 /** Qué parte de la imagen ya es transparente: decide si hay alfa de verdad. */
-export function fraccionTransparente(r: Raster): number {
+function fraccionTransparente(r: Raster): number {
   let n = 0;
   for (let i = 3; i < r.data.length; i += 4) if ((r.data[i] as number) < 8) n++;
   return n / (r.width * r.height);

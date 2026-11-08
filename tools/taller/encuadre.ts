@@ -20,8 +20,7 @@
  * Puro: no lee ficheros ni el maniquí; recibe las celdas ya colocadas y dónde
  * espera la cadera cada una. Lo llama `empaquetar`.
  */
-// El ciclo con `empaquetar` es solo de valores que se leen al llamar: no muerde.
-import { ALFA_FIGURA, type Cuerpo, cuerpoDe } from './empaquetar.js';
+import { ALFA_FIGURA, type Cuerpo, cuerpoDe } from './cuerpo.js';
 
 /** Una celda RGBA de `lado`×`lado`. */
 export interface CeldaRgba {
@@ -30,9 +29,9 @@ export interface CeldaRgba {
 }
 
 /** Cuánto se busca el tronco alrededor de su sitio, en px. */
-export const RADIO = 16;
+const RADIO = 16;
 /** Por debajo de esta correlación el tronco no se parece lo bastante para medir. */
-export const NCC_MINIMO = 0.5;
+const NCC_MINIMO = 0.5;
 /** Más que esto no es encuadre, es otra pose: no se mueve más. */
 export const TOPE = 24;
 /**
@@ -41,12 +40,12 @@ export const TOPE = 24;
  * carrera se mueven de verdad, y la correlación seguía a las piernas: en la carga del
  * elfo arquero d1 se apartaba hasta 11 px de la recolocación que eligió el usuario.
  */
-export const BANDA_DEL_TRONCO = [0.15, 0.55] as const;
+const BANDA_DEL_TRONCO = [0.15, 0.55] as const;
 /** Margen alrededor de la ventana del tronco. */
 const MARGEN_DE_LA_VENTANA = 6;
 
 /** Lo medido entre dos fotogramas (numerados desde 0). */
-export interface ParDelTronco {
+interface ParDelTronco {
   readonly de: number;
   readonly a: number;
   /** Lo que se movió el tronco pintado. */
@@ -56,7 +55,7 @@ export interface ParDelTronco {
   readonly ncc: number;
 }
 
-export interface Recolocacion {
+interface Recolocacion {
   /** Cuánto se mueve cada fotograma, en px enteros. */
   readonly desplazamientos: readonly (readonly [number, number])[];
   readonly pares: readonly ParDelTronco[];
@@ -68,7 +67,7 @@ export interface Recolocacion {
  * banda (un brazo o un arma extendidos no la ensanchan), con `MARGEN_DE_LA_VENTANA`.
  * `null` si la celda está vacía.
  */
-export function ventanaDelTronco(c: CeldaRgba): readonly [number, number, number, number] | null {
+function ventanaDelTronco(c: CeldaRgba): readonly [number, number, number, number] | null {
   const cuerpo = cuerpoDeLaCelda(c);
   if (cuerpo === null) return null;
   const { lado } = c;
@@ -130,19 +129,10 @@ function luz(c: CeldaRgba): Float32Array {
 }
 
 /**
- * El desplazamiento `(dx, dy)` que lleva la ventana de `a` sobre `b`, y su NCC:
- * `b(x + dx, y + dy) ≈ a(x, y)`.
+ * El desplazamiento `(dx, dy)` que lleva la ventana de `a` sobre `b`, y su NCC
+ * (`b(x + dx, y + dy) ≈ a(x, y)`), con la luz de cada celda ya calculada (una vez
+ * por fotograma, `luz`).
  */
-export function registrar(
-  a: CeldaRgba,
-  b: CeldaRgba,
-  ventana: readonly [number, number, number, number],
-  radio = RADIO,
-): { dx: number; dy: number; ncc: number } {
-  return registrarLuces(luz(a), luz(b), a.lado, ventana, radio);
-}
-
-/** `registrar` con la luz de cada celda ya calculada (una vez por fotograma). */
 function registrarLuces(
   la: Float32Array,
   lb: Float32Array,
@@ -223,7 +213,7 @@ function resolver(A: number[][], b: number[]): number[] {
 }
 
 /** Lo que se pide a la recolocación, además de los pares del tronco. */
-export interface OpcionesDeRecolocar {
+interface OpcionesDeRecolocar {
   /**
    * Por fotograma, cuánto habría que moverlo según una medida ABSOLUTA del tronco (el
    * estimador de pose: caderas y hombros pintados frente a los del maniquí, con la media
@@ -240,7 +230,7 @@ export interface OpcionesDeRecolocar {
 }
 
 /** Lo que pesa una medida del estimador por defecto: la señal principal cuando la hay. */
-export const PESO_DEL_ESTIMADOR = 1;
+const PESO_DEL_ESTIMADOR = 1;
 
 /**
  * Los desplazamientos de un eje por mínimos cuadrados: cada par pide `s[a] − s[de] =
@@ -468,10 +458,10 @@ export function recolocarConLosPies(
 }
 
 /** Cuántas veces se mide y se recoloca un clip, como mucho. */
-export const VUELTAS_DE_C1 = 3;
+const VUELTAS_DE_C1 = 3;
 
 /** Una celda movida (dx, dy) dentro de su lado (lo que sale, se pierde). */
-export function moverCelda(c: CeldaRgba, dx: number, dy: number): CeldaRgba {
+function moverCelda(c: CeldaRgba, dx: number, dy: number): CeldaRgba {
   const { lado } = c;
   if (dx === 0 && dy === 0) return c;
   const data = new Uint8Array(lado * lado * 4);

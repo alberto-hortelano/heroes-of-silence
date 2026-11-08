@@ -8,9 +8,8 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import vecinos from '../data/vecinos.json' with { type: 'json' };
-import { CUERPO_DE_VECINO, cuerpoDeGente } from '../src/client/render/cuerpo-de-gente.js';
-import { arteDe, arteParaPintar, registrarGente } from '../src/client/render/personajes.js';
-import { hojaDeUnidad, UNIDADES } from '../src/core/catalogo.js';
+import { CUERPO_DE_VECINO, cuerpoDeGente } from '../src/client/render/figuras/cuerpo-de-gente.js';
+import { arteDe, arteParaPintar, registrarGente } from '../src/client/render/figuras/personajes.js';
 import {
   ETIQUETAS,
   figuraDelBanco,
@@ -18,8 +17,9 @@ import {
   leerBanco,
   problemasDeFigura,
   problemasDePeticion,
-} from '../src/core/npcs.js';
+} from '../src/core/gente/banco.js';
 import { FACTION_IDS } from '../src/core/types.js';
+import { hojaDeUnidad, UNIDADES } from '../src/core/unidad/catalogo.js';
 import { hojasDelTaller } from '../tools/arena/borrador.js';
 import {
   aceptarElMundo,
@@ -31,9 +31,9 @@ import {
 } from '../tools/npcs/banco.js';
 import semilla from '../tools/npcs/semilla.json' with { type: 'json' };
 import { colaDelTaller } from '../tools/taller/cola.js';
-import { FIGURA_DE_PRUEBA, raizDeNpcs } from './helpers.js';
+import { RAIZ } from './comun.js';
+import { FIGURA_DE_PRUEBA, raizDeNpcs } from './npcs-de-prueba.js';
 
-const RAIZ = join(import.meta.dirname, '..');
 const BANCO = leerBancoDeDisco();
 
 /** Una figura que vale, para romperla campo a campo. */

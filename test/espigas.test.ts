@@ -21,12 +21,12 @@
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
 import { relieve } from '../src/client/render/escenario/relieve.js';
-import { generateMapPlan } from '../src/core/map/generate.js';
-import { espigasDelRelieve, nivelesDelRelieve } from '../src/core/map/regiones.js';
+import { generateMapPlan } from '../src/core/map/generar/procedimental.js';
+import { espigasDelRelieve, nivelesDelRelieve } from '../src/core/map/niveles.js';
 import type { TerrainKind } from '../src/core/map/terrain.js';
 import { createRng } from '../src/core/rng.js';
 import { newGame } from '../src/core/state/setup.js';
-import { itLento, rango, segunPrisa } from './lento.js';
+import { conRespiro, itLento, rango, segunPrisa } from './lento.js';
 
 /** Un terreno a mano: una letra por casilla (`g` hierba, `~` agua, `/` acantilado, `^` montaña). */
 function rejilla(filas: readonly string[]): {
@@ -122,15 +122,18 @@ describe('en los mapas del procedimental (#210)', () => {
     },
   );
 
-  itLento('el alto es la excepción: menos de una región de cada cuatro a nivel 2 en 1-200', () => {
-    // Con la nieve y la lava siempre a 2 eran el 35,6 % de las regiones y el
-    // 39,3 % de las casillas; s13 llevaba el 72 % a 2 (auditoría 5). Con los
-    // pesos de `data/relieve.json` de #210, 19,0 % y 21,6 % (08-10-2026).
-    const cuenta = [0, 0, 0];
-    for (const s of rango(1, 200))
-      for (const r of generateMapPlan(createRng(s)).regions) cuenta[r.nivel ?? 1]! += 1;
-    const total = cuenta[0]! + cuenta[1]! + cuenta[2]!;
-    expect((100 * cuenta[2]!) / total).toBeLessThan(25);
-    expect((100 * cuenta[1]!) / total).toBeGreaterThan(50);
-  });
+  itLento(
+    'el alto es la excepción: menos de una región de cada cuatro a nivel 2 en 1-200',
+    async () => {
+      // Con la nieve y la lava siempre a 2 eran el 35,6 % de las regiones y el
+      // 39,3 % de las casillas; s13 llevaba el 72 % a 2 (auditoría 5). Con los
+      // pesos de `data/relieve.json` de #210, 19,0 % y 21,6 % (08-10-2026).
+      const cuenta = [0, 0, 0];
+      for await (const s of conRespiro(rango(1, 200)))
+        for (const r of generateMapPlan(createRng(s)).regions) cuenta[r.nivel ?? 1]! += 1;
+      const total = cuenta[0]! + cuenta[1]! + cuenta[2]!;
+      expect((100 * cuenta[2]!) / total).toBeLessThan(25);
+      expect((100 * cuenta[1]!) / total).toBeGreaterThan(50);
+    },
+  );
 });

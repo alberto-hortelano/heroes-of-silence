@@ -21,13 +21,13 @@
  * - **versión abierta** (`fuentes/abierta-<id>`): el cuadro de una morada editado
  *   con ese edificio abierto como una casa de muñecas, sin la pared de delante y
  *   con su sala dentro (vuelta 2 de la morada, 20-10-2026). Se ve mientras se
- *   recluta en ella (`escenas/morada.ts`).
+ *   recluta en ella (`partida/morada/escena.ts`).
  *
  * Cada edificio se recorta luego por la diferencia con la placa, en su región
  * (`recorte-base.ts`). La geometría no se impone: dónde quedó cada puerta se mide
  * sobre el cuadro y se escribe en `data/bases/<f>.json` («manda el cuadro»). Las
  * guías y las hojas de identidad se escriben en `fuentes/`, que se commitea y no
- * va al build (`tools/build/publico.ts`).
+ * va al build (`tools/vite/publico.ts`).
  *
  * Sin arte, la escena pinta un cielo, un muro bajo y cada edificio como un bloque
  * con su nombre (`render/base/pintar.ts`).
@@ -40,9 +40,8 @@
  */
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 import sharp, { type OverlayOptions } from 'sharp';
-import { ALTO_DE_FIGURA } from '../../src/client/render/proyeccion.js';
 import {
   SITIOS,
   type SitioId,
@@ -51,6 +50,7 @@ import {
   sitiosDeLaBase,
 } from '../../src/core/town/sitios.js';
 import type { FactionId } from '../../src/core/types.js';
+import { ALTO_DE_FIGURA } from '../../src/shared/arte.js';
 import {
   columnasALaVista,
   type Disposicion,
@@ -58,17 +58,16 @@ import {
   filaDelPanorama,
   TRAMO,
 } from '../../src/shared/base.js';
+import { RAIZ } from '../comun/raiz.js';
 import { IMAGENES } from './codex.js';
 import type { Encargo } from './encargo.js';
 import { MUESTRA_ELEGIDA } from './mapa.js';
 import { ESTILO_DE_FACCION } from './unidades.js';
 
-const RAIZ = resolve(import.meta.dirname, '../..');
-
 /** Dónde va el arte de la base de una facción (servido en `/bases/<facción>/`). */
 export const dirDeLaBase = (f: FactionId): string => `assets/bases/${f}`;
 /** Lo que solo lee el taller: maestros, ediciones, guías e identidades. No va al build. */
-export const dirDeFuentes = (f: FactionId): string => `${dirDeLaBase(f)}/fuentes`;
+const dirDeFuentes = (f: FactionId): string => `${dirDeLaBase(f)}/fuentes`;
 
 /** El adulto de la vara de medir, en píxeles del tramo: 0,95 pasos, el mismo de la batalla. */
 export const ADULTO_EN_EL_CUADRO = Math.round(ALTO_DE_FIGURA * TRAMO.pxPorPaso);
@@ -138,7 +137,7 @@ interface ArteDeLaBase {
  * (`pintadoDelTramo`): la banda de columnas donde está, la columna de su puerta
  * (que no se mueve, como su pie) y el factor, la puerta pedida entre la que pintó.
  */
-export interface Encogido {
+interface Encogido {
   readonly x0: number;
   readonly x1: number;
   readonly puerta: number;

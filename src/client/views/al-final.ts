@@ -14,10 +14,10 @@
  * (el desenlace y el parte entero), y emparejar por posición juntaría la crónica
  * de la aventura con el parte de la batalla que la sustituye.
  */
-import { type Html, pintar } from '../html.js';
+import { type Html, pintar } from '../comun/html.js';
 
 /** Cómo estaba una caja antes de repintarla: lo que hace falta para decidir. */
-export interface Desplazamiento {
+interface Desplazamiento {
   readonly scrollTop: number;
   readonly scrollHeight: number;
   readonly clientHeight: number;

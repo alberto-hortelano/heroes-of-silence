@@ -23,11 +23,10 @@
  */
 import { isWalkable, type TerrainKind } from '@core/map/terrain.js';
 import { altoDeLaSilueta, type PerfilDe } from './caras.js';
-import type { Sprite } from './colocar.js';
+import type { DeNodo, Sprite } from './colocar/sprite.js';
 import { PIES } from './figuras-del-mapa.js';
 import { type Caja, cajaDeSprite } from './pasillo.js';
 import { separar, type Volumen } from './pintar.js';
-import type { DeNodo } from './puestos.js';
 
 /**
  * La figura con que se mide si una casilla queda tapada, en casillas: los pies a
@@ -158,7 +157,7 @@ export function delanteDeLasParedes(
  * Cuánto de la figura tapa una pared para que la casilla cuente como tapada
  * (`pisablesTapadas`): un cuarto de su caja.
  */
-export const TAPADA_DESDE = 0.25;
+const TAPADA_DESDE = 0.25;
 
 /**
  * Las casillas pisables cuya figura tapan en más de `TAPADA_DESDE` las piezas

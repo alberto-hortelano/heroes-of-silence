@@ -8,19 +8,19 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { fuerzaDe, MARGEN_CONTRA_NEUTRALES, poderDe } from '../src/core/ai/fuerza.js';
-import { playAiTurn } from '../src/core/ai/turn.js';
-import { serializeKnownMap } from '../src/core/contract/serialize.js';
-import { ASALTANTES } from '../src/core/data.js';
+import { playAiTurn, resolvePendingBattle } from '../src/core/ai/turn.js';
+import { serializeKnownMap } from '../src/core/contract/mapa-conocido.js';
+import { fuerzaDe, MARGEN_CONTRA_NEUTRALES, poderDe } from '../src/core/hero/fuerza.js';
+import { ASALTANTES, problemasDeAsaltante } from '../src/core/hero/grupos.js';
 import { Casillas } from '../src/core/map/casillas.js';
-import {
-  buildMap,
-  generateMapPlan,
-  type MapPlan,
-  validateMapPlan,
-} from '../src/core/map/generate.js';
-import { isEnterable, objectAt, pointKey } from '../src/core/map/map.js';
-import { estructura, territorio, VECINAS } from '../src/core/map/regiones.js';
+import { buildMap } from '../src/core/map/generar/construir.js';
+import type { MapPlan } from '../src/core/map/generar/plan.js';
+import { generateMapPlan } from '../src/core/map/generar/procedimental.js';
+import { validateMapPlan } from '../src/core/map/generar/validar.js';
+import { pointKey, VECINAS } from '../src/core/map/geometria.js';
+import { isEnterable, objectAt } from '../src/core/map/map.js';
+import { estructura, regionDeCasilla, tocaUnNodo } from '../src/core/map/regiones.js';
+import { territorio } from '../src/core/map/territorio.js';
 import { createRng } from '../src/core/rng.js';
 import {
   type AsaltanteRecordado,
@@ -29,26 +29,19 @@ import {
   mascaraDeOcupacion,
   pasoDePatrulla,
   pasosDeLaPatrulla,
-  problemasDeAsaltante,
-  type Raider,
   recordarAsaltantes,
-  regionDeCasilla,
-  tocaUnNodo,
 } from '../src/core/state/asaltantes.js';
-import {
-  applyAdventureAction,
-  caminoHasta,
-  type GameState,
-  heroesOf,
-  resolvePendingBattle,
-  visibleNow,
-  visibleNowAt,
-} from '../src/core/state/game.js';
+import { heroesOf } from '../src/core/state/consultas.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
+import { caminoHasta } from '../src/core/state/marcha.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
-import type { Point } from '../src/core/types.js';
-import { ejercito, JINETE, PESADA, TROPA_BARATA } from './helpers.js';
+import type { GameState } from '../src/core/state/tipos.js';
+import { visibleNow, visibleNowAt } from '../src/core/state/vision.js';
+import type { Point, Raider } from '../src/core/types.js';
+import { JINETE, PESADA, TROPA_BARATA } from './comun.js';
 import { segunPrisa } from './lento.js';
+import { ejercito } from './partida-de-prueba.js';
 
 /**
  * Las casillas libres de la región de `r` con la regla de la patrulla: sin
@@ -181,7 +174,7 @@ describe('la emboscada', () => {
     const { state, ctx, hero, grupo, hasta } = enSuRegion(11);
     // Seis jinetes: con la escala baja (26-10-2026), seis pesadas ya no daban el margen.
     hero.army = ejercito({ creature: JINETE, count: 6 });
-    expect(poderDe(grupo)).toBeLessThanOrEqual(MARGEN_CONTRA_NEUTRALES * fuerzaDe(hero, undefined));
+    expect(poderDe(grupo)).toBeLessThanOrEqual(MARGEN_CONTRA_NEUTRALES * fuerzaDe(hero));
     applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: hasta }, ctx, 0);
     expect(state.pendingBattle).toBeNull();
     expect(hero.at).toEqual(hasta);

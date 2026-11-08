@@ -16,7 +16,7 @@
  * `hornearElVelo` y `sinElVelo`).
  *
  * No toca el DOM ni recibe clics: pinta en el lienzo que le dan. No lee la
- * sesión (`invariantes.test.ts`): le dan el clima del sitio. No mira
+ * sesión (`invariantes-cliente.test.ts`): le dan el clima del sitio. No mira
  * `prefers-reduced-motion`: es para leer una página, no para un juego (el
  * usuario, 22-10-2026); la lluvia y el rayo van siempre.
  *
@@ -36,17 +36,17 @@
  *   para 1 200 gotas; las de 1 px, 1 ms), y en el mapa cada una pregunta si
  *   llueve donde cae.
  *
- * Nada de `Math.random` (`invariantes.test.ts`): las gotas salen de un hash de
+ * Nada de `Math.random` (`invariantes-capas.test.ts`): las gotas salen de un hash de
  * su número y del reloj, y el rayo, de un hash de su sitio y de su ciclo.
  */
 import type { MapaDeRed } from '@core/map/regiones.js';
 import { hashDeTexto } from '@core/rng.js';
 import type { ClimaDeLaPartida, ClimaDelSitio } from '@core/state/clima.js';
-import { type CamaraMapa, mundoAPixel } from '../camara-mapa.js';
 import { CacheDeLienzos } from '../copias.js';
 import { mezclar } from '../escenario/fronteras.js';
 import { type Lienzo, lienzoCon } from '../escenario/pintar.js';
-import { animarHasta } from '../figura.js';
+import { animarHasta } from '../figuras/figura.js';
+import { type CamaraMapa, mundoAPixel } from '../mapa/camara.js';
 import { casillaDelRayo, mascarasDelMapa, regionEnElFrente } from './mascaras.js';
 import {
   alzaDe,
@@ -81,7 +81,7 @@ export interface LuzDeNoche {
 }
 
 /** Una máscara del mundo (`mascaras.ts`) y dónde cae en el lienzo, en px CSS. */
-export interface Colocada {
+interface Colocada {
   readonly lienzo: Lienzo;
   readonly x: number;
   readonly y: number;
@@ -90,7 +90,7 @@ export interface Colocada {
 }
 
 /** Un sitio donde caen rayos: uno cada `cada` ms, en el punto que diga `donde` para cada ciclo. */
-export interface FocoDeRayo {
+interface FocoDeRayo {
   readonly id: string;
   readonly cada: readonly [number, number];
   readonly donde: (ciclo: number) => {
@@ -106,7 +106,7 @@ export interface FocoDeRayo {
  * fuegos de noche (todos los de las regiones de noche, no solo los que se ven),
  * en px CSS desde el origen del mundo: no se mueven al arrastrar.
  */
-export interface LuzDelMundo {
+interface LuzDelMundo {
   readonly mascara: Colocada;
   /** Lo que suma la noche (`lighter`) donde es de noche, o `null`. */
   readonly alza: Colocada | null;
@@ -117,7 +117,7 @@ export interface LuzDelMundo {
  * Qué clima hay bajo cada píxel, campo a campo de la receta: un valor para todo
  * el lienzo (una escena) o una máscara del mundo colocada (el mapa).
  */
-export interface CampoDelClima {
+interface CampoDelClima {
   /** Lo que oscurece, multiplicando (`multiply`). */
   readonly luz: Rgb | LuzDelMundo | null;
   /** Lo que suma la noche en una escena tras la luz (`lighter`), o `null`; en el mapa va en la luz del mundo. */
@@ -151,7 +151,7 @@ export interface CampoDelClima {
 }
 
 /** El lienzo donde se pinta: su tamaño en px CSS y el reloj de la página (ms). */
-export interface MarcoDelClima {
+interface MarcoDelClima {
   readonly ancho: number;
   readonly alto: number;
   readonly ahora: number;
@@ -400,7 +400,7 @@ function pintarLoQueAclara(
  * abren un hueco, que es lo que hace que la ciudad se vea entera
  * (`pintarLaLuzDelMundo`). En la base, la capa con sus huecos costaba 8,8 ms por
  * fotograma en 2560×1440 (componerla con `multiply` desde un cuarto), y el
- * `fillRect`, lo que la tormenta: 2,6 ms (medido el 22-10-2026, `tools/qa/clima.ts`).
+ * `fillRect`, lo que la tormenta: 2,6 ms (medido el 22-10-2026, `tools/qa/navegador/clima.ts`).
  */
 function pintarLaLuz(ctx: CanvasRenderingContext2D, campo: CampoDelClima, m: MarcoDelClima): void {
   const { luz, luces } = campo;
@@ -811,7 +811,7 @@ export function pintarAireDelClima(
 // -------------------------------------------------------- una escena entera
 
 /** Lo que necesita el campo de una escena sin regiones, además de su sitio. */
-export interface Escena {
+interface Escena {
   readonly ancho: number;
   readonly alto: number;
   /** Hasta dónde baja el rayo, en px desde arriba: el horizonte de la batalla. Sin él, un tercio del alto. */
@@ -911,7 +911,7 @@ export function sinElVelo(campo: CampoDelClima): CampoDelClima {
 // ----------------------------------------------------------------- el mapa
 
 /** Lo que necesita el clima del mapa: el clima de cada región y dónde mira la cámara. */
-export interface ClimaDelMapa {
+interface ClimaDelMapa {
   readonly mapa: MapaDeRed;
   readonly semilla: number;
   readonly clima: ClimaDeLaPartida;

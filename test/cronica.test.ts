@@ -15,40 +15,30 @@
  * que pasa en una región hay que haberla pisado (`explorarLaVega`).
  */
 import { describe, expect, it } from 'vitest';
-import { marcadoDe } from '../src/client/html.js';
-import { renderLog } from '../src/client/views/panels.js';
-import { playAiGame } from '../src/core/ai/turn.js';
-import { unidadDelJuego } from '../src/core/catalogo.js';
-import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
-import type { MapPlan } from '../src/core/map/generate.js';
-import type { MapObject } from '../src/core/map/map.js';
+import { marcadoDe } from '../src/client/comun/html.js';
+import { renderLog } from '../src/client/views/cronica.js';
+import { playAiGame, resolvePendingBattle } from '../src/core/ai/turn.js';
+import { serializeAdventureTurn } from '../src/core/contract/aventura.js';
+import type { MapPlan } from '../src/core/map/generar/plan.js';
+import type { MapObject } from '../src/core/map/tipos.js';
 import { createRng } from '../src/core/rng.js';
+import { heroById } from '../src/core/state/consultas.js';
 import type { GameEvent } from '../src/core/state/events.js';
 import { visibleTo } from '../src/core/state/events.js';
-import {
-  applyAdventureAction,
-  type GameContext,
-  type GameState,
-  HERO_SCOUT_RADIUS,
-  heroById,
-  objetosConocidos,
-  resolvePendingBattle,
-  visibleNow,
-  visibleNowAt,
-} from '../src/core/state/game.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad, sitioSiExiste } from '../src/core/state/sitios.js';
-import type { Point } from '../src/core/types.js';
+import type { GameContext, GameState } from '../src/core/state/tipos.js';
 import {
-  ejercito,
-  FACCION_A,
-  FACCION_B,
-  NO_MUERTO,
-  PESADA,
-  sinGuarnicionDeSalida,
-  TROPA,
-  TROPA_BARATA,
-} from './helpers.js';
+  HERO_SCOUT_RADIUS,
+  objetosConocidos,
+  visibleNow,
+  visibleNowAt,
+} from '../src/core/state/vision.js';
+import type { Point } from '../src/core/types.js';
+import { unidadDelJuego } from '../src/core/unidad/catalogo.js';
+import { FACCION_A, FACCION_B, NO_MUERTO, PESADA, TROPA, TROPA_BARATA } from './comun.js';
+import { ejercito, sinGuarnicionDeSalida } from './partida-de-prueba.js';
 
 const MI_CASTILLO: Point = { x: 2, y: 6 };
 const SU_CASTILLO: Point = { x: 37, y: 6 };
@@ -355,7 +345,7 @@ describe('la crónica pasa por la niebla', () => {
     // aparezca un tercero haya que ponerlo aquí a mano.
     //
     // En 48×48 y no en el mapa de siempre, por el mismo motivo que el guardia
-    // hermano de `invariantes.test.ts`: cuadrada la economía, la partida de
+    // hermano de `invariantes-partida.test.ts`: cuadrada la economía, la partida de
     // 24×24 acaba el día 6 y se queda en quince tipos —no le da tiempo a
     // aprender un hechizo—, así que este test recorría un evento menos.
     // Bajarle el umbral habría sido dejarlo mirando quince para siempre; en

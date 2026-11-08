@@ -10,7 +10,7 @@
  *
  * Una generación cada vez. El proceso del motor va en **su propio grupo**
  * (`detached`) y se cancela matando ese grupo, nunca por nombre: la máquina es
- * compartida (`CLAUDE.md`). Lo carga el plugin `mundos()` de `vite.config.ts`
+ * compartida (`CLAUDE.md`). Lo carga el plugin `mundos()` de `tools/vite/mundos.ts`
  * (`ssrLoadModule`), que solo existe en `pnpm dev`.
  */
 import { type ChildProcess, spawn } from 'node:child_process';
@@ -18,14 +18,16 @@ import { randomInt } from 'node:crypto';
 import { appendFileSync, closeSync, mkdirSync, openSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { type Progreso, terminada } from '../../src/client/desarrollo/progreso.js';
-import { tipoDeHeroePorDefecto } from '../../src/core/data.js';
+import { tipoDeHeroePorDefecto } from '../../src/core/hero/tipos-de-heroe.js';
 import { idDeMundoBlocker } from '../../src/core/mundo/formato.js';
 import { type PedidoDelMenu, pedidoBlocker } from '../../src/core/mundo/partida.js';
 import { parseSeed } from '../../src/core/rng.js';
 import { parseFaccion } from '../../src/core/types.js';
-import { ordenDelMotor } from '../../src/server/entorno.js';
+import { textoDelEntorno } from '../../src/server/entorno.js';
+import { mensajeDe } from '../../src/shared/errores.js';
+import { matarGrupo } from '../comun/procesos.js';
+import { RAIZ } from '../comun/raiz.js';
 import { aceptarElMundo } from '../npcs/banco.js';
-import { matarGrupo } from '../qa/grupo.js';
 import {
   borrarMundoGenerado,
   borrarSiElMotorNoEscribio,
@@ -38,17 +40,9 @@ import {
   hayMundo,
   lecturaDe,
   problemaDeLaLinea,
-  RAIZ,
   rutaDelFichero,
   validarEnDisco,
 } from './disco.js';
-
-/**
- * La regla de un id de mundo, para la ruta del servidor de desarrollo: `vite.config.ts`
- * no importa el núcleo al arrancar (`arranque.test.ts`), así que la lee de aquí, que
- * carga a demanda.
- */
-export { idDeMundoBlocker } from '../../src/core/mundo/formato.js';
 
 /**
  * Lo más que se espera al motor: un mundo se genera una vez y despacio, pero no sin
@@ -57,7 +51,7 @@ export { idDeMundoBlocker } from '../../src/core/mundo/formato.js';
  * (elfos, grande, 7), de ellos 12-18 pensando la trama antes de escribir nada. El
  * doble de lo más largo, redondeado; con `high` (desde el mismo día) no se ha medido.
  */
-export const TOPE_DEL_MOTOR_MS = 60 * 60_000;
+const TOPE_DEL_MOTOR_MS = 60 * 60_000;
 /**
  * El modelo y el esfuerzo del motor, fijos para que no dependan de los ajustes de quien
  * lo lanza: que en otra máquina salga lo mismo. El esfuerzo, `high` (decisión del
@@ -274,8 +268,7 @@ async function generar(
     }
     poner(g, { fase: 'fallido', problemas, motivo: motivoDelFallo(salida) });
   } catch (err) {
-    if (!g.cancelado)
-      poner(g, { fase: 'fallido', motivo: err instanceof Error ? err.message : String(err) });
+    if (!g.cancelado) poner(g, { fase: 'fallido', motivo: mensajeDe(err) });
   } finally {
     // Cancelada, no deja nada: quien cancela no quiere ese mundo, tenga historia o no
     // (M7 de la vuelta 2). Fallida, deja lo que escribió el motor para mirarlo —la
@@ -325,7 +318,7 @@ let taller: ChildProcess | null = null;
  * `.cache/taller/npcs-<fecha>.log`. Si ya hay uno vivo, no lanza otro: ese toma
  * también lo que se acaba de encolar.
  */
-export function lanzarElTaller(): string {
+function lanzarElTaller(): string {
   if (taller !== null && taller.exitCode === null && taller.signalCode === null) {
     return `el taller ya está pintando (pid ${taller.pid}): toma también estas`;
   }
@@ -342,6 +335,28 @@ export function lanzarElTaller(): string {
   p.unref();
   taller = p;
   return `el taller pinta en segundo plano (pid ${p.pid}, grupo propio); su registro, ${relative(RAIZ, log)}`;
+}
+
+/**
+ * La orden que lanza el motor de narrativa al generar un mundo desde el menú de
+ * `pnpm dev`: `claude` por defecto, Claude Code con la
+ * suscripción. `HEROES_MOTOR=false` lo hace fallar a propósito (la orden `false`
+ * sale 1): así se prueba la pantalla del fallo sin gastar nada. Un texto con
+ * espacios no vale: es una orden, no una línea de shell (no se interpreta).
+ *
+ * Vivía en `src/server/entorno.ts` hasta la fase S de la reorganización
+ * (07-11-2026), y su único lector es este fichero; lee la variable por la lectura
+ * de todas, `textoDelEntorno`.
+ */
+export function ordenDelMotor(): string {
+  const valor = textoDelEntorno('HEROES_MOTOR');
+  if (valor === undefined) return 'claude';
+  if (/\s/.test(valor.trim())) {
+    throw new Error(
+      `HEROES_MOTOR="${valor}" no es una orden: tiene que ser un ejecutable sin argumentos, como claude o /ruta/a/claude`,
+    );
+  }
+  return valor.trim();
 }
 
 /** Los argumentos de `claude -p` para un mundo: la skill, sus permisos y nada más. */
@@ -371,8 +386,9 @@ export function argumentosDelMotor(id: string): string[] {
     // necesita está en la lectura, el ejemplo y la skill.
     '--allowedTools',
     ['Read', ...escribe, `Bash(pnpm mundo validar ${id})`].join(' '),
-    // Sin el MCP «heroes» de `.mcp.json` (el del agente que juega) y sin el hook
-    // `Stop` del repo, que correría `pnpm verify` al acabar.
+    // Sin el MCP «heroes» de `.mcp.json` (el del agente que juega) y sin hooks: el
+    // `Stop` del repo, que corría `pnpm verify` al acabar, se retiró el 25-10-2026,
+    // y el que se añada tampoco tiene que correr aquí.
     '--strict-mcp-config',
     '--settings',
     '{"disableAllHooks":true}',

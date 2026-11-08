@@ -55,14 +55,14 @@ export const SEMIANCHO_DE_LA_HUELLA =
  * mata, piedra, labranza, orilla ni roca de relleno lo pisa. 0,3 por decisión
  * del usuario (05-10-2026); se ajusta a ojo con `pnpm taller escenario`.
  */
-export const MARGEN_DE_SENDA = 0.3;
+const MARGEN_DE_SENDA = 0.3;
 
 /**
  * El arcén de las masas (árboles y picos de bosque y cordillera), menor: el
  * camino va DENTRO de los bosques y las cordilleras, y con el margen de lo bajo
  * se vaciaban. 0,2 por decisión del usuario (05-10-2026).
  */
-export const MARGEN_DE_MASA = 0.2;
+const MARGEN_DE_MASA = 0.2;
 
 /** Media anchura del pasillo de lo bajo: la de la senda más su arcén. */
 export const SEMIANCHO_DEL_PASILLO = ANCHO_DE_SENDA / 2 + MARGEN_DE_SENDA;
@@ -85,7 +85,7 @@ export const SEMIANCHO_DEL_PASILLO_DE_MASA = ANCHO_DE_SENDA / 2 + MARGEN_DE_MASA
  * aparece, y sus vecinos, en el orden de los tramos. Lo leen `encadenar` y
  * `tramosHastaLosEstribos` (`puentes.ts`): un grafo, una forma de construirlo.
  */
-export interface GrafoDeTramos {
+interface GrafoDeTramos {
   readonly puntos: readonly (readonly [number, number])[];
   readonly vecinos: readonly (readonly number[])[];
   /** El número del punto `(x, y)`, o `undefined` si no es de ningún tramo. */

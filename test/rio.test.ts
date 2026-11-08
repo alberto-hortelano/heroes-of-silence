@@ -9,28 +9,33 @@
  * - `nivelesDelRio`: el río al llano, la ciénaga que lo toca al 1, ningún cañón.
  * - **El guardia de continuidad**: en los mapas del juego, cada río del trazado
  *   (`ProceduralOptions.alTrazarElRio`) sigue entero en el mapa hecho, medido
- *   con las definiciones de `tools/qa/rios.ts` (agua, puente o ciudad-puente);
+ *   con las definiciones de `tools/qa/medidas/rios.ts` (agua, puente o ciudad-puente);
  *   y en el río solo hay puentes con dos orillas y ciudades-puente.
  */
 import { describe, expect, it } from 'vitest';
-import { FORMAS_DEL_RIO, RIOS, validarRios } from '../src/core/data.js';
-import { buildMap, generateMapPlan, LADO_DEL_MAPA } from '../src/core/map/generate.js';
+import { buildMap } from '../src/core/map/generar/construir.js';
+import { LADO_DEL_MAPA } from '../src/core/map/generar/plan.js';
+import { generateMapPlan } from '../src/core/map/generar/procedimental.js';
+import { chebyshev } from '../src/core/map/geometria.js';
 import { rioAnteLaCiudad } from '../src/core/map/recinto.js';
 import { estructura } from '../src/core/map/regiones.js';
 import {
   alOtroLado,
+  FORMAS_DEL_RIO,
   ladosDelRio,
   nivelesDelRio,
+  RIOS,
   rioEntero,
   type TrazadoDelRio,
   trazarRio,
+  validarRios,
 } from '../src/core/map/rio.js';
 import { BARRERAS, type Nivel } from '../src/core/map/terrain.js';
-import { ABIERTA, conElRio, esDelRio, ponerTipo } from '../src/core/map/vestir.js';
+import { ABIERTA, conElRio, esDelRio, ponerTipo } from '../src/core/map/vestir/base.js';
 import { createRng } from '../src/core/rng.js';
 import type { Point } from '../src/core/types.js';
-import { riosDelMapa } from '../tools/qa/rios.js';
-import { rango, segunPrisa } from './lento.js';
+import { riosDelMapa } from '../tools/qa/medidas/rios.js';
+import { conRespiro, rango, segunPrisa } from './lento.js';
 
 const W = LADO_DEL_MAPA;
 const H = LADO_DEL_MAPA;
@@ -39,7 +44,6 @@ const N = W * H;
 /** Semillas de región como las de `intentarRed`: las dos casas y parejas en espejo. */
 function semillasDe(seed: number): Point[] {
   const rng = createRng(seed);
-  const cheb = (a: Point, b: Point) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
   const semillas: Point[] = [
     { x: 3, y: 3 },
     { x: W - 4, y: H - 4 },
@@ -47,7 +51,8 @@ function semillasDe(seed: number): Point[] {
   for (let g = 0; semillas.length < 10 && g < 1000; g++) {
     const p = { x: rng.int(1, W - 2), y: rng.int(1, H - 2) };
     const m = { x: W - 1 - p.x, y: H - 1 - p.y };
-    if (cheb(p, m) < 6 || semillas.some((s) => cheb(s, p) < 6 || cheb(s, m) < 6)) continue;
+    if (chebyshev(p, m) < 6 || semillas.some((s) => chebyshev(s, p) < 6 || chebyshev(s, m) < 6))
+      continue;
     semillas.push(p, m);
   }
   return semillas;
@@ -250,12 +255,12 @@ function puenteConDosOrillas(map: ReturnType<typeof buildMap>['map'], at: Point)
 describe('el río de los mapas del juego, entero (el guardia de continuidad)', () => {
   // En el bucle rápido, 1-40; en la orden lenta, 1-200. Muerde: con
   // `sinAguaEnLasEsquinas` escribiendo sin `ponerTipo` y sin el `rioEntero` del
-  // generador, la esquina que pasa a montaña corta el río (implementacion.md).
-  it('cada río del trazado sigue entero en el mapa hecho, con su boca; en él, solo puentes y ciudades-puente, ninguna base; y fuera, ni agua de frontera', () => {
+  // generador, la esquina que pasa a montaña corta el río.
+  it('cada río del trazado sigue entero en el mapa hecho, con su boca; en él, solo puentes y ciudades-puente, ninguna base; y fuera, ni agua de frontera', async () => {
     const malos: string[] = [];
     const formas = new Map<string, number>();
     // La 83, en las dos: su río de lago medía 7 casillas del lago al borde.
-    for (const s of segunPrisa([...rango(1, 40), 83], rango(1, 200))) {
+    for await (const s of conRespiro(segunPrisa([...rango(1, 40), 83], rango(1, 200)))) {
       let trazado: TrazadoDelRio | undefined;
       const plan = generateMapPlan(createRng(s), {
         alTrazarElRio: (t) => {

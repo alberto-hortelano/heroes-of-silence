@@ -2,8 +2,9 @@
  * La muralla del tablero de batalla como arte (06-11-2026, «falta arte para el
  * muro en combate, lo que hay ahora son placeholders, también para la
  * escalera»): las medidas de cada pieza y sus nombres, que leen el lienzo
- * (`render/arte-de-la-muralla.ts`, `render/batalla.ts`) y el taller (las guías
- * que se le dan a Codex y la derivación, `tools/taller/muralla-de-batalla.ts`).
+ * (`render/batalla/`: `muralla.ts`, `muralla-pintada.ts` y `arte-de-la-muralla.ts`)
+ * y el taller (las guías que se le dan a Codex y la derivación,
+ * `tools/taller/muralla-de-batalla.ts`).
  * Vive en `shared` por eso: el núcleo no pinta.
  *
  * Todo va en **pasos**, la unidad del tablero (`render/proyeccion.ts`). Un muro
@@ -29,8 +30,7 @@
  *
  * Sin la imagen, cada pieza pinta su marcador de siempre (`ACABADO_DEL_MURO`).
  */
-import type { MaterialDeMuralla } from '../core/battle/muralla.js';
-
+import type { MaterialDeMuralla } from '../core/battle/types.js';
 /**
  * Lo que mide una columna de la muralla, en pasos: la figura que está arriba se
  * pinta así de alta. Era 0,42 —algo menos de media figura, para que la de detrás
@@ -86,7 +86,7 @@ export const ESCALERA = { ancho: 0.34, largo: 2.2 } as const;
 export const CARPETA_DE_LA_MURALLA = 'batalla/muralla';
 
 /** Las piezas de un material: su cara, su tapa y la portada abierta y cerrada. */
-export interface PiezasDeUnMaterial {
+interface PiezasDeUnMaterial {
   readonly cara: string;
   readonly tapa: string;
   readonly abierta: string;

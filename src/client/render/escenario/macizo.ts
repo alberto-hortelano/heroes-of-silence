@@ -21,7 +21,7 @@
  * `AMPLIACION_MAXIMA` al zoom máximo.
  */
 import type { Suelo } from '@core/map/terrain.js';
-import { PX_AL_ZOOM_MAXIMO } from '../camara-mapa.js';
+import { PX_AL_ZOOM_MAXIMO } from '../mapa/camara.js';
 
 /** Hasta dónde se mira el borde, en casillas: más hondo, la cumbre ya no sube. */
 const HONDURA_MAXIMA = 4;
@@ -102,7 +102,7 @@ const ULTIMA_ENCOGIDA = 0.68;
  * Hasta dónde baja la falda de una cumbre, en casillas: a esa distancia de su
  * pie ya es cresta. Lo de al lado es mediano, no otra cumbre.
  */
-export const FALDA_DE_CUMBRE = 2.4;
+const FALDA_DE_CUMBRE = 2.4;
 
 /**
  * Lado de la retícula del ruido de los grupos, en casillas (#218): dónde la
@@ -150,13 +150,13 @@ const BAJO_DEL_CLARO = 0.6;
 const ESPACIO = { masa: 0.85, claro: 2.2 } as const;
 
 /** Una cumbre de un macizo: su pie y su alto, en casillas. */
-export interface Cumbre {
+interface Cumbre {
   readonly x: number;
   readonly y: number;
   readonly alto: number;
 }
 
-export interface Macizo {
+interface Macizo {
   /** La distancia del punto a la casilla más cercana fuera de la franja, en casillas (tope 4). */
   hondura(x: number, y: number): number;
   /** El alto que toca a un pico en `(x, y)`, en casillas, antes del azar de cada uno. */

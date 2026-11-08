@@ -28,9 +28,8 @@ import {
   sliceDe,
   sobrantesEnDisco,
 } from '../tools/taller/temas/piezas.js';
+import { RAIZ } from './comun.js';
 import { bloquesCss, COLOR, leerHoja, temas } from './hojas-de-estilo.js';
-
-const RAIZ = join(import.meta.dirname, '..');
 
 describe('las piezas en imagen de los temas', () => {
   it('la hoja generada es la del disco: la imagen de cada pieza presente, ninguna de la que falta, y el corte medido de cada marco', async () => {
@@ -40,9 +39,10 @@ describe('las piezas en imagen de los temas', () => {
     // imagen sale rojo, y una imagen puesta sin rehacer la hoja, también. El corte
     // de un marco se mide en su imagen: uno cambiado a mano en la hoja (el 65 de
     // los templarios a 64) sale rojo.
-    expect(readFileSync(join(RAIZ, HOJA_DE_PIEZAS), 'utf8')).toBe(
-      cssDePiezas(await piezasMedidasEnDisco()),
-    );
+    expect(
+      readFileSync(join(RAIZ, HOJA_DE_PIEZAS), 'utf8'),
+      `${HOJA_DE_PIEZAS} no es la de las piezas en disco: rehazla con «pnpm taller piezas-de-tema»`,
+    ).toBe(cssDePiezas(await piezasMedidasEnDisco()));
     expect(sobrantesEnDisco()).toEqual([]);
   });
 

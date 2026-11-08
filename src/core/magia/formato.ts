@@ -28,7 +28,7 @@ export type TipoDeEntrega = (typeof ENTREGAS)[number];
 
 /** Qué se elige al lanzar: una unidad de un bando, cualquiera, o una casilla. */
 export const OBJETIVOS = ['aliado', 'enemigo', 'cualquiera', 'casilla'] as const;
-export type Objetivo = (typeof OBJETIVOS)[number];
+type Objetivo = (typeof OBJETIVOS)[number];
 
 /** De los que alcanza, a quién: relativo al bando de quien lo lanza. */
 export const AFECTA = ['aliados', 'enemigos', 'todos'] as const;
@@ -69,16 +69,16 @@ export type DisiparDe = (typeof DISIPAR_DE)[number];
 
 /** El turno de quién cierra una duración «hasta…». `portador`, solo dentro de un disparador. */
 export const TURNO_DE = ['afectado', 'lanzador', 'portador'] as const;
-export type TurnoDe = (typeof TURNO_DE)[number];
+type TurnoDe = (typeof TURNO_DE)[number];
 
 /** Quién, al caer, se lleva lo que dejó el hechizo. `portador`, solo dentro de un disparador. */
-export const SE_ACABA_SI_MUERE = ['lanzador', 'portador'] as const;
+const SE_ACABA_SI_MUERE = ['lanzador', 'portador'] as const;
 export type SeAcabaSiMuere = (typeof SE_ACABA_SI_MUERE)[number];
 
 /** Un número fijo, o lo que rinde con el poder mágico de quien lo lanza (una unidad, poder 0). */
 export type Cantidad = number | { readonly base: number; readonly porPoder: number };
 
-export type Entrega =
+type Entrega =
   | { readonly tipo: 'libre'; readonly diferido?: boolean }
   | { readonly tipo: 'sobreSi' }
   | { readonly tipo: 'contacto' }
@@ -93,13 +93,13 @@ export type Duracion =
   | 'pelea';
 
 /** Lo que se hace en el acto: no pide duración. */
-export type EfectoInstantaneo =
+type EfectoInstantaneo =
   | { readonly tipo: 'danio'; readonly cantidad: Cantidad; readonly armadura: boolean }
   | { readonly tipo: 'cura'; readonly cantidad: Cantidad }
   | { readonly tipo: 'disipar'; readonly de: DisiparDe };
 
 /** Lo que se cuelga del afectado y dura: pide duración. */
-export type EfectoQueDura =
+type EfectoQueDura =
   | { readonly tipo: 'cifra'; readonly cifra: CifraDeHechizo; readonly valor: number }
   | { readonly tipo: 'impide'; readonly que: readonly Impedible[] }
   | { readonly tipo: 'escudo'; readonly absorbe: Cantidad };
@@ -141,10 +141,6 @@ export const TIPOS_DE_EFECTO = [
 /** Los que se hacen en el acto (el resto dura). */
 export const INSTANTANEOS: readonly TipoDeEfecto[] = ['danio', 'cura', 'disipar'];
 
-export function esInstantaneo(e: Efecto): e is EfectoInstantaneo {
-  return INSTANTANEOS.includes(e.tipo);
-}
-
 /** Un hechizo, tal como se escribe en `data/hechizos.json`. */
 export interface Hechizo {
   readonly id: string;
@@ -170,11 +166,6 @@ export interface Hechizo {
 /** Lo que dice cuánto alcanza el área: 0 si no se escribe. */
 export function areaDe(h: Pick<Hechizo, 'area'>): number | 'recta' {
   return h.area ?? 0;
-}
-
-/** Si lo que deja el hechizo dura (algún efecto de arriba no es instantáneo). */
-export function dejaAlgoQueDura(efectos: readonly Efecto[]): boolean {
-  return efectos.some((e) => !esInstantaneo(e));
 }
 
 /** Si el hechizo sale al empezar el siguiente turno de quien lo lanza. */

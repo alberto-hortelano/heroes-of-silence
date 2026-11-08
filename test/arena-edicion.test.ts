@@ -20,18 +20,17 @@ import {
   listaPlegadaTras,
   renderEdicion,
 } from '../src/client/arena/edicion.js';
+import { enElMontaje, focoTrasQuitar, renderFicha } from '../src/client/arena/paneles/ficha.js';
 import {
   avisoDelCatalogoLeido,
-  enElMontaje,
-  focoTrasQuitar,
   renderCatalogo,
-  renderFicha,
   tarjetasDelCatalogo,
-} from '../src/client/arena/paneles.js';
-import { html, marcadoDe } from '../src/client/html.js';
-import { UNIDADES } from '../src/core/catalogo.js';
-import { EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
-import { hojasDeLaArena, unidadDeArena } from './helpers.js';
+} from '../src/client/arena/paneles/lista.js';
+import { html, marcadoDe } from '../src/client/comun/html.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
+import { UNIDADES } from '../src/core/unidad/catalogo.js';
+import { hojasDeLaArena } from './hojas-de-la-arena.js';
+import { unidadDeArena } from './pelea-de-arena.js';
 
 const HOJAS = hojasDeLaArena();
 const TARJETAS = tarjetasDelCatalogo(UNIDADES, HOJAS);

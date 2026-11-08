@@ -61,7 +61,7 @@
  */
 
 /** Lo que sale de la frontera: el índice de una casilla y lo que costó llegar. */
-export interface NodoFrontera {
+interface NodoFrontera {
   readonly key: number;
   readonly cost: number;
 }

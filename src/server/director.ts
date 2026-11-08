@@ -8,24 +8,19 @@
 
 import { elegirEnLaRueda, pasoDelCruce } from '@core/ai/rueda.js';
 import { chooseBattleAction } from '@core/ai/tactics.js';
-import { type BattleTakeover, playAiTurn } from '@core/ai/turn.js';
-import {
-  activeStack,
-  applyAction,
-  MAX_JUGADAS,
-  mismoTurno,
-  pasosQueQuedan,
-} from '@core/battle/battle.js';
-import { formaDeLaBatalla, type HechoDelCruce } from '@core/battle/rueda.js';
+import { type BattleTakeover, playAiTurn, resolvePendingBattle } from '@core/ai/turn.js';
+import { applyAction, MAX_JUGADAS } from '@core/battle/battle.js';
+import { activeStack, mismoTurno, pasosQueQuedan } from '@core/battle/consultas.js';
+import { formaDeLaBatalla } from '@core/battle/formas-de-la-rueda.js';
+import type { HechoDelCruce } from '@core/battle/rueda.js';
 import type { BattleAction, BattleState, Side, TurnoDeUnidad } from '@core/battle/types.js';
 import type { ReglasDelCombate } from '@core/combate.js';
 import {
   serializeAdventureTurn,
-  serializeBattleResponse,
-  serializeBattleTurn,
   serializeHeroFromTroop,
   serializeTownVoices,
-} from '@core/contract/serialize.js';
+} from '@core/contract/aventura.js';
+import { serializeBattleResponse, serializeBattleTurn } from '@core/contract/batalla.js';
 import {
   type AccionDeBatallaDelAgente,
   type AccionDelAgente,
@@ -33,32 +28,30 @@ import {
   accionDelAgente,
   golpeDelHit,
 } from '@core/contract/vocabulario.js';
+import { firmaDeVoces, ponerVoces, vocesCaducadas } from '@core/gente/voces.js';
 import { porPreguntar } from '@core/hero/ascenso.js';
-import { RANGO_MAXIMO_DE_TROPA, rangoDeHeroe } from '@core/hero/experiencia.js';
-import type { MapPlan } from '@core/map/generate.js';
-import { pointKey } from '@core/map/map.js';
+import { RANGO_MAXIMO_DE_TROPA, rangoDeHeroe } from '@core/hero/rango.js';
+import type { MapPlan } from '@core/map/generar/plan.js';
+import { pointKey } from '@core/map/geometria.js';
 import { createRng } from '@core/rng.js';
+import { settleBattle } from '@core/state/cierre.js';
 import { pedirClima } from '@core/state/clima.js';
 import {
-  applyAdventureAction,
-  ascenderVeterano,
   battleOwners,
   currentPlayer,
-  type GameContext,
-  type GameState,
   hayHuecoDeHeroe,
   playerById,
-  resolvePendingBattle,
-  settleBattle,
   sidesOwnedBy,
   townsOf,
-  veteranosEnSuBase,
   week,
-} from '@core/state/game.js';
+} from '@core/state/consultas.js';
+import { applyAdventureAction } from '@core/state/game.js';
+import { ascenderVeterano, veteranosEnSuBase } from '@core/state/heroes.js';
 import { newGame } from '@core/state/setup.js';
 import { dueñoDeLaCiudad } from '@core/state/sitios.js';
-import { firmaDeVoces, ponerVoces, vocesCaducadas } from '@core/town/voces.js';
+import type { GameContext, GameState } from '@core/state/tipos.js';
 import type { PlayerId, TipoDeGolpe } from '@core/types.js';
+import { mensajeDe } from '../shared/errores.js';
 import type { AgentLink } from './agent-link.js';
 import {
   describeAccion,
@@ -79,19 +72,26 @@ import {
 } from './notas.js';
 
 export interface DirectorOptions {
-  readonly seed?: number;
+  /**
+   * La semilla de la partida. Obligatoria, como `agentPlayers`: la de por defecto
+   * es del servidor (`SEED_POR_DEFECTO`, `partida.ts`), y una copia aquí jugaba
+   * otra partida en cuanto una de las dos cambiara.
+   */
+  readonly seed: number;
   /**
    * El mapa ya diseñado, si alguien lo trae hecho.
    *
    * El director sigue siendo síncrono y sigue sin saber que existe un agente al
    * que pedirle cosas: recibe un plan o no lo recibe. Quien lo pide es
-   * `ws-server.ts`, que es el único que sabe que hay alguien al otro lado del
-   * cable — y el único módulo de este directorio que nadie puede probar de
-   * todos modos.
+   * `partidaConElMapaDelAgente` (`mapa-del-agente.ts`), que lo pide y después
+   * monta el director con él.
    */
   readonly plan?: MapPlan;
-  /** Jugadores cuyo turno decide el agente. */
-  readonly agentPlayers?: readonly PlayerId[];
+  /**
+   * Jugadores cuyo turno decide el agente. Los de la partida del servidor, en
+   * `mapa-del-agente.ts` (`JUGADORES_DEL_AGENTE`).
+   */
+  readonly agentPlayers: readonly PlayerId[];
   /**
    * El último día que se juega. Se le pasa tal cual a `newGame`.
    *
@@ -134,12 +134,12 @@ export interface DirectorOptions {
    * veterano de rango 5 en 0,06 de cada partida, así que `pnpm qa` no cruzaría
    * nunca el ascenso por sí solo. **No lo abre ninguna variable de entorno ni
    * ningún mensaje del cable**: solo un `import` desde `tools/`
-   * (`tools/qa/partida-con-veterano.ts`), que es código que no se despliega.
+   * (`tools/qa/agente/partida-con-veterano.ts`), que es código que no se despliega.
    */
   readonly preparar?: (state: GameState) => void;
 }
 
-export interface TurnReport {
+interface TurnReport {
   readonly player: PlayerId;
   readonly by: 'agent' | 'heuristic';
   readonly actions: number;
@@ -156,10 +156,10 @@ export class Director {
 
   constructor(
     private readonly link: AgentLink,
-    options: DirectorOptions = {},
+    options: DirectorOptions,
   ) {
-    const seed = options.seed ?? 20260823;
-    this.agentPlayers = new Set(options.agentPlayers ?? [1]);
+    const seed = options.seed;
+    this.agentPlayers = new Set(options.agentPlayers);
     this.state = newGame({
       seed,
       ...(options.plan === undefined ? {} : { plan: options.plan }),
@@ -205,7 +205,7 @@ export class Director {
     try {
       this.mirador();
     } catch (err) {
-      const motivo = err instanceof Error ? err.message : String(err);
+      const motivo = mensajeDe(err);
       this.mirador = null;
       this.note(`El espectador ha fallado y se deja de retransmitir (${motivo}).`);
     }
@@ -253,7 +253,7 @@ export class Director {
     try {
       return await this.playAgentTurn(player.id);
     } catch (err) {
-      const motivo = err instanceof Error ? err.message : String(err);
+      const motivo = mensajeDe(err);
       this.note(`El agente no pudo jugar el turno (${motivo}); toma el relevo la IA de reglas.`);
       // La partida no se detiene por un fallo del agente. Y sin takeover: si
       // acaba de fallar, no se le vuelve a preguntar dentro del mismo turno.
@@ -318,9 +318,7 @@ export class Director {
       const respuesta = await this.link
         .ask('hero_from_troop', serializeHeroFromTroop(this.state, player, v))
         .catch((err: unknown) => {
-          this.note(
-            `El veterano ${id} no se hace héroe: ${err instanceof Error ? err.message : String(err)}`,
-          );
+          this.note(`El veterano ${id} no se hace héroe: ${mensajeDe(err)}`);
           return null;
         });
       if (respuesta === null) continue;
@@ -339,7 +337,7 @@ export class Director {
           }),
         );
       } catch (err) {
-        const motivo = err instanceof Error ? err.message : String(err);
+        const motivo = mensajeDe(err);
         this.note(`El veterano ${id} no se hace héroe: ${motivo}`);
         this.link.report(respuesta.requestId, false, [motivo], notaAscensoRechazado(id));
       }
@@ -368,7 +366,7 @@ export class Director {
       .ask('town_voices', serializeTownVoices(this.state, player, caducadas))
       .catch((err: unknown) => {
         this.note(
-          `Las voces de ${caducadas.map((t) => t.name).join(', ')} no llegan: ${err instanceof Error ? err.message : String(err)}`,
+          `Las voces de ${caducadas.map((t) => t.name).join(', ')} no llegan: ${mensajeDe(err)}`,
         );
         return null;
       });
@@ -477,7 +475,7 @@ export class Director {
       } catch (err) {
         // Una acción ilegal se descarta y se le cuenta al agente, tal y como
         // promete el contrato; las siguientes siguen aplicándose.
-        problems.push(`${describeAccion(a)}: ${err instanceof Error ? err.message : String(err)}`);
+        problems.push(`${describeAccion(a)}: ${mensajeDe(err)}`);
         continue;
       }
       // Si la marcha se quedó sin llegar lo dice el núcleo con un hecho —le
@@ -580,9 +578,7 @@ export class Director {
           serializeBattleTurn(battle, s.side, 'propia', this.oroDe(dueños[s.side])),
         )
         .catch((err: unknown) => {
-          this.note(
-            `El agente falló en la batalla (${err instanceof Error ? err.message : String(err)}); la termina la IA.`,
-          );
+          this.note(`El agente falló en la batalla (${mensajeDe(err)}); la termina la IA.`);
           return null;
         });
       if (respuesta === null) break;
@@ -613,7 +609,7 @@ export class Director {
           ),
         );
       } catch (err) {
-        const motivo = err instanceof Error ? err.message : String(err);
+        const motivo = mensajeDe(err);
         this.note(`Acción de batalla rechazada: ${motivo}`);
         // Para no bloquear el turno se juega la de la heurística — y se MIDE lo
         // que cuesta antes de contárselo: un `cast` sustituto no consume el
@@ -724,7 +720,7 @@ export class Director {
       .ask('battle_response', serializeBattleResponse(battle, { atacante, objetivo }))
       .catch((err: unknown) => {
         this.note(
-          `La respuesta de ${objetivo} no llega (${err instanceof Error ? err.message : String(err)}); la elige la IA a ciegas.`,
+          `La respuesta de ${objetivo} no llega (${mensajeDe(err)}); la elige la IA a ciegas.`,
         );
         return null;
       });
@@ -743,7 +739,7 @@ export class Director {
         motivo: null,
       };
     } catch (err) {
-      const motivo = err instanceof Error ? err.message : String(err);
+      const motivo = mensajeDe(err);
       this.note(`Respuesta de la rueda rechazada: ${motivo}`);
       return {
         tipo: elegirEnLaRueda('respuesta', rng, formaDeLaBatalla(battle)),

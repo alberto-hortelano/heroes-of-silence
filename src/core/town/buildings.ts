@@ -1,12 +1,12 @@
 /** Catálogo de edificios del castillo. */
 import buildingsJson from '../../../data/buildings.json' with { type: 'json' };
-import { UNIDADES, unidadesDeMorada } from '../catalogo.js';
-import { ECONOMIA } from '../data.js';
-import { nivelDeUnidad } from '../nivel.js';
 import type { FactionId } from '../types.js';
 import { FACTION_IDS } from '../types.js';
-import type { Unidad } from '../unidad.js';
+import { UNIDADES, unidadesDeMorada } from '../unidad/catalogo.js';
+import type { Unidad } from '../unidad/formato.js';
+import { nivelDeUnidad } from '../unidad/nivel.js';
 import { entero, objetoCon, texto } from '../validar.js';
+import { ECONOMIA } from './economia.js';
 
 export interface Building {
   readonly id: string;
@@ -36,10 +36,9 @@ export interface Building {
    */
   readonly morada?: number;
   readonly mageGuildLevel?: number;
-  readonly grantsWalls?: boolean;
   readonly moraleBonus?: number;
   /**
-   * Vende las piezas que se venden (`seVende`, `hero/equipo.ts`) al héroe propio que
+   * Vende las piezas que se venden (`seVende`, `equipo/pieza.ts`) al héroe propio que
    * esté dentro. Es la armería, que pidió el usuario («Edificio Armería en la
    * ciudad»); su coste es inventado y lo dice el `_comment` del JSON.
    */
@@ -47,7 +46,7 @@ export interface Building {
 }
 
 /** Los sitios de morada de una base: del 1 al 6 (`lvl1`… `lvl6`). */
-export const SITIOS_DE_MORADA = 6;
+const SITIOS_DE_MORADA = 6;
 
 /**
  * El nivel de una morada: el de lo mejor que produce (`nivelDeUnidad`, con el
@@ -79,7 +78,6 @@ const CAMPOS_DE_EDIFICIO: readonly string[] = [
   'requires',
   'morada',
   'mageGuildLevel',
-  'grantsWalls',
   'moraleBonus',
   'sellsEquipment',
 ];
@@ -114,7 +112,6 @@ for (const [i, crudo] of (buildingsJson.buildings as readonly unknown[]).entries
     ...('requires' in raw ? { requires: raw.requires as readonly string[] } : {}),
     ...(morada === undefined ? {} : { morada }),
     ...('mageGuildLevel' in raw ? { mageGuildLevel: raw.mageGuildLevel as number } : {}),
-    ...('grantsWalls' in raw ? { grantsWalls: raw.grantsWalls as boolean } : {}),
     ...('moraleBonus' in raw ? { moraleBonus: raw.moraleBonus as number } : {}),
     ...('sellsEquipment' in raw ? { sellsEquipment: raw.sellsEquipment as boolean } : {}),
   });
@@ -127,7 +124,7 @@ for (const [i, crudo] of (buildingsJson.buildings as readonly unknown[]).entries
  * (1 a 6) que no repite otra. **Lo que la carga del juego exige** a los dos juntos;
  * lo lee también «Guardar» de la arena (`tools/arena/borrador.ts`), para no
  * escribir un catálogo con el que la partida no arrancaría. Aquí y no en
- * `unidad.ts` porque desde allí leer los edificios cerraría un ciclo.
+ * `unidad/formato.ts` porque desde allí leer los edificios cerraría un ciclo.
  */
 export function moradasBlocker(unidades: readonly Unidad[]): string | null {
   for (const u of unidades) {

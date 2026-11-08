@@ -13,11 +13,11 @@
  */
 import { describe, expect, it } from 'vitest';
 import { sendaSobreElAgua } from '../src/client/render/escenario/escalon.js';
-import type { GameMap } from '../src/core/map/map.js';
 import { rioAnteLaCiudad } from '../src/core/map/recinto.js';
-import { esquinasDeAgua } from '../src/core/map/vestir.js';
+import type { GameMap } from '../src/core/map/tipos.js';
+import { esquinasDeAgua } from '../src/core/map/vestir/caminos.js';
 import { newGame } from '../src/core/state/setup.js';
-import { escenaDe } from './helpers.js';
+import { escenaDe } from './escena-de-prueba.js';
 import { rango, segunPrisa } from './lento.js';
 
 /**

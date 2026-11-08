@@ -13,7 +13,7 @@
  * construcción.
  */
 import type { Catalogo } from './catalogo.js';
-import type { Sprite } from './colocar.js';
+import type { Sprite } from './colocar/sprite.js';
 import { type Caja, cajaDeSprite } from './pasillo.js';
 import { bandaDeCara, type Cara, type CaraDeEscena } from './relieve.js';
 
@@ -135,13 +135,13 @@ export function pintadaDeCara(
 }
 
 /** Cuánto de ancho y de alto, en casillas, tiene que medir un trozo de cara lisa para contar. */
-export const CARA_LISA_MINIMA = 0.3;
+const CARA_LISA_MINIMA = 0.3;
 
 /** Cada cuánto se mide en alto lo liso de una columna, en casillas. */
 const PASO_EN_ALTO = 0.1;
 
 /** Un trozo de cara que se pinta y no tapa ninguna pared (`carasLisas`). */
-export interface CaraLisa {
+interface CaraLisa {
   /** La cara, por su índice en `caras`. */
   readonly cara: number;
   /** De qué x a qué x va el trozo. */
@@ -202,7 +202,7 @@ const HUECO_DE_LA_TIRADA = 0.25;
 export const CORTE_JUNTO_A_UN_OBJETO = 2;
 
 /** Una tirada de frontal cortada junto a un objeto: su cara, por su índice, y de qué x a qué x va. */
-export interface CaraCortada {
+interface CaraCortada {
   readonly cara: number;
   readonly a: number;
   readonly b: number;

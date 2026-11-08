@@ -12,13 +12,13 @@
  * (`red.ts`). El clic sigue moviendo al héroe. Lo que se deriva del mapa se hace
  * una vez por mapa; a cada fotograma solo se copia.
  */
-import type { GameMap } from '@core/map/map.js';
 import { type Barrera, esBarrera, NOMBRE_DE_BARRERA } from '@core/map/terrain.js';
-import type { EscenaAventura } from '../escenas/aventura.js';
-import { html, pintar } from '../html.js';
-import { type CamaraMapa, mundoAPixel } from '../render/camara-mapa.js';
+import type { GameMap } from '@core/map/tipos.js';
+import { html, pintar } from '../comun/html.js';
+import type { EscenaAventura } from '../partida/mapa/escena.js';
+import { type CamaraMapa, mundoAPixel } from '../render/mapa/camara.js';
 import { playerColor } from '../render/palette.js';
-import type { Session } from '../session.js';
+import type { Session } from '../sesion/partida.js';
 import { type RedPintada, redPintada } from './red.js';
 import type { Desarrollo } from './tipos.js';
 
@@ -45,7 +45,7 @@ const COLOR_DE_BARRERA: Readonly<Record<Barrera, readonly [number, number, numbe
  * El color de la región `k`: tonos separados por el ángulo áureo, para que dos
  * índices seguidos —que suelen ser vecinas— no se parezcan.
  */
-export function colorDeRegion(k: number): readonly [number, number, number] {
+function colorDeRegion(k: number): readonly [number, number, number] {
   const h = (k * 137.508) % 360;
   // HSL → RGB con s = 0,75 y l = 0,55.
   const s = 0.75;
@@ -231,7 +231,7 @@ function dibujarCapa(ctx: CanvasRenderingContext2D, capa: Capa, cam: CamaraMapa)
   ctx.restore();
 }
 
-export interface DependenciasDeRegiones {
+interface DependenciasDeRegiones {
   readonly sesion: () => Session;
   readonly aventura: EscenaAventura;
   readonly herramientas: HTMLElement;

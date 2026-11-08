@@ -13,7 +13,7 @@
  *  - **la guarnición de cada sitio** (`guarnicionDe`): la de una ciudad, un paso o
  *    un pueblo, en `GameState.guarniciones`, por id del sitio, con su dueño (`null`,
  *    la neutral de una ciudad). **Este módulo es el único que escribe
- *    `guarniciones`** (lo vigila `test/invariantes.test.ts`);
+ *    `guarniciones`** (lo vigila `test/invariantes-partida.test.ts`);
  *  - **la única puerta que mueve tropa entre un héroe y la guarnición de su sitio**,
  *    `repartir`: la usan dejar y recoger (`dejar_tropa`, `recoger_tropa`) y la
  *    defensa (`defensaDeLaIA` al nacer la batalla, `elegirLaDefensa` si la rehace la
@@ -23,32 +23,26 @@
  *    aquí (`laDefensa`);
  *  - **la muralla de cada sitio** en la batalla (fase 2): la piedra de la ciudad y
  *    la madera del pueblo, de `data/sitios.json`, que **solo importa este módulo**
- *    (lo vigila `test/invariantes.test.ts`) y que se juzga al cargar
+ *    (lo vigila `test/invariantes-datos.test.ts`) y que se juzga al cargar
  *    (`murallaDelMapaBlocker`): una forma rota no llega a ninguna partida;
  *  - **las obras de un puesto** (fase 3): la empalizada y la muralla de un paso
  *    tomado, con su precio y la forma que nombran en `data/sitios.json`
  *    (`OBRAS_DEL_PUESTO`; el fichero entero lo lee `leerSitios`), la regla de
  *    hacerlas (`mejorarBlocker`) y **la única escritura de `node.mejora`**
- *    (`mejorarElPuesto`; lo vigila `test/invariantes.test.ts`). El oro lo cobra la
+ *    (`mejorarElPuesto`; lo vigila `test/invariantes-partida.test.ts`). El oro lo cobra la
  *    acción, en `game.ts`, como toda compra.
  *
- * No importa nada de `game.ts` salvo tipos: `game.ts` lo importa a él. El dueño
- * de un sitio lo pregunta a la red (`dueñoDeUnSitio`, `map/regiones.ts`).
+ * No importa nada de `game.ts` (sus tipos, de `tipos.ts`): `game.ts` lo importa a él. El dueño
+ * de un sitio lo pregunta a la red (`dueñoDeUnSitio`, `map/territorio.ts`).
  */
 import sitiosJson from '../../../data/sitios.json' with { type: 'json' };
-import { unitPower } from '../ai/fuerza.js';
-import {
-  type MaterialDeMuralla,
-  type MurallaDeBatalla,
-  murallaDelMapaBlocker,
-  SIN_MURALLA,
-  validarMuralla,
-} from '../battle/muralla.js';
-import { unidadDelJuego, unidadDelJuegoSiExiste } from '../catalogo.js';
-import type { Hero } from '../hero/hero.js';
+import { murallaDelMapaBlocker, SIN_MURALLA, validarMuralla } from '../battle/muralla.js';
+import type { MaterialDeMuralla, MurallaDeBatalla } from '../battle/types.js';
+import { unitPower } from '../hero/fuerza.js';
 import {
   armyLeadership,
   capacidadDe,
+  contarPorTipo,
   GARRISON_LEADERSHIP,
   licenciar,
   type TroopGroup,
@@ -56,6 +50,7 @@ import {
   troopSummary,
   troopUnit,
 } from '../hero/troop.js';
+import { dueñoDeUnSitio, sitioEnUnNodo } from '../map/territorio.js';
 import {
   esObraDelPuesto,
   type MapObject,
@@ -63,25 +58,22 @@ import {
   OBRA_SIGUIENTE,
   OBRAS_DE_UN_PUESTO,
   type ObraDelPuesto,
-} from '../map/map.js';
-import { dueñoDeUnSitio, sitioEnUnNodo } from '../map/regiones.js';
-import { CHARACTER_BODY } from '../rpg/character.js';
+} from '../map/tipos.js';
 import { oroBlocker, type Town } from '../town/town.js';
-import { type Army, NOMBRE_DE_FACCION, type PlayerId, type Point, type Troop } from '../types.js';
-import { deLaLista, entero, esObjeto, problemasDeObjeto } from '../validar.js';
+import {
+  type Army,
+  type GrupoDeTropa,
+  type Guarnicion,
+  type Hero,
+  NOMBRE_DE_FACCION,
+  type PlayerId,
+  type Point,
+  type Troop,
+} from '../types.js';
+import { unidadDelJuego, unidadDelJuegoSiExiste } from '../unidad/catalogo.js';
+import { deLaLista, entero, esObjeto, objetoCon } from '../validar.js';
 import type { Ocupante } from './events.js';
-import type { AdventureAction, GameState } from './game.js';
-
-/**
- * La tropa que guarda un sitio, y de quién es: quien la dejó, o el dueño con que
- * nació (la de una base); `null`, la neutral de una ciudad neutral. **No cambia de
- * bando** porque cambie el dueño del sitio (P1 de la tarea 2): si el sitio pasa a
- * otro, la tropa lo ocupa (`ocupanteDe`).
- */
-export interface Guarnicion {
-  readonly dueño: PlayerId | null;
-  readonly tropa: Army;
-}
+import type { AdventureAction, GameState } from './tipos.js';
 
 type Nodo = Extract<MapObject, { kind: 'node' }>;
 type Pueblo = Extract<MapObject, { kind: 'village' }>;
@@ -373,7 +365,7 @@ export function ciudadQueMandaBlocker(
  * Lo que es cada sitio en una frase («… es una ciudad»): junto a `nombreDelSitio`,
  * para los motivos que dicen por qué un sitio no vale para algo.
  */
-export const QUE_ES_EL_SITIO: Readonly<Record<Sitio['kind'], string>> = {
+const QUE_ES_EL_SITIO: Readonly<Record<Sitio['kind'], string>> = {
   ciudad: 'una ciudad',
   paso: 'un paso',
   pueblo: 'un pueblo',
@@ -399,7 +391,7 @@ const MATERIAL_DE_LA_OBRA: Readonly<Record<ObraDelPuesto, MaterialDeMuralla>> = 
 };
 
 /** Lo que es cada obra de un puesto en la partida: lo que cuesta y tras qué muralla se pelea. */
-export interface LaObra {
+interface LaObra {
   /** En oro (inventado, `data/sitios.json`). */
   readonly precio: number;
   /** La forma que nombra en el fichero: el mismo objeto que la de quien la comparta. */
@@ -407,7 +399,7 @@ export interface LaObra {
 }
 
 /** Lo que se lee de `data/sitios.json` (`leerSitios`). */
-export interface LosSitios {
+interface LosSitios {
   /** La muralla de toda batalla contra una ciudad y contra un pueblo. */
   readonly murallas: Readonly<Record<SitioConMuralla, MurallaDeBatalla>>;
   /** Las obras de un puesto, con su precio y su muralla. */
@@ -428,7 +420,10 @@ const USOS = [...SITIOS_CON_MURALLA, ...OBRAS_DE_UN_PUESTO];
  * dé ficheros rotos a propósito; el juego la llama una vez, al cargar.
  */
 export function leerSitios(valor: unknown, fichero = 'data/sitios.json'): LosSitios {
-  const enLaRaiz = objeto(valor, ['_comment', 'murallas', 'usos'], ['murallas', 'usos'], fichero);
+  const enLaRaiz = objetoCon(valor, ['_comment', 'murallas', 'usos'], fichero, [
+    'murallas',
+    'usos',
+  ]);
   const formas = new Map<string, MurallaDeBatalla>();
   const crudas = enLaRaiz.murallas;
   if (!esObjeto(crudas)) throw new Error(`${fichero}: «murallas» tiene que ser un objeto`);
@@ -445,11 +440,11 @@ export function leerSitios(valor: unknown, fichero = 'data/sitios.json'): LosSit
     formas.set(nombre, m);
   }
   const nombres = [...formas.keys()];
-  const usos = objeto(enLaRaiz.usos, USOS, USOS, `${fichero}: «usos»`);
+  const usos = objetoCon(enLaRaiz.usos, USOS, `${fichero}: «usos»`, USOS);
   /** La forma que nombra el uso `uso`, que tiene los campos `campos`. */
   const formaDe = (uso: string, campos: readonly string[]) => {
     const quien = `${fichero}: el uso «${uso}»`;
-    const crudo = objeto(usos[uso], campos, campos, quien);
+    const crudo = objetoCon(usos[uso], campos, quien, campos);
     const muralla = formas.get(deLaLista(crudo.muralla, nombres, '«muralla»', quien));
     return { crudo, quien, muralla: muralla as MurallaDeBatalla };
   };
@@ -466,18 +461,6 @@ export function leerSitios(valor: unknown, fichero = 'data/sitios.json'): LosSit
     obras[obra] = { precio: entero(crudo.precio, '«precio»', quien, 1), muralla };
   }
   return { murallas: Object.freeze(murallas), obras: Object.freeze(obras) };
-}
-
-/** `valor` como objeto con los campos `campos` (y `obligatorios`), o lanza con `quien` delante. */
-function objeto(
-  valor: unknown,
-  campos: readonly string[],
-  obligatorios: readonly string[],
-  quien: string,
-): Readonly<Record<string, unknown>> {
-  const [motivo] = problemasDeObjeto(valor, campos, obligatorios);
-  if (motivo !== undefined) throw new Error(`${quien}: ${motivo}`);
-  return valor as Readonly<Record<string, unknown>>;
 }
 
 const SITIOS = leerSitios(sitiosJson);
@@ -517,7 +500,7 @@ const MATERIAL_DEL_PUESTO: Readonly<Record<MejoraDelPuesto, MaterialDeMuralla | 
 };
 
 /** Una obra hecha (o por hacer): quién, en qué paso, cuál y por cuánto. */
-export interface ObraHecha {
+interface ObraHecha {
   readonly hero: Hero;
   readonly nodo: Nodo;
   readonly obra: ObraDelPuesto;
@@ -613,7 +596,7 @@ export function mejorarBlocker(
 /**
  * Hace la obra `obra` —la siguiente— en el puesto donde está el héroe `heroId`, o
  * lanza con `mejorarBlocker`. **La única escritura de `node.mejora`** (lo vigila
- * `test/invariantes.test.ts`). No cobra: cobra la acción, con el jugador que ya
+ * `test/invariantes-partida.test.ts`). No cobra: cobra la acción, con el jugador que ya
  * tiene, como toda compra. Devuelve qué obra, dónde y por cuánto.
  */
 export function mejorarElPuesto(
@@ -713,7 +696,7 @@ export function guarnicionHostil(
  * guarnición, en ese orden (el de despliegue). Es de donde salen el reparto, la
  * defensa de la IA y la de la persona.
  */
-export function entreLosDos(state: GameState, hero: Hero, sitio: Sitio): Troop[] {
+function entreLosDos(state: GameState, hero: Hero, sitio: Sitio): Troop[] {
   return [...hero.army, ...guarnicionDe(state, sitio)];
 }
 
@@ -825,7 +808,7 @@ export function repartir(state: GameState, hero: Hero, sitio: Sitio, enElHeroe: 
 }
 
 /** Dejar tropa en la guarnición (`dejar_tropa`) o recogerla (`recoger_tropa`): el tipo de la acción. */
-export type Intercambio = Extract<
+type Intercambio = Extract<
   AdventureAction,
   { readonly type: 'dejar_tropa' | 'recoger_tropa' }
 >['type'];
@@ -952,14 +935,8 @@ function elIntercambio(
     const v = origen.find((t) => t.veterania?.id === pedido.veterano);
     if (v === undefined)
       return { motivo: `${quienOrigen} no lleva al veterano "${pedido.veterano}"` };
-    if (v.member !== undefined) {
-      return { motivo: 'un personaje no se deja en una guarnición: va siempre con su héroe' };
-    }
     movidos = [v];
   } else {
-    if (pedido.creature === CHARACTER_BODY) {
-      return { motivo: 'un personaje no se deja en una guarnición: va siempre con su héroe' };
-    }
     const especie = unidadDelJuegoSiExiste(pedido.creature);
     if (especie === null) return { motivo: `no existe ninguna unidad "${pedido.creature}"` };
     // De su tipo, los que se irían (`licenciar`, de uno en uno con `elQueSeIria`).
@@ -987,9 +964,10 @@ function elIntercambio(
 /**
  * Por qué `player` no puede dejar (`dejar_tropa`) o recoger (`recoger_tropa`) esa
  * tropa entre su héroe y la guarnición del sitio donde está, o `null`. **La regla
- * de dejar y recoger**, una vez: la leen las dos acciones (que lanzan con ella), los
- * botones de la pantalla de la guarnición y el veredicto del agente. No mira el
- * turno (`turnBlocker`).
+ * de dejar y recoger**, una vez (`elIntercambio`): las dos acciones lanzan con su
+ * frase (`moverTropa`), que es la que le llega al agente en el veredicto. La
+ * pantalla de la guarnición no la pregunta: reparte de una vez (`repartir_tropa`,
+ * `elReparto`). No mira el turno (`turnBlocker`).
  *
  * En el orden en que se entiende: quién, dónde, de quién es el sitio, qué se pide,
  * si lo hay y si cabe donde va (`troopBlocker`, que dice cuántos caben, y después
@@ -1043,21 +1021,14 @@ export type LineaDelReparto =
   | { readonly creature: string; readonly count: number }
   | { readonly veterano: string };
 
-/** Cuántos de cada tipo, en orden de primera aparición: lo que cuenta el hecho de un reparto. */
-export interface TropaMovida {
-  readonly creature: string;
-  readonly count: number;
-}
-
 /**
- * Las líneas que describen `army` tal cual (los personajes no: van siempre con su
- * héroe): de donde parte la pantalla de la guarnición, que las edita.
+ * Las líneas que describen `army` tal cual: de donde parte la pantalla de la
+ * guarnición, que las edita.
  */
 export function lineasDelEjercito(army: Army): LineaDelReparto[] {
   const lineas: LineaDelReparto[] = [];
   const novatos = new Map<string, number>();
   for (const t of army) {
-    if (t.member !== undefined) continue;
     if (t.veterania !== undefined) {
       lineas.push({ veterano: t.veterania.id });
       continue;
@@ -1072,10 +1043,9 @@ export function lineasDelEjercito(army: Army): LineaDelReparto[] {
  * Quién iría con `hero` con el reparto `lineas`, por su posición en lo que hay entre
  * él y la guarnición de su sitio (`entreLosDos`), o por qué las líneas no valen.
  * **Las líneas dicen todo lo que va con él**: un tipo que no nombran, y un veterano
- * que no nombran, quedan en la guarnición; los personajes van siempre con él. De
- * cada tipo, los novatos que ya llevaba primero (son iguales: así no se mueve a nadie
- * de más). No vale nombrar dos veces un tipo o un veterano, un personaje, un tipo que
- * no existe ni más novatos de los que hay. Los cupos no los mira: eso es del reparto
+ * que no nombran, quedan en la guarnición. De cada tipo, los novatos que ya llevaba
+ * primero (son iguales: así no se mueve a nadie de más). No vale nombrar dos veces
+ * un tipo o un veterano, un tipo que no existe ni más novatos de los que hay. Los cupos no los mira: eso es del reparto
  * entero (`repartirTropaBlocker`), y la pantalla enseña lo editado aunque no quepa.
  *
  * Por posición y no por identidad, como `defensaDeLaIA`: un mismo objeto puede ir
@@ -1089,9 +1059,6 @@ function elegidosDelReparto(
 ): ReadonlySet<number> | { readonly motivo: string } {
   const todos = entreLosDos(state, hero, sitio);
   const elegidos = new Set<number>();
-  todos.forEach((t, i) => {
-    if (t.member !== undefined) elegidos.add(i);
-  });
   const vistos = new Set<string>();
   for (const linea of lineas) {
     if ('veterano' in linea) {
@@ -1105,16 +1072,10 @@ function elegidosDelReparto(
           motivo: `ni ${hero.name} ni la guarnición ${delSitio(sitio)} llevan al veterano "${linea.veterano}"`,
         };
       }
-      if (todos[i]?.member !== undefined) {
-        return { motivo: 'un personaje no se reparte: va siempre con su héroe' };
-      }
       elegidos.add(i);
       continue;
     }
     const { creature, count } = linea;
-    if (creature === CHARACTER_BODY) {
-      return { motivo: 'un personaje no se reparte: va siempre con su héroe' };
-    }
     if (vistos.has(`c:${creature}`)) return { motivo: `«${creature}» va dos veces en el reparto` };
     vistos.add(`c:${creature}`);
     if (!Number.isSafeInteger(count) || count < 0) {
@@ -1124,9 +1085,7 @@ function elegidosDelReparto(
     if (especie === null) return { motivo: `no existe ninguna unidad "${creature}"` };
     const novatos = todos
       .map((t, i) => ({ t, i }))
-      .filter(
-        ({ t }) => t.creature === creature && t.member === undefined && t.veterania === undefined,
-      );
+      .filter(({ t }) => t.creature === creature && t.veterania === undefined);
     if (count > novatos.length) {
       return {
         motivo: `entre ${hero.name} y la guarnición ${delSitio(sitio)} hay ${novatos.length} × ${especie.name} sin veteranía, no ${count}`,
@@ -1137,13 +1096,6 @@ function elegidosDelReparto(
     for (const { i } of novatos.slice(0, count)) elegidos.add(i);
   }
   return elegidos;
-}
-
-/** `army` contado por tipo, en orden de primera aparición (los veteranos, con los de su tipo). */
-function porTipo(army: Army): TropaMovida[] {
-  const cuenta = new Map<string, number>();
-  for (const t of army) cuenta.set(t.creature, (cuenta.get(t.creature) ?? 0) + 1);
-  return [...cuenta].map(([creature, count]) => ({ creature, count }));
 }
 
 /** Lo que pide un reparto: el héroe y las líneas de lo que va con él (`LineaDelReparto`). */
@@ -1233,24 +1185,24 @@ export function repartirTropa(
 ): {
   readonly hero: Hero;
   readonly sitio: Sitio;
-  readonly deja: readonly TropaMovida[];
-  readonly recoge: readonly TropaMovida[];
+  readonly deja: readonly GrupoDeTropa[];
+  readonly recoge: readonly GrupoDeTropa[];
 } {
   const r = elRepartoPedido(state, player, pedido);
   if ('motivo' in r) throw new Error(`no se puede repartir la tropa: ${r.motivo}`);
   repartir(state, r.hero, r.sitio, r.ejercito);
-  return { hero: r.hero, sitio: r.sitio, deja: porTipo(r.deja), recoge: porTipo(r.recoge) };
-}
-
-/** Un grupo de un lado del reparto y por qué no se pasa al otro (un personaje), o `null`. */
-export interface FilaDelReparto {
-  readonly grupo: TroopGroup;
-  readonly motivo: string | null;
+  return {
+    hero: r.hero,
+    sitio: r.sitio,
+    deja: contarPorTipo(r.deja),
+    recoge: contarPorTipo(r.recoge),
+  };
 }
 
 /** Lo que ocupa un lado del reparto frente a lo que cabe en él. */
 export interface LadoDelReparto {
-  readonly filas: readonly FilaDelReparto[];
+  /** Sus grupos (`troopSummary`): cada uno se puede pasar al otro lado. */
+  readonly filas: readonly TroopGroup[];
   readonly liderazgo: number;
   readonly individuos: number;
   readonly tope: number;
@@ -1272,9 +1224,8 @@ export interface ElReparto {
  * lados con `lineas` (por defecto, como están), agrupados (`troopSummary`), con lo
  * que ocupa cada uno frente a su cupo, y **el motivo del núcleo** para no
  * confirmarlo. Lo que no cabe a un lado se puede editar si el final cabe: por eso
- * el motivo es del reparto entero y no de cada paso; el único paso que no se da es
- * pasar un personaje a la guarnición. Si las líneas no valen (no las escribe la
- * pantalla así), los lados son los de ahora y el motivo lo dice.
+ * el motivo es del reparto entero y no de cada paso. Si las líneas no valen (no las
+ * escribe la pantalla así), los lados son los de ahora y el motivo lo dice.
  */
 export function elReparto(
   state: GameState,
@@ -1294,25 +1245,15 @@ export function elReparto(
     'motivo' in elegidos ? new Set(hero.army.map((_, i) => i)) : elegidos,
   );
   const cambia = deja.length > 0 || recoge.length > 0;
-  const lado = (
-    army: Army,
-    cabe: { tope: number; cupo: number },
-    conElHeroe: boolean,
-  ): LadoDelReparto => ({
-    filas: troopSummary(army, state.characters).map((grupo) => ({
-      grupo,
-      motivo:
-        conElHeroe && grupo.member !== undefined
-          ? 'un personaje no se deja en una guarnición: va siempre con su héroe'
-          : null,
-    })),
+  const lado = (army: Army, cabe: { tope: number; cupo: number }): LadoDelReparto => ({
+    filas: troopSummary(army),
     liderazgo: armyLeadership(army),
     individuos: army.length,
     ...cabe,
   });
   return {
-    heroe: lado(ejercito, capacidadDe(hero, state.combate.tope), true),
-    guarnicion: lado(resto, cupoDeLaGuarnicion(state), false),
+    heroe: lado(ejercito, capacidadDe(hero, state.combate.tope)),
+    guarnicion: lado(resto, cupoDeLaGuarnicion(state)),
     cambia,
     motivo:
       'motivo' in elegidos
@@ -1352,16 +1293,6 @@ export function sitioDelHeroe(state: GameState, hero: Hero): Sitio | null {
 }
 
 /**
- * La ciudad **de su bando** en la que está `hero`, o `undefined`: donde se licencia
- * tropa y con cuya muralla y moral defiende. Sin la guarnición suya en una ajena:
- * para eso, `sitioDelHeroe`.
- */
-export function castilloSuyoDelHeroe(state: GameState, hero: Hero): Town | undefined {
-  const town = state.towns.find((t) => t.at.x === hero.at.x && t.at.y === hero.at.y);
-  return town !== undefined && dueñoDeLaCiudad(state, town) === hero.owner ? town : undefined;
-}
-
-/**
  * El objeto del mapa del sitio: el paso y el pueblo lo son; la ciudad, el `town` de
  * su id. Es donde vive el dueño guardado de un sitio del muro (`tomarElNodo`).
  */
@@ -1391,8 +1322,7 @@ export function objetoDelSitio(state: GameState, sitio: Sitio): ObjetoDeUnSitio 
  * Por qué no un reparto voraz de todo de más fuerte a más flojo: dejaba fuera a
  * cinco flojos y metía tres grandes, y lo de fuera —diez individuos— no cabía en la
  * guarnición: la ciudad, atacada después sin héroe, montaba una batalla con más de
- * siete y `createBattle` lanzaba. Los personajes van siempre con él. Determinista y
- * sin azar: la usan la IA de reglas, el agente (su jugada, a backlog) y la persona
+ * siete y `createBattle` lanzaba. Determinista y sin azar: la usan la IA de reglas, el agente (su jugada, a backlog) y la persona
  * como propuesta, que puede rehacer (`elegirLaDefensa`).
  *
  * Devuelve el ejército con que pelea, en el orden en que estaban (el ejército y
@@ -1402,7 +1332,7 @@ export function defensaDeLaIA(state: GameState, hero: Hero, sitio: Sitio): Army 
   // Por posición en `todos` y no por identidad: un mismo objeto puede ir dos veces
   // en un ejército (lo que se monta a mano en los tests, sin ir más lejos).
   const todos = entreLosDos(state, hero, sitio);
-  const poder = todos.map((t) => unitPower(troopUnit(t, state.characters)));
+  const poder = todos.map((t) => unitPower(troopUnit(t)));
   const fuerte = (a: number, b: number): number =>
     (poder[b] as number) - (poder[a] as number) || a - b;
   const vale = (indices: readonly number[]): boolean =>
@@ -1425,9 +1355,7 @@ export function defensaDeLaIA(state: GameState, hero: Hero, sitio: Sitio): Army 
         break;
       }
       const flojos = pelean
-        .filter(
-          (c) => todos[c]?.member === undefined && (poder[c] as number) < (poder[r] as number),
-        )
+        .filter((c) => (poder[c] as number) < (poder[r] as number))
         .sort((a, b) => fuerte(b, a));
       const c = flojos.find((x) => vale([...pelean.filter((i) => i !== x), r]));
       if (c !== undefined) {
@@ -1450,7 +1378,7 @@ export interface LineaDeDefensa {
 
 /**
  * El ejército con que pelearía `hero` en su sitio con la defensa `pedida`, o por
- * qué no: los personajes siempre, y de cada tipo los `count` **que no se irían**
+ * qué no: de cada tipo los `count` **que no se irían**
  * (`licenciar` de los demás: la misma regla de a quién se escoge que dejar y
  * recoger, los de más experiencia y, a igual, los que más llevan puesto) de lo que
  * hay entre su ejército y la guarnición, en el orden en que estaban. No vale pedir
@@ -1467,10 +1395,7 @@ export function ejercitoDeLaDefensa(
   // Por posición en `todos`, como `defensaDeLaIA`.
   const todos = entreLosDos(state, hero, sitio);
   const elegidos = new Set<number>();
-  todos.forEach((t, i) => {
-    if (t.member !== undefined) elegidos.add(i);
-  });
-  let acumulado: Army = todos.filter((_, i) => elegidos.has(i));
+  let acumulado: Army = [];
   const { tope, cupo } = capacidadDe(hero, state.combate.tope);
   const vistos = new Set<string>();
   for (const { creature, count } of pedida) {
@@ -1482,9 +1407,7 @@ export function ejercitoDeLaDefensa(
     if (count === 0) continue;
     const especie = unidadDelJuegoSiExiste(creature);
     if (especie === null) return { motivo: `no existe ninguna unidad "${creature}"` };
-    const deEse = todos
-      .map((t, i) => ({ t, i }))
-      .filter(({ t }) => t.creature === creature && t.member === undefined);
+    const deEse = todos.map((t, i) => ({ t, i })).filter(({ t }) => t.creature === creature);
     if (count > deEse.length) {
       return {
         motivo: `entre ${hero.name} y la guarnición ${delSitio(sitio)} hay ${deEse.length} × ${especie.name}, no ${count}`,
@@ -1542,9 +1465,7 @@ export interface FilaDeLaDefensa {
 /** La defensa de `hero` en su sitio con lo pedido, fila a fila y con sus cupos (`laDefensa`). */
 export interface LaDefensa {
   readonly filas: readonly FilaDeLaDefensa[];
-  /** Cuántos personajes van siempre con él. */
-  readonly personajes: number;
-  /** Lo que ocuparía la defensa pedida, con los personajes. */
+  /** Lo que ocuparía la defensa pedida. */
   readonly ocupa: { readonly liderazgo: number; readonly individuos: number };
   /** Lo que cabe en su ejército (`capacidadDe`). */
   readonly cabe: { readonly tope: number; readonly cupo: number };
@@ -1553,8 +1474,8 @@ export interface LaDefensa {
 }
 
 /**
- * La defensa que se elige, como la lee su pantalla: de cada tipo (sin personajes,
- * en orden de aparición) cuántos hay, cuántos pelean ahora (`propuesta`, lo que
+ * La defensa que se elige, como la lee su pantalla: de cada tipo (en orden de
+ * aparición) cuántos hay, cuántos pelean ahora (`propuesta`, lo que
  * lleva el héroe) y cuántos pelearían con `pedida` (los tipos que no nombra, como
  * ahora), con **el motivo del núcleo** para no subir o bajar uno, lo que ocuparía y
  * por qué no valdría. Todo lo escribe aquí el núcleo: la pantalla solo lo pinta.
@@ -1566,10 +1487,8 @@ export function laDefensa(
   pedida: readonly LineaDeDefensa[] = [],
 ): LaDefensa {
   const todos = entreLosDos(state, hero, sitio);
-  const personajes: Troop[] = todos.filter((t) => t.member !== undefined);
   const tipos: { creature: string; hay: number; propuesta: number }[] = [];
   todos.forEach((t, i) => {
-    if (t.member !== undefined) return;
     let fila = tipos.find((f) => f.creature === t.creature);
     if (fila === undefined) {
       fila = { creature: t.creature, hay: 0, propuesta: 0 };
@@ -1583,10 +1502,9 @@ export function laDefensa(
     count: pedida.find((l) => l.creature === f.creature)?.count ?? f.propuesta,
   }));
   // Lo que ocupa el liderazgo es de la unidad, no del individuo: basta con su tipo.
-  const pelearian: Troop[] = [
-    ...personajes,
-    ...lineas.flatMap((l) => Array.from({ length: l.count }, () => ({ creature: l.creature }))),
-  ];
+  const pelearian: Troop[] = lineas.flatMap((l) =>
+    Array.from({ length: l.count }, () => ({ creature: l.creature })),
+  );
   const cabe = capacidadDe(hero, state.combate.tope);
   const filas = tipos.map((f, n): FilaDeLaDefensa => {
     const pelean = (lineas[n] as LineaDeDefensa).count;
@@ -1618,7 +1536,6 @@ export function laDefensa(
   const ejercito = ejercitoDeLaDefensa(state, hero, sitio, lineas);
   return {
     filas,
-    personajes: personajes.length,
     ocupa: { liderazgo: armyLeadership(pelearian), individuos: pelearian.length },
     cabe,
     motivo: 'motivo' in ejercito ? ejercito.motivo : null,

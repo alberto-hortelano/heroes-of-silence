@@ -4,7 +4,7 @@
  * arena— es una fila más aquí y en `TIEMPOS` del núcleo: el mapa, la batalla y
  * las escenas laterales pintan cada campo de la fila, sin preguntar qué tiempo es.
  *
- * Las cifras son de mirar las capturas (`tools/qa/clima.ts`), no de ninguna
+ * Las cifras son de mirar las capturas (`tools/qa/navegador/clima.ts`), no de ninguna
  * fuente. Dos maneras de cambiar la luz, que no se mezclan:
  *
  * - **la luz** (`luz`) oscurece multiplicando (`multiply`) hacia su color: la
@@ -17,14 +17,14 @@
  *   (oscura, quieta y por casillas).
  */
 import type { ClimaDelSitio, Tiempo } from '@core/state/clima.js';
-import type { LuzSobreLaFigura } from '../figura.js';
+import type { LuzSobreLaFigura } from '../figuras/figura.js';
 
 /** Un color sin opacidad, de 0 a 255: el de la luz que se multiplica. */
 export type Rgb = readonly [number, number, number];
 /** Un color con su opacidad: la bruma se pinta encima, hacia ese color. */
 export type Rgba = readonly [number, number, number, number];
 /** El cielo de detrás de la batalla, de arriba al horizonte. */
-export type Cielo = readonly [string, string, string];
+type Cielo = readonly [string, string, string];
 
 export interface Lluvia {
   /** Gotas por cada 10 000 px² (CSS) de pantalla. */
@@ -171,7 +171,7 @@ export const css = (c: Rgb | Rgba, alfa = (c as readonly number[])[3] ?? 1): str
  * 22-10-2026) y se sigan leyendo enteras. En el mapa el clima va encima de todo
  * lo que tiene altura, y la luz cae entera.
  */
-export const LUZ_EN_LAS_FIGURAS = 0.7;
+const LUZ_EN_LAS_FIGURAS = 0.7;
 
 const luzDeLasFigurasHecha = new Map<string, LuzSobreLaFigura | undefined>();
 

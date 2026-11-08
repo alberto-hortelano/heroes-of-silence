@@ -28,7 +28,7 @@ export function barajar<T>(xs: T[], azar: () => number): T[] {
   return xs;
 }
 
-export interface Punto {
+interface Punto {
   readonly x: number;
   readonly y: number;
   /** El radio con el que se aceptó: sirve para elegir el tamaño del módulo. */

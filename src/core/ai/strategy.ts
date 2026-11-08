@@ -6,21 +6,13 @@
  * a su alcance. Es el listón que el agente tiene que superar.
  */
 
-import { cifrasDeUnidad, equipoPuestoDe, unidadDelJuego } from '../catalogo.js';
-import { cuerpoConSusCifras } from '../cuerpo.js';
-import { ECONOMIA, HEROE, type Pieza } from '../data.js';
-import {
-  conEquipo,
-  destinoDeEquipo,
-  equipoDe,
-  type PedidoDeEquipo,
-  PIEZAS_DE_ARMERIA,
-  type Portador,
-  pedidoDeEquipo,
-  pieza,
-} from '../hero/equipo.js';
-import { rangoDeTropa } from '../hero/experiencia.js';
-import type { Hero } from '../hero/hero.js';
+import type { Pieza } from '../equipo/pieza.js';
+import { PIEZAS_DE_ARMERIA, pieza } from '../equipo/pieza.js';
+import { destinoDeEquipo, equipoDe, type Portador, pedidoDeEquipo } from '../equipo/portador.js';
+import { conEquipo } from '../equipo/vestir.js';
+import { HEROE } from '../hero/cuerpo-del-heroe.js';
+import { armyPower, fuerzaDe, poderDe, unitPower, ventajaClara } from '../hero/fuerza.js';
+import { rangoDeTropa } from '../hero/rango.js';
 import {
   capacidadDe,
   elQueSeIria,
@@ -31,26 +23,29 @@ import {
   troopUnit,
   withTroops,
 } from '../hero/troop.js';
-import { casillaDelIndice, costeEnElAlcance, type MapObject, type Reachable } from '../map/map.js';
-import { dueñoEnLaFoto, regionesQueCierra, type Territorio, territorio } from '../map/regiones.js';
+import { aPunto, chebyshev } from '../map/geometria.js';
+import { costeEnElAlcance, type Reachable } from '../map/map.js';
+import {
+  dueñoEnLaFoto,
+  regionesQueCierra,
+  type Territorio,
+  territorio,
+} from '../map/territorio.js';
+import type { MapObject } from '../map/tipos.js';
 import { lugarDe } from '../mundo/formato.js';
 import { mundoDe } from '../mundo/reglas.js';
-import { indiceDePoder } from '../nivel.js';
 import {
-  type AdventureAction,
   baseOf,
-  contratarBlocker,
   destinoDeRecluta,
-  type GameState,
   heroById,
   heroeEnElPueblo,
   heroesOf,
-  ponerseBlocker,
   recruitCapacity,
   townsOf,
-  visibleNowAt,
-} from '../state/game.js';
-import { rentaDeLaRegion } from '../state/renta.js';
+} from '../state/consultas.js';
+import { ponerseBlocker } from '../state/equipar.js';
+import { contratarBlocker } from '../state/heroes.js';
+import { rentaDeLaRegion, rentaDelSitio } from '../state/renta.js';
 import {
   ciudadQueMandaBlocker,
   enUnNodo,
@@ -62,19 +57,23 @@ import {
   sitioDelHeroe,
   sitioDelObjeto,
 } from '../state/sitios.js';
+import type { AdventureAction, GameState } from '../state/tipos.js';
+import { visibleNowAt } from '../state/vision.js';
 import { building, buildingsOfFaction, nivelDeMorada } from '../town/buildings.js';
+import { ECONOMIA } from '../town/economia.js';
 import {
   availableBuildings,
-  dailyIncome,
   dwellings,
   recruitCost,
   type Town,
   tieneArmeria,
 } from '../town/town.js';
 import type { Army, Equipo, FactionId, PlayerId, Point, UnitInfo } from '../types.js';
-import { FACTION_IDS } from '../types.js';
-import { CUERPO_COMUN } from '../unidad.js';
-import { armyPower, fuerzaDe, poderDe, unitPower, ventajaClara } from './fuerza.js';
+import { FACTION_IDS, type Hero } from '../types.js';
+import { cifrasDeUnidad, equipoPuestoDe, unidadDelJuego } from '../unidad/catalogo.js';
+import { cuerpoConSusCifras } from '../unidad/cuerpo.js';
+import { CUERPO_COMUN } from '../unidad/formato.js';
+import { indiceDePoder } from '../unidad/nivel.js';
 import { hariaAlgoEn, VALOR_DE_LUGAR } from './lugares.js';
 
 /** Lo que vale tomar una ciudad ajena que no es la base de nadie. */
@@ -137,8 +136,7 @@ function objectValue(
       // (backlog).
       if (!enUnNodo(state, sitio)) {
         if (dueño !== player) return 0;
-        const rinde = sitio.kind === 'ciudad' ? dailyIncome(sitio.town) : ECONOMIA.rentaDelPueblo;
-        const recuperar = valorDeRecuperar(state, sitio, player, miPoder, rinde);
+        const recuperar = valorDeRecuperar(state, sitio, player, miPoder);
         if (sitio.kind !== 'ciudad' || recuperar !== 0) return recuperar;
       }
       // El pueblo en el muro, como un paso: vale por lo que cierra.
@@ -155,10 +153,10 @@ function objectValue(
         // llevarse, una y otra vez.
         const { tope, cupo } = capacidadDe(hero, state.combate.tope);
         const { dentro } = troopsThatFit(hero.army, tope, cupo, guarnicionPropia);
-        return armyPower(dentro, state.characters) / 10;
+        return armyPower(dentro) / 10;
       }
       // Un pueblo con guarnición es una batalla: se mide antes de ir.
-      const guarnicion = armyPower(guarnicionPropia, state.characters);
+      const guarnicion = armyPower(guarnicionPropia);
       if (guarnicion > 0 && miPoder < guarnicion * 1.1) return -1;
       // La BASE del rival vale el triple: tomarla gana la partida. Es una
       // cifra medida y no un principio: con «perder la base elimina» se probó
@@ -198,7 +196,7 @@ function valorDeUnNodo(
 ): number {
   if (dueño === player) return 0;
   const guardado = guarnicionHostil(state, id, player);
-  if (guardado !== null && !ventajaClara(miPoder, armyPower(guardado.tropa, state.characters))) {
+  if (guardado !== null && !ventajaClara(miPoder, armyPower(guardado.tropa))) {
     return -1;
   }
   const t = foto();
@@ -210,7 +208,7 @@ function valorDeUnNodo(
 
 /**
  * Lo que vale ir a recuperar un sitio mío de dentro de una región que está
- * ocupado (`ocupanteDe`), que rinde `rinde` al día: los días de esa renta, si le
+ * ocupado (`ocupanteDe`): los días de lo que rinde (`rentaDelSitio`), si le
  * saco ventaja clara al ocupante (`ventajaClara`: un héroe por su fuerza, una
  * guarnición por la suya); sin ella, `-1`, no se va. Sin ocupante, 0 (tarea 2,
  * 05-11-2026: «recupera lo suyo si tiene ventajaClara»). Quien llama ya sabe que es
@@ -221,15 +219,14 @@ function valorDeRecuperar(
   sitio: Sitio,
   player: PlayerId,
   miPoder: number,
-  rinde: number,
 ): number {
   const ocupante = ocupanteDe(state, sitio, player);
   if (ocupante === null) return 0;
   const suyo =
     ocupante.kind === 'heroe'
-      ? fuerzaDe(heroById(state, ocupante.heroId), state.characters)
-      : armyPower(guarnicionDe(state, sitio), state.characters);
-  return ventajaClara(miPoder, suyo) ? DIAS_DE_RENTA * rinde : -1;
+      ? fuerzaDe(heroById(state, ocupante.heroId))
+      : armyPower(guarnicionDe(state, sitio));
+  return ventajaClara(miPoder, suyo) ? DIAS_DE_RENTA * rentaDelSitio(sitio) : -1;
 }
 
 /** Sin veto: todo candidato vale. */
@@ -260,7 +257,7 @@ export function chooseHeroDestination(
   // En un objeto y no en un `let`: lo escribe `considerar`, y `tsc` no ve una
   // escritura dentro de un cierre y lo estrecharía a `null` para siempre.
   const elegido: { mejor: { at: Point; score: number } | null } = { mejor: null };
-  const miPoder = fuerzaDe(hero, state.characters);
+  const miPoder = fuerzaDe(hero);
   // Una foto del territorio para todos los objetos: no cambia mientras se
   // elige. Perezosa, porque solo la pide un nodo ajeno.
   let hecha: Territorio | undefined;
@@ -321,7 +318,7 @@ export function chooseHeroDestination(
   // iniciativa, así que el empate lo rompe quien llega antes.
   for (const enemigo of state.heroes) {
     if (enemigo.owner === hero.owner) continue;
-    if (miPoder < fuerzaDe(enemigo, state.characters)) continue;
+    if (miPoder < fuerzaDe(enemigo)) continue;
     considerar(enemigo.at, 60000);
   }
 
@@ -331,7 +328,7 @@ export function chooseHeroDestination(
   if (mios.length <= 1) {
     for (const pueblo of mios) {
       const amenaza = state.heroes.some(
-        (h) => h.owner !== hero.owner && distanciaAprox(h.at, pueblo.at) <= 6,
+        (h) => h.owner !== hero.owner && chebyshev(h.at, pueblo.at) <= 6,
       );
       if (amenaza) considerar(pueblo.at, 80000);
     }
@@ -351,11 +348,6 @@ export function destinoDeRepliegue(state: GameState, hero: Hero, alcance: Reacha
   if (base === null) return null;
   const coste = costeEnElAlcance(alcance, base.at);
   return coste === null || coste === 0 ? null : base.at;
-}
-
-/** Distancia de Chebyshev, suficiente para medir "está rondando mi casa". */
-function distanciaAprox(a: Point, b: Point): number {
-  return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 }
 
 /**
@@ -388,14 +380,14 @@ export function stepTowards(hero: Hero, destino: Point, alcance: Reachable): Poi
     i = anterior;
     const c = alcance.costes[i] as number;
     if (c === -1) {
-      const at = casillaDelIndice(alcance, i);
+      const at = aPunto(i, alcance.ancho);
       throw new Error(`el alcance no sabe qué cuesta (${at.x},${at.y})`);
     }
     coste = c;
   }
 
   // Coste 0 es el origen y solo el origen: se retrocedió el camino entero.
-  return coste === 0 ? null : casillaDelIndice(alcance, i);
+  return coste === 0 ? null : aPunto(i, alcance.ancho);
 }
 
 /**
@@ -445,7 +437,7 @@ const ORDEN_DE_CONSTRUCCION: Readonly<Record<FactionId, readonly string[]>> = Ob
 ) as Record<FactionId, readonly string[]>;
 
 /** Qué construir hoy: lo primero de la lista de su facción que se pueda pagar. */
-export function chooseBuilding(town: Town, oro: number): string | null {
+function chooseBuilding(town: Town, oro: number): string | null {
   const posibles = availableBuildings(town, oro);
   if (posibles.length === 0) return null;
 
@@ -542,7 +534,7 @@ export function planIntercambios(state: GameState, hero: Hero): AdventureAction[
   const { tope, cupo } = capacidadDe(hero, state.combate.tope);
   const { dentro } = troopsThatFit(hero.army, tope, cupo, guarnicionDe(state, sitio));
   // Un grupo, un pedido (`pedidoDelGrupo`): el veterano por su id, los demás por tipo.
-  return troopSummary(dentro, state.characters).map((g) => ({
+  return troopSummary(dentro).map((g) => ({
     type: 'recoger_tropa',
     ...pedidoDelGrupo(hero.id, g),
   }));
@@ -683,8 +675,7 @@ function planCambio(
  * piquero de rango 3 mientras le quede un campesino que tirar. Sin esa primera
  * clave, el veterano —que vale lo mismo en oro que un novato de su tipo— se iba
  * a la primera, y la experiencia no le servía de nada a quien la gana. A
- * igualdad de todo, el id menor, para que no decida el orden del ejército. Los
- * personajes no entran: no se licencian.
+ * igualdad de todo, el id menor, para que no decida el orden del ejército.
  */
 function laMasBarata(
   army: Army,
@@ -697,12 +688,12 @@ function laMasBarata(
     readonly poder: number;
   } | null = null;
   const vistos = new Set<string>();
-  for (const { creature: id, member } of army) {
-    if (member !== undefined || vistos.has(id)) continue;
+  for (const { creature: id } of army) {
+    if (vistos.has(id)) continue;
     vistos.add(id);
     // El que se iría de este tipo, con la MISMA regla que la acción.
     const t = elQueSeIria(army, id)!;
-    const suyo = unitPower(troopUnit(t, undefined));
+    const suyo = unitPower(troopUnit(t));
     if (suyo >= poder) continue;
     const rango = rangoDeTropa(t.veterania);
     const oro = unidadDelJuego(id).oro;
@@ -725,17 +716,13 @@ function laMasBarata(
  * más pelea y nunca se licencia— y después la tropa de **mayor índice de poder**
  * (`indiceDePoder`: catálogo + rango + el equipo que ya lleve), y a igual
  * índice en su orden. Por el índice y no por el nivel: es más fino, y dos
- * criaturas del mismo nivel no empatan por eso. Los personajes no entran —su
- * equipo es de la fase que los traiga— y se apartan **antes** de mirar nada: su
- * cuerpo es un perfil que no está en el catálogo. Las cifras salen de
+ * criaturas del mismo nivel no empatan por eso. Las cifras salen de
  * `cifrasDeUnidad`, que para un novato devuelve el catálogo tal cual y para un
  * veterano las que ya recuerda por su hoja: no se fabrica ninguna.
  */
 function portadores(hero: Hero): { readonly quien: Portador; readonly equipo: Equipo }[] {
   const tropa = hero.army
-    .map((t, indice) => ({ t, indice }))
-    .filter(({ t }) => t.member === undefined)
-    .map(({ t, indice }) => ({
+    .map((t, indice) => ({
       t,
       indice,
       poder: indiceDePoder(cifrasDeUnidad(t.creature, t.veterania)),
@@ -784,7 +771,7 @@ const VALOR_DE_PIEZA = new WeakMap<Pieza, number>();
  * cuerpo de referencia 17, así que la IA lo compraba en la armería. Que compre
  * caballos para la batalla o de silla para marchar es otra tarea (backlog).
  */
-export function valorDePieza(p: Pieza): number {
+function valorDePieza(p: Pieza): number {
   const ya = VALOR_DE_PIEZA.get(p);
   if (ya !== undefined) return ya;
   const valor =
@@ -804,23 +791,14 @@ function mejora(equipo: Equipo, id: string): number {
 }
 
 /**
- * Cómo se nombra al portador `quien` en una acción `equip`: lo dice el núcleo
- * (`pedidoDeEquipo`, la inversa de `destinoDeEquipo`). Los personajes no llegan
- * aquí (`portadores` los aparta), así que un motivo es un fallo y se lanza.
- */
-function nombrar(hero: Hero, quien: Portador): PedidoDeEquipo {
-  const pedido = pedidoDeEquipo(hero, quien);
-  if ('motivo' in pedido) throw new Error(pedido.motivo);
-  return pedido;
-}
-
-/**
  * Si nombrar a `quien` le hace llegar la pieza a ÉL. Lo responde el motor
  * (`destinoDeEquipo`), no una copia de su regla: nombrar a un novato por su tipo
  * se la pone al primero sin hoja, y con otro delante se la pondría a otro.
  */
 function leLlega(hero: Hero, quien: Portador): boolean {
-  const destino = destinoDeEquipo(hero, nombrar(hero, quien));
+  // Cómo se nombra al portador en una acción `equip` lo dice el núcleo
+  // (`pedidoDeEquipo`, la inversa de `destinoDeEquipo`).
+  const destino = destinoDeEquipo(hero, pedidoDeEquipo(hero, quien));
   if ('motivo' in destino) return false;
   return 'heroe' in destino
     ? 'heroe' in quien
@@ -833,7 +811,7 @@ function leLlega(hero: Hero, quien: Portador): boolean {
  * Sin tope compraba 18 al día —seis individuos por tres huecos— para una tropa
  * que caía al día siguiente: 1 187 compras del banco en 14 semillas, 268 en una.
  */
-export const COMPRAS_POR_HEROE_Y_DIA = 3;
+const COMPRAS_POR_HEROE_Y_DIA = 3;
 
 /**
  * El oro que tiene que quedarle a la IA tras pagar para comprarle una pieza a un
@@ -841,7 +819,7 @@ export const COMPRAS_POR_HEROE_Y_DIA = 3;
  * la pieza se va con él, así que solo se le compra lo que sobra de verdad; al
  * héroe y a los veteranos les basta con no tocar lo que cuesta un héroe. Inventado.
  */
-export const ORO_DE_SOBRA_PARA_NOVATOS = 4 * ECONOMIA.precioDelHeroe;
+const ORO_DE_SOBRA_PARA_NOVATOS = 4 * ECONOMIA.precioDelHeroe;
 
 /**
  * Para quién compra la IA: el héroe y los veteranos de rango 2 o más, que son
@@ -906,7 +884,7 @@ export function siguienteDeEquipo(state: GameState, playerId: PlayerId): Adventu
           leLlega(hero, p.quien),
       );
       if (quien !== undefined) {
-        return { type: 'equip', hero: hero.id, item: id, ...nombrar(hero, quien.quien) };
+        return { type: 'equip', hero: hero.id, item: id, ...pedidoDeEquipo(hero, quien.quien) };
       }
     }
   }

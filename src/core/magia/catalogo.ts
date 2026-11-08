@@ -1,6 +1,6 @@
 /**
  * El catálogo de hechizos del juego: **lo único que importa `data/hechizos.json`**
- * (lo vigila `invariantes.test.ts`). Lo lee y lo juzga una vez al cargar
+ * (lo vigila `invariantes-datos.test.ts`). Lo lee y lo juzga una vez al cargar
  * (`leerHechizos`: lanza con todos sus problemas, nombrando el fichero).
  *
  * La batalla no va al catálogo: lleva los hechizos de quienes pelean ya resueltos

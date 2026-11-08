@@ -121,6 +121,38 @@ function problemasDeDuracion(v: unknown, campo: string, dentro: boolean): string
   return out;
 }
 
+/**
+ * Si lo que hace `o` (un hechizo o un disparador) dura, y lo que no vale de su
+ * duración: que lo que dura diga cuánto, que lo del acto no lo diga, y la duración
+ * misma (`problemasDeDuracion`). Con `aqui`, la de un disparador (cada frase con su
+ * ruta delante; admite `portador`); sin él, la del hechizo. Lo leen los dos, que lo
+ * escribían cada uno hasta la fase N de la reorganización (07-11-2026), con las mismas
+ * frases en el mismo orden.
+ */
+function problemasDeLaDuracion(
+  o: Record<string, unknown>,
+  aqui?: string,
+): { readonly dura: boolean; readonly problemas: string[] } {
+  const efectos = Array.isArray(o.efectos) ? o.efectos : [];
+  const dura = efectos.some(
+    (e) =>
+      esObjeto(e) && typeof e.tipo === 'string' && !INSTANTANEOS.includes(e.tipo as TipoDeEfecto),
+  );
+  const propias: string[] = [];
+  if (dura && o.duracion === undefined) {
+    propias.push('deja algo que dura y no dice cuánto («duracion»)');
+  }
+  if (!dura && o.duracion !== undefined) {
+    propias.push('solo hace cosas en el acto, así que no lleva «duracion»');
+  }
+  const problemas = aqui === undefined ? propias : con(aqui, propias);
+  if (o.duracion !== undefined) {
+    const campo = aqui === undefined ? 'duracion' : `${aqui}.duracion`;
+    problemas.push(...problemasDeDuracion(o.duracion, campo, aqui !== undefined));
+  }
+  return { dura, problemas };
+}
+
 const CAMPOS_DEL_EFECTO: Readonly<Record<TipoDeEfecto, readonly string[]>> = {
   danio: ['tipo', 'cantidad', 'armadura'],
   cura: ['tipo', 'cantidad'],
@@ -237,19 +269,8 @@ function problemasDelDisparador(v: Record<string, unknown>, aqui: string): strin
   }
   if (v.cargas !== undefined) out.push(...entero(v.cargas, 1, CARGAS_MAXIMAS, `${aqui}.cargas`));
   out.push(...problemasDeEfectos(v.efectos, `${aqui}.efectos`, true));
-  const efectos = Array.isArray(v.efectos) ? v.efectos : [];
-  const dura = efectos.some(
-    (e) =>
-      esObjeto(e) && typeof e.tipo === 'string' && !INSTANTANEOS.includes(e.tipo as TipoDeEfecto),
-  );
-  if (dura && v.duracion === undefined) {
-    out.push(`${aqui}: deja algo que dura y no dice cuánto («duracion»)`);
-  }
-  if (!dura && v.duracion !== undefined) {
-    out.push(`${aqui}: solo hace cosas en el acto, así que no lleva «duracion»`);
-  }
-  if (v.duracion !== undefined)
-    out.push(...problemasDeDuracion(v.duracion, `${aqui}.duracion`, true));
+  const { dura, problemas } = problemasDeLaDuracion(v, aqui);
+  out.push(...problemas);
   if (v.seAcabaSiMuere !== undefined) {
     out.push(...deLaLista(v.seAcabaSiMuere, ['lanzador', 'portador'], `${aqui}.seAcabaSiMuere`));
     if (!dura) out.push(`${aqui}: «seAcabaSiMuere» solo con algo que dura`);
@@ -341,17 +362,8 @@ export function problemasDelHechizo(crudo: unknown, cual = 'el hechizo'): string
   if (h.gremio !== null) out.push(...entero(h.gremio, 1, GREMIO_MAXIMO, 'el gremio'));
   out.push(...problemasDelAlcance(h));
   out.push(...problemasDeEfectos(h.efectos, 'efectos', false));
-  const efectos = Array.isArray(h.efectos) ? h.efectos : [];
-  const dura = efectos.some(
-    (e) =>
-      esObjeto(e) && typeof e.tipo === 'string' && !INSTANTANEOS.includes(e.tipo as TipoDeEfecto),
-  );
-  if (dura && h.duracion === undefined)
-    out.push('deja algo que dura y no dice cuánto («duracion»)');
-  if (!dura && h.duracion !== undefined) {
-    out.push('solo hace cosas en el acto, así que no lleva «duracion»');
-  }
-  if (h.duracion !== undefined) out.push(...problemasDeDuracion(h.duracion, 'duracion', false));
+  const { dura, problemas } = problemasDeLaDuracion(h);
+  out.push(...problemas);
   if (h.seAcabaSiMuere !== undefined) {
     if (h.seAcabaSiMuere !== 'lanzador') {
       out.push('«seAcabaSiMuere» de un hechizo solo vale "lanzador"');
@@ -403,7 +415,7 @@ export function leerHechizos(json: unknown, fichero = 'data/hechizos.json'): rea
 }
 
 /** Lo que no vale del catálogo: cada hechizo y lo repetido. Vacío, vale. */
-export function problemasDelCatalogo(json: unknown): string[] {
+function problemasDelCatalogo(json: unknown): string[] {
   const forma = problemasDeObjeto(json, ['_comment', 'hechizos'], ['hechizos']);
   if (forma.length > 0) return forma;
   const lista = (json as { hechizos: unknown }).hechizos;

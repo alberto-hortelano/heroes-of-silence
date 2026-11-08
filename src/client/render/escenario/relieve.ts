@@ -9,7 +9,7 @@
  * La cámara mira desde el sur: una caída hacia abajo en pantalla enseña su cara
  * de roca; una caída hacia arriba queda de espaldas y solo se ve el reborde.
  */
-import { nivelesDelRelieve } from '@core/map/regiones.js';
+import { nivelesDelRelieve } from '@core/map/niveles.js';
 import { isWalkable, type Suelo, type TerrainKind } from '@core/map/terrain.js';
 import type { Analisis } from './analizar.js';
 import type { Caja } from './pasillo.js';
@@ -39,7 +39,7 @@ export const CARA_DE_SUELO: Readonly<Record<Suelo, string>> = {
  * El nivel de altura de cada casilla. Las paredes que salen de él las da el
  * relieve por celdas (`celdas.ts`, R4): una por vértice y umbral, de junta a junta.
  */
-export interface Relieve {
+interface Relieve {
   readonly nivel: Int8Array;
 }
 

@@ -9,31 +9,35 @@
  * motor no puede comprobar. Con el vocabulario cerrado (`VOCABULARIO`) y el
  * catálogo de unidades y piezas por id, para que lo que escriba exista.
  */
-import { unidadesDelJuego } from '../catalogo.js';
-import { PIEZAS_DEL_CATALOGO } from '../hero/equipo.js';
-import { armyLeadership, capacidadDe } from '../hero/troop.js';
-import { basesDelPlan, buildMap, type MapPlan } from '../map/generate.js';
-import { estructura, franjasDeBarrera, regionesDelSitio } from '../map/regiones.js';
-import { isWalkable } from '../map/terrain.js';
-import { nivelDeUnidad } from '../nivel.js';
+
+import { PIEZAS_DEL_CATALOGO } from '../equipo/pieza.js';
 import {
   ACCIONES_DE_NPC,
   type Banco,
   ETIQUETAS,
   FIGURAS_NUEVAS_POR_MUNDO,
   type FiguraDeNpc,
-} from '../npcs.js';
-import { regionDeCasilla } from '../state/asaltantes.js';
+} from '../gente/banco.js';
+import { type PersonaDeLaFaccion, personasDeLaFaccion } from '../gente/voces.js';
+import { armyLeadership, capacidadDe, contarPorTipo } from '../hero/troop.js';
+import { buildMap } from '../map/generar/construir.js';
+import type { MapPlan } from '../map/generar/plan.js';
+import { basesDelPlan } from '../map/generar/validar.js';
+import { franjasDeBarrera } from '../map/niveles.js';
+import { estructura, regionDeCasilla } from '../map/regiones.js';
+import { isWalkable } from '../map/terrain.js';
+import { regionesDelSitio } from '../map/territorio.js';
 import { newGame } from '../state/setup.js';
-import { type PersonaDeLaFaccion, personasDeLaFaccion } from '../town/voces.js';
 import type { FactionId, PlayerId, Point } from '../types.js';
+import { unidadesDelJuego } from '../unidad/catalogo.js';
+import { nivelDeUnidad } from '../unidad/nivel.js';
 import { type LugaresDeUnMundo, lugaresDelPlan, type Mundo, VOCABULARIO } from './formato.js';
 import { lugarBlocker } from './validar.js';
 
 /** Cuántas casillas de muestra se dan por región. */
-export const MUESTRAS_POR_REGION = 8;
+const MUESTRAS_POR_REGION = 8;
 
-export interface RegionLeida {
+interface RegionLeida {
   readonly id: string;
   readonly nombre: string;
   /** El suelo con que la pinta el plan (`grass`, `snow`…), o `null` si no lo dice. */
@@ -66,7 +70,7 @@ export interface RegionLeida {
  * («no cabe») hasta que haya bajas o licencie a alguien. No es una regla nueva:
  * lo que dice es lo que mira `troopBlocker` al elegir.
  */
-export interface TropaDeSalida {
+interface TropaDeSalida {
   /** Lo que lleva, por unidad. */
   readonly lleva: readonly { readonly unidad: string; readonly n: number }[];
   /** Individuos que lleva y cuántos le caben como mucho. */
@@ -83,14 +87,12 @@ function tropaDeSalida(mundo: Mundo, plan: MapPlan): TropaDeSalida {
   const partida = newGame({ seed: mundo.semilla, plan, tipoDelHeroe: mundo.jugador.heroe });
   const hero = partida.heroes.find((h) => h.owner === 0);
   if (hero === undefined) throw new Error('la partida del mundo no tiene héroe del jugador 0');
-  const lleva = new Map<string, number>();
-  for (const t of hero.army) lleva.set(t.creature, (lleva.get(t.creature) ?? 0) + 1);
   // La de la partida de ese mundo sin complejidad pedida (`newGame`, 7 / 7).
   const { tope, cupo } = capacidadDe(hero, partida.combate.tope);
   const individuos = hero.army.length;
   const liderazgo = armyLeadership(hero.army);
   return {
-    lleva: [...lleva].map(([unidad, n]) => ({ unidad, n })),
+    lleva: contarPorTipo(hero.army).map(({ creature, count }) => ({ unidad: creature, n: count })),
     individuos,
     cupo,
     liderazgo,

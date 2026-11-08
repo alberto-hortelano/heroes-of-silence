@@ -4,13 +4,14 @@
  * al llegar; un clic fuera de la franja se recorta al punto más cercano dentro, y
  * la marcha resbala por el borde de atrás, que sigue los umbrales pintados.
  */
+
 import { describe, expect, it } from 'vitest';
 import templariosJson from '../data/bases/templarios.json' with { type: 'json' };
-import { EscenaBase } from '../src/client/escenas/castillo.js';
+import { EscenaBase } from '../src/client/partida/base/escena.js';
 import { camaraDeLaBase, camaraQuieta, seguir } from '../src/client/render/base/camara.js';
-import { cajaDeFiguraEn } from '../src/client/render/batalla.js';
+import { cajaDeFiguraEn } from '../src/client/render/figuras/caja.js';
 import { enPantalla, pasoDeLaBase } from '../src/client/render/proyeccion.js';
-import { Session } from '../src/client/session.js';
+import { Session } from '../src/client/sesion/partida.js';
 import { faccionesDeLaSemilla } from '../src/core/state/setup.js';
 import {
   alaFranja,
@@ -22,7 +23,7 @@ import {
   leerDisposicion,
   MARGEN_DE_LA_FRANJA,
 } from '../src/shared/base.js';
-import { primeraSemillaCon } from './helpers.js';
+import { primeraSemillaCon } from '../tools/comun/semillas.js';
 
 const d = disposicionDe('templarios');
 const lienzo = { ancho: 1086, alto: 778 };

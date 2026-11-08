@@ -6,12 +6,12 @@
  * cara de este repositorio: la tabla de experiencia que decía venir de
  * fheroes2 se había escrito de memoria y coincidía en 8 de 39 filas. Un
  * catálogo copiado a mano es el sitio exacto donde se cuela «Antiinfantería
- * montada» con otra tilde, y el guardia de nombres (`data.ts`) compararía
+ * montada» con otra tilde, y el guardia de nombres (`unidad/formato.ts`) compararía
  * contra la errata.
  *
  * `NuevaJugabilidad.md` **no se commitea** (decisión del usuario, 02-10-2026):
  * es el cuaderno de diseño. Por eso el JSON sí se commitea y es contra él contra
- * quien comparan `data.ts` y CI, que no tienen el `.md`. Esto se corre a mano
+ * quien comparan `unidad/formato.ts` y CI, que no tienen el `.md`. Esto se corre a mano
  * cuando el cuaderno cambie, y el diff del JSON dice qué cambió:
  *
  *   npx tsx tools/datos/habilidades.ts
@@ -20,11 +20,12 @@
  * vacío que dejaría a `data/experiencia.json` sin un solo nombre válido.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { join, relative } from 'node:path';
+import { textoJson } from '../comun/json.js';
+import { RAIZ } from '../comun/raiz.js';
 
-const RAIZ = fileURLToPath(new URL('../../', import.meta.url));
-const ORIGEN = `${RAIZ}NuevaJugabilidad.md`;
-const DESTINO = `${RAIZ}data/habilidades.json`;
+const ORIGEN = join(RAIZ, 'NuevaJugabilidad.md');
+const DESTINO = join(RAIZ, 'data/habilidades.json');
 
 const texto = readFileSync(ORIGEN, 'utf8');
 
@@ -78,5 +79,5 @@ const json = {
     'GENERADO por tools/datos/habilidades.ts a partir de la sección «Habilidades» de NuevaJugabilidad.md (el cuaderno de diseño del usuario, que no se commitea), con una expresión regular y sin teclear ningún nombre. No se edita a mano: se regenera. disparador = la palabra «Es pasivo/automático/activo» de la descripción, o null si no la dice. Es el catálogo contra el que data.ts comprueba los nombres de data/experiencia.json; las habilidades todavía NO tienen efecto (no hay motor de habilidades).',
   habilidades,
 };
-writeFileSync(DESTINO, `${JSON.stringify(json, null, 2)}\n`);
-console.log(`${habilidades.length} habilidades → ${DESTINO.slice(RAIZ.length)}`);
+writeFileSync(DESTINO, textoJson(json, 2));
+console.log(`${habilidades.length} habilidades → ${relative(RAIZ, DESTINO)}`);

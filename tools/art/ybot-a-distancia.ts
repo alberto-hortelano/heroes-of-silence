@@ -1,7 +1,7 @@
 /**
  * Las poses de arco del Y Bot: movimiento de articulaciones escrito a mano sobre
  * el rig, no un clip de arco descargado (Mixamo no tiene uno con este set). Se
- * inyecta en la copia temporal de `page.mjs` que monta `poses.ts`; el
+ * inyecta en la copia temporal de `page.mjs` que monta `poses/render.ts`; el
  * renderizador original no se toca.
  *
  * Rescatado de `tools/art/ybot-ranged-poses.mjs` de la rama `archivo/gpt-rpg`:
@@ -47,7 +47,7 @@ export function esDisparo(clip: string): clip is ClipDeDisparo {
  * Es texto porque corre en la página de sprite-forge; `DISPARO_EN_NODE` evalúa
  * este mismo texto, no una copia.
  */
-export const CURVA_DEL_DISPARO = `
+const CURVA_DEL_DISPARO = `
 const CURVAS_DEL_DISPARO = ${JSON.stringify(CURVAS_DEL_DISPARO)};
 function ordenadasDelDisparo(kind) {
   const c = CURVAS_DEL_DISPARO[kind];

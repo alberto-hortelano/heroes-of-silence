@@ -3,19 +3,20 @@
  * (`hacerTeselable`), no se le pide a ChatGPT. Con imágenes sintéticas.
  */
 
-import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import { SUELOS_PISABLES } from '../src/core/map/terrain.js';
-import { aRaster } from '../tools/taller/recorte.js';
+import { sha256 } from '../tools/comun/hash.js';
+import { aRaster } from '../tools/comun/imagen.js';
 import {
   costura,
   hacerTeselable,
   LADO_DE_TEXTURA,
   UMBRAL_DE_COSTURA,
 } from '../tools/taller/textura.js';
+import { RAIZ } from './comun.js';
 
 /** Un degradado en diagonal con ruido: no se repite, la costura salta a la vista. */
 async function sinRepetir(lado = 300): Promise<Buffer> {
@@ -65,7 +66,7 @@ describe('la textura repetible', () => {
 });
 
 describe('las texturas del taller', () => {
-  const dir = join(import.meta.dirname, '../assets/mapa/suelos');
+  const dir = join(RAIZ, 'assets/mapa/suelos');
   let hay: string[] = [];
   try {
     hay = readdirSync(dir).filter((f) => f.endsWith('.webp'));
@@ -87,7 +88,7 @@ describe('las texturas del taller', () => {
         readFileSync(join(dir, f.replace(/\.webp$/, '.procedencia.json')), 'utf8'),
       );
       expect(proc.tipo).toBe('textura');
-      expect(proc.salida.sha256).toBe(createHash('sha256').update(bytes).digest('hex'));
+      expect(proc.salida.sha256).toBe(sha256(bytes));
       expect(proc.herramienta.nombre).toMatch(/^codex exec/);
     });
   }

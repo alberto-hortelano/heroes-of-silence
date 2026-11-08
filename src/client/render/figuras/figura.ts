@@ -1,0 +1,524 @@
+/**
+ * Una figura a 25° —héroe, monstruo o unidad—, la pinten el mapa, la batalla, el
+ * castillo o la arena.
+ *
+ * Lo que decide qué arte lleva cada cuerpo es `personajes.ts`; aquí se elige la
+ * hoja de la dirección en la que mira, se corta el fotograma, se tiñe el Y Bot
+ * del color que diga quien llama, se proyecta su sombra y, si la imagen no ha
+ * llegado, se pinta el marcador de color. Así el juego se juega sin arte, que es
+ * un contrato de este repositorio.
+ *
+ * **No se espeja nunca**: cada dirección tiene su hoja, y con la luz fija a la
+ * izquierda el espejo la traería de la derecha.
+ */
+import { colorDeSombra, FIGURA, PROYECCION_DE_SOMBRA } from '../../../shared/arte.js';
+import { temaDelLienzo } from '../../comun/temas.js';
+import { cargarHojaDeFigura, figuraEnCamino, hayFiguraCargada, imagenDeFigura } from '../assets.js';
+import { CacheDeLienzos } from '../copias.js';
+import { densidadDe } from '../lienzo.js';
+import { type PiesDeLaFigura, piesEn } from './aro.js';
+import {
+  type AtlasQueSePinta,
+  type CharacterClip,
+  type CharacterFrame,
+  celdaDe,
+  clipFrame,
+  fotogramaDeCaida,
+  infoDelClip,
+} from './character.js';
+import { relojDeFigura } from './compas.js';
+import type { Direccion } from './direccion.js';
+import {
+  type ArteQueSePinta,
+  arteDe,
+  arteParaPintar,
+  arteSabido,
+  hojaDe,
+  hojasPorCercania,
+} from './personajes.js';
+import { pintarSombra } from './sombra.js';
+
+/** Hasta cuándo hay alguna figura en marcha, en el reloj de `performance.now()`. */
+let enMarchaHasta = 0;
+
+/**
+ * Una figura se está moviendo y lo seguirá haciendo hasta `hasta`: el lienzo
+ * tiene que seguir pidiendo fotogramas hasta entonces, **también sin arte**,
+ * que es cuando nada respira y no se repinta si nada cambia. Lo llama quien
+ * desliza una figura —la patrulla de los asaltantes—, en el mismo contador que
+ * mira el bucle de dibujo, en vez de abrir un segundo mecanismo al lado.
+ */
+export function animarHasta(hasta: number): void {
+  enMarchaHasta = Math.max(enMarchaHasta, hasta);
+}
+
+/**
+ * ¿Hay alguna figura que respire o que ande? Con el arte cargado, el reposo se
+ * anima y el lienzo tiene que repintarse a cada fotograma; sin él, los
+ * marcadores están quietos y se pinta solo cuando algo cambia o algo anda
+ * (`animarHasta`).
+ */
+export function hayFigurasAnimadas(): boolean {
+  return performance.now() < enMarchaHasta || hayFiguraCargada();
+}
+
+/**
+ * Las hojas ya pedidas, hayan llegado o no: una que falla no se vuelve a pedir
+ * en cada fotograma. Se pide **la hoja que se pinta** —la dirección en la que
+ * mira, y en el Y Bot la mitad `a` o `b` según el clip—, no la figura entera:
+ * el castillo y el mapa pintan a cada cuerpo de una sola vista y cargaban sus
+ * dieciséis. Es la única puerta de carga de figuras, así que la partida, el
+ * espectador, la arena, el mapa y el castillo cargan lo que pintan sin cablear
+ * nada.
+ */
+const pedidas = new Set<string>();
+
+function pedir(url: string): void {
+  if (pedidas.has(url)) return;
+  pedidas.add(url);
+  cargarHojaDeFigura(url);
+}
+
+/**
+ * Pide de antemano la hoja del disparo de `body`, la de la dirección en la que
+ * mira, si su arte lo pinta. El disparo es la única acción que va en su propia
+ * hoja (la C) y llega de golpe: sin pedirla antes, el primer disparo salía
+ * quieto (el reposo de `hojaQueSePinta`) mientras la hoja llegaba. La batalla
+ * la pide al pintar a cada tirador; `pedir` no la vuelve a cargar.
+ */
+export function precargarDisparo(body: string, mira: Direccion): void {
+  const arte = arteDe(body);
+  if (arte.dispara) pedir(hojaDe(arte, mira).clips.shoot.imagen);
+}
+
+export interface Figura {
+  /**
+   * Quién es: el id del stack, del objeto del mapa, del héroe… De él sale su
+   * compás (`compas.ts`), el desfase y la velocidad que la separan de las demás.
+   * Es obligatorio para que nadie pinte una figura que baile al paso de todas.
+   */
+  readonly id: string;
+  readonly body: string;
+  /**
+   * El clip. `death` se queda en el fotograma `cadaver` cuando su reloj lo
+   * alcanza: el cadáver es la muerte con un `tiempo` largo.
+   */
+  readonly clip: CharacterClip;
+  /** Milisegundos desde que empezó el clip. */
+  readonly tiempo: number;
+  /** Dónde pisa, en pantalla. */
+  readonly x: number;
+  readonly suelo: number;
+  /** Lo que mide un adulto en pantalla, de la coronilla a los pies. */
+  readonly alto: number;
+  /** Hacia dónde mira (`direccion.ts`): elige la hoja, no espeja. */
+  readonly mira: Direccion;
+  /** El color del bando: tiñe el Y Bot y pinta el marcador. */
+  readonly color: string;
+  /**
+   * Cuánto se ve el MARCADOR si la imagen no ha llegado, de 0 a 1. La figura con
+   * arte no se funde nunca —el que cae se queda en el suelo como cadáver—; el
+   * marcador sí, porque sin arte no hay cadáver que dejar: se funde con el aro
+   * del que cae, y el cadáver sin arte no se pinta (0). Quien llama lo decide
+   * con la opacidad de su aro; aquí no se recalcula nada.
+   */
+  readonly alfaSinArte?: number;
+  /** El destello de un golpe recibido, de 0 (nada) a 1 (de lleno). */
+  readonly destello?: number;
+  /** Rótulo del marcador sin arte: la inicial o la abreviatura. */
+  readonly rotulo: string;
+  /**
+   * La luz que le cae del clima (`luzDeLasFiguras`), o nada a plena luz. Solo la
+   * figura: su sombra, su aro y lo que se escribe encima van sin teñir. El mapa no
+   * la usa: allí el clima se pinta encima de todo lo que tiene altura.
+   */
+  readonly luz?: LuzSobreLaFigura | undefined;
+}
+
+/** La luz del clima sobre una figura: un color que se multiplica y, de noche, uno que se suma. */
+export interface LuzSobreLaFigura {
+  /** Color CSS que se multiplica (`multiply`): la noche, la lluvia. */
+  readonly por: string;
+  /** Color CSS que se suma después (`lighter`): la luna; `null` de día. */
+  readonly mas: string | null;
+}
+
+/**
+ * Las celdas a su tamaño en pantalla, por imagen, celda, tamaño, color y luz:
+ * toda figura con arte se pinta de aquí (`celdaEnPantalla`). Teñir es componer
+ * tres veces sobre un lienzo de paso, y se hacía en cada fotograma por figura:
+ * con 14 figuras y sin GPU eran 18 ms por fotograma, 1,1 ms con la caché (el
+ * banco de la vuelta de simplify). Desde que el arte propio también pasa por
+ * aquí (31-10-2026), un 6 contra 6 de la arena gasta ~8 MB a densidad 1 y ~39 a
+ * densidad 2; con 20 MB, a densidad 2 se rehacían 60 celdas por segundo. El tope
+ * cabe eso con holgura y no deja crecer la caché al hacer zoom, que cambia el
+ * tamaño de todas.
+ */
+const celdas = new CacheDeLienzos<string, HTMLCanvasElement>(64_000_000);
+
+/**
+ * Las siluetas de la sombra, por imagen, celda y tamaño: no dependen del color.
+ * Son a un cuarto de resolución (ver `pintarSombraDeFigura`), así que pesan un
+ * dieciseisavo que una celda teñida.
+ */
+const siluetas = new CacheDeLienzos<string, HTMLCanvasElement>(4_000_000);
+
+function lienzoNuevo(lado: number): CanvasRenderingContext2D {
+  const lienzo = document.createElement('canvas');
+  lienzo.width = lado;
+  lienzo.height = lado;
+  const c = lienzo.getContext('2d');
+  if (c === null) throw new Error('este navegador no tiene canvas 2D para pintar figuras');
+  return c;
+}
+
+/** La celda copiada a un lienzo de paso de `w` píxeles de lado. */
+function copiarCelda(c: CanvasRenderingContext2D, celda: CharacterFrame, w: number): void {
+  c.drawImage(celda.image, celda.x, celda.y, celda.size, celda.size, 0, 0, w, w);
+}
+
+/** Lo que se pinta de una figura y dónde, o `null` si no ha llegado ninguna de sus hojas. */
+interface Colocada {
+  readonly arte: ArteQueSePinta;
+  readonly celda: CharacterFrame;
+  /** La URL de la imagen de la celda: la clave de las cachés. */
+  readonly imagen: string;
+  /** El lado de la celda en pantalla, y dónde cae su esquina respecto a los pies. */
+  readonly lado: number;
+  readonly dx: number;
+  readonly dy: number;
+}
+
+/** Una figura resuelta una vez, para pintar su sombra y ella sin resolverla dos veces. */
+export interface FiguraColocada {
+  readonly f: Figura;
+  readonly p: Colocada | null;
+  /**
+   * Sin fotograma porque su hoja aún no ha llegado (o no se sabe aún qué hoja
+   * lleva): no se pinta nada, ni el marcador ni la sombra. El marcador queda para
+   * la figura que de verdad no tiene arte: su imagen falló o no existe.
+   */
+  readonly cargando: boolean;
+}
+
+/**
+ * La hoja que se pinta: la de la dirección en la que mira si ya ha llegado; si
+ * no, la de la dirección más cercana que ya esté, para que la figura no parpadee
+ * al marcador cada vez que gira hacia una hoja nueva. Si ninguna dirección
+ * tiene aún la hoja de este clip, el reposo de la más cercana que lo tenga: el
+ * primer golpe de una figura pide la hoja `b`, y mientras llega es mejor verla
+ * quieta que verla desaparecer. Sin ninguna, `null`: el marcador.
+ */
+function hojaQueSePinta(
+  arte: ArteQueSePinta,
+  f: Figura,
+): { atlas: AtlasQueSePinta; clip: CharacterClip; url: string; imagen: HTMLImageElement } | null {
+  const hojas = hojasPorCercania(arte, f.mira);
+  pedir(infoDelClip(hojas[0] as AtlasQueSePinta, f.clip).imagen);
+  for (const clip of [f.clip, 'idle'] as const) {
+    for (const atlas of hojas) {
+      const url = infoDelClip(atlas, clip).imagen;
+      const imagen = imagenDeFigura(url);
+      if (imagen !== null) return { atlas, clip, url, imagen };
+    }
+  }
+  return null;
+}
+
+/** Resuelve la figura: qué fotograma de qué hoja y cómo cae en pantalla. */
+export function colocarFigura(f: Figura): FiguraColocada {
+  // Sin la lista de hojas aún, el marcador: no el Y Bot de quien todavía no se
+  // sabe qué hoja lleva (`arteSabido`).
+  if (!arteSabido(f.body)) return { f, p: null, cargando: true };
+  // La gente del banco de NPC lanza aquí con un clip que no es suyo (un ataque).
+  const arte = arteParaPintar(f.body, f.clip);
+  const hoja = hojaQueSePinta(arte, f);
+  if (hoja === null) {
+    const pedida = infoDelClip(hojasPorCercania(arte, f.mira)[0] as AtlasQueSePinta, f.clip).imagen;
+    return { f, p: null, cargando: figuraEnCamino(pedida) };
+  }
+  const { atlas, clip, url, imagen } = hoja;
+  const frame =
+    clip === 'death'
+      ? fotogramaDeCaida(atlas, f.tiempo)
+      : clipFrame(atlas, clip, relojDeFigura(infoDelClip(atlas, clip), f.tiempo, f.id));
+  const celda = celdaDe(imagen, atlas, clip, frame);
+  // La celda se escala para que un ADULTO mida `alto`, y no la figura de esta
+  // hoja: el Y Bot y las `dN` comparten píxeles por metro (`FIGURA_8D`), así que
+  // cada figura conserva su tamaño. Escalar por la altura de cada hoja igualaría
+  // al goblin con el ent y al jinete con un soldado a pie.
+  const lado = (f.alto * atlas.cell) / FIGURA.alturaAdulto;
+  const escala = lado / atlas.cell;
+  return {
+    f,
+    cargando: false,
+    p: {
+      arte,
+      celda,
+      imagen: url,
+      lado,
+      dx: -celda.anchor[0] * escala,
+      dy: -celda.anchor[1] * escala,
+    },
+  };
+}
+
+/**
+ * Lo que distingue un dibujo de otro de la misma figura en el mismo sitio: la
+ * celda que se pinta —imagen y fotograma—, o el marcador, con el color y el
+ * tamaño. Quien repinta un lienzo solo para una figura (las miniaturas de la
+ * arena) se lo salta si no ha cambiado.
+ */
+export function claveDelDibujo(c: FiguraColocada): string {
+  const { f, p } = c;
+  const donde = `${f.x}|${f.suelo}|${f.alto}|${f.color}|${f.destello ?? 0}`;
+  if (c.cargando) return `cargando|${donde}`;
+  return p === null
+    ? `marcador|${donde}|${f.alfaSinArte ?? 1}`
+    : `${p.imagen}|${p.celda.x}|${p.celda.y}|${donde}`;
+}
+
+/** La clave de una celda en las cachés: la imagen, dónde está la celda y a qué tamaño. */
+function claveDeCelda(p: Colocada, w: number): string {
+  return `${p.imagen}|${p.celda.x}|${p.celda.y}|${w}`;
+}
+
+/**
+ * La sombra de la figura, que se pinta ANTES que ella y que su aro: la SILUETA
+ * del fotograma aplastada por la luz del contrato (`PROYECCION_DE_SOMBRA`), o el
+ * óvalo de `sombra.ts` si la imagen no ha llegado. Es la misma luz para todas:
+ * la proyección no depende de hacia dónde mire nadie.
+ */
+export function pintarSombraDeFigura(ctx: CanvasRenderingContext2D, c: FiguraColocada): void {
+  const { f, p } = c;
+  if (c.cargando) return;
+  if (p === null) {
+    const alfa = f.alfaSinArte ?? 1;
+    if (alfa <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = alfa;
+    pintarSombra(ctx, f.x, f.suelo, f.alto);
+    ctx.restore();
+    return;
+  }
+  // La silueta se compone a un CUARTO de la resolución y se estira al pintarla:
+  // el suavizado bilineal le difumina el borde como lo haría un desenfoque. Un
+  // `ctx.filter = 'blur(…)'` por figura y por fotograma era lo que costaba: sin
+  // GPU (Chromium sin cabeza, el de `pnpm capturas`) un fotograma de batalla
+  // pasaba de 300 ms y la barra no llegaba a decir «Espera a que termine».
+  const w = Math.max(1, Math.ceil((p.lado * Math.max(1, densidadDe(ctx))) / 4));
+  const clave = claveDeCelda(p, w);
+  let silueta = siluetas.get(clave);
+  if (silueta === undefined) {
+    const s = lienzoNuevo(w);
+    copiarCelda(s, p.celda, w);
+    s.globalCompositeOperation = 'source-in';
+    s.fillStyle = colorDeSombra();
+    s.fillRect(0, 0, w, w);
+    silueta = s.canvas;
+    siluetas.set(clave, silueta);
+  }
+  const t = PROYECCION_DE_SOMBRA;
+  ctx.save();
+  ctx.translate(f.x, f.suelo);
+  ctx.transform(t.a, t.b, t.c, t.d, 0, 0);
+  ctx.globalAlpha = t.opacidad;
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(silueta, 0, 0, w, w, p.dx, p.dy, p.lado, p.lado);
+  ctx.restore();
+}
+
+/**
+ * La celda a su tamaño en pantalla, de la caché o copiada ahora: la del Y Bot,
+ * teñida del color del bando, y con la luz del clima si le cae.
+ *
+ * El modo `color` se queda con la luminancia del Y Bot y el tono del bando: el
+ * cian toma el color sin perder el sombreado. `multiply` lo dejaba pardo, porque
+ * cian por rojo es casi negro. Y `destination-in` devuelve la silueta, que el
+ * relleno había tapado entera. Sobre UNA celda, no sobre la hoja: teñir la hoja
+ * entera por color eran ~200 MB más por color.
+ */
+function celdaEnPantalla(
+  p: Colocada,
+  color: string | null,
+  w: number,
+  luz: LuzSobreLaFigura | undefined,
+): HTMLCanvasElement {
+  const clave = `${claveDeCelda(p, w)}|${color ?? ''}|${luz?.por ?? ''}|${luz?.mas ?? ''}`;
+  const guardada = celdas.get(clave);
+  if (guardada !== undefined) return guardada;
+  const c = lienzoNuevo(w);
+  copiarCelda(c, p.celda, w);
+  if (color === null && luz === undefined) {
+    celdas.set(clave, c.canvas);
+    return c.canvas;
+  }
+  if (color !== null) {
+    c.globalCompositeOperation = 'color';
+    c.fillStyle = color;
+    c.fillRect(0, 0, w, w);
+  }
+  // La luz del clima, multiplicada como en el suelo (`render/clima/`), en la
+  // misma celda guardada: de noche, teñir no cuesta nada por fotograma.
+  if (luz !== undefined) {
+    c.globalCompositeOperation = 'multiply';
+    c.fillStyle = luz.por;
+    c.fillRect(0, 0, w, w);
+    if (luz.mas !== null) {
+      c.globalCompositeOperation = 'lighter';
+      c.fillStyle = luz.mas;
+      c.fillRect(0, 0, w, w);
+    }
+  }
+  c.globalCompositeOperation = 'destination-in';
+  copiarCelda(c, p.celda, w);
+  celdas.set(clave, c.canvas);
+  return c.canvas;
+}
+
+/**
+ * Pinta la figura, con su arte o con el marcador si la imagen no ha llegado.
+ *
+ * El destello del golpe es la misma figura pintada otra vez encima en modo
+ * `lighter`: suma luz solo donde hay figura, así que sirve igual para el Y Bot
+ * teñido, para una unidad con arte propio y para el marcador.
+ */
+export function pintarFigura(ctx: CanvasRenderingContext2D, c: FiguraColocada): void {
+  const { f, p } = c;
+  if (c.cargando) return;
+  const destello = f.destello ?? 0;
+  const alfa = p === null ? (f.alfaSinArte ?? 1) : 1;
+  if (alfa <= 0) return;
+  let pintar: () => void;
+  if (p === null) {
+    pintar = () => pintarMarcador(ctx, f);
+  } else {
+    // Siempre de la celda guardada, nunca del atlas (31-10-2026, «el juego va
+    // lento, sobre todo al sacar la rueda»): copiar a cada fotograma de hojas de
+    // 2688 × 2688, en el tablero y en los lienzos de la cabecera de la rueda,
+    // dejaba un 6 contra 6 de la arena con la rueda abierta a 1,9 fps con GPU
+    // (~480 ms por fotograma; 60 fps desde la celda) y costaba ~5,5 ms por
+    // fotograma sin ella. El Y Bot, teñido del color de su bando; con arte
+    // propio, tal cual.
+    const w = Math.max(1, Math.ceil(p.lado * Math.max(1, densidadDe(ctx))));
+    const fuente = celdaEnPantalla(p, p.arte.propio ? null : f.color, w, f.luz);
+    const { lado, dx, dy } = p;
+    pintar = () => ctx.drawImage(fuente, 0, 0, w, w, f.x + dx, f.suelo + dy, lado, lado);
+  }
+  ctx.save();
+  ctx.globalAlpha = alfa;
+  pintar();
+  if (destello > 0) {
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = alfa * destello;
+    pintar();
+  }
+  ctx.restore();
+}
+
+/** La celda de una figura con arte, lista para copiarla: la misma que pinta `pintarFigura`. */
+interface CeldaDeLaFigura {
+  /** El lienzo guardado de la celda (`celdaEnPantalla`), de `w` píxeles de lado. */
+  readonly fuente: HTMLCanvasElement;
+  readonly w: number;
+  /** Dónde va, en píxeles de la pantalla: la esquina de arriba a la izquierda y el lado. */
+  readonly x: number;
+  readonly y: number;
+  readonly lado: number;
+}
+
+/**
+ * La celda con que se pinta la figura y dónde, o `null` si no hay arte que pintar
+ * (cargando, o el marcador): de ella sale la silueta de lo tapado
+ * (`pintarLoTapadoDeLaFigura`, `figura-tapada.ts`). Es la celda guardada de
+ * `pintarFigura` con la misma `densidad` (la de `densidadDe`), así que no hace
+ * ninguna nueva.
+ */
+export function celdaDeLaFigura(c: FiguraColocada, densidad: number): CeldaDeLaFigura | null {
+  const { f, p } = c;
+  if (c.cargando || p === null) return null;
+  const w = Math.max(1, Math.ceil(p.lado * Math.max(1, densidad)));
+  const fuente = celdaEnPantalla(p, p.arte.propio ? null : f.color, w, f.luz);
+  return { fuente, w, x: f.x + p.dx, y: f.suelo + p.dy, lado: p.lado };
+}
+
+/**
+ * La sombra y la figura, resuelta una sola vez: lo que pintan el mapa, el
+ * castillo, la arena y el cadáver. `enMedio` es lo que va entre las dos —el aro
+ * de la base y de la tropa (`pintarAroDeFigura`, con `piesDeFigura` de la figura
+ * resuelta)—: encima de la sombra, que es del suelo, y debajo de la figura. La
+ * batalla, que pone varios aros en medio, llama a las dos por separado con la
+ * misma `colocarFigura`.
+ */
+export function pintarFiguraConSombra(
+  ctx: CanvasRenderingContext2D,
+  f: Figura,
+  enMedio?: (c: FiguraColocada) => void,
+): void {
+  const c = colocarFigura(f);
+  pintarSombraDeFigura(ctx, c);
+  enMedio?.(c);
+  pintarFigura(ctx, c);
+}
+
+/** Los pies medidos de cada fotograma (`claveDeCelda` sin el tamaño): se miden una vez. */
+const piesMedidos = new Map<string, PiesDeLaFigura | null>();
+/** Las celdas que se recuerdan: las de las pocas figuras que llevan aro, con holgura. */
+const PIES_QUE_SE_RECUERDAN = 256;
+let lienzoDeLosPies: CanvasRenderingContext2D | null = null;
+
+/**
+ * Los pies del fotograma que se pinta (`piesEn`, en altos de adulto respecto al
+ * apoyo), o `null` sin arte: el aro va en ellos (`aroDeFigura`). Se leen del alfa
+ * de la celda una vez por fotograma de la hoja; solo lo piden las figuras que
+ * llevan aro, que son una o dos.
+ */
+export function piesDeFigura({ p }: FiguraColocada): PiesDeLaFigura | null {
+  if (p === null) return null;
+  const clave = `${p.imagen}|${p.celda.x}|${p.celda.y}`;
+  const guardados = piesMedidos.get(clave);
+  if (guardados !== undefined) return guardados;
+  const lado = p.celda.size;
+  if (lienzoDeLosPies === null || lienzoDeLosPies.canvas.width < lado) {
+    const lienzo = document.createElement('canvas');
+    lienzo.width = lado;
+    lienzo.height = lado;
+    // Se lee de vuelta cada vez: sin esto, Chrome avisa en la consola.
+    lienzoDeLosPies = lienzo.getContext('2d', { willReadFrequently: true });
+    if (lienzoDeLosPies === null) {
+      throw new Error('este navegador no tiene canvas 2D para medir los pies de una figura');
+    }
+  }
+  const c = lienzoDeLosPies;
+  c.clearRect(0, 0, lado, lado);
+  c.drawImage(p.celda.image, p.celda.x, p.celda.y, lado, lado, 0, 0, lado, lado);
+  const { data } = c.getImageData(0, 0, lado, lado);
+  const pies = piesEn(
+    (x, y) => data[(y * lado + x) * 4 + 3] as number,
+    lado,
+    p.celda.anchor,
+    // En píxeles de la celda un adulto mide siempre lo mismo (`colocarFigura`).
+    FIGURA.alturaAdulto,
+  );
+  if (piesMedidos.size >= PIES_QUE_SE_RECUERDAN) piesMedidos.clear();
+  piesMedidos.set(clave, pies);
+  return pies;
+}
+
+/** El último respaldo: un óvalo del color del bando con su rótulo. */
+function pintarMarcador(ctx: CanvasRenderingContext2D, f: Figura): void {
+  const alto = f.alto * 0.95;
+  const ancho = f.alto * 0.38;
+  ctx.fillStyle = f.color;
+  ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(f.x, f.suelo - alto / 2, ancho, alto / 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#14110d';
+  ctx.font = `bold ${Math.max(9, Math.round(ancho * 0.42))}px ${temaDelLienzo().letraUi}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(f.rotulo, f.x, f.suelo - alto / 2, ancho * 2);
+}

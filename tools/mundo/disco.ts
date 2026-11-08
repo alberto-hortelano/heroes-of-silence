@@ -9,8 +9,9 @@
  */
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
-import { join, relative, resolve } from 'node:path';
-import { buildMap, type MapPlan } from '../../src/core/map/generate.js';
+import { join, relative } from 'node:path';
+import { buildMap } from '../../src/core/map/generar/construir.js';
+import type { MapPlan } from '../../src/core/map/generar/plan.js';
 import {
   idDeMundoBlocker,
   type Mundo,
@@ -20,14 +21,15 @@ import {
 import { type LecturaParaElMotor, lecturaParaElMotor } from '../../src/core/mundo/lectura.js';
 import { mundoNuevo, type PedidoDeMundo } from '../../src/core/mundo/partida.js';
 import { type CrudosDelMundo, leerMundo, problemasDelMundo } from '../../src/core/mundo/validar.js';
+import { textoJson } from '../comun/json.js';
+import { RAIZ } from '../comun/raiz.js';
 import { leerBancoDeDisco } from '../npcs/banco.js';
 
-export const RAIZ = resolve(import.meta.dirname, '../..');
-export const DIR_MUNDOS = join(RAIZ, 'assets/mundos');
-export const DIR_LECTURAS = join(RAIZ, '.cache/mundos');
+const DIR_MUNDOS = join(RAIZ, 'assets/mundos');
+const DIR_LECTURAS = join(RAIZ, '.cache/mundos');
 
 /** La carpeta de un mundo, o lanza si el id no tiene la forma: va en una ruta de disco. */
-export function carpetaDe(id: string): string {
+function carpetaDe(id: string): string {
   const motivo = idDeMundoBlocker(id);
   if (motivo !== null) throw new Error(motivo);
   return join(DIR_MUNDOS, id);
@@ -47,7 +49,7 @@ export function lecturaDe(id: string): string {
  * (`queHace`), la frase del que falta (`noEsta`) y qué línea del validador es un
  * problema (`problemaDeLaLinea`).
  */
-export const FICHEROS_DEL_MUNDO = [
+const FICHEROS_DEL_MUNDO = [
   { nombre: 'mundo.json', motor: null },
   { nombre: 'plan.json', motor: null },
   {
@@ -64,7 +66,7 @@ export const FICHEROS_DEL_MUNDO = [
   },
 ] as const;
 
-export type FicheroDelMundo = (typeof FICHEROS_DEL_MUNDO)[number];
+type FicheroDelMundo = (typeof FICHEROS_DEL_MUNDO)[number];
 export type FicheroDelMotor = Extract<FicheroDelMundo, { motor: object }>;
 
 /** Los que escribe el motor: la biblia y la historia. */
@@ -119,12 +121,12 @@ export function problemaDeLaLinea(linea: string): string | null {
  * permiso. Dicho con su nombre y sin rutas absolutas (H4 del QA de la trama: un
  * `biblia.md` que era un directorio daba el `EISDIR` de Node con la ruta entera).
  */
-export interface NoSeLee {
+interface NoSeLee {
   readonly noSeLee: string;
 }
 
 /** Si lo leído de un fichero es que no se lee. */
-export function noSeLee(x: string | null | NoSeLee): x is NoSeLee {
+function noSeLee(x: string | null | NoSeLee): x is NoSeLee {
   return typeof x === 'object' && x !== null;
 }
 
@@ -157,7 +159,7 @@ async function leerTexto(
  * Un mundo en disco: su biblia (su texto, `null` si no está, o por qué no se lee) y
  * sus JSON, o los problemas de leerlos.
  */
-export type MundoEnDisco = { readonly biblia: string | null | NoSeLee } & (
+type MundoEnDisco = { readonly biblia: string | null | NoSeLee } & (
   | { readonly crudos: CrudosDelMundo }
   | { readonly problemas: readonly string[] }
 );
@@ -246,7 +248,7 @@ export function palabrasDe(texto: string): number {
  * Lo que le falta a la biblia de un mundo (`biblia.md`, la trama en prosa que el
  * motor escribe antes que `historia.json`), o `null` si vale. `texto` es lo que hay
  * en el fichero, `null` si no está, o por qué no se lee (`NoSeLee`). Solo en disco: el juego no la lee, la página
- * no la carga (`client/mundo/cargar.ts`) y ningún mundo va al build; la piden
+ * no la carga (`client/partida/mundo.ts`) y ningún mundo va al build; la piden
  * `pnpm mundo validar` y el servidor que genera, por `validarEnDisco`.
  */
 export function problemaDeLaBiblia(texto: string | null | NoSeLee, id: string): string | null {
@@ -332,7 +334,7 @@ export async function escribirMundoNuevo(pedido: PedidoDeMundo): Promise<Mundo> 
   }
   const { mundo, plan } = mundoNuevo(pedido);
   await mkdir(dir, { recursive: true });
-  await writeFile(rutaDelFichero(pedido.id, 'mundo.json'), `${JSON.stringify(mundo, null, 2)}\n`);
+  await writeFile(rutaDelFichero(pedido.id, 'mundo.json'), textoJson(mundo, 2));
   await writeFile(rutaDelFichero(pedido.id, 'plan.json'), `${JSON.stringify(plan)}\n`);
   return mundo;
 }
@@ -354,7 +356,7 @@ export async function escribirLectura(
   const lectura = lecturaParaElMotor(mundo, plan, leerBancoDeDisco(), hecho);
   const salida = lecturaDe(id);
   await mkdir(salida, { recursive: true });
-  await writeFile(join(salida, 'lectura.json'), `${JSON.stringify(lectura, null, 2)}\n`);
+  await writeFile(join(salida, 'lectura.json'), textoJson(lectura, 2));
   if (conPng) {
     alPintar?.();
     // A demanda: Playwright y el escenógrafo solo hacen falta para el PNG.

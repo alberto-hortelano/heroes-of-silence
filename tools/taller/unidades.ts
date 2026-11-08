@@ -14,18 +14,18 @@
  *     ese estilo (decisión del usuario, 01-10-2026); el atlas de Liora ya no es
  *     referencia de nada.
  */
-import { relative, resolve } from 'node:path';
+import { relative } from 'node:path';
 import type { FactionId } from '../../src/core/types.js';
-import type { PerfilDeUnidad } from '../../src/core/unidad.js';
+import type { PerfilDeUnidad } from '../../src/core/unidad/formato.js';
 import {
   type ClipDeFigura,
   HOJAS_DE_FIGURA,
   hojasDeFigura,
   NOMBRES_DE_DIRECCION,
 } from '../../src/shared/arte.js';
+import type { ClipsDeManiqui, Tramo } from '../art/poses/clips.js';
 import {
   type Atrezo,
-  type ClipsDeManiqui,
   type CuerpoACuerpo,
   carpetaDeManiqui,
   carpetaDePoses,
@@ -36,21 +36,21 @@ import {
   JUEGOS_DE_ARMAS,
   type JuegoEn8d,
   type Perfil,
-  type Tramo,
   UNA_MANO,
-} from '../art/poses.js';
+} from '../art/poses/juegos.js';
+import { RAIZ } from '../comun/raiz.js';
 import { arteEnOchoDirecciones } from './arte-en-disco.js';
 import type { RitmoDeUnidad } from './derivar.js';
 import { type Encargo, figuraDelGiro } from './encargo.js';
 
-export interface Unidad {
+interface Unidad {
   readonly id: string;
-  /** Las cinco facciones se declaran en `src/core/arena.ts`, que es quien las valida al guardar. */
+  /** Las cinco facciones se declaran en `src/core/types.ts` (`FACTION_IDS`) y las valida al guardar `validarUnidad` (`src/core/unidad/formato.ts`). */
   readonly faccion: FactionId;
   /** El nombre en `NuevaJugabilidad.md`. */
   readonly nombre: string;
   /**
-   * La hoja de pose: uno de los perfiles de `poses.ts` (sprite-forge), o
+   * La hoja de pose: uno de los perfiles de `poses/juegos.ts` (sprite-forge), o
    * `montado-lanza`, la del jinete que renderiza `tools/art/montura.ts`.
    */
   readonly perfil: Perfil | 'montado-lanza';
@@ -258,7 +258,7 @@ const conReposo = (t: Temperamento, reposo: string): Temperamento => ({
  */
 const conImpact2 = (t: Temperamento): Temperamento => conGolpe(t, 'impact2');
 
-export const PINTURA =
+const PINTURA =
   'Estilo: el de las imágenes del personaje —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.';
 
 export const UNIDADES: readonly Unidad[] = [
@@ -999,8 +999,8 @@ export function unidad(id: string): Unidad {
   return u;
 }
 
-export const rutaIdentidad = (u: Unidad): string => `assets/unidades/${u.id}/identidad`;
-export const rutaPoses = (u: Unidad): string =>
+const rutaIdentidad = (u: Unidad): string => `assets/unidades/${u.id}/identidad`;
+const rutaPoses = (u: Unidad): string =>
   u.poseDeIdentidad ?? `assets/unidades/_poses/${u.perfil}.png`;
 
 export function encargoDeIdentidad(u: Unidad): Encargo {
@@ -1046,7 +1046,7 @@ export const ELITE: ReadonlySet<string> = new Set([
   'orko-armadura-pesada',
 ]);
 
-export type RangoDeUnidad = 'heroe' | 'elite' | 'tropa';
+type RangoDeUnidad = 'heroe' | 'elite' | 'tropa';
 
 /** Héroe, élite o tropa: el héroe por estar en `HEROES`, la élite por `ELITE`. */
 export function rangoDe(u: Unidad): RangoDeUnidad {
@@ -1153,7 +1153,7 @@ export function perfilDeUnidad(u: Unidad): PerfilDeUnidad {
 
 /**
  * Las unidades definitivas, en 8 direcciones con 6 acciones (`OCHO_DIRECCIONES`
- * en `tools/art/poses.ts`), y el juego de armas de cada una: sus poses son las de
+ * en `tools/art/poses/clips.ts`), y el juego de armas de cada una: sus poses son las de
  * ese juego (`JUEGOS_DE_ARMAS`). El juego no se escribe aquí otra vez: es el de
  * `JUEGO_DEL_YBOT`, porque el arte propio se pinta sobre las poses del mismo
  * juego con el que la unidad se pinta mientras no lo tiene.
@@ -1228,8 +1228,6 @@ export const JUEGOS_EN_8D: readonly JuegoEn8d[] = [
   'montado-arco',
 ];
 
-const RAIZ = resolve(import.meta.dirname, '../..');
-
 /**
  * ¿Tiene la unidad su arte propio en las ocho direcciones? `true` con las ocho
  * y `false` sin ninguna; con algunas **lanza** con el motivo. Lo lee el visor
@@ -1250,7 +1248,7 @@ function dirPoses8d(u: Unidad): string {
   return relative(RAIZ, u.maniqui === undefined ? carpetaDePoses(juego) : carpetaDeManiqui(u.id));
 }
 
-export const rutaGiro = (u: Unidad): string => `assets/unidades/${u.id}/giro`;
+const rutaGiro = (u: Unidad): string => `assets/unidades/${u.id}/giro`;
 
 /**
  * La lámina de identidad por los ocho lados: el maniquí en el reposo de cada

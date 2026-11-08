@@ -1,18 +1,16 @@
 /**
- * El catálogo de unidades (`data/unidades.json`, `core/catalogo.ts`), F1 de
- * `docs/agents/2026-10-18-combate-y-ejercitos-en-el-juego/plan.md`: la lista
+ * El catálogo de unidades (`data/unidades.json`, `core/unidad/catalogo.ts`), F1 de
+ * `docs/agents/2026-10-18-combate-y-ejercitos-en-el-juego/`: la lista
  * entera de las cinco facciones, que `core` lee sin pasar por `tools/` y que la
- * arena escribe. Los criterios salen del plan: una unidad por hoja de tropa, la
+ * arena escribe. Los criterios salen de su `requisitos.md`, no del código: una unidad por hoja de tropa, la
  * validación al cargar con su fichero en el mensaje, y la búsqueda por id que
  * lanza diciendo cuál.
  */
-import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { UNIDADES } from '../src/core/catalogo.js';
+import { UNIDADES } from '../src/core/unidad/catalogo.js';
 import { leerCatalogo } from '../tools/arena/borrador.js';
-import { hojasDeLaArena } from './helpers.js';
-
-const RAIZ = resolve(import.meta.dirname, '..');
+import { RAIZ } from './comun.js';
+import { hojasDeLaArena } from './hojas-de-la-arena.js';
 
 describe('el catálogo de unidades (data/unidades.json)', () => {
   it('trae una unidad por hoja de tropa del taller, con su id, y ninguna sin hoja', () => {

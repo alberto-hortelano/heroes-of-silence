@@ -9,7 +9,7 @@
  * barra dice en cada momento cuál es el siguiente y cuánto falta: un
  * «conectando…» inerte no distingue entre reintentar y estar colgado.
  */
-import type { SpectatorSnapshotMsg } from '../../server/protocol.js';
+import type { SpectatorSnapshotMsg } from '../../shared/cable-del-espectador.js';
 import { Reproductor } from './reproductor.js';
 import { FINAL_VISIBLE_MS } from './telon.js';
 
@@ -121,7 +121,7 @@ export function textoDeRendicion(caida: Caida, url: string): string {
  *  - `otra`: el servidor volvió con otra partida, y lo de antes —día, crónica,
  *    la cola del telón, la batalla a medio contar— no es suyo.
  */
-export type Reconocimiento = 'primera' | 'misma' | 'otra';
+type Reconocimiento = 'primera' | 'misma' | 'otra';
 
 export function reconocerPartida(mirada: string | null, llegada: string): Reconocimiento {
   if (mirada === null) return 'primera';

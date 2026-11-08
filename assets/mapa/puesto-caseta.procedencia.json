@@ -20,7 +20,7 @@
       "sha256": "3435bfc4b41d98e51cfefab4ca531e83eac696d1d900b387c60a9bc0264a44f9"
     },
     {
-      "ruta": "assets/mapa/guias/puesto-caseta.png",
+      "ruta": "assets/mapa/_guias/puesto-caseta.png",
       "papel": "guia",
       "sha256": "61c7ea4de6554672a62961376c110ae793333e2d8aedb7d4d4cabf66345d9ae4"
     }

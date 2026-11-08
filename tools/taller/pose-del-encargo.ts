@@ -4,17 +4,16 @@
  * esqueleto (C1). Aparte de `trabajador.ts`, que arranca la cola al importarse,
  * para que lo use quien empaqueta fuera de la cola (una medida, una prueba).
  */
-import { join, resolve } from 'node:path';
-import sharp from 'sharp';
+import { join } from 'node:path';
 import { type ClipDeFigura, FIGURA, HOJAS_DE_FIGURA } from '../../src/shared/arte.js';
-import { OCHO_DIRECCIONES } from '../art/poses.js';
+import { OCHO_DIRECCIONES } from '../art/poses/clips.js';
+import { aRaster } from '../comun/imagen.js';
+import { RAIZ } from '../comun/raiz.js';
 import { ELEVACION_DEL_CADAVER } from './derivar.js';
 import { apoyoEn, type EscalaDePose } from './empaquetar.js';
 import type { Encargo } from './encargo.js';
 import { hojaDelReposo } from './poses-8d.js';
 import { hojaDePose, huesosVigentes, poseDelEncargo, troncoDe } from './revision/maniqui.js';
-
-const RAIZ = resolve(import.meta.dirname, '../..');
 
 /**
  * Las siluetas del maniquí en cada celda de la hoja de pose de un encargo de 8
@@ -24,14 +23,11 @@ const RAIZ = resolve(import.meta.dirname, '../..');
 export async function escalaDePose(e: Encargo): Promise<EscalaDePose> {
   const celda: number = e.celda ?? FIGURA.celda;
   const medir = async (ruta: string) => {
-    const { data, info } = await sharp(join(RAIZ, ruta))
-      .ensureAlpha()
-      .raw()
-      .toBuffer({ resolveWithObject: true });
-    const filas = info.height / celda;
-    const columnas = info.width / celda;
+    const { data, width, height } = await aRaster(join(RAIZ, ruta));
+    const filas = height / celda;
+    const columnas = width / celda;
     const alfa = (f: number, c: number) => (x: number, y: number) =>
-      data[((f * celda + y) * info.width + c * celda + x) * 4 + 3] as number;
+      data[((f * celda + y) * width + c * celda + x) * 4 + 3] as number;
     const celdas = Array.from({ length: filas }, (_, f) =>
       Array.from({ length: columnas }, (_, c) => {
         let x0 = celda;

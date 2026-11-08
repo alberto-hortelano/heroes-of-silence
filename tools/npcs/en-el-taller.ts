@@ -13,14 +13,14 @@
  * **El reintento** (QA del banco de NPC, H2, 22-10-2026: «se encadena sola» y «llegan
  * después»): un encargo de una figura que falla se vuelve a encolar solo hasta
  * `REINTENTOS_DE_NPC` veces, contadas en su ficha (`Ficha.fallos`), no en la memoria de un
- * trabajador; lo hacen el trabajador al fallar (`trabajador.ts`) y `pnpm npcs trabajar`
+ * trabajador; lo hacen el trabajador al fallar (`taller/ordenes/cola.ts`) y `pnpm npcs trabajar`
  * al arrancar (`rescatar`, `tools/taller/npcs.ts`). Pasado el tope queda fallido, y el
  * estado lo dice con la orden que lo arregla.
  */
 import { type Cola, colaDelTaller, type Ficha, type TrabajadorDelEncargo } from '../taller/cola.js';
 
 /** Los encargos de NPC llevan este prefijo: `pnpm npcs trabajar` toma solo esos. */
-export const PREFIJO_DE_NPC = 'npc-';
+const PREFIJO_DE_NPC = 'npc-';
 export const esEncargoDeNpc = (id: string): boolean => id.startsWith(PREFIJO_DE_NPC);
 /** El principio del id de todo encargo de la figura `id`: `npc-<id>-…`. */
 export const prefijoDeLaFigura = (id: string): string => `${PREFIJO_DE_NPC}${id}-`;
@@ -34,7 +34,7 @@ export const prefijoDeLaFigura = (id: string): string => `${PREFIJO_DE_NPC}${id}
 export const REINTENTOS_DE_NPC = 2;
 
 /** Cuántas veces se ha reintentado ya un encargo: los fallos que lleva su ficha. */
-export const reintentosGastados = (ficha: Ficha): number => ficha.fallos?.length ?? 0;
+const reintentosGastados = (ficha: Ficha): number => ficha.fallos?.length ?? 0;
 /** Si a un encargo fallido le queda algún reintento automático. */
 export const quedanReintentos = (ficha: Ficha): boolean =>
   reintentosGastados(ficha) < REINTENTOS_DE_NPC;

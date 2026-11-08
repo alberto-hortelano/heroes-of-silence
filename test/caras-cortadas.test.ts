@@ -30,11 +30,11 @@ import {
   carasCortadas,
 } from '../src/client/render/escenario/caras.js';
 import type { Modulo } from '../src/client/render/escenario/catalogo.js';
-import type { Sprite } from '../src/client/render/escenario/colocar.js';
+import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
 import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
 import { claveDe } from '../src/client/render/escenario/pintar.js';
 import { bandaDeCara, type Cara } from '../src/client/render/escenario/relieve.js';
-import { catalogoDelDisco, partidaDe } from './helpers.js';
+import { catalogoDelDisco, partidaDe } from './escena-de-prueba.js';
 import { rango, segunPrisa } from './lento.js';
 
 const catalogo = catalogoDelDisco();
@@ -202,7 +202,7 @@ describe('en los mapas reales', () => {
       const { map, escena: e } = partidaDe(semilla);
       // Donde se pinta cada objeto: en su casilla (la ciudad-puente también).
       const objetos = map.objects
-        .filter((o) => ['town', 'village', 'mine', 'node'].includes(o.kind))
+        .filter((o) => ['town', 'village', 'node'].includes(o.kind))
         .map((o) => [o.at.x, o.at.y] as const);
       const cortadas = carasCortadas(e.relieve.caras, e.sprites, objetos, e.W);
       expect(cortadas.length).toBe(QUEDAN[semilla] ?? 0);

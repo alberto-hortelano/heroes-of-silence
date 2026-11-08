@@ -5,28 +5,27 @@
  * Sirve para juzgar el arte en su sitio —un bosque nevado tiene que leerse
  * como muro al lado de la nieve, no en una lámina— y para proponer a la sesión
  * de reglas cómo elegir la pieza de cada casilla (`piezaDeCasilla`,
- * `nodoDePaso`). No es el render del juego: `render/mapa.ts` no se toca.
+ * `nodoDePaso`). No es el render del juego: `render/mapa/mapa.ts` no se toca.
  *
  * Lo que aún no existe se pinta con su pigmento, así que la página vale desde
  * el primer encargo.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { HITOS, NODOS, nodoDePaso, pasoDeNodo } from '../../src/client/render/escenario/nodos.js';
-import { pigments } from '../../src/client/render/terreno.js';
-import type { MapObject } from '../../src/core/map/map.js';
+import { pigments } from '../../src/client/render/mapa/terreno.js';
 import {
   type Barrera,
   esBarrera,
   type Suelo,
   type TerrainKind,
 } from '../../src/core/map/terrain.js';
+import type { MapObject } from '../../src/core/map/tipos.js';
 import { newGame } from '../../src/core/state/setup.js';
+import { RAIZ } from '../comun/raiz.js';
 import { familiasConIds, idsDe, LAMINAS, piezaDeCasilla, TEXTURAS } from './mapa-denso.js';
 import { DIR_VISTA } from './vista.js';
-
-const RAIZ = resolve(import.meta.dirname, '../..');
 
 /** Cuántas casillas de ancho ocupa cada clase de pieza en la composición. */
 const ANCHO_EN_CASILLAS = {
@@ -70,7 +69,7 @@ interface Cosa {
   readonly etiqueta: string;
 }
 
-export interface MapaCompuesto {
+interface MapaCompuesto {
   readonly ancho: number;
   readonly alto: number;
   /** El suelo que se pinta debajo de cada casilla (el de al lado si es barrera), o el agua. */
@@ -82,7 +81,7 @@ export interface MapaCompuesto {
 }
 
 /** Compone el mapa de una semilla: suelo de cada casilla y piezas ordenadas por el pie. */
-export function componerMapa(semilla: number): MapaCompuesto {
+function componerMapa(semilla: number): MapaCompuesto {
   const { map } = newGame({ seed: semilla });
   const W = map.width;
   const H = map.height;

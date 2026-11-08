@@ -12,13 +12,13 @@
  *    eso se apuntaba a mano como `frames: 6`—;
  *  - la **caja de clic**: la unión de las cajas del reposo, relativa al ancla.
  *
- * Y apunta el sha256 de la imagen que midió: `test/taller-derivar.test.ts`
- * vuelve a derivar cada hoja y exige el mismo JSON, así que un número tocado a
- * mano —o una imagen cambiada sin volver a derivar— se pone rojo.
+ * Y apunta el sha256 de la imagen que midió: `test/taller-8d.test.ts` (las hojas)
+ * y `test/arte-hojas.test.ts` (las piezas del mapa) vuelven a derivar y exigen el
+ * mismo JSON, así que un número tocado a mano —o una imagen cambiada sin volver a
+ * derivar— se pone rojo.
  */
-import { createHash } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import sharp from 'sharp';
 import type { JuntasDeLadera } from '../../src/client/render/escenario/catalogo.js';
 import {
@@ -29,11 +29,15 @@ import {
   FILAS_DEL_ATLAS,
   type HojaDeFigura,
 } from '../../src/shared/arte.js';
-import { ALFA_FIGURA, apoyoEn } from './empaquetar.js';
+import { mediana } from '../comun/estadistica.js';
+import { sha256 } from '../comun/hash.js';
+import { aRaster } from '../comun/imagen.js';
+import { textoJson } from '../comun/json.js';
+import { RAIZ } from '../comun/raiz.js';
+import { ALFA_FIGURA } from './cuerpo.js';
+import { apoyoEn } from './empaquetar.js';
+import { esFondoDeGuia, type P2 } from './guias.js';
 import type { GeometriaDeLadera } from './laderas.js';
-import { esFondoDeGuia, type P2 } from './paredes-puentes.js';
-
-const RAIZ = resolve(import.meta.dirname, '../..');
 
 /** Las filas de una hoja del taller, en orden, con su reloj. El reloj no sale de la imagen. */
 export const RELOJ = {
@@ -55,7 +59,6 @@ export const RELOJ = {
   /** El disparo, al reloj que tenía cuando era la fila del ataque: la suelta cae donde caía. */
   shoot: { fps: 10, loop: false },
 } as const satisfies Record<ClipDeFigura, { fps: number; loop: boolean }>;
-export type ClipDeHoja = keyof typeof RELOJ;
 
 /**
  * Los fotogramas por segundo de los clips de una unidad que no van al reloj de
@@ -95,7 +98,7 @@ export const ELEVACION_DEL_CADAVER = 64;
 
 /**
  * Una hoja del taller es una dirección de una unidad en 8 direcciones
- * (`OCHO_DIRECCIONES` en `tools/art/poses.ts`): una fila por cada una de las
+ * (`OCHO_DIRECCIONES` en `tools/art/poses/clips.ts`): una fila por cada una de las
  * seis acciones de `CLIPS_DE_FIGURA`, en su orden, cada una con su reloj, y la
  * séptima, el disparo, en quien dispara (`FILAS_DEL_ATLAS`). La muerte arranca
  * donde acaba el daño. Las hojas de 3 y 4 filas de una sola dirección se
@@ -109,7 +112,7 @@ const ALFA_ALTURA = 40;
 /** Dos fotogramas son el mismo si difieren en menos de este tanto por uno del alfa. */
 const REPETIDO = 0.004;
 
-export interface ClipDerivado {
+interface ClipDerivado {
   readonly row: number;
   readonly frames: number;
   readonly fps: number;
@@ -192,11 +195,6 @@ function diferencia(a: Celda, b: Celda): number {
   return d / (a.alfa.length * 255);
 }
 
-function mediana(v: readonly number[]): number {
-  const s = [...v].sort((a, b) => a - b);
-  return s[Math.floor(s.length / 2)] as number;
-}
-
 /** Con qué se deriva una hoja (`derivarAtlas`). */
 export interface OpcionesDeDerivar {
   readonly elevacionDeLaMuerte?: number;
@@ -255,14 +253,11 @@ export async function derivarAtlas(
       throw new Error(`${rutaImagen}: el ritmo de «${clip}» es ${fps} fps; va de más de 0 a 30`);
   }
   const bytes = await readFile(rutaImagen);
-  const { data, info } = await sharp(bytes)
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
+  const { data, width, height } = await aRaster(bytes);
   // La celda sale de la imagen: 256 a pie, 384 las monturas; las columnas son siempre las de FIGURA.
   const { columnas } = FIGURA;
-  const lado = info.width / columnas;
-  const filas = info.height / lado;
+  const lado = width / columnas;
+  const filas = height / lado;
   const pedidas =
     hojas === undefined
       ? null
@@ -273,7 +268,7 @@ export async function derivarAtlas(
   if (pedidas !== null) {
     if (!Number.isInteger(lado) || filas !== pedidas.clips.length) {
       throw new Error(
-        `${rutaImagen} mide ${info.width}×${info.height}: con las hojas ${pedidas.hojas} son ${columnas} columnas por ${pedidas.clips.length} filas (${pedidas.clips.join(', ')}), de celdas cuadradas`,
+        `${rutaImagen} mide ${width}×${height}: con las hojas ${pedidas.hojas} son ${columnas} columnas por ${pedidas.clips.length} filas (${pedidas.clips.join(', ')}), de celdas cuadradas`,
       );
     }
   } else if (
@@ -281,7 +276,7 @@ export async function derivarAtlas(
     (filas !== FILAS_SIN_DISPARO && filas !== FILAS_CON_DISPARO)
   ) {
     throw new Error(
-      `${rutaImagen} mide ${info.width}×${info.height}: una hoja del taller son ${columnas} columnas ` +
+      `${rutaImagen} mide ${width}×${height}: una hoja del taller son ${columnas} columnas ` +
         `por ${FILAS_SIN_DISPARO} filas, o ${FILAS_CON_DISPARO} con el disparo (una dirección de 8), de celdas cuadradas`,
     );
   }
@@ -304,7 +299,7 @@ export async function derivarAtlas(
   let altura = 0;
   for (const [fila, def] of relojes.entries()) {
     const celdas = Array.from({ length: columnas }, (_, col) =>
-      celda(data, info.width, col, fila, lado),
+      celda(data, width, col, fila, lado),
     );
     const esDisparo = def.clip === 'shoot';
     let frames: number = columnas;
@@ -369,7 +364,7 @@ export async function derivarAtlas(
 
   return {
     imagen: basename(rutaImagen),
-    sha256: createHash('sha256').update(bytes).digest('hex'),
+    sha256: sha256(bytes),
     cell: lado,
     columns: columnas,
     altura,
@@ -392,7 +387,7 @@ export async function escribirDerivado(
   opciones: OpcionesDeDerivar = {},
 ): Promise<AtlasDerivado<'idle' | 'walk'>> {
   const derivado = await derivarAtlas(rutaImagen, opciones);
-  await writeFile(rutaDelJson(rutaImagen), `${JSON.stringify(derivado, null, 2)}\n`);
+  await writeFile(rutaDelJson(rutaImagen), textoJson(derivado, 2));
   return derivado;
 }
 
@@ -409,15 +404,12 @@ export interface PiezaDerivada {
 
 export async function derivarPieza(rutaImagen: string): Promise<PiezaDerivada> {
   const bytes = await readFile(rutaImagen);
-  const { data, info } = await sharp(bytes)
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  const alfa = (x: number, y: number): number => data[(y * info.width + x) * 4 + 3] as number;
+  const { data, width, height } = await aRaster(bytes);
+  const alfa = (x: number, y: number): number => data[(y * width + x) * 4 + 3] as number;
   let y1 = -1;
-  let y0 = info.height;
-  for (let y = 0; y < info.height; y++) {
-    for (let x = 0; x < info.width; x++) {
+  let y0 = height;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
       if (alfa(x, y) >= ALFA_FIGURA) {
         if (y < y0) y0 = y;
         y1 = y;
@@ -429,14 +421,14 @@ export async function derivarPieza(rutaImagen: string): Promise<PiezaDerivada> {
   const franja = Math.max(2, Math.round((y1 - y0 + 1) * 0.15));
   const xs: number[] = [];
   for (let y = y1 - franja + 1; y <= y1; y++) {
-    for (let x = 0; x < info.width; x++) if (alfa(x, y) >= ALFA_FIGURA) xs.push(x);
+    for (let x = 0; x < width; x++) if (alfa(x, y) >= ALFA_FIGURA) xs.push(x);
   }
   xs.sort((a, b) => a - b);
   return {
     imagen: basename(rutaImagen),
-    sha256: createHash('sha256').update(bytes).digest('hex'),
-    ancho: info.width,
-    alto: info.height,
+    sha256: sha256(bytes),
+    ancho: width,
+    alto: height,
     ancla: [xs[Math.floor(xs.length / 2)] as number, y1],
     derivadoPor: 'tools/taller/derivar.ts',
   };
@@ -458,11 +450,7 @@ export const FRANJAS_DEL_PERFIL = 32;
  * la caja, la cara lisa asomaba ahí con su borde recto (#159).
  */
 export async function perfilDeModulo(rutaImagen: string): Promise<number[]> {
-  const { data, info } = await sharp(await readFile(rutaImagen))
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  const { width: w, height: h } = info;
+  const { data, width: w, height: h } = await aRaster(await readFile(rutaImagen));
   const primera = new Array<number>(w).fill(h);
   for (let x = 0; x < w; x++)
     for (let y = 0; y < h; y++)
@@ -492,11 +480,7 @@ export async function perfilDeModulo(rutaImagen: string): Promise<number[]> {
  * empieza, lo que nunca asoma, y el tejado de una casa sube en punta.
  */
 export async function siluetaDeModulo(rutaImagen: string): Promise<[number, number][]> {
-  const { data, info } = await sharp(await readFile(rutaImagen))
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  const { width: w, height: h } = info;
+  const { data, width: w, height: h } = await aRaster(await readFile(rutaImagen));
   const arriba = new Array<number>(w).fill(h);
   const abajo = new Array<number>(w).fill(0);
   for (let x = 0; x < w; x++)
@@ -516,10 +500,10 @@ export async function siluetaDeModulo(rutaImagen: string): Promise<[number, numb
 }
 
 /** Lo que `registrarLadera` lee de una pieza de la guía: su caja y sus juntas (`laderas.ts`). */
-export type PiezaDeGuia = Pick<GeometriaDeLadera, 'nombre' | 'filoNorte' | 'pieSur' | 'caja'>;
+type PiezaDeGuia = Pick<GeometriaDeLadera, 'nombre' | 'filoNorte' | 'pieSur' | 'caja'>;
 
 /** La silueta de una guía: lo que no es su fondo (`esFondoDeGuia`). */
-export interface MascaraDeGuia {
+interface MascaraDeGuia {
   readonly ancho: number;
   readonly alto: number;
   readonly dentro: Uint8Array;
@@ -633,15 +617,12 @@ export async function registrarPieza(
   guia: MascaraDeGuia,
   pieza: Pick<PiezaDeGuia, 'nombre' | 'caja'>,
 ): Promise<(p: readonly [number, number]) => [number, number]> {
-  const { data, info } = await sharp(await readFile(rutaModulo))
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
+  const { data, width, height } = await aRaster(await readFile(rutaModulo));
   const [cx0, cy0, cx1, cy1] = pieza.caja;
   const cw = cx1 - cx0 + 1;
   const ch = cy1 - cy0 + 1;
-  const W = potencia(cw + info.width - 1);
-  const H = potencia(ch + info.height - 1);
+  const W = potencia(cw + width - 1);
+  const H = potencia(ch + height - 1);
   const gr = new Float64Array(W * H);
   const gi = new Float64Array(W * H);
   const mr = new Float64Array(W * H);
@@ -657,9 +638,9 @@ export async function registrarPieza(
       }
     }
   if (!algo) throw new Error(`la pieza «${pieza.nombre}» no tiene silueta en su caja de la guía`);
-  for (let y = 0; y < info.height; y++)
-    for (let x = 0; x < info.width; x++)
-      if ((data[(y * info.width + x) * 4 + 3] as number) >= ALFA_FIGURA) mr[y * W + x] = 1;
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++)
+      if ((data[(y * width + x) * 4 + 3] as number) >= ALFA_FIGURA) mr[y * W + x] = 1;
   fft2(gr, gi, W, H, false);
   fft2(mr, mi, W, H, false);
   // G · conj(M): la correlación c[o] = Σ G[p + o] · M[p].
@@ -681,9 +662,9 @@ export async function registrarPieza(
   let n = 0;
   let sx = 0;
   let sy = 0;
-  for (let oy = -info.height + 1; oy < ch; oy++) {
+  for (let oy = -height + 1; oy < ch; oy++) {
     const iy = oy < 0 ? oy + H : oy;
-    for (let ox = -info.width + 1; ox < cw; ox++) {
+    for (let ox = -width + 1; ox < cw; ox++) {
       const ix = ox < 0 ? ox + W : ox;
       const v = Math.round((gr[iy * W + ix] as number) / (W * H));
       if (v > max) {
@@ -708,58 +689,7 @@ export async function registrarPieza(
 
 export async function escribirPiezaDerivada(rutaImagen: string): Promise<PiezaDerivada> {
   const d = await derivarPieza(rutaImagen);
-  await writeFile(rutaDelJson(rutaImagen), `${JSON.stringify(d, null, 2)}\n`);
-  return d;
-}
-
-/** El JSON de una tira de efecto: cuántos fotogramas tienen algo y la caja que ocupan todos. */
-export interface EfectoDerivado {
-  readonly imagen: string;
-  readonly sha256: string;
-  readonly celda: number;
-  readonly fotogramas: number;
-  /** Unión de las cajas del alfa de todos los fotogramas, dentro de una celda: [x0, y0, x1, y1]. */
-  readonly caja: readonly [number, number, number, number];
-  readonly derivadoPor: 'tools/taller/derivar.ts';
-}
-
-export async function derivarEfecto(rutaImagen: string): Promise<EfectoDerivado> {
-  const bytes = await readFile(rutaImagen);
-  const { data, info } = await sharp(bytes)
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  const lado = info.height;
-  if (info.width % lado !== 0) throw new Error(`${rutaImagen} no es una tira de celdas cuadradas`);
-  let fotogramas = 0;
-  const caja: [number, number, number, number] = [lado, lado, -1, -1];
-  for (let f = 0; f < info.width / lado; f++) {
-    let alguno = false;
-    for (let y = 0; y < lado; y++) {
-      for (let x = 0; x < lado; x++) {
-        if ((data[(y * info.width + f * lado + x) * 4 + 3] as number) < ALFA_FIGURA) continue;
-        alguno = true;
-        if (x < caja[0]) caja[0] = x;
-        if (y < caja[1]) caja[1] = y;
-        if (x > caja[2]) caja[2] = x;
-        if (y > caja[3]) caja[3] = y;
-      }
-    }
-    if (alguno) fotogramas++;
-  }
-  return {
-    imagen: basename(rutaImagen),
-    sha256: createHash('sha256').update(bytes).digest('hex'),
-    celda: lado,
-    fotogramas,
-    caja,
-    derivadoPor: 'tools/taller/derivar.ts',
-  };
-}
-
-export async function escribirEfectoDerivado(rutaImagen: string): Promise<EfectoDerivado> {
-  const d = await derivarEfecto(rutaImagen);
-  await writeFile(rutaDelJson(rutaImagen), `${JSON.stringify(d, null, 2)}\n`);
+  await writeFile(rutaDelJson(rutaImagen), textoJson(d, 2));
   return d;
 }
 

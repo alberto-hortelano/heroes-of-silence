@@ -7,20 +7,15 @@
 import { readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import {
-  batallaDeArena,
-  catalogoDelMontaje,
-  type HeroeDeArena,
-  heroePorDefecto,
-  type MontajeDelEnlace,
-  montajeALaURL,
-  montajeDeLaURL,
-  piezasDelMontaje,
-  retocarEnBatalla,
-} from '../src/core/arena.js';
+import { type MontajeDelEnlace, montajeALaURL, montajeDeLaURL } from '../src/core/arena/enlace.js';
+import { type HeroeDeArena, heroePorDefecto } from '../src/core/arena/heroe.js';
+import { batallaDeArena, catalogoDelMontaje } from '../src/core/arena/montaje.js';
+import { piezasDelMontaje } from '../src/core/arena/piezas.js';
+import { retocarEnBatalla } from '../src/core/arena/retoque.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { EQUIPO_ESCRITO } from '../src/core/data.js';
-import { EQUIPO_BASE, EQUIPO_DEL_JUEGO } from '../src/core/hero/equipo.js';
+import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
+import { EQUIPO_ESCRITO } from '../src/core/equipo/pieza.js';
+import { EQUIPO_BASE } from '../src/core/hero/cuerpo-del-heroe.js';
 import { catalogoDeHechizos, hechizo, todosLosHechizos } from '../src/core/magia/catalogo.js';
 import {
   campoDe,
@@ -33,7 +28,7 @@ import {
 import { problemasDelHechizo } from '../src/core/magia/validar.js';
 import { createRng } from '../src/core/rng.js';
 import { escribirCatalogo, leerCatalogo } from '../tools/arena/borrador.js';
-import { carpetaDeLaArena, catalogoEntero } from './helpers.js';
+import { carpetaDeLaArena, catalogoEntero } from './pelea-de-arena.js';
 
 describe('editar un hechizo (core/magia/editar.ts)', () => {
   it('uno nuevo vale, y su copia lleva otro id y otro nombre', () => {

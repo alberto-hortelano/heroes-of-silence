@@ -5,11 +5,11 @@
  */
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { renderMuralla } from '../src/client/arena/paneles.js';
-import { marcadoDe } from '../src/client/html.js';
-import { despliegueDeArenaBlocker, finalDeArena } from '../src/core/arena.js';
+import { renderMuralla } from '../src/client/arena/paneles/muralla.js';
+import { marcadoDe } from '../src/client/comun/html.js';
+import { despliegueDeArenaBlocker, finalDeArena } from '../src/core/arena/montaje.js';
 import {
   COMENTARIO_DEL_BORRADOR_DE_MURALLAS,
   columna,
@@ -18,22 +18,16 @@ import {
   revisarBorradorDeMurallas,
   validarBorradorDeMurallas,
   validarFormaDeMuralla,
-} from '../src/core/arena-murallas.js';
+} from '../src/core/arena/murallas.js';
 import { FORMA_DEL_TABLERO, hexKey } from '../src/core/battle/board.js';
-import { LIDERAZGO } from '../src/core/data.js';
+import { LIDERAZGO } from '../src/core/hero/liderazgo.js';
 import { createRng } from '../src/core/rng.js';
 import { escribirMurallas, leerMurallas } from '../tools/arena/borrador.js';
-import {
-  aPelear,
-  empezarTalCual,
-  montajeDePrueba,
-  muralla,
-  peleaDelMotor,
-  sesionDeArena,
-  unidadDeArena,
-} from './helpers.js';
+import { empezarTalCual, sesionDeArena } from './batalla-de-cliente.js';
+import { muralla } from './batalla-de-prueba.js';
+import { RAIZ } from './comun.js';
+import { aPelear, montajeDePrueba, peleaDelMotor, unidadDeArena } from './pelea-de-arena.js';
 
-const RAIZ = resolve(import.meta.dirname, '..');
 const unidad = unidadDeArena;
 
 const muro = {

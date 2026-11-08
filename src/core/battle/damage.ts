@@ -7,29 +7,36 @@
  * −80 %). Las constantes viven aquí y no repartidas por el motor.
  */
 
-import { danioConLosEfectos } from '../cuerpo.js';
-import { hasTrait } from '../data.js';
-import { DICHO_DE_LA_CARGA, DICHO_DEL_USO, SIN_ARMA } from '../hero/equipo.js';
-import { indiceDePoder } from '../nivel.js';
 import type { Rng } from '../rng.js';
-import { conComa, type GolpeConArma, type UnitInfo, type UsoDeArma } from '../types.js';
+import { conComa } from '../texto.js';
+import { type GolpeConArma, hasTrait, type UnitInfo, type UsoDeArma } from '../types.js';
+import { danioConLosEfectos } from '../unidad/cuerpo.js';
+import { indiceDePoder } from '../unidad/nivel.js';
 import {
   armaduraEnLaPelea,
   cifrasDelGolpe,
+  DICHO_DEL_USO,
   escudoDe,
   golpeDe,
   perforaLaArmadura,
+  SIN_ARMA,
   tiroADistanciaDe,
   trasLaArmadura,
 } from './armas.js';
-import { CARGA, type CifrasDeCarga, cargaEfectiva, dichoDeLaCarga } from './carga.js';
+import {
+  CARGA,
+  type CifrasDeCarga,
+  cargaEfectiva,
+  DICHO_DE_LA_CARGA,
+  dichoDeLaCarga,
+} from './carga.js';
 import { effectTotal } from './effects.js';
 import type { BattleStack } from './types.js';
 
-export const ATTACK_BONUS_PER_POINT = 0.1;
-export const MAX_ATTACK_BONUS = 3.0;
-export const DEFENSE_REDUCTION_PER_POINT = 0.025;
-export const MAX_DEFENSE_REDUCTION = 0.7;
+const ATTACK_BONUS_PER_POINT = 0.1;
+const MAX_ATTACK_BONUS = 3.0;
+const DEFENSE_REDUCTION_PER_POINT = 0.025;
+const MAX_DEFENSE_REDUCTION = 0.7;
 
 /**
  * Con qué arma se da un golpe (13-10-2026, «cada arma para lo suyo»): el disparo,
@@ -48,7 +55,7 @@ export function usoDelGolpe(opts: Pick<DamageOptions, 'ranged'>): UsoDeArma {
  * cuerpo)» (`golpeDe`, `DICHO_DEL_USO`, `DICHO_DE_LA_CARGA`). Lo leen la previsión
  * del golpe y la del contraataque.
  */
-export function dichoDelGolpe(unit: UnitInfo, uso: UsoDeArma, enLaCarga = false): string {
+function dichoDelGolpe(unit: UnitInfo, uso: UsoDeArma, enLaCarga = false): string {
   const { piezas, carga } = golpeDe(unit, uso);
   const como = (enLaCarga ? DICHO_DE_LA_CARGA : DICHO_DEL_USO[uso]).golpe;
   // La carga montada pega con la fuerza de la montura: se nombra (26-10-2026).
@@ -67,7 +74,7 @@ function nombresDeLasArmas(piezas: GolpeConArma['piezas']): string {
 }
 
 /** Una fila de `armasDe`: el golpe de un uso (`golpeDe`) con el nombre de sus armas. */
-export interface ArmaDeLaUnidad extends Omit<GolpeConArma, 'piezas' | 'carga'> {
+interface ArmaDeLaUnidad extends Omit<GolpeConArma, 'piezas' | 'carga'> {
   readonly uso: UsoDeArma;
   /** Los nombres de sus armas («Espada y Lanza de jinete»), o `null` si ese golpe va con el cuerpo. */
   readonly arma: string | null;
@@ -111,7 +118,7 @@ export function armasDe(unit: UnitInfo): ArmaDeLaUnidad[] {
  * El ataque con el que pega un stack un golpe de `uso` (el de cuerpo a cuerpo si
  * no se dice): el de su arma (`cifrasDelGolpe`) y sus efectos, sin héroe
  * (`BattleHero` cuenta por qué). Los efectos de `attack` son los que mete el
- * miedo del dragón óseo.
+ * miedo (`fear`).
  */
 export function effectiveAttack(stack: BattleStack, uso: UsoDeArma = 'arma'): number {
   return cifrasDelGolpe(stack.unit, uso).attack + effectTotal(stack, 'attack');
@@ -134,7 +141,7 @@ export function effectiveDefense(stack: BattleStack, extra = 0): number {
  * El ataque de quien pega y la defensa de quien recibe, ya finales: sus cifras,
  * sus efectos, lo que da la rueda y estar en lo alto (`opts`, de
  * `opcionesDeDanio`) y el bono de defender. El único cálculo: lo cuentan el golpe
- * (`applyModifiers`) y la ficha (`ataqueYDefensaEnBatalla`, `battle.ts`).
+ * (`applyModifiers`) y la ficha (`ataqueYDefensaEnBatalla`, `golpe.ts`).
  */
 export function ataqueYDefensa(
   attacker: BattleStack,
@@ -162,7 +169,7 @@ export function damageMultiplier(attack: number, defense: number): number {
   return 1;
 }
 
-export interface DamageResult {
+interface DamageResult {
   readonly damage: number;
   /**
    * Hexes de carga que se han COBRADO de verdad, ya con el tope aplicado; 0 si
@@ -180,7 +187,7 @@ export interface DamageResult {
   readonly perfora: boolean;
 }
 
-/** Lo que cambia el daño según de dónde y a quién se pega (`opcionesDeDanio`, `battle.ts`). */
+/** Lo que cambia el daño según de dónde y a quién se pega (`opcionesDeDanio`, `golpe.ts`). */
 export interface DamageOptions {
   readonly ranged?: boolean;
   /**

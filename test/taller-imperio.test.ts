@@ -4,15 +4,10 @@
  * sobre sus unidades (el Duelista sustituye al Noble; el Ingeniero lleva rifle).
  */
 import { existsSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import {
-  clipDeDisparoDe,
-  hojasDe,
-  indicesDeTramo,
-  JUEGOS_DE_ARMAS,
-  type JuegoEn8d,
-} from '../tools/art/poses.js';
+import { hojasDe, indicesDeTramo } from '../tools/art/poses/clips.js';
+import { clipDeDisparoDe, JUEGOS_DE_ARMAS, type JuegoEn8d } from '../tools/art/poses/juegos.js';
 import {
   EN_OCHO_DIRECCIONES,
   encargosDeOchoDirecciones,
@@ -21,8 +16,8 @@ import {
   UNIDADES,
   unidad,
 } from '../tools/taller/unidades.js';
+import { RAIZ } from './comun.js';
 
-const RAIZ = resolve(import.meta.dirname, '..');
 const atlas = JSON.parse(
   readFileSync(join(RAIZ, 'assets/unidades/_poses/atlas-8d.json'), 'utf8'),
 ) as {

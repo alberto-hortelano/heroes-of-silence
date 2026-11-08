@@ -10,16 +10,17 @@
  * el motor, y lo juzga `problemasDelMundo` (`validar.ts`).
  *
  * El vocabulario de condiciones y efectos es **cerrado**: cada palabra es una regla
- * del núcleo, con su `*Blocker` y su hecho en la crónica (`reglas.ts`, `game.ts`).
+ * del núcleo, con su `*Blocker` y su hecho en la crónica (`reglas.ts`,
+ * `state/lugares.ts`).
  * El texto libre va solo en lo que es presentación (nombres, líneas, descripciones).
  * Por eso las palabras se declaran aquí una vez, con su frase para el motor
  * (`VOCABULARIO`), y la lectura que se le da (`lectura.ts`) sale de ellas y no de la
  * skill: una palabra nueva sin frase no compila.
  */
-import type { GrupoDeTropa } from '../data.js';
-import { type MapPlan, REGIONES_POR_BANDO } from '../map/generate.js';
-import type { PeticionDeFigura } from '../npcs.js';
-import type { FactionId, PlayerId, Point } from '../types.js';
+import type { PeticionDeFigura } from '../gente/banco.js';
+import { type MapPlan, REGIONES_POR_BANDO } from '../map/generar/plan.js';
+import type { MapObject } from '../map/tipos.js';
+import type { FactionId, GrupoDeTropa, PlayerId, Point } from '../types.js';
 import { esIdDePieza, esIdDeUnidad } from '../validar.js';
 
 /** La versión del formato. Otra se rechaza diciéndolo: sin compatibilidad hacia atrás. */
@@ -33,7 +34,7 @@ const LARGO_DE_UN_ID = 48;
  * cifras y guiones (`esIdDeUnidad`)—, de hasta `LARGO_DE_UN_ID`. Es lo que va en
  * `?mundo=` y en una ruta de disco, así que nada de puntos ni barras.
  */
-export function esIdDeMundo(id: string): boolean {
+function esIdDeMundo(id: string): boolean {
   return id.length <= LARGO_DE_UN_ID && esIdDeUnidad(id);
 }
 
@@ -61,7 +62,7 @@ export function parseMundo(texto: string | null | undefined): string | null {
 /**
  * Por qué un fichero del mundo no se lee: no es JSON, con lo que dice el parser.
  * **La única frase**: la dicen `pnpm mundo validar` (`tools/mundo/disco.ts`) y la
- * página (`client/mundo/cargar.ts`), que antes enseñaba solo el error del parser,
+ * página (`client/partida/mundo.ts`), que antes enseñaba solo el error del parser,
  * sin decir qué fichero (H5 del QA de la F1a).
  */
 export function noEsJson(fichero: string, err: unknown): string {
@@ -135,7 +136,7 @@ export interface Mundo {
 }
 
 export const CLAVES_DE_CONDICION = ['estado', 'marca', 'oro', 'lleva', 'faccion', 'no'] as const;
-export type ClaveDeCondicion = (typeof CLAVES_DE_CONDICION)[number];
+type ClaveDeCondicion = (typeof CLAVES_DE_CONDICION)[number];
 
 /**
  * Una condición. Una lista de condiciones es un «y»; `no` niega una sola.
@@ -236,7 +237,7 @@ export const VOCABULARIO: {
 };
 
 /** Una marca del mundo, con lo que se dice cuando falta y cuando ya está. */
-export interface Marca {
+interface Marca {
   /** Por qué una opción que pide la marca sale apagada: «la carta del capitán sigue cerrada». */
   readonly falta: string;
   /**
@@ -270,7 +271,7 @@ export interface Dialogo {
  * Hasta el 22-10-2026 llevaba un `cuerpo` del catálogo de unidades, y se pintaba un
  * soldado con sus armas: se retiró (decisión del usuario sobre el plan del banco).
  */
-export interface PersonaDelLugar {
+interface PersonaDelLugar {
   readonly nombre: string;
   readonly papel: string;
   readonly figura: string;
@@ -289,7 +290,7 @@ export interface Punto {
   readonly cosa?: { readonly nombre: string };
 }
 
-export interface Encuentro {
+interface Encuentro {
   readonly nombre: string;
   readonly tropa: readonly GrupoDeTropa[];
   readonly alGanar: readonly Efecto[];
@@ -338,7 +339,7 @@ declare const MARCA_DE_LEIDO: unique symbol;
  * Un mundo leído y juzgado entero: sus tres ficheros y la facción de quien juega
  * (la de la base del jugador 0 del plan). **Solo lo produce la lectura**
  * (`leerMundo`): el tipo lleva una marca que nadie más pone sin un `as`, y eso lo
- * vigila `test/invariantes.test.ts`. Por eso `newGame` lo juega sin juzgarlo otra
+ * vigila `test/invariantes-datos.test.ts`. Por eso `newGame` lo juega sin juzgarlo otra
  * vez: lo que lleva la marca ya pasó por `problemasDelMundo`.
  */
 export interface MundoLeido {
@@ -523,4 +524,28 @@ export function efectosDe<K extends ClaveDeEfecto>(
   clave: K,
 ): Extract<Efecto, Record<K, unknown>>[] {
   return (efectos ?? []).filter((e): e is Extract<Efecto, Record<K, unknown>> => clave in e);
+}
+
+// ---------------------------------------------------------------- en la partida
+
+/** Los objetos del mapa de los lugares de una historia ya validada. */
+export function objetosDeLosLugares(historia: Historia): MapObject[] {
+  return historia.lugares.map((l: Lugar) => ({
+    kind: 'lugar',
+    id: l.id,
+    at: l.at,
+    name: l.nombre,
+  }));
+}
+
+/** El estado con que empieza una partida de ese mundo: cada lugar en su estado inicial, sin marcas ni nada cobrado. */
+export function estadoInicialDelMundo(historia: Historia): EstadoDelMundo {
+  return {
+    historia,
+    estados: Object.fromEntries(historia.lugares.map((l) => [l.id, l.estadoInicial])),
+    marcas: [],
+    cobradas: {},
+    vencidos: {},
+    conversaciones: {},
+  };
 }

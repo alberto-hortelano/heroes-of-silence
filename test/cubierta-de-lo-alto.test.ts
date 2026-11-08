@@ -13,12 +13,13 @@
 import type { Suelo } from '@core/map/terrain.js';
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
-import { cubiertaDeOtroNivel, type Sprite } from '../src/client/render/escenario/colocar.js';
-import { partidaDe } from './helpers.js';
+import { cubiertaDeOtroNivel } from '../src/client/render/escenario/colocar/pisable.js';
+import type { Sprite } from '../src/client/render/escenario/colocar/sprite.js';
+import { partidaDe } from './escena-de-prueba.js';
 import { LENTO, rango } from './lento.js';
 
 /** Una pieza de la hoja `hoja` con el pie en `(x, y)`. */
-const pieza = (hoja: string, x: number, y: number, clase: Sprite['clase'] = 'cubierta') => ({
+const piezaDeHoja = (hoja: string, x: number, y: number, clase: Sprite['clase'] = 'cubierta') => ({
   src: `modulos/${hoja}/1.webp`,
   x,
   y,
@@ -30,13 +31,13 @@ describe('cubiertaDeOtroNivel: el guardia muerde', () => {
   const pintado: Suelo[] = ['lava', 'snow'];
 
   it('la nieve sobre la lava cuenta; en la nieve, no', () => {
-    const nieve = pieza('cubierta-snow', 0.5, 0.9);
+    const nieve = piezaDeHoja('cubierta-snow', 0.5, 0.9);
     expect(cubiertaDeOtroNivel([nieve], pintado, 2)).toEqual([nieve]);
     expect(cubiertaDeOtroNivel([{ ...nieve, x: 1.5 }], pintado, 2)).toEqual([]);
   });
 
   it('un abeto nevado de cubierta cuenta en cualquier suelo: lo que se pisa no lleva árboles (14-10-2026)', () => {
-    const abeto = pieza('abetos-nevados', 0.4, 0.8);
+    const abeto = piezaDeHoja('abetos-nevados', 0.4, 0.8);
     const enLaNieve = { ...abeto, x: 1.4 };
     expect(cubiertaDeOtroNivel([abeto, enLaNieve], pintado, 2)).toEqual([abeto, enLaNieve]);
   });
@@ -45,10 +46,10 @@ describe('cubiertaDeOtroNivel: el guardia muerde', () => {
     expect(
       cubiertaDeOtroNivel(
         [
-          pieza('cubierta-lava', 0.5, 0.9),
-          pieza('cubierta-rough', 0.5, 0.9),
-          pieza('rocas-caidas', 0.5, 0.9, 'roca'),
-          { ...pieza('cubierta-snow', 0.5, 0.9), src: null },
+          piezaDeHoja('cubierta-lava', 0.5, 0.9),
+          piezaDeHoja('cubierta-rough', 0.5, 0.9),
+          piezaDeHoja('rocas-caidas', 0.5, 0.9, 'roca'),
+          { ...piezaDeHoja('cubierta-snow', 0.5, 0.9), src: null },
         ],
         pintado,
         2,

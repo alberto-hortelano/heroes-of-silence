@@ -3,7 +3,7 @@
  * camina delante y, detrás, la plaza pintada en un solo cuadro. La leen el
  * cliente (la escena) y el taller (las guías que se le dan a Codex y el
  * recorte), y por eso vive en `shared`: el núcleo no la lee nunca —un sitio no
- * tiene coordenadas en las reglas— y lo vigila `invariantes.test.ts`.
+ * tiene coordenadas en las reglas— y lo vigila `invariantes-partida.test.ts`.
  *
  * Todo va en **pasos**, la unidad del tablero de combate (`render/proyeccion.ts`):
  * la escena comparte con él el tamaño de la figura, así que un adulto mide en la
@@ -32,8 +32,8 @@ import imperioJson from '../../data/bases/imperio.json' with { type: 'json' };
 import noMuertosJson from '../../data/bases/no-muertos.json' with { type: 'json' };
 import orkosJson from '../../data/bases/orkos.json' with { type: 'json' };
 import templariosJson from '../../data/bases/templarios.json' with { type: 'json' };
+import { idsDeVecinos } from '../core/gente/voces.js';
 import { SITIOS, type SitioId } from '../core/town/sitios.js';
-import { idsDeVecinos } from '../core/town/voces.js';
 import type { FactionId } from '../core/types.js';
 import {
   COMPRESION_SUELO,
@@ -43,8 +43,6 @@ import {
   type Mirada,
   type Plano,
 } from './arte.js';
-
-export type { Mirada, Plano };
 
 /**
  * Lo que mide de fondo la franja por la que se camina: la mitad de la rejilla
@@ -219,7 +217,7 @@ const CRUDOS: Readonly<Record<FactionId, unknown>> = {
  * El borde de atrás de lo que se pisa en `x`: la recta a trozos que une los
  * umbrales de las puertas, plana más allá de las de los extremos. Lo que se pisa
  * ya no es convexo: quien camina en recta resbala por él (`alaFranja` en cada
- * fotograma de la marcha, `escenas/castillo.ts`).
+ * fotograma de la marcha, `partida/base/escena.ts`).
  */
 export function bordeDeAtras(d: Pick<Disposicion, 'umbrales'>, x: number): number {
   const u = d.umbrales;
@@ -279,7 +277,7 @@ export function disposicionDe(faccion: FactionId): Disposicion {
 const CACHE = new Map<FactionId, Disposicion>();
 
 /** Cuántos tramos de la plaza de una base sirven de fondo a la escena de un lugar. */
-export const TRAMOS_DE_UN_LUGAR = 2;
+const TRAMOS_DE_UN_LUGAR = 2;
 
 /**
  * La disposición del fondo de la escena de un lugar de un mundo (F1a del mapa
@@ -533,7 +531,7 @@ export interface IndiceDeLaBase {
    * La versión abierta de cada morada que la tiene, por el id de su edificio: el
    * mismo edificio sin la pared de delante, con su sala dentro (la «casa de
    * muñecas», 20-10-2026), que sustituye a su recorte mientras se recluta en ella
-   * (`escenas/morada.ts`, `conLaAbierta`). Se recorta como cualquier edición, por
+   * (`partida/morada/escena.ts`, `conLaAbierta`). Se recorta como cualquier edición, por
    * la diferencia con la placa en la región de su sitio, y va en la raíz de la
    * base (`abierta-<id>.webp`).
    */

@@ -20,7 +20,7 @@
       "sha256": "b3436de156ba7506bccf1f9ceaf6cf721b424beab724f65944388846076bcbf4"
     },
     {
-      "ruta": "assets/mapa/guias/puente-piedra-ns-sube.png",
+      "ruta": "assets/mapa/_guias/puente-piedra-ns-sube.png",
       "papel": "guia",
       "sha256": "c89802f1dbfbcf65064e8c37899017ab5ea65c6007b8256d22559a8b3cad4174"
     }

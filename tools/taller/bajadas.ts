@@ -19,34 +19,34 @@
  *   pnpm taller encolar --relieve [--solo=bajadas-roca-1]
  */
 import { readFile, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import type { RumboDeBajada } from '../../src/client/render/escenario/catalogo.js';
 import {
   DIRECCION_DE_BAJADA,
   largoDeBajada,
   taludDeBajada,
 } from '../../src/client/render/escenario/celdas.js';
+import { textoJson } from '../comun/json.js';
+import { RAIZ } from '../comun/raiz.js';
 import { mascaraDeGuia, registrarPieza } from './derivar.js';
 import type { Encargo } from './encargo.js';
-import { azarDe, bloque, MATERIAL, MESETA, mata, type Niveles } from './laderas.js';
-import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
+import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './estilo-del-mapa.js';
 import {
   ARRIBA,
   DIR_GUIAS,
   escribirGuia,
   FRENTE,
   Guia,
-  type Material,
   NIVEL,
   type P2,
   type P3,
   SOMBRA,
-} from './paredes-puentes.js';
-
-const RAIZ = resolve(import.meta.dirname, '../..');
+} from './guias.js';
+import { azarDe, bloque, MATERIAL, MESETA, mata, type Niveles } from './laderas.js';
+import type { Material } from './paredes-puentes.js';
 
 /** Los rumbos de la hoja, en su orden de lectura: cuatro en la primera fila y el oeste debajo. */
-export const RUMBOS: readonly RumboDeBajada[] = ['s', 'se', 'so', 'e', 'o'];
+const RUMBOS: readonly RumboDeBajada[] = ['s', 'se', 'so', 'e', 'o'];
 
 /** La media anchura de la rampa en el filo y al pie, y la de la senda que lleva. */
 const RAMPA = { arriba: 0.19, abajo: 0.3 } as const;
@@ -162,7 +162,7 @@ function dibujarBajada(g: Guia, rumbo: RumboDeBajada, niveles: Niveles): void {
 }
 
 /** La geometría que cuenta de cada pieza de la guía, en píxeles de la guía. */
-export interface GeometriaDeBajada {
+interface GeometriaDeBajada {
   readonly nombre: RumboDeBajada;
   readonly niveles: Niveles;
   readonly arriba: P2;
@@ -175,7 +175,7 @@ const FILAS: readonly (readonly RumboDeBajada[])[] = [RUMBOS.slice(0, 4), RUMBOS
 const LIENZO: readonly [number, number] = [1536, 1024];
 
 /** La guía de una hoja de bajadas, con las piezas en filas y el pie de cada fila en la misma línea. */
-export function guiaDeBajadas(niveles: Niveles): {
+function guiaDeBajadas(niveles: Niveles): {
   guia: Guia;
   piezas: GeometriaDeBajada[];
   casilla: number;
@@ -256,8 +256,7 @@ const DICHO: Readonly<Record<RumboDeBajada, string>> = {
 export const NIVELES_DE_BAJADA: readonly Niveles[] = [1, 2];
 
 /** La hoja de bajadas de un material y una caída: `bajadas-roca-1`. */
-export const hojaDeBajadas = (material: Material, niveles: Niveles) =>
-  `bajadas-${material}-${niveles}`;
+const hojaDeBajadas = (material: Material, niveles: Niveles) => `bajadas-${material}-${niveles}`;
 
 export function encargoDeBajadas(material: Material, niveles: Niveles): Encargo {
   const caida = niveles === 1 ? 'UN nivel' : niveles === 2 ? 'DOS niveles' : 'TRES niveles';
@@ -330,6 +329,6 @@ export async function escribirBajadasDerivadas(hoja: string): Promise<string> {
     const enElModulo = await registrarPieza(join(dir, hoja, mod.imagen), mascara, g);
     mod.bajada = { arriba: enElModulo(g.arriba), abajo: enElModulo(g.abajo), rumbo: g.nombre };
   }
-  await writeFile(ruta, `${JSON.stringify(indice, null, 2)}\n`);
+  await writeFile(ruta, textoJson(indice, 2));
   return ruta.replace(`${RAIZ}/`, '');
 }

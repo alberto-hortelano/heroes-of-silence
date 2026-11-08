@@ -19,7 +19,7 @@ export interface CarpetaDeArte {
 }
 
 /** La tropa (y los héroes) del taller: lo que lista la arena. */
-export const ARTE_DE_LAS_UNIDADES: CarpetaDeArte = {
+const ARTE_DE_LAS_UNIDADES: CarpetaDeArte = {
   dir: 'assets/unidades',
   aMedias:
     'o se terminan o se quitan, porque con menos se pintaría entera con el Y Bot sin decirlo',
@@ -33,7 +33,7 @@ export const ARTE_DE_LAS_UNIDADES: CarpetaDeArte = {
  * genera** una figura dirección a dirección (#140): por eso esto no lanza y decide
  * quien lo lee.
  */
-export type ArteEnOchoDirecciones =
+type ArteEnOchoDirecciones =
   | { readonly hecho: 'entero' }
   | { readonly hecho: 'ninguno' }
   | { readonly hecho: 'a-medias'; readonly motivo: string };

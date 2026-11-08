@@ -19,6 +19,9 @@
  */
 import sharp, { type OverlayOptions } from 'sharp';
 import { FIGURA } from '../../src/shared/arte.js';
+import { mediana } from '../comun/estadistica.js';
+import { aRaster, dePng, type Raster } from '../comun/imagen.js';
+import { ALFA_FIGURA, cuerpoDe } from './cuerpo.js';
 import {
   absolutosDe,
   type EstimarTroncos,
@@ -26,10 +29,7 @@ import {
   recolocarConElSuelo,
   recolocarConLosPies,
 } from './encuadre.js';
-import { aRaster, quitarHalo, type Raster } from './recorte.js';
-
-/** Umbral de alfa para decir «aquí hay figura». */
-export const ALFA_FIGURA = 64;
+import { quitarHalo } from './recorte.js';
 
 export interface Caja {
   x0: number;
@@ -126,7 +126,7 @@ function distanciaX(a: Caja, b: Caja): number {
 }
 
 /** Desde qué parte del área de la mayor figura de una fila un sobrante es una figura de más. */
-export const FIGURA_DE_MAS = 0.25;
+const FIGURA_DE_MAS = 0.25;
 
 /**
  * Si una fila trae trozos de más —un jirón suelto, la punta de un arma que no
@@ -200,7 +200,7 @@ export function enFilas(
 const BUSQUEDA_DEL_CORTE = 0.15;
 
 /** Lo que devuelve `porRejilla`: las figuras y el crudo del que se recortan. */
-export interface CortadoPorRejilla {
+interface CortadoPorRejilla {
   readonly rejilla: Caja[][];
   /**
    * El crudo de donde se recortan: el mismo (sin lo que el corte deja suelto) o, si
@@ -341,7 +341,7 @@ const BUSQUEDA_ENTRE_COLUMNAS = 0.45;
  * alto de la mayor figura de la banda: un arma que cruza de una celda a otra (la
  * punta de un sable son unas decenas de píxeles), no un cuerpo.
  */
-export const GROSOR_DEL_CORTE = 0.15;
+const GROSOR_DEL_CORTE = 0.15;
 
 /**
  * Una banda con figuras de menos, cortada en `columnas` columnas (el lanzamiento del
@@ -556,113 +556,6 @@ function borrarMotasDelCorte(
 }
 
 /**
- * Lo fino de una figura no es su cuerpo (QA del repintado, 30-10-2026, el piquero
- * imperial: «se mueve mucho el personaje… por la pica tan larga»): un asta, una
- * pica, una lanza, un arco o una espada de pocos píxeles de grueso. El radio de la
- * apertura que lo quita, en parte del lado mayor de la caja de la figura: con 0,02,
- * una figura de 160 px quita lo de menos de 7 px de grueso y deja brazos y piernas.
- */
-export const GROSOR_DE_LO_FINO = 0.02;
-
-/** La silueta de un cuerpo: su máscara en la caja (1 = cuerpo) y la caja de lo que queda. */
-export interface Cuerpo {
-  readonly mascara: Uint8Array;
-  readonly x0: number;
-  readonly y0: number;
-  readonly w: number;
-  readonly h: number;
-  /** La caja de lo que queda, en coordenadas absolutas e inclusiva. */
-  readonly caja: readonly [number, number, number, number];
-}
-
-/** Las sumas de una máscara, para contar los unos de una ventana de un vistazo. */
-function sumasDe(m: Uint8Array, w: number, h: number): Int32Array {
-  const s = new Int32Array((w + 1) * (h + 1));
-  for (let y = 0; y < h; y++) {
-    let fila = 0;
-    for (let x = 0; x < w; x++) {
-      fila += m[y * w + x] as number;
-      s[(y + 1) * (w + 1) + x + 1] = (s[y * (w + 1) + x + 1] as number) + fila;
-    }
-  }
-  return s;
-}
-
-/** Cuántos unos hay en la ventana de radio `r` alrededor de (x, y), recortada a la máscara. */
-function enLaVentana(s: Int32Array, w: number, h: number, x: number, y: number, r: number): number {
-  const a = Math.max(0, x - r);
-  const b = Math.max(0, y - r);
-  const c = Math.min(w, x + r + 1);
-  const d = Math.min(h, y + r + 1);
-  const W = w + 1;
-  return (
-    (s[d * W + c] as number) -
-    (s[b * W + c] as number) -
-    (s[d * W + a] as number) +
-    (s[b * W + a] as number)
-  );
-}
-
-/**
- * El cuerpo de una figura en su caja `[x0, y0, x1, y1]`: la silueta (alfa ≥ `umbral`)
- * abierta (erosión y dilatación con un cuadrado de radio `GROSOR_DE_LO_FINO` del lado
- * mayor), que quita lo fino, y con lo de la silueta que queda a menos de ese radio de
- * lo abierto (las puntas del pie). Si la apertura se lo come todo, la silueta entera.
- */
-export function cuerpoDe(
-  alfa: (x: number, y: number) => number,
-  [x0, y0, x1, y1]: readonly [number, number, number, number],
-  umbral = ALFA_FIGURA,
-): Cuerpo {
-  const w = x1 - x0 + 1;
-  const h = y1 - y0 + 1;
-  const silueta = new Uint8Array(w * h);
-  for (let y = 0; y < h; y++)
-    for (let x = 0; x < w; x++) silueta[y * w + x] = alfa(x0 + x, y0 + y) >= umbral ? 1 : 0;
-  const r = Math.max(1, Math.round(GROSOR_DE_LO_FINO * Math.max(w, h)));
-  const lleno = (2 * r + 1) * (2 * r + 1);
-  const s = sumasDe(silueta, w, h);
-  const erosion = new Uint8Array(w * h);
-  for (let y = 0; y < h; y++)
-    for (let x = 0; x < w; x++)
-      if (silueta[y * w + x] && enLaVentana(s, w, h, x, y, r) === lleno) erosion[y * w + x] = 1;
-  const se = sumasDe(erosion, w, h);
-  const abierta = new Uint8Array(w * h);
-  let hay = false;
-  for (let y = 0; y < h; y++)
-    for (let x = 0; x < w; x++)
-      if (silueta[y * w + x] && enLaVentana(se, w, h, x, y, r) > 0) {
-        abierta[y * w + x] = 1;
-        hay = true;
-      }
-  // La apertura redondea las puntas del cuerpo (los dedos del pie, a 2 px del suelo en
-  // el Y Bot): se le devuelve lo de la silueta que queda a menos de `r` de lo abierto.
-  // Lo fino que sale más lejos (la pica) sigue fuera.
-  let mascara = silueta;
-  if (hay) {
-    const sa = sumasDe(abierta, w, h);
-    mascara = new Uint8Array(w * h);
-    for (let y = 0; y < h; y++)
-      for (let x = 0; x < w; x++)
-        if (silueta[y * w + x] && enLaVentana(sa, w, h, x, y, r) > 0) mascara[y * w + x] = 1;
-  }
-  let cx0 = w;
-  let cy0 = h;
-  let cx1 = -1;
-  let cy1 = -1;
-  for (let y = 0; y < h; y++)
-    for (let x = 0; x < w; x++)
-      if (mascara[y * w + x]) {
-        if (x < cx0) cx0 = x;
-        if (x > cx1) cx1 = x;
-        if (y < cy0) cy0 = y;
-        cy1 = y;
-      }
-  if (cx1 < 0) throw new Error('una figura sin cuerpo: la silueta está vacía');
-  return { mascara, x0, y0, w, h, caja: [x0 + cx0, y0 + cy0, x0 + cx1, y0 + cy1] };
-}
-
-/**
  * El punto de apoyo de una figura dentro de su caja `[x0, y0, x1, y1]`
  * (inclusiva), leyendo el alfa con `alfa(x, y)`: la fila más baja del CUERPO, y en
  * horizontal la mediana de los píxeles del tronco (entre el 25 % y el 75 % de la
@@ -696,7 +589,7 @@ export function apoyoEn(
 }
 
 /** El apoyo de una figura de `r`, en coordenadas de su caja. */
-export function apoyo(r: Raster, c: Caja, umbral = ALFA_FIGURA): [number, number] {
+function apoyo(r: Raster, c: Caja, umbral = ALFA_FIGURA): [number, number] {
   const [x, y] = apoyoEn(
     (x, y) => r.data[(y * r.width + x) * 4 + 3] as number,
     [c.x0, c.y0, c.x1, c.y1],
@@ -705,12 +598,7 @@ export function apoyo(r: Raster, c: Caja, umbral = ALFA_FIGURA): [number, number
   return [x - c.x0, y - c.y0];
 }
 
-function mediana(v: readonly number[]): number {
-  const s = [...v].sort((a, b) => a - b);
-  return s[Math.floor(s.length / 2)] as number;
-}
-
-export interface Empaquetado {
+interface Empaquetado {
   readonly png: Buffer;
   readonly escala: number;
   /** La altura del reposo que se pidió y la que salió, si hubo que reducirla para que cupiera. */
@@ -878,7 +766,7 @@ interface Pieza {
 }
 
 /** Margen libre dentro de cada celda: una figura que toca el borde se cortaría. */
-export const MARGEN = 4;
+const MARGEN = 4;
 /** Cuánto se acepta encoger la hoja para que quepa un fotograma ancho. Más, es rehacerla. */
 const REDUCCION_MAXIMA = 0.85;
 
@@ -968,11 +856,7 @@ export async function empaquetar(
   }
   const escala = Math.min(pedida, cabe);
 
-  const fuente = await sharp(deDonde.data, {
-    raw: { width: deDonde.width, height: deDonde.height, channels: 4 },
-  })
-    .png()
-    .toBuffer();
+  const fuente = await dePng(deDonde);
   const capas: OverlayOptions[] = [];
   const apoyoPorFila: [number, number][] = [];
   const encuadre: ((readonly [number, number])[] | null)[] = [];
@@ -1134,11 +1018,7 @@ export async function empaquetar(
     .toBuffer();
   // El remuestreo vuelve a dejar cantos tenues sueltos: otra pasada del recorte.
   const limpio = quitarHalo({ data: crudo, width: columnas * celda, height: filas * celda });
-  const png = await sharp(limpio.data, {
-    raw: { width: limpio.width, height: limpio.height, channels: 4 },
-  })
-    .png()
-    .toBuffer();
+  const png = await dePng(limpio);
   return {
     png,
     escala,

@@ -10,11 +10,11 @@
  * cada tipo (`PARTES`). Lo que da cada tipo, en `cifras-de-la-rueda.ts`
  * (`efectoDelTipo`); el punto del cruce, en `rueda.ts` (`puntoDelCruce`).
  *
- * Solo importa `types.ts`: lo leen `data.ts` (los pesos del índice, con la rueda
+ * Solo importa `types.ts`: lo leen `nivel.ts` (los pesos del índice, con la rueda
  * de referencia) y `cifras-de-la-rueda.ts`, que `rueda.ts` no puede ser.
  */
+import { enumerar } from '../texto.js';
 import {
-  enumerar,
   esTipoDeGolpe,
   type NivelesDeLaRueda,
   TIPOS_DEL_ANILLO,
@@ -163,9 +163,9 @@ function rueda<T extends TipoDeGolpe>(
  * La rueda de siempre, la de 7, letra a letra (`pnpm banco` con 7 no cambia): el
  * anillo es el de un arma (`TIPOS_DEL_ANILLO`). Es también **la de referencia**:
  * con ella se mide el índice de poder (lo que vale un arma no depende del nivel
- * que se juegue; `data.ts`, `nivel.ts`) y se pinta la ficha de un arma, que tiene
+ * que se juegue; `nivel.ts`) y se pinta la ficha de un arma, que tiene
  * un nivel por tipo del anillo (`disco.ts`). Nadie más la toma fija: el combate
- * juega la de su batalla (`formaDeLaBatalla`; lo vigila `invariantes.test.ts`).
+ * juega la de su batalla (`formaDeLaBatalla`; lo vigila `invariantes-batalla.test.ts`).
  */
 export const RUEDA_DE_REFERENCIA: FormaDeLaRueda<TipoDelAnillo> = rueda(
   TIPOS_DEL_ANILLO,
@@ -181,7 +181,7 @@ export type GolpeDeReferencia = (typeof RUEDA_DE_REFERENCIA.golpes)[number];
  * Defensivo-finta > Ofensivo-fuerte, con Normal en el centro; la de 3: Ofensivo >
  * Rápido > Defensivo > Ofensivo, sin centro (decisión del usuario: «defensivo gana
  * a ofensivo, ofensivo a rápido y rápido a defensivo»). **Privada en la práctica**:
- * fuera de aquí nadie la indexa (`formaDeLaBatalla`; lo vigila `invariantes.test.ts`).
+ * fuera de aquí nadie la indexa (`formaDeLaBatalla`; lo vigila `invariantes-batalla.test.ts`).
  */
 export const RUEDAS: Readonly<Record<TiposDeLaRueda, FormaDeLaRueda>> = {
   7: RUEDA_DE_REFERENCIA,
@@ -219,7 +219,7 @@ export function golpeNeutro(forma: FormaDeLaRueda): 'normal' | null {
 export const LAS_TRES_RUEDAS: readonly FormaDeLaRueda[] = TIPOS_DE_LAS_RUEDAS.map((n) => RUEDAS[n]);
 
 /** Si `tipo` es de la rueda `forma`. */
-export function esDeLaRueda(tipo: TipoDeGolpe, forma: FormaDeLaRueda): boolean {
+function esDeLaRueda(tipo: TipoDeGolpe, forma: FormaDeLaRueda): boolean {
   return (forma.golpes as readonly TipoDeGolpe[]).includes(tipo);
 }
 

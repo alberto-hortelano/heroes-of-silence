@@ -29,20 +29,21 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import sharp, { type OverlayOptions } from 'sharp';
+import { sha256 } from '../comun/hash.js';
+import { aRaster, type Raster } from '../comun/imagen.js';
+import { textoJson } from '../comun/json.js';
+import { RAIZ } from '../comun/raiz.js';
+import { ALFA_FIGURA } from './cuerpo.js';
 import { derivarPieza } from './derivar.js';
-import { ALFA_FIGURA } from './empaquetar.js';
 import type { Modulo } from './escenario/modulos.js';
-import { sha256 } from './poses-8d.js';
-import { aRaster, type Raster } from './recorte.js';
 
-const RAIZ = resolve(import.meta.dirname, '../..');
 const MODULOS = join(RAIZ, 'assets/mapa/modulos');
 
 /** Puntos de la imagen de un pueblo, en sus píxeles. */
-export type Semillas = readonly (readonly [number, number])[];
+type Semillas = readonly (readonly [number, number])[];
 
 /** Un pueblo con sus casas elegidas y las semillas de lo que no es casa. */
-export interface CasasDeUnPueblo {
+interface CasasDeUnPueblo {
   readonly pueblo: number;
   /** El del `pueblos/<k>.webp` que se miró. */
   readonly sha256: string;
@@ -409,10 +410,7 @@ export async function escribirCasas(): Promise<string> {
       });
     }
   }
-  await writeFile(
-    join(MODULOS, 'casas.json'),
-    `${JSON.stringify({ hoja: 'pueblos', modulos }, null, 2)}\n`,
-  );
+  await writeFile(join(MODULOS, 'casas.json'), textoJson({ hoja: 'pueblos', modulos }, 2));
   await writeFile(
     join(MODULOS, 'casas.procedencia.json'),
     `${JSON.stringify(

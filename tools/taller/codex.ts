@@ -1,6 +1,6 @@
 /**
- * Pedirle una imagen a ChatGPT por la suscripción, con Codex CLI. Nunca fal.ai
- * ni una API de pago: esto no tiene clave que filtrar ni gasto que apuntar.
+ * Pedirle una imagen a ChatGPT por la suscripción, con Codex CLI. Nunca una API
+ * de pago: esto no tiene clave que filtrar ni gasto que apuntar.
  *
  * Tres cosas que no son obvias y costaron una prueba cada una:
  *  - `-i` es variádico: `-i a.png -i b.png "prompt"` se come el prompt como
@@ -16,6 +16,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import type { z } from 'zod';
+import { textoJson } from '../comun/json.js';
 
 export const CODEX = process.env.CODEX_BIN ?? '/usr/lib/chatgpt/resources/codex';
 /** Donde Codex deja las imágenes que genera, una carpeta por hilo. */
@@ -42,8 +43,6 @@ export interface Generacion {
   readonly crudo: string;
   /** Lo último que dijo el agente: sirve de motivo cuando no hay imagen. */
   readonly mensaje: string;
-  /** Lo que costó, en dólares, si se pagó aparte (fal.ai); por la suscripción, nada. */
-  readonly coste?: number;
 }
 
 /** Los eventos JSONL de Codex que importan aquí. */
@@ -161,7 +160,7 @@ export async function generar(
 }
 
 /** Cuántos juicios de Codex van a la vez: más, y la suscripción empieza a cortar. */
-export const JUICIOS_A_LA_VEZ = 3;
+const JUICIOS_A_LA_VEZ = 3;
 let juiciosEnCurso = 0;
 const enEspera: (() => void)[] = [];
 
@@ -224,7 +223,7 @@ export async function juzgarConCodex<T>(
     }
     const juicio = validarCon(esquema, texto, `el juicio de Codex para ${salida}`);
     await mkdir(dirname(salida), { recursive: true });
-    await writeFile(salida, `${JSON.stringify(juicio, null, 1)}\n`);
+    await writeFile(salida, textoJson(juicio, 1));
     return juicio;
   } finally {
     soltar();

@@ -7,7 +7,8 @@
  * Puro, como el resto del escenógrafo: un análisis, un relieve y el catálogo
  * entran y un `Puente` sale. Lo coloca `componer`.
  */
-import type { TramoDeCamino } from '@core/map/map.js';
+
+import type { TramoDeCamino } from '@core/map/red-de-caminos.js';
 import { isWalkable, type TerrainKind } from '@core/map/terrain.js';
 import type { Point } from '@core/types.js';
 import { type Analisis, regionPisable } from './analizar.js';
@@ -17,7 +18,7 @@ import { ANCHO_DEL_VADO, grafoDeTramos, type Senda, type Tramo } from './sendas.
 
 /** Por dónde cruza: de norte a sur, de oeste a este, o en una de las diagonales. */
 export const EJES_DE_PUENTE = ['ns', 'eo', 'ne-so', 'no-se'] as const;
-export type EjeDePuente = (typeof EJES_DE_PUENTE)[number];
+type EjeDePuente = (typeof EJES_DE_PUENTE)[number];
 
 /**
  * Cada eje como un paso de rejilla (la `y` crece hacia el sur), en el orden en
@@ -46,7 +47,7 @@ const UNITARIO_DEL_EJE: Readonly<Record<EjeDePuente, Punto>> = {
 };
 
 export const CLASES_DE_PUENTE = ['piedra', 'troncos'] as const;
-export type ClaseDePuente = (typeof CLASES_DE_PUENTE)[number];
+type ClaseDePuente = (typeof CLASES_DE_PUENTE)[number];
 
 /** Un punto en casillas. */
 export type Punto = readonly [number, number];
@@ -93,7 +94,7 @@ export interface Puente {
 }
 
 /** El id del puente de la ciudad-puente `ciudad`: no es el de ningún objeto del mapa. */
-export const idDelPuenteDeLaCiudad = (ciudad: string): string => `${ciudad}:puente`;
+const idDelPuenteDeLaCiudad = (ciudad: string): string => `${ciudad}:puente`;
 
 /**
  * Las medidas de un puente sin arte, para su marcador y su senda: las del de

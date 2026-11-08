@@ -21,9 +21,8 @@
  *   pnpm taller derivar-relieve rampa-roca-1
  */
 
-import { createHash } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import sharp from 'sharp';
 import {
   formaDeHoja,
@@ -31,24 +30,17 @@ import {
   type PiezaDeRampa,
 } from '../../src/client/render/escenario/catalogo.js';
 import { TRAMO_DE_PIEZA_DE_RAMPA } from '../../src/client/render/escenario/celdas.js';
+import { sha256 } from '../comun/hash.js';
+import { aRaster } from '../comun/imagen.js';
+import { textoJson } from '../comun/json.js';
+import { RAIZ } from '../comun/raiz.js';
+import { ALFA_FIGURA } from './cuerpo.js';
 import { registrarConEscala } from './derivar.js';
-import { ALFA_FIGURA } from './empaquetar.js';
 import type { Encargo } from './encargo.js';
+import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './estilo-del-mapa.js';
+import { ARRIBA, DIR_GUIAS, FRENTE, Guia, NIVEL, type P2, type P3, SOMBRA } from './guias.js';
 import { azarDe, MATERIAL, MESETA, type Niveles } from './laderas.js';
-import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
-import {
-  ARRIBA,
-  DIR_GUIAS,
-  FRENTE,
-  Guia,
-  type Material,
-  NIVEL,
-  type P2,
-  type P3,
-  SOMBRA,
-} from './paredes-puentes.js';
-
-const RAIZ = resolve(import.meta.dirname, '../..');
+import type { Material } from './paredes-puentes.js';
 
 /**
  * La geometría de la rampa en el mundo de la guía, en casillas desde el borde
@@ -73,7 +65,7 @@ const ENTERO = 0.4;
 const ARRIBA_DE_LA_CUESTA = -0.55;
 const PIE = 0.05;
 const DERRAME = 0.28;
-export const SOLAPE = 0.15;
+const SOLAPE = 0.15;
 
 const TIERRA = '#a09684';
 const ESTRIA = '#867c6c';
@@ -305,7 +297,7 @@ function dibujarMuesca(g: Guia, niveles: Niveles): void {
 const LIENZO_DE_LA_MUESCA: readonly [number, number] = [1024, 1024];
 
 /** La guía de la rampa de muesca de `niveles`, centrada en su lienzo. */
-export function guiaDeMuesca(niveles: Niveles): {
+function guiaDeMuesca(niveles: Niveles): {
   guia: Guia;
   geometria: GeometriaDeRampa;
   casilla: number;
@@ -345,7 +337,7 @@ export function guiaDeMuesca(niveles: Niveles): {
 }
 
 /** La geometría que cuenta de la guía, en píxeles de la guía. */
-export interface GeometriaDeRampa {
+interface GeometriaDeRampa {
   readonly niveles: Niveles;
   /**
    * El filo en cada corte de `TRAMO_DE_PIEZA_DE_RAMPA`, de oeste a este: en la
@@ -360,7 +352,7 @@ const LIENZO: readonly [number, number] = [1536, 1024];
 const LLENO = 0.8;
 
 /** La guía de una rampa de `niveles`, centrada en su lienzo. */
-export function guiaDeRampa(niveles: Niveles): {
+function guiaDeRampa(niveles: Niveles): {
   guia: Guia;
   geometria: GeometriaDeRampa;
   casilla: number;
@@ -406,13 +398,13 @@ export function guiaDeRampa(niveles: Niveles): {
 // ------------------------------------------------------------- los encargos
 
 /** Las caídas y los materiales del piloto (#225): el resto, cuando el usuario lo vea. */
-export const NIVELES_DE_RAMPA: readonly Niveles[] = [1];
-export const MATERIALES_DE_RAMPA: readonly Material[] = ['roca', 'arenisca'];
+const NIVELES_DE_RAMPA: readonly Niveles[] = [1];
+const MATERIALES_DE_RAMPA: readonly Material[] = ['roca', 'arenisca'];
 
 /** La hoja de una rampa: `rampa-roca-1`. */
-export const hojaDeRampa = (material: Material, niveles: Niveles) => `rampa-${material}-${niveles}`;
+const hojaDeRampa = (material: Material, niveles: Niveles) => `rampa-${material}-${niveles}`;
 
-export function encargoDeRampa(material: Material, niveles: Niveles): Encargo {
+function encargoDeRampa(material: Material, niveles: Niveles): Encargo {
   const caida = niveles === 1 ? 'UN nivel' : niveles === 2 ? 'DOS niveles' : 'TRES niveles';
   return {
     id: hojaDeRampa(material, niveles),
@@ -442,11 +434,11 @@ export function encargoDeRampa(material: Material, niveles: Niveles): Encargo {
 }
 
 /** La hoja de una rampa de muesca (§36): `rampa-muesca-roca-1`. */
-export const hojaDeMuesca = (material: Material, niveles: Niveles) =>
+const hojaDeMuesca = (material: Material, niveles: Niveles) =>
   `rampa-muesca-${material}-${niveles}`;
 
 /** El encargo de la rampa de muesca (§36) de un material y una caída. */
-export function encargoDeMuesca(material: Material, niveles: Niveles): Encargo {
+function encargoDeMuesca(material: Material, niveles: Niveles): Encargo {
   const caida = niveles === 1 ? 'UN nivel' : niveles === 2 ? 'DOS niveles' : 'TRES niveles';
   return {
     id: hojaDeMuesca(material, niveles),
@@ -494,7 +486,7 @@ export async function escribirGuiasDeRampas(): Promise<string[]> {
     );
     await writeFile(
       join(RAIZ, DIR_GUIAS, `${nombre}.json`),
-      `${JSON.stringify({ ancho: guia.ancho, alto: guia.alto, casilla, ...geometria }, null, 1)}\n`,
+      textoJson({ ancho: guia.ancho, alto: guia.alto, casilla, ...geometria }, 1),
     );
     escritas.push(`${DIR_GUIAS}/${nombre}.png`);
     const muesca = guiaDeMuesca(n);
@@ -505,7 +497,15 @@ export async function escribirGuiasDeRampas(): Promise<string[]> {
     );
     await writeFile(
       join(RAIZ, DIR_GUIAS, `${deMuesca}.json`),
-      `${JSON.stringify({ ancho: muesca.guia.ancho, alto: muesca.guia.alto, casilla: muesca.casilla, ...muesca.geometria }, null, 1)}\n`,
+      textoJson(
+        {
+          ancho: muesca.guia.ancho,
+          alto: muesca.guia.alto,
+          casilla: muesca.casilla,
+          ...muesca.geometria,
+        },
+        1,
+      ),
     );
     escritas.push(`${DIR_GUIAS}/${deMuesca}.png`);
   }
@@ -513,7 +513,7 @@ export async function escribirGuiasDeRampas(): Promise<string[]> {
 }
 
 /** El nombre del módulo de cada pieza: `s-cuerpo`, `s-costado-izq`… */
-export const moduloDePieza = (p: PiezaDeRampa) => `s-${p}`;
+const moduloDePieza = (p: PiezaDeRampa) => `s-${p}`;
 
 /**
  * Corta la imagen entera de una rampa (`rampa-<material>-<caída>.webp`) en sus
@@ -536,10 +536,7 @@ export async function escribirRampasDerivadas(hoja: string): Promise<string> {
   const entera = join(dir, `${hoja}.webp`);
   const { llevar } = await registrarConEscala(entera, `${guia}.png`, g.caja, hoja);
   const cortes = g.cortes.map(llevar);
-  const { data, info } = await sharp(await readFile(entera))
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
+  const { data, width, height } = await aRaster(await readFile(entera));
   const salida = join(dir, hoja);
   await rm(salida, { recursive: true, force: true });
   await mkdir(salida, { recursive: true });
@@ -555,13 +552,13 @@ export async function escribirRampasDerivadas(hoja: string): Promise<string> {
     // franja queda debajo de la pieza vecina, que se pinta después, y la arista
     // del corte no se ve.
     const x0 = Math.max(0, Math.round(a[0] - (k === 0 ? SOLAPE * porCasilla : 0)));
-    const x1 = Math.min(info.width, Math.round(b[0] + (k === ultima ? SOLAPE * porCasilla : 0)));
+    const x1 = Math.min(width, Math.round(b[0] + (k === ultima ? SOLAPE * porCasilla : 0)));
     // En alto, lo opaco de su franja.
-    let y0 = info.height;
+    let y0 = height;
     let y1 = -1;
-    for (let y = 0; y < info.height; y++)
+    for (let y = 0; y < height; y++)
       for (let x = x0; x < x1; x++)
-        if ((data[(y * info.width + x) * 4 + 3] as number) >= ALFA_FIGURA) {
+        if ((data[(y * width + x) * 4 + 3] as number) >= ALFA_FIGURA) {
           y0 = Math.min(y0, y);
           y1 = Math.max(y1, y);
         }
@@ -577,11 +574,11 @@ export async function escribirRampasDerivadas(hoja: string): Promise<string> {
       for (let y = y0; y <= y1; y++)
         for (let d = 0; d < funde; d++) {
           const x = lado === 'oeste' ? x0 + d : x1 - 1 - d;
-          const i = (y * info.width + x) * 4 + 3;
+          const i = (y * width + x) * 4 + 3;
           data[i] = Math.round((data[i] as number) * (d / funde));
         }
     const bytes = await sharp(data, {
-      raw: { width: info.width, height: info.height, channels: 4 },
+      raw: { width, height, channels: 4 },
     })
       .extract({ left: x0, top: y0, width: ancho, height: alto })
       .webp({ quality: 90, alphaQuality: 100, effort: 6 })
@@ -591,7 +588,7 @@ export async function escribirRampasDerivadas(hoja: string): Promise<string> {
     const enLaPieza = (p: P2): P2 => [Math.round(p[0] - x0), Math.round(p[1] - y0)];
     modulos.push({
       imagen,
-      sha256: createHash('sha256').update(bytes).digest('hex'),
+      sha256: sha256(bytes),
       ancho,
       alto,
       ancla: [Math.round(ancho / 2), alto - 1],
@@ -599,6 +596,6 @@ export async function escribirRampasDerivadas(hoja: string): Promise<string> {
     });
   }
   const ruta = join(dir, `${hoja}.json`);
-  await writeFile(ruta, `${JSON.stringify({ hoja: `${hoja}.webp`, modulos }, null, 2)}\n`);
+  await writeFile(ruta, textoJson({ hoja: `${hoja}.webp`, modulos }, 2));
   return ruta.replace(`${RAIZ}/`, '');
 }

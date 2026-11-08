@@ -8,17 +8,17 @@
  */
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
-import { alrededorDeMurallas, sendaParaLaMuralla } from '../src/client/render/escenario/colocar.js';
+import {
+  alrededorDeMurallas,
+  sendaParaLaMuralla,
+} from '../src/client/render/escenario/colocar/sendas-y-murallas.js';
 import { ejeDe, type Paso } from '../src/client/render/escenario/esqueleto.js';
 import {
   type Alrededor,
   ARRIMO,
-  apiladas,
   CIUDAD,
   ENTRE_TORRES,
   esquinasDe,
-  murallaSinLeer,
-  murallaSobreLaSenda,
   type PuertaDeLinea,
   puntasContraSuApoyo,
   seApilan,
@@ -26,7 +26,12 @@ import {
   torresDe,
   trazaDeMuralla,
 } from '../src/client/render/escenario/muralla.js';
-import { catalogoDelDisco, escenaDe, partidaDe } from './helpers.js';
+import {
+  apiladas,
+  murallaSinLeer,
+  murallaSobreLaSenda,
+} from '../src/client/render/escenario/muralla-sin-leer.js';
+import { catalogoDelDisco, escenaDe, partidaDe } from './escena-de-prueba.js';
 import { rango, segunPrisa } from './lento.js';
 
 type Casilla = readonly [number, number];

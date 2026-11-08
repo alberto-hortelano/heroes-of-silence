@@ -27,7 +27,7 @@ export type TerrainKind = (typeof TERRAIN_KINDS)[number];
  * tiene precio, y desde que el tipo lo dice (`Suelo`) la tabla ya no lleva las
  * entradas muertas que exigía un `Record` del tipo entero.
  */
-export const TERRAIN_COST: Readonly<Record<Suelo, number>> = {
+const TERRAIN_COST: Readonly<Record<Suelo, number>> = {
   grass: 100,
   dirt: 100,
   lava: 100,
@@ -41,7 +41,7 @@ export const TERRAIN_COST: Readonly<Record<Suelo, number>> = {
 export const ROAD_COST = 75;
 
 /** Cruzar en diagonal cuesta un 40 % más, como en la serie. */
-export const DIAGONAL_FACTOR = 1.4;
+const DIAGONAL_FACTOR = 1.4;
 
 /**
  * Lo que cuesta **entrar** en una casilla: la regla, escrita una vez.
@@ -84,9 +84,9 @@ export type Barrera = (typeof BARRERAS)[number];
 
 /**
  * Cómo se nombra cada barrera en una frase para la persona: la ficha del
- * ayuntamiento (qué cruza quien se infiltra) y el mapa de regiones de las
- * herramientas de desarrollo. El rechazo de niveles (`regiones.ts`) la nombra
- * con artículo y su id: es otra frase.
+ * ayuntamiento (qué cruza quien se infiltra), la ruta que se para ante una
+ * barrera y el mapa de regiones de las herramientas de desarrollo. El rechazo de
+ * un plan la nombra con artículo y su id: es la otra tabla, aquí al lado.
  */
 export const NOMBRE_DE_BARRERA: Readonly<Record<Barrera, string>> = {
   mountain: 'montaña',
@@ -94,6 +94,21 @@ export const NOMBRE_DE_BARRERA: Readonly<Record<Barrera, string>> = {
   forest: 'bosque',
   cliff: 'acantilado',
   wall: 'muro',
+};
+
+/**
+ * Cómo se nombra una barrera en un rechazo de niveles del plan de un mapa
+ * (`problemasDeNiveles`): con artículo y el id que escribió quien lo diseñó.
+ * Vivía en `niveles.ts` hasta la fase N de la reorganización (07-11-2026); las dos
+ * tablas van juntas con sus textos de hoy («cordillera» aquí y «montaña» en la
+ * otra: cuál vale lo decide el usuario, no una mudanza).
+ */
+export const NOMBRE_DE_BARRERA_EN_EL_PLAN: Readonly<Record<Barrera, string>> = {
+  cliff: 'el acantilado ("cliff")',
+  mountain: 'la cordillera ("mountain")',
+  water: 'el agua ("water")',
+  forest: 'el bosque ("forest")',
+  wall: 'el muro ("wall")',
 };
 
 /** Lo que se pisa: todo terreno que no es barrera. El suelo de una región es uno de estos. */

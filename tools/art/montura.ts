@@ -1,7 +1,7 @@
 /**
  * La hoja de REFERENCIA DE POSE montada: un caballo y su jinete renderizados con
  * la cámara del juego, para que ChatGPT los repinte como hace con el maniquí a
- * pie (`tools/art/poses.ts`).
+ * pie (`tools/art/poses/render.ts`).
  *
  *   npx tsx tools/art/montura.ts            → assets/unidades/_poses/montado-lanza.png + .json
  *   npx tsx tools/art/montura.ts --prueba   → fotogramas sueltos en .cache/taller/montura/
@@ -16,15 +16,12 @@
  * three.js sale de `../sprite-forge/node_modules/three`, sin dependencia nueva.
  *
  * El caballo: `tools/art/modelos/caballo-quaternius.glb` (CC0, ver `LICENCIA.md`).
- * El jinete: el `y_bot` y `sitting_idle` de ne-fan, como en `poses.ts`.
+ * El jinete: el `y_bot` y `sitting_idle` de ne-fan, como en `poses/render.ts`.
  */
-import { createHash } from 'node:crypto';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { createServer, type Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
-import { homedir } from 'node:os';
-import { extname, join, normalize, resolve, sep } from 'node:path';
+import type { Server } from 'node:http';
+import { join, normalize, resolve, sep } from 'node:path';
 import { chromium } from 'playwright';
 import sharp from 'sharp';
 import {
@@ -34,17 +31,19 @@ import {
   hojasDeFigura,
   luzEnElMundo,
 } from '../../src/shared/arte.js';
+import { sha256 } from '../comun/hash.js';
+import { chromiumInstalado, servirFicheros } from '../comun/navegador.js';
+import { RAIZ } from '../comun/raiz.js';
+import { indicesDeClip } from './poses/clips.js';
 import {
   clipDeDisparoDe,
-  componerGiro,
-  indicesDeClip,
   JUEGOS_DE_ARMAS,
   JUEGOS_MONTADOS,
   type JuegoMontado,
-} from './poses.js';
+} from './poses/juegos.js';
+import { componerGiro } from './poses/render.js';
 import { DISPARO_EN_NODE } from './ybot-a-distancia.js';
 
-const RAIZ = resolve(import.meta.dirname, '../..');
 const FORGE = resolve(process.env.SPRITE_FORGE_DIR ?? join(RAIZ, '../sprite-forge'));
 const FBX = resolve(process.env.SPRITE_FORGE_ASSETS ?? join(RAIZ, '../ne-fan/assets/characters'));
 const ESCENA = join(RAIZ, 'tools/art/montura');
@@ -53,7 +52,7 @@ const CABALLO = join(MODELOS, 'caballo-quaternius.glb');
 const DIR_POSES = join(RAIZ, 'assets/unidades/_poses');
 
 /** La celda de las monturas: a la escala humana de siempre no caben en 256. */
-export const CELDA_MONTADA = 384;
+const CELDA_MONTADA = 384;
 
 /**
  * La colocación del jinete, en metros y en los ejes del caballo. Calibrada a ojo
@@ -103,14 +102,13 @@ const MIME: Record<string, string> = {
 };
 
 /** Sirve tres raíces y nada fuera de ellas. */
-function servir(): Promise<Server> {
+function servir(): Promise<{ servidor: Server; base: string }> {
   const raices: Record<string, string> = {
     '/three/': join(FORGE, 'node_modules/three/'),
     '/modelos/': `${MODELOS}/`,
     '/fbx/': `${FBX}/`,
   };
-  const servidor = createServer(async (req, res) => {
-    const url = decodeURIComponent((req.url ?? '/').split('?')[0] as string);
+  return servirFicheros((url) => {
     let ruta: string | null = null;
     if (url === '/') ruta = join(ESCENA, 'pagina.html');
     else if (url === '/escena.js') ruta = join(ESCENA, 'escena.js');
@@ -122,35 +120,11 @@ function servir(): Promise<Server> {
           ruta = r;
       }
     }
-    if (ruta === null || !existsSync(ruta)) {
-      res.writeHead(404).end(`no está: ${url}`);
-      return;
-    }
-    res.writeHead(200, { 'content-type': MIME[extname(ruta)] ?? 'application/octet-stream' });
-    res.end(await readFile(ruta));
-  });
-  return new Promise((ok) => servidor.listen(0, '127.0.0.1', () => ok(servidor)));
+    return ruta;
+  }, MIME);
 }
 
-/** El Chromium de Playwright: el que pide, o el más reciente de los que hay (como `capturas.ts`). */
-function ejecutable(): string | undefined {
-  if (existsSync(chromium.executablePath())) return undefined;
-  const cache = join(homedir(), '.cache', 'ms-playwright');
-  const hay = existsSync(cache)
-    ? readdirSync(cache)
-        .filter((d) => /^chromium-\d+$/.test(d))
-        .sort((a, b) => Number(b.split('-')[1]) - Number(a.split('-')[1]))
-        .map((d) => join(cache, d, 'chrome-linux64', 'chrome'))
-        .filter((p) => existsSync(p))
-    : [];
-  if (hay[0] === undefined)
-    throw new Error('no hay Chromium de Playwright: `npx playwright install chromium`');
-  return hay[0];
-}
-
-const sha256 = (b: Buffer): string => createHash('sha256').update(b).digest('hex');
-
-export async function renderizarMontura(prueba: boolean): Promise<string> {
+async function renderizarMontura(prueba: boolean): Promise<string> {
   for (const [que, ruta] of [
     ['el caballo', CABALLO],
     ['three.js de sprite-forge', join(FORGE, 'node_modules/three/build/three.module.js')],
@@ -160,9 +134,8 @@ export async function renderizarMontura(prueba: boolean): Promise<string> {
   ] as const) {
     if (!existsSync(ruta)) throw new Error(`no encuentro ${que} en ${ruta}`);
   }
-  const servidor = await servir();
-  const puerto = (servidor.address() as AddressInfo).port;
-  const exe = ejecutable();
+  const { servidor, base } = await servir();
+  const exe = chromiumInstalado(console.log);
   const navegador = await chromium.launch({
     ...(exe === undefined ? {} : { executablePath: exe }),
     args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
@@ -171,7 +144,7 @@ export async function renderizarMontura(prueba: boolean): Promise<string> {
     const pagina = await navegador.newPage();
     const errores: string[] = [];
     pagina.on('pageerror', (e) => errores.push(e.message));
-    await pagina.goto(`http://127.0.0.1:${puerto}/`);
+    await pagina.goto(`${base}/`);
     await pagina.waitForFunction(
       () => (window as unknown as { __listo?: boolean }).__listo === true,
       null,
@@ -297,7 +270,7 @@ export async function renderizarMontura(prueba: boolean): Promise<string> {
 
 /**
  * Cada acción de la unidad montada en 8 direcciones (como `OCHO_DIRECCIONES` de
- * `poses.ts`), repartidas en hojas como `HOJAS_DE_FIGURA`. La A, reposo, paso y
+ * `poses/clips.ts`), repartidas en hojas como `HOJAS_DE_FIGURA`. La A, reposo, paso y
  * carga (el paso con la lanza bajada); la B, el ataque parado con espada, el
  * daño (el caballo encaja el golpe) y la muerte, que se queda en su último
  * fotograma; la C, solo con pistola, el disparo parado. Luz del contrato.
@@ -323,7 +296,7 @@ const FILA_MONTADA = {
  * `JUEGOS_MONTADOS`. Sale de las claves de esa tabla: un jinete nuevo es una
  * fila allí y su postura en `montura/escena.js`.
  */
-export type ArmaMontada = JuegoMontado extends `montado-${infer A}` ? A : never;
+type ArmaMontada = JuegoMontado extends `montado-${infer A}` ? A : never;
 
 /** Las armas montadas, en el orden de `JUEGOS_MONTADOS`; la primera, la lanza, es la de omisión. */
 export const ARMAS_MONTADAS = Object.keys(JUEGOS_MONTADOS).map((j) =>
@@ -360,14 +333,13 @@ function hojasMontadas(juego: JuegoMontado) {
   );
 }
 
-export async function renderizarMontura8d(
+async function renderizarMontura8d(
   destino = DIR_POSES,
   arma: ArmaMontada = 'lanza',
 ): Promise<string> {
   const juego: JuegoMontado = `montado-${arma}`;
-  const servidor = await servir();
-  const puerto = (servidor.address() as AddressInfo).port;
-  const exe = ejecutable();
+  const { servidor, base } = await servir();
+  const exe = chromiumInstalado(console.log);
   const navegador = await chromium.launch({
     ...(exe === undefined ? {} : { executablePath: exe }),
     args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
@@ -376,7 +348,7 @@ export async function renderizarMontura8d(
     const pagina = await navegador.newPage();
     const errores: string[] = [];
     pagina.on('pageerror', (e) => errores.push(e.message));
-    await pagina.goto(`http://127.0.0.1:${puerto}/`);
+    await pagina.goto(`${base}/`);
     await pagina.waitForFunction(
       () => (window as unknown as { __listo?: boolean }).__listo === true,
       null,

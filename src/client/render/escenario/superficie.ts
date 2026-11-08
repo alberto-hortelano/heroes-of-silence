@@ -8,9 +8,10 @@
  * volúmenes se pintan a cada fotograma**, solo los visibles, ordenados por
  * profundidad junto con las figuras: una figura puede quedar detrás de un árbol.
  */
-import type { MejoraDelPuesto } from '@core/map/map.js';
 import { esBarrera, type TerrainKind } from '@core/map/terrain.js';
+import type { MejoraDelPuesto } from '@core/map/tipos.js';
 import catalogoDelRepo from '../../../../assets/mapa/escena.json' with { type: 'json' };
+import { mensajeDe } from '../../../shared/errores.js';
 import {
   avisarDeArteNuevo,
   cargarArteDeEscena,
@@ -19,6 +20,7 @@ import {
   tandaDeArte,
   volverAPedirArteDeEscena,
 } from '../assets.js';
+import { copiaReducidaSiCabe } from '../copias.js';
 import {
   type ConteoDeVolumenes,
   contarVolumenes,
@@ -26,13 +28,14 @@ import {
   PX_AL_ZOOM_MAXIMO,
   TILE_MAX,
   tileMinimo,
-} from '../camara-mapa.js';
-import { copiaReducidaSiCabe } from '../copias.js';
-import { pigments } from '../terreno.js';
+} from '../mapa/camara.js';
+import { pigments } from '../mapa/terreno.js';
 import type { MapaDeEscena } from './analizar.js';
 import { type PerfilDe, perfilesDelCatalogo } from './caras.js';
 import { type Catalogo, catalogoValidado } from './catalogo.js';
-import { componer, type Escena, type Sprite } from './colocar.js';
+import type { Escena } from './colocar/escena.js';
+import { type NodoQueSeSabe, type Sprite, seVeConSuNodo } from './colocar/sprite.js';
+import { componer } from './colocar.js';
 import {
   delanteDeLasParedes,
   type LoQueTapaEnUnaBarrera,
@@ -53,8 +56,8 @@ import {
 } from './pintar.js';
 import { type MensajeDelSuelo, type PeticionDelSuelo, pintarSueloA } from './pintor-del-suelo.js';
 import type { Punto } from './puentes.js';
-import { esObra, type NodoQueSeSabe, type Obra, seVeConSuNodo } from './puestos.js';
-import { casillasDelRecinto } from './recinto.js';
+import { esObra, type Obra } from './puestos.js';
+import { casillasDelRecinto } from './recinto/octogono.js';
 
 /**
  * El catálogo de `assets/mapa/escena.json`, que rehace `pnpm taller
@@ -103,7 +106,7 @@ export const PX_DEL_ESBOZO = 60;
 export const BYTES_DEL_SUELO_BUENO = 126_000_000;
 
 /** A cuánto se pinta el suelo bueno en una pantalla (`resolucionDelSuelo`). */
-export interface ResolucionDelSuelo {
+interface ResolucionDelSuelo {
   /** Píxeles por casilla del suelo bueno. */
   readonly px: number;
   /** Los que pide la casilla del zoom máximo en esa pantalla: si pasan de `px`, el tope lo deja corto. */
@@ -232,7 +235,7 @@ let memo: { semilla: number; escenario: Escenario } | null = null;
 export const OVALO_BAJO_EL_ASIENTO = 0.45 * 0.4;
 
 /** Lo que lee `claveDeFigura` de la escena: se pide antes de tener el `Escenario` entero. */
-export type Profundidad = Pick<Escenario, 'escena' | 'cubiertas' | 'delanteDeParedes'>;
+type Profundidad = Pick<Escenario, 'escena' | 'cubiertas' | 'delanteDeParedes'>;
 
 /** Las obras del puesto de cada nodo (`Escenario.puestoDeNodo`), de los volúmenes de la escena. */
 function puestosDe(volumenes: readonly Volumen[]): Map<string, Record<MejoraDelPuesto, Obra>> {
@@ -575,7 +578,7 @@ export function topeDeAlejar(esc: Escenario, ancho: number, alto: number): numbe
 // ------------------------------------------------------------ el suelo
 
 /** La superficie del suelo, a `px` píxeles por casilla. */
-export interface SueloPintado {
+interface SueloPintado {
   readonly lienzo: Imagen;
   readonly px: number;
 }
@@ -592,7 +595,7 @@ export interface AvisosDelSuelo {
  * Un encargo de pintar el suelo: `hecho` se cumple tras la última superficie, o
  * falla con el motivo; `terminar` lo para, y entonces se cumple sin más.
  */
-export interface EncargoDelSuelo {
+interface EncargoDelSuelo {
   readonly hecho: Promise<void>;
   terminar(): void;
 }
@@ -868,7 +871,7 @@ function encargar(s: SueloDelEscenario, quien: PintorDelSuelo, resoluciones: rea
       (px) => (px === PX_DEL_ESBOZO ? s.esbozo : s.bueno?.px === px ? s.bueno : null) === null,
     );
     console.error(
-      `el suelo del mapa no se ha podido pintar aparte (${err instanceof Error ? err.message : String(err)}): se pinta en el hilo principal a ${faltan.join(' y ')} px por casilla`,
+      `el suelo del mapa no se ha podido pintar aparte (${mensajeDe(err)}): se pinta en el hilo principal a ${faltan.join(' y ')} px por casilla`,
     );
     if (suelo === s && faltan.length > 0) encargar(s, enEsteHilo, faltan);
   });

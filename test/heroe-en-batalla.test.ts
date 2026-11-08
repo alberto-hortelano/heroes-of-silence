@@ -12,61 +12,33 @@
 
 import { describe, expect, it } from 'vitest';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
-import {
-  activeStack,
-  applyAction,
-  createBattle,
-  legalActions,
-  stackById,
-  surrenderBlocker,
-} from '../src/core/battle/battle.js';
+import { resolvePendingBattle } from '../src/core/ai/turn.js';
+import { applyAction } from '../src/core/battle/battle.js';
+import { activeStack, stackById, surrenderBlocker } from '../src/core/battle/consultas.js';
+import { legalActions } from '../src/core/battle/legalidad.js';
+import { createBattle } from '../src/core/battle/montaje.js';
 import type { BattleState, Side } from '../src/core/battle/types.js';
 import { HERO_BODY, queEs } from '../src/core/battle/types.js';
-import { unidadDelJuego } from '../src/core/catalogo.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
-import { escalonDeCasillas } from '../src/core/cuerpo.js';
-import { figuraDelHeroe, HEROE } from '../src/core/data.js';
-import { umbral } from '../src/core/hero/experiencia.js';
-import { type Hero, heroUnit } from '../src/core/hero/hero.js';
-import {
-  isEnterable,
-  objectAt,
-  pointFromKey,
-  pointKey,
-  reachableFrom,
-} from '../src/core/map/map.js';
+import { HEROE } from '../src/core/hero/cuerpo-del-heroe.js';
+import { heroUnit } from '../src/core/hero/hero.js';
+import { umbral } from '../src/core/hero/rango.js';
+import { figuraDelHeroe } from '../src/core/hero/tipos-de-heroe.js';
+import { pointFromKey, pointKey } from '../src/core/map/geometria.js';
+import { isEnterable, objectAt, reachableFrom } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
-import {
-  baseOf,
-  type GameContext,
-  type GameState,
-  heroById,
-  heroesOf,
-  resolvePendingBattle,
-  settleBattle,
-  townsOf,
-} from '../src/core/state/game.js';
+import { settleBattle } from '../src/core/state/cierre.js';
+import { baseOf, heroById, heroesOf, townsOf } from '../src/core/state/consultas.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad } from '../src/core/state/sitios.js';
-import type { Point, Stack } from '../src/core/types.js';
-import {
-  avanzarHasta,
-  costesDelAlcance,
-  darLaCiudad,
-  ejercito,
-  forzarBatalla,
-  guarnecer,
-  heroeDeBatalla,
-  JINETE,
-  ladoDeBatalla,
-  NO_MUERTO,
-  PESADA,
-  TIRADOR_NO_MUERTO,
-  TROPA,
-  TROPA_BARATA,
-} from './helpers.js';
-
-const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
+import type { GameContext, GameState } from '../src/core/state/tipos.js';
+import type { Hero, Point, Stack } from '../src/core/types.js';
+import { unidadDelJuego } from '../src/core/unidad/catalogo.js';
+import { escalonDeCasillas } from '../src/core/unidad/cuerpo.js';
+import { avanzarHasta, heroeDeBatalla, ladoDeBatalla } from './batalla-de-prueba.js';
+import { ctx, JINETE, NO_MUERTO, PESADA, TIRADOR_NO_MUERTO, TROPA, TROPA_BARATA } from './comun.js';
+import { costesDelAlcance } from './mapa-de-prueba.js';
+import { darLaCiudad, ejercito, forzarBatalla, guarnecer } from './partida-de-prueba.js';
 
 /** Juega con la IA de reglas hasta que le toque a `side`, sin terminar la batalla. */
 function hastaQueLeToque(state: BattleState, side: Side): void {
@@ -115,6 +87,16 @@ function duelo(state: GameState, cerca: Point): Point {
   }
   throw new Error('no hay sitio para un duelo');
 }
+
+/**
+ * El rango del héroe que asalta una ciudad y tiene que ganar sin duda. Desde la
+ * «Base derecha» (06-11-2026, `79b5c76b`: la muralla de toda ciudad, pegada a la
+ * salida del defensor) la IA que asalta deja a sus jinetes ante el muro y su héroe
+ * pelea solo en la puerta: uno recién hecho (rango 5) caía en las 30 semillas de
+ * batalla que se probaron, y con él su bando. Con el 12 gana las 40 primeras con
+ * holgura: le quedan como poco 647 de sus 720 PV.
+ */
+const RANGO_DEL_ASALTO = 12;
 
 /**
  * Monta una batalla de héroe contra héroe en la casilla `defensa` (o en el
@@ -499,9 +481,13 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     darLaCiudad(state, otro, 1);
     const bandera = state.map.objects.find((o) => o.kind === 'town' && o.id === otro.id)!;
     (bandera as { owner: number | null }).owner = 1;
+    // Y sin la guarnición del jugador 0, que `tomarElNodo` quita al tomarla: dentro,
+    // el 1 la defendía con la tropa del 0 (la defensa elegida, 04-11-2026).
+    guarnecer(state, otro, []);
     // Sin oro, para que caiga peleando y no se rinda (la rendición entrega el
     // castillo igual: lo que decide es la casilla).
     state.players[1]!.oro = 0;
+    heroesOf(state, 0)[0]!.experience = umbral(RANGO_DEL_ASALTO);
     const { atacante, defensor } = batallaDeHeroes(
       state,
       c,
@@ -537,6 +523,8 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const state = newGame({ seed: 11 });
     const c = ctx(11);
     const base = baseOf(state, 1)!;
+    // La defiende con su guarnición (04-11-2026) tras la muralla de la ciudad.
+    heroesOf(state, 0)[0]!.experience = umbral(RANGO_DEL_ASALTO);
     const { atacante, defensor } = batallaDeHeroes(
       state,
       c,

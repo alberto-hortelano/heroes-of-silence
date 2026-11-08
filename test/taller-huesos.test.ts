@@ -12,12 +12,13 @@ import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { FIGURA, HOJAS_DE_FIGURA, type HojaDeFigura } from '../src/shared/arte.js';
-import { DIR_MANIQUIES, HUESOS_DEL_MANIQUI } from '../tools/art/poses.js';
+import { DIR_MANIQUIES } from '../tools/art/poses/juegos.js';
+import { HUESOS_DEL_MANIQUI } from '../tools/art/poses/three.js';
 import { DIR_DEL_MANIQUI_CIVIL } from '../tools/taller/npcs.js';
 import { huesosDeOtroRender, leerHuesos } from '../tools/taller/revision/maniqui.js';
+import { RAIZ } from './comun.js';
 import { segunPrisa } from './lento.js';
 
-const RAIZ = join(import.meta.dirname, '..');
 const PILOTO = ['caballero-de-la-muerte', 'templario-escudo', 'elfo-arquero'];
 
 /** Las carpetas de maniquí que se miran: las que ya tienen esqueleto. */

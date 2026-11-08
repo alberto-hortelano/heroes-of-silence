@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { encargoSchema, promptDe } from '../tools/taller/encargo.js';
-import { type Figura, figura, RAIZ } from '../tools/taller/revision/revisar.js';
+import { type Figura, figura } from '../tools/taller/revision/revisar.js';
 import {
   adoptarBlocker,
   adoptarTodas,
@@ -27,6 +27,7 @@ import {
   SIN_POSE_DEL_GIRO,
   versionAdoptada,
 } from '../tools/taller/revision/versiones.js';
+import { RAIZ } from './comun.js';
 
 describe('los tres encargos de una hoja', () => {
   const f = figura('caballero-de-la-muerte');

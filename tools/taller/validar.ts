@@ -3,13 +3,13 @@
  * condiciones TÉCNICAS: que pasen no la aprueba —la aceptación es visual y la
  * da el usuario con capturas—, pero que fallen la descarta sin enseñarla.
  */
-import sharp from 'sharp';
 import { FIGURA } from '../../src/shared/arte.js';
-import { ALFA_FIGURA } from './empaquetar.js';
+import { aRaster } from '../comun/imagen.js';
+import { ALFA_FIGURA } from './cuerpo.js';
 import { type Encargo, filasDeAtlas } from './encargo.js';
 import { UMBRALES } from './recorte.js';
 
-export interface Informe {
+interface Informe {
   readonly problemas: readonly string[];
   readonly medidas: Readonly<Record<string, number>>;
 }
@@ -74,14 +74,11 @@ export async function validar(
   talla = 1,
   lleno = false,
 ): Promise<Informe> {
-  const { data, info } = await sharp(imagen)
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
+  const { data, width, height } = await aRaster(imagen);
   const problemas: string[] = [];
-  if (opaca) return { problemas, medidas: { ancho: info.width, alto: info.height } };
+  if (opaca) return { problemas, medidas: { ancho: width, alto: height } };
 
-  const medidas = medirAlfa(data, info.width, info.height);
+  const medidas = medirAlfa(data, width, height);
   if ((medidas.visibles ?? 0) < visibleMinimo(talla)) {
     problemas.push(
       `la imagen está casi vacía tras el recorte: se ve el ${((medidas.visibles ?? 0) * 100).toFixed(2)} % y una figura de talla ${talla} pide ${(visibleMinimo(talla) * 100).toFixed(2)} %`,
@@ -89,13 +86,12 @@ export async function validar(
   }
   if (!lleno && (medidas.visibles ?? 0) > 0.9)
     problemas.push('el fondo no se ha recortado: casi todo es opaco');
-  // Un efecto es semitransparente a propósito: ni cuerpo opaco ni halo que medir.
-  if (tipo !== 'efecto' && (medidas.opacos ?? 0) < 0.75) {
+  if ((medidas.opacos ?? 0) < 0.75) {
     problemas.push(
       `el cuerpo no es opaco: solo el ${Math.round((medidas.opacos ?? 0) * 100)} % de lo visible`,
     );
   }
-  if (tipo !== 'efecto' && (medidas.haloSuelto ?? 0) > 0.01) {
+  if ((medidas.haloSuelto ?? 0) > 0.01) {
     problemas.push(
       `queda halo suelto: ${((medidas.haloSuelto ?? 0) * 100).toFixed(1)} % de lo visible`,
     );
@@ -103,9 +99,9 @@ export async function validar(
 
   if (tipo === 'atlas') {
     const { columnas } = FIGURA;
-    if (info.width !== celda * columnas || info.height !== celda * filas) {
+    if (width !== celda * columnas || height !== celda * filas) {
       problemas.push(
-        `un atlas mide ${celda * columnas}×${celda * filas} y este ${info.width}×${info.height}`,
+        `un atlas mide ${celda * columnas}×${celda * filas} y este ${width}×${height}`,
       );
     }
     // Ninguna figura toca el borde de su celda: se cortaría al dibujarla sola.
@@ -119,7 +115,7 @@ export async function validar(
             [0, i],
             [celda - 1, i],
           ] as const) {
-            const a = data[((f * celda + y) * info.width + c * celda + x) * 4 + 3] as number;
+            const a = data[((f * celda + y) * width + c * celda + x) * 4 + 3] as number;
             if (a >= ALFA_FIGURA) toca = true;
           }
         }
@@ -130,7 +126,7 @@ export async function validar(
       }
     }
   }
-  return { problemas, medidas: { ...medidas, ancho: info.width, alto: info.height } };
+  return { problemas, medidas: { ...medidas, ancho: width, alto: height } };
 }
 
 /**

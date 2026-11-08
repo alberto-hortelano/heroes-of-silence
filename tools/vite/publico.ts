@@ -1,0 +1,87 @@
+/**
+ * Qué parte de `assets/` va a `dist/` con `vite build` (#137).
+ *
+ * `assets/` es la carpeta pública de vite: en `pnpm dev` se sirve entera, y así
+ * el taller y la arena leen lo que acaban de escribir. Pero el build la copiaba
+ * entera también, y en cada `assets/unidades/<id>/dN/` van, junto al
+ * `atlas.webp` que pinta la figura, las hojas de las que se juntó
+ * (`hoja-a.webp`, `hoja-b.webp`), sus procedencias y los JSON del corte: ~100 MB
+ * que el juego no pide nunca. No se borran del repo —son la procedencia que lee
+ * la revisión de animaciones (`tools/taller/revision/`)—: se quedan fuera del build.
+ *
+ * Con su plugin, `publico` (abajo): los tests lo ejercen sin arrancar vite, que aquí
+ * solo entra como tipo.
+ */
+import { cpSync } from 'node:fs';
+import { relative, resolve, sep } from 'node:path';
+import type { Plugin } from 'vite';
+
+/**
+ * Lo que solo lee el taller, en estas reglas:
+ * - En una carpeta de dirección de una unidad o de una figura del banco de NPC
+ *   (`npcs/<id>/dN/`, cuyos `atlas.json` llegan en `/__npcs`), todo menos su atlas. La página
+ *   lee `unidades/<id>/dN/atlas.webp` (`registrarUnidad`,
+ *   `src/client/render/figuras/personajes.ts`) y nada más de esa carpeta: los
+ *   `atlas.json` le llegan dentro de la lista de hojas (`/__arena/hojas`). Las
+ *   poses del Y Bot (`_poses/<juego>-8d/`) no viven en carpetas `dN/` y van enteras.
+ * - Los maniquíes de cada unidad y de la gente (`unidades/_poses/unidades/` y
+ *   `unidades/_poses/gente/`, ~300 MB): el Y Bot posado para una unidad o una figura
+ *   del banco de NPC, con su profundidad, su giro y sus poses, del que el taller pinta
+ *   la hoja (`pnpm taller maniqui`, `--civil`). La página pide del Y Bot solo
+ *   `/unidades/_poses/<juego>-8d/dN-{a,b,c}.png` de los juegos de `atlas-8d.json`
+ *   (`YBOT`, en `personajes.ts`), y la gente sin figura va con el `civil` de esos
+ *   juegos (`CUERPO_DE_VECINO`), no con su maniquí. Comprobado en `pnpm dev` el
+ *   08-11-2026 con las peticiones de red de las pasadas «arranque», «escritorio»
+ *   (la partida y una batalla del mapa), «morada», «espectador» y «arena» de
+ *   `pnpm capturas`: 1 013 URL distintas, ninguna en esas dos carpetas (QA de la
+ *   reorganización, H1).
+ * - Toda carpeta `fuentes/` o `_guias/`, a cualquier altura: las fuentes de las
+ *   que el taller saca lo que la página pide (maestros, ediciones e identidades
+ *   de la base, `bases/<f>/fuentes/`), las guías de corte de las piezas de los
+ *   temas (`temas/_guias/`) y las de geometría del mapa (`mapa/_guias/`). Por eso
+ *   las letras viven en `letras/` y no en `fuentes/`.
+ * - `art/` entero (134 MB): las láminas y referencias de estilo de las que se
+ *   pinta y se mide (la paleta de los temas sale de `art/temas/`). Ni el
+ *   cliente ni el build lo leen (comprobado con grep y con `vite build`,
+ *   13-10-2026).
+ * - El esqueleto de cada hoja del maniquí (`*.huesos.json`, en `_poses/`): lo leen
+ *   la revisión de animaciones y la compuerta del trabajador, no el juego (~11 MB).
+ * - `mundos/` entero: los mundos de la F1a (`core/mundo/`) se juegan solo en
+ *   `pnpm dev`, que es quien los genera (decisión P6 del 22-10-2026); llevarlos
+ *   al build es del backlog.
+ *
+ * La carpeta misma se deja fuera, no solo lo de dentro: si no, el build la crea
+ * vacía.
+ */
+const SOLO_DEL_TALLER =
+  /^(?:unidades|npcs)\/[^/]+\/d[0-7]\/(?!atlas\.webp$)[^/]+$|(?:^|\/)(?:fuentes|_guias)(?:\/|$)|^(?:art|mundos)(?:\/|$)|^unidades\/_poses\/(?:unidades|gente)(?:\/|$)|\.huesos\.json$/;
+
+/** ¿Va a `dist/` este fichero, con su ruta relativa a `assets/`? */
+export function seCopiaAlBuild(relativa: string): boolean {
+  return !SOLO_DEL_TALLER.test(relativa.split(sep).join('/'));
+}
+
+/** Copia `assets/` a la salida del build sin lo que solo lee el taller. */
+export function copiarPublico(origen: string, destino: string): void {
+  cpSync(origen, destino, {
+    recursive: true,
+    filter: (ruta) => seCopiaAlBuild(relative(origen, ruta)),
+  });
+}
+
+/**
+ * La carpeta pública en `dist/`, sin lo que solo lee el taller (#137): vite no
+ * sabe filtrarla, así que el build no la copia (`copyPublicDir: false`) y la
+ * copia esto, con `seCopiaAlBuild`. En `pnpm dev` se sirve entera.
+ */
+export function publico(raiz: string): Plugin {
+  const origen = resolve(raiz, 'assets');
+  return {
+    name: 'heroes-publico',
+    apply: 'build',
+    writeBundle(opciones) {
+      if (opciones.dir === undefined) this.error('el build no dice dónde escribe');
+      copiarPublico(origen, opciones.dir);
+    },
+  };
+}

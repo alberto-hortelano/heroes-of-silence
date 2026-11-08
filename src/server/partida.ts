@@ -5,21 +5,22 @@
  * le podía preparar nada: para que `pnpm qa` cruzara el ascenso de la tropa a
  * héroe hacía falta una partida con un veterano de rango 5 en la base, y la del
  * arnés lo produce en 0,06 de cada partida. Ahora el cuerpo es una función y
- * `ws-server.ts` la llama con nada; `tools/qa/partida-con-veterano.ts` la llama
+ * `ws-server.ts` la llama con nada; `tools/qa/agente/partida-con-veterano.ts` la llama
  * con un `preparar`. **Ninguna variable de entorno ni ningún mensaje lo abre**:
  * solo un `import`, y lo que importa desde `tools/` no se despliega.
  */
 
 import { once } from 'node:events';
 import { troopSummary } from '@core/hero/troop.js';
-import { LADO_DEL_MAPA } from '@core/map/generate.js';
 import { parseSeed } from '@core/rng.js';
-import { townsOf } from '@core/state/game.js';
+import { townsOf } from '@core/state/consultas.js';
 import type { PlayerId } from '@core/types.js';
 import { type WebSocket, WebSocketServer } from 'ws';
+import type { ServerToSpectatorMsg } from '../shared/cable-del-espectador.js';
+import { mensajeDe } from '../shared/errores.js';
 import { AgentLink } from './agent-link.js';
 import { responderConsulta } from './consultas.js';
-import { Director, type DirectorOptions } from './director.js';
+import type { Director, DirectorOptions } from './director.js';
 import {
   combateDelEntorno,
   esperaAlAgente,
@@ -27,9 +28,8 @@ import {
   puertoAgente,
   puertoEspectadores,
 } from './entorno.js';
-import { pedirMapaAlAgente } from './mapa-del-agente.js';
+import { partidaConElMapaDelAgente } from './mapa-del-agente.js';
 import { notaFinDePartida, SIN_PARTIDA_TODAVIA } from './notas.js';
-import type { ServerToSpectatorMsg } from './protocol.js';
 import { construirVista } from './vista-espectador.js';
 
 /** La partida que se juega si nadie pide otra. */
@@ -49,22 +49,9 @@ const SEED = parseSeed(process.env.HEROES_SEED) ?? SEED_POR_DEFECTO;
 const MAX_DAYS = maxDiasDelEntorno();
 const COMBATE = combateDelEntorno();
 const WAIT_FOR_AGENT_MS = esperaAlAgente();
-/**
- * El mapa que se le pide al agente, y el que sale del procedimental si no lo da.
- *
- * Es el lado por defecto de `generateMapPlan`, que sale de las regiones por
- * bando (`REGIONES_POR_BANDO`, #195), **leído y no copiado**: estuvo
- * escrito aquí a mano como `24` y, al cambiar el generador de tamaño, la
- * partida con agente y la que sale sin él habrían dejado de jugarse en mapas
- * comparables sin que nada se pusiera rojo.
- */
-const ANCHO_DEL_MAPA = LADO_DEL_MAPA;
-const ALTO_DEL_MAPA = LADO_DEL_MAPA;
-/** Los jugadores de la partida, en el orden en que los numera `newGame`. */
-const JUGADORES = [0, 1] as const;
 
 /** Lo que un arnés puede pedirle a la partida: hoy, solo `preparar`. */
-export type OpcionesDePartida = Pick<DirectorOptions, 'preparar'>;
+type OpcionesDePartida = Pick<DirectorOptions, 'preparar'>;
 
 /**
  * Arranca la partida y la juega hasta el final. No lanza: un fallo se cuenta en
@@ -142,8 +129,9 @@ export function arrancarPartida(opciones: OpcionesDePartida = {}): Promise<void>
         state.finished === null
           ? null
           : { winner: state.finished.winner, note: notaFinDePartida(state, SIN_BANDO) },
-      // La vista se MONTA en `vista-espectador.ts`, que es donde vive su tipo. Se
-      // escribía aquí, a mano y dentro de esta función, contra un `view: unknown`.
+      // La vista se MONTA en `vista-espectador.ts`, y su tipo es el del cable
+      // (`shared/cable-del-espectador.ts`). Se escribía aquí, a mano y dentro de esta
+      // función, contra un `view: unknown`.
       view: construirVista(state, director.log),
     };
     const raw = JSON.stringify(msg);
@@ -232,7 +220,7 @@ export function arrancarPartida(opciones: OpcionesDePartida = {}): Promise<void>
       const heroes = state.heroes.filter((h) => h.owner === p.id);
       const pueblos = townsOf(state, p.id);
       const tropas = heroes
-        .flatMap((h) => troopSummary(h.army, state.characters))
+        .flatMap((h) => troopSummary(h.army))
         .map((g) => `${g.count}×${g.unit.name}`)
         .join(', ');
       console.log(
@@ -244,7 +232,13 @@ export function arrancarPartida(opciones: OpcionesDePartida = {}): Promise<void>
       `  pueblos en juego: ${state.map.objects.filter((o) => o.kind === 'village').length}`,
     );
     console.log(`  nodos en juego: ${state.map.objects.filter((o) => o.kind === 'node').length}`);
-    console.log(`  casillas exploradas por el agente: ${state.players[1]?.fog.size ?? 0}`);
+    // De los jugadores que lleva el agente, los del `Director`: aquí estaba
+    // `state.players[1]`, el `agentPlayers: [1]` escrito otra vez.
+    const exploradas = [...director.agentPlayers].reduce(
+      (n, p) => n + (state.players[p]?.fog.size ?? 0),
+      0,
+    );
+    console.log(`  casillas exploradas por el agente: ${exploradas}`);
     broadcast();
   }
 
@@ -304,40 +298,38 @@ export function arrancarPartida(opciones: OpcionesDePartida = {}): Promise<void>
       );
     }
 
-    const { plan, motivo } = await pedirMapaAlAgente(link, {
-      width: ANCHO_DEL_MAPA,
-      height: ALTO_DEL_MAPA,
-      players: JUGADORES,
-    });
-
-    if (plan === null) {
-      console.log(`[servidor] mapa procedimental de la semilla ${SEED} (${motivo})`);
-    } else {
-      // Se dice, en vez de romperlo en silencio: `CLAUDE.md` promete que una
-      // partida se reproduce copiando su semilla, y con el mapa del agente eso
-      // deja de ser cierto —ni el mapa ni el ejército de salida salen de ella,
-      // porque `newGame` ya no llama a `generateMapPlan` y la corriente del `rng`
-      // se desplaza—. La semilla sigue fijando las tiradas de dentro.
-      console.log(
-        `[servidor] mapa diseñado por el agente (${motivo}). La semilla ${SEED} ya NO ` +
-          'reproduce esta partida: el mapa lo puso él.',
-      );
-    }
-
-    director = new Director(link, {
-      seed: SEED,
-      agentPlayers: [1],
-      // Sin `HEROES_MAX_DAYS` esto es `undefined` y manda el tope de `newGame`.
-      maxDays: MAX_DAYS,
-      // Sin `HEROES_TROPA` ni `HEROES_RUEDA`, la de siempre: 7 / 7.
-      combate: COMBATE,
-      // Un fotograma por acción aplicada, y no uno por turno: una batalla entera
-      // caía antes entre dos snapshots. `broadcast()` sale sola si no mira nadie,
-      // así que sin espectadores esto no cuesta nada.
-      onFrame: broadcast,
-      ...(plan === null ? {} : { plan }),
-      ...(opciones.preparar === undefined ? {} : { preparar: opciones.preparar }),
-    });
+    // El mapa que se pide y los jugadores del agente, en `mapa-del-agente.ts`: la
+    // partida del arnés de `pnpm qa` y la huella piden los mismos.
+    director = await partidaConElMapaDelAgente(
+      link,
+      {
+        seed: SEED,
+        // Sin `HEROES_MAX_DAYS` esto es `undefined` y manda el tope de `newGame`.
+        maxDays: MAX_DAYS,
+        // Sin `HEROES_TROPA` ni `HEROES_RUEDA`, la de siempre: 7 / 7.
+        combate: COMBATE,
+        // Un fotograma por acción aplicada, y no uno por turno: una batalla entera
+        // caía antes entre dos snapshots. `broadcast()` sale sola si no mira nadie,
+        // así que sin espectadores esto no cuesta nada.
+        onFrame: broadcast,
+        ...(opciones.preparar === undefined ? {} : { preparar: opciones.preparar }),
+      },
+      ({ plan, motivo }) => {
+        if (plan === null) {
+          console.log(`[servidor] mapa procedimental de la semilla ${SEED} (${motivo})`);
+        } else {
+          // Se dice, en vez de romperlo en silencio: `CLAUDE.md` promete que una
+          // partida se reproduce copiando su semilla, y con el mapa del agente eso
+          // deja de ser cierto —ni el mapa ni el ejército de salida salen de ella,
+          // porque `newGame` ya no llama a `generateMapPlan` y la corriente del `rng`
+          // se desplaza—. La semilla sigue fijando las tiradas de dentro.
+          console.log(
+            `[servidor] mapa diseñado por el agente (${motivo}). La semilla ${SEED} ya NO ` +
+              'reproduce esta partida: el mapa lo puso él.',
+          );
+        }
+      },
+    );
     await jugar(director);
   }
 
@@ -347,7 +339,7 @@ export function arrancarPartida(opciones: OpcionesDePartida = {}): Promise<void>
     // sabe que hubo un fallo y puede contarlo.
     link.gameOver(
       null,
-      `La partida se ha interrumpido por un fallo del servidor: ${err instanceof Error ? err.message : String(err)}`,
+      `La partida se ha interrumpido por un fallo del servidor: ${mensajeDe(err)}`,
     );
     process.exitCode = 1;
   });

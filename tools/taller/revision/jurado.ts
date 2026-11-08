@@ -21,6 +21,8 @@ import { readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { HOJAS_DE_FIGURA } from '../../../src/shared/arte.js';
+import { textoJson } from '../../comun/json.js';
+import { RAIZ } from '../../comun/raiz.js';
 import { juzgarConCodex } from '../codex.js';
 import {
   type Arbitraje,
@@ -46,14 +48,13 @@ import {
   idDelClip,
   imagenesDe,
   juicioVigente,
-  RAIZ,
 } from './revisar.js';
 
-export const JUECES = ['gpt', 'claude'] as const;
-export type Juez = (typeof JUECES)[number];
+const JUECES = ['gpt', 'claude'] as const;
+type Juez = (typeof JUECES)[number];
 
 /** Un hallazgo de la unión, con quién lo vio. */
-export interface HallazgoUnido {
+interface HallazgoUnido {
   readonly indice: number;
   readonly fuentes: readonly Juez[];
   readonly hallazgo: Hallazgo;
@@ -105,9 +106,9 @@ export function unirHallazgos(juicios: Partial<Record<Juez, Juicio>>): HallazgoU
 }
 
 /** Qué quedó de cada hallazgo tras los árbitros y el visor. */
-export type Estado = 'real' | 'falso' | 'disputa';
+type Estado = 'real' | 'falso' | 'disputa';
 
-export interface HallazgoCruzado extends HallazgoUnido {
+interface HallazgoCruzado extends HallazgoUnido {
   readonly arbitros: Partial<Record<Juez, string>>;
   /** `disputa` sin respuesta del visor cuenta como defecto probable. */
   readonly estado: Estado;
@@ -162,7 +163,7 @@ export function cruzarArbitrajes(
 }
 
 /** La severidad desde la que un defecto va a las instrucciones del pintor. */
-export const SEVERIDAD_MINIMA = 2;
+const SEVERIDAD_MINIMA = 2;
 
 /**
  * Las instrucciones para el pintor de cada hoja: los defectos de severidad ≥
@@ -311,7 +312,7 @@ export async function unir(
         juicios[juez] = j;
       }
       const union = unirHallazgos(juicios);
-      await writeFile(join(dir, 'union.json'), `${JSON.stringify(union, null, 1)}\n`);
+      await writeFile(join(dir, 'union.json'), textoJson(union, 1));
       console.log(
         `d${d} ${clip.padEnd(7)} ${union.length} hallazgos (${union.filter((u) => u.fuentes.length > 1).length} de los dos)`,
       );
@@ -319,7 +320,7 @@ export async function unir(
 }
 
 /** El prompt del árbitro: el del juez hasta sus reglas, y la lista unida para decidir. */
-export function promptDelArbitro(
+function promptDelArbitro(
   promptDelJuez: string,
   union: readonly HallazgoUnido[],
   id: string,
@@ -446,7 +447,7 @@ export async function cruzar(
           ).clips.filter((c) => !soloClips.includes(c.clip))
         : [];
     const v: Veredicto = { direccion: d, clips: [...antes, ...clips] };
-    await writeFile(join(base, 'veredicto.json'), `${JSON.stringify(v, null, 1)}\n`);
+    await writeFile(join(base, 'veredicto.json'), textoJson(v, 1));
     // Las de cada hoja con algo que corregir; las de antes de una hoja que ya no tiene
     // nada se borran, para que no se cuelen en la versión `todo` (QA, H2).
     const instrucciones = instruccionesPorHoja(v.clips);

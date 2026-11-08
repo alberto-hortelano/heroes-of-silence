@@ -1,6 +1,6 @@
 /**
  * Las mejoras del puesto (puesto fronterizo, fase 3, 04-11-2026;
- * `docs/agents/2026-11-04-puesto-fronterizo/plan.md` §4 «Fase 3» y §7): un paso
+ * `docs/agents/2026-11-04-puesto-fronterizo/requisitos.md`, «Criterios de aceptación»): un paso
  * tomado es un puesto, y su obra —caseta, empalizada, muralla— se paga en oro con
  * el héroe del dueño dentro, se recuerda por la niebla, viaja al agente y al
  * espectador y pone su muralla en la batalla del paso.
@@ -9,30 +9,21 @@
  * código: cada rechazo con su frase.
  */
 import { describe, expect, it } from 'vitest';
+import { marcadoDe } from '../src/client/comun/html.js';
 import { adaptarEscena } from '../src/client/espectador/adaptar.js';
-import { marcadoDe } from '../src/client/html.js';
-import { Session } from '../src/client/session.js';
-import { renderGuarnicion } from '../src/client/views/guarnicion.js';
+import { renderGuarnicion } from '../src/client/partida/guarnicion.js';
+import { Session } from '../src/client/sesion/partida.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
-import { serializeKnownMap } from '../src/core/contract/serialize.js';
+import { serializeKnownMap } from '../src/core/contract/mapa-conocido.js';
 import {
   type MapObject,
   MEJORAS_DEL_PUESTO,
   type MejoraDelPuesto,
   OBRAS_DE_UN_PUESTO,
   type ObraDelPuesto,
-} from '../src/core/map/map.js';
-import { createRng } from '../src/core/rng.js';
-import {
-  applyAdventureAction,
-  baseOf,
-  type GameContext,
-  type GameState,
-  heroesOf,
-  objetosConocidos,
-  revealEverything,
-  visibleNow,
-} from '../src/core/state/game.js';
+} from '../src/core/map/tipos.js';
+import { baseOf, heroesOf } from '../src/core/state/consultas.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import {
   leerSitios,
@@ -42,12 +33,15 @@ import {
   ponerLaGuarnicion,
   sitioPorId,
 } from '../src/core/state/sitios.js';
-import { construirVista, type SpectatorView } from '../src/server/vista-espectador.js';
-import { ejercito, forzarBatalla, pegadoA, TROPA_BARATA, unPaso } from './helpers.js';
+import type { GameState } from '../src/core/state/tipos.js';
+import { objetosConocidos, revealEverything, visibleNow } from '../src/core/state/vision.js';
+import { construirVista } from '../src/server/vista-espectador.js';
+import type { SpectatorView } from '../src/shared/cable-del-espectador.js';
+import { ctx, TROPA_BARATA } from './comun.js';
+import { ejercito, forzarBatalla, pegadoA, unPaso } from './partida-de-prueba.js';
 
 type Nodo = Extract<MapObject, { kind: 'node' }>;
 
-const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 const DOS_BARATAS = () => ejercito({ creature: TROPA_BARATA, count: 2 });
 
 /**

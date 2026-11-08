@@ -14,35 +14,28 @@
  * (`poderDe` contra `fuerzaDe` con `ventajaClara`), sea cual sea el catálogo.
  */
 import { describe, expect, it } from 'vitest';
-import { Session } from '../src/client/session.js';
-import { fuerzaDe, poderDe, ventajaClara } from '../src/core/ai/fuerza.js';
-import { unidadesDelJuego } from '../src/core/catalogo.js';
-import type { GrupoDeTropa } from '../src/core/data.js';
-import { objectAt, pointFromKey, pointKey } from '../src/core/map/map.js';
-import { createRng } from '../src/core/rng.js';
+import { Session } from '../src/client/sesion/partida.js';
+import { fuerzaDe, poderDe, ventajaClara } from '../src/core/hero/fuerza.js';
+import { pointFromKey, pointKey } from '../src/core/map/geometria.js';
+import { objectAt } from '../src/core/map/map.js';
+import { regionDeCasilla } from '../src/core/map/regiones.js';
 import {
   asaltantesALaVista,
   emboscadaEnLaRuta,
   loQueLaPara,
-  regionDeCasilla,
 } from '../src/core/state/asaltantes.js';
+import { baseOf, heroById, heroesOf } from '../src/core/state/consultas.js';
 import { cronicaPara } from '../src/core/state/events.js';
-import {
-  alcanceDelHeroe,
-  applyAdventureAction,
-  baseOf,
-  caminoHasta,
-  type GameContext,
-  type GameState,
-  heroById,
-  heroesOf,
-  visibleNow,
-} from '../src/core/state/game.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
+import { alcanceDelHeroe, caminoHasta } from '../src/core/state/marcha.js';
 import { newGame } from '../src/core/state/setup.js';
-import type { Point } from '../src/core/types.js';
-import { copiaDePartida, costesDelAlcance, fueraDeSuBase, guarnecer } from './helpers.js';
-
-const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
+import type { GameState } from '../src/core/state/tipos.js';
+import { visibleNow } from '../src/core/state/vision.js';
+import type { GrupoDeTropa, Point } from '../src/core/types.js';
+import { unidadesDelJuego } from '../src/core/unidad/catalogo.js';
+import { ctx } from './comun.js';
+import { costesDelAlcance } from './mapa-de-prueba.js';
+import { copiaDePartida, fueraDeSuBase, guarnecer } from './partida-de-prueba.js';
 
 /** Lo que mide un individuo de cada unidad del catálogo, de menos a más. */
 function unidadesPorPoder(): readonly string[] {
@@ -204,7 +197,7 @@ describe('la marcha se para al descubrir un grupo que la emboscaría (#130)', ()
     const m = marcha();
     const { state } = m;
     const hero = heroById(state, m.heroId);
-    const troops = grupoQue((p) => ventajaClara(p, fuerzaDe(hero, state.characters)), 'fuerte');
+    const troops = grupoQue((p) => ventajaClara(p, fuerzaDe(hero)), 'fuerte');
     state.raiders = [{ id: 'raider-g', at: m.enG, troops }];
     const puntos = hero.movePoints;
     const camino = caminoHasta(state, hero, m.destino)!;
@@ -247,7 +240,7 @@ describe('la marcha se para al descubrir un grupo que la emboscaría (#130)', ()
     const m = marcha();
     const { state } = m;
     const hero = heroById(state, m.heroId);
-    const troops = grupoQue((p) => ventajaClara(p, fuerzaDe(hero, state.characters)), 'fuerte');
+    const troops = grupoQue((p) => ventajaClara(p, fuerzaDe(hero)), 'fuerte');
     state.raiders = [{ id: 'raider-a', at: m.enA, troops }];
     const vistos = asaltantesALaVista(state, visibleNow(state, 0));
     const camino = caminoHasta(state, hero, m.destino)!;
@@ -274,7 +267,7 @@ describe('la marcha se para al descubrir un grupo que la emboscaría (#130)', ()
     const m = marcha();
     const { state } = m;
     const hero = heroById(state, m.heroId);
-    const troops = grupoQue((p) => ventajaClara(p, fuerzaDe(hero, state.characters)), 'fuerte');
+    const troops = grupoQue((p) => ventajaClara(p, fuerzaDe(hero)), 'fuerte');
     state.raiders = [{ id: 'raider-g', at: m.enG, troops }];
     applyAdventureAction(
       state,
@@ -306,7 +299,7 @@ describe('la marcha se para al descubrir un grupo que la emboscaría (#130)', ()
     const m = marcha();
     const { state } = m;
     const hero = heroById(state, m.heroId);
-    const suya = fuerzaDe(hero, state.characters);
+    const suya = fuerzaDe(hero);
     // El mayor grupo de lo más flojo que aún no le saca el margen: uno menos que el
     // menor que sí.
     const [justo] = grupoQue((p) => ventajaClara(p, suya), 'floja');
@@ -333,7 +326,7 @@ describe('la parada en la sesión (#130)', () => {
   it('la sesión ve los grupos con la regla del núcleo, y la barra dice por qué se para el héroe', () => {
     const m = marcha();
     const hero = heroById(m.state, m.heroId);
-    const troops = grupoQue((p) => ventajaClara(p, fuerzaDe(hero, m.state.characters)), 'fuerte');
+    const troops = grupoQue((p) => ventajaClara(p, fuerzaDe(hero)), 'fuerte');
     m.state.raiders = [{ id: 'raider-g', at: m.enG, troops }];
     m.state.players[0]!.controller = 'human';
     // La sesión de la misma semilla, con la partida de la prueba (la misma, con el

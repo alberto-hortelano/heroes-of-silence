@@ -5,13 +5,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import {
-  archivoDeClip,
-  archivosDeDañoYMuerte,
-  hojasDe,
-  JUEGOS_DE_ARMAS,
-  type JuegoDeArmas,
-} from '../tools/art/poses.js';
+import { archivoDeClip, archivosDeDañoYMuerte, hojasDe } from '../tools/art/poses/clips.js';
+import { JUEGOS_DE_ARMAS, type JuegoDeArmas } from '../tools/art/poses/juegos.js';
 import { hojaDelReposo } from '../tools/taller/poses-8d.js';
 import {
   EN_OCHO_DIRECCIONES,
@@ -20,8 +15,8 @@ import {
   JUEGO_DEL_YBOT,
   UNIDADES,
 } from '../tools/taller/unidades.js';
+import { RAIZ } from './comun.js';
 
-const RAIZ = join(import.meta.dirname, '..');
 const TODAS = [...UNIDADES, ...HEROES];
 
 describe('los clips de cada unidad', () => {

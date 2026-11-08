@@ -9,26 +9,19 @@
 import { describe, expect, it } from 'vitest';
 import { hexEquals, hexKey } from '../src/core/battle/board.js';
 import { zonaDeSalida } from '../src/core/battle/despliegue.js';
-import type { Portador } from '../src/core/hero/equipo.js';
-import { type Hero, heroUnit } from '../src/core/hero/hero.js';
+import type { Portador } from '../src/core/equipo/portador.js';
+import { heroUnit } from '../src/core/hero/hero.js';
 import { troopUnit } from '../src/core/hero/troop.js';
-import { createRng } from '../src/core/rng.js';
-import {
-  type AdventureAction,
-  applyAdventureAction,
-  baseOf,
-  batallaDeLaFormacion,
-  formacionDe,
-  formarBlocker,
-  type GameState,
-  salidaPendienteBlocker,
-  turnBlocker,
-} from '../src/core/state/game.js';
+import { batallaDeLaFormacion, formacionDe, formarBlocker } from '../src/core/state/batallas.js';
+import { baseOf, turnBlocker } from '../src/core/state/consultas.js';
+import { applyAdventureAction } from '../src/core/state/game.js';
+import { salidaPendienteBlocker } from '../src/core/state/heroes.js';
 import { newGame } from '../src/core/state/setup.js';
-import type { Hex } from '../src/core/types.js';
-import { conSuEquipo, forzarBatalla, TROPA, TROPA_BARATA } from './helpers.js';
+import type { AdventureAction, GameState } from '../src/core/state/tipos.js';
+import type { Hero, Hex } from '../src/core/types.js';
+import { ctx, TROPA, TROPA_BARATA } from './comun.js';
+import { conSuEquipo, forzarBatalla } from './partida-de-prueba.js';
 
-const ctx = () => ({ rng: createRng(7) });
 const SEMILLA = 11;
 
 type Formar = Extract<AdventureAction, { type: 'formar' }>;
@@ -61,7 +54,7 @@ function formacionSana(state: GameState, hero: Hero): void {
     zonaDeSalida(unit, 'attacker').some((z) => hexEquals(z, h));
   expect(enZona(heroUnit(hero), f.heroe)).toBe(true);
   hero.army.forEach((t, i) => {
-    expect(enZona(troopUnit(t, state.characters), f.tropa[i]!)).toBe(true);
+    expect(enZona(troopUnit(t), f.tropa[i]!)).toBe(true);
   });
 }
 
@@ -88,7 +81,7 @@ describe('la acción formar (C1)', () => {
     const [a, b, veterano] = hero.army;
     const log = state.log.length;
     const oro = state.players[0]!.oro;
-    applyAdventureAction(state, formar(hero, { heroe: true }, { col: 1, row: 0 }), ctx(), 0);
+    applyAdventureAction(state, formar(hero, { heroe: true }, { col: 1, row: 0 }), ctx(7), 0);
     // Congelada entera: cada uno lleva su casilla de hoy, y el héroe la nueva.
     expect(hero.salida).toEqual({ col: 1, row: 0 });
     expect(hero.army.map((t) => t.salida)).toEqual([
@@ -107,7 +100,7 @@ describe('la acción formar (C1)', () => {
     expect(state.log).toHaveLength(log);
     expect(state.players[0]!.oro).toBe(oro);
 
-    applyAdventureAction(state, formar(hero, { indice: 1 }, { col: 1, row: 0 }), ctx(), 0);
+    applyAdventureAction(state, formar(hero, { indice: 1 }, { col: 1, row: 0 }), ctx(7), 0);
     expect(formacionDe(state, hero)).toEqual({
       heroe: { col: 0, row: 5 },
       tropa: [
@@ -117,7 +110,7 @@ describe('la acción formar (C1)', () => {
       ],
     });
     // A una casilla libre, sin intercambio: nadie más se mueve.
-    applyAdventureAction(state, formar(hero, { indice: 0 }, { col: 2, row: 8 }), ctx(), 0);
+    applyAdventureAction(state, formar(hero, { indice: 0 }, { col: 2, row: 8 }), ctx(7), 0);
     expect(formacionDe(state, hero).tropa[0]).toEqual({ col: 2, row: 8 });
     expect(formacionDe(state, hero).heroe).toEqual({ col: 0, row: 5 });
     formacionSana(state, hero);
@@ -126,7 +119,7 @@ describe('la acción formar (C1)', () => {
   it('lo ilegal lanza con la frase de formarBlocker y no toca nada', () => {
     const { state, hero } = partida();
     const rival = state.heroes.find((h) => h.owner === 1)!;
-    const goblin = troopUnit(hero.army[0]!, state.characters).name;
+    const goblin = troopUnit(hero.army[0]!).name;
     const casos: readonly [Formar, string][] = [
       [formar(rival, { heroe: true }, { col: 0, row: 0 }), `${rival.name} no es de tu bando`],
       [
@@ -143,7 +136,7 @@ describe('la acción formar (C1)', () => {
     ];
     for (const [accion, motivo] of casos) {
       expect(formarBlocker(state, 0, accion)).toBe(motivo);
-      expect(() => applyAdventureAction(state, accion, ctx(), 0)).toThrow(
+      expect(() => applyAdventureAction(state, accion, ctx(7), 0)).toThrow(
         `no se puede formar: ${motivo}`,
       );
     }
@@ -156,16 +149,16 @@ describe('la acción formar (C1)', () => {
     const turno = turnBlocker(state, 1);
     expect(turno).not.toBeNull();
     expect(() =>
-      applyAdventureAction(state, formar(hero, { heroe: true }, { col: 1, row: 4 }), ctx(), 1),
+      applyAdventureAction(state, formar(hero, { heroe: true }, { col: 1, row: 4 }), ctx(7), 1),
     ).toThrow(turno!);
 
     const conBatalla = partida();
-    forzarBatalla(conBatalla.state, ctx(), conBatalla.hero);
+    forzarBatalla(conBatalla.state, ctx(7), conBatalla.hero);
     expect(() =>
       applyAdventureAction(
         conBatalla.state,
         formar(conBatalla.hero, { heroe: true }, { col: 1, row: 4 }),
-        ctx(),
+        ctx(7),
         0,
       ),
     ).toThrow('hay una batalla pendiente de resolver');
@@ -178,7 +171,7 @@ describe('la acción formar (C1)', () => {
       applyAdventureAction(
         sinHeroe,
         formar(delRival, { heroe: true }, { col: 1, row: 4 }),
-        ctx(),
+        ctx(7),
         0,
       ),
     ).toThrow(pendiente!);
@@ -189,7 +182,7 @@ describe('la formación sobrevive a los cambios de la tropa (C2)', () => {
   /** La partida con la formación guardada: el héroe atrás a (2,4) y todos congelados. */
   function formada(): { state: GameState; hero: Hero } {
     const p = partida();
-    applyAdventureAction(p.state, formar(p.hero, { heroe: true }, { col: 2, row: 4 }), ctx(), 0);
+    applyAdventureAction(p.state, formar(p.hero, { heroe: true }, { col: 2, row: 4 }), ctx(7), 0);
     return p;
   }
 
@@ -206,7 +199,7 @@ describe('la formación sobrevive a los cambios de la tropa (C2)', () => {
     applyAdventureAction(
       state,
       { type: 'recruit', town: base.id, creature: unidad, count: 2 },
-      ctx(),
+      ctx(7),
       0,
     );
     expect(hero.army).toHaveLength(5);
@@ -227,7 +220,7 @@ describe('la formación sobrevive a los cambios de la tropa (C2)', () => {
     applyAdventureAction(
       state,
       { type: 'dismiss', hero: hero.id, creature: TROPA, count: 1 },
-      ctx(),
+      ctx(7),
       0,
     );
     expect(hero.army.map((t) => t.creature)).toEqual([TROPA_BARATA, TROPA_BARATA]);
@@ -245,7 +238,7 @@ describe('la formación sobrevive a los cambios de la tropa (C2)', () => {
     applyAdventureAction(
       state,
       { type: 'equip', hero: hero.id, item: 'gambeson', puesto: 0 },
-      ctx(),
+      ctx(7),
       0,
     );
     expect(hero.army[0]!.veterania?.equipo).toEqual({ armadura: 'gambeson' });
