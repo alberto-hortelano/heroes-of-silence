@@ -124,8 +124,14 @@ if (SEMILLAS === ANCLA.semillas && DIAS === ANCLA.dias) {
     console.error('');
     console.error(`ANCLA ROTA: se esperaba ${ANCLA.sha}`);
     console.error(`            y ha salido ${sha}`);
-    console.error('            Alguna partida se juega distinta. Para ver cuál y dónde:');
-    console.error('              git stash && pnpm banco --dump antes.jsonl && git stash pop');
+    console.error('            Alguna partida se juega distinta. Para ver cuál y dónde, el');
+    console.error('            volcado del commit que daba el ancla (HEAD, o el de antes si ya');
+    console.error('            está commiteado) en un worktree aparte, que no toca tu árbol');
+    console.error('            (git stash no: la pila es de todos los worktrees de la máquina):');
+    console.error('              D=$(mktemp -d) && git worktree add --detach "$D" HEAD');
+    console.error('              ln -s "$PWD/node_modules" "$D/"');
+    console.error('              (cd "$D" && pnpm banco --dump "$OLDPWD/antes.jsonl")');
+    console.error('              git worktree remove --force "$D"');
     console.error('              pnpm banco --dump ahora.jsonl && diff antes.jsonl ahora.jsonl');
     console.error('            El volcado es una línea por hecho: el diff señala la semilla');
     console.error('            y el hecho exactos. Si el cambio es deliberado, se ancla el');
