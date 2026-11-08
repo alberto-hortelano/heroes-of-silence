@@ -50,7 +50,7 @@ import { unidadesDeMorada } from '../../../src/core/unidad/catalogo.js';
  * `endTurn` a secas se quedaba esperando para siempre. Las búsquedas descartan esa
  * semilla; las pasadas que no juegan defensas lo dicen.
  */
-export async function turnoDelEspejo(espejo: Session): Promise<'pasado' | 'defensa'> {
+async function turnoDelEspejo(espejo: Session): Promise<'pasado' | 'defensa'> {
   const defensa = new Promise<'defensa'>((r) => {
     espejo.alCambiarSinGesto = () => r('defensa');
   });
@@ -97,7 +97,7 @@ export function encuadreDe(b: Caja, espejo: Session): Encuadre {
 }
 
 /** Dónde cae en la página el centro de `p` con la cámara centrada en `foco` (y acotada). */
-export function pixelMirando(
+function pixelMirando(
   b: Caja,
   e: Encuadre,
   tile: number,
@@ -109,7 +109,7 @@ export function pixelMirando(
 }
 
 /** Dónde cae en la página el centro de una casilla, con la cámara centrada en el héroe. */
-export function pixelDeCasilla(
+function pixelDeCasilla(
   b: Caja,
   e: Encuadre,
   tile: number,
@@ -147,7 +147,7 @@ export function guardiaEnElMarco(
 }
 
 /** Las guardias de `guardiaEnElMarco`, todas, de la más cercana a la más lejana. */
-export function guardiasEnElMarco(
+function guardiasEnElMarco(
   b: Caja,
   e: Encuadre,
   tile: number,
@@ -195,9 +195,9 @@ export const TOPE_DE_SEMILLAS = 200;
  * colores, el castillo y una guardia a salvo con su batalla): en 1-200 se
  * quedó sin ninguna con el río de lago de 20 casillas (17-10-2026).
  */
-export const TOPE_DEL_ESCRITORIO = 300;
+const TOPE_DEL_ESCRITORIO = 300;
 
-export interface EscenaDeEmboscada {
+interface EscenaDeEmboscada {
   readonly semilla: number;
   readonly destino: Point;
   readonly grupo: string;
@@ -308,10 +308,10 @@ export async function buscarVeteranos(b: Caja, desde = 1): Promise<number> {
  * la 1 la primera es la 62 (26 s; 477, 695 y 880 en las tandas de 401, 601 y
  * 801). Es un punto de partida, no una semilla escrita.
  */
-export const DESDE_LA_DERROTA = 1;
+const DESDE_LA_DERROTA = 1;
 
 /** La partida y la guardia de la batalla que se pierde (`buscarDerrota`). */
-export interface EscenaDeDerrota {
+interface EscenaDeDerrota {
   readonly semilla: number;
   readonly guardia: Point;
 }
@@ -351,7 +351,7 @@ export function buscarDerrota(b: Caja, desde = DESDE_LA_DERROTA): EscenaDeDerrot
 }
 
 /** El tile tras `pasos` de rueda (positivos acercan), con los topes del cliente. */
-export function tileTrasRueda(e: Encuadre, pasos: number): number {
+function tileTrasRueda(e: Encuadre, pasos: number): number {
   let tile = TILE_INICIAL;
   for (let i = 0; i < Math.abs(pasos); i++)
     tile = zoom({ tile, x: 0, y: 0 }, pasos > 0 ? 1 : -1, e).tile;
@@ -517,7 +517,7 @@ export const RUEDA_DE_LA_PATRULLA = -4;
  * radio sobre lo explorado) y tocables en el lienzo. La misma pregunta que hace
  * `patrullaALaVista`.
  */
-export function asaltantesEnElMarco(
+function asaltantesEnElMarco(
   b: Caja,
   e: Encuadre,
   tile: number,
@@ -647,7 +647,7 @@ export function planDeAngulo(espejo: Session, ancho: number, alto: number): Plan
  * Antes la búsqueda no lo miraba y una semilla sin ocasión (la 7 con las minas
  * por región, #195: dos arqueros que disparan) llegaba al navegador.
  */
-export function hayAnguloEnLaBatalla(espejo: Session, b: Caja): boolean {
+function hayAnguloEnLaBatalla(espejo: Session, b: Caja): boolean {
   const battle = espejo.battle;
   if (battle === null) return false;
   for (let n = 0; n < 40 && battle.finished === null; n++) {

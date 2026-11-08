@@ -25,7 +25,7 @@ import { RAIZ } from '../../comun/raiz.js';
 import { leerCatalogo } from './catalogo-disco.js';
 import { paginaDeEscena } from './pintor.js';
 
-export const DIR_ESCENARIO = join(RAIZ, '.cache/taller/escenario');
+const DIR_ESCENARIO = join(RAIZ, '.cache/taller/escenario');
 
 const TIPOS: Readonly<Record<string, string>> = {
   '.html': 'text/html; charset=utf-8',
@@ -45,7 +45,7 @@ function servir(): Promise<{ servidor: Server; base: string }> {
   }, TIPOS);
 }
 
-export interface Resultado {
+interface Resultado {
   readonly html: string;
   readonly png: string;
   readonly informe: Record<string, unknown>;

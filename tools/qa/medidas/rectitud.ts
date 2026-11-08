@@ -43,7 +43,7 @@ import type { GameMap } from '../../../src/core/map/tipos.js';
 import { newGame } from '../../../src/core/state/setup.js';
 
 /** Los tramos rectos de barrera de un mapa: cuántos llegan a `minimo` y el más largo. */
-export function tramosRectos(map: GameMap, minimo: number): { largos: number; maximo: number } {
+function tramosRectos(map: GameMap, minimo: number): { largos: number; maximo: number } {
   const W = map.width;
   const H = map.height;
   const barrera = (x: number, y: number): boolean =>
@@ -79,7 +79,7 @@ export function tramosRectos(map: GameMap, minimo: number): { largos: number; ma
 }
 
 /** Las filas de caras de roca del escenógrafo que llegan a `minimo` casillas seguidas. */
-export function carasEnFila(map: GameMap, minimo: number): number {
+function carasEnFila(map: GameMap, minimo: number): number {
   const W = map.width;
   const cara = new Uint8Array(W * map.height);
   const a = analizar(map);
@@ -178,14 +178,14 @@ export const TECHOS = {
   mapas: { minimo: largoALaEscala(10), techo: 23 },
 } as const;
 
-export interface Rectitud {
+interface Rectitud {
   readonly tramos: number;
   readonly caras: number;
   readonly mapas: number;
 }
 
 /** Las tres cuentas en las semillas de `desde` a `hasta`, las dos incluidas. */
-export function rectitudDe(desde: number, hasta: number, conCaras = true): Rectitud {
+function rectitudDe(desde: number, hasta: number, conCaras = true): Rectitud {
   let tramos = 0;
   let caras = 0;
   let mapas = 0;

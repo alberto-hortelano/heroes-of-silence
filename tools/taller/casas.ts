@@ -40,10 +40,10 @@ import type { Modulo } from './escenario/modulos.js';
 const MODULOS = join(RAIZ, 'assets/mapa/modulos');
 
 /** Puntos de la imagen de un pueblo, en sus píxeles. */
-export type Semillas = readonly (readonly [number, number])[];
+type Semillas = readonly (readonly [number, number])[];
 
 /** Un pueblo con sus casas elegidas y las semillas de lo que no es casa. */
-export interface CasasDeUnPueblo {
+interface CasasDeUnPueblo {
   readonly pueblo: number;
   /** El del `pueblos/<k>.webp` que se miró. */
   readonly sha256: string;

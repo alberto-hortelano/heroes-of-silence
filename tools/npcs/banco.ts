@@ -90,7 +90,7 @@ export function estadoDeFigura(
 }
 
 /** Las hojas del banco como las lee la página: por id, sus direcciones o por qué aún no. */
-export interface HojaDeNpc {
+interface HojaDeNpc {
   readonly direcciones: readonly unknown[] | null;
   /** Por qué no se pinta aún: pendiente o a medias. `null`, pintada. */
   readonly incompleta: string | null;

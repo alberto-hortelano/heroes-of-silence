@@ -160,7 +160,7 @@ export async function generar(
 }
 
 /** Cuántos juicios de Codex van a la vez: más, y la suscripción empieza a cortar. */
-export const JUICIOS_A_LA_VEZ = 3;
+const JUICIOS_A_LA_VEZ = 3;
 let juiciosEnCurso = 0;
 const enEspera: (() => void)[] = [];
 

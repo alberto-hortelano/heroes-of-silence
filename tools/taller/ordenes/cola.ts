@@ -22,7 +22,7 @@ import { COLA, type Orden } from './orden.js';
  * aceptar un mundo), solo los encargos del banco de NPC: acaba al vaciar esos y no
  * se lleva lo que otro dejó en la cola.
  */
-export async function trabajar(soloNpc = false): Promise<void> {
+async function trabajar(soloNpc = false): Promise<void> {
   await COLA.preparar();
   let hechos = 0;
   let fallidos = 0;
@@ -90,7 +90,7 @@ export async function trabajar(soloNpc = false): Promise<void> {
  * Rehace el post-proceso de un encargo fallido sobre el crudo que ya generó
  * Codex. Para cuando lo que falló fue el recorte o el empaquetado, no la imagen.
  */
-export async function reprocesar(id: string): Promise<void> {
+async function reprocesar(id: string): Promise<void> {
   const estado = await COLA.estado();
   // Solo lo que se pintó con esta cola y cuyo crudo sigue en `~/.codex` (QA, H10).
   if (!estado.hecho.includes(id) && !estado.fallido.includes(id))
@@ -126,7 +126,7 @@ export async function reprocesar(id: string): Promise<void> {
 }
 
 /** Corrige un encargo hecho en su mismo hilo: encola `<id>-c<n>` con `reanudar`. */
-export async function corregir(id: string, correccion: string): Promise<void> {
+async function corregir(id: string, correccion: string): Promise<void> {
   const desde = (await COLA.estado()).hecho.includes(id) ? 'hecho' : 'fallido';
   const ficha = await COLA.leer(desde, id);
   const hilo = ficha.resultado?.hilo;

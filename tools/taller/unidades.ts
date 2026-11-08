@@ -43,7 +43,7 @@ import { arteEnOchoDirecciones } from './arte-en-disco.js';
 import type { RitmoDeUnidad } from './derivar.js';
 import { type Encargo, figuraDelGiro } from './encargo.js';
 
-export interface Unidad {
+interface Unidad {
   readonly id: string;
   /** Las cinco facciones se declaran en `src/core/arena.ts`, que es quien las valida al guardar. */
   readonly faccion: FactionId;
@@ -258,7 +258,7 @@ const conReposo = (t: Temperamento, reposo: string): Temperamento => ({
  */
 const conImpact2 = (t: Temperamento): Temperamento => conGolpe(t, 'impact2');
 
-export const PINTURA =
+const PINTURA =
   'Estilo: el de las imágenes del personaje —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.';
 
 export const UNIDADES: readonly Unidad[] = [
@@ -999,8 +999,8 @@ export function unidad(id: string): Unidad {
   return u;
 }
 
-export const rutaIdentidad = (u: Unidad): string => `assets/unidades/${u.id}/identidad`;
-export const rutaPoses = (u: Unidad): string =>
+const rutaIdentidad = (u: Unidad): string => `assets/unidades/${u.id}/identidad`;
+const rutaPoses = (u: Unidad): string =>
   u.poseDeIdentidad ?? `assets/unidades/_poses/${u.perfil}.png`;
 
 export function encargoDeIdentidad(u: Unidad): Encargo {
@@ -1046,7 +1046,7 @@ export const ELITE: ReadonlySet<string> = new Set([
   'orko-armadura-pesada',
 ]);
 
-export type RangoDeUnidad = 'heroe' | 'elite' | 'tropa';
+type RangoDeUnidad = 'heroe' | 'elite' | 'tropa';
 
 /** Héroe, élite o tropa: el héroe por estar en `HEROES`, la élite por `ELITE`. */
 export function rangoDe(u: Unidad): RangoDeUnidad {
@@ -1248,7 +1248,7 @@ function dirPoses8d(u: Unidad): string {
   return relative(RAIZ, u.maniqui === undefined ? carpetaDePoses(juego) : carpetaDeManiqui(u.id));
 }
 
-export const rutaGiro = (u: Unidad): string => `assets/unidades/${u.id}/giro`;
+const rutaGiro = (u: Unidad): string => `assets/unidades/${u.id}/giro`;
 
 /**
  * La lámina de identidad por los ocho lados: el maniquí en el reposo de cada

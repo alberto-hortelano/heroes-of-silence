@@ -52,7 +52,7 @@ export interface CuerpoACuerpo {
 }
 
 /** El arma de la mano derecha. `agarre`: dónde queda la guarda sobre el puño. */
-export interface AtrezoDeMano {
+interface AtrezoDeMano {
   /**
    * El arma de la mano derecha, en metros: la hoja (o el asta) sale por el lado
    * del índice desde `agarre`, y el puño queda hacia el meñique.
@@ -107,7 +107,7 @@ export interface AtrezoDeMano {
 }
 
 /** Un arco en la mano IZQUIERDA; la derecha, vacía, tensa la cuerda al disparar. */
-export interface AtrezoDeArco {
+interface AtrezoDeArco {
   readonly arco: {
     /** De punta a punta, en recto. */
     readonly largo: number;
@@ -130,7 +130,7 @@ export interface AtrezoDeArco {
 }
 
 /** Una ballesta en la mano DERECHA; al disparar, la izquierda sujeta el tablero. */
-export interface AtrezoDeBallesta {
+interface AtrezoDeBallesta {
   readonly ballesta: {
     /** Tablero por delante del agarre, hasta el arco transversal. */
     readonly delante: number;
@@ -156,7 +156,7 @@ export interface AtrezoDeBallesta {
  * la lanza y desaparece al soltarla. Su arma de cuerpo a cuerpo es él mismo: con
  * ella en la mano desde el reposo, el ataque no cambia de atrezo.
  */
-export interface AtrezoDeGranada extends AtrezoDeMano {
+interface AtrezoDeGranada extends AtrezoDeMano {
   readonly granada: NonNullable<AtrezoDeMano['granada']>;
   readonly cuerpoACuerpo: CuerpoACuerpo;
 }
@@ -187,7 +187,7 @@ export const UNA_MANO = {
  * forma por la del personaje (`PAPELES.pose`), el maniquí dice dónde va la mano
  * y hacia dónde apunta el filo.
  */
-export const DAGA: CuerpoACuerpo = {
+const DAGA: CuerpoACuerpo = {
   describe: 'una daga corta en la mano derecha',
   atrezo: {
     espada: { largo: 0.3, guarda: 0.1, puño: 0.1, agarre: 0.06, grosor: 0.012 },
@@ -201,7 +201,7 @@ export const ESPADA_CORTA: CuerpoACuerpo = {
     ...UNA_MANO,
   },
 };
-export const SABLE: CuerpoACuerpo = {
+const SABLE: CuerpoACuerpo = {
   describe: 'un sable de una mano en la derecha',
   atrezo: {
     espada: { largo: 0.8, guarda: 0.14, puño: 0.14, agarre: 0.07, grosor: 0.016 },

@@ -125,7 +125,7 @@ function distanciaX(a: Caja, b: Caja): number {
 }
 
 /** Desde qué parte del área de la mayor figura de una fila un sobrante es una figura de más. */
-export const FIGURA_DE_MAS = 0.25;
+const FIGURA_DE_MAS = 0.25;
 
 /**
  * Si una fila trae trozos de más —un jirón suelto, la punta de un arma que no
@@ -199,7 +199,7 @@ export function enFilas(
 const BUSQUEDA_DEL_CORTE = 0.15;
 
 /** Lo que devuelve `porRejilla`: las figuras y el crudo del que se recortan. */
-export interface CortadoPorRejilla {
+interface CortadoPorRejilla {
   readonly rejilla: Caja[][];
   /**
    * El crudo de donde se recortan: el mismo (sin lo que el corte deja suelto) o, si
@@ -340,7 +340,7 @@ const BUSQUEDA_ENTRE_COLUMNAS = 0.45;
  * alto de la mayor figura de la banda: un arma que cruza de una celda a otra (la
  * punta de un sable son unas decenas de píxeles), no un cuerpo.
  */
-export const GROSOR_DEL_CORTE = 0.15;
+const GROSOR_DEL_CORTE = 0.15;
 
 /**
  * Una banda con figuras de menos, cortada en `columnas` columnas (el lanzamiento del
@@ -588,7 +588,7 @@ export function apoyoEn(
 }
 
 /** El apoyo de una figura de `r`, en coordenadas de su caja. */
-export function apoyo(r: Raster, c: Caja, umbral = ALFA_FIGURA): [number, number] {
+function apoyo(r: Raster, c: Caja, umbral = ALFA_FIGURA): [number, number] {
   const [x, y] = apoyoEn(
     (x, y) => r.data[(y * r.width + x) * 4 + 3] as number,
     [c.x0, c.y0, c.x1, c.y1],
@@ -602,7 +602,7 @@ function mediana(v: readonly number[]): number {
   return s[Math.floor(s.length / 2)] as number;
 }
 
-export interface Empaquetado {
+interface Empaquetado {
   readonly png: Buffer;
   readonly escala: number;
   /** La altura del reposo que se pidió y la que salió, si hubo que reducirla para que cupiera. */
@@ -770,7 +770,7 @@ interface Pieza {
 }
 
 /** Margen libre dentro de cada celda: una figura que toca el borde se cortaría. */
-export const MARGEN = 4;
+const MARGEN = 4;
 /** Cuánto se acepta encoger la hoja para que quepa un fotograma ancho. Más, es rehacerla. */
 const REDUCCION_MAXIMA = 0.85;
 

@@ -37,7 +37,7 @@ import type { CasoDelVisor } from './vision.js';
 /** Un punto del esqueleto: `[x, y, z]`. En píxeles, z es la profundidad de la cámara (menos, más cerca). */
 const punto = z.tuple([z.number(), z.number(), z.number()]);
 
-export const celdaDeHuesosSchema = z
+const celdaDeHuesosSchema = z
   .object({
     fotograma: z.number().int().optional(),
     /** Cada hueso proyectado a píxeles de la celda. */
@@ -54,7 +54,7 @@ export const celdaDeHuesosSchema = z
   .strict();
 export type CeldaDeHuesos = z.infer<typeof celdaDeHuesosSchema>;
 
-export const huesosSchema = z
+const huesosSchema = z
   .object({
     /** El sha256 de la hoja de la que se sacó, en color y en profundidad: el render al que pertenece. */
     hoja: z.object({ png: z.string(), profundidad: z.string().nullable() }).strict(),
@@ -126,14 +126,14 @@ export function troncoDe(c: CeldaDeHuesos): readonly [number, number] {
 }
 
 /** El alto de la figura en el mundo: de la coronilla al suelo (que está en 0). */
-export function altoEnElMundo(c: CeldaDeHuesos): number {
+function altoEnElMundo(c: CeldaDeHuesos): number {
   const cabeza = c.mundo.HeadTop_End ?? c.mundo.Head;
   if (cabeza === undefined) throw new Error('el esqueleto no trae la cabeza (HeadTop_End)');
   return cabeza[1];
 }
 
 /** Lo que se considera ir hacia atrás: el pie de apoyo, sumado, a +z por encima de esto (parte del alto). */
-export const UMBRAL_DEL_SENTIDO = 0;
+const UMBRAL_DEL_SENTIDO = 0;
 /** Lo que se tolera que se mueva el reposo, en parte del alto. */
 export const UMBRAL_DEL_VAIVEN = 0.08;
 
@@ -168,7 +168,7 @@ export function sentidoDeLaMarcha(celdas: readonly CeldaDeHuesos[]): number {
 const MARCHAS = ['walk', 'charge'] as const;
 
 /** La primera marcha o carga de una hoja que anda hacia atrás, con cuánto; o `null`. */
-export function marchaHaciaAtras(
+function marchaHaciaAtras(
   huesos: HuesosDeHoja,
 ): { readonly clip: string; readonly sentido: number } | null {
   for (const { clip, celdas } of huesos.filas) {
@@ -194,7 +194,7 @@ export function vaivenDelReposo(celdas: readonly CeldaDeHuesos[]): number {
 }
 
 /** Por qué no se lee el arma en un fotograma. */
-export type ArmaQueNoSeLee = { readonly fotograma: number; readonly motivo: 'escorzo' | 'tapada' };
+type ArmaQueNoSeLee = { readonly fotograma: number; readonly motivo: 'escorzo' | 'tapada' };
 
 /**
  * En qué fotogramas el arma no se lee en la referencia (numerados desde 1). Dos
@@ -260,7 +260,7 @@ export function armaIlegible(
  */
 export const seMiraElArma = (clip: string): boolean => clip !== 'shoot';
 
-export interface AvisoDelManiqui {
+interface AvisoDelManiqui {
   readonly direccion: number;
   readonly clip: string;
   readonly tipo: 'sentido' | 'vaiven' | 'arma';
@@ -449,14 +449,14 @@ export async function rechazarSiElManiquiFalla(
 }
 
 /** Las direcciones que enseña el visor del maniquí: de tres cuartos, de lado y de espaldas. */
-export const DIRECCIONES_DEL_VISOR_DEL_MANIQUI = [
+const DIRECCIONES_DEL_VISOR_DEL_MANIQUI = [
   NOMBRES_DE_DIRECCION.indexOf('frente-derecha'),
   NOMBRES_DE_DIRECCION.indexOf('derecha'),
   NOMBRES_DE_DIRECCION.indexOf('espalda'),
 ] as const;
 
 /** Lo que puede contestar la persona de un clip del maniquí. */
-export const OPCIONES_DEL_MANIQUI = [
+const OPCIONES_DEL_MANIQUI = [
   'vale',
   'anda hacia atrás',
   'se mueve demasiado',

@@ -67,7 +67,7 @@ import { ESTILO_DE_FACCION } from './unidades.js';
 /** Dónde va el arte de la base de una facción (servido en `/bases/<facción>/`). */
 export const dirDeLaBase = (f: FactionId): string => `assets/bases/${f}`;
 /** Lo que solo lee el taller: maestros, ediciones, guías e identidades. No va al build. */
-export const dirDeFuentes = (f: FactionId): string => `${dirDeLaBase(f)}/fuentes`;
+const dirDeFuentes = (f: FactionId): string => `${dirDeLaBase(f)}/fuentes`;
 
 /** El adulto de la vara de medir, en píxeles del tramo: 0,95 pasos, el mismo de la batalla. */
 export const ADULTO_EN_EL_CUADRO = Math.round(ALTO_DE_FIGURA * TRAMO.pxPorPaso);
@@ -137,7 +137,7 @@ interface ArteDeLaBase {
  * (`pintadoDelTramo`): la banda de columnas donde está, la columna de su puerta
  * (que no se mueve, como su pie) y el factor, la puerta pedida entre la que pintó.
  */
-export interface Encogido {
+interface Encogido {
   readonly x0: number;
   readonly x1: number;
   readonly puerta: number;

@@ -60,10 +60,10 @@ const LABIO_ROTO = '#bcbcbc';
 const LABIO_EN_LUZ = '#6e6e6e';
 
 /** Hacia dónde mira la diagonal: al sureste o al suroeste. Nunca se espeja. */
-export type LadoDeDiagonal = 'se' | 'so';
+type LadoDeDiagonal = 'se' | 'so';
 
 /** Una pieza de la familia: su papel y cómo se desvían su filo y su pie de la curva base. */
-export interface PiezaDeDiagonal {
+interface PiezaDeDiagonal {
   readonly nombre: string;
   readonly papel: PapelDeDiagonal;
   /** El desvío del filo y del pie hacia fuera de la meseta, a lo largo (t de 0 a 1). Nulos en las juntas. */
@@ -76,7 +76,7 @@ export interface PiezaDeDiagonal {
  * punta llena y la `b` se muerde en una vaguada; el rincón `a` es hondo y el `b`
  * lleva un espolón.
  */
-export const PIEZAS_DE_DIAGONAL: readonly PiezaDeDiagonal[] = [
+const PIEZAS_DE_DIAGONAL: readonly PiezaDeDiagonal[] = [
   {
     nombre: 'convexa-a',
     papel: 'convexa',
@@ -104,7 +104,7 @@ export const PIEZAS_DE_DIAGONAL: readonly PiezaDeDiagonal[] = [
 ];
 
 /** El tipo de celda de cada pieza (`celdas.ts`): de él salen sus juntas. */
-export const tipoDe = (lado: LadoDeDiagonal, papel: PapelDeDiagonal): TipoVisto =>
+const tipoDe = (lado: LadoDeDiagonal, papel: PapelDeDiagonal): TipoVisto =>
   `${lado === 'se' ? 'SE' : 'SO'}-${papel === 'convexa' ? 'convexa' : 'concava'}`;
 
 /**
@@ -114,7 +114,7 @@ export const tipoDe = (lado: LadoDeDiagonal, papel: PapelDeDiagonal): TipoVisto 
  * casilla alta en la convexa (la meseta queda dentro de la curva) y el de la
  * baja en la cóncava (lo bajo queda dentro).
  */
-export function curvaBase(
+function curvaBase(
   lado: LadoDeDiagonal,
   papel: PapelDeDiagonal,
 ): { punto: (t: number) => P2; normal: (t: number) => P2 } {
@@ -137,7 +137,7 @@ export function curvaBase(
 type Junta2 = readonly [number, number, ...unknown[]];
 
 /** La geometría que cuenta de cada pieza de la guía, en píxeles de la guía. */
-export interface GeometriaDeDiagonal {
+interface GeometriaDeDiagonal {
   readonly nombre: string;
   readonly papel: PapelDeDiagonal;
   readonly niveles: Niveles;
@@ -291,7 +291,7 @@ function geometria(
 const LIENZO: readonly [number, number] = [1536, 1024];
 
 /** La guía de una hoja: las cuatro piezas en una fila, con el pie de todas en la misma línea. */
-export function guiaDeDiagonales(
+function guiaDeDiagonales(
   lado: LadoDeDiagonal,
   niveles: Niveles,
 ): { guia: Guia; piezas: GeometriaDeDiagonal[]; casilla: number } {
@@ -362,7 +362,7 @@ export const NIVELES_DE_DIAGONAL: readonly Niveles[] = [1, 2, 3];
 export const LADOS_DE_DIAGONAL: readonly LadoDeDiagonal[] = ['se', 'so'];
 
 /** La hoja de diagonales de un material, lado y caída: `diagonales-roca-se-1`. */
-export const hojaDeDiagonales = (material: Material, lado: LadoDeDiagonal, niveles: Niveles) =>
+const hojaDeDiagonales = (material: Material, lado: LadoDeDiagonal, niveles: Niveles) =>
   `diagonales-${material}-${lado}-${niveles}`;
 
 export function encargoDeDiagonales(
@@ -442,7 +442,7 @@ export async function escribirGuiasDeDiagonales(): Promise<string[]> {
 }
 
 /** La guía de una hoja de diagonales: `diagonales-roca-se-1` sale de `diagonales-se-1`. */
-export function guiaDeHojaDeDiagonales(hoja: string): string {
+function guiaDeHojaDeDiagonales(hoja: string): string {
   const m = /^diagonales-[a-z]+-(se|so)-([123])$/.exec(hoja);
   if (m === null)
     throw new Error(

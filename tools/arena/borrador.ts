@@ -391,7 +391,7 @@ export function escribirCatalogo(
  * texto, o `"falta"` si no está. La página la recibe al leer el catálogo y la
  * devuelve al guardar (`guardarCatalogo`).
  */
-export type VersionDelCatalogo = Readonly<Record<string, string>>;
+type VersionDelCatalogo = Readonly<Record<string, string>>;
 
 /** Los ficheros que escribe «Guardar», en el orden en que se dice cuál cambió. */
 export const FICHEROS_DEL_CATALOGO = [

@@ -40,7 +40,7 @@ import type { Rect } from './paleta.js';
 /** La hoja que se genera, relativa a la raíz del repo. */
 export const HOJA_DE_PIEZAS = 'src/client/piezas-de-tema.css';
 /** Donde caen las piezas finales (van al build) y sus guías de corte (no van). */
-export const CARPETA_DE_PIEZAS = 'assets/temas';
+const CARPETA_DE_PIEZAS = 'assets/temas';
 
 /**
  * Las piezas, en el orden en que se piden: los marcos primero (lo que más cambia
@@ -58,14 +58,14 @@ export const PIEZAS = [
   'textura-panel',
   'textura-marco',
 ] as const;
-export type Pieza = (typeof PIEZAS)[number];
+type Pieza = (typeof PIEZAS)[number];
 
 /**
  * El corte de 9 trozos de una pieza: lo que mide cada corte desde su borde, en
  * fracción del lado, si el centro se pinta (`relleno`) y la forma de su guía (un
  * marco que rodea un rectángulo o una tira que se estira a lo ancho).
  */
-export interface Corte {
+interface Corte {
   readonly arriba: number;
   readonly derecha: number;
   readonly abajo: number;
@@ -75,12 +75,12 @@ export interface Corte {
 }
 
 /** Las guías de formato y corte, en `assets/temas/_guias/`, a los tamaños que da Codex. */
-export const GUIAS = {
+const GUIAS = {
   marco: { ancho: 1024, alto: 1024 },
   barra: { ancho: 1536, alto: 1024 },
   cartela: { ancho: 1536, alto: 1024 },
 } as const;
-export type Guia = keyof typeof GUIAS;
+type Guia = keyof typeof GUIAS;
 
 interface DefDePieza {
   /** Una pieza de interfaz (un marco, una tira, un adorno) o una textura que se repite. */
@@ -172,22 +172,8 @@ export const DEFINICIONES: Readonly<Record<Pieza, DefDePieza>> = {
   },
 };
 
-/** El material y el acabado de cada lámina: va delante de cada encargo del tema. */
-export const MATERIAL: Readonly<Record<FactionId, string>> = {
-  templarios:
-    'Tema TEMPLARIOS: piedra gótica gris oscura tallada con tracería y pináculos, madera oscura, pergamino claro y el rojo de la cruz paté de los templarios, con remates de latón viejo.',
-  'no-muertos':
-    'Tema NO MUERTOS: hierro negro forjado con calaveras, telarañas y velas de llama verde-cian, acentos cian y hueso, y estandartes morados con la cruz invertida.',
-  imperio:
-    'Tema IMPERIO: mármol claro con capiteles y molduras doradas, colgaduras moradas con flecos de oro, laureas, águilas y grifos dorados, al estilo de Roma.',
-  elfos:
-    'Tema ELFOS: plata clara con hiedra viva, filigrana fina, hojas y cristales cian tallados, verde azulado y pergamino claro, con un aire de luna y bosque.',
-  orkos:
-    'Tema ORKOS: hierro oscuro remachado y oxidado, colmillos y cuernos de hueso, cadenas, cráneos con cuernos y estandartes rojos de la Horda con goterones de sangre.',
-};
-
 /** Una pieza en la lámina de su tema: lo que enseña, para el prompt, y dónde está. */
-export interface EnLaLamina {
+interface EnLaLamina {
   readonly descripcion: string;
   /** El trozo de la lámina (1315×1196) con la pieza puesta: viaja con el encargo como referencia. */
   readonly en: Rect;
@@ -386,7 +372,7 @@ export function piezasDe(tema: FactionId): Pieza[] {
 /** La ruta de una pieza final, relativa a la raíz y sin extensión (la del encargo). */
 export const salidaDe = (tema: FactionId, pieza: Pieza): string =>
   `${CARPETA_DE_PIEZAS}/${tema}/${pieza}`;
-export const guiaDe = (g: Guia): string => `${CARPETA_DE_PIEZAS}/_guias/${g}.png`;
+const guiaDe = (g: Guia): string => `${CARPETA_DE_PIEZAS}/_guias/${g}.png`;
 export const laminaDe = (tema: FactionId): string => `assets/art/temas/${tema}.png`;
 
 /** Las piezas de la lista que están en disco, como `.webp` en su sitio. */
@@ -408,7 +394,7 @@ const esMarco = (p: Pieza): p is (typeof MARCOS)[number] =>
   (MARCOS as readonly Pieza[]).includes(p);
 
 /** Lo que mide la banda de un marco desde cada lado, en píxeles de su imagen. */
-export interface CorteMedido {
+interface CorteMedido {
   readonly arriba: number;
   readonly derecha: number;
   readonly abajo: number;

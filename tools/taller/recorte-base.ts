@@ -61,14 +61,14 @@ import {
  * Píxeles de `ancho × alto`, fila a fila, con sus canales intercalados: uno en
  * una máscara, tres en un RGB.
  */
-export interface Pixeles {
+interface Pixeles {
   readonly ancho: number;
   readonly alto: number;
   readonly v: Uint8Array;
 }
 
 /** El umbral de la diferencia desenfocada, en 0-255: el grano repintado de la placa queda en 2-3. */
-export const UMBRAL = 30;
+const UMBRAL = 30;
 /**
  * Lo que se mira alrededor de la región para no cortar los desenfoques en su
  * borde: más que lo que derraman todos juntos (σ 4 + 3 + 3 + 10 + 10).
@@ -627,7 +627,7 @@ function ventana(v: Uint8Array, x0: number, x1: number, y1: number): Uint8Array 
 }
 
 /** Un recorte derivado: los píxeles RGBA de su caja y dónde está en su tramo. */
-export interface RecorteDerivado {
+interface RecorteDerivado {
   readonly tramo: number;
   readonly en: readonly [number, number];
   readonly ancho: number;
@@ -689,7 +689,7 @@ export async function derivarRecorte(
  * Lo que pinta el juego de un tramo: su placa por encima del pie, de la fila 0 a
  * lo último con alfa, y desde el segundo con su solape fundido (`fundirElSolape`).
  */
-export interface TramoDerivado {
+interface TramoDerivado {
   readonly ancho: number;
   readonly alto: number;
   readonly rgba: Buffer;

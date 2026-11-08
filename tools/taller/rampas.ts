@@ -65,7 +65,7 @@ const ENTERO = 0.4;
 const ARRIBA_DE_LA_CUESTA = -0.55;
 const PIE = 0.05;
 const DERRAME = 0.28;
-export const SOLAPE = 0.15;
+const SOLAPE = 0.15;
 
 const TIERRA = '#a09684';
 const ESTRIA = '#867c6c';
@@ -297,7 +297,7 @@ function dibujarMuesca(g: Guia, niveles: Niveles): void {
 const LIENZO_DE_LA_MUESCA: readonly [number, number] = [1024, 1024];
 
 /** La guía de la rampa de muesca de `niveles`, centrada en su lienzo. */
-export function guiaDeMuesca(niveles: Niveles): {
+function guiaDeMuesca(niveles: Niveles): {
   guia: Guia;
   geometria: GeometriaDeRampa;
   casilla: number;
@@ -337,7 +337,7 @@ export function guiaDeMuesca(niveles: Niveles): {
 }
 
 /** La geometría que cuenta de la guía, en píxeles de la guía. */
-export interface GeometriaDeRampa {
+interface GeometriaDeRampa {
   readonly niveles: Niveles;
   /**
    * El filo en cada corte de `TRAMO_DE_PIEZA_DE_RAMPA`, de oeste a este: en la
@@ -352,7 +352,7 @@ const LIENZO: readonly [number, number] = [1536, 1024];
 const LLENO = 0.8;
 
 /** La guía de una rampa de `niveles`, centrada en su lienzo. */
-export function guiaDeRampa(niveles: Niveles): {
+function guiaDeRampa(niveles: Niveles): {
   guia: Guia;
   geometria: GeometriaDeRampa;
   casilla: number;
@@ -398,13 +398,13 @@ export function guiaDeRampa(niveles: Niveles): {
 // ------------------------------------------------------------- los encargos
 
 /** Las caídas y los materiales del piloto (#225): el resto, cuando el usuario lo vea. */
-export const NIVELES_DE_RAMPA: readonly Niveles[] = [1];
-export const MATERIALES_DE_RAMPA: readonly Material[] = ['roca', 'arenisca'];
+const NIVELES_DE_RAMPA: readonly Niveles[] = [1];
+const MATERIALES_DE_RAMPA: readonly Material[] = ['roca', 'arenisca'];
 
 /** La hoja de una rampa: `rampa-roca-1`. */
-export const hojaDeRampa = (material: Material, niveles: Niveles) => `rampa-${material}-${niveles}`;
+const hojaDeRampa = (material: Material, niveles: Niveles) => `rampa-${material}-${niveles}`;
 
-export function encargoDeRampa(material: Material, niveles: Niveles): Encargo {
+function encargoDeRampa(material: Material, niveles: Niveles): Encargo {
   const caida = niveles === 1 ? 'UN nivel' : niveles === 2 ? 'DOS niveles' : 'TRES niveles';
   return {
     id: hojaDeRampa(material, niveles),
@@ -434,11 +434,11 @@ export function encargoDeRampa(material: Material, niveles: Niveles): Encargo {
 }
 
 /** La hoja de una rampa de muesca (§36): `rampa-muesca-roca-1`. */
-export const hojaDeMuesca = (material: Material, niveles: Niveles) =>
+const hojaDeMuesca = (material: Material, niveles: Niveles) =>
   `rampa-muesca-${material}-${niveles}`;
 
 /** El encargo de la rampa de muesca (§36) de un material y una caída. */
-export function encargoDeMuesca(material: Material, niveles: Niveles): Encargo {
+function encargoDeMuesca(material: Material, niveles: Niveles): Encargo {
   const caida = niveles === 1 ? 'UN nivel' : niveles === 2 ? 'DOS niveles' : 'TRES niveles';
   return {
     id: hojaDeMuesca(material, niveles),
@@ -513,7 +513,7 @@ export async function escribirGuiasDeRampas(): Promise<string[]> {
 }
 
 /** El nombre del módulo de cada pieza: `s-cuerpo`, `s-costado-izq`… */
-export const moduloDePieza = (p: PiezaDeRampa) => `s-${p}`;
+const moduloDePieza = (p: PiezaDeRampa) => `s-${p}`;
 
 /**
  * Corta la imagen entera de una rampa (`rampa-<material>-<caída>.webp`) en sus

@@ -52,7 +52,7 @@ export const TEXTURAS: Readonly<Record<Suelo, { material: string; region: string
 };
 
 /** La textura de un suelo, vista a 90° y repetible (`textura.ts` fabrica la costura). */
-export function encargoDeTextura(suelo: Suelo): Encargo {
+function encargoDeTextura(suelo: Suelo): Encargo {
   const t = TEXTURAS[suelo];
   return {
     id: `suelo-${suelo}`,
@@ -93,7 +93,7 @@ export const LAMINAS = {
     'una COLADA de lava solidificada: una lengua de basalto negro con grietas incandescentes, baja',
   ],
 } as const;
-export type Lamina = keyof typeof LAMINAS;
+type Lamina = keyof typeof LAMINAS;
 
 /** La lámina de muestra: nueve piezas en 3×3, como la que eligió el estilo el 01-10. */
 export function encargoDeLamina(lamina: Lamina): Encargo {
@@ -115,14 +115,14 @@ export function encargoDeLamina(lamina: Lamina): Encargo {
 }
 
 /** Para qué sirve una pieza: cerrar una frontera, ser un obstáculo dentro de una región o un nodo. */
-export type Uso = 'borde' | 'obstaculo';
+type Uso = 'borde' | 'obstaculo';
 
 /**
  * Una familia de piezas: de qué pieza de qué lámina sale, qué barrera viste,
  * sobre qué suelos y cuántas variantes tiene. Una variante con nombre
  * (`ancho`, `hondo`) es una orientación del tramo; con número, otra silueta.
  */
-export interface Familia {
+interface Familia {
   readonly id: string;
   readonly lamina: Lamina;
   /** La pieza de la lámina, de 1 a 9. */
@@ -142,7 +142,7 @@ const TRES = ['1', '2', '3'] as const;
 const DOS = ['1', '2'] as const;
 const TRAMOS = ['ancho-1', 'ancho-2', 'hondo-1'] as const;
 
-export const FAMILIAS: readonly Familia[] = [
+const FAMILIAS: readonly Familia[] = [
   // Bordes: tramos de 2-3 casillas, que se alternan y solapan como las montañas.
   {
     id: 'bosque-verde',
@@ -339,7 +339,7 @@ export const FAMILIAS: readonly Familia[] = [
  * Las piezas que ya existen y siguen valiendo (petición 3): la cordillera de
  * roca con nieve. Cuentan para que cada pareja de barrera y suelo tenga pieza.
  */
-export const FAMILIAS_EXISTENTES: readonly Omit<Familia, 'lamina' | 'n'>[] = [
+const FAMILIAS_EXISTENTES: readonly Omit<Familia, 'lamina' | 'n'>[] = [
   {
     id: 'montana',
     barrera: 'mountain',

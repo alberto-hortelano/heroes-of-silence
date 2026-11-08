@@ -20,7 +20,7 @@ export const ALFA_FIGURA = 64;
  * apertura que lo quita, en parte del lado mayor de la caja de la figura: con 0,02,
  * una figura de 160 px quita lo de menos de 7 px de grueso y deja brazos y piernas.
  */
-export const GROSOR_DE_LO_FINO = 0.02;
+const GROSOR_DE_LO_FINO = 0.02;
 
 /** La silueta de un cuerpo: su máscara en la caja (1 = cuerpo) y la caja de lo que queda. */
 export interface Cuerpo {

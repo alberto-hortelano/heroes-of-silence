@@ -50,7 +50,7 @@ import {
  * (elfos, grande, 7), de ellos 12-18 pensando la trama antes de escribir nada. El
  * doble de lo más largo, redondeado; con `high` (desde el mismo día) no se ha medido.
  */
-export const TOPE_DEL_MOTOR_MS = 60 * 60_000;
+const TOPE_DEL_MOTOR_MS = 60 * 60_000;
 /**
  * El modelo y el esfuerzo del motor, fijos para que no dependan de los ajustes de quien
  * lo lanza: que en otra máquina salga lo mismo. El esfuerzo, `high` (decisión del
@@ -318,7 +318,7 @@ let taller: ChildProcess | null = null;
  * `.cache/taller/npcs-<fecha>.log`. Si ya hay uno vivo, no lanza otro: ese toma
  * también lo que se acaba de encolar.
  */
-export function lanzarElTaller(): string {
+function lanzarElTaller(): string {
   if (taller !== null && taller.exitCode === null && taller.signalCode === null) {
     return `el taller ya está pintando (pid ${taller.pid}): toma también estas`;
   }

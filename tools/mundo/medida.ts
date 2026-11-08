@@ -22,7 +22,7 @@ import {
 import { palabrasDe } from './disco.js';
 
 /** Las conversaciones de una persona de un lugar. */
-export interface MedidaDePersona {
+interface MedidaDePersona {
   readonly lugar: string;
   readonly punto: string;
   readonly nombre: string;
@@ -40,7 +40,7 @@ export interface MedidaDePersona {
   readonly conHace: number;
 }
 
-export interface MedidaDelMundo {
+interface MedidaDelMundo {
   readonly lugares: number;
   /** En cuántas regiones distintas están. */
   readonly regiones: number;

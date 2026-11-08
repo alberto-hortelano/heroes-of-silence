@@ -32,7 +32,7 @@ import type { Orden } from './orden.js';
  * `_poses/civil-8d/`, el Y Bot sin profundidad con que el cliente pinta a quien no
  * tiene figura, no se toca.
  */
-export async function renderizarElManiquiCivil(conHuesos = false): Promise<string> {
+async function renderizarElManiquiCivil(conHuesos = false): Promise<string> {
   if (conHuesos)
     return sacarElEsqueleto(join(RAIZ, DIR_DEL_MANIQUI_CIVIL), (temporal) =>
       renderizarOchoDirecciones('civil', temporal, {
@@ -68,7 +68,7 @@ export async function renderizarElManiquiCivil(conHuesos = false): Promise<strin
  * de otro render mediría lo pintado contra otra pose. Así no hay una copia del
  * maniquí en la caché que se quede vieja sin que nadie se entere.
  */
-export async function sacarElEsqueleto(
+async function sacarElEsqueleto(
   carpeta: string,
   renderizar: (temporal: string) => Promise<string>,
 ): Promise<string> {

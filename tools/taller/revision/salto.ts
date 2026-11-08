@@ -18,8 +18,7 @@ import { type HuesosDeHoja, troncoDe } from './maniqui.js';
 export const UMBRAL_DEL_SALTO = 6;
 
 /** Cómo se dice un salto: «el cuerpo salta 14 px en el 5→6». */
-export const dichoDelSalto = (s: Salto): string =>
-  `el cuerpo salta ${s.px} px en el ${s.de}→${s.a}`;
+const dichoDelSalto = (s: Salto): string => `el cuerpo salta ${s.px} px en el ${s.de}→${s.a}`;
 
 /**
  * El mayor salto de cada clip de una hoja pintada (`hoja-<h>.webp`, 7 × filas celdas),

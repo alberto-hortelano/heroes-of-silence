@@ -25,11 +25,11 @@ import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { leerBancoDeDisco } from '../npcs/banco.js';
 
-export const DIR_MUNDOS = join(RAIZ, 'assets/mundos');
-export const DIR_LECTURAS = join(RAIZ, '.cache/mundos');
+const DIR_MUNDOS = join(RAIZ, 'assets/mundos');
+const DIR_LECTURAS = join(RAIZ, '.cache/mundos');
 
 /** La carpeta de un mundo, o lanza si el id no tiene la forma: va en una ruta de disco. */
-export function carpetaDe(id: string): string {
+function carpetaDe(id: string): string {
   const motivo = idDeMundoBlocker(id);
   if (motivo !== null) throw new Error(motivo);
   return join(DIR_MUNDOS, id);
@@ -49,7 +49,7 @@ export function lecturaDe(id: string): string {
  * (`queHace`), la frase del que falta (`noEsta`) y qué línea del validador es un
  * problema (`problemaDeLaLinea`).
  */
-export const FICHEROS_DEL_MUNDO = [
+const FICHEROS_DEL_MUNDO = [
   { nombre: 'mundo.json', motor: null },
   { nombre: 'plan.json', motor: null },
   {
@@ -66,7 +66,7 @@ export const FICHEROS_DEL_MUNDO = [
   },
 ] as const;
 
-export type FicheroDelMundo = (typeof FICHEROS_DEL_MUNDO)[number];
+type FicheroDelMundo = (typeof FICHEROS_DEL_MUNDO)[number];
 export type FicheroDelMotor = Extract<FicheroDelMundo, { motor: object }>;
 
 /** Los que escribe el motor: la biblia y la historia. */
@@ -121,12 +121,12 @@ export function problemaDeLaLinea(linea: string): string | null {
  * permiso. Dicho con su nombre y sin rutas absolutas (H4 del QA de la trama: un
  * `biblia.md` que era un directorio daba el `EISDIR` de Node con la ruta entera).
  */
-export interface NoSeLee {
+interface NoSeLee {
   readonly noSeLee: string;
 }
 
 /** Si lo leído de un fichero es que no se lee. */
-export function noSeLee(x: string | null | NoSeLee): x is NoSeLee {
+function noSeLee(x: string | null | NoSeLee): x is NoSeLee {
   return typeof x === 'object' && x !== null;
 }
 
@@ -159,7 +159,7 @@ async function leerTexto(
  * Un mundo en disco: su biblia (su texto, `null` si no está, o por qué no se lee) y
  * sus JSON, o los problemas de leerlos.
  */
-export type MundoEnDisco = { readonly biblia: string | null | NoSeLee } & (
+type MundoEnDisco = { readonly biblia: string | null | NoSeLee } & (
   | { readonly crudos: CrudosDelMundo }
   | { readonly problemas: readonly string[] }
 );

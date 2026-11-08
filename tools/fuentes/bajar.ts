@@ -31,9 +31,9 @@ import { RAIZ } from '../comun/raiz.js';
 
 /** El commit de `google/fonts` del que salen todas (`git ls-remote`, 13-10-2026). */
 export const COMMIT = '66928797f271fed5ee428544e7229685e2d90127';
-export const ORIGEN = `https://raw.githubusercontent.com/google/fonts/${COMMIT}/ofl`;
+const ORIGEN = `https://raw.githubusercontent.com/google/fonts/${COMMIT}/ofl`;
 
-export interface Fichero {
+interface Fichero {
   /** Nombre en el repositorio de origen. */
   readonly origen: string;
   /** Nombre en `assets/letras/<carpeta>/`: sin corchetes, que en una URL piden escaparse. */
@@ -42,11 +42,11 @@ export interface Fichero {
 }
 
 /** Un TrueType de la familia, con el grosor que cubre (`font-weight`; una variable, un tramo). */
-export interface Cara extends Fichero {
+interface Cara extends Fichero {
   readonly peso: string;
 }
 
-export interface Fuente {
+interface Fuente {
   readonly familia: string;
   /** La carpeta de `ofl/` en el origen, y la de `assets/letras/`. */
   readonly carpeta: string;
@@ -160,7 +160,7 @@ export const CARPETA_DE_LETRAS = join(RAIZ, 'assets/letras');
 export const HOJA_DE_LETRAS = 'src/client/fuentes.css';
 
 /** La URL de un fichero en el origen, con los corchetes de `Cinzel[wght]` escapados. */
-export const urlDe = (f: Fuente, fichero: Fichero): string =>
+const urlDe = (f: Fuente, fichero: Fichero): string =>
   `${ORIGEN}/${f.carpeta}/${encodeURIComponent(fichero.origen)}`;
 
 async function bajar(url: string, esperado: string): Promise<Uint8Array> {
@@ -179,7 +179,7 @@ function yaEsta(ruta: string, esperado: string): boolean {
 }
 
 /** Baja las que falten, las comprueba y solo entonces escribe; rehace la hoja. */
-export async function bajarFuentes(): Promise<string[]> {
+async function bajarFuentes(): Promise<string[]> {
   const listas: { ruta: string; datos: Uint8Array | string }[] = [];
   for (const f of FUENTES) {
     const carpeta = join(CARPETA_DE_LETRAS, f.carpeta);

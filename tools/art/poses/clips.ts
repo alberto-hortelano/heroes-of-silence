@@ -125,7 +125,7 @@ export interface FilaDePose {
 }
 
 /** Las acciones cuyo clip elige la unidad, además del reposo; el disparo lo coloca `POSE_A_DISTANCIA`. */
-export type AccionElegible = 'walk' | 'charge' | 'attack' | 'hurt' | 'death';
+type AccionElegible = 'walk' | 'charge' | 'attack' | 'hurt' | 'death';
 
 /** Los clips que se pueden elegir: los de `ANIMS_EXTRA` y los de sprite-forge que no son de ambiente. */
 const ARCHIVO_DE_SPRITE_FORGE: Readonly<Record<string, string>> = {
@@ -146,7 +146,7 @@ const ARCHIVO_DE_SPRITE_FORGE: Readonly<Record<string, string>> = {
  * escudo del pack, gira el torso y la cabeza y se mueve mucho (04-11-2026, decisión
  * del usuario: «elimina este idle de todas partes porque queda muy mal»).
  */
-export const CLIPS_RETIRADOS: Readonly<Record<string, string>> = {
+const CLIPS_RETIRADOS: Readonly<Record<string, string>> = {
   idle: 'la guardia de espada y escudo se mueve demasiado: usa idle4, idle_neutral o idle_breathing',
 };
 

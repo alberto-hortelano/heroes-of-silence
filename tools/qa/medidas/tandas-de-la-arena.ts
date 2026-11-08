@@ -47,7 +47,7 @@ import { hojasDelTaller } from '../../arena/borrador.js';
 import { RAIZ } from '../../comun/raiz.js';
 
 /** Un montaje de la medida: las unidades de cada bando. */
-export type Montaje = readonly [readonly Unidad[], readonly Unidad[]];
+type Montaje = readonly [readonly Unidad[], readonly Unidad[]];
 
 /** Una variante: lo que se le cambia a cada unidad y, si la hay, tras qué muralla del mapa. */
 export interface Variante {

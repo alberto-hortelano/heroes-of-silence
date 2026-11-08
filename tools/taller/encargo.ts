@@ -22,7 +22,7 @@ import {
 const LETRAS_DE_HOJA = Object.keys(HOJAS_DE_FIGURA) as [HojaDeFigura, ...HojaDeFigura[]];
 
 /** Lo que cada referencia aporta, y nada más. */
-export const PAPELES = {
+const PAPELES = {
   pose: 'es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente',
   identidad:
     'es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía, la pose ni hacia dónde mira',
@@ -64,7 +64,7 @@ export const PAPELES = {
     'es la REFERENCIA DE POSE: el MAPA DE PROFUNDIDAD del maniquí Y Bot (cámara ortográfica elevada 25 grados; más claro, más cerca; el negro es fondo) con su ESQUELETO dibujado encima: los huesos del lado IZQUIERDO del personaje en AZUL, los del DERECHO en ROJO, el tronco y la cabeza en BLANCO y el eje del arma en AMARILLO. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda: copia cada pose articulación por articulación siguiendo el esqueleto (dónde está cada codo, cada mano, cada rodilla y cada pie, y hacia dónde apunta el arma). El arma que se pinta es la del PERSONAJE (la de su identidad), por el eje amarillo. NO pintes el esqueleto, sus colores, el gris ni el fondo negro: el resultado va sobre transparente',
   guia: 'es la GUÍA DE GEOMETRÍA: un volumen gris sin acabado, dibujado con la cámara del juego. Manda en la ORIENTACIÓN, la forma, las proporciones, el tamaño y la posición de cada pieza dentro de la imagen: cópialas con exactitud, sin girar ni torcer nada. NO copies su gris liso, sus aristas de esquema ni su fondo plano: el material, el detalle y la luz son los de la imagen de estilo',
 } as const;
-export type Papel = keyof typeof PAPELES;
+type Papel = keyof typeof PAPELES;
 
 /**
  * Los papeles que son la referencia de pose de un atlas: el maniquí en color, en
@@ -82,7 +82,7 @@ export const esDePose = (papel: string): papel is (typeof PAPELES_DE_POSE)[numbe
  * pierden el atrezo negro y el lado en sombra; el gris claro se confundía con el
  * maniquí).
  */
-export const FONDO_DE_POSE = '#00b140';
+const FONDO_DE_POSE = '#00b140';
 
 /**
  * Sobre qué fondo se aplana una referencia antes de enseñarla: la pose en color,
@@ -224,7 +224,7 @@ export type Encargo = z.infer<typeof encargoSchema>;
 const NUMERALES = ['1', '2', '3', '4', '5'];
 
 /** «La imagen 1 es…, la imagen 2 es…»: el papel de cada adjunto, en su orden. */
-export function prefacioDeReferencias(referencias: Encargo['referencias']): string {
+function prefacioDeReferencias(referencias: Encargo['referencias']): string {
   return referencias
     .map((r, i) => `La imagen ${NUMERALES[i] ?? i + 1} ${PAPELES[r.papel]}.`)
     .join('\n');
@@ -258,7 +258,7 @@ const ORIENTACIONES = [
 ] as const satisfies readonly string[] & { length: typeof NOMBRES_DE_DIRECCION.length };
 
 /** La orientación de una hoja, por escrito: la del maniquí, en todas las celdas. */
-export function orientacionEscrita(d: number): string {
+function orientacionEscrita(d: number): string {
   return `ORIENTACIÓN, la misma en TODAS las celdas: ${ORIENTACIONES[d]} Es la del maniquí de la imagen 1; el personaje no se vuelve hacia la cámara en ninguna celda.`;
 }
 

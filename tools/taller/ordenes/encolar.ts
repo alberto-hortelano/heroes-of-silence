@@ -76,7 +76,7 @@ async function encolarConSolo(
   }
 }
 
-export async function encolar(args: readonly string[]): Promise<void> {
+async function encolar(args: readonly string[]): Promise<void> {
   if (args.includes('--piezas-mapa')) {
     for (const bruto of encargosDePiezas()) {
       if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);

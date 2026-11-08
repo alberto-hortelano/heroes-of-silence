@@ -73,7 +73,7 @@ interface HojaDePoses {
  * Una dirección del Y Bot: sus hojas con su sha256 y el atlas medido, de 6
  * filas o de 7 con el disparo. Las filas se reparten como `HOJAS_DE_FIGURA`.
  */
-export interface DireccionDePoses extends Omit<AtlasDerivado, 'imagen' | 'sha256' | 'derivadoPor'> {
+interface DireccionDePoses extends Omit<AtlasDerivado, 'imagen' | 'sha256' | 'derivadoPor'> {
   readonly hojas: {
     readonly a: HojaDePoses;
     readonly b: HojaDePoses;
@@ -90,7 +90,7 @@ export const rutaJunta = (juegoOUnidad: string, d: number): string =>
   join(DIR_JUNTAS, `${juegoOUnidad}-d${d}.png`);
 
 /** Una hoja de una dirección, leída: cuál es, de dónde sale y sus bytes. */
-export interface HojaLeida {
+interface HojaLeida {
   readonly hoja: HojaDeFigura;
   readonly ruta: string;
   readonly png: Buffer;
@@ -200,7 +200,7 @@ export async function derivarDireccionDePoses(
  * reloj. `null` si el juego no dispara. Es el único cálculo de la suelta: lo
  * usan el Y Bot, el trabajador al juntar un atlas pintado y sus tests.
  */
-export async function sueltaDe(carpeta: string, juego: JuegoEn8d): Promise<number | null> {
+async function sueltaDe(carpeta: string, juego: JuegoEn8d): Promise<number | null> {
   const clip = clipDeDisparoDe(juego);
   if (clip === null) return null;
   const ruta = join(carpeta, 'poses.json');
@@ -270,7 +270,7 @@ export function ritmoDeUnidad(id: string): Ritmo | null {
  * la hoja), o `null`. Lo guarda la procedencia de la hoja al pintarla: es el del
  * maniquí sobre el que se pinta.
  */
-export function ritmoDeLaHoja(id: string, h: HojaDeFigura): Ritmo | null {
+function ritmoDeLaHoja(id: string, h: HojaDeFigura): Ritmo | null {
   const ritmo = ritmoDeUnidad(id);
   if (ritmo === null) return null;
   const clips: readonly ClipDeFigura[] = HOJAS_DE_FIGURA[h];

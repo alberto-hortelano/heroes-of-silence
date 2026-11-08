@@ -53,8 +53,8 @@ function penasco(g: Guia, x: number, y: number, r: number, alto: number, z = 0):
 
 // ---------------------------------------------------------------- los puentes
 
-export type Eje = 'ns' | 'eo' | 'ne-so' | 'no-se';
-export type Clase = 'piedra' | 'troncos';
+type Eje = 'ns' | 'eo' | 'ne-so' | 'no-se';
+type Clase = 'piedra' | 'troncos';
 
 /**
  * Medidas del puente, en casillas: la luz es UNA casilla de agua y el arco la
@@ -90,7 +90,7 @@ const PUENTE = {
  * casilla, en píxeles de la guía. Con esto y la caja de lo pintado se llega al
  * ancla y la escala de la pieza.
  */
-export interface GeometriaDeGuia {
+interface GeometriaDeGuia {
   readonly ancho: number;
   readonly alto: number;
   /** El centro del tablero, en píxeles de la guía. */
@@ -561,7 +561,7 @@ function encargoDePuente(clase: Clase, eje: Eje, sube = false): Encargo {
   };
 }
 
-export const EJES: readonly Eje[] = ['ns', 'eo', 'ne-so', 'no-se'];
+const EJES: readonly Eje[] = ['ns', 'eo', 'ne-so', 'no-se'];
 export const MATERIALES: readonly Material[] = ['roca', 'arenisca', 'basalto', 'nevadas'];
 
 /** En el orden en que importan: lo que más se ve primero (§16-§17 y el encargo del usuario). */
@@ -607,7 +607,7 @@ export async function escribirGuias(): Promise<string[]> {
 }
 
 /** La caja de lo que no es fondo en una guía. */
-export async function cajaDeGuia(png: Buffer): Promise<[number, number, number, number]> {
+async function cajaDeGuia(png: Buffer): Promise<[number, number, number, number]> {
   const { data, info } = await sharp(png).raw().toBuffer({ resolveWithObject: true });
   let x0 = info.width;
   let y0 = info.height;
@@ -631,7 +631,7 @@ export async function cajaDeGuia(png: Buffer): Promise<[number, number, number, 
  * por sus cajas: la pieza sigue la guía en forma, así que la caja de lo pintado
  * es la caja de la guía escalada.
  */
-export async function derivarPuente(rutaImagen: string, rutaGeometria: string, eje: Eje) {
+async function derivarPuente(rutaImagen: string, rutaGeometria: string, eje: Eje) {
   const geo = JSON.parse(await readFile(rutaGeometria, 'utf8')) as GeometriaDeGuia;
   const { data, width, height } = await aRaster(rutaImagen);
   let x0 = width;

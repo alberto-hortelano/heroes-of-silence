@@ -8,7 +8,7 @@
 import type { ChildProcess } from 'node:child_process';
 
 /** Lo que se espera a que el grupo salga tras `SIGTERM` antes de `SIGKILL` (el motor, medido: ~7 s). */
-export const GRACIA_AL_MATAR_MS = 15_000;
+const GRACIA_AL_MATAR_MS = 15_000;
 
 /**
  * `SIGTERM` al grupo entero de `p` (el guion de `process.kill`) y, si a los

@@ -56,7 +56,7 @@ export interface Rect {
   readonly h: number;
 }
 
-export type Muestra =
+type Muestra =
   | {
       readonly que: 'liso' | 'fondo' | 'tinta';
       readonly en: Rect;
@@ -72,7 +72,7 @@ const rectsDe = (m: Muestra): readonly Rect[] => (m.que === 'zonas' ? m.en : [m.
  * Las fichas que se miden en todas las láminas. Las demás de `temas.css` se
  * derivan de estas con `var()` o `rgb(from …)`, o son de forma.
  */
-export const FICHAS_MEDIDAS = [
+const FICHAS_MEDIDAS = [
   '--bg',
   '--panel',
   '--ink',
@@ -97,7 +97,7 @@ export const FICHAS_MEDIDAS = [
 ] as const;
 
 /** Las que solo dice alguna lámina: el día en cartela (templarios). */
-export const FICHAS_DE_ALGUNAS = ['--dia-fondo', '--dia-tinta'] as const;
+const FICHAS_DE_ALGUNAS = ['--dia-fondo', '--dia-tinta'] as const;
 
 export type FichaMedida = (typeof FICHAS_MEDIDAS)[number] | (typeof FICHAS_DE_ALGUNAS)[number];
 
@@ -161,7 +161,7 @@ function par<F extends FichaMedida, T extends FichaMedida>(
  * recortes con rejilla). Las láminas son la misma pantalla, pero cada tema la
  * viste con otro marco y los textos no caen en el mismo píxel.
  */
-export const MUESTRAS: Readonly<Record<FactionId, Muestras>> = {
+const MUESTRAS: Readonly<Record<FactionId, Muestras>> = {
   templarios: {
     '--bg': liso(872, 700, 10, 150, 'la hendidura oscura entre el mapa y la columna de piedra'),
     ...par(
@@ -580,7 +580,7 @@ function delMedioPorLuz(t: Trozo): number[] {
   return medio;
 }
 
-export interface Paleta {
+interface Paleta {
   readonly fichas: Readonly<Partial<Record<FichaMedida, string>>>;
   /** Las tintas movidas para leerse: «--x: #a → #b (L 0,52 → 0,47), sobre --y 4,50». */
   readonly ajustes: readonly string[];

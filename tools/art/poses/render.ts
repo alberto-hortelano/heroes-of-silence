@@ -66,7 +66,7 @@ const ENCUADRE_DE_FIGURA: Encuadre = { ortho: FIGURA.camara.ortho, objetivo: 0.9
  * hasta `de`-255: lo más lejano no se confunde con el negro del fondo sobre el
  * que se le enseña.
  */
-export const PROFUNDIDAD_DEL_MANIQUI = { metros: 0.9, de: 48, recorte: 0.02 } as const;
+const PROFUNDIDAD_DEL_MANIQUI = { metros: 0.9, de: 48, recorte: 0.02 } as const;
 
 /**
  * La muerte arranca desde el último fotograma de recibir daño, no desde el
@@ -721,7 +721,7 @@ export async function renderizarOchoDirecciones(
  * figura quieta salía plana), con la alfa de la de color: su silueta es la que lee
  * `escalaDePose`.
  */
-export async function hojaDeProfundidad(color: Buffer, profundidad: Buffer): Promise<Buffer> {
+async function hojaDeProfundidad(color: Buffer, profundidad: Buffer): Promise<Buffer> {
   const c = await aRaster(color);
   const p = (await aRaster(profundidad)).data;
   const { width, height } = c;

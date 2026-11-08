@@ -13,16 +13,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 
-export const CATEGORIAS = [
-  'encuadre',
-  'pose',
-  'coherencia',
-  'camara',
-  'artefacto',
-  'bucle',
-] as const;
+const CATEGORIAS = ['encuadre', 'pose', 'coherencia', 'camara', 'artefacto', 'bucle'] as const;
 
-export const TIPOS_DE_HALLAZGO = [
+const TIPOS_DE_HALLAZGO = [
   'salto_de_posicion',
   'cambio_de_escala',
   'no_copia_al_maniqui',
@@ -75,7 +68,7 @@ export const juicioSchema = z
   .strict();
 export type Juicio = z.infer<typeof juicioSchema>;
 
-export const DECISIONES = ['real', 'falso', 'dudoso'] as const;
+const DECISIONES = ['real', 'falso', 'dudoso'] as const;
 
 /** Lo que dice un árbitro de los hallazgos unidos de un clip, y lo que nadie vio. */
 export const arbitrajeSchema = z

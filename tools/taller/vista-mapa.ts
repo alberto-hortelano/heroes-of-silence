@@ -69,7 +69,7 @@ interface Cosa {
   readonly etiqueta: string;
 }
 
-export interface MapaCompuesto {
+interface MapaCompuesto {
   readonly ancho: number;
   readonly alto: number;
   /** El suelo que se pinta debajo de cada casilla (el de al lado si es barrera), o el agua. */
@@ -81,7 +81,7 @@ export interface MapaCompuesto {
 }
 
 /** Compone el mapa de una semilla: suelo de cada casilla y piezas ordenadas por el pie. */
-export function componerMapa(semilla: number): MapaCompuesto {
+function componerMapa(semilla: number): MapaCompuesto {
   const { map } = newGame({ seed: semilla });
   const W = map.width;
   const H = map.height;

@@ -30,7 +30,7 @@ import { avisosDelSalto, saltosDeLaHoja, UMBRAL_DEL_SALTO } from './salto.js';
 import { paneles } from './vision.js';
 
 /** Donde deja la revisión todo lo suyo. */
-export const DIR_DE_LA_REVISION = '.cache/taller/revision';
+const DIR_DE_LA_REVISION = '.cache/taller/revision';
 const JUEZ = join(RAIZ, 'tools/taller/revision/juez.md');
 
 /** Dónde vive lo de una figura: su arte, su maniquí y su revisión. */
@@ -89,7 +89,7 @@ const cifrasSchema = z.object({
   bucle: z.boolean(),
   fotogramas: z.number().int(),
 });
-export type CifrasDelClip = z.infer<typeof cifrasSchema>;
+type CifrasDelClip = z.infer<typeof cifrasSchema>;
 
 /** Las cifras de un clip ya montado (`cifras.json`). */
 export function cifrasDe(dir: string): CifrasDelClip {
@@ -117,14 +117,10 @@ export const idDelClip = (_f: Figura, d: number, clip: string): string => `d${d}
  * H1): lo que difiera por el cambio de maniquí no es un fallo del pintor. La hoja
  * va a repintarse de todos modos (`versiones`); su juicio solo da instrucciones.
  */
-export const SOBRE_OTRO_MANIQUI =
+const SOBRE_OTRO_MANIQUI =
   '- OJO: esta hoja se pintó sobre una versión ANTERIOR del maniquí, y los paneles enseñan el de hoy. Lo que difiera de su pose por ese cambio (otro gesto, otro reposo, otro golpe) NO es un fallo del pintor: apúntalo igualmente como hallazgo, con la corrección que llevaría la pintura al maniquí de hoy, porque servirá de instrucción para repintarla; y en `resumen` di qué es del cambio de maniquí y qué no.';
 
-export async function promptDelJuez(
-  dir: string,
-  id: string,
-  sobreOtroManiqui = false,
-): Promise<string> {
+async function promptDelJuez(dir: string, id: string, sobreOtroManiqui = false): Promise<string> {
   const cifras = cifrasDe(dir);
   const descr = leerCon(panelesSchema, join(dir, 'paneles.json'));
   const reemplazos: Record<string, string> = {
@@ -151,7 +147,7 @@ export async function promptDelJuez(
  * no vale. `paneles.huella` solo se reescribe si cambia, así su fecha dice cuándo
  * cambió lo que se juzga (la miran los juicios de Claude, que no llevan huella).
  */
-export const HUELLA_DE_LOS_PANELES = 'paneles.huella';
+const HUELLA_DE_LOS_PANELES = 'paneles.huella';
 export function huellaDeLosPaneles(dir: string, ...extra: string[]): string {
   const partes = [
     readFileSync(join(dir, 'prompt.md')),
@@ -202,7 +198,7 @@ export const hojaDelClip = (f: Figura, d: number, dir: string): string =>
   join(RAIZ, f.arte, `d${d}`, `hoja-${cifrasDe(dir).hoja}.webp`);
 
 /** Los clips de todas las hojas, para validar `--clips=`. */
-export const TODOS_LOS_CLIPS: readonly string[] = Object.values(HOJAS_DE_FIGURA).flat();
+const TODOS_LOS_CLIPS: readonly string[] = Object.values(HOJAS_DE_FIGURA).flat();
 
 /** Lanza si `--clips=` nombra uno que no existe (QA, H9: salía 0 sin hacer nada). */
 export function comprobarClips(clips: readonly string[] | undefined): void {

@@ -43,11 +43,11 @@ import type { Encargo } from './encargo.js';
 import { ARRIBA, FONDO, FRENTE, SOMBRA } from './guias.js';
 
 /** Dónde van las piezas, dentro del repo. */
-export const DIR_DE_LA_MURALLA = `assets/${CARPETA_DE_LA_MURALLA}`;
+const DIR_DE_LA_MURALLA = `assets/${CARPETA_DE_LA_MURALLA}`;
 /** Las guías: fuera del build (`seCopiaAlBuild` deja fuera toda carpeta `_guias/`). */
-export const DIR_DE_SUS_GUIAS = `${DIR_DE_LA_MURALLA}/_guias`;
+const DIR_DE_SUS_GUIAS = `${DIR_DE_LA_MURALLA}/_guias`;
 /** El índice que lee el lienzo: las cajas de cada pieza pintada. */
-export const INDICE_DE_LA_MURALLA = `${DIR_DE_LA_MURALLA}/indice.json`;
+const INDICE_DE_LA_MURALLA = `${DIR_DE_LA_MURALLA}/indice.json`;
 
 /** El estilo: el fondo del campo de batalla, sobre el que se pinta la muralla. */
 const ESTILO_DE_LA_BATALLA = 'assets/rpg/campo.webp';

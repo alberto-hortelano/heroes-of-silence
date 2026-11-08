@@ -9,7 +9,7 @@ import { ALFA_FIGURA } from './cuerpo.js';
 import { type Encargo, filasDeAtlas } from './encargo.js';
 import { UMBRALES } from './recorte.js';
 
-export interface Informe {
+interface Informe {
   readonly problemas: readonly string[];
   readonly medidas: Readonly<Record<string, number>>;
 }

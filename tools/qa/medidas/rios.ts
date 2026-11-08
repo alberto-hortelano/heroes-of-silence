@@ -44,7 +44,7 @@ import type { TerrainKind } from '../../../src/core/map/terrain.js';
 import type { GameMap } from '../../../src/core/map/tipos.js';
 import { createRng } from '../../../src/core/rng.js';
 
-export interface RiosDelMapa {
+interface RiosDelMapa {
   /** Los largos de cada río, en el orden de su primera casilla. */
   readonly largos: readonly number[];
   /** Cuántas casillas de río hay en ríos (con boca). */

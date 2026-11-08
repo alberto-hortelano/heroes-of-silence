@@ -25,11 +25,11 @@ import { join } from 'node:path';
 import { textoJson } from '../comun/json.js';
 import { type Encargo, encargoSchema } from './encargo.js';
 
-export const ESTADOS = ['pendiente', 'en-curso', 'hecho', 'fallido'] as const;
-export type Estado = (typeof ESTADOS)[number];
+const ESTADOS = ['pendiente', 'en-curso', 'hecho', 'fallido'] as const;
+type Estado = (typeof ESTADOS)[number];
 
 /** Lo que el taller apunta en el encargo al cerrarlo. */
-export interface Resultado {
+interface Resultado {
   readonly cuando: string;
   readonly hilo?: string;
   readonly salida?: string;

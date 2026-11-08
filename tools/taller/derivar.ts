@@ -111,7 +111,7 @@ const ALFA_ALTURA = 40;
 /** Dos fotogramas son el mismo si difieren en menos de este tanto por uno del alfa. */
 const REPETIDO = 0.004;
 
-export interface ClipDerivado {
+interface ClipDerivado {
   readonly row: number;
   readonly frames: number;
   readonly fps: number;
@@ -504,10 +504,10 @@ export async function siluetaDeModulo(rutaImagen: string): Promise<[number, numb
 }
 
 /** Lo que `registrarLadera` lee de una pieza de la guía: su caja y sus juntas (`laderas.ts`). */
-export type PiezaDeGuia = Pick<GeometriaDeLadera, 'nombre' | 'filoNorte' | 'pieSur' | 'caja'>;
+type PiezaDeGuia = Pick<GeometriaDeLadera, 'nombre' | 'filoNorte' | 'pieSur' | 'caja'>;
 
 /** La silueta de una guía: lo que no es su fondo (`esFondoDeGuia`). */
-export interface MascaraDeGuia {
+interface MascaraDeGuia {
   readonly ancho: number;
   readonly alto: number;
   readonly dentro: Uint8Array;

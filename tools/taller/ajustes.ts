@@ -16,7 +16,7 @@ import { aRaster, dePng } from '../comun/imagen.js';
 
 const Desplazamiento = z.tuple([z.number().int(), z.number().int()]);
 
-export const Ajustes = z
+const Ajustes = z
   .object({
     /** El sha256 de la hoja que se miró al ajustar. */
     hoja: z.string().regex(/^[0-9a-f]{64}$/),
@@ -26,9 +26,9 @@ export const Ajustes = z
     fotogramas: z.record(z.string(), z.array(Desplazamiento).max(FIGURA.columnas)),
   })
   .strict();
-export type Ajustes = z.infer<typeof Ajustes>;
+type Ajustes = z.infer<typeof Ajustes>;
 
-export const rutaDeAjustes = (rutaDeLaHoja: string): string =>
+const rutaDeAjustes = (rutaDeLaHoja: string): string =>
   rutaDeLaHoja.replace(/\.(webp|png)$/, '.ajustes.json');
 
 /** Los ajustes de una hoja, si los tiene; lanza si son de otra hoja o no valen. */

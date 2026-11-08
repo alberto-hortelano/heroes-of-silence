@@ -57,7 +57,7 @@ export const TURNOS_DEL_ARNES = Number(process.env.QA_TURNS ?? 6);
  * tres semillas daban ocasión de ver el equipo (28, 29 y 35), y ninguna además
  * dos respuestas de la rueda; la primera que lo da todo es la 112.
  */
-export const TOPE_DE_SEMILLAS_DEL_ARNES = 120;
+const TOPE_DE_SEMILLAS_DEL_ARNES = 120;
 
 /** La respuesta de la rueda que no es un golpe: la que `pnpm qa` manda mala a propósito (`exigeLaRueda`). */
 export const RESPUESTA_MALA = 'mega';
@@ -67,7 +67,7 @@ export const RESPUESTA_MALA = 'mega';
  * respuesta mala de la rueda y a qué héroe pidió quitar el escudo que no lleva.
  * Lo escribe solo `contestaElArnes`.
  */
-export interface TorcidosDelArnes {
+interface TorcidosDelArnes {
   mala: boolean;
   escudo: string | null;
 }
@@ -170,7 +170,7 @@ class SocketDelArnes extends EventEmitter {
  * cuya batalla con tope 3 no deja atacar al agente (QA de la complejidad,
  * vuelta 2, 22-10-2026).
  */
-export async function jugarPartidaDelArnes(
+async function jugarPartidaDelArnes(
   semilla: number,
   turnos = Number.POSITIVE_INFINITY,
 ): Promise<readonly Peticion[]> {
@@ -330,7 +330,7 @@ export function faltaParaElEspectador(peticiones: readonly Peticion[]): readonly
 }
 
 /** Una semilla de la partida del arnés y cómo se llegó a ella, para decirlo en la consola. */
-export interface SemillaDelArnes {
+interface SemillaDelArnes {
   readonly semilla: number;
   readonly como: string;
 }

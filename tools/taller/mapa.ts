@@ -30,7 +30,7 @@ import {
 import { encargosDelMuroNorteSur } from './muros.js';
 
 /** Lo que tiene que existir en el mapa nuevo, según `NuevaJugabilidad.md`. */
-export const PIEZAS_DE_MAPA = [
+const PIEZAS_DE_MAPA = [
   {
     id: 'montana',
     describe:
@@ -113,13 +113,13 @@ export function encargoDeMuestra(estilo: (typeof ESTILOS_DE_MAPA)[number]): Enca
 export const MUESTRA_ELEGIDA = 'assets/mapa/muestras/pintado.webp';
 
 /** Variantes de la montaña: una cordillera hecha con una sola pieza repetida canta. */
-export const VARIANTES_DE_MONTANA = 3;
+const VARIANTES_DE_MONTANA = 3;
 
 /**
  * Una pieza suelta del mapa, copiando su diseño de la lámina elegida. La
  * montaña admite variantes (`variante` 1…3): misma familia, siluetas distintas.
  */
-export function encargoDePieza(id: string, variante?: number): Encargo {
+function encargoDePieza(id: string, variante?: number): Encargo {
   const n = PIEZAS_DE_MAPA.findIndex((p) => p.id === id);
   const pieza = PIEZAS_DE_MAPA[n];
   if (pieza === undefined) {
@@ -174,7 +174,7 @@ export function encargosDePiezas(): Encargo[] {
  * bandera la planta el juego con su propio mástil, y el poste con brazo se leía
  * como una horca (#168).
  */
-export const HITOS_DE_NODO = [
+const HITOS_DE_NODO = [
   {
     id: 'nodo-hito-miliar',
     describe:
@@ -193,7 +193,7 @@ export const HITOS_DE_NODO = [
 ] as const;
 
 /** Un hito suelto, con la piedra y la madera de la lámina elegida. */
-export function encargoDeHito(id: string): Encargo {
+function encargoDeHito(id: string): Encargo {
   const hito = HITOS_DE_NODO.find((h) => h.id === id);
   if (hito === undefined)
     throw new Error(`no hay hito «${id}». Hay: ${HITOS_DE_NODO.map((h) => h.id).join(', ')}`);
@@ -223,7 +223,7 @@ export function encargosDeHitos(): Encargo[] {
  * Cada una se pinta aparte, con su luz, y la del este va de MATERIAL: su madera y
  * su piedra, no su forma, que arrastraría la flecha a la derecha.
  */
-export const TABLILLAS_POR_RUMBO = [
+const TABLILLAS_POR_RUMBO = [
   {
     rumbo: 'oeste',
     describe:
@@ -246,7 +246,7 @@ export const TABLILLAS_POR_RUMBO = [
   },
 ] as const;
 
-export function encargoDeTablilla(rumbo: string): Encargo {
+function encargoDeTablilla(rumbo: string): Encargo {
   const t = TABLILLAS_POR_RUMBO.find((x) => x.rumbo === rumbo);
   if (t === undefined)
     throw new Error(
@@ -281,7 +281,7 @@ export function encargosDeTablillas(): Encargo[] {
  * Codex, con el arco mirando al sureste: se pide de lado. Los tramos de norte a
  * sur (`muro-ns-*`) se piden con su guía (`muros.ts`).
  */
-export const MURALLA_NORTE_SUR = [
+const MURALLA_NORTE_SUR = [
   {
     id: 'nodo-puerta-hondo',
     describe:
@@ -289,7 +289,7 @@ export const MURALLA_NORTE_SUR = [
   },
 ] as const;
 
-export function encargoDeMurallaNS(id: string): Encargo {
+function encargoDeMurallaNS(id: string): Encargo {
   const m = MURALLA_NORTE_SUR.find((x) => x.id === id);
   if (m === undefined)
     throw new Error(
@@ -352,7 +352,7 @@ export function encargoDeCofre(): Encargo {
  *
  *   pnpm taller encolar --puestos [--solo=caseta,torreta,torre] [--rehacer]
  */
-export const PUESTOS: Readonly<
+const PUESTOS: Readonly<
   Record<MejoraDelPuesto, { describe: string; material: string; deMaterial: string }>
 > = {
   ninguna: {
@@ -550,7 +550,7 @@ const LIENZO_DEL_PUESTO = 1024;
 const LLENO_DEL_PUESTO = 0.78;
 
 /** La guía de una obra, centrada en su lienzo con la losa: la casilla mide `t` píxeles. */
-export function guiaDelPuesto(mejora: MejoraDelPuesto): Guia {
+function guiaDelPuesto(mejora: MejoraDelPuesto): Guia {
   return encajar(LIENZO_DEL_PUESTO, LIENZO_DEL_PUESTO, LLENO_DEL_PUESTO, (g) =>
     dibujarPuesto(g, mejora),
   );
@@ -645,7 +645,7 @@ export async function escribirPuestoDerivado(rutaImagen: string): Promise<void> 
 }
 
 /** El encargo de una obra, con el estilo del mapa, su material y su guía. */
-export function encargoDePuesto(corto: string): Encargo {
+function encargoDePuesto(corto: string): Encargo {
   const mejora = MEJORAS_DEL_PUESTO.find((m) => cortoDe(m) === corto);
   if (mejora === undefined)
     throw new Error(`no hay puesto «${corto}». Hay: ${MEJORAS_DEL_PUESTO.map(cortoDe).join(', ')}`);

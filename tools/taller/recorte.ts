@@ -21,7 +21,7 @@
 import { aRaster, type Raster } from '../comun/imagen.js';
 import { cutoutBackground } from './fondo.js';
 
-export interface UmbralesDeHalo {
+interface UmbralesDeHalo {
   /** Por debajo, y conectado al borde, es halo. */
   readonly halo: number;
   /** Por encima, es cuerpo y se vuelve opaco. */
@@ -30,7 +30,7 @@ export interface UmbralesDeHalo {
 export const UMBRALES: UmbralesDeHalo = { halo: 96, cuerpo: 200 };
 
 /** Qué parte de la imagen ya es transparente: decide si hay alfa de verdad. */
-export function fraccionTransparente(r: Raster): number {
+function fraccionTransparente(r: Raster): number {
   let n = 0;
   for (let i = 3; i < r.data.length; i += 4) if ((r.data[i] as number) < 8) n++;
   return n / (r.width * r.height);

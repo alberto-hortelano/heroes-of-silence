@@ -48,8 +48,8 @@ import { avisosDelSalto, mayorSalto, saltosDeLaHoja, UMBRAL_DEL_SALTO } from './
 import { type CasoDelVisor, comparacion } from './vision.js';
 
 /** Las versiones que se piden de cada hoja, en el orden en que desempatan. */
-export const VARIANTES = ['tirada', 'esqueleto', 'todo'] as const;
-export type Variante = (typeof VARIANTES)[number];
+const VARIANTES = ['tirada', 'esqueleto', 'todo'] as const;
+type Variante = (typeof VARIANTES)[number];
 
 /**
  * El aviso de que la postura del giro no cuenta. La fuga de pose del giro es
@@ -65,7 +65,7 @@ export const SIN_POSE_DEL_GIRO =
  * (`esqueleto.py`). Izquierda del personaje en azul, derecha en rojo, como las
  * piernas del maniquí.
  */
-export const COLORES_DEL_ESQUELETO = {
+const COLORES_DEL_ESQUELETO = {
   tronco: '#ffffff',
   izquierda: '#2878ff',
   derecha: '#ff3232',
@@ -102,12 +102,7 @@ const hojaDelManiqui = (f: Figura, d: number, h: string) => join(RAIZ, f.maniqui
  * esqueleto encima (cada hueso y el eje del arma, en sus colores). Se dibuja con
  * SVG sobre la hoja; el fondo transparente queda transparente.
  */
-export async function poseConEsqueleto(
-  f: Figura,
-  d: number,
-  h: string,
-  salida: string,
-): Promise<void> {
+async function poseConEsqueleto(f: Figura, d: number, h: string, salida: string): Promise<void> {
   const huesos = leerHuesos(join(RAIZ, f.maniqui), d, h);
   if (huesos === null)
     throw new Error(
@@ -141,7 +136,7 @@ export async function poseConEsqueleto(
 }
 
 /** Las carpetas de las versiones de una hoja. */
-export const rutaDeVersion = (f: Figura, d: number, h: string, v: Variante): string =>
+const rutaDeVersion = (f: Figura, d: number, h: string, v: Variante): string =>
   `${f.revision}/d${d}/versiones/${v}/hoja-${h}`;
 const rutaDeLaPoseConEsqueleto = (f: Figura, d: number, h: string): string =>
   `${f.revision}/d${d}/versiones/pose-esqueleto-${h}.png`;
@@ -155,7 +150,7 @@ function bloqueDeInstrucciones(texto: string): string {
  * celdas el maniquí la lleva de punta o detrás del cuerpo, y el pintor la inventaba
  * o la quitaba (experimentos §5).
  */
-export async function notasDelArma(f: Figura, d: number, h: string): Promise<string | null> {
+async function notasDelArma(f: Figura, d: number, h: string): Promise<string | null> {
   const huesos = leerHuesos(join(RAIZ, f.maniqui), d, h);
   if (huesos === null) return null;
   const prof = `${hojaDelManiqui(f, d, h)}.profundidad.png`;
@@ -261,7 +256,7 @@ export interface ResultadoDeClip {
  * primera A es la de ahora y B la versión; en la segunda, al revés. Solo cuenta lo
  * que se dice igual en los dos órdenes.
  */
-export function resultadoDelClip(
+function resultadoDelClip(
   clip: string,
   primera: Comparacion,
   segunda: Comparacion,
@@ -273,7 +268,7 @@ export function resultadoDelClip(
   return { clip, resultado: 'no_coincide', confianza: 0 };
 }
 
-export interface Eleccion {
+interface Eleccion {
   readonly ganadora: string | null;
   readonly motivo: string;
   readonly cuentas: Readonly<
@@ -423,7 +418,7 @@ export function elegirEnTorneo(
 }
 
 /** El prompt de la comparación a ciegas de un clip. */
-export function promptDeComparacion(clip: string, bucle: boolean, id: string): string {
+function promptDeComparacion(clip: string, bucle: boolean, id: string): string {
   return `Eres el revisor de animaciones de un juego de estrategia de fantasía. Cada personaje se
 pinta fotograma a fotograma copiando la pose de un maniquí 3D (cámara ortográfica
 elevada 25°). Te enseño DOS versiones, A y B, del mismo clip «${clip}» (${FIGURA.columnas} fotogramas,
@@ -593,7 +588,7 @@ const eleccionSchema = z
   .passthrough();
 const claveSchema = z.record(z.string(), z.record(z.string(), z.string()));
 /** El id del caso del visor de una elección. */
-export const casoDeEleccion = (d: number, h: string): string => `eleccion-d${d}-${h}`;
+const casoDeEleccion = (d: number, h: string): string => `eleccion-d${d}-${h}`;
 const rutaDeLaClave = (f: Figura) => join(RAIZ, f.revision, 'visor', 'clave.json');
 
 /**
@@ -639,7 +634,7 @@ export function adoptarBlocker(
 }
 
 /** La respuesta del visor con que la persona dice que las dos le valen. */
-export const IGUALES = 'iguales';
+const IGUALES = 'iguales';
 
 /**
  * La versión que se adopta: la ganadora; en un torneo sin ella, la que eligió la
@@ -762,7 +757,7 @@ export async function adoptarTodas(
 }
 
 /** Lo que se puede contestar en el vistazo final de una dirección, y qué hojas rechaza cada respuesta. */
-export const OPCIONES_DEL_VISTAZO = {
+const OPCIONES_DEL_VISTAZO = {
   bien: [],
   'rehacer la hoja A': ['a'],
   'rehacer la hoja B': ['b'],
@@ -812,7 +807,7 @@ export const hojasRechazadas = (valor: string | undefined): readonly string[] =>
     : [];
 
 /** La respuesta de una elección dudosa con que la persona dice que no vale ninguna. */
-export const NINGUNA_VALE = 'ninguna vale';
+const NINGUNA_VALE = 'ninguna vale';
 
 const rutaDeLasRechazadas = (f: Figura) => join(RAIZ, f.revision, 'visor', 'rechazadas.json');
 

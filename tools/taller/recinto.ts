@@ -304,7 +304,7 @@ function dibujarPieza(g: Guia, nombre: (typeof MODULOS_DEL_RECINTO)[number]): vo
 }
 
 /** La geometría que cuenta de cada pieza de la guía, en píxeles de la guía. */
-export interface GeometriaDelRecinto {
+interface GeometriaDelRecinto {
   readonly nombre: (typeof MODULOS_DEL_RECINTO)[number];
   /** El pie de sus dos puntas: el vértice de su cara a cada lado, a ras de suelo. */
   readonly junta: readonly [P2, P2];
@@ -320,7 +320,7 @@ const LIENZO: readonly [number, number] = [1536, 1024];
 const HUECO_ENTRE_PIEZAS = 0.45;
 
 /** La guía de la hoja del recinto, con las piezas en filas y el pie de cada fila en la misma línea. */
-export function guiaDelRecinto(): { guia: Guia; piezas: GeometriaDelRecinto[]; casilla: number } {
+function guiaDelRecinto(): { guia: Guia; piezas: GeometriaDelRecinto[]; casilla: number } {
   const [ancho, alto] = LIENZO;
   const medida = (n: (typeof MODULOS_DEL_RECINTO)[number]) => {
     const m = new Guia(ancho, alto, 1, 0, 0);

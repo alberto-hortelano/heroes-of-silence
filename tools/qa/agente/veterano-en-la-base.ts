@@ -50,7 +50,7 @@ export function ponVeteranoEnLaBase(state: GameState, player: PlayerId): string 
  * `equip`: la IA la construye tarde y en pocas partidas. Lanza sin base, como
  * `ponVeteranoEnLaBase`: un arnés que no puede poner su caso no da verde.
  */
-export function ponArmeriaEnLaBase(state: GameState, player: PlayerId): string {
+function ponArmeriaEnLaBase(state: GameState, player: PlayerId): string {
   const base = baseOf(state, player);
   if (base === null) throw new Error(`el jugador ${player} no tiene base donde poner la armería`);
   if (!base.buildings.includes('armory')) base.buildings.push('armory');

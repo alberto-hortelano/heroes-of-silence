@@ -52,7 +52,7 @@ const CABALLO = join(MODELOS, 'caballo-quaternius.glb');
 const DIR_POSES = join(RAIZ, 'assets/unidades/_poses');
 
 /** La celda de las monturas: a la escala humana de siempre no caben en 256. */
-export const CELDA_MONTADA = 384;
+const CELDA_MONTADA = 384;
 
 /**
  * La colocación del jinete, en metros y en los ejes del caballo. Calibrada a ojo
@@ -124,7 +124,7 @@ function servir(): Promise<{ servidor: Server; base: string }> {
   }, MIME);
 }
 
-export async function renderizarMontura(prueba: boolean): Promise<string> {
+async function renderizarMontura(prueba: boolean): Promise<string> {
   for (const [que, ruta] of [
     ['el caballo', CABALLO],
     ['three.js de sprite-forge', join(FORGE, 'node_modules/three/build/three.module.js')],
@@ -296,7 +296,7 @@ const FILA_MONTADA = {
  * `JUEGOS_MONTADOS`. Sale de las claves de esa tabla: un jinete nuevo es una
  * fila allí y su postura en `montura/escena.js`.
  */
-export type ArmaMontada = JuegoMontado extends `montado-${infer A}` ? A : never;
+type ArmaMontada = JuegoMontado extends `montado-${infer A}` ? A : never;
 
 /** Las armas montadas, en el orden de `JUEGOS_MONTADOS`; la primera, la lanza, es la de omisión. */
 export const ARMAS_MONTADAS = Object.keys(JUEGOS_MONTADOS).map((j) =>
@@ -333,7 +333,7 @@ function hojasMontadas(juego: JuegoMontado) {
   );
 }
 
-export async function renderizarMontura8d(
+async function renderizarMontura8d(
   destino = DIR_POSES,
   arma: ArmaMontada = 'lanza',
 ): Promise<string> {
