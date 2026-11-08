@@ -125,3 +125,16 @@ export function densidadDe(ctx: CanvasRenderingContext2D): number {
   const m = ctx.getTransform();
   return Math.hypot(m.a, m.b);
 }
+
+/**
+ * El punto del puntero en el lienzo, en píxeles CSS desde su esquina. Lo leen el puntero de la
+ * partida y el de la arena (`partida/puntero.ts`, `arena/puntero.ts`), que lo escribían cada uno
+ * hasta el QA de la reorganización (H3, 08-11-2026).
+ */
+export function enLienzo(
+  canvas: HTMLCanvasElement,
+  ev: { clientX: number; clientY: number },
+): { x: number; y: number } {
+  const r = canvas.getBoundingClientRect();
+  return { x: ev.clientX - r.left, y: ev.clientY - r.top };
+}

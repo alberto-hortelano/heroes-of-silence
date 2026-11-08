@@ -19,6 +19,7 @@
  */
 import sharp, { type OverlayOptions } from 'sharp';
 import { FIGURA } from '../../src/shared/arte.js';
+import { mediana } from '../comun/estadistica.js';
 import { aRaster, dePng, type Raster } from '../comun/imagen.js';
 import { ALFA_FIGURA, cuerpoDe } from './cuerpo.js';
 import {
@@ -595,11 +596,6 @@ function apoyo(r: Raster, c: Caja, umbral = ALFA_FIGURA): [number, number] {
     umbral,
   );
   return [x - c.x0, y - c.y0];
-}
-
-function mediana(v: readonly number[]): number {
-  const s = [...v].sort((a, b) => a - b);
-  return s[Math.floor(s.length / 2)] as number;
 }
 
 interface Empaquetado {

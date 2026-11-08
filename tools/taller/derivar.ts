@@ -29,6 +29,7 @@ import {
   FILAS_DEL_ATLAS,
   type HojaDeFigura,
 } from '../../src/shared/arte.js';
+import { mediana } from '../comun/estadistica.js';
 import { sha256 } from '../comun/hash.js';
 import { aRaster } from '../comun/imagen.js';
 import { textoJson } from '../comun/json.js';
@@ -192,11 +193,6 @@ function diferencia(a: Celda, b: Celda): number {
   for (let i = 0; i < a.alfa.length; i++)
     d += Math.abs((a.alfa[i] as number) - (b.alfa[i] as number));
   return d / (a.alfa.length * 255);
-}
-
-function mediana(v: readonly number[]): number {
-  const s = [...v].sort((a, b) => a - b);
-  return s[Math.floor(s.length / 2)] as number;
 }
 
 /** Con qué se deriva una hoja (`derivarAtlas`). */

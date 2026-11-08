@@ -68,7 +68,7 @@ import {
   sinAguaEnLasEsquinas,
   trazarCaminos,
 } from '../vestir/caminos.js';
-import { CASILLAS_DE_UNA_MURALLA, engordarFronteras, TIPOS_POR_MAPA } from '../vestir/fronteras.js';
+import { casillasMinimasDe, engordarFronteras, TIPOS_POR_MAPA } from '../vestir/fronteras.js';
 import { acantiladoSinCaida, CAIDA_LARGA, caidasLargas } from '../vestir/lineas.js';
 import { ponerObstaculos } from '../vestir/obstaculos.js';
 import { mesasDelRelieve, nivelesDeLoEngordado } from '../vestir/relieve.js';
@@ -1177,8 +1177,6 @@ export function vestirRed(
   // frontera a su región. Con las fronteras onduladas de #229, un acantilado
   // se quedaba en 13-14 casillas (42×42 s115 y s864) y el mapa con tres.
   const { casillasMinimasPorTipo } = BARRERAS_DEL_MAPA;
-  const minimoDe = (b: Barrera): number =>
-    b === 'wall' ? CASILLAS_DE_UNA_MURALLA : casillasMinimasPorTipo;
   // `tipos` es el de `grueso`, que los obstáculos y las esquinas cambian en su
   // sitio: lo de antes se apuntó al sacar la frontera.
   const cuenta = (leer: (k: number) => Barrera | null): Map<Barrera, number> => {
@@ -1190,12 +1188,12 @@ export function vestirRed(
     return m;
   };
   const llenas = (m: Map<Barrera, number>): Barrera[] =>
-    [...m].filter(([b, n]) => n >= minimoDe(b)).map(([b]) => b);
+    [...m].filter(([b, n]) => n >= casillasMinimasDe(b)).map(([b]) => b);
   const antes = llenas(cuenta((k) => fronteraAntes[k] ?? null));
   const despues = cuenta((k) => barreraDe(tipos, deFrontera[k] as number));
   if (llenas(despues).length < Math.min(antes.length, TIPOS_POR_MAPA)) {
     const cortas = antes
-      .filter((b) => (despues.get(b) ?? 0) < minimoDe(b))
+      .filter((b) => (despues.get(b) ?? 0) < casillasMinimasDe(b))
       .map((b) => `${b} en ${despues.get(b) ?? 0}`);
     return fallo(
       'obstáculos',

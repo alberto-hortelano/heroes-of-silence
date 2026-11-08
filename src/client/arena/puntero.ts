@@ -3,16 +3,8 @@
  * en `main.ts`): mover, soltar y salir del lienzo, que reparten los gestos de la batalla, los de la
  * partida (`GestosDeBatalla`). Nada se registra al importarse: lo instala `main.ts`, en su sitio.
  */
+import { enLienzo } from '../render/lienzo.js';
 import type { PaginaDeLaArena } from './pagina.js';
-
-/** El punto del puntero en el lienzo, en píxeles CSS desde su esquina. */
-function enLienzo(
-  canvas: HTMLCanvasElement,
-  ev: { clientX: number; clientY: number },
-): { x: number; y: number } {
-  const r = canvas.getBoundingClientRect();
-  return { x: ev.clientX - r.left, y: ev.clientY - r.top };
-}
 
 /**
  * Los oyentes del puntero sobre el tablero, en el orden de siempre (mover, soltar, salir): los

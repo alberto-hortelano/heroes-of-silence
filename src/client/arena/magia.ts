@@ -41,6 +41,7 @@ import {
   VOCABULARIO_DE_LA_MAGIA as V,
 } from '@core/magia/formato.js';
 import { problemasDeLaLista, problemasDelHechizo } from '@core/magia/validar.js';
+import { estaMarcado } from '../comun/campos.js';
 import { type Html, html, NADA, pintar, unir } from '../comun/html.js';
 import { nota } from '../views/notas.js';
 
@@ -410,7 +411,7 @@ export function montarEditorDeMagia(
     if (impide !== null) {
       cambiarElElegido((h) => {
         const que = (campoDe(h, `${impide}.que`) as readonly string[] | undefined) ?? [];
-        const nuevo = marcadoDe(t) ? [...que, valor] : que.filter((q) => q !== valor);
+        const nuevo = estaMarcado(t) ? [...que, valor] : que.filter((q) => q !== valor);
         return conCampo(h, `${impide}.que`, nuevo);
       });
       return;
@@ -483,7 +484,7 @@ export function montarEditorDeMagia(
 /** `h` con lo que dice el campo `t` en la ruta, leído según `como`. */
 function conElValor(h: Hechizo, ruta: string, como: string, t: Element): Hechizo {
   const v = valorDe(t);
-  const marcado = marcadoDe(t);
+  const marcado = estaMarcado(t);
   switch (como) {
     case 'texto':
       return conCampo(h, ruta, v);
@@ -527,9 +528,4 @@ function conElValor(h: Hechizo, ruta: string, como: string, t: Element): Hechizo
 function valorDe(el: Element): string {
   const v = (el as Element & { value?: unknown }).value;
   return typeof v === 'string' ? v : '';
-}
-
-/** Si una casilla está marcada. */
-function marcadoDe(el: Element): boolean {
-  return (el as Element & { checked?: unknown }).checked === true;
 }

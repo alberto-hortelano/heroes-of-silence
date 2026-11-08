@@ -894,14 +894,10 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
   //    veces en 1-200, contra 15 antes, y cada vestido tirado es otro mapa.
   const porTipo = new Int32Array(BARRERAS.length);
   for (let i = 0; i < N; i++) if (tipos[i] !== ABIERTA && esNodo[i] === 0) porTipo[tipos[i]!]! += 1;
-  // El muro cuenta con una muralla: ahora va en zonas pequeñas y sus 15
-  // casillas ya no se pueden pedir, pero sigue siendo una barrera que se ve.
-  const minimoDe = (b: Barrera): number =>
-    b === 'wall' ? CASILLAS_DE_UNA_MURALLA : casillasMinimasPorTipo;
-  const conSusCasillas = BARRERAS.filter((b) => porTipo[indiceDe(b)]! >= minimoDe(b));
+  const conSusCasillas = BARRERAS.filter((b) => porTipo[indiceDe(b)]! >= casillasMinimasDe(b));
   if (conSusCasillas.length < hacenFalta) {
     const cortas = [...new Set(distintas.values())]
-      .filter((b) => porTipo[indiceDe(b)]! < minimoDe(b))
+      .filter((b) => porTipo[indiceDe(b)]! < casillasMinimasDe(b))
       .map((b) => `${b} en ${porTipo[indiceDe(b)]}`);
     return `la frontera se queda con ${conSusCasillas.length} barreras de ${casillasMinimasPorTipo} casillas (${conSusCasillas.join(', ') || 'ninguna'}), y cada mapa lleva ${hacenFalta}; se quedan cortas ${cortas.join(', ')}`;
   }
@@ -1097,6 +1093,17 @@ function murallasSobrantes(
  * barreras del mapa (`engordarFronteras`, paso 8).
  */
 export const CASILLAS_DE_UNA_MURALLA = 1;
+
+/**
+ * Las casillas con que una barrera cuenta como una de las `TIPOS_POR_MAPA` del mapa: el muro,
+ * con una muralla, que ahora va en zonas pequeñas y sus 15 casillas ya no se pueden pedir, pero
+ * sigue siendo una barrera que se ve; las demás, `casillasMinimasPorTipo`. La leen el engorde
+ * (paso 8) y el vestido, que vuelve a contar tras las esquinas (`vestir-la-red.ts`); hasta el
+ * QA de la reorganización (H3, 08-11-2026) cada uno escribía la suya.
+ */
+export function casillasMinimasDe(b: Barrera): number {
+  return b === 'wall' ? CASILLAS_DE_UNA_MURALLA : BARRERAS_DEL_MAPA.casillasMinimasPorTipo;
+}
 
 /**
  * Las candidatas de una frontera que deja de ser muralla: las de sus suelos

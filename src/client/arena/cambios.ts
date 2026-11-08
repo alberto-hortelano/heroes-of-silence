@@ -39,6 +39,7 @@ import {
 } from '@core/types.js';
 import { type Unidad, validarUnidad } from '@core/unidad/formato.js';
 import { mensajeDe } from '../../shared/errores.js';
+import { estaMarcado } from '../comun/campos.js';
 import { leerElCombate } from '../views/combate.js';
 import { hechizosQueValen, unidadDe } from './catalogo.js';
 import { claveDeFicha } from './edicion.js';
@@ -178,7 +179,7 @@ export function cambiarCampoDePieza(
   el: Element,
   // Una casilla de marcar dice si está marcada; las demás, lo escrito.
   valor: string = (el as { type?: unknown }).type === 'checkbox'
-    ? String(marcadoDe(el))
+    ? String(estaMarcado(el))
     : valorDe(el),
 ): void {
   const { catalogo } = pagina;
@@ -344,10 +345,6 @@ export function valorDe(el: Element): string {
   const v = (el as Element & { value?: unknown }).value;
   if (typeof v !== 'string') throw new Error('ese elemento no es un campo con valor');
   return v;
-}
-
-function marcadoDe(el: Element): boolean {
-  return (el as Element & { checked?: unknown }).checked === true;
 }
 
 /**
@@ -547,7 +544,7 @@ function cambiarDelHeroe(pagina: PaginaDeLaArena, lado: Lado, el: Element): void
       }
     });
   } else if (hechizo !== null) {
-    const puesto = marcadoDe(el);
+    const puesto = estaMarcado(el);
     cambiarHeroe(pagina, lado, (h) => ({
       ...h,
       hechizos: puesto

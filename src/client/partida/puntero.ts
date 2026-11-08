@@ -4,17 +4,9 @@
  * marco del tablero que se desplaza. Cada escena traduce el puntero de su pantalla; aquí se
  * reparte a la de ahora. Nada se registra al importarse: lo instala `main.ts`, en su sitio.
  */
+import { enLienzo } from '../render/lienzo.js';
 import { hastaQueLlegue } from './gestos.js';
 import { esDeDentro, type PaginaDeLaPartida } from './pagina.js';
-
-/** El punto del puntero en el lienzo, en píxeles CSS desde su esquina. */
-function enLienzo(
-  canvas: HTMLCanvasElement,
-  ev: { clientX: number; clientY: number },
-): { x: number; y: number } {
-  const r = canvas.getBoundingClientRect();
-  return { x: ev.clientX - r.left, y: ev.clientY - r.top };
-}
 
 /**
  * `fichaALaVista` tras el `click` que el navegador saca de este mismo toque, que
