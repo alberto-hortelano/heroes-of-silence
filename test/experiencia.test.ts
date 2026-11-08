@@ -1,7 +1,7 @@
 /**
  * La tropa crece: experiencia por daño, rangos en Fibonacci y la veteranía que
- * vive en el individuo. Escrito desde los criterios del plan
- * (`docs/agents/2026-10-02-la-tropa-crece/plan.md`, §7), no desde el código.
+ * vive en el individuo. Escrito desde los criterios de aceptación
+ * (`docs/agents/2026-10-02-la-tropa-crece/requisitos.md`), no desde el código.
  *
  * Desde el 12-10-2026 (`docs/agents/2026-10-12-nivel-unico/`) la experiencia da
  * RANGOS y el nivel con el que se recibe un golpe es el de las cifras

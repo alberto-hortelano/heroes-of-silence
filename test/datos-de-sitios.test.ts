@@ -1,6 +1,6 @@
 /**
  * Las murallas del mapa (puesto fronterizo, fase 2, 04-11-2026;
- * `docs/agents/2026-11-04-puesto-fronterizo/plan.md` §4 y §7): las dos formas de
+ * `docs/agents/2026-11-04-puesto-fronterizo/requisitos.md`, D3, D7 y D8): las dos formas de
  * `data/sitios.json` y la regla que las juzga al cargar (`murallaDelMapaBlocker`,
  * `leerSitios`), qué muralla lleva cada batalla del mapa
  * (`murallaDelSitio` por `montarLaBatalla`), la escalera de todo el bando atacante

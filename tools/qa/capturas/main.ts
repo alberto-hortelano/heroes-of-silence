@@ -22,7 +22,7 @@
  * de procesos, y lo mata al salir aunque algo falle. Recoge la consola: un error
  * o una excepción en la página es un fallo y sale 1.
  *
- * No entra en `pnpm verify`: tarda decenas de segundos (ver `implementacion.md`).
+ * No entra en `pnpm verify`: tarda minutos.
  */
 
 import type { ChildProcess } from 'node:child_process';

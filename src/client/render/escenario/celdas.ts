@@ -1,5 +1,5 @@
 /**
- * El relieve por celdas de vértice (R4, *dual grid*, `docs/agents/2026-10-07-relieve-esquinas/plan.md`).
+ * El relieve por celdas de vértice (R4, *dual grid*, `docs/agents/2026-10-07-relieve-esquinas/requisitos.md`).
  *
  * Las caídas se salían por arista y por fila: una frontera en diagonal era una
  * escalera de frontal y ladera, y las esquinas se arreglaban caso a caso. Aquí

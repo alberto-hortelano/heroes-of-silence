@@ -2,8 +2,8 @@
  * Un solo nivel, derivado de las cifras (`core/nivel.ts`, 12-10-2026), **con el
  * equipo puesto** (18-10-2026, decisión del usuario: «el nivel ve el equipo»).
  *
- * Los criterios salen de `docs/agents/2026-10-12-nivel-unico/plan.md` §7 y de
- * `docs/agents/2026-10-18-combate-y-ejercitos-en-el-juego/plan.md` (F1), no de la
+ * Los criterios salen de los de aceptación de `docs/agents/2026-10-12-nivel-unico/requisitos.md`
+ * y de `docs/agents/2026-10-18-combate-y-ejercitos-en-el-juego/requisitos.md` (F1), no de la
  * implementación: la monotonía se prueba cifra a cifra sobre todo el catálogo; y
  * el equipo, por lo que cada pieza cambia de lo que pega o de lo que aguanta: la
  * armadura, el arma de cada uso, la rueda y la carga. Las 34 unidades del catálogo,

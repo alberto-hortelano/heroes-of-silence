@@ -9,8 +9,8 @@
  * (una cuenta exacta sobre diez semillas, una mediana) va con `itLento` y en el
  * bucle rápido sale como saltado: se ve que existe y dónde corre.
  *
- * El criterio de qué es lento, con la tabla de tiempos, está en
- * `docs/agents/2026-10-07-verify-rapido/implementacion.md`.
+ * El criterio de qué es lento, en `CLAUDE.md` («Control de calidad», «Bucle rápido y
+ * orden lenta»).
  */
 import { it } from 'vitest';
 

@@ -1,9 +1,8 @@
 /**
- * La infiltración, fase A (05-11-2026, `docs/agents/2026-11-05-infiltrados-y-robo/plan.md`
- * §7): un grupo en que lleva el rasgo todo el mundo, héroe incluido, cruza las
+ * La infiltración, fase A (05-11-2026, `docs/agents/2026-11-05-infiltrados-y-robo/`): un grupo en que lleva el rasgo todo el mundo, héroe incluido, cruza las
  * barreras a un día entero por casilla.
  *
- * Escritos desde los criterios del plan y de `requisitos.md` (I1, I7, I8), no desde
+ * Escritos desde los criterios de aceptación de su `requisitos.md` (I1, I7, I8), no desde
  * el código: quién se infiltra y por qué no; lo que cuesta la barrera (el día
  * entero, también tras reclutar algo más lento); los datos (uno por facción, nunca
  * el tipo por defecto, y el validador que muerde con cada problema); la marcha de

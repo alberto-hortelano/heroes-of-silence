@@ -6,8 +6,8 @@
  * (`cifrasDeLosNiveles`, `ruedaDelGolpe`): la lanza en el primero de una carga, la
  * de cuerpo a cuerpo en lo demás y, en el contraataque, la del que responde.
  *
- * Escritos desde los criterios de `plan-2.md`
- * (`docs/agents/2026-10-18-equipo-por-tipos-y-bases/`). Cada comparación es contra
+ * Escritos desde los «Criterios de aceptación (vuelta 2)» de
+ * `docs/agents/2026-10-18-equipo-por-tipos-y-bases/requisitos.md`. Cada comparación es contra
  * la misma arma con los niveles de la Espada (todo a 3, una copia «lisa»): así lo
  * que cambia es solo la rueda, no el ataque ni el daño.
  */

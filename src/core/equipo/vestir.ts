@@ -82,8 +82,8 @@ export interface SumaDeEquipo {
   readonly armadura: number;
   /**
    * Lo que pesa todo, también las armas por uso: el peso es de lo que se lleva.
-   * La montura no: carga ese peso, y el suyo cuenta solo contra su fuerza (D3 de
-   * `docs/agents/2026-10-26-montura/plan.md`).
+   * La montura no: carga ese peso, y el suyo cuenta solo contra su fuerza
+   * (`docs/agents/2026-10-26-montura/requisitos.md`).
    */
   readonly peso: number;
   /** La montura puesta, o `null`: sus cifras son suyas y no se suman a nada de arriba. */

@@ -119,9 +119,7 @@ export function batallaTerminada(f: SpectatorSnapshotMsg): boolean {
  * acelera en vez de saltar fotogramas porque saltar es exactamente lo que dejaba
  * al animador sin el orden de la batalla.
  *
- * Los números están medidos con la política de `pnpm qa` (ver
- * `docs/agents/2026-10-01-telon-del-espectador/implementacion.md`), no
- * elegidos a ojo.
+ * Los números están medidos con la política de `pnpm qa`, no elegidos a ojo.
  */
 export const RITMO_MAXIMO = 12;
 export function ritmoDeReproduccion(atrasados: number): number {

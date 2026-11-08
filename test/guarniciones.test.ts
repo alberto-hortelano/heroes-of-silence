@@ -1,8 +1,8 @@
 /**
  * La guarnición de los sitios y la defensa con el héroe (puesto fronterizo, fase 1,
- * 04-11-2026; `docs/agents/2026-11-04-puesto-fronterizo/plan.md`, §7).
+ * 04-11-2026; `docs/agents/2026-11-04-puesto-fronterizo/requisitos.md`).
  *
- * Desde los criterios del plan, no desde el código: dejar y recoger en ciudad, paso
+ * Desde sus criterios de aceptación, no desde el código: dejar y recoger en ciudad, paso
  * y pueblo propios; los rechazos con su frase; que pasar por casa ni contratar ya
  * recogen; la defensa que elige la IA (determinista, dentro del cupo del héroe y
  * sin dejar fuera más de lo que cabe en la guarnición) y la que rehace la persona;

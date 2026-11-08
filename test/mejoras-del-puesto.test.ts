@@ -1,6 +1,6 @@
 /**
  * Las mejoras del puesto (puesto fronterizo, fase 3, 04-11-2026;
- * `docs/agents/2026-11-04-puesto-fronterizo/plan.md` §4 «Fase 3» y §7): un paso
+ * `docs/agents/2026-11-04-puesto-fronterizo/requisitos.md`, «Criterios de aceptación»): un paso
  * tomado es un puesto, y su obra —caseta, empalizada, muralla— se paga en oro con
  * el héroe del dueño dentro, se recuerda por la niebla, viaja al agente y al
  * espectador y pone su muralla en la batalla del paso.

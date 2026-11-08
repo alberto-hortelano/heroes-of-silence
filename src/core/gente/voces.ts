@@ -222,7 +222,7 @@ export function vecinosDeLaBase(town: Town): readonly Vecino[] {
  * Con «cualquier edificio nuevo» salía un `town_voices` por cada turno del
  * agente en `pnpm qa` (6 para 6 `adventure_turn`, 09-10-2026): el agente
  * construye casi cada día y la petición doblaba las suyas, que es el riesgo que
- * señaló la crítica. Por sitios, ver `implementacion.md`.
+ * señaló la crítica. Por sitios, 3 para 6 (`docs/historia.md`).
  */
 export function firmaDeVoces(town: Town, semana: number): string {
   return `semana ${semana}: ${sitiosConstruidos(town).join(',')}`;

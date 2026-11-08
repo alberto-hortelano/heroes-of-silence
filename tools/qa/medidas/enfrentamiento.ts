@@ -96,9 +96,7 @@
  * cuanto más pesa (×0,5 49,78, ×2 49,27); eligiendo así también a quién pegar
  * ya pegado, 49,68 ± 0,23, entero por DEBAJO. Y `defend` (#80) tampoco: con
  * el mejor golpe a pérdida, defenderse da 49,43 ± 0,33 (2 000 parejas), y tras
- * esperar, defenderse antes que meter el morro, 49,33 ± 0,39 (3 000). Las
- * cifras y el porqué, en
- * `docs/agents/2026-10-08-represalia/implementacion.md`.
+ * esperar, defenderse antes que meter el morro, 49,33 ± 0,39 (3 000).
  *
  * ## `--magia`: con héroe y tropa de partida (#92)
  *

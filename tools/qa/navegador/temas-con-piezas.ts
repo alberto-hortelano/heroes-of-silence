@@ -52,8 +52,9 @@ import { urlDePartida } from './url-de-partida.js';
 
 /**
  * La caja de `#canvas` [x, y, ancho, alto] que no se mueve, con tema y sin él: la
- * de `implementacion.md` (tanda B, 13-10-2026) y, la vertical y la de 2560, la del
- * neutro del 18-10-2026. En el escritorio, el ancho es el de la ventana menos 360
+ * de la tanda B del 13-10-2026 (la 390 y la 1440, en el criterio 6 de
+ * `docs/agents/2026-10-13-temas-de-las-laminas/qa.md`) y, la vertical y la de 2560,
+ * la del neutro del 18-10-2026. En el escritorio, el ancho es el de la ventana menos 360
  * (el panel de 19rem, el relleno, el hueco y el borde del mapa).
  */
 const LIENZO: Record<string, number[]> = {

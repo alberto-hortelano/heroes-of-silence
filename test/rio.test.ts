@@ -255,7 +255,7 @@ function puenteConDosOrillas(map: ReturnType<typeof buildMap>['map'], at: Point)
 describe('el río de los mapas del juego, entero (el guardia de continuidad)', () => {
   // En el bucle rápido, 1-40; en la orden lenta, 1-200. Muerde: con
   // `sinAguaEnLasEsquinas` escribiendo sin `ponerTipo` y sin el `rioEntero` del
-  // generador, la esquina que pasa a montaña corta el río (implementacion.md).
+  // generador, la esquina que pasa a montaña corta el río.
   it('cada río del trazado sigue entero en el mapa hecho, con su boca; en él, solo puentes y ciudades-puente, ninguna base; y fuera, ni agua de frontera', async () => {
     const malos: string[] = [];
     const formas = new Map<string, number>();
