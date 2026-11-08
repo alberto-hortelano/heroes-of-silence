@@ -57,7 +57,7 @@ reposo se mueve más de lo tolerable y en qué fotogramas el arma no se lee (de 
 del cuerpo), y qué hojas pintadas se pintaron sobre otro render del maniquí.
 
 - **Un aviso de sentido: PARA.** El arreglo va en el maniquí (`tools/taller/unidades.ts` o
-  `tools/art/poses.ts`) y lo decide la persona: pregúntale enseñándole el aviso. El
+  `tools/art/poses/`) y lo decide la persona: pregúntale enseñándole el aviso. El
   trabajador tampoco pinta sobre él (lo rechaza diciéndolo).
 - Un reposo que se mueve o un arma que no se lee: díselo a la persona, con el visor del
   maniquí (`pnpm taller visor-maniqui <id>`, arrancado como el visor del paso 4: cada clip

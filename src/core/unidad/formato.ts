@@ -55,10 +55,10 @@ export const CATALOGO_DE_HABILIDADES: readonly string[] = habilidadesJson.habili
 );
 
 /**
- * Los perfiles de arma de las hojas: los cinco de pose de `tools/art/poses.ts`,
+ * Los perfiles de arma de las hojas: los cinco de pose de `tools/art/poses/juegos.ts`,
  * el del jinete y el del jinete que además dispara (`montado-arco`, el jinete
  * élfico: lanza, espada y arco, 13-10-2026). Están aquí y no importados de allí
- * porque `poses.ts` toca el disco y `core` es puro. El de cada hoja lo da el
+ * porque `poses/juegos.ts` lee `node:path` y `core` es puro. El de cada hoja lo da el
  * taller (`perfilDeUnidad`, `tools/taller/unidades.ts`).
  */
 export const PERFILES_DE_UNIDAD = [

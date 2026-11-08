@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { carpetaDeManiqui } from '../tools/art/poses.js';
+import { carpetaDeManiqui } from '../tools/art/poses/juegos.js';
 import { sha256 } from '../tools/comun/hash.js';
 import { Cola } from '../tools/taller/cola.js';
 import type { Encargo } from '../tools/taller/encargo.js';

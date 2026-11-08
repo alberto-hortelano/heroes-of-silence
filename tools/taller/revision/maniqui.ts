@@ -428,7 +428,7 @@ export function maniquiBlocker(e: Encargo, raiz: string): string | null {
   const atras = marchaHaciaAtras(vigentes.huesos);
   return atras === null
     ? null
-    : `el maniquí de ${e.id} anda hacia atrás en d${hoja.d} «${atras.clip}» (el pie de apoyo avanza ${atras.sentido.toFixed(3)} del alto hacia donde mira): el arreglo va en el maniquí (\`tools/taller/unidades.ts\` o \`tools/art/poses.ts\`), no en el pintor`;
+    : `el maniquí de ${e.id} anda hacia atrás en d${hoja.d} «${atras.clip}» (el pie de apoyo avanza ${atras.sentido.toFixed(3)} del alto hacia donde mira): el arreglo va en el maniquí (\`tools/taller/unidades.ts\` o \`tools/art/poses/\`), no en el pintor`;
 }
 
 /**

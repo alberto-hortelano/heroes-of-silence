@@ -23,9 +23,9 @@ import {
   hojasDeFigura,
   NOMBRES_DE_DIRECCION,
 } from '../../src/shared/arte.js';
+import type { ClipsDeManiqui, Tramo } from '../art/poses/clips.js';
 import {
   type Atrezo,
-  type ClipsDeManiqui,
   type CuerpoACuerpo,
   carpetaDeManiqui,
   carpetaDePoses,
@@ -36,9 +36,8 @@ import {
   JUEGOS_DE_ARMAS,
   type JuegoEn8d,
   type Perfil,
-  type Tramo,
   UNA_MANO,
-} from '../art/poses.js';
+} from '../art/poses/juegos.js';
 import { RAIZ } from '../comun/raiz.js';
 import { arteEnOchoDirecciones } from './arte-en-disco.js';
 import type { RitmoDeUnidad } from './derivar.js';
@@ -51,7 +50,7 @@ export interface Unidad {
   /** El nombre en `NuevaJugabilidad.md`. */
   readonly nombre: string;
   /**
-   * La hoja de pose: uno de los perfiles de `poses.ts` (sprite-forge), o
+   * La hoja de pose: uno de los perfiles de `poses/juegos.ts` (sprite-forge), o
    * `montado-lanza`, la del jinete que renderiza `tools/art/montura.ts`.
    */
   readonly perfil: Perfil | 'montado-lanza';
@@ -1154,7 +1153,7 @@ export function perfilDeUnidad(u: Unidad): PerfilDeUnidad {
 
 /**
  * Las unidades definitivas, en 8 direcciones con 6 acciones (`OCHO_DIRECCIONES`
- * en `tools/art/poses.ts`), y el juego de armas de cada una: sus poses son las de
+ * en `tools/art/poses/clips.ts`), y el juego de armas de cada una: sus poses son las de
  * ese juego (`JUEGOS_DE_ARMAS`). El juego no se escribe aquí otra vez: es el de
  * `JUEGO_DEL_YBOT`, porque el arte propio se pinta sobre las poses del mismo
  * juego con el que la unidad se pinta mientras no lo tiene.

@@ -1,7 +1,7 @@
 /**
  * La hoja de REFERENCIA DE POSE montada: un caballo y su jinete renderizados con
  * la cámara del juego, para que ChatGPT los repinte como hace con el maniquí a
- * pie (`tools/art/poses.ts`).
+ * pie (`tools/art/poses/render.ts`).
  *
  *   npx tsx tools/art/montura.ts            → assets/unidades/_poses/montado-lanza.png + .json
  *   npx tsx tools/art/montura.ts --prueba   → fotogramas sueltos en .cache/taller/montura/
@@ -16,7 +16,7 @@
  * three.js sale de `../sprite-forge/node_modules/three`, sin dependencia nueva.
  *
  * El caballo: `tools/art/modelos/caballo-quaternius.glb` (CC0, ver `LICENCIA.md`).
- * El jinete: el `y_bot` y `sitting_idle` de ne-fan, como en `poses.ts`.
+ * El jinete: el `y_bot` y `sitting_idle` de ne-fan, como en `poses/render.ts`.
  */
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -34,14 +34,14 @@ import {
 import { sha256 } from '../comun/hash.js';
 import { chromiumInstalado, servirFicheros } from '../comun/navegador.js';
 import { RAIZ } from '../comun/raiz.js';
+import { indicesDeClip } from './poses/clips.js';
 import {
   clipDeDisparoDe,
-  componerGiro,
-  indicesDeClip,
   JUEGOS_DE_ARMAS,
   JUEGOS_MONTADOS,
   type JuegoMontado,
-} from './poses.js';
+} from './poses/juegos.js';
+import { componerGiro } from './poses/render.js';
 import { DISPARO_EN_NODE } from './ybot-a-distancia.js';
 
 const FORGE = resolve(process.env.SPRITE_FORGE_DIR ?? join(RAIZ, '../sprite-forge'));
@@ -270,7 +270,7 @@ export async function renderizarMontura(prueba: boolean): Promise<string> {
 
 /**
  * Cada acción de la unidad montada en 8 direcciones (como `OCHO_DIRECCIONES` de
- * `poses.ts`), repartidas en hojas como `HOJAS_DE_FIGURA`. La A, reposo, paso y
+ * `poses/clips.ts`), repartidas en hojas como `HOJAS_DE_FIGURA`. La A, reposo, paso y
  * carga (el paso con la lanza bajada); la B, el ataque parado con espada, el
  * daño (el caballo encaja el golpe) y la muerte, que se queda en su último
  * fotograma; la C, solo con pistola, el disparo parado. Luz del contrato.

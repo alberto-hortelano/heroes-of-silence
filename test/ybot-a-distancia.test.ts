@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { FIGURA } from '../src/shared/arte.js';
-import { columnaDeSuelta, indicesDeClip, OCHO_DIRECCIONES } from '../tools/art/poses.js';
+import { columnaDeSuelta, indicesDeClip, OCHO_DIRECCIONES } from '../tools/art/poses/clips.js';
 import { CURVAS_DEL_DISPARO, DISPARO_EN_NODE as curva } from '../tools/art/ybot-a-distancia.js';
 
 const DISPAROS = Object.keys(CURVAS_DEL_DISPARO) as (keyof typeof CURVAS_DEL_DISPARO)[];

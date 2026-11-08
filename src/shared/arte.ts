@@ -207,7 +207,7 @@ export const NOMBRES_DE_DIRECCION = [
 /**
  * Cómo se reparten las acciones de una figura en las hojas que se pintan por
  * dirección, en el orden de sus filas. Es el ÚNICO sitio que lo dice: de aquí
- * leen el maniquí (`tools/art/poses.ts`, `montura.ts`), el taller (encargos,
+ * leen el maniquí (`tools/art/poses/`, `montura.ts`), el taller (encargos,
  * empaquetado, derivado) y el cliente, que resuelve cada fila a su imagen.
  *
  *  - **A**: reposo, marcha y carga: la locomoción.

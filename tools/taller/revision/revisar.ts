@@ -18,7 +18,7 @@ import { basename, dirname, join, relative } from 'node:path';
 import { z } from 'zod';
 import { CARPETA_DE_LAS_FIGURAS } from '../../../src/core/gente/banco.js';
 import { HOJAS_DE_FIGURA, NOMBRES_DE_DIRECCION } from '../../../src/shared/arte.js';
-import { carpetaDeManiqui } from '../../art/poses.js';
+import { carpetaDeManiqui } from '../../art/poses/juegos.js';
 import { sha256 } from '../../comun/hash.js';
 import { RAIZ } from '../../comun/raiz.js';
 import { juzgarConCodex } from '../codex.js';

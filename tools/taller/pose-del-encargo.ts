@@ -6,7 +6,7 @@
  */
 import { join } from 'node:path';
 import { type ClipDeFigura, FIGURA, HOJAS_DE_FIGURA } from '../../src/shared/arte.js';
-import { OCHO_DIRECCIONES } from '../art/poses.js';
+import { OCHO_DIRECCIONES } from '../art/poses/clips.js';
 import { aRaster } from '../comun/imagen.js';
 import { RAIZ } from '../comun/raiz.js';
 import { ELEVACION_DEL_CADAVER } from './derivar.js';

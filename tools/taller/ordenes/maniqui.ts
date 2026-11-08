@@ -8,17 +8,15 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import sharp from 'sharp';
 import { NOMBRES_DE_DIRECCION } from '../../../src/shared/arte.js';
+import { CANDIDATOS_DEL_MUESTRARIO, OCHO_DIRECCIONES } from '../../art/poses/clips.js';
 import {
-  CANDIDATOS_DEL_MUESTRARIO,
   carpetaDeFotogramas,
   carpetaDeManiqui,
   DIR_MANIQUIES,
   JUEGOS_DE_ARMAS,
   type JuegoDeArmas,
-  OCHO_DIRECCIONES,
-  renderizarMuestrario,
-  renderizarOchoDirecciones,
-} from '../../art/poses.js';
+} from '../../art/poses/juegos.js';
+import { renderizarMuestrario, renderizarOchoDirecciones } from '../../art/poses/render.js';
 import { sha256 } from '../../comun/hash.js';
 import { RAIZ } from '../../comun/raiz.js';
 import { DIR_DEL_MANIQUI_CIVIL, POSE_DE_LA_IDENTIDAD } from '../npcs.js';

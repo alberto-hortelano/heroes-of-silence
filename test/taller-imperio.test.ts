@@ -6,13 +6,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import {
-  clipDeDisparoDe,
-  hojasDe,
-  indicesDeTramo,
-  JUEGOS_DE_ARMAS,
-  type JuegoEn8d,
-} from '../tools/art/poses.js';
+import { hojasDe, indicesDeTramo } from '../tools/art/poses/clips.js';
+import { clipDeDisparoDe, JUEGOS_DE_ARMAS, type JuegoEn8d } from '../tools/art/poses/juegos.js';
 import {
   EN_OCHO_DIRECCIONES,
   encargosDeOchoDirecciones,

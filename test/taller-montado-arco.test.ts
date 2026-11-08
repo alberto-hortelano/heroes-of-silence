@@ -15,7 +15,7 @@ import {
   cuerpoACuerpoDe,
   JUEGOS_MONTADOS,
   type JuegoMontado,
-} from '../tools/art/poses.js';
+} from '../tools/art/poses/juegos.js';
 import { sha256 } from '../tools/comun/hash.js';
 import { JUEGOS_EN_8D } from '../tools/taller/unidades.js';
 import { RAIZ } from './comun.js';

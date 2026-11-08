@@ -16,18 +16,20 @@ import {
   primeraFilaDe,
 } from '../src/shared/arte.js';
 import {
-  type Atrezo,
-  clipDeDisparoDe,
   columnaDeSuelta,
-  cuerpoACuerpoDe,
   fpsATiempoReal,
   hojasDe,
   indicesDeClip,
+  OCHO_DIRECCIONES,
+} from '../tools/art/poses/clips.js';
+import {
+  type Atrezo,
+  clipDeDisparoDe,
+  cuerpoACuerpoDe,
   JUEGOS_DE_ARMAS,
   type JuegoDeArmas,
   type JuegoEn8d,
-  OCHO_DIRECCIONES,
-} from '../tools/art/poses.js';
+} from '../tools/art/poses/juegos.js';
 import { sha256, sha256DeFichero } from '../tools/comun/hash.js';
 import { derivarAtlas, ELEVACION_DEL_CADAVER } from '../tools/taller/derivar.js';
 import { type Encargo, encargoSchema, PAPELES_DE_POSE, promptDe } from '../tools/taller/encargo.js';

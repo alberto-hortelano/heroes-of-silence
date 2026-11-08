@@ -34,7 +34,7 @@ import {
   carpetaDePoses,
   JUEGOS_DE_ARMAS,
   type JuegoDeArmas,
-} from '../art/poses.js';
+} from '../art/poses/juegos.js';
 import { RAIZ } from '../comun/raiz.js';
 import { type AtlasDerivado, ELEVACION_DEL_CADAVER, RELOJ } from './derivar.js';
 import { derivarDireccionDePoses, rutaJunta } from './poses-8d.js';

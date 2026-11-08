@@ -13,7 +13,7 @@ import {
   hojasDeFigura,
   hojasDeLasAcciones,
 } from '../../src/shared/arte.js';
-import { clipDeDisparoDe } from '../art/poses.js';
+import { clipDeDisparoDe } from '../art/poses/juegos.js';
 import { sha256 } from '../comun/hash.js';
 import { RAIZ } from '../comun/raiz.js';
 import { leerBancoDeDisco } from '../npcs/banco.js';

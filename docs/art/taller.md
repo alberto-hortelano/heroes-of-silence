@@ -4,7 +4,7 @@ Genera el arte con **ChatGPT por la suscripción**, a través de Codex CLI. Nunc
 fal.ai, nunca `pnpm gen -- --go`, nunca una API de pago.
 
 ```bash
-npx tsx tools/art/poses.ts --todos          # referencias de pose del Y Bot (render local)
+npx tsx tools/art/poses/cli.ts --todos      # referencias de pose del Y Bot (render local)
 pnpm taller encolar templario-escudo        # la lámina de identidad
 pnpm taller                                 # trabaja hasta vaciar la cola
 pnpm taller encolar templario-escudo --atlas
@@ -69,7 +69,7 @@ El atlas de Liora ya no es referencia de nada.
 
 ## Las referencias de pose
 
-`tools/art/poses.ts` renderiza el rig `y_bot` con sprite-forge a la cámara del
+`tools/art/poses/render.ts` renderiza el rig `y_bot` con sprite-forge a la cámara del
 juego (`tactical_25`: ortográfica, 25° hacia abajo, dirección 2 de 8). Un perfil
 es qué clip hace de ataque:
 
@@ -82,6 +82,12 @@ es qué clip hace de ataque:
 | `ballesta` | las mismas, encarando el arma al hombro |
 
 `liora-walk-v2` está rechazado: no se usa como referencia.
+
+La orden es `tools/art/poses/cli.ts`; lo que lee casi todo el taller son tablas sin
+three, sharp ni playwright: los perfiles, los juegos de armas y su atrezo en
+`poses/juegos.ts`, y los clips, las ocho direcciones y las filas de cada hoja en
+`poses/clips.ts`. El JavaScript que se pega en la página de sprite-forge (el atrezo,
+las piernas de color, los huesos) está en `poses/three.ts`.
 
 ## La luz (02-10-2026)
 
@@ -221,7 +227,7 @@ La unidad definitiva tiene 8 direcciones y 6 acciones: quieto, andando, carga,
 ataque, daño y muerte. La muerte arranca de la pose final del daño y su último
 fotograma es el cadáver (`cadaver` en el JSON).
 
-1. **Las poses**, por juego de armas: `npx tsx tools/art/poses.ts --8d` escribe
+1. **Las poses**, por juego de armas: `npx tsx tools/art/poses/cli.ts --8d <juego>` escribe
    `assets/unidades/_poses/<juego>-8d/`, con dos hojas de 3 filas por dirección
    (`d<n>-a`: quieto, andando y carga; `d<n>-b`: ataque, daño y muerte) y el giro
    (`giro.png`, el reposo de las 8). El maniquí:

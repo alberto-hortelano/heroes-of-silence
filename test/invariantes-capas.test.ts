@@ -903,9 +903,12 @@ describe('invariantes del proyecto', () => {
     // Lo que no existe a propósito, con su motivo; una ruta nueva que no existe
     // no se añade aquí sin decir por qué.
     const NO_EXISTEN: Readonly<Record<string, string>> = {
-      'tools/art/poses.ts → src/angles.mjs': 'relativa a sprite-forge (`FORGE`), otro repositorio',
-      'tools/art/poses.ts → src/page.mjs': 'relativa a sprite-forge (`FORGE`), otro repositorio',
-      'tools/art/poses.ts → src/render.mjs': 'relativa a sprite-forge (`FORGE`), otro repositorio',
+      'tools/art/poses/render.ts → src/angles.mjs':
+        'relativa a sprite-forge (`FORGE`), otro repositorio',
+      'tools/art/poses/render.ts → src/page.mjs':
+        'relativa a sprite-forge (`FORGE`), otro repositorio',
+      'tools/art/poses/render.ts → src/render.mjs':
+        'relativa a sprite-forge (`FORGE`), otro repositorio',
       'tools/taller/mapa.ts → assets/mapa/cofre':
         'la salida de un encargo va sin extensión: el taller escribe `cofre.webp` y su procedencia',
       'tools/marcas/almacen.ts → docs/revision/marcas':

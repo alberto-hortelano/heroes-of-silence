@@ -16,7 +16,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ZANCADA } from '../src/client/render/figuras/marcha.js';
 import { FIGURA } from '../src/shared/arte.js';
-import { indicesDeClip } from '../tools/art/poses.js';
+import { indicesDeClip } from '../tools/art/poses/clips.js';
 import { aRaster } from '../tools/comun/imagen.js';
 import { RAIZ } from './comun.js';
 

@@ -34,16 +34,18 @@ import {
   primeraFilaDe,
 } from '../../src/shared/arte.js';
 import {
+  columnaDeSuelta,
+  type FilaDePose,
+  fpsATiempoReal,
+  OCHO_DIRECCIONES,
+} from '../art/poses/clips.js';
+import {
   carpetaDeManiqui,
   carpetaDePoses,
   clipDeDisparoDe,
-  columnaDeSuelta,
   DIR_POSES,
-  type FilaDePose,
-  fpsATiempoReal,
   type JuegoEn8d,
-  OCHO_DIRECCIONES,
-} from '../art/poses.js';
+} from '../art/poses/juegos.js';
 import { sha256 } from '../comun/hash.js';
 import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';

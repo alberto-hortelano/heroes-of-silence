@@ -97,7 +97,7 @@ export const ELEVACION_DEL_CADAVER = 64;
 
 /**
  * Una hoja del taller es una dirección de una unidad en 8 direcciones
- * (`OCHO_DIRECCIONES` en `tools/art/poses.ts`): una fila por cada una de las
+ * (`OCHO_DIRECCIONES` en `tools/art/poses/clips.ts`): una fila por cada una de las
  * seis acciones de `CLIPS_DE_FIGURA`, en su orden, cada una con su reloj, y la
  * séptima, el disparo, en quien dispara (`FILAS_DEL_ATLAS`). La muerte arranca
  * donde acaba el daño. Las hojas de 3 y 4 filas de una sola dirección se
