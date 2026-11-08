@@ -314,7 +314,7 @@ sala en el vacío»): la cámara de la base se acerca hasta que las figuras mide
 edificio con su tope (`encuadrarLaMorada`), el edificio se cambia por su **versión abierta**
 (casa de muñecas, sin la pared de delante: `abierta-<id>.webp`, `abiertaDe`; la única
 sustitución, `conLaAbierta`; sin ella, su exterior) y delante, en el empedrado
-(`FILA_DE_LOS_RECLUTAS`), una figura por unidad que produce, que se elige con el clic o su botón
+(`filaDeLosReclutas`), una figura por unidad que produce, que se elige con el clic o su botón
 del lateral (la ficha y «+1»/«Todo» con el motivo del núcleo escrito, `partida/morada/panel.ts`); quien
 anduvo, quieto en la puerta, y la gente, fuera (`componerBase(…, { gente: false })`). Escape o
 «Volver a la base» vuelven con la cámara de antes. La gente se pinta con su figura del banco

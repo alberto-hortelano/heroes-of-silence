@@ -5975,3 +5975,41 @@ propio fichero (test 12, tools 256, servidor 17, cliente y `shared` 178, core 20
 no usaba nadie (`detectBackgroundColor` y `transparencyRatio` del recorte del fondo, `MATERIAL` de
 los temas y `esInstantaneo` de la magia). Que no vuelvan lo vigila `tools/qa/exportaciones.ts`, en
 CI.
+
+## `CLAUDE.md` adelgazado: el índice y `docs/areas/` (08-11-2026)
+
+Fase Doc de la reorganización (decisión del usuario, 06-11-2026: «Dejar en CLAUDE.md los contratos,
+un índice compacto de puertas (qué → dónde) y cada regla en pocas líneas; el detalle con fechas y
+medidas pasa a `docs/`… No se pierde nada, se mueve»). `CLAUDE.md` tenía 305 903 bytes; el
+adelgazamiento del 04-10 había vuelto a ese tamaño en un mes, porque cada puerta nueva traía su
+párrafo entero a la tabla. Quedó en 39 487, y el detalle, tal cual, en
+`docs/areas/{batalla,catalogo,partida,mapa,escenario,interfaz,arena,mundos,agente}.md` y en
+`docs/calidad.md`.
+
+Cómo se movió sin perder nada: un guion partió el `CLAUDE.md` de `db96a4ad` en bloques (481:
+párrafos, viñetas, cada celda de una tabla y cada línea de un bloque de código) y repartió cada uno
+a la doc de su área por la fila o la viñeta de la que salía, no por su texto. Una fila de tabla pasó
+a «### Qué» con su texto debajo; las cuatro viñetas enormes («El mapa es una red de nodos», 27 KB;
+«Mapa de aventura», 57 KB; «Arena», 12 KB; «La base», 6 KB), a un apartado con un párrafo por frase
+que empieza en negrita. Otro guion buscó después cada bloque, literal salvo las rutas entre
+comillas invertidas y los espacios, en lo nuevo (`CLAUDE.md`, `docs/areas/*`, `docs/calidad.md`,
+`docs/banco.md`, `docs/art/taller.md` y esta historia): falta uno, y a propósito, la frase de que
+`test/invariantes.test.ts` vigila las fronteras, que hoy son cinco ficheros y se dice con sus cinco
+nombres.
+
+Lo único que cambió del texto movido son rutas, 131: 52 `invariantes.test.ts` al guardia de los
+cinco que de verdad lo vigila (por los símbolos de la fila contra el código de cada uno), 53
+«`símbolo` (`ruta`)» cuyo símbolo se había mudado a otro fichero que seguía existiendo (por ejemplo
+`tomarElNodo`, de `state/game.ts` a `state/marcha.ts`: la ruta vieja existía y nadie lo habría
+visto) y 26 a mano, las que ya no existían (`hero/equipo.ts` y `data.ts` repartidos en `equipo/`,
+`generate.ts` y `vestir.ts` hechos carpeta, `core/arena.ts`, `render/batalla.ts`,
+`views/panels.ts`, `client/rueda/`, `cargar.ts`, `test/helpers.ts`). Quedaron como estaban las
+rutas que nombran lo que se fue a propósito (`data/creatures.json`, `data/poderes.json`,
+`render/tropa/`, `tools/qa/ramales.ts`) y los símbolos retirados antes de la reorganización que el
+texto cita como retirados (`lineaLibre`, `sobreLaNiebla`); `FILA_DE_LOS_RECLUTAS`, que la morada
+citaba como vigente, nunca estuvo en el código con ese nombre (`git log -S` no lo encuentra en
+`src/`): es `filaDeLosReclutas` (`render/base/fila.ts`), y así lo dice ya `docs/areas/partida.md`.
+
+Que no vuelva a crecer lo vigila `test/documentacion.test.ts`: `CLAUDE.md` ≤ 50 KB, las filas de
+puertas ≤ 200 caracteres, las rutas y los símbolos que cita, y la tabla «Áreas» contra
+`docs/areas/`.
