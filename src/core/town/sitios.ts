@@ -39,7 +39,7 @@ export function esSitio(x: string): x is SitioId {
   return (SITIOS as readonly string[]).includes(x);
 }
 
-export interface Sitio {
+interface Sitio {
   readonly id: SitioId;
   /** Los edificios que se levantan aquí, en orden de mejora. */
   readonly cadena: readonly string[];

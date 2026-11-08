@@ -20,11 +20,11 @@ import { JUGADA_DE_MURALLA } from './vocabulario.js';
 
 // ---------------------------------------------------------------- respuestas
 
-export const pointSchema = z.object({ x: z.number().int(), y: z.number().int() });
-export const hexSchema = z.object({ col: z.number().int(), row: z.number().int() });
+const pointSchema = z.object({ x: z.number().int(), y: z.number().int() });
+const hexSchema = z.object({ col: z.number().int(), row: z.number().int() });
 
 /** Una puerta de la muralla: el lado entre dos casillas de una fila, `b` al este de `a`. */
-export const gateSchema = z.object({ a: hexSchema, b: hexSchema });
+const gateSchema = z.object({ a: hexSchema, b: hexSchema });
 
 export const adventureActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('move_hero'), hero: z.string(), to: pointSchema }),
@@ -144,12 +144,12 @@ export const battleActionSchema = z.discriminatedUnion('type', [
  * es un golpe se dice en el veredicto y la elige la IA a ciegas por él, sin
  * quitarle la batalla.
  */
-export const battleResponseResponseSchema = z.object({
+const battleResponseResponseSchema = z.object({
   response: z.string().max(32),
   reasoning: z.string().max(2000).optional(),
 });
 
-export const adventureTurnResponseSchema = z.object({
+const adventureTurnResponseSchema = z.object({
   /** Acciones en orden. No hace falta terminar con `end_turn`: se añade solo. */
   actions: z.array(adventureActionSchema).max(200),
   /**
@@ -181,7 +181,7 @@ export const battleTurnResponseSchema = z.object({
  * la paleta no se lo ofrece: tres comportamientos incoherentes con un cambio y
  * ningún test rojo.
  */
-export const terrainSchema = z.enum(TERRAIN_KINDS);
+const terrainSchema = z.enum(TERRAIN_KINDS);
 
 /**
  * Un id que el motor usa VERBATIM —en el `MapObject`, en el `Town`, en los
@@ -281,7 +281,7 @@ export const mapPlanSchema = z.object({
     .optional(),
 });
 
-export const mapGenerateResponseSchema = z.object({
+const mapGenerateResponseSchema = z.object({
   plan: mapPlanSchema,
   reasoning: z.string().max(2000).optional(),
 });
@@ -312,7 +312,7 @@ export const heroFromTroopResponseSchema = z.object({
  * misma regla (`motivoDeLinea`). Lo que sí acota el esquema es la forma: de 1 a
  * `LINEAS_POR_VECINO` líneas por vecino y no más voces de las que caben.
  */
-export const townVoicesResponseSchema = z.object({
+const townVoicesResponseSchema = z.object({
   voices: z
     .array(
       z.object({

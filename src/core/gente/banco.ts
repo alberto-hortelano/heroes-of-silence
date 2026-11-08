@@ -92,7 +92,7 @@ export const ETIQUETAS = {
   readonly faccion: Readonly<Record<FactionId, string>>;
 };
 
-export type ClaveDeEtiqueta = keyof typeof ETIQUETAS;
+type ClaveDeEtiqueta = keyof typeof ETIQUETAS;
 const CLAVES_DE_ETIQUETA = Object.keys(ETIQUETAS) as readonly ClaveDeEtiqueta[];
 export type Oficio = keyof typeof ETIQUETAS.oficio;
 export type Sexo = keyof typeof ETIQUETAS.sexo;
@@ -101,7 +101,7 @@ export type Especie = keyof typeof ETIQUETAS.especie;
 type Clase = keyof typeof ETIQUETAS.clase;
 
 /** Las etiquetas de una figura: una palabra de cada lista de `ETIQUETAS`. */
-export interface EtiquetasDeNpc {
+interface EtiquetasDeNpc {
   readonly oficio: Oficio;
   readonly sexo: Sexo;
   readonly edad: Edad;
@@ -178,7 +178,7 @@ export function esIdDeNpc(id: string): boolean {
 }
 
 /** Por qué `v` no es el id de una figura, o `null`: lo dicen el banco, la historia y el taller. */
-export function idDeNpcBlocker(v: unknown): string | null {
+function idDeNpcBlocker(v: unknown): string | null {
   return typeof v === 'string' && esIdDeNpc(v)
     ? null
     : `${JSON.stringify(v)} no es el id de una figura: minúsculas, cifras y «-», de 1 a ${LARGO_DEL_ID}`;

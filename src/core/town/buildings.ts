@@ -46,7 +46,7 @@ export interface Building {
 }
 
 /** Los sitios de morada de una base: del 1 al 6 (`lvl1`… `lvl6`). */
-export const SITIOS_DE_MORADA = 6;
+const SITIOS_DE_MORADA = 6;
 
 /**
  * El nivel de una morada: el de lo mejor que produce (`nivelDeUnidad`, con el

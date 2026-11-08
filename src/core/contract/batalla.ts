@@ -61,7 +61,7 @@ import {
  * que embosca, sin héroe; la vista ajena sigue siendo la que hace falta, porque
  * no sabe ni le importa quién es el atacante.
  */
-export type VistaDeBatalla = 'propia' | 'ajena';
+type VistaDeBatalla = 'propia' | 'ajena';
 
 /**
  * Lo que el agente ve del origen de un stack. Solo el héroe se marca —tu héroe

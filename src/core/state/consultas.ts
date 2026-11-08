@@ -120,7 +120,7 @@ export function hayHuecoDeHeroe(state: GameState, player: PlayerId): boolean {
 }
 
 /** A dónde va lo que se recluta en un pueblo, y con qué tope de liderazgo. */
-export interface DestinoDeRecluta {
+interface DestinoDeRecluta {
   /** El héroe del dueño que está dentro, o `undefined` si va a la guarnición. */
   readonly hero: Hero | undefined;
   readonly army: Army;

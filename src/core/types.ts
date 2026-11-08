@@ -589,7 +589,7 @@ export type CifraDePieza = (typeof CIFRAS_DE_PIEZA)[number];
  * escribe la montura), la del cuerpo que no da ninguna pieza (la vida) y las que se
  * derivan (el daño y las casillas).
  */
-export type CifraDeLaFicha = CifraDePieza | 'pv' | 'danio' | 'casillas';
+type CifraDeLaFicha = CifraDePieza | 'pv' | 'danio' | 'casillas';
 
 /**
  * El nombre de cada cifra, el mismo en la tabla de la ficha de la arena (sus
@@ -611,7 +611,7 @@ export const NOMBRE_DE_CIFRA: Readonly<Record<CifraDeLaFicha, string>> = {
 };
 
 /** Qué admite una pieza en su hueco (`camposDelHueco`). */
-export interface CamposDelHueco {
+interface CamposDelHueco {
   readonly conManos: boolean;
   readonly conRueda: boolean;
   readonly cifras: readonly CifraDePieza[];
@@ -765,9 +765,9 @@ export function hasTrait(c: UnitInfo, trait: CreatureTrait): boolean {
 // solo pide lo de este fichero. Lo que se hace con él sigue en `hero/hero.ts`.
 
 /** Habilidades secundarias del slice. Cada una en básico/avanzado/experto. */
-export type SkillId = 'logistics' | 'pathfinding' | 'wisdom' | 'leadership';
+type SkillId = 'logistics' | 'pathfinding' | 'wisdom' | 'leadership';
 
-export type SkillLevel = 1 | 2 | 3;
+type SkillLevel = 1 | 2 | 3;
 
 export interface Hero {
   readonly id: string;

@@ -19,7 +19,7 @@ import {
 } from './formato.js';
 
 /** Una cantidad dicha: con el poder, el número; sin él, «30 + 30 por poder». */
-export function dichoDeCantidad(c: Cantidad, poder?: number): string {
+function dichoDeCantidad(c: Cantidad, poder?: number): string {
   if (typeof c === 'number') return String(c);
   if (poder !== undefined) return String(rinde(c, poder));
   if (c.porPoder === 0) return String(c.base);
@@ -33,7 +33,7 @@ const DE_QUIEN = {
 };
 
 /** «durante 3 rondas», «hasta que empiece el próximo turno de quien lo lanzó», «toda la pelea». */
-export function dichoDeDuracion(d: Duracion, poder?: number): string {
+function dichoDeDuracion(d: Duracion, poder?: number): string {
   if (d === 'pelea') return 'toda la pelea';
   if ('rondas' in d) {
     if (d.rondas === 'poder') {
@@ -100,7 +100,7 @@ function seAcaba(s: SeAcabaSiMuere | undefined): string {
 }
 
 /** «los aliados», «los enemigos», «todos». */
-export function losQue(a: Afecta): string {
+function losQue(a: Afecta): string {
   return a === 'todos' ? 'todos' : `los ${a}`;
 }
 
@@ -112,7 +112,7 @@ const OBJETIVO_DICHO = {
 };
 
 /** A dónde va, dicho: «a un enemigo a 5 casillas o menos y a los de alrededor». */
-export function dichoDelAlcance(h: Hechizo): string {
+function dichoDelAlcance(h: Hechizo): string {
   const e = h.entrega;
   const obj = h.objetivo === undefined ? '' : OBJETIVO_DICHO[h.objetivo];
   const area = h.area ?? 0;

@@ -155,7 +155,7 @@ function repartirDistintas(
 
 // ---------------------------------------------------------------- fronteras
 
-export interface EntradaDeEngorde {
+interface EntradaDeEngorde {
   readonly W: number;
   readonly H: number;
   /** La celda de Voronoi de cada casilla: el índice de su semilla. */
@@ -194,7 +194,7 @@ export interface EntradaDeEngorde {
   readonly lados?: Int8Array;
 }
 
-export interface Engordado {
+interface Engordado {
   /** Frontera ya gruesa: la barrera de cada casilla de muro, o `ABIERTA`. */
   readonly tipos: Tipos;
   /**
@@ -217,7 +217,7 @@ export interface Engordado {
  * regiones distintas no pueden quedar a menos de tres pasos. Es la excepción al
  * grosor que el usuario aprobó, con la medida que fijó el plan.
  */
-export const RADIO_DEL_PASO = 3;
+const RADIO_DEL_PASO = 3;
 
 /** Cuántos tipos de barrera distintos lleva, como poco, la frontera de un mapa (criterio del usuario). */
 export const TIPOS_POR_MAPA = 4;
@@ -952,7 +952,7 @@ function barrerasDeLosNodos(
  * lado de la puerta. Más allá, la franja pasa a montaña o agua y es el apoyo de
  * la muralla (`murallasSobrantes`); un apoyo de antes más cerca la acorta.
  */
-export const RADIO_DE_LA_PUERTA = 2;
+const RADIO_DE_LA_PUERTA = 2;
 
 /** Lo que sobra de una franja de muro y si se queda con muralla (`murallasSobrantes`). */
 interface Sobrante {

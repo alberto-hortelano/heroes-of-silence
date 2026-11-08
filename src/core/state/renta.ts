@@ -54,7 +54,7 @@ export function rentaDelSitio(sitio: Sitio): number {
 }
 
 /** Una ciudad propia en la renta: lo que da hoy y si cobra. */
-export interface CiudadDeLaRenta {
+interface CiudadDeLaRenta {
   readonly id: string;
   readonly nombre: string;
   /** Lo que da su ayuntamiento si está unida a la base y no está ocupada; 0 si no. */
@@ -70,7 +70,7 @@ export interface CiudadDeLaRenta {
  * recién tomado aún sin unir no salía en ningún sitio, y no se sabía por qué no
  * daba oro (vuelta 1 de QA de la tarea 2, H2).
  */
-export interface PuebloDeLaRenta {
+interface PuebloDeLaRenta {
   readonly id: string;
   readonly nombre: string;
   /** `ECONOMIA.rentaDelPueblo` si está unido a la base y no está ocupado; 0 si no. */

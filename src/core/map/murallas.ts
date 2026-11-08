@@ -49,7 +49,7 @@ export interface RejillaDeMuralla {
 }
 
 /** La línea de una puerta: ella y sus dos brazos, cada uno hasta su apoyo. */
-export interface LineaDeMuralla {
+interface LineaDeMuralla {
   /** Las casillas, la puerta primero. */
   readonly casillas: readonly number[];
   /** El lado mayor de su caja. */
@@ -178,7 +178,7 @@ export function juntoACiudad(W: number, H: number, ciudades: readonly number[]):
 }
 
 /** Una muralla del mapa hecho, con lo que le falta para ser el cierre de un paso. */
-export interface MurallaDelMapa {
+interface MurallaDelMapa {
   /** Sus casillas: el muro y sus puertas, 8-conexo. */
   readonly casillas: readonly number[];
   /** Las casillas de sus puertas: los nodos de muro. */

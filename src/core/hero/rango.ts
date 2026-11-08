@@ -23,7 +23,7 @@ import { enteroBlocker, enteroDesde, problemasDeObjeto } from '../validar.js';
  * fheroes2. Los umbrales los resuelve este módulo (`UMBRALES`) y las cifras de cada
  * rango, `hero/experiencia.ts` (`cifrasVeteranas`); esto solo las lee y las valida.
  */
-export interface ReglasDeExperiencia {
+interface ReglasDeExperiencia {
   /** Lo que cuesta el primer rango: subir del n al n+1 cuesta `base × incrementos[n−1]`. */
   readonly base: number;
   /** Los primeros incrementos, Fibonacci; más allá se siguen por la recurrencia. */

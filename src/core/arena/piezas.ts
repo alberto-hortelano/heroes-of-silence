@@ -352,7 +352,7 @@ export function equipoQueNoVale(cuerpo: UnitInfo, equipo: Equipo, eq: EquipoAtad
 }
 
 /** Lo que se le puede poner a una unidad en un hueco (`opcionesDelHueco`). */
-export interface OpcionDelHueco {
+interface OpcionDelHueco {
   readonly pieza: Pieza;
   /** Por qué no se le puede poner, o `null` si se puede. */
   readonly motivo: string | null;

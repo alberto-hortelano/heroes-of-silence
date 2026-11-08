@@ -91,11 +91,11 @@ export function recintoDeLaCiudad(at: Point, W: number, H: number): RectDelRecin
 }
 
 /** Si la casilla `p` cae en el recinto `r`. */
-export const enElRecintoDeLaCiudad = (r: RectDelRecinto, p: Point): boolean =>
+const enElRecintoDeLaCiudad = (r: RectDelRecinto, p: Point): boolean =>
   p.x >= r.i0 && p.x <= r.i1 && p.y >= r.j0 && p.y <= r.j1;
 
 /** Las caras del recinto que pueden llevar puerta: la del este y la del oeste, nunca (decisión del usuario, 21-10-2026). */
-export type CaraConPuerta = 'n' | 'ne' | 'se' | 's' | 'so' | 'no';
+type CaraConPuerta = 'n' | 'ne' | 'se' | 's' | 'so' | 'no';
 
 /** Las caras por las que puede pasar el puente de una ciudad-puente: las cuatro en cruz. */
 export type CaraDelRio = 'n' | 'e' | 's' | 'o';
@@ -105,7 +105,7 @@ export type CaraDelRio = 'n' | 'e' | 's' | 'o';
  * una ciudad-puente delante, la del este o la del oeste (decisión del usuario,
  * 21-10-2026: «esa cara lleva `puerta-e-o` solo ahí»).
  */
-export type CaraDeLaPuerta = CaraConPuerta | 'e' | 'o';
+type CaraDeLaPuerta = CaraConPuerta | 'e' | 'o';
 
 /** Un desplazamiento en casillas desde el medio del recinto. */
 type Paso = readonly [number, number];
@@ -219,7 +219,7 @@ const hayNodo = (map: MapaDelRecinto, p: Point): boolean =>
   );
 
 /** Lo que se sabe del puente de una ciudad-puente. */
-export interface PuenteDeLaCiudad {
+interface PuenteDeLaCiudad {
   /** La cara por la que entra: la que mira al río. */
   readonly cara: CaraDelRio;
   /** La casilla del río que se pisa: el puente, y el acceso de la puerta del río. */
@@ -254,7 +254,7 @@ export function rioAnteLaCiudad(map: MapaDelRecinto, at: Point): PuenteDeLaCiuda
 }
 
 /** Una puerta de una ciudad: su cara, su casilla en el anillo y los accesos que la llevan. */
-export interface PuertaDeLaCiudad {
+interface PuertaDeLaCiudad {
   readonly cara: CaraDeLaPuerta;
   readonly casilla: Point;
   /** Las casillas de fuera desde las que se entra por ella: se pisan, no son nodo ni caen en otro recinto. */
@@ -520,14 +520,14 @@ export function muroBlocker(
 }
 
 /** Una ciudad, para decirla: su id, su nombre y su casilla. */
-export interface CiudadConNombre {
+interface CiudadConNombre {
   readonly id: string;
   readonly name: string;
   readonly at: Point;
 }
 
 /** Algo que ocupa una casilla y no es un objeto del mapa (un grupo de asaltantes), dicho para la persona. */
-export interface OcupaUnaCasilla {
+interface OcupaUnaCasilla {
   readonly quien: string;
   readonly at: Point;
 }

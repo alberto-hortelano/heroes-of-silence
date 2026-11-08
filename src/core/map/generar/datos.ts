@@ -15,7 +15,7 @@ import { enteroDesde, esObjeto, problemasDeObjeto } from '../../validar.js';
 import { NIVELES, type Nivel, SUELOS_PISABLES, type Suelo } from '../terrain.js';
 
 /** Un nivel de altura con su peso en un sorteo. */
-export interface NivelConPeso {
+interface NivelConPeso {
   readonly nivel: Nivel;
   readonly peso: number;
 }
@@ -80,7 +80,7 @@ export const NIVEL_POR_SUELO: Readonly<Record<Suelo, readonly NivelConPeso[]>> =
   validarRelieve(relieveJson);
 
 /** Lo que se lee de `data/poblamiento.json`: dónde pone el generador las ciudades que no van en un nodo. */
-export interface ReglasDelPoblamiento {
+interface ReglasDelPoblamiento {
   /**
    * Cuántas parejas de regiones de fuera (una de cada bando, en espejo) llevan una
    * ciudad en mitad de la región. Si el mapa tiene menos, todas.

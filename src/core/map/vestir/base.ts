@@ -229,7 +229,7 @@ export interface BarreraConPeso {
  * Qué barrera levanta el generador en cada sitio, de `data/barreras.json`.
  * **Inventado y provisional**, como dice su `_comment`.
  */
-export interface ReglasDeBarreras {
+interface ReglasDeBarreras {
   /** Por suelo: las barreras de una frontera que lo toca. Una frontera suma las de sus dos lados. */
   readonly frontera: Readonly<Record<Suelo, readonly BarreraConPeso[]>>;
   /** Por suelo: las barreras de las manchas de dentro de una región. */

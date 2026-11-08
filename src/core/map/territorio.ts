@@ -71,7 +71,7 @@ function dueñosDe(
 }
 
 /** Los dueños de una foto sin lo unido a cada base: lo que lee `dueñoEnLaFoto`. */
-export type DueñosDeLaRed = Pick<Territorio, 'red' | 'dueñoDeNodo' | 'dueñoDeRegion'>;
+type DueñosDeLaRed = Pick<Territorio, 'red' | 'dueñoDeNodo' | 'dueñoDeRegion'>;
 
 /**
  * De quién es cada nodo y cada región, en una pasada y sin buscar lo unido a cada
@@ -97,7 +97,7 @@ export function dueñosDeLasRegiones(state: Pick<EstadoDeRed, 'map'>): readonly 
  * sus nodos: lo que mira una sola región (`regionOwner`, el dueño de un sitio de
  * dentro de ella) sin hacer la foto entera. La misma regla, `dueñoComun`.
  */
-export function dueñoDeLaRegion(state: Pick<EstadoDeRed, 'map'>, k: number): PlayerId | null {
+function dueñoDeLaRegion(state: Pick<EstadoDeRed, 'map'>, k: number): PlayerId | null {
   const red = estructura(state.map);
   const reg = red.regiones[k];
   if (reg === undefined) {
@@ -188,7 +188,7 @@ function sinSitio(red: Estructura, id: string): null {
  * Es la única bifurcación «nodo o región»: la leen el dueño, la renta, la
  * lectura para el motor y la validación de los pueblos.
  */
-export type DondeEsta =
+type DondeEsta =
   | { readonly en: 'muro'; readonly nodo: number }
   | { readonly en: 'region'; readonly region: number };
 

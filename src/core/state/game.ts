@@ -78,7 +78,7 @@ import { revealAroundTown } from './vision.js';
 
 // ---------------------------------------------------------------- creación
 
-export interface GameConfig {
+interface GameConfig {
   readonly seed: number;
   /**
    * El tope de días, **obligatorio**: toda partida se acaba y hay que decir

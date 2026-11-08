@@ -437,7 +437,7 @@ const ORDEN_DE_CONSTRUCCION: Readonly<Record<FactionId, readonly string[]>> = Ob
 ) as Record<FactionId, readonly string[]>;
 
 /** Qué construir hoy: lo primero de la lista de su facción que se pueda pagar. */
-export function chooseBuilding(town: Town, oro: number): string | null {
+function chooseBuilding(town: Town, oro: number): string | null {
   const posibles = availableBuildings(town, oro);
   if (posibles.length === 0) return null;
 
@@ -771,7 +771,7 @@ const VALOR_DE_PIEZA = new WeakMap<Pieza, number>();
  * cuerpo de referencia 17, así que la IA lo compraba en la armería. Que compre
  * caballos para la batalla o de silla para marchar es otra tarea (backlog).
  */
-export function valorDePieza(p: Pieza): number {
+function valorDePieza(p: Pieza): number {
   const ya = VALOR_DE_PIEZA.get(p);
   if (ya !== undefined) return ya;
   const valor =
@@ -811,7 +811,7 @@ function leLlega(hero: Hero, quien: Portador): boolean {
  * Sin tope compraba 18 al día —seis individuos por tres huecos— para una tropa
  * que caía al día siguiente: 1 187 compras del banco en 14 semillas, 268 en una.
  */
-export const COMPRAS_POR_HEROE_Y_DIA = 3;
+const COMPRAS_POR_HEROE_Y_DIA = 3;
 
 /**
  * El oro que tiene que quedarle a la IA tras pagar para comprarle una pieza a un
@@ -819,7 +819,7 @@ export const COMPRAS_POR_HEROE_Y_DIA = 3;
  * la pieza se va con él, así que solo se le compra lo que sobra de verdad; al
  * héroe y a los veteranos les basta con no tocar lo que cuesta un héroe. Inventado.
  */
-export const ORO_DE_SOBRA_PARA_NOVATOS = 4 * ECONOMIA.precioDelHeroe;
+const ORO_DE_SOBRA_PARA_NOVATOS = 4 * ECONOMIA.precioDelHeroe;
 
 /**
  * Para quién compra la IA: el héroe y los veteranos de rango 2 o más, que son

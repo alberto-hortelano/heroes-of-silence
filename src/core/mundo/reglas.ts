@@ -94,7 +94,7 @@ function nombreDeEstado(lugar: Lugar, estado: string): string {
 }
 
 /** Por qué no se cumple `c`, o `null`. Las frases son para la persona y van debajo de la opción. */
-export function condicionBlocker(a: Ante, c: Condicion): string | null {
+function condicionBlocker(a: Ante, c: Condicion): string | null {
   if ('estado' in c) {
     const ahora = a.mundo.estados[a.lugar.id];
     return ahora === c.estado
@@ -244,12 +244,12 @@ function loQuePidenSusEfectos(a: Ante, opcion: Opcion): string | null {
 }
 
 /** Si el punto está en la escena del lugar ahora (su `si`). */
-export function puntoVisible(a: Ante, punto: Punto): boolean {
+function puntoVisible(a: Ante, punto: Punto): boolean {
   return condicionesBlocker(a, punto.si) === null;
 }
 
 /** Un héroe, el lugar donde está y su mundo, o por qué no: lo que se ve de un lugar desde dentro. */
-export function anteDelLugar(
+function anteDelLugar(
   state: GameState,
   heroId: string,
   lugarId: string,
@@ -409,7 +409,7 @@ export function opcionesDe(a: Ante, punto: Punto, nodo: string): readonly Opcion
  * de una referencia: la leen la pregunta (`opcionBlocker`) y la acción
  * (`opcionDe`). Si se puede elegir lo dice `motivoAlElegir`.
  */
-export function resolverOpcion(
+function resolverOpcion(
   a: Ante,
   ref: RefDeOpcion,
 ): { readonly punto: Punto; readonly opcion: Opcion } | { readonly motivo: string } {

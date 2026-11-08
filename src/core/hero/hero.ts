@@ -160,7 +160,7 @@ export function slowestSpeed(grupo: GrupoQueMarcha): SpeedTier {
 }
 
 /** Bonus porcentual de Logística: +10 %, +20 % o +30 %. */
-export function logisticsBonus(hero: Pick<Hero, 'skills'>): number {
+function logisticsBonus(hero: Pick<Hero, 'skills'>): number {
   const level = hero.skills.logistics;
   return level === undefined ? 0 : level * 0.1;
 }
@@ -191,7 +191,7 @@ export function moraleBonus(hero: Pick<Hero, 'skills'>): number {
 }
 
 /** Nivel máximo de hechizo que puede aprender, según Sabiduría. */
-export function maxSpellLevel(hero: Pick<Hero, 'skills'>): number {
+function maxSpellLevel(hero: Pick<Hero, 'skills'>): number {
   const wisdom = hero.skills.wisdom;
   if (wisdom === undefined) return 2;
   return 2 + wisdom;

@@ -42,7 +42,7 @@ const HERO_NAMES: Readonly<Record<FactionId, readonly string[]>> = {
   orkos: ['Grommash Dientenegro', 'Ugra la Roja', 'Snikrot'],
 };
 
-export interface NewGameOptions {
+interface NewGameOptions {
   readonly seed?: number;
   readonly plan?: MapPlan;
   readonly controllers?: Readonly<Record<PlayerId, Controller>>;

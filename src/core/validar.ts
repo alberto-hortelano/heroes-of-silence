@@ -173,7 +173,7 @@ export function sinRepetir(lista: readonly string[], campo: string, quien: strin
 }
 
 /** Un elemento de un borrador que no pasa su regla: su clave si la trae, por qué, y él tal cual. */
-export interface ElementoSinValidar {
+interface ElementoSinValidar {
   readonly clave: string | null;
   readonly motivo: string;
   readonly crudo: unknown;

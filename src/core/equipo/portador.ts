@@ -21,7 +21,7 @@ export type Portador = { readonly heroe: true } | { readonly indice: number };
  * escribe la escena de la tropa, donde cada uno tiene su sitio; el contrato del
  * agente no lo lleva: su esquema no lo declara y zod lo quita).
  */
-export interface DestinoPedido {
+interface DestinoPedido {
   readonly veteran?: string | undefined;
   readonly creature?: string | undefined;
   readonly puesto?: number | undefined;
@@ -97,7 +97,7 @@ export function destinoDeEquipo(
 }
 
 /** Cómo se nombra a un portador en una acción: lo que escribe `pedidoDeEquipo`, sin campos a `undefined`. */
-export type PedidoDeEquipo =
+type PedidoDeEquipo =
   | Record<string, never>
   | { readonly veteran: string }
   | { readonly creature: string };

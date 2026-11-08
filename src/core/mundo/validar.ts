@@ -65,12 +65,12 @@ import {
 import { recorrido } from './reglas.js';
 
 /** A cuántas casillas (Chebyshev) va un lugar, como poco, de todo objeto del mapa y de otro lugar. */
-export const SEPARACION_DE_UN_LUGAR = 3;
+const SEPARACION_DE_UN_LUGAR = 3;
 /** Cuántos lugares lleva un mundo como mucho. */
-export const LUGARES_MAXIMOS = 8;
+const LUGARES_MAXIMOS = 8;
 
 /** Lo largo de cada texto de una historia, en caracteres. */
-export const LARGO = {
+const LARGO = {
   titulo: 80,
   resumen: 400,
   nombre: 60,

@@ -61,7 +61,7 @@ export const CATALOGO_DE_HABILIDADES: readonly string[] = habilidadesJson.habili
  * porque `poses/juegos.ts` lee `node:path` y `core` es puro. El de cada hoja lo da el
  * taller (`perfilDeUnidad`, `tools/taller/unidades.ts`).
  */
-export const PERFILES_DE_UNIDAD = [
+const PERFILES_DE_UNIDAD = [
   'espada-escudo',
   'dos-manos',
   'baston',
@@ -132,7 +132,7 @@ export interface Unidad extends Pick<UnitInfo, 'name' | 'attack' | 'fuerza' | 'a
  * El cuerpo de una unidad: la hoja con la que se pinta. Solo hojas: las criaturas
  * del catálogo del juego no entran en la arena (13-10-2026).
  */
-export type CuerpoDeUnidad = { readonly hoja: string };
+type CuerpoDeUnidad = { readonly hoja: string };
 
 /**
  * Las habilidades que puede llevar una unidad de la arena: las del catálogo
@@ -236,7 +236,7 @@ export const KIT_DEL_PERFIL: Readonly<Record<PerfilDeUnidad, KitDelPerfil>> = {
 // juzga también la pieza de montura (`problemasDePieza`).
 
 /** Una agilidad de cuerpo que vale (`AGILIDAD_DEL_CUERPO_MIN` a `…_MAX`), o se lanza diciendo de quién. */
-export function agilidadValida(valor: unknown, quien: string): number {
+function agilidadValida(valor: unknown, quien: string): number {
   const n = entero(valor, 'la agilidad', quien, AGILIDAD_DEL_CUERPO_MIN);
   if (n > AGILIDAD_DEL_CUERPO_MAX) {
     throw new Error(

@@ -415,7 +415,7 @@ export function leerHechizos(json: unknown, fichero = 'data/hechizos.json'): rea
 }
 
 /** Lo que no vale del catálogo: cada hechizo y lo repetido. Vacío, vale. */
-export function problemasDelCatalogo(json: unknown): string[] {
+function problemasDelCatalogo(json: unknown): string[] {
   const forma = problemasDeObjeto(json, ['_comment', 'hechizos'], ['hechizos']);
   if (forma.length > 0) return forma;
   const lista = (json as { hechizos: unknown }).hechizos;

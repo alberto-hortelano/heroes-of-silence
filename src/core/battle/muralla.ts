@@ -69,7 +69,7 @@ import {
 } from './types.js';
 
 /** ¿Es `x` un material de muralla? */
-export function esMaterialDeMuralla(x: unknown): x is MaterialDeMuralla {
+function esMaterialDeMuralla(x: unknown): x is MaterialDeMuralla {
   return MATERIALES_DE_MURALLA.includes(x as MaterialDeMuralla);
 }
 
@@ -147,7 +147,7 @@ export function ladoDeLaMuralla(m: MurallaDeBatalla, h: Hex): LadoDeLaMuralla {
   return c.fueraPorIndice[i] === 1 ? 'fuera' : 'dentro';
 }
 
-export type LadoDeLaMuralla = 'dentro' | 'fuera' | 'muralla';
+type LadoDeLaMuralla = 'dentro' | 'fuera' | 'muralla';
 
 /**
  * ¿Separa la muralla —muros y puertas cerradas— la salida del defensor de la
@@ -305,7 +305,7 @@ export function pasoAlAndar(
  * ampliación—: la lee solo `movimientoBlocker`, para decir si lo que no deja
  * llegar es el lado. Sin muros, `undefined`.
  */
-export function pasoPermitido(
+function pasoPermitido(
   m: MurallaDeBatalla,
   side: Side,
   conLados = true,
@@ -664,7 +664,7 @@ function asaltoBlocker(m: MurallaDeBatalla): string | null {
  * los bandos y las cuatro jugadas. La arena dice «la izquierda» y «poner la
  * escalera»; el agente, «el ATACANTE» y `"place_ladder"`.
  */
-export interface PalabrasDeLaMuralla {
+interface PalabrasDeLaMuralla {
   /** Quien ataca y quien defiende, como sujeto de una frase: «la izquierda (ataca)». */
   readonly atacante: string;
   readonly defensor: string;
@@ -703,7 +703,7 @@ function mayuscula(t: string): string {
  * La muralla de la arena, de `data/muralla.json`. **Inventado y provisional**,
  * como dice su `_comment`: en HoMM2 no hay tirador que se suba al muro.
  */
-export interface ReglasDeLaMuralla {
+interface ReglasDeLaMuralla {
   /** Lo que suma a su defensa un tirador en lo alto de un muro (`effectiveDefense`). */
   readonly defensaEnLoAlto: number;
 }

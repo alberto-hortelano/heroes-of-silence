@@ -869,7 +869,7 @@ describe('invariantes del proyecto', () => {
     for (const fichero of CORE.filter((r) => r.startsWith(ruta('src/core/contract/')))) {
       const codigo = codigoDe(fichero);
       for (const m of codigo.matchAll(
-        /export function (serialize\w*)\(([^{]*?)\)\s*(:\s*[^{]+)?\{/g,
+        /(?:export )?function (serialize\w*)\(([^{]*?)\)\s*(:\s*[^{]+)?\{/g,
       )) {
         serializadores++;
         if (/^:\s*unknown\s*$/.test(m[3] ?? ''))

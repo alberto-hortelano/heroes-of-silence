@@ -658,7 +658,7 @@ export const FORMAS_DEL_RIO = ['frontera', 'esquina', 'lago'] as const;
 export type FormaDelRio = (typeof FORMAS_DEL_RIO)[number];
 
 /** Lo que se lee de `data/rios.json`. */
-export interface ReglasDelRio {
+interface ReglasDelRio {
   /** El peso de cada forma en el sorteo, en el orden de `FORMAS_DEL_RIO`. */
   readonly formas: readonly { readonly forma: FormaDelRio; readonly peso: number }[];
   /** Cuántas casillas seguidas en recta lleva el río como mucho. */

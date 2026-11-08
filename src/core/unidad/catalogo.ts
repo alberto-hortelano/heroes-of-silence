@@ -154,7 +154,7 @@ export function unidadesDeMorada(edificio: string): readonly UnidadDelJuego[] {
  * con lo suyo encima, hueco a hueco (lo que se pone sustituye a lo de serie en
  * ese hueco). La leen `cifrasDeUnidad` y `equipoPuestoDe`.
  */
-export function equipoPuesto(id: string, propio: Equipo | undefined): Equipo {
+function equipoPuesto(id: string, propio: Equipo | undefined): Equipo {
   return { ...unidadDelJuego(id).equipo, ...propio };
 }
 

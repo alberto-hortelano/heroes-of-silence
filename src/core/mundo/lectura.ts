@@ -35,9 +35,9 @@ import { type LugaresDeUnMundo, lugaresDelPlan, type Mundo, VOCABULARIO } from '
 import { lugarBlocker } from './validar.js';
 
 /** Cuántas casillas de muestra se dan por región. */
-export const MUESTRAS_POR_REGION = 8;
+const MUESTRAS_POR_REGION = 8;
 
-export interface RegionLeida {
+interface RegionLeida {
   readonly id: string;
   readonly nombre: string;
   /** El suelo con que la pinta el plan (`grass`, `snow`…), o `null` si no lo dice. */
@@ -70,7 +70,7 @@ export interface RegionLeida {
  * («no cabe») hasta que haya bajas o licencie a alguien. No es una regla nueva:
  * lo que dice es lo que mira `troopBlocker` al elegir.
  */
-export interface TropaDeSalida {
+interface TropaDeSalida {
   /** Lo que lleva, por unidad. */
   readonly lleva: readonly { readonly unidad: string; readonly n: number }[];
   /** Individuos que lleva y cuántos le caben como mucho. */

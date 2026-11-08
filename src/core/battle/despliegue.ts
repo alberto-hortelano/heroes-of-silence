@@ -36,7 +36,7 @@ import type {
  * una fila de 12. Más allá, la zona de un bando pisaría la del otro en toda
  * fila, y «desplegar» sería empezar la batalla dentro del enemigo.
  */
-export const COLUMNAS_MAXIMAS_DE_SALIDA = 6;
+const COLUMNAS_MAXIMAS_DE_SALIDA = 6;
 
 /** Lo de todos: las columnas de salida de su borde, con su bando. */
 const DE_SERIE: AlcanceDelDespliegue = { columnas: COLUMNAS_DE_SALIDA, momento: 'con_su_bando' };
@@ -61,7 +61,7 @@ export function alcanceDelDespliegue(
 }
 
 /** Una tanda del despliegue: quién despliega y con qué momento. */
-export interface Tanda {
+interface Tanda {
   readonly side: Side;
   readonly momento: MomentoDeDespliegue;
 }
@@ -81,7 +81,7 @@ export const TANDAS: readonly Tanda[] = [
 ];
 
 /** En qué tanda despliega `stack`: el índice en `TANDAS` de su bando y su momento. */
-export function tandaDe(stack: Pick<BattleStack, 'side' | 'unit'>): number {
+function tandaDe(stack: Pick<BattleStack, 'side' | 'unit'>): number {
   const { momento } = alcanceDelDespliegue(stack.unit);
   return TANDAS.findIndex((t) => t.side === stack.side && t.momento === momento);
 }
@@ -102,7 +102,7 @@ export function zonaDeSalida(
 }
 
 /** Uno que asentar: sus cifras (de ellas, su zona) y la casilla que pide, en el marco del atacante. */
-export interface Asiento {
+interface Asiento {
   readonly unit: Pick<UnitInfo, 'name' | 'despliegue'>;
   readonly pedida: Hex | null;
 }
@@ -234,7 +234,7 @@ export function despliegueDe(state: BattleState): DespliegueAhora | null {
 }
 
 /** Los vivos que despliegan en la tanda `t`. */
-export function deLaTanda(state: BattleState, t: number): BattleStack[] {
+function deLaTanda(state: BattleState, t: number): BattleStack[] {
   return state.stacks.filter((s) => s.count > 0 && tandaDe(s) === t);
 }
 
@@ -323,7 +323,7 @@ export function colocarBlocker(state: BattleState, stackId: string, at: Hex): st
  * cada uno pedido y las casillas de los desplegados ocupadas: la misma regla, y
  * la misma frase si no caben. Lo aplica `seguirElDespliegue` (abajo).
  */
-export function asientoAlAbrir(state: BattleState, t: number): readonly Hex[] {
+function asientoAlAbrir(state: BattleState, t: number): readonly Hex[] {
   const suyos = deLaTanda(state, t);
   const ocupadas = new Set(
     state.stacks.filter((o) => o.count > 0 && tandaDe(o) < t).map((o) => hexKey(o.hex)),
@@ -343,7 +343,7 @@ export function asientoAlAbrir(state: BattleState, t: number): readonly Hex[] {
  * borde». La leen la casilla de la batalla (`colocarBlocker`) y la de la
  * formación (`formarBlocker`).
  */
-export function fueraDeLaZona(unit: Pick<UnitInfo, 'name' | 'despliegue'>, at: Hex): string {
+function fueraDeLaZona(unit: Pick<UnitInfo, 'name' | 'despliegue'>, at: Hex): string {
   const { columnas } = alcanceDelDespliegue(unit);
   const cuales = columnas === 1 ? 'la columna de su borde' : `las ${columnas} columnas de su borde`;
   return `${enCasilla(at)} queda fuera de la zona de salida de ${unit.name}: ${cuales}`;

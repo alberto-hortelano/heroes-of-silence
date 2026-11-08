@@ -32,7 +32,7 @@ export const DICHO_DE_LA_MONTURA =
  * fuerza de ella; `guerra` y `silla`: si la montura se monta en batalla o solo en
  * el mapa).
  */
-export type ModificadorDePieza =
+type ModificadorDePieza =
   | {
       readonly kind: 'cifra';
       readonly cifra: CifraDePieza;
@@ -107,7 +107,7 @@ const DICHO_DE_LA_MARCA: Readonly<
  * recarga 2 turnos» o «granada: 2 por batalla». Lo leen sus modificadores, la ficha
  * y la prosa del agente.
  */
-export function dichoDelTiro(t: TiroDelGolpe): string {
+function dichoDelTiro(t: TiroDelGolpe): string {
   return t.kind === 'fuego'
     ? `arma de fuego: perfora la armadura, recarga ${conPlural(t.recarga, 'turno')}`
     : `granada: ${t.cargas} por batalla`;

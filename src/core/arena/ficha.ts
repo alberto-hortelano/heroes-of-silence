@@ -36,7 +36,7 @@ export function lecturaDelNivel(u: UnitInfo): string {
 }
 
 /** De qué unidad del catálogo de la pelea sale un stack de la tropa (`tipoDelStack`). */
-export interface TipoDeArena {
+interface TipoDeArena {
   readonly kind: 'unidad';
   readonly id: string;
 }

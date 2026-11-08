@@ -57,7 +57,7 @@ export const MAX_JUGADAS_EN_UN_LUGAR = 8;
  * Cuántas elecciones sin premio prueba la IA antes de dar con uno: las de una
  * historia corta (marca, peaje y arcón). Una red, no una regla, como el tope.
  */
-export const PASOS_HACIA_UN_PREMIO = 3;
+const PASOS_HACIA_UN_PREMIO = 3;
 
 /** Las opciones con efectos que se pueden elegir ahora en `a`, en el orden en que se leen. */
 function elegibles(a: Ante): { readonly ref: RefDeOpcion; readonly opcion: Opcion }[] {

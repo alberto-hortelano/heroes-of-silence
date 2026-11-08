@@ -31,7 +31,7 @@ import type { GameMap, MapRegion } from '../tipos.js';
  * y en el mismo sitio, para que ningún plan viejo se cuele con el campo
  * equivocado: un `regions` de manchas no pasa el esquema nuevo.
  */
-export interface TerrainPatch {
+interface TerrainPatch {
   readonly terrain: TerrainKind;
   readonly center: Point;
   /** Radio en casillas. La mancha es redondeada, no un cuadrado. */
@@ -61,7 +61,7 @@ export interface PlannedWall {
  * pisa —solo se pinta lo pisable de la región—, de modo que la red que valida
  * `problemasDeRed` es la misma con suelo o sin él.
  */
-export interface RegionPlaneada extends Omit<MapRegion, 'nivel'> {
+interface RegionPlaneada extends Omit<MapRegion, 'nivel'> {
   // El `| undefined` escrito, por lo mismo que en `roads`: el esquema lo
   // declara con `.optional()` y con `exactOptionalPropertyTypes` no casarían.
   readonly terrain?: TerrainKind | undefined;

@@ -514,7 +514,7 @@ describe('invariantes del proyecto', () => {
     const codigo = codigoDe(BASE).split('\n');
     const funcionDe = (linea: number): string | null => {
       for (let i = linea - 1; i >= 0; i--) {
-        const m = /^export function (\w+)/.exec(codigo[i] ?? '');
+        const m = /^(?:export )?function (\w+)/.exec(codigo[i] ?? '');
         if (m !== null) return m[1] ?? null;
       }
       return null;
@@ -710,7 +710,7 @@ describe('invariantes del proyecto', () => {
     };
     const ajenas = llamadas.filter((e) => {
       if (e.startsWith(`${ruta('src/core/town/town.ts')}:`))
-        return !/export function applyWeeklyGrowth/.test(e);
+        return !/(?:export )?function applyWeeklyGrowth/.test(e);
       const m = /^(.+):(\d+) → /.exec(e);
       return m === null || m[1] !== TURNOS || funcionDe(Number(m[2])) !== 'crecerLasMoradas';
     });

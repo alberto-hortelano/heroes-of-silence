@@ -153,7 +153,7 @@ export function tickEffects(stack: BattleStack): StackEffect[] {
  * Cómo se llama cada clase de efecto. Tipada por `EffectKind`, cerrada: un
  * `EffectKind` nuevo no compila hasta que alguien le escriba su nombre.
  */
-export const NOMBRE_DEL_EFECTO: Readonly<Record<EffectKind, string>> = {
+const NOMBRE_DEL_EFECTO: Readonly<Record<EffectKind, string>> = {
   speed: 'velocidad',
   attack: 'ataque',
   defense: 'defensa',

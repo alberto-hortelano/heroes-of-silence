@@ -22,7 +22,7 @@ import { effectTotal } from './effects.js';
 import type { BattleStack } from './types.js';
 
 /** Cómo juega a distancia una unidad (`tiroADistanciaDe`): dispara o lanza granadas. */
-export type TiroADistancia = 'disparo' | 'granada';
+type TiroADistancia = 'disparo' | 'granada';
 
 /**
  * Cómo juega `c` a distancia, o `null` si no lleva nada en el hueco `distancia`:
@@ -165,7 +165,7 @@ export function armaduraDe(u: UnitInfo): number {
 }
 
 /** El daño de un golpe que llega a quien lo recibe: lo que quita y lo que paró la armadura. */
-export interface TrasLaArmadura {
+interface TrasLaArmadura {
   readonly danio: number;
   /** Lo que se comió la armadura: `min(daño, armadura)`; 0 sin armadura. */
   readonly parado: number;

@@ -20,7 +20,7 @@ import { poderDe } from './fuerza.js';
  * **Inventadas y provisionales**, y así lo dice su `_comment`: en HoMM2 los
  * monstruos del mapa no se mueven, así que no hay fila que copiar.
  */
-export interface ReglasDeAsaltantes {
+interface ReglasDeAsaltantes {
   /** La probabilidad de que brote un grupo cada lunes en cada región que lo admita. */
   readonly probabilidadSemanal: number;
   /**
@@ -131,7 +131,7 @@ export function problemasDeAsaltante(grupos: readonly GrupoDeTropa[], quien: str
  * Lo que nace sin héroe en una partida: las guarniciones, los grupos de
  * asaltantes y los monstruos del mapa. Cada campo, si lo hay.
  */
-export interface LoQueNaceSinHeroe {
+interface LoQueNaceSinHeroe {
   /** Las guarniciones con que nacen las ciudades (`BuiltMap.guarniciones`), por id de su sitio. */
   readonly guarniciones?: Readonly<Record<string, { readonly tropa: Army }>>;
   readonly raiders?: readonly { readonly troops: readonly GrupoDeTropa[] }[];

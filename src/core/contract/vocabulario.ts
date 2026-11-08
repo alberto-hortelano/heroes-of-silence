@@ -63,10 +63,10 @@ export const UPGRADE_DE_MEJORA = {
 } as const satisfies Readonly<Record<MejoraDelPuesto, string>>;
 
 /** Lo que puede valer el `upgrade` de un nodo en el contrato. */
-export type Upgrade = (typeof UPGRADE_DE_MEJORA)[MejoraDelPuesto];
+type Upgrade = (typeof UPGRADE_DE_MEJORA)[MejoraDelPuesto];
 
 /** Los tres, en el orden de la tabla: lo que el arnés de QA admite en un nodo. */
-export const UPGRADES: readonly Upgrade[] = Object.values(UPGRADE_DE_MEJORA);
+const UPGRADES: readonly Upgrade[] = Object.values(UPGRADE_DE_MEJORA);
 
 /** Si `valor` es un `upgrade` del contrato (`UPGRADES`). */
 export function esUpgrade(valor: unknown): valor is Upgrade {
@@ -98,7 +98,7 @@ export const SLOTS: readonly Slot[] = HUECOS.map((h) => SLOT_DE_HUECO[h]);
  * devuelve `null`: quien la llama (`accionDelAgente`) está dentro del `try` del
  * director, que descarta esa acción con este motivo y sigue con las demás.
  */
-export function huecoDelSlot(slot: string): Hueco {
+function huecoDelSlot(slot: string): Hueco {
   const hueco = HUECOS.find((h) => SLOT_DE_HUECO[h] === slot);
   if (hueco === undefined) {
     throw new Error(huecoDesconocido(slot, SLOTS));
@@ -396,7 +396,7 @@ type DeLaTraduccion = 'cruce' | 'ladder_placed' | 'gate_opened' | 'gate_closed';
  * con sus nombres del contrato, y los demás tal cual. Escrito, y no inferido, para que
  * un hecho nuevo del núcleo sin su caso no compile (la función no tiene `default`).
  */
-export type HechoAlAgente =
+type HechoAlAgente =
   | Exclude<BattleEvent, { kind: DeLaTraduccion }>
   | (Omit<Extract<BattleEvent, { kind: 'cruce' }>, 'golpe' | 'respuesta'> & {
       readonly hit: Hit;

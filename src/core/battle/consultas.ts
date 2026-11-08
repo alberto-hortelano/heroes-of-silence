@@ -133,7 +133,7 @@ function fintaEn(state: BattleState, s: BattleStack): number {
  * tramo solo de andar, `TurnoDeUnidad.finta`). `null` sin turno abierto. Las
  * fases que limitan qué jugada vale las dice `faseBlocker`.
  */
-export type FaseDelTurno = 'libre' | 'movido' | 'plantado' | 'trasLaFinta';
+type FaseDelTurno = 'libre' | 'movido' | 'plantado' | 'trasLaFinta';
 
 export function faseDelTurno(state: BattleState): FaseDelTurno | null {
   const turno = state.turno;

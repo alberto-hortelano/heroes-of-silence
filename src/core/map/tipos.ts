@@ -208,7 +208,7 @@ export interface NodoDeRed {
 }
 
 /** Una región declarada del mapa, con los nodos que la rodean. */
-export interface RegionDeRed extends MapRegion {
+interface RegionDeRed extends MapRegion {
   /** Los nodos que la rodean, por índice en `Estructura.nodos`. */
   readonly nodos: readonly number[];
 }

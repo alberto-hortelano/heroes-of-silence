@@ -40,14 +40,14 @@ import { enteroBlocker, enteroDesde, esIdDePieza, esObjeto, revisarLista } from 
  */
 export const DONDE_SE_CONSIGUE = ['armeria', 'botin'] as const;
 
-export type DondeSeConsigue = (typeof DONDE_SE_CONSIGUE)[number];
+type DondeSeConsigue = (typeof DONDE_SE_CONSIGUE)[number];
 
 /**
  * Cómo se dice cada sitio de donde sale una pieza, y la frase de la que no sale de
  * ninguno (`SOLO_EN_KITS`). **La tabla, una vez**: la leen la prosa del agente, el
  * motivo de `buyBlocker` (`deDondeSale`) y la ficha de la arena.
  */
-export const DICHO_DE_DONDE: Readonly<Record<DondeSeConsigue, string>> = {
+const DICHO_DE_DONDE: Readonly<Record<DondeSeConsigue, string>> = {
   armeria: 'se vende en la armería',
   botin: 'cae como botín',
 };
@@ -60,9 +60,9 @@ export const SOLO_EN_KITS =
  * Lo que tira una pieza de `distancia` que no es un arco ni una ballesta
  * (`Pieza.tiro`): un arma de fuego o una granada.
  */
-export const TIPOS_DE_TIRO = ['fuego', 'granada'] as const;
+const TIPOS_DE_TIRO = ['fuego', 'granada'] as const;
 
-export type TipoDeTiro = (typeof TIPOS_DE_TIRO)[number];
+type TipoDeTiro = (typeof TIPOS_DE_TIRO)[number];
 
 /** Lo más que recarga un arma de fuego, en turnos (`Pieza.recarga`). **Inventado**: deja probar de sobra. */
 export const RECARGA_MAXIMA = 9;
@@ -213,7 +213,7 @@ const EXTRAS_NUMERICOS = EXTRAS.filter(
 );
 
 /** Unos extras con todo escrito (lo que no suma, 0): la forma en que se suman. */
-export type ExtrasEnteros = { readonly [K in CampoDeExtra]-?: NonNullable<ExtrasDePieza[K]> };
+type ExtrasEnteros = { readonly [K in CampoDeExtra]-?: NonNullable<ExtrasDePieza[K]> };
 
 /**
  * Una pieza escrita **sobre otra** (`base`, el id de otra pieza): su nombre, de
@@ -222,7 +222,7 @@ export type ExtrasEnteros = { readonly [K in CampoDeExtra]-?: NonNullable<Extras
  * base, que no se repiten: si cambia la base, cambia ella (el vínculo es vivo). La
  * suma la hace solo `resolverBases`.
  */
-export interface PiezaConBase {
+interface PiezaConBase {
   readonly id: string;
   readonly nombre: string;
   readonly base: string;
@@ -272,7 +272,7 @@ export const CAMPOS_DE_PIEZA: readonly string[] = [
 ];
 
 /** Los campos de una pieza con base (`PiezaConBase`). */
-export const CAMPOS_DE_PIEZA_CON_BASE: readonly string[] = [
+const CAMPOS_DE_PIEZA_CON_BASE: readonly string[] = [
   'id',
   'nombre',
   'base',
@@ -281,7 +281,7 @@ export const CAMPOS_DE_PIEZA_CON_BASE: readonly string[] = [
 ];
 
 /** Los campos de los extras de una pieza con base (`FORMA_DE_LOS_EXTRAS`). */
-export const CAMPOS_DE_EXTRAS: readonly string[] = EXTRAS;
+const CAMPOS_DE_EXTRAS: readonly string[] = EXTRAS;
 
 /** Cómo se nombra una pieza en un motivo: por su id si lo trae, si no `otro`. */
 function quienEsLaPieza(p: Record<string, unknown>, otro: string): string {
@@ -318,7 +318,7 @@ function sumaAlgo(v: unknown): boolean {
  * rueda (`Pieza.rueda`). **La regla, en un sitio**: la lee la de una pieza
  * (`problemasDePieza`).
  */
-export function golpeaEnLaRueda(p: { readonly hueco?: unknown }): boolean {
+function golpeaEnLaRueda(p: { readonly hueco?: unknown }): boolean {
   return typeof p.hueco === 'string' && esHuecoDePieza(p.hueco) && camposDelHueco(p.hueco).conRueda;
 }
 
@@ -619,7 +619,7 @@ function problemasDeRueda(rueda: unknown, q: string): string[] {
  * Que la base exista y no dé la vuelta lo dice `baseBlocker`, y que la pieza
  * resuelta valga, `resolverBases`.
  */
-export function problemasDePiezaConBase(bruta: unknown, quien?: string): string[] {
+function problemasDePiezaConBase(bruta: unknown, quien?: string): string[] {
   if (!esObjeto(bruta)) {
     return [`${quien ?? 'la pieza'} no es un objeto`];
   }
@@ -705,7 +705,7 @@ function enSuOrden(v: readonly DondeSeConsigue[]): readonly DondeSeConsigue[] {
  * (`leerPiezas`), la arena (`validarPieza`) y la suma de una base
  * (`resolverBases`) escriben así.
  */
-export function piezaCanonica(p: Pieza): Pieza {
+function piezaCanonica(p: Pieza): Pieza {
   const rueda = p.rueda === undefined ? undefined : nivelesEnOrden(p.rueda);
   return {
     id: p.id,
@@ -730,7 +730,7 @@ export function piezaCanonica(p: Pieza): Pieza {
 }
 
 /** Una pieza con base ya válida escrita siempre igual: los extras en su orden y sin ceros. */
-export function piezaConBaseCanonica(p: PiezaConBase): PiezaConBase {
+function piezaConBaseCanonica(p: PiezaConBase): PiezaConBase {
   const x = p.extras;
   const extras: Record<string, unknown> = {};
   for (const campo of EXTRAS) {
@@ -884,7 +884,7 @@ export function baseBlocker(
 }
 
 /** Lo que sale de resolver unas piezas escritas: las resueltas, las escritas y lo que no vale, por id. */
-export interface ResolucionDePiezas {
+interface ResolucionDePiezas {
   /** Las que valen, resueltas, en el orden de las escritas. */
   readonly piezas: ReadonlyMap<string, Pieza>;
   readonly escritas: ReadonlyMap<string, PiezaEscrita>;

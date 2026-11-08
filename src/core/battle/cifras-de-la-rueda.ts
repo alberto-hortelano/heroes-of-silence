@@ -54,9 +54,7 @@ export interface CifrasDeLaRueda {
 }
 
 /** La mezcla de la IA al elegir en la rueda, por papel: un peso por tipo. */
-export type PesosDeLaRueda = Readonly<
-  Record<PapelEnLaRueda, Readonly<Record<TipoDeGolpe, number>>>
->;
+type PesosDeLaRueda = Readonly<Record<PapelEnLaRueda, Readonly<Record<TipoDeGolpe, number>>>>;
 
 /**
  * El nivel más alto de un tipo (el más bajo es 0): siete niveles, del 0 al 6
@@ -236,7 +234,7 @@ const TABLA: TablaDeLaRueda = LEIDA.tabla;
  * Por cuánto multiplica Rápido los golpes: no depende del nivel (el arma cambia el
  * daño de cada golpe, no cuántos). Lo lee `golpesDe`.
  */
-export const GOLPES_DEL_RAPIDO: number = TABLA.golpesDelRapido;
+const GOLPES_DEL_RAPIDO: number = TABLA.golpesDelRapido;
 
 /**
  * La mezcla de la IA al elegir en la rueda, por papel (`ai/rueda.ts`): no depende
@@ -379,7 +377,7 @@ const NEUTRO: EfectoDelTipo = {
  * Sin `Math.sign`: en `core`, solo las funciones de `Math` que no dependen de la
  * plataforma.
  */
-export function aMedias(neutro: number, v: number): number {
+function aMedias(neutro: number, v: number): number {
   const d = v - neutro;
   return d < 0 ? neutro - Math.floor(-d / 2) : neutro + Math.floor(d / 2);
 }

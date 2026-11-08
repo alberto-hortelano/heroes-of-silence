@@ -18,7 +18,7 @@ import { enteroBlocker, esObjeto, problemasDeObjeto } from '../validar.js';
  * `data/heroe.json`. **Inventado y provisional**, y así lo dice su `_comment`:
  * en fheroes2 el héroe no pisa el tablero, así que no hay fila que copiar.
  */
-export interface ReglasDelHeroe {
+interface ReglasDelHeroe {
   readonly combate: {
     readonly pv: { readonly base: number; readonly porRango: number };
     /** La fuerza del héroe recién hecho y lo que sube cada rango (25-10-2026). */

@@ -15,7 +15,7 @@ import { enteroDesde } from '../validar.js';
  * **Inventado y provisional** (19-10-2026): nada se escribe por unidad, sale de
  * su índice de poder (`unidad/catalogo.ts`, `town/buildings.ts`).
  */
-export interface ReglasDeLaEconomia {
+interface ReglasDeLaEconomia {
   /** Una unidad cuesta `índice² / divisor` en oro, redondeado a la decena. */
   readonly oroPorIndice: { readonly divisor: number };
   /** Lo que suelta por semana una morada de cada unidad, por su nivel (1 a 6). */
@@ -39,7 +39,7 @@ export interface ReglasDeLaEconomia {
 }
 
 /** Los niveles que tienen fila en las tablas de la economía: del 1 al 6. */
-export const NIVELES_DE_LA_ECONOMIA = 6;
+const NIVELES_DE_LA_ECONOMIA = 6;
 
 /**
  * Valida la economía y la devuelve tipada; lanza con todos los problemas a la vez.

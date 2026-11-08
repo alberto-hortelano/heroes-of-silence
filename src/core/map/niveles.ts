@@ -27,7 +27,7 @@ import type { GameMap, MapRegion } from './tipos.js';
  * Una franja de barrera: las casillas 8-conexas de una misma barrera, y las
  * regiones que tocan por lo que se pisa.
  */
-export interface Franja {
+interface Franja {
   readonly barrera: Barrera;
   /** Sus casillas (índice `y*width+x`), la primera la de índice menor. */
   readonly casillas: readonly number[];
@@ -266,7 +266,7 @@ function sinEspiga(width: number, height: number, nivel: ArrayLike<number>, i: n
  * Lo leen la escena (`relieve`) y el generador, que quita las espigas antes de
  * que haya camino pero ya sabe qué nodos lo llevarán (`crucesConCamino`).
  */
-export const nivelDelNodo = (suyos: readonly number[], alBajo: boolean): number =>
+const nivelDelNodo = (suyos: readonly number[], alBajo: boolean): number =>
   alBajo ? Math.min(...suyos) : Math.max(...suyos);
 
 /**

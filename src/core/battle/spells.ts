@@ -54,7 +54,7 @@ export function duracionDeLoQueLanza(caster: Pick<BattleHero, 'spellPower'>): nu
 }
 
 /** Las rondas de tope de lo que dura «hasta el próximo turno de alguien», como la rueda. */
-export const RONDAS_HASTA_UN_TURNO = 2;
+const RONDAS_HASTA_UN_TURNO = 2;
 
 /** Lo que dice cuánto dura un efecto colgado: sus rondas y, si es hasta un turno, cuál. */
 export function cuantoDura(
@@ -117,7 +117,7 @@ export function resolverDisparador(
 }
 
 /** Qué se cuelga del afectado y lo común de todos los efectos del hechizo. */
-export interface Colgar {
+interface Colgar {
   readonly source: string;
   readonly bando: Side;
   readonly roundsLeft: number;
@@ -151,7 +151,7 @@ export function efectoColgado(
 }
 
 /** Qué efecto del motor es cada cifra del formato. Las de antes conservan su nombre. */
-export const KIND_DE_LA_CIFRA = {
+const KIND_DE_LA_CIFRA = {
   ataque: 'attack',
   defensa: 'defense',
   casillas: 'speed',

@@ -35,7 +35,7 @@ export interface Town {
 }
 
 /** Las líneas narradas de los vecinos de una base, con la firma de cuándo se pidieron. */
-export interface VocesDeLaBase {
+interface VocesDeLaBase {
   /** `firmaDeVoces` del momento: la semana y los sitios levantados. */
   readonly firma: string;
   /** Por id de vecino (`vecinosDeLaBase`), de 1 a 3 líneas. */
@@ -149,7 +149,7 @@ export function buildBlocker(town: Town, buildingId: string, oro: number): strin
   return oroBlocker(b.cost, oro);
 }
 
-export function canBuild(town: Town, buildingId: string, oro: number): boolean {
+function canBuild(town: Town, buildingId: string, oro: number): boolean {
   return buildBlocker(town, buildingId, oro) === null;
 }
 

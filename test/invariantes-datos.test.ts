@@ -172,7 +172,7 @@ describe('invariantes del proyecto', () => {
       catalogo.unidades.filter((u) => 'level' in u || 'nivel' in u || 'cost' in u).map((u) => u.id),
     ).toEqual([]);
     const tipos = codigoDe(ruta('src/core/types.ts'));
-    const unitInfo = /export interface UnitInfo \{[\s\S]*?\n\}/.exec(tipos)?.[0];
+    const unitInfo = /(?:export )?interface UnitInfo \{[\s\S]*?\n\}/.exec(tipos)?.[0];
     if (unitInfo === undefined) throw new Error('no encuentro `interface UnitInfo` en types.ts');
     expect(unitInfo).not.toMatch(/\b(?:nivel|level)\??\s*:/);
     expect(infractoresDeCodigo([...CORE, ...CLIENTE, ...SERVIDOR], /\bsinEquipo\b/)).toEqual([]);

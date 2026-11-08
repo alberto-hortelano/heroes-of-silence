@@ -12,7 +12,7 @@ import { vecindad } from '../regiones.js';
 import type { Suelo } from '../terrain.js';
 import { ABIERTA, BARRERAS_DEL_MAPA, indiceDe, ponerTipo, sortear, type Tipos } from './base.js';
 
-export interface EntradaDeObstaculos {
+interface EntradaDeObstaculos {
   readonly W: number;
   readonly H: number;
   /** La frontera gruesa; aquí se añaden los obstáculos. */

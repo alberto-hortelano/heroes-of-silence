@@ -19,7 +19,7 @@
 import { type BattleState, queEs, type Side } from './types.js';
 
 /** Un hechizo lanzado en la batalla: quién, cuál, sobre qué y cuántos mató. */
-export interface HechizoLanzado {
+interface HechizoLanzado {
   readonly side: Side;
   readonly spell: string;
   /**

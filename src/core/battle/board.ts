@@ -15,8 +15,8 @@
 import type { Hex } from '../types.js';
 import type { Paso, Side } from './types.js';
 
-export const ANCHO_DE_FILA_PAR = 12;
-export const ANCHO_DE_FILA_IMPAR = 11;
+const ANCHO_DE_FILA_PAR = 12;
+const ANCHO_DE_FILA_IMPAR = 11;
 export const BOARD_HEIGHT = 9;
 
 /** Cuántas casillas tiene la fila `row`: 12 las pares, 11 las impares. */
@@ -62,7 +62,7 @@ const TODAS_LAS_CASILLAS: readonly Hex[] = Object.freeze(
 );
 
 /** Una fila del tablero tal como se pinta: sus casillas y si va corrida media casilla. */
-export interface FilaDelTablero {
+interface FilaDelTablero {
   readonly row: number;
   readonly desplazada: boolean;
   readonly hexes: readonly Hex[];

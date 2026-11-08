@@ -43,7 +43,7 @@ import type { GameState } from './tipos.js';
 export const TIEMPOS = ['despejado', 'niebla', 'lluvia', 'tormenta'] as const;
 export type Tiempo = (typeof TIEMPOS)[number];
 
-export function esTiempo(texto: string): texto is Tiempo {
+function esTiempo(texto: string): texto is Tiempo {
   return (TIEMPOS as readonly string[]).includes(texto);
 }
 
@@ -61,7 +61,7 @@ export interface ClimaDeLaPartida {
 }
 
 /** Lo que se pone encima del clima de un sitio: el tiempo, la noche o los dos. */
-export interface ClimaForzadoDelSitio {
+interface ClimaForzadoDelSitio {
   readonly tiempo?: Tiempo;
   readonly noche?: boolean;
 }
@@ -77,10 +77,10 @@ export interface PedidoDeClima extends ClimaForzadoDelSitio {
 // ------------------------------------------------------------------ los datos
 
 /** Quién manda en la noche de una región: la facción de su dueño, o nadie. */
-export type DueñoDelClima = FactionId | 'neutral';
+type DueñoDelClima = FactionId | 'neutral';
 
 /** Lo que se lee de `data/clima.json`. */
-export interface ReglasDelClima {
+interface ReglasDelClima {
   readonly tiempo: {
     readonly pesos: Readonly<Record<Tiempo, number>>;
     readonly seguir: number;
@@ -384,7 +384,7 @@ export function esDeNocheEn(state: GameState, regionId: string): boolean {
  * entero, H1 de la vuelta de QA del 22-10-2026); la juzga `climaBlocker`, campo
  * a campo, y la que no vale se descarta sola con su motivo.
  */
-export type EntradaDeClima = unknown;
+type EntradaDeClima = unknown;
 
 /** Una entrada que `climaBlocker` dio por buena, ya con sus tipos. */
 interface PedidoLeido {
@@ -400,7 +400,7 @@ export interface ClimaAceptado extends PedidoDeClima {
   readonly nombre: string;
 }
 
-export interface ClimaPuesto {
+interface ClimaPuesto {
   readonly aceptados: readonly ClimaAceptado[];
   /** Cada pedido que no entró, con su motivo para la persona. */
   readonly rechazos: readonly string[];
@@ -431,7 +431,7 @@ const esPunto = (v: unknown): v is Point =>
  * (una casilla del mapa, un tiempo que existe, días dentro del tope). No mira
  * cuántos van ni si la región se repite: eso es de `pedirClima`.
  */
-export function climaBlocker(state: GameState, entrada: EntradaDeClima): string | null {
+function climaBlocker(state: GameState, entrada: EntradaDeClima): string | null {
   if (!esObjeto(entrada)) {
     return `cada pedido es un objeto { "at", "weather", "night", "days" }, y llega ${dicho(entrada)}`;
   }

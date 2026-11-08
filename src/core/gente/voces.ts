@@ -36,7 +36,7 @@ export const MAX_VOCES_POR_RESPUESTA = 48;
  * (`ETIQUETAS`, `gente/banco.ts`); hasta el 22-10-2026 llevaba un `cuerpo` del
  * catálogo que no se pintaba.
  */
-export interface Persona {
+interface Persona {
   readonly nombre: string;
   readonly papel: string;
   readonly oficio: Oficio;
@@ -49,7 +49,7 @@ export interface PersonaDeLaFaccion extends Persona {
   readonly id: string;
 }
 
-export interface Vecino extends Persona {
+interface Vecino extends Persona {
   /** `encargado-<sitio>` o `vecino-<id>`: lo que el agente nombra en `npc`. */
   readonly id: string;
   /** El sitio del que es encargado, o `null` si es un vecino. */
@@ -187,8 +187,8 @@ export function personasDeLaFaccion(faccion: FactionId): readonly PersonaDeLaFac
  * más los escribe.
  */
 export const ID_DEL_ALCAIDE = 'alcaide';
-export const idDeEncargado = (sitio: SitioId): string => `encargado-${sitio}`;
-export const idDeVecino = (clave: string): string => `vecino-${clave}`;
+const idDeEncargado = (sitio: SitioId): string => `encargado-${sitio}`;
+const idDeVecino = (clave: string): string => `vecino-${clave}`;
 
 /** Los ids de los vecinos de una facción, los de `data/vecinos.json`. */
 export function idsDeVecinos(faccion: FactionId): readonly string[] {
@@ -271,12 +271,12 @@ export function vocesBlocker(
   return null;
 }
 
-export interface VozPedida {
+interface VozPedida {
   readonly npc: string;
   readonly lines: readonly string[];
 }
 
-export interface VocesPuestas {
+interface VocesPuestas {
   /** Las líneas que entraron. */
   readonly aceptadas: number;
   /** Lo que no entró, uno por voz o por línea, con su motivo. */

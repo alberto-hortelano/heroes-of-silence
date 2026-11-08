@@ -15,7 +15,7 @@ import { enteroDesde } from '../validar.js';
  * cifras las define el usuario cuando cierre la economía, y por eso viven en
  * datos y no en el código.
  */
-export interface ReglasDeLiderazgo {
+interface ReglasDeLiderazgo {
   /** Tope de un héroe: `base + porRango × (rango − 5)`, sin pasar de `max`. */
   readonly heroe: { readonly base: number; readonly porRango: number; readonly max: number };
   /** Tope de la tropa que guarda un castillo sin héroe. */

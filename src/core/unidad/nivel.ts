@@ -293,7 +293,7 @@ export function nivelDelIndice(indice: number): number {
  * **Inventadas y provisionales**, como dice su `_comment`: es la calibración que
  * deja cada criatura del catálogo en el nivel de su morada o en el contiguo.
  */
-export interface ReglasDelPoder {
+interface ReglasDelPoder {
   /** El poder con el que empieza el nivel 2: por debajo, todo es el nivel 1. */
   readonly umbralDelNivel2: number;
   /** Cada umbral es el anterior × `razon[0]` / `razon[1]`: dos enteros, sin coma flotante. */
@@ -412,4 +412,4 @@ export function validarPoder(json: unknown, fichero = 'data/poder.json'): Reglas
   };
 }
 
-export const PODER: ReglasDelPoder = validarPoder(poderJson);
+const PODER: ReglasDelPoder = validarPoder(poderJson);

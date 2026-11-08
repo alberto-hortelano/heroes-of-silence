@@ -63,7 +63,7 @@ export function restaDelPeso(fuerza: number, peso: number): number {
 }
 
 /** La agilidad que queda con `peso` encima: la del cuerpo menos lo que resta el peso, como poco 1. */
-export function agilidadEfectiva(agilidad: number, fuerza: number, peso: number): number {
+function agilidadEfectiva(agilidad: number, fuerza: number, peso: number): number {
   return Math.max(AGILIDAD_MINIMA, agilidad - restaDelPeso(fuerza, peso));
 }
 

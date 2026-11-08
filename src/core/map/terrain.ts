@@ -27,7 +27,7 @@ export type TerrainKind = (typeof TERRAIN_KINDS)[number];
  * tiene precio, y desde que el tipo lo dice (`Suelo`) la tabla ya no lleva las
  * entradas muertas que exigía un `Record` del tipo entero.
  */
-export const TERRAIN_COST: Readonly<Record<Suelo, number>> = {
+const TERRAIN_COST: Readonly<Record<Suelo, number>> = {
   grass: 100,
   dirt: 100,
   lava: 100,
@@ -41,7 +41,7 @@ export const TERRAIN_COST: Readonly<Record<Suelo, number>> = {
 export const ROAD_COST = 75;
 
 /** Cruzar en diagonal cuesta un 40 % más, como en la serie. */
-export const DIAGONAL_FACTOR = 1.4;
+const DIAGONAL_FACTOR = 1.4;
 
 /**
  * Lo que cuesta **entrar** en una casilla: la regla, escrita una vez.

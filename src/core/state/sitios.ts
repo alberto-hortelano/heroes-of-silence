@@ -365,7 +365,7 @@ export function ciudadQueMandaBlocker(
  * Lo que es cada sitio en una frase («… es una ciudad»): junto a `nombreDelSitio`,
  * para los motivos que dicen por qué un sitio no vale para algo.
  */
-export const QUE_ES_EL_SITIO: Readonly<Record<Sitio['kind'], string>> = {
+const QUE_ES_EL_SITIO: Readonly<Record<Sitio['kind'], string>> = {
   ciudad: 'una ciudad',
   paso: 'un paso',
   pueblo: 'un pueblo',
@@ -391,7 +391,7 @@ const MATERIAL_DE_LA_OBRA: Readonly<Record<ObraDelPuesto, MaterialDeMuralla>> = 
 };
 
 /** Lo que es cada obra de un puesto en la partida: lo que cuesta y tras qué muralla se pelea. */
-export interface LaObra {
+interface LaObra {
   /** En oro (inventado, `data/sitios.json`). */
   readonly precio: number;
   /** La forma que nombra en el fichero: el mismo objeto que la de quien la comparta. */
@@ -399,7 +399,7 @@ export interface LaObra {
 }
 
 /** Lo que se lee de `data/sitios.json` (`leerSitios`). */
-export interface LosSitios {
+interface LosSitios {
   /** La muralla de toda batalla contra una ciudad y contra un pueblo. */
   readonly murallas: Readonly<Record<SitioConMuralla, MurallaDeBatalla>>;
   /** Las obras de un puesto, con su precio y su muralla. */
@@ -500,7 +500,7 @@ const MATERIAL_DEL_PUESTO: Readonly<Record<MejoraDelPuesto, MaterialDeMuralla | 
 };
 
 /** Una obra hecha (o por hacer): quién, en qué paso, cuál y por cuánto. */
-export interface ObraHecha {
+interface ObraHecha {
   readonly hero: Hero;
   readonly nodo: Nodo;
   readonly obra: ObraDelPuesto;
@@ -696,7 +696,7 @@ export function guarnicionHostil(
  * guarnición, en ese orden (el de despliegue). Es de donde salen el reparto, la
  * defensa de la IA y la de la persona.
  */
-export function entreLosDos(state: GameState, hero: Hero, sitio: Sitio): Troop[] {
+function entreLosDos(state: GameState, hero: Hero, sitio: Sitio): Troop[] {
   return [...hero.army, ...guarnicionDe(state, sitio)];
 }
 
@@ -808,7 +808,7 @@ export function repartir(state: GameState, hero: Hero, sitio: Sitio, enElHeroe: 
 }
 
 /** Dejar tropa en la guarnición (`dejar_tropa`) o recogerla (`recoger_tropa`): el tipo de la acción. */
-export type Intercambio = Extract<
+type Intercambio = Extract<
   AdventureAction,
   { readonly type: 'dejar_tropa' | 'recoger_tropa' }
 >['type'];

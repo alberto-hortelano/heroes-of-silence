@@ -51,7 +51,7 @@ export function unitPower(info: UnitInfo): number {
 }
 
 /** Lo que divide al poder bruto² en `unitPower`: ver allí. Medido, no inventado. */
-export const DIVISOR_DEL_PODER = 62_989;
+const DIVISOR_DEL_PODER = 62_989;
 
 /** Fuerza bruta de un ejército: la de cada individuo, sumada. */
 export function armyPower(army: Army): number {

@@ -219,7 +219,7 @@ export function golpeNeutro(forma: FormaDeLaRueda): 'normal' | null {
 export const LAS_TRES_RUEDAS: readonly FormaDeLaRueda[] = TIPOS_DE_LAS_RUEDAS.map((n) => RUEDAS[n]);
 
 /** Si `tipo` es de la rueda `forma`. */
-export function esDeLaRueda(tipo: TipoDeGolpe, forma: FormaDeLaRueda): boolean {
+function esDeLaRueda(tipo: TipoDeGolpe, forma: FormaDeLaRueda): boolean {
   return (forma.golpes as readonly TipoDeGolpe[]).includes(tipo);
 }
 

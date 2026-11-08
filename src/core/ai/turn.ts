@@ -76,7 +76,7 @@ function pasoFueraDelVaiven(
  * decisiones de un paso del turno, sin aplicarlo. Se exporta para que los tests
  * de #181 pregunten por la decisión sin jugar el turno entero.
  */
-export function marchaDeHoy(
+function marchaDeHoy(
   state: GameState,
   hero: Hero,
 ): { readonly paso: Point; readonly alcance: Reachable } | null {
@@ -191,7 +191,7 @@ export type BattleTakeover = (state: GameState, ctx: GameContext) => Promise<voi
  * él (`BattleTakeover`); si no, la cierra la IA, sin rendirse por él
  * (`resolvePendingBattle`).
  */
-export interface ConduccionDelTurno {
+interface ConduccionDelTurno {
   readonly batallas?: Partial<Record<Exclude<Controller, 'ai'>, BattleTakeover>>;
 }
 

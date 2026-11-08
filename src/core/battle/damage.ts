@@ -33,10 +33,10 @@ import {
 import { effectTotal } from './effects.js';
 import type { BattleStack } from './types.js';
 
-export const ATTACK_BONUS_PER_POINT = 0.1;
-export const MAX_ATTACK_BONUS = 3.0;
-export const DEFENSE_REDUCTION_PER_POINT = 0.025;
-export const MAX_DEFENSE_REDUCTION = 0.7;
+const ATTACK_BONUS_PER_POINT = 0.1;
+const MAX_ATTACK_BONUS = 3.0;
+const DEFENSE_REDUCTION_PER_POINT = 0.025;
+const MAX_DEFENSE_REDUCTION = 0.7;
 
 /**
  * Con qué arma se da un golpe (13-10-2026, «cada arma para lo suyo»): el disparo,
@@ -55,7 +55,7 @@ export function usoDelGolpe(opts: Pick<DamageOptions, 'ranged'>): UsoDeArma {
  * cuerpo)» (`golpeDe`, `DICHO_DEL_USO`, `DICHO_DE_LA_CARGA`). Lo leen la previsión
  * del golpe y la del contraataque.
  */
-export function dichoDelGolpe(unit: UnitInfo, uso: UsoDeArma, enLaCarga = false): string {
+function dichoDelGolpe(unit: UnitInfo, uso: UsoDeArma, enLaCarga = false): string {
   const { piezas, carga } = golpeDe(unit, uso);
   const como = (enLaCarga ? DICHO_DE_LA_CARGA : DICHO_DEL_USO[uso]).golpe;
   // La carga montada pega con la fuerza de la montura: se nombra (26-10-2026).
@@ -74,7 +74,7 @@ function nombresDeLasArmas(piezas: GolpeConArma['piezas']): string {
 }
 
 /** Una fila de `armasDe`: el golpe de un uso (`golpeDe`) con el nombre de sus armas. */
-export interface ArmaDeLaUnidad extends Omit<GolpeConArma, 'piezas' | 'carga'> {
+interface ArmaDeLaUnidad extends Omit<GolpeConArma, 'piezas' | 'carga'> {
   readonly uso: UsoDeArma;
   /** Los nombres de sus armas («Espada y Lanza de jinete»), o `null` si ese golpe va con el cuerpo. */
   readonly arma: string | null;
@@ -169,7 +169,7 @@ export function damageMultiplier(attack: number, defense: number): number {
   return 1;
 }
 
-export interface DamageResult {
+interface DamageResult {
   readonly damage: number;
   /**
    * Hexes de carga que se han COBRADO de verdad, ya con el tope aplicado; 0 si

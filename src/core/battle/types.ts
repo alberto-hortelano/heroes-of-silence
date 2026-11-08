@@ -81,7 +81,7 @@ export type OrigenDelStack =
     };
 
 /** Lo que un stack ha ganado en esta batalla: lo apunta `herir`, lo cobra `settleBattle`. */
-export interface Ganado {
+interface Ganado {
   /** `PV quitados × índice de poder del que los recibe`, sumado golpe a golpe. */
   experiencia: number;
   /** Individuos enemigos que ha matado. */
@@ -252,7 +252,7 @@ export interface BattleStack {
 }
 
 /** Un hechizo diferido en el aire: cuál, dónde caerá y con el poder de quien lo lanzó. */
-export interface HechizoEnElAire {
+interface HechizoEnElAire {
   readonly hechizo: string;
   readonly at: Hex;
   readonly poder: number;
@@ -565,7 +565,7 @@ export interface GolpeEnCurso {
  * índice en `TANDAS`, `despliegue.ts`) y qué bandos despliega una persona. Las
  * tandas de los demás pasan solas (`BattleSide.despliegaAMano`).
  */
-export interface DespliegueEnCurso {
+interface DespliegueEnCurso {
   readonly tanda: number;
   readonly aMano: readonly Side[];
 }
@@ -877,7 +877,7 @@ interface ComunDelEfecto {
 }
 
 /** Un efecto que suma a una cifra. */
-export interface EfectoDeCifra extends ComunDelEfecto {
+interface EfectoDeCifra extends ComunDelEfecto {
   readonly kind: CifraDeEfecto;
   readonly amount: number;
 }
@@ -889,7 +889,7 @@ export interface EfectoQueImpide extends ComunDelEfecto {
 }
 
 /** Se come el daño que llega, tras la armadura, hasta agotarse (`herir`). */
-export interface EfectoDeEscudo extends ComunDelEfecto {
+interface EfectoDeEscudo extends ComunDelEfecto {
   readonly kind: 'escudo';
   /** Lo que le queda por comerse; con 0 se quita. */
   queda: number;

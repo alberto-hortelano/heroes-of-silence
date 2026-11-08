@@ -44,7 +44,7 @@ export interface PuestoDelEnlace {
 }
 
 /** Un lado del enlace: quién lo mueve, entero —la persona o la IA—, sus puestos y su héroe. */
-export interface LadoDelEnlace {
+interface LadoDelEnlace {
   readonly ia: boolean;
   readonly puestos: readonly PuestoDelEnlace[];
   readonly heroe: HeroeDeArena | null;
@@ -89,8 +89,8 @@ export interface MontajeDelEnlace {
  * arena pelea con las reglas del juego, sin interruptores; un enlace de antes con
  * ellos pelearía otra pelea que la que dice, así que no se ignoran: se rechazan.
  */
-export const PARAMETROS_RETIRADOS = ['reglas', 'golpe', 'contacto'] as const;
-export type ParametroRetirado = (typeof PARAMETROS_RETIRADOS)[number];
+const PARAMETROS_RETIRADOS = ['reglas', 'golpe', 'contacto'] as const;
+type ParametroRetirado = (typeof PARAMETROS_RETIRADOS)[number];
 
 /**
  * Los parámetros retirados que trae la URL (`nombres`, sus claves), cada uno con
@@ -385,7 +385,7 @@ export function montajeDeArenaDelEnlace(
  * cada héroe y los poderes de cada unidad (`Unidad.hechizos`). Lo que viaja en el
  * enlace.
  */
-export function idsDeHechizosDelMontaje(
+function idsDeHechizosDelMontaje(
   unidades: readonly Unidad[],
   heroes: readonly HeroeDeArena[],
 ): readonly string[] {

@@ -59,7 +59,7 @@ export type CatalogoDeEquipo = EquipoAtado & {
 };
 
 /** Las lecturas de las piezas con el catálogo `piezas` (`EquipoAtado`). */
-export function equipoCon(piezas: CatalogoDePiezas): EquipoAtado {
+function equipoCon(piezas: CatalogoDePiezas): EquipoAtado {
   return {
     piezas,
     pieza: (id) => piezaDe(piezas, id),

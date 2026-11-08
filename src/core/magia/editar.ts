@@ -15,7 +15,7 @@ import {
 } from './formato.js';
 
 /** Un efecto recién puesto de `tipo`, con valores que valen. */
-export function efectoNuevo(tipo: TipoDeEfecto): Efecto {
+function efectoNuevo(tipo: TipoDeEfecto): Efecto {
   switch (tipo) {
     case 'danio':
       return { tipo, cantidad: 10, armadura: true };
@@ -40,7 +40,7 @@ export function efectoNuevo(tipo: TipoDeEfecto): Efecto {
 }
 
 /** Un id libre a partir de `base` («hechizo», «hechizo_2»…). */
-export function idLibre(base: string, ocupados: ReadonlySet<string>): string {
+function idLibre(base: string, ocupados: ReadonlySet<string>): string {
   if (!ocupados.has(base)) return base;
   for (let n = 2; ; n++) {
     const id = `${base}_${n}`;
@@ -49,7 +49,7 @@ export function idLibre(base: string, ocupados: ReadonlySet<string>): string {
 }
 
 /** Un nombre libre a partir de `base` («Hechizo nuevo», «Hechizo nuevo 2»…). */
-export function nombreLibre(base: string, ocupados: ReadonlySet<string>): string {
+function nombreLibre(base: string, ocupados: ReadonlySet<string>): string {
   if (!ocupados.has(base)) return base;
   for (let n = 2; ; n++) {
     const nombre = `${base} ${n}`;

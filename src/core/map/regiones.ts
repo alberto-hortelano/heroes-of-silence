@@ -60,7 +60,7 @@ function claseDeCandidato(o: MapObject, conRegiones: boolean): ClaseDeNodo | nul
  * los 530 de la tabla (medido en la vuelta de simplify, 03-10-2026). Memoizada
  * por tamaño: el mapa de una partida no cambia de lado.
  */
-export interface Vecindad {
+interface Vecindad {
   readonly desde: Int32Array;
   readonly vecinas: Int32Array;
 }

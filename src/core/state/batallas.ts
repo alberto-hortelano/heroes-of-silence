@@ -518,7 +518,7 @@ function batallaSinEmpezar(battle: BattleState): boolean {
 }
 
 /** La defensa que `player` puede elegir ahora: quién la hace, dónde, y cómo queda (`laDefensa`). */
-export type DefensaPorElegir = LaDefensa & { readonly hero: Hero; readonly sitio: Sitio };
+type DefensaPorElegir = LaDefensa & { readonly hero: Hero; readonly sitio: Sitio };
 
 /**
  * Por qué `player` no puede elegir ahora la defensa de su héroe atacado, o `null`:

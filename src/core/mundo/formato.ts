@@ -34,7 +34,7 @@ const LARGO_DE_UN_ID = 48;
  * cifras y guiones (`esIdDeUnidad`)—, de hasta `LARGO_DE_UN_ID`. Es lo que va en
  * `?mundo=` y en una ruta de disco, así que nada de puntos ni barras.
  */
-export function esIdDeMundo(id: string): boolean {
+function esIdDeMundo(id: string): boolean {
   return id.length <= LARGO_DE_UN_ID && esIdDeUnidad(id);
 }
 
@@ -136,7 +136,7 @@ export interface Mundo {
 }
 
 export const CLAVES_DE_CONDICION = ['estado', 'marca', 'oro', 'lleva', 'faccion', 'no'] as const;
-export type ClaveDeCondicion = (typeof CLAVES_DE_CONDICION)[number];
+type ClaveDeCondicion = (typeof CLAVES_DE_CONDICION)[number];
 
 /**
  * Una condición. Una lista de condiciones es un «y»; `no` niega una sola.
@@ -237,7 +237,7 @@ export const VOCABULARIO: {
 };
 
 /** Una marca del mundo, con lo que se dice cuando falta y cuando ya está. */
-export interface Marca {
+interface Marca {
   /** Por qué una opción que pide la marca sale apagada: «la carta del capitán sigue cerrada». */
   readonly falta: string;
   /**
@@ -271,7 +271,7 @@ export interface Dialogo {
  * Hasta el 22-10-2026 llevaba un `cuerpo` del catálogo de unidades, y se pintaba un
  * soldado con sus armas: se retiró (decisión del usuario sobre el plan del banco).
  */
-export interface PersonaDelLugar {
+interface PersonaDelLugar {
   readonly nombre: string;
   readonly papel: string;
   readonly figura: string;
@@ -290,7 +290,7 @@ export interface Punto {
   readonly cosa?: { readonly nombre: string };
 }
 
-export interface Encuentro {
+interface Encuentro {
   readonly nombre: string;
   readonly tropa: readonly GrupoDeTropa[];
   readonly alGanar: readonly Efecto[];

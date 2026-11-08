@@ -127,13 +127,13 @@ export interface PrevisionDeLanzar {
 }
 
 /** Lo que haría un hechizo del héroe sobre su objetivo. */
-export interface PrevisionDeHechizo extends PrevisionDeLanzar {
+interface PrevisionDeHechizo extends PrevisionDeLanzar {
   readonly kind: 'hechizo';
   readonly hechizo: string;
 }
 
 /** Lo que haría el poder de la unidad activa (`poderes.ts`) sobre su objetivo. */
-export interface PrevisionDePoder extends PrevisionDeLanzar {
+interface PrevisionDePoder extends PrevisionDeLanzar {
   readonly kind: 'poder';
   readonly poder: PoderId;
 }
@@ -149,7 +149,7 @@ export interface PrevisionDeGranada {
 }
 
 /** Lo que daría una granada a uno, y si es del bando de quien la lanza (el «¡tuyo!»). */
-export interface ImpactoDeGranada extends PrevisionDeGolpe {
+interface ImpactoDeGranada extends PrevisionDeGolpe {
   readonly aliado: boolean;
 }
 
@@ -465,7 +465,7 @@ function previsionDelContraataque(
 }
 
 /** Lo que daría un tipo de la rueda: el daño de un golpe y cuántos golpes (`DanioDeLosGolpes`). */
-export interface SectorDeLaRueda extends DanioDeLosGolpes {
+interface SectorDeLaRueda extends DanioDeLosGolpes {
   /**
    * Al golpear con un tipo que deja algo al rival antes de su contraataque (Romper
    * guardia), su contraataque de ahora con cada éxito que lo cambia, del mayor al
@@ -499,7 +499,7 @@ export interface GolpeQueViene {
  * Si un golpe te tumba, con lo que se cobra (`loQueQuitan`): `siempre`, también lo
  * menos que quita llega a tu vida; `puede`, solo lo más; `no`, ni lo más.
  */
-export type Tumba = 'no' | 'puede' | 'siempre';
+type Tumba = 'no' | 'puede' | 'siempre';
 
 /** Un golpe del que viene (`GolpeQueViene`): su tipo, el punto del cruce y lo que dan sus golpes. */
 export interface GolpeEnSuPunto extends DanioDeLosGolpes {

@@ -41,7 +41,7 @@ export type LaIAElige = (quien: BattleStack, papel: PapelEnLaRueda) => boolean;
  * (`falta: null`), o la que espera la elección de otro (`falta`, su papel), con
  * lo de la IA ya elegido.
  */
-export type CruceCompletado =
+type CruceCompletado =
   | { readonly falta: null; readonly accion: BattleAction }
   | { readonly falta: PapelEnLaRueda; readonly accion: AtaqueEnLaRueda };
 
