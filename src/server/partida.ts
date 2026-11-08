@@ -5,7 +5,7 @@
  * le podía preparar nada: para que `pnpm qa` cruzara el ascenso de la tropa a
  * héroe hacía falta una partida con un veterano de rango 5 en la base, y la del
  * arnés lo produce en 0,06 de cada partida. Ahora el cuerpo es una función y
- * `ws-server.ts` la llama con nada; `tools/qa/partida-con-veterano.ts` la llama
+ * `ws-server.ts` la llama con nada; `tools/qa/agente/partida-con-veterano.ts` la llama
  * con un `preparar`. **Ninguna variable de entorno ni ningún mensaje lo abre**:
  * solo un `import`, y lo que importa desde `tools/` no se despliega.
  */

@@ -400,7 +400,7 @@ function pintarLoQueAclara(
  * abren un hueco, que es lo que hace que la ciudad se vea entera
  * (`pintarLaLuzDelMundo`). En la base, la capa con sus huecos costaba 8,8 ms por
  * fotograma en 2560×1440 (componerla con `multiply` desde un cuarto), y el
- * `fillRect`, lo que la tormenta: 2,6 ms (medido el 22-10-2026, `tools/qa/clima.ts`).
+ * `fillRect`, lo que la tormenta: 2,6 ms (medido el 22-10-2026, `tools/qa/navegador/clima.ts`).
  */
 function pintarLaLuz(ctx: CanvasRenderingContext2D, campo: CampoDelClima, m: MarcoDelClima): void {
   const { luz, luces } = campo;

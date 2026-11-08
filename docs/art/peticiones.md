@@ -410,7 +410,7 @@ que faltara en `assets/art/imperio/`. Decisiones suyas del 04-10-2026:
    - el CLI `derivar` lanza con el atlas de 6 filas de un tirador;
    - `escalaDePose` sin test;
    - unificar el registro de hojas de la arena con su espejo en
-     `tools/qa/capturas.ts`.
+     `tools/qa/capturas/main.ts`.
 
 ## 13. Los Orkos en 8 direcciones (rama `arte-mapas`, 05-10-2026)
 
@@ -420,7 +420,7 @@ Mandan las unidades de `NuevaJugabilidad.md` (decisión del usuario). Ya está:
   - el chamán orko pasa a ser `heroe-goblin-chaman`;
   - entran `goblin-jinete-de-hiena` (montado-lanza, a 5 como el jinete elfo) y
     `orko-armadura-pesada` (gran hacha, a 3);
-  - los tests de la arena y `tools/qa/capturas.ts` usan `orko-dos-armas`
+  - los tests de la arena y `tools/qa/capturas/main.ts` usan `orko-dos-armas`
     donde estaba el berserker.
 - **Láminas nuevas** en `assets/art/orkos/`: kaudillo, jefe goblin, chamán
   goblin, jinete de hiena y orko con armadura pesada. Su procedencia candidata
@@ -484,7 +484,7 @@ láminas que puso el usuario en `assets/art/no-muertos/`:
   - `test/arena.test.ts` exige ahora las 8 direcciones de todas las unidades;
   - `test/taller-8d.test.ts` prueba la guarda del giro con una unidad
     inventada;
-  - `tools/qa/capturas.ts` mira los atlas del orco, no las hojas del Y Bot.
+  - `tools/qa/capturas/main.ts` mira los atlas del orco, no las hojas del Y Bot.
 
   El respaldo del Y Bot ya solo lo ejercitan los tests con unidades
   inventadas.

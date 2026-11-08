@@ -2,7 +2,7 @@
  * Los temas con sus piezas puestas, medidos en el navegador (afinado del
  * 18-10-2026, `docs/agents/2026-10-13-temas-de-las-laminas/hallazgos-afinado.md`):
  *
- *     npx tsx tools/qa/temas-con-piezas.ts [carpeta de capturas]
+ *     npx tsx tools/qa/navegador/temas-con-piezas.ts [carpeta de capturas]
  *
  * En la partida (`?seed=42644`), con cada tema puesto desde la página
  * (`ponerTema`: el juego solo tiene caballero y nigromante) y sin tema, mide:
@@ -37,17 +37,17 @@ import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { chromium, type Page } from 'playwright';
 import sharp from 'sharp';
-import { FACTION_IDS, type FactionId } from '../../src/core/types.js';
-import { contrasteDeLuces } from '../comun/color.js';
-import { mediana } from '../comun/estadistica.js';
+import { FACTION_IDS, type FactionId } from '../../../src/core/types.js';
+import { contrasteDeLuces } from '../../comun/color.js';
+import { mediana } from '../../comun/estadistica.js';
 import {
   arrancarVite,
   chromiumInstalado,
   esperarElSuelo,
   vigilarLaConsola,
-} from '../comun/navegador.js';
-import { matarGrupo } from '../comun/procesos.js';
-import { RAIZ } from '../comun/raiz.js';
+} from '../../comun/navegador.js';
+import { matarGrupo } from '../../comun/procesos.js';
+import { RAIZ } from '../../comun/raiz.js';
 import { urlDePartida } from './url-de-partida.js';
 
 /**

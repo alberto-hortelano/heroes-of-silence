@@ -99,13 +99,13 @@ export interface ProceduralOptions {
   readonly monsterCount?: number;
   /**
    * Se le dice cada vestido que no vale, con su fase y su motivo: lo leen las
-   * medidas (`tools/qa/rios.ts`), que cuentan los vestidos tirados. No cambia
+   * medidas (`tools/qa/medidas/rios.ts`), que cuentan los vestidos tirados. No cambia
    * nada del mapa.
    */
   readonly alTirarUnVestido?: (fase: string, motivo: string) => void;
   /**
    * Se le da el río del plan que sale (`trazarRio`): lo lee el guardia de su
-   * continuidad (`test/rio.test.ts`) y la medida (`tools/qa/rios.ts`), que
+   * continuidad (`test/rio.test.ts`) y la medida (`tools/qa/medidas/rios.ts`), que
    * comprueban sobre el mapa hecho que sigue entero. No cambia nada del mapa.
    */
   readonly alTrazarElRio?: (rio: TrazadoDelRio) => void;

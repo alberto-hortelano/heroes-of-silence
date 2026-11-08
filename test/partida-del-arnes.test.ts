@@ -16,7 +16,7 @@ import {
   faltaParaElEspectador,
   type Peticion,
   semillaDelArnes,
-} from '../tools/qa/partida-del-arnes.js';
+} from '../tools/qa/agente/partida-del-arnes.js';
 
 let n = 0;
 const id = (): string => `p-${++n}`;

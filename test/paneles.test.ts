@@ -8,7 +8,7 @@ import { tiposDeHeroe } from '../src/core/hero/tipos-de-heroe.js';
 import { ascenderVeterano } from '../src/core/state/heroes.js';
 import { conMiles, conSigno } from '../src/core/texto.js';
 import { nivelDeUnidad } from '../src/core/unidad/nivel.js';
-import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
+import { ponVeteranoEnLaBase } from '../tools/qa/agente/veterano-en-la-base.js';
 import { meAtacan } from './escenas-paneles.js';
 
 /** «(+2)» o «(−1)»: lo que cambia el equipo una cifra del héroe, como lo dice la ficha. */

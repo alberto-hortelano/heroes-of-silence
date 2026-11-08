@@ -208,7 +208,7 @@ const SIN_LADOS: ReadonlySet<Lado> = new Set();
 /**
  * Los dos bandos de `montaje` como los pelea `createBattle`: cada unidad del
  * catálogo de la pelea y el héroe, en el orden del montaje. Los monta
- * `batallaDeArena`, y la medida de la IA contra la IA (`tools/qa/arena-ia.ts`) los
+ * `batallaDeArena`, y la medida de la IA contra la IA (`tools/qa/medidas/arena-ia.ts`) los
  * pide para pelearlos tras una muralla del mapa con el atacante al asalto
  * (`alAsalto`: el héroe con escalera, que la arena no da).
  */

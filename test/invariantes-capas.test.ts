@@ -258,7 +258,7 @@ describe('invariantes del proyecto', () => {
     // abriría su transporte de stdio dentro del servidor: `server.ts` lo abre al
     // importarse.
     //
-    // Solo `src/`: los tests y `pnpm qa` (`tools/qa/verify-agent.ts`) leen el puente a
+    // Solo `src/`: los tests y `pnpm qa` (`tools/qa/agente/verify-agent.ts`) leen el puente a
     // propósito para probarlo —sus piezas sin stdio, y las marcas y el parser de la
     // escucha, que es el texto que reciben—. Mira lo que se carga y lo que solo se
     // nombra, con la ruta resuelta: `import`, `import type`, `export … from`, `import()`

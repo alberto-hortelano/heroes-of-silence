@@ -1,6 +1,6 @@
 /**
- * Lo que comparten los arneses de navegador (`pnpm capturas`, `qa/clima`, `qa/neutro`,
- * `qa/temas-con-piezas`) y el taller que abre un Chromium (`art/montura`,
+ * Lo que comparten los arneses de navegador (`pnpm capturas`, `qa/navegador/clima`, `qa/navegador/neutro`,
+ * `qa/navegador/temas-con-piezas`) y el taller que abre un Chromium (`art/montura`,
  * `taller/escenario`): un vite propio, en un puerto que elige el sistema y en su propio grupo de
  * procesos, para matarlo entero sin tocar el vite de nadie más (la máquina es compartida); el
  * Chromium que haya; la espera del suelo del mapa; la consola vigilada, y un servidor de ficheros.

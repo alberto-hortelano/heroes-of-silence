@@ -33,10 +33,10 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import WebSocket from 'ws';
-import { PROSA_DE_LA_MURALLA } from '../../src/core/contract/formato.js';
-import { COMO_SE_LEE_EL_MAPA } from '../../src/core/contract/mapa-conocido.js';
-import { esUpgrade, JUGADAS_DE_MURALLA } from '../../src/core/contract/vocabulario.js';
-import { unidadDelJuego } from '../../src/core/unidad/catalogo.js';
+import { PROSA_DE_LA_MURALLA } from '../../../src/core/contract/formato.js';
+import { COMO_SE_LEE_EL_MAPA } from '../../../src/core/contract/mapa-conocido.js';
+import { esUpgrade, JUGADAS_DE_MURALLA } from '../../../src/core/contract/vocabulario.js';
+import { unidadDelJuego } from '../../../src/core/unidad/catalogo.js';
 import {
   CABECERA_ESTADO,
   CABECERA_RESPUESTA,
@@ -47,9 +47,9 @@ import {
   PREFIJO_RELEVO,
   SANGRIA_PROBLEMA,
   type Veredicto,
-} from '../../src/server/mcp/escucha.js';
-import { leQuedan } from '../../src/server/notas.js';
-import type { ServerToSpectatorMsg } from '../../src/shared/cable-del-espectador.js';
+} from '../../../src/server/mcp/escucha.js';
+import { leQuedan } from '../../../src/server/notas.js';
+import type { ServerToSpectatorMsg } from '../../../src/shared/cable-del-espectador.js';
 import {
   contestaElArnes,
   entornoDelArnes,
@@ -856,7 +856,7 @@ async function main(): Promise<void> {
   servidor = await arrancarServidor(entornoDelArnes(semilla), {
     // La misma partida con un veterano de rango 5 en la base del agente: es
     // como se cruza el ascenso, que la partida sola casi nunca produce.
-    entrada: 'tools/qa/partida-con-veterano.ts',
+    entrada: 'tools/qa/agente/partida-con-veterano.ts',
     eco: (trozo, deError) =>
       deError
         ? process.stderr.write(`\x1b[31m${trozo}\x1b[0m`)

@@ -27,7 +27,7 @@ import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad, guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import { type GameState, MAX_HEROES_PER_PLAYER } from '../src/core/state/tipos.js';
 import { FACTION_IDS, type Troop, type Veterania } from '../src/core/types.js';
-import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
+import { ponVeteranoEnLaBase } from '../tools/qa/agente/veterano-en-la-base.js';
 import { TROPA_BARATA } from './comun.js';
 import { darLaCiudad, fueraDeSuBase, guarnecer } from './partida-de-prueba.js';
 

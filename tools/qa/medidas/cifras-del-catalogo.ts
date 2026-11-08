@@ -10,19 +10,19 @@
  * (`data/poder.json`) y `DIVISOR_DEL_PODER` (`src/core/ai/fuerza.ts`) cuando cambia
  * la escala de las cifras (25-10-2026, 26-10-2026).
  *
- * Uso: npx tsx tools/qa/cifras-del-catalogo.ts [--medianas]
+ * Uso: npx tsx tools/qa/medidas/cifras-del-catalogo.ts [--medianas]
  */
 
-import { armaduraDe } from '../../src/core/battle/armas.js';
-import { armasDe } from '../../src/core/battle/damage.js';
-import { unitPower } from '../../src/core/hero/fuerza.js';
-import { heroeRecienHecho, heroUnit } from '../../src/core/hero/hero.js';
-import { EXPERIENCIA_INICIAL_DE_HEROE } from '../../src/core/hero/rango.js';
-import { SPEED_TO_HEXES, type UnitInfo } from '../../src/core/types.js';
-import { costeDeUnaUnidad, unidadesDelJuego } from '../../src/core/unidad/catalogo.js';
-import { agilidadDe, restaDelPesoDe } from '../../src/core/unidad/cuerpo.js';
-import { indiceDePoder, nivelDelIndice, poderBruto } from '../../src/core/unidad/nivel.js';
-import { mediana } from '../../src/shared/base.js';
+import { armaduraDe } from '../../../src/core/battle/armas.js';
+import { armasDe } from '../../../src/core/battle/damage.js';
+import { unitPower } from '../../../src/core/hero/fuerza.js';
+import { heroeRecienHecho, heroUnit } from '../../../src/core/hero/hero.js';
+import { EXPERIENCIA_INICIAL_DE_HEROE } from '../../../src/core/hero/rango.js';
+import { SPEED_TO_HEXES, type UnitInfo } from '../../../src/core/types.js';
+import { costeDeUnaUnidad, unidadesDelJuego } from '../../../src/core/unidad/catalogo.js';
+import { agilidadDe, restaDelPesoDe } from '../../../src/core/unidad/cuerpo.js';
+import { indiceDePoder, nivelDelIndice, poderBruto } from '../../../src/core/unidad/nivel.js';
+import { mediana } from '../../../src/shared/base.js';
 
 const horquilla = ([a, b]: readonly [number, number]): string => `${a}–${b}`;
 

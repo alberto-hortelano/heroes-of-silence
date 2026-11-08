@@ -18,16 +18,16 @@
  * Aquí no se imprime nada ni se mide el reloj: eso es de cada informe.
  */
 
-import type { BattleOutcome } from '../../src/core/ai/tactics.js';
-import { autoResolve } from '../../src/core/ai/tactics.js';
-import { playAiTurn } from '../../src/core/ai/turn.js';
-import { createBattle } from '../../src/core/battle/montaje.js';
-import { COMBATE_COMPLETO, type ReglasDelCombate } from '../../src/core/combate.js';
-import { troopsAsStacks } from '../../src/core/hero/troop.js';
-import { createRng } from '../../src/core/rng.js';
-import { newGame, startingArmy } from '../../src/core/state/setup.js';
-import type { GameOutcome, GameState } from '../../src/core/state/tipos.js';
-import { FACTION_IDS, type FactionId } from '../../src/core/types.js';
+import type { BattleOutcome } from '../../../src/core/ai/tactics.js';
+import { autoResolve } from '../../../src/core/ai/tactics.js';
+import { playAiTurn } from '../../../src/core/ai/turn.js';
+import { createBattle } from '../../../src/core/battle/montaje.js';
+import { COMBATE_COMPLETO, type ReglasDelCombate } from '../../../src/core/combate.js';
+import { troopsAsStacks } from '../../../src/core/hero/troop.js';
+import { createRng } from '../../../src/core/rng.js';
+import { newGame, startingArmy } from '../../../src/core/state/setup.js';
+import type { GameOutcome, GameState } from '../../../src/core/state/tipos.js';
+import { FACTION_IDS, type FactionId } from '../../../src/core/types.js';
 
 /** Días de tope: pasados estos, una partida que no ha acabado no acaba. */
 export const DIAS_POR_DEFECTO = 300;

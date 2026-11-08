@@ -20,15 +20,15 @@
  * el día que una de las dos fórmulas cambiara habrían medido batallas distintas
  * sin decirlo.
  *
- * Uso: npx tsx tools/qa/barrido-semillas.ts [semillas] [dias] [--tropa N] [--rueda N]
+ * Uso: npx tsx tools/qa/medidas/barrido-semillas.ts [semillas] [dias] [--tropa N] [--rueda N]
  *
  * `--tropa` y `--rueda` juegan con otra complejidad del combate (3, 5 o 7 cada
  * una; `core/combate.ts`), con la misma regla que `?tropa=` y `?rueda=`: sin
  * ellas, 7 / 7.
  */
-import { MAX_ROUNDS } from '../../src/core/battle/types.js';
-import { COMBATE_COMPLETO, parseRueda, parseTope } from '../../src/core/combate.js';
-import { duracion } from '../comun/estadistica.js';
+import { MAX_ROUNDS } from '../../../src/core/battle/types.js';
+import { COMBATE_COMPLETO, parseRueda, parseTope } from '../../../src/core/combate.js';
+import { duracion } from '../../comun/estadistica.js';
 import {
   batallaDeSemilla,
   DIAS_POR_DEFECTO,

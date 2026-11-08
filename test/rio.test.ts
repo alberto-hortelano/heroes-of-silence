@@ -9,7 +9,7 @@
  * - `nivelesDelRio`: el río al llano, la ciénaga que lo toca al 1, ningún cañón.
  * - **El guardia de continuidad**: en los mapas del juego, cada río del trazado
  *   (`ProceduralOptions.alTrazarElRio`) sigue entero en el mapa hecho, medido
- *   con las definiciones de `tools/qa/rios.ts` (agua, puente o ciudad-puente);
+ *   con las definiciones de `tools/qa/medidas/rios.ts` (agua, puente o ciudad-puente);
  *   y en el río solo hay puentes con dos orillas y ciudades-puente.
  */
 import { describe, expect, it } from 'vitest';
@@ -34,7 +34,7 @@ import { BARRERAS, type Nivel } from '../src/core/map/terrain.js';
 import { ABIERTA, conElRio, esDelRio, ponerTipo } from '../src/core/map/vestir/base.js';
 import { createRng } from '../src/core/rng.js';
 import type { Point } from '../src/core/types.js';
-import { riosDelMapa } from '../tools/qa/rios.js';
+import { riosDelMapa } from '../tools/qa/medidas/rios.js';
 import { conRespiro, rango, segunPrisa } from './lento.js';
 
 const W = LADO_DEL_MAPA;

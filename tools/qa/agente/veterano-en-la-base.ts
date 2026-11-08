@@ -1,18 +1,22 @@
 /**
  * Un veterano de rango 5 puesto a mano en la guarnición de una base: el caso que
  * `pnpm qa` necesita cruzar y que la partida del arnés no da sola —0,01
- * veteranos de rango 5 pisan su base por partida (`tools/qa/veterania.ts`)—.
+ * veteranos de rango 5 pisan su base por partida (`tools/qa/medidas/veterania.ts`)—.
  *
  * Puro y aparte de `partida-con-veterano.ts`, que arranca el servidor al
  * importarse: así lo pueden usar también los tests. No es una puerta de trampas
  * de la partida: no lo llama nada de `src/`.
  */
 
-import { EXPERIENCIA_INICIAL_DE_HEROE } from '../../src/core/hero/rango.js';
-import { baseOf } from '../../src/core/state/consultas.js';
-import { guarnicionDe, ponerLaGuarnicion, sitioDeLaCiudad } from '../../src/core/state/sitios.js';
-import type { GameState } from '../../src/core/state/tipos.js';
-import type { PlayerId, Veterania } from '../../src/core/types.js';
+import { EXPERIENCIA_INICIAL_DE_HEROE } from '../../../src/core/hero/rango.js';
+import { baseOf } from '../../../src/core/state/consultas.js';
+import {
+  guarnicionDe,
+  ponerLaGuarnicion,
+  sitioDeLaCiudad,
+} from '../../../src/core/state/sitios.js';
+import type { GameState } from '../../../src/core/state/tipos.js';
+import type { PlayerId, Veterania } from '../../../src/core/types.js';
 
 /**
  * Le da una hoja de servicios de nivel 5 al primer individuo de la guarnición de

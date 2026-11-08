@@ -9,7 +9,7 @@
  * `tools/`. Ni una variable de entorno ni un mensaje del cable lo alcanzan, así
  * que la partida de verdad no tiene puerta de trampas.
  */
-import { arrancarPartida } from '../../src/server/partida.js';
+import { arrancarPartida } from '../../../src/server/partida.js';
 import { prepararPartidaDelArnes } from './veterano-en-la-base.js';
 
 void arrancarPartida({

@@ -224,7 +224,7 @@ const SEPARACION_DE_SEMILLAS = 6;
  * entre dos regiones es el bisector de sus semillas, una recta, y crece con el
  * mapa: en el 42×42 de #226, 75 tramos de barrera ≥ 10, 10 filas de caras ≥ 10
  * y 8 mapas con un tramo ≥ 12 en 1-1000, el último justo en el techo de
- * `tools/qa/rectitud.ts`.
+ * `tools/qa/medidas/rectitud.ts`.
  *
  * El ruido es de valores en una rejilla de `paso` casillas, interpolado en
  * bilineal, con valores enteros en `[-amplitud, amplitud]` dieciseisavos de

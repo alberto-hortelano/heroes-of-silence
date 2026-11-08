@@ -39,7 +39,7 @@ import { responderConsulta } from '../src/server/consultas.js';
 import { Director } from '../src/server/director.js';
 import { pedirMapaAlAgente } from '../src/server/mapa-del-agente.js';
 import { SIN_PARTIDA_TODAVIA } from '../src/server/notas.js';
-import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
+import { ponVeteranoEnLaBase } from '../tools/qa/agente/veterano-en-la-base.js';
 import { NO_MUERTO, PESADA, SANADOR, TROPA, TROPA_BARATA } from './comun.js';
 import { conCaminos, costesDelAlcance } from './mapa-de-prueba.js';
 import {

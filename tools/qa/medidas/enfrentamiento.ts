@@ -125,34 +125,34 @@
  * nombres que ya no están allí. Con una referencia así la tanda lanza al cargar su
  * táctica (`tacticaDe`): no mide.
  *
- * Uso: npx tsx tools/qa/enfrentamiento.ts [parejas=1000] [--carga] [--contra <ref>] [--magia] [--espejo]
+ * Uso: npx tsx tools/qa/medidas/enfrentamiento.ts [parejas=1000] [--carga] [--contra <ref>] [--magia] [--espejo]
  */
 
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { completarCruce } from '../../src/core/ai/rueda.js';
-import { chooseBattleAction } from '../../src/core/ai/tactics.js';
-import { applyAction, MAX_JUGADAS } from '../../src/core/battle/battle.js';
-import { cargaMontada } from '../../src/core/battle/carga.js';
-import { activeStack, seHaMovido } from '../../src/core/battle/consultas.js';
-import { type BattleSide, createBattle } from '../../src/core/battle/montaje.js';
-import type { BattleAction, BattleState, Side } from '../../src/core/battle/types.js';
+import { completarCruce } from '../../../src/core/ai/rueda.js';
+import { chooseBattleAction } from '../../../src/core/ai/tactics.js';
+import { applyAction, MAX_JUGADAS } from '../../../src/core/battle/battle.js';
+import { cargaMontada } from '../../../src/core/battle/carga.js';
+import { activeStack, seHaMovido } from '../../../src/core/battle/consultas.js';
+import { type BattleSide, createBattle } from '../../../src/core/battle/montaje.js';
+import type { BattleAction, BattleState, Side } from '../../../src/core/battle/types.js';
 import {
   HERO_BODY,
   type HeroeDelBando,
   MAX_ROUNDS,
   otroBando,
-} from '../../src/core/battle/types.js';
-import { COMBATE_COMPLETO } from '../../src/core/combate.js';
-import { EQUIPO_BASE } from '../../src/core/hero/cuerpo-del-heroe.js';
-import { cuerposDelHeroe } from '../../src/core/hero/hero.js';
-import { EXPERIENCIA_INICIAL_DE_HEROE } from '../../src/core/hero/rango.js';
-import { hechizosDelGremio } from '../../src/core/magia/catalogo.js';
-import { createRng, type Rng } from '../../src/core/rng.js';
-import { FACTION_IDS, type Stack, type UnitInfo } from '../../src/core/types.js';
-import { RAIZ } from '../comun/raiz.js';
+} from '../../../src/core/battle/types.js';
+import { COMBATE_COMPLETO } from '../../../src/core/combate.js';
+import { EQUIPO_BASE } from '../../../src/core/hero/cuerpo-del-heroe.js';
+import { cuerposDelHeroe } from '../../../src/core/hero/hero.js';
+import { EXPERIENCIA_INICIAL_DE_HEROE } from '../../../src/core/hero/rango.js';
+import { hechizosDelGremio } from '../../../src/core/magia/catalogo.js';
+import { createRng, type Rng } from '../../../src/core/rng.js';
+import { FACTION_IDS, type Stack, type UnitInfo } from '../../../src/core/types.js';
+import { RAIZ } from '../../comun/raiz.js';
 import { ejercitoDe, tropaDe } from './ejercitos.js';
 
 const args = process.argv.slice(2);

@@ -23,27 +23,27 @@
  *
  * `node:*` aquí vale: esto es `tools/`, no `core`.
  *
- * Uso: npx tsx tools/qa/calibrar-fuerza.ts [parejas=2000] [semillas-por-lado=40]
+ * Uso: npx tsx tools/qa/medidas/calibrar-fuerza.ts [parejas=2000] [semillas-por-lado=40]
  */
 
-import { autoResolve } from '../../src/core/ai/tactics.js';
-import { playAiTurn } from '../../src/core/ai/turn.js';
-import { type BattleSide, createBattle } from '../../src/core/battle/montaje.js';
-import { HERO_BODY } from '../../src/core/battle/types.js';
-import { COMBATE_COMPLETO } from '../../src/core/combate.js';
+import { autoResolve } from '../../../src/core/ai/tactics.js';
+import { playAiTurn } from '../../../src/core/ai/turn.js';
+import { type BattleSide, createBattle } from '../../../src/core/battle/montaje.js';
+import { HERO_BODY } from '../../../src/core/battle/types.js';
+import { COMBATE_COMPLETO } from '../../../src/core/combate.js';
 import {
   armyPower,
   MARGEN_CONTRA_NEUTRALES,
   PESO_DEL_CUERPO,
   poderDe,
   unitPower,
-} from '../../src/core/hero/fuerza.js';
-import { cuerposDelHeroe, heroUnit, moraleBonus } from '../../src/core/hero/hero.js';
-import { rangoDeHeroe } from '../../src/core/hero/rango.js';
-import { ejercitoDe, troopsAsStacks } from '../../src/core/hero/troop.js';
-import { createRng } from '../../src/core/rng.js';
-import { newGame } from '../../src/core/state/setup.js';
-import type { GrupoDeTropa, Hero } from '../../src/core/types.js';
+} from '../../../src/core/hero/fuerza.js';
+import { cuerposDelHeroe, heroUnit, moraleBonus } from '../../../src/core/hero/hero.js';
+import { rangoDeHeroe } from '../../../src/core/hero/rango.js';
+import { ejercitoDe, troopsAsStacks } from '../../../src/core/hero/troop.js';
+import { createRng } from '../../../src/core/rng.js';
+import { newGame } from '../../../src/core/state/setup.js';
+import type { GrupoDeTropa, Hero } from '../../../src/core/types.js';
 
 const PAREJAS = Number(process.argv[2] ?? 2000);
 const SEMILLAS = Number(process.argv[3] ?? 40);

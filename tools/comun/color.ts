@@ -1,7 +1,7 @@
 /**
  * Color de las herramientas: sRGB de 8 bits, OKLab y contraste WCAG. Lo leen la paleta de los
  * temas (`taller/temas/paleta.ts`, que mide las láminas), sus tests (`temas`,
- * `paleta-de-las-laminas`) y el contraste de los rótulos de `qa/temas-con-piezas.ts`.
+ * `paleta-de-las-laminas`) y el contraste de los rótulos de `qa/navegador/temas-con-piezas.ts`.
  */
 
 export type Rgb = readonly [number, number, number];

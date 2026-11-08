@@ -1,6 +1,6 @@
 /**
  * Los bordes de barrera no van en tramos rectos largos (#169), ni las caras de
- * roca en filas largas: las tres cuentas de `tools/qa/rectitud.ts` en 1-3000,
+ * roca en filas largas: las tres cuentas de `tools/qa/medidas/rectitud.ts` en 1-3000,
  * con sus techos (`TECHOS`, que explica la medida de main, de #230 y de una
  * perturbación neutra del azar, por bloques de 1000).
  *
@@ -16,7 +16,7 @@
  * mapas; ahí el ruido de una tirada nueva del azar ya era el margen.
  */
 import { expect } from 'vitest';
-import { rectitudPorBloques, TECHOS } from '../tools/qa/rectitud.js';
+import { rectitudPorBloques, TECHOS } from '../tools/qa/medidas/rectitud.js';
 import { itLento } from './lento.js';
 
 itLento(

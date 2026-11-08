@@ -2,7 +2,7 @@
  * El clima en pantalla, con un Chromium de verdad: capturas de cada clima en los
  * tres escenarios, la niebla de guerra intacta, el rayo y los fps.
  *
- *     npx tsx tools/qa/clima.ts [carpeta] [--sin-fps] [--solo-fps] [--escenas=mapa,…] [--climas=a;b] [--solo-espectador] [--solo-rayo]
+ *     npx tsx tools/qa/navegador/clima.ts [carpeta] [--sin-fps] [--solo-fps] [--escenas=mapa,…] [--climas=a;b] [--solo-espectador] [--solo-rayo]
  *
  * Los modos abaratan repetir una parte (la máquina es compartida): `--sin-fps`,
  * todo menos los fps; `--solo-fps`, solo los fps, y con `--escenas=` (de
@@ -30,25 +30,25 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { type Browser, chromium, type Page } from 'playwright';
 import sharp from 'sharp';
 import WebSocket from 'ws';
-import { FONDO_INEXPLORADO } from '../../src/client/render/mapa/minimapa.js';
+import { FONDO_INEXPLORADO } from '../../../src/client/render/mapa/minimapa.js';
 import type {
   AgentHelloMsg,
   AgentResponseMsg,
   ServerToAgentMsg,
-} from '../../src/server/protocol.js';
-import { mediana } from '../comun/estadistica.js';
-import { aRaster } from '../comun/imagen.js';
+} from '../../../src/server/protocol.js';
+import { mediana } from '../../comun/estadistica.js';
+import { aRaster } from '../../comun/imagen.js';
 import {
   arrancarVite,
   chromiumInstalado,
   esperarElSuelo,
   vigilarLaConsola,
-} from '../comun/navegador.js';
-import { matarGrupo } from '../comun/procesos.js';
-import { RAIZ } from '../comun/raiz.js';
-import { entornoDelArnes } from './partida-del-arnes.js';
-import { decidir } from './politica.js';
-import { arrancarServidor, type ServidorDePartida } from './servidor.js';
+} from '../../comun/navegador.js';
+import { matarGrupo } from '../../comun/procesos.js';
+import { RAIZ } from '../../comun/raiz.js';
+import { entornoDelArnes } from '../agente/partida-del-arnes.js';
+import { decidir } from '../agente/politica.js';
+import { arrancarServidor, type ServidorDePartida } from '../agente/servidor.js';
 
 const args = process.argv.slice(2);
 const CARPETA = resolve(args.find((a) => !a.startsWith('--')) ?? join(RAIZ, '.cache/clima'));

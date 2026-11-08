@@ -11,11 +11,11 @@
  * reclutar, comprar y equipar, moverse y, en batalla, pegar a algo.
  */
 
-import { JUGADA_DE_MURALLA } from '../../src/core/contract/vocabulario.js';
-import { planDelAgente } from '../../src/core/map/generar/construir.js';
-import { LADO_MINIMO_DEL_GENERADOR } from '../../src/core/map/generar/plan.js';
-import { generateMapPlan } from '../../src/core/map/generar/procedimental.js';
-import { createRng } from '../../src/core/rng.js';
+import { JUGADA_DE_MURALLA } from '../../../src/core/contract/vocabulario.js';
+import { planDelAgente } from '../../../src/core/map/generar/construir.js';
+import { LADO_MINIMO_DEL_GENERADOR } from '../../../src/core/map/generar/plan.js';
+import { generateMapPlan } from '../../../src/core/map/generar/procedimental.js';
+import { createRng } from '../../../src/core/rng.js';
 
 /**
  * La firma con la que se reconoce el mapa del arnés.

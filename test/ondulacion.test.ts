@@ -3,7 +3,7 @@
  * bisectores de Voronoi. Lo que se ata aquí es su forma —enteros, acotado,
  * determinista y antisimétrico en el espejo de las semillas— y que `sinPuas`
  * quita los dedos de una casilla. Que quiebre los tramos rectos lo mide
- * `tools/qa/rectitud.ts`, con sus techos en la orden lenta de `regiones.test.ts`.
+ * `tools/qa/medidas/rectitud.ts`, con sus techos en la orden lenta de `regiones.test.ts`.
  */
 import { describe, expect, it } from 'vitest';
 import { ONDULACION, ondulacion, sinPuas } from '../src/core/map/generar/procedimental.js';

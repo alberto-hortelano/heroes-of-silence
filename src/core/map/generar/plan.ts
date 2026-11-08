@@ -172,7 +172,7 @@ export interface BuiltMap {
  *
  * **Elegido midiendo**, con la regla de siempre: el menor número con mediana
  * ≥ 8 días, p90 ≤ 20 y 0 partidas sin terminar en 1 000 semillas
- * (`tools/qa/tamanos.ts`). Las cifras, con su fecha, en `docs/historia.md`
+ * (`tools/qa/medidas/tamanos.ts`). Las cifras, con su fecha, en `docs/historia.md`
  * («Las regiones definen el mapa»).
  */
 export const REGIONES_POR_BANDO = 5;

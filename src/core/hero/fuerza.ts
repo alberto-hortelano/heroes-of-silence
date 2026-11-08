@@ -42,7 +42,7 @@ import { ejercitoDe, troopUnit } from './troop.js';
  * cargaba. Con la escala baja (26-10-2026: fuerza, PV y armadura ×0,3, a ojo) la
  * mediana de poder² bajó de 21 619 332 a 1 904 689 y el divisor baja igual:
  * 714 961 × 1 904 689 / 21 619 332 = 62 989 (la mediana de la fuerza del catálogo,
- * 30,2 antes y después; la mide `npx tsx tools/qa/cifras-del-catalogo.ts --medianas`). No es el nivel (`nivelDeUnidad`): es la vara de la IA para comparar
+ * 30,2 antes y después; la mide `npx tsx tools/qa/medidas/cifras-del-catalogo.ts --medianas`). No es el nivel (`nivelDeUnidad`): es la vara de la IA para comparar
  * ejércitos.
  */
 export function unitPower(info: UnitInfo): number {
@@ -63,7 +63,7 @@ export function armyPower(army: Army): number {
 /**
  * Cuánto pesa el cuerpo del héroe en `fuerzaDe`, al lado de su tropa.
  *
- * **Medido** (`tools/qa/calibrar-fuerza.ts`, #182, 08-10-2026): fotos de
+ * **Medido** (`tools/qa/medidas/calibrar-fuerza.ts`, #182, 08-10-2026): fotos de
  * héroes y grupos de partidas reales de lado 34, 44 y 56, peleadas con
  * `autoResolve` cambiando quién ataca, y una logística sobre ln(F_A/F_B) para
  * cada peso. Con 2 000 parejas de cada clase:
@@ -79,7 +79,7 @@ export function armyPower(army: Army): number {
  *
  * Se queda en 1: es el único peso cerca del mínimo en las dos clases, y el
  * que no cambia el juego. Lo medía `test/ia-fuerza.test.ts`, que se retiró el 03-11-2026
- * con los tests de jugabilidad; la medida entera es `tools/qa/calibrar-fuerza.ts`.
+ * con los tests de jugabilidad; la medida entera es `tools/qa/medidas/calibrar-fuerza.ts`.
  */
 export const PESO_DEL_CUERPO = 1;
 

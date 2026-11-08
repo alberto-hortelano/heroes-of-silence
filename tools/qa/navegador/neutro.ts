@@ -3,7 +3,7 @@
  * la partida o la arena antes de ponerse el tema) es el de las hojas de un `ref`
  * de git, elemento a elemento.
  *
- *     npx tsx tools/qa/neutro.ts [ref]        # por defecto, HEAD
+ *     npx tsx tools/qa/navegador/neutro.ts [ref]        # por defecto, HEAD
  *
  * Arranca su propio vite (`comun/navegador.ts`) y un Chromium sin pantalla. En cada
  * página y escena (la partida con el mapa y, en la misma página, con la base; la
@@ -26,9 +26,9 @@ import type { AddressInfo } from 'node:net';
 import { dirname, join, normalize } from 'node:path';
 import { chromium, type Page } from 'playwright';
 import { WebSocketServer } from 'ws';
-import { arrancarVite, chromiumInstalado, esperarElSuelo } from '../comun/navegador.js';
-import { matarGrupo } from '../comun/procesos.js';
-import { RAIZ } from '../comun/raiz.js';
+import { arrancarVite, chromiumInstalado, esperarElSuelo } from '../../comun/navegador.js';
+import { matarGrupo } from '../../comun/procesos.js';
+import { RAIZ } from '../../comun/raiz.js';
 import { urlDePartida } from './url-de-partida.js';
 
 /** Lo que se compara de cada elemento: color, fondo, bordes, letra, sombras y medidas. */

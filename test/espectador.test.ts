@@ -56,7 +56,7 @@ import { AgentLink } from '../src/server/agent-link.js';
 import { Director } from '../src/server/director.js';
 import { construirVista } from '../src/server/vista-espectador.js';
 import type { SpectatorView, VistaHeroe } from '../src/shared/cable-del-espectador.js';
-import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
+import { ponVeteranoEnLaBase } from '../tools/qa/agente/veterano-en-la-base.js';
 import { forzarTurno } from './batalla-de-prueba.js';
 import { RAIZ, TROPA } from './comun.js';
 import { conCaminos, costesDelAlcance, planConCiudadDeRegion } from './mapa-de-prueba.js';

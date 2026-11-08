@@ -3,16 +3,16 @@
  * (#232): cuántas hay, cuánto miden, cuáles no tienen puerta y cuáles no
  * llegan a sus dos apoyos naturales.
  *
- *   npx tsx tools/qa/murallas.ts [desde] [hasta] [--bosque]
+ *   npx tsx tools/qa/medidas/murallas.ts [desde] [hasta] [--bosque]
  *
  * Una muralla es lo que la escena une en una: el muro y los nodos de muro, sus
  * puertas, 8-conexo (`murallasDelMapa`). Sus apoyos, `apoyosDeLaMuralla`.
  */
 
-import { buildMap } from '../../src/core/map/generar/construir.js';
-import { generateMapPlan } from '../../src/core/map/generar/procedimental.js';
-import { murallasDelMapa } from '../../src/core/map/murallas.js';
-import { createRng } from '../../src/core/rng.js';
+import { buildMap } from '../../../src/core/map/generar/construir.js';
+import { generateMapPlan } from '../../../src/core/map/generar/procedimental.js';
+import { murallasDelMapa } from '../../../src/core/map/murallas.js';
+import { createRng } from '../../../src/core/rng.js';
 
 const args = process.argv.slice(2).filter((a) => !a.startsWith('--'));
 const desde = Number(args[0] ?? 1);

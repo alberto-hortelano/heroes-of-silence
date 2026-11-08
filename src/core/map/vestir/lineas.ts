@@ -108,7 +108,7 @@ export function adelgazarAcantilados(
 /**
  * Lo más largo que cae seguido al sur una fila del relieve (#231): una caída de
  * `largoALaEscala(8)` casillas (10 en el 42×42) o más lleva quiebros. Es el
- * largo de las caras de `tools/qa/rectitud.ts`, en casillas: la cara que pinta
+ * largo de las caras de `tools/qa/medidas/rectitud.ts`, en casillas: la cara que pinta
  * la escena es una más corta que la caída de casilla a casilla que la hace.
  */
 export const CAIDA_LARGA = largoALaEscala(8);

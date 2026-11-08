@@ -12,7 +12,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { mensajeDe } from '../../src/client/comun/errores.js';
 import { RAIZ } from '../comun/raiz.js';
-import { urlDePartida } from '../qa/url-de-partida.js';
+import { urlDePartida } from '../qa/navegador/url-de-partida.js';
 import { CARPETA_DE_MARCAS, leerMarca, listarMarcas, resolverMarca } from './almacen.js';
 
 /**

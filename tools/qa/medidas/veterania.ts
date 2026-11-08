@@ -3,7 +3,7 @@
  * esa pisa su base viva, que es lo que necesita el ciclo B (la tropa veterana
  * que se hace héroe). No es un test: mide, como el banco y el barrido.
  *
- *     npx tsx tools/qa/veterania.ts [semillas=200] [dias=300]
+ *     npx tsx tools/qa/medidas/veterania.ts [semillas=200] [dias=300]
  *
  * Lo que publica, por partida salvo que diga otra cosa:
  *
@@ -21,14 +21,14 @@
  * mira la base al acabar cada turno (`alAcabarTurno`), porque al final el héroe
  * puede haber caído.
  */
-import { heroUnit } from '../../src/core/hero/hero.js';
-import { RANGO_MAXIMO_DE_TROPA, rangoDeHeroe, rangoDeTropa } from '../../src/core/hero/rango.js';
-import { baseOf } from '../../src/core/state/consultas.js';
-import { guarnicionDeLaCiudad } from '../../src/core/state/sitios.js';
-import type { GameState } from '../../src/core/state/tipos.js';
-import type { Army } from '../../src/core/types.js';
-import { nivelDeUnidad } from '../../src/core/unidad/nivel.js';
-import { duracion } from '../comun/estadistica.js';
+import { heroUnit } from '../../../src/core/hero/hero.js';
+import { RANGO_MAXIMO_DE_TROPA, rangoDeHeroe, rangoDeTropa } from '../../../src/core/hero/rango.js';
+import { baseOf } from '../../../src/core/state/consultas.js';
+import { guarnicionDeLaCiudad } from '../../../src/core/state/sitios.js';
+import type { GameState } from '../../../src/core/state/tipos.js';
+import type { Army } from '../../../src/core/types.js';
+import { nivelDeUnidad } from '../../../src/core/unidad/nivel.js';
+import { duracion } from '../../comun/estadistica.js';
 import { DIAS_POR_DEFECTO, partidaDeSemilla, SEMILLAS_DEL_BANCO } from './partidas.js';
 
 const SEMILLAS = Number(process.argv[2] ?? SEMILLAS_DEL_BANCO);

@@ -35,8 +35,8 @@
  * Uso: pnpm banco [semillas=20] [dias=300] [--dump <fichero>]
  */
 import { writeFileSync } from 'node:fs';
-import { duracion, mediana } from '../comun/estadistica.js';
-import { sha256 } from '../comun/hash.js';
+import { duracion, mediana } from '../../comun/estadistica.js';
+import { sha256 } from '../../comun/hash.js';
 import {
   batallaDeSemilla,
   DIAS_POR_DEFECTO,

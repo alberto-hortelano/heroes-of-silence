@@ -117,10 +117,10 @@ import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { leerMundoDeDisco } from '../mundo/disco.js';
 import { leerBancoDeDisco } from '../npcs/banco.js';
-import { contestaElArnes, DIAS_DEL_ARNES, sinTorcidos } from './partida-del-arnes.js';
-import { DIAS_POR_DEFECTO, partidaDeSemilla, volcadoDeLaPartida } from './partidas.js';
-import { montajeDeLaSemilla, peleaSinJugar, TANDAS } from './tandas-de-la-arena.js';
-import { prepararPartidaDelArnes } from './veterano-en-la-base.js';
+import { contestaElArnes, DIAS_DEL_ARNES, sinTorcidos } from './agente/partida-del-arnes.js';
+import { prepararPartidaDelArnes } from './agente/veterano-en-la-base.js';
+import { DIAS_POR_DEFECTO, partidaDeSemilla, volcadoDeLaPartida } from './medidas/partidas.js';
+import { montajeDeLaSemilla, peleaSinJugar, TANDAS } from './medidas/tandas-de-la-arena.js';
 
 /** Lo que mide cada sección (las cifras, escritas una vez: la cabecera las cuenta). */
 const SEMILLAS_DE_MAPAS = 200;

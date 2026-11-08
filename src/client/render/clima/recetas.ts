@@ -4,7 +4,7 @@
  * arena— es una fila más aquí y en `TIEMPOS` del núcleo: el mapa, la batalla y
  * las escenas laterales pintan cada campo de la fila, sin preguntar qué tiempo es.
  *
- * Las cifras son de mirar las capturas (`tools/qa/clima.ts`), no de ninguna
+ * Las cifras son de mirar las capturas (`tools/qa/navegador/clima.ts`), no de ninguna
  * fuente. Dos maneras de cambiar la luz, que no se mezclan:
  *
  * - **la luz** (`luz`) oscurece multiplicando (`multiply`) hacia su color: la

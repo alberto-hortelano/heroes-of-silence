@@ -125,7 +125,7 @@ export interface DirectorOptions {
    * veterano de rango 5 en 0,06 de cada partida, así que `pnpm qa` no cruzaría
    * nunca el ascenso por sí solo. **No lo abre ninguna variable de entorno ni
    * ningún mensaje del cable**: solo un `import` desde `tools/`
-   * (`tools/qa/partida-con-veterano.ts`), que es código que no se despliega.
+   * (`tools/qa/agente/partida-con-veterano.ts`), que es código que no se despliega.
    */
   readonly preparar?: (state: GameState) => void;
 }

@@ -7,13 +7,13 @@
  * **Toda regla empieza por `:root[data-tema]`** (lo vigila `invariantes.test.ts`):
  * gana en especificidad a la de `style.css` que corrige, y sin tema (el
  * espectador) no se aplica ninguna. Por eso el neutro se queda como estaba, cosa
- * que mide `tools/qa/neutro.ts` contra HEAD.
+ * que mide `tools/qa/navegador/neutro.ts` contra HEAD.
  *
  * **Nada mueve el lienzo**: los marcos son anillos de `box-shadow`, que no
  * ocupan sitio; el día lleva su cartela en una sombra y no en un relleno de
  * arriba abajo, y los altos de línea de la barra se fijan a los del neutro. En
  * cualquier ancho el lienzo mide lo mismo con tema y sin él: el mapa ocupa todo
- * el ancho que deja el panel (lo mide `tools/qa/temas-con-piezas.ts`).
+ * el ancho que deja el panel (lo mide `tools/qa/navegador/temas-con-piezas.ts`).
  *
  * Las piezas en imagen (los marcos en 9 trozos, la barra de sección, el remate y
  * la cartela sobre el mapa, el sello y las texturas; la lista es
@@ -347,7 +347,7 @@
   /* Y lo que la banda puede entrar en el mapa, como mucho (QA v3, V3-2): la escala
      de la lámina sigue creciendo con la ventana (a 2560×1440, 1,41) y el pie de
      las piezas es hasta 1,5 veces el costado. A 1440 y a 1920 no llega (13 y 29
-     como mucho, el pie de los orkos); lo vigila `tools/qa/temas-con-piezas.ts`. */
+     como mucho, el pie de los orkos); lo vigila `tools/qa/navegador/temas-con-piezas.ts`. */
   --tapa-el-costado: 24px;
   --tapa-el-pie: 32px;
   /* Cada lado de la banda del mapa: el de la pieza a la escala de la lámina, con
@@ -376,7 +376,7 @@
    pequeño). Lleva el marco del mapa en 9 trozos, de la moldura de la lámina: sale
    lo que mide el relleno de `#stage` y lo demás monta sobre el mapa, como en las
    láminas, donde el marco va encima del terreno; el lienzo no se mueve. Cuánto
-   tapa en cada ancho, `tools/qa/temas-con-piezas.ts`. */
+   tapa en cada ancho, `tools/qa/navegador/temas-con-piezas.ts`. */
 :root[data-tema] #stage > .adornos-del-mapa {
   position: relative;
   z-index: 2;

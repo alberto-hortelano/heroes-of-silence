@@ -22,12 +22,12 @@
  */
 import { EventEmitter } from 'node:events';
 import type { WebSocket } from 'ws';
-import { JUGADAS_DE_MURALLA } from '../../src/core/contract/vocabulario.js';
-import { parseSeed } from '../../src/core/rng.js';
-import { AgentLink } from '../../src/server/agent-link.js';
-import { combateDelEntorno } from '../../src/server/entorno.js';
-import { partidaConElMapaDelAgente } from '../../src/server/mapa-del-agente.js';
-import type { ServerToAgentMsg } from '../../src/server/protocol.js';
+import { JUGADAS_DE_MURALLA } from '../../../src/core/contract/vocabulario.js';
+import { parseSeed } from '../../../src/core/rng.js';
+import { AgentLink } from '../../../src/server/agent-link.js';
+import { combateDelEntorno } from '../../../src/server/entorno.js';
+import { partidaConElMapaDelAgente } from '../../../src/server/mapa-del-agente.js';
+import type { ServerToAgentMsg } from '../../../src/server/protocol.js';
 import { decidir } from './politica.js';
 import { prepararPartidaDelArnes } from './veterano-en-la-base.js';
 

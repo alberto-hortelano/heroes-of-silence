@@ -31,42 +31,42 @@ import { join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { type Browser, chromium, type Page } from 'playwright';
 import WebSocket from 'ws';
-import { LA_LLEVA_EL_HEROE } from '../../src/client/arena/paneles/equipo.js';
-import { DURACION, duracionDeLaJugada, IMPACTO } from '../../src/client/batalla/anim.js';
-import { cargaContra, EscenaBatalla, rotuloDeAngulo } from '../../src/client/batalla/escena.js';
-import { textoDePrevision } from '../../src/client/batalla/prevision.js';
+import { LA_LLEVA_EL_HEROE } from '../../../src/client/arena/paneles/equipo.js';
+import { DURACION, duracionDeLaJugada, IMPACTO } from '../../../src/client/batalla/anim.js';
+import { cargaContra, EscenaBatalla, rotuloDeAngulo } from '../../../src/client/batalla/escena.js';
+import { textoDePrevision } from '../../../src/client/batalla/prevision.js';
 import {
   anguloDe as anguloEnLaRueda,
   medidasDeLaRueda,
-} from '../../src/client/batalla/rueda/disco.js';
+} from '../../../src/client/batalla/rueda/disco.js';
 import {
   sitioEnLaRueda as sitioEnLaRuedaDe,
   teclaDe as teclaEnLaRueda,
-} from '../../src/client/batalla/rueda/rueda.js';
-import { EscenaAyuntamiento } from '../../src/client/partida/ayuntamiento/escena.js';
-import { dondeHablarCon } from '../../src/client/partida/base/escena.js';
-import { EscenaAventura } from '../../src/client/partida/mapa/escena.js';
-import { explicacionDeFin } from '../../src/client/partida/mapa/panel.js';
-import { cajasDeLaMorada, EscenaMorada } from '../../src/client/partida/morada/escena.js';
-import { EscenaTropa } from '../../src/client/partida/tropa/escena.js';
-import { camaraDeLaBase, camaraQuieta } from '../../src/client/render/base/camara.js';
-import { dondeEsperaEnLaMorada } from '../../src/client/render/base/fila.js';
-import { dondePulsarElSitio } from '../../src/client/render/base/recortes.js';
-import { COLOR_BANDO } from '../../src/client/render/batalla/bandos.js';
-import { nombreEnElCampo } from '../../src/client/render/batalla/distintivo.js';
+} from '../../../src/client/batalla/rueda/rueda.js';
+import { EscenaAyuntamiento } from '../../../src/client/partida/ayuntamiento/escena.js';
+import { dondeHablarCon } from '../../../src/client/partida/base/escena.js';
+import { EscenaAventura } from '../../../src/client/partida/mapa/escena.js';
+import { explicacionDeFin } from '../../../src/client/partida/mapa/panel.js';
+import { cajasDeLaMorada, EscenaMorada } from '../../../src/client/partida/morada/escena.js';
+import { EscenaTropa } from '../../../src/client/partida/tropa/escena.js';
+import { camaraDeLaBase, camaraQuieta } from '../../../src/client/render/base/camara.js';
+import { dondeEsperaEnLaMorada } from '../../../src/client/render/base/fila.js';
+import { dondePulsarElSitio } from '../../../src/client/render/base/recortes.js';
+import { COLOR_BANDO } from '../../../src/client/render/batalla/bandos.js';
+import { nombreEnElCampo } from '../../../src/client/render/batalla/distintivo.js';
 import {
   ARO_DE_LA_RUEDA,
   cabezaDe,
   cajaDeFigura,
   galonesDe,
-} from '../../src/client/render/batalla/figura.js';
-import { type CajaDeFigura, cajaDeFiguraEn } from '../../src/client/render/figuras/caja.js';
-import { pasoDeLaHoja } from '../../src/client/render/figuras/de-pie.js';
-import { msPorCasilla } from '../../src/client/render/figuras/marcha.js';
-import { registrarUnidad } from '../../src/client/render/figuras/personajes.js';
-import { ALTO_DEL_GRUPO } from '../../src/client/render/mapa/asaltantes.js';
-import { casillaAPixel, centrarEn, type Encuadre } from '../../src/client/render/mapa/camara.js';
-import { pasosAPintar } from '../../src/client/render/mapa/ruta.js';
+} from '../../../src/client/render/batalla/figura.js';
+import { type CajaDeFigura, cajaDeFiguraEn } from '../../../src/client/render/figuras/caja.js';
+import { pasoDeLaHoja } from '../../../src/client/render/figuras/de-pie.js';
+import { msPorCasilla } from '../../../src/client/render/figuras/marcha.js';
+import { registrarUnidad } from '../../../src/client/render/figuras/personajes.js';
+import { ALTO_DEL_GRUPO } from '../../../src/client/render/mapa/asaltantes.js';
+import { casillaAPixel, centrarEn, type Encuadre } from '../../../src/client/render/mapa/camara.js';
+import { pasosAPintar } from '../../../src/client/render/mapa/ruta.js';
 import {
   centroDeStack,
   centroHex,
@@ -74,76 +74,82 @@ import {
   pasoDeLaBase,
   type Tablero,
   tableroPara,
-} from '../../src/client/render/proyeccion.js';
-import type { ControlDeBatalla } from '../../src/client/sesion/batalla/control.js';
-import { Session } from '../../src/client/sesion/partida.js';
-import { SesionDeArena } from '../../src/client/sesion/sesion-de-arena.js';
-import type { VistaDeLaMorada } from '../../src/client/sesion/vistas/morada.js';
-import { AVISO_DE_ESPERA } from '../../src/client/views/cifras.js';
-import { rotuloDeDia } from '../../src/client/views/notas.js';
-import { chooseBattleAction } from '../../src/core/ai/tactics.js';
-import { VERSION_DEL_ENLACE } from '../../src/core/arena/enlace.js';
-import { type HeroeDeArena, heroePorDefecto } from '../../src/core/arena/heroe.js';
-import { type FuenteDeArena, LADOS, ladoDe } from '../../src/core/arena/lados.js';
-import { hexDistance, hexEquals, quedanCasillas } from '../../src/core/battle/board.js';
-import { dichoDeLasCifras } from '../../src/core/battle/carga.js';
-import { isAlive, mismoTurno, stackById, stackHexes } from '../../src/core/battle/consultas.js';
-import { armasDe, stackHp, trasElGolpe } from '../../src/core/battle/damage.js';
-import { nombreEnLaRueda, RUEDA_DE_REFERENCIA } from '../../src/core/battle/formas-de-la-rueda.js';
-import { NOMBRE_DEL_PUNTO } from '../../src/core/battle/rueda.js';
+} from '../../../src/client/render/proyeccion.js';
+import type { ControlDeBatalla } from '../../../src/client/sesion/batalla/control.js';
+import { Session } from '../../../src/client/sesion/partida.js';
+import { SesionDeArena } from '../../../src/client/sesion/sesion-de-arena.js';
+import type { VistaDeLaMorada } from '../../../src/client/sesion/vistas/morada.js';
+import { AVISO_DE_ESPERA } from '../../../src/client/views/cifras.js';
+import { rotuloDeDia } from '../../../src/client/views/notas.js';
+import { chooseBattleAction } from '../../../src/core/ai/tactics.js';
+import { VERSION_DEL_ENLACE } from '../../../src/core/arena/enlace.js';
+import { type HeroeDeArena, heroePorDefecto } from '../../../src/core/arena/heroe.js';
+import { type FuenteDeArena, LADOS, ladoDe } from '../../../src/core/arena/lados.js';
+import { hexDistance, hexEquals, quedanCasillas } from '../../../src/core/battle/board.js';
+import { dichoDeLasCifras } from '../../../src/core/battle/carga.js';
+import { isAlive, mismoTurno, stackById, stackHexes } from '../../../src/core/battle/consultas.js';
+import { armasDe, stackHp, trasElGolpe } from '../../../src/core/battle/damage.js';
+import {
+  nombreEnLaRueda,
+  RUEDA_DE_REFERENCIA,
+} from '../../../src/core/battle/formas-de-la-rueda.js';
+import { NOMBRE_DEL_PUNTO } from '../../../src/core/battle/rueda.js';
 import {
   type BattleAction,
   type BattleEvent,
   type BattleStack,
   type BattleState,
   queEs,
-} from '../../src/core/battle/types.js';
-import { COMBATE_COMPLETO } from '../../src/core/combate.js';
-import { EQUIPO_DEL_JUEGO } from '../../src/core/equipo/atado.js';
-import { ESCALA_DE_CIFRAS } from '../../src/core/escala.js';
-import { EQUIPO_BASE, HEROE } from '../../src/core/hero/cuerpo-del-heroe.js';
+} from '../../../src/core/battle/types.js';
+import { COMBATE_COMPLETO } from '../../../src/core/combate.js';
+import { EQUIPO_DEL_JUEGO } from '../../../src/core/equipo/atado.js';
+import { ESCALA_DE_CIFRAS } from '../../../src/core/escala.js';
+import { EQUIPO_BASE, HEROE } from '../../../src/core/hero/cuerpo-del-heroe.js';
 import {
   figuraDelHeroe,
   nombreDeTipoDeHeroe,
   tipoDeHeroePorDefecto,
   tiposDeHeroe,
-} from '../../src/core/hero/tipos-de-heroe.js';
-import { troopSummary } from '../../src/core/hero/troop.js';
-import { hechizosDelGremio } from '../../src/core/magia/catalogo.js';
-import { regionDeCasilla } from '../../src/core/map/regiones.js';
-import { parseSeed } from '../../src/core/rng.js';
-import { pasosDeLaPatrulla } from '../../src/core/state/asaltantes.js';
-import { baseOf, heroesOf } from '../../src/core/state/consultas.js';
-import { faccionesDeLaSemilla } from '../../src/core/state/setup.js';
-import { visibleNow } from '../../src/core/state/vision.js';
-import { describirCoste } from '../../src/core/texto.js';
-import { ECONOMIA } from '../../src/core/town/economia.js';
-import type { SitioId } from '../../src/core/town/sitios.js';
+} from '../../../src/core/hero/tipos-de-heroe.js';
+import { troopSummary } from '../../../src/core/hero/troop.js';
+import { hechizosDelGremio } from '../../../src/core/magia/catalogo.js';
+import { regionDeCasilla } from '../../../src/core/map/regiones.js';
+import { parseSeed } from '../../../src/core/rng.js';
+import { pasosDeLaPatrulla } from '../../../src/core/state/asaltantes.js';
+import { baseOf, heroesOf } from '../../../src/core/state/consultas.js';
+import { faccionesDeLaSemilla } from '../../../src/core/state/setup.js';
+import { visibleNow } from '../../../src/core/state/vision.js';
+import { describirCoste } from '../../../src/core/texto.js';
+import { ECONOMIA } from '../../../src/core/town/economia.js';
+import type { SitioId } from '../../../src/core/town/sitios.js';
 import {
   FACTION_IDS,
   type FactionId,
   type Hex,
   type Point,
   type TipoDeGolpe,
-} from '../../src/core/types.js';
-import { UNIDADES, unidad, unidadDelJuego } from '../../src/core/unidad/catalogo.js';
+} from '../../../src/core/types.js';
+import { UNIDADES, unidad, unidadDelJuego } from '../../../src/core/unidad/catalogo.js';
 import {
   RUTA_DEL_CATALOGO_DE_UNIDADES,
   type Unidad,
   unidadDeCombate,
-} from '../../src/core/unidad/formato.js';
-import { nivelDeUnidad } from '../../src/core/unidad/nivel.js';
+} from '../../../src/core/unidad/formato.js';
+import { nivelDeUnidad } from '../../../src/core/unidad/nivel.js';
 import type {
   AgentHelloMsg,
   AgentResponseMsg,
   ServerToAgentMsg,
-} from '../../src/server/protocol.js';
-import { COMPRESION_SUELO, type Plano } from '../../src/shared/arte.js';
-import { type Disposicion, disposicionDe, FONDO_DE_LA_FRANJA } from '../../src/shared/base.js';
-import { FICHEROS_DEL_CATALOGO, hojasDelTaller, leerCatalogo } from '../arena/borrador.js';
-import { arrancarVite, chromiumInstalado, esperarElSuelo } from '../comun/navegador.js';
-import { matarGrupo } from '../comun/procesos.js';
-import { cifrasCortadas } from './cifras-de-la-ficha.js';
+} from '../../../src/server/protocol.js';
+import { COMPRESION_SUELO, type Plano } from '../../../src/shared/arte.js';
+import { type Disposicion, disposicionDe, FONDO_DE_LA_FRANJA } from '../../../src/shared/base.js';
+import { FICHEROS_DEL_CATALOGO, hojasDelTaller, leerCatalogo } from '../../arena/borrador.js';
+import { arrancarVite, chromiumInstalado, esperarElSuelo } from '../../comun/navegador.js';
+import { matarGrupo } from '../../comun/procesos.js';
+import { entornoDelArnes, semillaDelEspectador } from '../agente/partida-del-arnes.js';
+import { decidir } from '../agente/politica.js';
+import { arrancarServidor, type ServidorDePartida } from '../agente/servidor.js';
+import { urlDePartida } from '../navegador/url-de-partida.js';
 import {
   buscarDerrota,
   buscarEmboscada,
@@ -164,11 +170,8 @@ import {
   TOPE_DE_SEMILLAS,
   tocable,
   VETERANOS,
-} from './escenas-de-capturas.js';
-import { entornoDelArnes, semillaDelEspectador } from './partida-del-arnes.js';
-import { decidir } from './politica.js';
-import { arrancarServidor, type ServidorDePartida } from './servidor.js';
-import { urlDePartida } from './url-de-partida.js';
+} from './escenas.js';
+import { cifrasCortadas } from './ficha.js';
 
 /**
  * Las capturas juegan con la complejidad de siempre (7 / 7): la rueda de la
@@ -244,7 +247,7 @@ const teclaDe = (t: TipoDeGolpe): string => teclaEnLaRueda(t, RUEDA);
  */
 // Las semillas de la emboscada avisada, de los veteranos y de la batalla que se
 // pierde ya no se escriben aquí: las buscan sus pasadas en el espejo
-// (`escenas-de-capturas.ts`). Eran la 3 con destino (8,8), la 2 199 y la 97;
+// (`capturas/escenas.ts`). Eran la 3 con destino (8,8), la 2 199 y la 97;
 // «menos caminos» (06-10-2026) rompió las dos primeras a la vez, como cada
 // cambio del generador antes, y la 97 había caído ya dos veces.
 // Por defecto, una carpeta ignorada por git y de este checkout (dos worktrees no
@@ -4237,7 +4240,7 @@ async function espectador(browser: Browser, url: string, problemas: Problemas): 
       // Con un veterano de rango 5 en la base del agente, como `pnpm qa`: el
       // héroe que nace de la tropa es lo que el espectador tiene que enseñar
       // con su tipo y su historia, y la partida sola casi nunca lo da.
-      { entrada: 'tools/qa/partida-con-veterano.ts' },
+      { entrada: 'tools/qa/agente/partida-con-veterano.ts' },
     );
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     vigilarConsola(page, 'espectador', problemas);
@@ -8375,7 +8378,7 @@ function registrarLasHojasDelEspejo(): void {
  * no pide otro: `despejado` solo fija el tiempo, y la noche de la semilla seguía
  * oscureciendo sus regiones), también el menú de inicio, que lo conserva al empezar
  * (`estadoDelArranque` no lo cuenta como algo que escribió la página). La arena
- * ya pelea en despejado sin él. El clima lo mira `tools/qa/clima.ts`.
+ * ya pelea en despejado sin él. El clima lo mira `tools/qa/navegador/clima.ts`.
  */
 function conElClimaDespejado(browser: Browser): Browser {
   const despejada = (destino: string): string => {

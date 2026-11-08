@@ -25,7 +25,7 @@
  * **Desde #230, 1-3000** (09-10-2026): en 1-1000 el ruido de una tirada nueva
  * del azar ya era del tamaño del margen (ver `TECHOS`).
  *
- * Sale 1 si alguna cifra pasa de su techo. Uso: `npx tsx tools/qa/rectitud.ts`
+ * Sale 1 si alguna cifra pasa de su techo. Uso: `npx tsx tools/qa/medidas/rectitud.ts`
  * (tres procesos, uno por bloque de 1000; ~50 s con la máquina libre). El
  * guardia de tramos y mapas, con `tramosRectos`, está también en
  * `test/rectitud.test.ts`, en la orden lenta.
@@ -34,13 +34,13 @@ import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { analizar } from '../../src/client/render/escenario/analizar.js';
-import { caidas } from '../../src/client/render/escenario/celdas.js';
-import { relieve } from '../../src/client/render/escenario/relieve.js';
-import { largoALaEscala } from '../../src/core/escala.js';
-import { esBarrera, type TerrainKind } from '../../src/core/map/terrain.js';
-import type { GameMap } from '../../src/core/map/tipos.js';
-import { newGame } from '../../src/core/state/setup.js';
+import { analizar } from '../../../src/client/render/escenario/analizar.js';
+import { caidas } from '../../../src/client/render/escenario/celdas.js';
+import { relieve } from '../../../src/client/render/escenario/relieve.js';
+import { largoALaEscala } from '../../../src/core/escala.js';
+import { esBarrera, type TerrainKind } from '../../../src/core/map/terrain.js';
+import type { GameMap } from '../../../src/core/map/tipos.js';
+import { newGame } from '../../../src/core/state/setup.js';
 
 /** Los tramos rectos de barrera de un mapa: cuántos llegan a `minimo` y el más largo. */
 export function tramosRectos(map: GameMap, minimo: number): { largos: number; maximo: number } {

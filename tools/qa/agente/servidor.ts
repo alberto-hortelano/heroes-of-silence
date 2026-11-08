@@ -39,7 +39,7 @@ interface OpcionesDeArranque {
   readonly alMorir?: (codigo: number) => void;
   /**
    * El fichero que arranca la partida. Por defecto, el de siempre; `pnpm qa`
-   * pasa `tools/qa/partida-con-veterano.ts`, que es la misma partida con un
+   * pasa `tools/qa/agente/partida-con-veterano.ts`, que es la misma partida con un
    * veterano de rango 5 en la base del agente.
    */
   readonly entrada?: string;

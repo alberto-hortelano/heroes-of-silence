@@ -6,7 +6,7 @@
  * `causaDelFinal` («agotada» = la que no termina: sin vencido, por el tope de
  * rondas o de jugadas).
  *
- *     npx tsx tools/qa/arena-ia.ts [semillas=100]
+ *     npx tsx tools/qa/medidas/arena-ia.ts [semillas=100]
  *
  * Las tandas (cómo se monta cada semilla y con qué variantes se pelea) viven en
  * `tandas-de-la-arena.ts`, que comparte con la huella de identidad (`huella.ts`):
@@ -20,10 +20,10 @@
  * para que la carga de la máquina (compartida) caiga igual en todas.
  */
 
-import { autoResolve } from '../../src/core/ai/tactics.js';
-import { cargaMontada } from '../../src/core/battle/carga.js';
-import { causaDelFinal } from '../../src/core/battle/consultas.js';
-import { MAX_ROUNDS } from '../../src/core/battle/types.js';
+import { autoResolve } from '../../../src/core/ai/tactics.js';
+import { cargaMontada } from '../../../src/core/battle/carga.js';
+import { causaDelFinal } from '../../../src/core/battle/consultas.js';
+import { MAX_ROUNDS } from '../../../src/core/battle/types.js';
 import {
   montajeDeLaSemilla,
   peleaSinJugar,

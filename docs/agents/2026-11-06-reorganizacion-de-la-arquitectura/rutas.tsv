@@ -2506,3 +2506,30 @@ simbolo	tools/art/poses.ts	tools/art/poses/render.ts	renderizarOchoDirecciones
 simbolo	tools/art/poses.ts	tools/art/poses/render.ts	hojaDeProfundidad
 simbolo	tools/art/poses.ts	tools/art/poses/render.ts	renderizarMuestrario
 fichero	tools/art/poses.ts	tools/art/poses/cli.ts	(H4a: la orden, a mano —«partir» no mueve una sentencia de efecto—; lo demás, a juegos, clips, three y render)
+fichero	tools/qa/verify-agent.ts	tools/qa/agente/verify-agent.ts	
+fichero	tools/qa/partida-del-arnes.ts	tools/qa/agente/partida-del-arnes.ts	
+fichero	tools/qa/partida-con-veterano.ts	tools/qa/agente/partida-con-veterano.ts	
+fichero	tools/qa/veterano-en-la-base.ts	tools/qa/agente/veterano-en-la-base.ts	
+fichero	tools/qa/politica.ts	tools/qa/agente/politica.ts	
+fichero	tools/qa/servidor.ts	tools/qa/agente/servidor.ts	
+fichero	tools/qa/banco.ts	tools/qa/medidas/banco.ts	
+fichero	tools/qa/barrido-semillas.ts	tools/qa/medidas/barrido-semillas.ts	
+fichero	tools/qa/partidas.ts	tools/qa/medidas/partidas.ts	
+fichero	tools/qa/enfrentamiento.ts	tools/qa/medidas/enfrentamiento.ts	
+fichero	tools/qa/ejercitos.ts	tools/qa/medidas/ejercitos.ts	
+fichero	tools/qa/arena-ia.ts	tools/qa/medidas/arena-ia.ts	
+fichero	tools/qa/tandas-de-la-arena.ts	tools/qa/medidas/tandas-de-la-arena.ts	
+fichero	tools/qa/rectitud.ts	tools/qa/medidas/rectitud.ts	
+fichero	tools/qa/rios.ts	tools/qa/medidas/rios.ts	
+fichero	tools/qa/tamanos.ts	tools/qa/medidas/tamanos.ts	
+fichero	tools/qa/veterania.ts	tools/qa/medidas/veterania.ts	
+fichero	tools/qa/murallas.ts	tools/qa/medidas/murallas.ts	
+fichero	tools/qa/cifras-del-catalogo.ts	tools/qa/medidas/cifras-del-catalogo.ts	
+fichero	tools/qa/calibrar-fuerza.ts	tools/qa/medidas/calibrar-fuerza.ts	
+fichero	tools/qa/neutro.ts	tools/qa/navegador/neutro.ts	
+fichero	tools/qa/clima.ts	tools/qa/navegador/clima.ts	
+fichero	tools/qa/temas-con-piezas.ts	tools/qa/navegador/temas-con-piezas.ts	
+fichero	tools/qa/url-de-partida.ts	tools/qa/navegador/url-de-partida.ts	
+fichero	tools/qa/capturas.ts	tools/qa/capturas/main.ts	
+fichero	tools/qa/escenas-de-capturas.ts	tools/qa/capturas/escenas.ts	
+fichero	tools/qa/cifras-de-la-ficha.ts	tools/qa/capturas/ficha.ts	

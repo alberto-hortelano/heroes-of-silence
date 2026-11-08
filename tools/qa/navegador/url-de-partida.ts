@@ -8,8 +8,8 @@
  * Es la partida de `new Session(seed, faccion)`: el héroe del tipo de por defecto,
  * pagado: el de `heroePorDefectoDeLaSemilla`, el mismo de la partida rápida.
  */
-import { heroePorDefectoDeLaSemilla } from '../../src/core/state/setup.js';
-import type { FactionId } from '../../src/core/types.js';
+import { heroePorDefectoDeLaSemilla } from '../../../src/core/state/setup.js';
+import type { FactionId } from '../../../src/core/types.js';
 
 export function urlDePartida(seed: number, faccion?: FactionId): string {
   const q = new URLSearchParams({ seed: String(seed) });

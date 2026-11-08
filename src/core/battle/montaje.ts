@@ -73,7 +73,7 @@ export interface BattleSide {
  * cierra (`murallaDelMapaBlocker`), no la cruzaría nadie que ande y la batalla
  * llegaría a `MAX_ROUNDS`. A quien vuela no le llega (`createBattle`,
  * `quienNoEscala`). LA decisión de quién lleva escalera en el mapa: la leen
- * `montarLaBatalla` y la medida de la IA contra la IA (`tools/qa/arena-ia.ts`).
+ * `montarLaBatalla` y la medida de la IA contra la IA (`tools/qa/medidas/arena-ia.ts`).
  */
 export function alAsalto(lado: BattleSide, muralla: MurallaDeBatalla): BattleSide {
   return hayMuralla(muralla) ? conEscaleras(lado) : lado;

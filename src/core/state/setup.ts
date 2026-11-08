@@ -126,7 +126,7 @@ export function faccionesDeLaSemilla(
  * El tipo de héroe de salida por defecto del jugador 0 en la partida de `seed`
  * (con `faccion`, la elegida): el de su facción (`tipoDeHeroePorDefecto`). Es el
  * que lleva al `?heroe=` la partida rápida y las herramientas que abren una
- * partida con el héroe ya elegido (`tools/qa/url-de-partida.ts`).
+ * partida con el héroe ya elegido (`tools/qa/navegador/url-de-partida.ts`).
  */
 export function heroePorDefectoDeLaSemilla(seed: number, faccion?: FactionId): string {
   return tipoDeHeroePorDefecto(faccionesDeLaSemilla(seed, faccion)[0]);

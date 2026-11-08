@@ -28,7 +28,7 @@ export const AREA_POR_REGION = 450;
  * El área por región con que se calibró todo hasta #226: 300. Con ella la
  * marcha de fheroes2 (`SPEED_TO_MOVE_POINTS`, citada tal cual) dio la duración
  * elegida al fijar las regiones (#195), y se midieron los techos de rectitud
- * (#169, `tools/qa/rectitud.ts`). Con más área, la marcha y los largos de esas
+ * (#169, `tools/qa/medidas/rectitud.ts`). Con más área, la marcha y los largos de esas
  * medidas suben en proporción lineal, √(AREA_POR_REGION / AREA_DE_REFERENCIA).
  */
 export const AREA_DE_REFERENCIA = 300;
@@ -96,7 +96,7 @@ export function radioALaEscala(radio: number): number {
  * Un largo en casillas medido en mapas de `AREA_DE_REFERENCIA` casillas por
  * región, llevado al de hoy: ×√(AREA_POR_REGION / AREA_DE_REFERENCIA), **al
  * entero más cercano** (8 → 10 y 10 → 12 con 450). Lo leen los techos de
- * rectitud de #169 (`tools/qa/rectitud.ts`) y el quiebro de las caídas largas
+ * rectitud de #169 (`tools/qa/medidas/rectitud.ts`) y el quiebro de las caídas largas
  * (#231, `quebrarCaidas` en `map/vestir/lineas.ts`): un tramo de 8 en 34×34 es uno de
  * 10 en 42×42, las mismas fronteras más largas.
  */

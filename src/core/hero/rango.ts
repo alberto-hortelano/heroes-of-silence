@@ -111,7 +111,7 @@ export const EXPERIENCIA: ReglasDeExperiencia = validarExperiencia(experienciaJs
  * lista del JSON, **hasta que deja de caber en un entero seguro**: más allá un
  * `+` ya no es exacto, y un umbral que redondea es un rango que llega un punto
  * antes en una máquina que en otra. Con base 16 000 son unos 70 rangos; ningún
- * héroe pasa del 11 en mil partidas (medido con tools/qa/veterania.ts 1000,
+ * héroe pasa del 11 en mil partidas (medido con tools/qa/medidas/veterania.ts 1000,
  * 12-10-2026).
  */
 const UMBRALES: readonly number[] = (() => {

@@ -193,7 +193,7 @@ export interface MurallaDelMapa {
  * Las murallas de un mapa como las une la escena —el muro y los nodos de muro,
  * 8-conexo— y, de cada una, por qué no es el cierre de un paso: sin puerta, una
  * puerta sin sus dos apoyos a `LARGO_MAXIMO_DE_MURALLA`, junto a una ciudad
- * (`juntoACiudad`) o la muralla entera más larga que eso. Es el guardia de #232 y su medida (`tools/qa/murallas.ts`).
+ * (`juntoACiudad`) o la muralla entera más larga que eso. Es el guardia de #232 y su medida (`tools/qa/medidas/murallas.ts`).
  */
 export function murallasDelMapa(map: GameMap): MurallaDelMapa[] {
   const W = map.width;

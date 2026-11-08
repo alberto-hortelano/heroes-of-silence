@@ -78,7 +78,7 @@ const RUTAS_DE_LA_ARENA = {
  */
 const PERMISOS_DE_LA_ARENA: Readonly<Record<string, readonly string[]>> = {
   [ruta('src/client/sesion/sesion-de-arena.ts')]: ['SesionDeArena'],
-  [ruta('tools/qa/capturas.ts')]: [
+  [ruta('tools/qa/capturas/main.ts')]: [
     'espejoDeLaArena',
     'todoIA',
     'espejoDelBanco',
@@ -100,7 +100,7 @@ const PERMISOS_DE_LA_ARENA: Readonly<Record<string, readonly string[]>> = {
   // La IA contra la IA en la arena (#259, #260, #262): sus tandas y la pelea, también
   // la de las murallas del mapa, con los bandos de la arena (fase 2 del puesto fronterizo).
   // Las montan `tandas-de-la-arena.ts`, que comparten `arena-ia.ts` y la huella.
-  [ruta('tools/qa/tandas-de-la-arena.ts')]: ['TANDAS', 'peleaSinJugar'],
+  [ruta('tools/qa/medidas/tandas-de-la-arena.ts')]: ['TANDAS', 'peleaSinJugar'],
   // El plugin de vite de la arena: la ruta del borrador de murallas, para decirla en lo que
   // responde. Vivía en `vite.config.ts`, que este guardia no miraba, hasta H2 de la
   // reorganización (08-11-2026).
@@ -314,7 +314,7 @@ describe('invariantes del proyecto', () => {
     const porDeclaracion = PERMISOS_DE_LA_ARENA;
     // Si el especificador de `fichero` cae en `core/arena/`: resuelto (el alias
     // `@core/` o relativo a su carpeta), no con una expresión regular, que con la
-    // carpeta casaría también `../arena/borrador.js` de `tools/qa/capturas.ts`.
+    // carpeta casaría también `../arena/borrador.js` de `tools/qa/capturas/main.ts`.
     const ARENA = `${ruta('src/core/arena')}/`;
     const deLaArena = (espec: string, fichero: string): boolean => {
       const destino = espec.startsWith('@core/')

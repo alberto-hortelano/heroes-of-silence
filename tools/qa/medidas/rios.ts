@@ -3,7 +3,7 @@
  * (#144, río continuo): así la medida vale también para un mapa del agente o
  * para el de antes.
  *
- *   npx tsx tools/qa/rios.ts [desde] [hasta] [--lista]
+ *   npx tsx tools/qa/medidas/rios.ts [desde] [hasta] [--lista]
  *
  * Las definiciones, las del plan de `docs/agents/2026-10-14-rios-entre-regiones/`:
  *
@@ -34,15 +34,15 @@
  *   río) por encima de ella: un cañón.
  */
 import { resolve } from 'node:path';
-import { buildMap } from '../../src/core/map/generar/construir.js';
-import { generateMapPlan } from '../../src/core/map/generar/procedimental.js';
-import { franjasDeBarrera, nivelesDelRelieve } from '../../src/core/map/niveles.js';
-import { rioAnteLaCiudad } from '../../src/core/map/recinto.js';
-import { estructura } from '../../src/core/map/regiones.js';
-import { rioEntero, type TrazadoDelRio } from '../../src/core/map/rio.js';
-import type { TerrainKind } from '../../src/core/map/terrain.js';
-import type { GameMap } from '../../src/core/map/tipos.js';
-import { createRng } from '../../src/core/rng.js';
+import { buildMap } from '../../../src/core/map/generar/construir.js';
+import { generateMapPlan } from '../../../src/core/map/generar/procedimental.js';
+import { franjasDeBarrera, nivelesDelRelieve } from '../../../src/core/map/niveles.js';
+import { rioAnteLaCiudad } from '../../../src/core/map/recinto.js';
+import { estructura } from '../../../src/core/map/regiones.js';
+import { rioEntero, type TrazadoDelRio } from '../../../src/core/map/rio.js';
+import type { TerrainKind } from '../../../src/core/map/terrain.js';
+import type { GameMap } from '../../../src/core/map/tipos.js';
+import { createRng } from '../../../src/core/rng.js';
 
 export interface RiosDelMapa {
   /** Los largos de cada río, en el orden de su primera casilla. */

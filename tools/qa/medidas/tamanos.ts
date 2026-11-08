@@ -23,24 +23,24 @@
  * sin él, sin una tirada de más— y la toma de una base vacía se lee de la
  * crónica al acabar el turno.
  *
- * Uso: npx tsx tools/qa/tamanos.ts [regiones por bando=3,4,5,6] [semillas=1000] [dias=300] [desde=1]
+ * Uso: npx tsx tools/qa/medidas/tamanos.ts [regiones por bando=3,4,5,6] [semillas=1000] [dias=300] [desde=1]
  *
  * `desde` es la primera semilla: con 1001 se juega otra tanda de mil, que es
  * como se comprobó que una mediana justo en el umbral no era suerte.
  */
 
-import { autoResolve } from '../../src/core/ai/tactics.js';
-import { playAiTurn } from '../../src/core/ai/turn.js';
-import { fuerzaDe } from '../../src/core/hero/fuerza.js';
-import { ladoDelMapa } from '../../src/core/map/generar/plan.js';
-import { pointKey } from '../../src/core/map/geometria.js';
-import { createRng } from '../../src/core/rng.js';
-import { lugarDelRival } from '../../src/core/state/batallas.js';
-import { settleBattle } from '../../src/core/state/cierre.js';
-import { baseOf } from '../../src/core/state/consultas.js';
-import { newGame } from '../../src/core/state/setup.js';
-import type { GameContext, GameState } from '../../src/core/state/tipos.js';
-import { duracion, mediana } from '../comun/estadistica.js';
+import { autoResolve } from '../../../src/core/ai/tactics.js';
+import { playAiTurn } from '../../../src/core/ai/turn.js';
+import { fuerzaDe } from '../../../src/core/hero/fuerza.js';
+import { ladoDelMapa } from '../../../src/core/map/generar/plan.js';
+import { pointKey } from '../../../src/core/map/geometria.js';
+import { createRng } from '../../../src/core/rng.js';
+import { lugarDelRival } from '../../../src/core/state/batallas.js';
+import { settleBattle } from '../../../src/core/state/cierre.js';
+import { baseOf } from '../../../src/core/state/consultas.js';
+import { newGame } from '../../../src/core/state/setup.js';
+import type { GameContext, GameState } from '../../../src/core/state/tipos.js';
+import { duracion, mediana } from '../../comun/estadistica.js';
 
 const REGIONES = (process.argv[2] ?? '3,4,5,6').split(',').map(Number);
 const SEMILLAS = Number(process.argv[3] ?? 1000);
