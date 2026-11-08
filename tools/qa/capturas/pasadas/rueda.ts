@@ -23,6 +23,7 @@ import type {
 import { COMBATE_COMPLETO } from '../../../../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../../../../src/core/equipo/atado.js';
 import type { TipoDeGolpe } from '../../../../src/core/types.js';
+import { primeraSemillaCon } from '../../../comun/semillas.js';
 import {
   abrirLaArena,
   conLosCatalogosDevueltos,
@@ -143,23 +144,26 @@ function enElEspejo(espejo: SesionDeArena, j: JugadaDeLaRueda, golpe?: BattleAct
  * a mirar y lo dice si no llega.
  */
 function buscarRueda(): number {
-  for (let semilla = 1; semilla <= TOPE_DE_SEMILLAS; semilla++) {
-    const espejo = espejoDeLaRueda(semilla);
-    const vistas = new Set<string>();
-    let tramos = 0;
-    for (let n = 0; n < 300 && espejo.battle.finished === null; n++) {
-      const j = jugadaDeLaRueda(espejo, tramos);
-      if (j.tipo === 'elegir') {
-        vistas.add(j.fase);
-        if (vistas.size === 2) return semilla;
+  return primeraSemillaCon(
+    'una pelea en que la rueda pide a la persona el golpe y la respuesta',
+    (semilla) => {
+      const espejo = espejoDeLaRueda(semilla);
+      const vistas = new Set<string>();
+      let tramos = 0;
+      for (let n = 0; n < 300 && espejo.battle.finished === null; n++) {
+        const j = jugadaDeLaRueda(espejo, tramos);
+        if (j.tipo === 'elegir') {
+          vistas.add(j.fase);
+          if (vistas.size === 2) return true;
+        }
+        enElEspejo(espejo, j);
+        if (j.tipo === 'tramo') tramos++;
       }
-      enElEspejo(espejo, j);
-      if (j.tipo === 'tramo') tramos++;
-    }
-  }
-  throw new Error(
-    `rueda: en las semillas 1–${TOPE_DE_SEMILLAS} la rueda no pide a la persona el golpe y la respuesta`,
-  );
+      return undefined;
+    },
+    1,
+    TOPE_DE_SEMILLAS,
+  ).semilla;
 }
 
 /**
@@ -969,15 +973,18 @@ function espejoTodoEnIA(semilla: number): {
  * 4 acaba en un solo cruce.
  */
 function buscarTodoEnIA(): ReturnType<typeof espejoTodoEnIA> & { readonly semilla: number } {
-  for (let semilla = 1; semilla <= TOPE_DE_SEMILLAS; semilla++) {
-    const pelea = espejoTodoEnIA(semilla);
-    if (pelea.espejo.battle.log.filter((e) => e.kind === 'cruce').length >= 2) {
-      return { semilla, ...pelea };
-    }
-  }
-  throw new Error(
-    `rueda-todo-ia: en las semillas 1–${TOPE_DE_SEMILLAS} ninguna pelea tiene dos cruces`,
+  const { semilla, caso } = primeraSemillaCon(
+    'una pelea toda en IA con dos cruces',
+    (s) => {
+      const pelea = espejoTodoEnIA(s);
+      return pelea.espejo.battle.log.filter((e) => e.kind === 'cruce').length >= 2
+        ? pelea
+        : undefined;
+    },
+    1,
+    TOPE_DE_SEMILLAS,
   );
+  return { semilla, ...caso };
 }
 
 /**

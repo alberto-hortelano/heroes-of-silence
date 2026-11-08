@@ -2,6 +2,7 @@
  * La pasada «armas» de `pnpm capturas` (la tabla `PASADAS`, en `../main.ts`): el selector de arma del tirador.
  * Aquí va lo suyo, lo que no comparte con ninguna otra pasada. Vivía en `tools/qa/capturas.ts` (H5 de la reorganización, 08-11-2026).
  */
+
 import type { Browser } from 'playwright';
 import { SesionDeArena } from '../../../../src/client/sesion/sesion-de-arena.js';
 import { dichoDeLasCifras } from '../../../../src/core/battle/carga.js';
@@ -12,6 +13,7 @@ import { COMBATE_COMPLETO } from '../../../../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../../../../src/core/equipo/atado.js';
 import { unidad, unidadDelJuego } from '../../../../src/core/unidad/catalogo.js';
 import type { Unidad } from '../../../../src/core/unidad/formato.js';
+import { primeraSemillaCon } from '../../../comun/semillas.js';
 import {
   abrirLaArena,
   asentada,
@@ -109,17 +111,22 @@ function armaDelArquero(): string {
 
 /** La semilla en que el arquero golpea pegado antes de que acabe la pelea. */
 function buscarArmas(): number {
-  for (let semilla = 1; semilla <= TOPE_DE_SEMILLAS; semilla++) {
-    const espejo = espejoDeLasArmas(semilla);
-    for (let jugadas = 0; jugadas < 200 && espejo.battle.finished === null; jugadas++) {
-      contestarEnElEspejo(espejo);
-      if (espejo.battle.finished !== null) break;
-      const j = jugadaDeLasArmas(espejo);
-      if (j.tipo === 'golpe') return semilla;
-      espejo.playBattleAction({ type: 'end_turn' });
-    }
-  }
-  throw new Error(`armas: en las semillas 1–${TOPE_DE_SEMILLAS} el arquero nunca golpea pegado`);
+  return primeraSemillaCon(
+    'una pelea de las armas en que el arquero golpea pegado',
+    (semilla) => {
+      const espejo = espejoDeLasArmas(semilla);
+      for (let jugadas = 0; jugadas < 200 && espejo.battle.finished === null; jugadas++) {
+        contestarEnElEspejo(espejo);
+        if (espejo.battle.finished !== null) break;
+        const j = jugadaDeLasArmas(espejo);
+        if (j.tipo === 'golpe') return true;
+        espejo.playBattleAction({ type: 'end_turn' });
+      }
+      return undefined;
+    },
+    1,
+    TOPE_DE_SEMILLAS,
+  ).semilla;
 }
 
 /**

@@ -2,6 +2,7 @@
  * La pasada «poderes» de `pnpm capturas` (la tabla `PASADAS`, en `../main.ts`): los poderes de unidad en la arena.
  * Aquí va lo suyo, lo que no comparte con ninguna otra pasada. Vivía en `tools/qa/capturas.ts` (H5 de la reorganización, 08-11-2026).
  */
+
 import type { Browser, Page } from 'playwright';
 import { nombreEnElCampo } from '../../../../src/client/render/batalla/distintivo.js';
 import { SesionDeArena } from '../../../../src/client/sesion/sesion-de-arena.js';
@@ -10,6 +11,7 @@ import type { BattleAction, BattleStack } from '../../../../src/core/battle/type
 import { COMBATE_COMPLETO } from '../../../../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../../../../src/core/equipo/atado.js';
 import { ESCALA_DE_CIFRAS } from '../../../../src/core/escala.js';
+import { primeraSemillaCon } from '../../../comun/semillas.js';
 import {
   abrirLaArena,
   cifrasSinCortar,
@@ -101,26 +103,29 @@ function pasoDeLosPoderes(espejo: SesionDeArena, visto: boolean): PasoDeLosPoder
  * turno de la persona después, para editar en plena pelea.
  */
 function buscarPoderes(): number {
-  for (let semilla = 1; semilla <= TOPE_DE_SEMILLAS; semilla++) {
-    const espejo = espejoDeLosPoderes(semilla);
-    let visto = false;
-    for (let jugadas = 0; jugadas < 300 && espejo.battle.finished === null; jugadas++) {
-      contestarEnElEspejo(espejo);
-      if (espejo.battle.finished !== null) break;
-      const paso = pasoDeLosPoderes(espejo, visto);
-      if (paso.tipo === 'curar') {
-        espejo.playBattleAction(paso.accion);
+  return primeraSemillaCon(
+    'una pelea de los poderes en que el monje cura antes de que acabe y la persona juega después',
+    (semilla) => {
+      const espejo = espejoDeLosPoderes(semilla);
+      let visto = false;
+      for (let jugadas = 0; jugadas < 300 && espejo.battle.finished === null; jugadas++) {
         contestarEnElEspejo(espejo);
-        if (espejo.turnoPropio !== null) return semilla;
-        break;
+        if (espejo.battle.finished !== null) break;
+        const paso = pasoDeLosPoderes(espejo, visto);
+        if (paso.tipo === 'curar') {
+          espejo.playBattleAction(paso.accion);
+          contestarEnElEspejo(espejo);
+          if (espejo.turnoPropio !== null) return true;
+          break;
+        }
+        if (paso.tipo === 'primero') visto = true;
+        espejo.playBattleAction({ type: 'end_turn' });
       }
-      if (paso.tipo === 'primero') visto = true;
-      espejo.playBattleAction({ type: 'end_turn' });
-    }
-  }
-  throw new Error(
-    `poderes: en las semillas 1–${TOPE_DE_SEMILLAS} el monje no cura antes de que acabe la pelea`,
-  );
+      return undefined;
+    },
+    1,
+    TOPE_DE_SEMILLAS,
+  ).semilla;
 }
 
 /** Espera a que el parte de guerra del panel diga `linea`. */

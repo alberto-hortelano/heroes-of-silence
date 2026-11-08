@@ -2,6 +2,7 @@
  * La pasada «arena» de `pnpm capturas` (la tabla `PASADAS`, en `../main.ts`): la pelea de la arena, toda en IA, el banco de combate y el enlace de la pelea.
  * Aquí va lo suyo, lo que no comparte con ninguna otra pasada. Vivía en `tools/qa/capturas.ts` (H5 de la reorganización, 08-11-2026).
  */
+
 import { existsSync } from 'node:fs';
 import { setTimeout as sleep } from 'node:timers/promises';
 import type { Browser, Page } from 'playwright';
@@ -22,6 +23,7 @@ import { hechizosDelGremio } from '../../../../src/core/magia/catalogo.js';
 import { UNIDADES } from '../../../../src/core/unidad/catalogo.js';
 import { RUTA_DEL_CATALOGO_DE_UNIDADES, type Unidad } from '../../../../src/core/unidad/formato.js';
 import { hojasDelTaller, leerCatalogo } from '../../../arena/borrador.js';
+import { primeraSemillaCon } from '../../../comun/semillas.js';
 import {
   abrirLaArena,
   ataqueEnLaPelea,
@@ -99,26 +101,29 @@ function espejoDeLaArena(semilla: number): SesionDeArena {
  * Se buscó entonces a mano con esta misma pauta; ahora la busca esto (#131).
  */
 function buscarArena(): number {
-  for (let semilla = 1; semilla <= TOPE_DE_SEMILLAS; semilla++) {
-    const espejo = espejoDeLaArena(semilla);
-    let tramos = 0;
-    for (let jugadas = 0; jugadas < 400 && espejo.battle.finished === null; jugadas++) {
-      contestarEnElEspejo(espejo);
-      if (espejo.battle.finished !== null) break;
-      const jugada = jugadaDeLaPauta(espejo, tramos, 0);
-      if (jugada.tipo === 'golpe') {
-        if (tramos > 0) return semilla;
-        break;
+  return primeraSemillaCon(
+    'una pelea de la arena en que el guerrero anda un tramo y luego golpea antes de que acabe',
+    (semilla) => {
+      const espejo = espejoDeLaArena(semilla);
+      let tramos = 0;
+      for (let jugadas = 0; jugadas < 400 && espejo.battle.finished === null; jugadas++) {
+        contestarEnElEspejo(espejo);
+        if (espejo.battle.finished !== null) break;
+        const jugada = jugadaDeLaPauta(espejo, tramos, 0);
+        if (jugada.tipo === 'golpe') {
+          if (tramos > 0) return true;
+          break;
+        }
+        if (jugada.tipo === 'tramo') {
+          espejo.playBattleAction(jugada.mover);
+          tramos++;
+        } else espejo.playBattleAction({ type: 'end_turn' });
       }
-      if (jugada.tipo === 'tramo') {
-        espejo.playBattleAction(jugada.mover);
-        tramos++;
-      } else espejo.playBattleAction({ type: 'end_turn' });
-    }
-  }
-  throw new Error(
-    `arena: en las semillas 1–${TOPE_DE_SEMILLAS} el guerrero nunca anda un tramo y luego golpea antes de que acabe la pelea`,
-  );
+      return undefined;
+    },
+    1,
+    TOPE_DE_SEMILLAS,
+  ).semilla;
 }
 
 /**
@@ -497,24 +502,29 @@ function flechaDelEspejo(espejo: SesionDeArena): (BattleAction & { type: 'cast' 
  * turno, puede lanzar la Flecha mágica y, jugando la pauta, llega a golpear.
  */
 function buscarBanco(): number {
-  for (let semilla = 1; semilla <= TOPE_DE_SEMILLAS; semilla++) {
-    const espejo = espejoDelBanco(semilla);
-    const flecha = flechaDelEspejo(espejo);
-    if (flecha === undefined) continue;
-    espejo.playBattleAction(flecha);
-    let tramos = 0;
-    for (let jugadas = 0; jugadas < 200 && espejo.battle.finished === null; jugadas++) {
-      contestarEnElEspejo(espejo);
-      if (espejo.battle.finished !== null) break;
-      const jugada = jugadaDeLaPauta(espejo, tramos, 0);
-      if (jugada.tipo === 'golpe') return semilla;
-      if (jugada.tipo === 'tramo') {
-        espejo.playBattleAction(jugada.mover);
-        tramos++;
-      } else espejo.playBattleAction({ type: 'end_turn' });
-    }
-  }
-  throw new Error(`banco: en las semillas 1–${TOPE_DE_SEMILLAS} el héroe no lanza o nadie golpea`);
+  return primeraSemillaCon(
+    'una pelea del banco en que el héroe lanza la Flecha mágica en su primer turno y alguien golpea',
+    (semilla) => {
+      const espejo = espejoDelBanco(semilla);
+      const flecha = flechaDelEspejo(espejo);
+      if (flecha === undefined) return undefined;
+      espejo.playBattleAction(flecha);
+      let tramos = 0;
+      for (let jugadas = 0; jugadas < 200 && espejo.battle.finished === null; jugadas++) {
+        contestarEnElEspejo(espejo);
+        if (espejo.battle.finished !== null) break;
+        const jugada = jugadaDeLaPauta(espejo, tramos, 0);
+        if (jugada.tipo === 'golpe') return true;
+        if (jugada.tipo === 'tramo') {
+          espejo.playBattleAction(jugada.mover);
+          tramos++;
+        } else espejo.playBattleAction({ type: 'end_turn' });
+      }
+      return undefined;
+    },
+    1,
+    TOPE_DE_SEMILLAS,
+  ).semilla;
 }
 
 /**
