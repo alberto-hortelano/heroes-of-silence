@@ -1,7 +1,7 @@
 # El taller de imágenes
 
 Genera el arte con **ChatGPT por la suscripción**, a través de Codex CLI. Nunca
-fal.ai, nunca `pnpm gen -- --go`, nunca una API de pago.
+una API de pago (fal.ai y su `pnpm gen` se retiraron el 06-11-2026, en la reorganización).
 
 ```bash
 npx tsx tools/art/poses/cli.ts --todos      # referencias de pose del Y Bot (render local)
@@ -133,8 +133,8 @@ la suya de la lámina. Las referencias de estilo son la muestra elegida
   cruzan.
 - **Los obstáculos** son versiones de una casilla de una pieza de la lámina, para
   componer las manchas de 3-6.
-- **Las texturas** son el tipo `textura`, con las reglas de `tools/gen/prompts.ts`
-  en español: material a 90°, liso y sin nombrar el agua. La costura no se le pide
+- **Las texturas** son el tipo `textura`, con las reglas que eran de `tools/gen/` (hoy en
+  `tools/taller/mapa-denso.ts`), en español: material a 90°, liso y sin nombrar el agua. La costura no se le pide
   a ChatGPT, la fabrica `textura.ts`:
   - cada eje se mezcla con su copia desplazada medio lado, con un peso que vale 1
     en el centro y 0 en el borde;
@@ -314,7 +314,7 @@ Ninguna se espeja, porque la luz vendría del otro lado.
 ### La revisión (30-10-2026)
 
 El evaluador de siluetas (`pnpm taller evaluar`, con el borde rojo de la vista 8d) y las
-pruebas de `experimento.ts` se retiraron: los sustituye la revisión de animaciones, que
+pruebas de experimento.ts se retiraron: los sustituye la revisión de animaciones, que
 conduce la skill `/revisar-animaciones <id>` (`.claude/skills/revisar-animaciones/`). Lo
 medido que la justifica, en `docs/agents/2026-10-30-evaluar-animaciones/experimentos.md`.
 
